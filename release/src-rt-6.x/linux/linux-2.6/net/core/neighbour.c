@@ -104,14 +104,6 @@ static int neigh_blackhole(struct sk_buff *skb)
 	return -ENETDOWN;
 }
 
-static void neigh_cleanup_and_release(struct neighbour *neigh)
-{
-	if (neigh->parms->neigh_cleanup)
-		neigh->parms->neigh_cleanup(neigh);
-
-	neigh_release(neigh);
-}
-
 /*
  * It is random distribution in the interval (1/2)*base...(3/2)*base.
  * It corresponds to default IPv6 settings and is not overridable,
@@ -148,7 +140,9 @@ static int neigh_forced_gc(struct neigh_table *tbl)
 				n->dead = 1;
 				shrunk	= 1;
 				write_unlock(&n->lock);
-				neigh_cleanup_and_release(n);
+				if (n->parms->neigh_cleanup)
+					n->parms->neigh_cleanup(n);
+				neigh_release(n);
 				continue;
 			}
 			write_unlock(&n->lock);
@@ -219,7 +213,9 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
 				NEIGH_PRINTK2("neigh %p is stray.\n", n);
 			}
 			write_unlock(&n->lock);
-			neigh_cleanup_and_release(n);
+			if (n->parms->neigh_cleanup)
+				n->parms->neigh_cleanup(n);
+			neigh_release(n);
 		}
 	}
 }
@@ -635,74 +631,77 @@ static void neigh_connect(struct neighbour *neigh)
 		hh->hh_output = neigh->ops->hh_output;
 }
 
-static void neigh_periodic_work(struct work_struct *work)
+static void neigh_periodic_timer(unsigned long arg)
 {
-	struct neigh_table *tbl = container_of(work, struct neigh_table, gc_work.work);
+	struct neigh_table *tbl = (struct neigh_table *)arg;
 	struct neighbour *n, **np;
-	unsigned int i;
+	unsigned long expire, now = jiffies;
 
 	NEIGH_CACHE_STAT_INC(tbl, periodic_gc_runs);
 
-	write_lock_bh(&tbl->lock);
+	write_lock(&tbl->lock);
 
 	/*
 	 *	periodically recompute ReachableTime from random function
 	 */
 
-	if (time_after(jiffies, tbl->last_rand + 300 * HZ)) {
+	if (time_after(now, tbl->last_rand + 300 * HZ)) {
 		struct neigh_parms *p;
-		tbl->last_rand = jiffies;
+		tbl->last_rand = now;
 		for (p = &tbl->parms; p; p = p->next)
 			p->reachable_time =
 				neigh_rand_reach_time(p->base_reachable_time);
 	}
 
-	for (i = 0 ; i <= tbl->hash_mask; i++) {
-		np = &tbl->hash_buckets[i];
+	np = &tbl->hash_buckets[tbl->hash_chain_gc];
+	tbl->hash_chain_gc = ((tbl->hash_chain_gc + 1) & tbl->hash_mask);
 
-		while ((n = *np) != NULL) {
-			unsigned int state;
+	while ((n = *np) != NULL) {
+		unsigned int state;
 
-			write_lock(&n->lock);
+		write_lock(&n->lock);
 
-			state = n->nud_state;
-			if (state & (NUD_PERMANENT | NUD_IN_TIMER)) {
-				write_unlock(&n->lock);
-				goto next_elt;
-			}
-
-			if (time_before(n->used, n->confirmed))
-				n->used = n->confirmed;
-
-			if (atomic_read(&n->refcnt) == 1 &&
-			    (state == NUD_FAILED ||
-			     time_after(jiffies, n->used + n->parms->gc_staletime))) {
-				*np = n->next;
-				n->dead = 1;
-				write_unlock(&n->lock);
-				neigh_cleanup_and_release(n);
-				continue;
-			}
+		state = n->nud_state;
+		if (state & (NUD_PERMANENT | NUD_IN_TIMER)) {
 			write_unlock(&n->lock);
+			goto next_elt;
+		}
+
+		if (time_before(n->used, n->confirmed))
+			n->used = n->confirmed;
+
+		if (atomic_read(&n->refcnt) == 1 &&
+		    (state == NUD_FAILED ||
+		     time_after(now, n->used + n->parms->gc_staletime))) {
+			*np = n->next;
+			n->dead = 1;
+			write_unlock(&n->lock);
+			if (n->parms->neigh_cleanup)
+				n->parms->neigh_cleanup(n);
+			neigh_release(n);
+			continue;
+		}
+		write_unlock(&n->lock);
 
 next_elt:
-			np = &n->next;
-		}
-		/*
-		 * It's fine to release lock here, even if hash table
-		 * grows while we are preempted.
-		 */
-		write_unlock_bh(&tbl->lock);
-		cond_resched();
-		write_lock_bh(&tbl->lock);
+		np = &n->next;
 	}
+
 	/* Cycle through all hash buckets every base_reachable_time/2 ticks.
 	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
 	 * base_reachable_time.
 	 */
-	schedule_delayed_work(&tbl->gc_work,
-			      tbl->parms.base_reachable_time >> 1);
-	write_unlock_bh(&tbl->lock);
+	expire = tbl->parms.base_reachable_time >> 1;
+	expire /= (tbl->hash_mask + 1);
+	if (!expire)
+		expire = 1;
+
+	if (expire>HZ)
+		mod_timer(&tbl->gc_timer, round_jiffies(now + expire));
+	else
+		mod_timer(&tbl->gc_timer, now + expire);
+
+	write_unlock(&tbl->lock);
 }
 
 static __inline__ int neigh_max_probes(struct neighbour *n)
@@ -1373,8 +1372,12 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
 	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
 
 	rwlock_init(&tbl->lock);
-	INIT_DELAYED_WORK_DEFERRABLE(&tbl->gc_work, neigh_periodic_work);
-	schedule_delayed_work(&tbl->gc_work, tbl->parms.reachable_time);
+	init_timer(&tbl->gc_timer);
+	tbl->gc_timer.data     = (unsigned long)tbl;
+	tbl->gc_timer.function = neigh_periodic_timer;
+	tbl->gc_timer.expires  = now + 1;
+	add_timer(&tbl->gc_timer);
+
 	init_timer(&tbl->proxy_timer);
 	tbl->proxy_timer.data	  = (unsigned long)tbl;
 	tbl->proxy_timer.function = neigh_proxy_process;
@@ -1411,8 +1414,7 @@ int neigh_table_clear(struct neigh_table *tbl)
 	struct neigh_table **tp;
 
 	/* It is not clean... Fix it to unload IPv6 module safely */
-	cancel_delayed_work(&tbl->gc_work);
-	flush_scheduled_work();
+	del_timer_sync(&tbl->gc_timer);
 	del_timer_sync(&tbl->proxy_timer);
 	pneigh_queue_purge(&tbl->proxy_queue);
 	neigh_ifdown(tbl, NULL);
@@ -1669,6 +1671,7 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
 			.ndtc_last_rand		= jiffies_to_msecs(rand_delta),
 			.ndtc_hash_rnd		= tbl->hash_rnd,
 			.ndtc_hash_mask		= tbl->hash_mask,
+			.ndtc_hash_chain_gc	= tbl->hash_chain_gc,
 			.ndtc_proxy_qlen	= tbl->proxy_queue.qlen,
 		};
 
@@ -2092,7 +2095,9 @@ void __neigh_for_each_release(struct neigh_table *tbl,
 				np = &n->next;
 			write_unlock(&n->lock);
 			if (release) {
-				neigh_cleanup_and_release(n);
+				if (n->parms->neigh_cleanup)
+					n->parms->neigh_cleanup(n);
+				neigh_release(n);
 			}
 		}
 	}

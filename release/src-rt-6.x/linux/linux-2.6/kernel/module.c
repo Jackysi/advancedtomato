@@ -286,7 +286,7 @@ static unsigned long __find_symbol(const char *name,
 		}
 	}
 	DEBUGP("Failed to find symbol %s\n", name);
-	return -ENOENT;
+ 	return 0;
 }
 
 /* Search for module by name: must hold module_mutex. */
@@ -765,7 +765,7 @@ void __symbol_put(const char *symbol)
 	const unsigned long *crc;
 
 	spin_lock_irqsave(&modlist_lock, flags);
-	if (IS_ERR_VALUE(__find_symbol(symbol, &owner, &crc, 1)))
+	if (!__find_symbol(symbol, &owner, &crc, 1))
 		BUG();
 	module_put(owner);
 	spin_unlock_irqrestore(&modlist_lock, flags);
@@ -912,8 +912,7 @@ static inline int check_modstruct_version(Elf_Shdr *sechdrs,
 	const unsigned long *crc;
 	struct module *owner;
 
-	if (IS_ERR_VALUE(__find_symbol("struct_module",
-						&owner, &crc, 1)))
+	if (!__find_symbol("struct_module", &owner, &crc, 1))
 		BUG();
 	return check_version(sechdrs, versindex, "struct_module", mod,
 			     crc);
@@ -962,11 +961,11 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 
 	ret = __find_symbol(name, &owner, &crc,
 			!(mod->taints & TAINT_PROPRIETARY_MODULE));
-	if (!IS_ERR_VALUE(ret)) {
+	if (ret) {
 		/* use_module can fail due to OOM, or module unloading */
 		if (!check_version(sechdrs, versindex, name, mod, crc) ||
 		    !use_module(mod, owner))
-			ret = -EINVAL;
+			ret = 0;
 	}
 	return ret;
 }
@@ -1237,9 +1236,7 @@ void *__symbol_get(const char *symbol)
 
 	spin_lock_irqsave(&modlist_lock, flags);
 	value = __find_symbol(symbol, &owner, &crc, 1);
-	if (IS_ERR_VALUE(value))
-		value = 0;
-	else if (strong_try_module_get(owner))
+	if (value && !strong_try_module_get(owner))
 		value = 0;
 	spin_unlock_irqrestore(&modlist_lock, flags);
 
@@ -1259,16 +1256,14 @@ static int verify_export_symbols(struct module *mod)
 	const unsigned long *crc;
 
 	for (i = 0; i < mod->num_syms; i++)
-	        if (!IS_ERR_VALUE(__find_symbol(mod->syms[i].name,
-	    						&owner, &crc, 1))) {
+	        if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
 			name = mod->syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
 		}
 
 	for (i = 0; i < mod->num_gpl_syms; i++)
-	        if (!IS_ERR_VALUE(__find_symbol(mod->gpl_syms[i].name,
-	    						&owner, &crc, 1))) {
+	        if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
 			name = mod->gpl_syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
@@ -1318,7 +1313,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 					   strtab + sym[i].st_name, mod);
 
 			/* Ok if resolved.  */
-			if (!IS_ERR_VALUE(sym[i].st_value))
+			if (sym[i].st_value != 0)
 				break;
 			/* Ok if weak.  */
 			if (ELF_ST_BIND(sym[i].st_info) == STB_WEAK)
@@ -1558,7 +1553,7 @@ static inline void add_kallsyms(struct module *mod,
 
 /* Allocate and load the module: note that size of section 0 is always
    zero, and we rely on this for optional sections. */
-static noinline struct module *load_module(void __user *umod,
+static struct module *load_module(void __user *umod,
 				  unsigned long len,
 				  const char __user *uargs)
 {
@@ -1683,9 +1678,8 @@ static noinline struct module *load_module(void __user *umod,
 	unwindex = find_sec(hdr, sechdrs, secstrings, ARCH_UNWIND_SECTION_NAME);
 #endif
 
-	/* Don't keep modinfo and version sections. */
+	/* Don't keep modinfo section */
 	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
-	sechdrs[versindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
 #ifdef CONFIG_KALLSYMS
 	/* Keep symbol and string tables for decoding later. */
 	sechdrs[symindex].sh_flags |= SHF_ALLOC;
@@ -2111,41 +2105,32 @@ static const char *get_ksymbol(struct module *mod,
 	return mod->strtab + mod->symtab[best].st_name;
 }
 
-/* For kallsyms to ask for address resolution.  NULL means not found.  Careful
- * not to lock to avoid deadlock on oopses, simply disable preemption. */
+/* For kallsyms to ask for address resolution.  NULL means not found.
+   We don't lock, as this is used for oops resolution and races are a
+   lesser concern. */
 const char *module_address_lookup(unsigned long addr,
-			    unsigned long *size,
-			    unsigned long *offset,
-			    char **modname,
-			    char *namebuf)
+				  unsigned long *size,
+				  unsigned long *offset,
+				  char **modname)
 {
 	struct module *mod;
-	const char *ret = NULL;
 
-	preempt_disable();
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init, mod->init_size)
 		    || within(addr, mod->module_core, mod->core_size)) {
 			if (modname)
 				*modname = mod->name;
-			ret = get_ksymbol(mod, addr, size, offset);
-			break;
+			return get_ksymbol(mod, addr, size, offset);
 		}
 	}
-	/* Make a copy in here where it's safe */
-	if (ret) {
-		strncpy(namebuf, ret, KSYM_NAME_LEN - 1);
-		ret = namebuf;
-	}
-	preempt_enable();
-	return ret;
+	return NULL;
 }
 
 int lookup_module_symbol_name(unsigned long addr, char *symname)
 {
 	struct module *mod;
 
-	preempt_disable();
+	mutex_lock(&module_mutex);
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init, mod->init_size) ||
 		    within(addr, mod->module_core, mod->core_size)) {
@@ -2154,13 +2139,13 @@ int lookup_module_symbol_name(unsigned long addr, char *symname)
 			sym = get_ksymbol(mod, addr, NULL, NULL);
 			if (!sym)
 				goto out;
-			strlcpy(symname, sym, KSYM_NAME_LEN);
-			preempt_enable();
+			strlcpy(symname, sym, KSYM_NAME_LEN + 1);
+			mutex_unlock(&module_mutex);
 			return 0;
 		}
 	}
 out:
-	preempt_enable();
+	mutex_unlock(&module_mutex);
 	return -ERANGE;
 }
 
@@ -2169,7 +2154,7 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
 {
 	struct module *mod;
 
-	preempt_disable();
+	mutex_lock(&module_mutex);
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init, mod->init_size) ||
 		    within(addr, mod->module_core, mod->core_size)) {
@@ -2179,15 +2164,15 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
 			if (!sym)
 				goto out;
 			if (modname)
-				strlcpy(modname, mod->name, MODULE_NAME_LEN);
+				strlcpy(modname, mod->name, MODULE_NAME_LEN + 1);
 			if (name)
-				strlcpy(name, sym, KSYM_NAME_LEN);
-			preempt_enable();
+				strlcpy(name, sym, KSYM_NAME_LEN + 1);
+			mutex_unlock(&module_mutex);
 			return 0;
 		}
 	}
 out:
-	preempt_enable();
+	mutex_unlock(&module_mutex);
 	return -ERANGE;
 }
 
@@ -2196,21 +2181,21 @@ int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
 {
 	struct module *mod;
 
-	preempt_disable();
+	mutex_lock(&module_mutex);
 	list_for_each_entry(mod, &modules, list) {
 		if (symnum < mod->num_symtab) {
 			*value = mod->symtab[symnum].st_value;
 			*type = mod->symtab[symnum].st_info;
 			strlcpy(name, mod->strtab + mod->symtab[symnum].st_name,
-				KSYM_NAME_LEN);
-			strlcpy(module_name, mod->name, MODULE_NAME_LEN);
+				KSYM_NAME_LEN + 1);
+			strlcpy(module_name, mod->name, MODULE_NAME_LEN + 1);
 			*exported = is_exported(name, mod);
-			preempt_enable();
+			mutex_unlock(&module_mutex);
 			return 0;
 		}
 		symnum -= mod->num_symtab;
 	}
-	preempt_enable();
+	mutex_unlock(&module_mutex);
 	return -ERANGE;
 }
 
@@ -2233,7 +2218,6 @@ unsigned long module_kallsyms_lookup_name(const char *name)
 	unsigned long ret = 0;
 
 	/* Don't lock: we're in enough trouble already. */
-	preempt_disable();
 	if ((colon = strchr(name, ':')) != NULL) {
 		*colon = '\0';
 		if ((mod = find_module(name)) != NULL)
@@ -2244,7 +2228,6 @@ unsigned long module_kallsyms_lookup_name(const char *name)
 			if ((ret = mod_find_symname(mod, name)) != 0)
 				break;
 	}
-	preempt_enable();
 	return ret;
 }
 #endif /* CONFIG_KALLSYMS */

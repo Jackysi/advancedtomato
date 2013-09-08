@@ -29,7 +29,6 @@
 #include <linux/percpu.h>
 #include <linux/cpu.h>
 #include <linux/notifier.h>
-#include <linux/backing-dev.h>
 #include <linux/init.h>
 
 /* How many pages do we try to swap or page in/out together? */
@@ -505,10 +504,6 @@ static int cpu_swap_callback(struct notifier_block *nfb,
 void __init swap_setup(void)
 {
 	unsigned long megs = num_physpages >> (20 - PAGE_SHIFT);
-
-#ifdef CONFIG_SWAP
-	bdi_init(swapper_space.backing_dev_info);
-#endif
 
 	/* Use a smaller cluster for small-memory machines */
 	if (megs < 16)

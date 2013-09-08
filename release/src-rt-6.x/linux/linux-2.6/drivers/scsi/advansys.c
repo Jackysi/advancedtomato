@@ -6424,7 +6424,7 @@ asc_build_req(asc_board_t *boardp, struct scsi_cmnd *scp)
     asc_scsi_q.q1.target_lun = scp->device->lun;
     asc_scsi_q.q2.target_ix = ASC_TIDLUN_TO_IX(scp->device->id, scp->device->lun);
     asc_scsi_q.q1.sense_addr = cpu_to_le32(virt_to_bus(&scp->sense_buffer[0]));
-    asc_scsi_q.q1.sense_len = SCSI_SENSE_BUFFERSIZE;
+    asc_scsi_q.q1.sense_len = sizeof(scp->sense_buffer);
 
     /*
      * If there are any outstanding requests for the current target,
@@ -6600,7 +6600,7 @@ adv_build_req(asc_board_t *boardp, struct scsi_cmnd *scp,
     scsiqp->target_lun = scp->device->lun;
 
     scsiqp->sense_addr = cpu_to_le32(virt_to_bus(&scp->sense_buffer[0]));
-    scsiqp->sense_len = SCSI_SENSE_BUFFERSIZE;
+    scsiqp->sense_len = sizeof(scp->sense_buffer);
 
     /*
      * Build ADV_SCSI_REQ_Q for a contiguous buffer or a scatter-gather
@@ -6903,7 +6903,7 @@ asc_isr_callback(ASC_DVC_VAR *asc_dvc_varp, ASC_QDONE_INFO *qdonep)
             if (qdonep->d3.scsi_stat == SAM_STAT_CHECK_CONDITION) {
                 ASC_DBG(2, "asc_isr_callback: SAM_STAT_CHECK_CONDITION\n");
                 ASC_DBG_PRT_SENSE(2, scp->sense_buffer,
-                    SCSI_SENSE_BUFFERSIZE);
+                    sizeof(scp->sense_buffer));
                 /*
                  * Note: The 'status_byte()' macro used by target drivers
                  * defined in scsi.h shifts the status byte returned by
@@ -7084,7 +7084,7 @@ adv_isr_callback(ADV_DVC_VAR *adv_dvc_varp, ADV_SCSI_REQ_Q *scsiqp)
             if (scsiqp->scsi_status == SAM_STAT_CHECK_CONDITION) {
                 ASC_DBG(2, "adv_isr_callback: SAM_STAT_CHECK_CONDITION\n");
                 ASC_DBG_PRT_SENSE(2, scp->sense_buffer,
-                    SCSI_SENSE_BUFFERSIZE);
+                    sizeof(scp->sense_buffer));
                 /*
                  * Note: The 'status_byte()' macro used by target drivers
                  * defined in scsi.h shifts the status byte returned by

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_device.c,v 1.6 2001/12/24 00:59:55 davem Exp $
+ *	$Id: br_device.c,v 1.1.1.1 2007-08-03 18:53:50 $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -41,11 +41,11 @@ int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 	skb_pull(skb, ETH_HLEN);
 
 	if (dest[0] & 1)
-		br_flood_deliver(br, skb);
+		br_flood_deliver(br, skb, 0);
 	else if ((dst = __br_fdb_get(br, dest)) != NULL)
 		br_deliver(dst->dst, skb);
 	else
-		br_flood_deliver(br, skb);
+		br_flood_deliver(br, skb, 0);
 
 	return 0;
 }
@@ -95,7 +95,6 @@ static int br_set_mac_address(struct net_device *dev, void *p)
 	spin_lock_bh(&br->lock);
 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
 	br_stp_change_bridge_id(br, addr->sa_data);
-	br->flags |= BR_SET_MAC_ADDR;
 	spin_unlock_bh(&br->lock);
 
 	return 0;
@@ -161,7 +160,8 @@ static struct ethtool_ops br_ethtool_ops = {
 
 void br_dev_setup(struct net_device *dev)
 {
-	random_ether_addr(dev->dev_addr);
+	memset(dev->dev_addr, 0, ETH_ALEN);
+
 	ether_setup(dev);
 
 	dev->do_ioctl = br_dev_ioctl;
@@ -179,6 +179,5 @@ void br_dev_setup(struct net_device *dev)
 	dev->priv_flags = IFF_EBRIDGE;
 
 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
-			NETIF_F_GSO_SOFTWARE | NETIF_F_NO_CSUM |
-			NETIF_F_GSO_ROBUST | NETIF_F_LLTX;
+			NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_GSO_ROBUST;
 }

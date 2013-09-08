@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.5 2010-12-07 04:47:36 $
 #
 
-ETSRCDIR := ../../../../../et
+ETSRCDIR := ../../../../../../$(SRCBASEDIR)/et
 
 et-objs := $(ETSRCDIR)/sys/et_linux.o $(ETSRCDIR)/sys/etc.o
 
@@ -38,8 +38,6 @@ ifeq ($(CONFIG_ET_ALL_PASSIVE_RUNTIME),y)
 EXTRA_CFLAGS	+= -DET_ALL_PASSIVE
 endif
 endif	# /* CONFIG_ET_ALL_PASSIVE_ON */
-
-EXTRA_CFLAGS	+= -DPKTC
 
 # Search for sources under src/et/sys or objects under src/et/linux
 ifneq ($(wildcard $(src)/$(ETSRCDIR)/sys),)

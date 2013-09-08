@@ -2517,10 +2517,8 @@ sys_signal(int sig, __sighandler_t handler)
 asmlinkage long
 sys_pause(void)
 {
-	while (!signal_pending(current)) {
-		current->state = TASK_INTERRUPTIBLE;
-		schedule();
-	}
+	current->state = TASK_INTERRUPTIBLE;
+	schedule();
 	return -ERESTARTNOHAND;
 }
 

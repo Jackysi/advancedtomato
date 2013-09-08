@@ -43,11 +43,7 @@
 #define NFC_CTF_ENABLED	(1 << 31)
 #endif /* HNDCTF */
 
-#if 0
-#define DEBUGP printk
-#else
 #define DEBUGP(format, args...)
-#endif
 
 static DEFINE_RWLOCK(nf_nat_lock);
 
@@ -93,306 +89,15 @@ EXPORT_SYMBOL_GPL(nf_nat_proto_put);
 static inline unsigned int
 hash_by_src(const struct nf_conntrack_tuple *tuple)
 {
-	unsigned int hash;
-
 	/* Original src, to ensure we map it consistently if poss. */
-	hash = jhash_3words((__force u32)tuple->src.u3.ip,
-			    (__force u32)tuple->src.u.all,
-			    tuple->dst.protonum, 0);
-	return ((u64)hash * nf_nat_htable_size) >> 32;
+	return jhash_3words((__force u32)tuple->src.u3.ip, tuple->src.u.all,
+			    tuple->dst.protonum, 0) % nf_nat_htable_size;
 }
 
 #ifdef HNDCTF
-extern int ipv4_conntrack_fastnat;
-
-bool
-ip_conntrack_is_ipc_allowed(struct sk_buff *skb, u_int32_t hooknum)
-{
-	struct net_device *dev;
-
-	if (!ipv4_conntrack_fastnat || !CTF_ENAB(kcih))
-		return FALSE;
-
-	if (hooknum == NF_IP_PRE_ROUTING || hooknum == NF_IP_POST_ROUTING) {
-		dev = skb->dev;
-		if (dev->priv_flags & IFF_802_1Q_VLAN)
-			dev = VLAN_DEV_INFO(dev)->real_dev;
-
-		/* Add ipc entry if packet is received on ctf enabled interface
-		 * and the packet is not a defrag'd one.
-		 */
-		if (ctf_isenabled(kcih, dev) && (skb->len <= dev->mtu))
-			skb->nfcache |= NFC_CTF_ENABLED;
-	}
-
-	/* Add the cache entries only if the device has registered and
-	 * enabled ctf.
-	 */
-	if (skb->nfcache & NFC_CTF_ENABLED)
-		return TRUE;
-
-	return FALSE;
-}
-#ifdef CONFIG_BCM_NAT_MODULE
-EXPORT_SYMBOL(ip_conntrack_is_ipc_allowed);
-#endif
-
-void
-ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
-                      struct nf_conn *ct, enum ip_conntrack_info ci,
-		      struct nf_conntrack_tuple *manip)
-{
-	ctf_ipc_t ipc_entry;
-	struct hh_cache *hh;
-	struct ethhdr *eth;
-	struct iphdr *iph;
-	struct tcphdr *tcph;
-	u_int32_t daddr;
-	struct rtable *rt;
-	struct nf_conn_help *help;
-	enum ip_conntrack_dir dir;
-
-	if ((skb == NULL) || (ct == NULL))
-		return;
-
-	/* Check CTF enabled */
-	if (!ip_conntrack_is_ipc_allowed(skb, hooknum))
-		return;
-
-	/* We only add cache entires for non-helper connections and at
-	 * pre or post routing hooks.
-	 */
-	help = nfct_help(ct);
-	if ((help && help->helper) || (ct->ctf_flags & CTF_FLAGS_EXCLUDED) ||
-	    ((hooknum != NF_IP_PRE_ROUTING) && (hooknum != NF_IP_POST_ROUTING)))
-		return;
-
-	/* Add ipc entries for connections in established state only */
-	if ((ci != IP_CT_ESTABLISHED) && (ci != (IP_CT_ESTABLISHED+IP_CT_IS_REPLY)))
-		return;
-
-	iph = ip_hdr(skb);
-	if (iph->version != 4 ||
-	    (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP))
-		return;
-	
-	if (iph->protocol == IPPROTO_TCP &&
-	    ct->proto.tcp.state >= TCP_CONNTRACK_FIN_WAIT &&
-	    ct->proto.tcp.state <= TCP_CONNTRACK_TIME_WAIT)
-		return;
-
-	dir = CTINFO2DIR(ci);
-	if (ct->ctf_flags & (1 << dir))
-		return;
-
-	/* Do route lookup for alias address if we are doing DNAT in this
-	 * direction.
-	 */
-	daddr = iph->daddr;
-	if ((manip != NULL) && (HOOK2MANIP(hooknum) == IP_NAT_MANIP_DST))
-		daddr = manip->dst.u3.ip; 
-
-	/* Find the destination interface */
-	if (skb->dst == NULL)
-		ip_route_input(skb, daddr, iph->saddr, iph->tos, skb->dev);
-
-	/* Ensure the packet belongs to a forwarding connection and it is
-	 * destined to an unicast address.
-	 */
-	rt = (struct rtable *)skb->dst;
-	if ((rt == NULL) || (rt->u.dst.input != ip_forward) ||
-	    (rt->rt_type != RTN_UNICAST) || (rt->u.dst.neighbour == NULL) ||
-	    ((rt->u.dst.neighbour->nud_state &
-	     (NUD_PERMANENT|NUD_REACHABLE|NUD_STALE|NUD_DELAY|NUD_PROBE)) == 0))
-		return;
-	
-	memset(&ipc_entry, 0, sizeof(ipc_entry));
-
-	/* Init the neighboring sender address */
-	memcpy(ipc_entry.sa.octet, eth_hdr(skb)->h_source, ETH_ALEN);
-
-	/* If the packet is received on a bridge device then save
-	 * the bridge cache entry pointer in the ip cache entry.
-	 * This will be referenced in the data path to update the
-	 * live counter of brc entry whenever a received packet
-	 * matches corresponding ipc entry matches.
-	 */
-	if ((skb->dev != NULL) && ctf_isbridge(kcih, skb->dev))
-		ipc_entry.brcp = ctf_brc_lkup(kcih, eth_hdr(skb)->h_source);
-
-	hh = skb->dst->hh;
-	if (hh != NULL) {
-		eth = (struct ethhdr *)(((unsigned char *)hh->hh_data) + 2);
-		memcpy(ipc_entry.dhost.octet, eth->h_dest, ETH_ALEN);
-		memcpy(ipc_entry.shost.octet, eth->h_source, ETH_ALEN);
-	} else {
-		memcpy(ipc_entry.dhost.octet, rt->u.dst.neighbour->ha, ETH_ALEN);
-		memcpy(ipc_entry.shost.octet, skb->dst->dev->dev_addr, ETH_ALEN);
-	}
-
-	tcph = ((struct tcphdr *)(((__u8 *)iph) + (iph->ihl << 2)));
-
-	/* Add ctf ipc entry for this direction */
-	ipc_entry.tuple.sip[0] = iph->saddr;
-	ipc_entry.tuple.dip[0] = iph->daddr;
-	ipc_entry.tuple.proto = iph->protocol;
-	ipc_entry.tuple.sp = tcph->source;
-	ipc_entry.tuple.dp = tcph->dest;
-
-	ipc_entry.next = NULL;
-
-	/* For vlan interfaces fill the vlan id and the tag/untag actions */
-	if (skb->dst->dev->priv_flags & IFF_802_1Q_VLAN) {
-		ipc_entry.txif = (void *)(VLAN_DEV_INFO(skb->dst->dev)->real_dev);
-		ipc_entry.vid = VLAN_DEV_INFO(skb->dst->dev)->vlan_id;
-		ipc_entry.action = ((VLAN_DEV_INFO(skb->dst->dev)->flags & 1) ?
-		                    CTF_ACTION_TAG : CTF_ACTION_UNTAG);
-	} else {
-		ipc_entry.txif = skb->dst->dev;
-		ipc_entry.action = CTF_ACTION_UNTAG;
-	}
-
-	/* Update the manip ip and port */
-	if (manip != NULL) {
-		if (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC) {
-			ipc_entry.nat.ip = manip->src.u3.ip;
-			ipc_entry.nat.port = manip->src.u.tcp.port;
-			ipc_entry.action |= CTF_ACTION_SNAT;
-		} else {
-			ipc_entry.nat.ip = manip->dst.u3.ip;
-			ipc_entry.nat.port = manip->dst.u.tcp.port;
-			ipc_entry.action |= CTF_ACTION_DNAT;
-		}
-	}
-
-	/* Do bridge cache lookup to determine outgoing interface
-	 * and any vlan tagging actions if needed.
-	 */
-	if (ctf_isbridge(kcih, ipc_entry.txif)) {
-		ctf_brc_t *brcp;
-
-		brcp = ctf_brc_lkup(kcih, ipc_entry.dhost.octet);
-
-		if (brcp == NULL)
-			return;
-		else {
-			ipc_entry.action |= brcp->action;
-			ipc_entry.txif = brcp->txifp;
-			ipc_entry.vid = brcp->vid;
-		}
-	}
-
-#ifdef DEBUG
-	printk("%s: Adding ipc entry for [%d]%u.%u.%u.%u:%u - %u.%u.%u.%u:%u\n", __FUNCTION__,
-			ipc_entry.tuple.proto, 
-			NIPQUAD(ipc_entry.tuple.sip[0]), ntohs(ipc_entry.tuple.sp), 
-			NIPQUAD(ipc_entry.tuple.dip[0]), ntohs(ipc_entry.tuple.dp)); 
-	printk("sa %02x:%02x:%02x:%02x:%02x:%02x\n",
-			ipc_entry.shost.octet[0], ipc_entry.shost.octet[1],
-			ipc_entry.shost.octet[2], ipc_entry.shost.octet[3],
-			ipc_entry.shost.octet[4], ipc_entry.shost.octet[5]);
-	printk("da %02x:%02x:%02x:%02x:%02x:%02x\n",
-			ipc_entry.dhost.octet[0], ipc_entry.dhost.octet[1],
-			ipc_entry.dhost.octet[2], ipc_entry.dhost.octet[3],
-			ipc_entry.dhost.octet[4], ipc_entry.dhost.octet[5]);
-	printk("[%d] vid: %d action %x\n", hooknum, ipc_entry.vid, ipc_entry.action);
-	if (manip != NULL)
-		printk("manip_ip: %u.%u.%u.%u manip_port %u\n",
-			NIPQUAD(ipc_entry.nat.ip), ntohs(ipc_entry.nat.port));
-	printk("txif: %s\n", ((struct net_device *)ipc_entry.txif)->name);
-#endif
-
-	ctf_ipc_add(kcih, &ipc_entry,iph->version == 6);
-
-	/* Update the attributes flag to indicate a CTF conn */
-	ct->ctf_flags |= (CTF_FLAGS_CACHED | (1 << dir));
-
-}
-#ifdef CONFIG_BCM_NAT_MODULE
-EXPORT_SYMBOL(ip_conntrack_ipct_add);
-#endif
-
-int
-ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout)
-{
-	ctf_ipc_t *ipct;
-	struct nf_conntrack_tuple *orig, *repl;
-	ctf_ipc_t orig_ipct, repl_ipct;
-	int ipaddr_sz;
-	bool v6;
-
-	if (!CTF_ENAB(kcih))
-		return (0);
-
-	orig = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-
-	if ((orig->dst.protonum != IPPROTO_TCP) && (orig->dst.protonum != IPPROTO_UDP))
-		return (0);
-
-	repl = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-
-	v6 = FALSE;
-	ipaddr_sz = sizeof(struct in_addr);
-
-	memset(&orig_ipct, 0, sizeof(orig_ipct));
-	memcpy(orig_ipct.tuple.sip, &orig->src.u3.ip, ipaddr_sz);
-	memcpy(orig_ipct.tuple.dip, &orig->dst.u3.ip, ipaddr_sz);
-	orig_ipct.tuple.proto = orig->dst.protonum;
-	orig_ipct.tuple.sp = orig->src.u.tcp.port;
-	orig_ipct.tuple.dp = orig->dst.u.tcp.port;
-
-	memset(&repl_ipct, 0, sizeof(repl_ipct));
-	memcpy(repl_ipct.tuple.sip, &repl->src.u3.ip, ipaddr_sz);
-	memcpy(repl_ipct.tuple.dip, &repl->dst.u3.ip, ipaddr_sz);
-	repl_ipct.tuple.proto = repl->dst.protonum;
-	repl_ipct.tuple.sp = repl->src.u.tcp.port;
-	repl_ipct.tuple.dp = repl->dst.u.tcp.port;
-
-	/* If the refresh counter of ipc entry is non zero, it indicates
-	 * that the packet transfer is active and we should not delete
-	 * the conntrack entry.
-	 */
-	if (ct_timeout) {
-		ipct = ctf_ipc_lkup(kcih, &orig_ipct, v6);
-
-		/* Postpone the deletion of ct entry if there are frames
-		 * flowing in this direction.
-		 */
-		if ((ipct != NULL) && (ipct->live > 0)) {
-			ipct->live = 0;
-			ct->timeout.expires = jiffies + ct->expire_jiffies;
-			add_timer(&ct->timeout);
-			return (-1);
-		}
-
-		ipct = ctf_ipc_lkup(kcih, &repl_ipct, v6);
-
-		if ((ipct != NULL) && (ipct->live > 0)) {
-			ipct->live = 0;
-			ct->timeout.expires = jiffies + ct->expire_jiffies;
-			add_timer(&ct->timeout);
-			return (-1);
-		}
-	}
-
-	/* If there are no packets over this connection for timeout period
-	 * delete the entries.
-	 */
-	ctf_ipc_delete(kcih, &orig_ipct, v6);
-
-	ctf_ipc_delete(kcih, &repl_ipct, v6);
-
-#ifdef DEBUG
-	printk("%s: Deleting the tuple %x %x %d %d %d\n",
-	       __FUNCTION__, orig->src.u3.ip, orig->dst.u3.ip, orig->dst.protonum,
-	       orig->src.u.tcp.port, orig->dst.u.tcp.port);
-	printk("%s: Deleting the tuple %x %x %d %d %d\n",
-	       __FUNCTION__, repl->dst.u3.ip, repl->src.u3.ip, repl->dst.protonum,
-	       repl->dst.u.tcp.port, repl->src.u.tcp.port);
-#endif
-
-	return (0);
-}
+extern void ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
+	struct nf_conn *ct, enum ip_conntrack_info ci,
+	struct nf_conntrack_tuple *manip);
 #endif /* HNDCTF */
 
 /* Noone using conntrack by the time this called. */
@@ -424,6 +129,7 @@ nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
 	struct nf_conntrack_tuple reply;
 
 	nf_ct_invert_tuplepr(&reply, tuple);
+
 	return nf_conntrack_tuple_taken(&reply, ignored_conntrack);
 }
 EXPORT_SYMBOL(nf_nat_used_tuple);
@@ -538,8 +244,7 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
 	maxip = ntohl(range->max_ip);
 	j = jhash_2words((__force u32)tuple->src.u3.ip,
 			 (__force u32)tuple->dst.u3.ip, 0);
-	j = ((u64)j * (maxip - minip + 1)) >> 32;
-	*var_ipp = htonl(minip + j);
+	*var_ipp = htonl(minip + j % (maxip - minip + 1));
 }
 
 /* Manipulate the tuple into the range given.  For NF_IP_POST_ROUTING,
@@ -564,10 +269,11 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
 	   This is only required for source (ie. NAT/masq) mappings.
 	   So far, we don't do local source mappings, so multiple
 	   manips not an issue.  */
-	if (maniptype == IP_NAT_MANIP_SRC && !(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
+	if (maniptype == IP_NAT_MANIP_SRC) {
 		if (find_appropriate_src(orig_tuple, tuple, range)) {
 			DEBUGP("get_unique_tuple: Found current src map\n");
-		if (!nf_nat_used_tuple(tuple, ct))
+			if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
+				if (!nf_nat_used_tuple(tuple, ct))
 					return;
 		}
 	}
@@ -583,18 +289,17 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
 	rcu_read_lock();
 	proto = __nf_nat_proto_find(orig_tuple->dst.protonum);
 
-	/* Only bother mapping if it's not already in range and unique */
-	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
-		if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
-			if (proto->in_range(tuple, maniptype, &range->min,
-					    &range->max) &&
-			    (range->min.all == range->max.all ||
-			     !nf_nat_used_tuple(tuple, ct)))
-				goto out;
-		} else if (!nf_nat_used_tuple(tuple, ct)) {
-			goto out;
-		}
+	/* Change protocol info to have some randomization */
+	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM) {
+		proto->unique_tuple(tuple, range, maniptype, ct);
+		goto out;
 	}
+
+	/* Only bother mapping if it's not already in range and unique */
+	if ((!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) ||
+	     proto->in_range(tuple, maniptype, &range->min, &range->max)) &&
+	    !nf_nat_used_tuple(tuple, ct))
+		goto out;
 
 	/* Last change: get protocol to try to obtain unique tuple. */
 	proto->unique_tuple(tuple, range, maniptype, ct);
@@ -666,7 +371,7 @@ EXPORT_SYMBOL(nf_nat_setup_info);
 /* Returns true if succeeded. */
 static int
 manip_pkt(u_int16_t proto,
-	  struct sk_buff *skb,
+	  struct sk_buff **pskb,
 	  unsigned int iphdroff,
 	  const struct nf_conntrack_tuple *target,
 	  enum nf_nat_manip_type maniptype)
@@ -674,19 +379,19 @@ manip_pkt(u_int16_t proto,
 	struct iphdr *iph;
 	struct nf_nat_protocol *p;
 
-	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
+	if (!skb_make_writable(pskb, iphdroff + sizeof(*iph)))
 		return 0;
 
-	iph = (void *)skb->data + iphdroff;
+	iph = (void *)(*pskb)->data + iphdroff;
 
 	/* Manipulate protcol part. */
 
 	/* rcu_read_lock()ed by nf_hook_slow */
 	p = __nf_nat_proto_find(proto);
-	if (!p->manip_pkt(skb, iphdroff, target, maniptype))
+	if (!p->manip_pkt(pskb, iphdroff, target, maniptype))
 		return 0;
 
-	iph = (void *)skb->data + iphdroff;
+	iph = (void *)(*pskb)->data + iphdroff;
 
 	if (maniptype == IP_NAT_MANIP_SRC) {
 		nf_csum_replace4(&iph->check, iph->saddr, target->src.u3.ip);
@@ -698,28 +403,11 @@ manip_pkt(u_int16_t proto,
 	return 1;
 }
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-#ifndef CONFIG_BCM_NAT_MODULE
-inline
-#endif
-int bcm_manip_pkt(u_int16_t proto,
-	  struct sk_buff *skb,
-	  unsigned int iphdroff,
-	  const struct nf_conntrack_tuple *target,
-	  enum nf_nat_manip_type maniptype)
-{
-	return manip_pkt(proto, skb, iphdroff, target, maniptype);
-}
-#ifdef CONFIG_BCM_NAT_MODULE
-EXPORT_SYMBOL(bcm_manip_pkt);
-#endif
-#endif
-
 /* Do packet manipulations according to nf_nat_setup_info. */
 unsigned int nf_nat_packet(struct nf_conn *ct,
 			   enum ip_conntrack_info ctinfo,
 			   unsigned int hooknum,
-			   struct sk_buff *skb)
+			   struct sk_buff **pskb)
 {
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned long statusbit;
@@ -741,9 +429,9 @@ unsigned int nf_nat_packet(struct nf_conn *ct,
 		/* We are aiming to look like inverse of other direction. */
 		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
 #ifdef HNDCTF
-		ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, &target);
+		ip_conntrack_ipct_add(*pskb, hooknum, ct, ctinfo, &target);
 #endif /* HNDCTF */
-		if (!manip_pkt(target.dst.protonum, skb, 0, &target, mtype))
+		if (!manip_pkt(target.dst.protonum, pskb, 0, &target, mtype))
 			return NF_DROP;
 	} else {
 #ifdef HNDCTF
@@ -758,7 +446,7 @@ EXPORT_SYMBOL_GPL(nf_nat_packet);
 int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 				  enum ip_conntrack_info ctinfo,
 				  unsigned int hooknum,
-				  struct sk_buff *skb)
+				  struct sk_buff **pskb)
 {
 	struct {
 		struct icmphdr icmp;
@@ -766,24 +454,24 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	} *inside;
 	struct nf_conntrack_l4proto *l4proto;
 	struct nf_conntrack_tuple inner, target;
-	int hdrlen = ip_hdrlen(skb);
+	int hdrlen = ip_hdrlen(*pskb);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned long statusbit;
 	enum nf_nat_manip_type manip = HOOK2MANIP(hooknum);
 
-	if (!skb_make_writable(skb, hdrlen + sizeof(*inside)))
+	if (!skb_make_writable(pskb, hdrlen + sizeof(*inside)))
 		return 0;
 
-	inside = (void *)skb->data + hdrlen;
+	inside = (void *)(*pskb)->data + ip_hdrlen(*pskb);
 
 	/* We're actually going to mangle it beyond trivial checksum
 	   adjustment, so make sure the current checksum is correct. */
-	if (nf_ip_checksum(skb, hooknum, hdrlen, 0))
+	if (nf_ip_checksum(*pskb, hooknum, hdrlen, 0))
 		return 0;
 
 	/* Must be RELATED */
-	NF_CT_ASSERT(skb->nfctinfo == IP_CT_RELATED ||
-		     skb->nfctinfo == IP_CT_RELATED+IP_CT_IS_REPLY);
+	NF_CT_ASSERT((*pskb)->nfctinfo == IP_CT_RELATED ||
+		     (*pskb)->nfctinfo == IP_CT_RELATED+IP_CT_IS_REPLY);
 
 	/* Redirects on non-null nats must be dropped, else they'll
 	   start talking to each other without our translation, and be
@@ -798,15 +486,17 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	}
 
 	DEBUGP("icmp_reply_translation: translating error %p manp %u dir %s\n",
-	       skb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
+	       *pskb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
 
 	/* rcu_read_lock()ed by nf_hook_slow */
 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
 
-	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
-			     (hdrlen +
+	if (!nf_ct_get_tuple(*pskb,
+			     ip_hdrlen(*pskb) + sizeof(struct icmphdr),
+			     (ip_hdrlen(*pskb) +
 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
-			     (u_int16_t)AF_INET, inside->ip.protocol,
+			     (u_int16_t)AF_INET,
+			     inside->ip.protocol,
 			     &inner, l3proto, l4proto))
 		return 0;
 
@@ -815,17 +505,19 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	   pass all hooks (locally-generated ICMP).  Consider incoming
 	   packet: PREROUTING (DST manip), routing produces ICMP, goes
 	   through POSTROUTING (which must correct the DST manip). */
-	if (!manip_pkt(inside->ip.protocol, skb, hdrlen + sizeof(inside->icmp),
-		       &ct->tuplehash[!dir].tuple, !manip))
+	if (!manip_pkt(inside->ip.protocol, pskb,
+		       ip_hdrlen(*pskb) + sizeof(inside->icmp),
+		       &ct->tuplehash[!dir].tuple,
+		       !manip))
 		return 0;
 
-	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+	if ((*pskb)->ip_summed != CHECKSUM_PARTIAL) {
 		/* Reloading "inside" here since manip_pkt inner. */
-		inside = (void *)skb->data + hdrlen;
+		inside = (void *)(*pskb)->data + ip_hdrlen(*pskb);
 		inside->icmp.checksum = 0;
 		inside->icmp.checksum =
-			csum_fold(skb_checksum(skb, hdrlen,
-					       skb->len - hdrlen, 0));
+			csum_fold(skb_checksum(*pskb, hdrlen,
+					       (*pskb)->len - hdrlen, 0));
 	}
 
 	/* Change outer to look the reply to an incoming packet
@@ -841,7 +533,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 
 	if (ct->status & statusbit) {
 		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
-		if (!manip_pkt(0, skb, 0, &target, manip))
+		if (!manip_pkt(0, pskb, 0, &target, manip))
 			return 0;
 	}
 
@@ -946,12 +638,8 @@ static int __init nf_nat_init(void)
 		INIT_LIST_HEAD(&bysource[i]);
 	}
 
-	/* FIXME: Man, this is a hack.  <SIGH> */
 	NF_CT_ASSERT(rcu_dereference(nf_conntrack_destroyed) == NULL);
 	rcu_assign_pointer(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
-
-	NF_CT_ASSERT(rcu_dereference(nf_ct_nat_offset) == NULL);
-	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
 
 	/* Initialize fake conntrack so that NAT will skip it */
 	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
@@ -967,7 +655,7 @@ static int clean_nat(struct nf_conn *i, void *data)
 
 	if (!nat)
 		return 0;
-	memset(nat, 0, sizeof(*nat));
+	memset(nat, 0, sizeof(nat));
 	i->status &= ~(IPS_NAT_MASK | IPS_NAT_DONE_MASK | IPS_SEQ_ADJUST);
 	return 0;
 }
@@ -976,7 +664,6 @@ static void __exit nf_nat_cleanup(void)
 {
 	nf_ct_iterate_cleanup(&clean_nat, NULL);
 	rcu_assign_pointer(nf_conntrack_destroyed, NULL);
-	rcu_assign_pointer(nf_ct_nat_offset, NULL);
 	synchronize_rcu();
 	vfree(bysource);
 	nf_ct_l3proto_put(l3proto);

@@ -31,6 +31,9 @@
 
 #ifdef __KERNEL__
 #include <linux/timer.h>
+#ifdef CONFIG_INET_GRO 
+#include <linux/mm.h>
+#endif /* CONFIG_INET_GRO */
 #include <asm/atomic.h>
 #include <asm/cache.h>
 #include <asm/byteorder.h>
@@ -263,6 +266,17 @@ struct netdev_boot_setup {
 
 extern int __init netdev_boot_setup(char *str);
 
+#ifdef CONFIG_INET_GRO 
+enum {
+	GRO_MERGED,
+	GRO_MERGED_FREE,
+	GRO_HELD,
+	GRO_NORMAL,
+	GRO_DROP,
+};
+#endif /* CONFIG_INET_GRO */
+
+
 /*
  *	The DEVICE structure.
  *	Actually, this whole structure is a big mistake.  It mixes I/O
@@ -325,6 +339,9 @@ struct net_device
 #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
 #define NETIF_F_GSO		2048	/* Enable software GSO. */
 #define NETIF_F_LLTX		4096	/* LockLess TX */
+#ifdef CONFIG_INET_GRO
+#define NETIF_F_GRO		16384	/* Generic receive offload */
+#endif /* CONFIG_INET_GRO */
 
 	/* Segmentation offload features */
 #define NETIF_F_GSO_SHIFT	16
@@ -541,17 +558,23 @@ struct net_device
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	void                    (*poll_controller)(struct net_device *dev);
 #endif
-
+#ifdef CONFIG_INET_GRO 
+	unsigned int 		gro_count;
+	struct sk_buff		*gro_list;
+#endif /* CONFIG_INET_GRO */
 	/* rtnetlink link ops */
 	const struct rtnl_link_ops *rtnl_link_ops;
 };
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 
 #define	NETDEV_ALIGN		32
+#define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
 
 static inline void *netdev_priv(struct net_device *dev)
 {
-	return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+	return (char *)dev + ((sizeof(struct net_device)
+					+ NETDEV_ALIGN_CONST)
+				& ~NETDEV_ALIGN_CONST);
 }
 
 #define SET_MODULE_OWNER(dev) do { } while (0)
@@ -559,6 +582,27 @@ static inline void *netdev_priv(struct net_device *dev)
  * if set prior to registration will cause a symlink during initialization.
  */
 #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+
+#ifdef CONFIG_INET_GRO
+struct napi_gro_cb {
+	/* This indicates where we are processing relative to skb->data. */
+	int data_offset;
+
+	/* This is non-zero if the packet may be of the same flow. */
+	int same_flow;
+
+	/* This is non-zero if the packet cannot be merged with the new skb. */
+	int flush;
+
+	/* Number of segments aggregated. */
+	int count;
+
+	/* Free the skb? */
+	int free;
+};
+
+#define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+#endif /* CONFIG_INET_GRO */
 
 /* Set the sysfs device type for the network logical device to allow
  * fin grained indentification of different network device types. For
@@ -576,6 +620,11 @@ struct packet_type {
 	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
 						int features);
 	int			(*gso_send_check)(struct sk_buff *skb);
+#ifdef CONFIG_INET_GRO
+	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
+					       struct sk_buff *skb);
+	int			(*gro_complete)(struct sk_buff *skb);
+#endif /* CONFIG_INET_GRO */
 	void			*af_packet_priv;
 	struct list_head	list;
 };
@@ -639,6 +688,38 @@ extern int		dev_restart(struct net_device *dev);
 #ifdef CONFIG_NETPOLL_TRAP
 extern int		netpoll_trap(void);
 #endif
+#ifdef CONFIG_INET_GRO
+extern void	      *skb_gro_header(struct sk_buff *skb, unsigned int hlen);
+extern int	       skb_gro_receive(struct sk_buff **head,
+				       struct sk_buff *skb);
+
+static inline unsigned int skb_gro_offset(const struct sk_buff *skb)
+{
+	return NAPI_GRO_CB(skb)->data_offset;
+}
+
+static inline unsigned int skb_gro_len(const struct sk_buff *skb)
+{
+	return skb->len - NAPI_GRO_CB(skb)->data_offset;
+}
+
+static inline void skb_gro_pull(struct sk_buff *skb, unsigned int len)
+{
+	NAPI_GRO_CB(skb)->data_offset += len;
+}
+
+static inline void skb_gro_reset_offset(struct sk_buff *skb)
+{
+	NAPI_GRO_CB(skb)->data_offset = 0;
+}
+
+static inline void *skb_gro_mac_header(struct sk_buff *skb)
+{
+	return skb_mac_header(skb) < skb->data ? skb_mac_header(skb) :
+	       page_address(skb_shinfo(skb)->frags[0].page) +
+	       skb_shinfo(skb)->frags[0].page_offset;
+}
+#endif /* CONFIG_INET_GRO */
 
 typedef int gifconf_func_t(struct net_device * dev, char __user * bufptr, int len);
 extern int		register_gifconf(unsigned int family, gifconf_func_t * gifconf);
@@ -738,6 +819,9 @@ extern int		netif_rx(struct sk_buff *skb);
 extern int		netif_rx_ni(struct sk_buff *skb);
 #define HAVE_NETIF_RECEIVE_SKB 1
 extern int		netif_receive_skb(struct sk_buff *skb);
+#ifdef CONFIG_INET_GRO
+extern void		napi_gro_flush(struct net_device *gro_dev);
+#endif /* CONFIG_INET_GRO */
 extern int		dev_valid_name(const char *name);
 extern int		dev_ioctl(unsigned int cmd, void __user *);
 extern int		dev_ethtool(struct ifreq *);
@@ -1008,8 +1092,8 @@ extern void		dev_mc_upload(struct net_device *dev);
 extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
 extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
 extern void		dev_mc_discard(struct net_device *dev);
-extern int		dev_set_promiscuity(struct net_device *dev, int inc);
-extern int		dev_set_allmulti(struct net_device *dev, int inc);
+extern void		dev_set_promiscuity(struct net_device *dev, int inc);
+extern void		dev_set_allmulti(struct net_device *dev, int inc);
 extern void		netdev_state_change(struct net_device *dev);
 extern void		netdev_features_change(struct net_device *dev);
 /* Load a device via the kmod */

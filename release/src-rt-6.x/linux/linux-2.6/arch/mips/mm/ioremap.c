@@ -117,17 +117,6 @@ static int remap_area_pages(unsigned long address, phys_t phys_addr,
 
 #define IS_LOW512(addr) (!((phys_t)(addr) & (phys_t) ~0x1fffffffULL))
 
-void *kmap_atomic_pfn_prot(unsigned long pfn, enum km_type type, pgprot_t prot)
-{
-	pgprot_t old_kmap_prot = kmap_prot;
-	void * vaddr;
-
-	kmap_prot =  prot;
-	vaddr = kmap_atomic_pfn(pfn, type);
-	kmap_prot = old_kmap_prot;
-	return vaddr;
-}
-
 void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 {
 	struct vm_struct * area;
@@ -182,7 +171,7 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 	 * Ok, go for it..
 	 */
 	area = get_vm_area(size, VM_IOREMAP);
-
+	
 	if (!area)
 		return NULL;
 	addr = area->addr;

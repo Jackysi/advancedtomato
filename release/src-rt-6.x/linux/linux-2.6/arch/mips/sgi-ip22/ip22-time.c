@@ -94,7 +94,7 @@ static int indy_rtc_set_time(unsigned long tim)
 static unsigned long dosample(void)
 {
 	u32 ct0, ct1;
-	u8 msb;
+	u8 msb, lsb;
 
 	/* Start the counter. */
 	sgint->tcword = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CALL |
@@ -108,7 +108,7 @@ static unsigned long dosample(void)
 	/* Latch and spin until top byte of counter2 is zero */
 	do {
 		writeb(SGINT_TCWORD_CNT2 | SGINT_TCWORD_CLAT, &sgint->tcword);
-		(void) readb(&sgint->tcnt2);
+		lsb = readb(&sgint->tcnt2);
 		msb = readb(&sgint->tcnt2);
 		ct1 = read_c0_count();
 	} while (msb);

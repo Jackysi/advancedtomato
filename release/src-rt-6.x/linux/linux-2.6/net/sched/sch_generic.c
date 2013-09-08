@@ -79,13 +79,14 @@ void qdisc_unlock_tree(struct net_device *dev)
 
    NOTE: Called under dev->queue_lock with locally disabled BH.
 */
+
 static inline int qdisc_restart(struct net_device *dev)
 {
 	struct Qdisc *q = dev->qdisc;
 	struct sk_buff *skb;
 
 	/* Dequeue packet */
-	if (((skb = dev->gso_skb)) || ((skb = q->dequeue(q)))) {
+	if (((skb = dev->gso_skb)) || (q && (skb = q->dequeue(q)))) {
 		unsigned nolock = (dev->features & NETIF_F_LLTX);
 
 		dev->gso_skb = NULL;
@@ -339,7 +340,7 @@ static inline struct sk_buff_head *prio2list(struct sk_buff *skb,
 	return list + prio2band[skb->priority & TC_PRIO_MAX];
 }
 
-static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc* qdisc)
+static int BCMFASTPATH pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc* qdisc)
 {
 	struct sk_buff_head *list = prio2list(skb, qdisc);
 

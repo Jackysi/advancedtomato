@@ -24,6 +24,9 @@
 #include <linux/ctype.h>
 #include <linux/module.h>
 
+#include <typedefs.h>
+#include <bcmdefs.h>
+
 #ifndef __HAVE_ARCH_STRNICMP
 /**
  * strnicmp - Case insensitive, length-limited string comparison
@@ -590,7 +593,7 @@ EXPORT_SYMBOL(memmove);
  * @count: The size of the area.
  */
 #undef memcmp
-int memcmp(const void *cs, const void *ct, size_t count)
+int BCMFASTPATH memcmp(const void *cs, const void *ct, size_t count)
 {
 	const unsigned char *su1, *su2;
 	int res = 0;

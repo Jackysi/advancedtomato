@@ -79,6 +79,8 @@
 
 /* register bitfields (not all, only as needed) */
 
+#define BIT(x) (1UL << (x))
+
 /* COMMAND_2D reg. values */
 #define TDFX_ROP_COPY        0xcc     // src
 #define TDFX_ROP_INVERT      0x55     // NOT dst

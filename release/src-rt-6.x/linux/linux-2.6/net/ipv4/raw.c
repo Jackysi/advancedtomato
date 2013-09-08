@@ -740,8 +740,7 @@ static int raw_ioctl(struct sock *sk, int cmd, unsigned long arg)
 {
 	switch (cmd) {
 		case SIOCOUTQ: {
-			int amount = sk_wmem_alloc_get(sk);
-
+			int amount = atomic_read(&sk->sk_wmem_alloc);
 			return put_user(amount, (int __user *)arg);
 		}
 		case SIOCINQ: {
@@ -874,8 +873,8 @@ static __inline__ char *get_raw_sock(struct sock *sp, char *tmpbuf, int i)
 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
 		i, src, srcp, dest, destp, sp->sk_state,
-		sk_wmem_alloc_get(sp),
-		sk_rmem_alloc_get(sp),
+		atomic_read(&sp->sk_wmem_alloc),
+		atomic_read(&sp->sk_rmem_alloc),
 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
 		atomic_read(&sp->sk_refcnt), sp);
 	return tmpbuf;
@@ -908,8 +907,24 @@ static const struct seq_operations raw_seq_ops = {
 
 static int raw_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &raw_seq_ops,
-			sizeof(struct raw_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct raw_iter_state *s;
+
+	s = kzalloc(sizeof(*s), GFP_KERNEL);
+	if (!s)
+		goto out;
+	rc = seq_open(file, &raw_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations raw_seq_fops = {

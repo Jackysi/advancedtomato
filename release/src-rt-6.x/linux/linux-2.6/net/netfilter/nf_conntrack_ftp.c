@@ -43,7 +43,7 @@ module_param_array(ports, ushort, &ports_c, 0400);
 static int loose;
 module_param(loose, bool, 0600);
 
-unsigned int (*nf_nat_ftp_hook)(struct sk_buff *skb,
+unsigned int (*nf_nat_ftp_hook)(struct sk_buff **pskb,
 				enum ip_conntrack_info ctinfo,
 				enum nf_ct_ftp_type type,
 				unsigned int matchoff,
@@ -350,7 +350,7 @@ static void update_nl_seq(u32 nl_seq, struct nf_ct_ftp_master *info, int dir,
 	}
 }
 
-static int help(struct sk_buff *skb,
+static int help(struct sk_buff **pskb,
 		unsigned int protoff,
 		struct nf_conn *ct,
 		enum ip_conntrack_info ctinfo)
@@ -364,7 +364,7 @@ static int help(struct sk_buff *skb,
 	unsigned int matchlen, matchoff;
 	struct nf_ct_ftp_master *ct_ftp_info = &nfct_help(ct)->help.ct_ftp_info;
 	struct nf_conntrack_expect *exp;
-	union nf_inet_addr *daddr;
+	union nf_conntrack_address *daddr;
 	struct nf_conntrack_man cmd = {};
 	unsigned int i;
 	int found = 0, ends_in_nl;
@@ -377,21 +377,21 @@ static int help(struct sk_buff *skb,
 		return NF_ACCEPT;
 	}
 
-	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(*pskb, protoff, sizeof(_tcph), &_tcph);
 	if (th == NULL)
 		return NF_ACCEPT;
 
 	dataoff = protoff + th->doff * 4;
 	/* No data? */
-	if (dataoff >= skb->len) {
+	if (dataoff >= (*pskb)->len) {
 		DEBUGP("ftp: dataoff(%u) >= skblen(%u)\n", dataoff,
-			skb->len);
+			(*pskb)->len);
 		return NF_ACCEPT;
 	}
-	datalen = skb->len - dataoff;
+	datalen = (*pskb)->len - dataoff;
 
 	spin_lock_bh(&nf_ftp_lock);
-	fb_ptr = skb_header_pointer(skb, dataoff, datalen, ftp_buffer);
+	fb_ptr = skb_header_pointer(*pskb, dataoff, datalen, ftp_buffer);
 	BUG_ON(fb_ptr == NULL);
 
 	ends_in_nl = (fb_ptr[datalen - 1] == '\n');
@@ -485,7 +485,7 @@ static int help(struct sk_buff *skb,
 		daddr = &cmd.u3;
 	}
 
-	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, cmd.l3num,
+	nf_conntrack_expect_init(exp, cmd.l3num,
 			  &ct->tuplehash[!dir].tuple.src.u3, daddr,
 			  IPPROTO_TCP, NULL, &cmd.u.tcp.port);
 
@@ -493,7 +493,7 @@ static int help(struct sk_buff *skb,
 	 * (possibly changed) expectation itself. */
 	nf_nat_ftp = rcu_dereference(nf_nat_ftp_hook);
 	if (nf_nat_ftp && ct->status & IPS_NAT_MASK)
-		ret = nf_nat_ftp(skb, ctinfo, search[dir][i].ftptype,
+		ret = nf_nat_ftp(pskb, ctinfo, search[dir][i].ftptype,
 				 matchoff, matchlen, exp);
 	else {
 		/* Can't expect this?  Best to drop packet now. */
@@ -510,7 +510,7 @@ out_update_nl:
 	/* Now if this ends in \n, update ftp info.  Seq may have been
 	 * adjusted by NAT code. */
 	if (ends_in_nl)
-		update_nl_seq(seq, ct_ftp_info, dir, skb);
+		update_nl_seq(seq, ct_ftp_info, dir, *pskb);
  out:
 	spin_unlock_bh(&nf_ftp_lock);
 	return ret;
@@ -518,11 +518,6 @@ out_update_nl:
 
 static struct nf_conntrack_helper ftp[MAX_PORTS][2];
 static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")];
-
-static const struct nf_conntrack_expect_policy ftp_exp_policy = {
-	.max_expected	= 1,
-	.timeout	= 5 * 60,
-};
 
 /* don't make this __exit, since it's called from __init ! */
 static void nf_conntrack_ftp_fini(void)
@@ -566,7 +561,8 @@ static int __init nf_conntrack_ftp_init(void)
 			ftp[i][j].mask.src.l3num = 0xFFFF;
 			ftp[i][j].mask.src.u.tcp.port = htons(0xFFFF);
 			ftp[i][j].mask.dst.protonum = 0xFF;
-			ftp[i][j].expect_policy = &ftp_exp_policy;
+			ftp[i][j].max_expected = 1;
+			ftp[i][j].timeout = 5 * 60;	/* 5 Minutes */
 			ftp[i][j].me = THIS_MODULE;
 			ftp[i][j].help = help;
 			tmpname = &ftp_names[i][j][0];

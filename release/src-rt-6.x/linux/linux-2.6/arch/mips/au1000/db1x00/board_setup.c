@@ -54,52 +54,47 @@ void board_reset (void)
 
 void __init board_setup(void)
 {
+	u32 pin_func;
+
+	pin_func = 0;
 	/* not valid for 1550 */
 
 #if defined(CONFIG_IRDA) && (defined(CONFIG_SOC_AU1000) || defined(CONFIG_SOC_AU1100))
-	{
-		u32 pin_func;
-
-		/* set IRFIRSEL instead of GPIO15 */
-		pin_func = au_readl(SYS_PINFUNC) | (u32)((1<<8));
-		au_writel(pin_func, SYS_PINFUNC);
-		/* power off until the driver is in use */
-		bcsr->resets &= ~BCSR_RESETS_IRDA_MODE_MASK;
-		bcsr->resets |= BCSR_RESETS_IRDA_MODE_OFF;
-		au_sync();
-	}
+	/* set IRFIRSEL instead of GPIO15 */
+	pin_func = au_readl(SYS_PINFUNC) | (u32)((1<<8));
+	au_writel(pin_func, SYS_PINFUNC);
+	/* power off until the driver is in use */
+	bcsr->resets &= ~BCSR_RESETS_IRDA_MODE_MASK;
+	bcsr->resets |= BCSR_RESETS_IRDA_MODE_OFF;
+	au_sync();
 #endif
 	bcsr->pcmcia = 0x0000; /* turn off PCMCIA power */
 
 #ifdef CONFIG_MIPS_MIRAGE
-	{
-		u32 pin_func;
+	/* enable GPIO[31:0] inputs */
+	au_writel(0, SYS_PININPUTEN);
 
-		/* enable GPIO[31:0] inputs */
-		au_writel(0, SYS_PININPUTEN);
+	/* GPIO[20] is output, tristate the other input primary GPIO's */
+	au_writel((u32)(~(1<<20)), SYS_TRIOUTCLR);
 
-		/* GPIO[20] is output, tristate the other input primary GPIO's */
-		au_writel((u32)(~(1<<20)), SYS_TRIOUTCLR);
+	/* set GPIO[210:208] instead of SSI_0 */
+	pin_func = au_readl(SYS_PINFUNC) | (u32)(1);
 
-		/* set GPIO[210:208] instead of SSI_0 */
-		pin_func = au_readl(SYS_PINFUNC) | (u32)(1);
+	/* set GPIO[215:211] for LED's */
+	pin_func |= (u32)((5<<2));
 
-		/* set GPIO[215:211] for LED's */
-		pin_func |= (u32)((5<<2));
+	/* set GPIO[214:213] for more LED's */
+	pin_func |= (u32)((5<<12));
 
-		/* set GPIO[214:213] for more LED's */
-		pin_func |= (u32)((5<<12));
+	/* set GPIO[207:200] instead of PCMCIA/LCD */
+	pin_func |= (u32)((3<<17));
+	au_writel(pin_func, SYS_PINFUNC);
 
-		/* set GPIO[207:200] instead of PCMCIA/LCD */
-		pin_func |= (u32)((3<<17));
-		au_writel(pin_func, SYS_PINFUNC);
-
-		/* Enable speaker amplifier.  This should
-		 * be part of the audio driver.
-		 */
-		au_writel(au_readl(GPIO2_DIR) | 0x200, GPIO2_DIR);
-		au_writel(0x02000200, GPIO2_OUTPUT);
-	}
+	/* Enable speaker amplifier.  This should
+	 * be part of the audio driver.
+	 */
+	au_writel(au_readl(GPIO2_DIR) | 0x200, GPIO2_DIR);
+	au_writel(0x02000200, GPIO2_OUTPUT);
 #endif
 
 	au_sync();

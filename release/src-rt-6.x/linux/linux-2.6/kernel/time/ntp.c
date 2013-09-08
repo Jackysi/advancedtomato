@@ -301,16 +301,14 @@ int do_adjtimex(struct timex *txc)
 		    freq_adj = shift_right(freq_adj, time_constant * 2 +
 					   (SHIFT_PLL + 2) * 2 - SHIFT_NSEC);
 		    if (mtemp >= MINSEC && (time_status & STA_FLL || mtemp > MAXSEC)) {
-			u64 utemp64;
 			temp64 = time_offset << (SHIFT_NSEC - SHIFT_FLL);
 			if (time_offset < 0) {
-			    utemp64 = -temp64;
-			    do_div(utemp64, mtemp);
-			    freq_adj -= utemp64;
+			    temp64 = -temp64;
+			    do_div(temp64, mtemp);
+			    freq_adj -= temp64;
 			} else {
-			    utemp64 = temp64;
-			    do_div(utemp64, mtemp);
-			    freq_adj += utemp64;
+			    do_div(temp64, mtemp);
+			    freq_adj += temp64;
 			}
 		    }
 		    freq_adj += time_freq;

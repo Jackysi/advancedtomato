@@ -162,7 +162,8 @@ static void atalk_destroy_timer(unsigned long data)
 {
 	struct sock *sk = (struct sock *)data;
 
-	if (sk_has_allocations(sk)) {
+	if (atomic_read(&sk->sk_wmem_alloc) ||
+	    atomic_read(&sk->sk_rmem_alloc)) {
 		sk->sk_timer.expires = jiffies + SOCK_DESTROY_TIME;
 		add_timer(&sk->sk_timer);
 	} else
@@ -174,7 +175,8 @@ static inline void atalk_destroy_socket(struct sock *sk)
 	atalk_remove_socket(sk);
 	skb_queue_purge(&sk->sk_receive_queue);
 
-	if (sk_has_allocations(sk)) {
+	if (atomic_read(&sk->sk_wmem_alloc) ||
+	    atomic_read(&sk->sk_rmem_alloc)) {
 		init_timer(&sk->sk_timer);
 		sk->sk_timer.expires	= jiffies + SOCK_DESTROY_TIME;
 		sk->sk_timer.function	= atalk_destroy_timer;
@@ -1745,7 +1747,8 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 		/* Protocol layer */
 		case TIOCOUTQ: {
-			long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+			long amount = sk->sk_sndbuf -
+				      atomic_read(&sk->sk_wmem_alloc);
 
 			if (amount < 0)
 				amount = 0;

@@ -27,7 +27,7 @@ static const struct address_space_operations sysfs_aops = {
 
 static struct backing_dev_info sysfs_backing_dev_info = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 };
 
 static const struct inode_operations sysfs_inode_operations ={
@@ -42,11 +42,6 @@ void sysfs_delete_inode(struct inode *inode)
 		inode->i_op = NULL;
 	}
 	return generic_delete_inode(inode);
-}
-
-int __init sysfs_inode_init(void)
-{
-	return bdi_init(&sysfs_backing_dev_info);
 }
 
 int sysfs_setattr(struct dentry * dentry, struct iattr * iattr)

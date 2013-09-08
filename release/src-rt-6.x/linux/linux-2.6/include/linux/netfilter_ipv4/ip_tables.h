@@ -295,7 +295,7 @@ struct ipt_error
 	.target.errorname = "ERROR",					       \
 }
 
-extern unsigned int ipt_do_table(struct sk_buff *skb,
+extern unsigned int ipt_do_table(struct sk_buff **pskb,
 				 unsigned int hook,
 				 const struct net_device *in,
 				 const struct net_device *out,

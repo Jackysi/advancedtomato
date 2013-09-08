@@ -87,22 +87,6 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_DISK);
 MODULE_ALIAS_SCSI_DEVICE(TYPE_MOD);
 MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 
-static int  sd_revalidate_disk(struct gendisk *disk);
-static void sd_rw_intr(struct scsi_cmnd * SCpnt);
-static int  sd_probe(struct device *);
-static int  sd_remove(struct device *);
-static void sd_shutdown(struct device *dev);
-static int sd_suspend(struct device *dev, pm_message_t state);
-static int sd_resume(struct device *dev);
-static void sd_rescan(struct device *);
-static int  sd_init_command(struct scsi_cmnd *);
-static int  sd_issue_flush(struct device *, sector_t *);
-static void sd_prepare_flush(request_queue_t *, struct request *);
-static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
-static void scsi_disk_release(struct class_device *cdev);
-static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
-static void sd_print_result(struct scsi_disk *, int);
-
 static DEFINE_IDA(sd_index_ida);
 
 /* This semaphore is used to mediate the 0->1 reference get in the
@@ -987,6 +971,12 @@ static void sd_rw_intr(struct scsi_cmnd * SCpnt)
 		good_bytes = (bad_lba - start_lba)*SCpnt->device->sector_size;
 		break;
 	case RECOVERED_ERROR:
+		/* Inform the user, but make sure that it's not treated
+		 * as a hard error.
+		 */
+		scsi_print_sense("sd", SCpnt);
+		SCpnt->result = 0;
+		memset(SCpnt->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
 		good_bytes = xfer_size;
 		break;
 	case NO_SENSE:

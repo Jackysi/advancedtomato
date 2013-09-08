@@ -53,6 +53,7 @@ EXPORT_SYMBOL(phys_cpu_present_map);
 EXPORT_SYMBOL(cpu_online_map);
 
 /* This happens early in bootup, can't really do it better */
+#if 0
 static void smp_tune_scheduling (void)
 {
 	struct cache_desc *cd = &current_cpu_data.scache;
@@ -61,6 +62,7 @@ static void smp_tune_scheduling (void)
 	if (cachesize > max_cache_size)
 		max_cache_size = cachesize;
 }
+#endif
 
 extern void __init calibrate_delay(void);
 
@@ -230,7 +232,9 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 {
 	init_new_context(current, &init_mm);
 	current_thread_info()->cpu = 0;
+#if 0
 	smp_tune_scheduling();
+#endif
 	plat_prepare_cpus(max_cpus);
 #ifndef CONFIG_HOTPLUG_CPU
 	cpu_present_map = cpu_possible_map;

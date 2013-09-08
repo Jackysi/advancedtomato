@@ -53,7 +53,7 @@ redirect_check(const char *tablename,
 }
 
 static unsigned int
-redirect_target(struct sk_buff *skb,
+redirect_target(struct sk_buff **pskb,
 		const struct net_device *in,
 		const struct net_device *out,
 		unsigned int hooknum,
@@ -69,7 +69,7 @@ redirect_target(struct sk_buff *skb,
 	NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING
 		     || hooknum == NF_IP_LOCAL_OUT);
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED));
 
 	/* Local packets: make them go to loopback */
@@ -82,7 +82,7 @@ redirect_target(struct sk_buff *skb,
 		newdst = 0;
 
 		rcu_read_lock();
-		indev = __in_dev_get_rcu(skb->dev);
+		indev = __in_dev_get_rcu((*pskb)->dev);
 		if (indev && (ifa = indev->ifa_list))
 			newdst = ifa->ifa_local;
 		rcu_read_unlock();

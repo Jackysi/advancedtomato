@@ -28,9 +28,15 @@
 /* ieee80211.o internal definitions, etc. These are not included into
  * low-level drivers. */
 
+#ifndef ETH_P_PAE
+#define ETH_P_PAE 0x888E /* Port Access Entity (IEEE 802.1X) */
+#endif /* ETH_P_PAE */
+
 #define WLAN_FC_DATA_PRESENT(fc) (((fc) & 0x4c) == 0x08)
 
 struct ieee80211_local;
+
+#define BIT(x) (1 << (x))
 
 #define IEEE80211_ALIGN32_PAD(a) ((4 - ((a) & 3)) & 3)
 

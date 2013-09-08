@@ -100,14 +100,15 @@ static void qla4xxx_status_entry(struct scsi_qla_host *ha,
 			break;
 
 		/* Copy Sense Data into sense buffer. */
-		memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+		memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
 
 		sensebytecnt = le16_to_cpu(sts_entry->senseDataByteCnt);
 		if (sensebytecnt == 0)
 			break;
 
 		memcpy(cmd->sense_buffer, sts_entry->senseData,
-		       min_t(uint16_t, sensebytecnt, SCSI_SENSE_BUFFERSIZE));
+		       min(sensebytecnt,
+			   (uint16_t) sizeof(cmd->sense_buffer)));
 
 		DEBUG2(printk("scsi%ld:%d:%d:%d: %s: sense key = %x, "
 			      "ASC/ASCQ = %02x/%02x\n", ha->host_no,
@@ -197,7 +198,8 @@ static void qla4xxx_status_entry(struct scsi_qla_host *ha,
 				break;
 
 			/* Copy Sense Data into sense buffer. */
-			memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+			memset(cmd->sense_buffer, 0,
+			       sizeof(cmd->sense_buffer));
 
 			sensebytecnt =
 				le16_to_cpu(sts_entry->senseDataByteCnt);
@@ -205,7 +207,8 @@ static void qla4xxx_status_entry(struct scsi_qla_host *ha,
 				break;
 
 			memcpy(cmd->sense_buffer, sts_entry->senseData,
-			       min_t(uint16_t, sensebytecnt, SCSI_SENSE_BUFFERSIZE));
+			       min(sensebytecnt,
+				   (uint16_t) sizeof(cmd->sense_buffer)));
 
 			DEBUG2(printk("scsi%ld:%d:%d:%d: %s: sense key = %x, "
 				      "ASC/ASCQ = %02x/%02x\n", ha->host_no,

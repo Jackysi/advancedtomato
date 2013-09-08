@@ -1322,9 +1322,10 @@ static void *as_init_queue(request_queue_t *q)
 {
 	struct as_data *ad;
 
-	ad = kmalloc_node(sizeof(*ad), GFP_KERNEL | __GFP_ZERO, q->node);
+	ad = kmalloc_node(sizeof(*ad), GFP_KERNEL, q->node);
 	if (!ad)
 		return NULL;
+	memset(ad, 0, sizeof(*ad));
 
 	ad->q = q; /* Identify what queue the data belongs to */
 

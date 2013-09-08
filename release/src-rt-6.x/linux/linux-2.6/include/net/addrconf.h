@@ -172,6 +172,25 @@ static inline void in6_ifa_put(struct inet6_ifaddr *ifp)
 
 
 extern void			addrconf_forwarding_on(void);
+/*
+ *	Hash function taken from net_alias.c
+ */
+
+static __inline__ u8 ipv6_addr_hash(const struct in6_addr *addr)
+{	
+	__u32 word;
+
+	/* 
+	 * We perform the hash function over the last 64 bits of the address
+	 * This will include the IEEE address token on links that support it.
+	 */
+
+	word = (__force u32)(addr->s6_addr32[2] ^ addr->s6_addr32[3]);
+	word ^= (word >> 16);
+	word ^= (word >> 8);
+
+	return ((word ^ (word >> 4)) & 0x0f);
+}
 
 /*
  *	compute link-local solicited-node multicast address
@@ -208,16 +227,18 @@ static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
 
 static inline int ipv6_addr_is_ll_all_nodes(const struct in6_addr *addr)
 {
-	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
-		addr->s6_addr32[1] | addr->s6_addr32[2] |
-		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0);
+	return (addr->s6_addr32[0] == htonl(0xff020000) &&
+		addr->s6_addr32[1] == 0 &&
+		addr->s6_addr32[2] == 0 &&
+		addr->s6_addr32[3] == htonl(0x00000001));
 }
 
 static inline int ipv6_addr_is_ll_all_routers(const struct in6_addr *addr)
 {
-	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
-		addr->s6_addr32[1] | addr->s6_addr32[2] |
-		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0);
+	return (addr->s6_addr32[0] == htonl(0xff020000) &&
+		addr->s6_addr32[1] == 0 &&
+		addr->s6_addr32[2] == 0 &&
+		addr->s6_addr32[3] == htonl(0x00000002));
 }
 
 #ifdef CONFIG_PROC_FS

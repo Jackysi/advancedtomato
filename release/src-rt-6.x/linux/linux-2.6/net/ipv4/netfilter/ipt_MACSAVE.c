@@ -16,7 +16,7 @@
 #include <linux/netfilter_ipv4/ipt_MACSAVE.h>
 
 static unsigned int
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
@@ -40,7 +40,7 @@ target(struct sk_buff *skb,
 #else
 //	const struct ipt_MACSAVE_target_info *info = par->targinfo;
 #endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	struct sk_buff *skb = *pskb;
 #endif
 	struct nf_conn *ct;

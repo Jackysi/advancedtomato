@@ -1037,8 +1037,8 @@ static int idescsi_eh_reset (struct scsi_cmnd *cmd)
 	}
 
 	/* kill current request */
-	if (__blk_end_request(req, -EIO, 0))
-		BUG();
+	blkdev_dequeue_request(req);
+	end_that_request_last(req, 0);
 	if (blk_sense_request(req))
 		kfree(scsi->pc->buffer);
 	kfree(scsi->pc);
@@ -1047,8 +1047,8 @@ static int idescsi_eh_reset (struct scsi_cmnd *cmd)
 
 	/* now nuke the drive queue */
 	while ((req = elv_next_request(drive->queue))) {
-		if (__blk_end_request(req, -EIO, 0))
-			BUG();
+		blkdev_dequeue_request(req);
+		end_that_request_last(req, 0);
 	}
 
 	HWGROUP(drive)->rq = NULL;

@@ -15,11 +15,6 @@
 #include <linux/netfilter/nf_conntrack_common.h>
 
 #ifdef __KERNEL__
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-#define	BCM_FASTNAT_DENY	1
-#endif
-
 #include <linux/bitops.h>
 #include <linux/compiler.h>
 #include <asm/atomic.h>
@@ -68,7 +63,6 @@ union nf_conntrack_expect_proto {
 #include <linux/netfilter/nf_conntrack_pptp.h>
 #include <linux/netfilter/nf_conntrack_h323.h>
 #include <linux/netfilter/nf_conntrack_sane.h>
-#include <linux/netfilter/nf_conntrack_sip.h>
 #include <linux/netfilter/nf_conntrack_autofw.h>
 
 /* per conntrack: application helper private data */
@@ -78,7 +72,6 @@ union nf_conntrack_help {
 	struct nf_ct_pptp_master ct_pptp_info;
 	struct nf_ct_h323_master ct_h323_info;
 	struct nf_ct_sane_master ct_sane_info;
-	struct nf_ct_sip_master ct_sip_info;
 	struct nf_ct_autofw_master ct_autofw_info;
 };
 
@@ -101,9 +94,6 @@ do {									\
 
 struct nf_conntrack_helper;
 
-/* Must be kept in sync with the classes defined by helpers */
-#define NF_CT_MAX_EXPECT_CLASSES	4
-
 /* nf_conn feature for connections that have a helper */
 struct nf_conn_help {
 	/* Helper. if any */
@@ -112,7 +102,7 @@ struct nf_conn_help {
 	union nf_conntrack_help help;
 
 	/* Current number of expected connections */
-	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
+	unsigned int expecting;
 };
 
 #ifdef HNDCTF
@@ -171,7 +161,6 @@ struct nf_conn
 	u_int32_t ctf_flags;
 #endif /* HNDCTF */
 
-	u_int32_t ipp2p;
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
 
@@ -196,16 +185,6 @@ nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
 {
 	return container_of(hash, struct nf_conn,
 			    tuplehash[hash->tuple.dst.dir]);
-}
-
-static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
-{
-	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
-}
-
-static inline u_int8_t nf_ct_protonum(const struct nf_conn *ct)
-{
-	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum;
 }
 
 /* get master conntrack via master expectation */
@@ -275,9 +254,11 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
 }
 
 /* These are for NAT.  Icky. */
-extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
-			       enum ip_conntrack_dir dir,
-			       u32 seq);
+/* Update TCP window tracking data when NAT mangles the packet */
+extern void nf_conntrack_tcp_update(struct sk_buff *skb,
+				    unsigned int dataoff,
+				    struct nf_conn *conntrack,
+				    int dir);
 
 /* Call me when a conntrack is destroyed. */
 extern void (*nf_conntrack_destroyed)(struct nf_conn *conntrack);

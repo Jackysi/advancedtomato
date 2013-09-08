@@ -92,87 +92,87 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int 
 		fentry = &filter[pc];
 
 		switch (fentry->code) {
-		case BPF_S_ALU_ADD_X:
+		case BPF_ALU|BPF_ADD|BPF_X:
 			A += X;
 			continue;
-		case BPF_S_ALU_ADD_K:
+		case BPF_ALU|BPF_ADD|BPF_K:
 			A += fentry->k;
 			continue;
-		case BPF_S_ALU_SUB_X:
+		case BPF_ALU|BPF_SUB|BPF_X:
 			A -= X;
 			continue;
-		case BPF_S_ALU_SUB_K:
+		case BPF_ALU|BPF_SUB|BPF_K:
 			A -= fentry->k;
 			continue;
-		case BPF_S_ALU_MUL_X:
+		case BPF_ALU|BPF_MUL|BPF_X:
 			A *= X;
 			continue;
-		case BPF_S_ALU_MUL_K:
+		case BPF_ALU|BPF_MUL|BPF_K:
 			A *= fentry->k;
 			continue;
-		case BPF_S_ALU_DIV_X:
+		case BPF_ALU|BPF_DIV|BPF_X:
 			if (X == 0)
 				return 0;
 			A /= X;
 			continue;
-		case BPF_S_ALU_DIV_K:
+		case BPF_ALU|BPF_DIV|BPF_K:
 			A /= fentry->k;
 			continue;
-		case BPF_S_ALU_AND_X:
+		case BPF_ALU|BPF_AND|BPF_X:
 			A &= X;
 			continue;
-		case BPF_S_ALU_AND_K:
+		case BPF_ALU|BPF_AND|BPF_K:
 			A &= fentry->k;
 			continue;
-		case BPF_S_ALU_OR_X:
+		case BPF_ALU|BPF_OR|BPF_X:
 			A |= X;
 			continue;
-		case BPF_S_ALU_OR_K:
+		case BPF_ALU|BPF_OR|BPF_K:
 			A |= fentry->k;
 			continue;
-		case BPF_S_ALU_LSH_X:
+		case BPF_ALU|BPF_LSH|BPF_X:
 			A <<= X;
 			continue;
-		case BPF_S_ALU_LSH_K:
+		case BPF_ALU|BPF_LSH|BPF_K:
 			A <<= fentry->k;
 			continue;
-		case BPF_S_ALU_RSH_X:
+		case BPF_ALU|BPF_RSH|BPF_X:
 			A >>= X;
 			continue;
-		case BPF_S_ALU_RSH_K:
+		case BPF_ALU|BPF_RSH|BPF_K:
 			A >>= fentry->k;
 			continue;
-		case BPF_S_ALU_NEG:
+		case BPF_ALU|BPF_NEG:
 			A = -A;
 			continue;
-		case BPF_S_JMP_JA:
+		case BPF_JMP|BPF_JA:
 			pc += fentry->k;
 			continue;
-		case BPF_S_JMP_JGT_K:
+		case BPF_JMP|BPF_JGT|BPF_K:
 			pc += (A > fentry->k) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JGE_K:
+		case BPF_JMP|BPF_JGE|BPF_K:
 			pc += (A >= fentry->k) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JEQ_K:
+		case BPF_JMP|BPF_JEQ|BPF_K:
 			pc += (A == fentry->k) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JSET_K:
+		case BPF_JMP|BPF_JSET|BPF_K:
 			pc += (A & fentry->k) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JGT_X:
+		case BPF_JMP|BPF_JGT|BPF_X:
 			pc += (A > X) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JGE_X:
+		case BPF_JMP|BPF_JGE|BPF_X:
 			pc += (A >= X) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JEQ_X:
+		case BPF_JMP|BPF_JEQ|BPF_X:
 			pc += (A == X) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_JMP_JSET_X:
+		case BPF_JMP|BPF_JSET|BPF_X:
 			pc += (A & X) ? fentry->jt : fentry->jf;
 			continue;
-		case BPF_S_LD_W_ABS:
+		case BPF_LD|BPF_W|BPF_ABS:
 			k = fentry->k;
 load_w:
 			ptr = load_pointer(skb, k, 4, &tmp);
@@ -181,7 +181,7 @@ load_w:
 				continue;
 			}
 			break;
-		case BPF_S_LD_H_ABS:
+		case BPF_LD|BPF_H|BPF_ABS:
 			k = fentry->k;
 load_h:
 			ptr = load_pointer(skb, k, 2, &tmp);
@@ -190,7 +190,7 @@ load_h:
 				continue;
 			}
 			break;
-		case BPF_S_LD_B_ABS:
+		case BPF_LD|BPF_B|BPF_ABS:
 			k = fentry->k;
 load_b:
 			ptr = load_pointer(skb, k, 1, &tmp);
@@ -199,54 +199,54 @@ load_b:
 				continue;
 			}
 			break;
-		case BPF_S_LD_W_LEN:
+		case BPF_LD|BPF_W|BPF_LEN:
 			A = skb->len;
 			continue;
-		case BPF_S_LDX_W_LEN:
+		case BPF_LDX|BPF_W|BPF_LEN:
 			X = skb->len;
 			continue;
-		case BPF_S_LD_W_IND:
+		case BPF_LD|BPF_W|BPF_IND:
 			k = X + fentry->k;
 			goto load_w;
-		case BPF_S_LD_H_IND:
+		case BPF_LD|BPF_H|BPF_IND:
 			k = X + fentry->k;
 			goto load_h;
-		case BPF_S_LD_B_IND:
+		case BPF_LD|BPF_B|BPF_IND:
 			k = X + fentry->k;
 			goto load_b;
-		case BPF_S_LDX_B_MSH:
+		case BPF_LDX|BPF_B|BPF_MSH:
 			ptr = load_pointer(skb, fentry->k, 1, &tmp);
 			if (ptr != NULL) {
 				X = (*(u8 *)ptr & 0xf) << 2;
 				continue;
 			}
 			return 0;
-		case BPF_S_LD_IMM:
+		case BPF_LD|BPF_IMM:
 			A = fentry->k;
 			continue;
-		case BPF_S_LDX_IMM:
+		case BPF_LDX|BPF_IMM:
 			X = fentry->k;
 			continue;
-		case BPF_S_LD_MEM:
+		case BPF_LD|BPF_MEM:
 			A = mem[fentry->k];
 			continue;
-		case BPF_S_LDX_MEM:
+		case BPF_LDX|BPF_MEM:
 			X = mem[fentry->k];
 			continue;
-		case BPF_S_MISC_TAX:
+		case BPF_MISC|BPF_TAX:
 			X = A;
 			continue;
-		case BPF_S_MISC_TXA:
+		case BPF_MISC|BPF_TXA:
 			A = X;
 			continue;
-		case BPF_S_RET_K:
+		case BPF_RET|BPF_K:
 			return fentry->k;
-		case BPF_S_RET_A:
+		case BPF_RET|BPF_A:
 			return A;
-		case BPF_S_ST:
+		case BPF_ST:
 			mem[fentry->k] = A;
 			continue;
-		case BPF_S_STX:
+		case BPF_STX:
 			mem[fentry->k] = X;
 			continue;
 		default:
@@ -305,128 +305,53 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
 		/* Only allow valid instructions */
 		switch (ftest->code) {
 		case BPF_ALU|BPF_ADD|BPF_K:
-			ftest->code = BPF_S_ALU_ADD_K;
-			break;
 		case BPF_ALU|BPF_ADD|BPF_X:
-			ftest->code = BPF_S_ALU_ADD_X;
-			break;
 		case BPF_ALU|BPF_SUB|BPF_K:
-			ftest->code = BPF_S_ALU_SUB_K;
-			break;
 		case BPF_ALU|BPF_SUB|BPF_X:
-			ftest->code = BPF_S_ALU_SUB_X;
-			break;
 		case BPF_ALU|BPF_MUL|BPF_K:
-			ftest->code = BPF_S_ALU_MUL_K;
-			break;
 		case BPF_ALU|BPF_MUL|BPF_X:
-			ftest->code = BPF_S_ALU_MUL_X;
-			break;
 		case BPF_ALU|BPF_DIV|BPF_X:
-			ftest->code = BPF_S_ALU_DIV_X;
-			break;
 		case BPF_ALU|BPF_AND|BPF_K:
-			ftest->code = BPF_S_ALU_AND_K;
-			break;
 		case BPF_ALU|BPF_AND|BPF_X:
-			ftest->code = BPF_S_ALU_AND_X;
-			break;
 		case BPF_ALU|BPF_OR|BPF_K:
-			ftest->code = BPF_S_ALU_OR_K;
-			break;
 		case BPF_ALU|BPF_OR|BPF_X:
-			ftest->code = BPF_S_ALU_OR_X;
-			break;
 		case BPF_ALU|BPF_LSH|BPF_K:
-			ftest->code = BPF_S_ALU_LSH_K;
-			break;
 		case BPF_ALU|BPF_LSH|BPF_X:
-			ftest->code = BPF_S_ALU_LSH_X;
-			break;
 		case BPF_ALU|BPF_RSH|BPF_K:
-			ftest->code = BPF_S_ALU_RSH_K;
-			break;
 		case BPF_ALU|BPF_RSH|BPF_X:
-			ftest->code = BPF_S_ALU_RSH_X;
-			break;
 		case BPF_ALU|BPF_NEG:
-			ftest->code = BPF_S_ALU_NEG;
-			break;
 		case BPF_LD|BPF_W|BPF_ABS:
-			ftest->code = BPF_S_LD_W_ABS;
-			break;
 		case BPF_LD|BPF_H|BPF_ABS:
-			ftest->code = BPF_S_LD_H_ABS;
-			break;
 		case BPF_LD|BPF_B|BPF_ABS:
-			ftest->code = BPF_S_LD_B_ABS;
-			break;
 		case BPF_LD|BPF_W|BPF_LEN:
-			ftest->code = BPF_S_LD_W_LEN;
-			break;
 		case BPF_LD|BPF_W|BPF_IND:
-			ftest->code = BPF_S_LD_W_IND;
-			break;
 		case BPF_LD|BPF_H|BPF_IND:
-			ftest->code = BPF_S_LD_H_IND;
-			break;
 		case BPF_LD|BPF_B|BPF_IND:
-			ftest->code = BPF_S_LD_B_IND;
-			break;
 		case BPF_LD|BPF_IMM:
-			ftest->code = BPF_S_LD_IMM;
-			break;
 		case BPF_LDX|BPF_W|BPF_LEN:
-			ftest->code = BPF_S_LDX_W_LEN;
-			break;
 		case BPF_LDX|BPF_B|BPF_MSH:
-			ftest->code = BPF_S_LDX_B_MSH;
-			break;
 		case BPF_LDX|BPF_IMM:
-			ftest->code = BPF_S_LDX_IMM;
-			break;
 		case BPF_MISC|BPF_TAX:
-			ftest->code = BPF_S_MISC_TAX;
-			break;
 		case BPF_MISC|BPF_TXA:
-			ftest->code = BPF_S_MISC_TXA;
-			break;
 		case BPF_RET|BPF_K:
-			ftest->code = BPF_S_RET_K;
-			break;
 		case BPF_RET|BPF_A:
-			ftest->code = BPF_S_RET_A;
 			break;
 
 		/* Some instructions need special checks */
 
-			/* check for division by zero */
 		case BPF_ALU|BPF_DIV|BPF_K:
+			/* check for division by zero */
 			if (ftest->k == 0)
 				return -EINVAL;
-			ftest->code = BPF_S_ALU_DIV_K;
 			break;
 
-		/* check for invalid memory addresses */
 		case BPF_LD|BPF_MEM:
-			if (ftest->k >= BPF_MEMWORDS)
-				return -EINVAL;
-			ftest->code = BPF_S_LD_MEM;
-			break;
 		case BPF_LDX|BPF_MEM:
-			if (ftest->k >= BPF_MEMWORDS)
-				return -EINVAL;
-			ftest->code = BPF_S_LDX_MEM;
-			break;
 		case BPF_ST:
-			if (ftest->k >= BPF_MEMWORDS)
-				return -EINVAL;
-			ftest->code = BPF_S_ST;
-			break;
 		case BPF_STX:
+			/* check for invalid memory addresses */
 			if (ftest->k >= BPF_MEMWORDS)
 				return -EINVAL;
-			ftest->code = BPF_S_STX;
 			break;
 
 		case BPF_JMP|BPF_JA:
@@ -437,63 +362,28 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
 			 */
 			if (ftest->k >= (unsigned)(flen-pc-1))
 				return -EINVAL;
-			ftest->code = BPF_S_JMP_JA;
 			break;
 
 		case BPF_JMP|BPF_JEQ|BPF_K:
-			ftest->code = BPF_S_JMP_JEQ_K;
-			break;
 		case BPF_JMP|BPF_JEQ|BPF_X:
-			ftest->code = BPF_S_JMP_JEQ_X;
-			break;
 		case BPF_JMP|BPF_JGE|BPF_K:
-			ftest->code = BPF_S_JMP_JGE_K;
-			break;
 		case BPF_JMP|BPF_JGE|BPF_X:
-			ftest->code = BPF_S_JMP_JGE_X;
-			break;
 		case BPF_JMP|BPF_JGT|BPF_K:
-			ftest->code = BPF_S_JMP_JGT_K;
-			break;
 		case BPF_JMP|BPF_JGT|BPF_X:
-			ftest->code = BPF_S_JMP_JGT_X;
-			break;
 		case BPF_JMP|BPF_JSET|BPF_K:
-			ftest->code = BPF_S_JMP_JSET_K;
-			break;
 		case BPF_JMP|BPF_JSET|BPF_X:
-			ftest->code = BPF_S_JMP_JSET_X;
-			break;
-
-		default:
-			return -EINVAL;
-		}
-
 			/* for conditionals both must be safe */
-		switch (ftest->code) {
-		case BPF_S_JMP_JEQ_K:
-		case BPF_S_JMP_JEQ_X:
-		case BPF_S_JMP_JGE_K:
-		case BPF_S_JMP_JGE_X:
-		case BPF_S_JMP_JGT_K:
-		case BPF_S_JMP_JGT_X:
-		case BPF_S_JMP_JSET_X:
-		case BPF_S_JMP_JSET_K:
 			if (pc + ftest->jt + 1 >= flen ||
 			    pc + ftest->jf + 1 >= flen)
 				return -EINVAL;
-		}
-	}
+			break;
 
-	/* last instruction must be a RET code */
-	switch (filter[flen - 1].code) {
-	case BPF_S_RET_K:
-	case BPF_S_RET_A:
-		return 0;
-		break;
 		default:
 			return -EINVAL;
 		}
+	}
+
+	return (BPF_CLASS(filter[flen - 1].code) == BPF_RET) ? 0 : -EINVAL;
 }
 
 /**

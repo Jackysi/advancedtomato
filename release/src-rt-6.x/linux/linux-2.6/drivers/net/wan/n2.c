@@ -351,11 +351,12 @@ static int __init n2_run(unsigned long io, unsigned long irq,
 		return -ENODEV;
 	}
 
-	card = kzalloc(sizeof(card_t), GFP_KERNEL);
+	card = kmalloc(sizeof(card_t), GFP_KERNEL);
 	if (card == NULL) {
 		printk(KERN_ERR "n2: unable to allocate memory\n");
 		return -ENOBUFS;
 	}
+	memset(card, 0, sizeof(card_t));
 
 	card->ports[0].dev = alloc_hdlcdev(&card->ports[0]);
 	card->ports[1].dev = alloc_hdlcdev(&card->ports[1]);

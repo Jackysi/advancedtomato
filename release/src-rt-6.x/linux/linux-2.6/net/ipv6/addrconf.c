@@ -451,15 +451,6 @@ static void dev_forward_change(struct inet6_dev *idev)
 	}
 }
 
-static u32 ipv6_addr_hash(const struct in6_addr *addr)
-{
-	/*
-	 * We perform the hash function over the last 64 bits of the address
-	 * This will include the IEEE address token on links that support it.
-	 */
-	return jhash_2words(addr->s6_addr32[2],  addr->s6_addr32[3], 0)
-		& (IN6_ADDR_HSIZE - 1);
-}
 
 static void addrconf_forward_change(void)
 {
@@ -534,7 +525,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
 {
 	struct inet6_ifaddr *ifa = NULL;
 	struct rt6_info *rt;
-	unsigned int hash;
+	int hash;
 	int err = 0;
 	int addr_type = ipv6_addr_type(addr);
 
@@ -1231,7 +1222,7 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
 int ipv6_chk_addr(struct in6_addr *addr, struct net_device *dev, int strict)
 {
 	struct inet6_ifaddr * ifp;
-	unsigned int hash = ipv6_addr_hash(addr);
+	u8 hash = ipv6_addr_hash(addr);
 
 	read_lock_bh(&addrconf_hash_lock);
 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
@@ -1252,7 +1243,7 @@ static
 int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev)
 {
 	struct inet6_ifaddr * ifp;
-	unsigned int hash = ipv6_addr_hash(addr);
+	u8 hash = ipv6_addr_hash(addr);
 
 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
 		if (ipv6_addr_equal(&ifp->addr, addr)) {
@@ -1266,7 +1257,7 @@ int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev)
 struct inet6_ifaddr * ipv6_get_ifaddr(struct in6_addr *addr, struct net_device *dev, int strict)
 {
 	struct inet6_ifaddr * ifp;
-	unsigned int hash = ipv6_addr_hash(addr);
+	u8 hash = ipv6_addr_hash(addr);
 
 	read_lock_bh(&addrconf_hash_lock);
 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
@@ -1569,7 +1560,6 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
 		.fc_expires = expires,
 		.fc_dst_len = plen,
 		.fc_flags = RTF_UP | flags,
-		.fc_protocol = RTPROT_KERNEL,
 	};
 
 	ipv6_addr_copy(&cfg.fc_dst, pfx);
@@ -1696,16 +1686,14 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
 	 *	2) Configure prefixes with the auto flag set
 	 */
 
-	if (valid_lft == INFINITY_LIFE_TIME)
-		rt_expires = ~0UL;
-	else if (valid_lft >= 0x7FFFFFFF/HZ) {
-		/* Avoid arithmetic overflow. Really, we could
-		 * save rt_expires in seconds, likely valid_lft,
-		 * but it would require division in fib gc, that it
-		 * not good.
-		 */
+	/* Avoid arithmetic overflow. Really, we could
+	   save rt_expires in seconds, likely valid_lft,
+	   but it would require division in fib gc, that it
+	   not good.
+	 */
+	if (valid_lft >= 0x7FFFFFFF/HZ)
 		rt_expires = 0x7FFFFFFF - (0x7FFFFFFF % HZ);
-	} else
+	else
 		rt_expires = valid_lft * HZ;
 
 	/*
@@ -1713,7 +1701,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
 	 * Avoid arithmetic overflow there as well.
 	 * Overflow can happen only if HZ < USER_HZ.
 	 */
-	if (HZ < USER_HZ && ~rt_expires && rt_expires > 0x7FFFFFFF / USER_HZ)
+	if (HZ < USER_HZ && rt_expires > 0x7FFFFFFF / USER_HZ)
 		rt_expires = 0x7FFFFFFF / USER_HZ;
 
 	if (pinfo->onlink) {
@@ -1721,28 +1709,17 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
 		rt = rt6_lookup(&pinfo->prefix, NULL, dev->ifindex, 1);
 
 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
-			/* Autoconf prefix route */
-			if (valid_lft == 0) {
-				ip6_del_rt(rt);
-				rt = NULL;
-			} else if (~rt_expires) {
-				/* not infinity */
-				rt->rt6i_expires = jiffies + rt_expires;
-				rt->rt6i_flags |= RTF_EXPIRES;
-			} else {
-				rt->rt6i_flags &= ~RTF_EXPIRES;
-				rt->rt6i_expires = 0;
+			if (rt->rt6i_flags&RTF_EXPIRES) {
+				if (valid_lft == 0) {
+					ip6_del_rt(rt);
+					rt = NULL;
+				} else {
+					rt->rt6i_expires = jiffies + rt_expires;
+				}
 			}
 		} else if (valid_lft) {
-			int flags = RTF_ADDRCONF | RTF_PREFIX_RT;
-			clock_t expires = 0;
-			if (~rt_expires) {
-				/* not infinity */
-				flags |= RTF_EXPIRES;
-				expires = jiffies_to_clock_t(rt_expires);
-			}
 			addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
-					      dev, expires, flags);
+					      dev, jiffies_to_clock_t(rt_expires), RTF_ADDRCONF|RTF_EXPIRES|RTF_PREFIX_RT);
 		}
 		if (rt)
 			dst_release(&rt->u.dst);
@@ -1882,9 +1859,6 @@ ok:
 				 * lifetimes of an existing temporary address
 				 * when processing a Prefix Information Option.
 				 */
-				if (ifp != ift->ifpub)
-					continue;
-
 				spin_lock(&ift->lock);
 				flags = ift->flags;
 				if (ift->valid_lft > valid_lft &&
@@ -1987,8 +1961,7 @@ static int inet6_addr_add(int ifindex, struct in6_addr *pfx, int plen,
 	struct inet6_dev *idev;
 	struct net_device *dev;
 	int scope;
-	u32 flags;
-	clock_t expires;
+	u32 flags = RTF_EXPIRES;
 
 	ASSERT_RTNL();
 
@@ -2008,13 +1981,8 @@ static int inet6_addr_add(int ifindex, struct in6_addr *pfx, int plen,
 	if (valid_lft == INFINITY_LIFE_TIME) {
 		ifa_flags |= IFA_F_PERMANENT;
 		flags = 0;
-		expires = 0;
-	} else {
-		if (valid_lft >= 0x7FFFFFFF/HZ)
-			valid_lft = 0x7FFFFFFF/HZ;
-		flags = RTF_EXPIRES;
-		expires = jiffies_to_clock_t(valid_lft * HZ);
-	}
+	} else if (valid_lft >= 0x7FFFFFFF/HZ)
+		valid_lft = 0x7FFFFFFF/HZ;
 
 	if (prefered_lft == 0)
 		ifa_flags |= IFA_F_DEPRECATED;
@@ -2032,7 +2000,7 @@ static int inet6_addr_add(int ifindex, struct in6_addr *pfx, int plen,
 		spin_unlock_bh(&ifp->lock);
 
 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
-				      expires, flags);
+				      jiffies_to_clock_t(valid_lft * HZ), flags);
 		/*
 		 * Note that section 3.1 of RFC 4429 indicates
 		 * that the Optimistic flag should not be set for
@@ -2889,8 +2857,24 @@ static struct seq_operations if6_seq_ops = {
 
 static int if6_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &if6_seq_ops,
-			sizeof(struct if6_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct if6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &if6_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations if6_fops = {
@@ -2920,8 +2904,7 @@ int ipv6_chk_home_addr(struct in6_addr *addr)
 {
 	int ret = 0;
 	struct inet6_ifaddr * ifp;
-	unsigned int hash = ipv6_addr_hash(addr);
-
+	u8 hash = ipv6_addr_hash(addr);
 	read_lock_bh(&addrconf_hash_lock);
 	for (ifp = inet6_addr_lst[hash]; ifp; ifp = ifp->lst_next) {
 		if (ipv6_addr_cmp(&ifp->addr, addr) == 0 &&
@@ -3091,8 +3074,7 @@ inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
 static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
 			     u32 prefered_lft, u32 valid_lft)
 {
-	u32 flags;
-	clock_t expires;
+	u32 flags = RTF_EXPIRES;
 
 	if (!valid_lft || (prefered_lft > valid_lft))
 		return -EINVAL;
@@ -3100,13 +3082,8 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
 	if (valid_lft == INFINITY_LIFE_TIME) {
 		ifa_flags |= IFA_F_PERMANENT;
 		flags = 0;
-		expires = 0;
-	} else {
-		if (valid_lft >= 0x7FFFFFFF/HZ)
-			valid_lft = 0x7FFFFFFF/HZ;
-		flags = RTF_EXPIRES;
-		expires = jiffies_to_clock_t(valid_lft * HZ);
-	}
+	} else if (valid_lft >= 0x7FFFFFFF/HZ)
+		valid_lft = 0x7FFFFFFF/HZ;
 
 	if (prefered_lft == 0)
 		ifa_flags |= IFA_F_DEPRECATED;
@@ -3125,7 +3102,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
 		ipv6_ifa_notify(0, ifp);
 
 	addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
-			      expires, flags);
+			      jiffies_to_clock_t(valid_lft * HZ), flags);
 	addrconf_verify(0);
 
 	return 0;
@@ -3256,10 +3233,7 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
 		valid = ifa->valid_lft;
 		if (preferred != INFINITY_LIFE_TIME) {
 			long tval = (jiffies - ifa->tstamp)/HZ;
-			if (preferred > tval)
-				preferred -= tval;
-			else
-				preferred = 0;
+			preferred -= tval;
 			if (valid != INFINITY_LIFE_TIME)
 				valid -= tval;
 		}
@@ -3710,10 +3684,10 @@ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
 		kfree_skb(skb);
 		goto errout;
 	}
-	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFINFO, NULL, GFP_ATOMIC);
+	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
 errout:
 	if (err < 0)
-		rtnl_set_sk_err(RTNLGRP_IPV6_IFINFO, err);
+		rtnl_set_sk_err(RTNLGRP_IPV6_IFADDR, err);
 }
 
 static inline size_t inet6_prefix_nlmsg_size(void)

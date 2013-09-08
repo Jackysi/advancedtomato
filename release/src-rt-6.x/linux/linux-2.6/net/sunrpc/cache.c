@@ -1219,15 +1219,23 @@ static struct seq_operations cache_content_op = {
 
 static int content_open(struct inode *inode, struct file *file)
 {
+	int res;
 	struct handle *han;
 	struct cache_detail *cd = PDE(inode)->data;
 
-	han = __seq_open_private(file, &cache_content_op, sizeof(*han));
+	han = kmalloc(sizeof(*han), GFP_KERNEL);
 	if (han == NULL)
 		return -ENOMEM;
 
 	han->cd = cd;
-	return 0;
+
+	res = seq_open(file, &cache_content_op);
+	if (res)
+		kfree(han);
+	else
+		((struct seq_file *)file->private_data)->private = han;
+
+	return res;
 }
 
 static const struct file_operations content_file_operations = {

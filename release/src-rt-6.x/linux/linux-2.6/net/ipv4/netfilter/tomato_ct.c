@@ -76,7 +76,7 @@ static int hashdist_read(char *buffer, char **start, off_t offset, int length, i
 #endif
 
 
-static void iterate_all(void (*func)(struct nf_conn *, unsigned long), unsigned long data)
+static void interate_all(void (*func)(struct nf_conn *, unsigned long), unsigned long data)
 {
 	unsigned int i;
 	struct nf_conntrack_tuple_hash *h;
@@ -112,12 +112,12 @@ static int expireearly_write(struct file *file, const char *buffer, unsigned lon
 		if (n < 10) n = 10;
 			else if (n > 86400) n = 86400;
 		
-		iterate_all(expireearly, jiffies + (n * HZ));
+		interate_all(expireearly, jiffies + (n * HZ));
 	}
 
 /*	
 	if ((length > 0) && (buffer[0] == '1')) {
-		iterate_all(expireearly, jiffies + (20 * HZ));
+		interate_all(expireearly, jiffies + (20 * HZ));
 	}
 */
 	
@@ -133,20 +133,7 @@ static void clearmarks(struct nf_conn *ct, unsigned long data)
 static int clearmarks_write(struct file *file, const char *buffer, unsigned long length, void *data)
 {
 	if ((length > 0) && (buffer[0] == '1')) {
-		iterate_all(clearmarks, 0);
-	}
-	return length;
-}
-
-static int conntrack_clear_write(struct file *file, const char *buffer, unsigned long length, void *data)
-{
-	if ((length > 0) && (buffer[0] == '1')) {
- i_see_dead_people:
-		nf_conntrack_flush();
-		if (atomic_read(&nf_conntrack_count) != 0) {
-			schedule();
-			goto i_see_dead_people;
-		}
+		interate_all(clearmarks, 0);
 	}
 	return length;
 }
@@ -171,17 +158,11 @@ static int __init init(void)
 		p->owner = THIS_MODULE;
 		p->write_proc = expireearly_write;
 	}
-
+	
 	p = create_proc_entry("clear_marks", 0200, proc_net);
 	if (p) {
 		p->owner = THIS_MODULE;
 		p->write_proc = clearmarks_write;
-	}
-
-	p = create_proc_entry("conntrack_clear", 0200, proc_net);
-	if (p) {
-		p->owner = THIS_MODULE;
-		p->write_proc = conntrack_clear_write;
 	}
 #endif /* CONFIG_PROC_FS */
 	
@@ -196,7 +177,6 @@ static void __exit fini(void)
 #endif
 	remove_proc_entry("expire_early", proc_net);
 	remove_proc_entry("clear_marks", proc_net);
-	remove_proc_entry("conntrack_clear", proc_net);
 #endif /* CONFIG_PROC_FS */
 }
 

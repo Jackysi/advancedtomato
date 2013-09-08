@@ -2435,8 +2435,24 @@ static struct seq_operations igmp6_mc_seq_ops = {
 
 static int igmp6_mc_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &igmp6_mc_seq_ops,
-			sizeof(struct igmp6_mc_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct igmp6_mc_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &igmp6_mc_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations igmp6_mc_seq_fops = {
@@ -2593,8 +2609,24 @@ static struct seq_operations igmp6_mcf_seq_ops = {
 
 static int igmp6_mcf_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &igmp6_mcf_seq_ops,
-			sizeof(struct igmp6_mcf_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct igmp6_mcf_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &igmp6_mcf_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations igmp6_mcf_seq_fops = {

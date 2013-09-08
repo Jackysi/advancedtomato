@@ -298,7 +298,6 @@ static inline int do_read_onechip(struct map_info *map, struct flchip *chip, lof
 				/* make sure we're in 'read status' mode */
 				map_write(map, CMD(0x70), cmd_addr);
 				chip->state = FL_ERASING;
-				wake_up(&chip->wq);
 				spin_unlock_bh(chip->mutex);
 				printk(KERN_ERR "Chip not ready after erase "
 				       "suspended: status = 0x%lx\n", status.x[0]);
@@ -1016,7 +1015,6 @@ static void cfi_staa_sync (struct mtd_info *mtd)
 
 		default:
 			/* Not an idle state */
-			set_current_state(TASK_UNINTERRUPTIBLE);
 			add_wait_queue(&chip->wq, &wait);
 
 			spin_unlock_bh(chip->mutex);

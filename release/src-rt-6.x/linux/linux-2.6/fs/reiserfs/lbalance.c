@@ -389,8 +389,7 @@ static void leaf_item_bottle(struct buffer_info *dest_bi,
 
 	if (last_first == FIRST_TO_LAST) {
 		/* if ( if item in position item_num in buffer SOURCE is directory item ) */
-		ih = B_N_PITEM_HEAD(src, item_num);
-		if (is_direntry_le_ih(ih))
+		if (is_direntry_le_ih(ih = B_N_PITEM_HEAD(src, item_num)))
 			leaf_copy_dir_entries(dest_bi, src, FIRST_TO_LAST,
 					      item_num, 0, cpy_bytes);
 		else {
@@ -418,8 +417,7 @@ static void leaf_item_bottle(struct buffer_info *dest_bi,
 		}
 	} else {
 		/*  if ( if item in position item_num in buffer SOURCE is directory item ) */
-		ih = B_N_PITEM_HEAD(src, item_num);
-		if (is_direntry_le_ih(ih))
+		if (is_direntry_le_ih(ih = B_N_PITEM_HEAD(src, item_num)))
 			leaf_copy_dir_entries(dest_bi, src, LAST_TO_FIRST,
 					      item_num,
 					      I_ENTRY_COUNT(ih) - cpy_bytes,
@@ -776,8 +774,8 @@ void leaf_delete_items(struct buffer_info *cur_bi, int last_first,
 			leaf_delete_items_entirely(cur_bi, first + 1,
 						   del_num - 1);
 
-			ih = B_N_PITEM_HEAD(bh, B_NR_ITEMS(bh) - 1);
-			if (is_direntry_le_ih(ih))
+			if (is_direntry_le_ih
+			    (ih = B_N_PITEM_HEAD(bh, B_NR_ITEMS(bh) - 1)))
 				/* the last item is directory  */
 				/* len = numbers of directory entries in this item */
 				len = ih_entry_count(ih);

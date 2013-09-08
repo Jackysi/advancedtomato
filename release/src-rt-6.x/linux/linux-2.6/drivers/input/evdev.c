@@ -326,7 +326,7 @@ static unsigned int evdev_poll(struct file *file, poll_table *wait)
 #ifdef CONFIG_COMPAT
 
 #define BITS_PER_LONG_COMPAT (sizeof(compat_long_t) * 8)
-#define BITS_TO_LONGS_COMPAT(x) ((((x) - 1) / BITS_PER_LONG_COMPAT) + 1)
+#define NBITS_COMPAT(x) ((((x) - 1) / BITS_PER_LONG_COMPAT) + 1)
 
 #ifdef __BIG_ENDIAN
 static int bits_to_user(unsigned long *bits, unsigned int maxbit,
@@ -335,7 +335,7 @@ static int bits_to_user(unsigned long *bits, unsigned int maxbit,
 	int len, i;
 
 	if (compat) {
-		len = BITS_TO_LONGS_COMPAT(maxbit) * sizeof(compat_long_t);
+		len = NBITS_COMPAT(maxbit) * sizeof(compat_long_t);
 		if (len > maxlen)
 			len = maxlen;
 
@@ -346,7 +346,7 @@ static int bits_to_user(unsigned long *bits, unsigned int maxbit,
 					 sizeof(compat_long_t)))
 				return -EFAULT;
 	} else {
-		len = BITS_TO_LONGS(maxbit) * sizeof(long);
+		len = NBITS(maxbit) * sizeof(long);
 		if (len > maxlen)
 			len = maxlen;
 
@@ -361,8 +361,8 @@ static int bits_to_user(unsigned long *bits, unsigned int maxbit,
 			unsigned int maxlen, void __user *p, int compat)
 {
 	int len = compat ?
-			BITS_TO_LONGS_COMPAT(maxbit) * sizeof(compat_long_t) :
-			BITS_TO_LONGS(maxbit) * sizeof(long);
+			NBITS_COMPAT(maxbit) * sizeof(compat_long_t) :
+			NBITS(maxbit) * sizeof(long);
 
 	if (len > maxlen)
 		len = maxlen;
@@ -376,7 +376,7 @@ static int bits_to_user(unsigned long *bits, unsigned int maxbit,
 static int bits_to_user(unsigned long *bits, unsigned int maxbit,
 			unsigned int maxlen, void __user *p, int compat)
 {
-	int len = BITS_TO_LONGS(maxbit) * sizeof(long);
+	int len = NBITS(maxbit) * sizeof(long);
 
 	if (len > maxlen)
 		len = maxlen;

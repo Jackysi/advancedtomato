@@ -84,7 +84,7 @@ extern void __set_fixmap (enum fixed_addresses idx,
 #else
 #define FIXADDR_TOP	((unsigned long)(long)(int)0xfffe0000)
 #endif
-#define FIXADDR_SIZE   (__end_of_fixed_addresses << (VALIAS_PAGE_SHIFT))
+#define FIXADDR_SIZE	(__end_of_fixed_addresses << (VALIAS_PAGE_SHIFT))
 #define FIXADDR_START	(FIXADDR_TOP - FIXADDR_SIZE)
 
 #define __fix_to_virt(x)	(FIXADDR_TOP - ((x) << PAGE_SHIFT))

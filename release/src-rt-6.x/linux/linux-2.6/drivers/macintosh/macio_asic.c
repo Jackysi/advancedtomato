@@ -365,9 +365,10 @@ static struct macio_dev * macio_add_one_device(struct macio_chip *chip,
 	if (np == NULL)
 		return NULL;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return NULL;
+	memset(dev, 0, sizeof(*dev));
 
 	dev->bus = &chip->lbus;
 	dev->media_bay = in_bay;

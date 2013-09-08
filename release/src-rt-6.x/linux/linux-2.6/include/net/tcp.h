@@ -1281,8 +1281,8 @@ struct tcp_seq_afinfo {
 	struct module		*owner;
 	char			*name;
 	sa_family_t		family;
-	struct file_operations	seq_fops;
-	struct seq_operations	seq_ops;
+	int			(*seq_show) (struct seq_file *m, void *v);
+	struct file_operations	*seq_fops;
 };
 
 struct tcp_iter_state {
@@ -1290,6 +1290,7 @@ struct tcp_iter_state {
 	enum tcp_seq_states	state;
 	struct sock		*syn_wait_sk;
 	int			bucket, sbucket, num, uid;
+	struct seq_operations	seq_ops;
 };
 
 extern int tcp_proc_register(struct tcp_seq_afinfo *afinfo);
@@ -1301,6 +1302,14 @@ extern int tcp_v4_destroy_sock(struct sock *sk);
 
 extern int tcp_v4_gso_send_check(struct sk_buff *skb);
 extern struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features);
+#ifdef CONFIG_INET_GRO
+extern struct sk_buff **tcp_gro_receive(struct sk_buff **head,
+					struct sk_buff *skb);
+extern struct sk_buff **tcp4_gro_receive(struct sk_buff **heade,
+					 struct sk_buff *skb);
+extern int tcp_gro_complete(struct sk_buff *skb);
+extern int tcp4_gro_complete(struct sk_buff *skb);
+#endif /* CONFIG_INET_GRO */
 
 #ifdef CONFIG_PROC_FS
 extern int  tcp4_proc_init(void);

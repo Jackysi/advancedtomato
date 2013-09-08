@@ -40,7 +40,7 @@
 #include "scsi_logging.h"
 
 
-static atomic_t scsi_host_next_hn;	/* host_no for next new host */
+static int scsi_host_next_hn;		/* host_no for next new host */
 
 
 static void scsi_host_cls_release(struct class_device *class_dev)
@@ -165,8 +165,8 @@ void scsi_remove_host(struct Scsi_Host *shost)
 			return;
 		}
 	spin_unlock_irqrestore(shost->host_lock, flags);
-	scsi_forget_host(shost);
 	mutex_unlock(&shost->scan_mutex);
+	scsi_forget_host(shost);
 	scsi_proc_host_rm(shost);
 
 	spin_lock_irqsave(shost->host_lock, flags);
@@ -177,6 +177,7 @@ void scsi_remove_host(struct Scsi_Host *shost)
 	transport_unregister_device(&shost->shost_gendev);
 	class_device_unregister(&shost->shost_classdev);
 	device_del(&shost->shost_gendev);
+	scsi_proc_hostdir_rm(shost->hostt);
 }
 EXPORT_SYMBOL(scsi_remove_host);
 
@@ -199,12 +200,8 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 	if (!shost->can_queue) {
 		printk(KERN_ERR "%s: can_queue = 0 no longer supported\n",
 				sht->name);
-		goto fail;
+		goto out;
 	}
-
-	error = scsi_setup_command_freelist(shost);
-	if (error)
-		goto fail;
 
 	if (!shost->shost_gendev.parent)
 		shost->shost_gendev.parent = dev ? dev : &platform_bus;
@@ -222,24 +219,18 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 
 	get_device(&shost->shost_gendev);
 
-	if (shost->transportt->host_size) {
-		shost->shost_data = kzalloc(shost->transportt->host_size,
-					 GFP_KERNEL);
-		if (shost->shost_data == NULL) {
-			error = -ENOMEM;
-			goto out_del_classdev;
-		}
-	}
+	if (shost->transportt->host_size &&
+	    (shost->shost_data = kmalloc(shost->transportt->host_size,
+					 GFP_KERNEL)) == NULL)
+		goto out_del_classdev;
 
 	if (shost->transportt->create_work_queue) {
 		snprintf(shost->work_q_name, KOBJ_NAME_LEN, "scsi_wq_%d",
 			shost->host_no);
 		shost->work_q = create_singlethread_workqueue(
 					shost->work_q_name);
-		if (!shost->work_q) {
-			error = -EINVAL;
+		if (!shost->work_q)
 			goto out_free_shost_data;
-		}
 	}
 
 	error = scsi_sysfs_add_host(shost);
@@ -259,8 +250,6 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
  out_del_gendev:
 	device_del(&shost->shost_gendev);
  out:
-	scsi_destroy_command_freelist(shost);
- fail:
 	return error;
 }
 EXPORT_SYMBOL(scsi_add_host);
@@ -269,8 +258,6 @@ static void scsi_host_dev_release(struct device *dev)
 {
 	struct Scsi_Host *shost = dev_to_shost(dev);
 	struct device *parent = dev->parent;
-
-	scsi_proc_hostdir_rm(shost->hostt);
 
 	if (shost->ehandler)
 		kthread_stop(shost->ehandler);
@@ -329,11 +316,7 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 
 	mutex_init(&shost->scan_mutex);
 
-	/*
-	 * subtract one because we increment first then return, but we need to
-	 * know what the next host number was before increment
-	 */
-	shost->host_no = atomic_inc_return(&scsi_host_next_hn) - 1;
+	shost->host_no = scsi_host_next_hn++; /* XXX(hch): still racy */
 	shost->dma_channel = 0xff;
 
 	/* These three are default values which can be overridden */
@@ -382,6 +365,10 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 	else
 		shost->dma_boundary = 0xffffffff;
 
+	rval = scsi_setup_command_freelist(shost);
+	if (rval)
+		goto fail_kfree;
+
 	device_initialize(&shost->shost_gendev);
 	snprintf(shost->shost_gendev.bus_id, BUS_ID_SIZE, "host%d",
 		shost->host_no);
@@ -397,12 +384,14 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 			"scsi_eh_%d", shost->host_no);
 	if (IS_ERR(shost->ehandler)) {
 		rval = PTR_ERR(shost->ehandler);
-		goto fail_kfree;
+		goto fail_destroy_freelist;
 	}
 
 	scsi_proc_hostdir_add(shost->hostt);
 	return shost;
 
+ fail_destroy_freelist:
+	scsi_destroy_command_freelist(shost);
  fail_kfree:
 	kfree(shost);
 	return NULL;

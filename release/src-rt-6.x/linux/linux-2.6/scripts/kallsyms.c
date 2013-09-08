@@ -31,7 +31,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define KSYM_NAME_LEN		128
+#define KSYM_NAME_LEN		127
 
 
 struct sym_entry {
@@ -43,7 +43,7 @@ struct sym_entry {
 
 static struct sym_entry *table;
 static unsigned int table_size, table_cnt;
-static unsigned long long _text, _stext, _etext, _sinittext, _einittext;
+static unsigned long long _text, _stext, _etext, _sinittext, _einittext, _sextratext, _eextratext;
 static int all_symbols = 0;
 static char symbol_prefix_char = '\0';
 
@@ -101,6 +101,10 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 		_sinittext = s->addr;
 	else if (strcmp(sym, "_einittext") == 0)
 		_einittext = s->addr;
+	else if (strcmp(sym, "_sextratext") == 0)
+		_sextratext = s->addr;
+	else if (strcmp(sym, "_eextratext") == 0)
+		_eextratext = s->addr;
 	else if (toupper(stype) == 'A')
 	{
 		/* Keep these useful absolute symbols */
@@ -163,18 +167,18 @@ static int symbol_valid(struct sym_entry *s)
 	 * and inittext sections are discarded */
 	if (!all_symbols) {
 		if ((s->addr < _stext || s->addr > _etext)
-		    && (s->addr < _sinittext || s->addr > _einittext))
+		    && (s->addr < _sinittext || s->addr > _einittext)
+		    && (s->addr < _sextratext || s->addr > _eextratext))
 			return 0;
 		/* Corner case.  Discard any symbols with the same value as
-		 * _etext _einittext; they can move between pass 1 and 2 when
-		 * the kallsyms data are added.  If these symbols move then
-		 * they may get dropped in pass 2, which breaks the kallsyms
-		 * rules.
+		 * _etext _einittext or _eextratext; they can move between pass
+		 * 1 and 2 when the kallsyms data are added.  If these symbols
+		 * move then they may get dropped in pass 2, which breaks the
+		 * kallsyms rules.
 		 */
-		if ((s->addr == _etext &&
-				strcmp((char *)s->sym + offset, "_etext")) ||
-		    (s->addr == _einittext &&
-				strcmp((char *)s->sym + offset, "_einittext")))
+		if ((s->addr == _etext && strcmp((char*)s->sym + offset, "_etext")) ||
+		    (s->addr == _einittext && strcmp((char*)s->sym + offset, "_einittext")) ||
+		    (s->addr == _eextratext && strcmp((char*)s->sym + offset, "_eextratext")))
 			return 0;
 	}
 
@@ -250,7 +254,7 @@ static void write_src(void)
 	unsigned int i, k, off;
 	unsigned int best_idx[256];
 	unsigned int *markers;
-	char buf[KSYM_NAME_LEN];
+	char buf[KSYM_NAME_LEN+1];
 
 	printf("#include <asm/types.h>\n");
 	printf("#if BITS_PER_LONG == 64\n");

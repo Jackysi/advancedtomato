@@ -1006,14 +1006,16 @@ void __init r4k_probe_cache(void)
 	ways = 1 + ((config1 >> 7) & 7);
 
 	if (lsize) {
-		shm_align_mask = max_t( unsigned long,
-					sets * lsize - 1,
-					PAGE_SIZE - 1);
+                shm_align_mask = max_t( unsigned long,
+                                        sets * lsize - 1,
+                                        PAGE_SIZE - 1);
 
-		if (shm_align_mask != (PAGE_SIZE - 1))
-			shm_align_shift = ffs((shm_align_mask + 1)) - 1;
-	} else
-		shm_align_mask = PAGE_SIZE-1;
+                if (shm_align_mask != (PAGE_SIZE - 1))
+                        shm_align_shift = ffs((shm_align_mask + 1)) - 1;
+        } else
+                shm_align_mask = PAGE_SIZE-1;
+
+		
 }
 
 /*
@@ -1028,6 +1030,7 @@ static int __cpuinit probe_scache(void)
 	unsigned long flags, addr, begin, end, pow2;
 	unsigned int config = read_c0_config();
 	struct cpuinfo_mips *c = &current_cpu_data;
+	int tmp;
 
 	if (config & CONF_SC)
 		return 0;
@@ -1060,6 +1063,7 @@ static int __cpuinit probe_scache(void)
 
 	/* Now search for the wrap around point. */
 	pow2 = (128 * 1024);
+	tmp = 0;
 	for (addr = begin + (128 * 1024); addr < end; addr = begin + pow2) {
 		cache_op(Index_Load_Tag_SD, addr);
 		__asm__ __volatile__("nop; nop; nop; nop;"); /* hazard... */
@@ -1284,7 +1288,7 @@ void __cpuinit r4k_cache_init(void)
 	 * This code supports virtually indexed processors and will be
 	 * unnecessarily inefficient on physically indexed processors.
 	 */
-
+	 
 	flush_cache_all		= r4k_flush_cache_all;
 	__flush_cache_all	= r4k___flush_cache_all;
 	flush_cache_mm		= r4k_flush_cache_mm;

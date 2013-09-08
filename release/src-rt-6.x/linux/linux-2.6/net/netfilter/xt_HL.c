@@ -26,7 +26,7 @@ MODULE_DESCRIPTION("Xtables: Hoplimit/TTL Limit field modification target");
 MODULE_LICENSE("GPL");
 
 static unsigned int
-ttl_tg(struct sk_buff *skb,
+ttl_tg(struct sk_buff **pskb,
        const struct net_device *in, const struct net_device *out,
        unsigned int hooknum, const struct xt_target *target,
        const void *targinfo)
@@ -35,10 +35,10 @@ ttl_tg(struct sk_buff *skb,
 	const struct ipt_TTL_info *info = targinfo;
 	int new_ttl;
 
-	if (!skb_make_writable(skb, skb->len))
+	if (!skb_make_writable(pskb, (*pskb)->len))
 		return NF_DROP;
 
-	iph = ip_hdr(skb);
+	iph = ip_hdr(*pskb);
 
 	switch (info->mode) {
 		case IPT_TTL_SET:
@@ -69,7 +69,7 @@ ttl_tg(struct sk_buff *skb,
 }
 
 static unsigned int
-hl_tg6(struct sk_buff *skb,
+hl_tg6(struct sk_buff **pskb,
        const struct net_device *in, const struct net_device *out,
        unsigned int hooknum, const struct xt_target *target,
        const void *targinfo)
@@ -78,10 +78,10 @@ hl_tg6(struct sk_buff *skb,
 	const struct ip6t_HL_info *info = targinfo;
 	int new_hl;
 
-	if (!skb_make_writable(skb, skb->len))
+	if (!skb_make_writable(pskb, (*pskb)->len))
 		return NF_DROP;
 
-	ip6h = ipv6_hdr(skb);
+	ip6h = ipv6_hdr(*pskb);
 
 	switch (info->mode) {
 		case IP6T_HL_SET:

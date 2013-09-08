@@ -29,7 +29,6 @@
 #include <linux/parser.h>
 #include <linux/smp_lock.h>
 #include <linux/buffer_head.h>
-#include <linux/exportfs.h>
 #include <linux/vfs.h>
 #include <linux/random.h>
 #include <linux/mount.h>
@@ -604,10 +603,13 @@ static int ext4_show_options(struct seq_file *seq, struct vfsmount *vfs)
 }
 
 
-static struct inode *ext4_nfs_get_inode(struct super_block *sb,
-		u64 ino, u32 generation)
+static struct dentry *ext4_get_dentry(struct super_block *sb, void *vobjp)
 {
+	__u32 *objp = vobjp;
+	unsigned long ino = objp[0];
+	__u32 generation = objp[1];
 	struct inode *inode;
+	struct dentry *result;
 
 	if (ino < EXT4_FIRST_INO(sb) && ino != EXT4_ROOT_INO)
 		return ERR_PTR(-ESTALE);
@@ -630,22 +632,15 @@ static struct inode *ext4_nfs_get_inode(struct super_block *sb,
 		iput(inode);
 		return ERR_PTR(-ESTALE);
 	}
-
-	return inode;
-}
-
-static struct dentry *ext4_fh_to_dentry(struct super_block *sb, struct fid *fid,
-		int fh_len, int fh_type)
-{
-	return generic_fh_to_dentry(sb, fid, fh_len, fh_type,
-				    ext4_nfs_get_inode);
-}
-
-static struct dentry *ext4_fh_to_parent(struct super_block *sb, struct fid *fid,
-		int fh_len, int fh_type)
-{
-	return generic_fh_to_parent(sb, fid, fh_len, fh_type,
-				    ext4_nfs_get_inode);
+	/* now to find a dentry.
+	 * If possible, get a well-connected one
+	 */
+	result = d_alloc_anon(inode);
+	if (!result) {
+		iput(inode);
+		return ERR_PTR(-ENOMEM);
+	}
+	return result;
 }
 
 #ifdef CONFIG_QUOTA
@@ -714,10 +709,9 @@ static const struct super_operations ext4_sops = {
 #endif
 };
 
-static const struct export_operations ext4_export_ops = {
-	.fh_to_dentry = ext4_fh_to_dentry,
-	.fh_to_parent = ext4_fh_to_parent,
+static struct export_operations ext4_export_ops = {
 	.get_parent = ext4_get_parent,
+	.get_dentry = ext4_get_dentry,
 };
 
 enum {

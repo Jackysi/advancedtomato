@@ -28,8 +28,6 @@
 #include <linux/reiserfs_fs_sb.h>
 #endif
 
-struct fid;
-
 /*
  *  include/linux/reiser_fs.h
  *
@@ -616,54 +614,23 @@ static inline void set_le_key_k_type(int version, struct reiserfs_key *key,
 		   cpu_to_le32(type2uniqueness(type)))
 	    : (void)(set_offset_v2_k_type(&(key->u.k_offset_v2), type));
 }
-
 static inline void set_le_ih_k_type(struct item_head *ih, int type)
 {
 	set_le_key_k_type(ih_version(ih), &(ih->ih_key), type);
 }
 
-static inline int is_direntry_le_key(int version, struct reiserfs_key *key)
-{
-	return le_key_k_type(version, key) == TYPE_DIRENTRY;
-}
-
-static inline int is_direct_le_key(int version, struct reiserfs_key *key)
-{
-	return le_key_k_type(version, key) == TYPE_DIRECT;
-}
-
-static inline int is_indirect_le_key(int version, struct reiserfs_key *key)
-{
-	return le_key_k_type(version, key) == TYPE_INDIRECT;
-}
-
-static inline int is_statdata_le_key(int version, struct reiserfs_key *key)
-{
-	return le_key_k_type(version, key) == TYPE_STAT_DATA;
-}
+#define is_direntry_le_key(version,key) (le_key_k_type (version, key) == TYPE_DIRENTRY)
+#define is_direct_le_key(version,key) (le_key_k_type (version, key) == TYPE_DIRECT)
+#define is_indirect_le_key(version,key) (le_key_k_type (version, key) == TYPE_INDIRECT)
+#define is_statdata_le_key(version,key) (le_key_k_type (version, key) == TYPE_STAT_DATA)
 
 //
 // item header has version.
 //
-static inline int is_direntry_le_ih(struct item_head *ih)
-{
-	return is_direntry_le_key(ih_version(ih), &ih->ih_key);
-}
-
-static inline int is_direct_le_ih(struct item_head *ih)
-{
-	return is_direct_le_key(ih_version(ih), &ih->ih_key);
-}
-
-static inline int is_indirect_le_ih(struct item_head *ih)
-{
-	return is_indirect_le_key(ih_version(ih), &ih->ih_key);
-}
-
-static inline int is_statdata_le_ih(struct item_head *ih)
-{
-	return is_statdata_le_key(ih_version(ih), &ih->ih_key);
-}
+#define is_direntry_le_ih(ih) is_direntry_le_key (ih_version (ih), &((ih)->ih_key))
+#define is_direct_le_ih(ih) is_direct_le_key (ih_version (ih), &((ih)->ih_key))
+#define is_indirect_le_ih(ih) is_indirect_le_key (ih_version(ih), &((ih)->ih_key))
+#define is_statdata_le_ih(ih) is_statdata_le_key (ih_version (ih), &((ih)->ih_key))
 
 //
 // key is pointer to cpu key, result is cpu
@@ -1900,10 +1867,12 @@ void reiserfs_delete_inode(struct inode *inode);
 int reiserfs_write_inode(struct inode *inode, int);
 int reiserfs_get_block(struct inode *inode, sector_t block,
 		       struct buffer_head *bh_result, int create);
-struct dentry *reiserfs_fh_to_dentry(struct super_block *sb, struct fid *fid,
-				     int fh_len, int fh_type);
-struct dentry *reiserfs_fh_to_parent(struct super_block *sb, struct fid *fid,
-				     int fh_len, int fh_type);
+struct dentry *reiserfs_get_dentry(struct super_block *, void *);
+struct dentry *reiserfs_decode_fh(struct super_block *sb, __u32 * data,
+				  int len, int fhtype,
+				  int (*acceptable) (void *contect,
+						     struct dentry * de),
+				  void *context);
 int reiserfs_encode_fh(struct dentry *dentry, __u32 * data, int *lenp,
 		       int connectable);
 

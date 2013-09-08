@@ -29,7 +29,7 @@
  */
 
 #include <linux/errno.h>
-#include <linux/kernel.h>
+#include <linux/types.h>
 #include <linux/string.h>
 #include <linux/socket.h>
 #include <linux/net.h>
@@ -70,31 +70,6 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f
 		ipv6_fragmentation_id = 1;
 	spin_unlock_bh(&ip6_id_lock);
 }
-
-int __ip6_local_out(struct sk_buff *skb)
-{
-	int len;
-
-	len = skb->len - sizeof(struct ipv6hdr);
-	if (len > IPV6_MAXPLEN)
-		len = 0;
-	ipv6_hdr(skb)->payload_len = htons(len);
-
-	return nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev,
-		       dst_output);
-}
-
-int ip6_local_out(struct sk_buff *skb)
-{
-	int err;
-
-	err = __ip6_local_out(skb);
-	if (likely(err == 1))
-		err = dst_output(skb);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ip6_local_out);
 
 static int ip6_output_finish(struct sk_buff *skb)
 {
@@ -639,7 +614,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 
 	if (skb_shinfo(skb)->frag_list) {
 		int first_len = skb_pagelen(skb);
-		struct sk_buff *frag2;
+		int truesizes = 0;
 
 		if (first_len - hlen > mtu ||
 		    ((first_len - hlen) & 7) ||
@@ -651,18 +626,19 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 			if (frag->len > mtu ||
 			    ((frag->len & 7) && frag->next) ||
 			    skb_headroom(frag) < hlen)
-				goto slow_path_clean;
+			    goto slow_path;
 
 			/* Partially cloned skb? */
 			if (skb_shared(frag))
-				goto slow_path_clean;
+				goto slow_path;
 
 			BUG_ON(frag->sk);
 			if (skb->sk) {
+				sock_hold(skb->sk);
 				frag->sk = skb->sk;
 				frag->destructor = sock_wfree;
+				truesizes += frag->truesize;
 			}
-			skb->truesize -= frag->truesize;
 		}
 
 		err = 0;
@@ -692,6 +668,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 
 		first_len = skb_pagelen(skb);
 		skb->data_len = first_len - skb_headlen(skb);
+		skb->truesize -= truesizes;
 		skb->len = first_len;
 		ipv6_hdr(skb)->payload_len = htons(first_len -
 						   sizeof(struct ipv6hdr));
@@ -751,15 +728,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 		IP6_INC_STATS(ip6_dst_idev(&rt->u.dst), IPSTATS_MIB_FRAGFAILS);
 		dst_release(&rt->u.dst);
 		return err;
-
-slow_path_clean:
-		for (frag2 = skb_shinfo(skb)->frag_list; frag2; frag2 = frag2->next) {
-			if (frag2 == frag)
-				break;
-			frag2->sk = NULL;
-			frag2->destructor = NULL;
-			skb->truesize += frag2->truesize;
-		}
 	}
 
 slow_path:
@@ -1406,6 +1374,7 @@ int ip6_push_pending_frames(struct sock *sk)
 		skb->len += tmp_skb->len;
 		skb->data_len += tmp_skb->len;
 		skb->truesize += tmp_skb->truesize;
+		__sock_put(tmp_skb->sk);
 		tmp_skb->destructor = NULL;
 		tmp_skb->sk = NULL;
 	}
@@ -1424,6 +1393,10 @@ int ip6_push_pending_frames(struct sock *sk)
 	*(__be32*)hdr = fl->fl6_flowlabel |
 		     htonl(0x60000000 | ((int)np->cork.tclass << 20));
 
+	if (skb->len <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN)
+		hdr->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+	else
+		hdr->payload_len = 0;
 	hdr->hop_limit = np->cork.hop_limit;
 	hdr->nexthdr = proto;
 	ipv6_addr_copy(&hdr->saddr, &fl->fl6_src);
@@ -1433,7 +1406,7 @@ int ip6_push_pending_frames(struct sock *sk)
 
 	skb->dst = dst_clone(&rt->u.dst);
 	IP6_INC_STATS(rt->rt6i_idev, IPSTATS_MIB_OUTREQUESTS);
-	err = ip6_local_out(skb);
+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev, dst_output);
 	if (err) {
 		if (err > 0)
 			err = np->recverr ? net_xmit_errno(err) : 0;

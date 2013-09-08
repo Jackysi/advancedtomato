@@ -334,7 +334,6 @@ static int
 ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
 {
 	int diff;
-	int err;
 	struct ipv6hdr *user_iph = (struct ipv6hdr *)v->payload;
 
 	if (v->data_len < sizeof(*user_iph))
@@ -347,18 +346,25 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
 		if (v->data_len > 0xFFFF)
 			return -EINVAL;
 		if (diff > skb_tailroom(e->skb)) {
-			err = pskb_expand_head(e->skb, 0,
-					       diff - skb_tailroom(e->skb),
-					       GFP_ATOMIC);
-			if (err) {
+			struct sk_buff *newskb;
+
+			newskb = skb_copy_expand(e->skb,
+						 skb_headroom(e->skb),
+						 diff,
+						 GFP_ATOMIC);
+			if (newskb == NULL) {
 				printk(KERN_WARNING "ip6_queue: OOM "
 				      "in mangle, dropping packet\n");
-				return err;
+				return -ENOMEM;
 			}
+			if (e->skb->sk)
+				skb_set_owner_w(newskb, e->skb->sk);
+			kfree_skb(e->skb);
+			e->skb = newskb;
 		}
 		skb_put(e->skb, diff);
 	}
-	if (!skb_make_writable(e->skb, v->data_len))
+	if (!skb_make_writable(&e->skb, v->data_len))
 		return -ENOMEM;
 	skb_copy_to_linear_data(e->skb, v->payload, v->data_len);
 	e->skb->ip_summed = CHECKSUM_NONE;
@@ -460,7 +466,7 @@ ipq_dev_drop(int ifindex)
 #define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
 
 static inline void
-__ipq_rcv_skb(struct sk_buff *skb)
+ipq_rcv_skb(struct sk_buff *skb)
 {
 	int status, type, pid, flags, nlmsglen, skblen;
 	struct nlmsghdr *nlh;
@@ -518,10 +524,19 @@ __ipq_rcv_skb(struct sk_buff *skb)
 }
 
 static void
-ipq_rcv_skb(struct sk_buff *skb)
+ipq_rcv_sk(struct sock *sk, int len)
 {
+	struct sk_buff *skb;
+	unsigned int qlen;
+
 	mutex_lock(&ipqnl_mutex);
-	__ipq_rcv_skb(skb);
+
+	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
+		skb = skb_dequeue(&sk->sk_receive_queue);
+		ipq_rcv_skb(skb);
+		kfree_skb(skb);
+	}
+
 	mutex_unlock(&ipqnl_mutex);
 }
 
@@ -642,7 +657,7 @@ static int __init ip6_queue_init(void)
 	struct proc_dir_entry *proc;
 
 	netlink_register_notifier(&ipq_nl_notifier);
-	ipqnl = netlink_kernel_create(NETLINK_IP6_FW, 0, ipq_rcv_skb, NULL,
+	ipqnl = netlink_kernel_create(NETLINK_IP6_FW, 0, ipq_rcv_sk, NULL,
 				      THIS_MODULE);
 	if (ipqnl == NULL) {
 		printk(KERN_ERR "ip6_queue: failed to create netlink socket\n");

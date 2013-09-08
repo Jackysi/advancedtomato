@@ -23,10 +23,6 @@
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern int ipv4_conntrack_fastnat;
-#endif
-
 static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
 static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
 
@@ -117,11 +113,6 @@ static int udp_error(struct sk_buff *skb, unsigned int dataoff,
 				"nf_ct_udp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (ipv4_conntrack_fastnat)
-		return NF_ACCEPT;
-#endif
 
 	/* Packet with no checksum */
 	if (!hdr->check)

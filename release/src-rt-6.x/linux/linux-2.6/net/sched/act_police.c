@@ -32,8 +32,8 @@
 #include <net/act_api.h>
 #include <net/netlink.h>
 
-#define L2T(p,L)   qdisc_l2t((p)->tcfp_R_tab,L)
-#define L2T_P(p,L) qdisc_l2t((p)->tcfp_P_tab,L)
+#define L2T(p,L)   ((p)->tcfp_R_tab->data[(L)>>(p)->tcfp_R_tab->rate.cell_log])
+#define L2T_P(p,L) ((p)->tcfp_P_tab->data[(L)>>(p)->tcfp_P_tab->rate.cell_log])
 
 #define POL_TAB_MASK     15
 static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
@@ -328,7 +328,7 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
 {
 	unsigned char *b = skb_tail_pointer(skb);
 	struct tcf_police *police = a->priv;
-	struct tc_police opt = {
+	struct tc_police opt {
 		.index = police->tcf_index,
 		.action = police->tcf_action,
 		.mtu = police->tcfp_mtu,

@@ -1251,9 +1251,9 @@ cfq_alloc_io_context(struct cfq_data *cfqd, gfp_t gfp_mask)
 {
 	struct cfq_io_context *cic;
 
-	cic = kmem_cache_alloc_node(cfq_ioc_pool, gfp_mask | __GFP_ZERO,
-							cfqd->queue->node);
+	cic = kmem_cache_alloc_node(cfq_ioc_pool, gfp_mask, cfqd->queue->node);
 	if (cic) {
+		memset(cic, 0, sizeof(*cic));
 		cic->last_end_request = jiffies;
 		INIT_LIST_HEAD(&cic->queue_list);
 		cic->dtor = cfq_free_io_context;
@@ -1280,6 +1280,8 @@ static void cfq_init_prio_data(struct cfq_queue *cfqq)
 			/*
 			 * no prio set, place us in the middle of the BE classes
 			 */
+			if (tsk->policy == SCHED_IDLE)
+				goto set_class_idle;
 			cfqq->ioprio = task_nice_ioprio(tsk);
 			cfqq->ioprio_class = IOPRIO_CLASS_BE;
 			break;
@@ -1292,6 +1294,7 @@ static void cfq_init_prio_data(struct cfq_queue *cfqq)
 			cfqq->ioprio_class = IOPRIO_CLASS_BE;
 			break;
 		case IOPRIO_CLASS_IDLE:
+set_class_idle:
 			cfqq->ioprio_class = IOPRIO_CLASS_IDLE;
 			cfqq->ioprio = 7;
 			cfq_clear_cfqq_idle_window(cfqq);
@@ -1376,18 +1379,16 @@ retry:
 			 * free memory.
 			 */
 			spin_unlock_irq(cfqd->queue->queue_lock);
-			new_cfqq = kmem_cache_alloc_node(cfq_pool,
-					gfp_mask | __GFP_NOFAIL | __GFP_ZERO,
-					cfqd->queue->node);
+			new_cfqq = kmem_cache_alloc_node(cfq_pool, gfp_mask|__GFP_NOFAIL, cfqd->queue->node);
 			spin_lock_irq(cfqd->queue->queue_lock);
 			goto retry;
 		} else {
-			cfqq = kmem_cache_alloc_node(cfq_pool,
-					gfp_mask | __GFP_ZERO,
-					cfqd->queue->node);
+			cfqq = kmem_cache_alloc_node(cfq_pool, gfp_mask, cfqd->queue->node);
 			if (!cfqq)
 				goto out;
 		}
+
+		memset(cfqq, 0, sizeof(*cfqq));
 
 		RB_CLEAR_NODE(&cfqq->rb_node);
 		INIT_LIST_HEAD(&cfqq->fifo);
@@ -2081,9 +2082,11 @@ static void *cfq_init_queue(request_queue_t *q)
 {
 	struct cfq_data *cfqd;
 
-	cfqd = kmalloc_node(sizeof(*cfqd), GFP_KERNEL | __GFP_ZERO, q->node);
+	cfqd = kmalloc_node(sizeof(*cfqd), GFP_KERNEL, q->node);
 	if (!cfqd)
 		return NULL;
+
+	memset(cfqd, 0, sizeof(*cfqd));
 
 	cfqd->service_tree = CFQ_RB_ROOT;
 	INIT_LIST_HEAD(&cfqd->cic_list);

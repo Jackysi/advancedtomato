@@ -301,19 +301,6 @@ drop:
 	kfree_skb(skb);
 	return NET_XMIT_DROP;
 }
-/* Lookup a qdisc_rate_table to determine how long it will take to send a
-   packet given its size.
- */
-static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, int pktlen)
-{
-	int slot = pktlen + rtab->rate.cell_align;
-	if (slot < 0)
-	  	slot = 0;
-	slot >>= rtab->rate.cell_log;
-	if (slot > 255)
-		return rtab->data[255] + 1;
-	return rtab->data[slot];
-}
 
 #ifdef CONFIG_NET_CLS_ACT
 static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask)

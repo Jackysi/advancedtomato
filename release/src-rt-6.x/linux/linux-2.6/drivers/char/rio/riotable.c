@@ -863,7 +863,8 @@ int RIOReMapPorts(struct rio_info *p, struct Host *HostP, struct Map *HostMapP)
 		if (PortP->TxRingBuffer)
 			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
 		else if (p->RIOBufferSize) {
-			PortP->TxRingBuffer = kzalloc(p->RIOBufferSize, GFP_KERNEL);
+			PortP->TxRingBuffer = kmalloc(p->RIOBufferSize, GFP_KERNEL);
+			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
 		}
 		PortP->TxBufferOut = 0;
 		PortP->TxBufferIn = 0;

@@ -169,7 +169,6 @@ static inline void copy_user_highpage(struct page *to, struct page *from,
 	unsigned long vaddr, struct vm_area_struct *vma)
 {
 	char *vfrom, *vto;
-
 	vfrom = kmap_atomic(from, KM_USER0);
 	vto = kmap_atomic(to, KM_USER1);
 	copy_user_page(vto, vfrom, vaddr, to);
@@ -178,7 +177,6 @@ static inline void copy_user_highpage(struct page *to, struct page *from,
 	/* Make sure this page is cleared on other CPU's too before using it */
 	smp_wmb();
 }
-
 #endif
 
 static inline void copy_highpage(struct page *to, struct page *from)

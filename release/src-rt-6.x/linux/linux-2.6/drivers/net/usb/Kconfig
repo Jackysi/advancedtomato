@@ -334,5 +334,11 @@ config USB_NET_ZAURUS
 	  really need this non-conformant variant of CDC Ethernet (or in
 	  some cases CDC MDLM) protocol, not "g_ether".
 
+config HSO
+	tristate "HSO support for Dovado's UMR"
+	depends on USB_USBNET
+	default n
+	help
+		Choose this to configure HSO device (v 1.9)
 
 endmenu

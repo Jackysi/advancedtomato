@@ -23,9 +23,9 @@
 
 #include "nf_internals.h"
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-typedef int (*bcmNatHitHook)(struct sk_buff *skb);
-extern bcmNatHitHook bcm_nat_hit_hook;
+#ifdef CONFIG_IP_NF_LFP
+typedef int (*lfpHitHook)(int pf, unsigned int hook, struct sk_buff *skb);
+extern lfpHitHook lfp_hit_hook;
 #endif
 
 static DEFINE_MUTEX(afinfo_mutex);
@@ -121,7 +121,7 @@ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
 EXPORT_SYMBOL(nf_unregister_hooks);
 
 unsigned int nf_iterate(struct list_head *head,
-			struct sk_buff *skb,
+			struct sk_buff **skb,
 			int hook,
 			const struct net_device *indev,
 			const struct net_device *outdev,
@@ -138,25 +138,12 @@ unsigned int nf_iterate(struct list_head *head,
 	list_for_each_continue_rcu(*i, head) {
 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-		if (!elem->hook) {
-			NFDEBUG("nf_iterate: elem is empty return NF_DROP\n");
-			return NF_DROP;
-		}
-#endif
-
 		if (hook_thresh > elem->priority)
 			continue;
 
 		/* Optimization: we don't need to hold module
 		   reference here, since function can't sleep. --RR */
-repeat:
 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-		if (verdict == NF_FAST_NAT)
-			return NF_FAST_NAT;
-#endif
 
 		if (verdict != NF_ACCEPT) {
 #ifdef CONFIG_NETFILTER_DEBUG
@@ -169,7 +156,7 @@ repeat:
 #endif
 			if (verdict != NF_REPEAT)
 				return verdict;
-			goto repeat;
+			*i = (*i)->prev;
 		}
 	}
 	return NF_ACCEPT;
@@ -178,7 +165,7 @@ repeat:
 
 /* Returns 1 if okfn() needs to be executed by the caller,
  * -EPERM for NF_DROP, 0 otherwise. */
-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
+int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
 		 struct net_device *indev,
 		 struct net_device *outdev,
 		 int (*okfn)(struct sk_buff *),
@@ -191,33 +178,29 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 	/* We may already have this, but read-locks nest anyway */
 	rcu_read_lock();
 
+#ifdef CONFIG_IP_NF_LFP
+	if(lfp_hit_hook) {
+		ret = lfp_hit_hook(pf, hook, *pskb);
+		if(ret) goto unlock;
+	}
+#endif
+
 	elem = &nf_hooks[pf][hook];
 next_hook:
-	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
+	verdict = nf_iterate(&nf_hooks[pf][hook], pskb, hook, indev,
 			     outdev, &elem, okfn, hook_thresh);
 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
 		ret = 1;
 		goto unlock;
 	} else if (verdict == NF_DROP) {
-		kfree_skb(skb);
+		kfree_skb(*pskb);
 		ret = -EPERM;
 	} else if ((verdict & NF_VERDICT_MASK)  == NF_QUEUE) {
 		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
-		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+		if (!nf_queue(*pskb, elem, pf, hook, indev, outdev, okfn,
 			      verdict >> NF_VERDICT_BITS))
 			goto next_hook;
 	}
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	else if (verdict == NF_FAST_NAT) {
-		if (bcm_nat_hit_hook) {
-			ret = bcm_nat_hit_hook(skb);
-		}
-		else {
-			kfree_skb(skb);
-			ret = -EPERM;
-		}
-	}
-#endif
 unlock:
 	rcu_read_unlock();
 	return ret;
@@ -225,24 +208,34 @@ unlock:
 EXPORT_SYMBOL(nf_hook_slow);
 
 
-int skb_make_writable(struct sk_buff *skb, unsigned int writable_len)
+int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len)
 {
-	if (writable_len > skb->len)
+	struct sk_buff *nskb;
+
+	if (writable_len > (*pskb)->len)
 		return 0;
 
 	/* Not exclusive use of packet?  Must copy. */
-	if (!skb_cloned(skb)) {
-		if (writable_len <= skb_headlen(skb))
-			return 1;
-	} else if (skb_clone_writable(skb, writable_len))
-		return 1;
+	if (skb_cloned(*pskb) && !skb_clone_writable(*pskb, writable_len))
+		goto copy_skb;
+	if (skb_shared(*pskb))
+		goto copy_skb;
 
-	if (writable_len <= skb_headlen(skb))
-		writable_len = 0;
-	else
-		writable_len -= skb_headlen(skb);
+	return pskb_may_pull(*pskb, writable_len);
 
-	return !!__pskb_pull_tail(skb, writable_len);
+copy_skb:
+	nskb = skb_copy(*pskb, GFP_ATOMIC);
+	if (!nskb)
+		return 0;
+	BUG_ON(skb_is_nonlinear(nskb));
+
+	/* Rest of kernel will get very unhappy if we pass it a
+	   suddenly-orphaned skbuff */
+	if ((*pskb)->sk)
+		skb_set_owner_w(nskb, (*pskb)->sk);
+	kfree_skb(*pskb);
+	*pskb = nskb;
+	return 1;
 }
 EXPORT_SYMBOL(skb_make_writable);
 

@@ -192,4 +192,3 @@ void __exit br_netlink_fini(void)
 {
 	rtnl_unregister_all(PF_BRIDGE);
 }
-

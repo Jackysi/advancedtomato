@@ -118,7 +118,7 @@ static void pptp_nat_expected(struct nf_conn *ct,
 
 /* outbound packets == from PNS to PAC */
 static int
-pptp_outbound_pkt(struct sk_buff *skb,
+pptp_outbound_pkt(struct sk_buff **pskb,
 		  struct nf_conn *ct,
 		  enum ip_conntrack_info ctinfo,
 		  struct PptpControlHeader *ctlh,
@@ -183,7 +183,7 @@ pptp_outbound_pkt(struct sk_buff *skb,
 		ntohs(REQ_CID(pptpReq, cid_off)), ntohs(new_callid));
 
 	/* mangle packet */
-	if (nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
+	if (nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
 				     cid_off + sizeof(struct pptp_pkt_hdr) +
 				     sizeof(struct PptpControlHeader),
 				     sizeof(new_callid), (char *)&new_callid,
@@ -221,7 +221,7 @@ pptp_exp_gre(struct nf_conntrack_expect *expect_orig,
 
 /* inbound packets == from PAC to PNS */
 static int
-pptp_inbound_pkt(struct sk_buff *skb,
+pptp_inbound_pkt(struct sk_buff **pskb,
 		 struct nf_conn *ct,
 		 enum ip_conntrack_info ctinfo,
 		 struct PptpControlHeader *ctlh,
@@ -275,7 +275,7 @@ pptp_inbound_pkt(struct sk_buff *skb,
 	DEBUGP("altering peer call id from 0x%04x to 0x%04x\n",
 		ntohs(REQ_CID(pptpReq, pcid_off)), ntohs(new_pcid));
 
-	if (nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
+	if (nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
 				     pcid_off + sizeof(struct pptp_pkt_hdr) +
 				     sizeof(struct PptpControlHeader),
 				     sizeof(new_pcid), (char *)&new_pcid,

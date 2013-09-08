@@ -556,7 +556,9 @@ struct CmdBlk *RIOGetCmdBlk(void)
 {
 	struct CmdBlk *CmdBlkP;
 
-	CmdBlkP = kzalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
+	CmdBlkP = kmalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
+	if (CmdBlkP)
+		memset(CmdBlkP, 0, sizeof(struct CmdBlk));
 	return CmdBlkP;
 }
 

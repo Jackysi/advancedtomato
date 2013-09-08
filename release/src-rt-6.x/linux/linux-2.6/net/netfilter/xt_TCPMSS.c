@@ -43,7 +43,7 @@ optlen(const u_int8_t *opt, unsigned int offset)
 }
 
 static int
-tcpmss_mangle_packet(struct sk_buff *skb,
+tcpmss_mangle_packet(struct sk_buff **pskb,
 		     const struct xt_tcpmss_info *info,
 		     unsigned int in_mtu,
 		     unsigned int tcphoff,
@@ -55,22 +55,22 @@ tcpmss_mangle_packet(struct sk_buff *skb,
 	u16 newmss;
 	u8 *opt;
 
-	if (!skb_make_writable(skb, skb->len))
+	if (!skb_make_writable(pskb, (*pskb)->len))
 		return -1;
 
-	tcplen = skb->len - tcphoff;
-	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+	tcplen = (*pskb)->len - tcphoff;
+	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
 
 	/* Header cannot be larger than the packet */
 	if (tcplen < tcph->doff*4)
 		return -1;
 
 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
-		if (dst_mtu(skb->dst) <= minlen) {
+		if (dst_mtu((*pskb)->dst) <= minlen) {
 			if (net_ratelimit())
 				printk(KERN_ERR "xt_TCPMSS: "
 				       "unknown or invalid path-MTU (%u)\n",
-				       dst_mtu(skb->dst));
+				       dst_mtu((*pskb)->dst));
 			return -1;
 		}
 		if (in_mtu <= minlen) {
@@ -79,7 +79,7 @@ tcpmss_mangle_packet(struct sk_buff *skb,
 				       "invalid path-MTU (%u)\n", in_mtu);
 			return -1;
 		}
-		newmss = min(dst_mtu(skb->dst), in_mtu) - minlen;
+		newmss = min(dst_mtu((*pskb)->dst), in_mtu) - minlen;
 	} else
 		newmss = info->mss;
 
@@ -101,7 +101,7 @@ tcpmss_mangle_packet(struct sk_buff *skb,
 			opt[i+2] = (newmss & 0xff00) >> 8;
 			opt[i+3] = (newmss & 0x00ff);
 
-			nf_proto_csum_replace2(&tcph->check, skb,
+			nf_proto_csum_replace2(&tcph->check, *pskb,
 					       htons(oldmss), htons(newmss), 0);
 			return 0;
 		}
@@ -116,31 +116,35 @@ tcpmss_mangle_packet(struct sk_buff *skb,
 	/*
 	 * MSS Option not found ?! add it..
 	 */
-	if (skb_tailroom(skb) < TCPOLEN_MSS) {
-		if (pskb_expand_head(skb, 0,
-				     TCPOLEN_MSS - skb_tailroom(skb),
-				     GFP_ATOMIC))
+	if (skb_tailroom((*pskb)) < TCPOLEN_MSS) {
+		struct sk_buff *newskb;
+
+		newskb = skb_copy_expand(*pskb, skb_headroom(*pskb),
+					 TCPOLEN_MSS, GFP_ATOMIC);
+		if (!newskb)
 			return -1;
-		tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+		kfree_skb(*pskb);
+		*pskb = newskb;
+		tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
 	}
 
-	skb_put(skb, TCPOLEN_MSS);
+	skb_put((*pskb), TCPOLEN_MSS);
 
 	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
 	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
 
-	nf_proto_csum_replace2(&tcph->check, skb,
+	nf_proto_csum_replace2(&tcph->check, *pskb,
 			       htons(tcplen), htons(tcplen + TCPOLEN_MSS), 1);
 	opt[0] = TCPOPT_MSS;
 	opt[1] = TCPOLEN_MSS;
 	opt[2] = (newmss & 0xff00) >> 8;
 	opt[3] = (newmss & 0x00ff);
 
-	nf_proto_csum_replace4(&tcph->check, skb, 0, *((__be32 *)opt), 0);
+	nf_proto_csum_replace4(&tcph->check, *pskb, 0, *((__be32 *)opt), 0);
 
 	oldval = ((__be16 *)tcph)[6];
 	tcph->doff += TCPOLEN_MSS/4;
-	nf_proto_csum_replace2(&tcph->check, skb,
+	nf_proto_csum_replace2(&tcph->check, *pskb,
 				oldval, ((__be16 *)tcph)[6], 0);
 	return TCPOLEN_MSS;
 }
@@ -174,25 +178,25 @@ static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
 }
 
 static unsigned int
-xt_tcpmss_target4(struct sk_buff *skb,
+xt_tcpmss_target4(struct sk_buff **pskb,
 		  const struct net_device *in,
 		  const struct net_device *out,
 		  unsigned int hooknum,
 		  const struct xt_target *target,
 		  const void *targinfo)
 {
-	struct iphdr *iph = ip_hdr(skb);
+	struct iphdr *iph = ip_hdr(*pskb);
 	__be16 newlen;
 	int ret;
 
-	ret = tcpmss_mangle_packet(skb, targinfo,
-				   tcpmss_reverse_mtu(skb, PF_INET),
+	ret = tcpmss_mangle_packet(pskb, targinfo,
+				   tcpmss_reverse_mtu(*pskb, PF_INET),
 				   iph->ihl * 4,
 				   sizeof(*iph) + sizeof(struct tcphdr));
 	if (ret < 0)
 		return NF_DROP;
 	if (ret > 0) {
-		iph = ip_hdr(skb);
+		iph = ip_hdr(*pskb);
 		newlen = htons(ntohs(iph->tot_len) + ret);
 		nf_csum_replace2(&iph->check, iph->tot_len, newlen);
 		iph->tot_len = newlen;
@@ -202,30 +206,30 @@ xt_tcpmss_target4(struct sk_buff *skb,
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 static unsigned int
-xt_tcpmss_target6(struct sk_buff *skb,
+xt_tcpmss_target6(struct sk_buff **pskb,
 		  const struct net_device *in,
 		  const struct net_device *out,
 		  unsigned int hooknum,
 		  const struct xt_target *target,
 		  const void *targinfo)
 {
-	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+	struct ipv6hdr *ipv6h = ipv6_hdr(*pskb);
 	u8 nexthdr;
 	int tcphoff;
 	int ret;
 
 	nexthdr = ipv6h->nexthdr;
-	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr);
+	tcphoff = ipv6_skip_exthdr(*pskb, sizeof(*ipv6h), &nexthdr);
 	if (tcphoff < 0)
 		return NF_DROP;
-	ret = tcpmss_mangle_packet(skb, targinfo,
-				   tcpmss_reverse_mtu(skb, PF_INET6),
+	ret = tcpmss_mangle_packet(pskb, targinfo,
+				   tcpmss_reverse_mtu(*pskb, PF_INET6),
 				   tcphoff,
 				   sizeof(*ipv6h) + sizeof(struct tcphdr));
 	if (ret < 0)
 		return NF_DROP;
 	if (ret > 0) {
-		ipv6h = ipv6_hdr(skb);
+		ipv6h = ipv6_hdr(*pskb);
 		ipv6h->payload_len = htons(ntohs(ipv6h->payload_len) + ret);
 	}
 	return XT_CONTINUE;

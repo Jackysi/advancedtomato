@@ -22,6 +22,7 @@
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
 #include <linux/tty.h>
+#include <linux/ppp_async.h>
 #include <linux/netdevice.h>
 #include <linux/poll.h>
 #include <linux/crc-ccitt.h>
@@ -35,42 +36,6 @@
 #include <asm/string.h>
 
 #define PPP_VERSION	"2.4.2"
-
-#define OBUFSIZE	4096
-
-/* Structure for storing local state. */
-struct asyncppp {
-	struct tty_struct *tty;
-	unsigned int	flags;
-	unsigned int	state;
-	unsigned int	rbits;
-	int		mru;
-	spinlock_t	xmit_lock;
-	spinlock_t	recv_lock;
-	unsigned long	xmit_flags;
-	u32		xaccm[8];
-	u32		raccm;
-	unsigned int	bytes_sent;
-	unsigned int	bytes_rcvd;
-
-	struct sk_buff	*tpkt;
-	int		tpkt_pos;
-	u16		tfcs;
-	unsigned char	*optr;
-	unsigned char	*olim;
-	unsigned long	last_xmit;
-
-	struct sk_buff	*rpkt;
-	int		lcp_fcs;
-	struct sk_buff_head rqueue;
-
-	struct tasklet_struct tsk;
-
-	atomic_t	refcnt;
-	struct semaphore dead_sem;
-	struct ppp_channel chan;	/* interface to generic ppp layer */
-	unsigned char	obuf[OBUFSIZE];
-};
 
 /* Bit numbers in xmit_flags */
 #define XMIT_WAKEUP	0
@@ -132,15 +97,13 @@ static DEFINE_RWLOCK(disc_data_lock);
 
 static struct asyncppp *ap_get(struct tty_struct *tty)
 {
-	unsigned long flags;
 	struct asyncppp *ap;
 
-	read_lock_irqsave(&disc_data_lock, flags);
+	read_lock(&disc_data_lock);
 	ap = tty->disc_data;
 	if (ap != NULL)
 		atomic_inc(&ap->refcnt);
-	read_unlock_irqrestore(&disc_data_lock, flags);
-
+	read_unlock(&disc_data_lock);
 	return ap;
 }
 
@@ -161,11 +124,12 @@ ppp_asynctty_open(struct tty_struct *tty)
 	int err;
 
 	err = -ENOMEM;
-	ap = kzalloc(sizeof(*ap), GFP_KERNEL);
+	ap = kmalloc(sizeof(*ap), GFP_KERNEL);
 	if (ap == 0)
 		goto out;
 
 	/* initialize the asyncppp structure */
+	memset(ap, 0, sizeof(*ap));
 	ap->tty = tty;
 	ap->mru = PPP_MRU;
 	spin_lock_init(&ap->xmit_lock);
@@ -211,14 +175,13 @@ ppp_asynctty_open(struct tty_struct *tty)
 static void
 ppp_asynctty_close(struct tty_struct *tty)
 {
-	unsigned long flags;
 	struct asyncppp *ap;
 
-	write_lock_irqsave(&disc_data_lock, flags);
+	write_lock_irq(&disc_data_lock);
 	ap = tty->disc_data;
 	tty->disc_data = NULL;
-	write_unlock_irqrestore(&disc_data_lock, flags);
-	if (!ap)
+	write_unlock_irq(&disc_data_lock);
+	if (ap == 0)
 		return;
 
 	/*

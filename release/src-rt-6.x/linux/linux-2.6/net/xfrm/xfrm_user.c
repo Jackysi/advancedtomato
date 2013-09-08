@@ -2020,11 +2020,16 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	return link->doit(skb, nlh, xfrma);
 }
 
-static void xfrm_netlink_rcv(struct sk_buff *skb)
+static void xfrm_netlink_rcv(struct sock *sk, int len)
 {
-	mutex_lock(&xfrm_cfg_mutex);
-	netlink_rcv_skb(skb, &xfrm_user_rcv_msg);
-	mutex_unlock(&xfrm_cfg_mutex);
+	unsigned int qlen = 0;
+
+	do {
+		mutex_lock(&xfrm_cfg_mutex);
+		netlink_run_queue(sk, &qlen, &xfrm_user_rcv_msg);
+		mutex_unlock(&xfrm_cfg_mutex);
+
+	} while (qlen);
 }
 
 static int build_expire(struct sk_buff *skb, struct xfrm_state *x, struct km_event *c)

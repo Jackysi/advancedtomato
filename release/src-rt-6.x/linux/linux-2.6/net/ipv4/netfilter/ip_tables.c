@@ -65,7 +65,7 @@ do {								\
 #endif
 
 unsigned int
-ipt_cone_target(struct sk_buff *skb, unsigned int hooknum,
+ipt_cone_target(struct sk_buff **pskb, unsigned int hooknum,
 	const struct net_device *in, const struct net_device *out,
 	const struct xt_target *target, const void *targinfo);
 
@@ -189,7 +189,7 @@ has_match_rules:
 }
 
 static unsigned int
-ipt_error(struct sk_buff *skb,
+ipt_error(struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
@@ -226,7 +226,7 @@ get_entry(void *base, unsigned int offset)
 
 /* Returns one of the generic firewall policies, like NF_ACCEPT. */
 unsigned int
-ipt_do_table(struct sk_buff *skb,
+ipt_do_table(struct sk_buff **pskb,
 	     unsigned int hook,
 	     const struct net_device *in,
 	     const struct net_device *out,
@@ -244,7 +244,7 @@ ipt_do_table(struct sk_buff *skb,
 	struct ipt_entry *e, *back;
 	struct xt_table_info *private;
 
-	ip = ip_hdr(skb);
+	ip = ip_hdr(*pskb);
 
 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
 	xt_info_rdlock_bh();
@@ -267,7 +267,7 @@ ipt_do_table(struct sk_buff *skb,
 	}
 
 	/* Initialization */
-	datalen = skb->len - ip->ihl * 4;
+	datalen = (*pskb)->len - ip->ihl * 4;
 	indev = in ? in->name : nulldevname;
 	outdev = out ? out->name : nulldevname;
 	/* We handle fragments by dealing with the first fragment as
@@ -285,13 +285,13 @@ ipt_do_table(struct sk_buff *skb,
 		IP_NF_ASSERT(e);
 		IP_NF_ASSERT(back);
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-		skb->nfcache |= e->nfcache;
+		(*pskb)->nfcache |= e->nfcache;
 #endif
 		if (ip_packet_match(ip, indev, outdev, &e->ip, offset)) {
 			struct ipt_entry_target *t;
 
 			if (IPT_MATCH_ITERATE(e, do_match,
-					      skb, in, out,
+					      *pskb, in, out,
 					      offset, &hotdrop) != 0)
 				goto no_match;
 
@@ -309,7 +309,7 @@ ipt_do_table(struct sk_buff *skb,
 					if (v != IPT_RETURN) {
 						verdict = (unsigned)(-v) - 1;
 
-						if (ipt_cone_target(skb, hook, in, out,
+						if (ipt_cone_target(pskb, hook, in, out,
 							t->u.kernel.target,
 							t->data) == NF_ACCEPT) {
 							/* Accept cone target as default */
@@ -341,7 +341,7 @@ ipt_do_table(struct sk_buff *skb,
 				((struct ipt_entry *)table_base)->comefrom
 					= 0xeeeeeeec;
 #endif
-				verdict = t->u.kernel.target->target(skb,
+				verdict = t->u.kernel.target->target(pskb,
 								     in, out,
 								     hook,
 								     t->u.kernel.target,
@@ -359,8 +359,8 @@ ipt_do_table(struct sk_buff *skb,
 					= 0x57acc001;
 #endif
 				/* Target might have changed stuff. */
-				ip = ip_hdr(skb);
-				datalen = skb->len - ip->ihl * 4;
+				ip = ip_hdr(*pskb);
+				datalen = (*pskb)->len - ip->ihl * 4;
 
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;

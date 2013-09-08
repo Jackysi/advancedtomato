@@ -135,87 +135,32 @@ const char * scsi_device_type(unsigned type)
 EXPORT_SYMBOL(scsi_device_type);
 
 struct scsi_host_cmd_pool {
-	struct kmem_cache	*cmd_slab;
-	struct kmem_cache	*sense_slab;
-	unsigned int		users;
-	char			*cmd_name;
-	char			*sense_name;
-	unsigned int		slab_flags;
-	gfp_t			gfp_mask;
+	struct kmem_cache	*slab;
+	unsigned int	users;
+	char		*name;
+	unsigned int	slab_flags;
+	gfp_t		gfp_mask;
 };
 
 static struct scsi_host_cmd_pool scsi_cmd_pool = {
-	.cmd_name	= "scsi_cmd_cache",
-	.sense_name	= "scsi_sense_cache",
+	.name		= "scsi_cmd_cache",
 	.slab_flags	= SLAB_HWCACHE_ALIGN,
 };
 
 static struct scsi_host_cmd_pool scsi_cmd_dma_pool = {
-	.cmd_name	= "scsi_cmd_cache(DMA)",
-	.sense_name	= "scsi_sense_cache(DMA)",
+	.name		= "scsi_cmd_cache(DMA)",
 	.slab_flags	= SLAB_HWCACHE_ALIGN|SLAB_CACHE_DMA,
 	.gfp_mask	= __GFP_DMA,
 };
 
 static DEFINE_MUTEX(host_cmd_pool_mutex);
 
-/**
- * scsi_pool_alloc_command - internal function to get a fully allocated command
- * @pool:	slab pool to allocate the command from
- * @gfp_mask:	mask for the allocation
- *
- * Returns a fully allocated command (with the allied sense buffer) or
- * NULL on failure
- */
-static struct scsi_cmnd *
-scsi_pool_alloc_command(struct scsi_host_cmd_pool *pool, gfp_t gfp_mask)
-{
-	struct scsi_cmnd *cmd;
-
-	cmd = kmem_cache_zalloc(pool->cmd_slab, gfp_mask | pool->gfp_mask);
-	if (!cmd)
-		return NULL;
-
-	cmd->sense_buffer = kmem_cache_alloc(pool->sense_slab,
-					     gfp_mask | pool->gfp_mask);
-	if (!cmd->sense_buffer) {
-		kmem_cache_free(pool->cmd_slab, cmd);
-		return NULL;
-	}
-
-	return cmd;
-}
-
-/**
- * scsi_pool_free_command - internal function to release a command
- * @pool:	slab pool to allocate the command from
- * @cmd:	command to release
- *
- * the command must previously have been allocated by
- * scsi_pool_alloc_command.
- */
-static void
-scsi_pool_free_command(struct scsi_host_cmd_pool *pool,
-			 struct scsi_cmnd *cmd)
-{
-	kmem_cache_free(pool->sense_slab, cmd->sense_buffer);
-	kmem_cache_free(pool->cmd_slab, cmd);
-}
-
-/**
- * __scsi_get_command - Allocate a struct scsi_cmnd
- * @shost: host to transmit command
- * @gfp_mask: allocation mask
- *
- * Description: allocate a struct scsi_cmd from host's slab, recycling from the
- *		host's free_list if necessary.
- */
 struct scsi_cmnd *__scsi_get_command(struct Scsi_Host *shost, gfp_t gfp_mask)
 {
 	struct scsi_cmnd *cmd;
-	unsigned char *buf;
 
-	cmd = scsi_pool_alloc_command(shost->cmd_pool, gfp_mask);
+	cmd = kmem_cache_alloc(shost->cmd_pool->slab,
+			gfp_mask | shost->cmd_pool->gfp_mask);
 
 	if (unlikely(!cmd)) {
 		unsigned long flags;
@@ -227,12 +172,6 @@ struct scsi_cmnd *__scsi_get_command(struct Scsi_Host *shost, gfp_t gfp_mask)
 			list_del_init(&cmd->list);
 		}
 		spin_unlock_irqrestore(&shost->free_list_lock, flags);
-
-		if (cmd) {
-			buf = cmd->sense_buffer;
-			memset(cmd, 0, sizeof(*cmd));
-			cmd->sense_buffer = buf;
-		}
 	}
 
 	return cmd;
@@ -262,6 +201,7 @@ struct scsi_cmnd *scsi_get_command(struct scsi_device *dev, gfp_t gfp_mask)
 	if (likely(cmd != NULL)) {
 		unsigned long flags;
 
+		memset(cmd, 0, sizeof(*cmd));
 		cmd->device = dev;
 		init_timer(&cmd->eh_timeout);
 		INIT_LIST_HEAD(&cmd->list);
@@ -290,7 +230,7 @@ void __scsi_put_command(struct Scsi_Host *shost, struct scsi_cmnd *cmd,
 	spin_unlock_irqrestore(&shost->free_list_lock, flags);
 
 	if (likely(cmd != NULL))
-		scsi_pool_free_command(shost->cmd_pool, cmd);
+		kmem_cache_free(shost->cmd_pool->slab, cmd);
 
 	put_device(dev);
 }
@@ -322,150 +262,59 @@ void scsi_put_command(struct scsi_cmnd *cmd)
 }
 EXPORT_SYMBOL(scsi_put_command);
 
-static struct scsi_host_cmd_pool *scsi_get_host_cmd_pool(gfp_t gfp_mask)
-{
-	struct scsi_host_cmd_pool *retval = NULL, *pool;
-	/*
-	 * Select a command slab for this host and create it if not
-	 * yet existant.
-	 */
-	mutex_lock(&host_cmd_pool_mutex);
-	pool = (gfp_mask & __GFP_DMA) ? &scsi_cmd_dma_pool :
-		&scsi_cmd_pool;
-	if (!pool->users) {
-		pool->cmd_slab = kmem_cache_create(pool->cmd_name,
-						   sizeof(struct scsi_cmnd), 0,
-						   pool->slab_flags, NULL, NULL);
-		if (!pool->cmd_slab)
-			goto fail;
-
-		pool->sense_slab = kmem_cache_create(pool->sense_name,
-						     SCSI_SENSE_BUFFERSIZE, 0,
-						     pool->slab_flags, NULL, NULL);
-		if (!pool->sense_slab) {
-			kmem_cache_destroy(pool->cmd_slab);
-			goto fail;
-		}
-	}
-
-	pool->users++;
-	retval = pool;
- fail:
-	mutex_unlock(&host_cmd_pool_mutex);
-	return retval;
-}
-
-static void scsi_put_host_cmd_pool(gfp_t gfp_mask)
-{
-	struct scsi_host_cmd_pool *pool;
-
-	mutex_lock(&host_cmd_pool_mutex);
-	pool = (gfp_mask & __GFP_DMA) ? &scsi_cmd_dma_pool :
-		&scsi_cmd_pool;
-	/*
-	 * This may happen if a driver has a mismatched get and put
-	 * of the command pool; the driver should be implicated in
-	 * the stack trace
-	 */
-	BUG_ON(pool->users == 0);
-
-	if (!--pool->users) {
-		kmem_cache_destroy(pool->cmd_slab);
-		kmem_cache_destroy(pool->sense_slab);
-	}
-	mutex_unlock(&host_cmd_pool_mutex);
-}
-
-/**
- * scsi_allocate_command - get a fully allocated SCSI command
- * @gfp_mask:	allocation mask
+/*
+ * Function:	scsi_setup_command_freelist()
  *
- * This function is for use outside of the normal host based pools.
- * It allocates the relevant command and takes an additional reference
- * on the pool it used.  This function *must* be paired with
- * scsi_free_command which also has the identical mask, otherwise the
- * free pool counts will eventually go wrong and you'll trigger a bug.
+ * Purpose:	Setup the command freelist for a scsi host.
  *
- * This function should *only* be used by drivers that need a static
- * command allocation at start of day for internal functions.
- */
-struct scsi_cmnd *scsi_allocate_command(gfp_t gfp_mask)
-{
-	struct scsi_host_cmd_pool *pool = scsi_get_host_cmd_pool(gfp_mask);
-
-	if (!pool)
-		return NULL;
-
-	return scsi_pool_alloc_command(pool, gfp_mask);
-}
-EXPORT_SYMBOL(scsi_allocate_command);
-
-/**
- * scsi_free_command - free a command allocated by scsi_allocate_command
- * @gfp_mask:	mask used in the original allocation
- * @cmd:	command to free
- *
- * Note: using the original allocation mask is vital because that's
- * what determines which command pool we use to free the command.  Any
- * mismatch will cause the system to BUG eventually.
- */
-void scsi_free_command(gfp_t gfp_mask, struct scsi_cmnd *cmd)
-{
-	struct scsi_host_cmd_pool *pool = scsi_get_host_cmd_pool(gfp_mask);
-
-	/*
-	 * this could trigger if the mask to scsi_allocate_command
-	 * doesn't match this mask.  Otherwise we're guaranteed that this
-	 * succeeds because scsi_allocate_command must have taken a reference
-	 * on the pool
-	 */
-	BUG_ON(!pool);
-
-	scsi_pool_free_command(pool, cmd);
-	/*
-	 * scsi_put_host_cmd_pool is called twice; once to release the
-	 * reference we took above, and once to release the reference
-	 * originally taken by scsi_allocate_command
-	 */
-	scsi_put_host_cmd_pool(gfp_mask);
-	scsi_put_host_cmd_pool(gfp_mask);
-}
-EXPORT_SYMBOL(scsi_free_command);
-
-/**
- * scsi_setup_command_freelist - Setup the command freelist for a scsi host.
- * @shost: host to allocate the freelist for.
- *
- * Description: The command freelist protects against system-wide out of memory
- * deadlock by preallocating one SCSI command structure for each host, so the
- * system can always write to a swap file on a device associated with that host.
+ * Arguments:	shost	- host to allocate the freelist for.
  *
  * Returns:	Nothing.
  */
 int scsi_setup_command_freelist(struct Scsi_Host *shost)
 {
+	struct scsi_host_cmd_pool *pool;
 	struct scsi_cmnd *cmd;
-	const gfp_t gfp_mask = shost->unchecked_isa_dma ? GFP_DMA : GFP_KERNEL;
 
 	spin_lock_init(&shost->free_list_lock);
 	INIT_LIST_HEAD(&shost->free_list);
 
-	shost->cmd_pool = scsi_get_host_cmd_pool(gfp_mask);
+	/*
+	 * Select a command slab for this host and create it if not
+	 * yet existant.
+	 */
+	mutex_lock(&host_cmd_pool_mutex);
+	pool = (shost->unchecked_isa_dma ? &scsi_cmd_dma_pool : &scsi_cmd_pool);
+	if (!pool->users) {
+		pool->slab = kmem_cache_create(pool->name,
+				sizeof(struct scsi_cmnd), 0,
+				pool->slab_flags, NULL, NULL);
+		if (!pool->slab)
+			goto fail;
+	}
 
-	if (!shost->cmd_pool)
-		return -ENOMEM;
+	pool->users++;
+	shost->cmd_pool = pool;
+	mutex_unlock(&host_cmd_pool_mutex);
 
 	/*
 	 * Get one backup command for this host.
 	 */
-	cmd = scsi_pool_alloc_command(shost->cmd_pool, gfp_mask);
-	if (!cmd) {
-		scsi_put_host_cmd_pool(gfp_mask);
-		shost->cmd_pool = NULL;
-		return -ENOMEM;
-	}
-	list_add(&cmd->list, &shost->free_list);
+	cmd = kmem_cache_alloc(shost->cmd_pool->slab,
+			GFP_KERNEL | shost->cmd_pool->gfp_mask);
+	if (!cmd)
+		goto fail2;
+	list_add(&cmd->list, &shost->free_list);		
 	return 0;
+
+ fail2:
+	if (!--pool->users)
+		kmem_cache_destroy(pool->slab);
+	return -ENOMEM;
+ fail:
+	mutex_unlock(&host_cmd_pool_mutex);
+	return -ENOMEM;
+
 }
 
 /*
@@ -477,22 +326,18 @@ int scsi_setup_command_freelist(struct Scsi_Host *shost)
  */
 void scsi_destroy_command_freelist(struct Scsi_Host *shost)
 {
-	/*
-	 * If cmd_pool is NULL the free list was not initialized, so
-	 * do not attempt to release resources.
-	 */
-	if (!shost->cmd_pool)
-		return;
-
 	while (!list_empty(&shost->free_list)) {
 		struct scsi_cmnd *cmd;
 
 		cmd = list_entry(shost->free_list.next, struct scsi_cmnd, list);
 		list_del_init(&cmd->list);
-		scsi_pool_free_command(shost->cmd_pool, cmd);
+		kmem_cache_free(shost->cmd_pool->slab, cmd);
 	}
-	shost->cmd_pool = NULL;
-	scsi_put_host_cmd_pool(shost->unchecked_isa_dma ? GFP_DMA : GFP_KERNEL);
+
+	mutex_lock(&host_cmd_pool_mutex);
+	if (!--shost->cmd_pool->users)
+		kmem_cache_destroy(shost->cmd_pool->slab);
+	mutex_unlock(&host_cmd_pool_mutex);
 }
 
 #ifdef CONFIG_SCSI_LOGGING
@@ -1067,8 +912,7 @@ EXPORT_SYMBOL(starget_for_each_device);
  * Looks up the scsi_device with the specified @lun for a give
  * @starget. The returned scsi_device does not have an additional
  * reference.  You must hold the host's host_lock over this call and
- * any access to the returned scsi_device. A scsi_device in state
- * SDEV_DEL is skipped.
+ * any access to the returned scsi_device.
  *
  * Note:  The only reason why drivers would want to use this is because
  * they're need to access the device list in irq context.  Otherwise you
@@ -1080,8 +924,6 @@ struct scsi_device *__scsi_device_lookup_by_target(struct scsi_target *starget,
 	struct scsi_device *sdev;
 
 	list_for_each_entry(sdev, &starget->devices, same_target_siblings) {
-		if (sdev->sdev_state == SDEV_DEL)
-			continue;
 		if (sdev->lun ==lun)
 			return sdev;
 	}

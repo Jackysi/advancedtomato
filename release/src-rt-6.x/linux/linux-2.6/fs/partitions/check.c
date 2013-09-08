@@ -372,10 +372,11 @@ void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len,
 {
 	struct hd_struct *p;
 
-	p = kzalloc(sizeof(*p), GFP_KERNEL);
+	p = kmalloc(sizeof(*p), GFP_KERNEL);
 	if (!p)
 		return;
 	
+	memset(p, 0, sizeof(*p));
 	p->start_sect = start;
 	p->nr_sects = len;
 	p->partno = part;

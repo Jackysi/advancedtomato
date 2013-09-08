@@ -64,7 +64,7 @@ static char command_line[CL_SIZE];
  * mips_io_port_base is the begin of the address space to which x86 style
  * I/O ports are mapped.
  */
-const unsigned long mips_io_port_base = -1;
+const unsigned long mips_io_port_base __read_mostly = -1;
 EXPORT_SYMBOL(mips_io_port_base);
 
 /*
@@ -89,7 +89,6 @@ void __init add_memory_region(phys_t start, phys_t size, long type)
 		return;
 	}
 #endif
-
 	/* Sanity check */
 	if (start + size < start) {
 		printk("Trying to add an invalid memory region, skipped\n");

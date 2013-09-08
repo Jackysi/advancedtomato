@@ -1808,7 +1808,7 @@ ahd_linux_handle_scsi_status(struct ahd_softc *ahd,
 			if (scb->flags & SCB_SENSE) {
 				sense_size = min(sizeof(struct scsi_sense_data)
 					       - ahd_get_sense_residual(scb),
-						 (u_long)SCSI_SENSE_BUFFERSIZE);
+						 (u_long)sizeof(cmd->sense_buffer));
 				sense_offset = 0;
 			} else {
 				/*
@@ -1819,11 +1819,11 @@ ahd_linux_handle_scsi_status(struct ahd_softc *ahd,
 				    scb->sense_data;
 				sense_size = min_t(size_t,
 						scsi_4btoul(siu->sense_length),
-						SCSI_SENSE_BUFFERSIZE);
+						sizeof(cmd->sense_buffer));
 				sense_offset = SIU_SENSE_OFFSET(siu);
 			}
 
-			memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+			memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
 			memcpy(cmd->sense_buffer,
 			       ahd_get_sense_buf(ahd, scb)
 			       + sense_offset, sense_size);
@@ -1946,7 +1946,7 @@ ahd_linux_queue_cmd_complete(struct ahd_softc *ahd, struct scsi_cmnd *cmd)
 				struct scsi_sense_data *sense;
 				
 				sense = (struct scsi_sense_data *)
-					cmd->sense_buffer;
+					&cmd->sense_buffer;
 				if (sense->extra_len >= 5 &&
 				    (sense->add_sense_code == 0x47
 				     || sense->add_sense_code == 0x48))

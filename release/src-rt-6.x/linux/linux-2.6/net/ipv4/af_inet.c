@@ -115,6 +115,10 @@
 #ifdef CONFIG_IP_MROUTE
 #include <linux/mroute.h>
 #endif
+#ifdef CONFIG_INET_GRO
+#include <typedefs.h>
+#include <bcmdefs.h>
+#endif /* CONFIG_INET_GRO */
 
 DEFINE_SNMP_STAT(struct linux_mib, net_statistics) __read_mostly;
 
@@ -222,6 +226,7 @@ EXPORT_SYMBOL(inet_ehash_secret);
 
 /*
  * inet_ehash_secret must be set exactly once
+ * Instead of using a dedicated spinlock, we (ab)use inetsw_lock
  */
 void build_ehash_secret(void)
 {
@@ -229,8 +234,10 @@ void build_ehash_secret(void)
 	do {
 		get_random_bytes(&rnd, sizeof(rnd));
 	} while (rnd == 0);
-
-	cmpxchg(&inet_ehash_secret, 0, rnd);
+	spin_lock_bh(&inetsw_lock);
+	if (!inet_ehash_secret)
+		inet_ehash_secret = rnd;
+	spin_unlock_bh(&inetsw_lock);
 }
 EXPORT_SYMBOL(build_ehash_secret);
 
@@ -1216,6 +1223,106 @@ out:
 	return segs;
 }
 
+#ifdef CONFIG_INET_GRO
+static struct sk_buff ** BCMFASTPATH_HOST inet_gro_receive(struct sk_buff **head,
+					 struct sk_buff *skb)
+{
+	struct net_protocol *ops;
+	struct sk_buff **pp = NULL;
+	struct sk_buff *p;
+	struct iphdr *iph;
+	int flush = 1;
+	int proto;
+	int id;
+
+	iph = skb_gro_header(skb, sizeof(*iph));
+	if (unlikely(!iph))
+		goto out;
+
+	proto = iph->protocol & (MAX_INET_PROTOS - 1);
+
+	rcu_read_lock();
+	ops = rcu_dereference(inet_protos[proto]);
+	if (!ops || !ops->gro_receive)
+		goto out_unlock;
+
+	if (*(u8 *)iph != 0x45)
+		goto out_unlock;
+
+	if (!inet_confirm_addr(NULL, iph->daddr, iph->daddr, 0))
+		goto out_unlock;
+
+	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+		goto out_unlock;
+
+	flush = ntohs(iph->tot_len) != skb_gro_len(skb) ||
+		iph->frag_off != htons(IP_DF);
+	id = ntohs(iph->id);
+
+	for (p = *head; p; p = p->next) {
+		struct iphdr *iph2;
+
+		if (!NAPI_GRO_CB(p)->same_flow)
+			continue;
+
+		iph2 = ip_hdr(p);
+
+		if ((iph->protocol ^ iph2->protocol) |
+		    (iph->tos ^ iph2->tos) |
+		    (iph->saddr ^ iph2->saddr) |
+		    (iph->daddr ^ iph2->daddr)) {
+			NAPI_GRO_CB(p)->same_flow = 0;
+			continue;
+		}
+
+		/* All fields must match except length and checksum. */
+		NAPI_GRO_CB(p)->flush |=
+			(iph->ttl ^ iph2->ttl) |
+			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
+
+		NAPI_GRO_CB(p)->flush |= flush;
+	}
+
+	NAPI_GRO_CB(skb)->flush |= flush;
+	skb_gro_pull(skb, sizeof(*iph));
+	skb_set_transport_header(skb, skb_gro_offset(skb));
+
+	pp = ops->gro_receive(head, skb);
+
+out_unlock:
+	rcu_read_unlock();
+
+out:
+	NAPI_GRO_CB(skb)->flush |= flush;
+
+	return pp;
+}
+
+static int BCMFASTPATH_HOST inet_gro_complete(struct sk_buff *skb)
+{
+	struct net_protocol *ops;
+	struct iphdr *iph = ip_hdr(skb);
+	int proto = iph->protocol & (MAX_INET_PROTOS - 1);
+	int err = -ENOSYS;
+	__be16 newlen = htons(skb->len - skb_network_offset(skb));
+
+	csum_replace2(&iph->check, iph->tot_len, newlen);
+	iph->tot_len = newlen;
+
+	rcu_read_lock();
+	ops = rcu_dereference(inet_protos[proto]);
+	if (WARN_ON(!ops || !ops->gro_complete))
+		goto out_unlock;
+
+	err = ops->gro_complete(skb);
+
+out_unlock:
+	rcu_read_unlock();
+
+	return err;
+}
+#endif /* CONFIG_INET_GRO */
+
 unsigned long snmp_fold_field(void *mib[], int offt)
 {
 	unsigned long res = 0;
@@ -1267,6 +1374,10 @@ static struct net_protocol tcp_protocol = {
 	.err_handler =	tcp_v4_err,
 	.gso_send_check = tcp_v4_gso_send_check,
 	.gso_segment =	tcp_tso_segment,
+#ifdef CONFIG_INET_GRO
+	.gro_receive =	tcp4_gro_receive,
+	.gro_complete =	tcp4_gro_complete,
+#endif /* CONFIG_INET_GRO */
 	.no_policy =	1,
 };
 
@@ -1336,6 +1447,10 @@ static struct packet_type ip_packet_type = {
 	.func = ip_rcv,
 	.gso_send_check = inet_gso_send_check,
 	.gso_segment = inet_gso_segment,
+#ifdef CONFIG_INET_GRO
+	.gro_receive = inet_gro_receive,
+	.gro_complete = inet_gro_complete,
+#endif /* CONFIG_INET_GRO */
 };
 
 static int __init inet_init(void)

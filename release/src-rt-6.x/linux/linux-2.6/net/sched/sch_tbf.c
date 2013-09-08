@@ -132,16 +132,23 @@ struct tbf_sched_data
 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
 };
 
-#define L2T(q,L)   qdisc_l2t((q)->R_tab,L)
-#define L2T_P(q,L) qdisc_l2t((q)->P_tab,L)
+#define L2T(q,L)   ((q)->R_tab->data[(L)>>(q)->R_tab->rate.cell_log])
+#define L2T_P(q,L) ((q)->P_tab->data[(L)>>(q)->P_tab->rate.cell_log])
 
 static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
 {
 	struct tbf_sched_data *q = qdisc_priv(sch);
 	int ret;
 
-	if (skb->len > q->max_size)
-		return qdisc_reshape_fail(skb, sch);
+	if (skb->len > q->max_size) {
+		sch->qstats.drops++;
+#ifdef CONFIG_NET_CLS_POLICE
+		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+#endif
+			kfree_skb(skb);
+
+		return NET_XMIT_DROP;
+	}
 
 	if ((ret = q->qdisc->enqueue(skb, q->qdisc)) != 0) {
 		sch->qstats.drops++;

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br.c,v 1.47 2001/12/24 00:56:41 davem Exp $
+ *	$Id: br.c,v 1.1.1.1 2007-08-03 18:53:50 $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 
 #include "br_private.h"
 
-int (*br_should_route_hook)(struct sk_buff *skb);
+int (*br_should_route_hook) (struct sk_buff **pskb) = NULL;
 
 static struct llc_sap *br_stp_sap;
 
@@ -39,7 +39,7 @@ static int __init br_init(void)
 
 	err = br_fdb_init();
 	if (err)
-		goto err_out;
+		goto err_out1;
 
 	err = br_netfilter_init();
 	if (err)
@@ -65,8 +65,6 @@ err_out3:
 err_out2:
 	br_netfilter_fini();
 err_out1:
-	br_fdb_fini();
-err_out:
 	llc_sap_put(br_stp_sap);
 	return err;
 }

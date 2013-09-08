@@ -925,13 +925,13 @@ qla2x00_status_entry(scsi_qla_host_t *ha, void *pkt)
 			break;
 
 		/* Copy Sense Data into sense buffer. */
-		memset(cp->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+		memset(cp->sense_buffer, 0, sizeof(cp->sense_buffer));
 
 		if (!(scsi_status & SS_SENSE_LEN_VALID))
 			break;
 
-		if (sense_len >= SCSI_SENSE_BUFFERSIZE)
-			sense_len = SCSI_SENSE_BUFFERSIZE;
+		if (sense_len >= sizeof(cp->sense_buffer))
+			sense_len = sizeof(cp->sense_buffer);
 
 		CMD_ACTUAL_SNSLEN(cp) = sense_len;
 		sp->request_sense_length = sense_len;
@@ -1003,13 +1003,13 @@ qla2x00_status_entry(scsi_qla_host_t *ha, void *pkt)
 				break;
 
 			/* Copy Sense Data into sense buffer */
-			memset(cp->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+			memset(cp->sense_buffer, 0, sizeof(cp->sense_buffer));
 
 			if (!(scsi_status & SS_SENSE_LEN_VALID))
 				break;
 
-			if (sense_len >= SCSI_SENSE_BUFFERSIZE)
-				sense_len = SCSI_SENSE_BUFFERSIZE;
+			if (sense_len >= sizeof(cp->sense_buffer))
+				sense_len = sizeof(cp->sense_buffer);
 
 			CMD_ACTUAL_SNSLEN(cp) = sense_len;
 			sp->request_sense_length = sense_len;

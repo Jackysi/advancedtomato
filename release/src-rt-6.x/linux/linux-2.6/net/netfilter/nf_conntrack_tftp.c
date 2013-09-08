@@ -36,12 +36,12 @@ MODULE_PARM_DESC(ports, "Port numbers of TFTP servers");
 #define DEBUGP(format, args...)
 #endif
 
-unsigned int (*nf_nat_tftp_hook)(struct sk_buff *skb,
+unsigned int (*nf_nat_tftp_hook)(struct sk_buff **pskb,
 				 enum ip_conntrack_info ctinfo,
 				 struct nf_conntrack_expect *exp) __read_mostly;
 EXPORT_SYMBOL_GPL(nf_nat_tftp_hook);
 
-static int tftp_help(struct sk_buff *skb,
+static int tftp_help(struct sk_buff **pskb,
 		     unsigned int protoff,
 		     struct nf_conn *ct,
 		     enum ip_conntrack_info ctinfo)
@@ -53,7 +53,7 @@ static int tftp_help(struct sk_buff *skb,
 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
 	typeof(nf_nat_tftp_hook) nf_nat_tftp;
 
-	tfh = skb_header_pointer(skb, protoff + sizeof(struct udphdr),
+	tfh = skb_header_pointer(*pskb, protoff + sizeof(struct udphdr),
 				 sizeof(_tftph), &_tftph);
 	if (tfh == NULL)
 		return NF_ACCEPT;
@@ -70,9 +70,10 @@ static int tftp_help(struct sk_buff *skb,
 		if (exp == NULL)
 			return NF_DROP;
 		tuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
+		nf_conntrack_expect_init(exp, family,
 					 &tuple->src.u3, &tuple->dst.u3,
-					 IPPROTO_UDP, NULL, &tuple->dst.u.udp.port);
+					 IPPROTO_UDP,
+					 NULL, &tuple->dst.u.udp.port);
 
 		DEBUGP("expect: ");
 		NF_CT_DUMP_TUPLE(&exp->tuple);
@@ -80,7 +81,7 @@ static int tftp_help(struct sk_buff *skb,
 
 		nf_nat_tftp = rcu_dereference(nf_nat_tftp_hook);
 		if (nf_nat_tftp && ct->status & IPS_NAT_MASK)
-			ret = nf_nat_tftp(skb, ctinfo, exp);
+			ret = nf_nat_tftp(pskb, ctinfo, exp);
 		else if (nf_conntrack_expect_related(exp) != 0)
 			ret = NF_DROP;
 		nf_conntrack_expect_put(exp);
@@ -100,11 +101,6 @@ static int tftp_help(struct sk_buff *skb,
 
 static struct nf_conntrack_helper tftp[MAX_PORTS][2] __read_mostly;
 static char tftp_names[MAX_PORTS][2][sizeof("tftp-65535")] __read_mostly;
-
-static const struct nf_conntrack_expect_policy tftp_exp_policy = {
-	.max_expected	= 1,
-	.timeout	= 5 * 60,
-};
 
 static void nf_conntrack_tftp_fini(void)
 {
@@ -135,7 +131,8 @@ static int __init nf_conntrack_tftp_init(void)
 			tftp[i][j].mask.src.l3num = 0xFFFF;
 			tftp[i][j].mask.dst.protonum = 0xFF;
 			tftp[i][j].mask.src.u.udp.port = htons(0xFFFF);
-			tftp[i][j].expect_policy = &tftp_exp_policy;
+			tftp[i][j].max_expected = 1;
+			tftp[i][j].timeout = 5 * 60; /* 5 minutes */
 			tftp[i][j].me = THIS_MODULE;
 			tftp[i][j].help = tftp_help;
 

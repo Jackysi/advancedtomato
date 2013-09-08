@@ -77,9 +77,8 @@ struct tc_ratespec
 {
 	unsigned char	cell_log;
 	unsigned char	__reserved;
-	unsigned short	feature;	/* Always 0 in pre-atm patch kernels */
-	char		cell_align;	/* Always 0 in pre-atm patch kernels */
-	unsigned char	__unused;
+	unsigned short	feature;
+	short		addend;
 	unsigned short	mpu;
 	__u32		rate;
 };
@@ -257,9 +256,9 @@ struct tc_gred_sopt
 };
 
 /* HTB section */
-#define TC_HTB_NUMPRIO		11	/* Toastman */
-#define TC_HTB_MAXDEPTH		8	
-#define TC_HTB_PROTOVER		3 	/* the same as HTB and TC's major */
+#define TC_HTB_NUMPRIO		8
+#define TC_HTB_MAXDEPTH		8
+#define TC_HTB_PROTOVER		3 /* the same as HTB and TC's major */
 
 struct tc_htb_opt
 {
@@ -338,7 +337,7 @@ enum
 
 /* CBQ section */
 
-#define TC_CBQ_MAXPRIO		11	/* Toastman */
+#define TC_CBQ_MAXPRIO		8
 #define TC_CBQ_MAXLEVEL		8
 #define TC_CBQ_DEF_EWMA		5
 

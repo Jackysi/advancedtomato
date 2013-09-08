@@ -29,7 +29,6 @@
 #include <linux/parser.h>
 #include <linux/smp_lock.h>
 #include <linux/buffer_head.h>
-#include <linux/exportfs.h>
 #include <linux/vfs.h>
 #include <linux/random.h>
 #include <linux/mount.h>
@@ -171,6 +170,7 @@ static void ext3_handle_error(struct super_block *sb)
 	if (test_opt (sb, ERRORS_RO)) {
 		printk (KERN_CRIT "Remounting filesystem read-only\n");
 		sb->s_flags |= MS_RDONLY;
+		notify_device_error("filesystem", sb->s_id, "1");
 	}
 	ext3_commit_super(sb, es, 1);
 	if (test_opt(sb, ERRORS_PANIC))
@@ -280,6 +280,7 @@ void ext3_abort (struct super_block * sb, const char * function,
 	printk(KERN_CRIT "Remounting filesystem read-only\n");
 	EXT3_SB(sb)->s_mount_state |= EXT3_ERROR_FS;
 	sb->s_flags |= MS_RDONLY;
+	notify_device_error("filesystem", sb->s_id, "1");
 	EXT3_SB(sb)->s_mount_opt |= EXT3_MOUNT_ABORT;
 	journal_abort(EXT3_SB(sb)->s_journal, -EIO);
 }
@@ -554,10 +555,13 @@ static int ext3_show_options(struct seq_file *seq, struct vfsmount *vfs)
 }
 
 
-static struct inode *ext3_nfs_get_inode(struct super_block *sb,
-		u64 ino, u32 generation)
+static struct dentry *ext3_get_dentry(struct super_block *sb, void *vobjp)
 {
+	__u32 *objp = vobjp;
+	unsigned long ino = objp[0];
+	__u32 generation = objp[1];
 	struct inode *inode;
+	struct dentry *result;
 
 	if (ino < EXT3_FIRST_INO(sb) && ino != EXT3_ROOT_INO)
 		return ERR_PTR(-ESTALE);
@@ -580,22 +584,15 @@ static struct inode *ext3_nfs_get_inode(struct super_block *sb,
 		iput(inode);
 		return ERR_PTR(-ESTALE);
 	}
-
-	return inode;
-}
-
-static struct dentry *ext3_fh_to_dentry(struct super_block *sb, struct fid *fid,
-		int fh_len, int fh_type)
-{
-	return generic_fh_to_dentry(sb, fid, fh_len, fh_type,
-				    ext3_nfs_get_inode);
-}
-
-static struct dentry *ext3_fh_to_parent(struct super_block *sb, struct fid *fid,
-		int fh_len, int fh_type)
-{
-	return generic_fh_to_parent(sb, fid, fh_len, fh_type,
-				    ext3_nfs_get_inode);
+	/* now to find a dentry.
+	 * If possible, get a well-connected one
+	 */
+	result = d_alloc_anon(inode);
+	if (!result) {
+		iput(inode);
+		return ERR_PTR(-ENOMEM);
+	}
+	return result;
 }
 
 #ifdef CONFIG_QUOTA
@@ -664,10 +661,9 @@ static const struct super_operations ext3_sops = {
 #endif
 };
 
-static const struct export_operations ext3_export_ops = {
-	.fh_to_dentry = ext3_fh_to_dentry,
-	.fh_to_parent = ext3_fh_to_parent,
+static struct export_operations ext3_export_ops = {
 	.get_parent = ext3_get_parent,
+	.get_dentry = ext3_get_dentry,
 };
 
 enum {
@@ -1116,6 +1112,7 @@ static int ext3_setup_super(struct super_block *sb, struct ext3_super_block *es,
 		printk (KERN_ERR "EXT3-fs warning: revision level too high, "
 			"forcing read-only mode\n");
 		res = MS_RDONLY;
+		notify_device_error("filesystem", sb->s_id, "1");
 	}
 	if (read_only)
 		return res;
@@ -2365,6 +2362,7 @@ static int ext3_remount (struct super_block * sb, int * flags, char * data)
 			 * to disable replay of the journal when we next remount
 			 */
 			sb->s_flags |= MS_RDONLY;
+			notify_device_error("filesystem", sb->s_id, "1");
 
 			/*
 			 * OK, test if we are remounting a valid rw partition

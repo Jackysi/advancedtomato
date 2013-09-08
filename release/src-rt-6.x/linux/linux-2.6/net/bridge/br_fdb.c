@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_fdb.c,v 1.6 2002/01/17 00:57:07 davem Exp $
+ *	$Id: br_fdb.c,v 1.5 2010-06-15 01:09:50 $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@ br_brc_init(ctf_brc_t *brc, unsigned char *ea, struct net_device *rxdev)
 
 	memcpy(brc->dhost.octet, ea, ETH_ALEN);
 
-	if (rxdev->priv_flags & IFF_802_1Q_VLAN) {
+        if (rxdev->priv_flags & IFF_802_1Q_VLAN) {
 		brc->txifp = (void *)(VLAN_DEV_INFO(rxdev)->real_dev);
 		brc->vid = VLAN_DEV_INFO(rxdev)->vlan_id;
 		brc->action = ((VLAN_DEV_INFO(rxdev)->flags & 1) ?
@@ -82,14 +82,10 @@ br_brc_add(unsigned char *ea, struct net_device *rxdev)
 #endif
 
 	/* Add the bridge cache entry */
-#if 0
-	ctf_brc_add(kcih, &brc_entry);
-#else
 	if (ctf_brc_lkup(kcih, ea) == NULL)
 		ctf_brc_add(kcih, &brc_entry);
 	else
 		ctf_brc_update(kcih, &brc_entry);
-#endif
 
 	return;
 }
@@ -248,7 +244,7 @@ void br_fdb_cleanup(unsigned long _data)
 				}
 #endif /* HNDCTF */
 				fdb_delete(f);
-			} else if (time_before(this_timer, next_timer))
+			} else if (this_timer < next_timer)
 				next_timer = this_timer;
 		}
 	}
@@ -443,13 +439,12 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
 	if (fdb) {
 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
 		atomic_set(&fdb->use_count, 1);
+		hlist_add_head_rcu(&fdb->hlist, head);
 
 		fdb->dst = source;
 		fdb->is_local = is_local;
 		fdb->is_static = is_local;
 		fdb->ageing_timer = jiffies;
-
-		hlist_add_head_rcu(&fdb->hlist, head);
 
 		/* Add bridge cache entry for non local hosts */
 #ifdef HNDCTF
@@ -511,26 +506,20 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 	if (hold_time(br) == 0)
 		return;
 
-	/* ignore packets unless we are using this port */
-	if (!(source->state == BR_STATE_LEARNING ||
-	      source->state == BR_STATE_FORWARDING))
-		return;
-
 	fdb = fdb_find(head, addr);
 	if (likely(fdb)) {
 		/* attempt to update an entry for a local interface */
 		if (unlikely(fdb->is_local)) {
-#if 0
 			if (net_ratelimit())
 				printk(KERN_WARNING "%s: received packet with "
-				       "own address as source address\n",
+				       " own address as source address\n",
 				       source->dev->name);
-#endif
 		} else {
 			/* fastpath: update of existing entry */
 #ifdef HNDCTF
-			/* Update the brc entry if the host moved from
-			 * one bridge port to another.
+			/* Update the brc entry incase the host moved from
+			 * one bridge to another or to a different port under
+			 * the same bridge.
 			 */
 			if ((fdb->dst != source) && (source->state == BR_STATE_FORWARDING))
 				br_brc_update((unsigned char *)addr, source->dev);

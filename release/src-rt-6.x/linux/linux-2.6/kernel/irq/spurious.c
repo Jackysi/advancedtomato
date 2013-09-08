@@ -204,11 +204,7 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
 	desc->irqs_unhandled = 0;
 }
 
-#ifdef BCMDBG
 int noirqdebug __read_mostly;
-#else /* BCMDBG */
-int noirqdebug = 1;
-#endif /* BCMDBG */
 
 int noirqdebug_setup(char *str)
 {

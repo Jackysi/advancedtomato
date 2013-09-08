@@ -61,31 +61,31 @@ static struct xt_table packet_filter = {
 /* The work comes in here from netfilter.c. */
 static unsigned int
 ipt_hook(unsigned int hook,
-	 struct sk_buff *skb,
+	 struct sk_buff **pskb,
 	 const struct net_device *in,
 	 const struct net_device *out,
 	 int (*okfn)(struct sk_buff *))
 {
-	return ipt_do_table(skb, hook, in, out, &packet_filter);
+	return ipt_do_table(pskb, hook, in, out, &packet_filter);
 }
 
 static unsigned int
 ipt_local_out_hook(unsigned int hook,
-		   struct sk_buff *skb,
+		   struct sk_buff **pskb,
 		   const struct net_device *in,
 		   const struct net_device *out,
 		   int (*okfn)(struct sk_buff *))
 {
 	/* root is playing with raw sockets. */
-	if (skb->len < sizeof(struct iphdr) ||
-	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
+	if ((*pskb)->len < sizeof(struct iphdr)
+	    || ip_hdrlen(*pskb) < sizeof(struct iphdr)) {
 		if (net_ratelimit())
 			printk("iptable_filter: ignoring short SOCK_RAW "
 			       "packet.\n");
 		return NF_ACCEPT;
 	}
 
-	return ipt_do_table(skb, hook, in, out, &packet_filter);
+	return ipt_do_table(pskb, hook, in, out, &packet_filter);
 }
 
 static struct nf_hook_ops ipt_ops[] = {
@@ -135,10 +135,13 @@ static int __init iptable_filter_init(void)
 
 	/* Register hooks */
 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
-	if (ret < 0) {
-		ipt_unregister_table(&packet_filter);
-		}
-		
+	if (ret < 0)
+		goto cleanup_table;
+
+	return ret;
+
+ cleanup_table:
+	ipt_unregister_table(&packet_filter);
 	return ret;
 }
 

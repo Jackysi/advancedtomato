@@ -18,12 +18,12 @@
 # $Id: Makefile,v 1.5 2008-05-02 22:49:54 $
 #
 
-SHARED   := ../../../../../shared
+SHARED   := ../../../../../../$(SRCBASEDIR)/shared
 ROUTER   := ../../../../../router
-SRC      := ../../../../../../src-rt
+SRC      := ../../../../../../$(SRCBASEDIR)
 WLSHARED := wlconfig_lx_shared
-WLCFGDIR := $(src)/../../../../../wl/config
-WLSYSDIR := $(src)/../../../../../wl/sys
+WLCFGDIR := $(src)/../../../../../../$(SRCBASEDIR)/wl/config
+WLSYSDIR := $(src)/../../../../../../$(SRCBASEDIR)/wl/sys
 
 ifneq ($(wildcard $(WLCFGDIR)),)
 include $(WLCFGDIR)/$(WLSHARED)
@@ -33,7 +33,7 @@ endif
 hnd-objs := $(addprefix $(SHARED)/, $(sort $(WLFILES:.c=.o)))
 HND_OBJS := $(addprefix $(src)/$(SHARED)/, $(sort $(WLFILES:.c=.o)))
 
-EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL -DPKTC
+EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
 ifneq ($(CONFIG_BCM947XX),y)
 HND_OBJS += $(src)/$(SHARED)/nvramstubs.o

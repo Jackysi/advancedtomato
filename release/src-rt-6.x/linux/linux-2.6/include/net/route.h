@@ -62,6 +62,7 @@ struct rtable
 	
 	unsigned		rt_flags;
 	__u16			rt_type;
+	__u16			rt_multipath_alg;
 
 	__be32			rt_dst;	/* Path destination	*/
 	__be32			rt_src;	/* Path source		*/

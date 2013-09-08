@@ -138,22 +138,24 @@ static int gro_write(struct file *file, const char __user *buf, size_t size, lof
 	if (size < 5 || size > 8)
 		return -EINVAL;
 
-	if (strncmp(buf, "-gro", 3))
+	if (strncmp(buf, "-gro", 4))
 		return -EINVAL;
 
 	sscanf(buf, "-gro %d", &gro_timer_interval);
 
 	if (gro_timer_interval > 0) {
-		if (!(gro_dev->features & NETIF_F_GRO)) {
-			gro_dev->features |= NETIF_F_GRO;
-			gro_timer.data = (ulong)gro_dev;
-			gro_timer.expires = jiffies + gro_timer_interval;
-			mod_timer(&gro_timer, jiffies + gro_timer_interval);
-			printk("\ngro enabled with interval %d\n", gro_timer_interval);
-		}
+		gro_dev->features |= NETIF_F_GRO;
+		gro_timer.data = (ulong)gro_dev;
+		gro_timer.expires = jiffies + gro_timer_interval;
+		mod_timer(&gro_timer, jiffies + gro_timer_interval);
+		printk("\ngro enabled with interval %d\n", gro_timer_interval);
 	}
 	else {
 		gro_dev->features &= ~NETIF_F_GRO;
+		del_timer(&gro_timer);
+
+		/* flush packet in gro_device */
+		gro_watchdog((ulong)gro_dev);
 		printk("\ngro disabled\n");
 	}
 

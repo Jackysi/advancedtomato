@@ -61,7 +61,6 @@ struct writeback_control {
 	unsigned for_reclaim:1;		/* Invoked from the page allocator */
 	unsigned for_writepages:1;	/* This is a writepages() call */
 	unsigned range_cyclic:1;	/* range_start is cyclic */
-	unsigned more_io:1;		/* more io to be dispatched */
 
 	void *fs_private;		/* For use by ->writepages() */
 };
@@ -99,10 +98,6 @@ extern int dirty_expire_interval;
 extern int block_dump;
 extern int laptop_mode;
 
-extern int dirty_ratio_handler(struct ctl_table *table, int write,
-		struct file *filp, void __user *buffer, size_t *lenp,
-		loff_t *ppos);
-
 struct ctl_table;
 struct file;
 int dirty_writeback_centisecs_handler(struct ctl_table *, int, struct file *,
@@ -132,7 +127,7 @@ int sync_page_range(struct inode *inode, struct address_space *mapping,
 			loff_t pos, loff_t count);
 int sync_page_range_nolock(struct inode *inode, struct address_space *mapping,
 			   loff_t pos, loff_t count);
-void set_page_dirty_balance(struct page *page, int page_mkwrite);
+void set_page_dirty_balance(struct page *page);
 void writeback_set_ratelimit(void);
 
 /* pdflush.c */

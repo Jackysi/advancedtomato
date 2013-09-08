@@ -14,6 +14,9 @@
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_MARK.h>
+#ifdef  HNDCTF
+#include <net/netfilter/nf_conntrack.h>
+#endif
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
@@ -22,7 +25,7 @@ MODULE_ALIAS("ipt_MARK");
 MODULE_ALIAS("ip6t_MARK");
 
 static unsigned int
-target_v0(struct sk_buff *skb,
+target_v0(struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
@@ -31,12 +34,12 @@ target_v0(struct sk_buff *skb,
 {
 	const struct xt_mark_target_info *markinfo = targinfo;
 
-	skb->mark = markinfo->mark;
+	(*pskb)->mark = markinfo->mark;
 	return XT_CONTINUE;
 }
 
 static unsigned int
-target_v1(struct sk_buff *skb,
+target_v1(struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
@@ -49,18 +52,26 @@ target_v1(struct sk_buff *skb,
 	switch (markinfo->mode) {
 	case XT_MARK_SET:
 		mark = markinfo->mark;
+#ifdef  HNDCTF
+	{
+		enum ip_conntrack_info ctinfo;
+		struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
+		if(ct) ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
+	}
+#endif  /* HNDCTF */
+
 		break;
 
 	case XT_MARK_AND:
-		mark = skb->mark & markinfo->mark;
+		mark = (*pskb)->mark & markinfo->mark;
 		break;
 
 	case XT_MARK_OR:
-		mark = skb->mark | markinfo->mark;
+		mark = (*pskb)->mark | markinfo->mark;
 		break;
 	}
 
-	skb->mark = mark;
+	(*pskb)->mark = mark;
 	return XT_CONTINUE;
 }
 

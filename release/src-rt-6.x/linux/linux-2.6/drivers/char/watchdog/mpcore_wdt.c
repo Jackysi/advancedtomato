@@ -328,11 +328,12 @@ static int __devinit mpcore_wdt_probe(struct platform_device *dev)
 		goto err_out;
 	}
 
-	wdt = kzalloc(sizeof(struct mpcore_wdt), GFP_KERNEL);
+	wdt = kmalloc(sizeof(struct mpcore_wdt), GFP_KERNEL);
 	if (!wdt) {
 		ret = -ENOMEM;
 		goto err_out;
 	}
+	memset(wdt, 0, sizeof(struct mpcore_wdt));
 
 	wdt->dev = &dev->dev;
 	wdt->irq = platform_get_irq(dev, 0);

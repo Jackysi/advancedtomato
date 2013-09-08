@@ -228,9 +228,9 @@ int ibmasm_init_remote_input_dev(struct service_processor *sp)
 	mouse_dev->id.vendor = pdev->vendor;
 	mouse_dev->id.product = pdev->device;
 	mouse_dev->id.version = 1;
-	mouse_dev->evbit[0]  = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-	mouse_dev->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) |
-		BIT_MASK(BTN_RIGHT) | BIT_MASK(BTN_MIDDLE);
+	mouse_dev->evbit[0]  = BIT(EV_KEY) | BIT(EV_ABS);
+	mouse_dev->keybit[LONG(BTN_MOUSE)] = BIT(BTN_LEFT) |
+		BIT(BTN_RIGHT) | BIT(BTN_MIDDLE);
 	set_bit(BTN_TOUCH, mouse_dev->keybit);
 	mouse_dev->name = remote_mouse_name;
 	input_set_abs_params(mouse_dev, ABS_X, 0, xmax, 0, 0);
@@ -240,7 +240,7 @@ int ibmasm_init_remote_input_dev(struct service_processor *sp)
 	keybd_dev->id.vendor = pdev->vendor;
 	keybd_dev->id.product = pdev->device;
 	mouse_dev->id.version = 2;
-	keybd_dev->evbit[0]  = BIT_MASK(EV_KEY);
+	keybd_dev->evbit[0]  = BIT(EV_KEY);
 	keybd_dev->name = remote_keybd_name;
 
 	for (i = 0; i < XLATE_SIZE; i++) {

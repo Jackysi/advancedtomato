@@ -331,9 +331,6 @@ static int scsi_check_sense(struct scsi_cmnd *scmd)
 		return /* soft_error */ SUCCESS;
 
 	case ABORTED_COMMAND:
-		if (sshdr.asc == 0x10) /* DIF */
-			return SUCCESS;
-
 		return NEEDS_RETRY;
 	case NOT_READY:
 	case UNIT_ATTENTION:
@@ -626,7 +623,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd, struct scsi_eh_save *ses,
 
 	if (sense_bytes) {
 		scmd->request_bufflen = min_t(unsigned,
-		                       SCSI_SENSE_BUFFERSIZE, sense_bytes);
+		                       sizeof(scmd->sense_buffer), sense_bytes);
 		sg_init_one(&ses->sense_sgl, scmd->sense_buffer,
 		                                       scmd->request_bufflen);
 		scmd->request_buffer = &ses->sense_sgl;
@@ -658,7 +655,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd, struct scsi_eh_save *ses,
 	 * Zero the sense buffer.  The scsi spec mandates that any
 	 * untransferred sense data should be interpreted as being zero.
 	 */
-	memset(scmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+	memset(scmd->sense_buffer, 0, sizeof(scmd->sense_buffer));
 }
 EXPORT_SYMBOL(scsi_eh_prep_cmnd);
 
@@ -1830,7 +1827,7 @@ int scsi_command_normalize_sense(struct scsi_cmnd *cmd,
 				 struct scsi_sense_hdr *sshdr)
 {
 	return scsi_normalize_sense(cmd->sense_buffer,
-			SCSI_SENSE_BUFFERSIZE, sshdr);
+			sizeof(cmd->sense_buffer), sshdr);
 }
 EXPORT_SYMBOL(scsi_command_normalize_sense);
 

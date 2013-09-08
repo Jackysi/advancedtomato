@@ -56,7 +56,7 @@ masquerade_check(const char *tablename,
 }
 
 static unsigned int
-masquerade_target(struct sk_buff *skb,
+masquerade_target(struct sk_buff **pskb,
 		  const struct net_device *in,
 		  const struct net_device *out,
 		  unsigned int hooknum,
@@ -73,14 +73,14 @@ masquerade_target(struct sk_buff *skb,
 
 	NF_CT_ASSERT(hooknum == NF_IP_POST_ROUTING);
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	nat = nfct_nat(ct);
 
 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED
 			    || ctinfo == IP_CT_RELATED + IP_CT_IS_REPLY));
 
 	/* Mark the connection as cone if we have such rule configured */
-	nat->info.nat_type |= (skb->nfcache & NFC_IP_CONE_NAT) ? NFC_IP_CONE_NAT:0;
+	nat->info.nat_type |= ((*pskb)->nfcache & NFC_IP_CONE_NAT) ? NFC_IP_CONE_NAT:0;
 
 	/* Source address is 0.0.0.0 - locally generated packet that is
 	 * probably not supposed to be masqueraded.
@@ -89,7 +89,7 @@ masquerade_target(struct sk_buff *skb,
 		return NF_ACCEPT;
 
 	mr = targinfo;
-	rt = (struct rtable *)skb->dst;
+	rt = (struct rtable *)(*pskb)->dst;
 	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
 	if (!newsrc) {
 		printk("MASQUERADE: %s ate my IP address\n", out->name);
@@ -142,7 +142,17 @@ static int masq_inet_event(struct notifier_block *this,
 			   void *ptr)
 {
 	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
-	return masq_device_event(this, event, dev);
+
+	if (event == NETDEV_DOWN) {
+		/* IP address was deleted.  Search entire table for
+		   conntracks which were associated with that device,
+		   and forget them. */
+		NF_CT_ASSERT(dev->ifindex != 0);
+
+		nf_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
+	}
+
+	return NOTIFY_DONE;
 }
 
 static struct notifier_block masq_dev_notifier = {

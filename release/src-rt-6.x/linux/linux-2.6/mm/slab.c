@@ -2749,9 +2749,9 @@ static int cache_grow(struct kmem_cache *cachep,
 	 * Be lazy and only check for valid flags here,  keeping it out of the
 	 * critical path in kmem_cache_alloc().
 	 */
-	BUG_ON(flags & GFP_SLAB_BUG_MASK);
-	local_flags = flags & (GFP_CONSTRAINT_MASK|GFP_RECLAIM_MASK);
+	BUG_ON(flags & ~(GFP_DMA | __GFP_ZERO | GFP_LEVEL_MASK));
 
+	local_flags = (flags & GFP_LEVEL_MASK);
 	/* Take the l3 list lock to change the colour_next on this node */
 	check_irq_off();
 	l3 = cachep->nodelists[nodeid];
@@ -2788,7 +2788,7 @@ static int cache_grow(struct kmem_cache *cachep,
 
 	/* Get slab management. */
 	slabp = alloc_slabmgmt(cachep, objp, offset,
-			local_flags & ~GFP_CONSTRAINT_MASK, nodeid);
+			local_flags & ~GFP_THISNODE, nodeid);
 	if (!slabp)
 		goto opps1;
 
@@ -3230,7 +3230,7 @@ static void *fallback_alloc(struct kmem_cache *cache, gfp_t flags)
 
 	zonelist = &NODE_DATA(slab_node(current->mempolicy))
 			->node_zonelists[gfp_zone(flags)];
-	local_flags = flags & (GFP_CONSTRAINT_MASK|GFP_RECLAIM_MASK);
+	local_flags = (flags & GFP_LEVEL_MASK);
 
 retry:
 	/*
@@ -4364,7 +4364,7 @@ static void show_symbol(struct seq_file *m, unsigned long address)
 {
 #ifdef CONFIG_KALLSYMS
 	unsigned long offset, size;
-	char modname[MODULE_NAME_LEN], name[KSYM_NAME_LEN];
+	char modname[MODULE_NAME_LEN + 1], name[KSYM_NAME_LEN + 1];
 
 	if (lookup_symbol_attrs(address, &size, &offset, modname, name) == 0) {
 		seq_printf(m, "%s+%#lx/%#lx", name, offset, size);

@@ -236,8 +236,8 @@ int __init snd_pmac_attach_beep(struct snd_pmac *chip)
 	input_dev->id.product = 0x0001;
 	input_dev->id.version = 0x0100;
 
-	input_dev->evbit[0] = BIT_MASK(EV_SND);
-	input_dev->sndbit[0] = BIT_MASK(SND_BELL) | BIT_MASK(SND_TONE);
+	input_dev->evbit[0] = BIT(EV_SND);
+	input_dev->sndbit[0] = BIT(SND_BELL) | BIT(SND_TONE);
 	input_dev->event = snd_pmac_beep_event;
 	input_dev->private = chip;
 	input_dev->cdev.dev = &chip->pdev->dev;

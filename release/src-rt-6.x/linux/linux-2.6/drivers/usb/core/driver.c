@@ -725,7 +725,7 @@ void usb_deregister_device_driver(struct usb_device_driver *udriver)
 	driver_unregister(&udriver->drvwrap.driver);
 	usbfs_update_special();
 }
-EXPORT_SYMBOL_GPL(usb_deregister_device_driver);
+EXPORT_SYMBOL(usb_deregister_device_driver);
 
 /**
  * usb_register_driver - register a USB interface driver
@@ -799,7 +799,7 @@ void usb_deregister(struct usb_driver *driver)
 
 	usbfs_update_special();
 }
-EXPORT_SYMBOL(usb_deregister);
+EXPORT_SYMBOL_GPL_FUTURE(usb_deregister);
 
 /* Forced unbinding of a USB interface driver, either because
  * it doesn't support pre_reset/post_reset/reset_resume or

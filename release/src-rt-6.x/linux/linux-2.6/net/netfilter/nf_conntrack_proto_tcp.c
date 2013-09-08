@@ -38,10 +38,6 @@
 extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
 #endif /* HNDCTF */
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern int ipv4_conntrack_fastnat;
-#endif
-
 /* Protects conntrack->proto.tcp */
 static DEFINE_RWLOCK(tcp_lock);
 
@@ -506,23 +502,7 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
 	}
 }
 
-#ifdef CONFIG_NF_NAT_NEEDED
-static inline s16 nat_offset(const struct nf_conn *ct,
-			     enum ip_conntrack_dir dir,
-			     u32 seq)
-{
-	typeof(nf_ct_nat_offset) get_offset = rcu_dereference(nf_ct_nat_offset);
-
-	return get_offset != NULL ? get_offset(ct, dir, seq) : 0;
-}
-#define NAT_OFFSET(pf, ct, dir, seq) \
-	(pf == PF_INET ? nat_offset(ct, dir, seq) : 0)
-#else
-#define NAT_OFFSET(pf, ct, dir, seq)	0
-#endif
-
-static int tcp_in_window(struct nf_conn *ct,
-			 struct ip_ct_tcp *state,
+static int tcp_in_window(struct ip_ct_tcp *state,
 			 enum ip_conntrack_dir dir,
 			 unsigned int index,
 			 const struct sk_buff *skb,
@@ -533,7 +513,6 @@ static int tcp_in_window(struct nf_conn *ct,
 	struct ip_ct_tcp_state *sender = &state->seen[dir];
 	struct ip_ct_tcp_state *receiver = &state->seen[!dir];
 	__u32 seq, ack, sack, end, win, swin;
-	s16 receiver_offset;
 	int res;
 
 	/*
@@ -547,17 +526,12 @@ static int tcp_in_window(struct nf_conn *ct,
 	if (receiver->flags & IP_CT_TCP_FLAG_SACK_PERM)
 		tcp_sack(skb, dataoff, tcph, &sack);
 
-	/* Take into account NAT sequence number mangling */
-	receiver_offset = NAT_OFFSET(pf, ct, !dir, ack - 1);
-	ack -= receiver_offset;
-	sack -= receiver_offset;
-
 	DEBUGP("tcp_in_window: START\n");
 	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
-	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+	       "seq=%u ack=%u sack=%u win=%u end=%u\n",
 		NIPQUAD(iph->saddr), ntohs(tcph->source),
 		NIPQUAD(iph->daddr), ntohs(tcph->dest),
-		seq, ack, receiver_offset, sack, receiver_offset, win, end);
+		seq, ack, sack, win, end);
 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
 		sender->td_end, sender->td_maxend, sender->td_maxwin,
@@ -642,10 +616,10 @@ static int tcp_in_window(struct nf_conn *ct,
 		seq = end = sender->td_end;
 
 	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
-	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+	       "seq=%u ack=%u sack =%u win=%u end=%u\n",
 		NIPQUAD(iph->saddr), ntohs(tcph->source),
 		NIPQUAD(iph->daddr), ntohs(tcph->dest),
-		seq, ack, receiver_offset, sack, receiver_offset, win, end);
+		seq, ack, sack, win, end);
 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
 		sender->td_end, sender->td_maxend, sender->td_maxwin,
@@ -719,7 +693,7 @@ static int tcp_in_window(struct nf_conn *ct,
 			before(seq, sender->td_maxend + 1) ?
 			after(end, sender->td_end - receiver->td_maxwin - 1) ?
 			before(sack, receiver->td_end + 1) ?
-			after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1) ? "BUG"
+			after(ack, receiver->td_end - MAXACKWINDOW(sender)) ? "BUG"
 			: "ACK is under the lower bound (possible overly delayed ACK)"
 			: "ACK is over the upper bound (ACKed data not seen yet)"
 			: "SEQ is under the lower bound (already ACKed data retransmitted)"
@@ -733,6 +707,41 @@ static int tcp_in_window(struct nf_conn *ct,
 
 	return res;
 }
+
+#ifdef CONFIG_NF_NAT_NEEDED
+/* Update sender->td_end after NAT successfully mangled the packet */
+/* Caller must linearize skb at tcp header. */
+void nf_conntrack_tcp_update(struct sk_buff *skb,
+			     unsigned int dataoff,
+			     struct nf_conn *conntrack,
+			     int dir)
+{
+	struct tcphdr *tcph = (void *)skb->data + dataoff;
+	__u32 end;
+#ifdef DEBUGP_VARS
+	struct ip_ct_tcp_state *sender = &conntrack->proto.tcp.seen[dir];
+	struct ip_ct_tcp_state *receiver = &conntrack->proto.tcp.seen[!dir];
+#endif
+
+	end = segment_seq_plus_len(ntohl(tcph->seq), skb->len, dataoff, tcph);
+
+	write_lock_bh(&tcp_lock);
+	/*
+	 * We have to worry for the ack in the reply packet only...
+	 */
+	if (after(end, conntrack->proto.tcp.seen[dir].td_end))
+		conntrack->proto.tcp.seen[dir].td_end = end;
+	conntrack->proto.tcp.last_end = end;
+	write_unlock_bh(&tcp_lock);
+	DEBUGP("tcp_update: sender end=%u maxend=%u maxwin=%u scale=%i "
+	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+		sender->td_end, sender->td_maxend, sender->td_maxwin,
+		sender->td_scale,
+		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+		receiver->td_scale);
+}
+EXPORT_SYMBOL_GPL(nf_conntrack_tcp_update);
+#endif
 
 #define	TH_FIN	0x01
 #define	TH_SYN	0x02
@@ -784,11 +793,6 @@ static int tcp_error(struct sk_buff *skb,
 				"nf_ct_tcp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (ipv4_conntrack_fastnat)
-		return NF_ACCEPT;
-#endif
 
 	/* Checksum invalid? Ignore.
 	 * We skip checking packets on the outgoing path
@@ -968,7 +972,7 @@ static int tcp_packet(struct nf_conn *conntrack,
 	}
 #endif /* HNDCTF */
 
-	if (!tcp_in_window(conntrack, &conntrack->proto.tcp, dir, index,
+	if (!tcp_in_window(&conntrack->proto.tcp, dir, index,
 			   skb, dataoff, th, pf)) {
 		write_unlock_bh(&tcp_lock);
 		return -NF_ACCEPT;

@@ -222,9 +222,10 @@ struct of_device* of_platform_device_create(struct device_node *np,
 {
 	struct of_device *dev;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return NULL;
+	memset(dev, 0, sizeof(*dev));
 
 	dev->node = of_node_get(np);
 	dev->dma_mask = 0xffffffffUL;

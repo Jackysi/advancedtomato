@@ -68,6 +68,7 @@
 #  define print_var(X,Y...)
 #endif
 
+#define BIT(x)		(1ul<<(x))
 #define POW2(x)		(1ul<<(x))
 
 /*

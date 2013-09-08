@@ -56,6 +56,61 @@ struct ehci_stats {
 	unsigned long		unlink;
 };
 
+/* qtdc message level */
+#define QTDC_MSG_ERR	(1<<0)
+#define QTDC_MSG_STATS	(1<<1)
+#define QTDC_MSG_TRACE	(1<<2)
+
+#ifdef EHCI_QTD_CACHE
+typedef struct ehci_qtdc {
+	void	*ehci;		/* pointer to ehci */
+	int	num;		/* qtdc number */
+	int	ep;		/* endpoint */
+	int	size;		/* max qtd's in cache */
+	int	cnt;		/* current qtd's in cache */
+	int	timeout;	/* max time to stay in cache */
+	struct list_head	cache;	/* the qtd cache list */
+	struct timer_list	watchdog;
+#ifdef EHCI_QTDC_DEBUG
+	unsigned long	last_printed;	/* last time when we printed stats */
+	unsigned long	cached_qtd;	/* counter for cached qtd's */
+	unsigned long	timeout_qtd;	/* counter for qtd's released in timeout */
+	unsigned long	timeout_qtd_max;/* max qtd's released in timeout */
+	unsigned long	timeout_cnt;	/* counter for timeouts */
+	unsigned long	release_qtd;	/* counter for qtd's released normally */
+	unsigned long	release_cnt;	/* counter for normal release */
+	unsigned int	msglevel;
+#endif	/* EHCI_QTDC_DEBUG */
+} ehci_qtdc_t;
+
+#define NUM_QTD_CACHE	2	/* # of ep's supported (1 IN 1 OUT for now) */
+
+#ifdef EHCI_QTDC_DEBUG
+#define QTDC_ERR(qtdc, msg)	do {	\
+					if (qtdc->msglevel & QTDC_MSG_ERR) {	\
+						printk("qtdc ep 0x%x: ", qtdc->ep);	\
+						printk msg; \
+					}	\
+				} while(0)
+#define QTDC_STATS(qtdc, msg)	do {	\
+					if (qtdc->msglevel & QTDC_MSG_STATS) {	\
+						printk("qtdc ep 0x%x: ", qtdc->ep);	\
+						printk msg; \
+					}	\
+				} while(0)
+#define QTDC_TRACE(qtdc, msg)	do {	\
+					if (qtdc->msglevel & QTDC_MSG_TRACE) {	\
+						printk("qtdc ep 0x%x: ", qtdc->ep);	\
+						printk msg; \
+					}	\
+				} while(0)
+#else
+#define QTDC_ERR(qtdc, msg)
+#define QTDC_STATS(qtdc, msg)
+#define QTDC_TRACE(qtdc, msg)
+#endif	/* EHCI_QTDC_DEBUG */
+#endif	/* EHCI_QTD_CACHE */
+
 /* ehci_hcd->lock guards shared data against other CPUs:
  *   ehci_hcd:	async, reclaim, periodic (and shadow), ...
  *   usb_host_endpoint: hcpriv
@@ -124,7 +179,6 @@ struct ehci_hcd {			/* one per controller */
 	struct timer_list	watchdog;
 	unsigned long		actions;
 	unsigned		stamp;
-	unsigned		periodic_stamp;
 	unsigned		random_frame;
 	unsigned long		next_statechange;
 	ktime_t			last_periodic_enable;
@@ -142,6 +196,14 @@ struct ehci_hcd {			/* one per controller */
 
 	u8			sbrn;		/* packed release number */
 
+#ifdef EHCI_QTD_CACHE
+	int			qtdc_pid;
+	int			qtdc_vid;
+	struct usb_device 	*qtdc_dev;
+	ehci_qtdc_t*		qtdc[NUM_QTD_CACHE];
+	struct timer_list	qtdc_watchdog;
+#endif /* EHCI_QTD_CACHE */
+
 	/* irq statistics */
 #ifdef EHCI_STATS
 	struct ehci_stats	stats;
@@ -154,6 +216,12 @@ struct ehci_hcd {			/* one per controller */
 #ifdef DEBUG
 	struct dentry		*debug_dir;
 #endif
+
+	/* EHCI fastpath acceleration */
+	struct usb_device *bypass_device;
+	struct ehci_qh *ehci_pipes[3]; /* pointer to ep location with qh address */
+	void (*ehci_bypass_callback)(int pipeindex, struct ehci_qh *, spinlock_t *lock);
+	struct dma_pool *fastpath_pool; /* fastpath qtd pool */
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */
@@ -223,7 +291,7 @@ struct ehci_caps {
 #define HCC_PGM_FRAMELISTLEN(p) ((p)&(1 << 1))  /* true: periodic_size changes*/
 #define HCC_64BIT_ADDR(p)       ((p)&(1))       /* true: can use 64-bit addr */
 	u8		portroute [8];	 /* nibbles for routing - offset 0xC */
-} __attribute__ ((packed));
+};
 
 
 /* Section 2.3 Host Controller Operational Registers */
@@ -301,7 +369,7 @@ struct ehci_regs {
 #define PORT_CSC	(1<<1)		/* connect status change */
 #define PORT_CONNECT	(1<<0)		/* device connected */
 #define PORT_RWC_BITS   (PORT_CSC | PORT_PEC | PORT_OCC)
-} __attribute__ ((packed));
+};
 
 #define USBMODE		0x68		/* USB Device mode */
 #define USBMODE_SDIS	(1<<3)		/* Stream disable */
@@ -332,7 +400,7 @@ struct ehci_dbg_port {
 	u32	data47;
 	u32	address;
 #define DBGP_EPADDR(dev,ep)	(((dev)<<8)|(ep))
-} __attribute__ ((packed));
+};
 
 /*-------------------------------------------------------------------------*/
 
@@ -483,7 +551,7 @@ struct ehci_qh {
 #define	QH_STATE_IDLE		3		/* HC doesn't see this */
 #define	QH_STATE_UNLINK_WAIT	4		/* LINKED and on reclaim q */
 #define	QH_STATE_COMPLETING	5		/* don't touch token.HALT */
-
+#define QH_STATE_DETACHED	6
 	u8			xacterrs;	/* XactErr retry counter */
 #define	QH_XACTERR_MAX		32		/* XactErr retry limit */
 
@@ -496,7 +564,7 @@ struct ehci_qh {
 	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
 	struct usb_device	*dev;		/* access to TT */
-	unsigned		is_out:1;	/* bulk or intr OUT */
+	struct ehci_qtd		*first_qtd;	/* optimzied equivalent of the qtd_list */
 	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
 };
 
@@ -827,6 +895,20 @@ static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
 #define STUB_DEBUG_FILES
 #endif	/* DEBUG */
 
+/* EHCI fastpath acceleration */
+#define EHCI_FASTPATH		0x31
+#define EHCI_SET_EP_BYPASS	(0x4300 | EHCI_FASTPATH)
+#define EHCI_SET_BYPASS_CB	(0x4300 | (EHCI_FASTPATH+1))
+#define EHCI_SET_BYPASS_DEV	(0x4300 | (EHCI_FASTPATH+2))
+#define EHCI_DUMP_STATE		(0x4300 | (EHCI_FASTPATH+3))
+#define EHCI_SET_BYPASS_POOL	(0x4300 | (EHCI_FASTPATH+4))
+#define EHCI_CLR_EP_BYPASS	(0x4300 | (EHCI_FASTPATH+5))
+
+
+
+
+
 /*-------------------------------------------------------------------------*/
 
 #endif /* __LINUX_EHCI_HCD_H */
+

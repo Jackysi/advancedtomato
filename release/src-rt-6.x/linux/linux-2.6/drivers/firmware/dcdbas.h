@@ -17,6 +17,7 @@
 #define _DCDBAS_H_
 
 #include <linux/device.h>
+#include <linux/input.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
 

@@ -887,8 +887,6 @@ struct sock *sk_alloc(int family, gfp_t priority,
 
 		if (!try_module_get(prot->owner))
 			goto out_free;
-
-		atomic_set(&sk->sk_wmem_alloc, 1);
 	}
 	return sk;
 
@@ -900,7 +898,7 @@ out_free:
 	return NULL;
 }
 
-static void __sk_free(struct sock *sk)
+void sk_free(struct sock *sk)
 {
 	struct sk_filter *filter;
 	struct module *owner = sk->sk_prot_creator->owner;
@@ -928,17 +926,6 @@ static void __sk_free(struct sock *sk)
 	module_put(owner);
 }
 
-void sk_free(struct sock *sk)
-{
-	/*
-	 * We substract one from sk_wmem_alloc and can know if
-	 * some packets are still in some tx queue.
-	 * If not null, sock_wfree() will call __sk_free(sk) later
-	 */
-	if (atomic_dec_and_test(&sk->sk_wmem_alloc))
-		__sk_free(sk);
-}
-
 struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 {
 	struct sock *newsk = sk_alloc(sk->sk_family, priority, sk->sk_prot, 0);
@@ -955,10 +942,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 		newsk->sk_backlog.head	= newsk->sk_backlog.tail = NULL;
 
 		atomic_set(&newsk->sk_rmem_alloc, 0);
-		/*
-		 * sk_wmem_alloc set to one (see sk_free() and sock_wfree())
-		 */
-		atomic_set(&newsk->sk_wmem_alloc, 1);
+		atomic_set(&newsk->sk_wmem_alloc, 0);
 		atomic_set(&newsk->sk_omem_alloc, 0);
 		skb_queue_head_init(&newsk->sk_receive_queue);
 		skb_queue_head_init(&newsk->sk_write_queue);
@@ -1060,23 +1044,12 @@ void __init sk_init(void)
 void sock_wfree(struct sk_buff *skb)
 {
 	struct sock *sk = skb->sk;
-	unsigned int len = skb->truesize;
 
-	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
-		/*
-		 * Keep a reference on sk_wmem_alloc, this will be released
-		 * after sk_write_space() call
-		 */
-		atomic_sub(len - 1, &sk->sk_wmem_alloc);
+	/* In case it might be waiting for more memory. */
+	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
+	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
 		sk->sk_write_space(sk);
-		len = 1;
-	}
-	/*
-	 * if sk_wmem_alloc reaches 0, we must finish what sk_free()
-	 * could not do because of in-flight packets
-	 */
-	if (atomic_sub_and_test(len, &sk->sk_wmem_alloc))
-		__sk_free(sk);
+	sock_put(sk);
 }
 
 /*

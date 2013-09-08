@@ -207,13 +207,13 @@
 #endif
 
 #ifndef cpu_dcache_line_size
-#define cpu_dcache_line_size()	cpu_data[0].dcache.linesz
+#define cpu_dcache_line_size()	current_cpu_data.dcache.linesz
 #endif
 #ifndef cpu_icache_line_size
-#define cpu_icache_line_size()	cpu_data[0].icache.linesz
+#define cpu_icache_line_size()	current_cpu_data.icache.linesz
 #endif
 #ifndef cpu_scache_line_size
-#define cpu_scache_line_size()	cpu_data[0].scache.linesz
+#define cpu_scache_line_size()	current_cpu_data.scache.linesz
 #endif
 
 #endif /* __ASM_CPU_FEATURES_H */

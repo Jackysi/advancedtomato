@@ -282,7 +282,7 @@ static void htcp_state(struct sock *sk, u8 new_state)
 	}
 }
 
-static struct tcp_congestion_ops htcp __read_mostly = {
+static struct tcp_congestion_ops htcp = {
 	.init		= htcp_init,
 	.ssthresh	= htcp_recalc_ssthresh,
 	.cong_avoid	= htcp_cong_avoid,

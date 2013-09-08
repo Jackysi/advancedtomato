@@ -92,28 +92,6 @@ __inline__ void ip_send_check(struct iphdr *iph)
 	iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
 }
 
-int __ip_local_out(struct sk_buff *skb)
-{
-	struct iphdr *iph = ip_hdr(skb);
-
-	iph->tot_len = htons(skb->len);
-	ip_send_check(iph);
-	return nf_hook(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dst->dev,
-		       dst_output);
-}
-
-int ip_local_out(struct sk_buff *skb)
-{
-	int err;
-
-	err = __ip_local_out(skb);
-	if (likely(err == 1))
-		err = dst_output(skb);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ip_local_out);
-
 /* dev_loopback_xmit for use with netfilter. */
 static int ip_dev_loopback_xmit(struct sk_buff *newskb)
 {
@@ -161,17 +139,20 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
 	iph->daddr    = rt->rt_dst;
 	iph->saddr    = rt->rt_src;
 	iph->protocol = sk->sk_protocol;
+	iph->tot_len  = htons(skb->len);
 	ip_select_ident(iph, &rt->u.dst, sk);
 
 	if (opt && opt->optlen) {
 		iph->ihl += opt->optlen>>2;
 		ip_options_build(skb, opt, daddr, rt, 0);
 	}
+	ip_send_check(iph);
 
 	skb->priority = sk->sk_priority;
 
 	/* Send it out. */
-	return ip_local_out(skb);
+	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+		       dst_output);
 }
 
 EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
@@ -367,6 +348,7 @@ packet_routed:
 	skb_reset_network_header(skb);
 	iph = ip_hdr(skb);
 	*((__be16 *)iph) = htons((4 << 12) | (5 << 8) | (inet->tos & 0xff));
+	iph->tot_len = htons(skb->len);
 	if (ip_dont_fragment(sk, &rt->u.dst) && !ipfragok)
 		iph->frag_off = htons(IP_DF);
 	else
@@ -385,9 +367,13 @@ packet_routed:
 	ip_select_ident_more(iph, &rt->u.dst, sk,
 			     (skb_shinfo(skb)->gso_segs ?: 1) - 1);
 
+	/* Add an IP checksum. */
+	ip_send_check(iph);
+
 	skb->priority = sk->sk_priority;
 
-	return ip_local_out(skb);
+	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+		       dst_output);
 
 no_route:
 	IP_INC_STATS(IPSTATS_MIB_OUTNOROUTES);
@@ -471,8 +457,9 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	 * we can switch to copy when see the first bad fragment.
 	 */
 	if (skb_shinfo(skb)->frag_list) {
-		struct sk_buff *frag, *frag2;
+		struct sk_buff *frag;
 		int first_len = skb_pagelen(skb);
+		int truesizes = 0;
 
 		if (first_len - hlen > mtu ||
 		    ((first_len - hlen) & 7) ||
@@ -485,18 +472,19 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 			if (frag->len > mtu ||
 			    ((frag->len & 7) && frag->next) ||
 			    skb_headroom(frag) < hlen)
-				goto slow_path_clean;
+			    goto slow_path;
 
 			/* Partially cloned skb? */
 			if (skb_shared(frag))
-				goto slow_path_clean;
+				goto slow_path;
 
 			BUG_ON(frag->sk);
 			if (skb->sk) {
+				sock_hold(skb->sk);
 				frag->sk = skb->sk;
 				frag->destructor = sock_wfree;
 			}
-			skb->truesize -= frag->truesize;
+			truesizes += frag->truesize;
 		}
 
 		/* Everything is OK. Generate! */
@@ -506,6 +494,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		frag = skb_shinfo(skb)->frag_list;
 		skb_shinfo(skb)->frag_list = NULL;
 		skb->data_len = first_len - skb_headlen(skb);
+		skb->truesize -= truesizes;
 		skb->len = first_len;
 		iph->tot_len = htons(first_len);
 		iph->frag_off = htons(IP_MF);
@@ -557,15 +546,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		}
 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
 		return err;
-
-slow_path_clean:
-		for (frag2 = skb_shinfo(skb)->frag_list; frag2; frag2 = frag2->next) {
-			if (frag2 == frag)
-				break;
-			frag2->sk = NULL;
-			frag2->destructor = NULL;
-			skb->truesize += frag2->truesize;
-		}
 	}
 
 slow_path:
@@ -1226,6 +1206,7 @@ int ip_push_pending_frames(struct sock *sk)
 		skb->len += tmp_skb->len;
 		skb->data_len += tmp_skb->len;
 		skb->truesize += tmp_skb->truesize;
+		__sock_put(tmp_skb->sk);
 		tmp_skb->destructor = NULL;
 		tmp_skb->sk = NULL;
 	}
@@ -1261,18 +1242,21 @@ int ip_push_pending_frames(struct sock *sk)
 		ip_options_build(skb, opt, inet->cork.addr, rt, 0);
 	}
 	iph->tos = inet->tos;
+	iph->tot_len = htons(skb->len);
 	iph->frag_off = df;
 	ip_select_ident(iph, &rt->u.dst, sk);
 	iph->ttl = ttl;
 	iph->protocol = sk->sk_protocol;
 	iph->saddr = rt->rt_src;
 	iph->daddr = rt->rt_dst;
+	ip_send_check(iph);
 
 	skb->priority = sk->sk_priority;
 	skb->dst = dst_clone(&rt->u.dst);
 
 	/* Netfilter gets whole the not fragmented skb. */
-	err = ip_local_out(skb);
+	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
+		      skb->dst->dev, dst_output);
 	if (err) {
 		if (err > 0)
 			err = inet->recverr ? net_xmit_errno(err) : 0;

@@ -795,8 +795,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
 	switch (cmd) {
 	case SIOCOUTQ:
 	{
-		int amount = sk_wmem_alloc_get(sk);
-
+		int amount = atomic_read(&sk->sk_wmem_alloc);
 		return put_user(amount, (int __user *)arg);
 	}
 
@@ -905,7 +904,7 @@ try_again:
 		err = ulen;
 
 out_free:
-	skb_free_datagram_locked(sk, skb);
+	skb_free_datagram(sk, skb);
 out:
 	return err;
 
@@ -1139,7 +1138,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 	struct udphdr *uh = udp_hdr(skb);
 	unsigned short ulen;
 	struct rtable *rt = (struct rtable*)skb->dst;
-	__be32 saddr, daddr;
+	__be32 saddr = ip_hdr(skb)->saddr;
+	__be32 daddr = ip_hdr(skb)->daddr;
 
 	/*
 	 *  Validate the packet.
@@ -1160,9 +1160,6 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 
 	if (udp4_csum_init(skb, uh, proto))
 		goto csum_error;
-
-	saddr = ip_hdr(skb)->saddr;
-	daddr = ip_hdr(skb)->daddr;
 
 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
 		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
@@ -1543,17 +1540,30 @@ static void udp_seq_stop(struct seq_file *seq, void *v)
 static int udp_seq_open(struct inode *inode, struct file *file)
 {
 	struct udp_seq_afinfo *afinfo = PDE(inode)->data;
-	struct udp_iter_state *s;
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct udp_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
 
-	s = __seq_open_private(file, &afinfo->seq_ops,
-				sizeof(struct udp_iter_state));
-	if (s == NULL)
-		return -ENOMEM;
-
+	if (!s)
+		goto out;
 	s->family		= afinfo->family;
 	s->hashtable		= afinfo->hashtable;
+	s->seq_ops.start	= udp_seq_start;
+	s->seq_ops.next		= udp_seq_next;
+	s->seq_ops.show		= afinfo->seq_show;
+	s->seq_ops.stop		= udp_seq_stop;
 
-	return 0;
+	rc = seq_open(file, &s->seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq	     = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1569,10 +1579,6 @@ int udp_proc_register(struct udp_seq_afinfo *afinfo)
 	afinfo->seq_fops->read		= seq_read;
 	afinfo->seq_fops->llseek	= seq_lseek;
 	afinfo->seq_fops->release	= seq_release_private;
-
-	afinfo->seq_ops.start		= udp_seq_start;
-	afinfo->seq_ops.next		= udp_seq_next;
-	afinfo->seq_ops.stop		= udp_seq_stop;
 
 	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
 	if (p)
@@ -1591,8 +1597,7 @@ void udp_proc_unregister(struct udp_seq_afinfo *afinfo)
 }
 
 /* ------------------------------------------------------------------------ */
-static void udp4_format_sock(struct sock *sp, struct seq_file *f,
-		int bucket, int *len)
+static void udp4_format_sock(struct sock *sp, char *tmpbuf, int bucket)
 {
 	struct inet_sock *inet = inet_sk(sp);
 	__be32 dest = inet->daddr;
@@ -1600,13 +1605,13 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 	__u16 destp	  = ntohs(inet->dport);
 	__u16 srcp	  = ntohs(inet->sport);
 
-	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p%n",
+	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
 		bucket, src, srcp, dest, destp, sp->sk_state,
-		sk_wmem_alloc_get(sp),
-		sk_rmem_alloc_get(sp),
+		atomic_read(&sp->sk_wmem_alloc),
+		atomic_read(&sp->sk_rmem_alloc),
 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
-		atomic_read(&sp->sk_refcnt), sp, len);
+		atomic_read(&sp->sk_refcnt), sp);
 }
 
 int udp4_seq_show(struct seq_file *seq, void *v)
@@ -1617,11 +1622,11 @@ int udp4_seq_show(struct seq_file *seq, void *v)
 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
 			   "inode");
 	else {
+		char tmpbuf[129];
 		struct udp_iter_state *state = seq->private;
-		int len;
 
-		udp4_format_sock(v, seq, state->bucket, &len);
-		seq_printf(seq, "%*s\n", 127 - len ,"");
+		udp4_format_sock(v, tmpbuf, state->bucket);
+		seq_printf(seq, "%-127s\n", tmpbuf);
 	}
 	return 0;
 }
@@ -1633,10 +1638,8 @@ static struct udp_seq_afinfo udp4_seq_afinfo = {
 	.name		= "udp",
 	.family		= AF_INET,
 	.hashtable	= udp_hash,
+	.seq_show	= udp4_seq_show,
 	.seq_fops	= &udp4_seq_fops,
-	.seq_ops	= {
-		.show		= udp4_seq_show,
-	},
 };
 
 int __init udp4_proc_init(void)

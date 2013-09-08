@@ -112,7 +112,7 @@ same_destroy(const struct xt_target *target, void *targinfo)
 }
 
 static unsigned int
-same_target(struct sk_buff *skb,
+same_target(struct sk_buff **pskb,
 		const struct net_device *in,
 		const struct net_device *out,
 		unsigned int hooknum,
@@ -129,7 +129,7 @@ same_target(struct sk_buff *skb,
 
 	NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING ||
 			hooknum == NF_IP_POST_ROUTING);
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 
 	t = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 

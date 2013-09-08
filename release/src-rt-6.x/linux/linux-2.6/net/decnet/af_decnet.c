@@ -1234,7 +1234,7 @@ static int dn_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		return val;
 
 	case TIOCOUTQ:
-		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
 		if (amount < 0)
 			amount = 0;
 		err = put_user(amount, (int __user *)arg);
@@ -2313,8 +2313,25 @@ static struct seq_operations dn_socket_seq_ops = {
 
 static int dn_socket_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &dn_socket_seq_ops,
-			sizeof(struct dn_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct dn_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &dn_socket_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq		= file->private_data;
+	seq->private	= s;
+	memset(s, 0, sizeof(*s));
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations dn_socket_seq_fops = {

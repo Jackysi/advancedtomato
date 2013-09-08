@@ -1,11 +1,11 @@
 #
 # Broadcom BCM57XX Gigabit Ethernet driver make file.
 #
-# $Id: Makefile,v 1.3 2008/05/02 22:49:54 Exp $
+# $Id: Makefile,v 1.3 2008-05-02 22:49:54 $
 #
 
-B57SRCDIR := ../../../../../bcm57xx
-SHAREDSRCDIR := ../../../../../shared
+B57SRCDIR := ../../../../../../$(SRCBASEDIR)/bcm57xx
+SHAREDSRCDIR := ../../../../../../$(SRCBASEDIR)/shared
 
 obj-$(CONFIG_BCM57XX) := bcm57xx.o
 
@@ -18,7 +18,7 @@ bcm57xx-objs := $(B57SRCDIR)/linux/b57um.o $(B57SRCDIR)/linux/b57proc.o \
 # If source directory src/bcm57xx exists, build objects from there
 ifneq ($(wildcard $(src)/$(B57SRCDIR)/sys),)
 
-EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT -DBCM_SMALL_DRV
+EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT
 EXTRA_CFLAGS += -DPCIX_TARGET_WORKAROUND=1 -DINCLUDE_TBI_SUPPORT -DINCLUDE_5701_AX_FIX=1
 EXTRA_CFLAGS += -I$(src)/$(B57SRCDIR)/linux -I$(src)/$(B57SRCDIR)/sys \
 		-I$(src)/$(B57SRCDIR)/include
@@ -30,6 +30,9 @@ else
 bcm57xx-objs := $(B57SRCDIR)/linux/bcm57xx.o
 
 endif
+
+# Set in linux-2.6 makefile
+#EXTRA_CFLAGS += -DPKTC
 
 ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile

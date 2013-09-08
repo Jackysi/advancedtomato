@@ -41,16 +41,18 @@ struct command *ibmasm_new_command(struct service_processor *sp, size_t buffer_s
 	if (buffer_size > IBMASM_CMD_MAX_BUFFER_SIZE)
 		return NULL;
 
-	cmd = kzalloc(sizeof(struct command), GFP_KERNEL);
+	cmd = kmalloc(sizeof(struct command), GFP_KERNEL);
 	if (cmd == NULL)
 		return NULL;
 
+	memset(cmd, 0, sizeof(*cmd));
 
-	cmd->buffer = kzalloc(buffer_size, GFP_KERNEL);
+	cmd->buffer = kmalloc(buffer_size, GFP_KERNEL);
 	if (cmd->buffer == NULL) {
 		kfree(cmd);
 		return NULL;
 	}
+	memset(cmd->buffer, 0, buffer_size);
 	cmd->buffer_size = buffer_size;
 
 	kobject_init(&cmd->kobj);

@@ -19,6 +19,8 @@
 
 #include <dma-coherence.h>
 
+#include <typedefs.h>
+#include <bcmdefs.h>
 #ifdef CONFIG_HIGHMEM
 #include <linux/highmem.h>
 #endif
@@ -51,7 +53,7 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
 	/* ignore region specifiers */
 	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
 
-	if (dev == NULL || (dev->coherent_dma_mask < DMA_64BIT_MASK))
+	if (dev == NULL || (dev->coherent_dma_mask < 0xffffffff))
 		gfp |= GFP_DMA;
 	ret = (void *) __get_free_pages(gfp, get_order(size));
 
@@ -73,7 +75,7 @@ void *dma_alloc_coherent(struct device *dev, size_t size,
 	/* ignore region specifiers */
 	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
 
-	if (dev == NULL || (dev->coherent_dma_mask < DMA_64BIT_MASK))
+	if (dev == NULL || (dev->coherent_dma_mask < 0xffffffff))
 		gfp |= GFP_DMA;
 	ret = (void *) __get_free_pages(gfp, get_order(size));
 
@@ -95,7 +97,6 @@ EXPORT_SYMBOL(dma_alloc_coherent);
 void dma_free_noncoherent(struct device *dev, size_t size, void *vaddr,
 	dma_addr_t dma_handle)
 {
-	plat_unmap_dma_mem(dma_handle);
 	free_pages((unsigned long) vaddr, get_order(size));
 }
 
@@ -105,8 +106,6 @@ void dma_free_coherent(struct device *dev, size_t size, void *vaddr,
 	dma_addr_t dma_handle)
 {
 	unsigned long addr = (unsigned long) vaddr;
-
-	plat_unmap_dma_mem(dma_handle);
 
 	if (!plat_device_is_coherent(dev))
 		addr = CAC_ADDR(addr);
@@ -137,7 +136,7 @@ static inline void __dma_sync(unsigned long addr, size_t size,
 	}
 }
 
-dma_addr_t dma_map_single(struct device *dev, void *ptr, size_t size,
+dma_addr_t BCMFASTPATH dma_map_single(struct device *dev, void *ptr, size_t size,
 	enum dma_data_direction direction)
 {
 	unsigned long addr = (unsigned long) ptr;
@@ -150,7 +149,7 @@ dma_addr_t dma_map_single(struct device *dev, void *ptr, size_t size,
 
 EXPORT_SYMBOL(dma_map_single);
 
-void dma_unmap_single(struct device *dev, dma_addr_t dma_addr, size_t size,
+void BCMFASTPATH dma_unmap_single(struct device *dev, dma_addr_t dma_addr, size_t size,
 	enum dma_data_direction direction)
 {
 	if (cpu_is_noncoherent_r10000(dev))
@@ -247,7 +246,7 @@ void dma_unmap_page(struct device *dev, dma_addr_t dma_address, size_t size,
 	if (!plat_device_is_coherent(dev) && direction != DMA_TO_DEVICE) {
 		unsigned long addr;
 
-		addr = dma_addr_to_virt(dma_address);
+		addr = plat_dma_addr_to_phys(dma_address);
 		dma_cache_wback_inv(addr, size);
 	}
 
@@ -267,7 +266,7 @@ void dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nhwentries,
 	for (i = 0; i < nhwentries; i++, sg++) {
 		if (!plat_device_is_coherent(dev) &&
 		    direction != DMA_TO_DEVICE) {
-		    	
+
 #ifdef CONFIG_HIGHMEM
 			if (PageHighMem(sg->page)) {
 				dma_sync_high(sg, direction);
@@ -278,7 +277,7 @@ void dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nhwentries,
 				addr = (unsigned long) page_address(sg->page);
 				if (addr)
 					__dma_sync(addr + sg->offset, sg->length,
-				        	   direction);
+					           direction);
 			}
 		}
 		plat_unmap_dma_mem(sg->dma_address);
@@ -359,6 +358,7 @@ void dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg, int nelems,
 		if (cpu_is_noncoherent_r10000(dev))
 			__dma_sync((unsigned long)page_address(sg->page),
 			           sg->length, direction);
+		plat_unmap_dma_mem(sg->dma_address);
 	}
 }
 
@@ -376,6 +376,7 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg, int nele
 		if (!plat_device_is_coherent(dev))
 			__dma_sync((unsigned long)page_address(sg->page),
 			           sg->length, direction);
+		plat_unmap_dma_mem(sg->dma_address);
 	}
 }
 
@@ -395,7 +396,7 @@ int dma_supported(struct device *dev, u64 mask)
 	 * so we can't guarantee allocations that must be
 	 * within a tighter range than GFP_DMA..
 	 */
-	if (mask < DMA_24BIT_MASK)
+	if (mask < 0x00ffffff)
 		return 0;
 
 	return 1;

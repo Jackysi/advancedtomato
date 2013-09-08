@@ -1572,7 +1572,6 @@ retry_alloc:
 	/*
 	 * Now search the rest of the groups.  We assume that
 	 * i and gdp correctly point to the last group visited.
-	 * Patched: Victek, 2013 .. http://marc.info/?l=linux-ext4&m=126972886125212
 	 */
 	for (bgi = 0; bgi < ngroups; bgi++) {
 		group_no++;
@@ -1581,15 +1580,7 @@ retry_alloc:
 		gdp = ext3_get_group_desc(sb, group_no, &gdp_bh);
 		if (!gdp)
 			goto io_error;
-		if (!gdp->bg_free_blocks_count)
-			continue;
 		free_blocks = le16_to_cpu(gdp->bg_free_blocks_count);
-		/*
-		 * skip this group (and avoid loading bitmap) if there
-		 * are no free blocks
-		 */
-		if (!free_blocks)
-			continue;
 		/*
 		 * skip this group if the number of
 		 * free blocks is less than half of the reservation

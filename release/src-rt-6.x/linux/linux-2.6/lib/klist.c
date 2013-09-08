@@ -38,37 +38,6 @@
 #include <linux/klist.h>
 #include <linux/module.h>
 
-/*
- * Use the lowest bit of n_klist to mark deleted nodes and exclude
- * dead ones from iteration.
- */
-#define KNODE_DEAD		1LU
-#define KNODE_KLIST_MASK	~KNODE_DEAD
-
-static struct klist *knode_klist(struct klist_node *knode)
-{
-	return (struct klist *)
-		((unsigned long)knode->n_klist & KNODE_KLIST_MASK);
-}
-
-static bool knode_dead(struct klist_node *knode)
-{
-	return (unsigned long)knode->n_klist & KNODE_DEAD;
-}
-
-static void knode_set_klist(struct klist_node *knode, struct klist *klist)
-{
-	knode->n_klist = klist;
-	/* no knode deserves to start its life dead */
-	WARN_ON(knode_dead(knode));
-}
-
-static void knode_kill(struct klist_node *knode)
-{
-	/* and no knode should die twice ever either, see we're very humane */
-	WARN_ON(knode_dead(knode));
-	*(unsigned long *)&knode->n_klist |= KNODE_DEAD;
-}
 
 /**
  *	klist_init - Initialize a klist structure. 
@@ -115,7 +84,7 @@ static void klist_node_init(struct klist * k, struct klist_node * n)
 	INIT_LIST_HEAD(&n->n_node);
 	init_completion(&n->n_removed);
 	kref_init(&n->n_ref);
-	knode_set_klist(n, k);
+	n->n_klist = k;
 	if (k->get)
 		k->get(n);
 }
@@ -151,47 +120,13 @@ void klist_add_tail(struct klist_node * n, struct klist * k)
 EXPORT_SYMBOL_GPL(klist_add_tail);
 
 
-/**
- * klist_add_after - Init a klist_node and add it after an existing node
- * @n: node we're adding.
- * @pos: node to put @n after
- */
-void klist_add_after(struct klist_node *n, struct klist_node *pos)
-{
-	struct klist *k = knode_klist(pos);
-
-	klist_node_init(k, n);
-	spin_lock(&k->k_lock);
-	list_add(&n->n_node, &pos->n_node);
-	spin_unlock(&k->k_lock);
-}
-EXPORT_SYMBOL_GPL(klist_add_after);
-
-/**
- * klist_add_before - Init a klist_node and add it before an existing node
- * @n: node we're adding.
- * @pos: node to put @n after
- */
-void klist_add_before(struct klist_node *n, struct klist_node *pos)
-{
-	struct klist *k = knode_klist(pos);
-
-	klist_node_init(k, n);
-	spin_lock(&k->k_lock);
-	list_add_tail(&n->n_node, &pos->n_node);
-	spin_unlock(&k->k_lock);
-}
-EXPORT_SYMBOL_GPL(klist_add_before);
-
-
 static void klist_release(struct kref * kref)
 {
 	struct klist_node * n = container_of(kref, struct klist_node, n_ref);
 
-	WARN_ON(!knode_dead(n));
 	list_del(&n->n_node);
 	complete(&n->n_removed);
-	knode_set_klist(n, NULL);
+	n->n_klist = NULL;
 }
 
 static int klist_dec_and_del(struct klist_node * n)
@@ -200,14 +135,17 @@ static int klist_dec_and_del(struct klist_node * n)
 }
 
 
-static void klist_put(struct klist_node *n, bool kill)
+/**
+ *	klist_del - Decrement the reference count of node and try to remove.
+ *	@n:	node we're deleting.
+ */
+
+void klist_del(struct klist_node * n)
 {
-	struct klist *k = knode_klist(n);
+	struct klist * k = n->n_klist;
 	void (*put)(struct klist_node *) = k->put;
 
 	spin_lock(&k->k_lock);
-	if (kill)
-		knode_kill(n);
 	if (!klist_dec_and_del(n))
 		put = NULL;
 	spin_unlock(&k->k_lock);
@@ -215,14 +153,6 @@ static void klist_put(struct klist_node *n, bool kill)
 		put(n);
 }
 
-/**
- * klist_del - Decrement the reference count of node and try to remove.
- * @n: node we're deleting.
- */
-void klist_del(struct klist_node *n)
-{
-	klist_put(n, true);
-}
 EXPORT_SYMBOL_GPL(klist_del);
 
 
@@ -266,6 +196,7 @@ EXPORT_SYMBOL_GPL(klist_node_attached);
 void klist_iter_init_node(struct klist * k, struct klist_iter * i, struct klist_node * n)
 {
 	i->i_klist = k;
+	i->i_head = &k->k_list;
 	i->i_cur = n;
 	if (n)
 		kref_get(&n->n_ref);
@@ -302,7 +233,7 @@ EXPORT_SYMBOL_GPL(klist_iter_init);
 void klist_iter_exit(struct klist_iter * i)
 {
 	if (i->i_cur) {
-		klist_put(i->i_cur, false);
+		klist_del(i->i_cur);
 		i->i_cur = NULL;
 	}
 }
@@ -327,34 +258,28 @@ static struct klist_node * to_klist_node(struct list_head * n)
 
 struct klist_node * klist_next(struct klist_iter * i)
 {
+	struct list_head * next;
+	struct klist_node * lnode = i->i_cur;
+	struct klist_node * knode = NULL;
 	void (*put)(struct klist_node *) = i->i_klist->put;
-	struct klist_node *last = i->i_cur;
-	struct klist_node *next;
 
 	spin_lock(&i->i_klist->k_lock);
-
-	if (last) {
-		next = to_klist_node(last->n_node.next);
-		if (!klist_dec_and_del(last))
+	if (lnode) {
+		next = lnode->n_node.next;
+		if (!klist_dec_and_del(lnode))
 			put = NULL;
 	} else
-		next = to_klist_node(i->i_klist->k_list.next);
+		next = i->i_head->next;
 
-	i->i_cur = NULL;
-	while (next != to_klist_node(&i->i_klist->k_list)) {
-		if (likely(!knode_dead(next))) {
-			kref_get(&next->n_ref);
-			i->i_cur = next;
-			break;
-		}
-		next = to_klist_node(next->n_node.next);
+	if (next != i->i_head) {
+		knode = to_klist_node(next);
+		kref_get(&knode->n_ref);
 	}
-
+	i->i_cur = knode;
 	spin_unlock(&i->i_klist->k_lock);
-
-	if (put && last)
-		put(last);
-	return i->i_cur;
+	if (put && lnode)
+		put(lnode);
+	return knode;
 }
 
 EXPORT_SYMBOL_GPL(klist_next);

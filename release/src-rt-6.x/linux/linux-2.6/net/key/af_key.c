@@ -3744,8 +3744,8 @@ static int pfkey_read_proc(char *buffer, char **start, off_t offset,
 		len += sprintf(buffer+len,"%p %-6d %-6u %-6u %-6u %-6lu",
 			       s,
 			       atomic_read(&s->sk_refcnt),
-			       sk_rmem_alloc_get(s),
-			       sk_wmem_alloc_get(s),
+			       atomic_read(&s->sk_rmem_alloc),
+			       atomic_read(&s->sk_wmem_alloc),
 			       sock_i_uid(s),
 			       sock_i_ino(s)
 			       );

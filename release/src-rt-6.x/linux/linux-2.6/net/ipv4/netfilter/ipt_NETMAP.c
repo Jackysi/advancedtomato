@@ -50,7 +50,7 @@ check(const char *tablename,
 }
 
 static unsigned int
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -66,14 +66,14 @@ target(struct sk_buff *skb,
 	NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING
 		     || hooknum == NF_IP_POST_ROUTING
 		     || hooknum == NF_IP_LOCAL_OUT);
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 
 	netmask = ~(mr->range[0].min_ip ^ mr->range[0].max_ip);
 
 	if (hooknum == NF_IP_PRE_ROUTING || hooknum == NF_IP_LOCAL_OUT)
-		new_ip = ip_hdr(skb)->daddr & ~netmask;
+		new_ip = ip_hdr(*pskb)->daddr & ~netmask;
 	else
-		new_ip = ip_hdr(skb)->saddr & ~netmask;
+		new_ip = ip_hdr(*pskb)->saddr & ~netmask;
 	new_ip |= mr->range[0].min_ip & netmask;
 
 	newrange = ((struct nf_nat_range)

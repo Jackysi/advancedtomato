@@ -1642,7 +1642,8 @@ static u8 start_scsi(struct AdapterCtlBlk* acb, struct DeviceCtlBlk* dcb,
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, (dcb->target_lun << 5));
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
-		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, SCSI_SENSE_BUFFERSIZE);
+		DC395x_write8(acb, TRM_S1040_SCSI_FIFO,
+			      sizeof(srb->cmd->sense_buffer));
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
 	} else {
 		ptr = (u8 *)srb->cmd->cmnd;
@@ -1927,7 +1928,8 @@ static void command_phase1(struct AdapterCtlBlk *acb, struct ScsiReqBlk *srb,
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, (dcb->target_lun << 5));
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
-		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, SCSI_SENSE_BUFFERSIZE);
+		DC395x_write8(acb, TRM_S1040_SCSI_FIFO,
+			      sizeof(srb->cmd->sense_buffer));
 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
 	}
 	srb->state |= SRB_COMMAND;
@@ -3726,7 +3728,7 @@ static void request_sense(struct AdapterCtlBlk *acb, struct DeviceCtlBlk *dcb,
 	srb->target_status = 0;
 
 	/* KG: Can this prevent crap sense data ? */
-	memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+	memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
 
 	/* Save some data */
 	srb->segment_x[DC395x_MAX_SG_LISTENTRY - 1].address =
@@ -3735,15 +3737,15 @@ static void request_sense(struct AdapterCtlBlk *acb, struct DeviceCtlBlk *dcb,
 	    srb->segment_x[0].length;
 	srb->xferred = srb->total_xfer_length;
 	/* srb->segment_x : a one entry of S/G list table */
-	srb->total_xfer_length = SCSI_SENSE_BUFFERSIZE;
-	srb->segment_x[0].length = SCSI_SENSE_BUFFERSIZE;
+	srb->total_xfer_length = sizeof(cmd->sense_buffer);
+	srb->segment_x[0].length = sizeof(cmd->sense_buffer);
 	/* Map sense buffer */
 	srb->segment_x[0].address =
 	    pci_map_single(acb->dev, cmd->sense_buffer,
-			   SCSI_SENSE_BUFFERSIZE, PCI_DMA_FROMDEVICE);
+			   sizeof(cmd->sense_buffer), PCI_DMA_FROMDEVICE);
 	dprintkdbg(DBG_SG, "request_sense: map buffer %p->%08x(%05x)\n",
 	       cmd->sense_buffer, srb->segment_x[0].address,
-	       SCSI_SENSE_BUFFERSIZE);
+	       sizeof(cmd->sense_buffer));
 	srb->sg_count = 1;
 	srb->sg_index = 0;
 

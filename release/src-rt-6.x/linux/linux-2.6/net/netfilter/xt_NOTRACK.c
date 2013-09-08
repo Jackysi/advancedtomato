@@ -11,7 +11,7 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_NOTRACK");
 
 static unsigned int
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -19,16 +19,16 @@ target(struct sk_buff *skb,
        const void *targinfo)
 {
 	/* Previously seen (loopback)? Ignore. */
-	if (skb->nfct != NULL)
+	if ((*pskb)->nfct != NULL)
 		return XT_CONTINUE;
 
 	/* Attach fake conntrack entry.
 	   If there is a real ct entry correspondig to this packet,
 	   it'll hang aroun till timing out. We don't deal with it
 	   for performance reasons. JK */
-	skb->nfct = &nf_conntrack_untracked.ct_general;
-	skb->nfctinfo = IP_CT_NEW;
-	nf_conntrack_get(skb->nfct);
+	(*pskb)->nfct = &nf_conntrack_untracked.ct_general;
+	(*pskb)->nfctinfo = IP_CT_NEW;
+	nf_conntrack_get((*pskb)->nfct);
 
 	return XT_CONTINUE;
 }

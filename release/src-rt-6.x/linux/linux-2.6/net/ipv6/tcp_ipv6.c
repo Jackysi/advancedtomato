@@ -230,8 +230,10 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
 #endif
 			goto failure;
 		} else {
-			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
-			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
+			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000FFFF),
+				      inet->saddr);
+			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000FFFF),
+				      inet->rcv_saddr);
 		}
 
 		return err;
@@ -707,7 +709,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
 	if (!cmd.tcpm_keylen) {
 		if (!tcp_sk(sk)->md5sig_info)
 			return -ENOENT;
-		if (ipv6_addr_v4mapped(&sin6->sin6_addr))
+		if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED)
 			return tcp_v4_md5_do_del(sk, sin6->sin6_addr.s6_addr32[3]);
 		return tcp_v6_md5_do_del(sk, &sin6->sin6_addr);
 	}
@@ -730,7 +732,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
 	if (!newkey)
 		return -ENOMEM;
-	if (ipv6_addr_v4mapped(&sin6->sin6_addr)) {
+	if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED) {
 		return tcp_v4_md5_do_add(sk, sin6->sin6_addr.s6_addr32[3],
 					 newkey, cmd.tcpm_keylen);
 	}
@@ -1023,7 +1025,6 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
 	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
 
 	t1 = (struct tcphdr *) skb_push(buff, tot_len);
-	skb_reset_transport_header(buff);
 
 	/* Swap the send and the receive. */
 	memset(t1, 0, sizeof(*t1));
@@ -1352,9 +1353,11 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 
 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
 
-		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
+		ipv6_addr_set(&newnp->daddr, 0, 0, htonl(0x0000FFFF),
+			      newinet->daddr);
 
-		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
+		ipv6_addr_set(&newnp->saddr, 0, 0, htonl(0x0000FFFF),
+			      newinet->saddr);
 
 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
 
@@ -1686,8 +1689,9 @@ ipv6_pktoptions:
 	return 0;
 }
 
-static int tcp_v6_rcv(struct sk_buff *skb)
+static int tcp_v6_rcv(struct sk_buff **pskb)
 {
+	struct sk_buff *skb = *pskb;
 	struct tcphdr *th;
 	struct sock *sk;
 	int ret;
@@ -2095,13 +2099,13 @@ out:
 	return 0;
 }
 
+static struct file_operations tcp6_seq_fops;
 static struct tcp_seq_afinfo tcp6_seq_afinfo = {
 	.owner		= THIS_MODULE,
 	.name		= "tcp6",
 	.family		= AF_INET6,
-	.seq_ops	= {
-		.show		= tcp6_seq_show,
-	},
+	.seq_show	= tcp6_seq_show,
+	.seq_fops	= &tcp6_seq_fops,
 };
 
 int __init tcp6_proc_init(void)

@@ -19,7 +19,9 @@ struct nf_conntrack_helper
 
 	const char *name;		/* name of the module */
 	struct module *me;		/* pointer to self */
-	const struct nf_conntrack_expect_policy *expect_policy;
+	unsigned int max_expected;	/* Maximum number of concurrent 
+					 * expected connections */
+	unsigned int timeout;		/* timeout for expecteds */
 
 	/* Mask of things we will help (compared against server response) */
 	struct nf_conntrack_tuple tuple;
@@ -27,7 +29,7 @@ struct nf_conntrack_helper
 	
 	/* Function to call when data passes; return verdict, or -1 to
            invalidate. */
-	int (*help)(struct sk_buff *skb,
+	int (*help)(struct sk_buff **pskb,
 		    unsigned int protoff,
 		    struct nf_conn *ct,
 		    enum ip_conntrack_info conntrackinfo);
@@ -35,7 +37,6 @@ struct nf_conntrack_helper
 	void (*destroy)(struct nf_conn *ct);
 
 	int (*to_nfattr)(struct sk_buff *skb, const struct nf_conn *ct);
-	unsigned int expect_class_max;
 };
 
 extern struct nf_conntrack_helper *

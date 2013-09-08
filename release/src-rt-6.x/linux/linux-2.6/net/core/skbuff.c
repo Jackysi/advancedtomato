@@ -67,6 +67,9 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 
+#include <typedefs.h>
+#include <bcmdefs.h>
+
 #include "kmap_skb.h"
 
 static struct kmem_cache *skbuff_head_cache __read_mostly;
@@ -206,15 +209,17 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 	skb->mac_header = ~0U;
 #endif
-	skb->vlan_tci = 0;
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	skb->nfct_reasm = NULL;
 	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
 #ifdef HNDCTF
-	skb->mac_len = 0;
-	skb->hdr_len = 0;
+#ifdef PKTC
+	skb->tstamp.tv64 = 0;
+#endif
+        skb->mac_len = 0;
+        skb->hdr_len = 0;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
@@ -333,11 +338,12 @@ static void skb_release_data(struct sk_buff *skb)
 /*
  *	Free an skbuff by memory without cleaning the state.
  */
-static void kfree_skbmem(struct sk_buff *skb)
+void kfree_skbmem(struct sk_buff *skb)
 {
 	struct sk_buff *other;
 	atomic_t *fclone_ref;
 
+	skb_release_data(skb);
 	switch (skb->fclone) {
 	case SKB_FCLONE_UNAVAILABLE:
 		kmem_cache_free(skbuff_head_cache, skb);
@@ -364,17 +370,23 @@ static void kfree_skbmem(struct sk_buff *skb)
 	}
 }
 
-/* Free everything but the sk_buff shell. */
-static void skb_release_all(struct sk_buff *skb)
+/**
+ *	__kfree_skb - private function
+ *	@skb: buffer
+ *
+ *	Free an sk_buff. Release anything attached to the buffer.
+ *	Clean the state. This is an internal helper function. Users should
+ *	always call kfree_skb
+ */
+
+void __kfree_skb(struct sk_buff *skb)
 {
 	dst_release(skb->dst);
 #ifdef CONFIG_XFRM
 	secpath_put(skb->sp);
 #endif
 	if (skb->destructor) {
-#ifdef CONFIG_NETCORE_DEBUG
 		WARN_ON(in_irq());
-#endif
 		skb->destructor(skb);
 	}
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
@@ -391,21 +403,7 @@ static void skb_release_all(struct sk_buff *skb)
 	skb->tc_verd = 0;
 #endif
 #endif
-	skb_release_data(skb);
-}
 
-/**
- *	__kfree_skb - private function
- *	@skb: buffer
- *
- *	Free an sk_buff. Release anything attached to the buffer.
- *	Clean the state. This is an internal helper function. Users should
- *	always call kfree_skb
- */
-
-void __kfree_skb(struct sk_buff *skb)
-{
-	skb_release_all(skb);
 	kfree_skbmem(skb);
 }
 
@@ -427,9 +425,57 @@ void kfree_skb(struct sk_buff *skb)
 	__kfree_skb(skb);
 }
 
+#ifdef CONFIG_INET_GRO
+static void BCMFASTPATH_HOST __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+{
+	new->tstamp		= old->tstamp;
+#if defined(HNDCTF) && defined(PKTC)
+	new->ctf_tstamp		= old->ctf_tstamp;
+#endif
+	new->dev		= old->dev;
+	new->transport_header	= old->transport_header;
+	new->network_header	= old->network_header;
+	new->mac_header		= old->mac_header;
+	new->dst		= dst_clone(old->dst);
+#ifdef CONFIG_XFRM
+	new->sp			= secpath_get(old->sp);
+#endif
+	memcpy(new->cb, old->cb, sizeof(old->cb));
+	new->csum_start		= old->csum_start;
+	new->csum_offset	= old->csum_offset;
+	new->local_df		= old->local_df;
+	new->pkt_type		= old->pkt_type;
+	new->ip_summed		= old->ip_summed;
+	new->priority		= old->priority;
+#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+	new->ipvs_property	= old->ipvs_property;
+#endif
+	new->protocol		= old->protocol;
+	new->mark		= old->mark;
+	__nf_copy(new, old);
+#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
+	defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
+	new->nf_trace		= old->nf_trace;
+#endif
+#ifdef CONFIG_NET_SCHED
+	new->tc_index		= old->tc_index;
+#ifdef CONFIG_NET_CLS_ACT
+	new->tc_verd		= old->tc_verd;
+#endif
+#endif
+
+	skb_copy_secmark(new, old);
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	new->nfcache		= old->nfcache;
+#endif
+}
+#else
 static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 {
 	new->tstamp		= old->tstamp;
+#if defined(HNDCTF) && defined(PKTC)
+	new->ctf_tstamp		= old->ctf_tstamp;
+#endif
 	new->dev		= old->dev;
 	new->transport_header	= old->transport_header;
 	new->network_header	= old->network_header;
@@ -449,7 +495,6 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #endif
 	new->protocol		= old->protocol;
 	new->mark		= old->mark;
-	new->iif		= old->iif;
 	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index		= old->tc_index;
@@ -457,66 +502,12 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->tc_verd		= old->tc_verd;
 #endif
 #endif
-	new->vlan_tci		= old->vlan_tci;
-
 	skb_copy_secmark(new, old);
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	new->nfcache		= old->nfcache;
 #endif
 }
-
-/*
- * You should not add any new code to this function.  Add it to
- * __copy_skb_header above instead.
- */
-static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
-{
-#define C(x) n->x = skb->x
-
-	n->next = n->prev = NULL;
-	n->sk = NULL;
-	__copy_skb_header(n, skb);
-
-	C(len);
-	C(data_len);
-	C(mac_len);
-#ifdef HNDCTF
-	C(ctf_mac_len);	/* used by Broadcom CTF driver! */
-#endif
-	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
-	n->cloned = 1;
-	n->nohdr = 0;
-	n->destructor = NULL;
-	C(tail);
-	C(end);
-	C(head);
-	C(data);
-	C(truesize);
-	atomic_set(&n->users, 1);
-
-	atomic_inc(&(skb_shinfo(skb)->dataref));
-	skb->cloned = 1;
-
-	return n;
-#undef C
-}
-
-/**
- *	skb_morph	-	morph one skb into another
- *	@dst: the skb to receive the contents
- *	@src: the skb to supply the contents
- *
- *	This is identical to skb_clone except that the target skb is
- *	supplied by the user.
- *
- *	The target skb is returned upon exit.
- */
-struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
-{
-	skb_release_all(dst);
-	return __skb_clone(dst, src);
-}
-EXPORT_SYMBOL_GPL(skb_morph);
+#endif /* CONFIG_INET_GRO */
 
 /**
  *	skb_clone	-	duplicate an sk_buff
@@ -549,7 +540,34 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 		n->fclone = SKB_FCLONE_UNAVAILABLE;
 	}
 
-	return __skb_clone(n, skb);
+#define C(x) n->x = skb->x
+
+	n->next = n->prev = NULL;
+	n->sk = NULL;
+	__copy_skb_header(n, skb);
+
+	C(len);
+	C(data_len);
+	C(mac_len);
+#ifdef HNDCTF
+	C(ctf_mac_len);
+#endif
+	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
+	n->cloned = 1;
+	n->nohdr = 0;
+	n->destructor = NULL;
+	C(iif);
+	C(tail);
+	C(end);
+	C(head);
+	C(data);
+	C(truesize);
+	atomic_set(&n->users, 1);
+
+	atomic_inc(&(skb_shinfo(skb)->dataref));
+	skb->cloned = 1;
+
+	return n;
 }
 
 static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
@@ -2232,7 +2250,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
 		__copy_skb_header(nskb, skb);
 		nskb->mac_len = skb->mac_len;
 #ifdef HNDCTF
-		nskb->ctf_mac_len = skb->ctf_mac_len;	/* used by Broadcom CTF driver! */
+		nskb->ctf_mac_len = skb->ctf_mac_len;
 #endif
 
 		skb_reserve(nskb, headroom);
@@ -2298,6 +2316,110 @@ err:
 }
 
 EXPORT_SYMBOL_GPL(skb_segment);
+
+#ifdef CONFIG_INET_GRO
+int BCMFASTPATH_HOST skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+{
+	struct sk_buff *p = *head;
+	struct sk_buff *nskb;
+	unsigned int headroom;
+	unsigned int len = skb_gro_len(skb);
+
+	if (p->len + len >= 65536)
+		return -E2BIG;
+
+	if (skb_shinfo(p)->frag_list)
+		goto merge;
+	else if (skb_headlen(skb) <= skb_gro_offset(skb)) {
+		if (skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags >
+		    MAX_SKB_FRAGS)
+			return -E2BIG;
+
+		skb_shinfo(skb)->frags[0].page_offset +=
+			skb_gro_offset(skb) - skb_headlen(skb);
+		skb_shinfo(skb)->frags[0].size -=
+			skb_gro_offset(skb) - skb_headlen(skb);
+
+		memcpy(skb_shinfo(p)->frags + skb_shinfo(p)->nr_frags,
+		       skb_shinfo(skb)->frags,
+		       skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
+
+		skb_shinfo(p)->nr_frags += skb_shinfo(skb)->nr_frags;
+		skb_shinfo(skb)->nr_frags = 0;
+
+		skb->truesize -= skb->data_len;
+		skb->len -= skb->data_len;
+		skb->data_len = 0;
+
+		NAPI_GRO_CB(skb)->free = 1;
+		goto done;
+	}
+
+	headroom = skb_headroom(p);
+	nskb = netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
+	if (unlikely(!nskb))
+		return -ENOMEM;
+
+	__copy_skb_header(nskb, p);
+	nskb->mac_len = p->mac_len;
+#ifdef HNDCTF
+	nskb->ctf_mac_len = p->ctf_mac_len;
+#endif
+
+	skb_reserve(nskb, headroom);
+	__skb_put(nskb, skb_gro_offset(p));
+
+	skb_set_mac_header(nskb, skb_mac_header(p) - p->data);
+	skb_set_network_header(nskb, skb_network_offset(p));
+	skb_set_transport_header(nskb, skb_transport_offset(p));
+
+	__skb_pull(p, skb_gro_offset(p));
+	memcpy(skb_mac_header(nskb), skb_mac_header(p),
+	       p->data - skb_mac_header(p));
+
+	*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
+	skb_shinfo(nskb)->frag_list = p;
+	skb_shinfo(nskb)->gso_size = skb_shinfo(p)->gso_size;
+	skb_header_release(p);
+	nskb->prev = p;
+
+	nskb->data_len += p->len;
+	nskb->truesize += p->len;
+	nskb->len += p->len;
+
+	*head = nskb;
+	nskb->next = p->next;
+	p->next = NULL;
+
+	p = nskb;
+
+merge:
+	if (skb_gro_offset(skb) > skb_headlen(skb)) {
+		skb_shinfo(skb)->frags[0].page_offset +=
+			skb_gro_offset(skb) - skb_headlen(skb);
+		skb_shinfo(skb)->frags[0].size -=
+			skb_gro_offset(skb) - skb_headlen(skb);
+		skb_gro_reset_offset(skb);
+		skb_gro_pull(skb, skb_headlen(skb));
+	}
+
+	__skb_pull(skb, skb_gro_offset(skb));
+
+	p->prev->next = skb;
+	p->prev = skb;
+	skb_header_release(skb);
+
+done:
+	NAPI_GRO_CB(p)->count++;
+	p->data_len += len;
+	p->truesize += len;
+	p->len += len;
+
+	NAPI_GRO_CB(skb)->same_flow = 1;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(skb_gro_receive);
+#endif /* CONFIG_INET_GRO */
 
 void __init skb_init(void)
 {

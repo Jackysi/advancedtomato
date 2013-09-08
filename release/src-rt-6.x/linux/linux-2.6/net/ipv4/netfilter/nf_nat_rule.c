@@ -70,7 +70,7 @@ static struct xt_table nat_table = {
 };
 
 /* Source NAT */
-static unsigned int ipt_snat_target(struct sk_buff *skb,
+static unsigned int ipt_snat_target(struct sk_buff **pskb,
 				    const struct net_device *in,
 				    const struct net_device *out,
 				    unsigned int hooknum,
@@ -83,7 +83,7 @@ static unsigned int ipt_snat_target(struct sk_buff *skb,
 
 	NF_CT_ASSERT(hooknum == NF_IP_POST_ROUTING);
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 
 	/* Connection must be valid and new. */
 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
@@ -112,7 +112,7 @@ static void warn_if_extra_mangle(__be32 dstip, __be32 srcip)
 	ip_rt_put(rt);
 }
 
-static unsigned int ipt_dnat_target(struct sk_buff *skb,
+static unsigned int ipt_dnat_target(struct sk_buff **pskb,
 				    const struct net_device *in,
 				    const struct net_device *out,
 				    unsigned int hooknum,
@@ -126,14 +126,14 @@ static unsigned int ipt_dnat_target(struct sk_buff *skb,
 	NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING ||
 		     hooknum == NF_IP_LOCAL_OUT);
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 
 	/* Connection must be valid and new. */
 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED));
 
 	if (hooknum == NF_IP_LOCAL_OUT &&
 	    mr->range[0].flags & IP_NAT_RANGE_MAP_IPS)
-		warn_if_extra_mangle(ip_hdr(skb)->daddr,
+		warn_if_extra_mangle(ip_hdr(*pskb)->daddr,
 				     mr->range[0].min_ip);
 
 	return nf_nat_setup_info(ct, &mr->range[0], hooknum);
@@ -209,7 +209,7 @@ alloc_null_binding_confirmed(struct nf_conn *ct, unsigned int hooknum)
 	return nf_nat_setup_info(ct, &range, hooknum);
 }
 
-int nf_nat_rule_find(struct sk_buff *skb,
+int nf_nat_rule_find(struct sk_buff **pskb,
 		     unsigned int hooknum,
 		     const struct net_device *in,
 		     const struct net_device *out,
@@ -217,7 +217,7 @@ int nf_nat_rule_find(struct sk_buff *skb,
 {
 	int ret;
 
-	ret = ipt_do_table(skb, hooknum, in, out, &nat_table);
+	ret = ipt_do_table(pskb, hooknum, in, out, &nat_table);
 
 	if (ret == NF_ACCEPT) {
 		if (!nf_nat_initialized(ct, HOOK2MANIP(hooknum)))

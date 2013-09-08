@@ -13,11 +13,12 @@
  * Marking a frame doesn't really change anything in the frame anyway.
  */
 
+#include <linux/module.h>
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_bridge/ebtables.h>
 #include <linux/netfilter_bridge/ebt_mark_t.h>
-#include <linux/module.h>
 
-static int ebt_target_mark(struct sk_buff *skb, unsigned int hooknr,
+static int ebt_target_mark(struct sk_buff **pskb, unsigned int hooknr,
    const struct net_device *in, const struct net_device *out,
    const void *data, unsigned int datalen)
 {
@@ -25,13 +26,13 @@ static int ebt_target_mark(struct sk_buff *skb, unsigned int hooknr,
 	int action = info->target & -16;
 
 	if (action == MARK_SET_VALUE)
-		skb->mark = info->mark;
+		(*pskb)->mark = info->mark;
 	else if (action == MARK_OR_VALUE)
-		skb->mark |= info->mark;
+		(*pskb)->mark |= info->mark;
 	else if (action == MARK_AND_VALUE)
-		skb->mark &= info->mark;
+		(*pskb)->mark &= info->mark;
 	else
-		skb->mark ^= info->mark;
+		(*pskb)->mark ^= info->mark;
 
 	return info->target | ~EBT_VERDICT_BITS;
 }
@@ -42,7 +43,7 @@ static int ebt_target_mark_check(const char *tablename, unsigned int hookmask,
 	struct ebt_mark_t_info *info = (struct ebt_mark_t_info *)data;
 	int tmp;
 
-	if (datalen != EBT_ALIGN(sizeof(struct ebt_mark_t_info)))
+	if (datalen != XT_ALIGN(sizeof(struct ebt_mark_t_info)))
 		return -EINVAL;
 	tmp = info->target | ~EBT_VERDICT_BITS;
 	if (BASE_CHAIN && tmp == EBT_RETURN)

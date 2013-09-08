@@ -192,8 +192,8 @@ try_again:
 		sin6->sin6_scope_id = 0;
 
 		if (skb->protocol == htons(ETH_P_IP))
-			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
-					       &sin6->sin6_addr);
+			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
+				      htonl(0xffff), ip_hdr(skb)->saddr);
 		else {
 			ipv6_addr_copy(&sin6->sin6_addr,
 				       &ipv6_hdr(skb)->saddr);
@@ -215,7 +215,7 @@ try_again:
 		err = ulen;
 
 out_free:
-	skb_free_datagram_locked(sk, skb);
+	skb_free_datagram(sk, skb);
 out:
 	return err;
 
@@ -420,9 +420,10 @@ static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
 	return 0;
 }
 
-int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+int __udp6_lib_rcv(struct sk_buff **pskb, struct hlist_head udptable[],
 		   int proto)
 {
+	struct sk_buff *skb = *pskb;
 	struct sock *sk;
 	struct udphdr *uh;
 	struct net_device *dev = skb->dev;
@@ -507,9 +508,9 @@ discard:
 	return 0;
 }
 
-static __inline__ int udpv6_rcv(struct sk_buff *skb)
+static __inline__ int udpv6_rcv(struct sk_buff **pskb)
 {
-	return __udp6_lib_rcv(skb, udp_hash, IPPROTO_UDP);
+	return __udp6_lib_rcv(pskb, udp_hash, IPPROTO_UDP);
 }
 
 /*
@@ -623,7 +624,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 		daddr = NULL;
 
 	if (daddr) {
-		if (ipv6_addr_v4mapped(daddr)) {
+		if (ipv6_addr_type(daddr) == IPV6_ADDR_MAPPED) {
 			struct sockaddr_in sin;
 			sin.sin_family = AF_INET;
 			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
@@ -941,8 +942,8 @@ static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket
 		   dest->s6_addr32[0], dest->s6_addr32[1],
 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
 		   sp->sk_state,
-		   sk_wmem_alloc_get(sp),
-		   sk_rmem_alloc_get(sp),
+		   atomic_read(&sp->sk_wmem_alloc),
+		   atomic_read(&sp->sk_rmem_alloc),
 		   0, 0L, 0,
 		   sock_i_uid(sp), 0,
 		   sock_i_ino(sp),
@@ -969,10 +970,8 @@ static struct udp_seq_afinfo udp6_seq_afinfo = {
 	.name		= "udp6",
 	.family		= AF_INET6,
 	.hashtable	= udp_hash,
+	.seq_show	= udp6_seq_show,
 	.seq_fops	= &udp6_seq_fops,
-	.seq_ops	= {
-		.show		= udp6_seq_show,
-	},
 };
 
 int __init udp6_proc_init(void)

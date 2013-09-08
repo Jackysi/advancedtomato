@@ -271,6 +271,15 @@ static void rw_intr(struct scsi_cmnd * SCpnt)
 			break;
 
 		case RECOVERED_ERROR:
+
+			/*
+			 * An error occured, but it recovered.  Inform the
+			 * user, but make sure that it's not treated as a
+			 * hard error.
+			 */
+			scsi_print_sense("sr", SCpnt);
+			SCpnt->result = 0;
+			SCpnt->sense_buffer[0] = 0x0;
 			good_bytes = this_count;
 			break;
 

@@ -726,16 +726,10 @@ int __gdth_execute(struct scsi_device *sdev, gdth_cmd_str *gdtcmd, char *cmnd,
     DECLARE_COMPLETION_ONSTACK(wait);
     int rval;
 
-    scp = kzalloc(sizeof(*scp), GFP_KERNEL);
+    scp = kmalloc(sizeof(*scp), GFP_KERNEL);
     if (!scp)
         return -ENOMEM;
-
-    scp->sense_buffer = kzalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
-    if (!scp->sense_buffer) {
-	kfree(scp);
-	return -ENOMEM;
-    }
-
+    memset(scp, 0, sizeof(*scp));
     scp->device = sdev;
     /* use request field to save the ptr. to completion struct. */
     scp->request = (struct request *)&wait;
@@ -751,7 +745,6 @@ int __gdth_execute(struct scsi_device *sdev, gdth_cmd_str *gdtcmd, char *cmnd,
     rval = scp->SCp.Status;
     if (info)
         *info = scp->SCp.Message;
-    kfree(scp->sense_buffer);
     kfree(scp);
     return rval;
 }

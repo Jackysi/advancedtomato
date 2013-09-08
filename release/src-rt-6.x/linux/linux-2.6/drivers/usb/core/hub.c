@@ -117,7 +117,7 @@ MODULE_PARM_DESC (blinkenlights, "true to cycle leds on hubs");
  * otherwise the new scheme is used.  If that fails and "use_both_schemes"
  * is set, then the driver will make another attempt, using the other scheme.
  */
-static int old_scheme_first = 1;
+static int old_scheme_first = 0;
 module_param(old_scheme_first, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(old_scheme_first,
 		 "start with the old device initialization scheme");
@@ -314,8 +314,7 @@ static int get_hub_status(struct usb_device *hdev,
 {
 	int i, status = -ETIMEDOUT;
 
-	for (i = 0; i < USB_STS_RETRIES &&
-			(status == -ETIMEDOUT || status == -EPIPE); i++) {
+	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
 		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_HUB, 0, 0,
 			data, sizeof(*data), USB_STS_TIMEOUT);
@@ -331,8 +330,7 @@ static int get_port_status(struct usb_device *hdev, int port1,
 {
 	int i, status = -ETIMEDOUT;
 
-	for (i = 0; i < USB_STS_RETRIES &&
-			(status == -ETIMEDOUT || status == -EPIPE); i++) {
+	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
 		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
 			data, sizeof(*data), USB_STS_TIMEOUT);
@@ -2389,11 +2387,6 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 		udev->ttport = hdev->ttport;
 	} else if (udev->speed != USB_SPEED_HIGH
 			&& hdev->speed == USB_SPEED_HIGH) {
-		if (!hub->tt.hub) {
-			dev_err(&udev->dev, "parent hub has no TT\n");
-			retval = -EINVAL;
-			goto fail;
-		}
 		udev->tt = &hub->tt;
 		udev->ttport = port1;
 	}
@@ -2754,7 +2747,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		 * on the parent.
 		 */
 		if (udev->descriptor.bDeviceClass == USB_CLASS_HUB
-				&& udev->bus_mA < 100) {
+				&& udev->bus_mA <= 100) {
 			u16	devstat;
 
 			status = usb_get_status(udev, USB_RECIP_DEVICE, 0,
@@ -3000,19 +2993,12 @@ static void hub_events(void)
 			}
 			
 			if (portchange & USB_PORT_STAT_C_OVERCURRENT) {
-				u16 status = 0;
-				u16 unused;
-
-				dev_dbg(hub_dev, "over-current change on port "
-					"%d\n", i);
+				dev_err (hub_dev,
+					"over-current change on port %d\n",
+					i);
 				clear_port_feature(hdev, i,
 					USB_PORT_FEAT_C_OVER_CURRENT);
-				msleep(100);	/* Cool down */
 				hub_power_on(hub, true);
-				hub_port_status(hub, i, &status, &unused);
-				if (status & USB_PORT_STAT_OVERCURRENT)
-					dev_err(hub_dev, "over-current "
-						"condition on port %d\n", i);
 			}
 
 			if (portchange & USB_PORT_STAT_C_RESET) {
@@ -3044,17 +3030,10 @@ static void hub_events(void)
 					hub->limited_power = 0;
 			}
 			if (hubchange & HUB_CHANGE_OVERCURRENT) {
-				u16 status = 0;
-				u16 unused;
-
-				dev_dbg(hub_dev, "over-current change\n");
-				clear_hub_feature(hdev, C_HUB_OVER_CURRENT);
+				dev_dbg (hub_dev, "overcurrent change\n");
 				msleep(500);	/* Cool down */
+				clear_hub_feature(hdev, C_HUB_OVER_CURRENT);
                         	hub_power_on(hub, true);
-				hub_hub_status(hub, &status, &unused);
-				if (status & HUB_STATUS_OVERCURRENT)
-					dev_err(hub_dev, "over-current "
-						"condition\n");
 			}
 		}
 

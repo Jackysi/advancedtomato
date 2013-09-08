@@ -21,12 +21,7 @@
 #define NF_STOLEN 2
 #define NF_QUEUE 3
 #define NF_REPEAT 4
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-#define NF_FAST_NAT 5
-#define NF_STOP 6
-#else
 #define NF_STOP 5
-#endif
 #define NF_MAX_VERDICT NF_STOP
 
 /* we overload the higher bits for encoding auxiliary data such as the queue
@@ -48,7 +43,7 @@
 #endif
 
 union nf_inet_addr {
-	__u32		all[4];
+	u_int32_t	all[4];
 	__be32		ip;
 	__be32		ip6[4];
 	struct in_addr	in;
@@ -57,15 +52,6 @@ union nf_inet_addr {
 
 #ifdef __KERNEL__
 #ifdef CONFIG_NETFILTER
-
-static inline int nf_inet_addr_cmp(const union nf_inet_addr *a1,
-				   const union nf_inet_addr *a2)
-{
-	return a1->all[0] == a2->all[0] &&
-	       a1->all[1] == a2->all[1] &&
-	       a1->all[2] == a2->all[2] &&
-	       a1->all[3] == a2->all[3];
-}
 
 extern void netfilter_init(void);
 
@@ -76,7 +62,7 @@ struct sk_buff;
 struct net_device;
 
 typedef unsigned int nf_hookfn(unsigned int hooknum,
-			       struct sk_buff *skb,
+			       struct sk_buff **skb,
 			       const struct net_device *in,
 			       const struct net_device *out,
 			       int (*okfn)(struct sk_buff *));
@@ -209,7 +195,7 @@ void nf_log_packet(int pf,
 		   struct nf_loginfo *li,
 		   const char *fmt, ...);
 
-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
+int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
 		 struct net_device *indev, struct net_device *outdev,
 		 int (*okfn)(struct sk_buff *), int thresh);
 
@@ -221,7 +207,7 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
  *	value indicates the packet has been consumed by the hook.
  */
 static inline int nf_hook_thresh(int pf, unsigned int hook,
-				 struct sk_buff *skb,
+				 struct sk_buff **pskb,
 				 struct net_device *indev,
 				 struct net_device *outdev,
 				 int (*okfn)(struct sk_buff *), int thresh,
@@ -233,14 +219,14 @@ static inline int nf_hook_thresh(int pf, unsigned int hook,
 	if (list_empty(&nf_hooks[pf][hook]))
 		return 1;
 #endif
-	return nf_hook_slow(pf, hook, skb, indev, outdev, okfn, thresh);
+	return nf_hook_slow(pf, hook, pskb, indev, outdev, okfn, thresh);
 }
 
-static inline int nf_hook(int pf, unsigned int hook, struct sk_buff *skb,
+static inline int nf_hook(int pf, unsigned int hook, struct sk_buff **pskb,
 			  struct net_device *indev, struct net_device *outdev,
 			  int (*okfn)(struct sk_buff *))
 {
-	return nf_hook_thresh(pf, hook, skb, indev, outdev, okfn, INT_MIN, 1);
+	return nf_hook_thresh(pf, hook, pskb, indev, outdev, okfn, INT_MIN, 1);
 }
                    
 /* Activate hook; either okfn or kfree_skb called, unless a hook
@@ -267,13 +253,13 @@ static inline int nf_hook(int pf, unsigned int hook, struct sk_buff *skb,
 
 #define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)	       \
 ({int __ret;								       \
-if ((__ret=nf_hook_thresh(pf, hook, (skb), indev, outdev, okfn, thresh, 1)) == 1)\
+if ((__ret=nf_hook_thresh(pf, hook, &(skb), indev, outdev, okfn, thresh, 1)) == 1)\
 	__ret = (okfn)(skb);						       \
 __ret;})
 
 #define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond)		       \
 ({int __ret;								       \
-if ((__ret=nf_hook_thresh(pf, hook, (skb), indev, outdev, okfn, INT_MIN, cond)) == 1)\
+if ((__ret=nf_hook_thresh(pf, hook, &(skb), indev, outdev, okfn, INT_MIN, cond)) == 1)\
 	__ret = (okfn)(skb);						       \
 __ret;})
 
@@ -312,7 +298,7 @@ extern void nf_invalidate_cache(int pf);
 /* Call this before modifying an existing packet: ensures it is
    modifiable and linear to the point you care about (writable_len).
    Returns true or false. */
-extern int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
+extern int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len);
 
 static inline void nf_csum_replace4(__sum16 *sum, __be32 from, __be32 to)
 {
@@ -345,7 +331,7 @@ struct nf_afinfo {
 	int		(*route)(struct dst_entry **dst, struct flowi *fl);
 	void		(*saveroute)(const struct sk_buff *skb,
 				     struct nf_info *info);
-	int		(*reroute)(struct sk_buff *skb,
+	int		(*reroute)(struct sk_buff **skb,
 				   const struct nf_info *info);
 	int		route_key_size;
 };
@@ -399,15 +385,15 @@ extern struct proc_dir_entry *proc_net_netfilter;
 #define NF_HOOK(pf, hook, skb, indev, outdev, okfn) (okfn)(skb)
 #define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond) (okfn)(skb)
 static inline int nf_hook_thresh(int pf, unsigned int hook,
-				 struct sk_buff *skb,
+				 struct sk_buff **pskb,
 				 struct net_device *indev,
 				 struct net_device *outdev,
 				 int (*okfn)(struct sk_buff *), int thresh,
 				 int cond)
 {
-	return okfn(skb);
+	return okfn(*pskb);
 }
-static inline int nf_hook(int pf, unsigned int hook, struct sk_buff *skb,
+static inline int nf_hook(int pf, unsigned int hook, struct sk_buff **pskb,
 			  struct net_device *indev, struct net_device *outdev,
 			  int (*okfn)(struct sk_buff *))
 {

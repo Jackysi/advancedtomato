@@ -26,7 +26,7 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/mtd.h>
 
-#ifdef CONFIG_MTD_DEBUG
+#if 1 //def CONFIG_MTD_DEBUG
 static int debug = CONFIG_MTD_DEBUG_VERBOSE;
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Set Debug Level 0=quiet, 5=noisy");

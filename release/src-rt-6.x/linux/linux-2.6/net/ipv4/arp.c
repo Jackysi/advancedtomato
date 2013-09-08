@@ -845,8 +845,9 @@ static int arp_process(struct sk_buff *skb)
 			}
 			goto out;
 		} else if (IN_DEV_FORWARD(in_dev)) {
-			    if (addr_type == RTN_UNICAST  && rt->u.dst.dev != dev &&
-			     (arp_fwd_proxy(in_dev, rt) || pneigh_lookup(&arp_tbl, &tip, dev, 0))) {
+			if ((rt->rt_flags&RTCF_DNAT) ||
+			    (addr_type == RTN_UNICAST  && rt->u.dst.dev != dev &&
+			     (arp_fwd_proxy(in_dev, rt) || pneigh_lookup(&arp_tbl, &tip, dev, 0)))) {
 				n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
 				if (n)
 					neigh_release(n);
@@ -1362,8 +1363,24 @@ static const struct seq_operations arp_seq_ops = {
 
 static int arp_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &arp_seq_ops,
-			sizeof(struct neigh_seq_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct neigh_seq_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &arp_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq	     = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations arp_seq_fops = {

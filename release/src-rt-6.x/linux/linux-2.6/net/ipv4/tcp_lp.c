@@ -314,7 +314,7 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
 	lp->last_drop = tcp_time_stamp;
 }
 
-static struct tcp_congestion_ops tcp_lp __read_mostly = {
+static struct tcp_congestion_ops tcp_lp = {
 	.flags = TCP_CONG_RTT_STAMP,
 	.init = tcp_lp_init,
 	.ssthresh = tcp_reno_ssthresh,

@@ -26,15 +26,15 @@ MODULE_DESCRIPTION("iptables ECN modification module");
 /* set ECT codepoint from IP header.
  * 	return 0 if there was an error. */
 static inline int
-set_ect_ip(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
+set_ect_ip(struct sk_buff **pskb, const struct ipt_ECN_info *einfo)
 {
-	struct iphdr *iph = ip_hdr(skb);
+	struct iphdr *iph = ip_hdr(*pskb);
 
 	if ((iph->tos & IPT_ECN_IP_MASK) != (einfo->ip_ect & IPT_ECN_IP_MASK)) {
 		__u8 oldtos;
-		if (!skb_make_writable(skb, sizeof(struct iphdr)))
+		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
 			return 0;
-		iph = ip_hdr(skb);
+		iph = ip_hdr(*pskb);
 		oldtos = iph->tos;
 		iph->tos &= ~IPT_ECN_IP_MASK;
 		iph->tos |= (einfo->ip_ect & IPT_ECN_IP_MASK);
@@ -45,13 +45,14 @@ set_ect_ip(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
 
 /* Return 0 if there was an error. */
 static inline int
-set_ect_tcp(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
+set_ect_tcp(struct sk_buff **pskb, const struct ipt_ECN_info *einfo)
 {
 	struct tcphdr _tcph, *tcph;
 	__be16 oldval;
 
 	/* Not enought header? */
-	tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+	tcph = skb_header_pointer(*pskb, ip_hdrlen(*pskb),
+				  sizeof(_tcph), &_tcph);
 	if (!tcph)
 		return 0;
 
@@ -61,9 +62,9 @@ set_ect_tcp(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
 	     tcph->cwr == einfo->proto.tcp.cwr)))
 		return 1;
 
-	if (!skb_make_writable(skb, ip_hdrlen(skb) + sizeof(*tcph)))
+	if (!skb_make_writable(pskb, ip_hdrlen(*pskb) + sizeof(*tcph)))
 		return 0;
-	tcph = (void *)ip_hdr(skb) + ip_hdrlen(skb);
+	tcph = (void *)ip_hdr(*pskb) + ip_hdrlen(*pskb);
 
 	oldval = ((__be16 *)tcph)[6];
 	if (einfo->operation & IPT_ECN_OP_SET_ECE)
@@ -71,13 +72,13 @@ set_ect_tcp(struct sk_buff *skb, const struct ipt_ECN_info *einfo)
 	if (einfo->operation & IPT_ECN_OP_SET_CWR)
 		tcph->cwr = einfo->proto.tcp.cwr;
 
-	nf_proto_csum_replace2(&tcph->check, skb,
+	nf_proto_csum_replace2(&tcph->check, *pskb,
 				oldval, ((__be16 *)tcph)[6], 0);
 	return 1;
 }
 
 static unsigned int
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -87,12 +88,12 @@ target(struct sk_buff *skb,
 	const struct ipt_ECN_info *einfo = targinfo;
 
 	if (einfo->operation & IPT_ECN_OP_SET_IP)
-		if (!set_ect_ip(skb, einfo))
+		if (!set_ect_ip(pskb, einfo))
 			return NF_DROP;
 
 	if (einfo->operation & (IPT_ECN_OP_SET_ECE | IPT_ECN_OP_SET_CWR)
-	    && ip_hdr(skb)->protocol == IPPROTO_TCP)
-		if (!set_ect_tcp(skb, einfo))
+	    && ip_hdr(*pskb)->protocol == IPPROTO_TCP)
+		if (!set_ect_tcp(pskb, einfo))
 			return NF_DROP;
 
 	return XT_CONTINUE;

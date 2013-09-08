@@ -39,13 +39,18 @@ struct net_protocol {
 	int			(*gso_send_check)(struct sk_buff *skb);
 	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
 					       int features);
+#ifdef CONFIG_INET_GRO
+	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
+						 struct sk_buff *skb);
+	int			(*gro_complete)(struct sk_buff *skb);
+#endif /* CONFIG_INET_GRO */
 	int			no_policy;
 };
 
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 struct inet6_protocol 
 {
-	int	(*handler)(struct sk_buff *skb);
+	int	(*handler)(struct sk_buff **skb);
 
 	void	(*err_handler)(struct sk_buff *skb,
 			       struct inet6_skb_parm *opt,

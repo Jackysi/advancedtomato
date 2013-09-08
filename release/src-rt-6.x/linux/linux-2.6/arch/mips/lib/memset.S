@@ -52,6 +52,7 @@
  * a1: char to fill with
  * a2: size of area to clear
  */
+	.section .text.fastpath, "a"
 	.set	noreorder
 	.align	5
 LEAF(memset)

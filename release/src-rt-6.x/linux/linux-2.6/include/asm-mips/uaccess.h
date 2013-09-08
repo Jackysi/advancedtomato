@@ -233,7 +233,7 @@ do {									\
 
 #define __get_user_nocheck(x,ptr,size)					\
 ({									\
-	int __gu_err;							\
+	long __gu_err;							\
 									\
 	__get_user_common((x), size, ptr);				\
 	__gu_err;							\
@@ -241,7 +241,7 @@ do {									\
 
 #define __get_user_check(x,ptr,size)					\
 ({									\
-	int __gu_err = -EFAULT;						\
+	long __gu_err = -EFAULT;					\
 	const __typeof__(*(ptr)) __user * __gu_ptr = (ptr);		\
 									\
 	if (likely(access_ok(VERIFY_READ,  __gu_ptr, size)))		\
@@ -313,7 +313,7 @@ do {									\
 #define __put_user_nocheck(x,ptr,size)					\
 ({									\
 	__typeof__(*(ptr)) __pu_val;					\
-	int __pu_err = 0;						\
+	long __pu_err = 0;						\
 									\
 	__pu_val = (x);							\
 	switch (size) {							\
@@ -330,7 +330,7 @@ do {									\
 ({									\
 	__typeof__(*(ptr)) __user *__pu_addr = (ptr);			\
 	__typeof__(*(ptr)) __pu_val = (x);				\
-	int __pu_err = -EFAULT;						\
+	long __pu_err = -EFAULT;					\
 									\
 	if (likely(access_ok(VERIFY_WRITE,  __pu_addr, size))) {	\
 		switch (size) {						\
@@ -662,14 +662,15 @@ __clear_user(void __user *addr, __kernel_size_t size)
 	return res;
 }
 
-static inline unsigned long
-clear_user(void __user *to, unsigned long n)
-{
-        if (!access_ok(VERIFY_WRITE, to, n))
-                return n;
-
-        return __clear_user(to, n);
-}
+#define clear_user(addr,n)						\
+({									\
+	void __user * __cl_addr = (addr);				\
+	unsigned long __cl_size = (n);					\
+	if (__cl_size && access_ok(VERIFY_WRITE,			\
+		((unsigned long)(__cl_addr)), __cl_size))		\
+		__cl_size = __clear_user(__cl_addr, __cl_size);		\
+	__cl_size;							\
+})
 
 /*
  * __strncpy_from_user: - Copy a NUL terminated string from userspace, with less checking.

@@ -49,8 +49,6 @@
 
 #define FFprint(a...) printk(KERN_DEBUG a)
 
-static struct sock *fibnl;
-
 #ifndef CONFIG_IP_MULTIPLE_TABLES
 
 struct fib_table *ip_fib_local_table;
@@ -455,6 +453,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX+1] = {
 	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
 	[RTA_PROTOINFO]		= { .type = NLA_U32 },
 	[RTA_FLOW]		= { .type = NLA_U32 },
+	[RTA_MP_ALGO]		= { .type = NLA_U32 },
 };
 
 static int rtm_to_fib_config(struct sk_buff *skb, struct nlmsghdr *nlh,
@@ -515,6 +514,9 @@ static int rtm_to_fib_config(struct sk_buff *skb, struct nlmsghdr *nlh,
 			break;
 		case RTA_FLOW:
 			cfg->fc_flow = nla_get_u32(attr);
+			break;
+		case RTA_MP_ALGO:
+			cfg->fc_mp_alg = nla_get_u32(attr);
 			break;
 		case RTA_TABLE:
 			cfg->fc_table = nla_get_u32(attr);
@@ -786,22 +788,24 @@ static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb )
 	}
 }
 
-static void nl_fib_input(struct sk_buff *skb)
+static void nl_fib_input(struct sock *sk, int len)
 {
+	struct sk_buff *skb = NULL;
+	struct nlmsghdr *nlh = NULL;
 	struct fib_result_nl *frn;
-	struct nlmsghdr *nlh;
-	struct fib_table *tb;
 	u32 pid;
+	struct fib_table *tb;
+
+	skb = skb_dequeue(&sk->sk_receive_queue);
+	if (skb == NULL)
+		return;
 
 	nlh = nlmsg_hdr(skb);
 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
-	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
+	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
+		kfree_skb(skb);
 		return;
-
-	skb = skb_clone(skb, GFP_KERNEL);
-	if (skb == NULL)
-		return;
-	nlh = nlmsg_hdr(skb);
+	}
 
 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
 	tb = fib_get_table(frn->tb_id_in);
@@ -811,13 +815,13 @@ static void nl_fib_input(struct sk_buff *skb)
 	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
 	NETLINK_CB(skb).pid = 0;         /* from kernel */
 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
-	netlink_unicast(fibnl, skb, pid, MSG_DONTWAIT);
+	netlink_unicast(sk, skb, pid, MSG_DONTWAIT);
 }
 
 static void nl_fib_lookup_init(void)
 {
-	fibnl = netlink_kernel_create(NETLINK_FIB_LOOKUP, 0,
-				      nl_fib_input, NULL, THIS_MODULE);
+      netlink_kernel_create(NETLINK_FIB_LOOKUP, 0, nl_fib_input, NULL,
+      			    THIS_MODULE);
 }
 
 static void fib_disable_ip(struct net_device *dev, int force)

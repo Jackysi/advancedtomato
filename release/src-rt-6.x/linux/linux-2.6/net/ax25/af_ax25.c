@@ -311,7 +311,8 @@ void ax25_destroy_socket(ax25_cb *ax25)
 	}
 
 	if (ax25->sk != NULL) {
-		if (sk_has_allocations(ax25->sk)) {
+		if (atomic_read(&ax25->sk->sk_wmem_alloc) ||
+		    atomic_read(&ax25->sk->sk_rmem_alloc)) {
 			/* Defer: outstanding buffers */
 			init_timer(&ax25->dtimer);
 			ax25->dtimer.expires  = jiffies + 2 * HZ;
@@ -1683,8 +1684,7 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case TIOCOUTQ: {
 		long amount;
-
-		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
 		if (amount < 0)
 			amount = 0;
 		res = put_user(amount, (int __user *)argp);
@@ -1774,8 +1774,8 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		ax25_info.idletimer = ax25_display_timer(&ax25->idletimer) / (60 * HZ);
 		ax25_info.n2count   = ax25->n2count;
 		ax25_info.state     = ax25->state;
-		ax25_info.rcv_q     = sk_wmem_alloc_get(sk);
-		ax25_info.snd_q     = sk_rmem_alloc_get(sk);
+		ax25_info.rcv_q     = atomic_read(&sk->sk_rmem_alloc);
+		ax25_info.snd_q     = atomic_read(&sk->sk_wmem_alloc);
 		ax25_info.vs        = ax25->vs;
 		ax25_info.vr        = ax25->vr;
 		ax25_info.va        = ax25->va;
@@ -1914,8 +1914,8 @@ static int ax25_info_show(struct seq_file *seq, void *v)
 	if (ax25->sk != NULL) {
 		bh_lock_sock(ax25->sk);
 		seq_printf(seq," %d %d %ld\n",
-			   sk_wmem_alloc_get(ax25->sk),
-			   sk_rmem_alloc_get(ax25->sk),
+			   atomic_read(&ax25->sk->sk_wmem_alloc),
+			   atomic_read(&ax25->sk->sk_rmem_alloc),
 			   ax25->sk->sk_socket != NULL ? SOCK_INODE(ax25->sk->sk_socket)->i_ino : 0L);
 		bh_unlock_sock(ax25->sk);
 	} else {

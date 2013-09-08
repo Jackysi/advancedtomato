@@ -472,23 +472,11 @@
 #define KOBIL_CONV_KAAN_PID	0x2021	/* KOBIL_Konverter for KAAN */
 
 /*
- * Definitions for Icom Inc. devices
+ * Icom ID-1 digital transceiver
  */
-#define ICOM_VID		0x0C26 /* Icom vendor ID */
-/* Note: ID-1 is a communications tranceiver for HAM-radio operators */
-#define ICOM_ID_1_PID		0x0004 /* ID-1 USB to RS-232 */
-/* Note: OPC is an Optional cable to connect an Icom Tranceiver */
-#define ICOM_OPC_U_UC_PID	0x0018 /* OPC-478UC, OPC-1122U cloning cable */
-/* Note: ID-RP* devices are Icom Repeater Devices for HAM-radio */
-#define ICOM_ID_RP2C1_PID	0x0009 /* ID-RP2C Asset 1 to RS-232 */
-#define ICOM_ID_RP2C2_PID	0x000A /* ID-RP2C Asset 2 to RS-232 */
-#define ICOM_ID_RP2D_PID	0x000B /* ID-RP2D configuration port*/
-#define ICOM_ID_RP2VT_PID	0x000C /* ID-RP2V Transmit config port */
-#define ICOM_ID_RP2VR_PID	0x000D /* ID-RP2V Receive config port */
-#define ICOM_ID_RP4KVT_PID	0x0010 /* ID-RP4000V Transmit config port */
-#define ICOM_ID_RP4KVR_PID	0x0011 /* ID-RP4000V Receive config port */
-#define ICOM_ID_RP2KVT_PID	0x0012 /* ID-RP2000V Transmit config port */
-#define ICOM_ID_RP2KVR_PID	0x0013 /* ID-RP2000V Receive config port */
+
+#define ICOM_ID1_VID            0x0C26
+#define ICOM_ID1_PID            0x0004
 
 /*
  * ASK.fr devices
@@ -686,12 +674,6 @@
 #define TTI_QL355P_PID		0x03E8	/* TTi QL355P power supply */
 
 /*
- * Acton Research Corp.
- */
-#define ACTON_VID		0x0647	/* Vendor ID */
-#define ACTON_SPECTRAPRO_PID	0x0100
-
-/*
  * Contec products (http://www.contec.com)
  * Submitted by Daniel Sangorrin
  */
@@ -770,9 +752,6 @@
 /* Lenz LI-USB Computer Interface. */
 #define FTDI_LENZ_LIUSB_PID	0xD780
 
-/* Vardaan Enterprises Serial Interface VEUSB422R3 */
-#define FTDI_VARDAAN_PID	0xF070
-
 /*
  * Xsens Technologies BV products (http://www.xsens.com).
  */
@@ -848,12 +827,6 @@
  * PID 0xEA90 submitted by Martin Grill.
  */
 #define FTDI_ECLO_COM_1WIRE_PID	0xEA90	/* COM to 1-Wire USB adaptor */
-
-/*
- * STMicroelectonics
- */
-#define ST_VID			0x0483
-#define ST_STMCLT1030_PID	0x3747 /* ST Micro Connect Lite STMCLT1030 */
 
 /*
  * Papouch products (http://www.papouch.com/)
@@ -939,7 +912,6 @@
  */
 #define RTSYSTEMS_VID			0x2100	/* Vendor ID */
 #define RTSYSTEMS_SERIAL_VX7_PID	0x9e52	/* Serial converter for VX-7 Radios using FT232RL */
-#define RTSYSTEMS_CT29B_PID		0x9e54	/* CT29B Radio Cable */
 
 /*
  * IBS elektronik product ids
@@ -962,7 +934,6 @@
 /* Olimex */
 #define OLIMEX_VID			0x15BA
 #define OLIMEX_ARM_USB_OCD_PID		0x0003
-#define OLIMEX_ARM_USB_OCD_H_PID	0x002b
 
 /* Luminary Micro Stellaris Boards, VID = FTDI_VID */
 /* FTDI 2332C Dual channel device, side A=245 FIFO (JTAG), Side B=RS232 UART */

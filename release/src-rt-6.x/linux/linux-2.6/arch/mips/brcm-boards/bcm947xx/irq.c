@@ -150,8 +150,6 @@ end_brcm_irq2(unsigned int irq)
 	/* Already done in plat_irq_dispatch()! */
 }
 
-extern asmlinkage void __do_softirq(void);
-
 /*
  * Route interrupts to ISR(s).
  *

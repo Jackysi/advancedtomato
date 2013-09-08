@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.13 2010-12-13 20:23:49 $
 #
 
-SRCBASE := ../../../../..
+SRCBASE := ../../../../../../$(SRCBASEDIR)
 
 TARGET := wl
 WLCONF_H := wlconf.h

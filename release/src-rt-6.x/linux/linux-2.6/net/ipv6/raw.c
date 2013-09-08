@@ -1072,8 +1072,7 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
 	switch(cmd) {
 		case SIOCOUTQ:
 		{
-			int amount = sk_wmem_alloc_get(sk);
-
+			int amount = atomic_read(&sk->sk_wmem_alloc);
 			return put_user(amount, (int __user *)arg);
 		}
 		case SIOCINQ:
@@ -1248,8 +1247,8 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 		   dest->s6_addr32[0], dest->s6_addr32[1],
 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
 		   sp->sk_state,
-		   sk_wmem_alloc_get(sp),
-		   sk_rmem_alloc_get(sp),
+		   atomic_read(&sp->sk_wmem_alloc),
+		   atomic_read(&sp->sk_rmem_alloc),
 		   0, 0L, 0,
 		   sock_i_uid(sp), 0,
 		   sock_i_ino(sp),
@@ -1279,8 +1278,21 @@ static struct seq_operations raw6_seq_ops = {
 
 static int raw6_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &raw6_seq_ops,
-			sizeof(struct raw6_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct raw6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+	if (!s)
+		goto out;
+	rc = seq_open(file, &raw6_seq_ops);
+	if (rc)
+		goto out_kfree;
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations raw6_seq_fops = {

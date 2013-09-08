@@ -212,7 +212,7 @@ struct block_device_operations mtd_blktrans_ops = {
 int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 {
 	struct mtd_blktrans_ops *tr = new->tr;
-	struct mtd_blktrans_dev *d;
+	struct list_head *this;
 	int last_devnum = -1;
 	struct gendisk *gd;
 
@@ -221,7 +221,8 @@ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 		BUG();
 	}
 
-	list_for_each_entry(d, &tr->devs, list) {
+	list_for_each(this, &tr->devs) {
+		struct mtd_blktrans_dev *d = list_entry(this, struct mtd_blktrans_dev, list);
 		if (new->devnum == -1) {
 			/* Use first free number */
 			if (d->devnum != last_devnum+1) {
@@ -247,9 +248,9 @@ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 		return -EBUSY;
 	}
 
+	mutex_init(&new->lock);
 	list_add_tail(&new->list, &tr->devs);
  added:
-	mutex_init(&new->lock);
 	if (!tr->writesect)
 		new->readonly = 1;
 
@@ -308,24 +309,33 @@ int del_mtd_blktrans_dev(struct mtd_blktrans_dev *old)
 
 static void blktrans_notify_remove(struct mtd_info *mtd)
 {
-	struct mtd_blktrans_ops *tr;
-	struct mtd_blktrans_dev *dev, *next;
+	struct list_head *this, *this2, *next;
 
-	list_for_each_entry(tr, &blktrans_majors, list)
-		list_for_each_entry_safe(dev, next, &tr->devs, list)
+	list_for_each(this, &blktrans_majors) {
+		struct mtd_blktrans_ops *tr = list_entry(this, struct mtd_blktrans_ops, list);
+
+		list_for_each_safe(this2, next, &tr->devs) {
+			struct mtd_blktrans_dev *dev = list_entry(this2, struct mtd_blktrans_dev, list);
+
 			if (dev->mtd == mtd)
 				tr->remove_dev(dev);
+		}
+	}
 }
 
 static void blktrans_notify_add(struct mtd_info *mtd)
 {
-	struct mtd_blktrans_ops *tr;
+	struct list_head *this;
 
 	if (mtd->type == MTD_ABSENT)
 		return;
 
-	list_for_each_entry(tr, &blktrans_majors, list)
+	list_for_each(this, &blktrans_majors) {
+		struct mtd_blktrans_ops *tr = list_entry(this, struct mtd_blktrans_ops, list);
+
 		tr->add_mtd(tr, mtd);
+	}
+
 }
 
 static struct mtd_notifier blktrans_notifier = {
@@ -374,12 +384,11 @@ int register_mtd_blktrans(struct mtd_blktrans_ops *tr)
 	tr->blkcore_priv->thread = kthread_run(mtd_blktrans_thread, tr,
 			"%sd", tr->name);
 	if (IS_ERR(tr->blkcore_priv->thread)) {
-		int ret = PTR_ERR(tr->blkcore_priv->thread);
 		blk_cleanup_queue(tr->blkcore_priv->rq);
 		unregister_blkdev(tr->major, tr->name);
 		kfree(tr->blkcore_priv);
 		mutex_unlock(&mtd_table_mutex);
-		return ret;
+		return PTR_ERR(tr->blkcore_priv->thread);
 	}
 
 	INIT_LIST_HEAD(&tr->devs);
@@ -397,7 +406,7 @@ int register_mtd_blktrans(struct mtd_blktrans_ops *tr)
 
 int deregister_mtd_blktrans(struct mtd_blktrans_ops *tr)
 {
-	struct mtd_blktrans_dev *dev, *next;
+	struct list_head *this, *next;
 
 	mutex_lock(&mtd_table_mutex);
 
@@ -407,8 +416,10 @@ int deregister_mtd_blktrans(struct mtd_blktrans_ops *tr)
 	/* Remove it from the list of active majors */
 	list_del(&tr->list);
 
-	list_for_each_entry_safe(dev, next, &tr->devs, list)
+	list_for_each_safe(this, next, &tr->devs) {
+		struct mtd_blktrans_dev *dev = list_entry(this, struct mtd_blktrans_dev, list);
 		tr->remove_dev(dev);
+	}
 
 	blk_cleanup_queue(tr->blkcore_priv->rq);
 	unregister_blkdev(tr->major, tr->name);

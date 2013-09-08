@@ -2705,7 +2705,7 @@ aic7xxx_done(struct aic7xxx_host *p, struct aic7xxx_scb *scb)
   {
     pci_unmap_single(p->pdev,
                      le32_to_cpu(scb->sg_list[0].address),
-                     SCSI_SENSE_BUFFERSIZE,
+                     sizeof(cmd->sense_buffer),
                      PCI_DMA_FROMDEVICE);
   }
   if (scb->flags & SCB_RECOVERY_SCB)
@@ -4276,13 +4276,13 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
                        sizeof(generic_sense));
 
                 scb->sense_cmd[1] = (cmd->device->lun << 5);
-                scb->sense_cmd[4] = SCSI_SENSE_BUFFERSIZE;
+                scb->sense_cmd[4] = sizeof(cmd->sense_buffer);
 
                 scb->sg_list[0].length = 
-                  cpu_to_le32(SCSI_SENSE_BUFFERSIZE);
+                  cpu_to_le32(sizeof(cmd->sense_buffer));
 		scb->sg_list[0].address =
                         cpu_to_le32(pci_map_single(p->pdev, cmd->sense_buffer,
-                                                   SCSI_SENSE_BUFFERSIZE,
+                                                   sizeof(cmd->sense_buffer),
                                                    PCI_DMA_FROMDEVICE));
 
                 /*
@@ -4305,7 +4305,7 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
                 hscb->residual_data_count[2] = 0;
 
                 scb->sg_count = hscb->SG_segment_count = 1;
-                scb->sg_length = SCSI_SENSE_BUFFERSIZE;
+                scb->sg_length = sizeof(cmd->sense_buffer);
                 scb->tag_action = 0;
                 scb->flags |= SCB_SENSE;
                 /*

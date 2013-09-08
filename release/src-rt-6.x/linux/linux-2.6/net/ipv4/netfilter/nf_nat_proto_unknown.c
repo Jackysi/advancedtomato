@@ -37,7 +37,7 @@ static int unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
 }
 
 static int
-unknown_manip_pkt(struct sk_buff *skb,
+unknown_manip_pkt(struct sk_buff **pskb,
 		  unsigned int iphdroff,
 		  const struct nf_conntrack_tuple *tuple,
 		  enum nf_nat_manip_type maniptype)

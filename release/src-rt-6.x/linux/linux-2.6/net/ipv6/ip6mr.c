@@ -216,8 +216,25 @@ static struct seq_operations ip6mr_vif_seq_ops = {
 
 static int ip6mr_vif_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &ip6mr_vif_seq_ops,
-				sizeof(struct ipmr_vif_iter));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct ipmr_vif_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &ip6mr_vif_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	s->ct = 0;
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static struct file_operations ip6mr_vif_fops = {
@@ -330,8 +347,24 @@ static struct seq_operations ipmr_mfc_seq_ops = {
 
 static int ipmr_mfc_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &ipmr_mfc_seq_ops,
-				sizeof(struct ipmr_mfc_iter));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct ipmr_mfc_iter *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &ipmr_mfc_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static struct file_operations ip6mr_mfc_fops = {
@@ -346,8 +379,9 @@ static struct file_operations ip6mr_mfc_fops = {
 #ifdef CONFIG_IPV6_PIMSM_V2
 static int reg_vif_num = -1;
 
-static int pim6_rcv(struct sk_buff *skb)
+static int pim6_rcv(struct sk_buff **pskb)
 {
+	struct sk_buff *skb = (*pskb);
 	struct pimreghdr *pim;
 	struct ipv6hdr   *encap;
 	struct net_device  *reg_dev = NULL;
@@ -1393,8 +1427,10 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
 	};
 
 	dst = ip6_route_output(NULL, &fl);
-	if (!dst)
+	if (dst->error) {
+		dst_release(dst);
 		goto out_free;
+	}
 
 	dst_release(skb->dst);
 	skb->dst = dst;

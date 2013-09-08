@@ -73,7 +73,7 @@ static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
 
 static unsigned int
 nf_nat_fn(unsigned int hooknum,
-	  struct sk_buff *skb,
+	  struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  int (*okfn)(struct sk_buff *))
@@ -86,9 +86,9 @@ nf_nat_fn(unsigned int hooknum,
 
 	/* We never see fragments: conntrack defrags on pre-routing
 	   and local-out, and nf_nat_out protects post-routing. */
-	NF_CT_ASSERT(!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)));
+	NF_CT_ASSERT(!(ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)));
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	/* Can't track?  It's not due to stress, or conntrack would
 	   have dropped it.  Hence it's the user's responsibilty to
 	   packet filter it out, or implement conntrack/NAT for that
@@ -97,10 +97,10 @@ nf_nat_fn(unsigned int hooknum,
 		/* Exception: ICMP redirect to new connection (not in
 		   hash table yet).  We must not let this through, in
 		   case we're doing NAT to the same network. */
-		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
+		if (ip_hdr(*pskb)->protocol == IPPROTO_ICMP) {
 			struct icmphdr _hdr, *hp;
 
-			hp = skb_header_pointer(skb, ip_hdrlen(skb),
+			hp = skb_header_pointer(*pskb, ip_hdrlen(*pskb),
 						sizeof(_hdr), &_hdr);
 			if (hp != NULL &&
 			    hp->type == ICMP_REDIRECT)
@@ -120,9 +120,9 @@ nf_nat_fn(unsigned int hooknum,
 	switch (ctinfo) {
 	case IP_CT_RELATED:
 	case IP_CT_RELATED+IP_CT_IS_REPLY:
-		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
+		if (ip_hdr(*pskb)->protocol == IPPROTO_ICMP) {
 			if (!nf_nat_icmp_reply_translation(ct, ctinfo,
-							   hooknum, skb))
+							   hooknum, pskb))
 				return NF_DROP;
 			else
 				return NF_ACCEPT;
@@ -142,7 +142,7 @@ nf_nat_fn(unsigned int hooknum,
 				/* LOCAL_IN hook doesn't have a chain!  */
 				ret = alloc_null_binding(ct, hooknum);
 			else
-				ret = nf_nat_rule_find(skb, hooknum, in, out,
+				ret = nf_nat_rule_find(pskb, hooknum, in, out,
 						       ct);
 
 			if (ret != NF_ACCEPT) {
@@ -163,31 +163,31 @@ nf_nat_fn(unsigned int hooknum,
 			     ctinfo == (IP_CT_ESTABLISHED+IP_CT_IS_REPLY));
 	}
 
-	return nf_nat_packet(ct, ctinfo, hooknum, skb);
+	return nf_nat_packet(ct, ctinfo, hooknum, pskb);
 }
 
 static unsigned int
 nf_nat_in(unsigned int hooknum,
-	  struct sk_buff *skb,
+	  struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  int (*okfn)(struct sk_buff *))
 {
 	unsigned int ret;
-	__be32 daddr = ip_hdr(skb)->daddr;
+	__be32 daddr = ip_hdr(*pskb)->daddr;
 
-	ret = nf_nat_fn(hooknum, skb, in, out, okfn);
+	ret = nf_nat_fn(hooknum, pskb, in, out, okfn);
 	if (ret != NF_DROP && ret != NF_STOLEN &&
-	    daddr != ip_hdr(skb)->daddr) {
-		dst_release(skb->dst);
-		skb->dst = NULL;
+	    daddr != ip_hdr(*pskb)->daddr) {
+		dst_release((*pskb)->dst);
+		(*pskb)->dst = NULL;
 	}
 	return ret;
 }
 
 static unsigned int
 nf_nat_out(unsigned int hooknum,
-	   struct sk_buff *skb,
+	   struct sk_buff **pskb,
 	   const struct net_device *in,
 	   const struct net_device *out,
 	   int (*okfn)(struct sk_buff *))
@@ -199,14 +199,14 @@ nf_nat_out(unsigned int hooknum,
 	unsigned int ret;
 
 	/* root is playing with raw sockets. */
-	if (skb->len < sizeof(struct iphdr) ||
-	    ip_hdrlen(skb) < sizeof(struct iphdr))
+	if ((*pskb)->len < sizeof(struct iphdr) ||
+	    ip_hdrlen(*pskb) < sizeof(struct iphdr))
 		return NF_ACCEPT;
 
-	ret = nf_nat_fn(hooknum, skb, in, out, okfn);
+	ret = nf_nat_fn(hooknum, pskb, in, out, okfn);
 #ifdef CONFIG_XFRM
 	if (ret != NF_DROP && ret != NF_STOLEN &&
-	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+	    (ct = nf_ct_get(*pskb, &ctinfo)) != NULL) {
 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 
 		if (ct->tuplehash[dir].tuple.src.u3.ip !=
@@ -214,7 +214,7 @@ nf_nat_out(unsigned int hooknum,
 		    || ct->tuplehash[dir].tuple.src.u.all !=
 		       ct->tuplehash[!dir].tuple.dst.u.all
 		    )
-			return ip_xfrm_me_harder(skb) == 0 ? ret : NF_DROP;
+			return ip_xfrm_me_harder(pskb) == 0 ? ret : NF_DROP;
 	}
 #endif
 	return ret;
@@ -222,7 +222,7 @@ nf_nat_out(unsigned int hooknum,
 
 static unsigned int
 nf_nat_local_fn(unsigned int hooknum,
-		struct sk_buff *skb,
+		struct sk_buff **pskb,
 		const struct net_device *in,
 		const struct net_device *out,
 		int (*okfn)(struct sk_buff *))
@@ -232,24 +232,24 @@ nf_nat_local_fn(unsigned int hooknum,
 	unsigned int ret;
 
 	/* root is playing with raw sockets. */
-	if (skb->len < sizeof(struct iphdr) ||
-	    ip_hdrlen(skb) < sizeof(struct iphdr))
+	if ((*pskb)->len < sizeof(struct iphdr) ||
+	    ip_hdrlen(*pskb) < sizeof(struct iphdr))
 		return NF_ACCEPT;
 
-	ret = nf_nat_fn(hooknum, skb, in, out, okfn);
+	ret = nf_nat_fn(hooknum, pskb, in, out, okfn);
 	if (ret != NF_DROP && ret != NF_STOLEN &&
-	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+	    (ct = nf_ct_get(*pskb, &ctinfo)) != NULL) {
 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 
 		if (ct->tuplehash[dir].tuple.dst.u3.ip !=
 		    ct->tuplehash[!dir].tuple.src.u3.ip) {
-			if (ip_route_me_harder(skb, RTN_UNSPEC))
+			if (ip_route_me_harder(pskb, RTN_UNSPEC))
 				ret = NF_DROP;
 		}
 #ifdef CONFIG_XFRM
 		else if (ct->tuplehash[dir].tuple.dst.u.all !=
 			 ct->tuplehash[!dir].tuple.src.u.all)
-			if (ip_xfrm_me_harder(skb))
+			if (ip_xfrm_me_harder(pskb))
 				ret = NF_DROP;
 #endif
 	}
@@ -258,7 +258,7 @@ nf_nat_local_fn(unsigned int hooknum,
 
 static unsigned int
 nf_nat_adjust(unsigned int hooknum,
-	      struct sk_buff *skb,
+	      struct sk_buff **pskb,
 	      const struct net_device *in,
 	      const struct net_device *out,
 	      int (*okfn)(struct sk_buff *))
@@ -266,10 +266,10 @@ nf_nat_adjust(unsigned int hooknum,
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	if (ct && test_bit(IPS_SEQ_ADJUST_BIT, &ct->status)) {
 		DEBUGP("nf_nat_standalone: adjusting sequence number\n");
-		if (!nf_nat_seq_adjust(skb, ct, ctinfo))
+		if (!nf_nat_seq_adjust(pskb, ct, ctinfo))
 			return NF_DROP;
 	}
 	return NF_ACCEPT;

@@ -87,8 +87,9 @@ int xfrm6_tunnel_deregister(struct xfrm6_tunnel *handler, unsigned short family)
 
 EXPORT_SYMBOL(xfrm6_tunnel_deregister);
 
-static int tunnel6_rcv(struct sk_buff *skb)
+static int tunnel6_rcv(struct sk_buff **pskb)
 {
+	struct sk_buff *skb = *pskb;
 	struct xfrm6_tunnel *handler;
 
 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
@@ -105,8 +106,9 @@ drop:
 	return 0;
 }
 
-static int tunnel46_rcv(struct sk_buff *skb)
+static int tunnel46_rcv(struct sk_buff **pskb)
 {
+	struct sk_buff *skb = *pskb;
 	struct xfrm6_tunnel *handler;
 
 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))

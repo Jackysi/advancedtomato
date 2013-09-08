@@ -182,15 +182,13 @@ static DEFINE_RWLOCK(disc_data_lock);
 
 static struct syncppp *sp_get(struct tty_struct *tty)
 {
-	unsigned long flags;
 	struct syncppp *ap;
 
-	read_lock_irqsave(&disc_data_lock, flags);
+	read_lock(&disc_data_lock);
 	ap = tty->disc_data;
 	if (ap != NULL)
 		atomic_inc(&ap->refcnt);
-	read_unlock_irqrestore(&disc_data_lock, flags);
-
+	read_unlock(&disc_data_lock);
 	return ap;
 }
 
@@ -209,12 +207,13 @@ ppp_sync_open(struct tty_struct *tty)
 	struct syncppp *ap;
 	int err;
 
-	ap = kzalloc(sizeof(*ap), GFP_KERNEL);
+	ap = kmalloc(sizeof(*ap), GFP_KERNEL);
 	err = -ENOMEM;
 	if (ap == 0)
 		goto out;
 
 	/* initialize the syncppp structure */
+	memset(ap, 0, sizeof(*ap));
 	ap->tty = tty;
 	ap->mru = PPP_MRU;
 	spin_lock_init(&ap->xmit_lock);
@@ -258,14 +257,13 @@ ppp_sync_open(struct tty_struct *tty)
 static void
 ppp_sync_close(struct tty_struct *tty)
 {
-	unsigned long flags;
 	struct syncppp *ap;
 
-	write_lock_irqsave(&disc_data_lock, flags);
+	write_lock_irq(&disc_data_lock);
 	ap = tty->disc_data;
 	tty->disc_data = NULL;
-	write_unlock_irqrestore(&disc_data_lock, flags);
-	if (!ap)
+	write_unlock_irq(&disc_data_lock);
+	if (ap == 0)
 		return;
 
 	/*

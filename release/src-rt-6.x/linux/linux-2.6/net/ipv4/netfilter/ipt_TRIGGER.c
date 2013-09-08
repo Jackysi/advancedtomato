@@ -33,6 +33,7 @@
 
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
+#include <linux/netfilter_ipv4/ip_autofw.h>
 
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_nat_helper.h>
@@ -184,11 +185,11 @@ static inline int trigger_out_matched(const struct ipt_trigger *i,
 }
 
 static unsigned int
-trigger_out(struct sk_buff *skb, const void *targinfo)
+trigger_out(struct sk_buff **pskb, const void *targinfo)
 {
     const struct ipt_trigger_info *info = targinfo;
     struct ipt_trigger *trig;
-    struct iphdr *iph = ip_hdr(skb);
+    struct iphdr *iph = ip_hdr(*pskb);
     struct tcphdr *tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     /* Check if the trigger range has already existed in 'trigger_list'. */
@@ -273,7 +274,7 @@ static inline int trigger_in_matched(const struct ipt_trigger *i,
 }
 
 static unsigned int
-trigger_in(struct sk_buff *skb)
+trigger_in(struct sk_buff **pskb)
 {
     struct ipt_trigger *trig;
     struct nf_conn *ct;
@@ -281,11 +282,11 @@ trigger_in(struct sk_buff *skb)
     struct iphdr *iph;
     struct tcphdr *tcph;
 
-    ct = nf_ct_get(skb, &ctinfo);
+    ct = nf_ct_get(*pskb, &ctinfo);
     if ((ct == NULL) || !(ct->status & IPS_TRIGGER))
 	return IPT_CONTINUE;
 
-    iph = ip_hdr(skb);
+    iph = ip_hdr(*pskb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     /* Check if the trigger-ed range has already existed in 'trigger_list'. */
@@ -308,16 +309,16 @@ trigger_in(struct sk_buff *skb)
 }
 
 static unsigned int
-trigger_dnat(struct sk_buff *skb, unsigned int hooknum)
+trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
 {
     struct ipt_trigger *trig;
     struct iphdr *iph;
     struct tcphdr *tcph;
     struct nf_conn *ct;
     enum ip_conntrack_info ctinfo;
-    struct nf_nat_range newrange;
+    struct nf_nat_multi_range_compat newrange;
 
-    iph = ip_hdr(skb);
+    iph = ip_hdr(*pskb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING);
@@ -331,23 +332,23 @@ trigger_dnat(struct sk_buff *skb, unsigned int hooknum)
 	return IPT_CONTINUE;	/* We don't block any packet. */
 
     trig->reply = 1;	/* Confirm there has been a reply connection. */
-    ct = nf_ct_get(skb, &ctinfo);
+    ct = nf_ct_get(*pskb, &ctinfo);
     NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW));
 
     DEBUGP("Trigger DNAT: %u.%u.%u.%u ", NIPQUAD(trig->srcip));
     NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
     /* Alter the destination of imcoming packet. */
-    newrange = ((struct nf_nat_range)
-	    { IP_NAT_RANGE_MAP_IPS,
+    newrange = ((struct nf_nat_multi_range_compat)
+	    { 1, { { IP_NAT_RANGE_MAP_IPS,
 	             trig->srcip, trig->srcip,
 	             { 0 }, { 0 }
-	    });
+	    } } });
 
     ct->status |= IPS_TRIGGER;
 
     /* Hand modified range to generic setup. */
-    return nf_nat_setup_info(ct, &newrange, hooknum);
+    return nf_nat_setup_info(ct, &newrange.range[0], hooknum);
 }
 
 static inline int trigger_refresh_matched(const struct ipt_trigger *i,
@@ -361,7 +362,7 @@ static inline int trigger_refresh_matched(const struct ipt_trigger *i,
 	i->ports.rport[1] >= sport;
 }
 
-static unsigned int trigger_refresh(struct sk_buff *skb)
+static unsigned int trigger_refresh(struct sk_buff **pskb)
 {
     struct iphdr *iph;
     struct tcphdr *tcph;
@@ -369,11 +370,11 @@ static unsigned int trigger_refresh(struct sk_buff *skb)
     struct nf_conn *ct;
     enum ip_conntrack_info ctinfo;
 
-    ct = nf_ct_get(skb, &ctinfo);
+    ct = nf_ct_get(*pskb, &ctinfo);
     if ((ct == NULL) || !(ct->status & IPS_TRIGGER))
 	return IPT_CONTINUE;
 
-    iph = ip_hdr(skb);
+    iph = ip_hdr(*pskb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     trig = LIST_FIND(&trigger_list,
@@ -391,7 +392,7 @@ static unsigned int trigger_refresh(struct sk_buff *skb)
 
 static unsigned int
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -417,6 +418,9 @@ target(struct sk_buff *skb,
     const struct net_device *out = par->out;
     unsigned int hooknum = par->hooknum;
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+    struct sk_buff *skb = *pskb;
+#endif
     const struct iphdr *iph = ip_hdr(skb);
 
     /* DEBUGP("%s: type = %s\n", __FUNCTION__, 
@@ -428,13 +432,13 @@ target(struct sk_buff *skb,
 	return IPT_CONTINUE;
 
     if (info->type == IPT_TRIGGER_OUT)
-	return trigger_out(skb, targinfo);
+	return trigger_out(&skb, targinfo);
     else if (info->type == IPT_TRIGGER_IN)
-	return trigger_in(skb);
+	return trigger_in(&skb);
     else if (info->type == IPT_TRIGGER_DNAT)
-    	return trigger_dnat(skb, hooknum);
+    	return trigger_dnat(&skb, hooknum);
     else if (info->type == IPT_TRIGGER_REFRESH)
-    	return trigger_refresh(skb);
+    	return trigger_refresh(&skb);
 
     return IPT_CONTINUE;
 }
@@ -470,6 +474,10 @@ checkentry(const struct xt_tgchk_param *par)
 		DEBUGP("trigger_check: bad table `%s'.\n", tablename);
 		return 0;
 	}
+	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD))) {
+		DEBUGP("trigger_check: bad hooks %x.\n", hook_mask);
+		return 0;
+	}
 	if (info->proto) {
 	    if (info->proto != IPPROTO_TCP && info->proto != IPPROTO_UDP) {
 		DEBUGP("trigger_check: bad proto %d.\n", info->proto);
@@ -495,7 +503,6 @@ static struct ipt_target redirect_reg = {
 	.target = target,
 	.targetsize = sizeof(struct ipt_trigger_info),
 	.checkentry = checkentry,
-	.hooks = (1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD),
 	.me = THIS_MODULE,
 };
 

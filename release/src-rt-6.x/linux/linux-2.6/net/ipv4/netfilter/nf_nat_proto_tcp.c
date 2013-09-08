@@ -79,21 +79,21 @@ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
 	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
 		port =  net_random();
 
-	for (i = 0; ; ++port) {
+	for (i = 0; i < range_size; i++, port++) {
 		*portptr = htons(min + port % range_size);
-		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+		if (!nf_nat_used_tuple(tuple, ct))
 			return 1;
 	}
 	return 0;
 }
 
 static int
-tcp_manip_pkt(struct sk_buff *skb,
+tcp_manip_pkt(struct sk_buff **pskb,
 	      unsigned int iphdroff,
 	      const struct nf_conntrack_tuple *tuple,
 	      enum nf_nat_manip_type maniptype)
 {
-	struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
+	struct iphdr *iph = (struct iphdr *)((*pskb)->data + iphdroff);
 	struct tcphdr *hdr;
 	unsigned int hdroff = iphdroff + iph->ihl*4;
 	__be32 oldip, newip;
@@ -103,14 +103,14 @@ tcp_manip_pkt(struct sk_buff *skb,
 	/* this could be a inner header returned in icmp packet; in such
 	   cases we cannot update the checksum field since it is outside of
 	   the 8 bytes of transport layer headers we are guaranteed */
-	if (skb->len >= hdroff + sizeof(struct tcphdr))
+	if ((*pskb)->len >= hdroff + sizeof(struct tcphdr))
 		hdrsize = sizeof(struct tcphdr);
 
-	if (!skb_make_writable(skb, hdroff + hdrsize))
+	if (!skb_make_writable(pskb, hdroff + hdrsize))
 		return 0;
 
-	iph = (struct iphdr *)(skb->data + iphdroff);
-	hdr = (struct tcphdr *)(skb->data + hdroff);
+	iph = (struct iphdr *)((*pskb)->data + iphdroff);
+	hdr = (struct tcphdr *)((*pskb)->data + hdroff);
 
 	if (maniptype == IP_NAT_MANIP_SRC) {
 		/* Get rid of src ip and src pt */
@@ -132,8 +132,8 @@ tcp_manip_pkt(struct sk_buff *skb,
 	if (hdrsize < sizeof(*hdr))
 		return 1;
 
-	nf_proto_csum_replace4(&hdr->check, skb, oldip, newip, 1);
-	nf_proto_csum_replace2(&hdr->check, skb, oldport, newport, 0);
+	nf_proto_csum_replace4(&hdr->check, *pskb, oldip, newip, 1);
+	nf_proto_csum_replace2(&hdr->check, *pskb, oldport, newport, 0);
 	return 1;
 }
 

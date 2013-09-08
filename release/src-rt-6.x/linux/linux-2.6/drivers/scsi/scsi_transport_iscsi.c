@@ -1059,49 +1059,61 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 }
 
 /*
- * Get message from skb.  Each message is processed by iscsi_if_recv_msg.
- * Malformed skbs with wrong lengths or invalid creds are not processed.
+ * Get message from skb (based on rtnetlink_rcv_skb).  Each message is
+ * processed by iscsi_if_recv_msg.  Malformed skbs with wrong lengths or
+ * invalid creds are discarded silently.
  */
 static void
-iscsi_if_rx(struct sk_buff *skb)
+iscsi_if_rx(struct sock *sk, int len)
 {
+	struct sk_buff *skb;
+
 	mutex_lock(&rx_queue_mutex);
-	while (skb->len >= NLMSG_SPACE(0)) {
-		int err;
-		uint32_t rlen;
-		struct nlmsghdr	*nlh;
-		struct iscsi_uevent *ev;
-
-		nlh = nlmsg_hdr(skb);
-		if (nlh->nlmsg_len < sizeof(*nlh) ||
-		    skb->len < nlh->nlmsg_len) {
-			break;
+	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
+		if (NETLINK_CREDS(skb)->uid) {
+			skb_pull(skb, skb->len);
+			goto free_skb;
 		}
 
-		ev = NLMSG_DATA(nlh);
-		rlen = NLMSG_ALIGN(nlh->nlmsg_len);
-		if (rlen > skb->len)
-			rlen = skb->len;
+		while (skb->len >= NLMSG_SPACE(0)) {
+			int err;
+			uint32_t rlen;
+			struct nlmsghdr	*nlh;
+			struct iscsi_uevent *ev;
 
-		err = iscsi_if_recv_msg(skb, nlh);
-		if (err) {
-			ev->type = ISCSI_KEVENT_IF_ERROR;
-			ev->iferror = err;
-		}
-		do {
-			/*
-			 * special case for GET_STATS:
-			 * on success - sending reply and stats from
-			 * inside of if_recv_msg(),
-			 * on error - fall through.
-			 */
-			if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
+			nlh = nlmsg_hdr(skb);
+			if (nlh->nlmsg_len < sizeof(*nlh) ||
+			    skb->len < nlh->nlmsg_len) {
 				break;
-			err = iscsi_if_send_reply(
-				NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
-				nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
-		} while (err < 0 && err != -ECONNREFUSED);
-		skb_pull(skb, rlen);
+			}
+
+			ev = NLMSG_DATA(nlh);
+			rlen = NLMSG_ALIGN(nlh->nlmsg_len);
+			if (rlen > skb->len)
+				rlen = skb->len;
+
+			err = iscsi_if_recv_msg(skb, nlh);
+			if (err) {
+				ev->type = ISCSI_KEVENT_IF_ERROR;
+				ev->iferror = err;
+			}
+			do {
+				/*
+				 * special case for GET_STATS:
+				 * on success - sending reply and stats from
+				 * inside of if_recv_msg(),
+				 * on error - fall through.
+				 */
+				if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
+					break;
+				err = iscsi_if_send_reply(
+					NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
+					nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
+			} while (err < 0 && err != -ECONNREFUSED);
+			skb_pull(skb, rlen);
+		}
+free_skb:
+		kfree_skb(skb);
 	}
 	mutex_unlock(&rx_queue_mutex);
 }

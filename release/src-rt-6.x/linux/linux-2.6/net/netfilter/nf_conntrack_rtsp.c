@@ -57,34 +57,31 @@
 #endif
 
 #define MAX_PORTS 8
-static unsigned short ports[MAX_PORTS];
+static int ports[MAX_PORTS];
 static int num_ports = 0;
-static unsigned int max_outstanding __read_mostly = 8;
-static unsigned int setup_timeout __read_mostly = 300;
+static int max_outstanding = 8;
+static unsigned int setup_timeout = 300;
 
 MODULE_AUTHOR("Tom Marshall <tmarshall at real.com>");
 MODULE_DESCRIPTION("RTSP connection tracking module");
 MODULE_LICENSE("GPL");
-module_param_array(ports, ushort, &num_ports, 0400);
+module_param_array(ports, int, &num_ports, 0400);
 MODULE_PARM_DESC(ports, "port numbers of RTSP servers");
-module_param(max_outstanding, uint, 0400);
+module_param(max_outstanding, int, 0400);
 MODULE_PARM_DESC(max_outstanding, "max number of outstanding SETUP requests per RTSP session");
-module_param(setup_timeout, uint, 0400);
+module_param(setup_timeout, int, 0400);
 MODULE_PARM_DESC(setup_timeout, "timeout on for unestablished data channels");
 
 static char *rtsp_buffer;
 static DEFINE_SPINLOCK(rtsp_buffer_lock);
 
-static struct nf_conntrack_expect_policy rtsp_exp_policy;
-
-unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
+unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
 				 enum ip_conntrack_info ctinfo,
 				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
-				 struct nf_conntrack_expect *exp) __read_mostly;
-EXPORT_SYMBOL_GPL(nf_nat_rtsp_hook);
+				 struct nf_conntrack_expect *exp);
+void (*nf_nat_rtsp_hook_expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
 
-void (*nf_nat_rtsp_hook_expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp) __read_mostly;
-EXPORT_SYMBOL_GPL(nf_nat_rtsp_hook_expectfn);
+EXPORT_SYMBOL_GPL(nf_nat_rtsp_hook);
 
 /*
  * Max mappings we will allow for one RTSP connection (for RTP, the number
@@ -275,7 +272,7 @@ void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 /* outbound packet: client->server */
 
 static inline int
-help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
+help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 	struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	struct ip_ct_rtsp_expect expinfo;
@@ -316,7 +313,7 @@ help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 		DEBUGP("found a setup message\n");
 
 		off = 0;
-		if (translen) {
+		if(translen) {
 			rtsp_parse_transport(pdata+transoff, translen, &expinfo);
 		}
 
@@ -336,7 +333,7 @@ help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 
 		be_loport = htons(expinfo.loport);
 
-		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, ct->tuplehash[!dir].tuple.src.l3num,
+		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
 			/* media stream source can be different from the RTSP server address */
 			// &ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
 			NULL, &ct->tuplehash[!dir].tuple.dst.u3,
@@ -361,7 +358,7 @@ help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 		nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
 		if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
 			/* pass the request off to the nat helper */
-			ret = nf_nat_rtsp(skb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+			ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
 		else if (nf_conntrack_expect_related(exp) != 0) {
 			DEBUGP("nf_conntrack_expect_related failed\n");
 			ret  = NF_DROP;
@@ -376,13 +373,13 @@ out:
 
 
 static inline int
-help_in(struct sk_buff *skb, size_t pktlen,
+help_in(struct sk_buff **pskb, size_t pktlen,
 	struct nf_conn* ct, enum ip_conntrack_info ctinfo)
 {
 	return NF_ACCEPT;
 }
 
-static int help(struct sk_buff *skb, unsigned int protoff,
+static int help(struct sk_buff **pskb, unsigned int protoff,
 		struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	struct tcphdr _tcph, *th;
@@ -398,20 +395,20 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	}
 
 	/* Not whole TCP header? */
-	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(*pskb, protoff, sizeof(_tcph), &_tcph);
 
 	if (!th)
 		return NF_ACCEPT;
 
 	/* No data ? */
 	dataoff = protoff + th->doff*4;
-	datalen = skb->len - dataoff;
-	if (dataoff >= skb->len)
+	datalen = (*pskb)->len - dataoff;
+	if (dataoff >= (*pskb)->len)
 		return NF_ACCEPT;
 
 	spin_lock_bh(&rtsp_buffer_lock);
-	rb_ptr = skb_header_pointer(skb, dataoff,
-				    skb->len - dataoff, rtsp_buffer);
+	rb_ptr = skb_header_pointer(*pskb, dataoff,
+				    (*pskb)->len - dataoff, rtsp_buffer);
 	BUG_ON(rb_ptr == NULL);
 
 #if 0
@@ -428,7 +425,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 
 	switch (CTINFO2DIR(ctinfo)) {
 	case IP_CT_DIR_ORIGINAL:
-		ret = help_out(skb, rb_ptr, datalen, ct, ctinfo);
+		ret = help_out(pskb, rb_ptr, datalen, ct, ctinfo);
 		break;
 	case IP_CT_DIR_REPLY:
 		DEBUGP("IP_CT_DIR_REPLY\n");
@@ -442,8 +439,8 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	return ret;
 }
 
-static struct nf_conntrack_helper rtsp_helpers[MAX_PORTS] __read_mostly;
-static char rtsp_names[MAX_PORTS][sizeof("rtsp-65535")] __read_mostly;
+static struct nf_conntrack_helper rtsp_helpers[MAX_PORTS];
+static char rtsp_names[MAX_PORTS][10];
 
 /* This function is intentionally _NOT_ defined as __exit */
 static void
@@ -472,9 +469,10 @@ init(void)
 		printk("nf_conntrack_rtsp: max_outstanding must be a positive integer\n");
 		return -EBUSY;
 	}
-
-	rtsp_exp_policy.max_expected = max_outstanding;
-	rtsp_exp_policy.timeout = setup_timeout;
+	if (setup_timeout < 0) {
+		printk("nf_conntrack_rtsp: setup_timeout must be a positive integer\n");
+		return -EBUSY;
+	}
 
 	rtsp_buffer = kmalloc(65536, GFP_KERNEL);
 	if (!rtsp_buffer)
@@ -494,7 +492,8 @@ init(void)
 		hlpr->mask.src.l3num = 0xFFFF;
 		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
 		hlpr->mask.dst.protonum = 0xFF;
-		hlpr->expect_policy = &rtsp_exp_policy;
+		hlpr->max_expected = max_outstanding;
+		hlpr->timeout = setup_timeout;
 		hlpr->me = THIS_MODULE;
 		hlpr->help = help;
 
@@ -522,3 +521,6 @@ init(void)
 
 module_init(init);
 module_exit(fini);
+
+EXPORT_SYMBOL(nf_nat_rtsp_hook_expectfn);
+

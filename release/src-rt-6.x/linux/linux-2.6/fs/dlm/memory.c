@@ -39,7 +39,9 @@ char *allocate_lvb(struct dlm_ls *ls)
 {
 	char *p;
 
-	p = kzalloc(ls->ls_lvblen, GFP_KERNEL);
+	p = kmalloc(ls->ls_lvblen, GFP_KERNEL);
+	if (p)
+		memset(p, 0, ls->ls_lvblen);
 	return p;
 }
 
@@ -57,7 +59,9 @@ struct dlm_rsb *allocate_rsb(struct dlm_ls *ls, int namelen)
 
 	DLM_ASSERT(namelen <= DLM_RESNAME_MAXLEN,);
 
-	r = kzalloc(sizeof(*r) + namelen, GFP_KERNEL);
+	r = kmalloc(sizeof(*r) + namelen, GFP_KERNEL);
+	if (r)
+		memset(r, 0, sizeof(*r) + namelen);
 	return r;
 }
 
@@ -97,7 +101,9 @@ struct dlm_direntry *allocate_direntry(struct dlm_ls *ls, int namelen)
 	DLM_ASSERT(namelen <= DLM_RESNAME_MAXLEN,
 		   printk("namelen = %d\n", namelen););
 
-	de = kzalloc(sizeof(*de) + namelen, GFP_KERNEL);
+	de = kmalloc(sizeof(*de) + namelen, GFP_KERNEL);
+	if (de)
+		memset(de, 0, sizeof(*de) + namelen);
 	return de;
 }
 

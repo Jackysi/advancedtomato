@@ -47,6 +47,7 @@ static DEFINE_SPINLOCK(mips_irq_lock);
 static inline int mips_pcibios_iack(void)
 {
 	int irq;
+        u32 dummy;
 
 	/*
 	 * Determine highest priority pending interrupt by performing
@@ -73,7 +74,7 @@ static inline int mips_pcibios_iack(void)
 		BONITO_PCIMAP_CFG = 0x20000;
 
 		/* Flush Bonito register block */
-		(void) BONITO_PCIMAP_CFG;
+		dummy = BONITO_PCIMAP_CFG;
 		iob();    /* sync */
 
 		irq = __raw_readl((u32 *)_pcictrl_bonito_pcicfg);

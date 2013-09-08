@@ -194,7 +194,7 @@ svc_release_skb(struct svc_rqst *rqstp)
 		rqstp->rq_skbuff = NULL;
 
 		dprintk("svc: service %p, releasing skb %p\n", rqstp, skb);
-		skb_free_datagram_locked(rqstp->rq_sock->sk_sk, skb);
+		skb_free_datagram(rqstp->rq_sock->sk_sk, skb);
 	}
 	if (dr) {
 		rqstp->rq_deferred = NULL;
@@ -842,7 +842,7 @@ svc_udp_recvfrom(struct svc_rqst *rqstp)
 			printk("rpcsvc: received unknown control message:"
 			       "%d/%d\n",
 			       cmh->cmsg_level, cmh->cmsg_type);
-		skb_free_datagram_locked(svsk->sk_sk, skb);
+		skb_free_datagram(svsk->sk_sk, skb);
 		return 0;
 	}
 	svc_udp_get_dest_address(rqstp, cmh);
@@ -853,17 +853,17 @@ svc_udp_recvfrom(struct svc_rqst *rqstp)
 		if (csum_partial_copy_to_xdr(&rqstp->rq_arg, skb)) {
 			local_bh_enable();
 			/* checksum error */
-			skb_free_datagram_locked(svsk->sk_sk, skb);
+			skb_free_datagram(svsk->sk_sk, skb);
 			return 0;
 		}
 		local_bh_enable();
-		skb_free_datagram_locked(svsk->sk_sk, skb);
+		skb_free_datagram(svsk->sk_sk, skb);
 	} else {
 		/* we can use it in-place */
 		rqstp->rq_arg.head[0].iov_base = skb->data + sizeof(struct udphdr);
 		rqstp->rq_arg.head[0].iov_len = len;
 		if (skb_checksum_complete(skb)) {
-			skb_free_datagram_locked(svsk->sk_sk, skb);
+			skb_free_datagram(svsk->sk_sk, skb);
 			return 0;
 		}
 		rqstp->rq_skbuff = skb;

@@ -325,7 +325,15 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		 * A block was successfully transferred.
 		 */
 		spin_lock_irq(&md->lock);
-		ret = __blk_end_request(req, 0, brq.data.bytes_xfered);
+		ret = end_that_request_chunk(req, 1, brq.data.bytes_xfered);
+		if (!ret) {
+			/*
+			 * The whole request completed successfully.
+			 */
+			add_disk_randomness(req->rq_disk);
+			blkdev_dequeue_request(req);
+			end_that_request_last(req, 1);
+		}
 		spin_unlock_irq(&md->lock);
 	} while (ret);
 
@@ -355,21 +363,27 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			else
 				bytes = blocks << 9;
 			spin_lock_irq(&md->lock);
-			ret = __blk_end_request(req, 0, bytes);
+			ret = end_that_request_chunk(req, 1, bytes);
 			spin_unlock_irq(&md->lock);
 		}
 	} else if (rq_data_dir(req) != READ &&
 		   (card->host->caps & MMC_CAP_MULTIWRITE)) {
 		spin_lock_irq(&md->lock);
-		ret = __blk_end_request(req, 0, brq.data.bytes_xfered);
+		ret = end_that_request_chunk(req, 1, brq.data.bytes_xfered);
 		spin_unlock_irq(&md->lock);
 	}
 
 	mmc_release_host(card->host);
 
 	spin_lock_irq(&md->lock);
-	while (ret)
-		ret = __blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
+	while (ret) {
+		ret = end_that_request_chunk(req, 0,
+				req->current_nr_sectors << 9);
+	}
+
+	add_disk_randomness(req->rq_disk);
+	blkdev_dequeue_request(req);
+	end_that_request_last(req, 0);
 	spin_unlock_irq(&md->lock);
 
 	return 0;
@@ -395,12 +409,13 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 		return ERR_PTR(-ENOSPC);
 	__set_bit(devidx, dev_use);
 
-	md = kzalloc(sizeof(struct mmc_blk_data), GFP_KERNEL);
+	md = kmalloc(sizeof(struct mmc_blk_data), GFP_KERNEL);
 	if (!md) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
+	memset(md, 0, sizeof(struct mmc_blk_data));
 
 	/*
 	 * Set the read-only status based on the supported commands

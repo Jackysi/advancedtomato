@@ -190,7 +190,7 @@ int __filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
 	int ret;
 	struct writeback_control wbc = {
 		.sync_mode = sync_mode,
-		.nr_to_write = LONG_MAX,
+		.nr_to_write = mapping->nrpages * 2,
 		.range_start = start,
 		.range_end = end,
 	};
@@ -620,27 +620,26 @@ struct page *find_lock_page(struct address_space *mapping,
 {
 	struct page *page;
 
-repeat:
 	read_lock_irq(&mapping->tree_lock);
+repeat:
 	page = radix_tree_lookup(&mapping->page_tree, offset);
 	if (page) {
 		page_cache_get(page);
 		if (TestSetPageLocked(page)) {
 			read_unlock_irq(&mapping->tree_lock);
 			__lock_page(page);
+			read_lock_irq(&mapping->tree_lock);
 
 			/* Has the page been truncated while we slept? */
-			if (unlikely(page->mapping != mapping)) {
+			if (unlikely(page->mapping != mapping ||
+				     page->index != offset)) {
 				unlock_page(page);
 				page_cache_release(page);
 				goto repeat;
 			}
-			VM_BUG_ON(page->index != offset);
-			goto out;
 		}
 	}
 	read_unlock_irq(&mapping->tree_lock);
-out:
 	return page;
 }
 EXPORT_SYMBOL(find_lock_page);

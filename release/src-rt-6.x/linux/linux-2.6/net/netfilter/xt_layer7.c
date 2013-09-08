@@ -163,8 +163,8 @@ static regexp * compile_and_cache(const char * regex_string,
 		if (net_ratelimit())
 			printk(KERN_ERR "layer7: out of memory in "
 					"compile_and_cache, bailing.\n");
-		kfree(tmp->pattern);
 		kfree(tmp->regex_string);
+		kfree(tmp->pattern);
 		kfree(tmp);
 		return NULL;
 	}
@@ -250,9 +250,9 @@ static int match_no_append(struct nf_conn * conntrack,
 			DPRINTK("\nl7-filter gave up after %d bytes "
 				"(%d packets):\n%s\n",
 				strlen(f), TOTAL_PACKETS, f);
+			kfree(f);
 			DPRINTK("In hex: %s\n", g);
 			kfree(g);
-			kfree(f);
 		}
 	#endif
 
@@ -377,7 +377,6 @@ static int layer7_write_proc(struct file* file, const char* buffer,
 	}
 
 	if(copy_from_user(foo, buffer, count)) {
-		kfree(foo);
 		return -EFAULT;
 	}
 

@@ -3582,11 +3582,13 @@ ips_map_status(ips_ha_t * ha, ips_scb_t * scb, ips_stat_t * sp)
 					    (IPS_DCDB_TABLE_TAPE *) & scb->dcdb;
 					memcpy(scb->scsi_cmd->sense_buffer,
 					       tapeDCDB->sense_info,
-					       SCSI_SENSE_BUFFERSIZE);
+					       sizeof (scb->scsi_cmd->
+						       sense_buffer));
 				} else {
 					memcpy(scb->scsi_cmd->sense_buffer,
 					       scb->dcdb.sense_info,
-					       SCSI_SENSE_BUFFERSIZE);
+					       sizeof (scb->scsi_cmd->
+						       sense_buffer));
 				}
 				device_error = 2;	/* check condition */
 			}
@@ -7234,13 +7236,14 @@ ips_init_phase1(struct pci_dev *pci_dev, int *indexPtr)
 	subdevice_id = pci_dev->subsystem_device;
 
 	/* found a controller */
-	ha = kzalloc(sizeof (ips_ha_t), GFP_KERNEL);
+	ha = kmalloc(sizeof (ips_ha_t), GFP_KERNEL);
 	if (ha == NULL) {
 		IPS_PRINTK(KERN_WARNING, pci_dev,
 			   "Unable to allocate temporary ha struct\n");
 		return -1;
 	}
 
+	memset(ha, 0, sizeof (ips_ha_t));
 
 	ips_sh[index] = NULL;
 	ips_ha[index] = ha;

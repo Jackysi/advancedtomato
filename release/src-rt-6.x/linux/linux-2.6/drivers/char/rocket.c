@@ -635,11 +635,12 @@ static void init_r_port(int board, int aiop, int chan, struct pci_dev *pci_dev)
 	ctlp = sCtlNumToCtlPtr(board);
 
 	/*  Get a r_port struct for the port, fill it in and save it globally, indexed by line number */
-	info = kzalloc(sizeof (struct r_port), GFP_KERNEL);
+	info = kmalloc(sizeof (struct r_port), GFP_KERNEL);
 	if (!info) {
 		printk(KERN_INFO "Couldn't allocate info struct for line #%d\n", line);
 		return;
 	}
+	memset(info, 0, sizeof (struct r_port));
 
 	info->magic = RPORT_MAGIC;
 	info->line = line;

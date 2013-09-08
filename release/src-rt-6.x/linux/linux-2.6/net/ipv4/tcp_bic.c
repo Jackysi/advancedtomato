@@ -218,7 +218,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, ktime_t last)
 }
 
 
-static struct tcp_congestion_ops bictcp __read_mostly = {
+static struct tcp_congestion_ops bictcp = {
 	.init		= bictcp_init,
 	.ssthresh	= bictcp_recalc_ssthresh,
 	.cong_avoid	= bictcp_cong_avoid,

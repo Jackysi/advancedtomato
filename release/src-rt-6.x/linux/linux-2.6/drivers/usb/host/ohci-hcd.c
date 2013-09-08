@@ -808,19 +808,10 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
 			usb_hcd_resume_root_hub(hcd);
 	}
 
-	/* Some controllers violate the OHCI spec by setting OHCI_INTR_WDH
-	 * before writing ohci->hcca->done_head.  They don't generate an
-	 * early interrupt, but if the IRQ line is shared then we might see
-	 * the status bit prematurely.
-	 */
 	if (ints & OHCI_INTR_WDH) {
-		if (ohci->hcca->done_head == 0) {
-			ints &= ~OHCI_INTR_WDH;
-		} else {
-			spin_lock(&ohci->lock);
-			dl_done_list(ohci);
-			spin_unlock(&ohci->lock);
-		}
+		spin_lock (&ohci->lock);
+		dl_done_list (ohci);
+		spin_unlock (&ohci->lock);
 	}
 
 	if (quirk_zfmicro(ohci) && (ints & OHCI_INTR_SF)) {

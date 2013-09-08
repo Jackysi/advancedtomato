@@ -54,23 +54,23 @@ struct fib_node {
 	struct fib_alias        fn_embedded_alias;
 };
 
-#define EMBEDDED_HASH_SIZE (L1_CACHE_BYTES / sizeof(struct hlist_head))
-
 struct fn_zone {
 	struct fn_zone		*fz_next;	/* Next not empty zone	*/
 	struct hlist_head	*fz_hash;	/* Hash table pointer	*/
-	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
-
-	u8			fz_order;	/* Zone order (0..32)	*/
-	u8			fz_revorder;	/* 32 - fz_order	*/
-	__be32			fz_mask;	/* inet_make_mask(order) */
-#define FZ_MASK(fz)		((fz)->fz_mask)
-
-	struct hlist_head	fz_embedded_hash[EMBEDDED_HASH_SIZE];
-
 	int			fz_nent;	/* Number of entries	*/
-	int			fz_divisor;	/* Hash size (mask+1)	*/
+
+	int			fz_divisor;	/* Hash divisor		*/
+	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
+#define FZ_HASHMASK(fz)		((fz)->fz_hashmask)
+
+	int			fz_order;	/* Zone order		*/
+	__be32			fz_mask;
+#define FZ_MASK(fz)		((fz)->fz_mask)
 };
+
+/* NOTE. On fast computers evaluation of fz_hashmask and fz_mask
+ * can be cheaper than memory lookup, so that FZ_* macros are used.
+ */
 
 struct fn_hash {
 	struct fn_zone	*fn_zones[33];
@@ -79,11 +79,11 @@ struct fn_hash {
 
 static inline u32 fn_hash(__be32 key, struct fn_zone *fz)
 {
-	u32 h = ntohl(key) >> fz->fz_revorder;
+	u32 h = ntohl(key)>>(32 - fz->fz_order);
 	h ^= (h>>20);
 	h ^= (h>>10);
 	h ^= (h>>5);
-	h &= fz->fz_hashmask;
+	h &= FZ_HASHMASK(fz);
 	return h;
 }
 
@@ -147,14 +147,14 @@ static void fn_rehash_zone(struct fn_zone *fz)
 	int old_divisor, new_divisor;
 	u32 new_hashmask;
 
-	new_divisor = old_divisor = fz->fz_divisor;
+	old_divisor = fz->fz_divisor;
 
 	switch (old_divisor) {
-	case EMBEDDED_HASH_SIZE:
-		new_divisor *= EMBEDDED_HASH_SIZE;
+	case 16:
+		new_divisor = 256;
 		break;
-	case EMBEDDED_HASH_SIZE*EMBEDDED_HASH_SIZE:
-		new_divisor *= (EMBEDDED_HASH_SIZE/2);
+	case 256:
+		new_divisor = 1024;
 		break;
 	default:
 		if ((old_divisor << 1) > FZ_MAX_DIVISOR) {
@@ -183,8 +183,7 @@ static void fn_rehash_zone(struct fn_zone *fz)
 		fib_hash_genid++;
 		write_unlock_bh(&fib_hash_lock);
 
-		if (old_ht != fz->fz_embedded_hash)
-			fz_hash_free(old_ht, old_divisor);
+		fz_hash_free(old_ht, old_divisor);
 	}
 }
 
@@ -210,11 +209,18 @@ fn_new_zone(struct fn_hash *table, int z)
 	if (!fz)
 		return NULL;
 
-	fz->fz_divisor = z ? EMBEDDED_HASH_SIZE : 1;
-	fz->fz_hashmask = fz->fz_divisor - 1;
-	fz->fz_hash = fz->fz_embedded_hash;
+	if (z) {
+		fz->fz_divisor = 16;
+	} else {
+		fz->fz_divisor = 1;
+	}
+	fz->fz_hashmask = (fz->fz_divisor - 1);
+	fz->fz_hash = fz_hash_alloc(fz->fz_divisor);
+	if (!fz->fz_hash) {
+		kfree(fz);
+		return NULL;
+	}
 	fz->fz_order = z;
-	fz->fz_revorder = 32 - z;
 	fz->fz_mask = inet_make_mask(z);
 
 	/* Find the first not empty zone with more specific mask */
@@ -995,7 +1001,7 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
 static int fib_seq_show(struct seq_file *seq, void *v)
 {
 	struct fib_iter_state *iter;
-	int len;
+	char bf[128];
 	__be32 prefix, mask;
 	unsigned flags;
 	struct fib_node *f;
@@ -1017,19 +1023,18 @@ static int fib_seq_show(struct seq_file *seq, void *v)
 	mask	= FZ_MASK(iter->zone);
 	flags	= fib_flag_trans(fa->fa_type, mask, fi);
 	if (fi)
-		seq_printf(seq,
-			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
+		snprintf(bf, sizeof(bf),
+			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
 			 fi->fib_dev ? fi->fib_dev->name : "*", prefix,
 			 fi->fib_nh->nh_gw, flags, 0, 0, fi->fib_priority,
 			 mask, (fi->fib_advmss ? fi->fib_advmss + 40 : 0),
 			 fi->fib_window,
-			 fi->fib_rtt >> 3, &len);
+			 fi->fib_rtt >> 3);
 	else
-		seq_printf(seq,
-			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u%n",
-			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0, &len);
-
-	seq_printf(seq, "%*s\n", 127 - len, "");
+		snprintf(bf, sizeof(bf),
+			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
+			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0);
+	seq_printf(seq, "%-127s\n", bf);
 out:
 	return 0;
 }
@@ -1043,8 +1048,24 @@ static const struct seq_operations fib_seq_ops = {
 
 static int fib_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &fib_seq_ops,
-			sizeof(struct fib_iter_state));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	struct fib_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+
+	if (!s)
+		goto out;
+
+	rc = seq_open(file, &fib_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq	     = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 static const struct file_operations fib_seq_fops = {

@@ -325,7 +325,7 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
 	}
 }
 
-static struct tcp_congestion_ops tcp_illinois __read_mostly = {
+static struct tcp_congestion_ops tcp_illinois = {
 	.flags		= TCP_CONG_RTT_STAMP,
 	.init		= tcp_illinois_init,
 	.ssthresh	= tcp_illinois_ssthresh,

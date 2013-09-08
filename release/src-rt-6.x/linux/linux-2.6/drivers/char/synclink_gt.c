@@ -3422,12 +3422,13 @@ static struct slgt_info *alloc_dev(int adapter_num, int port_num, struct pci_dev
 {
 	struct slgt_info *info;
 
-	info = kzalloc(sizeof(struct slgt_info), GFP_KERNEL);
+	info = kmalloc(sizeof(struct slgt_info), GFP_KERNEL);
 
 	if (!info) {
 		DBGERR(("%s device alloc failed adapter=%d port=%d\n",
 			driver_name, adapter_num, port_num));
 	} else {
+		memset(info, 0, sizeof(struct slgt_info));
 		info->magic = MGSL_MAGIC;
 		INIT_WORK(&info->task, bh_handler);
 		info->max_frame_size = 4096;

@@ -119,7 +119,8 @@ module_frob_arch_sections(Elf64_Ehdr *hdr, Elf64_Shdr *sechdrs,
 	}
 
 	nsyms = symtab->sh_size / sizeof(Elf64_Sym);
-	chains = kcalloc(nsyms, sizeof(struct got_entry), GFP_KERNEL);
+	chains = kmalloc(nsyms * sizeof(struct got_entry), GFP_KERNEL);
+	memset(chains, 0, nsyms * sizeof(struct got_entry));
 
 	got->sh_size = 0;
 	got->sh_addralign = 8;

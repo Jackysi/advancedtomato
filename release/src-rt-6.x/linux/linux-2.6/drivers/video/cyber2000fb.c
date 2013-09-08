@@ -1221,10 +1221,11 @@ cyberpro_alloc_fb_info(unsigned int id, char *name)
 {
 	struct cfb_info *cfb;
 
-	cfb = kzalloc(sizeof(struct cfb_info), GFP_KERNEL);
+	cfb = kmalloc(sizeof(struct cfb_info), GFP_KERNEL);
 	if (!cfb)
 		return NULL;
 
+	memset(cfb, 0, sizeof(struct cfb_info));
 
 	cfb->id			= id;
 

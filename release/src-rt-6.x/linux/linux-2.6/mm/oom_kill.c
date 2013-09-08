@@ -27,7 +27,7 @@
 
 int sysctl_panic_on_oom;
 int sysctl_oom_kill_allocating_task;
-/* #define DEBUG */
+#define DEBUG
 
 /**
  * badness - calculate a numeric value for how bad this task has been

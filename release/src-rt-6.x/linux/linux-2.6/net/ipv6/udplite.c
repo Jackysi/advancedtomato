@@ -17,9 +17,9 @@
 
 DEFINE_SNMP_STAT(struct udp_mib, udplite_stats_in6) __read_mostly;
 
-static int udplitev6_rcv(struct sk_buff *skb)
+static int udplitev6_rcv(struct sk_buff **pskb)
 {
-	return __udp6_lib_rcv(skb, udplite_hash, IPPROTO_UDPLITE);
+	return __udp6_lib_rcv(pskb, udplite_hash, IPPROTO_UDPLITE);
 }
 
 static void udplitev6_err(struct sk_buff *skb,
@@ -89,10 +89,8 @@ static struct udp_seq_afinfo udplite6_seq_afinfo = {
 	.name		= "udplite6",
 	.family		= AF_INET6,
 	.hashtable	= udplite_hash,
+	.seq_show	= udp6_seq_show,
 	.seq_fops	= &udplite6_seq_fops,
-	.seq_ops	= {
-		.show		= udp6_seq_show,
-	},
 };
 
 int __init udplite6_proc_init(void)

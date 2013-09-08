@@ -34,11 +34,6 @@
 #include <linux/errqueue.h>
 #include <asm/uaccess.h>
 
-static inline int ipv6_mapped_addr_any(const struct in6_addr *a)
-{
-	return (ipv6_addr_v4mapped(a) && (a->s6_addr32[3] == 0));
-}
-
 int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
 	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
@@ -105,16 +100,17 @@ ipv4_connected:
 		if (err)
 			goto out;
 
-		ipv6_addr_set_v4mapped(inet->daddr, &np->daddr);
+		ipv6_addr_set(&np->daddr, 0, 0, htonl(0x0000ffff), inet->daddr);
 
-		if (ipv6_addr_any(&np->saddr) ||
-		    ipv6_mapped_addr_any(&np->saddr))
-			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
+		if (ipv6_addr_any(&np->saddr)) {
+			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000ffff),
+				      inet->saddr);
+		}
 
-		if (ipv6_addr_any(&np->rcv_saddr) ||
-		    ipv6_mapped_addr_any(&np->rcv_saddr))
-			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
-
+		if (ipv6_addr_any(&np->rcv_saddr)) {
+			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000ffff),
+				      inet->rcv_saddr);
+		}
 		goto out;
 	}
 
@@ -334,8 +330,9 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 			if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
 				sin->sin6_scope_id = IP6CB(skb)->iif;
 		} else {
-			ipv6_addr_set_v4mapped(*(__be32 *)(nh + serr->addr_offset),
-					       &sin->sin6_addr);
+			ipv6_addr_set(&sin->sin6_addr, 0, 0,
+				      htonl(0xffff),
+				      *(__be32 *)(nh + serr->addr_offset));
 		}
 	}
 
@@ -355,8 +352,8 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 		} else {
 			struct inet_sock *inet = inet_sk(sk);
 
-			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
-					       &sin->sin6_addr);
+			ipv6_addr_set(&sin->sin6_addr, 0, 0,
+				      htonl(0xffff), ip_hdr(skb)->saddr);
 			if (inet->cmsg_flags)
 				ip_cmsg_recv(msg, skb);
 		}

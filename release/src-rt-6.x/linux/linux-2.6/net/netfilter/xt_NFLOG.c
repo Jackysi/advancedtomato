@@ -20,7 +20,7 @@ MODULE_ALIAS("ipt_NFLOG");
 MODULE_ALIAS("ip6t_NFLOG");
 
 static unsigned int
-nflog_target(struct sk_buff *skb,
+nflog_target(struct sk_buff **pskb,
 	     const struct net_device *in, const struct net_device *out,
 	     unsigned int hooknum, const struct xt_target *target,
 	     const void *targinfo)
@@ -33,7 +33,7 @@ nflog_target(struct sk_buff *skb,
 	li.u.ulog.group	     = info->group;
 	li.u.ulog.qthreshold = info->threshold;
 
-	nf_log_packet(target->family, hooknum, skb, in, out, &li,
+	nf_log_packet(target->family, hooknum, *pskb, in, out, &li,
 		      "%s", info->prefix);
 	return XT_CONTINUE;
 }

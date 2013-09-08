@@ -592,8 +592,7 @@ static struct sock * unix_create1(struct socket *sock)
 	u->dentry = NULL;
 	u->mnt	  = NULL;
 	spin_lock_init(&u->lock);
-	atomic_set(&u->inflight, 0);
-	INIT_LIST_HEAD(&u->link);
+	atomic_set(&u->inflight, sock ? 0 : -1);
 	mutex_init(&u->readlock); /* single task reading lock */
 	init_waitqueue_head(&u->peer_wait);
 	unix_insert_socket(unix_sockets_unbound, sk);
@@ -1135,6 +1134,9 @@ restart:
 	/* take ten and and send info to listening sock */
 	spin_lock(&other->sk_receive_queue.lock);
 	__skb_queue_tail(&other->sk_receive_queue, skb);
+	/* Undo artificially decreased inflight after embrion
+	 * is installed to listening socket. */
+	atomic_inc(&newu->inflight);
 	spin_unlock(&other->sk_receive_queue.lock);
 	unix_state_unlock(other);
 	other->sk_data_ready(other, 0);
@@ -1280,23 +1282,14 @@ static void unix_destruct_fds(struct sk_buff *skb)
 	sock_wfree(skb);
 }
 
-static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+static void unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
 {
 	int i;
-
-	/*
-	 * Need to duplicate file references for the sake of garbage
-	 * collection.  Otherwise a socket in the fps might become a
-	 * candidate for GC while the skb is not yet queued.
-	 */
-	UNIXCB(skb).fp = scm_fp_dup(scm->fp);
-	if (!UNIXCB(skb).fp)
-		return -ENOMEM;
-
 	for (i=scm->fp->count-1; i>=0; i--)
 		unix_inflight(scm->fp->fp[i]);
+	UNIXCB(skb).fp = scm->fp;
 	skb->destructor = unix_destruct_fds;
-	return 0;
+	scm->fp = NULL;
 }
 
 /*
@@ -1320,7 +1313,6 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
 
 	if (NULL == siocb->scm)
 		siocb->scm = &tmp_scm;
-	wait_for_unix_gc();
 	err = scm_send(sock, msg, siocb->scm);
 	if (err < 0)
 		return err;
@@ -1355,11 +1347,8 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
 		goto out;
 
 	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
-	if (siocb->scm->fp) {
-		err = unix_attach_fds(siocb->scm, skb);
-		if (err)
-			goto out_free;
-	}
+	if (siocb->scm->fp)
+		unix_attach_fds(siocb->scm, skb);
 	unix_get_secdata(siocb->scm, skb);
 
 	skb_reset_transport_header(skb);
@@ -1470,11 +1459,9 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
 	struct sk_buff *skb;
 	int sent=0;
 	struct scm_cookie tmp_scm;
-	bool fds_sent = false;
 
 	if (NULL == siocb->scm)
 		siocb->scm = &tmp_scm;
-	wait_for_unix_gc();
 	err = scm_send(sock, msg, siocb->scm);
 	if (err < 0)
 		return err;
@@ -1532,15 +1519,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
 		size = min_t(int, size, skb_tailroom(skb));
 
 		memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
-		/* Only send the fds in the first buffer */
-		if (siocb->scm->fp && !fds_sent) {
-			err = unix_attach_fds(siocb->scm, skb);
-			if (err) {
-				kfree_skb(skb);
-				goto out_err;
-			}
-			fds_sent = true;
-		}
+		if (siocb->scm->fp)
+			unix_attach_fds(siocb->scm, skb);
 
 		if ((err = memcpy_fromiovec(skb_put(skb,size), msg->msg_iov, size)) != 0) {
 			kfree_skb(skb);
@@ -1625,11 +1605,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	msg->msg_namelen = 0;
 
-	err = mutex_lock_interruptible(&u->readlock);
-	if (err) {
-		err = sock_intr_errno(sock_rcvtimeo(sk, noblock));
-		goto out;
-	}
+	mutex_lock(&u->readlock);
 
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb) {
@@ -1768,11 +1744,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 		memset(&tmp_scm, 0, sizeof(tmp_scm));
 	}
 
-	err = mutex_lock_interruptible(&u->readlock);
-	if (err) {
-		err = sock_intr_errno(timeo);
-		goto out;
-	}
+	mutex_lock(&u->readlock);
 
 	do
 	{
@@ -1803,12 +1775,11 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 			timeo = unix_stream_data_wait(sk, timeo);
 
-			if (signal_pending(current)
-			    ||  mutex_lock_interruptible(&u->readlock)) {
+			if (signal_pending(current)) {
 				err = sock_intr_errno(timeo);
 				goto out;
 			}
-
+			mutex_lock(&u->readlock);
 			continue;
  unlock:
 			unix_state_unlock(sk);
@@ -1935,7 +1906,7 @@ static int unix_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	switch(cmd)
 	{
 		case SIOCOUTQ:
-			amount = sk_wmem_alloc_get(sk);
+			amount = atomic_read(&sk->sk_wmem_alloc);
 			err = put_user(amount, (int __user *)arg);
 			break;
 		case SIOCINQ:
@@ -1983,10 +1954,11 @@ static unsigned int unix_poll(struct file * file, struct socket *sock, poll_tabl
 	if (sk->sk_shutdown == SHUTDOWN_MASK)
 		mask |= POLLHUP;
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
-		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+		mask |= POLLRDHUP;
 
 	/* readable? */
-	if (!skb_queue_empty(&sk->sk_receive_queue))
+	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+	    (sk->sk_shutdown & RCV_SHUTDOWN))
 		mask |= POLLIN | POLLRDNORM;
 
 	/* Connection-based need to check for termination and startup */
@@ -2093,7 +2065,25 @@ static struct seq_operations unix_seq_ops = {
 
 static int unix_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &unix_seq_ops, sizeof(int));
+	struct seq_file *seq;
+	int rc = -ENOMEM;
+	int *iter = kmalloc(sizeof(int), GFP_KERNEL);
+
+	if (!iter)
+		goto out;
+
+	rc = seq_open(file, &unix_seq_ops);
+	if (rc)
+		goto out_kfree;
+
+	seq	     = file->private_data;
+	seq->private = iter;
+	*iter = 0;
+out:
+	return rc;
+out_kfree:
+	kfree(iter);
+	goto out;
 }
 
 static const struct file_operations unix_seq_fops = {

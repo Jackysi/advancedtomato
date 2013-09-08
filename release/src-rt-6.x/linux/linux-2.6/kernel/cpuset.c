@@ -277,7 +277,7 @@ static int cpuset_rmdir(struct inode *unused_dir, struct dentry *dentry);
 
 static struct backing_dev_info cpuset_backing_dev_info = {
 	.ra_pages = 0,		/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 };
 
 static struct inode *cpuset_new_inode(mode_t mode)

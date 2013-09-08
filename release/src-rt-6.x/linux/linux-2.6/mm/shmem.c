@@ -27,7 +27,6 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/xattr.h>
-#include <linux/exportfs.h>
 #include <linux/generic_acl.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
@@ -190,7 +189,7 @@ static struct vm_operations_struct shmem_vm_ops;
 
 static struct backing_dev_info shmem_backing_dev_info  __read_mostly = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 	.unplug_io_fn	= default_unplug_io_fn,
 };
 
@@ -2014,25 +2013,33 @@ static int shmem_match(struct inode *ino, void *vfh)
 	return ino->i_ino == inum && fh[0] == ino->i_generation;
 }
 
-static struct dentry *shmem_fh_to_dentry(struct super_block *sb,
-		struct fid *fid, int fh_len, int fh_type)
+static struct dentry *shmem_get_dentry(struct super_block *sb, void *vfh)
 {
+	struct dentry *de = NULL;
 	struct inode *inode;
-	struct dentry *dentry = NULL;
-	u64 inum = fid->raw[2];
-	inum = (inum << 32) | fid->raw[1];
+	__u32 *fh = vfh;
+	__u64 inum = fh[2];
+	inum = (inum << 32) | fh[1];
 
-	if (fh_len < 3)
-		return NULL;
-
-	inode = ilookup5(sb, (unsigned long)(inum + fid->raw[0]),
-			shmem_match, fid->raw);
+	inode = ilookup5(sb, (unsigned long)(inum+fh[0]), shmem_match, vfh);
 	if (inode) {
-		dentry = d_find_alias(inode);
+		de = d_find_alias(inode);
 		iput(inode);
 	}
 
-	return dentry;
+	return de? de: ERR_PTR(-ESTALE);
+}
+
+static struct dentry *shmem_decode_fh(struct super_block *sb, __u32 *fh,
+		int len, int type,
+		int (*acceptable)(void *context, struct dentry *de),
+		void *context)
+{
+	if (len < 3)
+		return ERR_PTR(-ESTALE);
+
+	return sb->s_export_op->find_exported_dentry(sb, fh, NULL, acceptable,
+							context);
 }
 
 static int shmem_encode_fh(struct dentry *dentry, __u32 *fh, int *len,
@@ -2065,10 +2072,11 @@ static int shmem_encode_fh(struct dentry *dentry, __u32 *fh, int *len,
 	return 1;
 }
 
-static const struct export_operations shmem_export_ops = {
+static struct export_operations shmem_export_ops = {
 	.get_parent     = shmem_get_parent,
+	.get_dentry     = shmem_get_dentry,
 	.encode_fh      = shmem_encode_fh,
-	.fh_to_dentry	= shmem_fh_to_dentry,
+	.decode_fh      = shmem_decode_fh,
 };
 
 static int shmem_parse_options(char *options, int *mode, uid_t *uid,
@@ -2449,10 +2457,6 @@ static int __init init_tmpfs(void)
 {
 	int error;
 
-	error = bdi_init(&shmem_backing_dev_info);
-	if (error)
-		goto out4;
-
 	error = init_inodecache();
 	if (error)
 		goto out3;
@@ -2477,8 +2481,6 @@ out1:
 out2:
 	destroy_inodecache();
 out3:
-	bdi_destroy(&shmem_backing_dev_info);
-out4:
 	shm_mnt = ERR_PTR(error);
 	return error;
 }

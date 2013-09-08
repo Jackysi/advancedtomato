@@ -49,6 +49,11 @@ static void nfnl_lock(void)
 	mutex_lock(&nfnl_mutex);
 }
 
+static int nfnl_trylock(void)
+{
+	return !mutex_trylock(&nfnl_mutex);
+}
+
 static void __nfnl_unlock(void)
 {
 	mutex_unlock(&nfnl_mutex);
@@ -236,11 +241,16 @@ static int nfnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	}
 }
 
-static void nfnetlink_rcv(struct sk_buff *skb)
+static void nfnetlink_rcv(struct sock *sk, int len)
 {
-	nfnl_lock();
-	netlink_rcv_skb(skb, &nfnetlink_rcv_msg);
-	nfnl_unlock();
+	unsigned int qlen = 0;
+
+	do {
+		if (nfnl_trylock())
+			return;
+		netlink_run_queue(sk, &qlen, nfnetlink_rcv_msg);
+		__nfnl_unlock();
+	} while (qlen);
 }
 
 static void __exit nfnetlink_exit(void)

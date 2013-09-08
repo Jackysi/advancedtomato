@@ -17,6 +17,9 @@
  */
 #define CRIME_BASE	0x14000000	/* physical */
 
+#undef BIT
+#define BIT(x)	(1UL << (x))
+
 struct sgi_crime {
 	volatile unsigned long id;
 #define CRIME_ID_MASK			0xff

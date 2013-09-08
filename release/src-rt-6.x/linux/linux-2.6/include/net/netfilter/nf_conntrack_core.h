@@ -22,7 +22,7 @@
    of connection tracking. */
 extern unsigned int nf_conntrack_in(int pf,
 				    unsigned int hooknum,
-				    struct sk_buff *skb);
+				    struct sk_buff **pskb);
 
 extern int nf_conntrack_init(void);
 extern void nf_conntrack_cleanup(void);
@@ -58,17 +58,17 @@ extern struct nf_conntrack_tuple_hash *
 nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
 		      const struct nf_conn *ignored_conntrack);
 
-extern int __nf_conntrack_confirm(struct sk_buff *skb);
+extern int __nf_conntrack_confirm(struct sk_buff **pskb);
 
 /* Confirm a connection: returns NF_DROP if packet must be dropped. */
-static inline int nf_conntrack_confirm(struct sk_buff *skb)
+static inline int nf_conntrack_confirm(struct sk_buff **pskb)
 {
-	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
+	struct nf_conn *ct = (struct nf_conn *)(*pskb)->nfct;
 	int ret = NF_ACCEPT;
 
 	if (ct && ct != &nf_conntrack_untracked) {
 		if (!nf_ct_is_confirmed(ct))
-			ret = __nf_conntrack_confirm(skb);
+			ret = __nf_conntrack_confirm(pskb);
 		if (likely(ret == NF_ACCEPT))
 			nf_ct_deliver_cached_events(ct);
 	}

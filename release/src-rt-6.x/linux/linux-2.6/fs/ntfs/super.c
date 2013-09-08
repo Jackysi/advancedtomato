@@ -2381,14 +2381,14 @@ static void ntfs_put_super(struct super_block *sb)
 	 */
 	ntfs_commit_inode(vol->mft_ino);
 	write_inode_now(vol->mft_ino, 1);
-	if (sb_has_dirty_inodes(sb)) {
+	if (!list_empty(&sb->s_dirty)) {
 		const char *s1, *s2;
 
 		mutex_lock(&vol->mft_ino->i_mutex);
 		truncate_inode_pages(vol->mft_ino->i_mapping, 0);
 		mutex_unlock(&vol->mft_ino->i_mutex);
 		write_inode_now(vol->mft_ino, 1);
-		if (sb_has_dirty_inodes(sb)) {
+		if (!list_empty(&sb->s_dirty)) {
 			static const char *_s1 = "inodes";
 			static const char *_s2 = "";
 			s1 = _s1;

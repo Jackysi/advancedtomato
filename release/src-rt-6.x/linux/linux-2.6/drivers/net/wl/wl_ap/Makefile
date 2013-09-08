@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.2 2007-11-17 01:37:35 $
 #
 
-SRCBASE := ../../../../../..
+SRCBASE := ../../../../../../../$(SRCBASEDIR)
 
 ifeq ($(CONFIG_WL_AP),)
 CONFIG_WL_AP := "wlconfig_lx_router_ap"

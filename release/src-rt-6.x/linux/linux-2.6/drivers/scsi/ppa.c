@@ -1017,9 +1017,10 @@ static int __ppa_attach(struct parport *pb)
 	int modes, ppb, ppb_hi;
 	int err = -ENOMEM;
 
-	dev = kzalloc(sizeof(ppa_struct), GFP_KERNEL);
+	dev = kmalloc(sizeof(ppa_struct), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
+	memset(dev, 0, sizeof(ppa_struct));
 	dev->base = -1;
 	dev->mode = PPA_AUTODETECT;
 	dev->recon_tmo = PPA_RECON_TMO;

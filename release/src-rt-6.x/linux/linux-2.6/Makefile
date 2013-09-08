@@ -310,12 +310,8 @@ LINUXINCLUDE    := -Iinclude \
 CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
 
 CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-                   -fno-strict-aliasing -fno-common \
-		   -Werror-implicit-function-declaration \
-		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks
+                   -fno-strict-aliasing -fno-common
 AFLAGS          := -D__ASSEMBLY__
-
 
 # Broadcom source tree
 TOPDIR  := $(shell /bin/pwd)
@@ -427,11 +423,7 @@ ifeq ($(config-targets),1)
 include $(srctree)/arch/$(ARCH)/Makefile
 export KBUILD_DEFCONFIG
 
-config: scripts_basic outputmakefile FORCE
-	$(Q)mkdir -p include/linux include/config
-	$(Q)$(MAKE) $(build)=scripts/kconfig $@
-
-%config: scripts_basic outputmakefile FORCE
+config %config: scripts_basic outputmakefile FORCE
 	$(Q)mkdir -p include/linux include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
@@ -535,12 +527,6 @@ CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 # disable pointer signed / unsigned warnings in gcc 4.0
 CFLAGS += $(call cc-option,-Wno-pointer-sign,)
 
-# disable invalid "can't wrap" optimizations for signed / pointers
-CFLAGS	+= $(call cc-option,-fno-strict-overflow)
-
-# revert to pre-gcc-4.4 behaviour of .eh_frame
-CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
-
 ifneq ($(CONFIG_BCM_CTF),)
 CFLAGS += -DHNDCTF -DCTFPOOL -DCTFMAP
 ifneq ($(CONFIG_WL_USBAP),)
@@ -550,11 +536,21 @@ endif
 
 ifdef CONFIG_PLC
 CFLAGS += -DPLC
+CFLAGS += -DET_PLC_NO_VLAN_TAG_RX -DWL_PLC_NO_VLAN_TAG_TX -DWL_PLC_NO_VLAN_TAG_RX
 endif
 
-#netgear 3500v2
 ifeq ($(CONFIG_MTD_NFLASH),y)
 CFLAGS += -DNFLASH_SUPPORT
+endif
+
+ifeq ($(CONFIG_DUAL_TRX),y)
+CFLAGS += -DCONFIG_DUAL_TRX
+endif
+
+ifeq ($(CONFIG_NVRAM_64K),y) 
+ifeq ($(BUILD_NAME),RT-N66U)
+CFLAGS += -DRTN66U_NVRAM_64K_SUPPORT
+endif
 endif
 
 #ifeq ($(CONFIG_NVRAM_64K),y) //asus RT-N66U only

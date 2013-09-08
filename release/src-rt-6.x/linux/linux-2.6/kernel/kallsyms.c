@@ -48,6 +48,14 @@ static inline int is_kernel_inittext(unsigned long addr)
 	return 0;
 }
 
+static inline int is_kernel_extratext(unsigned long addr)
+{
+	if (addr >= (unsigned long)_sextratext
+	    && addr <= (unsigned long)_eextratext)
+		return 1;
+	return 0;
+}
+
 static inline int is_kernel_text(unsigned long addr)
 {
 	if (addr >= (unsigned long)_stext && addr <= (unsigned long)_etext)
@@ -67,7 +75,8 @@ static int is_ksym_addr(unsigned long addr)
 	if (all_var)
 		return is_kernel(addr);
 
-	return is_kernel_text(addr) || is_kernel_inittext(addr);
+	return is_kernel_text(addr) || is_kernel_inittext(addr) ||
+		is_kernel_extratext(addr);
 }
 
 /* expand a compressed symbol data into the resulting uncompressed string,
@@ -143,7 +152,7 @@ static unsigned int get_symbol_offset(unsigned long pos)
 /* Lookup the address for this symbol. Returns 0 if not found. */
 unsigned long kallsyms_lookup_name(const char *name)
 {
-	char namebuf[KSYM_NAME_LEN];
+	char namebuf[KSYM_NAME_LEN+1];
 	unsigned long i;
 	unsigned int off;
 
@@ -171,7 +180,7 @@ static unsigned long get_symbol_pos(unsigned long addr,
 	high = kallsyms_num_syms;
 
 	while (high - low > 1) {
-		mid = low + (high - low) / 2;
+		mid = (low + high) / 2;
 		if (kallsyms_addresses[mid] <= addr)
 			low = mid;
 		else
@@ -219,11 +228,10 @@ static unsigned long get_symbol_pos(unsigned long addr,
 int kallsyms_lookup_size_offset(unsigned long addr, unsigned long *symbolsize,
 				unsigned long *offset)
 {
-	char namebuf[KSYM_NAME_LEN];
 	if (is_ksym_addr(addr))
 		return !!get_symbol_pos(addr, symbolsize, offset);
 
-	return !!module_address_lookup(addr, symbolsize, offset, NULL, namebuf);
+	return !!module_address_lookup(addr, symbolsize, offset, NULL);
 }
 
 /*
@@ -238,7 +246,9 @@ const char *kallsyms_lookup(unsigned long addr,
 			    unsigned long *offset,
 			    char **modname, char *namebuf)
 {
-	namebuf[KSYM_NAME_LEN - 1] = 0;
+	const char *msym;
+
+	namebuf[KSYM_NAME_LEN] = 0;
 	namebuf[0] = 0;
 
 	if (is_ksym_addr(addr)) {
@@ -253,14 +263,17 @@ const char *kallsyms_lookup(unsigned long addr,
 	}
 
 	/* see if it's in a module */
-	return module_address_lookup(addr, symbolsize, offset, modname,
-				     namebuf);
+	msym = module_address_lookup(addr, symbolsize, offset, modname);
+	if (msym)
+		return strncpy(namebuf, msym, KSYM_NAME_LEN);
+
+	return NULL;
 }
 
 int lookup_symbol_name(unsigned long addr, char *symname)
 {
 	symname[0] = '\0';
-	symname[KSYM_NAME_LEN - 1] = '\0';
+	symname[KSYM_NAME_LEN] = '\0';
 
 	if (is_ksym_addr(addr)) {
 		unsigned long pos;
@@ -278,7 +291,7 @@ int lookup_symbol_attrs(unsigned long addr, unsigned long *size,
 			unsigned long *offset, char *modname, char *name)
 {
 	name[0] = '\0';
-	name[KSYM_NAME_LEN - 1] = '\0';
+	name[KSYM_NAME_LEN] = '\0';
 
 	if (is_ksym_addr(addr)) {
 		unsigned long pos;
@@ -299,24 +312,18 @@ int sprint_symbol(char *buffer, unsigned long address)
 	char *modname;
 	const char *name;
 	unsigned long offset, size;
-	int len;
+	char namebuf[KSYM_NAME_LEN+1];
 
-	name = kallsyms_lookup(address, &size, &offset, &modname, buffer);
+	name = kallsyms_lookup(address, &size, &offset, &modname, namebuf);
 	if (!name)
 		return sprintf(buffer, "0x%lx", address);
-
-	if (name != buffer)
-		strcpy(buffer, name);
-	len = strlen(buffer);
-	buffer += len;
-
-	if (modname)
-		len += sprintf(buffer, "+%#lx/%#lx [%s]",
-						offset, size, modname);
-	else
-		len += sprintf(buffer, "+%#lx/%#lx", offset, size);
-
-	return len;
+	else {
+		if (modname)
+			return sprintf(buffer, "%s+%#lx/%#lx [%s]", name, offset,
+				size, modname);
+		else
+			return sprintf(buffer, "%s+%#lx/%#lx", name, offset, size);
+	}
 }
 
 /* Look up a kernel symbol and print it to the kernel messages. */
@@ -336,8 +343,8 @@ struct kallsym_iter
 	unsigned long value;
 	unsigned int nameoff; /* If iterating in core kernel symbols */
 	char type;
-	char name[KSYM_NAME_LEN];
-	char module_name[MODULE_NAME_LEN];
+	char name[KSYM_NAME_LEN+1];
+	char module_name[MODULE_NAME_LEN + 1];
 	int exported;
 };
 

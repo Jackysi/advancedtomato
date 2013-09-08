@@ -18,7 +18,7 @@
 //	#define DEBUG_BCOUNT
 
 static unsigned int
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
@@ -37,7 +37,7 @@ target(struct sk_buff *skb,
        const struct xt_target_param *par)
 #endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	struct sk_buff *skb = *pskb;
 #endif
 	struct nf_conn *ct;

@@ -765,10 +765,18 @@ static void audit_receive_skb(struct sk_buff *skb)
 }
 
 /* Receive messages from netlink socket. */
-static void audit_receive(struct sk_buff  *skb)
+static void audit_receive(struct sock *sk, int length)
 {
+	struct sk_buff  *skb;
+	unsigned int qlen;
+
 	mutex_lock(&audit_cmd_mutex);
-	audit_receive_skb(skb);
+
+	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
+		skb = skb_dequeue(&sk->sk_receive_queue);
+		audit_receive_skb(skb);
+		kfree_skb(skb);
+	}
 	mutex_unlock(&audit_cmd_mutex);
 }
 

@@ -2,6 +2,7 @@
 # Makefile for USB Network drivers
 #
 
+obj-$(CONFIG_HSO) += hso_26-v1.14/
 obj-$(CONFIG_USB_CATC)		+= catc.o
 obj-$(CONFIG_USB_KAWETH)	+= kaweth.o
 obj-$(CONFIG_USB_PEGASUS)	+= pegasus.o

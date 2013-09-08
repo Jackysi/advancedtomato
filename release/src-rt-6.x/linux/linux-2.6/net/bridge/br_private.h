@@ -4,7 +4,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_private.h,v 1.7 2001/12/24 00:59:55 davem Exp $
+ *	$Id: br_private.h,v 1.1.1.1 2007-08-03 18:53:50 $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -95,8 +95,6 @@ struct net_bridge
 	struct hlist_head		hash[BR_HASH_SIZE];
 	struct list_head		age_list;
 	unsigned long			feature_mask;
-	unsigned long			flags;
-#define BR_SET_MAC_ADDR		0x00000001
 
 	/* STP */
 	bridge_id			designated_root;
@@ -172,8 +170,12 @@ extern int br_dev_queue_push_xmit(struct sk_buff *skb);
 extern void br_forward(const struct net_bridge_port *to,
 		struct sk_buff *skb);
 extern int br_forward_finish(struct sk_buff *skb);
-extern void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb);
-extern void br_flood_forward(struct net_bridge *br, struct sk_buff *skb);
+extern void br_flood_deliver(struct net_bridge *br,
+		      struct sk_buff *skb,
+		      int clone);
+extern void br_flood_forward(struct net_bridge *br,
+		      struct sk_buff *skb,
+		      int clone);
 
 /* br_if.c */
 extern void br_port_carrier_check(struct net_bridge_port *p);

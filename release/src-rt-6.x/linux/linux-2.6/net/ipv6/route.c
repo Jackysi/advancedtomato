@@ -149,7 +149,6 @@ struct rt6_info ip6_null_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -176,7 +175,6 @@ struct rt6_info ip6_prohibit_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -197,7 +195,6 @@ struct rt6_info ip6_blk_hole_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -339,7 +336,7 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)
 static inline int rt6_check_neigh(struct rt6_info *rt)
 {
 	struct neighbour *neigh = rt->rt6i_nexthop;
-	int m;
+	int m = 0;
 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
 	    !(rt->rt6i_flags & RTF_GATEWAY))
 		m = 1;
@@ -347,15 +344,10 @@ static inline int rt6_check_neigh(struct rt6_info *rt)
 		read_lock_bh(&neigh->lock);
 		if (neigh->nud_state & NUD_VALID)
 			m = 2;
-#ifdef CONFIG_IPV6_ROUTER_PREF
-		else if (neigh->nud_state & NUD_FAILED)
-			m = 0;
-#endif
-		else
+		else if (!(neigh->nud_state & NUD_FAILED))
 			m = 1;
 		read_unlock_bh(&neigh->lock);
-	} else
-		m = 0;
+	}
 	return m;
 }
 
@@ -1192,9 +1184,7 @@ int ip6_route_add(struct fib6_config *cfg)
 	}
 
 	rt->u.dst.obsolete = -1;
-	rt->rt6i_expires = (cfg->fc_flags & RTF_EXPIRES) ?
-				jiffies + clock_t_to_jiffies(cfg->fc_expires) :
-				0;
+	rt->rt6i_expires = jiffies + clock_t_to_jiffies(cfg->fc_expires);
 
 	if (cfg->fc_protocol == RTPROT_UNSPEC)
 		cfg->fc_protocol = RTPROT_BOOT;

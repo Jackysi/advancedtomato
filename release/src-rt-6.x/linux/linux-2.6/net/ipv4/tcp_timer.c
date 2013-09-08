@@ -135,7 +135,7 @@ static int tcp_write_timeout(struct sock *sk)
 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
 				} else {
 					mss = min(sysctl_tcp_base_mss,
-						  tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1);
+						  tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
 					mss = max(mss, 68 - tp->tcp_header_len);
 					icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);

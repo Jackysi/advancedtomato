@@ -33,7 +33,7 @@ MODULE_ALIAS("ipt_CONNMARK");
 #include <net/netfilter/nf_conntrack_ecache.h>
 
 static unsigned int
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -47,37 +47,37 @@ target(struct sk_buff *skb,
 	u_int32_t mark;
 	u_int32_t newmark;
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	if (ct) {
 		switch(markinfo->mode) {
 		case XT_CONNMARK_SET:
 			newmark = (ct->mark & ~markinfo->mask) | markinfo->mark;
 			if (newmark != ct->mark) {
 				ct->mark = newmark;
-				nf_conntrack_event_cache(IPCT_MARK, skb);
+				nf_conntrack_event_cache(IPCT_MARK, *pskb);
 			}
 			break;
 		case XT_CONNMARK_SET_RETURN:
 			// Set connmark and mark, apply mask to mark, do XT_RETURN	- zzz
 			newmark = ct->mark = markinfo->mark;
 			newmark &= markinfo->mask;
-			mark = skb->mark;
+			mark = (*pskb)->mark;
 			if (newmark != mark) {
-				skb->mark = newmark;
+				(*pskb)->mark = newmark;
 			}				
 			return XT_RETURN;
 		case XT_CONNMARK_SAVE:
 			newmark = (ct->mark & ~markinfo->mask) |
-				  (skb->mark & markinfo->mask);
+				  ((*pskb)->mark & markinfo->mask);
 			if (ct->mark != newmark) {
 				ct->mark = newmark;
-				nf_conntrack_event_cache(IPCT_MARK, skb);
+				nf_conntrack_event_cache(IPCT_MARK, *pskb);
 			}
 			break;
 		case XT_CONNMARK_RESTORE:
-			mark = skb->mark;
+			mark = (*pskb)->mark;
 			diff = (ct->mark ^ mark) & markinfo->mask;
-			skb->mark = mark ^ diff;
+			(*pskb)->mark = mark ^ diff;
 			break;
 		}
 	}

@@ -104,7 +104,7 @@ ipt_cone_cleanup_conntrack(struct nf_conn_nat *nat)
 }
 
 unsigned int
-ipt_cone_target(struct sk_buff *skb,
+ipt_cone_target(struct sk_buff **pskb,
 	unsigned int hooknum,
 	const struct net_device *in,
 	const struct net_device *out,
@@ -123,7 +123,7 @@ ipt_cone_target(struct sk_buff *skb,
 
 
 	/* Care about only new created one */
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	if (ct == 0 || (ctinfo != IP_CT_NEW && ctinfo != IP_CT_RELATED))
 		return XT_CONTINUE;
 
@@ -145,9 +145,6 @@ ipt_cone_target(struct sk_buff *skb,
 	/* Make sure it is pre routing */
 	if (hooknum != NF_IP_PRE_ROUTING)
 		return XT_CONTINUE;
-
-	if (nat->info.nat_type & NFC_IP_CONE_NAT_ALTERED)
-		return NF_ACCEPT;
 
 	/* Get cone dst */
 	cone = find_appropriate_cone(tuple);

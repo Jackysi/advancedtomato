@@ -57,10 +57,10 @@ search_extable(const struct exception_table_entry *first,
 	while (first <= last) {
 		const struct exception_table_entry *mid;
 
-		mid = ((last - first) >> 1) + first;
+		mid = (last - first) / 2 + first;
 		/*
-		 * careful, the distance between value and insn
-		 * can be larger than MAX_LONG:
+		 * careful, the distance between entries can be
+		 * larger than 2GB:
 		 */
 		if (mid->insn < value)
 			first = mid + 1;

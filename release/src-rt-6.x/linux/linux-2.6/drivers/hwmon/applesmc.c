@@ -1109,7 +1109,7 @@ static int applesmc_create_accelerometer(void)
 	applesmc_idev->name = "applesmc";
 	applesmc_idev->id.bustype = BUS_HOST;
 	applesmc_idev->dev.parent = &pdev->dev;
-	applesmc_idev->evbit[0] = BIT_MASK(EV_ABS);
+	applesmc_idev->evbit[0] = BIT(EV_ABS);
 	applesmc_idev->open = applesmc_idev_open;
 	applesmc_idev->close = applesmc_idev_close;
 	input_set_abs_params(applesmc_idev, ABS_X,

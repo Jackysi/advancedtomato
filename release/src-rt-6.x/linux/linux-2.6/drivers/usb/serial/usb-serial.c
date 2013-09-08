@@ -1387,4 +1387,4 @@ MODULE_LICENSE("GPL");
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug enabled or not");
 module_param(maxSize, ushort, 0);
-MODULE_PARM_DESC(maxSize, "User specified USB endpoint size");
+MODULE_PARM_DESC(maxSize,"User specified USB endpoint size");

@@ -820,7 +820,7 @@ static int cinergyt2_register_rc(struct cinergyt2 *cinergyt2)
 
 	input_dev->name = DRIVER_NAME " remote control";
 	input_dev->phys = cinergyt2->phys;
-	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
+	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_REP);
 	for (i = 0; i < ARRAY_SIZE(rc_keys); i += 3)
 		set_bit(rc_keys[i + 2], input_dev->keybit);
 	input_dev->keycodesize = 0;
@@ -905,11 +905,12 @@ static int cinergyt2_probe (struct usb_interface *intf,
 	struct cinergyt2 *cinergyt2;
 	int err;
 
-	if (!(cinergyt2 = kzalloc (sizeof(struct cinergyt2), GFP_KERNEL))) {
+	if (!(cinergyt2 = kmalloc (sizeof(struct cinergyt2), GFP_KERNEL))) {
 		dprintk(1, "out of memory?!?\n");
 		return -ENOMEM;
 	}
 
+	memset (cinergyt2, 0, sizeof (struct cinergyt2));
 	usb_set_intfdata (intf, (void *) cinergyt2);
 
 	mutex_init(&cinergyt2->sem);

@@ -181,10 +181,11 @@ static elevator_t *elevator_alloc(request_queue_t *q, struct elevator_type *e)
 	elevator_t *eq;
 	int i;
 
-	eq = kmalloc_node(sizeof(elevator_t), GFP_KERNEL | __GFP_ZERO, q->node);
+	eq = kmalloc_node(sizeof(elevator_t), GFP_KERNEL, q->node);
 	if (unlikely(!eq))
 		goto err;
 
+	memset(eq, 0, sizeof(*eq));
 	eq->ops = &e->ops;
 	eq->elevator_type = e;
 	kobject_init(&eq->kobj);
@@ -753,8 +754,15 @@ struct request *elv_next_request(request_queue_t *q)
 			rq = NULL;
 			break;
 		} else if (ret == BLKPREP_KILL) {
+			int nr_bytes = rq->hard_nr_sectors << 9;
+
+			if (!nr_bytes)
+				nr_bytes = rq->data_len;
+
+			blkdev_dequeue_request(rq);
 			rq->cmd_flags |= REQ_QUIET;
-			end_queued_request(rq, 0);
+			end_that_request_chunk(rq, 0, nr_bytes);
+			end_that_request_last(rq, 0);
 		} else {
 			printk(KERN_ERR "%s: bad return=%d\n", __FUNCTION__,
 								ret);

@@ -153,7 +153,7 @@ struct cn_dev {
 
 	u32 seq, groups;
 	struct sock *nls;
-	void (*input) (struct sk_buff *skb);
+	void (*input) (struct sock * sk, int len);
 
 	struct cn_queue_dev *cbdev;
 };

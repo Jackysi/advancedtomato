@@ -18,8 +18,6 @@
 #ifndef __XFS_SUPER_H__
 #define __XFS_SUPER_H__
 
-#include <linux/exportfs.h>
-
 #ifdef CONFIG_XFS_DMAPI
 # define vfs_insertdmapi(vfs)	vfs_insertops(vfsp, &xfs_dmops)
 # define vfs_initdmapi()	dmapi_init()
@@ -117,6 +115,6 @@ extern int  xfs_blkdev_get(struct xfs_mount *, const char *,
 extern void xfs_blkdev_put(struct block_device *);
 extern void xfs_blkdev_issue_flush(struct xfs_buftarg *);
 
-extern const struct export_operations xfs_export_operations;
+extern struct export_operations xfs_export_operations;
 
 #endif	/* __XFS_SUPER_H__ */

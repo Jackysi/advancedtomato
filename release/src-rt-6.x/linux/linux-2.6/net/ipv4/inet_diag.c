@@ -136,10 +136,10 @@ static int inet_csk_diag_fill(struct sock *sk,
 	r->idiag_inode = sock_i_ino(sk);
 
 	if (minfo) {
-		minfo->idiag_rmem = sk_rmem_alloc_get(sk);
+		minfo->idiag_rmem = atomic_read(&sk->sk_rmem_alloc);
 		minfo->idiag_wmem = sk->sk_wmem_queued;
 		minfo->idiag_fmem = sk->sk_forward_alloc;
-		minfo->idiag_tmem = sk_wmem_alloc_get(sk);
+		minfo->idiag_tmem = atomic_read(&sk->sk_wmem_alloc);
 	}
 
 	handler->idiag_get_info(sk, r, info);
@@ -838,11 +838,15 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 
 static DEFINE_MUTEX(inet_diag_mutex);
 
-static void inet_diag_rcv(struct sk_buff *skb)
+static void inet_diag_rcv(struct sock *sk, int len)
 {
-	mutex_lock(&inet_diag_mutex);
-	netlink_rcv_skb(skb, &inet_diag_rcv_msg);
-	mutex_unlock(&inet_diag_mutex);
+	unsigned int qlen = 0;
+
+	do {
+		mutex_lock(&inet_diag_mutex);
+		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
+		mutex_unlock(&inet_diag_mutex);
+	} while (qlen);
 }
 
 static DEFINE_SPINLOCK(inet_diag_register_lock);

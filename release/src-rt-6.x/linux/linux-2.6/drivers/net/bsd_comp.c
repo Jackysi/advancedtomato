@@ -395,13 +395,14 @@ static void *bsd_alloc (unsigned char *options, int opt_len, int decomp)
  * Allocate the main control structure for this instance.
  */
     maxmaxcode = MAXCODE(bits);
-    db         = kzalloc(sizeof (struct bsd_db),
+    db         = kmalloc(sizeof (struct bsd_db),
 					    GFP_KERNEL);
     if (!db)
       {
 	return NULL;
       }
 
+    memset (db, 0, sizeof(struct bsd_db));
 /*
  * Allocate space for the dictionary. This may be more than one page in
  * length.

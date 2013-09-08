@@ -754,10 +754,8 @@ adbhid_input_register(int id, int default_id, int original_handler_id,
 			if (hid->keycode[i])
 				set_bit(hid->keycode[i], input_dev->keybit);
 
-		input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_LED) |
-			BIT_MASK(EV_REP);
-		input_dev->ledbit[0] = BIT_MASK(LED_SCROLLL) |
-			BIT_MASK(LED_CAPSL) | BIT_MASK(LED_NUML);
+		input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_LED) | BIT(EV_REP);
+		input_dev->ledbit[0] = BIT(LED_SCROLLL) | BIT(LED_CAPSL) | BIT(LED_NUML);
 		input_dev->event = adbhid_kbd_event;
 		input_dev->keycodemax = 127;
 		input_dev->keycodesize = 1;
@@ -766,18 +764,16 @@ adbhid_input_register(int id, int default_id, int original_handler_id,
 	case ADB_MOUSE:
 		sprintf(hid->name, "ADB mouse");
 
-		input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REL);
-		input_dev->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) |
-			BIT_MASK(BTN_MIDDLE) | BIT_MASK(BTN_RIGHT);
-		input_dev->relbit[0] = BIT_MASK(REL_X) | BIT_MASK(REL_Y);
+		input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
+		input_dev->keybit[LONG(BTN_MOUSE)] = BIT(BTN_LEFT) | BIT(BTN_MIDDLE) | BIT(BTN_RIGHT);
+		input_dev->relbit[0] = BIT(REL_X) | BIT(REL_Y);
 		break;
 
 	case ADB_MISC:
 		switch (original_handler_id) {
 		case 0x02: /* Adjustable keyboard button device */
 			sprintf(hid->name, "ADB adjustable keyboard buttons");
-			input_dev->evbit[0] = BIT_MASK(EV_KEY) |
-				BIT_MASK(EV_REP);
+			input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_REP);
 			set_bit(KEY_SOUND, input_dev->keybit);
 			set_bit(KEY_MUTE, input_dev->keybit);
 			set_bit(KEY_VOLUMEUP, input_dev->keybit);
@@ -785,8 +781,7 @@ adbhid_input_register(int id, int default_id, int original_handler_id,
 			break;
 		case 0x1f: /* Powerbook button device */
 			sprintf(hid->name, "ADB Powerbook buttons");
-			input_dev->evbit[0] = BIT_MASK(EV_KEY) |
-				BIT_MASK(EV_REP);
+			input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_REP);
 			set_bit(KEY_MUTE, input_dev->keybit);
 			set_bit(KEY_VOLUMEUP, input_dev->keybit);
 			set_bit(KEY_VOLUMEDOWN, input_dev->keybit);

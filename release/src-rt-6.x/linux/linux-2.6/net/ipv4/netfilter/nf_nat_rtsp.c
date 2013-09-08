@@ -94,7 +94,7 @@ get_skb_tcpdata(struct sk_buff* skb, char** pptcpdata, uint* ptcpdatalen)
  *
  * In:
  *   ct, ctinfo = conntrack context
- *   skb        = packet
+ *   pskb        = packet
  *   tranoff    = Transport header offset from TCP data
  *   tranlen    = Transport header length (incl. CRLF)
  *   rport_lo   = replacement low  port (host endian)
@@ -106,9 +106,9 @@ get_skb_tcpdata(struct sk_buff* skb, char** pptcpdata, uint* ptcpdatalen)
  */
 static int
 rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
-                 struct nf_conntrack_expect *exp,
-                 struct ip_ct_rtsp_expect *prtspexp,
-                 struct sk_buff *skb, uint tranoff, uint tranlen)
+                 struct nf_conntrack_expect* exp,
+                 struct ip_ct_rtsp_expect* prtspexp,
+                 struct sk_buff** pskb, uint tranoff, uint tranlen)
 {
     char*       ptcp;
     uint        tcplen;
@@ -129,7 +129,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
     uint    extaddrlen;
     int     is_stun;
 
-    get_skb_tcpdata(skb, &ptcp, &tcplen);
+    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
     ptran = ptcp+tranoff;
 
     if (tranoff+tranlen > tcplen || tcplen-tranoff < tranlen ||
@@ -261,14 +261,14 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                 if (dstact == DSTACT_STRIP || (dstact == DSTACT_AUTO && !is_stun))
                 {
                     diff = nextfieldoff-off;
-                    if (!nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
+                    if (!nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
                                                          off, diff, NULL, 0))
                     {
                         /* mangle failed, all we can do is bail */
 			nf_conntrack_unexpect_related(exp);
                         return 0;
                     }
-                    get_skb_tcpdata(skb, &ptcp, &tcplen);
+                    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
                     ptran = ptcp+tranoff;
                     tranlen -= diff;
                     nextparamoff -= diff;
@@ -331,14 +331,14 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                      * parameter 4 below is offset from start of tcp data.
                      */
                     diff = origlen-rbuflen;
-                    if (!nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
+                    if (!nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
                                               origoff, origlen, rbuf, rbuflen))
                     {
                         /* mangle failed, all we can do is bail */
 			nf_conntrack_unexpect_related(exp);
                         return 0;
                     }
-                    get_skb_tcpdata(skb, &ptcp, &tcplen);
+                    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
                     ptran = ptcp+tranoff;
                     tranlen -= diff;
                     nextparamoff -= diff;
@@ -356,7 +356,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
 }
 
 static uint
-help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
+help_out(struct sk_buff **pskb, enum ip_conntrack_info ctinfo,
 	 unsigned int matchoff, unsigned int matchlen, struct ip_ct_rtsp_expect* prtspexp,
 	 struct nf_conntrack_expect* exp)
 {
@@ -368,10 +368,10 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
     uint    linelen;
     uint    off;
 
-    //struct iphdr* iph = (struct iphdr*)skb->nh.iph;
+    //struct iphdr* iph = (struct iphdr*)(*pskb)->nh.iph;
     //struct tcphdr* tcph = (struct tcphdr*)((void*)iph + iph->ihl*4);
 
-    get_skb_tcpdata(skb, &ptcp, &tcplen);
+    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
     hdrsoff = matchoff;//exp->seq - ntohl(tcph->seq);
     hdrslen = matchlen;
     off = hdrsoff;
@@ -394,12 +394,12 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
         {
             uint oldtcplen = tcplen;
 	    DEBUGP("hdr: Transport\n");
-            if (!rtsp_mangle_tran(ctinfo, exp, prtspexp, skb, lineoff, linelen))
+            if (!rtsp_mangle_tran(ctinfo, exp, prtspexp, pskb, lineoff, linelen))
             {
 		DEBUGP("hdr: Transport mangle failed");
                 break;
             }
-            get_skb_tcpdata(skb, &ptcp, &tcplen);
+            get_skb_tcpdata(*pskb, &ptcp, &tcplen);
             hdrslen -= (oldtcplen-tcplen);
             off -= (oldtcplen-tcplen);
             lineoff -= (oldtcplen-tcplen);
@@ -412,7 +412,7 @@ help_out(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
 }
 
 static unsigned int
-help(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
+help(struct sk_buff **pskb, enum ip_conntrack_info ctinfo,
      unsigned int matchoff, unsigned int matchlen, struct ip_ct_rtsp_expect* prtspexp,
      struct nf_conntrack_expect* exp)
 {
@@ -422,7 +422,7 @@ help(struct sk_buff *skb, enum ip_conntrack_info ctinfo,
     switch (dir)
     {
     case IP_CT_DIR_ORIGINAL:
-        rc = help_out(skb, ctinfo, matchoff, matchlen, prtspexp, exp);
+        rc = help_out(pskb, ctinfo, matchoff, matchlen, prtspexp, exp);
         break;
     case IP_CT_DIR_REPLY:
 	DEBUGP("unmangle ! %u\n", ctinfo);
@@ -471,11 +471,10 @@ static int __init init(void)
 {
 	printk("nf_nat_rtsp v" IP_NF_RTSP_VERSION " loading\n");
 
-	BUG_ON(rcu_dereference(nf_nat_rtsp_hook));
-	rcu_assign_pointer(nf_nat_rtsp_hook, help);
+	BUG_ON(rcu_dereference(nf_nat_rtsp_hook) != NULL);
 
-	BUG_ON(rcu_dereference(nf_nat_rtsp_hook_expectfn));
-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, expected);
+	rcu_assign_pointer(nf_nat_rtsp_hook, help);
+	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, &expected);
 
 	if (stunaddr != NULL)
 		extip = in_aton(stunaddr);

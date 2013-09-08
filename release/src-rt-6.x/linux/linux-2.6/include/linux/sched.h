@@ -153,12 +153,6 @@ extern unsigned long weighted_cpuload(const int cpu);
 #define TASK_NONINTERACTIVE	64
 #define TASK_DEAD		128
 
-#define task_is_traced(task)    (((task)->state & TASK_TRACED) != 0)
-#define task_is_stopped(task)   (((task)->state & TASK_STOPPED) != 0)
-#define task_is_dead(task)	((task)->exit_state != 0)
-#define task_is_stopped_or_traced(task) \
-			(((task)->state & (TASK_STOPPED | TASK_TRACED)) != 0)
-
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
 #define set_task_state(tsk, state_value)		\
@@ -779,7 +773,7 @@ struct io_context;			/* See blkdev.h */
 struct cpuset;
 
 #define NGROUPS_SMALL		32
-#define NGROUPS_PER_BLOCK	((unsigned int)(PAGE_SIZE / sizeof(gid_t)))
+#define NGROUPS_PER_BLOCK	((int)(PAGE_SIZE / sizeof(gid_t)))
 struct group_info {
 	int ngroups;
 	atomic_t usage;

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_forward.c,v 1.4 2001/08/14 22:05:57 davem Exp $
+ *	$Id: br_forward.c,v 1.1.1.1 2007-08-03 18:53:50 $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -100,12 +100,23 @@ void br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
 }
 
 /* called under bridge lock */
-static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+static void br_flood(struct net_bridge *br, struct sk_buff *skb, int clone,
 	void (*__packet_hook)(const struct net_bridge_port *p,
 			      struct sk_buff *skb))
 {
 	struct net_bridge_port *p;
 	struct net_bridge_port *prev;
+
+	if (clone) {
+		struct sk_buff *skb2;
+
+		if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+			br->statistics.tx_dropped++;
+			return;
+		}
+
+		skb = skb2;
+	}
 
 	prev = NULL;
 
@@ -137,13 +148,13 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
 
 
 /* called with rcu_read_lock */
-void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb)
+void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb, int clone)
 {
-	br_flood(br, skb, __br_deliver);
+	br_flood(br, skb, clone, __br_deliver);
 }
 
 /* called under bridge lock */
-void br_flood_forward(struct net_bridge *br, struct sk_buff *skb)
+void br_flood_forward(struct net_bridge *br, struct sk_buff *skb, int clone)
 {
-	br_flood(br, skb, __br_forward);
+	br_flood(br, skb, clone, __br_forward);
 }

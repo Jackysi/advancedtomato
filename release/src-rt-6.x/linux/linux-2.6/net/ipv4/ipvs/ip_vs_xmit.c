@@ -16,8 +16,8 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/ip.h>
 #include <linux/tcp.h>                  /* for tcphdr */
-#include <net/ip.h>
 #include <net/tcp.h>                    /* for csum_tcpudp_magic */
 #include <net/udp.h>
 #include <net/icmp.h>                   /* for icmp_send */
@@ -406,12 +406,14 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
 	iph->daddr		=	rt->rt_dst;
 	iph->saddr		=	rt->rt_src;
 	iph->ttl		=	old_iph->ttl;
+	iph->tot_len		=	htons(skb->len);
 	ip_select_ident(iph, &rt->u.dst, NULL);
+	ip_send_check(iph);
 
 	/* Another hack: avoid icmp_send in ip_fragment */
 	skb->local_df = 1;
 
-	ip_local_out(skb);
+	IP_VS_XMIT(skb, rt);
 
 	LeaveFunction(10);
 

@@ -1268,7 +1268,7 @@ static struct scsi_cmnd *qlogicpti_intr_handler(struct qlogicpti *qpti)
 
 		if (sts->state_flags & SF_GOT_SENSE)
 			memcpy(Cmnd->sense_buffer, sts->req_sense_data,
-			       SCSI_SENSE_BUFFERSIZE);
+			       sizeof(Cmnd->sense_buffer));
 
 		if (sts->hdr.entry_type == ENTRY_STATUS)
 			Cmnd->result =

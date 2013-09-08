@@ -289,7 +289,7 @@ alloc_failure:
 	spin_unlock_bh(&ulog_lock);
 }
 
-static unsigned int ipt_ulog_target(struct sk_buff *skb,
+static unsigned int ipt_ulog_target(struct sk_buff **pskb,
 				    const struct net_device *in,
 				    const struct net_device *out,
 				    unsigned int hooknum,
@@ -298,7 +298,7 @@ static unsigned int ipt_ulog_target(struct sk_buff *skb,
 {
 	struct ipt_ulog_info *loginfo = (struct ipt_ulog_info *) targinfo;
 
-	ipt_ulog_packet(hooknum, skb, in, out, loginfo, NULL);
+	ipt_ulog_packet(hooknum, *pskb, in, out, loginfo, NULL);
 
 	return XT_CONTINUE;
 }

@@ -42,30 +42,30 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED))
 		range_size = 0xFFFF;
 
-	for (i = 0; ; ++id) {
+	for (i = 0; i < range_size; i++, id++) {
 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
 					     (id % range_size));
-		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+		if (!nf_nat_used_tuple(tuple, ct))
 			return 1;
 	}
 	return 0;
 }
 
 static int
-icmp_manip_pkt(struct sk_buff *skb,
+icmp_manip_pkt(struct sk_buff **pskb,
 	       unsigned int iphdroff,
 	       const struct nf_conntrack_tuple *tuple,
 	       enum nf_nat_manip_type maniptype)
 {
-	struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
+	struct iphdr *iph = (struct iphdr *)((*pskb)->data + iphdroff);
 	struct icmphdr *hdr;
 	unsigned int hdroff = iphdroff + iph->ihl*4;
 
-	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+	if (!skb_make_writable(pskb, hdroff + sizeof(*hdr)))
 		return 0;
 
-	hdr = (struct icmphdr *)(skb->data + hdroff);
-	nf_proto_csum_replace2(&hdr->checksum, skb,
+	hdr = (struct icmphdr *)((*pskb)->data + hdroff);
+	nf_proto_csum_replace2(&hdr->checksum, *pskb,
 			       hdr->un.echo.id, tuple->src.u.icmp.id, 0);
 	hdr->un.echo.id = tuple->src.u.icmp.id;
 	return 1;

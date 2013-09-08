@@ -42,13 +42,6 @@ config IP_NF_QUEUE
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
-config BCM_NAT
-        tristate "Broadcom proprietary NAT support"
-        depends on NF_CONNTRACK && NF_NAT
-        help
-                This helps packets pass through netfilter faster when a packet
-                is an established or reply traffic.
-
 config IP_NF_IPTABLES
 	tristate "IP tables support (required for filtering/masq/NAT)"
 	select NETFILTER_XTABLES
@@ -474,6 +467,10 @@ config IP_NF_MATCH_IPV4OPTIONS
 	  If you want to compile it as a module, say M here and read
 	  Documentation/modules.txt.  If unsure, say `N'.
 
+config IP_NF_MATCH_WEB
+	tristate  'web match'
+	depends on IP_NF_IPTABLES
+
 config IP_NF_TARGET_BCOUNT
 	tristate  'BCOUNT target'
 	depends on IP_NF_IPTABLES
@@ -494,9 +491,18 @@ config IP_NF_MATCH_EXP
 	tristate  'exp match (experimental rig - do not use)'
 	depends on IP_NF_IPTABLES && EXPERIMENTAL
 
+config IP_NF_MATCH_WEBMON
+	tristate  'Web Monitor match'
+	depends on IP_NF_IPTABLES && EXPERIMENTAL
+
 config IP_NF_TOMATOCT
 	tristate  'tomato_ct'
 	depends on NF_CONNTRACK_MARK && EXPERIMENTAL
+
+config IP_NF_LFP
+	tristate  'lfp'
+        depends on NF_CONNTRACK
+	default n
 
 config IP_NF_MATCH_ACCOUNT
 	tristate "account match support"
@@ -663,3 +669,4 @@ config IP_NF_TARGET_SET
 	  To compile it as a module, choose M here.  If unsure, say N.
 
 endmenu
+

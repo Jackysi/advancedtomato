@@ -241,7 +241,7 @@ target(struct sk_buff **pskb,
        const struct xt_target *target,
        const void *targinfo,
        void *userinfo)
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
@@ -266,7 +266,7 @@ target(struct sk_buff *skb,
 	const struct ip6t_route_target_info *route_info = par->targinfo;
 	unsigned int hooknum = par->hooknum;
 #endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	struct sk_buff *skb = *pskb;
 #endif
 	struct in6_addr *gw = (struct in6_addr*)&route_info->gw;

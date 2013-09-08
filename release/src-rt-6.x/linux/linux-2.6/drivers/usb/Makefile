@@ -20,6 +20,8 @@ obj-$(CONFIG_USB_R8A66597_HCD)	+= host/
 obj-$(CONFIG_USB_ACM)		+= class/
 obj-$(CONFIG_USB_PRINTER)	+= class/
 
+obj-$(CONFIG_USB_BECEEM)	+= Beceem_driver/
+
 obj-$(CONFIG_USB_STORAGE)	+= storage/
 obj-$(CONFIG_USB)		+= storage/
 
@@ -52,5 +54,3 @@ obj-$(CONFIG_USB_IOWARRIOR)	+= misc/
 
 obj-$(CONFIG_USB_ATM)		+= atm/
 obj-$(CONFIG_USB_SPEEDTOUCH)	+= atm/
-
-obj-$(CONFIG_USB_IP_COMMON)    += usbip/

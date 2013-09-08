@@ -7,7 +7,7 @@
 #include <linux/netfilter/xt_IMQ.h>
 #include <linux/imq.h>
 
-static unsigned int imq_target(struct sk_buff *skb,
+static unsigned int imq_target(struct sk_buff **pskb,
 			       const struct net_device *in,
 			       const struct net_device *out,
 			       unsigned int hooknum,
@@ -16,7 +16,7 @@ static unsigned int imq_target(struct sk_buff *skb,
 {
 	struct xt_imq_info *mr = (struct xt_imq_info*)targinfo;
 
-	skb->imq_flags = mr->todev | IMQ_F_ENQUEUE;
+	(*pskb)->imq_flags = mr->todev | IMQ_F_ENQUEUE;
 
 	return XT_CONTINUE;
 }

@@ -49,10 +49,10 @@ static inline unsigned int connlimit_iphash(u_int32_t addr)
 }
 
 static inline unsigned int
-connlimit_iphash6(const union nf_inet_addr *addr,
-                  const union nf_inet_addr *mask)
+connlimit_iphash6(const union nf_conntrack_address *addr,
+                  const union nf_conntrack_address *mask)
 {
-	union nf_inet_addr res;
+	union nf_conntrack_address res;
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
@@ -73,14 +73,14 @@ static inline bool already_closed(const struct nf_conn *conn)
 }
 
 static inline unsigned int
-same_source_net(const union nf_inet_addr *addr,
-		const union nf_inet_addr *mask,
-		const union nf_inet_addr *u3, unsigned int family)
+same_source_net(const union nf_conntrack_address *addr,
+		const union nf_conntrack_address *mask,
+		const union nf_conntrack_address *u3, unsigned int family)
 {
 	if (family == AF_INET) {
 		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
 	} else {
-		union nf_inet_addr lh, rh;
+		union nf_conntrack_address lh, rh;
 		unsigned int i;
 
 		for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i) {
@@ -94,8 +94,8 @@ same_source_net(const union nf_inet_addr *addr,
 
 static int count_them(struct xt_connlimit_data *data,
 		      const struct nf_conntrack_tuple *tuple,
-		      const union nf_inet_addr *addr,
-		      const union nf_inet_addr *mask,
+		      const union nf_conntrack_address *addr,
+		      const union nf_conntrack_address *mask,
 		      const struct xt_match *match)
 {
 	struct nf_conntrack_tuple_hash *found;
@@ -177,7 +177,7 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
              int *hotdrop)
 {
 	const struct xt_connlimit_info *info = matchinfo;
-	union nf_inet_addr addr;
+	union nf_conntrack_address addr, mask;
 	struct nf_conntrack_tuple tuple;
 	const struct nf_conntrack_tuple *tuple_ptr = &tuple;
 	enum ip_conntrack_info ctinfo;
@@ -205,14 +205,15 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
 	if (match->family == AF_INET6) {
 		const struct ipv6hdr *iph = ipv6_hdr(skb);
 		memcpy(&addr.ip6, &iph->saddr, sizeof(iph->saddr));
+		memcpy(&mask.ip6, info->v6_mask, sizeof(info->v6_mask));
 	} else {
 		const struct iphdr *iph = ip_hdr(skb);
 		addr.ip = iph->saddr;
+		mask.ip = info->v4_mask;
 	}
 
 	spin_lock_bh(&info->data->lock);
-	connections = count_them(info->data, tuple_ptr, &addr,
-	                         &info->_mask, match);
+	connections = count_them(info->data, tuple_ptr, &addr, &mask, match);
 	spin_unlock_bh(&info->data->lock);
 
 	if (connections < 0) {

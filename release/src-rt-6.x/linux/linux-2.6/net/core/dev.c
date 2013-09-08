@@ -123,6 +123,14 @@
 #include <typedefs.h>
 #include <bcmdefs.h>
 
+#ifdef CONFIG_INET_GRO
+/* Instead of increasing this, you should create a hash table. */
+#define MAX_GRO_SKBS 8
+
+/* This should be increased if a protocol with a bigger head is added. */
+#define GRO_MAX_HEAD (MAX_HEADER + 128)
+#endif /* CONFIG_INET_GRO */
+
 /*
  *	The list of packet types we will receive (as opposed to discard)
  *	and the routines to invoke.
@@ -1125,6 +1133,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct packet_type *ptype;
 
+	net_timestamp(skb);
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
@@ -1138,8 +1147,6 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 			if (!skb2)
 				break;
 
-			net_timestamp(skb2);
-
 			/* skb->nh should be correctly
 			   set by sender, so that the second statement is
 			   just protection against buggy protocols.
@@ -1149,7 +1156,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 			if (skb_network_header(skb2) < skb2->data ||
 			    skb2->network_header > skb2->tail) {
 				if (net_ratelimit())
-					printk(KERN_CRIT "protocol %04x is "
+					printk(KERN_DEBUG "protocol %04x is "
 					       "buggy, dev %s\n",
 					       skb2->protocol, dev->name);
 				skb_reset_network_header(skb2);
@@ -1548,7 +1555,12 @@ gso:
 #ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
 #endif
+
+#ifdef CONFIG_IP_NF_LFP
+	if (q->enqueue && !(skb->nfcache&(1<<30))) {
+#else
 	if (q->enqueue) {
+#endif
 		/* Grab device queue */
 		spin_lock(&dev->queue_lock);
 		q = dev->qdisc;
@@ -1946,6 +1958,198 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_INET_GRO
+static int BCMFASTPATH_HOST napi_gro_complete(struct sk_buff *skb)
+{
+	struct packet_type *ptype;
+	__be16 type = skb->protocol;
+	struct list_head *head = &ptype_base[ntohs(type) & 15];
+	int err = -ENOENT;
+
+	if (NAPI_GRO_CB(skb)->count == 1) {
+		skb_shinfo(skb)->gso_size = 0;
+		goto out;
+	}
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ptype, head, list) {
+		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
+			continue;
+
+		err = ptype->gro_complete(skb);
+		break;
+	}
+	rcu_read_unlock();
+
+	if (err) {
+		WARN_ON(&ptype->list == head);
+		kfree_skb(skb);
+		return NET_RX_SUCCESS;
+	}
+
+out:
+	return netif_receive_skb(skb);
+}
+
+void BCMFASTPATH_HOST napi_gro_flush(struct net_device *gro_dev)
+{
+	struct sk_buff *skb, *next;
+
+	for (skb = gro_dev->gro_list; skb; skb = next) {
+		next = skb->next;
+		skb->next = NULL;
+		napi_gro_complete(skb);
+	}
+
+	gro_dev->gro_count = 0;
+	gro_dev->gro_list = NULL;
+}
+EXPORT_SYMBOL(napi_gro_flush);
+
+void * BCMFASTPATH_HOST skb_gro_header(struct sk_buff *skb, unsigned int hlen)
+{
+	unsigned int offset = skb_gro_offset(skb);
+
+	hlen += offset;
+	if (hlen <= skb_headlen(skb))
+		return skb->data + offset;
+
+	if (unlikely(!skb_shinfo(skb)->nr_frags ||
+		     skb_shinfo(skb)->frags[0].size <=
+		     hlen - skb_headlen(skb) ||
+		     PageHighMem(skb_shinfo(skb)->frags[0].page)))
+		return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
+
+	return page_address(skb_shinfo(skb)->frags[0].page) +
+	       skb_shinfo(skb)->frags[0].page_offset +
+	       offset - skb_headlen(skb);
+}
+EXPORT_SYMBOL(skb_gro_header);
+
+int BCMFASTPATH_HOST dev_gro_receive(struct net_device *gro_dev, struct sk_buff *skb)
+{
+	struct sk_buff **pp = NULL;
+	struct packet_type *ptype;
+	__be16 type = skb->protocol;
+	struct list_head *head = &ptype_base[ntohs(type) & 15];
+	int same_flow;
+	int mac_len;
+	int ret;
+
+	if (type != ntohs(ETH_P_IP))
+		goto normal;
+
+	if (!(skb->dev->features & NETIF_F_GRO))
+		goto normal;
+
+	if (skb_is_gso(skb) || skb_shinfo(skb)->frag_list)
+		goto normal;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ptype, head, list) {
+		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
+			continue;
+
+		skb_set_network_header(skb, skb_gro_offset(skb));
+		mac_len = skb->network_header - skb->mac_header;
+		skb->mac_len = mac_len;
+		NAPI_GRO_CB(skb)->same_flow = 0;
+		NAPI_GRO_CB(skb)->flush = 0;
+		NAPI_GRO_CB(skb)->free = 0;
+
+		pp = ptype->gro_receive(&gro_dev->gro_list, skb);
+		break;
+	}
+	rcu_read_unlock();
+
+	if (&ptype->list == head)
+		goto normal;
+
+	same_flow = NAPI_GRO_CB(skb)->same_flow;
+	ret = NAPI_GRO_CB(skb)->free ? GRO_MERGED_FREE : GRO_MERGED;
+
+	if (pp) {
+		struct sk_buff *nskb = *pp;
+
+		*pp = nskb->next;
+		nskb->next = NULL;
+		napi_gro_complete(nskb);
+		gro_dev->gro_count--;
+	}
+
+	if (same_flow)
+		goto ok;
+
+	if (NAPI_GRO_CB(skb)->flush || gro_dev->gro_count >= MAX_GRO_SKBS)
+		goto normal;
+
+	gro_dev->gro_count++;
+	NAPI_GRO_CB(skb)->count = 1;
+	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
+	skb->next = gro_dev->gro_list;
+	gro_dev->gro_list = skb;
+	ret = GRO_HELD;
+
+pull:
+	if (unlikely(!pskb_may_pull(skb, skb_gro_offset(skb)))) {
+		if (gro_dev->gro_list == skb)
+			gro_dev->gro_list = skb->next;
+		ret = GRO_DROP;
+	}
+
+ok:
+	return ret;
+
+normal:
+	ret = GRO_NORMAL;
+	goto pull;
+}
+EXPORT_SYMBOL(dev_gro_receive);
+
+static int BCMFASTPATH_HOST __napi_gro_receive(struct net_device *gro_dev, struct sk_buff *skb)
+{
+	struct sk_buff *p;
+
+	for (p = gro_dev->gro_list; p; p = p->next) {
+		NAPI_GRO_CB(p)->same_flow = (p->dev == skb->dev)
+			&& !compare_ether_header(skb_mac_header(p),
+						 skb_gro_mac_header(skb));
+		NAPI_GRO_CB(p)->flush = 0;
+	}
+
+	return dev_gro_receive(gro_dev, skb);
+}
+
+int BCMFASTPATH_HOST napi_skb_finish(int ret, struct sk_buff *skb)
+{
+	int err = NET_RX_SUCCESS;
+
+	switch (ret) {
+	case GRO_NORMAL:
+		return netif_receive_skb(skb);
+
+	case GRO_DROP:
+		err = NET_RX_DROP;
+		/* fall through */
+
+	case GRO_MERGED_FREE:
+		kfree_skb(skb);
+		break;
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(napi_skb_finish);
+
+int BCMFASTPATH_HOST napi_gro_receive(struct net_device *gro_dev, struct sk_buff *skb)
+{
+	skb_gro_reset_offset(skb);
+
+	return napi_skb_finish(__napi_gro_receive(gro_dev, skb), skb);
+}
+EXPORT_SYMBOL(napi_gro_receive);
+#endif /* CONFIG_INET_GRO */
+
 static int process_backlog(struct net_device *backlog_dev, int *budget)
 {
 	int work = 0;
@@ -1965,7 +2169,11 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
 
 		dev = skb->dev;
 
+#ifdef CONFIG_INET_GRO
+		napi_gro_receive(skb->dev, skb);
+#else
 		netif_receive_skb(skb);
+#endif /* CONFIG_INET_GRO */
 
 		dev_put(dev);
 
@@ -2523,29 +2731,15 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
  *	remains above zero the interface remains promiscuous. Once it hits zero
  *	the device reverts back to normal filtering operation. A negative inc
  *	value is used to drop promiscuity on the device.
- *	Return 0 if successful or a negative errno code on error.
  */
-int dev_set_promiscuity(struct net_device *dev, int inc)
+void dev_set_promiscuity(struct net_device *dev, int inc)
 {
 	unsigned short old_flags = dev->flags;
 
-	dev->flags |= IFF_PROMISC;
-	dev->promiscuity += inc;
-	if (dev->promiscuity == 0) {
-		/*
-		 * Avoid overflow.
-		 * If inc causes overflow, untouch promisc and return error.
-		 */
-		if (inc < 0)
-			dev->flags &= ~IFF_PROMISC;
-		else {
-			dev->promiscuity -= inc;
-			printk(KERN_WARNING "%s: promiscuity touches roof, "
-				"set promiscuity failed, promiscuity feature "
-				"of device might be broken.\n", dev->name);
-			return -EOVERFLOW;
-		}
-	}
+	if ((dev->promiscuity += inc) == 0)
+		dev->flags &= ~IFF_PROMISC;
+	else
+		dev->flags |= IFF_PROMISC;
 	if (dev->flags != old_flags) {
 		dev_mc_upload(dev);
 		printk(KERN_INFO "device %s %s promiscuous mode\n",
@@ -2558,7 +2752,6 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
 			(old_flags & IFF_PROMISC),
 			audit_get_loginuid(current->audit_context));
 	}
-	return 0;
 }
 
 /**
@@ -2571,33 +2764,17 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
  *	to all interfaces. Once it hits zero the device reverts back to normal
  *	filtering operation. A negative @inc value is used to drop the counter
  *	when releasing a resource needing all multicasts.
- *	Return 0 if successful or a negative errno code on error.
  */
 
-int dev_set_allmulti(struct net_device *dev, int inc)
+void dev_set_allmulti(struct net_device *dev, int inc)
 {
 	unsigned short old_flags = dev->flags;
 
 	dev->flags |= IFF_ALLMULTI;
-	dev->allmulti += inc;
-	if (dev->allmulti == 0) {
-		/*
-		 * Avoid overflow.
-		 * If inc causes overflow, untouch allmulti and return error.
-		 */
-		if (inc < 0)
-			dev->flags &= ~IFF_ALLMULTI;
-		else {
-			dev->allmulti -= inc;
-			printk(KERN_WARNING "%s: allmulti touches roof, "
-				"set allmulti failed, allmulti feature of "
-				"device might be broken.\n", dev->name);
-			return -EOVERFLOW;
-		}
-	}
+	if ((dev->allmulti += inc) == 0)
+		dev->flags &= ~IFF_ALLMULTI;
 	if (dev->flags ^ old_flags)
 		dev_mc_upload(dev);
-	return 0;
 }
 
 unsigned dev_get_flags(const struct net_device *dev)
@@ -3030,7 +3207,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Set the per device memory buffer space.
 			 * Not applicable in our case */
 		case SIOCSIFLINK:
-			return -ENOTTY;
+			return -EINVAL;
 
 		/*
 		 *	Unknown or private ioctl.
@@ -3051,7 +3228,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Take care of Wireless Extensions */
 			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
 				return wext_handle_ioctl(&ifr, cmd, arg);
-			return -ENOTTY;
+			return -EINVAL;
 	}
 }
 
@@ -3393,20 +3570,15 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
 struct net_device *alloc_netdev(int sizeof_priv, const char *name,
 		void (*setup)(struct net_device *))
 {
+	void *p;
 	struct net_device *dev;
 	int alloc_size;
-	struct net_device *p;
 
 	BUG_ON(strlen(name) >= sizeof(dev->name));
 
-	alloc_size = sizeof(struct net_device);
-	if (sizeof_priv) {
-		/* ensure 32-byte alignment of private area */
-		alloc_size = ALIGN(alloc_size, NETDEV_ALIGN);
-		alloc_size += sizeof_priv;
-	}
-	/* ensure 32-byte alignment of whole construct */
-	alloc_size += NETDEV_ALIGN - 1;
+	/* ensure 32-byte alignment of both the device and private area */
+	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
+	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
 
 	p = kzalloc(alloc_size, GFP_KERNEL);
 	if (!p) {
@@ -3414,7 +3586,8 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
 		return NULL;
 	}
 
-	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+	dev = (struct net_device *)
+		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
 	dev->padded = (char *)dev - (char *)p;
 
 	if (sizeof_priv)
@@ -3829,3 +4002,4 @@ EXPORT_SYMBOL(dev_load);
 #endif
 
 EXPORT_PER_CPU_SYMBOL(softnet_data);
+

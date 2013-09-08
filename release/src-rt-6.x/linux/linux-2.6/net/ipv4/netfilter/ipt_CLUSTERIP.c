@@ -299,7 +299,7 @@ clusterip_responsible(struct clusterip_config *config, u_int32_t hash)
  ***********************************************************************/
 
 static unsigned int
-target(struct sk_buff *skb,
+target(struct sk_buff **pskb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -315,7 +315,7 @@ target(struct sk_buff *skb,
 	 * is only decremented by destroy() - and ip_tables guarantees
 	 * that the ->target() function isn't called after ->destroy() */
 
-	ct = nf_ct_get(skb, &ctinfo);
+	ct = nf_ct_get(*pskb, &ctinfo);
 	if (ct == NULL) {
 		printk(KERN_ERR "CLUSTERIP: no conntrack!\n");
 			/* FIXME: need to drop invalid ones, since replies
@@ -326,7 +326,7 @@ target(struct sk_buff *skb,
 
 	/* special case: ICMP error handling. conntrack distinguishes between
 	 * error messages (RELATED) and information requests (see below) */
-	if (ip_hdr(skb)->protocol == IPPROTO_ICMP
+	if (ip_hdr(*pskb)->protocol == IPPROTO_ICMP
 	    && (ctinfo == IP_CT_RELATED
 		|| ctinfo == IP_CT_RELATED+IP_CT_IS_REPLY))
 		return XT_CONTINUE;
@@ -335,7 +335,7 @@ target(struct sk_buff *skb,
 	 * TIMESTAMP, INFO_REQUEST or ADDRESS type icmp packets from here
 	 * on, which all have an ID field [relevant for hashing]. */
 
-	hash = clusterip_hashfn(skb, cipinfo->config);
+	hash = clusterip_hashfn(*pskb, cipinfo->config);
 
 	switch (ctinfo) {
 		case IP_CT_NEW:
@@ -365,7 +365,7 @@ target(struct sk_buff *skb,
 
 	/* despite being received via linklayer multicast, this is
 	 * actually a unicast IP packet. TCP doesn't like PACKET_MULTICAST */
-	skb->pkt_type = PACKET_HOST;
+	(*pskb)->pkt_type = PACKET_HOST;
 
 	return XT_CONTINUE;
 }
@@ -514,12 +514,12 @@ static void arp_print(struct arp_payload *payload)
 
 static unsigned int
 arp_mangle(unsigned int hook,
-	   struct sk_buff *skb,
+	   struct sk_buff **pskb,
 	   const struct net_device *in,
 	   const struct net_device *out,
 	   int (*okfn)(struct sk_buff *))
 {
-	struct arphdr *arp = arp_hdr(skb);
+	struct arphdr *arp = arp_hdr(*pskb);
 	struct arp_payload *payload;
 	struct clusterip_config *c;
 

@@ -1839,12 +1839,12 @@ ahc_linux_handle_scsi_status(struct ahc_softc *ahc,
 
 			sense_size = min(sizeof(struct scsi_sense_data)
 				       - ahc_get_sense_residual(scb),
-					 (u_long)SCSI_SENSE_BUFFERSIZE);
+					 (u_long)sizeof(cmd->sense_buffer));
 			memcpy(cmd->sense_buffer,
 			       ahc_get_sense_buf(ahc, scb), sense_size);
-			if (sense_size < SCSI_SENSE_BUFFERSIZE)
+			if (sense_size < sizeof(cmd->sense_buffer))
 				memset(&cmd->sense_buffer[sense_size], 0,
-				       SCSI_SENSE_BUFFERSIZE - sense_size);
+				       sizeof(cmd->sense_buffer) - sense_size);
 			cmd->result |= (DRIVER_SENSE << 24);
 #ifdef AHC_DEBUG
 			if (ahc_debug & AHC_SHOW_SENSE) {

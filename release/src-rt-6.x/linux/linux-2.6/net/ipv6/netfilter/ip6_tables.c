@@ -195,7 +195,7 @@ ip6_checkentry(const struct ip6t_ip6 *ipv6)
 }
 
 static unsigned int
-ip6t_error(struct sk_buff *skb,
+ip6t_error(struct sk_buff **pskb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
@@ -233,7 +233,7 @@ get_entry(void *base, unsigned int offset)
 
 /* Returns one of the generic firewall policies, like NF_ACCEPT. */
 unsigned int
-ip6t_do_table(struct sk_buff *skb,
+ip6t_do_table(struct sk_buff **pskb,
 	      unsigned int hook,
 	      const struct net_device *in,
 	      const struct net_device *out,
@@ -274,17 +274,17 @@ ip6t_do_table(struct sk_buff *skb,
 	do {
 		IP_NF_ASSERT(e);
 		IP_NF_ASSERT(back);
-		if (ip6_packet_match(skb, indev, outdev, &e->ipv6,
+		if (ip6_packet_match(*pskb, indev, outdev, &e->ipv6,
 			&protoff, &offset, &hotdrop)) {
 			struct ip6t_entry_target *t;
 
 			if (IP6T_MATCH_ITERATE(e, do_match,
-					       skb, in, out,
+					       *pskb, in, out,
 					       offset, protoff, &hotdrop) != 0)
 				goto no_match;
 
 			ADD_COUNTER(e->counters,
-				    ntohs(ipv6_hdr(skb)->payload_len)
+				    ntohs(ipv6_hdr(*pskb)->payload_len)
 				    + IPV6_HDR_LEN,
 				    1);
 
@@ -325,7 +325,7 @@ ip6t_do_table(struct sk_buff *skb,
 				((struct ip6t_entry *)table_base)->comefrom
 					= 0xeeeeeeec;
 #endif
-				verdict = t->u.kernel.target->target(skb,
+				verdict = t->u.kernel.target->target(pskb,
 								     in, out,
 								     hook,
 								     t->u.kernel.target,

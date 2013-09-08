@@ -43,7 +43,7 @@ void usb_init_urb(struct urb *urb)
 		INIT_LIST_HEAD(&urb->anchor_list);
 	}
 }
-EXPORT_SYMBOL_GPL(usb_init_urb);
+EXPORT_SYMBOL(usb_init_urb);
 
 /**
  * usb_alloc_urb - creates a new urb for a USB driver to use
@@ -110,7 +110,7 @@ struct urb *usb_get_urb(struct urb *urb)
 		kref_get(&urb->kref);
 	return urb;
 }
-EXPORT_SYMBOL_GPL(usb_get_urb);
+EXPORT_SYMBOL(usb_get_urb);
 
 /**
  * usb_anchor_urb - anchors an URB while it is processed
@@ -135,7 +135,7 @@ void usb_anchor_urb(struct urb *urb, struct usb_anchor *anchor)
 
 	spin_unlock_irqrestore(&anchor->lock, flags);
 }
-EXPORT_SYMBOL_GPL(usb_anchor_urb);
+EXPORT_SYMBOL(usb_anchor_urb);
 
 /* Callers must hold anchor->lock */
 static void __usb_unanchor_urb(struct urb *urb, struct usb_anchor *anchor)
@@ -175,7 +175,7 @@ void usb_unanchor_urb(struct urb *urb)
 		__usb_unanchor_urb(urb, anchor);
 	spin_unlock_irqrestore(&anchor->lock, flags);
 }
-EXPORT_SYMBOL_GPL(usb_unanchor_urb);
+EXPORT_SYMBOL(usb_unanchor_urb);
 
 /*-------------------------------------------------------------------*/
 
@@ -539,7 +539,8 @@ int usb_unlink_urb(struct urb *urb)
 		return -EIDRM;
 	return usb_hcd_unlink_urb(urb, -ECONNRESET);
 }
-EXPORT_SYMBOL_GPL(usb_unlink_urb);
+
+EXPORT_SYMBOL(usb_unlink_urb);
 
 /**
  * usb_kill_urb - cancel a transfer request and wait for it to finish
@@ -611,7 +612,7 @@ void usb_poison_urb(struct urb *urb)
 	usb_hcd_unlink_urb(urb, -ENOENT);
 	wait_event(usb_kill_urb_queue, atomic_read(&urb->use_count) == 0);
 }
-EXPORT_SYMBOL_GPL(usb_poison_urb);
+EXPORT_SYMBOL(usb_poison_urb);
 
 void usb_unpoison_urb(struct urb *urb)
 {
@@ -620,7 +621,7 @@ void usb_unpoison_urb(struct urb *urb)
 
 	atomic_dec(&urb->reject);
 }
-EXPORT_SYMBOL_GPL(usb_unpoison_urb);
+EXPORT_SYMBOL(usb_unpoison_urb);
 
 /**
  * usb_kill_anchored_urbs - cancel transfer requests en masse
@@ -650,7 +651,7 @@ void usb_kill_anchored_urbs(struct usb_anchor *anchor)
 	}
 	spin_unlock_irq(&anchor->lock);
 }
-EXPORT_SYMBOL_GPL(usb_kill_anchored_urbs);
+EXPORT_SYMBOL(usb_kill_anchored_urbs);
 
 
 /**
@@ -683,7 +684,7 @@ void usb_poison_anchored_urbs(struct usb_anchor *anchor)
 	}
 	spin_unlock_irq(&anchor->lock);
 }
-EXPORT_SYMBOL_GPL(usb_poison_anchored_urbs);
+EXPORT_SYMBOL(usb_poison_anchored_urbs);
 
 /**
  * usb_unpoison_anchored_urbs - let an anchor be used successfully again
@@ -704,7 +705,7 @@ void usb_unpoison_anchored_urbs(struct usb_anchor *anchor)
 	anchor->poisoned = 0;
 	spin_unlock_irqrestore(&anchor->lock, flags);
 }
-EXPORT_SYMBOL_GPL(usb_unpoison_anchored_urbs);
+EXPORT_SYMBOL(usb_unpoison_anchored_urbs);
 /**
  * usb_unlink_anchored_urbs - asynchronously cancel transfer requests en masse
  * @anchor: anchor the requests are bound to
@@ -726,7 +727,7 @@ void usb_unlink_anchored_urbs(struct usb_anchor *anchor)
 		usb_put_urb(victim);
 	}
 }
-EXPORT_SYMBOL_GPL(usb_unlink_anchored_urbs);
+EXPORT_SYMBOL(usb_unlink_anchored_urbs);
 
 /**
  * usb_wait_anchor_empty_timeout - wait for an anchor to be unused
@@ -742,7 +743,7 @@ int usb_wait_anchor_empty_timeout(struct usb_anchor *anchor,
 	return wait_event_timeout(anchor->wait, list_empty(&anchor->urb_list),
 				  msecs_to_jiffies(timeout));
 }
-EXPORT_SYMBOL_GPL(usb_wait_anchor_empty_timeout);
+EXPORT_SYMBOL(usb_wait_anchor_empty_timeout);
 
 /**
  * usb_get_from_anchor - get an anchor's oldest urb
@@ -770,7 +771,7 @@ struct urb *usb_get_from_anchor(struct usb_anchor *anchor)
 	return victim;
 }
 
-EXPORT_SYMBOL_GPL(usb_get_from_anchor);
+EXPORT_SYMBOL(usb_get_from_anchor);
 
 /**
  * usb_scuttle_anchored_urbs - unanchor all an anchor's urbs
@@ -792,7 +793,7 @@ void usb_scuttle_anchored_urbs(struct usb_anchor *anchor)
 	spin_unlock_irqrestore(&anchor->lock, flags);
 }
 
-EXPORT_SYMBOL_GPL(usb_scuttle_anchored_urbs);
+EXPORT_SYMBOL(usb_scuttle_anchored_urbs);
 
 /**
  * usb_anchor_empty - is an anchor empty
@@ -805,5 +806,5 @@ int usb_anchor_empty(struct usb_anchor *anchor)
 	return list_empty(&anchor->urb_list);
 }
 
-EXPORT_SYMBOL_GPL(usb_anchor_empty);
+EXPORT_SYMBOL(usb_anchor_empty);
 

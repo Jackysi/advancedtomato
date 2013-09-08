@@ -375,10 +375,10 @@ static void hptiop_host_request_callback(struct hptiop_hba *hba, u32 tag)
 		break;
 	case IOP_RESULT_MODE_SENSE_CHECK_CONDITION:
 		scp->result = SAM_STAT_CHECK_CONDITION;
-		memset(scp->sense_buffer,
-				0, SCSI_SENSE_BUFFERSIZE);
-		memcpy(scp->sense_buffer, &req->sg_list,
-				min(SCSI_SENSE_BUFFERSIZE,
+		memset(&scp->sense_buffer,
+				0, sizeof(scp->sense_buffer));
+		memcpy(&scp->sense_buffer, &req->sg_list,
+				min(sizeof(scp->sense_buffer),
 					le32_to_cpu(req->dataxfer_length)));
 		break;
 

@@ -600,9 +600,10 @@ static int __init shaper_init(void)
 		return -ENODEV;
 
 	alloc_size = sizeof(*dev) * shapers;
-	devs = kzalloc(alloc_size, GFP_KERNEL);
+	devs = kmalloc(alloc_size, GFP_KERNEL);
 	if (!devs)
 		return -ENOMEM;
+	memset(devs, 0, alloc_size);
 
 	for (i = 0; i < shapers; i++) {
 

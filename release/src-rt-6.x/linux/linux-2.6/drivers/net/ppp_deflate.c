@@ -121,11 +121,12 @@ static void *z_comp_alloc(unsigned char *options, int opt_len)
 	if (w_size < DEFLATE_MIN_SIZE || w_size > DEFLATE_MAX_SIZE)
 		return NULL;
 
-	state = kzalloc(sizeof(*state),
+	state = kmalloc(sizeof(*state),
 						     GFP_KERNEL);
 	if (state == NULL)
 		return NULL;
 
+	memset (state, 0, sizeof (struct ppp_deflate_state));
 	state->strm.next_in   = NULL;
 	state->w_size         = w_size;
 	state->strm.workspace = vmalloc(zlib_deflate_workspacesize());
@@ -340,10 +341,11 @@ static void *z_decomp_alloc(unsigned char *options, int opt_len)
 	if (w_size < DEFLATE_MIN_SIZE || w_size > DEFLATE_MAX_SIZE)
 		return NULL;
 
-	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state == NULL)
 		return NULL;
 
+	memset (state, 0, sizeof (struct ppp_deflate_state));
 	state->w_size         = w_size;
 	state->strm.next_out  = NULL;
 	state->strm.workspace = kmalloc(zlib_inflate_workspacesize(),

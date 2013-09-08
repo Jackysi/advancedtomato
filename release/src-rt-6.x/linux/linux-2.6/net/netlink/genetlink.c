@@ -27,6 +27,11 @@ static void genl_lock(void)
 	mutex_lock(&genl_mutex);
 }
 
+static int genl_trylock(void)
+{
+	return !mutex_trylock(&genl_mutex);
+}
+
 static void genl_unlock(void)
 {
 	mutex_unlock(&genl_mutex);
@@ -474,11 +479,16 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	return ops->doit(skb, &info);
 }
 
-static void genl_rcv(struct sk_buff *skb)
+static void genl_rcv(struct sock *sk, int len)
 {
-	genl_lock();
-	netlink_rcv_skb(skb, &genl_rcv_msg);
-	genl_unlock();
+	unsigned int qlen = 0;
+
+	do {
+		if (genl_trylock())
+			return;
+		netlink_run_queue(sk, &qlen, genl_rcv_msg);
+		genl_unlock();
+	} while (qlen && genl_sock && genl_sock->sk_receive_queue.qlen);
 }
 
 /**************************************************************************

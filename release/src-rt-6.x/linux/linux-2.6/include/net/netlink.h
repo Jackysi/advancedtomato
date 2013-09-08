@@ -214,9 +214,9 @@ struct nl_info {
 	u32			pid;
 };
 
-extern int		netlink_rcv_skb(struct sk_buff *skb,
-					int (*cb)(struct sk_buff *,
-						  struct nlmsghdr *));
+extern void		netlink_run_queue(struct sock *sk, unsigned int *qlen,
+					  int (*cb)(struct sk_buff *,
+						    struct nlmsghdr *));
 extern int		nlmsg_notify(struct sock *sk, struct sk_buff *skb,
 				     u32 pid, unsigned int group, int report,
 				     gfp_t flags);

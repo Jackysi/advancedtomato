@@ -140,13 +140,13 @@ static void rfkill_disconnect(struct input_handle *handle)
 static const struct input_device_id rfkill_ids[] = {
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
-		.evbit = { BIT_MASK(EV_KEY) },
-		.keybit = { [BIT_WORD(KEY_WLAN)] = BIT_MASK(KEY_WLAN) },
+		.evbit = { BIT(EV_KEY) },
+		.keybit = { [LONG(KEY_WLAN)] = BIT(KEY_WLAN) },
 	},
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
-		.evbit = { BIT_MASK(EV_KEY) },
-		.keybit = { [BIT_WORD(KEY_BLUETOOTH)] = BIT_MASK(KEY_BLUETOOTH) },
+		.evbit = { BIT(EV_KEY) },
+		.keybit = { [LONG(KEY_BLUETOOTH)] = BIT(KEY_BLUETOOTH) },
 	},
 	{ }
 };

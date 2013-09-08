@@ -42,7 +42,7 @@ static const struct inode_operations hugetlbfs_inode_operations;
 
 static struct backing_dev_info hugetlbfs_backing_dev_info = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 };
 
 int sysctl_hugetlb_shm_group;
@@ -802,15 +802,11 @@ static int __init init_hugetlbfs_fs(void)
 	int error;
 	struct vfsmount *vfsmount;
 
-	error = bdi_init(&hugetlbfs_backing_dev_info);
-	if (error)
-		return error;
-
 	hugetlbfs_inode_cachep = kmem_cache_create("hugetlbfs_inode_cache",
 					sizeof(struct hugetlbfs_inode_info),
 					0, 0, init_once, NULL);
 	if (hugetlbfs_inode_cachep == NULL)
-		goto out2;
+		return -ENOMEM;
 
 	error = register_filesystem(&hugetlbfs_fs_type);
 	if (error)
@@ -828,8 +824,6 @@ static int __init init_hugetlbfs_fs(void)
  out:
 	if (error)
 		kmem_cache_destroy(hugetlbfs_inode_cachep);
- out2:
-	bdi_destroy(&hugetlbfs_backing_dev_info);
 	return error;
 }
 
@@ -837,7 +831,6 @@ static void __exit exit_hugetlbfs_fs(void)
 {
 	kmem_cache_destroy(hugetlbfs_inode_cachep);
 	unregister_filesystem(&hugetlbfs_fs_type);
-	bdi_destroy(&hugetlbfs_backing_dev_info);
 }
 
 module_init(init_hugetlbfs_fs)

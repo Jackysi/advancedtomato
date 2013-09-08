@@ -94,6 +94,8 @@ source "drivers/usb/host/Kconfig"
 
 source "drivers/usb/class/Kconfig"
 
+source "drivers/usb/Beceem_driver/Kconfig"
+
 source "drivers/usb/storage/Kconfig"
 
 source "drivers/usb/image/Kconfig"
@@ -139,7 +141,5 @@ source "drivers/usb/misc/Kconfig"
 source "drivers/usb/atm/Kconfig"
 
 source "drivers/usb/gadget/Kconfig"
-
-source "drivers/usb/usbip/Kconfig"
 
 endif # USB_SUPPORT

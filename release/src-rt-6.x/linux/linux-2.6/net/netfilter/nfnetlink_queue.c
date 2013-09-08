@@ -619,7 +619,6 @@ static int
 nfqnl_mangle(void *data, int data_len, struct nfqnl_queue_entry *e)
 {
 	int diff;
-	int err;
 
 	diff = data_len - e->skb->len;
 	if (diff < 0) {
@@ -629,18 +628,25 @@ nfqnl_mangle(void *data, int data_len, struct nfqnl_queue_entry *e)
 		if (data_len > 0xFFFF)
 			return -EINVAL;
 		if (diff > skb_tailroom(e->skb)) {
-			err = pskb_expand_head(e->skb, 0,
-					       diff - skb_tailroom(e->skb),
-					       GFP_ATOMIC);
-			if (err) {
+			struct sk_buff *newskb;
+
+			newskb = skb_copy_expand(e->skb,
+						 skb_headroom(e->skb),
+						 diff,
+						 GFP_ATOMIC);
+			if (newskb == NULL) {
 				printk(KERN_WARNING "nf_queue: OOM "
 				      "in mangle, dropping packet\n");
-				return err;
+				return -ENOMEM;
 			}
+			if (e->skb->sk)
+				skb_set_owner_w(newskb, e->skb->sk);
+			kfree_skb(e->skb);
+			e->skb = newskb;
 		}
 		skb_put(e->skb, diff);
 	}
-	if (!skb_make_writable(e->skb, data_len))
+	if (!skb_make_writable(&e->skb, data_len))
 		return -ENOMEM;
 	skb_copy_to_linear_data(e->skb, data, data_len);
 	e->skb->ip_summed = CHECKSUM_NONE;
@@ -1053,8 +1059,22 @@ static struct seq_operations nfqnl_seq_ops = {
 
 static int nfqnl_open(struct inode *inode, struct file *file)
 {
-	return seq_open_private(file, &nfqnl_seq_ops,
-			sizeof(struct iter_state));
+	struct seq_file *seq;
+	struct iter_state *is;
+	int ret;
+
+	is = kzalloc(sizeof(*is), GFP_KERNEL);
+	if (!is)
+		return -ENOMEM;
+	ret = seq_open(file, &nfqnl_seq_ops);
+	if (ret < 0)
+		goto out_free;
+	seq = file->private_data;
+	seq->private = is;
+	return ret;
+out_free:
+	kfree(is);
+	return ret;
 }
 
 static const struct file_operations nfqnl_file_ops = {

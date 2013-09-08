@@ -33,7 +33,7 @@ MODULE_DESCRIPTION("IRC (DCC) NAT helper");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ip_nat_irc");
 
-static unsigned int help(struct sk_buff *skb,
+static unsigned int help(struct sk_buff **pskb,
 			 enum ip_conntrack_info ctinfo,
 			 unsigned int matchoff,
 			 unsigned int matchlen,
@@ -67,7 +67,7 @@ static unsigned int help(struct sk_buff *skb,
 	DEBUGP("nf_nat_irc: inserting '%s' == %u.%u.%u.%u, port %u\n",
 	       buffer, NIPQUAD(ip), port);
 
-	ret = nf_nat_mangle_tcp_packet(skb, exp->master, ctinfo,
+	ret = nf_nat_mangle_tcp_packet(pskb, exp->master, ctinfo,
 				       matchoff, matchlen, buffer,
 				       strlen(buffer));
 	if (ret != NF_ACCEPT)

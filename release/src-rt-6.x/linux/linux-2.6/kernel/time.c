@@ -58,9 +58,9 @@ EXPORT_SYMBOL(sys_tz);
 asmlinkage long sys_time(time_t __user * tloc)
 {
 	time_t i;
-	struct timespec tv;
+	struct timeval tv;
 
-	getnstimeofday(&tv);
+	do_gettimeofday(&tv);
 	i = tv.tv_sec;
 
 	if (tloc) {
@@ -149,6 +149,7 @@ static inline void warp_clock(void)
  * various programs will get confused when the clock gets warped.
  */
 
+#define DEBUG_TZ 0
 int do_sys_settimeofday(struct timespec *tv, struct timezone *tz)
 {
 	static int firsttime = 1;
@@ -175,8 +176,32 @@ int do_sys_settimeofday(struct timespec *tv, struct timezone *tz)
 		/* SMP safe, again the code in arch/foo/time.c should
 		 * globally block out interrupts when it runs.
 		 */
-		return do_settimeofday(tv);
+#if DEBUG_TZ
+		error = do_settimeofday(tv);
 	}
+	if (tz || tv) {
+		static int minutes = 0xdeadbeef;
+		if (tv) {
+			unsigned int s = tv->tv_sec % 86400;
+			unsigned int m = s / 60;
+			minutes = -sys_tz.tz_minuteswest;
+			printk(KERN_WARNING "set timezone %s%02d:%02d "
+			       "time %02d:%02d:%02d UTC\n",
+				minutes < 0 ? "" : "+",
+				minutes / 60, minutes % 60,
+				m / 60, m % 60, s % 60);
+			return error;
+		} else if (minutes != -sys_tz.tz_minuteswest) {
+			minutes = -sys_tz.tz_minuteswest;
+			printk(KERN_WARNING "set timezone %s%02d:%02d\n",
+				minutes < 0 ? "" : "+",
+				minutes / 60, minutes % 60);
+		}
+#else
+		return do_settimeofday(tv);
+#endif
+	}
+
 	return 0;
 }
 
@@ -373,25 +398,12 @@ void do_gettimeofday (struct timeval *tv)
 
 	tv->tv_sec = sec;
 	tv->tv_usec = usec;
-
-	/*
-	 * Make sure xtime.tv_sec [returned by sys_time()] always
-	 * follows the gettimeofday() result precisely. This
-	 * condition is extremely unlikely, it can hit at most
-	 * once per second:
-	 */
-	if (unlikely(xtime.tv_sec != tv->tv_sec)) {
-		unsigned long flags;
-
-		write_seqlock_irqsave(&xtime_lock, flags);
-		update_wall_time();
-		write_sequnlock_irqrestore(&xtime_lock, flags);
-	}
 }
+
 EXPORT_SYMBOL(do_gettimeofday);
 
-#else	/* CONFIG_TIME_INTERPOLATION */
 
+#else
 #ifndef CONFIG_GENERIC_TIME
 /*
  * Simulate gettimeofday using do_gettimeofday which only allows a timeval
@@ -407,7 +419,7 @@ void getnstimeofday(struct timespec *tv)
 }
 EXPORT_SYMBOL_GPL(getnstimeofday);
 #endif
-#endif	/* CONFIG_TIME_INTERPOLATION */
+#endif
 
 /* Converts Gregorian date to seconds since 1970-01-01 00:00:00.
  * Assumes input in normal date format, i.e. 1980-12-31 23:59:59

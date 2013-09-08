@@ -1159,10 +1159,11 @@ static int __imm_attach(struct parport *pb)
 
 	init_waitqueue_head(&waiting);
 
-	dev = kzalloc(sizeof(imm_struct), GFP_KERNEL);
+	dev = kmalloc(sizeof(imm_struct), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
+	memset(dev, 0, sizeof(imm_struct));
 
 	dev->base = -1;
 	dev->mode = IMM_AUTODETECT;

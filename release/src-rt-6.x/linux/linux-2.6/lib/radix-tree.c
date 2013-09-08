@@ -736,11 +736,10 @@ next:
 		}
 	}
 	/*
-	 * We need not to tag the root tag if there is no tag which is set with
-	 * settag within the range from *first_indexp to last_index.
+	 * The iftag must have been set somewhere because otherwise
+	 * we would return immediated at the beginning of the function
 	 */
-	if (tagged > 0)
-		root_tag_set(root, settag);
+	root_tag_set(root, settag);
 	*first_indexp = index;
 
 	return tagged;

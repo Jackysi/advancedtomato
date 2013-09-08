@@ -102,8 +102,6 @@ extern int		ip_mc_output(struct sk_buff *skb);
 extern int		ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
 extern int		ip_do_nat(struct sk_buff *skb);
 extern void		ip_send_check(struct iphdr *ip);
-extern int		__ip_local_out(struct sk_buff *skb);
-extern int		ip_local_out(struct sk_buff *skb);
 extern int		ip_queue_xmit(struct sk_buff *skb, int ipfragok);
 extern void		ip_init(void);
 extern int		ip_append_data(struct sock *sk,
@@ -333,7 +331,7 @@ enum ip_defrag_users
 	IP_DEFRAG_VS_FWD
 };
 
-int ip_defrag(struct sk_buff *skb, u32 user);
+struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user);
 extern int ip_frag_nqueues;
 extern atomic_t ip_frag_mem;
 

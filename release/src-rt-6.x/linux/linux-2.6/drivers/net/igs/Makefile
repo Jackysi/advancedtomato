@@ -1,27 +1,34 @@
 #
 # Makefile for the Broadcom IGS Layer
 #
-# Copyright (C) 2009, Broadcom Corporation
-# All Rights Reserved.
+# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
 # 
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.3 2008/08/13 20:20:16 Exp $
+# $Id: Makefile,v 1.3 2008-08-13 20:20:16 $
 #
 
-IGSSRCDIR := ../../../../../emf/igs
-EMFDIR := ../../../../../emf
+IGSSRCDIR := ../../../../../router/emf/igs
+IGSCSRCDIR := ../../../../../../$(SRCBASEDIR)/emf/igs
+EMFDIR := ../../../../../router/emf
 
-IGS_OBJS := $(IGSSRCDIR)/igsc.o $(IGSSRCDIR)/igsc_sdb.o $(IGSSRCDIR)/igs_linux.o \
-	    $(IGSSRCDIR)/osl_linux.o
+IGS_OBJS := $(IGSCSRCDIR)/igsc.o $(IGSCSRCDIR)/igsc_sdb.o $(IGSSRCDIR)/igs_linux.o \
+	    $(IGSCSRCDIR)/osl_linux.o
 
-# Search for sources under src/emf/igs
+# Search for sources under src/router/emf/igs
 ifneq ($(wildcard $(src)/$(IGSSRCDIR)),)
-	EXTRA_CFLAGS += -I$(IGSSRCDIR) -I$(EMFDIR)/emf
-	EXTRA_CFLAGS += -I../../include/emf/igs -I../../include/emf/emf
+	EXTRA_CFLAGS += -I../../router/emf/igs -I../../router/emf/emf
+	EXTRA_CFLAGS += -I../../../$(SRCBASEDIR)/include/emf/igs -I../../../$(SRCBASEDIR)/include/emf/emf
 	igs-objs := $(IGS_OBJS)
 else
 	igs-objs := $(EMFDIR)/igs.o
@@ -40,4 +47,4 @@ clean:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` clean
 endif
 
-clean-files += $(IGSSRCDIR)/*.o $(IGSSRCDIR)/.*.o.cmd
+clean-files += $(IGSCSRCDIR)/*.o $(IGSSRCDIR)/*.o $(IGSSRCDIR)/.*.o.cmd

@@ -1,6 +1,5 @@
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
-#include <linux/exportfs.h>
 #include <linux/iso_fs.h>
 #include <asm/unaligned.h>
 
@@ -178,4 +177,4 @@ isofs_normalize_block_and_offset(struct iso_directory_record* de,
 extern const struct inode_operations isofs_dir_inode_operations;
 extern const struct file_operations isofs_dir_operations;
 extern const struct address_space_operations isofs_symlink_aops;
-extern const struct export_operations isofs_export_ops;
+extern struct export_operations isofs_export_ops;

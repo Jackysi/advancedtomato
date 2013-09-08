@@ -41,14 +41,14 @@ MODULE_ALIAS("ip_conntrack_pptp");
 static DEFINE_SPINLOCK(nf_pptp_lock);
 
 int
-(*nf_nat_pptp_hook_outbound)(struct sk_buff *skb,
+(*nf_nat_pptp_hook_outbound)(struct sk_buff **pskb,
 			     struct nf_conn *ct, enum ip_conntrack_info ctinfo,
 			     struct PptpControlHeader *ctlh,
 			     union pptp_ctrl_union *pptpReq) __read_mostly;
 EXPORT_SYMBOL_GPL(nf_nat_pptp_hook_outbound);
 
 int
-(*nf_nat_pptp_hook_inbound)(struct sk_buff *skb,
+(*nf_nat_pptp_hook_inbound)(struct sk_buff **pskb,
 			    struct nf_conn *ct, enum ip_conntrack_info ctinfo,
 			    struct PptpControlHeader *ctlh,
 			    union pptp_ctrl_union *pptpReq) __read_mostly;
@@ -211,8 +211,7 @@ static int exp_gre(struct nf_conn *ct, __be16 callid, __be16 peer_callid)
 
 	/* original direction, PNS->PAC */
 	dir = IP_CT_DIR_ORIGINAL;
-	nf_conntrack_expect_init(exp_orig, NF_CT_EXPECT_CLASS_DEFAULT,
-				 ct->tuplehash[dir].tuple.src.l3num,
+	nf_conntrack_expect_init(exp_orig, ct->tuplehash[dir].tuple.src.l3num,
 				 &ct->tuplehash[dir].tuple.src.u3,
 				 &ct->tuplehash[dir].tuple.dst.u3,
 				 IPPROTO_GRE, &peer_callid, &callid);
@@ -220,8 +219,7 @@ static int exp_gre(struct nf_conn *ct, __be16 callid, __be16 peer_callid)
 
 	/* reply direction, PAC->PNS */
 	dir = IP_CT_DIR_REPLY;
-	nf_conntrack_expect_init(exp_reply, NF_CT_EXPECT_CLASS_DEFAULT,
-				 ct->tuplehash[dir].tuple.src.l3num,
+	nf_conntrack_expect_init(exp_reply, ct->tuplehash[dir].tuple.src.l3num,
 				 &ct->tuplehash[dir].tuple.src.u3,
 				 &ct->tuplehash[dir].tuple.dst.u3,
 				 IPPROTO_GRE, &callid, &peer_callid);
@@ -259,7 +257,7 @@ out_unexpect_orig:
 }
 
 static inline int
-pptp_inbound_pkt(struct sk_buff *skb,
+pptp_inbound_pkt(struct sk_buff **pskb,
 		 struct PptpControlHeader *ctlh,
 		 union pptp_ctrl_union *pptpReq,
 		 unsigned int reqlen,
@@ -372,7 +370,7 @@ pptp_inbound_pkt(struct sk_buff *skb,
 
 	nf_nat_pptp_inbound = rcu_dereference(nf_nat_pptp_hook_inbound);
 	if (nf_nat_pptp_inbound && ct->status & IPS_NAT_MASK)
-		return nf_nat_pptp_inbound(skb, ct, ctinfo, ctlh, pptpReq);
+		return nf_nat_pptp_inbound(pskb, ct, ctinfo, ctlh, pptpReq);
 	return NF_ACCEPT;
 
 invalid:
@@ -385,7 +383,7 @@ invalid:
 }
 
 static inline int
-pptp_outbound_pkt(struct sk_buff *skb,
+pptp_outbound_pkt(struct sk_buff **pskb,
 		  struct PptpControlHeader *ctlh,
 		  union pptp_ctrl_union *pptpReq,
 		  unsigned int reqlen,
@@ -467,7 +465,7 @@ pptp_outbound_pkt(struct sk_buff *skb,
 
 	nf_nat_pptp_outbound = rcu_dereference(nf_nat_pptp_hook_outbound);
 	if (nf_nat_pptp_outbound && ct->status & IPS_NAT_MASK)
-		return nf_nat_pptp_outbound(skb, ct, ctinfo, ctlh, pptpReq);
+		return nf_nat_pptp_outbound(pskb, ct, ctinfo, ctlh, pptpReq);
 	return NF_ACCEPT;
 
 invalid:
@@ -497,7 +495,7 @@ static const unsigned int pptp_msg_size[] = {
 
 /* track caller id inside control connection, call expect_related */
 static int
-conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
+conntrack_pptp_help(struct sk_buff **pskb, unsigned int protoff,
 		    struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 
 {
@@ -507,7 +505,7 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 	struct pptp_pkt_hdr _pptph, *pptph;
 	struct PptpControlHeader _ctlh, *ctlh;
 	union pptp_ctrl_union _pptpReq, *pptpReq;
-	unsigned int tcplen = skb->len - protoff;
+	unsigned int tcplen = (*pskb)->len - protoff;
 	unsigned int datalen, reqlen, nexthdr_off;
 	int oldsstate, oldcstate;
 	int ret;
@@ -519,12 +517,12 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 		return NF_ACCEPT;
 
 	nexthdr_off = protoff;
-	tcph = skb_header_pointer(skb, nexthdr_off, sizeof(_tcph), &_tcph);
+	tcph = skb_header_pointer(*pskb, nexthdr_off, sizeof(_tcph), &_tcph);
 	BUG_ON(!tcph);
 	nexthdr_off += tcph->doff * 4;
 	datalen = tcplen - tcph->doff * 4;
 
-	pptph = skb_header_pointer(skb, nexthdr_off, sizeof(_pptph), &_pptph);
+	pptph = skb_header_pointer(*pskb, nexthdr_off, sizeof(_pptph), &_pptph);
 	if (!pptph) {
 		DEBUGP("no full PPTP header, can't track\n");
 		return NF_ACCEPT;
@@ -539,7 +537,7 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 		return NF_ACCEPT;
 	}
 
-	ctlh = skb_header_pointer(skb, nexthdr_off, sizeof(_ctlh), &_ctlh);
+	ctlh = skb_header_pointer(*pskb, nexthdr_off, sizeof(_ctlh), &_ctlh);
 	if (!ctlh)
 		return NF_ACCEPT;
 	nexthdr_off += sizeof(_ctlh);
@@ -552,7 +550,7 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 	if (reqlen > sizeof(*pptpReq))
 		reqlen = sizeof(*pptpReq);
 
-	pptpReq = skb_header_pointer(skb, nexthdr_off, reqlen, &_pptpReq);
+	pptpReq = skb_header_pointer(*pskb, nexthdr_off, reqlen, &_pptpReq);
 	if (!pptpReq)
 		return NF_ACCEPT;
 
@@ -565,11 +563,11 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 	 * established from PNS->PAC.  However, RFC makes no guarantee */
 	if (dir == IP_CT_DIR_ORIGINAL)
 		/* client -> server (PNS -> PAC) */
-		ret = pptp_outbound_pkt(skb, ctlh, pptpReq, reqlen, ct,
+		ret = pptp_outbound_pkt(pskb, ctlh, pptpReq, reqlen, ct,
 					ctinfo);
 	else
 		/* server -> client (PAC -> PNS) */
-		ret = pptp_inbound_pkt(skb, ctlh, pptpReq, reqlen, ct,
+		ret = pptp_inbound_pkt(pskb, ctlh, pptpReq, reqlen, ct,
 				       ctinfo);
 	DEBUGP("sstate: %d->%d, cstate: %d->%d\n",
 		oldsstate, info->sstate, oldcstate, info->cstate);
@@ -578,15 +576,12 @@ conntrack_pptp_help(struct sk_buff *skb, unsigned int protoff,
 	return ret;
 }
 
-static const struct nf_conntrack_expect_policy pptp_exp_policy = {
-	.max_expected	= 2,
-	.timeout	= 5 * 60,
-};
-
 /* control protocol helper */
 static struct nf_conntrack_helper pptp __read_mostly = {
 	.name			= "pptp",
 	.me			= THIS_MODULE,
+	.max_expected		= 2,
+	.timeout		= 5 * 60,
 	.tuple.src.l3num	= AF_INET,
 	.tuple.src.u.tcp.port	= __constant_htons(PPTP_CONTROL_PORT),
 	.tuple.dst.protonum	= IPPROTO_TCP,
@@ -595,7 +590,6 @@ static struct nf_conntrack_helper pptp __read_mostly = {
 	.mask.dst.protonum	= 0xff,
 	.help			= conntrack_pptp_help,
 	.destroy		= pptp_destroy_siblings,
-	.expect_policy		= &pptp_exp_policy,
 };
 
 static int __init nf_conntrack_pptp_init(void)

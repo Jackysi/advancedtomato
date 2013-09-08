@@ -144,7 +144,7 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 #else
 	idx += in_interrupt() ? FIX_N_COLOURS : 0;
 #endif
-	vaddr = __fix_to_virt(FIX_CMAP_END - idx);
+	vaddr = fix_to_virt(FIX_CMAP_END - idx);
 	pte = mk_pte(page, PAGE_KERNEL);
 #if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
 	entrylo = pte.pte_high;
@@ -311,11 +311,11 @@ void __init fixrange_init(unsigned long start, unsigned long end,
 	k = __pmd_offset(vaddr);
 	pgd = pgd_base + i;
 
-	for ( ; (i < PTRS_PER_PGD) && (vaddr < end); pgd++, i++) {
+	for ( ; (i < PTRS_PER_PGD) && (vaddr != end); pgd++, i++) {
 		pud = (pud_t *)pgd;
-		for ( ; (j < PTRS_PER_PUD) && (vaddr < end); pud++, j++) {
+		for ( ; (j < PTRS_PER_PUD) && (vaddr != end); pud++, j++) {
 			pmd = (pmd_t *)pud;
-			for (; (k < PTRS_PER_PMD) && (vaddr < end); pmd++, k++) {
+			for (; (k < PTRS_PER_PMD) && (vaddr != end); pmd++, k++) {
 				if (pmd_none(*pmd)) {
 					pte = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
 					set_pmd(pmd, __pmd((unsigned long)pte));
@@ -364,7 +364,7 @@ void __init paging_init(void)
 #endif /* CONFIG_FLATMEM */
 
 	cpu_early_probe_cache();
-
+	
 	pagetable_init();
 
 #ifdef CONFIG_HIGHMEM
@@ -548,3 +548,4 @@ pgd_t module_pg_dir[PTRS_PER_PGD] __page_aligned(PGD_ORDER);
 pmd_t invalid_pmd_table[PTRS_PER_PMD] __page_aligned(PMD_ORDER);
 #endif
 pte_t invalid_pte_table[PTRS_PER_PTE] __page_aligned(PTE_ORDER);
+

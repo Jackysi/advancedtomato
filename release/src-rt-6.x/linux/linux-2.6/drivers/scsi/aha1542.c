@@ -546,7 +546,7 @@ static void aha1542_intr_handle(struct Scsi_Host *shost, void *dev_id)
 		   we will still have it in the cdb when we come back */
 		if (ccb[mbo].tarstat == 2)
 			memcpy(SCtmp->sense_buffer, &ccb[mbo].cdb[ccb[mbo].cdblen],
-			       SCSI_SENSE_BUFFERSIZE);
+			       sizeof(SCtmp->sense_buffer));
 
 
 		/* is there mail :-) */
@@ -620,7 +620,7 @@ static int aha1542_queuecommand(Scsi_Cmnd * SCpnt, void (*done) (Scsi_Cmnd *))
 #if 0
 		/* scsi_request_sense() provides a buffer of size 256,
 		   so there is no reason to expect equality */
-		if (bufflen != SCSI_SENSE_BUFFERSIZE)
+		if (bufflen != sizeof(SCpnt->sense_buffer))
 			printk(KERN_CRIT "aha1542: Wrong buffer length supplied "
 			       "for request sense (%d)\n", bufflen);
 #endif

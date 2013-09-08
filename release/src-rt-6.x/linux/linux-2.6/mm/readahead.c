@@ -260,12 +260,6 @@ out:
  * the request (I/O request > max_readahead).
  */
 
-static int __init readahead_init(void)
-{
-	return bdi_init(&default_backing_dev_info);
-}
-subsys_initcall(readahead_init);
-
 /*
  * do_page_cache_readahead actually reads a chunk of disk.  It allocates all
  * the pages first, then submits them all for I/O. This avoids the very bad

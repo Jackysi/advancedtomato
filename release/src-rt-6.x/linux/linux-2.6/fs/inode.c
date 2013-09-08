@@ -145,7 +145,9 @@ static struct inode *alloc_inode(struct super_block *sb)
 		mapping->a_ops = &empty_aops;
  		mapping->host = inode;
 		mapping->flags = 0;
+#if 1		/* Try avoid allocating inode from highmem zone */
 		mapping_set_gfp_mask(mapping, GFP_HIGHUSER_PAGECACHE);
+#endif
 		mapping->assoc_mapping = NULL;
 		mapping->backing_dev_info = &default_backing_dev_info;
 

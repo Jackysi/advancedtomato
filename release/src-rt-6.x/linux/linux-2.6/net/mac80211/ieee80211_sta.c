@@ -1282,9 +1282,10 @@ ieee80211_rx_bss_add(struct net_device *dev, u8 *bssid)
 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
 	struct ieee80211_sta_bss *bss;
 
-	bss = kzalloc(sizeof(*bss), GFP_ATOMIC);
+	bss = kmalloc(sizeof(*bss), GFP_ATOMIC);
 	if (!bss)
 		return NULL;
+	memset(bss, 0, sizeof(*bss));
 	atomic_inc(&bss->users);
 	atomic_inc(&bss->users);
 	memcpy(bss->bssid, bssid, ETH_ALEN);

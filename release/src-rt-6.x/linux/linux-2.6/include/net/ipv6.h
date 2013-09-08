@@ -242,7 +242,7 @@ extern int 			ip6_ra_control(struct sock *sk, int sel,
 					       void (*destructor)(struct sock *));
 
 
-extern int			ipv6_parse_hopopts(struct sk_buff *skb);
+extern int			ipv6_parse_hopopts(struct sk_buff **skbp);
 
 extern struct ipv6_txoptions *  ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt);
 extern struct ipv6_txoptions *	ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
@@ -258,8 +258,6 @@ extern int ip6_frag_nqueues;
 extern atomic_t ip6_frag_mem;
 
 #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
-
-#define INETFRAGS_HASHSZ	64
 
 /*
  *	Function prototype for build_xmit
@@ -300,10 +298,12 @@ static inline int
 ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
 		     const struct in6_addr *a2)
 {
-	return (!!(((a1->s6_addr32[0] ^ a2->s6_addr32[0]) & m->s6_addr32[0]) |
-		   ((a1->s6_addr32[1] ^ a2->s6_addr32[1]) & m->s6_addr32[1]) |
-		   ((a1->s6_addr32[2] ^ a2->s6_addr32[2]) & m->s6_addr32[2]) |
-		   ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3])));
+	unsigned int i;
+
+	for (i = 0; i < 4; i++)
+		if ((a1->s6_addr32[i] ^ a2->s6_addr32[i]) & m->s6_addr32[i])
+			return 1;
+	return 0;
 }
 
 static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
@@ -338,10 +338,10 @@ static inline void ipv6_addr_set(struct in6_addr *addr,
 static inline int ipv6_addr_equal(const struct in6_addr *a1,
 				  const struct in6_addr *a2)
 {
-	return (((a1->s6_addr32[0] ^ a2->s6_addr32[0]) |
-		 (a1->s6_addr32[1] ^ a2->s6_addr32[1]) |
-		 (a1->s6_addr32[2] ^ a2->s6_addr32[2]) |
-		 (a1->s6_addr32[3] ^ a2->s6_addr32[3])) == 0);
+	return (a1->s6_addr32[0] == a2->s6_addr32[0] &&
+		a1->s6_addr32[1] == a2->s6_addr32[1] &&
+		a1->s6_addr32[2] == a2->s6_addr32[2] &&
+		a1->s6_addr32[3] == a2->s6_addr32[3]);
 }
 
 static inline int __ipv6_prefix_equal(const __be32 *a1, const __be32 *a2,
@@ -376,27 +376,6 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
 }
 
-static inline int ipv6_addr_loopback(const struct in6_addr *a)
-{
-	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0);
-}
-
-static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
-{
-	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
-}
-
-static inline void ipv6_addr_set_v4mapped(const __be32 addr,
-					  struct in6_addr *v4mapped)
-{
-	ipv6_addr_set(v4mapped,
-			0, 0,
-			htonl(0x0000FFFF),
-			addr);
-}
-
 /*
  * find the first different bit between two addresses
  * length of address must be a multiple of 32bits
@@ -411,7 +390,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
 	for (i = 0; i < addrlen; i++) {
 		__be32 xb = a1[i] ^ a2[i];
 		if (xb)
-			return i * 32 + 31 - __fls(ntohl(xb));
+			return i * 32 + 32 - fls(ntohl(xb));
 	}
 
 	/*
@@ -505,9 +484,6 @@ extern int			ip6_output(struct sk_buff *skb);
 extern int			ip6_forward(struct sk_buff *skb);
 extern int			ip6_input(struct sk_buff *skb);
 extern int			ip6_mc_input(struct sk_buff *skb);
-
-extern int			__ip6_local_out(struct sk_buff *skb);
-extern int			ip6_local_out(struct sk_buff *skb);
 
 /*
  *	Extension header (options) processing
@@ -606,8 +582,6 @@ extern int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf);
 extern int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
 			 struct group_filter __user *optval,
 			 int __user *optlen);
-extern unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
-				    const struct in6_addr *daddr, u32 rnd);
 
 #ifdef CONFIG_PROC_FS
 extern int  ac6_proc_init(void);

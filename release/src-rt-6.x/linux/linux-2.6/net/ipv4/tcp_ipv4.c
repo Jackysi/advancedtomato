@@ -81,6 +81,11 @@
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
 
+#ifdef CONFIG_INET_GRO
+#include <typedefs.h>
+#include <bcmdefs.h>
+#endif /* CONFIG_INET_GRO */
+
 int sysctl_tcp_tw_reuse __read_mostly;
 int sysctl_tcp_low_latency __read_mostly;
 
@@ -1455,10 +1460,6 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 	tcp_mtup_init(newsk);
 	tcp_sync_mss(newsk, dst_mtu(dst));
 	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
-	if (tcp_sk(sk)->rx_opt.user_mss &&
-	    tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
-		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
-
 	tcp_initialize_rcv_mss(newsk);
 
 #ifdef CONFIG_TCP_MD5SIG
@@ -2211,18 +2212,32 @@ static void tcp_seq_stop(struct seq_file *seq, void *v)
 static int tcp_seq_open(struct inode *inode, struct file *file)
 {
 	struct tcp_seq_afinfo *afinfo = PDE(inode)->data;
+	struct seq_file *seq;
 	struct tcp_iter_state *s;
+	int rc;
 
 	if (unlikely(afinfo == NULL))
 		return -EINVAL;
 
-	s = __seq_open_private(file, &afinfo->seq_ops,
-				sizeof(struct tcp_iter_state));
+	s = kzalloc(sizeof(*s), GFP_KERNEL);
 	if (!s)
 		return -ENOMEM;
 	s->family		= afinfo->family;
+	s->seq_ops.start	= tcp_seq_start;
+	s->seq_ops.next		= tcp_seq_next;
+	s->seq_ops.show		= afinfo->seq_show;
+	s->seq_ops.stop		= tcp_seq_stop;
 
-	return 0;
+	rc = seq_open(file, &s->seq_ops);
+	if (rc)
+		goto out_kfree;
+	seq	     = file->private_data;
+	seq->private = s;
+out:
+	return rc;
+out_kfree:
+	kfree(s);
+	goto out;
 }
 
 int tcp_proc_register(struct tcp_seq_afinfo *afinfo)
@@ -2232,17 +2247,13 @@ int tcp_proc_register(struct tcp_seq_afinfo *afinfo)
 
 	if (!afinfo)
 		return -EINVAL;
-	afinfo->seq_fops.owner		= afinfo->owner;
-	afinfo->seq_fops.open		= tcp_seq_open;
-	afinfo->seq_fops.read		= seq_read;
-	afinfo->seq_fops.llseek		= seq_lseek;
-	afinfo->seq_fops.release	= seq_release_private;
+	afinfo->seq_fops->owner		= afinfo->owner;
+	afinfo->seq_fops->open		= tcp_seq_open;
+	afinfo->seq_fops->read		= seq_read;
+	afinfo->seq_fops->llseek	= seq_lseek;
+	afinfo->seq_fops->release	= seq_release_private;
 
-	afinfo->seq_ops.start		= tcp_seq_start;
-	afinfo->seq_ops.next		= tcp_seq_next;
-	afinfo->seq_ops.stop		= tcp_seq_stop;
-
-	p = proc_net_fops_create(afinfo->name, S_IRUGO, &afinfo->seq_fops);
+	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
 	if (p)
 		p->data = afinfo;
 	else
@@ -2255,16 +2266,17 @@ void tcp_proc_unregister(struct tcp_seq_afinfo *afinfo)
 	if (!afinfo)
 		return;
 	proc_net_remove(afinfo->name);
+	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
 }
 
 static void get_openreq4(struct sock *sk, struct request_sock *req,
-			 struct seq_file *f, int i, int uid, int *len)
+			 char *tmpbuf, int i, int uid)
 {
 	const struct inet_request_sock *ireq = inet_rsk(req);
 	int ttd = req->expires - jiffies;
 
-	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p%n",
+	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p",
 		i,
 		ireq->loc_addr,
 		ntohs(inet_sk(sk)->sport),
@@ -2279,11 +2291,10 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
 		0,  /* non standard timer */
 		0, /* open_requests have no inode */
 		atomic_read(&sk->sk_refcnt),
-		req,
-		len);
+		req);
 }
 
-static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+static void get_tcp4_sock(struct sock *sk, char *tmpbuf, int i)
 {
 	int timer_active;
 	unsigned long timer_expires;
@@ -2309,8 +2320,8 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
 		timer_expires = jiffies;
 	}
 
-	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
-			"%08X %5d %8d %lu %d %p %u %u %u %u %d%n",
+	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
 		i, src, srcp, dest, destp, sk->sk_state,
 		tp->write_seq - tp->snd_una,
 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
@@ -2326,12 +2337,11 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
 		icsk->icsk_ack.ato,
 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
 		tp->snd_cwnd,
-		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh,
-		len);
+		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh);
 }
 
 static void get_timewait4_sock(struct inet_timewait_sock *tw,
-			       struct seq_file *f, int i, int *len)
+			       char *tmpbuf, int i)
 {
 	__be32 dest, src;
 	__u16 destp, srcp;
@@ -2345,11 +2355,11 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 	destp = ntohs(tw->tw_dport);
 	srcp  = ntohs(tw->tw_sport);
 
-	seq_printf(f, "%4d: %08X:%04X %08X:%04X"
-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p%n",
+	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p",
 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
 		3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
-		atomic_read(&tw->tw_refcnt), tw, len);
+		atomic_read(&tw->tw_refcnt), tw);
 }
 
 #define TMPSZ 150
@@ -2357,7 +2367,7 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 static int tcp4_seq_show(struct seq_file *seq, void *v)
 {
 	struct tcp_iter_state* st;
-	int len;
+	char tmpbuf[TMPSZ + 1];
 
 	if (v == SEQ_START_TOKEN) {
 		seq_printf(seq, "%-*s\n", TMPSZ - 1,
@@ -2371,27 +2381,27 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
 	switch (st->state) {
 	case TCP_SEQ_STATE_LISTENING:
 	case TCP_SEQ_STATE_ESTABLISHED:
-		get_tcp4_sock(v, seq, st->num, &len);
+		get_tcp4_sock(v, tmpbuf, st->num);
 		break;
 	case TCP_SEQ_STATE_OPENREQ:
-		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid, &len);
+		get_openreq4(st->syn_wait_sk, v, tmpbuf, st->num, st->uid);
 		break;
 	case TCP_SEQ_STATE_TIME_WAIT:
-		get_timewait4_sock(v, seq, st->num, &len);
+		get_timewait4_sock(v, tmpbuf, st->num);
 		break;
 	}
-	seq_printf(seq, "%*s\n", TMPSZ - 1 - len, "");
+	seq_printf(seq, "%-*s\n", TMPSZ - 1, tmpbuf);
 out:
 	return 0;
 }
 
+static struct file_operations tcp4_seq_fops;
 static struct tcp_seq_afinfo tcp4_seq_afinfo = {
 	.owner		= THIS_MODULE,
 	.name		= "tcp",
 	.family		= AF_INET,
-	.seq_ops	= {
-		.show		= tcp4_seq_show,
-	},
+	.seq_show	= tcp4_seq_show,
+	.seq_fops	= &tcp4_seq_fops,
 };
 
 int __init tcp4_proc_init(void)
@@ -2404,6 +2414,27 @@ void tcp4_proc_exit(void)
 	tcp_proc_unregister(&tcp4_seq_afinfo);
 }
 #endif /* CONFIG_PROC_FS */
+
+#ifdef CONFIG_INET_GRO
+struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+{
+	return tcp_gro_receive(head, skb);
+}
+EXPORT_SYMBOL(tcp4_gro_receive);
+
+int BCMFASTPATH_HOST tcp4_gro_complete(struct sk_buff *skb)
+{
+	struct iphdr *iph = ip_hdr(skb);
+	struct tcphdr *th = tcp_hdr(skb);
+
+	th->check = ~tcp_v4_check(skb->len - skb_transport_offset(skb),
+				  iph->saddr, iph->daddr, 0);
+	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+
+	return tcp_gro_complete(skb);
+}
+EXPORT_SYMBOL(tcp4_gro_complete);
+#endif /* CONFIG_INET_GRO */
 
 struct proto tcp_prot = {
 	.name			= "TCP",
@@ -2465,4 +2496,3 @@ EXPORT_SYMBOL(tcp_proc_unregister);
 #endif
 EXPORT_SYMBOL(sysctl_local_port_range);
 EXPORT_SYMBOL(sysctl_tcp_low_latency);
-

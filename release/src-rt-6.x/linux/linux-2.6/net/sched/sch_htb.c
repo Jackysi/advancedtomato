@@ -71,7 +71,7 @@
 #define HTB_HSIZE 16		/* classid hash size */
 #define HTB_EWMAC 2		/* rate average over HTB_EWMAC*HTB_HSIZE sec */
 #define HTB_RATECM 1		/* whether to use rate computer */
-//#define HTB_HYSTERESIS 0	/* whether to use mode hysteresis for speedup */
+#define HTB_HYSTERESIS 0	/* whether to use mode hysteresis for speedup */
 #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
 
 #if HTB_VER >> 16 != TC_HTB_PROTOVER
@@ -157,10 +157,12 @@ struct htb_class {
 static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
 			   int size)
 {
-	long result = qdisc_l2t(rate, size);
-	    if (result > rate->data[255])
+	int slot = size >> rate->rate.cell_log;
+	if (slot > 255) {
 		cl->xstats.giants++;
-	return result;
+		slot = 255;
+	}
+	return rate->data[slot];
 }
 
 struct htb_sched {
@@ -630,7 +632,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		   NET_XMIT_SUCCESS) {
 		sch->qstats.drops++;
 		cl->qstats.drops++;
-		return ret;
+		return NET_XMIT_DROP;
 	} else {
 		cl->bstats.packets++;
 		cl->bstats.bytes += skb->len;
@@ -646,14 +648,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 /* TODO: requeuing packet charges it to policers again !! */
 static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
 {
-	int ret;
 	struct htb_sched *q = qdisc_priv(sch);
+	int ret = NET_XMIT_SUCCESS;
 	struct htb_class *cl = htb_classify(skb, sch, &ret);
 	struct sk_buff *tskb;
 
-	if (cl == HTB_DIRECT) {
+	if (cl == HTB_DIRECT || !cl) {
 		/* enqueue to helper queue */
-		if (q->direct_queue.qlen < q->direct_qlen) {
+		if (q->direct_queue.qlen < q->direct_qlen && cl) {
 			__skb_queue_head(&q->direct_queue, skb);
 		} else {
 			__skb_queue_head(&q->direct_queue, skb);
@@ -662,18 +664,11 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
 			sch->qstats.drops++;
 			return NET_XMIT_CN;
 		}
-#ifdef CONFIG_NET_CLS_ACT
-	} else if (!cl) {
-		if (ret == NET_XMIT_BYPASS)
-			sch->qstats.drops++;
-		kfree_skb(skb);
-		return ret;
-#endif
 	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
 		   NET_XMIT_SUCCESS) {
 		sch->qstats.drops++;
 		cl->qstats.drops++;
-		return ret;
+		return NET_XMIT_DROP;
 	} else
 		htb_activate(q, cl);
 
@@ -1256,15 +1251,11 @@ static inline int htb_parent_last_child(struct htb_class *cl)
 	return 1;
 }
 
-static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
-			       struct Qdisc *new_q)
+static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
 {
 	struct htb_class *parent = cl->parent;
 
 	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
-
-	if (parent->cmode != HTB_CAN_SEND)
-		htb_safe_rb_erase(&parent->pq_node, q->wait_pq + parent->level);
 
 	parent->level = 0;
 	memset(&parent->un.inner, 0, sizeof(parent->un.inner));
@@ -1365,7 +1356,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
 		htb_deactivate(q, cl);
 
 	if (last_child)
-		htb_parent_to_leaf(q, cl, new_q);
+		htb_parent_to_leaf(cl, new_q);
 
 	if (--cl->refcnt == 0)
 		htb_destroy_class(sch, cl);

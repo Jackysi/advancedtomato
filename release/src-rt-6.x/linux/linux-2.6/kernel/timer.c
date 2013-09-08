@@ -1186,6 +1186,13 @@ asmlinkage long sys_sysinfo(struct sysinfo __user *info)
 	return 0;
 }
 
+/*
+ * lockdep: we want to track each per-CPU base as a separate lock-class,
+ * but timer-bases are kmalloc()-ed, so we need to attach separate
+ * keys to them:
+ */
+static struct lock_class_key base_lock_keys[NR_CPUS];
+
 static int __devinit init_timers_cpu(int cpu)
 {
 	int j;
@@ -1199,8 +1206,7 @@ static int __devinit init_timers_cpu(int cpu)
 			/*
 			 * The APs use this path later in boot
 			 */
-			base = kmalloc_node(sizeof(*base),
-						GFP_KERNEL | __GFP_ZERO,
+			base = kmalloc_node(sizeof(*base), GFP_KERNEL,
 						cpu_to_node(cpu));
 			if (!base)
 				return -ENOMEM;
@@ -1211,6 +1217,7 @@ static int __devinit init_timers_cpu(int cpu)
 				kfree(base);
 				return -ENOMEM;
 			}
+			memset(base, 0, sizeof(*base));
 			per_cpu(tvec_bases, cpu) = base;
 		} else {
 			/*
@@ -1228,6 +1235,7 @@ static int __devinit init_timers_cpu(int cpu)
 	}
 
 	spin_lock_init(&base->lock);
+	lockdep_set_class(&base->lock, base_lock_keys + cpu);
 
 	for (j = 0; j < TVN_SIZE; j++) {
 		INIT_LIST_HEAD(base->tv5.vec + j);
@@ -1266,8 +1274,8 @@ static void __devinit migrate_timers(int cpu)
 	new_base = get_cpu_var(tvec_bases);
 
 	local_irq_disable();
-	spin_lock(&new_base->lock);
-	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+	double_spin_lock(&new_base->lock, &old_base->lock,
+			 smp_processor_id() < cpu);
 
 	BUG_ON(old_base->running_timer);
 
@@ -1280,8 +1288,8 @@ static void __devinit migrate_timers(int cpu)
 		migrate_timer_list(new_base, old_base->tv5.vec + i);
 	}
 
-	spin_unlock(&old_base->lock);
-	spin_unlock(&new_base->lock);
+	double_spin_unlock(&new_base->lock, &old_base->lock,
+			   smp_processor_id() < cpu);
 	local_irq_enable();
 	put_cpu_var(tvec_bases);
 }

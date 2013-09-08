@@ -12,8 +12,7 @@
 # for "archclean" cleaning up for this architecture.
 #
 
-cflags-y := -ffunction-sections
-cflags-y += $(call cc-option, -mno-check-zero-division)
+cflags-y :=
 
 #
 # Select the object file format to substitute into the linker script.
@@ -656,6 +655,8 @@ CPPFLAGS_vmlinux.lds := \
 head-y := arch/mips/kernel/head.o arch/mips/kernel/init_task.o
 
 libs-y			+= arch/mips/lib/
+libs-$(CONFIG_32BIT)	+= arch/mips/lib-32/
+libs-$(CONFIG_64BIT)	+= arch/mips/lib-64/
 
 core-y			+= arch/mips/kernel/ arch/mips/mm/ arch/mips/math-emu/
 

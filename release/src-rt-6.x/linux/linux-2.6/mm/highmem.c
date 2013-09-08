@@ -28,6 +28,10 @@
 #include <linux/highmem.h>
 #include <linux/blktrace_api.h>
 #include <asm/tlbflush.h>
+void __this_fixmap_does_not_exist(void)
+{
+	panic("\n !!!! error , this fixmap not match ");
+}
 
 /*
  * Virtual_count is not a pure "count".

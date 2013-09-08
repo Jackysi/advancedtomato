@@ -29,7 +29,7 @@ static unsigned int dcc_timeout __read_mostly = 300;
 static char *irc_buffer;
 static DEFINE_SPINLOCK(irc_buffer_lock);
 
-unsigned int (*nf_nat_irc_hook)(struct sk_buff *skb,
+unsigned int (*nf_nat_irc_hook)(struct sk_buff **pskb,
 				enum ip_conntrack_info ctinfo,
 				unsigned int matchoff,
 				unsigned int matchlen,
@@ -95,7 +95,7 @@ static int parse_dcc(char *data, char *data_end, u_int32_t *ip,
 	return 0;
 }
 
-static int help(struct sk_buff *skb, unsigned int protoff,
+static int help(struct sk_buff **pskb, unsigned int protoff,
 		struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	unsigned int dataoff;
@@ -121,22 +121,22 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 		return NF_ACCEPT;
 
 	/* Not a full tcp header? */
-	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(*pskb, protoff, sizeof(_tcph), &_tcph);
 	if (th == NULL)
 		return NF_ACCEPT;
 
 	/* No data? */
 	dataoff = protoff + th->doff*4;
-	if (dataoff >= skb->len)
+	if (dataoff >= (*pskb)->len)
 		return NF_ACCEPT;
 
 	spin_lock_bh(&irc_buffer_lock);
-	ib_ptr = skb_header_pointer(skb, dataoff, skb->len - dataoff,
+	ib_ptr = skb_header_pointer(*pskb, dataoff, (*pskb)->len - dataoff,
 				    irc_buffer);
 	BUG_ON(ib_ptr == NULL);
 
 	data = ib_ptr;
-	data_limit = ib_ptr + skb->len - dataoff;
+	data_limit = ib_ptr + (*pskb)->len - dataoff;
 
 	/* strlen("\1DCC SENT t AAAAAAAA P\1\n")=24
 	 * 5+MINMATCHLEN+strlen("t AAAAAAAA P\1\n")=14 */
@@ -191,14 +191,13 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			}
 			tuple = &ct->tuplehash[!dir].tuple;
 			port = htons(dcc_port);
-			nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
-						 tuple->src.l3num,
+			nf_conntrack_expect_init(exp, tuple->src.l3num,
 						 NULL, &tuple->dst.u3,
 						 IPPROTO_TCP, NULL, &port);
 
 			nf_nat_irc = rcu_dereference(nf_nat_irc_hook);
 			if (nf_nat_irc && ct->status & IPS_NAT_MASK)
-				ret = nf_nat_irc(skb, ctinfo,
+				ret = nf_nat_irc(pskb, ctinfo,
 						 addr_beg_p - ib_ptr,
 						 addr_end_p - addr_beg_p,
 						 exp);
@@ -215,7 +214,6 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 
 static struct nf_conntrack_helper irc[MAX_PORTS] __read_mostly;
 static char irc_names[MAX_PORTS][sizeof("irc-65535")] __read_mostly;
-static struct nf_conntrack_expect_policy irc_exp_policy;
 
 static void nf_conntrack_irc_fini(void);
 
@@ -228,9 +226,6 @@ static int __init nf_conntrack_irc_init(void)
 		printk("nf_ct_irc: max_dcc_channels must not be zero\n");
 		return -EINVAL;
 	}
-
-	irc_exp_policy.max_expected = max_dcc_channels;
-	irc_exp_policy.timeout = dcc_timeout;
 
 	irc_buffer = kmalloc(65536, GFP_KERNEL);
 	if (!irc_buffer)
@@ -247,7 +242,8 @@ static int __init nf_conntrack_irc_init(void)
 		irc[i].mask.src.l3num = 0xFFFF;
 		irc[i].mask.src.u.tcp.port = htons(0xFFFF);
 		irc[i].mask.dst.protonum = 0xFF;
-		irc[i].expect_policy = &irc_exp_policy;
+		irc[i].max_expected = max_dcc_channels;
+		irc[i].timeout = dcc_timeout;
 		irc[i].me = THIS_MODULE;
 		irc[i].help = help;
 

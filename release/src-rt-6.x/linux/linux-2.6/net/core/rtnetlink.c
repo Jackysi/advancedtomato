@@ -326,17 +326,16 @@ static size_t rtnl_link_get_size(const struct net_device *dev)
 	if (!ops)
 		return 0;
 
-	size = nla_total_size(sizeof(struct nlattr)) + /* IFLA_LINKINFO */
-	       nla_total_size(strlen(ops->kind) + 1);  /* IFLA_INFO_KIND */
+	size = nlmsg_total_size(sizeof(struct nlattr)) + /* IFLA_LINKINFO */
+	       nlmsg_total_size(strlen(ops->kind) + 1);	 /* IFLA_INFO_KIND */
 
 	if (ops->get_size)
 		/* IFLA_INFO_DATA + nested data */
-		size += nla_total_size(sizeof(struct nlattr)) +
+		size += nlmsg_total_size(sizeof(struct nlattr)) +
 			ops->get_size(dev);
 
 	if (ops->get_xstats_size)
-		/* IFLA_INFO_XSTATS */
-		size += nla_total_size(ops->get_xstats_size(dev));
+		size += ops->get_xstats_size(dev);	/* IFLA_INFO_XSTATS */
 
 	return size;
 }
@@ -1225,11 +1224,15 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	return doit(skb, nlh, (void *)&rta_buf[0]);
 }
 
-static void rtnetlink_rcv(struct sk_buff *skb)
+static void rtnetlink_rcv(struct sock *sk, int len)
 {
-	rtnl_lock();
-	netlink_rcv_skb(skb, &rtnetlink_rcv_msg);
-	rtnl_unlock();
+	unsigned int qlen = 0;
+
+	do {
+		rtnl_lock();
+		netlink_run_queue(sk, &qlen, &rtnetlink_rcv_msg);
+		rtnl_unlock();
+	} while (qlen);
 }
 
 static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)

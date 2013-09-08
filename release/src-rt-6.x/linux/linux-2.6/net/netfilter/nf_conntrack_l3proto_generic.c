@@ -62,7 +62,7 @@ static int generic_print_tuple(struct seq_file *s,
 }
 
 static int
-generic_prepare(struct sk_buff *skb, unsigned int hooknum,
+generic_prepare(struct sk_buff **pskb, unsigned int hooknum,
 		unsigned int *dataoff, u_int8_t *protonum)
 {
 	/* Never track !!! */

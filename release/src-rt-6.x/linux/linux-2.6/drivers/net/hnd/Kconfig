@@ -28,8 +28,6 @@ endchoice
 config BCM_CTF
 	tristate "BCMCTF support"
 	depends on HND
-config WL_USBAP
-	bool "USB/HSIC Wireless Access Point support"
 config WL_EMULATOR
 	bool "WL emulation using Gigabit ethernet"
 	depends on HND
@@ -67,9 +65,9 @@ config WL_USE_STA_ONCHIP_G
 	bool "Config file for STA 1chipG variant"
 config WL_USE_APSTA_ONCHIP_G
 	bool "Config file for APSTA 1chipG variant"
-#config WL_USE_HIGH
-#	bool "Config file for high/bmac split variant"
 endchoice
+config WL_USBAP
+	bool "USB/HSIC Wireless Access Point support"
 #if defined(WLSRC) || defined(PREBUILD)
 config WL_AP 
 	string "Config file for basic AP variant"
