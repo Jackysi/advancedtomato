@@ -28,6 +28,7 @@
 
 export ac_cv_func_malloc_0_nonnull=yes
 export SRCBASE := $(shell pwd)
+export SRCBASEDIR := $(shell pwd | sed 's/.*release\///g')
 RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
 export TPROFILE := N
