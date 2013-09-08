@@ -1,4 +1,4 @@
-include ../../common.mak
+include $(SRCBASE)/router/common.mak
 
 #
 # $Id: Makefile 241182 2011-02-17 21:50:03Z $
@@ -11,7 +11,7 @@ STRIP = $(CROSS)strip
 
 ALL_OBJS = igsu.o igsu_linux.o
 
-CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I../../shared -I$(SRCBASE)/include/emf/igs
+CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(SRCBASE)/shared -I$(SRCBASE)/include/emf/igs
 
 ifeq ($(wildcard ./*.c),)
 all:

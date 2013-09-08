@@ -18,15 +18,15 @@
 # $Id: Makefile,v 1.3 2008-08-13 20:20:16 $
 #
 
-EMFSRCDIR := ../../../../../router/emf/emf
+EMFSRCDIR := ../../../../../emf/emf
 EMFCSRCDIR := ../../../../../../$(SRCBASEDIR)/emf/emf
-EMFDIR := ../../../../../router/emf
+EMFDIR := ../../../../../emf
 
 EMF_OBJS := $(EMFCSRCDIR)/emfc.o $(EMFSRCDIR)/emf_linux.o
 
-# Search for sources under src/router/emf/emf
+# Search for sources under src/emf/emf
 ifneq ($(wildcard $(src)/$(EMFSRCDIR)),)
-	EXTRA_CFLAGS += -I../../router/emf/emf -I../../router/emf/igs
+	EXTRA_CFLAGS += -I../../emf/emf -I../../emf/igs
 	EXTRA_CFLAGS += -I../../../$(SRCBASEDIR)/include/emf/emf -I../../../$(SRCBASEDIR)/include/emf/igs
 	emf-objs := $(EMF_OBJS)
 else
