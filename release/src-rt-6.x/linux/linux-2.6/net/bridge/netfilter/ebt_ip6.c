@@ -14,18 +14,23 @@
  *  Jan, 2008
  */
 
+#include <linux/netfilter_bridge/ebtables.h>
+#include <linux/netfilter_bridge/ebt_ip6.h>
 #include <linux/ipv6.h>
 #include <net/ipv6.h>
 #include <linux/in.h>
 #include <linux/module.h>
 #include <net/dsfield.h>
-#include <linux/netfilter/x_tables.h>
-#include <linux/netfilter_bridge/ebtables.h>
-#include <linux/netfilter_bridge/ebt_ip6.h>
 
-struct tcpudphdr {
-	__be16 src;
-	__be16 dst;
+union pkthdr {
+	struct {
+		__be16 src;
+		__be16 dst;
+	} tcpudphdr;
+	struct {
+		u8 type;
+		u8 code;
+	} icmphdr;
 };
 
 static int ebt_filter_ip6(const struct sk_buff *skb,
@@ -36,8 +41,8 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
 	const struct ebt_ip6_info *info = (struct ebt_ip6_info *)data;
 	struct ipv6hdr *ih6;
 	struct ipv6hdr _ip6h;
-	const struct tcpudphdr *pptr;
-	struct tcpudphdr _ports;
+	const union pkthdr *pptr;
+	union pkthdr _pkthdr;
 	struct in6_addr tmp_addr;
 	int i;
 
@@ -69,26 +74,34 @@ static int ebt_filter_ip6(const struct sk_buff *skb,
 			return EBT_NOMATCH;
 		if (FWINV(info->protocol != nexthdr, EBT_IP6_PROTO))
 			return EBT_NOMATCH;
-		if (!(info->bitmask & EBT_IP6_DPORT) &&
-		    !(info->bitmask & EBT_IP6_SPORT))
+		if (!(info->bitmask & ( EBT_IP6_DPORT |
+					EBT_IP6_SPORT | EBT_IP6_ICMP6)))
 			return EBT_MATCH;
-		pptr = skb_header_pointer(skb, offset_ph, sizeof(_ports),
-					  &_ports);
+
+		/* min icmpv6 headersize is 4, so sizeof(_pkthdr) is ok. */
+		pptr = skb_header_pointer(skb, offset_ph, sizeof(_pkthdr),
+					  &_pkthdr);
 		if (pptr == NULL)
 			return EBT_NOMATCH;
 		if (info->bitmask & EBT_IP6_DPORT) {
-			u32 dst = ntohs(pptr->dst);
+			u16 dst = ntohs(pptr->tcpudphdr.dst);
 			if (FWINV(dst < info->dport[0] ||
 				  dst > info->dport[1], EBT_IP6_DPORT))
 				return EBT_NOMATCH;
 		}
 		if (info->bitmask & EBT_IP6_SPORT) {
-			u32 src = ntohs(pptr->src);
+			u16 src = ntohs(pptr->tcpudphdr.src);
 			if (FWINV(src < info->sport[0] ||
 				  src > info->sport[1], EBT_IP6_SPORT))
 			return EBT_NOMATCH;
 		}
-		return EBT_MATCH;
+		if ((info->bitmask & EBT_IP6_ICMP6) &&
+		     FWINV(pptr->icmphdr.type < info->icmpv6_type[0] ||
+			   pptr->icmphdr.type > info->icmpv6_type[1] ||
+			   pptr->icmphdr.code < info->icmpv6_code[0] ||
+			   pptr->icmphdr.code > info->icmpv6_code[1],
+							EBT_IP6_ICMP6))
+			return EBT_NOMATCH;
 	}
 	return EBT_MATCH;
 }
@@ -98,7 +111,7 @@ static int ebt_ip6_check(const char *tablename, unsigned int hookmask,
 {
 	struct ebt_ip6_info *info = (struct ebt_ip6_info *)data;
 
-	if (datalen != XT_ALIGN(sizeof(struct ebt_ip6_info)))
+	if (datalen != EBT_ALIGN(sizeof(struct ebt_ip6_info)))
 		return -EINVAL;
 	if (e->ethproto != htons(ETH_P_IPV6) || e->invflags & EBT_IPROTO)
 		return -EINVAL;
@@ -118,6 +131,14 @@ static int ebt_ip6_check(const char *tablename, unsigned int hookmask,
 		return -EINVAL;
 	if (info->bitmask & EBT_IP6_SPORT && info->sport[0] > info->sport[1])
 		return -EINVAL;
+	if (info->bitmask & EBT_IP6_ICMP6) {
+		if ((info->invflags & EBT_IP6_PROTO) ||
+		     info->protocol != IPPROTO_ICMPV6)
+			return -EINVAL;
+		if (info->icmpv6_type[0] > info->icmpv6_type[1] ||
+		    info->icmpv6_code[0] > info->icmpv6_code[1])
+			return -EINVAL;
+	}
 	return 0;
 }
 

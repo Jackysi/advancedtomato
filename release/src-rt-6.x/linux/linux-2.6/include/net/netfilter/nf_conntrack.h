@@ -163,6 +163,7 @@ struct nf_conn
 
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
+	u_int32_t ipp2p;
 
 #if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
 	u_int32_t bcount;
