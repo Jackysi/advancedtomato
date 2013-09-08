@@ -20,13 +20,13 @@
 
 obj-${CONFIG_BCM_CTF} := ctf.o
 
-CTFSRC := ../../../../../router/ctf
+CTFSRC := ../../../../../ctf
 CTFOBJ := $(CTFSRC)/hndctf.o $(CTFSRC)/hndctf_linux.o
 SYMOBJ := $(CTFSRC)/hndctf.o
 
 # Search for sources under src/router/ctf
 ifneq (,$(wildcard $(src)/$(CTFSRC)/*.c))
-  EXTRA_CFLAGS += -I$(src)/$(CTFSRC)/../../router/ctf
+  EXTRA_CFLAGS += -I$(src)/$(CTFSRC)/../../ctf
   ctf-objs := $(CTFOBJ) ctf_ksyms.o
 else
   ctf-objs := $(CTFSRC)/linux/ctf.o
