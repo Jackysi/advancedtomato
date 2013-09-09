@@ -77,6 +77,10 @@ spinlock_t bcm947xx_sih_lock = SPIN_LOCK_UNLOCKED;
 EXPORT_SYMBOL(bcm947xx_sih);
 EXPORT_SYMBOL(bcm947xx_sih_lock);
 
+/* CPU freq */
+int bcm947xx_cpu_clk;
+EXPORT_SYMBOL(bcm947xx_cpu_clk);
+
 /* Convenience */
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock
@@ -335,7 +339,9 @@ enum {
 };
 
 #define PART_JFFS2_MIN 5
+#ifndef PART_JFFS2_GAP
 #define PART_JFFS2_GAP 0x40000UL /* 256K, power of 2 */
+#endif
 
 struct mtd_partition *
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
@@ -389,10 +395,12 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 				bcm947xx_parts[PART_JFFS2].size = boardoff - off - trxsize;
 			len = PART_JFFS2_MIN * mtd->erasesize;
 			if (bcm947xx_parts[PART_JFFS2].size >= len) {
-#if 0 /* Gap jffs2 from rootfs up to 256K */
-				bcm947xx_parts[PART_JFFS2].size -= len;
-				bcm947xx_parts[PART_JFFS2].size &= ~(PART_JFFS2_GAP - 1); // round down
-				bcm947xx_parts[PART_JFFS2].size += len;
+#if 1 /* Gap jffs2 from rootfs up to 256K */
+				if(PART_JFFS2_GAP > 0) {
+					bcm947xx_parts[PART_JFFS2].size -= len;
+					bcm947xx_parts[PART_JFFS2].size &= ~(PART_JFFS2_GAP - 1); // round down
+					bcm947xx_parts[PART_JFFS2].size += len;
+				}
 #else /* Temporary compatibility for Boyau */
 				bcm947xx_parts[PART_JFFS2].size = len;
 #endif

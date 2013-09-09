@@ -14,9 +14,10 @@
 #include <asm/cpu-features.h>
 #include <asm/mipsregs.h>
 #include <asm/processor.h>
-#include <asm/watch.h>
 
 unsigned int vced_count, vcei_count;
+
+extern int bcm947xx_cpu_clk;
 
 static const char *cpu_name[] = {
 	[CPU_UNKNOWN]	= "unknown",
@@ -118,6 +119,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, "BogoMIPS\t\t: %u.%02u\n",
 	              cpu_data[n].udelay_val / (500000/HZ),
 	              (cpu_data[n].udelay_val / (5000/HZ)) % 100);
+	seq_printf(m, "cpu MHz   \t\t: %d\n", bcm947xx_cpu_clk);
 	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
 	seq_printf(m, "microsecond timers\t: %s\n",
 	              cpu_has_counter ? "yes" : "no");
@@ -145,7 +147,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_printf(m, "unaligned_instructions\t: %lu\n", unaligned_instructions);
 
-#ifdef CONFIG_BCM47XX
+#ifdef CONFIG_HND_BMIPS3300_PROF
 	seq_printf(m, "dcache hits\t\t: %u\n", read_perf_cntr(0));
 	seq_printf(m, "dcache misses\t\t: %u\n", read_perf_cntr(1));
 	seq_printf(m, "icache hits\t\t: %u\n", read_perf_cntr(2));
