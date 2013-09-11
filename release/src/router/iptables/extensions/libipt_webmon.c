@@ -34,7 +34,12 @@
  * in pre-processor directives below
  */
 #include <iptables.h>  
+#ifdef CONFIG_BCMWL6
+#include <linux/netfilter/xt_webmon.h>
+#define ipt_webmon_info         xt_webmon_info
+#else
 #include <linux/netfilter_ipv4/ipt_webmon.h>
+#endif
 
 #ifdef _XTABLES_H
 	#define iptables_match		xtables_match
