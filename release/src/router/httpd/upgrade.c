@@ -51,7 +51,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 #ifdef TCONFIG_JFFS2
 	// quickly check if JFFS2 is mounted by checking if /jffs/ is not squashfs
 	struct statfs sf;
-	if ((statfs("/jffs", &sf) != 0) || (sf.f_type != 0x73717368)) {
+	if ((statfs("/jffs", &sf) != 0) || (sf.f_type != 0x71736873 && sf.f_type != 0x73717368)) {
 		error = "JFFS2 is currently in use. Since an upgrade may overwrite the "
 			"JFFS2 partition, please backup the contents, disable JFFS2, then reboot the router";
 		goto ERROR;

@@ -1,7 +1,7 @@
 /*
  * HND SiliconBackplane PMU support.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,31 +15,31 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndpmu.h 241182 2011-02-17 21:50:03Z $
+ * $Id: hndpmu.h,v 13.36.2.7 2011-02-11 05:22:13 Exp $
  */
 
 #ifndef _hndpmu_h_
 #define _hndpmu_h_
 
-#define SET_LDO_VOLTAGE_LDO1		1
-#define SET_LDO_VOLTAGE_LDO2		2
-#define SET_LDO_VOLTAGE_LDO3		3
-#define SET_LDO_VOLTAGE_PAREF		4
+#define SET_LDO_VOLTAGE_LDO1	1
+#define SET_LDO_VOLTAGE_LDO2	2
+#define SET_LDO_VOLTAGE_LDO3	3
+#define SET_LDO_VOLTAGE_PAREF	4
 #define SET_LDO_VOLTAGE_CLDO_PWM	5
 #define SET_LDO_VOLTAGE_CLDO_BURST	6
 #define SET_LDO_VOLTAGE_CBUCK_PWM	7
 #define SET_LDO_VOLTAGE_CBUCK_BURST	8
-#define SET_LDO_VOLTAGE_LNLDO1		9
+#define SET_LDO_VOLTAGE_LNLDO1	9
 #define SET_LDO_VOLTAGE_LNLDO2_SEL	10
-#define SET_LNLDO_PWERUP_LATCH_CTRL	11
 
 extern void si_pmu_init(si_t *sih, osl_t *osh);
 extern void si_pmu_chip_init(si_t *sih, osl_t *osh);
 extern void si_pmu_pll_init(si_t *sih, osl_t *osh, uint32 xtalfreq);
-extern bool si_pmu_is_autoresetphyclk_disabled(si_t *sih, osl_t *osh);
 extern void si_pmu_res_init(si_t *sih, osl_t *osh);
 extern void si_pmu_swreg_init(si_t *sih, osl_t *osh);
+extern void si_pmu_4313_htavail_res_mask_war(si_t *sih, osl_t *osh);
 extern uint32 si_pmu_force_ilp(si_t *sih, osl_t *osh, bool force);
+extern void si_pmu_res_4319_swctrl_war(si_t *sih, osl_t *osh, bool enable);
 
 extern uint32 si_pmu_si_clock(si_t *sih, osl_t *osh);
 extern uint32 si_pmu_cpu_clock(si_t *sih, osl_t *osh);
@@ -51,6 +51,7 @@ extern void si_pmu_set_switcher_voltage(si_t *sih, osl_t *osh, uint8 bb_voltage,
 extern void si_pmu_set_ldo_voltage(si_t *sih, osl_t *osh, uint8 ldo, uint8 voltage);
 extern void si_pmu_paref_ldo_enable(si_t *sih, osl_t *osh, bool enable);
 extern uint16 si_pmu_fast_pwrup_delay(si_t *sih, osl_t *osh);
+extern void si_pmu_minresmask_htavail_set(si_t *sih, osl_t *osh, bool set_clear);
 extern uint si_pll_minresmask_reset(si_t *sih, osl_t *osh);
 extern void si_pmu_rcal(si_t *sih, osl_t *osh);
 extern void si_pmu_pllupd(si_t *sih);
@@ -72,9 +73,8 @@ extern uint32 si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, 
 extern void si_pmu_set_4330_plldivs(si_t *sih, uint8 dacrate);
 extern void si_pmu_pllreset(si_t *sih);
 
+
 extern void si_pmu_otp_power(si_t *sih, osl_t *osh, bool on);
 extern void si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength);
-
-extern void si_pmu_minresmask_htavail_set(si_t *sih, osl_t *osh, bool set_clear);
 
 #endif /* _hndpmu_h_ */

@@ -11,9 +11,8 @@
 /* History:                                                                   */
 /******************************************************************************/
 
-/* $Id: tigon3.c 286395 2011-09-27 18:49:01Z $ */
+/* $Id: tigon3.c,v 1.15 2008-02-22 22:46:19 Exp $ */
 
-#include <bcm57xx_cfg.h>
 #include "mm.h"
 #include "bcmdevs.h"
 #include "bcmutils.h"
@@ -1696,6 +1695,12 @@ LM_NVRAM_WriteBlockBuffered( PLM_DEVICE_BLOCK   pDevice, LM_UINT32 offset,
     {
         if( pDevice->flashinfo.romtype == ROM_TYPE_EEPROM )
         {
+            #if 0
+            Config1 = 0x2008200
+            Config2 = 0x9f0081
+            Config3 = 0xa184a053
+            Write1  = 0xaf000400
+            #endif
         }
         else if( pDevice->flashinfo.buffered == TRUE )
         {

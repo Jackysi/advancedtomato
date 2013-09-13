@@ -1,7 +1,7 @@
 /*
  * Broadcom device-specific manifest constants.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmdevs.h 330812 2012-05-02 19:03:25Z $
+ * $Id: bcmdevs.h,v 13.290.2.44 2011-02-10 02:07:54 Exp $
  */
 
 #ifndef	_BCMDEVS_H
@@ -53,12 +53,7 @@
 #define BCM_DNGL_BL_PID_43236   0xbd17
 #define BCM_DNGL_BL_PID_4332	0xbd18
 #define BCM_DNGL_BL_PID_4330	0xbd19
-#define BCM_DNGL_BL_PID_4334	0xbd1a
 #define BCM_DNGL_BL_PID_43239   0xbd1b
-#define BCM_DNGL_BL_PID_4324	0xbd1c
-#define BCM_DNGL_BL_PID_4360	0xbd1d
-#define BCM_DNGL_BL_PID_4335	0xbd20
-
 #define BCM_DNGL_BDC_PID	0x0bdc
 #define BCM_DNGL_JTAG_PID	0x4a44
 
@@ -132,33 +127,16 @@
 #define BCM43237_D11N_ID	0x4355		/* 43237 802.11n dualband device */
 #define BCM43237_D11N5G_ID	0x4356		/* 43237 802.11n 5GHz device */
 #define BCM43227_D11N2G_ID	0x4358		/* 43228 802.11n 2.4GHz device */
-#define BCM43228_D11N_ID	0x4359		/* 43228 802.11n DualBand device */
+#define BCM43228_D11N_ID		0x4359		/* 43228 802.11n DualBand device */
 #define BCM43228_D11N5G_ID	0x435a		/* 43228 802.11n 5GHz device */
 #define BCM43362_D11N_ID	0x4363		/* 43362 802.11n 2.4GHz device */
 #define BCM43239_D11N_ID	0x4370		/* 43239 802.11n dualband device */
 #define BCM4324_D11N_ID		0x4374		/* 4324 802.11n dualband device */
 #define BCM43217_D11N2G_ID	0x43a9		/* 43217 802.11n 2.4GHz device */
 #define BCM43131_D11N2G_ID	0x43aa		/* 43131 802.11n 2.4GHz device */
-#define BCM4314_D11N2G_ID	0x4364		/* 4314 802.11n 2.4G device */
-#define BCM43142_D11N2G_ID	0x4365		/* 43142 802.11n 2.4G device */
-#define BCM4334_D11N_ID		0x4380		/* 4334 802.11n dualband device */
-#define BCM4334_D11N2G_ID	0x4381		/* 4334 802.11n 2.4G device */
-#define BCM4334_D11N5G_ID	0x4382		/* 4334 802.11n 5G device */
-#define BCM4360_D11AC_ID	0x43a0
-#define BCM4360_D11AC2G_ID	0x43a1
-#define BCM4360_D11AC5G_ID	0x43a2
-#define BCM4335_D11AC_ID	0x43ae
-#define BCM4335_D11AC2G_ID	0x43af
-#define BCM4335_D11AC5G_ID	0x43b0
-#define BCM4352_D11AC_ID	0x43b1		/* 4352 802.11ac dualband device */
-#define BCM4352_D11AC2G_ID	0x43b2		/* 4352 802.11ac 2.4G device */
-#define BCM4352_D11AC5G_ID	0x43b3		/* 4352 802.11ac 5G device */
 
-/* PCI Subsystem ID */
-#define BCM943228HMB_SSID_VEN1	0x0607
-#define BCM94313HMGBL_SSID_VEN1	0x0608
-#define BCM94313HMG_SSID_VEN1	0x0609
-
+#define BCM4314_D11N2G_ID       0x4364          /* 4314 802.11n 2.4G device */
+#define BCM43142_D11N2G_ID      0x4365          /* 43142 802.11n 2.4G device */
 
 #define	BCMGPRS_UART_ID		0x4333		/* Uart id used by 4306/gprs card */
 #define	BCMGPRS2_UART_ID	0x4344		/* Uart id used by 4306/gprs card */
@@ -220,7 +198,6 @@
 #define	BCM4319_CHIP_ID		0x4319		/* 4319 chip id */
 #define	BCM4320_CHIP_ID		0x4320		/* 4320 chipcommon chipid */
 #define	BCM4321_CHIP_ID		0x4321		/* 4321 chipcommon chipid */
-#define	BCM43217_CHIP_ID	43217		/* 43217 chip id (OTP chipid) */
 #define	BCM4322_CHIP_ID		0x4322		/* 4322 chipcommon chipid */
 #define	BCM43221_CHIP_ID	43221		/* 43221 chipcommon chipid (OTP chipid) */
 #define	BCM43222_CHIP_ID	43222		/* 43222 chipcommon chipid */
@@ -240,7 +217,6 @@
 #define	BCM43421_CHIP_ID	43421		/* 43224 chipcommon chipid (OTP, RBBU) */
 #define	BCM43428_CHIP_ID	43428		/* 43228 chipcommon chipid (OTP, RBBU) */
 #define	BCM43431_CHIP_ID	43431		/* 4331  chipcommon chipid (OTP, RBBU) */
-#define	BCM43460_CHIP_ID	43460		/* 4360  chipcommon chipid (OTP, RBBU) */
 #define	BCM4325_CHIP_ID		0x4325		/* 4325 chip id */
 #define	BCM4328_CHIP_ID		0x4328		/* 4328 chip id */
 #define	BCM4329_CHIP_ID		0x4329		/* 4329 chipcommon chipid */
@@ -249,16 +225,13 @@
 #define BCM43362_CHIP_ID	43362		/* 43362 chipcommon chipid */
 #define BCM4330_CHIP_ID		0x4330		/* 4330 chipcommon chipid */
 #define BCM6362_CHIP_ID		0x6362		/* 6362 chipcommon chipid */
-#define BCM4314_CHIP_ID		0x4314		/* 4314 chipcommon chipid */
-#define BCM43142_CHIP_ID	43142		/* 43142 chipcommon chipid */
-#define	BCM4324_CHIP_ID		0x4324		/* 4324 chipcommon chipid */
-#define	BCM43242_CHIP_ID	43242		/* 43242 chipcommon chipid */
 #define BCM4334_CHIP_ID		0x4334		/* 4334 chipcommon chipid */
-#define BCM4335_CHIP_ID     0x4335
-#define BCM4360_CHIP_ID		0x4360
-#define BCM43526_CHIP_ID	0xAA06
-#define BCM4352_CHIP_ID		0x4352
-
+#define BCM4334_D11N_ID         0x4380          /* 4334 802.11n dualband device */
+#define BCM4334_D11N2G_ID       0x4381          /* 4334 802.11n 2.4G device */
+#define BCM4334_D11N5G_ID       0x4382          /* 4334 802.11n 5G device */
+#define BCM4314_CHIP_ID         0x4314          /* 4314 chipcommon chipid */
+#define BCM43142_CHIP_ID        43142           /* 43142 chipcommon chipid */
+#define BCM4324_CHIP_ID         0x4324          /* 4324 chipcommon chipid */
 #define	BCM4342_CHIP_ID		4342		/* 4342 chipcommon chipid (OTP, RBBU) */
 #define	BCM4402_CHIP_ID		0x4402		/* 4402 chipid */
 #define	BCM4704_CHIP_ID		0x4704		/* 4704 chipcommon chipid */
@@ -308,7 +281,7 @@
 #define BCM4331TT_PKG_ID        8		/* 4331 12x12 package id */
 #define BCM4331TN_PKG_ID        9		/* 4331 12x9 package id */
 #define BCM4331TNA0_PKG_ID     0xb		/* 4331 12x9 package id */
-#define	BCM4706L_PKG_ID		1		/* 4706L package id */
+
 
 #define HDLSIM5350_PKG_ID	1		/* HDL simulator package id for a 5350 */
 #define HDLSIM_PKG_ID		14		/* HDL simulator package id */
@@ -317,35 +290,30 @@
 #define BCM43224_FAB_SMIC	0xa		/* the chip is manufactured by SMIC */
 #define BCM4336_WLBGA_PKG_ID	0x8
 #define BCM4330_WLBGA_PKG_ID	0x0
-#define BCM4314PCIE_ARM_PKG_ID		(8 | 0)	/* 4314 QFN PCI package id, bit 3 tie high */
-#define BCM4314SDIO_PKG_ID		(8 | 1)	/* 4314 QFN SDIO package id */
-#define BCM4314PCIE_PKG_ID		(8 | 2)	/* 4314 QFN PCI (ARM-less) package id */
-#define BCM4314SDIO_ARM_PKG_ID		(8 | 3)	/* 4314 QFN SDIO (ARM-less) package id */
-#define BCM4314SDIO_FPBGA_PKG_ID	(8 | 4)	/* 4314 FpBGA SDIO package id */
-#define BCM4314DEV_PKG_ID		(8 | 6)	/* 4314 Developement package id */
+#define BCM4314PCIE_ARM_PKG_ID          (8 | 0) /* 4314 QFN PCI package id, bit 3 tie high */
+#define BCM4314SDIO_PKG_ID              (8 | 1) /* 4314 QFN SDIO package id */
+#define BCM4314PCIE_PKG_ID              (8 | 2) /* 4314 QFN PCI (ARM-less) package id */
+#define BCM4314SDIO_ARM_PKG_ID          (8 | 3) /* 4314 QFN SDIO (ARM-less) package id */
+#define BCM4314SDIO_FPBGA_PKG_ID        (8 | 4) /* 4314 FpBGA SDIO package id */
+#define BCM4314DEV_PKG_ID               (8 | 6) /* 4314 Developement package id */
 
 #define PCIXX21_FLASHMEDIA0_ID	0x8033		/* TI PCI xx21 Standard Host Controller */
 #define PCIXX21_SDIOH0_ID	0x8034		/* TI PCI xx21 Standard Host Controller */
-
-#define BCM4335_WLCSP_PKG_ID	(0x0)	/* WLCSP Module/Mobile SDIO/HSIC. */
-#define BCM4335_FCBGA_PKG_ID	(0x1)	/* FCBGA PC/Embeded/Media PCIE/SDIO */
-#define BCM4335_WLBGA_PKG_ID	(0x2)	/* WLBGA COB/Mobile SDIO/HSIC. */
-#define BCM4335_FCBGAD_PKG_ID	(0x3)	/* FCBGA Debug Debug/Dev All if's. */
-#define BCM4335_PKG_MASK	(0x3)
 
 /* boardflags */
 #define	BFL_BTC2WIRE		0x00000001  /* old 2wire Bluetooth coexistence, OBSOLETE */
 #define BFL_BTCOEX      0x00000001      /* Board supports BTCOEX */
 #define	BFL_PACTRL		0x00000002  /* Board has gpio 9 controlling the PA */
-#define BFL_AIRLINEMODE	0x00000004  /* Board implements gpio 13 radio disable indication, UNUSED */
+#define	BFL_AIRLINEMODE		0x00000004  /* Board implements gpio 13 radio disable indication */
 #define	BFL_ADCDIV		0x00000008  /* Board has the rssi ADC divider */
-#define BFL_DIS_256QAM		0x00000008
 #define	BFL_ENETROBO		0x00000010  /* Board has robo switch or core */
 #define	BFL_NOPLLDOWN		0x00000020  /* Not ok to power down the chip pll and oscillator */
 #define	BFL_CCKHIPWR		0x00000040  /* Can do high-power CCK transmission */
 #define	BFL_ENETADM		0x00000080  /* Board has ADMtek switch */
 #define	BFL_ENETVLAN		0x00000100  /* Board has VLAN capability */
-#define	BFL_UNUSED		0x00000200
+#ifdef WLAFTERBURNER
+#define	BFL_AFTERBURNER		0x00000200  /* Board supports Afterburner mode */
+#endif /* WLAFTERBURNER */
 #define BFL_NOPCI		0x00000400  /* Board leaves PCI floating */
 #define BFL_FEM			0x00000800  /* Board supports the Front End Module */
 #define BFL_EXTLNA		0x00001000  /* Board has an external LNA in 2.4GHz band */
@@ -367,7 +335,6 @@
 #define BFL_UCPWRCTL_MININDX	0x08000000  /* Enforce min power index to avoid FEM damage */
 #define BFL_EXTLNA_5GHz		0x10000000  /* Board has an external LNA in 5GHz band */
 #define BFL_TRSW_1by2		0x20000000  /* Board has 2 TRSW's in 1by2 designs */
-#define BFL_GAINBOOSTA01        0x20000000  /* 5g Gainboost for core0 and core1 */
 #define BFL_LO_TRSW_R_5GHz	0x40000000  /* In 5G do not throw TRSW to T for clipLO gain */
 #define BFL_ELNA_GAINDEF	0x80000000  /* Backoff InitGain based on elna_2g/5g field
 					     * when this flag is set
@@ -397,10 +364,10 @@
 #define BFL2_GPLL_WAR2	        0x00010000  /* Flag to widen G-band PLL loop b/w */
 #define BFL2_IPALVLSHIFT_3P3    0x00020000
 #define BFL2_INTERNDET_TXIQCAL  0x00040000  /* Use internal envelope detector for TX IQCAL */
-#define BFL2_XTALBUFOUTEN       0x00080000  /* Keep the buffered Xtal output from radio on */
-				/* Most drivers will turn it off without this flag */
-				/* to save power. */
-
+#define BFL2_XTALBUFOUTEN       0x00080000  /* Keep the buffered Xtal output from radio "ON"
+					     * Most drivers will turn it off without this flag
+					     * to save power.
+					     */
 #define BFL2_ANAPACTRL_2G	0x00100000  /* 2G ext PAs are controlled by analog PA ctrl lines */
 #define BFL2_ANAPACTRL_5G	0x00200000  /* 5G ext PAs are controlled by analog PA ctrl lines */
 #define BFL2_ELNACTRL_TRSW_2G	0x00400000  /* AZW4329: 2G gmode_elna_gain controls TR Switch */
@@ -412,11 +379,10 @@
 					     */
 #define BFL2_BTC3WIREONLY       0x02000000  /* standard 3 wire btc only.  4 wire not supported */
 #define BFL2_PWR_NOMINAL	0x04000000  /* 0: power reduction on, 1: no power reduction */
-#define BFL2_EXTLNA_PWRSAVE	0x08000000  /* boardflag to enable ucode to apply power save */
+#define BFL2_EXTLNA_TX		0x08000000  /* Temp boardflag to indicate to */
 						/* ucode control of eLNA during Tx */
 #define BFL2_4313_RADIOREG	0x10000000
 									   /*  board rework */
-#define BFL2_SDR_EN		0x20000000	/* SDR enabled or disabled */
 
 /* board specific GPIO assignment, gpio 0-3 are also customer-configurable led */
 #define	BOARD_GPIO_BTC3W_IN	0x850	/* bit 4 is RF_ACTIVE, bit 6 is STATUS, bit 11 is PRI */
@@ -432,8 +398,7 @@
 #define BOARD_GPIO_BTC4_BT	0x2000	/* gpio 12, coex4, bt active */
 #define BOARD_GPIO_BTC4_STAT	0x4000	/* gpio 14, coex4, status */
 #define BOARD_GPIO_BTC4_WLAN	0x8000	/* gpio 15, coex4, wlan active */
-#define	BOARD_GPIO_1_WLAN_PWR	0x02	/* throttle WLAN power on X21 board */
-#define	BOARD_GPIO_3_WLAN_PWR	0x08	/* throttle WLAN power on X28 board */
+#define	BOARD_GPIO_1_WLAN_PWR	0x2	/* throttle WLAN power on X21 board */
 #define	BOARD_GPIO_4_WLAN_PWR	0x10	/* throttle WLAN power on X19 board */
 
 #define GPIO_BTC4W_OUT_4312  0x010  /* bit 4 is BT_IODISABLE */
@@ -455,7 +420,6 @@
 #define MIN_SLOW_CLK		32		/* us Slow clock period */
 #define	XTAL_ON_DELAY		1000		/* us crystal power-on delay */
 
-#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* Reference Board Types */
 #define	BU4710_BOARD		0x0400
 #define	VSIM4710_BOARD		0x0401
@@ -659,15 +623,15 @@
 #define BCM94716NR2_SSID	0x04cd
 
 /* 4319 boards */
-#define BCM94319DEVBU_SSID	0X04e5
+#define BCM94319DEVBU_SSID	    0X04e5
 #define BCM94319USBNP4L_SSID	0X04e6
 #define BCM94319WLUSBN4L_SSID	0X04e7
-#define BCM94319SDG_SSID	0X04ea
+#define BCM94319SDG_SSID	    0X04ea
 #define BCM94319LCUSBSDN4L_SSID	0X04eb
 #define BCM94319USBB_SSID       0x04ee
 #define BCM94319LCSDN4L_SSID	0X0507
 #define BCM94319LSUSBN4L_SSID	0X0508
-#define BCM94319SDNA4L_SSID	0X0517
+#define BCM94319SDNA4L_SSID	    0X0517
 #define BCM94319SDELNA4L_SSID	0X0518
 #define BCM94319SDELNA6L_SSID	0X0539
 #define BCM94319ARCADYAN_SSID	0X0546
@@ -678,7 +642,6 @@
 #define BCM94319SDHMB_SSID     0x058c
 #define BCM94319SDBREF_SSID     0x05a1
 #define BCM94319USBSDB_SSID     0x05a2
-
 
 /* 4329 boards */
 #define BCM94329AGB_SSID	0X04b9
@@ -693,7 +656,7 @@
 #define BCM94329OLYMPICX17M_SSID	0X050a
 #define BCM94329OLYMPICX17U_SSID	0X0509
 #define BCM94329OLYMPICUNO_SSID	0X0564
-#define BCM94329MOTOROLA_SSID   0X0565
+#define BCM94329MOTOROLA_SSID	0X0565
 #define BCM94329OLYMPICLOCO_SSID	0X0568
 /* 4336 SDIO board types */
 #define BCM94336SD_WLBGABU_SSID		0x0511
@@ -708,9 +671,9 @@
 #define BCM94330SD_FCBGABU_SSID	0x052e
 #define BCM94330SD_WLBGABU_SSID	0x052f
 #define BCM94330SD_FCBGA_SSID	0x0530
-#define BCM94330FCSDAGB_SSID		0x0532
+#define BCM94330FCSDAGB_SSID            0x0530
 #define BCM94330OLYMPICAMG_SSID		0x0549
-#define BCM94330OLYMPICAMGEPA_SSID		0x054F
+#define BCM94330OLYMPICAMGEPA_SSID	0x054F
 #define BCM94330OLYMPICUNO3_SSID	0x0551
 #define BCM94330WLSDAGB_SSID	0x0547
 #define BCM94330CSPSDAGBB_SSID	0x054A
@@ -721,9 +684,6 @@
 #define BCM943224X21B	    0x00e9
 #define BCM943224M93	    0x008b
 #define BCM943224M93A	    0x0090
-#define BCM943224X16	    0x0093
-#define BCM94322X9		    0x008d
-#define BCM94322M35e	    0x008e
 
 /* 43228 Boards */
 #define BCM943228BU8_SSID	0x0540
@@ -740,15 +700,10 @@
 
 /* 4331 boards */
 #define BCM94331X19               0x00D6	/* X19B */
-#define BCM94331X28               0x00E4	/* X28 */
-#define BCM94331X28B              0x010E	/* X28B */
-#define BCM94331PCIEBT3Ax_SSID    BCM94331X28
+#define BCM94331PCIEBT3Ax_SSID    0x00E4	/* X28 */
 #define BCM94331X12_2G_SSID       0x00EC	/* X12 2G */
 #define BCM94331X12_5G_SSID       0x00ED	/* X12 5G */
 #define BCM94331X29B              0x00EF	/* X29B */
-#define BCM94331CSAX_SSID         BCM94331X29B
-#define BCM94331X19C              0x00F5	/* X19C */
-#define BCM94331X33	          0x00F4	/* X33 */
 #define BCM94331BU_SSID           0x0523
 #define BCM94331S9BU_SSID         0x0524
 #define BCM94331MC_SSID           0x0525
@@ -757,11 +712,9 @@
 #define BCM94331HM_SSID           0x0574
 #define BCM94331PCIEDUAL_SSID     0x059B
 #define BCM94331MCH5_SSID         0x05A9
+#define BCM94331PCIEDUALV2_SSID   0x05B7
 #define BCM94331CS_SSID           0x05C6
-#define BCM94331CD_SSID           0x05DA
-
-/* 4314 Boards */
-#define BCM94314BU_SSID         0x05b1
+#define BCM94331CSAX_SSID         0x00EF
 
 /* 53572 Boards */
 #define BCM953572BU_SSID       0x058D
@@ -772,29 +725,6 @@
 /* 43236 boards */
 #define BCM943236OLYMPICSULLEY_SSID 0x594
 #define BCM943236PREPROTOBLU2O3_SSID 0x5b9
-#define BCM943236USBELNA_SSID 0x5f8
-
-/* 4314 Boards */
-#define BCM94314BUSDIO_SSID	0x05c8
-#define BCM94314BGABU_SSID	0x05c9
-#define BCM94314HMEPA_SSID	0x05ca
-#define BCM94314HMEPABK_SSID	0x05cb
-#define BCM94314SUHMEPA_SSID	0x05cc
-#define BCM94314SUHM_SSID	0x05cd
-#define BCM94314HM_SSID		0x05d1
-
-/* 4334 Boards */
-#define BCM94334FCAGBI_SSID	0x05df
-#define BCM94334WLAGBI_SSID	0x05dd
-
-/* 43217 Boards */
-#define BCM943217BU_SSID	0x05d5
-#define BCM943217HM2L_SSID	0x05d6
-#define BCM943217HMITR2L_SSID	0x05d7
-
-/* 43142 Boards */
-#define BCM943142HM_SSID	0x05e0
-#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* # of GPIO pins */
 #define GPIO_NUMPINS		32
@@ -810,17 +740,6 @@
 #define RDL_RAM_BASE_4328 0x80000000
 #define RDL_RAM_SIZE_4322 0x60000
 #define RDL_RAM_BASE_4322 0x60000000
-#define RDL_RAM_SIZE_4360  0xE0000
-#define RDL_RAM_BASE_4360  0x60000000
-
-/* generic defs for nvram "muxenab" bits
-* Note: these differ for 4335a0. refer bcmchipc.h for specific mux options.
-*/
-#define MUXENAB_UART		0x00000001
-#define MUXENAB_GPIO		0x00000002
-#define MUXENAB_ERCX		0x00000004
-#define MUXENAB_JTAG		0x00000008
-#define MUXENAB_HOST_WAKE	0x00000010
 
 /* Boot flags */
 #define FLASH_KERNEL_NFLASH	0x00000001

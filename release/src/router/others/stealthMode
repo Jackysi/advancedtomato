@@ -2,14 +2,14 @@
 #
 # Turn off/on all led for Asus routers RT-N16 and RT-N66u and RT-AC66u
 #
-# Version: 0.8 "Sunset"
+# Version: 0.10 "Sunset"
 # Authors: Monter, Shibby
 #
 # Unlock lan ports, Permanent On function, Sunset mode,
 # Scheduler mode and Clear All option written by Monter
 
 # configuration
-VERSION="v0.9"
+VERSION="v0.10"
 # /configuration
 
 # Please do not make any changes in the code below without authors permission

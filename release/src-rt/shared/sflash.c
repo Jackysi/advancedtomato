@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,10 +15,9 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sflash.c 300516 2011-12-04 17:39:44Z $
+ * $Id: sflash.c,v 1.54 2009-12-29 19:57:52 Exp $
  */
 
-#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <osl.h>
 #include <bcmutils.h>
@@ -53,7 +52,7 @@ struct sflash *
 sflash_init(si_t *sih, chipcregs_t *cc)
 {
 	uint32 id, id2;
-	const char *name = "";
+	char *name = "";
 	osl_t *osh;
 
 	ASSERT(sih);
@@ -83,16 +82,8 @@ sflash_init(si_t *sih, chipcregs_t *cc)
 			sflash.numblocks = 8;
 			break;
 		case 0x13:
-			sflash_cmd(osh, cc, SFLASH_MXIC_RDID);
-			id = R_REG(osh, &cc->flashdata);
-			if (id == SFLASH_MXIC_MFID) {
-				/* MXIC MX25L8006E 8 Mbit Serial Flash */
-				sflash.blocksize = 4 * 1024;
-				sflash.numblocks = 16 * 16;
-			} else  {
-				/* ST M25P80 8 Mbit Serial Flash */
-				sflash.numblocks = 16;
-			}
+			/* ST M25P80 8 Mbit Serial Flash */
+			sflash.numblocks = 16;
 			break;
 		case 0x14:
 			/* ST M25P16 16 Mbit Serial Flash */
@@ -245,6 +236,7 @@ sflash_read(si_t *sih, chipcregs_t *cc, uint offset, uint len, uchar *buf)
 {
 	uint8 *from, *to;
 	int cnt, i;
+	osl_t *osh;
 
 	ASSERT(sih);
 
@@ -260,6 +252,8 @@ sflash_read(si_t *sih, chipcregs_t *cc, uint offset, uint len, uchar *buf)
 		cnt = 4 - ((uintptr)buf & 3);
 	else
 		cnt = len;
+
+	osh = si_osh(sih);
 
 	if (sih->ccrev == 12)
 		from = (uint8 *)OSL_UNCACHED((void *)SI_FLASH2 + offset);

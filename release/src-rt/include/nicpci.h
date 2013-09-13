@@ -1,7 +1,7 @@
 /*
  * BCM43XX PCI/E core sw API definitions.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nicpci.h 316716 2012-02-23 04:39:13Z $
+ * $Id: nicpci.h,v 13.10.12.3 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_NICPCI_H
@@ -42,6 +42,9 @@
 
 #define pcicore_pcieserdesreg(a, b, c, d, e) (0)
 #define pcicore_pciereg(a, b, c, d, e) (0)
+#if defined(BCMDBG_DUMP)
+#define pcicore_dump_pcieregs(a, b) (0)
+#endif
 #ifdef BCMDBG
 #define pcie_lcreg(a, b, c) (0)
 #define pcicore_dump(a, b)	do { } while (0)
@@ -51,34 +54,19 @@
 #define pcicore_pmeen(a)	do { } while (0)
 #define pcicore_pmeclr(a)	do { } while (0)
 #define pcicore_pmestat(a)	(FALSE)
-#define pcicore_pmestatclr(a)	do { } while (0)
 #define pcie_set_request_size(pch, size) do { } while (0)
 #define pcie_get_request_size(pch) (0)
-#define pcie_set_maxpayload_size(pch, size) do { } while (0)
-#define pcie_get_maxpayload_size(pch) (0)
-#define pcie_get_ssid(a) (0)
-#define pcie_get_bar0(a) (0)
-#define pcie_configspace_cache(a) (0)
-#define pcie_configspace_restore(a) (0)
-#define pcie_configspace_get(a, b, c) (0)
-#define pcie_set_L1_entry_time(a, b) do { } while (0)
-#define pcie_disable_TL_clk_gating(a) do { } while (0)
-#define pcie_get_link_speed(a) do { } while (0)
-#define pcie_set_error_injection(a, b) do { } while (0)
 #else
 struct sbpcieregs;
 
 extern uint8 pcicore_find_pci_capability(osl_t *osh, uint8 req_cap_id,
                                          uchar *buf, uint32 *buflen);
-extern uint pcie_readreg(si_t *sih, struct sbpcieregs *pcieregs, uint addrtype, uint offset);
-extern uint pcie_writereg(si_t *sih, struct sbpcieregs *pcieregs, uint addrtype, uint offset,
+extern uint pcie_readreg(osl_t *osh, struct sbpcieregs *pcieregs, uint addrtype, uint offset);
+extern uint pcie_writereg(osl_t *osh, struct sbpcieregs *pcieregs, uint addrtype, uint offset,
                           uint val);
 
 extern uint8 pcie_clkreq(void *pch, uint32 mask, uint32 val);
 extern uint32 pcie_lcreg(void *pch, uint32 mask, uint32 val);
-extern void pcie_set_L1_entry_time(void *pch, uint32 val);
-extern void pcie_disable_TL_clk_gating(void *pch);
-extern void pcie_set_error_injection(void *pch, uint32 mode);
 
 extern void *pcicore_init(si_t *sih, osl_t *osh, void *regs);
 extern void pcicore_deinit(void *pch);
@@ -96,6 +84,9 @@ extern uint32 pcicore_pcieserdesreg(void *pch, uint32 mdioslave, uint32 offset,
 
 extern uint32 pcicore_pciereg(void *pch, uint32 offset, uint32 mask, uint32 val, uint type);
 
+#if defined(BCMDBG_DUMP)
+extern int pcicore_dump_pcieregs(void *pch, struct bcmstrbuf *b);
+#endif
 
 #ifdef BCMDBG
 extern void pcicore_dump(void *pch, struct bcmstrbuf *b);
@@ -104,32 +95,9 @@ extern void pcicore_dump(void *pch, struct bcmstrbuf *b);
 extern bool pcicore_pmecap_fast(osl_t *osh);
 extern void pcicore_pmeen(void *pch);
 extern void pcicore_pmeclr(void *pch);
-extern void pcicore_pmestatclr(void *pch);
 extern bool pcicore_pmestat(void *pch);
 extern void pcie_set_request_size(void *pch, uint16 size);
 extern uint16 pcie_get_request_size(void *pch);
-extern void pcie_set_maxpayload_size(void *pch, uint16 size);
-extern uint16 pcie_get_maxpayload_size(void *pch);
-extern uint16 pcie_get_ssid(void *pch);
-extern uint32 pcie_get_bar0(void *pch);
-extern int pcie_configspace_cache(void* pch);
-extern int pcie_configspace_restore(void* pch);
-extern int pcie_configspace_get(void* pch, uint8 *buf, uint size);
-extern uint32 pcie_get_link_speed(void* pch);
 #endif 
 
-#define PCIE_MRRS_OVERRIDE(sih) \
-	((pi->sih->boardvendor == VENDOR_APPLE) && \
-	 ((pi->sih->boardtype == BCM94331X19) || \
-	  (pi->sih->boardtype == BCM94331X28) || \
-	  (pi->sih->boardtype == BCM94331X28B) || \
-	  (pi->sih->boardtype == BCM94331X29B) || \
-	  (pi->sih->boardtype == BCM94331X19C) || \
-	  (pi->sih->boardtype == BCM94331X33)))
-
-#define PCIE_DRIVE_STRENGTH_OVERRIDE(sih) \
-	((CHIPID((sih)->chip) == BCM4331_CHIP_ID) && \
-	 ((sih)->boardtype == BCM94331X19 || \
-	  (sih)->boardtype == BCM94331X28 || \
-	  (sih)->boardtype == BCM94331X19C))
 #endif	/* _NICPCI_H */

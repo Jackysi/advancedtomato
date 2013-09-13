@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: typedefs.h 286783 2011-09-29 06:18:57Z $
+ * $Id: typedefs.h,v 1.103.12.6 2010-12-21 02:38:54 Exp $
  */
 
 #ifndef _TYPEDEFS_H_
@@ -106,18 +106,31 @@ typedef unsigned __int64 uint64;
 #endif
 
 #if defined(MACOSX)
-#define TYPEDEF_BOOL
+#ifdef KERNEL
+#include <libkern/version.h>
+#if VERSION_MAJOR > 10
+#define WLP2P
+#define IO80211P2P
+#define APSTA
+#define WLMCHAN
+#define WL_MULTIQUEUE
+#define WL_BSSCFG_TX_SUPR
+#define WIFI_ACT_FRAME
+#define FAST_ACTFRM_TX
 #endif
+#endif /* KERNEL */
+#define TYPEDEF_BOOL
+#endif /* MAXOSX */
 
 #if defined(__NetBSD__)
-#define TYPEDEF_BOOL
 #ifndef _KERNEL
 #include <stdbool.h>
 #endif
+#define TYPEDEF_BOOL
 #define TYPEDEF_UINT
 #define TYPEDEF_USHORT
 #define TYPEDEF_ULONG
-#endif /* defined(__NetBSD__) */
+#endif  /* NetBSD */
 
 #if defined(__sparc__)
 #define TYPEDEF_ULONG
@@ -143,13 +156,6 @@ typedef unsigned __int64 uint64;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19))
 #define TYPEDEF_BOOL
 #endif	/* >= 2.6.19 */
-/* special detection for 2.6.18-128.7.1.0.1.el5 */
-#if (LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18))
-#include <linux/compiler.h>
-#ifdef noinline_for_stack
-#define TYPEDEF_BOOL
-#endif
-#endif	/* == 2.6.18 */
 #endif	/* __KERNEL__ */
 #endif  /* !defined(LINUX_HYBRID) || defined(LINUX_PORT) */
 #endif	/* linux */
@@ -164,7 +170,7 @@ typedef unsigned __int64 uint64;
 
 #if !defined(linux) && !defined(_WIN32) && !defined(_CFE_) && !defined(_MINOSL_) && \
 	!defined(__DJGPP__) && !defined(__ECOS) && !defined(__BOB__) && \
-	!defined(TARGETOS_nucleus) && !defined(EFI) && !defined(__FreeBSD__)
+	!defined(TARGETOS_nucleus)
 #define TYPEDEF_UINT
 #define TYPEDEF_USHORT
 #endif
@@ -190,7 +196,7 @@ typedef unsigned __int64 uint64;
 #endif /* __ICL */
 
 #if !defined(_WIN32) && !defined(_CFE_) && !defined(_MINOSL_) && !defined(__DJGPP__) && \
-	!defined(__BOB__) && !defined(TARGETOS_nucleus) && !defined(EFI)
+	!defined(__BOB__) && !defined(TARGETOS_nucleus)
 
 /* pick up ushort & uint from standard types.h */
 #if defined(linux) && defined(__KERNEL__)
@@ -383,7 +389,7 @@ typedef float64 float_t;
 /* Detect compiler type. */
 #ifdef _MSC_VER
 	#define BWL_COMPILER_MICROSOFT
-#elif defined(__GNUC__) || defined(__lint)
+#elif defined(__GNUC__)
 	#define BWL_COMPILER_GNU
 #elif defined(__CC_ARM) && __CC_ARM
 	#define BWL_COMPILER_ARMCC
@@ -427,12 +433,18 @@ typedef float64 float_t;
 /* Suppress unused parameter warning */
 #define UNUSED_PARAMETER(x) (void)(x)
 
-/* Avoid warning for discarded const or volatile qualifier in special cases (-Wcast-qual) */
-#define DISCARD_QUAL(ptr, type) ((type *)(uintptr)(ptr))
-
 /*
  * Including the bcmdefs.h here, to make sure everyone including typedefs.h
  * gets this automatically
 */
 #include <bcmdefs.h>
+/*
+ * If android target is building then include this file
+ */
+#ifndef LINUX_HYBRID
+#ifdef TARGETENV_android
+#include <bcm_android_types.h>
+#endif /* TARGETENV_android */
+#endif /* LINUX_HYBRID */
+
 #endif /* _TYPEDEFS_H_ */

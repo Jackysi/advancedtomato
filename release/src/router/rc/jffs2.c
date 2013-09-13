@@ -73,7 +73,7 @@ void start_jffs2(void)
 		}
 	}
 
-	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368 /* squashfs */)) {
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x71736873 && sf.f_type != 0x73717368/* squashfs */)) {
 		// already mounted
 		notice_set("jffs", format ? "Formatted" : "Loaded");
 		return;
@@ -127,7 +127,7 @@ void stop_jffs2(void)
 
 	if (!wait_action_idle(10)) return;
 
-	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368)) {
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x71736873 && sf.f_type != 0x73717368)) {
 		// is mounted
 		run_userfile("/jffs", ".autostop", "/jffs", 5);
 		run_nvscript("script_autostop", "/jffs", 5);

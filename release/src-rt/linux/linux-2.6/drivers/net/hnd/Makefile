@@ -1,26 +1,20 @@
 #
 # Makefile for Broadcom Home Networking Division (HND) shared driver code
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2009, Broadcom Corporation
+# All Rights Reserved.
 # 
-# Permission to use, copy, modify, and/or distribute this software for any
-# purpose with or without fee is hereby granted, provided that the above
-# copyright notice and this permission notice appear in all copies.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
-# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
-# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
-# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.5 2008-05-02 22:49:54 $
+# $Id: Makefile,v 1.5 2008/05/02 22:49:54 Exp $
 #
 
 SHARED   := ../../../../../shared
 ROUTER   := ../../../../../router
-SRC      := ../../../../../../src-rt
+SRC      := ../../../../../../src
 WLSHARED := wlconfig_lx_shared
 WLCFGDIR := $(src)/../../../../../wl/config
 WLSYSDIR := $(src)/../../../../../wl/sys
@@ -33,7 +27,7 @@ endif
 hnd-objs := $(addprefix $(SHARED)/, $(sort $(WLFILES:.c=.o)))
 HND_OBJS := $(addprefix $(src)/$(SHARED)/, $(sort $(WLFILES:.c=.o)))
 
-EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL -DPKTC
+EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
 ifneq ($(CONFIG_BCM947XX),y)
 HND_OBJS += $(src)/$(SHARED)/nvramstubs.o
@@ -59,6 +53,8 @@ EXTRA_CFLAGS += -DBCMDBG_MEM
 endif
 
 obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
+
+clean-files := shared_ksyms.c
 
 ifeq ($(wildcard $(src)/$(SHARED)/bcmutils.c),)
 $(src)/$(SHARED)/bcmutils.o: $(src)/$(SHARED)/linux/bcmutils.o

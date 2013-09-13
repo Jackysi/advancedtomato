@@ -17,35 +17,26 @@ SHARED := ../../../../../../shared
 BCM947XX_OBJS = $(addprefix $(SHARED)/, hndmips.o hndchipc.o linux_gpio.o sflash.o)
 BCM947XX_OBJS += $(addprefix $(SHARED)/nvram/, nvram.o)
 
+ifeq ($(CONFIG_MTD_NFLASH),y)
+BCM947XX_OBJS += $(addprefix $(SHARED)/, nflash.o)
+endif
+
 EXTRA_CFLAGS += -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
 ifeq ($(CONFIG_PCI),y)
 BCM947XX_OBJS += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
 endif
 
-ifeq ($(CONFIG_MTD_NFLASH),y)
-BCM947XX_OBJS += $(addprefix $(SHARED)/, nflash.o)
-endif
-
 ifeq ($(CONFIG_WAPI),y)
 EXTRA_CFLAGS += -DBCMWAPI_WAI
-endif
-
-ifeq ($(CONFIG_MTD_BCMCONF_PARTS),y)
-EXTRA_CFLAGS += -DBCMCONFMTD
 endif
 
 ifeq ($(CONFIG_GENERIC_GPIO),y)
 BCM947XX_OBJS += gen_gpio.o
 endif
 
-ifeq ($(CONFIG_MTD_NFLASH),y)
-BCM947XX_OBJS += setup.o
-else
-BCM947XX_OBJS += setup-nonand.o
-endif
 
-BCM947XX_OBJS += prom.o time.o irq.o perfcntr.o
+BCM947XX_OBJS += setup.o prom.o time.o irq.o perfcntr.o
 
 bcm947xx-objs += $(BCM947XX_OBJS)
 obj-y += bcm947xx.o

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,7 +13,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndctf.h 322208 2012-03-20 01:53:23Z $
+ * $Id: hndctf.h,v 1.6.12.3 2010-10-26 00:19:09 Exp $
  */
 
 #ifndef _HNDCTF_H_
@@ -40,7 +40,7 @@
 #define ctf_forward(ci, p, d)	(ci)->fn.forward(ci, p, d)
 #define ctf_isenabled(ci, d)	(CTF_ENAB(ci) ? (ci)->fn.isenabled(ci, d) : FALSE)
 #define ctf_isbridge(ci, d)	(CTF_ENAB(ci) ? (ci)->fn.isbridge(ci, d) : FALSE)
-#define ctf_enable(ci, d, e, b)	(CTF_ENAB(ci) ? (ci)->fn.enable(ci, d, e, b) : BCME_OK)
+#define ctf_enable(ci, d, e)	(CTF_ENAB(ci) ? (ci)->fn.enable(ci, d, e) : BCME_OK)
 #define ctf_brc_add(ci, b)	(CTF_ENAB(ci) ? (ci)->fn.brc_add(ci, b) : BCME_OK)
 #define ctf_brc_delete(ci, e)	(CTF_ENAB(ci) ? (ci)->fn.brc_delete(ci, e) : BCME_OK)
 #define ctf_brc_update(ci, b)	(CTF_ENAB(ci) ? (ci)->fn.brc_update(ci, b) : BCME_OK)
@@ -72,7 +72,7 @@
 #define CTFCNTINCR(s)
 #endif /* BCMDBG */
 
-/* Copy an ethernet address in reverse order */
+/* copy an ethernet address in reverse order */
 #define	ether_rcopy(s, d) \
 do { \
 	((uint16 *)(d))[2] = ((uint16 *)(s))[2]; \
@@ -84,7 +84,6 @@ typedef struct ctf_pub	ctf_t;
 typedef struct ctf_brc	ctf_brc_t;
 typedef struct ctf_ipc	ctf_ipc_t;
 typedef struct ctf_conn_tuple	ctf_conn_tuple_t;
-typedef struct ctf_brc_hot ctf_brc_hot_t;
 
 typedef void (*ctf_detach_cb_t)(ctf_t *ci, void *arg);
 typedef ctf_t * (*ctf_attach_t)(osl_t *osh, uint8 *name, uint32 *msg_level,
@@ -105,17 +104,14 @@ typedef int32 (*ctf_ipc_delete_multi_t)(ctf_t *ci, ctf_ipc_t *ipc, ctf_ipc_t *ip
 typedef int32 (*ctf_ipc_delete_range_t)(ctf_t *ci, ctf_ipc_t *start, ctf_ipc_t *end);
 typedef ctf_ipc_t * (*ctf_ipc_lkup_t)(ctf_t *ci, uint32 sip, uint32 dip, uint8 proto,
                                     uint16 sp, uint16 dp);
-typedef int32 (*ctf_enable_t)(ctf_t *ci, void *dev, bool enable, ctf_brc_hot_t **brc_hot);
+typedef int32 (*ctf_enable_t)(ctf_t *ci, void *dev, bool enable);
 typedef int32 (*ctf_dev_register_t)(ctf_t *ci, void *dev, bool br);
 typedef void (*ctf_dev_unregister_t)(ctf_t *ci, void *dev);
 typedef int32 (*ctf_dev_vlan_add_t)(ctf_t *ci, void *dev, uint16 vid, void *vldev);
 typedef int32 (*ctf_dev_vlan_delete_t)(ctf_t *ci, void *dev, uint16 vid);
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 typedef void (*ctf_dump_t)(ctf_t *ci, struct bcmstrbuf *b);
-
-struct ctf_brc_hot {
-	struct ether_addr	ea;		/* Dest mac addr */
-	uint16			PAD;		/* To round size to 8 bytes */
-};
+#endif /* BCMDBG || BCMDBG_DUMP */
 
 typedef struct ctf_fn {
 	ctf_detach_t		detach;
@@ -139,7 +135,9 @@ typedef struct ctf_fn {
 	void			*detach_cb_arg;
 	ctf_dev_vlan_add_t	dev_vlan_add;
 	ctf_dev_vlan_delete_t	dev_vlan_delete;
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 	ctf_dump_t		dump;
+#endif /* BCMDBG || BCMDBG_DUMP */
 } ctf_fn_t;
 
 struct ctf_pub {
@@ -154,7 +152,9 @@ struct ctf_brc {
 	void			*txifp;		/* Interface connected to host */
 	uint32			action;		/* Tag or untag the frames */
 	uint32			live;		/* Counter used to expire the entry */
+#ifdef BCMDBG
 	uint32			hits;		/* Num frames matching brc entry */
+#endif /* BCMDBG */
 };
 
 struct ctf_conn_tuple {
@@ -180,7 +180,9 @@ struct ctf_ipc {
 	uint32			live;		/* Counter used to expire the entry */
 	struct	ctf_nat		nat;		/* Manip data for SNAT, DNAT */
 	struct	ether_addr	sa;		/* MAC address of sender */
+#ifdef BCMDBG
 	uint32			hits;		/* Num frames matching ipc entry */
+#endif /* BCMDBG */
 };
 
 extern ctf_t *ctf_kattach(osl_t *osh, uint8 *name);
@@ -189,15 +191,5 @@ extern ctf_attach_t ctf_attach_fn;
 extern ctf_t *_ctf_attach(osl_t *osh, uint8 *name, uint32 *msg_level,
                           ctf_detach_cb_t cb, void *arg);
 extern ctf_t *kcih;
-
-/* Hot bridge cache lkup */
-#define MAXBRCHOT		4
-#define MAXBRCHOTIF		4
-#define CTF_BRC_HOT_HASH(da) 	((((uint8 *)da)[4] ^ ((uint8 *)da)[5]) & (MAXBRCHOT - 1))
-#define CTF_HOTBRC_CMP(brc, da) \
-({ \
-	ctf_brc_hot_t *bh = brc + CTF_BRC_HOT_HASH(da); \
-	(eacmp((bh)->ea.octet, (da)) == 0); \
-})
 
 #endif /* _HNDCTF_H_ */

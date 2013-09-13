@@ -1,7 +1,7 @@
 /*
  * BCM43XX Sonics SiliconBackplane PCMCIA core hardware definitions.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbpcmcia.h 323241 2012-03-23 14:34:48Z $
+ * $Id: sbpcmcia.h,v 13.48.22.3 2011-01-28 00:42:42 Exp $
  */
 
 #ifndef	_SBPCMCIA_H
@@ -96,7 +96,7 @@
 #define	SRI_BLANK		0x04
 #define	SRI_OTP			0x80
 
-#if !defined(LINUX_POSTMOGRIFY_REMOVAL)
+#if !defined(ESTA_POSTMOGRIFY_REMOVAL)
 /* CIS stuff */
 
 /* The CIS stops where the FCRs start */
@@ -206,7 +206,7 @@
 #define HNBU_OFDMPO5G		0x37	/* 4 * 3 = 12 byte 11a ofdm power offsets in rev 3 */
 #define HNBU_ELNA2G             0x38
 #define HNBU_ELNA5G             0x39
-#define HNBU_TEMPTHRESH 0x3A /* 2 bytes
+#define HNBU_TEMPTHRESH 0x3A /* 2 bytes 
 					 * byte1 tempthresh
 					 * byte2 period(msb 4 bits) | hysterisis(lsb 4 bits)
 					 */
@@ -216,42 +216,42 @@
 
 /* POWER PER RATE for SROM V9 */
 #define HNBU_CCKBW202GPO       0x41    /* 2 bytes each
-					 * CCK Power offsets for 20 MHz rates (11, 5.5, 2, 1Mbps)
+					 * CCK Power offsets for 20 MHz rates (11, 5.5, 2, 1Mbps) 
 					 * cckbw202gpo cckbw20ul2gpo
 					 */
 
 #define HNBU_LEGOFDMBW202GPO    0x42    /* 4 bytes each
-					 * OFDM power offsets for 20 MHz Legacy rates
-					 * (54, 48, 36, 24, 18, 12, 9, 6 Mbps)
-					 * legofdmbw202gpo  legofdmbw20ul2gpo
+					 * OFDM power offsets for 20 MHz Legacy rates 
+					 * (54, 48, 36, 24, 18, 12, 9, 6 Mbps) 
+					 * legofdmbw202gpo  legofdmbw20ul2gpo 
 					 */
 
 #define HNBU_LEGOFDMBW205GPO   0x43    /* 4 bytes each
-					* 5G band: OFDM power offsets for 20 MHz Legacy rates
-					* (54, 48, 36, 24, 18, 12, 9, 6 Mbps)
-					* low subband : legofdmbw205glpo  legofdmbw20ul2glpo
-					* mid subband :legofdmbw205gmpo  legofdmbw20ul2gmpo
+					* 5G band: OFDM power offsets for 20 MHz Legacy rates 
+					* (54, 48, 36, 24, 18, 12, 9, 6 Mbps) 
+					* low subband : legofdmbw205glpo  legofdmbw20ul2glpo 
+					* mid subband :legofdmbw205gmpo  legofdmbw20ul2gmpo 
 					* high subband :legofdmbw205ghpo  legofdmbw20ul2ghpo
-					*/
+					*/ 
 
-#define HNBU_MCS2GPO    0x44    /* 4 bytes each
+#define HNBU_MCS2GPO    0x44    /* 4 bytes each 
 				     * mcs 0-7  power-offset. LSB nibble: m0, MSB nibble: m7
-				     * mcsbw202gpo  mcsbw20ul2gpo mcsbw402gpo
+				     * mcsbw202gpo  mcsbw20ul2gpo mcsbw402gpo 
 				     */
-#define HNBU_MCS5GLPO    0x45    /* 4 bytes each
+#define HNBU_MCS5GLPO    0x45    /* 4 bytes each 
 				     * 5G low subband mcs 0-7 power-offset.
 				     * LSB nibble: m0, MSB nibble: m7
-				     * mcsbw205glpo  mcsbw20ul5glpo mcsbw405glpo
+				     * mcsbw205glpo  mcsbw20ul5glpo mcsbw405glpo 
 				     */
-#define HNBU_MCS5GMPO    0x46    /* 4 bytes each
+#define HNBU_MCS5GMPO    0x46    /* 4 bytes each 
 				     * 5G mid subband mcs 0-7 power-offset.
 				     * LSB nibble: m0, MSB nibble: m7
-				     * mcsbw205gmpo  mcsbw20ul5gmpo mcsbw405gmpo
+				     * mcsbw205gmpo  mcsbw20ul5gmpo mcsbw405gmpo 
 				     */
-#define HNBU_MCS5GHPO    0x47    /* 4 bytes each
+#define HNBU_MCS5GHPO    0x47    /* 4 bytes each 
 				     * 5G high subband mcs 0-7 power-offset.
 				     * LSB nibble: m0, MSB nibble: m7
-				     * mcsbw205ghpo  mcsbw20ul5ghpo mcsbw405ghpo
+				     * mcsbw205ghpo  mcsbw20ul5ghpo mcsbw405ghpo 
 				     */
 #define HNBU_MCS32PO	0x48	/*  2 bytes total
 				 * mcs-32 power offset for each band/subband.
@@ -260,58 +260,10 @@
 				 */
 #define HNBU_LEG40DUPPO	0x49 /*  2 bytes total
 				* Additional power offset for Legacy Dup40 transmissions.
-				 * Applied in addition to legofdmbw20ulXpo, X=2g, 5gl, 5gm, or 5gh.
+				 * Applied in addition to legofdmbw20ulXpo, X=2g, 5gl, 5gm, or 5gh. 
 				 * LSB nibble: 2G band, MSB nibble: 5G band high subband.
-				 * leg40dup5ghpo, leg40dup5gmpo, leg40dup5glpo, leg40dup2gpo
-				 */
-
-#define HNBU_PMUREGS	0x4a /* Variable length (5 bytes for each register)
-				* The setting of the ChipCtrl, PLL, RegulatorCtrl, Up/Down Timer and
-				* ResourceDependency Table registers.
-				*/
-
-#define HNBU_PATCH2		0x4b	/* bootloader TCAM patch addr(4b) & data(4b) pair .
-				* This is required for socram rev 15 onwards.
-				*/
-
-#define HNBU_USBRDY		0x4c	/* Variable length (upto 5 bytes)
-				* This is to indicate the USB/HSIC host controller
-				* that the device is ready for enumeration.
-				*/
-
-#define HNBU_USBREGS	0x4d	/* Variable length
-				* The setting of the devcontrol, HSICPhyCtrl1 and HSICPhyCtrl2
-				* registers during the USB initialization.
-				*/
-
-#define HNBU_BLDR_TIMEOUT	0x4e	/* 2 bytes used for HSIC bootloader to reset chip
-				* on connect timeout.
-				* The Delay after USBConnect for timeout till dongle receives
-				* get_descriptor request.
-				*/
-#define HNBU_USBFLAGS		0x4f
-#define HNBU_PATCH_AUTOINC	0x50
-#define HNBU_MDIO_REGLIST	0x51
-#define HNBU_MDIOEX_REGLIST	0x52
-/* Unified OTP: tupple to embed USB manfid inside SDIO CIS */
-#define HNBU_UMANFID		0x53
-#define HNBU_PUBKEY		0x54	/* 128 byte; publick key to validate downloaded FW */
-#define HNBU_MUXENAB		0x56	/* 1 byte to enable mux options */
-#define HNBU_GCI_CCR		0x57	/* GCI Chip control register */
-#define HNBU_FEM_CFG		0x58	/* FEM config */
-#define HNBU_ACPA_C0		0x59	/* ACPHY PA parameters: chain 0 */
-#define HNBU_ACPA_C1		0x5a	/* ACPHY PA parameters: chain 1 */
-#define HNBU_ACPA_C2		0x5b	/* ACPHY PA parameters: chain 2 */
-#define HNBU_MEAS_PWR		0x5c
-#define HNBU_PDOFF		0x5d
-#define HNBU_ACPPR_2GPO		0x5e	/* ACPHY Power-per-rate 2gpo */
-#define HNBU_ACPPR_5GPO		0x5f	/* ACPHY Power-per-rate 5gpo */
-#define HNBU_ACPPR_SBPO		0x60	/* ACPHY Power-per-rate sbpo */
-#define HNBU_NOISELVL		0x61
-#define HNBU_RXGAIN_ERR		0x62
-#define HNBU_AGBGA		0x63
-#define HNBU_PATCH_AUTOINC8	0x65	/* Auto increment patch entry for 8 byte patching */
-#define HNBU_PATCH8		0x66	/* Patch entry for 8 byte patching */
+				 * leg40dup5ghpo, leg40dup5gmpo, leg40dup5glpo, leg40dup2gpo 
+				 */	
 
 #define HNBU_SROM3SWRGN		0x80	/* 78 bytes; srom rev 3 s/w region without crc8
 					 * plus extra info appended.
@@ -319,7 +271,7 @@
 #define HNBU_RESERVED		0x81	/* Reserved for non-BRCM post-mfg additions */
 #define HNBU_CUSTOM1		0x82	/* 4 byte; For non-BRCM post-mfg additions */
 #define HNBU_CUSTOM2		0x83	/* Reserved; For non-BRCM post-mfg additions */
-#endif /* !defined(LINUX_POSTMOGRIFY_REMOVAL) */
+#endif /* !defined(ESTA_POSTMOGRIFY_REMOVAL) */
 
 /* sbtmstatelow */
 #define SBTML_INT_ACK		0x40000		/* ack the sb interrupt */

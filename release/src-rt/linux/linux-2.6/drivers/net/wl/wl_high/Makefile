@@ -44,6 +44,6 @@ clean:
 include ../wl_generic.mk
 endif
 
-ifneq ($(wildcard $(src)/$(SRCBASE)/shared/zlib),)
+ifneq ($(wildcard $(SRCBASE)/shared/zlib),)
 EXTRA_CFLAGS += -I$(src)/$(SRCBASE)/shared/zlib
 endif

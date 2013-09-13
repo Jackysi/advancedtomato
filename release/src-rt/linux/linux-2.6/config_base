@@ -667,7 +667,6 @@ CONFIG_MTD=y
 CONFIG_MTD_PARTITIONS=y
 # CONFIG_MTD_REDBOOT_PARTS is not set
 # CONFIG_MTD_CMDLINE_PARTS is not set
-# CONFIG_MTD_BCMCONF_PARTS is not set
 
 #
 # User Modules And Translation Layers
@@ -737,16 +736,7 @@ CONFIG_MTD_SFLASH=y
 # CONFIG_MTD_DOC2001 is not set
 # CONFIG_MTD_DOC2001PLUS is not set
 # CONFIG_MTD_NAND is not set
-# CONFIG_MTD_NAND_VERIFY_WRITE is not set
-# CONFIG_MTD_NAND_ECC_SMC is not set
-# CONFIG_MTD_NAND_MUSEUM_IDS is not set
-# CONFIG_MTD_NAND_IDS is not set
-# CONFIG_MTD_NAND_DISKONCHIP is not set
-# CONFIG_MTD_NAND_CAFE is not set
-# CONFIG_MTD_NAND_NANDSIM is not set
-# CONFIG_MTD_NAND_PLATFORM is not set
 # CONFIG_MTD_ONENAND is not set
-# CONFIG_MTD_BRCMNAND is not set
 
 #
 # UBI - Unsorted block images
@@ -906,8 +896,6 @@ CONFIG_NETDEVICES=y
 CONFIG_HND=y
 CONFIG_ET=m
 CONFIG_ET_47XX=y
-CONFIG_ET_ALL_PASSIVE_ON=y
-# CONFIG_ET_ALL_PASSIVE_RUNTIME is not set
 CONFIG_BCM_CTF=m
 # CONFIG_PLC is not set
 # CONFIG_WL_EMULATOR is not set
@@ -927,9 +915,6 @@ CONFIG_WL_STA="wlconfig_lx_router_sta"
 CONFIG_WL_AP_ONCHIP_G="wlconfig_lx_router_ap_1chipG"
 CONFIG_WL_STA_ONCHIP_G="wlconfig_lx_router_sta_1chipG"
 CONFIG_WL_HIGH="wlconfig_lx_router_high"
-CONFIG_WL_ALL_PASSIVE_ON=y
-# CONFIG_WL_ALL_PASSIVE_RUNTIME is not set
-# CONFIG_DPSTA is not set
 CONFIG_EMF=m
 CONFIG_IFB=m
 # CONFIG_DUMMY is not set

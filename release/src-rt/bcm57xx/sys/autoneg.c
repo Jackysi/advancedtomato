@@ -11,7 +11,6 @@
 /* History:                                                                   */
 /******************************************************************************/
 
-#include <bcm57xx_cfg.h>
 #ifdef INCLUDE_TBI_SUPPORT
 #include "mm.h"
 

@@ -2,7 +2,7 @@
  * Misc utility routines for accessing the SOC Interconnects
  * of Broadcom HNBU chips.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: siutils.h 330112 2012-04-27 22:31:26Z $
+ * $Id: siutils.h,v 13.254.4.14 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_siutils_h_
@@ -70,17 +70,6 @@ typedef struct si_pub si_t;
 #else
 typedef const struct si_pub si_t;
 #endif
-
-#ifdef ATE_BUILD
-typedef struct _ate_params {
-	void* wl;
-	uint8 gpio_input;
-	uint8 gpio_output;
-	bool cmd_proceed;
-	uint16 cmd_idx;
-	bool ate_cmd_done;
-} ate_params_t;
-#endif /* ATE_BUILD */
 
 /*
  * Many of the routines below take an 'sih' handle as their first arg.
@@ -152,11 +141,6 @@ typedef void (*gpio_handler_t)(uint32 stat, void *arg);
 #define GPIO_CTRL_EPA_EN_MASK 0x40
 /* WL/BT control enable mask */
 #define GPIO_CTRL_5_6_EN_MASK 0x60
-#define GPIO_CTRL_7_6_EN_MASK 0xC0
-#define GPIO_OUT_7_EN_MASK 0x80
-
-
-
 
 /* === exported functions === */
 extern si_t *si_attach(uint pcidev, osl_t *osh, void *regs, uint bustype,
@@ -177,16 +161,11 @@ extern void *si_osh(si_t *sih);
 extern void si_setosh(si_t *sih, osl_t *osh);
 extern uint si_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val);
 extern void *si_coreregs(si_t *sih);
-extern uint si_wrapperreg(si_t *sih, uint32 offset, uint32 mask, uint32 val);
+extern void si_write_wrapperreg(si_t *sih, uint32 offset, uint32 val);
 extern uint32 si_core_cflags(si_t *sih, uint32 mask, uint32 val);
 extern void si_core_cflags_wo(si_t *sih, uint32 mask, uint32 val);
 extern uint32 si_core_sflags(si_t *sih, uint32 mask, uint32 val);
-#ifdef WLC_HIGH_ONLY
-extern bool wlc_bmac_iscoreup(si_t *sih);
-#define si_iscoreup(sih)	wlc_bmac_iscoreup(sih)
-#else
 extern bool si_iscoreup(si_t *sih);
-#endif /* __CONFIG_USBAP__ */
 extern uint si_findcoreidx(si_t *sih, uint coreid, uint coreunit);
 extern void *si_setcoreidx(si_t *sih, uint coreidx);
 extern void *si_setcore(si_t *sih, uint coreid, uint coreunit);
@@ -200,7 +179,6 @@ extern int si_corebist(si_t *sih);
 extern void si_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
 extern void si_core_disable(si_t *sih, uint32 bits);
 extern uint32 si_clock_rate(uint32 pll_type, uint32 n, uint32 m);
-extern bool si_read_pmu_autopll(si_t *sih);
 extern uint32 si_clock(si_t *sih);
 extern uint32 si_alp_clock(si_t *sih);
 extern uint32 si_ilp_clock(si_t *sih);
@@ -220,14 +198,11 @@ extern void si_btcgpiowar(si_t *sih);
 extern bool si_deviceremoved(si_t *sih);
 extern uint32 si_socram_size(si_t *sih);
 extern uint32 si_socdevram_size(si_t *sih);
-extern void si_socdevram(si_t *sih, bool set, uint8 *ennable, uint8 *protect, uint8 *remap);
+extern void si_socdevram(si_t *sih, bool set, uint8 *ennable, uint8 *protect);
 extern bool si_socdevram_pkg(si_t *sih);
-extern bool si_socdevram_remap_isenb(si_t *sih);
-extern uint32 si_socdevram_remap_size(si_t *sih);
 
 extern void si_watchdog(si_t *sih, uint ticks);
 extern void si_watchdog_ms(si_t *sih, uint32 ms);
-extern uint32 si_watchdog_msticks(void);
 extern void *si_gpiosetcore(si_t *sih);
 extern uint32 si_gpiocontrol(si_t *sih, uint32 mask, uint32 val, uint8 priority);
 extern uint32 si_gpioouten(si_t *sih, uint32 mask, uint32 val, uint8 priority);
@@ -254,7 +229,6 @@ extern bool si_pci_fastpmecap(struct osl_info *osh);
 extern bool si_pci_pmestat(si_t *sih);
 extern void si_pci_pmeclr(si_t *sih);
 extern void si_pci_pmeen(si_t *sih);
-extern void si_pci_pmestatclr(si_t *sih);
 extern uint si_pcie_readreg(void *sih, uint addrtype, uint offset);
 
 
@@ -269,15 +243,13 @@ extern void si_eci_notify_bt(si_t *sih, uint32 mask, uint32 val, bool interrupt)
 extern bool si_seci(si_t *sih);
 extern void* si_seci_init(si_t *sih, uint8 seci_mode);
 extern void si_seci_down(si_t *sih);
-extern void si_seci_upd(si_t *sih, bool enable);
 #else
 #define si_eci(sih) 0
-static INLINE void * si_eci_init(si_t *sih) {return NULL;}
+#define si_eci_init(sih) (0)
 #define si_eci_notify_bt(sih, type, val)  (0)
 #define si_seci(sih) 0
-#define si_seci_upd(sih, a)	do {} while (0)
 static INLINE void * si_seci_init(si_t *sih, uint8 use_seci) {return NULL;}
-#define si_seci_down(sih) do {} while (0)
+#define si_seci_down(sih) do { } while (0)
 #endif /* BCMECICOEX */
 
 /* OTP status */
@@ -321,38 +293,32 @@ extern char *si_coded_devpathvar(si_t *sih, char *varname, int var_len, const ch
 
 extern uint8 si_pcieclkreq(si_t *sih, uint32 mask, uint32 val);
 extern uint32 si_pcielcreg(si_t *sih, uint32 mask, uint32 val);
-extern void si_pcie_set_error_injection(si_t *sih, uint32 mode);
 extern void si_war42780_clkreq(si_t *sih, bool clkreq);
+extern void si_pci_sleep(si_t *sih);
 extern void si_pci_down(si_t *sih);
 extern void si_pci_up(si_t *sih);
-#ifdef WLC_HIGH_ONLY
-#define si_pci_sleep(sih)	do { ASSERT(0); } while (0)
-#define si_pcie_war_ovr_update(sih, aspm)	do { ASSERT(0); } while (0)
-#define si_pcie_power_save_enable(sih, up)	do { ASSERT(0); } while (0)
-#else
-extern void si_pci_sleep(si_t *sih);
 extern void si_pcie_war_ovr_update(si_t *sih, uint8 aspm);
 extern void si_pcie_power_save_enable(si_t *sih, bool enable);
-#endif /* __CONFIG_USBAP__ */
+
 extern void si_pcie_extendL1timer(si_t *sih, bool extend);
 extern int si_pci_fixcfg(si_t *sih);
 extern bool si_ldo_war(si_t *sih, uint devid);
 extern void si_chippkg_set(si_t *sih, uint);
 
-extern void si_chipcontrl_btshd0_4331(si_t *sih, bool on);
-extern void si_chipcontrl_restore(si_t *sih, uint32 val);
-extern uint32 si_chipcontrl_read(si_t *sih);
+
+extern void si_chipcontrl_epa4331_restore(si_t *sih, uint32 val);
+extern uint32 si_chipcontrl_epa4331_read(si_t *sih);
 extern void si_chipcontrl_epa4331(si_t *sih, bool on);
 extern void si_chipcontrl_epa4331_wowl(si_t *sih, bool enter_wowl);
-extern void si_chipcontrl_srom4360(si_t *sih, bool on);
 /* Enable BT-COEX & Ex-PA for 4313 */
 extern void si_epa_4313war(si_t *sih);
 extern void si_btc_enable_chipcontrol(si_t *sih);
 /* BT/WL selection for 4313 bt combo >= P250 boards */
 extern void si_btcombo_p250_4313_war(si_t *sih);
-extern void si_btcombo_43228_war(si_t *sih);
 extern void si_clk_pmu_htavail_set(si_t *sih, bool set_clear);
 extern uint si_pll_reset(si_t *sih);
+
+
 /* === debug routines === */
 
 extern bool si_taclear(si_t *sih, bool details);
@@ -362,34 +328,24 @@ extern void si_view(si_t *sih, bool verbose);
 extern void si_viewall(si_t *sih, bool verbose);
 #endif
 
-#if defined(BCMDBG)
-struct bcmstrbuf;
+#if defined(BCMDBG_DUMP)
+extern void si_dump(si_t *sih, struct bcmstrbuf *b);
+extern void si_ccreg_dump(si_t *sih, struct bcmstrbuf *b);
+extern void si_clkctl_dump(si_t *sih, struct bcmstrbuf *b);
+extern int si_gpiodump(si_t *sih, struct bcmstrbuf *b);
+extern int si_dump_pcieregs(si_t *sih, struct bcmstrbuf *b);
+#endif
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 extern void si_dumpregs(si_t *sih, struct bcmstrbuf *b);
-#endif 
+#endif
 
 extern uint32 si_pciereg(si_t *sih, uint32 offset, uint32 mask, uint32 val, uint type);
 extern uint32 si_pcieserdesreg(si_t *sih, uint32 mdioslave, uint32 offset, uint32 mask, uint32 val);
 extern void si_pcie_set_request_size(si_t *sih, uint16 size);
 extern uint16 si_pcie_get_request_size(si_t *sih);
-extern void si_pcie_set_maxpayload_size(si_t *sih, uint16 size);
-extern uint16 si_pcie_get_maxpayload_size(si_t *sih);
-extern uint16 si_pcie_get_ssid(si_t *sih);
-extern uint32 si_pcie_get_bar0(si_t *sih);
-extern int si_pcie_configspace_cache(si_t *sih);
-extern int si_pcie_configspace_restore(si_t *sih);
-extern int si_pcie_configspace_get(si_t *sih, uint8 *buf, uint size);
 
 #ifndef DONGLEBUILD
 char *si_getnvramflvar(si_t *sih, const char *name);
 #endif /* DONGLEBUILD */
-
-extern void BCMATTACHFN(si_muxenab)(si_t *sih, uint32 w);
-
-
-extern void si_gci_set_functionsel(si_t *sih, uint32 pin, uint8 fnsel);
-extern uint8 si_gci_get_chipctrlreg_idx(uint32 pin, uint32 *regidx, uint32 *pos);
-extern uint32 si_gci_chipcontrol(si_t *sih, uint reg, uint32 mask, uint32 val);
-extern int si_set_sromctl(si_t *sih, uint32 value);
-extern uint32 si_get_sromctl(si_t *sih);
 
 #endif	/* _siutils_h_ */

@@ -1,7 +1,7 @@
 /*
  * Broadcom HND chip & on-chip-interconnect-related definitions.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndsoc.h 302333 2011-12-11 01:47:49Z $
+ * $Id: hndsoc.h,v 13.11.12.1 2010-11-16 21:14:20 Exp $
  */
 
 #ifndef	_HNDSOC_H
@@ -58,7 +58,6 @@
 #define	SI_FLASH1		0x1fc00000	/* MIPS Flash Region 1 */
 #define	SI_FLASH1_SZ		0x00400000	/* MIPS Size of Flash Region 1 */
 #define	SI_ARM7S_ROM		0x20000000	/* ARM7TDMI-S ROM */
-#define	SI_ARMCR4_ROM		0x000f0000	/* ARM Cortex-R4 ROM */
 #define	SI_ARMCM3_SRAM2		0x60000000	/* ARM Cortex-M3 SRAM Region 2 */
 #define	SI_ARM7S_SRAM2		0x80000000	/* ARM7TDMI-S SRAM Region 2 */
 #define	SI_ARM_FLASH1		0xffff0000	/* ARM Flash Region 1 */
@@ -131,16 +130,8 @@
 #define	I2S_CORE_ID		0x834		/* I2S core */
 #define	DMEMS_CORE_ID		0x835		/* SDR/DDR1 memory controller core */
 #define	DEF_SHIM_COMP		0x837		/* SHIM component in ubus/6362 */
-
-#define ACPHY_CORE_ID		0x83b		/* Dot11 ACPHY */
-#define PCIE2_CORE_ID		0x83c		/* pci express Gen2 core */
-#define USB30D_CORE_ID		0x83d		/* usb 3.0 device core */
-#define ARMCR4_CORE_ID		0x83e		/* ARM CR4 CPU */
-#define APB_BRIDGE_CORE_ID	0x135		/* APB bridge core ID */
-#define AXI_CORE_ID		0x301		/* AXI/GPV core ID */
-#define EROM_CORE_ID		0x366		/* EROM core ID */
 #define OOB_ROUTER_CORE_ID	0x367		/* OOB router core ID */
-#define DEF_AI_COMP		0xfff		/* Default component, in ai chips it maps all
+#define	DEF_AI_COMP		0xfff		/* Default component, in ai chips it maps all
 						 * unused address ranges
 						 */
 
@@ -197,8 +188,6 @@
 #define	CCS_ALPAREQ		0x00000008	/* ALP Avail Request */
 #define	CCS_HTAREQ		0x00000010	/* HT Avail Request */
 #define	CCS_FORCEHWREQOFF	0x00000020	/* Force HW Clock Request Off */
-#define CCS_HQCLKREQ		0x00000040	/* HQ Clock Required */
-#define CCS_USBCLKREQ		0x00000100	/* USB Clock Req */
 #define CCS_ERSRC_REQ_MASK	0x00000700	/* external resource requests */
 #define CCS_ERSRC_REQ_SHIFT	8
 #define	CCS_ALPAVAIL		0x00010000	/* ALP is available */

@@ -1587,6 +1587,7 @@ static int nv_wl_find(int idx, int unit, int subunit, void *param)
 	}
 }
 
+#ifdef CONFIG_BCMWL6
 static int nv_wl_bwcap_chanspec(int idx, int unit, int subunit, void *param){
 	char		chan_spec[32];
 	char		*ch,*nbw_cap,*nctrlsb;
@@ -1627,6 +1628,7 @@ static int nv_wl_bwcap_chanspec(int idx, int unit, int subunit, void *param){
 		nvram_set(wl_nvname("chanspec", unit, 0), chan_spec);
 	return 0;
 }
+#endif
 
 static int save_variables(int write)
 {
@@ -1662,7 +1664,9 @@ static int save_variables(int write)
 	}
 
 	// special cases
+#ifdef CONFIG_BCMWL6
 	foreach_wif(0, &write, nv_wl_bwcap_chanspec);
+#endif
 
 	char *p1, *p2;
 	if (((p1 = webcgi_get("set_password_1")) != NULL) && (strcmp(p1, "**********") != 0)) {

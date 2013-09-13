@@ -28,7 +28,7 @@ static void help(void)
 	printf(
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
-		"Usage: nvram set <key=value> | get <key> | unset <key> | default_get  <key>\n"
+		"Usage: nvram set <key=value> | get <key> | unset <key> | default_get  <key> [only work on K26AC routers]\n"
 		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
 		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
@@ -121,11 +121,13 @@ static int save2f_main(int argc, char **argv)
 static int default_get_main(int argc, char **argv){
 	char *p;
 
+#ifdef CONFIG_BCMWL6
 	if ((p = nvram_default_get(argv[1])) != NULL) {
 		puts(p);
 		return 0;
 	}
-	return 1;	
+#endif
+	return 1;
 }
 static int show_main(int argc, char **argv)
 {

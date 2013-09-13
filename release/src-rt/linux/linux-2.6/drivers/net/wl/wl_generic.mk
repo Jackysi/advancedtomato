@@ -20,10 +20,10 @@ ifeq ($(REBUILD_WL_MODULE),1)
          $(error var_vlist($(VLIST)) var_config_wl_use($(shell env|grep CONFIG_WL_USE)))
          $(error CONFIG_WL_CONF is undefined)
     endif
-    
+
     WLCONFFILE := $(strip $(subst ",,$(CONFIG_WL_CONF))) 
     WLCFGDIR   := $(src)/$(SRCBASE)/wl/config
-    
+
     # define OS flag to pick up wl osl file from wl.mk
     WLLX=1
     ifdef CONFIG_PLC
@@ -32,6 +32,7 @@ ifeq ($(REBUILD_WL_MODULE),1)
     ifdef CONFIG_DPSTA
         DPSTA=1
     endif
+    PKTC=1
     include $(WLCFGDIR)/$(WLCONFFILE)
     include $(WLCFGDIR)/wl.mk
 
@@ -46,6 +47,7 @@ ifeq ($(REBUILD_WL_MODULE),1)
     
     ifeq ($(WLCLMAPI),1)
     $(call WLAN_GenClmCompilerRule,$(src)/$(SRCBASE)/wl/clm/src,$(src)/$(SRCBASE),--ccrev all)
+    clean-files += $(SRCBASE)/wl/clm/src/wlc_clm_data.c
     endif
     
     # need -I. to pick up wlconf.h in build directory

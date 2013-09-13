@@ -2,7 +2,7 @@
  * Generic Broadcom Home Networking Division (HND) DMA engine HW interface
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbhnddma.h 321146 2012-03-14 08:27:23Z $
+ * $Id: sbhnddma.h,v 13.20.12.3 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_sbhnddma_h_
@@ -74,44 +74,9 @@ typedef volatile struct {
 #define	XC_SE		((uint32)1 << 1)	/* transmit suspend request */
 #define	XC_LE		((uint32)1 << 2)	/* loopback enable */
 #define	XC_FL		((uint32)1 << 4)	/* flush request */
-#define XC_MR_MASK	0x000000C0		/* Multiple outstanding reads */
-#define XC_MR_SHIFT	6
 #define	XC_PD		((uint32)1 << 11)	/* parity check disable */
 #define	XC_AE		((uint32)3 << 16)	/* address extension bits */
 #define	XC_AE_SHIFT	16
-#define XC_BL_MASK	0x001C0000		/* BurstLen bits */
-#define XC_BL_SHIFT	18
-#define XC_PC_MASK	0x00E00000		/* Prefetch control */
-#define XC_PC_SHIFT	21
-#define XC_PT_MASK	0x03000000		/* Prefetch threshold */
-#define XC_PT_SHIFT	24
-
-/* Multiple outstanding reads */
-#define DMA_MR_1	0
-#define DMA_MR_2	1
-/* 2, 3: reserved */
-
-/* DMA Burst Length in bytes */
-#define DMA_BL_16	0
-#define DMA_BL_32	1
-#define DMA_BL_64	2
-#define DMA_BL_128	3
-#define DMA_BL_256	4
-#define DMA_BL_512	5
-#define DMA_BL_1024	6
-
-/* Prefetch control */
-#define DMA_PC_0	0
-#define DMA_PC_4	1
-#define DMA_PC_8	2
-#define DMA_PC_16	3
-/* others: reserved */
-
-/* Prefetch threshold */
-#define DMA_PT_1	0
-#define DMA_PT_2	1
-#define DMA_PT_4	2
-#define DMA_PT_8	3
 
 /* transmit descriptor table pointer */
 #define	XP_LD_MASK	0xfff			/* last valid descriptor */
@@ -145,12 +110,6 @@ typedef volatile struct {
 #define	RC_PD		((uint32)1 << 11)	/* parity check disable */
 #define	RC_AE		((uint32)3 << 16)	/* address extension bits */
 #define	RC_AE_SHIFT	16
-#define RC_BL_MASK	0x001C0000		/* BurstLen bits */
-#define RC_BL_SHIFT	18
-#define RC_PC_MASK	0x00E00000		/* Prefetch control */
-#define RC_PC_SHIFT	21
-#define RC_PT_MASK	0x03000000		/* Prefetch threshold */
-#define RC_PT_SHIFT	24
 
 /* receive descriptor table pointer */
 #define	RP_LD_MASK	0xfff			/* last valid descriptor */
@@ -230,7 +189,7 @@ typedef volatile struct {		/* diag access */
  * Descriptors are only read by the hardware, never written back.
  */
 typedef volatile struct {
-	uint32	ctrl1;		/* misc control bits */
+	uint32	ctrl1;		/* misc control bits & bufcount */
 	uint32	ctrl2;		/* buffer count and address extension */
 	uint32	addrlow;	/* memory address of the date buffer, bits 31:0 */
 	uint32	addrhigh;	/* memory address of the date buffer, bits 63:32 */
@@ -245,40 +204,17 @@ typedef volatile struct {
 
 #define	D64MAXDD	(D64MAXRINGSZ / sizeof (dma64dd_t))
 
-/*
- * Default DMA Burstlen values for USBRev >= 12 and SDIORev >= 11.
- * When this field contains the value N, the burst length is 2**(N + 4) bytes.
- */
-#define D64_DEF_USBBURSTLEN     2
-#define D64_DEF_SDIOBURSTLEN    1
-
-
-#ifndef D64_USBBURSTLEN
-#define D64_USBBURSTLEN	DMA_BL_64
-#endif
-#ifndef D64_SDIOBURSTLEN
-#define D64_SDIOBURSTLEN	DMA_BL_32
-#endif
-
 /* transmit channel control */
 #define	D64_XC_XE		0x00000001	/* transmit enable */
 #define	D64_XC_SE		0x00000002	/* transmit suspend request */
 #define	D64_XC_LE		0x00000004	/* loopback enable */
 #define	D64_XC_FL		0x00000010	/* flush request */
-#define D64_XC_MR_MASK		0x000000C0	/* Multiple outstanding reads */
-#define D64_XC_MR_SHIFT		6
 #define	D64_XC_PD		0x00000800	/* parity check disable */
 #define	D64_XC_AE		0x00030000	/* address extension bits */
 #define	D64_XC_AE_SHIFT		16
-#define D64_XC_BL_MASK		0x001C0000	/* BurstLen bits */
-#define D64_XC_BL_SHIFT		18
-#define D64_XC_PC_MASK		0x00E00000		/* Prefetch control */
-#define D64_XC_PC_SHIFT		21
-#define D64_XC_PT_MASK		0x03000000		/* Prefetch threshold */
-#define D64_XC_PT_SHIFT		24
 
 /* transmit descriptor table pointer */
-#define	D64_XP_LD_MASK		0x00001fff	/* last valid descriptor */
+#define	D64_XP_LD_MASK		0x00000fff	/* last valid descriptor */
 
 /* transmit channel status */
 #define	D64_XS0_CD_MASK		0x00001fff	/* current descriptor pointer */
@@ -308,15 +244,8 @@ typedef volatile struct {
 #define	D64_RC_SH		0x00000200	/* separate rx header descriptor enable */
 #define	D64_RC_OC		0x00000400	/* overflow continue */
 #define	D64_RC_PD		0x00000800	/* parity check disable */
-#define D64_RC_GE		0x00004000	/* Glom enable */
 #define	D64_RC_AE		0x00030000	/* address extension bits */
 #define	D64_RC_AE_SHIFT		16
-#define D64_RC_BL_MASK		0x001C0000	/* BurstLen bits */
-#define D64_RC_BL_SHIFT		18
-#define D64_RC_PC_MASK		0x00E00000	/* Prefetch control */
-#define D64_RC_PC_SHIFT		21
-#define D64_RC_PT_MASK		0x03000000	/* Prefetch threshold */
-#define D64_RC_PT_SHIFT		24
 
 /* flags for dma controller */
 #define DMA_CTRL_PEN		(1 << 0)	/* partity enable */
@@ -327,7 +256,7 @@ typedef volatile struct {
 #define DMA_CTRL_DMA_AVOIDANCE_WAR (1 << 5)	/* DMA avoidance WAR for 4331 */
 
 /* receive descriptor table pointer */
-#define	D64_RP_LD_MASK		0x00001fff	/* last valid descriptor */
+#define	D64_RP_LD_MASK		0x00000fff	/* last valid descriptor */
 
 /* receive channel status */
 #define	D64_RS0_CD_MASK		0x00001fff	/* current descriptor pointer */

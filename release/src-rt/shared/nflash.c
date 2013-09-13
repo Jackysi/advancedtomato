@@ -1,7 +1,7 @@
 /*
  * Broadcom chipcommon NAND flash interface
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nflash.c 300516 2011-12-04 17:39:44Z $
+ * $Id: nflash.c,v 1.4.4.2 2010-11-10 04:19:38 Exp $
  */
 
 #include <typedefs.h>
@@ -28,7 +28,6 @@
 #include <bcmdevs.h>
 #include <nflash.h>
 #include <hndpmu.h>
-#include <bcmnvram.h>
 
 #ifdef BCMDBG
 #define	NFL_MSG(args)	printf args
@@ -95,8 +94,6 @@ static bool firsttime = TRUE;
 static char *nflash_check_id(uint8 *id)
 {
 	char *name = NULL;
-	char *value;	/* J++ */
-	int ntype;	/* J++ */
 
 	switch (id[0]) {
 	case NFL_VENDOR_AMD:
@@ -118,47 +115,7 @@ static char *nflash_check_id(uint8 *id)
 		name = "Samsung";
 		break;
 	default:
-#if 0		/* J++ */
 		printf("No NAND flash type found\n");
-#else
-		value = nvram_get("bootflags");
-		if (!value || (int) bcm_atoi(value) != 1)
-			ntype = -1;
-		else
-		{
-			value = nvram_get("ntype");
-			if (!value)
-				ntype = 0;
-			else
-				ntype = (int) bcm_atoi(value);
-		}
-
-//		printf("NAND type: %d\n", ntype);
-
-		switch (ntype) {
-		case 0:
-			name = "AMD";
-			break;
-		case 1:
-			name = "Numonyx";
-			break;
-		case 2:
-			name = "Micron";
-			break;
-		case 3:
-			name = "Toshiba";
-			break;
-		case 4:
-			name = "Hynix";
-			break;
-		case 5:
-			name = "Samsung";
-			break;
-	        default:
-	        	printf("No NAND flash type found\n");
-	        	break;
-		}
-#endif
 		break;
 	}
 

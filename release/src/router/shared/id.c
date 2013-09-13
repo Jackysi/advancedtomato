@@ -296,6 +296,7 @@ int get_model(void)
 					fread(&sig, sizeof(sig), 1, fp);
 					fclose(fp);
 				}
+#ifndef CONFIG_BCMWL6
 				switch (sig) {
 				case TRX_MAGIC_F7D3301:
 					return MODEL_F7D3301;
@@ -304,6 +305,7 @@ int get_model(void)
 				default:
 					return MODEL_F7D4302;
 				}
+#endif
 			}
 			break;
 		}
@@ -472,10 +474,8 @@ int get_model(void)
 		if (hw == HW_BCM5350) return MODEL_WTR54GS;
 		break;
 	case 60:
-		if (hw == HW_BCM4706) return MODEL_W1800R;
-		break;
 	case 21:
-		if (hw == HW_BCM4706) return MODEL_W1800R; //european version?
+		if (hw == HW_BCM4706) return MODEL_W1800R;
 	}
 
 	return MODEL_UNKNOWN;

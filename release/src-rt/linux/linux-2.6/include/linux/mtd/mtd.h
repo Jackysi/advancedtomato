@@ -1,5 +1,5 @@
 /*
- * $Id: mtd.h,v 1.1.1.1 2007-08-03 18:53:44 $
+ * $Id: mtd.h,v 1.61 2005/11/07 11:14:54 gleixner Exp $
  *
  * Copyright (C) 1999-2003 David Woodhouse <dwmw2@infradead.org> et al.
  *
@@ -43,6 +43,10 @@ struct erase_info {
 	u_long priv;
 	u_char state;
 	struct erase_info *next;
+
+	u8 *erase_buf;
+	u32 erase_buf_ofs;
+	bool partial_start;
 };
 
 struct mtd_erase_region_info {
@@ -124,9 +128,6 @@ struct mtd_info {
 	char *name;
 	int index;
 
-#ifdef CONFIG_BCM47XX
-	struct mutex *mutex;
-#endif
 	/* ecc layout structure pointer - read only ! */
 	struct nand_ecclayout *ecclayout;
 
@@ -233,6 +234,8 @@ int default_mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
 
 int default_mtd_readv(struct mtd_info *mtd, struct kvec *vecs,
 		      unsigned long count, loff_t from, size_t *retlen);
+
+void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size);
 
 #ifdef CONFIG_MTD_PARTITIONS
 void mtd_erase_callback(struct erase_info *instr);

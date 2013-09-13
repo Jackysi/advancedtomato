@@ -1,7 +1,7 @@
 /*
  * HND Minimal OS Abstraction Layer.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: min_osl.h 260531 2011-05-19 07:18:56Z $
+ * $Id: min_osl.h,v 13.31.18.1 2010-05-23 18:21:38 Exp $
  */
 
 #ifndef _min_osl_h_
@@ -23,7 +23,7 @@
 
 #include <typedefs.h>
 #include <hndsoc.h>
-#include <sbhndcpu.h>
+#include <mipsinc.h>
 #include <bcmstdlib.h>
 
 #ifdef	mips
@@ -120,14 +120,12 @@ extern void assfail(char *exp, char *file, int line);
 
 /* general purpose memory allocation */
 #define	MALLOC(osh, size)	malloc(size)
-#define	MALLOC_ALIGN(osh, size, align_bits)	malloc_align((size), (align_bits))
 #define	MFREE(osh, addr, size)	free(addr)
 #define	MALLOCED(osh)		0
 #define	MALLOC_FAILED(osh)	0
 #define	MALLOC_DUMP(osh, b)
 extern int free(void *ptr);
 extern void *malloc(uint size);
-extern void *malloc_align(uint size, uint align_bits);
 
 /* uncached virtual address */
 #ifdef	__mips__
@@ -136,8 +134,6 @@ extern void *malloc_align(uint size, uint align_bits);
 #else
 #define	OSL_UNCACHED(va)	((void *)(va))
 #define	OSL_CACHED(va)		((void *)(va))
-#define PHYSADDR_MASK		0xffffffff
-#define PHYSADDR(va)		((uintptr)(va))
 #endif
 
 #ifdef __mips__
@@ -204,7 +200,6 @@ extern int osl_error(int);
 #define PKTTONATIVE(osh, p)		((struct lbuf *)NULL)
 #define PKTSETPOOL(osh, lb, x, y)	do {} while (0)
 #define PKTPOOL(osh, lb)		FALSE
-#define PKTSHRINK(osh, m)		(m)
 
 /* Global ASSERT type */
 extern uint32 g_assert_type;

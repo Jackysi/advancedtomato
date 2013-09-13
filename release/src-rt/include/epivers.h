@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,34 +13,34 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: epivers.h.in,v 13.33 2010-09-08 22:08:53 $
+ * $Id: epivers.h.in,v 13.32 2009-11-04 00:51:53 Exp $
  *
 */
 
 #ifndef _epivers_h_
 #define _epivers_h_
 
-#define	EPI_MAJOR_VERSION	6
+#define	EPI_MAJOR_VERSION	5
 
-#define	EPI_MINOR_VERSION	30
+#define	EPI_MINOR_VERSION	100
 
-#define	EPI_RC_NUMBER		39
+#define	EPI_RC_NUMBER		138
 
-#define	EPI_INCREMENTAL_NUMBER	31
+#define	EPI_INCREMENTAL_NUMBER	20
 
 #define	EPI_BUILD_NUMBER	0
 
-#define	EPI_VERSION		6, 30, 39, 31
+#define	EPI_VERSION		5, 100, 138, 20
 
-#define	EPI_VERSION_NUM		0x061e271f
+#define	EPI_VERSION_NUM		0x05648a89 //0x05648a14
 
-#define EPI_VERSION_DEV		6.30.39
+#define EPI_VERSION_DEV		5.100.138
 
 /* Driver Version String, ASCII, 32 chars max */
 #ifdef WLTEST
-#define	EPI_VERSION_STR		"6.30.39.31 (r341183 WLTEST)"
+#define	EPI_VERSION_STR		"5.100.138.20 (WLTEST)"
 #else
-#define	EPI_VERSION_STR		"6.30.39.31 (r341183)"
+#define	EPI_VERSION_STR		"5.100.138.20"
 #endif
 
 #endif /* _epivers_h_ */

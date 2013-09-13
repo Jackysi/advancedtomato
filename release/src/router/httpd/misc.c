@@ -760,7 +760,7 @@ void asp_statfs(int argc, char **argv)
 	if (argc != 2) return;
 
 	// used for /cifs/, /jffs/... if it returns squashfs type, assume it's not mounted
-	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368)) {
+	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x71736873 || sf.f_type == 0x73717368)) {
 		mnt = 0;
 		memset(&sf, 0, sizeof(sf));
 #ifdef TCONFIG_JFFS2

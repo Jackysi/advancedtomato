@@ -2,7 +2,7 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,10 +16,9 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbutils.c 300516 2011-12-04 17:39:44Z $
+ * $Id: sbutils.c,v 1.687 2009-11-05 01:06:56 Exp $
  */
 
-#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
@@ -110,17 +109,13 @@ sb_write_sbreg(si_info_t *sii, volatile uint32 *sbr, uint32 v)
 	if (BUSTYPE(sii->pub.bustype) == PCMCIA_BUS) {
 #ifdef IL_BIGENDIAN
 		dummy = R_REG(sii->osh, sbr);
-		BCM_REFERENCE(dummy);
 		W_REG(sii->osh, ((volatile uint16 *)sbr + 1), (uint16)((v >> 16) & 0xffff));
 		dummy = R_REG(sii->osh, sbr);
-		BCM_REFERENCE(dummy);
 		W_REG(sii->osh, (volatile uint16 *)sbr, (uint16)(v & 0xffff));
 #else
 		dummy = R_REG(sii->osh, sbr);
-		BCM_REFERENCE(dummy);
 		W_REG(sii->osh, (volatile uint16 *)sbr, (uint16)(v & 0xffff));
 		dummy = R_REG(sii->osh, sbr);
-		BCM_REFERENCE(dummy);
 		W_REG(sii->osh, ((volatile uint16 *)sbr + 1), (uint16)((v >> 16) & 0xffff));
 #endif	/* IL_BIGENDIAN */
 	} else
@@ -741,7 +736,7 @@ sb_addrspacesize(si_t *sih, uint asidx)
 	return (sb_size(R_SBREG(sii, sb_admatch(sii, asidx))));
 }
 
-#if defined(BCMDBG_ERR) || defined(BCMASSERT_SUPPORT)
+#if defined(BCMDBG_ERR) || defined(BCMASSERT_SUPPORT) || defined(BCMDBG_DUMP)
 /* traverse all cores to find and clear source of serror */
 static void
 sb_serr_clear(si_info_t *sii)
@@ -855,7 +850,6 @@ sb_taclear(si_t *sih, bool details)
 				if (imerrlog & SBTMEL_EC) {
 					imerrloga = sb_corereg(sih, sii->pub.buscoreidx,
 					                       SBIMERRLOGA, 0, 0);
-					BCM_REFERENCE(imerrloga);
 					/* clear errlog */
 					sb_corereg(sih, sii->pub.buscoreidx, SBIMERRLOG, ~0, 0);
 					SI_ERROR(("sb_taclear: ImErrLog 0x%x, ImErrLogA 0x%x\n",
@@ -925,7 +919,6 @@ sb_commit(si_t *sih)
 	/* switch over to chipcommon core if there is one, else use pci */
 	if (sii->pub.ccrev != NOREV) {
 		chipcregs_t *ccregs = (chipcregs_t *)si_setcore(sih, CC_CORE_ID, 0);
-		ASSERT(ccregs != NULL);
 
 		/* do the buffer registers update */
 		W_REG(sii->osh, &ccregs->broadcastaddress, SB_COMMIT);
@@ -967,7 +960,6 @@ sb_core_disable(si_t *sih, uint32 bits)
 	/* set target reject and spin until busy is clear (preserve core-specific bits) */
 	OR_SBREG(sii, &sb->sbtmstatelow, SBTML_REJ);
 	dummy = R_SBREG(sii, &sb->sbtmstatelow);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 	SPINWAIT((R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_BUSY), 100000);
 	if (R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_BUSY)
@@ -976,7 +968,6 @@ sb_core_disable(si_t *sih, uint32 bits)
 	if (R_SBREG(sii, &sb->sbidlow) & SBIDL_INIT) {
 		OR_SBREG(sii, &sb->sbimstate, SBIM_RJ);
 		dummy = R_SBREG(sii, &sb->sbimstate);
-		BCM_REFERENCE(dummy);
 		OSL_DELAY(1);
 		SPINWAIT((R_SBREG(sii, &sb->sbimstate) & SBIM_BY), 100000);
 	}
@@ -986,7 +977,6 @@ sb_core_disable(si_t *sih, uint32 bits)
 	        (((bits | SICF_FGC | SICF_CLOCK_EN) << SBTML_SICF_SHIFT) |
 	         SBTML_REJ | SBTML_RESET));
 	dummy = R_SBREG(sii, &sb->sbtmstatelow);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(10);
 
 	/* don't forget to clear the initiator reject bit */
@@ -1029,7 +1019,6 @@ sb_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	        (((bits | resetbits | SICF_FGC | SICF_CLOCK_EN) << SBTML_SICF_SHIFT) |
 	         SBTML_RESET));
 	dummy = R_SBREG(sii, &sb->sbtmstatelow);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 
 	if (R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_SERR) {
@@ -1043,13 +1032,11 @@ sb_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	W_SBREG(sii, &sb->sbtmstatelow,
 	        ((bits | resetbits | SICF_FGC | SICF_CLOCK_EN) << SBTML_SICF_SHIFT));
 	dummy = R_SBREG(sii, &sb->sbtmstatelow);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 
 	/* leave clock enabled */
 	W_SBREG(sii, &sb->sbtmstatelow, ((bits | SICF_CLOCK_EN) << SBTML_SICF_SHIFT));
 	dummy = R_SBREG(sii, &sb->sbtmstatelow);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 }
 
@@ -1176,7 +1163,7 @@ sb_size(uint32 admatch)
 	return (size);
 }
 
-#if defined(BCMDBG)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 /* print interesting sbconfig registers */
 void
 sb_dumpregs(si_t *sih, struct bcmstrbuf *b)
@@ -1210,7 +1197,7 @@ sb_dumpregs(si_t *sih, struct bcmstrbuf *b)
 	sb_setcoreidx(sih, origidx);
 	INTR_RESTORE(sii, intr_val);
 }
-#endif	
+#endif	/* BCMDBG || BCMDBG_DUMP */
 
 #if defined(BCMDBG)
 void

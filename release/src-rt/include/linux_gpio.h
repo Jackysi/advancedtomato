@@ -1,7 +1,7 @@
 /*
  * Linux Broadcom BCM47xx GPIO char driver
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: linux_gpio.h 241182 2011-02-17 21:50:03Z $
+ * $Id: linux_gpio.h,v 13.3 2007-02-01 22:51:59 Exp $
  */
 
 #ifndef _linux_gpio_h_

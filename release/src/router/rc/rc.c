@@ -102,7 +102,9 @@ static const applets_t applets[] = {
 	{ "mtd-erase",			mtd_unlock_erase_main	},
 	{ "mtd-unlock",			mtd_unlock_erase_main	},
 	{ "buttons",			buttons_main			},
+#ifdef CONFIG_BCMWL6
 	{ "blink_5g",			blink_5g_main			},
+#endif
 	{ "rcheck",				rcheck_main				},
 	{ "dhcpc-event",		dhcpc_event_main		},
 	{ "dhcpc-release",		dhcpc_release_main		},

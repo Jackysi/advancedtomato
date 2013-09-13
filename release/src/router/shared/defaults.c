@@ -6,6 +6,7 @@ struct nvram_tuple router_defaults[] = {
 	{ NULL, NULL, 0 }
 };
 
+#ifdef CONFIG_BCMWL6
 /* Translates from, for example, wl0_ (or wl0.1_) to wl_. */
 /* Only single digits are currently supported */
 
@@ -59,3 +60,4 @@ nvram_default_get(const char *name)
 
 	return NULL;
 }
+#endif

@@ -1,9 +1,15 @@
 #
 # Broadcom Home Networking Division (HND) driver configuration
 #
-# $Copyright Open Broadcom Corporation$
+# Copyright (C) 2009, Broadcom Corporation
+# All Rights Reserved.
+# 
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Kconfig,v 1.6 2010-07-05 07:01:45 chihsien Exp $
+# $Id: Kconfig,v 1.5 2009/10/27 00:38:19 Exp $
 #
 
 menu "Broadcom HND network devices"
@@ -16,15 +22,6 @@ config ET
 config ET_47XX
 	bool "BCM47xx support"
 	depends on ET
-choice
-	prompt "ET ALL PASSIVE mode"
-	depends on ET
-	
-config ET_ALL_PASSIVE_ON
-	bool "ET ALL PASSIVE on"
-config ET_ALL_PASSIVE_RUNTIME
-	bool "ET ALL PASSIVE with runtime setting"
-endchoice
 config BCM_CTF
 	tristate "BCMCTF support"
 	depends on HND
@@ -49,7 +46,6 @@ config WL
 config WAPI
 	bool "Wireless Authentication Privacy Infrastructure (WAPI) support"
 	depends on HND && !WL_EMULATOR && WL
-	select MTD_BCMCONF_PARTS
 choice
 	prompt "Wireless feature variant"
 	depends on HND && !WL_EMULATOR && WL
@@ -92,20 +88,7 @@ config WL_STA_ONCHIP_G
 config WL_HIGH 
 	string "Config file for high/bmac split variant"
 	default "wlconfig_lx_router_high"
-
-choice
-	prompt "WL ALL PASSIVE mode"
-	depends on WL
-	
-config WL_ALL_PASSIVE_ON
-	bool "WL ALL PASSIVE on"
-config WL_ALL_PASSIVE_RUNTIME
-	bool "WL ALL PASSIVE with runtime setting"
-endchoice
 #endif
-config DPSTA
-	tristate "Broadcom dualband wireless proxy repeater support"
-	depends on WL
 config EMF
 	tristate "Efficient Multicast Forwarding & IGMP Snooping Layers"
 	depends on NETFILTER

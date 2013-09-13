@@ -1,24 +1,16 @@
 /*
  * ADMtek switch setup functions
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation
+ * All Rights Reserved.
  * 
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * the contents of this file may not be disclosed to third parties, copied
+ * or duplicated in any form, in whole or in part, without the prior
+ * written permission of Broadcom Corporation.
  *
- * $Id: etc_adm.c 286404 2011-09-27 19:29:08Z $
+ * $Id: etc_adm.c,v 1.27 2008-03-28 20:10:52 Exp $
  */
-
-#include <et_cfg.h>
 #include <typedefs.h>
 #include <osl.h>
 #include <bcmutils.h>
@@ -296,7 +288,7 @@ adm_config_vlan(adm_info_t *adm)
 	/* vlan port group: port configuration, vlan port map */
 	/* VLAN ID is equal to vlan number, max 16 vlans */
 	for (vid = 0; vid < 16; vid ++) {
-		char port[] = "XXXX", *ports, *next, *cur;
+		char port[] = "XXXX", *next, *ports, *cur;
 		char vlanports[] = "vlanXXXXports";
 		uint16 vlan_map = 0;
 		int port_num, len;

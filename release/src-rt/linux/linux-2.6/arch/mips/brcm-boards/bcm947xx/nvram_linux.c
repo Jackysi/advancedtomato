@@ -43,17 +43,11 @@
 #include <nflash.h>
 #endif
 
-/* Temp buffer to hold the nvram transfered romboot CFE */
-char __initdata ram_nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
-
 /* In BSS to minimize text size and page aligned so it can be mmap()-ed */
 static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
 static char *nvram_commit_buf = NULL;
-#ifdef RTN66U_NVRAM_64K_SUPPORT /*Only for RT-N66U upgrade from nvram 32K -> 64K*/
-int nvram_32_reset = 0;
-#endif
 
-#define CFE_UPDATE  1 // added by Chen-I for mac/regulation update
+//#define CFE_UPDATE  // added by Chen-I for mac/regulation update
 #ifdef CFE_UPDATE
 //#include <sbextif.h>
 
@@ -81,6 +75,9 @@ static int cfe_dump(void);
 static int cfe_commit(void);
 #endif
 
+
+#define WPS	0
+
 #ifdef MODULE
 
 #define early_nvram_get(name) nvram_get(name)
@@ -97,9 +94,7 @@ extern spinlock_t bcm947xx_sih_lock;
 #define KB * 1024
 #define MB * 1024 * 1024
 
-#define _nvram_safe_get(name) (_nvram_get(name) ? : "")
-
-#define NLS_XFR 1              /* added by Jiahao for WL500gP */
+//#define NLS_XFR 1              /* added by Jiahao for WL500gP */
 #ifdef NLS_XFR
 
 #include <linux/nls.h>
@@ -267,13 +262,14 @@ asusnls_c2u(char *name)
 	}
 }
 
-char *
-nvram_xfr(const char *buf)
+/* Jiahao */
+static int
+nvram_xfr(char *buf)
 {
 	char *name = tmpbuf;
 	ssize_t ret=0;
 
-	//printk("nvram xfr 1: %s\n", buf);
+	printk("nvram xfr 1: %s\n", buf);
 	if (copy_from_user(name, buf, strlen(buf)+1)) {
 		ret = -EFAULT;
 		goto done;
@@ -290,7 +286,7 @@ nvram_xfr(const char *buf)
 	else
 	{
 		strcpy(tmpbuf, "");
-		//printk("nvram xfr 2: %s\n", tmpbuf);
+		printk("nvram xfr 2: %s\n", tmpbuf);
 	}
 
 	if (copy_to_user(buf, tmpbuf, strlen(tmpbuf)+1))
@@ -298,11 +294,10 @@ nvram_xfr(const char *buf)
 		ret = -EFAULT;
 		goto done;
 	}
-	//printk("nvram xfr 3: %s\n", tmpbuf);
+	printk("nvram xfr 3: %s\n", tmpbuf);
 
 done:
-	if(ret==0) return tmpbuf;
-	else return NULL;
+	return ret;
 }
 
 #endif
@@ -328,25 +323,27 @@ early_nvram_init(void)
 	int i;
 	uint32 base, off, lim;
 	u32 *src, *dst;
-	uint32 fltype;
 #ifdef NFLASH_SUPPORT
+	uint32 fltype;
 	struct nflash *nfl_info = NULL;
 	uint32 blocksize;
 #endif
-	header = (struct nvram_header *)ram_nvram_buf;
 
 	if ((cc = si_setcore(sih, CC_CORE_ID, 0)) != NULL) {
 #ifdef NFLASH_SUPPORT
-		if ((sih->ccrev == 38) && ((sih->chipst & (1 << 4)) != 0)) {
+		if ((sih->ccrev >= 38) && ((sih->chipst & (1 << 4)) != 0)) {
 			fltype = NFLASH;
 			base = KSEG1ADDR(SI_FLASH1);
-		} else
-#endif
-		{
+		} else {
 			fltype = readl(&cc->capabilities) & CC_CAP_FLASH_MASK;
 			base = KSEG1ADDR(SI_FLASH2);
 		}
-		switch (fltype) {
+		switch (fltype)
+#else
+		base = KSEG1ADDR(SI_FLASH2);
+		switch (readl(&cc->capabilities) & CC_CAP_FLASH_MASK)
+#endif
+		switch (readl(&cc->capabilities) & CC_CAP_FLASH_MASK) {
 		case PFLASH:
 			lim = SI_FLASH2_SZ;
 			break;
@@ -389,33 +386,36 @@ early_nvram_init(void)
 				}
 			off += blocksize;
 		}
-	} else
+	} else {
 #endif
-	off = FLASH_MIN;
 
-#ifdef RTN66U_NVRAM_64K_SUPPORT
-	header = (struct nvram_header *) KSEG1ADDR(base + lim - 0x8000);
-	if(header->magic==0xffffffff) {
-        	header = (struct nvram_header *) KSEG1ADDR(base + 1 KB);
-	        if (nvram_valid(header)) {
-			nvram_32_reset=1;
-        	        goto found;
+		off = FLASH_MIN;
+
+#ifdef NVRAM_64K_SUPPORT
+		header = (struct nvram_header *) KSEG1ADDR(base + lim - 0x8000);
+		if(header->magic==0xffffffff) {
+	        	header = (struct nvram_header *) KSEG1ADDR(base + 1 KB);
+		        if (nvram_valid(header))
+	        	        goto found;
 		}
-	}
 #endif
 
-	while (off <= lim) {
-		/* Windowed flash access */
-		header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_SPACE);
-		if (nvram_valid(header))
-			goto found;
-		off <<= 1;
-	}
+		while (off <= lim) {
+			/* Windowed flash access */
+			header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_SPACE);
+			if (nvram_valid(header))
+				goto found;
+			off <<= 1;
+		}
+#ifdef NFLASH_SUPPORT
+	}	
+#endif
 
 	/* Try embedded NVRAM at 4 KB and 1 KB as last resorts */
 	header = (struct nvram_header *) KSEG1ADDR(base + 4 KB);
 	if (nvram_valid(header))
 		goto found;
+
 	header = (struct nvram_header *) KSEG1ADDR(base + 1 KB);
 	if (nvram_valid(header))
 		goto found;
@@ -520,33 +520,31 @@ _nvram_read(char *buf)
 {
 	struct nvram_header *header = (struct nvram_header *) buf;
 	size_t len;
-	int offset = 0;
 
-	if (nvram_mtd) {
 #ifdef NFLASH_SUPPORT
+	int offset = 0;
+	if (nvram_mtd) {
 		if (nvram_mtd->type == MTD_NANDFLASH)
 			offset = 0;
 		else
-#endif
 			offset = nvram_mtd->size - NVRAM_SPACE;
 	}
-
-#ifdef RTN66U_NVRAM_64K_SUPPORT /*Only for RT-N66U upgrade from nvram 32K -> 64K*/
-	if (nvram_32_reset==1 || 
-	    !nvram_mtd ||
-            nvram_mtd->read(nvram_mtd, offset, NVRAM_SPACE, &len, buf) ||
-            len != NVRAM_SPACE ||
-            !nvram_valid(header)) {
-		nvram_32_reset=0;
-#else
 	if (!nvram_mtd ||
 	    nvram_mtd->read(nvram_mtd, offset, NVRAM_SPACE, &len, buf) ||
 	    len != NVRAM_SPACE ||
 	    !nvram_valid(header)) {
-#endif
 		/* Maybe we can recover some data from early initialization */
 		memcpy(buf, nvram_buf, NVRAM_SPACE);
 	}
+#else
+	if (!nvram_mtd ||
+	    nvram_mtd->read(nvram_mtd, nvram_mtd->size - NVRAM_SPACE, NVRAM_SPACE, &len, buf) ||
+	    len != NVRAM_SPACE ||
+	    !nvram_valid(header)) {
+		/* Maybe we can recover some data from early initialization */
+		memcpy(buf, nvram_buf, NVRAM_SPACE);
+	}
+#endif
 
 	return 0;
 }
@@ -599,9 +597,14 @@ nvram_set(const char *name, const char *value)
 	unsigned long flags;
 	int ret;
 	struct nvram_header *header;
+#if WPS
+	char wps_name[32];
+	int wep_len;
+#endif
 
 	spin_lock_irqsave(&nvram_lock, flags);
 
+	//printk("nvram_set: name = %s, value = %s!\n", name, value);
 #ifdef CFE_UPDATE //write back to default sector as well, Chen-I
         if(strncmp(name, CFE_NVRAM_PREFIX, strlen(CFE_NVRAM_PREFIX))==0)
         {
@@ -621,6 +624,147 @@ nvram_set(const char *name, const char *value)
         }
         else
 #endif
+
+#if WPS
+	if (strncmp(name, "wlx_", 4) == 0) {
+		memset(wps_name, 0, sizeof(wps_name));
+		sprintf(wps_name, "wl0_%s", name+4);
+		ret = _nvram_set(wps_name, value);
+		spin_unlock_irqrestore(&nvram_lock, flags);
+                return ret;
+	}
+
+	if (strncmp(name, "wl0_", 4) == 0) 
+	{
+		/* Authentication mode */
+		if (strncmp(name, "wl0_akm", 7) == 0) {
+			if (strncmp(value, "psk2", 4) == 0) { 		// WPA2-Personal
+        	                _nvram_set("wl_auth_mode", "psk");
+	                        _nvram_set("wl_wpa_mode", "2");
+			}
+		        else if (strncmp(value, "psk ", 4) == 0) { 	// WPA-Auto-Personal
+        	                _nvram_set("wl_auth_mode", "psk");
+                	        _nvram_set("wl_wpa_mode", "0");
+	                }
+                	else if (strncmp(value, "psk", 3) == 0) { 	// WPA-Personal
+        	                _nvram_set("wl_auth_mode", "psk");
+                	        _nvram_set("wl_wpa_mode", "1");
+	                }
+        	        else if (strncmp(value, "wpa2", 4) == 0) {	// WPA2-Enterprise
+                	        _nvram_set("wl_auth_mode", "wpa2");
+        	        }
+		        else if (strncmp(value, "wpa ", 4) == 0) {	// WPA-Auto-Enterprise
+	                       	_nvram_set("wl_wpa_mode", "4");
+        	                _nvram_set("wl_auth_mode", "wpa");
+                	}
+                	else if (strncmp(value, "wpa", 3) == 0) {	// WPA-Enterprise
+	                       	_nvram_set("wl_wpa_mode", "3");
+        	                _nvram_set("wl_auth_mode", "wpa");
+                	}
+			_nvram_set("wl_akm", value);
+		}
+		/* WPS KEY*/
+		else if (strcmp(name, "wl0_wpa_psk") == 0) {
+			_nvram_set("wl_wpa_psk", value);
+		}
+		/* WEP type */
+#if 1
+		else if ((strncmp(name, "wl0_key", 7) == 0 )) {
+
+			wep_len = strlen (value);
+			memset(wps_name, 0, sizeof(wps_name));
+
+			if ((wep_len == 5) || (wep_len == 10)) { /* wl0_key1~4*/
+//				_nvram_set ("wl0_wep_x", "1");
+				_nvram_set ("wl_wep_x", "1");
+				sprintf(wps_name, "wl_%s", name+4);
+			}
+			else if ((wep_len == 13) || (wep_len == 26)) { 
+//				_nvram_set ("wl0_wep_x", "2");
+				_nvram_set ("wl_wep_x", "2");
+				sprintf(wps_name, "wl_%s", name+4);
+			}
+			else { /* wl0_key index */
+				sprintf(wps_name, "wl_%s", name+4);
+			}
+			_nvram_set(wps_name, value);
+		}
+#endif
+		else if (strcmp(name, "wl0_ssid") == 0) {
+	//		_nvram_set("wl0_ssid2", value);
+	//		_nvram_set("wl_ssid2", value);
+			_nvram_set("wl_ssid", value);
+		}	
+		else if (strcmp(name, "wl0_crypto") == 0) {
+			_nvram_set("wl_crypto", value);
+		}
+		else if (strncmp(name, "wl0_wps", 7) == 0) {
+			memset(wps_name, 0, sizeof(wps_name));
+			sprintf(wps_name, "wl_%s", name+4);
+			_nvram_set(wps_name, value);
+		}
+
+	}
+	else if (strncmp(name, "wps_random_ssid_prefix", 22) == 0) {
+		memset(wps_name, 0, sizeof(wps_name));
+		sprintf(wps_name, "ASUS_");
+		ret = _nvram_set("wps_random_ssid_prefix", wps_name);
+		spin_unlock_irqrestore(&nvram_lock, flags);
+		return ret;
+	}
+
+	if (strcmp(name, "lan_wps_oob") == 0) {
+		if (strcmp(value, "disabled") == 0) {
+			_nvram_set("wps_config_state", "1");
+			_nvram_set("wl_wps_config_state", "1");
+			_nvram_set("wl0_wps_config_state", "1");
+		} else if (strcmp(value, "enabled") == 0) {
+			_nvram_set("wps_config_state", "0");
+			_nvram_set("wl_wps_config_state", "0");
+			_nvram_set("wl0_wps_config_state", "0");
+		}
+	}
+
+	if (strcmp(name, "wps_config_state") == 0) {
+		if (strcmp(value, "0") == 0)
+			_nvram_set("lan_wps_oob", "enabled");
+		else if (strcmp(value, "1") == 0)
+			_nvram_set("lan_wps_oob", "disabled");
+	}
+
+	if ((strcmp(name, "wl_wps_config_state") == 0) || (strcmp(name, "wl0_wps_config_state") == 0)) 
+		_nvram_set("wps_config_state", value);
+
+	
+//	else if ((strncmp(name, "wps_proc_status", 15) == 0 ) && (strcmp(value, "4"))) /* WPS success*/
+//		_nvram_set("wps_config_state", "1");
+
+#if 0
+	if(!strcmp(name, "wl0_ssid"))
+		_nvram_set("wl_ssid", value);
+	if(!strcmp(name, "wl0_ssid"))
+		_nvram_set("wl_ssid", value);
+        /* Set Wireless encryption */
+        if (!strcmp(name, "wl0_akm")) {
+		_nvram_set("wl_auth_mode", "psk");
+                _nvram_set("wl_wpa_mode", "1");
+	}
+	else if (!strcmp("wl0_akm", "psk2")) {
+                _nvram_set("wl_auth_mode", "psk");
+                _nvram_set("wl_wpa_mode", "2");
+        }
+        else if (nvram_match("wl0_akm", "wpa")) {
+                _nvram_set("wl_auth_mode", "wpa");
+                _nvram_set("wl_wpa_mode", "3");
+        }
+        else if (nvram_match("wl0_akm", "wpa2")) {
+                _nvram_set("wl_auth_mode", "wpa2");
+        }
+        else
+                _nvram_set("wl_auth_mode", nvram_get("wl0_auth_mode"));
+#endif
+#endif
+
 	if ((ret = _nvram_set(name, value))) {
 		/* Consolidate space and try again */
 		if ((header = kmalloc(NVRAM_SPACE, GFP_ATOMIC))) {
@@ -706,6 +850,25 @@ nvram_nflash_commit(void)
 
 	down(&nvram_sem);
 
+	/* read header for checking */
+	offset = 0;
+	i = sizeof(struct nvram_header);
+	ret = nvram_mtd->read(nvram_mtd, offset, i, &len, buf);
+	if (ret || len != i) {
+		printk("nvram_commit: read error ret = %d, len = %d/%d\n", ret, len, i);
+		ret = -EIO;
+		goto done;
+	}
+
+	header = (struct nvram_header *)buf;
+	/* do NOT commit after loaddefault */
+	if (header->magic == NVRAM_INVALID_MAGIC) {
+		printk(KERN_EMERG "nvram_commit: NOT allow commit, magic = 0x%x\n",
+							header->magic);
+		ret = -EPERM;
+		goto done;
+	}
+
 	offset = 0;
 	header = (struct nvram_header *)buf;
 	header->magic = NVRAM_MAGIC;
@@ -735,34 +898,6 @@ done:
 }
 #endif
 
-//#define NVRAM2HANDLER 1
-
-#ifdef NVRAM2HANDLER
-u_int32_t find_next_header_len(struct nvram_header *header)
-{
-	struct nvram_header *hdrptr;
-	char *ptr;
-	u_int32_t i, start;
-
-	ptr = (char *)header;
-
-	start = ((header->len)/16) * 16;
-
-	//printk("header : %x, start : %x\n", ptr, start);
-
-	for(i==start;i<NVRAM_SPACE;i+=16)
-	{
-		hdrptr = (struct nvram_header *)&ptr[i];
-		if(hdrptr->magic==NVRAM_MAGIC) {
-			//printk("got next header: %x %x %x\n", ptr, &ptr[i], hdrptr->len);
-			return hdrptr->len;
-		}
-	}
-
-	return 0;
-}
-#endif
-
 int
 nvram_commit(void)
 {
@@ -779,7 +914,6 @@ nvram_commit(void)
 	wait_queue_head_t wait_q;
 	struct erase_info erase;
 	u_int32_t magic_offset = 0; /* Offset for writing MAGIC # */
-	u_int32_t nvramlen;
 
 	if (!nvram_mtd) {
 		printk("nvram_commit: NVRAM not found\n");
@@ -848,16 +982,9 @@ nvram_commit(void)
 	if (ret)
 		goto done;
 
-#ifdef NVRAM2HANDLER
-	nvramlen = header->len + find_next_header_len(header);
-	//printk("nvramlen: %x\n", nvramlen);
-#else
-	nvramlen = header->len;
-#endif
-
 	/* Erase sector blocks */
 	init_waitqueue_head(&wait_q);
-	for (; offset < nvram_mtd->size - NVRAM_SPACE + nvramlen;
+	for (; offset < nvram_mtd->size - NVRAM_SPACE + header->len;
 		offset += nvram_mtd->erasesize) {
 
 		erase.mtd = nvram_mtd;
@@ -888,7 +1015,7 @@ nvram_commit(void)
 	/* Write partition up to end of data area */
 	header->magic = NVRAM_INVALID_MAGIC; /* All ones magic */
 	offset = nvram_mtd->size - erasesize;
-	i = erasesize - NVRAM_SPACE + nvramlen;
+	i = erasesize - NVRAM_SPACE + header->len;
 	ret = nvram_mtd->write(nvram_mtd, offset, i, &len, nvram_commit_buf);
 	if (ret || len != i) {
 		printk("nvram_commit: write error\n");
@@ -911,8 +1038,8 @@ nvram_commit(void)
 	offset = nvram_mtd->size - erasesize;
 	ret = nvram_mtd->read(nvram_mtd, offset, 4, &len, nvram_commit_buf);
 
-#ifdef RTN66U_NVRAM_64K_SUPPORT /*Only for RT-N66U upgrade from nvram 32K -> 64K*/
-        if(nvramlen<0x8001){
+#ifdef NVRAM_64K_SUPPORT /*Only for RT-N66U upgrade from nvram 32K -> 64K*/
+        if(header->len < 0x8001){
                 char *log_buf;
                 u_int32_t offset_t;
                 size_t log_len;
@@ -1050,10 +1177,8 @@ dev_nvram_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsign
 #else
 	if(arg == 0)
 		return nvram_commit();
-	else {
-		if(nvram_xfr((char *)arg)==NULL) return -EFAULT;
-		else return 0;
-	}
+	else
+		return nvram_xfr((char *)arg);
 #endif	// NLS_XFR
 }
 
@@ -1150,6 +1275,45 @@ dev_nvram_init(void)
 		nvram_mtd = NULL;
 #endif
 
+#ifdef NVRAM_64K_SUPPORT
+        int ret32;
+        char *log_buf;
+        u_int32_t offset_t;
+        size_t log_len;
+        DECLARE_WAITQUEUE(wait, current);
+        wait_queue_head_t wait_q;
+        struct erase_info erase;
+
+        offset_t = 0x18000;
+        ret32 = nvram_mtd->read(nvram_mtd, offset_t, 4, &log_len, &log_buf);
+        if(log_buf==0xffffffff) {
+	        /* Erase sector blocks */
+                init_waitqueue_head(&wait_q);
+
+                erase.mtd = nvram_mtd;
+                erase.addr = 0;
+                erase.len = nvram_mtd->erasesize;
+                erase.callback = erase_callback;
+                erase.priv = (u_long) &wait_q;
+                set_current_state(TASK_INTERRUPTIBLE);
+                add_wait_queue(&wait_q, &wait);
+
+                /* Unlock sector blocks */
+                if (nvram_mtd->unlock)
+                        nvram_mtd->unlock(nvram_mtd, 0, nvram_mtd->erasesize);
+
+                if ((ret = nvram_mtd->erase(nvram_mtd, &erase))) {
+                        set_current_state(TASK_RUNNING);
+                        remove_wait_queue(&wait_q, &wait);
+                        printk("nvram mtd erase error\n");
+                }
+
+                /* Wait for erase to finish */
+                schedule();
+                remove_wait_queue(&wait_q, &wait);
+        }
+#endif
+
 	/* Initialize hash table lock */
 	spin_lock_init(&nvram_lock);
 
@@ -1172,9 +1336,8 @@ dev_nvram_init(void)
 		si_setosh(sih, osh);
 	}
 
-printk("dev_nvram_init: _nvram_init\n");
-        /* Initialize hash table */
-        _nvram_init(sih);
+	/* Initialize hash table */
+	_nvram_init(sih);
 
 	/* Create /dev/nvram handle */
 	nvram_class = class_create(THIS_MODULE, "nvram");
@@ -1260,24 +1423,22 @@ int get_embedded_block(struct mtd_info *mtd, char *buf, size_t erasesize,
         printk("get_embedded_block: no nvram magic found\n");
         return -ENXIO;
 }
-
 static int cfe_init(void)
 {
         size_t erasesize;
         int i;
         int ret = 0;
-printk("!!! cfe_init !!!\n");
+
         /* Find associated MTD device */
         for (i = 0; i < MAX_MTD_DEVICES; i++) {
                 cfe_mtd = get_mtd_device(NULL, i);
                 if (cfe_mtd != NULL) {
                         printk("cfe_init: CFE MTD %x %s %x\n", i, cfe_mtd->name, cfe_mtd->size);
-                        if (!strcmp(cfe_mtd->name, "pmon"))
+                        if (!strcmp(cfe_mtd->name, "boot"))
                                 break;
                         put_mtd_device(cfe_mtd);
                 }
         }
-
         if (i >= MAX_MTD_DEVICES)
         {
                 printk("cfe_init: No CFE MTD\n");
@@ -1290,12 +1451,12 @@ printk("!!! cfe_init !!!\n");
         /* sector blocks to be erased and backup */
         erasesize = ROUNDUP(CFE_NVRAM_SPACE, cfe_mtd->erasesize);
 
-	printk("cfe_init: block size %d\n", erasesize);
+	//printk("cfe_init: block size %d\n", erasesize);
         cfe_buf = kmalloc(erasesize, GFP_KERNEL);
 
         if(cfe_buf == NULL)
         {
-                printk("cfe_init: No CFE Memory\n");
+                //printk("cfe_init: No CFE Memory\n");
                 ret = -ENOMEM;
                 goto fail;
         }
@@ -1337,11 +1498,10 @@ static int cfe_update(const char *keyword, const char *value)
 
         header = cfe_nvram_header;
 
-	printk("cfe_update: before %x %x\n", header->len,  cfe_nvram_header->crc_ver_init&0xff);
+	//printk("cfe_update: before %x %x\n", header->len,  cfe_nvram_header->crc_ver_init&0xff);
         str = (char *) &header[1];
         end = (char *) header + cfe_embedded_size - 2;
         end[0] = end[1] = '\0';
-
         for (; *str; str += strlen(str) + 1)
         {
                 if(!found)
@@ -1367,37 +1527,36 @@ static int cfe_update(const char *keyword, const char *value)
         if(mv_target != NULL)
         { /* need to move string */
                 int str_len = strlen(mv_target);
-                //printk("cfe_update: mv_target(%08x) mv_start(%08x) str(%08x) str_len(%d)\n", (unsigned int)mv_target, (unsigned int)mv_start, (unsigned int)str, str_len);
+                printk("cfe_update: mv_target(%08x) mv_start(%08x) str(%08x) str_len(%d)\n", (unsigned int)mv_target, (unsigned int)mv_start, (unsigned int)str, str_len);
                 if(value != NULL && (str + strlen(keyword) + 1 + strlen(value) + 1 - (str_len + 1)) > end)
                         return -ENOSPC;
                 memmove(mv_target, mv_start, str - mv_start);
-                //printk("cfe_update: memmove done\n");
+                printk("cfe_update: memmove done\n");
                 str -= (str_len + 1); /* /set str to the end for placing incoming keyword and value there */
         }
 
         if(value == NULL)
         {
-                //printk("cfe_update: do unset\n");
+                printk("cfe_update: do unset\n");
         }
         else if(!found || mv_target != NULL) /*new or movement */
         { /* append the keyword and value here */
-                //printk("cfe_update: str(%08x)\n", (unsigned int) str);
+                printk("cfe_update: str(%08x)\n", (unsigned int) str);
                 if((str + strlen(keyword) + 1 + strlen(value) + 1) > end)
                         return -ENOSPC;
                 str += sprintf(str, "%s=%s", keyword, value) + 1;
-                //printk("cfe_update: append string\n");
+                printk("cfe_update: append string\n");
         }
 /* calc length */
         memset(str, 0, cfe_embedded_size+(char *)header - str);
         str += 2;
         header->len = ROUNDUP(str - (char *) header, 4);
-        //printk("cfe_update: header len: %x\n", header->len);
+        printk("cfe_update: header len: %x\n", header->len);
 /*/calc crc */
         crc = nvram_calc_crc(header);
-        //printk("cfe_update: nvram_calc_crc(header) = 0x%02x\n", crc);
+        printk("cfe_update: nvram_calc_crc(header) = 0x%02x\n", crc);
         header->crc_ver_init = (header->crc_ver_init & NVRAM_CRC_VER_MASK)|crc;
-        //printk("cfe_update: after %x %x\n", header->crc_ver_init&0xFF, crc);
- 
+        /*/printk("cfe_update: after %x %x\n", header->crc_ver_init&0xFF, crc); */
         return 0;
 }
 static int cfe_dump(void)
@@ -1470,7 +1629,7 @@ static int cfe_commit(void)
 #if 1
         /* Backup sector blocks to be erased */
         erasesize = ROUNDUP(CFE_NVRAM_SPACE, cfe_mtd->erasesize);
-        //printk("cfe_commit: erasesize(%08x) cfe_offset(%08x)\n", erasesize, cfe_offset);
+        printk("cfe_commit: erasesize(%08x) cfe_offset(%08x)\n", erasesize, cfe_offset);
 
         /* Erase sector blocks */
         init_waitqueue_head(&wait_q);
@@ -1502,7 +1661,7 @@ static int cfe_commit(void)
         }
 
         ret = cfe_mtd->write(cfe_mtd, cfe_offset, erasesize, &len, cfe_buf);
-        //printk("cfe_commit: MTD_WRITE cfe_offset(%08x) erasesize(%08x) len(%08x) ret(%08x)\n", cfe_offset, erasesize, len, ret);
+        printk("cfe_commit: MTD_WRITE cfe_offset(%08x) erasesize(%08x) len(%08x) ret(%08x)\n", cfe_offset, erasesize, len, ret);
 
         if (ret || len != erasesize) {
            printk("cfe_commit: write error\n");
@@ -1521,9 +1680,209 @@ done:
                 cfe_buf=NULL;
         }
         //printk("commit: %d\n", ret);
-	printk("cfe_commit: done %d\n", ret);
         return ret;
 #endif
+}
+#endif
+
+
+//#ifdef CFE_UPDATE
+#if 0
+void cfe_init(void)
+{
+        size_t erasesize, len;
+        int i;
+
+        /* Find associated MTD device */
+        for (i = 0; i < MAX_MTD_DEVICES; i++) {
+                cfe_mtd = get_mtd_device(NULL, i);
+                if (cfe_mtd) {
+                        printk("CFE MTD: %x %s %x\n", i, cfe_mtd->name, cfe_mtd->size);
+                        if (!strcmp(cfe_mtd->name, "boot"))
+                                break;
+                        put_mtd_device(cfe_mtd);
+                }
+        }
+        if (i >= MAX_MTD_DEVICES)
+        {
+                printk("No CFE MTD\n");
+                cfe_mtd = NULL;
+        }
+
+        if(!cfe_mtd) goto fail;
+
+        /* sector blocks to be erased and backup */
+        erasesize = ROUNDUP(CFE_NVRAM_SPACE, cfe_mtd->erasesize);
+
+        /* printk("block size %d\n", erasesize); */
+
+        cfe_buf = kmalloc(erasesize, GFP_KERNEL);
+
+        if(!cfe_buf)
+        {
+                /* printk("No CFE Memory\n"); */
+                goto fail;
+        }
+        cfe_mtd->read(cfe_mtd, CFE_NVRAM_START, erasesize, &len, cfe_buf);
+
+        /* find nvram header */
+        for(i=0;i<len;i+=4)
+        {
+                cfe_nvram_header=(struct nvram_header *)&cfe_buf[i];
+                if (cfe_nvram_header->magic==NVRAM_MAGIC) break;
+        }
+
+        bcm947xx_watchdog_disable(); /*disable watchdog as well */
+
+#if 0                                                           
+        printf("read from nvram %d %s\n", i, cfe_buf);
+        for(i=0;i<CFE_SPACE;i++)
+        {
+              if(i%16) printk("\n");
+              printk("%02x ", (unsigned char)cfe_buf[i]);
+        }
+#endif
+        return;
+fail:
+        if (cfe_mtd)
+        {
+                put_mtd_device(cfe_mtd);
+                cfe_mtd=NULL;
+        }
+        if(cfe_buf)
+        {
+                kfree(cfe_buf);
+                cfe_buf=NULL;
+        }
+        return;
+}
+
+void cfe_update(const char *keyword, const char *value)
+{
+        unsigned long i, offset;
+        struct nvram_header tmp, *header;
+        uint8 crc;
+//        int ret;
+        int found = 0;
+
+        if(!cfe_buf||!cfe_mtd)
+                cfe_init();
+
+        if (!cfe_buf||!cfe_mtd) return;
+
+        header = cfe_nvram_header;
+
+        printk("before: %x %x\n", header->len,  cfe_nvram_header->crc_ver_init&0xff); 
+
+        for(i=CFE_NVRAM_START;i<=CFE_NVRAM_END;i++)
+        {
+                if(strncmp(&cfe_buf[i], keyword, strlen(keyword))==0)
+                {
+                        printk("before: %s\n", cfe_buf+i); 
+                        offset=strlen(keyword);
+                        memcpy(cfe_buf+i+offset+1, value, strlen(value));
+                        printk("after: %s\n", cfe_buf+i); 
+                        found = 1;
+                }
+        }
+
+        if(!found)
+        {
+                char *tmp_buf = (char *)cfe_nvram_header;
+
+                /* printk("header len: %x\n", header->len); */
+                sprintf(tmp_buf+header->len, "%s=%s", keyword, value);
+                header->len = header->len + strlen(keyword) + strlen(value) + 2;
+                /* printk("header len: %x\n", header->len); */
+        }
+
+        tmp.crc_ver_init = htol32(header->crc_ver_init);
+        tmp.config_refresh = htol32(header->config_refresh);
+        tmp.config_ncdl = htol32(header->config_ncdl);
+        crc = hndcrc8((char *) &tmp + 9, sizeof(struct nvram_header) - 9, CRC8_INIT_VALUE);
+
+        /* Continue CRC8 over data bytes */
+        crc = hndcrc8((char *) &header[1], header->len - sizeof(struct nvram_header), crc);
+        header->crc_ver_init = (header->crc_ver_init&0xFFFFFF00)|crc;
+        printk("after: %x %x\n", header->crc_ver_init&0xFF, crc); 
+}
+
+int cfe_commit(void)
+{
+        DECLARE_WAITQUEUE(wait, current);
+        wait_queue_head_t wait_q;
+        struct erase_info erase;
+//        unsigned int i;
+        int ret;
+        size_t erasesize, len;
+        u_int32_t offset;
+//        char *buf;
+
+        if(!cfe_buf||!cfe_mtd) cfe_init();
+
+        if(!cfe_mtd||!cfe_buf)
+        {
+                ret = - ENOMEM;
+                goto done;
+        }
+
+        /* Backup sector blocks to be erased */
+        erasesize = ROUNDUP(CFE_NVRAM_SPACE, cfe_mtd->erasesize);
+
+	down(&nvram_sem);
+
+        /* Erase sector blocks */
+        init_waitqueue_head(&wait_q);
+
+
+        for (offset=CFE_NVRAM_START;offset <= CFE_NVRAM_END;offset += cfe_mtd->erasesize) {
+           erase.mtd = cfe_mtd;
+           erase.addr = offset;
+           erase.len = cfe_mtd->erasesize;
+           erase.callback = erase_callback;
+           erase.priv = (u_long) &wait_q;
+
+           set_current_state(TASK_INTERRUPTIBLE);
+           add_wait_queue(&wait_q, &wait);
+           /* Unlock sector blocks */
+           if (cfe_mtd->unlock)
+                   cfe_mtd->unlock(cfe_mtd, offset, cfe_mtd->erasesize);
+
+           if ((ret = cfe_mtd->erase(cfe_mtd, &erase))) {
+                set_current_state(TASK_RUNNING);
+                remove_wait_queue(&wait_q, &wait);
+                printk("cfe_commit: erase error\n");
+                goto done;
+           }
+
+           /* Wait for erase to finish */
+           schedule();
+           remove_wait_queue(&wait_q, &wait);
+        }
+
+        ret = cfe_mtd->write(cfe_mtd, CFE_NVRAM_START, erasesize, &len, cfe_buf);
+        /* printk("Write offset: %x %x %x\n", ret, len, erasesize); */
+
+        if (ret || len != erasesize) {
+           printk("cfe_commit: write error\n");
+           ret = -EIO;
+        }
+
+done:
+	up(&nvram_sem);
+        if (cfe_mtd)
+        {
+                put_mtd_device(cfe_mtd);
+                cfe_mtd=NULL;
+        }
+        if(cfe_buf)
+        {
+                kfree(cfe_buf);
+                cfe_buf=NULL;
+        }
+        /* printk("commit: %d\n", ret); */
+        return ret;
+
 }
 #endif
 

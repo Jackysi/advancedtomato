@@ -39,7 +39,11 @@ include ./target.mak
 V1 ?= "--def"
 VPN ?= "VPN"
 ifeq ($(CONFIG_LINUX26),y)
+ifeq ($(CONFIG_BCMWL6),y)
+ND = "K26AC"
+else
 ND = "K26"
+endif
 else
 ND = "ND"
 endif
@@ -1138,11 +1142,16 @@ e2500:
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
+ifeq ($(CONFIG_BCMWL6),y)
 ac66e:
 	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
 
+ac66z:
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
+
 w1800rz:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y W1800R=1 NO_JFFS=y
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y W1800R=1
+endif
 endif
 
 setprofile:

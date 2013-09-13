@@ -24,6 +24,9 @@
  * global.h
  */
 
+#define SQUASHFS_MAGIC			0x73717368
+#define SQUASHFS_MAGIC_SWAP		0x68737173
+
 typedef struct squashfs_super_block squashfs_super_block;
 typedef struct squashfs_dir_index squashfs_dir_index;
 typedef struct squashfs_base_inode_header squashfs_base_inode_header;

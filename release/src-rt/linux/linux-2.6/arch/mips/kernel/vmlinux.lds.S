@@ -34,11 +34,6 @@ SECTIONS
     *(.gnu.warning)
   } =0
 
-  . = ALIGN(32);
-  __fastpath_begin = .;
-  .text.fastpath : { *(.text.fastpath) }
-  __fastpath_end = .;
-
   _etext = .;			/* End of text section */
 
   . = ALIGN(16);		/* Exception table */
@@ -87,8 +82,12 @@ SECTIONS
   . = ALIGN(_PAGE_SIZE);
   __nosave_end = .;
 
-  . = ALIGN(32);
+  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
+
+  /* rarely changed data like cpu maps */
+  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+  .data.read_mostly : { *(.data.read_mostly) }
 
   _edata =  .;			/* End of data section */
 

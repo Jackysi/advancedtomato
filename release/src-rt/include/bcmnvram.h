@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmnvram.h 320657 2012-03-12 20:24:32Z $
+ * $Id: bcmnvram.h,v 13.62.110.1 2010-08-05 23:00:00 Exp $
  */
 
 #ifndef _bcmnvram_h_
@@ -55,19 +55,11 @@ extern int nvram_init(void *sih);
  * Append a chunk of nvram variables to the global list
  */
 extern int nvram_append(void *si, char *vars, uint varsz);
-
 extern void nvram_get_global_vars(char **varlst, uint *varsz);
-
-
 /*
  * Check for reset button press for restoring factory defaults.
  */
 extern int nvram_reset(void *sih);
-
-/*
- * Get default value for an NVRAM variable
- */
-extern char *nvram_default_get(const char *name);
 
 /*
  * Disable NVRAM access. May be unnecessary or undefined on certain
@@ -83,23 +75,18 @@ extern void nvram_exit(void *sih);
  */
 extern char * nvram_get(const char *name);
 
-/*
+/* 
  * Read the reset GPIO value from the nvram and set the GPIO
  * as input
  */
 extern int BCMINITFN(nvram_resetgpio_init)(void *sih);
 
-/*
+/* 
  * Get the value of an NVRAM variable.
  * @param	name	name of variable to get
  * @return	value of variable or NUL if undefined
  */
-static INLINE char *
-nvram_safe_get(const char *name)
-{
-	char *p = nvram_get(name);
-	return p ? p : "";
-}
+#define nvram_safe_get(name) (nvram_get(name) ? : "")
 
 /*
  * Match an NVRAM variable.
@@ -181,10 +168,14 @@ uint8 nvram_calc_crc(struct nvram_header * nvh);
 #define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20
-#if (defined(TCONFIG_NVRAM_64K) || defined(CONFIG_NVRAM_64K))
-	#define NVRAM_SPACE		0x10000
+#if CONFIG_NVRAM_SIZE
+#define NVRAM_SPACE             CONFIG_NVRAM_SIZE * 0x0400
 #else
-	#define NVRAM_SPACE		0x8000
+#if (defined(TCONFIG_NVRAM_64K) || defined(CONFIG_NVRAM_64K))
+    #define NVRAM_SPACE		0x10000
+#else
+    #define NVRAM_SPACE		0x8000
+#endif
 #endif
 
 #define NVRAM_MAX_VALUE_LEN 255
@@ -193,46 +184,15 @@ uint8 nvram_calc_crc(struct nvram_header * nvh);
 #define NVRAM_CRC_START_POSITION	9 /* magic, len, crc8 to be skipped */
 #define NVRAM_CRC_VER_MASK	0xffffff00 /* for crc_ver_init */
 
-/* Offsets to embedded nvram area */
-#define NVRAM_START_COMPRESSED	0x400
-#define NVRAM_START		0x1000
-
-#define BCM_JUMBO_NVRAM_DELIMIT '\n'
-#define BCM_JUMBO_START "Broadcom Jumbo Nvram file"
-
-#if !defined(BCMHIGHSDIO) && defined(BCMTRXV2)
-extern char *_vars;
-extern uint _varsz;
-#endif  
-
-#if (defined(FAILSAFE_UPGRADE) || defined(CONFIG_FAILSAFE_UPGRADE) || \
-	defined(__CONFIG_FAILSAFE_UPGRADE_SUPPORT__))
-#define IMAGE_SIZE "image_size"
-#define BOOTPARTITION "bootpartition"
-#define IMAGE_BOOT BOOTPARTITION
-#define PARTIALBOOTS "partialboots"
-#define MAXPARTIALBOOTS "maxpartialboots"
-#define IMAGE_1ST_FLASH_TRX "flash0.trx"
-#define IMAGE_1ST_FLASH_OS "flash0.os"
-#define IMAGE_2ND_FLASH_TRX "flash0.trx2"
-#define IMAGE_2ND_FLASH_OS "flash0.os2"
-#define IMAGE_FIRST_OFFSET "image_first_offset"
-#define IMAGE_SECOND_OFFSET "image_second_offset"
-#define LINUX_FIRST "linux"
-#define LINUX_SECOND "linux2"
-#endif
-
 #if (defined(DUAL_IMAGE) || defined(CONFIG_DUAL_IMAGE) || \
 	defined(__CONFIG_DUAL_IMAGE_FLASH_SUPPORT__))
 /* Shared by all: CFE, Linux Kernel, and Ap */
 #define IMAGE_BOOT "image_boot"
-#define BOOTPARTITION IMAGE_BOOT
 /* CFE variables */
-#define IMAGE_1ST_FLASH_TRX "flash0.trx"
-#define IMAGE_1ST_FLASH_OS "flash0.os"
-#define IMAGE_2ND_FLASH_TRX "flash0.trx2"
-#define IMAGE_2ND_FLASH_OS "flash0.os2"
-#define IMAGE_SIZE "image_size"
+#define IMAGE_1ST_FLASH_TRX "flash3.trx"
+#define IMAGE_1ST_FLASH_OS "flash3.os"
+#define IMAGE_2ND_FLASH_TRX "flash3.trx2"
+#define IMAGE_2ND_FLASH_OS "flash3.os2"
 
 /* CFE and Linux Kernel shared variables */
 #define IMAGE_FIRST_OFFSET "image_first_offset"
@@ -246,5 +206,4 @@ extern uint _varsz;
 #define LINUX_FLASH_POLICY "linux_flash_policy"
 
 #endif /* defined(DUAL_IMAGE||CONFIG_DUAL_IMAGE)||__CONFIG_DUAL_IMAGE_FLASH_SUPPORT__ */
-
 #endif /* _bcmnvram_h_ */

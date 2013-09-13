@@ -2,7 +2,7 @@
  * Generic Broadcom Home Networking Division (HND) DMA engine SW interface
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hnddma.h 321146 2012-03-14 08:27:23Z $
+ * $Id: hnddma.h,v 13.82.12.4 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_hnddma_h_
@@ -33,18 +33,6 @@ typedef enum txd_range {
 	HNDDMA_RANGE_TRANSMITTED,
 	HNDDMA_RANGE_TRANSFERED
 } txd_range_t;
-
-/* dma parameters id */
-enum dma_param_id {
-	HNDDMA_PID_TX_MULTI_OUTSTD_RD	= 0,
-	HNDDMA_PID_TX_PREFETCH_CTL,
-	HNDDMA_PID_TX_PREFETCH_THRESH,
-	HNDDMA_PID_TX_BURSTLEN,
-
-	HNDDMA_PID_RX_PREFETCH_CTL	= 0x100,
-	HNDDMA_PID_RX_PREFETCH_THRESH,
-	HNDDMA_PID_RX_BURSTLEN
-};
 
 /* dma function type */
 typedef void (*di_detach_t)(hnddma_t *dmah);
@@ -63,8 +51,10 @@ typedef void (*di_txflush_t)(hnddma_t *dmah);
 typedef void (*di_txflush_clear_t)(hnddma_t *dmah);
 #endif /* WL_MULTIQUEUE */
 typedef int (*di_txfast_t)(hnddma_t *dmah, void *p, bool commit);
+#if !defined(_CFE_)
 typedef int (*di_txunframed_t)(hnddma_t *dmah, void *p, uint len, bool commit);
 typedef void* (*di_getpos_t)(hnddma_t *di, bool direction);
+#endif /* !_CFE_ */
 typedef void (*di_fifoloopbackenable_t)(hnddma_t *dmah);
 typedef bool  (*di_txstopped_t)(hnddma_t *dmah);
 typedef bool  (*di_rxstopped_t)(hnddma_t *dmah);
@@ -78,7 +68,6 @@ typedef	uintptr	(*di_getvar_t)(hnddma_t *dmah, const char *name);
 typedef void* (*di_getnexttxp_t)(hnddma_t *dmah, txd_range_t range);
 typedef void* (*di_getnextrxp_t)(hnddma_t *dmah, bool forceall);
 typedef void* (*di_peeknexttxp_t)(hnddma_t *dmah);
-typedef void* (*di_peekntxp_t)(hnddma_t *dmah, int *len, void *txps[], txd_range_t range);
 typedef void* (*di_peeknextrxp_t)(hnddma_t *dmah);
 typedef void (*di_rxparam_get_t)(hnddma_t *dmah, uint16 *rxoffset, uint16 *rxbufsize);
 typedef void (*di_txblock_t)(hnddma_t *dmah);
@@ -93,12 +82,8 @@ typedef char* (*di_dumprx_t)(hnddma_t *dmah, struct bcmstrbuf *b, bool dumpring)
 typedef uint (*di_rxactive_t)(hnddma_t *dmah);
 typedef uint (*di_txpending_t)(hnddma_t *dmah);
 typedef uint (*di_txcommitted_t)(hnddma_t *dmah);
-typedef int (*di_pktpool_set_t)(hnddma_t *dmah, pktpool_t *pool);
-typedef bool (*di_rxtxerror_t)(hnddma_t *dmah, bool istx);
-typedef void (*di_burstlen_set_t)(hnddma_t *dmah, uint8 rxburstlen, uint8 txburstlen);
 typedef uint (*di_avoidancecnt_t)(hnddma_t *dmah);
-typedef void (*di_param_set_t)(hnddma_t *dmah, uint16 paramid, uint16 paramval);
-typedef bool (*dma_glom_enable_t) (hnddma_t *dmah, uint32 val);
+
 /* dma opsvec */
 typedef struct di_fcn_s {
 	di_detach_t		detach;
@@ -114,13 +99,14 @@ typedef struct di_fcn_s {
 	di_txflush_clear_t      txflush_clear;
 #endif /* WL_MULTIQUEUE */
 	di_txfast_t             txfast;
+#if !defined(_CFE_)
 	di_txunframed_t         txunframed;
 	di_getpos_t             getpos;
+#endif /* _CFE_ */
 	di_txstopped_t		txstopped;
 	di_txreclaim_t          txreclaim;
 	di_getnexttxp_t         getnexttxp;
 	di_peeknexttxp_t        peeknexttxp;
-	di_peekntxp_t           peekntxp;
 	di_txblock_t            txblock;
 	di_txunblock_t          txunblock;
 	di_txactive_t           txactive;
@@ -149,12 +135,7 @@ typedef struct di_fcn_s {
 	di_rxactive_t		rxactive;
 	di_txpending_t		txpending;
 	di_txcommitted_t	txcommitted;
-	di_pktpool_set_t	pktpool_set;
-	di_rxtxerror_t		rxtxerror;
-	di_burstlen_set_t	burstlen_set;
 	di_avoidancecnt_t	avoidancecnt;
-	di_param_set_t		param_set;
-	dma_glom_enable_t	glom_enab;
 	uint			endnum;
 } di_fcn_t;
 
@@ -176,8 +157,7 @@ struct hnddma_pub {
 };
 
 
-extern hnddma_t * dma_attach(osl_t *osh, const char *name, si_t *sih,
-	volatile void *dmaregstx, volatile void *dmaregsrx,
+extern hnddma_t * dma_attach(osl_t *osh, char *name, si_t *sih, void *dmaregstx, void *dmaregsrx,
 	uint ntxd, uint nrxd, uint rxbufsize, int rxextheadroom, uint nrxpost,
 	uint rxoffset, uint *msg_level);
 #ifdef BCMDMA32
@@ -211,7 +191,6 @@ extern hnddma_t * dma_attach(osl_t *osh, const char *name, si_t *sih,
 #define dma_getnexttxp(di, range)	((di)->di_fn->getnexttxp(di, range))
 #define dma_getnextrxp(di, forceall)    ((di)->di_fn->getnextrxp(di, forceall))
 #define dma_peeknexttxp(di)             ((di)->di_fn->peeknexttxp(di))
-#define dma_peekntxp(di, l, t, r)       ((di)->di_fn->peekntxp(di, l, t, r))
 #define dma_peeknextrxp(di)             ((di)->di_fn->peeknextrxp(di))
 #define dma_rxparam_get(di, off, bufs)	((di)->di_fn->rxparam_get(di, off, bufs))
 
@@ -224,16 +203,12 @@ extern hnddma_t * dma_attach(osl_t *osh, const char *name, si_t *sih,
 #define dma_ctrlflags(di, mask, flags)  ((di)->di_fn->ctrlflags((di), (mask), (flags)))
 #define dma_txpending(di)		((di)->di_fn->txpending(di))
 #define dma_txcommitted(di)		((di)->di_fn->txcommitted(di))
-#define dma_pktpool_set(di, pool)	((di)->di_fn->pktpool_set((di), (pool)))
-#if defined(BCMDBG)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 #define dma_dump(di, buf, dumpring)	((di)->di_fn->dump(di, buf, dumpring))
 #define dma_dumptx(di, buf, dumpring)	((di)->di_fn->dumptx(di, buf, dumpring))
 #define dma_dumprx(di, buf, dumpring)	((di)->di_fn->dumprx(di, buf, dumpring))
-#endif 
-#define dma_rxtxerror(di, istx)	((di)->di_fn->rxtxerror(di, istx))
-#define dma_burstlen_set(di, rxlen, txlen)	((di)->di_fn->burstlen_set(di, rxlen, txlen))
+#endif /* defined(BCMDBG) || defined(BCMDBG_DUMP) */
 #define dma_avoidance_cnt(di)		((di)->di_fn->avoidancecnt(di))
-#define dma_param_set(di, paramid, paramval)	((di)->di_fn->param_set(di, paramid, paramval))
 
 #else /* BCMDMA32 */
 extern const di_fcn_t dma64proc;
@@ -254,8 +229,10 @@ extern const di_fcn_t dma64proc;
 #define dma_txflush_clear(di)           (dma64proc.txflush_clear(di))
 #endif /* WL_MULTIQUEUE */
 #define dma_txfast(di, p, commit)	(dma64proc.txfast(di, p, commit))
+#if !defined(_CFE_)
 #define dma_txunframed(di, p, l, commit)(dma64proc.txunframed(di, p, l, commit))
 #define dma_getpos(di, dir)		(dma64proc.getpos(di, dir))
+#endif /* !_CFE_ */
 #define dma_fifoloopbackenable(di)      (dma64proc.fifoloopbackenable(di))
 #define dma_txstopped(di)               (dma64proc.txstopped(di))
 #define dma_rxstopped(di)               (dma64proc.rxstopped(di))
@@ -269,7 +246,6 @@ extern const di_fcn_t dma64proc;
 #define dma_getnexttxp(di, range)	(dma64proc.getnexttxp(di, range))
 #define dma_getnextrxp(di, forceall)    (dma64proc.getnextrxp(di, forceall))
 #define dma_peeknexttxp(di)             (dma64proc.peeknexttxp(di))
-#define dma_peekntxp(di, l, t, r)       (dma64proc.peekntxp(di, l, t, r))
 #define dma_peeknextrxp(di)             (dma64proc.peeknextrxp(di))
 #define dma_rxparam_get(di, off, bufs)	(dma64proc.rxparam_get(di, off, bufs))
 
@@ -282,18 +258,12 @@ extern const di_fcn_t dma64proc;
 #define dma_ctrlflags(di, mask, flags)  (dma64proc.ctrlflags((di), (mask), (flags)))
 #define dma_txpending(di)		(dma64proc.txpending(di))
 #define dma_txcommitted(di)		(dma64proc.txcommitted(di))
-#define dma_pktpool_set(di, pool)	(dma64proc.pktpool_set((di), (pool)))
-#if defined(BCMDBG)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 #define dma_dump(di, buf, dumpring)	(dma64proc.dump(di, buf, dumpring))
 #define dma_dumptx(di, buf, dumpring)	(dma64proc.dumptx(di, buf, dumpring))
 #define dma_dumprx(di, buf, dumpring)	(dma64proc.dumprx(di, buf, dumpring))
 #endif
-#define dma_rxtxerror(di, istx)	(dma64proc.rxtxerror(di, istx))
-#define dma_burstlen_set(di, rxlen, txlen)	(dma64proc.burstlen_set(di, rxlen, txlen))
 #define dma_avoidance_cnt(di)		(dma64proc.avoidancecnt(di))
-#define dma_param_set(di, paramid, paramval)	(dma64proc.param_set(di, paramid, paramval))
-
-#define dma_glom_enable(di, val)	(dma64proc.glom_enab(di, val))
 
 #endif /* BCMDMA32 */
 

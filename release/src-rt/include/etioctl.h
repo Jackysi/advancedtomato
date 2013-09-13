@@ -1,7 +1,7 @@
 /*
  * BCM44XX Ethernet Windows device driver custom OID definitions.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: etioctl.h 322208 2012-03-20 01:53:23Z $
+ * $Id: etioctl.h,v 13.17.86.2 2010-12-21 02:38:54 Exp $
  */
 
 #ifndef _etioctl_h_
@@ -49,15 +49,11 @@
 #define ETCROBOWR	15
 
 /*
- * A set of iovars defined for ET set/get
+ * A set of iovars defined for ET set/get 
  */
-#define IOV_ET_POWER_SAVE_MODE	1
-#define IOV_ET_CLEAR_DUMP	2
-#define IOV_ET_ROBO_DEVID	3
-#define IOV_PKTC		4
-#define IOV_PKTCBND		5
-#define IOV_COUNTERS		6
-#define IOV_DUMP_CTF		7
+#define IOV_ET_POWER_SAVE_MODE 1
+#define IOV_ET_CLEAR_DUMP      2
+#define IOV_ET_ROBO_DEVID      3
 
 #if defined(linux) || defined(__ECOS)
 #define SIOCSETCUP		(SIOCDEVPRIVATE + ETCUP)

@@ -20,10 +20,6 @@
 #include <linux/tick.h>
 
 #include <asm/irq.h>
-
-#include <typedefs.h>
-#include <bcmdefs.h>
-
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -94,7 +90,7 @@ static inline void __local_bh_disable(unsigned long ip)
 }
 #endif /* CONFIG_TRACE_IRQFLAGS */
 
-void BCMFASTPATH local_bh_disable(void)
+void local_bh_disable(void)
 {
 	__local_bh_disable((unsigned long)__builtin_return_address(0));
 }
@@ -134,48 +130,11 @@ void _local_bh_enable(void)
 
 EXPORT_SYMBOL(_local_bh_enable);
 
-void BCMFASTPATH local_bh_enable(void)
+static inline void _local_bh_enable_ip(unsigned long ip)
 {
+	WARN_ON_ONCE(in_irq() || irqs_disabled());
 #ifdef CONFIG_TRACE_IRQFLAGS
-	unsigned long flags;
-
-	WARN_ON_ONCE(in_irq());
-#endif
-	WARN_ON_ONCE(irqs_disabled());
-
-#ifdef CONFIG_TRACE_IRQFLAGS
-	local_irq_save(flags);
-#endif
-	/*
-	 * Are softirqs going to be turned on now:
-	 */
-	if (softirq_count() == SOFTIRQ_OFFSET)
-		trace_softirqs_on((unsigned long)__builtin_return_address(0));
-	/*
-	 * Keep preemption disabled until we are done with
-	 * softirq processing:
- 	 */
- 	sub_preempt_count(SOFTIRQ_OFFSET - 1);
-
-	if (unlikely(!in_interrupt() && local_softirq_pending()))
-		do_softirq();
-
-	dec_preempt_count();
-#ifdef CONFIG_TRACE_IRQFLAGS
-	local_irq_restore(flags);
-#endif
-	preempt_check_resched();
-}
-EXPORT_SYMBOL(local_bh_enable);
-
-void local_bh_enable_ip(unsigned long ip)
-{
-#ifdef CONFIG_TRACE_IRQFLAGS
-	unsigned long flags;
-
-	WARN_ON_ONCE(in_irq());
-
-	local_irq_save(flags);
+	local_irq_disable();
 #endif
 	/*
 	 * Are softirqs going to be turned on now:
@@ -193,9 +152,20 @@ void local_bh_enable_ip(unsigned long ip)
 
 	dec_preempt_count();
 #ifdef CONFIG_TRACE_IRQFLAGS
-	local_irq_restore(flags);
+	local_irq_enable();
 #endif
 	preempt_check_resched();
+}
+
+void local_bh_enable(void)
+{
+	_local_bh_enable_ip((unsigned long)__builtin_return_address(0));
+}
+EXPORT_SYMBOL(local_bh_enable);
+
+void local_bh_enable_ip(unsigned long ip)
+{
+	_local_bh_enable_ip(ip);
 }
 EXPORT_SYMBOL(local_bh_enable_ip);
 
@@ -494,7 +464,6 @@ void __init softirq_init(void)
 
 static int ksoftirqd(void * __bind_cpu)
 {
-	set_user_nice(current, 19);
 	current->flags |= PF_NOFREEZE;
 
 	set_current_state(TASK_INTERRUPTIBLE);

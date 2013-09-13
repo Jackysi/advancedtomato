@@ -2,21 +2,15 @@
  * Common [OS-independent] header file for
  * Broadcom BCM47XX 10/100Mbps Ethernet Device Driver
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation
+ * All Rights Reserved.
  * 
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * the contents of this file may not be disclosed to third parties, copied
+ * or duplicated in any form, in whole or in part, without the prior
+ * written permission of Broadcom Corporation.
  *
- * $Id: etc.h 330107 2012-04-27 22:04:17Z $
+ * $Id: etc.h,v 1.72.18.1 2010-07-01 23:24:44 Exp $
  */
 
 #ifndef _etc_h_
@@ -33,14 +27,6 @@
 #define NUMTXQ		4
 
 #define TXREC_THR       8
-
-#if defined(__ECOS)
-#define IOCBUFSZ	4096
-#elif defined(__linux__)
-#define IOCBUFSZ	16384
-#else
-#define IOCBUFSZ	4096
-#endif
 
 struct etc_info;	/* forward declaration */
 struct bcmstrbuf;	/* forward declaration */
@@ -80,8 +66,6 @@ typedef struct etc_info {
 	void		*et;		/* pointer to os-specific private state */
 	uint		unit;		/* device instance number */
 	void 		*osh; 		/* pointer to os handler */
-	bool		pktc;		/* packet chaining enabled or not */
-	int		pktcbnd;	/* max # of packets to chain */
 	void		*mib;		/* pointer to s/w maintained mib counters */
 	bool		up;		/* interface up and running */
 	bool		promisc;	/* promiscuous destination address */
@@ -152,13 +136,6 @@ typedef struct etc_info {
 	uint32		txuflo;		/* transmit fifo underflow */
 	uint32		rxoflodiscards;	/* frames discarded during rx fifo overflow */
 	uint32		rxbadlen;	/* 802.3 len field != read length */
-	uint32		chained;	/* number of frames chained */
-	uint32		unchained;	/* number of frames not chained */
-	uint32		maxchainsz;	/* max chain size so far */
-	uint32		currchainsz;	/* current chain size */
-#if defined(BCMDBG) && defined(PKTC)
-	uint32		chainsz[PKTCBND];	/* chain size histo */
-#endif
 } etc_info_t;
 
 /* interrupt event bitvec */
@@ -229,8 +206,8 @@ etc_priq(uint32 txq_state)
 
 /* rx header flags bits */
 #define RXH_FLAGS(etc, rxh) (((etc)->coreid == GMAC_CORE_ID) ? \
-	((((bcmgmacrxh_t *)(rxh))->flags) & htol16(GRXF_CRC | GRXF_OVF | GRXF_OVERSIZE)) : \
-	((((bcmenetrxh_t *)(rxh))->flags) & htol16(RXF_NO | RXF_RXER | RXF_CRC | RXF_OV)))
+	(ltoh16(((bcmgmacrxh_t *)(rxh))->flags) & (GRXF_CRC | GRXF_OVF | GRXF_OVERSIZE)) : \
+	(ltoh16(((bcmenetrxh_t *)(rxh))->flags) & (RXF_NO | RXF_RXER | RXF_CRC | RXF_OV)))
 
 #define RXH_OVERSIZE(etc, rxh) (((etc)->coreid == GMAC_CORE_ID) ? \
 	(ltoh16(((bcmgmacrxh_t *)(rxh))->flags) & GRXF_OVERSIZE) : FALSE)

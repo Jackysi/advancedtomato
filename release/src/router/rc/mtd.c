@@ -137,14 +137,20 @@ static int _unlock_erase(const char *mtdname, int erase)
 	int mf;
 	mtd_info_t mi;
 	erase_info_t ei;
+#ifdef CONFIG_BCMWL6
 	int r, ret, skipbb;
+#else
+	int r;
+#endif
 
 	if (!wait_action_idle(5)) return 0;
 	set_action(ACT_ERASE_NVRAM);
 	if (erase) led(LED_DIAG, 1);
 
 	r = 0;
+#ifdef CONFIG_BCMWL6
 	skipbb = 0;
+#endif
 	if ((mf = mtd_open(mtdname, &mi)) >= 0) {
 			r = 1;
 #if 1
@@ -153,6 +159,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 				printf("%sing 0x%x - 0x%x\n", erase ? "Eras" : "Unlock", ei.start, (ei.start + ei.length) - 1);
 				fflush(stdout);
 
+#ifdef CONFIG_BCMWL6
 				if (!skipbb) {
 					loff_t offset = ei.start;
 
@@ -169,6 +176,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 						}
 					}
 				}
+#endif
 				if (ioctl(mf, MEMUNLOCK, &ei) != 0) {
 //					perror("MEMUNLOCK");
 //					r = 0;
@@ -365,6 +373,7 @@ int mtd_write_main(int argc, char *argv[])
 	case TRX_MAGIC:
 		break;
 #ifdef CONFIG_BCMWL5
+#ifndef CONFIG_BCMWL6
 	case TRX_MAGIC_F7D3301:
 	case TRX_MAGIC_F7D3302:
 	case TRX_MAGIC_F7D4302:
@@ -372,6 +381,7 @@ int mtd_write_main(int argc, char *argv[])
 	case TRX_MAGIC_QA:
 		sig = TRX_MAGIC;
 		break;
+#endif
 #endif
 	default:
 		// moto
@@ -402,6 +412,7 @@ int mtd_write_main(int argc, char *argv[])
 
 	switch (model) {
 #ifdef CONFIG_BCMWL5
+#ifndef CONFIG_BCMWL6
 	case MODEL_F7D3301:
 		trx.magic = TRX_MAGIC_F7D3301;
 		break;
@@ -414,6 +425,7 @@ int mtd_write_main(int argc, char *argv[])
 	case MODEL_F5D8235v3:
 		trx.magic = TRX_MAGIC_F5D8235V3;
 		break;
+#endif
 #endif
 	default:
 		trx.magic = sig;

@@ -1,7 +1,7 @@
 /*
  * OTP support.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmotp.h 321779 2012-03-16 19:39:00Z $
+ * $Id: bcmotp.h,v 13.32.18.4 2011-01-17 10:33:12 Exp $
  */
 
 #ifndef	_bcmotp_h_
@@ -37,10 +37,6 @@
 /* OTP usage */
 #define OTP4325_FM_DISABLED_OFFSET	188
 
-#ifdef BCMNVRAMW
-/* Global RDE index for chips not having an OTP PMU resource. */
-#define OTP_GLOBAL_RDE_IDX 0xFF
-#endif
 
 /* Exported functions */
 extern int	otp_status(void *oh);
@@ -66,16 +62,6 @@ extern int	otp_dumpstats(void *oh, int arg, char *buf, uint size);
 #if defined(BCMNVRAMW)
 #define otp_write_rde(oh, rde, bit, val)	ipxotp_write_rde(oh, rde, bit, val)
 extern int	ipxotp_write_rde(void *oh, int rde, uint bit, uint val);
-extern int otp_write_bits(void *oh, uint offset, int bits, uint8* data);
-
-#ifdef OTP_DEBUG
-extern int otp_verify1x(void *oh, uint off, uint fuse);
-extern int otp_read1x(void *oh, uint off, uint fuse);
-extern int otp_repair_bit(void *oh, uint off, uint val);
-extern int otp_write_ones(void *oh, uint off, uint bits);
-extern int otp_write_ones_old(void *oh, uint off, uint bits);
-#endif
-
 #endif 
 
 #endif /* _bcmotp_h_ */

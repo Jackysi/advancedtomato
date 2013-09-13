@@ -106,7 +106,7 @@ int mount_cifs_main(int argc, char *argv[])
 		if (strcmp(argv[1], "-u") == 0) {
 			for (i = 1; i <= 2; ++i) {
 				sprintf(mpath, "/cifs%d", i);
-				if ((statfs(mpath, &sf) == 0) && (sf.f_type != 0x73717368)) {
+				if ((statfs(mpath, &sf) == 0) && (sf.f_type != 0x71736873 && sf.f_type != 0x73717368)) {
 					// is mounted
 					run_userfile(mpath, ".autostop", mpath, 5);
 					run_nvscript("script_autostop", mpath, 5);

@@ -1,7 +1,7 @@
 /*
  * From FreeBSD 2.2.7: Fundamental constants relating to ethernet.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: ethernet.h 333173 2012-05-14 18:07:40Z $
+ * $Id: ethernet.h,v 9.56.18.1 2010-06-16 19:39:55 Exp $
  */
 
 #ifndef _NET_ETHERNET_H_	    /* use native BSD ethernet.h when available */
@@ -74,17 +74,15 @@
 #define	ETHER_TYPE_IP		0x0800		/* IP */
 #define ETHER_TYPE_ARP		0x0806		/* ARP */
 #define ETHER_TYPE_8021Q	0x8100		/* 802.1Q */
-#define	ETHER_TYPE_IPV6		0x86dd		/* IPv6 */
 #define	ETHER_TYPE_BRCM		0x886c		/* Broadcom Corp. */
 #define	ETHER_TYPE_802_1X	0x888e		/* 802.1x */
 #define	ETHER_TYPE_802_1X_PREAUTH 0x88c7	/* 802.1x preauthentication */
 #define ETHER_TYPE_WAI		0x88b4		/* WAI */
-#define ETHER_TYPE_89_0D	0x890d		/* 89-0d frame for TDLS */
 
-#define ETHER_TYPE_IPV6		0x86dd		/* IPV6 */
 
 /* Broadcom subtype follows ethertype;  First 2 bytes are reserved; Next 2 are subtype; */
 #define	ETHER_BRCM_SUBTYPE_LEN	4	/* Broadcom 4 byte subtype */
+#define	ETHER_BRCM_CRAM		1	/* Broadcom subtype cram protocol */
 
 /* ether header */
 #define ETHER_DEST_OFFSET	(0 * ETHER_ADDR_LEN)	/* dest address offset */
@@ -130,7 +128,7 @@ BWL_PRE_PACKED_STRUCT struct	ether_addr {
  */
 #define ETHER_SET_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] | 2))
 #define ETHER_IS_LOCALADDR(ea) 	(((uint8 *)(ea))[0] & 2)
-#define ETHER_CLR_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] & 0xfd))
+#define ETHER_CLR_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] & 0xd))
 #define ETHER_TOGGLE_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] ^ 2))
 
 /* Takes a pointer, marks unicast address bit in the MAC address */
@@ -144,43 +142,33 @@ BWL_PRE_PACKED_STRUCT struct	ether_addr {
 
 
 /* compare two ethernet addresses - assumes the pointers can be referenced as shorts */
-#define eacmp(a, b)	((((uint16 *)(a))[0] ^ ((uint16 *)(b))[0]) | \
-	                 (((uint16 *)(a))[1] ^ ((uint16 *)(b))[1]) | \
-	                 (((uint16 *)(a))[2] ^ ((uint16 *)(b))[2]))
-
-#define	ether_cmp(a, b)	eacmp(a, b)
+#define	ether_cmp(a, b)	(!(((short*)(a))[0] == ((short*)(b))[0]) | \
+			 !(((short*)(a))[1] == ((short*)(b))[1]) | \
+			 !(((short*)(a))[2] == ((short*)(b))[2]))
 
 /* copy an ethernet address - assumes the pointers can be referenced as shorts */
-#define eacopy(s, d) \
-do { \
-	((uint16 *)(d))[0] = ((const uint16 *)(s))[0]; \
-	((uint16 *)(d))[1] = ((const uint16 *)(s))[1]; \
-	((uint16 *)(d))[2] = ((const uint16 *)(s))[2]; \
-} while (0)
-
-#define	ether_copy(s, d) eacopy(s, d)
+#define	ether_copy(s, d) { \
+		((short*)(d))[0] = ((short*)(s))[0]; \
+		((short*)(d))[1] = ((short*)(s))[1]; \
+		((short*)(d))[2] = ((short*)(s))[2]; }
 
 
 static const struct ether_addr ether_bcast = {{255, 255, 255, 255, 255, 255}};
 static const struct ether_addr ether_null = {{0, 0, 0, 0, 0, 0}};
 
-#define ETHER_ISBCAST(ea)	((((const uint8 *)(ea))[0] &		\
-	                          ((const uint8 *)(ea))[1] &		\
-				  ((const uint8 *)(ea))[2] &		\
-				  ((const uint8 *)(ea))[3] &		\
-				  ((const uint8 *)(ea))[4] &		\
-				  ((const uint8 *)(ea))[5]) == 0xff)
-#define ETHER_ISNULLADDR(ea)	((((const uint8 *)(ea))[0] |		\
-				  ((const uint8 *)(ea))[1] |		\
-				  ((const uint8 *)(ea))[2] |		\
-				  ((const uint8 *)(ea))[3] |		\
-				  ((const uint8 *)(ea))[4] |		\
-				  ((const uint8 *)(ea))[5]) == 0)
+#define ETHER_ISBCAST(ea)	((((uint8 *)(ea))[0] &		\
+	                          ((uint8 *)(ea))[1] &		\
+				  ((uint8 *)(ea))[2] &		\
+				  ((uint8 *)(ea))[3] &		\
+				  ((uint8 *)(ea))[4] &		\
+				  ((uint8 *)(ea))[5]) == 0xff)
+#define ETHER_ISNULLADDR(ea)	((((uint8 *)(ea))[0] |		\
+				  ((uint8 *)(ea))[1] |		\
+				  ((uint8 *)(ea))[2] |		\
+				  ((uint8 *)(ea))[3] |		\
+				  ((uint8 *)(ea))[4] |		\
+				  ((uint8 *)(ea))[5]) == 0)
 
-#define ETHER_ISNULLDEST(da)	((((const uint16 *)(da))[0] |           \
-				  ((const uint16 *)(da))[1] |           \
-				  ((const uint16 *)(da))[2]) == 0)
-#define ETHER_ISNULLSRC(sa)	ETHER_ISNULLDEST(sa)
 
 #define ETHER_MOVE_HDR(d, s) \
 do { \
@@ -188,6 +176,8 @@ do { \
 	t = *(struct ether_header *)(s); \
 	*(struct ether_header *)(d) = t; \
 } while (0)
+
+#define  ETHER_ISUCAST(ea) ((((uint8 *)(ea))[0] & 0x01) == 0)
 
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>

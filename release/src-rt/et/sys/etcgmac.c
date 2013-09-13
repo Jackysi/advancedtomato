@@ -3,23 +3,16 @@
  *
  * This file implements the chip-specific routines for the GMAC core.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation
+ * All Rights Reserved.
  * 
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: etcgmac.c 337637 2012-06-07 23:59:18Z $
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * the contents of this file may not be disclosed to third parties, copied
+ * or duplicated in any form, in whole or in part, without the prior
+ * written permission of Broadcom Corporation.
+ * $Id: etcgmac.c,v 1.25.8.6 2010-11-16 21:25:19 Exp $
  */
 
-#include <et_cfg.h>
 #include <typedefs.h>
 #include <osl.h>
 #include <bcmdefs.h>
@@ -150,7 +143,6 @@ struct chops bcmgmac_et_chops = {
 static uint devices[] = {
 	BCM47XX_GMAC_ID,
 	BCM4716_CHIP_ID,
-	BCM4748_CHIP_ID,
 	0x0000
 };
 
@@ -204,14 +196,14 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	}
 
 	if ((etc->corerev = si_corerev(ch->sih)) == GMAC_4706B0_CORE_REV &&
-	    (ch->regscomm = (gmac_commonregs_t *)si_setcore(ch->sih,
-		GMAC_COMMON_4706_CORE_ID, 0)) == NULL) {
-		ET_ERROR(("et%d: chipattach: Could not setcore to GMAC common\n", etc->unit));
+		(ch->regscomm = (gmac_commonregs_t *)si_setcore(ch->sih,
+			GMAC_COMMON_4706_CORE_ID, 0)) == NULL) {
+		ET_ERROR(("et%d: chipattach: Could not setcore to the GMAC common core\n", etc->unit));
 		goto fail;
 	}
 
 	if ((regs = (gmacregs_t *)si_setcore(ch->sih, GMAC_CORE_ID, etc->unit)) == NULL) {
-		ET_ERROR(("et%d: chipattach: Could not setcore to GMAC\n", etc->unit));
+		ET_ERROR(("et%d: chipattach: Could not setcore to the GMAC core\n", etc->unit));
 		goto fail;
 	}
 
@@ -226,10 +218,6 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	boardflags = etc->boardflags;
 	boardtype = ch->sih->boardtype;
 
-#ifdef PKTC
-	etc->pktc = (getintvar(ch->vars, "pktc_disable") == 0);
-#endif
-
 	/* get our local ether addr */
 	sprintf(name, "et%dmacaddr", etc->coreunit);
 	var = getvar(ch->vars, name);
@@ -237,6 +225,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
 		goto fail;
 	}
+ET_TRACE(("et get local ether addr: %s = %s\n", name, var));//Yau
 	bcm_ether_atoe(var, &etc->perm_etheraddr);
 
 	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
@@ -257,6 +246,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
 		goto fail;
 	}
+ET_TRACE(("et get phyaddr:: %s = %s\n", name, var));//Yau
 	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
 
 	/* nvram says no phy is present */
@@ -379,6 +369,10 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 			ET_ERROR(("et%d: chipattach: robo_enable_switch failed\n", etc->unit));
 			goto fail;
 		}
+#ifdef PLC
+		/* Configure the switch port connected to PLC chipset */
+		robo_plc_hw_init(etc->robo);
+#endif /* PLC */
 	}
 #endif /* ETROBO */
 
@@ -467,7 +461,6 @@ chiplongname(ch_t *ch, char *buf, uint bufsize)
 	switch (ch->etc->deviceid) {
 		case BCM47XX_GMAC_ID:
 		case BCM4716_CHIP_ID:
-		case BCM4748_CHIP_ID:
 		default:
 			s = "Broadcom BCM47XX 10/100/1000 Mbps Ethernet Controller";
 			break;
@@ -576,7 +569,7 @@ chipdumpregs(ch_t *ch, gmacregs_t *regs, struct bcmstrbuf *b)
 	bcm_bprintf(b, "\n");
 	PRMIBREG(rx_broadcast_pkts); PRMIBREG(rx_multicast_pkts);
 	bcm_bprintf(b, "\n");
-	PRMIBREG(rx_jabber_pkts);
+	PRMIBREG(rx_jabber_pkts); 
 	if (ch->etc->corerev != GMAC_4706B0_CORE_REV) {
 		PRMIBREG(rx_oversize_pkts); PRMIBREG(rx_fragment_pkts);
 		bcm_bprintf(b, "\n");
@@ -896,7 +889,7 @@ gmac_miiconfig(ch_t *ch)
 	devstatus = R_REG(ch->osh, &regs->devstatus);
 	mode = ((devstatus & DS_MM_MASK) >> DS_MM_SHIFT);
 
-	/* Set the speed to 100 if the switch interface is
+	/* Set the speed to 100 if the switch interface is 
 	 * using mii/rev mii.
 	 */
 	if ((mode == 0) || (mode == 1)) {
@@ -953,8 +946,8 @@ chipinreset:
 	sflags = si_core_sflags(ch->sih, 0, 0);
 	/* Do not enable internal switch for 47186/47188 */
 	if ((((CHIPID(ch->sih->chip) == BCM5357_CHIP_ID) ||
-	      (CHIPID(ch->sih->chip) == BCM4749_CHIP_ID)) &&
-	     (ch->sih->chippkg == BCM47186_PKG_ID)) ||
+	    (CHIPID(ch->sih->chip) == BCM4749_CHIP_ID)) &&
+	    (ch->sih->chippkg == BCM47186_PKG_ID)) ||
 	    ((CHIPID(ch->sih->chip) == BCM53572_CHIP_ID) && (ch->sih->chippkg == BCM47188_PKG_ID)))
 		sflags &= ~SISF_SW_ATTACHED;
 
@@ -987,8 +980,7 @@ chipinreset:
 		else if ((CHIPID(ch->sih->chip) == BCM5357_CHIP_ID) &&
 		         (ch->sih->chippkg == BCM5358_PKG_ID))
 			sw_type = PMU_CC1_SW_TYPE_EPHYRMII;
-		else if (((CHIPID(ch->sih->chip) != BCM53572_CHIP_ID) &&
-		          (ch->sih->chippkg == BCM47186_PKG_ID)) ||
+		else if ((ch->sih->chippkg == BCM47186_PKG_ID) ||
 		         ((CHIPID(ch->sih->chip) == BCM53572_CHIP_ID) &&
 		          (ch->sih->chippkg == BCM47188_PKG_ID)) ||
 		         (ch->sih->chippkg == HWSIM_PKG_ID))
@@ -1094,16 +1086,12 @@ gmac_mf_add(ch_t *ch, struct ether_addr *mcaddr)
 static void
 gmac_mf_cleanup(ch_t *ch)
 {
-	mflist_t *ptr, *tmp;
+	mflist_t *ptr;
 	int32 i;
 
 	for (i = 0; i < GMAC_HASHT_SIZE; i++) {
-		ptr = ch->mf.bucket[i];
-		while (ptr) {
-			tmp = ptr;
-			ptr = ptr->next;
-			MFREE(ch->osh, tmp, sizeof(mflist_t));
-		}
+		for (ptr = ch->mf.bucket[i]; ptr != NULL; ptr = ptr->next)
+			MFREE(ch->osh, ptr, sizeof(mflist_t));
 		ch->mf.bucket[i] = NULL;
 	}
 }
@@ -1135,13 +1123,13 @@ chipinit(ch_t *ch, uint options)
 	/* enable/disable promiscuous mode */
 	gmac_promisc(ch, etc->promisc);
 
-	/* set our local address */
-	W_REG(ch->osh, &regs->macaddrhigh,
-	      hton32(*(uint32 *)&etc->cur_etheraddr.octet[0]));
-	W_REG(ch->osh, &regs->macaddrlow,
-	      hton16(*(uint16 *)&etc->cur_etheraddr.octet[4]));
-
 	if (!etc->promisc) {
+		/* set our local address */
+		W_REG(ch->osh, &regs->macaddrhigh,
+		      hton32(*(uint32 *)&etc->cur_etheraddr.octet[0]));
+		W_REG(ch->osh, &regs->macaddrlow,
+		      hton16(*(uint16 *)&etc->cur_etheraddr.octet[4]));
+
 		/* gmac doesn't have a cam, hence do the multicast address filtering
 		 * in the software
 		 */
@@ -1286,29 +1274,24 @@ chiprx(ch_t *ch)
 	 */
 	while ((p = dma_rx(ch->di[RX_Q0])) != NULL) {
 		/* check for overflow error packet */
-		if (RXH_FLAGS(ch->etc, PKTDATA(ch->osh, p)) & htol16(GRXF_OVF)) {
-			ET_ERROR(("et%d: chiprx, dma overflow", ch->etc->unit));
+		if (RXH_FLAGS(ch->etc, PKTDATA(ch->osh, p)) & GRXF_OVF) {
 			PKTFREE(ch->osh, p, FALSE);
 			ch->etc->rxoflodiscards++;
 			continue;
 		}
 
-		if (ch->etc->allmulti) {
+		/* skip the rx header */
+		PKTPULL(ch->osh, p, HWRXOFF);
+
+		/* do filtering only for multicast packets when allmulti is false */
+		da = (struct ether_addr *)PKTDATA(ch->osh, p);
+		if (!ETHER_ISMULTI(da) || ch->etc->allmulti ||
+		    (gmac_mf_lkup(ch, da) == SUCCESS) || ETHER_ISBCAST(da)) {
+			PKTPUSH(ch->osh, p, HWRXOFF);
 			return (p);
 		}
-		else {
-			/* skip the rx header */
-			PKTPULL(ch->osh, p, HWRXOFF);
 
-			/* do filtering only for multicast packets when allmulti is false */
-			da = (struct ether_addr *)PKTDATA(ch->osh, p);
-			if (!ETHER_ISMULTI(da) ||
-			    (gmac_mf_lkup(ch, da) == SUCCESS) || ETHER_ISBCAST(da)) {
-				PKTPUSH(ch->osh, p, HWRXOFF);
-				return (p);
-			}
-			PKTFREE(ch->osh, p, FALSE);
-		}
+		PKTFREE(ch->osh, p, FALSE);
 	}
 
 	ch->intstatus &= ~I_RI;
@@ -1468,7 +1451,7 @@ chipstatsupd(ch_t *ch)
 	if (etc->corerev != GMAC_4706B0_CORE_REV) {
 		OR_REG(ch->osh, &regs->devcontrol, DC_MROR);
 		for (s = &regs->mib.tx_good_octets, d = &ch->mib.tx_good_octets;
-		     s <= &regs->mib.rx_uni_pkts; s++, d++) {
+	  	   s <=  &regs->mib.rx_uni_pkts; s++, d++) {
 			*d += R_REG(ch->osh, s);
 			if (s == &ch->regs->mib.tx_q3_octets_high) {
 				s++;
@@ -1731,15 +1714,11 @@ chipphyinit(ch_t *ch, uint phyaddr)
 	}
 
 	if ((((CHIPID(ch->sih->chip) == BCM5357_CHIP_ID) ||
-	      (CHIPID(ch->sih->chip) == BCM4749_CHIP_ID)) &&
+		(CHIPID(ch->sih->chip) == BCM4749_CHIP_ID)) &&
 	     (ch->sih->chippkg != BCM47186_PKG_ID)) ||
 	    ((CHIPID(ch->sih->chip) == BCM53572_CHIP_ID) &&
 	     (ch->sih->chippkg != BCM47188_PKG_ID))) {
 		int i;
-
-		/* Clear ephy power down bits in case it was set for coma mode */
-		si_pmu_chipcontrol(ch->sih, 2, 0xc0000000, 0);
-		si_pmu_chipcontrol(ch->sih, 4, 0x80000000, 0);
 
 		for (i = 0; i < 5; i++) {
 			chipphywr(ch, i, 0x1f, 0x000f);

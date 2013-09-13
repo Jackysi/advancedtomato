@@ -1,7 +1,7 @@
 /*
  * stdlib support routines for self-contained images.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmstdlib.c 323209 2012-03-23 11:25:10Z $
+ * $Id: bcmstdlib.c,v 1.51.20.1 2010-03-23 01:20:17 Exp $
  */
 
 /*
@@ -59,7 +59,7 @@
 
 #ifdef BCMSTDLIB_WIN32_APP
 
-/* for a WIN32 application, use _vsnprintf as basis of vsnprintf/snprintf to
+/* for a WIN32 application, use _vsnprintf as basis of vsnprintf/snprintf to 
  * support full set of format specifications.
  */
 
@@ -70,6 +70,9 @@ vsnprintf(char *buf, size_t bufsize, const char *fmt, va_list ap)
 
 	r = _vsnprintf(buf, bufsize, fmt, ap);
 
+	/* Microsoft _vsnprintf() will not null terminate on overflow,
+	 * so null terminate at buffer end on error
+	 */
 	if (r < 0 && bufsize > 0)
 		buf[bufsize - 1] = '\0';
 
@@ -92,8 +95,8 @@ snprintf(char *buf, size_t bufsize, const char *fmt, ...)
 #else /* BCMSTDLIB_WIN32_APP */
 
 
-static const char hex_upper[17] = "0123456789ABCDEF";
-static const char hex_lower[17] = "0123456789abcdef";
+static const char digits[17] = "0123456789ABCDEF";
+static const char ldigits[17] = "0123456789abcdef";
 
 static int
 __atox(char *buf, char * end, unsigned int num, unsigned int radix, int width,
@@ -136,7 +139,8 @@ BCMROMFN(vsnprintf)(char *buf, size_t size, const char *fmt, va_list ap)
 {
 	char *optr;
 	char *end;
-	const char *iptr, *tmpptr;
+	const char *iptr;
+	unsigned char *tmpptr;
 	unsigned int x;
 	int i;
 	int leadingzero;
@@ -206,9 +210,8 @@ BCMROMFN(vsnprintf)(char *buf, size_t size, const char *fmt, va_list ap)
 
 		switch (*iptr) {
 		case 's':
-			tmpptr = va_arg(ap, const char *);
-			if (!tmpptr)
-				tmpptr = "(null)";
+			tmpptr = (unsigned char *) va_arg(ap, unsigned char *);
+			if (!tmpptr) tmpptr = (unsigned char *) "(null)";
 			if ((width == 0) & (width2 == 0)) {
 				while (*tmpptr) {
 					if (optr <= end)
@@ -241,23 +244,23 @@ BCMROMFN(vsnprintf)(char *buf, size_t size, const char *fmt, va_list ap)
 				++optr;
 				i = -i;
 			}
-			optr += __atox(optr, end, i, 10, width, hex_upper);
+			optr += __atox(optr, end, i, 10, width, digits);
 			break;
 		case 'u':
 			x = va_arg(ap, unsigned int);
-			optr += __atox(optr, end, x, 10, width, hex_upper);
+			optr += __atox(optr, end, x, 10, width, digits);
 			break;
 		case 'X':
 		case 'x':
 			x = va_arg(ap, unsigned int);
 			optr += __atox(optr, end, x, 16, width,
-			               (*iptr == 'X') ? hex_upper : hex_lower);
+			               (*iptr == 'X') ? digits : ldigits);
 			break;
 		case 'p':
 		case 'P':
 			x = va_arg(ap, unsigned int);
 			optr += __atox(optr, end, x, 16, 8,
-			               (*iptr == 'P') ? hex_upper : hex_lower);
+			               (*iptr == 'P') ? digits : ldigits);
 			break;
 		case 'c':
 			x = va_arg(ap, int);
@@ -464,27 +467,26 @@ BCMROMFN(strncmp)(const char *s1, const char *s2, size_t n)
 char *
 BCMROMFN(strchr)(const char *str, int c)
 {
-	const char *x = str;
+	char *x = (char *)str;
 
 	while (*x != (char)c) {
 		if (*x++ == '\0')
-			return (NULL);
+		return (NULL);
 	}
-
-	return DISCARD_QUAL(x, char);
+	return (x);
 }
 
 char *
 BCMROMFN(strrchr)(const char *str, int c)
 {
-	const char *save = NULL;
+	char *save = NULL;
 
 	do {
-		if (*str == (char)c)
-			save = str;
+		if (*str == (char) c)
+			save = (char*)(str);
 	} while (*str++ != '\0');
 
-	return DISCARD_QUAL(save, char);
+	return (save);
 }
 
 /* Skip over functions that are being used from DriverLibrary to save space */
@@ -497,6 +499,18 @@ BCMROMFN(strcat)(char *d, const char *s)
 }
 #endif /* EFI */
 
+char *
+BCMROMFN(index)(const char *s, int c)
+{
+	/* Terminating NUL is considered part of string */
+
+	for (; *s != c; s++)
+		if (!*s)
+			return NULL;
+
+	return (char *)s;
+}
+
 /* Skip over functions that are being used from DriverLibrary to save space */
 #ifndef EFI
 char *
@@ -506,7 +520,7 @@ BCMROMFN(strstr)(const char *s, const char *substr)
 
 	for (; *s; s++)
 		if (strncmp(s, substr, substr_len) == 0)
-			return DISCARD_QUAL(s, char);
+			return (char *)s;
 
 	return NULL;
 }
@@ -517,7 +531,7 @@ BCMROMFN(strspn)(const char *s, const char *accept)
 {
 	uint count = 0;
 
-	while (s[count] && strchr(accept, s[count]))
+	while (s[count] && index(accept, s[count]))
 		count++;
 
 	return count;
@@ -528,7 +542,7 @@ BCMROMFN(strcspn)(const char *s, const char *reject)
 {
 	uint count = 0;
 
-	while (s[count] && !strchr(reject, s[count]))
+	while (s[count] && !index(reject, s[count]))
 		count++;
 
 	return count;
@@ -542,7 +556,7 @@ BCMROMFN(memchr)(const void *s, int c, size_t n)
 
 		do {
 			if (*ptr == (unsigned char)c)
-				return DISCARD_QUAL(ptr, void);
+				return (void *)ptr;
 			ptr++;
 			n--;
 		} while (n != 0);
@@ -596,7 +610,7 @@ BCMROMFN(strtoul)(const char *cp, char **endp, int base)
 		result = (ulong)(result * -1);
 
 	if (endp)
-		*endp = DISCARD_QUAL(cp, char);
+		*endp = (char *)cp;
 
 	return (result);
 }
@@ -643,7 +657,6 @@ memset(void *dest, int c, size_t n)
 /* memcpy is not in ROM offload because it is used directly by the compiler in
  * structure assignments.
  */
-#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7R__)
 void *
 memcpy(void *dest, const void *src, size_t n)
 {
@@ -654,159 +667,7 @@ memcpy(void *dest, const void *src, size_t n)
 
 	sw = (const uint32 *)src;
 	dw = (uint32 *)dest;
-
-	if (n >= 4 && ((uintptr)src & 3) == ((uintptr)dest & 3)) {
-		uint32 t1, t2, t3, t4, t5, t6, t7, t8;
-		int i = (4 - ((uintptr)src & 3)) % 4;
-
-		n -= i;
-
-		d = (unsigned char *)dw;
-		s = (const unsigned char *)sw;
-		while (i--) {
-			*d++ = *s++;
-		}
-		sw = (const uint32 *)s;
-		dw = (uint32 *)d;
-
-		if (n >= 32) {
-			const uint32 *sfinal = (const uint32 *)((const uint8 *)sw + (n & ~31));
-
-			/* Note: order of '%' registers is chosen to avoid assembler warnings,
-			 * and may need to be reordered if function or compiler is changed.
-			 */
-			asm volatile("1:\n\t"
-#if (__GNUC_MINOR__ >= 5)	    /* arm-none-eabi-gcc 4.5.1 (2010.09) */
-				     "ldmia.w %0!, {%3, %4, %5, %6, %8, %9, %10, %7}\n\t"
-				     "stmia.w %1!, {%3, %4, %5, %6, %8, %9, %10, %7}\n\t"
-#else				/* arm-none-eabi-gcc 4.2.1 (2007q3-53) */
-				     "ldmia.w %0!, {%8, %9, %10, %7, %6, %5, %3, %4}\n\t"
-				     "stmia.w %1!, {%8, %9, %10, %7, %6, %5, %3, %4}\n\t"
-#endif
-				     "cmp %2, %0\n\t"
-				     "bhi.n\t1b\n\t"
-				     : "=r" (sw), "=r" (dw), "=r" (sfinal), "=r" (t1), "=r" (t2),
-				     "=r" (t3), "=r" (t4), "=r" (t5), "=r" (t6), "=r" (t7),
-				     "=r" (t8)
-				     : "0" (sw), "1" (dw), "2" (sfinal));
-
-			n %= 32;
-		}
-
-		/* Copy the remaining words */
-		switch (n / 4) {
-		case 0:
-			break;
-		case 1:
-			asm volatile("ldr %2, [%0]\n\t"
-			             "str %2, [%1]\n\t"
-			             "adds %0, #4\n\t"
-			             "adds %1, #4\n\t"
-			             : "=r" (sw), "=r" (dw), "=r" (t1)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 2:
-			asm volatile("ldmia.w %0!, {%2, %3}\n\t"
-			             "stmia.w %1!, {%2, %3}\n\t"
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 3:
-			asm volatile("ldmia.w %0!, {%2, %3, %4}\n\t"
-			             "stmia.w %1!, {%2, %3, %4}\n\t"
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2),
-			             "=r" (t3)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 4:
-			asm volatile("ldmia.w %0!, {%2, %3, %4, %5}\n\t"
-			             "stmia.w %1!, {%2, %3, %4, %5}\n\t"
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2),
-			             "=r" (t3), "=r" (t4)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 5:
-			asm volatile(
-#if (__GNUC_MINOR__ >= 5)
-				     "ldmia.w %0!, {%2, %3, %4, %5, %6}\n\t"
-			             "stmia.w %1!, {%2, %3, %4, %5, %6}\n\t"
-#else
-				     "ldmia.w %0!, {%3, %4, %5, %6, %2}\n\t"
-			             "stmia.w %1!, {%3, %4, %5, %6, %2}\n\t"
-#endif
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2),
-			             "=r" (t3), "=r" (t4), "=r" (t5)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 6:
-			asm volatile(
-#if (__GNUC_MINOR__ >= 5)
-				     "ldmia.w %0!, {%2, %3, %4, %5, %6, %7}\n\t"
-			             "stmia.w %1!, {%2, %3, %4, %5, %6, %7}\n\t"
-#else
-				     "ldmia.w %0!, {%4, %5, %6, %7, %3, %2}\n\t"
-			             "stmia.w %1!, {%4, %5, %6, %7, %3, %2}\n\t"
-#endif
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2),
-			             "=r" (t3), "=r" (t4), "=r" (t5), "=r" (t6)
-			             : "0" (sw), "1" (dw));
-			break;
-		case 7:
-			asm volatile(
-#if (__GNUC_MINOR__ >= 5)
-				     "ldmia.w %0!, {%2, %3, %4, %5, %6, %8, %7}\n\t"
-			             "stmia.w %1!, {%2, %3, %4, %5, %6, %8, %7}\n\t"
-#else
-				     "ldmia.w %0!, {%5, %6, %7, %8, %4, %3, %2}\n\t"
-			             "stmia.w %1!, {%5, %6, %7, %8, %4, %3, %2}\n\t"
-#endif
-			             : "=r" (sw), "=r" (dw), "=r" (t1), "=r" (t2),
-			             "=r" (t3), "=r" (t4), "=r" (t5), "=r" (t6),
-			             "=r" (t7)
-			             : "0" (sw), "1" (dw));
-			break;
-		default:
-			i = n / 4;
-			while (i--) {
-				*dw++ = *sw++;
-			}
-			break;
-		}
-		n = n % 4;
-	}
-
-	/* Copy the remaining bytes */
-	d = (unsigned char *)dw;
-	s = (const unsigned char *)sw;
-	while (n--) {
-		*d++ = *s++;
-	}
-
-	return dest;
-}
-#else
-void *
-memcpy(void *dest, const void *src, size_t n)
-{
-	uint32 *dw;
-	const uint32 *sw;
-	unsigned char *d;
-	const unsigned char *s;
-
-	sw = (const uint32 *)src;
-	dw = (uint32 *)dest;
-
-	if ((n >= 4) && (((uintptr)src & 3) == ((uintptr)dest & 3))) {
-		int i = (4 - ((uintptr)src & 3)) % 4;
-		n -= i;
-		d = (unsigned char *)dw;
-		s = (const unsigned char *)sw;
-		while (i--) {
-			*d++ = *s++;
-		}
-
-		sw = (const uint32 *)s;
-		dw = (uint32 *)d;
+	if ((n >= 4) && (((uintptr)src & 3) == 0) && (((uintptr)dest & 3) == 0)) {
 		while (n >= 4) {
 			*dw++ = *sw++;
 			n -= 4;
@@ -814,29 +675,26 @@ memcpy(void *dest, const void *src, size_t n)
 	}
 	d = (unsigned char *)dw;
 	s = (const unsigned char *)sw;
-	while (n--) {
+	while (n) {
 		*d++ = *s++;
+		n--;
 	}
 
 	return dest;
 }
-#endif /* __ARM_ARCH_7M__ */
-
 #endif /* EFI */
 
 /* Include printf if it has already not been defined as NULL */
 #ifndef printf
-
 int
 printf(const char *fmt, ...)
 {
 	va_list ap;
-	int count = 0, i;
+	int count, i;
 	char buffer[PRINTF_BUFLEN + 1];
 
-
 	va_start(ap, fmt);
-	count += vsnprintf(buffer, sizeof(buffer), fmt, ap);
+	count = vsnprintf(buffer, sizeof(buffer), fmt, ap);
 	va_end(ap);
 
 	for (i = 0; i < count; i++) {
@@ -847,7 +705,6 @@ printf(const char *fmt, ...)
 			putc('\r');
 #endif
 	}
-
 
 #ifdef MSGTRACE
 	msgtrace_put(buffer, count);

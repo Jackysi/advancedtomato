@@ -1141,8 +1141,17 @@ static int init_nvram(void)
 		break;
 	case MODEL_RTN66U:
 		mfr = "Asus";
-		name = "RT-AC66U"; //id, board, rev same as N66
+#ifdef CONFIG_BCMWL6
+		name = "RT-AC66U";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#else
+		name = "RT-N66U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
+		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "1");
+#endif
+#endif
+
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif
@@ -1150,12 +1159,18 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifnames", "eth1 eth2");
+#ifdef CONFIG_BCMWL6
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
+#endif
 			nvram_set("landevs", "vlan1 wl0 wl1");
 			nvram_set("wandevs", "vlan2");
-
+#ifndef CONFIG_BCMWL6
+#if defined(LINUX26) && defined(TCONFIG_USB)
+			nvram_set("usb_noled", "1-1.4"); /* SD/MMC Card */
+#endif
+#else
 			nvram_set("wl1_bw_cap","7");
 			nvram_set("wl1_chanspec","36/80");
 			nvram_set("wl0_bw_cap","3");
@@ -1168,13 +1183,6 @@ static int init_nvram(void)
 			nvram_set("wl0_hwaddr", s);
 			inc_mac(s, +1);
 			nvram_set("wl1_hwaddr", s);
-
-//			nvram_set("wl0_phytype", "h");
-//			nvram_set("wl0_phytypes", "h");
-//			nvram_set("wl1_phytype", "h"); // "h" for now. For 80Mhz should be "v"
-//			nvram_set("wl1_phytypes", "h"); // "h" for now. For 80Mhz should be "v"
-//			nvram_set("wl1_unit" ,"1");
-
 
 			// bcm4360ac_defaults
 			nvram_set("pci/2/1/aa2g", "0");
@@ -1289,103 +1297,9 @@ static int init_nvram(void)
 
 			// fix WL mac`s
 			strcpy(s, nvram_safe_get("et0macaddr"));
-			inc_mac(s, +2);
-			nvram_set("wl0_hwaddr", s);
-			inc_mac(s, +1);
-			nvram_set("wl1_hwaddr", s);
-
-//			nvram_set("wl0_phytype", "h");
-//			nvram_set("wl0_phytypes", "h");
-//			nvram_set("wl1_phytype", "h"); // "h" for now. For 80Mhz should be "v"
-//			nvram_set("wl1_phytypes", "h"); // "h" for now. For 80Mhz should be "v"
-//			nvram_set("wl1_unit" ,"1");
-
-
-			// bcm4360ac_defaults
-/*
-			nvram_set("pci/2/1/aa2g", "0");
-			nvram_set("pci/2/1/aa5g", "7");
-			nvram_set("pci/2/1/aga0", "71");
-			nvram_set("pci/2/1/aga1", "71");
-			nvram_set("pci/2/1/aga2", "71");
-			nvram_set("pci/2/1/agbg0", "133");
-			nvram_set("pci/2/1/agbg1", "133");
-			nvram_set("pci/2/1/agbg2", "133");
-			nvram_set("pci/2/1/antswitch", "0");
-			nvram_set("pci/2/1/cckbw202gpo", "0");
-			nvram_set("pci/2/1/cckbw20ul2gpo", "0");
-			nvram_set("pci/2/1/dot11agofdmhrbw202gpo", "0");
-			nvram_set("pci/2/1/femctrl", "3");
-			nvram_set("pci/2/1/papdcap2g", "0");
-			nvram_set("pci/2/1/tworangetssi2g", "0");
-			nvram_set("pci/2/1/pdgain2g", "4");
-			nvram_set("pci/2/1/epagain2g", "0");
-			nvram_set("pci/2/1/tssiposslope2g", "1");
-			nvram_set("pci/2/1/gainctrlsph", "0");
-			nvram_set("pci/2/1/papdcap5g", "0");
-			nvram_set("pci/2/1/tworangetssi5g", "0");
-			nvram_set("pci/2/1/pdgain5g", "4");
-			nvram_set("pci/2/1/epagain5g", "0");
-			nvram_set("pci/2/1/tssiposslope5g", "1");
-			nvram_set("pci/2/1/maxp2ga0", "76");
-			nvram_set("pci/2/1/maxp2ga1", "76");
-			nvram_set("pci/2/1/maxp2ga2", "76");
-			nvram_set("pci/2/1/mcsbw202gpo", "0");
-			nvram_set("pci/2/1/mcsbw402gpo", "0");
-			nvram_set("pci/2/1/measpower", "0x7f");
-			nvram_set("pci/2/1/measpower1", "0x7f");
-			nvram_set("pci/2/1/measpower2", "0x7f");
-			nvram_set("pci/2/1/noiselvl2ga0", "31");
-			nvram_set("pci/2/1/noiselvl2ga1", "31");
-			nvram_set("pci/2/1/noiselvl2ga2", "31");
-			nvram_set("pci/2/1/noiselvl5gha0", "31");
-			nvram_set("pci/2/1/noiselvl5gha1", "31");
-			nvram_set("pci/2/1/noiselvl5gha2", "31");
-			nvram_set("pci/2/1/noiselvl5gla0", "31");
-			nvram_set("pci/2/1/noiselvl5gla1", "31");
-			nvram_set("pci/2/1/noiselvl5gla2", "31");
-			nvram_set("pci/2/1/noiselvl5gma0", "31");
-			nvram_set("pci/2/1/noiselvl5gma1", "31");
-			nvram_set("pci/2/1/noiselvl5gma2", "31");
-			nvram_set("pci/2/1/noiselvl5gua0", "31");
-			nvram_set("pci/2/1/noiselvl5gua1", "31");
-			nvram_set("pci/2/1/noiselvl5gua2", "31");
-			nvram_set("pci/2/1/ofdmlrbw202gpo", "0");
-			nvram_set("pci/2/1/pa2ga0", "0xfe72,0x14c0,0xfac7");
-			nvram_set("pci/2/1/pa2ga1", "0xfe80,0x1472,0xfabc");
-			nvram_set("pci/2/1/pa2ga2", "0xfe82,0x14bf,0xfad9");
-			nvram_set("pci/2/1/pcieingress_war", "15");
-			nvram_set("pci/2/1/phycal_tempdelta", "255");
-			nvram_set("pci/2/1/rawtempsense", "0x1ff");
-			nvram_set("pci/2/1/rxchain", "7");
-			nvram_set("pci/2/1/rxgainerr2g", "0xffff");
-			nvram_set("pci/2/1/rxgainerr5g", "0xffff,0xffff,0xffff,0xffff");
-			nvram_set("pci/2/1/rxgains2gelnagaina0", "0");
-			nvram_set("pci/2/1/rxgains2gelnagaina1", "0");
-			nvram_set("pci/2/1/rxgains2gelnagaina2", "0");
-			nvram_set("pci/2/1/rxgains2gtrelnabypa0", "0");
-			nvram_set("pci/2/1/rxgains2gtrelnabypa1", "0");
-			nvram_set("pci/2/1/rxgains2gtrelnabypa2", "0");
-			nvram_set("pci/2/1/rxgains2gtrisoa0", "0");
-			nvram_set("pci/2/1/rxgains2gtrisoa1", "0");
-			nvram_set("pci/2/1/rxgains2gtrisoa2", "0");
-			nvram_set("pci/2/1/sar2g", "18");
-			nvram_set("pci/2/1/sar5g", "15");
-			nvram_set("pci/2/1/sromrev", "11");
-			nvram_set("pci/2/1/subband5gver", "0x4");
-			nvram_set("pci/2/1/tempcorrx", "0x3f");
-			nvram_set("pci/2/1/tempoffset", "255");
-			nvram_set("pci/2/1/temps_hysteresis", "15");
-			nvram_set("pci/2/1/temps_period", "15");
-			nvram_set("pci/2/1/tempsense_option", "0x3");
-			nvram_set("pci/2/1/tempsense_slope", "0xff");
-			nvram_set("pci/2/1/tempthresh", "255");
-			nvram_set("pci/2/1/txchain", "7");
-			nvram_set("pci/2/1/ledbh0", "2");
-			nvram_set("pci/2/1/ledbh1", "5");
-			nvram_set("pci/2/1/ledbh2", "4");
-			nvram_set("pci/2/1/ledbh3", "11");
-			nvram_set("pci/2/1/ledbh10", "7");*/
+			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
+			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
+#endif // CONFIG_BCMWL6
 		}
 		break;
 	case MODEL_WNR3500L:
@@ -1955,7 +1869,10 @@ static void sysinit(void)
 	set_tz();
 
 	eval("buttons");
+
+#ifdef CONFIG_BCMWL6
 	eval("blink_5g");
+#endif
 
 	if (!noconsole) xstart("console");
 

@@ -21,7 +21,7 @@ LDFLAGS += $(EXTRA_LDFLAGS)
 
 
 OBJS := wlconf.o
-ifeq ($(RTCONFIG_BCMWL6),y)
+ifeq ($(CONFIG_BCMWL6),y)
 OBJS += bcmwifi_channels.o
 endif
 vpath %.c $(SRCBASE)/wlconf $(SRCBASE)/shared

@@ -985,7 +985,7 @@ long long write_fragment_table()
 	}
 
 	for(i = 0; i < meta_blocks; i++) {
-		int avail_bytes = i == meta_blocks - 1 ? frag_bytes % SQUASHFS_METADATA_SIZE : SQUASHFS_METADATA_SIZE;
+		int avail_bytes = frag_bytes > SQUASHFS_METADATA_SIZE ? SQUASHFS_METADATA_SIZE : frag_bytes;
 		c_byte = mangle(cbuffer + block_offset, buffer + i * SQUASHFS_METADATA_SIZE , avail_bytes, SQUASHFS_METADATA_SIZE, noF, 0);
 		if(!swap)
 			memcpy(cbuffer, &c_byte, sizeof(unsigned short));
@@ -997,6 +997,7 @@ long long write_fragment_table()
 		compressed_size = SQUASHFS_COMPRESSED_SIZE(c_byte) + block_offset;
 		write_bytes(fd, bytes, compressed_size, cbuffer);
 		bytes += compressed_size;
+		frag_bytes -= avail_bytes;
 	}
 
 	if(!swap)
@@ -1984,7 +1985,7 @@ printOptions:
 	}
 
         for(i = 0; i < source; i++)
-                if(stat(source_path[i], &source_buf) == -1) {
+                if(lstat(source_path[i], &source_buf) == -1) {
                         fprintf(stderr, "Cannot stat source directory \"%s\" because %s\n", source_path[i], strerror(errno));
                         EXIT_MKSQUASHFS();
                 }

@@ -35,6 +35,7 @@
 #include <siutils.h>
 #include <hndcpu.h>
 #include <hndpci.h>
+#include <hndcpu.h>
 #include <pcicfg.h>
 #include <bcmdevs.h>
 #include <bcmnvram.h>
@@ -42,12 +43,6 @@
 /* Global SB handle */
 extern si_t *bcm947xx_sih;
 extern spinlock_t bcm947xx_sih_lock;
-
-/* Global USB capability */
-int usb_hsic_cap = 0;
-int usb_hsic_cap_port = 0;
-EXPORT_SYMBOL(usb_hsic_cap);
-EXPORT_SYMBOL(usb_hsic_cap_port);
 
 /* Convenience */
 #define sih bcm947xx_sih
@@ -236,9 +231,9 @@ int
 pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	ulong flags;
-	uint coreidx, coreid;
+	uint coreidx;
 	void *regs;
-	int rc = -1;
+	uint32 tmp;
 
 	/* External PCI device enable */
 	if (dev->bus->number != 0)
@@ -253,10 +248,8 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	spin_lock_irqsave(&sih_lock, flags);
 	coreidx = si_coreidx(sih);
 	regs = si_setcoreidx(sih, PCI_SLOT(dev->devfn));
-	if (!regs) {
-		printk("WARNING! PCIBIOS_DEVICE_NOT_FOUND\n");
-		goto out;
-	}
+	if (!regs)
+		return PCIBIOS_DEVICE_NOT_FOUND;
 
 	/* 
 	 * The USB core requires a special bit to be set during core
@@ -267,7 +260,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 * should know about SB and should reset the bit back to 0
 	 * after calling pcibios_enable_device().
 	 */
-	if ((coreid = si_coreid(sih)) == USB_CORE_ID) {
+	if (si_coreid(sih) == USB_CORE_ID) {
 		si_core_disable(sih, si_core_cflags(sih, 0, 0));
 		si_core_reset(sih, 1 << 29, 0);
 	}
@@ -281,12 +274,12 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 *    Register must be programmed to bring the USB core and various
 	 *    phy components out of reset.
 	 */
-	else if (coreid == USB20H_CORE_ID) {
+	else if (si_coreid(sih) == USB20H_CORE_ID) {
 		if (!si_iscoreup(sih)) {
 			si_core_reset(sih, 0, 0);
+			// USB hungup issue from broadcom 2009.6.24
 			mdelay(10);
 			if (si_corerev(sih) >= 5) {
-				uint32 tmp;
 				/* Enable Misc PLL */
 				tmp = readl(regs + 0x1e0);
 				tmp |= 0x100;
@@ -319,7 +312,6 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 					0xc000), 100000);
 				if ((tmp & 0xc000) != 0xc000) {
 					printk("WARNING! USB20H mdio_rddata 0x%08x\n", tmp);
-					goto out;
 				}
 				writel(0x80000000, regs + 0x528);
 				tmp = readl(regs + 0x314);
@@ -329,68 +321,72 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 
 				/* Take USB and HSIC out of non-driving modes */
 				writel(0, regs + 0x510);
-			} else if (si_corerev(sih) >= 3) {
-				uint32 tmp = readl(regs + 0x50c);
-				udelay(50);
-				/* make sure pll lock is on */
-				if (!(tmp & 0x1000000)) {
-					goto out;
-				}
-				writel(0x7ff, regs + 0x200);
-				udelay(1);
 			} else {
 				writel(0x7ff, regs + 0x200);
 				udelay(1);
 			}
 		}
-		/* PRxxxx: War for 5354 failures. */
-		if (si_corerev(sih) == 1) {
-			uint32 tmp;
 
+		/* War for 5354 failures. */
+		if ((sih->chip == BCM5354_CHIP_ID) && (si_corerev(sih) == 1 || si_corerev(sih) == 2)) {
 			/* Change Flush control reg */
 			tmp = readl(regs + 0x400);
 			tmp &= ~8;
 			writel(tmp, regs + 0x400);
-			tmp = readl(regs + 0x400);
-			printk("USB20H fcr: 0x%x\n", tmp);
 
 			/* Change Shim control reg */
 			tmp = readl(regs + 0x304);
 			tmp &= ~0x100;
 			writel(tmp, regs + 0x304);
-			tmp = readl(regs + 0x304);
-			printk("USB20H shim cr: 0x%x\n", tmp);
+
+			/* Change Syn01 reg */
+			tmp = 0x00fe00fe;
+			writel(tmp, regs + 0x894);
+
+			/* Change Syn03 reg */
+			tmp = 0x1;
+			writel(tmp, regs + 0x89c);
+
+			udelay(1);
 		}
-		if (si_corerev(sih) == 5) {
-			usb_hsic_cap = 1;
-			usb_hsic_cap_port = 2;
+
+		/* War for 4716 failures. */
+		if (sih->chip == BCM4716_CHIP_ID) {
+			uint32 delay = 500;
+			uint32 val = 0;
+			uint32 clk_freq;
+
+			clk_freq = si_cpu_clock(sih);
+			if(clk_freq == 480000000)
+				val = 0x1846b;
+			else if (clk_freq == 453000000)
+				val = 0x1046b;
+
+			/* Change Shim mdio control reg to fix host not acking at high frequencies
+			 */
+			if (val) {
+				writel(val, regs + 0x524);
+				udelay(delay);
+				writel(0x4ab, regs + 0x524);
+				udelay(delay);
+				tmp = readl(regs + 0x528);
+				udelay(delay);
+				writel(val, regs + 0x524);
+				udelay(delay);
+				writel(0x4ab, regs + 0x524);
+				udelay(delay);
+				tmp = readl(regs + 0x528);
+				//printk("USB20H mdio control register : 0x%x\n", tmp);
+			}
 		}
+
 	} else
 		si_core_reset(sih, 0, 0);
 
-	/* Initialize USBHC core OK */
-	rc = 0;
-out:
 	si_setcoreidx(sih, coreidx);
 	spin_unlock_irqrestore(&sih_lock, flags);
 
-#if 0
-	/* Reset the device */
-	if (coreid == USB20H_CORE_ID || coreid == USB_CORE_ID)	{
-		int wombo_reset = GPIO_PIN_NOTDEFINED;
-		if ((wombo_reset = getgpiopin(NULL, "wombo_reset", GPIO_PIN_NOTDEFINED)) !=
-		    GPIO_PIN_NOTDEFINED) {
-			int reset = 1 << wombo_reset;
-			printk("wombo_reset set to gpio %d\n", wombo_reset);
-			si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
-			si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
-			mdelay(50);
-			si_gpioout(sih, reset, reset, GPIO_DRV_PRIORITY);
-			mdelay(20);
-		}
-	}
-#endif
-	return rc;
+	return 0;
 }
 
 void

@@ -41,7 +41,6 @@ extern spinlock_t bcm947xx_sih_lock;
 
 #define WATCHDOG_MIN	3000	/* milliseconds */
 extern int panic_timeout;
-extern int panic_on_oops;
 static int watchdog = 0;
 extern int bcm947xx_cpu_clk;
 
@@ -90,7 +89,6 @@ bcm947xx_time_init(void)
 
 	/* Set panic timeout in seconds */
 	panic_timeout = watchdog / 1000;
-	panic_on_oops = watchdog / 1000;
 }
 
 #ifdef CONFIG_HND_BMIPS3300_PROF

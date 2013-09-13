@@ -66,7 +66,7 @@ is_external_path(const char * path)
 	if (statfs(path, &sf) == 0)
 	{
 		/* if it returns squashfs or tmpfs type, assume it's not mounted */
-		return (sf.f_type != 0x73717368 && sf.f_type != 0x1021994);
+		return (sf.f_type != 0x71736873 && sf.f_type != 0x73717368 && sf.f_type != 0x1021994);
 	}
 	else
 	{

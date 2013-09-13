@@ -1,21 +1,15 @@
 /*
  * et driver ioctl swiss army knife command.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation
+ * All Rights Reserved.
  * 
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * the contents of this file may not be disclosed to third parties, copied
+ * or duplicated in any form, in whole or in part, without the prior
+ * written permission of Broadcom Corporation.
  *
- * $Id: et.c 322208 2012-03-20 01:53:23Z $
+ * $Id: et.c,v 1.13.18.1 2010-07-01 23:24:02 Exp $
  */
 
 #include <stdio.h>
@@ -34,13 +28,13 @@
 #include <stdlib.h>
 #include <etioctl.h>
 #include <proto/ethernet.h>
+#include <linux/types.h>
 
 typedef u_int64_t u64;
 typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
 #include <linux/sockios.h>
-#include <linux/types.h>
 #include <linux/ethtool.h>
 
 static void usage(char *av0);
@@ -106,7 +100,7 @@ main(int ac, char *av[])
 		ifr.ifr_data = (caddr_t) &arg;
 		if (ioctl(s, SIOCSETCLOOP, (caddr_t)&ifr) < 0)
 			syserr("etcloop");
-	} else if ((strcmp(av[optind], "dump") == 0) && (ac == 2)) {
+	} else if (strcmp(av[optind], "dump") == 0) {
 		ifr.ifr_data = buf;
 		if (ioctl(s, SIOCGETCDUMP, (caddr_t)&ifr) < 0)
 			syserr("etcdump");
@@ -225,56 +219,6 @@ main(int ac, char *av[])
 		ifr.ifr_data = (caddr_t) &var;
 		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
 			syserr("etccleardump");
-	} else if ((strcmp(av[optind], "pktc") == 0) ||
-	           (strcmp(av[optind], "pktcbnd") == 0)) {
-		/* Get pktc or pktcbnd */
-		if (ac == (optind + 1))
-			var.set = 0;
-		else {
-			var.set = 1;
-			vecarg[0] = strtoul(av[optind + 1], NULL, 0);
-		}
-		var.len = sizeof(int);
-		var.cmd = strcmp(av[optind], "pktc") == 0 ? IOV_PKTC : IOV_PKTCBND;
-		var.buf = &vecarg;
-
-		ifr.ifr_data = (caddr_t)&var;
-		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
-			syserr("pktc");
-
-		if (!var.set)
-			printf("%d\n", vecarg[0]);
-	} else if ((strcmp(av[optind], "counters") == 0)) {
-		if (ac == (optind + 1))
-			var.set = 0;
-		else
-			syserr("counters");
-
-		var.cmd = IOV_COUNTERS;
-		var.buf = buf;
-		var.len = sizeof(buf);
-
-		ifr.ifr_data = (caddr_t)&var;
-		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
-			syserr("pktc");
-
-		printf("%s\n", buf);
-	} else if ((strcmp(av[optind], "dump") == 0) && (ac > 2) &&
-	           (strcmp(av[optind + 1], "ctf") == 0)) {
-		if (ac == (optind + 2))
-			var.set = 0;
-		else
-			syserr("dump ctf");
-
-		var.cmd = IOV_DUMP_CTF;
-		var.buf = buf;
-		var.len = sizeof(buf);
-
-		ifr.ifr_data = (caddr_t)&var;
-		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
-			syserr("pktc");
-
-		printf("%s\n", buf);
 	} else {
 		if (strcmp(av[optind], "switch_mode") == 0) {
 			int all = 0;
@@ -344,8 +288,6 @@ usage(char *av0)
 		"\trobord <page> <reg>\n"
 		"\trobowr <page> <reg> <val>\n"
 		"\tswitch_mode <phy> <mode> (mode 0, 1, 2, 3)\n"
-		"\tpktc <0 or 1>\n"
-		"\tpktcbnd <val>\n"
 		,		
 		av0);
 	exit(1);

@@ -2,7 +2,7 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,9 +16,9 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: aiutils.c 321248 2012-03-14 21:17:30Z $
+ * $Id: aiutils.c,v 1.27.2.5 2011-01-26 18:24:11 Exp $
  */
-#include <bcm_cfg.h>
+
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
@@ -37,7 +37,7 @@
 	    (sii->coreid[sii->curidx] == MIPS74K_CORE_ID))
 
 #define BCM5357_DMP() (((CHIPID(sih->chip) == BCM5357_CHIP_ID) || \
-			(CHIPID(sih->chip) == BCM4749_CHIP_ID)) && \
+		(CHIPID(sih->chip) == BCM4749_CHIP_ID)) && \
 	    (sih->chippkg == BCM5357_PKG_ID) && \
 	    (sii->coreid[sii->curidx] == USB20H_CORE_ID))
 
@@ -125,7 +125,7 @@ ai_hwfixup(si_info_t *sii)
 	 */
 	if (BUSTYPE(sii->pub.bustype) == SI_BUS &&
 	    ((CHIPID(sii->pub.chip) == BCM4716_CHIP_ID) ||
-		(CHIPID(sii->pub.chip) == BCM4748_CHIP_ID))) {
+	     (CHIPID(sii->pub.chip) == BCM4748_CHIP_ID))) {
 		aidmp_t *i2s, *pcie, *cpu;
 
 		ASSERT(sii->coreid[3] == MIPS74K_CORE_ID);
@@ -263,6 +263,7 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 	while (eromptr < eromlim) {
 		uint32 cia, cib, cid, mfg, crev, nmw, nsw, nmp, nsp;
 		uint32 mpd, asd, addrl, addrh, sizel, sizeh;
+		uint32 *base;
 		uint i, j, idx;
 		bool br;
 
@@ -275,7 +276,7 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 			ai_hwfixup(sii);
 			return;
 		}
-
+		base = eromptr - 1;
 		cib = get_erom_ent(sih, &eromptr, 0, 0);
 
 		if ((cib & ER_TAG) != ER_CI) {
@@ -291,13 +292,9 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 		nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
 		nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
 
-#ifdef BCMDBG_SI
 		SI_VMSG(("Found component 0x%04x/0x%04x rev %d at erom addr 0x%p, with nmw = %d, "
 		         "nsw = %d, nmp = %d & nsp = %d\n",
-		         mfg, cid, crev, eromptr - 1, nmw, nsw, nmp, nsp));
-#else
-		BCM_REFERENCE(crev);
-#endif
+		         mfg, cid, crev, base, nmw, nsw, nmp, nsp));
 
 		if (((mfg == MFGID_ARM) && (cid == DEF_AI_COMP)) || (nsp == 0))
 			continue;
@@ -315,7 +312,7 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 		}
 
 		idx = sii->numcores;
-
+/*		sii->eromptr[idx] = base; */
 		sii->cia[idx] = cia;
 		sii->cib[idx] = cib;
 		sii->coreid[idx] = remap_coreid(sih, cid);
@@ -336,27 +333,17 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 		 */
 		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
 		if (asd == 0) {
-			do {
 			/* Try again to see if it is a bridge */
 			asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
 			              &sizel, &sizeh);
 			if (asd != 0)
 				br = TRUE;
-			else {
-					if (br == TRUE) {
-						break;
-					}
-					else if ((addrh != 0) || (sizeh != 0) ||
-						(sizel != SI_CORE_SIZE)) {
-						SI_ERROR(("addrh = 0x%x\t sizeh = 0x%x\t size1 ="
-							"0x%x\n", addrh, sizeh, sizel));
-						SI_ERROR(("First Slave ASD for"
-							"core 0x%04x malformed "
-							"(0x%08x)\n", cid, asd));
-						goto error;
-					}
+			else
+				if ((addrh != 0) || (sizeh != 0) || (sizel != SI_CORE_SIZE)) {
+					SI_ERROR(("First Slave ASD for core 0x%04x malformed "
+					          "(0x%08x)\n", cid, asd));
+					goto error;
 				}
-			} while (1);
 		}
 		sii->coresba[idx] = addrl;
 		sii->coresba_size[idx] = sizel;
@@ -422,24 +409,6 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 				sii->wrapba[idx] = addrl;
 		}
 
-		if (CHIPID(sih->chip) == BCM4706_CHIP_ID) {
-			/* Check if it's a low cost package */
-			i = (R_REG(sii->osh, &cc->chipid) & CID_PKG_MASK) >> CID_PKG_SHIFT;
-			if (i == BCM4706L_PKG_ID) {
-				/* bcm4706L: only one GMAC */
-				if (cid == GMAC_4706_CORE_ID) {
-					for (j = 0; j < sii->numcores; j++) {
-						if (sii->coreid[j] == GMAC_CORE_ID)
-							break;
-					}
-					if (j != sii->numcores) {
-						/* Found one GMAC already, ignore this one */
-						continue;
-					}
-				}
-			}
-		}
-
 		/* Don't record bridges */
 		if (br)
 			continue;
@@ -462,14 +431,12 @@ void *
 ai_setcoreidx(si_t *sih, uint coreidx)
 {
 	si_info_t *sii = SI_INFO(sih);
-	uint32 addr, wrap;
+	uint32 addr = sii->coresba[coreidx];
+	uint32 wrap = sii->wrapba[coreidx];
 	void *regs;
 
-	if (coreidx >= MIN(sii->numcores, SI_MAXCORES))
+	if (coreidx >= sii->numcores)
 		return (NULL);
-
-	addr = sii->coresba[coreidx];
-	wrap = sii->wrapba[coreidx];
 
 	/*
 	 * If the user has provided an interrupt mask enabled function,
@@ -496,11 +463,8 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 		/* point bar0 window */
 		OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN, 4, addr);
 		regs = sii->curmap;
-		/* point bar0 2nd 4KB window to the primary wrapper */
-		if (PCIE_GEN2(sii))
-			OSL_PCI_WRITE_CONFIG(sii->osh, PCIE2_BAR0_WIN2, 4, wrap);
-		else
-			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, wrap);
+		/* point bar0 2nd 4KB window */
+		OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, wrap);
 		break;
 
 #ifdef BCMJTAG
@@ -682,20 +646,13 @@ ai_setint(si_t *sih, int siflag)
 {
 }
 
-uint
-ai_wrap_reg(si_t *sih, uint32 offset, uint32 mask, uint32 val)
+void
+ai_write_wrap_reg(si_t *sih, uint32 offset, uint32 val)
 {
 	si_info_t *sii = SI_INFO(sih);
-	uint32 *map = (uint32 *) sii->curwrap;
-
-	if (mask || val) {
-		uint32 w = R_REG(sii->osh, map+(offset/4));
-		w &= ~mask;
-		w |= val;
-		W_REG(sii->osh, map+(offset/4), val);
-	}
-
-	return (R_REG(sii->osh, map+(offset/4)));
+	uint32 *w = (uint32 *) sii->curwrap;
+	W_REG(sii->osh, w+(offset/4), val);
+	return;
 }
 
 uint
@@ -831,7 +788,6 @@ ai_core_disable(si_t *sih, uint32 bits)
 {
 	si_info_t *sii;
 	volatile uint32 dummy;
-	uint32 status;
 	aidmp_t *ai;
 
 	sii = SI_INFO(sih);
@@ -843,31 +799,12 @@ ai_core_disable(si_t *sih, uint32 bits)
 	if (R_REG(sii->osh, &ai->resetctrl) & AIRC_RESET)
 		return;
 
-	/* ensure there are no pending backplane operations */
-	SPINWAIT(((status = R_REG(sii->osh, &ai->resetstatus)) != 0), 300);
-
-	/* if pending backplane ops still, try waiting longer */
-	if (status != 0) {
-		/* 300usecs was sufficient to allow backplane ops to clear for big hammer */
-		/* during driver load we may need more time */
-		SPINWAIT(((status = R_REG(sii->osh, &ai->resetstatus)) != 0), 10000);
-		/* if still pending ops, continue on and try disable anyway */
-		/* this is in big hammer path, so don't call wl_reinit in this case... */
-#ifdef BCMDBG
-		if (status != 0) {
-			printf("%s: WARN: resetstatus=%0x on core disable\n", __FUNCTION__, status);
-		}
-#endif
-	}
-
 	W_REG(sii->osh, &ai->ioctrl, bits);
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(10);
 
 	W_REG(sii->osh, &ai->resetctrl, AIRC_RESET);
 	dummy = R_REG(sii->osh, &ai->resetctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 }
 
@@ -897,18 +834,14 @@ ai_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	 */
 	W_REG(sii->osh, &ai->ioctrl, (bits | SICF_FGC | SICF_CLOCK_EN));
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
-
 	W_REG(sii->osh, &ai->resetctrl, 0);
-	dummy = R_REG(sii->osh, &ai->resetctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 
 	W_REG(sii->osh, &ai->ioctrl, (bits | SICF_CLOCK_EN));
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 }
+
 
 void
 ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val)
@@ -1006,7 +939,7 @@ ai_core_sflags(si_t *sih, uint32 mask, uint32 val)
 	return R_REG(sii->osh, &ai->iostatus);
 }
 
-#if defined(BCMDBG)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 /* print interesting aidmp registers */
 void
 ai_dumpregs(si_t *sih, struct bcmstrbuf *b)
@@ -1065,48 +998,63 @@ ai_dumpregs(si_t *sih, struct bcmstrbuf *b)
 			/* point bar0 2nd 4KB window */
 			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, 0x18103000);
 			bcm_bprintf(b, "ioctrlset 0x%x ioctrlclear 0x%x ioctrl 0x%x iostatus 0x%x"
-				"ioctrlwidth 0x%x iostatuswidth 0x%x\n"
-				"resetctrl 0x%x resetstatus 0x%x resetreadid 0x%x"
-				" resetwriteid 0x%x\n"
-				"errlogctrl 0x%x errlogdone 0x%x errlogstatus 0x%x"
-				"errlogaddrlo 0x%x errlogaddrhi 0x%x\n"
-				"errlogid 0x%x errloguser 0x%x errlogflags 0x%x\n"
-				"intstatus 0x%x config 0x%x itcr 0x%x\n",
-				R_REG(osh, &ai->ioctrlset),
-				R_REG(osh, &ai->ioctrlclear),
-				R_REG(osh, &ai->ioctrl),
-				R_REG(osh, &ai->iostatus),
-				R_REG(osh, &ai->ioctrlwidth),
-				R_REG(osh, &ai->iostatuswidth),
-				R_REG(osh, &ai->resetctrl),
-				R_REG(osh, &ai->resetstatus),
-				R_REG(osh, &ai->resetreadid),
-				R_REG(osh, &ai->resetwriteid),
-				R_REG(osh, &ai->errlogctrl),
-				R_REG(osh, &ai->errlogdone),
-				R_REG(osh, &ai->errlogstatus),
-				R_REG(osh, &ai->errlogaddrlo),
-				R_REG(osh, &ai->errlogaddrhi),
-				R_REG(osh, &ai->errlogid),
-				R_REG(osh, &ai->errloguser),
-				R_REG(osh, &ai->errlogflags),
-				R_REG(osh, &ai->intstatus),
-				R_REG(osh, &ai->config),
-				R_REG(osh, &ai->itcr));
+				    "ioctrlwidth 0x%x iostatuswidth 0x%x\n"
+				    "resetctrl 0x%x resetstatus 0x%x resetreadid 0x%x"
+				    " resetwriteid 0x%x\n"
+				    "errlogctrl 0x%x errlogdone 0x%x errlogstatus 0x%x"
+				    "errlogaddrlo 0x%x errlogaddrhi 0x%x\n"
+				    "errlogid 0x%x errloguser 0x%x errlogflags 0x%x\n"
+				    "intstatus 0x%x config 0x%x itcr 0x%x\n",
+				    R_REG(osh, &ai->ioctrlset),
+				    R_REG(osh, &ai->ioctrlclear),
+				    R_REG(osh, &ai->ioctrl),
+				    R_REG(osh, &ai->iostatus),
+				    R_REG(osh, &ai->ioctrlwidth),
+				    R_REG(osh, &ai->iostatuswidth),
+				    R_REG(osh, &ai->resetctrl),
+				    R_REG(osh, &ai->resetstatus),
+				    R_REG(osh, &ai->resetreadid),
+				    R_REG(osh, &ai->resetwriteid),
+				    R_REG(osh, &ai->errlogctrl),
+				    R_REG(osh, &ai->errlogdone),
+				    R_REG(osh, &ai->errlogstatus),
+				    R_REG(osh, &ai->errlogaddrlo),
+				    R_REG(osh, &ai->errlogaddrhi),
+				    R_REG(osh, &ai->errlogid),
+				    R_REG(osh, &ai->errloguser),
+				    R_REG(osh, &ai->errlogflags),
+				    R_REG(osh, &ai->intstatus),
+				    R_REG(osh, &ai->config),
+				    R_REG(osh, &ai->itcr));
 			/* bar0 2nd 4KB window will be fixed in the next setcore */
 		}
 	}
 }
-#endif	
+#endif	/* BCMDBG || BCMDBG_DUMP */
 
 #ifdef BCMDBG
-static void
-_ai_view(osl_t *osh, aidmp_t *ai, uint32 cid, uint32 addr, bool verbose)
+void
+ai_view(si_t *sih, bool verbose)
 {
+	si_info_t *sii;
+	osl_t *osh;
+	aidmp_t *ai;
 	uint32 config;
 
-	config = R_REG(osh, &ai->config);
-	SI_ERROR(("\nCore ID: 0x%x, addr 0x%x, config 0x%x\n", cid, addr, config));
+	sii = SI_INFO(sih);
+	ai = sii->curwrap;
+	osh = sii->osh;
+	if (BCM47162_DMP()) {
+		SI_ERROR(("Cannot access mips74k DMP in 47162a0\n"));
+		return;
+	}
+	if (BCM5357_DMP()) {
+		SI_ERROR(("Cannot access usb20h DMP in 5357\n"));
+		return;
+	}
+
+	SI_ERROR(("\nCore ID: 0x%x, config 0x%x\n", si_coreid(&sii->pub),
+	          (config = R_REG(osh, &ai->config))));
 
 	if (config & AICFG_RST)
 		SI_ERROR(("resetctrl 0x%x, resetstatus 0x%x, resetreadid 0x%x, resetwriteid 0x%x\n",
@@ -1169,68 +1117,6 @@ _ai_view(osl_t *osh, aidmp_t *ai, uint32 cid, uint32 addr, bool verbose)
 		SI_ERROR(("oobdextwidth 0x%x, oobdinwidth 0x%x, oobdoutwidth 0x%x\n",
 		          R_REG(osh, &ai->oobdextwidth), R_REG(osh, &ai->oobdinwidth),
 		          R_REG(osh, &ai->oobdoutwidth)));
-	}
-}
-
-void
-ai_view(si_t *sih, bool verbose)
-{
-	si_info_t *sii;
-	osl_t *osh;
-	aidmp_t *ai;
-	uint32 cid, addr;
-
-	sii = SI_INFO(sih);
-	ai = sii->curwrap;
-	osh = sii->osh;
-	if (BCM47162_DMP()) {
-		SI_ERROR(("Cannot access mips74k DMP in 47162a0\n"));
-		return;
-	}
-	if (BCM5357_DMP()) {
-		SI_ERROR(("Cannot access usb20h DMP in 5357\n"));
-		return;
-	}
-	cid = sii->coreid[sii->curidx];
-	addr = sii->wrapba[sii->curidx];
-	_ai_view(osh, ai, cid, addr, verbose);
-}
-
-void
-ai_viewall(si_t *sih, bool verbose)
-{
-	si_info_t *sii;
-	osl_t *osh;
-	aidmp_t *ai;
-	uint32 cid, addr;
-	uint i;
-
-	sii = SI_INFO(sih);
-	osh = sii->osh;
-	for (i = 0; i < sii->numcores; i++) {
-		si_setcoreidx(sih, i);
-		if (BCM47162_DMP()) {
-			SI_ERROR(("Skipping mips74k DMP in 47162a0\n"));
-			continue;
-		}
-		if (BCM5357_DMP()) {
-			SI_ERROR(("Skipping usb20h DMP in 5357\n"));
-			continue;
-		}
-		ai = sii->curwrap;
-		cid = sii->coreid[sii->curidx];
-		addr = sii->wrapba[sii->curidx];
-		_ai_view(osh, ai, cid, addr, verbose);
-		if ((sih->chip == BCM4331_CHIP_ID) && (sii->coreid[i] == PCIE_CORE_ID)) {
-			/* point bar0 2nd 4KB window */
-			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, 0x18103000);
-			_ai_view(osh, ai, cid, 0x18103000, verbose);
-			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, 0x18104000);
-			_ai_view(osh, ai, 0x135, 0x18104000, verbose);
-			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, 0x18105000);
-			_ai_view(osh, ai, 0x135, 0x18105000, verbose);
-			/* bar0 2nd 4KB window will be fixed in the next setcore */
-		}
 	}
 }
 #endif	/* BCMDBG */

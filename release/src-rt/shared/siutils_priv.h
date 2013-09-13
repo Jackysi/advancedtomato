@@ -1,7 +1,7 @@
 /*
  * Include file private to the SOC Interconnect support files.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: siutils_priv.h 302333 2011-12-11 01:47:49Z $
+ * $Id: siutils_priv.h,v 1.17 2009-10-30 21:23:33 Exp $
  */
 
 #ifndef	_siutils_priv_h_
@@ -33,13 +33,11 @@
 #define	SI_MSG(args)
 #endif	/* BCMDBG */
 
-#ifdef BCMDBG_SI
-#define	SI_VMSG(args)	printf args
-#else
+/* Define SI_VMSG to printf for verbose debugging, but don't check it in */
 #define	SI_VMSG(args)
-#endif
 
 #define	IS_SIM(chippkg)	((chippkg == HDLSIM_PKG_ID) || (chippkg == HWSIM_PKG_ID))
+
 
 typedef uint32 (*si_intrsoff_t)(void *intr_arg);
 typedef void (*si_intrsrestore_t)(void *intr_arg, uint32 arg);
@@ -107,21 +105,15 @@ typedef struct si_info {
 
 #define PCI(si)		((BUSTYPE((si)->pub.bustype) == PCI_BUS) &&	\
 			 ((si)->pub.buscoretype == PCI_CORE_ID))
-
-#define PCIE_GEN1(si)	((BUSTYPE((si)->pub.bustype) == PCI_BUS) &&	\
+#define PCIE(si)	((BUSTYPE((si)->pub.bustype) == PCI_BUS) &&	\
 			 ((si)->pub.buscoretype == PCIE_CORE_ID))
-
-#define PCIE_GEN2(si)	((BUSTYPE((si)->pub.bustype) == PCI_BUS) &&	\
-			 ((si)->pub.buscoretype == PCIE2_CORE_ID))
-
-#define PCIE(si)	(PCIE_GEN1(si) || PCIE_GEN2(si))
-
 #define PCMCIA(si)	((BUSTYPE((si)->pub.bustype) == PCMCIA_BUS) && ((si)->memseg == TRUE))
 
 /* Newer chips can access PCI/PCIE and CC core without requiring to change
  * PCI BAR0 WIN
  */
-#define SI_FAST(si) (PCIE(si) || (PCI(si) && ((si)->pub.buscorerev >= 13)))
+#define SI_FAST(si) (((si)->pub.buscoretype == PCIE_CORE_ID) ||	\
+		     (((si)->pub.buscoretype == PCI_CORE_ID) && (si)->pub.buscorerev >= 13))
 
 #define PCIEREGS(si) (((char *)((si)->curmap) + PCI_16KB0_PCIREGS_OFFSET))
 #define CCREGS_FAST(si) (((char *)((si)->curmap) + PCI_16KB0_CCREGS_OFFSET))
@@ -149,10 +141,9 @@ typedef struct si_info {
 #define	ILP_DIV_1MHZ		4		/* ILP = 1 MHz */
 
 #define PCI_FORCEHT(si)	\
-	(((PCIE_GEN1(si)) && (si->pub.chip == BCM4311_CHIP_ID) && ((si->pub.chiprev <= 1))) || \
-	((PCI(si) || PCIE_GEN1(si)) && (si->pub.chip == BCM4321_CHIP_ID)) || \
-	(PCIE_GEN1(si) && (si->pub.chip == BCM4716_CHIP_ID)) || \
-	(PCIE_GEN1(si) && (si->pub.chip == BCM4748_CHIP_ID)))
+	(((PCIE(si)) && (si->pub.chip == BCM4311_CHIP_ID) && ((si->pub.chiprev <= 1))) || \
+	((PCI(si) || PCIE(si)) && (si->pub.chip == BCM4321_CHIP_ID)) || \
+	(PCIE(si) && (si->pub.chip == BCM4716_CHIP_ID)))
 
 /* GPIO Based LED powersave defines */
 #define DEFAULT_GPIO_ONTIME	10		/* Default: 10% on */
@@ -193,7 +184,10 @@ extern bool sb_taclear(si_t *sih, bool details);
 extern void sb_view(si_t *sih, bool verbose);
 extern void sb_viewall(si_t *sih, bool verbose);
 #endif
-#if defined(BCMDBG)
+#if defined(BCMDBG_DUMP)
+extern void sb_dump(si_t *sih, struct bcmstrbuf *b);
+#endif
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 extern void sb_dumpregs(si_t *sih, struct bcmstrbuf *b);
 #endif
 
@@ -228,13 +222,12 @@ extern int ai_numaddrspaces(si_t *sih);
 extern uint32 ai_addrspace(si_t *sih, uint asidx);
 extern uint32 ai_addrspacesize(si_t *sih, uint asidx);
 extern void ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size);
-extern uint ai_wrap_reg(si_t *sih, uint32 offset, uint32 mask, uint32 val);
+extern void ai_write_wrap_reg(si_t *sih, uint32 offset, uint32 val);
 
 #ifdef BCMDBG
 extern void ai_view(si_t *sih, bool verbose);
-extern void ai_viewall(si_t *sih, bool verbose);
 #endif
-#if defined(BCMDBG)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 extern void ai_dumpregs(si_t *sih, struct bcmstrbuf *b);
 #endif
 

@@ -10,7 +10,7 @@
 /*                                                                            */
 /******************************************************************************/
 
-/* $Id: b57um.c 320789 2012-03-13 04:01:27Z $ */
+/* $Id: b57um.c,v 1.34.10.1 2010-10-09 01:46:48 Exp $ */
 
 char bcm5700_driver[] = "bcm5700";
 char bcm5700_version[] = "8.3.14";
@@ -1208,7 +1208,7 @@ robo_fail:
 	pUmDevice->cih = ctf_attach(pUmDevice->osh, dev->name, &b57_msg_level, NULL, NULL);
 
 	ctf_dev_register(pUmDevice->cih, dev, FALSE);
-	ctf_enable(pUmDevice->cih, dev, TRUE, NULL);
+	ctf_enable(pUmDevice->cih, dev, TRUE);
 #endif /* HNDCTF */
 
 	return 0;
@@ -2271,7 +2271,7 @@ bcm5700_vlan_rx_kill_vid(struct net_device *dev, uint16_t vid)
 #endif
 
 STATIC int
-_bcm5700_start_xmit(struct sk_buff *skb, struct net_device *dev)
+bcm5700_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	PUM_DEVICE_BLOCK pUmDevice = (PUM_DEVICE_BLOCK)dev->priv;
 	PLM_DEVICE_BLOCK pDevice = (PLM_DEVICE_BLOCK) pUmDevice;
@@ -2487,16 +2487,6 @@ _bcm5700_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 
 	return 0;
-}
-
-STATIC int
-bcm5700_start_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-	void *n;
-
-	FOREACH_CHAINED_PKT(skb, n) {
-		_bcm5700_start_xmit(skb, dev);
-	}
 }
 
 #ifdef BCM_NAPI_RXPOLL
@@ -4262,12 +4252,6 @@ STATIC int bcm5700_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 			pDevice->PhyAddr = data[0];
 		}
 		LM_WritePhy(pDevice, data[1] & 0x1f, data[2]);
-
-		/* Invalidate current robo page */
-		if ((pDevice->Flags & ROBO_SWITCH_FLAG) && pUmDevice->robo &&
-		    (pDevice->PhyAddr == 0x1e) && ((data[1] & 0x1f) == 0x10))
-			((robo_info_t *)pUmDevice->robo)->page = (data[2] >> 8);
-
 		if (data[0] != 0xffff)
 			pDevice->PhyAddr = savephyaddr;
 		BCM5700_PHY_UNLOCK(pUmDevice, flags);
@@ -4297,12 +4281,6 @@ STATIC int bcm5700_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 			pDevice->PhyAddr = (args[0] >> 16) & 0xffff;
 		}
 		LM_WritePhy(pDevice, args[0] & 0xffff, args[1]);
-
-		/* Invalidate current robo page */
-		if ((pDevice->Flags & ROBO_SWITCH_FLAG) && pUmDevice->robo &&
-		    (pDevice->PhyAddr == 0x1e) && ((args[0] & 0xffff) == 0x10))
-			((robo_info_t *)pUmDevice->robo)->page = ((uint16)args[1] >> 8);
-
 		if (cmd == SIOCSETCPHYWR2)
 			pDevice->PhyAddr = savephyaddr;
 		BCM5700_PHY_UNLOCK(pUmDevice, flags);
@@ -6364,7 +6342,11 @@ poll_bcm5700(struct net_device *dev)
 #endif
 	{
 		disable_irq(pUmDevice->pdev->irq);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
+		bcm5700_interrupt(pUmDevice->pdev->irq, dev);
+#else
 		bcm5700_interrupt(pUmDevice->pdev->irq, dev, NULL);
+#endif
 		enable_irq(pUmDevice->pdev->irq);
 	}
 }
