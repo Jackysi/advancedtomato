@@ -3,11 +3,7 @@
 #
 # Copyright (C) 2002 Broadcom Corporation
 #
-<<<<<<< HEAD
-# $Id: Makefile,v 1.30.10.1 2010-05-28 15:25:49 Exp $
-=======
 # $Id: Makefile 241182 2011-02-17 21:50:03Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #
 
 SRCBASE	:= ..
@@ -71,8 +67,6 @@ install:
 	install -d $(INSTALLDIR)/usr/sbin
 	install $(PROGS) $(INSTALLDIR)/usr/sbin
 	$(STRIP) $(foreach file,$(PROGS),$(INSTALLDIR)/usr/sbin/$(file))
-<<<<<<< HEAD
-=======
 
 test_all: $(PROGS)
 	@for i in $(PROGS); do \
@@ -80,4 +74,3 @@ test_all: $(PROGS)
 		echo "==> Testing $$i"; \
 		$$i || exit 127; \
 	done
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto

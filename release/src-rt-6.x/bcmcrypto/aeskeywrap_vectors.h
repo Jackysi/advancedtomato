@@ -2,11 +2,7 @@
  * aeskeywrap_vectors.h
  * AES keywrap test vectors
  *
-<<<<<<< HEAD
- * Copyright (C) 2010, Broadcom Corporation
-=======
  * Copyright (C) 2011, Broadcom Corporation
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -14,11 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
-<<<<<<< HEAD
- * $Id: aeskeywrap_vectors.h,v 1.7 2006-06-14 21:08:49 Exp $
-=======
  * $Id: aeskeywrap_vectors.h 241182 2011-02-17 21:50:03Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 #include <typedefs.h>

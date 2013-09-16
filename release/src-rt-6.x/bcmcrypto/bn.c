@@ -4,11 +4,7 @@
  * Code copied from openssl distribution and
  * Modified just enough so that compiles and runs standalone
  *
-<<<<<<< HEAD
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
-=======
  * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,11 +18,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
-<<<<<<< HEAD
- * $Id: bn.c,v 1.7 2007-10-13 00:50:05 Exp $
-=======
  * $Id: bn.c 241182 2011-02-17 21:50:03Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
@@ -1477,10 +1469,6 @@ err:
 }
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #define TABLE_SIZE	32
 
 #ifdef NOT_NEEDED_FOR_DH

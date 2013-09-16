@@ -4,11 +4,7 @@
  * Code copied from openssl distribution and
  * Modified just enough so that compiles and runs standalone
  *
-<<<<<<< HEAD
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
-=======
  * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,11 +18,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
-<<<<<<< HEAD
- * $Id: dh.c,v 1.9.108.1 2010-08-13 18:00:15 Exp $
-=======
  * $Id: dh.c 241182 2011-02-17 21:50:03Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.

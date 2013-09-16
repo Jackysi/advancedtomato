@@ -2,11 +2,7 @@
  * Code copied from openssl distribution and
  * Modified just enough so that compiles and runs standalone
  *
-<<<<<<< HEAD
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
-=======
  * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,11 +16,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
-<<<<<<< HEAD
- * $Id: sha256.c,v 1.2.578.1 2010-05-28 15:25:49 Exp $
-=======
  * $Id: sha256.c 241182 2011-02-17 21:50:03Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 /* ====================================================================
  * Copyright (c) 2004 The OpenSSL Project.  All rights reserved
@@ -40,20 +32,7 @@
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
-<<<<<<< HEAD
-#include <stddef.h>	/* for size_t */
-#if defined(__GNUC__)
-extern void bcopy(const void *src, void *dst, size_t len);
-extern int bcmp(const void *b1, const void *b2, size_t len);
-extern void bzero(void *b, size_t len);
-#else
-#define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
-#define	bcmp(b1, b2, len)	memcmp((b1), (b2), (len))
-#define	bzero(b, len)		memset((b), 0, (len))
-#endif
-=======
 #include <string.h>
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif	/* BCMDRIVER */
 
 #include <bcmcrypto/sha256.h>
@@ -61,24 +40,11 @@ extern void bzero(void *b, size_t len);
 const char *SHA256_version = "SHA-256";
 
 int SHA224_Init(SHA256_CTX *c)
-<<<<<<< HEAD
-	{
-=======
 {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	c->h[0] = 0xc1059ed8UL;	c->h[1] = 0x367cd507UL;
 	c->h[2] = 0x3070dd17UL;	c->h[3] = 0xf70e5939UL;
 	c->h[4] = 0xffc00b31UL;	c->h[5] = 0x68581511UL;
 	c->h[6] = 0x64f98fa7UL;	c->h[7] = 0xbefa4fa4UL;
-<<<<<<< HEAD
-	c->Nl = 0;	c->Nh = 0;
-	c->num = 0;	c->md_len = SHA224_DIGEST_LENGTH;
-	return 1;
-	}
-
-int SHA256_Init(SHA256_CTX *c)
-	{
-=======
 	c->Nl = 0;
 	c->Nh = 0;
 	c->num = 0;
@@ -89,41 +55,10 @@ int SHA256_Init(SHA256_CTX *c)
 int
 SHA256_Init(SHA256_CTX *c)
 {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	c->h[0] = 0x6a09e667UL;	c->h[1] = 0xbb67ae85UL;
 	c->h[2] = 0x3c6ef372UL;	c->h[3] = 0xa54ff53aUL;
 	c->h[4] = 0x510e527fUL;	c->h[5] = 0x9b05688cUL;
 	c->h[6] = 0x1f83d9abUL;	c->h[7] = 0x5be0cd19UL;
-<<<<<<< HEAD
-	c->Nl = 0;	c->Nh = 0;
-	c->num = 0;	c->md_len = SHA256_DIGEST_LENGTH;
-	return 1;
-	}
-
-unsigned char *SHA224(const unsigned char *d, size_t n, unsigned char *md)
-	{
-	SHA256_CTX c;
-	static unsigned char m[SHA224_DIGEST_LENGTH];
-
-	if (md == NULL) md = m;
-	SHA224_Init(&c);
-	SHA256_Update(&c, d, n);
-	SHA256_Final(md, &c);
-	return (md);
-	}
-
-unsigned char *SHA256(const unsigned char *key, size_t n, unsigned char *md)
-	{
-	SHA256_CTX c;
-	static unsigned char m[SHA256_DIGEST_LENGTH];
-
-	if (md == NULL) md = m;
-	SHA256_Init(&c);
-	SHA256_Update(&c, key, n);
-	SHA256_Final(md, &c);
-	return (md);
-	}
-=======
 	c->Nl = 0;
 	c->Nh = 0;
 	c->num = 0;
@@ -160,7 +95,6 @@ unsigned char *SHA256(const unsigned char *key, size_t n, unsigned char *md)
 
 	return (md);
 }
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 #ifndef	SHA_LONG_LOG2
 #define	SHA_LONG_LOG2	2	/* default to 32 bits */
@@ -173,10 +107,7 @@ unsigned char *SHA256(const unsigned char *key, size_t n, unsigned char *md)
 #define	HASH_CTX		SHA256_CTX
 #define	HASH_CBLOCK		SHA_CBLOCK
 #define	HASH_LBLOCK		SHA_LBLOCK
-<<<<<<< HEAD
-=======
 
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 /*
  * Note that FIPS180-2 discusses "Truncation of the Hash Function Output."
  * default: case below covers for it. It's not clear however if it's
@@ -211,10 +142,7 @@ unsigned char *SHA256(const unsigned char *key, size_t n, unsigned char *md)
 #define	HASH_FINAL		SHA256_Final
 #define	HASH_BLOCK_HOST_ORDER	sha256_block_host_order
 #define	HASH_BLOCK_DATA_ORDER	sha256_block_data_order
-<<<<<<< HEAD
-=======
 
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 void sha256_block_host_order(SHA256_CTX *ctx, const void *in, size_t num);
 void sha256_block_data_order(SHA256_CTX *ctx, const void *in, size_t num);
 
@@ -256,14 +184,9 @@ static const SHA_LONG K256[64] = {
 
 #ifdef OPENSSL_SMALL_FOOTPRINT
 
-<<<<<<< HEAD
-static void sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
-	{
-=======
 static void
 sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	unsigned MD32_REG_T a, b, c, d, e, f, g, h, s0, s1, T1, T2;
 	SHA_LONG	X[16];
 	int i;
@@ -274,12 +197,7 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 		a = ctx->h[0];	b = ctx->h[1];	c = ctx->h[2];	d = ctx->h[3];
 		e = ctx->h[4];	f = ctx->h[5];	g = ctx->h[6];	h = ctx->h[7];
 
-<<<<<<< HEAD
-		if (host)
-		{
-=======
 		if (host) {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			const SHA_LONG *W = (const SHA_LONG *)data;
 
 			for (i = 0; i < 16; i++)
@@ -292,20 +210,10 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 			}
 
 			data += SHA256_CBLOCK;
-<<<<<<< HEAD
-		}
-		else
-		{
-			SHA_LONG l;
-
-			for (i = 0; i < 16; i++)
-			{
-=======
 		} else {
 			SHA_LONG l;
 
 			for (i = 0; i < 16; i++) {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 				HOST_c2l(data, l); T1 = X[i] = l;
 				T1 += h + Sigma1(e) + Ch(e, f, g) + K256[i];
 				T2 = Sigma0(a) + Maj(a, b, c);
@@ -314,12 +222,7 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 			}
 		}
 
-<<<<<<< HEAD
-		for (; i < 64; i++)
-		{
-=======
 		for (; i < 64; i++) {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			s0 = X[(i+1)&0x0f];	s0 = sigma0(s0);
 			s1 = X[(i+14)&0x0f];	s1 = sigma1(s1);
 
@@ -334,11 +237,7 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 		ctx->h[4] += e;	ctx->h[5] += f;	ctx->h[6] += g;	ctx->h[7] += h;
 
 	}
-<<<<<<< HEAD
-	}
-=======
 }
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 #else
 
@@ -353,88 +252,14 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 	T1 = X[(i)&0x0f] += s0 + s1 + X[(i+9)&0x0f];	\
 	ROUND_00_15(i, a, b, c, d, e, f, g, h);		} while (0)
 
-<<<<<<< HEAD
-static void sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
-	{
-=======
 static void
 sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	unsigned MD32_REG_T a, b, c, d, e, f, g, h, s0, s1, T1;
 	SHA_LONG	X[16];
 	int i;
 	const unsigned char *data = in;
 
-<<<<<<< HEAD
-			while (num--) {
-
-	a = ctx->h[0];	b = ctx->h[1];	c = ctx->h[2];	d = ctx->h[3];
-	e = ctx->h[4];	f = ctx->h[5];	g = ctx->h[6];	h = ctx->h[7];
-
-	if (host)
-		{
-		const SHA_LONG *W = (const SHA_LONG *)data;
-
-		T1 = X[0] = W[0];	ROUND_00_15(0, a, b, c, d, e, f, g, h);
-		T1 = X[1] = W[1];	ROUND_00_15(1, h, a, b, c, d, e, f, g);
-		T1 = X[2] = W[2];	ROUND_00_15(2, g, h, a, b, c, d, e, f);
-		T1 = X[3] = W[3];	ROUND_00_15(3, f, g, h, a, b, c, d, e);
-		T1 = X[4] = W[4];	ROUND_00_15(4, e, f, g, h, a, b, c, d);
-		T1 = X[5] = W[5];	ROUND_00_15(5, d, e, f, g, h, a, b, c);
-		T1 = X[6] = W[6];	ROUND_00_15(6, c, d, e, f, g, h, a, b);
-		T1 = X[7] = W[7];	ROUND_00_15(7, b, c, d, e, f, g, h, a);
-		T1 = X[8] = W[8];	ROUND_00_15(8, a, b, c, d, e, f, g, h);
-		T1 = X[9] = W[9];	ROUND_00_15(9, h, a, b, c, d, e, f, g);
-		T1 = X[10] = W[10];	ROUND_00_15(10, g, h, a, b, c, d, e, f);
-		T1 = X[11] = W[11];	ROUND_00_15(11, f, g, h, a, b, c, d, e);
-		T1 = X[12] = W[12];	ROUND_00_15(12, e, f, g, h, a, b, c, d);
-		T1 = X[13] = W[13];	ROUND_00_15(13, d, e, f, g, h, a, b, c);
-		T1 = X[14] = W[14];	ROUND_00_15(14, c, d, e, f, g, h, a, b);
-		T1 = X[15] = W[15];	ROUND_00_15(15, b, c, d, e, f, g, h, a);
-
-		data += SHA256_CBLOCK;
-		}
-	else
-		{
-		SHA_LONG l;
-
-		HOST_c2l(data, l); T1 = X[0] = l;  ROUND_00_15(0, a, b, c, d, e, f, g, h);
-		HOST_c2l(data, l); T1 = X[1] = l;  ROUND_00_15(1, h, a, b, c, d, e, f, g);
-		HOST_c2l(data, l); T1 = X[2] = l;  ROUND_00_15(2, g, h, a, b, c, d, e, f);
-		HOST_c2l(data, l); T1 = X[3] = l;  ROUND_00_15(3, f, g, h, a, b, c, d, e);
-		HOST_c2l(data, l); T1 = X[4] = l;  ROUND_00_15(4, e, f, g, h, a, b, c, d);
-		HOST_c2l(data, l); T1 = X[5] = l;  ROUND_00_15(5, d, e, f, g, h, a, b, c);
-		HOST_c2l(data, l); T1 = X[6] = l;  ROUND_00_15(6, c, d, e, f, g, h, a, b);
-		HOST_c2l(data, l); T1 = X[7] = l;  ROUND_00_15(7, b, c, d, e, f, g, h, a);
-		HOST_c2l(data, l); T1 = X[8] = l;  ROUND_00_15(8, a, b, c, d, e, f, g, h);
-		HOST_c2l(data, l); T1 = X[9] = l;  ROUND_00_15(9, h, a, b, c, d, e, f, g);
-		HOST_c2l(data, l); T1 = X[10] = l; ROUND_00_15(10, g, h, a, b, c, d, e, f);
-		HOST_c2l(data, l); T1 = X[11] = l; ROUND_00_15(11, f, g, h, a, b, c, d, e);
-		HOST_c2l(data, l); T1 = X[12] = l; ROUND_00_15(12, e, f, g, h, a, b, c, d);
-		HOST_c2l(data, l); T1 = X[13] = l; ROUND_00_15(13, d, e, f, g, h, a, b, c);
-		HOST_c2l(data, l); T1 = X[14] = l; ROUND_00_15(14, c, d, e, f, g, h, a, b);
-		HOST_c2l(data, l); T1 = X[15] = l; ROUND_00_15(15, b, c, d, e, f, g, h, a);
-		}
-
-	for (i = 16; i < 64; i += 8)
-		{
-		ROUND_16_63(i+0, a, b, c, d, e, f, g, h, X);
-		ROUND_16_63(i+1, h, a, b, c, d, e, f, g, X);
-		ROUND_16_63(i+2, g, h, a, b, c, d, e, f, X);
-		ROUND_16_63(i+3, f, g, h, a, b, c, d, e, X);
-		ROUND_16_63(i+4, e, f, g, h, a, b, c, d, X);
-		ROUND_16_63(i+5, d, e, f, g, h, a, b, c, X);
-		ROUND_16_63(i+6, c, d, e, f, g, h, a, b, X);
-		ROUND_16_63(i+7, b, c, d, e, f, g, h, a, X);
-		}
-
-	ctx->h[0] += a;	ctx->h[1] += b;	ctx->h[2] += c;	ctx->h[3] += d;
-	ctx->h[4] += e;	ctx->h[5] += f;	ctx->h[6] += g;	ctx->h[7] += h;
-
-			}
-	}
-=======
 	while (num--) {
 
 		a = ctx->h[0];	b = ctx->h[1];	c = ctx->h[2];	d = ctx->h[3];
@@ -497,7 +322,6 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
 		ctx->h[4] += e;	ctx->h[5] += f;	ctx->h[6] += g;	ctx->h[7] += h;
 	}
 }
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 #endif /* OPENSSL_SMALL_FOOTPRINT */
 #endif /* SHA256_ASM */
@@ -507,13 +331,6 @@ sha256_block(SHA256_CTX *ctx, const void *in, size_t num, int host)
  * about 4K in "big footprint" case. In "small footprint" case any gain
  * is appreciated:-)
  */
-<<<<<<< HEAD
-void HASH_BLOCK_HOST_ORDER(SHA256_CTX *ctx, const void *in, size_t num)
-{   sha256_block(ctx, in, num, 1);   }
-
-void HASH_BLOCK_DATA_ORDER(SHA256_CTX *ctx, const void *in, size_t num)
-{   sha256_block(ctx, in, num, 0);   }
-=======
 void
 HASH_BLOCK_HOST_ORDER(SHA256_CTX *ctx, const void *in, size_t num)
 {
@@ -525,7 +342,6 @@ HASH_BLOCK_DATA_ORDER(SHA256_CTX *ctx, const void *in, size_t num)
 {
 	sha256_block(ctx, in, num, 0);
 }
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 
 #ifdef BCMSHA256_TEST
@@ -554,12 +370,7 @@ HASH_BLOCK_DATA_ORDER(SHA256_CTX *ctx, const void *in, size_t num)
 #define TEST2   TEST2a TEST2b
 #define TEST3   "a"
 
-<<<<<<< HEAD
-char *testarray[3] =
-{
-=======
 char *testarray[3] = {
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	TEST1,
 	TEST2,
 	TEST3
@@ -585,12 +396,8 @@ unsigned char resultarray[3][32] =
 	 0x04, 0x6d, 0x39, 0xcc,  0xc7, 0x11, 0x2c, 0xd0}
 };
 
-<<<<<<< HEAD
-int main()
-=======
 int
 main()
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	SHA256_CTX sha;
 	int i, j, err, fail = 0;
@@ -622,11 +429,7 @@ main()
 			printf("%02X ", resultarray[j][i]);
 		}
 		printf("\n");
-<<<<<<< HEAD
-		if (bcmp(Message_Digest, resultarray[j], 32)) fail++;
-=======
 		if (memcmp(Message_Digest, resultarray[j], 32)) fail++;
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	}
 #ifdef EXTRA_SHA256_TEST
 	/* Test some error returns */

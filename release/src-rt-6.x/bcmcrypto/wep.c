@@ -1,11 +1,7 @@
 /*
  *   wep.c - WEP functions
  *
-<<<<<<< HEAD
- * Copyright (C) 2010, Broadcom Corporation
-=======
  * Copyright (C) 2011, Broadcom Corporation
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -13,11 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
-<<<<<<< HEAD
- * $Id: wep.c,v 1.4 2007-04-29 04:36:19 Exp $
-=======
  * $Id: wep.c 281526 2011-09-02 17:10:12Z $
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 #include <typedefs.h>
@@ -26,19 +18,7 @@
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
-<<<<<<< HEAD
-#if defined(__GNUC__)
-extern void bcopy(const void *src, void *dst, int len);
-extern int bcmp(const void *b1, const void *b2, int len);
-extern void bzero(void *b, int len);
-#else
-#define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
-#define	bcmp(b1, b2, len)		memcmp((b1), (b2), (len))
-#define	bzero(b, len)			memset((b), 0, (len))
-#endif /* defined(__GNUC__) */
-=======
 #include <string.h>
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif /* BCMDRIVER */
 
 #include <bcmutils.h>
@@ -60,13 +40,8 @@ BCMROMFN(wep_encrypt)(uint buf_len, uint8 *buf, uint sec_len, uint8 *sec_data)
 	uint body_len = buf_len - (DOT11_IV_LEN + DOT11_ICV_LEN);
 	uint8 *picv = body + body_len;
 
-<<<<<<< HEAD
-	bcopy(buf, key_data, 3);
-	bcopy(sec_data, &key_data[3], sec_len);
-=======
 	memcpy(key_data, buf, 3);
 	memcpy(&key_data[3], sec_data, sec_len);
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	prepare_key(key_data, sec_len + 3, &ks);
 
@@ -80,11 +55,7 @@ BCMROMFN(wep_encrypt)(uint buf_len, uint8 *buf, uint sec_len, uint8 *sec_data)
 	rc4(body, body_len + DOT11_ICV_LEN, &ks);
 }
 
-<<<<<<< HEAD
-/* WEP-decrypt 
-=======
 /* WEP-decrypt
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * Assumes a contigous buffer, with IV prepended.
  * Returns TRUE if ICV check passes, FALSE otherwise
  *
@@ -95,13 +66,8 @@ BCMROMFN(wep_decrypt)(uint buf_len, uint8 *buf, uint sec_len, uint8 *sec_data)
 	uint8 key_data[16];
 	rc4_ks_t ks;
 
-<<<<<<< HEAD
-	bcopy(buf, key_data, 3);
-	bcopy(sec_data, &key_data[3], sec_len);
-=======
 	memcpy(key_data, buf, 3);
 	memcpy(&key_data[3], sec_data, sec_len);
->>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	prepare_key(key_data, sec_len + 3, &ks);
 
