@@ -60,7 +60,10 @@ If you have an earlier version installed, de-installation is recommended ("make
 uninstall") but not mandatory. The wrapper script location changed in 1.1.0;
 old files might be orphaned but will not do any harm.
 
-The main prerequisite for installing from source is package "libusb-dev" !!
+The main prerequisite for installing from source is the development package for
+"libusb". It may be called "libusb-dev" or similar in your distribution. From
+usb_modeswitch 2.0.0 it should have an "1.x" in the name to reflect the change
+to libusb-1.
 
 To install the tool set, unpack and run the install command (see below) in the
 newly created directory.
@@ -196,7 +199,7 @@ Config file parsing code borrowed from:
 Hexstr2bin function borrowed from:
  Jouni Malinen (http://hostap.epitest.fi/wpa_supplicant, from "common.c")
 
-Code, fixes and ideas from:
+Code, fixes and ideas contributed by:
  Aki Makkonen
  Denis Sutter
  Lucas Benedicic
@@ -216,12 +219,17 @@ Code, fixes and ideas from:
  Roman S. Samarev
  Chi-Hang Long
  Andrey Tikhomirov
+ Daniel Mende
+ Nicholas Carrier
+ Adam Goode
+ Leonid Lisovskiy
+ Vladislav Grishenko
 
 Device information contributors are named in the "device_reference.txt" file.
 
 JimTcl is currently maintained by Steve Bennett; see README in subfolder
  for details. It is released under a FreeBSD-style license.
- Visit http://jim.berlios.de/
+ Visit http://jim.tcl.tk/
 
 
 
@@ -244,4 +252,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2013-06-02, Josua Dietze
+Last revised: 2013-09-01, Josua Dietze
