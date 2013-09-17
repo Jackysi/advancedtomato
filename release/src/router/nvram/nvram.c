@@ -28,7 +28,7 @@ static void help(void)
 	printf(
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
-		"Usage: nvram set <key=value> | get <key> | unset <key> | default_get  <key>\n"
+		"Usage: nvram set <key=value> | get <key> | unset <key> |\n"
 		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
 		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
@@ -118,15 +118,7 @@ static int save2f_main(int argc, char **argv)
 	strcpy(name+5, argv[1]);
 	return (nvram_file2nvram(name, argv[1]));
 }
-static int default_get_main(int argc, char **argv){
-	char *p;
 
-	if ((p = nvram_default_get(argv[1])) != NULL) {
-		puts(p);
-		return 0;
-	}
-	return 1;	
-}
 static int show_main(int argc, char **argv)
 {
 	char *p, *q;
@@ -986,7 +978,6 @@ static const applets_t applets[] = {
 	{ "setfile",		4,	f2n_main		},
 	{ "getfile",		4,	n2f_main		},
 	{ "setfile2nvram",	3,	save2f_main		},
-	{ "default_get",	3,	default_get_main	},
 //	{ "test",		2,	test_main		},
 	{ NULL, 		0,	NULL			}
 };
