@@ -21,7 +21,7 @@
 
 struct state {
   unsigned char *clid;
-  int clid_len, iaid, ia_type, interface, hostname_auth;
+  int clid_len, iaid, ia_type, interface, hostname_auth, lease_allocate;
   char *client_hostname, *hostname, *domain, *send_domain;
   struct dhcp_context *context;
   struct in6_addr *link_address;
@@ -54,13 +54,13 @@ static struct prefix_class *prefix_class_from_context(struct dhcp_context *conte
 static void mark_context_used(struct state *state, struct dhcp_context *context, struct in6_addr *addr);
 static void mark_config_used(struct dhcp_context *context, struct in6_addr *addr);
 static int check_address(struct state *state, struct in6_addr *addr);
-static void add_address(struct state *state, struct dhcp_context *context, unsigned int lease_time, unsigned int requested_time, 
-			unsigned int *min_time, struct in6_addr *addr, int update_lease, time_t now);
+static void add_address(struct state *state, struct dhcp_context *context, unsigned int lease_time, void *ia_option, 
+			unsigned int *min_time, struct in6_addr *addr, time_t now);
 static void update_leases(struct state *state, struct dhcp_context *context, struct in6_addr *addr, unsigned int lease_time, time_t now);
 static int add_local_addrs(struct dhcp_context *context);
-struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, struct dhcp_context *context);
+static struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, struct dhcp_context *context, int do_refresh);
 static void calculate_times(struct dhcp_context *context, unsigned int *min_time, unsigned int *valid_timep, 
-			    unsigned int *preferred_timep, unsigned int lease_time, unsigned int requested_time);
+			    unsigned int *preferred_timep, unsigned int lease_time);
 
 #define opt6_len(opt) ((int)(opt6_uint(opt, -2, 2)))
 #define opt6_type(opt) (opt6_uint(opt, -4, 2))
@@ -120,7 +120,7 @@ static int dhcp6_maybe_relay(struct in6_addr *link_address, struct dhcp_netid **
 	      !IN6_IS_ADDR_MULTICAST(link_address))
 	    for (c = daemon->dhcp6; c; c = c->next)
 	      if ((c->flags & CONTEXT_DHCP) &&
-		  !(c->flags & CONTEXT_TEMPLATE) &&
+		  !(c->flags & (CONTEXT_TEMPLATE | CONTEXT_OLD)) &&
 		  is_same_net6(link_address, &c->start6, c->prefix) &&
 		  is_same_net6(link_address, &c->end6, c->prefix))
 		{
@@ -155,7 +155,8 @@ static int dhcp6_maybe_relay(struct in6_addr *link_address, struct dhcp_netid **
     return 0;
   
   /* copy header stuff into reply message and set type to reply */
-  outmsgtypep = put_opt6(inbuff, 34);
+  if (!(outmsgtypep = put_opt6(inbuff, 34)))
+    return 0;
   *outmsgtypep = DHCP6RELAYREPL;
 
   /* look for relay options and set tags if found. */
@@ -225,6 +226,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
   state.end = inbuff + sz;
   state.clid = NULL;
   state.clid_len = 0;
+  state.lease_allocate = 0;
   state.context_tags = NULL;
   state.tags = tags;
   state.link_address = link_address;
@@ -252,7 +254,8 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
   state.tags = &v6_id;
 
   /* copy over transaction-id, and save pointer to message type */
-  outmsgtypep = put_opt6(inbuff, 4);
+  if (!(outmsgtypep = put_opt6(inbuff, 4)))
+    return 0;
   start_opts = save_counter(-1);
   state.xid = outmsgtypep[3] | outmsgtypep[2] << 8 | outmsgtypep[1] << 16;
    
@@ -538,26 +541,28 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 
     case DHCP6SOLICIT:
       {
-	void *rapid_commit = opt6_find(state.packet_options, state.end, OPTION6_RAPID_COMMIT, 0);
       	int address_assigned = 0;
 	/* tags without all prefix-class tags */
 	struct dhcp_netid *solicit_tags = tagif;
 	struct dhcp_context *c;
 
-	if (rapid_commit)
+	*outmsgtypep = DHCP6ADVERTISE;
+
+	if (opt6_find(state.packet_options, state.end, OPTION6_RAPID_COMMIT, 0))
 	  {
+	    *outmsgtypep = DHCP6REPLY;
+	    state.lease_allocate = 1;
 	    o = new_opt6(OPTION6_RAPID_COMMIT);
 	    end_opt6(o);
 	  }
+	
+  	log6_packet(&state, "DHCPSOLICIT", NULL, ignore ? _("ignored") : NULL);
 
-	/* set reply message type */
-	*outmsgtypep = rapid_commit ? DHCP6REPLY : DHCP6ADVERTISE;
+      request_no_address:
 
 #ifdef HAVE_QUIET_DHCP
   if (!option_bool(OPT_QUIET_DHCP6))
 #endif
-	log6_packet(&state, "DHCPSOLICIT", NULL, ignore ? _("ignored") : NULL);
-	
 	if (ignore)
 	  return 0;
 	
@@ -577,7 +582,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    /* set unless we're sending a particular prefix-class, when we
 	       want only dhcp-ranges with the correct tags set and not those without any tags. */
 	    int plain_range = 1;
-	    u32 lease_time, requested_time;
+	    u32 lease_time;
 	    struct dhcp_lease *ltmp;
 	    struct in6_addr *req_addr;
 	    struct in6_addr addr;
@@ -648,8 +653,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    for (ia_counter = 0; ia_option; ia_counter++, ia_option = opt6_find(opt6_next(ia_option, ia_end), ia_end, OPTION6_IAADDR, 24))
 	      {
 		req_addr = opt6_ptr(ia_option, 0);
-		requested_time = opt6_uint(ia_option, 16, 4);
-		
+				
 		if ((c = address6_valid(context, req_addr, solicit_tags, plain_range)))
 		  {
 		    lease_time = c->lease_time;
@@ -673,7 +677,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    if (dump_all_prefix_classes && state.ia_type == OPTION6_IA_NA)
 		      state.send_prefix_class = prefix_class_from_context(c);
 #endif		    
-		    add_address(&state, c, lease_time, requested_time, &min_time, req_addr, rapid_commit != NULL, now);
+		    add_address(&state, c, lease_time, ia_option, &min_time, req_addr, now);
 		    mark_context_used(&state, context, req_addr);
 		    get_context_tag(&state, c);
 		    address_assigned = 1;
@@ -697,7 +701,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		  if (dump_all_prefix_classes && state.ia_type == OPTION6_IA_NA)
 		    state.send_prefix_class = prefix_class_from_context(c);
 #endif
-		  add_address(&state, c, lease_time, lease_time, &min_time, &addr, rapid_commit != NULL, now);
+		  add_address(&state, c, lease_time, NULL, &min_time, &addr, now);
 		  mark_context_used(&state, context, &addr);
 		  get_context_tag(&state, c);
 		  address_assigned = 1;
@@ -714,7 +718,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    if (dump_all_prefix_classes && state.ia_type == OPTION6_IA_NA)
 		      state.send_prefix_class = prefix_class_from_context(c);
 #endif
-		    add_address(&state, c, c->lease_time, c->lease_time, &min_time, req_addr, rapid_commit != NULL, now);
+		    add_address(&state, c, c->lease_time, NULL, &min_time, req_addr, now);
 		    mark_context_used(&state, context, req_addr);
 		    get_context_tag(&state, c);
 		    address_assigned = 1;
@@ -728,7 +732,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		if (dump_all_prefix_classes && state.ia_type == OPTION6_IA_NA)
 		  state.send_prefix_class = prefix_class_from_context(c);
 #endif
-		add_address(&state, c, c->lease_time, c->lease_time, &min_time, &addr, rapid_commit != NULL, now);
+		add_address(&state, c, c->lease_time, NULL, &min_time, &addr, now);
 		mark_context_used(&state, context, &addr);
 		get_context_tag(&state, c);
 		address_assigned = 1;
@@ -750,7 +754,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    o = new_opt6(OPTION6_PREFERENCE);
 	    put_opt6_char(option_bool(OPT_AUTHORITATIVE) ? 255 : 0);
 	    end_opt6(o);
-	    tagif = add_options(&state, fallback, context);
+	    tagif = add_options(&state, fallback, context, 0);
 	  }
 	else
 	  { 
@@ -771,9 +775,11 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
     case DHCP6REQUEST:
       {
 	int address_assigned = 0;
-	
+	int start = save_counter(-1);
+
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
+	state.lease_allocate = 1;
 
 #ifdef HAVE_QUIET_DHCP
   if (!option_bool(OPT_QUIET_DHCP6))
@@ -791,13 +797,20 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    
 	     if (!check_ia(&state, opt, &ia_end, &ia_option))
 	       continue;
-	    
+
+	     if (!ia_option)
+	       {
+		 /* If we get a request with a IA_*A without addresses, treat it exactly like
+		    a SOLICT with rapid commit set. */
+		 save_counter(start);
+		 goto request_no_address; 
+	       }
+
 	    o = build_ia(&state, &t1cntr);
 	      
 	    for (; ia_option; ia_option = opt6_find(opt6_next(ia_option, ia_end), ia_end, OPTION6_IAADDR, 24))
 	      {
 		struct in6_addr *req_addr = opt6_ptr(ia_option, 0);
-		u32 requested_time = opt6_uint(ia_option, 16, 4);
 		struct dhcp_context *dynamic, *c;
 		unsigned int lease_time;
 		struct in6_addr addr;
@@ -838,7 +851,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 			if (dump_all_prefix_classes && state.ia_type == OPTION6_IA_NA)
 			  state.send_prefix_class = prefix_class_from_context(c);
 #endif
-			add_address(&state, dynamic, lease_time, requested_time, &min_time, req_addr, 1, now);
+			add_address(&state, dynamic, lease_time, ia_option, &min_time, req_addr, now);
 			get_context_tag(&state, dynamic);
 			address_assigned = 1;
 		      }
@@ -877,7 +890,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    log6_packet(&state, "DHCPREPLY", NULL, _("no addresses available"));
 	  }
 
-	tagif = add_options(&state, fallback, context);
+	tagif = add_options(&state, fallback, context, 0);
 	break;
       }
       
@@ -908,9 +921,8 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	      {
 		struct dhcp_lease *lease = NULL;
 		struct in6_addr *req_addr = opt6_ptr(ia_option, 0);
-		u32 requested_time = opt6_uint(ia_option, 16, 4);
-		unsigned int preferred_time = 0; /* in case renewal inappropriate */
-		unsigned int valid_time = 0;
+		unsigned int preferred_time =  opt6_uint(ia_option, 16, 4);
+		unsigned int valid_time =  opt6_uint(ia_option, 20, 4);
 		char *message = NULL;
 		struct dhcp_context *this_context;
 		
@@ -933,6 +945,8 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    put_opt6_short(DHCP6NOBINDING);
 		    put_opt6_string(_("no binding found"));
 		    end_opt6(o1);
+
+		    preferred_time = valid_time = 0;
 		    break;
 		  }
 		
@@ -950,7 +964,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    else 
 		      lease_time = this_context->lease_time;
 		    
-		    calculate_times(this_context, &min_time, &valid_time, &preferred_time, lease_time, requested_time); 
+		    calculate_times(this_context, &min_time, &valid_time, &preferred_time, lease_time); 
 		    
 		    lease_set_expires(lease, valid_time, now);
 		    if (state.ia_type == OPTION6_IA_NA && state.hostname)
@@ -967,8 +981,11 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		      message = _("deprecated");
 		  }
 		else
-		  message = _("address invalid");
-		
+		  {
+		    preferred_time = valid_time = 0;
+		    message = _("address invalid");
+		  }
+
 #ifdef HAVE_QUIET_DHCP
   if (!option_bool(OPT_QUIET_DHCP6))
 #endif
@@ -985,7 +1002,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    end_opt6(o);
 	  }
 	
-	tagif = add_options(&state, fallback, context);
+	tagif = add_options(&state, fallback, context, 0);
 	break;
 	
       }
@@ -1042,6 +1059,15 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    context->netid.next = NULL;
 	    state.context_tags =  &context->netid;
 	  }
+
+	/* Similarly, we can't determine domain from address, but if the FQDN is
+	   given in --dhcp-host, we can use that, and failing that we can use the 
+	   unqualified configured domain, if any. */
+	if (state.hostname_auth)
+	  state.send_domain = state.domain;
+	else
+	  state.send_domain = get_domain6(NULL);
+
 #ifdef HAVE_QUIET_DHCP
   if (!option_bool(OPT_QUIET_DHCP6))
 #endif
@@ -1049,7 +1075,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	if (ignore)
 	  return 0;
 	*outmsgtypep = DHCP6REPLY;
-	tagif = add_options(&state, fallback, context);
+	tagif = add_options(&state, fallback, context, 1);
 	break;
       }
       
@@ -1205,13 +1231,16 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 
 }
 
-struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, struct dhcp_context *context)  
+static struct dhcp_netid *add_options(struct state *state, 
+				      struct in6_addr *fallback, 
+				      struct dhcp_context *context, 
+				      int do_refresh)  
 {
   void *oro;
   /* filter options based on tags, those we want get DHOPT_TAGOK bit set */
   struct dhcp_netid *tagif = option_filter(state->tags, state->context_tags, daemon->dhcp_opts6);
   struct dhcp_opt *opt_cfg;
-  int done_dns = 0, do_encap = 0;
+  int done_dns = 0, done_refresh = !do_refresh, do_encap = 0;
   int i, o, o1;
 
   oro = opt6_find(state->packet_options, state->end, OPTION6_ORO, 0);
@@ -1239,6 +1268,9 @@ struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, s
 	  if (opt_cfg->len == 0)
 	    continue;
 	}
+
+      if (opt_cfg->opt == OPTION6_REFRESH_TIME)
+	done_refresh = 1;
       
       o = new_opt6(opt_cfg->opt);
       if (opt_cfg->flags & DHOPT_ADDR6)
@@ -1262,13 +1294,33 @@ struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, s
       end_opt6(o);
     }
   
-  if (daemon->port == NAMESERVER_PORT && !done_dns && 
-      (!IN6_IS_ADDR_UNSPECIFIED(&context->local6) ||
-       !IN6_IS_ADDR_UNSPECIFIED(fallback)))
+  if (daemon->port == NAMESERVER_PORT && !done_dns)
     {
       o = new_opt6(OPTION6_DNS_SERVER);
       if (!add_local_addrs(context))
 	put_opt6(fallback, IN6ADDRSZ);
+      end_opt6(o); 
+    }
+
+  if (context && !done_refresh)
+    {
+      struct dhcp_context *c;
+      unsigned int lease_time = 0xffffffff;
+      
+      /* Find the smallest lease tie of all contexts,
+	 subjext to the RFC-4242 stipulation that this must not 
+	 be less than 600. */
+      for (c = context; c; c = c->next)
+	if (c->lease_time < lease_time)
+	  {
+	    if (c->lease_time < 600)
+	      lease_time = 600;
+	    else
+	      lease_time = c->lease_time;
+	  }
+
+      o = new_opt6(OPTION6_REFRESH_TIME);
+      put_opt6_long(lease_time);
       end_opt6(o); 
     }
    
@@ -1335,16 +1387,18 @@ struct dhcp_netid *add_options(struct state *state, struct in6_addr *fallback, s
       size_t len = strlen(state->hostname);
       
       if (state->send_domain)
-	len += strlen(state->send_domain) + 1;
+	len += strlen(state->send_domain) + 2;
 
       o = new_opt6(OPTION6_FQDN);
-      if ((p = expand(len + 3)))
+      if ((p = expand(len + 2)))
 	{
 	  *(p++) = state->fqdn_flags;
 	  p = do_rfc1035_name(p, state->hostname);
 	  if (state->send_domain)
-	    p = do_rfc1035_name(p, state->send_domain);
-	  *p = 0;
+	    {
+	      p = do_rfc1035_name(p, state->send_domain);
+	      *p = 0;
+	    }
 	}
       end_opt6(o);
     }
@@ -1499,14 +1553,21 @@ static void end_ia(int t1cntr, unsigned int min_time, int do_fuzz)
     }	
 }
 
-static void add_address(struct state *state, struct dhcp_context *context, unsigned int lease_time, unsigned int requested_time, 
-			unsigned int *min_time, struct in6_addr *addr, int do_update, time_t now)
+static void add_address(struct state *state, struct dhcp_context *context, unsigned int lease_time, void *ia_option, 
+			unsigned int *min_time, struct in6_addr *addr, time_t now)
 {
-  unsigned int valid_time, preferred_time;
+  unsigned int valid_time = 0, preferred_time = 0;
   int o = new_opt6(OPTION6_IAADDR);
   struct dhcp_lease *lease;
 
-  calculate_times(context, min_time, &valid_time, &preferred_time, lease_time, requested_time); 
+  /* get client requested times */
+  if (ia_option)
+    {
+      preferred_time =  opt6_uint(ia_option, 16, 4);
+      valid_time =  opt6_uint(ia_option, 20, 4);
+    }
+
+  calculate_times(context, min_time, &valid_time, &preferred_time, lease_time); 
   
   put_opt6(addr, sizeof(*addr));
   put_opt6_long(preferred_time);
@@ -1523,7 +1584,7 @@ static void add_address(struct state *state, struct dhcp_context *context, unsig
 
   end_opt6(o);
   
-  if (do_update)
+  if (state->lease_allocate)
     update_leases(state, context, addr, valid_time, now);
 
   if ((lease = lease6_find_by_addr(addr, 128, 0)))
@@ -1550,8 +1611,7 @@ static void add_address(struct state *state, struct dhcp_context *context, unsig
 #ifdef HAVE_QUIET_DHCP
   if (!option_bool(OPT_QUIET_DHCP6))
 #endif
-  log6_packet(state, do_update ? "DHCPREPLY" : "DHCPADVERTISE", addr, state->hostname);
-
+  log6_packet(state, state->lease_allocate ? "DHCPREPLY" : "DHCPADVERTISE", addr, state->hostname);
 }
 
 static void mark_context_used(struct state *state, struct dhcp_context *context, struct in6_addr *addr)
@@ -1593,22 +1653,60 @@ static int check_address(struct state *state, struct in6_addr *addr)
   return 1;
 }
 
+
+/* Calculate valid and preferred times to send in leases/renewals. 
+
+   Inputs are:
+
+   *valid_timep, *preferred_timep - requested times from IAADDR options.
+   context->valid, context->preferred - times associated with subnet address on local interface.
+   context->flags | CONTEXT_DEPRECATE - "deprecated" flag in dhcp-range.
+   lease_time - configured time for context for individual client.
+   *min_time - smallest valid time sent so far.
+
+   Outputs are :
+   
+   *valid_timep, *preferred_timep - times to be send in IAADDR option.
+   *min_time - smallest valid time sent so far, to calculate T1 and T2.
+   
+   */
 static void calculate_times(struct dhcp_context *context, unsigned int *min_time, unsigned int *valid_timep, 
-			    unsigned int *preferred_timep, unsigned int lease_time, unsigned int requested_time)
+			    unsigned int *preferred_timep, unsigned int lease_time)
 {
-  unsigned int preferred_time, valid_time;
+  unsigned int req_preferred = *preferred_timep, req_valid = *valid_timep;
+  unsigned int valid_time = lease_time, preferred_time = lease_time;
+  
+  /* RFC 3315: "A server ignores the lifetimes set
+     by the client if the preferred lifetime is greater than the valid
+     lifetime. */
+  if (req_preferred <= req_valid)
+    {
+      if (req_preferred != 0)
+	{
+	  /* 0 == "no preference from client" */
+	  if (req_preferred < 120u)
+	    req_preferred = 120u; /* sanity */
+	  
+	  if (req_preferred < preferred_time)
+	    preferred_time = req_preferred;
+	}
+      
+      if (req_valid != 0)
+	/* 0 == "no preference from client" */
+	{
+	  if (req_valid < 120u)
+	    req_valid = 120u; /* sanity */
+	  
+	  if (req_valid < valid_time)
+	    valid_time = req_valid;
+	}
+    }
 
-  if (requested_time < 120u )
-    requested_time = 120u; /* sanity */
-  if (lease_time == 0xffffffff || (requested_time != 0xffffffff && requested_time < lease_time))
-    lease_time = requested_time;
-		    
-  valid_time = (context->valid < lease_time) ? context->valid : lease_time;
-  preferred_time = (context->preferred < lease_time) ? context->preferred : lease_time;
-
-  if (context->flags & CONTEXT_DEPRECATE)
+  /* deprecate (preferred == 0) which configured, or when local address 
+     is deprecated */
+  if ((context->flags & CONTEXT_DEPRECATE) || context->preferred == 0)
     preferred_time = 0;
-
+  
   if (preferred_time != 0 && preferred_time < *min_time)
     *min_time = preferred_time;
   
@@ -1866,5 +1964,119 @@ static unsigned int opt6_uint(unsigned char *opt, int offset, int size)
   
   return ret;
 } 
+
+void relay_upstream6(struct dhcp_relay *relay, ssize_t sz, struct in6_addr *peer_address, u32 scope_id)
+{
+  /* ->local is same value for all relays on ->current chain */
+  
+  struct all_addr from;
+  unsigned char *header;
+  unsigned char *inbuff = daemon->dhcp_packet.iov_base;
+  int msg_type = *inbuff;
+  int hopcount;
+  struct in6_addr multicast;
+
+  inet_pton(AF_INET6, ALL_SERVERS, &multicast);
+   
+  /* source address == relay address */
+  from.addr.addr6 = relay->local.addr.addr6;
+    
+  /* Get hop count from nested relayed message */ 
+  if (msg_type == DHCP6RELAYFORW)
+    hopcount = *((unsigned char *)inbuff+1) + 1;
+  else
+    hopcount = 0;
+
+  /* RFC 3315 HOP_COUNT_LIMIT */
+  if (hopcount > 32)
+    return;
+
+  save_counter(0);
+
+  if ((header = put_opt6(NULL, 34)))
+    {
+      int o;
+
+      header[0] = DHCP6RELAYFORW;
+      header[1] = hopcount;
+      memcpy(&header[2],  &relay->local.addr.addr6, IN6ADDRSZ);
+      memcpy(&header[18], peer_address, IN6ADDRSZ);
+      
+      o = new_opt6(OPTION6_RELAY_MSG);
+      put_opt6(inbuff, sz);
+      end_opt6(o);
+      
+      for (; relay; relay = relay->current)
+	{
+	  union mysockaddr to;
+	  
+	  to.sa.sa_family = AF_INET6;
+	  to.in6.sin6_addr = relay->server.addr.addr6;
+	  to.in6.sin6_port = htons(DHCPV6_SERVER_PORT);
+	  to.in6.sin6_flowinfo = 0;
+	  to.in6.sin6_scope_id = 0;
+
+	  if (IN6_ARE_ADDR_EQUAL(&relay->server.addr.addr6, &multicast))
+	    {
+	      int multicast_iface;
+	      if (!relay->interface || strchr(relay->interface, '*') ||
+		  (multicast_iface = if_nametoindex(relay->interface)) == 0 ||
+		  setsockopt(daemon->dhcp6fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &multicast_iface, sizeof(multicast_iface)) == -1)
+		my_syslog(MS_DHCP | LOG_ERR, _("Cannot multicast to DHCPv6 server without correct interface"));
+	    }
+		
+	  send_from(daemon->dhcp6fd, 0, daemon->outpacket.iov_base, save_counter(0), &to, &from, 0);
+	  
+	  if (option_bool(OPT_LOG_OPTS))
+	    {
+	      inet_ntop(AF_INET6, &relay->local, daemon->addrbuff, ADDRSTRLEN);
+	      inet_ntop(AF_INET6, &relay->server, daemon->namebuff, ADDRSTRLEN);
+	      my_syslog(MS_DHCP | LOG_INFO, _("DHCP relay %s -> %s"), daemon->addrbuff, daemon->namebuff);
+	    }
+
+	  /* Save this for replies */
+	  relay->iface_index = scope_id;
+	}
+    }
+}
+
+unsigned short relay_reply6(struct sockaddr_in6 *peer, ssize_t sz, char *arrival_interface)
+{
+  struct dhcp_relay *relay;
+  struct in6_addr link;
+  unsigned char *inbuff = daemon->dhcp_packet.iov_base;
+  
+  /* must have at least msg_type+hopcount+link_address+peer_address+minimal size option
+     which is               1   +    1   +    16      +     16     + 2 + 2 = 38 */
+  
+  if (sz < 38 || *inbuff != DHCP6RELAYREPL)
+    return 0;
+  
+  memcpy(&link, &inbuff[2], IN6ADDRSZ); 
+  
+  for (relay = daemon->relay6; relay; relay = relay->next)
+    if (IN6_ARE_ADDR_EQUAL(&link, &relay->local.addr.addr6) &&
+	(!relay->interface || wildcard_match(relay->interface, arrival_interface)))
+      break;
+      
+  save_counter(0);
+
+  if (relay)
+    {
+      void *opt, *opts = inbuff + 34;
+      void *end = inbuff + sz;
+      for (opt = opts; opt; opt = opt6_next(opt, end))
+	if (opt6_type(opt) == OPTION6_RELAY_MSG && opt6_len(opt) > 0)
+	  {
+	    int encap_type = *((unsigned char *)opt6_ptr(opt, 0));
+	    put_opt6(opt6_ptr(opt, 0), opt6_len(opt));
+	    memcpy(&peer->sin6_addr, &inbuff[18], IN6ADDRSZ); 
+	    peer->sin6_scope_id = relay->iface_index;
+	    return encap_type == DHCP6RELAYREPL ? DHCPV6_SERVER_PORT : DHCPV6_CLIENT_PORT;
+	  }
+    }
+
+  return 0;
+}
 
 #endif

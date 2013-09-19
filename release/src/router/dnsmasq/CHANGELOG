@@ -56,7 +56,65 @@ version 2.67
 	    we can't use SO_BINDTODEVICE. Thanks to Natrio for the bug
 	    report. 
 
-		
+	    Increase timeout/number of retries in TFTP to accomodate
+	    AudioCodes Voice Gateways doing streaming writes to flash.
+	    Thanks to Damian Kaczkowski for spotting the problem.
+
+	    Fix crash with empty DHCP string options when adding zero
+	    terminator. Thanks to Patrick McLean for the bug report.
+
+	    Allow hostnames to start with a number, as allowed in
+	    RFC-1123. Thanks to Kyle Mestery for the patch. 
+
+	    Fixes to DHCP FQDN option handling: don't terminate FQDN
+	    if domain not known and allow a FQDN option with blank
+	    name to request that a FQDN option is returned in the
+	    reply. Thanks to Roy Marples for the patch.
+
+	    Make --clear-on-reload apply to setting upstream servers
+	    via DBus too.
+
+	    When the address which triggered the construction of an
+	    advertised IPv6 prefix disappears, continue to advertise 
+	    the prefix for up to 2 hours, with the preferred lifetime
+	    set to zero. This satisfies RFC 6204 4.3 L-13 and makes
+	    things work better if a prefix disappears without being
+	    deprecated first. Thanks to Uwe Schindler for persuasively
+	    arguing for this.
+
+	    Fix MAC address enumeration on *BSD. Thanks to Brad Smith
+	    for the bug report.
+
+	    Support RFC-4242 information-refresh-time options in the 
+	    reply to DHCPv6 information-request. The lease time of the
+            smallest valid dhcp-range is sent. Thanks to Uwe Schindler 
+	    for suggesting this.
+
+	    Add --force-fast-ra option. Another thanks to Uwe Schindler.  
+
+	    Make --listen-address higher priority than --except-interface
+	    in all circumstances. Thanks to Thomas Hood for the bugreport.
+
+	    Provide independent control over which interfaces get TFTP 
+	    service. If enable-tftp is given a list of interfaces, then TFTP 
+	    is provided on those. Without the list, the previous behaviour
+	    (provide TFTP to the same interfaces we provide DHCP to) 
+	    is retained. Thanks to Lonnie Abelbeck for the suggestion.
+
+	    Add --dhcp-relay config option. Many thanks to vtsl.net
+	    for sponsoring this development.
+
+	    Fix crash with empty tag: in --dhcp-range. Thanks to
+	    Kaspar Schleiser for the bug report.
+
+	    Add "baseline" and "bloatcheck" makefile targets, for 
+	    revealing size changes during development. Thanks to
+	    Vladislav Grishenko for the patch. 
+
+	    Cope with DHCPv6 clients which send REQUESTs without
+	    address options - treat them as SOLICIT with rapid commit.
+
+
 version 2.66
             Add the ability to act as an authoritative DNS
             server. Dnsmasq can now answer queries from the wider 'net
