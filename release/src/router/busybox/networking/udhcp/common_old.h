@@ -93,10 +93,12 @@ enum {
 	OPTION_S32,
 	OPTION_BIN,
 	OPTION_STATIC_ROUTES,
-	OPTION_6RD,
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	OPTION_DNS_STRING,  /* RFC1035 compressed domain name list */
 	OPTION_SIP_SERVERS,
+#endif
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	OPTION_6RD,
 #endif
 
 	OPTION_TYPE_MASK = 0x0f,
@@ -109,7 +111,7 @@ enum {
 /* DHCP option codes (partial list). See RFC 2132 and
  * http://www.iana.org/assignments/bootp-dhcp-parameters/
  * Commented out options are handled by common option machinery,
- * uncommented ones have special cases (grep for them to see).
+ * uncommented ones have spacial cases (grep for them to see).
  */
 #define DHCP_PADDING            0x00
 #define DHCP_SUBNET             0x01
@@ -151,8 +153,6 @@ enum {
 //#define DHCP_DOMAIN_SEARCH    0x77 /* RFC 3397. set of ASCIZ string, DNS-style compressed */
 //#define DHCP_SIP_SERVERS      0x78 /* RFC 3361. flag byte, then: 0: domain names, 1: IP addrs */
 //#define DHCP_STATIC_ROUTES    0x79 /* RFC 3442. (mask,ip,router) tuples */
-#define DHCP_VLAN_ID            0x84 /* 802.1P VLAN ID */
-#define DHCP_VLAN_PRIORITY      0x85 /* 802.1Q VLAN priority */
 //#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
 //#define DHCP_6RD              0xd4 /* RFC 5969 6RD option */
 //#define DHCP_COMCAST_6RD      0x96 /* Comcast ISP RFC 5969 compatible 6RD option */
@@ -316,7 +316,7 @@ int arpping(uint32_t test_nip,
 		const char *interface) FAST_FUNC;
 
 /* note: ip is a pointer to an IPv6 in network order, possibly misaliged */
-int sprint_nip6(char *dest, /*const char *pre,*/ const uint8_t *ip) FAST_FUNC;
+int sprint_nip6(char *dest, /* const char *pre, */ const uint8_t *ip) FAST_FUNC;
 
 POP_SAVED_FUNCTION_VISIBILITY
 

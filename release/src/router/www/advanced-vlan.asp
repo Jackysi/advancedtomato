@@ -145,7 +145,7 @@ switch(nvram['boardtype']) {
     COL_P1N = '3';
     COL_P2N = '2';
     COL_P3N = '1';
-    COL_P4N = '0';
+    COL_P4N = '8';
     break;
    }
    if (nvram['boardrev'] == '0x1204') { //rt-n15u

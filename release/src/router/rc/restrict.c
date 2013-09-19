@@ -2,12 +2,13 @@
 
 	Tomato Firmware
 	Copyright (C) 2006-2009 Jonathan Zarate
+	Portions rebuild by victek@tomato.raf, 2013. String chain restriction
 
 */
 
 #include "rc.h"
 #include <time.h>
-
+#include <string.h> 
 
 #define MAX_NRULES	50
 
@@ -221,6 +222,7 @@ void ipt_restrictions(void)
 	int blockall;
 	char reschain[32];
 	char devchain[32];
+	char strchain[32];
 	char nextchain[32];
 	int need_web;
 	char *pproto;
@@ -280,41 +282,15 @@ void ipt_restrictions(void)
 						  wanfaces.iface[n].name);
 				}
 			}
-		}
+		// Only mess with DNS requests that are coming in on INPUT
+		ip46t_write("-I INPUT 1 -p udp --dport 53 -j restrict\n");
+	}
 
 		sprintf(reschain, "rres%02d", nrule);
 		ip46t_write(":%s - [0:0]\n", reschain);
 
 		blockall = 1;
 
-		/*
-
-		proto<dir<port<ipp2p<layer7[<addr_type<addr]
-
-		proto:
-			-1 = both tcp/udp
-			-2 = any protocol
-			else = proto #
-		dir:
-		if proto == -1,tcp,udp:
-			a = any port
-			s = src port
-			d = dst port
-			x = src or dst port
-		port:
-			port # if proto == -1,tcp,udp
-		ipp2p:
-			# = ipp2p bit
-		l7:
-			.* = pattern name
-		addr_type:
-			0 = any
-			1 = dest ip
-			2 = src ip
-		addr:
-			ip if addr_type == 1
-
-		*/
 		while ((q = strsep(&matches, ">")) != NULL) {
 			n = vstrsep(q, "<", &pproto, &dir, &pport, &ipp2p, &layer7, &addr_type, &addr);
 			if (n == 5) {
@@ -378,7 +354,13 @@ void ipt_restrictions(void)
 			}
 		}
 
-		//
+// Build chain to perform string matching 
+		sprintf(strchain, "rstr%02d", nrule);
+		ip46t_write(":%s - [0:0]\n", strchain);
+		
+// Multiport match for ports 53,80,443 goto strchain 
+		ip46t_write("-A %s -p tcp -m multiport --dports 53,80,443 -j %s\n", reschain, strchain);
+		ip46t_write("-A %s -p udp --dport 53 -j %s\n", reschain, strchain);
 
 		p = http;
 		while (*p) {
@@ -396,7 +378,24 @@ void ipt_restrictions(void)
 				*p = 0;
 			}
 			else p = NULL;
-			ip46t_write("-A %s -p tcp -m web --hore \"%s\" -j %s\n", reschain, http, chain_out_reject);
+
+// Trim trailing whitespace from http
+			char *p2 = http + strlen(http) - 1;
+			while (*p2 == ' ')
+			{
+			     *p2-- = '\0';
+			}
+
+// Split the string delimited by whitespace.  Each substring should be a new iptables entry.
+			char delim[] = " ";
+			p2 = strtok(http, delim);
+			while (p2 != NULL)
+			{
+			  ip46t_write("-I %s 1 -p tcp -m string --string \"%s\" --algo bm  --from 1 --to 600 -j %s\n", strchain, p2, chain_out_reject);
+			  ip46t_write("-I %s 1 -p udp -m string --string \"%s\" --algo bm  --from 1 --to 600 -j REJECT\n", strchain, p2);
+			     p2 = strtok(NULL, delim);
+			}
+			
 			need_web = 1;
 			blockall = 0;
 			if (p == NULL) break;
@@ -418,7 +417,8 @@ void ipt_restrictions(void)
 
 		if (*comps) {
 			if (blockall) {
-				ip46t_write("-X %s\n", reschain);	// chain not needed
+				ip46t_write("-F %s\n", reschain); // https://github.com/ReliefLabs/EasyTomato/
+				ip46t_write("-X %s\n", reschain); // chain not needed
 				sprintf(nextchain, "-j %s", chain_out_drop);
 			}
 			else {

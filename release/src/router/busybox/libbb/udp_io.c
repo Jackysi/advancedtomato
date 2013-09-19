@@ -18,8 +18,13 @@ socket_want_pktinfo(int fd UNUSED_PARAM)
 #ifdef IP_PKTINFO
 	setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_1, sizeof(int));
 #endif
-#if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
+#if ENABLE_FEATURE_IPV6
+# ifdef IPV6_RECVPKTINFO
+	setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_int_1, sizeof(int));
+	setsockopt(fd, IPPROTO_IPV6, IPV6_2292PKTINFO, &const_int_1, sizeof(int));
+# elif defined(IPV6_PKTINFO)
 	setsockopt(fd, IPPROTO_IPV6, IPV6_PKTINFO, &const_int_1, sizeof(int));
+# endif
 #endif
 }
 

@@ -443,6 +443,9 @@ static void ipt_account(void) {
 	char lanN[] = "lanXX";
 	char netaddrnetmask[] = "255.255.255.255/255.255.255.255 ";
 	char br;
+	// If the IP Address changes, the below rule will cause things to choke, and blocking rules don't get applied
+	// As a workaround, flush the entire FORWARD chain
+	system("iptables -F FORWARD");
 
 	for(br=0 ; br<=3 ; br++) {
 		char bridge[2] = "0";
