@@ -309,7 +309,7 @@ function verifyFields(focused, quiet)
 	return 1;
 }
 
-+function cancelRule()
+function cancelRule()
 {
 	document.location = 'restrict.asp';
 }
