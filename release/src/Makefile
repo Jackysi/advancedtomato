@@ -717,6 +717,10 @@ define KernelConfig
 			sed -i "/CONFIG_MTD_BRCMNAND/d" $(1); \
 			echo "CONFIG_MTD_BRCMNAND=y" >>$(1); \
 		fi; \
+		if [ "$(WNR3500LV2)" = "1" ]; then \
+			sed -i "/CONFIG_MTD_NFLASH/d" $(1); \
+			echo "CONFIG_MTD_NFLASH=y" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(UPS)" = "y" ]; then \
 		sed -i "/CONFIG_INPUT=m/d" $(1); \
