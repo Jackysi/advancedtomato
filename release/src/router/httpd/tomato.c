@@ -407,6 +407,7 @@ const aspapi_t aspapi[] = {
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
 #endif
+	{ "etherstates",		asp_etherstates	},	//Ethernet States
 #ifdef TCONFIG_IPV6
 	{ "calc6rdlocalprefix",		asp_calc6rdlocalprefix	},
 #endif
@@ -574,6 +575,8 @@ static const nvset_t nvset_list[] = {
 	{ "lan_netmask",		V_IP				},
 	{ "lan_gateway",		V_IP				},
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+	{ "lan_state",			V_01				},
+	{ "lan_invert",			V_01				},
 	{ "lan_proto",			V_WORD				},	// static, dhcp
 	{ "dhcp_start",			V_LENGTH(0, 15)		},	// remove !
 	{ "dhcp_num",			V_LENGTH(0, 4)		},	// remove !
@@ -686,10 +689,10 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_tun_mtu",		V_NUM				},	// Tunnel MTU
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)	},	// ip6 ip6 ip6
-	{ "ipv6_6rd_prefix",		V_IPV6(0)		},
-	{ "ipv6_6rd_prefix_length",	V_RANGE(32, 62)	},
-	{ "ipv6_6rd_borderrelay",	V_IP			},
-	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 30)	},
+	{ "ipv6_6rd_prefix",		V_IPV6(0)		},	// 6rd prefix
+	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)	},	// 6rd prefix length
+	{ "ipv6_6rd_borderrelay",	V_IP			},	// 6rd ipv4 border relay addr
+	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 255)	},	// 6rd ipv4 mask
 #endif
 
 // basic-wfilter
@@ -1137,7 +1140,6 @@ static const nvset_t nvset_list[] = {
 
 // qos
 	{ "qos_enable",			V_01				},
-	{ "qos_pfifo",			V_01				},
 	{ "qos_ack",			V_01				},
 	{ "qos_syn",			V_01				},
 	{ "qos_fin",			V_01				},

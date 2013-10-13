@@ -387,8 +387,7 @@ static void load(int new) {
 
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
-	uint64_t total, tmax;
-	uint64_t n;
+	uint64_t total, tmax, n;
 	char c;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;

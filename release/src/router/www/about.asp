@@ -70,7 +70,6 @@ function init()
 	}
 }
 </script>
-
 <!-- / / / -->
 
 </head>
@@ -144,6 +143,20 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - SNMP integration and GUI<br>
 <!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
+=======
+<!-- UPS-BEGIN -->
+- APCUPSD integration and GUI (implemented by @arrmo)<br>
+<!-- UPS-END -->
+<!-- DNSCRYPT-BEGIN -->
+- DNScrypt-proxy 1.0 integration and GUI<br>
+<!-- DNSCRYPT-END -->
+<!-- TOR-BEGIN -->
+- TOR Project integration and GUI<br>
+<!-- TOR-END -->
+- TomatoAnon project integration and GUI<br>
+- TomatoThemeBase project integration and GUI<br>
+- Ethernet Ports State<br>
+Copyright (C) 2011-2013 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <!-- JYAVENARD-BEGIN -->

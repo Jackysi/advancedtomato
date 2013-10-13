@@ -52,8 +52,12 @@ typedef u_int8_t u8;
 #define REG_MII_ADDR_READ	2
 
 /* Private et.o ioctls */
-#define SIOCGETCPHYRD           (SIOCDEVPRIVATE + 9)
-#define SIOCSETCPHYWR           (SIOCDEVPRIVATE + 10)
+#define SIOCGETCPHYRD		(SIOCDEVPRIVATE + 9)
+#define SIOCSETCPHYWR		(SIOCDEVPRIVATE + 10)
+#define SIOCGETCPHYRD2		(SIOCDEVPRIVATE + 12)
+#define SIOCSETCPHYWR2		(SIOCDEVPRIVATE + 13)
+#define SIOCGETCROBORD		(SIOCDEVPRIVATE + 14)
+#define SIOCSETCROBOWR		(SIOCDEVPRIVATE + 15)
 
 typedef struct {
 	struct ifreq ifr;
@@ -64,22 +68,25 @@ typedef struct {
 
 static u16 __mdio_access(robo_t *robo, u16 phy_id, u8 reg, u16 val, u16 wr)
 {
-	static int __ioctl_args[2][2] = { {SIOCGETCPHYRD, SIOCGMIIREG},
-					  {SIOCSETCPHYWR, SIOCSMIIREG} };
+	static int __ioctl_args[2][3] = { {SIOCGETCPHYRD, SIOCGETCPHYRD2, SIOCGMIIREG},
+					  {SIOCSETCPHYWR, SIOCSETCPHYWR2, SIOCSMIIREG} };
 
 	if (robo->et) {
 		int args[2] = { reg, val };
+		int cmd = 0;
 
 		if (phy_id != ROBO_PHY_ADDR) {
-			fprintf(stderr,
-				"Access to real 'phy' registers unavaliable.\n"
-				"Upgrade kernel driver.\n");
-
-			return 0xffff;
+			cmd = 1;
+			args[0] |= phy_id << 16;
 		}
-		
 		robo->ifr.ifr_data = (caddr_t) args;
-		if (ioctl(robo->fd, __ioctl_args[wr][0], (caddr_t)&robo->ifr) < 0) {
+		if (ioctl(robo->fd, __ioctl_args[wr][cmd], (caddr_t)&robo->ifr) < 0) {
+			if (phy_id != ROBO_PHY_ADDR) {
+				fprintf(stderr,
+					"Access to real 'phy' registers unavaliable.\n"
+					"Upgrade kernel driver.\n");
+				return 0xffff;
+			}
 			perror("ET ioctl");
 			exit(1);
 		}
@@ -89,7 +96,7 @@ static u16 __mdio_access(robo_t *robo, u16 phy_id, u8 reg, u16 val, u16 wr)
 		mii->phy_id = phy_id;
 		mii->reg_num = reg;
 		mii->val_in = val;
-		if (ioctl(robo->fd, __ioctl_args[wr][1], &robo->ifr) < 0) {
+		if (ioctl(robo->fd, __ioctl_args[wr][2], &robo->ifr) < 0) {
 			perror("MII ioctl");
 			exit(1);
 		}
@@ -191,7 +198,7 @@ static void robo_write32(robo_t *robo, u8 page, u8 reg, u32 val32)
 	robo_reg(robo, page, reg, REG_MII_ADDR_WRITE);
 }
 
-/* checks that attached switch is 5325/5352/5354/5356/53115 */
+/* checks that attached switch is 5325/5352/5354/5356/5357/53115 */
 static int robo_vlan535x(robo_t *robo, u32 phyid)
 {
 	/* set vlan access id to 15 and read it back */
@@ -202,7 +209,7 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 	if (robo_read16(robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350) != val16)
 		return 0;
 	/* gigabit ? */
-	if (robo->et == 0 && (mdio_read(robo, 0, ROBO_MII_STAT) & 0x0100))
+	if (robo->et != 1 && (mdio_read(robo, 0, ROBO_MII_STAT) & 0x0100))
 		robo->gmii = ((mdio_read(robo, 0, 0x0f) & 0xf000) != 0);
 	/* 53115 ? */
 	if (robo->gmii && robo_read32(robo, ROBO_STAT_PAGE, ROBO_LSA_IM_PORT) != 0) {
@@ -213,24 +220,25 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 		    && robo_read16(robo, ROBO_ARLIO_PAGE, ROBO_VTBL_INDX_5395) == val16)
 			return 4;
 	}
-	/* dirty trick for 5356 */
-	if ((phyid & 0xfff0ffff ) == 0x5da00362)
+	/* dirty trick for 5356/5357 */
+	if ((phyid & 0xfff0ffff ) == 0x5da00362 ||
+	    (phyid & 0xfff0ffff ) == 0x5e000362)
 		return 3;
 	/* 5325/5352/5354*/
 	return 1;
 }
 
-u8 port[] = { 0, 1, 2, 3, 4, 8, 0, 0, 8};
+u8 port[9] = { 0, 1, 2, 3, 4, 8, 0, 0, 8};
 char ports[] = "01234???5???????";
-char *speed[] = { "10", "100", "1000" , "4" };
-char *rxtx[] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
-char *stp[] = { "none", "disable", "block", "listen", "learn", "forward", "6", "7" };
-char *jumbo[] = { "off", "on" };
+char *speed[4] = { "10", "100", "1000" , "4" };
+char *rxtx[4] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
+char *stp[8] = { "none", "disable", "block", "listen", "learn", "forward", "6", "7" };
+char *jumbo[2] = { "off", "on" };
 
 struct {
 	char *name;
 	u16 bmcr;
-} media[] = {
+} media[7] = {
 	{ "auto", BMCR_ANENABLE | BMCR_ANRESTART },
 	{ "10HD", 0 },
 	{ "10FD", BMCR_FULLDPLX },
@@ -249,7 +257,7 @@ struct {
 	u16 value1;
 	u16 value2;
 	u16 value3;
-} mdix[] = {
+} mdix[3] = {
 	{ "auto", 0x0000, 0x0000, 0x8207, 0x0000 },
 	{ "on",   0x1800, 0x4000, 0x8007, 0x0080 },
 	{ "off",  0x0800, 0x4000, 0x8007, 0x0000 }
@@ -336,7 +344,12 @@ main(int argc, char *argv[])
 	
 	/* try access using MII ioctls - get phy address */
 	if (ioctl(robo.fd, SIOCGMIIPHY, &robo.ifr) < 0) {
-		robo.et = 1;
+		int args[2] = { ROBO_PHY_ADDR << 16, 0x0 };
+
+		robo.ifr.ifr_data = (caddr_t) args;
+		if (ioctl(robo.fd, SIOCGETCPHYRD2, &robo.ifr) < 0)
+			robo.et = 1;
+		else	robo.et = 2;
 	} else {
 		/* got phy address check for robo address */
 		struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&robo.ifr.ifr_data;
@@ -348,7 +361,7 @@ main(int argc, char *argv[])
 
 	phyid = mdio_read(&robo, ROBO_PHY_ADDR, 0x2) | 
 		(mdio_read(&robo, ROBO_PHY_ADDR, 0x3) << 16);
-	if (phyid == 0 && robo.et == 0)
+	if (phyid == 0 && robo.et != 1)
 	    phyid = mdio_read(&robo, 0, 0x2) | 
 			(mdio_read(&robo, 0, 0x3) << 16);
 
@@ -358,6 +371,7 @@ main(int argc, char *argv[])
 	}
 	
 	robo535x = robo_vlan535x(&robo, phyid);
+	/* fprintf(stderr, "phyid %08x id %d\n", phyid, robo535x); */
 	
 	for (i = 1; i < argc;) {
 		if (strcasecmp(argv[i], "showmacs") == 0)
@@ -557,11 +571,11 @@ main(int argc, char *argv[])
 		{
 			while (++i < argc) {
 				if (strcasecmp(argv[i], "reset") == 0) {
-					/* reset vlan validity bit */
 					if (robo535x == 4) {
 						robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ACCESS_5395,
 									 (1 << 7) /* start */ | 2 /* flush */);
 					} else
+					/* reset vlan validity bit */
 					for (j = 0; j <= ((robo535x == 1) ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
 					{
 						/* write config now */
