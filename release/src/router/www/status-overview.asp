@@ -34,6 +34,10 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
+
+//	<% nvstat(); %>
+//	<% etherstates(); %>
+
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
@@ -107,6 +111,78 @@ function c(id, htm)
 	E(id).cells[1].innerHTML = htm;
 }
 
+function ethstates()
+{
+	port = etherstates.port0;
+	if (port == "disable") { return 0; }
+
+	var state, state1, state2;
+	var code = '<div class="section-title">Ethernet Ports State</div>';
+	code += '<table class="fields"><tr><td class="title indent1"><center>WAN</center></td><td><center>LAN 1</center></td><td><center>LAN 2</center></td><td><center>LAN 3</center></td><td><center>LAN 4</center></td><tr>';
+
+	if (port == "DOWN") {
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	} else {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+		code += '<td class="title indent1"><center>' + state2 + '</center></td>';
+
+	port = etherstates.port1;
+	if (port == "DOWN") {
+		state2 = port.replace("DOWN","Down");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	} else {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+		code += '<td width="10%"><center>' + state2 + '</center></td>';
+
+	port = etherstates.port2;
+	if (port == "DOWN") {
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	} else {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+		code += '<td width="10%"><center>' + state2 + '</center></td>';
+
+	port = etherstates.port3;
+	if (port == "DOWN") {
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	} else {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+		code += '<td width="10%"><center>' + state2 + '</center></td>';
+
+	port = etherstates.port4;
+	if (port == "DOWN") {
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	} else {
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+		code += '<td width="10%"><center>' + state2 + '</center></td>';
+
+	code += '<td class="content"> </td></tr>';
+	E("ports").innerHTML = code;
+}
+
 function show()
 {
 	c('cpu', stats.cpuload);
@@ -174,6 +250,9 @@ function earlyInit()
 		if (wl_sunit(uidx)<0)
 			elem.display('b_wl'+wl_fface(uidx)+'_enable', 'b_wl'+wl_fface(uidx)+'_disable', show_radio[uidx]);
 	}
+
+	ethstates();
+
 	show();
 }
 
@@ -186,7 +265,6 @@ function init() {
 		u = wl_fface(uidx);
 		if (((c = cookie.get('status_overview_wl_'+u+'_vis')) != null) && (c != '1')) toggleVisibility("wl_"+u);
 	}
-
 	ref.initPage(3000, 3);
 }
 
@@ -220,6 +298,7 @@ function toggleVisibility(whichone) {
 <div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(Click here to hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_system'>
 <script type='text/javascript'>
+var a = nvstat.free / nvstat.size * 100.0;
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
@@ -233,11 +312,15 @@ createFieldTable('', [
 	{ title: 'CPU Usage', rid: 'cpupercent', text: stats.cpupercent },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
+	{ title: 'Total / Free NVRAM', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
 ]);
 </script>
 </div>
 
-<div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(Click here to hide)</span></a></i></small></div>
+<div class='section' id='ports'>
+</div>
+
+<div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_wan'>
 <script type='text/javascript'>
 createFieldTable('', [
@@ -283,14 +366,15 @@ for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
 				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
 			}
-			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? '<br>' : '';
+			s += '<b>br' + i + '</b> (LAN' + j + ') - ' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'];
 		} else {
-			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += 'Disabled on LAN' + j + ' (br' + i + ')';
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? '<br>' : '';
+			s += '<b>br' + i + '</b> (LAN' + j + ') - Disabled';
 		}
-		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
-		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
+		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? '<br>' : '';
+		t += '<b>br' + i + '</b> (LAN' + j + ') - ' + nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']);
+		
 	}
 }
 
@@ -386,7 +470,7 @@ REMOVE-END */
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,0,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

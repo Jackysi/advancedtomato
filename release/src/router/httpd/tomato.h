@@ -78,6 +78,7 @@ extern void asp_sysinfo(int argc, char **argv);
 extern void asp_jiffies(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
+extern void asp_etherstates(int argc, char **argv);
 extern void wo_wakeup(char *url);
 extern void asp_dns(int argc, char **argv);
 extern void wo_resolve(char *url);

@@ -440,6 +440,38 @@ void asp_jiffies(int argc, char **argv)
 		web_printf("%s", e);
 		web_puts("' ];\n");
 		fclose(a);
+    }
+}
+
+void asp_etherstates(int argc, char **argv)
+{
+	FILE *f;
+	char s[32], *a, b[16];
+	unsigned n;
+
+	if (nvram_match("lan_state", "1")) {
+
+		web_puts("\netherstates = {");
+
+		system("/usr/sbin/ethstate");
+		n = 0;
+		if ((f = fopen("/tmp/ethernet.state", "r")) != NULL) {
+			while (fgets(s, sizeof(s), f)) {
+				if (sscanf(s, "Port 0: %s", b) == 1) a="port0";
+				else if (sscanf(s, "Port 1: %s", b) == 1) a="port1";
+				else if (sscanf(s, "Port 2: %s", b) == 1) a="port2";
+				else if (sscanf(s, "Port 3: %s", b) == 1) a="port3";
+				else if (sscanf(s, "Port 4: %s", b) == 1) a="port4";
+				else continue;
+
+				web_printf("%s\t%s: '%s'", n ? ",\n" : "", a, b);
+				n++;
+			}
+			fclose(f);
+		}
+		web_puts("\n};\n");
+	} else {
+		web_puts("\netherstates = {\tport0: 'disabled'\n};\n");
 	}
 }
 
