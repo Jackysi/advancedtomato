@@ -55,9 +55,11 @@
 #define OPTION6_RECONF_ACCEPT   20
 #define OPTION6_DNS_SERVER      23
 #define OPTION6_DOMAIN_SEARCH   24
+#define OPTION6_REFRESH_TIME    32
 #define OPTION6_REMOTE_ID       37
 #define OPTION6_SUBSCRIBER_ID   38
 #define OPTION6_FQDN            39
+#define OPTION6_CLIENT_MAC      79
 
 /* replace this with the real number when allocated.
    defining this also enables the relevant code. */ 
