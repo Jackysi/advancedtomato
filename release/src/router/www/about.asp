@@ -183,8 +183,9 @@ Copyright (C) 2012 Tiomo<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
-- 500 entry limit in Access Restriction rules<br>
-- Up to 80 QOS rules (all dependent on nvram <br>
+- 500 entry limit in Access Restriction rules*<br>
+- Up to 128 Port Forward rules*<br>
+- Up to 80 QOS rules* (*all dependent on nvram space)<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
