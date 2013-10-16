@@ -77,6 +77,7 @@ obj-$(TCONFIG_NOCAT) += nocat
 
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
+obj-$(TCONFIG_USB) += comgt
 
 obj-$(TCONFIG_UPS) += apcupsd
 
@@ -1967,6 +1968,21 @@ ipset-install: ipset
 
 ipset-clean:
 	-@$(MAKE) -C ipset clean
+
+comgt:
+	@$(MAKE) -C comgt CC=$(CC) CFLAGS="$(EXTRACFLAGS)" LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" comgt
+
+comgt-install: comgt
+	install -D comgt/comgt $(INSTALLDIR)/comgt/usr/sbin/comgt
+	cd $(INSTALLDIR)/comgt/usr/sbin/ && \
+		ln -sf comgt gcom
+	$(STRIP) -s $(INSTALLDIR)/comgt/usr/sbin/comgt
+	@mkdir -p $(TARGETDIR)/rom/etc/gcom
+	@cp -f comgt/gcom/* $(TARGETDIR)/rom/etc/gcom/
+
+
+comgt-clean:
+	-@$(MAKE) -C comgt clean
 
 #
 # Generic rules
