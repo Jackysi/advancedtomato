@@ -282,15 +282,41 @@ void ipt_restrictions(void)
 						  wanfaces.iface[n].name);
 				}
 			}
-		// Only mess with DNS requests that are coming in on INPUT
-		ip46t_write("-I INPUT 1 -p udp --dport 53 -j restrict\n");
-	}
+		}
 
 		sprintf(reschain, "rres%02d", nrule);
 		ip46t_write(":%s - [0:0]\n", reschain);
 
 		blockall = 1;
 
+		/*
+
+		proto<dir<port<ipp2p<layer7[<addr_type<addr]
+
+		proto:
+			-1 = both tcp/udp
+			-2 = any protocol
+			else = proto #
+		dir:
+		if proto == -1,tcp,udp:
+			a = any port
+			s = src port
+			d = dst port
+			x = src or dst port
+		port:
+			port # if proto == -1,tcp,udp
+		ipp2p:
+			# = ipp2p bit
+		l7:
+			.* = pattern name
+		addr_type:
+			0 = any
+			1 = dest ip
+			2 = src ip
+		addr:
+			ip if addr_type == 1
+
+		*/
 		while ((q = strsep(&matches, ">")) != NULL) {
 			n = vstrsep(q, "<", &pproto, &dir, &pport, &ipp2p, &layer7, &addr_type, &addr);
 			if (n == 5) {
