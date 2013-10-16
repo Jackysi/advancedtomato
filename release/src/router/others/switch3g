@@ -10,9 +10,10 @@ if [ -f $LOCK ]; then #lock exist
     exit 0
 else
 
+DEVNR=`nvram get modem_dev`
 PIN=`nvram get modem_pin`
 IS_PIN=`nvram get modem_pin | wc -w`
-DEVNR=`nvram get modem_dev`
+
 
 # is modem ready?
 DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
@@ -24,7 +25,7 @@ if [ "$DEV0" -gt 0 ]; then
     logger 3G MODEM already found - using cdc-acm module
     nvram set 3g_module=cdc-acm
     if [ "$IS_PIN" == "1" ]; then
-        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
     fi
     rm $LOCK
     break;
@@ -32,7 +33,7 @@ elif [ "$DEV1" -gt 0 ]; then
     logger 3G MODEM already found - using option module
     nvram set 3g_module=option
     if [ "$IS_PIN" == "1" ]; then
-        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
     fi
     rm $LOCK
     break;
@@ -40,7 +41,7 @@ elif [ "$DEV2" -gt 0 ]; then
     logger 3G MODEM already found - using sierra module
     nvram set 3g_module=sierra
     if [ "$IS_PIN" == "1" ]; then
-        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
     fi
     rm $LOCK
     break;
@@ -48,7 +49,7 @@ elif [ "$DEV3" -gt 0 ]; then
     logger 3G MODEM already found - using usbserial module
     nvram set 3g_module=usbserial
     if [ "$IS_PIN" == "1" ]; then
-        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
     fi
     rm $LOCK
     break;
@@ -96,7 +97,7 @@ else
         logger 3G MODEM ready - using cdc-acm module
         nvram set 3g_module=cdc-acm
         if [ "$IS_PIN" == "1" ]; then
-            echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
         fi
         rm $LOCK
         break;
@@ -104,7 +105,7 @@ else
         logger 3G MODEM ready - using option module
         nvram set 3g_module=option
         if [ "$IS_PIN" == "1" ]; then
-            echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
         fi
         rm $LOCK
         break;
@@ -112,7 +113,7 @@ else
         logger 3G MODEM ready - using sierra module
         nvram set 3g_module=sierra
         if [ "$IS_PIN" == "1" ]; then
-            echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
         fi
         rm $LOCK
         break;
@@ -120,8 +121,9 @@ else
         logger 3G MODEM not found by cdc-acm, option or sierra module. Trying usbserial ...
 
         #rmmod cdc_acm //we can`t do that. I don`t know why...
-        rmmod sierra
-        rmmod option
+        modprobe -r sierra
+        modprobe -r option
+        modprobe -r cdc-acm
 
         IS_VENDOR=`echo $VENDOR | wc -w`
         if [ "$IS_VENDOR" -gt 0 ]; then
@@ -139,7 +141,7 @@ else
             logger 3G MODEM ready - using usbserial module
             nvram set 3g_module=usbserial
             if [ "$IS_PIN" == "1" ]; then
-                echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+                PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
             fi
             rm $LOCK
             break;
@@ -155,7 +157,7 @@ else
                     logger 3G MODEM ready - using usbserial module
                     nvram set 3g_module=usbserial
                     if [ "$IS_PIN" == "1" ]; then
-                        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+                        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
                     fi
                     rm $LOCK
                     break;
@@ -166,7 +168,7 @@ else
                     echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
                     nvram set 3g_module=usbserial
                     if [ "$IS_PIN" == "1" ]; then
-                        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+                        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
                     fi
                     rm $LOCK
                     break;
@@ -188,7 +190,7 @@ else
                         echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
                         NO=0
                         if [ "$IS_PIN" == "1" ]; then
-                            echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+                            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
                         fi
                         rm $LOCK
                         break;
@@ -203,6 +205,11 @@ fi
 if [ "$NO" == "1" ]; then
     logger 3G MODEM not found ... sorry
 fi
+
+#check signal strength
+CSQ=`gcom -d /dev/$DEVNR -s /etc/gcom/getstrength.gcom | grep "CSQ:" | cut -d " " -f2 | cut -d "," -f1`
+DBM=$((-113+CSQ*2))
+logger "3G MODEM Signal Strength: $DBM dBm"
 
 #end script
 fi
