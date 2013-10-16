@@ -374,6 +374,12 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char * 
 	__val = __val < __min ? __min: __val;	\
 	__val > __max ? __max: __val; })
 
+/*
+ * swap - swap value of @a and @b
+ */
+#define swap(a, b) \
+	do { typeof(a) __tmp = (a); (a) = (b); (b) = __tmp; } while (0)
+
 
 /**
  * container_of - cast a member of a structure out to the containing structure
