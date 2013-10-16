@@ -206,7 +206,7 @@ void asp_devlist(int argc, char **argv)
 
 	unsigned long expires;
 	char mac[32];
-	char ip[32];
+	char ip[40];
 	char hostname[256];
 	char *host;
 
@@ -223,7 +223,7 @@ void asp_devlist(int argc, char **argv)
 		if ((f = fopen("/var/tmp/dhcp/leases", "r")) != NULL) {
 			comma = ' ';
 			while (fgets(buf, sizeof(buf), f)) {
-				if (sscanf(buf, "%lu %17s %15s %255s", &expires, mac, ip, hostname) != 4) continue;
+				if (sscanf(buf, "%lu %17s %39s %255s", &expires, mac, ip, hostname) != 4) continue;
 				host = js_string((hostname[0] == '*') ? "" : hostname);
 				web_printf("%c['%s','%s','%s','%s']", comma,
 						(host ? host : ""), ip, mac, ((expires == 0) ? "non-expiring" : reltime(buf, expires)));

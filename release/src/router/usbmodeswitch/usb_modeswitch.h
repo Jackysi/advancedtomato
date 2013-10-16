@@ -2,7 +2,7 @@
   This file is part of usb_modeswitch, a mode switching tool for controlling
   flip flop (multiple device) USB gear
 
-  Version 1.2.6, 2013/06/02
+  Version 2.0.1, 2013/09/03
   Copyright (C) 2007 - 2013  Josua Dietze
 
   Config file parsing stuff borrowed from Guillaume Dargaud
@@ -22,7 +22,6 @@
 
 */
 
-
 #include <stdlib.h>
 #include <libusb.h>
 
@@ -32,23 +31,26 @@ int switchSendMessage();
 int switchConfiguration();
 int switchAltSetting();
 void switchHuaweiMode();
+
 void switchSierraMode();
 void switchGCTMode();
-int switchKobilMode();
-int switchQisdaMode();
+void switchKobilMode();
+void switchQisdaMode();
 void switchQuantaMode();
-int switchSequansMode();
-int switchActionMode();
+void switchSequansMode();
+void switchActionMode();
+void switchBlackberryMode();
+void switchPantechMode();
+void switchCiscoMode();
 int switchSonyMode();
-int switchCiscoMode();
 int detachDriver();
 int checkSuccess();
 int sendMessage(char* message, int count);
 int write_bulk(int endpoint, char *message, int length);
 int read_bulk(int endpoint, char *buffer, int length);
 void release_usb_device(int dummy);
-struct libusb_device* search_devices( int *numFound, int vendor, int product, char* productList,
-	int targetClass, int configuration, int mode);
+struct libusb_device* search_devices( int *numFound, int vendor, char* productList,
+		int targetClass, int configuration, int mode);
 int find_first_bulk_output_endpoint(struct libusb_device *dev);
 int find_first_bulk_input_endpoint(struct libusb_device *dev);
 int get_current_configuration(struct libusb_device_handle* devh);
@@ -108,3 +110,7 @@ extern char *TempPP;
 	if ((TempPP=ReadParseParam((ParamFileName), #B))!=NULL) \
 		B=(toupper(TempPP[0])=='Y' || toupper(TempPP[0])=='T'|| TempPP[0]=='1'); else B=0
 
+#define ParseParamBoolMap(ParamFileName, B, M, Const) \
+	if ((TempPP=ReadParseParam((ParamFileName), #B))!=NULL) \
+		if (toupper(TempPP[0])=='Y' || toupper(TempPP[0])=='T'|| TempPP[0]=='1') \
+			M=M+Const

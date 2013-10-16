@@ -9,7 +9,7 @@
 
 
 # Default version string
-set version "20130607"
+set version "20130807"
 
 if {[lindex $argv 0] == "--set-version" && [regexp {\d\d\d\d\d\d\d\d} [lindex $argv 1]]} {
 	set version [lindex $argv 1]
@@ -42,7 +42,7 @@ ACTION!="add|change", GOTO="modeswitch_rules_end"
 
 # Adds a symlink "gsmmodem[n]" to the lowest ttyUSB port with interrupt
 # transfer; checked against a list of known modems, or else no action
-KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
+KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK+="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 

@@ -64,80 +64,81 @@ struct myoption {
 #define OPTSTRING "951yZDNLERKzowefnbvhdkqr:m:p:c:l:s:i:t:u:g:a:x:S:C:A:T:H:Q:I:B:F:G:O:M:X:V:U:j:P:J:W:Y:2:4:6:7:8:0:3:"
 
 /* options which don't have a one-char version */
-#define LOPT_RELOAD    256
-#define LOPT_NO_NAMES  257
-#define LOPT_TFTP      258
-#define LOPT_SECURE    259
-#define LOPT_PREFIX    260
-#define LOPT_PTR       261
-#define LOPT_BRIDGE    262
-#define LOPT_TFTP_MAX  263
-#define LOPT_FORCE     264
-#define LOPT_NOBLOCK   265
-#define LOPT_LOG_OPTS  266
-#define LOPT_MAX_LOGS  267
-#define LOPT_CIRCUIT   268
-#define LOPT_REMOTE    269
-#define LOPT_SUBSCR    270
-#define LOPT_INTNAME   271
-#define LOPT_BANK      272
-#define LOPT_DHCP_HOST 273
-#define LOPT_APREF     274
-#define LOPT_OVERRIDE  275
-#define LOPT_TFTPPORTS 276
-#define LOPT_REBIND    277
-#define LOPT_NOLAST    278
-#define LOPT_OPTS      279
-#define LOPT_DHCP_OPTS 280
-#define LOPT_MATCH     281
-#define LOPT_BROADCAST 282
-#define LOPT_NEGTTL    283
-#define LOPT_ALTPORT   284
-#define LOPT_SCRIPTUSR 285
-#define LOPT_LOCAL     286
-#define LOPT_NAPTR     287
-#define LOPT_MINPORT   288
-#define LOPT_DHCP_FQDN 289
-#define LOPT_CNAME     290
-#define LOPT_PXE_PROMT 291
-#define LOPT_PXE_SERV  292
-#define LOPT_TEST      293
-#define LOPT_TAG_IF    294
-#define LOPT_PROXY     295
-#define LOPT_GEN_NAMES 296
-#define LOPT_MAXTTL    297
-#define LOPT_NO_REBIND 298
-#define LOPT_LOC_REBND 299
-#define LOPT_ADD_MAC   300
-#define LOPT_DNSSEC    301
-#define LOPT_INCR_ADDR 302
-#define LOPT_CONNTRACK 303
-#define LOPT_FQDN      304
-#define LOPT_LUASCRIPT 305
-#define LOPT_RA        306
-#define LOPT_DUID      307
-#define LOPT_HOST_REC  308
-#define LOPT_TFTP_LC   309
-#define LOPT_RR        310
-#define LOPT_CLVERBIND 311
-#define LOPT_MAXCTTL   312
-#define LOPT_AUTHZONE  313
-#define LOPT_AUTHSERV  314
-#define LOPT_AUTHTTL   315
-#define LOPT_AUTHSOA   316
-#define LOPT_AUTHSFS   317
-#define LOPT_AUTHPEER  318
-#define LOPT_IPSET     319
-#define LOPT_SYNTH     320
+#define LOPT_RELOAD       256
+#define LOPT_NO_NAMES     257
+#define LOPT_TFTP         258
+#define LOPT_SECURE       259
+#define LOPT_PREFIX       260
+#define LOPT_PTR          261
+#define LOPT_BRIDGE       262
+#define LOPT_TFTP_MAX     263
+#define LOPT_FORCE        264
+#define LOPT_NOBLOCK      265
+#define LOPT_LOG_OPTS     266
+#define LOPT_MAX_LOGS     267
+#define LOPT_CIRCUIT      268
+#define LOPT_REMOTE       269
+#define LOPT_SUBSCR       270
+#define LOPT_INTNAME      271
+#define LOPT_BANK         272
+#define LOPT_DHCP_HOST    273
+#define LOPT_APREF        274
+#define LOPT_OVERRIDE     275
+#define LOPT_TFTPPORTS    276
+#define LOPT_REBIND       277
+#define LOPT_NOLAST       278
+#define LOPT_OPTS         279
+#define LOPT_DHCP_OPTS    280
+#define LOPT_MATCH        281
+#define LOPT_BROADCAST    282
+#define LOPT_NEGTTL       283
+#define LOPT_ALTPORT      284
+#define LOPT_SCRIPTUSR    285
+#define LOPT_LOCAL        286
+#define LOPT_NAPTR        287
+#define LOPT_MINPORT      288
+#define LOPT_DHCP_FQDN    289
+#define LOPT_CNAME        290
+#define LOPT_PXE_PROMT    291
+#define LOPT_PXE_SERV     292
+#define LOPT_TEST         293
+#define LOPT_TAG_IF       294
+#define LOPT_PROXY        295
+#define LOPT_GEN_NAMES    296
+#define LOPT_MAXTTL       297
+#define LOPT_NO_REBIND    298
+#define LOPT_LOC_REBND    299
+#define LOPT_ADD_MAC      300
+#define LOPT_DNSSEC       301
+#define LOPT_INCR_ADDR    302
+#define LOPT_CONNTRACK    303
+#define LOPT_FQDN         304
+#define LOPT_LUASCRIPT    305
+#define LOPT_RA           306
+#define LOPT_DUID         307
+#define LOPT_HOST_REC     308
+#define LOPT_TFTP_LC      309
+#define LOPT_RR           310
+#define LOPT_CLVERBIND    311
+#define LOPT_MAXCTTL      312
+#define LOPT_AUTHZONE     313
+#define LOPT_AUTHSERV     314
+#define LOPT_AUTHTTL      315
+#define LOPT_AUTHSOA      316
+#define LOPT_AUTHSFS      317
+#define LOPT_AUTHPEER     318
+#define LOPT_IPSET        319
+#define LOPT_SYNTH        320
 #ifdef OPTION6_PREFIX_CLASS 
-#define LOPT_PREF_CLSS 321
+#define LOPT_PREF_CLSS    321
 #endif
+#define LOPT_RELAY        323
+#define LOPT_RA_PARAM     324
+#define LOPT_ADD_SBNET    325
+#define LOPT_QUIET_DHCP   326
+#define LOPT_QUIET_DHCP6  327
+#define LOPT_QUIET_RA     328
 
-#ifdef HAVE_QUIET_DHCP //Originally TOMATO option
-#define LOPT_QUIET_DHCP 322
-#define LOPT_QUIET_DHCP6 323
-#define LOPT_QUIET_RA 324
-#endif
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -213,7 +214,7 @@ static const struct myoption opts[] =
     { "dns-forward-max", 1, 0, '0' },
     { "clear-on-reload", 0, 0, LOPT_RELOAD },
     { "dhcp-ignore-names", 2, 0, LOPT_NO_NAMES },
-    { "enable-tftp", 0, 0, LOPT_TFTP },
+    { "enable-tftp", 2, 0, LOPT_TFTP },
     { "tftp-secure", 0, 0, LOPT_SECURE },
     { "tftp-unique-root", 0, 0, LOPT_APREF },
     { "tftp-root", 1, 0, LOPT_PREFIX },
@@ -255,6 +256,7 @@ static const struct myoption opts[] =
     { "dhcp-generate-names", 2, 0, LOPT_GEN_NAMES },
     { "rebind-localhost-ok", 0, 0,  LOPT_LOC_REBND },
     { "add-mac", 0, 0, LOPT_ADD_MAC },
+    { "add-subnet", 2, 0, LOPT_ADD_SBNET },
     { "proxy-dnssec", 0, 0, LOPT_DNSSEC },
     { "dhcp-sequential-ip", 0, 0,  LOPT_INCR_ADDR },
     { "conntrack", 0, 0, LOPT_CONNTRACK },
@@ -275,11 +277,11 @@ static const struct myoption opts[] =
 #ifdef OPTION6_PREFIX_CLASS 
     { "dhcp-prefix-class", 1, 0, LOPT_PREF_CLSS },
 #endif
-#ifdef HAVE_QUIET_DHCP //Originally TOMATO option
+    { "dhcp-relay", 1, 0, LOPT_RELAY },
+    { "ra-param", 1, 0, LOPT_RA_PARAM },
     { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
     { "quiet-dhcp6", 0, 0, LOPT_QUIET_DHCP6 },
     { "quiet-ra", 0, 0, LOPT_QUIET_RA },
-#endif
     { NULL, 0, 0, 0 }
   };
 
@@ -377,7 +379,7 @@ static struct {
   { LOPT_RELOAD, OPT_RELOAD, NULL, gettext_noop("Clear DNS cache when reloading %s."), RESOLVFILE },
   { LOPT_NO_NAMES, ARG_DUP, "[=tag:<tag>]...", gettext_noop("Ignore hostnames provided by DHCP clients."), NULL },
   { LOPT_OVERRIDE, OPT_NO_OVERRIDE, NULL, gettext_noop("Do NOT reuse filename and server fields for extra DHCP options."), NULL },
-  { LOPT_TFTP, OPT_TFTP, NULL, gettext_noop("Enable integrated read-only TFTP server."), NULL },
+  { LOPT_TFTP, ARG_DUP, "[=<intr>[,<intr>]]", gettext_noop("Enable integrated read-only TFTP server."), NULL },
   { LOPT_PREFIX, ARG_DUP, "<dir>[,<iface>]", gettext_noop("Export files by TFTP only from the specified subtree."), NULL },
   { LOPT_APREF, OPT_TFTP_APREF, NULL, gettext_noop("Add client IP address to tftp-root."), NULL },
   { LOPT_SECURE, OPT_TFTP_SECURE, NULL, gettext_noop("Allow access only to files owned by the user running dnsmasq."), NULL },
@@ -398,11 +400,13 @@ static struct {
   { LOPT_DHCP_FQDN, OPT_DHCP_FQDN, NULL, gettext_noop("Use only fully qualified domain names for DHCP clients."), NULL },
   { LOPT_GEN_NAMES, ARG_DUP, "[=tag:<tag>]", gettext_noop("Generate hostnames based on MAC address for nameless clients."), NULL},
   { LOPT_PROXY, ARG_DUP, "[=<ipaddr>]...", gettext_noop("Use these DHCP relays as full proxies."), NULL },
+  { LOPT_RELAY, ARG_DUP, "<local-addr>,<server>[,<interface>]", gettext_noop("Relay DHCP requests to a remote server"), NULL},
   { LOPT_CNAME, ARG_DUP, "<alias>,<target>", gettext_noop("Specify alias name for LOCAL DNS name."), NULL },
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
   { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries."), NULL },
+  { LOPT_ADD_SBNET, ARG_ONE, "<v4 pref>[,<v6 pref>]", gettext_noop("Add requestor's IP subnet to forwarded DNS queries."), NULL },
   { LOPT_DNSSEC, OPT_DNSSEC, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers."), NULL },
   { LOPT_INCR_ADDR, OPT_CONSEC_ADDR, NULL, gettext_noop("Attempt to allocate sequential IP addresses to DHCP clients."), NULL },
   { LOPT_CONNTRACK, OPT_CONNTRACK, NULL, gettext_noop("Copy connection-track mark from queries to upstream connections."), NULL },
@@ -423,11 +427,10 @@ static struct {
 #ifdef OPTION6_PREFIX_CLASS 
   { LOPT_PREF_CLSS, ARG_DUP, "set:tag,<class>", gettext_noop("Specify DHCPv6 prefix class"), NULL },
 #endif
-#ifdef HAVE_QUIET_DHCP //originally TOMATO option
-  { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
-  { LOPT_QUIET_DHCP6, OPT_QUIET_DHCP6, NULL, gettext_noop("Do not log DHCPv6 packets."), NULL },
-  { LOPT_QUIET_RA, OPT_QUIET_RA, NULL, gettext_noop("Do not log RA packets."), NULL },
-#endif 
+  { LOPT_RA_PARAM, ARG_DUP, "<interface>,[high,|low,]<interval>[,<lifetime>]", gettext_noop("Set priority, resend-interval and router-lifetime"), NULL },
+  { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log routine DHCP."), NULL },
+  { LOPT_QUIET_DHCP6, OPT_QUIET_DHCP6, NULL, gettext_noop("Do not log routine DHCPv6."), NULL },
+  { LOPT_QUIET_RA, OPT_QUIET_RA, NULL, gettext_noop("Do not log RA."), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -1434,6 +1437,17 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	break;
       }
 
+    case LOPT_ADD_SBNET: /* --add-subnet */
+      set_option_bool(OPT_CLIENT_SUBNET);
+      if (arg)
+	{
+	  comma = split(arg);
+	  if (!atoi_check(arg, &daemon->addr4_netmask) || 
+	      (comma && !atoi_check(comma, &daemon->addr6_netmask)))
+	     ret_err(gen_err);
+	}
+      break;
+
     case '1': /* --enable-dbus */
       set_option_bool(OPT_DBUS);
       if (arg)
@@ -1581,6 +1595,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	break;
       }
       
+
+#ifdef HAVE_AUTH
     case LOPT_AUTHSERV: /* --auth-server */
       if (!(comma = split(arg)))
 	ret_err(gen_err);
@@ -1671,7 +1687,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 
     case  LOPT_AUTHSOA: /* --auth-soa */
       comma = split(arg);
-      atoi_check(arg, (int *)&daemon->soa_sn);
+      daemon->soa_sn = (u32)atoi(arg);
       if (comma)
 	{
 	  char *cp;
@@ -1686,23 +1702,24 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    {
 	      arg = comma;
 	      comma = split(arg); 
-	      atoi_check(arg, (int *)&daemon->soa_refresh);
+	      daemon->soa_refresh = (u32)atoi(arg);
 	      if (comma)
 		{
 		  arg = comma;
 		  comma = split(arg); 
-		  atoi_check(arg, (int *)&daemon->soa_retry);
+		  daemon->soa_retry = (u32)atoi(arg);
 		  if (comma)
 		    {
 		      arg = comma;
 		      comma = split(arg); 
-		      atoi_check(arg, (int *)&daemon->soa_expiry);
+		      daemon->soa_expiry = (u32)atoi(arg);
 		    }
 		}
 	    }
 	}
 
       break;
+#endif
 
     case 's':         /* --domain */
     case LOPT_SYNTH:  /* --synth-domain */
@@ -1917,6 +1934,12 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
       } while (arg);
       break;
       
+    case LOPT_TFTP: /* --enable-tftp */
+      set_option_bool(OPT_TFTP);
+      if (!arg)
+	break;
+      /* fall through */
+
     case 'I':  /* --except-interface */
     case '2':  /* --no-dhcp-interface */
       do {
@@ -1927,6 +1950,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	  {
 	    new->next = daemon->if_except;
 	    daemon->if_except = new;
+	  }
+	else if (option == LOPT_TFTP)
+	   {
+	    new->next = daemon->tftp_interfaces;
+	    daemon->tftp_interfaces = new;
 	  }
 	else
 	  {
@@ -2336,7 +2364,9 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		    struct dhcp_netid *tt = opt_malloc(sizeof (struct dhcp_netid));
 		    tt->net = opt_string_alloc(arg+4);
 		    tt->next = new->filter;
-		    new->filter = tt;
+		    /* ignore empty tag */
+		    if (tt->net)
+		      new->filter = tt;
 		  }
 		else
 		  {
@@ -2401,13 +2431,12 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 #ifdef HAVE_DHCP6
 	else if (inet_pton(AF_INET6, a[0], &new->start6))
 	  {
+	    new->flags |= CONTEXT_V6; 
 	    new->prefix = 64; /* default */
 	    new->end6 = new->start6;
-	    
-	    /* dhcp-range=:: enables DHCP stateless on any interface */
-	    if (IN6_IS_ADDR_UNSPECIFIED(&new->start6))
-	      new->prefix = 0;
-	    
+	    new->next = daemon->dhcp6;
+	    daemon->dhcp6 = new;
+
 	    for (leasepos = 1; leasepos < k; leasepos++)
 	      {
 		if (strcmp(a[leasepos], "static") == 0)
@@ -2433,10 +2462,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		else  
 		  break;
 	      }
-	    
-	    new->next = daemon->dhcp6;
-	    daemon->dhcp6 = new;
-	    	     
+	   	    	     
 	    /* bare integer < 128 is prefix value */
 	    if (leasepos < k)
 	      {
@@ -2448,20 +2474,35 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		  {
 		    new->prefix = pref;
 		    leasepos++;
-		    if (new->prefix != 64)
-		      {
-			if ((new->flags & (CONTEXT_RA_ONLY | CONTEXT_RA_NAME | CONTEXT_RA_STATELESS)))
-			  ret_err(_("prefix must be exactly 64 for RA subnets"));
-			else if (new->template_interface)
-			  ret_err(_("prefix must be exactly 64 for subnet constructors"));
-		      }
-		    if (new->prefix < 64)
-		      ret_err(_("prefix must be at least 64"));
 		  }
 	      }
 	    
+	    if (new->prefix != 64)
+	      {
+		if ((new->flags & (CONTEXT_RA_ONLY | CONTEXT_RA_NAME | CONTEXT_RA_STATELESS)))
+		  ret_err(_("prefix length must be exactly 64 for RA subnets"));
+		else if (new->flags & CONTEXT_TEMPLATE)
+		  ret_err(_("prefix length must be exactly 64 for subnet constructors"));
+	      }
+
+	    if (new->prefix < 64)
+	      ret_err(_("prefix length must be at least 64"));
+	    
 	    if (!is_same_net6(&new->start6, &new->end6, new->prefix))
 	      ret_err(_("inconsistent DHCPv6 range"));
+
+	    /* dhcp-range=:: enables DHCP stateless on any interface */
+	    if (IN6_IS_ADDR_UNSPECIFIED(&new->start6) && !(new->flags & CONTEXT_TEMPLATE))
+	      new->prefix = 0;
+	    
+	    if (new->flags & CONTEXT_TEMPLATE)
+	      {
+		struct in6_addr zero;
+		memset(&zero, 0, sizeof(zero));
+		if (!is_same_net6(&zero, &new->start6, new->prefix))
+		  ret_err(_("prefix must be zero with \"constructor:\" argument"));
+	      }
+	    
 	    if (addr6part(&new->start6) > addr6part(&new->end6))
 	      {
 		struct in6_addr tmp = new->start6;
@@ -3170,9 +3211,59 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	arg = comma;
       }
       break;
+
+    case LOPT_RELAY: /* --dhcp-relay */
+      {
+	struct dhcp_relay *new = opt_malloc(sizeof(struct dhcp_relay));
+	comma = split(arg);
+	new->interface = opt_string_alloc(split(comma));
+	new->iface_index = 0;
+	if (inet_pton(AF_INET, arg, &new->local) && inet_pton(AF_INET, comma, &new->server))
+	  {
+	    new->next = daemon->relay4;
+	    daemon->relay4 = new;
+	  }
+#ifdef HAVE_DHCP6
+	else if (inet_pton(AF_INET6, arg, &new->local) && inet_pton(AF_INET6, comma, &new->server))
+	  {
+	    new->next = daemon->relay6;
+	    daemon->relay6 = new;
+	  }
+#endif
+	else
+	  ret_err(_("Bad dhcp-relay"));
+	
+	break;
+      }
+
 #endif
       
 #ifdef HAVE_DHCP6
+    case LOPT_RA_PARAM: /* --ra-param */
+      if ((comma = split(arg)))
+	{
+	  struct ra_interface *new = opt_malloc(sizeof(struct ra_interface));
+	  new->lifetime = -1;
+	  new->prio = 0;
+	  new->name = opt_string_alloc(arg);
+	  if (strcasestr(comma, "high") == comma || strcasestr(comma, "low") == comma)
+	    {
+	      if (*comma == 'l' || *comma == 'L')
+		new->prio = 0x18;
+	      else
+		new->prio = 0x08;
+	      comma = split(comma);
+	    }
+	   arg = split(comma);
+	   if (!atoi_check(comma, &new->interval) || 
+	      (arg && !atoi_check(arg, &new->lifetime)))
+	    ret_err(_("bad RA-params"));
+	  
+	  new->next = daemon->ra_interfaces;
+	  daemon->ra_interfaces = new;
+	}
+      break;
+      
     case LOPT_DUID: /* --dhcp-duid */
       if (!(comma = split(arg)) || !atoi_check(arg, (int *)&daemon->duid_enterprise))
 	ret_err(_("bad DUID"));

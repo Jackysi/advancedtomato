@@ -1,12 +1,14 @@
 PROG        = usb_modeswitch
-VERS        = 1.2.6
-CC          = gcc
+VERS        = 2.0.1
+CC          ?= gcc
 CFLAGS      += -Wall
-LIBS        = -lusb-1.0
+LIBS        = -l usb-1.0
 RM          = /bin/rm -f
 OBJS        = usb_modeswitch.c
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
+SYSDIR      = $(ETCDIR)/systemd/system
+UPSDIR      = $(ETCDIR)/init
 UDEVDIR     = $(DESTDIR)/lib/udev
 SBINDIR     = $(PREFIX)/sbin
 MANDIR      = $(PREFIX)/share/man/man1
@@ -17,7 +19,7 @@ TCL        ?= $(HOST_TCL)
 else
 TCL        ?= /usr/bin/tclsh
 endif
-JIM_CONFIGURE_OPTS =--disable-lineedit \
+JIM_CONFIGURE_OPTS = --disable-lineedit \
 	--with-out-jim-ext="stdlib posix load signal syslog" --prefix=/usr
 
 .PHONY: clean install install-common uninstall \
@@ -71,13 +73,19 @@ ums-clean:
 	$(RM) usb_modeswitch_dispatcher
 	$(RM) usb_modeswitch.string
 
+# If the systemd folder is present, install the service for starting the dispatcher
+# If not, use the dispatcher directly from the udev rule as in previous versions
+
 install-common: $(PROG) usb_modeswitch_dispatcher
 	install -D --mode=755 usb_modeswitch $(SBINDIR)/usb_modeswitch
 	install -D --mode=755 usb_modeswitch.sh $(UDEVDIR)/usb_modeswitch
 	install -D --mode=644 usb_modeswitch.conf $(ETCDIR)/usb_modeswitch.conf
 	install -D --mode=644 usb_modeswitch.1 $(MANDIR)/usb_modeswitch.1
+	install -D --mode=644 usb_modeswitch_dispatcher.1 $(MANDIR)/usb_modeswitch_dispatcher.1
 	install -D --mode=755 usb_modeswitch_dispatcher $(SBINDIR)/usb_modeswitch_dispatcher
 	install -d $(DESTDIR)/var/lib/usb_modeswitch
+	test -d $(UPSDIR) -a -e /sbin/initctl && install --mode=644 usb-modeswitch-upstart.conf $(UPSDIR) || test 1
+	test -d $(SYSDIR) -a -e /usr/bin/systemctl && install --mode=644 usb_modeswitch@.service $(SYSDIR) || test 1
 
 install: install-script
 
@@ -94,3 +102,4 @@ uninstall:
 	$(RM) $(ETCDIR)/usb_modeswitch.conf
 	$(RM) $(MANDIR)/usb_modeswitch.1
 	$(RM) -R $(DESTDIR)/var/lib/usb_modeswitch
+	$(RM) $(SYSDIR)/usb_modeswitch@.service

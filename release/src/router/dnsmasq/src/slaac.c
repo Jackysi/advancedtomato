@@ -38,7 +38,9 @@ void slaac_add_addrs(struct dhcp_lease *lease, time_t now, int force)
   lease->slaac_address = NULL;
 
   for (context = daemon->dhcp6; context; context = context->next) 
-    if ((context->flags & CONTEXT_RA_NAME) && lease->last_interface == context->if_index)
+    if ((context->flags & CONTEXT_RA_NAME) && 
+	!(context->flags & CONTEXT_OLD) &&
+	lease->last_interface == context->if_index)
       {
 	struct in6_addr addr = context->start6;
 	if (lease->hwaddr_len == 6 &&
@@ -123,7 +125,7 @@ time_t periodic_slaac(time_t now, struct dhcp_lease *leases)
   time_t next_event = 0;
   
   for (context = daemon->dhcp6; context; context = context->next)
-    if ((context->flags & CONTEXT_RA_NAME))
+    if ((context->flags & CONTEXT_RA_NAME) && !(context->flags & CONTEXT_OLD))
       break;
 
   /* nothing configured */
@@ -198,10 +200,8 @@ void slaac_ping_reply(struct in6_addr *sender, unsigned char *packet, char *inte
 	    slaac->backoff = 0;
 	    gotone = 1;
 	    inet_ntop(AF_INET6, sender, daemon->addrbuff, ADDRSTRLEN);
-#ifdef HAVE_QUIET_DHCP
-  if (!option_bool(OPT_QUIET_DHCP6))
-#endif
-	    my_syslog(MS_DHCP | LOG_INFO, "SLAAC-CONFIRM(%s) %s %s", interface, daemon->addrbuff, lease->hostname); 
+	    if (!option_bool(OPT_QUIET_DHCP6))
+	      my_syslog(MS_DHCP | LOG_INFO, "SLAAC-CONFIRM(%s) %s %s", interface, daemon->addrbuff, lease->hostname); 
 	  }
   
   lease_update_dns(gotone);
