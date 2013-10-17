@@ -49,9 +49,7 @@ void tftp_request(struct listener *listen, time_t now)
   struct iovec iov;
   struct ifreq ifr;
   int is_err = 1, if_index = 0, mtu = 0;
-#ifdef HAVE_DHCP
   struct iname *tmp;
-#endif
   struct tftp_transfer *transfer;
   int port = daemon->start_tftp_port; /* may be zero to use ephemeral port */
 #if defined(IP_MTU_DISCOVER) && defined(IP_PMTUDISC_DONT)
@@ -198,22 +196,36 @@ void tftp_request(struct listener *listen, time_t now)
 	addra.addr.addr6 = addr.in6.sin6_addr;
 #endif
 
-      if (!iface_check(listen->family, &addra, name, NULL))
+      if (daemon->tftp_interfaces)
 	{
-	  if (!option_bool(OPT_CLEVERBIND))
-	    enumerate_interfaces(0); 
-	  if (!loopback_exception(listen->tftpfd, listen->family, &addra, name) &&
-	      !label_exception(if_index, listen->family, &addra) )
+	  /* dedicated tftp interface list */
+	  for (tmp = daemon->tftp_interfaces; tmp; tmp = tmp->next)
+	    if (tmp->name && wildcard_match(tmp->name, name))
+	      break;
+
+	  if (!tmp)
 	    return;
 	}
-      
+      else
+	{
+	  /* Do the same as DHCP */
+	  if (!iface_check(listen->family, &addra, name, NULL))
+	    {
+	      if (!option_bool(OPT_CLEVERBIND))
+		enumerate_interfaces(0); 
+	      if (!loopback_exception(listen->tftpfd, listen->family, &addra, name) &&
+		  !label_exception(if_index, listen->family, &addra) )
+		return;
+	    }
+	  
 #ifdef HAVE_DHCP      
-      /* allowed interfaces are the same as for DHCP */
-      for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
-	if (tmp->name && wildcard_match(tmp->name, name))
-	  return;
+	  /* allowed interfaces are the same as for DHCP */
+	  for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
+	    if (tmp->name && wildcard_match(tmp->name, name))
+	      return;
 #endif
-      
+	}
+
       strncpy(ifr.ifr_name, name, IF_NAMESIZE);
       if (ioctl(listen->tftpfd, SIOCGIFMTU, &ifr) != -1)
 	mtu = ifr.ifr_mtu;      
@@ -555,7 +567,7 @@ void check_tftp_listeners(fd_set *rset, time_t now)
 	    }
 	  /* don't complain about timeout when we're awaiting the last
 	     ACK, some clients never send it */
-	  else if (++transfer->backoff > 5 && len != 0)
+	  else if (++transfer->backoff > 7 && len != 0)
 	    {
 	      endcon = 1;
 	      len = 0;

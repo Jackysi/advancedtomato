@@ -112,10 +112,12 @@ int indextoname(int fd, int index, char *name)
 int iface_check(int family, struct all_addr *addr, char *name, int *auth)
 {
   struct iname *tmp;
-  int ret = 1;
+  int ret = 1, match_addr = 0;
 
   /* Note: have to check all and not bail out early, so that we set the
-     "used" flags. */
+     "used" flags.
+
+     May be called with family == AF_LOCALto check interface by name only. */
   
   if (auth)
     *auth = 0;
@@ -134,19 +136,20 @@ int iface_check(int family, struct all_addr *addr, char *name, int *auth)
 	    {
 	      if (family == AF_INET &&
 		  tmp->addr.in.sin_addr.s_addr == addr->addr.addr4.s_addr)
-		ret = tmp->used = 1;
+		ret = match_addr = tmp->used = 1;
 #ifdef HAVE_IPV6
 	      else if (family == AF_INET6 &&
 		       IN6_ARE_ADDR_EQUAL(&tmp->addr.in6.sin6_addr, 
 					  &addr->addr.addr6))
-		ret = tmp->used = 1;
+		ret = match_addr = tmp->used = 1;
 #endif
 	    }          
     }
   
-  for (tmp = daemon->if_except; tmp; tmp = tmp->next)
-    if (tmp->name && wildcard_match(tmp->name, name))
-      ret = 0;
+  if (!match_addr)
+    for (tmp = daemon->if_except; tmp; tmp = tmp->next)
+      if (tmp->name && wildcard_match(tmp->name, name))
+	ret = 0;
     
 
   for (tmp = daemon->authinterface; tmp; tmp = tmp->next)
@@ -240,7 +243,7 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
   int tftp_ok = !!option_bool(OPT_TFTP);
   int dhcp_ok = 1;
   int auth_dns = 0;
-#ifdef HAVE_DHCP
+#if defined(HAVE_DHCP) || defined(HAVE_TFTP)
   struct iname *tmp;
 #endif
 
@@ -358,6 +361,18 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
 	}
 #endif
  
+  
+#ifdef HAVE_TFTP
+  if (daemon->tftp_interfaces)
+    {
+      /* dedicated tftp interface list */
+      tftp_ok = 0;
+      for (tmp = daemon->tftp_interfaces; tmp; tmp = tmp->next)
+	if (tmp->name && wildcard_match(tmp->name, ifr.ifr_name))
+	  tftp_ok = 1;
+    }
+#endif
+  
   /* add to list */
   if ((iface = whine_malloc(sizeof(struct irec))))
     {
@@ -693,6 +708,8 @@ static struct listener *create_listeners(union mysockaddr *addr, int do_tftp, in
 {
   struct listener *l = NULL;
   int fd = -1, tcpfd = -1, tftpfd = -1;
+
+  (void)do_tftp;
 
   if (daemon->port != 0)
     {
