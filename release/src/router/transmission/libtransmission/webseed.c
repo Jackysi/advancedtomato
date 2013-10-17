@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.c 14070 2013-04-13 20:25:28Z jordan $
+ * $Id: webseed.c 14134 2013-07-20 16:45:02Z jordan $
  */
 
 #include <string.h> /* strlen () */
@@ -324,7 +324,7 @@ on_idle (tr_webseed * w)
       w->retry_challenge = running_tasks + w->idle_connections + 1;
     }
 
-  if (tor && tor->isRunning && !tr_torrentIsSeed (tor) && want)
+  if (tor && tor->isRunning && !tr_torrentIsSeed (tor) && (want > 0))
     {
       int i;
       int got = 0;

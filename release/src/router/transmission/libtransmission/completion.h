@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: completion.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: completion.h 14151 2013-07-29 04:19:15Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -91,12 +91,14 @@ tr_cpHaveTotal (const tr_completion * cp)
 
 static inline bool tr_cpHasAll (const tr_completion * cp)
 {
-    return tr_bitfieldHasAll (&cp->blockBitfield);
+    return tr_torrentHasMetadata (cp->tor)
+        && tr_bitfieldHasAll (&cp->blockBitfield);
 }
 
 static inline bool tr_cpHasNone (const tr_completion * cp)
 {
-    return tr_bitfieldHasNone (&cp->blockBitfield);
+    return !tr_torrentHasMetadata (cp->tor)
+        || tr_bitfieldHasNone (&cp->blockBitfield);
 }
 
 /**

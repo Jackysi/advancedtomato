@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 14115 2013-07-09 22:44:24Z jordan $
+ * $Id: util.c 14143 2013-07-24 17:11:21Z jordan $
  */
 
 #include <ctype.h> /* isxdigit () */
@@ -361,21 +361,11 @@ gtr_get_help_uri (void)
 void
 gtr_open_file (const char * path)
 {
-  char * uri;
-
-  if (g_path_is_absolute (path))
-    {
-      uri = g_strdup_printf ("file://%s", path);
-    }
-  else
-    {
-      char * cwd = g_get_current_dir ();
-      uri = g_strdup_printf ("file://%s/%s", cwd, path);
-      g_free (cwd);
-    }
-
+  GFile * file = g_file_new_for_path (path);
+  gchar * uri = g_file_get_uri (file);
   gtr_open_uri (uri);
   g_free (uri);
+  g_object_unref (file);
 }
 
 void
@@ -664,7 +654,7 @@ freespace_label_data_free (gpointer gdata)
   g_free (data);
 }
 
-static G_DEFINE_QUARK (freespace-label-data, freespace_label_data)
+static TR_DEFINE_QUARK (freespace_label_data, freespace_label_data)
 
 static void
 on_freespace_label_core_destroyed (gpointer gdata, GObject * dead_core G_GNUC_UNUSED)

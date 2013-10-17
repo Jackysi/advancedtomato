@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-model.cc 13982 2013-02-07 21:07:16Z jordan $
+ * $Id: torrent-model.cc 14150 2013-07-27 21:58:14Z jordan $
  */
 
 #include <cassert>
@@ -22,11 +22,14 @@
 void
 TorrentModel :: clear( )
 {
+    beginResetModel ();
+
     myIdToRow.clear( );
     myIdToTorrent.clear( );
     foreach( Torrent * tor, myTorrents ) delete tor;
     myTorrents.clear( );
-    reset( );
+
+    endResetModel ();
 }
 
 int

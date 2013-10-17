@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: main.c 14112 2013-07-08 19:34:58Z jordan $
+ * $Id: main.c 14154 2013-08-05 02:39:30Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -943,6 +943,9 @@ on_app_exit (gpointer vdata)
   GtkWidget *r, *p, *b, *w, *c;
   struct cbdata * cbdata = vdata;
   struct session_close_struct * session_close_data;
+
+  if (cbdata->is_closing)
+    return;
 
   cbdata->is_closing = true;
 
