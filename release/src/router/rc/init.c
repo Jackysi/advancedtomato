@@ -1141,7 +1141,7 @@ static int init_nvram(void)
 		break;
 	case MODEL_RTN66U:
 		mfr = "Asus";
-#ifdef CONFIG_BCMWL6
+#ifdef TCONFIG_AC66U
 		name = "RT-AC66U";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #else
@@ -1159,14 +1159,14 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifnames", "eth1 eth2");
-#ifdef CONFIG_BCMWL6
+#ifdef TCONFIG_AC66U
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
 #endif
 			nvram_set("landevs", "vlan1 wl0 wl1");
 			nvram_set("wandevs", "vlan2");
-#ifndef CONFIG_BCMWL6
+#ifndef TCONFIG_AC66U
 #if defined(LINUX26) && defined(TCONFIG_USB)
 			nvram_set("usb_noled", "1-1.4"); /* SD/MMC Card */
 #endif
@@ -1271,11 +1271,13 @@ static int init_nvram(void)
 
 			//force EU country for eth2
 			nvram_set("pci/2/1/ccode", "EU");
+#endif // TCONFIG_AC66U
 		}
 		break;
+#ifdef CONFIG_BCMWL6
 	case MODEL_W1800R:
 		mfr = "Tenda";
-		name = "W1800R"; //id, board, rev same as N66
+		name = "W1800R";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
@@ -1299,9 +1301,9 @@ static int init_nvram(void)
 			strcpy(s, nvram_safe_get("et0macaddr"));
 			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
 			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
-#endif // CONFIG_BCMWL6
 		}
 		break;
+#endif // CONFIG_BCMWL6
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
 		name = "WNR3500L/U/v2";

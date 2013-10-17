@@ -55,13 +55,10 @@ ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
 
-ifeq ($(AC66U),)
-AC66U = 0
+ifeq ($(ASUS_TRX),)
+ASUS_TRX = 0
 endif
 
-ifeq ($(W1800R),)
-W1800R = 0
-endif
 
 ifeq ($(WNR3500LV2),)
 WNR3500LV2 = 0
@@ -130,25 +127,13 @@ all: tomato_ver
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 
-ifeq ($(AC66U),1)
-	$(MAKE) -C ctools
-	# Create generic TRX image
-	ctools/objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUXDIR)/vmlinux ctools/piggy
-	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
-	ctools/mksquashfs router/mipsel-uclibc/target ctools/target.squashfs -noappend -all-root
-	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
-	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-RT-AC66U_$(V1)$(V2)-$(current_BUILD_DESC).trx
-	@rm -f image/linux-lzma.trx
-	@echo ""
-endif
-
-ifeq ($(W1800R),1)
+ifneq ($(ASUS_TRX),0)
 	$(MAKE) -C ctools
 	ctools/objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUXDIR)/vmlinux ctools/piggy
 	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
 	ctools/mksquashfs router/mipsel-uclibc/target ctools/target.squashfs -noappend -all-root
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
-	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-W1800R_$(V1)$(V2)-$(current_BUILD_DESC).trx
+	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/linux-lzma.trx
 	@echo ""
 endif
@@ -545,6 +530,13 @@ define RouterOptions
 			echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
 			echo "# TCONFIG_SAMBA3 is not set" >>$(1); \
 		fi; \
+	fi; \
+	if [ "$(ASUS_TRX)" = "RT-AC66U" ]; then \
+		sed -i "/TCONFIG_AC66U/d" $(1); \
+		echo "TCONFIG_AC66U=y" >>$(1); \
+	else \
+		sed -i "/TCONFIG_AC66U/d" $(1); \
+		echo "# TCONFIG_AC66U is not set" >>$(1); \
 	fi; \
 	)
 endef
@@ -979,6 +971,7 @@ endif
 
 
 ## Make Mips32r2 builds ##
+ifeq ($(CONFIG_LINUX26),y)
 
 #AIO MIPS2 for RT-N16 and E4200
 r2z:
@@ -1121,23 +1114,6 @@ v2g:
 v2t:
 	@$(MAKE) t MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
 
-#Builds for Asus RT-N66u with 64k NVRAM support
-r64z:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y MICROSD=y
-
-r64e:
-	@$(MAKE) e MIPS32=r2 NVRAM_64K=y MICROSD=y
-
-r64g:
-	@$(MAKE) g MIPS32=r2 NVRAM_64K=y MICROSD=y
-
-r64o:
-	@$(MAKE) o MIPS32=r2 NVRAM_64K=y MICROSD=y
-
-r64t:
-	@$(MAKE) t MIPS32=r2 NVRAM_64K=y MICROSD=y
-
-ifeq ($(CONFIG_LINUX26),y)
 rtn53:
 	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="RT-N53" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y NO_USBAPP=y
 
@@ -1147,16 +1123,33 @@ e2500:
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
+#Builds for Asus RT-N66u with 64k NVRAM support
+ifeq ($(CONFIG_BCMWL6),y)
+r64z:
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y MICROSD=y ASUS_TRX="RT-N66U"
+
+r64e:
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y MICROSD=y ASUS_TRX="RT-N66U"
+else
+r64z:
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y MICROSD=y
+
+r64e:
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y MICROSD=y
+endif
+
 ifeq ($(CONFIG_BCMWL6),y)
 ac66e:
-	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y NO_JFFS=y ASUS_TRX="RT-AC66U"
 
 ac66z:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y NO_JFFS=y ASUS_TRX="RT-AC66U"
 
 w1800rz:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y W1800R=1
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
 endif
+
+# end ofCONFIG_LINUX26
 endif
 
 setprofile:

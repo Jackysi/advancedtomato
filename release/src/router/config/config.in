@@ -189,3 +189,7 @@ config TCONFIG_REMOVE_USBAPP
 	bool "Remove USB Application (samba/ftp/usb support page)"
 	depends on TCONFIG_USBAP
 	default n
+
+config TCONFIG_AC66U
+	bool "Flag to distinguish RT-AC66U from RT-N66U"
+	default n
