@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 14077 2013-05-22 20:35:38Z jordan $
+ * $Id: util.h 14142 2013-07-24 00:13:31Z jordan $
  */
 
 #ifndef GTR_UTIL_H
@@ -36,6 +36,23 @@ extern const char * speed_K_str;
 extern const char * speed_M_str;
 extern const char * speed_G_str;
 extern const char * speed_T_str;
+
+#if GLIB_CHECK_VERSION(2,33,12)
+ #define TR_DEFINE_QUARK G_DEFINE_QUARK
+#else
+ #define TR_DEFINE_QUARK(QN, q_n)                                        \
+ GQuark                                                                  \
+ q_n##_quark (void)                                                      \
+ {                                                                       \
+   static GQuark q;                                                      \
+                                                                         \
+   if G_UNLIKELY (q == 0)                                                \
+     q = g_quark_from_static_string (#QN);                               \
+                                                                         \
+  return q;                                                             \
+ }
+#endif 
+
 
 /* macro to shut up "unused parameter" warnings */
 #ifndef UNUSED

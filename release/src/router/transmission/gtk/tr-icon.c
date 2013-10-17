@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.c 14115 2013-07-09 22:44:24Z jordan $
+ * $Id: tr-icon.c 14142 2013-07-24 00:13:31Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -21,7 +21,7 @@
 #include "tr-icon.h"
 #include "util.h"
 
-static G_DEFINE_QUARK (tr-core, core)
+static TR_DEFINE_QUARK (tr_core, core)
 
 #define ICON_NAME "transmission"
 

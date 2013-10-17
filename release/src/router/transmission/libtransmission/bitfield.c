@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bitfield.c 13655 2012-12-13 02:00:45Z jordan $
+ * $Id: bitfield.c 14151 2013-07-29 04:19:15Z jordan $
  */
 
 #include <assert.h>
@@ -179,9 +179,12 @@ set_all_true (uint8_t * array, size_t bit_count)
   const uint8_t val = 0xFF;
   const size_t n = get_bytes_needed (bit_count);
 
-  memset (array, val, n-1);
+  if (n > 0)
+    {
+      memset (array, val, n-1);
 
-  array[n-1] = val << (n*8 - bit_count);
+      array[n-1] = val << (n*8 - bit_count);
+    }
 }
 
 void*

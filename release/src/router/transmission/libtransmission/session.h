@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.h 14023 2013-02-15 01:52:47Z jordan $
+ * $Id: session.h 14130 2013-07-20 15:37:13Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -262,6 +262,8 @@ const struct tr_address*  tr_sessionGetPublicAddress (const tr_session  * sessio
 struct tr_bindsockets * tr_sessionGetBindSockets (tr_session *);
 
 int tr_sessionCountTorrents (const tr_session * session);
+
+tr_torrent ** tr_sessionGetTorrents (tr_session * session, int * setme_n);
 
 enum
 {

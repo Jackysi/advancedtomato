@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: favicon.c 14070 2013-04-13 20:25:28Z jordan $
+ * $Id: favicon.c 14133 2013-07-20 16:37:59Z jordan $
  */
 
 #include <glib/gstdio.h> /* g_remove () */
@@ -124,7 +124,7 @@ favicon_web_done_idle_cb (gpointer vfav)
         g_free (fav);
     }
 
-    return FALSE;
+    return G_SOURCE_REMOVE;
 }
 
 static void

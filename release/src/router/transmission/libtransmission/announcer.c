@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 14124 2013-07-16 00:13:30Z jordan $
+ * $Id: announcer.c 14138 2013-07-21 21:11:54Z jordan $
  */
 
 #include <assert.h>
@@ -964,11 +964,12 @@ getRetryInterval (const tr_tracker * t)
 {
   switch (t->consecutiveFailures)
     {
-      case 0:  return 20;
-      case 1:  return tr_cryptoWeakRandInt (60) + (60 * 5);
-      case 2:  return tr_cryptoWeakRandInt (60) + (60 * 15);
-      case 3:  return tr_cryptoWeakRandInt (60) + (60 * 30);
-      case 4:  return tr_cryptoWeakRandInt (60) + (60 * 60);
+      case 0:  return 0;
+      case 1:  return 20;
+      case 2:  return tr_cryptoWeakRandInt (60) + (60 * 5);
+      case 3:  return tr_cryptoWeakRandInt (60) + (60 * 15);
+      case 4:  return tr_cryptoWeakRandInt (60) + (60 * 30);
+      case 5:  return tr_cryptoWeakRandInt (60) + (60 * 60);
       default: return tr_cryptoWeakRandInt (60) + (60 * 120);
     }
 }

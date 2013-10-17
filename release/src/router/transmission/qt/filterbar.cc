@@ -7,9 +7,15 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: filterbar.cc 13939 2013-02-03 12:31:44Z jordan $
+ * $Id: filterbar.cc 14150 2013-07-27 21:58:14Z jordan $
  */
 
+#include <QAbstractItemView>
+#include <QPushButton>
+#include <QLabel>
+#include <QHBoxLayout>
+#include <QLineEdit>
+#include <QStylePainter>
 #include <QString>
 #include <QtGui>
 

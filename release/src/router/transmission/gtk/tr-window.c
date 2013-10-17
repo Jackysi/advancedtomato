@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-window.c 14115 2013-07-09 22:44:24Z jordan $
+ * $Id: tr-window.c 14142 2013-07-24 00:13:31Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -66,7 +66,7 @@ typedef struct
 }
 PrivateData;
 
-static G_DEFINE_QUARK (private-data, private_data)
+static TR_DEFINE_QUARK (private_data, private_data)
 
 static PrivateData*
 get_private_data (GtkWindow * w)
@@ -361,7 +361,7 @@ onAltSpeedToggledIdle (gpointer vp)
   gboolean b = tr_sessionUsesAltSpeed (gtr_core_session (p->core));
   gtr_core_set_pref_bool (p->core, TR_KEY_alt_speed_enabled, b);
 
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 static void

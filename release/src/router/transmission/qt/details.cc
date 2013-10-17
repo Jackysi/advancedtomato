@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: details.cc 13943 2013-02-03 19:13:04Z jordan $
+ * $Id: details.cc 14150 2013-07-27 21:58:14Z jordan $
  */
 
 #include <cassert>
@@ -867,7 +867,7 @@ Details :: refresh ()
           foreach (QChar ch, code)
             {
               QString txt;
-              switch (ch.toAscii ())
+              switch (ch.unicode ())
                 {
                   case 'O': txt = tr ("Optimistic unchoke"); break;
                   case 'D': txt = tr ("Downloading from this peer"); break;

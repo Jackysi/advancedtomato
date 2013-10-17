@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: relocate.c 13761 2013-01-04 19:45:39Z jordan $
+ * $Id: relocate.c 14132 2013-07-20 16:19:15Z jordan $
  */
 
 #include <libtransmission/transmission.h>
@@ -28,6 +28,7 @@ struct relocate_dialog_data
 {
   int done;
   bool do_move;
+  guint timer;
   TrCore * core;
   GSList * torrent_ids;
   GtkWidget * message_dialog;
@@ -38,6 +39,7 @@ static void
 data_free (gpointer gdata)
 {
   struct relocate_dialog_data * data = gdata;
+  g_source_remove (data->timer);
   g_slist_free (data->torrent_ids);
   g_free (data);
 }
@@ -85,7 +87,7 @@ onTimer (gpointer gdata)
       gtk_dialog_run (GTK_DIALOG (w));
       gtk_widget_destroy (GTK_WIDGET (data->message_dialog));
     }
-    else if (done == TR_LOC_DONE)
+  else if (done == TR_LOC_DONE)
     {
       if (data->torrent_ids != NULL)
         startMovingNextTorrent (data);
@@ -127,8 +129,8 @@ onResponse (GtkDialog * dialog, int response, gpointer unused UNUSED)
       /* start the move and periodically check its status */
       data->message_dialog = w;
       data->done = TR_LOC_DONE;
+      data->timer = gdk_threads_add_timeout_seconds (1, onTimer, data);
       onTimer (data);
-      gdk_threads_add_timeout_seconds (1, onTimer, data);
     }
   else
     {

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: clients.c 13954 2013-02-04 16:23:33Z jordan $
+ * $Id: clients.c 14152 2013-07-29 04:29:22Z jordan $
  */
 
 /* thanks amc1! */
@@ -415,8 +415,13 @@ tr_clientForId (char * buf, size_t buflen, const void * id_in)
     {
         four_digits (buf, buflen, "BT Next Evolution", id+3);
     }
+    else if (!memcmp (id, "TIX", 3))
+    {
+        two_major_two_minor (buf, buflen, "Tixati", id+3);
+    }
 
     /* Shad0w-style */
+    if (!*buf)
     {
         int a, b, c;
         if (strchr ("AOQRSTU", id[0])

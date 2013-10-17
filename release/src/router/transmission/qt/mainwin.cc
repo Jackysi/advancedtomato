@@ -7,13 +7,17 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 14098 2013-06-26 01:48:47Z jordan $
+ * $Id: mainwin.cc 14150 2013-07-27 21:58:14Z jordan $
  */
 
 #include <cassert>
 #include <iostream>
 
 #include <QtGui>
+#include <QProxyStyle>
+#include <QLabel>
+#include <QFileDialog>
+#include <QMessageBox>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/utils.h>

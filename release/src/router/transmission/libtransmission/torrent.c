@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 14125 2013-07-16 00:50:45Z jordan $
+ * $Id: torrent.c 14156 2013-08-05 13:07:23Z jordan $
  */
 
 #include <signal.h> /* signal () */
@@ -17,7 +17,6 @@
  #include <sys/wait.h> /* wait () */
 #else
  #include <process.h>
- #define waitpid(pid, status, options)	_cwait (status, pid, WAIT_CHILD)
 #endif
 #include <unistd.h> /* stat */
 #include <dirent.h>
@@ -2073,7 +2072,18 @@ tr_torrentClearIdleLimitHitCallback (tr_torrent * torrent)
 static void
 onSigCHLD (int i UNUSED)
 {
-  waitpid (-1, NULL, WNOHANG);
+#ifdef WIN32
+
+  _cwait (NULL, -1, WAIT_CHILD);
+
+#else
+
+  int rc;
+  do
+    rc = waitpid (-1, NULL, WNOHANG);
+  while (rc>0 || (rc==-1 && errno==EINTR));
+
+#endif
 }
 
 static void
@@ -3390,20 +3400,14 @@ compareTorrentByQueuePosition (const void * va, const void * vb)
 static bool
 queueIsSequenced (tr_session * session)
 {
-  int i ;
-  int n ;
-  bool is_sequenced = true;
-  tr_torrent * tor;
-  tr_torrent ** tmp = tr_new (tr_torrent *, session->torrentCount);
+  int i;
+  int n;
+  bool is_sequenced;
+  tr_torrent ** torrents;
 
-  /* get all the torrents */
   n = 0;
-  tor = NULL;
-  while ((tor = tr_torrentNext (session, tor)))
-    tmp[n++] = tor;
-
-  /* sort them by position */
-  qsort (tmp, n, sizeof (tr_torrent *), compareTorrentByQueuePosition);
+  torrents = tr_sessionGetTorrents (session, &n);
+  qsort (torrents, n, sizeof (tr_torrent *), compareTorrentByQueuePosition);
 
 #if 0
   fprintf (stderr, "%s", "queue: ");
@@ -3413,11 +3417,12 @@ queueIsSequenced (tr_session * session)
 #endif
 
   /* test them */
+  is_sequenced = true;
   for (i=0; is_sequenced && i<n; ++i)
-    if (tmp[i]->queuePosition != i)
+    if (torrents[i]->queuePosition != i)
       is_sequenced = false;
 
-  tr_free (tmp);
+  tr_free (torrents);
   return is_sequenced;
 }
 #endif

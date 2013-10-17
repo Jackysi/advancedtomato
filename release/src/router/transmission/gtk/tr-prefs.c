@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.c 14059 2013-04-10 02:12:19Z jordan $
+ * $Id: tr-prefs.c 14149 2013-07-27 18:20:32Z jordan $
  */
 
 #include <ctype.h> /* isspace */
@@ -462,6 +462,7 @@ onBlocklistUpdateResponse (GtkDialog * dialog, gint response UNUSED, gpointer gd
     gtk_widget_set_sensitive (data->updateBlocklistButton, TRUE);
     data->updateBlocklistDialog = NULL;
     g_signal_handler_disconnect (data->core, data->updateBlocklistTag);
+    data->updateBlocklistTag = 0;
 }
 
 /* core says the blocklist was updated */

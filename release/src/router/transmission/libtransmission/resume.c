@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: resume.c 14080 2013-05-23 03:20:18Z jordan $
+ * $Id: resume.c 14136 2013-07-21 14:58:24Z jordan $
  */
 
 #include <string.h>
@@ -778,7 +778,7 @@ loadFromFile (tr_torrent * tor, uint64_t fieldsToLoad)
   if ((fieldsToLoad & TR_FR_RUN)
       && tr_variantDictFindBool (&top, TR_KEY_paused, &boolVal))
     {
-      tor->isRunning = !boolVal;
+      tor->isRunning = !boolVal && !tor->isQueued; 
       fieldsLoaded |= TR_FR_RUN;
     }
 

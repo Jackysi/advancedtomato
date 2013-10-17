@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 14116 2013-07-10 22:28:40Z jordan $
+ * $Id: rpcimpl.c 14130 2013-07-20 15:37:13Z jordan $
  */
 
 #include <assert.h>
@@ -181,11 +181,7 @@ getTorrents (tr_session * session,
     }
   else /* all of them */
     {
-      tr_torrent * tor = NULL;
-      const int n = tr_sessionCountTorrents (session);
-      torrents = tr_new0 (tr_torrent *, n);
-      while ((tor = tr_torrentNext (session, tor)))
-        torrents[torrentCount++] = tor;
+      torrents = tr_sessionGetTorrents (session, &torrentCount);
     }
 
   *setmeCount = torrentCount;

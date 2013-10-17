@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-udp.c 13965 2013-02-04 20:46:16Z jordan $
+ * $Id: announcer-udp.c 14135 2013-07-20 23:29:42Z jordan $
  */
 
 #define __LIBTRANSMISSION_ANNOUNCER_MODULE___
@@ -680,7 +680,6 @@ tau_tracker_upkeep (struct tau_tracker * tracker)
         struct evutil_addrinfo hints;
         memset (&hints, 0, sizeof (hints));
         hints.ai_family = AF_UNSPEC;
-        hints.ai_flags = EVUTIL_AI_CANONNAME;
         hints.ai_socktype = SOCK_DGRAM;
         hints.ai_protocol = IPPROTO_UDP;
         tracker->is_asking_dns = true;
