@@ -103,7 +103,7 @@ qh_update (struct ehci_hcd *ehci, struct ehci_qh *qh, struct ehci_qtd *qtd)
 	if (!(hw->hw_info1 & cpu_to_hc32(ehci, 1 << 14))) {
 		unsigned	is_out, epnum;
 
-		is_out = qh->is_out;
+		is_out = !(qtd->hw_token & cpu_to_hc32(ehci, 1 << 8));
 		epnum = (hc32_to_cpup(ehci, &hw->hw_info1) >> 8) & 0x0f;
 		if (unlikely (!usb_gettoggle (qh->dev, epnum, is_out))) {
 			hw->hw_token &= ~cpu_to_hc32(ehci, QTD_TOGGLE);
@@ -269,6 +269,59 @@ __acquires(ehci->lock)
 	spin_lock (&ehci->lock);
 }
 
+#ifdef EHCI_QTD_CACHE
+static unsigned
+ehci_qtdc_unlink (struct ehci_hcd *ehci, struct urb *unlink, struct pt_regs *regs)
+{
+	struct list_head	*entry, *tmp;
+	unsigned		ret = -ENOENT;
+	unsigned long		flags;
+	int 			i;
+
+	spin_lock_irqsave (&ehci->lock, flags);
+
+	for (i = 0; i < NUM_QTD_CACHE; i++) {
+		ehci_qtdc_t *qtdc_this = ehci->qtdc[i];
+
+		/* skip if cache empty or found in previous cache */
+		if (unlikely (!qtdc_this || list_empty(&qtdc_this->cache)) || (ret == 0))
+			continue;
+
+		list_for_each_safe (entry, tmp, &qtdc_this->cache) {
+			struct ehci_qtd	*qtd;
+			struct urb	*urb;
+			unsigned long	flags;
+
+			qtd = list_entry (entry, struct ehci_qtd, qtd_list);
+			urb = qtd->urb;
+
+			if (likely (urb != unlink))
+				continue;
+
+			if (qtd->qtd_list.prev != &qtdc_this->cache) {
+				struct ehci_qtd	*last = 0;
+				last = list_entry (qtd->qtd_list.prev,
+						struct ehci_qtd, qtd_list);
+				last->hw_next = qtd->hw_next;
+			}
+			list_del (&qtd->qtd_list);
+			spin_lock_irqsave (&urb->lock, flags);
+			urb->transfer_flags &= ~URB_QTD_CACHED;
+			spin_unlock_irqrestore (&urb->lock, flags);
+			ehci_urb_done (ehci, urb);
+			ehci_qtd_free (ehci, qtd);
+			ret = 0;
+
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore (&ehci->lock, flags);
+	return ret;
+}
+#endif	/* EHCI_QTD_CACHE */
+
+
 static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
@@ -288,6 +341,7 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	int			stopped;
 	unsigned		count = 0;
 	u8			state;
+	const __le32		halt = HALT_BIT(ehci);
 	struct ehci_qh_hw	*hw = qh->hw;
 
 	if (unlikely (list_empty (&qh->qtd_list)))
@@ -394,6 +448,7 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 					&& !(qtd->hw_alt_next
 						& EHCI_LIST_END(ehci))) {
 				stopped = 1;
+				goto halt;
 			}
 
 		/* stop scanning when we reach qtds the hc is using */
@@ -420,6 +475,16 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 					&& cpu_to_hc32(ehci, qtd->qtd_dma)
 						== hw->hw_current)
 				token = hc32_to_cpu(ehci, hw->hw_token);
+
+			/* force halt for unlinked or blocked qh, so we'll
+			 * patch the qh later and so that completions can't
+			 * activate it while we "know" it's stopped.
+			 */
+			if ((halt & hw->hw_token) == 0) {
+halt:
+				hw->hw_token |= halt;
+				wmb ();
+			}
 		}
 
 		/* unless we already know the urb's status, collect qtd status
@@ -751,7 +816,6 @@ qh_make (
 				is_input, 0,
 				hb_mult(maxp) * max_packet(maxp)));
 		qh->start = NO_FRAME;
-		qh->stamp = ehci->periodic_stamp;
 
 		if (urb->dev->speed == USB_SPEED_HIGH) {
 			qh->c_usecs = 0;
@@ -871,7 +935,6 @@ done:
 	hw = qh->hw;
 	hw->hw_info1 = cpu_to_hc32(ehci, info1);
 	hw->hw_info2 = cpu_to_hc32(ehci, info2);
-	qh->is_out = !is_input;
 	usb_settoggle (urb->dev, usb_pipeendpoint (urb->pipe), !is_input, 1);
 	qh_refresh (ehci, qh);
 	return qh;
@@ -946,6 +1009,13 @@ static struct ehci_qh *qh_append_tds (
 		qh = qh_make (ehci, urb, GFP_ATOMIC);
 		*ptr = qh;
 	}
+
+	if(ehci_optimized(ehci, qh) >= 0)
+	{
+		ehci_err(ehci, "EHCI Fastpath: Attempted non-optimzed write to optimzed pipe\n");
+		return qh;
+	}
+
 	if (likely (qh != NULL)) {
 		struct ehci_qtd	*qtd;
 
@@ -962,6 +1032,18 @@ static struct ehci_qh *qh_append_tds (
                         if (usb_pipedevice (urb->pipe) == 0)
 				qh->hw->hw_info1 &= ~qh_addr_mask;
 		}
+
+#ifdef EHCI_QTD_CACHE
+		{
+			struct list_head	*entry;
+			struct ehci_qtd	*qtd2;
+
+			list_for_each (entry, qtd_list) {
+				qtd2 = list_entry (entry, struct ehci_qtd, qtd_list);
+				qtd2->urb->hcpriv = qh_get (qh);
+			}
+		}
+#endif	/* EHCI_QTD_CACHE */
 
 		/* just one way to queue requests: swap with the dummy qtd.
 		 * only hc or qh_refresh() ever modify the overlay.
@@ -1036,6 +1118,79 @@ submit_async (
 #endif
 
 	spin_lock_irqsave (&ehci->lock, flags);
+
+#ifdef EHCI_QTD_CACHE
+	{
+		ehci_qtdc_t	*qtdc_hit = NULL;
+
+		if (!ehci->qtdc_dev) {
+			if (ehci->qtdc_vid && (urb->dev->descriptor.idVendor == ehci->qtdc_vid) &&
+				ehci->qtdc_pid && (urb->dev->descriptor.idProduct == ehci->qtdc_pid)) {
+				ehci->qtdc_dev = urb->dev;
+				printk("QTDC: matched pid %x vid %x dev %p\n",
+					urb->dev->descriptor.idProduct, urb->dev->descriptor.idVendor,
+					urb->dev);
+			}
+		}
+
+		if (ehci->qtdc[0] && (urb->dev == ehci->qtdc_dev) && (epnum == ehci->qtdc[0]->ep))
+			qtdc_hit = ehci->qtdc[0];
+		else if (ehci->qtdc[1] && (urb->dev == ehci->qtdc_dev) &&
+			(epnum == ehci->qtdc[1]->ep))
+			qtdc_hit = ehci->qtdc[1];
+
+		if (likely ((int)qtdc_hit)) {
+			unsigned long	flags2;
+
+			/* Link the hw_next when there're cached qtd's in qtdc_hit */
+			if (likely (qtdc_hit->cnt)) {
+				struct ehci_qtd		*qtd_prev, *qtd_this;
+
+				qtd_prev = list_entry (qtdc_hit->cache.prev, struct ehci_qtd, qtd_list);
+				qtd_this = list_entry (qtd_list->next, struct ehci_qtd, qtd_list);
+				qtd_prev->hw_next = QTD_NEXT (qtd_this->qtd_dma);
+			}
+
+			if (likely (qtdc_hit->cnt < qtdc_hit->size)) {	/* queue it to the cache and return */
+				/* Set the urb cached flag */
+				spin_lock_irqsave (&urb->lock, flags2);
+				urb->transfer_flags |= URB_QTD_CACHED;
+				spin_unlock_irqrestore (&urb->lock, flags2);
+
+				list_splice_init (qtd_list, qtdc_hit->cache.prev);
+				qtdc_hit->cnt++;
+#ifdef EHCI_QTDC_DEBUG
+				qtdc_hit->cached_qtd++;
+#endif	/* EHCI_QTDC_DEBUG */
+				QTDC_TRACE(qtdc_hit, ("caching! cnt %d\n", qtdc_hit->cnt));
+				mod_timer (&qtdc_hit->watchdog,
+					jiffies + qtdc_hit->timeout);
+				spin_unlock_irqrestore (&ehci->lock, flags);
+				return 0;
+			} else {	/* insert the cache list into qtd_list and go on */
+				struct list_head	*entry;
+
+				/* clear urb cached flag */
+				list_for_each (entry, &qtdc_hit->cache) {
+					qtd = list_entry (entry, struct ehci_qtd, qtd_list);
+					urb = qtd->urb;
+					spin_lock_irqsave (&urb->lock, flags2);
+					urb->transfer_flags &= ~URB_QTD_CACHED;
+					spin_unlock_irqrestore (&urb->lock, flags2);
+				}
+				list_splice_init (&qtdc_hit->cache, qtd_list);
+#ifdef EHCI_QTDC_DEBUG
+				qtdc_hit->release_qtd += qtdc_hit->cnt;
+				qtdc_hit->release_cnt++;
+#endif	/* EHCI_QTDC_DEBUG */
+				QTDC_TRACE(qtdc_hit, ("releasing! cnt %d\n", qtdc_hit->cnt));
+				qtdc_hit->cnt = 0;
+				del_timer_sync (&qtdc_hit->watchdog);
+			}
+		}
+	}
+#endif	/* EHCI_QTD_CACHE */
+
 	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE,
 			       &ehci_to_hcd(ehci)->flags))) {
 		rc = -ESHUTDOWN;
@@ -1123,6 +1278,11 @@ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 			)
 		BUG ();
 #endif
+
+	if(ehci_optimized(ehci, qh) >= 0)
+	{
+		ehci_err(ehci, "EHCI Fastpath: Regular unlink of optimzed pipe\n");
+	}
 
 	/* stop async schedule right now? */
 	if (unlikely (qh == ehci->async)) {
@@ -1221,3 +1381,5 @@ rescan:
 	if (action == TIMER_ASYNC_SHRINK)
 		timer_action (ehci, TIMER_ASYNC_SHRINK);
 }
+
+

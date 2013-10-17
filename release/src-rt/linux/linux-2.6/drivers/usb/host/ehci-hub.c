@@ -17,6 +17,10 @@
  */
 
 /* this file is part of ehci-hcd.c */
+static void qh_link_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
+static struct ehci_qh *qh_make (struct ehci_hcd *ehci, struct urb *urb, gfp_t flags);
+static inline void ehci_qtd_init (struct ehci_hcd *ehci, struct ehci_qtd *qtd, dma_addr_t dma);
+static inline void ehci_qtd_free (struct ehci_hcd *ehci, struct ehci_qtd *qtd);
 
 /*-------------------------------------------------------------------------*/
 
@@ -580,6 +584,7 @@ static int ehci_hub_control (
 	u32 __iomem	*status_reg = &ehci->regs->port_status[
 				(wIndex & 0xff) - 1];
 	u32		temp, status;
+	u32		hcc_params;
 	unsigned long	flags;
 	int		retval = 0;
 	unsigned	selector;
@@ -905,6 +910,110 @@ static int ehci_hub_control (
 		ehci_readl(ehci, &ehci->regs->command);	/* unblock posted writes */
 		break;
 
+	/* EHCI fastpath acceleration */
+	/* Use parameters instead of buffer to avoid core modifications */
+	case EHCI_SET_BYPASS_CB:
+		ehci->ehci_bypass_callback = (void (*)(int, struct ehci_qh *, spinlock_t *lock))(wValue | (wIndex << 16));
+		ehci_info(ehci, "EHCI Fastpath: Got the bypass callback command in EHCI %p\n", ehci->ehci_bypass_callback);
+		break;
+	case EHCI_SET_BYPASS_DEV:
+		hcc_params = ehci_readl(ehci, &ehci->caps->hcc_params);
+		if (HCC_64BIT_ADDR (hcc_params)) {
+			ehci_info(ehci, "EHCI Fastpath: EHCI 64bit addressing mode not supported\n");
+			goto error;
+		}
+		ehci->bypass_device = (struct usb_device *)(wValue | (wIndex << 16));
+		ehci_info(ehci, "EHCI Fastpath: Got the bypass device command in EHCI %p\n", ehci->bypass_device);
+		break;
+	case EHCI_SET_EP_BYPASS:
+		{
+			struct urb dummy_urb;
+			/* In/out bit mask is 0x10 */
+			int pipe = wValue;
+			int pipeindex = wIndex;	
+			struct usb_device *udev = ehci->bypass_device;	
+			struct ehci_qh *qh;
+			int usb_pipe;
+			bool pipeout = ((pipe&0x10) == 0);
+
+			struct usb_host_endpoint *ep; 
+			
+			ehci_info(ehci, "EHCI Fastpath: Got the RH bypass command in EHCI for EP #%d %04x\n", pipeindex, pipe);
+
+			pipe &= 0xf;
+			ep = pipeout ? udev->ep_out[pipe] : udev->ep_in[pipe];
+			usb_pipe = pipeout ? usb_sndbulkpipe(udev, pipe) : usb_rcvbulkpipe(udev, pipe);
+			
+			usb_fill_bulk_urb(&dummy_urb, ehci->bypass_device, usb_pipe, NULL, 0, NULL, NULL);	
+
+			qh = qh_make(ehci, &dummy_urb, GFP_ATOMIC);
+
+			if (ehci->fastpath_pool != NULL) {
+				dma_addr_t dma;
+
+				ehci_info(ehci, "EHCI Fastpath: release native dummy qtd and alloc new one\n");
+				ehci_qtd_free (ehci, qh->dummy);
+
+				qh->dummy = dma_pool_alloc (ehci->fastpath_pool, GFP_ATOMIC, &dma);
+				if (qh->dummy != NULL)
+					ehci_qtd_init (ehci, qh->dummy, dma);
+				else 
+					printk("re-alloc dummy qtd from fastpath_pool error !!\n");
+			}
+
+			ep->hcpriv = qh;
+			qh->first_qtd = qh->dummy;
+
+			ehci_info(ehci, "EHCI Fastpath: EP %p QH %p dummy %p\n", ep, qh, qh->dummy);
+	
+			/* Start the QH */
+			qh_link_async (ehci, qh);
+
+			/* Detach the QH */
+			qh->qh_state = QH_STATE_DETACHED;
+
+			/* Save the pipe pointer */
+			ehci->ehci_pipes[pipeindex] = qh;				
+
+		}			
+		break;
+
+	case EHCI_DUMP_STATE:
+		{
+			int sts = ehci_readl(ehci, &ehci->regs->status);
+
+			printk("EHCI IRQ status %08x\n", sts);
+			printk("EHCI INT status %08x\n", ehci->regs->intr_enable);
+		}
+		break;
+
+	case EHCI_SET_BYPASS_POOL:
+		ehci->fastpath_pool= (struct dma_pool *)(wValue | (wIndex << 16));
+		ehci_info(ehci, "EHCI Fastpath: Got the bypass fastpath pool command in EHCI %p\n", ehci->fastpath_pool);
+		break;
+
+	case EHCI_CLR_EP_BYPASS:
+		{
+			int idx;
+
+			/* reset callback func and bapass dev */
+			ehci->ehci_bypass_callback = NULL;
+			ehci->bypass_device = NULL;
+
+			/* freeing qh and qtd info */
+			for (idx = 0; idx < 3; idx++) {
+			printk("%d freeing \n", idx);
+				if (ehci->ehci_pipes[idx] != NULL) {
+					struct ehci_qh *rm_qh = ehci->ehci_pipes[idx];
+					struct ehci_qtd *rm_qtd= ehci->ehci_pipes[idx]->dummy;
+
+					dma_pool_free(ehci->fastpath_pool, rm_qtd, rm_qtd->qtd_dma);
+					dma_pool_free(ehci->qh_pool, rm_qh, rm_qh->qh_dma);
+					ehci->ehci_pipes[idx] = NULL;
+				}
+			}
+		}
+		break;
 	default:
 error:
 		/* "stall" on error */
@@ -933,3 +1042,5 @@ static int ehci_port_handed_over(struct usb_hcd *hcd, int portnum)
 	reg = &ehci->regs->port_status[portnum - 1];
 	return ehci_readl(ehci, reg) & PORT_OWNER;
 }
+
+

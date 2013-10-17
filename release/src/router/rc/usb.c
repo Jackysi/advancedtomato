@@ -108,6 +108,25 @@ void start_usb(void)
 #endif
 #ifdef TCONFIG_USBAP
 			char instance[20];
+			/* From Asus QTD cache params */
+			char arg1[20] = {0};
+			char arg2[20] = {0};
+			char arg3[20] = {0};
+			char arg4[20] = {0};
+			char arg5[20] = {0};
+			char arg6[20] = {0};
+			char arg7[20] = {0};
+			/* Save QTD cache params in nvram */
+			sprintf(arg1, "log2_irq_thresh=%d", nvram_get_int("ehciirqt"));
+			sprintf(arg2, "qtdc_pid=%d", nvram_get_int("qtdc_pid"));
+			sprintf(arg3, "qtdc_vid=%d", nvram_get_int("qtdc_vid"));
+			sprintf(arg4, "qtdc0_ep=%d", nvram_get_int("qtdc0_ep"));
+			sprintf(arg5, "qtdc0_sz=%d", nvram_get_int("qtdc0_sz"));
+			sprintf(arg6, "qtdc1_ep=%d", nvram_get_int("qtdc1_ep"));
+			sprintf(arg7, "qtdc1_sz=%d", nvram_get_int("qtdc1_sz"));
+
+			modprobe("ehci-hcd", arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+
 			sprintf(instance, "instance_base=1");
 			modprobe("wl_high", instance );
 #endif

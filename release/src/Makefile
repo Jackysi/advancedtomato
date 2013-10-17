@@ -223,6 +223,7 @@ endif
 ifeq ($(LINKSYS_E_64k),y)
 	# Linksys E-series(64k Nvram) images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E800,image/tomato-E800$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E900,image/tomato-E900$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E122,image/tomato-E1200v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E150,image/tomato-E1500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
@@ -1123,6 +1124,9 @@ e2500:
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
+l600n:
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="L600N" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y
+
 #Builds for Asus RT-N66u with 64k NVRAM support
 ifeq ($(CONFIG_BCMWL6),y)
 r64z:
@@ -1251,7 +1255,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60j         Linksys E-series build MiniIPv6 for E2500"
 	@echo "n60v         Linksys E-series build IPv6-VPN for E2000"
 	@echo "n60m         Linksys E-series build Max for E2000"
-	@echo "       Linksys E-Series with 64k Nvram/8MB Flash(E900/E1200v2/E1500)"
+	@echo "       Linksys E-Series with 64k Nvram/8MB Flash(E800/E900/E1200v2/E1500)"
 	@echo "n64e         Linksys E-series(64k Nvram) build VPN"
 	@echo "n64c         Linksys E-series(64k Nvram) build BTGui-VPN"
 	@echo "n64d         Linksys E-series(64k Nvram) build BTGui-VPN plus Nocat"
@@ -1262,10 +1266,11 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n64o         Linksys E-series(64k Nvram) build Mega-VPN"
 	@echo "n64v         Linksys E-series(64k Nvram) build IPv6-VPN"
 	@echo "n64m         Linksys E-series(64k Nvram) build Max"
-	@echo "       Router with wl_high module"
+	@echo "       Routers with wl_high module"
 	@echo "rtn53        Asus RT-N53 with wl_high module (dualband support)"
 	@echo "e2500        Linksys E2500 with wl_high module (dualband support)"
 	@echo "e3200        Linksys E3200 with wl_high module (dualband support)"
+	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
 	@echo "v2g          Netgear WNR3500Lv2 build Tor-VPN"
@@ -1278,6 +1283,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r64o         RT-N66u build Mega-VPN"
 	@echo "r64z         RT-N66u build AIO"
 endif
+	@echo ""
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
 	@echo "cleanimage   rm -rf image"
