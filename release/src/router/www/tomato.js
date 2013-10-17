@@ -2369,7 +2369,7 @@ function navi()
 		['Tools', 			'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
-			['System',			'shell.asp'],
+			['System Commands',		'shell.asp'],
 			['Wireless Survey',		'survey.asp'],
 			['WOL',				'wol.asp'] ] ],
 		null,
