@@ -70,6 +70,7 @@ function init()
 	}
 }
 </script>
+
 <!-- / / / -->
 
 </head>
@@ -143,20 +144,6 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - SNMP integration and GUI<br>
 <!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
-=======
-<!-- UPS-BEGIN -->
-- APCUPSD integration and GUI (implemented by @arrmo)<br>
-<!-- UPS-END -->
-<!-- DNSCRYPT-BEGIN -->
-- DNScrypt-proxy 1.0 integration and GUI<br>
-<!-- DNSCRYPT-END -->
-<!-- TOR-BEGIN -->
-- TOR Project integration and GUI<br>
-<!-- TOR-END -->
-- TomatoAnon project integration and GUI<br>
-- TomatoThemeBase project integration and GUI<br>
-- Ethernet Ports State<br>
-Copyright (C) 2011-2013 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <!-- JYAVENARD-BEGIN -->
@@ -196,15 +183,16 @@ Copyright (C) 2012 Tiomo<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
-- 500 entry limit in Access Restriction rules<br>
-- Up to 80 QOS rules (all dependent on nvram <br>
+- 500 entry limit in Access Restriction rules*<br>
+- Up to 128 Port Forward rules*<br>
+- Up to 80 QOS rules* (*all dependent on nvram space)<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - TC-ATM overhead calculation - patch by tvlz<br>
 - GPT support for HDD by Yaniv Hamo<br>
 - Continuing IPv6 development by Kevin Darbyshire-Bryant<br>
-Copyright (C) 2010-2012 Toastman<br>
+Copyright (C) 2010-2013 Toastman<br>
 <a href='http://www.toastmanfirmware.yolasite.com'>http://www.toastmanfirmware.yolasite.com</a><br>
 <br>
 Built on <% build_time(); %><br>
@@ -252,3 +240,4 @@ suggestions and contributed to this project. ^ _ ^</b><br>
 </table>
 </body>
 </html>
+

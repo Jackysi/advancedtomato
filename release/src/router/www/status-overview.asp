@@ -118,7 +118,7 @@ function ethstates()
 
 	var state, state1, state2;
 	var code = '<div class="section-title">Ethernet Ports State</div>';
-	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td><center><b>LAN 1</b></center></td><td><center><b>LAN 2</b></center></td><td><center><b>LAN 3</b></center></td><td><center><b>LAN 4</b></center></td><tr>';
+	code += '<table class="fields"><tr><td class="title indent1"><center>WAN</center></td><td><center>LAN 1</center></td><td><center>LAN 2</center></td><td><center>LAN 3</center></td><td><center>LAN 4</center></td><tr>';
 
 	if (port == "DOWN") {
 		state2 = port.replace("DOWN","Unplugged");
@@ -180,7 +180,6 @@ function ethstates()
 		code += '<td width="10%"><center>' + state2 + '</center></td>';
 
 	code += '<td class="content"> </td></tr>';
-	code += '<tr><td class="title indent1" colspan="6" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
 	E("ports").innerHTML = code;
 }
 

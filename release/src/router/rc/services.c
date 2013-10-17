@@ -1738,10 +1738,10 @@ static void start_ftpd(void)
 		/*
 		username<password<rights[<root_dir]
 		rights:
-			Read/Write - Odczyt/Zapis
-			Read Only - Odczyt
-			View Only - Widok
-			Private - Prywatne
+			Read/Write
+			Read Only
+			View Only
+			Private
 		*/
 		p = buf;
 		while ((q = strsep(&p, ">")) != NULL) {
@@ -1753,7 +1753,7 @@ static void start_ftpd(void)
 				root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
-			if (strncmp(rights, "Prywatne", 7) == 0)
+			if (strncmp(rights, "Private", 7) == 0)
 			{
 				sprintf(tmp, "%s/%s", nvram_storage_path("ftp_pvtroot"), user);
 				mkdir_if_none(tmp);
@@ -1771,9 +1771,9 @@ static void start_ftpd(void)
 				tmp[0] = 0;
 				if (nvram_invmatch("ftp_dirlist", "1"))
 					strcat(tmp, "dirlist_enable=yes\n");
-				if (strstr(rights, "Odczyt") || !strcmp(rights, "Prywatne"))
+				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
 					strcat(tmp, "download_enable=yes\n");
-				if (strstr(rights, "Zapis") || !strncmp(rights, "Prywatne", 7))
+				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
 					strcat(tmp, "write_enable=yes\n");
 					
 				fputs(tmp, f);
