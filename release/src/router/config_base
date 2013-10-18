@@ -39,3 +39,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_UPS is not set
 # TCONFIG_DNSCRYPT is not set
 # TCONFIG_TOR is not set
+# TCONFIG_CTF is not set
