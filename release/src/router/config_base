@@ -43,3 +43,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_MICROSD is not set
 # TCONFIG_USBAP is not set
 # TCONFIG_REMOVE_USBAPP is not set
+# TCONFIG_CTF is not set

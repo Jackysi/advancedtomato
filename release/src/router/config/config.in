@@ -193,3 +193,7 @@ config TCONFIG_REMOVE_USBAPP
 config TCONFIG_AC66U
 	bool "Flag to distinguish RT-AC66U from RT-N66U"
 	default n
+
+config TCONFIG_CTF
+	bool "CTF (Cut-Through Forwarding)"
+	default n

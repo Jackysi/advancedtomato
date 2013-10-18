@@ -157,6 +157,7 @@ ifneq ($(TCONFIG_TOR),y)
 endif
 
 
+
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.*
@@ -174,8 +175,13 @@ ifeq ($(TCONFIG_REMOVE_USBAPP),y)
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
 
-# Only include CTF option if CTF module exists
-	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+## Only include CTF option if CTF module exists
+#	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+
+# Only include the CTF configuration if CTF is configured in.
+ifneq ($(TCONFIG_CTF),y)
+	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+endif
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
