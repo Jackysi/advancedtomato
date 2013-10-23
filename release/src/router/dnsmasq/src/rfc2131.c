@@ -1543,7 +1543,7 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
   struct in_addr a;
 
  
-  if (!err && (!option_bool(OPT_LOG_OPTS) || option_bool(OPT_QUIET_DHCP)))
+  if (!err && !option_bool(OPT_LOG_OPTS) && option_bool(OPT_QUIET_DHCP))
     return;
   
   /* addr may be misaligned */
