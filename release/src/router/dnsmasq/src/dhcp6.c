@@ -330,7 +330,7 @@ static int complete_context6(struct in6_addr *local,  int prefix,
 	    {
 	      if ((context->flags & CONTEXT_DHCP) &&
 		  !(context->flags & (CONTEXT_TEMPLATE | CONTEXT_OLD)) &&
-		  prefix == context->prefix &&
+		  prefix <= context->prefix && //KDB
 		  is_same_net6(local, &context->start6, prefix) &&
 		  is_same_net6(local, &context->end6, prefix))
 		{
@@ -615,7 +615,7 @@ static int construct_worker(struct in6_addr *local, int prefix,
     if (!(template->flags & CONTEXT_TEMPLATE))
       {
 	/* non-template entries, just fill in interface and local addresses */
-	if (prefix == template->prefix &&
+	if (prefix <= template->prefix && //KDB
 	    is_same_net6(local, &template->start6, prefix) &&
 	    is_same_net6(local, &template->end6, prefix))
 	  {
@@ -624,7 +624,8 @@ static int construct_worker(struct in6_addr *local, int prefix,
 	  }
 	
       }
-    else if (wildcard_match(template->template_interface, ifrn_name))
+    else if (wildcard_match(template->template_interface, ifrn_name) &&
+	     template->prefix >= prefix) //KDB
       {
 	start6 = *local;
 	setaddr6part(&start6, addr6part(&template->start6));
