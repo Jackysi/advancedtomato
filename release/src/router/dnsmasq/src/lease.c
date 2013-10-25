@@ -1160,7 +1160,7 @@ void tomato_helper(time_t now)
 	if ((f = fopen("/var/tmp/dhcp/leases.!", "w")) != NULL) {
 		for (lease = leases; lease; lease = lease->next) {
 			if (lease->hwaddr_type == ARPHRD_ETHER) {
-#ifdef HAVE_DHCPV6 //only dump dhcpv6 if we have it
+#ifdef HAVE_DHCP6 //only dump dhcpv6 if we have it
                            if (lease->flags & (LEASE_TA | LEASE_NA))
                                 inet_ntop(AF_INET6, &lease->addr6, buf, ADDRSTRLEN);
                            else
