@@ -34,7 +34,7 @@ static void option_put_string(struct dhcp_packet *mess, unsigned char *end,
 static struct in_addr option_addr(unsigned char *opt);
 static unsigned int option_uint(unsigned char *opt, int i, int size);
 static void log_packet(char *type, void *addr, unsigned char *ext_mac, 
-		       int mac_len, char *interface, char *string, u32 xid);
+		       int mac_len, char *interface, char *string, char *err, u32 xid);
 static unsigned char *option_find(struct dhcp_packet *mess, size_t size, int opt_type, int minsize);
 static unsigned char *option_find1(unsigned char *p, unsigned char *end, int opt, int minsize);
 static size_t dhcp_packet_size(struct dhcp_packet *mess, unsigned char *agent_id, unsigned char *real_end);
@@ -610,12 +610,12 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    }
 	}
       
-      log_packet("BOOTP", logaddr, mess->chaddr, mess->hlen, iface_name, message, mess->xid);
+      log_packet("BOOTP", logaddr, mess->chaddr, mess->hlen, iface_name, NULL, message, mess->xid);
       
       return message ? 0 : dhcp_packet_size(mess, agent_id, real_end);
     }
       
-  if ((opt = option_find(mess, sz, OPTION_CLIENT_FQDN, 4)))
+  if ((opt = option_find(mess, sz, OPTION_CLIENT_FQDN, 3)))
     {
       /* http://tools.ietf.org/wg/dhc/draft-ietf-dhc-fqdn-option/draft-ietf-dhc-fqdn-option-10.txt */
       int len = option_len(opt);
@@ -645,7 +645,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	}
       
       if (fqdn_flags & 0x04)
-	while (*op != 0 && ((op + (*op) + 1) - pp) < len)
+	while (*op != 0 && ((op + (*op)) - pp) < len)
 	  {
 	    memcpy(pq, op+1, *op);
 	    pq += *op;
@@ -827,7 +827,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  opt71.next = daemon->dhcp_opts;
 	  do_encap_opts(&opt71, OPTION_VENDOR_CLASS_OPT, DHOPT_VENDOR_MATCH, mess, end, 0);
 	  
-	  log_packet("PXE", &mess->yiaddr, emac, emac_len, iface_name, (char *)mess->file, mess->xid);
+	  log_packet("PXE", &mess->yiaddr, emac, emac_len, iface_name, (char *)mess->file, NULL, mess->xid);
 	  log_tags(tagif_netid, ntohl(mess->xid));
 	  return dhcp_packet_size(mess, agent_id, real_end);	  
 	}
@@ -848,8 +848,16 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	      
 	      if (tmp)
 		{
-		  struct dhcp_boot *boot = find_boot(tagif_netid);
-		
+		  struct dhcp_boot *boot;
+		  
+		  if (tmp->netid.net)
+		    {
+		      tmp->netid.next = netid;
+		      tagif_netid = run_tag_if(&tmp->netid);
+		    }
+		  
+		  boot = find_boot(tagif_netid);
+		  
 		  mess->yiaddr.s_addr = 0;
 		  if  (mess_type == DHCPDISCOVER || mess->ciaddr.s_addr == 0)
 		    {
@@ -879,7 +887,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 		  prune_vendor_opts(tagif_netid);
 		  do_encap_opts(pxe_opts(pxearch, tagif_netid, context->local, now), OPTION_VENDOR_CLASS_OPT, DHOPT_VENDOR_MATCH, mess, end, 0);
 		  
-		  log_packet("PXE", NULL, emac, emac_len, iface_name, ignore ? "proxy-ignored" : "proxy", mess->xid);
+		  log_packet("PXE", NULL, emac, emac_len, iface_name, ignore ? "proxy-ignored" : "proxy", NULL, mess->xid);
 		  log_tags(tagif_netid, ntohl(mess->xid));
 		  return ignore ? 0 : dhcp_packet_size(mess, agent_id, real_end);	  
 		}
@@ -911,10 +919,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       if (!(opt = option_find(mess, sz, OPTION_REQUESTED_IP, INADDRSZ)))
 	return 0;
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPDECLINE", option_ptr(opt, 0), emac, emac_len, iface_name, daemon->dhcp_buff, mess->xid);
+      log_packet("DHCPDECLINE", option_ptr(opt, 0), emac, emac_len, iface_name, NULL, daemon->dhcp_buff, mess->xid);
       
       if (lease && lease->addr.s_addr == option_addr(opt).s_addr)
 	lease_prune(lease, now);
@@ -946,10 +951,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       else
 	message = _("unknown lease");
 
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPRELEASE", &mess->ciaddr, emac, emac_len, iface_name, message, mess->xid);
+      log_packet("DHCPRELEASE", &mess->ciaddr, emac, emac_len, iface_name, NULL, message, mess->xid);
 	
       return 0;
       
@@ -1013,10 +1015,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    message = _("no address available");      
 	}
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPDISCOVER", opt ? option_ptr(opt, 0) : NULL, emac, emac_len, iface_name, message, mess->xid); 
+      log_packet("DHCPDISCOVER", opt ? option_ptr(opt, 0) : NULL, emac, emac_len, iface_name, NULL, message, mess->xid); 
 
       if (message || !(context = narrow_context(context, mess->yiaddr, tagif_netid)))
 	return 0;
@@ -1029,10 +1028,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       log_tags(tagif_netid, ntohl(mess->xid));
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPOFFER" , &mess->yiaddr, emac, emac_len, iface_name, NULL, mess->xid);
+      log_packet("DHCPOFFER" , &mess->yiaddr, emac, emac_len, iface_name, NULL, NULL, mess->xid);
       
       time = calc_time(context, config, option_find(mess, sz, OPTION_LEASE_TIME, 4));
       clear_packet(mess, end);
@@ -1148,10 +1144,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  mess->yiaddr = mess->ciaddr;
 	}
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPREQUEST", &mess->yiaddr, emac, emac_len, iface_name, NULL, mess->xid);
+      log_packet("DHCPREQUEST", &mess->yiaddr, emac, emac_len, iface_name, NULL, NULL, mess->xid);
  
       if (!message)
 	{
@@ -1223,10 +1216,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       if (message)
 	{
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-	  log_packet("DHCPNAK", &mess->yiaddr, emac, emac_len, iface_name, message, mess->xid);
+	  log_packet("DHCPNAK", &mess->yiaddr, emac, emac_len, iface_name, NULL, message, mess->xid);
 	  
 	  mess->yiaddr.s_addr = 0;
 	  clear_packet(mess, end);
@@ -1365,10 +1355,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  else
 	    override = lease->override;
 
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-	  log_packet("DHCPACK", &mess->yiaddr, emac, emac_len, iface_name, hostname, mess->xid);  
+	  log_packet("DHCPACK", &mess->yiaddr, emac, emac_len, iface_name, hostname, NULL, mess->xid);  
 	  
 	  clear_packet(mess, end);
 	  option_put(mess, end, OPTION_MESSAGE_TYPE, 1, DHCPACK);
@@ -1391,10 +1378,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       if (ignore || have_config(config, CONFIG_DISABLE))
 	message = _("ignored");
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPINFORM", &mess->ciaddr, emac, emac_len, iface_name, message, mess->xid);
+      log_packet("DHCPINFORM", &mess->ciaddr, emac, emac_len, iface_name, message, NULL, mess->xid);
      
       if (message || mess->ciaddr.s_addr == 0)
 	return 0;
@@ -1409,8 +1393,8 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  lease->hostname)
 	hostname = lease->hostname;
       
-      if (!hostname && (hostname = host_from_dns(mess->ciaddr)))
-	domain = get_domain(mess->ciaddr);
+      if (!hostname)
+	hostname = host_from_dns(mess->ciaddr);
       
       if (context && context->netid.net)
 	{
@@ -1420,10 +1404,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       log_tags(tagif_netid, ntohl(mess->xid));
       
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (!option_bool(OPT_QUIET_DHCP))
-#endif
-      log_packet("DHCPACK", &mess->ciaddr, emac, emac_len, iface_name, hostname, mess->xid);
+      log_packet("DHCPACK", &mess->ciaddr, emac, emac_len, iface_name, hostname, NULL, mess->xid);
       
       if (lease)
 	{
@@ -1557,11 +1538,14 @@ static void add_extradata_opt(struct dhcp_lease *lease, unsigned char *opt)
 #endif
 
 static void log_packet(char *type, void *addr, unsigned char *ext_mac, 
-		       int mac_len, char *interface, char *string, u32 xid)
+		       int mac_len, char *interface, char *string, char *err, u32 xid)
 {
   struct in_addr a;
 
  
+  if (!err && !option_bool(OPT_LOG_OPTS) && option_bool(OPT_QUIET_DHCP))
+    return;
+  
   /* addr may be misaligned */
   if (addr)
     memcpy(&a, addr, sizeof(a));
@@ -1569,22 +1553,24 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
   print_mac(daemon->namebuff, ext_mac, mac_len);
   
   if(option_bool(OPT_LOG_OPTS))
-     my_syslog(MS_DHCP | LOG_INFO, "%u %s(%s) %s%s%s %s",
+     my_syslog(MS_DHCP | LOG_INFO, "%u %s(%s) %s%s%s %s%s",
 	       ntohl(xid), 
 	       type,
 	       interface, 
 	       addr ? inet_ntoa(a) : "",
 	       addr ? " " : "",
 	       daemon->namebuff,
-	       string ? string : "");
+	       string ? string : "",
+	       err ? err : "");
   else
-    my_syslog(MS_DHCP | LOG_INFO, "%s(%s) %s%s%s %s",
+    my_syslog(MS_DHCP | LOG_INFO, "%s(%s) %s%s%s %s%s",
 	      type,
 	      interface, 
 	      addr ? inet_ntoa(a) : "",
 	      addr ? " " : "",
 	      daemon->namebuff,
-	      string ? string : "");
+	      string ? string : "",
+	      err ? err : "");
 }
 
 static void log_options(unsigned char *start, u32 xid)
@@ -1861,7 +1847,8 @@ static int do_opt(struct dhcp_opt *opt, unsigned char *p, struct dhcp_context *c
 	    }
 	}
       else
-	memcpy(p, opt->val, len);
+	/* empty string may be extended to "\0" by null_term */
+	memcpy(p, opt->val ? opt->val : (unsigned char *)"", len);
     }  
   return len;
 }
@@ -2317,7 +2304,9 @@ static void do_options(struct dhcp_context *context,
 
 	  if (domain)
 	    len += strlen(domain) + 1;
-	  
+	  else if (fqdn_flags & 0x04)
+	    len--;
+
 	  if ((p = free_space(mess, end, OPTION_CLIENT_FQDN, len)))
 	    {
 	      *(p++) = fqdn_flags & 0x0f; /* MBZ bits to zero */ 
@@ -2328,8 +2317,10 @@ static void do_options(struct dhcp_context *context,
 		{
 		  p = do_rfc1035_name(p, hostname);
 		  if (domain)
-		    p = do_rfc1035_name(p, domain);
-		  *p++ = 0;
+		    {
+		      p = do_rfc1035_name(p, domain);
+		      *p++ = 0;
+		    }
 		}
 	      else
 		{
@@ -2499,5 +2490,10 @@ static void do_options(struct dhcp_context *context,
 }
 
 #endif
+  
+
+  
+  
 
 
+  

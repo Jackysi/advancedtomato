@@ -61,9 +61,6 @@ const defaults_t defaults[] = {
 	{ "lan_gateway",		"0.0.0.0"			},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
-	{ "lan_state",			"1"				},	// Show Ethernet LAN ports state (0|1)
-	{ "lan_invert",			"0"				},	// Invert Ethernet LAN ports state (0|1)
-
 #ifdef TCONFIG_VLAN
 	{ "lan1_ipaddr",		""				},
 	{ "lan1_netmask",		""				},
@@ -139,7 +136,7 @@ const defaults_t defaults[] = {
 
 	//3G parameters
 	{ "modem_pin",			""			},
-	{ "modem_dev",			"ttyUSB0"			},
+	{ "modem_dev",			"USB0"			},
 	{ "modem_init",			"*99#"			},
 	{ "modem_apn",			"internet"		},
 
@@ -500,8 +497,9 @@ const defaults_t defaults[] = {
 	{ "dmz_enable",			"0"				},
 	{ "dmz_ipaddr",			"0"				},
 	{ "dmz_sip",			""				},
-	{ "dmz_ifname",			"br0"				},
-	{ "dmz_ra",			"1"				},
+#ifdef TCONFIG_VLAN
+	{ "dmz_ifname",			"br0"			},
+#endif
 
 // forward-upnp
 	{ "upnp_enable",		"3"				},
@@ -672,17 +670,17 @@ const defaults_t defaults[] = {
 // admin-debugging
 	{ "debug_nocommit",		"0"				},
 	{ "debug_cprintf",		"0"				},
-	{ "debug_cprintf_file",	"0"				},
-//	{ "debug_keepfiles",	"0"				},
-	{ "console_loglevel",	"1"				},
+	{ "debug_cprintf_file",		"0"				},
+//	{ "debug_keepfiles",		"0"				},
+	{ "console_loglevel",		"1"				},
 	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},
 
 // admin-cifs
-	{ "cifs1",				""				},
-	{ "cifs2",				""				},
+	{ "cifs1",			""				},
+	{ "cifs2",			""				},
 
 // admin-jffs2
 	{ "jffs2_on",			"0"				},
