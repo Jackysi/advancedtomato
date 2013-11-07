@@ -1,15 +1,9 @@
 
-#include <sys/types.h>
-
-#include <assert.h>
-#include <inttypes.h>
-#include <limits.h>
-
 #include "crypto_onetimeauth_poly1305.h"
-#include "crypto_onetimeauth_poly1305_ref.h"
+#include "crypto_onetimeauth_poly1305_donna.h"
 
 static const crypto_onetimeauth_poly1305_implementation *implementation =
-    &crypto_onetimeauth_poly1305_ref_implementation;
+    &crypto_onetimeauth_poly1305_donna_implementation;
 
 int
 crypto_onetimeauth_poly1305_set_implementation(crypto_onetimeauth_poly1305_implementation *impl)

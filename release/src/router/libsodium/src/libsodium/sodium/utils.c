@@ -8,8 +8,8 @@
 #include "utils.h"
 #include "randombytes.h"
 #ifdef _WIN32
-# include <Windows.h>
-# include <Wincrypt.h>
+# include <windows.h>
+# include <wincrypt.h>
 #endif
 
 void
@@ -54,12 +54,41 @@ _sodium_alignedcalloc(unsigned char ** const unaligned_p, const size_t len)
         return NULL;
     }
     *unaligned_p = unaligned;
+#ifdef HAVE_ARC4RANDOM_BUF
+    (void) i;
+    arc4random_buf(unaligned, len + (size_t) 256U);
+#else
     for (i = (size_t) 0U; i < len + (size_t) 256U; ++i) {
         unaligned[i] = (unsigned char) rand();
     }
+#endif
     aligned = unaligned + 64;
     aligned += (ptrdiff_t) 63 & (-(ptrdiff_t) aligned);
     memset(aligned, 0, len);
 
     return aligned;
+}
+
+char *
+sodium_bin2hex(char * const hex, const size_t hexlen,
+               const unsigned char *bin, const size_t binlen)
+{
+    static const char hexdigits[16] = {
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+    size_t            i = (size_t) 0U;
+    size_t            j = (size_t) 0U;
+
+    if (binlen >= SIZE_MAX / 2 || hexlen < binlen * 2U) {
+        abort();
+    }
+    while (i < binlen) {
+        hex[j++] = hexdigits[bin[i] >> 4];
+        hex[j++] = hexdigits[bin[i] & 0xf];
+        i++;
+    }
+    hex[j] = 0;
+
+    return hex;
 }

@@ -55,12 +55,16 @@ dnscrypt_pad(uint8_t *buf, const size_t len, const size_t max_len)
     if (max_len < len + DNSCRYPT_MIN_PAD_LEN) {
         return len;
     }
+#ifdef RANDOM_LENGTH_PADDING
     padded_len = len + DNSCRYPT_MIN_PAD_LEN + randombytes_uniform
         ((uint32_t) (max_len - len - DNSCRYPT_MIN_PAD_LEN + 1U));
     padded_len += DNSCRYPT_BLOCK_SIZE - padded_len % DNSCRYPT_BLOCK_SIZE;
     if (padded_len > max_len) {
         padded_len = max_len;
     }
+#else
+    padded_len = max_len;
+#endif
     assert(padded_len >= len);
     padding_len = padded_len - len;
     memset(buf_padding_area, 0, padding_len);

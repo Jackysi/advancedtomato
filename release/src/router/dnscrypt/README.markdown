@@ -11,8 +11,7 @@ Description
 dnscrypt-proxy provides local service which can be used directly as
 your local resolver or as a DNS forwarder, encrypting and
 authenticating requests using the DNSCrypt protocol and passing them
-to an upstream server, by default OpenDNS who run this on their
-resolvers.
+to an upstream server, by default OpenDNS.
 
 The DNSCrypt protocol uses high-speed high-security elliptic-curve
 cryptography and is very similar to [DNSCurve](http://dnscurve.org/),
@@ -24,6 +23,41 @@ network, which is often the weakest point of the chain, against
 man-in-the-middle attacks. It also provides some confidentiality to
 DNS queries.
 
+Current list of free, DNSCrypt-enabled resolvers
+------------------------------------------------
+
+* [OpenDNS](http://www.opendns.com)
+  - Server address: 208.67.220.220:443
+  - Provider name: 2.dnscrypt-cert.dnscrypt.org
+  - Public key: B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79
+
+* [CloudNS](https://cloudns.com.au/)
+  - Server address: 113.20.6.2:443
+  - Provider name: 2.dnscrypt-cert.cloudns.com.au
+  - Public key: 1971:7C1A:C550:6C09:F09B:ACB1:1AF7:C349:6425:2676:247F:B738:1C5A:243A:C1CC:89F4
+
+Download and integrity check
+----------------------------
+
+DNSCrypt can be downloaded here: [dnscrypt download](http://dnscrypt.org)
+
+After having downloaded a file, compute its SHA256 digest. For example:
+
+    $ openssl dgst -sha256 dnscrypt-proxy-1.3.1.tar.bz2
+
+Verify this digest against the expected one, that can be retrieved
+using a simple DNS query:
+
+    $ drill -D TXT dnscrypt-proxy-1.3.1.tar.bz2.download.dnscrypt.org
+
+or
+
+    $ dig +dnssec TXT dnscrypt-proxy-1.3.1.tar.bz2.download.dnscrypt.org
+
+If the content of the TXT record doesn't match the SHA256 digest you
+computed, please file a bug report on Github as soon as possible and
+don't go any further.
+
 Installation
 ------------
 
@@ -32,7 +66,11 @@ Bitrig, NetBSD, Dragonfly BSD, FreeBSD, Linux, iOS (requires a
 jailbroken device), Android (requires a rooted device), Solaris
 (SmartOS) and Windows (requires MingW).
 
-Download the [latest version](http://dnscrypt.org) and extract it:
+Install [libsodium](https://github.com/jedisct1/libsodium).
+On Linux, don't forget to run `ldconfig` if you installed it from
+source.
+
+Download the latest dnscrypt-proxy version and extract it:
 
     $ bunzip2 -cd dnscrypt-proxy-*.tar.bz2 | tar xvf -
     $ cd dnscrypt-proxy-*
@@ -44,9 +82,6 @@ Compile and install it using the standard procedure:
 
 Replace `-j2` with whatever number of CPU cores you want to use for the
 compilation process.
-
-Running `make -j2 check` in the `src/libsodium` directory is also highly
-recommended.
 
 The proxy will be installed as `/usr/local/sbin/dnscrypt-proxy` by default.
 
@@ -68,17 +103,17 @@ projects:
 A tool to easily use DNSCrypt with OpenDNS, configure plugins and
 define resolvers for specific domains. It has been implemented as a
 collection of shell scripts with a user interface in Objective C.
+Designed for OpenDNS only.
 
 - [DNSCrypt WinClient](https://github.com/Noxwizard/dnscrypt-winclient):
 Easily enable/disable DNSCrypt on multiple adapters. Supports
 different ports and protocols, IPv6, parental controls and the proxy
-can act as a gateway service. Windows only, written in .NET.
-
-- [DNSCrypt Win Client](https://github.com/opendns/dnscrypt-win-client):
-Official GUI for Windows, by OpenDNS. Also known as "OpenDNSCrypt".
+can act as a gateway service. Windows only, written in .NET. Designed
+for OpenDNS only.
 
 - dnscrypt-proxy is also available on Cydia, and it can be easily
 enabled using [GuizmoDNS](http://modmyi.com/cydia/com.guizmo.dns).
+Designed for OpenDNS only.
 
 Server-side proxy
 -----------------
@@ -121,6 +156,10 @@ address than 127.0.0.1
   requests. The default value is 250.
 * `--pid-file=<file>` in order to store the PID number to a file.
 * `--user=<user name>` in order to chroot()/drop privileges.
+* `--test` in order to check that the server-side proxy is properly
+configured and that a valid certificate can be used. This is useful
+for monitoring your own dnscrypt proxy. See the man page for more
+information.
 
 DNSCrypt comes pre-configured for OpenDNS, although the
 `--resolver-address=<ip>[:port]`,

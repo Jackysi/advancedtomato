@@ -52,6 +52,7 @@ obj-y += udpxy
 obj-$(TCONFIG_TOR) += tor
 obj-$(TCONFIG_TOR) += libevent
 obj-$(TCONFIG_TOR) += zlib
+obj-$(TCONFIG_DNSCRYPT) += libsodium
 obj-$(TCONFIG_DNSCRYPT) += dnscrypt
 obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc
@@ -1917,8 +1918,26 @@ libsodium/stamp-h1:
 	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch libsodium/stamp-h1
 
-dnscrypt/stamp-h1: libsodium/stamp-h1
+libsodium: libsodium/stamp-h1
+	$(MAKE) -C libsodium $(PARALLEL_BUILD)
+
+libsodium-install: libsodium
+	install -d $(INSTALLDIR)/libsodium/usr/lib
+	install -D libsodium/src/libsodium/.libs/libsodium.so.4.5.0 $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.4.5.0
+	$(STRIP) -s $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.4.5.0
+	cd $(INSTALLDIR)/libsodium/usr/lib/ && \
+		ln -sf libsodium.so.4.5.0 libsodium.so.4 && \
+		ln -sf libsodium.so.4.5.0 libsodium.so
+
+libsodium-clean:
+	-$(MAKE) -C libsodium clean
+	@rm -rf libsodium/stamp-h1
+
+dnscrypt/stamp-h1: libsodium
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	CPPFLAGS="-I$(TOP)/libsodium/src/libsodium/include" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libsodium/src/libsodium/.libs" \
 	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch dnscrypt/stamp-h1
 
@@ -1926,15 +1945,14 @@ dnscrypt: dnscrypt/stamp-h1
 	$(MAKE) -C dnscrypt $(PARALLEL_BUILD)
 
 dnscrypt-install: dnscrypt
-	install -D dnscrypt/src/proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
-	install -D dnscrypt/src/hostip/hostip $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
+	install -D dnscrypt/src/proxy/.libs/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+	install -D dnscrypt/src/hostip/.libs/hostip $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 
 dnscrypt-clean:
 	-@$(MAKE) -C dnscrypt clean
-	-@$(MAKE) -C libsodium clean
-	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile libsodium/stamp-h1
+	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP='mipsel-uclibc-strip' \

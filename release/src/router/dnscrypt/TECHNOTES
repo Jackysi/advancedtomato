@@ -5,17 +5,13 @@ Implementation details
 Cryptographic library
 ---------------------
 
-- We didn't reinvent the wheel.
+- The wheel hasn't been reinvented.
 
 - The crypto code is provided by NaCl: http://nacl.cr.yp.to/ through
   libsodium: https://github.com/jedisct1/libsodium
 
 - Why NaCl? Unbloated, blazing fast, and less error-prone that other libraries.
   See http://cr.yp.to/highspeed/coolnacl-20111201.pdf
-
-- Faster, but CPU-specific implementations have been removed, though,
-  so that portable packages can be built. CPU-specific implementations are
-  used server-side.
 
 - crypto_box_curve25519xsalsa20poly1305_*() for authenticating/encrypting
   queries and replies, crypto_sign_ed25519_*() for signing certificates, and
@@ -47,7 +43,8 @@ The following information has to be provided to the proxy:
 At startup and every 60 minute, the proxy directly connects to the specified
 resolver IP address and issues a TXT query for the provider name. The
 first component of the provider name indicates the latest protocol version,
-or the version range, supported by the client.
+or the version range, supported by the client. Right now, this should
+be 2. Always.
 
 One or more TXT records are returned, each containing a signed certificate.
 The provider public key is only used to verify a certificate, never for
@@ -63,6 +60,10 @@ Followed by signed content (the signature adds 512 bits to the payload):
 - 8 byte magic header to use for queries using this specific key
 - 4 byte serial number
 - 4 + 4 byte validity period (two timestamps)
+
+This is the current structure of the second version of the protocol.
+Don't assume anything about its length, it is very likely to change
+after a version bump.
 
 The proxy drops invalid certificates for the current date, and picks the one
 with the highest serial number.

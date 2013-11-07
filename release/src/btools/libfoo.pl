@@ -165,6 +165,7 @@ sub fixDyn
 #	fixDynDep("transmission-remote", "libiconv.so.2");
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
+	fixDynDep("dnscrypt-proxy", "libsodium.so.4.5.0");
 
 #ipset modules
 	fixDynDep("libipset_iphash.so", "ipset");
@@ -498,6 +499,7 @@ genSO("${root}/usr/lib/libevent-2.0.so.5", "${router}/libevent/.libs/libevent.a"
 genSO("${root}/usr/lib/libdaemon.so.0.5.0", "${router}/libdaemon/libdaemon/.libs/libdaemon.a");
 #genSO("${root}/usr/lib/libiconv.so.2", "${router}/libiconv/lib/.libs/libiconv.a");
 genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs/libnfnetlink.a");
+genSO("${root}/usr/lib/libsodium.so.4.5.0", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
 
 print "\n";
 

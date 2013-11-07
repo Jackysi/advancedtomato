@@ -1,14 +1,7 @@
 
 SUBDIRS = \
 	ext \
-	libevent-modified
-
-if USE_BUILTIN_LIBSODIUM
-SUBDIRS += \
-	libsodium
-endif
-
-SUBDIRS += \
+	libevent-modified \
 	proxy \
 	hostip
 

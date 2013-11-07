@@ -336,15 +336,15 @@ static void send_ra(time_t now, int iface, char *iface_name, struct in6_addr *de
       if (opt_cfg->opt == OPTION6_DNS_SERVER)
         {
 	  struct in6_addr *a = (struct in6_addr *)opt_cfg->val;
-
+	  
 	  done_dns = 1;
-          if (opt_cfg->len == 0)
-            continue;
+          if (opt_cfg->len == 0 || (IN6_IS_ADDR_UNSPECIFIED(a) && parm.pref_time != 0))
+	    continue;
 	  
 	  put_opt6_char(ICMP6_OPT_RDNSS);
 	  put_opt6_char((opt_cfg->len/8) + 1);
 	  put_opt6_short(0);
-	  put_opt6_long(parm.adv_interval * 2); /* lifetime - twice RA retransmit */
+	  put_opt6_long(parm.pref_time);
 	  /* zero means "self" */
 	  for (i = 0; i < opt_cfg->len; i += IN6ADDRSZ, a++)
 	    if (IN6_IS_ADDR_UNSPECIFIED(a))
@@ -360,7 +360,7 @@ static void send_ra(time_t now, int iface, char *iface_name, struct in6_addr *de
 	  put_opt6_char(ICMP6_OPT_DNSSL);
 	  put_opt6_char(len + 1);
 	  put_opt6_short(0);
-	  put_opt6_long(parm.adv_interval * 2); /* lifetime - twice RA retransmit */
+	  put_opt6_long(parm.pref_time); 
 	  put_opt6(opt_cfg->val, opt_cfg->len);
 	  
 	  /* pad */
@@ -369,14 +369,14 @@ static void send_ra(time_t now, int iface, char *iface_name, struct in6_addr *de
 	}
     }
 	
-  if (daemon->port == NAMESERVER_PORT && !done_dns)
+  if (daemon->port == NAMESERVER_PORT && !done_dns && parm.pref_time != 0)
     {
       /* default == us, as long as we are supplying DNS service. */
       put_opt6_char(ICMP6_OPT_RDNSS);
       put_opt6_char(3);
       put_opt6_short(0);
-      put_opt6_long(parm.adv_interval * 2); /* lifetime - twice RA retransmit */
-      put_opt6(&parm.link_global, IN6ADDRSZ);
+      put_opt6_long(parm.pref_time); 
+      put_opt6(&parm.link_local, IN6ADDRSZ);
     }
 
   /* set managed bits unless we're providing only RA on this link */
@@ -434,7 +434,11 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 	  
 	  for (context = daemon->dhcp6; context; context = context->next)
 	    if (!(context->flags & (CONTEXT_TEMPLATE | CONTEXT_OLD)) &&
+#ifdef HAVE_TOMATO
+		prefix <= context->prefix &&
+#else
 		prefix == context->prefix &&
+#endif
 		is_same_net6(local, &context->start6, prefix) &&
 		is_same_net6(local, &context->end6, prefix))
 	      {
@@ -491,7 +495,11 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 		    if (!param->first)
 		      context->ra_time = 0;
 		    context->flags |= CONTEXT_RA_DONE;
+#ifdef HAVE_TOMATO
+		    do_prefix = context->prefix;
+#else
 		    do_prefix = 1;
+#endif
 		  }
 
 		param->first = 0;	
@@ -524,6 +532,10 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 	     	      
 	      if ((opt = expand(sizeof(struct prefix_opt))))
 		{
+#ifdef HAVE_TOMATO
+                  prefix = do_prefix;
+#endif
+
 		  /* zero net part of address */
 		  setaddr6part(local, addr6part(local) & ~((prefix == 64) ? (u64)-1LL : (1LLU << (128 - prefix)) - 1LLU));
 		  
@@ -640,7 +652,11 @@ static int iface_search(struct in6_addr *local,  int prefix,
  
   for (context = daemon->dhcp6; context; context = context->next)
     if (!(context->flags & (CONTEXT_TEMPLATE | CONTEXT_OLD)) &&
+#ifdef HAVE_TOMATO
+	prefix <= context->prefix &&
+#else
 	prefix == context->prefix &&
+#endif
 	is_same_net6(local, &context->start6, prefix) &&
 	is_same_net6(local, &context->end6, prefix) &&
 	context->ra_time != 0 && 
@@ -665,7 +681,11 @@ static int iface_search(struct in6_addr *local,  int prefix,
 	/* zero timers for other contexts on the same subnet, so they don't timeout 
 	   independently */
 	for (context = context->next; context; context = context->next)
+#ifdef HAVE_TOMATO
+	  if (prefix <= context->prefix &&
+#else
 	  if (prefix == context->prefix &&
+#endif
 	      is_same_net6(local, &context->start6, prefix) &&
 	      is_same_net6(local, &context->end6, prefix))
 	    context->ra_time = 0;

@@ -1,13 +1,12 @@
 ACLOCAL_AMFLAGS = -I m4
 
-AUTOMAKE_OPTIONS = gnu
-
 EXTRA_DIST = \
 	README.markdown \
 	README-PLUGINS.markdown \
 	README-WINDOWS.markdown \
 	TECHNOTES \
 	THANKS \
+	apparmor.profile.dnscrypt-proxy \
 	autogen.sh \
 	org.dnscrypt.osx.DNSCryptProxy.plist
 

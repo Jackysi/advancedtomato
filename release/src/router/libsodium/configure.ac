@@ -1,12 +1,12 @@
-AC_PREREQ([2.61])
-AC_INIT([libsodium],[0.4.1],
+AC_PREREQ([2.65])
+AC_INIT([libsodium],[0.4.5],
   [https://github.com/jedisct1/libsodium/issues],
   [libsodium],
   [https://github.com/jedisct1/libsodium])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/libsodium/sodium/version.c])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE([1.11 dist-bzip2 tar-ustar])
+AM_INIT_AUTOMAKE([1.11 dist-bzip2 tar-ustar foreign subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AM_MAINTAINER_MODE
 AM_DEP_TRACK
@@ -16,9 +16,9 @@ ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
 SODIUM_LIBRARY_VERSION_MAJOR=4
-SODIUM_LIBRARY_VERSION_MINOR=1
+SODIUM_LIBRARY_VERSION_MINOR=4
 DLL_VERSION=4
-SODIUM_LIBRARY_VERSION=5:0:1
+SODIUM_LIBRARY_VERSION=9:0:5
 #                      | | |
 #               +------+ | +---+
 #               |        |     |
@@ -36,6 +36,93 @@ AC_SUBST(SODIUM_LIBRARY_VERSION)
 AC_SUBST(DLL_VERSION)
 
 LX_CFLAGS=${CFLAGS-NONE}
+
+dnl Switches
+
+AC_ARG_ENABLE(ssp,
+[AS_HELP_STRING(--disable-ssp,Do not compile with -fstack-protector)],
+[
+  AS_IF([test "x$enableval" = "xno"], [
+    enable_ssp="no"
+  ], [
+    enable_ssp="yes"
+  ])
+],
+[
+  enable_ssp="yes"
+])
+
+AC_ARG_ENABLE(asm,
+[AS_HELP_STRING(--disable-asm,Disable assembly implementations)],
+[
+  AS_IF([test "x$enableval" = "xno"], [
+    enable_asm="no"
+  ], [
+    enable_asm="yes"
+  ])
+],
+[
+  enable_asm="yes"
+])
+
+AS_IF([test "x$EMSCRIPTEN" != "x"],[
+  enable_asm="no"
+  AC_MSG_WARN([compiling to javascript - asm implementations disabled])
+])
+
+AS_CASE([$host], [x86_64-*-mingw* | x86_64-*-cygwin*], [enable_asm="no"])
+
+AC_ARG_ENABLE(pie,
+[AS_HELP_STRING(--disable-pie,Do not produce position independent executables)],
+ enable_pie=$enableval, enable_pie="maybe")
+
+AS_CASE([$host_os], [mingw*], [enable_pie="no"])
+
+AC_ARG_ENABLE(blocking-random,
+[AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
+[
+  AS_IF([test "x$enableval" = "xyes"], [
+    AC_DEFINE([USE_BLOCKING_RANDOM], [1], [Use blocking random])
+  ])
+])
+
+AC_ARG_WITH(safecode,
+[AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
+[AS_IF([test "x$withval" = "xyes"], [
+    AC_ARG_VAR([SAFECODE_HOME], [set to the safecode base directory])
+    : ${SAFECODE_HOME:=/opt/safecode}
+    LDFLAGS="$LDFLAGS -L${SAFECODE_HOME}/lib"
+    LIBS="$LIBS -lsc_dbg_rt -lpoolalloc_bitmap -lstdc++"
+    CFLAGS="$CFLAGS -fmemsafety"
+  ])
+])
+
+AC_ARG_ENABLE(debug,
+[AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
+[
+  AS_IF([test "x$enableval" = "xyes"], [
+    AS_IF([test "x$LX_CFLAGS" = "xNONE"], [
+      nxflags=""
+      for flag in `echo $CFLAGS`; do
+        AS_CASE([$flag],
+          [-O*], [ ],
+          [-g*], [ ],
+          [*], [AS_VAR_APPEND([nxflags], [" $flag"])])
+      done
+      CFLAGS="$nxflags -O0 -g3"
+    ])
+    CPPFLAGS="$CPPFLAGS -DDEBUG=1"
+  ])
+])
+
+AC_SUBST([MAINT])
+
+dnl Checks
+
+PKG_PROG_PKG_CONFIG([0.25])
+AM_CONDITIONAL([HAVE_PKG_CONFIG], [test "x$PKG_CONFIG" != "x"])
+AC_SUBST(HAVE_PKG_CONFIG)
+
 AC_PROG_CC_C99
 AM_PROG_AS
 AC_USE_SYSTEM_EXTENSIONS
@@ -65,26 +152,32 @@ AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing], [CFLAGS="$CFLAGS -fno-strict-alias
 AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"])
 
 LIBTOOL_EXTRA_FLAGS="-version-info $SODIUM_LIBRARY_VERSION"
-case $host_os in
-  cygwin* | mingw* | pw32* | cegcc*)
+
+AS_CASE([$host_os],
+  [cygwin* | mingw* | pw32* | cegcc*], [
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
-  ;;
-  dragonfly*)
+  ])
+
+AS_IF([test "x$enable_ssp" != "xno"],[
+
+AS_CASE([$host_os],
+  [cygwin* | mingw* | pw32* | cegcc*], [ ],
+  [dragonfly*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector], [
       AX_CHECK_LINK_FLAG([-fstack-protector],
         [CFLAGS="$CFLAGS -fstack-protector"]
       )
     ])
-  ;;
-  *)
+  ],
+  [*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [
       AX_CHECK_LINK_FLAG([-fstack-protector-all],
         [CFLAGS="$CFLAGS -fstack-protector-all"]
       )
     ])
-  ;;
-esac
+  ])
+])
 
 AX_CHECK_COMPILE_FLAG([-Winit-self], [CFLAGS="$CFLAGS -Winit-self"])
 AX_CHECK_COMPILE_FLAG([-Wwrite-strings], [CFLAGS="$CFLAGS -Wwrite-strings"])
@@ -138,14 +231,6 @@ AC_SUBST(LIBTOOL_DEPS)
 AC_ARG_VAR([AR], [path to the ar utility])
 AC_CHECK_TOOL([AR], [ar], [ar])
 
-AS_IF([test -d /usr/local/include], [
-  CPPFLAGS="$CPPFLAGS -I/usr/local/include"
-])
-
-AS_IF([test -d /usr/local/lib], [
-  LDFLAGS="$LDFLAGS -L/usr/local/lib"
-])
-
 dnl Checks for headers
 AC_CHECK_HEADERS([emmintrin.h], [], [], [
 #pragma GCC target("sse2")
@@ -191,6 +276,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
+AC_C_INLINE
 AC_C_BIGENDIAN(
   AC_DEFINE(NATIVE_BIG_ENDIAN, 1, [machine is bigendian]),
   AC_DEFINE(NATIVE_LITTLE_ENDIAN, 1, [machine is littleendian]),
@@ -234,16 +320,22 @@ AC_SUBST(HAVE_AMD64_ASM_V)
 AC_MSG_CHECKING(for 128-bit arithmetic)
 HAVE_TI_MODE_V=0
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-]], [[
 #ifndef __GNUC__
 # error mode(TI) is a gcc extension
 #endif
 #if defined(__clang__) && !defined(__x86_64__)
 # error clang doesn't properly compile smult_curve25519_donna_c64.c
 #endif
+#ifndef NATIVE_LITTLE_ENDIAN
+# error donna_c64 currently requires a little endian CPU
+#endif
+#include <stdint.h>
 typedef unsigned uint128_t __attribute__((mode(TI)));
-uint128_t x;
-(void) x;
+void fcontract(uint128_t *t) {
+  *t += 0x8000000000000 - 1;
+}
+]], [[
+(void) fcontract;
 ]])],
 [AC_MSG_RESULT(yes)
  AC_DEFINE([HAVE_TI_MODE], [1], [gcc TI mode is available])
@@ -266,79 +358,21 @@ __asm__("movl %ebx,%esi\n"
 AM_CONDITIONAL([HAVE_CPUID], [test $HAVE_CPUID_V = 1])
 AC_SUBST(HAVE_CPUID_V)
 
+AS_CASE([$host_cpu],
+  [i*86 | x86_64 | powerpc* | s390*],
+    [AC_MSG_NOTICE([data alignment is not required on this target])],
+  [*],
+    [AC_MSG_NOTICE([data alignment is required on this target])
+     AC_DEFINE([CPU_ALIGNED_ACCESS_REQUIRED], [1], [data alignment is required])]
+)
+
 dnl Checks for functions and headers
 
 AC_CHECK_FUNC(clock_gettime, , [AC_CHECK_LIB(rt, clock_gettime)])
 AC_CHECK_FUNC(fegetenv, , [AC_CHECK_LIB(m, fegetenv)])
 
-AC_CHECK_FUNCS([SecureZeroMemory])
+AC_CHECK_FUNCS([SecureZeroMemory arc4random arc4random_buf])
 
-dnl Switches.
-
-AC_ARG_ENABLE(pie,
-[AS_HELP_STRING(--enable-pie,Produce position independent executables @<:@default=yes@:>@)],
- enable_pie=$enableval, enable_pie="maybe")
-
-AC_ARG_ENABLE(asm,
-[AS_HELP_STRING(--disable-asm,Disable assembly implementations)],
-[
-  AS_IF([test "x$enableval" = "xno"], [
-    enable_asm="no"
-  ], [
-    enable_asm="yes"
-  ])
-],
-[
-  enable_asm="yes"
-])
-
-AC_ARG_ENABLE(ssp,
-[AS_HELP_STRING(--disable-ssp,Don't compile with -fstack-protector)],
-[AS_IF([test "x$enableval" = "xno"], [
-    nxflags=""
-    for flag in `echo $CFLAGS`; do
-      case "$flag" in
-       -fstack-protector*) ;;
-        *) AS_VAR_APPEND([nxflags], [" $flag"]) ;;
-      esac
-    done
-    CFLAGS="$nxflags"
-  ])
-])
-
-AC_ARG_ENABLE(blocking-random,
-[AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
-[AC_DEFINE([USE_BLOCKING_RANDOM], [1], [Use blocking random])])
-
-AC_ARG_ENABLE(debug,
-[AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
-[
-  AS_IF([test "x$LX_CFLAGS" = "xNONE"], [
-    nxflags=""
-    for flag in `echo $CFLAGS`; do
-      case "$flag" in
-        -O*) ;;
-        -g*) ;;
-        *) AS_VAR_APPEND([nxflags], [" $flag"]) ;;
-      esac
-    done
-    CFLAGS="$nxflags -O0 -g3"
-  ])
-  CPPFLAGS="$CPPFLAGS -DDEBUG=1"
-])
-
-AC_ARG_WITH(safecode,
-[AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
-[AS_IF([test "x$withval" = "xyes"], [
-    AC_ARG_VAR([SAFECODE_HOME], [set to the safecode base directory])
-    : ${SAFECODE_HOME:=/opt/safecode}
-    LDFLAGS="$LDFLAGS -L${SAFECODE_HOME}/lib"
-    LIBS="$LIBS -lsc_dbg_rt -lpoolalloc_bitmap -lstdc++"
-    CFLAGS="$CFLAGS -fmemsafety"
-  ])
-])
-
-AC_SUBST([MAINT])
 AC_SUBST([LIBTOOL_EXTRA_FLAGS])
 
 dnl Libtool.
@@ -354,7 +388,11 @@ AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
 #/**/undef/**/ NDEBUG
 #endif])
 
+AS_IF([test "x$PKG_CONFIG" != "x"], [
+  AC_CONFIG_FILES([libsodium.pc])
+])
 AC_CONFIG_FILES([Makefile
+                 msvc-scripts/Makefile
                  src/Makefile
                  src/libsodium/Makefile
                  src/libsodium/include/Makefile

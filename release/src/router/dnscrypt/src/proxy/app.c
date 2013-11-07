@@ -91,6 +91,8 @@ proxy_context_init(ProxyContext * const proxy_context, int argc, char *argv[])
     proxy_context->max_log_level = LOG_INFO;
     proxy_context->tcp_accept_timer = NULL;
     proxy_context->tcp_conn_listener = NULL;
+    proxy_context->udp_current_max_size = DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND;
+    proxy_context->udp_max_size = proxy_context->udp_current_max_size;
     proxy_context->udp_listener_event = NULL;
     proxy_context->udp_proxy_resolver_event = NULL;
     proxy_context->udp_proxy_resolver_handle = -1;
@@ -259,11 +261,15 @@ dnscrypt_proxy_main(int argc, char *argv[])
         logger_noformat(NULL, LOG_ERR, "Unable to start the proxy");
         exit(1);
     }
+#ifdef USE_ONLY_PORTABLE_IMPLEMENTATIONS
+    randombytes_stir();
+#else
     logger_noformat(&proxy_context, LOG_INFO,
                     "Initializing libsodium for optimal performance");
     if (sodium_init() != 0) {
         exit(1);
     }
+#endif
     randombytes_set_implementation(&randombytes_salsa20_implementation);
 #ifdef PLUGINS
     if (plugin_support_context_load(app_context.dcps_context) != 0) {
@@ -276,9 +282,12 @@ dnscrypt_proxy_main(int argc, char *argv[])
     dnscrypt_client_init_with_new_key_pair(&proxy_context.dnscrypt_client);
     logger_noformat(&proxy_context, LOG_INFO, "Done");
 
-    if (cert_updater_init(&proxy_context) != 0 ||
-        udp_listener_bind(&proxy_context) != 0 ||
-        tcp_listener_bind(&proxy_context) != 0) {
+    if (cert_updater_init(&proxy_context) != 0) {
+        exit(1);
+    }
+    if (proxy_context.test_only == 0 &&
+        (udp_listener_bind(&proxy_context) != 0 ||
+         tcp_listener_bind(&proxy_context) != 0)) {
         exit(1);
     }
 #ifdef SIGPIPE
