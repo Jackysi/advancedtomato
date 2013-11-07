@@ -11,7 +11,33 @@ NaCl's goal is to provide all of the core operations needed to build
 higher-level cryptographic tools.
 
 Sodium is a portable, cross-compilable, installable, packageable
-crypto library based on NaCl, with a compatible API.
+fork of NaCl, with a compatible API.
+
+## Is it full of NSA backdoors?
+
+![No NIST](http://i.imgur.com/HSxeAmp.png)
+
+The design of Sodium's primitives is completely free from NIST (and by
+association, NSA) influence, with the following minor exceptions:
+- The Poly1305 MAC, used for authenticating integrity of ciphertexts,
+uses AES as a replaceable component,
+- The Ed25519 digital signature algorithm uses SHA-512 for both key
+derivation and computing message digests,
+- APIs are provided to SHA-512 and SHA-512/256, but are replaceable by
+the Blake2 hash function, which the Sodium library also provides.
+
+The design choices, particularly in regard to the Curve25519
+Diffie-Hellman function, emphasize security (whereas NIST curves
+emphasize "performance" at the cost of security), and "magic
+constants" in NaCl/Sodium are picked by theorems designed to maximize
+security.
+
+The same cannot be said of NIST curves, where the specific origins of
+certain constants are not described by the standards and may be
+subject to malicious influence by the NSA.
+
+And despite the emphasis on higher security, primitives are faster
+across-the-board than most implementations of the NIST standards.
 
 ## Portability
 
@@ -23,7 +49,7 @@ Sodium performs tests at run-time, so that the same binary package can
 still run everywhere.
 
 Sodium is tested on a variety of compilers and operating systems,
-including Windows, iOS and Android.
+including Windows (with MingW or Visual Studio, x86 and x64), iOS and Android.
 
 ## Installation
 
@@ -36,7 +62,7 @@ Installation is trivial, and both compilation and testing can take
 advantage of multiple CPU cores.
 
 Download a
-[tarball of libsodium](http://download.dnscrypt.org/libsodium/releases/),
+[tarball of libsodium](https://download.libsodium.org/libsodium/releases/),
 then follow the ritual:
 
     ./configure
@@ -44,6 +70,10 @@ then follow the ritual:
 
 Pre-compiled Win32 packages are available for download at the same
 location.
+
+Integrity of source tarballs can currently be checked using PGP or
+verified DNS queries (`dig +dnssec +short txt <file>.download.libsodium.org`
+returns the SHA256 of any file available for download).
 
 ## Comparison with vanilla NaCl
 
@@ -131,10 +161,16 @@ Warning: if a region has been allocated on the heap, you still have
 to make sure that it can't get swapped to disk, possibly using
 `mlock(2)`.
 
-In order to compare memory zones in constant time, Sodium proides:
+In order to compare memory zones in constant time, Sodium provides:
 
     int      sodium_memcmp(const void * const b1_, const void * const b2_,
                            size_t size);
+
+And a convenience function for converting a binary buffer to a
+hexadecimal string:
+
+    char *   sodium_bin2hex(char * const hex, const size_t hexlen,
+                            const unsigned char *bin, const size_t binlen);
 
 ## New operations
 
@@ -173,9 +209,16 @@ them from different languages is easier.
 ## Bindings for other languages
 
 * Erlang: [Erlang-NaCl](https://github.com/tonyg/erlang-nacl)
+* Haskell: [Saltine](https://github.com/tel/saltine)
 * Java: [Kalium](https://github.com/abstractj/kalium)
+* Java JNI: [Kalium-JNI](https://github.com/joshjdevl/kalium-jni)
 * Julia: [Sodium.jl](https://github.com/amitmurthy/Sodium.jl)
+* .NET: [libsodium-net](https://github.com/adamcaudill/libsodium-net)
+* Ocaml: [ocaml-sodium](https://github.com/dsheets/ocaml-sodium)
+* Pharo/Squeak: [Crypto-NaCl](http://www.eighty-twenty.org/index.cgi/tech/smalltalk/nacl-for-squeak-and-pharo-20130601.html)
+* PHP: [PHP-Sodium](https://github.com/alethia7/php-sodium)
 * Python: [PyNaCl](https://github.com/dstufft/pynacl)
+* Python: [PySodium](https://github.com/stef/pysodium)
 * Racket: part of [CRESTaceans](https://github.com/mgorlick/CRESTaceans/tree/master/bindings/libsodium)
 * Ruby: [RbNaCl](https://github.com/cryptosphere/rbnacl)
 * Ruby: [Sodium](https://github.com/stouset/sodium)
@@ -193,3 +236,11 @@ A mailing-list is available to discuss libsodium.
 
 In order to join, just send a random mail to `sodium-subscribe` {at}
 `pureftpd`{dot}`org`.
+
+## License
+
+[ISC license](http://en.wikipedia.org/wiki/ISC_license).
+
+See the `COPYING` file for details, `AUTHORS` for designers and
+implementors, and `THANKS` for contributors.
+

@@ -4,7 +4,7 @@
 #include "crypto_hash_sha256.h"
 #include "crypto_onetimeauth.h"
 #include "crypto_onetimeauth_poly1305.h"
-#include "crypto_onetimeauth_poly1305_ref.h"
+#include "crypto_onetimeauth_poly1305_donna.h"
 #include "crypto_onetimeauth_poly1305_53.h"
 #include "utils.h"
 
@@ -46,6 +46,11 @@ deallocate(void)
     free(m2_);
     free(k2_);
 }
+
+#ifdef HAVE_ARC4RANDOM
+# undef rand
+# define rand(X) arc4random(X)
+#endif
 
 static const char *
 checksum_compute(void)
@@ -110,11 +115,7 @@ checksum_compute(void)
     if (crypto_onetimeauth(h,m,CHECKSUM_BYTES,k) != 0) return "crypto_onetimeauth returns nonzero";
     if (crypto_onetimeauth_verify(h,m,CHECKSUM_BYTES,k) != 0) return "crypto_onetimeauth_verify returns nonzero";
 
-    for (i = 0;i < crypto_onetimeauth_BYTES;++i) {
-        checksum[2 * i] = "0123456789abcdef"[15 & (h[i] >> 4)];
-        checksum[2 * i + 1] = "0123456789abcdef"[15 & h[i]];
-    }
-    checksum[2 * i] = 0;
+    sodium_bin2hex(checksum, sizeof checksum, h, crypto_onetimeauth_BYTES);
 
     return NULL;
 }
@@ -126,7 +127,7 @@ crypto_onetimeauth_pick_best_implementation(void)
 #ifdef HAVE_FENV_H
         &crypto_onetimeauth_poly1305_53_implementation,
 #endif
-        &crypto_onetimeauth_poly1305_ref_implementation,
+        &crypto_onetimeauth_poly1305_donna_implementation,
         NULL
     };
     const char *err;

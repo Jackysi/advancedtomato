@@ -57,10 +57,12 @@ libsodium_la_SOURCES = \
 	crypto_onetimeauth/poly1305/53/api.h \
 	crypto_onetimeauth/poly1305/53/auth_poly1305_53.c \
 	crypto_onetimeauth/poly1305/53/verify_poly1305_53.c \
-	crypto_onetimeauth/poly1305/ref/api.h \
-	crypto_onetimeauth/poly1305/ref/auth_poly1305_ref.c \
-	crypto_onetimeauth/poly1305/ref/verify_poly1305_ref.c \
+	crypto_onetimeauth/poly1305/donna/api.h \
+	crypto_onetimeauth/poly1305/donna/portable-jane.h \
+	crypto_onetimeauth/poly1305/donna/auth_poly1305_donna.c \
+	crypto_onetimeauth/poly1305/donna/verify_poly1305_donna.c \
 	crypto_scalarmult/crypto_scalarmult.c \
+	crypto_scalarmult/curve25519/scalarmult_curve25519_api.c \
 	crypto_secretbox/crypto_secretbox.c \
 	crypto_secretbox/xsalsa20poly1305/secretbox_xsalsa20poly1305_api.c \
 	crypto_secretbox/xsalsa20poly1305/ref/api.h \
@@ -150,11 +152,14 @@ libsodium_la_SOURCES = \
 	crypto_stream/aes128ctr/portable/types.h \
 	crypto_stream/aes128ctr/portable/xor_afternm_aes128ctr.c \
 	crypto_stream/aes256estream/hongjun/aes-table.h \
+	crypto_stream/aes256estream/hongjun/aes-table-be.h \
+	crypto_stream/aes256estream/hongjun/aes-table-le.h \
 	crypto_stream/aes256estream/hongjun/aes256-ctr.c \
 	crypto_stream/aes256estream/hongjun/aes256.h \
 	crypto_stream/aes256estream/stream_aes256estream_api.c \
 	crypto_stream/aes256estream/hongjun/api.h \
 	crypto_stream/aes256estream/hongjun/ecrypt-sync.h \
+	crypto_stream/salsa20/stream_salsa20_api.c \
 	crypto_stream/salsa2012/stream_salsa2012_api.c \
 	crypto_stream/salsa2012/ref/api.h \
 	crypto_stream/salsa2012/ref/stream_salsa2012.c \
@@ -196,7 +201,7 @@ endif
 if HAVE_AMD64_ASM
 libsodium_la_SOURCES += \
 	crypto_stream/salsa20/amd64_xmm6/api.h \
-	crypto_stream/salsa20/amd64_xmm6/stream_salsa20_amd64_xmm6.s
+	crypto_stream/salsa20/amd64_xmm6/stream_salsa20_amd64_xmm6.S
 else
 libsodium_la_SOURCES += \
 	crypto_stream/salsa20/ref/api.h \
@@ -219,7 +224,8 @@ if HAVE_LD_OUTPUT_DEF
 libsodium_la_LDFLAGS += -Wl,--output-def,libsodium-$(DLL_VERSION).def
 defexecdir = $(bindir)
 defexec_DATA = libsodium-$(DLL_VERSION).def
-DISTCLEANFILES = $(defexec_DATA)
+CLEANFILES = $(defexec_DATA)
+libsodium-$(DLL_VERSION).def: libsodium.la
 endif
 
 SUBDIRS = \

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "DNSCRYPT\-PROXY" "8" "January 2013" "" ""
+.TH "DNSCRYPT\-PROXY" "8" "August 2013" "" ""
 .
 .SH "NAME"
 \fBdnscrypt\-proxy\fR \- A DNSCrypt forwarder
@@ -48,6 +48,9 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 \fB\-l\fR, \fB\-\-logfile=<file>\fR: log events to this file instead of the standard output\.
 .
 .IP "\(bu" 4
+\fB\-m\fR, \fB\-\-loglevel=<level>\fR: don\'t log events with priority above this level after the service has been started up\. Default is the value for \fBLOG_INFO\fR\.
+.
+.IP "\(bu" 4
 \fB\-n\fR, \fB\-\-max\-active\-requests=<count>\fR: set the maximum number of simultaneous active requests\. The default value is 250\.
 .
 .IP "\(bu" 4
@@ -55,6 +58,9 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 .
 .IP "\(bu" 4
 \fB\-r\fR, \fB\-\-resolver\-address=<ip>[:port]\fR: a DNSCrypt\-capable resolver IP address with an optional port\. The default port is 443\.
+.
+.IP "\(bu" 4
+\fB\-t\fR, \fB\-\-test=<margin>\fR: don\'t actually start the proxy, but check that a valid certificate can be retrieved from the server and that it will remain valid for the next \fImargin\fR minutes\. The exit code is 0 if a valid certificate can be used, 2 if no valid certificates can be used, 3 if a timeout occurred, and 4 if a currently valid certificate is going to expire before \fImargin\fR\. The margin is always specificied in minutes\.
 .
 .IP "\(bu" 4
 \fB\-u\fR, \fB\-\-user=<user name>\fR: chroot(2) to this user\'s home directory and drop privileges\.

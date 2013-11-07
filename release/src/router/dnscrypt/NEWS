@@ -1,4 +1,21 @@
 
+* Version 1.3.3:
+ - Try to send questions as big as the response can be. Upgrading is
+highly recommended, as the server can refuse to respond to queries using
+UDP if the response is larger than the question.
+
+* Version 1.3.2:
+ - faster startup on iOS and Android
+ - New command-line switch: --test, in order to check if a certificate can be
+   used, with an optional time safety margin.
+ - The package now includes an AppArmor profile, thanks to InsanityBit.
+ - Plugins using ldns can now be compiled on Windows.
+
+* Version 1.3.1:
+ - dnscrypt-proxy doesn't ship its own, possibly outdated copy of libsodium
+   any more, and always picks the system one instead.
+ - Minor compilation improvements for iOS, Android and FreeBSD.
+
 * Version 1.3.0:
  - The bundled NaCl library with only reference implementations has been
    replaced with libsodium, leading to significant performance improvements.

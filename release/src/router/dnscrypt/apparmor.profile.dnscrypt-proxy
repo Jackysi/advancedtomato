@@ -1,0 +1,42 @@
+# Last Modified: Sat Jul  6 02:21:04 2013
+
+#include <tunables/global>
+
+/usr/local/sbin/dnscrypt-proxy {
+
+  network inet  stream,
+  network inet6 stream,
+  network inet  dgram,
+  network inet6 dgram,
+
+  capability block_suspend,
+  capability net_admin,
+  capability net_bind_service,
+  capability setgid,
+  capability setuid,
+  capability sys_chroot,
+
+  /usr/local/lib/libsodium.so* mr,
+
+  /bin/false r,
+  /dev/null rw,
+  /dev/urandom r,
+  /etc/ld.so.cache r,
+  /etc/localtime r,
+  /etc/nsswitch.conf r,
+  /etc/passwd r,
+  
+  /lib/*-linux-gnu*/libc-*.so mr,
+  /lib/*-linux-gnu*/libm-*.so mr,
+  /lib/*-linux-gnu*/libnsl-*.so mr,
+  /lib/*-linux-gnu*/libnss_compat-*.so mr,
+  /lib/*-linux-gnu*/libnss_files-*.so mr,
+  /lib/*-linux-gnu*/libnss_nis-*.so mr,
+
+  /usr/lib/libsodium.so* mr,
+  /usr/local/lib/libsodium.so* mr,
+
+# Plugins
+  /usr/lib/libdns.so* mr,
+
+}

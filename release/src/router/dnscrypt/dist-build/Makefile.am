@@ -1,5 +1,6 @@
 EXTRA_DIST = \
 	android.sh \
-	iphone.sh \
+	ios.sh \
+	mipsel-linux-static.sh \
 	msys.sh \
 	osx.sh

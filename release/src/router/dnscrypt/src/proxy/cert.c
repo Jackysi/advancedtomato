@@ -69,7 +69,7 @@ cert_parse_bincert(ProxyContext * const proxy_context,
     memcpy(&ts_end, bincert->ts_end, sizeof ts_end);
     ts_end = htonl(ts_end);
 
-    uint32_t now_u32 = (uint32_t) time(NULL);
+    const uint32_t now_u32 = (uint32_t) time(NULL);
 
     if (now_u32 < ts_begin) {
         logger_noformat(proxy_context, LOG_INFO,
@@ -153,6 +153,51 @@ cert_open_bincert(ProxyContext * const proxy_context,
 }
 
 static void
+cert_print_bincert_info(ProxyContext * const proxy_context,
+                        const Bincert * const bincert)
+{
+    (void) proxy_context;
+    (void) bincert;
+
+#ifdef HAVE_GMTIME_R
+    struct tm ts_begin_tm;
+    struct tm ts_end_tm;
+    time_t    ts_begin_t;
+    time_t    ts_end_t;
+    uint32_t  serial;
+    uint32_t  ts_begin;
+    uint32_t  ts_end;
+    _Bool     gm_ret;
+
+    assert(bincert != NULL);
+
+    memcpy(&ts_begin, bincert->ts_begin, sizeof ts_begin);
+    ts_begin_t = (time_t) htonl(ts_begin);
+    assert(ts_begin_t > (time_t) 0);
+
+    memcpy(&ts_end, bincert->ts_end, sizeof ts_end);
+    ts_end_t = (time_t) htonl(ts_end);
+    assert(ts_end_t > (time_t) 0);
+
+    gm_ret = (gmtime_r(&ts_begin_t, &ts_begin_tm) != NULL &&
+              gmtime_r(&ts_end_t, &ts_end_tm) != NULL);
+    assert(gm_ret != 0);
+    assert(ts_end_t >= ts_begin_t);
+
+    memcpy(&serial, bincert->serial, sizeof serial);
+
+    logger(proxy_context, LOG_INFO,
+           "Chosen certificate #%" PRIu32 " is valid "
+           "from [%d-%02d-%02d] to [%d-%02d-%02d]",
+           htonl(serial),
+           ts_begin_tm.tm_year + 1900,
+           ts_begin_tm.tm_mon + 1, ts_begin_tm.tm_mday + 1,
+           ts_end_tm.tm_year + 1900,
+           ts_end_tm.tm_mon + 1, ts_end_tm.tm_mday + 1);
+#endif
+}
+
+static void
 cert_print_server_key(ProxyContext * const proxy_context)
 {
     char fingerprint[80U];
@@ -208,6 +253,10 @@ cert_reschedule_query_after_failure(ProxyContext * const proxy_context)
     }
     cert_reschedule_query(proxy_context, query_retry_delay);
     DNSCRYPT_PROXY_CERTS_UPDATE_RETRY();
+    if (proxy_context->test_only != 0 &&
+        cert_updater->query_retry_step > CERT_QUERY_TEST_RETRY_STEPS) {
+        exit(DNSCRYPT_EXIT_CERT_TIMEOUT);
+    }
 }
 
 static void
@@ -255,7 +304,25 @@ cert_query_cb(int result, char type, int count, int ttl,
                         "No useable certificates found");
         cert_reschedule_query_after_failure(proxy_context);
         DNSCRYPT_PROXY_CERTS_UPDATE_ERROR_NOCERTS();
+        if (proxy_context->test_only) {
+            exit(DNSCRYPT_EXIT_CERT_NOCERTS);
+        }
         return;
+    }
+    if (proxy_context->test_only != 0) {
+        const uint32_t now_u32 = (uint32_t) time(NULL);
+        uint32_t       ts_end;
+
+        memcpy(&ts_end, bincert->ts_end, sizeof ts_end);
+        ts_end = htonl(ts_end);
+
+        if (ts_end < (uint32_t) proxy_context->test_cert_margin ||
+            now_u32 > ts_end - (uint32_t) proxy_context->test_cert_margin) {
+            logger_noformat(proxy_context, LOG_WARNING,
+                            "The certificate is not valid for the given safety margin");
+            DNSCRYPT_PROXY_CERTS_UPDATE_ERROR_NOCERTS();
+            exit(DNSCRYPT_EXIT_CERT_MARGIN);
+        }
     }
     COMPILER_ASSERT(sizeof proxy_context->resolver_publickey ==
                     sizeof bincert->server_publickey);
@@ -265,11 +332,17 @@ cert_query_cb(int result, char type, int count, int ttl,
                     sizeof bincert->magic_query);
     memcpy(proxy_context->dnscrypt_magic_query, bincert->magic_query,
            sizeof proxy_context->dnscrypt_magic_query);
+    cert_print_bincert_info(proxy_context, bincert);
     cert_print_server_key(proxy_context);
     dnscrypt_client_init_magic_query(&proxy_context->dnscrypt_client,
                                      bincert->magic_query);
     memset(bincert, 0, sizeof *bincert);
     free(bincert);
+    if (proxy_context->test_only) {
+        DNSCRYPT_PROXY_CERTS_UPDATE_DONE((unsigned char *)
+                                         proxy_context->resolver_publickey);
+        exit(0);
+    }
     dnscrypt_client_init_nmkey(&proxy_context->dnscrypt_client,
                                proxy_context->resolver_publickey);
     dnscrypt_proxy_start_listeners(proxy_context);

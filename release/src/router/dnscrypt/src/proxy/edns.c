@@ -83,8 +83,8 @@ edns_get_payload_size(const uint8_t * const dns_packet,
     }
     payload_size = (dns_packet[offset + DNS_OFFSET_EDNS_PAYLOAD_SIZE] << 8) |
         dns_packet[offset + DNS_OFFSET_EDNS_PAYLOAD_SIZE + 1U];
-    if (payload_size < DNS_MAX_PACKET_SIZE_UDP_SEND) {
-        payload_size = DNS_MAX_PACKET_SIZE_UDP_SEND;
+    if (payload_size < DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND) {
+        payload_size = DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND;
     }
     return (ssize_t) payload_size;
 }
@@ -99,7 +99,7 @@ edns_add_section(ProxyContext * const proxy_context,
 
     assert(edns_payload_size <= (size_t) 0xFFFF);
     assert(DNS_OFFSET_ARCOUNT + 2U <= DNS_HEADER_SIZE);
-    if (edns_payload_size <= DNS_MAX_PACKET_SIZE_UDP_SEND ||
+    if (edns_payload_size <= DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND ||
         *dns_packet_len_p <= DNS_HEADER_SIZE) {
         *request_edns_payload_size = (size_t) 0U;
         return -1;

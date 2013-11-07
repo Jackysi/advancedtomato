@@ -1,12 +1,12 @@
 AC_PREREQ([2.61])
-AC_INIT([dnscrypt-proxy],[1.3.0],[http://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.3.3],[http://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
 AC_CONFIG_HEADER([config.h])
-AC_CONFIG_SUBDIRS([src/libevent-modified src/libsodium])
+AC_CONFIG_SUBDIRS([src/libevent-modified])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE([1.9 dist-bzip2 tar-ustar])
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 tar-ustar gnu subdir-objects])
 AM_MAINTAINER_MODE
 AM_DEP_TRACK
 
@@ -122,7 +122,7 @@ case $host_os in
     case $build_os in
       darwin*)
         AC_ARG_VAR([DTRACE], [path to dtrace if you have it])
-        AC_PATH_PROG([DTRACE], [dtrace])
+        AC_PATH_PROG([DTRACE], [dtrace], [], [$PATH:/usr/local/sbin:/usr/sbin])
       ;;
     esac
   ;;
@@ -148,6 +148,7 @@ AC_SYS_LARGEFILE
 AC_CHECK_HEADERS([sys/cdefs.h sys/feature_tests.h])
 AC_CHECK_HEADERS([execinfo.h paths.h pwd.h uuid/uuid.h])
 AC_CHECK_HEADERS([sandbox.h])
+AC_CHECK_HEADERS([ws2tcpip.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
@@ -157,23 +158,31 @@ AC_C_RESTRICT
 AC_CHECK_TYPE([in_port_t], , [AC_DEFINE(in_port_t, uint16_t,
 [in_port_t type])],
 [
+#include <sys/types.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#ifdef HAVE_WS2TCPIP_H
+# include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 ])
 
 AC_MSG_CHECKING([whether sin_len is defined])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
 #include <stdio.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#ifdef HAVE_WS2TCPIP_H
+# include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 ]], [[
 do {
  struct sockaddr_in a;
@@ -188,12 +197,17 @@ do {
 
 AC_MSG_CHECKING([whether __ss_family is defined])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
 #include <stdio.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef HAVE_WS2TCPIP_H
+# include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 ]], [[
 do {
  struct sockaddr_storage a;
@@ -208,12 +222,17 @@ do {
 
 AC_MSG_CHECKING([whether ss_len is defined])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
 #include <stdio.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef HAVE_WS2TCPIP_H
+# include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 ]], [[
 do {
  struct sockaddr_storage a;
@@ -228,12 +247,17 @@ do {
 
 AC_MSG_CHECKING([whether __ss_len is defined])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/types.h>
 #include <stdio.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef HAVE_WS2TCPIP_H
+# include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 ]], [[
 do {
  struct sockaddr_storage a;
@@ -259,9 +283,7 @@ AC_SEARCH_LIBS(backtrace, [execinfo],
 AC_SEARCH_LIBS(gethostbyname, [resolv nsl])
 AC_SEARCH_LIBS(recvfrom, [socket])
 AC_SEARCH_LIBS(kvm_open, [kvm])
-AC_SEARCH_LIBS(sodium_init, [sodium])
-
-AM_CONDITIONAL(USE_BUILTIN_LIBSODIUM, test x$ac_cv_search_sodium_init = xno)
+AC_SEARCH_LIBS(sodium_init, [sodium], [ ], AC_ERROR([libsodium not found]))
 
 use_ldns=no
 AC_CHECK_HEADER([ldns/ldns.h], [
@@ -271,8 +293,13 @@ AC_CHECK_HEADER([ldns/ldns.h], [
     use_ldns=yes
   ])
 ], [ ],
-[#include <stdlib.h>
- #include <stdint.h>])
+[#include <sys/types.h>
+ #include <stdlib.h>
+ #include <stdint.h>
+ #ifdef HAVE_WS2TCPIP_H
+ # include <ws2tcpip.h>
+ #endif
+])
 AM_CONDITIONAL(USE_LDNS, test x$use_ldns = xyes)
 AC_SUBST([LDNS_LIBS])
 
@@ -287,7 +314,7 @@ esac
 AC_CHECK_HEADER([CoreServices/CoreServices.h],
   [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
 
-AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked])
+AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
 
 dnl Switches.
 
@@ -383,12 +410,12 @@ ac_configure_args="$ac_configure_args --disable-libevent-install"
 ac_configure_args="$ac_configure_args --disable-openssl"
 ac_configure_args="$ac_configure_args --disable-shared"
 ac_configure_args="$ac_configure_args --enable-function-sections"
-export CC
-export CFLAGS
-export CPP
-export CPPFLAGS
-export LDFLAGS
-export LIBS
+ac_configure_args="$ac_configure_args CC='$CC'"
+ac_configure_args="$ac_configure_args CFLAGS='$CFLAGS'"
+ac_configure_args="$ac_configure_args CPP='$CPP'"
+ac_configure_args="$ac_configure_args CPPFLAGS='$CPPFLAGS'"
+ac_configure_args="$ac_configure_args LDFLAGS='$LDFLAGS'"
+ac_configure_args="$ac_configure_args LIBS='$LIBS'"
 
 dnl Output.
 

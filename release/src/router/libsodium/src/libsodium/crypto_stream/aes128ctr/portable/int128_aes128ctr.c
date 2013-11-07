@@ -28,9 +28,12 @@ void copy2(int128 *r, const int128 *x)
 void shufb(int128 *r, const unsigned char *l)
 {
   int128 t;
+  unsigned char *cr;
+  unsigned char *ct;
+
   copy2(&t,r);
-  unsigned char *cr = (unsigned char *)r;
-  unsigned char *ct = (unsigned char *)&t;
+  cr = (unsigned char *)r;
+  ct = (unsigned char *)&t;
   cr[0] = ct[l[0]];
   cr[1] = ct[l[1]];
   cr[2] = ct[l[2]];
@@ -53,7 +56,7 @@ void shufd(int128 *r, const int128 *x, const unsigned int c)
 {
   int128 t;
   uint32 *tp = (uint32 *)&t;
-  uint32 *xp = (uint32 *)x;
+  const uint32 *xp = (const uint32 *)x;
   tp[0] = xp[c&3];
   tp[1] = xp[(c>>2)&3];
   tp[2] = xp[(c>>4)&3];

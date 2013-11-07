@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 #include <stdint.h>
+#include <time.h>
 
 #include <event2/event.h>
 #include <event2/listener.h>
@@ -20,12 +21,12 @@
 #endif
 
 #define DNS_MAX_PACKET_SIZE_UDP_RECV (65536U - 20U - 8U)
-#define DNS_MAX_PACKET_SIZE_UDP_SEND 512U
+#define DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND 512U
 
-#if DNS_MAX_PACKET_SIZE_UDP_RECV > DNS_MAX_PACKET_SIZE_UDP_SEND
+#if DNS_MAX_PACKET_SIZE_UDP_RECV > DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND
 # define DNS_MAX_PACKET_SIZE_UDP DNS_MAX_PACKET_SIZE_UDP_RECV
 #else
-# define DNS_MAX_PACKET_SIZE_UDP DNS_MAX_PACKET_SIZE_UDP_SEND
+# define DNS_MAX_PACKET_SIZE_UDP DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND
 #endif
 
 #ifndef DNS_DEFAULT_STANDARD_DNS_PORT
@@ -60,6 +61,12 @@
 
 #define DNS_DEFAULT_EDNS_PAYLOAD_SIZE 1252U
 
+#define DNSCRYPT_PROTOCOL_VERSIONS "2"
+
+#define DNSCRYPT_EXIT_CERT_NOCERTS 2
+#define DNSCRYPT_EXIT_CERT_TIMEOUT 3
+#define DNSCRYPT_EXIT_CERT_MARGIN  4
+
 typedef TAILQ_HEAD(TCPRequestQueue_, TCPRequest_) TCPRequestQueue;
 typedef TAILQ_HEAD(UDPRequestQueue_, UDPRequest_) UDPRequestQueue;
 
@@ -89,12 +96,15 @@ typedef struct ProxyContext_ {
     ev_socklen_t             local_sockaddr_len;
     ev_socklen_t             resolver_sockaddr_len;
     size_t                   edns_payload_size;
+    size_t                   udp_current_max_size;
+    size_t                   udp_max_size;
     evutil_socket_t          udp_listener_handle;
     evutil_socket_t          udp_proxy_resolver_handle;
 #ifndef _WIN32
     uid_t                    user_id;
     gid_t                    user_group;
 #endif
+    time_t                   test_cert_margin;
     unsigned int             connections_count;
     unsigned int             connections_count_max;
     int                      log_fd;
@@ -102,6 +112,7 @@ typedef struct ProxyContext_ {
     _Bool                    daemonize;
     _Bool                    listeners_started;
     _Bool                    tcp_only;
+    _Bool                    test_only;
 } ProxyContext;
 
 int dnscrypt_proxy_start_listeners(ProxyContext * const proxy_context);

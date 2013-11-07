@@ -12,6 +12,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -47,6 +48,7 @@ static struct option getopt_long_options[] = {
     { "resolver-address", 1, NULL, 'r' },
     { "user", 1, NULL, 'u' },
     { "provider-name", 1, NULL, 'N' },
+    { "test", 1, NULL, 't' },
     { "tcp-only", 0, NULL, 'T' },
     { "version", 0, NULL, 'V' },
 #ifdef _WIN32
@@ -57,9 +59,9 @@ static struct option getopt_long_options[] = {
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char *getopt_options = "a:de:hk:l:m:n:p:r:u:N:TVX";
+static const char *getopt_options = "a:de:hk:l:m:n:p:r:t:u:N:TVX";
 #else
-static const char *getopt_options = "a:e:hk:m:n:r:u:N:TVX";
+static const char *getopt_options = "a:e:hk:m:n:r:t:u:N:TVX";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
@@ -72,7 +74,8 @@ static const char *getopt_options = "a:e:hk:m:n:r:u:N:TVX";
     "A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79"
 #endif
 #ifndef DEFAULT_PROVIDER_NAME
-# define DEFAULT_PROVIDER_NAME "2.dnscrypt-cert.opendns.com."
+# define DEFAULT_PROVIDER_NAME \
+    DNSCRYPT_PROTOCOL_VERSIONS ".dnscrypt-cert.opendns.com."
 #endif
 #ifndef DEFAULT_RESOLVER_IP
 # define DEFAULT_RESOLVER_IP "208.67.220.220:443"
@@ -126,7 +129,23 @@ void options_init_with_default(AppContext * const app_context,
 #endif
     proxy_context->user_dir = NULL;
     proxy_context->daemonize = 0;
+    proxy_context->test_cert_margin = (time_t) -1;
+    proxy_context->test_only = 0;
     proxy_context->tcp_only = 0;
+}
+
+static int
+options_check_protocol_versions(const char * const provider_name)
+{
+    const size_t dnscrypt_protocol_versions_len =
+        sizeof DNSCRYPT_PROTOCOL_VERSIONS - (size_t) 1U;
+
+    if (strncmp(provider_name, DNSCRYPT_PROTOCOL_VERSIONS,
+                dnscrypt_protocol_versions_len) != 0 ||
+        provider_name[dnscrypt_protocol_versions_len] != '.') {
+        return -1;
+    }
+    return 0;
 }
 
 static int
@@ -139,6 +158,11 @@ options_apply(ProxyContext * const proxy_context)
     if (proxy_context->provider_name == NULL ||
         *proxy_context->provider_name == 0) {
         logger_noformat(proxy_context, LOG_ERR, "Provider name required");
+        exit(1);
+    }
+    if (options_check_protocol_versions(proxy_context->provider_name) != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Unsupported server protocol version");
         exit(1);
     }
     if (proxy_context->provider_publickey_s == NULL) {
@@ -201,10 +225,16 @@ options_parse(AppContext * const app_context,
                        "Invalid EDNS payload size: [%s]", optarg);
                 exit(1);
             }
-            if (edns_payload_size <= DNS_MAX_PACKET_SIZE_UDP_SEND) {
+            if (edns_payload_size <= DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND) {
                 proxy_context->edns_payload_size = (size_t) 0U;
             } else {
                 proxy_context->edns_payload_size = (size_t) edns_payload_size;
+                assert(proxy_context->udp_max_size ==
+                       DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND);
+                if (proxy_context->edns_payload_size > DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND) {
+                    proxy_context->udp_max_size =
+                        proxy_context->edns_payload_size;
+                }
             }
             break;
         }
@@ -251,6 +281,21 @@ options_parse(AppContext * const app_context,
         case 'r':
             proxy_context->resolver_ip = optarg;
             break;
+        case 't': {
+            char *endptr;
+            const unsigned long margin =
+                strtoul(optarg, &endptr, 10);
+
+            if (*optarg == 0 || *endptr != 0 ||
+                margin > UINT32_MAX / 60U) {
+                logger(proxy_context, LOG_ERR,
+                       "Invalid certificate grace period: [%s]", optarg);
+                exit(1);
+            }
+            proxy_context->test_cert_margin = (time_t) margin * (time_t) 60U;
+            proxy_context->test_only = 1;
+            break;
+        }
 #ifdef HAVE_GETPWNAM
         case 'u': {
             const struct passwd * const pw = getpwnam(optarg);

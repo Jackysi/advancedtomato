@@ -78,7 +78,7 @@ ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
 
     for (i = 0; i <= Nr; i++) {
         for (j = 0; j < Nb; j++) {
-            ctx->round_key[i][j] = w[(i<<2)+j];
+            ctx->round_key[i][j] = SWP32(w[(i<<2)+j]);
         }
     }
 }
@@ -94,11 +94,49 @@ ECRYPT_ivsetup(ECRYPT_ctx* ctx, const u8* iv)
 
 /* ------------------------------------------------------------------------- */
 
+/*compute the intermediate values for the first two rounds*/
+static void
+partial_precompute_tworounds(ECRYPT_ctx* ctx)
+{
+  u32 x0,x1,x2,x3,y0,y1,y2,y3;
+
+  x0 = ctx->counter[0] ^ ctx->round_key[0][0];
+  x1 = ctx->counter[1] ^ ctx->round_key[0][1];
+  x2 = ctx->counter[2] ^ ctx->round_key[0][2];
+  x3 = ctx->counter[3] ^ ctx->round_key[0][3];
+  x0 &= SWP32(0xffffff00);
+  round(ctx,x0,x1,x2,x3,y0,y1,y2,y3,1);
+  ctx->first_round_output_x0 = y0 ^ T0[0];
+  y0 = 0;
+  round(ctx,y0,y1,y2,y3,x0,x1,x2,x3,2);
+  ctx->second_round_output[0] = x0 ^ T0[0];
+  ctx->second_round_output[1] = x1 ^ T3[0];
+  ctx->second_round_output[2] = x2 ^ T2[0];
+  ctx->second_round_output[3] = x3 ^ T1[0];
+}
+
+/* ------------------------------------------------------------------------- */
+
+#ifndef CPU_ALIGNED_ACCESS_REQUIRED
+# define UNALIGNED_U32_READ(P, I) (((const u32 *)(const void *) (P))[(I)])
+#else
+static inline uint32_t
+UNALIGNED_U32_READ(const u8 * const p, const size_t i)
+{
+    uint32_t t;
+    (void) sizeof(int[sizeof(*p) == sizeof(char) ? 1 : -1]);
+    memcpy(&t, p + i * (sizeof t / sizeof *p), sizeof t);
+    return t;
+}
+#endif
+
+/* ------------------------------------------------------------------------- */
+
 static void
 ECRYPT_process_bytes(int action, ECRYPT_ctx* ctx, const u8* input, u8* output,
                      u32 msglen)
 {
-    u8 keystream[16];
+    __attribute__((aligned(32))) u8 keystream[16];
     u32 i;
 
     (void) action;
@@ -108,14 +146,14 @@ ECRYPT_process_bytes(int action, ECRYPT_ctx* ctx, const u8* input, u8* output,
     for ( ; msglen >= 16; msglen -= 16, input += 16, output += 16) {
         aes256_enc_block(ctx->counter, keystream, ctx);
 
-        ((u32*)output)[0] = ((u32*)input)[0] ^ ((u32*)keystream)[0] ^ ctx->round_key[Nr][0];
-        ((u32*)output)[1] = ((u32*)input)[1] ^ ((u32*)keystream)[1] ^ ctx->round_key[Nr][1];
-        ((u32*)output)[2] = ((u32*)input)[2] ^ ((u32*)keystream)[2] ^ ctx->round_key[Nr][2];
-        ((u32*)output)[3] = ((u32*)input)[3] ^ ((u32*)keystream)[3] ^ ctx->round_key[Nr][3];
+        ((u32*)output)[0] = UNALIGNED_U32_READ(input, 0) ^ ((u32*)keystream)[0] ^ ctx->round_key[Nr][0];
+        ((u32*)output)[1] = UNALIGNED_U32_READ(input, 1) ^ ((u32*)keystream)[1] ^ ctx->round_key[Nr][1];
+        ((u32*)output)[2] = UNALIGNED_U32_READ(input, 2) ^ ((u32*)keystream)[2] ^ ctx->round_key[Nr][2];
+        ((u32*)output)[3] = UNALIGNED_U32_READ(input, 3) ^ ((u32*)keystream)[3] ^ ctx->round_key[Nr][3];
 
-        ctx->counter[0]++;
+        ctx->counter[0] = SWP32(SWP32(ctx->counter[0]) + 1);
 
-        if ((ctx->counter[0] & 0xff)== 0) {
+        if ((ctx->counter[0] & SWP32(0xff))== 0) {
             partial_precompute_tworounds(ctx);
         }
     }

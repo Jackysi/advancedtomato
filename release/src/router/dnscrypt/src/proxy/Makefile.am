@@ -56,17 +56,6 @@ dnscrypt_proxy_DEPENDENCIES = \
 	../libevent-modified/libevent_extra.la \
 	../libevent-modified/libevent_core.la
 
-if USE_BUILTIN_LIBSODIUM
-AM_CPPFLAGS += \
-	-I../libsodium/src/libsodium/include
-
-dnscrypt_proxy_LDADD += \
-	../libsodium/src/libsodium/libsodium.la
-
-dnscrypt_proxy_DEPENDENCIES += \
-	../libsodium/src/libsodium/libsodium.la
-endif
-
 BUILT_SOURCES = \
 	probes.h
 

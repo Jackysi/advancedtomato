@@ -17,7 +17,7 @@ Feature: See if hostip can resolve names
     When I run `hostip -6 www.opendns.com`
     Then the output should contain exactly:
     """
-    2620:0:cc1:115::210
+    2620:0:cc1:115::219
 
     """
     And the exit status should be 0

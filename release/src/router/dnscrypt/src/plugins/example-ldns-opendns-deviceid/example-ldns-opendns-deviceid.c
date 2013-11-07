@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+# include <ws2tcpip.h>
+#endif
+
 #include <dnscrypt/plugin.h>
 #include <ldns/ldns.h>
 
