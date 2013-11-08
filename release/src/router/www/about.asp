@@ -111,8 +111,6 @@ Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
 <!-- OPENVPN-END -->
-<b>"TomatoEgg" Features:</b><br>
-- Openvpn username/password verify feature and configure GUI.<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
@@ -153,7 +151,7 @@ Copyright (C) 2011-2013 Michał Rupental<br>
 <br>
 
 <!-- VPN-BEGIN -->
-<b>"JYAvenard" Features:</b><br>
+<b>"JYAvenard" features:</b><br>
 <!-- OPENVPN-BEGIN -->
 - OpenVPN enhancements &amp; username/password only authentication<br>
 <!-- OPENVPN-END -->
@@ -163,6 +161,12 @@ Copyright (C) 2011-2013 Michał Rupental<br>
 Copyright (C) 2010-2012 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
+
+<!-- OPENVPN-BEGIN -->
+<b>"TomatoEgg" feature:</b><br>
+- Openvpn username/password verify feature and configure GUI.<br>
+<br>
+<!-- OPENVPN-END -->
 <!-- VPN-END -->
 
 <b>"Victek" features:</b><br>

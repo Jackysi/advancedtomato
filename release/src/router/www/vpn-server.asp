@@ -15,7 +15,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] OpenVPN: Server</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript' src='vpn.js'></script>
 <script type='text/javascript'>
@@ -322,13 +322,13 @@ UsersGrid.prototype.fieldValuesToData = function(row)
 UsersGrid.prototype.dataToView = function(data){
 	var temp = ['<input type=\'checkbox\' style="opacity:1" disabled'+(data[0]!=0?' checked':'')+'>',
 	            data[1],
-	            'secert'
+	            'Secret'
                 ];
 
 	var v = [];
 	for (var i = 0; i < temp.length; ++i){
 		v.push(i==0?temp[i]:escapeHTML('' + temp[i]));
-    }
+	}
 	return v;
 }
 UsersGrid.prototype.dataToFieldValues = function(data)
@@ -413,7 +413,7 @@ function init()
 		ccdTables[i].resetNewEditor();
 
 		usersTables[i].init('table_' + t + '_users','sort', 0, [{ type: 'checkbox' }, { type: 'text' }, { type: 'text', maxlen: 15 }]);
-		usersTables[i].headerSet(['Enable', 'username', 'password']);
+		usersTables[i].headerSet(['Enable', 'Username', 'Password']);
 		var usersVal = eval('nvram.vpn_' + t + '_users_val');
 		if(usersVal.length) {
 			var s = usersVal.split('>');
