@@ -520,6 +520,7 @@ void start_vpnserver(int serverNum)
 	long int nvl;
 	int pid;
 
+	int current_security_level = 1;
 	sprintf(&buffer[0], "vpnserver%d", serverNum);
 	if (getpid() != 1) {
 		start_service(&buffer[0]);
@@ -762,6 +763,20 @@ void start_vpnserver(int serverNum)
 				chp = strtok(NULL, ">");
 			}
 			vpnlog(VPN_LOG_EXTRA,"CCD processing complete");
+		}
+
+		sprintf(&buffer[0], "vpn_server%d_userpass", serverNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			fprintf(fp, "plugin /lib/openvpn_plugin_auth_nvram.so vpn_server%d_users_val\n",serverNum);
+			if(current_security_level < 2){
+				fprintf(fp, "script-security 2\n");
+				current_security_level = 2;
+			}
+			fprintf(fp, "username-as-common-name\n");
+			sprintf(&buffer[0], "vpn_server%d_nocert", serverNum);
+			if ( nvram_get_int(&buffer[0]) )
+				fprintf(fp, "client-cert-not-required\n");
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_pdns", serverNum);
