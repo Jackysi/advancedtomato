@@ -154,6 +154,13 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
+
+#ifdef TCONFIG_UFSD
+			if (nvram_get_int("usb_fs_ntfs")) {
+				modprobe("ufsd");
+			}
+#endif
+
 #ifdef TCONFIG_HFS
 			if (nvram_get_int("usb_fs_hfs")) {
 				modprobe("hfs");
@@ -250,6 +257,9 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+#ifdef TCONFIG_UFSD
+		modprobe_r("ufsd");
+#endif
 #ifdef TCONFIG_HFS
 		modprobe_r("hfs");
 		modprobe_r("hfsplus");
@@ -416,14 +426,18 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 
 			ret = mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : "");
 
+#ifdef TCONFIG_NTFS
 			/* try ntfs-3g in case it's installed */
 			if (ret != 0 && strncmp(type, "ntfs", 4) == 0) {
 				sprintf(options + strlen(options), ",noatime,nodev" + (options[0] ? 0 : 1));
-#ifdef TCONFIG_NTFS
 				if (nvram_get_int("usb_fs_ntfs"))
-#endif
+#ifdef TCONFIG_UFSD
+					ret = eval("mount", "-t", "ufsd", "-o", options, "-o", "force", mnt_dev, mnt_dir);
+#else
 					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
+#endif
 			}
+#endif
 
 #ifdef TCONFIG_HFS
 			if (ret != 0 && strncmp(type, "hfs", "") == 0) {

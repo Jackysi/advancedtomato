@@ -133,7 +133,17 @@ endif
 
 obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
+
+ifeq ($(CONFIG_BCMWL6),y)
+ifeq ($(TCONFIG_UFSD),y)
+obj-$(TCONFIG_NTFS) += ufsd
+else
 obj-$(TCONFIG_NTFS) += ntfs-3g
+endif
+else
+obj-$(TCONFIG_NTFS) += ntfs-3g
+endif
+
 obj-$(TCONFIG_EBTABLES) += ebtables
 #obj-$(TCONFIG_IPV6) += libdaemon
 #obj-$(TCONFIG_IPV6) += radvd
@@ -896,6 +906,12 @@ vsftpd: $(if $(TCONFIG_FTP_SSL),openssl,)
 vsftpd-install: vsftpd
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+ufsd: kernel_header kernel
+	@$(MAKE) -C ufsd all
+
+ufsd-install: ufsd
+	@$(MAKE) -C ufsd install INSTALLDIR=$(INSTALLDIR)/ufsd
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \

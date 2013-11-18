@@ -197,3 +197,7 @@ config TCONFIG_AC66U
 config TCONFIG_CTF
 	bool "CTF (Cut-Through Forwarding)"
 	default n
+
+config TCONFIG_UFSD
+	bool "Paragon NTFS driver for Asus routers"
+	default n
