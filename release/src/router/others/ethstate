@@ -13,6 +13,9 @@ fi
 WANMAC=`nvram get wan_hwaddr`
 VWAN=`ifconfig | grep vlan | grep "$WANMAC" | awk '{print $1}'`
 VPORT=`nvram get $VWAN'ports' | awk '{print $1}' | sed 's/[^0-9]*//g'`
+if [ -z "$VPORT" ]; then
+    VPORT="0"
+fi
 
 /usr/sbin/robocfg showports | grep Port | awk '{print $1" "$2" "$3}' > /tmp/ethernet.state.tmp
 
