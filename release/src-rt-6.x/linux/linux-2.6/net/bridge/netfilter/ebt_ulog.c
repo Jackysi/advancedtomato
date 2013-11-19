@@ -37,11 +37,10 @@
 #include <linux/netlink.h>
 #include <linux/netdevice.h>
 #include <linux/module.h>
-#include <net/sock.h>
-#include "../br_private.h"
-#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_bridge/ebtables.h>
 #include <linux/netfilter_bridge/ebt_ulog.h>
+#include <net/sock.h>
+#include "../br_private.h"
 
 #define PRINTR(format, args...) do { if (net_ratelimit()) \
 				printk(format , ## args); } while (0)
@@ -261,7 +260,7 @@ static int ebt_ulog_check(const char *tablename, unsigned int hookmask,
 {
 	struct ebt_ulog_info *uloginfo = (struct ebt_ulog_info *)data;
 
-	if (datalen != XT_ALIGN(sizeof(struct ebt_ulog_info)) ||
+	if (datalen != EBT_ALIGN(sizeof(struct ebt_ulog_info)) ||
 	    uloginfo->nlgroup > 31)
 		return -EINVAL;
 
@@ -309,12 +308,8 @@ static int __init ebt_ulog_init(void)
 	else if ((ret = ebt_register_watcher(&ulog)))
 		sock_release(ebtulognl->sk_socket);
 
-	if (nf_log_register(PF_BRIDGE, &ebt_ulog_logger) < 0) {
-		printk(KERN_WARNING "ebt_ulog: not logging via ulog "
-		       "since somebody else already registered for PF_BRIDGE\n");
-		/* we cannot make module load fail here, since otherwise
-		 * ebtables userspace would abort */
-	}
+	if (ret == 0)
+		nf_log_register(PF_BRIDGE, &ebt_ulog_logger);
 
 	return ret;
 }

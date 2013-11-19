@@ -8,30 +8,22 @@
  *
  */
 
-#include <linux/module.h>
-#include <net/sock.h>
-#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter.h>
 #include <linux/netfilter_bridge/ebtables.h>
 #include <linux/netfilter_bridge/ebt_nat.h>
+#include <linux/module.h>
+#include <net/sock.h>
 
-static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
+static int ebt_target_dnat(struct sk_buff *skb, unsigned int hooknr,
    const struct net_device *in, const struct net_device *out,
    const void *data, unsigned int datalen)
 {
 	struct ebt_nat_info *info = (struct ebt_nat_info *)data;
 
-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
-		struct sk_buff *nskb;
+	if (!skb_make_writable(skb, 0))
+		return EBT_DROP;
 
-		nskb = skb_copy(*pskb, GFP_ATOMIC);
-		if (!nskb)
-			return NF_DROP;
-		if ((*pskb)->sk)
-			skb_set_owner_w(nskb, (*pskb)->sk);
-		kfree_skb(*pskb);
-		*pskb = nskb;
-	}
-	memcpy(eth_hdr(*pskb)->h_dest, info->mac, ETH_ALEN);
+	memcpy(eth_hdr(skb)->h_dest, info->mac, ETH_ALEN);
 	return info->target;
 }
 
@@ -47,7 +39,7 @@ static int ebt_target_dnat_check(const char *tablename, unsigned int hookmask,
 	   (hookmask & ~((1 << NF_BR_PRE_ROUTING) | (1 << NF_BR_LOCAL_OUT)))) &&
 	   (strcmp(tablename, "broute") || hookmask & ~(1 << NF_BR_BROUTING)) )
 		return -EINVAL;
-	if (datalen != XT_ALIGN(sizeof(struct ebt_nat_info)))
+	if (datalen != EBT_ALIGN(sizeof(struct ebt_nat_info)))
 		return -EINVAL;
 	if (INVALID_TARGET)
 		return -EINVAL;

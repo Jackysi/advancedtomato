@@ -9,14 +9,13 @@
  *
  */
 
+#include <linux/netfilter_bridge/ebtables.h>
+#include <linux/netfilter_bridge/ebt_arpreply.h>
 #include <linux/if_arp.h>
 #include <net/arp.h>
 #include <linux/module.h>
-#include <linux/netfilter/x_tables.h>
-#include <linux/netfilter_bridge/ebtables.h>
-#include <linux/netfilter_bridge/ebt_arpreply.h>
 
-static int ebt_target_reply(struct sk_buff **pskb, unsigned int hooknr,
+static int ebt_target_reply(struct sk_buff *skb, unsigned int hooknr,
    const struct net_device *in, const struct net_device *out,
    const void *data, unsigned int datalen)
 {
@@ -24,7 +23,6 @@ static int ebt_target_reply(struct sk_buff **pskb, unsigned int hooknr,
 	__be32 _sip, *siptr, _dip, *diptr;
 	struct arphdr _ah, *ap;
 	unsigned char _sha[ETH_ALEN], *shp;
-	struct sk_buff *skb = *pskb;
 
 	ap = skb_header_pointer(skb, 0, sizeof(_ah), &_ah);
 	if (ap == NULL)
@@ -62,7 +60,7 @@ static int ebt_target_reply_check(const char *tablename, unsigned int hookmask,
 {
 	struct ebt_arpreply_info *info = (struct ebt_arpreply_info *)data;
 
-	if (datalen != XT_ALIGN(sizeof(struct ebt_arpreply_info)))
+	if (datalen != EBT_ALIGN(sizeof(struct ebt_arpreply_info)))
 		return -EINVAL;
 	if (BASE_CHAIN && info->target == EBT_RETURN)
 		return -EINVAL;
