@@ -252,6 +252,8 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
   struct iname *tmp;
 #endif
 
+  (void)prefixlen;
+
   if (!indextoname(param->fd, if_index, ifr.ifr_name) ||
       ioctl(param->fd, SIOCGIFFLAGS, &ifr) == -1)
     return 0;
@@ -318,7 +320,8 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
 		    {
 		      al->next = zone->subnet;
 		      zone->subnet = al;
-		      al->prefixlen = prefixlen;al->addr.addr.addr6 = addr->in6.sin6_addr;
+		      al->prefixlen = prefixlen;
+		      al->addr.addr.addr6 = addr->in6.sin6_addr;
 		      al->flags = ADDRLIST_IPV6;
 		    }
 		} 
@@ -330,7 +333,8 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
       /* Update addresses from interface_names. These are a set independent
 	 of the set we're listening on. */  
       for (int_name = daemon->int_names; int_name; int_name = int_name->next)
-	if (strncmp(label, int_name->intr, IF_NAMESIZE) == 0)
+	if (strncmp(label, int_name->intr, IF_NAMESIZE) == 0 && 
+	    (addr->sa.sa_family == int_name->family || int_name->family == 0))
 	  {
 	    if (param->spare)
 	      {
@@ -915,7 +919,7 @@ void warn_bound_listeners(void)
   int advice = 0;
 
   for (iface = daemon->interfaces; iface; iface = iface->next)
-    if (option_bool(OPT_NOWILD) && !iface->dns_auth)
+    if (!iface->dns_auth)
       {
 	int warn = 0;
 	if (iface->addr.sa.sa_family == AF_INET)
@@ -943,15 +947,24 @@ void warn_bound_listeners(void)
 	  {
 	    iface->warned = advice = 1;
 	    my_syslog(LOG_WARNING, 
-		      _("LOUD WARNING: listening on %s may accept requests via interfaces other than %s. "),
+		      _("LOUD WARNING: listening on %s may accept requests via interfaces other than %s"),
 		      daemon->addrbuff, iface->name);
 	  }
       }
   
   if (advice)
-    my_syslog(LOG_WARNING, _("LOUD WARNING: use --bind-dynamic rather than --bind-interfaces to avoid DNS amplification attacks via these interface(s).")); 
+    my_syslog(LOG_WARNING, _("LOUD WARNING: use --bind-dynamic rather than --bind-interfaces to avoid DNS amplification attacks via these interface(s)")); 
 }
 
+void warn_int_names(void)
+{
+  struct interface_name *intname;
+ 
+  for (intname = daemon->int_names; intname; intname = intname->next)
+    if (!intname->addr)
+      my_syslog(LOG_WARNING, _("warning: no addresses found for interface %s"), intname->intr);
+}
+ 
 int is_dad_listeners(void)
 {
   struct irec *iface;
