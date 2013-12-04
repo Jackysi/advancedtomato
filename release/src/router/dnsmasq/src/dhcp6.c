@@ -330,13 +330,9 @@ static int complete_context6(struct in6_addr *local,  int prefix,
 	    {
 	      if ((context->flags & CONTEXT_DHCP) &&
 		  !(context->flags & (CONTEXT_TEMPLATE | CONTEXT_OLD)) &&
-#ifdef HAVE_TOMATO
 		  prefix <= context->prefix &&
-#else
-		  prefix == context->prefix &&
-#endif
-		  is_same_net6(local, &context->start6, prefix) &&
-		  is_same_net6(local, &context->end6, prefix))
+		  is_same_net6(local, &context->start6, context->prefix) &&
+		  is_same_net6(local, &context->end6, context->prefix))
 		{
 		  
 		  
@@ -635,13 +631,9 @@ static int construct_worker(struct in6_addr *local, int prefix,
     if (!(template->flags & CONTEXT_TEMPLATE))
       {
 	/* non-template entries, just fill in interface and local addresses */
-#ifdef HAVE_TOMATO
 	if (prefix <= template->prefix &&
-#else
-	if (prefix == template->prefix &&
-#endif
-	    is_same_net6(local, &template->start6, prefix) &&
-	    is_same_net6(local, &template->end6, prefix))
+	    is_same_net6(local, &template->start6, template->prefix) &&
+	    is_same_net6(local, &template->end6, template->prefix))
 	  {
 	    template->if_index = if_index;
 	    template->local6 = *local;
@@ -649,11 +641,7 @@ static int construct_worker(struct in6_addr *local, int prefix,
 	
       }
     else if (wildcard_match(template->template_interface, ifrn_name) &&
-#ifdef HAVE_TOMATO
 	     template->prefix >= prefix)
-#else
-	     template->prefix == prefix)
-#endif
       {
 	start6 = *local;
 	setaddr6part(&start6, addr6part(&template->start6));
