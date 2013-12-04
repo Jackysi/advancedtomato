@@ -37,9 +37,6 @@
    that it may proceed.  Finally when devlist.c is finished
    /var/tmp/dhcp/leases is removed.
 
-   rfc2131.c implements a 'Quiet DHCP' option (don't log DHCP stuff) first
-   implemented by 'Teddy Bear'.
-
    dnsmasq.c also intercepts SIGHUP so that it may flush the lease file.
    This is so lease expiry times survive a process restart since dnsmasq
    reads the lease file at start-up.
@@ -47,13 +44,10 @@
    Finally(?) lease_update_file (lease.c) writes out the remaining lease
    duration for each dhcp lease rather than lease expiry time (with RTC) or
    lease length (no RTC) for dnsmasq's internal lease database. 
-   asuswrt does a similar thing with lease durations though the code is
-   different.  Ideally the code would be merged in such a way that Tomato
-   and asuswrt-merlin can code share without even thinking...another project!
 
    dhcp lease file is /var/lib/misc/dnsmasq.leases
 
-   Above description K Darbyshire-Bryant 02/05/13  Hope it helps someone
+   Above description K Darbyshire-Bryant 04/12/13
 */
 
   
@@ -1296,11 +1290,6 @@ void poll_resolv(int force, int do_reload, time_t now)
 	      {
 		last_change = statbuf.st_mtime;
 		latest = res;
-/* This is now commented out
-#ifdef HAVE_TOMATO
-		break;
-#endif //TOMATO - Really don't understand what this break is trying to acheive/avoid
-*/
 	      }
 	  }
       }
