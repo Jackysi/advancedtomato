@@ -139,7 +139,7 @@ void lease_init(time_t now)
 	  lease->expires = (time_t)ei + now;
 	else
 	  lease->expires = (time_t)0;
-#ifdef HAVE_BROKEN_RT
+#ifdef HAVE_BROKEN_RTC
 	lease->length = ei;
 #endif
 #else
