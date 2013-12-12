@@ -122,7 +122,7 @@ function verifyFields(focused, quiet)
 
 	e = E('_f_addr');
 	s = e.value.trim();
-	if (!s.match(/^[\w\.-:]+$/)) {
+	if (!s.match(/^[\w\-\.\:]+$/)) {
 		ferror.set(e, 'Invalid hostname/address', quiet);
 		return 0;
 	}
