@@ -35,7 +35,6 @@
 #include "upnpdescgen.h"
 #include "minidlnapath.h"
 #include "upnpglobalvars.h"
-#include "upnpdescstrings.h"
 
 #undef DESC_DEBUG
 
@@ -192,7 +191,7 @@ static const struct XMLElt rootDesc[] =
 	{"/serviceType", "urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1"},
 	{"/serviceId", "urn:microsoft.com:serviceId:X_MS_MediaReceiverRegistrar"},
 	{"/controlURL", X_MS_MEDIARECEIVERREGISTRAR_CONTROLURL},
-	{"/eventSubURL", X_MS_MEDIARECEIVERREGISTRAR_EVENTURL},
+	{"/eventSubURL", ""},
 	{"/SCPDURL", X_MS_MEDIARECEIVERREGISTRAR_PATH},
 	{0, 0}
 };
@@ -583,7 +582,7 @@ static char *
 genXML(char * str, int * len, int * tmplen,
                    const struct XMLElt * p)
 {
-	u_int16_t i, j, k;
+	uint16_t i, j, k;
 	int top;
 	const char * eltname, *s;
 	char c;

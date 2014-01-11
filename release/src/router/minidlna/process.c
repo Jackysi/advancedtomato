@@ -1,7 +1,8 @@
-/* MiniUPnP project
- * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
+/* Process handling
  *
- * Copyright (c) 2006, Thomas Bernard
+ * Copyright © 2006, Thomas Bernard
+ * Copyright © 2013, Benoît Knecht <benoit.knecht@fsfe.org>
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,48 +36,74 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/wait.h>
 
-#include "daemonize.h"
+#include "process.h"
 #include "config.h"
 #include "log.h"
 
+static const int max_number_of_children = 5;
+static int number_of_children = 0;
+
+pid_t
+process_fork(void)
+{
+	if (number_of_children >= max_number_of_children)
+	{
+		errno = EAGAIN;
+		return -1;
+	}
+
+	pid_t pid = fork();
+	if (pid > 0)
+		++number_of_children;
+	return pid;
+}
+
+void
+process_handle_child_termination(int signal)
+{
+	waitpid(-1, NULL, WNOHANG);
+	--number_of_children;
+}
+
 int
-daemonize(void)
+process_daemonize(void)
 {
 	int pid;
 #ifndef USE_DAEMON
 	int i;
 
-	switch(fork())
+	switch(process_fork())
 	{
-	/* fork error */
-	case -1:
-		perror("fork()");
-		exit(1);
-	
-	/* child process */
-	case 0:
-		/* obtain a new process group */
-		if( (pid = setsid()) < 0)
-		{
-			perror("setsid()");
+		/* fork error */
+		case -1:
+			perror("fork()");
 			exit(1);
-		}
 
-		/* close all descriptors */
-		for (i=getdtablesize();i>=0;--i) close(i);
+		/* child process */
+		case 0:
+		/* obtain a new process group */
+			if( (pid = setsid()) < 0)
+			{
+				perror("setsid()");
+				exit(1);
+			}
 
-		i = open("/dev/null",O_RDWR); /* open stdin */
-		dup(i); /* stdout */
-		dup(i); /* stderr */
+			/* close all descriptors */
+			for (i=getdtablesize();i>=0;--i) close(i);		
 
-		umask(027);
-		chdir("/");
+			i = open("/dev/null",O_RDWR); /* open stdin */
+			dup(i); /* stdout */
+			dup(i); /* stderr */
 
-		break;
-	/* parent process */
-	default:
-		exit(0);
+			umask(027);
+			chdir("/");
+
+			break;
+		/* parent process */
+		default:
+			exit(0);
 	}
 #else
 	if( daemon(0, 0) < 0 )
@@ -87,55 +114,20 @@ daemonize(void)
 }
 
 int
-writepidfile(const char * fname, int pid)
-{
-	char pidstring[16];
-	int pidstringlen;
-	int pidfile;
-
-	if(!fname || (strlen(fname) == 0))
-		return -1;
-	
-	if( (pidfile = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0)
-	{
-		DPRINTF(E_INFO, L_GENERAL, "Unable to open pidfile for writing %s: %s\n", fname, strerror(errno));
-		return -1;
-	}
-
-	pidstringlen = snprintf(pidstring, sizeof(pidstring), "%d\n", pid);
-	if(pidstringlen <= 0)
-	{
-		DPRINTF(E_INFO, L_GENERAL,
-			"Unable to write to pidfile %s: snprintf(): FAILED\n", fname);
-		close(pidfile);
-		return -1;
-	}
-	else
-	{
-		if(write(pidfile, pidstring, pidstringlen) < 0)
-			DPRINTF(E_INFO, L_GENERAL, "Unable to write to pidfile %s: %s\n", fname, strerror(errno));
-	}
-
-	close(pidfile);
-
-	return 0;
-}
-
-int
-checkforrunning(const char * fname)
+process_check_if_running(const char *fname)
 {
 	char buffer[64];
 	int pidfile;
 	pid_t pid;
 
-	if(!fname || (strlen(fname) == 0))
+	if(!fname || *fname == '\0')
 		return -1;
 
 	if( (pidfile = open(fname, O_RDONLY)) < 0)
 		return 0;
-	
+
 	memset(buffer, 0, 64);
-	
+
 	if(read(pidfile, buffer, 63))
 	{
 		if( (pid = atol(buffer)) > 0)
@@ -147,9 +139,8 @@ checkforrunning(const char * fname)
 			}
 		}
 	}
-	
+
 	close(pidfile);
-	
+
 	return 0;
 }
-

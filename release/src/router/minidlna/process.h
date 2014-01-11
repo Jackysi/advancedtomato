@@ -1,7 +1,7 @@
-/* MiniUPnP project
- * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
+/* Process handling
  *
- * Copyright (c) 2006, Thomas Bernard
+ * Copyright © 2013, Benoît Knecht <benoit.knecht@fsfe.org>
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,29 +26,41 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __DAEMONIZE_H__
-#define __DAEMONIZE_H__
+#ifndef __PROCESS_H__
+#define __PROCESS_H__
 
-#include "config.h"
+#include <unistd.h>
 
-/* daemonize()
- * "fork" to background, detach from terminal, etc... 
- * returns: pid of the daemon, exits upon failure */
-int
-daemonize(void);
+/**
+ * Fork a new child (just like fork()) but keep track of how many childs are
+ * already running, and refuse fo fork if there are too many.
+ * @return -1 if it couldn't fork, 0 in the child process, the pid of the
+ *         child process in the parent process.
+ */
+pid_t process_fork(void);
 
-/* writepidfile()
- * write the pid to a file */
-int
-writepidfile(const char * fname, int pid);
+/**
+ * Handler to be called upon receiving SIGCHLD. This signal is received by the
+ * parent process when a child terminates, and this handler updates the number
+ * of running childs accordingly.
+ * @param signal The signal number.
+ */
+void process_handle_child_termination(int signal);
 
-/* checkforrunning()
- * check for another instance running
- * returns: 0 only instance
- *          -1 invalid filename
- *          -2 another instance running  */
-int
-checkforrunning(const char * fname);
+/**
+ * Daemonize the current process by forking itself and redirecting standard
+ * input, standard output and standard error to /dev/null.
+ * @return The pid of the process.
+ */ 
+int process_daemonize(void);
 
-#endif
+/**
+ * Check if the process corresponding to the pid found in the pid file is
+ * running.
+ * @param fname The path to the pid file.
+ * @return 0 if no other instance is running, -1 if the file name is invalid,
+ *         -2 if another instance is running.
+ */
+int process_check_if_running(const char *fname);
 
+#endif // __PROCESS_H__

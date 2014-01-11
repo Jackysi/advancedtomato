@@ -18,8 +18,8 @@
 # Short-Description: DLNA/UPnP-AV media server
 ### END INIT INFO
 
-MINIDLNA=/usr/sbin/minidlna
-PIDFILE=/var/run/minidlna.pid
+MINIDLNA=:SBINDIR:/minidlnad
+PIDFILE=/var/run/minidlna/minidlna.pid
 CONF=/etc/minidlna.conf
 ARGS="-f $CONF"
 
