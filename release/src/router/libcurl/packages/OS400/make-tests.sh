@@ -22,19 +22,17 @@ cd libtest
 #       _ Retain only lines that begins with "identifier =".
 #       _ Turn these lines into shell variable assignments.
 
-top_srcdir="${TOPDIR}"
-export top_srcdir
 eval "`sed -e ': begin'                                                 \
         -e '/\\\\$/{'                                                   \
         -e 'N'                                                          \
         -e 's/\\\\\\n/ /'                                               \
         -e 'b begin'                                                    \
         -e '}'                                                          \
-        -e '/^[A-Za-z_][A-Za-z0-9_]*[ 	]*[=]/b keep'                   \
+        -e '/^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[=]/b keep'             \
         -e 'd'                                                          \
         -e ': keep'                                                     \
-        -e 's/[ 	]*=[ 	]*/=/'                                  \
-        -e 's/=\\(.*[^ 	]\\)[ 	]*$/=\\"\\1\\"/'                        \
+        -e 's/[[:space:]]*=[[:space:]]*/=/'                             \
+        -e 's/=\\(.*[^[:space:]]\\)[[:space:]]*$/=\\"\\1\\"/'           \
         -e 's/\\$(\\([^)]*\\))/${\\1}/g'                                \
         < Makefile.inc`"
 

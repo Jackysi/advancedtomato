@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,9 +21,11 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "tool_setup.h"
 
 #include "tool_sdecls.h"
+
+#include "tool_metalink.h"
 
 struct Configurable {
   CURL *easy;               /* once we have one, we keep it here */
@@ -37,7 +39,7 @@ struct Configurable {
   bool cookiesession;       /* new session? */
   bool encoding;            /* Accept-Encoding please */
   bool tr_encoding;         /* Transfer-Encoding please */
-  long authtype;            /* auth bitmask */
+  unsigned long authtype;   /* auth bitmask */
   bool use_resume;
   bool resume_from_current;
   bool disable_epsv;
@@ -51,8 +53,8 @@ struct Configurable {
   char *postfields;
   curl_off_t postfieldsize;
   char *referer;
-  long timeout;
-  long connecttimeout;
+  double timeout;
+  double connecttimeout;
   long maxredirs;
   curl_off_t max_filesize;
   char *headerfile;
@@ -64,10 +66,15 @@ struct Configurable {
   char *range;
   long low_speed_limit;
   long low_speed_time;
+  char *dns_servers;   /* dot notation: 1.1.1.1;2.2.2.2 */
+  char *dns_interface; /* interface name */
+  char *dns_ipv4_addr; /* dot notation */
+  char *dns_ipv6_addr; /* dot notation */
   int showerror; /* -1 == unset, default => show errors
                     0 => -s is used to NOT show errors
                     1 => -S has been used to show errors */
   char *userpwd;
+  char *login_options;
   char *tls_username;
   char *tls_password;
   char *tls_authtype;
@@ -78,6 +85,7 @@ struct Configurable {
   char *mail_from;
   struct curl_slist *mail_rcpt;
   char *mail_auth;
+  bool sasl_ir;             /* Enable/disable SASL initial response */
   bool proxytunnel;
   bool ftp_append;          /* APPE on ftp */
   bool mute;                /* don't show messages, --silent given */
@@ -187,6 +195,7 @@ struct Configurable {
   bool raw;
   bool post301;
   bool post302;
+  bool post303;
   bool nokeepalive;         /* for keepalive needs */
   long alivetime;
   bool content_disposition; /* use Content-disposition filename */
@@ -197,9 +206,16 @@ struct Configurable {
   bool xattr;               /* store metadata in extended attributes */
   long gssapi_delegation;
   bool ssl_allow_beast;     /* allow this SSL vulnerability */
+
+  bool use_metalink;        /* process given URLs as metalink XML file */
+  metalinkfile *metalinkfile_list; /* point to the first node */
+  metalinkfile *metalinkfile_last; /* point to the last/current node */
+#ifdef CURLDEBUG
+  bool test_event_based;
+#endif
+  char *xoauth2_bearer;     /* XOAUTH2 bearer token */
 }; /* struct Configurable */
 
 void free_config_fields(struct Configurable *config);
 
 #endif /* HEADER_CURL_TOOL_CFGABLE_H */
-

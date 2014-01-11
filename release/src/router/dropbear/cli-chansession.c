@@ -38,9 +38,10 @@
 static void cli_closechansess(struct Channel *channel);
 static int cli_initchansess(struct Channel *channel);
 static void cli_chansessreq(struct Channel *channel);
-
 static void send_chansess_pty_req(struct Channel *channel);
 static void send_chansess_shell_req(struct Channel *channel);
+static void cli_escape_handler(struct Channel *channel, unsigned char* buf, int *len);
+
 
 static void cli_tty_setup();
 
@@ -70,7 +71,9 @@ static void cli_chansessreq(struct Channel *channel) {
 		TRACE(("got exit-signal, ignoring it"))
 	} else {
 		TRACE(("unknown request '%s'", type))
-		send_msg_channel_failure(channel);
+		if (wantreply) {
+			send_msg_channel_failure(channel);
+		}
 		goto out;
 	}
 		
@@ -81,14 +84,12 @@ out:
 
 /* If the main session goes, we close it up */
 static void cli_closechansess(struct Channel *UNUSED(channel)) {
+	cli_tty_cleanup(); /* Restore tty modes etc */
 
 	/* This channel hasn't gone yet, so we have > 1 */
 	if (ses.chancount > 1) {
 		dropbear_log(LOG_INFO, "Waiting for other channels to close...");
 	}
-
-	cli_tty_cleanup(); /* Restore tty modes etc */
-
 }
 
 void cli_start_send_channel_request(struct Channel *channel, 
@@ -368,13 +369,17 @@ static int cli_initchansess(struct Channel *channel) {
 
 	if (cli_opts.wantpty) {
 		send_chansess_pty_req(channel);
+	} else {
+		set_sock_priority(ses.sock_out, DROPBEAR_PRIO_BULK);
 	}
 
 	send_chansess_shell_req(channel);
 
 	if (cli_opts.wantpty) {
 		cli_tty_setup();
-	}
+		channel->read_mangler = cli_escape_handler;
+		cli_ses.last_char = '\r';
+	}	
 
 	return 0; /* Success */
 }
@@ -395,6 +400,7 @@ void cli_send_netcat_request() {
 	const unsigned char* source_host = "127.0.0.1";
 	const int source_port = 22;
 
+	TRACE(("enter cli_send_netcat_request"))
 	cli_opts.wantpty = 0;
 
 	if (send_msg_channel_open_init(STDIN_FILENO, &cli_chan_netcat) 
@@ -411,7 +417,7 @@ void cli_send_netcat_request() {
 	buf_putint(ses.writepayload, source_port);
 
 	encrypt_packet();
-	TRACE(("leave cli_send_chansess_request"))
+	TRACE(("leave cli_send_netcat_request"))
 }
 #endif
 
@@ -428,4 +434,60 @@ void cli_send_chansess_request() {
 	encrypt_packet();
 	TRACE(("leave cli_send_chansess_request"))
 
+}
+
+/* returns 1 if the character should be consumed, 0 to pass through */
+static int
+do_escape(unsigned char c) {
+	switch (c) {
+		case '.':
+			dropbear_exit("Terminated");
+			return 1;
+			break;
+		case 0x1a:
+			/* ctrl-z */
+			cli_tty_cleanup();
+			kill(getpid(), SIGTSTP);
+			/* after continuation */
+			cli_tty_setup();
+			cli_ses.winchange = 1;
+			return 1;
+			break;
+	}
+	return 0;
+}
+
+static
+void cli_escape_handler(struct Channel* UNUSED(channel), unsigned char* buf, int *len) {
+	char c;
+	int skip_char = 0;
+
+	/* only handle escape characters if they are read one at a time. simplifies 
+	   the code and avoids nasty people putting ~. at the start of a line to paste  */
+	if (*len != 1) {
+		cli_ses.last_char = 0x0;
+		return;
+	}
+
+	c = buf[0];
+
+	if (cli_ses.last_char == DROPBEAR_ESCAPE_CHAR) {
+		skip_char = do_escape(c);
+		cli_ses.last_char = 0x0;
+	} else {
+		if (c == DROPBEAR_ESCAPE_CHAR) {
+			if (cli_ses.last_char == '\r') {
+				cli_ses.last_char = DROPBEAR_ESCAPE_CHAR;
+				skip_char = 1;
+			} else {
+				cli_ses.last_char = 0x0;
+			}
+		} else {
+			cli_ses.last_char = c;
+		}
+	}
+
+	if (skip_char) {
+		*len = 0;
+	}
 }

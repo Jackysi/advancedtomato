@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,13 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
-
-#ifdef HAVE_UNISTD_H
-#  include <unistd.h>
-#endif
+#include "tool_setup.h"
 
 #ifdef HAVE_FCNTL_H
 #  include <fcntl.h>
@@ -43,6 +37,10 @@
 
 #ifdef HAVE_NETINET_TCP_H
 #  include <netinet/tcp.h>
+#endif
+
+#ifdef __VMS
+#  include <fabdef.h>
 #endif
 
 #include "rawstr.h"
@@ -67,9 +65,11 @@
 #include "tool_homedir.h"
 #include "tool_libinfo.h"
 #include "tool_main.h"
+#include "tool_metalink.h"
 #include "tool_msgs.h"
 #include "tool_operate.h"
 #include "tool_operhlp.h"
+#include "tool_paramhlp.h"
 #include "tool_parsecfg.h"
 #include "tool_setopt.h"
 #include "tool_sleep.h"
@@ -78,8 +78,14 @@
 #include "tool_writeenv.h"
 #include "tool_writeout.h"
 #include "tool_xattr.h"
+#include "tool_vms.h"
 
 #include "memdebug.h" /* keep this as LAST include */
+
+#ifdef CURLDEBUG
+/* libcurl's debug builds provide an extra function */
+CURLcode curl_easy_perform_ev(CURL *easy);
+#endif
 
 #define CURLseparator  "--_curl_--"
 
@@ -123,13 +129,72 @@ static int is_fatal_error(int code)
   return 0;
 }
 
+#ifdef __VMS
+/*
+ * get_vms_file_size does what it takes to get the real size of the file
+ *
+ * For fixed files, find out the size of the EOF block and adjust.
+ *
+ * For all others, have to read the entire file in, discarding the contents.
+ * Most posted text files will be small, and binary files like zlib archives
+ * and CD/DVD images should be either a STREAM_LF format or a fixed format.
+ *
+ */
+static curl_off_t vms_realfilesize(const char * name,
+                                   const struct_stat * stat_buf)
+{
+  char buffer[8192];
+  curl_off_t count;
+  int ret_stat;
+  FILE * file;
+
+  file = fopen(name, "r");
+  if(file == NULL) {
+    return 0;
+  }
+  count = 0;
+  ret_stat = 1;
+  while(ret_stat > 0) {
+    ret_stat = fread(buffer, 1, sizeof(buffer), file);
+    if(ret_stat != 0)
+      count += ret_stat;
+  }
+  fclose(file);
+
+  return count;
+}
+
+/*
+ *
+ *  VmsSpecialSize checks to see if the stat st_size can be trusted and
+ *  if not to call a routine to get the correct size.
+ *
+ */
+static curl_off_t VmsSpecialSize(const char * name,
+                                 const struct_stat * stat_buf)
+{
+  switch(stat_buf->st_fab_rfm) {
+  case FAB$C_VAR:
+  case FAB$C_VFC:
+    return vms_realfilesize(name, stat_buf);
+    break;
+  default:
+    return stat_buf->st_size;
+  }
+}
+#endif /* __VMS */
+
+
 int operate(struct Configurable *config, int argc, argv_item_t argv[])
 {
   char errorbuffer[CURL_ERROR_SIZE];
   struct ProgressData progressbar;
   struct getout *urlnode;
 
+  struct HdrCbData hdrcbdata;
   struct OutStruct heads;
+
+  metalinkfile *mlfile_last = NULL;
 
   CURL *curl = NULL;
   char *httpgetfields = NULL;
@@ -137,9 +202,14 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
   bool stillflags;
   int res = 0;
   int i;
+  unsigned long li;
+
+  bool orig_noprogress;
+  bool orig_isatty;
 
   errorbuffer[0] = '\0';
   /* default headers output stream is stdout */
+  memset(&hdrcbdata, 0, sizeof(struct HdrCbData));
   memset(&heads, 0, sizeof(struct OutStruct));
   heads.stream = stdout;
   heads.config = config;
@@ -220,7 +290,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
        ('-' == argv[i][0])) {
       char *nextarg;
       bool passarg;
-      char *origopt = argv[i];
+      char *orig_opt = argv[i];
 
       char *flag = argv[i];
 
@@ -236,7 +306,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           int retval = CURLE_OK;
           if(res != PARAM_HELP_REQUESTED) {
             const char *reason = param2text(res);
-            helpf(config->errors, "option %s: %s\n", origopt, reason);
+            helpf(config->errors, "option %s: %s\n", orig_opt, reason);
             retval = CURLE_FAILED_INIT;
           }
           res = retval;
@@ -254,6 +324,18 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
       if(res)
         goto quit_curl;
     }
+  }
+
+  if(config->userpwd && !config->xoauth2_bearer) {
+    res = checkpasswd("host", &config->userpwd);
+    if(res)
+      goto quit_curl;
+  }
+
+  if(config->proxyuserpwd) {
+    res = checkpasswd("proxy", &config->proxyuserpwd);
+    if(res)
+      goto quit_curl;
   }
 
   if((!config->url_list || !config->url_list->url) && !config->list_engines) {
@@ -390,6 +472,10 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
     }
   }
 
+  /* save the values of noprogress and isatty to restore them later on */
+  orig_noprogress = config->noprogress;
+  orig_isatty = config->isatty;
+
   /*
   ** Nested loops start here.
   */
@@ -398,15 +484,33 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
   for(urlnode = config->url_list; urlnode; urlnode = urlnode->next) {
 
-    int up; /* upload file counter within a single upload glob */
+    unsigned long up; /* upload file counter within a single upload glob */
     char *infiles; /* might be a glob pattern */
     char *outfiles;
-    int infilenum;
+    unsigned long infilenum;
     URLGlob *inglob;
+
+    int metalink = 0; /* nonzero for metalink download. */
+    metalinkfile *mlfile;
+    metalink_resource *mlres;
 
     outfiles = NULL;
     infilenum = 1;
     inglob = NULL;
+
+    if(urlnode->flags & GETOUT_METALINK) {
+      metalink = 1;
+      if(mlfile_last == NULL) {
+        mlfile_last = config->metalinkfile_list;
+      }
+      mlfile = mlfile_last;
+      mlfile_last = mlfile_last->next;
+      mlres = mlfile->resource;
+    }
+    else {
+      mlfile = NULL;
+      mlres = NULL;
+    }
 
     /* urlnode->url is the full URL (it might be NULL) */
 
@@ -448,10 +552,9 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
       char *uploadfile; /* a single file, never a glob */
       int separator;
       URLGlob *urls;
-      int urlnum;
+      unsigned long urlnum;
 
       uploadfile = NULL;
-      separator = 0;
       urls = NULL;
       urlnum = 0;
 
@@ -476,6 +579,12 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           break;
       }
 
+      if(metalink) {
+        /* For Metalink download, we don't use glob. Instead we use
+           the number of resources as urlnum. */
+        urlnum = count_next_metalink_resource(mlfile);
+      }
+      else
       if(!config->globoff) {
         /* Unless explicitly shut off, we expand '{...}' and '[...]'
            expressions and return total number of URLs in pattern set */
@@ -493,7 +602,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
       separator= ((!outfiles || curlx_strequal(outfiles, "-")) && urlnum > 1);
 
       /* Here's looping around each globbed URL */
-      for(i = 0 ; i < urlnum; i++) {
+      for(li = 0 ; li < urlnum; li++) {
 
         int infd;
         bool infdopen;
@@ -505,7 +614,8 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         long retry_numretries;
         long retry_sleep_default;
         long retry_sleep;
-        char *this_url;
+        char *this_url = NULL;
+        int metalink_next_res = 0;
 
         outfile = NULL;
         infdopen = FALSE;
@@ -517,33 +627,50 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         outs.stream = stdout;
         outs.config = config;
 
-        if(urls) {
-          res = glob_next_url(&this_url, urls);
-          if(res)
+        if(metalink) {
+          /* For Metalink download, use name in Metalink file as
+             filename. */
+          outfile = strdup(mlfile->filename);
+          if(!outfile) {
+            res = CURLE_OUT_OF_MEMORY;
             goto show_error;
-        }
-        else if(!i) {
-          this_url = strdup(urlnode->url);
+          }
+          this_url = strdup(mlres->url);
           if(!this_url) {
             res = CURLE_OUT_OF_MEMORY;
             goto show_error;
           }
         }
-        else
-          this_url = NULL;
-        if(!this_url)
-          break;
+        else {
+          if(urls) {
+            res = glob_next_url(&this_url, urls);
+            if(res)
+              goto show_error;
+          }
+          else if(!li) {
+            this_url = strdup(urlnode->url);
+            if(!this_url) {
+              res = CURLE_OUT_OF_MEMORY;
+              goto show_error;
+            }
+          }
+          else
+            this_url = NULL;
+          if(!this_url)
+            break;
 
-        if(outfiles) {
-          outfile = strdup(outfiles);
-          if(!outfile) {
-            res = CURLE_OUT_OF_MEMORY;
-            goto show_error;
+          if(outfiles) {
+            outfile = strdup(outfiles);
+            if(!outfile) {
+              res = CURLE_OUT_OF_MEMORY;
+              goto show_error;
+            }
           }
         }
 
-        if((urlnode->flags&GETOUT_USEREMOTE) ||
-           (outfile && !curlx_strequal("-", outfile)) ) {
+        if(((urlnode->flags&GETOUT_USEREMOTE) ||
+            (outfile && !curlx_strequal("-", outfile))) &&
+           (metalink || !config->use_metalink)) {
 
           /*
            * We have specified a file name to store the result in, or we have
@@ -585,7 +712,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           /* Create the directory hierarchy, if not pre-existent to a multiple
              file output call */
 
-          if(config->create_dirs) {
+          if(config->create_dirs || metalink) {
             res = create_dir_hierarchy(outfile, config->errors);
             /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
             if(res == CURLE_WRITE_ERROR)
@@ -615,8 +742,15 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           }
 
           if(config->resume_from) {
+#ifdef __VMS
+            /* open file for output, forcing VMS output format into stream
+               mode which is needed for stat() call above to always work. */
+            FILE *file = fopen(outfile, config->resume_from?"ab":"wb",
+                               "ctx=stm", "rfm=stmlf", "rat=cr", "mrs=0");
+#else
             /* open file for output: */
             FILE *file = fopen(outfile, config->resume_from?"ab":"wb");
+#endif
             if(!file) {
               helpf(config->errors, "Can't open '%s'!\n", outfile);
               res = CURLE_WRITE_ERROR;
@@ -658,9 +792,28 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
            * header for VARIABLE header files only the bare record data needs
            * to be considered with one appended if implied CC
            */
-
+#ifdef __VMS
+          /* Calculate the real upload site for VMS */
+          infd = -1;
+          if(stat(uploadfile, &fileinfo) == 0) {
+            fileinfo.st_size = VmsSpecialSize(uploadfile, &fileinfo);
+            switch (fileinfo.st_fab_rfm) {
+            case FAB$C_VAR:
+            case FAB$C_VFC:
+            case FAB$C_STMCR:
+              infd = open(uploadfile, O_RDONLY | O_BINARY);
+              break;
+            default:
+              infd = open(uploadfile, O_RDONLY | O_BINARY,
+                          "rfm=stmlf", "ctx=stm");
+            }
+          }
+          if(infd == -1)
+#else
           infd = open(uploadfile, O_RDONLY | O_BINARY);
-          if((infd == -1) || fstat(infd, &fileinfo)) {
+          if((infd == -1) || fstat(infd, &fileinfo))
+#endif
+          {
             helpf(config->errors, "Can't open '%s'!\n", uploadfile);
             if(infd != -1) {
               close(infd);
@@ -682,7 +835,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           int authbits = 0;
           int bitcheck = 0;
           while(bitcheck < 32) {
-            if(config->authtype & (1 << bitcheck++)) {
+            if(config->authtype & (1UL << bitcheck++)) {
               authbits++;
               if(authbits > 1) {
                 /* more than one, we're done! */
@@ -721,10 +874,16 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           /* we send the output to a tty, therefore we switch off the progress
              meter */
           config->noprogress = config->isatty = TRUE;
+        else {
+          /* progress meter is per download, so restore config
+             values */
+          config->noprogress = orig_noprogress;
+          config->isatty = orig_isatty;
+        }
 
         if(urlnum > 1 && !(config->mute)) {
-          fprintf(config->errors, "\n[%d/%d]: %s --> %s\n",
-                  i+1, urlnum, this_url, outfile ? outfile : "<stdout>");
+          fprintf(config->errors, "\n[%lu/%lu]: %s --> %s\n",
+                  li+1, urlnum, this_url, outfile ? outfile : "<stdout>");
           if(separator)
             printf("%s%s\n", CURLseparator, this_url);
         }
@@ -751,18 +910,18 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           /*
            * Then append ? followed by the get fields to the url.
            */
-          urlbuffer = malloc(strlen(this_url) + strlen(httpgetfields) + 3);
-          if(!urlbuffer) {
-            res = CURLE_OUT_OF_MEMORY;
-            goto show_error;
-          }
           if(pc)
-            sprintf(urlbuffer, "%s%c%s", this_url, sep, httpgetfields);
+            urlbuffer = aprintf("%s%c%s", this_url, sep, httpgetfields);
           else
             /* Append  / before the ? to create a well-formed url
                if the url contains a hostname only
             */
-            sprintf(urlbuffer, "%s/?%s", this_url, httpgetfields);
+            urlbuffer = aprintf("%s/?%s", this_url, httpgetfields);
+
+          if(!urlbuffer) {
+            res = CURLE_OUT_OF_MEMORY;
+            goto show_error;
+          }
 
           Curl_safefree(this_url); /* free previous URL */
           this_url = urlbuffer; /* use our new URL instead! */
@@ -778,12 +937,19 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         }
 
         if(config->tcp_nodelay)
-          my_setopt(curl, CURLOPT_TCP_NODELAY, 1);
+          my_setopt(curl, CURLOPT_TCP_NODELAY, 1L);
 
         /* where to store */
         my_setopt(curl, CURLOPT_WRITEDATA, &outs);
-        /* what call to write */
-        my_setopt(curl, CURLOPT_WRITEFUNCTION, tool_write_cb);
+        if(metalink || !config->use_metalink)
+          /* what call to write */
+          my_setopt(curl, CURLOPT_WRITEFUNCTION, tool_write_cb);
+#ifdef USE_METALINK
+        else
+          /* Set Metalink specific write callback function to parse
+             XML data progressively. */
+          my_setopt(curl, CURLOPT_WRITEFUNCTION, metalink_write_cb);
+#endif /* USE_METALINK */
 
         /* for uploads */
         input.fd = infd;
@@ -807,19 +973,25 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         if(config->recvpersecond)
           /* tell libcurl to use a smaller sized buffer as it allows us to
              make better sleeps! 7.9.9 stuff! */
-          my_setopt(curl, CURLOPT_BUFFERSIZE, config->recvpersecond);
+          my_setopt(curl, CURLOPT_BUFFERSIZE, (long)config->recvpersecond);
 
         /* size of uploaded file: */
         if(uploadfilesize != -1)
           my_setopt(curl, CURLOPT_INFILESIZE_LARGE, uploadfilesize);
         my_setopt_str(curl, CURLOPT_URL, this_url);     /* what to fetch */
-        my_setopt(curl, CURLOPT_NOPROGRESS, config->noprogress);
+        my_setopt(curl, CURLOPT_NOPROGRESS, config->noprogress?1L:0L);
         if(config->no_body) {
-          my_setopt(curl, CURLOPT_NOBODY, 1);
-          my_setopt(curl, CURLOPT_HEADER, 1);
+          my_setopt(curl, CURLOPT_NOBODY, 1L);
+          my_setopt(curl, CURLOPT_HEADER, 1L);
         }
-        else
-          my_setopt(curl, CURLOPT_HEADER, config->include_headers);
+        /* If --metalink is used, we ignore --include (headers in
+           output) option because mixing headers to the body will
+           confuse XML parser and/or hash check will fail. */
+        else if(!config->use_metalink)
+          my_setopt(curl, CURLOPT_HEADER, config->include_headers?1L:0L);
+
+        if(config->xoauth2_bearer)
+          my_setopt_str(curl, CURLOPT_XOAUTH2_BEARER, config->xoauth2_bearer);
 
 #if !defined(CURL_DISABLE_PROXY)
         {
@@ -829,62 +1001,71 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           my_setopt_str(curl, CURLOPT_PROXYUSERPWD, config->proxyuserpwd);
 
           /* new in libcurl 7.3 */
-          my_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, config->proxytunnel);
+          my_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, config->proxytunnel?1L:0L);
 
           /* new in libcurl 7.5 */
           if(config->proxy)
-            my_setopt_enum(curl, CURLOPT_PROXYTYPE, config->proxyver);
+            my_setopt_enum(curl, CURLOPT_PROXYTYPE, (long)config->proxyver);
 
           /* new in libcurl 7.10 */
           if(config->socksproxy) {
             my_setopt_str(curl, CURLOPT_PROXY, config->socksproxy);
-            my_setopt_enum(curl, CURLOPT_PROXYTYPE, config->socksver);
+            my_setopt_enum(curl, CURLOPT_PROXYTYPE, (long)config->socksver);
           }
 
           /* new in libcurl 7.10.6 */
           if(config->proxyanyauth)
-            my_setopt_flags(curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+            my_setopt_bitmask(curl, CURLOPT_PROXYAUTH,
+                              (long)CURLAUTH_ANY);
           else if(config->proxynegotiate)
-            my_setopt_flags(curl, CURLOPT_PROXYAUTH, CURLAUTH_GSSNEGOTIATE);
+            my_setopt_bitmask(curl, CURLOPT_PROXYAUTH,
+                              (long)CURLAUTH_GSSNEGOTIATE);
           else if(config->proxyntlm)
-            my_setopt_flags(curl, CURLOPT_PROXYAUTH, CURLAUTH_NTLM);
+            my_setopt_bitmask(curl, CURLOPT_PROXYAUTH,
+                              (long)CURLAUTH_NTLM);
           else if(config->proxydigest)
-            my_setopt_flags(curl, CURLOPT_PROXYAUTH, CURLAUTH_DIGEST);
+            my_setopt_bitmask(curl, CURLOPT_PROXYAUTH,
+                              (long)CURLAUTH_DIGEST);
           else if(config->proxybasic)
-            my_setopt_flags(curl, CURLOPT_PROXYAUTH, CURLAUTH_BASIC);
+            my_setopt_bitmask(curl, CURLOPT_PROXYAUTH,
+                              (long)CURLAUTH_BASIC);
 
           /* new in libcurl 7.19.4 */
           my_setopt(curl, CURLOPT_NOPROXY, config->noproxy);
         }
 #endif
 
-        my_setopt(curl, CURLOPT_FAILONERROR, config->failonerror);
-        my_setopt(curl, CURLOPT_UPLOAD, uploadfile?TRUE:FALSE);
-        my_setopt(curl, CURLOPT_DIRLISTONLY, config->dirlistonly);
-        my_setopt(curl, CURLOPT_APPEND, config->ftp_append);
+        my_setopt(curl, CURLOPT_FAILONERROR, config->failonerror?1L:0L);
+        my_setopt(curl, CURLOPT_UPLOAD, uploadfile?1L:0L);
+        my_setopt(curl, CURLOPT_DIRLISTONLY, config->dirlistonly?1L:0L);
+        my_setopt(curl, CURLOPT_APPEND, config->ftp_append?1L:0L);
 
         if(config->netrc_opt)
-          my_setopt(curl, CURLOPT_NETRC, CURL_NETRC_OPTIONAL);
+          my_setopt_enum(curl, CURLOPT_NETRC, (long)CURL_NETRC_OPTIONAL);
         else if(config->netrc || config->netrc_file)
-          my_setopt(curl, CURLOPT_NETRC, CURL_NETRC_REQUIRED);
+          my_setopt_enum(curl, CURLOPT_NETRC, (long)CURL_NETRC_REQUIRED);
         else
-          my_setopt(curl, CURLOPT_NETRC, CURL_NETRC_IGNORED);
+          my_setopt_enum(curl, CURLOPT_NETRC, (long)CURL_NETRC_IGNORED);
 
         if(config->netrc_file)
           my_setopt(curl, CURLOPT_NETRC_FILE, config->netrc_file);
 
-        my_setopt(curl, CURLOPT_TRANSFERTEXT, config->use_ascii);
+        my_setopt(curl, CURLOPT_TRANSFERTEXT, config->use_ascii?1L:0L);
+        if(config->login_options)
+          my_setopt_str(curl, CURLOPT_LOGIN_OPTIONS, config->login_options);
         my_setopt_str(curl, CURLOPT_USERPWD, config->userpwd);
         my_setopt_str(curl, CURLOPT_RANGE, config->range);
         my_setopt(curl, CURLOPT_ERRORBUFFER, errorbuffer);
-        my_setopt(curl, CURLOPT_TIMEOUT, config->timeout);
+        my_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(config->timeout * 1000));
 
         if(built_in_protos & CURLPROTO_HTTP) {
 
+          long postRedir = 0;
+
           my_setopt(curl, CURLOPT_FOLLOWLOCATION,
-                    config->followlocation);
+                    config->followlocation?1L:0L);
           my_setopt(curl, CURLOPT_UNRESTRICTED_AUTH,
-                    config->unrestricted_auth);
+                    config->unrestricted_auth?1L:0L);
 
           switch(config->httpreq) {
           case HTTPREQ_SIMPLEPOST:
@@ -901,7 +1082,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           }
 
           my_setopt_str(curl, CURLOPT_REFERER, config->referer);
-          my_setopt(curl, CURLOPT_AUTOREFERER, config->autoreferer);
+          my_setopt(curl, CURLOPT_AUTOREFERER, config->autoreferer?1L:0L);
           my_setopt_str(curl, CURLOPT_USERAGENT, config->useragent);
           my_setopt_slist(curl, CURLOPT_HTTPHEADER, config->headers);
 
@@ -914,11 +1095,17 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
           /* new in libcurl 7.10.6 (default is Basic) */
           if(config->authtype)
-            my_setopt_flags(curl, CURLOPT_HTTPAUTH, config->authtype);
+            my_setopt_bitmask(curl, CURLOPT_HTTPAUTH, (long)config->authtype);
 
-          /* curl 7.19.1 (the 301 version existed in 7.18.2) */
-          my_setopt(curl, CURLOPT_POSTREDIR, config->post301 |
-                    (config->post302 ? CURL_REDIR_POST_302 : FALSE));
+          /* curl 7.19.1 (the 301 version existed in 7.18.2),
+             303 was added in 7.26.0 */
+          if(config->post301)
+            postRedir |= CURL_REDIR_POST_301;
+          if(config->post302)
+            postRedir |= CURL_REDIR_POST_302;
+          if(config->post303)
+            postRedir |= CURL_REDIR_POST_303;
+          my_setopt(curl, CURLOPT_POSTREDIR, postRedir);
 
           /* new in libcurl 7.21.6 */
           if(config->encoding)
@@ -926,7 +1113,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
           /* new in libcurl 7.21.6 */
           if(config->tr_encoding)
-            my_setopt(curl, CURLOPT_TRANSFER_ENCODING, 1);
+            my_setopt(curl, CURLOPT_TRANSFER_ENCODING, 1L);
 
         } /* (built_in_protos & CURLPROTO_HTTP) */
 
@@ -938,12 +1125,15 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
                   config->sendpersecond);
         my_setopt(curl, CURLOPT_MAX_RECV_SPEED_LARGE,
                   config->recvpersecond);
-        my_setopt(curl, CURLOPT_RESUME_FROM_LARGE,
-                  config->use_resume?config->resume_from:0);
 
-        my_setopt(curl, CURLOPT_SSLCERT, config->cert);
+        if(config->use_resume)
+          my_setopt(curl, CURLOPT_RESUME_FROM_LARGE, config->resume_from);
+        else
+          my_setopt(curl, CURLOPT_RESUME_FROM_LARGE, CURL_OFF_T_C(0));
+
+        my_setopt_str(curl, CURLOPT_SSLCERT, config->cert);
         my_setopt_str(curl, CURLOPT_SSLCERTTYPE, config->cert_type);
-        my_setopt(curl, CURLOPT_SSLKEY, config->key);
+        my_setopt_str(curl, CURLOPT_SSLKEY, config->key);
         my_setopt_str(curl, CURLOPT_SSLKEYTYPE, config->key_type);
         my_setopt_str(curl, CURLOPT_KEYPASSWD, config->key_passwd);
 
@@ -971,7 +1161,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         if(curlinfo->features & CURL_VERSION_SSL) {
           if(config->insecure_ok) {
             my_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-            my_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1L);
+            my_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
           }
           else {
             my_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
@@ -1005,10 +1195,10 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
         if(config->no_body || config->remote_time) {
           /* no body or use remote time */
-          my_setopt(curl, CURLOPT_FILETIME, TRUE);
+          my_setopt(curl, CURLOPT_FILETIME, 1L);
         }
 
-        my_setopt(curl, CURLOPT_CRLF, config->crlf);
+        my_setopt(curl, CURLOPT_CRLF, config->crlf?1L:0L);
         my_setopt_slist(curl, CURLOPT_QUOTE, config->quote);
         my_setopt_slist(curl, CURLOPT_POSTQUOTE, config->postquote);
         my_setopt_slist(curl, CURLOPT_PREQUOTE, config->prequote);
@@ -1028,13 +1218,13 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
             my_setopt_str(curl, CURLOPT_COOKIEJAR, config->cookiejar);
 
           /* new in libcurl 7.9.7 */
-          my_setopt(curl, CURLOPT_COOKIESESSION, config->cookiesession);
+          my_setopt(curl, CURLOPT_COOKIESESSION, config->cookiesession?1L:0L);
         }
 #endif
 
         my_setopt_enum(curl, CURLOPT_SSLVERSION, config->ssl_version);
-        my_setopt_enum(curl, CURLOPT_TIMECONDITION, config->timecond);
-        my_setopt(curl, CURLOPT_TIMEVALUE, config->condtime);
+        my_setopt_enum(curl, CURLOPT_TIMECONDITION, (long)config->timecond);
+        my_setopt(curl, CURLOPT_TIMEVALUE, (long)config->condtime);
         my_setopt_str(curl, CURLOPT_CUSTOMREQUEST, config->customrequest);
         my_setopt(curl, CURLOPT_STDERR, config->errors);
 
@@ -1047,17 +1237,30 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
            !config->noprogress && !config->mute) {
           /* we want the alternative style, then we have to implement it
              ourselves! */
-          my_setopt(curl, CURLOPT_PROGRESSFUNCTION, tool_progress_cb);
-          my_setopt(curl, CURLOPT_PROGRESSDATA, &progressbar);
+          my_setopt(curl, CURLOPT_XFERINFOFUNCTION, tool_progress_cb);
+          my_setopt(curl, CURLOPT_XFERINFODATA, &progressbar);
         }
+
+        /* new in libcurl 7.24.0: */
+        if(config->dns_servers)
+          my_setopt_str(curl, CURLOPT_DNS_SERVERS, config->dns_servers);
+
+        /* new in libcurl 7.33.0: */
+        if(config->dns_interface)
+          my_setopt_str(curl, CURLOPT_DNS_INTERFACE, config->dns_interface);
+        if(config->dns_ipv4_addr)
+          my_setopt_str(curl, CURLOPT_DNS_LOCAL_IP4, config->dns_ipv4_addr);
+        if(config->dns_ipv6_addr)
+        my_setopt_str(curl, CURLOPT_DNS_LOCAL_IP6, config->dns_ipv6_addr);
 
         /* new in libcurl 7.6.2: */
         my_setopt_slist(curl, CURLOPT_TELNETOPTIONS, config->telnet_options);
 
         /* new in libcurl 7.7: */
         my_setopt_str(curl, CURLOPT_RANDOM_FILE, config->random_file);
-        my_setopt(curl, CURLOPT_EGDSOCKET, config->egd_file);
-        my_setopt(curl, CURLOPT_CONNECTTIMEOUT, config->connecttimeout);
+        my_setopt_str(curl, CURLOPT_EGDSOCKET, config->egd_file);
+        my_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS,
+                  (long)(config->connecttimeout * 1000));
 
         if(config->cipher_list)
           my_setopt_str(curl, CURLOPT_SSL_CIPHER_LIST, config->cipher_list);
@@ -1065,17 +1268,17 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         /* new in libcurl 7.9.2: */
         if(config->disable_epsv)
           /* disable it */
-          my_setopt(curl, CURLOPT_FTP_USE_EPSV, FALSE);
+          my_setopt(curl, CURLOPT_FTP_USE_EPSV, 0L);
 
         /* new in libcurl 7.10.5 */
         if(config->disable_eprt)
           /* disable it */
-          my_setopt(curl, CURLOPT_FTP_USE_EPRT, FALSE);
+          my_setopt(curl, CURLOPT_FTP_USE_EPRT, 0L);
 
         if(config->tracetype != TRACE_NONE) {
           my_setopt(curl, CURLOPT_DEBUGFUNCTION, tool_debug_cb);
           my_setopt(curl, CURLOPT_DEBUGDATA, config);
-          my_setopt(curl, CURLOPT_VERBOSE, TRUE);
+          my_setopt(curl, CURLOPT_VERBOSE, 1L);
         }
 
         /* new in curl 7.9.3 */
@@ -1083,12 +1286,12 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           res = res_setopt_str(curl, CURLOPT_SSLENGINE, config->engine);
           if(res)
             goto show_error;
-          my_setopt(curl, CURLOPT_SSLENGINE_DEFAULT, 1);
+          my_setopt(curl, CURLOPT_SSLENGINE_DEFAULT, 1L);
         }
 
         /* new in curl 7.10.7, extended in 7.19.4 but this only sets 0 or 1 */
         my_setopt(curl, CURLOPT_FTP_CREATE_MISSING_DIRS,
-                  config->ftp_create_dirs);
+                  config->ftp_create_dirs?1L:0L);
 
         /* new in curl 7.10.8 */
         if(config->max_filesize)
@@ -1104,19 +1307,20 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
         /* new in curl 7.15.5 */
         if(config->ftp_ssl_reqd)
-          my_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+          my_setopt_enum(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL);
 
         /* new in curl 7.11.0 */
         else if(config->ftp_ssl)
-          my_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
+          my_setopt_enum(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_TRY);
 
         /* new in curl 7.16.0 */
         else if(config->ftp_ssl_control)
-          my_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_CONTROL);
+          my_setopt_enum(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_CONTROL);
 
         /* new in curl 7.16.1 */
         if(config->ftp_ssl_ccc)
-          my_setopt_enum(curl, CURLOPT_FTP_SSL_CCC, config->ftp_ssl_ccc_mode);
+          my_setopt_enum(curl, CURLOPT_FTP_SSL_CCC,
+                         (long)config->ftp_ssl_ccc_mode);
 
 #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
         {
@@ -1136,19 +1340,19 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         /* curl 7.13.0 */
         my_setopt_str(curl, CURLOPT_FTP_ACCOUNT, config->ftp_account);
 
-        my_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, config->ignorecl);
+        my_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, config->ignorecl?1L:0L);
 
         /* curl 7.14.2 */
-        my_setopt(curl, CURLOPT_FTP_SKIP_PASV_IP, config->ftp_skip_ip);
+        my_setopt(curl, CURLOPT_FTP_SKIP_PASV_IP, config->ftp_skip_ip?1L:0L);
 
         /* curl 7.15.1 */
-        my_setopt(curl, CURLOPT_FTP_FILEMETHOD, config->ftp_filemethod);
+        my_setopt(curl, CURLOPT_FTP_FILEMETHOD, (long)config->ftp_filemethod);
 
         /* curl 7.15.2 */
         if(config->localport) {
-          my_setopt(curl, CURLOPT_LOCALPORT, config->localport);
+          my_setopt(curl, CURLOPT_LOCALPORT, (long)config->localport);
           my_setopt_str(curl, CURLOPT_LOCALPORTRANGE,
-                        config->localportrange);
+                        (long)config->localportrange);
         }
 
         /* curl 7.15.5 */
@@ -1157,13 +1361,13 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
         /* curl 7.16.0 */
         if(config->disable_sessionid)
-          my_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE,
-                    !config->disable_sessionid);
+          /* disable it */
+          my_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
 
         /* curl 7.16.2 */
         if(config->raw) {
-          my_setopt(curl, CURLOPT_HTTP_CONTENT_DECODING, FALSE);
-          my_setopt(curl, CURLOPT_HTTP_TRANSFER_DECODING, FALSE);
+          my_setopt(curl, CURLOPT_HTTP_CONTENT_DECODING, 0L);
+          my_setopt(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0L);
         }
 
         /* curl 7.17.1 */
@@ -1193,24 +1397,26 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 
         /* curl 7.20.x */
         if(config->ftp_pret)
-          my_setopt(curl, CURLOPT_FTP_USE_PRET, TRUE);
+          my_setopt(curl, CURLOPT_FTP_USE_PRET, 1L);
 
         if(config->proto_present)
           my_setopt_flags(curl, CURLOPT_PROTOCOLS, config->proto);
         if(config->proto_redir_present)
           my_setopt_flags(curl, CURLOPT_REDIR_PROTOCOLS, config->proto_redir);
 
-        if((urlnode->flags & GETOUT_USEREMOTE)
-           && config->content_disposition) {
-          my_setopt(curl, CURLOPT_HEADERFUNCTION, tool_header_cb);
-          my_setopt(curl, CURLOPT_HEADERDATA, &outs);
-        }
-        else {
-          /* if HEADERFUNCTION was set to something in the previous loop, it
-             is important that we set it (back) to NULL now */
-          my_setopt(curl, CURLOPT_HEADERFUNCTION, NULL);
-          my_setopt(curl, CURLOPT_HEADERDATA, config->headerfile?&heads:NULL);
-        }
+        if(config->content_disposition
+           && (urlnode->flags & GETOUT_USEREMOTE)
+           && (checkprefix("http://", this_url) ||
+               checkprefix("https://", this_url)))
+          hdrcbdata.honor_cd_filename = TRUE;
+        else
+          hdrcbdata.honor_cd_filename = FALSE;
+
+        hdrcbdata.outs = &outs;
+        hdrcbdata.heads = &heads;
+
+        my_setopt(curl, CURLOPT_HEADERFUNCTION, tool_header_cb);
+        my_setopt(curl, CURLOPT_HEADERDATA, &hdrcbdata);
 
         if(config->resolve)
           /* new in 7.21.3 */
@@ -1241,6 +1447,10 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         if(config->mail_auth)
           my_setopt_str(curl, CURLOPT_MAIL_AUTH, config->mail_auth);
 
+        /* new in 7.31.0 */
+        if(config->sasl_ir)
+          my_setopt(curl, CURLOPT_SASL_IR, 1L);
+
         /* initialize retry vars for loop below */
         retry_sleep_default = (config->retry_delay) ?
           config->retry_delay*1000L : RETRY_SLEEP_DEFAULT; /* ms */
@@ -1257,9 +1467,32 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
 #endif
 
         for(;;) {
+#ifdef USE_METALINK
+          if(!metalink && config->use_metalink) {
+            /* If outs.metalink_parser is non-NULL, delete it first. */
+            if(outs.metalink_parser)
+              metalink_parser_context_delete(outs.metalink_parser);
+            outs.metalink_parser = metalink_parser_context_new();
+            if(outs.metalink_parser == NULL) {
+              res = CURLE_OUT_OF_MEMORY;
+              goto show_error;
+            }
+            fprintf(config->errors, "Metalink: parsing (%s) metalink/XML...\n",
+                    this_url);
+          }
+          else if(metalink)
+            fprintf(config->errors, "Metalink: fetching (%s) from (%s)...\n",
+                    mlfile->filename, this_url);
+#endif /* USE_METALINK */
+
+#ifdef CURLDEBUG
+          if(config->test_event_based)
+            res = curl_easy_perform_ev(curl);
+          else
+#endif
           res = curl_easy_perform(curl);
 
-          if(config->content_disposition && outs.stream && !config->mute &&
+          if(outs.is_cd_filename && outs.stream && !config->mute &&
              outs.filename)
             printf("curl: Saved to filename '%s'\n", outs.filename);
 
@@ -1378,6 +1611,41 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
               continue; /* curl_easy_perform loop */
             }
           } /* if retry_numretries */
+          else if(metalink) {
+            /* Metalink: Decide to try the next resource or
+               not. Basically, we want to try the next resource if
+               download was not successful. */
+            long response;
+            if(CURLE_OK == res) {
+              /* TODO We want to try next resource when download was
+                 not successful. How to know that? */
+              char *effective_url = NULL;
+              curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective_url);
+              if(effective_url &&
+                 curlx_strnequal(effective_url, "http", 4)) {
+                /* This was HTTP(S) */
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
+                if(response != 200 && response != 206) {
+                  metalink_next_res = 1;
+                  fprintf(config->errors,
+                          "Metalink: fetching (%s) from (%s) FAILED "
+                          "(HTTP status code %d)\n",
+                          mlfile->filename, this_url, response);
+                }
+              }
+            }
+            else {
+              metalink_next_res = 1;
+              fprintf(config->errors,
+                      "Metalink: fetching (%s) from (%s) FAILED (%s)\n",
+                      mlfile->filename, this_url,
+                      (errorbuffer[0]) ?
+                      errorbuffer : curl_easy_strerror((CURLcode)res));
+            }
+          }
+          if(metalink && !metalink_next_res)
+            fprintf(config->errors, "Metalink: fetching (%s) from (%s) OK\n",
+                    mlfile->filename, this_url);
 
           /* In all ordinary cases, just break out of loop here */
           break; /* curl_easy_perform loop */
@@ -1391,7 +1659,7 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           fputs("\n", progressbar.out);
 
         if(config->writeout)
-          ourWriteOut(curl, config->writeout);
+          ourWriteOut(curl, &outs, config->writeout);
 
         if(config->writeenv)
           ourWriteEnv(curl);
@@ -1486,22 +1754,57 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
           }
         }
 #endif
+
+#ifdef USE_METALINK
+        if(!metalink && config->use_metalink && res == CURLE_OK) {
+          int rv = parse_metalink(config, &outs, this_url);
+          if(rv == 0)
+            fprintf(config->errors, "Metalink: parsing (%s) OK\n", this_url);
+          else if(rv == -1)
+            fprintf(config->errors, "Metalink: parsing (%s) FAILED\n",
+                    this_url);
+        }
+        else if(metalink && res == CURLE_OK && !metalink_next_res) {
+          int rv = metalink_check_hash(config, mlfile, outs.filename);
+          if(rv == 0) {
+            metalink_next_res = 1;
+          }
+        }
+#endif /* USE_METALINK */
+
         /* No more business with this output struct */
         if(outs.alloc_filename)
           Curl_safefree(outs.filename);
+#ifdef USE_METALINK
+        if(outs.metalink_parser)
+          metalink_parser_context_delete(outs.metalink_parser);
+#endif /* USE_METALINK */
         memset(&outs, 0, sizeof(struct OutStruct));
+        hdrcbdata.outs = NULL;
 
         /* Free loop-local allocated memory and close loop-local opened fd */
 
         Curl_safefree(outfile);
         Curl_safefree(this_url);
 
-        if(infdopen) {
+        if(infdopen)
           close(infd);
-          infdopen = FALSE;
-          infd = STDIN_FILENO;
-        }
 
+        if(metalink) {
+          /* Should exit if error is fatal. */
+          if(is_fatal_error(res)) {
+            break;
+          }
+          if(!metalink_next_res)
+            break;
+          mlres = mlres->next;
+          if(mlres == NULL)
+            /* TODO If metalink_next_res is 1 and mlres is NULL,
+             * set res to error code
+             */
+            break;
+        }
+        else
         if(urlnum > 1) {
           /* when url globbing, exit loop upon critical error */
           if(is_fatal_error(res))
@@ -1581,6 +1884,8 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
   easysrc_cleanup();
 #endif
 
+  hdrcbdata.heads = NULL;
+
   /* Close function-local opened file descriptors */
 
   if(heads.fopened && heads.stream)
@@ -1601,8 +1906,10 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
   if(config->errors_fopened && config->errors)
     fclose(config->errors);
 
+  /* Release metalink related resources here */
+  clean_metalink(config);
+
   main_free(); /* cleanup */
 
   return res;
 }
-

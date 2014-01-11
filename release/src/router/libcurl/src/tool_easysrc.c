@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #ifndef CURL_DISABLE_LIBCURL_OPTION
 
@@ -142,7 +140,7 @@ CURLcode easysrc_perform(void)
     const char *c;
     CHKRET(easysrc_add(&easysrc_code, ""));
     /* Preamble comment */
-    for(i=0; ((c = srchard[i]) != '\0'); i++)
+    for(i=0; ((c = srchard[i]) != NULL); i++)
       CHKRET(easysrc_add(&easysrc_code, c));
     /* Each unconverted option */
     for(ptr=easysrc_toohard; ptr; ptr = ptr->next)
@@ -187,7 +185,7 @@ void dumpeasysrc(struct Configurable *config)
       int i;
       const char *c;
 
-      for(i=0; ((c = srchead[i]) != '\0'); i++)
+      for(i=0; ((c = srchead[i]) != NULL); i++)
         fprintf(out, "%s\n", c);
 
       /* Declare variables used for complex setopt values */
@@ -215,7 +213,7 @@ void dumpeasysrc(struct Configurable *config)
       for(ptr=easysrc_clean; ptr; ptr = ptr->next)
         fprintf(out, "  %s\n", ptr->data);
 
-      for(i=0; ((c = srcend[i]) != '\0'); i++)
+      for(i=0; ((c = srcend[i]) != NULL); i++)
         fprintf(out, "%s\n", c);
 
       if(fopened)

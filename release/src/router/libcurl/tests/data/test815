@@ -1,47 +1,32 @@
 <testcase>
 <info>
 <keywords>
-POP3
-RETR
+IMAP
+STORE
+CLOSE
+CUSTOMREQUEST
 </keywords>
 </info>
 
 #
 # Server-side
 <reply>
-<data>
-From: me@somewhere
-To: fake@nowhere
-
-..body with a single dot first
-...triple dots...
-
---
-  yours sincerely
-</data>
-<datacheck>
-From: me@somewhere
-To: fake@nowhere
-
-.body with a single dot first
-..triple dots...
-
---
-  yours sincerely
-</datacheck>
+<data1>
+* 123 FETCH (FLAGS (\Seen \Deleted))
+</data1>
 </reply>
 
 #
 # Client-side
 <client>
 <server>
-pop3
+imap
 </server>
  <name>
-POP3 RETR with dot-prefixed line
+IMAP delete message (CUSTOMREQUEST)
  </name>
  <command>
-pop3://%HOSTIP:%POP3PORT/815 -u user:secret
+imap://%HOSTIP:%IMAPPORT/815 -X 'STORE 123 +Flags \Deleted' -Q -CLOSE -u user:secret
 </command>
 </client>
 
@@ -49,10 +34,12 @@ pop3://%HOSTIP:%POP3PORT/815 -u user:secret
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
-USER user
-PASS secret
-RETR 815
-QUIT
+A001 CAPABILITY
+A002 LOGIN user secret
+A003 SELECT 815
+A004 STORE 123 +Flags \Deleted
+A005 CLOSE
+A006 LOGOUT
 </protocol>
 </verify>
 </testcase>

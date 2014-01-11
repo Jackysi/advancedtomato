@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #include "rawstr.h"
 
@@ -33,6 +31,7 @@
 #include "tool_convert.h"
 #include "tool_operhlp.h"
 #include "tool_version.h"
+#include "tool_metalink.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
@@ -41,12 +40,7 @@
  */
 char *my_useragent(void)
 {
-  char useragent[256]; /* we don't want a larger default user agent */
-
-  snprintf(useragent, sizeof(useragent),
-           CURL_NAME "/" CURL_VERSION " (" OS ") " "%s", curl_version());
-
-  return strdup(useragent);
+  return strdup( CURL_NAME "/" CURL_VERSION );
 }
 
 /*
@@ -129,24 +123,24 @@ char *add_file_name_to_url(CURL *curl, char *url, const char *filename)
     /* URL encode the file name */
     encfile = curl_easy_escape(curl, filep, 0 /* use strlen */);
     if(encfile) {
-      char *urlbuffer = malloc(strlen(url) + strlen(encfile) + 3);
-      if(!urlbuffer) {
-        curl_free(encfile);
-        Curl_safefree(url);
-        return NULL;
-      }
+      char *urlbuffer;
       if(ptr)
         /* there is a trailing slash on the URL */
-        sprintf(urlbuffer, "%s%s", url, encfile);
+        urlbuffer = aprintf("%s%s", url, encfile);
       else
         /* there is no trailing slash on the URL */
-        sprintf(urlbuffer, "%s/%s", url, encfile);
+        urlbuffer = aprintf("%s/%s", url, encfile);
 
       curl_free(encfile);
       Curl_safefree(url);
 
+      if(!urlbuffer)
+        return NULL;
+
       url = urlbuffer; /* use our new URL instead! */
     }
+    else
+      Curl_safefree(url);
   }
   return url;
 }
@@ -222,6 +216,7 @@ void main_free(void)
 {
   curl_global_cleanup();
   convert_cleanup();
+  metalink_cleanup();
 }
 
 #ifdef CURLDEBUG

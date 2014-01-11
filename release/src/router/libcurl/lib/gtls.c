@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -28,18 +28,18 @@
  * since they were not present in 1.0.X.
  */
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #ifdef USE_GNUTLS
 
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
-#ifndef USE_GNUTLS_NETTLE
-#include <gcrypt.h>
-#endif
 
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
+#ifdef USE_GNUTLS_NETTLE
+#include <gnutls/crypto.h>
+#include <nettle/md5.h>
+#else
+#include <gcrypt.h>
 #endif
 
 #include "urldata.h"
@@ -94,7 +94,8 @@ static bool gtls_inited = FALSE;
 /*
  * Custom push and pull callback functions used by GNU TLS to read and write
  * to the socket.  These functions are simple wrappers to send() and recv()
- * (although here using the sread/swrite macros as defined by setup_once.h).
+ * (although here using the sread/swrite macros as defined by
+ * curl_setup_once.h).
  * We use custom functions rather than the GNU TLS defaults because it allows
  * us to get specific about the fourth "flags" argument, and to use arbitrary
  * private data with gnutls_transport_set_ptr if we wish.
@@ -296,18 +297,41 @@ static CURLcode handshake(struct connectdata *conn,
       connssl->connecting_state =
         gnutls_record_get_direction(session)?
         ssl_connect_2_writing:ssl_connect_2_reading;
+      continue;
       if(nonblocking)
         return CURLE_OK;
     }
+    else if((rc < 0) && !gnutls_error_is_fatal(rc)) {
+      const char *strerr = NULL;
+
+      if(rc == GNUTLS_E_WARNING_ALERT_RECEIVED) {
+        int alert = gnutls_alert_get(session);
+        strerr = gnutls_alert_get_name(alert);
+      }
+
+      if(strerr == NULL)
+        strerr = gnutls_strerror(rc);
+
+      failf(data, "gnutls_handshake() warning: %s", strerr);
+    }
     else if(rc < 0) {
-      failf(data, "gnutls_handshake() failed: %s", gnutls_strerror(rc));
+      const char *strerr = NULL;
+
+      if(rc == GNUTLS_E_FATAL_ALERT_RECEIVED) {
+        int alert = gnutls_alert_get(session);
+        strerr = gnutls_alert_get_name(alert);
+      }
+
+      if(strerr == NULL)
+        strerr = gnutls_strerror(rc);
+
+      failf(data, "gnutls_handshake() failed: %s", strerr);
       return CURLE_SSL_CONNECT_ERROR;
     }
-    else {
-      /* Reset our connect state machine */
-      connssl->connecting_state = ssl_connect_1;
-      return CURLE_OK;
-    }
+
+    /* Reset our connect state machine */
+    connssl->connecting_state = ssl_connect_1;
+    return CURLE_OK;
   }
 }
 
@@ -413,7 +437,7 @@ gtls_connect_step1(struct connectdata *conn,
                                               data->set.ssl.CRLfile,
                                               GNUTLS_X509_FMT_PEM);
     if(rc < 0) {
-      failf(data, "error reading crl file %s (%s)\n",
+      failf(data, "error reading crl file %s (%s)",
             data->set.ssl.CRLfile, gnutls_strerror(rc));
       return CURLE_SSL_CRL_BADFILE;
     }
@@ -609,10 +633,8 @@ gtls_connect_step3(struct connectdata *conn,
     else
       infof(data, "\t server certificate verification OK\n");
   }
-  else {
+  else
     infof(data, "\t server certificate verification SKIPPED\n");
-    goto after_server_cert_verification;
-  }
 
   /* initialize an X.509 certificate structure. */
   gnutls_x509_crt_init(&x509_cert);
@@ -655,7 +677,7 @@ gtls_connect_step3(struct connectdata *conn,
   rc = gnutls_x509_crt_check_hostname(x509_cert, conn->host.name);
 
   if(!rc) {
-    if(data->set.ssl.verifyhost > 1) {
+    if(data->set.ssl.verifyhost) {
       failf(data, "SSL: certificate subject name (%s) does not match "
             "target host name '%s'", certbuf, conn->host.dispname);
       gnutls_x509_crt_deinit(x509_cert);
@@ -741,8 +763,6 @@ gtls_connect_step3(struct connectdata *conn,
   infof(data, "\t issuer: %s\n", certbuf);
 
   gnutls_x509_crt_deinit(x509_cert);
-
-after_server_cert_verification:
 
   /* compression algorithm (if any) */
   ptr = gnutls_compression_get_name(gnutls_compression_get(session));
@@ -1058,6 +1078,38 @@ int Curl_gtls_seed(struct SessionHandle *data)
     ssl_seeded = TRUE;
   }
   return 0;
+}
+
+void Curl_gtls_random(struct SessionHandle *data,
+                      unsigned char *entropy,
+                      size_t length)
+{
+#if defined(USE_GNUTLS_NETTLE)
+  (void)data;
+  gnutls_rnd(GNUTLS_RND_RANDOM, entropy, length);
+#elif defined(USE_GNUTLS)
+  Curl_gtls_seed(data); /* Initiate the seed if not already done */
+  gcry_randomize(entropy, length, GCRY_STRONG_RANDOM);
+#endif
+}
+
+void Curl_gtls_md5sum(unsigned char *tmp, /* input */
+                      size_t tmplen,
+                      unsigned char *md5sum, /* output */
+                      size_t md5len)
+{
+#if defined(USE_GNUTLS_NETTLE)
+  struct md5_ctx MD5pw;
+  md5_init(&MD5pw);
+  md5_update(&MD5pw, tmplen, tmp);
+  md5_digest(&MD5pw, md5len, md5sum);
+#elif defined(USE_GNUTLS)
+  gcry_md_hd_t MD5pw;
+  gcry_md_open(&MD5pw, GCRY_MD_MD5, 0);
+  gcry_md_write(MD5pw, tmp, tmplen);
+  memcpy(md5sum, gcry_md_read (MD5pw, 0), md5len);
+  gcry_md_close(MD5pw);
+#endif
 }
 
 #endif /* USE_GNUTLS */

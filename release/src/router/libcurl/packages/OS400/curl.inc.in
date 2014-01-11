@@ -5,7 +5,7 @@
       *                            | (__| |_| |  _ <| |___
       *                             \___|\___/|_| \_\_____|
       *
-      * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+      * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
       *
       * This software is licensed as described in the file COPYING, which
       * you should have received as part of this distribution. The terms
@@ -80,6 +80,8 @@
      d                 c                   X'00000000'
      d CURL_GLOBAL_DEFAULT...
      d                 c                   X'00000003'
+     d CURL_GLOBAL_ACK_EINTR...
+     d                 c                   X'00000004'
       *
      d CURL_VERSION_IPV6...
      d                 c                   X'00000001'
@@ -113,6 +115,8 @@
      d                 c                   X'00004000'
      d CURL_VERSION_NTLM_WB...
      d                 c                   X'00008000'
+     d CURL_VERSION_HTTP2...
+     d                 c                   X'00010000'
       *
      d HTTPPOST_FILENAME...
      d                 c                   X'00000001'
@@ -173,6 +177,8 @@
      d                 c                   X'00000004'
      d CURLSSH_AUTH_KEYBOARD...
      d                 c                   X'00000008'
+     d CURLSSH_AUTH_AGENT...
+     d                 c                   X'00000010'
      d CURLSSH_AUTH_DEFAULT...
      d                 c                   X'7FFFFFFF'                          CURLSSH_AUTH_ANY
       *
@@ -208,6 +214,8 @@
      d                 c                   1
      d CURL_HTTP_VERSION_1_1...
      d                 c                   2
+     d CURL_HTTP_VERSION_2_0...
+     d                 c                   3
       *
      d CURL_NETRC_IGNORED...
      d                 c                   0
@@ -224,6 +232,12 @@
      d                 c                   2
      d CURL_SSLVERSION_SSLv3...
      d                 c                   3
+     d CURL_SSLVERSION_TLSv1_0...
+     d                 c                   4
+     d CURL_SSLVERSION_TLSv1_1...
+     d                 c                   5
+     d CURL_SSLVERSION_TLSv1_2...
+     d                 c                   6
       *
      d CURL_TLSAUTH_NONE...
      d                 c                   0
@@ -236,8 +250,10 @@
      d                 c                   1
      d CURL_REDIR_POST_302...
      d                 c                   2
+     d CURL_REDIR_POST_303...
+     d                 c                   4
      d CURL_REDIR_POST_ALL...
-     d                 c                   3
+     d                 c                   7
       *
      d CURL_POLL_NONE  c                   0
      d CURL_POLL_IN    c                   1
@@ -299,6 +315,13 @@
      d CURL_FNMATCHFUNC_FAIL...
      d                 c                   2
       *
+     d CURL_WAIT_POLLIN...
+     d                 c                   X'0001'
+     d CURL_WAIT_POLLPRI...
+     d                 c                   X'0002'
+     d CURL_WAIT_POLLOUT...
+     d                 c                   X'0004'
+      *
       **************************************************************************
       *                                Types
       **************************************************************************
@@ -327,11 +350,11 @@
      d                 c                   8
      d  CURLE_REMOTE_ACCESS_DENIED...
      d                 c                   9
-     d  CURLE_OBSOLETE10...
+     d  CURLE_FTP_ACCEPT_FAILED...
      d                 c                   10
      d  CURLE_FTP_WEIRD_PASS_REPLY...
      d                 c                   11
-     d  CURLE_OBSOLETE12...
+     d  CURLE_FTP_ACCEPT_TIMEOUT...
      d                 c                   12
      d  CURLE_FTP_WEIRD_PASV_REPLY...
      d                 c                   13
@@ -485,6 +508,8 @@
      d                 c                   87
      d  CURLE_CHUNK_FAILED...
      d                 c                   88
+     d  CURLE_NO_CONNECTION_AVAILABLE...
+     d                 c                   89
       *
       /if not defined(CURL_NO_OLDIES)
      d  CURLE_URL_MALFORMAT_USER...
@@ -640,6 +665,9 @@
      d                 c                   2
      d  CURLUSESSL_ALL...
      d                 c                   3
+      *
+     d CURLSSLOPT_ALLOW_BEAST...
+     d                 c                   1
       *
       /if not defined(CURL_NO_OLDIES)
      d curl_ftpssl     s                   like(curl_usessl)
@@ -843,6 +871,8 @@
      d                 c                   20056
      d  CURLOPT_PROGRESSDATA...
      d                 c                   10057
+     d  CURLOPT_XFERINFODATA...
+     d                 c                   10057                                PROGRESSDATA alias
      d  CURLOPT_AUTOREFERER...
      d                 c                   00058
      d  CURLOPT_PROXYPORT...
@@ -1124,6 +1154,34 @@
      d                 c                   10209
      d  CURLOPT_GSSAPI_DELEGATION...
      d                 c                   00210
+     d  CURLOPT_DNS_SERVERS...
+     d                 c                   10211
+     d  CURLOPT_ACCEPTTIMEOUT_MS...
+     d                 c                   00212
+     d  CURLOPT_TCP_KEEPALIVE...
+     d                 c                   00213
+     d  CURLOPT_TCP_KEEPIDLE...
+     d                 c                   00214
+     d  CURLOPT_TCP_KEEPINTVL...
+     d                 c                   00215
+     d  CURLOPT_SSL_OPTIONS...
+     d                 c                   00216
+     d  CURLOPT_MAIL_AUTH...
+     d                 c                   10217
+     d  CURLOPT_SASL_IR...
+     d                 c                   00218
+     d  CURLOPT_XFERINFOFUNCTION...
+     d                 c                   20219
+     d  CURLOPT_XOAUTH2_BEARER...
+     d                 c                   10220
+     d  CURLOPT_DNS_INTERFACE...
+     d                 c                   10221
+     d  CURLOPT_DNS_LOCAL_IP4...
+     d                 c                   10222
+     d  CURLOPT_DNS_LOCAL_IP6...
+     d                 c                   10223
+     d  CURLOPT_LOGIN_OPTIONS...
+     d                 c                   10224
       *
       /if not defined(CURL_NO_OLDIES)
      d  CURLOPT_SSLKEYPASSWD...
@@ -1291,9 +1349,34 @@
      d                 c                   X'00100029'
      d  CURLINFO_LOCAL_PORT...                                                  CURLINFO_LONG + 42
      d                 c                   X'0020002A'
+     d  CURLINFO_TLS_SESSION...                                                 CURLINFO_SLIST + 43
+     d                 c                   X'0040002B'
       *
      d  CURLINFO_HTTP_CODE...                                                   Old ...RESPONSE_CODE
      d                 c                   X'00200002'
+      *
+     d curl_sslbackend...
+     d                 s             10i 0 based(######ptr######)               Enum
+     d  CURLSSLBACKEND_NONE...
+     d                 c                   0
+     d  CURLSSLBACKEND_OPENSSL...
+     d                 c                   1
+     d  CURLSSLBACKEND_GNUTLS...
+     d                 c                   2
+     d  CURLSSLBACKEND_NSS...
+     d                 c                   3
+     d  CURLSSLBACKEND_QSOSSL...
+     d                 c                   4
+     d  CURLSSLBACKEND_GSKIT...
+     d                 c                   5
+     d  CURLSSLBACKEND_POLARSSL...
+     d                 c                   6
+     d  CURLSSLBACKEND_CYASSL...
+     d                 c                   7
+     d  CURLSSLBACKEND_SCHANNEL...
+     d                 c                   8
+     d  CURLSSLBACKEND_DARWINSSL...
+     d                 c                   9
       *
      d curl_closepolicy...
      d                 s             10i 0 based(######ptr######)               Enum
@@ -1385,6 +1468,8 @@
      d curlsocktype    s             10i 0 based(######ptr######)               Enum
      d  CURLSOCKTYPE_IPCXN...
      d                 c                   0
+     d  CURLSOCKTYPE_ACCEPT...
+     d                 c                   1
       *
      d  CURL_SOCKOPT_OK...
      d                 c                   0
@@ -1411,7 +1496,9 @@
      d                 c                   5
      d  CURLM_UNKNOWN_OPTION...
      d                 c                   6
-     d  CURLM_LAST     c                   7
+     d  CURLM_ADDED_ALREADY...
+     d                 c                   7
+     d  CURLM_LAST     c                   8
       *
      d CURLMSG         s             10i 0 based(######ptr######)               Enum
      d  CURLMSG_NONE   c                   0
@@ -1430,6 +1517,20 @@
      d                 c                   10005
      d  CURLMOPT_MAXCONNECTS...
      d                 c                   00006
+     d  CURLMOPT_MAX_HOST_CONNECTIONS...
+     d                 c                   00007
+     d  CURLMOPT_MAX_PIPELINE_LENGTH...
+     d                 c                   00008
+     d  CURLMOPT_CONTENT_LENGTH_PENALTY_SIZE...
+     d                 c                   30009
+     d  CURLMOPT_CHUNK_LENGTH_PENALTY_SIZE...
+     d                 c                   30010
+     d  CURLMOPT_PIPELINING_SITE_BL...
+     d                 c                   10011
+     d  CURLMOPT_PIPELINING_SERVER_BL...
+     d                 c                   10012
+     d  CURLMOPT_MAX_TOTAL_CONNECTIONS...
+     d                 c                   00013
       *
       *  Public API enums for RTSP requests.
       *
@@ -1471,6 +1572,13 @@
      d   whatever                      *   overlay(data)                        void *
      d   result                            overlay(data) like(CURLcode)
       *
+     d curl_waitfd...
+     d                 ds                  based(######ptr######)
+     d                                     qualified
+     d  fd                                 like(curl_socket_t)
+     d  events                        5i 0
+     d  revents                       5i 0
+      *
      d curl_http_post...
      d                 ds                  based(######ptr######)
      d                                     qualified
@@ -1499,12 +1607,7 @@
      d  addrlen                      10u 0
      d  addr                         16                                         struct sockaddr
       *
-     d curl_khkey      ds                  based(######ptr######)
-     d                                     qualified
-     d  key                            *                                        const char *
-     d  len                          10u 0
-     d  keytype                      10i 0
-      *
+     d curl_khtype     s             10i 0 based(######ptr######)               enum
      d CURLKHTYPE_UNKNOWN...
      d                 c                   0
      d CURLKHTYPE_RSA1...
@@ -1513,6 +1616,12 @@
      d                 c                   2
      d CURLKHTYPE_DSS...
      d                 c                   3
+      *
+     d curl_khkey      ds                  based(######ptr######)
+     d                                     qualified
+     d  key                            *                                        const char *
+     d  len                          10u 0
+     d  keytype                            like(curl_khtype)
       *
      d curl_forms      ds                  based(######ptr######)
      d                                     qualified
@@ -1561,6 +1670,12 @@
      d  group                          *                                        char *
      d  target                         *                                        char *
       *
+     d curl_tlssessioninfo...
+     d                 ds                  based(######ptr######)
+     d                                     qualified
+     d  backend                            like(curl_sslbackend)
+     d  internals                      *                                        void *
+      *
      d curl_fileinfo   ds                  based(######ptr######)
      d                                     qualified
      d  filename                       *                                        char *
@@ -1602,6 +1717,9 @@
      d                 s               *   based(######ptr######) procptr
       *
      d curl_progress_callback...
+     d                 s               *   based(######ptr######) procptr
+      *
+     d curl_xferinfo_callback...
      d                 s               *   based(######ptr######) procptr
       *
      d curl_read_callback...
@@ -1916,6 +2034,15 @@
      d  exc_fd_set                65535    options(*varsize)                    fd_set
      d  max_fd                       10i 0
       *
+     d curl_multi_wait...
+     d                 pr                  extproc('curl_multi_wait')
+     d                                     like(CURLMcode)
+     d  multi_handle                   *   value                                CURLM *
+     d  extra_fds                      *   value                                curl_waitfd *
+     d  extra_nfds                   10u 0 value
+     d  timeout_ms                   10i 0 value
+     d  ret                          10i 0 options(*omit)
+      *
      d curl_multi_perform...
      d                 pr                  extproc('curl_multi_perform')
      d                                     like(CURLMcode)
@@ -2061,13 +2188,18 @@
      d  code                               value like(CURLMcode)
      d  ccsid                        10u 0 value
       *
+      * May be used for strings and structures.
      d curl_easy_getinfo_ccsid...
      d                 pr                  extproc('curl_easy_getinfo_ccsid')
      d                                     like(CURLcode)
      d  curl                           *   value                                CURL *
      d  info                               value like(CURLINFO)
-     d  stringarg                      *   options(*nopass)                     char *
+     d  ptrarg                         *   options(*nopass)                     char *
      d  ccsid                        10u 0 value options(*nopass)
+      *
+     d curl_certinfo_free_all...
+     d                 pr                  extproc('curl_certinfo_free_all')
+     d  info                           *   value
       *
      d curl_formadd_ccsid...
      d                 pr                  extproc('curl_formadd_ccsid')

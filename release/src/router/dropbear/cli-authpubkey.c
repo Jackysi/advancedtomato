@@ -121,22 +121,20 @@ void recv_msg_userauth_pk_ok() {
 }
 
 void cli_buf_put_sign(buffer* buf, sign_key *key, int type, 
-			const unsigned char *data, unsigned int len)
-{
+			buffer *data_buf) {
+#ifdef ENABLE_CLI_AGENTFWD
 	if (key->source == SIGNKEY_SOURCE_AGENT) {
 		/* Format the agent signature ourselves, as buf_put_sign would. */
 		buffer *sigblob;
 		sigblob = buf_new(MAX_PUBKEY_SIZE);
-		agent_buf_sign(sigblob, key, data, len);
-		buf_setpos(sigblob, 0);
-		buf_putstring(buf, buf_getptr(sigblob, sigblob->len),
-				sigblob->len);
-
+		agent_buf_sign(sigblob, key, data_buf);
+		buf_putbufstring(buf, sigblob);
 		buf_free(sigblob);
-	} else {
-		buf_put_sign(buf, key, type, data, len);
+	} else 
+#endif /* ENABLE_CLI_AGENTFWD */
+	{
+		buf_put_sign(buf, key, type, data_buf);
 	}
-	
 }
 
 /* TODO: make it take an agent reference to use as well */
@@ -171,10 +169,10 @@ static void send_msg_userauth_pubkey(sign_key *key, int type, int realsign) {
 		TRACE(("realsign"))
 		/* We put the signature as well - this contains string(session id), then
 		 * the contents of the write payload to this point */
-		sigbuf = buf_new(4 + SHA1_HASH_SIZE + ses.writepayload->len);
-		buf_putstring(sigbuf, ses.session_id, SHA1_HASH_SIZE);
+		sigbuf = buf_new(4 + ses.session_id->len + ses.writepayload->len);
+		buf_putbufstring(sigbuf, ses.session_id);
 		buf_putbytes(sigbuf, ses.writepayload->data, ses.writepayload->len);
-		cli_buf_put_sign(ses.writepayload, key, type, sigbuf->data, sigbuf->len);
+		cli_buf_put_sign(ses.writepayload, key, type, sigbuf);
 		buf_free(sigbuf); /* Nothing confidential in the buffer */
 	}
 
@@ -187,11 +185,13 @@ int cli_auth_pubkey() {
 
 	TRACE(("enter cli_auth_pubkey"))
 
+#ifdef ENABLE_CLI_AGENTFWD
 	if (!cli_opts.agent_keys_loaded) {
 		/* get the list of available keys from the agent */
 		cli_load_agent_keys(cli_opts.privkeys);
 		cli_opts.agent_keys_loaded = 1;
 	}
+#endif
 
 	if (cli_opts.privkeys->first) {
 		sign_key * key = (sign_key*)cli_opts.privkeys->first->item;

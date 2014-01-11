@@ -37,9 +37,6 @@
    that it may proceed.  Finally when devlist.c is finished
    /var/tmp/dhcp/leases is removed.
 
-   rfc2131.c implements a 'Quiet DHCP' option (don't log DHCP stuff) first
-   implemented by 'Teddy Bear'.
-
    dnsmasq.c also intercepts SIGHUP so that it may flush the lease file.
    This is so lease expiry times survive a process restart since dnsmasq
    reads the lease file at start-up.
@@ -47,13 +44,10 @@
    Finally(?) lease_update_file (lease.c) writes out the remaining lease
    duration for each dhcp lease rather than lease expiry time (with RTC) or
    lease length (no RTC) for dnsmasq's internal lease database. 
-   asuswrt does a similar thing with lease durations though the code is
-   different.  Ideally the code would be merged in such a way that Tomato
-   and asuswrt-merlin can code share without even thinking...another project!
 
    dhcp lease file is /var/lib/misc/dnsmasq.leases
 
-   Above description K Darbyshire-Bryant 02/05/13  Hope it helps someone
+   Above description K Darbyshire-Bryant 04/12/13
 */
 
   
@@ -227,7 +221,7 @@ int main (int argc, char **argv)
 	    daemon->doing_dhcp6 = 1;
 	  if (context->flags & CONTEXT_RA)
 	    daemon->doing_ra = 1;
-#ifndef  HAVE_LINUX_NETWORK
+#if !defined(HAVE_LINUX_NETWORK) && !defined(HAVE_BSD_NETWORK)
 	  if (context->flags & CONTEXT_TEMPLATE)
 	    die (_("dhcp-range constructor not available on this platform"), NULL, EC_BADCONF);
 #endif 
@@ -265,13 +259,15 @@ int main (int argc, char **argv)
     ipset_init();
 #endif
 
-#ifdef HAVE_LINUX_NETWORK
+#if  defined(HAVE_LINUX_NETWORK)
   netlink_init();
-  
-  if (option_bool(OPT_NOWILD) && option_bool(OPT_CLEVERBIND))
-    die(_("cannot set --bind-interfaces and --bind-dynamic"), NULL, EC_BADCONF);
+#elif defined(HAVE_BSD_NETWORK)
+  route_init();
 #endif
 
+  if (option_bool(OPT_NOWILD) && option_bool(OPT_CLEVERBIND))
+    die(_("cannot set --bind-interfaces and --bind-dynamic"), NULL, EC_BADCONF);
+  
   if (!enumerate_interfaces(1) || !enumerate_interfaces(0))
     die(_("failed to find list of interfaces: %s"), NULL, EC_MISC);
   
@@ -318,6 +314,9 @@ int main (int argc, char **argv)
   /* after enumerate_interfaces() */
   if (daemon->doing_dhcp6 || daemon->relay6 || daemon->doing_ra)
     join_multicast(1);
+
+  /* After netlink_init() and before create_helper() */
+  lease_make_duid(now);
 #endif
   
   if (daemon->port != 0)
@@ -678,7 +677,10 @@ int main (int argc, char **argv)
   if (bind_fallback)
     my_syslog(LOG_WARNING, _("setting --bind-interfaces option because of OS limitations"));
 
-  warn_bound_listeners();
+  if (option_bool(OPT_NOWILD))
+    warn_bound_listeners();
+
+  warn_int_names();
   
   if (!option_bool(OPT_NOWILD)) 
     for (if_tmp = daemon->if_names; if_tmp; if_tmp = if_tmp->next)
@@ -847,11 +849,14 @@ int main (int argc, char **argv)
 	}
 #endif
 
-#ifdef HAVE_LINUX_NETWORK
+#if defined(HAVE_LINUX_NETWORK)
       FD_SET(daemon->netlinkfd, &rset);
       bump_maxfd(daemon->netlinkfd, &maxfd);
+#elif defined(HAVE_BSD_NETWORK)
+      FD_SET(daemon->routefd, &rset);
+      bump_maxfd(daemon->routefd, &maxfd);
 #endif
-      
+
       FD_SET(piperead, &rset);
       bump_maxfd(piperead, &maxfd);
 
@@ -906,9 +911,12 @@ int main (int argc, char **argv)
 	  warn_bound_listeners();
 	}
 
-#ifdef HAVE_LINUX_NETWORK
+#if defined(HAVE_LINUX_NETWORK)
       if (FD_ISSET(daemon->netlinkfd, &rset))
 	netlink_multicast(now);
+#elif defined(HAVE_BSD_NETWORK)
+      if (FD_ISSET(daemon->routefd, &rset))
+	route_sock(now);
 #endif
 
       /* Check for changes to resolv files once per second max. */
@@ -1290,11 +1298,6 @@ void poll_resolv(int force, int do_reload, time_t now)
 	      {
 		last_change = statbuf.st_mtime;
 		latest = res;
-/* This is now commented out
-#ifdef HAVE_TOMATO
-		break;
-#endif //TOMATO - Really don't understand what this break is trying to acheive/avoid
-*/
 	      }
 	  }
       }

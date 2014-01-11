@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -31,8 +31,12 @@
    Curl_ossl_ - prefix for OpenSSL ones
    Curl_gtls_ - prefix for GnuTLS ones
    Curl_nss_ - prefix for NSS ones
+   Curl_qssl_ - prefix for QsoSSL ones
+   Curl_gskit_ - prefix for GSKit ones
    Curl_polarssl_ - prefix for PolarSSL ones
    Curl_cyassl_ - prefix for CyaSSL ones
+   Curl_schannel_ - prefix for Schannel SSPI ones
+   Curl_darwinssl_ - prefix for SecureTransport (Darwin) ones
 
    Note that this source code uses curlssl_* functions, and they are all
    defines/macros #defined by the lib-specific header files.
@@ -41,10 +45,16 @@
    http://httpd.apache.org/docs-2.0/ssl/ssl_intro.html
 */
 
-#include "setup.h"
+#include "curl_setup.h"
 
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
 #endif
 
 #include "urldata.h"
@@ -54,15 +64,24 @@
 #include "gtls.h"   /* GnuTLS versions */
 #include "nssg.h"   /* NSS versions */
 #include "qssl.h"   /* QSOSSL versions */
+#include "gskit.h"  /* Global Secure ToolKit versions */
 #include "polarssl.h" /* PolarSSL versions */
 #include "axtls.h"  /* axTLS versions */
 #include "cyassl.h"  /* CyaSSL versions */
+#include "curl_schannel.h" /* Schannel SSPI version */
+#include "curl_darwinssl.h" /* SecureTransport (Darwin) version */
+#include "slist.h"
 #include "sendf.h"
 #include "rawstr.h"
 #include "url.h"
 #include "curl_memory.h"
 #include "progress.h"
 #include "share.h"
+#include "timeval.h"
+
+#define _MPRINTF_REPLACE /* use our functions only */
+#include <curl/mprintf.h>
+
 /* The last #include file should be: */
 #include "memdebug.h"
 
@@ -159,6 +178,62 @@ void Curl_free_ssl_config(struct ssl_config_data* sslc)
   Curl_safefree(sslc->random_file);
 }
 
+
+/*
+ * Curl_rand() returns a random unsigned integer, 32bit.
+ *
+ * This non-SSL function is put here only because this file is the only one
+ * with knowledge of what the underlying SSL libraries provide in terms of
+ * randomizers.
+ *
+ * NOTE: 'data' may be passed in as NULL when coming from external API without
+ * easy handle!
+ *
+ */
+
+unsigned int Curl_rand(struct SessionHandle *data)
+{
+  unsigned int r;
+  static unsigned int randseed;
+  static bool seeded = FALSE;
+
+#ifndef have_curlssl_random
+  (void)data;
+#else
+  if(data) {
+    Curl_ssl_random(data, (unsigned char *)&r, sizeof(r));
+    return r;
+  }
+#endif
+
+#ifdef RANDOM_FILE
+  if(!seeded) {
+    /* if there's a random file to read a seed from, use it */
+    int fd = open(RANDOM_FILE, O_RDONLY);
+    if(fd > -1) {
+      /* read random data into the randseed variable */
+      ssize_t nread = read(fd, &randseed, sizeof(randseed));
+      if(nread == sizeof(randseed))
+        seeded = TRUE;
+      close(fd);
+    }
+  }
+#endif
+
+  if(!seeded) {
+    struct timeval now = curlx_tvnow();
+    randseed += (unsigned int)now.tv_usec + (unsigned int)now.tv_sec;
+    randseed = randseed * 1103515245 + 12345;
+    randseed = randseed * 1103515245 + 12345;
+    randseed = randseed * 1103515245 + 12345;
+    seeded = TRUE;
+  }
+
+  /* Return an unsigned 32-bit pseudo-random number. */
+  r = randseed = randseed * 1103515245 + 12345;
+  return (r << 16) | ((r >> 16) & 0xFFFF);
+}
+
 #ifdef USE_SSL
 
 /* "global" init done? */
@@ -211,18 +286,18 @@ CURLcode
 Curl_ssl_connect_nonblocking(struct connectdata *conn, int sockindex,
                              bool *done)
 {
-#ifdef curlssl_connect_nonblocking
   CURLcode res;
   /* mark this is being ssl requested from here on. */
   conn->ssl[sockindex].use = TRUE;
+#ifdef curlssl_connect_nonblocking
   res = curlssl_connect_nonblocking(conn, sockindex, done);
+#else
+  *done = TRUE; /* fallback to BLOCKING */
+  res = curlssl_connect(conn, sockindex);
+#endif /* non-blocking connect support */
   if(!res && *done)
     Curl_pgrsTime(conn->data, TIMER_APPCONNECT); /* SSL is connected */
   return res;
-#else
-  *done = TRUE; /* fallback to BLOCKING */
-  return Curl_ssl_connect(conn, sockindex);
-#endif /* non-blocking connect support */
 }
 
 /*
@@ -517,4 +592,98 @@ void Curl_ssl_free_certinfo(struct SessionHandle *data)
     ci->num_of_certs = 0;
   }
 }
+
+int Curl_ssl_init_certinfo(struct SessionHandle * data,
+                           int num)
+{
+  struct curl_certinfo * ci = &data->info.certs;
+  struct curl_slist * * table;
+
+  /* Initialize the certificate information structures. Return 0 if OK, else 1.
+   */
+  Curl_ssl_free_certinfo(data);
+  ci->num_of_certs = num;
+  table = calloc((size_t) num, sizeof(struct curl_slist *));
+  if(!table)
+    return 1;
+
+  ci->certinfo = table;
+  return 0;
+}
+
+/*
+ * 'value' is NOT a zero terminated string
+ */
+CURLcode Curl_ssl_push_certinfo_len(struct SessionHandle *data,
+                                    int certnum,
+                                    const char *label,
+                                    const char *value,
+                                    size_t valuelen)
+{
+  struct curl_certinfo * ci = &data->info.certs;
+  char * output;
+  struct curl_slist * nl;
+  CURLcode res = CURLE_OK;
+  size_t labellen = strlen(label);
+  size_t outlen = labellen + 1 + valuelen + 1; /* label:value\0 */
+
+  output = malloc(outlen);
+  if(!output)
+    return CURLE_OUT_OF_MEMORY;
+
+  /* sprintf the label and colon */
+  snprintf(output, outlen, "%s:", label);
+
+  /* memcpy the value (it might not be zero terminated) */
+  memcpy(&output[labellen+1], value, valuelen);
+
+  /* zero terminate the output */
+  output[labellen + 1 + valuelen] = 0;
+
+  nl = Curl_slist_append_nodup(ci->certinfo[certnum], output);
+  if(!nl) {
+    free(output);
+    curl_slist_free_all(ci->certinfo[certnum]);
+    res = CURLE_OUT_OF_MEMORY;
+  }
+
+  ci->certinfo[certnum] = nl;
+  return res;
+}
+
+/*
+ * This is a convenience function for push_certinfo_len that takes a zero
+ * terminated value.
+ */
+CURLcode Curl_ssl_push_certinfo(struct SessionHandle *data,
+                                int certnum,
+                                const char *label,
+                                const char *value)
+{
+  size_t valuelen = strlen(value);
+
+  return Curl_ssl_push_certinfo_len(data, certnum, label, value, valuelen);
+}
+
+/* these functions are only provided by some SSL backends */
+
+#ifdef have_curlssl_random
+void Curl_ssl_random(struct SessionHandle *data,
+                     unsigned char *entropy,
+                     size_t length)
+{
+  curlssl_random(data, entropy, length);
+}
+#endif
+
+#ifdef have_curlssl_md5sum
+void Curl_ssl_md5sum(unsigned char *tmp, /* input */
+                     size_t tmplen,
+                     unsigned char *md5sum, /* output */
+                     size_t md5len)
+{
+  curlssl_md5sum(tmp, tmplen, md5sum, md5len);
+}
+#endif
+
 #endif /* USE_SSL */

@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -38,8 +38,11 @@ that returns pause signals to the library that it couldn't take care of any
 data at all, and that data will then be delivered again to the callback when
 the writing is later unpaused.
 
-NOTE: while it may feel tempting, take care and notice that you cannot call
-this function from another thread.
+While it may feel tempting, take care and notice that you cannot call this
+function from another thread. To unpause, you may for example call it from the
+progress callback (see \fIcurl_easy_setopt(3)\fP's
+\fICURLOPT_PROGRESSFUNCTION\fP), which gets called at least once per second,
+even if the connection is paused.
 
 When this function is called to unpause reading, the chance is high that you
 will get your write callback called before this function returns.
@@ -68,6 +71,18 @@ code means something wrong occurred after the new state was set.  See the
 .SH AVAILABILITY
 This function was added in libcurl 7.18.0. Before this version, there was no
 explicit support for pausing transfers.
+.SH "USAGE WITH THE MULTI-SOCKET INTERFACE"
+Before libcurl 7.32.0, when a specific handle was unpaused with this function,
+there was no particular forced rechecking or similar of the socket's state,
+which made the continuation of the transfer get delayed until next
+multi-socket call invoke or even longer. Alternatively, the user could
+forcibly call for example curl_multi_socket_all(3) - with a rather hefty
+performance penalty.
+
+Starting in libcurl 7.32.0, unpausing a transfer will schedule a timeout
+trigger for that handle 1 millisecond into the future, so that a
+curl_multi_socket_action( ... CURL_SOCKET_TIMEOUT) can be used immediately
+afterwards to get the transfer going again as desired.
 .SH "MEMORY USE"
 When pausing a read by returning the magic return code from a write callback,
 the read data is already in libcurl's internal buffers so it'll have to keep

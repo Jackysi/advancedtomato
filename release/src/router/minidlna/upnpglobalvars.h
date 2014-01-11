@@ -52,11 +52,12 @@
 #include <time.h>
 
 #include "minidlnatypes.h"
+#include "clients.h"
 #include "config.h"
 
 #include <sqlite3.h>
 
-#define MINIDLNA_VERSION "1.0.26"
+#define MINIDLNA_VERSION "1.1.1"
 
 #ifdef NETGEAR
 # define SERVER_NAME "ReadyDLNA"
@@ -64,9 +65,8 @@
 # define SERVER_NAME "MiniDLNA"
 #endif
 
-#define CLIENT_CACHE_SLOTS 20
 #define USE_FORK 1
-#define DB_VERSION 8
+#define DB_VERSION 9
 
 #ifdef ENABLE_NLS
 #define _(string) gettext(string)
@@ -188,25 +188,26 @@ extern uint32_t runtime_flags;
 #define TIVO_MASK             0x0002
 #define DLNA_STRICT_MASK      0x0004
 #define NO_PLAYLIST_MASK      0x0008
+#define SYSTEMD_MASK          0x0010
 
 #define SETFLAG(mask)	runtime_flags |= mask
-#define GETFLAG(mask)	runtime_flags & mask
+#define GETFLAG(mask)	(runtime_flags & mask)
 #define CLEARFLAG(mask)	runtime_flags &= ~mask
 
-extern const char * pidfilename;
+extern const char *pidfilename;
 
 extern char uuidvalue[];
 
-#define MODELNAME_MAX_LEN (64)
+#define MODELNAME_MAX_LEN 64
 extern char modelname[];
 
-#define MODELNUMBER_MAX_LEN (16)
+#define MODELNUMBER_MAX_LEN 16
 extern char modelnumber[];
 
-#define SERIALNUMBER_MAX_LEN (16)
+#define SERIALNUMBER_MAX_LEN 16
 extern char serialnumber[];
 
-#define PRESENTATIONURL_MAX_LEN (64)
+#define PRESENTATIONURL_MAX_LEN 64
 extern char presentationurl[];
 
 #if PNPX
@@ -216,7 +217,6 @@ extern char pnpx_hwid[];
 /* lan addresses */
 /* MAX_LAN_ADDR : maximum number of interfaces
  * to listen to SSDP traffic */
-#define MAX_LAN_ADDR (4)
 extern int n_lan_addr;
 extern struct lan_addr_s lan_addr[];
 
@@ -224,13 +224,12 @@ extern const char * minissdpdsocketpath;
 
 /* UPnP-A/V [DLNA] */
 extern sqlite3 *db;
-#define FRIENDLYNAME_MAX_LEN (64)
+#define FRIENDLYNAME_MAX_LEN 64
 extern char friendly_name[];
 extern char db_path[];
 extern char log_path[];
-extern struct media_dir_s * media_dirs;
-extern struct album_art_name_s * album_art_names;
-extern struct client_cache_s clients[CLIENT_CACHE_SLOTS];
+extern struct media_dir_s *media_dirs;
+extern struct album_art_name_s *album_art_names;
 extern short int scanning;
 extern volatile short int quitting;
 extern volatile uint32_t updateID;

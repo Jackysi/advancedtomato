@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,13 +20,10 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #if defined(__INTEL_COMPILER) && defined(__unix__)
 
-#ifdef HAVE_SYS_SOCKET_H
-#  include <sys/socket.h>
-#endif
 #ifdef HAVE_NETINET_IN_H
 #  include <netinet/in.h>
 #endif
@@ -159,6 +156,25 @@ unsigned char curlx_ultouc(unsigned long ulnum)
 }
 
 /*
+** unsigned long to signed int
+*/
+
+int curlx_ultosi(unsigned long ulnum)
+{
+#ifdef __INTEL_COMPILER
+#  pragma warning(push)
+#  pragma warning(disable:810) /* conversion may lose significant bits */
+#endif
+
+  DEBUGASSERT(ulnum <= (unsigned long) CURL_MASK_SINT);
+  return (int)(ulnum & (unsigned long) CURL_MASK_SINT);
+
+#ifdef __INTEL_COMPILER
+#  pragma warning(pop)
+#endif
+}
+
+/*
 ** unsigned size_t to signed int
 */
 
@@ -188,7 +204,9 @@ unsigned long curlx_uztoul(size_t uznum)
 # pragma warning(disable:810) /* conversion may lose significant bits */
 #endif
 
+#if (CURL_SIZEOF_LONG < SIZEOF_SIZE_T)
   DEBUGASSERT(uznum <= (size_t) CURL_MASK_ULONG);
+#endif
   return (unsigned long)(uznum & (size_t) CURL_MASK_ULONG);
 
 #ifdef __INTEL_COMPILER
@@ -207,7 +225,9 @@ unsigned int curlx_uztoui(size_t uznum)
 # pragma warning(disable:810) /* conversion may lose significant bits */
 #endif
 
+#if (SIZEOF_INT < SIZEOF_SIZE_T)
   DEBUGASSERT(uznum <= (size_t) CURL_MASK_UINT);
+#endif
   return (unsigned int)(uznum & (size_t) CURL_MASK_UINT);
 
 #ifdef __INTEL_COMPILER
@@ -227,7 +247,9 @@ int curlx_sltosi(long slnum)
 #endif
 
   DEBUGASSERT(slnum >= 0);
+#if (SIZEOF_INT < CURL_SIZEOF_LONG)
   DEBUGASSERT((unsigned long) slnum <= (unsigned long) CURL_MASK_SINT);
+#endif
   return (int)(slnum & (long) CURL_MASK_SINT);
 
 #ifdef __INTEL_COMPILER
@@ -247,7 +269,9 @@ unsigned int curlx_sltoui(long slnum)
 #endif
 
   DEBUGASSERT(slnum >= 0);
+#if (SIZEOF_INT < CURL_SIZEOF_LONG)
   DEBUGASSERT((unsigned long) slnum <= (unsigned long) CURL_MASK_UINT);
+#endif
   return (unsigned int)(slnum & (long) CURL_MASK_UINT);
 
 #ifdef __INTEL_COMPILER
@@ -325,7 +349,9 @@ int curlx_sztosi(ssize_t sznum)
 #endif
 
   DEBUGASSERT(sznum >= 0);
+#if (SIZEOF_INT < SIZEOF_SIZE_T)
   DEBUGASSERT((size_t) sznum <= (size_t) CURL_MASK_SINT);
+#endif
   return (int)(sznum & (ssize_t) CURL_MASK_SINT);
 
 #ifdef __INTEL_COMPILER
@@ -351,6 +377,28 @@ size_t curlx_sitouz(int sinum)
 #  pragma warning(pop)
 #endif
 }
+
+#ifdef USE_WINSOCK
+
+/*
+** curl_socket_t to signed int
+*/
+
+int curlx_sktosi(curl_socket_t s)
+{
+  return (int)((ssize_t) s);
+}
+
+/*
+** signed int to curl_socket_t
+*/
+
+curl_socket_t curlx_sitosk(int i)
+{
+  return (curl_socket_t)((ssize_t) i);
+}
+
+#endif /* USE_WINSOCK */
 
 #if defined(__INTEL_COMPILER) && defined(__unix__)
 

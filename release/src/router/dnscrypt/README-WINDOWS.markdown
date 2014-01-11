@@ -12,7 +12,9 @@ Quickstart
 1) Download and extract the latest
 [Windows package for dnscrypt](http://dnscrypt.org)
 
-2) Copy the `dnscrypt-proxy.exe` file to any location.
+2) Copy the `dnscrypt-proxy.exe` file to any location, as well as the
+`libsodium-4.dll` file. Both should be in the same location. If you
+are using plugins depending on ldns, copy the ldns DLL as well.
 
 3) Open a terminal (run `cmd.exe`) and type (you may need to specify
 the full path to the file):

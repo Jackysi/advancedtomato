@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #if defined(USE_NTLM) && defined(NTLM_WB_ENABLED)
 
@@ -33,9 +33,6 @@
 
 #define DEBUG_ME 0
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
@@ -359,7 +356,7 @@ CURLcode Curl_output_ntlm_wb(struct connectdata *conn,
     conn->response_header = NULL;
     break;
   case NTLMSTATE_TYPE2:
-    input = aprintf("TT %s", conn->challenge_header);
+    input = aprintf("TT %s\n", conn->challenge_header);
     if(!input)
       return CURLE_OUT_OF_MEMORY;
     res = ntlm_wb_response(conn, input, ntlm->state);

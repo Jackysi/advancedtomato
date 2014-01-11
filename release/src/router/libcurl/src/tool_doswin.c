@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "tool_setup.h"
 
 #if defined(MSDOS) || defined(WIN32)
 
@@ -28,7 +28,6 @@
 #endif
 
 #ifdef WIN32
-#  include <curl/curl.h>
 #  include "tool_cfgable.h"
 #  include "tool_libinfo.h"
 #endif
@@ -82,6 +81,8 @@ __pragma(warning(pop))
 #  define _use_lfn(f) ALWAYS_TRUE   /* long file names always available */
 #elif !defined(__DJGPP__) || (__DJGPP__ < 2)  /* DJGPP 2.0 has _use_lfn() */
 #  define _use_lfn(f) ALWAYS_FALSE  /* long file names never available */
+#elif defined(__DJGPP__)
+#  include <fcntl.h>                /* _use_lfn(f) prototype */
 #endif
 
 static const char *msdosify (const char *file_name);

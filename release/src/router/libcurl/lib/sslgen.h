@@ -21,13 +21,19 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "curl_setup.h"
+
+#ifndef MD5_DIGEST_LENGTH
+#define MD5_DIGEST_LENGTH 16 /* fixed size */
+#endif
 
 bool Curl_ssl_config_matches(struct ssl_config_data* data,
                              struct ssl_config_data* needle);
 bool Curl_clone_ssl_config(struct ssl_config_data* source,
                            struct ssl_config_data* dest);
 void Curl_free_ssl_config(struct ssl_config_data* sslc);
+
+unsigned int Curl_rand(struct SessionHandle *);
 
 #ifdef USE_SSL
 int Curl_ssl_init(void);
@@ -52,7 +58,16 @@ size_t Curl_ssl_version(char *buffer, size_t size);
 bool Curl_ssl_data_pending(const struct connectdata *conn,
                            int connindex);
 int Curl_ssl_check_cxn(struct connectdata *conn);
+
+/* Certificate information list handling. */
+
 void Curl_ssl_free_certinfo(struct SessionHandle *data);
+int Curl_ssl_init_certinfo(struct SessionHandle * data, int num);
+CURLcode Curl_ssl_push_certinfo_len(struct SessionHandle * data, int certnum,
+                                    const char * label, const char * value,
+                                    size_t valuelen);
+CURLcode Curl_ssl_push_certinfo(struct SessionHandle * data, int certnum,
+                                const char * label, const char * value);
 
 /* Functions to be used by SSL library adaptation functions */
 
@@ -69,7 +84,22 @@ void Curl_ssl_kill_session(struct curl_ssl_session *session);
 /* delete a session from the cache */
 void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid);
 
+/* get N random bytes into the buffer */
+void Curl_ssl_random(struct SessionHandle *data, unsigned char *buffer,
+                     size_t length);
+void Curl_ssl_md5sum(unsigned char *tmp, /* input */
+                     size_t tmplen,
+                     unsigned char *md5sum, /* output */
+                     size_t md5len);
+
 #define SSL_SHUTDOWN_TIMEOUT 10000 /* ms */
+
+#ifdef have_curlssl_random
+#define HAVE_CURL_SSL_RANDOM
+#endif
+#ifdef have_curlssl_md5sum
+#define HAVE_CURL_SSL_MD5SUM
+#endif
 
 #else
 /* When SSL support is not present, just define away these function calls */

@@ -1,39 +1,31 @@
 <testcase>
 <info>
 <keywords>
-POP3
-LIST
+IMAP
+SEARCH
+CUSTOMREQUEST
 </keywords>
 </info>
 
 #
 # Server-side
 <reply>
-# We use SLOWDOWN to really exercise the end-of-body parsing over multiple
-# packets
-<servercmd>
-SLOWDOWN
-</servercmd>
-# When doing LIST, we get the default list output hard-coded in the test
-# POP3 server
-<datacheck>
-1 100
-2 4294967400
-4 200
-</datacheck>
+<data>
+* SEARCH 1 123 456 810
+</data>
 </reply>
 
 #
 # Client-side
 <client>
 <server>
-pop3
+imap
 </server>
  <name>
-POP3 LIST messages from *SLOW* server
+IMAP SEARCH for NEW messages (CUSTOMREQUEST)
  </name>
  <command>
-pop3://%HOSTIP:%POP3PORT/ -u user:secret
+imap://%HOSTIP:%IMAPPORT/810 -u user:secret -X 'SEARCH NEW'
 </command>
 </client>
 
@@ -41,10 +33,11 @@ pop3://%HOSTIP:%POP3PORT/ -u user:secret
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
-USER user
-PASS secret
-LIST
-QUIT
+A001 CAPABILITY
+A002 LOGIN user secret
+A003 SELECT 810
+A004 SEARCH NEW
+A005 LOGOUT
 </protocol>
 </verify>
 </testcase>

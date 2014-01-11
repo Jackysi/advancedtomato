@@ -27,28 +27,22 @@
 ## Example: mingw32-make -f Makefile.m32 CFG=-zlib-ssl-spi-winidn
 ##
 ## Hint: you can also set environment vars to control the build, f.e.:
-## set ZLIB_PATH=c:/zlib-1.2.5
+## set ZLIB_PATH=c:/zlib-1.2.8
 ## set ZLIB=1
 #
 ###########################################################################
 
 # Edit the path below to point to the base of your Zlib sources.
 ifndef ZLIB_PATH
-ZLIB_PATH = ../../../zlib-1.2.5
+ZLIB_PATH = ../../../zlib-1.2.8
 endif
 # Edit the path below to point to the base of your OpenSSL package.
 ifndef OPENSSL_PATH
-OPENSSL_PATH = ../../../openssl-0.9.8r
-endif
-ifndef OPENSSL_LIBPATH
-OPENSSL_LIBPATH = $(OPENSSL_PATH)/out
-endif
-ifndef OPENSSL_LIBS
-OPENSSL_LIBS = -leay32 -lssl32
+OPENSSL_PATH = ../../../openssl-0.9.8y
 endif
 # Edit the path below to point to the base of your LibSSH2 package.
 ifndef LIBSSH2_PATH
-LIBSSH2_PATH = ../../../libssh2-1.3.0
+LIBSSH2_PATH = ../../../libssh2-1.4.3
 endif
 # Edit the path below to point to the base of your librtmp package.
 ifndef LIBRTMP_PATH
@@ -81,19 +75,44 @@ ifndef ARCH
 ARCH = w32
 endif
 
-CC = gcc
-CFLAGS = -g -O2 -Wall
-CFLAGS += -fno-strict-aliasing
+CC	= $(CROSSPREFIX)gcc
+CFLAGS	= -g -O2 -Wall
+CFLAGS	+= -fno-strict-aliasing
 ifeq ($(ARCH),w64)
-CFLAGS += -D_AMD64_
+CFLAGS	+= -D_AMD64_
 endif
 # comment LDFLAGS below to keep debug info
-LDFLAGS = -s
-RC = windres
-RCFLAGS = --include-dir=$(PROOT)/include -O COFF -i
+LDFLAGS	= -s
+RC	= $(CROSSPREFIX)windres
+RCFLAGS	= --include-dir=$(PROOT)/include -O COFF -i
 
-RM = del /q /f 2>NUL
-CP = copy
+# Platform-dependent helper tool macros
+ifeq ($(findstring /sh,$(SHELL)),/sh)
+DEL	= rm -f $1
+RMDIR	= rm -fr $1
+MKDIR	= mkdir -p $1
+COPY	= -cp -afv $1 $2
+#COPYR	= -cp -afr $1/* $2
+COPYR	= -rsync -aC $1/* $2
+TOUCH	= touch $1
+CAT	= cat
+ECHONL	= echo ""
+DL	= '
+else
+ifeq "$(OS)" "Windows_NT"
+DEL	= -del 2>NUL /q /f $(subst /,\,$1)
+RMDIR	= -rd 2>NUL /q /s $(subst /,\,$1)
+else
+DEL	= -del 2>NUL $(subst /,\,$1)
+RMDIR	= -deltree 2>NUL /y $(subst /,\,$1)
+endif
+MKDIR	= -md 2>NUL $(subst /,\,$1)
+COPY	= -copy 2>NUL /y $(subst /,\,$1) $(subst /,\,$2)
+COPYR	= -xcopy 2>NUL /q /y /e $(subst /,\,$1) $(subst /,\,$2)
+TOUCH	= copy 2>&1>NUL /b $(subst /,\,$1) +,,
+CAT	= type
+ECHONL	= $(ComSpec) /c echo.
+endif
 
 ########################################################
 ## Nothing more to do below this line!
@@ -138,6 +157,13 @@ endif
 ifeq ($(findstring -ipv6,$(CFG)),-ipv6)
 IPV6 = 1
 endif
+ifeq ($(findstring -metalink,$(CFG)),-metalink)
+METALINK = 1
+endif
+ifeq ($(findstring -winssl,$(CFG)),-winssl)
+SCHANNEL = 1
+SSPI = 1
+endif
 
 INCLUDES = -I. -I$(PROOT) -I$(PROOT)/include -I$(PROOT)/lib
 
@@ -148,6 +174,7 @@ else
   curl_DEPENDENCIES = $(PROOT)/lib/libcurl.a
   curl_LDADD = -L$(PROOT)/lib -lcurl
   CFLAGS += -DCURL_STATICLIB
+  LDFLAGS += -static
 endif
 ifdef ARES
   ifndef DYN
@@ -165,7 +192,22 @@ ifdef SSH2
   curl_LDADD += -L"$(LIBSSH2_PATH)/win32" -lssh2
 endif
 ifdef SSL
-  CFLAGS += -DUSE_SSLEAY -DHAVE_OPENSSL_ENGINE_H
+  ifndef OPENSSL_LIBPATH
+    OPENSSL_LIBS = -lssl -lcrypto
+    ifeq "$(wildcard $(OPENSSL_PATH)/out)" "$(OPENSSL_PATH)/out"
+      OPENSSL_LIBPATH = $(OPENSSL_PATH)/out
+      ifdef DYN
+        OPENSSL_LIBS = -lssl32 -leay32
+      endif
+    endif
+    ifeq "$(wildcard $(OPENSSL_PATH)/lib)" "$(OPENSSL_PATH)/lib"
+      OPENSSL_LIBPATH = $(OPENSSL_PATH)/lib
+    endif
+  endif
+  ifndef DYN
+    OPENSSL_LIBS += -lgdi32 -lcrypt32
+  endif
+  CFLAGS += -DUSE_SSLEAY
   curl_LDADD += -L"$(OPENSSL_LIBPATH)" $(OPENSSL_LIBS)
 endif
 ifdef ZLIB
@@ -184,6 +226,9 @@ endif
 endif
 ifdef SSPI
   CFLAGS += -DUSE_WINDOWS_SSPI
+  ifdef SCHANNEL
+    CFLAGS += -DUSE_SCHANNEL
+  endif
 endif
 ifdef SPNEGO
   CFLAGS += -DHAVE_SPNEGO
@@ -215,6 +260,8 @@ include Makefile.inc
 check_PROGRAMS := $(patsubst %,%.exe,$(strip $(check_PROGRAMS)))
 check_PROGRAMS += ftpuploadresume.exe synctime.exe
 
+.PRECIOUS: %.o
+
 
 all: $(check_PROGRAMS)
 
@@ -228,8 +275,8 @@ all: $(check_PROGRAMS)
 	$(RC) $(RCFLAGS) $< -o $@
 
 clean:
-	-$(RM) $(check_PROGRAMS:.exe=.o)
+	@$(call DEL, $(check_PROGRAMS:.exe=.o))
 
 distclean vclean: clean
-	-$(RM) $(check_PROGRAMS)
+	@$(call DEL, $(check_PROGRAMS))
 

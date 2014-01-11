@@ -22,7 +22,8 @@
 #***************************************************************************
 
 BEGIN {
-    @INC=(@INC, $ENV{'srcdir'}, '.');
+    push(@INC, $ENV{'srcdir'}) if(defined $ENV{'srcdir'});
+    push(@INC, ".");
 }
 
 use strict;
@@ -42,7 +43,6 @@ my $pidfile;         # http server pid file
 my $logfile;         # http server log file
 my $connect;         # IP to connect to on CONNECT
 my $srcdir;
-my $fork;
 my $gopher = 0;
 
 my $flags  = "";
@@ -98,9 +98,6 @@ while(@ARGV) {
     elsif($ARGV[0] eq '--verbose') {
         $verbose = 1;
     }
-    elsif($ARGV[0] eq '--fork') {
-        $fork = $ARGV[0];
-    }
     else {
         print STDERR "\nWarning: httpserver.pl unknown parameter: $ARGV[0]\n";
     }
@@ -119,7 +116,6 @@ if(!$logfile) {
 
 $flags .= "--pidfile \"$pidfile\" --logfile \"$logfile\" ";
 $flags .= "--gopher " if($gopher);
-$flags .= "--fork " if(defined($fork));
 $flags .= "--connect $connect " if($connect);
 $flags .= "--ipv$ipvnum --port $port --srcdir \"$srcdir\"";
 

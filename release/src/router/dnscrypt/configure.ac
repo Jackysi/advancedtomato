@@ -1,5 +1,5 @@
-AC_PREREQ([2.61])
-AC_INIT([dnscrypt-proxy],[1.3.3],[http://dnscrypt.org])
+AC_PREREQ([2.65])
+AC_INIT([dnscrypt-proxy],[1.3.4],[http://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -15,6 +15,94 @@ ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
 LX_CFLAGS=${CFLAGS-NONE}
+
+dnl Switches.
+
+AC_ARG_ENABLE(ssp,
+[AS_HELP_STRING(--disable-ssp,Do not compile with -fstack-protector)],
+[
+  AS_IF([test "x$enableval" = "xno"], [
+    enable_ssp="no"
+  ], [
+    enable_ssp="yes"
+  ])
+],
+[
+  enable_ssp="yes"
+])
+
+AC_ARG_ENABLE(pie,
+[AS_HELP_STRING(--disable-pie,Do not produce position independent executables)],
+ enable_pie=$enableval, enable_pie="maybe")
+
+AS_CASE([$host_os], [mingw*], [enable_pie="no"])
+
+AC_ARG_WITH(safecode,
+[AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
+[AS_IF([test "x$withval" = "xyes"], [
+    AC_ARG_VAR([SAFECODE_HOME], [set to the safecode base directory])
+    : ${SAFECODE_HOME:=/opt/safecode}
+    LDFLAGS="$LDFLAGS -L${SAFECODE_HOME}/lib"
+    LIBS="$LIBS -lsc_dbg_rt -lpoolalloc_bitmap -lstdc++"
+    CFLAGS="$CFLAGS -fmemsafety"
+  ])
+])
+
+AC_ARG_ENABLE(debug,
+[AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
+[
+  AS_IF([test "x$enableval" = "xyes"], [
+    AS_IF([test "x$LX_CFLAGS" = "xNONE"], [
+      nxflags=""
+      for flag in `echo $CFLAGS`; do
+        AS_CASE([$flag],
+          [-O*], [ ],
+          [-g*], [ ],
+          [*], [AS_VAR_APPEND([nxflags], [" $flag"])])
+      done
+      CFLAGS="$nxflags -O0 -g3"
+    ])
+    CPPFLAGS="$CPPFLAGS -DDEBUG=1"
+  ])
+])
+
+plugins=disabled
+AC_ARG_ENABLE(plugins,
+[AS_HELP_STRING(--enable-plugins,Enable support for plugins - experimental)],
+[
+	AS_IF([test "x$enableval" != "xno"], [
+		CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
+		plugins=enabled
+	])
+])
+AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
+
+relaxed_plugins_permissions=disabled
+AC_ARG_ENABLE(relaxed-plugins-permissions,
+[AS_HELP_STRING(--enable-relaxed-plugins-permissions,Allow loading plugins owned by other users)],
+[
+	AS_IF([test "x$enableval" != "xno"], [
+		CPPFLAGS="$CPPFLAGS -DRELAXED_PLUGINS_PERMISSIONS=1"
+		relaxed_plugins_permissions=enabled
+	])
+])
+AM_CONDITIONAL(RELAXED_PLUGINS_PERMISSIONS, test x$relaxed_plugins_permissions = xenabled)
+
+plugins_root=disabled
+AC_ARG_ENABLE(plugins-root,
+[AS_HELP_STRING(--enable-plugins-root,Only load plugins sitting in the default plugins directory)],
+[
+	AS_IF([test "x$enableval" != "xno"], [
+		CPPFLAGS="$CPPFLAGS -DENABLE_PLUGINS_ROOT=1"
+		plugins_root=enabled
+	])
+])
+AM_CONDITIONAL(ENABLE_PLUGINS_ROOT, test x$plugins_root = xenabled)
+
+AC_SUBST([MAINT])
+
+dnl Checks
+
 AC_PROG_CC_C99
 AC_USE_SYSTEM_EXTENSIONS
 CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
@@ -39,26 +127,31 @@ AX_CHECK_COMPILE_FLAG([-fwrapv], [CFLAGS="$CFLAGS -fwrapv"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing], [CFLAGS="$CFLAGS -fno-strict-aliasing"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"])
 
-case $host_os in
-  cygwin* | mingw* | pw32* | cegcc*)
+AS_CASE([$host_os],
+  [cygwin* | mingw* | pw32* | cegcc*], [
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
-  ;;
-  dragonfly*)
+  ])
+
+AS_IF([test "x$enable_ssp" != "xno"],[
+
+AS_CASE([$host_os],
+  [cygwin* | mingw* | pw32* | cegcc*], [ ],
+  [dragonfly*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector], [
       AX_CHECK_LINK_FLAG([-fstack-protector],
         [CFLAGS="$CFLAGS -fstack-protector"]
       )
     ])
-  ;;
-  *)
+  ],
+  [*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [
       AX_CHECK_LINK_FLAG([-fstack-protector-all],
         [CFLAGS="$CFLAGS -fstack-protector-all"]
       )
     ])
-  ;;
-esac
+  ])
+])
 
 AX_CHECK_COMPILE_FLAG([-Winit-self], [CFLAGS="$CFLAGS -Winit-self"])
 AX_CHECK_COMPILE_FLAG([-Wwrite-strings], [CFLAGS="$CFLAGS -Wwrite-strings"])
@@ -134,6 +227,8 @@ AS_IF([test -n "$DTRACE"],[
   PROBES_SOURCE="probes_no_dtrace.h"
 ])
 
+AC_SUBST([PROBES_SOURCE])
+
 AS_IF([test -d /usr/local/include], [
   CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 ])
@@ -152,6 +247,7 @@ AC_CHECK_HEADERS([ws2tcpip.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
+AC_C_INLINE
 AC_C_BIGENDIAN
 AC_C_RESTRICT
 
@@ -316,82 +412,6 @@ AC_CHECK_HEADER([CoreServices/CoreServices.h],
 
 AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
 
-dnl Switches.
-
-AC_ARG_ENABLE(pie,
-[AS_HELP_STRING(--enable-pie,Produce position independent executables @<:@default=yes@:>@)],
- enable_pie=$enableval, enable_pie="maybe")
-
-AC_ARG_ENABLE(ssp,
-[AS_HELP_STRING(--disable-ssp,Don't compile with -fstack-protector)],
-[AS_IF([test "x$enableval" = "xno"], [
-    nxflags=""
-    for flag in `echo $CFLAGS`; do
-      case "$flag" in
-       -fstack-protector*) ;;
-        *) AS_VAR_APPEND([nxflags], [" $flag"]) ;;
-      esac
-    done
-    CFLAGS="$nxflags"
-  ])
-])
-
-plugins=disabled
-AC_ARG_ENABLE(plugins,
-[AS_HELP_STRING(--enable-plugins,Enable support for plugins - experimental)],
-[CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
- plugins=enabled])
-AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
-
-relaxed_plugins_permissions=disabled
-AC_ARG_ENABLE(relaxed-plugins-permissions,
-[AS_HELP_STRING(--enable-relaxed-plugins-permissions,Allow loading plugins owned by other users)],
-[CPPFLAGS="$CPPFLAGS -DRELAXED_PLUGINS_PERMISSIONS=1"
- relaxed_plugins_permissions=enabled])
-AM_CONDITIONAL(RELAXED_PLUGINS_PERMISSIONS, test x$relaxed_plugins_permissions = xenabled)
-
-plugins_root=disabled
-AC_ARG_ENABLE(plugins-root,
-[AS_HELP_STRING(--enable-plugins-root,Only load plugins sitting in the default plugins directory)],
-[CPPFLAGS="$CPPFLAGS -DENABLE_PLUGINS_ROOT=1"
- plugins_root=enabled])
-AM_CONDITIONAL(ENABLE_PLUGINS_ROOT, test x$plugins_root = xenabled)
-
-AC_ARG_ENABLE(blocking-random,
-[AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
-[AC_DEFINE([USE_BLOCKING_RANDOM], [1], [Use blocking random])])
-
-AC_ARG_ENABLE(debug,
-[AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
-[
-  AS_IF([test "x$LX_CFLAGS" = "xNONE"], [
-    nxflags=""
-    for flag in `echo $CFLAGS`; do
-      case "$flag" in
-        -O*) ;;
-        -g*) ;;
-        *) AS_VAR_APPEND([nxflags], [" $flag"]) ;;
-      esac
-    done
-    CFLAGS="$nxflags -O0 -g3"
-  ])
-  CPPFLAGS="$CPPFLAGS -DDEBUG=1"
-])
-
-AC_ARG_WITH(safecode,
-[AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
-[AS_IF([test "x$withval" = "xyes"], [
-    AC_ARG_VAR([SAFECODE_HOME], [set to the safecode base directory])
-    : ${SAFECODE_HOME:=/opt/safecode}
-    LDFLAGS="$LDFLAGS -L${SAFECODE_HOME}/lib"
-    LIBS="$LIBS -lsc_dbg_rt -lpoolalloc_bitmap -lstdc++"
-    CFLAGS="$CFLAGS -fmemsafety"
-  ])
-])
-
-AC_SUBST([MAINT])
-AC_SUBST([PROBES_SOURCE])
-
 dnl Libtool.
 
 LT_INIT([dlopen])
@@ -435,7 +455,6 @@ AC_CONFIG_FILES([Makefile
                  src/include/dnscrypt/version.h
                  src/plugins/Makefile
                  src/plugins/example/Makefile
-                 src/plugins/example-ldns-forward-after-nxdomain/Makefile
                  src/plugins/example-logging/Makefile
                  src/plugins/example-ldns-aaaa-blocking/Makefile
                  src/plugins/example-ldns-blocking/Makefile

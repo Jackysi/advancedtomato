@@ -158,14 +158,28 @@ sub fixDyn
 
 #shibby
 	fixDynDep("transmission-daemon", "libevent-2.0.so.5");
-	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
-#	fixDynDep("transmission-daemon", "libiconv.so.2");
+	fixDynDep("transmission-daemon", "libcurl.so.4.3.0");
+#	fixDynDep("transmission-daemon", "libiconv.so.2.4.0");
 	fixDynDep("transmission-remote", "libevent-2.0.so.5");
-	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
-#	fixDynDep("transmission-remote", "libiconv.so.2");
+	fixDynDep("transmission-remote", "libcurl.so.4.3.0");
+#	fixDynDep("transmission-remote", "libiconv.so.2.4.0");
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
 	fixDynDep("dnscrypt-proxy", "libsodium.so.4.5.0");
+
+#minidlna module, bwq518
+	fixDynDep("minidlna", "libz.so.1");
+	fixDynDep("minidlna", "libstdc.so.6");
+	fixDynDep("minidlna", "libiconv.so.2.4.0");
+	fixDynDep("minidlna", "libssl.so.1.0.0");
+	fixDynDep("minidlna", "libjpeg.so");
+	fixDynDep("minidlna", "libogg.so.0");
+	fixDynDep("minidlna", "libvorbis.so.0");
+	fixDynDep("minidlna", "libid3tag.so.0");
+	fixDynDep("minidlna", "libexif.so.12");
+	fixDynDep("minidlna", "libFLAC.so.8");
+	fixDynDep("libjepg.so", "libc.so.0");
+	fixDynDep("libavcodec.so.52", "libpthread.so.0");
 
 #ipset modules
 	fixDynDep("libipset_iphash.so", "ipset");
@@ -477,9 +491,9 @@ genSO("${root}/usr/lib/libvorbis.so.0", "${router}/libvorbis/lib/.libs/libvorbis
 genSO("${root}/usr/lib/libid3tag.so.0", "${router}/libid3tag/.libs/libid3tag.a", "", "-L${router}/zlib");
 genSO("${root}/usr/lib/libexif.so.12", "${router}/libexif/libexif/.libs/libexif.a");
 genSO("${root}/usr/lib/libFLAC.so.8", "${router}/flac/src/libFLAC/.libs/libFLAC.a", "", "-L${router}/libogg/src/.libs");
-genSO("${root}/usr/lib/libavcodec.so.52", "${router}/ffmpeg/libavcodec/libavcodec.a", "", "-L${router}/ffmpeg/libavutil");
-genSO("${root}/usr/lib/libavutil.so.50", "${router}/ffmpeg/libavutil/libavutil.a");
-genSO("${root}/usr/lib/libavformat.so.52", "${router}/ffmpeg/libavformat/libavformat.a", "", "-L${router}/ffmpeg/libavutil -L${router}/ffmpeg/libavcodec");
+genSO("${root}/usr/lib/libavcodec.so.52", "${router}/ffmpeg/libavcodec/libavcodec.a", "", "-L${router}/ffmpeg/libavutil -L${router}/zlib");
+genSO("${root}/usr/lib/libavutil.so.50", "${router}/ffmpeg/libavutil/libavutil.a", "-L${router}/zlib");
+genSO("${root}/usr/lib/libavformat.so.52", "${router}/ffmpeg/libavformat/libavformat.a", "", "-L${router}/ffmpeg/libavutil -L${router}/ffmpeg/libavcodec -L${router}/zlib");
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
 genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
 
@@ -494,10 +508,10 @@ genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
 
 #shibby
-genSO("${root}/usr/lib/libcurl.so.4.2.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libcurl.so.4.3.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
 genSO("${root}/usr/lib/libevent-2.0.so.5", "${router}/libevent/.libs/libevent.a");
 genSO("${root}/usr/lib/libdaemon.so.0.5.0", "${router}/libdaemon/libdaemon/.libs/libdaemon.a");
-#genSO("${root}/usr/lib/libiconv.so.2", "${router}/libiconv/lib/.libs/libiconv.a");
+genSO("${root}/usr/lib/libiconv.so.2.4.0", "${router}/libiconv/lib/.libs/libiconv.a");
 genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs/libnfnetlink.a");
 genSO("${root}/usr/lib/libsodium.so.4.5.0", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
 
