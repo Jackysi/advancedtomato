@@ -47,17 +47,21 @@ typedef struct runopts {
 	int enable_compress;
 #endif
 
+#ifdef ENABLE_USER_ALGO_LIST
+	char *cipher_list;
+	char *mac_list;
+#endif
 
 } runopts;
 
 extern runopts opts;
 
-int readhostkey(const char * filename, sign_key * hostkey, int *type);
+int readhostkey(const char * filename, sign_key * hostkey, 
+	enum signkey_type *type);
+void load_all_hostkeys();
 
 typedef struct svr_runopts {
 
-	char * rsakeyfile;
-	char * dsskeyfile;
 	char * bannerfile;
 
 	int forkbg;
@@ -85,6 +89,7 @@ typedef struct svr_runopts {
 
 	int noauthpass;
 	int norootpass;
+	int allowblankpass;
 
 #ifdef ENABLE_SVR_REMOTETCPFWD
 	int noremotetcp;
@@ -94,6 +99,12 @@ typedef struct svr_runopts {
 #endif
 
 	sign_key *hostkey;
+
+	int delay_hostkey;
+
+	char *hostkey_files[MAX_HOSTKEYS];
+	int num_hostkey_files;
+
 	buffer * banner;
 	char * pidfile;
 
@@ -116,6 +127,7 @@ typedef struct cli_runopts {
 	char *cmd;
 	int wantpty;
 	int always_accept_key;
+	int no_hostkey_check;
 	int no_cmd;
 	int backgrounded;
 	int is_subsystem;
@@ -147,5 +159,9 @@ typedef struct cli_runopts {
 
 extern cli_runopts cli_opts;
 void cli_getopts(int argc, char ** argv);
+
+#ifdef ENABLE_USER_ALGO_LIST
+void parse_ciphers_macs();
+#endif
 
 #endif /* _RUNOPTS_H_ */

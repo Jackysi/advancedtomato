@@ -35,7 +35,7 @@
 
 struct Algo_Type {
 
-	unsigned char *name; /* identifying name */
+	const unsigned char *name; /* identifying name */
 	char val; /* a value for this cipher, or -1 for invalid */
 	const void *data; /* algorithm specific data */
 	char usable; /* whether we can use this algorithm */
@@ -59,8 +59,8 @@ extern const struct dropbear_hash dropbear_nohash;
 
 struct dropbear_cipher {
 	const struct ltc_cipher_descriptor *cipherdesc;
-	unsigned long keysize;
-	unsigned char blocksize;
+	const unsigned long keysize;
+	const unsigned char blocksize;
 };
 
 struct dropbear_cipher_mode {
@@ -74,18 +74,63 @@ struct dropbear_cipher_mode {
 };
 
 struct dropbear_hash {
-	const struct ltc_hash_descriptor *hashdesc;
-	unsigned long keysize;
-	unsigned char hashsize;
+	const struct ltc_hash_descriptor *hash_desc;
+	const unsigned long keysize;
+	/* hashsize may be truncated from the size returned by hash_desc,
+	   eg sha1-96 */
+	const unsigned char hashsize;
 };
 
-void crypto_init();
+enum dropbear_kex_mode {
+	DROPBEAR_KEX_NORMAL_DH,
+	DROPBEAR_KEX_ECDH,
+	DROPBEAR_KEX_CURVE25519,
+};
+
+struct dropbear_kex {
+	enum dropbear_kex_mode mode;
+	
+	/* "normal" DH KEX */
+	const unsigned char *dh_p_bytes;
+	const int dh_p_len;
+
+	/* elliptic curve DH KEX */
+#ifdef DROPBEAR_ECDH
+	const struct dropbear_ecc_curve *ecc_curve;
+#else
+	const void* dummy;
+#endif
+
+	/* both */
+	const struct ltc_hash_descriptor *hash_desc;
+};
+
 int have_algo(char* algo, size_t algolen, algo_type algos[]);
 void buf_put_algolist(buffer * buf, algo_type localalgos[]);
 
-algo_type * svr_buf_match_algo(buffer* buf, algo_type localalgos[],
-		int *goodguess);
-algo_type * cli_buf_match_algo(buffer* buf, algo_type localalgos[],
-		int *goodguess);
+enum kexguess2_used {
+	KEXGUESS2_LOOK,
+	KEXGUESS2_NO,
+	KEXGUESS2_YES,
+};
+
+#define KEXGUESS2_ALGO_NAME "kexguess2@matt.ucc.asn.au"
+#define KEXGUESS2_ALGO_ID 99
+
+
+algo_type * buf_match_algo(buffer* buf, algo_type localalgos[],
+		enum kexguess2_used *kexguess2, int *goodguess);
+
+#ifdef ENABLE_USER_ALGO_LIST
+int check_user_algos(const char* user_algo_list, algo_type * algos, 
+		const char *algo_desc);
+char * algolist_string(algo_type algos[]);
+#endif
+
+enum {
+	DROPBEAR_COMP_NONE,
+	DROPBEAR_COMP_ZLIB,
+	DROPBEAR_COMP_ZLIB_DELAY,
+};
 
 #endif /* _ALGO_H_ */
