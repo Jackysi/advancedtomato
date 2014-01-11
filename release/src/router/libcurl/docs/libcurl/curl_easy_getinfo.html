@@ -109,7 +109,7 @@ p.roffit {
 <p class="level0"><a name="CURLINFOPROXYAUTHAVAIL"></a><span class="nroffip">CURLINFO_PROXYAUTH_AVAIL</span> 
 <p class="level1">Pass a pointer to a long to receive a bitmask indicating the authentication method(s) available for your proxy authentication.  (Added in 7.10.8) 
 <p class="level0"><a name="CURLINFOOSERRNO"></a><span class="nroffip">CURLINFO_OS_ERRNO</span> 
-<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. Note that the value is only set on failure, it is not reset upon a successfull operation.  (Added in 7.12.2) 
+<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. Note that the value is only set on failure, it is not reset upon a successful operation.  (Added in 7.12.2) 
 <p class="level0"><a name="CURLINFONUMCONNECTS"></a><span class="nroffip">CURLINFO_NUM_CONNECTS</span> 
 <p class="level1">Pass a pointer to a long to receive how many new connections libcurl had to create to achieve the previous transfer (only the successful connects are counted).  Combined with <a class="emphasis" href="#CURLINFOREDIRECTCOUNT">CURLINFO_REDIRECT_COUNT</a> you are able to know how many times libcurl successfully reused existing connection(s) or not.  See the Connection Options of <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a> to see how libcurl tries to make persistent connections to save time.  (Added in 7.12.3) 
 <p class="level0"><a name="CURLINFOPRIMARYIP"></a><span class="nroffip">CURLINFO_PRIMARY_IP</span> 
@@ -129,23 +129,37 @@ p.roffit {
 <p class="level1">Pass a pointer to a char pointer to receive a pointer to a string holding the path of the entry path. That is the initial path libcurl ended up in when logging on to the remote FTP server. This stores a NULL as pointer if something is wrong. (Added in 7.15.4) 
 <p class="level1">Also works for SFTP since 7.21.4 
 <p class="level0"><a name="CURLINFOCERTINFO"></a><span class="nroffip">CURLINFO_CERTINFO</span> 
-<p class="level1">Pass a pointer to a 'struct curl_certinfo *' and you'll get it set to point to struct that holds a number of linked lists with info about the certificate chain, assuming you had CURLOPT_CERTINFO enabled when the previous request was done. The struct reports how many certs it found and then you can extract info for each of those certs by following the linked lists. The info chain is provided in a series of data in the format "name:content" where the content is for the specific named data. See also the certinfo.c example. NOTE: this option is only available in libcurl built with OpenSSL support. (Added in 7.19.1) 
+<p class="level1">Pass a pointer to a 'struct curl_certinfo *' and you'll get it set to point to struct that holds a number of linked lists with info about the certificate chain, assuming you had CURLOPT_CERTINFO enabled when the previous request was done. The struct reports how many certs it found and then you can extract info for each of those certs by following the linked lists. The info chain is provided in a series of data in the format "name:content" where the content is for the specific named data. See also the certinfo.c example. NOTE: this option is only available in libcurl built with OpenSSL, NSS, GSKit or QsoSSL support. (Added in 7.19.1) 
+<p class="level0"><a name="CURLINFOTLSSESSION"></a><span class="nroffip">CURLINFO_TLS_SESSION</span> 
+<p class="level1">Pass a pointer to a 'struct curl_tlsinfo *'.  The pointer will be initialized to refer to a 'struct curl_tlsinfo *' that will contain an enum indicating the SSL library used for the handshake and the respective internal TLS session structure of this underlying SSL library. 
+<p class="level1">This may then be used to extract certificate information in a format convenient for further processing, such as manual validation. NOTE: this option may not be available for all SSL backends; unsupported SSL backends will return 'CURLSSLBACKEND_NONE' to indicate that they are not supported; this does not mean that no SSL backend was used. (Added in 7.34.0) 
+<p class="level1">
 <p class="level0"><a name="CURLINFOCONDITIONUNMET"></a><span class="nroffip">CURLINFO_CONDITION_UNMET</span> 
 <p class="level1">Pass a pointer to a long to receive the number 1 if the condition provided in the previous request didn't match (see <span Class="emphasis">CURLOPT_TIMECONDITION</span>). Alas, if this returns a 1 you know that the reason you didn't get data in return is because it didn't fulfill the condition. The long ths argument points to will get a zero stored if the condition instead was met. (Added in 7.19.4) 
 <p class="level0"><a name="CURLINFORTSPSESSIONID"></a><span class="nroffip">CURLINFO_RTSP_SESSION_ID</span> 
 <p class="level1">Pass a pointer to a char pointer to receive a pointer to a string holding the most recent RTSP Session ID. 
-<p class="level1">Applications wishing to resume an RTSP session on another connection should retreive this info before closing the active connection. 
+<p class="level1">Applications wishing to resume an RTSP session on another connection should retrieve this info before closing the active connection. 
 <p class="level0"><a name="CURLINFORTSPCLIENTCSEQ"></a><span class="nroffip">CURLINFO_RTSP_CLIENT_CSEQ</span> 
 <p class="level1">Pass a pointer to a long to receive the next CSeq that will be used by the application. 
 <p class="level0"><a name="CURLINFORTSPSERVERCSEQ"></a><span class="nroffip">CURLINFO_RTSP_SERVER_CSEQ</span> 
 <p class="level1">Pass a pointer to a long to receive the next server CSeq that will be expected by the application. 
 <p class="level1"><span class="emphasis">(NOTE: listening for server initiated requests is currently unimplemented).</span> 
-<p class="level1">Applications wishing to resume an RTSP session on another connection should retreive this info before closing the active connection. 
+<p class="level1">Applications wishing to resume an RTSP session on another connection should retrieve this info before closing the active connection. 
 <p class="level0"><a name="CURLINFORTSPCSEQRECV"></a><span class="nroffip">CURLINFO_RTSP_CSEQ_RECV</span> 
 <p class="level1">Pass a pointer to a long to receive the most recently received CSeq from the server. If your application encounters a <span Class="emphasis">CURLE_RTSP_CSEQ_ERROR</span> then you may wish to troubleshoot and/or fix the CSeq mismatch by peeking at this value. <a name="TIMES"></a><h2 class="nroffsh">TIMES</h2>
-<p class="level0">
-<p class="level0">An overview of the six time values available from curl_easy_getinfo() 
-<p class="level0">curl_easy_perform() &nbsp;   | &nbsp;   |--NAMELOOKUP &nbsp;   |--|--CONNECT &nbsp;   |--|--|--APPCONNECT &nbsp;   |--|--|--|--PRETRANSFER &nbsp;   |--|--|--|--|--STARTTRANSFER &nbsp;   |--|--|--|--|--|--TOTAL &nbsp;   |--|--|--|--|--|--REDIRECT 
+<p class="level0"><pre>
+<p class="level0">An overview of the six time values available from curl_easy_getinfo()
+ <p class="level0">curl_easy_perform()
+ &nbsp;   |
+ &nbsp;   |--NAMELOOKUP
+ &nbsp;   |--|--CONNECT
+ &nbsp;   |--|--|--APPCONNECT
+ &nbsp;   |--|--|--|--PRETRANSFER
+ &nbsp;   |--|--|--|--|--STARTTRANSFER
+ &nbsp;   |--|--|--|--|--|--TOTAL
+ &nbsp;   |--|--|--|--|--|--REDIRECT
+ </pre>
+
 <p class="level0">
 <p class="level0"><a name="NAMELOOKUP"></a><span class="nroffip">NAMELOOKUP</span> 
 <p class="level1"><a class="emphasis" href="#CURLINFONAMELOOKUPTIME">CURLINFO_NAMELOOKUP_TIME</a>. The time it took from the start until the name resolving was completed. 

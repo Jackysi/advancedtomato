@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -162,7 +162,7 @@ method(s) available for your proxy authentication.  (Added in 7.10.8)
 .IP CURLINFO_OS_ERRNO
 Pass a pointer to a long to receive the errno variable from a connect failure.
 Note that the value is only set on failure, it is not reset upon a
-successfull operation.  (Added in 7.12.2)
+successful operation.  (Added in 7.12.2)
 .IP CURLINFO_NUM_CONNECTS
 Pass a pointer to a long to receive how many new connections libcurl had to
 create to achieve the previous transfer (only the successful connects are
@@ -219,8 +219,20 @@ done. The struct reports how many certs it found and then you can extract info
 for each of those certs by following the linked lists. The info chain is
 provided in a series of data in the format "name:content" where the content is
 for the specific named data. See also the certinfo.c example. NOTE: this
-option is only available in libcurl built with OpenSSL support. (Added in
-7.19.1)
+option is only available in libcurl built with OpenSSL, NSS, GSKit or QsoSSL
+support. (Added in 7.19.1)
+.IP CURLINFO_TLS_SESSION
+Pass a pointer to a 'struct curl_tlsinfo *'.  The pointer will be initialized
+to refer to a 'struct curl_tlsinfo *' that will contain an enum indicating the
+SSL library used for the handshake and the respective internal TLS session
+structure of this underlying SSL library.
+
+This may then be used to extract certificate information in a format
+convenient for further processing, such as manual validation. NOTE: this
+option may not be available for all SSL backends; unsupported SSL backends
+will return 'CURLSSLBACKEND_NONE' to indicate that they are not supported;
+this does not mean that no SSL backend was used. (Added in 7.34.0)
+
 .IP CURLINFO_CONDITION_UNMET
 Pass a pointer to a long to receive the number 1 if the condition provided in
 the previous request didn't match (see \fICURLOPT_TIMECONDITION\fP). Alas, if
@@ -232,7 +244,7 @@ Pass a pointer to a char pointer to receive a pointer to a string holding the
 most recent RTSP Session ID.
 
 Applications wishing to resume an RTSP session on another connection should
-retreive this info before closing the active connection.
+retrieve this info before closing the active connection.
 .IP CURLINFO_RTSP_CLIENT_CSEQ
 Pass a pointer to a long to receive the next CSeq that will be used by the
 application.
@@ -244,7 +256,7 @@ by the application.
 unimplemented).\fP
 
 Applications wishing to resume an RTSP session on another connection should
-retreive this info before closing the active connection.
+retrieve this info before closing the active connection.
 .IP CURLINFO_RTSP_CSEQ_RECV
 Pass a pointer to a long to receive the most recently received CSeq from the
 server. If your application encounters a \fICURLE_RTSP_CSEQ_ERROR\fP then you

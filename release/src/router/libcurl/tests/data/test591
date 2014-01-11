@@ -63,6 +63,7 @@ TYPE I
 STOR 591
 QUIT
 </protocol>
+# CURLE_FTP_ACCEPT_FAILED = 10
 <errorcode>
 10
 </errorcode>

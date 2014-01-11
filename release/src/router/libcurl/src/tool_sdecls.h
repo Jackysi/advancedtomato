@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,8 +21,10 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
+#include "tool_setup.h"
+#ifdef USE_METALINK
+#  include <metalink/metalink.h>
+#endif /* USE_METALINK */
 
 /*
  * OutStruct variables keep track of information relative to curl's
@@ -33,6 +35,9 @@
  *
  * 'alloc_filename' member is TRUE when string pointed by 'filename' has been
  * dynamically allocated and 'belongs' to this OutStruct, otherwise FALSE.
+ *
+ * 'is_cd_filename' member is TRUE when string pointed by 'filename' has been
+ * set using a server-specified Content-Disposition filename, otherwise FALSE.
  *
  * 's_isreg' member is TRUE when output goes to a regular file, this also
  * implies that output is 'seekable' and 'appendable' and also that member
@@ -52,17 +57,24 @@
  *
  * 'init' member holds original file size or offset at which truncation is
  * taking place. Always zero unless appending to a non-empty regular file.
+ *
+ * 'metalink_parser' member is a pointer to Metalink XML parser
+ * context.
  */
 
 struct OutStruct {
   char *filename;
   bool alloc_filename;
+  bool is_cd_filename;
   bool s_isreg;
   bool fopened;
   FILE *stream;
   struct Configurable *config;
   curl_off_t bytes;
   curl_off_t init;
+#ifdef USE_METALINK
+  metalink_parser_context_t *metalink_parser;
+#endif /* USE_METALINK */
 };
 
 
@@ -101,7 +113,7 @@ struct getout {
 #define GETOUT_USEREMOTE  (1<<2)  /* use remote file name locally */
 #define GETOUT_UPLOAD     (1<<3)  /* if set, -T has been used */
 #define GETOUT_NOUPLOAD   (1<<4)  /* if set, -T "" has been used */
-
+#define GETOUT_METALINK   (1<<5)  /* set when Metalink download */
 
 /*
  * 'trace' enumeration represents curl's output look'n feel possibilities.

@@ -208,11 +208,13 @@ p.roffit {
 <p class="level1">Unable to parse FTP file list (during FTP wildcard downloading). 
 <p class="level0"><a name="CURLECHUNKFAILED"></a><span class="nroffip">CURLE_CHUNK_FAILED (88)</span> 
 <p class="level1">Chunk callback reported error. 
+<p class="level0"><a name="CURLENOCONNECTIONAVAILABLE"></a><span class="nroffip">CURLE_NO_CONNECTION_AVAILABLE (89)</span> 
+<p class="level1">(For internal use only, will never be returned by libcurl) No connection available, the session will be queued. (added in 7.30.0) 
 <p class="level0"><a name="CURLEOBSOLETE"></a><span class="nroffip">CURLE_OBSOLETE*</span> 
 <p class="level1">These error codes will never be returned. They were used in an old libcurl version and are currently unused. <a name="CURLMcode"></a><h2 class="nroffsh">CURLMcode</h2>
 <p class="level0">This is the generic return code used by functions in the libcurl multi interface. Also consider <a class="emphasis" href="./curl_multi_strerror.html">curl_multi_strerror(3)</a>. 
 <p class="level0"><a name="CURLMCALLMULTIPERFORM"></a><span class="nroffip">CURLM_CALL_MULTI_PERFORM (-1)</span> 
-<p class="level1">This is not really an error. It means you should call <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a> again without doing select() or similar in between. 
+<p class="level1">This is not really an error. It means you should call <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a> again without doing select() or similar in between. Before version 7.20.0 this could be returned by <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a>, but in later versions this return code is never used. 
 <p class="level0"><a name="CURLMOK"></a><span class="nroffip">CURLM_OK (0)</span> 
 <p class="level1">Things are fine. 
 <p class="level0"><a name="CURLMBADHANDLE"></a><span class="nroffip">CURLM_BAD_HANDLE (1)</span> 
@@ -226,7 +228,9 @@ p.roffit {
 <p class="level0"><a name="CURLMBADSOCKET"></a><span class="nroffip">CURLM_BAD_SOCKET (5)</span> 
 <p class="level1">The passed-in socket is not a valid one that libcurl already knows about. (Added in 7.15.4) 
 <p class="level0"><a name="CURLMUNKNOWNOPTION"></a><span class="nroffip">CURLM_UNKNOWN_OPTION (6)</span> 
-<p class="level1">curl_multi_setopt() with unsupported option (Added in 7.15.4) <a name="CURLSHcode"></a><h2 class="nroffsh">CURLSHcode</h2>
+<p class="level1">curl_multi_setopt() with unsupported option (Added in 7.15.4) 
+<p class="level0"><a name="CURLMADDEDALREADY"></a><span class="nroffip">CURLM_ADDED_ALREADY (7)</span> 
+<p class="level1">An easy handle already added to a multi handle was attempted to get added a second time. (Added in 7.32.1) <a name="CURLSHcode"></a><h2 class="nroffsh">CURLSHcode</h2>
 <p class="level0">The "share" interface will return a CURLSHcode to indicate when an error has occurred.  Also consider <a class="emphasis" href="./curl_share_strerror.html">curl_share_strerror(3)</a>. 
 <p class="level0"><a name="CURLSHEOK"></a><span class="nroffip">CURLSHE_OK (0)</span> 
 <p class="level1">All fine. Proceed as usual. 
@@ -239,6 +243,6 @@ p.roffit {
 <p class="level0"><a name="CURLSHENOMEM"></a><span class="nroffip">CURLSHE_NOMEM (4)</span> 
 <p class="level1">Not enough memory was available. (Added in 7.12.0) 
 <p class="level0"><a name="CURLSHENOTBUILTIN"></a><span class="nroffip">CURLSHE_NOT_BUILT_IN (5)</span> 
-<p class="level1">The requsted sharing could not be done because the library you use don't have that particular feature enabled. (Added in 7.23.0) <p class="roffit">
+<p class="level1">The requested sharing could not be done because the library you use don't have that particular feature enabled. (Added in 7.23.0) <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

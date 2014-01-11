@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,11 +20,8 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -33,9 +30,6 @@
 #endif
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>     /* for the close() proto */
 #endif
 #ifdef __VMS
 #include <in.h>
@@ -112,7 +106,7 @@
  * asyn-thread.c - functions for threaded name resolves
 
  * The hostip.h is the united header file for all this. It defines the
- * CURLRES_* defines based on the config*.h and setup.h defines.
+ * CURLRES_* defines based on the config*.h and curl_setup.h defines.
  */
 
 /* These two symbols are for the global DNS cache */
@@ -146,6 +140,10 @@ struct curl_hash *Curl_global_host_cache_init(void)
 void Curl_global_host_cache_dtor(void)
 {
   if(host_cache_initialized) {
+    /* first make sure that any custom "CURLOPT_RESOLVE" names are
+       cleared off */
+    Curl_hostcache_clean(NULL, &hostname_cache);
+    /* then free the remaining hash completely */
     Curl_hash_clean(&hostname_cache);
     host_cache_initialized = 0;
   }
@@ -293,9 +291,10 @@ remove_entry_if_stale(struct SessionHandle *data, struct Curl_dns_entry *dns)
 {
   struct hostcache_prune_data user;
 
-  if(!dns || (data->set.dns_cache_timeout == -1) || !data->dns.hostcache)
-    /* cache forever means never prune, and NULL hostcache means
-       we can't do it */
+  if(!dns || (data->set.dns_cache_timeout == -1) || !data->dns.hostcache ||
+     dns->inuse)
+    /* cache forever means never prune, and NULL hostcache means we can't do
+       it, if it still is in use then we leave it */
     return 0;
 
   time(&user.now);
@@ -430,9 +429,13 @@ int Curl_resolv(struct connectdata *conn,
   /* free the allocated entry_id again */
   free(entry_id);
 
+  infof(data, "Hostname was %sfound in DNS cache\n", dns?"":"NOT ");
+
   /* See whether the returned entry is stale. Done before we release lock */
-  if(remove_entry_if_stale(data, dns))
+  if(remove_entry_if_stale(data, dns)) {
+    infof(data, "Hostname in DNS cache was stale, zapped\n");
     dns = NULL; /* the memory deallocation is being handled by the hash */
+  }
 
   if(dns) {
     dns->inuse++; /* we use it! */
@@ -687,12 +690,14 @@ clean_up:
  * Curl_resolv_unlock() unlocks the given cached DNS entry. When this has been
  * made, the struct may be destroyed due to pruning. It is important that only
  * one unlock is made for each Curl_resolv() call.
+ *
+ * May be called with 'data' == NULL for global cache.
  */
 void Curl_resolv_unlock(struct SessionHandle *data, struct Curl_dns_entry *dns)
 {
   DEBUGASSERT(dns && (dns->inuse>0));
 
-  if(data->share)
+  if(data && data->share)
     Curl_share_lock(data, CURL_LOCK_DATA_DNS, CURL_LOCK_ACCESS_SINGLE);
 
   dns->inuse--;
@@ -703,7 +708,7 @@ void Curl_resolv_unlock(struct SessionHandle *data, struct Curl_dns_entry *dns)
     free(dns);
   }
 
-  if(data->share)
+  if(data && data->share)
     Curl_share_unlock(data, CURL_LOCK_DATA_DNS);
 }
 
@@ -740,18 +745,23 @@ static int hostcache_inuse(void *data, void *hc)
   return 1; /* free all entries */
 }
 
-void Curl_hostcache_destroy(struct SessionHandle *data)
+/*
+ * Curl_hostcache_clean()
+ *
+ * This _can_ be called with 'data' == NULL but then of course no locking
+ * can be done!
+ */
+
+void Curl_hostcache_clean(struct SessionHandle *data,
+                          struct curl_hash *hash)
 {
   /* Entries added to the hostcache with the CURLOPT_RESOLVE function are
    * still present in the cache with the inuse counter set to 1. Detect them
    * and cleanup!
    */
-  Curl_hash_clean_with_criterium(data->dns.hostcache, data, hostcache_inuse);
-
-  Curl_hash_destroy(data->dns.hostcache);
-  data->dns.hostcachetype = HCACHE_NONE;
-  data->dns.hostcache = NULL;
+  Curl_hash_clean_with_criterium(hash, data, hostcache_inuse);
 }
+
 
 CURLcode Curl_loadhostpairs(struct SessionHandle *data)
 {

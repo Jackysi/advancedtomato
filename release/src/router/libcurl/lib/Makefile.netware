@@ -14,17 +14,17 @@ endif
 
 # Edit the path below to point to the base of your Zlib sources.
 ifndef ZLIB_PATH
-ZLIB_PATH = ../../zlib-1.2.5
+ZLIB_PATH = ../../zlib-1.2.8
 endif
 
 # Edit the path below to point to the base of your OpenSSL package.
 ifndef OPENSSL_PATH
-OPENSSL_PATH = ../../openssl-0.9.8r
+OPENSSL_PATH = ../../openssl-0.9.8y
 endif
 
 # Edit the path below to point to the base of your LibSSH2 package.
 ifndef LIBSSH2_PATH
-LIBSSH2_PATH = ../../libssh2-1.3.0
+LIBSSH2_PATH = ../../libssh2-1.4.3
 endif
 
 # Edit the path below to point to the base of your axTLS package.
@@ -64,7 +64,8 @@ DESCR	= cURL libcurl $(LIBCURL_VERSION_STR) ($(LIBARCH)) - http://curl.haxx.se
 MTSAFE	= YES
 STACK	= 64000
 SCREEN	= none
-EXPORTS	= @libcurl.imp
+EXPORTF	= $(TARGET).imp
+EXPORTS	= @$(EXPORTF)
 
 # Uncomment the next line to enable linking with POSIX semantics.
 # POSIXFL = 1
@@ -330,7 +331,7 @@ $(OBJDIR)/%.o: %.c
 #	@echo Compiling $<
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR)/version.inc: ../include/curl/curlver.h $(OBJDIR)
+$(OBJDIR)/version.inc: $(CURL_INC)/curl/curlver.h $(OBJDIR)
 	@echo Creating $@
 	@$(AWK) -f ../packages/NetWare/get_ver.awk $< > $@
 
@@ -350,7 +351,7 @@ clean:
 	-$(RM) -r $(OBJDIR)
 
 distclean vclean: clean
-	-$(RM) $(TARGET).$(LIBEXT) $(TARGET).nlm
+	-$(RM) $(TARGET).$(LIBEXT) $(TARGET).nlm $(TARGET).imp
 	-$(RM) certdata.txt ca-bundle.crt
 
 $(OBJDIR) $(INSTDIR):
@@ -364,7 +365,7 @@ ifdef RANLIB
 	@$(RANLIB) $@
 endif
 
-$(TARGET).nlm: $(OBJDIR)/$(TARGET).def $(OBJL) $(XDCDATA)
+$(TARGET).nlm: $(OBJDIR)/$(TARGET).def $(OBJL) $(EXPORTF) $(XDCDATA)
 	@echo Linking $@
 	@-$(RM) $@
 	@$(LD) $(LDFLAGS) $<
@@ -660,6 +661,10 @@ else
 	@echo $(DL)#define CURL_CA_BUNDLE getenv("CURL_CA_BUNDLE")$(DL) >> $@
 endif
 
+$(EXPORTF): $(CURL_INC)/curl/curl.h $(CURL_INC)/curl/easy.h $(CURL_INC)/curl/multi.h $(CURL_INC)/curl/mprintf.h
+	@echo Creating $@
+	@$(AWK) -f ../packages/NetWare/get_exp.awk $^ > $@
+
 FORCE: ;
 
 info: $(OBJDIR)/version.inc
@@ -695,13 +700,6 @@ ifdef ENABLE_IPV6
 else
 	@echo ipv6 support:    no
 endif
-
-$(LIBCARES_PATH)/libcares.$(LIBEXT):
-	$(MAKE) -C $(LIBCARES_PATH) -f Makefile.netware lib
-
-ca-bundle.crt: mk-ca-bundle.pl
-	@echo Creating $@
-	@-$(PERL) $< -b -n $@
 
 $(CURL_INC)/curl/curlbuild.h: Makefile.netware FORCE
 	@echo Creating $@
@@ -740,4 +738,11 @@ endif
 	@echo $(DL)typedef CURL_TYPEOF_CURL_SOCKLEN_T curl_socklen_t;$(DL) >> $@
 	@echo $(DL)typedef CURL_TYPEOF_CURL_OFF_T curl_off_t;$(DL) >> $@
 	@echo $(DL)#endif /* __CURL_CURLBUILD_H */$(DL) >> $@
+
+$(LIBCARES_PATH)/libcares.$(LIBEXT):
+	$(MAKE) -C $(LIBCARES_PATH) -f Makefile.netware lib
+
+ca-bundle.crt: mk-ca-bundle.pl
+	@echo Creating $@
+	@-$(PERL) $< -b -n $@
 

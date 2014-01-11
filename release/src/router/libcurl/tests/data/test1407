@@ -12,7 +12,7 @@ LIST
 # Server-side
 <reply>
 <servercmd>
-REPLY LIST +OK 1407 100
+REPLY LIST +OK 1407 100\r\n.
 </servercmd>
 </reply>
 
@@ -34,6 +34,7 @@ pop3://%HOSTIP:%POP3PORT/1407 -l -u user:secret --libcurl log/test1407.c
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
+CAPA
 USER user
 PASS secret
 LIST 1407
@@ -75,6 +76,8 @@ int main(int argc, char *argv[])
   CURLOPT_STDERR set to a objectpointer
   CURLOPT_DEBUGFUNCTION set to a functionpointer
   CURLOPT_DEBUGDATA set to a objectpointer
+  CURLOPT_HEADERFUNCTION set to a functionpointer
+  CURLOPT_HEADERDATA set to a objectpointer
 
   */
 

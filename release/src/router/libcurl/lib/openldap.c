@@ -6,7 +6,7 @@
  *                 \___|\___/|_| \_\_____|
  *
  * Copyright (C) 2010, Howard Chu, <hyc@openldap.org>
- * Copyright (C) 2011 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2011 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #if !defined(CURL_DISABLE_LDAP) && defined(USE_OPENLDAP)
 
@@ -171,6 +171,8 @@ static CURLcode ldap_setup(struct connectdata *conn)
   ldap_free_urldesc(lud);
 
   li = calloc(1, sizeof(ldapconninfo));
+  if(!li)
+    return CURLE_OUT_OF_MEMORY;
   li->proto = proto;
   conn->proto.generic = li;
   conn->bits.close = FALSE;
@@ -190,6 +192,7 @@ static CURLcode ldap_connect(struct connectdata *conn, bool *done)
   struct SessionHandle *data=conn->data;
   int rc, proto = LDAP_VERSION3;
   char hosturl[1024], *ptr;
+  (void)done;
 
   strcpy(hosturl, "ldap");
   ptr = hosturl+4;
@@ -210,22 +213,11 @@ static CURLcode ldap_connect(struct connectdata *conn, bool *done)
 #ifdef USE_SSL
   if(conn->handler->flags & PROTOPT_SSL) {
     CURLcode res;
-    if(data->state.used_interface == Curl_if_easy) {
-      res = Curl_ssl_connect(conn, FIRSTSOCKET);
-      if(res)
-        return res;
-      li->ssldone = TRUE;
-    }
-    else {
-      res = Curl_ssl_connect_nonblocking(conn, FIRSTSOCKET, &li->ssldone);
-      if(res)
-        return res;
-    }
+    res = Curl_ssl_connect_nonblocking(conn, FIRSTSOCKET, &li->ssldone);
+    if(res)
+      return res;
   }
 #endif
-
-  if(data->state.used_interface == Curl_if_easy)
-    return ldap_connecting(conn, done);
 
   return CURLE_OK;
 }
@@ -260,10 +252,7 @@ static CURLcode ldap_connecting(struct connectdata *conn, bool *done)
   }
 #endif
 
-  if(data->state.used_interface == Curl_if_easy)
-    tvp = NULL;    /* let ldap_result block indefinitely */
-  else
-    tvp = &tv;
+  tvp = &tv;
 
 retry:
   if(!li->didbind) {
@@ -386,8 +375,10 @@ static CURLcode ldap_do(struct connectdata *conn, bool *done)
     return CURLE_LDAP_SEARCH_FAILED;
   }
   lr = calloc(1,sizeof(ldapreqinfo));
+  if(!lr)
+    return CURLE_OUT_OF_MEMORY;
   lr->msgid = msgid;
-  data->state.proto.generic = lr;
+  data->req.protop = lr;
   Curl_setup_transfer(conn, FIRSTSOCKET, -1, FALSE, NULL, -1, NULL);
   *done = TRUE;
   return CURLE_OK;
@@ -396,7 +387,7 @@ static CURLcode ldap_do(struct connectdata *conn, bool *done)
 static CURLcode ldap_done(struct connectdata *conn, CURLcode res,
                           bool premature)
 {
-  ldapreqinfo *lr = conn->data->state.proto.generic;
+  ldapreqinfo *lr = conn->data->req.protop;
   (void)res;
   (void)premature;
 
@@ -407,7 +398,7 @@ static CURLcode ldap_done(struct connectdata *conn, CURLcode res,
       ldap_abandon_ext(li->ld, lr->msgid, NULL, NULL);
       lr->msgid = 0;
     }
-    conn->data->state.proto.generic = NULL;
+    conn->data->req.protop = NULL;
     free(lr);
   }
   return CURLE_OK;
@@ -418,7 +409,7 @@ static ssize_t ldap_recv(struct connectdata *conn, int sockindex, char *buf,
 {
   ldapconninfo *li = conn->proto.generic;
   struct SessionHandle *data=conn->data;
-  ldapreqinfo *lr = data->state.proto.generic;
+  ldapreqinfo *lr = data->req.protop;
   int rc, ret;
   LDAPMessage *result = NULL;
   LDAPMessage *ent;

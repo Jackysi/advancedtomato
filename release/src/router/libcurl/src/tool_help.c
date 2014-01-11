@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "tool_setup.h"
 
 #include "tool_panykey.h"
 #include "tool_help.h"
@@ -69,9 +69,13 @@ static const char *const helptext[] = {
   "     --digest        Use HTTP Digest Authentication (H)",
   "     --disable-eprt  Inhibit using EPRT or LPRT (F)",
   "     --disable-epsv  Inhibit using EPSV (F)",
+  "     --dns-servers    DNS server addrs to use: 1.1.1.1;2.2.2.2",
+  "     --dns-interface  Interface to use for DNS requests",
+  "     --dns-ipv4-addr  IPv4 address to use for DNS requests, dot notation",
+  "     --dns-ipv6-addr  IPv6 address to use for DNS requests, dot notation",
   " -D, --dump-header FILE  Write the headers to this file",
   "     --egd-file FILE  EGD socket path for random data (SSL)",
-  "     --engine ENGINGE  Crypto engine (SSL). \"--engine list\" for list",
+  "     --engine ENGINE  Crypto engine (SSL). \"--engine list\" for list",
 #ifdef USE_ENVIRONMENT
   "     --environment   Write results to environment variables (RISC OS)",
 #endif
@@ -99,6 +103,8 @@ static const char *const helptext[] = {
   "     --hostpubmd5 MD5  "
   "Hex encoded MD5 string of the host public key. (SSH)",
   " -0, --http1.0       Use HTTP 1.0 (H)",
+  "     --http1.1       Use HTTP 1.1 (H)",
+  "     --http2.0       Use HTTP 2.0 (H)",
   "     --ignore-content-length  Ignore the HTTP Content-Length header",
   " -i, --include       Include protocol headers in the output (H/F)",
   " -k, --insecure      Allow connections to SSL sites without certs (H)",
@@ -114,17 +120,18 @@ static const char *const helptext[] = {
   "     --libcurl FILE  Dump libcurl equivalent code of this command line",
 #endif
   "     --limit-rate RATE  Limit transfer speed to this rate",
-  " -l, --list-only     List only names of an FTP directory (F)",
+  " -l, --list-only     List only mode (F/POP3)",
   "     --local-port RANGE  Force use of these local port numbers",
   " -L, --location      Follow redirects (H)",
   "     --location-trusted like --location and send auth to other hosts (H)",
   " -M, --manual        Display the full manual",
-  "     --mail-from FROM  Mail from this address",
-  "     --mail-rcpt TO  Mail to this receiver(s)",
-  "     --mail-auth AUTH  Originator address of the original email",
+  "     --mail-from FROM  Mail from this address (SMTP)",
+  "     --mail-rcpt TO  Mail to this/these addresses (SMTP)",
+  "     --mail-auth AUTH  Originator address of the original email (SMTP)",
   "     --max-filesize BYTES  Maximum file size to download (H/F)",
   "     --max-redirs NUM  Maximum number of redirects allowed (H)",
   " -m, --max-time SECONDS  Maximum time allowed for the transfer",
+  "     --metalink      Process given URLs as metalink XML file",
   "     --negotiate     Use HTTP Negotiate Authentication (H)",
   " -n, --netrc         Must read .netrc for user name and password",
   "     --netrc-optional Use either .netrc or URL; overrides -n",
@@ -134,12 +141,15 @@ static const char *const helptext[] = {
   "     --no-sessionid  Disable SSL session-ID reusing (SSL)",
   "     --noproxy       List of hosts which do not use proxy",
   "     --ntlm          Use HTTP NTLM authentication (H)",
+  "     --oauth2-bearer TOKEN  OAuth 2 Bearer Token (IMAP, POP3, SMTP)",
   " -o, --output FILE   Write output to <file> instead of stdout",
   "     --pass PASS     Pass phrase for the private key (SSL/SSH)",
   "     --post301       "
   "Do not switch to GET after following a 301 redirect (H)",
   "     --post302       "
   "Do not switch to GET after following a 302 redirect (H)",
+  "     --post303       "
+  "Do not switch to GET after following a 303 redirect (H)",
   " -#, --progress-bar  Display transfer progress as a progress bar",
   "     --proto PROTOCOLS  Enable/disable specified protocols",
   "     --proto-redir PROTOCOLS  "
@@ -170,6 +180,7 @@ static const char *const helptext[] = {
   "     --retry-delay SECONDS "
   "When retrying, wait this many seconds between each",
   "     --retry-max-time SECONDS  Retry only within this period",
+  "     --sasl-ir       Enable initial response in SASL authentication",
   " -S, --show-error    "
   "Show error. With -s, make curl show errors when they occur",
   " -s, --silent        Silent mode. Don't output anything",
@@ -204,7 +215,8 @@ static const char *const helptext[] = {
   " -T, --upload-file FILE  Transfer FILE to destination",
   "     --url URL       URL to work with",
   " -B, --use-ascii     Use ASCII/text transfer",
-  " -u, --user USER[:PASSWORD]  Server user and password",
+  " -u, --user USER[:PASSWORD][;OPTIONS]  Server user, password and login"
+  " options",
   "     --tlsuser USER  TLS username",
   "     --tlspassword STRING TLS password",
   "     --tlsauthtype STRING  TLS authentication type (default SRP)",
@@ -239,4 +251,3 @@ void tool_help(void)
 #endif
   }
 }
-

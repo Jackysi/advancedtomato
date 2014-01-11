@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -47,6 +47,10 @@
 #define IPADDR "127.0.0.1"
 #define PORTNUM 80
 
+#ifndef INADDR_NONE
+#define INADDR_NONE 0xffffffff
+#endif
+
 static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
   int written = fwrite(ptr, size, nmemb, (FILE *)stream);
@@ -57,7 +61,10 @@ static curl_socket_t opensocket(void *clientp,
                                 curlsocktype purpose,
                                 struct curl_sockaddr *address)
 {
-  curl_socket_t sockfd = *(curl_socket_t *)clientp;
+  curl_socket_t sockfd;
+  (void)purpose;
+  (void)address;
+  sockfd = *(curl_socket_t *)clientp;
   /* the actual externally set socket is passed in via the OPENSOCKETDATA
      option */
   return sockfd;
@@ -66,6 +73,9 @@ static curl_socket_t opensocket(void *clientp,
 static int sockopt_callback(void *clientp, curl_socket_t curlfd,
                             curlsocktype purpose)
 {
+  (void)clientp;
+  (void)curlfd;
+  (void)purpose;
   /* This return code was added in libcurl 7.21.5 */
   return CURL_SOCKOPT_ALREADY_CONNECTED;
 }
@@ -96,7 +106,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_URL, "http://99.99.99.99:9999");
 
     /* Create the socket "manually" */
-    if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
+    if( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) == CURL_SOCKET_BAD ) {
       printf("Error creating listening socket.\n");
       return 3;
     }

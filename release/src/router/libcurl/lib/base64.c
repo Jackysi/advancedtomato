@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,7 +22,7 @@
 
 /* Base64 encoding/decoding */
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -40,29 +40,45 @@
 static const char table64[]=
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-static void decodeQuantum(unsigned char *dest, const char *src)
+static size_t decodeQuantum(unsigned char *dest, const char *src)
 {
+  size_t padding = 0;
   const char *s, *p;
   unsigned long i, v, x = 0;
 
   for(i = 0, s = src; i < 4; i++, s++) {
     v = 0;
-    p = table64;
-    while(*p && (*p != *s)) {
-      v++;
-      p++;
-    }
-    if(*p == *s)
-      x = (x << 6) + v;
-    else if(*s == '=')
+
+    if(*s == '=') {
       x = (x << 6);
+      padding++;
+    }
+    else {
+      p = table64;
+
+      while(*p && (*p != *s)) {
+        v++;
+        p++;
+      }
+
+      if(*p == *s)
+        x = (x << 6) + v;
+      else
+        return 0;
+    }
   }
 
-  dest[2] = curlx_ultouc(x & 0xFFUL);
+  if(padding < 1)
+    dest[2] = curlx_ultouc(x & 0xFFUL);
+
   x >>= 8;
-  dest[1] = curlx_ultouc(x & 0xFFUL);
+  if(padding < 2)
+    dest[1] = curlx_ultouc(x & 0xFFUL);
+
   x >>= 8;
   dest[0] = curlx_ultouc(x & 0xFFUL);
+
+  return 3 - padding;
 }
 
 /*
@@ -82,58 +98,71 @@ static void decodeQuantum(unsigned char *dest, const char *src)
 CURLcode Curl_base64_decode(const char *src,
                             unsigned char **outptr, size_t *outlen)
 {
+  size_t srclen = 0;
   size_t length = 0;
-  size_t equalsTerm = 0;
+  size_t padding = 0;
   size_t i;
+  size_t result;
   size_t numQuantums;
-  unsigned char lastQuantum[3];
   size_t rawlen = 0;
+  unsigned char *pos;
   unsigned char *newstr;
 
   *outptr = NULL;
   *outlen = 0;
+  srclen = strlen(src);
 
+  /* Check the length of the input string is valid */
+  if(!srclen || srclen % 4)
+    return CURLE_BAD_CONTENT_ENCODING;
+
+  /* Find the position of any = padding characters */
   while((src[length] != '=') && src[length])
     length++;
+
   /* A maximum of two = padding characters is allowed */
   if(src[length] == '=') {
-    equalsTerm++;
-    if(src[length+equalsTerm] == '=')
-      equalsTerm++;
+    padding++;
+    if(src[length + 1] == '=')
+      padding++;
   }
-  numQuantums = (length + equalsTerm) / 4;
 
-  /* Don't allocate a buffer if the decoded length is 0 */
-  if(numQuantums == 0)
-    return CURLE_OK;
+  /* Check the = padding characters weren't part way through the input */
+  if(length + padding != srclen)
+    return CURLE_BAD_CONTENT_ENCODING;
 
-  rawlen = (numQuantums * 3) - equalsTerm;
+  /* Calculate the number of quantums */
+  numQuantums = srclen / 4;
 
-  /* The buffer must be large enough to make room for the last quantum
-  (which may be partially thrown out) and the zero terminator. */
-  newstr = malloc(rawlen+4);
+  /* Calculate the size of the decoded string */
+  rawlen = (numQuantums * 3) - padding;
+
+  /* Allocate our buffer including room for a zero terminator */
+  newstr = malloc(rawlen + 1);
   if(!newstr)
     return CURLE_OUT_OF_MEMORY;
 
-  *outptr = newstr;
+  pos = newstr;
 
-  /* Decode all but the last quantum (which may not decode to a
-  multiple of 3 bytes) */
-  for(i = 0; i < numQuantums - 1; i++) {
-    decodeQuantum(newstr, src);
-    newstr += 3; src += 4;
+  /* Decode the quantums */
+  for(i = 0; i < numQuantums; i++) {
+    result = decodeQuantum(pos, src);
+    if(!result) {
+      Curl_safefree(newstr);
+
+      return CURLE_BAD_CONTENT_ENCODING;
+    }
+
+    pos += result;
+    src += 4;
   }
 
-  /* This final decode may actually read slightly past the end of the buffer
-  if the input string is missing pad bytes.  This will almost always be
-  harmless. */
-  decodeQuantum(lastQuantum, src);
-  for(i = 0; i < 3 - equalsTerm; i++)
-    newstr[i] = lastQuantum[i];
+  /* Zero terminate */
+  *pos = '\0';
 
-  newstr[i] = '\0'; /* zero terminate */
-
-  *outlen = rawlen; /* return size of decoded data */
+  /* Return the decoded data */
+  *outptr = newstr;
+  *outlen = rawlen;
 
   return CURLE_OK;
 }

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #include "rawstr.h"
 
@@ -56,6 +54,8 @@ const char *param2text(int res)
     return "is badly used here";
   case PARAM_BAD_NUMERIC:
     return "expected a proper numerical parameter";
+  case PARAM_NEGATIVE_NUMERIC:
+    return "expected a positive numerical parameter";
   case PARAM_LIBCURL_DOESNT_SUPPORT:
     return "the installed libcurl version doesn't support this";
   case PARAM_NO_MEM:

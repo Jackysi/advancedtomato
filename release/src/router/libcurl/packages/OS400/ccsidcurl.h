@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -38,13 +38,13 @@ CURL_EXTERN char * curl_easy_unescape_ccsid(CURL * handle, const char * string,
                                             int length, int * outlength,
                                             unsigned int sccsid,
                                             unsigned int dccsid);
-CURL_EXTERN struct curl_slist * curl_slist_append_ccsid(struct curl_slist * lst,
+CURL_EXTERN struct curl_slist * curl_slist_append_ccsid(struct curl_slist * l,
                                                         const char * data,
                                                         unsigned int ccsid);
 CURL_EXTERN time_t curl_getdate_ccsid(const char * p, const time_t * unused,
                                       unsigned int ccsid);
 CURL_EXTERN curl_version_info_data * curl_version_info_ccsid(CURLversion stamp,
-                                                             unsigned int csid);
+                                                             unsigned int cid);
 CURL_EXTERN const char * curl_easy_strerror_ccsid(CURLcode error,
                                                   unsigned int ccsid);
 CURL_EXTERN const char * curl_share_strerror_ccsid(CURLSHcode error,
@@ -60,5 +60,6 @@ CURL_EXTERN int curl_formget_ccsid(struct curl_httppost * form, void * arg,
                                    curl_formget_callback append,
                                    unsigned int ccsid);
 CURL_EXTERN CURLcode curl_easy_setopt_ccsid(CURL * curl, CURLoption tag, ...);
+CURL_EXTERN void curl_certinfo_free_all(struct curl_certinfo *info);
 
 #endif

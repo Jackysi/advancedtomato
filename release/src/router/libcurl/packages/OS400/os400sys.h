@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -31,6 +31,7 @@
 
 typedef enum {
         LK_SSL_ERROR,
+        LK_GSK_ERROR,
         LK_LDAP_ERROR,
         LK_CURL_VERSION,
         LK_VERSION_INFO,
@@ -38,6 +39,8 @@ typedef enum {
         LK_EASY_STRERROR,
         LK_SHARE_STRERROR,
         LK_MULTI_STRERROR,
+        LK_ZLIB_VERSION,
+        LK_ZLIB_MSG,
         LK_LAST
 }               localkey_t;
 

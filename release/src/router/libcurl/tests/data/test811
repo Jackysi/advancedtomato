@@ -1,32 +1,28 @@
 <testcase>
 <info>
 <keywords>
-POP3
-LIST
+IMAP
+CREATE
+CUSTOMREQUEST
 </keywords>
 </info>
 
 #
 # Server-side
 <reply>
-<servercmd>
-REPLY LIST +OK but no messages\r\n.
-</servercmd>
-<datacheck>
-</datacheck>
 </reply>
 
 #
 # Client-side
 <client>
 <server>
-pop3
+imap
 </server>
  <name>
-POP3 LIST no messages available
+IMAP CREATE mailbox (CUSTOMREQUEST)
  </name>
  <command>
-pop3://%HOSTIP:%POP3PORT/ -u user:secret
+imap://%HOSTIP:%IMAPPORT -u user:secret -X 'CREATE 811'
 </command>
 </client>
 
@@ -34,10 +30,10 @@ pop3://%HOSTIP:%POP3PORT/ -u user:secret
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
-USER user
-PASS secret
-LIST
-QUIT
+A001 CAPABILITY
+A002 LOGIN user secret
+A003 CREATE 811
+A004 LOGOUT
 </protocol>
 </verify>
 </testcase>

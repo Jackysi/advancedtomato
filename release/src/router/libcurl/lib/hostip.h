@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,7 +22,7 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 #include "hash.h"
 #include "curl_addrinfo.h"
 #include "asyn.h"
@@ -201,10 +201,39 @@ extern sigjmp_buf curl_jmpenv;
 CURLcode Curl_set_dns_servers(struct SessionHandle *data, char *servers);
 
 /*
+ * Function provided by the resolver backend to set
+ * outgoing interface to use for DNS requests
+ */
+CURLcode Curl_set_dns_interface(struct SessionHandle *data,
+                                const char *interf);
+
+/*
+ * Function provided by the resolver backend to set
+ * local IPv4 address to use as source address for DNS requests
+ */
+CURLcode Curl_set_dns_local_ip4(struct SessionHandle *data,
+                                const char *local_ip4);
+
+/*
+ * Function provided by the resolver backend to set
+ * local IPv6 address to use as source address for DNS requests
+ */
+CURLcode Curl_set_dns_local_ip6(struct SessionHandle *data,
+                                const char *local_ip6);
+
+/*
+ * Clean off entries from the cache
+ */
+void Curl_hostcache_clean(struct SessionHandle *data, struct curl_hash *hash);
+
+/*
  * Destroy the hostcache of this handle.
  */
 void Curl_hostcache_destroy(struct SessionHandle *data);
 
+/*
+ * Populate the cache with specified entries from CURLOPT_RESOLVE.
+ */
 CURLcode Curl_loadhostpairs(struct SessionHandle *data);
 
 #endif /* HEADER_CURL_HOSTIP_H */

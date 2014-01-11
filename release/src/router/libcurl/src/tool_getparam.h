@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,10 +21,10 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "tool_setup.h"
 
 typedef enum {
-  PARAM_OK,
+  PARAM_OK = 0,
   PARAM_OPTION_AMBIGUOUS,
   PARAM_OPTION_UNKNOWN,
   PARAM_REQUIRES_PARAMETER,
@@ -32,15 +32,24 @@ typedef enum {
   PARAM_HELP_REQUESTED,
   PARAM_GOT_EXTRA_PARAMETER,
   PARAM_BAD_NUMERIC,
+  PARAM_NEGATIVE_NUMERIC,
   PARAM_LIBCURL_DOESNT_SUPPORT,
   PARAM_NO_MEM,
   PARAM_LAST
 } ParameterError;
 
+struct Configurable;
+
 ParameterError getparameter(char *flag,
                             char *nextarg,
                             bool *usedarg,
                             struct Configurable *config);
+
+#ifdef UNITTESTS
+void parse_cert_parameter(const char *cert_parameter,
+                          char **certname,
+                          char **passphrase);
+#endif
 
 #endif /* HEADER_CURL_TOOL_GETPARAM_H */
 

@@ -1,6 +1,6 @@
 /* GSSAPI/krb5 support for FTP - loosely based on old krb4.c
  *
- * Copyright (c) 1995, 1996, 1997, 1998, 1999 Kungliga Tekniska Högskolan
+ * Copyright (c) 1995, 1996, 1997, 1998, 1999, 2013 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * Copyright (c) 2004 - 2012 Daniel Stenberg
  * All rights reserved.
@@ -32,7 +32,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.  */
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #ifndef CURL_DISABLE_FTP
 #ifdef HAVE_GSSAPI
@@ -51,8 +51,9 @@
 #include "ftp.h"
 #include "curl_gssapi.h"
 #include "sendf.h"
-#include "krb4.h"
+#include "curl_sec.h"
 #include "curl_memory.h"
+#include "warnless.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -103,7 +104,7 @@ krb5_decode(void *app_data, void *buf, int len,
   }
 
   memcpy(buf, dec.value, dec.length);
-  len = dec.length;
+  len = curlx_uztosi(dec.length);
   gss_release_buffer(&min, &dec);
 
   return len;
@@ -151,7 +152,7 @@ krb5_encode(void *app_data, const void *from, int length, int level, void **to,
   if(!*to)
     return -1;
   memcpy(*to, enc.value, enc.length);
-  len = enc.length;
+  len = curlx_uztosi(enc.length);
   gss_release_buffer(&min, &enc);
   return len;
 }

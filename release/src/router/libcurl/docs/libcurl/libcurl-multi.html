@@ -71,8 +71,15 @@ p.roffit {
 <p class="level0">Your application must then make sure to receive all sockets informed about in the CURLMOPT_SOCKETFUNCTION callback and make sure it reacts on the given activity on them. When a socket has the given activity, you call <a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> specifying which socket and action there are. 
 <p class="level0">The CURLMOPT_TIMERFUNCTION callback is called to set a timeout. When that timeout expires, your application should call the <a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> function saying it was due to a timeout. <a name="BLOCKING"></a><h2 class="nroffsh">BLOCKING</h2>
 <p class="level0">A few areas in the code are still using blocking code, even when used from the multi interface. While we certainly want and intend for these to get fixed in the future, you should be aware of the following current restrictions: 
-<p class="level0">
-<p class="level0">&nbsp;- Name resolves unless the c-ares or threaded-resolver backends are used &nbsp;- NSS SSL connections &nbsp;- HTTP proxy CONNECT operations &nbsp;- SOCKS proxy handshakes &nbsp;- file:// transfers &nbsp;- TELNET transfers 
+<p class="level0"><pre>
+<p class="level0">&nbsp;- Name resolves unless the c-ares or threaded-resolver backends are used
+ &nbsp;- NSS SSL connections
+ &nbsp;- HTTP proxy CONNECT operations
+ &nbsp;- SOCKS proxy handshakes
+ &nbsp;- file:// transfers
+ &nbsp;- TELNET transfers
+ </pre>
+
 <p class="level0"><p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

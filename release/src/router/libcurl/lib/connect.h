@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "curl_setup.h"
 
 #include "nonblock.h" /* for curlx_nonblock(), formerly Curl_nonblock() */
 #include "sockaddr.h"
@@ -31,11 +31,7 @@ CURLcode Curl_is_connected(struct connectdata *conn,
                            bool *connected);
 
 CURLcode Curl_connecthost(struct connectdata *conn,
-                          const struct Curl_dns_entry *host, /* connect to
-                                                                this */
-                          curl_socket_t *sockconn, /* not set if error */
-                          Curl_addrinfo **addr, /* the one we used */
-                          bool *connected); /* truly connected? */
+                          const struct Curl_dns_entry *host);
 
 /* generic function that returns how much time there's left to run, according
    to the timeouts set */
@@ -44,6 +40,8 @@ long Curl_timeleft(struct SessionHandle *data,
                    bool duringconnect);
 
 #define DEFAULT_CONNECT_TIMEOUT 300000 /* milliseconds == five minutes */
+#define HAPPY_EYEBALLS_TIMEOUT     200 /* milliseconds to wait between
+                                          ipv4/ipv6 connection attempts */
 
 /*
  * Used to extract socket and connectdata struct for the most recent
