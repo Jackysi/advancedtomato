@@ -9,9 +9,9 @@ Description
 -----------
 
 dnscrypt-proxy provides local service which can be used directly as
-your local resolver or as a DNS forwarder, encrypting and
-authenticating requests using the DNSCrypt protocol and passing them
-to an upstream server, by default OpenDNS.
+your local resolver or as a DNS forwarder, authenticating requests
+using the DNSCrypt protocol and passing them to an upstream server, by
+default OpenDNS.
 
 The DNSCrypt protocol uses high-speed high-security elliptic-curve
 cryptography and is very similar to [DNSCurve](http://dnscurve.org/),
@@ -28,13 +28,50 @@ Current list of free, DNSCrypt-enabled resolvers
 
 * [OpenDNS](http://www.opendns.com)
   - Server address: 208.67.220.220:443
-  - Provider name: 2.dnscrypt-cert.dnscrypt.org
+  - Provider name: 2.dnscrypt-cert.opendns.com
   - Public key: B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79
 
-* [CloudNS](https://cloudns.com.au/)
-  - Server address: 113.20.6.2:443
-  - Provider name: 2.dnscrypt-cert.cloudns.com.au
-  - Public key: 1971:7C1A:C550:6C09:F09B:ACB1:1AF7:C349:6425:2676:247F:B738:1C5A:243A:C1CC:89F4
+* [CloudNS](https://cloudns.com.au/) - No logs, DNSSEC
+  * Canberra, Australia
+    - Server address: 113.20.6.2:443 or gc2tzw6lbmeagrp3.onion:443
+    - Provider name: 2.dnscrypt-cert.cloudns.com.au
+    - Public key: 1971:7C1A:C550:6C09:F09B:ACB1:1AF7:C349:6425:2676:247F:B738:1C5A:243A:C1CC:89F4
+  * Sydney, Australia
+    - Server address: 113.20.8.17:443 or l65q62lf7wnfme7m.onion:443
+    - Provider name: 2.dnscrypt-cert-2.cloudns.com.au
+    - Public key: 67A4:323E:581F:79B9:BC54:825F:54FE:1025:8B4F:37EB:0D07:0BCE:4010:6195:D94F:E330
+
+* [OpenNIC](http://www.opennicproject.org/) - No logs
+  * Japan
+    - Server address: 106.186.17.181:2053
+    - Provider name: 2.dnscrypt-cert.ns2.jp.dns.opennic.glue
+    - Public key: 8768:C3DB:F70A:FBC6:3B64:8630:8167:2FD4:EE6F:E175:ECFD:46C9:22FC:7674:A1AC:2E2A
+  * UK
+    * NovaKing (ns8)
+      - Server address: 185.19.104.45:443
+      - Provider name: 2.dnscrypt-cert.ns8.uk.dns.opennic.glue
+      - Public key: A17C:06FC:BA21:F2AC:F4CD:9374:016A:684F:4F56:564A:EB30:A422:3D9D:1580:A461:B6A6
+    * NovaKing (ns9)
+      - Server address: 185.19.105.6:443
+      - Provider name: 2.dnscrypt-cert.ns9.uk.dns.opennic.glue
+      - Public key: E864:80D9:DFBD:9DB4:58EA:8063:292F:EC41:9126:8394:BC44:FAB8:4B6E:B104:8C3B:E0B4
+    * NovaKing (ns10)
+      - Server address: 185.19.105.14:443
+      - Provider name: 2.dnscrypt-cert.ns10.uk.dns.opennic.glue
+      - Public key: B1AB:7025:1119:9AEE:E42E:1B12:F2EF:12D4:53D9:CD92:E07B:9AF4:4794:F6EB:E5A4:F725
+
+* [DNSCrypt.eu](http://dnscrypt.eu/) - No logs, DNSSEC
+  * Holland
+    - Server address: 176.56.237.171:443
+    - Provider name: 2.dnscrypt-cert.dnscrypt.eu
+    - Public key: 67C0:0F2C:21C5:5481:45DD:7CB4:6A27:1AF2:EB96:9931:40A3:09B6:2B8D:1653:1185:9C66
+
+* [Soltysiak.com](http://dc1.soltysiak.com/) - No logs, DNSSEC
+  * Poznan, Poland
+    - Server address: 178.216.201.222:2053
+    - Provider name: 2.dnscrypt-cert.soltysiak.com
+    - Public key: 25C4:E188:2915:4697:8F9C:2BBD:B6A7:AFA4:01ED:A051:0508:5D53:03E7:1928:C066:8F21
+
 
 Download and integrity check
 ----------------------------
@@ -43,16 +80,16 @@ DNSCrypt can be downloaded here: [dnscrypt download](http://dnscrypt.org)
 
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.3.1.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.3.3.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -D TXT dnscrypt-proxy-1.3.1.tar.bz2.download.dnscrypt.org
+    $ drill -D TXT dnscrypt-proxy-1.3.3.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.3.1.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.3.3.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -70,7 +107,13 @@ Install [libsodium](https://github.com/jedisct1/libsodium).
 On Linux, don't forget to run `ldconfig` if you installed it from
 source.
 
-Download the latest dnscrypt-proxy version and extract it:
+On Fedora, RHEL and CentOS, you may need to add `/usr/local/lib` to
+the paths the dynamic linker is going to look at. Before issuing
+`ldconfig`, type:
+
+    # echo /usr/local/lib > /etc/ld.so.conf.d/usr_local_lib.conf
+
+Now, download the latest dnscrypt-proxy version and extract it:
 
     $ bunzip2 -cd dnscrypt-proxy-*.tar.bz2 | tar xvf -
     $ cd dnscrypt-proxy-*
@@ -92,28 +135,18 @@ produce broken code on Mips targets with the -Os optimization level.
 Use a different level (-O and -O2 are fine) or upgrade the compiler.
 Thanks to Adrian Kotelba for reporting this.
 
-GUIs for dnscrypt-proxy
------------------------
+GUI for dnscrypt-proxy
+----------------------
 
 If you need a simple graphical user interface in order to start/stop
 the proxy and change your DNS settings, check out the following
-projects:
+project:
 
-- [DNSCrypt OSX Client](http://opendns.github.io/dnscrypt-osx-client/):
-A tool to easily use DNSCrypt with OpenDNS, configure plugins and
-define resolvers for specific domains. It has been implemented as a
-collection of shell scripts with a user interface in Objective C.
-Designed for OpenDNS only.
-
-- [DNSCrypt WinClient](https://github.com/Noxwizard/dnscrypt-winclient):
+- [DNSCrypt WinClient](https://github.com/FivfBx2dOQTC3gc8YS4yMNo0el/dnscrypt-winclient):
 Easily enable/disable DNSCrypt on multiple adapters. Supports
 different ports and protocols, IPv6, parental controls and the proxy
 can act as a gateway service. Windows only, written in .NET. Designed
-for OpenDNS only.
-
-- dnscrypt-proxy is also available on Cydia, and it can be easily
-enabled using [GuizmoDNS](http://modmyi.com/cydia/com.guizmo.dns).
-Designed for OpenDNS only.
+for OpenDNS and CloudNS.
 
 Server-side proxy
 -----------------
@@ -172,7 +205,9 @@ Installation as a service (Windows only)
 
 The proxy can be installed as a Windows service.
 
-Copy the `dnscrypt-proxy.exe` file to any location, then open a
+Copy the `dnscrypt-proxy.exe` file to any location, as well as the
+`libsodium-4.dll` file. Both should be in the same location. If you
+are using plugins depending on ldns, copy the ldns DLL as well. Then open a
 terminal and type (eventually with the full path to `dnscrypt-proxy.exe`):
 
     dnscrypt-proxy.exe --install

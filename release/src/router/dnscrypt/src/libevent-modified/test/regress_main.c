@@ -370,7 +370,6 @@ struct testgroup_t testgroups[] = {
 	{ "util/", util_testcases },
 	{ "bufferevent/", bufferevent_testcases },
 	{ "http/", http_testcases },
-	{ "dns/", dns_testcases },
 	{ "evtag/", evtag_testcases },
 	{ "rpc/", rpc_testcases },
 	{ "thread/", thread_testcases },

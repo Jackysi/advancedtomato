@@ -1,3 +1,219 @@
+* Tue Oct 22 13:05:32 2013 -0700
+
+    Check for arc4random_addrandom() presence - Needed for OpenBSD-current.
+
+* Tue Oct 22 13:05:11 2013 -0700
+
+    Update man page date
+
+* Mon Oct 14 15:29:13 2013 -0700
+
+    Update hostip man page
+
+* Mon Oct 14 15:22:25 2013 -0700
+
+    Use 8.8.8.8 by default in hostip.
+
+* Fri Oct 11 09:11:36 2013 -0700
+
+    Ditch ldns-forward-after-nxdomain plugin.
+
+* Fri Oct 11 09:22:21 2013 -0700
+
+    Security: Never expose a private key in the process command-line args
+    This was here as an alternative to using an environment variable only because
+    the closed-source opendns user interface was (and probably still is) using
+    that.
+
+* Wed Oct 9 21:47:43 2013 -0700
+
+    Disable dns test cases in regress_main
+
+* Wed Oct 9 21:07:06 2013 -0700
+
+    libevent: regress_dns needs a very specific DNS setup to pass. Disable it.
+
+* Sun Oct 6 18:27:39 2013 -0700
+
+    Fix provider name for OpenDNS
+
+* Tue Sep 24 13:41:52 2013 -0700
+
+    Check for inline vs __inline
+
+* Mon Sep 23 15:50:00 2013 -0700
+
+    Add DNSCrypt.eu
+
+* Wed Sep 18 00:50:48 2013 -0700
+
+    No logs
+
+* Wed Sep 18 00:48:43 2013 -0700
+
+    New public resolver in Japan, part of OpenNIC
+
+* Tue Sep 17 20:02:34 2013 -0700
+
+    Version bump
+
+* Tue Sep 17 19:46:50 2013 -0700
+
+    set-client-ip.c plugin: accept non-hex IP strings
+
+* Tue Sep 17 18:35:56 2013 -0700
+
+    Update winclient description
+
+* Sun Sep 15 14:27:47 2013 -0700
+
+    Update README-WINDOWS to mention .DLL files.
+
+* Sun Sep 15 14:13:38 2013 -0700
+
+    Don't compress executables by default, because of stupid antiviruses.
+
+* Sun Sep 15 14:12:48 2013 -0700
+
+    Change the package structure for Windows users
+
+* Sun Sep 15 13:55:29 2013 -0700
+
+    Put sbin and bin in the same basket on win32
+
+* Sun Sep 15 13:46:13 2013 -0700
+
+    msys: actually honor prefix
+
+* Sun Sep 15 13:45:00 2013 -0700
+
+    msys: remove --disable-ssp
+
+* Sun Sep 15 13:43:51 2013 -0700
+
+    msys.sh: install in $(pwd)/dnscrypt-proxy-win32
+
+* Sun Sep 15 13:39:49 2013 -0700
+
+    Update Win32 instructions. libsodium DLL is now shipped separately.
+
+* Sun Sep 15 12:58:36 2013 -0700
+
+    Move autoconf sync with libsodium
+
+* Sun Sep 15 12:52:08 2013 -0700
+
+    Move PROBES_SOURCE substitution
+
+* Sun Sep 15 12:50:55 2013 -0700
+
+    Sync some autoconf switches with libsodium's
+
+* Sun Sep 15 12:44:18 2013 -0700
+
+    Remove unused blocking-random autoconf switch
+
+* Sun Sep 15 12:43:30 2013 -0700
+
+    PIE is on by default, so document --disable-pie, not --enable-pie
+
+* Sun Sep 15 12:17:20 2013 -0700
+
+    Remove links to the OSX and Cydia packages.
+    The OSX GUI ships with an old proxy, the Cydia package is dead old as well.
+
+* Fri Sep 13 22:08:25 2013 -0700
+
+    Ping timeout from Noxwizard, temporarily change dnscrypt-winclient URL
+
+* Tue Sep 10 21:59:13 2013 -0700
+
+    libevent: Avoid racy bufferevent activation
+    
+        The evhttp_send_reply method invokes evhttp_write_buffer with a
+        callback that may release the underlying request object and
+        bufferevent upon completion. This cleanup callback is invoked by the
+        underlying bufferevent's write callback. Improperly enabling write
+        events before referencing the bufferevent could lead to use after free
+        and memory corruption.
+    
+    diff --git a/http.c b/http.c
+    index 9b96ffb..377597e 100644
+    --- a/http.c
+    +++ b/http.c
+    @@ -383,8 +383,6 @@ evhttp_write_buffer(struct evhttp_connection *evcon,
+     	evcon->cb = cb;
+     	evcon->cb_arg = arg;
+    
+    -	bufferevent_enable(evcon->bufev, EV_WRITE);
+    -
+     	/* Disable the read callback: we don't actually care about data;
+     	 * we only care about close detection.  (We don't disable reading,
+     	 * since we *do* want to learn about any close events.) */
+    @@ -393,6 +391,8 @@ evhttp_write_buffer(struct evhttp_connection *evcon,
+     	    evhttp_write_cb,
+     	    evhttp_error_cb,
+     	    evcon);
+    +
+    +	bufferevent_enable(evcon->bufev, EV_WRITE);
+     }
+    
+     static void
+
+* Mon Sep 9 22:51:42 2013 -0700
+
+    Disable PIE on MingW
+
+* Wed Sep 4 00:17:30 2013 -0700
+
+    Bump Android SDK version
+
+* Mon Aug 26 23:37:36 2013 -0700
+
+    Require at least autoconf 2.65
+
+* Mon Aug 26 23:31:19 2013 -0700
+
+    Explain that on CentOS/Fedora, ld.so.conf doesn't include /usr/local/lib
+
+* Sun Aug 18 14:31:58 2013 -0600
+
+    Update the version number in the file checking example
+
+* Sun Aug 18 14:20:33 2013 -0600
+
+    Update CloudNS resolvers
+
+Merge: 48726db d071cfb
+* Wed Aug 14 08:10:27 2013 -0700
+
+    Merge pull request #17 from Strayer/gentoo-fix-ebuilds
+    
+    Fix Gentoo ebuilds
+
+* Wed Aug 14 16:25:08 2013 +0200
+
+    Added dnscrypt-proxy-1.3.3.ebuild
+    
+    - bumped dnscrypt-proxy to 1.3.3
+    - fixed wrong digests in Manifest
+    - removed old ebuilds which don't have official packages anymore
+
+* Wed Aug 14 16:20:29 2013 +0200
+
+    Fixed libsodium-0.4.2.ebuild
+    
+    - src_configure() missed econf
+    - path of ChangeLog was wrong
+
+* Tue Aug 13 20:39:50 2013 -0700
+
+    Regen man pages
+
+* Tue Aug 13 20:38:03 2013 -0700
+
+    update ChangeLog
+
 * Tue Aug 13 20:24:25 2013 -0700
 
     Get back to 512 bytes for DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND

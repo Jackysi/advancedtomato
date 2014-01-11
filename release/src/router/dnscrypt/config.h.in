@@ -245,9 +245,6 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Use blocking random */
-#undef USE_BLOCKING_RANDOM
-
 /* define to use the ldns library */
 #undef USE_LDNS
 
@@ -317,6 +314,12 @@
 
 /* in_port_t type */
 #undef in_port_t
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
 
 /* Define to the equivalent of the C99 'restrict' keyword, or to
    nothing if this is not supported.  Do not define if restrict is

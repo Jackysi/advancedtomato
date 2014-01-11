@@ -54,9 +54,6 @@ dcplugin_init(DCPlugin * const dcplugin, int argc, char *argv[])
     memcpy(edns_hex, EDNS_HEADER EDNS_DEV_ID, edns_hex_size);
     assert(sizeof EDNS_DEV_ID - 1U == (size_t) 16U);
     device_id = device_id_env = getenv("OPENDNS_DEVICE_ID");
-    if (argc > 1 && strlen(argv[1]) == (size_t) 16U) {
-        device_id = argv[1];
-    }
     if (device_id != NULL) {
         memcpy(edns_hex + sizeof EDNS_HEADER - (size_t) 1U,
                device_id, sizeof EDNS_DEV_ID);
