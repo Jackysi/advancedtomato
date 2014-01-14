@@ -1,11 +1,11 @@
 /*
  * prf.c
- * Pseudo-ranom function used by WPA and TGi
+ * Pseudo-random function used by WPA and TGi
  *
  * Original implementation of hmac_sha1(), PRF(), and test vectors data are
  * from "SSN for 802.11-0.21.doc"
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -13,7 +13,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: prf.c,v 1.18 2006-06-15 02:17:55 Exp $
+ * $Id: prf.c 241182 2011-02-17 21:50:03Z $
  */
 
 #include <typedefs.h>
@@ -21,19 +21,10 @@
 #include <bcmcrypto/prf.h>
 
 
-
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
-#if defined(__GNUC__)
-extern void bcopy(const void *src, void *dst, int len);
-extern int bcmp(const void *b1, const void *b2, int len);
-extern void bzero(void *b, int len);
-#else
-#define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
-#define	bcmp(b1, b2, len)	memcmp((b1), (b2), (len))
-#define	bzero(b, len)		memset((b), 0, (len))
-#endif	/* __GNUC__ */
+#include <string.h>
 #endif	/* BCMDRIVER */
 
 void
@@ -68,9 +59,9 @@ BCMROMFN(hmac_sha1)(unsigned char *text, int text_len, unsigned char *key,
 	 */
 
 	/* start out by storing key in pads */
-	bcopy(key, k_ipad, key_len);
-	bzero(&k_ipad[key_len], PRF_MAX_KEY_LEN + 1 - key_len);
-	bcopy(k_ipad, k_opad, PRF_MAX_KEY_LEN + 1);
+	memcpy(k_ipad, key, key_len);
+	memset(&k_ipad[key_len], 0, PRF_MAX_KEY_LEN + 1 - key_len);
+	memcpy(k_opad, k_ipad, PRF_MAX_KEY_LEN + 1);
 
 	/* XOR key with ipad and opad values */
 	for (i = 0; i < 16; i++) {
@@ -79,14 +70,14 @@ BCMROMFN(hmac_sha1)(unsigned char *text, int text_len, unsigned char *key,
 	}
 	/* init contexts */
 	SHA1Reset(&icontext);
-	bcopy(&icontext, &ocontext, sizeof(icontext));
+	memcpy(&ocontext, &icontext, sizeof(icontext));
 
 	/* perform inner SHA1 */
 	SHA1Input(&icontext, k_ipad, 64);     /* start with inner pad */
 	SHA1Input(&icontext, text, text_len); /* then text of datagram */
 	SHA1Result(&icontext, digest);		/* finish up 1st pass */
 
-	    /* perform outer SHA1 */
+	/* perform outer SHA1 */
 	SHA1Input(&ocontext, k_opad, 64);     /* start with outer pad */
 	SHA1Input(&ocontext, digest, 20);     /* then results of 1st hash */
 	SHA1Result(&ocontext, digest);          /* finish up 2nd pass */
@@ -116,11 +107,11 @@ BCMROMFN(PRF)(unsigned char *key, int key_len, unsigned char *prefix,
 		return (-1);
 
 	if (prefix_len != 0) {
-		bcopy(prefix, input, prefix_len);
+		memcpy(input, prefix, prefix_len);
 		input[prefix_len] = 0;		/* single octet 0 */
 		data_offset = prefix_len + 1;
 	}
-	bcopy(data, &input[data_offset], data_len);
+	memcpy(&input[data_offset], data, data_len);
 	total_len = data_offset + data_len;
 	input[total_len] = 0;		/* single octet count, starts at 0 */
 	total_len++;
@@ -134,10 +125,10 @@ BCMROMFN(PRF)(unsigned char *key, int key_len, unsigned char *prefix,
 
 
 /* faster PRF, inline hmac_sha1 functionality and eliminate redundant
- * initilizations
+ * initializations
  */
 int
-BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
+BCMROMFN(fPRF)(unsigned char *key, int key_len, const unsigned char *prefix,
                int prefix_len, unsigned char *data, int data_len,
                unsigned char *output, int len)
 {
@@ -155,11 +146,11 @@ BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
 		return (-1);
 
 	if (prefix_len != 0) {
-		bcopy(prefix, input, prefix_len);
+		memcpy(input, prefix, prefix_len);
 		input[prefix_len] = 0;
 		data_offset = prefix_len + 1;
 	}
-	bcopy(data, &input[data_offset], data_len);
+	memcpy(&input[data_offset], data, data_len);
 	total_len = data_offset + data_len;
 	input[total_len] = 0;
 	total_len++;
@@ -174,9 +165,9 @@ BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
 	}
 
 	/* store key in pads */
-	bcopy(key, pki8, key_len);
-	bzero(&pki8[key_len], PRF_MAX_KEY_LEN + 1 - key_len);
-	bcopy(pki8, pko8, PRF_MAX_KEY_LEN + 1);
+	memcpy(pki8, key, key_len);
+	memset(&pki8[key_len], 0, PRF_MAX_KEY_LEN + 1 - key_len);
+	memcpy(pko8, pki8, PRF_MAX_KEY_LEN + 1);
 
 	/* XOR key with ipad and opad values */
 	for (i = 0; i < PRF_MAX_KEY_LEN / 4; i++) {
@@ -186,14 +177,14 @@ BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
 
 	/* init reference contexts */
 	SHA1Reset(&reficontext);
-	bcopy(&reficontext, &refocontext, sizeof(reficontext));
+	memcpy(&refocontext, &reficontext, sizeof(reficontext));
 	SHA1Input(&reficontext, pki8, PRF_MAX_KEY_LEN);
 	SHA1Input(&refocontext, pko8, PRF_MAX_KEY_LEN);
 
 	for (i = 0; i < (len + SHA1HashSize - 1) / SHA1HashSize; i++) {
 		/* copy reference context to working copies */
-		bcopy(&reficontext, &icontext, sizeof(reficontext));
-		bcopy(&refocontext, &ocontext, sizeof(refocontext));
+		memcpy(&icontext, &reficontext, sizeof(reficontext));
+		memcpy(&ocontext, &refocontext, sizeof(refocontext));
 
 		/* perform inner SHA1 */
 		SHA1Input(&icontext, input, total_len);
@@ -219,7 +210,8 @@ BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
 #include <stdlib.h>
 #endif /* PRF_TIMING */
 
-void dprintf(char *label, uint8 *data, int dlen, int status)
+void
+dprintf(char *label, uint8 *data, int dlen, int status)
 {
 	int j;
 	printf("%s:\n\t", label);
@@ -234,17 +226,18 @@ void dprintf(char *label, uint8 *data, int dlen, int status)
 #ifdef PRF_TIMING
 #define NITER	10000
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
 	struct timeval tstart, tend;
 	unsigned char output[64 + 20];
 	int32 usec;
 	int j;
 
-	bzero(output, 64);
+	memset(output, 0, 64);
 	if (gettimeofday(&tstart, NULL)) exit(1);
 	for (j = 0; j < NITER; j++) {
-		fPRF(prf_vec[0].key, prf_vec[0].key_len, (unsigned char *)"prefix",
+		fPRF(prf_vec[0].key, prf_vec[0].key_len, (const unsigned char *)"prefix",
 			6, prf_vec[0].data, prf_vec[0].data_len, output, 64);
 	}
 	if (gettimeofday(&tend, NULL)) exit(1);
@@ -253,10 +246,10 @@ int main(int argc, char* argv[])
 	usec += 1000000 * (tend.tv_sec - tstart.tv_sec);
 	printf("usec %d\n", usec);
 
-	bzero(output, 64);
+	memset(output, 0, 64);
 	if (gettimeofday(&tstart, NULL)) exit(1);
 	for (j = 0; j < NITER; j++) {
-		PRF(prf_vec[0].key, prf_vec[0].key_len, (unsigned char *)"prefix",
+		PRF(prf_vec[0].key, prf_vec[0].key_len, (const unsigned char *)"prefix",
 			6, prf_vec[0].data, prf_vec[0].data_len, output, 64);
 	}
 	if (gettimeofday(&tend, NULL)) exit(1);
@@ -265,10 +258,10 @@ int main(int argc, char* argv[])
 	usec += 1000000 * (tend.tv_sec - tstart.tv_sec);
 	printf("usec %d\n", usec);
 
-	bzero(output, 64);
+	memset(output, 0, 64);
 	if (gettimeofday(&tstart, NULL)) exit(1);
 	for (j = 0; j < NITER; j++) {
-		fPRF(prf_vec[0].key, prf_vec[0].key_len, (unsigned char *)"prefix",
+		fPRF(prf_vec[0].key, prf_vec[0].key_len, (const unsigned char *)"prefix",
 			6, prf_vec[0].data, prf_vec[0].data_len, output, 64);
 	}
 	if (gettimeofday(&tend, NULL)) exit(1);
@@ -277,7 +270,7 @@ int main(int argc, char* argv[])
 	usec += 1000000 * (tend.tv_sec - tstart.tv_sec);
 	printf("usec %d\n", usec);
 
-	bzero(output, 64);
+	memset(output, 0, 64);
 	if (gettimeofday(&tstart, NULL)) exit(1);
 	for (j = 0; j < NITER; j++) {
 		PRF(prf_vec[0].key, prf_vec[0].key_len, (unsigned char *)"prefix",
@@ -294,7 +287,8 @@ int main(int argc, char* argv[])
 
 #else
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
 	unsigned char digest[20];
 	unsigned char output[64 + 20];
@@ -304,43 +298,43 @@ int main(int argc, char* argv[])
 		printf("Test Vector %d:\n", k);
 		hmac_sha1(prf_vec[k].data, prf_vec[k].data_len, prf_vec[k].key,
 			prf_vec[k].key_len, digest);
-		c = bcmp(digest, prf_vec[k].digest1, 20);
+		c = memcmp(digest, prf_vec[k].digest1, 20);
 		dprintf("HMAC_SHA1", digest, 20, c);
 		if (c) fail++;
 
-		bzero(output, 64);
+		memset(output, 0, 64);
 		if (PRF(prf_vec[k].key, prf_vec[k].key_len,
 			prf_vec[k].prefix, prf_vec[k].prefix_len,
 			prf_vec[k].data, prf_vec[k].data_len, output, 16))
 				fail++;
-		c = bcmp(output, prf_vec[k].prf, 16);
+		c = memcmp(output, prf_vec[k].prf, 16);
 		dprintf("PRF", output, 16, c);
 		if (c) fail++;
 
-		bzero(output, 64);
+		memset(output, 0, 64);
 		if (fPRF(prf_vec[k].key, prf_vec[k].key_len,
 			prf_vec[k].prefix, prf_vec[k].prefix_len,
 			prf_vec[k].data, prf_vec[k].data_len, output, 16))
 				fail++;
-		c = bcmp(output, prf_vec[k].prf, 16);
+		c = memcmp(output, prf_vec[k].prf, 16);
 		dprintf("fPRF", output, 16, c);
 		if (c) fail++;
 
-		bzero(output, 64);
+		memset(output, 0, 64);
 		if (PRF(prf_vec[k].key, prf_vec[k].key_len,
 			prf_vec[k].prefix, prf_vec[k].prefix_len,
 			prf_vec[k].data, prf_vec[k].data_len, output, 64))
 				fail++;
-		c = bcmp(output, prf_vec[k].prf, 64);
+		c = memcmp(output, prf_vec[k].prf, 64);
 		dprintf("PRF", output, 64, c);
 		if (c) fail++;
 
-		bzero(output, 64);
+		memset(output, 0, 64);
 		if (fPRF(prf_vec[k].key, prf_vec[k].key_len,
 		         prf_vec[k].prefix, prf_vec[k].prefix_len,
 		         prf_vec[k].data, prf_vec[k].data_len, output, 64))
 			fail++;
-		c = bcmp(output, prf_vec[k].prf, 64);
+		c = memcmp(output, prf_vec[k].prf, 64);
 		dprintf("fPRF", output, 64, c);
 		if (c) fail++;
 	}

@@ -12,6 +12,7 @@
 /*                                                                            */
 /******************************************************************************/
 
+#include <bcm57xx_cfg.h>
 #include "mm.h"
 
 #ifdef INCLUDE_TCP_SEG_SUPPORT

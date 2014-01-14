@@ -591,7 +591,7 @@ int HASH_FINAL (unsigned char *md, HASH_CTX *c)
  * *either* case. Now declaring 'em long excuses the compiler
  * from keeping 32 MSBs zeroed resulting in 13% performance
  * improvement under SPARC Solaris7/64 and 5% under AlphaLinux.
- * Well, to be honest it should say that this *prevents* 
+ * Well, to be honest it should say that this *prevents*
  * performance degradation.
  *				<appro@fy.chalmers.se>
  * Apparently there're LP64 compilers that generate better

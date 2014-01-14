@@ -2,7 +2,7 @@
  * passhash_vectors.h
  * Password Hash test vectors
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: passhash_vectors.h,v 1.4 2007-01-11 19:43:26 Exp $
+ * $Id: passhash_vectors.h 241182 2011-02-17 21:50:03Z $
  */
 
 #include <typedefs.h>

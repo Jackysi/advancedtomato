@@ -25,7 +25,7 @@
  *   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
  *   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -33,7 +33,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: sha1.c,v 1.14 2009-02-26 21:37:35 Exp $
+ * $Id: sha1.c 241182 2011-02-17 21:50:03Z $
  *
  * From rfc3174.txt
  */
@@ -74,12 +74,7 @@
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
-#if defined(__GNUC__)
-extern int bcmp(const void *b1, const void *b2, int len);
-extern size_t strlen(const char *s);
-#else
-#define	bcmp(b1, b2, len)	memcmp((b1), (b2), (len))
-#endif	/* __GNUC__ */
+#include <string.h>
 #endif	/* BCMDRIVER */
 
 /*
@@ -368,7 +363,8 @@ SHA1ProcessMessageBlock(SHA1Context *context)
  *
  */
 
-static void SHA1PadMessage(SHA1Context *context)
+static void
+SHA1PadMessage(SHA1Context *context)
 {
 	/*
 	 *  Check to see if the current message block is too small to hold
@@ -458,7 +454,8 @@ uint8 resultarray[4][20] =
 	 0xED, 0xC5, 0xEB, 0xB5, 0x63, 0x93, 0x4F, 0x46, 0x04, 0x52}
 };
 
-int main()
+int
+main()
 {
 	SHA1Context sha;
 	int i, j, err, fail = 0;
@@ -504,7 +501,7 @@ int main()
 			printf("%02X ", resultarray[j][i]);
 		}
 		printf("\n");
-		if (bcmp(Message_Digest, resultarray[j], 20)) fail++;
+		if (memcmp(Message_Digest, resultarray[j], 20)) fail++;
 	}
 
 	/* Test some error returns */

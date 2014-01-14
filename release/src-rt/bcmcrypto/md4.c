@@ -8,7 +8,7 @@
  * (C) 1990 RSA Data Security, Inc.                                  **
  * ********************************************************************
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -16,7 +16,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: md4.c,v 1.5 2006-06-14 21:07:54 Exp $
+ * $Id: md4.c 241182 2011-02-17 21:50:03Z $
  */
 
 /*

@@ -4,7 +4,7 @@
  * Code copied from openssl distribution and
  * Modified just enough so that compiles and runs standalone
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bn.c,v 1.7 2007-10-13 00:50:05 Exp $
+ * $Id: bn.c 241182 2011-02-17 21:50:03Z $
  */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
@@ -1467,7 +1467,6 @@ err:
 	BN_CTX_end(ctx);
 	return (0);
 }
-
 
 
 #define TABLE_SIZE	32

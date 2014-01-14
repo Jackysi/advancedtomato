@@ -29,7 +29,7 @@
  * These notices must be retained in any copies of any part of this
  * documentation and/or software.
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -37,16 +37,14 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: md5.c,v 1.12 2007-03-26 17:28:56 Exp $
+ * $Id: md5.c 241182 2011-02-17 21:50:03Z $
  */
 
 #ifdef BCMDRIVER
 #include <typedefs.h>
 #include <osl.h>
 #else
-#if defined(__GNUC__)
 #include <string.h>
-#endif
 #endif	/* BCMDRIVER */
 
 #include <bcmcrypto/md5.h>

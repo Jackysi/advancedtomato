@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2002 Broadcom Corporation
 #
-# $Id: Makefile,v 1.30.10.1 2010-05-28 15:25:49 Exp $
+# $Id: Makefile 241182 2011-02-17 21:50:03Z $
 #
 
 SRCBASE	:= ..
@@ -67,3 +67,10 @@ install:
 	install -d $(INSTALLDIR)/usr/sbin
 	install $(PROGS) $(INSTALLDIR)/usr/sbin
 	$(STRIP) $(foreach file,$(PROGS),$(INSTALLDIR)/usr/sbin/$(file))
+
+test_all: $(PROGS)
+	@for i in $(PROGS); do \
+		echo ""; \
+		echo "==> Testing $$i"; \
+		$$i || exit 127; \
+	done

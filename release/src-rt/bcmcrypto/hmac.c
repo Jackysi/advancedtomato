@@ -2,7 +2,7 @@
  * Function: hmac_md5
  * From rfc2104.txt
  *
- * $Id: hmac.c,v 1.16 2009-04-13 16:25:16 Exp $
+ * $Id: hmac.c 241182 2011-02-17 21:50:03Z $
  */
 
 /*
@@ -32,7 +32,7 @@
  *   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
  *   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -40,27 +40,21 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: hmac.c,v 1.16 2009-04-13 16:25:16 Exp $
+ * $Id: hmac.c 241182 2011-02-17 21:50:03Z $
  */
 
 
 #include <bcmcrypto/md5.h>
 
 #ifdef BCMDRIVER
-#if !defined(BCMSUP_PSK)
-#error "BCMSUP_PSK or BCMCCX must be defined to compile hmac.c for driver!"
-#endif
 #include <osl.h>
 #else
-#if defined(__GNUC__)
-extern void bcopy(const void *src, void *dst, int len);
-extern void bzero(void *b, int len);
-#else
-#define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
-#define	bzero(b, len)		memset((b), 0, (len))
-#endif
+#include <string.h>
 #endif	/* BCMDRIVER */
 
+#if defined(BCMDRIVER) && defined(HNDRTE) && !defined(BCMSUP_PSK)
+#error "BCMSUP_PSK or BCMCCX must be defined to compile hmac.c for driver!"
+#endif
 
 extern void BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
                                int key_len, unsigned char *digest);
@@ -83,9 +77,9 @@ BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
 				      */
 	unsigned char tk[16];
 	int i;
+
 	/* if key is longer than 64 bytes reset it to key=MD5(key) */
 	if (key_len > 64) {
-
 		MD5_CTX      tctx;
 
 		MD5Init(&tctx);
@@ -109,10 +103,10 @@ BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
 	 */
 
 	/* start out by storing key in pads */
-	bzero(k_ipad, sizeof(k_ipad));
-	bzero(k_opad, sizeof(k_opad));
-	bcopy(key, k_ipad, key_len);
-	bcopy(key, k_opad, key_len);
+	memset(k_ipad, 0, sizeof(k_ipad));
+	memset(k_opad, 0, sizeof(k_opad));
+	memcpy(k_ipad, key, key_len);
+	memcpy(k_opad, key, key_len);
 
 	/* XOR key with ipad and opad values */
 	for (i = 0; i < 64; i++) {

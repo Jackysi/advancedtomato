@@ -1,6 +1,6 @@
 /*
  * random.c
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -8,7 +8,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: random.c,v 1.13 2009-06-11 02:38:23 Exp $
+ * $Id: random.c 241182 2011-02-17 21:50:03Z $
  */
 #include <stdio.h>
 #if defined(__linux__)
@@ -42,6 +42,8 @@ void linux_random(uint8 *rand, int len);
 void windows_random(uint8 *rand, int len);
 #elif (defined(__ECOS) || defined(TARGETOS_nucleus))
 void generic_random(uint8* rand, int len);
+#elif defined(TARGETOS_symbian)
+void generic_random(uint8* rand, int len);
 #endif /* __linux__ */
 
 void RAND_bytes(unsigned char *buf, int num)
@@ -51,6 +53,8 @@ void RAND_bytes(unsigned char *buf, int num)
 #elif WIN32
 	windows_random(buf, num);
 #elif (defined(__ECOS) || defined(TARGETOS_nucleus))
+	generic_random(buf, num);
+#elif defined(TARGETOS_symbian)
 	generic_random(buf, num);
 #endif /* __linux__ */
 }
@@ -95,6 +99,7 @@ void RAND_ecos_init()
 {
 	BN_register_RAND(generic_random);
 }
+
 #elif WIN32
 void RAND_windows_init()
 {
@@ -164,9 +169,14 @@ void RAND_generic_init()
 {
 	BN_register_RAND(generic_random);
 }
+#elif TARGETOS_symbian
+void RAND_generic_init()
+{
+	BN_register_RAND(generic_random);
+}
 #endif /* __linux__ */
 
-#if (defined(__ECOS) || defined(TARGETOS_nucleus))
+#if (defined(__ECOS) || defined(TARGETOS_nucleus) || defined(TARGETOS_symbian))
 void
 generic_random(uint8 * random, int len)
 {

@@ -33,7 +33,7 @@ extern int BCMROMFN(PRF)(unsigned char *key, int key_len, unsigned char *prefix,
                          int prefix_len, unsigned char *data, int data_len,
                          unsigned char *output, int len);
 
-extern int BCMROMFN(fPRF)(unsigned char *key, int key_len, unsigned char *prefix,
+extern int BCMROMFN(fPRF)(unsigned char *key, int key_len, const unsigned char *prefix,
                           int prefix_len, unsigned char *data, int data_len,
                           unsigned char *output, int len);
 

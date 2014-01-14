@@ -2,7 +2,7 @@
  * rc4.c
  * RC4 stream cipher
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: rc4.c,v 1.10 2006-06-14 21:07:54 Exp $
+ * $Id: rc4.c 241182 2011-02-17 21:50:03Z $
  */
 
 #include <typedefs.h>
@@ -63,44 +63,37 @@ BCMROMFN(rc4)(uint8 *buf, int data_len, rc4_ks_t *ks)
 
 #ifdef BCMRC4_TEST
 #include <stdio.h>
-
-#if defined(__GNUC__)
-extern void bcopy(const void *src, void *dst, int len);
-extern int bcmp(const void *b1, const void *b2, int len);
-extern void bzero(void *b, int len);
-#else
-#define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
-#define	bcmp(b1, b2, len)	memcmp((b1), (b2), (len))
-#define	bzero(b, len)		memset((b), 0, (len))
-#endif
+#include <string.h>
 
 #include "rc4_vectors.h"
-#define NUM_VECTORS  (sizeof(rc4_vec)/sizeof(rc4_vec[0]))
 
-int main(int argc, char **argv)
+#define NUM_VECTORS  (sizeof(rc4_vec) / sizeof(rc4_vec[0]))
+
+int
+main(int argc, char **argv)
 {
 	int k, fail = 0;
 	uint8 data[RC4_STATE_NBYTES];
 	rc4_ks_t ks;
 	for (k = 0; k < NUM_VECTORS; k++) {
-		bzero(data, RC4_STATE_NBYTES);
-		bcopy(rc4_vec[k].input, data, rc4_vec[k].il);
+		memset(data, 0, RC4_STATE_NBYTES);
+		memcpy(data, rc4_vec[k].input, rc4_vec[k].il);
 
 		prepare_key(rc4_vec[k].key, rc4_vec[k].kl, &ks);
 		rc4(data, rc4_vec[k].il, &ks);
-		if (bcmp(data, rc4_vec[k].ref, rc4_vec[k].il) != 0) {
+		if (memcmp(data, rc4_vec[k].ref, rc4_vec[k].il) != 0) {
 			printf("%s: rc4 encrypt failed\n", *argv);
 			fail++;
 		} else {
 			printf("%s: rc4 encrypt %d passed\n", *argv, k);
 		}
 
-		bzero(data, RC4_STATE_NBYTES);
-		bcopy(rc4_vec[k].ref, data, rc4_vec[k].il);
+		memset(data, 0, RC4_STATE_NBYTES);
+		memcpy(data, rc4_vec[k].ref, rc4_vec[k].il);
 
 		prepare_key(rc4_vec[k].key, rc4_vec[k].kl, &ks);
 		rc4(data, rc4_vec[k].il, &ks);
-		if (bcmp(data, rc4_vec[k].input, rc4_vec[k].il) != 0) {
+		if (memcmp(data, rc4_vec[k].input, rc4_vec[k].il) != 0) {
 			printf("%s: rc4 decrypt failed\n", *argv);
 			fail++;
 		} else {
