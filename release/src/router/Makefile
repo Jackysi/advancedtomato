@@ -2027,7 +2027,8 @@ tor/stamp-h1: openssl zlib libevent
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
-		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib --disable-asciidoc
+		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib \
+		--disable-asciidoc --disable-threads
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
@@ -2040,6 +2041,21 @@ tor-install: tor
 tor-clean:
 	-@$(MAKE) -C tor clean
 	@rm -rf tor/stamp-h1 tor/Makefile
+
+udpxy/stamp-h1:
+	cd udpxy \
+	$(MAKE) -C udpxy CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
+	touch udpxy/stamp-h1
+
+udpxy-clean:
+	-@$(MAKE) -C udpxy clean
+	@rm -f udpxy/stamp-h1
+
+udpxy-install: udpxy/stamp-h1
+	install -d $(INSTALLDIR)/udpxy/usr/bin
+	install -D udpxy/udpxy $(INSTALLDIR)/udpxy/bin/udpxy
+	$(STRIP) -s $(INSTALLDIR)/udpxy/bin/udpxy
 
 mdadm:
 	$(MAKE) -C mdadm $(PARALLEL_BUILD)
@@ -2074,7 +2090,6 @@ comgt-install: comgt
 	$(STRIP) -s $(INSTALLDIR)/comgt/usr/sbin/comgt
 	@mkdir -p $(TARGETDIR)/rom/etc/gcom
 	@cp -f comgt/gcom/* $(TARGETDIR)/rom/etc/gcom/
-
 
 comgt-clean:
 	-@$(MAKE) -C comgt clean

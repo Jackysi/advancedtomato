@@ -214,7 +214,6 @@ setup_mcast_listener( struct sockaddr_in*   sa,
                                             "for mcast socket [%d]\n", sockfd ) );
         }
 
-
         rc = setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
                          &ON, sizeof(ON) );
         if( 0 != rc ) {
@@ -222,6 +221,19 @@ setup_mcast_listener( struct sockaddr_in*   sa,
                     __func__);
             break;
         }
+
+#ifdef SO_REUSEPORT
+        /*  On some systems (such as FreeBSD) SO_REUSEADDR
+            just isn't enough to subscribe to N same channels for different clients.
+        */
+        rc = setsockopt( sockfd, SOL_SOCKET, SO_REUSEPORT,
+                         &ON, sizeof(ON) );
+        if( 0 != rc ) {
+            mperror(g_flog, errno, "%s: setsockopt SO_REUSEPORT",
+                    __func__);
+            break;
+        }
+#endif /* SO_REUSEPORT */
 
         rc = bind( sockfd, (struct sockaddr*)sa, sizeof(*sa) );
         if( 0 != rc ) {
@@ -468,7 +480,7 @@ sock_info (int peer, int sockfd, char* addr, size_t alen, int* port)
 
     switch (gsa.sa.sa_family) {
         case AF_INET:
-            sa4 = (struct sockaddr_in*)gsa.data;
+            sa4 = (struct sockaddr_in*)&gsa.sa;
             if (addr) {
                 dst = inet_ntop (gsa.sa.sa_family, &(sa4->sin_addr),
                     addr, (socklen_t)alen);
@@ -476,7 +488,7 @@ sock_info (int peer, int sockfd, char* addr, size_t alen, int* port)
             if (port) *port = (int) ntohs (sa4->sin_port);
             break;
         case AF_INET6:
-            sa6 = (struct sockaddr_in6*)gsa.data;
+            sa6 = (struct sockaddr_in6*)&gsa.sa;
             if (addr) {
                 dst = inet_ntop (gsa.sa.sa_family, &(sa6->sin6_addr),
                     addr, (socklen_t)alen);

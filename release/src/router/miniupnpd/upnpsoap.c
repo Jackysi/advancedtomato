@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.116 2013/05/16 10:41:57 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.119 2013/08/19 16:16:00 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2013 Thomas Bernard
@@ -410,6 +410,14 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	       action, eport, int_ip, iport, protocol, desc, leaseduration,
 	       r_host ? r_host : "NULL");
 
+	/* TODO : be compliant with IGD spec for updating existing port mappings.
+	See "WANIPConnection:1 Service Template Version 1.01" 2.2.20.PortMappingDescription :
+	Overwriting Previous / Existing Port Mappings:
+	If the RemoteHost, ExternalPort, PortMappingProtocol and InternalClient are
+	exactly the same as an existing mapping, the existing mapping values for InternalPort,
+	PortMappingDescription, PortMappingEnabled and PortMappingLeaseDuration are
+	overwritten.
+	*/
 	r = upnp_redirect(r_host, eport, int_ip, iport, protocol, desc, leaseduration);
 
 	ClearNameValueList(&data);
@@ -1038,8 +1046,12 @@ SetDefaultConnectionService(struct upnphttp * h, const char * action)
 		 * 721 InvalidServiceID
 		 * 723 InvalidConnServiceSelection */
 #ifdef UPNP_STRICT
-		if(0 != memcmp(uuidvalue, p, sizeof("uuid:00000000-0000-0000-0000-000000000000") - 1)) {
+		char * service;
+		service = strchr(p, ',');
+		if(0 != memcmp(uuidvalue_wcd, p, sizeof("uuid:00000000-0000-0000-0000-000000000000") - 1)) {
 			SoapError(h, 720, "InvalidDeviceUUID");
+		} else if(service == NULL || 0 != strcmp(service+1, SERVICE_ID_WANIPC)) {
+			SoapError(h, 721, "InvalidServiceID");
 		} else
 #endif
 		{
@@ -1069,7 +1081,7 @@ GetDefaultConnectionService(struct upnphttp * h, const char * action)
 	int bodylen;
 
 	bodylen = snprintf(body, sizeof(body), resp,
-	                   action, uuidvalue, action);
+	                   action, uuidvalue_wcd, action);
 	BuildSendAndCloseSoapResp(h, body, bodylen);
 }
 #endif
