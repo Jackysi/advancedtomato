@@ -60,3 +60,40 @@ int remove_word(char *buffer, const char *word)
 
 	return 1;
 }
+
+/* Hyzoom bwq518 */
+char * trimstr(char *str)
+{
+	int i,j, len, count;
+
+	if (str == NULL) return NULL;
+	len = strlen(str);
+	if (len == 0) return str;
+
+	for (i = 0; i < len; i ++)
+	{
+		if ((str[i] != ' ') && (str[i] != '\t'))  break;
+	}
+	if (i == (len - 1))
+	{
+		*str = '\0';
+		return str;
+	}
+
+	for ( j = len - 1; j >= 0 ; j --)
+	{
+		if ((str[j] != ' ') && (str[j] != '\t')) break;
+	}
+	if ( (j == 0) || (j <= i))
+	{
+		*str = '\0';
+		return str;
+	}
+	count = j - i + 1 ;
+	for ( j = 0; j < count; j ++)
+	{
+		*(str + j) = *(str + j + i);
+	}
+	*(str + count) = '\0';
+	return str;
+}

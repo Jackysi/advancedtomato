@@ -177,8 +177,15 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 9;
 		ses_mask = 1 << 4;
 		break;
+	case MODEL_EA6500V1:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 4;
+		break;
 	case MODEL_W1800R:
 		reset_mask = 1 << 14;
+		break;
+	case MODEL_D1800H:
+		reset_mask = 1 << 5;
 		break;
 	case MODEL_WNR3500L:
 	case MODEL_WNR3500LV2:
@@ -260,7 +267,13 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 30;
 		ses_mask = 1 << 29;
 		break;
-	// BWQ end.
+	case MODEL_TDN60:
+		reset_mask = 1 << 8;
+		break;
+	case MODEL_TDN6:
+		reset_mask = 1 << 20;
+		break;
+	// BWQ end
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {

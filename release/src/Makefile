@@ -128,6 +128,11 @@ all: tomato_ver
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 
 ifneq ($(ASUS_TRX),0)
+ifeq ($(ASUS_TRX),EA6500V1)
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-t image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx \
+		| tee -a fpkg.log
+else
 	$(MAKE) -C ctools
 	ctools/objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUXDIR)/vmlinux ctools/piggy
 	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
@@ -136,6 +141,7 @@ ifneq ($(ASUS_TRX),0)
 	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/linux-lzma.trx
 	@echo ""
+endif #AE6500V1
 endif
 
 ifeq ($(WNR3500LV2),1)
@@ -1117,12 +1123,7 @@ v2z:
 v2e:
 	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
 
-v2g:
-	@$(MAKE) g MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
-
-v2t:
-	@$(MAKE) t MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
-
+#Builds with wl_high module
 rtn53:
 	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="RT-N53" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y NO_USBAPP=y
 
@@ -1132,8 +1133,9 @@ e2500:
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
-l600n:
-	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="L600N" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y
+# it`s not possible to flash tomato on this router. Maybe in the future.
+#l600n:
+#	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="L600N" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y
 
 #Builds for Asus RT-N66u with 64k NVRAM support
 ifeq ($(CONFIG_BCMWL6),y)
@@ -1157,11 +1159,26 @@ ac66e:
 ac66z:
 	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="RT-AC66U" UFSD=y
 
+w1800re:
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
+
 w1800rz:
 	@$(MAKE) z MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
+
+#d1800he:
+#	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="D1800H"
+
+#d1800hz:
+#	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="D1800H"
+
+#ea6500e:
+#	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="EA6500V1"
+
+#ea6500z:
+#	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="EA6500V1"
 endif
 
-# end ofCONFIG_LINUX26
+# end of CONFIG_LINUX26
 endif
 
 setprofile:
@@ -1278,18 +1295,24 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "rtn53        Asus RT-N53 with wl_high module (dualband support)"
 	@echo "e2500        Linksys E2500 with wl_high module (dualband support)"
 	@echo "e3200        Linksys E3200 with wl_high module (dualband support)"
-	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"
+#	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
-	@echo "v2g          Netgear WNR3500Lv2 build Tor-VPN"
-	@echo "v2t          Netgear WNR3500Lv2 build BT-VPN"
 	@echo "v2z          Netgear WNR3500Lv2 build AIO"
-	@echo "       Asus RT-N66u with 64k NVRAM"
+	@echo ""
 	@echo "r64e         RT-N66u build VPN"
-	@echo "r64g         RT-N66u build Tor-VPN"
-	@echo "r64t         RT-N66u build BT-VPN"
-	@echo "r64o         RT-N66u build Mega-VPN"
 	@echo "r64z         RT-N66u build AIO"
+ifeq ($(CONFIG_BCMWL6),y)
+	@echo "       Routers with AC mode support"
+	@echo "ac66e        RT-AC66u build VPN"
+	@echo "ac66z        RT-AC66u build AIO"
+	@echo "w1800re      Tenda W1800R build VPN"
+	@echo "w1800rz      Tenda W1800R build AIO"
+#	@echo "d1800he      Buffalo D1800H build VPN"
+#	@echo "d1800hz      Buffalo D1800H build AIO"
+#	@echo "ea6500e      Linksys EA6500v1 build VPN"
+#	@echo "ea6500z      Linksys EA6500v1 build AIO"
+endif
 endif
 	@echo ""
 	@echo "..etc..      other build configs"

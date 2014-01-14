@@ -214,6 +214,9 @@ int do_led(int which, int mode)
 	static int dir620c1[]	= {  -6,  -8,   255,  255,  255,   -7,  255,  255,    255};
 	static int rtn66u[]	= { 255, -12,   255,  255,  255,  255,  255,   15,     13};
 	static int w1800r[]     = { 255, -13,   255,  255,  255,  255,  255,  -12,     -5};
+	static int d1800h[]     = { -12, -13,     8,  255,  255,  -10,  255,   15,     11};
+	static int tdn6[]       = { 255,  -6,     8,  255,  255,  255,  255,  255,    255};
+//                                 WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB 5G
 #endif
 
 	char s[16];
@@ -334,6 +337,14 @@ int do_led(int which, int mode)
 	case MODEL_W1800R:
 		b = w1800r[which];
 		break;
+	case MODEL_D1800H:
+		if (which == LED_DIAG) {
+			// power led gpio: 0x02 - white, 0x13 - red 
+			b = (mode) ? 13 : 2;
+			c = (mode) ? 2 : 13;
+		} else
+			b = d1800h[which];
+		break;
 	case MODEL_WNR3500L:
 	case MODEL_WNR3500LV2:
 		if (which == LED_DIAG) {
@@ -401,6 +412,10 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_DIR620C1:
 		b = dir620c1[which];
+	case MODEL_TDN60: //bwq518
+	case MODEL_TDN6:
+		b = tdn6[which];
+		break;
 #endif
 /*
 	case MODEL_RT390W:
