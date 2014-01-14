@@ -1,4 +1,25 @@
-$Id: Changelog.txt,v 1.340 2013/05/20 00:12:49 nanard Exp $
+$Id: Changelog.txt,v 1.347 2013/12/16 15:38:52 nanard Exp $
+
+2013/12/16:
+  Attempt to compile with OS X/pf
+
+2013/12/13:
+  Make all manufacturer info configurable thanks to Leo Moll
+  Merge PCP support (see https://github.com/miniupnp/miniupnp)
+
+2013/06/13:
+  Have 3 UUID for the 3 devices (IGD, WAN Device, WAN Connection Device)
+
+2013/06/06:
+  update upnpreplyparse to allow larger values (128 chars instead of 64)
+
+2013/06/05:
+  check Service ID in SetDefaultConnectionService method
+  Don't advertise WANPPPConnection in UPNP_STRICT mode
+
+2013/05/29:
+  Remove namespace from variable name elements in Events "propertyset"
+    to comply with UPNP DeviceArchitecture v1.1.
 
 2013/05/20:
   Adding support for IP Filter version 5.x
