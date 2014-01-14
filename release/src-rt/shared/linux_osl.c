@@ -1575,6 +1575,12 @@ osl_pktsetprio(void *skb, uint x)
 }
 #endif	/* BINOSL */
 
+uint
+osl_pktalloced(osl_t *osh)
+{
+	return (atomic_read(&osh->pktalloced));
+}
+
 /* Linux Kernel: File Operations: start */
 void *
 osl_os_open_image(char *filename)
