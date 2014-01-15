@@ -452,12 +452,12 @@ void asp_anonupdate(int argc, char **argv)
 	char s[32], *a, b[16];
 	unsigned n;
 
-	if ( nvram_match("tomatoanon_answer", "1") && nvram_match("tomatoanon_enable", "1") ) {
+	if ( nvram_match("tomatoanon_answer", "1") && nvram_match("tomatoanon_enable", "1") && nvram_match("tomatoanon_notify", "1") ) {
 
 		web_puts("\nanonupdate = {");
 
 		n = 0;
-		if ((f = fopen("/tmp/anon.result", "r")) != NULL) {
+		if ((f = fopen("/tmp/anon.version", "r")) != NULL) {
 			while (fgets(s, sizeof(s), f)) {
 				if (sscanf(s, "have_update=%s", b) == 1) a="update";
 				else continue;
