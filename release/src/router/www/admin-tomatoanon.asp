@@ -15,7 +15,7 @@
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
-//	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_cru,tomatoanon_id,tomatoanon_notify"); %>
+//	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_id,tomatoanon_notify"); %>
 
 var anon_link = '&nbsp;&nbsp;<a href="http://tomato.groov.pl/tomatoanon.php?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i>[Checkout my router]</i></a>';
 
@@ -23,9 +23,6 @@ function verifyFields(focused, quiet)
 {
 	var o = (E('_tomatoanon_answer').value == '1');
 	E('_tomatoanon_enable').disabled = !o;
-
-	var s = (E('_tomatoanon_enable').value == '1');
-	E('_tomatoanon_cru').disabled = !o || !s;
 
 	E('_f_tomatoanon_notify').disabled = !o || !s;
 
@@ -98,8 +95,7 @@ Thank you for reading and please make the right choice to help this project.<br>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Do you know what TomatoAnon doing ?', name: 'tomatoanon_answer', type: 'select', options: [ ['0','No, i don`t. Have to read all information, before i will make a choice'], ['1','Yes, i do and want to make a choice'] ], value: nvram.tomatoanon_answer, suffix: ' '},
-	{ title: 'Do you want enable TomatoAnon ?', name: 'tomatoanon_enable', type: 'select', options: [ ['-1','I`m not sure right now'], ['1','Yes, i`m sure i do'], ['0','No, i definitely wont enable it'] ], value: nvram.tomatoanon_enable, suffix: ' '},
-	{ title: 'Send every', indent: 2, name: 'tomatoanon_cru', type: 'text', maxlen: 5, size: 7, value: nvram.tomatoanon_cru, suffix: ' <small>hours (range: 1 - 12; default: 6)</small>' }
+	{ title: 'Do you want enable TomatoAnon ?', name: 'tomatoanon_enable', type: 'select', options: [ ['-1','I`m not sure right now'], ['1','Yes, i`m sure i do'], ['0','No, i definitely wont enable it'] ], value: nvram.tomatoanon_enable, suffix: ' '}
 ]);
 </script>
 </div>
