@@ -14,7 +14,11 @@
 #include <arpa/inet.h>
 #include <dlfcn.h>
 #include <iptables.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#include <linux/netfilter_ipv4/ipt_DSCP.h>
+#else
 #include <linux/netfilter/xt_DSCP.h>
+#endif
 #include <libiptc/libiptc.h>
 
 #include <linux/version.h>
@@ -965,16 +969,28 @@ static struct ipt_entry_target *
 get_dscp_target(unsigned char dscp)
 {
 	struct ipt_entry_target * target;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+	struct ipt_DSCP_info * di;
+	size_t size;
+
+	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
+	       + IPT_ALIGN(sizeof(struct ipt_DSCP_info));
+#else
 	struct xt_DSCP_info * di;
 	size_t size;
 
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct xt_DSCP_info));
+#endif
 	target = calloc(1, size);
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "DSCP", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+	di = (struct ipt_DSCP_info *)&target->data[0];
+#else
 	di = (struct xt_DSCP_info *)&target->data[0];
+#endif
 	di->dscp=dscp;
 	return target;
 }
