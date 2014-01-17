@@ -22,8 +22,9 @@ var anon_link = '&nbsp;&nbsp;<a href="http://tomato.groov.pl/tomatoanon.php?sear
 function verifyFields(focused, quiet)
 {
 	var o = (E('_tomatoanon_answer').value == '1');
-	E('_tomatoanon_enable').disabled = !o;
+	var s = (E('_tomatoanon_enable').value == '1');
 
+	E('_tomatoanon_enable').disabled = !o;
 	E('_f_tomatoanon_notify').disabled = !o || !s;
 
 	return 1;
