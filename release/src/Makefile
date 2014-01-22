@@ -1131,6 +1131,12 @@ e2500:
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
+n6:
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="TendaN6" USB="USB" TOR=y NOCAT=y DNSCRYPT=y PPTPD=y USBAP=y NO_USBAPP=y
+
+n60:
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="TendaN60" USB="USB" NO_JFFS=y NTFS=y PPTPD=y BTGUI=y MEDIASRV=y USBAP=y
+
 # it`s not possible to flash tomato on this router. Maybe in the future.
 #l600n:
 #	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="L600N" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y
@@ -1293,6 +1299,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "rtn53        Asus RT-N53 with wl_high module (dualband support)"
 	@echo "e2500        Linksys E2500 with wl_high module (dualband support)"
 	@echo "e3200        Linksys E3200 with wl_high module (dualband support)"
+	@echo "n6           Tenda N6 with wl_high module (dualband support)"
+	@echo "n60          Tenda N60 with wl_high module (dualband support)"
 #	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
