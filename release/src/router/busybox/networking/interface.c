@@ -91,7 +91,7 @@ struct in6_ifreq {
 /* Display an Internet socket address. */
 static const char* FAST_FUNC INET_sprint(struct sockaddr *sap, int numeric)
 {
-	static char *buff;
+	static char *buff; /* defaults to NULL */
 
 	free(buff);
 	if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
@@ -395,7 +395,7 @@ static struct interface *add_interface(char *name)
 	}
 
 	new = xzalloc(sizeof(*new));
-	strncpy(new->name, name, IFNAMSIZ);
+	strncpy_IFNAMSIZ(new->name, name);
 	nextp = ife ? &ife->next : &int_list;
 	new->prev = ife;
 	new->next = *nextp;
@@ -614,39 +614,39 @@ static int if_fetch(struct interface *ife)
 
 	skfd = xsocket(AF_INET, SOCK_DGRAM, 0);
 
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0) {
 		close(skfd);
 		return -1;
 	}
 	ife->flags = ifr.ifr_flags;
 
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	memset(ife->hwaddr, 0, 32);
 	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) >= 0)
 		memcpy(ife->hwaddr, ifr.ifr_hwaddr.sa_data, 8);
 
 	ife->type = ifr.ifr_hwaddr.sa_family;
 
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	ife->metric = 0;
 	if (ioctl(skfd, SIOCGIFMETRIC, &ifr) >= 0)
 		ife->metric = ifr.ifr_metric;
 
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	ife->mtu = 0;
 	if (ioctl(skfd, SIOCGIFMTU, &ifr) >= 0)
 		ife->mtu = ifr.ifr_mtu;
 
 	memset(&ife->map, 0, sizeof(struct ifmap));
 #ifdef SIOCGIFMAP
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	if (ioctl(skfd, SIOCGIFMAP, &ifr) == 0)
 		ife->map = ifr.ifr_map;
 #endif
 
 #ifdef HAVE_TXQUEUELEN
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	ife->tx_queue_len = -1;	/* unknown value */
 	if (ioctl(skfd, SIOCGIFTXQLEN, &ifr) >= 0)
 		ife->tx_queue_len = ifr.ifr_qlen;
@@ -654,23 +654,23 @@ static int if_fetch(struct interface *ife)
 	ife->tx_queue_len = -1;	/* unknown value */
 #endif
 
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 	ifr.ifr_addr.sa_family = AF_INET;
 	memset(&ife->addr, 0, sizeof(struct sockaddr));
 	if (ioctl(skfd, SIOCGIFADDR, &ifr) == 0) {
 		ife->has_ip = 1;
 		ife->addr = ifr.ifr_addr;
-		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 		memset(&ife->dstaddr, 0, sizeof(struct sockaddr));
 		if (ioctl(skfd, SIOCGIFDSTADDR, &ifr) >= 0)
 			ife->dstaddr = ifr.ifr_dstaddr;
 
-		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 		memset(&ife->broadaddr, 0, sizeof(struct sockaddr));
 		if (ioctl(skfd, SIOCGIFBRDADDR, &ifr) >= 0)
 			ife->broadaddr = ifr.ifr_broadaddr;
 
-		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
 		memset(&ife->netmask, 0, sizeof(struct sockaddr));
 		if (ioctl(skfd, SIOCGIFNETMASK, &ifr) >= 0)
 			ife->netmask = ifr.ifr_netmask;
@@ -916,63 +916,8 @@ static void print_bytes_scaled(unsigned long long ull, const char *end)
 	printf("X bytes:%llu (%llu.%u %sB)%s", ull, int_part, frac_part, ext, end);
 }
 
-static void ife_print(struct interface *ptr)
-{
-	const struct aftype *ap;
-	const struct hwtype *hw;
-	int hf;
-	int can_compress = 0;
 
 #ifdef HAVE_AFINET6
-	FILE *f;
-	char addr6[40], devname[20];
-	struct sockaddr_in6 sap;
-	int plen, scope, dad_status, if_idx;
-	char addr6p[8][5];
-#endif
-
-	ap = get_afntype(ptr->addr.sa_family);
-	if (ap == NULL)
-		ap = get_afntype(0);
-
-	hf = ptr->type;
-
-	if (hf == ARPHRD_CSLIP || hf == ARPHRD_CSLIP6)
-		can_compress = 1;
-
-	hw = get_hwntype(hf);
-	if (hw == NULL)
-		hw = get_hwntype(-1);
-
-	printf("%-10.10s Link encap:%s  ", ptr->name, hw->title);
-	/* For some hardware types (eg Ash, ATM) we don't print the
-	   hardware address if it's null.  */
-	if (hw->print != NULL && (!(hw_null_address(hw, ptr->hwaddr) &&
-								hw->suppress_null_addr)))
-		printf("HWaddr %s  ", hw->print((unsigned char *)ptr->hwaddr));
-#ifdef IFF_PORTSEL
-	if (ptr->flags & IFF_PORTSEL) {
-		printf("Media:%s", if_port_text[ptr->map.port] /* [0] */);
-		if (ptr->flags & IFF_AUTOMEDIA)
-			printf("(auto)");
-	}
-#endif
-	bb_putchar('\n');
-
-	if (ptr->has_ip) {
-		printf("           %s addr:%s ", ap->name,
-			   ap->sprint(&ptr->addr, 1));
-		if (ptr->flags & IFF_POINTOPOINT) {
-			printf(" P-t-P:%s ", ap->sprint(&ptr->dstaddr, 1));
-		}
-		if (ptr->flags & IFF_BROADCAST) {
-			printf(" Bcast:%s ", ap->sprint(&ptr->broadaddr, 1));
-		}
-		printf(" Mask:%s\n", ap->sprint(&ptr->netmask, 1));
-	}
-
-#ifdef HAVE_AFINET6
-
 #define IPV6_ADDR_ANY           0x0000U
 
 #define IPV6_ADDR_UNICAST       0x0001U
@@ -990,51 +935,117 @@ static void ife_print(struct interface *ptr)
 #define IPV6_ADDR_MAPPED        0x1000U
 #define IPV6_ADDR_RESERVED      0x2000U	/* reserved address space */
 
+
+static void ife_print6(struct interface *ptr)
+{
+
+	FILE *f;
+	char addr6[40], devname[20];
+	struct sockaddr_in6 sap;
+	int plen, scope, dad_status, if_idx;
+	char addr6p[8][5];
+
 	f = fopen_for_read(_PATH_PROCNET_IFINET6);
-	if (f != NULL) {
-		while (fscanf
-			   (f, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
-				addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
-				addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
-				&dad_status, devname) != EOF
-		) {
-			if (!strcmp(devname, ptr->name)) {
-				sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
-						addr6p[0], addr6p[1], addr6p[2], addr6p[3],
-						addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
-				inet_pton(AF_INET6, addr6,
-						  (struct sockaddr *) &sap.sin6_addr);
-				sap.sin6_family = AF_INET6;
-				printf("           inet6 addr: %s/%d",
-					   INET6_sprint((struct sockaddr *) &sap, 1),
-					   plen);
-				printf(" Scope:");
-				switch (scope & IPV6_ADDR_SCOPE_MASK) {
-				case 0:
-					puts("Global");
-					break;
-				case IPV6_ADDR_LINKLOCAL:
-					puts("Link");
-					break;
-				case IPV6_ADDR_SITELOCAL:
-					puts("Site");
-					break;
-				case IPV6_ADDR_COMPATv4:
-					puts("Compat");
-					break;
-				case IPV6_ADDR_LOOPBACK:
-					puts("Host");
-					break;
-				default:
-					puts("Unknown");
-				}
+	if (f == NULL)
+		return;
+
+	while (fscanf
+		   (f, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
+			addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
+			addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
+			&dad_status, devname) != EOF
+	) {
+		if (!strcmp(devname, ptr->name)) {
+			sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
+					addr6p[0], addr6p[1], addr6p[2], addr6p[3],
+					addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
+			inet_pton(AF_INET6, addr6,
+					  (struct sockaddr *) &sap.sin6_addr);
+			sap.sin6_family = AF_INET6;
+			printf("          inet6 addr: %s/%d",
+				   INET6_sprint((struct sockaddr *) &sap, 1),
+				   plen);
+			printf(" Scope:");
+			switch (scope & IPV6_ADDR_SCOPE_MASK) {
+			case 0:
+				puts("Global");
+				break;
+			case IPV6_ADDR_LINKLOCAL:
+				puts("Link");
+				break;
+			case IPV6_ADDR_SITELOCAL:
+				puts("Site");
+				break;
+			case IPV6_ADDR_COMPATv4:
+				puts("Compat");
+				break;
+			case IPV6_ADDR_LOOPBACK:
+				puts("Host");
+				break;
+			default:
+				puts("Unknown");
 			}
 		}
-		fclose(f);
 	}
+	fclose(f);
+}
+#else
+#define ife_print6(a) ((void)0)
 #endif
 
-	printf("           ");
+
+static void ife_print(struct interface *ptr)
+{
+	const struct aftype *ap;
+	const struct hwtype *hw;
+	int hf;
+	int can_compress = 0;
+
+	ap = get_afntype(ptr->addr.sa_family);
+	if (ap == NULL)
+		ap = get_afntype(0);
+
+	hf = ptr->type;
+
+	if (hf == ARPHRD_CSLIP || hf == ARPHRD_CSLIP6)
+		can_compress = 1;
+
+	hw = get_hwntype(hf);
+	if (hw == NULL)
+		hw = get_hwntype(-1);
+
+	printf("%-9.9s Link encap:%s  ", ptr->name, hw->title);
+	/* For some hardware types (eg Ash, ATM) we don't print the
+	   hardware address if it's null.  */
+	if (hw->print != NULL
+	 && !(hw_null_address(hw, ptr->hwaddr) && hw->suppress_null_addr)
+	) {
+		printf("HWaddr %s  ", hw->print((unsigned char *)ptr->hwaddr));
+	}
+#ifdef IFF_PORTSEL
+	if (ptr->flags & IFF_PORTSEL) {
+		printf("Media:%s", if_port_text[ptr->map.port] /* [0] */);
+		if (ptr->flags & IFF_AUTOMEDIA)
+			printf("(auto)");
+	}
+#endif
+	bb_putchar('\n');
+
+	if (ptr->has_ip) {
+		printf("          %s addr:%s ", ap->name,
+			   ap->sprint(&ptr->addr, 1));
+		if (ptr->flags & IFF_POINTOPOINT) {
+			printf(" P-t-P:%s ", ap->sprint(&ptr->dstaddr, 1));
+		}
+		if (ptr->flags & IFF_BROADCAST) {
+			printf(" Bcast:%s ", ap->sprint(&ptr->broadaddr, 1));
+		}
+		printf(" Mask:%s\n", ap->sprint(&ptr->netmask, 1));
+	}
+
+	ife_print6(ptr);
+
+	printf("          ");
 	/* DONT FORGET TO ADD THE FLAGS IN ife_print_short, too */
 
 	if (ptr->flags == 0) {
@@ -1102,34 +1113,34 @@ static void ife_print(struct interface *ptr)
 		 *      not for the aliases, although strictly speaking they're shared
 		 *      by all addresses.
 		 */
-		printf("           ");
+		printf("          ");
 
 		printf("RX packets:%llu errors:%lu dropped:%lu overruns:%lu frame:%lu\n",
 			   ptr->stats.rx_packets, ptr->stats.rx_errors,
 			   ptr->stats.rx_dropped, ptr->stats.rx_fifo_errors,
 			   ptr->stats.rx_frame_errors);
 		if (can_compress)
-			printf("              compressed:%lu\n",
+			printf("             compressed:%lu\n",
 				   ptr->stats.rx_compressed);
-		printf("           ");
+		printf("          ");
 		printf("TX packets:%llu errors:%lu dropped:%lu overruns:%lu carrier:%lu\n",
 			   ptr->stats.tx_packets, ptr->stats.tx_errors,
 			   ptr->stats.tx_dropped, ptr->stats.tx_fifo_errors,
 			   ptr->stats.tx_carrier_errors);
-		printf("           collisions:%lu ", ptr->stats.collisions);
+		printf("          collisions:%lu ", ptr->stats.collisions);
 		if (can_compress)
 			printf("compressed:%lu ", ptr->stats.tx_compressed);
 		if (ptr->tx_queue_len != -1)
 			printf("txqueuelen:%d ", ptr->tx_queue_len);
-		printf("\n           R");
+		printf("\n          R");
 		print_bytes_scaled(ptr->stats.rx_bytes, "  T");
 		print_bytes_scaled(ptr->stats.tx_bytes, "\n");
-
 	}
 
-	if ((ptr->map.irq || ptr->map.mem_start || ptr->map.dma ||
-		 ptr->map.base_addr)) {
-		printf("           ");
+	if (ptr->map.irq || ptr->map.mem_start
+	 || ptr->map.dma || ptr->map.base_addr
+	) {
+		printf("          ");
 		if (ptr->map.irq)
 			printf("Interrupt:%d ", ptr->map.irq);
 		if (ptr->map.base_addr >= 0x100)	/* Only print devices using it for
@@ -1146,7 +1157,6 @@ static void ife_print(struct interface *ptr)
 	}
 	bb_putchar('\n');
 }
-
 
 static int do_if_print(struct interface *ife) /*, int *opt_a)*/
 {

@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Utility routine.
+ * Utility routines.
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
@@ -9,22 +9,70 @@
 
 #include "libbb.h"
 
+/* static const uint8_t ascii64[] =
+ * "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+ */
+
+static int i64c(int i)
+{
+	i &= 0x3f;
+	if (i == 0)
+		return '.';
+	if (i == 1)
+		return '/';
+	if (i < 12)
+		return ('0' - 2 + i);
+	if (i < 38)
+		return ('A' - 12 + i);
+	return ('a' - 38 + i);
+}
+
+int FAST_FUNC crypt_make_salt(char *p, int cnt, int x)
+{
+	x += getpid() + time(NULL);
+	do {
+		/* x = (x*1664525 + 1013904223) % 2^32 generator is lame
+		 * (low-order bit is not "random", etc...),
+		 * but for our purposes it is good enough */
+		x = x*1664525 + 1013904223;
+		/* BTW, Park and Miller's "minimal standard generator" is
+		 * x = x*16807 % ((2^31)-1)
+		 * It has no problem with visibly alternating lowest bit
+		 * but is also weak in cryptographic sense + needs div,
+		 * which needs more code (and slower) on many CPUs */
+		*p++ = i64c(x >> 16);
+		*p++ = i64c(x >> 22);
+	} while (--cnt);
+	*p = '\0';
+	return x;
+}
+
 #if ENABLE_USE_BB_CRYPT
+
+static char*
+to64(char *s, unsigned v, int n)
+{
+	while (--n >= 0) {
+		/* *s++ = ascii64[v & 0x3f]; */
+		*s++ = i64c(v);
+		v >>= 6;
+	}
+	return s;
+}
 
 /*
  * DES and MD5 crypt implementations are taken from uclibc.
  * They were modified to not use static buffers.
  */
-/* Common for them */
-static const uint8_t ascii64[] = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
 #include "pw_encrypt_des.c"
 #include "pw_encrypt_md5.c"
+#if ENABLE_USE_BB_CRYPT_SHA
+#include "pw_encrypt_sha.c"
+#endif
 
-/* Other advanced crypt ids: */
+/* Other advanced crypt ids (TODO?): */
 /* $2$ or $2a$: Blowfish */
-/* $5$: SHA-256 */
-/* $6$: SHA-512 */
-/* TODO: implement SHA - http://people.redhat.com/drepper/SHA-crypt.txt */
 
 static struct const_des_ctx *des_cctx;
 static struct des_ctx *des_ctx;
@@ -32,18 +80,20 @@ static struct des_ctx *des_ctx;
 /* my_crypt returns malloc'ed data */
 static char *my_crypt(const char *key, const char *salt)
 {
-	/* First, check if we are supposed to be using the MD5 replacement
-	 * instead of DES...  */
-	if (salt[0] == '$' && salt[1] == '1' && salt[2] == '$') {
-		return md5_crypt(xzalloc(MD5_OUT_BUFSIZE), (unsigned char*)key, (unsigned char*)salt);
+	/* MD5 or SHA? */
+	if (salt[0] == '$' && salt[1] && salt[2] == '$') {
+		if (salt[1] == '1')
+			return md5_crypt(xzalloc(MD5_OUT_BUFSIZE), (unsigned char*)key, (unsigned char*)salt);
+#if ENABLE_USE_BB_CRYPT_SHA
+		if (salt[1] == '5' || salt[1] == '6')
+			return sha_crypt((char*)key, (char*)salt);
+#endif
 	}
 
-	{
-		if (!des_cctx)
-			des_cctx = const_des_init();
-		des_ctx = des_init(des_ctx, des_cctx);
-		return des_crypt(des_ctx, xzalloc(DES_OUT_BUFSIZE), (unsigned char*)key, (unsigned char*)salt);
-	}
+	if (!des_cctx)
+		des_cctx = const_des_init();
+	des_ctx = des_init(des_ctx, des_cctx);
+	return des_crypt(des_ctx, xzalloc(DES_OUT_BUFSIZE), (unsigned char*)key, (unsigned char*)salt);
 }
 
 /* So far nobody wants to have it public */

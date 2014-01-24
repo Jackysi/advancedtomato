@@ -218,6 +218,7 @@ static void parse_module(module_info *info, const char *pathname)
 	bksp(); /* remove last ' ' */
 	appendc('\0');
 	info->aliases = copy_stringbuf();
+	replace(info->aliases, '-', '_');
 
 	/* "dependency1 depandency2" */
 	reset_stringbuf();
@@ -656,7 +657,7 @@ depmod -[aA] [-n -e -v -q -V -r -u]
       [-b basedirectory] [forced_version]
 depmod [-n -e -v -q -r -u] [-F kernelsyms] module1.ko module2.ko ...
 If no arguments (except options) are given, "depmod -a" is assumed.
-depmod will output a dependancy list suitable for the modprobe utility.
+depmod will output a dependency list suitable for the modprobe utility.
 Options:
     -a, --all           Probe all modules
     -A, --quick         Only does the work if there's a new module
@@ -776,7 +777,7 @@ int modprobe_main(int argc UNUSED_PARAM, char **argv)
 			USE_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(options ? options : "")
 			SKIP_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE("")
 				) != 0)
-			bb_error_msg_and_die("cannot insert '%s': %s",
+			bb_error_msg_and_die("can't insert '%s': %s",
 					*argv, moderror(errno));
 		return 0;
 	}

@@ -172,11 +172,11 @@ int xll_name_to_index(const char *const name)
 #endif
 
 	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock_fd) {
+	if (sock_fd >= 0) {
 		struct ifreq ifr;
 		int tmp;
 
-		strncpy(ifr.ifr_name, name, IFNAMSIZ);
+		strncpy_IFNAMSIZ(ifr.ifr_name, name);
 		ifr.ifr_ifindex = -1;
 		tmp = ioctl(sock_fd, SIOCGIFINDEX, &ifr);
 		close(sock_fd);

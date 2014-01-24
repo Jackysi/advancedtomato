@@ -12,9 +12,7 @@
 
 #include "libbb.h"
 
-#ifndef CRONTABS
-#define CRONTABS        "/var/spool/cron/crontabs"
-#endif
+#define CRONTABS        CONFIG_FEATURE_CROND_DIR "/crontabs"
 #ifndef CRONUPDATE
 #define CRONUPDATE      "cron.update"
 #endif
@@ -126,15 +124,9 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	if (opt_ler & OPT_u) {
-		pas = getpwnam(user_name);
-		if (!pas)
-			bb_error_msg_and_die("user %s is not known", user_name);
+		pas = xgetpwnam(user_name);
 	} else {
-/* XXX: xgetpwuid */
-		uid_t my_uid = getuid();
-		pas = getpwuid(my_uid);
-		if (!pas)
-			bb_perror_msg_and_die("unknown uid %d", (int)my_uid);
+		pas = xgetpwuid(getuid());
 	}
 
 #define user_name DONT_USE_ME_BEYOND_THIS_POINT

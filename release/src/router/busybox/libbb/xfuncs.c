@@ -40,6 +40,14 @@ int FAST_FUNC close_on_exec_on(int fd)
 	return fcntl(fd, F_SETFD, FD_CLOEXEC);
 }
 
+char* FAST_FUNC strncpy_IFNAMSIZ(char *dst, const char *src)
+{
+#ifndef IFNAMSIZ
+	enum { IFNAMSIZ = 16 };
+#endif
+	return strncpy(dst, src, IFNAMSIZ);
+}
+
 /* Convert unsigned long long value into compact 4-char
  * representation. Examples: "1234", "1.2k", " 27M", "123T"
  * String is not terminated (buf[4] is untouched) */
@@ -259,6 +267,17 @@ off_t FAST_FUNC fdlength(int fd)
 	return pos + 1;
 }
 #endif
+
+char* FAST_FUNC xmalloc_ttyname(int fd)
+{
+	char *buf = xzalloc(128);
+	int r = ttyname_r(fd, buf, 127);
+	if (r) {
+		free(buf);
+		buf = NULL;
+	}
+	return buf;
+}
 
 /* It is perfectly ok to pass in a NULL for either width or for
  * height, in which case that value will not be set.  */

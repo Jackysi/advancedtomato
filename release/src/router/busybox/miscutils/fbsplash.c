@@ -1,7 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Copyright (C) 2008 Michele Sanges <michele.sanges@otomelara.it>,
- * <michele.sanges@gmail.it>
+ * Copyright (C) 2008 Michele Sanges <michele.sanges@gmail.com>
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
@@ -88,7 +87,7 @@ static void fb_open(const char *strfb_device)
 			* BYTES_PER_PIXEL /*(G.scr_var.bits_per_pixel / 8)*/ ,
 			PROT_WRITE, MAP_SHARED, fbfd, 0);
 	if (G.addr == MAP_FAILED)
-		bb_perror_msg_and_die("can't mmap %s", strfb_device);
+		bb_perror_msg_and_die("mmap");
 	close(fbfd);
 }
 
@@ -122,7 +121,7 @@ static void fb_drawrectangle(void)
 	// vertical lines
 	ptr1 = (DATA*)(G.addr + (G.nbar_posy * G.scr_var.xres + G.nbar_posx) * BYTES_PER_PIXEL);
 	ptr2 = (DATA*)(G.addr + (G.nbar_posy * G.scr_var.xres + G.nbar_posx + G.nbar_width - 1) * BYTES_PER_PIXEL);
-	cnt = G.nbar_posy + G.nbar_height - 1 - G.nbar_posy;
+	cnt = G.nbar_height - 1 /* HUH?!  G.nbar_posy + G.nbar_height - 1 - G.nbar_posy*/;
 	do {
 		*ptr1 = thispix; ptr1 += G.scr_var.xres;
 		*ptr2 = thispix; ptr2 += G.scr_var.xres;
@@ -217,36 +216,50 @@ static void fb_drawprogressbar(unsigned percent)
  */
 static void fb_drawimage(void)
 {
-	char head[256];
-	char s[80];
+	char *head, *ptr;
 	FILE *theme_file;
 	unsigned char *pixline;
 	unsigned i, j, width, height, line_size;
 
-	memset(head, 0, sizeof(head));
 	theme_file = xfopen_stdin(G.image_filename);
+	head = xmalloc(256);
 
-	// parse ppm header
+	/* parse ppm header
+	 * - A ppm image’s magic number is the two characters "P6".
+	 * - Whitespace (blanks, TABs, CRs, LFs).
+	 * - A width, formatted as ASCII characters in decimal.
+	 * - Whitespace.
+	 * - A height, again in ASCII decimal.
+	 * - Whitespace.
+	 * - The maximum color value (Maxval), again in ASCII decimal. Must be
+	 *   less than 65536.
+	 * - Newline or other single whitespace character.
+	 * - A raster of Width * Height pixels in triplets of rgb
+	 *   in pure binary by 1 (or not implemented 2) bytes.
+	 */
 	while (1) {
-		if (fgets(s, sizeof(s), theme_file) == NULL)
+		if (fgets(head, 256, theme_file) == NULL
+			/* do not overrun the buffer */
+			|| strlen(bb_common_bufsiz1) >= sizeof(bb_common_bufsiz1) - 256)
 			bb_error_msg_and_die("bad PPM file '%s'", G.image_filename);
 
-		if (s[0] == '#')
-			continue;
-
-		if (strlen(head) + strlen(s) >= sizeof(head))
-			bb_error_msg_and_die("bad PPM file '%s'", G.image_filename);
-
-		strcat(head, s);
-		if (head[0] != 'P' || head[1] != '6')
-			bb_error_msg_and_die("bad PPM file '%s'", G.image_filename);
-
+		ptr = memchr(skip_whitespace(head), '#', 256);
+		if (ptr != NULL)
+			*ptr = 0; /* ignore comments */
+		strcat(bb_common_bufsiz1, head);
 		// width, height, max_color_val
-		if (sscanf(head, "P6 %u %u %u", &width, &height, &i) == 3)
+		if (sscanf(bb_common_bufsiz1, "P6 %u %u %u", &width, &height, &i) == 3
+			&& i <= 255)
 			break;
-// TODO: i must be <= 255!
+		/* If we do not find a signature throughout the whole file then
+		   we will diagnose this via EOF on read in the head of the loop.  */
 	}
 
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(head);
+	if (width != G.scr_var.xres || height != G.scr_var.yres)
+		bb_error_msg_and_die("PPM %dx%d does not match screen %dx%d",
+							 width, height, G.scr_var.xres, G.scr_var.yres);
 	line_size = width*3;
 	if (width > G.scr_var.xres)
 		width = G.scr_var.xres;
@@ -269,7 +282,8 @@ static void fb_drawimage(void)
 			pixel += 3;
 		}
 	}
-	free(pixline);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(pixline);
 	fclose(theme_file);
 }
 
@@ -295,7 +309,7 @@ static void init(const char *cfg_filename)
 		unsigned val = xatoi_u(token[1]);
 		int i = index_in_strings(param_names, token[0]);
 		if (i < 0)
-			bb_error_msg_and_die("syntax error: '%s'", token[0]);
+			bb_error_msg_and_die("syntax error: %s", token[0]);
 		if (i >= 0 && i < 7)
 			G.ns[i] = val;
 #if DEBUG

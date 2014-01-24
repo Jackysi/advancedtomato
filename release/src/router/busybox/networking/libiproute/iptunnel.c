@@ -75,7 +75,7 @@ static int do_ioctl_get_ifindex(char *dev)
 	struct ifreq ifr;
 	int fd;
 
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	fd = xsocket(AF_INET, SOCK_DGRAM, 0);
 	xioctl(fd, SIOCGIFINDEX, &ifr);
 	close(fd);
@@ -88,7 +88,7 @@ static int do_ioctl_get_iftype(char *dev)
 	int fd;
 	int err;
 
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	fd = xsocket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl_or_warn(fd, SIOCGIFHWADDR, &ifr);
 	close(fd);
@@ -114,7 +114,7 @@ static int do_get_ioctl(const char *basedev, struct ip_tunnel_parm *p)
 	int fd;
 	int err;
 
-	strncpy(ifr.ifr_name, basedev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, basedev);
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = xsocket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl_or_warn(fd, SIOCGETTUNNEL, &ifr);
@@ -129,9 +129,9 @@ static int do_add_ioctl(int cmd, const char *basedev, struct ip_tunnel_parm *p)
 	int fd;
 
 	if (cmd == SIOCCHGTUNNEL && p->name[0]) {
-		strncpy(ifr.ifr_name, p->name, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, p->name);
 	} else {
-		strncpy(ifr.ifr_name, basedev, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, basedev);
 	}
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = xsocket(AF_INET, SOCK_DGRAM, 0);
@@ -155,9 +155,9 @@ static int do_del_ioctl(const char *basedev, struct ip_tunnel_parm *p)
 	int fd;
 
 	if (p->name[0]) {
-		strncpy(ifr.ifr_name, p->name, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, p->name);
 	} else {
-		strncpy(ifr.ifr_name, basedev, sizeof(ifr.ifr_name));
+		strncpy_IFNAMSIZ(ifr.ifr_name, basedev);
 	}
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = xsocket(AF_INET, SOCK_DGRAM, 0);
@@ -189,7 +189,7 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 	int key;
 
 	memset(p, 0, sizeof(*p));
-	memset(&medium, 0, sizeof(medium));
+	medium[0] = '\0';
 
 	p->iph.version = 4;
 	p->iph.ihl = 5;
@@ -232,9 +232,7 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 			if (strchr(*argv, '.'))
 				p->i_key = p->o_key = get_addr32(*argv);
 			else {
-				if (get_unsigned(&uval, *argv, 0) < 0) {
-					invarg(*argv, "key");
-				}
+				uval = get_unsigned(*argv, "key");
 				p->i_key = p->o_key = htonl(uval);
 			}
 		} else if (key == ARG_ikey) {
@@ -244,9 +242,7 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 			if (strchr(*argv, '.'))
 				p->o_key = get_addr32(*argv);
 			else {
-				if (get_unsigned(&uval, *argv, 0) < 0) {
-					invarg(*argv, "ikey");
-				}
+				uval = get_unsigned(*argv, "ikey");
 				p->i_key = htonl(uval);
 			}
 		} else if (key == ARG_okey) {
@@ -256,9 +252,7 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 			if (strchr(*argv, '.'))
 				p->o_key = get_addr32(*argv);
 			else {
-				if (get_unsigned(&uval, *argv, 0) < 0) {
-					invarg(*argv, "okey");
-				}
+				uval = get_unsigned(*argv, "okey");
 				p->o_key = htonl(uval);
 			}
 		} else if (key == ARG_seq) {
@@ -291,14 +285,13 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 				p->iph.saddr = get_addr32(*argv);
 		} else if (key == ARG_dev) {
 			NEXT_ARG();
-			strncpy(medium, *argv, IFNAMSIZ-1);
+			strncpy_IFNAMSIZ(medium, *argv);
 		} else if (key == ARG_ttl) {
 			unsigned uval;
 			NEXT_ARG();
 			key = index_in_strings(keywords, *argv);
 			if (key != ARG_inherit) {
-				if (get_unsigned(&uval, *argv, 0))
-					invarg(*argv, "TTL");
+				uval = get_unsigned(*argv, "TTL");
 				if (uval > 255)
 					invarg(*argv, "TTL must be <=255");
 				p->iph.ttl = uval;
@@ -320,7 +313,7 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 			}
 			if (p->name[0])
 				duparg2("name", *argv);
-			strncpy(p->name, *argv, IFNAMSIZ);
+			strncpy_IFNAMSIZ(p->name, *argv);
 			if (cmd == SIOCCHGTUNNEL && count == 0) {
 				struct ip_tunnel_parm old_p;
 				memset(&old_p, 0, sizeof(old_p));
@@ -364,7 +357,6 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 		bb_error_msg_and_die("broadcast tunnel requires a source address");
 	}
 }
-
 
 /* Return value becomes exitcode. It's okay to not return at all */
 static int do_add(int cmd, char **argv)

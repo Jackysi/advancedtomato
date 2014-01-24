@@ -1,12 +1,9 @@
 /* vi: set sw=4 ts=4: */
 /* dhcpd.h */
+#ifndef UDHCP_DHCPD_H
+#define UDHCP_DHCPD_H 1
 
-#ifndef _DHCPD_H
-#define _DHCPD_H
-
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility push(hidden)
-#endif
+PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
 /************************************/
 /* Defaults _you_ may want to tweak */
@@ -26,8 +23,8 @@ struct option_set {
 
 struct static_lease {
 	struct static_lease *next;
-	uint8_t *mac;
-	uint32_t *ip;
+	uint32_t ip;
+	uint8_t mac[6];
 };
 
 struct server_config_t {
@@ -42,8 +39,11 @@ struct server_config_t {
 	char *interface;                /* The name of the interface to use */
 	int ifindex;                    /* Index number of the interface to use */
 	uint8_t arp[6];                 /* Our arp address */
-	char remaining;                 /* should the lease file be interpreted as lease time remaining, or
-	                                 * as the time the lease expires */
+// disabled: dumpleases has no way of knowing this value,
+// and will break if it's off. Now it's on always.
+//	char remaining;                 /* Should the lease time in lease file
+//	                                 * be written as lease time remaining, or
+//	                                 * as the absolute time the lease expires */
 	uint32_t lease;	                /* lease time in seconds (host order) */
 	uint32_t max_leases;            /* maximum number of leases (including reserved address) */
 	uint32_t auto_time;             /* how long should udhcpd wait before writing a config file.
@@ -52,11 +52,11 @@ struct server_config_t {
 	                                 * decline message */
 	uint32_t conflict_time;         /* how long an arp conflict offender is leased for */
 	uint32_t offer_time;            /* how long an offered address is reserved */
-	uint32_t min_lease;             /* minimum lease a client can request */
+	uint32_t min_lease;             /* minimum lease time a client can request */
+	uint32_t siaddr;                /* next server bootp option */
 	char *lease_file;
 	char *pidfile;
 	char *notify_file;              /* What to run whenever leases are written */
-	uint32_t siaddr;                /* next server bootp option */
 	char *sname;                    /* bootp server name */
 	char *boot_file;                /* bootp boot file option */
 	struct static_lease *static_leases; /* List of ip/mac pairs to assign static leases */
@@ -71,33 +71,46 @@ struct server_config_t {
 #define SERVER_PORT 67
 #endif
 
-extern struct dhcpOfferedAddr *leases;
-
 
 /*** leases.h ***/
 
+typedef uint32_t leasetime_t;
+typedef int32_t signed_leasetime_t;
+
 struct dhcpOfferedAddr {
 	uint8_t chaddr[16];
-	uint32_t yiaddr;	/* network order */
-	uint32_t expires;	/* host order */
+	/* In network order */
+	uint32_t yiaddr;
+	/* Unix time when lease expires, regardless of value of
+	 * server_config.remaining. Kept in memory in host order.
+	 * When written to file, converted to network order
+	 * and optionally adjusted (current time subtracted)
+	 * if server_config.remaining = 1 */
+	leasetime_t expires;
+	uint8_t hostname[20]; /* (size is a multiply of 4) */
 };
 
-struct dhcpOfferedAddr *add_lease(const uint8_t *chaddr, uint32_t yiaddr, unsigned long lease) FAST_FUNC;
+extern struct dhcpOfferedAddr *leases;
+
+struct dhcpOfferedAddr *add_lease(
+		const uint8_t *chaddr, uint32_t yiaddr,
+		leasetime_t leasetime, uint8_t *hostname
+		) FAST_FUNC;
 int lease_expired(struct dhcpOfferedAddr *lease) FAST_FUNC;
 struct dhcpOfferedAddr *find_lease_by_chaddr(const uint8_t *chaddr) FAST_FUNC;
 struct dhcpOfferedAddr *find_lease_by_yiaddr(uint32_t yiaddr) FAST_FUNC;
-uint32_t find_address(int check_expired) FAST_FUNC;
+uint32_t find_free_or_expired_address(void) FAST_FUNC;
 
 
 /*** static_leases.h ***/
 
 /* Config file will pass static lease info to this function which will add it
  * to a data structure that can be searched later */
-int addStaticLease(struct static_lease **lease_struct, uint8_t *mac, uint32_t *ip) FAST_FUNC;
+void addStaticLease(struct static_lease **lease_struct, uint8_t *mac, uint32_t ip) FAST_FUNC;
 /* Check to see if a mac has an associated static lease */
 uint32_t getIpByMac(struct static_lease *lease_struct, void *arg) FAST_FUNC;
 /* Check to see if an ip is reserved as a static ip */
-uint32_t reservedIp(struct static_lease *lease_struct, uint32_t ip) FAST_FUNC;
+int reservedIp(struct static_lease *lease_struct, uint32_t ip) FAST_FUNC;
 /* Print out static leases just to check what's going on (debug code) */
 void printStaticLeases(struct static_lease **lease_struct) FAST_FUNC;
 
@@ -118,8 +131,6 @@ void read_leases(const char *file) FAST_FUNC;
 struct option_set *find_option(struct option_set *opt_list, uint8_t code) FAST_FUNC;
 
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility pop
-#endif
+POP_SAVED_FUNCTION_VISIBILITY
 
 #endif

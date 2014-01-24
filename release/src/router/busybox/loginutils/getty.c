@@ -28,7 +28,6 @@
  */
 #ifdef LOGIN_PROCESS                    /* defined in System V utmp.h */
 #include <sys/utsname.h>
-#include <time.h>
 #else /* if !sysV style, wtmp/utmp code is off */
 #undef ENABLE_FEATURE_UTMP
 #undef ENABLE_FEATURE_WTMP
@@ -164,8 +163,9 @@ static void parse_speeds(struct options *op, char *arg)
 	debug("entered parse_speeds\n");
 	while ((cp = strsep(&arg, ",")) != NULL) {
 		op->speeds[op->numspeed] = bcode(cp);
-		if (op->speeds[op->numspeed] <= 0)
+		if (op->speeds[op->numspeed] < 0)
 			bb_error_msg_and_die("bad speed: %s", cp);
+		/* note: arg "0" turns into speed B0 */
 		op->numspeed++;
 		if (op->numspeed > MAX_SPEED)
 			bb_error_msg_and_die("too many alternate speeds");
@@ -271,6 +271,7 @@ static void open_tty(const char *tty)
 /* termios_init - initialize termios settings */
 static void termios_init(struct termios *tp, int speed, struct options *op)
 {
+	speed_t ispeed, ospeed;
 	/*
 	 * Initial termios settings: 8-bit characters, raw-mode, blocking i/o.
 	 * Special characters are set after we have read the login name; all
@@ -281,10 +282,18 @@ static void termios_init(struct termios *tp, int speed, struct options *op)
 	/* flush input and output queues, important for modems! */
 	ioctl(0, TCFLSH, TCIOFLUSH); /* tcflush(0, TCIOFLUSH)? - same */
 #endif
-
-	tp->c_cflag = CS8 | HUPCL | CREAD | speed;
+	ispeed = ospeed = speed;
+	if (speed == B0) {
+		/* Speed was specified as "0" on command line.
+		 * Just leave it unchanged */
+		ispeed = cfgetispeed(tp);
+		ospeed = cfgetospeed(tp);
+	}
+	tp->c_cflag = CS8 | HUPCL | CREAD;
 	if (op->flags & F_LOCAL)
 		tp->c_cflag |= CLOCAL;
+	cfsetispeed(tp, ispeed);
+	cfsetospeed(tp, ospeed);
 
 	tp->c_iflag = tp->c_lflag = tp->c_line = 0;
 	tp->c_oflag = OPOST | ONLCR;
@@ -474,7 +483,7 @@ static char *get_logname(char *logname, unsigned size_logname,
 			case CTL('D'):
 				exit(EXIT_SUCCESS);
 			default:
-				if (!isascii(ascval) || !isprint(ascval)) {
+				if (!isprint(ascval)) {
 					/* ignore garbage characters */
 				} else if ((int)(bp - logname) >= size_logname - 1) {
 					bb_error_msg_and_die("%s: input overrun", op->tty);
@@ -714,6 +723,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	/* Write the modem init string and DON'T flush the buffers */
 	if (options.flags & F_INITSTRING) {
 		debug("writing init string\n");
+		/* todo: use xwrite_str? */
 		full_write(STDOUT_FILENO, options.initstring, strlen(options.initstring));
 	}
 
@@ -753,8 +763,8 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 				break;
 			/* we are here only if options.numspeed > 1 */
 			baud_index = (baud_index + 1) % options.numspeed;
-			termios.c_cflag &= ~CBAUD;
-			termios.c_cflag |= options.speeds[baud_index];
+			cfsetispeed(&termios, options.speeds[baud_index]);
+			cfsetospeed(&termios, options.speeds[baud_index]);
 			tcsetattr_stdin_TCSANOW(&termios);
 		}
 	}

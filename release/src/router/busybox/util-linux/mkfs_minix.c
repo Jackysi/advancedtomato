@@ -2,8 +2,9 @@
 /*
  * mkfs.c - make a linux (minix) file-system.
  *
- * (C) 1991 Linus Torvalds. This file may be redistributed as per
- * the Linux copyright.
+ * (C) 1991 Linus Torvalds.
+ *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 /*
@@ -160,7 +161,7 @@ static ALWAYS_INLINE unsigned div_roundup(unsigned size, unsigned n)
 
 static int minix_bit(const char* a, unsigned i)
 {
-	  return a[i >> 3] & (1<<(i & 7));
+	return a[i >> 3] & (1<<(i & 7));
 }
 
 static void minix_setbit(char *a, unsigned i)
@@ -623,7 +624,6 @@ static void setup_tables(void)
 int mkfs_minix_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int mkfs_minix_main(int argc UNUSED_PARAM, char **argv)
 {
-	struct mntent *mp;
 	unsigned opt;
 	char *tmp;
 	struct stat statbuf;
@@ -682,11 +682,8 @@ int mkfs_minix_main(int argc UNUSED_PARAM, char **argv)
 		G.total_blocks = 65535;
 
 	/* Check if it is mounted */
-	mp = find_mount_point(G.device_name, NULL);
-	if (mp && strcmp(G.device_name, mp->mnt_fsname) == 0)
-		bb_error_msg_and_die("%s is mounted on %s; "
-				"refusing to make a filesystem",
-				G.device_name, mp->mnt_dir);
+	if (find_mount_point(G.device_name))
+		bb_error_msg_and_die("can't format mounted filesystem");
 
 	xmove_fd(xopen(G.device_name, O_RDWR), dev_fd);
 	if (fstat(dev_fd, &statbuf) < 0)

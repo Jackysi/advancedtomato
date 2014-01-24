@@ -208,6 +208,10 @@ void FAST_FUNC xwrite(int fd, const void *buf, size_t count)
 			bb_error_msg_and_die("short write");
 	}
 }
+void FAST_FUNC xwrite_str(int fd, const char *str)
+{
+	xwrite(fd, str, strlen(str));
+}
 
 // Die with an error message if we can't lseek to the right spot.
 off_t FAST_FUNC xlseek(int fd, off_t offset, int whence)
@@ -333,6 +337,29 @@ void FAST_FUNC xsetenv(const char *key, const char *value)
 		bb_error_msg_and_die(bb_msg_memory_exhausted);
 }
 
+/* Handles "VAR=VAL" strings, even those which are part of environ
+ * _right now_
+ */
+void FAST_FUNC bb_unsetenv(const char *var)
+{
+	char *tp = strchr(var, '=');
+
+	if (!tp) {
+		unsetenv(var);
+		return;
+	}
+
+	/* In case var was putenv'ed, we can't replace '='
+	 * with NUL and unsetenv(var) - it won't work,
+	 * env is modified by the replacement, unsetenv
+	 * sees "VAR" instead of "VAR=VAL" and does not remove it!
+	 * horror :( */
+	tp = xstrndup(var, tp - var);
+	unsetenv(tp);
+	free(tp);
+}
+
+
 // Die with an error message if we can't set gid.  (Because resource limits may
 // limit this user to a given number of processes, and if that fills up the
 // setgid() will fail and we'll _still_be_root_, which is bad.)
@@ -417,7 +444,7 @@ void FAST_FUNC xlisten(int s, int backlog)
 
 /* Die with an error message if sendto failed.
  * Return bytes sent otherwise  */
-ssize_t FAST_FUNC xsendto(int s, const  void *buf, size_t len, const struct sockaddr *to,
+ssize_t FAST_FUNC xsendto(int s, const void *buf, size_t len, const struct sockaddr *to,
 				socklen_t tolen)
 {
 	ssize_t ret = sendto(s, buf, len, 0, to, tolen);

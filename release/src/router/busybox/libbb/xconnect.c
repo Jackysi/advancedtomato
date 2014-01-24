@@ -4,6 +4,7 @@
  *
  * Connect to host at port using address resolution from getaddrinfo
  *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 #include <netinet/in.h>
@@ -22,8 +23,10 @@ int FAST_FUNC setsockopt_bindtodevice(int fd, const char *iface)
 {
 	int r;
 	struct ifreq ifr;
-	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
-	/* Actually, ifr_name is at offset 0, and in practice
+	strncpy_IFNAMSIZ(ifr.ifr_name, iface);
+	/* NB: passing (iface, strlen(iface) + 1) does not work!
+	 * (maybe it works on _some_ kernels, but not on 2.6.26)
+	 * Actually, ifr_name is at offset 0, and in practice
 	 * just giving char[IFNAMSIZ] instead of struct ifreq works too.
 	 * But just in case it's not true on some obscure arch... */
 	r = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
@@ -32,6 +35,19 @@ int FAST_FUNC setsockopt_bindtodevice(int fd, const char *iface)
 	return r;
 }
 
+len_and_sockaddr* FAST_FUNC get_sock_lsa(int fd)
+{
+	len_and_sockaddr *lsa;
+	socklen_t len = 0;
+
+	/* Can be optimized to do only one getsockname() */
+	if (getsockname(fd, NULL, &len) != 0)
+		return NULL;
+	lsa = xzalloc(LSA_LEN_SIZE + len);
+	lsa->len = len;
+	getsockname(fd, &lsa->u.sa, &lsa->len);
+	return lsa;
+}
 
 void FAST_FUNC xconnect(int s, const struct sockaddr *s_addr, socklen_t addrlen)
 {
@@ -48,8 +64,9 @@ void FAST_FUNC xconnect(int s, const struct sockaddr *s_addr, socklen_t addrlen)
 
 /* Return port number for a service.
  * If "port" is a number use it as the port.
- * If "port" is a name it is looked up in /etc/services, if it isnt found return
- * default_port */
+ * If "port" is a name it is looked up in /etc/services,
+ * if it isnt found return default_port
+ */
 unsigned FAST_FUNC bb_lookup_port(const char *port, const char *protocol, unsigned default_port)
 {
 	unsigned port_nr = default_port;
@@ -150,7 +167,8 @@ USE_FEATURE_IPV6(sa_family_t af,)
 		/* Even uglier parsing of [xx]:nn */
 		host++;
 		cp = strchr(host, ']');
-		if (!cp || cp[1] != ':') { /* Malformed: must have [xx]:nn */
+		if (!cp || (cp[1] != ':' && cp[1] != '\0')) {
+			/* Malformed: must be [xx]:nn or [xx] */
 			bb_error_msg("bad address '%s'", org_host);
 			if (ai_flags & DIE_ON_ERROR)
 				xfunc_die();
@@ -166,8 +184,11 @@ USE_FEATURE_IPV6(sa_family_t af,)
 	if (cp) { /* points to ":" or "]:" */
 		int sz = cp - host + 1;
 		host = safe_strncpy(alloca(sz), host, sz);
-		if (ENABLE_FEATURE_IPV6 && *cp != ':')
+		if (ENABLE_FEATURE_IPV6 && *cp != ':') {
 			cp++; /* skip ']' */
+			if (*cp == '\0') /* [xx] without port */
+				goto skip;
+		}
 		cp++; /* skip ':' */
 		port = bb_strtou(cp, NULL, 10);
 		if (errno || (unsigned)port > 0xffff) {
@@ -176,6 +197,7 @@ USE_FEATURE_IPV6(sa_family_t af,)
 				xfunc_die();
 			return NULL;
 		}
+ skip: ;
 	}
 
 	memset(&hint, 0 , sizeof(hint));

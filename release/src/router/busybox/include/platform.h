@@ -4,8 +4,8 @@
 
    Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
 */
-#ifndef	__PLATFORM_H
-#define __PLATFORM_H	1
+#ifndef	BB_PLATFORM_H
+#define BB_PLATFORM_H 1
 
 /* Convenience macros to test the version of gcc. */
 #undef __GNUC_PREREQ
@@ -78,7 +78,7 @@
 //__attribute__ ((__externally_visible__))
 #else
 # define EXTERNALLY_VISIBLE
-#endif /* GNUC >= 4.1 */
+#endif
 
 /* We use __extension__ in some places to suppress -pedantic warnings
    about GCC extensions.  This feature didn't work properly before
@@ -108,6 +108,16 @@
 /* #elif ... - add your favorite arch today! */
 #else
 # define FAST_FUNC
+#endif
+
+/* Make all declarations hidden (-fvisibility flag only affects definitions) */
+/* (don't include system headers after this until corresponding pop!) */
+#if __GNUC_PREREQ(4,1)
+# define PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN _Pragma("GCC visibility push(hidden)")
+# define POP_SAVED_FUNCTION_VISIBILITY              _Pragma("GCC visibility pop")
+#else
+# define PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
+# define POP_SAVED_FUNCTION_VISIBILITY
 #endif
 
 /* ---- Endian Detection ------------------------------------ */
@@ -151,13 +161,22 @@
 
 /* ---- Unaligned access ------------------------------------ */
 
-/* parameter is supposed to be an uint32_t* ptr */
+/* NB: unaligned parameter should be a pointer, aligned one -
+ * a lvalue. This makes it more likely to not swap them by mistake
+ */
 #if defined(i386) || defined(__x86_64__)
-#define get_unaligned_u32p(u32p) (*(u32p))
+#define move_from_unaligned16(v, u16p) ((v) = *(uint16_t*)(u16p))
+#define move_from_unaligned32(v, u32p) ((v) = *(uint32_t*)(u32p))
+#define move_to_unaligned32(u32p, v)   (*(uint32_t*)(u32p) = (v))
 /* #elif ... - add your favorite arch today! */
 #else
 /* performs reasonably well (gcc usually inlines memcpy here) */
-#define get_unaligned_u32p(u32p) ({ uint32_t __t; memcpy(&__t, (u32p), 4); __t; })
+#define move_from_unaligned16(v, u16p) (memcpy(&(v), (u16p), 2))
+#define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+#define move_to_unaligned32(u32p, v) do { \
+	uint32_t __t = (v); \
+	memcpy((u32p), &__t, 4); \
+} while (0)
 #endif
 
 /* ---- Networking ------------------------------------------ */
@@ -185,7 +204,7 @@ typedef int socklen_t;
  * until userspace is widely fixed.  */
 #if (defined __INTEL_COMPILER && !defined __GNUC__) || \
 	(defined __GNUC__ && defined __STRICT_ANSI__)
-__extension__ typedef __signed__ long long __s64;
+__extension__ typedef long long __s64;
 __extension__ typedef unsigned long long __u64;
 #endif
 
@@ -296,30 +315,32 @@ static ALWAYS_INLINE char* strchrnul(const char *s, char c)
 #endif
 
 #if (defined __digital__ && defined __unix__)
-#include <standards.h>
-#define HAVE_STANDARDS_H
-#include <inttypes.h>
-#define HAVE_INTTYPES_H
-#define PRIu32 "u"
 
+# include <standards.h>
+# define HAVE_STANDARDS_H
+# include <inttypes.h>
+# define HAVE_INTTYPES_H
+# define PRIu32 "u"
 /* use legacy setpgrp(pid_t,pid_t) for now.  move to platform.c */
-#define bb_setpgrp() do { pid_t __me = getpid(); setpgrp(__me,__me); } while (0)
+# define bb_setpgrp() do { pid_t __me = getpid(); setpgrp(__me,__me); } while (0)
 
-#if !defined ADJ_OFFSET_SINGLESHOT && defined MOD_CLKA && defined MOD_OFFSET
-#define ADJ_OFFSET_SINGLESHOT (MOD_CLKA | MOD_OFFSET)
-#endif
-#if !defined ADJ_FREQUENCY && defined MOD_FREQUENCY
-#define ADJ_FREQUENCY MOD_FREQUENCY
-#endif
-#if !defined ADJ_TIMECONST && defined MOD_TIMECONST
-#define ADJ_TIMECONST MOD_TIMECONST
-#endif
-#if !defined ADJ_TICK && defined MOD_CLKB
-#define ADJ_TICK MOD_CLKB
-#endif
+# if !defined ADJ_OFFSET_SINGLESHOT && defined MOD_CLKA && defined MOD_OFFSET
+#  define ADJ_OFFSET_SINGLESHOT (MOD_CLKA | MOD_OFFSET)
+# endif
+# if !defined ADJ_FREQUENCY && defined MOD_FREQUENCY
+#  define ADJ_FREQUENCY MOD_FREQUENCY
+# endif
+# if !defined ADJ_TIMECONST && defined MOD_TIMECONST
+#  define ADJ_TIMECONST MOD_TIMECONST
+# endif
+# if !defined ADJ_TICK && defined MOD_CLKB
+#  define ADJ_TICK MOD_CLKB
+# endif
 
-#else
-#define bb_setpgrp() setpgrp()
+#else /* !__digital__ */
+
+# define bb_setpgrp() setpgrp()
+
 #endif
 
 #if defined(__linux__)
@@ -363,4 +384,4 @@ static ALWAYS_INLINE char* strchrnul(const char *s, char c)
 #endif
 #endif
 
-#endif	/* platform.h	*/
+#endif

@@ -47,7 +47,7 @@ int FAST_FUNC udhcp_read_interface(const char *interface, int *ifindex, uint32_t
 	fd = xsocket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 
 	ifr.ifr_addr.sa_family = AF_INET;
-	strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, interface);
 	if (addr) {
 		if (ioctl_or_perror(fd, SIOCGIFADDR, &ifr,
 			"is interface %s up and configured?", interface)
@@ -57,7 +57,7 @@ int FAST_FUNC udhcp_read_interface(const char *interface, int *ifindex, uint32_t
 		}
 		our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
 		*addr = our_ip->sin_addr.s_addr;
-		DEBUG("%s (our ip) = %s", ifr.ifr_name, inet_ntoa(our_ip->sin_addr));
+		DEBUG("ip of %s = %s", interface, inet_ntoa(our_ip->sin_addr));
 	}
 
 	if (ifindex) {

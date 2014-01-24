@@ -268,7 +268,7 @@ int zcip_main(int argc, char **argv)
 
 	// get the interface's ethernet address
 	//memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, argv_intf, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, argv_intf);
 	xioctl(sock_fd, SIOCGIFHWADDR, &ifr);
 	memcpy(&eth_addr, &ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 
@@ -279,7 +279,8 @@ int zcip_main(int argc, char **argv)
 	// NOTE: the sequence of addresses we try changes only
 	// depending on when we detect conflicts.
 	{
-		uint32_t t = get_unaligned_u32p((uint32_t *) ((char *)&eth_addr + 2));
+		uint32_t t;
+		move_from_unaligned32(t, ((char *)&eth_addr + 2));
 		srand(t);
 	}
 	if (ip.s_addr == 0)

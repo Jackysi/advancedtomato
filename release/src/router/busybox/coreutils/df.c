@@ -44,8 +44,6 @@ int df_main(int argc, char **argv)
 	FILE *mount_table;
 	struct mntent *mount_entry;
 	struct statfs s;
-	static const char ignored_mounts[] ALIGN1 =
-	  "rootfs\0";
 
 	enum {
 		OPT_KILO  = (1 << 0),
@@ -53,8 +51,8 @@ int df_main(int argc, char **argv)
 		OPT_ALL   = (1 << 2) * ENABLE_FEATURE_DF_FANCY,
 		OPT_INODE = (1 << 3) * ENABLE_FEATURE_DF_FANCY,
 		OPT_BSIZE = (1 << 4) * ENABLE_FEATURE_DF_FANCY,
-		OPT_HUMAN = (1 << 5) * ENABLE_FEATURE_HUMAN_READABLE,
-		OPT_MEGA  = (1 << 6) * ENABLE_FEATURE_HUMAN_READABLE,
+		OPT_HUMAN = (1 << (2 + 3*ENABLE_FEATURE_DF_FANCY)) * ENABLE_FEATURE_HUMAN_READABLE,
+		OPT_MEGA  = (1 << (3 + 3*ENABLE_FEATURE_DF_FANCY)) * ENABLE_FEATURE_HUMAN_READABLE,
 	};
 	const char *disp_units_hdr = NULL;
 	char *chp;
@@ -121,10 +119,10 @@ int df_main(int argc, char **argv)
 			mount_point = *argv++;
 			if (!mount_point)
 				break;
-			mount_entry = find_mount_point(mount_point, bb_path_mtab_file);
+			mount_entry = find_mount_point(mount_point);
 			if (!mount_entry) {
 				bb_error_msg("%s: can't find mount point", mount_point);
- SET_ERROR:
+ set_error:
 				status = EXIT_FAILURE;
 				continue;
 			}
@@ -135,7 +133,7 @@ int df_main(int argc, char **argv)
 
 		if (statfs(mount_point, &s) != 0) {
 			bb_simple_perror_msg(mount_point);
-			goto SET_ERROR;
+			goto set_error;
 		}
 
 		if ((s.f_blocks > 0) || !mount_table || (opt & OPT_ALL)) {
@@ -155,8 +153,8 @@ int df_main(int argc, char **argv)
 						) / (blocks_used + s.f_bavail);
 			}
 
-			/* GNU coreutils 6.10 skip certain mounts, try to be compatible.  */
-			if (index_in_strings(device, ignored_mounts) != -1)
+			/* GNU coreutils 6.10 skips certain mounts, try to be compatible.  */
+			if (strcmp(device, "rootfs") == 0)
 				continue;
 
 #ifdef WHY_WE_DO_IT_FOR_DEV_ROOT_ONLY
@@ -166,7 +164,7 @@ int df_main(int argc, char **argv)
 				* or leaves device alone if it can't find it */
 				device = find_block_device("/");
 				if (!device) {
-					goto SET_ERROR;
+					goto set_error;
 				}
 			}
 #endif

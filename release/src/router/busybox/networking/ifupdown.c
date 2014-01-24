@@ -31,6 +31,8 @@
 #define MAX_INTERFACE_LENGTH 10
 #endif
 
+#define UDHCPC_CMD_OPTIONS CONFIG_IFUPDOWN_UDHCPC_CMD_OPTIONS
+
 #define debug_noise(args...) /*fprintf(stderr, args)*/
 
 /* Forward declaration */
@@ -487,7 +489,7 @@ static const struct dhcp_client_t ext_dhcp_clients[] = {
 		"pump -i %iface% -k",
 	},
 	{ "udhcpc",
-		"udhcpc -R -n -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -H %hostname%]][[ -c %clientid%]]"
+		"udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -H %hostname%]][[ -c %clientid%]]"
 				"[[ -s %script%]][[ %udhcpc_opts%]]",
 		"kill `cat /var/run/udhcpc.%iface%.pid` 2>/dev/null",
 	},
@@ -526,7 +528,7 @@ static int dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 	if (!execute("ifconfig %iface%[[ hw %hwaddress%]] up", ifd, exec))
 		return 0;
 #endif
-	return execute("udhcpc -R -n -p /var/run/udhcpc.%iface%.pid "
+	return execute("udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid "
 			"-i %iface%[[ -H %hostname%]][[ -c %clientid%]][[ -s %script%]][[ %udhcpc_opts%]]",
 			ifd, exec);
 }
@@ -690,20 +692,6 @@ static const struct method_t *get_method(const struct address_family_t *af, char
 	return NULL;
 }
 
-static const llist_t *find_list_string(const llist_t *list, const char *string)
-{
-	if (string == NULL)
-		return NULL;
-
-	while (list) {
-		if (strcmp(list->data, string) == 0) {
-			return list;
-		}
-		list = list->link;
-	}
-	return NULL;
-}
-
 static struct interfaces_file_t *read_interfaces(const char *filename)
 {
 	/* Let's try to be compatible.
@@ -834,7 +822,7 @@ static struct interfaces_file_t *read_interfaces(const char *filename)
 			while ((first_word = next_word(&rest_of_line)) != NULL) {
 
 				/* Check the interface isnt already listed */
-				if (find_list_string(defn->autointerfaces, first_word)) {
+				if (llist_find_str(defn->autointerfaces, first_word)) {
 					bb_perror_msg_and_die("interface declared auto twice \"%s\"", buf);
 				}
 
@@ -980,7 +968,7 @@ static int doit(char *str)
 		case -1: /* failure */
 			return 0;
 		case 0: /* child */
-			execle(DEFAULT_SHELL, DEFAULT_SHELL, "-c", str, NULL, my_environ);
+			execle(DEFAULT_SHELL, DEFAULT_SHELL, "-c", str, (char *) NULL, my_environ);
 			_exit(127);
 		}
 		safe_waitpid(child, &status, 0);

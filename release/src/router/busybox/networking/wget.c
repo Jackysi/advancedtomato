@@ -4,6 +4,7 @@
  *
  * Chip Rosenthal Covad Communications <chip@laserlink.net>
  *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 #include "libbb.h"
@@ -54,14 +55,14 @@ enum {
 	STALLTIME = 5                   /* Seconds when xfer considered "stalled" */
 };
 
-static unsigned int getttywidth(void)
+static unsigned int get_tty2_width(void)
 {
 	unsigned width;
-	get_terminal_width_height(0, &width, NULL);
+	get_terminal_width_height(2, &width, NULL);
 	return width;
 }
 
-static void progressmeter(int flag)
+static void progress_meter(int flag)
 {
 	/* We can be called from signal handler */
 	int save_errno = errno;
@@ -70,7 +71,7 @@ static void progressmeter(int flag)
 	unsigned ratio;
 	int barlength, i;
 
-	if (flag == -1) { /* first call to progressmeter */
+	if (flag == -1) { /* first call to progress_meter */
 		start_sec = monotonic_sec();
 		lastupdate_sec = start_sec;
 		lastsize = 0;
@@ -86,7 +87,7 @@ static void progressmeter(int flag)
 
 	fprintf(stderr, "\r%-20.20s%4d%% ", curfile, ratio);
 
-	barlength = getttywidth() - 49;
+	barlength = get_tty2_width() - 49;
 	if (barlength > 0) {
 		/* god bless gcc for variable arrays :) */
 		i = barlength * ratio / 100;
@@ -138,13 +139,13 @@ static void progressmeter(int flag)
 	}
 
 	if (flag == 0) {
-		/* last call to progressmeter */
+		/* last call to progress_meter */
 		alarm(0);
 		transferred = 0;
 		fputc('\n', stderr);
 	} else {
-		if (flag == -1) { /* first call to progressmeter */
-			signal_SA_RESTART_empty_mask(SIGALRM, progressmeter);
+		if (flag == -1) { /* first call to progress_meter */
+			signal_SA_RESTART_empty_mask(SIGALRM, progress_meter);
 		}
 		alarm(1);
 	}
@@ -188,7 +189,7 @@ static void progressmeter(int flag)
  */
 #else /* FEATURE_WGET_STATUSBAR */
 
-static ALWAYS_INLINE void progressmeter(int flag UNUSED_PARAM) { }
+static ALWAYS_INLINE void progress_meter(int flag UNUSED_PARAM) { }
 
 #endif
 
@@ -202,6 +203,7 @@ static size_t safe_fread(void *ptr, size_t nmemb, FILE *stream)
 
 	do {
 		clearerr(stream);
+		errno = 0;
 		ret = fread(p, 1, nmemb, stream);
 		p += ret;
 		nmemb -= ret;
@@ -218,6 +220,7 @@ static char *safe_fgets(char *s, int size, FILE *stream)
 
 	do {
 		clearerr(stream);
+		errno = 0;
 		ret = fgets(s, size, stream);
 	} while (ret == NULL && ferror(stream) && errno == EINTR);
 
@@ -384,6 +387,43 @@ static char *gethdr(char *buf, size_t bufsiz, FILE *fp /*, int *istrunc*/)
 	return hdrval;
 }
 
+#if ENABLE_FEATURE_WGET_LONG_OPTIONS
+static char *URL_escape(const char *str)
+{
+	/* URL encode, see RFC 2396 */
+	char *dst;
+	char *res = dst = xmalloc(strlen(str) * 3 + 1);
+	unsigned char c;
+
+	while (1) {
+		c = *str++;
+		if (c == '\0'
+		/* || strchr("!&'()*-.=_~", c) - more code */
+		 || c == '!'
+		 || c == '&'
+		 || c == '\''
+		 || c == '('
+		 || c == ')'
+		 || c == '*'
+		 || c == '-'
+		 || c == '.'
+		 || c == '='
+		 || c == '_'
+		 || c == '~'
+		 || (c >= '0' && c <= '9')
+		 || ((c|0x20) >= 'a' && (c|0x20) <= 'z')
+		) {
+			*dst++ = c;
+			if (c == '\0')
+				return res;
+		} else {
+			*dst++ = '%';
+			*dst++ = bb_hexdigits_upcase[c >> 4];
+			*dst++ = bb_hexdigits_upcase[c & 0xf];
+		}
+	}
+}
+#endif
 
 int wget_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int wget_main(int argc UNUSED_PARAM, char **argv)
@@ -399,6 +439,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 	char *proxy = 0;
 	char *dir_prefix = NULL;
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
+	char *post_data;
 	char *extra_headers = NULL;
 	llist_t *headers_llist = NULL;
 #endif
@@ -427,7 +468,8 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 		WGET_OPT_RETRIES    = (1 << 7),
 		WGET_OPT_NETWORK_READ_TIMEOUT = (1 << 8),
 		WGET_OPT_PASSIVE    = (1 << 9),
-		WGET_OPT_HEADER     = (1 << 10),
+		WGET_OPT_HEADER     = (1 << 10) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+		WGET_OPT_POST_DATA  = (1 << 11) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
 	};
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
 	static const char wget_longopts[] ALIGN1 =
@@ -445,6 +487,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 		/* Ignored (we always use PASV): */
 		"passive-ftp\0"      No_argument       "\xff"
 		"header\0"           Required_argument "\xfe"
+		"post-data\0"        Required_argument "\xfd"
 		;
 #endif
 
@@ -461,6 +504,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 				NULL, /* -t RETRIES */
 				NULL /* -T NETWORK_READ_TIMEOUT */
 				USE_FEATURE_WGET_LONG_OPTIONS(, &headers_llist)
+				USE_FEATURE_WGET_LONG_OPTIONS(, &post_data)
 				);
 	if (strcmp(proxy_flag, "off") == 0) {
 		/* Use the proxy if necessary */
@@ -561,7 +605,10 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 					target.is_ftp ? "f" : "ht", target.host,
 					target.path);
 			} else {
-				fprintf(sfp, "GET /%s HTTP/1.1\r\n", target.path);
+				if (opt & WGET_OPT_POST_DATA)
+					fprintf(sfp, "POST /%s HTTP/1.1\r\n", target.path);
+				else
+					fprintf(sfp, "GET /%s HTTP/1.1\r\n", target.path);
 			}
 
 			fprintf(sfp, "Host: %s\r\nUser-Agent: %s\r\n",
@@ -583,12 +630,24 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
 			if (extra_headers)
 				fputs(extra_headers, sfp);
+
+			if (opt & WGET_OPT_POST_DATA) {
+				char *estr = URL_escape(post_data);
+				fprintf(sfp, "Content-Type: application/x-www-form-urlencoded\r\n");
+				fprintf(sfp, "Content-Length: %u\r\n" "\r\n" "%s",
+						(int) strlen(estr), estr);
+				/*fprintf(sfp, "Connection: Keep-Alive\r\n\r\n");*/
+				/*fprintf(sfp, "%s\r\n", estr);*/
+				free(estr);
+			} else
 #endif
-			fprintf(sfp, "Connection: close\r\n\r\n");
+			{ /* If "Connection:" is needed, document why */
+				fprintf(sfp, /* "Connection: close\r\n" */ "\r\n");
+			}
 
 			/*
-			* Retrieve HTTP response line and check for "200" status code.
-			*/
+			 * Retrieve HTTP response line and check for "200" status code.
+			 */
  read_response:
 			if (fgets(buf, sizeof(buf), sfp) == NULL)
 				bb_error_msg_and_die("no response from server");
@@ -771,7 +830,7 @@ However, in real world it was observed that some web servers
 	 * Retrieve file
 	 */
 
-	/* Do it before progressmeter (want to have nice error message) */
+	/* Do it before progress_meter (want to have nice error message) */
 	if (output_fd < 0) {
 		int o_flags = O_WRONLY | O_CREAT | O_TRUNC | O_EXCL;
 		/* compat with wget: -O FILE can overwrite */
@@ -781,7 +840,7 @@ However, in real world it was observed that some web servers
 	}
 
 	if (!(opt & WGET_OPT_QUIET))
-		progressmeter(-1);
+		progress_meter(-1);
 
 	if (chunked)
 		goto get_clen;
@@ -823,7 +882,7 @@ However, in real world it was observed that some web servers
 	}
 
 	if (!(opt & WGET_OPT_QUIET))
-		progressmeter(0);
+		progress_meter(0);
 
 	if ((use_proxy == 0) && target.is_ftp) {
 		fclose(dfp);

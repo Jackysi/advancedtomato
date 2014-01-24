@@ -223,9 +223,7 @@ static int tftp_protocol(
 		}
 
 		if (user_opt) {
-			struct passwd *pw = getpwnam(user_opt);
-			if (!pw)
-				bb_error_msg_and_die("unknown user %s", user_opt);
+			struct passwd *pw = xgetpwnam(user_opt);
 			change_identity(pw); /* initgroups, setgid, setuid */
 		}
 	}
@@ -591,10 +589,15 @@ int tftp_main(int argc UNUSED_PARAM, char **argv)
 	}
 #endif
 
-	if (!local_file)
-		local_file = remote_file;
-	if (!remote_file)
+	if (remote_file) {
+		if (!local_file) {
+			const char *slash = strrchr(remote_file, '/');
+			local_file = slash ? slash + 1 : remote_file;
+		}
+	} else {
 		remote_file = local_file;
+	}
+
 	/* Error if filename or host is not known */
 	if (!remote_file || !argv[0])
 		bb_show_usage();
@@ -624,21 +627,6 @@ int tftp_main(int argc UNUSED_PARAM, char **argv)
 #endif /* ENABLE_TFTP */
 
 #if ENABLE_TFTPD
-
-/* TODO: libbb candidate? */
-static len_and_sockaddr *get_sock_lsa(int s)
-{
-	len_and_sockaddr *lsa;
-	socklen_t len = 0;
-
-	if (getsockname(s, NULL, &len) != 0)
-		return NULL;
-	lsa = xzalloc(LSA_LEN_SIZE + len);
-	lsa->len = len;
-	getsockname(s, &lsa->u.sa, &lsa->len);
-	return lsa;
-}
-
 int tftpd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int tftpd_main(int argc UNUSED_PARAM, char **argv)
 {

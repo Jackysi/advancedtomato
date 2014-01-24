@@ -26,11 +26,12 @@ int udhcpd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 {
 	fd_set rfds;
-	struct timeval tv;
-	int server_socket = -1, bytes, retval, max_sock;
+	int server_socket = -1, retval, max_sock;
 	struct dhcpMessage packet;
 	uint8_t *state, *server_id, *requested;
-	uint32_t server_id_align, requested_align, static_lease_ip;
+	uint32_t server_id_aligned = server_id_aligned; /* for compiler */
+	uint32_t requested_aligned = requested_aligned;
+	uint32_t static_lease_ip;
 	unsigned timeout_end;
 	unsigned num_ips;
 	unsigned opt;
@@ -45,14 +46,12 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 
 	opt = getopt32(argv, "fS" USE_FEATURE_UDHCP_PORT("P:", &str_P));
 	argv += optind;
-
 	if (!(opt & 1)) { /* no -f */
 		bb_daemonize_or_rexec(0, argv);
-		logmode &= ~LOGMODE_STDIO;
+		logmode = LOGMODE_NONE;
 	}
-
 	if (opt & 2) { /* -S */
-		openlog(applet_name, LOG_PID, LOG_LOCAL0);
+		openlog(applet_name, LOG_PID, LOG_DAEMON);
 		logmode |= LOGMODE_SYSLOG;
 	}
 #if ENABLE_FEATURE_UDHCP_PORT
@@ -79,7 +78,7 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 	option = find_option(server_config.options, DHCP_LEASE_TIME);
 	server_config.lease = LEASE_TIME;
 	if (option) {
-		memcpy(&server_config.lease, option->data + 2, 4);
+		move_from_unaligned32(server_config.lease, option->data + 2);
 		server_config.lease = ntohl(server_config.lease);
 	}
 
@@ -105,6 +104,8 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 
 	timeout_end = monotonic_sec() + server_config.auto_time;
 	while (1) { /* loop until universe collapses */
+		int bytes;
+		struct timeval tv;
 
 		if (server_socket < 0) {
 			server_socket = udhcp_listen_socket(/*INADDR_ANY,*/ SERVER_PORT,
@@ -141,12 +142,15 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 		case SIGTERM:
 			bb_info_msg("Received a SIGTERM");
 			goto ret0;
-		case 0: break;		/* no signal */
-		default: continue;	/* signal or error (probably EINTR) */
+		case 0:	/* no signal: read a packet */
+			break;
+		default: /* signal or error (probably EINTR): back to select */
+			continue;
 		}
 
-		bytes = udhcp_recv_kernel_packet(&packet, server_socket); /* this waits for a packet - idle */
+		bytes = udhcp_recv_kernel_packet(&packet, server_socket);
 		if (bytes < 0) {
+			/* bytes can also be -2 ("bad packet data") */
 			if (bytes == -1 && errno != EINTR) {
 				DEBUG("error on read, %s, reopening socket", strerror(errno));
 				close(server_socket);
@@ -163,7 +167,6 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 
 		/* Look for a static lease */
 		static_lease_ip = getIpByMac(server_config.static_leases, &packet.chaddr);
-
 		if (static_lease_ip) {
 			bb_info_msg("Found static lease: %x", static_lease_ip);
 
@@ -190,21 +193,24 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 			requested = get_option(&packet, DHCP_REQUESTED_IP);
 			server_id = get_option(&packet, DHCP_SERVER_ID);
 
-			if (requested) memcpy(&requested_align, requested, 4);
-			if (server_id) memcpy(&server_id_align, server_id, 4);
+			if (requested)
+				move_from_unaligned32(requested_aligned, requested);
+			if (server_id)
+				move_from_unaligned32(server_id_aligned, server_id);
 
 			if (lease) {
 				if (server_id) {
 					/* SELECTING State */
-					DEBUG("server_id = %08x", ntohl(server_id_align));
-					if (server_id_align == server_config.server && requested
-					 && requested_align == lease->yiaddr
+					DEBUG("server_id = %08x", ntohl(server_id_aligned));
+					if (server_id_aligned == server_config.server
+					 && requested
+					 && requested_aligned == lease->yiaddr
 					) {
 						send_ACK(&packet, lease->yiaddr);
 					}
 				} else if (requested) {
 					/* INIT-REBOOT State */
-					if (lease->yiaddr == requested_align)
+					if (lease->yiaddr == requested_aligned)
 						send_ACK(&packet, lease->yiaddr);
 					else
 						send_NAK(&packet);
@@ -221,7 +227,7 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 
 			} else if (requested) {
 				/* INIT-REBOOT State */
-				lease = find_lease_by_yiaddr(requested_align);
+				lease = find_lease_by_yiaddr(requested_aligned);
 				if (lease) {
 					if (lease_expired(lease)) {
 						/* probably best if we drop this lease */
@@ -230,7 +236,7 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 					} else
 						send_NAK(&packet);
 				} else {
-					uint32_t r = ntohl(requested_align);
+					uint32_t r = ntohl(requested_aligned);
 					if (r < server_config.start_ip
 				         || r > server_config.end_ip
 					) {
@@ -247,13 +253,13 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 			DEBUG("Received DECLINE");
 			if (lease) {
 				memset(lease->chaddr, 0, 16);
-				lease->expires = time(0) + server_config.decline_time;
+				lease->expires = time(NULL) + server_config.decline_time;
 			}
 			break;
 		case DHCPRELEASE:
 			DEBUG("Received RELEASE");
 			if (lease)
-				lease->expires = time(0);
+				lease->expires = time(NULL);
 			break;
 		case DHCPINFORM:
 			DEBUG("Received INFORM");

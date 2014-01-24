@@ -42,8 +42,9 @@ struct mdp_super_block {
 #define MD_RESERVED_BYTES		0x10000
 #define MD_MAGIC			0xa92b4efc
 
-int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int volume_id_probe_linux_raid(struct volume_id *id /*,uint64_t off*/, uint64_t size)
 {
+#define off ((uint64_t)0)
 	uint64_t sboff;
 	uint8_t uuid[16];
 	struct mdp_super_block *mdp;
@@ -62,7 +63,7 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 	if (mdp->md_magic != cpu_to_le32(MD_MAGIC))
 		return -1;
 
-	memcpy(uuid, &mdp->set_uuid0, 4);
+	*(uint32_t*)uuid = mdp->set_uuid0;
 	memcpy(&uuid[4], &mdp->set_uuid1, 12);
 	volume_id_set_uuid(id, uuid, UUID_DCE);
 

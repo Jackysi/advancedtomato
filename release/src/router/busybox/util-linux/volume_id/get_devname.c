@@ -37,7 +37,7 @@ get_label_uuid(int fd, char **label, char **uuid)
 	if (ioctl(/*vid->*/fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
 
-	if (volume_id_probe_all(vid, 0, size) != 0)
+	if (volume_id_probe_all(vid, /*0,*/ size) != 0)
 		goto ret;
 
 	if (vid->label[0] != '\0' || vid->uuid[0] != '\0') {
@@ -223,13 +223,11 @@ void display_uuid_cache(void)
 char *get_devname_from_label(const char *spec)
 {
 	struct uuidCache_s *uc;
-	int spec_len = strlen(spec);
 
 	uuidcache_init();
 	uc = uuidCache;
 	while (uc) {
-// FIXME: empty label ("LABEL=") matches anything??!
-		if (uc->label[0] && strncmp(spec, uc->label, spec_len) == 0) {
+		if (uc->label[0] && strcmp(spec, uc->label) == 0) {
 			return xstrdup(uc->device);
 		}
 		uc = uc->next;

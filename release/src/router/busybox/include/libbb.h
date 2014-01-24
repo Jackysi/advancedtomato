@@ -7,8 +7,8 @@
  *
  * Licensed under the GPL version 2, see the file LICENSE in this tarball.
  */
-#ifndef	__LIBBUSYBOX_H__
-#define	__LIBBUSYBOX_H__    1
+#ifndef LIBBB_H
+#define LIBBB_H 1
 
 #include "platform.h"
 
@@ -110,9 +110,7 @@ int sysinfo(struct sysinfo* info);
 
 /* Make all declarations hidden (-fvisibility flag only affects definitions) */
 /* (don't include system headers after this until corresponding pop!) */
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility push(hidden)
-#endif
+PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
 
 #if ENABLE_USE_BB_PWD_GRP
@@ -150,6 +148,7 @@ int sysinfo(struct sysinfo* info);
 /* CONFIG_LFS is on */
 # if ULONG_MAX > 0xffffffff
 /* "long" is long enough on this system */
+typedef unsigned long uoff_t;
 #  define XATOOFF(a) xatoul_range(a, 0, LONG_MAX)
 /* usage: sz = BB_STRTOOFF(s, NULL, 10); if (errno || sz < 0) die(); */
 #  define BB_STRTOOFF bb_strtoul
@@ -158,6 +157,7 @@ int sysinfo(struct sysinfo* info);
 #  define OFF_FMT "l"
 # else
 /* "long" is too short, need "long long" */
+typedef unsigned long long uoff_t;
 #  define XATOOFF(a) xatoull_range(a, 0, LLONG_MAX)
 #  define BB_STRTOOFF bb_strtoull
 #  define STRTOOFF strtoull
@@ -168,11 +168,13 @@ int sysinfo(struct sysinfo* info);
 # if UINT_MAX == 0xffffffff
 /* While sizeof(off_t) == sizeof(int), off_t is typedef'ed to long anyway.
  * gcc will throw warnings on printf("%d", off_t). Crap... */
+typedef unsigned long uoff_t;
 #  define XATOOFF(a) xatoi_u(a)
 #  define BB_STRTOOFF bb_strtou
 #  define STRTOOFF strtol
 #  define OFF_FMT "l"
 # else
+typedef unsigned long uoff_t;
 #  define XATOOFF(a) xatoul_range(a, 0, LONG_MAX)
 #  define BB_STRTOOFF bb_strtoul
 #  define STRTOOFF strtol
@@ -353,8 +355,8 @@ enum {
 void bb_signals(int sigs, void (*f)(int)) FAST_FUNC;
 /* Unlike signal() and bb_signals, sets handler with sigaction()
  * and in a way that while signal handler is run, no other signals
- * will be blocked: */
-void bb_signals_recursive(int sigs, void (*f)(int)) FAST_FUNC;
+ * will be blocked; syscalls will not be restarted: */
+void bb_signals_recursive_norestart(int sigs, void (*f)(int)) FAST_FUNC;
 /* syscalls like read() will be interrupted with EINTR: */
 void signal_no_SA_RESTART_empty_mask(int sig, void (*handler)(int)) FAST_FUNC;
 /* syscalls like read() won't be interrupted (though select/poll will be): */
@@ -377,6 +379,7 @@ void xsetuid(uid_t uid) FAST_FUNC;
 void xchdir(const char *path) FAST_FUNC;
 void xchroot(const char *path) FAST_FUNC;
 void xsetenv(const char *key, const char *value) FAST_FUNC;
+void bb_unsetenv(const char *key) FAST_FUNC;
 void xunlink(const char *pathname) FAST_FUNC;
 void xstat(const char *pathname, struct stat *buf) FAST_FUNC;
 int xopen(const char *pathname, int flags) FAST_FUNC FAST_FUNC;
@@ -488,6 +491,8 @@ int create_and_bind_dgram_or_die(const char *bindaddr, int port) FAST_FUNC;
 int create_and_connect_stream_or_die(const char *peer, int port) FAST_FUNC;
 /* Connect to peer identified by lsa */
 int xconnect_stream(const len_and_sockaddr *lsa) FAST_FUNC;
+/* Get local address of bound or accepted socket */
+len_and_sockaddr *get_sock_lsa(int fd) FAST_FUNC;
 /* Return malloc'ed len_and_sockaddr with socket address of host:port
  * Currently will return IPv4 or IPv6 sockaddrs only
  * (depending on host), but in theory nothing prevents e.g.
@@ -541,6 +546,7 @@ char *xstrdup(const char *s) FAST_FUNC;
 char *xstrndup(const char *s, int n) FAST_FUNC;
 void overlapping_strcpy(char *dst, const char *src) FAST_FUNC;
 char *safe_strncpy(char *dst, const char *src, size_t size) FAST_FUNC;
+char *strncpy_IFNAMSIZ(char *dst, const char *src) FAST_FUNC;
 /* Guaranteed to NOT be a macro (smallest code). Saves nearly 2k on uclibc.
  * But potentially slow, don't use in one-billion-times loops */
 int bb_putchar(int ch) FAST_FUNC;
@@ -590,9 +596,9 @@ extern ssize_t open_read_close(const char *filename, void *buf, size_t maxsz) FA
 // Reads byte-by-byte. Useful when it is important to not read ahead.
 // Bytes are appended to pfx (which must be malloced, or NULL).
 extern char *xmalloc_reads(int fd, char *pfx, size_t *maxsz_p) FAST_FUNC;
-/* Reads block up to *maxsz_p (default: MAX_INT(ssize_t)) */
+/* Reads block up to *maxsz_p (default: INT_MAX - 4095) */
 extern void *xmalloc_read(int fd, size_t *maxsz_p) FAST_FUNC;
-/* Returns NULL if file can't be opened */
+/* Returns NULL if file can't be opened (default max size: INT_MAX - 4095) */
 extern void *xmalloc_open_read_close(const char *filename, size_t *maxsz_p) FAST_FUNC;
 /* Autodetects .gz etc */
 extern int open_zipped(const char *fname) FAST_FUNC;
@@ -605,6 +611,7 @@ extern ssize_t safe_write(int fd, const void *buf, size_t count) FAST_FUNC;
 // if some data was written before error occurred
 extern ssize_t full_write(int fd, const void *buf, size_t count) FAST_FUNC;
 extern void xwrite(int fd, const void *buf, size_t count) FAST_FUNC;
+extern void xwrite_str(int fd, const char *str) FAST_FUNC;
 extern void xopen_xwrite_close(const char* file, const char *str) FAST_FUNC;
 
 /* Reads and prints to stdout till eof, then closes FILE. Exits on error: */
@@ -614,6 +621,8 @@ extern char *bb_get_chunk_from_file(FILE *file, int *end) FAST_FUNC;
 extern char *bb_get_chunk_with_continuation(FILE *file, int *end, int *lineno) FAST_FUNC;
 /* Reads up to (and including) TERMINATING_STRING: */
 extern char *xmalloc_fgets_str(FILE *file, const char *terminating_string) FAST_FUNC;
+/* Same, with limited max size, and returns the length (excluding NUL): */
+extern char *xmalloc_fgets_str_len(FILE *file, const char *terminating_string, size_t *maxsz_p) FAST_FUNC;
 /* Chops off TERMINATING_STRING from the end: */
 extern char *xmalloc_fgetline_str(FILE *file, const char *terminating_string) FAST_FUNC;
 /* Reads up to (and including) "\n" or NUL byte: */
@@ -702,14 +711,16 @@ int get_uidgid(struct bb_uidgid_t*, const char*, int numeric_ok) FAST_FUNC;
 void xget_uidgid(struct bb_uidgid_t*, const char*) FAST_FUNC;
 /* chown-like handling of "user[:[group]" */
 void parse_chown_usergroup_or_die(struct bb_uidgid_t *u, char *user_group) FAST_FUNC;
-/* bb_getpwuid, bb_getgrgid:
- * bb_getXXXid(buf, bufsz, id) - copy user/group name or id
- *              as a string to buf, return user/group name or NULL
- * bb_getXXXid(NULL, 0, id) - return user/group name or NULL
- * bb_getXXXid(NULL, -1, id) - return user/group name or exit
-*/
-char *bb_getpwuid(char *name, int bufsize, long uid) FAST_FUNC;
-char *bb_getgrgid(char *group, int bufsize, long gid) FAST_FUNC;
+struct passwd* xgetpwnam(const char *name) FAST_FUNC;
+struct group* xgetgrnam(const char *name) FAST_FUNC;
+struct passwd* xgetpwuid(uid_t uid) FAST_FUNC;
+struct group* xgetgrgid(gid_t gid) FAST_FUNC;
+char* xuid2uname(uid_t uid) FAST_FUNC;
+char* xgid2group(gid_t gid) FAST_FUNC;
+char* uid2uname(uid_t uid) FAST_FUNC;
+char* gid2group(gid_t gid) FAST_FUNC;
+char* uid2uname_utoa(long uid) FAST_FUNC;
+char* gid2group_utoa(long gid) FAST_FUNC;
 /* versions which cache results (useful for ps, ls etc) */
 const char* get_cached_username(uid_t uid) FAST_FUNC;
 const char* get_cached_groupname(gid_t gid) FAST_FUNC;
@@ -788,9 +799,9 @@ int run_nofork_applet_prime(struct nofork_save_area *old, int applet_no, char **
  * Both of the above will redirect fd 0,1,2 to /dev/null and drop ctty
  * (will do setsid()).
  *
- * forkexit_or_rexec(argv) = bare-bones "fork + parent exits" on MMU,
+ * fork_or_rexec(argv) = bare-bones "fork" on MMU,
  *      "vfork + re-exec ourself" on NOMMU. No fd redirection, no setsid().
- *      Currently used for setsid only. On MMU ignores argv.
+ *      On MMU ignores argv.
  *
  * Helper for network daemons in foreground mode:
  *
@@ -804,14 +815,14 @@ enum {
 	DAEMON_ONLY_SANITIZE = 8, /* internal use */
 };
 #if BB_MMU
-  void forkexit_or_rexec(void) FAST_FUNC;
+  pid_t fork_or_rexec(void) FAST_FUNC;
   enum { re_execed = 0 };
-# define forkexit_or_rexec(argv)            forkexit_or_rexec()
+# define fork_or_rexec(argv)                fork_or_rexec()
 # define bb_daemonize_or_rexec(flags, argv) bb_daemonize_or_rexec(flags)
 # define bb_daemonize(flags)                bb_daemonize_or_rexec(flags, bogus)
 #else
   void re_exec(char **argv) NORETURN FAST_FUNC;
-  void forkexit_or_rexec(char **argv) FAST_FUNC;
+  pid_t fork_or_rexec(char **argv) FAST_FUNC;
   extern bool re_execed;
   int  BUG_fork_is_unavailable_on_nommu(void) FAST_FUNC;
   int  BUG_daemon_is_unavailable_on_nommu(void) FAST_FUNC;
@@ -848,6 +859,7 @@ void *llist_pop(llist_t **elm) FAST_FUNC;
 void llist_unlink(llist_t **head, llist_t *elm) FAST_FUNC;
 void llist_free(llist_t *elm, void (*freeit)(void *data)) FAST_FUNC;
 llist_t *llist_rev(llist_t *list) FAST_FUNC;
+llist_t *llist_find_str(llist_t *first, const char *str) FAST_FUNC;
 /* BTW, surprisingly, changing API to
  *   llist_t *llist_add_to(llist_t *old_head, void *data)
  * etc does not result in smaller code... */
@@ -883,7 +895,7 @@ extern void bb_error_msg_and_die(const char *s, ...) __attribute__ ((noreturn, f
 extern void bb_perror_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
 extern void bb_simple_perror_msg(const char *s) FAST_FUNC;
 extern void bb_perror_msg_and_die(const char *s, ...) __attribute__ ((noreturn, format (printf, 1, 2))) FAST_FUNC;
-extern void bb_simple_perror_msg_and_die(const char *s) __attribute__ ((noreturn)) FAST_FUNC;
+extern void bb_simple_perror_msg_and_die(const char *s) NORETURN FAST_FUNC;
 extern void bb_herror_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
 extern void bb_herror_msg_and_die(const char *s, ...) __attribute__ ((noreturn, format (printf, 1, 2))) FAST_FUNC;
 extern void bb_perror_nomsg_and_die(void) NORETURN FAST_FUNC;
@@ -910,6 +922,8 @@ int test_main(int argc, char **argv) USE_TEST(MAIN_EXTERNALLY_VISIBLE);
 int kill_main(int argc, char **argv) USE_KILL(MAIN_EXTERNALLY_VISIBLE);
 /* Similar, but used by chgrp, not shell */
 int chown_main(int argc, char **argv) USE_CHOWN(MAIN_EXTERNALLY_VISIBLE);
+/* Used by ftpd */
+int ls_main(int argc, char **argv) USE_LS(MAIN_EXTERNALLY_VISIBLE);
 /* Don't need USE_xxx() guard for these */
 int gunzip_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int bunzip2_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -924,7 +938,7 @@ void bb_displayroutes(int noresolve, int netstatfmt) FAST_FUNC;
  * yet doesn't represent any valid Unicode characher.
  * Also, -1 is reserved for error indication and we don't use it. */
 enum {
-	KEYCODE_UP       =  -2, 
+	KEYCODE_UP       =  -2,
 	KEYCODE_DOWN     =  -3,
 	KEYCODE_RIGHT    =  -4,
 	KEYCODE_LEFT     =  -5,
@@ -951,6 +965,12 @@ enum {
 	/* How long the longest ESC sequence we know? */
 	KEYCODE_BUFFER_SIZE = 4
 };
+/* Note: fd may be in blocking or non-blocking mode, both make sense.
+ * For one, less uses non-blocking mode.
+ * Only the first read syscall inside read_key may block indefinitely
+ * (unless fd is in non-blocking mode),
+ * subsequent reads will time out after a few milliseconds.
+ */
 int read_key(int fd, smalluint *nbuffered, char *buffer) FAST_FUNC;
 
 
@@ -1005,7 +1025,7 @@ extern void run_applet_no_and_exit(int a, char **argv) NORETURN FAST_FUNC;
 
 #ifdef HAVE_MNTENT_H
 extern int match_fstype(const struct mntent *mt, const char *fstypes) FAST_FUNC;
-extern struct mntent *find_mount_point(const char *name, const char *table) FAST_FUNC;
+extern struct mntent *find_mount_point(const char *name) FAST_FUNC;
 #endif
 extern void erase_mtab(const char * name) FAST_FUNC;
 extern unsigned int tty_baud_to_value(speed_t speed) FAST_FUNC;
@@ -1021,9 +1041,10 @@ extern int del_loop(const char *device) FAST_FUNC;
  * return value: 1: read-only loopdev was setup, 0: rw, < 0: error */
 extern int set_loop(char **devname, const char *file, unsigned long long offset) FAST_FUNC;
 
-
+/* Like bb_ask below, but asks on stdin with no timeout.  */
+char *bb_ask_stdin(const char * prompt) FAST_FUNC;
 //TODO: pass buf pointer or return allocated buf (avoid statics)?
-char *bb_askpass(int timeout, const char * prompt) FAST_FUNC;
+char *bb_ask(const int fd, int timeout, const char * prompt) FAST_FUNC;
 int bb_ask_confirmation(void) FAST_FUNC;
 
 int bb_parse_mode(const char* s, mode_t* theMode) FAST_FUNC;
@@ -1078,6 +1099,8 @@ const char *get_signame(int number) FAST_FUNC;
 void print_signames(void) FAST_FUNC;
 
 char *bb_simplify_path(const char *path) FAST_FUNC;
+/* Returns ptr to NUL */
+char *bb_simplify_abs_path_inplace(char *path) FAST_FUNC;
 
 #define FAIL_DELAY 3
 extern void bb_do_delay(int seconds) FAST_FUNC;
@@ -1127,9 +1150,16 @@ extern int obscure(const char *old, const char *newval, const struct passwd *pwd
  * (otherwise we risk having same salt generated)
  */
 extern int crypt_make_salt(char *p, int cnt, int rnd) FAST_FUNC;
+
 /* Returns number of lines changed, or -1 on error */
-extern int update_passwd(const char *filename, const char *username,
-			const char *new_pw) FAST_FUNC;
+#if !(ENABLE_FEATURE_ADDUSER_TO_GROUP || ENABLE_FEATURE_DEL_USER_FROM_GROUP)
+#define update_passwd(filename, username, data, member) \
+	update_passwd(filename, username, data)
+#endif
+extern int update_passwd(const char *filename,
+		const char *username,
+		const char *data,
+		const char *member) FAST_FUNC;
 
 int index_in_str_array(const char *const string_array[], const char *key) FAST_FUNC;
 int index_in_strings(const char *strings, const char *key) FAST_FUNC;
@@ -1140,6 +1170,7 @@ const char *nth_string(const char *strings, int n) FAST_FUNC;
 extern void print_login_issue(const char *issue_file, const char *tty) FAST_FUNC;
 extern void print_login_prompt(void) FAST_FUNC;
 
+char *xmalloc_ttyname(int fd) FAST_FUNC;
 /* NB: typically you want to pass fd 0, not 1. Think 'applet | grep something' */
 int get_terminal_width_height(int fd, unsigned *width, unsigned *height) FAST_FUNC;
 
@@ -1174,9 +1205,9 @@ unsigned long long bb_makedev(unsigned int major, unsigned int minor) FAST_FUNC;
 #if ENABLE_FEATURE_EDITING
 /* It's NOT just ENABLEd or disabled. It's a number: */
 #ifdef CONFIG_FEATURE_EDITING_HISTORY
-#define MAX_HISTORY (CONFIG_FEATURE_EDITING_HISTORY + 0)
+# define MAX_HISTORY (CONFIG_FEATURE_EDITING_HISTORY + 0)
 #else
-#define MAX_HISTORY 0
+# define MAX_HISTORY 0
 #endif
 typedef struct line_input_t {
 	int flags;
@@ -1184,7 +1215,10 @@ typedef struct line_input_t {
 #if MAX_HISTORY
 	int cnt_history;
 	int cur_history;
-	USE_FEATURE_EDITING_SAVEHISTORY(const char *hist_file;)
+#if ENABLE_FEATURE_EDITING_SAVEHISTORY
+	unsigned cnt_history_in_file;
+	const char *hist_file;
+#endif
 	char *history[MAX_HISTORY + 1];
 #endif
 } line_input_t;
@@ -1198,6 +1232,7 @@ enum {
 	FOR_SHELL = DO_HISTORY | SAVE_HISTORY | TAB_COMPLETION | USERNAME_COMPLETION,
 };
 line_input_t *new_line_input_t(int flags) FAST_FUNC;
+/* so far static: void free_line_input_t(line_input_t *n) FAST_FUNC; */
 /* Returns:
  * -1 on read errors or EOF, or on bare Ctrl-D,
  * 0  on ctrl-C (the line entered is still returned in 'command'),
@@ -1280,7 +1315,7 @@ enum {
 	PSSCAN_ARGVN    = (1 << 16) * (ENABLE_KILLALL
 				|| ENABLE_PGREP || ENABLE_PKILL
 				|| ENABLE_PIDOF
-				|| ENABLE_SESTATUS 
+				|| ENABLE_SESTATUS
 				),
 	USE_SELINUX(PSSCAN_CONTEXT = 1 << 17,)
 	PSSCAN_START_TIME = 1 << 18,
@@ -1310,14 +1345,27 @@ extern const char bb_uuenc_tbl_std[];
 void bb_uuencode(char *store, const void *s, int length, const char *tbl) FAST_FUNC;
 
 typedef struct sha1_ctx_t {
-	uint32_t count[2];
-	uint32_t hash[5];
-	uint32_t wbuf[16];
+	uint32_t hash[8];    /* 5, +3 elements for sha256 */
+	uint64_t total64;
+	uint8_t wbuffer[64]; /* NB: always correctly aligned for uint64_t */
+	void (*process_block)(struct sha1_ctx_t*) FAST_FUNC;
 } sha1_ctx_t;
 void sha1_begin(sha1_ctx_t *ctx) FAST_FUNC;
 void sha1_hash(const void *data, size_t length, sha1_ctx_t *ctx) FAST_FUNC;
-void *sha1_end(void *resbuf, sha1_ctx_t *ctx) FAST_FUNC;
-
+void sha1_end(void *resbuf, sha1_ctx_t *ctx) FAST_FUNC;
+typedef struct sha1_ctx_t sha256_ctx_t;
+void sha256_begin(sha256_ctx_t *ctx) FAST_FUNC;
+#define sha256_hash sha1_hash
+#define sha256_end sha1_end
+typedef struct sha512_ctx_t {
+	uint64_t hash[8];
+	uint64_t total64[2];
+	uint8_t wbuffer[128]; /* NB: always correctly aligned for uint64_t */
+} sha512_ctx_t;
+void sha512_begin(sha512_ctx_t *ctx) FAST_FUNC;
+void sha512_hash(const void *buffer, size_t len, sha512_ctx_t *ctx) FAST_FUNC;
+void sha512_end(void *resbuf, sha512_ctx_t *ctx) FAST_FUNC;
+#if 1
 typedef struct md5_ctx_t {
 	uint32_t A;
 	uint32_t B;
@@ -1327,9 +1375,18 @@ typedef struct md5_ctx_t {
 	uint32_t buflen;
 	char buffer[128];
 } md5_ctx_t;
+#else
+/* libbb/md5prime.c uses a bit different one: */
+typedef struct md5_ctx_t {
+	uint32_t state[4];	/* state (ABCD) */
+	uint32_t count[2];	/* number of bits, modulo 2^64 (lsb first) */
+	unsigned char buffer[64];	/* input buffer */
+} md5_ctx_t;
+#endif
 void md5_begin(md5_ctx_t *ctx) FAST_FUNC;
 void md5_hash(const void *data, size_t length, md5_ctx_t *ctx) FAST_FUNC;
-void *md5_end(void *resbuf, md5_ctx_t *ctx) FAST_FUNC;
+void md5_end(void *resbuf, md5_ctx_t *ctx) FAST_FUNC;
+
 
 uint32_t *crc32_filltable(uint32_t *tbl256, int endian) FAST_FUNC;
 
@@ -1374,7 +1431,7 @@ extern const char bb_busybox_exec_path[];
  * but I want to save a few bytes here */
 extern const char bb_PATH_root_path[]; /* "PATH=/sbin:/usr/sbin:/bin:/usr/bin" */
 #define bb_default_root_path (bb_PATH_root_path + sizeof("PATH"))
-#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/bin:/usr/bin:/sbin:/usr/sbin"))
+#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/sbin:/usr/sbin"))
 
 extern const int const_int_0;
 extern const int const_int_1;
@@ -1489,9 +1546,6 @@ extern const char bb_default_login_shell[];
 #define ARRAY_SIZE(x) ((unsigned)(sizeof(x) / sizeof((x)[0])))
 
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility pop
+POP_SAVED_FUNCTION_VISIBILITY
+
 #endif
-
-
-#endif /* __LIBBUSYBOX_H__ */

@@ -23,12 +23,8 @@
 #endif
 
 
-#ifndef CRONTABS
-#define CRONTABS        "/var/spool/cron/crontabs"
-#endif
-#ifndef TMPDIR
-#define TMPDIR          "/var/spool/cron"
-#endif
+#define TMPDIR          CONFIG_FEATURE_CROND_DIR
+#define CRONTABS        CONFIG_FEATURE_CROND_DIR "/crontabs"
 #ifndef SENDMAIL
 #define SENDMAIL        "sendmail"
 #endif
@@ -59,7 +55,7 @@ typedef struct CronLine {
 #if ENABLE_FEATURE_CROND_CALL_SENDMAIL
 	int cl_MailPos;         /* 'empty file' size                    */
 	smallint cl_MailFlag;   /* running pid is for mail              */
-	char *cl_MailTo;	/* whom to mail results			*/
+	char *cl_MailTo;	/* whom to mail results                 */
 #endif
 	/* ordered by size, not in natural order. makes code smaller: */
 	char cl_Dow[7];         /* 0-6, beginning sunday                */
@@ -146,7 +142,7 @@ static void crondlog(const char *ctl, ...)
 		/* Syslog mode: all to syslog (logmode = LOGMODE_SYSLOG), */
 		if (!DebugOpt && LogFile) {
 			/* Otherwise (log to file): we reopen log file at every write: */
-			int logfd = open3_or_warn(LogFile, O_WRONLY | O_CREAT | O_APPEND, 0600);
+			int logfd = open3_or_warn(LogFile, O_WRONLY | O_CREAT | O_APPEND, 0666);
 			if (logfd >= 0)
 				xmove_fd(logfd, STDERR_FILENO);
 		}
@@ -252,14 +248,12 @@ int crond_main(int argc UNUSED_PARAM, char **argv)
 /* We set environment *before* vfork (because we want to use vfork),
  * so we cannot use setenv() - repeated calls to setenv() may leak memory!
  * Using putenv(), and freeing memory after unsetenv() won't leak */
-static void safe_setenv4(char **pvar_val, const char *var, const char *val /*, int len*/)
+static void safe_setenv(char **pvar_val, const char *var, const char *val)
 {
-	const int len = 4; /* both var names are 4 char long */
 	char *var_val = *pvar_val;
 
 	if (var_val) {
-		var_val[len] = '\0'; /* nuke '=' */
-		unsetenv(var_val);
+		bb_unsetenv(var_val);
 		free(var_val);
 	}
 	*pvar_val = xasprintf("%s=%s", var, val);
@@ -270,10 +264,10 @@ static void safe_setenv4(char **pvar_val, const char *var, const char *val /*, i
 static void SetEnv(struct passwd *pas)
 {
 #if SETENV_LEAKS
-	safe_setenv4(&env_var_user, "USER", pas->pw_name);
-	safe_setenv4(&env_var_home, "HOME", pas->pw_dir);
+	safe_setenv(&env_var_user, "USER", pas->pw_name);
+	safe_setenv(&env_var_home, "HOME", pas->pw_dir);
 	/* if we want to set user's shell instead: */
-	/*safe_setenv(env_var_user, "SHELL", pas->pw_shell, 5);*/
+	/*safe_setenv(env_var_user, "SHELL", pas->pw_shell);*/
 #else
 	xsetenv("USER", pas->pw_name);
 	xsetenv("HOME", pas->pw_dir);
@@ -781,7 +775,7 @@ ForkJob(const char *user, CronLine *line, int mailFd,
 		}
 		/* crond 3.0pl1-100 puts tasks in separate process groups */
 		bb_setpgrp();
-		execlp(prog, prog, cmd, arg, NULL);
+		execlp(prog, prog, cmd, arg, (char *) NULL);
 		crondlog(ERR20 "can't exec, user %s cmd %s %s %s", user, prog, cmd, arg);
 		if (mail_filename) {
 			fdprintf(1, "Exec failed: %s -c %s\n", prog, arg);
@@ -918,7 +912,7 @@ static void RunJob(const char *user, CronLine *line)
 		}
 		/* crond 3.0pl1-100 puts tasks in separate process groups */
 		bb_setpgrp();
-		execl(DEFAULT_SHELL, DEFAULT_SHELL, "-c", line->cl_Shell, NULL);
+		execl(DEFAULT_SHELL, DEFAULT_SHELL, "-c", line->cl_Shell, (char *) NULL);
 		crondlog(ERR20 "can't exec, user %s cmd %s %s %s", user,
 				 DEFAULT_SHELL, "-c", line->cl_Shell);
 		_exit(EXIT_SUCCESS);

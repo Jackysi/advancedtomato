@@ -5,7 +5,6 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
-
 #include "modutils.h"
 
 #ifdef __UCLIBC__
@@ -16,21 +15,6 @@ extern int delete_module(const char *module, unsigned int flags);
 # define init_module(mod, len, opts) syscall(__NR_init_module, mod, len, opts)
 # define delete_module(mod, flags) syscall(__NR_delete_module, mod, flags)
 #endif
-
-USE_FEATURE_2_4_MODULES(char *insmod_outputname);
-
-/*
- a libbb candidate from ice age!
-*/
-llist_t FAST_FUNC *llist_find(llist_t *first, const char *str)
-{
-	while (first != NULL) {
-		if (strcmp(first->data, str) == 0)
-			return first;
-		first = first->link;
-	}
-	return NULL;
-}
 
 void FAST_FUNC replace(char *s, char what, char with)
 {
@@ -73,7 +57,7 @@ char * FAST_FUNC filename2modname(const char *filename, char *modname)
 	from = bb_get_last_path_component_nostrip(filename);
 	for (i = 0; i < (MODULE_NAME_LEN-1) && from[i] != '\0' && from[i] != '.'; i++)
 		modname[i] = (from[i] == '-') ? '_' : from[i];
-	modname[i] = 0;
+	modname[i] = '\0';
 
 	return modname;
 }
@@ -113,9 +97,12 @@ char * FAST_FUNC parse_cmdline_module_options(char **argv)
 
 int FAST_FUNC bb_init_module(const char *filename, const char *options)
 {
-	size_t len = MAXINT(ssize_t);
+	size_t len;
 	char *image;
-	int rc = ENOENT;
+	int rc;
+
+	if (!options)
+		options = "";
 
 #if ENABLE_FEATURE_2_4_MODULES
 	if (get_linux_version_code() < KERNEL_VERSION(2,6,0))
@@ -123,12 +110,13 @@ int FAST_FUNC bb_init_module(const char *filename, const char *options)
 #endif
 
 	/* Use the 2.6 way */
+	len = INT_MAX - 4095;
+	rc = ENOENT;
 	image = xmalloc_open_zipped_read_close(filename, &len);
 	if (image) {
+		rc = 0;
 		if (init_module(image, len, options) != 0)
 			rc = errno;
-		else
-			rc = 0;
 		free(image);
 	}
 

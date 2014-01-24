@@ -155,9 +155,9 @@ Special characters:
         Allows any arguments to be given without a dash (./program w x)
         as well as with a dash (./program -x).
 
-	NB: getopt32() will leak a small amount of memory if you use
-	this option! Do not use it if there is a possibility of recursive
-	getopt32() calls.
+        NB: getopt32() will leak a small amount of memory if you use
+        this option! Do not use it if there is a possibility of recursive
+        getopt32() calls.
 
  "--"   A double dash at the beginning of opt_complementary means the
         argv[1] string should always be treated as options, even if it isn't
@@ -165,9 +165,9 @@ Special characters:
         such as "ar" and "tar":
         tar xvf foo.tar
 
-	NB: getopt32() will leak a small amount of memory if you use
-	this option! Do not use it if there is a possibility of recursive
-	getopt32() calls.
+        NB: getopt32() will leak a small amount of memory if you use
+        this option! Do not use it if there is a possibility of recursive
+        getopt32() calls.
 
  "-N"   A dash as the first char in a opt_complementary group followed
         by a single digit (0-9) means that at least N non-option

@@ -13,7 +13,7 @@ config FEATURE_IPV6
 	  This adds IPv6 support in the networking applets.
 
 config FEATURE_PREFER_IPV4_ADDRESS
-	bool "Preferentially use IPv4 addresses from DNS queries"
+	bool "Prefer IPv4 addresses from DNS queries"
 	default y
 	depends on FEATURE_IPV6
 	help
@@ -93,6 +93,19 @@ config FAKEIDENTD
 	  fakeidentd listens on the ident port and returns a predefined
 	  fake value on any query.
 
+config FTPD
+	bool "ftpd"
+	default n
+	help
+	  simple FTP daemon. You have to run it via inetd.
+
+config FEATURE_FTP_WRITE
+	bool "Enable upload commands"
+	default y
+	depends on FTPD
+	help
+	  Enable all kinds of FTP upload commands (-w option)
+
 config FTPGET
 	bool "ftpget"
 	default n
@@ -141,14 +154,6 @@ config FEATURE_HTTPD_USE_SENDFILE
 	  When enabled, httpd will use the kernel sendfile() function
 	  instead of read/write loop.
 
-config FEATURE_HTTPD_RELOAD_CONFIG_SIGHUP
-	bool "Support reloading of global config file on HUP signal"
-	default n
-	depends on HTTPD
-	help
-	  This option enables processing of SIGHUP to reload cached
-	  configuration settings.
-
 config FEATURE_HTTPD_SETUID
 	bool "Enable -u <user> option"
 	default n
@@ -174,14 +179,6 @@ config FEATURE_HTTPD_AUTH_MD5
 	help
 	  Enables basic per URL authentication from /etc/httpd.conf
 	  using md5 passwords.
-
-config FEATURE_HTTPD_CONFIG_WITH_MIME_TYPES
-	bool "Support loading additional MIME types at run-time"
-	default n
-	depends on HTTPD
-	help
-	  This option enables support for additional MIME types at
-	  run-time to be specified in the configuration file.
 
 config FEATURE_HTTPD_CGI
 	bool "Support Common Gateway Interface (CGI)"
@@ -821,7 +818,7 @@ config FEATURE_TFTP_BLOCKSIZE
 config TFTP_DEBUG
 	bool "Enable debug"
 	default n
-	depends on TFTP
+	depends on TFTP || TFTPD
 	help
 	  Enable debug settings for tftp. This is useful if you're running
 	  into problems with tftp as the protocol doesn't help you much when
@@ -838,7 +835,7 @@ config FEATURE_TRACEROUTE_VERBOSE
 	default n
 	depends on TRACEROUTE
 	help
-	  Add some verbosity to traceroute. This includes amongst other things
+	  Add some verbosity to traceroute. This includes among other things
 	  hostnames and ICMP response types.
 
 config FEATURE_TRACEROUTE_SOURCE_ROUTE
@@ -854,9 +851,18 @@ config FEATURE_TRACEROUTE_USE_ICMP
 	default n
 	depends on TRACEROUTE
 	help
-	  Add feature to allow for ICMP ECHO instead of UDP datagrams.
+	  Add option -I to use ICMP ECHO instead of UDP datagrams.
 
 source networking/udhcp/Config.in
+
+config IFUPDOWN_UDHCPC_CMD_OPTIONS
+	string "ifup udhcpc command line options"
+	default "-R -n"
+	depends on IFUPDOWN && APP_UDHCPC
+	help
+	  Command line options to pass to udhcpc from ifup.
+	  Intended to alter options not available in /etc/network/interfaces.
+	  (IE: --syslog --background etc...)
 
 config VCONFIG
 	bool "vconfig"
@@ -910,6 +916,20 @@ config TCPSVD
 	help
 	  tcpsvd listens on a TCP port and runs a program for each new
 	  connection.
+
+config TUNCTL
+	bool "tunctl"
+	default n
+	help
+	  tunctl creates or deletes tun devices.
+
+config FEATURE_TUNCTL_UG
+	bool "Support owner:group assignment"
+	default n
+	depends on TUNCTL
+	help
+	  Allow to specify owner and group of newly created interface.
+	  340 bytes of pure bloat. Say no here.
 
 config UDPSVD
 	bool "udpsvd"

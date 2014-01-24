@@ -12,7 +12,6 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
-
 #include <sys/times.h>
 #include <setjmp.h>
 
@@ -35,7 +34,6 @@
 # include <assert.h>
 # define bb_dev_null "/dev/null"
 # define DEFAULT_SHELL "/proc/self/exe"
-# define CONFIG_BUSYBOX_EXEC_PATH "/proc/self/exe"
 # define bb_banner "busybox standalone"
 # define ENABLE_FEATURE_SH_STANDALONE 0
 # define bb_msg_memory_exhausted "memory exhausted"
@@ -743,7 +741,7 @@ static void print_tree(struct op *head)
 static void prs(const char *s)
 {
 	if (*s)
-		write(STDERR_FILENO, s, strlen(s));
+		xwrite_str(STDERR_FILENO, s);
 }
 
 static void prn(unsigned u)
@@ -3176,8 +3174,9 @@ static int dohelp(struct op *t UNUSED_PARAM, char **args UNUSED_PARAM)
 	int col;
 	const struct builtincmd *x;
 
-	puts("\nBuilt-in commands:\n"
-	     "-------------------");
+	printf("\n"
+		"Built-in commands:\n"
+		"------------------\n");
 
 	col = 0;
 	x = builtincmds;
@@ -3600,7 +3599,7 @@ static int doset(struct op *t UNUSED_PARAM, char **args)
 	cp = args[1];
 	if (cp == NULL) {
 		for (vp = vlist; vp; vp = vp->next)
-			varput(vp->name, 1);
+			varput(vp->name, STDOUT_FILENO);
 		return 0;
 	}
 	if (*cp == '-') {
@@ -3639,8 +3638,8 @@ static int doset(struct op *t UNUSED_PARAM, char **args)
 static void varput(char *s, int out)
 {
 	if (isalnum(*s) || *s == '_') {
-		write(out, s, strlen(s));
-		write(out, "\n", 1);
+		xwrite_str(out, s);
+		xwrite(out, "\n", 1);
 	}
 }
 

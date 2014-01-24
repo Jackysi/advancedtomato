@@ -16,6 +16,20 @@
 #include <linux/sockios.h>
 #include <net/if.h>
 
+#ifndef SIOCBRADDBR
+# define SIOCBRADDBR BRCTL_ADD_BRIDGE
+#endif
+#ifndef SIOCBRDELBR
+# define SIOCBRDELBR BRCTL_DEL_BRIDGE
+#endif
+#ifndef SIOCBRADDIF
+# define SIOCBRADDIF BRCTL_ADD_IF
+#endif
+#ifndef SIOCBRDELIF
+# define SIOCBRDELIF BRCTL_DEL_IF
+#endif
+
+
 /* Maximum number of ports supported per bridge interface.  */
 #ifndef MAX_PORTS
 #define MAX_PORTS 32
@@ -137,7 +151,7 @@ int brctl_main(int argc UNUSED_PARAM, char **argv)
 
 				if (!if_indextoname(bridx[i], brname))
 					bb_perror_msg_and_die("can't get bridge name for index %d", i);
-				strncpy(ifr.ifr_name, brname, IFNAMSIZ);
+				strncpy_IFNAMSIZ(ifr.ifr_name, brname);
 
 				arm_ioctl(args, BRCTL_GET_BRIDGE_INFO,
 							(unsigned long) &bi, 0);
@@ -191,7 +205,7 @@ int brctl_main(int argc UNUSED_PARAM, char **argv)
 		if (!*argv) /* all but 'addif/delif' need at least two arguments */
 			bb_show_usage();
 
-		strncpy(ifr.ifr_name, br, IFNAMSIZ);
+		strncpy_IFNAMSIZ(ifr.ifr_name, br);
 		if (key == ARG_addif || key == ARG_delif) { /* addif or delif */
 			brif = *argv;
 			ifr.ifr_ifindex = if_nametoindex(brif);
