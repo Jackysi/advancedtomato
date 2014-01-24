@@ -6,11 +6,58 @@
  *
  * MAINTAINER: Rob Landley <rob@landley.net>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * See SuS3 sort standard at:
  * http://www.opengroup.org/onlinepubs/007904975/utilities/sort.html
  */
+
+//usage:#define sort_trivial_usage
+//usage:       "[-nru"
+//usage:	IF_FEATURE_SORT_BIG("gMcszbdfimSTokt] [-o FILE] [-k start[.offset][opts][,end[.offset][opts]] [-t CHAR")
+//usage:       "] [FILE]..."
+//usage:#define sort_full_usage "\n\n"
+//usage:       "Sort lines of text\n"
+//usage:	IF_FEATURE_SORT_BIG(
+//usage:     "\n	-b	Ignore leading blanks"
+//usage:     "\n	-c	Check whether input is sorted"
+//usage:     "\n	-d	Dictionary order (blank or alphanumeric only)"
+//usage:     "\n	-f	Ignore case"
+//usage:     "\n	-g	General numerical sort"
+//usage:     "\n	-i	Ignore unprintable characters"
+//usage:     "\n	-k	Sort key"
+//usage:     "\n	-M	Sort month"
+//usage:	)
+//usage:     "\n	-n	Sort numbers"
+//usage:	IF_FEATURE_SORT_BIG(
+//usage:     "\n	-o	Output to file"
+//usage:     "\n	-k	Sort by key"
+//usage:     "\n	-t CHAR	Key separator"
+//usage:	)
+//usage:     "\n	-r	Reverse sort order"
+//usage:	IF_FEATURE_SORT_BIG(
+//usage:     "\n	-s	Stable (don't sort ties alphabetically)"
+//usage:	)
+//usage:     "\n	-u	Suppress duplicate lines"
+//usage:	IF_FEATURE_SORT_BIG(
+//usage:     "\n	-z	Lines are terminated by NUL, not newline"
+//usage:     "\n	-mST	Ignored for GNU compatibility")
+//usage:
+//usage:#define sort_example_usage
+//usage:       "$ echo -e \"e\\nf\\nb\\nd\\nc\\na\" | sort\n"
+//usage:       "a\n"
+//usage:       "b\n"
+//usage:       "c\n"
+//usage:       "d\n"
+//usage:       "e\n"
+//usage:       "f\n"
+//usage:	IF_FEATURE_SORT_BIG(
+//usage:		"$ echo -e \"c 3\\nb 2\\nd 2\" | $SORT -k 2,2n -k 1,1r\n"
+//usage:		"d 2\n"
+//usage:		"b 2\n"
+//usage:		"c 3\n"
+//usage:	)
+//usage:       ""
 
 #include "libbb.h"
 
@@ -52,8 +99,8 @@ enum {
 static char key_separator;
 
 static struct sort_key {
-	struct sort_key *next_key;	/* linked list */
-	unsigned range[4];	/* start word, start char, end word, end char */
+	struct sort_key *next_key;  /* linked list */
+	unsigned range[4];          /* start word, start char, end word, end char */
 	unsigned flags;
 } *key_list;
 
@@ -128,7 +175,7 @@ static char *get_key(char *str, struct sort_key *key, int flags)
 	/* Handle -i */
 	if (flags & FLAG_i) {
 		for (start = end = 0; str[end]; end++)
-			if (isprint(str[end]))
+			if (isprint_asciionly(str[end]))
 				str[start++] = str[end];
 		str[start] = '\0';
 	}
@@ -172,7 +219,7 @@ static int compare_keys(const void *xarg, const void *yarg)
 		y = get_key(*(char **)yarg, key, flags);
 #else
 	/* This curly bracket serves no purpose but to match the nesting
-	   level of the for () loop we're not using */
+	 * level of the for () loop we're not using */
 	{
 		x = *(char **)xarg;
 		y = *(char **)yarg;
@@ -278,27 +325,32 @@ static unsigned str2u(char **str)
 int sort_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int sort_main(int argc UNUSED_PARAM, char **argv)
 {
-	FILE *fp, *outfile = stdout;
-	char *line, **lines = NULL;
+	char *line, **lines;
 	char *str_ignored, *str_o, *str_t;
 	llist_t *lst_k = NULL;
 	int i, flag;
-	int linecount = 0;
+	int linecount;
+	unsigned opts;
 
 	xfunc_error_retval = 2;
 
 	/* Parse command line options */
 	/* -o and -t can be given at most once */
-	opt_complementary = "o--o:t--t:" /* -t, -o: maximum one of each */
+	opt_complementary = "o--o:t--t:" /* -t, -o: at most one of each */
 			"k::"; /* -k takes list */
-	getopt32(argv, OPT_STR, &str_ignored, &str_ignored, &str_o, &lst_k, &str_t);
+	opts = getopt32(argv, OPT_STR, &str_ignored, &str_ignored, &str_o, &lst_k, &str_t);
+	/* global b strips leading and trailing spaces */
+	if (opts & FLAG_b)
+		option_mask32 |= FLAG_bb;
 #if ENABLE_FEATURE_SORT_BIG
-	if (option_mask32 & FLAG_o) outfile = xfopen_for_write(str_o);
-	if (option_mask32 & FLAG_t) {
+	if (opts & FLAG_t) {
 		if (!str_t[0] || str_t[1])
 			bb_error_msg_and_die("bad -t parameter");
 		key_separator = str_t[0];
 	}
+	/* note: below this point we use option_mask32, not opts,
+	 * since that reduces register pressure and makes code smaller */
+
 	/* parse sort key */
 	while (lst_k) {
 		enum {
@@ -315,7 +367,6 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 		};
 		struct sort_key *key = add_key();
 		char *str_k = llist_pop(&lst_k);
-		const char *temp2;
 
 		i = 0; /* i==0 before comma, 1 after (-k3,6) */
 		while (*str_k) {
@@ -327,11 +378,13 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 				key->range[2*i+1] = str2u(&str_k);
 			}
 			while (*str_k) {
+				const char *temp2;
+
 				if (*str_k == ',' && !i++) {
 					str_k++;
 					break;
 				} /* no else needed: fall through to syntax error
-					 because comma isn't in OPT_STR */
+					because comma isn't in OPT_STR */
 				temp2 = strchr(OPT_STR, *str_k);
 				if (!temp2)
 					bb_error_msg_and_die("unknown key option");
@@ -339,27 +392,29 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 				if (flag & ~FLAG_allowed_for_k)
 					bb_error_msg_and_die("unknown sort type");
 				/* b after ',' means strip _trailing_ space */
-				if (i && flag == FLAG_b) flag = FLAG_bb;
+				if (i && flag == FLAG_b)
+					flag = FLAG_bb;
 				key->flags |= flag;
 				str_k++;
 			}
 		}
 	}
 #endif
-	/* global b strips leading and trailing spaces */
-	if (option_mask32 & FLAG_b) option_mask32 |= FLAG_bb;
 
 	/* Open input files and read data */
 	argv += optind;
 	if (!*argv)
 		*--argv = (char*)"-";
+	linecount = 0;
+	lines = NULL;
 	do {
 		/* coreutils 6.9 compat: abort on first open error,
 		 * do not continue to next file: */
-		fp = xfopen_stdin(*argv);
+		FILE *fp = xfopen_stdin(*argv);
 		for (;;) {
 			line = GET_LINE(fp);
-			if (!line) break;
+			if (!line)
+				break;
 			lines = xrealloc_vector(lines, 6, linecount);
 			lines[linecount++] = line;
 		}
@@ -373,16 +428,17 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 	/* handle -c */
 	if (option_mask32 & FLAG_c) {
 		int j = (option_mask32 & FLAG_u) ? -1 : 0;
-		for (i = 1; i < linecount; i++)
+		for (i = 1; i < linecount; i++) {
 			if (compare_keys(&lines[i-1], &lines[i]) > j) {
-				fprintf(stderr, "Check line %d\n", i);
+				fprintf(stderr, "Check line %u\n", i);
 				return EXIT_FAILURE;
 			}
+		}
 		return EXIT_SUCCESS;
 	}
 #endif
 	/* Perform the actual sort */
-	qsort(lines, linecount, sizeof(char *), compare_keys);
+	qsort(lines, linecount, sizeof(lines[0]), compare_keys);
 	/* handle -u */
 	if (option_mask32 & FLAG_u) {
 		flag = 0;
@@ -390,17 +446,24 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 		/* -- disabling last-resort compare... */
 		option_mask32 |= FLAG_s;
 		for (i = 1; i < linecount; i++) {
-			if (!compare_keys(&lines[flag], &lines[i]))
+			if (compare_keys(&lines[flag], &lines[i]) == 0)
 				free(lines[i]);
 			else
 				lines[++flag] = lines[i];
 		}
-		if (linecount) linecount = flag+1;
+		if (linecount)
+			linecount = flag+1;
 	}
+
 	/* Print it */
+#if ENABLE_FEATURE_SORT_BIG
+	/* Open output file _after_ we read all input ones */
+	if (option_mask32 & FLAG_o)
+		xmove_fd(xopen(str_o, O_WRONLY|O_CREAT|O_TRUNC), STDOUT_FILENO);
+#endif
 	flag = (option_mask32 & FLAG_z) ? '\0' : '\n';
 	for (i = 0; i < linecount; i++)
-		fprintf(outfile, "%s%c", lines[i], flag);
+		printf("%s%c", lines[i], flag);
 
 	fflush_stdout_and_exit(EXIT_SUCCESS);
 }

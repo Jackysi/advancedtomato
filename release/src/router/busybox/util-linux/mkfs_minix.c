@@ -4,7 +4,7 @@
  *
  * (C) 1991 Linus Torvalds.
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /*
@@ -62,6 +62,16 @@
  * Modified for BusyBox by Erik Andersen <andersen@debian.org> --
  *	removed getopt based parser and added a hand rolled one.
  */
+
+//usage:#define mkfs_minix_trivial_usage
+//usage:       "[-c | -l FILE] [-nXX] [-iXX] BLOCKDEV [KBYTES]"
+//usage:#define mkfs_minix_full_usage "\n\n"
+//usage:       "Make a MINIX filesystem\n"
+//usage:     "\n	-c		Check device for bad blocks"
+//usage:     "\n	-n [14|30]	Maximum length of filenames"
+//usage:     "\n	-i INODES	Number of inodes for the filesystem"
+//usage:     "\n	-l FILE		Read bad blocks list from FILE"
+//usage:     "\n	-v		Make version 2 filesystem"
 
 #include "libbb.h"
 #include <mntent.h>
@@ -243,22 +253,22 @@ static void write_tables(void)
 	msg_eol = "seek to 0 failed";
 	xlseek(dev_fd, 0, SEEK_SET);
 
-	msg_eol = "cannot clear boot sector";
+	msg_eol = "can't clear boot sector";
 	xwrite(dev_fd, G.boot_block_buffer, 512);
 
 	msg_eol = "seek to BLOCK_SIZE failed";
 	xlseek(dev_fd, BLOCK_SIZE, SEEK_SET);
 
-	msg_eol = "cannot write superblock";
+	msg_eol = "can't write superblock";
 	xwrite(dev_fd, G.superblock_buffer, BLOCK_SIZE);
 
-	msg_eol = "cannot write inode map";
+	msg_eol = "can't write inode map";
 	xwrite(dev_fd, G.inode_map, SB_IMAPS * BLOCK_SIZE);
 
-	msg_eol = "cannot write zone map";
+	msg_eol = "can't write zone map";
 	xwrite(dev_fd, G.zone_map, SB_ZMAPS * BLOCK_SIZE);
 
-	msg_eol = "cannot write inodes";
+	msg_eol = "can't write inodes";
 	xwrite(dev_fd, G.inode_buffer, INODE_BUFFER_SIZE);
 
 	msg_eol = "\n";
@@ -505,7 +515,7 @@ static void alarm_intr(int alnum UNUSED_PARAM)
 	if (!G.currently_testing)
 		return;
 	printf("%d ...", G.currently_testing);
-	fflush(stdout);
+	fflush_all();
 }
 
 static void check_blocks(void)
@@ -682,12 +692,11 @@ int mkfs_minix_main(int argc UNUSED_PARAM, char **argv)
 		G.total_blocks = 65535;
 
 	/* Check if it is mounted */
-	if (find_mount_point(G.device_name))
+	if (find_mount_point(G.device_name, 0))
 		bb_error_msg_and_die("can't format mounted filesystem");
 
 	xmove_fd(xopen(G.device_name, O_RDWR), dev_fd);
-	if (fstat(dev_fd, &statbuf) < 0)
-		bb_error_msg_and_die("cannot stat %s", G.device_name);
+	xfstat(dev_fd, &statbuf, G.device_name);
 	if (!S_ISBLK(statbuf.st_mode))
 		opt &= ~1; // clear -c (check)
 

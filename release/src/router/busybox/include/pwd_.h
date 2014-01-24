@@ -18,7 +18,7 @@
    02111-1307 USA.  */
 
 /*
- *	POSIX Standard: 9.2.2 User Database Access	<pwd.h>
+ * POSIX Standard: 9.2.2 User Database Access	<pwd.h>
  */
 
 #ifndef BB_PWD_H
@@ -30,7 +30,7 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
  * We will use libc-defined structures, but will #define function names
  * so that function calls are directed to bb_internal_XXX replacements
  */
-
+#undef endpwent
 #define setpwent    bb_internal_setpwent
 #define endpwent    bb_internal_endpwent
 #define getpwent    bb_internal_getpwent
@@ -42,7 +42,6 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 #define getpwuid_r  bb_internal_getpwuid_r
 #define getpwnam_r  bb_internal_getpwnam_r
 #define fgetpwent_r bb_internal_fgetpwent_r
-//#define getpw       bb_internal_getpw
 
 
 /* All function names below should be remapped by #defines above
@@ -55,6 +54,7 @@ extern void setpwent(void);
 /* Close the password-file stream.  */
 extern void endpwent(void);
 
+#ifdef UNUSED_SINCE_WE_AVOID_STATIC_BUFS
 /* Read an entry from the password-file stream, opening it if necessary.  */
 extern struct passwd *getpwent(void);
 
@@ -63,7 +63,8 @@ extern struct passwd *fgetpwent(FILE *__stream);
 
 /* Write the given entry onto the given stream.  */
 extern int putpwent(const struct passwd *__restrict __p,
-		     FILE *__restrict __f);
+		FILE *__restrict __f);
+#endif
 
 /* Search for an entry with a matching user ID.  */
 extern struct passwd *getpwuid(uid_t __uid);
@@ -80,31 +81,26 @@ extern struct passwd *getpwnam(const char *__name);
    POSIX people would choose.  */
 
 extern int getpwent_r(struct passwd *__restrict __resultbuf,
-		       char *__restrict __buffer, size_t __buflen,
-		       struct passwd **__restrict __result);
+		char *__restrict __buffer, size_t __buflen,
+		struct passwd **__restrict __result);
 
 extern int getpwuid_r(uid_t __uid,
-		       struct passwd *__restrict __resultbuf,
-		       char *__restrict __buffer, size_t __buflen,
-		       struct passwd **__restrict __result);
+		struct passwd *__restrict __resultbuf,
+		char *__restrict __buffer, size_t __buflen,
+		struct passwd **__restrict __result);
 
 extern int getpwnam_r(const char *__restrict __name,
-		       struct passwd *__restrict __resultbuf,
-		       char *__restrict __buffer, size_t __buflen,
-		       struct passwd **__restrict __result);
+		struct passwd *__restrict __resultbuf,
+		char *__restrict __buffer, size_t __buflen,
+		struct passwd **__restrict __result);
 
 /* Read an entry from STREAM.  This function is not standardized and
    probably never will.  */
 extern int fgetpwent_r(FILE *__restrict __stream,
-			struct passwd *__restrict __resultbuf,
-			char *__restrict __buffer, size_t __buflen,
-			struct passwd **__restrict __result);
-
-/* Re-construct the password-file line for the given uid
-   in the given buffer.  This knows the format that the caller
-   will expect, but this need not be the format of the password file.  */
-/* UNUSED extern int getpw(uid_t __uid, char *__buffer); */
+		struct passwd *__restrict __resultbuf,
+		char *__restrict __buffer, size_t __buflen,
+		struct passwd **__restrict __result);
 
 POP_SAVED_FUNCTION_VISIBILITY
 
-#endif /* pwd.h  */
+#endif

@@ -2,16 +2,30 @@
 /*
  * dpkg-deb packs, unpacks and provides information about Debian archives.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-#include "libbb.h"
-#include "unarchive.h"
 
-#define DPKG_DEB_OPT_CONTENTS	1
-#define DPKG_DEB_OPT_CONTROL	2
-#define DPKG_DEB_OPT_FIELD	4
-#define DPKG_DEB_OPT_EXTRACT	8
-#define DPKG_DEB_OPT_EXTRACT_VERBOSE	16
+//usage:#define dpkg_deb_trivial_usage
+//usage:       "[-cefxX] FILE [argument"
+//usage:#define dpkg_deb_full_usage "\n\n"
+//usage:       "Perform actions on Debian packages (.debs)\n"
+//usage:     "\n	-c	List contents of filesystem tree"
+//usage:     "\n	-e	Extract control files to [argument] directory"
+//usage:     "\n	-f	Display control field name starting with [argument]"
+//usage:     "\n	-x	Extract packages filesystem tree to directory"
+//usage:     "\n	-X	Verbose extract"
+//usage:
+//usage:#define dpkg_deb_example_usage
+//usage:       "$ dpkg-deb -X ./busybox_0.48-1_i386.deb /tmp\n"
+
+#include "libbb.h"
+#include "bb_archive.h"
+
+#define DPKG_DEB_OPT_CONTENTS         1
+#define DPKG_DEB_OPT_CONTROL          2
+#define DPKG_DEB_OPT_FIELD            4
+#define DPKG_DEB_OPT_EXTRACT          8
+#define DPKG_DEB_OPT_EXTRACT_VERBOSE 16
 
 int dpkg_deb_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dpkg_deb_main(int argc, char **argv)
@@ -28,17 +42,20 @@ int dpkg_deb_main(int argc, char **argv)
 
 	/* Setup an ar archive handle that refers to the gzip sub archive */
 	ar_archive = init_handle();
-	ar_archive->sub_archive = tar_archive;
+	ar_archive->dpkg__sub_archive = tar_archive;
 	ar_archive->filter = filter_accept_list_reassign;
 
 #if ENABLE_FEATURE_SEAMLESS_GZ
-	llist_add_to(&(ar_archive->accept), (char*)"data.tar.gz");
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.gz");
 	llist_add_to(&control_tar_llist, (char*)"control.tar.gz");
 #endif
-
 #if ENABLE_FEATURE_SEAMLESS_BZ2
-	llist_add_to(&(ar_archive->accept), (char*)"data.tar.bz2");
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.bz2");
 	llist_add_to(&control_tar_llist, (char*)"control.tar.bz2");
+#endif
+#if ENABLE_FEATURE_SEAMLESS_LZMA
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.lzma");
+	llist_add_to(&control_tar_llist, (char*)"control.tar.lzma");
 #endif
 
 	opt_complementary = "c--efXx:e--cfXx:f--ceXx:X--cefx:x--cefX";

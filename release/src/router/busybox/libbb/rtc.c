@@ -1,7 +1,7 @@
 /*
  * Common RTC functions
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -19,24 +19,15 @@ int FAST_FUNC rtc_adjtime_is_utc(void)
 	FILE *f = fopen_for_read(ADJTIME_PATH);
 
 	if (f) {
-		RESERVE_CONFIG_BUFFER(buffer, 128);
+		char buffer[128];
 
 		while (fgets(buffer, sizeof(buffer), f)) {
-			int len = strlen(buffer);
-
-			while (len && isspace(buffer[len - 1]))
-				len--;
-
-			buffer[len] = 0;
-
 			if (strncmp(buffer, "UTC", 3) == 0) {
 				utc = 1;
 				break;
 			}
 		}
 		fclose(f);
-
-		RELEASE_CONFIG_BUFFER(buffer);
 	}
 
 	return utc;
@@ -61,15 +52,17 @@ int FAST_FUNC rtc_xopen(const char **default_rtc, int flags)
 	return xopen(*default_rtc, flags);
 }
 
-time_t FAST_FUNC rtc_read_time(int fd, int utc)
+void FAST_FUNC rtc_read_tm(struct tm *ptm, int fd)
 {
-	struct tm tm;
-	char *oldtz = 0;
-	time_t t = 0;
+	memset(ptm, 0, sizeof(*ptm));
+	xioctl(fd, RTC_RD_TIME, ptm);
+	ptm->tm_isdst = -1; /* "not known" */
+}
 
-	memset(&tm, 0, sizeof(struct tm));
-	xioctl(fd, RTC_RD_TIME, &tm);
-	tm.tm_isdst = -1; /* not known */
+time_t FAST_FUNC rtc_tm2time(struct tm *ptm, int utc)
+{
+	char *oldtz = oldtz; /* for compiler */
+	time_t t;
 
 	if (utc) {
 		oldtz = getenv("TZ");
@@ -77,7 +70,7 @@ time_t FAST_FUNC rtc_read_time(int fd, int utc)
 		tzset();
 	}
 
-	t = mktime(&tm);
+	t = mktime(ptm);
 
 	if (utc) {
 		unsetenv("TZ");

@@ -4,10 +4,25 @@
  *
  * Copyright (C) 2005 Bernhard Reutner-Fischer
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Based on sysvinit's mountpoint
  */
+
+//usage:#define mountpoint_trivial_usage
+//usage:       "[-q] <[-dn] DIR | -x DEVICE>"
+//usage:#define mountpoint_full_usage "\n\n"
+//usage:       "Check if the directory is a mountpoint\n"
+//usage:     "\n	-q	Quiet"
+//usage:     "\n	-d	Print major/minor device number of the filesystem"
+//usage:     "\n	-n	Print device name of the filesystem"
+//usage:     "\n	-x	Print major/minor device number of the blockdevice"
+//usage:
+//usage:#define mountpoint_example_usage
+//usage:       "$ mountpoint /proc\n"
+//usage:       "/proc is not a mountpoint\n"
+//usage:       "$ mountpoint /sys\n"
+//usage:       "/sys is a mountpoint\n"
 
 #include "libbb.h"
 
@@ -55,8 +70,17 @@ int mountpoint_main(int argc UNUSED_PARAM, char **argv)
 
 			if (opt & OPT_d)
 				printf("%u:%u\n", major(st_dev), minor(st_dev));
-			if (opt & OPT_n)
-				printf("%s %s\n", find_block_device(arg), arg);
+			if (opt & OPT_n) {
+				const char *d = find_block_device(arg);
+				/* name is undefined, but device is mounted -> anonymous superblock! */
+				/* happens with btrfs */
+				if (!d) {
+					d = "UNKNOWN";
+					/* TODO: iterate /proc/mounts, or /proc/self/mountinfo
+					 * to find out the device name */
+				}
+				printf("%s %s\n", d, arg);
+			}
 			if (!(opt & (OPT_q | OPT_d | OPT_n)))
 				printf("%s is %sa mountpoint\n", arg, is_not_mnt ? "not " : "");
 			return is_not_mnt;

@@ -12,7 +12,7 @@
  *
  *  started life as a busybox implementation of udpkg
  *
- * licensed under gplv2 or later, see file license in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /*
@@ -28,9 +28,36 @@
  *
  */
 
+//usage:#define dpkg_trivial_usage
+//usage:       "[-ilCPru] [-F OPT] PACKAGE"
+//usage:#define dpkg_full_usage "\n\n"
+//usage:       "Install, remove and manage Debian packages\n"
+//usage:	IF_LONG_OPTS(
+//usage:     "\n	-i,--install	Install the package"
+//usage:     "\n	-l,--list	List of installed packages"
+//usage:     "\n	--configure	Configure an unpackaged package"
+//usage:     "\n	-P,--purge	Purge all files of a package"
+//usage:     "\n	-r,--remove	Remove all but the configuration files for a package"
+//usage:     "\n	--unpack	Unpack a package, but don't configure it"
+//usage:     "\n	--force-depends	Ignore dependency problems"
+//usage:     "\n	--force-confnew	Overwrite existing config files when installing"
+//usage:     "\n	--force-confold	Keep old config files when installing"
+//usage:	)
+//usage:	IF_NOT_LONG_OPTS(
+//usage:     "\n	-i		Install the package"
+//usage:     "\n	-l		List of installed packages"
+//usage:     "\n	-C		Configure an unpackaged package"
+//usage:     "\n	-P		Purge all files of a package"
+//usage:     "\n	-r		Remove all but the configuration files for a package"
+//usage:     "\n	-u		Unpack a package, but don't configure it"
+//usage:     "\n	-F depends	Ignore dependency problems"
+//usage:     "\n	-F confnew	Overwrite existing config files when installing"
+//usage:     "\n	-F confold	Keep old config files when installing"
+//usage:	)
+
 #include "libbb.h"
 #include <fnmatch.h>
-#include "unarchive.h"
+#include "bb_archive.h"
 
 /* note: if you vary hash_prime sizes be aware,
  * 1) tweaking these will have a big effect on how much memory this program uses.
@@ -245,7 +272,7 @@ static int version_compare(const unsigned ver1, const unsigned ver2)
 {
 	char *ch_ver1 = name_hashtable[ver1];
 	char *ch_ver2 = name_hashtable[ver2];
-	unsigned long epoch1 = 0, epoch2 = 0;
+	unsigned epoch1 = 0, epoch2 = 0;
 	char *colon;
 	char *deb_ver1, *deb_ver2;
 	char *upstream_ver1;
@@ -278,17 +305,16 @@ static int version_compare(const unsigned ver1, const unsigned ver2)
 	deb_ver1 = strrchr(upstream_ver1, '-');
 	deb_ver2 = strrchr(upstream_ver2, '-');
 	if (deb_ver1) {
-		deb_ver1[0] = '\0';
-		deb_ver1++;
+		*deb_ver1++ = '\0';
 	}
 	if (deb_ver2) {
-		deb_ver2[0] = '\0';
-		deb_ver2++;
+		*deb_ver2++ = '\0';
 	}
 	result = version_compare_part(upstream_ver1, upstream_ver2);
-	if (!result)
+	if (result == 0) {
 		/* Compare debian versions */
 		result = version_compare_part(deb_ver1, deb_ver2);
+	}
 
 	free(upstream_ver1);
 	free(upstream_ver2);
@@ -493,7 +519,7 @@ static void free_package(common_node_t *node)
 }
 
 /*
- * Gets the next package field from package_buffer, seperated into the field name
+ * Gets the next package field from package_buffer, separated into the field name
  * and field value, it returns the int offset to the first character of the next field
  */
 static int read_package_field(const char *package_buffer, char **field_name, char **field_value)
@@ -675,28 +701,21 @@ static unsigned get_status(const unsigned status_node, const int num)
 
 static void set_status(const unsigned status_node_num, const char *new_value, const int position)
 {
-	const unsigned new_value_len = strlen(new_value);
 	const unsigned new_value_num = search_name_hashtable(new_value);
 	unsigned want = get_status(status_node_num, 1);
 	unsigned flag = get_status(status_node_num, 2);
 	unsigned status = get_status(status_node_num, 3);
-	int want_len = strlen(name_hashtable[want]);
-	int flag_len = strlen(name_hashtable[flag]);
-	int status_len = strlen(name_hashtable[status]);
 	char *new_status;
 
 	switch (position) {
 		case 1:
 			want = new_value_num;
-			want_len = new_value_len;
 			break;
 		case 2:
 			flag = new_value_num;
-			flag_len = new_value_len;
 			break;
 		case 3:
 			status = new_value_num;
-			status_len = new_value_len;
 			break;
 		default:
 			bb_error_msg_and_die("DEBUG ONLY: this shouldnt happen");
@@ -806,7 +825,7 @@ static void write_status_file(deb_file_t **deb_file)
 		write_flag = FALSE;
 		tmp_string = strstr(control_buffer, "Status:");
 		if (tmp_string != NULL) {
-			/* Seperate the status value from the control buffer */
+			/* Separate the status value from the control buffer */
 			tmp_string += 7;
 			tmp_string += strspn(tmp_string, " \n\t");
 			status_from_file = xstrndup(tmp_string, strcspn(tmp_string, "\n"));
@@ -858,15 +877,16 @@ static void write_status_file(deb_file_t **deb_file)
 						if (field_name == NULL) {
 							break;
 						}
-						if ((strcmp(field_name, "Priority") == 0) ||
-							(strcmp(field_name, "Section") == 0)) {
+						if ((strcmp(field_name, "Priority") == 0)
+						 || (strcmp(field_name, "Section") == 0)
+						) {
 							fprintf(new_status_file, "%s: %s\n", field_name, field_value);
 						}
 					}
 					write_flag = TRUE;
 					fputs("\n", new_status_file);
 				}
-				else if	(strcmp("config-files", name_hashtable[state_status]) == 0) {
+				else if (strcmp("config-files", name_hashtable[state_status]) == 0) {
 					/* only change the status line */
 					while (1) {
 						char *field_name;
@@ -912,7 +932,7 @@ static void write_status_file(deb_file_t **deb_file)
 	/* Create a separate backfile to dpkg */
 	if (rename("/var/lib/dpkg/status", "/var/lib/dpkg/status.udeb.bak") == -1) {
 		if (errno != ENOENT)
-			bb_error_msg_and_die("cannot create backup status file");
+			bb_error_msg_and_die("can't create backup status file");
 		/* Its ok if renaming the status file fails because status
 		 * file doesnt exist, maybe we are starting from scratch */
 		bb_error_msg("no status file found, creating new one");
@@ -939,8 +959,8 @@ static int package_satisfies_dependency(int package, int depend_type)
 		return 0;
 
 	switch (depend_type) {
-	case EDGE_PRE_DEPENDS:	return get_status(status_num, 3) == search_name_hashtable("installed");
-	case EDGE_DEPENDS:	return get_status(status_num, 1) == search_name_hashtable("install");
+	case EDGE_PRE_DEPENDS: return get_status(status_num, 3) == search_name_hashtable("installed");
+	case EDGE_DEPENDS:     return get_status(status_num, 1) == search_name_hashtable("install");
 	}
 	return 0;
 }
@@ -967,7 +987,7 @@ static int check_deps(deb_file_t **deb_file, int deb_start /*, int dep_max_count
 		conflicts[conflicts_num] = package_num;
 		conflicts_num++;
 		/* add provides to conflicts list */
-		for (j = 0; j <	package_hashtable[package_num]->num_of_edges; j++) {
+		for (j = 0; j < package_hashtable[package_num]->num_of_edges; j++) {
 			if (package_hashtable[package_num]->edge[j]->type == EDGE_PROVIDES) {
 				const int conflicts_package_num = search_package_hashtable(
 					package_hashtable[package_num]->edge[j]->name,
@@ -1006,8 +1026,8 @@ static int check_deps(deb_file_t **deb_file, int deb_start /*, int dep_max_count
 			if (package_edge->type == EDGE_CONFLICTS) {
 				const unsigned package_num =
 					search_package_hashtable(package_edge->name,
-								 package_edge->version,
-								 package_edge->operator);
+								package_edge->version,
+								package_edge->operator);
 				int result = 0;
 				if (package_hashtable[package_num] != NULL) {
 					status_num = search_status_hashtable(name_hashtable[package_hashtable[package_num]->name]);
@@ -1067,20 +1087,22 @@ static int check_deps(deb_file_t **deb_file, int deb_start /*, int dep_max_count
 
 			if (package_edge->type == EDGE_OR_PRE_DEPENDS
 			 || package_edge->type == EDGE_OR_DEPENDS
-			) {	/* start an EDGE_OR_ list */
+			) {
+				/* start an EDGE_OR_ list */
 				number_of_alternatives = package_edge->version;
 				root_of_alternatives = package_edge;
 				continue;
 			}
-			if (number_of_alternatives == 0) {	/* not in the middle of an EDGE_OR_ list */
+			if (number_of_alternatives == 0) {  /* not in the middle of an EDGE_OR_ list */
 				number_of_alternatives = 1;
 				root_of_alternatives = NULL;
 			}
 
 			package_num = search_package_hashtable(package_edge->name, package_edge->version, package_edge->operator);
 
-			if (package_edge->type == EDGE_PRE_DEPENDS ||
-			    package_edge->type == EDGE_DEPENDS) {
+			if (package_edge->type == EDGE_PRE_DEPENDS
+			 || package_edge->type == EDGE_DEPENDS
+			) {
 				int result=1;
 				status_num = 0;
 
@@ -1092,7 +1114,7 @@ static int check_deps(deb_file_t **deb_file, int deb_start /*, int dep_max_count
 				 */
 				if (root_of_alternatives && package_edge->type != root_of_alternatives->type - 1)
 					bb_error_msg_and_die("fatal error, package dependencies corrupt: %d != %d - 1",
-							     package_edge->type, root_of_alternatives->type);
+							package_edge->type, root_of_alternatives->type);
 
 				if (package_hashtable[package_num] != NULL)
 					result = !package_satisfies_dependency(package_num, package_edge->type);
@@ -1306,7 +1328,7 @@ static void list_packages(const char *pattern)
 			name_str = name_hashtable[package_hashtable[status_hashtable[i]->package]->name];
 			vers_str = name_hashtable[package_hashtable[status_hashtable[i]->package]->version];
 
-			if (pattern && fnmatch(pattern, name_str, 0))
+			if (pattern && fnmatch(pattern, name_str, 0) != 0)
 				continue;
 
 			/* get abbreviation for status field 1 */
@@ -1354,8 +1376,8 @@ static void remove_package(const unsigned package_num, int noisy)
 	free_array(exclude_files);
 	free_array(remove_files);
 
-	/* Create a list of files in /var/lib/dpkg/info/<package>.* to keep  */
-	exclude_files = xzalloc(sizeof(char*) * 3);
+	/* Create a list of files in /var/lib/dpkg/info/<package>.* to keep */
+	exclude_files = xzalloc(sizeof(exclude_files[0]) * 3);
 	exclude_files[0] = xstrdup(conffile_name);
 	exclude_files[1] = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "postrm");
 
@@ -1393,20 +1415,25 @@ static void purge_package(const unsigned package_num)
 	sprintf(list_name, "/var/lib/dpkg/info/%s.%s", package_name, "list");
 	remove_files = create_list(list_name);
 
-	exclude_files = xzalloc(sizeof(char*));
-
 	/* Some directories cant be removed straight away, so do multiple passes */
-	while (remove_file_array(remove_files, exclude_files)) /* repeat */;
+	while (remove_file_array(remove_files, NULL))
+		continue;
 	free_array(remove_files);
 
 	/* Create a list of all /var/lib/dpkg/info/<package> files */
 	remove_files = all_control_list(package_name);
-	remove_file_array(remove_files, exclude_files);
-	free_array(remove_files);
-	free(exclude_files);
 
-	/* Run postrm script */
+	/* Delete all of them except the postrm script */
+	exclude_files = xzalloc(sizeof(exclude_files[0]) * 2);
+	exclude_files[0] = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "postrm");
+	remove_file_array(remove_files, exclude_files);
+	free_array(exclude_files);
+
+	/* Run and remove postrm script */
 	run_package_script_or_die(package_name, "postrm");
+	remove_file_array(remove_files, NULL);
+
+	free_array(remove_files);
 
 	/* Change package status */
 	set_status(status_num, "not-installed", 3);
@@ -1441,7 +1468,7 @@ static void init_archive_deb_control(archive_handle_t *ar_handle)
 #endif
 
 	/* Assign the tar handle as a subarchive of the ar handle */
-	ar_handle->sub_archive = tar_handle;
+	ar_handle->dpkg__sub_archive = tar_handle;
 }
 
 static void init_archive_deb_data(archive_handle_t *ar_handle)
@@ -1461,31 +1488,122 @@ static void init_archive_deb_data(archive_handle_t *ar_handle)
 #endif
 
 	/* Assign the tar handle as a subarchive of the ar handle */
-	ar_handle->sub_archive = tar_handle;
+	ar_handle->dpkg__sub_archive = tar_handle;
+}
+
+static void FAST_FUNC data_extract_to_buffer(archive_handle_t *archive_handle)
+{
+	unsigned size = archive_handle->file_header->size;
+
+	archive_handle->dpkg__buffer = xzalloc(size + 1);
+	xread(archive_handle->src_fd, archive_handle->dpkg__buffer, size);
 }
 
 static char *deb_extract_control_file_to_buffer(archive_handle_t *ar_handle, llist_t *myaccept)
 {
-	ar_handle->sub_archive->action_data = data_extract_to_buffer;
-	ar_handle->sub_archive->accept = myaccept;
-	ar_handle->sub_archive->filter = filter_accept_list;
+	ar_handle->dpkg__sub_archive->action_data = data_extract_to_buffer;
+	ar_handle->dpkg__sub_archive->accept = myaccept;
+	ar_handle->dpkg__sub_archive->filter = filter_accept_list;
 
 	unpack_ar_archive(ar_handle);
 	close(ar_handle->src_fd);
 
-	return ar_handle->sub_archive->buffer;
+	return ar_handle->dpkg__sub_archive->dpkg__buffer;
+}
+
+static void append_control_file_to_llist(const char *package_name, const char *control_name, llist_t **ll)
+{
+	FILE *fp;
+	char *filename, *line;
+
+	filename = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, control_name);
+	fp = fopen_for_read(filename);
+	free(filename);
+	if (fp != NULL) {
+		while ((line = xmalloc_fgetline(fp)) != NULL)
+			llist_add_to(ll, line);
+		fclose(fp);
+	}
+}
+
+static char FAST_FUNC filter_rename_config(archive_handle_t *archive_handle)
+{
+	int fd;
+	char *name_ptr = archive_handle->file_header->name + 1;
+
+	/* Is this file marked as config file? */
+	if (!find_list_entry(archive_handle->accept, name_ptr))
+		return EXIT_SUCCESS; /* no */
+
+	fd = open(name_ptr, O_RDONLY);
+	if (fd >= 0) {
+		md5_ctx_t md5;
+		char *md5line, *buf;
+		int count;
+
+		/* Calculate MD5 of existing file */
+		buf = xmalloc(4096);
+		md5_begin(&md5);
+		while ((count = safe_read(fd, buf, 4096)) > 0)
+			md5_hash(&md5, buf, count);
+		md5_end(&md5, buf); /* using buf as result storage */
+		close(fd);
+
+		md5line = xmalloc(16 * 2 + 2 + strlen(name_ptr) + 1);
+		sprintf(bin2hex(md5line, buf, 16), "  %s", name_ptr);
+		free(buf);
+
+		/* Is it changed after install? */
+		if (find_list_entry(archive_handle->accept, md5line) == NULL) {
+			printf("Warning: Creating %s as %s.dpkg-new\n", name_ptr, name_ptr);
+			archive_handle->file_header->name = xasprintf("%s.dpkg-new", archive_handle->file_header->name);
+		}
+		free(md5line);
+	}
+	return EXIT_SUCCESS;
 }
 
 static void FAST_FUNC data_extract_all_prefix(archive_handle_t *archive_handle)
 {
 	char *name_ptr = archive_handle->file_header->name;
 
-	name_ptr += strspn(name_ptr, "./");
+	/* Skip all leading "/" */
+	while (*name_ptr == '/')
+		name_ptr++;
+	/* Skip all leading "./" and "../" */
+	while (name_ptr[0] == '.') {
+		if (name_ptr[1] == '.')
+			name_ptr++;
+		if (name_ptr[1] != '/')
+			break;
+		name_ptr += 2;
+	}
+
 	if (name_ptr[0] != '\0') {
-		archive_handle->file_header->name = xasprintf("%s%s", archive_handle->buffer, name_ptr);
+		archive_handle->file_header->name = xasprintf("%s%s", archive_handle->dpkg__buffer, name_ptr);
 		data_extract_all(archive_handle);
+		if (fnmatch("*.dpkg-new", archive_handle->file_header->name, 0) == 0) {
+			/* remove .dpkg-new suffix */
+			archive_handle->file_header->name[strlen(archive_handle->file_header->name) - 9] = '\0';
+		}
 	}
 }
+
+enum {
+	/* Commands */
+	OPT_configure            = (1 << 0),
+	OPT_install              = (1 << 1),
+	OPT_list_installed       = (1 << 2),
+	OPT_purge                = (1 << 3),
+	OPT_remove               = (1 << 4),
+	OPT_unpack               = (1 << 5),
+	OPTMASK_cmd              = (1 << 6) - 1,
+	/* Options */
+	OPT_force                = (1 << 6),
+	OPT_force_ignore_depends = (1 << 7),
+	OPT_force_confnew        = (1 << 8),
+	OPT_force_confold        = (1 << 9),
+};
 
 static void unpack_package(deb_file_t *deb_file)
 {
@@ -1497,14 +1615,21 @@ static void unpack_package(deb_file_t *deb_file)
 	archive_handle_t *archive_handle;
 	FILE *out_stream;
 	llist_t *accept_list;
+	llist_t *conffile_list;
 	int i;
 
 	/* If existing version, remove it first */
+	conffile_list = NULL;
 	if (strcmp(name_hashtable[get_status(status_num, 3)], "installed") == 0) {
 		/* Package is already installed, remove old version first */
 		printf("Preparing to replace %s %s (using %s)...\n", package_name,
 			name_hashtable[package_hashtable[status_package_num]->version],
 			deb_file->filename);
+
+		/* Read md5sums from old package */
+		if (!(option_mask32 & OPT_force_confold))
+			append_control_file_to_llist(package_name, "md5sums", &conffile_list);
+
 		remove_package(status_package_num, 0);
 	} else {
 		printf("Unpacking %s (from %s)...\n", package_name, deb_file->filename);
@@ -1522,32 +1647,43 @@ static void unpack_package(deb_file_t *deb_file)
 		llist_add_to(&accept_list, c);
 		i++;
 	}
-	archive_handle->sub_archive->accept = accept_list;
-	archive_handle->sub_archive->filter = filter_accept_list;
-	archive_handle->sub_archive->action_data = data_extract_all_prefix;
-	archive_handle->sub_archive->buffer = info_prefix;
-	archive_handle->sub_archive->ah_flags |= ARCHIVE_EXTRACT_UNCONDITIONAL;
+	archive_handle->dpkg__sub_archive->accept = accept_list;
+	archive_handle->dpkg__sub_archive->filter = filter_accept_list;
+	archive_handle->dpkg__sub_archive->action_data = data_extract_all_prefix;
+	archive_handle->dpkg__sub_archive->dpkg__buffer = info_prefix;
+	archive_handle->dpkg__sub_archive->ah_flags |= ARCHIVE_UNLINK_OLD;
 	unpack_ar_archive(archive_handle);
 
 	/* Run the preinst prior to extracting */
 	run_package_script_or_die(package_name, "preinst");
 
+	/* Don't overwrite existing config files */
+	if (!(option_mask32 & OPT_force_confnew))
+		append_control_file_to_llist(package_name, "conffiles", &conffile_list);
+
 	/* Extract data.tar.gz to the root directory */
 	archive_handle = init_archive_deb_ar(deb_file->filename);
 	init_archive_deb_data(archive_handle);
-	archive_handle->sub_archive->action_data = data_extract_all_prefix;
-	archive_handle->sub_archive->buffer = (char*)"/"; /* huh? */
-	archive_handle->sub_archive->ah_flags |= ARCHIVE_EXTRACT_UNCONDITIONAL;
+	archive_handle->dpkg__sub_archive->accept = conffile_list;
+	/* Why ARCHIVE_REMEMBER_NAMES?
+	 * We want names collected in ->passed list even if conffile_list
+	 * is NULL (otherwise get_header_tar may optimize name saving out):
+	 */
+	archive_handle->dpkg__sub_archive->ah_flags |= ARCHIVE_REMEMBER_NAMES | ARCHIVE_UNLINK_OLD;
+	archive_handle->dpkg__sub_archive->filter = filter_rename_config;
+	archive_handle->dpkg__sub_archive->action_data = data_extract_all_prefix;
+	archive_handle->dpkg__sub_archive->dpkg__buffer = (char*)"/"; /* huh? */
 	unpack_ar_archive(archive_handle);
 
 	/* Create the list file */
 	list_filename = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "list");
 	out_stream = xfopen_for_write(list_filename);
-	while (archive_handle->sub_archive->passed) {
+	archive_handle->dpkg__sub_archive->passed = llist_rev(archive_handle->dpkg__sub_archive->passed);
+	while (archive_handle->dpkg__sub_archive->passed) {
+		char *filename = llist_pop(&archive_handle->dpkg__sub_archive->passed);
 		/* the leading . has been stripped by data_extract_all_prefix already */
-		fputs(archive_handle->sub_archive->passed->data, out_stream);
-		fputc('\n', out_stream);
-		archive_handle->sub_archive->passed = archive_handle->sub_archive->passed->link;
+		fprintf(out_stream, "%s\n", filename);
+		free(filename);
 	}
 	fclose(out_stream);
 
@@ -1588,40 +1724,57 @@ int dpkg_main(int argc UNUSED_PARAM, char **argv)
 	int state_status;
 	int status_num;
 	int i;
-	enum {
-		OPT_configure = 0x1,
-		OPT_force_ignore_depends = 0x2,
-		OPT_install = 0x4,
-		OPT_list_installed = 0x8,
-		OPT_purge = 0x10,
-		OPT_remove = 0x20,
-		OPT_unpack = 0x40,
-	};
+#if ENABLE_LONG_OPTS
+	static const char dpkg_longopts[] ALIGN1 =
+// FIXME: we use -C non-compatibly, should be:
+// "-C|--audit Check for broken package(s)"
+		"configure\0"      No_argument        "C"
+		"force\0"          Required_argument  "F"
+		"install\0"        No_argument        "i"
+		"list\0"           No_argument        "l"
+		"purge\0"          No_argument        "P"
+		"remove\0"         No_argument        "r"
+		"unpack\0"         No_argument        "u"
+		"force-depends\0"  No_argument        "\xff"
+		"force-confnew\0"  No_argument        "\xfe"
+		"force-confold\0"  No_argument        "\xfd"
+		;
+#endif
 
 	INIT_G();
 
-	opt = getopt32(argv, "CF:ilPru", &str_f);
+	IF_LONG_OPTS(applet_long_options = dpkg_longopts);
+	opt = getopt32(argv, "CilPruF:", &str_f);
+	argv += optind;
 	//if (opt & OPT_configure) ... // -C
-	if (opt & OPT_force_ignore_depends) { // -F (--force in official dpkg)
-		if (strcmp(str_f, "depends"))
-			opt &= ~OPT_force_ignore_depends;
+	if (opt & OPT_force) { // -F (--force in official dpkg)
+		if (strcmp(str_f, "depends") == 0)
+			opt |= OPT_force_ignore_depends;
+		else if (strcmp(str_f, "confnew") == 0)
+			opt |= OPT_force_confnew;
+		else if (strcmp(str_f, "confold") == 0)
+			opt |= OPT_force_confold;
+		else
+			bb_show_usage();
+		option_mask32 = opt;
 	}
 	//if (opt & OPT_install) ... // -i
 	//if (opt & OPT_list_installed) ... // -l
 	//if (opt & OPT_purge) ... // -P
 	//if (opt & OPT_remove) ... // -r
 	//if (opt & OPT_unpack) ... // -u (--unpack in official dpkg)
-	argv += optind;
-	/* check for non-option argument if expected  */
-	if (!opt || (!argv[0] && !(opt && OPT_list_installed)))
+	if (!(opt & OPTMASK_cmd) /* no cmd */
+	 || ((opt & OPTMASK_cmd) & ((opt & OPTMASK_cmd)-1)) /* more than one cmd */
+	) {
 		bb_show_usage();
+	}
 
 /*	puts("(Reading database ... xxxxx files and directories installed.)"); */
 	index_status_file("/var/lib/dpkg/status");
 
 	/* if the list action was given print the installed packages and exit */
 	if (opt & OPT_list_installed) {
-		list_packages(argv[0]);
+		list_packages(argv[0]); /* param can be NULL */
 		return EXIT_SUCCESS;
 	}
 
@@ -1641,7 +1794,7 @@ int dpkg_main(int argc UNUSED_PARAM, char **argv)
 			init_archive_deb_control(archive_handle);
 			deb_file[deb_count]->control_file = deb_extract_control_file_to_buffer(archive_handle, control_list);
 			if (deb_file[deb_count]->control_file == NULL) {
-				bb_error_msg_and_die("cannot extract control file");
+				bb_error_msg_and_die("can't extract control file");
 			}
 			deb_file[deb_count]->filename = xstrdup(argv[0]);
 			package_num = fill_package_struct(deb_file[deb_count]->control_file);

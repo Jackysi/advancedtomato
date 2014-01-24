@@ -6,7 +6,7 @@
  * Copyright (C) 1999,2000,2001 by John Beppu <beppu@codepoet.org>
  * Copyright (C) 2002  Edward Betts <edward@debian.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant (unless default blocksize set to 1k) */
@@ -22,6 +22,40 @@
  * 3) Added error checking of output.
  * 4) Fixed busybox bug #1284 involving long overflow with human_readable.
  */
+
+//usage:#define du_trivial_usage
+//usage:       "[-aHLdclsx" IF_FEATURE_HUMAN_READABLE("hm") "k] [FILE]..."
+//usage:#define du_full_usage "\n\n"
+//usage:       "Summarize disk space used for each FILE and/or directory\n"
+//usage:     "\n	-a	Show file sizes too"
+//usage:     "\n	-L	Follow all symlinks"
+//usage:     "\n	-H	Follow symlinks on command line"
+//usage:     "\n	-d N	Limit output to directories (and files with -a) of depth < N"
+//usage:     "\n	-c	Show grand total"
+//usage:     "\n	-l	Count sizes many times if hard linked"
+//usage:     "\n	-s	Display only a total for each argument"
+//usage:     "\n	-x	Skip directories on different filesystems"
+//usage:	IF_FEATURE_HUMAN_READABLE(
+//usage:     "\n	-h	Sizes in human readable format (e.g., 1K 243M 2G)"
+//usage:     "\n	-m	Sizes in megabytes"
+//usage:	)
+//usage:     "\n	-k	Sizes in kilobytes" IF_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(" (default)")
+//usage:	IF_NOT_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(
+//usage:     "\n		Default unit is 512 bytes"
+//usage:	)
+//usage:
+//usage:#define du_example_usage
+//usage:       "$ du\n"
+//usage:       "16      ./CVS\n"
+//usage:       "12      ./kernel-patches/CVS\n"
+//usage:       "80      ./kernel-patches\n"
+//usage:       "12      ./tests/CVS\n"
+//usage:       "36      ./tests\n"
+//usage:       "12      ./scripts/CVS\n"
+//usage:       "16      ./scripts\n"
+//usage:       "12      ./docs/CVS\n"
+//usage:       "104     ./docs\n"
+//usage:       "2417    .\n"
 
 #include "libbb.h"
 
@@ -50,30 +84,38 @@ struct globals {
 	int slink_depth;
 	int du_depth;
 	dev_t dir_dev;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() do { } while (0)
 
 
-static void print(unsigned long size, const char *filename)
+/* FIXME? coreutils' du rounds sizes up:
+ * for example,  1025k file is shown as "2" by du -m.
+ * We round to nearest.
+ */
+static void print(unsigned long long size, const char *filename)
 {
 	/* TODO - May not want to defer error checking here. */
 #if ENABLE_FEATURE_HUMAN_READABLE
-	printf("%s\t%s\n", make_human_readable_str(size, 512, G.disp_hr),
+	printf("%s\t%s\n",
+			/* size x 512 / G.disp_hr, show one fractional,
+			 * use suffixes if G.disp_hr == 0 */
+			make_human_readable_str(size, 512, G.disp_hr),
 			filename);
 #else
 	if (G.disp_k) {
 		size++;
 		size >>= 1;
 	}
-	printf("%ld\t%s\n", size, filename);
+	printf("%llu\t%s\n", size, filename);
 #endif
 }
 
 /* tiny recursive du */
-static unsigned long du(const char *filename)
+static unsigned long long du(const char *filename)
 {
 	struct stat statbuf;
-	unsigned long sum;
+	unsigned long long sum;
 
 	if (lstat(filename, &statbuf) != 0) {
 		bb_simple_perror_msg(filename);
@@ -150,18 +192,20 @@ static unsigned long du(const char *filename)
 int du_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int du_main(int argc UNUSED_PARAM, char **argv)
 {
-	unsigned long total;
+	unsigned long long total;
 	int slink_depth_save;
 	unsigned opt;
 
+	INIT_G();
+
 #if ENABLE_FEATURE_HUMAN_READABLE
-	USE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 1024;)
-	SKIP_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 512;)
+	IF_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 1024;)
+	IF_NOT_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 512;)
 	if (getenv("POSIXLY_CORRECT"))  /* TODO - a new libbb function? */
 		G.disp_hr = 512;
 #else
-	USE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 1;)
-	/* SKIP_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 0;) - G is pre-zeroed */
+	IF_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 1;)
+	/* IF_NOT_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 0;) - G is pre-zeroed */
 #endif
 	G.max_print_depth = INT_MAX;
 

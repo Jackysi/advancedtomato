@@ -11,7 +11,7 @@
  * Modified to be able to add or delete users, groups and users to/from groups
  * by Tito Ragusa <farmatito@tiscali.it>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 
@@ -22,7 +22,7 @@ static void check_selinux_update_passwd(const char *username)
 	char *seuser;
 
 	if (getuid() != (uid_t)0 || is_selinux_enabled() == 0)
-		return;		/* No need to check */
+		return;  /* No need to check */
 
 	if (getprevcon_raw(&context) < 0)
 		bb_perror_msg_and_die("getprevcon failed");
@@ -58,7 +58,7 @@ static void check_selinux_update_passwd(const char *username)
  6) delete a user from a group: update_passwd(FILE, GROUP, NULL, MEMBER)
     only if CONFIG_FEATURE_DEL_USER_FROM_GROUP=y and member != NULL
 
- 7) change user's passord: update_passwd(FILE, USER, NEW_PASSWD, NULL)
+ 7) change user's password: update_passwd(FILE, USER, NEW_PASSWD, NULL)
     only if CONFIG_PASSWD=y and applet_name[0] == 'p' like in passwd
     or if CONFIG_CHPASSWD=y and applet_name[0] == 'c' like in chpasswd
 
@@ -81,12 +81,19 @@ int FAST_FUNC update_passwd(const char *filename,
 	FILE *new_fp;
 	char *fnamesfx;
 	char *sfx_char;
+	char *name_colon;
 	unsigned user_len;
 	int old_fd;
 	int new_fd;
 	int i;
 	int changed_lines;
 	int ret = -1; /* failure */
+	/* used as a bool: "are we modifying /etc/shadow?" */
+#if ENABLE_FEATURE_SHADOWPASSWDS
+	const char *shadow = strstr(filename, "shadow");
+#else
+# define shadow NULL
+#endif
 
 	filename = xmalloc_follow_symlinks(filename);
 	if (filename == NULL)
@@ -97,15 +104,18 @@ int FAST_FUNC update_passwd(const char *filename,
 	/* New passwd file, "/etc/passwd+" for now */
 	fnamesfx = xasprintf("%s+", filename);
 	sfx_char = &fnamesfx[strlen(fnamesfx)-1];
-	name = xasprintf("%s:", name);
-	user_len = strlen(name);
+	name_colon = xasprintf("%s:", name);
+	user_len = strlen(name_colon);
 
-	if (strstr(filename, "shadow"))
+	if (shadow)
 		old_fp = fopen(filename, "r+");
 	else
 		old_fp = fopen_or_warn(filename, "r+");
-	if (!old_fp)
+	if (!old_fp) {
+		if (shadow)
+			ret = 0; /* missing shadow is not an error */
 		goto free_mem;
+	}
 	old_fd = fileno(old_fp);
 
 	selinux_preserve_fcontext(old_fd);
@@ -123,17 +133,12 @@ int FAST_FUNC update_passwd(const char *filename,
 	goto close_old_fp;
 
  created:
-	if (!fstat(old_fd, &sb)) {
+	if (fstat(old_fd, &sb) == 0) {
 		fchmod(new_fd, sb.st_mode & 0777); /* ignore errors */
 		fchown(new_fd, sb.st_uid, sb.st_gid);
 	}
 	errno = 0;
-	new_fp = fdopen(new_fd, "w");
-	if (!new_fp) {
-		bb_perror_nomsg();
-		close(new_fd);
-		goto unlink_new;
-	}
+	new_fp = xfdopen_for_write(new_fd);
 
 	/* Backup file is "/etc/passwd-" */
 	*sfx_char = '-';
@@ -162,7 +167,7 @@ int FAST_FUNC update_passwd(const char *filename,
 		line = xmalloc_fgetline(old_fp);
 		if (!line) /* EOF/error */
 			break;
-		if (strncmp(name, line, user_len) != 0) {
+		if (strncmp(name_colon, line, user_len) != 0) {
 			fprintf(new_fp, "%s\n", line);
 			goto next;
 		}
@@ -215,8 +220,18 @@ int FAST_FUNC update_passwd(const char *filename,
 		) {
 			/* Change passwd */
 			cp = strchrnul(cp, ':'); /* move past old passwd */
-			/* name: + new_passwd + :rest of line */
-			fprintf(new_fp, "%s%s%s\n", name, new_passwd, cp);
+
+			if (shadow && *cp == ':') {
+				/* /etc/shadow's field 3 (passwd change date) needs updating */
+				/* move past old change date */
+				cp = strchrnul(cp + 1, ':');
+				/* "name:" + "new_passwd" + ":" + "change date" + ":rest of line" */
+				fprintf(new_fp, "%s%s:%u%s\n", name_colon, new_passwd,
+					(unsigned)(time(NULL)) / (24*60*60), cp);
+			} else {
+				/* "name:" + "new_passwd" + ":rest of line" */
+				fprintf(new_fp, "%s%s%s\n", name_colon, new_passwd, cp);
+			}
 			changed_lines++;
 		} /* else delete user or group: skip the line */
  next:
@@ -224,15 +239,19 @@ int FAST_FUNC update_passwd(const char *filename,
 	}
 
 	if (changed_lines == 0) {
-#if ENABLE_FEATURE_DEL_USER_FROM_GROUP
-		if (member)
-			bb_error_msg("can't find %s in %s", member, filename);
+#if ENABLE_FEATURE_ADDUSER_TO_GROUP || ENABLE_FEATURE_DEL_USER_FROM_GROUP
+		if (member) {
+			if (ENABLE_ADDGROUP && applet_name[0] == 'a')
+				bb_error_msg("can't find %s in %s", name, filename);
+			if (ENABLE_DELGROUP && applet_name[0] == 'd')
+				bb_error_msg("can't find %s in %s", member, filename);
+		}
 #endif
 		if ((ENABLE_ADDUSER || ENABLE_ADDGROUP)
 		 && applet_name[0] == 'a' && !member
 		) {
 			/* add user or group */
-			fprintf(new_fp, "%s%s\n", name, new_passwd);
+			fprintf(new_fp, "%s%s\n", name_colon, new_passwd);
 			changed_lines++;
 		}
 	}
@@ -261,6 +280,6 @@ int FAST_FUNC update_passwd(const char *filename,
  free_mem:
 	free(fnamesfx);
 	free((char *)filename);
-	free((char *)name);
+	free(name_colon);
 	return ret;
 }

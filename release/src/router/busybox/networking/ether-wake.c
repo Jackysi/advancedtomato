@@ -2,7 +2,7 @@
 /*
  * ether-wake.c - Send a magic packet to wake up sleeping machines.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Author:      Donald Becker, http://www.scyld.com/"; http://www.scyld.com/wakeonlan.html
  * Busybox port: Christian Volkmann <haveaniceday@online.de>
@@ -49,9 +49,9 @@
  *	Copyright 1999-2003 Donald Becker and Scyld Computing Corporation.
  *
  *	The author may be reached as becker@scyld, or C/O
- *	 Scyld Computing Corporation
- *	 914 Bay Ridge Road, Suite 220
- *	 Annapolis MD 21403
+ *	Scyld Computing Corporation
+ *	914 Bay Ridge Road, Suite 220
+ *	Annapolis MD 21403
  *
  *   Notes:
  *   On some systems dropping root capability allows the process to be
@@ -64,13 +64,20 @@
  *   filter.  That configuration consumes more power.
 */
 
-
-#include <netpacket/packet.h>
-#include <net/ethernet.h>
-#include <netinet/ether.h>
-#include <linux/if.h>
+//usage:#define ether_wake_trivial_usage
+//usage:       "[-b] [-i iface] [-p aa:bb:cc:dd[:ee:ff]] MAC"
+//usage:#define ether_wake_full_usage "\n\n"
+//usage:       "Send a magic packet to wake up sleeping machines.\n"
+//usage:       "MAC must be a station address (00:11:22:33:44:55) or\n"
+//usage:       "a hostname with a known 'ethers' entry.\n"
+//usage:     "\n	-b		Send wake-up packet to the broadcast address"
+//usage:     "\n	-i iface	Interface to use (default eth0)"
+//usage:     "\n	-p pass		Append four or six byte password PW to the packet"
 
 #include "libbb.h"
+#include <netpacket/packet.h>
+#include <netinet/ether.h>
+#include <linux/if.h>
 
 /* Note: PF_INET, SOCK_DGRAM, IPPROTO_UDP would allow SIOCGIFHWADDR to
  * work as non-root, but we need SOCK_PACKET to specify the Ethernet
@@ -106,21 +113,24 @@ void bb_debug_dump_packet(unsigned char *outpack, int pktsize)
  *    Host name
  *    IP address string
  *    MAC address string
-*/
+ */
 static void get_dest_addr(const char *hostid, struct ether_addr *eaddr)
 {
 	struct ether_addr *eap;
 
-	eap = ether_aton(hostid);
+	eap = ether_aton_r(hostid, eaddr);
 	if (eap) {
-		*eaddr = *eap;
-		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eaddr));
-#if !defined(__UCLIBC__)
+		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eap));
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 30)
 	} else if (ether_hostton(hostid, eaddr) == 0) {
 		bb_debug_msg("Station address for hostname %s is %s\n\n", hostid, ether_ntoa(eaddr));
 #endif
-	} else
+	} else {
 		bb_show_usage();
+	}
 }
 
 static int get_fill(unsigned char *pkt, struct ether_addr *eaddr, int broadcast)
@@ -164,7 +174,7 @@ static int get_wol_pw(const char *ethoptarg, unsigned char *wol_passwd)
 		byte_cnt = sscanf(ethoptarg, "%u.%u.%u.%u",
 		                  &passwd[0], &passwd[1], &passwd[2], &passwd[3]);
 	if (byte_cnt < 4) {
-		bb_error_msg("cannot read Wake-On-LAN pass");
+		bb_error_msg("can't read Wake-On-LAN pass");
 		return 0;
 	}
 // TODO: check invalid numbers >255??
@@ -186,12 +196,12 @@ int ether_wake_main(int argc UNUSED_PARAM, char **argv)
 	unsigned flags;
 	unsigned char wol_passwd[6];
 	int wol_passwd_sz = 0;
-	int s;						/* Raw socket */
+	int s;  /* Raw socket */
 	int pktsize;
 	unsigned char outpack[1000];
 
 	struct ether_addr eaddr;
-	struct whereto_t whereto;	/* who to wake up */
+	struct whereto_t whereto;  /* who to wake up */
 
 	/* handle misc user options */
 	opt_complementary = "=1";
@@ -228,9 +238,9 @@ int ether_wake_main(int argc UNUSED_PARAM, char **argv)
 		{
 			unsigned char *hwaddr = if_hwaddr.ifr_hwaddr.sa_data;
 			printf("The hardware address (SIOCGIFHWADDR) of %s is type %d  "
-				   "%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n\n", ifname,
-				   if_hwaddr.ifr_hwaddr.sa_family, hwaddr[0], hwaddr[1],
-				   hwaddr[2], hwaddr[3], hwaddr[4], hwaddr[5]);
+				"%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n\n", ifname,
+				if_hwaddr.ifr_hwaddr.sa_family, hwaddr[0], hwaddr[1],
+				hwaddr[2], hwaddr[3], hwaddr[4], hwaddr[5]);
 		}
 # endif
 	}

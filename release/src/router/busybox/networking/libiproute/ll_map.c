@@ -1,17 +1,14 @@
 /* vi: set sw=4 ts=4: */
 /*
- * ll_map.c
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
- *
- * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *
+ * Authors: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  */
 
-#include <net/if.h>	/* struct ifreq and co. */
+#include <net/if.h>  /* struct ifreq and co. */
 
 #include "libbb.h"
 #include "libnetlink.h"
@@ -27,19 +24,20 @@ struct idxmap {
 	char           name[16];
 };
 
-static struct idxmap *idxmap[16];
+static struct idxmap **idxmap; /* treat as *idxmap[16] */
 
 static struct idxmap *find_by_index(int idx)
 {
 	struct idxmap *im;
 
-	for (im = idxmap[idx & 0xF]; im; im = im->next)
-		if (im->index == idx)
-			return im;
+	if (idxmap)
+		for (im = idxmap[idx & 0xF]; im; im = im->next)
+			if (im->index == idx)
+				return im;
 	return NULL;
 }
 
-int ll_remember_index(const struct sockaddr_nl *who UNUSED_PARAM,
+int FAST_FUNC ll_remember_index(const struct sockaddr_nl *who UNUSED_PARAM,
 		struct nlmsghdr *n,
 		void *arg UNUSED_PARAM)
 {
@@ -59,8 +57,10 @@ int ll_remember_index(const struct sockaddr_nl *who UNUSED_PARAM,
 	if (tb[IFLA_IFNAME] == NULL)
 		return 0;
 
-	h = ifi->ifi_index & 0xF;
+	if (!idxmap)
+		idxmap = xzalloc(sizeof(idxmap[0]) * 16);
 
+	h = ifi->ifi_index & 0xF;
 	for (imp = &idxmap[h]; (im = *imp) != NULL; imp = &im->next)
 		if (im->index == ifi->ifi_index)
 			goto found;
@@ -86,7 +86,7 @@ int ll_remember_index(const struct sockaddr_nl *who UNUSED_PARAM,
 	return 0;
 }
 
-const char *ll_idx_n2a(int idx, char *buf)
+const char FAST_FUNC *ll_idx_n2a(int idx, char *buf)
 {
 	struct idxmap *im;
 
@@ -100,7 +100,7 @@ const char *ll_idx_n2a(int idx, char *buf)
 }
 
 
-const char *ll_index_to_name(int idx)
+const char FAST_FUNC *ll_index_to_name(int idx)
 {
 	static char nbuf[16];
 
@@ -121,7 +121,7 @@ int ll_index_to_type(int idx)
 }
 #endif
 
-unsigned ll_index_to_flags(int idx)
+unsigned FAST_FUNC ll_index_to_flags(int idx)
 {
 	struct idxmap *im;
 
@@ -133,7 +133,7 @@ unsigned ll_index_to_flags(int idx)
 	return 0;
 }
 
-int xll_name_to_index(const char *const name)
+int FAST_FUNC xll_name_to_index(const char *name)
 {
 	int ret = 0;
 	int sock_fd;
@@ -152,13 +152,15 @@ int xll_name_to_index(const char *const name)
 		ret = icache;
 		goto out;
 	}
-	for (i = 0; i < 16; i++) {
-		for (im = idxmap[i]; im; im = im->next) {
-			if (strcmp(im->name, name) == 0) {
-				icache = im->index;
-				strcpy(ncache, name);
-				ret = im->index;
-				goto out;
+	if (idxmap) {
+		for (i = 0; i < 16; i++) {
+			for (im = idxmap[i]; im; im = im->next) {
+				if (strcmp(im->name, name) == 0) {
+					icache = im->index;
+					strcpy(ncache, name);
+					ret = im->index;
+					goto out;
+				}
 			}
 		}
 	}
@@ -188,13 +190,13 @@ int xll_name_to_index(const char *const name)
 	}
 /* out:*/
 	if (ret <= 0)
-		bb_error_msg_and_die("cannot find device \"%s\"", name);
+		bb_error_msg_and_die("can't find device '%s'", name);
 	return ret;
 }
 
-int ll_init_map(struct rtnl_handle *rth)
+int FAST_FUNC ll_init_map(struct rtnl_handle *rth)
 {
 	xrtnl_wilddump_request(rth, AF_UNSPEC, RTM_GETLINK);
-	xrtnl_dump_filter(rth, ll_remember_index, &idxmap);
+	xrtnl_dump_filter(rth, ll_remember_index, NULL);
 	return 0;
 }

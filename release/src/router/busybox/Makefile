@@ -1,6 +1,6 @@
 VERSION = 1
-PATCHLEVEL = 14
-SUBLEVEL = 4
+PATCHLEVEL = 21
+SUBLEVEL = 1
 EXTRAVERSION =
 NAME = Unnamed
 
@@ -297,6 +297,7 @@ NM		= $(CROSS_COMPILE)nm
 STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
+PKG_CONFIG	?= $(CROSS_COMPILE)pkg-config
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
 DEPMOD		= /sbin/depmod
@@ -357,6 +358,20 @@ scripts_basic:
 
 # To avoid any implicit rule to kick in, define an empty command.
 scripts/basic/%: scripts_basic ;
+
+# This target generates Kbuild's and Config.in's from *.c files
+PHONY += gen_build_files
+gen_build_files: $(wildcard $(srctree)/*/*.c) $(wildcard $(srctree)/*/*/*.c)
+	$(Q)$(srctree)/scripts/gen_build_files.sh $(srctree) $(objtree)
+
+# bbox: we have helpers in applets/
+# we depend on scripts_basic, since scripts/basic/fixdep
+# must be built before any other host prog
+PHONY += applets_dir
+applets_dir: scripts_basic gen_build_files
+	$(Q)$(MAKE) $(build)=applets
+
+applets/%: applets_dir ;
 
 PHONY += outputmakefile
 # outputmakefile generates a Makefile in the output directory, if using a
@@ -419,7 +434,12 @@ ifeq ($(config-targets),1)
 -include $(srctree)/arch/$(ARCH)/Makefile
 export KBUILD_DEFCONFIG
 
-config %config: scripts_basic outputmakefile FORCE
+config: scripts_basic outputmakefile gen_build_files FORCE
+	$(Q)mkdir -p include
+	$(Q)$(MAKE) $(build)=scripts/kconfig $@
+	$(Q)$(MAKE) -C $(srctree) KBUILD_SRC= .kernelrelease
+
+%config: scripts_basic outputmakefile gen_build_files FORCE
 	$(Q)mkdir -p include
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 	$(Q)$(MAKE) -C $(srctree) KBUILD_SRC= .kernelrelease
@@ -432,9 +452,9 @@ else
 ifeq ($(KBUILD_EXTMOD),)
 # Additional helpers built in scripts/
 # Carefully list dependencies so we do not try to build scripts twice
-# in parrallel
+# in parallel
 PHONY += scripts
-scripts: scripts_basic include/config/MARKER
+scripts: gen_build_files scripts_basic include/config/MARKER
 	$(Q)$(MAKE) $(build)=$(@)
 
 scripts_basic: include/autoconf.h
@@ -445,12 +465,14 @@ core-y		:= \
 
 libs-y		:= \
 		archival/ \
-		archival/libunarchive/ \
+		archival/libarchive/ \
 		console-tools/ \
 		coreutils/ \
 		coreutils/libcoreutils/ \
 		debianutils/ \
 		e2fsprogs/ \
+		e2fsprogs/e2p/ \
+		e2fsprogs/ext2fs/ \
 		editors/ \
 		findutils/ \
 		init/ \
@@ -495,8 +517,10 @@ include $(srctree)/Makefile.flags
 # with it and forgot to run make oldconfig.
 # If kconfig.d is missing then we are probarly in a cleaned tree so
 # we execute the config step to be sure to catch updated Kconfig files
-include/autoconf.h: .kconfig.d .config
+include/autoconf.h: .kconfig.d .config $(wildcard $(srctree)/*/*.c) $(wildcard $(srctree)/*/*/*.c) | gen_build_files
 	$(Q)$(MAKE) -f $(srctree)/Makefile silentoldconfig
+
+include/usage.h: gen_build_files
 
 else
 # Dummy target needed, because used as prerequisite
@@ -797,7 +821,7 @@ ifneq ($(KBUILD_MODULES),)
 	$(Q)rm -f $(MODVERDIR)/*
 endif
 
-archprepare: prepare1 scripts_basic
+archprepare: prepare1 scripts_basic applets_dir
 
 prepare0: archprepare FORCE
 	$(Q)$(MAKE) $(build)=.
@@ -821,7 +845,7 @@ export CPPFLAGS_busybox.lds += -P -C -U$(ARCH)
 
 # 	Split autoconf.h into include/linux/config/*
 quiet_cmd_gen_bbconfigopts = GEN     include/bbconfigopts.h
-      cmd_gen_bbconfigopts = $(srctree)/scripts/mkconfigs > include/bbconfigopts.h
+      cmd_gen_bbconfigopts = $(srctree)/scripts/mkconfigs include/bbconfigopts.h include/bbconfigopts_bz2.h
 quiet_cmd_split_autoconf   = SPLIT   include/autoconf.h -> include/config/*
       cmd_split_autoconf   = scripts/basic/split-include include/autoconf.h include/config
 #bbox# piggybacked generation of few .h files
@@ -942,10 +966,14 @@ CLEAN_FILES +=	busybox busybox_unstripped* busybox.links \
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include2
 MRPROPER_FILES += .config .config.old include/asm .version .old_version \
+		  include/NUM_APPLETS.h \
 		  include/autoconf.h \
 		  include/bbconfigopts.h \
+		  include/bbconfigopts_bz2.h \
 		  include/usage_compressed.h \
 		  include/applet_tables.h \
+		  include/applets.h \
+		  include/usage.h \
 		  applets/usage \
 		  .kernelrelease Module.symvers tags TAGS cscope* \
 		  busybox_old
@@ -970,7 +998,7 @@ clean: archclean $(clean-dirs)
 
 PHONY += doc-clean
 doc-clean: rm-files := docs/busybox.pod \
-		  docs/BusyBox.html docs/BusyBox.1 docs/BusyBox.txt
+		  docs/BusyBox.html docs/busybox.1 docs/BusyBox.txt
 doc-clean:
 	$(call cmd,rmfiles)
 
@@ -987,6 +1015,8 @@ $(mrproper-dirs):
 mrproper: clean archmrproper $(mrproper-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
+	@find . -name Config.src | sed 's/.src$$/.in/' | xargs -r rm -f
+	@find . -name Kbuild.src | sed 's/.src$$//' | xargs -r rm -f
 
 # distclean
 #
@@ -1015,7 +1045,7 @@ rpm: FORCE
 # Brief documentation of the typical targets used
 # ---------------------------------------------------------------------------
 
-boards := $(wildcard $(srctree)/arch/$(ARCH)/configs/*_defconfig)
+boards := $(wildcard $(srctree)/configs/*_defconfig)
 boards := $(notdir $(boards))
 
 -include $(srctree)/Makefile.help
@@ -1103,15 +1133,6 @@ clean: $(clean-dirs)
 		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \) \
 		-type f -print | xargs rm -f
-
-help:
-	@echo  '  Building external modules.'
-	@echo  '  Syntax: make -C path/to/kernel/src M=$$PWD target'
-	@echo  ''
-	@echo  '  modules         - default target, build the module(s)'
-	@echo  '  modules_install - install the module'
-	@echo  '  clean           - remove generated files in module directory only'
-	@echo  ''
 
 # Dummies...
 PHONY += prepare scripts
@@ -1267,9 +1288,13 @@ endif
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
 
 # Modules
-/ %/: prepare scripts FORCE
+%/: prepare scripts FORCE
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
+/: prepare scripts FORCE
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
+	$(build)=$(build-dir)
+
 %.ko: prepare scripts FORCE
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1)   \
 	$(build)=$(build-dir) $(@:.ko=.o)

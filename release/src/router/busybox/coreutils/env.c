@@ -3,9 +3,9 @@
  * env implementation for busybox
  *
  * Copyright (c) 1988, 1993, 1994
- *	The Regents of the University of California.  All rights reserved.
+ * The Regents of the University of California.  All rights reserved.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Original copyright notice is retained at the end of this file.
  *
@@ -31,6 +31,14 @@
 
 /* This is a NOEXEC applet. Be very careful! */
 
+//usage:#define env_trivial_usage
+//usage:       "[-iu] [-] [name=value]... [PROG ARGS]"
+//usage:#define env_full_usage "\n\n"
+//usage:       "Print the current environment or run PROG after setting up\n"
+//usage:       "the specified environment\n"
+//usage:     "\n	-, -i	Start with an empty environment"
+//usage:     "\n	-u	Remove variable from the environment"
+
 #include "libbb.h"
 
 #if ENABLE_FEATURE_ENV_LONG_OPTIONS
@@ -43,21 +51,20 @@ static const char env_longopts[] ALIGN1 =
 int env_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int env_main(int argc UNUSED_PARAM, char **argv)
 {
-	char **ep;
-	unsigned opt;
+	unsigned opts;
 	llist_t *unset_env = NULL;
 
 	opt_complementary = "u::";
 #if ENABLE_FEATURE_ENV_LONG_OPTIONS
 	applet_long_options = env_longopts;
 #endif
-	opt = getopt32(argv, "+iu:", &unset_env);
+	opts = getopt32(argv, "+iu:", &unset_env);
 	argv += optind;
-	if (*argv && LONE_DASH(argv[0])) {
-		opt |= 1;
+	if (argv[0] && LONE_DASH(argv[0])) {
+		opts |= 1;
 		++argv;
 	}
-	if (opt & 1) {
+	if (opts & 1) {
 		clearenv();
 	}
 	while (unset_env) {
@@ -77,15 +84,15 @@ int env_main(int argc UNUSED_PARAM, char **argv)
 		++argv;
 	}
 
-	if (*argv) {
-		BB_EXECVP(*argv, argv);
-		/* SUSv3-mandated exit codes. */
-		xfunc_error_retval = (errno == ENOENT) ? 127 : 126;
-		bb_simple_perror_msg_and_die(*argv);
+	if (argv[0]) {
+		BB_EXECVP_or_die(argv);
 	}
 
-	for (ep = environ; *ep; ep++) {
-		puts(*ep);
+	if (environ) { /* clearenv() may set environ == NULL! */
+		char **ep;
+		for (ep = environ; *ep; ep++) {
+			puts(*ep);
+		}
 	}
 
 	fflush_stdout_and_exit(EXIT_SUCCESS);
@@ -104,8 +111,8 @@ int env_main(int argc UNUSED_PARAM, char **argv)
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change
- *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change>
+ * 3. BSD Advertising Clause omitted per the July 22, 1999 licensing change
+ *    ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
  *
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software

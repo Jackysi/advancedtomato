@@ -4,12 +4,32 @@
  *
  * Copyright 1999 George Staikos
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Changelog:
  * v1.01   - added -p <preload> to preload values from a file
  * v1.01.1 - busybox applet aware by <solar@gentoo.org>
  */
+
+//usage:#define sysctl_trivial_usage
+//usage:       "[OPTIONS] [KEY[=VALUE]]..."
+//usage:#define sysctl_full_usage "\n\n"
+//usage:       "Show/set kernel parameters\n"
+//usage:     "\n	-e	Don't warn about unknown keys"
+//usage:     "\n	-n	Don't show key names"
+//usage:     "\n	-a	Show all values"
+/* Same as -a, no need to show it */
+/* //usage:     "\n	-A	Show all values in table form" */
+//usage:     "\n	-w	Set values"
+//usage:     "\n	-p FILE	Set values from FILE (default /etc/sysctl.conf)"
+//usage:     "\n	-q      Set values silently"
+//usage:
+//usage:#define sysctl_example_usage
+//usage:       "sysctl [-n] [-e] variable...\n"
+//usage:       "sysctl [-n] [-e] [-q] -w variable=value...\n"
+//usage:       "sysctl [-n] [-e] -a\n"
+//usage:       "sysctl [-n] [-e] [-q] -p file	(default /etc/sysctl.conf)\n"
+//usage:       "sysctl [-n] [-e] -A\n"
 
 #include "libbb.h"
 
@@ -19,9 +39,11 @@ enum {
 	FLAG_TABLE_FORMAT    = 1 << 2, /* not implemented */
 	FLAG_SHOW_ALL        = 1 << 3,
 	FLAG_PRELOAD_FILE    = 1 << 4,
+/* TODO: procps 3.2.8 seems to not require -w for KEY=VAL to work: */
 	FLAG_WRITE           = 1 << 5,
+	FLAG_QUIET           = 1 << 6,
 };
-#define OPTION_STR "neAapw"
+#define OPTION_STR "neAapwq"
 
 static void sysctl_dots_to_slashes(char *name)
 {
@@ -56,8 +78,7 @@ static void sysctl_dots_to_slashes(char *name)
 			*cptr = '\0';
 			//bb_error_msg("trying:'%s'", name);
 			if (access(name, F_OK) == 0) {
-				if (cptr != end) /* prevent trailing '/' */
-					*cptr = '/';
+				*cptr = '/';
 				//bb_error_msg("replaced:'%s'", name);
 				last_good = cptr;
 				goto again;
@@ -92,7 +113,7 @@ static int sysctl_act_on_setting(char *setting)
 			retval = EXIT_FAILURE;
 			goto end;
 		}
-		value = cptr + 1;	/* point to the value in name=value */
+		value = cptr + 1;  /* point to the value in name=value */
 		if (setting == cptr || !*value) {
 			bb_error_msg("error: malformed setting '%s'", outname);
 			retval = EXIT_FAILURE;
@@ -127,9 +148,11 @@ static int sysctl_act_on_setting(char *setting)
 //TODO: procps 3.2.7 writes "value\n", note trailing "\n"
 		xwrite_str(fd, value);
 		close(fd);
-		if (option_mask32 & FLAG_SHOW_KEYS)
-			printf("%s = ", outname);
-		puts(value);
+		if (!(option_mask32 & FLAG_QUIET)) {
+			if (option_mask32 & FLAG_SHOW_KEYS)
+				printf("%s = ", outname);
+			puts(value);
+		}
 	} else {
 		char c;
 
@@ -182,7 +205,7 @@ static int sysctl_act_recursive(const char *path)
 				continue; /* d_name is "." or ".." */
 			/* if path was ".", drop "./" prefix: */
 			retval |= sysctl_act_recursive((next[0] == '.' && next[1] == '/') ?
-					    next + 2 : next);
+					next + 2 : next);
 			free(next);
 		}
 		closedir(dirp);
@@ -207,12 +230,13 @@ static int sysctl_handle_preload_file(const char *filename)
 	parser = config_open(filename);
 	/* Must do it _after_ config_open(): */
 	xchdir("/proc/sys");
-	/* xchroot(".") - if you are paranoid */
+	/* xchroot("/proc/sys") - if you are paranoid */
 
 //TODO: ';' is comment char too
 //TODO: comment may be only at line start. "var=1 #abc" - "1 #abc" is the value
 // (but _whitespace_ from ends should be trimmed first (and we do it right))
 //TODO: "var==1" is mishandled (must use "=1" as a value, but uses "1")
+// can it be fixed by removing PARSE_COLLAPSE bit?
 	while (config_read(parser, token, 2, 2, "# \t=", PARSE_NORMAL)) {
 		char *tp;
 		sysctl_dots_to_slashes(token[0]);
@@ -242,7 +266,7 @@ int sysctl_main(int argc UNUSED_PARAM, char **argv)
 		return sysctl_handle_preload_file(*argv ? *argv : "/etc/sysctl.conf");
 	}
 	xchdir("/proc/sys");
-	/* xchroot(".") - if you are paranoid */
+	/* xchroot("/proc/sys") - if you are paranoid */
 	if (opt & (FLAG_TABLE_FORMAT | FLAG_SHOW_ALL)) {
 		return sysctl_act_recursive(".");
 	}

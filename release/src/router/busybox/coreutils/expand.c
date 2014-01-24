@@ -3,7 +3,7 @@
  *
  * Copyright (C) 89, 91, 1995-2006 Free Software Foundation, Inc.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * David MacKenzie <djm@gnu.ai.mit.edu>
  *
@@ -21,7 +21,36 @@
  *  Caveat: this versions of expand and unexpand don't accept tab lists.
  */
 
+//usage:#define expand_trivial_usage
+//usage:       "[-i] [-t N] [FILE]..."
+//usage:#define expand_full_usage "\n\n"
+//usage:       "Convert tabs to spaces, writing to stdout\n"
+//usage:	IF_FEATURE_EXPAND_LONG_OPTIONS(
+//usage:     "\n	-i,--initial	Don't convert tabs after non blanks"
+//usage:     "\n	-t,--tabs=N	Tabstops every N chars"
+//usage:	)
+//usage:	IF_NOT_FEATURE_EXPAND_LONG_OPTIONS(
+//usage:     "\n	-i	Don't convert tabs after non blanks"
+//usage:     "\n	-t	Tabstops every N chars"
+//usage:	)
+
+//usage:#define unexpand_trivial_usage
+//usage:       "[-fa][-t N] [FILE]..."
+//usage:#define unexpand_full_usage "\n\n"
+//usage:       "Convert spaces to tabs, writing to stdout\n"
+//usage:	IF_FEATURE_UNEXPAND_LONG_OPTIONS(
+//usage:     "\n	-a,--all	Convert all blanks"
+//usage:     "\n	-f,--first-only	Convert only leading blanks"
+//usage:     "\n	-t,--tabs=N	Tabstops every N chars"
+//usage:	)
+//usage:	IF_NOT_FEATURE_UNEXPAND_LONG_OPTIONS(
+//usage:     "\n	-a	Convert all blanks"
+//usage:     "\n	-f	Convert only leading blanks"
+//usage:     "\n	-t N	Tabstops every N chars"
+//usage:	)
+
 #include "libbb.h"
+#include "unicode.h"
 
 enum {
 	OPT_INITIAL     = 1 << 0,
@@ -30,35 +59,41 @@ enum {
 };
 
 #if ENABLE_EXPAND
-static void expand(FILE *file, int tab_size, unsigned opt)
+static void expand(FILE *file, unsigned tab_size, unsigned opt)
 {
 	char *line;
 
-	tab_size = -tab_size;
-
 	while ((line = xmalloc_fgets(file)) != NULL) {
-		int pos;
 		unsigned char c;
-		char *ptr = line;
+		char *ptr;
+		char *ptr_strbeg;
 
-		goto start;
+		ptr = ptr_strbeg = line;
 		while ((c = *ptr) != '\0') {
 			if ((opt & OPT_INITIAL) && !isblank(c)) {
-				fputs(ptr, stdout);
+				/* not space or tab */
 				break;
 			}
-			ptr++;
 			if (c == '\t') {
-				c = ' ';
-				while (++pos < 0)
-					bb_putchar(c);
+				unsigned len;
+				*ptr = '\0';
+# if ENABLE_UNICODE_SUPPORT
+				{
+					uni_stat_t uni_stat;
+					printable_string(&uni_stat, ptr_strbeg);
+					len = uni_stat.unicode_width;
+				}
+# else
+				len = ptr - ptr_strbeg;
+# endif
+				len = tab_size - (len % tab_size);
+				/*while (ptr[1] == '\t') { ptr++; len += tab_size; } - can handle many tabs at once */
+				printf("%s%*s", ptr_strbeg, len, "");
+				ptr_strbeg = ptr + 1;
 			}
-			bb_putchar(c);
-			if (++pos >= 0) {
- start:
-				pos = tab_size;
-			}
+			ptr++;
 		}
+		fputs(ptr_strbeg, stdout);
 		free(line);
 	}
 }
@@ -75,11 +110,13 @@ static void unexpand(FILE *file, unsigned tab_size, unsigned opt)
 
 		while (*ptr) {
 			unsigned n;
+			unsigned len = 0;
 
 			while (*ptr == ' ') {
-				column++;
 				ptr++;
+				len++;
 			}
+			column += len;
 			if (*ptr == '\t') {
 				column += tab_size - (column % tab_size);
 				ptr++;
@@ -87,18 +124,33 @@ static void unexpand(FILE *file, unsigned tab_size, unsigned opt)
 			}
 
 			n = column / tab_size;
-			column = column % tab_size;
-			while (n--)
-				putchar('\t');
+			if (n) {
+				len = column = column % tab_size;
+				while (n--)
+					putchar('\t');
+			}
 
 			if ((opt & OPT_INITIAL) && ptr != line) {
-				printf("%*s%s", column, "", ptr);
+				printf("%*s%s", len, "", ptr);
 				break;
 			}
 			n = strcspn(ptr, "\t ");
-			printf("%*s%.*s", column, "", n, ptr);
+			printf("%*s%.*s", len, "", n, ptr);
+# if ENABLE_UNICODE_SUPPORT
+			{
+				char c;
+				uni_stat_t uni_stat;
+				c = ptr[n];
+				ptr[n] = '\0';
+				printable_string(&uni_stat, ptr);
+				len = uni_stat.unicode_width;
+				ptr[n] = c;
+			}
+# else
+			len = n;
+# endif
 			ptr += n;
-			column = (column + n) % tab_size;
+			column = (column + len) % tab_size;
 		}
 		free(line);
 	}
@@ -130,12 +182,13 @@ int expand_main(int argc UNUSED_PARAM, char **argv)
 		"all\0"              No_argument       "a"
 	;
 #endif
+	init_unicode();
 
 	if (ENABLE_EXPAND && (!ENABLE_UNEXPAND || applet_name[0] == 'e')) {
-		USE_FEATURE_EXPAND_LONG_OPTIONS(applet_long_options = expand_longopts);
+		IF_FEATURE_EXPAND_LONG_OPTIONS(applet_long_options = expand_longopts);
 		opt = getopt32(argv, "it:", &opt_t);
 	} else {
-		USE_FEATURE_UNEXPAND_LONG_OPTIONS(applet_long_options = unexpand_longopts);
+		IF_FEATURE_UNEXPAND_LONG_OPTIONS(applet_long_options = unexpand_longopts);
 		/* -t NUM sets also -a */
 		opt_complementary = "ta";
 		opt = getopt32(argv, "ft:a", &opt_t);
@@ -157,9 +210,9 @@ int expand_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		if (ENABLE_EXPAND && (!ENABLE_UNEXPAND || applet_name[0] == 'e'))
-			USE_EXPAND(expand(file, tab_size, opt));
+			IF_EXPAND(expand(file, tab_size, opt));
 		else
-			USE_UNEXPAND(unexpand(file, tab_size, opt));
+			IF_UNEXPAND(unexpand(file, tab_size, opt));
 
 		/* Check and close the file */
 		if (fclose_if_not_stdin(file)) {

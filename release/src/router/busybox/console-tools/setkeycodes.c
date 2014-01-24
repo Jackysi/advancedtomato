@@ -6,10 +6,20 @@
  *
  * Adjusted for BusyBox by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
-//#include <sys/ioctl.h>
+//usage:#define setkeycodes_trivial_usage
+//usage:       "SCANCODE KEYCODE..."
+//usage:#define setkeycodes_full_usage "\n\n"
+//usage:       "Set entries into the kernel's scancode-to-keycode map,\n"
+//usage:       "allowing unusual keyboards to generate usable keycodes.\n\n"
+//usage:       "SCANCODE may be either xx or e0xx (hexadecimal),\n"
+//usage:       "and KEYCODE is given in decimal."
+//usage:
+//usage:#define setkeycodes_example_usage
+//usage:       "$ setkeycodes e030 127\n"
+
 #include "libbb.h"
 
 /* From <linux/kd.h> */
@@ -23,7 +33,7 @@ enum {
 int setkeycodes_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int setkeycodes_main(int argc, char **argv)
 {
-	int fd, sc;
+	int fd;
 	struct kbkeycode a;
 
 	if (!(argc & 1) /* if even */ || argc < 2) {
@@ -32,17 +42,17 @@ int setkeycodes_main(int argc, char **argv)
 
 	fd = get_console_fd_or_die();
 
-	while (argc > 2) {
-		a.keycode = xatou_range(argv[2], 0, 127);
-		a.scancode = sc = xstrtoul_range(argv[1], 16, 0, 255);
-		if (a.scancode > 127) {
-			a.scancode -= 0xe000;
-			a.scancode += 128;
+	while (argv[1]) {
+		int sc = xstrtoul_range(argv[1], 16, 0, 0xe07f);
+		if (sc >= 0xe000) {
+			sc -= 0xe000;
+			sc += 0x0080;
 		}
+		a.scancode = sc;
+		a.keycode = xatou_range(argv[2], 0, 255);
 		ioctl_or_perror_and_die(fd, KDSETKEYCODE, &a,
 			"can't set SCANCODE %x to KEYCODE %d",
 			sc, a.keycode);
-		argc -= 2;
 		argv += 2;
 	}
 	return EXIT_SUCCESS;

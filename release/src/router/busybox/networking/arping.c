@@ -1,12 +1,26 @@
 /* vi: set sw=4 ts=4: */
 /*
- * arping.c - Ping hosts by ARP requests/replies
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
- *
- * Author:	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+ * Author: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
  * Busybox port: Nick Fedchik <nick@fedchik.org.ua>
  */
+
+//usage:#define arping_trivial_usage
+//usage:       "[-fqbDUA] [-c CNT] [-w TIMEOUT] [-I IFACE] [-s SRC_IP] DST_IP"
+//usage:#define arping_full_usage "\n\n"
+//usage:       "Send ARP requests/replies\n"
+//usage:     "\n	-f		Quit on first ARP reply"
+//usage:     "\n	-q		Quiet"
+//usage:     "\n	-b		Keep broadcasting, don't go unicast"
+//usage:     "\n	-D		Duplicated address detection mode"
+//usage:     "\n	-U		Unsolicited ARP mode, update your neighbors"
+//usage:     "\n	-A		ARP answer mode, update your neighbors"
+//usage:     "\n	-c N		Stop after sending N ARP requests"
+//usage:     "\n	-w TIMEOUT	Time to wait for ARP reply, seconds"
+//usage:     "\n	-I IFACE	Interface to use (default eth0)"
+//usage:     "\n	-s SRC_IP	Sender IP address"
+//usage:     "\n	DST_IP		Target IP address"
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -45,7 +59,7 @@ struct globals {
 	unsigned received;
 	unsigned brd_recv;
 	unsigned req_recv;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define src        (G.src       )
 #define dst        (G.dst       )
@@ -169,7 +183,7 @@ static bool recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM)
 	 && FROM->sll_pkttype != PACKET_MULTICAST)
 		return false;
 
-	/* Only these types are recognised */
+	/* Only these types are recognized */
 	if (ah->ar_op != htons(ARPOP_REQUEST) && ah->ar_op != htons(ARPOP_REPLY))
 		return false;
 
@@ -237,7 +251,7 @@ static bool recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM)
 		} else {
 			printf(" UNSOLICITED?\n");
 		}
-		fflush(stdout);
+		fflush_all();
 	}
 	received++;
 	if (FROM->sll_pkttype != PACKET_HOST)
@@ -348,9 +362,10 @@ int arping_main(int argc UNUSED_PARAM, char **argv)
 			if (setsockopt(probe_fd, SOL_SOCKET, SO_DONTROUTE, &const_int_1, sizeof(const_int_1)) == -1)
 				bb_perror_msg("setsockopt(SO_DONTROUTE)");
 			xconnect(probe_fd, (struct sockaddr *) &saddr, sizeof(saddr));
-			if (getsockname(probe_fd, (struct sockaddr *) &saddr, &alen) == -1) {
-				bb_perror_msg_and_die("getsockname");
-			}
+			getsockname(probe_fd, (struct sockaddr *) &saddr, &alen);
+			//never happens:
+			//if (getsockname(probe_fd, (struct sockaddr *) &saddr, &alen) == -1)
+			//	bb_perror_msg_and_die("getsockname");
 			if (saddr.sin_family != AF_INET)
 				bb_error_msg_and_die("no IP address configured");
 			src = saddr.sin_addr;
@@ -365,10 +380,10 @@ int arping_main(int argc UNUSED_PARAM, char **argv)
 
 	{
 		socklen_t alen = sizeof(me);
-
-		if (getsockname(sock_fd, (struct sockaddr *) &me, &alen) == -1) {
-			bb_perror_msg_and_die("getsockname");
-		}
+		getsockname(sock_fd, (struct sockaddr *) &me, &alen);
+		//never happens:
+		//if (getsockname(sock_fd, (struct sockaddr *) &me, &alen) == -1)
+		//	bb_perror_msg_and_die("getsockname");
 	}
 	if (me.sll_halen == 0) {
 		bb_error_msg(err_str, "is not ARPable (no ll address)");

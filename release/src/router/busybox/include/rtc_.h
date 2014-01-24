@@ -1,7 +1,7 @@
 /*
  * Common defines/structures/etc... for applets that need to work with the RTC.
  *
- * Licensed under the GPL-2 or later.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #ifndef BB_RTC_H
@@ -11,9 +11,11 @@
 
 PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
-extern int rtc_adjtime_is_utc(void) FAST_FUNC;
-extern int rtc_xopen(const char **default_rtc, int flags) FAST_FUNC;
-extern time_t rtc_read_time(int fd, int utc) FAST_FUNC;
+int rtc_adjtime_is_utc(void) FAST_FUNC;
+int rtc_xopen(const char **default_rtc, int flags) FAST_FUNC;
+void rtc_read_tm(struct tm *ptm, int fd) FAST_FUNC;
+time_t rtc_tm2time(struct tm *ptm, int utc) FAST_FUNC;
+
 
 /*
  * Everything below this point has been copied from linux/rtc.h
@@ -33,9 +35,9 @@ struct linux_rtc_time {
 };
 
 struct linux_rtc_wkalrm {
-	unsigned char enabled;	/* 0 = alarm disabled, 1 = alarm enabled */
+	unsigned char enabled;  /* 0 = alarm disabled, 1 = alarm enabled */
 	unsigned char pending;  /* 0 = alarm not pending, 1 = alarm pending */
-	struct linux_rtc_time time;	/* time the alarm is set to */
+	struct linux_rtc_time time;  /* time the alarm is set to */
 };
 
 /*

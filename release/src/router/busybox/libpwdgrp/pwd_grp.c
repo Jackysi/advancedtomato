@@ -1,55 +1,45 @@
 /* vi: set sw=4 ts=4: */
-/*  Copyright (C) 2003     Manuel Novoa III
+/* Copyright (C) 2003     Manuel Novoa III
  *
- *  Licensed under GPL v2, or later.  See file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
-/*  Nov 6, 2003  Initial version.
+/* Nov 6, 2003  Initial version.
  *
- *  NOTE: This implementation is quite strict about requiring all
+ * NOTE: This implementation is quite strict about requiring all
  *    field seperators.  It also does not allow leading whitespace
  *    except when processing the numeric fields.  glibc is more
  *    lenient.  See the various glibc difference comments below.
  *
- *  TODO:
+ * TODO:
  *    Move to dynamic allocation of (currently statically allocated)
  *      buffers; especially for the group-related functions since
  *      large group member lists will cause error returns.
- *
  */
 
 #include "libbb.h"
-#include <features.h>
 #include <assert.h>
-
-#ifndef _PATH_SHADOW
-#define	_PATH_SHADOW	"/etc/shadow"
-#endif
-#ifndef _PATH_PASSWD
-#define	_PATH_PASSWD	"/etc/passwd"
-#endif
-#ifndef _PATH_GROUP
-#define	_PATH_GROUP	"/etc/group"
-#endif
 
 /**********************************************************************/
 /* Sizes for statically allocated buffers. */
 
-/* If you change these values, also change _SC_GETPW_R_SIZE_MAX and
- * _SC_GETGR_R_SIZE_MAX in libc/unistd/sysconf.c to match */
 #define PWD_BUFFER_SIZE 256
 #define GRP_BUFFER_SIZE 256
 
 /**********************************************************************/
 /* Prototypes for internal functions. */
 
-static int bb__pgsreader(int (*parserfunc)(void *d, char *line), void *data,
-		char *__restrict line_buff, size_t buflen, FILE *f);
+static int bb__pgsreader(
+		int FAST_FUNC (*parserfunc)(void *d, char *line),
+		void *data,
+		char *__restrict line_buff,
+		size_t buflen,
+		FILE *f);
 
-static int bb__parsepwent(void *pw, char *line);
-static int bb__parsegrent(void *gr, char *line);
+static int FAST_FUNC bb__parsepwent(void *pw, char *line);
+static int FAST_FUNC bb__parsegrent(void *gr, char *line);
 #if ENABLE_USE_BB_SHADOW
-static int bb__parsespent(void *sp, char *line);
+static int FAST_FUNC bb__parsespent(void *sp, char *line);
 #endif
 
 /**********************************************************************/
@@ -57,46 +47,24 @@ static int bb__parsespent(void *sp, char *line);
 
 struct statics {
 	/* Smaller things first */
-	struct passwd getpwuid_resultbuf;
-	struct group getgrgid_resultbuf;
-	struct passwd getpwnam_resultbuf;
-	struct group getgrnam_resultbuf;
+	/* It's ok to use one buffer for getpwuid and getpwnam. Manpage says:
+	 * "The return value may point to a static area, and may be overwritten
+	 * by subsequent calls to getpwent(), getpwnam(), or getpwuid()."
+	 */
+	struct passwd getpw_resultbuf;
+	struct group getgr_resultbuf;
 
-	char getpwuid_buffer[PWD_BUFFER_SIZE];
-	char getgrgid_buffer[GRP_BUFFER_SIZE];
-	char getpwnam_buffer[PWD_BUFFER_SIZE];
-	char getgrnam_buffer[GRP_BUFFER_SIZE];
-#if 0
-	struct passwd fgetpwent_resultbuf;
-	struct group fgetgrent_resultbuf;
-	struct spwd fgetspent_resultbuf;
-	char fgetpwent_buffer[PWD_BUFFER_SIZE];
-	char fgetgrent_buffer[GRP_BUFFER_SIZE];
-	char fgetspent_buffer[PWD_BUFFER_SIZE];
-#endif
+	char getpw_buffer[PWD_BUFFER_SIZE];
+	char getgr_buffer[GRP_BUFFER_SIZE];
 #if 0 //ENABLE_USE_BB_SHADOW
-	struct spwd getspuid_resultbuf;
-	struct spwd getspnam_resultbuf;
-	char getspuid_buffer[PWD_BUFFER_SIZE];
-	char getspnam_buffer[PWD_BUFFER_SIZE];
+	struct spwd getsp_resultbuf;
+	char getsp_buffer[PWD_BUFFER_SIZE];
 #endif
 // Not converted - too small to bother
 //pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
 //FILE *pwf /*= NULL*/;
 //FILE *grf /*= NULL*/;
 //FILE *spf /*= NULL*/;
-#if 0
-	struct passwd getpwent_pwd;
-	struct group getgrent_gr;
-	char getpwent_line_buff[PWD_BUFFER_SIZE];
-	char getgrent_line_buff[GRP_BUFFER_SIZE];
-#endif
-#if 0 //ENABLE_USE_BB_SHADOW
-	struct spwd getspent_spwd;
-	struct spwd sgetspent_spwd;
-	char getspent_line_buff[PWD_BUFFER_SIZE];
-	char sgetspent_line_buff[PWD_BUFFER_SIZE];
-#endif
 };
 
 static struct statics *ptr_to_statics;
@@ -161,6 +129,7 @@ int fgetgrent_r(FILE *__restrict stream, struct group *__restrict resultbuf,
 }
 
 #if ENABLE_USE_BB_SHADOW
+#ifdef UNUSED_FOR_NOW
 int fgetspent_r(FILE *__restrict stream, struct spwd *__restrict resultbuf,
 				char *__restrict buffer, size_t buflen,
 				struct spwd **__restrict result)
@@ -177,6 +146,7 @@ int fgetspent_r(FILE *__restrict stream, struct spwd *__restrict resultbuf,
 	return rv;
 }
 #endif
+#endif
 
 /**********************************************************************/
 /* For the various fget??ent funcs, return NULL on failure and a
@@ -184,44 +154,45 @@ int fgetspent_r(FILE *__restrict stream, struct spwd *__restrict resultbuf,
  * TODO: audit & stop using these in bbox, they pull in static buffers */
 /**********************************************************************/
 
-#if 0
+#ifdef UNUSED_SINCE_WE_AVOID_STATIC_BUFS
 struct passwd *fgetpwent(FILE *stream)
 {
 	struct statics *S;
-	struct passwd *resultbuf = RESULTBUF(fgetpwent);
-	char *buffer = BUFFER(fgetpwent);
+	struct passwd *resultbuf = RESULTBUF(getpw);
+	char *buffer = BUFFER(getpw);
 	struct passwd *result;
 
-	fgetpwent_r(stream, resultbuf, buffer, sizeof(BUFFER(fgetpwent)), &result);
+	fgetpwent_r(stream, resultbuf, buffer, sizeof(BUFFER(getpw)), &result);
 	return result;
 }
 
 struct group *fgetgrent(FILE *stream)
 {
 	struct statics *S;
-	struct group *resultbuf = RESULTBUF(fgetgrent);
-	char *buffer = BUFFER(fgetgrent);
+	struct group *resultbuf = RESULTBUF(getgr);
+	char *buffer = BUFFER(getgr);
 	struct group *result;
 
-	fgetgrent_r(stream, resultbuf, buffer, sizeof(BUFFER(fgetgrent)), &result);
+	fgetgrent_r(stream, resultbuf, buffer, sizeof(BUFFER(getgr)), &result);
 	return result;
 }
 #endif
 
 #if ENABLE_USE_BB_SHADOW
-#if 0
+#ifdef UNUSED_SINCE_WE_AVOID_STATIC_BUFS
 struct spwd *fgetspent(FILE *stream)
 {
 	struct statics *S;
-	struct spwd *resultbuf = RESULTBUF(fgetspent);
-	char *buffer = BUFFER(fgetspent);
+	struct spwd *resultbuf = RESULTBUF(getsp);
+	char *buffer = BUFFER(getsp);
 	struct spwd *result;
 
-	fgetspent_r(stream, resultbuf, buffer, sizeof(BUFFER(fgetspent)), &result);
+	fgetspent_r(stream, resultbuf, buffer, sizeof(BUFFER(getsp)), &result);
 	return result;
 }
 #endif
 
+#ifdef UNUSED_FOR_NOW
 int sgetspent_r(const char *string, struct spwd *result_buf,
 				char *buffer, size_t buflen, struct spwd **result)
 {
@@ -230,8 +201,8 @@ int sgetspent_r(const char *string, struct spwd *result_buf,
 	*result = NULL;
 
 	if (buflen < PWD_BUFFER_SIZE) {
-	DO_ERANGE:
-		errno=rv;
+ DO_ERANGE:
+		errno = rv;
 		goto DONE;
 	}
 
@@ -251,6 +222,7 @@ int sgetspent_r(const char *string, struct spwd *result_buf,
 	return rv;
 }
 #endif
+#endif /* ENABLE_USE_BB_SHADOW */
 
 /**********************************************************************/
 
@@ -303,11 +275,11 @@ int sgetspent_r(const char *string, struct spwd *result_buf,
 struct passwd *getpwuid(uid_t uid)
 {
 	struct statics *S;
-	struct passwd *resultbuf = RESULTBUF(getpwuid);
-	char *buffer = BUFFER(getpwuid);
+	struct passwd *resultbuf = RESULTBUF(getpw);
+	char *buffer = BUFFER(getpw);
 	struct passwd *result;
 
-	getpwuid_r(uid, resultbuf, buffer, sizeof(BUFFER(getpwuid)), &result);
+	getpwuid_r(uid, resultbuf, buffer, sizeof(BUFFER(getpw)), &result);
 	return result;
 }
 
@@ -315,11 +287,11 @@ struct passwd *getpwuid(uid_t uid)
 struct group *getgrgid(gid_t gid)
 {
 	struct statics *S;
-	struct group *resultbuf = RESULTBUF(getgrgid);
-	char *buffer = BUFFER(getgrgid);
+	struct group *resultbuf = RESULTBUF(getgr);
+	char *buffer = BUFFER(getgr);
 	struct group *result;
 
-	getgrgid_r(gid, resultbuf, buffer, sizeof(BUFFER(getgrgid)), &result);
+	getgrgid_r(gid, resultbuf, buffer, sizeof(BUFFER(getgr)), &result);
 	return result;
 }
 
@@ -328,8 +300,8 @@ struct group *getgrgid(gid_t gid)
  * to have been created as a reentrant version of the non-standard
  * functions getspuid.  Why getspuid was added, I do not know. */
 int getspuid_r(uid_t uid, struct spwd *__restrict resultbuf,
-		       char *__restrict buffer, size_t buflen,
-		       struct spwd **__restrict result)
+			char *__restrict buffer, size_t buflen,
+			struct spwd **__restrict result)
 {
 	int rv;
 	struct passwd *pp;
@@ -350,11 +322,11 @@ int getspuid_r(uid_t uid, struct spwd *__restrict resultbuf,
 struct spwd *getspuid(uid_t uid)
 {
 	struct statics *S;
-	struct spwd *resultbuf = RESULTBUF(getspuid);
-	char *buffer = BUFFER(getspuid);
+	struct spwd *resultbuf = RESULTBUF(getsp);
+	char *buffer = BUFFER(getsp);
 	struct spwd *result;
 
-	getspuid_r(uid, resultbuf, buffer, sizeof(BUFFER(getspuid)), &result);
+	getspuid_r(uid, resultbuf, buffer, sizeof(BUFFER(getsp)), &result);
 	return result;
 }
 #endif
@@ -363,11 +335,11 @@ struct spwd *getspuid(uid_t uid)
 struct passwd *getpwnam(const char *name)
 {
 	struct statics *S;
-	struct passwd *resultbuf = RESULTBUF(getpwnam);
-	char *buffer = BUFFER(getpwnam);
+	struct passwd *resultbuf = RESULTBUF(getpw);
+	char *buffer = BUFFER(getpw);
 	struct passwd *result;
 
-	getpwnam_r(name, resultbuf, buffer, sizeof(BUFFER(getpwnam)), &result);
+	getpwnam_r(name, resultbuf, buffer, sizeof(BUFFER(getpw)), &result);
 	return result;
 }
 
@@ -375,11 +347,11 @@ struct passwd *getpwnam(const char *name)
 struct group *getgrnam(const char *name)
 {
 	struct statics *S;
-	struct group *resultbuf = RESULTBUF(getgrnam);
-	char *buffer = BUFFER(getgrnam);
+	struct group *resultbuf = RESULTBUF(getgr);
+	char *buffer = BUFFER(getgr);
 	struct group *result;
 
-	getgrnam_r(name, resultbuf, buffer, sizeof(BUFFER(getgrnam)), &result);
+	getgrnam_r(name, resultbuf, buffer, sizeof(BUFFER(getgr)), &result);
 	return result;
 }
 
@@ -387,38 +359,12 @@ struct group *getgrnam(const char *name)
 struct spwd *getspnam(const char *name)
 {
 	struct statics *S;
-	struct spwd *resultbuf = RESULTBUF(getspnam);
-	char *buffer = BUFFER(getspnam);
+	struct spwd *resultbuf = RESULTBUF(getsp);
+	char *buffer = BUFFER(getsp);
 	struct spwd *result;
 
-	getspnam_r(name, resultbuf, buffer, sizeof(BUFFER(getspnam)), &result);
+	getspnam_r(name, resultbuf, buffer, sizeof(BUFFER(getsp)), &result);
 	return result;
-}
-#endif
-
-#ifdef THIS_ONE_IS_UNUSED
-/* This one doesn't use static buffers */
-int getpw(uid_t uid, char *buf)
-{
-	struct passwd resultbuf;
-	struct passwd *result;
-	char buffer[PWD_BUFFER_SIZE];
-
-	if (!buf) {
-		errno = EINVAL;
-	} else if (!getpwuid_r(uid, &resultbuf, buffer, sizeof(buffer), &result)) {
-		if (sprintf(buf, "%s:%s:%lu:%lu:%s:%s:%s\n",
-					resultbuf.pw_name, resultbuf.pw_passwd,
-					(unsigned long)(resultbuf.pw_uid),
-					(unsigned long)(resultbuf.pw_gid),
-					resultbuf.pw_gecos, resultbuf.pw_dir,
-					resultbuf.pw_shell) >= 0
-			) {
-			return 0;
-		}
-	}
-
-	return -1;
 }
 #endif
 
@@ -457,8 +403,8 @@ void endpwent(void)
 
 
 int getpwent_r(struct passwd *__restrict resultbuf,
-			   char *__restrict buffer, size_t buflen,
-			   struct passwd **__restrict result)
+			char *__restrict buffer, size_t buflen,
+			struct passwd **__restrict result)
 {
 	int rv;
 
@@ -471,6 +417,7 @@ int getpwent_r(struct passwd *__restrict resultbuf,
 			rv = errno;
 			goto ERR;
 		}
+		close_on_exec_on(fileno(pwf));
 	}
 
 	rv = bb__pgsreader(bb__parsepwent, resultbuf, buffer, buflen, pwf);
@@ -504,8 +451,8 @@ void endgrent(void)
 }
 
 int getgrent_r(struct group *__restrict resultbuf,
-			   char *__restrict buffer, size_t buflen,
-			   struct group **__restrict result)
+			char *__restrict buffer, size_t buflen,
+			struct group **__restrict result)
 {
 	int rv;
 
@@ -518,6 +465,7 @@ int getgrent_r(struct group *__restrict resultbuf,
 			rv = errno;
 			goto ERR;
 		}
+		close_on_exec_on(fileno(grf));
 	}
 
 	rv = bb__pgsreader(bb__parsegrent, resultbuf, buffer, buflen, grf);
@@ -530,6 +478,7 @@ int getgrent_r(struct group *__restrict resultbuf,
 	return rv;
 }
 
+#ifdef UNUSED_FOR_NOW
 #if ENABLE_USE_BB_SHADOW
 static FILE *spf /*= NULL*/;
 void setspent(void)
@@ -552,7 +501,7 @@ void endspent(void)
 }
 
 int getspent_r(struct spwd *resultbuf, char *buffer,
-			   size_t buflen, struct spwd **result)
+			size_t buflen, struct spwd **result)
 {
 	int rv;
 
@@ -565,6 +514,7 @@ int getspent_r(struct spwd *resultbuf, char *buffer,
 			rv = errno;
 			goto ERR;
 		}
+		close_on_exec_on(fileno(spf));
 	}
 
 	rv = bb__pgsreader(bb__parsespent, resultbuf, buffer, buflen, spf);
@@ -577,8 +527,9 @@ int getspent_r(struct spwd *resultbuf, char *buffer,
 	return rv;
 }
 #endif
+#endif /* UNUSED_FOR_NOW */
 
-#if 0
+#ifdef UNUSED_SINCE_WE_AVOID_STATIC_BUFS
 struct passwd *getpwent(void)
 {
 	static char line_buff[PWD_BUFFER_SIZE];
@@ -598,9 +549,8 @@ struct group *getgrent(void)
 	getgrent_r(&gr, line_buff, sizeof(line_buff), &result);
 	return result;
 }
-#endif
 
-#if 0 //ENABLE_USE_BB_SHADOW
+#if ENABLE_USE_BB_SHADOW
 struct spwd *getspent(void)
 {
 	static char line_buff[PWD_BUFFER_SIZE];
@@ -621,6 +571,7 @@ struct spwd *sgetspent(const char *string)
 	return result;
 }
 #endif
+#endif /* UNUSED_SINCE_WE_AVOID_STATIC_BUFS */
 
 static gid_t *getgrouplist_internal(int *ngroups_ptr, const char *user, gid_t gid)
 {
@@ -645,7 +596,7 @@ static gid_t *getgrouplist_internal(int *ngroups_ptr, const char *user, gid_t gi
 			for (m = group.gr_mem; *m; m++) {
 				if (strcmp(*m, user) != 0)
 					continue;
-				group_list = xrealloc_vector(group_list, 3, ngroups);
+				group_list = xrealloc_vector(group_list, /*8=2^3:*/ 3, ngroups);
 				group_list[ngroups++] = group.gr_gid;
 				break;
 			}
@@ -681,22 +632,27 @@ int getgrouplist(const char *user, gid_t gid, gid_t *groups, int *ngroups)
 	return ngroups_old;
 }
 
+#ifdef UNUSED_SINCE_WE_AVOID_STATIC_BUFS
 int putpwent(const struct passwd *__restrict p, FILE *__restrict f)
 {
 	int rv = -1;
 
+#if 0
+	/* glibc does this check */
 	if (!p || !f) {
 		errno = EINVAL;
-	} else {
-		/* No extra thread locking is needed above what fprintf does. */
-		if (fprintf(f, "%s:%s:%lu:%lu:%s:%s:%s\n",
-					p->pw_name, p->pw_passwd,
-					(unsigned long)(p->pw_uid),
-					(unsigned long)(p->pw_gid),
-					p->pw_gecos, p->pw_dir, p->pw_shell) >= 0
-			) {
-			rv = 0;
-		}
+		return rv;
+	}
+#endif
+
+	/* No extra thread locking is needed above what fprintf does. */
+	if (fprintf(f, "%s:%s:%lu:%lu:%s:%s:%s\n",
+				p->pw_name, p->pw_passwd,
+				(unsigned long)(p->pw_uid),
+				(unsigned long)(p->pw_gid),
+				p->pw_gecos, p->pw_dir, p->pw_shell) >= 0
+		) {
+		rv = 0;
 	}
 
 	return rv;
@@ -704,48 +660,52 @@ int putpwent(const struct passwd *__restrict p, FILE *__restrict f)
 
 int putgrent(const struct group *__restrict p, FILE *__restrict f)
 {
-	static const char format[] ALIGN1 = ",%s";
-
-	char **m;
-	const char *fmt;
 	int rv = -1;
 
-	if (!p || !f) {				/* Sigh... glibc checks. */
+#if 0
+	/* glibc does this check */
+	if (!p || !f) {
 		errno = EINVAL;
-	} else {
-		if (fprintf(f, "%s:%s:%lu:",
-					p->gr_name, p->gr_passwd,
-					(unsigned long)(p->gr_gid)) >= 0
-			) {
+		return rv;
+	}
+#endif
 
-			fmt = format + 1;
+	if (fprintf(f, "%s:%s:%lu:",
+				p->gr_name, p->gr_passwd,
+				(unsigned long)(p->gr_gid)) >= 0
+	) {
+		static const char format[] ALIGN1 = ",%s";
 
-			assert(p->gr_mem);
-			m = p->gr_mem;
+		char **m;
+		const char *fmt;
 
-			do {
-				if (!*m) {
-					if (fputc('\n', f) >= 0) {
-						rv = 0;
-					}
-					break;
+		fmt = format + 1;
+
+		assert(p->gr_mem);
+		m = p->gr_mem;
+
+		while (1) {
+			if (!*m) {
+				if (fputc('\n', f) >= 0) {
+					rv = 0;
 				}
-				if (fprintf(f, fmt, *m) < 0) {
-					break;
-				}
-				++m;
-				fmt = format;
-			} while (1);
-
+				break;
+			}
+			if (fprintf(f, fmt, *m) < 0) {
+				break;
+			}
+			m++;
+			fmt = format;
 		}
-
 	}
 
 	return rv;
 }
+#endif
 
 #if ENABLE_USE_BB_SHADOW
-static const unsigned char _sp_off[] ALIGN1 = {
+#ifdef UNUSED_FOR_NOW
+static const unsigned char put_sp_off[] ALIGN1 = {
 	offsetof(struct spwd, sp_lstchg),       /* 2 - not a char ptr */
 	offsetof(struct spwd, sp_min),          /* 3 - not a char ptr */
 	offsetof(struct spwd, sp_max),          /* 4 - not a char ptr */
@@ -756,9 +716,7 @@ static const unsigned char _sp_off[] ALIGN1 = {
 
 int putspent(const struct spwd *p, FILE *stream)
 {
-	static const char ld_format[] ALIGN1 = "%ld:";
-
-	const char *f;
+	const char *fmt;
 	long x;
 	int i;
 	int rv = -1;
@@ -770,13 +728,13 @@ int putspent(const struct spwd *p, FILE *stream)
 		goto DO_UNLOCK;
 	}
 
-	for (i = 0; i < sizeof(_sp_off); i++) {
-		f = ld_format;
-		x = *(const long *)(((const char *) p) + _sp_off[i]);
+	for (i = 0; i < sizeof(put_sp_off); i++) {
+		fmt = "%ld:";
+		x = *(long *)((char *)p + put_sp_off[i]);
 		if (x == -1) {
-			f += 3;
+			fmt += 3;
 		}
-		if (fprintf(stream, f, x) < 0) {
+		if (fprintf(stream, fmt, x) < 0) {
 			goto DO_UNLOCK;
 		}
 	}
@@ -789,13 +747,14 @@ int putspent(const struct spwd *p, FILE *stream)
 		rv = 0;
 	}
 
-DO_UNLOCK:
+ DO_UNLOCK:
 	return rv;
 }
 #endif
+#endif /* USE_BB_SHADOW */
 
 /**********************************************************************/
-/* Internal uClibc functions.                                         */
+/* Internal functions                                                 */
 /**********************************************************************/
 
 static const unsigned char pw_off[] ALIGN1 = {
@@ -808,19 +767,19 @@ static const unsigned char pw_off[] ALIGN1 = {
 	offsetof(struct passwd, pw_shell)       /* 6 */
 };
 
-static int bb__parsepwent(void *data, char *line)
+static int FAST_FUNC bb__parsepwent(void *data, char *line)
 {
 	char *endptr;
 	char *p;
 	int i;
 
 	i = 0;
-	do {
-		p = ((char *) ((struct passwd *) data)) + pw_off[i];
+	while (1) {
+		p = (char *) data + pw_off[i];
 
-		if ((i & 6) ^ 2) {	/* i!=2 and i!=3 */
+		if (i < 2 || i > 3) {
 			*((char **) p) = line;
-			if (i==6) {
+			if (i == 6) {
 				return 0;
 			}
 			/* NOTE: glibc difference - glibc allows omission of
@@ -847,9 +806,9 @@ static int bb__parsepwent(void *data, char *line)
 			}
 		}
 
-		*line++ = 0;
-		++i;
-	} while (1);
+		*line++ = '\0';
+		i++;
+	} /* while (1) */
 
 	return -1;
 }
@@ -862,7 +821,7 @@ static const unsigned char gr_off[] ALIGN1 = {
 	offsetof(struct group, gr_gid)          /* 2 - not a char ptr */
 };
 
-static int bb__parsegrent(void *data, char *line)
+static int FAST_FUNC bb__parsegrent(void *data, char *line)
 {
 	char *endptr;
 	char *p;
@@ -872,8 +831,8 @@ static int bb__parsegrent(void *data, char *line)
 
 	end_of_buf = ((struct group *) data)->gr_name; /* Evil hack! */
 	i = 0;
-	do {
-		p = ((char *) ((struct group *) data)) + gr_off[i];
+	while (1) {
+		p = (char *) data + gr_off[i];
 
 		if (i < 2) {
 			*((char **) p) = line;
@@ -881,8 +840,8 @@ static int bb__parsegrent(void *data, char *line)
 			if (!line) {
 				break;
 			}
-			*line++ = 0;
-			++i;
+			*line++ = '\0';
+			i++;
 		} else {
 			*((gid_t *) p) = strtoul(line, &endptr, 10);
 
@@ -902,9 +861,9 @@ static int bb__parsegrent(void *data, char *line)
 
 			if (p[1]) { /* We have a member list to process. */
 				/* Overwrite the last ':' with a ',' before counting.
-				 * This allows us to test for initial ',' and adds
-				 * one ',' so that the ',' count equals the member
-				 * count. */
+				 * This allows us to (1) test for initial ','
+				 * and (2) adds one ',' so that the number of commas
+				 * equals the member count. */
 				*p = ',';
 				do {
 					/* NOTE: glibc difference - glibc allows and trims leading
@@ -935,17 +894,19 @@ static int bb__parsegrent(void *data, char *line)
 
 			if (--i) {
 				p = endptr;	/* Pointing to char prior to first member. */
-				do {
+				while (1) {
 					*members++ = ++p;
-					if (!--i) break;
-					while (*++p) {}
-				} while (1);
+					if (!--i)
+						break;
+					while (*++p)
+						continue;
+				}
 			}
 			*members = NULL;
 
 			return 0;
 		}
-	} while (1);
+	} /* while (1) */
 
  ERR:
 	return -1;
@@ -955,57 +916,51 @@ static int bb__parsegrent(void *data, char *line)
 
 #if ENABLE_USE_BB_SHADOW
 static const unsigned char sp_off[] ALIGN1 = {
-	offsetof(struct spwd, sp_namp),         /* 0 */
-	offsetof(struct spwd, sp_pwdp),         /* 1 */
-	offsetof(struct spwd, sp_lstchg),       /* 2 - not a char ptr */
-	offsetof(struct spwd, sp_min),          /* 3 - not a char ptr */
-	offsetof(struct spwd, sp_max),          /* 4 - not a char ptr */
-	offsetof(struct spwd, sp_warn),         /* 5 - not a char ptr */
-	offsetof(struct spwd, sp_inact),        /* 6 - not a char ptr */
-	offsetof(struct spwd, sp_expire),       /* 7 - not a char ptr */
-	offsetof(struct spwd, sp_flag)          /* 8 - not a char ptr */
+	offsetof(struct spwd, sp_namp),         /* 0: char* */
+	offsetof(struct spwd, sp_pwdp),         /* 1: char* */
+	offsetof(struct spwd, sp_lstchg),       /* 2: long */
+	offsetof(struct spwd, sp_min),          /* 3: long */
+	offsetof(struct spwd, sp_max),          /* 4: long */
+	offsetof(struct spwd, sp_warn),         /* 5: long */
+	offsetof(struct spwd, sp_inact),        /* 6: long */
+	offsetof(struct spwd, sp_expire),       /* 7: long */
+	offsetof(struct spwd, sp_flag)          /* 8: unsigned long */
 };
 
-static int bb__parsespent(void *data, char * line)
+static int FAST_FUNC bb__parsespent(void *data, char *line)
 {
 	char *endptr;
 	char *p;
 	int i;
 
 	i = 0;
-	do {
-		p = ((char *) ((struct spwd *) data)) + sp_off[i];
+	while (1) {
+		p = (char *) data + sp_off[i];
 		if (i < 2) {
 			*((char **) p) = line;
 			line = strchr(line, ':');
 			if (!line) {
-				break;
+				break; /* error */
 			}
 		} else {
-			*((long *) p) = (long) strtoul(line, &endptr, 10);
-
+			*((long *) p) = strtoul(line, &endptr, 10);
 			if (endptr == line) {
-				*((long *) p) = ((i != 8) ? -1L : ((long)(~0UL)));
+				*((long *) p) = -1L;
 			}
-
 			line = endptr;
-
 			if (i == 8) {
-				if (!*endptr) {
-					return 0;
+				if (*line != '\0') {
+					break; /* error */
 				}
-				break;
+				return 0; /* all ok */
 			}
-
-			if (*endptr != ':') {
-				break;
+			if (*line != ':') {
+				break; /* error */
 			}
-
 		}
-
-		*line++ = 0;
-		++i;
-	} while (1);
+		*line++ = '\0';
+		i++;
+	}
 
 	return EINVAL;
 }
@@ -1013,65 +968,72 @@ static int bb__parsespent(void *data, char * line)
 
 /**********************************************************************/
 
-/* Reads until if EOF, or until if finds a line which fits in the buffer
+/* Reads until EOF, or until it finds a line which fits in the buffer
  * and for which the parser function succeeds.
  *
- * Returns 0 on success and ENOENT for end-of-file (glibc concession).
+ * Returns 0 on success and ENOENT for end-of-file (glibc convention).
  */
-
-static int bb__pgsreader(int (*parserfunc)(void *d, char *line), void *data,
-				char *__restrict line_buff, size_t buflen, FILE *f)
+static int bb__pgsreader(
+		int FAST_FUNC (*parserfunc)(void *d, char *line),
+		void *data,
+		char *__restrict line_buff,
+		size_t buflen,
+		FILE *f)
 {
-	int line_len;
 	int skip;
 	int rv = ERANGE;
 
 	if (buflen < PWD_BUFFER_SIZE) {
 		errno = rv;
-	} else {
-		skip = 0;
-		do {
-			if (!fgets(line_buff, buflen, f)) {
-				if (feof(f)) {
-					rv = ENOENT;
-				}
+		return rv;
+	}
+
+	skip = 0;
+	while (1) {
+		if (!fgets(line_buff, buflen, f)) {
+			if (feof(f)) {
+				rv = ENOENT;
+			}
+			break;
+		}
+
+		{
+			int line_len = strlen(line_buff) - 1;
+			if (line_len >= 0 && line_buff[line_len] == '\n') {
+				line_buff[line_len] = '\0';
+			} else
+			if (line_len + 2 == buflen) {
+				/* A start (or continuation) of overlong line */
+				skip = 1;
+				continue;
+			} /* else: a last line in the file, and it has no '\n' */
+		}
+
+		if (skip) {
+			/* This "line" is a remainder of overlong line, ignore */
+			skip = 0;
+			continue;
+		}
+
+		/* NOTE: glibc difference - glibc strips leading whitespace from
+		 * records.  We do not allow leading whitespace. */
+
+		/* Skip empty lines, comment lines, and lines with leading
+		 * whitespace. */
+		if (line_buff[0] != '\0' && line_buff[0] != '#' && !isspace(line_buff[0])) {
+			if (parserfunc == bb__parsegrent) {
+				/* Do evil group hack:
+				 * The group entry parsing function needs to know where
+				 * the end of the buffer is so that it can construct the
+				 * group member ptr table. */
+				((struct group *) data)->gr_name = line_buff + buflen;
+			}
+			if (parserfunc(data, line_buff) == 0) {
+				rv = 0;
 				break;
 			}
-
-			line_len = strlen(line_buff) - 1; /* strlen() must be > 0. */
-			if (line_buff[line_len] == '\n') {
-				line_buff[line_len] = 0;
-			} else if (line_len + 2 == buflen) { /* line too long */
-				++skip;
-				continue;
-			}
-
-			if (skip) {
-				--skip;
-				continue;
-			}
-
-			/* NOTE: glibc difference - glibc strips leading whitespace from
-			 * records.  We do not allow leading whitespace. */
-
-			/* Skip empty lines, comment lines, and lines with leading
-			 * whitespace. */
-			if (*line_buff && (*line_buff != '#') && !isspace(*line_buff)) {
-				if (parserfunc == bb__parsegrent) {	/* Do evil group hack. */
-					/* The group entry parsing function needs to know where
-					 * the end of the buffer is so that it can construct the
-					 * group member ptr table. */
-					((struct group *) data)->gr_name = line_buff + buflen;
-				}
-
-				if (!parserfunc(data, line_buff)) {
-					rv = 0;
-					break;
-				}
-			}
-		} while (1);
-
-	}
+		}
+	} /* while (1) */
 
 	return rv;
 }

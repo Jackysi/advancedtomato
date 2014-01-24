@@ -6,8 +6,16 @@
  * Copyright 2006 Rob Landley <rob@landley.net>
  * Copyright 2006 Bernhard Reutner-Fischer <rep.nop@aon.at>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+
+//usage:#define dmesg_trivial_usage
+//usage:       "[-c] [-n LEVEL] [-s SIZE]"
+//usage:#define dmesg_full_usage "\n\n"
+//usage:       "Print or control the kernel ring buffer\n"
+//usage:     "\n	-c		Clear ring buffer after printing"
+//usage:     "\n	-n LEVEL	Set console logging level"
+//usage:     "\n	-s SIZE		Buffer size"
 
 #include <sys/klog.h>
 #include "libbb.h"
@@ -15,44 +23,55 @@
 int dmesg_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dmesg_main(int argc UNUSED_PARAM, char **argv)
 {
-	int len;
+	int len, level;
 	char *buf;
-	char *size, *level;
-	unsigned flags = getopt32(argv, "cs:n:", &size, &level);
+	unsigned opts;
 	enum {
-		OPT_c = 1<<0,
-		OPT_s = 1<<1,
-		OPT_n = 1<<2
+		OPT_c = 1 << 0,
+		OPT_s = 1 << 1,
+		OPT_n = 1 << 2
 	};
 
-	if (flags & OPT_n) {
-		if (klogctl(8, NULL, xatoul_range(level, 0, 10)))
+	opt_complementary = "s+:n+"; /* numeric */
+	opts = getopt32(argv, "cs:n:", &len, &level);
+	if (opts & OPT_n) {
+		if (klogctl(8, NULL, (long) level))
 			bb_perror_msg_and_die("klogctl");
 		return EXIT_SUCCESS;
 	}
 
-	len = (flags & OPT_s) ? xatoul_range(size, 2, INT_MAX) : 16384;
+	if (!(opts & OPT_s))
+		len = klogctl(10, NULL, 0); /* read ring buffer size */
+	if (len < 16*1024)
+		len = 16*1024;
+	if (len > 16*1024*1024)
+		len = 16*1024*1024;
+
 	buf = xmalloc(len);
-	len = klogctl(3 + (flags & OPT_c), buf, len);
+	len = klogctl(3 + (opts & OPT_c), buf, len); /* read ring buffer */
 	if (len < 0)
 		bb_perror_msg_and_die("klogctl");
 	if (len == 0)
 		return EXIT_SUCCESS;
 
-	/* Skip <#> at the start of lines, and make sure we end with a newline. */
 
 	if (ENABLE_FEATURE_DMESG_PRETTY) {
 		int last = '\n';
 		int in = 0;
 
-		do {
-			if (last == '\n' && buf[in] == '<')
-				in += 3;
-			else {
+		/* Skip <[0-9]+> at the start of lines */
+		while (1) {
+			if (last == '\n' && buf[in] == '<') {
+				while (buf[in++] != '>' && in < len)
+					;
+			} else {
 				last = buf[in++];
-				bb_putchar(last);
+				putchar(last);
 			}
-		} while (in < len);
+			if (in >= len)
+				break;
+		}
+		/* Make sure we end with a newline */
 		if (last != '\n')
 			bb_putchar('\n');
 	} else {

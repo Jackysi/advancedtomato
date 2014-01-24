@@ -4,8 +4,12 @@
  * Based on libselinux 1.33.1
  * Port to BusyBox  Hiroshi Shinji <shiroshi@my.email.ne.jp>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+
+//usage:#define setenforce_trivial_usage
+//usage:       "[Enforcing | Permissive | 1 | 0]"
+//usage:#define setenforce_full_usage ""
 
 #include "libbb.h"
 
@@ -21,11 +25,11 @@ static const char *const setenforce_cmd[] = {
 };
 
 int setenforce_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int setenforce_main(int argc, char **argv)
+int setenforce_main(int argc UNUSED_PARAM, char **argv)
 {
 	int i, rc;
 
-	if (argc != 2)
+	if (!argv[1] || argv[2])
 		bb_show_usage();
 
 	selinux_or_die();

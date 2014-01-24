@@ -37,11 +37,11 @@ struct silicon_meta {
 	uint16_t	vendor_id;
 	uint16_t	minor_ver;
 	uint16_t	major_ver;
-} __attribute__((packed));
+} PACKED;
 
 #define SILICON_MAGIC		0x2F000000
 
-int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct silicon_meta *sil;
@@ -62,7 +62,7 @@ int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint
 
 //	volume_id_set_usage(id, VOLUME_ID_RAID);
 //	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u",
-//		 le16_to_cpu(sil->major_ver), le16_to_cpu(sil->minor_ver));
+//		le16_to_cpu(sil->major_ver), le16_to_cpu(sil->minor_ver));
 //	id->type = "silicon_medley_raid_member";
 
 	return 0;

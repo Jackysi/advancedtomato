@@ -8,11 +8,26 @@
  *
  * busyboxed 20 March 2001, Larry Doolittle <ldoolitt@recycle.lbl.gov>
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//usage:#define adjtimex_trivial_usage
+//usage:       "[-q] [-o OFF] [-f FREQ] [-p TCONST] [-t TICK]"
+//usage:#define adjtimex_full_usage "\n\n"
+//usage:       "Read and optionally set system timebase parameters. See adjtimex(2)\n"
+//usage:     "\n	-q	Quiet"
+//usage:     "\n	-o OFF	Time offset, microseconds"
+//usage:     "\n	-f FREQ	Frequency adjust, integer kernel units (65536 is 1ppm)"
+//usage:     "\n		(positive values make clock run faster)"
+//usage:     "\n	-t TICK	Microseconds per tick, usually 10000"
+//usage:     "\n	-p TCONST"
+
 #include "libbb.h"
-#include <sys/timex.h>
+#ifdef __BIONIC__
+# include <linux/timex.h>
+#else
+# include <sys/timex.h>
+#endif
 
 static const uint16_t statlist_bit[] = {
 	STA_PLL,
@@ -56,7 +71,7 @@ static const char ret_code_descript[] =
 ;
 
 int adjtimex_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int adjtimex_main(int argc, char **argv)
+int adjtimex_main(int argc UNUSED_PARAM, char **argv)
 {
 	enum {
 		OPT_quiet = 0x1
@@ -66,10 +81,11 @@ int adjtimex_main(int argc, char **argv)
 	struct timex txc;
 	int i, ret;
 	const char *descript;
-	txc.modes=0;
 
+	opt_complementary = "=0"; /* no valid non-option parameters */
 	opt = getopt32(argv, "qo:f:p:t:",
 			&opt_o, &opt_f, &opt_p, &opt_t);
+	txc.modes = 0;
 	//if (opt & 0x1) // -q
 	if (opt & 0x2) { // -o
 		txc.offset = xatol(opt_o);
@@ -86,9 +102,6 @@ int adjtimex_main(int argc, char **argv)
 	if (opt & 0x10) { // -t
 		txc.tick = xatol(opt_t);
 		txc.modes |= ADJ_TICK;
-	}
-	if (argc != optind) { /* no valid non-option parameters */
-		bb_show_usage();
 	}
 
 	ret = adjtimex(&txc);

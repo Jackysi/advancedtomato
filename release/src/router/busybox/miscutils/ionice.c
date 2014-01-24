@@ -4,8 +4,15 @@
  *
  * Copyright (C) 2008 by  <u173034@informatik.uni-oldenburg.de>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define ionice_trivial_usage
+//usage:	"[-c 1-3] [-n 0-7] [-p PID] [PROG]"
+//usage:#define ionice_full_usage "\n\n"
+//usage:       "Change I/O priority and class\n"
+//usage:     "\n	-c	Class. 1:realtime 2:best-effort 3:idle"
+//usage:     "\n	-n	Priority"
 
 #include <sys/syscall.h>
 #include <asm/unistd.h>
@@ -73,7 +80,7 @@ int ionice_main(int argc UNUSED_PARAM, char **argv)
 
 	if (!(opt & (OPT_n|OPT_c))) {
 		if (!(opt & OPT_p) && *argv)
-			pid = xatoi_u(*argv);
+			pid = xatoi_positive(*argv);
 
 		pri = ioprio_get(IOPRIO_WHO_PROCESS, pid);
 		if (pri == -1)
@@ -89,9 +96,8 @@ int ionice_main(int argc UNUSED_PARAM, char **argv)
 		pri |= (ioclass << IOPRIO_CLASS_SHIFT);
 		if (ioprio_set(IOPRIO_WHO_PROCESS, pid, pri) == -1)
 			bb_perror_msg_and_die("ioprio_%cet", 's');
-		if (*argv) {
-			BB_EXECVP(*argv, argv);
-			bb_simple_perror_msg_and_die(*argv);
+		if (argv[0]) {
+			BB_EXECVP_or_die(argv);
 		}
 	}
 

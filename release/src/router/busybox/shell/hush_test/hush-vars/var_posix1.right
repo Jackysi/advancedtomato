@@ -22,6 +22,8 @@ babcdcd
 babcdcd
 ababcdcd
 Empty:
+ababcdcd}_tail
+ababcdcd_tail
 ababcd
 ababcd
 ababcd
@@ -30,4 +32,10 @@ ababcdc
 ababcdc
 ababcdcd
 Empty:
-end
+ababcdcd}_tail
+ababcdcd_tail
+ababcdcd
+ab
+ab
+ab
+End

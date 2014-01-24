@@ -4,11 +4,13 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
-#include <syslog.h>
+#if ENABLE_FEATURE_SYSLOG
+# include <syslog.h>
+#endif
 
 void FAST_FUNC bb_info_msg(const char *s, ...)
 {
@@ -24,8 +26,10 @@ void FAST_FUNC bb_info_msg(const char *s, ...)
 		vprintf(s, p);
 		fputs(msg_eol, stdout);
 	}
-	if (ENABLE_FEATURE_SYSLOG && (logmode & LOGMODE_SYSLOG))
+# if ENABLE_FEATURE_SYSLOG
+	if (logmode & LOGMODE_SYSLOG)
 		vsyslog(LOG_INFO, s, p2);
+# endif
 	va_end(p2);
 	va_end(p);
 #else
@@ -38,19 +42,21 @@ void FAST_FUNC bb_info_msg(const char *s, ...)
 
 	va_start(p, s);
 	used = vasprintf(&msg, s, p);
+	va_end(p);
 	if (used < 0)
 		return;
 
-	if (ENABLE_FEATURE_SYSLOG && (logmode & LOGMODE_SYSLOG))
+# if ENABLE_FEATURE_SYSLOG
+	if (logmode & LOGMODE_SYSLOG)
 		syslog(LOG_INFO, "%s", msg);
+# endif
 	if (logmode & LOGMODE_STDIO) {
-		fflush(stdout);
+		fflush_all();
 		/* used = strlen(msg); - must be true already */
 		msg[used++] = '\n';
 		full_write(STDOUT_FILENO, msg, used);
 	}
 
 	free(msg);
-	va_end(p);
 #endif
 }

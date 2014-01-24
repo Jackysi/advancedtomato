@@ -1,9 +1,44 @@
 /*
-** Licensed under the GPL v2, see the file LICENSE in this tarball
-**
-** Based on nanotop.c from floppyfw project
-**
-** Contact me: vda.linux@googlemail.com */
+ * Licensed under GPLv2, see file LICENSE in this source tree.
+ *
+ * Based on nanotop.c from floppyfw project
+ *
+ * Contact me: vda.linux@googlemail.com
+ */
+
+//config:config NMETER
+//config:	bool "nmeter"
+//config:	default y
+//config:	help
+//config:	  Prints selected system stats continuously, one line per update.
+
+//applet:IF_NMETER(APPLET(nmeter, BB_DIR_USR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_NMETER) += nmeter.o
+
+//usage:#define nmeter_trivial_usage
+//usage:       "[-d MSEC] FORMAT_STRING"
+//usage:#define nmeter_full_usage "\n\n"
+//usage:       "Monitor system in real time"
+//usage:     "\n"
+//usage:     "\n -d MSEC	Milliseconds between updates (default:1000)"
+//usage:     "\n"
+//usage:     "\nFormat specifiers:"
+//usage:     "\n %Nc or %[cN]	CPU. N - bar size (default:10)"
+//usage:     "\n		(displays: S:system U:user N:niced D:iowait I:irq i:softirq)"
+//usage:     "\n %[nINTERFACE]	Network INTERFACE"
+//usage:     "\n %m		Allocated memory"
+//usage:     "\n %[mf]		Free memory"
+//usage:     "\n %[mt]		Total memory"
+//usage:     "\n %s		Allocated swap"
+//usage:     "\n %f		Number of used file descriptors"
+//usage:     "\n %Ni		Total/specific IRQ rate"
+//usage:     "\n %x		Context switch rate"
+//usage:     "\n %p		Forks"
+//usage:     "\n %[pn]		# of processes"
+//usage:     "\n %b		Block io"
+//usage:     "\n %Nt		Time (with N decimal points)"
+//usage:     "\n %r		Print <cr> instead of <lf> at EOL"
 
 //TODO:
 // simplify code
@@ -236,33 +271,59 @@ static int rdval_loadavg(const char* p, ullong *vec, ...)
 }
 
 // Parses /proc/diskstats
-//   1  2 3   4	 5        6(rd)  7      8     9     10(wr) 11     12 13     14
+//   1  2 3   4     5     6(rd)  7      8     9     10(wr) 11     12 13     14
 //   3  0 hda 51292 14441 841783 926052 25717 79650 843256 3029804 0 148459 3956933
 //   3  1 hda1 0 0 0 0 <- ignore if only 4 fields
+// Linux 3.0 (maybe earlier) started printing full stats for hda1 too.
+// Had to add code which skips such devices.
 static int rdval_diskstats(const char* p, ullong *vec)
 {
-	ullong rd = rd; // for compiler
-	int indexline = 0;
+	char devname[32];
+	unsigned devname_len = 0;
+	int value_idx = 0;
+
 	vec[0] = 0;
 	vec[1] = 0;
 	while (1) {
-		indexline++;
-		while (*p == ' ' || *p == '\t') p++;
-		if (*p == '\0') break;
+		value_idx++;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (*p == '\0')
+			break;
 		if (*p == '\n') {
-			indexline = 0;
+			value_idx = 0;
 			p++;
 			continue;
 		}
-		if (indexline == 6) {
-			rd = strtoull(p, NULL, 10);
-		} else if (indexline == 10) {
-			vec[0] += rd;  // TODO: *sectorsize (don't know how to find out sectorsize)
+		if (value_idx == 3) {
+			char *end = strchrnul(p, ' ');
+			/* If this a hda1-like device (same prefix as last one + digit)? */
+			if (devname_len && strncmp(devname, p, devname_len) == 0 && isdigit(p[devname_len])) {
+				p = end;
+				goto skip_line; /* skip entire line */
+			}
+			/* It is not. Remember the name for future checks */
+			devname_len = end - p;
+			if (devname_len > sizeof(devname)-1)
+				devname_len = sizeof(devname)-1;
+			strncpy(devname, p, devname_len);
+			/* devname[devname_len] = '\0'; - not really needed */
+			p = end;
+		} else
+		if (value_idx == 6) {
+			// TODO: *sectorsize (don't know how to find out sectorsize)
+			vec[0] += strtoull(p, NULL, 10);
+		} else
+		if (value_idx == 10) {
+			// TODO: *sectorsize (don't know how to find out sectorsize)
 			vec[1] += strtoull(p, NULL, 10);
-			while (*p != '\n' && *p != '\0') p++;
+ skip_line:
+			while (*p != '\n' && *p != '\0')
+				p++;
 			continue;
 		}
-		while (*p > ' ') p++; // skip over value
+		while ((unsigned char)(*p) > ' ') // skip over value
+			p++;
 	}
 	return 0;
 }
@@ -281,14 +342,14 @@ static void scale(ullong ul)
 #define S_STAT(a) \
 typedef struct a { \
 	struct s_stat *next; \
-	void (*collect)(struct a *s); \
+	void (*collect)(struct a *s) FAST_FUNC; \
 	const char *label;
 #define S_STAT_END(a) } a;
 
 S_STAT(s_stat)
 S_STAT_END(s_stat)
 
-static void collect_literal(s_stat *s UNUSED_PARAM)
+static void FAST_FUNC collect_literal(s_stat *s UNUSED_PARAM)
 {
 }
 
@@ -325,7 +386,7 @@ S_STAT(cpu_stat)
 S_STAT_END(cpu_stat)
 
 
-static void collect_cpu(cpu_stat *s)
+static void FAST_FUNC collect_cpu(cpu_stat *s)
 {
 	ullong data[CPU_FIELDCNT] = { 0, 0, 0, 0, 0, 0, 0 };
 	unsigned frac[CPU_FIELDCNT] = { 0, 0, 0, 0, 0, 0, 0 };
@@ -399,7 +460,7 @@ S_STAT(int_stat)
 	int no;
 S_STAT_END(int_stat)
 
-static void collect_int(int_stat *s)
+static void FAST_FUNC collect_int(int_stat *s)
 {
 	ullong data[1];
 	ullong old;
@@ -422,7 +483,7 @@ static s_stat* init_int(const char *param)
 	if (param[0] == '\0') {
 		s->no = 1;
 	} else {
-		int n = xatoi_u(param);
+		int n = xatoi_positive(param);
 		s->no = n + 2;
 	}
 	return (s_stat*)s;
@@ -433,7 +494,7 @@ S_STAT(ctx_stat)
 	ullong old;
 S_STAT_END(ctx_stat)
 
-static void collect_ctx(ctx_stat *s)
+static void FAST_FUNC collect_ctx(ctx_stat *s)
 {
 	ullong data[1];
 	ullong old;
@@ -462,7 +523,7 @@ S_STAT(blk_stat)
 	ullong old[2];
 S_STAT_END(blk_stat)
 
-static void collect_blk(blk_stat *s)
+static void FAST_FUNC collect_blk(blk_stat *s)
 {
 	ullong data[2];
 	int i;
@@ -504,7 +565,7 @@ S_STAT(fork_stat)
 	ullong old;
 S_STAT_END(fork_stat)
 
-static void collect_thread_nr(fork_stat *s UNUSED_PARAM)
+static void FAST_FUNC collect_thread_nr(fork_stat *s UNUSED_PARAM)
 {
 	ullong data[1];
 
@@ -515,7 +576,7 @@ static void collect_thread_nr(fork_stat *s UNUSED_PARAM)
 	scale(data[0]);
 }
 
-static void collect_fork(fork_stat *s)
+static void FAST_FUNC collect_fork(fork_stat *s)
 {
 	ullong data[1];
 	ullong old;
@@ -549,7 +610,7 @@ S_STAT(if_stat)
 	char *device_colon;
 S_STAT_END(if_stat)
 
-static void collect_if(if_stat *s)
+static void FAST_FUNC collect_if(if_stat *s)
 {
 	ullong data[4];
 	int i;
@@ -624,7 +685,7 @@ S_STAT_END(mem_stat)
 //HugePages_Total:     0
 //HugePages_Free:      0
 //Hugepagesize:     4096 kB
-static void collect_mem(mem_stat *s)
+static void FAST_FUNC collect_mem(mem_stat *s)
 {
 	ullong m_total = 0;
 	ullong m_free = 0;
@@ -671,7 +732,7 @@ static s_stat* init_mem(const char *param)
 S_STAT(swp_stat)
 S_STAT_END(swp_stat)
 
-static void collect_swp(swp_stat *s UNUSED_PARAM)
+static void FAST_FUNC collect_swp(swp_stat *s UNUSED_PARAM)
 {
 	ullong s_total[1];
 	ullong s_free[1];
@@ -695,7 +756,7 @@ static s_stat* init_swp(const char *param UNUSED_PARAM)
 S_STAT(fd_stat)
 S_STAT_END(fd_stat)
 
-static void collect_fd(fd_stat *s UNUSED_PARAM)
+static void FAST_FUNC collect_fd(fd_stat *s UNUSED_PARAM)
 {
 	ullong data[2];
 
@@ -720,7 +781,7 @@ S_STAT(time_stat)
 	int scale;
 S_STAT_END(time_stat)
 
-static void collect_time(time_stat *s)
+static void FAST_FUNC collect_time(time_stat *s)
 {
 	char buf[sizeof("12:34:56.123456")];
 	struct tm* tm;
@@ -755,7 +816,7 @@ static s_stat* init_time(const char *param)
 	return (s_stat*)s;
 }
 
-static void collect_info(s_stat *s)
+static void FAST_FUNC collect_info(s_stat *s)
 {
 	gen ^= 1;
 	while (s) {
@@ -768,6 +829,7 @@ static void collect_info(s_stat *s)
 
 typedef s_stat* init_func(const char *param);
 
+// Deprecated %NNNd is to be removed, -d MSEC supersedes it
 static const char options[] ALIGN1 = "ncmsfixptbdr";
 static init_func *const init_functions[] = {
 	init_if,
@@ -785,29 +847,34 @@ static init_func *const init_functions[] = {
 };
 
 int nmeter_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int nmeter_main(int argc, char **argv)
+int nmeter_main(int argc UNUSED_PARAM, char **argv)
 {
 	char buf[32];
 	s_stat *first = NULL;
 	s_stat *last = NULL;
 	s_stat *s;
+	char *opt_d;
 	char *cur, *prev;
 
 	INIT_G();
 
 	xchdir("/proc");
 
-	if (argc != 2)
-		bb_show_usage();
-
 	if (open_read_close("version", buf, sizeof(buf)-1) > 0) {
 		buf[sizeof(buf)-1] = '\0';
 		is26 = (strstr(buf, " 2.4.") == NULL);
 	}
 
-	// Can use argv[1] directly, but this will mess up
+	if (getopt32(argv, "d:", &opt_d))
+		init_delay(opt_d);
+	argv += optind;
+
+	if (!argv[0])
+		bb_show_usage();
+
+	// Can use argv[0] directly, but this will mess up
 	// parameters as seen by e.g. ps. Making a copy...
-	cur = xstrdup(argv[1]);
+	cur = xstrdup(argv[0]);
 	while (1) {
 		char *param, *p;
 		prev = cur;

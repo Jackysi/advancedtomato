@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2001 Matt Kraai <kraai@alumni.carnegiemellon.edu>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant */
@@ -19,6 +19,24 @@
 /* Nov 28, 2006      Yoshinori Sato <ysato@users.sourceforge.jp>: Add SELinux Support.
  */
 
+//usage:#define mkdir_trivial_usage
+//usage:       "[OPTIONS] DIRECTORY..."
+//usage:#define mkdir_full_usage "\n\n"
+//usage:       "Create DIRECTORY\n"
+//usage:     "\n	-m MODE	Mode"
+//usage:     "\n	-p	No error if exists; make parent directories as needed"
+//usage:	IF_SELINUX(
+//usage:     "\n	-Z	Set security context"
+//usage:	)
+//usage:
+//usage:#define mkdir_example_usage
+//usage:       "$ mkdir /tmp/foo\n"
+//usage:       "$ mkdir /tmp/foo\n"
+//usage:       "/tmp/foo: File exists\n"
+//usage:       "$ mkdir /tmp/foo/bar/baz\n"
+//usage:       "/tmp/foo/bar/baz: No such file or directory\n"
+//usage:       "$ mkdir -p /tmp/foo/bar/baz\n"
+
 #include "libbb.h"
 
 /* This is a NOFORK applet. Be very careful! */
@@ -30,13 +48,14 @@ static const char mkdir_longopts[] ALIGN1 =
 #if ENABLE_SELINUX
 	"context\0" Required_argument "Z"
 #endif
+	"verbose\0" No_argument       "v"
 	;
 #endif
 
 int mkdir_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int mkdir_main(int argc, char **argv)
+int mkdir_main(int argc UNUSED_PARAM, char **argv)
 {
-	mode_t mode = (mode_t)(-1);
+	long mode = -1;
 	int status = EXIT_SUCCESS;
 	int flags = 0;
 	unsigned opt;
@@ -48,12 +67,13 @@ int mkdir_main(int argc, char **argv)
 #if ENABLE_FEATURE_MKDIR_LONG_OPTIONS
 	applet_long_options = mkdir_longopts;
 #endif
-	opt = getopt32(argv, "m:p" USE_SELINUX("Z:"), &smode USE_SELINUX(,&scontext));
+	opt = getopt32(argv, "m:p" IF_SELINUX("Z:") "v", &smode IF_SELINUX(,&scontext));
 	if (opt & 1) {
-		mode = 0777;
-		if (!bb_parse_mode(smode, &mode)) {
+		mode_t mmode = 0777;
+		if (!bb_parse_mode(smode, &mmode)) {
 			bb_error_msg_and_die("invalid mode '%s'", smode);
 		}
+		mode = mmode;
 	}
 	if (opt & 2)
 		flags |= FILEUTILS_RECUR;
@@ -64,11 +84,9 @@ int mkdir_main(int argc, char **argv)
 	}
 #endif
 
-	if (optind == argc) {
-		bb_show_usage();
-	}
-
 	argv += optind;
+	if (!argv[0])
+		bb_show_usage();
 
 	do {
 		if (bb_make_directory(*argv, mode, flags)) {

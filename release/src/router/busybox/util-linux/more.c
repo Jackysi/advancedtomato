@@ -11,45 +11,54 @@
  *
  * Termios corrects by Vladimir Oleynik <dzo@simtreas.ru>
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define more_trivial_usage
+//usage:       "[FILE]..."
+//usage:#define more_full_usage "\n\n"
+//usage:       "View FILE (or stdin) one screenful at a time"
+//usage:
+//usage:#define more_example_usage
+//usage:       "$ dmesg | more\n"
 
 #include "libbb.h"
 
-#if ENABLE_FEATURE_USE_TERMIOS
+/* Support for FEATURE_USE_TERMIOS */
 
 struct globals {
 	int cin_fileno;
 	struct termios initial_settings;
 	struct termios new_settings;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)bb_common_bufsiz1)
 #define INIT_G() ((void)0)
 #define initial_settings (G.initial_settings)
 #define new_settings     (G.new_settings    )
 #define cin_fileno       (G.cin_fileno      )
 
-#define setTermSettings(fd, argp) tcsetattr(fd, TCSANOW, argp)
+#define setTermSettings(fd, argp) \
+do { \
+	if (ENABLE_FEATURE_USE_TERMIOS) \
+		tcsetattr(fd, TCSANOW, argp); \
+} while (0)
 #define getTermSettings(fd, argp) tcgetattr(fd, argp)
 
 static void gotsig(int sig UNUSED_PARAM)
 {
-	bb_putchar('\n');
+	/* bb_putchar_stderr doesn't use stdio buffering,
+	 * therefore it is safe in signal handler */
+	bb_putchar_stderr('\n');
 	setTermSettings(cin_fileno, &initial_settings);
-	exit(EXIT_FAILURE);
+	_exit(EXIT_FAILURE);
 }
-
-#else /* !FEATURE_USE_TERMIOS */
-#define INIT_G() ((void)0)
-#define setTermSettings(fd, argp) ((void)0)
-#endif /* FEATURE_USE_TERMIOS */
 
 #define CONVERTED_TAB_SIZE 8
 
 int more_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int more_main(int argc UNUSED_PARAM, char **argv)
 {
-	int c = c; /* for gcc */
+	int c = c; /* for compiler */
 	int lines;
 	int input = 0;
 	int spaces = 0;
@@ -72,21 +81,20 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 	if (!cin)
 		return bb_cat(argv);
 
-#if ENABLE_FEATURE_USE_TERMIOS
-	cin_fileno = fileno(cin);
-	getTermSettings(cin_fileno, &initial_settings);
-	new_settings = initial_settings;
-	new_settings.c_lflag &= ~ICANON;
-	new_settings.c_lflag &= ~ECHO;
-	new_settings.c_cc[VMIN] = 1;
-	new_settings.c_cc[VTIME] = 0;
-	setTermSettings(cin_fileno, &new_settings);
-	bb_signals(0
-		+ (1 << SIGINT)
-		+ (1 << SIGQUIT)
-		+ (1 << SIGTERM)
-		, gotsig);
-#endif
+	if (ENABLE_FEATURE_USE_TERMIOS) {
+		cin_fileno = fileno(cin);
+		getTermSettings(cin_fileno, &initial_settings);
+		new_settings = initial_settings;
+		new_settings.c_lflag &= ~(ICANON | ECHO);
+		new_settings.c_cc[VMIN] = 1;
+		new_settings.c_cc[VTIME] = 0;
+		setTermSettings(cin_fileno, &new_settings);
+		bb_signals(0
+			+ (1 << SIGINT)
+			+ (1 << SIGQUIT)
+			+ (1 << SIGTERM)
+			, gotsig);
+	}
 
 	do {
 		file = stdin;
@@ -112,12 +120,15 @@ int more_main(int argc UNUSED_PARAM, char **argv)
  loop_top:
 			if (input != 'r' && please_display_more_prompt) {
 				len = printf("--More-- ");
-				if (st.st_size > 0) {
-					len += printf("(%d%% of %"OFF_FMT"d bytes)",
-						(int) (ftello(file)*100 / st.st_size),
+				if (st.st_size != 0) {
+					uoff_t d = (uoff_t)st.st_size / 100;
+					if (d == 0)
+						d = 1;
+					len += printf("(%u%% of %"OFF_FMT"u bytes)",
+						(int) ((uoff_t)ftello(file) / d),
 						st.st_size);
 				}
-				fflush(stdout);
+				fflush_all();
 
 				/*
 				 * We've just displayed the "--More--" prompt, so now we need
@@ -126,9 +137,8 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 				for (;;) {
 					input = getc(cin);
 					input = tolower(input);
-#if !ENABLE_FEATURE_USE_TERMIOS
-					printf("\033[A"); /* up cursor */
-#endif
+					if (!ENABLE_FEATURE_USE_TERMIOS)
+						printf("\033[A"); /* cursor up */
 					/* Erase the last message */
 					printf("\r%*s\r", len, "");
 
@@ -150,16 +160,16 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 
 				/* The user may have resized the terminal.
 				 * Re-read the dimensions. */
-#if ENABLE_FEATURE_USE_TERMIOS
-				get_terminal_width_height(cin_fileno, &terminal_width, &terminal_height);
-				terminal_height -= 1;
-#endif
+				if (ENABLE_FEATURE_USE_TERMIOS) {
+					get_terminal_width_height(cin_fileno, &terminal_width, &terminal_height);
+					terminal_height -= 1;
+				}
 			}
 
 			/* Crudely convert tabs into spaces, which are
 			 * a bajillion times easier to deal with. */
 			if (c == '\t') {
-				spaces = CONVERTED_TAB_SIZE - 1;
+				spaces = ((unsigned)~len) % CONVERTED_TAB_SIZE;
 				c = ' ';
 			}
 
@@ -191,9 +201,10 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 			}
 			/* My small mind cannot fathom backspaces and UTF-8 */
 			putchar(c);
+			die_if_ferror_stdout(); /* if tty was destroyed (closed xterm, etc) */
 		}
 		fclose(file);
-		fflush(stdout);
+		fflush_all();
 	} while (*argv && *++argv);
  end:
 	setTermSettings(cin_fileno, &initial_settings);

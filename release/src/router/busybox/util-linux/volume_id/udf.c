@@ -30,32 +30,32 @@ struct volume_descriptor {
 		uint16_t	crc;
 		uint16_t	crc_len;
 		uint32_t	location;
-	} __attribute__((__packed__)) tag;
+	} PACKED tag;
 	union {
 		struct anchor_descriptor {
 			uint32_t	length;
 			uint32_t	location;
-		} __attribute__((__packed__)) anchor;
+		} PACKED anchor;
 		struct primary_descriptor {
 			uint32_t	seq_num;
 			uint32_t	desc_num;
 			struct dstring {
 				uint8_t	clen;
 				uint8_t	c[31];
-			} __attribute__((__packed__)) ident;
-		} __attribute__((__packed__)) primary;
-	} __attribute__((__packed__)) type;
-} __attribute__((__packed__));
+			} PACKED ident;
+		} PACKED primary;
+	} PACKED type;
+} PACKED;
 
 struct volume_structure_descriptor {
 	uint8_t		type;
 	uint8_t		id[5];
 	uint8_t		version;
-} __attribute__((__packed__));
+} PACKED;
 
 #define UDF_VSD_OFFSET			0x8000
 
-int volume_id_probe_udf(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_udf(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct volume_descriptor *vd;
@@ -109,7 +109,7 @@ nsr:
 			return -1;
 
 		dbg("vsd: %c%c%c%c%c",
-		    vsd->id[0], vsd->id[1], vsd->id[2], vsd->id[3], vsd->id[4]);
+			vsd->id[0], vsd->id[1], vsd->id[2], vsd->id[3], vsd->id[4]);
 
 		if (vsd->id[0] == '\0')
 			return -1;
@@ -167,7 +167,6 @@ anchor:
 
  found:
 //	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-//	id->type = "udf";
-
+	IF_FEATURE_BLKID_TYPE(id->type = "udf";)
 	return 0;
 }

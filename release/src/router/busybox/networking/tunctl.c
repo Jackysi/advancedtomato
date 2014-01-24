@@ -7,8 +7,26 @@
  * Original code:
  *      Jeff Dike
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+
+//usage:#define tunctl_trivial_usage
+//usage:       "[-f device] ([-t name] | -d name)" IF_FEATURE_TUNCTL_UG(" [-u owner] [-g group] [-b]")
+//usage:#define tunctl_full_usage "\n\n"
+//usage:       "Create or delete tun interfaces\n"
+//usage:     "\n	-f name		tun device (/dev/net/tun)"
+//usage:     "\n	-t name		Create iface 'name'"
+//usage:     "\n	-d name		Delete iface 'name'"
+//usage:	IF_FEATURE_TUNCTL_UG(
+//usage:     "\n	-u owner	Set iface owner"
+//usage:     "\n	-g group	Set iface group"
+//usage:     "\n	-b		Brief output"
+//usage:	)
+//usage:
+//usage:#define tunctl_example_usage
+//usage:       "# tunctl\n"
+//usage:       "# tunctl -d tun0\n"
+
 #include <netinet/in.h>
 #include <net/if.h>
 #include <linux/if_tun.h>
@@ -48,9 +66,9 @@ int tunctl_main(int argc UNUSED_PARAM, char **argv)
 	};
 
 	opt_complementary = "=0:t--d:d--t"; // no arguments; t ^ d
-	opts = getopt32(argv, "f:t:d:" USE_FEATURE_TUNCTL_UG("u:g:b"),
+	opts = getopt32(argv, "f:t:d:" IF_FEATURE_TUNCTL_UG("u:g:b"),
 			&opt_device, &opt_name, &opt_name
-			USE_FEATURE_TUNCTL_UG(, &opt_user, &opt_group));
+			IF_FEATURE_TUNCTL_UG(, &opt_user, &opt_group));
 
 	// select device
 	memset(&ifr, 0, sizeof(ifr));

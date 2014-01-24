@@ -7,7 +7,7 @@
  * Reworked by David Douthitt <n9ubh@callsign.net> and
  *  Matt Kraai <kraai@alumni.carnegiemellon.edu>.
  *
- * Licensed under the GPL version 2, see the file LICENSE in this tarball.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /* findutils-4.1.20:
@@ -53,19 +53,296 @@
  * diff -u /tmp/std_find /tmp/bb_find && echo Identical
  */
 
+//config:config FIND
+//config:	bool "find"
+//config:	default y
+//config:	help
+//config:	  find is used to search your system to find specified files.
+//config:
+//config:config FEATURE_FIND_PRINT0
+//config:	bool "Enable -print0: NUL-terminated output"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Causes output names to be separated by a NUL character
+//config:	  rather than a newline. This allows names that contain
+//config:	  newlines and other whitespace to be more easily
+//config:	  interpreted by other programs.
+//config:
+//config:config FEATURE_FIND_MTIME
+//config:	bool "Enable -mtime: modified time matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Allow searching based on the modification time of
+//config:	  files, in days.
+//config:
+//config:config FEATURE_FIND_MMIN
+//config:	bool "Enable -mmin: modified time matching by minutes"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Allow searching based on the modification time of
+//config:	  files, in minutes.
+//config:
+//config:config FEATURE_FIND_PERM
+//config:	bool "Enable -perm: permissions matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Enable searching based on file permissions.
+//config:
+//config:config FEATURE_FIND_TYPE
+//config:	bool "Enable -type: file type matching (file/dir/link/...)"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Enable searching based on file type (file,
+//config:	  directory, socket, device, etc.).
+//config:
+//config:config FEATURE_FIND_XDEV
+//config:	bool "Enable -xdev: 'stay in filesystem'"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  This option allows find to restrict searches to a single filesystem.
+//config:
+//config:config FEATURE_FIND_MAXDEPTH
+//config:	bool "Enable -mindepth N and -maxdepth N"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  This option enables -mindepth N and -maxdepth N option.
+//config:
+//config:config FEATURE_FIND_NEWER
+//config:	bool "Enable -newer: compare file modification times"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -newer' option for finding any files which have
+//config:	  modification time that is more recent than the specified FILE.
+//config:
+//config:config FEATURE_FIND_INUM
+//config:	bool "Enable -inum: inode number matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -inum' option for searching by inode number.
+//config:
+//config:config FEATURE_FIND_EXEC
+//config:	bool "Enable -exec: execute commands"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -exec' option for executing commands based upon
+//config:	  the files matched.
+//config:
+//config:config FEATURE_FIND_USER
+//config:	bool "Enable -user: username/uid matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -user' option for searching by username or uid.
+//config:
+//config:config FEATURE_FIND_GROUP
+//config:	bool "Enable -group: group/gid matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -group' option for searching by group name or gid.
+//config:
+//config:config FEATURE_FIND_NOT
+//config:	bool "Enable the 'not' (!) operator"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the '!' operator to invert the test results.
+//config:	  If 'Enable full-blown desktop' is enabled, then will also support
+//config:	  the non-POSIX notation '-not'.
+//config:
+//config:config FEATURE_FIND_DEPTH
+//config:	bool "Enable -depth"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Process each directory's contents before the directory itself.
+//config:
+//config:config FEATURE_FIND_PAREN
+//config:	bool "Enable parens in options"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Enable usage of parens '(' to specify logical order of arguments.
+//config:
+//config:config FEATURE_FIND_SIZE
+//config:	bool "Enable -size: file size matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -size' option for searching by file size.
+//config:
+//config:config FEATURE_FIND_PRUNE
+//config:	bool "Enable -prune: exclude subdirectories"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  If the file is a directory, dont descend into it. Useful for
+//config:	  exclusion .svn and CVS directories.
+//config:
+//config:config FEATURE_FIND_DELETE
+//config:	bool "Enable -delete: delete files/dirs"
+//config:	default y
+//config:	depends on FIND && FEATURE_FIND_DEPTH
+//config:	help
+//config:	  Support the 'find -delete' option for deleting files and directories.
+//config:	  WARNING: This option can do much harm if used wrong. Busybox will not
+//config:	  try to protect the user from doing stupid things. Use with care.
+//config:
+//config:config FEATURE_FIND_PATH
+//config:	bool "Enable -path: match pathname with shell pattern"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  The -path option matches whole pathname instead of just filename.
+//config:
+//config:config FEATURE_FIND_REGEX
+//config:	bool "Enable -regex: match pathname with regex"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  The -regex option matches whole pathname against regular expression.
+//config:
+//config:config FEATURE_FIND_CONTEXT
+//config:	bool "Enable -context: security context matching"
+//config:	default n
+//config:	depends on FIND && SELINUX
+//config:	help
+//config:	  Support the 'find -context' option for matching security context.
+//config:
+//config:config FEATURE_FIND_LINKS
+//config:	bool "Enable -links: link count matching"
+//config:	default y
+//config:	depends on FIND
+//config:	help
+//config:	  Support the 'find -links' option for matching number of links.
+
+//applet:IF_FIND(APPLET_NOEXEC(find, find, BB_DIR_USR_BIN, BB_SUID_DROP, find))
+
+//kbuild:lib-$(CONFIG_FIND) += find.o
+
+//usage:#define find_trivial_usage
+//usage:       "[PATH]... [OPTIONS] [ACTIONS]"
+//usage:#define find_full_usage "\n\n"
+//usage:       "Search for files and perform actions on them.\n"
+//usage:       "First failed action stops processing of current file.\n"
+//usage:       "Defaults: PATH is current directory, action is '-print'\n"
+//usage:     "\n	-follow		Follow symlinks"
+//usage:	IF_FEATURE_FIND_XDEV(
+//usage:     "\n	-xdev		Don't descend directories on other filesystems"
+//usage:	)
+//usage:	IF_FEATURE_FIND_MAXDEPTH(
+//usage:     "\n	-maxdepth N	Descend at most N levels. -maxdepth 0 applies"
+//usage:     "\n			actions to command line arguments only"
+//usage:     "\n	-mindepth N	Don't act on first N levels"
+//usage:	)
+//usage:	IF_FEATURE_FIND_DEPTH(
+//usage:     "\n	-depth		Act on directory *after* traversing it"
+//usage:	)
+//usage:     "\n"
+//usage:     "\nActions:"
+//usage:	IF_FEATURE_FIND_PAREN(
+//usage:     "\n	( ACTIONS )	Group actions for -o / -a"
+//usage:	)
+//usage:	IF_FEATURE_FIND_NOT(
+//usage:     "\n	! ACT		Invert ACT's success/failure"
+//usage:	)
+//usage:     "\n	ACT1 [-a] ACT2	If ACT1 fails, stop, else do ACT2"
+//usage:     "\n	ACT1 -o ACT2	If ACT1 succeeds, stop, else do ACT2"
+//usage:     "\n			Note: -a has higher priority than -o"
+//usage:     "\n	-name PATTERN	Match file name (w/o directory name) to PATTERN"
+//usage:     "\n	-iname PATTERN	Case insensitive -name"
+//usage:	IF_FEATURE_FIND_PATH(
+//usage:     "\n	-path PATTERN	Match path to PATTERN"
+//usage:     "\n	-ipath PATTERN	Case insensitive -path"
+//usage:	)
+//usage:	IF_FEATURE_FIND_REGEX(
+//usage:     "\n	-regex PATTERN	Match path to regex PATTERN"
+//usage:	)
+//usage:	IF_FEATURE_FIND_TYPE(
+//usage:     "\n	-type X		File type is X (one of: f,d,l,b,c,...)"
+//usage:	)
+//usage:	IF_FEATURE_FIND_PERM(
+//usage:     "\n	-perm MASK	At least one mask bit (+MASK), all bits (-MASK),"
+//usage:     "\n			or exactly MASK bits are set in file's mode"
+//usage:	)
+//usage:	IF_FEATURE_FIND_MTIME(
+//usage:     "\n	-mtime DAYS	mtime is greater than (+N), less than (-N),"
+//usage:     "\n			or exactly N days in the past"
+//usage:	)
+//usage:	IF_FEATURE_FIND_MMIN(
+//usage:     "\n	-mmin MINS	mtime is greater than (+N), less than (-N),"
+//usage:     "\n			or exactly N minutes in the past"
+//usage:	)
+//usage:	IF_FEATURE_FIND_NEWER(
+//usage:     "\n	-newer FILE	mtime is more recent than FILE's"
+//usage:	)
+//usage:	IF_FEATURE_FIND_INUM(
+//usage:     "\n	-inum N		File has inode number N"
+//usage:	)
+//usage:	IF_FEATURE_FIND_USER(
+//usage:     "\n	-user NAME/ID	File is owned by given user"
+//usage:	)
+//usage:	IF_FEATURE_FIND_GROUP(
+//usage:     "\n	-group NAME/ID	File is owned by given group"
+//usage:	)
+//usage:	IF_FEATURE_FIND_SIZE(
+//usage:     "\n	-size N[bck]	File size is N (c:bytes,k:kbytes,b:512 bytes(def.))"
+//usage:     "\n			+/-N: file size is bigger/smaller than N"
+//usage:	)
+//usage:	IF_FEATURE_FIND_LINKS(
+//usage:     "\n	-links N	Number of links is greater than (+N), less than (-N),"
+//usage:     "\n			or exactly N"
+//usage:	)
+//usage:	IF_FEATURE_FIND_CONTEXT(
+//usage:     "\n	-context CTX	File has specified security context"
+//usage:	)
+//usage:	IF_FEATURE_FIND_PRUNE(
+//usage:     "\n	-prune		If current file is directory, don't descend into it"
+//usage:	)
+//usage:     "\nIf none of the following actions is specified, -print is assumed"
+//usage:     "\n	-print		Print file name"
+//usage:	IF_FEATURE_FIND_PRINT0(
+//usage:     "\n	-print0		Print file name, NUL terminated"
+//usage:	)
+//usage:	IF_FEATURE_FIND_EXEC(
+//usage:     "\n	-exec CMD ARG ;	Run CMD with all instances of {} replaced by"
+//usage:     "\n			file name. Fails if CMD exits with nonzero"
+//usage:	)
+//usage:	IF_FEATURE_FIND_DELETE(
+//usage:     "\n	-delete		Delete current file/directory. Turns on -depth option"
+//usage:	)
+//usage:
+//usage:#define find_example_usage
+//usage:       "$ find / -name passwd\n"
+//usage:       "/etc/passwd\n"
+
 #include <fnmatch.h>
 #include "libbb.h"
 #if ENABLE_FEATURE_FIND_REGEX
-#include "xregex.h"
+# include "xregex.h"
 #endif
+/* GNUism: */
+#ifndef FNM_CASEFOLD
+# define FNM_CASEFOLD 0
+#endif
+
+#define dbg(...) ((void)0)
+/* #define dbg(...) bb_error_msg(__VA_ARGS__) */
 
 /* This is a NOEXEC applet. Be very careful! */
 
 
-USE_FEATURE_FIND_XDEV(static dev_t *xdev_dev;)
-USE_FEATURE_FIND_XDEV(static int xdev_count;)
-
-typedef int (*action_fp)(const char *fileName, struct stat *statbuf, void *);
+typedef int (*action_fp)(const char *fileName, const struct stat *statbuf, void *) FAST_FUNC;
 
 typedef struct {
 	action_fp f;
@@ -73,33 +350,56 @@ typedef struct {
 	bool invert;
 #endif
 } action;
-#define ACTS(name, arg...) typedef struct { action a; arg; } action_##name;
-#define ACTF(name)         static int func_##name(const char *fileName UNUSED_PARAM, \
-                                                  struct stat *statbuf UNUSED_PARAM, \
-                                                  action_##name* ap UNUSED_PARAM)
-                         ACTS(print)
-                         ACTS(name,  const char *pattern; bool iname;)
-USE_FEATURE_FIND_PATH(   ACTS(path,  const char *pattern;))
-USE_FEATURE_FIND_REGEX(  ACTS(regex, regex_t compiled_pattern;))
-USE_FEATURE_FIND_PRINT0( ACTS(print0))
-USE_FEATURE_FIND_TYPE(   ACTS(type,  int type_mask;))
-USE_FEATURE_FIND_PERM(   ACTS(perm,  char perm_char; mode_t perm_mask;))
-USE_FEATURE_FIND_MTIME(  ACTS(mtime, char mtime_char; unsigned mtime_days;))
-USE_FEATURE_FIND_MMIN(   ACTS(mmin,  char mmin_char; unsigned mmin_mins;))
-USE_FEATURE_FIND_NEWER(  ACTS(newer, time_t newer_mtime;))
-USE_FEATURE_FIND_INUM(   ACTS(inum,  ino_t inode_num;))
-USE_FEATURE_FIND_USER(   ACTS(user,  uid_t uid;))
-USE_FEATURE_FIND_SIZE(   ACTS(size,  char size_char; off_t size;))
-USE_FEATURE_FIND_CONTEXT(ACTS(context, security_context_t context;))
-USE_FEATURE_FIND_PAREN(  ACTS(paren, action ***subexpr;))
-USE_FEATURE_FIND_PRUNE(  ACTS(prune))
-USE_FEATURE_FIND_DELETE( ACTS(delete))
-USE_FEATURE_FIND_EXEC(   ACTS(exec,  char **exec_argv; unsigned *subst_count; int exec_argc;))
-USE_FEATURE_FIND_GROUP(  ACTS(group, gid_t gid;))
 
-static action ***actions;
-static bool need_print = 1;
-static int recurse_flags = ACTION_RECURSE;
+#define ACTS(name, ...) typedef struct { action a; __VA_ARGS__ } action_##name;
+#define ACTF(name) \
+	static int FAST_FUNC func_##name(const char *fileName UNUSED_PARAM, \
+		const struct stat *statbuf UNUSED_PARAM, \
+		action_##name* ap UNUSED_PARAM)
+
+                        ACTS(print)
+                        ACTS(name,  const char *pattern; bool iname;)
+IF_FEATURE_FIND_PATH(   ACTS(path,  const char *pattern; bool ipath;))
+IF_FEATURE_FIND_REGEX(  ACTS(regex, regex_t compiled_pattern;))
+IF_FEATURE_FIND_PRINT0( ACTS(print0))
+IF_FEATURE_FIND_TYPE(   ACTS(type,  int type_mask;))
+IF_FEATURE_FIND_PERM(   ACTS(perm,  char perm_char; mode_t perm_mask;))
+IF_FEATURE_FIND_MTIME(  ACTS(mtime, char mtime_char; unsigned mtime_days;))
+IF_FEATURE_FIND_MMIN(   ACTS(mmin,  char mmin_char; unsigned mmin_mins;))
+IF_FEATURE_FIND_NEWER(  ACTS(newer, time_t newer_mtime;))
+IF_FEATURE_FIND_INUM(   ACTS(inum,  ino_t inode_num;))
+IF_FEATURE_FIND_USER(   ACTS(user,  uid_t uid;))
+IF_FEATURE_FIND_SIZE(   ACTS(size,  char size_char; off_t size;))
+IF_FEATURE_FIND_CONTEXT(ACTS(context, security_context_t context;))
+IF_FEATURE_FIND_PAREN(  ACTS(paren, action ***subexpr;))
+IF_FEATURE_FIND_PRUNE(  ACTS(prune))
+IF_FEATURE_FIND_DELETE( ACTS(delete))
+IF_FEATURE_FIND_EXEC(   ACTS(exec,  char **exec_argv; unsigned *subst_count; int exec_argc;))
+IF_FEATURE_FIND_GROUP(  ACTS(group, gid_t gid;))
+IF_FEATURE_FIND_LINKS(  ACTS(links, char links_char; int links_count;))
+
+struct globals {
+	IF_FEATURE_FIND_XDEV(dev_t *xdev_dev;)
+	IF_FEATURE_FIND_XDEV(int xdev_count;)
+#if ENABLE_FEATURE_FIND_MAXDEPTH
+	int minmaxdepth[2];
+#endif
+	action ***actions;
+	smallint need_print;
+	smallint xdev_on;
+	recurse_flags_t recurse_flags;
+} FIX_ALIASING;
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() do { \
+	struct G_sizecheck { \
+		char G_sizecheck[sizeof(G) > COMMON_BUFSIZE ? -1 : 1]; \
+	}; \
+	/* we have to zero it out because of NOEXEC */ \
+	memset(&G, 0, sizeof(G)); \
+	IF_FEATURE_FIND_MAXDEPTH(G.minmaxdepth[1] = INT_MAX;) \
+	G.need_print = 1; \
+	G.recurse_flags = ACTION_RECURSE; \
+} while (0)
 
 #if ENABLE_FEATURE_FIND_EXEC
 static unsigned count_subst(const char *str)
@@ -136,7 +436,7 @@ static char* subst(const char *src, unsigned count, const char* filename)
  * bit 0=1: matched successfully (TRUE)
  */
 
-static int exec_actions(action ***appp, const char *fileName, struct stat *statbuf)
+static int exec_actions(action ***appp, const char *fileName, const struct stat *statbuf)
 {
 	int cur_group;
 	int cur_action;
@@ -161,7 +461,7 @@ static int exec_actions(action ***appp, const char *fileName, struct stat *statb
 	 * On return, bit is restored.  */
 
 	cur_group = -1;
-	while ((app = appp[++cur_group])) {
+	while ((app = appp[++cur_group]) != NULL) {
 		rc &= ~TRUE; /* 'success' so far, clear TRUE bit */
 		cur_action = -1;
 		while (1) {
@@ -172,31 +472,66 @@ static int exec_actions(action ***appp, const char *fileName, struct stat *statb
 #if ENABLE_FEATURE_FIND_NOT
 			if (ap->invert) rc ^= TRUE;
 #endif
+			dbg("grp %d action %d rc:0x%x", cur_group, cur_action, rc);
 			if (rc & TRUE) /* current group failed, try next */
 				break;
 		}
 	}
+	dbg("returning:0x%x", rc ^ TRUE);
 	return rc ^ TRUE; /* restore TRUE bit */
 }
 
 
+#if !FNM_CASEFOLD
+static char *strcpy_upcase(char *dst, const char *src)
+{
+	char *d = dst;
+	while (1) {
+		unsigned char ch = *src++;
+		if (ch >= 'a' && ch <= 'z')
+			ch -= ('a' - 'A');
+		*d++ = ch;
+		if (ch == '\0')
+			break;
+	}
+	return dst;
+}
+#endif
+
 ACTF(name)
 {
 	const char *tmp = bb_basename(fileName);
-	if (tmp != fileName && !*tmp) { /* "foo/bar/". Oh no... go back to 'b' */
+	if (tmp != fileName && *tmp == '\0') {
+		/* "foo/bar/". Oh no... go back to 'b' */
 		tmp--;
 		while (tmp != fileName && *--tmp != '/')
 			continue;
 		if (*tmp == '/')
 			tmp++;
 	}
-	return fnmatch(ap->pattern, tmp, FNM_PERIOD | (ap->iname ? FNM_CASEFOLD : 0)) == 0;
+	/* Was using FNM_PERIOD flag too,
+	 * but somewhere between 4.1.20 and 4.4.0 GNU find stopped using it.
+	 * find -name '*foo' should match .foo too:
+	 */
+#if FNM_CASEFOLD
+	return fnmatch(ap->pattern, tmp, (ap->iname ? FNM_CASEFOLD : 0)) == 0;
+#else
+	if (ap->iname)
+		tmp = strcpy_upcase(alloca(strlen(tmp) + 1), tmp);
+	return fnmatch(ap->pattern, tmp, 0) == 0;
+#endif
 }
 
 #if ENABLE_FEATURE_FIND_PATH
 ACTF(path)
 {
+# if FNM_CASEFOLD
+	return fnmatch(ap->pattern, fileName, (ap->ipath ? FNM_CASEFOLD : 0)) == 0;
+# else
+	if (ap->ipath)
+		fileName = strcpy_upcase(alloca(strlen(fileName) + 1), fileName);
 	return fnmatch(ap->pattern, fileName, 0) == 0;
+# endif
 }
 #endif
 #if ENABLE_FEATURE_FIND_REGEX
@@ -273,7 +608,11 @@ ACTF(inum)
 ACTF(exec)
 {
 	int i, rc;
+#if ENABLE_USE_PORTABLE_CODE
+	char **argv = alloca(sizeof(char*) * (ap->exec_argc + 1));
+#else /* gcc 4.3.1 generates smaller code: */
 	char *argv[ap->exec_argc + 1];
+#endif
 	for (i = 0; i < ap->exec_argc; i++)
 		argv[i] = subst(ap->exec_argv[i], ap->subst_count[i], fileName);
 	argv[i] = NULL; /* terminate the list */
@@ -360,7 +699,7 @@ ACTF(context)
 	security_context_t con;
 	int rc;
 
-	if (recurse_flags & ACTION_FOLLOWLINKS) {
+	if (G.recurse_flags & ACTION_FOLLOWLINKS) {
 		rc = getfilecon(fileName, &con);
 	} else {
 		rc = lgetfilecon(fileName, &con);
@@ -372,39 +711,68 @@ ACTF(context)
 	return rc == 0;
 }
 #endif
-
+#if ENABLE_FEATURE_FIND_LINKS
+ACTF(links)
+{
+	switch(ap->links_char) {
+	case '-' : return (statbuf->st_nlink <  ap->links_count);
+	case '+' : return (statbuf->st_nlink >  ap->links_count);
+	default:   return (statbuf->st_nlink == ap->links_count);
+	}
+}
+#endif
 
 static int FAST_FUNC fileAction(const char *fileName,
 		struct stat *statbuf,
-		void *userData SKIP_FEATURE_FIND_MAXDEPTH(UNUSED_PARAM),
-		int depth SKIP_FEATURE_FIND_MAXDEPTH(UNUSED_PARAM))
+		void *userData UNUSED_PARAM,
+		int depth IF_NOT_FEATURE_FIND_MAXDEPTH(UNUSED_PARAM))
 {
-	int i;
-#if ENABLE_FEATURE_FIND_MAXDEPTH
-#define minmaxdepth ((int*)userData)
-
-	if (depth < minmaxdepth[0]) return TRUE;
-	if (depth > minmaxdepth[1]) return SKIP;
-#undef minmaxdepth
-#endif
+	int r;
+	int same_fs = 1;
 
 #if ENABLE_FEATURE_FIND_XDEV
-	if (S_ISDIR(statbuf->st_mode) && xdev_count) {
-		for (i = 0; i < xdev_count; i++) {
-			if (xdev_dev[i] == statbuf->st_dev)
-				break;
+	if (S_ISDIR(statbuf->st_mode) && G.xdev_count) {
+		int i;
+		for (i = 0; i < G.xdev_count; i++) {
+			if (G.xdev_dev[i] == statbuf->st_dev)
+				goto found;
 		}
-		if (i == xdev_count)
+		//bb_error_msg("'%s': not same fs", fileName);
+		same_fs = 0;
+ found: ;
+	}
+#endif
+
+#if ENABLE_FEATURE_FIND_MAXDEPTH
+	if (depth < G.minmaxdepth[0]) {
+		if (same_fs)
+			return TRUE; /* skip this, continue recursing */
+		return SKIP; /* stop recursing */
+	}
+	if (depth > G.minmaxdepth[1])
+		return SKIP; /* stop recursing */
+#endif
+
+	r = exec_actions(G.actions, fileName, statbuf);
+	/* Had no explicit -print[0] or -exec? then print */
+	if ((r & TRUE) && G.need_print)
+		puts(fileName);
+
+#if ENABLE_FEATURE_FIND_MAXDEPTH
+	if (S_ISDIR(statbuf->st_mode)) {
+		if (depth == G.minmaxdepth[1])
 			return SKIP;
 	}
 #endif
-	i = exec_actions(actions, fileName, statbuf);
-	/* Had no explicit -print[0] or -exec? then print */
-	if ((i & TRUE) && need_print)
-		puts(fileName);
+	/* -xdev stops on mountpoints, but AFTER mountpoit itself
+	 * is processed as usual */
+	if (!same_fs) {
+		return SKIP;
+	}
+
 	/* Cannot return 0: our caller, recursive_action(),
 	 * will perror() and skip dirs (if called on dir) */
-	return (i & SKIP) ? SKIP : TRUE;
+	return (r & SKIP) ? SKIP : TRUE;
 }
 
 
@@ -428,7 +796,7 @@ static int find_type(const char *type)
 	else if (*type == 's')
 		mask = S_IFSOCK;
 
-	if (mask == 0 || *(type + 1) != '\0')
+	if (mask == 0 || type[1] != '\0')
 		bb_error_msg_and_die(bb_msg_invalid_arg, type, "-type");
 
 	return mask;
@@ -437,7 +805,7 @@ static int find_type(const char *type)
 
 #if ENABLE_FEATURE_FIND_PERM \
  || ENABLE_FEATURE_FIND_MTIME || ENABLE_FEATURE_FIND_MMIN \
- || ENABLE_FEATURE_FIND_SIZE
+ || ENABLE_FEATURE_FIND_SIZE  || ENABLE_FEATURE_FIND_LINKS
 static const char* plus_minus_num(const char* str)
 {
 	if (*str == '-' || *str == '+')
@@ -449,89 +817,107 @@ static const char* plus_minus_num(const char* str)
 static action*** parse_params(char **argv)
 {
 	enum {
-	                         PARM_a         ,
-	                         PARM_o         ,
-	USE_FEATURE_FIND_NOT(	 PARM_char_not  ,)
+	                        OPT_FOLLOW     ,
+	IF_FEATURE_FIND_XDEV(   OPT_XDEV       ,)
+	IF_FEATURE_FIND_DEPTH(  OPT_DEPTH      ,)
+	                        PARM_a         ,
+	                        PARM_o         ,
+	IF_FEATURE_FIND_NOT(	PARM_char_not  ,)
 #if ENABLE_DESKTOP
-	                         PARM_and       ,
-	                         PARM_or        ,
-	USE_FEATURE_FIND_NOT(    PARM_not       ,)
+	                        PARM_and       ,
+	                        PARM_or        ,
+	IF_FEATURE_FIND_NOT(    PARM_not       ,)
 #endif
-	                         PARM_print     ,
-	USE_FEATURE_FIND_PRINT0( PARM_print0    ,)
-	USE_FEATURE_FIND_DEPTH(  PARM_depth     ,)
-	USE_FEATURE_FIND_PRUNE(  PARM_prune     ,)
-	USE_FEATURE_FIND_DELETE( PARM_delete    ,)
-	USE_FEATURE_FIND_EXEC(   PARM_exec      ,)
-	USE_FEATURE_FIND_PAREN(  PARM_char_brace,)
-	/* All options starting from here require argument */
-	                         PARM_name      ,
-	                         PARM_iname     ,
-	USE_FEATURE_FIND_PATH(   PARM_path      ,)
-	USE_FEATURE_FIND_REGEX(  PARM_regex     ,)
-	USE_FEATURE_FIND_TYPE(   PARM_type      ,)
-	USE_FEATURE_FIND_PERM(   PARM_perm      ,)
-	USE_FEATURE_FIND_MTIME(  PARM_mtime     ,)
-	USE_FEATURE_FIND_MMIN(   PARM_mmin      ,)
-	USE_FEATURE_FIND_NEWER(  PARM_newer     ,)
-	USE_FEATURE_FIND_INUM(   PARM_inum      ,)
-	USE_FEATURE_FIND_USER(   PARM_user      ,)
-	USE_FEATURE_FIND_GROUP(  PARM_group     ,)
-	USE_FEATURE_FIND_SIZE(   PARM_size      ,)
-	USE_FEATURE_FIND_CONTEXT(PARM_context   ,)
+	                        PARM_print     ,
+	IF_FEATURE_FIND_PRINT0( PARM_print0    ,)
+	IF_FEATURE_FIND_PRUNE(  PARM_prune     ,)
+	IF_FEATURE_FIND_DELETE( PARM_delete    ,)
+	IF_FEATURE_FIND_EXEC(   PARM_exec      ,)
+	IF_FEATURE_FIND_PAREN(  PARM_char_brace,)
+	/* All options/actions starting from here require argument */
+	                        PARM_name      ,
+	                        PARM_iname     ,
+	IF_FEATURE_FIND_PATH(   PARM_path      ,)
+#if ENABLE_DESKTOP
+	/* -wholename is a synonym for -path */
+	/* We support it because Linux kernel's "make tags" uses it */
+	IF_FEATURE_FIND_PATH(   PARM_wholename ,)
+#endif
+	IF_FEATURE_FIND_PATH(   PARM_ipath     ,)
+	IF_FEATURE_FIND_REGEX(  PARM_regex     ,)
+	IF_FEATURE_FIND_TYPE(   PARM_type      ,)
+	IF_FEATURE_FIND_PERM(   PARM_perm      ,)
+	IF_FEATURE_FIND_MTIME(  PARM_mtime     ,)
+	IF_FEATURE_FIND_MMIN(   PARM_mmin      ,)
+	IF_FEATURE_FIND_NEWER(  PARM_newer     ,)
+	IF_FEATURE_FIND_INUM(   PARM_inum      ,)
+	IF_FEATURE_FIND_USER(   PARM_user      ,)
+	IF_FEATURE_FIND_GROUP(  PARM_group     ,)
+	IF_FEATURE_FIND_SIZE(   PARM_size      ,)
+	IF_FEATURE_FIND_CONTEXT(PARM_context   ,)
+	IF_FEATURE_FIND_LINKS(  PARM_links     ,)
+	IF_FEATURE_FIND_MAXDEPTH(OPT_MINDEPTH,OPT_MAXDEPTH,)
 	};
 
 	static const char params[] ALIGN1 =
-	                         "-a\0"
-	                         "-o\0"
-	USE_FEATURE_FIND_NOT(    "!\0"       )
+	                        "-follow\0"
+	IF_FEATURE_FIND_XDEV(   "-xdev\0"                 )
+	IF_FEATURE_FIND_DEPTH(  "-depth\0"                )
+	                        "-a\0"
+	                        "-o\0"
+	IF_FEATURE_FIND_NOT(    "!\0"       )
 #if ENABLE_DESKTOP
-	                         "-and\0"
-	                         "-or\0"
-	USE_FEATURE_FIND_NOT(	 "-not\0"    )
+	                        "-and\0"
+	                        "-or\0"
+	IF_FEATURE_FIND_NOT(	"-not\0"    )
 #endif
-	                         "-print\0"
-	USE_FEATURE_FIND_PRINT0( "-print0\0" )
-	USE_FEATURE_FIND_DEPTH(  "-depth\0"  )
-	USE_FEATURE_FIND_PRUNE(  "-prune\0"  )
-	USE_FEATURE_FIND_DELETE( "-delete\0" )
-	USE_FEATURE_FIND_EXEC(   "-exec\0"   )
-	USE_FEATURE_FIND_PAREN(  "(\0"       )
-	/* All options starting from here require argument */
-	                         "-name\0"
-	                         "-iname\0"
-	USE_FEATURE_FIND_PATH(   "-path\0"   )
-	USE_FEATURE_FIND_REGEX(  "-regex\0"  )
-	USE_FEATURE_FIND_TYPE(   "-type\0"   )
-	USE_FEATURE_FIND_PERM(   "-perm\0"   )
-	USE_FEATURE_FIND_MTIME(  "-mtime\0"  )
-	USE_FEATURE_FIND_MMIN(   "-mmin\0"   )
-	USE_FEATURE_FIND_NEWER(  "-newer\0"  )
-	USE_FEATURE_FIND_INUM(   "-inum\0"   )
-	USE_FEATURE_FIND_USER(   "-user\0"   )
-	USE_FEATURE_FIND_GROUP(  "-group\0"  )
-	USE_FEATURE_FIND_SIZE(   "-size\0"   )
-	USE_FEATURE_FIND_CONTEXT("-context\0")
-	                         ;
+	                        "-print\0"
+	IF_FEATURE_FIND_PRINT0( "-print0\0" )
+	IF_FEATURE_FIND_PRUNE(  "-prune\0"  )
+	IF_FEATURE_FIND_DELETE( "-delete\0" )
+	IF_FEATURE_FIND_EXEC(   "-exec\0"   )
+	IF_FEATURE_FIND_PAREN(  "(\0"       )
+	/* All options/actions starting from here require argument */
+	                        "-name\0"
+	                        "-iname\0"
+	IF_FEATURE_FIND_PATH(   "-path\0"   )
+#if ENABLE_DESKTOP
+	IF_FEATURE_FIND_PATH(   "-wholename\0")
+#endif
+	IF_FEATURE_FIND_PATH(   "-ipath\0"  )
+	IF_FEATURE_FIND_REGEX(  "-regex\0"  )
+	IF_FEATURE_FIND_TYPE(   "-type\0"   )
+	IF_FEATURE_FIND_PERM(   "-perm\0"   )
+	IF_FEATURE_FIND_MTIME(  "-mtime\0"  )
+	IF_FEATURE_FIND_MMIN(   "-mmin\0"   )
+	IF_FEATURE_FIND_NEWER(  "-newer\0"  )
+	IF_FEATURE_FIND_INUM(   "-inum\0"   )
+	IF_FEATURE_FIND_USER(   "-user\0"   )
+	IF_FEATURE_FIND_GROUP(  "-group\0"  )
+	IF_FEATURE_FIND_SIZE(   "-size\0"   )
+	IF_FEATURE_FIND_CONTEXT("-context\0")
+	IF_FEATURE_FIND_LINKS(  "-links\0"  )
+	IF_FEATURE_FIND_MAXDEPTH("-mindepth\0""-maxdepth\0")
+	;
 
 	action*** appp;
 	unsigned cur_group = 0;
 	unsigned cur_action = 0;
-	USE_FEATURE_FIND_NOT( bool invert_flag = 0; )
+	IF_FEATURE_FIND_NOT( bool invert_flag = 0; )
 
 	/* This is the only place in busybox where we use nested function.
 	 * So far more standard alternatives were bigger. */
-	/* Suppress a warning "func without a prototype" */
+	/* Auto decl suppresses "func without a prototype" warning: */
 	auto action* alloc_action(int sizeof_struct, action_fp f);
 	action* alloc_action(int sizeof_struct, action_fp f)
 	{
 		action *ap;
 		appp[cur_group] = xrealloc(appp[cur_group], (cur_action+2) * sizeof(*appp));
-		appp[cur_group][cur_action++] = ap = xmalloc(sizeof_struct);
+		appp[cur_group][cur_action++] = ap = xzalloc(sizeof_struct);
 		appp[cur_group][cur_action] = NULL;
 		ap->f = f;
-		USE_FEATURE_FIND_NOT( ap->invert = invert_flag; )
-		USE_FEATURE_FIND_NOT( invert_flag = 0; )
+		IF_FEATURE_FIND_NOT( ap->invert = invert_flag; )
+		IF_FEATURE_FIND_NOT( invert_flag = 0; )
 		return ap;
 	}
 
@@ -539,27 +925,15 @@ static action*** parse_params(char **argv)
 
 	appp = xzalloc(2 * sizeof(appp[0])); /* appp[0],[1] == NULL */
 
-/* Actions have side effects and return a true or false value
- * We implement: -print, -print0, -exec
- *
- * The rest are tests.
- *
- * Tests and actions are grouped by operators
- * ( expr )              Force precedence
- * ! expr                True if expr is false
- * -not expr             Same as ! expr
- * expr1 [-a[nd]] expr2  And; expr2 is not evaluated if expr1 is false
- * expr1 -o[r] expr2     Or; expr2 is not evaluated if expr1 is true
- * expr1 , expr2         List; both expr1 and expr2 are always evaluated
- * We implement: (), -a, -o
- */
 	while (*argv) {
 		const char *arg = argv[0];
 		int parm = index_in_strings(params, arg);
 		const char *arg1 = argv[1];
 
+		dbg("arg:'%s' arg1:'%s' parm:%d PARM_type:%d", arg, arg1, parm, PARM_type);
+
 		if (parm >= PARM_name) {
-			/* All options starting from -name require argument */
+			/* All options/actions starting from -name require argument */
 			if (!arg1)
 				bb_error_msg_and_die(bb_msg_requires_arg, arg);
 			argv++;
@@ -568,11 +942,49 @@ static action*** parse_params(char **argv)
 		/* We can use big switch() here, but on i386
 		 * it doesn't give smaller code. Other arches? */
 
-	/* --- Operators --- */
-		if (parm == PARM_a USE_DESKTOP(|| parm == PARM_and)) {
+/* Options always return true. They always take effect
+ * rather than being processed only when their place in the
+ * expression is reached.
+ */
+		/* Options */
+		if (parm == OPT_FOLLOW) {
+                        dbg("follow enabled: %d", __LINE__);
+                        G.recurse_flags |= ACTION_FOLLOWLINKS | ACTION_DANGLING_OK;
+		}
+#if ENABLE_FEATURE_FIND_XDEV
+		else if (parm == OPT_XDEV) {
+			dbg("%d", __LINE__);
+			G.xdev_on = 1;
+		}
+#endif
+#if ENABLE_FEATURE_FIND_MAXDEPTH
+		else if (parm == OPT_MINDEPTH || parm == OPT_MINDEPTH + 1) {
+			dbg("%d", __LINE__);
+			G.minmaxdepth[parm - OPT_MINDEPTH] = xatoi_positive(arg1);
+		}
+#endif
+#if ENABLE_FEATURE_FIND_DEPTH
+		else if (parm == OPT_DEPTH) {
+			dbg("%d", __LINE__);
+			G.recurse_flags |= ACTION_DEPTHFIRST;
+		}
+#endif
+/* Actions are grouped by operators
+ * ( expr )              Force precedence
+ * ! expr                True if expr is false
+ * -not expr             Same as ! expr
+ * expr1 [-a[nd]] expr2  And; expr2 is not evaluated if expr1 is false
+ * expr1 -o[r] expr2     Or; expr2 is not evaluated if expr1 is true
+ * expr1 , expr2         List; both expr1 and expr2 are always evaluated
+ * We implement: (), -a, -o
+ */
+		/* Operators */
+		else if (parm == PARM_a IF_DESKTOP(|| parm == PARM_and)) {
+			dbg("%d", __LINE__);
 			/* no further special handling required */
 		}
-		else if (parm == PARM_o USE_DESKTOP(|| parm == PARM_or)) {
+		else if (parm == PARM_o IF_DESKTOP(|| parm == PARM_or)) {
+			dbg("%d", __LINE__);
 			/* start new OR group */
 			cur_group++;
 			appp = xrealloc(appp, (cur_group+2) * sizeof(*appp));
@@ -581,41 +993,36 @@ static action*** parse_params(char **argv)
 			cur_action = 0;
 		}
 #if ENABLE_FEATURE_FIND_NOT
-		else if (parm == PARM_char_not USE_DESKTOP(|| parm == PARM_not)) {
+		else if (parm == PARM_char_not IF_DESKTOP(|| parm == PARM_not)) {
 			/* also handles "find ! ! -name 'foo*'" */
 			invert_flag ^= 1;
+			dbg("invert_flag:%d", invert_flag);
 		}
 #endif
-
-	/* --- Tests and actions --- */
+		/* Actions */
 		else if (parm == PARM_print) {
-			need_print = 0;
-			/* GNU find ignores '!' here: "find ! -print" */
-			USE_FEATURE_FIND_NOT( invert_flag = 0; )
+			dbg("%d", __LINE__);
+			G.need_print = 0;
 			(void) ALLOC_ACTION(print);
 		}
 #if ENABLE_FEATURE_FIND_PRINT0
 		else if (parm == PARM_print0) {
-			need_print = 0;
-			USE_FEATURE_FIND_NOT( invert_flag = 0; )
+			dbg("%d", __LINE__);
+			G.need_print = 0;
 			(void) ALLOC_ACTION(print0);
-		}
-#endif
-#if ENABLE_FEATURE_FIND_DEPTH
-		else if (parm == PARM_depth) {
-			recurse_flags |= ACTION_DEPTHFIRST;
 		}
 #endif
 #if ENABLE_FEATURE_FIND_PRUNE
 		else if (parm == PARM_prune) {
-			USE_FEATURE_FIND_NOT( invert_flag = 0; )
+			dbg("%d", __LINE__);
 			(void) ALLOC_ACTION(prune);
 		}
 #endif
 #if ENABLE_FEATURE_FIND_DELETE
 		else if (parm == PARM_delete) {
-			need_print = 0;
-			recurse_flags |= ACTION_DEPTHFIRST;
+			dbg("%d", __LINE__);
+			G.need_print = 0;
+			G.recurse_flags |= ACTION_DEPTHFIRST;
 			(void) ALLOC_ACTION(delete);
 		}
 #endif
@@ -623,16 +1030,24 @@ static action*** parse_params(char **argv)
 		else if (parm == PARM_exec) {
 			int i;
 			action_exec *ap;
-			need_print = 0;
-			USE_FEATURE_FIND_NOT( invert_flag = 0; )
+			dbg("%d", __LINE__);
+			G.need_print = 0;
 			ap = ALLOC_ACTION(exec);
 			ap->exec_argv = ++argv; /* first arg after -exec */
-			ap->exec_argc = 0;
+			/*ap->exec_argc = 0; - ALLOC_ACTION did it */
 			while (1) {
-				if (!*argv) /* did not see ';' until end */
-					bb_error_msg_and_die("-exec CMD must end by ';'");
-				if (LONE_CHAR(argv[0], ';'))
+				if (!*argv) /* did not see ';' or '+' until end */
+					bb_error_msg_and_die(bb_msg_requires_arg, "-exec");
+				// find -exec echo Foo ">{}<" ";"
+				// executes "echo Foo >FILENAME<",
+				// find -exec echo Foo ">{}<" "+"
+				// executes "echo Foo FILENAME1 FILENAME2 FILENAME3...".
+				// TODO (so far we treat "+" just like ";")
+				if ((argv[0][0] == ';' || argv[0][0] == '+')
+				 && argv[0][1] == '\0'
+				) {
 					break;
+				}
 				argv++;
 				ap->exec_argc++;
 			}
@@ -650,6 +1065,7 @@ static action*** parse_params(char **argv)
 			char **endarg;
 			unsigned nested = 1;
 
+			dbg("%d", __LINE__);
 			endarg = argv;
 			while (1) {
 				if (!*++endarg)
@@ -669,20 +1085,24 @@ static action*** parse_params(char **argv)
 #endif
 		else if (parm == PARM_name || parm == PARM_iname) {
 			action_name *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(name);
 			ap->pattern = arg1;
 			ap->iname = (parm == PARM_iname);
 		}
 #if ENABLE_FEATURE_FIND_PATH
-		else if (parm == PARM_path) {
+		else if (parm == PARM_path IF_DESKTOP(|| parm == PARM_wholename) || parm == PARM_ipath) {
 			action_path *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(path);
 			ap->pattern = arg1;
+			ap->ipath = (parm == PARM_ipath);
 		}
 #endif
 #if ENABLE_FEATURE_FIND_REGEX
 		else if (parm == PARM_regex) {
 			action_regex *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(regex);
 			xregcomp(&ap->compiled_pattern, arg1, 0 /*cflags*/);
 		}
@@ -692,27 +1112,30 @@ static action*** parse_params(char **argv)
 			action_type *ap;
 			ap = ALLOC_ACTION(type);
 			ap->type_mask = find_type(arg1);
+			dbg("created:type mask:%x", ap->type_mask);
 		}
 #endif
 #if ENABLE_FEATURE_FIND_PERM
-/* -perm mode   File's permission bits are exactly mode (octal or symbolic).
+/* -perm BITS   File's mode bits are exactly BITS (octal or symbolic).
  *              Symbolic modes use mode 0 as a point of departure.
- * -perm -mode  All of the permission bits mode are set for the file.
- * -perm +mode  Any of the permission bits mode are set for the file.
+ * -perm -BITS  All of the BITS are set in file's mode.
+ * -perm +BITS  At least one of the BITS is set in file's mode.
  */
 		else if (parm == PARM_perm) {
 			action_perm *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(perm);
 			ap->perm_char = arg1[0];
 			arg1 = plus_minus_num(arg1);
-			ap->perm_mask = 0;
+			/*ap->perm_mask = 0; - ALLOC_ACTION did it */
 			if (!bb_parse_mode(arg1, &ap->perm_mask))
-				bb_error_msg_and_die("invalid mode: %s", arg1);
+				bb_error_msg_and_die("invalid mode '%s'", arg1);
 		}
 #endif
 #if ENABLE_FEATURE_FIND_MTIME
 		else if (parm == PARM_mtime) {
 			action_mtime *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(mtime);
 			ap->mtime_char = arg1[0];
 			ap->mtime_days = xatoul(plus_minus_num(arg1));
@@ -721,6 +1144,7 @@ static action*** parse_params(char **argv)
 #if ENABLE_FEATURE_FIND_MMIN
 		else if (parm == PARM_mmin) {
 			action_mmin *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(mmin);
 			ap->mmin_char = arg1[0];
 			ap->mmin_mins = xatoul(plus_minus_num(arg1));
@@ -730,6 +1154,7 @@ static action*** parse_params(char **argv)
 		else if (parm == PARM_newer) {
 			struct stat stat_newer;
 			action_newer *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(newer);
 			xstat(arg1, &stat_newer);
 			ap->newer_mtime = stat_newer.st_mtime;
@@ -738,6 +1163,7 @@ static action*** parse_params(char **argv)
 #if ENABLE_FEATURE_FIND_INUM
 		else if (parm == PARM_inum) {
 			action_inum *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(inum);
 			ap->inode_num = xatoul(arg1);
 		}
@@ -745,6 +1171,7 @@ static action*** parse_params(char **argv)
 #if ENABLE_FEATURE_FIND_USER
 		else if (parm == PARM_user) {
 			action_user *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(user);
 			ap->uid = bb_strtou(arg1, NULL, 10);
 			if (errno)
@@ -754,6 +1181,7 @@ static action*** parse_params(char **argv)
 #if ENABLE_FEATURE_FIND_GROUP
 		else if (parm == PARM_group) {
 			action_group *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(group);
 			ap->gid = bb_strtou(arg1, NULL, 10);
 			if (errno)
@@ -779,9 +1207,10 @@ static action*** parse_params(char **argv)
 				{ "", 512 },
 				{ "b", 512 },
 				{ "k", 1024 },
-				{ }
+				{ "", 0 }
 			};
 			action_size *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(size);
 			ap->size_char = arg1[0];
 			ap->size = XATOU_SFX(plus_minus_num(arg1), find_suffixes);
@@ -790,11 +1219,21 @@ static action*** parse_params(char **argv)
 #if ENABLE_FEATURE_FIND_CONTEXT
 		else if (parm == PARM_context) {
 			action_context *ap;
+			dbg("%d", __LINE__);
 			ap = ALLOC_ACTION(context);
-			ap->context = NULL;
+			/*ap->context = NULL; - ALLOC_ACTION did it */
 			/* SELinux headers erroneously declare non-const parameter */
 			if (selinux_raw_to_trans_context((char*)arg1, &ap->context))
 				bb_simple_perror_msg(arg1);
+		}
+#endif
+#if ENABLE_FEATURE_FIND_LINKS
+		else if (parm == PARM_links) {
+			action_links *ap;
+			dbg("%d", __LINE__);
+			ap = ALLOC_ACTION(links);
+			ap->links_char = arg1[0];
+			ap->links_count = xatoul(plus_minus_num(arg1));
 		}
 #endif
 		else {
@@ -803,108 +1242,64 @@ static action*** parse_params(char **argv)
 		}
 		argv++;
 	}
+	dbg("exiting %s", __func__);
 	return appp;
 #undef ALLOC_ACTION
 }
 
-
 int find_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int find_main(int argc, char **argv)
+int find_main(int argc UNUSED_PARAM, char **argv)
 {
-	static const char options[] ALIGN1 =
-	                  "-follow\0"
-USE_FEATURE_FIND_XDEV(    "-xdev\0"    )
-USE_FEATURE_FIND_MAXDEPTH("-mindepth\0""-maxdepth\0")
-	                  ;
-	enum {
-	                  OPT_FOLLOW,
-USE_FEATURE_FIND_XDEV(    OPT_XDEV    ,)
-USE_FEATURE_FIND_MAXDEPTH(OPT_MINDEPTH,)
-	};
-
-	char *arg;
-	char **argp;
 	int i, firstopt, status = EXIT_SUCCESS;
-#if ENABLE_FEATURE_FIND_MAXDEPTH
-	int minmaxdepth[2] = { 0, INT_MAX };
-#else
-#define minmaxdepth NULL
-#endif
 
-	for (firstopt = 1; firstopt < argc; firstopt++) {
+	INIT_G();
+
+	argv++;
+	for (firstopt = 0; argv[firstopt]; firstopt++) {
 		if (argv[firstopt][0] == '-')
 			break;
 		if (ENABLE_FEATURE_FIND_NOT && LONE_CHAR(argv[firstopt], '!'))
 			break;
-#if ENABLE_FEATURE_FIND_PAREN
-		if (LONE_CHAR(argv[firstopt], '('))
+		if (ENABLE_FEATURE_FIND_PAREN && LONE_CHAR(argv[firstopt], '('))
 			break;
-#endif
 	}
-	if (firstopt == 1) {
-		argv[0] = (char*)".";
-		argv--;
+	if (firstopt == 0) {
+		*--argv = (char*)".";
 		firstopt++;
 	}
 
-/* All options always return true. They always take effect
- * rather than being processed only when their place in the
- * expression is reached.
- * We implement: -follow, -xdev, -maxdepth
- */
-	/* Process options, and replace then with -a */
-	/* (-a will be ignored by recursive parser later) */
-	argp = &argv[firstopt];
-	while ((arg = argp[0])) {
-		int opt = index_in_strings(options, arg);
-		if (opt == OPT_FOLLOW) {
-			recurse_flags |= ACTION_FOLLOWLINKS;
-			argp[0] = (char*)"-a";
-		}
+	G.actions = parse_params(&argv[firstopt]);
+	argv[firstopt] = NULL;
+
 #if ENABLE_FEATURE_FIND_XDEV
-		if (opt == OPT_XDEV) {
-			struct stat stbuf;
-			if (!xdev_count) {
-				xdev_count = firstopt - 1;
-				xdev_dev = xmalloc(xdev_count * sizeof(dev_t));
-				for (i = 1; i < firstopt; i++) {
-					/* not xstat(): shouldn't bomb out on
-					 * "find not_exist exist -xdev" */
-					if (stat(argv[i], &stbuf))
-						stbuf.st_dev = -1L;
-					xdev_dev[i-1] = stbuf.st_dev;
-				}
-			}
-			argp[0] = (char*)"-a";
+	if (G.xdev_on) {
+		struct stat stbuf;
+
+		G.xdev_count = firstopt;
+		G.xdev_dev = xzalloc(G.xdev_count * sizeof(G.xdev_dev[0]));
+		for (i = 0; argv[i]; i++) {
+			/* not xstat(): shouldn't bomb out on
+			 * "find not_exist exist -xdev" */
+			if (stat(argv[i], &stbuf) == 0)
+				G.xdev_dev[i] = stbuf.st_dev;
+			/* else G.xdev_dev[i] stays 0 and
+			 * won't match any real device dev_t
+			 */
 		}
-#endif
-#if ENABLE_FEATURE_FIND_MAXDEPTH
-		if (opt == OPT_MINDEPTH || opt == OPT_MINDEPTH + 1) {
-			if (!argp[1])
-				bb_show_usage();
-			minmaxdepth[opt - OPT_MINDEPTH] = xatoi_u(argp[1]);
-			argp[0] = (char*)"-a";
-			argp[1] = (char*)"-a";
-			argp++;
-		}
-#endif
-		argp++;
 	}
+#endif
 
-	actions = parse_params(&argv[firstopt]);
-
-	for (i = 1; i < firstopt; i++) {
+	for (i = 0; argv[i]; i++) {
 		if (!recursive_action(argv[i],
-				recurse_flags,  /* flags */
+				G.recurse_flags,/* flags */
 				fileAction,     /* file action */
 				fileAction,     /* dir action */
-#if ENABLE_FEATURE_FIND_MAXDEPTH
-				minmaxdepth,    /* user data */
-#else
 				NULL,           /* user data */
-#endif
-				0))             /* depth */
+				0)              /* depth */
+		) {
 			status = EXIT_FAILURE;
+		}
 	}
+
 	return status;
 }

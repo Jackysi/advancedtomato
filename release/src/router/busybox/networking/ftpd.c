@@ -4,13 +4,29 @@
  *
  * Author: Adam Tkac <vonsch@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  *
  * Only subset of FTP protocol is implemented but vast majority of clients
  * should not have any problem.
  *
  * You have to run this daemon via inetd.
  */
+
+//usage:#define ftpd_trivial_usage
+//usage:       "[-wvS] [-t N] [-T N] [DIR]"
+//usage:#define ftpd_full_usage "\n\n"
+//usage:       "Anonymous FTP server\n"
+//usage:       "\n"
+//usage:       "ftpd should be used as an inetd service.\n"
+//usage:       "ftpd's line for inetd.conf:\n"
+//usage:       "	21 stream tcp nowait root ftpd ftpd /files/to/serve\n"
+//usage:       "It also can be ran from tcpsvd:\n"
+//usage:       "	tcpsvd -vE 0.0.0.0 21 ftpd /files/to/serve\n"
+//usage:     "\n	-w	Allow upload"
+//usage:     "\n	-v	Log errors to stderr. -vv: verbose log"
+//usage:     "\n	-S	Log errors to syslog. -SS: verbose log"
+//usage:     "\n	-t,-T	Idle and absolute timeouts"
+//usage:     "\n	DIR	Change root to this directory"
 
 #include "libbb.h"
 #include <syslog.h>
@@ -106,7 +122,7 @@ struct globals {
 	/* We need these aligned to uint32_t */
 	char msg_ok [(sizeof("NNN " MSG_OK ) + 3) & 0xfffc];
 	char msg_err[(sizeof("NNN " MSG_ERR) + 3) & 0xfffc];
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	/* Moved to main */ \
@@ -206,7 +222,7 @@ cmdio_write_error(unsigned status)
 {
 	*(uint32_t *) G.msg_err = status;
 	xwrite(STDOUT_FILENO, G.msg_err, sizeof("NNN " MSG_ERR) - 1);
-	if (G.verbose > 1)
+	if (G.verbose > 0)
 		verbose_log(G.msg_err);
 }
 #define WRITE_ERR(a) cmdio_write_error(STRNUM32sp(a))
@@ -416,7 +432,7 @@ bind_for_passive_mode(void)
 	G.pasv_listen_fd = fd = xsocket(G.local_addr->u.sa.sa_family, SOCK_STREAM, 0);
 	setsockopt_reuseaddr(fd);
 
-	set_nport(G.local_addr, 0);
+	set_nport(&G.local_addr->u.sa, 0);
 	xbind(fd, &G.local_addr->u.sa, G.local_addr->len);
 	xlisten(fd, 1);
 	getsockname(fd, &G.local_addr->u.sa, &G.local_addr->len);
@@ -459,21 +475,6 @@ handle_epsv(void)
 	response = xasprintf(STR(FTP_EPSVOK)" EPSV ok (|||%u|)\r\n", port);
 	cmdio_write_raw(response);
 	free(response);
-}
-
-/* libbb candidate */
-static
-len_and_sockaddr* get_peer_lsa(int fd)
-{
-	len_and_sockaddr *lsa;
-	socklen_t len = 0;
-
-	if (getpeername(fd, NULL, &len) != 0)
-		return NULL;
-	lsa = xzalloc(LSA_LEN_SIZE + len);
-	lsa->len = len;
-	getpeername(fd, &lsa->u.sa, &lsa->len);
-	return lsa;
 }
 
 static void
@@ -540,7 +541,7 @@ handle_port(void)
 	G.port_addr = xdotted2sockaddr(raw, port);
 #else
 	G.port_addr = get_peer_lsa(STDIN_FILENO);
-	set_nport(G.port_addr, htons(port));
+	set_nport(&G.port_addr->u.sa, htons(port));
 #endif
 	WRITE_OK(FTP_PORTOK);
 }
@@ -549,7 +550,7 @@ static void
 handle_rest(void)
 {
 	/* When ftp_arg == NULL simply restart from beginning */
-	G.restart_pos = G.ftp_arg ? xatoi_u(G.ftp_arg) : 0;
+	G.restart_pos = G.ftp_arg ? xatoi_positive(G.ftp_arg) : 0;
 	WRITE_OK(FTP_RESTOK);
 }
 
@@ -616,31 +617,49 @@ handle_retr(void)
 static int
 popen_ls(const char *opt)
 {
-	char *cwd;
-	const char *argv[] = {
-			"ftpd",
-			opt,
-			BB_MMU ? "--" : NULL,
-			G.ftp_arg,
-			NULL
-	};
+	const char *argv[5];
 	struct fd_pair outfd;
 	pid_t pid;
 
-	cwd = xrealloc_getcwd_or_warn(NULL);
+	argv[0] = "ftpd";
+	argv[1] = opt; /* "-l" or "-1" */
+#if BB_MMU
+	argv[2] = "--";
+#else
+	/* NOMMU ftpd ls helper chdirs to argv[2],
+	 * preventing peer from seeing real root. */
+	argv[2] = xrealloc_getcwd_or_warn(NULL);
+#endif
+	argv[3] = G.ftp_arg;
+	argv[4] = NULL;
+
+	/* Improve compatibility with non-RFC conforming FTP clients
+	 * which send e.g. "LIST -l", "LIST -la", "LIST -aL".
+	 * See https://bugs.kde.org/show_bug.cgi?id=195578 */
+	if (ENABLE_FEATURE_FTPD_ACCEPT_BROKEN_LIST
+	 && G.ftp_arg && G.ftp_arg[0] == '-'
+	) {
+		const char *tmp = strchr(G.ftp_arg, ' ');
+		if (tmp) /* skip the space */
+			tmp++;
+		argv[3] = tmp;
+	}
+
 	xpiped_pair(outfd);
 
-	/*fflush(NULL); - so far we dont use stdio on output */
-	pid = BB_MMU ? fork() : vfork();
-	if (pid < 0)
-		bb_perror_msg_and_die(BB_MMU ? "fork" : "vfork");
-
+	/*fflush_all(); - so far we dont use stdio on output */
+	pid = BB_MMU ? xfork() : xvfork();
 	if (pid == 0) {
 		/* child */
 #if !BB_MMU
+		/* On NOMMU, we want to execute a child - copy of ourself.
+		 * In chroot we usually can't do it. Thus we chdir
+		 * out of the chroot back to original root,
+		 * and (see later below) execute bb_busybox_exec_path
+		 * relative to current directory */
 		if (fchdir(G.root_fd) != 0)
 			_exit(127);
-		close(G.root_fd);
+		/*close(G.root_fd); - close_on_exec_on() took care of this */
 #endif
 		/* NB: close _first_, then move fd! */
 		close(outfd.rd);
@@ -651,25 +670,23 @@ popen_ls(const char *opt)
 		 * ls won't read it anyway */
 		close(STDIN_FILENO);
 		dup(STDOUT_FILENO); /* copy will become STDIN_FILENO */
-#if !BB_MMU
-		/* ftpd ls helper chdirs to argv[2],
-		 * preventing peer from seeing real root we are in now
-		 */
-		argv[2] = cwd;
+#if BB_MMU
+		/* memset(&G, 0, sizeof(G)); - ls_main does it */
+		exit(ls_main(ARRAY_SIZE(argv) - 1, (char**) argv));
+#else
 		/* + 1: we must use relative path here if in chroot.
 		 * For example, execv("/proc/self/exe") will fail, since
 		 * it looks for "/proc/self/exe" _relative to chroot!_ */
 		execv(bb_busybox_exec_path + 1, (char**) argv);
 		_exit(127);
-#else
-		memset(&G, 0, sizeof(G));
-		exit(ls_main(ARRAY_SIZE(argv) - 1, (char**) argv));
 #endif
 	}
 
 	/* parent */
 	close(outfd.wr);
-	free(cwd);
+#if !BB_MMU
+	free((char*)argv[2]);
+#endif
 	return outfd.rd;
 }
 
@@ -691,15 +708,13 @@ handle_dir_common(int opts)
 	/* -n prevents user/groupname display,
 	 * which can be problematic in chroot */
 	ls_fd = popen_ls((opts & LONG_LISTING) ? "-l" : "-1");
-	ls_fp = fdopen(ls_fd, "r");
-	if (!ls_fp) /* never happens. paranoia */
-		bb_perror_msg_and_die("fdopen");
+	ls_fp = xfdopen_for_read(ls_fd);
 
 	if (opts & USE_CTRL_CONN) {
 		/* STAT <filename> */
 		cmdio_write_raw(STR(FTP_STATFILE_OK)"-File status:\r\n");
 		while (1) {
-    			line = xmalloc_fgetline(ls_fp);
+			line = xmalloc_fgetline(ls_fp);
 			if (!line)
 				break;
 			/* Hack: 0 results in no status at all */
@@ -714,7 +729,7 @@ handle_dir_common(int opts)
 		int remote_fd = get_remote_transfer_fd(" Directory listing");
 		if (remote_fd >= 0) {
 			while (1) {
-    				line = xmalloc_fgetline(ls_fp);
+				line = xmalloc_fgetline(ls_fp);
 				if (!line)
 					break;
 				/* I've seen clients complaining when they
@@ -806,7 +821,7 @@ handle_size_or_mdtm(int need_size)
 		gmtime_r(&statbuf.st_mtime, &broken_out);
 		sprintf(buf, STR(FTP_STATFILE_OK)" %04u%02u%02u%02u%02u%02u\r\n",
 			broken_out.tm_year + 1900,
-			broken_out.tm_mon,
+			broken_out.tm_mon + 1,
 			broken_out.tm_mday,
 			broken_out.tm_hour,
 			broken_out.tm_min,
@@ -912,6 +927,7 @@ handle_upload_common(int is_append, int is_unique)
 	 || fstat(local_file_fd, &statbuf) != 0
 	 || !S_ISREG(statbuf.st_mode)
 	) {
+		free(tempname);
 		WRITE_ERR(FTP_UPLOADFAIL);
 		if (local_file_fd >= 0)
 			goto close_local_and_bail;
@@ -964,17 +980,23 @@ handle_stou(void)
 static uint32_t
 cmdio_get_cmd_and_arg(void)
 {
-	size_t len;
+	int len;
 	uint32_t cmdval;
 	char *cmd;
 
 	alarm(G.timeout);
 
 	free(G.ftp_cmd);
-	len = 8 * 1024; /* Paranoia. Peer may send 1 gigabyte long cmd... */
-	G.ftp_cmd = cmd = xmalloc_fgets_str_len(stdin, "\r\n", &len);
-	if (!cmd)
-		exit(0);
+	{
+		/* Paranoia. Peer may send 1 gigabyte long cmd... */
+		/* Using separate len_on_stk instead of len optimizes
+		 * code size (allows len to be in CPU register) */
+		size_t len_on_stk = 8 * 1024;
+		G.ftp_cmd = cmd = xmalloc_fgets_str_len(stdin, "\r\n", &len_on_stk);
+		if (!cmd)
+			exit(0);
+		len = len_on_stk;
+	}
 
 	/* De-escape telnet: 0xff,0xff => 0xff */
 	/* RFC959 says that ABOR, STAT, QUIT may be sent even during
@@ -1095,27 +1117,32 @@ int ftpd_main(int argc UNUSED_PARAM, char **argv)
 #endif
 {
 	unsigned abs_timeout;
+	unsigned verbose_S;
 	smallint opts;
 
 	INIT_G();
 
 	abs_timeout = 1 * 60 * 60;
+	verbose_S = 0;
 	G.timeout = 2 * 60;
-	opt_complementary = "t+:T+:vv";
+	opt_complementary = "t+:T+:vv:SS";
 #if BB_MMU
-	opts = getopt32(argv,   "vS" USE_FEATURE_FTP_WRITE("w") "t:T:", &G.timeout, &abs_timeout, &G.verbose);
+	opts = getopt32(argv,   "vS" IF_FEATURE_FTP_WRITE("w") "t:T:", &G.timeout, &abs_timeout, &G.verbose, &verbose_S);
 #else
-	opts = getopt32(argv, "l1vS" USE_FEATURE_FTP_WRITE("w") "t:T:", &G.timeout, &abs_timeout, &G.verbose);
+	opts = getopt32(argv, "l1vS" IF_FEATURE_FTP_WRITE("w") "t:T:", &G.timeout, &abs_timeout, &G.verbose, &verbose_S);
 	if (opts & (OPT_l|OPT_1)) {
 		/* Our secret backdoor to ls */
-/* TODO: pass -n too? */
-/* --group-directories-first would be nice, but ls don't do that yet */
+/* TODO: pass -n? It prevents user/group resolution, which may not work in chroot anyway */
+/* TODO: pass -A? It shows dot files */
+/* TODO: pass --group-directories-first? would be nice, but ls doesn't do that yet */
 		xchdir(argv[2]);
 		argv[2] = (char*)"--";
-		memset(&G, 0, sizeof(G));
+		/* memset(&G, 0, sizeof(G)); - ls_main does it */
 		return ls_main(argc, argv);
 	}
 #endif
+	if (G.verbose < verbose_S)
+		G.verbose = verbose_S;
 	if (abs_timeout | G.timeout) {
 		if (abs_timeout == 0)
 			abs_timeout = INT_MAX;
@@ -1149,11 +1176,11 @@ int ftpd_main(int argc UNUSED_PARAM, char **argv)
 
 #if !BB_MMU
 	G.root_fd = xopen("/", O_RDONLY | O_DIRECTORY);
+	close_on_exec_on(G.root_fd);
 #endif
 
 	if (argv[optind]) {
-		xchdir(argv[optind]);
-		chroot(".");
+		xchroot(argv[optind]);
 	}
 
 	//umask(077); - admin can set umask before starting us

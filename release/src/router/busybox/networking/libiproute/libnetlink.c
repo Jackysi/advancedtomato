@@ -1,14 +1,11 @@
 /* vi: set sw=4 ts=4: */
 /*
- * libnetlink.c	RTnetlink service routines.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
- *
- * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *
+ * Authors: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  */
 
 #include <sys/socket.h>
@@ -17,33 +14,28 @@
 #include "libbb.h"
 #include "libnetlink.h"
 
-void FAST_FUNC rtnl_close(struct rtnl_handle *rth)
-{
-	close(rth->fd);
-}
-
-int FAST_FUNC xrtnl_open(struct rtnl_handle *rth/*, unsigned subscriptions*/)
+void FAST_FUNC xrtnl_open(struct rtnl_handle *rth/*, unsigned subscriptions*/)
 {
 	socklen_t addr_len;
 
-	memset(rth, 0, sizeof(rth));
-
+	memset(rth, 0, sizeof(*rth));
 	rth->fd = xsocket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-
-	memset(&rth->local, 0, sizeof(rth->local));
 	rth->local.nl_family = AF_NETLINK;
 	/*rth->local.nl_groups = subscriptions;*/
 
 	xbind(rth->fd, (struct sockaddr*)&rth->local, sizeof(rth->local));
 	addr_len = sizeof(rth->local);
+	getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len);
+
+/* too much paranoia
 	if (getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len) < 0)
 		bb_perror_msg_and_die("getsockname");
 	if (addr_len != sizeof(rth->local))
 		bb_error_msg_and_die("wrong address length %d", addr_len);
 	if (rth->local.nl_family != AF_NETLINK)
 		bb_error_msg_and_die("wrong address family %d", rth->local.nl_family);
+*/
 	rth->seq = time(NULL);
-	return 0;
 }
 
 int FAST_FUNC xrtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
@@ -52,10 +44,6 @@ int FAST_FUNC xrtnl_wilddump_request(struct rtnl_handle *rth, int family, int ty
 		struct nlmsghdr nlh;
 		struct rtgenmsg g;
 	} req;
-	struct sockaddr_nl nladdr;
-
-	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family = AF_NETLINK;
 
 	req.nlh.nlmsg_len = sizeof(req);
 	req.nlh.nlmsg_type = type;
@@ -64,10 +52,10 @@ int FAST_FUNC xrtnl_wilddump_request(struct rtnl_handle *rth, int family, int ty
 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
 	req.g.rtgen_family = family;
 
-	return xsendto(rth->fd, (void*)&req, sizeof(req),
-				 (struct sockaddr*)&nladdr, sizeof(nladdr));
+	return rtnl_send(rth, (void*)&req, sizeof(req));
 }
 
+//TODO: pass rth->fd instead of full rth?
 int FAST_FUNC rtnl_send(struct rtnl_handle *rth, char *buf, int len)
 {
 	struct sockaddr_nl nladdr;
@@ -85,8 +73,8 @@ int FAST_FUNC rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, in
 	struct iovec iov[2] = { { &nlh, sizeof(nlh) }, { req, len } };
 	struct msghdr msg = {
 		(void*)&nladdr, sizeof(nladdr),
-		iov,	2,
-		NULL,	0,
+		iov,  2,
+		NULL, 0,
 		0
 	};
 
@@ -103,7 +91,7 @@ int FAST_FUNC rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, in
 }
 
 static int rtnl_dump_filter(struct rtnl_handle *rth,
-		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *n, void *),
+		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *n, void *) FAST_FUNC,
 		void *arg1/*,
 		int (*junk)(struct sockaddr_nl *, struct nlmsghdr *n, void *),
 		void *arg2*/)
@@ -119,8 +107,8 @@ static int rtnl_dump_filter(struct rtnl_handle *rth,
 
 		struct msghdr msg = {
 			(void*)&nladdr, sizeof(nladdr),
-			&iov,	1,
-			NULL,	0,
+			&iov, 1,
+			NULL, 0,
 			0
 		};
 
@@ -146,7 +134,8 @@ static int rtnl_dump_filter(struct rtnl_handle *rth,
 
 			if (nladdr.nl_pid != 0 ||
 			    h->nlmsg_pid != rth->local.nl_pid ||
-			    h->nlmsg_seq != rth->dump) {
+			    h->nlmsg_seq != rth->dump
+			) {
 //				if (junk) {
 //					err = junk(&nladdr, h, arg2);
 //					if (err < 0) {
@@ -195,7 +184,7 @@ static int rtnl_dump_filter(struct rtnl_handle *rth,
 }
 
 int FAST_FUNC xrtnl_dump_filter(struct rtnl_handle *rth,
-		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *, void *),
+		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *, void *) FAST_FUNC,
 		void *arg1)
 {
 	int ret = rtnl_dump_filter(rth, filter, arg1/*, NULL, NULL*/);
@@ -205,10 +194,10 @@ int FAST_FUNC xrtnl_dump_filter(struct rtnl_handle *rth,
 }
 
 int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-	      pid_t peer, unsigned groups,
-	      struct nlmsghdr *answer,
-	      int (*junk)(struct sockaddr_nl *, struct nlmsghdr *, void *),
-	      void *jarg)
+		pid_t peer, unsigned groups,
+		struct nlmsghdr *answer,
+		int (*junk)(struct sockaddr_nl *, struct nlmsghdr *, void *),
+		void *jarg)
 {
 /* bbox doesn't use parameters no. 3, 4, 6, 7, they are stubbed out */
 #define peer   0
@@ -224,8 +213,8 @@ int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	char   *buf = xmalloc(8*1024); /* avoid big stack buffer */
 	struct msghdr msg = {
 		(void*)&nladdr, sizeof(nladdr),
-		&iov,	1,
-		NULL,	0,
+		&iov, 1,
+		NULL, 0,
 		0
 	};
 
@@ -241,7 +230,7 @@ int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	status = sendmsg(rtnl->fd, &msg, 0);
 
 	if (status < 0) {
-		bb_perror_msg("cannot talk to rtnetlink");
+		bb_perror_msg("can't talk to rtnetlink");
 		goto ret;
 	}
 
@@ -280,7 +269,8 @@ int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 
 			if (nladdr.nl_pid != peer ||
 			    h->nlmsg_pid != rtnl->local.nl_pid ||
-			    h->nlmsg_seq != seq) {
+			    h->nlmsg_seq != seq
+			) {
 //				if (junk) {
 //					l_err = junk(&nladdr, h, jarg);
 //					if (l_err < 0) {
@@ -336,8 +326,10 @@ int FAST_FUNC addattr32(struct nlmsghdr *n, int maxlen, int type, uint32_t data)
 {
 	int len = RTA_LENGTH(4);
 	struct rtattr *rta;
-	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen)
+
+	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen) {
 		return -1;
+	}
 	rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
 	rta->rta_type = type;
 	rta->rta_len = len;
@@ -351,8 +343,9 @@ int FAST_FUNC addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data, in
 	int len = RTA_LENGTH(alen);
 	struct rtattr *rta;
 
-	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen)
+	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen) {
 		return -1;
+	}
 	rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
 	rta->rta_type = type;
 	rta->rta_len = len;
@@ -394,16 +387,15 @@ int FAST_FUNC rta_addattr_l(struct rtattr *rta, int maxlen, int type, void *data
 }
 
 
-int FAST_FUNC parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+void FAST_FUNC parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max) {
 			tb[rta->rta_type] = rta;
 		}
-		rta = RTA_NEXT(rta,len);
+		rta = RTA_NEXT(rta, len);
 	}
 	if (len) {
 		bb_error_msg("deficit %d, rta_len=%d!", len, rta->rta_len);
 	}
-	return 0;
 }

@@ -64,9 +64,11 @@ HERE
     trap "echo trap$i" WINCH
     f() { true; true; true; true; true; true; true; true; }
     f() { true; true; true; true; true; true; true; true; echo $1; }
-    f >/dev/null
+    i=iii$i t=ttt$i z=zzz$i f >/dev/null
     : $((i++))
 done
+unset i l t
+unset -f f
 
 memleak
 
@@ -130,16 +132,17 @@ HERE
     trap "echo trap$i" WINCH
     f() { true; true; true; true; true; true; true; true; }
     f() { true; true; true; true; true; true; true; true; echo $1; }
-    f >/dev/null
+    i=iii$i t=ttt$i z=zzz$i f >/dev/null
     : $((i++))
 done
+unset i l t
+unset -f f
 
 
 memleak
 kb=$?
-# Observed some variability, bumped to 12k
-if test $kb -le 12; then
+if test $kb -le 4; then
     echo Ok #$kb
 else
-    echo "Bad: $kb kb (or more) leaked"
+    echo "Bad: $kb kb leaked"
 fi

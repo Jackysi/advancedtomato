@@ -28,6 +28,12 @@
  * rewrite  14-11-2008 vda
  */
 
+//usage:#define timeout_trivial_usage
+//usage:       "[-t SECS] [-s SIG] PROG ARGS"
+//usage:#define timeout_full_usage "\n\n"
+//usage:       "Runs PROG. Sends SIG to it if it is not gone in SECS seconds.\n"
+//usage:       "Defaults: SECS: 10, SIG: TERM."
+
 #include "libbb.h"
 
 int timeout_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -71,9 +77,7 @@ int timeout_main(int argc UNUSED_PARAM, char **argv)
 	sv1 = argv[optind];
 	sv2 = argv[optind + 1];
 #endif
-	pid = vfork();
-	if (pid < 0)
-		bb_perror_msg_and_die("vfork");
+	pid = xvfork();
 	if (pid == 0) {
 		/* Child: spawn grandchild and exit */
 		parent = getppid();
@@ -85,7 +89,7 @@ int timeout_main(int argc UNUSED_PARAM, char **argv)
 		bb_daemonize_or_rexec(0, argv);
 		/* Here we are grandchild. Sleep, then kill grandparent */
  grandchild:
-		/* Just sleep(NUGE_NUM); kill(parent) may kill wrong process! */
+		/* Just sleep(HUGE_NUM); kill(parent) may kill wrong process! */
 		while (1) {
 			sleep(1);
 			if (--timeout <= 0)
@@ -110,6 +114,5 @@ int timeout_main(int argc UNUSED_PARAM, char **argv)
 	argv[0] = sv1;
 	argv[1] = sv2;
 #endif
-	BB_EXECVP(argv[0], argv);
-	bb_perror_msg_and_die("exec '%s'", argv[0]);
+	BB_EXECVP_or_die(argv);
 }

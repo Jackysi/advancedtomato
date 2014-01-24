@@ -55,12 +55,11 @@
  *   Restructured (and partly rewritten) by:
  *   Björn Ekwall <bj0rn@blox.se> February 1999
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
 #include "modutils.h"
-#include <libgen.h>
 #include <sys/utsname.h>
 
 #if ENABLE_FEATURE_INSMOD_LOADINKMEM
@@ -88,6 +87,27 @@
 #define USE_GOT_ENTRIES
 #define GOT_ENTRY_SIZE 8
 #define USE_SINGLE
+#endif
+
+/* NDS32 support */
+#if defined(__nds32__) || defined(__NDS32__)
+#define CONFIG_USE_GOT_ENTRIES
+#define CONFIG_GOT_ENTRY_SIZE 4
+#define CONFIG_USE_SINGLE
+
+#if defined(__NDS32_EB__)
+#define MATCH_MACHINE(x) (x == EM_NDS32)
+#define SHT_RELM    SHT_RELA
+#define Elf32_RelM  Elf32_Rela
+#define ELFCLASSM   ELFCLASS32
+#endif
+
+#if defined(__NDS32_EL__)
+#define MATCH_MACHINE(x) (x == EM_NDS32)
+#define SHT_RELM    SHT_RELA
+#define Elf32_RelM  Elf32_Rela
+#define ELFCLASSM   ELFCLASS32
+#endif
 #endif
 
 /* blackfin */
@@ -511,8 +531,7 @@ int delete_module(const char *module, unsigned int flags);
 struct obj_string_patch;
 struct obj_symbol_patch;
 
-struct obj_section
-{
+struct obj_section {
 	ElfW(Shdr) header;
 	const char *name;
 	char *contents;
@@ -520,8 +539,7 @@ struct obj_section
 	int idx;
 };
 
-struct obj_symbol
-{
+struct obj_symbol {
 	struct obj_symbol *next;	/* hash table link */
 	const char *name;
 	unsigned long value;
@@ -546,8 +564,8 @@ struct obj_file {
 	struct obj_section **load_order_search_start;
 	struct obj_string_patch *string_patches;
 	struct obj_symbol_patch *symbol_patches;
-	int (*symbol_cmp)(const char *, const char *);
-	unsigned long (*symbol_hash)(const char *);
+	int (*symbol_cmp)(const char *, const char *); /* cant be FAST_FUNC */
+	unsigned long (*symbol_hash)(const char *) FAST_FUNC;
 	unsigned long local_symtab_size;
 	struct obj_symbol **local_symtab;
 	struct obj_symbol *symtab[HASH_BUCKETS];
@@ -577,45 +595,45 @@ struct obj_symbol_patch {
 
 /* Generic object manipulation routines.  */
 
-static unsigned long obj_elf_hash(const char *);
+static unsigned long FAST_FUNC obj_elf_hash(const char *);
 
 static unsigned long obj_elf_hash_n(const char *, unsigned long len);
 
 static struct obj_symbol *obj_find_symbol(struct obj_file *f,
-					 const char *name);
+		const char *name);
 
 static ElfW(Addr) obj_symbol_final_value(struct obj_file *f,
-				  struct obj_symbol *sym);
+		struct obj_symbol *sym);
 
 #if ENABLE_FEATURE_INSMOD_VERSION_CHECKING
 static void obj_set_symbol_compare(struct obj_file *f,
-			    int (*cmp)(const char *, const char *),
-			    unsigned long (*hash)(const char *));
+		int (*cmp)(const char *, const char *),
+		unsigned long (*hash)(const char *) FAST_FUNC);
 #endif
 
 static struct obj_section *obj_find_section(struct obj_file *f,
-					   const char *name);
+		const char *name);
 
 static void obj_insert_section_load_order(struct obj_file *f,
-				    struct obj_section *sec);
+		struct obj_section *sec);
 
 static struct obj_section *obj_create_alloced_section(struct obj_file *f,
-						const char *name,
-						unsigned long align,
-						unsigned long size);
+		const char *name,
+		unsigned long align,
+		unsigned long size);
 
 static struct obj_section *obj_create_alloced_section_first(struct obj_file *f,
-						      const char *name,
-						      unsigned long align,
-						      unsigned long size);
+		const char *name,
+		unsigned long align,
+		unsigned long size);
 
 static void *obj_extend_section(struct obj_section *sec, unsigned long more);
 
 static void obj_string_patch(struct obj_file *f, int secidx, ElfW(Addr) offset,
-		     const char *string);
+		const char *string);
 
 static void obj_symbol_patch(struct obj_file *f, int secidx, ElfW(Addr) offset,
-		     struct obj_symbol *sym);
+		struct obj_symbol *sym);
 
 static void obj_check_undefineds(struct obj_file *f);
 
@@ -642,10 +660,10 @@ static struct obj_section *arch_new_section(void);
 static struct obj_symbol *arch_new_symbol(void);
 
 static enum obj_reloc arch_apply_relocation(struct obj_file *f,
-				      struct obj_section *targsec,
-				      /*struct obj_section *symsec,*/
-				      struct obj_symbol *sym,
-				      ElfW(RelM) *rel, ElfW(Addr) value);
+		struct obj_section *targsec,
+		/*struct obj_section *symsec,*/
+		struct obj_symbol *sym,
+		ElfW(RelM) *rel, ElfW(Addr) value);
 
 static void arch_create_got(struct obj_file *f);
 #if ENABLE_FEATURE_CHECK_TAINTED_MODULE
@@ -679,8 +697,7 @@ enum { STRVERSIONLEN = 64 };
 
 #if defined(USE_LIST)
 
-struct arch_list_entry
-{
+struct arch_list_entry {
 	struct arch_list_entry *next;
 	LIST_ARCHTYPE addend;
 	int offset;
@@ -691,8 +708,7 @@ struct arch_list_entry
 
 #if defined(USE_SINGLE)
 
-struct arch_single_entry
-{
+struct arch_single_entry {
 	int offset;
 	int inited : 1;
 	int allocated : 1;
@@ -701,8 +717,7 @@ struct arch_single_entry
 #endif
 
 #if defined(__mips__)
-struct mips_hi16
-{
+struct mips_hi16 {
 	struct mips_hi16 *next;
 	ElfW(Addr) *addr;
 	ElfW(Addr) value;
@@ -776,10 +791,10 @@ static struct obj_symbol *arch_new_symbol(void)
 
 static enum obj_reloc
 arch_apply_relocation(struct obj_file *f,
-				struct obj_section *targsec,
-				/*struct obj_section *symsec,*/
-				struct obj_symbol *sym,
-				ElfW(RelM) *rel, ElfW(Addr) v)
+		struct obj_section *targsec,
+		/*struct obj_section *symsec,*/
+		struct obj_symbol *sym,
+		ElfW(RelM) *rel, ElfW(Addr) v)
 {
 #if defined(__arm__) || defined(__i386__) || defined(__mc68000__) \
  || defined(__sh__) || defined(__s390__) || defined(__x86_64__) \
@@ -870,19 +885,23 @@ arch_apply_relocation(struct obj_file *f,
 			break;
 		case R_H8_PCREL16:
 			v -= dot + 2;
-			if ((ElfW(Sword))v > 0x7fff ||
-			    (ElfW(Sword))v < -(ElfW(Sword))0x8000)
+			if ((ElfW(Sword))v > 0x7fff
+			 || (ElfW(Sword))v < -(ElfW(Sword))0x8000
+			) {
 				ret = obj_reloc_overflow;
-			else
+			} else {
 				*(unsigned short *)loc = v;
+			}
 			break;
 		case R_H8_PCREL8:
 			v -= dot + 1;
-			if ((ElfW(Sword))v > 0x7f ||
-			    (ElfW(Sword))v < -(ElfW(Sword))0x80)
+			if ((ElfW(Sword))v > 0x7f
+			 || (ElfW(Sword))v < -(ElfW(Sword))0x80
+			) {
 				ret = obj_reloc_overflow;
-			else
+			} else {
 				*(unsigned char *)loc = v;
+			}
 			break;
 
 #elif defined(__i386__)
@@ -1571,7 +1590,7 @@ arch_apply_relocation(struct obj_file *f,
 #endif
 
 		default:
-			printf("Warning: unhandled reloc %d\n",(int)ELF_R_TYPE(rel->r_info));
+			printf("Warning: unhandled reloc %d\n", (int)ELF_R_TYPE(rel->r_info));
 			ret = obj_reloc_unhandled;
 			break;
 
@@ -1707,7 +1726,7 @@ static int arch_list_add(ElfW(RelM) *rel, struct arch_list_entry **list,
 #if defined(USE_SINGLE)
 
 static int arch_single_init(/*ElfW(RelM) *rel,*/ struct arch_single_entry *single,
-			     int offset, int size)
+		int offset, int size)
 {
 	if (single->allocated == 0) {
 		single->allocated = 1;
@@ -1723,7 +1742,7 @@ static int arch_single_init(/*ElfW(RelM) *rel,*/ struct arch_single_entry *singl
 #if defined(USE_GOT_ENTRIES) || defined(USE_PLT_ENTRIES)
 
 static struct obj_section *arch_xsect_init(struct obj_file *f, const char *name,
-					   int offset, int size)
+		int offset, int size)
 {
 	struct obj_section *myrelsec = obj_find_section(f, name);
 
@@ -1916,7 +1935,7 @@ static unsigned long obj_elf_hash_n(const char *name, unsigned long n)
 	return h;
 }
 
-static unsigned long obj_elf_hash(const char *name)
+static unsigned long FAST_FUNC obj_elf_hash(const char *name)
 {
 	return obj_elf_hash_n(name, strlen(name));
 }
@@ -1939,7 +1958,7 @@ static int ncv_strcmp(const char *a, const char *b)
 /* String hashing for non-co-versioned kernel and module.  Here
    we are simply forced to drop the crc from the hash.  */
 
-static unsigned long ncv_symbol_hash(const char *str)
+static unsigned long FAST_FUNC ncv_symbol_hash(const char *str)
 {
 	size_t len = strlen(str);
 	if (len > 10 && str[len - 10] == '_' && str[len - 9] == 'R')
@@ -1949,8 +1968,8 @@ static unsigned long ncv_symbol_hash(const char *str)
 
 static void
 obj_set_symbol_compare(struct obj_file *f,
-					   int (*cmp) (const char *, const char *),
-					   unsigned long (*hash) (const char *))
+		int (*cmp) (const char *, const char *),
+		unsigned long (*hash) (const char *) FAST_FUNC)
 {
 	if (cmp)
 		f->symbol_cmp = cmp;
@@ -1963,13 +1982,14 @@ obj_set_symbol_compare(struct obj_file *f,
 		memcpy(tmptab, f->symtab, sizeof(tmptab));
 		memset(f->symtab, 0, sizeof(f->symtab));
 
-		for (i = 0; i < HASH_BUCKETS; ++i)
+		for (i = 0; i < HASH_BUCKETS; ++i) {
 			for (sym = tmptab[i]; sym; sym = next) {
 				unsigned long h = hash(sym->name) % HASH_BUCKETS;
 				next = sym->next;
 				sym->next = f->symtab[h];
 				f->symtab[h] = sym;
 			}
+		}
 	}
 }
 
@@ -1977,9 +1997,9 @@ obj_set_symbol_compare(struct obj_file *f,
 
 static struct obj_symbol *
 obj_add_symbol(struct obj_file *f, const char *name,
-				unsigned long symidx, int info,
-				int secidx, ElfW(Addr) value,
-				unsigned long size)
+		unsigned long symidx, int info,
+		int secidx, ElfW(Addr) value,
+		unsigned long size)
 {
 	struct obj_symbol *sym;
 	unsigned long hash = f->symbol_hash(name) % HASH_BUCKETS;
@@ -2140,9 +2160,9 @@ obj_insert_section_load_order(struct obj_file *f, struct obj_section *sec)
 }
 
 static struct obj_section *helper_create_alloced_section(struct obj_file *f,
-				const char *name,
-				unsigned long align,
-				unsigned long size)
+		const char *name,
+		unsigned long align,
+		unsigned long size)
 {
 	int newidx = f->header.e_shnum++;
 	struct obj_section *sec;
@@ -2163,9 +2183,9 @@ static struct obj_section *helper_create_alloced_section(struct obj_file *f,
 }
 
 static struct obj_section *obj_create_alloced_section(struct obj_file *f,
-				const char *name,
-				unsigned long align,
-				unsigned long size)
+		const char *name,
+		unsigned long align,
+		unsigned long size)
 {
 	struct obj_section *sec;
 
@@ -2175,9 +2195,9 @@ static struct obj_section *obj_create_alloced_section(struct obj_file *f,
 }
 
 static struct obj_section *obj_create_alloced_section_first(struct obj_file *f,
-				const char *name,
-				unsigned long align,
-				unsigned long size)
+		const char *name,
+		unsigned long align,
+		unsigned long size)
 {
 	struct obj_section *sec;
 
@@ -2205,9 +2225,9 @@ static void *obj_extend_section(struct obj_section *sec, unsigned long more)
    new module.  */
 
 static int add_symbols_from(struct obj_file *f,
-				int idx,
-				struct new_module_symbol *syms,
-				size_t nsyms)
+		int idx,
+		struct new_module_symbol *syms,
+		size_t nsyms)
 {
 	struct new_module_symbol *s;
 	size_t i;
@@ -2423,24 +2443,22 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 			bb_error_msg_and_die("symbol for parameter %s not found", param);
 
 		/* Number of parameters */
+		min = max = 1;
 		if (isdigit(*pinfo)) {
-			min = strtoul(pinfo, &pinfo, 10);
+			min = max = strtoul(pinfo, &pinfo, 10);
 			if (*pinfo == '-')
 				max = strtoul(pinfo + 1, &pinfo, 10);
-			else
-				max = min;
-		} else
-			min = max = 1;
+		}
 
 		contents = f->sections[sym->secidx]->contents;
 		loc = contents + sym->value;
 
 		if (*pinfo == 'c') {
-			if (!isdigit(*(pinfo + 1))) {
+			if (!isdigit(pinfo[1])) {
 				bb_error_msg_and_die("parameter type 'c' for %s must be followed by"
 						     " the maximum size", param);
 			}
-			charssize = strtoul(pinfo + 1, (char **) NULL, 10);
+			charssize = strtoul(pinfo + 1, NULL, 10);
 		}
 
 		if (val == NULL) {
@@ -2452,43 +2470,54 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 		/* Parse parameter values */
 		n = 0;
 		p = val;
-		while (*p != 0) {
+		while (*p) {
+			char sv_ch;
+			char *endp;
+
 			if (++n > max)
 				bb_error_msg_and_die("too many values for %s (max %d)", param, max);
 
 			switch (*pinfo) {
 			case 's':
 				len = strcspn(p, ",");
-				p[len] = 0;
+				sv_ch = p[len];
+				p[len] = '\0';
 				obj_string_patch(f, sym->secidx,
 						 loc - contents, p);
 				loc += tgt_sizeof_char_p;
 				p += len;
+				*p = sv_ch;
 				break;
 			case 'c':
 				len = strcspn(p, ",");
-				p[len] = 0;
+				sv_ch = p[len];
+				p[len] = '\0';
 				if (len >= charssize)
 					bb_error_msg_and_die("string too long for %s (max %ld)", param,
 							     charssize - 1);
 				strcpy((char *) loc, p);
 				loc += charssize;
 				p += len;
+				*p = sv_ch;
 				break;
 			case 'b':
-				*loc++ = strtoul(p, &p, 0);
+				*loc++ = strtoul(p, &endp, 0);
+				p = endp; /* gcc likes temp var for &endp */
 				break;
 			case 'h':
-				*(short *) loc = strtoul(p, &p, 0);
+				*(short *) loc = strtoul(p, &endp, 0);
 				loc += tgt_sizeof_short;
+				p = endp;
 				break;
 			case 'i':
-				*(int *) loc = strtoul(p, &p, 0);
+				*(int *) loc = strtoul(p, &endp, 0);
 				loc += tgt_sizeof_int;
+				p = endp;
 				break;
 			case 'l':
-				*(long *) loc = strtoul(p, &p, 0);
+				*(long *) loc = strtoul(p, &endp, 0);
 				loc += tgt_sizeof_long;
+				p = endp;
 				break;
 			default:
 				bb_error_msg_and_die("unknown parameter type '%c' for %s",
@@ -2885,7 +2914,7 @@ obj_string_patch(struct obj_file *f, int secidx, ElfW(Addr) offset,
 
 static void
 obj_symbol_patch(struct obj_file *f, int secidx, ElfW(Addr) offset,
-				 struct obj_symbol *sym)
+		struct obj_symbol *sym)
 {
 	struct obj_symbol_patch *p;
 
@@ -3197,6 +3226,7 @@ static int obj_create_image(struct obj_file *f, char *image)
 
 static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbits)
 {
+	typedef uint32_t aliased_uint32_t FIX_ALIASING;
 #if BB_LITTLE_ENDIAN
 # define ELFMAG_U32 ((uint32_t)(ELFMAG0 + 0x100 * (ELFMAG1 + (0x100 * (ELFMAG2 + 0x100 * ELFMAG3)))))
 #else
@@ -3218,7 +3248,7 @@ static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbit
 		bb_error_msg_and_die("error while loading ELF header");
 	memcpy(&f->header, image, sizeof(f->header));
 
-	if (*(uint32_t*)(&f->header.e_ident) != ELFMAG_U32) {
+	if (*(aliased_uint32_t*)(&f->header.e_ident) != ELFMAG_U32) {
 		bb_error_msg_and_die("not an ELF file");
 	}
 	if (f->header.e_ident[EI_CLASS] != ELFCLASSM
@@ -3278,6 +3308,9 @@ static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbit
 			case SHT_SYMTAB:
 			case SHT_STRTAB:
 			case SHT_RELM:
+#if defined(__mips__)
+			case SHT_MIPS_DWARF:
+#endif
 				sec->contents = NULL;
 				if (sec->header.sh_size > 0) {
 					sec->contents = xmalloc(sec->header.sh_size);
@@ -3491,7 +3524,8 @@ static int obj_gpl_license(struct obj_file *f, const char **license)
 #define TAINT_URL                       "http://www.tux.org/lkml/#export-tainted"
 
 static void set_tainted(int fd, const char *m_name,
-		int kernel_has_tainted, int taint, const char *text1, const char *text2)
+		int kernel_has_tainted, int taint,
+		const char *text1, const char *text2)
 {
 	static smallint printed_info;
 
@@ -3518,20 +3552,18 @@ static void set_tainted(int fd, const char *m_name,
 /* Check if loading this module will taint the kernel. */
 static void check_tainted_module(struct obj_file *f, const char *m_name)
 {
-	static const char tainted_file[] ALIGN1 = TAINT_FILENAME;
-
 	int fd, kernel_has_tainted;
 	const char *ptr;
 
 	kernel_has_tainted = 1;
-	fd = open(tainted_file, O_RDWR);
+	fd = open(TAINT_FILENAME, O_RDWR);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			kernel_has_tainted = 0;
 		else if (errno == EACCES)
 			kernel_has_tainted = 1;
 		else {
-			perror(tainted_file);
+			bb_simple_perror_msg(TAINT_FILENAME);
 			kernel_has_tainted = 0;
 		}
 	}
@@ -3586,7 +3618,7 @@ get_module_version(struct obj_file *f, char str[STRVERSIONLEN])
  */
 static void
 add_ksymoops_symbols(struct obj_file *f, const char *filename,
-				 const char *m_name)
+		const char *m_name)
 {
 	static const char symprefix[] ALIGN1 = "__insmod_";
 	static const char section_names[][8] = {
@@ -3780,12 +3812,20 @@ int FAST_FUNC bb_init_module_24(const char *m_filename, const char *options)
 	int m_has_modinfo;
 #endif
 	char *image;
-	size_t image_size = 64 * 1024 * 1024;
+	size_t image_size;
+	bool mmaped;
 
-	/* Load module into memory and unzip if compressed */
-	image = xmalloc_open_zipped_read_close(m_filename, &image_size);
-	if (!image)
-		return EXIT_FAILURE;
+	image_size = INT_MAX - 4095;
+	mmaped = 0;
+	image = try_to_mmap_module(m_filename, &image_size);
+	if (image) {
+		mmaped = 1;
+	} else {
+		/* Load module into memory and unzip if compressed */
+		image = xmalloc_open_zipped_read_close(m_filename, &image_size);
+		if (!image)
+			return (-errno);
+	}
 
 	m_name = xstrdup(bb_basename(m_filename));
 	/* "module.o[.gz]" -> "module" */
@@ -3815,8 +3855,10 @@ int FAST_FUNC bb_init_module_24(const char *m_filename, const char *options)
 				"\twhile this kernel is version %s",
 				flag_force_load ? "warning: " : "",
 				m_name, m_strversion, uts.release);
-			if (!flag_force_load)
+			if (!flag_force_load) {
+				exit_status = ESRCH;
 				goto out;
+			}
 		}
 	}
 #endif
@@ -3898,7 +3940,10 @@ int FAST_FUNC bb_init_module_24(const char *m_filename, const char *options)
 	exit_status = EXIT_SUCCESS;
 
  out:
-	free(image);
+	if (mmaped)
+		munmap(image, image_size);
+	else
+		free(image);
 	free(m_name);
 
 	return exit_status;

@@ -6,7 +6,7 @@
  * Copyright (C) 2003 by Arthur van Hoff (avh@strangeberry.com)
  * Copyright (C) 2004 by David Brownell
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /*
@@ -23,14 +23,24 @@
 // - avoid silent script failures, especially under load...
 // - link status monitoring (restart on link-up; stop on link-down)
 
-#include <netinet/ether.h>
-#include <net/ethernet.h>
-#include <net/if.h>
-#include <net/if_arp.h>
-#include <linux/if_packet.h>
-#include <linux/sockios.h>
+//usage:#define zcip_trivial_usage
+//usage:       "[OPTIONS] IFACE SCRIPT"
+//usage:#define zcip_full_usage "\n\n"
+//usage:       "Manage a ZeroConf IPv4 link-local address\n"
+//usage:     "\n	-f		Run in foreground"
+//usage:     "\n	-q		Quit after obtaining address"
+//usage:     "\n	-r 169.254.x.x	Request this address first"
+//usage:     "\n	-v		Verbose"
+//usage:     "\n"
+//usage:     "\nWith no -q, runs continuously monitoring for ARP conflicts,"
+//usage:     "\nexits only on I/O errors (link down etc)"
 
 #include "libbb.h"
+#include <netinet/ether.h>
+#include <net/if.h>
+#include <net/if_arp.h>
+#include <linux/sockios.h>
+
 #include <syslog.h>
 
 /* We don't need more than 32 bits of the counter */
@@ -77,10 +87,11 @@ enum {
 struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
+#define INIT_G() do { } while (0)
 
 
 /**
@@ -160,13 +171,13 @@ static int run(char *argv[3], const char *param, struct in_addr *ip)
 	}
 	bb_info_msg(fmt, argv[2], argv[0], addr);
 
-	status = wait4pid(spawn(argv + 1));
+	status = spawn_and_wait(argv + 1);
 	if (status < 0) {
 		bb_perror_msg("%s %s %s" + 3, argv[2], argv[0]);
 		return -errno;
 	}
 	if (status != 0)
-		bb_error_msg("script %s %s failed, exitcode=%d", argv[1], argv[2], status);
+		bb_error_msg("script %s %s failed, exitcode=%d", argv[1], argv[2], status & 0xff);
 	return status;
 }
 
@@ -182,7 +193,7 @@ static ALWAYS_INLINE unsigned random_delay_ms(unsigned secs)
  * main program
  */
 int zcip_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int zcip_main(int argc, char **argv)
+int zcip_main(int argc UNUSED_PARAM, char **argv)
 {
 	int state;
 	char *r_opt;
@@ -213,6 +224,7 @@ int zcip_main(int argc, char **argv)
 #define verbose    (L.verbose   )
 
 	memset(&L, 0, sizeof(L));
+	INIT_G();
 
 #define FOREGROUND (opts & 1)
 #define QUIT       (opts & 2)
@@ -241,7 +253,6 @@ int zcip_main(int argc, char **argv)
 			bb_error_msg_and_die("invalid link address");
 		}
 	}
-	argc -= optind;
 	argv += optind - 1;
 
 	/* Now: argv[0]:junk argv[1]:intf argv[2]:script argv[3]:NULL */

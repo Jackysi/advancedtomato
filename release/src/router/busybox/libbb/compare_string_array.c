@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -53,19 +53,24 @@ int FAST_FUNC index_in_substr_array(const char *const string_array[], const char
 
 int FAST_FUNC index_in_substrings(const char *strings, const char *key)
 {
-	int len = strlen(key);
+	int matched_idx = -1;
+	const int len = strlen(key);
 
 	if (len) {
 		int idx = 0;
 		while (*strings) {
 			if (strncmp(strings, key, len) == 0) {
-				return idx;
+				if (strings[len] == '\0')
+					return idx; /* exact match */
+				if (matched_idx >= 0)
+					return -1; /* ambiguous match */
+				matched_idx = idx;
 			}
 			strings += strlen(strings) + 1; /* skip NUL */
 			idx++;
 		}
 	}
-	return -1;
+	return matched_idx;
 }
 
 const char* FAST_FUNC nth_string(const char *strings, int n)
@@ -76,3 +81,15 @@ const char* FAST_FUNC nth_string(const char *strings, int n)
 	}
 	return strings;
 }
+
+#ifdef UNUSED_SO_FAR /* only brctl.c needs it yet */
+/* Returns 0 for no, 1 for yes or a negative value on error.  */
+smallint FAST_FUNC yesno(const char *str)
+{
+	static const char no_yes[] ALIGN1 =
+		"0\0" "off\0" "no\0"
+		"1\0" "on\0" "yes\0";
+	int ret = index_in_substrings(no_yes, str);
+	return ret / 3;
+}
+#endif

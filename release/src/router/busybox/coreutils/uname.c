@@ -2,7 +2,7 @@
 /* uname -- print system information
  * Copyright (C) 1989-1999 Free Software Foundation, Inc.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant */
@@ -48,8 +48,25 @@
  *  Fix handling of -a to not print "unknown", add -o and -i support.
  */
 
-#include <sys/utsname.h>
+//usage:#define uname_trivial_usage
+//usage:       "[-amnrspv]"
+//usage:#define uname_full_usage "\n\n"
+//usage:       "Print system information\n"
+//usage:     "\n	-a	Print all"
+//usage:     "\n	-m	The machine (hardware) type"
+//usage:     "\n	-n	Hostname"
+//usage:     "\n	-r	OS release"
+//usage:     "\n	-s	OS name (default)"
+//usage:     "\n	-p	Processor type"
+//usage:     "\n	-v	OS version"
+//usage:
+//usage:#define uname_example_usage
+//usage:       "$ uname -a\n"
+//usage:       "Linux debian 2.4.23 #2 Tue Dec 23 17:09:10 MST 2003 i686 GNU/Linux\n"
+
 #include "libbb.h"
+/* After libbb.h, since it needs sys/types.h on some systems */
+#include <sys/utsname.h>
 
 typedef struct {
 	struct utsname name;
@@ -73,8 +90,8 @@ static const unsigned short utsname_offset[] = {
 int uname_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int uname_main(int argc UNUSED_PARAM, char **argv)
 {
-#if ENABLE_GETOPT_LONG
-	static const char longopts[] ALIGN1 =
+#if ENABLE_LONG_OPTS
+	static const char uname_longopts[] ALIGN1 =
 		/* name, has_arg, val */
 		"all\0"               No_argument       "a"
 		"kernel-name\0"       No_argument       "s"
@@ -97,7 +114,7 @@ int uname_main(int argc UNUSED_PARAM, char **argv)
 	const unsigned short *delta;
 	unsigned toprint;
 
-	USE_GETOPT_LONG(applet_long_options = longopts);
+	IF_LONG_OPTS(applet_long_options = uname_longopts);
 	toprint = getopt32(argv, options);
 
 	if (argv[optind]) { /* coreutils-6.9 compat */

@@ -7,8 +7,18 @@
  * Copyright 1994 Matthew Dillon (dillon@apollo.west.oic.com)
  * Vladimir Oleynik <dzo@simtreas.ru> (C) 2002
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define crontab_trivial_usage
+//usage:       "[-c DIR] [-u USER] [-ler]|[FILE]"
+//usage:#define crontab_full_usage "\n\n"
+//usage:       "	-c	Crontab directory"
+//usage:     "\n	-u	User"
+//usage:     "\n	-l	List crontab"
+//usage:     "\n	-e	Edit crontab"
+//usage:     "\n	-r	Delete crontab"
+//usage:     "\n	FILE	Replace crontab by FILE ('-': stdin)"
 
 #include "libbb.h"
 
@@ -17,36 +27,23 @@
 #define CRONUPDATE      "cron.update"
 #endif
 
-static void change_user(const struct passwd *pas)
-{
-	xsetenv("USER", pas->pw_name);
-	xsetenv("HOME", pas->pw_dir);
-	xsetenv("SHELL", DEFAULT_SHELL);
-
-	/* initgroups, setgid, setuid */
-	change_identity(pas);
-
-	if (chdir(pas->pw_dir) < 0) {
-		bb_perror_msg("chdir(%s) by %s failed",
-				pas->pw_dir, pas->pw_name);
-		xchdir("/tmp");
-	}
-}
-
 static void edit_file(const struct passwd *pas, const char *file)
 {
 	const char *ptr;
-	int pid = vfork();
+	pid_t pid;
 
-	if (pid < 0) /* failure */
-		bb_perror_msg_and_die("vfork");
+	pid = xvfork();
 	if (pid) { /* parent */
 		wait4pid(pid);
 		return;
 	}
 
 	/* CHILD - change user and run editor */
-	change_user(pas);
+	/* initgroups, setgid, setuid */
+	change_identity(pas);
+	setup_environment(pas->pw_shell,
+			SETUP_ENV_CHANGEENV | SETUP_ENV_TO_TMP,
+			pas);
 	ptr = getenv("VISUAL");
 	if (!ptr) {
 		ptr = getenv("EDITOR");
@@ -55,7 +52,7 @@ static void edit_file(const struct passwd *pas, const char *file)
 	}
 
 	BB_EXECLP(ptr, ptr, file, NULL);
-	bb_perror_msg_and_die("exec %s", ptr);
+	bb_perror_msg_and_die("can't execute '%s'", ptr);
 }
 
 static int open_as_user(const struct passwd *pas, const char *file)
@@ -63,9 +60,7 @@ static int open_as_user(const struct passwd *pas, const char *file)
 	pid_t pid;
 	char c;
 
-	pid = vfork();
-	if (pid < 0) /* ERROR */
-		bb_perror_msg_and_die("vfork");
+	pid = xvfork();
 	if (pid) { /* PARENT */
 		if (wait4pid(pid) == 0) {
 			/* exitcode 0: child says it can read */
@@ -118,9 +113,9 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 	argv += optind;
 
 	if (sanitize_env_if_suid()) { /* Clears dangerous stuff, sets PATH */
-		/* run by non-root? */
+		/* Run by non-root */
 		if (opt_ler & (OPT_u|OPT_c))
-			bb_error_msg_and_die("only root can use -c or -u");
+			bb_error_msg_and_die(bb_msg_you_must_be_root);
 	}
 
 	if (opt_ler & OPT_u) {
@@ -193,7 +188,7 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 			close(fd);
 			xrename(new_fname, pas->pw_name);
 		} else {
-			bb_error_msg("cannot create %s/%s",
+			bb_error_msg("can't create %s/%s",
 					crontab_dir, new_fname);
 		}
 		if (tmp_fname)
@@ -220,7 +215,7 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 		/* loop */
 	}
 	if (fd < 0) {
-		bb_error_msg("cannot append to %s/%s",
+		bb_error_msg("can't append to %s/%s",
 				crontab_dir, CRONUPDATE);
 	}
 	return 0;

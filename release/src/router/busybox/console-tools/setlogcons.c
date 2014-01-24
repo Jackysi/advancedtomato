@@ -6,8 +6,13 @@
  *
  * Based on setlogcons (kbd-1.12) by Andries E. Brouwer
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define setlogcons_trivial_usage
+//usage:       "N"
+//usage:#define setlogcons_full_usage "\n\n"
+//usage:       "Redirect the kernel output to console N (0 for current)"
 
 #include "libbb.h"
 
@@ -17,9 +22,10 @@ int setlogcons_main(int argc UNUSED_PARAM, char **argv)
 	struct {
 		char fn;
 		char subarg;
-	} arg = { 11, /* redirect kernel messages */
-			  0   /* to specified console (current as default) */
-			};
+	} arg = {
+		11, /* redirect kernel messages */
+		0   /* to specified console (current as default) */
+	};
 
 	if (argv[1])
 		arg.subarg = xatou_range(argv[1], 0, 63);

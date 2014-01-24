@@ -28,6 +28,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* TODO: depends on runit_lib.c - review and reduce/eliminate */
 
+//usage:#define runsvdir_trivial_usage
+//usage:       "[-P] [-s SCRIPT] DIR"
+//usage:#define runsvdir_full_usage "\n\n"
+//usage:       "Start a runsv process for each subdirectory. If it exits, restart it.\n"
+//usage:     "\n	-P		Put each runsv in a new session"
+//usage:     "\n	-s SCRIPT	Run SCRIPT <signo> after signal is processed"
+
 #include <sys/poll.h>
 #include <sys/file.h>
 #include "libbb.h"
@@ -58,7 +65,7 @@ struct globals {
 	struct pollfd pfd[1];
 	unsigned stamplog;
 #endif
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define sv          (G.sv          )
 #define svdir       (G.svdir       )
@@ -68,12 +75,11 @@ struct globals {
 #define logpipe     (G.logpipe     )
 #define pfd         (G.pfd         )
 #define stamplog    (G.stamplog    )
-#define INIT_G() do { \
-} while (0)
+#define INIT_G() do { } while (0)
 
 static void fatal2_cannot(const char *m1, const char *m2)
 {
-	bb_perror_msg_and_die("%s: fatal: cannot %s%s", svdir, m1, m2);
+	bb_perror_msg_and_die("%s: fatal: can't %s%s", svdir, m1, m2);
 	/* was exiting 100 */
 }
 static void warn3x(const char *m1, const char *m2, const char *m3)
@@ -82,7 +88,7 @@ static void warn3x(const char *m1, const char *m2, const char *m3)
 }
 static void warn2_cannot(const char *m1, const char *m2)
 {
-	warn3x("cannot ", m1, m2);
+	warn3x("can't ", m1, m2);
 }
 #if ENABLE_FEATURE_RUNSVDIR_LOG
 static void warnx(const char *m1)
@@ -129,7 +135,7 @@ static NOINLINE pid_t runsv(const char *name)
 static NOINLINE int do_rescan(void)
 {
 	DIR *dir;
-	direntry *d;
+	struct dirent *d;
 	int i;
 	struct stat s;
 	int need_rescan = 0;
@@ -256,14 +262,14 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
 		if (rploglen < 7) {
 			warnx("log must have at least seven characters");
 		} else if (piped_pair(logpipe)) {
-			warnx("cannot create pipe for log");
+			warnx("can't create pipe for log");
 		} else {
 			close_on_exec_on(logpipe.rd);
 			close_on_exec_on(logpipe.wr);
 			ndelay_on(logpipe.rd);
 			ndelay_on(logpipe.wr);
 			if (dup2(logpipe.wr, 2) == -1) {
-				warnx("cannot set filedescriptor for log");
+				warnx("can't set filedescriptor for log");
 			} else {
 				pfd[0].fd = logpipe.rd;
 				pfd[0].events = POLLIN;
@@ -276,7 +282,7 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
 	}
  run:
 #endif
-	curdir = open_read(".");
+	curdir = open(".", O_RDONLY|O_NDELAY);
 	if (curdir == -1)
 		fatal2_cannot("open current directory", "");
 	close_on_exec_on(curdir);
@@ -312,8 +318,11 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
 						last_mtime = s.st_mtime;
 						last_dev = s.st_dev;
 						last_ino = s.st_ino;
-						//if (now <= mtime)
-						//	sleep(1);
+						/* if the svdir changed this very second, wait until the
+						 * next second, because we won't be able to detect more
+						 * changes within this second */
+						while (time(NULL) == last_mtime)
+							usleep(100000);
 						need_rescan = do_rescan();
 						while (fchdir(curdir) == -1) {
 							warn2_cannot("change directory, pausing", "");

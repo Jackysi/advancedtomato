@@ -7,43 +7,56 @@
  *
  * Renamed to flash_eraseall.c
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define flash_eraseall_trivial_usage
+//usage:       "[-jq] MTD_DEVICE"
+//usage:#define flash_eraseall_full_usage "\n\n"
+//usage:       "Erase an MTD device\n"
+//usage:     "\n	-j	Format the device for jffs2"
+//usage:     "\n	-q	Don't display progress messages"
 
 #include "libbb.h"
 #include <mtd/mtd-user.h>
-#include <mtd/jffs2-user.h>
+#include <linux/jffs2.h>
 
-#define OPTION_J	(1 << 0)
-#define OPTION_Q	(1 << 1)
-#define IS_NAND		(1 << 2)
-#define BBTEST		(1 << 3)
+#define OPTION_J  (1 << 0)
+#define OPTION_Q  (1 << 1)
+#define IS_NAND   (1 << 2)
+#define BBTEST    (1 << 3)
 
-struct globals {
-	/* This is used in the cpu_to_je/je_to_cpu macros in jffs2_user.h */
-	int tgt_endian;
-};
-#define G (*(struct globals*)&bb_common_bufsiz1)
-#define target_endian	(G.tgt_endian)
-#define INIT_G() do { \
-	target_endian = __BYTE_ORDER; \
-} while (0)
+/* mtd/jffs2-user.h used to have this atrocity:
+extern int target_endian;
 
-static uint32_t crc32(uint32_t val, const void *ss, int len,
-		uint32_t *crc32_table)
-{
-	const unsigned char *s = ss;
-	while (--len >= 0)
-		val = crc32_table[(val ^ *s++) & 0xff] ^ (val >> 8);
-	return val;
-}
+#define t16(x) ({ __u16 __b = (x); (target_endian==__BYTE_ORDER)?__b:bswap_16(__b); })
+#define t32(x) ({ __u32 __b = (x); (target_endian==__BYTE_ORDER)?__b:bswap_32(__b); })
+
+#define cpu_to_je16(x) ((jint16_t){t16(x)})
+#define cpu_to_je32(x) ((jint32_t){t32(x)})
+#define cpu_to_jemode(x) ((jmode_t){t32(x)})
+
+#define je16_to_cpu(x) (t16((x).v16))
+#define je32_to_cpu(x) (t32((x).v32))
+#define jemode_to_cpu(x) (t32((x).m))
+
+but mtd/jffs2-user.h is gone now (at least 2.6.31.6 does not have it anymore)
+*/
+
+/* We always use native endianness */
+#undef cpu_to_je16
+#undef cpu_to_je32
+#define cpu_to_je16(v) ((jint16_t){(v)})
+#define cpu_to_je32(v) ((jint32_t){(v)})
 
 static void show_progress(mtd_info_t *meminfo, erase_info_t *erase)
 {
-	printf("\rErasing %d Kibyte @ %x -- %2llu %% complete.",
-		(unsigned)meminfo->erasesize / 1024, erase->start,
-		(unsigned long long) erase->start * 100 / meminfo->size);
-	fflush(stdout);
+	printf("\rErasing %u Kibyte @ %x - %2u%% complete.",
+		(unsigned)meminfo->erasesize / 1024,
+		erase->start,
+		(unsigned) ((unsigned long long) erase->start * 100 / meminfo->size)
+	);
+	fflush_all();
 }
 
 int flash_eraseall_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -57,16 +70,14 @@ int flash_eraseall_main(int argc UNUSED_PARAM, char **argv)
 	unsigned int flags;
 	char *mtd_name;
 
-	INIT_G();
 	opt_complementary = "=1";
 	flags = BBTEST | getopt32(argv, "jq");
 
 	mtd_name = argv[optind];
-	xstat(mtd_name, &st);
+	fd = xopen(mtd_name, O_RDWR);
+	fstat(fd, &st);
 	if (!S_ISCHR(st.st_mode))
 		bb_error_msg_and_die("%s: not a char device", mtd_name);
-
-	fd = xopen(mtd_name, O_RDWR);
 
 	xioctl(fd, MEMGETINFO, &meminfo);
 	erase.length = meminfo.erasesize;
@@ -97,7 +108,7 @@ int flash_eraseall_main(int argc UNUSED_PARAM, char **argv)
 				if (clmlen > 8)
 					clmlen = 8;
 				if (clmlen == 0)
-					bb_error_msg_and_die("Autoplacement selected and no empty space in oob");
+					bb_error_msg_and_die("autoplacement selected and no empty space in oob");
 			} else {
 				/* Legacy mode */
 				switch (meminfo.oobsize) {
@@ -118,8 +129,9 @@ int flash_eraseall_main(int argc UNUSED_PARAM, char **argv)
 			cleanmarker.totlen = cpu_to_je32(8);
 		}
 
-		cleanmarker.hdr_crc = cpu_to_je32(crc32(0, &cleanmarker, sizeof(struct jffs2_unknown_node) - 4,
-					crc32_table));
+		cleanmarker.hdr_crc = cpu_to_je32(
+			crc32_block_endian0(0, &cleanmarker, sizeof(struct jffs2_unknown_node) - 4, crc32_table)
+		);
 	}
 
 	/* Don't want to destroy progress indicator by bb_error_msg's */

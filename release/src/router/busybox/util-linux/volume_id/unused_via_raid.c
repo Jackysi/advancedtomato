@@ -29,14 +29,14 @@ struct via_meta {
 		uint32_t	capacity_low;
 		uint32_t	capacity_high;
 		uint32_t	serial_checksum;
-	} __attribute((packed)) array;
+	} PACKED array;
 	uint32_t	serial_checksum[8];
 	uint8_t		checksum;
-} __attribute__((packed));
+} PACKED;
 
 #define VIA_SIGNATURE		0xAA55
 
-int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct via_meta *via;

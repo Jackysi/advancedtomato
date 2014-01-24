@@ -4,6 +4,46 @@
   Port to BusyBox (c) 2007 by Yuichi Nakamura <ynakam@hitachisoft.jp>
 */
 
+//usage:#define setfiles_trivial_usage
+//usage:       "[-dnpqsvW] [-e DIR]... [-o FILE] [-r alt_root_path]"
+//usage:	IF_FEATURE_SETFILES_CHECK_OPTION(
+//usage:       " [-c policyfile] spec_file"
+//usage:	)
+//usage:       " pathname"
+//usage:#define setfiles_full_usage "\n\n"
+//usage:       "Reset file contexts under pathname according to spec_file\n"
+//usage:	IF_FEATURE_SETFILES_CHECK_OPTION(
+//usage:     "\n	-c FILE	Check the validity of the contexts against the specified binary policy"
+//usage:	)
+//usage:     "\n	-d	Show which specification matched each file"
+//usage:     "\n	-l	Log changes in file labels to syslog"
+//usage:     "\n	-n	Don't change any file labels"
+//usage:     "\n	-q	Suppress warnings"
+//usage:     "\n	-r DIR	Use an alternate root path"
+//usage:     "\n	-e DIR	Exclude DIR"
+//usage:     "\n	-F	Force reset of context to match file_context for customizable files"
+//usage:     "\n	-o FILE	Save list of files with incorrect context"
+//usage:     "\n	-s	Take a list of files from stdin (instead of command line)"
+//usage:     "\n	-v	Show changes in file labels, if type or role are changing"
+//usage:     "\n	-vv	Show changes in file labels, if type, role, or user are changing"
+//usage:     "\n	-W	Display warnings about entries that had no matching files"
+//usage:
+//usage:#define restorecon_trivial_usage
+//usage:       "[-iFnRv] [-e EXCLUDEDIR]... [-o FILE] [-f FILE]"
+//usage:#define restorecon_full_usage "\n\n"
+//usage:       "Reset security contexts of files in pathname\n"
+//usage:     "\n	-i	Ignore files that don't exist"
+//usage:     "\n	-f FILE	File with list of files to process"
+//usage:     "\n	-e DIR	Directory to exclude"
+//usage:     "\n	-R,-r	Recurse"
+//usage:     "\n	-n	Don't change any file labels"
+//usage:     "\n	-o FILE	Save list of files with incorrect context"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-vv	Show changed labels"
+//usage:     "\n	-F	Force reset of context to match file_context"
+//usage:     "\n		for customizable files, or the user section,"
+//usage:     "\n		if it has changed"
+
 #include "libbb.h"
 #if ENABLE_FEATURE_SETFILES_CHECK_OPTION
 #include <sepol/sepol.h>
@@ -35,8 +75,7 @@ struct globals {
 	dev_t dev_id; /* Device id where target file exists */
 	int nerr;
 	struct edir excludeArray[MAX_EXCLUDES];
-};
-
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 void BUG_setfiles_globals_too_big(void);
 #define INIT_G() do { \
@@ -112,14 +151,13 @@ static void inc_err(void)
 	}
 }
 
-static void add_exclude(const char *const directory)
+static void add_exclude(const char *directory)
 {
 	struct stat sb;
 	size_t len;
 
 	if (directory == NULL || directory[0] != '/') {
 		bb_error_msg_and_die("full path required for exclude: %s", directory);
-
 	}
 	if (lstat(directory, &sb)) {
 		bb_error_msg("directory \"%s\" not found, ignoring", directory);
@@ -286,7 +324,7 @@ static int restore(const char *file)
 			if (count == 0)
 				bb_putchar('\n');
 			bb_putchar('*');
-			fflush(stdout);
+			fflush_all();
 		}
 	}
 
@@ -347,7 +385,7 @@ static int restore(const char *file)
 		 * same.  For "-vv", emit everything. */
 		if (verbose > 1 || !user_only_changed) {
 			bb_info_msg("%s: reset %s context %s->%s",
-				applet_name, my_file, context ?: "", newcon);
+				applet_name, my_file, context ? context : "", newcon);
 		}
 	}
 
@@ -460,10 +498,11 @@ static int process_one(char *name)
 
 	if (S_ISDIR(sb.st_mode) && recurse) {
 		if (recursive_action(name,
-				     ACTION_RECURSE,
-				     apply_spec,
-				     apply_spec,
-				     NULL, 0) != TRUE) {
+				ACTION_RECURSE,
+				apply_spec,
+				apply_spec,
+				NULL, 0) != TRUE
+		) {
 			bb_error_msg("error while labeling %s", name);
 			goto err;
 		}
@@ -490,7 +529,7 @@ static int process_one(char *name)
 }
 
 int setfiles_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int setfiles_main(int argc, char **argv)
+int setfiles_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct stat sb;
 	int rc, i = 0;
@@ -544,11 +583,12 @@ int setfiles_main(int argc, char **argv)
 			&exclude_dir, &input_filename, &out_filename, &verbose);
 	} else { /* setfiles */
 		flags = getopt32(argv, "de:f:ilnpqr:svo:FW"
-				USE_FEATURE_SETFILES_CHECK_OPTION("c:"),
+				IF_FEATURE_SETFILES_CHECK_OPTION("c:"),
 			&exclude_dir, &input_filename, &rootpath, &out_filename,
-				 USE_FEATURE_SETFILES_CHECK_OPTION(&policyfile,)
+				IF_FEATURE_SETFILES_CHECK_OPTION(&policyfile,)
 			&verbose);
 	}
+	argv += optind;
 
 #if ENABLE_FEATURE_SETFILES_CHECK_OPTION
 	if ((applet_name[0] == 's') && (flags & OPT_c)) {
@@ -561,8 +601,8 @@ int setfiles_main(int argc, char **argv)
 		fclose(policystream);
 
 		/* Only process the specified file_contexts file, not
-		   any .homedirs or .local files, and do not perform
-		   context translations. */
+		 * any .homedirs or .local files, and do not perform
+		 * context translations. */
 		set_matchpathcon_flags(MATCHPATHCON_BASEONLY |
 				       MATCHPATHCON_NOTRANS |
 				       MATCHPATHCON_VALIDATE);
@@ -592,27 +632,23 @@ int setfiles_main(int argc, char **argv)
 
 	if (applet_name[0] == 's') { /* setfiles */
 		/* Use our own invalid context checking function so that
-		   we can support either checking against the active policy or
-		   checking against a binary policy file. */
+		 * we can support either checking against the active policy or
+		 * checking against a binary policy file. */
 		set_matchpathcon_canoncon(&canoncon);
-		if (argc == 1)
+		if (!argv[0])
 			bb_show_usage();
-		if (stat(argv[optind], &sb) < 0) {
-			bb_simple_perror_msg_and_die(argv[optind]);
-		}
+		xstat(argv[0], &sb);
 		if (!S_ISREG(sb.st_mode)) {
-			bb_error_msg_and_die("spec file %s is not a regular file", argv[optind]);
+			bb_error_msg_and_die("spec file %s is not a regular file", argv[0]);
 		}
 		/* Load the file contexts configuration and check it. */
-		rc = matchpathcon_init(argv[optind]);
+		rc = matchpathcon_init(argv[0]);
 		if (rc < 0) {
-			bb_simple_perror_msg_and_die(argv[optind]);
+			bb_simple_perror_msg_and_die(argv[0]);
 		}
-
-		optind++;
-
 		if (nerr)
 			exit(EXIT_FAILURE);
+		argv++;
 	}
 
 	if (input_filename) {
@@ -628,9 +664,9 @@ int setfiles_main(int argc, char **argv)
 		if (ENABLE_FEATURE_CLEAN_UP)
 			fclose_if_not_stdin(f);
 	} else {
-		if (optind >= argc)
+		if (!argv[0])
 			bb_show_usage();
-		for (i = optind; i < argc; i++) {
+		for (i = 0; argv[i]; i++) {
 			errors |= process_one(argv[i]);
 		}
 	}

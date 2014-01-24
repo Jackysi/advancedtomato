@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2008 by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /*
@@ -27,6 +27,34 @@
  * See below for mask names explanation.
  */
 
+//usage:#define inotifyd_trivial_usage
+//usage:	"PROG FILE1[:MASK]..."
+//usage:#define inotifyd_full_usage "\n\n"
+//usage:       "Run PROG on filesystem changes."
+//usage:     "\nWhen a filesystem event matching MASK occurs on FILEn,"
+//usage:     "\nPROG ACTUAL_EVENTS FILEn [SUBFILE] is run."
+//usage:     "\nIf PROG is -, events are sent to stdout."
+//usage:     "\nEvents:"
+//usage:     "\n	a	File is accessed"
+//usage:     "\n	c	File is modified"
+//usage:     "\n	e	Metadata changed"
+//usage:     "\n	w	Writable file is closed"
+//usage:     "\n	0	Unwritable file is closed"
+//usage:     "\n	r	File is opened"
+//usage:     "\n	D	File is deleted"
+//usage:     "\n	M	File is moved"
+//usage:     "\n	u	Backing fs is unmounted"
+//usage:     "\n	o	Event queue overflowed"
+//usage:     "\n	x	File can't be watched anymore"
+//usage:     "\nIf watching a directory:"
+//usage:     "\n	m	Subfile is moved into dir"
+//usage:     "\n	y	Subfile is moved out of dir"
+//usage:     "\n	n	Subfile is created"
+//usage:     "\n	d	Subfile is deleted"
+//usage:     "\n"
+//usage:     "\ninotifyd waits for PROG to exit."
+//usage:     "\nWhen x event happens for all FILEs, inotifyd exits."
+
 #include "libbb.h"
 #include <sys/inotify.h>
 
@@ -34,8 +62,8 @@ static const char mask_names[] ALIGN1 =
 	"a"	// 0x00000001	File was accessed
 	"c"	// 0x00000002	File was modified
 	"e"	// 0x00000004	Metadata changed
-	"w"	// 0x00000008	Writtable file was closed
-	"0"	// 0x00000010	Unwrittable file closed
+	"w"	// 0x00000008	Writable file was closed
+	"0"	// 0x00000010	Unwritable file closed
 	"r"	// 0x00000020	File was opened
 	"m"	// 0x00000040	File was moved from X
 	"y"	// 0x00000080	File was moved to Y
@@ -150,12 +178,20 @@ int inotifyd_main(int argc, char **argv)
 						*s++ = mask_names[i];
 				}
 				*s = '\0';
-//				bb_error_msg("exec %s %08X\t%s\t%s\t%s", args[0],
-//					ie->mask, events, watches[ie->wd], ie->len ? ie->name : "");
-				args[1] = events;
-				args[2] = watches[ie->wd];
-				args[3] = ie->len ? ie->name : NULL;
-				wait4pid(xspawn((char **)args));
+				if (LONE_CHAR(args[0], '-')) {
+					/* "inotifyd - FILE": built-in echo */
+					printf(ie->len ? "%s\t%s\t%s\n" : "%s\t%s\n", events,
+							watches[ie->wd],
+							ie->name);
+					fflush(stdout);
+				} else {
+//					bb_error_msg("exec %s %08X\t%s\t%s\t%s", args[0],
+//						ie->mask, events, watches[ie->wd], ie->len ? ie->name : "");
+					args[1] = events;
+					args[2] = watches[ie->wd];
+					args[3] = ie->len ? ie->name : NULL;
+					spawn_and_wait((char **)args);
+				}
 				// we are done if all files got final x event
 				if (ie->mask & 0x8000) {
 					if (--argc <= 0)

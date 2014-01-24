@@ -5,23 +5,32 @@
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  * Copyright (C) 2006 Gabriel Somlo <somlo at cmu.edu>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Based on which from debianutils
  */
+
+//usage:#define which_trivial_usage
+//usage:       "[COMMAND]..."
+//usage:#define which_full_usage "\n\n"
+//usage:       "Locate a COMMAND"
+//usage:
+//usage:#define which_example_usage
+//usage:       "$ which login\n"
+//usage:       "/bin/login\n"
 
 #include "libbb.h"
 
 int which_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int which_main(int argc UNUSED_PARAM, char **argv)
 {
-	USE_DESKTOP(int opt;)
+	IF_DESKTOP(int opt;)
 	int status = EXIT_SUCCESS;
 	char *path;
 	char *p;
 
 	opt_complementary = "-1"; /* at least one argument */
-	USE_DESKTOP(opt =) getopt32(argv, "a");
+	IF_DESKTOP(opt =) getopt32(argv, "a");
 	argv += optind;
 
 	/* This matches what is seen on e.g. ubuntu.

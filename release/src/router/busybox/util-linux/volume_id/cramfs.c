@@ -31,11 +31,11 @@ struct cramfs_super {
 		uint32_t	edition;
 		uint32_t	blocks;
 		uint32_t	files;
-	} __attribute__((__packed__)) info;
+	} PACKED info;
 	uint8_t		name[16];
-} __attribute__((__packed__));
+} PACKED;
 
-int volume_id_probe_cramfs(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_cramfs(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct cramfs_super *cs;
@@ -51,7 +51,7 @@ int volume_id_probe_cramfs(struct volume_id *id /*,uint64_t off*/)
 		volume_id_set_label_string(id, cs->name, 16);
 
 //		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-//		id->type = "cramfs";
+		IF_FEATURE_BLKID_TYPE(id->type = "cramfs";)
 		return 0;
 	}
 

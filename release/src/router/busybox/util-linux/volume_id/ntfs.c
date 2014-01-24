@@ -45,7 +45,7 @@ struct ntfs_super_block {
 	uint8_t		reserved2[3];
 	uint8_t		volume_serial[8];
 	uint16_t	checksum;
-} __attribute__((__packed__));
+} PACKED;
 
 struct master_file_table_record {
 	uint8_t		magic[4];
@@ -58,7 +58,7 @@ struct master_file_table_record {
 	uint16_t	flags;
 	uint32_t	bytes_in_use;
 	uint32_t	bytes_allocated;
-} __attribute__((__packed__));
+} PACKED;
 
 struct file_attribute {
 	uint32_t	type;
@@ -70,13 +70,13 @@ struct file_attribute {
 	uint16_t	instance;
 	uint32_t	value_len;
 	uint16_t	value_offset;
-} __attribute__((__packed__));
+} PACKED;
 
 struct volume_info {
 	uint64_t	reserved;
 	uint8_t		major_ver;
 	uint8_t		minor_ver;
-} __attribute__((__packed__));
+} PACKED;
 
 #define MFT_RECORD_VOLUME			3
 #define MFT_RECORD_ATTR_VOLUME_NAME		0x60
@@ -84,7 +84,7 @@ struct volume_info {
 #define MFT_RECORD_ATTR_OBJECT_ID		0x40
 #define MFT_RECORD_ATTR_END			0xffffffffu
 
-int volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	unsigned sector_size;
@@ -132,7 +132,7 @@ int volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
 	dbg("mft record size  %i", mft_record_size);
 
 	buf = volume_id_get_buffer(id, off + mft_off + (MFT_RECORD_VOLUME * mft_record_size),
-			 mft_record_size);
+			mft_record_size);
 	if (buf == NULL)
 		goto found;
 
@@ -150,7 +150,7 @@ int volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
 
 		attr = (struct file_attribute*) &buf[attr_off];
 		attr_type = le32_to_cpu(attr->type);
-		attr_len = le16_to_cpu(attr->len);
+		attr_len = le32_to_cpu(attr->len);
 		val_off = le16_to_cpu(attr->value_offset);
 		val_len = le32_to_cpu(attr->value_len);
 		attr_off += attr_len;
@@ -165,7 +165,7 @@ int volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
 			break;
 
 		dbg("found attribute type 0x%x, len %i, at offset %i",
-		    attr_type, attr_len, attr_off);
+			attr_type, attr_len, attr_off);
 
 //		if (attr_type == MFT_RECORD_ATTR_VOLUME_INFO) {
 //			struct volume_info *info;
@@ -188,7 +188,7 @@ int volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/)
 
  found:
 //	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-//	id->type = "ntfs";
+	IF_FEATURE_BLKID_TYPE(id->type = "ntfs";)
 
 	return 0;
 }

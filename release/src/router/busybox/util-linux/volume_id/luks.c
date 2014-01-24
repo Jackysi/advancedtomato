@@ -80,7 +80,7 @@ struct BUG_bad_size_luks_phdr {
 		1 : -1];
 };
 
-int volume_id_probe_luks(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_luks(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct luks_phdr *header;
@@ -94,7 +94,7 @@ int volume_id_probe_luks(struct volume_id *id /*,uint64_t off*/)
 
 //	volume_id_set_usage(id, VOLUME_ID_CRYPTO);
 	volume_id_set_uuid(id, header->uuid, UUID_DCE_STRING);
-//	id->type = "crypto_LUKS";
+	IF_FEATURE_BLKID_TYPE(id->type = "crypto_LUKS";)
 
 	return 0;
 }

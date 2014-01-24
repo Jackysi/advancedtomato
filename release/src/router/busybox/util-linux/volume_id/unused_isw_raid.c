@@ -26,12 +26,12 @@ struct isw_meta {
 	uint32_t	mpb_size;
 	uint32_t	family_num;
 	uint32_t	generation_num;
-} __attribute__((packed));
+} PACKED;
 
 #define ISW_SIGNATURE		"Intel Raid ISM Cfg Sig. "
 
 
-int volume_id_probe_intel_software_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_intel_software_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct isw_meta *isw;

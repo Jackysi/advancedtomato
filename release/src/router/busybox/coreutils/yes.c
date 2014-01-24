@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 N/A -- Matches GNU behavior. */
@@ -18,15 +18,19 @@
 
 /* This is a NOFORK applet. Be very careful! */
 
+//usage:#define yes_trivial_usage
+//usage:       "[STRING]"
+//usage:#define yes_full_usage "\n\n"
+//usage:       "Repeatedly output a line with STRING, or 'y'"
+
 int yes_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int yes_main(int argc, char **argv)
+int yes_main(int argc UNUSED_PARAM, char **argv)
 {
 	char **pp;
 
 	argv[0] = (char*)"y";
-	if (argc != 1) {
+	if (argv[1])
 		++argv;
-	}
 
 	do {
 		pp = argv;

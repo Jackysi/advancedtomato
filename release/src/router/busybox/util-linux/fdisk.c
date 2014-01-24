@@ -4,20 +4,55 @@
  * Copyright (C) 1992  A. V. Le Blanc (LeBlanc@mcc.ac.uk)
  * Copyright (C) 2001,2002 Vladimir Oleynik <dzo@simtreas.ru> (initial bb port)
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+/* Looks like someone forgot to add this to config system */
+//usage:#ifndef ENABLE_FEATURE_FDISK_BLKSIZE
+//usage:# define ENABLE_FEATURE_FDISK_BLKSIZE 0
+//usage:# define IF_FEATURE_FDISK_BLKSIZE(a)
+//usage:#endif
+//usage:
+//usage:#define fdisk_trivial_usage
+//usage:       "[-ul" IF_FEATURE_FDISK_BLKSIZE("s") "] "
+//usage:       "[-C CYLINDERS] [-H HEADS] [-S SECTORS] [-b SSZ] DISK"
+//usage:#define fdisk_full_usage "\n\n"
+//usage:       "Change partition table\n"
+//usage:     "\n	-u		Start and End are in sectors (instead of cylinders)"
+//usage:     "\n	-l		Show partition table for each DISK, then exit"
+//usage:	IF_FEATURE_FDISK_BLKSIZE(
+//usage:     "\n	-s		Show partition sizes in kb for each DISK, then exit"
+//usage:	)
+//usage:     "\n	-b 2048		(for certain MO disks) use 2048-byte sectors"
+//usage:     "\n	-C CYLINDERS	Set number of cylinders/heads/sectors"
+//usage:     "\n	-H HEADS"
+//usage:     "\n	-S SECTORS"
 
 #ifndef _LARGEFILE64_SOURCE
 /* For lseek64 */
-#define _LARGEFILE64_SOURCE
+# define _LARGEFILE64_SOURCE
 #endif
 #include <assert.h>             /* assert */
+#include <sys/mount.h>
+#if !defined(BLKSSZGET)
+# define BLKSSZGET _IO(0x12, 104)
+#endif
+#if !defined(BLKGETSIZE64)
+# define BLKGETSIZE64 _IOR(0x12,114,size_t)
+#endif
 #include "libbb.h"
+
+#if BB_LITTLE_ENDIAN
+# define inline_if_little_endian ALWAYS_INLINE
+#else
+# define inline_if_little_endian /* nothing */
+#endif
+
 
 /* Looks like someone forgot to add this to config system */
 #ifndef ENABLE_FEATURE_FDISK_BLKSIZE
 # define ENABLE_FEATURE_FDISK_BLKSIZE 0
-# define USE_FEATURE_FDISK_BLKSIZE(a)
+# define IF_FEATURE_FDISK_BLKSIZE(a)
 #endif
 
 #define DEFAULT_SECTOR_SIZE      512
@@ -49,8 +84,18 @@ enum {
 };
 
 
-/* Used for sector numbers. Today's disk sizes make it necessary */
 typedef unsigned long long ullong;
+/* Used for sector numbers. Partition formats we know
+ * do not support more than 2^32 sectors
+ */
+typedef uint32_t sector_t;
+#if UINT_MAX == 4294967295
+# define SECT_FMT ""
+#elif ULONG_MAX == 4294967295
+# define SECT_FMT "l"
+#else
+# error Cant detect sizeof(uint32_t)
+#endif
 
 struct hd_geometry {
 	unsigned char heads;
@@ -67,7 +112,7 @@ static const char msg_building_new_label[] ALIGN1 =
 "won't be recoverable.\n\n";
 
 static const char msg_part_already_defined[] ALIGN1 =
-"Partition %d is already defined, delete it before re-adding\n";
+"Partition %u is already defined, delete it before re-adding\n";
 
 
 struct partition {
@@ -83,12 +128,30 @@ struct partition {
 	unsigned char size4[4];         /* nr of sectors in partition */
 } PACKED;
 
-static const char unable_to_open[] ALIGN1 = "can't open '%s'";
-static const char unable_to_read[] ALIGN1 = "can't read from %s";
-static const char unable_to_seek[] ALIGN1 = "can't seek on %s";
+/*
+ * per partition table entry data
+ *
+ * The four primary partitions have the same sectorbuffer (MBRbuffer)
+ * and have NULL ext_pointer.
+ * Each logical partition table entry has two pointers, one for the
+ * partition and one link to the next one.
+ */
+struct pte {
+	struct partition *part_table;   /* points into sectorbuffer */
+	struct partition *ext_pointer;  /* points into sectorbuffer */
+	sector_t offset_from_dev_start; /* disk sector number */
+	char *sectorbuffer;             /* disk sector contents */
+#if ENABLE_FEATURE_FDISK_WRITABLE
+	char changed;                   /* boolean */
+#endif
+};
+
+#define unable_to_open "can't open '%s'"
+#define unable_to_read "can't read from %s"
+#define unable_to_seek "can't seek on %s"
 
 enum label_type {
-	LABEL_DOS, LABEL_SUN, LABEL_SGI, LABEL_AIX, LABEL_OSF
+	LABEL_DOS, LABEL_SUN, LABEL_SGI, LABEL_AIX, LABEL_OSF, LABEL_GPT
 };
 
 #define LABEL_IS_DOS	(LABEL_DOS == current_label_type)
@@ -125,6 +188,14 @@ enum label_type {
 #define STATIC_OSF extern
 #endif
 
+#if ENABLE_FEATURE_GPT_LABEL
+#define LABEL_IS_GPT	(LABEL_GPT == current_label_type)
+#define STATIC_GPT static
+#else
+#define LABEL_IS_GPT	0
+#define STATIC_GPT extern
+#endif
+
 enum action { OPEN_MAIN, TRY_ONLY, CREATE_EMPTY_DOS, CREATE_EMPTY_SUN };
 
 static void update_units(void);
@@ -132,12 +203,13 @@ static void update_units(void);
 static void change_units(void);
 static void reread_partition_table(int leave);
 static void delete_partition(int i);
-static int get_partition(int warn, int max);
+static unsigned get_partition(int warn, unsigned max);
 static void list_types(const char *const *sys);
-static unsigned read_int(unsigned low, unsigned dflt, unsigned high, unsigned base, const char *mesg);
+static sector_t read_int(sector_t low, sector_t dflt, sector_t high, sector_t base, const char *mesg);
 #endif
 static const char *partition_type(unsigned char type);
 static void get_geometry(void);
+static void read_pte(struct pte *pe, sector_t offset);
 #if ENABLE_FEATURE_SUN_LABEL || ENABLE_FEATURE_FDISK_WRITABLE
 static int get_boot(enum action what);
 #else
@@ -147,26 +219,8 @@ static int get_boot(void);
 #define PLURAL   0
 #define SINGULAR 1
 
-static unsigned get_start_sect(const struct partition *p);
-static unsigned get_nr_sects(const struct partition *p);
-
-/*
- * per partition table entry data
- *
- * The four primary partitions have the same sectorbuffer (MBRbuffer)
- * and have NULL ext_pointer.
- * Each logical partition table entry has two pointers, one for the
- * partition and one link to the next one.
- */
-struct pte {
-	struct partition *part_table;   /* points into sectorbuffer */
-	struct partition *ext_pointer;  /* points into sectorbuffer */
-	ullong offset;          /* disk sector number */
-	char *sectorbuffer;     /* disk sector contents */
-#if ENABLE_FEATURE_FDISK_WRITABLE
-	char changed;           /* boolean */
-#endif
-};
+static sector_t get_start_sect(const struct partition *p);
+static sector_t get_nr_sects(const struct partition *p);
 
 /* DOS partition types */
 
@@ -304,8 +358,8 @@ struct globals {
 	unsigned user_cylinders, user_heads, user_sectors;
 	unsigned pt_heads, pt_sectors;
 	unsigned kern_heads, kern_sectors;
-	ullong extended_offset;         /* offset of link pointers */
-	ullong total_number_of_sectors;
+	sector_t extended_offset;       /* offset of link pointers */
+	sector_t total_number_of_sectors;
 
 	jmp_buf listingbuf;
 	char line_buffer[80];
@@ -360,18 +414,42 @@ struct globals {
 
 
 /* TODO: move to libbb? */
-static ullong bb_BLKGETSIZE_sectors(int fd)
+/* TODO: return unsigned long long, FEATURE_FDISK_BLKSIZE _can_ handle
+ * disks > 2^32 sectors
+ */
+static sector_t bb_BLKGETSIZE_sectors(int fd)
 {
 	uint64_t v64;
 	unsigned long longsectors;
 
 	if (ioctl(fd, BLKGETSIZE64, &v64) == 0) {
-		/* Got bytes, convert to 512 byte sectors */
-		return (v64 >> 9);
+		/* Got bytes, convert to sectors */
+		v64 /= sector_size;
+		if (v64 != (sector_t)v64) {
+ ret_trunc:
+			/* Not only DOS, but all other partition tables
+			 * we support can't record more than 32 bit
+			 * sector counts or offsets
+			 */
+			bb_error_msg("device has more than 2^32 sectors, can't use all of them");
+			v64 = (uint32_t)-1L;
+		}
+		return v64;
 	}
 	/* Needs temp of type long */
-	if (ioctl(fd, BLKGETSIZE, &longsectors))
+	if (ioctl(fd, BLKGETSIZE, &longsectors)) {
+		/* Perhaps this is a disk image */
+		off_t sz = lseek(fd, 0, SEEK_END);
 		longsectors = 0;
+		if (sz > 0)
+			longsectors = (uoff_t)sz / sector_size;
+		lseek(fd, 0, SEEK_SET);
+	}
+	if (sizeof(long) > sizeof(sector_t)
+	 && longsectors != (sector_t)longsectors
+	) {
+		goto ret_trunc;
+	}
 	return longsectors;
 }
 
@@ -393,43 +471,12 @@ static ullong bb_BLKGETSIZE_sectors(int fd)
 #define hsc2sector(h,s,c) \
 	(sector(s) - 1 + sectors * ((h) + heads * cylinder(s,c)))
 
-#define set_hsc(h,s,c,sector) \
-	do { \
-		s = sector % g_sectors + 1;  \
-		sector /= g_sectors;         \
-		h = sector % g_heads;        \
-		sector /= g_heads;           \
-		c = sector & 0xff;           \
-		s |= (sector >> 2) & 0xc0;   \
-	} while (0)
-
 static void
 close_dev_fd(void)
 {
 	/* Not really closing, but making sure it is open, and to harmless place */
 	xmove_fd(xopen(bb_dev_null, O_RDONLY), dev_fd);
 }
-
-#if ENABLE_FEATURE_FDISK_WRITABLE
-/* Read line; return 0 or first printable char */
-static int
-read_line(const char *prompt)
-{
-	int sz;
-
-	sz = read_line_input(prompt, line_buffer, sizeof(line_buffer), NULL);
-	if (sz <= 0)
-		exit(EXIT_SUCCESS); /* Ctrl-D or Ctrl-C */
-
-	if (line_buffer[sz-1] == '\n')
-		line_buffer[--sz] = '\0';
-
-	line_ptr = line_buffer;
-	while (*line_ptr && !isgraph(*line_ptr))
-		line_ptr++;
-	return *line_ptr;
-}
-#endif
 
 /*
  * Return partition name - uses static storage
@@ -462,29 +509,12 @@ partname(const char *dev, int pno, int lth)
 
 	if (lth) {
 		snprintf(bufp, bufsiz, "%*.*s%s%-2u",
-			 lth-wp-2, w, dev, p, pno);
+			lth-wp-2, w, dev, p, pno);
 	} else {
 		snprintf(bufp, bufsiz, "%.*s%s%-2u", w, dev, p, pno);
 	}
 	return bufp;
 }
-
-#if ENABLE_FEATURE_FDISK_WRITABLE
-static void
-set_all_unchanged(void)
-{
-	int i;
-
-	for (i = 0; i < MAXIMUM_PARTS; i++)
-		ptes[i].changed = 0;
-}
-
-static ALWAYS_INLINE void
-set_changed(int i)
-{
-	ptes[i].changed = 1;
-}
-#endif /* FEATURE_FDISK_WRITABLE */
 
 static ALWAYS_INLINE struct partition *
 get_part_table(int i)
@@ -506,7 +536,67 @@ valid_part_table_flag(const char *mbuffer)
 	return (mbuffer[510] == 0x55 && (uint8_t)mbuffer[511] == 0xaa);
 }
 
+static void fdisk_fatal(const char *why)
+{
+	if (listing) {
+		close_dev_fd();
+		longjmp(listingbuf, 1);
+	}
+	bb_error_msg_and_die(why, disk_device);
+}
+
+static void
+seek_sector(sector_t secno)
+{
+#if ENABLE_FDISK_SUPPORT_LARGE_DISKS
+	off64_t off = (off64_t)secno * sector_size;
+	if (lseek64(dev_fd, off, SEEK_SET) == (off64_t) -1)
+		fdisk_fatal(unable_to_seek);
+#else
+	uint64_t off = (uint64_t)secno * sector_size;
+	if (off > MAXINT(off_t)
+	 || lseek(dev_fd, (off_t)off, SEEK_SET) == (off_t) -1
+	) {
+		fdisk_fatal(unable_to_seek);
+	}
+#endif
+}
+
 #if ENABLE_FEATURE_FDISK_WRITABLE
+/* Read line; return 0 or first printable char */
+static int
+read_line(const char *prompt)
+{
+	int sz;
+
+	sz = read_line_input(NULL, prompt, line_buffer, sizeof(line_buffer), /*timeout*/ -1);
+	if (sz <= 0)
+		exit(EXIT_SUCCESS); /* Ctrl-D or Ctrl-C */
+
+	if (line_buffer[sz-1] == '\n')
+		line_buffer[--sz] = '\0';
+
+	line_ptr = line_buffer;
+	while (*line_ptr != '\0' && (unsigned char)*line_ptr <= ' ')
+		line_ptr++;
+	return *line_ptr;
+}
+
+static void
+set_all_unchanged(void)
+{
+	int i;
+
+	for (i = 0; i < MAXIMUM_PARTS; i++)
+		ptes[i].changed = 0;
+}
+
+static ALWAYS_INLINE void
+set_changed(int i)
+{
+	ptes[i].changed = 1;
+}
+
 static ALWAYS_INLINE void
 write_part_table_flag(char *b)
 {
@@ -539,57 +629,28 @@ read_hex(const char *const *sys)
 	unsigned long v;
 	while (1) {
 		read_nonempty("Hex code (type L to list codes): ");
-		if (*line_ptr == 'l' || *line_ptr == 'L') {
+		if ((line_ptr[0] | 0x20) == 'l') {
 			list_types(sys);
 			continue;
 		}
 		v = bb_strtoul(line_ptr, NULL, 16);
-		if (v > 0xff)
-			/* Bad input also triggers this */
-			continue;
-		return v;
+		if (v <= 0xff)
+			return v;
 	}
-}
-#endif /* FEATURE_FDISK_WRITABLE */
-
-static void fdisk_fatal(const char *why)
-{
-	if (listing) {
-		close_dev_fd();
-		longjmp(listingbuf, 1);
-	}
-	bb_error_msg_and_die(why, disk_device);
 }
 
 static void
-seek_sector(ullong secno)
-{
-	secno *= sector_size;
-#if ENABLE_FDISK_SUPPORT_LARGE_DISKS
-	if (lseek64(dev_fd, (off64_t)secno, SEEK_SET) == (off64_t) -1)
-		fdisk_fatal(unable_to_seek);
-#else
-	if (secno > MAXINT(off_t)
-	 || lseek(dev_fd, (off_t)secno, SEEK_SET) == (off_t) -1
-	) {
-		fdisk_fatal(unable_to_seek);
-	}
-#endif
-}
-
-#if ENABLE_FEATURE_FDISK_WRITABLE
-static void
-write_sector(ullong secno, const void *buf)
+write_sector(sector_t secno, const void *buf)
 {
 	seek_sector(secno);
 	xwrite(dev_fd, buf, sector_size);
 }
-#endif
+#endif /* FEATURE_FDISK_WRITABLE */
 
 
 #include "fdisk_aix.c"
 
-typedef struct {
+struct sun_partition {
 	unsigned char info[128];   /* Informative text string */
 	unsigned char spare0[14];
 	struct sun_info {
@@ -615,11 +676,15 @@ typedef struct {
 	} partitions[8];
 	unsigned short magic;      /* Magic number */
 	unsigned short csum;       /* Label xor'd checksum */
-} sun_partition;
+} FIX_ALIASING;
+typedef struct sun_partition sun_partition;
 #define sunlabel ((sun_partition *)MBRbuffer)
 STATIC_OSF void bsd_select(void);
 STATIC_OSF void xbsd_print_disklabel(int);
 #include "fdisk_osf.c"
+
+STATIC_GPT void gpt_list_table(int xtra);
+#include "fdisk_gpt.c"
 
 #if ENABLE_FEATURE_SGI_LABEL || ENABLE_FEATURE_SUN_LABEL
 static uint16_t
@@ -676,40 +741,42 @@ STATIC_SUN void sun_write_table(void);
 #include "fdisk_sun.c"
 
 
-#if ENABLE_FEATURE_FDISK_WRITABLE
-/* start_sect and nr_sects are stored little endian on all machines */
-/* moreover, they are not aligned correctly */
-static void
-store4_little_endian(unsigned char *cp, unsigned val)
-{
-	cp[0] = val;
-	cp[1] = val >> 8;
-	cp[2] = val >> 16;
-	cp[3] = val >> 24;
-}
-#endif /* FEATURE_FDISK_WRITABLE */
-
-static unsigned
+static inline_if_little_endian unsigned
 read4_little_endian(const unsigned char *cp)
 {
-	return cp[0] + (cp[1] << 8) + (cp[2] << 16) + (cp[3] << 24);
+	uint32_t v;
+	move_from_unaligned32(v, cp);
+	return SWAP_LE32(v);
 }
 
-#if ENABLE_FEATURE_FDISK_WRITABLE
-static void
-set_start_sect(struct partition *p, unsigned start_sect)
-{
-	store4_little_endian(p->start4, start_sect);
-}
-#endif
-
-static unsigned
+static sector_t
 get_start_sect(const struct partition *p)
 {
 	return read4_little_endian(p->start4);
 }
 
+static sector_t
+get_nr_sects(const struct partition *p)
+{
+	return read4_little_endian(p->size4);
+}
+
 #if ENABLE_FEATURE_FDISK_WRITABLE
+/* start_sect and nr_sects are stored little endian on all machines */
+/* moreover, they are not aligned correctly */
+static inline_if_little_endian void
+store4_little_endian(unsigned char *cp, unsigned val)
+{
+	uint32_t v = SWAP_LE32(val);
+	move_to_unaligned32(cp, v);
+}
+
+static void
+set_start_sect(struct partition *p, unsigned start_sect)
+{
+	store4_little_endian(p->start4, start_sect);
+}
+
 static void
 set_nr_sects(struct partition *p, unsigned nr_sects)
 {
@@ -717,17 +784,11 @@ set_nr_sects(struct partition *p, unsigned nr_sects)
 }
 #endif
 
-static unsigned
-get_nr_sects(const struct partition *p)
-{
-	return read4_little_endian(p->size4);
-}
-
 /* Allocate a buffer and read a partition table sector */
 static void
-read_pte(struct pte *pe, ullong offset)
+read_pte(struct pte *pe, sector_t offset)
 {
-	pe->offset = offset;
+	pe->offset_from_dev_start = offset;
 	pe->sectorbuffer = xzalloc(sector_size);
 	seek_sector(offset);
 	/* xread would make us abort - bad for fdisk -l */
@@ -739,10 +800,10 @@ read_pte(struct pte *pe, ullong offset)
 	pe->part_table = pe->ext_pointer = NULL;
 }
 
-static unsigned
-get_partition_start(const struct pte *pe)
+static sector_t
+get_partition_start_from_dev_start(const struct pte *pe)
 {
-	return pe->offset + get_start_sect(pe->part_table);
+	return pe->offset_from_dev_start + get_start_sect(pe->part_table);
 }
 
 #if ENABLE_FEATURE_FDISK_WRITABLE
@@ -803,6 +864,11 @@ menu(void)
 		puts("w\twrite table to disk and exit");
 	} else if (LABEL_IS_AIX) {
 		puts("o\tcreate a new empty DOS partition table");
+		puts("q\tquit without saving changes");
+		puts("s\tcreate a new empty Sun disklabel");  /* sun */
+	} else if (LABEL_IS_GPT) {
+		puts("o\tcreate a new empty DOS partition table");
+		puts("p\tprint the partition table");
 		puts("q\tquit without saving changes");
 		puts("s\tcreate a new empty Sun disklabel");  /* sun */
 	} else {
@@ -905,7 +971,7 @@ get_sys_types(void)
 }
 #else
 #define get_sys_types() i386_sys_types
-#endif /* FEATURE_FDISK_WRITABLE */
+#endif
 
 static const char *
 partition_type(unsigned char type)
@@ -920,6 +986,24 @@ partition_type(unsigned char type)
 	return "Unknown";
 }
 
+static int
+is_cleared_partition(const struct partition *p)
+{
+	/* We consider partition "cleared" only if it has only zeros */
+	const char *cp = (const char *)p;
+	int cnt = sizeof(*p);
+	char bits = 0;
+	while (--cnt >= 0)
+		bits |= *cp++;
+	return (bits == 0);
+}
+
+static void
+clear_partition(struct partition *p)
+{
+	if (p)
+		memset(p, 0, sizeof(*p));
+}
 
 #if ENABLE_FEATURE_FDISK_WRITABLE
 static int
@@ -961,48 +1045,46 @@ list_types(const char *const *sys)
 	} while (done < last[0]);
 	bb_putchar('\n');
 }
-#endif /* FEATURE_FDISK_WRITABLE */
 
-static int
-is_cleared_partition(const struct partition *p)
+#define set_hsc(h, s, c, sector) do \
+{ \
+	s = sector % g_sectors + 1;  \
+	sector /= g_sectors;         \
+	h = sector % g_heads;        \
+	sector /= g_heads;           \
+	c = sector & 0xff;           \
+	s |= (sector >> 2) & 0xc0;   \
+} while (0)
+
+static void set_hsc_start_end(struct partition *p, sector_t start, sector_t stop)
 {
-	return !(!p || p->boot_ind || p->head || p->sector || p->cyl ||
-		 p->sys_ind || p->end_head || p->end_sector || p->end_cyl ||
-		 get_start_sect(p) || get_nr_sects(p));
+	if (dos_compatible_flag && (start / (g_sectors * g_heads) > 1023))
+		start = g_heads * g_sectors * 1024 - 1;
+	set_hsc(p->head, p->sector, p->cyl, start);
+
+	if (dos_compatible_flag && (stop / (g_sectors * g_heads) > 1023))
+		stop = g_heads * g_sectors * 1024 - 1;
+	set_hsc(p->end_head, p->end_sector, p->end_cyl, stop);
 }
 
 static void
-clear_partition(struct partition *p)
-{
-	if (!p)
-		return;
-	memset(p, 0, sizeof(struct partition));
-}
-
-#if ENABLE_FEATURE_FDISK_WRITABLE
-static void
-set_partition(int i, int doext, ullong start, ullong stop, int sysid)
+set_partition(int i, int doext, sector_t start, sector_t stop, int sysid)
 {
 	struct partition *p;
-	ullong offset;
+	sector_t offset;
 
 	if (doext) {
 		p = ptes[i].ext_pointer;
 		offset = extended_offset;
 	} else {
 		p = ptes[i].part_table;
-		offset = ptes[i].offset;
+		offset = ptes[i].offset_from_dev_start;
 	}
 	p->boot_ind = 0;
 	p->sys_ind = sysid;
 	set_start_sect(p, start - offset);
 	set_nr_sects(p, stop - start + 1);
-	if (dos_compatible_flag && (start / (g_sectors * g_heads) > 1023))
-		start = g_heads * g_sectors * 1024 - 1;
-	set_hsc(p->head, p->sector, p->cyl, start);
-	if (dos_compatible_flag && (stop / (g_sectors * g_heads) > 1023))
-		stop = g_heads * g_sectors * 1024 - 1;
-	set_hsc(p->end_head, p->end_sector, p->end_cyl, stop);
+	set_hsc_start_end(p, start, stop);
 	ptes[i].changed = 1;
 }
 #endif
@@ -1045,7 +1127,7 @@ warn_cylinders(void)
 {
 	if (LABEL_IS_DOS && g_cylinders > 1024 && !nowarn)
 		printf("\n"
-"The number of cylinders for this disk is set to %d.\n"
+"The number of cylinders for this disk is set to %u.\n"
 "There is nothing wrong with that, but this is larger than 1024,\n"
 "and could in certain setups cause problems with:\n"
 "1) software that runs at boot time (e.g., old versions of LILO)\n"
@@ -1081,7 +1163,7 @@ read_extended(int ext)
 			   Do not try to 'improve' this test. */
 			struct pte *pre = &ptes[g_partitions - 1];
 #if ENABLE_FEATURE_FDISK_WRITABLE
-			printf("Warning: deleting partitions after %d\n",
+			printf("Warning: deleting partitions after %u\n",
 				g_partitions);
 			pre->changed = 1;
 #endif
@@ -1100,14 +1182,14 @@ read_extended(int ext)
 				if (pe->ext_pointer)
 					printf("Warning: extra link "
 						"pointer in partition table"
-						" %d\n", g_partitions + 1);
+						" %u\n", g_partitions + 1);
 				else
 					pe->ext_pointer = p;
 			} else if (p->sys_ind) {
 				if (pe->part_table)
 					printf("Warning: ignoring extra "
 						  "data in partition table"
-						  " %d\n", g_partitions + 1);
+						  " %u\n", g_partitions + 1);
 				else
 					pe->part_table = p;
 			}
@@ -1140,7 +1222,7 @@ read_extended(int ext)
 		if (!get_nr_sects(pe->part_table)
 		 && (g_partitions > 5 || ptes[4].part_table->sys_ind)
 		) {
-			printf("Omitting empty partition (%d)\n", i+1);
+			printf("Omitting empty partition (%u)\n", i+1);
 			delete_partition(i);
 			goto remove;    /* numbering changed */
 		}
@@ -1152,26 +1234,22 @@ read_extended(int ext)
 static void
 create_doslabel(void)
 {
-	int i;
-
 	printf(msg_building_new_label, "DOS disklabel");
 
 	current_label_type = LABEL_DOS;
-
 #if ENABLE_FEATURE_OSF_LABEL
 	possibly_osf_label = 0;
 #endif
 	g_partitions = 4;
 
-	for (i = 510-64; i < 510; i++)
-		MBRbuffer[i] = 0;
+	memset(&MBRbuffer[510 - 4*16], 0, 4*16);
 	write_part_table_flag(MBRbuffer);
 	extended_offset = 0;
 	set_all_unchanged();
 	set_changed(0);
 	get_boot(CREATE_EMPTY_DOS);
 }
-#endif /* FEATURE_FDISK_WRITABLE */
+#endif
 
 static void
 get_sectorsize(void)
@@ -1181,7 +1259,7 @@ get_sectorsize(void)
 		if (ioctl(dev_fd, BLKSSZGET, &arg) == 0)
 			sector_size = arg;
 		if (sector_size != DEFAULT_SECTOR_SIZE)
-			printf("Note: sector size is %d "
+			printf("Note: sector size is %u "
 				"(not " DEFAULT_SECTOR_SIZE_STR ")\n",
 				sector_size);
 	}
@@ -1268,7 +1346,18 @@ get_geometry(void)
 
 /*
  * Opens disk_device and optionally reads MBR.
- *    FIXME: document what each 'what' value will do!
+ *    If what == OPEN_MAIN:
+ *      Open device, read MBR.  Abort program on short read.  Create empty
+ *      disklabel if the on-disk structure is invalid (WRITABLE mode).
+ *    If what == TRY_ONLY:
+ *      Open device, read MBR.  Return an error if anything is out of place.
+ *      Do not create an empty disklabel.  This is used for the "list"
+ *      operations: "fdisk -l /dev/sda" and "fdisk -l" (all devices).
+ *    If what == CREATE_EMPTY_*:
+ *      This means that get_boot() was called recursively from create_*label().
+ *      Do not re-open the device; just set up the ptes array and print
+ *      geometry warnings.
+ *
  * Returns:
  *   -1: no 0xaa55 flag present (possibly entire disk BSD)
  *    0: found or created label
@@ -1288,7 +1377,7 @@ static int get_boot(void)
 		struct pte *pe = &ptes[i];
 		pe->part_table = pt_offset(MBRbuffer, i);
 		pe->ext_pointer = NULL;
-		pe->offset = 0;
+		pe->offset_from_dev_start = 0;
 		pe->sectorbuffer = MBRbuffer;
 #if ENABLE_FEATURE_FDISK_WRITABLE
 		pe->changed = (what == CREATE_EMPTY_DOS);
@@ -1302,7 +1391,7 @@ static int get_boot(void)
 // or get_boot() [table is bad] -> create_sunlabel() -> get_boot(CREATE_EMPTY_SUN).
 // (just factor out re-init of ptes[0,1,2,3] in a separate fn instead?)
 // So skip opening device _again_...
-	if (what == CREATE_EMPTY_DOS  USE_FEATURE_SUN_LABEL(|| what == CREATE_EMPTY_SUN))
+	if (what == CREATE_EMPTY_DOS  IF_FEATURE_SUN_LABEL(|| what == CREATE_EMPTY_SUN))
 		goto created_table;
 
 	fd = open(disk_device, (option_mask32 & OPT_l) ? O_RDONLY : O_RDWR);
@@ -1350,6 +1439,10 @@ static int get_boot(void)
 	if (check_aix_label())
 		return 0;
 #endif
+#if ENABLE_FEATURE_GPT_LABEL
+	if (check_gpt_label())
+		return 0;
+#endif
 #if ENABLE_FEATURE_OSF_LABEL
 	if (check_osf_label()) {
 		possibly_osf_label = 1;
@@ -1369,10 +1462,10 @@ static int get_boot(void)
 	if (!valid_part_table_flag(MBRbuffer)) {
 		if (what == OPEN_MAIN) {
 			printf("Device contains neither a valid DOS "
-				  "partition table, nor Sun, SGI or OSF "
+				  "partition table, nor Sun, SGI, OSF or GPT "
 				  "disklabel\n");
 #ifdef __sparc__
-			USE_FEATURE_SUN_LABEL(create_sunlabel();)
+			IF_FEATURE_SUN_LABEL(create_sunlabel();)
 #else
 			create_doslabel();
 #endif
@@ -1385,14 +1478,14 @@ static int get_boot(void)
 #endif /* FEATURE_FDISK_WRITABLE */
 
 
-	USE_FEATURE_FDISK_WRITABLE(warn_cylinders();)
+	IF_FEATURE_FDISK_WRITABLE(warn_cylinders();)
 	warn_geometry();
 
 	for (i = 0; i < 4; i++) {
 		if (IS_EXTENDED(ptes[i].part_table->sys_ind)) {
 			if (g_partitions != 4)
 				printf("Ignoring extra extended "
-					"partition %d\n", i + 1);
+					"partition %u\n", i + 1);
 			else
 				read_extended(i);
 		}
@@ -1402,11 +1495,11 @@ static int get_boot(void)
 		struct pte *pe = &ptes[i];
 		if (!valid_part_table_flag(pe->sectorbuffer)) {
 			printf("Warning: invalid flag 0x%02x,0x%02x of partition "
-				"table %d will be corrected by w(rite)\n",
+				"table %u will be corrected by w(rite)\n",
 				pe->sectorbuffer[510],
 				pe->sectorbuffer[511],
 				i + 1);
-			USE_FEATURE_FDISK_WRITABLE(pe->changed = 1;)
+			IF_FEATURE_FDISK_WRITABLE(pe->changed = 1;)
 		}
 	}
 
@@ -1421,10 +1514,10 @@ static int get_boot(void)
  *
  * There is no default if DFLT is not between LOW and HIGH.
  */
-static unsigned
-read_int(unsigned low, unsigned dflt, unsigned high, unsigned base, const char *mesg)
+static sector_t
+read_int(sector_t low, sector_t dflt, sector_t high, sector_t base, const char *mesg)
 {
-	unsigned i;
+	sector_t value;
 	int default_ok = 1;
 	const char *fmt = "%s (%u-%u, default %u): ";
 
@@ -1447,8 +1540,10 @@ read_int(unsigned low, unsigned dflt, unsigned high, unsigned base, const char *
 			int minus = (*line_ptr == '-');
 			int absolute = 0;
 
-			i = atoi(line_ptr + 1);
+			value = atoi(line_ptr + 1);
 
+			/* (1) if 2nd char is digit, use_default = 0.
+			 * (2) move line_ptr to first non-digit. */
 			while (isdigit(*++line_ptr))
 				use_default = 0;
 
@@ -1456,7 +1551,7 @@ read_int(unsigned low, unsigned dflt, unsigned high, unsigned base, const char *
 			case 'c':
 			case 'C':
 				if (!display_in_cyl_units)
-					i *= g_heads * g_sectors;
+					value *= g_heads * g_sectors;
 				break;
 			case 'K':
 				absolute = 1024;
@@ -1479,38 +1574,38 @@ read_int(unsigned low, unsigned dflt, unsigned high, unsigned base, const char *
 				ullong bytes;
 				unsigned long unit;
 
-				bytes = (ullong) i * absolute;
+				bytes = (ullong) value * absolute;
 				unit = sector_size * units_per_sector;
 				bytes += unit/2; /* round */
 				bytes /= unit;
-				i = bytes;
+				value = bytes;
 			}
 			if (minus)
-				i = -i;
-			i += base;
+				value = -value;
+			value += base;
 		} else {
-			i = atoi(line_ptr);
+			value = atoi(line_ptr);
 			while (isdigit(*line_ptr)) {
 				line_ptr++;
 				use_default = 0;
 			}
 		}
 		if (use_default) {
-			i = dflt;
-			printf("Using default value %u\n", i);
+			value = dflt;
+			printf("Using default value %u\n", value);
 		}
-		if (i >= low && i <= high)
+		if (value >= low && value <= high)
 			break;
 		printf("Value is out of range\n");
 	}
-	return i;
+	return value;
 }
 
-static int
-get_partition(int warn, int max)
+static unsigned
+get_partition(int warn, unsigned max)
 {
 	struct pte *pe;
-	int i;
+	unsigned i;
 
 	i = read_int(1, 0, max, 0, "Partition number") - 1;
 	pe = &ptes[i];
@@ -1520,17 +1615,17 @@ get_partition(int warn, int max)
 		 || (LABEL_IS_SUN && (!sunlabel->partitions[i].num_sectors || !sunlabel->infos[i].id))
 		 || (LABEL_IS_SGI && !sgi_get_num_sectors(i))
 		) {
-			printf("Warning: partition %d has empty type\n", i+1);
+			printf("Warning: partition %u has empty type\n", i+1);
 		}
 	}
 	return i;
 }
 
 static int
-get_existing_partition(int warn, int max)
+get_existing_partition(int warn, unsigned max)
 {
 	int pno = -1;
-	int i;
+	unsigned i;
 
 	for (i = 0; i < max; i++) {
 		struct pte *pe = &ptes[i];
@@ -1543,7 +1638,7 @@ get_existing_partition(int warn, int max)
 		}
 	}
 	if (pno >= 0) {
-		printf("Selected partition %d\n", pno+1);
+		printf("Selected partition %u\n", pno+1);
 		return pno;
 	}
 	printf("No partition is defined yet!\n");
@@ -1554,10 +1649,10 @@ get_existing_partition(int warn, int max)
 }
 
 static int
-get_nonexisting_partition(int warn, int max)
+get_nonexisting_partition(int warn, unsigned max)
 {
 	int pno = -1;
-	int i;
+	unsigned i;
 
 	for (i = 0; i < max; i++) {
 		struct pte *pe = &ptes[i];
@@ -1570,7 +1665,7 @@ get_nonexisting_partition(int warn, int max)
 		}
 	}
 	if (pno >= 0) {
-		printf("Selected partition %d\n", pno+1);
+		printf("Selected partition %u\n", pno+1);
 		return pno;
 	}
 	printf("All primary partitions have been defined already!\n");
@@ -1597,7 +1692,7 @@ toggle_active(int i)
 	struct partition *p = pe->part_table;
 
 	if (IS_EXTENDED(p->sys_ind) && !p->boot_ind)
-		printf("WARNING: Partition %d is an extended partition\n", i + 1);
+		printf("WARNING: Partition %u is an extended partition\n", i + 1);
 	p->boot_ind = (p->boot_ind ? 0 : ACTIVE_FLAG);
 	pe->changed = 1;
 }
@@ -1670,9 +1765,9 @@ delete_partition(int i)
 
 			if (pe->part_table) /* prevent SEGFAULT */
 				set_start_sect(pe->part_table,
-						   get_partition_start(pe) -
-						   extended_offset);
-			pe->offset = extended_offset;
+						get_partition_start_from_dev_start(pe) -
+						extended_offset);
+			pe->offset_from_dev_start = extended_offset;
 			pe->changed = 1;
 		}
 
@@ -1682,9 +1777,10 @@ delete_partition(int i)
 				ptes[i] = ptes[i+1];
 				i++;
 			}
-		} else
+		} else {
 			/* the only logical: clear only */
 			clear_partition(ptes[i].part_table);
+		}
 	}
 }
 
@@ -1710,7 +1806,7 @@ change_sysid(void)
 	/* if changing types T to 0 is allowed, then
 	   the reverse change must be allowed, too */
 	if (!sys && !LABEL_IS_SGI && !LABEL_IS_SUN && !get_nr_sects(p))	{
-		printf("Partition %d does not exist yet!\n", i + 1);
+		printf("Partition %u does not exist yet!\n", i + 1);
 		return;
 	}
 	while (1) {
@@ -1761,7 +1857,7 @@ change_sysid(void)
 			} else
 				p->sys_ind = sys;
 
-			printf("Changed system type of partition %d "
+			printf("Changed system type of partition %u "
 				"to %x (%s)\n", i + 1, sys,
 				partition_type(sys));
 			ptes[i].changed = 1;
@@ -1819,23 +1915,23 @@ check_consistency(const struct partition *p, int partition)
 
 /* Same physical / logical beginning? */
 	if (g_cylinders <= 1024 && (pbc != lbc || pbh != lbh || pbs != lbs)) {
-		printf("Partition %d has different physical/logical "
+		printf("Partition %u has different physical/logical "
 			"beginnings (non-Linux?):\n", partition + 1);
-		printf("     phys=(%d, %d, %d) ", pbc, pbh, pbs);
-		printf("logical=(%d, %d, %d)\n", lbc, lbh, lbs);
+		printf("     phys=(%u, %u, %u) ", pbc, pbh, pbs);
+		printf("logical=(%u, %u, %u)\n", lbc, lbh, lbs);
 	}
 
 /* Same physical / logical ending? */
 	if (g_cylinders <= 1024 && (pec != lec || peh != leh || pes != les)) {
-		printf("Partition %d has different physical/logical "
+		printf("Partition %u has different physical/logical "
 			"endings:\n", partition + 1);
-		printf("     phys=(%d, %d, %d) ", pec, peh, pes);
-		printf("logical=(%d, %d, %d)\n", lec, leh, les);
+		printf("     phys=(%u, %u, %u) ", pec, peh, pes);
+		printf("logical=(%u, %u, %u)\n", lec, leh, les);
 	}
 
 /* Ending on cylinder boundary? */
 	if (peh != (g_heads - 1) || pes != g_sectors) {
-		printf("Partition %i does not end on cylinder boundary\n",
+		printf("Partition %u does not end on cylinder boundary\n",
 			partition + 1);
 	}
 }
@@ -1843,23 +1939,23 @@ check_consistency(const struct partition *p, int partition)
 static void
 list_disk_geometry(void)
 {
-	long long bytes = (total_number_of_sectors << 9);
-	long megabytes = bytes/1000000;
+	ullong bytes = ((ullong)total_number_of_sectors * sector_size);
+	long megabytes = bytes / 1000000;
 
 	if (megabytes < 10000)
-		printf("\nDisk %s: %ld MB, %lld bytes\n",
-			   disk_device, megabytes, bytes);
+		printf("\nDisk %s: %lu MB, %llu bytes\n",
+			disk_device, megabytes, bytes);
 	else
-		printf("\nDisk %s: %ld.%ld GB, %lld bytes\n",
-			   disk_device, megabytes/1000, (megabytes/100)%10, bytes);
-	printf("%d heads, %d sectors/track, %d cylinders",
+		printf("\nDisk %s: %lu.%lu GB, %llu bytes\n",
+			disk_device, megabytes/1000, (megabytes/100)%10, bytes);
+	printf("%u heads, %u sectors/track, %u cylinders",
 		   g_heads, g_sectors, g_cylinders);
 	if (units_per_sector == 1)
-		printf(", total %llu sectors",
-			   total_number_of_sectors / (sector_size/512));
-	printf("\nUnits = %s of %d * %d = %d bytes\n\n",
-		   str_units(PLURAL),
-		   units_per_sector, sector_size, units_per_sector * sector_size);
+		printf(", total %"SECT_FMT"u sectors",
+			total_number_of_sectors);
+	printf("\nUnits = %s of %u * %u = %u bytes\n\n",
+		str_units(PLURAL),
+		units_per_sector, sector_size, units_per_sector * sector_size);
 }
 
 /*
@@ -1872,8 +1968,8 @@ wrong_p_order(int *prev)
 {
 	const struct pte *pe;
 	const struct partition *p;
-	ullong last_p_start_pos = 0, p_start_pos;
-	int i, last_i = 0;
+	sector_t last_p_start_pos = 0, p_start_pos;
+	unsigned i, last_i = 0;
 
 	for (i = 0; i < g_partitions; i++) {
 		if (i == 4) {
@@ -1883,7 +1979,7 @@ wrong_p_order(int *prev)
 		pe = &ptes[i];
 		p = pe->part_table;
 		if (p->sys_ind) {
-			p_start_pos = get_partition_start(pe);
+			p_start_pos = get_partition_start_from_dev_start(pe);
 
 			if (last_p_start_pos > p_start_pos) {
 				if (prev)
@@ -1922,11 +2018,11 @@ fix_chain_of_logicals(void)
 	/* (Its sector is the global extended_offset.) */
  stage1:
 	for (j = 5; j < g_partitions - 1; j++) {
-		oj = ptes[j].offset;
-		ojj = ptes[j+1].offset;
+		oj = ptes[j].offset_from_dev_start;
+		ojj = ptes[j+1].offset_from_dev_start;
 		if (oj > ojj) {
-			ptes[j].offset = ojj;
-			ptes[j+1].offset = oj;
+			ptes[j].offset_from_dev_start = ojj;
+			ptes[j+1].offset_from_dev_start = oj;
 			pj = ptes[j].part_table;
 			set_start_sect(pj, get_start_sect(pj)+oj-ojj);
 			pjj = ptes[j+1].part_table;
@@ -1946,8 +2042,8 @@ fix_chain_of_logicals(void)
 		pjj = ptes[j+1].part_table;
 		sj = get_start_sect(pj);
 		sjj = get_start_sect(pjj);
-		oj = ptes[j].offset;
-		ojj = ptes[j+1].offset;
+		oj = ptes[j].offset_from_dev_start;
+		ojj = ptes[j+1].offset_from_dev_start;
 		if (oj+sj > ojj+sjj) {
 			tmp = *pj;
 			*pj = *pjj;
@@ -2000,7 +2096,6 @@ fix_partition_table_order(void)
 		fix_chain_of_logicals();
 
 	printf("Done.\n");
-
 }
 #endif
 
@@ -2014,8 +2109,12 @@ list_table(int xtra)
 		sun_list_table(xtra);
 		return;
 	}
-	if (LABEL_IS_SUN) {
+	if (LABEL_IS_SGI) {
 		sgi_list_table(xtra);
+		return;
+	}
+	if (LABEL_IS_GPT) {
+		gpt_list_table(xtra);
 		return;
 	}
 
@@ -2041,8 +2140,8 @@ list_table(int xtra)
 
 	for (i = 0; i < g_partitions; i++) {
 		const struct pte *pe = &ptes[i];
-		ullong psects;
-		ullong pblocks;
+		sector_t psects;
+		sector_t pblocks;
 		unsigned podd;
 
 		p = pe->part_table;
@@ -2060,14 +2159,14 @@ list_table(int xtra)
 		if (sector_size > 1024)
 			pblocks *= (sector_size / 1024);
 
-		printf("%s  %c %11llu %11llu %11llu%c %2x %s\n",
+		printf("%s  %c %11"SECT_FMT"u %11"SECT_FMT"u %11"SECT_FMT"u%c %2x %s\n",
 			partname(disk_device, i+1, w+2),
 			!p->boot_ind ? ' ' : p->boot_ind == ACTIVE_FLAG /* boot flag */
 				? '*' : '?',
-			(ullong) cround(get_partition_start(pe)),           /* start */
-			(ullong) cround(get_partition_start(pe) + psects    /* end */
+			cround(get_partition_start_from_dev_start(pe)),           /* start */
+			cround(get_partition_start_from_dev_start(pe) + psects    /* end */
 				- (psects ? 1 : 0)),
-			(ullong) pblocks, podd ? '+' : ' ', /* odd flag on end */
+			pblocks, podd ? '+' : ' ', /* odd flag on end */
 			p->sys_ind,                                     /* type id */
 			partition_type(p->sys_ind));                    /* type name */
 
@@ -2075,8 +2174,8 @@ list_table(int xtra)
 	}
 
 	/* Is partition table in disk order? It need not be, but... */
-	/* partition table entries are not checked for correct order if this
-	   is a sgi, sun or aix labeled disk... */
+	/* partition table entries are not checked for correct order
+	 * if this is a sgi, sun or aix labeled disk... */
 	if (LABEL_IS_DOS && wrong_p_order(NULL)) {
 		/* FIXME */
 		printf("\nPartition table entries are not in disk order\n");
@@ -2091,20 +2190,21 @@ x_list_table(int extend)
 	const struct partition *p;
 	int i;
 
-	printf("\nDisk %s: %d heads, %d sectors, %d cylinders\n\n",
+	printf("\nDisk %s: %u heads, %u sectors, %u cylinders\n\n",
 		disk_device, g_heads, g_sectors, g_cylinders);
 	printf("Nr AF  Hd Sec  Cyl  Hd Sec  Cyl      Start       Size ID\n");
 	for (i = 0; i < g_partitions; i++) {
 		pe = &ptes[i];
 		p = (extend ? pe->ext_pointer : pe->part_table);
 		if (p != NULL) {
-			printf("%2d %02x%4d%4d%5d%4d%4d%5d%11u%11u %02x\n",
+			printf("%2u %02x%4u%4u%5u%4u%4u%5u%11"SECT_FMT"u%11"SECT_FMT"u %02x\n",
 				i + 1, p->boot_ind, p->head,
 				sector(p->sector),
 				cylinder(p->sector, p->cyl), p->end_head,
 				sector(p->end_sector),
 				cylinder(p->end_sector, p->end_cyl),
-				get_start_sect(p), get_nr_sects(p), p->sys_ind);
+				get_start_sect(p), get_nr_sects(p),
+				p->sys_ind);
 			if (p->sys_ind)
 				check_consistency(p, i);
 		}
@@ -2114,9 +2214,9 @@ x_list_table(int extend)
 
 #if ENABLE_FEATURE_FDISK_WRITABLE
 static void
-fill_bounds(ullong *first, ullong *last)
+fill_bounds(sector_t *first, sector_t *last)
 {
-	int i;
+	unsigned i;
 	const struct pte *pe = &ptes[0];
 	const struct partition *p;
 
@@ -2126,42 +2226,42 @@ fill_bounds(ullong *first, ullong *last)
 			first[i] = 0xffffffff;
 			last[i] = 0;
 		} else {
-			first[i] = get_partition_start(pe);
+			first[i] = get_partition_start_from_dev_start(pe);
 			last[i] = first[i] + get_nr_sects(p) - 1;
 		}
 	}
 }
 
 static void
-check(int n, unsigned h, unsigned s, unsigned c, ullong start)
+check(int n, unsigned h, unsigned s, unsigned c, sector_t start)
 {
-	ullong total, real_s, real_c;
+	sector_t total, real_s, real_c;
 
 	real_s = sector(s) - 1;
 	real_c = cylinder(s, c);
 	total = (real_c * g_sectors + real_s) * g_heads + h;
 	if (!total)
-		printf("Partition %d contains sector 0\n", n);
+		printf("Partition %u contains sector 0\n", n);
 	if (h >= g_heads)
-		printf("Partition %d: head %d greater than maximum %d\n",
+		printf("Partition %u: head %u greater than maximum %u\n",
 			n, h + 1, g_heads);
 	if (real_s >= g_sectors)
-		printf("Partition %d: sector %d greater than "
-			"maximum %d\n", n, s, g_sectors);
+		printf("Partition %u: sector %u greater than "
+			"maximum %u\n", n, s, g_sectors);
 	if (real_c >= g_cylinders)
-		printf("Partition %d: cylinder %llu greater than "
-			"maximum %d\n", n, real_c + 1, g_cylinders);
+		printf("Partition %u: cylinder %"SECT_FMT"u greater than "
+			"maximum %u\n", n, real_c + 1, g_cylinders);
 	if (g_cylinders <= 1024 && start != total)
-		printf("Partition %d: previous sectors %llu disagrees with "
-			"total %llu\n", n, start, total);
+		printf("Partition %u: previous sectors %"SECT_FMT"u disagrees with "
+			"total %"SECT_FMT"u\n", n, start, total);
 }
 
 static void
 verify(void)
 {
 	int i, j;
-	unsigned total = 1;
-	ullong first[g_partitions], last[g_partitions];
+	sector_t total = 1;
+	sector_t first[g_partitions], last[g_partitions];
 	struct partition *p;
 
 	if (warn_geometry())
@@ -2183,17 +2283,17 @@ verify(void)
 		p = pe->part_table;
 		if (p->sys_ind && !IS_EXTENDED(p->sys_ind)) {
 			check_consistency(p, i);
-			if (get_partition_start(pe) < first[i])
+			if (get_partition_start_from_dev_start(pe) < first[i])
 				printf("Warning: bad start-of-data in "
-					"partition %d\n", i + 1);
+					"partition %u\n", i + 1);
 			check(i + 1, p->end_head, p->end_sector, p->end_cyl,
 				last[i]);
 			total += last[i] + 1 - first[i];
 			for (j = 0; j < i; j++) {
 				if ((first[i] >= first[j] && first[i] <= last[j])
 				 || ((last[i] <= last[j] && last[i] >= first[j]))) {
-					printf("Warning: partition %d overlaps "
-						"partition %d\n", j + 1, i + 1);
+					printf("Warning: partition %u overlaps "
+						"partition %u\n", j + 1, i + 1);
 					total += first[i] >= first[j] ?
 						first[i] : first[j];
 					total -= last[i] <= last[j] ?
@@ -2205,7 +2305,7 @@ verify(void)
 
 	if (extended_offset) {
 		struct pte *pex = &ptes[ext_index];
-		ullong e_last = get_start_sect(pex->part_table) +
+		sector_t e_last = get_start_sect(pex->part_table) +
 			get_nr_sects(pex->part_table) - 1;
 
 		for (i = 4; i < g_partitions; i++) {
@@ -2213,22 +2313,22 @@ verify(void)
 			p = ptes[i].part_table;
 			if (!p->sys_ind) {
 				if (i != 4 || i + 1 < g_partitions)
-					printf("Warning: partition %d "
+					printf("Warning: partition %u "
 						"is empty\n", i + 1);
 			} else if (first[i] < extended_offset || last[i] > e_last) {
-				printf("Logical partition %d not entirely in "
-					"partition %d\n", i + 1, ext_index + 1);
+				printf("Logical partition %u not entirely in "
+					"partition %u\n", i + 1, ext_index + 1);
 			}
 		}
 	}
 
 	if (total > g_heads * g_sectors * g_cylinders)
-		printf("Total allocated sectors %d greater than the maximum "
-			"%d\n", total, g_heads * g_sectors * g_cylinders);
+		printf("Total allocated sectors %u greater than the maximum "
+			"%u\n", total, g_heads * g_sectors * g_cylinders);
 	else {
 		total = g_heads * g_sectors * g_cylinders - total;
 		if (total != 0)
-			printf("%d unallocated sectors\n", total);
+			printf("%"SECT_FMT"u unallocated sectors\n", total);
 	}
 }
 
@@ -2239,9 +2339,9 @@ add_partition(int n, int sys)
 	int i, num_read = 0;
 	struct partition *p = ptes[n].part_table;
 	struct partition *q = ptes[ext_index].part_table;
-	ullong limit, temp;
-	ullong start, stop = 0;
-	ullong first[g_partitions], last[g_partitions];
+	sector_t limit, temp;
+	sector_t start, stop = 0;
+	sector_t first[g_partitions], last[g_partitions];
 
 	if (p && p->sys_ind) {
 		printf(msg_part_already_defined, n + 1);
@@ -2251,7 +2351,7 @@ add_partition(int n, int sys)
 	if (n < 4) {
 		start = sector_offset;
 		if (display_in_cyl_units || !total_number_of_sectors)
-			limit = (ullong) g_heads * g_sectors * g_cylinders - 1;
+			limit = (sector_t) g_heads * g_sectors * g_cylinders - 1;
 		else
 			limit = total_number_of_sectors - 1;
 		if (extended_offset) {
@@ -2273,7 +2373,7 @@ add_partition(int n, int sys)
 		for (i = 0; i < g_partitions; i++) {
 			int lastplusoff;
 
-			if (start == ptes[i].offset)
+			if (start == ptes[i].offset_from_dev_start)
 				start += sector_offset;
 			lastplusoff = last[i] + ((n < 4) ? 0 : sector_offset);
 			if (start >= first[i] && start <= lastplusoff)
@@ -2282,19 +2382,19 @@ add_partition(int n, int sys)
 		if (start > limit)
 			break;
 		if (start >= temp+units_per_sector && num_read) {
-			printf("Sector %lld is already allocated\n", temp);
+			printf("Sector %"SECT_FMT"u is already allocated\n", temp);
 			temp = start;
 			num_read = 0;
 		}
 		if (!num_read && start == temp) {
-			ullong saved_start;
+			sector_t saved_start;
 
 			saved_start = start;
-			start = read_int(cround(saved_start), cround(saved_start), cround(limit),
-					 0, mesg);
+			start = read_int(cround(saved_start), cround(saved_start), cround(limit), 0, mesg);
 			if (display_in_cyl_units) {
 				start = (start - 1) * units_per_sector;
-				if (start < saved_start) start = saved_start;
+				if (start < saved_start)
+					start = saved_start;
 			}
 			num_read = 1;
 		}
@@ -2302,9 +2402,9 @@ add_partition(int n, int sys)
 	if (n > 4) {                    /* NOT for fifth partition */
 		struct pte *pe = &ptes[n];
 
-		pe->offset = start - sector_offset;
-		if (pe->offset == extended_offset) { /* must be corrected */
-			pe->offset++;
+		pe->offset_from_dev_start = start - sector_offset;
+		if (pe->offset_from_dev_start == extended_offset) { /* must be corrected */
+			pe->offset_from_dev_start++;
 			if (sector_offset == 1)
 				start++;
 		}
@@ -2313,8 +2413,8 @@ add_partition(int n, int sys)
 	for (i = 0; i < g_partitions; i++) {
 		struct pte *pe = &ptes[i];
 
-		if (start < pe->offset && limit >= pe->offset)
-			limit = pe->offset - 1;
+		if (start < pe->offset_from_dev_start && limit >= pe->offset_from_dev_start)
+			limit = pe->offset_from_dev_start - 1;
 		if (start < first[i] && limit >= first[i])
 			limit = first[i] - 1;
 	}
@@ -2330,8 +2430,7 @@ add_partition(int n, int sys)
 		snprintf(mesg, sizeof(mesg),
 			 "Last %s or +size or +sizeM or +sizeK",
 			 str_units(SINGULAR));
-		stop = read_int(cround(start), cround(limit), cround(limit),
-				cround(start), mesg);
+		stop = read_int(cround(start), cround(limit), cround(limit), cround(start), mesg);
 		if (display_in_cyl_units) {
 			stop = stop * units_per_sector - 1;
 			if (stop >limit)
@@ -2341,7 +2440,7 @@ add_partition(int n, int sys)
 
 	set_partition(n, 0, start, stop, sys);
 	if (n > 4)
-		set_partition(n - 1, 1, ptes[n].offset, stop, EXTENDED);
+		set_partition(n - 1, 1, ptes[n].offset_from_dev_start, stop, EXTENDED);
 
 	if (IS_EXTENDED(sys)) {
 		struct pte *pe4 = &ptes[4];
@@ -2349,7 +2448,7 @@ add_partition(int n, int sys)
 
 		ext_index = n;
 		pen->ext_pointer = p;
-		pe4->offset = extended_offset = start;
+		pe4->offset_from_dev_start = extended_offset = start;
 		pe4->sectorbuffer = xzalloc(sector_size);
 		pe4->part_table = pt_offset(pe4->sectorbuffer, 0);
 		pe4->ext_pointer = pe4->part_table + 1;
@@ -2367,7 +2466,7 @@ add_logical(void)
 		pe->sectorbuffer = xzalloc(sector_size);
 		pe->part_table = pt_offset(pe->sectorbuffer, 0);
 		pe->ext_pointer = pe->part_table + 1;
-		pe->offset = 0;
+		pe->offset_from_dev_start = 0;
 		pe->changed = 1;
 		g_partitions++;
 	}
@@ -2421,7 +2520,7 @@ new_partition(void)
 			"l   logical (5 or over)" : "e   extended"));
 		while (1) {
 			c = read_nonempty(line);
-			if (c == 'p' || c == 'P') {
+			if ((c | 0x20) == 'p') {
 				i = get_nonexisting_partition(0, 4);
 				if (i >= 0)
 					add_partition(i, LINUX_NATIVE);
@@ -2444,49 +2543,16 @@ new_partition(void)
 }
 
 static void
-write_table(void)
-{
-	int i;
-
-	if (LABEL_IS_DOS) {
-		for (i = 0; i < 3; i++)
-			if (ptes[i].changed)
-				ptes[3].changed = 1;
-		for (i = 3; i < g_partitions; i++) {
-			struct pte *pe = &ptes[i];
-
-			if (pe->changed) {
-				write_part_table_flag(pe->sectorbuffer);
-				write_sector(pe->offset, pe->sectorbuffer);
-			}
-		}
-	}
-	else if (LABEL_IS_SGI) {
-		/* no test on change? the printf below might be mistaken */
-		sgi_write_table();
-	}
-	else if (LABEL_IS_SUN) {
-		int needw = 0;
-
-		for (i = 0; i < 8; i++)
-			if (ptes[i].changed)
-				needw = 1;
-		if (needw)
-			sun_write_table();
-	}
-
-	printf("The partition table has been altered!\n\n");
-	reread_partition_table(1);
-}
-
-static void
 reread_partition_table(int leave)
 {
 	int i;
 
 	printf("Calling ioctl() to re-read partition table\n");
 	sync();
-	/* sleep(2); Huh? */
+	/* Users with slow external USB disks on a 320MHz ARM system (year 2011)
+	 * report that sleep is needed, otherwise BLKRRPART may fail with -EIO:
+	 */
+	sleep(1);
 	i = ioctl_or_perror(dev_fd, BLKRRPART, NULL,
 			"WARNING: rereading partition table "
 			"failed, kernel still uses old table");
@@ -2503,6 +2569,40 @@ reread_partition_table(int leave)
 			close_dev_fd();
 		exit(i != 0);
 	}
+}
+
+static void
+write_table(void)
+{
+	int i;
+
+	if (LABEL_IS_DOS) {
+		for (i = 0; i < 3; i++)
+			if (ptes[i].changed)
+				ptes[3].changed = 1;
+		for (i = 3; i < g_partitions; i++) {
+			struct pte *pe = &ptes[i];
+			if (pe->changed) {
+				write_part_table_flag(pe->sectorbuffer);
+				write_sector(pe->offset_from_dev_start, pe->sectorbuffer);
+			}
+		}
+	}
+	else if (LABEL_IS_SGI) {
+		/* no test on change? the printf below might be mistaken */
+		sgi_write_table();
+	}
+	else if (LABEL_IS_SUN) {
+		for (i = 0; i < 8; i++) {
+			if (ptes[i].changed) {
+				sun_write_table();
+				break;
+			}
+		}
+	}
+
+	printf("The partition table has been altered.\n");
+	reread_partition_table(1);
 }
 #endif /* FEATURE_FDISK_WRITABLE */
 
@@ -2542,26 +2642,29 @@ print_raw(void)
 }
 
 static void
-move_begin(int i)
+move_begin(unsigned i)
 {
 	struct pte *pe = &ptes[i];
 	struct partition *p = pe->part_table;
-	ullong new, first;
+	sector_t new, first, nr_sects;
 
 	if (warn_geometry())
 		return;
-	if (!p->sys_ind || !get_nr_sects(p) || IS_EXTENDED(p->sys_ind)) {
-		printf("Partition %d has no data area\n", i + 1);
+	nr_sects = get_nr_sects(p);
+	if (!p->sys_ind || !nr_sects || IS_EXTENDED(p->sys_ind)) {
+		printf("Partition %u has no data area\n", i + 1);
 		return;
 	}
-	first = get_partition_start(pe);
-	new = read_int(first, first, first + get_nr_sects(p) - 1, first,
-			   "New beginning of data") - pe->offset;
-
-	if (new != get_nr_sects(p)) {
-		first = get_nr_sects(p) + get_start_sect(p) - new;
-		set_nr_sects(p, first);
-		set_start_sect(p, new);
+	first = get_partition_start_from_dev_start(pe); /* == pe->offset_from_dev_start + get_start_sect(p) */
+	new = read_int(0 /*was:first*/, first, first + nr_sects - 1, first, "New beginning of data");
+	if (new != first) {
+		sector_t new_relative = new - pe->offset_from_dev_start;
+		nr_sects += (get_start_sect(p) - new_relative);
+		set_start_sect(p, new_relative);
+		set_nr_sects(p, nr_sects);
+		read_nonempty("Recalculate C/H/S values? (Y/N): ");
+		if ((line_ptr[0] | 0x20) == 'y')
+			set_hsc_start_end(p, new, new + nr_sects - 1);
 		pe->changed = 1;
 	}
 }
@@ -2573,7 +2676,7 @@ xselect(void)
 
 	while (1) {
 		bb_putchar('\n');
-		c = tolower(read_nonempty("Expert command (m for help): "));
+		c = 0x20 | read_nonempty("Expert command (m for help): ");
 		switch (c) {
 		case 'a':
 			if (LABEL_IS_SUN)
@@ -2613,8 +2716,7 @@ xselect(void)
 #endif
 			break;
 		case 'h':
-			user_heads = g_heads = read_int(1, g_heads, 256, 0,
-					"Number of heads");
+			user_heads = g_heads = read_int(1, g_heads, 256, 0, "Number of heads");
 			update_units();
 			break;
 		case 'i':
@@ -2639,8 +2741,7 @@ xselect(void)
 		case 'r':
 			return;
 		case 's':
-			user_sectors = g_sectors = read_int(1, g_sectors, 63, 0,
-					   "Number of sectors");
+			user_sectors = g_sectors = read_int(1, g_sectors, 63, 0, "Number of sectors");
 			if (dos_compatible_flag) {
 				sector_offset = g_sectors;
 				printf("Warning: setting sector offset for DOS "
@@ -2745,27 +2846,49 @@ open_list_and_close(const char *device, int user_specified)
 	close_dev_fd();
 }
 
+/* Is it a whole disk? The digit check is still useful
+   for Xen devices for example. */
+static int is_whole_disk(const char *disk)
+{
+	unsigned len;
+	int fd = open(disk, O_RDONLY);
+
+	if (fd != -1) {
+		struct hd_geometry geometry;
+		int err = ioctl(fd, HDIO_GETGEO, &geometry);
+		close(fd);
+		if (!err)
+			return (geometry.start == 0);
+	}
+
+	/* Treat "nameN" as a partition name, not whole disk */
+	/* note: mmcblk0 should work from the geometry check above */
+	len = strlen(disk);
+	if (len != 0 && isdigit(disk[len - 1]))
+		return 0;
+
+	return 1;
+}
+
 /* for fdisk -l: try all things in /proc/partitions
    that look like a partition name (do not end in a digit) */
 static void
 list_devs_in_proc_partititons(void)
 {
 	FILE *procpt;
-	char line[100], ptname[100], devname[120], *s;
+	char line[100], ptname[100], devname[120];
 	int ma, mi, sz;
 
 	procpt = fopen_or_warn("/proc/partitions", "r");
 
 	while (fgets(line, sizeof(line), procpt)) {
-		if (sscanf(line, " %d %d %d %[^\n ]",
+		if (sscanf(line, " %u %u %u %[^\n ]",
 				&ma, &mi, &sz, ptname) != 4)
 			continue;
-		for (s = ptname; *s; s++)
-			continue;
-		if (isdigit(s[-1]))
-			continue;
+
 		sprintf(devname, "/dev/%s", ptname);
-		open_list_and_close(devname, 0);
+		if (is_whole_disk(devname))
+			open_list_and_close(devname, 0);
 	}
 #if ENABLE_FEATURE_CLEAN_UP
 	fclose(procpt);
@@ -2781,7 +2904,7 @@ unknown_command(int c)
 #endif
 
 int fdisk_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int fdisk_main(int argc, char **argv)
+int fdisk_main(int argc UNUSED_PARAM, char **argv)
 {
 	unsigned opt;
 	/*
@@ -2797,18 +2920,20 @@ int fdisk_main(int argc, char **argv)
 	close_dev_fd(); /* needed: fd 3 must not stay closed */
 
 	opt_complementary = "b+:C+:H+:S+"; /* numeric params */
-	opt = getopt32(argv, "b:C:H:lS:u" USE_FEATURE_FDISK_BLKSIZE("s"),
+	opt = getopt32(argv, "b:C:H:lS:u" IF_FEATURE_FDISK_BLKSIZE("s"),
 				&sector_size, &user_cylinders, &user_heads, &user_sectors);
-	argc -= optind;
 	argv += optind;
-	if (opt & OPT_b) { // -b
+	if (opt & OPT_b) {
 		/* Ugly: this sector size is really per device,
-		   so cannot be combined with multiple disks,
-		   and the same goes for the C/H/S options.
-		*/
-		if (sector_size != 512 && sector_size != 1024
-		 && sector_size != 2048)
+		 * so cannot be combined with multiple disks,
+		 * and the same goes for the C/H/S options.
+		 */
+		if (sector_size < 512
+		 || sector_size > 0x10000
+		 || (sector_size & (sector_size-1)) /* not power of 2 */
+		) {
 			bb_show_usage();
+		}
 		sector_offset = 2;
 		user_set_sector_size = 1;
 	}
@@ -2843,24 +2968,24 @@ int fdisk_main(int argc, char **argv)
 		int j;
 
 		nowarn = 1;
-		if (argc <= 0)
+		if (!argv[0])
 			bb_show_usage();
-		for (j = 0; j < argc; j++) {
+		for (j = 0; argv[j]; j++) {
 			unsigned long long size;
 			fd = xopen(argv[j], O_RDONLY);
 			size = bb_BLKGETSIZE_sectors(fd) / 2;
 			close(fd);
-			if (argc == 1)
-				printf("%lld\n", size);
+			if (argv[1])
+				printf("%llu\n", size);
 			else
-				printf("%s: %lld\n", argv[j], size);
+				printf("%s: %llu\n", argv[j], size);
 		}
 		return 0;
 	}
 #endif
 
 #if ENABLE_FEATURE_FDISK_WRITABLE
-	if (argc != 1)
+	if (!argv[0] || argv[1])
 		bb_show_usage();
 
 	disk_device = argv[0];
@@ -2879,7 +3004,7 @@ int fdisk_main(int argc, char **argv)
 	while (1) {
 		int c;
 		bb_putchar('\n');
-		c = tolower(read_nonempty("Command (m for help): "));
+		c = 0x20 | read_nonempty("Command (m for help): ");
 		switch (c) {
 		case 'a':
 			if (LABEL_IS_DOS)
@@ -2898,7 +3023,7 @@ int fdisk_main(int argc, char **argv)
 				printf("\nThe current boot file is: %s\n",
 					sgi_get_bootfile());
 				if (read_maybe_empty("Please enter the name of the "
-						   "new boot file: ") == '\n')
+						"new boot file: ") == '\n')
 					printf("Boot file unchanged\n");
 				else
 					sgi_set_bootfile(line_ptr);
@@ -2976,7 +3101,7 @@ int fdisk_main(int argc, char **argv)
 			verify();
 			break;
 		case 'w':
-			write_table();          /* does not return */
+			write_table();  /* does not return */
 			break;
 #if ENABLE_FEATURE_FDISK_ADVANCED
 		case 'x':

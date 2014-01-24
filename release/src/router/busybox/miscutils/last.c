@@ -4,11 +4,20 @@
  *
  * Copyright (C) 2003-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL version 2, see the file LICENSE in this tarball.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
+//usage:#define last_trivial_usage
+//usage:       ""IF_FEATURE_LAST_FANCY("[-HW] [-f FILE]")
+//usage:#define last_full_usage "\n\n"
+//usage:       "Show listing of the last users that logged into the system"
+//usage:	IF_FEATURE_LAST_FANCY( "\n"
+/* //usage:  "\n	-H	Show header line" */
+//usage:     "\n	-W	Display with no host column truncation"
+//usage:     "\n	-f FILE Read from FILE instead of /var/log/wtmp"
+//usage:	)
+
 #include "libbb.h"
-#include <utmp.h>
 
 /* NB: ut_name and ut_user are the same field, use only one name (ut_user)
  * to reduce confusion */
@@ -35,7 +44,7 @@
 #endif
 
 int last_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int last_main(int argc, char **argv UNUSED_PARAM)
+int last_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
 	struct utmp ut;
 	int n, file = STDIN_FILENO;
@@ -46,23 +55,23 @@ int last_main(int argc, char **argv UNUSED_PARAM)
 	static const char _ut_lin[] ALIGN1 =
 			"~\0" "{\0" "|\0" /* "LOGIN\0" "date\0" */;
 	enum {
-		TYPE_RUN_LVL = RUN_LVL,		/* 1 */
-		TYPE_BOOT_TIME = BOOT_TIME,	/* 2 */
+		TYPE_RUN_LVL = RUN_LVL,         /* 1 */
+		TYPE_BOOT_TIME = BOOT_TIME,     /* 2 */
 		TYPE_SHUTDOWN_TIME = SHUTDOWN_TIME
 	};
 	enum {
-		_TILDE = EMPTY,				/* 0 */
-		TYPE_NEW_TIME,	/* NEW_TIME, 3 */
-		TYPE_OLD_TIME	/* OLD_TIME, 4 */
+		_TILDE = EMPTY, /* 0 */
+		TYPE_NEW_TIME,  /* NEW_TIME, 3 */
+		TYPE_OLD_TIME   /* OLD_TIME, 4 */
 	};
 
-	if (argc > 1) {
+	if (argv[1]) {
 		bb_show_usage();
 	}
 	file = xopen(bb_path_wtmp_file, O_RDONLY);
 
 	printf("%-10s %-14s %-18s %-12.12s %s\n",
-	       "USER", "TTY", "HOST", "LOGIN", "TIME");
+		"USER", "TTY", "HOST", "LOGIN", "TIME");
 	/* yikes. We reverse over the file and that is a not too elegant way */
 	pos = xlseek(file, 0, SEEK_END);
 	pos = lseek(file, pos - sizeof(ut), SEEK_SET);
@@ -92,7 +101,8 @@ int last_main(int argc, char **argv UNUSED_PARAM)
 				goto next;
 			}
 			if (ut.ut_type != DEAD_PROCESS
-			 && ut.ut_user[0] && ut.ut_line[0]
+			 && ut.ut_user[0]
+			 && ut.ut_line[0]
 			) {
 				ut.ut_type = USER_PROCESS;
 			}
@@ -121,7 +131,7 @@ int last_main(int argc, char **argv UNUSED_PARAM)
 		 * but some systems have it wrong */
 		t_tmp = (time_t)ut.ut_tv.tv_sec;
 		printf("%-10s %-14s %-18s %-12.12s\n",
-		       ut.ut_user, ut.ut_line, ut.ut_host, ctime(&t_tmp) + 4);
+			ut.ut_user, ut.ut_line, ut.ut_host, ctime(&t_tmp) + 4);
  next:
 		pos -= sizeof(ut);
 		if (pos <= 0)

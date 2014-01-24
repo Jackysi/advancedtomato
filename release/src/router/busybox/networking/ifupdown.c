@@ -14,18 +14,41 @@
  *  (defined via CONFIG_IFUPDOWN_IFSTATE_PATH) and can be overridden by build
  *  configuration.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//usage:#define ifup_trivial_usage
+//usage:       "[-an"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] IFACE..."
+//usage:#define ifup_full_usage "\n\n"
+//usage:       "	-a	De/configure all interfaces automatically"
+//usage:     "\n	-i FILE	Use FILE for interface definitions"
+//usage:     "\n	-n	Print out what would happen, but don't do it"
+//usage:	IF_FEATURE_IFUPDOWN_MAPPING(
+//usage:     "\n		(note: doesn't disable mappings)"
+//usage:     "\n	-m	Don't run any mappings"
+//usage:	)
+//usage:     "\n	-v	Print out what would happen before doing it"
+//usage:     "\n	-f	Force de/configuration"
+//usage:
+//usage:#define ifdown_trivial_usage
+//usage:       "[-an"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] IFACE..."
+//usage:#define ifdown_full_usage "\n\n"
+//usage:       "	-a	De/configure all interfaces automatically"
+//usage:     "\n	-i FILE	Use FILE for interface definitions"
+//usage:     "\n	-n	Print out what would happen, but don't do it"
+//usage:	IF_FEATURE_IFUPDOWN_MAPPING(
+//usage:     "\n		(note: doesn't disable mappings)"
+//usage:     "\n	-m	Don't run any mappings"
+//usage:	)
+//usage:     "\n	-v	Print out what would happen before doing it"
+//usage:     "\n	-f	Force de/configuration"
+
+#include "libbb.h"
+/* After libbb.h, since it needs sys/types.h on some systems */
 #include <sys/utsname.h>
 #include <fnmatch.h>
 
-#include "libbb.h"
-
 #define MAX_OPT_DEPTH 10
-#define EUNBALBRACK 10001
-#define EUNDEFVAR   10002
-#define EUNBALPER   10000
 
 #if ENABLE_FEATURE_IFUPDOWN_MAPPING
 #define MAX_INTERFACE_LENGTH 10
@@ -42,8 +65,8 @@ typedef int execfn(char *command);
 
 struct method_t {
 	const char *name;
-	int (*up)(struct interface_defn_t *ifd, execfn *e);
-	int (*down)(struct interface_defn_t *ifd, execfn *e);
+	int (*up)(struct interface_defn_t *ifd, execfn *e) FAST_FUNC;
+	int (*down)(struct interface_defn_t *ifd, execfn *e) FAST_FUNC;
 };
 
 struct address_family_t {
@@ -61,7 +84,6 @@ struct mapping_defn_t {
 
 	char *script;
 
-	int max_mappings;
 	int n_mappings;
 	char **mapping;
 };
@@ -76,7 +98,6 @@ struct interface_defn_t {
 	const struct method_t *method;
 
 	char *iface;
-	int max_options;
 	int n_options;
 	struct variable_t *option;
 };
@@ -87,23 +108,38 @@ struct interfaces_file_t {
 	struct mapping_defn_t *mappings;
 };
 
-#define OPTION_STR "anvf" USE_FEATURE_IFUPDOWN_MAPPING("m") "i:"
+
+#define OPTION_STR "anvf" IF_FEATURE_IFUPDOWN_MAPPING("m") "i:"
 enum {
-	OPT_do_all = 0x1,
-	OPT_no_act = 0x2,
-	OPT_verbose = 0x4,
-	OPT_force = 0x8,
+	OPT_do_all      = 0x1,
+	OPT_no_act      = 0x2,
+	OPT_verbose     = 0x4,
+	OPT_force       = 0x8,
 	OPT_no_mappings = 0x10,
 };
-#define DO_ALL (option_mask32 & OPT_do_all)
-#define NO_ACT (option_mask32 & OPT_no_act)
-#define VERBOSE (option_mask32 & OPT_verbose)
-#define FORCE (option_mask32 & OPT_force)
+#define DO_ALL      (option_mask32 & OPT_do_all)
+#define NO_ACT      (option_mask32 & OPT_no_act)
+#define VERBOSE     (option_mask32 & OPT_verbose)
+#define FORCE       (option_mask32 & OPT_force)
 #define NO_MAPPINGS (option_mask32 & OPT_no_mappings)
 
-static char **my_environ;
 
-static const char *startup_PATH;
+struct globals {
+	char **my_environ;
+	const char *startup_PATH;
+	char *shell;
+} FIX_ALIASING;
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() do { } while (0)
+
+
+static const char keywords_up_down[] ALIGN1 =
+	"up\0"
+	"down\0"
+	"pre-up\0"
+	"post-down\0"
+;
+
 
 #if ENABLE_FEATURE_IFUPDOWN_IPV4 || ENABLE_FEATURE_IFUPDOWN_IPV6
 
@@ -126,7 +162,7 @@ static int strncmpz(const char *l, const char *r, size_t llen)
 	int i = strncmp(l, r, llen);
 
 	if (i == 0)
-		return -r[llen];
+		return - (unsigned char)r[llen];
 	return i;
 }
 
@@ -135,16 +171,17 @@ static char *get_var(const char *id, size_t idlen, struct interface_defn_t *ifd)
 	int i;
 
 	if (strncmpz(id, "iface", idlen) == 0) {
-		static char *label_buf;
+		// ubuntu's ifup doesn't do this:
+		//static char *label_buf;
 		//char *result;
-
-		free(label_buf);
-		label_buf = xstrdup(ifd->iface);
-		// Remove virtual iface suffix - why?
-		// ubuntu's ifup doesn't do this
+		//free(label_buf);
+		//label_buf = xstrdup(ifd->iface);
+		// Remove virtual iface suffix
 		//result = strchrnul(label_buf, ':');
 		//*result = '\0';
-		return label_buf;
+		//return label_buf;
+
+		return ifd->iface;
 	}
 	if (strncmpz(id, "label", idlen) == 0) {
 		return ifd->iface;
@@ -157,7 +194,7 @@ static char *get_var(const char *id, size_t idlen, struct interface_defn_t *ifd)
 	return NULL;
 }
 
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 static int count_netmask_bits(const char *dotted_quad)
 {
 //	int result;
@@ -188,12 +225,12 @@ static int count_netmask_bits(const char *dotted_quad)
 	}
 	return result;
 }
-#endif
+# endif
 
 static char *parse(const char *command, struct interface_defn_t *ifd)
 {
 	size_t old_pos[MAX_OPT_DEPTH] = { 0 };
-	int okay[MAX_OPT_DEPTH] = { 1 };
+	smallint okay[MAX_OPT_DEPTH] = { 1 };
 	int opt_depth = 1;
 	char *result = NULL;
 
@@ -204,13 +241,10 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 			command++;
 			break;
 		case '\\':
-			if (command[1]) {
-				addstr(&result, command + 1, 1);
-				command += 2;
-			} else {
-				addstr(&result, command, 1);
+			if (command[1])
 				command++;
-			}
+			addstr(&result, command, 1);
+			command++;
 			break;
 		case '[':
 			if (command[1] == '[' && opt_depth < MAX_OPT_DEPTH) {
@@ -219,7 +253,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 				opt_depth++;
 				command += 2;
 			} else {
-				addstr(&result, "[", 1);
+				addstr(&result, command, 1);
 				command++;
 			}
 			break;
@@ -231,7 +265,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 				}
 				command += 2;
 			} else {
-				addstr(&result, "]", 1);
+				addstr(&result, command, 1);
 				command++;
 			}
 			break;
@@ -243,7 +277,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 				command++;
 				nextpercent = strchr(command, '%');
 				if (!nextpercent) {
-					errno = EUNBALPER;
+					/* Unterminated %var% */
 					free(result);
 					return NULL;
 				}
@@ -251,17 +285,17 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 				varvalue = get_var(command, nextpercent - command, ifd);
 
 				if (varvalue) {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 					/* "hwaddress <class> <address>":
 					 * unlike ifconfig, ip doesnt want <class>
 					 * (usually "ether" keyword). Skip it. */
 					if (strncmp(command, "hwaddress", 9) == 0) {
 						varvalue = skip_whitespace(skip_non_whitespace(varvalue));
 					}
-#endif
+# endif
 					addstr(&result, varvalue, strlen(varvalue));
 				} else {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 					/* Sigh...  Add a special case for 'ip' to convert from
 					 * dotted quad to bit count style netmasks.  */
 					if (strncmp(command, "bnmask", 6) == 0) {
@@ -277,7 +311,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 							}
 						}
 					}
-#endif
+# endif
 					okay[opt_depth - 1] = 0;
 				}
 
@@ -288,13 +322,13 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 	}
 
 	if (opt_depth > 1) {
-		errno = EUNBALBRACK;
+		/* Unbalanced bracket */
 		free(result);
 		return NULL;
 	}
 
 	if (!okay[0]) {
-		errno = EUNDEFVAR;
+		/* Undefined variable and we aren't in a bracket */
 		free(result);
 		return NULL;
 	}
@@ -322,57 +356,65 @@ static int execute(const char *command, struct interface_defn_t *ifd, execfn *ex
 	}
 	return 1;
 }
-#endif
+
+#endif /* FEATURE_IFUPDOWN_IPV4 || FEATURE_IFUPDOWN_IPV6 */
+
 
 #if ENABLE_FEATURE_IFUPDOWN_IPV6
-static int loopback_up6(struct interface_defn_t *ifd, execfn *exec)
+
+static int FAST_FUNC loopback_up6(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	int result;
 	result = execute("ip addr add ::1 dev %iface%", ifd, exec);
 	result += execute("ip link set %iface% up", ifd, exec);
 	return ((result == 2) ? 2 : 0);
-#else
+# else
 	return execute("ifconfig %iface% add ::1", ifd, exec);
-#endif
+# endif
 }
 
-static int loopback_down6(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC loopback_down6(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	return execute("ip link set %iface% down", ifd, exec);
-#else
+# else
 	return execute("ifconfig %iface% del ::1", ifd, exec);
-#endif
+# endif
 }
 
-static int static_up6(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC manual_up_down6(struct interface_defn_t *ifd UNUSED_PARAM, execfn *exec UNUSED_PARAM)
+{
+	return 1;
+}
+
+static int FAST_FUNC static_up6(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	result = execute("ip addr add %address%/%netmask% dev %iface%[[ label %label%]]", ifd, exec);
 	result += execute("ip link set[[ mtu %mtu%]][[ addr %hwaddress%]] %iface% up", ifd, exec);
 	/* Was: "[[ ip ....%gateway% ]]". Removed extra spaces w/o checking */
-	result += execute("[[ip route add ::/0 via %gateway%]]", ifd, exec);
-#else
+	result += execute("[[ip route add ::/0 via %gateway%]][[ prio %metric%]]", ifd, exec);
+# else
 	result = execute("ifconfig %iface%[[ media %media%]][[ hw %hwaddress%]][[ mtu %mtu%]] up", ifd, exec);
 	result += execute("ifconfig %iface% add %address%/%netmask%", ifd, exec);
-	result += execute("[[route -A inet6 add ::/0 gw %gateway%]]", ifd, exec);
-#endif
+	result += execute("[[route -A inet6 add ::/0 gw %gateway%[[ metric %metric%]]]]", ifd, exec);
+# endif
 	return ((result == 3) ? 3 : 0);
 }
 
-static int static_down6(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC static_down6(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	return execute("ip link set %iface% down", ifd, exec);
-#else
+# else
 	return execute("ifconfig %iface% down", ifd, exec);
-#endif
+# endif
 }
 
-#if ENABLE_FEATURE_IFUPDOWN_IP
-static int v4tunnel_up(struct interface_defn_t *ifd, execfn *exec)
+# if ENABLE_FEATURE_IFUPDOWN_IP
+static int FAST_FUNC v4tunnel_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
 	result = execute("ip tunnel add %iface% mode sit remote "
@@ -383,18 +425,19 @@ static int v4tunnel_up(struct interface_defn_t *ifd, execfn *exec)
 	return ((result == 4) ? 4 : 0);
 }
 
-static int v4tunnel_down(struct interface_defn_t * ifd, execfn * exec)
+static int FAST_FUNC v4tunnel_down(struct interface_defn_t * ifd, execfn * exec)
 {
 	return execute("ip tunnel del %iface%", ifd, exec);
 }
-#endif
+# endif
 
 static const struct method_t methods6[] = {
-#if ENABLE_FEATURE_IFUPDOWN_IP
-	{ "v4tunnel", v4tunnel_up, v4tunnel_down, },
-#endif
-	{ "static", static_up6, static_down6, },
-	{ "loopback", loopback_up6, loopback_down6, },
+# if ENABLE_FEATURE_IFUPDOWN_IP
+	{ "v4tunnel" , v4tunnel_up     , v4tunnel_down   , },
+# endif
+	{ "static"   , static_up6      , static_down6    , },
+	{ "manual"   , manual_up_down6 , manual_up_down6 , },
+	{ "loopback" , loopback_up6    , loopback_down6  , },
 };
 
 static const struct address_family_t addr_inet6 = {
@@ -402,43 +445,46 @@ static const struct address_family_t addr_inet6 = {
 	ARRAY_SIZE(methods6),
 	methods6
 };
+
 #endif /* FEATURE_IFUPDOWN_IPV6 */
 
+
 #if ENABLE_FEATURE_IFUPDOWN_IPV4
-static int loopback_up(struct interface_defn_t *ifd, execfn *exec)
+
+static int FAST_FUNC loopback_up(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	int result;
 	result = execute("ip addr add 127.0.0.1/8 dev %iface%", ifd, exec);
 	result += execute("ip link set %iface% up", ifd, exec);
 	return ((result == 2) ? 2 : 0);
-#else
+# else
 	return execute("ifconfig %iface% 127.0.0.1 up", ifd, exec);
-#endif
+# endif
 }
 
-static int loopback_down(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC loopback_down(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	int result;
 	result = execute("ip addr flush dev %iface%", ifd, exec);
 	result += execute("ip link set %iface% down", ifd, exec);
 	return ((result == 2) ? 2 : 0);
-#else
+# else
 	return execute("ifconfig %iface% 127.0.0.1 down", ifd, exec);
-#endif
+# endif
 }
 
-static int static_up(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC static_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	result = execute("ip addr add %address%/%bnmask%[[ broadcast %broadcast%]] "
 			"dev %iface%[[ peer %pointopoint%]][[ label %label%]]", ifd, exec);
 	result += execute("ip link set[[ mtu %mtu%]][[ addr %hwaddress%]] %iface% up", ifd, exec);
-	result += execute("[[ip route add default via %gateway% dev %iface%]]", ifd, exec);
+	result += execute("[[ip route add default via %gateway% dev %iface%[[ prio %metric%]]]]", ifd, exec);
 	return ((result == 3) ? 3 : 0);
-#else
+# else
 	/* ifconfig said to set iface up before it processes hw %hwaddress%,
 	 * which then of course fails. Thus we run two separate ifconfig */
 	result = execute("ifconfig %iface%[[ hw %hwaddress%]][[ media %media%]][[ mtu %mtu%]] up",
@@ -446,30 +492,29 @@ static int static_up(struct interface_defn_t *ifd, execfn *exec)
 	result += execute("ifconfig %iface% %address% netmask %netmask%"
 				"[[ broadcast %broadcast%]][[ pointopoint %pointopoint%]] ",
 				ifd, exec);
-	result += execute("[[route add default gw %gateway% %iface%]]", ifd, exec);
+	result += execute("[[route add default gw %gateway%[[ metric %metric%]] %iface%]]", ifd, exec);
 	return ((result == 3) ? 3 : 0);
-#endif
+# endif
 }
 
-static int static_down(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC static_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
-#if ENABLE_FEATURE_IFUPDOWN_IP
+# if ENABLE_FEATURE_IFUPDOWN_IP
 	result = execute("ip addr flush dev %iface%", ifd, exec);
 	result += execute("ip link set %iface% down", ifd, exec);
-#else
+# else
 	/* result = execute("[[route del default gw %gateway% %iface%]]", ifd, exec); */
 	/* Bringing the interface down deletes the routes in itself.
 	   Otherwise this fails if we reference 'gateway' when using this from dhcp_down */
 	result = 1;
 	result += execute("ifconfig %iface% down", ifd, exec);
-#endif
+# endif
 	return ((result == 2) ? 2 : 0);
 }
 
-#if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
-struct dhcp_client_t
-{
+# if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
+struct dhcp_client_t {
 	const char *name;
 	const char *startcmd;
 	const char *stopcmd;
@@ -477,7 +522,7 @@ struct dhcp_client_t
 
 static const struct dhcp_client_t ext_dhcp_clients[] = {
 	{ "dhcpcd",
-		"dhcpcd[[ -h %hostname%]][[ -i %vendor%]][[ -I %clientid%]][[ -l %leasetime%]] %iface%",
+		"dhcpcd[[ -h %hostname%]][[ -i %vendor%]][[ -I %client%]][[ -l %leasetime%]] %iface%",
 		"dhcpcd -k %iface%",
 	},
 	{ "dhclient",
@@ -489,26 +534,26 @@ static const struct dhcp_client_t ext_dhcp_clients[] = {
 		"pump -i %iface% -k",
 	},
 	{ "udhcpc",
-		"udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -H %hostname%]][[ -c %clientid%]]"
+		"udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -H %hostname%]][[ -c %client%]]"
 				"[[ -s %script%]][[ %udhcpc_opts%]]",
 		"kill `cat /var/run/udhcpc.%iface%.pid` 2>/dev/null",
 	},
 };
-#endif /* ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCPC */
+# endif /* FEATURE_IFUPDOWN_EXTERNAL_DHCPC */
 
-#if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
-static int dhcp_up(struct interface_defn_t *ifd, execfn *exec)
+# if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
+static int FAST_FUNC dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	unsigned i;
-#if ENABLE_FEATURE_IFUPDOWN_IP
+#  if ENABLE_FEATURE_IFUPDOWN_IP
 	/* ip doesn't up iface when it configures it (unlike ifconfig) */
 	if (!execute("ip link set[[ addr %hwaddress%]] %iface% up", ifd, exec))
 		return 0;
-#else
+#  else
 	/* needed if we have hwaddress on dhcp iface */
 	if (!execute("ifconfig %iface%[[ hw %hwaddress%]] up", ifd, exec))
 		return 0;
-#endif
+#  endif
 	for (i = 0; i < ARRAY_SIZE(ext_dhcp_clients); i++) {
 		if (exists_execable(ext_dhcp_clients[i].name))
 			return execute(ext_dhcp_clients[i].startcmd, ifd, exec);
@@ -516,39 +561,39 @@ static int dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 	bb_error_msg("no dhcp clients found");
 	return 0;
 }
-#elif ENABLE_APP_UDHCPC
-static int dhcp_up(struct interface_defn_t *ifd, execfn *exec)
+# elif ENABLE_UDHCPC
+static int FAST_FUNC dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 {
-#if ENABLE_FEATURE_IFUPDOWN_IP
+#  if ENABLE_FEATURE_IFUPDOWN_IP
 	/* ip doesn't up iface when it configures it (unlike ifconfig) */
 	if (!execute("ip link set[[ addr %hwaddress%]] %iface% up", ifd, exec))
 		return 0;
-#else
+#  else
 	/* needed if we have hwaddress on dhcp iface */
 	if (!execute("ifconfig %iface%[[ hw %hwaddress%]] up", ifd, exec))
 		return 0;
-#endif
+#  endif
 	return execute("udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid "
-			"-i %iface%[[ -H %hostname%]][[ -c %clientid%]][[ -s %script%]][[ %udhcpc_opts%]]",
+			"-i %iface%[[ -H %hostname%]][[ -c %client%]][[ -s %script%]][[ %udhcpc_opts%]]",
 			ifd, exec);
 }
-#else
-static int dhcp_up(struct interface_defn_t *ifd UNUSED_PARAM,
+# else
+static int FAST_FUNC dhcp_up(struct interface_defn_t *ifd UNUSED_PARAM,
 		execfn *exec UNUSED_PARAM)
 {
 	return 0; /* no dhcp support */
 }
-#endif
+# endif
 
-#if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
-static int dhcp_down(struct interface_defn_t *ifd, execfn *exec)
+# if ENABLE_FEATURE_IFUPDOWN_EXTERNAL_DHCP
+static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result = 0;
 	unsigned i;
 
 	for (i = 0; i < ARRAY_SIZE(ext_dhcp_clients); i++) {
 		if (exists_execable(ext_dhcp_clients[i].name)) {
-			result += execute(ext_dhcp_clients[i].stopcmd, ifd, exec);
+			result = execute(ext_dhcp_clients[i].stopcmd, ifd, exec);
 			if (result)
 				break;
 		}
@@ -563,12 +608,14 @@ static int dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 	result += static_down(ifd, exec);
 	return ((result == 3) ? 3 : 0);
 }
-#elif ENABLE_APP_UDHCPC
-static int dhcp_down(struct interface_defn_t *ifd, execfn *exec)
+# elif ENABLE_UDHCPC
+static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
-	result = execute("kill "
-	               "`cat /var/run/udhcpc.%iface%.pid` 2>/dev/null", ifd, exec);
+	result = execute(
+		"test -f /var/run/udhcpc.%iface%.pid && "
+		"kill `cat /var/run/udhcpc.%iface%.pid` 2>/dev/null",
+		ifd, exec);
 	/* Also bring the hardware interface down since
 	   killing the dhcp client alone doesn't do it.
 	   This enables consecutive ifup->ifdown->ifup */
@@ -578,56 +625,56 @@ static int dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 	result += static_down(ifd, exec);
 	return ((result == 3) ? 3 : 0);
 }
-#else
-static int dhcp_down(struct interface_defn_t *ifd UNUSED_PARAM,
+# else
+static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd UNUSED_PARAM,
 		execfn *exec UNUSED_PARAM)
 {
 	return 0; /* no dhcp support */
 }
-#endif
+# endif
 
-static int manual_up_down(struct interface_defn_t *ifd UNUSED_PARAM, execfn *exec UNUSED_PARAM)
+static int FAST_FUNC manual_up_down(struct interface_defn_t *ifd UNUSED_PARAM, execfn *exec UNUSED_PARAM)
 {
 	return 1;
 }
 
-static int bootp_up(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC bootp_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	return execute("bootpc[[ --bootfile %bootfile%]] --dev %iface%"
 			"[[ --server %server%]][[ --hwaddr %hwaddr%]]"
 			" --returniffail --serverbcast", ifd, exec);
 }
 
-static int ppp_up(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC ppp_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	return execute("pon[[ %provider%]]", ifd, exec);
 }
 
-static int ppp_down(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC ppp_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	return execute("poff[[ %provider%]]", ifd, exec);
 }
 
-static int wvdial_up(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC wvdial_up(struct interface_defn_t *ifd, execfn *exec)
 {
 	return execute("start-stop-daemon --start -x wvdial "
 		"-p /var/run/wvdial.%iface% -b -m --[[ %provider%]]", ifd, exec);
 }
 
-static int wvdial_down(struct interface_defn_t *ifd, execfn *exec)
+static int FAST_FUNC wvdial_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	return execute("start-stop-daemon --stop -x wvdial "
 			"-p /var/run/wvdial.%iface% -s 2", ifd, exec);
 }
 
 static const struct method_t methods[] = {
-	{ "manual", manual_up_down, manual_up_down, },
-	{ "wvdial", wvdial_up, wvdial_down, },
-	{ "ppp", ppp_up, ppp_down, },
-	{ "static", static_up, static_down, },
-	{ "bootp", bootp_up, static_down, },
-	{ "dhcp", dhcp_up, dhcp_down, },
-	{ "loopback", loopback_up, loopback_down, },
+	{ "manual"  , manual_up_down, manual_up_down, },
+	{ "wvdial"  , wvdial_up     , wvdial_down   , },
+	{ "ppp"     , ppp_up        , ppp_down      , },
+	{ "static"  , static_up     , static_down   , },
+	{ "bootp"   , bootp_up      , static_down   , },
+	{ "dhcp"    , dhcp_up       , dhcp_down     , },
+	{ "loopback", loopback_up   , loopback_down , },
 };
 
 static const struct address_family_t addr_inet = {
@@ -636,8 +683,12 @@ static const struct address_family_t addr_inet = {
 	methods
 };
 
-#endif	/* if ENABLE_FEATURE_IFUPDOWN_IPV4 */
+#endif  /* FEATURE_IFUPDOWN_IPV4 */
 
+
+/* Returns pointer to the next word, or NULL.
+ * In 1st case, advances *buf to the word after this one.
+ */
 static char *next_word(char **buf)
 {
 	unsigned length;
@@ -657,7 +708,7 @@ static char *next_word(char **buf)
 	if (word[length] != '\0')
 		word[length++] = '\0';
 
-	*buf = word + length;
+	*buf = skip_whitespace(word + length);
 
 	return word;
 }
@@ -752,7 +803,6 @@ static struct interfaces_file_t *read_interfaces(const char *filename)
 				currmap->match = xrealloc_vector(currmap->match, 4, currmap->n_matches);
 				currmap->match[currmap->n_matches++] = xstrdup(first_word);
 			}
-			/*currmap->max_mappings = 0; - done by xzalloc */
 			/*currmap->n_mappings = 0;*/
 			/*currmap->mapping = NULL;*/
 			/*currmap->script = NULL;*/
@@ -837,23 +887,21 @@ static struct interfaces_file_t *read_interfaces(const char *filename)
 				if (rest_of_line[0] == '\0')
 					bb_error_msg_and_die("option with empty value \"%s\"", buf);
 
-				if (strcmp(first_word, "up") != 0
-				 && strcmp(first_word, "down") != 0
-				 && strcmp(first_word, "pre-up") != 0
-				 && strcmp(first_word, "post-down") != 0
-				) {
+				if (strcmp(first_word, "post-up") == 0)
+					first_word += 5; /* "up" */
+				else if (strcmp(first_word, "pre-down") == 0)
+					first_word += 4; /* "down" */
+
+				/* If not one of "up", "down",... words... */
+				if (index_in_strings(keywords_up_down, first_word) < 0) {
 					int i;
 					for (i = 0; i < currif->n_options; i++) {
 						if (strcmp(currif->option[i].name, first_word) == 0)
 							bb_error_msg_and_die("duplicate option \"%s\"", buf);
 					}
 				}
-				if (currif->n_options >= currif->max_options) {
-					currif->max_options += 10;
-					currif->option = xrealloc(currif->option,
-						sizeof(*currif->option) * currif->max_options);
-				}
 				debug_noise("\t%s=%s\n", first_word, rest_of_line);
+				currif->option = xrealloc_vector(currif->option, 4, currif->n_options);
 				currif->option[currif->n_options].name = xstrdup(first_word);
 				currif->option[currif->n_options].value = xstrdup(rest_of_line);
 				currif->n_options++;
@@ -865,11 +913,7 @@ static struct interfaces_file_t *read_interfaces(const char *filename)
 						bb_error_msg_and_die("duplicate script in mapping \"%s\"", buf);
 					currmap->script = xstrdup(next_word(&rest_of_line));
 				} else if (strcmp(first_word, "map") == 0) {
-					if (currmap->n_mappings >= currmap->max_mappings) {
-						currmap->max_mappings = currmap->max_mappings * 2 + 1;
-						currmap->mapping = xrealloc(currmap->mapping,
-							sizeof(char *) * currmap->max_mappings);
-					}
+					currmap->mapping = xrealloc_vector(currmap->mapping, 2, currmap->n_mappings);
 					currmap->mapping[currmap->n_mappings] = xstrdup(next_word(&rest_of_line));
 					currmap->n_mappings++;
 				} else {
@@ -897,60 +941,55 @@ static struct interfaces_file_t *read_interfaces(const char *filename)
 static char *setlocalenv(const char *format, const char *name, const char *value)
 {
 	char *result;
-	char *here;
-	char *there;
+	char *dst;
+	char *src;
+	char c;
 
 	result = xasprintf(format, name, value);
 
-	for (here = there = result; *there != '=' && *there; there++) {
-		if (*there == '-')
-			*there = '_';
-		if (isalpha(*there))
-			*there = toupper(*there);
-
-		if (isalnum(*there) || *there == '_') {
-			*here = *there;
-			here++;
-		}
+	for (dst = src = result; (c = *src) != '=' && c; src++) {
+		if (c == '-')
+			c = '_';
+		if (c >= 'a' && c <= 'z')
+			c -= ('a' - 'A');
+		if (isalnum(c) || c == '_')
+			*dst++ = c;
 	}
-	memmove(here, there, strlen(there) + 1);
+	overlapping_strcpy(dst, src);
 
 	return result;
 }
 
-static void set_environ(struct interface_defn_t *iface, const char *mode)
+static void set_environ(struct interface_defn_t *iface, const char *mode, const char *opt)
 {
-	char **environend;
 	int i;
-	const int n_env_entries = iface->n_options + 5;
-	char **ppch;
+	char **pp;
 
-	if (my_environ != NULL) {
-		for (ppch = my_environ; *ppch; ppch++) {
-			free(*ppch);
-			*ppch = NULL;
+	if (G.my_environ != NULL) {
+		for (pp = G.my_environ; *pp; pp++) {
+			free(*pp);
 		}
-		free(my_environ);
+		free(G.my_environ);
 	}
-	my_environ = xzalloc(sizeof(char *) * (n_env_entries + 1 /* for final NULL */ ));
-	environend = my_environ;
+
+	/* note: last element will stay NULL: */
+	G.my_environ = xzalloc(sizeof(char *) * (iface->n_options + 7));
+	pp = G.my_environ;
 
 	for (i = 0; i < iface->n_options; i++) {
-		if (strcmp(iface->option[i].name, "up") == 0
-		 || strcmp(iface->option[i].name, "down") == 0
-		 || strcmp(iface->option[i].name, "pre-up") == 0
-		 || strcmp(iface->option[i].name, "post-down") == 0
-		) {
+		if (index_in_strings(keywords_up_down, iface->option[i].name) >= 0) {
 			continue;
 		}
-		*(environend++) = setlocalenv("IF_%s=%s", iface->option[i].name, iface->option[i].value);
+		*pp++ = setlocalenv("IF_%s=%s", iface->option[i].name, iface->option[i].value);
 	}
 
-	*(environend++) = setlocalenv("%s=%s", "IFACE", iface->iface);
-	*(environend++) = setlocalenv("%s=%s", "ADDRFAM", iface->address_family->name);
-	*(environend++) = setlocalenv("%s=%s", "METHOD", iface->method->name);
-	*(environend++) = setlocalenv("%s=%s", "MODE", mode);
-	*(environend++) = setlocalenv("%s=%s", "PATH", startup_PATH);
+	*pp++ = setlocalenv("%s=%s", "IFACE", iface->iface);
+	*pp++ = setlocalenv("%s=%s", "ADDRFAM", iface->address_family->name);
+	*pp++ = setlocalenv("%s=%s", "METHOD", iface->method->name);
+	*pp++ = setlocalenv("%s=%s", "MODE", mode);
+	*pp++ = setlocalenv("%s=%s", "PHASE", opt);
+	if (G.startup_PATH)
+		*pp++ = setlocalenv("%s=%s", "PATH", G.startup_PATH);
 }
 
 static int doit(char *str)
@@ -962,13 +1001,12 @@ static int doit(char *str)
 		pid_t child;
 		int status;
 
-		fflush(NULL);
+		fflush_all();
 		child = vfork();
-		switch (child) {
-		case -1: /* failure */
+		if (child < 0) /* failure */
 			return 0;
-		case 0: /* child */
-			execle(DEFAULT_SHELL, DEFAULT_SHELL, "-c", str, (char *) NULL, my_environ);
+		if (child == 0) { /* child */
+			execle(G.shell, G.shell, "-c", str, (char *) NULL, G.my_environ);
 			_exit(127);
 		}
 		safe_waitpid(child, &status, 0);
@@ -1004,19 +1042,21 @@ static int check(char *str)
 static int iface_up(struct interface_defn_t *iface)
 {
 	if (!iface->method->up(iface, check)) return -1;
-	set_environ(iface, "start");
+	set_environ(iface, "start", "pre-up");
 	if (!execute_all(iface, "pre-up")) return 0;
 	if (!iface->method->up(iface, doit)) return 0;
+	set_environ(iface, "start", "post-up");
 	if (!execute_all(iface, "up")) return 0;
 	return 1;
 }
 
 static int iface_down(struct interface_defn_t *iface)
 {
-	if (!iface->method->down(iface,check)) return -1;
-	set_environ(iface, "stop");
+	if (!iface->method->down(iface, check)) return -1;
+	set_environ(iface, "stop", "pre-down");
 	if (!execute_all(iface, "down")) return 0;
 	if (!iface->method->down(iface, doit)) return 0;
+	set_environ(iface, "stop", "post-down");
 	if (!execute_all(iface, "post-down")) return 0;
 	return 1;
 }
@@ -1031,26 +1071,23 @@ static int popen2(FILE **in, FILE **out, char *command, char *param)
 	xpiped_pair(infd);
 	xpiped_pair(outfd);
 
-	fflush(NULL);
-	pid = vfork();
+	fflush_all();
+	pid = xvfork();
 
-	switch (pid) {
-	case -1:  /* failure */
-		bb_perror_msg_and_die("vfork");
-	case 0:  /* child */
+	if (pid == 0) {
+		/* Child */
 		/* NB: close _first_, then move fds! */
 		close(infd.wr);
 		close(outfd.rd);
 		xmove_fd(infd.rd, 0);
 		xmove_fd(outfd.wr, 1);
-		BB_EXECVP(command, argv);
-		_exit(127);
+		BB_EXECVP_or_die(argv);
 	}
 	/* parent */
 	close(infd.rd);
 	close(outfd.wr);
-	*in = fdopen(infd.wr, "w");
-	*out = fdopen(outfd.rd, "r");
+	*in = xfdopen_for_write(infd.wr);
+	*out = xfdopen_for_read(outfd.rd);
 	return pid;
 }
 
@@ -1135,13 +1172,18 @@ static llist_t *read_iface_state(void)
 
 
 int ifupdown_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int ifupdown_main(int argc, char **argv)
+int ifupdown_main(int argc UNUSED_PARAM, char **argv)
 {
 	int (*cmds)(struct interface_defn_t *);
 	struct interfaces_file_t *defn;
 	llist_t *target_list = NULL;
 	const char *interfaces = "/etc/network/interfaces";
 	bool any_failures = 0;
+
+	INIT_G();
+
+	G.startup_PATH = getenv("PATH");
+	G.shell = xstrdup(get_shell_name());
 
 	cmds = iface_down;
 	if (applet_name[2] == 'u') {
@@ -1150,7 +1192,8 @@ int ifupdown_main(int argc, char **argv)
 	}
 
 	getopt32(argv, OPTION_STR, &interfaces);
-	if (argc - optind > 0) {
+	argv += optind;
+	if (argv[0]) {
 		if (DO_ALL) bb_show_usage();
 	} else {
 		if (!DO_ALL) bb_show_usage();
@@ -1160,14 +1203,11 @@ int ifupdown_main(int argc, char **argv)
 	defn = read_interfaces(interfaces);
 	debug_noise("\ndone reading %s\n\n", interfaces);
 
-	startup_PATH = getenv("PATH");
-	if (!startup_PATH) startup_PATH = "";
-
 	/* Create a list of interfaces to work on */
 	if (DO_ALL) {
 		target_list = defn->autointerfaces;
 	} else {
-		llist_add_to_end(&target_list, argv[optind]);
+		llist_add_to_end(&target_list, argv[0]);
 	}
 
 	/* Update the interfaces */
@@ -1199,13 +1239,13 @@ int ifupdown_main(int argc, char **argv)
 				/* ifup */
 				if (iface_state) {
 					bb_error_msg("interface %s already configured", iface);
-					continue;
+					goto next;
 				}
 			} else {
 				/* ifdown */
 				if (!iface_state) {
 					bb_error_msg("interface %s not configured", iface);
-					continue;
+					goto next;
 				}
 			}
 			llist_free(state_list, free);
@@ -1269,9 +1309,9 @@ int ifupdown_main(int argc, char **argv)
 			llist_t *state_list = read_iface_state();
 			llist_t *iface_state = find_iface_state(state_list, iface);
 
-			if (cmds == iface_up) {
-				char * const newiface = xasprintf("%s=%s", iface, liface);
-				if (iface_state == NULL) {
+			if (cmds == iface_up && !any_failures) {
+				char *newiface = xasprintf("%s=%s", iface, liface);
+				if (!iface_state) {
 					llist_add_to_end(&state_list, newiface);
 				} else {
 					free(iface_state->data);
@@ -1295,6 +1335,9 @@ int ifupdown_main(int argc, char **argv)
 			fclose(state_fp);
 			llist_free(state_list, free);
 		}
+ next:
+		free(iface);
+		free(liface);
 	}
 
 	return any_failures;

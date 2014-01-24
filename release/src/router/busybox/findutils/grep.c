@@ -5,7 +5,7 @@
  * Copyright (C) 1999,2000,2001 by Lineo, inc. and Mark Whitley
  * Copyright (C) 1999,2000,2001 by Mark Whitley <markw@codepoet.org>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 /* BB_AUDIT SUSv3 defects - unsupported option -x "match whole line only". */
 /* BB_AUDIT GNU defects - always acts as -a.  */
@@ -14,26 +14,113 @@
  * 2004,2006 (C) Vladimir Oleynik <dzo@simtreas.ru> -
  * correction "-e pattern1 -e pattern2" logic and more optimizations.
  * precompiled regex
- */
-/*
+ *
  * (C) 2006 Jac Goudsmit added -o option
  */
+
+//applet:IF_GREP(APPLET(grep, BB_DIR_BIN, BB_SUID_DROP))
+//applet:IF_FEATURE_GREP_EGREP_ALIAS(APPLET_ODDNAME(egrep, grep, BB_DIR_BIN, BB_SUID_DROP, egrep))
+//applet:IF_FEATURE_GREP_FGREP_ALIAS(APPLET_ODDNAME(fgrep, grep, BB_DIR_BIN, BB_SUID_DROP, fgrep))
+
+//kbuild:lib-$(CONFIG_GREP) += grep.o
+
+//config:config GREP
+//config:	bool "grep"
+//config:	default y
+//config:	help
+//config:	  grep is used to search files for a specified pattern.
+//config:
+//config:config FEATURE_GREP_EGREP_ALIAS
+//config:	bool "Enable extended regular expressions (egrep & grep -E)"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  Enabled support for extended regular expressions. Extended
+//config:	  regular expressions allow for alternation (foo|bar), grouping,
+//config:	  and various repetition operators.
+//config:
+//config:config FEATURE_GREP_FGREP_ALIAS
+//config:	bool "Alias fgrep to grep -F"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  fgrep sees the search pattern as a normal string rather than
+//config:	  regular expressions.
+//config:	  grep -F always works, this just creates the fgrep alias.
+//config:
+//config:config FEATURE_GREP_CONTEXT
+//config:	bool "Enable before and after context flags (-A, -B and -C)"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  Print the specified number of leading (-B) and/or trailing (-A)
+//config:	  context surrounding our matching lines.
+//config:	  Print the specified number of context lines (-C).
 
 #include "libbb.h"
 #include "xregex.h"
 
-/* options */
-#define OPTSTR_GREP \
-	"lnqvscFiHhe:f:Lorm:" \
-	USE_FEATURE_GREP_CONTEXT("A:B:C:") \
-	USE_FEATURE_GREP_EGREP_ALIAS("E") \
-	USE_DESKTOP("w") \
-	USE_EXTRA_COMPAT("z") \
-	"aI"
 
+/* options */
+//usage:#define grep_trivial_usage
+//usage:       "[-HhnlLoqvsriw"
+//usage:       "F"
+//usage:	IF_FEATURE_GREP_EGREP_ALIAS("E")
+//usage:	IF_EXTRA_COMPAT("z")
+//usage:       "] [-m N] "
+//usage:	IF_FEATURE_GREP_CONTEXT("[-A/B/C N] ")
+//usage:       "PATTERN/-e PATTERN.../-f FILE [FILE]..."
+//usage:#define grep_full_usage "\n\n"
+//usage:       "Search for PATTERN in FILEs (or stdin)\n"
+//usage:     "\n	-H	Add 'filename:' prefix"
+//usage:     "\n	-h	Do not add 'filename:' prefix"
+//usage:     "\n	-n	Add 'line_no:' prefix"
+//usage:     "\n	-l	Show only names of files that match"
+//usage:     "\n	-L	Show only names of files that don't match"
+//usage:     "\n	-c	Show only count of matching lines"
+//usage:     "\n	-o	Show only the matching part of line"
+//usage:     "\n	-q	Quiet. Return 0 if PATTERN is found, 1 otherwise"
+//usage:     "\n	-v	Select non-matching lines"
+//usage:     "\n	-s	Suppress open and read errors"
+//usage:     "\n	-r	Recurse"
+//usage:     "\n	-i	Ignore case"
+//usage:     "\n	-w	Match whole words only"
+//usage:     "\n	-x	Match whole lines only"
+//usage:     "\n	-F	PATTERN is a literal (not regexp)"
+//usage:	IF_FEATURE_GREP_EGREP_ALIAS(
+//usage:     "\n	-E	PATTERN is an extended regexp"
+//usage:	)
+//usage:	IF_EXTRA_COMPAT(
+//usage:     "\n	-z	Input is NUL terminated"
+//usage:	)
+//usage:     "\n	-m N	Match up to N times per file"
+//usage:	IF_FEATURE_GREP_CONTEXT(
+//usage:     "\n	-A N	Print N lines of trailing context"
+//usage:     "\n	-B N	Print N lines of leading context"
+//usage:     "\n	-C N	Same as '-A N -B N'"
+//usage:	)
+//usage:     "\n	-e PTRN	Pattern to match"
+//usage:     "\n	-f FILE	Read pattern from file"
+//usage:
+//usage:#define grep_example_usage
+//usage:       "$ grep root /etc/passwd\n"
+//usage:       "root:x:0:0:root:/root:/bin/bash\n"
+//usage:       "$ grep ^[rR]oo. /etc/passwd\n"
+//usage:       "root:x:0:0:root:/root:/bin/bash\n"
+//usage:
+//usage:#define egrep_trivial_usage NOUSAGE_STR
+//usage:#define egrep_full_usage ""
+//usage:#define fgrep_trivial_usage NOUSAGE_STR
+//usage:#define fgrep_full_usage ""
+
+#define OPTSTR_GREP \
+	"lnqvscFiHhe:f:Lorm:wx" \
+	IF_FEATURE_GREP_CONTEXT("A:B:C:") \
+	IF_FEATURE_GREP_EGREP_ALIAS("E") \
+	IF_EXTRA_COMPAT("z") \
+	"aI"
 /* ignored: -a "assume all files to be text" */
 /* ignored: -I "assume binary files have no matches" */
-
 enum {
 	OPTBIT_l, /* list matched file names only */
 	OPTBIT_n, /* print line# */
@@ -51,12 +138,13 @@ enum {
 	OPTBIT_o, /* show only matching parts of lines */
 	OPTBIT_r, /* recurse dirs */
 	OPTBIT_m, /* -m MAX_MATCHES */
-	USE_FEATURE_GREP_CONTEXT(    OPTBIT_A ,) /* -A NUM: after-match context */
-	USE_FEATURE_GREP_CONTEXT(    OPTBIT_B ,) /* -B NUM: before-match context */
-	USE_FEATURE_GREP_CONTEXT(    OPTBIT_C ,) /* -C NUM: -A and -B combined */
-	USE_FEATURE_GREP_EGREP_ALIAS(OPTBIT_E ,) /* extended regexp */
-	USE_DESKTOP(                 OPTBIT_w ,) /* whole word match */
-	USE_EXTRA_COMPAT(            OPTBIT_z ,) /* input is NUL terminated */
+	OPTBIT_w, /* -w whole word match */
+	OPTBIT_x, /* -x whole line match */
+	IF_FEATURE_GREP_CONTEXT(    OPTBIT_A ,) /* -A NUM: after-match context */
+	IF_FEATURE_GREP_CONTEXT(    OPTBIT_B ,) /* -B NUM: before-match context */
+	IF_FEATURE_GREP_CONTEXT(    OPTBIT_C ,) /* -C NUM: -A and -B combined */
+	IF_FEATURE_GREP_EGREP_ALIAS(OPTBIT_E ,) /* extended regexp */
+	IF_EXTRA_COMPAT(            OPTBIT_z ,) /* input is NUL terminated */
 	OPT_l = 1 << OPTBIT_l,
 	OPT_n = 1 << OPTBIT_n,
 	OPT_q = 1 << OPTBIT_q,
@@ -73,12 +161,13 @@ enum {
 	OPT_o = 1 << OPTBIT_o,
 	OPT_r = 1 << OPTBIT_r,
 	OPT_m = 1 << OPTBIT_m,
-	OPT_A = USE_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_A)) + 0,
-	OPT_B = USE_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_B)) + 0,
-	OPT_C = USE_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_C)) + 0,
-	OPT_E = USE_FEATURE_GREP_EGREP_ALIAS((1 << OPTBIT_E)) + 0,
-	OPT_w = USE_DESKTOP(                 (1 << OPTBIT_w)) + 0,
-	OPT_z = USE_EXTRA_COMPAT(            (1 << OPTBIT_z)) + 0,
+	OPT_w = 1 << OPTBIT_w,
+	OPT_x = 1 << OPTBIT_x,
+	OPT_A = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_A)) + 0,
+	OPT_B = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_B)) + 0,
+	OPT_C = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_C)) + 0,
+	OPT_E = IF_FEATURE_GREP_EGREP_ALIAS((1 << OPTBIT_E)) + 0,
+	OPT_z = IF_EXTRA_COMPAT(            (1 << OPTBIT_z)) + 0,
 };
 
 #define PRINT_FILES_WITH_MATCHES    (option_mask32 & OPT_l)
@@ -105,13 +194,13 @@ struct globals {
 	int lines_before;
 	int lines_after;
 	char **before_buf;
-	USE_EXTRA_COMPAT(size_t *before_buf_size;)
+	IF_EXTRA_COMPAT(size_t *before_buf_size;)
 	int last_line_printed;
 #endif
 	/* globals used internally */
 	llist_t *pattern_head;   /* growable list of patterns to match */
 	const char *cur_file;    /* the current file we are reading */
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	struct G_sizecheck { \
@@ -120,17 +209,18 @@ struct globals {
 } while (0)
 #define max_matches       (G.max_matches         )
 #if !ENABLE_EXTRA_COMPAT
-#define reflags           (G.reflags             )
+# define reflags          (G.reflags             )
 #else
-#define case_fold         (G.case_fold           )
+# define case_fold        (G.case_fold           )
 /* http://www.delorie.com/gnu/docs/regex/regex_46.html */
-#define reflags           re_syntax_options
-#undef REG_NOSUB
-#undef REG_EXTENDED
-#undef REG_ICASE
-#define REG_NOSUB    bug:is:here /* should not be used */
-#define REG_EXTENDED RE_SYNTAX_EGREP
-#define REG_ICASE    bug:is:here /* should not be used */
+# define reflags           re_syntax_options
+# undef REG_NOSUB
+# undef REG_EXTENDED
+# undef REG_ICASE
+# define REG_NOSUB    bug:is:here /* should not be used */
+/* Just RE_SYNTAX_EGREP is not enough, need to enable {n[,[m]]} too */
+# define REG_EXTENDED (RE_SYNTAX_EGREP | RE_INTERVALS | RE_NO_BK_BRACES)
+# define REG_ICASE    bug:is:here /* should not be used */
 #endif
 #define invert_search     (G.invert_search       )
 #define print_filename    (G.print_filename      )
@@ -228,8 +318,8 @@ static int grep_file(FILE *file)
 	char *line = NULL;
 	ssize_t line_len;
 	size_t line_alloc_len;
-#define rm_so start[0]
-#define rm_eo end[0]
+# define rm_so start[0]
+# define rm_eo end[0]
 #endif
 #if ENABLE_FEATURE_GREP_CONTEXT
 	int print_n_lines_after = 0;
@@ -237,7 +327,7 @@ static int grep_file(FILE *file)
 	int idx = 0; /* used for iteration through the circular buffer */
 #else
 	enum { print_n_lines_after = 0 };
-#endif /* ENABLE_FEATURE_GREP_CONTEXT */
+#endif
 
 	while (
 #if !ENABLE_EXTRA_COMPAT
@@ -254,7 +344,34 @@ static int grep_file(FILE *file)
 		while (pattern_ptr) {
 			gl = (grep_list_data_t *)pattern_ptr->data;
 			if (FGREP_FLAG) {
-				found |= (strstr(line, gl->pattern) != NULL);
+				char *match;
+				char *str = line;
+ opt_f_again:
+				match = ((option_mask32 & OPT_i)
+					? strcasestr(str, gl->pattern)
+					: strstr(str, gl->pattern)
+					);
+				if (match) {
+					if (option_mask32 & OPT_x) {
+						if (match != str)
+							goto opt_f_not_found;
+						if (str[strlen(gl->pattern)] != '\0')
+							goto opt_f_not_found;
+					} else
+					if (option_mask32 & OPT_w) {
+						char c = (match != str) ? match[-1] : ' ';
+						if (!isalnum(c) && c != '_') {
+							c = match[strlen(gl->pattern)];
+							if (!c || (!isalnum(c) && c != '_'))
+								goto opt_f_found;
+						}
+						str = match + 1;
+						goto opt_f_again;
+					}
+ opt_f_found:
+					found = 1;
+ opt_f_not_found: ;
+				}
 			} else {
 				if (!(gl->flg_mem_alocated_compiled & COMPILED)) {
 					gl->flg_mem_alocated_compiled |= COMPILED;
@@ -280,9 +397,13 @@ static int grep_file(FILE *file)
 							&gl->matched_range) >= 0
 #endif
 				) {
-					if (!(option_mask32 & OPT_w))
+					if (option_mask32 & OPT_x) {
+						found = (gl->matched_range.rm_so == 0
+						         && line[gl->matched_range.rm_eo] == '\0');
+					} else
+					if (!(option_mask32 & OPT_w)) {
 						found = 1;
-					else {
+					} else {
 						char c = ' ';
 						if (gl->matched_range.rm_so)
 							c = line[gl->matched_range.rm_so - 1];
@@ -291,6 +412,8 @@ static int grep_file(FILE *file)
 							if (!c || (!isalnum(c) && c != '_'))
 								found = 1;
 						}
+//BUG: "echo foop foo | grep -w foo" should match, but doesn't:
+//we bail out on first "mismatch" because it's not a word.
 					}
 				}
 			}
@@ -370,17 +493,28 @@ static int grep_file(FILE *file)
 						if (found)
 							print_line(gl->pattern, strlen(gl->pattern), linenum, ':');
 					} else while (1) {
-						char old = line[gl->matched_range.rm_eo];
-						line[gl->matched_range.rm_eo] = '\0';
-						print_line(line + gl->matched_range.rm_so,
-								gl->matched_range.rm_eo - gl->matched_range.rm_so,
-								linenum, ':');
-						line[gl->matched_range.rm_eo] = old;
+						unsigned start = gl->matched_range.rm_so;
+						unsigned end = gl->matched_range.rm_eo;
+						unsigned len = end - start;
+						char old = line[end];
+						line[end] = '\0';
+						/* Empty match is not printed: try "echo test | grep -o ''" */
+						if (len != 0)
+							print_line(line + start, len, linenum, ':');
+						if (old == '\0')
+							break;
+						line[end] = old;
+						if (len == 0)
+							end++;
 #if !ENABLE_EXTRA_COMPAT
-						break;
+						if (regexec(&gl->compiled_regex, line + end,
+								1, &gl->matched_range, REG_NOTBOL) != 0)
+							break;
+						gl->matched_range.rm_so += end;
+						gl->matched_range.rm_eo += end;
 #else
 						if (re_search(&gl->compiled_regex, line, line_len,
-								gl->matched_range.rm_eo, line_len - gl->matched_range.rm_eo,
+								end, line_len - end,
 								&gl->matched_range) < 0)
 							break;
 #endif
@@ -400,7 +534,7 @@ static int grep_file(FILE *file)
 				/* Add the line to the circular 'before' buffer */
 				free(before_buf[curpos]);
 				before_buf[curpos] = line;
-				USE_EXTRA_COMPAT(before_buf_size[curpos] = line_len;)
+				IF_EXTRA_COMPAT(before_buf_size[curpos] = line_len;)
 				curpos = (curpos + 1) % lines_before;
 				/* avoid free(line) - we took the line */
 				line = NULL;
@@ -461,20 +595,20 @@ static char *add_grep_list_data(char *pattern)
 
 static void load_regexes_from_file(llist_t *fopt)
 {
-	char *line;
-	FILE *f;
-
 	while (fopt) {
+		char *line;
+		FILE *fp;
 		llist_t *cur = fopt;
 		char *ffile = cur->data;
 
 		fopt = cur->link;
 		free(cur);
-		f = xfopen_stdin(ffile);
-		while ((line = xmalloc_fgetline(f)) != NULL) {
+		fp = xfopen_stdin(ffile);
+		while ((line = xmalloc_fgetline(fp)) != NULL) {
 			llist_add_to(&pattern_head,
 				new_grep_list_data(line, ALLOCATED));
 		}
+		fclose_if_not_stdin(fp);
 	}
 }
 
@@ -511,7 +645,7 @@ static int grep_dir(const char *dir)
 }
 
 int grep_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int grep_main(int argc, char **argv)
+int grep_main(int argc UNUSED_PARAM, char **argv)
 {
 	FILE *file;
 	int matched;
@@ -519,32 +653,35 @@ int grep_main(int argc, char **argv)
 
 	/* do normal option parsing */
 #if ENABLE_FEATURE_GREP_CONTEXT
-	int Copt;
+	int Copt, opts;
 
 	/* -H unsets -h; -C unsets -A,-B; -e,-f are lists;
 	 * -m,-A,-B,-C have numeric param */
 	opt_complementary = "H-h:C-AB:e::f::m+:A+:B+:C+";
-	getopt32(argv,
+	opts = getopt32(argv,
 		OPTSTR_GREP,
 		&pattern_head, &fopt, &max_matches,
 		&lines_after, &lines_before, &Copt);
 
-	if (option_mask32 & OPT_C) {
+	if (opts & OPT_C) {
 		/* -C unsets prev -A and -B, but following -A or -B
-		   may override it */
-		if (!(option_mask32 & OPT_A)) /* not overridden */
+		 * may override it */
+		if (!(opts & OPT_A)) /* not overridden */
 			lines_after = Copt;
-		if (!(option_mask32 & OPT_B)) /* not overridden */
+		if (!(opts & OPT_B)) /* not overridden */
 			lines_before = Copt;
 	}
 	/* sanity checks */
-	if (option_mask32 & (OPT_c|OPT_q|OPT_l|OPT_L)) {
+	if (opts & (OPT_c|OPT_q|OPT_l|OPT_L)) {
 		option_mask32 &= ~OPT_n;
 		lines_before = 0;
 		lines_after = 0;
 	} else if (lines_before > 0) {
+		if (lines_before > INT_MAX / sizeof(long long))
+			lines_before = INT_MAX / sizeof(long long);
+		/* overflow in (lines_before * sizeof(x)) is prevented (above) */
 		before_buf = xzalloc(lines_before * sizeof(before_buf[0]));
-		USE_EXTRA_COMPAT(before_buf_size = xzalloc(lines_before * sizeof(before_buf_size[0]));)
+		IF_EXTRA_COMPAT(before_buf_size = xzalloc(lines_before * sizeof(before_buf_size[0]));)
 	}
 #else
 	/* with auto sanity checks */
@@ -555,15 +692,19 @@ int grep_main(int argc, char **argv)
 #endif
 	invert_search = ((option_mask32 & OPT_v) != 0); /* 0 | 1 */
 
-	if (pattern_head != NULL) {
-		/* convert char **argv to grep_list_data_t */
+	{	/* convert char **argv to grep_list_data_t */
 		llist_t *cur;
-
 		for (cur = pattern_head; cur; cur = cur->link)
 			cur->data = new_grep_list_data(cur->data, 0);
 	}
-	if (option_mask32 & OPT_f)
+	if (option_mask32 & OPT_f) {
 		load_regexes_from_file(fopt);
+		if (!pattern_head) { /* -f EMPTY_FILE? */
+			/* GNU grep treats it as "nothing matches" */
+			llist_add_to(&pattern_head, new_grep_list_data((char*) "", 0));
+			invert_search ^= 1;
+		}
+	}
 
 	if (ENABLE_FEATURE_GREP_FGREP_ALIAS && applet_name[0] == 'f')
 		option_mask32 |= OPT_F;
@@ -598,7 +739,6 @@ int grep_main(int argc, char **argv)
 	}
 
 	argv += optind;
-	argc -= optind;
 
 	/* if we didn't get a pattern from -e and no command file was specified,
 	 * first parameter should be the pattern. no pattern, no worky */
@@ -608,12 +748,11 @@ int grep_main(int argc, char **argv)
 			bb_show_usage();
 		pattern = new_grep_list_data(*argv++, 0);
 		llist_add_to(&pattern_head, pattern);
-		argc--;
 	}
 
 	/* argv[0..(argc-1)] should be names of file to grep through. If
 	 * there is more than one file to grep, we will print the filenames. */
-	if (argc > 1)
+	if (argv[0] && argv[1])
 		print_filename = 1;
 	/* -H / -h of course override */
 	if (option_mask32 & OPT_H)
@@ -625,7 +764,7 @@ int grep_main(int argc, char **argv)
 	 * stdin. Otherwise, we grep through all the files specified. */
 	matched = 0;
 	do {
-		cur_file = *argv++;
+		cur_file = *argv;
 		file = stdin;
 		if (!cur_file || LONE_DASH(cur_file)) {
 			cur_file = "(standard input)";
@@ -651,7 +790,7 @@ int grep_main(int argc, char **argv)
 		matched += grep_file(file);
 		fclose_if_not_stdin(file);
  grep_done: ;
-	} while (--argc > 0);
+	} while (*argv && *++argv);
 
 	/* destroy all the elments in the pattern list */
 	if (ENABLE_FEATURE_CLEAN_UP) {

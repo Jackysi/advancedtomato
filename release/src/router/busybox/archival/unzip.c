@@ -7,7 +7,7 @@
  * Loosely based on original busybox unzip applet by Laurence Anderson.
  * All options and features should work in this version.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* For reference see
@@ -19,18 +19,30 @@
  * Zip64 + other methods
  */
 
+//usage:#define unzip_trivial_usage
+//usage:       "[-lnopq] FILE[.zip] [FILE]... [-x FILE...] [-d DIR]"
+//usage:#define unzip_full_usage "\n\n"
+//usage:       "Extract FILEs from ZIP archive\n"
+//usage:     "\n	-l	List contents (with -q for short form)"
+//usage:     "\n	-n	Never overwrite files (default: ask)"
+//usage:     "\n	-o	Overwrite"
+//usage:     "\n	-p	Print to stdout"
+//usage:     "\n	-q	Quiet"
+//usage:     "\n	-x FILE	Exclude FILEs"
+//usage:     "\n	-d DIR	Extract into DIR"
+
 #include "libbb.h"
-#include "unarchive.h"
+#include "bb_archive.h"
 
 enum {
 #if BB_BIG_ENDIAN
 	ZIP_FILEHEADER_MAGIC = 0x504b0304,
-	ZIP_CDS_MAGIC        = 0x504b0102,
-	ZIP_CDE_MAGIC        = 0x504b0506,
+	ZIP_CDF_MAGIC        = 0x504b0102, /* central directory's file header */
+	ZIP_CDE_MAGIC        = 0x504b0506, /* "end of central directory" record */
 	ZIP_DD_MAGIC         = 0x504b0708,
 #else
 	ZIP_FILEHEADER_MAGIC = 0x04034b50,
-	ZIP_CDS_MAGIC        = 0x02014b50,
+	ZIP_CDF_MAGIC        = 0x02014b50,
 	ZIP_CDE_MAGIC        = 0x06054b50,
 	ZIP_DD_MAGIC         = 0x08074b50,
 #endif
@@ -42,7 +54,7 @@ typedef union {
 	uint8_t raw[ZIP_HEADER_LEN];
 	struct {
 		uint16_t version;               /* 0-1 */
-		uint16_t flags;                 /* 2-3 */
+		uint16_t zip_flags;             /* 2-3 */
 		uint16_t method;                /* 4-5 */
 		uint16_t modtime;               /* 6-7 */
 		uint16_t moddate;               /* 8-9 */
@@ -66,7 +78,6 @@ struct BUG_zip_header_must_be_26_bytes {
 
 #define FIX_ENDIANNESS_ZIP(zip_header) do { \
 	(zip_header).formatted.version      = SWAP_LE16((zip_header).formatted.version     ); \
-	(zip_header).formatted.flags        = SWAP_LE16((zip_header).formatted.flags       ); \
 	(zip_header).formatted.method       = SWAP_LE16((zip_header).formatted.method      ); \
 	(zip_header).formatted.modtime      = SWAP_LE16((zip_header).formatted.modtime     ); \
 	(zip_header).formatted.moddate      = SWAP_LE16((zip_header).formatted.moddate     ); \
@@ -77,15 +88,15 @@ struct BUG_zip_header_must_be_26_bytes {
 	(zip_header).formatted.extra_len    = SWAP_LE16((zip_header).formatted.extra_len   ); \
 } while (0)
 
-#define CDS_HEADER_LEN 42
+#define CDF_HEADER_LEN 42
 
 typedef union {
-	uint8_t raw[CDS_HEADER_LEN];
+	uint8_t raw[CDF_HEADER_LEN];
 	struct {
 		/* uint32_t signature; 50 4b 01 02 */
 		uint16_t version_made_by;       /* 0-1 */
 		uint16_t version_needed;        /* 2-3 */
-		uint16_t cds_flags;             /* 4-5 */
+		uint16_t cdf_flags;             /* 4-5 */
 		uint16_t method;                /* 6-7 */
 		uint16_t mtime;                 /* 8-9 */
 		uint16_t mdate;                 /* 10-11 */
@@ -100,21 +111,25 @@ typedef union {
 		uint32_t external_file_attributes PACKED; /* 34-37 */
 		uint32_t relative_offset_of_local_header PACKED; /* 38-41 */
 	} formatted PACKED;
-} cds_header_t;
+} cdf_header_t;
 
-struct BUG_cds_header_must_be_42_bytes {
-	char BUG_cds_header_must_be_42_bytes[
-		offsetof(cds_header_t, formatted.relative_offset_of_local_header) + 4
-			== CDS_HEADER_LEN ? 1 : -1];
+struct BUG_cdf_header_must_be_42_bytes {
+	char BUG_cdf_header_must_be_42_bytes[
+		offsetof(cdf_header_t, formatted.relative_offset_of_local_header) + 4
+			== CDF_HEADER_LEN ? 1 : -1];
 };
 
-#define FIX_ENDIANNESS_CDS(cds_header) do { \
-	(cds_header).formatted.crc32        = SWAP_LE32((cds_header).formatted.crc32       ); \
-	(cds_header).formatted.cmpsize      = SWAP_LE32((cds_header).formatted.cmpsize     ); \
-	(cds_header).formatted.ucmpsize     = SWAP_LE32((cds_header).formatted.ucmpsize    ); \
-	(cds_header).formatted.file_name_length = SWAP_LE16((cds_header).formatted.file_name_length); \
-	(cds_header).formatted.extra_field_length = SWAP_LE16((cds_header).formatted.extra_field_length); \
-	(cds_header).formatted.file_comment_length = SWAP_LE16((cds_header).formatted.file_comment_length); \
+#define FIX_ENDIANNESS_CDF(cdf_header) do { \
+	(cdf_header).formatted.crc32        = SWAP_LE32((cdf_header).formatted.crc32       ); \
+	(cdf_header).formatted.cmpsize      = SWAP_LE32((cdf_header).formatted.cmpsize     ); \
+	(cdf_header).formatted.ucmpsize     = SWAP_LE32((cdf_header).formatted.ucmpsize    ); \
+	(cdf_header).formatted.file_name_length = SWAP_LE16((cdf_header).formatted.file_name_length); \
+	(cdf_header).formatted.extra_field_length = SWAP_LE16((cdf_header).formatted.extra_field_length); \
+	(cdf_header).formatted.file_comment_length = SWAP_LE16((cdf_header).formatted.file_comment_length); \
+	IF_DESKTOP( \
+	(cdf_header).formatted.version_made_by = SWAP_LE16((cdf_header).formatted.version_made_by); \
+	(cdf_header).formatted.external_file_attributes = SWAP_LE32((cdf_header).formatted.external_file_attributes); \
+	) \
 } while (0)
 
 #define CDE_HEADER_LEN 16
@@ -124,11 +139,11 @@ typedef union {
 	struct {
 		/* uint32_t signature; 50 4b 05 06 */
 		uint16_t this_disk_no;
-		uint16_t disk_with_cds_no;
-		uint16_t cds_entries_on_this_disk;
-		uint16_t cds_entries_total;
-		uint32_t cds_size;
-		uint32_t cds_offset;
+		uint16_t disk_with_cdf_no;
+		uint16_t cdf_entries_on_this_disk;
+		uint16_t cdf_entries_total;
+		uint32_t cdf_size;
+		uint32_t cdf_offset;
 		/* uint16_t file_comment_length; */
 		/* .ZIP file comment (variable size) */
 	} formatted PACKED;
@@ -140,30 +155,33 @@ struct BUG_cde_header_must_be_16_bytes {
 };
 
 #define FIX_ENDIANNESS_CDE(cde_header) do { \
-	(cde_header).formatted.cds_offset = SWAP_LE32((cde_header).formatted.cds_offset); \
+	(cde_header).formatted.cdf_offset = SWAP_LE32((cde_header).formatted.cdf_offset); \
 } while (0)
 
 enum { zip_fd = 3 };
 
 
 #if ENABLE_DESKTOP
+
+#define PEEK_FROM_END 16384
+
 /* NB: does not preserve file position! */
-static uint32_t find_cds_offset(void)
+static uint32_t find_cdf_offset(void)
 {
-	unsigned char buf[1024];
 	cde_header_t cde_header;
 	unsigned char *p;
 	off_t end;
+	unsigned char *buf = xzalloc(PEEK_FROM_END);
 
 	end = xlseek(zip_fd, 0, SEEK_END);
-	if (end < 1024)
-		end = 1024;
-	end -= 1024;
+	end -= PEEK_FROM_END;
+	if (end < 0)
+		end = 0;
 	xlseek(zip_fd, end, SEEK_SET);
-	full_read(zip_fd, buf, 1024);
+	full_read(zip_fd, buf, PEEK_FROM_END);
 
 	p = buf;
-	while (p <= buf + 1024 - CDE_HEADER_LEN - 4) {
+	while (p <= buf + PEEK_FROM_END - CDE_HEADER_LEN - 4) {
 		if (*p != 'P') {
 			p++;
 			continue;
@@ -177,38 +195,39 @@ static uint32_t find_cds_offset(void)
 		/* we found CDE! */
 		memcpy(cde_header.raw, p + 1, CDE_HEADER_LEN);
 		FIX_ENDIANNESS_CDE(cde_header);
-		return cde_header.formatted.cds_offset;
+		free(buf);
+		return cde_header.formatted.cdf_offset;
 	}
+	//free(buf);
 	bb_error_msg_and_die("can't find file table");
 };
 
-static uint32_t read_next_cds(int count_m1, uint32_t cds_offset, cds_header_t *cds_ptr)
+static uint32_t read_next_cdf(uint32_t cdf_offset, cdf_header_t *cdf_ptr)
 {
 	off_t org;
 
 	org = xlseek(zip_fd, 0, SEEK_CUR);
 
-	if (!cds_offset)
-		cds_offset = find_cds_offset();
+	if (!cdf_offset)
+		cdf_offset = find_cdf_offset();
 
-	while (count_m1-- >= 0) {
-		xlseek(zip_fd, cds_offset + 4, SEEK_SET);
-		xread(zip_fd, cds_ptr->raw, CDS_HEADER_LEN);
-		FIX_ENDIANNESS_CDS(*cds_ptr);
-		cds_offset += 4 + CDS_HEADER_LEN
-			+ cds_ptr->formatted.file_name_length
-			+ cds_ptr->formatted.extra_field_length
-			+ cds_ptr->formatted.file_comment_length;
-	}
+	xlseek(zip_fd, cdf_offset + 4, SEEK_SET);
+	xread(zip_fd, cdf_ptr->raw, CDF_HEADER_LEN);
+	FIX_ENDIANNESS_CDF(*cdf_ptr);
+	cdf_offset += 4 + CDF_HEADER_LEN
+		+ cdf_ptr->formatted.file_name_length
+		+ cdf_ptr->formatted.extra_field_length
+		+ cdf_ptr->formatted.file_comment_length;
 
 	xlseek(zip_fd, org, SEEK_SET);
-	return cds_offset;
+	return cdf_offset;
 };
 #endif
 
 static void unzip_skip(off_t skip)
 {
-	bb_copyfd_exact_size(zip_fd, -1, skip);
+	if (lseek(zip_fd, skip, SEEK_CUR) == (off_t)-1)
+		bb_copyfd_exact_size(zip_fd, -1, skip);
 }
 
 static void unzip_create_leading_dirs(const char *fn)
@@ -216,7 +235,7 @@ static void unzip_create_leading_dirs(const char *fn)
 	/* Create all leading directories */
 	char *name = xstrdup(fn);
 	if (bb_make_directory(dirname(name), 0777, FILEUTILS_RECUR)) {
-		bb_error_msg_and_die("exiting"); /* bb_make_directory is noisy */
+		xfunc_die(); /* bb_make_directory is noisy */
 	}
 	free(name);
 }
@@ -230,15 +249,17 @@ static void unzip_extract(zip_header_t *zip_header, int dst_fd)
 			bb_copyfd_exact_size(zip_fd, dst_fd, size);
 	} else {
 		/* Method 8 - inflate */
-		inflate_unzip_result res;
-		if (inflate_unzip(&res, zip_header->formatted.cmpsize, zip_fd, dst_fd) < 0)
+		transformer_aux_data_t aux;
+		init_transformer_aux_data(&aux);
+		aux.bytes_in = zip_header->formatted.cmpsize;
+		if (inflate_unzip(&aux, zip_fd, dst_fd) < 0)
 			bb_error_msg_and_die("inflate error");
 		/* Validate decompression - crc */
-		if (zip_header->formatted.crc32 != (res.crc ^ 0xffffffffL)) {
+		if (zip_header->formatted.crc32 != (aux.crc32 ^ 0xffffffffL)) {
 			bb_error_msg_and_die("crc error");
 		}
 		/* Validate decompression - size */
-		if (zip_header->formatted.ucmpsize != res.bytes_out) {
+		if (zip_header->formatted.ucmpsize != aux.bytes_out) {
 			/* Don't die. Who knows, maybe len calculation
 			 * was botched somewhere. After all, crc matched! */
 			bb_error_msg("bad length");
@@ -252,14 +273,16 @@ int unzip_main(int argc, char **argv)
 	enum { O_PROMPT, O_NEVER, O_ALWAYS };
 
 	zip_header_t zip_header;
-	smallint verbose = 1;
+	smallint quiet = 0;
+	IF_NOT_DESKTOP(const) smallint verbose = 0;
 	smallint listing = 0;
 	smallint overwrite = O_PROMPT;
+	smallint x_opt_seen;
 #if ENABLE_DESKTOP
-	uint32_t cds_offset;
-	unsigned cds_entries;
+	uint32_t cdf_offset;
 #endif
-	unsigned total_size;
+	unsigned long total_usize;
+	unsigned long total_size;
 	unsigned total_entries;
 	int dst_fd = -1;
 	char *src_fn = NULL;
@@ -268,81 +291,125 @@ int unzip_main(int argc, char **argv)
 	llist_t *zreject = NULL;
 	char *base_dir = NULL;
 	int i, opt;
-	int opt_range = 0;
 	char key_buf[80];
 	struct stat stat_buf;
 
+/* -q, -l and -v: UnZip 5.52 of 28 February 2005, by Info-ZIP:
+ *
+ * # /usr/bin/unzip -qq -v decompress_unlzma.i.zip
+ *   204372  Defl:N    35278  83%  09-06-09 14:23  0d056252  decompress_unlzma.i
+ * # /usr/bin/unzip -q -v decompress_unlzma.i.zip
+ *  Length   Method    Size  Ratio   Date   Time   CRC-32    Name
+ * --------  ------  ------- -----   ----   ----   ------    ----
+ *   204372  Defl:N    35278  83%  09-06-09 14:23  0d056252  decompress_unlzma.i
+ * --------          -------  ---                            -------
+ *   204372            35278  83%                            1 file
+ * # /usr/bin/unzip -v decompress_unlzma.i.zip
+ * Archive:  decompress_unlzma.i.zip
+ *  Length   Method    Size  Ratio   Date   Time   CRC-32    Name
+ * --------  ------  ------- -----   ----   ----   ------    ----
+ *   204372  Defl:N    35278  83%  09-06-09 14:23  0d056252  decompress_unlzma.i
+ * --------          -------  ---                            -------
+ *   204372            35278  83%                            1 file
+ * # unzip -v decompress_unlzma.i.zip
+ * Archive:  decompress_unlzma.i.zip
+ *   Length     Date   Time    Name
+ *  --------    ----   ----    ----
+ *    204372  09-06-09 14:23   decompress_unlzma.i
+ *  --------                   -------
+ *    204372                   1 files
+ * # /usr/bin/unzip -l -qq decompress_unlzma.i.zip
+ *    204372  09-06-09 14:23   decompress_unlzma.i
+ * # /usr/bin/unzip -l -q decompress_unlzma.i.zip
+ *   Length     Date   Time    Name
+ *  --------    ----   ----    ----
+ *    204372  09-06-09 14:23   decompress_unlzma.i
+ *  --------                   -------
+ *    204372                   1 file
+ * # /usr/bin/unzip -l decompress_unlzma.i.zip
+ * Archive:  decompress_unlzma.i.zip
+ *   Length     Date   Time    Name
+ *  --------    ----   ----    ----
+ *    204372  09-06-09 14:23   decompress_unlzma.i
+ *  --------                   -------
+ *    204372                   1 file
+ */
+
+	x_opt_seen = 0;
 	/* '-' makes getopt return 1 for non-options */
-	while ((opt = getopt(argc, argv, "-d:lnopqx")) != -1) {
-		switch (opt_range) {
-		case 0: /* Options */
-			switch (opt) {
-			case 'l': /* List */
-				listing = 1;
-				break;
+	while ((opt = getopt(argc, argv, "-d:lnopqxv")) != -1) {
+		switch (opt) {
+		case 'd':  /* Extract to base directory */
+			base_dir = optarg;
+			break;
 
-			case 'n': /* Never overwrite existing files */
-				overwrite = O_NEVER;
-				break;
+		case 'l': /* List */
+			listing = 1;
+			break;
 
-			case 'o': /* Always overwrite existing files */
-				overwrite = O_ALWAYS;
-				break;
+		case 'n': /* Never overwrite existing files */
+			overwrite = O_NEVER;
+			break;
 
-			case 'p': /* Extract files to stdout and fall through to set verbosity */
-				dst_fd = STDOUT_FILENO;
+		case 'o': /* Always overwrite existing files */
+			overwrite = O_ALWAYS;
+			break;
 
-			case 'q': /* Be quiet */
-				verbose = 0;
-				break;
+		case 'p': /* Extract files to stdout and fall through to set verbosity */
+			dst_fd = STDOUT_FILENO;
 
-			case 1: /* The zip file */
+		case 'q': /* Be quiet */
+			quiet++;
+			break;
+
+		case 'v': /* Verbose list */
+			IF_DESKTOP(verbose++;)
+			listing = 1;
+			break;
+
+		case 'x':
+			x_opt_seen = 1;
+			break;
+
+		case 1:
+			if (!src_fn) {
+				/* The zip file */
 				/* +5: space for ".zip" and NUL */
 				src_fn = xmalloc(strlen(optarg) + 5);
 				strcpy(src_fn, optarg);
-				opt_range++;
-				break;
-
-			default:
-				bb_show_usage();
-
+			} else if (!x_opt_seen) {
+				/* Include files */
+				llist_add_to(&zaccept, optarg);
+			} else {
+				/* Exclude files */
+				llist_add_to(&zreject, optarg);
 			}
 			break;
-
-		case 1: /* Include files */
-			if (opt == 1) {
-				llist_add_to(&zaccept, optarg);
-				break;
-			}
-			if (opt == 'd') {
-				base_dir = optarg;
-				opt_range += 2;
-				break;
-			}
-			if (opt == 'x') {
-				opt_range++;
-				break;
-			}
-			bb_show_usage();
-
-		case 2 : /* Exclude files */
-			if (opt == 1) {
-				llist_add_to(&zreject, optarg);
-				break;
-			}
-			if (opt == 'd') { /* Extract to base directory */
-				base_dir = optarg;
-				opt_range++;
-				break;
-			}
-			/* fall through */
 
 		default:
 			bb_show_usage();
 		}
 	}
 
-	if (src_fn == NULL) {
+#ifndef __GLIBC__
+	/*
+	 * This code is needed for non-GNU getopt
+	 * which doesn't understand "-" in option string.
+	 * The -x option won't work properly in this case:
+	 * "unzip a.zip q -x w e" will be interpreted as
+	 * "unzip a.zip q w e -x" = "unzip a.zip q w e"
+	 */
+	argv += optind;
+	if (argv[0]) {
+		/* +5: space for ".zip" and NUL */
+		src_fn = xmalloc(strlen(argv[0]) + 5);
+		strcpy(src_fn, argv[0]);
+		while (*++argv)
+			llist_add_to(&zaccept, *argv);
+	}
+#endif
+
+	if (!src_fn) {
 		bb_show_usage();
 	}
 
@@ -353,17 +420,20 @@ int unzip_main(int argc, char **argv)
 		if (overwrite == O_PROMPT)
 			overwrite = O_NEVER;
 	} else {
-		static const char extn[][5] = {"", ".zip", ".ZIP"};
-		int orig_src_fn_len = strlen(src_fn);
-		int src_fd = -1;
+		static const char extn[][5] = { ".zip", ".ZIP" };
+		char *ext = src_fn + strlen(src_fn);
+		int src_fd;
 
-		for (i = 0; (i < 3) && (src_fd == -1); i++) {
-			strcpy(src_fn + orig_src_fn_len, extn[i]);
+		i = 0;
+		for (;;) {
 			src_fd = open(src_fn, O_RDONLY);
-		}
-		if (src_fd == -1) {
-			src_fn[orig_src_fn_len] = '\0';
-			bb_error_msg_and_die("can't open %s, %s.zip, %s.ZIP", src_fn, src_fn, src_fn);
+			if (src_fd >= 0)
+				break;
+			if (++i > 2) {
+				*ext = '\0';
+				bb_error_msg_and_die("can't open %s[.zip]", src_fn);
+			}
+			strcpy(ext, extn[i - 1]);
 		}
 		xmove_fd(src_fd, zip_fd);
 	}
@@ -372,27 +442,56 @@ int unzip_main(int argc, char **argv)
 	if (base_dir)
 		xchdir(base_dir);
 
-	if (verbose) {
-		printf("Archive:  %s\n", src_fn);
-		if (listing){
-			puts("  Length     Date   Time    Name\n"
-			     " --------    ----   ----    ----");
+	if (quiet <= 1) { /* not -qq */
+		if (quiet == 0)
+			printf("Archive:  %s\n", src_fn);
+		if (listing) {
+			puts(verbose ?
+				" Length   Method    Size  Ratio   Date   Time   CRC-32    Name\n"
+				"--------  ------  ------- -----   ----   ----   ------    ----"
+				:
+				"  Length     Date   Time    Name\n"
+				" --------    ----   ----    ----"
+				);
 		}
 	}
 
+/* Example of an archive with one 0-byte long file named 'z'
+ * created by Zip 2.31 on Unix:
+ * 0000 [50 4b]03 04 0a 00 00 00 00 00 42 1a b8 3c 00 00 |PK........B..<..|
+ *       sig........ vneed flags compr mtime mdate crc32>
+ * 0010  00 00 00 00 00 00 00 00 00 00 01 00 15 00 7a 55 |..............zU|
+ *      >..... csize...... usize...... fnlen exlen fn ex>
+ * 0020  54 09 00 03 cc d3 f9 4b cc d3 f9 4b 55 78 04 00 |T......K...KUx..|
+ *      >tra_field......................................
+ * 0030  00 00 00 00[50 4b]01 02 17 03 0a 00 00 00 00 00 |....PK..........|
+ *       ........... sig........ vmade vneed flags compr
+ * 0040  42 1a b8 3c 00 00 00 00 00 00 00 00 00 00 00 00 |B..<............|
+ *       mtime mdate crc32...... csize...... usize......
+ * 0050  01 00 0d 00 00 00 00 00 00 00 00 00 a4 81 00 00 |................|
+ *       fnlen exlen clen. dnum. iattr eattr...... relofs> (eattr = rw-r--r--)
+ * 0060  00 00 7a 55 54 05 00 03 cc d3 f9 4b 55 78 00 00 |..zUT......KUx..|
+ *      >..... fn extra_field...........................
+ * 0070 [50 4b]05 06 00 00 00 00 01 00 01 00 3c 00 00 00 |PK..........<...|
+ * 0080  34 00 00 00 00 00                               |4.....|
+ */
+	total_usize = 0;
 	total_size = 0;
 	total_entries = 0;
 #if ENABLE_DESKTOP
-	cds_entries = 0;
-	cds_offset = 0;
+	cdf_offset = 0;
 #endif
 	while (1) {
 		uint32_t magic;
+		mode_t dir_mode = 0777;
+#if ENABLE_DESKTOP
+		mode_t file_mode = 0666;
+#endif
 
 		/* Check magic number */
 		xread(zip_fd, &magic, 4);
 		/* Central directory? It's at the end, so exit */
-		if (magic == ZIP_CDS_MAGIC)
+		if (magic == ZIP_CDF_MAGIC)
 			break;
 #if ENABLE_DESKTOP
 		/* Data descriptor? It was a streaming file, go on */
@@ -412,23 +511,29 @@ int unzip_main(int argc, char **argv)
 			bb_error_msg_and_die("unsupported method %d", zip_header.formatted.method);
 		}
 #if !ENABLE_DESKTOP
-		if (zip_header.formatted.flags & 0x0009) {
+		if (zip_header.formatted.zip_flags & SWAP_LE16(0x0009)) {
 			bb_error_msg_and_die("zip flags 1 and 8 are not supported");
 		}
 #else
-		if (zip_header.formatted.flags & 0x0001) {
+		if (zip_header.formatted.zip_flags & SWAP_LE16(0x0001)) {
 			/* 0x0001 - encrypted */
 			bb_error_msg_and_die("zip flag 1 (encryption) is not supported");
 		}
-		if (zip_header.formatted.flags & 0x0008) {
-			cds_header_t cds_header;
-			/* 0x0008 - streaming. [u]cmpsize can be reliably gotten
-			 * only from Central Directory. See unzip_doc.txt */
-			cds_offset = read_next_cds(total_entries - cds_entries, cds_offset, &cds_header);
-			cds_entries = total_entries + 1;
-			zip_header.formatted.crc32    = cds_header.formatted.crc32;
-			zip_header.formatted.cmpsize  = cds_header.formatted.cmpsize;
-			zip_header.formatted.ucmpsize = cds_header.formatted.ucmpsize;
+
+		{
+			cdf_header_t cdf_header;
+			cdf_offset = read_next_cdf(cdf_offset, &cdf_header);
+			if (zip_header.formatted.zip_flags & SWAP_LE16(0x0008)) {
+				/* 0x0008 - streaming. [u]cmpsize can be reliably gotten
+				 * only from Central Directory. See unzip_doc.txt */
+				zip_header.formatted.crc32    = cdf_header.formatted.crc32;
+				zip_header.formatted.cmpsize  = cdf_header.formatted.cmpsize;
+				zip_header.formatted.ucmpsize = cdf_header.formatted.ucmpsize;
+			}
+			if ((cdf_header.formatted.version_made_by >> 8) == 3) {
+				/* this archive is created on Unix */
+				dir_mode = file_mode = (cdf_header.formatted.external_file_attributes >> 16);
+			}
 		}
 #endif
 
@@ -448,20 +553,39 @@ int unzip_main(int argc, char **argv)
 
 		} else { /* Extract entry */
 			if (listing) { /* List entry */
-				if (verbose) {
-					unsigned dostime = zip_header.formatted.modtime | (zip_header.formatted.moddate << 16);
-					printf("%9u  %02u-%02u-%02u %02u:%02u   %s\n",
-					   zip_header.formatted.ucmpsize,
-					   (dostime & 0x01e00000) >> 21,
-					   (dostime & 0x001f0000) >> 16,
-					   (((dostime & 0xfe000000) >> 25) + 1980) % 100,
-					   (dostime & 0x0000f800) >> 11,
-					   (dostime & 0x000007e0) >> 5,
-					   dst_fn);
-					total_size += zip_header.formatted.ucmpsize;
+				unsigned dostime = zip_header.formatted.modtime | (zip_header.formatted.moddate << 16);
+				if (!verbose) {
+					//      "  Length     Date   Time    Name\n"
+					//      " --------    ----   ----    ----"
+					printf(       "%9u  %02u-%02u-%02u %02u:%02u   %s\n",
+						(unsigned)zip_header.formatted.ucmpsize,
+						(dostime & 0x01e00000) >> 21,
+						(dostime & 0x001f0000) >> 16,
+						(((dostime & 0xfe000000) >> 25) + 1980) % 100,
+						(dostime & 0x0000f800) >> 11,
+						(dostime & 0x000007e0) >> 5,
+						dst_fn);
+					total_usize += zip_header.formatted.ucmpsize;
 				} else {
-					/* short listing -- filenames only */
-					puts(dst_fn);
+					unsigned long percents = zip_header.formatted.ucmpsize - zip_header.formatted.cmpsize;
+					percents = percents * 100;
+					if (zip_header.formatted.ucmpsize)
+						percents /= zip_header.formatted.ucmpsize;
+					//      " Length   Method    Size  Ratio   Date   Time   CRC-32    Name\n"
+					//      "--------  ------  ------- -----   ----   ----   ------    ----"
+					printf(      "%8u  Defl:N"    "%9u%4u%%  %02u-%02u-%02u %02u:%02u  %08x  %s\n",
+						(unsigned)zip_header.formatted.ucmpsize,
+						(unsigned)zip_header.formatted.cmpsize,
+						(unsigned)percents,
+						(dostime & 0x01e00000) >> 21,
+						(dostime & 0x001f0000) >> 16,
+						(((dostime & 0xfe000000) >> 25) + 1980) % 100,
+						(dostime & 0x0000f800) >> 11,
+						(dostime & 0x000007e0) >> 5,
+						zip_header.formatted.crc32,
+						dst_fn);
+					total_usize += zip_header.formatted.ucmpsize;
+					total_size += zip_header.formatted.cmpsize;
 				}
 				i = 'n';
 			} else if (dst_fd == STDOUT_FILENO) { /* Extracting to STDOUT */
@@ -471,12 +595,12 @@ int unzip_main(int argc, char **argv)
 					if (errno != ENOENT) {
 						bb_perror_msg_and_die("can't stat '%s'", dst_fn);
 					}
-					if (verbose) {
+					if (!quiet) {
 						printf("   creating: %s\n", dst_fn);
 					}
 					unzip_create_leading_dirs(dst_fn);
-					if (bb_make_directory(dst_fn, 0777, 0)) {
-						bb_error_msg_and_die("exiting");
+					if (bb_make_directory(dst_fn, dir_mode, FILEUTILS_IGNORE_CHMOD_ERR)) {
+						xfunc_die();
 					}
 				} else {
 					if (!S_ISDIR(stat_buf.st_mode)) {
@@ -500,6 +624,7 @@ int unzip_main(int argc, char **argv)
 							i = 'y';
 						} else {
 							printf("replace %s? [y]es, [n]o, [A]ll, [N]one, [r]ename: ", dst_fn);
+							fflush_all();
 							if (!fgets(key_buf, sizeof(key_buf), stdin)) {
 								bb_perror_msg_and_die("can't read input");
 							}
@@ -517,9 +642,13 @@ int unzip_main(int argc, char **argv)
 			overwrite = O_ALWAYS;
 		case 'y': /* Open file and fall into unzip */
 			unzip_create_leading_dirs(dst_fn);
+#if ENABLE_DESKTOP
+			dst_fd = xopen3(dst_fn, O_WRONLY | O_CREAT | O_TRUNC, file_mode);
+#else
 			dst_fd = xopen(dst_fn, O_WRONLY | O_CREAT | O_TRUNC);
+#endif
 		case -1: /* Unzip */
-			if (verbose) {
+			if (!quiet) {
 				printf("  inflating: %s\n", dst_fn);
 			}
 			unzip_extract(&zip_header, dst_fd);
@@ -548,17 +677,32 @@ int unzip_main(int argc, char **argv)
 			goto check_file;
 
 		default:
-			printf("error: invalid response [%c]\n",(char)i);
+			printf("error: invalid response [%c]\n", (char)i);
 			goto check_file;
 		}
 
 		total_entries++;
 	}
 
-	if (listing && verbose) {
-		printf(" --------                   -------\n"
-		       "%9d                   %d files\n",
-		       total_size, total_entries);
+	if (listing && quiet <= 1) {
+		if (!verbose) {
+			//      "  Length     Date   Time    Name\n"
+			//      " --------    ----   ----    ----"
+			printf( " --------                   -------\n"
+				"%9lu"   "                   %u files\n",
+				total_usize, total_entries);
+		} else {
+			unsigned long percents = total_usize - total_size;
+			percents = percents * 100;
+			if (total_usize)
+				percents /= total_usize;
+			//      " Length   Method    Size  Ratio   Date   Time   CRC-32    Name\n"
+			//      "--------  ------  ------- -----   ----   ----   ------    ----"
+			printf( "--------          -------  ---                            -------\n"
+				"%8lu"              "%17lu%4u%%                            %u files\n",
+				total_usize, total_size, (unsigned)percents,
+				total_entries);
+		}
 	}
 
 	return 0;

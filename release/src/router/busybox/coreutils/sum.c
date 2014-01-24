@@ -10,8 +10,15 @@
  * Written by Kayvan Aghaiepour and David MacKenzie
  * Taken from coreutils and turned into a busybox applet by Mike Frysinger
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define sum_trivial_usage
+//usage:       "[-rs] [FILE]..."
+//usage:#define sum_full_usage "\n\n"
+//usage:       "Checksum and count the blocks in a file\n"
+//usage:     "\n	-r	Use BSD sum algorithm (1K blocks)"
+//usage:     "\n	-s	Use System V sum algorithm (512byte blocks)"
 
 #include "libbb.h"
 
@@ -41,7 +48,7 @@ static unsigned sum_file(const char *file, unsigned type)
 			if (!bytes_read && !r)
 				/* no error */
 				break;
-			bb_perror_msg(file);
+			bb_simple_perror_msg(file);
 			return 0;
 		}
 
@@ -87,8 +94,8 @@ int sum_main(int argc UNUSED_PARAM, char **argv)
 		n = sum_file("-", type);
 	} else {
 		/* Need to print the name if either
-		   - more than one file given
-		   - doing sysv */
+		 * - more than one file given
+		 * - doing sysv */
 		type += (argv[1] || type == SUM_SYSV);
 		n = 1;
 		do {

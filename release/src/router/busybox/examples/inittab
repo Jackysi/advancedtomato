@@ -30,7 +30,7 @@
 #       console." and then waits for the user to press enter before starting
 #       the specified process.
 #
-#       Note: unrecognised actions (like initdefault) will cause init to emit
+#       Note: unrecognized actions (like initdefault) will cause init to emit
 #       an error message, and then go along with its business.
 #
 # <process>: Specifies the process to be executed and it's command line.
@@ -87,4 +87,3 @@ tty5::respawn:/sbin/getty 38400 tty6
 ::ctrlaltdel:/sbin/reboot
 ::shutdown:/bin/umount -a -r
 ::shutdown:/sbin/swapoff -a
-

@@ -6,7 +6,7 @@
  * Copyright (C) 2005 Odd Arild Olsen (oao at fibula dot no)
  * Copyright (C) 2003 Paul Sheer
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Odd Arild Olsen started out with the sheerdns [1] of Paul Sheer and rewrote
  * it into a shape which I believe is both easier to understand and maintain.
@@ -16,6 +16,21 @@
  * Some bugfix and minor changes was applied by Roberto A. Foglietta who made
  * the first porting of oao' scdns to busybox also.
  */
+
+//usage:#define dnsd_trivial_usage
+//usage:       "[-dvs] [-c CONFFILE] [-t TTL_SEC] [-p PORT] [-i ADDR]"
+//usage:#define dnsd_full_usage "\n\n"
+//usage:       "Small static DNS server daemon\n"
+//usage:     "\n	-c FILE	Config file"
+//usage:     "\n	-t SEC	TTL"
+//usage:     "\n	-p PORT	Listen on PORT"
+//usage:     "\n	-i ADDR	Listen on ADDR"
+//usage:     "\n	-d	Daemonize"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-s	Send successful replies only. Use this if you want"
+//usage:     "\n		to use /etc/resolv.conf with two nameserver lines:"
+//usage:     "\n			nameserver DNSD_SERVER"
+//usage:     "\n			nameserver NORMAL_DNS_SERVER"
 
 #include "libbb.h"
 #include <syslog.h>
@@ -44,10 +59,15 @@ struct dns_head {
 	uint16_t nauth;
 	uint16_t nadd;
 };
-struct dns_prop {
-	uint16_t type;
-	uint16_t class;
-};
+/* Structure used to access type and class fields.
+ * They are totally unaligned, but gcc 4.3.4 thinks that pointer of type uint16_t*
+ * is 16-bit aligned and replaces 16-bit memcpy (in move_from_unaligned16 macro)
+ * with aligned halfword access on arm920t!
+ * Oh well. Slapping PACKED everywhere seems to help: */
+struct type_and_class {
+	uint16_t type PACKED;
+	uint16_t class PACKED;
+} PACKED;
 /* element of known name, ip address and reversed ip address */
 struct dns_entry {
 	struct dns_entry *next;
@@ -56,7 +76,8 @@ struct dns_entry {
 	char name[1];
 };
 
-#define OPT_verbose (option_mask32)
+#define OPT_verbose (option_mask32 & 1)
+#define OPT_silent  (option_mask32 & 2)
 
 
 /*
@@ -291,7 +312,7 @@ QCLASS  a two octet code that specifies the class of the query.
         (others are historic only)
         255 any class
 
-4.1.3. Resource record format
+4.1.3. Resource Record format
 
 The answer, authority, and additional sections all share the same format:
 a variable number of resource records, where the number of records
@@ -351,95 +372,115 @@ static int process_packet(struct dns_entry *conf_data,
 		uint32_t conf_ttl,
 		uint8_t *buf)
 {
-	char *answstr;
 	struct dns_head *head;
-	struct dns_prop *unaligned_qprop;
+	struct type_and_class *unaligned_type_class;
+	const char *err_msg;
 	char *query_string;
+	char *answstr;
 	uint8_t *answb;
 	uint16_t outr_rlen;
 	uint16_t outr_flags;
 	uint16_t type;
 	uint16_t class;
-	int querystr_len;
+	int query_len;
 
 	head = (struct dns_head *)buf;
 	if (head->nquer == 0) {
 		bb_error_msg("packet has 0 queries, ignored");
-		return -1;
+		return 0; /* don't reply */
 	}
-
 	if (head->flags & htons(0x8000)) { /* QR bit */
 		bb_error_msg("response packet, ignored");
-		return -1;
+		return 0; /* don't reply */
 	}
+	/* QR = 1 "response", RCODE = 4 "Not Implemented" */
+	outr_flags = htons(0x8000 | 4);
+	err_msg = NULL;
 
 	/* start of query string */
 	query_string = (void *)(head + 1);
 	/* caller guarantees strlen is <= MAX_PACK_LEN */
-	querystr_len = strlen(query_string) + 1;
+	query_len = strlen(query_string) + 1;
 	/* may be unaligned! */
-	unaligned_qprop = (void *)(query_string + querystr_len);
-	querystr_len += sizeof(unaligned_qprop);
+	unaligned_type_class = (void *)(query_string + query_len);
+	query_len += sizeof(*unaligned_type_class);
 	/* where to append answer block */
-	answb = (void *)(unaligned_qprop + 1);
+	answb = (void *)(unaligned_type_class + 1);
 
-	/* QR = 1 "response", RCODE = 4 "Not Implemented" */
-	outr_flags = htons(0x8000 | 4);
-
-	move_from_unaligned16(type, &unaligned_qprop->type);
-	if (type != htons(REQ_A) && type != htons(REQ_PTR)) {
-		/* we can't handle the query type */
-		goto empty_packet;
-	}
-	move_from_unaligned16(class, &unaligned_qprop->class);
-	if (class != htons(1)) { /* not class INET? */
-		goto empty_packet;
-	}
-	/* OPCODE != 0 "standard query" ? */
+	/* OPCODE != 0 "standard query"? */
 	if ((head->flags & htons(0x7800)) != 0) {
+		err_msg = "opcode != 0";
+		goto empty_packet;
+	}
+	move_from_unaligned16(class, &unaligned_type_class->class);
+	if (class != htons(1)) { /* not class INET? */
+		err_msg = "class != 1";
+		goto empty_packet;
+	}
+	move_from_unaligned16(type, &unaligned_type_class->type);
+	if (type != htons(REQ_A) && type != htons(REQ_PTR)) {
+		/* we can't handle this query type */
+//TODO: happens all the time with REQ_AAAA (0x1c) requests - implement those?
+		err_msg = "type is !REQ_A and !REQ_PTR";
 		goto empty_packet;
 	}
 
 	/* look up the name */
-#if DEBUG
-	/* need to convert lengths to dots before we can use it in non-debug */
-	bb_info_msg("%s", query_string);
-#endif
 	answstr = table_lookup(conf_data, type, query_string);
+#if DEBUG
+	/* Shows lengths instead of dots, unusable for !DEBUG */
+	bb_error_msg("'%s'->'%s'", query_string, answstr);
+#endif
 	outr_rlen = 4;
 	if (answstr && type == htons(REQ_PTR)) {
-		/* return a host name */
+		/* returning a host name */
 		outr_rlen = strlen(answstr) + 1;
 	}
 	if (!answstr
-	 || (unsigned)(answb - buf) + querystr_len + 4 + 2 + outr_rlen > MAX_PACK_LEN
+	 || (unsigned)(answb - buf) + query_len + 4 + 2 + outr_rlen > MAX_PACK_LEN
 	) {
 		/* QR = 1 "response"
 		 * AA = 1 "Authoritative Answer"
 		 * RCODE = 3 "Name Error" */
+		err_msg = "name is not found";
 		outr_flags = htons(0x8000 | 0x0400 | 3);
 		goto empty_packet;
 	}
 
-	/* copy query block to answer block */
-	memcpy(answb, query_string, querystr_len);
-	answb += querystr_len;
-	/* append answer Resource Record */
+	/* Append answer Resource Record */
+	memcpy(answb, query_string, query_len); /* name, type, class */
+	answb += query_len;
 	move_to_unaligned32((uint32_t *)answb, htonl(conf_ttl));
 	answb += 4;
-	move_to_unaligned32((uint16_t *)answb, htons(outr_rlen));
+	move_to_unaligned16((uint16_t *)answb, htons(outr_rlen));
 	answb += 2;
 	memcpy(answb, answstr, outr_rlen);
 	answb += outr_rlen;
 
 	/* QR = 1 "response",
 	 * AA = 1 "Authoritative Answer",
-	 * RCODE = 0 "success" */
+	 * TODO: need to set RA bit 0x80? One user says nslookup complains
+	 * "Got recursion not available from SERVER, trying next server"
+	 * "** server can't find HOSTNAME"
+	 * RCODE = 0 "success"
+	 */
+	if (OPT_verbose)
+		bb_error_msg("returning positive reply");
 	outr_flags = htons(0x8000 | 0x0400 | 0);
 	/* we have one answer */
 	head->nansw = htons(1);
 
  empty_packet:
+	if ((outr_flags & htons(0xf)) != 0) { /* not a positive response */
+		if (OPT_verbose) {
+			bb_error_msg("%s, %s",
+				err_msg,
+				OPT_silent ? "dropping query" : "sending error reply"
+			);
+		}
+		if (OPT_silent)
+			return 0;
+	}
 	head->flags |= outr_flags;
 	head->nauth = head->nadd = 0;
 	head->nquer = htons(1); // why???
@@ -459,23 +500,23 @@ int dnsd_main(int argc UNUSED_PARAM, char **argv)
 	unsigned lsa_size;
 	int udps, opts;
 	uint16_t port = 53;
-	uint8_t buf[MAX_PACK_LEN + 1];
+	/* Ensure buf is 32bit aligned (we need 16bit, but 32bit can't hurt) */
+	uint8_t buf[MAX_PACK_LEN + 1] ALIGN4;
 
-	opts = getopt32(argv, "vi:c:t:p:d", &listen_interface, &fileconf, &sttl, &sport);
-	//if (opts & 0x1) // -v
-	//if (opts & 0x2) // -i
-	//if (opts & 0x4) // -c
-	if (opts & 0x8) // -t
+	opts = getopt32(argv, "vsi:c:t:p:d", &listen_interface, &fileconf, &sttl, &sport);
+	//if (opts & (1 << 0)) // -v
+	//if (opts & (1 << 1)) // -s
+	//if (opts & (1 << 2)) // -i
+	//if (opts & (1 << 3)) // -c
+	if (opts & (1 << 4)) // -t
 		conf_ttl = xatou_range(sttl, 1, 0xffffffff);
-	if (opts & 0x10) // -p
+	if (opts & (1 << 5)) // -p
 		port = xatou_range(sport, 1, 0xffff);
-	if (opts & 0x20) { // -d
+	if (opts & (1 << 6)) { // -d
 		bb_daemonize_or_rexec(DAEMON_CLOSE_EXTRA_FDS, argv);
 		openlog(applet_name, LOG_PID, LOG_DAEMON);
 		logmode = LOGMODE_SYSLOG;
 	}
-	/* Clear all except "verbose" bit */
-	option_mask32 &= 1;
 
 	conf_data = parse_conf_file(fileconf);
 
@@ -489,7 +530,7 @@ int dnsd_main(int argc UNUSED_PARAM, char **argv)
 
 	{
 		char *p = xmalloc_sockaddr2dotted(&lsa->u.sa);
-		bb_info_msg("Accepting UDP packets on %s", p);
+		bb_error_msg("accepting UDP packets on %s", p);
 		free(p);
 	}
 
@@ -507,7 +548,7 @@ int dnsd_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 		if (OPT_verbose)
-			bb_info_msg("Got UDP packet");
+			bb_error_msg("got UDP packet");
 		buf[r] = '\0'; /* paranoia */
 		r = process_packet(conf_data, conf_ttl, buf);
 		if (r <= 0)

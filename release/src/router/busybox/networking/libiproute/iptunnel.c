@@ -1,16 +1,14 @@
 /* vi: set sw=4 ts=4: */
 /*
- * iptunnel.c	       "ip tunnel"
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
- *
- * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+ * Authors: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
  * Changes:
  *
- * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
- * Rani Assaf <rani@magic.metawire.com> 980930:	do not allow key for ipip/sit
- * Phil Karn <karn@ka9q.ampr.org>	990408:	"pmtudisc" flag
+ * Rani Assaf <rani@magic.metawire.com> 980929: resolve addresses
+ * Rani Assaf <rani@magic.metawire.com> 980930: do not allow key for ipip/sit
+ * Phil Karn <karn@ka9q.ampr.org>       990408: "pmtudisc" flag
  */
 
 #include <netinet/ip.h>
@@ -204,25 +202,28 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 			NEXT_ARG();
 			key = index_in_strings(keywords, *argv);
 			if (key == ARG_ipip ||
-			    key == ARG_ip_ip) {
+			    key == ARG_ip_ip
+			) {
 				if (p->iph.protocol && p->iph.protocol != IPPROTO_IPIP) {
 					bb_error_msg_and_die("%s tunnel mode", "you managed to ask for more than one");
 				}
 				p->iph.protocol = IPPROTO_IPIP;
 			} else if (key == ARG_gre ||
-				   key == ARG_gre_ip) {
+				   key == ARG_gre_ip
+			) {
 				if (p->iph.protocol && p->iph.protocol != IPPROTO_GRE) {
 					bb_error_msg_and_die("%s tunnel mode", "you managed to ask for more than one");
 				}
 				p->iph.protocol = IPPROTO_GRE;
 			} else if (key == ARG_sit ||
-				   key == ARG_ip6_ip) {
+				   key == ARG_ip6_ip
+			) {
 				if (p->iph.protocol && p->iph.protocol != IPPROTO_IPV6) {
 					bb_error_msg_and_die("%s tunnel mode", "you managed to ask for more than one");
 				}
 				p->iph.protocol = IPPROTO_IPV6;
 			} else {
-				bb_error_msg_and_die("%s tunnel mode", "cannot guess");
+				bb_error_msg_and_die("%s tunnel mode", "can't guess");
 			}
 		} else if (key == ARG_key) {
 			unsigned uval;
@@ -297,7 +298,8 @@ static void parse_args(char **argv, int cmd, struct ip_tunnel_parm *p)
 				p->iph.ttl = uval;
 			}
 		} else if (key == ARG_tos ||
-			   key == ARG_dsfield) {
+			   key == ARG_dsfield
+		) {
 			uint32_t uval;
 			NEXT_ARG();
 			key = index_in_strings(keywords, *argv);
@@ -377,7 +379,7 @@ static int do_add(int cmd, char **argv)
 	case IPPROTO_IPV6:
 		return do_add_ioctl(cmd, "sit0", &p);
 	default:
-		bb_error_msg_and_die("cannot determine tunnel mode (ipip, gre or sit)");
+		bb_error_msg_and_die("can't determine tunnel mode (ipip, gre or sit)");
 	}
 }
 
@@ -436,7 +438,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
 			printf(" inherit");
 		if (p->iph.tos & ~1)
 			printf("%c%s ", p->iph.tos & 1 ? '/' : ' ',
-			       rtnl_dsfield_n2a(p->iph.tos & ~1, b1, sizeof(b1)));
+				rtnl_dsfield_n2a(p->iph.tos & ~1, b1));
 	}
 	if (!(p->iph.frag_off & htons(IP_DF)))
 		printf(" nopmtudisc");
@@ -485,7 +487,8 @@ static void do_tunnels_list(struct ip_tunnel_parm *p)
 		/*buf[sizeof(buf) - 1] = 0; - fgets is safe anyway */
 		ptr = strchr(buf, ':');
 		if (ptr == NULL ||
-		    (*ptr++ = 0, sscanf(buf, "%s", name) != 1)) {
+		    (*ptr++ = 0, sscanf(buf, "%s", name) != 1)
+		) {
 			bb_error_msg("wrong format of /proc/net/dev");
 			return;
 		}
@@ -499,7 +502,7 @@ static void do_tunnels_list(struct ip_tunnel_parm *p)
 			continue;
 		type = do_ioctl_get_iftype(name);
 		if (type == -1) {
-			bb_error_msg("cannot get type of [%s]", name);
+			bb_error_msg("can't get type of [%s]", name);
 			continue;
 		}
 		if (type != ARPHRD_TUNNEL && type != ARPHRD_IPGRE && type != ARPHRD_SIT)
@@ -511,8 +514,10 @@ static void do_tunnels_list(struct ip_tunnel_parm *p)
 		    (p->name[0] && strcmp(p1.name, p->name)) ||
 		    (p->iph.daddr && p1.iph.daddr != p->iph.daddr) ||
 		    (p->iph.saddr && p1.iph.saddr != p->iph.saddr) ||
-		    (p->i_key && p1.i_key != p->i_key))
+		    (p->i_key && p1.i_key != p->i_key)
+		) {
 			continue;
+		}
 		print_tunnel(&p1);
 		bb_putchar('\n');
 	}
@@ -549,16 +554,15 @@ static int do_show(char **argv)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-int do_iptunnel(char **argv)
+int FAST_FUNC do_iptunnel(char **argv)
 {
 	static const char keywords[] ALIGN1 =
 		"add\0""change\0""delete\0""show\0""list\0""lst\0";
 	enum { ARG_add = 0, ARG_change, ARG_del, ARG_show, ARG_list, ARG_lst };
-	int key;
 
 	if (*argv) {
-		key = index_in_substrings(keywords, *argv);
-		if (key < 0)
+		smalluint key = index_in_substrings(keywords, *argv);
+		if (key > 5)
 			bb_error_msg_and_die(bb_msg_invalid_arg, *argv, applet_name);
 		argv++;
 		if (key == ARG_add)

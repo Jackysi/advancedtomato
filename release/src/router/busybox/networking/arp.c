@@ -13,6 +13,24 @@
  * modified for getopt32 by Arne Bernin <arne [at] alamut.de>
  */
 
+//usage:#define arp_trivial_usage
+//usage:     "\n[-vn]	[-H HWTYPE] [-i IF] -a [HOSTNAME]"
+//usage:     "\n[-v]		    [-i IF] -d HOSTNAME [pub]"
+//usage:     "\n[-v]	[-H HWTYPE] [-i IF] -s HOSTNAME HWADDR [temp]"
+//usage:     "\n[-v]	[-H HWTYPE] [-i IF] -s HOSTNAME HWADDR [netmask MASK] pub"
+//usage:     "\n[-v]	[-H HWTYPE] [-i IF] -Ds HOSTNAME IFACE [netmask MASK] pub"
+//usage:#define arp_full_usage "\n\n"
+//usage:       "Manipulate ARP cache\n"
+//usage:       "\n	-a		Display (all) hosts"
+//usage:       "\n	-s		Set new ARP entry"
+//usage:       "\n	-d		Delete a specified entry"
+//usage:       "\n	-v		Verbose"
+//usage:       "\n	-n		Don't resolve names"
+//usage:       "\n	-i IF		Network interface"
+//usage:       "\n	-D		Read <hwaddr> from given device"
+//usage:       "\n	-A,-p AF	Protocol family"
+//usage:       "\n	-H HWTYPE	Hardware address type"
+
 #include "libbb.h"
 #include "inet_common.h"
 
@@ -51,7 +69,7 @@ struct globals {
 	const char *device;      /* current device */
 	smallint hw_set;         /* flag if hw-type was set (-H) */
 
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define ap         (G.ap        )
 #define hw         (G.hw        )
@@ -196,7 +214,7 @@ static int arp_del(char **args)
 
 /* Get the hardware address to a specified interface name */
 static void arp_getdevhw(char *ifname, struct sockaddr *sa,
-						 const struct hwtype *hwt)
+						const struct hwtype *hwt)
 {
 	struct ifreq ifr;
 	const struct hwtype *xhw;
@@ -215,8 +233,8 @@ static void arp_getdevhw(char *ifname, struct sockaddr *sa,
 			xhw = get_hwntype(-1);
 		}
 		bb_error_msg("device '%s' has HW address %s '%s'",
-					 ifname, xhw->name,
-					 xhw->print((unsigned char *) &ifr.ifr_hwaddr.sa_data));
+					ifname, xhw->name,
+					xhw->print((unsigned char *) &ifr.ifr_hwaddr.sa_data));
 	}
 }
 
@@ -327,7 +345,7 @@ static int arp_set(char **args)
 /* Print the contents of an ARP request block. */
 static void
 arp_disp(const char *name, char *ip, int type, int arp_flags,
-		 char *hwa, char *mask, char *dev)
+		char *hwa, char *mask, char *dev)
 {
 	static const int arp_masks[] = {
 		ATF_PERM, ATF_PUBL,
@@ -410,7 +428,7 @@ static int arp_show(char *name)
 		/* All these strings can't overflow
 		 * because fgets above reads limited amount of data */
 		num = sscanf(line, "%s 0x%x 0x%x %s %s %s\n",
-					 ip, &type, &flags, hwa, mask, dev);
+					ip, &type, &flags, hwa, mask, dev);
 		if (num < 4)
 			break;
 
@@ -443,7 +461,7 @@ static int arp_show(char *name)
 	}
 	if (option_mask32 & ARP_OPT_v)
 		printf("Entries: %d\tSkipped: %d\tFound: %d\n",
-			   entries, entries - shown, shown);
+				entries, entries - shown, shown);
 
 	if (!shown) {
 		if (hw_set || host || device[0])
@@ -499,7 +517,7 @@ int arp_main(int argc UNUSED_PARAM, char **argv)
 
 	if (hw->alen <= 0) {
 		bb_error_msg_and_die("%s: %s without ARP support",
-							 hw->name, "hardware type");
+				hw->name, "hardware type");
 	}
 
 	/* Now see what we have to do here... */

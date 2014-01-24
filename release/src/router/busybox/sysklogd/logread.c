@@ -6,8 +6,14 @@
  *
  * Maintainer: Gennady Feldman <gfeldman@gena01.com> as of Mar 12, 2001
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//usage:#define logread_trivial_usage
+//usage:       "[-f]"
+//usage:#define logread_full_usage "\n\n"
+//usage:       "Show messages in syslogd's circular buffer\n"
+//usage:     "\n	-f	Output data as log grows"
 
 #include "libbb.h"
 #include <sys/ipc.h>
@@ -34,7 +40,7 @@ struct globals {
 	struct sembuf SMrup[1]; // {0, -1, IPC_NOWAIT | SEM_UNDO},
 	struct sembuf SMrdn[2]; // {1, 0}, {0, +1, SEM_UNDO}
 	struct shbuf_ds *shbuf;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define SMrup (G.SMrup)
 #define SMrdn (G.SMrdn)
@@ -135,7 +141,7 @@ int logread_main(int argc UNUSED_PARAM, char **argv)
 		} else { /* logread -f */
 			if (cur == shbuf_tail) {
 				sem_up(log_semid);
-				fflush(stdout);
+				fflush_all();
 				sleep(1); /* TODO: replace me with a sleep_on */
 				continue;
 			}
