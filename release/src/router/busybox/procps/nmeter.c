@@ -705,7 +705,7 @@ static void FAST_FUNC collect_mem(mem_stat *s)
 	if (rdval(proc_meminfo.file, "MemFree:", &m_free  , 1)
 	 || rdval(proc_meminfo.file, "Buffers:", &m_bufs  , 1)
 	 || rdval(proc_meminfo.file, "Cached:",  &m_cached, 1)
-	 || rdval(proc_meminfo.file, "Slab:",    &m_slab  , 1)
+	 //|| rdval(proc_meminfo.file, "Slab:",    &m_slab  , 1) /* this made memory reported as ???? in tomato --nvtweak */
 	) {
 		put_question_marks(4);
 		return;
