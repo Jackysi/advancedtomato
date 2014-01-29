@@ -155,6 +155,9 @@ extern __malloc_ptr_t (*__morecore) __MALLOC_PMT ((ptrdiff_t __size));
 extern __malloc_ptr_t __default_morecore __MALLOC_P ((ptrdiff_t __size))
        __attribute_malloc__;
 
+
+#ifdef __MALLOC_STANDARD__
+
 /* SVID2/XPG mallinfo structure */
 struct mallinfo {
   int arena;    /* total space allocated from system */
@@ -192,9 +195,12 @@ extern struct mallinfo mallinfo __MALLOC_P ((void));
 #define M_MMAP_THRESHOLD    -3
 #define M_MMAP_MAX          -4
 #define M_CHECK_ACTION      -5
+#define M_PERTURB           -6
 
 /* General SVID/XPG interface to tunable parameters. */
 extern int mallopt __MALLOC_P ((int __param, int __val));
+
+#endif /* __MALLOC_STANDARD__ */
 
 /* Release all but __pad bytes of freed top-most memory back to the
    system. Return 1 if successful, else 0. */

@@ -263,7 +263,7 @@ oldconfig oldconf: roldconf koldconf
 #
 
 busybox: dummy
-	$(MAKE) -C busybox CFLAGS="-Os"
+	$(MAKE) -C busybox CFLAGS="-Os -fno-delete-null-pointer-checks"
 # V=1
 
 busybox-install:
