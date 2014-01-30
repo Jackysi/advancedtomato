@@ -66,6 +66,13 @@ void FAST_FUNC bb_progress_init(bb_progress_t *p, const char *curfile)
 	p->last_size = 0;
 }
 
+/* File already had beg_size bytes.
+ * Then we started downloading.
+ * We downloaded "transferred" bytes so far.
+ * Download is expected to stop when total size (beg_size + transferred)
+ * will be "totalsize" bytes.
+ * If totalsize == 0, then it is unknown.
+ */
 void FAST_FUNC bb_progress_update(bb_progress_t *p,
 		uoff_t beg_size,
 		uoff_t transferred,
@@ -172,6 +179,7 @@ void FAST_FUNC bb_progress_update(bb_progress_t *p,
 		}
 		since_last_update = 0; /* we are un-stalled now */
 	}
+
 	elapsed -= p->start_sec; /* now it's "elapsed since start" */
 
 	if (since_last_update >= STALLTIME) {

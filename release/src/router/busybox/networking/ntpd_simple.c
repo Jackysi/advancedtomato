@@ -11,9 +11,6 @@
 #ifndef IPTOS_LOWDELAY
 # define IPTOS_LOWDELAY 0x10
 #endif
-#ifndef IP_PKTINFO
-# error "Sorry, your kernel has to support IP_PKTINFO"
-#endif
 
 
 /* Sync to peers every N secs */
@@ -378,7 +375,7 @@ step_time_once(double offset)
 		bb_perror_msg_and_die("settimeofday");
 
 	tval = tv.tv_sec;
-	strftime(buf, sizeof(buf), "%a %b %e %H:%M:%S %Z %Y", localtime(&tval));
+	strftime_YYYYMMDDHHMMSS(buf, sizeof(buf), &tval);
 
 	bb_error_msg("setting clock to %s (offset %fs)", buf, offset);
 

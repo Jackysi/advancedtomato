@@ -121,9 +121,17 @@ int mkswap_main(int argc UNUSED_PARAM, char **argv)
 	hdr->last_page = (uoff_t)len / pagesize;
 
 	if (ENABLE_FEATURE_MKSWAP_UUID) {
-		char uuid_string[37];
+		char uuid_string[32];
 		generate_uuid((void*)hdr->sws_uuid);
-		printf("UUID=%s\n", unparse_uuid((uint8_t *)hdr->sws_uuid, uuid_string));
+		bin2hex(uuid_string, hdr->sws_uuid, 16);
+		/* f.e. UUID=dfd9c173-be52-4d27-99a5-c34c6c2ff55f */
+		printf("UUID=%.8s"  "-%.4s-%.4s-%.4s-%.12s\n",
+			uuid_string,
+			uuid_string+8,
+			uuid_string+8+4,
+			uuid_string+8+4+4,
+			uuid_string+8+4+4+4
+		);
 	}
 	safe_strncpy(hdr->sws_volume, label, 16);
 

@@ -34,6 +34,7 @@ config FSCK
 config LSATTR
 	bool "lsattr"
 	default n
+	select PLATFORM_LINUX
 	help
 	  lsattr lists the file attributes on a second extended file system.
 
@@ -47,7 +48,7 @@ config MKE2FS
 
 config TUNE2FS
 	bool "tune2fs"
-	default n
+	default n  # off: it is too limited compared to upstream version
 	select VOLUMEID
 	help
 	  tune2fs allows the system administrator to adjust various tunable
@@ -60,5 +61,22 @@ config E2LABEL
 	help
 	  e2label will display or change the filesystem label on the ext2
 	  filesystem located on device.
+
+ config FINDFS
+	bool "findfs"
+	default n
+	depends on TUNE2FS
+	help
+	  findfs will search the disks in the system looking for a filesystem
+	  which has a label matching label or a UUID equal to uuid.
+
+### NB: this one is now provided by util-linux/volume_id/*
+### config FINDFS
+###	bool "findfs"
+###	default y
+###	depends on TUNE2FS
+###	help
+###	  findfs will search the disks in the system looking for a filesystem
+###	  which has a label matching label or a UUID equal to uuid.
 
 endmenu
