@@ -1,4 +1,4 @@
-    /* vi: set sw=4 ts=4: */
+/* vi: set sw=4 ts=4: */
 /*
  * Russ Dill <Russ.Dill@asu.edu> September 2001
  * Rewritten by Vladimir Oleynik <dzo@simtreas.ru> (C) 2003
@@ -153,6 +153,7 @@ enum {
 //#define DHCP_STATIC_ROUTES    0x79 /* RFC 3442. (mask,ip,router) tuples */
 #define DHCP_VLAN_ID            0x84 /* 802.1P VLAN ID */
 #define DHCP_VLAN_PRIORITY      0x85 /* 802.1Q VLAN priority */
+//#define DHCP_PXE_CONF_FILE    0xd1 /* RFC 5071 Configuration File */
 //#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
 //#define DHCP_WPAD             0xfc /* MSIE's Web Proxy Autodiscovery Protocol */
 #define DHCP_END                0xff
@@ -302,7 +303,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
 int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
 int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
 
-int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac, uint16_t *mtu) FAST_FUNC;
+int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac) FAST_FUNC;
 
 int udhcp_listen_socket(/*uint32_t ip,*/ int port, const char *inf) FAST_FUNC;
 

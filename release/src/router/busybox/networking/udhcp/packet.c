@@ -145,6 +145,11 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
 	 *
 	 * In order to work with those buggy servers,
 	 * we truncate packets after end option byte.
+	 *
+	 * However, RFC 1542 says "The IP Total Length and UDP Length
+	 * must be large enough to contain the minimal BOOTP header of 300 octets".
+	 * Thus, we retain enough padding to not go below 300 BOOTP bytes.
+	 * Some devices have filters which drop DHCP packets shorter than that.
 	 */
 	padding = minpkt ? DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options) : 0;
 
