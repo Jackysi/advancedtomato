@@ -36,9 +36,9 @@
 #include "fsck.h"
 
 #include "ext2fs/ext2_fs.h"
-#include "volume_id.h"
+#include "blkid/blkid.h"
 #include "ext2fs/ext2_ext_attr.h"
-#include "e2fs_lib.h"
+#include "uuid/uuid.h"
 #include "libbb.h"
 
 #ifdef HAVE_CONIO_H
@@ -505,6 +505,7 @@ struct e2fsck_struct {
 	int     blocksize;      /* blocksize */
 	blk_t   num_blocks;     /* Total number of blocks */
 	int     mount_flags;
+	blkid_cache blkid;      /* blkid cache */
 
 	jmp_buf abort_loc;
 

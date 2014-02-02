@@ -471,8 +471,6 @@ libs-y		:= \
 		coreutils/libcoreutils/ \
 		debianutils/ \
 		e2fsprogs/ \
-		e2fsprogs/e2p/ \
-		e2fsprogs/ext2fs/ \
 		editors/ \
 		findutils/ \
 		init/ \

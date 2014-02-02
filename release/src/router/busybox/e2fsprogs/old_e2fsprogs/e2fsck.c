@@ -29,6 +29,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+/*
 //usage:#define e2fsck_trivial_usage
 //usage:       "[-panyrcdfvstDFSV] [-b superblock] [-B blocksize] "
 //usage:       "[-I inode_buffer_blocks] [-P process_inode_size] "
@@ -47,11 +48,7 @@
 //usage:     "\n	-j journal	Set location of the external journal"
 //usage:     "\n	-l file		Add to badblocks list"
 //usage:     "\n	-L file		Set badblocks list"
-//usage:
-//applet:IF_E2FSCK(APPLET(e2fsck, BB_DIR_SBIN, BB_SUID_DROP))
-//applet:IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, e2fsck))
-//applet:IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, e2fsck))
-
+*/
 
 #include "e2fsck.h"	/*Put all of our defines here to clean things up*/
 
@@ -65,7 +62,7 @@
 static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
 
 /* pass1.c */
-static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool);
+static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool);
 
 /* pass2.c */
 static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
@@ -1018,6 +1015,8 @@ static void e2fsck_free_context(e2fsck_t ctx)
 		return;
 
 	e2fsck_reset_context(ctx);
+	if (ctx->blkid)
+		blkid_put_cache(ctx->blkid);
 
 	ext2fs_free_mem(&ctx);
 }
@@ -1051,7 +1050,7 @@ static errcode_t ea_refcount_create(int size, ext2_refcount_t *ret)
 	refcount->size = size;
 	bytes = (size_t) (size * sizeof(struct ea_refcount_el));
 #ifdef DEBUG
-	printf("Refcount allocated %d entries, %d bytes.\n",
+	printf("Refcount allocated %d entries, %lu bytes.\n",
 	       refcount->size, bytes);
 #endif
 	retval = ext2fs_get_mem(bytes, &refcount->list);
@@ -1662,10 +1661,11 @@ static errcode_t e2fsck_get_journal(e2fsck_t ctx, journal_t **ret_journal)
 		if (!ctx->journal_name) {
 			char uuid[37];
 
-			unparse_uuid(sb->s_journal_uuid, uuid);
-			ctx->journal_name = get_devname_from_uuid(uuid);
+			uuid_unparse(sb->s_journal_uuid, uuid);
+			ctx->journal_name = blkid_get_devname(ctx->blkid,
+							      "UUID", uuid);
 			if (!ctx->journal_name)
-				ctx->journal_name = get_devname_from_device(sb->s_journal_dev);
+				ctx->journal_name = blkid_devno_to_devname(sb->s_journal_dev);
 		}
 		journal_name = ctx->journal_name;
 
@@ -1889,7 +1889,7 @@ static void e2fsck_journal_reset_super(e2fsck_t ctx, journal_superblock_t *jsb,
 {
 	char *p;
 	union {
-		__u8  uuid[16];
+		uuid_t uuid;
 		__u32 val[4];
 	} u;
 	__u32 new_seq = 0;
@@ -1919,7 +1919,7 @@ static void e2fsck_journal_reset_super(e2fsck_t ctx, journal_superblock_t *jsb,
 	 * This avoids the need to zero the whole journal (slow to do,
 	 * and risky when we are just recovering the filesystem).
 	 */
-	generate_uuid(u.uuid);
+	uuid_generate(u.uuid);
 	for (i = 0; i < 4; i ++)
 		new_seq ^= u.val[i];
 	jsb->s_sequence = htonl(new_seq);
@@ -2558,7 +2558,7 @@ static void expand_inode_expression(char ch,
 		if (do_gmt == -1) {
 			time_str = getenv("TZ");
 			if (!time_str)
-				time_str = (char *)"";
+				time_str = "";
 			do_gmt = !strcmp(time_str, "GMT");
 		}
 		t = inode->i_mtime;
@@ -3424,7 +3424,7 @@ static void e2fsck_pass1(e2fsck_t ctx)
 				continue;
 			}
 			if ((inode->i_links_count || inode->i_blocks ||
-			     inode->i_blocks || inode->i_block[0]) &&
+			     inode->i_block[0]) &&
 			    fix_problem(ctx, PR_1_JOURNAL_INODE_NOT_CLEAR,
 					&pctx)) {
 				memset(inode, 0, inode_size);
@@ -4425,7 +4425,7 @@ static int process_bad_block(ext2_filsys fs FSCK_ATTR((unused)),
  * out, so we can try to allocate new block(s) to replace the bad
  * blocks.
  */
-static void handle_fs_bad_blocks(e2fsck_t ctx EXT2FS_ATTR((unused)))
+static void handle_fs_bad_blocks(e2fsck_t ctx)
 {
 	printf("Bad blocks detected on your filesystem\n"
 		"You should get your data off as the device will soon die\n");
@@ -4561,11 +4561,11 @@ static errcode_t pass1_check_directory(ext2_filsys fs, ext2_ino_t ino)
 	return 0;
 }
 
-void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool)
+void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool)
 {
 	ext2_filsys fs = ctx->fs;
 
-	if (fl_bool) {
+	if (bool) {
 		fs->get_blocks = pass1_get_blocks;
 		fs->check_directory = pass1_check_directory;
 		fs->read_inode = pass1_read_inode;
@@ -11894,7 +11894,7 @@ static void check_super_block(e2fsck_t ctx)
 	 */
 	if (!(ctx->options & E2F_OPT_READONLY) && uuid_is_null(sb->s_uuid)) {
 		if (fix_problem(ctx, PR_0_ADD_UUID, &pctx)) {
-			generate_uuid(sb->s_uuid);
+			uuid_generate(sb->s_uuid);
 			ext2fs_mark_super_dirty(fs);
 			fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
 		}
@@ -12192,13 +12192,10 @@ static void swap_filesys(e2fsck_t ctx)
  */
 
 
-void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
-			     const char *description EXT2FS_ATTR((unused)))
+void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned int size,
+			     const char *description)
 {
-	void *ret;
-
-	ret = xzalloc(size);
-	return ret;
+	return xzalloc(size);
 }
 
 static char *string_copy(const char *str, int len)
@@ -12703,8 +12700,7 @@ static void check_if_skip(e2fsck_t ctx)
 		if (batt && (fs->super->s_mnt_count <
 			     (unsigned) fs->super->s_max_mnt_count*2))
 			reason = 0;
-	} else if (!(ctx->options & E2F_OPT_PREEN) &&
-		   fs->super->s_checkinterval &&
+	} else if (fs->super->s_checkinterval &&
 		   ((now - fs->super->s_lastcheck) >=
 		    fs->super->s_checkinterval)) {
 		reason = _(" has gone %u days without being checked");
@@ -12998,6 +12994,7 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 	}
 	memset(bar, '=', sizeof(bar)-1);
 	memset(spaces, ' ', sizeof(spaces)-1);
+	blkid_get_cache(&ctx->blkid, NULL);
 
 	if (argc && *argv)
 		ctx->program_name = *argv;
@@ -13119,9 +13116,8 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 	ctx->io_options = strchr(argv[optind], '?');
 	if (ctx->io_options)
 		*ctx->io_options++ = 0;
-	ctx->filesystem_name = argv[optind];
-	if (resolve_mount_spec(&ctx->filesystem_name) < 0 ||
-	    !ctx->filesystem_name) {
+	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
+	if (!ctx->filesystem_name) {
 		bb_error_msg(_("Unable to resolve '%s'"), argv[optind]);
 		bb_error_msg_and_die(0);
 	}

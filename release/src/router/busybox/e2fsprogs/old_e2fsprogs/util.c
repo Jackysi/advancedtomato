@@ -17,7 +17,7 @@
 #include "e2p/e2p.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
-#include "volume_id.h"
+#include "blkid/blkid.h"
 #include "util.h"
 
 void proceed_question(void)
@@ -72,7 +72,7 @@ void check_plausibility(const char *device, int force)
 #endif
 }
 
-void check_mount(const char *device, int force, const char *type UNUSED_PARAM)
+void check_mount(const char *device, int force, const char *type)
 {
 	errcode_t retval;
 	int mount_flags;
@@ -116,9 +116,8 @@ void parse_journal_opts(char **journal_device, int *journal_flags,
 			arg++;
 		}
 		if (strcmp(token, "device") == 0) {
-			*journal_device = arg;
-			if (resolve_mount_spec(journal_device) < 0 ||
-			    !(*journal_device)) {
+			*journal_device = blkid_get_devname(NULL, arg, NULL);
+			if (!*journal_device) {
 				journal_usage++;
 				continue;
 			}
@@ -240,7 +239,7 @@ void make_journal_blocks(ext2_filsys fs, int journal_size, int journal_flags, in
 		return;
 	}
 	if (!quiet)
-		printf("Creating journal (%ld blocks): ", journal_blocks);
+		printf("Creating journal (%lu blocks): ", journal_blocks);
 	fflush(stdout);
 	retval = ext2fs_add_journal_inode(fs, journal_blocks,
 						  journal_flags);
@@ -258,7 +257,7 @@ char *e2fs_set_sbin_path(void)
 	if (oldpath)
 		oldpath = xasprintf("%s:%s", PATH_SET, oldpath);
 	 else
-		oldpath = (char *)PATH_SET;
+		oldpath = PATH_SET;
 	putenv(oldpath);
 	return oldpath;
 }
