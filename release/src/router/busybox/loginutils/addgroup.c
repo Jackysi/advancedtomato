@@ -22,16 +22,14 @@
 #if CONFIG_LAST_SYSTEM_ID < CONFIG_FIRST_SYSTEM_ID
 #error Bad LAST_SYSTEM_ID or FIRST_SYSTEM_ID in .config
 #endif
-#if CONFIG_LAST_ID < CONFIG_LAST_SYSTEM_ID
-#error Bad LAST_ID or LAST_SYSTEM_ID in .config
-#endif
 
 #define OPT_GID                       (1 << 0)
 #define OPT_SYSTEM_ACCOUNT            (1 << 1)
 
+/* We assume GID_T_MAX == INT_MAX */
 static void xgroup_study(struct group *g)
 {
-	unsigned max = CONFIG_LAST_ID;
+	unsigned max = INT_MAX;
 
 	/* Make sure gr_name is unused */
 	if (getgrnam(g->gr_name)) {
@@ -48,6 +46,7 @@ static void xgroup_study(struct group *g)
 			max = CONFIG_LAST_SYSTEM_ID;
 		} else {
 			g->gr_gid = CONFIG_LAST_SYSTEM_ID + 1;
+			max = 64999;
 		}
 	}
 	/* Check if the desired gid is free
@@ -126,7 +125,7 @@ int addgroup_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int addgroup_main(int argc UNUSED_PARAM, char **argv)
 {
 	unsigned opts;
-	const char *gid = "0";
+	unsigned gid = 0;
 
 	/* need to be root */
 	if (geteuid()) {
@@ -140,7 +139,7 @@ int addgroup_main(int argc UNUSED_PARAM, char **argv)
 	 *  addgroup -g num group
 	 *  addgroup user group
 	 * Check for min, max and missing args */
-	opt_complementary = "-1:?2";
+	opt_complementary = "-1:?2:g+";
 	opts = getopt32(argv, "g:S", &gid);
 	/* move past the commandline options */
 	argv += optind;
@@ -176,7 +175,7 @@ int addgroup_main(int argc UNUSED_PARAM, char **argv)
 #endif /* ENABLE_FEATURE_ADDUSER_TO_GROUP */
 	{
 		die_if_bad_username(argv[0]);
-		new_group(argv[0], xatou_range(gid, 0, CONFIG_LAST_ID));
+		new_group(argv[0], gid);
 	}
 	/* Reached only on success */
 	return EXIT_SUCCESS;

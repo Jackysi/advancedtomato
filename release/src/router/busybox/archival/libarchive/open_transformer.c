@@ -182,34 +182,26 @@ int FAST_FUNC setup_unzip_on_fd(int fd, int fail_if_not_detected)
 
 int FAST_FUNC open_zipped(const char *fname)
 {
+	char *sfx;
 	int fd;
 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)
 		return fd;
 
-	if (ENABLE_FEATURE_SEAMLESS_LZMA) {
-		/* .lzma has no header/signature, can only detect it by extension */
-		char *sfx = strrchr(fname, '.');
-		if (sfx && strcmp(sfx+1, "lzma") == 0) {
+	sfx = strrchr(fname, '.');
+	if (sfx) {
+		sfx++;
+		if (ENABLE_FEATURE_SEAMLESS_LZMA && strcmp(sfx, "lzma") == 0)
+			/* .lzma has no header/signature, just trust it */
 			open_transformer_with_sig(fd, unpack_lzma_stream, "unlzma");
-			return fd;
+		else
+		if ((ENABLE_FEATURE_SEAMLESS_GZ && strcmp(sfx, "gz") == 0)
+		 || (ENABLE_FEATURE_SEAMLESS_BZ2 && strcmp(sfx, "bz2") == 0)
+		 || (ENABLE_FEATURE_SEAMLESS_XZ && strcmp(sfx, "xz") == 0)
+		) {
+			setup_unzip_on_fd(fd, /*fail_if_not_detected:*/ 1);
 		}
-	}
-	if ((ENABLE_FEATURE_SEAMLESS_GZ)
-	 || (ENABLE_FEATURE_SEAMLESS_BZ2)
-	 || (ENABLE_FEATURE_SEAMLESS_XZ)
-	) {
-		/*
-		 * Do we want to fail_if_not_detected?
-		 * In most cases, no: think "insmod non_compressed_module".
-		 * A case which would like to fail is "zcat uncompressed_file":
-		 * otherwise, it happily outputs uncompressed_file as-is,
-		 * which is, strictly speaking, not what is expected.
-		 * If this ever becomes a problem, we can add
-		 * fail_if_not_detected bool argument to open_zipped().
-		 */
-		setup_unzip_on_fd(fd, /*fail_if_not_detected:*/ 0);
 	}
 
 	return fd;

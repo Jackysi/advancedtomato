@@ -606,11 +606,7 @@ static void install_links(const char *busybox, int use_symbolic_links,
 	}
 }
 # else
-static void install_links(const char *busybox UNUSED_PARAM,
-		int use_symbolic_links UNUSED_PARAM,
-		char *custom_install_dir UNUSED_PARAM)
-{
-}
+#  define install_links(x,y,z) ((void)0)
 # endif
 
 /* If we were called as "busybox..." */
