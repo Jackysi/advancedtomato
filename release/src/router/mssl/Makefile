@@ -4,21 +4,22 @@ CFLAGS	= -Os -Wall $(EXTRACFLAGS) -fPIC
 LIBS =
 LDFLAGS	=
 
-ifeq ($(FULL_OPENSSL),y)
 CFLAGS	+= -I$(TOP)/openssl/include -DUSE_OPENSSL
 LIBS += -L$(TOP)/openssl -lssl -lcrypto
-else
-CFLAGS	+= -I$(TOP)/cyassl/include -I$(TOP)/cyassl/ctaocrypt/include
-LIBS += $(TOP)/cyassl/src/.libs/libcyassl.a
-endif
 
+ifneq ($(TCONFIG_BCMARM),y)
 LIBS += -lpthread
+endif
 OBJ = mssl.o
 
 all: libmssl.so libmssl.a
 
 libmssl.so: $(OBJ)
+ifeq ($(TCONFIG_BCMARM),y)
+	$(LD) $(LIBS) -shared -o $@ $^
+else
 	$(CC) -shared -o $@ $^ $(LIBS)
+endif
 	$(STRIP) $@
 	$(CPTMP)
 
@@ -32,7 +33,9 @@ clean:
 install: all
 	@echo " [mssl] Installing..."
 	install -D libmssl.so $(INSTALLDIR)/usr/lib/libmssl.so
+ifneq ($(TCONFIG_BCMARM),y)
 	$(STRIP) $(INSTALLDIR)/usr/lib/libmssl.so
+endif
 
 %.o: %.c .%.depend
 	@echo " [mssl] CC $@"

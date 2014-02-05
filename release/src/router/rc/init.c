@@ -34,6 +34,42 @@
 
 extern struct nvram_tuple router_defaults[];
 
+void
+restore_defaults_module(char *prefix)
+{
+	struct nvram_tuple *t;
+
+	for (t = router_defaults; t->name; t++) {
+		if(strncmp(t->name, prefix, sizeof(prefix))!=0) continue;
+		nvram_set(t->name, t->value);
+	}
+}
+
+static void
+restore_defaults(void)
+{
+	struct nvram_tuple *t;
+	int restore_defaults;
+	char prefix[] = "usb_pathXXXXXXXXXXXXXXXXX_", tmp[100];
+	int unit;
+	int model;
+
+	/* Restore defaults if told to or OS has changed */
+	if(!restore_defaults)
+		restore_defaults = !nvram_match("restore_defaults", "0");
+
+	if (restore_defaults)
+		fprintf(stderr, "\n## Restoring defaults... ##\n");
+
+	/* Restore defaults */
+	for (t = router_defaults; t->name; t++) {
+		if (restore_defaults || !nvram_get(t->name)) {
+			nvram_set(t->name, t->value);
+		}
+	}
+}
+
+
 static int fatalsigs[] = {
 	SIGILL,
 	SIGABRT,
@@ -448,7 +484,6 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 	case MODEL_RG200E_CA:
-		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 	case MODEL_RTN10:
@@ -519,6 +554,17 @@ static int init_vlan_ports(void)
 		}
 		break;
 #endif
+#ifdef CONFIG_BCMWL6A
+	case MODEL_RTAC56U:
+		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
+		break;
+	case MODEL_RTAC68U:
+		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
+		break;
+#endif
+	
 	}
 
 	return dirty;
@@ -1309,6 +1355,69 @@ static int init_nvram(void)
 			nvram_unset("vlan0ports");
 		}
 		break;
+#ifdef CONFIG_BCMWL6A
+	case MODEL_RTAC56U:
+		mfr = "Asus";
+		name = "RT-AC56U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+		nvram_set("vlan1hwname", "et0");
+		nvram_set("vlan2hwname", "et0");
+		nvram_set("lan_ifname", "br0");
+		nvram_set("0:ledbh3", "0x87");	  // since 163.42 //
+		nvram_set("1:ledbh10", "0x87");
+		nvram_set("landevs", "vlan1 wl0 wl1");
+		nvram_set("wl_ifnames", "eth1 eth2");
+		nvram_set("wl0_vifnames", "wl0.1 wl0.2 wl0.3");
+		nvram_set("wl1_vifnames", "wl1.1 wl1.2 wl1.3");
+		nvram_set_int("pwr_usb_gpio", 9|GPIO_ACTIVE_LOW);
+		nvram_set_int("pwr_usb_gpio2", 10|GPIO_ACTIVE_LOW);	// Use at the first shipment of RT-AC56U.
+		nvram_set_int("led_usb_gpio", 14|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
+		nvram_set_int("led_wan_gpio", 1|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_lan_gpio", 2|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_pwr_gpio", 3|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_wps_gpio", 3|GPIO_ACTIVE_LOW);
+		nvram_set_int("led_all_gpio", 4|GPIO_ACTIVE_LOW);	// actually, this is high active, and will power off all led when active; to fake LOW_ACTIVE to sync boardapi
+		nvram_set_int("led_5g_gpio", 6|GPIO_ACTIVE_LOW);	// 4352's fake led 5g
+		nvram_set_int("led_usb3_gpio", 0|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
+		nvram_set_int("btn_wps_gpio", 15|GPIO_ACTIVE_LOW);
+		nvram_set_int("btn_rst_gpio", 11|GPIO_ACTIVE_LOW);
+/*
+#ifdef TCONFIG_WIFI_TOG_BTN
+		nvram_set_int("btn_wltog_gpio", 7|GPIO_ACTIVE_LOW);
+#endif
+#ifdef TCONFIG_TURBO
+		nvram_set_int("btn_turbo_gpio", 5);
+#endif
+
+#ifdef TCONFIG_XHCIMODE
+		nvram_set("xhci_ports", "1-1");
+		nvram_set("ehci_ports", "2-1 2-2");
+		nvram_set("ohci_ports", "3-1 3-2");
+#else
+		if(nvram_get_int("usb_usb3") == 1){
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+		}
+		else{
+			nvram_unset("xhci_ports");
+			nvram_set("ehci_ports", "1-1 1-2");
+			nvram_set("ohci_ports", "2-1 2-2");
+		}
+#endif
+*/
+		if(!nvram_get("ct_max"))
+			nvram_set("ct_max", "300000");
+		add_rc_support("mssid 2.4G 5G update usbX2");
+		add_rc_support("switchctrl"); // broadcom: for jumbo frame only
+		add_rc_support("manual_stb");
+		add_rc_support("pwrctrl");
+		add_rc_support("WIFI_LOGO");
+		add_rc_support("nandflash");
+		break;
+#endif
+
+
 	case MODEL_RTN66U:
 		mfr = "Asus";
 #ifdef TCONFIG_AC66U
@@ -2209,7 +2318,8 @@ static void sysinit(void)
 
 	config_loopback();
 
-	eval("nvram", "defaults", "--initcheck");
+//	eval("nvram", "defaults", "--initcheck");
+	restore_defaults(); // restore default if necessary
 	init_nvram();
 
 	// set the packet size

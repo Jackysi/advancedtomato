@@ -72,7 +72,7 @@ obj-$(TCONFIG_SDHC) += mmc
 obj-y += libbcmcrypto
 obj-y += wlconf
 
-obj-y += cyassl
+#obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
 obj-$(TCONFIG_RAID) += mdadm
@@ -665,22 +665,6 @@ else
 endif
 
 
-#	Package kernel and filesystem
-#	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-#	    cp $(PLATFORMDIR)/target.image $(LINUXDIR)/arch/mips/ramdisk/$${CONFIG_EMBEDDED_RAMDISK_IMAGE} ; \
-#	    $(MAKE) -C $(LINUXDIR) zImage ; \
-#	else \
-#	    cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/ ; \
-#	    trx -o $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image ; \
-#	fi
-
-# 	Pad self-booting Linux to a 64 KB boundary
-#	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage $(PLATFORMDIR)/
-#	dd conv=sync bs=64k < $(PLATFORMDIR)/zImage > $(PLATFORMDIR)/linux.bin
-# 	Append filesystem to self-booting Linux
-#	cat $(PLATFORMDIR)/target.image >> $(PLATFORMDIR)/linux.bin
-
-
 libc:	$(LIBDIR)/ld-uClibc.so.0
 #	$(MAKE) -C ../../../tools-src/uClibc all
 #	$(MAKE) -C ../../../tools-src/uClibc install
@@ -860,7 +844,7 @@ ifeq ($(FULL_OPENSSL),y)
 	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
-mssl:	$(if $(FULL_OPENSSL),openssl,cyassl)
+mssl:	openssl
 
 mdu:	shared mssl
 
@@ -1014,7 +998,7 @@ rp-pppoe-install: rp-pppoe
 upnp: nvram$(BCMEX) shared iptables
 
 libnfnetlink/stamp-h1:
-	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP=$(STRIP) \
 		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
@@ -1425,7 +1409,7 @@ FFMPEG_CONFIGURE_DEMUXERS:=$(call FFMPEG_FILTER_CONFIG,disable-demuxer,$(FFMPEG_
 
 ffmpeg/stamp-h1: zlib
 	cd ffmpeg && symver_asm_label=no symver_gnu_asm=no symver=no CC=$(CC) \
-		./configure --enable-cross-compile --arch=mips --target_os=linux \
+		./configure --enable-cross-compile --arch=$(ARCH) --target_os=linux \
 		--cross-prefix=$(CROSS_COMPILE) --enable-shared --enable-gpl --disable-doc \
 		--enable-pthreads --enable-small --disable-encoders --disable-filters \
 		--disable-muxers --disable-devices --disable-ffmpeg --disable-ffplay \
@@ -1622,7 +1606,7 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 endif
 
 minidlna/stamp-h1: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis libiconv
-	cd minidlna && CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB) STRIP='mipsel-uclibc-strip' HOST=mipsel-linux \
+	cd minidlna && CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB) STRIP=$(STRIP) HOST=$(HOST) \
 	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
 		-ffunction-sections -fdata-sections \
 		-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
@@ -1647,7 +1631,7 @@ minidlna/stamp-h1: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorb
 		-I$(TOP)/libiconv/include \
 		-I$(TOP)/sqlite" \
 	LIBS="-lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag -lFLAC -logg -lvorbis -lm -ldl -lz" \
-	$(CONFIGURE) --host=mipsel-linux --build=x86_64-linux-gnu
+	$(CONFIGURE) --host=$(HOST) --build=x86_64-linux-gnu
 	touch minidlna/stamp-h1
 
 minidlna: minidlna/stamp-h1
@@ -1839,7 +1823,7 @@ openvpn_plugin_auth_nvram: nvram$(BCMEX)
 
 #shibby
 libcurl/stamp-h1: zlib openssl
-	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd libcurl && CC=$(CC) STRIP=$(STRIP) \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -I$(TOP)/zlib" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
@@ -1915,14 +1899,14 @@ libiconv-install: libiconv
 		ln -sf libiconv.so.2.4.0 libiconv.so
 
 transmission/stamp-h1: openssl libcurl libevent zlib
-	cd transmission && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd transmission && CC=$(CC) STRIP=$(STRIP) \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 			--param large-function-growth=800 --param max-inline-insns-single=3000 \
 			-ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC \
 			-L$(TOP)/zlib -L$(TOP)/openssl -L$(TOP)/libcurl/lib/.libs -L$(TOP)/libevent/.libs" \
 		HAVE_CXX=yes \
-		$(CONFIGURE) --target=mipsel-linux --host=mipsel-linux --build=x86_64-linux-gnu --prefix=/usr --disable-nls \
+		$(CONFIGURE) --target=$(HOST) --host=$(HOST) --build=x86_64-linux-gnu --prefix=/usr --disable-nls \
 			--enable-lightweight --enable-largefile --enable-utp --without-gtk \
 			LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 			LIBCURL_LDFLAGS="-L$(TOP)/libcurl/lib/.libs/" \
@@ -2024,7 +2008,7 @@ e2fsprogs-clean:
 	@rm -rf e2fsprogs/staged
 
 nfs-utils/stamp-h1: libevent-install e2fsprogs portmap libnfsidmap-install
-	cd nfs-utils && STRIP='mipsel-uclibc-strip' \
+	cd nfs-utils && STRIP=$(STRIP) \
 	CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 	-I$(TOP)/libevent/staged/usr/local/include -I$(TOP)/e2fsprogs/lib \
 	-I$(TOP)/libnfsidmap/staged/usr/include -ffunction-sections -fdata-sections" \
@@ -2062,7 +2046,7 @@ nfs-utils-install: nfs-utils
 
 sd-idle/stamp-h1:
 	cd sd-idle \
-	CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+	CFLAGS="-Os -Wall --host=$(HOST) --target=$(HOST) $(EXTRACFLAGS)" \
 	$(MAKE) -C sd-idle
 	chmod 0755 sd-idle/sd-idle
 	touch sd-idle/stamp-h1
@@ -2102,7 +2086,7 @@ snmp-install: snmp
 	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 apcupsd/stamp-h1:
-	cd apcupsd && touch autoconf/variables.mak && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd apcupsd && touch autoconf/variables.mak && CC=$(CC) STRIP=$(STRIP) \
 	$(MAKE) configure && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	LDFLAGS="-L$(TOOLCHAIN)/lib -ffunction-sections -fdata-sections" \
@@ -2127,7 +2111,7 @@ apcupsd-install: apcupsd
 	$(STRIP) $(INSTALLDIR)/apcupsd/www/apcupsd/*
 
 libsodium/stamp-h1:
-	cd $(TOP)/libsodium && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd $(TOP)/libsodium && CC=$(CC) STRIP=$(STRIP) \
 	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch libsodium/stamp-h1
 
@@ -2147,7 +2131,7 @@ libsodium-clean:
 	@rm -rf libsodium/stamp-h1
 
 dnscrypt/stamp-h1: libsodium
-	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd $(TOP)/dnscrypt && CC=$(CC) STRIP=$(STRIP) \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	CPPFLAGS="-I$(TOP)/libsodium/src/libsodium/include" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libsodium/src/libsodium/.libs" \
@@ -2168,7 +2152,7 @@ dnscrypt-clean:
 	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
 tor/stamp-h1: openssl zlib libevent
-	cd $(TOP)/tor && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd $(TOP)/tor && CC=$(CC) STRIP=$(STRIP) \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
@@ -2189,7 +2173,7 @@ tor-clean:
 
 udpxy/stamp-h1:
 	cd udpxy \
-	$(MAKE) -C udpxy CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+	$(MAKE) -C udpxy CFLAGS="-Os -Wall --host=$(HOST) --target=$(HOST) $(EXTRACFLAGS)" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections"
 	touch udpxy/stamp-h1
 

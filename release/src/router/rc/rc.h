@@ -98,6 +98,7 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 extern int init_main(int argc, char *argv[]);
 extern int reboothalt_main(int argc, char *argv[]);
 extern int console_main(int argc, char *argv[]);
+extern void restore_defaults_module(char *prefix);
 
 // interface.c
 extern int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr);
@@ -126,7 +127,7 @@ extern int ip6down_main(int argc, char **argv);
 #endif
 
 // rc.c
-extern void restore_defaults(void);
+//extern void restore_defaults(void);
 
 // redial.c
 extern int start_redial(void);
@@ -386,8 +387,15 @@ extern void stop_telnetd(void);
 // mtd.c
 extern int mtd_erase(const char *mtdname);
 extern int mtd_unlock(const char *mtdname);
+#ifdef TCONFIG_BCMARM
+extern int mtd_erase_old(const char *mtdname);
+extern int mtd_write_main_old(int argc, char *argv[]);
+extern int mtd_unlock_erase_main_old(int argc, char *argv[]);
+extern int mtd_write(const char *path, const char *mtd);
+#else
 extern int mtd_write_main(int argc, char *argv[]);
 extern int mtd_unlock_erase_main(int argc, char *argv[]);
+#endif
 
 // buttons.c
 extern int buttons_main(int argc, char *argv[]);

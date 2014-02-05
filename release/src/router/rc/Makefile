@@ -26,6 +26,10 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += new_qoslimit.o arpbind.o
 OBJS += tomatoanon.o
 
+ifeq ($(TCONFIG_BCMARM),y)
+OBJS += bcmutils.o
+endif
+
 #ifeq ($(CONFIG_BCMWL6),y)
 OBJS += blink_5g.o
 #endif
@@ -84,6 +88,10 @@ ifeq ($(TCONFIG_TOR),y)
 OBJS += tor.o
 endif
 
+ifeq ($(TCONFIG_BCMARM),y)
+vpath %.c $(SRCBASE)/shared
+endif
+
 all: rc
 
 rc: $(OBJS)
@@ -99,7 +107,11 @@ install: all
 	@$(STRIP) $(INSTALLDIR)/sbin/rc
 	@chmod 0500 $(INSTALLDIR)/sbin/rc
 
+ifeq ($(TCONFIG_BCMARM),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc preinit
+else
 	@cd $(INSTALLDIR)/sbin && ln -sf rc init
+endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc console
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	@cd $(INSTALLDIR)/sbin && ln -sf rc service
@@ -118,8 +130,14 @@ install: all
 	@cd $(INSTALLDIR)/sbin && ln -sf rc listen
 	@cd $(INSTALLDIR)/sbin && ln -sf rc ppp_event
 
+ifeq ($(TCONFIG_BCMARM),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-write2
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-erase2
+	@cd $(INSTALLDIR)/sbin && ln -sf rc nvram_erase
+else
 	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-write
 	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-erase
+endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-unlock
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc dhcpc-event

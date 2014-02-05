@@ -39,7 +39,7 @@
 #include <trxhdr.h>
 #include <bcmutils.h>
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 #include <bcmendian.h>
 #include <bcmnvram.h>
 #include <shutils.h>
@@ -71,7 +71,7 @@ static void crc_done(void)
 
 // -----------------------------------------------------------------------------
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 static int mtd_open_old(const char *mtdname, mtd_info_t *mi)
 #else
 static int mtd_open(const char *mtdname, mtd_info_t *mi)
@@ -100,16 +100,23 @@ static int _unlock_erase(const char *mtdname, int erase)
 	int mf;
 	mtd_info_t mi;
 	erase_info_t ei;
+#ifdef CONFIG_BCMWL6
 	int r, ret, skipbb;
+#else
+	int r;
+#endif
 
 	if (!wait_action_idle(5)) return 0;
 	set_action(ACT_ERASE_NVRAM);
+	if (erase) led(LED_DIAG, 1);
 
 	r = 0;
+#ifdef CONFIG_BCMWL6
 	skipbb = 0;
+#endif
 
-#ifdef RTCONFIG_BCMARM
- 	if ((mf = mtd_open_old(mtdname, &mi)) >= 0) {
+#ifdef TCONFIG_BCMARM
+	if ((mf = mtd_open_old(mtdname, &mi)) >= 0) {
 #else
 	if ((mf = mtd_open(mtdname, &mi)) >= 0) {
 #endif
@@ -120,22 +127,6 @@ static int _unlock_erase(const char *mtdname, int erase)
 				printf("%sing 0x%x - 0x%x\n", erase ? "Eras" : "Unlock", ei.start, (ei.start + ei.length) - 1);
 				fflush(stdout);
 
-				if (!skipbb) {
-					loff_t offset = ei.start;
-
-					if ((ret = ioctl(mf, MEMGETBADBLOCK, &offset)) > 0) {
-						printf("Skipping bad block at 0x%08x\n", ei.start);
-						continue;
-					} else if (ret < 0) {
-						if (errno == EOPNOTSUPP) {
-							skipbb = 1;	// Not supported by this device
-						} else {
-							perror("MEMGETBADBLOCK");
-							r = 0;
-							break;
-						}
-					}
-				}
 				if (ioctl(mf, MEMUNLOCK, &ei) != 0) {
 //					perror("MEMUNLOCK");
 //					r = 0;
@@ -174,6 +165,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 			close(mf);
 	}
 
+	if (erase) led(LED_DIAG, 0);
 	set_action(ACT_IDLE);
 
 	if (r) printf("\"%s\" successfully %s.\n", mtdname, erase ? "erased" : "unlocked");
@@ -188,7 +180,7 @@ int mtd_unlock(const char *mtdname)
 	return _unlock_erase(mtdname, 0);
 }
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 int mtd_erase_old(const char *mtdname)
 #else
 int mtd_erase(const char *mtdname)
@@ -197,7 +189,7 @@ int mtd_erase(const char *mtdname)
 	return _unlock_erase(mtdname, 1);
 }
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 int mtd_unlock_erase_main_old(int argc, char *argv[])
 #else
 int mtd_unlock_erase_main(int argc, char *argv[])
@@ -221,7 +213,7 @@ int mtd_unlock_erase_main(int argc, char *argv[])
 	return _unlock_erase(dev, strstr(argv[0], "erase") ? 1 : 0);
 }
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 int mtd_write_main_old(int argc, char *argv[])
 #else
 int mtd_write_main(int argc, char *argv[])
@@ -230,7 +222,7 @@ int mtd_write_main(int argc, char *argv[])
 	int mf = -1;
 	mtd_info_t mi;
 	erase_info_t ei;
-#ifdef RTCONFIG_BCMARM	
+#ifdef TCONFIG_BCMARM	
 	uint32 sig;
 	struct code_header cth;
 	uint32 crc;
@@ -287,7 +279,7 @@ int mtd_write_main(int argc, char *argv[])
 	fseek( f, 0, SEEK_SET);
 	_dprintf("file len=0x%x\n", filelen);
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 	if ((mf = mtd_open_old(dev, &mi)) < 0) {
 #else
 	if ((mf = mtd_open(dev, &mi)) < 0) {
@@ -421,7 +413,7 @@ ERROR:
 	return (error ? 1 : 0);
 }
 
-#ifdef RTCONFIG_BCMARM
+#ifdef TCONFIG_BCMARM
 
 /*
  * Open an MTD device

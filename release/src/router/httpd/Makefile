@@ -3,6 +3,12 @@ include ../common.mak
 CFLAGS = -Os -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
+#ifeq ($(TCONFIG_BCMARM),y)
+#CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include
+#CFLAGS += -I$(SRCBASE)/common/include
+#LIBS += -lgcc_s
+#endif
+
 OBJS = httpd.o cgi.o tomato.o version.o 
 OBJS += misc.o dhcp.o upgrade.o traceping.o parser.o upnp.o ctnf.o
 OBJS += nvram.o log.o webio.o wl.o devlist.o ddns.o config.o bwm.o
@@ -39,8 +45,8 @@ httpd: $(OBJS)
 	@echo " [httpd] CC $@"
 	@$(CC) -o $@ $(OBJS) $(LIBS)
 
-	$(SIZECHECK)
-	$(CPTMP)
+#	$(SIZECHECK)
+#	$(CPTMP)
 
 
 install:
@@ -52,8 +58,8 @@ install:
 clean:
 	rm -f httpd *.o .*.depend
 
-size: httpd
-	mipsel-uclibc-nm --print-size --size-sort httpd
+#size: httpd
+#	mipsel-uclibc-nm --print-size --size-sort httpd
 
 %.o: %.c .%.depend
 	@echo " [httpd] CC $@"
