@@ -18,7 +18,7 @@
 
 #ifdef ENABLE_6FC_SERVICE
 
-#include <xtables.h>
+#include <iptables.h>
 #include <libiptc/libip6tc.h>
 #include "tiny_nf_nat.h"
 

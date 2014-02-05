@@ -1,0 +1,15 @@
+# libnfnetlink pkg-config file
+
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libnfnetlink
+Description: Low-level netfilter netlink communication library
+URL: http://netfilter.org/projects/libnfnetlink/
+Version: 1.0.1
+Requires:
+Conflicts:
+Libs: -L${libdir} -lnfnetlink
+Cflags: -I${includedir}

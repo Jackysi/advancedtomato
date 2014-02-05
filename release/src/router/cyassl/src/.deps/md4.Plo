@@ -1,0 +1,1 @@
+md4.lo: ../ctaocrypt/src/md4.c

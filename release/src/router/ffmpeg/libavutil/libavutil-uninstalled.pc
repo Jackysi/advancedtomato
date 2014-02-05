@@ -1,0 +1,12 @@
+prefix=
+exec_prefix=
+libdir=${pcfiledir}
+includedir=/home/shibby/openwrt/tomato-ss/release/src/router/ffmpeg
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 50.15.1
+Requires: 
+Conflicts:
+Libs: ${libdir}/libavutil.a 
+Cflags: -I${includedir}

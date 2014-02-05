@@ -18,7 +18,7 @@ ifeq ($(TCONFIG_NOCAT),y)
 OBJS += nocat.o
 endif
 
-LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+LIBS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared
 LIBS += -L$(TOP)/mssl -lmssl
 
 ifeq ($(FULL_OPENSSL),y)
@@ -27,6 +27,10 @@ endif
 
 ifeq ($(TCONFIG_PPTPD),y)
 OBJS += pptpd.o
+endif
+
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
 endif
 
 all: httpd

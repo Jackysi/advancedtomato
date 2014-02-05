@@ -4,7 +4,16 @@ CFLAGS = -Wall -Os $(EXTRACFLAGS)
 CFLAGS += -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
 CFLAGS += -ffunction-sections -fdata-sections
 
+
+ifeq ($(TCONFIG_BCMARM),y)
+LDFLAGS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared -lcrypt -L$(TOP)/libbcmcrypto -lbcmcrypto
+CFLAGS += -DHAVE_TYPE_FLOAT
+LDFLAGS += -L$(TOP)/libbcm -lbcm
+LDFLAGS += -lgcc_s
+else
 LDFLAGS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt
+endif
+
 LDFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
 ifeq ($(STATIC),1)
 LDFLAGS += -static
@@ -17,9 +26,9 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += new_qoslimit.o arpbind.o
 OBJS += tomatoanon.o
 
-ifeq ($(CONFIG_BCMWL6),y)
+#ifeq ($(CONFIG_BCMWL6),y)
 OBJS += blink_5g.o
-endif
+#endif
 
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o

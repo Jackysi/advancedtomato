@@ -3,13 +3,17 @@ include ../common.mak
 CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
+endif
+
 OBJS = ntpc.o
 
 all: ntpc
 
 ntpc: $(OBJS)
 	@echo " [ntpc] CC -o $@"
-	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared
 
 	$(SIZECHECK)
 	$(CPTMP)

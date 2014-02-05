@@ -3,7 +3,11 @@ include ../common.mak
 CFLAGS = -Os -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
-LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+LIBS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared
+
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
+endif
 
 EXE = wanuptime
 OBJS = wanuptime.o

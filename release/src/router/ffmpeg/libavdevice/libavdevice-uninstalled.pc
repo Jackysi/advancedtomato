@@ -1,0 +1,12 @@
+prefix=
+exec_prefix=
+libdir=${pcfiledir}
+includedir=/home/shibby/openwrt/tomato-ss/release/src/router/ffmpeg
+
+Name: libavdevice
+Description: FFmpeg device handling library
+Version: 52.2.0
+Requires: libavformat = 52.64.2
+Conflicts:
+Libs: ${libdir}/libavdevice.a  -L/home/shibby/openwrt/tomato-ss/release/src-rt-6.x.4708/router/zlib -lz  -lz -pthread -lm
+Cflags: -I${includedir}

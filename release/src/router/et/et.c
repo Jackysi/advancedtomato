@@ -1,15 +1,15 @@
 /*
  * et driver ioctl swiss army knife command.
  *
- * Copyright (C) 2010, Broadcom Corporation
- * All Rights Reserved.
- * 
- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * Copyright 2006, Broadcom Corporation
+ * All Rights Reserved.                
+ *                                     
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;   
  * the contents of this file may not be disclosed to third parties, copied
- * or duplicated in any form, in whole or in part, without the prior
- * written permission of Broadcom Corporation.
+ * or duplicated in any form, in whole or in part, without the prior      
+ * written permission of Broadcom Corporation.                            
  *
- * $Id: et.c,v 1.9.130.4 2009/07/17 03:09:33 Exp $
+ * $Id: et.c,v 1.1.1.1 2007/03/20 12:22:00 roly Exp $
  */
 
 #include <stdio.h>
@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <etioctl.h>
 #include <proto/ethernet.h>
-#include <linux/types.h>
 
 typedef u_int64_t u64;
 typedef u_int32_t u32;
@@ -46,7 +45,9 @@ static int et_check(int s, struct ifreq *ifr);
 
 char buf[16 * 1024];
 
-#define VECLEN		5
+#define VECLEN		2
+
+static int optind;
 
 int
 main(int ac, char *av[])
@@ -57,7 +58,6 @@ main(int ac, char *av[])
 	int arg;
 	int vecarg[VECLEN];
 	int s;
-	static int optind;
 
 	if (ac < 2)
 		usage(av[0]);
@@ -125,6 +125,9 @@ main(int ac, char *av[])
 		ifr.ifr_data = (caddr_t) &arg;
 		if (ioctl(s, SIOCSETCQOS, (caddr_t)&ifr) < 0)
 			syserr("etcqos");
+	} else if (strcmp(av[optind], "txdown") == 0) {
+		if (ioctl(s, SIOCSETCTXDOWN, (caddr_t)&ifr) < 0)
+			syserr("etctxdown");
 	} else if (strcmp(av[optind], "speed") == 0) {
 		if (optind >= (ac -1))
 			usage(av[0]);
@@ -138,8 +141,6 @@ main(int ac, char *av[])
 			arg = 2;
 		else if (strcmp(av[optind+1], "100full") == 0)
 			arg = 3;
-		else if (strcmp(av[optind+1], "1000full") == 0)
-			arg = 5;
 		else
 			usage(av[0]);
 
@@ -166,7 +167,7 @@ main(int ac, char *av[])
 		if (ioctl(s, cmd, (caddr_t)&ifr) < 0)
 			syserr("etcphyrd");
 
-		printf("000x%04x\n", vecarg[1]);
+		printf("0x%04x\n", vecarg[1]);
 	} else if (strcmp(av[optind], "phywr") == 0) {
 		int cmd = -1;
 
@@ -196,7 +197,7 @@ main(int ac, char *av[])
 		if (ioctl(s, SIOCGETCROBORD, (caddr_t)&ifr) < 0)
 			syserr("etcrobord");
 
-		printf("000x%04x\n", vecarg[1]);
+		printf("0x%04x\n", vecarg[1]);
 	} else if (strcmp(av[optind], "robowr") == 0) {
 		if (ac != (optind + 4))
 			usage(av[0]);
@@ -208,71 +209,8 @@ main(int ac, char *av[])
 		ifr.ifr_data = (caddr_t) vecarg;
 		if (ioctl(s, SIOCSETCROBOWR, (caddr_t)&ifr) < 0)
 			syserr("etcrobowr");
-#ifdef IOV_ET_CLEAR_DUMP
-	} else if (strcmp(av[optind], "clear_dump") == 0) {
-		et_var_t var;
-
-		if ((ac > (optind + 2)))
-			usage(av[0]);
-
-		var.set = 1;
-		var.cmd = IOV_ET_CLEAR_DUMP;
-		var.buf = NULL;
-		ifr.ifr_data = (caddr_t) &var;
-		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
-			syserr("etccleardump");
-#endif
-	} else {
-#ifdef IOV_ET_POWER_SAVE_MODE
-		if (strcmp(av[optind], "switch_mode") == 0) {
-			int all = 0;
-			et_var_t var;
-
-			/* GET case */
-			if (ac == (optind + 1)) {
-				var.set = 0;
-				vecarg[0] = VECLEN;
-				all = 1;
-			} else if (ac == (optind + 2)) {
-				var.set = 0;
-				vecarg[0] = strtoul(av[optind + 1], NULL, 0);
-				all = (int)(vecarg[0] == VECLEN);
-			} else {
-				if (ac != (optind + 3))
-					usage(av[0]);
-
-				vecarg[0] = strtoul(av[optind + 1], NULL, 0);
-				vecarg[1] = strtoul(av[optind + 2], NULL, 0);
-				if (vecarg[1] > 3)
-					usage(av[0]);
-
-				var.set = 1;
-			}
-
-			var.len = VECLEN * sizeof(int);
-			var.cmd = IOV_ET_POWER_SAVE_MODE;
-			var.buf = &vecarg;
-
-			ifr.ifr_data = (caddr_t) &var;
-			if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
-				syserr("etcswitchmode");
-
-			if (!var.set) {
-				if (all)
-					printf("phy power save mode for all phys:"
-						" %d %d %d %d %d \n",
-						vecarg[0], vecarg[1], vecarg[2],
-						vecarg[3], vecarg[4]);
-				else
-					printf("phy power save mode for phy %d mode %d\n",
-						vecarg[0], vecarg[1]);
-			}
-		} else
-#endif // IOV_ET_POWER_SAVE_MODE
-		{
-			usage(av[0]);
-		}
-	}
+	} else
+		usage(av[0]);
 
 	return (0);
 }
@@ -285,18 +223,15 @@ usage(char *av0)
 		"\tdown\n"
 		"\tloop <0 or 1>\n"
 		"\tdump\n"
-		"\tclear_dump\n"
 		"\tmsglevel <bitvec> (error=1, trace=2, prhdr=4, prpkt=8)\n"
 		"\tpromisc <0 or 1>\n"
 		"\tqos <0 or 1>\n"
-		"\tspeed <auto, 10half, 10full, 100half, 100full, 1000full>\n"
+		"\ttxdown\n"
+		"\tspeed <auto, 10half, 10full, 100half, 100full>\n"
 		"\tphyrd [<phyaddr>] <reg>\n"
 		"\tphywr [<phyaddr>] <reg> <val>\n"
 		"\trobord <page> <reg>\n"
 		"\trobowr <page> <reg> <val>\n"
-#ifdef IOV_ET_POWER_SAVE_MODE
-		"\tswitch_mode <phy> <mode> (mode 0, 1, 2, 3)\n"
-#endif
 		,
 		av0);
 	exit(1);
@@ -361,3 +296,4 @@ syserr(char *s)
 	perror(s);
 	exit(1);
 }
+

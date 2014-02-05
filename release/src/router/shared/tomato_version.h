@@ -1,0 +1,9 @@
+#ifndef __TOMATO_VERSION_H__
+#define __TOMATO_VERSION_H__
+#define TOMATO_MAJOR		"1"
+#define TOMATO_MINOR		"28"
+#define TOMATO_BUILD		"0003"
+#define	TOMATO_BUILDTIME	"pon, 27 sty 2014 16:52:22 +0100"
+#define TOMATO_VERSION		"1.28.0003 K26ARM USB VPN-64K"
+#define TOMATO_SHORTVER		"1.28"
+#endif

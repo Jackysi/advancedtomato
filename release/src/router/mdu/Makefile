@@ -3,8 +3,12 @@ include ../common.mak
 CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
-LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -L$(TOP)/mssl -lmssl
+LIBS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared -L$(TOP)/mssl -lmssl
 #LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared $(TOP)/mssl/libmssl.a $(TOP)/matrixssl/src/libmatrixsslstatic.a
+
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
+endif
 
 ifeq ($(FULL_OPENSSL),y)
 LIBS += -L$(TOP)/openssl -lssl -lcrypto

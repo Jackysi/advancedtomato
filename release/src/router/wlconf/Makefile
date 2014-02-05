@@ -16,9 +16,12 @@ include ../common.mak
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -s -Os -DBCMWPA2 $(EXTRACFLAGS)
-LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+LDFLAGS	+= -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared
 LDFLAGS += $(EXTRA_LDFLAGS)
 
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
+endif
 
 OBJS := wlconf.o
 ifeq ($(CONFIG_BCMWL6),y)

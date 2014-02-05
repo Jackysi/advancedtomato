@@ -32,6 +32,8 @@
 
 #define SHELL "/bin/sh"
 
+extern struct nvram_tuple router_defaults[];
+
 static int fatalsigs[] = {
 	SIGILL,
 	SIGABRT,
@@ -1599,6 +1601,39 @@ static int init_nvram(void)
 			nvram_set("regulation_domain_5G", nvram_safe_get("ccode"));
 		}
 		break;
+	case MODEL_RTAC68U:
+		mfr = "Asus";
+		name = "RT-AC68U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnames", "eth0");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+			if(!nvram_get("ct_max"))
+				nvram_set("ct_max", "300000");
+			if (nvram_match("wl1_bw", "0"))
+			{
+				nvram_set("wl1_bw", "3");
+
+				if (nvram_match("wl1_country_code", "EU"))
+					nvram_set("wl1_chanspec", "36/80");
+				else
+					nvram_set("wl1_chanspec", "149/80");
+			}
+			if ((nvram_get_int("wlopmode") == 7) || nvram_match("ATEMODE", "1"))
+				nvram_set("usb_usb3", "1");
+		}
+		break;
 #endif // CONFIG_BCMWL6
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
@@ -1988,6 +2023,7 @@ static int init_nvram(void)
 	return 0;
 }
 
+#ifndef TCONFIG_BCMARM
 /* Get the special files from nvram and copy them to disc.
  * These were files saved with "nvram setfile2nvram <filename>".
  * Better hope that they were saved with full pathname.
@@ -2016,6 +2052,7 @@ static void load_files_from_nvram(void)
 	if (ar_loaded != 0)
 		run_nvscript(".autorun", NULL, 3);
 }
+#endif
 
 #if defined(LINUX26) && defined(TCONFIG_USB)
 static inline void tune_min_free_kbytes(void)
@@ -2279,7 +2316,9 @@ int init_main(int argc, char *argv[])
 			SET_LED(RELEASE_WAN_CONTROL);
 			start_syslog();
 
+#ifndef TCONFIG_BCMARM
 			load_files_from_nvram();
+#endif
 
 			int fd = -1;
 			fd = file_lock("usb");	// hold off automount processing

@@ -401,12 +401,11 @@ mtd1: 007d0000 00010000 "linux"
 		fclose(f);
 	}
 	if (found) {
-		if (nvram_match("boardtype", "0x052b") && nvram_match("boardrev", "02")) return 128; //Netgear 3500L v2 has 128MB NAND flash
-#ifdef TCONFIG_AC66U
-		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xf5b2) && nvram_match("boardrev", "0x1100")) return 128; //RT-AC66U has 128MB NAND flash but RT-N66u has the same boardtype!
-#endif
-		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xf52e) && nvram_match("boardrev", "0x1204")) return 128; //WZR-D1800H has 128MB NAND flash
-		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xc617) && nvram_match("modelNumber", "EA6500")) return 128; //Linksys EA6500 has 128MB NAND flash
+		if (nvram_match("boardtype", "0x052b") && nvram_match("boardrev", "02")) return 128; //Netgear 3500L v2 has 128MB NAND flash but linux partition has only 32MB
+		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xf5b2) && nvram_match("boardrev", "0x1100")) return 128; //RT-AC66U has 128MB NAND flash but linux partition has only 32MB, bwq518
+		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0x05d8) && nvram_match("boardrev", "0x1200")) return 256; //Tenda W1800R has 256MB NAND flash but linux partition has only 32MB, bwq518
+		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xf52e) && nvram_match("boardrev", "0x1204")) return 128; //WZR-D1800H has 128MB NAND flash but linux partition has only 32MB, bwq518
+		else if ((strtoul(nvram_safe_get("boardtype"), NULL, 0) == 0xc617) && nvram_match("modelNumber", "EA6500")) return 128; //Linksys EA6500 has 128MB NAND flash but linux partition has only 32MB, bwq518
 		else if ((size > 0x2000000) && (size < 0x4000000)) return 64;
 		else if ((size > 0x1000000) && (size < 0x2000000)) return 32;
 		else if ((size > 0x800000) && (size < 0x1000000)) return 16;
@@ -458,12 +457,12 @@ void asp_anonupdate(int argc, char **argv)
 	char s[32], *a, b[16];
 	unsigned n;
 
-	if ( nvram_match("tomatoanon_answer", "1") && nvram_match("tomatoanon_enable", "1") && nvram_match("tomatoanon_notify", "1") ) {
+	if ( nvram_match("tomatoanon_answer", "1") && nvram_match("tomatoanon_enable", "1") ) {
 
 		web_puts("\nanonupdate = {");
 
 		n = 0;
-		if ((f = fopen("/tmp/anon.version", "r")) != NULL) {
+		if ((f = fopen("/tmp/anon.result", "r")) != NULL) {
 			while (fgets(s, sizeof(s), f)) {
 				if (sscanf(s, "have_update=%s", b) == 1) a="update";
 				else continue;

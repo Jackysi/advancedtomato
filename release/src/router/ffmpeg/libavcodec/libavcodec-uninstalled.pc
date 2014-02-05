@@ -1,0 +1,12 @@
+prefix=
+exec_prefix=
+libdir=${pcfiledir}
+includedir=/home/shibby/openwrt/tomato-ss/release/src/router/ffmpeg
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 52.72.2
+Requires: libavutil = 50.15.1
+Conflicts:
+Libs: ${libdir}/libavcodec.a  -L/home/shibby/openwrt/tomato-ss/release/src-rt-6.x.4708/router/zlib -lz  -lz -pthread -lm
+Cflags: -I${includedir}

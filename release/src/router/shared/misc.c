@@ -174,7 +174,7 @@ int foreach_wif(int include_vifs, void *param,
 		nvram_safe_get("wl1_ifname"),
 		nvram_safe_get("wl1_vifs"));
 	remove_dups(ifnames, sizeof(ifnames));
-	sort_list(ifnames, sizeof(ifnames));
+//	sort_list(ifnames, sizeof(ifnames));
 
 	i = 0;
 	foreach(name, ifnames, next) {

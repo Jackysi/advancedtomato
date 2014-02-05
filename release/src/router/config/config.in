@@ -201,3 +201,7 @@ config TCONFIG_CTF
 config TCONFIG_UFSD
 	bool "Paragon NTFS driver for Asus routers"
 	default n
+
+config TCONFIG_BCMARM
+	bool "Bcm Arm"
+	default n

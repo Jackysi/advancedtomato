@@ -1,41 +1,188 @@
 /*
-	Copyright 2005, Broadcom Corporation
-	All Rights Reserved.
+ * Shell-like utility functions
+ *
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
+ * 
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: shutils.c 337155 2012-06-06 12:17:08Z $
+ */
 
-	THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-	KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-	SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-	FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-	
-*/
-
-# ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-# endif
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <typedefs.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
+
 #include <stdarg.h>
 #include <errno.h>
-#include <error.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <termios.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
-//	#include <net/ethernet.h>
+#include <assert.h>
+#include <sys/sysinfo.h>
+#include <sys/mman.h>
 #include <syslog.h>
-
+#include <typedefs.h>
 #include <wlioctl.h>
-#include <bcmnvram.h>
 
-#include "shutils.h"
+#include <bcmnvram.h>
+#include <shutils.h>
+
+/* Linux specific headers */
+#ifdef linux
+#include <error.h>
+#include <termios.h>
+#include <sys/time.h>
+//#include <net/ethernet.h>
+#else
+#include <proto/ethernet.h>
+#endif /* linux */
+
 #include "shared.h"
+
+#define T(x)		__TXT(x)
+#define __TXT(s)	L ## s
+
+#ifndef B_L
+#define B_L		T(__FILE__),__LINE__
+#define B_ARGS_DEC	char *file, int line
+#define B_ARGS		file, line
+#endif /* B_L */
+
+#define bfree(B_ARGS, p) free(p)
+#define balloc(B_ARGS, num) malloc(num)
+#define brealloc(B_ARGS, p, num) realloc(p, num)
+
+#ifndef max
+#define max(a,b)  (((a) > (b)) ? (a) : (b))
+#endif /* max */
+
+#ifndef min
+#define min(a,b)  (((a) < (b)) ? (a) : (b))
+#endif /* min */
+
+#define STR_REALLOC		0x1				/* Reallocate the buffer as required */
+#define STR_INC			64				/* Growth increment */
+
+typedef struct {
+	char		*s;						/* Pointer to buffer */
+	int		size;						/* Current buffer size */
+	int		max;						/* Maximum buffer size */
+	int		count;						/* Buffer count */
+	int		flags;						/* Allocation flags */
+} strbuf_t;
+
+/*
+ *	Sprintf formatting flags
+ */
+enum flag {
+	flag_none = 0,
+	flag_minus = 1,
+	flag_plus = 2,
+	flag_space = 4,
+	flag_hash = 8,
+	flag_zero = 16,
+	flag_short = 32,
+	flag_long = 64
+};
+
+/*
+ * Print out message on console.
+ */
+void dbgprintf (const char * format, ...)
+{
+	FILE *dbg = fopen("/dev/console", "w");
+	if(dbg)
+	{
+		va_list args;
+		va_start (args, format);
+		vfprintf (dbg, format, args);
+		va_end (args);
+		fclose(dbg);
+	}
+}
+
+/*
+ * Reads file and returns contents
+ * @param	fd	file descriptor
+ * @return	contents of file or NULL if an error occurred
+ */
+char *
+fd2str(int fd)
+{
+	char *buf = NULL;
+	size_t count = 0, n;
+
+	do {
+		buf = realloc(buf, count + 512);
+		n = read(fd, buf + count, 512);
+		if (n < 0) {
+			free(buf);
+			buf = NULL;
+		}
+		count += n;
+	} while (n == 512);
+
+	close(fd);
+	if (buf)
+		buf[count] = '\0';
+	return buf;
+}
+
+/*
+ * Reads file and returns contents
+ * @param	path	path to file
+ * @return	contents of file or NULL if an error occurred
+ */
+char *
+file2str(const char *path)
+{
+	int fd;
+
+	if ((fd = open(path, O_RDONLY)) == -1) {
+		perror(path);
+		return NULL;
+	}
+
+	return fd2str(fd);
+}
+
+/*
+ * Waits for a file descriptor to change status or unblocked signal
+ * @param	fd	file descriptor
+ * @param	timeout	seconds to wait before timing out or 0 for no timeout
+ * @return	1 if descriptor changed status or 0 if timed out or -1 on error
+ */
+int
+waitfor(int fd, int timeout)
+{
+	fd_set rfds;
+	struct timeval tv = { timeout, 0 };
+
+	FD_ZERO(&rfds);
+	FD_SET(fd, &rfds);
+	return select(fd + 1, &rfds, NULL, NULL, (timeout > 0) ? &tv : NULL);
+}
 
 /*
  * Concatenates NULL-terminated list of arguments into a single
@@ -60,6 +207,8 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	int n;
 	const char *p;
 	char s[256];
+	//char *cpu0_argv[32] = { "taskset", "-c", "0"};
+	//char *cpu1_argv[32] = { "taskset", "-c", "1"};
 
 	if (!ppid) {
 		// block SIGCHLD
@@ -176,11 +325,107 @@ EXIT:
 	setenv("PATH", s, 1);
 
 	alarm(timeout);
+#if 1
 	execvp(argv[0], argv);
-	
+
 	perror(argv[0]);
+#elif 0
+	for(n = 0; argv[n]; ++n)
+		cpu0_argv[n+3] = argv[n];
+	execvp(cpu0_argv[0], cpu0_argv);
+
+	perror(cpu0_argv[0]);
+#else
+	for(n = 0; argv[n]; ++n)
+		cpu1_argv[n+3] = argv[n];
+	execvp(cpu1_argv[0], cpu1_argv);
+
+	perror(cpu1_argv[0]);
+
+#endif
+
 	_exit(errno);
 }
+
+static int get_cmds_size(char **cmds)
+{
+        int i=0;
+        for(; cmds[i]; ++i);
+        return i;
+}
+
+int _cpu_eval(int *ppid, char *cmds[])
+{
+        int ncmds=0, n=0, i;
+        int maxn = get_cmds_size(cmds)
+#if defined (SMP)
+                + 4;
+#else
+                +1;
+#endif
+        char *cpucmd[maxn];
+
+        for(i=0; i<maxn; ++i)
+                cpucmd[i]=NULL;
+
+#if defined (SMP)
+        cpucmd[ncmds++]="taskset";
+        cpucmd[ncmds++]="-c";
+        if(!strcmp(cmds[n], CPU0) || !strcmp(cmds[n], CPU1)) {
+                cpucmd[ncmds++]=cmds[n++];
+        } else
+                cpucmd[ncmds++]=CPU0;
+#else
+        if(strcmp(cmds[n], CPU0) && strcmp(cmds[n], CPU1))
+                cpucmd[ncmds++]=cmds[n++];
+        else
+                n++;
+#endif
+        for(; cmds[n]; cpucmd[ncmds++]=cmds[n++]);
+
+        return _eval(cpucmd, NULL, 0, ppid);;
+}
+
+/*
+ * Concatenates NULL-terminated list of arguments into a single
+ * commmand and executes it
+ * @param	argv	argument list
+ * @return	stdout of executed command or NULL if an error occurred
+ */
+char *
+_backtick(char *const argv[])
+{
+	int filedes[2];
+	pid_t pid;
+	int status;
+	char *buf = NULL;
+
+	/* create pipe */
+	if (pipe(filedes) == -1) {
+		perror(argv[0]);
+		return NULL;
+	}
+
+	switch (pid = fork()) {
+	case -1:	/* error */
+		return NULL;
+	case 0:		/* child */
+		close(filedes[0]);	/* close read end of pipe */
+		dup2(filedes[1], 1);	/* redirect stdout to write end of pipe */
+		close(filedes[1]);	/* close write end of pipe */
+		execvp(argv[0], argv);
+		exit(errno);
+		break;
+	default:	/* parent */
+		close(filedes[1]);	/* close write end of pipe */
+		buf = fd2str(filedes[0]);
+		waitpid(pid, &status, 0);
+		break;
+	}
+
+	return buf;
+}
+
 
 /*
  * fread() with automatic retry on syscall interrupt
@@ -190,13 +435,16 @@ EXIT:
  * @param	stream	file stream
  * @return	number of items successfully read
  */
-int safe_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
+int
+safe_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	size_t ret = 0;
+
 	do {
 		clearerr(stream);
 		ret += fread((char *)ptr + (ret * size), size, nmemb - ret, stream);
 	} while (ret < nmemb && ferror(stream) && errno == EINTR);
+
 	return ret;
 }
 
@@ -208,9 +456,11 @@ int safe_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
  * @param	stream	file stream
  * @return	number of items successfully written
  */
-int safe_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
+int
+safe_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	size_t ret = 0;
+
 	do {
 		clearerr(stream);
 		ret += fwrite((char *)ptr + (ret * size), size, nmemb - ret, stream);
@@ -220,26 +470,70 @@ int safe_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 }
 
 /*
+ * Returns the process ID.
+ *
+ * @param	name	pathname used to start the process.  Do not include the
+ *                      arguments.
+ * @return	pid
+ */
+pid_t
+get_pid_by_name(char *name)
+{
+	pid_t           pid = -1;
+	DIR             *dir;
+	struct dirent   *next;
+
+	if ((dir = opendir("/proc")) == NULL) {
+		perror("Cannot open /proc");
+		return -1;
+	}
+
+	while ((next = readdir(dir)) != NULL) {
+		FILE *fp;
+		char filename[256];
+		char buffer[256];
+
+		/* If it isn't a number, we don't want it */
+		if (!isdigit(*next->d_name))
+			continue;
+
+		sprintf(filename, "/proc/%s/cmdline", next->d_name);
+		fp = fopen(filename, "r");
+		if (!fp) {
+			continue;
+		}
+		buffer[0] = '\0';
+		fgets(buffer, 256, fp);
+		fclose(fp);
+
+		if (!strcmp(name, buffer)) {
+			pid = strtol(next->d_name, NULL, 0);
+			break;
+		}
+	}
+
+	return pid;
+}
+
+/*
  * Convert Ethernet address string representation to binary data
  * @param	a	string in xx:xx:xx:xx:xx:xx notation
  * @param	e	binary data
  * @return	TRUE if conversion was successful and FALSE otherwise
  */
-int ether_atoe(const char *a, unsigned char *e)
+int
+ether_atoe(const char *a, unsigned char *e)
 {
-	char *x;
-	int i;
+	char *c = (char *) a;
+	int i = 0;
 
-	i = 0;
-	while (1) {
-		e[i++] = (unsigned char) strtoul(a, &x, 16);
-		if (a == x) break;
-		if (i == ETHER_ADDR_LEN) return 1;
-		if (*x == 0) break;
-		a = x + 1;
+	memset(e, 0, ETHER_ADDR_LEN);
+	for (;;) {
+		e[i++] = (unsigned char) strtoul(c, &c, 16);
+		if (!*c++ || i == ETHER_ADDR_LEN)
+			break;
 	}
-	memset(e, 0, sizeof(e));
-	return 0;
+	return (i == ETHER_ADDR_LEN);
 }
 
 /*
@@ -248,9 +542,23 @@ int ether_atoe(const char *a, unsigned char *e)
  * @param	a	string in xx:xx:xx:xx:xx:xx notation
  * @return	a
  */
-char *ether_etoa(const unsigned char *e, char *a)
+char *
+ether_etoa(const unsigned char *e, char *a)
 {
-	sprintf(a, "%02X:%02X:%02X:%02X:%02X:%02X", e[0], e[1], e[2], e[3], e[4], e[5]);
+	char *c = a;
+	int i;
+
+	for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		if (i)
+			*c++ = ':';
+		c += sprintf(c, "%02X", e[i] & 0xff);
+	}
+	return a;
+}
+
+char *ether_etoa2(const unsigned char *e, char *a)
+{
+	sprintf(a, "%02X%02X%02X%02X%02X%02X", e[0], e[1], e[2], e[3], e[4], e[5]);
 	return a;
 }
 
@@ -298,18 +606,12 @@ void cprintf(const char *format, ...)
 #endif
 }
 
-
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
 #endif
 
 #if WL_BSS_INFO_VERSION >= 108
 // xref (all): nas, wlconf
-
-#ifndef MAX_NVPARSE
-#define MAX_NVPARSE 255
-#endif
-
 #if 0
 /*
  * Get the ip configuration index if it exists given the
@@ -567,7 +869,8 @@ get_ifname_unit(const char* ifname, int *unit, int *subunit)
 /* In the space-separated/null-terminated list(haystack), try to
  * locate the string "needle"
  */
-char *find_in_list(const char *haystack, const char *needle)
+char *
+find_in_list(const char *haystack, const char *needle)
 {
 	const char *ptr = haystack;
 	int needle_len = 0;
@@ -607,7 +910,8 @@ char *find_in_list(const char *haystack, const char *needle)
 
  *	@return	error code
  */
-int remove_from_list(const char *name, char *list, int listsize)
+int
+remove_from_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
@@ -654,7 +958,8 @@ int remove_from_list(const char *name, char *list, int listsize)
 
  *	@return	error code
  */
-int add_to_list(const char *name, char *list, int listsize)
+int
+add_to_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
@@ -683,87 +988,48 @@ int add_to_list(const char *name, char *list, int listsize)
 	return 0;
 }
 
-/* Utility function to remove duplicate entries in a space separated list */
+/* Utility function to remove duplicate entries in a space separated list
+ */
 
-char *remove_dups(char *inlist, int inlist_size)
+char *
+remove_dups(char *inlist, int inlist_size)
 {
 	char name[256], *next = NULL;
 	char *outlist;
 
-	if (!inlist_size) return NULL;
-	if (!inlist) return NULL;
+	if (!inlist_size)
+		return NULL;
+
+	if (!inlist)
+		return NULL;
 
 	outlist = (char *) malloc(inlist_size);
+
 	if (!outlist) return NULL;
+
 	memset(outlist, 0, inlist_size);
 
-	foreach(name, inlist, next) {
-		if (!find_in_list(outlist, name)) {
-			if (strlen(outlist) == 0) {
+	foreach(name, inlist, next)
+	{
+		if (!find_in_list(outlist, name))
+		{
+			if (strlen(outlist) == 0)
+			{
 				snprintf(outlist, inlist_size, "%s", name);
-			} else {
-				strncat(outlist, " ",  inlist_size - strlen(outlist));
+			}
+			else
+			{
+				strncat(outlist, " ", inlist_size - strlen(outlist));
 				strncat(outlist, name, inlist_size - strlen(outlist));
 			}
 		}
 	}
+
 	strncpy(inlist, outlist, inlist_size);
 
 	free(outlist);
 	return inlist;
-}
 
-char *find_smallest_in_list(char *haystack) {
-	char *ptr = haystack;
-	char *smallest = ptr;
-	int haystack_len = strlen(haystack);
-	int len = 0;
-
-	if (!haystack || !*haystack || !haystack_len)
-		return NULL;
-
-	while (*ptr != 0 && ptr < &haystack[haystack_len]) {
-		/* consume leading spaces */
-		ptr += strspn(ptr, " ");
-
-		/* what's the length of the next word */
-		len = strcspn(ptr, " ");
-
-		/* if this item/word is 'smaller', update our pointer */
-		if ((strncmp(smallest, ptr, len) > 0)) {
-			smallest = ptr;
-		}
-
-		ptr += len;
-	}
-	return (char*) smallest;
-}
-
-char *sort_list(char *inlist, int inlist_size) {
-	char *tmplist;
-	char tmp[IFNAMSIZ];
-
-	if (!inlist_size) return NULL;
-	if (!inlist) return NULL;
-
-	tmplist = (char *) malloc(inlist_size);
-	if (!tmplist) return NULL;
-	memset(tmplist, 0, inlist_size);
-
-	char *b;
-	int len;
-	while ((b = find_smallest_in_list(inlist)) != NULL) {
-		len = strcspn(b, " ");
-		snprintf(tmp, len + 1, "%s", b);
-
-		add_to_list(tmp, tmplist, inlist_size);
-		remove_from_list(tmp, inlist, inlist_size);
-
-	}
-	strncpy(inlist, tmplist, inlist_size);
-
-	free(tmplist);
-	return inlist;
 }
 
 /*
@@ -782,6 +1048,7 @@ ure_any_enabled(void)
 	else
 		return 0;
 }
+
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"
@@ -817,6 +1084,13 @@ nvifname_to_osifname(const char *nvifname, char *osifname_buf,
 		return 0;
 	}
 
+#ifdef RTCONFIG_RALINK
+	if (strstr(nvifname, "ra") || strstr(nvifname, ".")) {
+		strncpy(osifname_buf, nvifname, osifname_buf_len);
+		return 0;
+	}
+#endif
+
 	snprintf(varname, sizeof(varname), "%s_ifname", nvifname);
 	ptr = nvram_get(varname);
 	if (ptr) {
@@ -828,6 +1102,7 @@ nvifname_to_osifname(const char *nvifname, char *osifname_buf,
 
 	return -1;
 }
+
 
 /* osifname_to_nvifname()
  * Convert the OS interface name to the name we use internally(NVRAM, GUI, etc.)
@@ -885,81 +1160,396 @@ osifname_to_nvifname(const char *osifname, char *nvifname_buf,
 
 #endif	// #if WL_BSS_INFO_VERSION >= 108
 
-
-
-
-
-// -----------------------------------------------------------------------------
-
-
-
-
-#if 0
+/******************************************************************************/
 /*
- * Reads file and returns contents
- * @param	fd	file descriptor
- * @return	contents of file or NULL if an error occurred
+ *	Add a character to a string buffer
  */
-char *fd2str(int fd)
+
+static void put_char(strbuf_t *buf, char c)
 {
-	char *buf = NULL;
-	size_t count = 0, n;
-
-	do {
-		buf = realloc(buf, count + 512);
-		n = read(fd, buf + count, 512);
-		if (n < 0) {
-			free(buf);
-			buf = NULL;
+	if (buf->count >= (buf->size - 1)) {
+		if (! (buf->flags & STR_REALLOC)) {
+			return;
 		}
-		count += n;
-	} while (n == 512);
-
-	close(fd);
-	if (buf)
-		buf[count] = '\0';
-	return buf;
+		buf->size += STR_INC;
+		if (buf->size > buf->max && buf->size > STR_INC) {
+/*
+ *			Caller should increase the size of the calling buffer
+ */
+			buf->size -= STR_INC;
+			return;
+		}
+		if (buf->s == NULL) {
+			buf->s = balloc(B_L, buf->size * sizeof(char));
+		} else {
+			buf->s = brealloc(B_L, buf->s, buf->size * sizeof(char));
+		}
+	}
+	buf->s[buf->count] = c;
+	if (c != '\0') {
+		++buf->count;
+	}
 }
 
+/******************************************************************************/
 /*
- * Reads file and returns contents
- * @param	path	path to file
- * @return	contents of file or NULL if an error occurred
+ *	Add a string to a string buffer
  */
-char *file2str(const char *path)
-{
-	int fd;
 
-	if ((fd = open(path, O_RDONLY)) == -1) {
-		perror(path);
-		return NULL;
+static void put_string(strbuf_t *buf, char *s, int len, int width,
+		int prec, enum flag f)
+{
+	int		i;
+
+	if (len < 0) { 
+		len = strnlen(s, prec >= 0 ? prec : ULONG_MAX); 
+	} else if (prec >= 0 && prec < len) { 
+		len = prec; 
+	}
+	if (width > len && !(f & flag_minus)) {
+		for (i = len; i < width; ++i) { 
+			put_char(buf, ' '); 
+		}
+	}
+	for (i = 0; i < len; ++i) { 
+		put_char(buf, s[i]); 
+	}
+	if (width > len && f & flag_minus) {
+		for (i = len; i < width; ++i) { 
+			put_char(buf, ' '); 
+		}
+	}
+}
+
+/******************************************************************************/
+/*
+ *	Add a long to a string buffer
+ */
+
+static void put_ulong(strbuf_t *buf, unsigned long int value, int base,
+		int upper, char *prefix, int width, int prec, enum flag f)
+{
+	unsigned long	x, x2;
+	int				len, zeros, i;
+
+	for (len = 1, x = 1; x < ULONG_MAX / base; ++len, x = x2) {
+		x2 = x * base;
+		if (x2 > value) { 
+			break; 
+		}
+	}
+	zeros = (prec > len) ? prec - len : 0;
+	width -= zeros + len;
+	if (prefix != NULL) { 
+		width -= strnlen(prefix, ULONG_MAX); 
+	}
+	if (!(f & flag_minus)) {
+		if (f & flag_zero) {
+			for (i = 0; i < width; ++i) { 
+				put_char(buf, '0'); 
+			}
+		} else {
+			for (i = 0; i < width; ++i) { 
+				put_char(buf, ' '); 
+			}
+		}
+	}
+	if (prefix != NULL) { 
+		put_string(buf, prefix, -1, 0, -1, flag_none); 
+	}
+	for (i = 0; i < zeros; ++i) { 
+		put_char(buf, '0'); 
+	}
+	for ( ; x > 0; x /= base) {
+		int digit = (value / x) % base;
+		put_char(buf, (char) ((digit < 10 ? '0' : (upper ? 'A' : 'a') - 10) +
+			digit));
+	}
+	if (f & flag_minus) {
+		for (i = 0; i < width; ++i) { 
+			put_char(buf, ' '); 
+		}
+	}
+}
+
+/******************************************************************************/
+/*
+ *	Dynamic sprintf implementation. Supports dynamic buffer allocation.
+ *	This function can be called multiple times to grow an existing allocated
+ *	buffer. In this case, msize is set to the size of the previously allocated
+ *	buffer. The buffer will be realloced, as required. If msize is set, we
+ *	return the size of the allocated buffer for use with the next call. For
+ *	the first call, msize can be set to -1.
+ */
+
+static int dsnprintf(char **s, int size, char *fmt, va_list arg, int msize)
+{
+	strbuf_t	buf;
+	char		c;
+
+	assert(s);
+	assert(fmt);
+
+	memset(&buf, 0, sizeof(buf));
+	buf.s = *s;
+
+	if (*s == NULL || msize != 0) {
+		buf.max = size;
+		buf.flags |= STR_REALLOC;
+		if (msize != 0) {
+			buf.size = max(msize, 0);
+		}
+		if (*s != NULL && msize != 0) {
+			buf.count = strlen(*s);
+		}
+	} else {
+		buf.size = size;
 	}
 
-	return fd2str(fd);
+	while ((c = *fmt++) != '\0') {
+		if (c != '%' || (c = *fmt++) == '%') {
+			put_char(&buf, c);
+		} else {
+			enum flag f = flag_none;
+			int width = 0;
+			int prec = -1;
+			for ( ; c != '\0'; c = *fmt++) {
+				if (c == '-') { 
+					f |= flag_minus; 
+				} else if (c == '+') { 
+					f |= flag_plus; 
+				} else if (c == ' ') { 
+					f |= flag_space; 
+				} else if (c == '#') { 
+					f |= flag_hash; 
+				} else if (c == '0') { 
+					f |= flag_zero; 
+				} else {
+					break;
+				}
+			}
+			if (c == '*') {
+				width = va_arg(arg, int);
+				if (width < 0) {
+					f |= flag_minus;
+					width = -width;
+				}
+				c = *fmt++;
+			} else {
+				for ( ; isdigit((int)c); c = *fmt++) {
+					width = width * 10 + (c - '0');
+				}
+			}
+			if (c == '.') {
+				f &= ~flag_zero;
+				c = *fmt++;
+				if (c == '*') {
+					prec = va_arg(arg, int);
+					c = *fmt++;
+				} else {
+					for (prec = 0; isdigit((int)c); c = *fmt++) {
+						prec = prec * 10 + (c - '0');
+					}
+				}
+			}
+			if (c == 'h' || c == 'l') {
+				f |= (c == 'h' ? flag_short : flag_long);
+				c = *fmt++;
+			}
+			if (c == 'd' || c == 'i') {
+				long int value;
+				if (f & flag_short) {
+					value = (short int) va_arg(arg, int);
+				} else if (f & flag_long) {
+					value = va_arg(arg, long int);
+				} else {
+					value = va_arg(arg, int);
+				}
+				if (value >= 0) {
+					if (f & flag_plus) {
+						put_ulong(&buf, value, 10, 0, ("+"), width, prec, f);
+					} else if (f & flag_space) {
+						put_ulong(&buf, value, 10, 0, (" "), width, prec, f);
+					} else {
+						put_ulong(&buf, value, 10, 0, NULL, width, prec, f);
+					}
+				} else {
+					put_ulong(&buf, -value, 10, 0, ("-"), width, prec, f);
+				}
+			} else if (c == 'o' || c == 'u' || c == 'x' || c == 'X') {
+				unsigned long int value;
+				if (f & flag_short) {
+					value = (unsigned short int) va_arg(arg, unsigned int);
+				} else if (f & flag_long) {
+					value = va_arg(arg, unsigned long int);
+				} else {
+					value = va_arg(arg, unsigned int);
+				}
+				if (c == 'o') {
+					if (f & flag_hash && value != 0) {
+						put_ulong(&buf, value, 8, 0, ("0"), width, prec, f);
+					} else {
+						put_ulong(&buf, value, 8, 0, NULL, width, prec, f);
+					}
+				} else if (c == 'u') {
+					put_ulong(&buf, value, 10, 0, NULL, width, prec, f);
+				} else {
+					if (f & flag_hash && value != 0) {
+						if (c == 'x') {
+							put_ulong(&buf, value, 16, 0, ("0x"), width, 
+								prec, f);
+						} else {
+							put_ulong(&buf, value, 16, 1, ("0X"), width, 
+								prec, f);
+						}
+					} else {
+                  /* 04 Apr 02 BgP -- changed so that %X correctly outputs
+                   * uppercase hex digits when requested.
+						put_ulong(&buf, value, 16, 0, NULL, width, prec, f);
+                   */
+						put_ulong(&buf, value, 16, ('X' == c) , NULL, width, prec, f);
+					}
+				}
+
+			} else if (c == 'c') {
+				char value = va_arg(arg, int);
+				put_char(&buf, value);
+
+			} else if (c == 's' || c == 'S') {
+				char *value = va_arg(arg, char *);
+				if (value == NULL) {
+					put_string(&buf, ("(null)"), -1, width, prec, f);
+				} else if (f & flag_hash) {
+					put_string(&buf,
+						value + 1, (char) *value, width, prec, f);
+				} else {
+					put_string(&buf, value, -1, width, prec, f);
+				}
+			} else if (c == 'p') {
+				void *value = va_arg(arg, void *);
+				put_ulong(&buf,
+					(unsigned long int) value, 16, 0, ("0x"), width, prec, f);
+			} else if (c == 'n') {
+				if (f & flag_short) {
+					short int *value = va_arg(arg, short int *);
+					*value = buf.count;
+				} else if (f & flag_long) {
+					long int *value = va_arg(arg, long int *);
+					*value = buf.count;
+				} else {
+					int *value = va_arg(arg, int *);
+					*value = buf.count;
+				}
+			} else {
+				put_char(&buf, c);
+			}
+		}
+	}
+	if (buf.s == NULL) {
+		put_char(&buf, '\0');
+	}
+
+/*
+ *	If the user requested a dynamic buffer (*s == NULL), ensure it is returned.
+ */
+	if (*s == NULL || msize != 0) {
+		*s = buf.s;
+	}
+
+	if (*s != NULL && size > 0) {
+		if (buf.count < size) {
+			(*s)[buf.count] = '\0';
+		} else {
+			(*s)[buf.size - 1] = '\0';
+		}
+	}
+
+	if (msize != 0) {
+		return buf.size;
+	}
+	return buf.count;
+}
+
+/******************************************************************************/
+/*
+ *	sprintf and vsprintf are bad, ok. You can easily clobber memory. Use
+ *	fmtAlloc and fmtValloc instead! These functions do _not_ support floating
+ *	point, like %e, %f, %g...
+ */
+
+int fmtAlloc(char **s, int n, char *fmt, ...)
+{
+	va_list	ap;
+	int		result;
+
+	assert(s);
+	assert(fmt);
+
+	*s = NULL;
+	va_start(ap, fmt);
+	result = dsnprintf(s, n, fmt, ap, 0);
+	va_end(ap);
+	return result;
+}
+
+/******************************************************************************/
+/*
+ *	A vsprintf replacement.
+ */
+
+int fmtValloc(char **s, int n, char *fmt, va_list arg)
+{
+	assert(s);
+	assert(fmt);
+
+	*s = NULL;
+	return dsnprintf(s, n, fmt, arg, 0);
 }
 
 /*
- * Waits for a file descriptor to change status or unblocked signal
- * @param	fd	file descriptor
- * @param	timeout	seconds to wait before timing out or 0 for no timeout
- * @return	1 if descriptor changed status or 0 if timed out or -1 on error
- */
-
-int waitfor(int fd, int timeout)
+ *  * description: parse va and do system
+ *  */
+int doSystem(char *fmt, ...)
 {
-	fd_set rfds;
-	struct timeval tv = { timeout, 0 };
+	va_list		vargs;
+	char		*cmd = NULL;
+	int 		rc = 0;
+	#define CMD_BUFSIZE 256
+	va_start(vargs, fmt);
+	if (fmtValloc(&cmd, CMD_BUFSIZE, fmt, vargs) >= CMD_BUFSIZE) {
+		fprintf(stderr, "doSystem: lost data, buffer overflow\n");
+	}
+	va_end(vargs);
 
-	FD_ZERO(&rfds);
-	FD_SET(fd, &rfds);
-	return select(fd + 1, &rfds, NULL, NULL, (timeout > 0) ? &tv : NULL);
+	if(cmd) {
+		if (!strncmp(cmd, "iwpriv", 6))
+			_dprintf("[doSystem] %s\n", cmd);
+		rc = system(cmd);
+		bfree(B_L, cmd);
+	}	
+	return rc;
 }
+
+int 
+swap_check()
+{
+	struct sysinfo info;
+
+	sysinfo(&info);
+
+	if(info.totalswap > 0)
+		return 1;
+	else	return 0;
+}
+
+// -----------------------------------------------------------------------------
 
 /*
  * Kills process whose PID is stored in plaintext in pidfile
  * @param	pidfile	PID file
  * @return	0 on success and errno on failure
  */
+
 int kill_pidfile(char *pidfile)
 {
 	FILE *fp;
@@ -975,4 +1565,61 @@ int kill_pidfile(char *pidfile)
   	}
 	return errno;
 }
-#endif	// 0
+
+
+int kill_pidfile_s(char *pidfile, int sig)
+{
+	FILE *fp;
+	char buf[256];
+
+	if ((fp = fopen(pidfile, "r")) != NULL) {
+		if (fgets(buf, sizeof(buf), fp)) {
+			pid_t pid = strtoul(buf, NULL, 0);
+			fclose(fp);
+			return kill(pid, sig);
+		}
+		fclose(fp);
+  	}
+	return errno;
+}
+
+int kill_pidfile_s_rm(char *pidfile, int sig)
+{
+	FILE *fp;
+	char buf[256];
+
+	if ((fp = fopen(pidfile, "r")) != NULL) {
+		if (fgets(buf, sizeof(buf), fp)) {
+			pid_t pid = strtoul(buf, NULL, 0);
+			fclose(fp);
+			unlink(pidfile);
+			return kill(pid, sig);
+		}
+		fclose(fp);
+	}
+	return errno;
+}
+
+long uptime(void)
+{
+	struct sysinfo info;
+	sysinfo(&info);
+	
+	return info.uptime;
+}
+
+int _vstrsep(char *buf, const char *sep, ...)
+{
+	va_list ap;
+	char **p;
+	int n;
+
+	n = 0;
+	va_start(ap, sep);
+	while ((p = va_arg(ap, char **)) != NULL) {
+		if ((*p = strsep(&buf, sep)) == NULL) break;
+		++n;
+	}
+	va_end(ap);
+	return n;
+}

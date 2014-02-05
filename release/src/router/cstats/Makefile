@@ -1,8 +1,12 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall $(EXTRACFLAGS) #-mips32
+CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 LDFLAGS	=
+
+ifeq ($(TCONFIG_BCMARM),y)
+LIBS += -lgcc_s
+endif
 
 OBJS = cstats.o
 
@@ -10,7 +14,7 @@ all: cstats
 
 cstats: $(OBJS)
 	@echo " [cstats] CC -o $@"
-	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L../nvram -lnvram -L../shared -lshared
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L../nvram${BCMEX} -lnvram -L../shared -lshared
 
 	$(SIZECHECK)
 	$(CPTMP)
