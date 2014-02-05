@@ -1,7 +1,5 @@
-include $(SRCBASE)/router/common.mak
-
 #
-# $Id: Makefile 241182 2011-02-17 21:50:03Z $
+# $Id: Makefile 382663 2013-02-03 04:40:03Z $
 #
 
 CROSS =
@@ -11,11 +9,11 @@ STRIP = $(CROSS)strip
 
 ALL_OBJS = emfu.o emfu_linux.o
 
-CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(SRCBASE)/shared -I$(SRCBASE)/include/emf/emf
+CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(SRCBASE)/shared -I$(SRCBASE)/include/emf/emf -I$(SRCBASE)/router/shared
 
-ifeq ($(wildcard ./*.c),)
+ifneq ($(wildcard ./prebuilt),)
 all:
-	-cp prebuild/emf emf
+	-cp prebuilt/emf emf
 else
 all: emf
 endif
