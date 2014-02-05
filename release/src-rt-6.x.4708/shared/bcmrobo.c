@@ -1,7 +1,7 @@
 /*
  * Broadcom 53xx RoboSwitch device driver.
  *
- * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmrobo.c 341899 2012-06-29 04:06:38Z $
+ * $Id: bcmrobo.c 414031 2013-07-23 10:54:51Z $
  */
 
 
@@ -72,7 +72,10 @@
 #define PAGE_STATUS	0x01	/* Status page */
 #define PAGE_MMR	0x02	/* 5397 Management/Mirroring page */
 #define PAGE_VTBL	0x05	/* ARL/VLAN Table access page */
+#define PAGE_FC		0x0a	/* Flow control register page */
 #define PAGE_VLAN	0x34	/* VLAN page */
+#define PAGE_CFPTCAM	0xa0	/* CFP TCAM registers page */
+#define PAGE_CFP	0xa1	/* CFP configuration registers page */
 
 /* Control page registers */
 #define REG_CTRL_PORT0	0x00	/* Port 0 traffic control register */
@@ -88,6 +91,20 @@
 #define REG_CTRL_MIIPO	0x0E	/* 5325: MII Port Override register */
 #define REG_CTRL_PWRDOWN 0x0F   /* 5325: Power Down Mode register */
 #define REG_CTRL_SRST	0x79	/* Software reset control register */
+#ifdef PLC
+#define REG_CTRL_MIIP5O 0x5d    /* 53115: Port State Override register for port 5 */
+
+/* Management/Mirroring Registers */
+#define REG_MMR_ATCR    0x06    /* Aging Time Control register */
+#define REG_MMR_MCCR    0x10    /* Mirror Capture Control register */
+#define REG_MMR_IMCR    0x12    /* Ingress Mirror Control register */
+#endif /* PLC */
+
+/* Management Page registers */
+#define REG_MGMT_CFG	0x00
+#define REG_IMP0_PORT	0x01
+#define REG_IMP1_PORT	0x02
+#define REG_BRCM_HDR	0x03
 
 /* Status Page Registers */
 #define REG_STATUS_LINK	0x00	/* Link Status Summary */
@@ -137,6 +154,65 @@
 #define REG_VTBL_ACCESS_5395	0x80	/* VLAN table access register */
 #define REG_VTBL_INDX_5395	0x81	/* VLAN table address index register */
 #define REG_VTBL_ENTRY_5395	0x83	/* VLAN table entry register */
+
+#define REG_FC_OOBPAUSE		0xe0	/* OOB Pause Signal enable register */
+
+/* CFP TCAM page registers */
+#define REG_CFPTCAM_ACC			0x00	/* CFP access register */
+#define REG_CFPTCAM_DATA0		0x10	/* CFP TCAM Data 0 register */
+#define REG_CFPTCAM_DATA1		0x14	/* CFP TCAM Data 1 register */
+#define REG_CFPTCAM_DATA2		0x18	/* CFP TCAM Data 2 register */
+#define REG_CFPTCAM_DATA3		0x1c	/* CFP TCAM Data 3 register */
+#define REG_CFPTCAM_DATA4		0x20	/* CFP TCAM Data 4 register */
+#define REG_CFPTCAM_DATA5		0x24	/* CFP TCAM Data 5 register */
+#define REG_CFPTCAM_DATA6		0x28	/* CFP TCAM Data 6 register */
+#define REG_CFPTCAM_DATA7		0x2c	/* CFP TCAM Data 7 register */
+#define REG_CFPTCAM_MASK0		0x30	/* CFP TCAM Mask 0 register */
+#define REG_CFPTCAM_MASK1		0x34	/* CFP TCAM Mask 1 register */
+#define REG_CFPTCAM_MASK2		0x38	/* CFP TCAM Mask 2 register */
+#define REG_CFPTCAM_MASK3		0x3c	/* CFP TCAM Mask 3 register */
+#define REG_CFPTCAM_MASK4		0x40	/* CFP TCAM Mask 4 register */
+#define REG_CFPTCAM_MASK5		0x44	/* CFP TCAM Mask 5 register */
+#define REG_CFPTCAM_MASK6		0x48	/* CFP TCAM Mask 6 register */
+#define REG_CFPTCAM_MASK7		0x4c	/* CFP TCAM Mask 7 register */
+#define REG_CFPTCAM_ACT_POL_DATA0	0x50	/* CFP CFP Action/Policy Data 0 Register */
+#define REG_CFPTCAM_ACT_POL_DATA1	0x54	/* CFP CFP Action/Policy Data 1 Register */
+#define REG_CFPTCAM_RATE_METER0		0x60	/* CFP CFP RATE METER DATA 0 Register */
+#define REG_CFPTCAM_RATE_METER1		0x64	/* CFP CFP RATE METER DATA 0 Register */
+#define REG_CFPTCAM_RATE_INBAND		0x70	/* CFP CFP RATE In-Band Statistic Register */
+#define REG_CFPTCAM_RATE_OUTBAND	0x74	/* CFP CFP RATE In-Band Statistic Register */
+
+#define CFP_ACC_RD_STS_SHIFT		28
+#define CFP_ACC_XCESS_ADDR_SHIFT	16
+#define CFP_ACC_RAM_SEL_SHIFT		10
+#define CFP_ACC_OP_SEL_SHIFT		1
+#define CFP_ACC_OP_STR_DONE		1
+#define CFP_ACT_POL_DATA0_CFMI_SHIFT	24	/* CHANGE_FWRD_MAP_IB Shift */
+#define CFP_ACT_POL_DATA0_DMI_SHIFT	14	/* DST_MAP_IB Shift */
+#define CFP_ACT_POL_DATA1_CFMO_SHIFT	11	/* CHANGE_FWRD_MAP_OB Shift */
+#define CFP_ACT_POL_DATA1_DMO_SHIFT	1	/* DST_MAP_OB Shift */
+
+/* CFP Configuration page registers */
+#define REG_CFP_CTL_REG			0x00	/* CFP Control Register */
+#define REG_CFP_UDF_0_A_0_8		0x10	/* UDFs of slice 0 for IPv4 packet Register */
+#define REG_CFP_UDF_1_A_0_8		0x20	/* UDFs of slice 1 for IPv4 packet Register */
+#define REG_CFP_UDF_2_A_0_8		0x30	/* UDFs of slice 2 for IPv4 packet Register */
+#define REG_CFP_UDF_0_B_0_8		0x40	/* UDFs of slice 0 for IPv6 packet Register */
+#define REG_CFP_UDF_1_B_0_8		0x50	/* UDFs of slice 1 for IPv6 packet Register */
+#define REG_CFP_UDF_2_B_0_8		0x60	/* UDFs of slice 2 for IPv6 packet Register */
+#define REG_CFP_UDF_0_C_0_8		0x70	/* UDFs of slice 0 for none-IP Register */
+#define REG_CFP_UDF_1_C_0_8		0x80	/* UDFs of slice 0 for none-IP Register */
+#define REG_CFP_UDF_2_C_0_8		0x90	/* UDFs of slice 0 for none-IP Register */
+#define REG_CFP_UDF_0_D_0_11		0xa0	/* UDFs for IPv6 Chain Rule Register */
+
+#define CFP_ACC_RD_STS_WAIT(robo, mask) \
+do { \
+	uint32 val32 = 0; \
+	(robo)->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32)); \
+	if ((val32 >> CFP_ACC_RD_STS_SHIFT) & (mask)) \
+		break; \
+	bcm_mdelay(1); \
+} while (1)
 
 #ifndef	_CFE_
 /* SPI registers */
@@ -297,6 +373,11 @@ spi_wreg(robo_info_t *robo, uint8 page, uint8 addr, void *val, int len)
 		uint32 val32;
 	} bytes;
 
+	if ((len != 1) && (len != 2) && (len != 4)) {
+		printf("Invalid length. For SPI mode, the length can only be 1, 2, and 4 bytes.\n");
+		return -1;
+	}
+
 	/* validate value length and buffer address */
 	ASSERT(len == 1 || (len == 2 && !((int)val & 1)) ||
 	       (len == 4 && !((int)val & 3)));
@@ -343,6 +424,11 @@ spi_rreg(robo_info_t *robo, uint8 page, uint8 addr, void *val, int len)
 		uint16 val16;
 		uint32 val32;
 	} bytes;
+
+	if ((len != 1) && (len != 2) && (len != 4)) {
+		printf("Invalid length. For SPI mode, the length can only be 1, 2, and 4 bytes.\n");
+		return -1;
+	}
 
 	/* validate value length and buffer address */
 	ASSERT(len == 1 || (len == 2 && !((int)val & 1)) ||
@@ -868,7 +954,7 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 	robo->miiwr = miiwr;
 	robo->page = -1;
 
-	if (SRAB_ENAB() && sih->chip == BCM4707_CHIP_ID) {
+	if (SRAB_ENAB() && BCM4707_CHIP(sih->chip)) {
 		SET_ROBO_SRABREGS(robo);
 	}
 
@@ -919,7 +1005,7 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 			 */
 			robo->corerev = 3;
 		}
-		else if (SRAB_ENAB() && sih->chip == BCM4707_CHIP_ID) {
+		else if (SRAB_ENAB() && BCM4707_CHIP(sih->chip)) {
 			srab_interface_reset(robo);
 			rc = srab_rreg(robo, PAGE_MMR, REG_VERSION_ID, &robo->corerev, 1);
 		}
@@ -930,7 +1016,7 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 		ET_MSG(("%s: Internal robo rev %d\n", __FUNCTION__, robo->corerev));
 	}
 
-	if (SRAB_ENAB() && sih->chip == BCM4707_CHIP_ID) {
+	if (SRAB_ENAB() && BCM4707_CHIP(sih->chip)) {
 		rc = srab_rreg(robo, PAGE_MMR, REG_DEVICE_ID, &robo->devid, sizeof(uint32));
 
 		ET_MSG(("%s: devid read %ssuccesfully via srab: 0x%x\n",
@@ -1072,6 +1158,12 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 	 * set the default value in the beginning
 	 */
 	robo->pwrsave_mode_manual = getintvar(robo->vars, "switch_mode_manual");
+	robo->pwrsave_sleep_time = getintvar(robo->vars, "switch_pwrsave_sleep");
+	if (robo->pwrsave_sleep_time == 0)
+		robo->pwrsave_sleep_time = PWRSAVE_SLEEP_TIME;
+	robo->pwrsave_wake_time = getintvar(robo->vars, "switch_pwrsave_wake");
+	if (robo->pwrsave_wake_time == 0)
+		robo->pwrsave_wake_time = PWRSAVE_WAKE_TIME;
 	robo->pwrsave_mode_auto = getintvar(robo->vars, "switch_mode_auto");
 
 	/* Determining what all phys need to be included in
@@ -1092,6 +1184,11 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 		/* By default all 5 phys are put into power save if there is no link */
 		robo->pwrsave_phys = 0x1f;
 #endif /* _CFE_ */
+
+#ifdef PLC
+	/* See if one of the ports is connected to plc chipset */
+	robo->plc_hw = (getvar(vars, "plc_vifs") != NULL);
+#endif /* PLC */
 
 	return robo;
 
@@ -1118,6 +1215,9 @@ bcm_robo_enable_device(robo_info_t *robo)
 {
 	uint8 reg_offset, reg_val;
 	int ret = 0;
+#ifdef PLC
+	uint32 val32;
+#endif /* PLC */
 
 	/* Enable management interface access */
 	if (robo->ops->enable_mgmtif)
@@ -1155,6 +1255,13 @@ bcm_robo_enable_device(robo_info_t *robo)
 			}
 		}
 	}
+
+#ifdef PLC
+	if (robo->plc_hw) {
+		val32 = 0x100002;
+		robo->ops->write_reg(robo, PAGE_MMR, REG_MMR_ATCR, &val32, sizeof(val32));
+	}
+#endif /* PLC */
 
 	/* Disable management interface access */
 	if (robo->ops->disable_mgmtif)
@@ -1197,6 +1304,23 @@ pdesc_t pdesc25[] = {
 	/* port 4 */ {1 << 10, 1 << 4, REG_VLAN_PTAG4, 0},
 	/* mii port */ {1 << 11, 1 << 5, REG_VLAN_PTAG5, 1},
 };
+
+#if !defined(_CFE_) && defined(BCMFA)
+/* For FA feature can be worked with old/new CFE which keep using et0mac */
+static int
+robo_fa_imp_port_upd(robo_info_t *robo, char *port, int pid, int pdescsz)
+{
+	int newpid = pid;
+
+	if (strchr(port, FLAG_LAN)) {
+		if (BCM4707_CHIP(CHIPID(robo->sih->chip)) && (pid != pdescsz - 1) &&
+		    getintvar(robo->vars, "fa_overridden") == 2)
+			newpid = pdescsz - 1;
+	}
+
+	return newpid;
+}
+#endif /* !_CFE_ && BCMFA */
 
 /* Find the first vlanXXXXports which the last port include '*' or 'u' */
 static void
@@ -1242,6 +1366,9 @@ robo_cpu_port_upd(robo_info_t *robo, pdesc_t *pdesc, int pdescsz)
 				continue;
 			}
 
+#if !defined(_CFE_) && defined(BCMFA)
+			pid = robo_fa_imp_port_upd(robo, port, pid, pdescsz);
+#endif
 			if (strchr(port, FLAG_LAN) || strchr(port, FLAG_UNTAG)) {
 				/* Change it and return */
 				pdesc[pid].cpu = 1;
@@ -1250,6 +1377,269 @@ robo_cpu_port_upd(robo_info_t *robo, pdesc_t *pdesc, int pdescsz)
 		}
 	}
 }
+
+#if !defined(_CFE_) && defined(BCMFA)
+/* Default assume: Do copy to port 5 */
+static void
+robo_fa_aux_set_action_policy(robo_info_t *robo, uint32 index)
+{
+	uint32 val32;
+
+	/* Set to both in-band and out-band */
+
+	/* In-Band */
+	val32 = ((3 << CFP_ACT_POL_DATA0_CFMI_SHIFT) | /* do copy */
+		 (0x20 << CFP_ACT_POL_DATA0_DMI_SHIFT) | /* port 5 */
+		 7); /* STP_BYP | EAP_BYP | VLAN_BYP */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA0, &val32, sizeof(val32));
+	/* Out-Band */
+	val32 = ((3 << CFP_ACT_POL_DATA1_CFMO_SHIFT) | /* do copy */
+		 (0x20 << CFP_ACT_POL_DATA1_DMO_SHIFT)); /* port 5 */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA1, &val32, sizeof(val32));
+	/* Issue write command */
+	val32 = ((index << CFP_ACC_XCESS_ADDR_SHIFT) | /* index */
+		 (2 << CFP_ACC_RAM_SEL_SHIFT) | /* action/policy */
+		 (2 << CFP_ACC_OP_SEL_SHIFT) | /* write */
+		  CFP_ACC_OP_STR_DONE); /* operation start */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32));
+}
+
+static void
+robo_fa_aux_set_tcam(robo_info_t *robo, bool ipv6, bool tcp_rst, uint32 index)
+{
+	uint32 val32;
+	uint8 l3_framing_bit, tcp_flags_bit;
+
+	if (ipv6)
+		l3_framing_bit = 1; /* IPv6 */
+	else
+		l3_framing_bit = 0; /* IPv4 */
+
+	if (tcp_rst)
+		tcp_flags_bit = 4; /* RST */
+	else
+		tcp_flags_bit = 1; /* FIN */
+
+	/* Both Data and Mask */
+	/* DATA0 = UDF_n_A1(Low 8) + UDF_n_A0(16) + Reserved(4) + Slice_ID(2) + Vaild(2) */
+	/* TCP flags bit (Host order) + Slice 0 + Vaild */
+	val32 = ((tcp_flags_bit << 8) | (0 << 2) | 3);
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_DATA0, &val32, sizeof(val32));
+	val32 = ((tcp_flags_bit << 8) | (3 << 2) | 3);
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_MASK0, &val32, sizeof(val32));
+	/* DATA1 = UDF_n_A3(Low 8) + UDF_n_A2(16) + UDF_n_A1(High 8) */
+	/* DATA2 = UDF_n_A5(Low 8) + UDF_n_A4(16) + UDF_n_A3(High 8) */
+	/* DATA3 = UDF_n_A7(Low 8) + UDF_n_A6(16) + UDF_n_A5(High 8) */
+	/* DATA4 = C_Tag(Low 8) + UDF_n_A8(16) + UDF_n_A7(High 8) */
+	/* DATA5 = UDF_Valid [7:0](8) + S_Tag(16) + C_Tag(High 8) */
+	val32 = (1 << 24); /* UDF_Valid[0] */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_DATA5, &val32, sizeof(val32));
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_MASK5, &val32, sizeof(val32));
+	/* DATA6 = STag_Status(2) + CTag_Status(2) + L2_Framing(2) + L3_Framing(2) + IP_TOS(8) +
+	 *              IP_Protocol(8) + IP_Fragmentation(1) + NonFirst_Fragment(1) +
+	 *              IP_Authentication(1) + TTL_Range(2) + Reserved(2) + UDF_Valid[8](1)
+	*/
+	val32 = ((l3_framing_bit << 24) | (6 << 8)); /* IPv4/6 TCP */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_DATA6, &val32, sizeof(val32));
+	val32 = ((3 << 24) | (6 << 8));
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_MASK6, &val32, sizeof(val32));
+	/* DATA7 = SRC_PortMap */
+	val32 = 0;
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_DATA7, &val32, sizeof(val32));
+	val32 = 0xE0; /* ~0x1F */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_MASK7, &val32, sizeof(val32));
+
+	/* Issue write command */
+	val32 = ((index << CFP_ACC_XCESS_ADDR_SHIFT) | /* index */
+		 (1 << CFP_ACC_RAM_SEL_SHIFT) | /* TCAM */
+		 (2 << CFP_ACC_OP_SEL_SHIFT) | /* write */
+		  CFP_ACC_OP_STR_DONE); /* operation start */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32));
+}
+
+#ifdef BCMDBG
+static void
+robo_fa_aux_dump_action_policy(robo_info_t *robo, struct bcmstrbuf *b, uint32 index, char *note)
+{
+	uint32 val32;
+
+	/* Issue read command */
+	val32 = ((index << CFP_ACC_XCESS_ADDR_SHIFT) | /* index */
+		 (2 << CFP_ACC_RAM_SEL_SHIFT) | /* action/policy */
+		 (1 << CFP_ACC_OP_SEL_SHIFT) | /* read */
+		  CFP_ACC_OP_STR_DONE); /* operation start */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32));
+	CFP_ACC_RD_STS_WAIT(robo, 2 /* action policy */);
+
+	/* Dump both in-band and out-band */
+	/* In-Band */
+	val32 = 0;
+	robo->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA0, &val32, sizeof(val32));
+	bcm_bprintf(b, "(0x%02x,0x%02x) CFP Action Policy In-Band index %d%s: 0x%08x\n",
+		PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA0, index,
+		note ? note : "", val32);
+	/* Out-Band */
+	val32 = 0;
+	robo->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA1, &val32, sizeof(val32));
+	bcm_bprintf(b, "(0x%02x,0x%02x) CFP Action Policy Out-Band index %d%s: 0x%08x\n",
+		PAGE_CFPTCAM, REG_CFPTCAM_ACT_POL_DATA1, index,
+		note ? note : "", val32);
+}
+
+static void
+robo_fa_aux_dump_tcam(robo_info_t *robo, struct bcmstrbuf *b, uint32 index, char *note)
+{
+	int i;
+	uint32 val32;
+	uint32 tcam32[8];
+
+	/* Issue read command */
+	val32 = ((index << CFP_ACC_XCESS_ADDR_SHIFT) | /* index */
+		 (1 << CFP_ACC_RAM_SEL_SHIFT) | /* TCAM */
+		 (1 << CFP_ACC_OP_SEL_SHIFT) | /* read */
+		  CFP_ACC_OP_STR_DONE); /* operation start */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32));
+	CFP_ACC_RD_STS_WAIT(robo, 1 /* TCAM */);
+
+	/* Dump both Data and Mask */
+	memset(tcam32, 0, sizeof(tcam32));
+	for (i = 0; i < 8; i++)
+		robo->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_DATA0+(4*i), &tcam32[i],
+			sizeof(tcam32[i]));
+	bcm_bprintf(b, "(0x%02x,0x%02x) CFP TCAM Data index %d%s: 0x%08x 0x%08x 0x%08x "
+		"0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (LSB)\n",
+		 PAGE_CFPTCAM, REG_CFPTCAM_DATA0, index, note ? note : "",
+		tcam32[7], tcam32[6], tcam32[5], tcam32[4],
+		tcam32[3], tcam32[2], tcam32[1], tcam32[0]);
+	memset(tcam32, 0, sizeof(tcam32));
+	for (i = 0; i < 8; i++)
+		robo->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_MASK0+(4*i), &tcam32[i],
+			sizeof(tcam32[i]));
+	bcm_bprintf(b, "(0x%02x,0x%02x) CFP TCAM Mask index %d%s: 0x%08x 0x%08x 0x%08x "
+		"0x%08x 0x%08x 0x%08x 0x%08x 0x%08x (LSB)\n",
+		PAGE_CFPTCAM, REG_CFPTCAM_MASK0, index, note ? note : "",
+		tcam32[7], tcam32[6], tcam32[5], tcam32[4],
+		tcam32[3], tcam32[2], tcam32[1], tcam32[0]);
+}
+
+static void
+robo_fa_aux_dump_rate_counter(robo_info_t *robo, struct bcmstrbuf *b, uint32 index, char *note)
+{
+	uint32 val32;
+
+	/* Issue read command */
+	val32 = ((index << CFP_ACC_XCESS_ADDR_SHIFT) | /* index */
+		 (0x10 << CFP_ACC_RAM_SEL_SHIFT) | /* out-band statistic */
+		 (1 << CFP_ACC_OP_SEL_SHIFT) | /* read */
+		  CFP_ACC_OP_STR_DONE); /* operation start */
+	robo->ops->write_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_ACC, &val32, sizeof(val32));
+	CFP_ACC_RD_STS_WAIT(robo, 8 /* band statistic */);
+
+	/* Dump Out-Band Statistic */
+	val32 = 0;
+	robo->ops->read_reg(robo, PAGE_CFPTCAM, REG_CFPTCAM_RATE_OUTBAND, &val32, sizeof(val32));
+	bcm_bprintf(b, "(0x%02x,0x%02x) CFP Rate Out-Band Statistic index %d%s: 0x%08x\n",
+		PAGE_CFPTCAM, REG_CFPTCAM_RATE_OUTBAND, index,
+		note ? note : "", val32);
+}
+#endif /* BCMDBG */
+
+void
+robo_fa_aux_init(robo_info_t *robo)
+{
+	uint16 val16;
+	uint8 val8;
+
+	if (!robo)
+		return;
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	/* Port 5 GMII Port States Override Register */
+	val8 = 0;
+	robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT5_GMIIPO, &val8, sizeof(val8));
+	val8 |=
+		(1 << 7) |	/* GMII_SPEED_UP_2G */
+		(1 << 6) |	/* SW_OVERRIDE */
+		(1 << 5) |	/* TXFLOW_CNTL */
+		(1 << 4) |	/* RXFLOW_CNTL */
+				/* default(2 << 2) SPEED :
+				 * 2b10 1000/2000Mbps
+				 */
+				/* default(1 << 1) DUPLX_MODE:
+				 * Full Duplex
+				 */
+		(1 << 0);	/* LINK_STS: Link up */
+	robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT5_GMIIPO, &val8, sizeof(val8));
+
+	/* BRCM HDR Control Register (Page 2, Address 0x03): Disable on 7,5,8 */
+	/* Enable BCM_HDR generation on IMP port only when flow accelerator
+	 * is operating in normal mode.
+	 */
+	val8 = 0x1;
+	robo->ops->write_reg(robo, PAGE_MMR, REG_BRCM_HDR, &val8, sizeof(val8));
+
+	robo->ops->read_reg(robo, PAGE_FC, REG_FC_OOBPAUSE, &val16, sizeof(val16));
+	val16 |= (1 << 8);
+	robo->ops->write_reg(robo, PAGE_FC, REG_FC_OOBPAUSE, &val16, sizeof(val16));
+
+	/* CFP: filter TCP FIN/RST and copy to port 5 */
+	/* 1. Action policy */
+	/* Index 0~4 (IPv4/6 TCP FIN/RST) */
+	robo_fa_aux_set_action_policy(robo, 0);
+	robo_fa_aux_set_action_policy(robo, 1);
+	robo_fa_aux_set_action_policy(robo, 2);
+	robo_fa_aux_set_action_policy(robo, 3);
+
+	/* 2. Data and Mask */
+	/* Index 0~4 (IPv4/6 TCP FIN/RST) */
+	robo_fa_aux_set_tcam(robo, FALSE, FALSE, 0);
+	robo_fa_aux_set_tcam(robo, FALSE, TRUE, 1);
+	robo_fa_aux_set_tcam(robo, TRUE, FALSE, 2);
+	robo_fa_aux_set_tcam(robo, TRUE, TRUE, 3);
+
+	/* 3. UDFs */
+	/* Slice 0 for IPv4/6 packet -FIN/RST */
+	/* TCP flags offset 14 --> UDF offset start from 12 = 2N (N=6) */
+	val8 = 0x60 | 0x6;
+	robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_UDF_0_A_0_8, &val8,
+		sizeof(val8));
+	robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_UDF_0_A_0_8+1, &val8,
+		sizeof(val8));
+	robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_UDF_0_B_0_8, &val8,
+		sizeof(val8));
+	robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_UDF_0_B_0_8+1, &val8,
+		sizeof(val8));
+
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+}
+
+void
+robo_fa_aux_enable(robo_info_t *robo, bool enable)
+{
+	uint8 val8 = 0x0;
+
+	if (!robo)
+		return;
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	/* Enable CFP on port 0 ~ 4 */
+	if (enable)
+		val8 = 0x1F;
+	robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_CTL_REG, &val8, sizeof(val8));
+
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+}
+#endif /* !_CFE_ && BCMFA */
 
 /* Configure the VLANs */
 int
@@ -1337,6 +1727,7 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 		uint32 untag = 0;
 		uint32 member = 0;
 		int pid, len;
+		int cpuport = 0;
 
 		/* no members if VLAN id is out of limitation */
 		if (vid > VLAN_MAXVID)
@@ -1384,9 +1775,12 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 
 			/* build VLAN registers values */
 #ifndef	_CFE_
+#ifdef BCMFA
+			pid = robo_fa_imp_port_upd(robo, port, pid, pdescsz);
+#endif
 			if ((!pdesc[pid].cpu && !strchr(port, FLAG_TAGGED)) ||
 			    (pdesc[pid].cpu && strchr(port, FLAG_UNTAG)))
-#endif
+#endif /* !_CFE_ */
 				untag |= pdesc[pid].untag;
 
 			member |= pdesc[pid].member;
@@ -1404,6 +1798,9 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 				robo->ops->write_reg(robo, PAGE_VLAN, pdesc[pid].ptagr,
 				                     &val16, sizeof(val16));
 			}
+
+			if (pdesc[pid].cpu)
+				cpuport = pid;
 		}
 
 		/* Add static ARL entries */
@@ -1439,9 +1836,9 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 			/* Set the Static bit , Valid bit and Port ID fields in
 			 * ARL Table Data Entry 0 Register
 			 */
-			val16 = 0xc008;
+			val32 = 0x18000 + cpuport;
 			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
-			                     &val16, sizeof(val16));
+			                     &val32, sizeof(val32));
 
 			/* Clear the ARL_R/W bit and set the START/DONE bit in
 			 * the ARL Read/Write Control Register.
@@ -1556,13 +1953,6 @@ vlan_setup:
 		robo->ops->write_reg(robo, 0x30, 0x62, &val16, sizeof(val16));
 	}
 
-	/* Drop reserved bit, if any */
-	robo->ops->read_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
-	if (robo->devid != DEVID5325 && val8 & (1 << 1)) {
-		val8 &= ~(1 << 1);
-		robo->ops->write_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
-	}
-
 	/* Disable management interface access */
 	if (robo->ops->disable_mgmtif)
 		robo->ops->disable_mgmtif(robo);
@@ -1629,7 +2019,6 @@ bcm_robo_enable_switch(robo_info_t *robo)
 
 	if (SRAB_ENAB() && ROBO_IS_BCM5301X(robo->devid)) {
 		int pdescsz = sizeof(pdesc97) / sizeof(pdesc_t);
-		uint8 gmiiport;
 
 		/*
 		 * Port N GMII Port States Override Register (Page 0x00, address Offset: 0x0e,
@@ -1652,19 +2041,119 @@ bcm_robo_enable_switch(robo_info_t *robo)
 			if (i == 6 || !pdesc97[i].cpu)
 				continue;
 
-			if (i == pdescsz - 1)
-				gmiiport = REG_CTRL_MIIPO;
-			else
-				gmiiport = REG_CTRL_PORT0_GMIIPO + i;
+			if (i == pdescsz - 1) {	/* Port8: REG_CTRL_MIIPO */
+				/* Port 8 IMP Port States Override Register (Page 0, Address 0xe) */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO,
+					&val8, sizeof(val8));
+				val8 |=
+					(1 << 7) |	/* MII_SW_OR MII Software Override */
+					(1 << 6) |	/* GMII_SPEED_UP_2G */
+					(1 << 5) |	/* TXFLOW_CNTL */
+					(1 << 4) |	/* RXFLOW_CNTL */
+							/* default(2 << 2) SPEED :
+							 * 2b10 1000/2000Mbps
+							 */
+							/* default(1 << 1) DUPLX_MODE:
+							 * Full Duplex
+							 */
+					(1 << 0);	/* LINK_STS: Link up */
+				robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO,
+					&val8, sizeof(val8));
 
-			/* Software override port speed and link up */
-			val8 = 0;
-			robo->ops->read_reg(robo, PAGE_CTRL, gmiiport, &val8, sizeof(val8));
-			/* (GMII_SPEED_UP_2G|SW_OVERRIDE|TXFLOW_CNTL|RXFLOW_CNTL|LINK_STS) */
-			val8 |= 0xf1;
-			robo->ops->write_reg(robo, PAGE_CTRL, gmiiport, &val8, sizeof(val8));
+				/* Port8 IMP0 Control Register (Page 0, Address 0x08) */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_IMP,
+					&val8, sizeof(val8));
+				val8 |=
+					(1 << 4) |	/* RX_UCST_EN Receive Unicast Enable */
+					(1 << 3) |	/* RX_MCST_EN Receive Multicast Enable */
+					(1 << 2);	/* RX_BCST_EN Receive Broadcast Enable */
+				robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_IMP,
+					&val8, sizeof(val8));
+
+				/* Global Management Configuration Register (Page 2, Address 0x0) */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_MMR, REG_MGMT_CFG,
+					&val8, sizeof(val8));
+				val8 |=
+					(2 << 6);	/* FRM_MNGP: Enable IMP0 only */
+				robo->ops->write_reg(robo, PAGE_MMR, REG_MGMT_CFG,
+					&val8, sizeof(val8));
+
+				/* 802.1Q VLAN Control 5 Register (Page 0x34, Address 0x06) */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL5,
+					&val8, sizeof(val8));
+				val8 |= (1 << 0);	/* EN_CPU_RX_BYP_INNER_CRC_CHK:
+							 * IMP port ignore CRC
+							 */
+				robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_CTRL5,
+					&val8, sizeof(val8));
+
+				/* Enable ports 5 and 7 for SMP dual core 3 GMAC setup */
+
+				/* Port 5 GMII Port States Override Register
+				 * (Page 0, Address 0x5d)
+				 */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT5_GMIIPO,
+					&val8, sizeof(val8));
+				val8 &= ~(1 << 0);
+
+				robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT5_GMIIPO,
+					&val8, sizeof(val8));
+
+				/* Port 7 GMII Port States Override Register
+				 * (Page 0, Address 0x5f)
+				 */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT7_GMIIPO,
+					&val8, sizeof(val8));
+				val8 &= ~(1 << 0);
+				robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT7_GMIIPO,
+					&val8, sizeof(val8));
+			} else {	/* Port5|7: REG_CTRL_PORT0_GMIIPO + i */
+
+				/* Port 5|7 GMII Port States Override Register
+				 * (Page 0, Address 0x5d|0x5f)
+				 */
+				val8 = 0;
+				robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT0_GMIIPO + i,
+					&val8, sizeof(val8));
+				val8 |=
+					(1 << 7) |	/* GMII_SPEED_UP_2G */
+					(1 << 6) |	/* SW_OVERRIDE */
+					(1 << 5) |	/* TXFLOW_CNTL */
+					(1 << 4) |	/* RXFLOW_CNTL */
+							/* default(2 << 2) SPEED :
+							 * 2b10 1000/2000Mbps
+							 */
+							/* default(1 << 1) DUPLX_MODE:
+							 * Full Duplex
+							 */
+					(1 << 0);	/* LINK_STS: Link up */
+				robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0_GMIIPO + i,
+					&val8, sizeof(val8));
+			}
 			break;
 		}
+
+		/* Disable BRCM HDR by default */
+		val8 = 0x0;
+		robo->ops->write_reg(robo, PAGE_MMR, REG_BRCM_HDR, &val8, sizeof(val8));
+
+		/* Disable CFP by default */
+		val8 = 0x0;
+		robo->ops->write_reg(robo, PAGE_CFP, REG_CFP_CTL_REG, &val8, sizeof(val8));
+
+		/* Switch Mode Register (Page 0, Address 0x0B): Managed and SW Fwding */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MODE, &val8, sizeof(val8));
+		val8 |=
+			(1 << 1) |		/* SW_FWDG_EN Frame Forwarding is enabled */
+			(1 << 0);		/* SW_FWDG_MODE Managed Mode */
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_MODE, &val8, sizeof(val8));
 	}
 
 	/* Disable management interface access */
@@ -1776,6 +2265,86 @@ robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b)
 		bcm_bprintf(b, "(0x34,0x%02x)Port %d Tag: 0x%04x\n", pdesc[i].ptagr, i, val16);
 	}
 
+	if (SRAB_ENAB() && ROBO_IS_BCM5301X(robo->devid)) {
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT5_GMIIPO, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x)Port 5 States Override: 0x%02x\n",
+			PAGE_CTRL, REG_CTRL_PORT5_GMIIPO, val8);
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PORT7_GMIIPO, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x)Port 7 States Override: 0x%02x\n",
+			PAGE_CTRL, REG_CTRL_PORT7_GMIIPO, val8);
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x)Port 8 States Override: 0x%02x\n",
+			PAGE_CTRL, REG_CTRL_MIIPO, val8);
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_IMP, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x)Port 8 IMP Control Register: 0x%02x\n",
+			PAGE_CTRL, REG_CTRL_IMP, val8);
+		robo->ops->read_reg(robo, PAGE_MMR, REG_MGMT_CFG, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) Global Management Config: 0x%02x\n",
+			PAGE_MMR, REG_MGMT_CFG, val8);
+		robo->ops->read_reg(robo, PAGE_MMR, REG_MGMT_CFG, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) 802.1Q VLAN Control 5: 0x%02x\n",
+			PAGE_MMR, REG_MGMT_CFG, val8);
+		robo->ops->read_reg(robo, PAGE_MMR, REG_BRCM_HDR, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) BRCM HDR Control Register: 0x%02x\n",
+			PAGE_MMR, REG_BRCM_HDR, val8);
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MODE, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) Switch Mode Register: 0x%02x\n",
+			PAGE_CTRL, REG_CTRL_MODE, val8);
+
+#ifdef BCMFA
+		/* Dump CFP */
+		bcm_bprintf(b, "\n Switch CFP Dump\n");
+
+		/* Port CFP Enabled */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CFP, REG_CFP_CTL_REG, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) CFP Enable Map: 0x%02x\n",
+			PAGE_CFP, REG_CFP_CTL_REG, val8);
+
+		/* Action policy */
+		/* Index 0~4 (IPv4/6 TCP FIN/RST) */
+		robo_fa_aux_dump_action_policy(robo, b, 0, " (IPv4 TCP FIN)");
+		robo_fa_aux_dump_action_policy(robo, b, 1, " (IPv4 TCP RST)");
+		robo_fa_aux_dump_action_policy(robo, b, 2, " (IPv6 TCP FIN)");
+		robo_fa_aux_dump_action_policy(robo, b, 3, " (IPv6 TCP RST)");
+
+		/* Data and Mask */
+		/* IPv4 index 0~4 (IPv4/6 TCP FIN/RST) */
+		robo_fa_aux_dump_tcam(robo, b, 0, " (IPv4 TCP FIN)");
+		robo_fa_aux_dump_tcam(robo, b, 1, " (IPv4 TCP RST)");
+		robo_fa_aux_dump_tcam(robo, b, 2, " (IPv6 TCP FIN)");
+		robo_fa_aux_dump_tcam(robo, b, 3, " (IPv6 TCP RST)");
+
+		/* UDFs */
+		/* Slice 0 for IPv4 packet -FIN */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CFP, REG_CFP_UDF_0_A_0_8, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) CFP UDF_0_A_0_0 Offset (IPv4 TCP FIN): 0x%02x\n",
+			PAGE_CFP, REG_CFP_UDF_0_A_0_8, val8);
+		/* Slice 0 for IPv4 packet -RST */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CFP, REG_CFP_UDF_0_A_0_8+1, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) CFP UDF_0_A_0_1 Offset (IPv4 TCP RST): 0x%02x\n",
+			PAGE_CFP, REG_CFP_UDF_0_A_0_8+1, val8);
+		/* Slice 0 for IPv6 packet -FIN */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CFP, REG_CFP_UDF_0_B_0_8, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) CFP UDF_0_B_0_0 Offset (IPv6 TCP FIN): 0x%02x\n",
+			PAGE_CFP, REG_CFP_UDF_0_B_0_8, val8);
+		/* Slice 0 for IPv6 packet -RST */
+		val8 = 0;
+		robo->ops->read_reg(robo, PAGE_CFP, REG_CFP_UDF_0_B_0_8+1, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x%02x,0x%02x) CFP UDF_0_B_0_1 Offset (IPv6 TCP RST): 0x%02x\n",
+			PAGE_CFP, REG_CFP_UDF_0_B_0_8+1, val8);
+
+		/* Statistic */
+		robo_fa_aux_dump_rate_counter(robo, b, 0, " (IPv4 TCP FIN)");
+		robo_fa_aux_dump_rate_counter(robo, b, 1, " (IPv4 TCP RST)");
+		robo_fa_aux_dump_rate_counter(robo, b, 2, " (IPv6 TCP FIN)");
+		robo_fa_aux_dump_rate_counter(robo, b, 3, " (IPv6 TCP RST)");
+#endif /* BCMFA */
+	}
+
 exit:
 	/* Disable management interface access */
 	if (robo->ops->disable_mgmtif)
@@ -1863,6 +2432,10 @@ robo_power_save_mode_clear_manual(robo_info_t *robo, int32 phy)
 		val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
 		val16 &= 0xf7ff;
 		robo->miiwr(robo->h, phy, REG_MII_CTRL, val16);
+	} else if (ROBO_IS_BCM5301X(robo->devid)) {
+		robo->ops->read_reg(robo, 0x10+phy, 0x00, &val16, sizeof(val16));
+		val16 &= 0xf7ff;
+		robo->ops->write_reg(robo, 0x10+phy, 0x00, &val16, sizeof(val16));
 	} else if (robo->devid == DEVID5325) {
 		if ((robo->sih->chip == BCM5357_CHIP_ID) ||
 		    (robo->sih->chip == BCM4749_CHIP_ID) ||
@@ -2040,6 +2613,10 @@ robo_power_save_mode_manual(robo_info_t *robo, int32 phy)
 		 */
 		val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
 		robo->miiwr(robo->h, phy, REG_MII_CTRL, val16 | 0x800);
+	} else if (ROBO_IS_BCM5301X(robo->devid)) {
+		robo->ops->read_reg(robo, 0x10+phy, 0x00, &val16, sizeof(val16));
+		val16 |= 0x800;
+		robo->ops->write_reg(robo, 0x10+phy, 0x00, &val16, sizeof(val16));
 	} else  if (robo->devid == DEVID5325) {
 		if ((robo->sih->chip == BCM5357_CHIP_ID) ||
 		    (robo->sih->chip == BCM4749_CHIP_ID)||
@@ -2168,6 +2745,41 @@ robo_power_save_mode_set(robo_info_t *robo, int32 mode, int32 phy)
 	return 0;
 }
 #endif /* _CFE_ */
+
+#ifdef PLC
+void
+robo_plc_hw_init(robo_info_t *robo)
+{
+	uint8 val8;
+
+	ASSERT(robo);
+
+	if (!robo->plc_hw)
+		return;
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	if (robo->devid == DEVID53115) {
+		/* Fix the duplex mode and speed for Port 5 */
+		val8 = ((1 << 6) | (1 << 2) | 3);
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_MIIP5O, &val8, sizeof(val8));
+	} else if ((robo->sih->chip == BCM5357_CHIP_ID) &&
+	           (robo->sih->chippkg == BCM5358_PKG_ID)) {
+		/* Fix the duplex mode and speed for Port 4 (MII port). Force
+		 * full duplex mode and set speed to 100.
+		 */
+		si_pmu_chipcontrol(robo->sih, 2, (1 << 1) | (1 << 2), (1 << 1) | (1 << 2));
+	}
+
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+
+	ET_MSG(("%s: Configured PLC MII interface\n", __FUNCTION__));
+}
+#endif /* PLC */
 
 /* BCM53125 EEE IOP WAR for some other vendor's wrong EEE implementation. */
 
