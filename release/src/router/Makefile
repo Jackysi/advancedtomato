@@ -17,6 +17,7 @@ include common.mak
 #export PARALLEL_BUILD :=
 export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
 
+
 #
 #
 #
@@ -25,14 +26,23 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 #
 # standard packages
 #
+ifeq ($(TCONFIG_BCMARM),y)
+obj-y += libbcm
+else
 obj-y += lzma-loader
-obj-y += nvram
+endif
 obj-y += shared
+obj-y += nvram$(BCMEX)
 obj-y += prebuilt
 obj-y += igmpproxy
-obj-y += iptables
 obj-y += rc
+ifeq ($(TCONFIG_BCMARM),y)
+obj-y += iptables-1.4.x
+obj-y += iproute2-3.x
+else
+obj-y += iptables
 obj-y += iproute2
+endif
 obj-y += rom
 obj-y += others
 obj-y += busybox
@@ -45,7 +55,7 @@ obj-y += etc
 obj-y += pppd
 obj-y += rp-pppoe
 obj-y += utils
-obj-y += ntpc
+obj-y += ntpclient
 obj-y += rstats
 obj-y += cstats
 obj-y += udpxy
@@ -58,7 +68,7 @@ obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc
 
 # !!TB - updated Broadcom Wireless driver
-obj-y += et
+#obj-y += et
 obj-y += libbcmcrypto
 obj-y += wlconf
 
@@ -132,7 +142,11 @@ TCONFIG_RAID :=
 endif
 
 obj-$(NEED_SAMBA2) += samba
+ifeq ($(RTCONFIG_BCMARM),y)
+obj-$(NEED_SAMBA3) += samba-3.0.25b
+else
 obj-$(NEED_SAMBA3) += samba3
+endif
 
 ifeq ($(CONFIG_BCMWL6),y)
 ifeq ($(TCONFIG_UFSD),y)
@@ -164,7 +178,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 MEDIA_SERVER_STATIC :=
 
 obj-y += libnfnetlink
-obj-y += miniupnpd
+#obj-y += miniupnpd
 #	obj-y += upnp
 obj-$(CONFIG_LINUX26) += ipset
 
@@ -177,7 +191,7 @@ obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_PPTPD) += pptpd
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_SSH) += dropbear
-obj-$(TCONFIG_ZEBRA) += zebra
+#obj-$(TCONFIG_ZEBRA) += zebra
 #	obj-$(TCONFIG_IPP2P) += ipp2p
 obj-$(TCONFIG_LZO) += lzo
 obj-$(TCONFIG_OPENVPN) += openvpn
@@ -216,10 +230,67 @@ endif
 
 obj-y += wanuptime
 
+ifeq ($(TCONFIG_IPV6),y)
+export TCONFIG_IPV6 := y
+IPTABLES_IPV6_OPT := --enable-ipv6
+else
+TCONFIG_IPV6 :=
+IPTABLES_IPV6_OPT := --disable-ipv6
+endif
+
+# Specify iptables path and target for miniupnpd
+ifeq ($(TCONFIG_BCMARM),y)
+IPTABLESPATH=$(TOP)/iptables-1.4.x
+IPTABLES_TARGET = iptables-1.4.x
+else
+IPTABLESPATH=$(TOP)/iptables
+IPTABLES_TARGET = iptables
+endif
+export IPTABLESPATH
+export IPTABLES_TARGET
+
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
+ifeq ($(TCONFIG_BCMARM),y)
+LINUX_VERSION=2_6_36
+LINUX_KERNEL=2.6.36
+export PLATFORM LIBDIR USRLIBDIR LINUX_VERSION
 
+WLAN_ComponentsInUse := bcmwifi clm ppr olpc
+include ../../src-rt-6.x.4708/makefiles/WLAN_Common.mk
+export BASEDIR := $(WLAN_TreeBaseA)
+export EXTRALDFLAGS = -lgcc_s
+export EXTRALDFLAGS2 = -L$(TOP)/nvram$(BCMEX) -lnvram -L$(TOP)/shared -lshared
+
+export LD_LIBRARY_PATH := $(SRCBASE)/toolchains/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib
+ifeq (2_6_36,$(LINUX_VERSION))
+export  LINUXDIR := $(BASEDIR)/src-rt-6.x.4708/linux/linux-2.6.36
+export  KBUILD_VERBOSE := 1
+export  BUILD_MFG := 0
+endif
+SUBMAKE_SETTINGS = SRCBASE=$(SRCBASE) BASEDIR=$(BASEDIR)
+SUBMAKE_SETTINGS += ARCH=$(ARCH)
+export CFLAGS += -O2
+export OPTCFLAGS = -O2
+WLCFGDIR=$(SRCBASE)/wl/config
+
+ROOT_IMG := target.squashfs
+CRAMFSDIR := cramfs
+
+export MKSYM := $(shell which $(TOP)/misc/mksym.pl)
+endif
+
+ifeq ($(TCONFIG_BCMARM),y)
+obj-prelibs =$(filter nvram$(BCMEX) libbcmcrypto shared netconf libupnp libz libbcm, $(obj-y))
+obj-postlibs := $(filter-out $(obj-prelibs), $(obj-y))
+endif
+
+#ifeq ($(TCONFIG_BCMWL6), y)
+#WLAN_ComponentsInUse := bcmwifi clm ppr
+# else
+# include ../../$(SRCBASE)/makefiles/WLAN_Common.mk
+#endif
 
 #
 # Basic rules
@@ -231,6 +302,7 @@ all: clean-build libc $(obj-y) kernel
 kernel: $(LINUXDIR)/.config
 	@$(SEP)
 
+ifneq ($(TCONFIG_BCMARM),y)
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC) $(PARALLEL_BUILD); \
 	fi
@@ -240,14 +312,32 @@ kernel: $(LINUXDIR)/.config
 ifeq ($(CONFIG_LINUX26),y)
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR) $(PARALLEL_BUILD)
 endif
+else	# TCONFIG_BCMARM
+	$(MAKE) compressed-clean #shibby
+	(echo '.NOTPARALLEL:' ; cat ${LINUXDIR}/Makefile) |\
+		$(MAKE) -C ${LINUXDIR} -f - $(SUBMAKE_SETTINGS) zImage
+	+$(MAKE) CONFIG_SQUASHFS=$(CONFIG_SQUASHFS) -C $(SRCBASE)/router/compressed ARCH=$(ARCH)
 
+	$(if $(shell grep "CONFIG_MODULES=y" ${LINUXDIR}/.config), \
+	(echo '.NOTPARALLEL:' ; cat ${LINUXDIR}/Makefile) | $(MAKE) -C ${LINUXDIR} -f - $(SUBMAKE_SETTINGS) MFG_WAR=1 zImage ; \
+	(echo '.NOTPARALLEL:' ; cat ${LINUXDIR}/Makefile) | $(MAKE) -C ${LINUXDIR} -f - ARCH=$(ARCH) modules)
+	# Preserve the debug versions of these and strip for release
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/vmlinux)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/wl/wl.ko)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/et/et.ko)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/ctf/ctf.ko)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/bcm57xx/bcm57xx.ko)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/emf/emf.ko)
+	$(call STRIP_DEBUG_SYMBOLS,$(LINUXDIR)/drivers/net/igs/igs.ko)
+endif   # TCONFIG_BCMARM
 
+ifneq ($(TCONFIG_BCMARM),y)
 lzma-loader:
 	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) $(PARALLEL_BUILD)
 
 lzma-loader-install: lzma-loader
 	@$(SEP)
-
+endif
 
 kmod: dummy
 	$(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC) $(PARALLEL_BUILD)
@@ -385,7 +475,9 @@ endif
 	@echo ---
 
 ifeq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
+ifneq ($(TCONFIG_BCMARM),y)
 	@$(SRCBASE)/btools/libfoo.pl
+endif
 else
 	@$(SRCBASE)/btools/libfoo.pl --noopt
 endif
@@ -563,8 +655,15 @@ endif
 
 	@rm -f $(TARGETDIR)/lib/modules/*/build
 
+image:
+ifneq ($(TCONFIG_BCMARM),y)
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
 	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image -all-root -noappend -no-duplicates | tee target.info
+else
+	+$(MAKE) -C squashfs-4.2 mksquashfs
+	squashfs-4.2/mksquashfs $(TARGETDIR) $(PLATFORMDIR)/$(ROOT_IMG) -noappend -all-root
+endif
+
 
 #	Package kernel and filesystem
 #	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -626,7 +725,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dhcpv6-clean
+	@$(MAKE) shared-clean rc-clean nvram$(BCMEX)-clean httpd-clean prebuilt-clean libbcmcrypto-clean dhcpv6-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -678,7 +777,7 @@ busybox-config:
 	$(MAKE) -C busybox menuconfig
 
 
-httpd: shared nvram mssl
+httpd: shared nvram$(BCMEX) mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
 
@@ -723,7 +822,7 @@ endif
 
 openssl/stamp-h1:
 	cd openssl && \
-	./Configure linux-mipsel --openssldir=/etc --cross-compile-prefix=' ' \
+	./Configure $(HOSTCONFIG) --openssldir=/etc --cross-compile-prefix=' ' \
 	-ffunction-sections -fdata-sections -Wl,--gc-sections \
 	shared $(OPENSSL_CIPHERS) \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
@@ -765,7 +864,7 @@ mssl:	$(if $(FULL_OPENSSL),openssl,cyassl)
 
 mdu:	shared mssl
 
-rc: nvram shared
+rc: nvram$(BCMEX) shared
 
 bridge/Makefile:
 	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
@@ -828,6 +927,61 @@ endif
 iptables-clean:
 	-@$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
+iptables-1.4.x: iptables-1.4.x/Makefile libnfnetlink
+	@$(SEP)
+	$(MAKE) -C $@ KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS) -U CONFIG_NVRAM_SIZE" \
+		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/libnfnetlink/include" \
+		LDFLAGS="-L$(TOP)/libnfnetlink/src/.libs -lnfnetlink"
+
+iptables-1.4.x/Makefile: iptables-1.4.x/configure
+	$(MAKE) iptables-1.4.x-configure
+
+iptables-1.4.x/configure:
+	( cd iptables-1.4.x ; ./autogen.sh )
+
+iptables-1.4.x-configure:
+	( cd iptables-1.4.x ; \
+		$(CONFIGURE) \
+		--prefix=/usr \
+		--bindir=/usr/sbin \
+		--libdir=/usr/lib \
+		$(IPTABLES_IPV6_OPT) \
+		--with-kernel=$(LINUXDIR) \
+	)
+
+iptables-1.4.x-install:
+	install -D iptables-1.4.x/iptables/.libs/xtables-multi $(INSTALLDIR)/iptables-1.4.x/usr/sbin/xtables-multi
+	cd $(INSTALLDIR)/iptables-1.4.x/usr/sbin && \
+		ln -sf xtables-multi iptables-restore && \
+		ln -sf xtables-multi iptables
+	install -d $(INSTALLDIR)/iptables-1.4.x/usr/lib/xtables
+	install -D iptables-1.4.x/libiptc/.libs/lib*.so $(INSTALLDIR)/iptables-1.4.x/usr/lib/
+	cd $(INSTALLDIR)/iptables-1.4.x/usr/lib && \
+		ln -sf libip4tc.so libip4tc.so.0 && \
+		ln -sf libip4tc.so libip4tc.so.0.0.0 && \
+		ln -sf libip6tc.so libip6tc.so.0 && \
+		ln -sf libip6tc.so libip6tc.so.0.0.0 && \
+		ln -sf libiptc.so  libiptc.so.0 && \
+		ln -sf libiptc.so  libiptc.so.0.0.0
+	install -D iptables-1.4.x/libxtables/.libs/lib*.so $(INSTALLDIR)/iptables-1.4.x/usr/lib/
+	cd $(INSTALLDIR)/iptables-1.4.x/usr/lib && \
+		ln -sf libxtables.so libxtables.so.7 && \
+		ln -sf libxtables.so libxtables.so.7.0.0
+	install -D iptables-1.4.x/extensions/*.so $(INSTALLDIR)/iptables-1.4.x/usr/lib/xtables
+
+ifeq ($(TCONFIG_IPV6),y)
+	cd $(INSTALLDIR)/iptables-1.4.x/usr/sbin && \
+		ln -sf xtables-multi ip6tables-restore && \
+		ln -sf xtables-multi ip6tables
+endif
+
+	$(STRIP) $(INSTALLDIR)/iptables-1.4.x/usr/sbin/xtables-multi
+	$(STRIP) $(INSTALLDIR)/iptables-1.4.x/usr/lib/*.so*
+	$(STRIP) $(INSTALLDIR)/iptables-1.4.x/usr/lib/xtables/*.so*
+
+iptables-1.4.x-clean:
+	[ ! -f iptables-1.4.x/Makefile ] || $(MAKE) -C iptables-1.4.x KERNEL_DIR=$(LINUXDIR) distclean
+
 ppp:
 	@$(SEP)
 	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,) $(PARALLEL_BUILD)
@@ -857,7 +1011,7 @@ rp-pppoe-install: rp-pppoe
 #	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 
 
-upnp: nvram shared iptables
+upnp: nvram$(BCMEX) shared iptables
 
 libnfnetlink/stamp-h1:
 	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP='mipsel-uclibc-strip' \
@@ -878,17 +1032,19 @@ libnfnetlink-install:
 		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so
 
 miniupnpd-config:
-#ifeq ($(TCONFIG_IPV6),y)
-#	@cd miniupnpd && ./genconfig.sh --leasefile --ipv6
-#else
 	@cd miniupnpd && ./genconfig.sh --leasefile
-#endif
 
-miniupnpd: iptables miniupnpd-config libnfnetlink
+#miniupnpd: iptables miniupnpd-config libnfnetlink
+#	@$(SEP)
+#	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
+#		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
+#		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
+
+miniupnpd: $(IPTABLES_TARGET) miniupnpd-config libnfnetlink
 	@$(SEP)
-	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
-		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
-		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
+	$(MAKE) -C miniupnpd -f Makefile.linux CC=$(CC) \
+		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(IPTABLESPATH)/include -I$(TOP)/libnfnetlink/include" \
+		LDFLAGS="-L$(IPTABLESPATH) -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
@@ -990,50 +1146,19 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@mkdir -p $(TARGETDIR)/rom/etc
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
-#libdaemon: libdaemon/Makefile
-	#$(MAKE) -C $@
-
-#libdaemon/Makefile: libdaemon/Makefile.in
-#	cd libdaemon && $(CONFIGURE) ac_cv_func_setpgrp_void=yes \
-#		--disable-dependency-tracking
-
-#libdaemon-install: libdaemon
-#	install -D libdaemon/libdaemon/.libs/libdaemon.so.0.5.0 $(INSTALLDIR)/libdaemon/usr/lib/libdaemon.so.0.5.0
-#	$(STRIP) $(INSTALLDIR)/libdaemon/usr/lib/*.so.*
-#	cd $(INSTALLDIR)/libdaemon/usr/lib && \
-#		ln -sf libdaemon.so.0.5.0 libdaemon.so && \
-#		ln -sf libdaemon.so.0.5.0 libdaemon.so.0
-
-#libdaemon-clean:
-#	-@$(MAKE) -C libdaemon distclean
-
-#radvd/stamp-h1:
-#	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-#		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-#	$(CONFIGURE) --prefix="" --disable-dependency-tracking \
-#	DAEMON_CFLAGS="-I$(TOP)/libdaemon" \
-#	DAEMON_LIBS="-ldaemon -L$(TOP)/libdaemon/libdaemon/.libs"
-#	@$(MAKE) -C radvd clean
-#	@touch radvd/stamp-h1
-##
-#radvd: libdaemon radvd/stamp-h1
-
-#radvd-clean:
-#	-@$(MAKE) -C radvd distclean
-#	@rm -f radvd/stamp-h1
-
-#radvd-install: radvd
-#	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
-#	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
-
 dhcpv6/stamp-h1:
 	@cd dhcpv6 && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-secti
+
+dhcpv6/stamp-h1:
+	@cd dhcpv6 && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections -DUSE_DHCP6SRV" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	ac_cv_func_setpgrp_void=yes \
 	$(CONFIGURE) --prefix= --with-localdbdir=/var
-	@$(MAKE) -C dhcpv6 clean
-	@touch dhcpv6/stamp-h1
+	-@$(MAKE) -C dhcpv6 clean
+	@touch $@
 
 dhcpv6: dhcpv6/stamp-h1
 	@$(SEP)
@@ -1074,7 +1199,7 @@ accel-pptp: pppd accel-pptp/Makefile
 	@$(MAKE) -C accel-pptp
 
 accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
-	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(RTCONFIG_VPNC), -DRTCONFIG_VPNC,)" \
 	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
 
 accel-pptp-clean:
@@ -1086,8 +1211,8 @@ accel-pptp-install: accel-pptp
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 pptpd/stamp-h1:
-	cd pptpd && $(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay CC=mipsel-uclibc-gcc \
-		STRIP=mipsel-uclibc-strip AR=mipsel-uclibc-ar LD=mipsel-uclibc-ld NM=mipsel-uclibc-nm RANLIB=mipsel-uclibc-ranlib
+	cd pptpd && $(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay \
+		CC=$(CC) RANLIB=$(RANLIB) LD=$(LD) STRIP=$(STRIP)
 	touch pptpd/stamp-h1
 
 pptpd: pptpd/stamp-h1
@@ -1205,9 +1330,29 @@ iproute2-install: iproute2
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 
+iproute2-3.x: kernel_header iptables-1.4.x
+	@$(SEP)
+	@$(MAKE) -C $@ IPTABLES_DIR=$(TOP)/iptables-1.4.x KERNEL_INCLUDE=$(TOP)/kernel_header/include EXTRACFLAGS="$(EXTRACFLAGS) $(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6)"
 
-ntpc: nvram shared
+iproute2-3.x-install: iproute2-3.x
+	install -D iproute2-3.x/tc/tc $(INSTALLDIR)/iproute2-3.x/usr/sbin/tc
+	$(STRIP) $(INSTALLDIR)/iproute2-3.x/usr/sbin/tc
+	install -D iproute2-3.x/ip/ip $(INSTALLDIR)/iproute2-3.x/usr/sbin/ip
+	$(STRIP) $(INSTALLDIR)/iproute2-3.x/usr/sbin/ip
+	@if [ -e iproute2-3.x/tc/m_xt.so ] ; then \
+		install -D iproute2-3.x/tc/m_xt.so $(INSTALLDIR)/iproute2-3.x/usr/lib/tc/m_xt.so ; \
+		ln -sf m_xt.so $(INSTALLDIR)/iproute2-3.x/usr/lib/tc/m_ipt.so ; \
+		$(STRIP) $(INSTALLDIR)/iproute2-3.x/usr/lib/tc/*.so ; \
+	fi
 
+iproute2-3.x-clean:
+	-@$(MAKE) -C iproute2-3.x clean
+	-rm -f iproute2-3.x/Config
+
+
+ntpc: nvram$(BCMEX) shared
+
+ntpclient: nvram$(BCMEX) shared
 
 dropbear: dropbear/config.h
 	@$(SEP)
@@ -1545,7 +1690,7 @@ udev-install: udev
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
 
 hotplug2:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) CC=$(CC) EXTRACFLAGS="$(EXTRACFLAGS)"
 
 hotplug2-install: hotplug2
 	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
@@ -1563,7 +1708,7 @@ igs:
 igs-install: igs
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
-wanuptime: nvram shared
+wanuptime: nvram$(BCMEX) shared
 	@$(SEP)
 	@$(MAKE) -C wanuptime
 
@@ -1690,7 +1835,7 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
-openvpn_plugin_auth_nvram:nvram
+openvpn_plugin_auth_nvram: nvram$(BCMEX)
 
 #shibby
 libcurl/stamp-h1: zlib openssl
@@ -2116,6 +2261,6 @@ comgt-clean:
 
 $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
-.PHONY: all clean distclean mrproper install package
+.PHONY: all clean distclean mrproper install package image
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
 .PHONY: dummy libnet libpcap
