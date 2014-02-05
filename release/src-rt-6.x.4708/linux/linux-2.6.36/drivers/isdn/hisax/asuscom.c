@@ -1,4 +1,4 @@
-/* $Id: asuscom.c,v 1.14.2.4 2004/01/13 23:48:39 keil Exp $
+/* $Id: asuscom.c,v 1.14.2.4 2004/01/13 23:48:39 Exp $
  *
  * low level stuff for ASUSCOM NETWORK INC. ISDNLink cards
  *
@@ -19,8 +19,6 @@
 #include "ipac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-
-extern const char *CardType[];
 
 static const char *Asuscom_revision = "$Revision: 1.14.2.4 $";
 
@@ -346,7 +344,7 @@ setup_asuscom(struct IsdnCard *card)
 					err = pnp_activate_dev(pnp_d);
 					if (err<0) {
 						printk(KERN_WARNING "%s: pnp_activate_dev ret(%d)\n",
-							__FUNCTION__, err);
+							__func__, err);
 						return(0);
 					}
 					card->para[1] = pnp_port_start(pnp_d, 0);
@@ -376,8 +374,7 @@ setup_asuscom(struct IsdnCard *card)
 	cs->irq = card->para[0];
 	if (!request_region(cs->hw.asus.cfg_reg, bytecnt, "asuscom isdn")) {
 		printk(KERN_WARNING
-		       "HiSax: %s config port %x-%x already in use\n",
-		       CardType[card->typ],
+		       "HiSax: ISDNLink config port %x-%x already in use\n",
 		       cs->hw.asus.cfg_reg,
 		       cs->hw.asus.cfg_reg + bytecnt);
 		return (0);

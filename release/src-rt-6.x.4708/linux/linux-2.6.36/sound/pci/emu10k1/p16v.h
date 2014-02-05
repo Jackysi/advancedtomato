@@ -296,4 +296,3 @@
 #define CAPURE_SPDIF_USER_DATA0 0x78		/* SPDIF in user data 0 */
 #define CAPURE_SPDIF_USER_DATA1 0x79		/* SPDIF in user data 1 */
 #define CAPURE_SPDIF_USER_DATA2 0x7a		/* SPDIF in user data 2 */
-

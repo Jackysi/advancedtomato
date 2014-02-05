@@ -1,7 +1,7 @@
 /* cmode.S: clock mode management
  *
  * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
- * Written by David Woodhouse (dwmw2@redhat.com)
+ * Written by David Woodhouse (dwmw2@infradead.org)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -71,14 +71,6 @@ frv_change_cmode:
 	andi		gr14,#~PSR_ET,gr3
 	movgs		gr3,psr
 
-#if 0 // Fujitsu recommend to skip this and will update docs.
-	# (2) Set '0' to all bits of the MASK register of the interrupt
-	#     controller, and mask interrupts.
-	li		__addr_MASK,gr12
-	ldi		@(gr12,#0),gr13
-	li		0xffff0000,gr4
-	sti		gr4,@(gr12,#0)
-#endif
 
 	# (3) Stop the transfer function of DMAC. Stop all the bus masters
 	#     to access SDRAM and the internal resources.
@@ -132,7 +124,6 @@ __cmode_icache_lock_start:
 	# (10) Execute memory barrier instruction (MEMBAR).
 	membar
 
-#if 1
 	# (11) Set the value of CMODE that you want to change to
 	#      SWCMODE.SWCM[3:0].
 	sti		gr8,@(gr5,#CLKC_SWCMODE)
@@ -140,7 +131,6 @@ __cmode_icache_lock_start:
 	# (12) Set '1' to the CLKC.SWEN bit. In that case, do not change
 	#      fields other than SWEN of the CLKC register.
 	sti		gr6,@(gr5,#0)
-#endif
 	# (13) Execute the instruction just after the memory barrier
 	# instruction that executes the self-loop 256 times. (Meanwhile,
 	# the CMODE switch is done.)
@@ -159,12 +149,6 @@ __cmode_icache_lock_start:
 	andicc		gr3,#SDRAMC_DSTS_SSI,gr3,icc0
 	bne		icc0,#2,3b
 
-#if 0
-	li		0x0100000,gr10
-4:	subicc		gr10,#1,gr10,icc0
-
-	bne		icc0,#0,4b
-#endif
 
 __cmode_icache_lock_end:
 
@@ -176,11 +160,6 @@ __cmode_icache_lock_end:
 	cmp		gr4,gr3,icc0
 	bhi		icc0,#0,4b
 
-#if 0 // Fujitsu recommend to skip this and will update docs.
-	# (15) Release the interrupt mask setting of the MASK register of
-	# the interrupt controller if necessary.
-	sti		gr13,@(gr12,#0)
-#endif
 	# (16) Set  1' in the PSR.ET bit, and permit interrupt.
 	movgs		gr14,psr
 

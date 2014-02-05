@@ -30,31 +30,6 @@
 #include <asm/prom.h>
 #include <asm/ppc-pci.h>
 
-#if 0
-void pcibios_name_device(struct pci_dev *dev)
-{
-	struct device_node *dn;
-
-	/*
-	 * Add IBM loc code (slot) as a prefix to the device names for service
-	 */
-	dn = pci_device_to_OF_node(dev);
-	if (dn) {
-		const char *loc_code = of_get_property(dn, "ibm,loc-code", 0);
-		if (loc_code) {
-			int loc_len = strlen(loc_code);
-			if (loc_len < sizeof(dev->dev.name)) {
-				memmove(dev->dev.name+loc_len+1, dev->dev.name,
-					sizeof(dev->dev.name)-loc_len-1);
-				memcpy(dev->dev.name, loc_code, loc_len);
-				dev->dev.name[loc_len] = ' ';
-				dev->dev.name[sizeof(dev->dev.name)-1] = '\0';
-			}
-		}
-	}
-}   
-DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, pcibios_name_device);
-#endif
 
 static void __init pSeries_request_regions(void)
 {

@@ -122,10 +122,6 @@ static int aty_set_dac_514(const struct fb_info *info,
 static int aty_var_to_pll_514(const struct fb_info *info, u32 vclk_per,
 			      u32 bpp, union aty_pll *pll)
 {
-	/*
-	 *  FIXME: use real calculations instead of using fixed values from the old
-	 *         driver
-	 */
 	static struct {
 		u32 limit;	/* pixlock rounding limit (arbitrary) */
 		u8 m;		/* (df<<6) | vco_div_count */

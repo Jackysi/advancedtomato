@@ -31,14 +31,15 @@
 #include <linux/seqlock.h>
 #include <linux/swap.h>
 #include <linux/bootmem.h>
+#include <linux/fs_struct.h>
+#include <linux/hardirq.h>
 #include "internal.h"
-
 
 int sysctl_vfs_cache_pressure __read_mostly = 100;
 EXPORT_SYMBOL_GPL(sysctl_vfs_cache_pressure);
 
  __cacheline_aligned_in_smp DEFINE_SPINLOCK(dcache_lock);
-static __cacheline_aligned_in_smp DEFINE_SEQLOCK(rename_lock);
+__cacheline_aligned_in_smp DEFINE_SEQLOCK(rename_lock);
 
 EXPORT_SYMBOL(dcache_lock);
 
@@ -60,7 +61,6 @@ static struct kmem_cache *dentry_cache __read_mostly;
 static unsigned int d_hash_mask __read_mostly;
 static unsigned int d_hash_shift __read_mostly;
 static struct hlist_head *dentry_hashtable __read_mostly;
-static LIST_HEAD(dentry_unused);
 
 /* Statistics gathering. */
 struct dentry_stat_t dentry_stat = {
@@ -69,6 +69,7 @@ struct dentry_stat_t dentry_stat = {
 
 static void __d_free(struct dentry *dentry)
 {
+	WARN_ON(!list_empty(&dentry->d_alias));
 	if (dname_external(dentry))
 		kfree(dentry->d_name.name);
 	kmem_cache_free(dentry_cache, dentry); 
@@ -89,7 +90,7 @@ static void d_free(struct dentry *dentry)
 	if (dentry->d_op && dentry->d_op->d_release)
 		dentry->d_op->d_release(dentry);
 	/* if dentry was never inserted into hash, immediate free is OK */
-	if (dentry->d_hash.pprev == NULL)
+	if (hlist_unhashed(&dentry->d_hash))
 		__d_free(dentry);
 	else
 		call_rcu(&dentry->d_u.d_rcu, d_callback);
@@ -98,9 +99,10 @@ static void d_free(struct dentry *dentry)
 /*
  * Release the dentry's inode, using the filesystem
  * d_iput() operation if defined.
- * Called with dcache_lock and per dentry lock held, drops both.
  */
 static void dentry_iput(struct dentry * dentry)
+	__releases(dentry->d_lock)
+	__releases(dcache_lock)
 {
 	struct inode *inode = dentry->d_inode;
 	if (inode) {
@@ -120,16 +122,52 @@ static void dentry_iput(struct dentry * dentry)
 	}
 }
 
+/*
+ * dentry_lru_(add|add_tail|del|del_init) must be called with dcache_lock held.
+ */
+static void dentry_lru_add(struct dentry *dentry)
+{
+	list_add(&dentry->d_lru, &dentry->d_sb->s_dentry_lru);
+	dentry->d_sb->s_nr_dentry_unused++;
+	dentry_stat.nr_unused++;
+}
+
+static void dentry_lru_add_tail(struct dentry *dentry)
+{
+	list_add_tail(&dentry->d_lru, &dentry->d_sb->s_dentry_lru);
+	dentry->d_sb->s_nr_dentry_unused++;
+	dentry_stat.nr_unused++;
+}
+
+static void dentry_lru_del(struct dentry *dentry)
+{
+	if (!list_empty(&dentry->d_lru)) {
+		list_del(&dentry->d_lru);
+		dentry->d_sb->s_nr_dentry_unused--;
+		dentry_stat.nr_unused--;
+	}
+}
+
+static void dentry_lru_del_init(struct dentry *dentry)
+{
+	if (likely(!list_empty(&dentry->d_lru))) {
+		list_del_init(&dentry->d_lru);
+		dentry->d_sb->s_nr_dentry_unused--;
+		dentry_stat.nr_unused--;
+	}
+}
+
 /**
  * d_kill - kill dentry and return parent
  * @dentry: dentry to kill
  *
- * Called with dcache_lock and d_lock, releases both.  The dentry must
- * already be unhashed and removed from the LRU.
+ * The dentry must already be unhashed and removed from the LRU.
  *
  * If this is the root of the dentry tree, return NULL.
  */
 static struct dentry *d_kill(struct dentry *dentry)
+	__releases(dentry->d_lock)
+	__releases(dcache_lock)
 {
 	struct dentry *parent;
 
@@ -137,9 +175,12 @@ static struct dentry *d_kill(struct dentry *dentry)
 	dentry_stat.nr_dentry--;	/* For d_free, below */
 	/*drops the locks, at that point nobody can reach this dentry */
 	dentry_iput(dentry);
-	parent = dentry->d_parent;
+	if (IS_ROOT(dentry))
+		parent = NULL;
+	else
+		parent = dentry->d_parent;
 	d_free(dentry);
-	return dentry == parent ? NULL : parent;
+	return parent;
 }
 
 /* 
@@ -201,8 +242,7 @@ repeat:
 		goto kill_it;
   	if (list_empty(&dentry->d_lru)) {
   		dentry->d_flags |= DCACHE_REFERENCED;
-  		list_add(&dentry->d_lru, &dentry_unused);
-  		dentry_stat.nr_unused++;
+		dentry_lru_add(dentry);
   	}
  	spin_unlock(&dentry->d_lock);
 	spin_unlock(&dcache_lock);
@@ -211,17 +251,13 @@ repeat:
 unhash_it:
 	__d_drop(dentry);
 kill_it:
-	/* If dentry was on d_lru list
-	 * delete it from there
-	 */
-	if (!list_empty(&dentry->d_lru)) {
-		list_del(&dentry->d_lru);
-		dentry_stat.nr_unused--;
-	}
+	/* if dentry was on the d_lru list delete it from there */
+	dentry_lru_del(dentry);
 	dentry = d_kill(dentry);
 	if (dentry)
 		goto repeat;
 }
+EXPORT_SYMBOL(dput);
 
 /**
  * d_invalidate - invalidate a dentry
@@ -279,16 +315,14 @@ int d_invalidate(struct dentry * dentry)
 	spin_unlock(&dcache_lock);
 	return 0;
 }
+EXPORT_SYMBOL(d_invalidate);
 
 /* This should be called _only_ with dcache_lock held */
 
 static inline struct dentry * __dget_locked(struct dentry *dentry)
 {
 	atomic_inc(&dentry->d_count);
-	if (!list_empty(&dentry->d_lru)) {
-		dentry_stat.nr_unused--;
-		list_del_init(&dentry->d_lru);
-	}
+	dentry_lru_del_init(dentry);
 	return dentry;
 }
 
@@ -296,6 +330,7 @@ struct dentry * dget_locked(struct dentry *dentry)
 {
 	return __dget_locked(dentry);
 }
+EXPORT_SYMBOL(dget_locked);
 
 /**
  * d_find_alias - grab a hashed alias of inode
@@ -352,6 +387,7 @@ struct dentry * d_find_alias(struct inode *inode)
 	}
 	return de;
 }
+EXPORT_SYMBOL(d_find_alias);
 
 /*
  *	Try to kill dentries associated with this inode.
@@ -376,25 +412,23 @@ restart:
 	}
 	spin_unlock(&dcache_lock);
 }
+EXPORT_SYMBOL(d_prune_aliases);
 
 /*
  * Throw away a dentry - free the inode, dput the parent.  This requires that
  * the LRU list has already been removed.
  *
- * If prune_parents is true, try to prune ancestors as well.
- *
- * Called with dcache_lock, drops it and then regains.
- * Called with dentry->d_lock held, drops it.
+ * Try to prune ancestors as well.  This is necessary to prevent
+ * quadratic behavior of shrink_dcache_parent(), but is also expected
+ * to be beneficial in reducing dentry cache fragmentation.
  */
-static void prune_one_dentry(struct dentry * dentry, int prune_parents)
+static void prune_one_dentry(struct dentry * dentry)
+	__releases(dentry->d_lock)
+	__releases(dcache_lock)
+	__acquires(dcache_lock)
 {
 	__d_drop(dentry);
 	dentry = d_kill(dentry);
-	if (!prune_parents) {
-		dput(dentry);
-		spin_lock(&dcache_lock);
-		return;
-	}
 
 	/*
 	 * Prune ancestors.  Locking is simpler than in dput(),
@@ -407,136 +441,168 @@ static void prune_one_dentry(struct dentry * dentry, int prune_parents)
 
 		if (dentry->d_op && dentry->d_op->d_delete)
 			dentry->d_op->d_delete(dentry);
-		if (!list_empty(&dentry->d_lru)) {
-			list_del(&dentry->d_lru);
-			dentry_stat.nr_unused--;
-		}
+		dentry_lru_del_init(dentry);
 		__d_drop(dentry);
 		dentry = d_kill(dentry);
 		spin_lock(&dcache_lock);
 	}
 }
 
-/**
- * prune_dcache - shrink the dcache
- * @count: number of entries to try and free
- * @sb: if given, ignore dentries for other superblocks
- *         which are being unmounted.
- * @prune_parents: if true, try to prune ancestors as well in one go
- *
- * Shrink the dcache. This is done when we need
- * more memory, or simply when we need to unmount
- * something (at which point we need to unuse
- * all dentries).
- *
- * This function may fail to free any resources if
- * all the dentries are in use.
+/*
+ * Shrink the dentry LRU on a given superblock.
+ * @sb   : superblock to shrink dentry LRU.
+ * @count: If count is NULL, we prune all dentries on superblock.
+ * @flags: If flags is non-zero, we need to do special processing based on
+ * which flags are set. This means we don't need to maintain multiple
+ * similar copies of this loop.
  */
- 
-static void prune_dcache(int count, struct super_block *sb, int prune_parents)
+static void __shrink_dcache_sb(struct super_block *sb, int *count, int flags)
 {
+	LIST_HEAD(referenced);
+	LIST_HEAD(tmp);
+	struct dentry *dentry;
+	int cnt = 0;
+
+	BUG_ON(!sb);
+	BUG_ON((flags & DCACHE_REFERENCED) && count == NULL);
 	spin_lock(&dcache_lock);
-	for (; count ; count--) {
-		struct dentry *dentry;
-		struct list_head *tmp;
-		struct rw_semaphore *s_umount;
+	if (count != NULL)
+		/* called from prune_dcache() and shrink_dcache_parent() */
+		cnt = *count;
+restart:
+	if (count == NULL)
+		list_splice_init(&sb->s_dentry_lru, &tmp);
+	else {
+		while (!list_empty(&sb->s_dentry_lru)) {
+			dentry = list_entry(sb->s_dentry_lru.prev,
+					struct dentry, d_lru);
+			BUG_ON(dentry->d_sb != sb);
 
-		cond_resched_lock(&dcache_lock);
-
-		tmp = dentry_unused.prev;
-		if (sb) {
-			/* Try to find a dentry for this sb, but don't try
-			 * too hard, if they aren't near the tail they will
-			 * be moved down again soon
+			spin_lock(&dentry->d_lock);
+			/*
+			 * If we are honouring the DCACHE_REFERENCED flag and
+			 * the dentry has this flag set, don't free it. Clear
+			 * the flag and put it back on the LRU.
 			 */
-			int skip = count;
-			while (skip && tmp != &dentry_unused &&
-			    list_entry(tmp, struct dentry, d_lru)->d_sb != sb) {
-				skip--;
-				tmp = tmp->prev;
+			if ((flags & DCACHE_REFERENCED)
+				&& (dentry->d_flags & DCACHE_REFERENCED)) {
+				dentry->d_flags &= ~DCACHE_REFERENCED;
+				list_move(&dentry->d_lru, &referenced);
+				spin_unlock(&dentry->d_lock);
+			} else {
+				list_move_tail(&dentry->d_lru, &tmp);
+				spin_unlock(&dentry->d_lock);
+				cnt--;
+				if (!cnt)
+					break;
 			}
+			cond_resched_lock(&dcache_lock);
 		}
-		if (tmp == &dentry_unused)
-			break;
-		list_del_init(tmp);
-		prefetch(dentry_unused.prev);
- 		dentry_stat.nr_unused--;
-		dentry = list_entry(tmp, struct dentry, d_lru);
-
- 		spin_lock(&dentry->d_lock);
+	}
+	while (!list_empty(&tmp)) {
+		dentry = list_entry(tmp.prev, struct dentry, d_lru);
+		dentry_lru_del_init(dentry);
+		spin_lock(&dentry->d_lock);
 		/*
 		 * We found an inuse dentry which was not removed from
-		 * dentry_unused because of laziness during lookup.  Do not free
-		 * it - just keep it off the dentry_unused list.
+		 * the LRU because of laziness during lookup.  Do not free
+		 * it - just keep it off the LRU list.
 		 */
- 		if (atomic_read(&dentry->d_count)) {
- 			spin_unlock(&dentry->d_lock);
+		if (atomic_read(&dentry->d_count)) {
+			spin_unlock(&dentry->d_lock);
 			continue;
 		}
-		/* If the dentry was recently referenced, don't free it. */
-		if (dentry->d_flags & DCACHE_REFERENCED) {
-			dentry->d_flags &= ~DCACHE_REFERENCED;
- 			list_add(&dentry->d_lru, &dentry_unused);
- 			dentry_stat.nr_unused++;
- 			spin_unlock(&dentry->d_lock);
-			continue;
-		}
-		/*
-		 * If the dentry is not DCACHED_REFERENCED, it is time
-		 * to remove it from the dcache, provided the super block is
-		 * NULL (which means we are trying to reclaim memory)
-		 * or this dentry belongs to the same super block that
-		 * we want to shrink.
-		 */
-		/*
-		 * If this dentry is for "my" filesystem, then I can prune it
-		 * without taking the s_umount lock (I already hold it).
-		 */
-		if (sb && dentry->d_sb == sb) {
-			prune_one_dentry(dentry, prune_parents);
-			continue;
-		}
-		/*
-		 * ...otherwise we need to be sure this filesystem isn't being
-		 * unmounted, otherwise we could race with
-		 * generic_shutdown_super(), and end up holding a reference to
-		 * an inode while the filesystem is unmounted.
-		 * So we try to get s_umount, and make sure s_root isn't NULL.
-		 * (Take a local copy of s_umount to avoid a use-after-free of
-		 * `dentry').
-		 */
-		s_umount = &dentry->d_sb->s_umount;
-		if (down_read_trylock(s_umount)) {
-			if (dentry->d_sb->s_root != NULL) {
-				prune_one_dentry(dentry, prune_parents);
-				up_read(s_umount);
-				continue;
-			}
-			up_read(s_umount);
-		}
-		spin_unlock(&dentry->d_lock);
-		/*
-		 * Insert dentry at the head of the list as inserting at the
-		 * tail leads to a cycle.
-		 */
- 		list_add(&dentry->d_lru, &dentry_unused);
-		dentry_stat.nr_unused++;
+		prune_one_dentry(dentry);
+		/* dentry->d_lock was dropped in prune_one_dentry() */
+		cond_resched_lock(&dcache_lock);
 	}
+	if (count == NULL && !list_empty(&sb->s_dentry_lru))
+		goto restart;
+	if (count != NULL)
+		*count = cnt;
+	if (!list_empty(&referenced))
+		list_splice(&referenced, &sb->s_dentry_lru);
 	spin_unlock(&dcache_lock);
 }
 
-/*
- * Shrink the dcache for the specified super block.
- * This allows us to unmount a device without disturbing
- * the dcache for the other devices.
+/**
+ * prune_dcache - shrink the dcache
+ * @count: number of entries to try to free
  *
- * This implementation makes just two traversals of the
- * unused list.  On the first pass we move the selected
- * dentries to the most recent end, and on the second
- * pass we free them.  The second pass must restart after
- * each dput(), but since the target dentries are all at
- * the end, it's really just a single traversal.
+ * Shrink the dcache. This is done when we need more memory, or simply when we
+ * need to unmount something (at which point we need to unuse all dentries).
+ *
+ * This function may fail to free any resources if all the dentries are in use.
  */
+static void prune_dcache(int count)
+{
+	struct super_block *sb, *p = NULL;
+	int w_count;
+	int unused = dentry_stat.nr_unused;
+	int prune_ratio;
+	int pruned;
+
+	if (unused == 0 || count == 0)
+		return;
+	spin_lock(&dcache_lock);
+	if (count >= unused)
+		prune_ratio = 1;
+	else
+		prune_ratio = unused / count;
+	spin_lock(&sb_lock);
+	list_for_each_entry(sb, &super_blocks, s_list) {
+		if (list_empty(&sb->s_instances))
+			continue;
+		if (sb->s_nr_dentry_unused == 0)
+			continue;
+		sb->s_count++;
+		/* Now, we reclaim unused dentrins with fairness.
+		 * We reclaim them same percentage from each superblock.
+		 * We calculate number of dentries to scan on this sb
+		 * as follows, but the implementation is arranged to avoid
+		 * overflows:
+		 * number of dentries to scan on this sb =
+		 * count * (number of dentries on this sb /
+		 * number of dentries in the machine)
+		 */
+		spin_unlock(&sb_lock);
+		if (prune_ratio != 1)
+			w_count = (sb->s_nr_dentry_unused / prune_ratio) + 1;
+		else
+			w_count = sb->s_nr_dentry_unused;
+		pruned = w_count;
+		/*
+		 * We need to be sure this filesystem isn't being unmounted,
+		 * otherwise we could race with generic_shutdown_super(), and
+		 * end up holding a reference to an inode while the filesystem
+		 * is unmounted.  So we try to get s_umount, and make sure
+		 * s_root isn't NULL.
+		 */
+		if (down_read_trylock(&sb->s_umount)) {
+			if ((sb->s_root != NULL) &&
+			    (!list_empty(&sb->s_dentry_lru))) {
+				spin_unlock(&dcache_lock);
+				__shrink_dcache_sb(sb, &w_count,
+						DCACHE_REFERENCED);
+				pruned -= w_count;
+				spin_lock(&dcache_lock);
+			}
+			up_read(&sb->s_umount);
+		}
+		spin_lock(&sb_lock);
+		if (p)
+			__put_super(p);
+		count -= pruned;
+		p = sb;
+		/* more work left to do? */
+		if (count <= 0)
+			break;
+	}
+	if (p)
+		__put_super(p);
+	spin_unlock(&sb_lock);
+	spin_unlock(&dcache_lock);
+}
 
 /**
  * shrink_dcache_sb - shrink dcache for a superblock
@@ -546,45 +612,11 @@ static void prune_dcache(int count, struct super_block *sb, int prune_parents)
  * is used to free the dcache before unmounting a file
  * system
  */
-
 void shrink_dcache_sb(struct super_block * sb)
 {
-	struct list_head *tmp, *next;
-	struct dentry *dentry;
-
-	/*
-	 * Pass one ... move the dentries for the specified
-	 * superblock to the most recent end of the unused list.
-	 */
-	spin_lock(&dcache_lock);
-	list_for_each_safe(tmp, next, &dentry_unused) {
-		dentry = list_entry(tmp, struct dentry, d_lru);
-		if (dentry->d_sb != sb)
-			continue;
-		list_move(tmp, &dentry_unused);
-	}
-
-	/*
-	 * Pass two ... free the dentries for this superblock.
-	 */
-repeat:
-	list_for_each_safe(tmp, next, &dentry_unused) {
-		dentry = list_entry(tmp, struct dentry, d_lru);
-		if (dentry->d_sb != sb)
-			continue;
-		dentry_stat.nr_unused--;
-		list_del_init(tmp);
-		spin_lock(&dentry->d_lock);
-		if (atomic_read(&dentry->d_count)) {
-			spin_unlock(&dentry->d_lock);
-			continue;
-		}
-		prune_one_dentry(dentry, 1);
-		cond_resched_lock(&dcache_lock);
-		goto repeat;
-	}
-	spin_unlock(&dcache_lock);
+	__shrink_dcache_sb(sb, NULL, 0);
 }
+EXPORT_SYMBOL(shrink_dcache_sb);
 
 /*
  * destroy a single subtree of dentries for unmount
@@ -600,10 +632,7 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
 
 	/* detach this root from the system */
 	spin_lock(&dcache_lock);
-	if (!list_empty(&dentry->d_lru)) {
-		dentry_stat.nr_unused--;
-		list_del_init(&dentry->d_lru);
-	}
+	dentry_lru_del_init(dentry);
 	__d_drop(dentry);
 	spin_unlock(&dcache_lock);
 
@@ -617,11 +646,7 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
 			spin_lock(&dcache_lock);
 			list_for_each_entry(loop, &dentry->d_subdirs,
 					    d_u.d_child) {
-				if (!list_empty(&loop->d_lru)) {
-					dentry_stat.nr_unused--;
-					list_del_init(&loop->d_lru);
-				}
-
+				dentry_lru_del_init(loop);
 				__d_drop(loop);
 				cond_resched_lock(&dcache_lock);
 			}
@@ -652,11 +677,12 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
 				BUG();
 			}
 
-			parent = dentry->d_parent;
-			if (parent == dentry)
+			if (IS_ROOT(dentry))
 				parent = NULL;
-			else
+			else {
+				parent = dentry->d_parent;
 				atomic_dec(&parent->d_count);
+			}
 
 			list_del(&dentry->d_u.d_child);
 			detached++;
@@ -773,6 +799,7 @@ positive:
 	spin_unlock(&dcache_lock);
 	return 1;
 }
+EXPORT_SYMBOL(have_submounts);
 
 /*
  * Search the dentry child list for the specified parent,
@@ -803,17 +830,13 @@ resume:
 		struct dentry *dentry = list_entry(tmp, struct dentry, d_u.d_child);
 		next = tmp->next;
 
-		if (!list_empty(&dentry->d_lru)) {
-			dentry_stat.nr_unused--;
-			list_del_init(&dentry->d_lru);
-		}
+		dentry_lru_del_init(dentry);
 		/* 
 		 * move only zero ref count dentries to the end 
 		 * of the unused list for prune_dcache
 		 */
 		if (!atomic_read(&dentry->d_count)) {
-			list_add_tail(&dentry->d_lru, &dentry_unused);
-			dentry_stat.nr_unused++;
+			dentry_lru_add_tail(dentry);
 			found++;
 		}
 
@@ -855,11 +878,13 @@ out:
  
 void shrink_dcache_parent(struct dentry * parent)
 {
+	struct super_block *sb = parent->d_sb;
 	int found;
 
 	while ((found = select_parent(parent)) != 0)
-		prune_dcache(found, parent->d_sb, 1);
+		__shrink_dcache_sb(sb, &found, 0);
 }
+EXPORT_SYMBOL(shrink_dcache_parent);
 
 /*
  * Scan `nr' dentries and return the number which remain.
@@ -873,15 +898,20 @@ void shrink_dcache_parent(struct dentry * parent)
  *
  * In this case we return -1 to tell the caller that we baled.
  */
-static int shrink_dcache_memory(int nr, gfp_t gfp_mask)
+static int shrink_dcache_memory(struct shrinker *shrink, int nr, gfp_t gfp_mask)
 {
 	if (nr) {
 		if (!(gfp_mask & __GFP_FS))
 			return -1;
-		prune_dcache(nr, NULL, 1);
+		prune_dcache(nr);
 	}
 	return (dentry_stat.nr_unused / 100) * sysctl_vfs_cache_pressure;
 }
+
+static struct shrinker dcache_shrinker = {
+	.shrink = shrink_dcache_memory,
+	.seeks = DEFAULT_SEEKS,
+};
 
 /**
  * d_alloc	-	allocate a dcache entry
@@ -898,7 +928,7 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
 	struct dentry *dentry;
 	char *dname;
 
-	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL); 
+	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL);
 	if (!dentry)
 		return NULL;
 
@@ -927,9 +957,6 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
 	dentry->d_op = NULL;
 	dentry->d_fsdata = NULL;
 	dentry->d_mounted = 0;
-#ifdef CONFIG_PROFILING
-	dentry->d_cookie = NULL;
-#endif
 	INIT_HLIST_NODE(&dentry->d_hash);
 	INIT_LIST_HEAD(&dentry->d_lru);
 	INIT_LIST_HEAD(&dentry->d_subdirs);
@@ -950,6 +977,7 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
 
 	return dentry;
 }
+EXPORT_SYMBOL(d_alloc);
 
 struct dentry *d_alloc_name(struct dentry *parent, const char *name)
 {
@@ -959,6 +987,16 @@ struct dentry *d_alloc_name(struct dentry *parent, const char *name)
 	q.len = strlen(name);
 	q.hash = full_name_hash(q.name, q.len);
 	return d_alloc(parent, &q);
+}
+EXPORT_SYMBOL(d_alloc_name);
+
+/* the caller must hold dcache_lock */
+static void __d_instantiate(struct dentry *dentry, struct inode *inode)
+{
+	if (inode)
+		list_add(&dentry->d_alias, &inode->i_dentry);
+	dentry->d_inode = inode;
+	fsnotify_d_instantiate(dentry, inode);
 }
 
 /**
@@ -980,13 +1018,11 @@ void d_instantiate(struct dentry *entry, struct inode * inode)
 {
 	BUG_ON(!list_empty(&entry->d_alias));
 	spin_lock(&dcache_lock);
-	if (inode)
-		list_add(&entry->d_alias, &inode->i_dentry);
-	entry->d_inode = inode;
-	fsnotify_d_instantiate(entry, inode);
+	__d_instantiate(entry, inode);
 	spin_unlock(&dcache_lock);
 	security_d_instantiate(entry, inode);
 }
+EXPORT_SYMBOL(d_instantiate);
 
 /**
  * d_instantiate_unique - instantiate a non-aliased dentry
@@ -1013,7 +1049,7 @@ static struct dentry *__d_instantiate_unique(struct dentry *entry,
 	unsigned int hash = entry->d_name.hash;
 
 	if (!inode) {
-		entry->d_inode = NULL;
+		__d_instantiate(entry, NULL);
 		return NULL;
 	}
 
@@ -1032,9 +1068,7 @@ static struct dentry *__d_instantiate_unique(struct dentry *entry,
 		return alias;
 	}
 
-	list_add(&entry->d_alias, &inode->i_dentry);
-	entry->d_inode = inode;
-	fsnotify_d_instantiate(entry, inode);
+	__d_instantiate(entry, inode);
 	return NULL;
 }
 
@@ -1085,6 +1119,7 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 	}
 	return res;
 }
+EXPORT_SYMBOL(d_alloc_root);
 
 static inline struct hlist_head *d_hash(struct dentry *parent,
 					unsigned long hash)
@@ -1095,69 +1130,71 @@ static inline struct hlist_head *d_hash(struct dentry *parent,
 }
 
 /**
- * d_alloc_anon - allocate an anonymous dentry
+ * d_obtain_alias - find or allocate a dentry for a given inode
  * @inode: inode to allocate the dentry for
  *
- * This is similar to d_alloc_root.  It is used by filesystems when
- * creating a dentry for a given inode, often in the process of 
- * mapping a filehandle to a dentry.  The returned dentry may be
- * anonymous, or may have a full name (if the inode was already
- * in the cache).  The file system may need to make further
- * efforts to connect this dentry into the dcache properly.
+ * Obtain a dentry for an inode resulting from NFS filehandle conversion or
+ * similar open by handle operations.  The returned dentry may be anonymous,
+ * or may have a full name (if the inode was already in the cache).
  *
- * When called on a directory inode, we must ensure that
- * the inode only ever has one dentry.  If a dentry is
- * found, that is returned instead of allocating a new one.
+ * When called on a directory inode, we must ensure that the inode only ever
+ * has one dentry.  If a dentry is found, that is returned instead of
+ * allocating a new one.
  *
  * On successful return, the reference to the inode has been transferred
- * to the dentry.  If %NULL is returned (indicating kmalloc failure),
- * the reference on the inode has not been released.
+ * to the dentry.  In case of an error the reference on the inode is released.
+ * To make it easier to use in export operations a %NULL or IS_ERR inode may
+ * be passed in and will be the error will be propagate to the return value,
+ * with a %NULL @inode replaced by ERR_PTR(-ESTALE).
  */
-
-struct dentry * d_alloc_anon(struct inode *inode)
+struct dentry *d_obtain_alias(struct inode *inode)
 {
 	static const struct qstr anonstring = { .name = "" };
 	struct dentry *tmp;
 	struct dentry *res;
 
-	if ((res = d_find_alias(inode))) {
-		iput(inode);
-		return res;
-	}
+	if (!inode)
+		return ERR_PTR(-ESTALE);
+	if (IS_ERR(inode))
+		return ERR_CAST(inode);
+
+	res = d_find_alias(inode);
+	if (res)
+		goto out_iput;
 
 	tmp = d_alloc(NULL, &anonstring);
-	if (!tmp)
-		return NULL;
-
+	if (!tmp) {
+		res = ERR_PTR(-ENOMEM);
+		goto out_iput;
+	}
 	tmp->d_parent = tmp; /* make sure dput doesn't croak */
-	
+
 	spin_lock(&dcache_lock);
 	res = __d_find_alias(inode, 0);
-	if (!res) {
-		/* attach a disconnected dentry */
-		res = tmp;
-		tmp = NULL;
-		spin_lock(&res->d_lock);
-		res->d_sb = inode->i_sb;
-		res->d_parent = res;
-		res->d_inode = inode;
-		res->d_flags |= DCACHE_DISCONNECTED;
-		res->d_flags &= ~DCACHE_UNHASHED;
-		list_add(&res->d_alias, &inode->i_dentry);
-		hlist_add_head(&res->d_hash, &inode->i_sb->s_anon);
-		spin_unlock(&res->d_lock);
-
-		inode = NULL; /* don't drop reference */
-	}
-	spin_unlock(&dcache_lock);
-
-	if (inode)
-		iput(inode);
-	if (tmp)
+	if (res) {
+		spin_unlock(&dcache_lock);
 		dput(tmp);
+		goto out_iput;
+	}
+
+	/* attach a disconnected dentry */
+	spin_lock(&tmp->d_lock);
+	tmp->d_sb = inode->i_sb;
+	tmp->d_inode = inode;
+	tmp->d_flags |= DCACHE_DISCONNECTED;
+	tmp->d_flags &= ~DCACHE_UNHASHED;
+	list_add(&tmp->d_alias, &inode->i_dentry);
+	hlist_add_head(&tmp->d_hash, &inode->i_sb->s_anon);
+	spin_unlock(&tmp->d_lock);
+
+	spin_unlock(&dcache_lock);
+	return tmp;
+
+ out_iput:
+	iput(inode);
 	return res;
 }
-
+EXPORT_SYMBOL(d_obtain_alias);
 
 /**
  * d_splice_alias - splice a disconnected dentry into the tree if one exists
@@ -1184,17 +1221,13 @@ struct dentry *d_splice_alias(struct inode *inode, struct dentry *dentry)
 		new = __d_find_alias(inode, 1);
 		if (new) {
 			BUG_ON(!(new->d_flags & DCACHE_DISCONNECTED));
-			fsnotify_d_instantiate(new, inode);
 			spin_unlock(&dcache_lock);
 			security_d_instantiate(new, inode);
-			d_rehash(dentry);
 			d_move(new, dentry);
 			iput(inode);
 		} else {
-			/* d_instantiate takes dcache_lock, so we do it by hand */
-			list_add(&dentry->d_alias, &inode->i_dentry);
-			dentry->d_inode = inode;
-			fsnotify_d_instantiate(dentry, inode);
+			/* already taking dcache_lock, so d_add() by hand */
+			__d_instantiate(dentry, inode);
 			spin_unlock(&dcache_lock);
 			security_d_instantiate(dentry, inode);
 			d_rehash(dentry);
@@ -1203,37 +1236,109 @@ struct dentry *d_splice_alias(struct inode *inode, struct dentry *dentry)
 		d_add(dentry, inode);
 	return new;
 }
+EXPORT_SYMBOL(d_splice_alias);
 
+/**
+ * d_add_ci - lookup or allocate new dentry with case-exact name
+ * @inode:  the inode case-insensitive lookup has found
+ * @dentry: the negative dentry that was passed to the parent's lookup func
+ * @name:   the case-exact name to be associated with the returned dentry
+ *
+ * This is to avoid filling the dcache with case-insensitive names to the
+ * same inode, only the actual correct case is stored in the dcache for
+ * case-insensitive filesystems.
+ *
+ * For a case-insensitive lookup match and if the the case-exact dentry
+ * already exists in in the dcache, use it and return it.
+ *
+ * If no entry exists with the exact case name, allocate new dentry with
+ * the exact case, and return the spliced entry.
+ */
+struct dentry *d_add_ci(struct dentry *dentry, struct inode *inode,
+			struct qstr *name)
+{
+	int error;
+	struct dentry *found;
+	struct dentry *new;
+
+	/*
+	 * First check if a dentry matching the name already exists,
+	 * if not go ahead and create it now.
+	 */
+	found = d_hash_and_lookup(dentry->d_parent, name);
+	if (!found) {
+		new = d_alloc(dentry->d_parent, name);
+		if (!new) {
+			error = -ENOMEM;
+			goto err_out;
+		}
+
+		found = d_splice_alias(inode, new);
+		if (found) {
+			dput(new);
+			return found;
+		}
+		return new;
+	}
+
+	/*
+	 * If a matching dentry exists, and it's not negative use it.
+	 *
+	 * Decrement the reference count to balance the iget() done
+	 * earlier on.
+	 */
+	if (found->d_inode) {
+		if (unlikely(found->d_inode != inode)) {
+			/* This can't happen because bad inodes are unhashed. */
+			BUG_ON(!is_bad_inode(inode));
+			BUG_ON(!is_bad_inode(found->d_inode));
+		}
+		iput(inode);
+		return found;
+	}
+
+	/*
+	 * Negative dentry: instantiate it unless the inode is a directory and
+	 * already has a dentry.
+	 */
+	spin_lock(&dcache_lock);
+	if (!S_ISDIR(inode->i_mode) || list_empty(&inode->i_dentry)) {
+		__d_instantiate(found, inode);
+		spin_unlock(&dcache_lock);
+		security_d_instantiate(found, inode);
+		return found;
+	}
+
+	/*
+	 * In case a directory already has a (disconnected) entry grab a
+	 * reference to it, move it in place and use it.
+	 */
+	new = list_entry(inode->i_dentry.next, struct dentry, d_alias);
+	dget_locked(new);
+	spin_unlock(&dcache_lock);
+	security_d_instantiate(found, inode);
+	d_move(new, found);
+	iput(inode);
+	dput(found);
+	return new;
+
+err_out:
+	iput(inode);
+	return ERR_PTR(error);
+}
+EXPORT_SYMBOL(d_add_ci);
 
 /**
  * d_lookup - search for a dentry
  * @parent: parent dentry
  * @name: qstr of name we wish to find
+ * Returns: dentry, or NULL
  *
- * Searches the children of the parent dentry for the name in question. If
- * the dentry is found its reference count is incremented and the dentry
- * is returned. The caller must use d_put to free the entry when it has
- * finished using it. %NULL is returned on failure.
- *
- * __d_lookup is dcache_lock free. The hash list is protected using RCU.
- * Memory barriers are used while updating and doing lockless traversal. 
- * To avoid races with d_move while rename is happening, d_lock is used.
- *
- * Overflows in memcmp(), while d_move, are avoided by keeping the length
- * and name pointer in one structure pointed by d_qstr.
- *
- * rcu_read_lock() and rcu_read_unlock() are used to disable preemption while
- * lookup is going on.
- *
- * dentry_unused list is not updated even if lookup finds the required dentry
- * in there. It is updated in places such as prune_dcache, shrink_dcache_sb,
- * select_parent and __dget_locked. This laziness saves lookup from dcache_lock
- * acquisition.
- *
- * d_lookup() is protected against the concurrent renames in some unrelated
- * directory using the seqlockt_t rename_lock.
+ * d_lookup searches the children of the parent dentry for the name in
+ * question. If the dentry is found its reference count is incremented and the
+ * dentry is returned. The caller must use dput to free the entry when it has
+ * finished using it. %NULL is returned if the dentry does not exist.
  */
-
 struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 {
 	struct dentry * dentry = NULL;
@@ -1247,7 +1352,23 @@ struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 	} while (read_seqretry(&rename_lock, seq));
 	return dentry;
 }
+EXPORT_SYMBOL(d_lookup);
 
+/*
+ * __d_lookup - search for a dentry (racy)
+ * @parent: parent dentry
+ * @name: qstr of name we wish to find
+ * Returns: dentry, or NULL
+ *
+ * __d_lookup is like d_lookup, however it may (rarely) return a
+ * false-negative result due to unrelated rename activity.
+ *
+ * __d_lookup is slightly faster by avoiding rename_lock read seqlock,
+ * however it must be used carefully, eg. with a following d_lookup in
+ * the case of failure.
+ *
+ * __d_lookup callers must be commented.
+ */
 struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 {
 	unsigned int len = name->len;
@@ -1258,6 +1379,19 @@ struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 	struct hlist_node *node;
 	struct dentry *dentry;
 
+	/*
+	 * The hash list is protected using RCU.
+	 *
+	 * Take d_lock when comparing a candidate dentry, to avoid races
+	 * with d_move().
+	 *
+	 * It is possible that concurrent renames can mess up our list
+	 * walk here and result in missing our dentry, resulting in the
+	 * false-negative result. d_lookup() protects against concurrent
+	 * renames using rename_lock seqlock.
+	 *
+	 * See Documentation/vfs/dcache-locking.txt for more details.
+	 */
 	rcu_read_lock();
 	
 	hlist_for_each_entry_rcu(dentry, node, head, d_hash) {
@@ -1272,10 +1406,14 @@ struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 
 		/*
 		 * Recheck the dentry after taking the lock - d_move may have
-		 * changed things.  Don't bother checking the hash because we're
-		 * about to compare the whole name anyway.
+		 * changed things. Don't bother checking the hash because
+		 * we're about to compare the whole name anyway.
 		 */
 		if (dentry->d_parent != parent)
+			goto next;
+
+		/* non-existing due to RCU? */
+		if (d_unhashed(dentry))
 			goto next;
 
 		/*
@@ -1293,10 +1431,8 @@ struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 				goto next;
 		}
 
-		if (!d_unhashed(dentry)) {
-			atomic_inc(&dentry->d_count);
-			found = dentry;
-		}
+		atomic_inc(&dentry->d_count);
+		found = dentry;
 		spin_unlock(&dentry->d_lock);
 		break;
 next:
@@ -1337,8 +1473,6 @@ out:
  * d_validate - verify dentry provided from insecure source
  * @dentry: The dentry alleged to be valid child of @dparent
  * @dparent: The parent dentry (known to be valid)
- * @hash: Hash of the dentry
- * @len: Length of the name
  *
  * An insecure source has sent us a dentry, here we verify it and dget() it.
  * This is used by ncpfs in its readdir implementation.
@@ -1373,6 +1507,7 @@ int d_validate(struct dentry *dentry, struct dentry *dparent)
 out:
 	return 0;
 }
+EXPORT_SYMBOL(d_validate);
 
 /*
  * When a file is deleted, we have two options:
@@ -1405,11 +1540,9 @@ void d_delete(struct dentry * dentry)
 	spin_lock(&dentry->d_lock);
 	isdir = S_ISDIR(dentry->d_inode->i_mode);
 	if (atomic_read(&dentry->d_count) == 1) {
+		dentry->d_flags &= ~DCACHE_CANT_MOUNT;
 		dentry_iput(dentry);
 		fsnotify_nameremove(dentry, isdir);
-
-		/* remove this and other inotify debug checks after 2.6.18 */
-		dentry->d_flags &= ~DCACHE_INOTIFY_PARENT_WATCHED;
 		return;
 	}
 
@@ -1421,6 +1554,7 @@ void d_delete(struct dentry * dentry)
 
 	fsnotify_nameremove(dentry, isdir);
 }
+EXPORT_SYMBOL(d_delete);
 
 static void __d_rehash(struct dentry * entry, struct hlist_head *list)
 {
@@ -1449,10 +1583,7 @@ void d_rehash(struct dentry * entry)
 	spin_unlock(&entry->d_lock);
 	spin_unlock(&dcache_lock);
 }
-
-#define do_switch(x,y) do { \
-	__typeof__ (x) __tmp = x; \
-	x = y; y = __tmp; } while (0)
+EXPORT_SYMBOL(d_rehash);
 
 /*
  * When switching names, the actual string doesn't strictly have to
@@ -1472,12 +1603,14 @@ static void switch_names(struct dentry *dentry, struct dentry *target)
 			/*
 			 * Both external: swap the pointers
 			 */
-			do_switch(target->d_name.name, dentry->d_name.name);
+			swap(target->d_name.name, dentry->d_name.name);
 		} else {
 			/*
 			 * dentry:internal, target:external.  Steal target's
 			 * storage and make target internal.
 			 */
+			memcpy(target->d_iname, dentry->d_name.name,
+					dentry->d_name.len + 1);
 			dentry->d_name.name = target->d_name.name;
 			target->d_name.name = target->d_iname;
 		}
@@ -1497,8 +1630,11 @@ static void switch_names(struct dentry *dentry, struct dentry *target)
 			 */
 			memcpy(dentry->d_iname, target->d_name.name,
 					target->d_name.len + 1);
+			dentry->d_name.len = target->d_name.len;
+			return;
 		}
 	}
+	swap(dentry->d_name.len, target->d_name.len);
 }
 
 /*
@@ -1509,8 +1645,8 @@ static void switch_names(struct dentry *dentry, struct dentry *target)
  * This forceful removal will result in ugly /proc output if
  * somebody holds a file open that got deleted due to a rename.
  * We could be nicer about the deleted file, and let it show
- * up under the name it got deleted rather than the name that
- * deleted it.
+ * up under the name it had before it was deleted rather than
+ * under the original name of the file that was moved on top of it.
  */
  
 /*
@@ -1529,9 +1665,6 @@ static void d_move_locked(struct dentry * dentry, struct dentry * target)
 		printk(KERN_WARNING "VFS: moving negative dcache entry\n");
 
 	write_seqlock(&rename_lock);
-	/*
-	 * XXXX: do we really need to take target->d_lock?
-	 */
 	if (target < dentry) {
 		spin_lock(&target->d_lock);
 		spin_lock_nested(&dentry->d_lock, DENTRY_D_LOCK_NESTED);
@@ -1541,7 +1674,7 @@ static void d_move_locked(struct dentry * dentry, struct dentry * target)
 	}
 
 	/* Move the dentry to the target hash queue, if on different bucket */
-	if (dentry->d_flags & DCACHE_UNHASHED)
+	if (d_unhashed(dentry))
 		goto already_unhashed;
 
 	hlist_del_rcu(&dentry->d_hash);
@@ -1558,8 +1691,7 @@ already_unhashed:
 
 	/* Switch the names.. */
 	switch_names(dentry, target);
-	do_switch(dentry->d_name.len, target->d_name.len);
-	do_switch(dentry->d_name.hash, target->d_name.hash);
+	swap(dentry->d_name.hash, target->d_name.hash);
 
 	/* ... and switch the parents */
 	if (IS_ROOT(dentry)) {
@@ -1567,7 +1699,7 @@ already_unhashed:
 		target->d_parent = target;
 		INIT_LIST_HEAD(&target->d_u.d_child);
 	} else {
-		do_switch(dentry->d_parent, target->d_parent);
+		swap(dentry->d_parent, target->d_parent);
 
 		/* And add them back to the (new) parent lists */
 		list_add(&target->d_u.d_child, &target->d_parent->d_subdirs);
@@ -1595,19 +1727,25 @@ void d_move(struct dentry * dentry, struct dentry * target)
 	d_move_locked(dentry, target);
 	spin_unlock(&dcache_lock);
 }
+EXPORT_SYMBOL(d_move);
 
-/*
- * Helper that returns 1 if p1 is a parent of p2, else 0
+/**
+ * d_ancestor - search for an ancestor
+ * @p1: ancestor dentry
+ * @p2: child dentry
+ *
+ * Returns the ancestor dentry of p2 which is a child of p1, if p1 is
+ * an ancestor of p2, else NULL.
  */
-static int d_isparent(struct dentry *p1, struct dentry *p2)
+struct dentry *d_ancestor(struct dentry *p1, struct dentry *p2)
 {
 	struct dentry *p;
 
-	for (p = p2; p->d_parent != p; p = p->d_parent) {
+	for (p = p2; !IS_ROOT(p); p = p->d_parent) {
 		if (p->d_parent == p1)
-			return 1;
+			return p;
 	}
-	return 0;
+	return NULL;
 }
 
 /*
@@ -1618,10 +1756,9 @@ static int d_isparent(struct dentry *p1, struct dentry *p2)
  *
  * Note: If ever the locking in lock_rename() changes, then please
  * remember to update this too...
- *
- * On return, dcache_lock will have been unlocked.
  */
 static struct dentry *__d_unalias(struct dentry *dentry, struct dentry *alias)
+	__releases(dcache_lock)
 {
 	struct mutex *m1 = NULL, *m2 = NULL;
 	struct dentry *ret;
@@ -1632,7 +1769,7 @@ static struct dentry *__d_unalias(struct dentry *dentry, struct dentry *alias)
 
 	/* Check for loops */
 	ret = ERR_PTR(-ELOOP);
-	if (d_isparent(alias, dentry))
+	if (d_ancestor(alias, dentry))
 		goto out_err;
 
 	/* See lock_rename() */
@@ -1664,8 +1801,7 @@ static void __d_materialise_dentry(struct dentry *dentry, struct dentry *anon)
 	struct dentry *dparent, *aparent;
 
 	switch_names(dentry, anon);
-	do_switch(dentry->d_name.len, anon->d_name.len);
-	do_switch(dentry->d_name.hash, anon->d_name.hash);
+	swap(dentry->d_name.hash, anon->d_name.hash);
 
 	dparent = dentry->d_parent;
 	aparent = anon->d_parent;
@@ -1705,7 +1841,7 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 
 	if (!inode) {
 		actual = dentry;
-		dentry->d_inode = NULL;
+		__d_instantiate(dentry, NULL);
 		goto found_lock;
 	}
 
@@ -1757,100 +1893,166 @@ out_nolock:
 shouldnt_be_hashed:
 	spin_unlock(&dcache_lock);
 	BUG();
-	goto shouldnt_be_hashed;
+}
+EXPORT_SYMBOL_GPL(d_materialise_unique);
+
+static int prepend(char **buffer, int *buflen, const char *str, int namelen)
+{
+	*buflen -= namelen;
+	if (*buflen < 0)
+		return -ENAMETOOLONG;
+	*buffer -= namelen;
+	memcpy(*buffer, str, namelen);
+	return 0;
+}
+
+static int prepend_name(char **buffer, int *buflen, struct qstr *name)
+{
+	return prepend(buffer, buflen, name->name, name->len);
+}
+
+/**
+ * Prepend path string to a buffer
+ *
+ * @path: the dentry/vfsmount to report
+ * @root: root vfsmnt/dentry (may be modified by this function)
+ * @buffer: pointer to the end of the buffer
+ * @buflen: pointer to buffer length
+ *
+ * Caller holds the dcache_lock.
+ *
+ * If path is not reachable from the supplied root, then the value of
+ * root is changed (without modifying refcounts).
+ */
+static int prepend_path(const struct path *path, struct path *root,
+			char **buffer, int *buflen)
+{
+	struct dentry *dentry = path->dentry;
+	struct vfsmount *vfsmnt = path->mnt;
+	bool slash = false;
+	int error = 0;
+
+	br_read_lock(vfsmount_lock);
+	while (dentry != root->dentry || vfsmnt != root->mnt) {
+		struct dentry * parent;
+
+		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
+			/* Global root? */
+			if (vfsmnt->mnt_parent == vfsmnt) {
+				goto global_root;
+			}
+			dentry = vfsmnt->mnt_mountpoint;
+			vfsmnt = vfsmnt->mnt_parent;
+			continue;
+		}
+		parent = dentry->d_parent;
+		prefetch(parent);
+		error = prepend_name(buffer, buflen, &dentry->d_name);
+		if (!error)
+			error = prepend(buffer, buflen, "/", 1);
+		if (error)
+			break;
+
+		slash = true;
+		dentry = parent;
+	}
+
+out:
+	if (!error && !slash)
+		error = prepend(buffer, buflen, "/", 1);
+
+	br_read_unlock(vfsmount_lock);
+	return error;
+
+global_root:
+	/*
+	 * Filesystems needing to implement special "root names"
+	 * should do so with ->d_dname()
+	 */
+	if (IS_ROOT(dentry) &&
+	    (dentry->d_name.len != 1 || dentry->d_name.name[0] != '/')) {
+		WARN(1, "Root dentry has weird name <%.*s>\n",
+		     (int) dentry->d_name.len, dentry->d_name.name);
+	}
+	root->mnt = vfsmnt;
+	root->dentry = dentry;
+	goto out;
+}
+
+/**
+ * __d_path - return the path of a dentry
+ * @path: the dentry/vfsmount to report
+ * @root: root vfsmnt/dentry (may be modified by this function)
+ * @buf: buffer to return value in
+ * @buflen: buffer length
+ *
+ * Convert a dentry into an ASCII path name.
+ *
+ * Returns a pointer into the buffer or an error code if the
+ * path was too long.
+ *
+ * "buflen" should be positive. Caller holds the dcache_lock.
+ *
+ * If path is not reachable from the supplied root, then the value of
+ * root is changed (without modifying refcounts).
+ */
+char *__d_path(const struct path *path, struct path *root,
+	       char *buf, int buflen)
+{
+	char *res = buf + buflen;
+	int error;
+
+	prepend(&res, &buflen, "\0", 1);
+	error = prepend_path(path, root, &res, &buflen);
+	if (error)
+		return ERR_PTR(error);
+
+	return res;
+}
+
+/*
+ * same as __d_path but appends "(deleted)" for unlinked files.
+ */
+static int path_with_deleted(const struct path *path, struct path *root,
+				 char **buf, int *buflen)
+{
+	prepend(buf, buflen, "\0", 1);
+	if (d_unlinked(path->dentry)) {
+		int error = prepend(buf, buflen, " (deleted)", 10);
+		if (error)
+			return error;
+	}
+
+	return prepend_path(path, root, buf, buflen);
+}
+
+static int prepend_unreachable(char **buffer, int *buflen)
+{
+	return prepend(buffer, buflen, "(unreachable)", 13);
 }
 
 /**
  * d_path - return the path of a dentry
- * @dentry: dentry to report
- * @vfsmnt: vfsmnt to which the dentry belongs
- * @root: root dentry
- * @rootmnt: vfsmnt to which the root dentry belongs
- * @buffer: buffer to return value in
+ * @path: path to report
+ * @buf: buffer to return value in
  * @buflen: buffer length
  *
  * Convert a dentry into an ASCII path name. If the entry has been deleted
  * the string " (deleted)" is appended. Note that this is ambiguous.
  *
- * Returns the buffer or an error code if the path was too long.
+ * Returns a pointer into the buffer or an error code if the path was
+ * too long. Note: Callers should use the returned pointer, not the passed
+ * in buffer, to use the name! The implementation often starts at an offset
+ * into the buffer, and may leave 0 bytes at the start.
  *
- * "buflen" should be positive. Caller holds the dcache_lock.
+ * "buflen" should be positive.
  */
-static char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
-			struct dentry *root, struct vfsmount *rootmnt,
-			char *buffer, int buflen)
+char *d_path(const struct path *path, char *buf, int buflen)
 {
-	char * end = buffer+buflen;
-	char * retval;
-	int namelen;
-
-	*--end = '\0';
-	buflen--;
-	if (!IS_ROOT(dentry) && d_unhashed(dentry)) {
-		buflen -= 10;
-		end -= 10;
-		if (buflen < 0)
-			goto Elong;
-		memcpy(end, " (deleted)", 10);
-	}
-
-	if (buflen < 1)
-		goto Elong;
-	/* Get '/' right */
-	retval = end-1;
-	*retval = '/';
-
-	for (;;) {
-		struct dentry * parent;
-
-		if (dentry == root && vfsmnt == rootmnt)
-			break;
-		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
-			/* Global root? */
-			spin_lock(&vfsmount_lock);
-			if (vfsmnt->mnt_parent == vfsmnt) {
-				spin_unlock(&vfsmount_lock);
-				goto global_root;
-			}
-			dentry = vfsmnt->mnt_mountpoint;
-			vfsmnt = vfsmnt->mnt_parent;
-			spin_unlock(&vfsmount_lock);
-			continue;
-		}
-		parent = dentry->d_parent;
-		prefetch(parent);
-		namelen = dentry->d_name.len;
-		buflen -= namelen + 1;
-		if (buflen < 0)
-			goto Elong;
-		end -= namelen;
-		memcpy(end, dentry->d_name.name, namelen);
-		*--end = '/';
-		retval = end;
-		dentry = parent;
-	}
-
-	return retval;
-
-global_root:
-	namelen = dentry->d_name.len;
-	buflen -= namelen;
-	if (buflen < 0)
-		goto Elong;
-	retval -= namelen-1;	/* hit the slash */
-	memcpy(retval, dentry->d_name.name, namelen);
-	return retval;
-Elong:
-	return ERR_PTR(-ENAMETOOLONG);
-}
-
-/* write full pathname into buffer and return start of pathname */
-char * d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
-				char *buf, int buflen)
-{
-	char *res;
-	struct vfsmount *rootmnt;
-	struct dentry *root;
+	char *res = buf + buflen;
+	struct path root;
+	struct path tmp;
+	int error;
 
 	/*
 	 * We have various synthetic filesystems that never get mounted.  On
@@ -1859,18 +2061,51 @@ char * d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 	 * user wants to identify the object in /proc/pid/fd/.  The little hack
 	 * below allows us to generate a name for these objects on demand:
 	 */
-	if (dentry->d_op && dentry->d_op->d_dname)
-		return dentry->d_op->d_dname(dentry, buf, buflen);
+	if (path->dentry->d_op && path->dentry->d_op->d_dname)
+		return path->dentry->d_op->d_dname(path->dentry, buf, buflen);
 
-	read_lock(&current->fs->lock);
-	rootmnt = mntget(current->fs->rootmnt);
-	root = dget(current->fs->root);
-	read_unlock(&current->fs->lock);
+	get_fs_root(current->fs, &root);
 	spin_lock(&dcache_lock);
-	res = __d_path(dentry, vfsmnt, root, rootmnt, buf, buflen);
+	tmp = root;
+	error = path_with_deleted(path, &tmp, &res, &buflen);
+	if (error)
+		res = ERR_PTR(error);
 	spin_unlock(&dcache_lock);
-	dput(root);
-	mntput(rootmnt);
+	path_put(&root);
+	return res;
+}
+EXPORT_SYMBOL(d_path);
+
+/**
+ * d_path_with_unreachable - return the path of a dentry
+ * @path: path to report
+ * @buf: buffer to return value in
+ * @buflen: buffer length
+ *
+ * The difference from d_path() is that this prepends "(unreachable)"
+ * to paths which are unreachable from the current process' root.
+ */
+char *d_path_with_unreachable(const struct path *path, char *buf, int buflen)
+{
+	char *res = buf + buflen;
+	struct path root;
+	struct path tmp;
+	int error;
+
+	if (path->dentry->d_op && path->dentry->d_op->d_dname)
+		return path->dentry->d_op->d_dname(path->dentry, buf, buflen);
+
+	get_fs_root(current->fs, &root);
+	spin_lock(&dcache_lock);
+	tmp = root;
+	error = path_with_deleted(path, &tmp, &res, &buflen);
+	if (!error && !path_equal(&tmp, &root))
+		error = prepend_unreachable(&res, &buflen);
+	spin_unlock(&dcache_lock);
+	path_put(&root);
+	if (error)
+		res =  ERR_PTR(error);
+
 	return res;
 }
 
@@ -1896,6 +2131,60 @@ char *dynamic_dname(struct dentry *dentry, char *buffer, int buflen,
 }
 
 /*
+ * Write full pathname from the root of the filesystem into the buffer.
+ */
+char *__dentry_path(struct dentry *dentry, char *buf, int buflen)
+{
+	char *end = buf + buflen;
+	char *retval;
+
+	prepend(&end, &buflen, "\0", 1);
+	if (buflen < 1)
+		goto Elong;
+	/* Get '/' right */
+	retval = end-1;
+	*retval = '/';
+
+	while (!IS_ROOT(dentry)) {
+		struct dentry *parent = dentry->d_parent;
+
+		prefetch(parent);
+		if ((prepend_name(&end, &buflen, &dentry->d_name) != 0) ||
+		    (prepend(&end, &buflen, "/", 1) != 0))
+			goto Elong;
+
+		retval = end;
+		dentry = parent;
+	}
+	return retval;
+Elong:
+	return ERR_PTR(-ENAMETOOLONG);
+}
+EXPORT_SYMBOL(__dentry_path);
+
+char *dentry_path(struct dentry *dentry, char *buf, int buflen)
+{
+	char *p = NULL;
+	char *retval;
+
+	spin_lock(&dcache_lock);
+	if (d_unlinked(dentry)) {
+		p = buf + buflen;
+		if (prepend(&p, &buflen, "//deleted", 10) != 0)
+			goto Elong;
+		buflen++;
+	}
+	retval = __dentry_path(dentry, buf, buflen);
+	spin_unlock(&dcache_lock);
+	if (!IS_ERR(retval) && p)
+		*p = '/';	/* restore '/' overriden with '\0' */
+	return retval;
+Elong:
+	spin_unlock(&dcache_lock);
+	return ERR_PTR(-ENAMETOOLONG);
+}
+
+/*
  * NOTE! The user-level library version returns a
  * character pointer. The kernel system call just
  * returns the length of the buffer filled (which
@@ -1913,36 +2202,38 @@ char *dynamic_dname(struct dentry *dentry, char *buffer, int buflen,
  *		return NULL;
  *	}
  */
-asmlinkage long sys_getcwd(char __user *buf, unsigned long size)
+SYSCALL_DEFINE2(getcwd, char __user *, buf, unsigned long, size)
 {
 	int error;
-	struct vfsmount *pwdmnt, *rootmnt;
-	struct dentry *pwd, *root;
+	struct path pwd, root;
 	char *page = (char *) __get_free_page(GFP_USER);
 
 	if (!page)
 		return -ENOMEM;
 
-	read_lock(&current->fs->lock);
-	pwdmnt = mntget(current->fs->pwdmnt);
-	pwd = dget(current->fs->pwd);
-	rootmnt = mntget(current->fs->rootmnt);
-	root = dget(current->fs->root);
-	read_unlock(&current->fs->lock);
+	get_fs_root_and_pwd(current->fs, &root, &pwd);
 
 	error = -ENOENT;
-	/* Has the current directory has been unlinked? */
 	spin_lock(&dcache_lock);
-	if (pwd->d_parent == pwd || !d_unhashed(pwd)) {
+	if (!d_unlinked(pwd.dentry)) {
 		unsigned long len;
-		char * cwd;
+		struct path tmp = root;
+		char *cwd = page + PAGE_SIZE;
+		int buflen = PAGE_SIZE;
 
-		cwd = __d_path(pwd, pwdmnt, root, rootmnt, page, PAGE_SIZE);
+		prepend(&cwd, &buflen, "\0", 1);
+		error = prepend_path(&pwd, &tmp, &cwd, &buflen);
 		spin_unlock(&dcache_lock);
 
-		error = PTR_ERR(cwd);
-		if (IS_ERR(cwd))
+		if (error)
 			goto out;
+
+		/* Unreachable from current root */
+		if (!path_equal(&tmp, &root)) {
+			error = prepend_unreachable(&cwd, &buflen);
+			if (error)
+				goto out;
+		}
 
 		error = -ERANGE;
 		len = PAGE_SIZE + page - cwd;
@@ -1955,10 +2246,8 @@ asmlinkage long sys_getcwd(char __user *buf, unsigned long size)
 		spin_unlock(&dcache_lock);
 
 out:
-	dput(pwd);
-	mntput(pwdmnt);
-	dput(root);
-	mntput(rootmnt);
+	path_put(&pwd);
+	path_put(&root);
 	free_page((unsigned long) page);
 	return error;
 }
@@ -1979,37 +2268,56 @@ out:
  * Caller must ensure that "new_dentry" is pinned before calling is_subdir()
  */
   
-int is_subdir(struct dentry * new_dentry, struct dentry * old_dentry)
+int is_subdir(struct dentry *new_dentry, struct dentry *old_dentry)
 {
 	int result;
-	struct dentry * saved = new_dentry;
 	unsigned long seq;
 
-	/* need rcu_readlock to protect against the d_parent trashing due to
-	 * d_move
+	if (new_dentry == old_dentry)
+		return 1;
+
+	/*
+	 * Need rcu_readlock to protect against the d_parent trashing
+	 * due to d_move
 	 */
 	rcu_read_lock();
-        do {
+	do {
 		/* for restarting inner loop in case of seq retry */
-		new_dentry = saved;
-		result = 0;
 		seq = read_seqbegin(&rename_lock);
-		for (;;) {
-			if (new_dentry != old_dentry) {
-				struct dentry * parent = new_dentry->d_parent;
-				if (parent == new_dentry)
-					break;
-				new_dentry = parent;
-				continue;
-			}
+		if (d_ancestor(old_dentry, new_dentry))
 			result = 1;
-			break;
-		}
+		else
+			result = 0;
 	} while (read_seqretry(&rename_lock, seq));
 	rcu_read_unlock();
 
 	return result;
 }
+
+int path_is_under(struct path *path1, struct path *path2)
+{
+	struct vfsmount *mnt = path1->mnt;
+	struct dentry *dentry = path1->dentry;
+	int res;
+
+	br_read_lock(vfsmount_lock);
+	if (mnt != path2->mnt) {
+		for (;;) {
+			if (mnt->mnt_parent == mnt) {
+				br_read_unlock(vfsmount_lock);
+				return 0;
+			}
+			if (mnt->mnt_parent == path2->mnt)
+				break;
+			mnt = mnt->mnt_parent;
+		}
+		dentry = mnt->mnt_mountpoint;
+	}
+	res = is_subdir(dentry, path2->dentry);
+	br_read_unlock(vfsmount_lock);
+	return res;
+}
+EXPORT_SYMBOL(path_is_under);
 
 void d_genocide(struct dentry *root)
 {
@@ -2068,6 +2376,7 @@ ino_t find_inode_number(struct dentry *dir, struct qstr *name)
 	}
 	return ino;
 }
+EXPORT_SYMBOL(find_inode_number);
 
 static __initdata unsigned long dhash_entries;
 static int __init set_dhash_entries(char *str)
@@ -2103,7 +2412,7 @@ static void __init dcache_init_early(void)
 		INIT_HLIST_HEAD(&dentry_hashtable[loop]);
 }
 
-static void __init dcache_init(unsigned long mempages)
+static void __init dcache_init(void)
 {
 	int loop;
 
@@ -2115,7 +2424,7 @@ static void __init dcache_init(unsigned long mempages)
 	dentry_cache = KMEM_CACHE(dentry,
 		SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|SLAB_MEM_SPREAD);
 	
-	set_shrinker(DEFAULT_SEEKS, shrink_dcache_memory);
+	register_shrinker(&dcache_shrinker);
 
 	/* Hash may have been set up in dcache_init_early */
 	if (!hashdist)
@@ -2137,9 +2446,7 @@ static void __init dcache_init(unsigned long mempages)
 
 /* SLAB cache for __getname() consumers */
 struct kmem_cache *names_cachep __read_mostly;
-
-/* SLAB cache for file structures */
-struct kmem_cache *filp_cachep __read_mostly;
+EXPORT_SYMBOL(names_cachep);
 
 EXPORT_SYMBOL(d_genocide);
 
@@ -2160,38 +2467,12 @@ void __init vfs_caches_init(unsigned long mempages)
 	mempages -= reserve;
 
 	names_cachep = kmem_cache_create("names_cache", PATH_MAX, 0,
-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
+			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 
-	filp_cachep = kmem_cache_create("filp", sizeof(struct file), 0,
-			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL, NULL);
-
-	dcache_init(mempages);
-	inode_init(mempages);
+	dcache_init();
+	inode_init();
 	files_init(mempages);
-	mnt_init(mempages);
+	mnt_init();
 	bdev_cache_init();
 	chrdev_init();
 }
-
-EXPORT_SYMBOL(d_alloc);
-EXPORT_SYMBOL(d_alloc_anon);
-EXPORT_SYMBOL(d_alloc_root);
-EXPORT_SYMBOL(d_delete);
-EXPORT_SYMBOL(d_find_alias);
-EXPORT_SYMBOL(d_instantiate);
-EXPORT_SYMBOL(d_invalidate);
-EXPORT_SYMBOL(d_lookup);
-EXPORT_SYMBOL(d_move);
-EXPORT_SYMBOL_GPL(d_materialise_unique);
-EXPORT_SYMBOL(d_path);
-EXPORT_SYMBOL(d_prune_aliases);
-EXPORT_SYMBOL(d_rehash);
-EXPORT_SYMBOL(d_splice_alias);
-EXPORT_SYMBOL(d_validate);
-EXPORT_SYMBOL(dget_locked);
-EXPORT_SYMBOL(dput);
-EXPORT_SYMBOL(find_inode_number);
-EXPORT_SYMBOL(have_submounts);
-EXPORT_SYMBOL(names_cachep);
-EXPORT_SYMBOL(shrink_dcache_parent);
-EXPORT_SYMBOL(shrink_dcache_sb);

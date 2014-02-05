@@ -11,10 +11,10 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
-#include <asm/arch/cerf.h>
+#include <mach/cerf.h>
 #include "sa1100_generic.h"
 
 #define CERF_SOCKET	1
@@ -27,7 +27,7 @@ static struct pcmcia_irqs irqs[] = {
 
 static int cerf_pcmcia_hw_init(struct soc_pcmcia_socket *skt)
 {
-	skt->irq = CERF_IRQ_GPIO_CF_IRQ;
+	skt->socket.pci_irq = CERF_IRQ_GPIO_CF_IRQ;
 
 	return soc_pcmcia_request_irqs(skt, irqs, ARRAY_SIZE(irqs));
 }
@@ -63,7 +63,7 @@ cerf_pcmcia_configure_socket(struct soc_pcmcia_socket *skt,
 
 	default:
 		printk(KERN_ERR "%s(): unrecognized Vcc %u\n",
-			__FUNCTION__, state->Vcc);
+			__func__, state->Vcc);
 		return -1;
 	}
 

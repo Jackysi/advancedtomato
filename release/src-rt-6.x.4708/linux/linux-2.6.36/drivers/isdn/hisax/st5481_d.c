@@ -11,8 +11,8 @@
  */
 
 #include <linux/init.h>
+#include <linux/gfp.h>
 #include <linux/usb.h>
-#include <linux/slab.h>
 #include <linux/netdevice.h>
 #include "st5481.h"
 
@@ -182,62 +182,6 @@ static void l1m_debug(struct FsmInst *fi, char *fmt, ...)
  * D-Channel out
  */
 
-/*
-  D OUT state machine:
-  ====================
-
-  Transmit short frame (< 16 bytes of encoded data):
-
-  L1 FRAME    D_OUT_STATE           USB                  D CHANNEL
-  --------    -----------           ---                  ---------
- 
-              FIXME
-
- -> [xx..xx]  SHORT_INIT            -> [7Exx..xxC1C27EFF]
-              SHORT_WAIT_DEN        <> OUT_D_COUNTER=16 
-                                                 
-              END_OF_SHORT          <- DEN_EVENT         -> 7Exx
-                                                          xxxx 
-                                                          xxxx
-							  xxxx 
-							  xxxx
-							  xxxx
-							  C1C1 
-							  7EFF 
-              WAIT_FOR_RESET_IDLE   <- D_UNDERRUN        <- (8ms)                        
-              IDLE                  <> Reset pipe
-
-              
-
-  Transmit long frame (>= 16 bytes of encoded data):
-
-  L1 FRAME    D_OUT_STATE           USB                  D CHANNEL
-  --------    -----------           ---                  ---------
-
- -> [xx...xx] IDLE
-              WAIT_FOR_STOP         <> OUT_D_COUNTER=0
-              WAIT_FOR_RESET        <> Reset pipe
-	      STOP
-	      INIT_LONG_FRAME       -> [7Exx..xx]
-              WAIT_DEN              <> OUT_D_COUNTER=16 
-              OUT_NORMAL            <- DEN_EVENT       -> 7Exx
-              END_OF_FRAME_BUSY     -> [xxxx]             xxxx 
-              END_OF_FRAME_NOT_BUSY -> [xxxx]             xxxx
-				    -> [xxxx]		  xxxx 
-				    -> [C1C2]		  xxxx
-				    -> [7EFF]		  xxxx
-							  xxxx 
-							  xxxx 
-                                                          ....
-							  xxxx
-							  C1C2
-							  7EFF
-	                 	    <- D_UNDERRUN      <- (> 8ms)                        
-              WAIT_FOR_STOP         <> OUT_D_COUNTER=0
-              WAIT_FOR_RESET        <> Reset pipe
-	      STOP
-
-*/          
 
 static struct Fsm dout_fsm;
 
@@ -389,7 +333,7 @@ static void usb_d_out_complete(struct urb *urb)
 				DBG(1,"urb killed status %d", urb->status);
 				break;
 			default: 
-				WARN("urb status %d",urb->status);
+				WARNING("urb status %d",urb->status);
 				if (d_out->busy == 0) {
 					st5481_usb_pipe_reset(adapter, EP_D_OUT | USB_DIR_OUT, fifo_reseted, adapter);
 				}
@@ -405,7 +349,6 @@ static void usb_d_out_complete(struct urb *urb)
 
 static void dout_start_xmit(struct FsmInst *fsm, int event, void *arg)
 {
-	// FIXME unify?
 	struct st5481_adapter *adapter = fsm->userdata;
 	struct st5481_d_out *d_out = &adapter->d_out;
 	struct urb *urb;
@@ -417,10 +360,10 @@ static void dout_start_xmit(struct FsmInst *fsm, int event, void *arg)
 
 	DBG(2,"len=%d",skb->len);
 
-	isdnhdlc_out_init(&d_out->hdlc_state, 1, 0);
+	isdnhdlc_out_init(&d_out->hdlc_state, HDLC_DCHANNEL | HDLC_BITREVERSE);
 
 	if (test_and_set_bit(buf_nr, &d_out->busy)) {
-		WARN("ep %d urb %d busy %#lx", EP_D_OUT, buf_nr, d_out->busy);
+		WARNING("ep %d urb %d busy %#lx", EP_D_OUT, buf_nr, d_out->busy);
 		return;
 	}
 	urb = d_out->urb[buf_nr];
@@ -538,7 +481,6 @@ static void dout_reseted(struct FsmInst *fsm, int event, void *arg)
 	struct st5481_d_out *d_out = &adapter->d_out;
 
 	FsmChangeState(&d_out->fsm, ST_DOUT_NONE);
-	// FIXME locking
 	if (d_out->tx_skb)
 		FsmEvent(&d_out->fsm, EV_DOUT_START_XMIT, NULL);
 }
@@ -601,7 +543,7 @@ void st5481_d_l2l1(struct hisax_if *hisax_d_if, int pr, void *arg)
 		FsmEvent(&adapter->d_out.fsm, EV_DOUT_START_XMIT, NULL);
 		break;
 	default:
-		WARN("pr %#x\n", pr);
+		WARNING("pr %#x\n", pr);
 		break;
 	}
 }

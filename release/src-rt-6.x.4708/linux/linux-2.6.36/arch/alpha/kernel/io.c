@@ -475,7 +475,6 @@ void memcpy_toio(volatile void __iomem *to, const void *from, long count)
 {
 	/* Optimize co-aligned transfers.  Everything else gets handled
 	   a byte at a time. */
-	/* FIXME -- align FROM.  */
 
 	if (count >= 8 && ((u64)to & 7) == ((u64)from & 7)) {
 		count -= 8;
@@ -596,8 +595,6 @@ scr_memcpyw(u16 *d, const u16 *s, unsigned int count)
 
 	if (s_isio) {
 		if (d_isio) {
-			/* FIXME: Should handle unaligned ops and
-			   operation widening.  */
 
 			count /= 2;
 			while (count--) {

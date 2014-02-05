@@ -437,20 +437,20 @@ static int uvc_parse_format(struct uvc_device *dev,
 
 		frame->bFrameIndex = buffer[3];
 		frame->bmCapabilities = buffer[4];
-		frame->wWidth = get_unaligned((u16 *)&(buffer[5]));
-		frame->wHeight = get_unaligned((u16 *)&(buffer[7]));
-		frame->dwMinBitRate = get_unaligned((u32 *)&(buffer[9]));
-		frame->dwMaxBitRate = get_unaligned((u32 *)&(buffer[13]));
+		frame->wWidth = get_unaligned_le16(&buffer[5]);
+		frame->wHeight = get_unaligned_le16(&buffer[7]);
+		frame->dwMinBitRate = get_unaligned_le32(&buffer[9]);
+		frame->dwMaxBitRate = get_unaligned_le32(&buffer[13]);
 		if (ftype != UVC_VS_FRAME_FRAME_BASED) {
 			frame->dwMaxVideoFrameBufferSize =
-				get_unaligned((u32 *)&(buffer[17]));
+				get_unaligned_le32(&buffer[17]);
 			frame->dwDefaultFrameInterval =
-				get_unaligned((u32 *)&(buffer[21]));
+				get_unaligned_le32(&buffer[21]);
 			frame->bFrameIntervalType = buffer[25];
 		} else {
 			frame->dwMaxVideoFrameBufferSize = 0;
 			frame->dwDefaultFrameInterval =
-				get_unaligned((u32 *)&(buffer[17]));
+				get_unaligned_le32(&buffer[17]);
 			frame->bFrameIntervalType = buffer[21];
 		}
 		frame->dwFrameInterval = *intervals;
@@ -473,7 +473,7 @@ static int uvc_parse_format(struct uvc_device *dev,
 		 * some other divisions by zero that could happen.
 		 */
 		for (i = 0; i < n; ++i) {
-			interval = get_unaligned((u32 *)&(buffer[26+4*i]));
+			interval = get_unaligned_le32(&buffer[26+4*i]);
 			*(*intervals)++ = interval ? interval : 1;
 		}
 
@@ -485,6 +485,12 @@ static int uvc_parse_format(struct uvc_device *dev,
 			min(frame->dwFrameInterval[n],
 			    max(frame->dwFrameInterval[0],
 				frame->dwDefaultFrameInterval));
+
+		if (dev->quirks & UVC_QUIRK_RESTRICT_FRAME_RATE) {
+			frame->bFrameIntervalType = 1;
+			frame->dwFrameInterval[0] =
+				frame->dwDefaultFrameInterval;
+		}
 
 		uvc_trace(UVC_TRACE_DESCR, "- %ux%u (%u.%u fps)\n",
 			frame->wWidth, frame->wHeight,
@@ -897,8 +903,8 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 			return -EINVAL;
 		}
 
-		dev->uvc_version = get_unaligned((u16 *)&(buffer[3]));
-		dev->clock_frequency = get_unaligned((u32 *)&(buffer[7]));
+		dev->uvc_version = get_unaligned_le16(&buffer[3]);
+		dev->clock_frequency = get_unaligned_le32(&buffer[7]);
 
 		/* Parse all USB Video Streaming interfaces. */
 		for (i = 0; i < n; ++i) {
@@ -925,7 +931,7 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 		/* Make sure the terminal type MSB is not null, otherwise it
 		 * could be confused with a unit.
 		 */
-		type = get_unaligned((u16 *)&(buffer[4]));
+		type = get_unaligned_le16(&buffer[4]);
 		if ((type & 0xff00) == 0) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videocontrol "
 				"interface %d INPUT_TERMINAL %d has invalid "
@@ -965,11 +971,11 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 			term->camera.bControlSize = n;
 			term->camera.bmControls = (__u8 *)term + sizeof *term;
 			term->camera.wObjectiveFocalLengthMin =
-				get_unaligned((u16 *)&(buffer[8]));
+				get_unaligned_le16(&buffer[8]);
 			term->camera.wObjectiveFocalLengthMax =
-				get_unaligned((u16 *)&(buffer[10]));
+				get_unaligned_le16(&buffer[10]);
 			term->camera.wOcularFocalLength =
-				get_unaligned((u16 *)&(buffer[12]));
+				get_unaligned_le16(&buffer[12]);
 			memcpy(term->camera.bmControls, &buffer[15], n);
 		} else if (UVC_ENTITY_TYPE(term) ==
 			   UVC_ITT_MEDIA_TRANSPORT_INPUT) {
@@ -1006,7 +1012,7 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 		/* Make sure the terminal type MSB is not null, otherwise it
 		 * could be confused with a unit.
 		 */
-		type = get_unaligned((u16 *)&(buffer[4]));
+		type = get_unaligned_le16(&buffer[4]);
 		if ((type & 0xff00) == 0) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videocontrol "
 				"interface %d OUTPUT_TERMINAL %d has invalid "
@@ -1073,7 +1079,7 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 
 		memcpy(unit->baSourceID, &buffer[4], 1);
 		unit->processing.wMaxMultiplier =
-			get_unaligned((u16 *)&(buffer[5]));
+			get_unaligned_le16(&buffer[5]);
 		unit->processing.bControlSize = buffer[7];
 		unit->processing.bmControls = (__u8 *)unit + sizeof *unit;
 		memcpy(unit->processing.bmControls, &buffer[8], n);
@@ -2026,6 +2032,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceClass	= USB_CLASS_VENDOR_SPEC,
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0 },
+	/* Chicony CNF7129 (Asus EEE 100HE) */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x04f2,
+	  .idProduct		= 0xb071,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_RESTRICT_FRAME_RATE },
 	/* Alcor Micro AU3820 (Future Boy PC USB Webcam) */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2091,6 +2106,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceProtocol	= 0,
 	  .driver_info		= UVC_QUIRK_PROBE_MINMAX
 				| UVC_QUIRK_PROBE_DEF },
+	/* IMC Networks (Medion Akoya) */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x13d3,
+	  .idProduct		= 0x5103,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_STREAM_NO_FID },
 	/* Syntek (HP Spartan) */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2288,4 +2312,3 @@ MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRIVER_VERSION);
-

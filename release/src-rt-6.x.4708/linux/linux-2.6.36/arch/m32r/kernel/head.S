@@ -23,13 +23,12 @@ __INITDATA
 /*
  * References to members of the boot_cpu_data structure.
  */
-	.text
+__HEAD
 	.global	start_kernel
 	.global __bss_start
 	.global _end
 ENTRY(stext)
 ENTRY(_stext)
-ENTRY(startup_32)
 	/* Setup up the stack pointer */
 	LDIMM	(r0, spi_stack_top)
 	LDIMM	(r1, spu_stack_top)
@@ -104,23 +103,6 @@ ENTRY(startup_32)
 
 #endif /* not CONFIG_ISA_DUAL_ISSUE */
 
-#if 0  /* M32R_FIXME */
-/*
- * Copy data segment from ROM to RAM.
- */
-	.global ROM_D, TOP_DATA, END_DATA
-
-	LDIMM	(r1, ROM_D)
-	LDIMM	(r2, TOP_DATA)
-	LDIMM	(r3, END_DATA)
-	addi	r2, #-4
-	addi	r3, #-4
-loop1:
-	ld	r0, @r1+
-	st	r0, @+r2
-	cmp	r2, r3
-	bc	loop1
-#endif /* 0 */
 
 /* Jump to kernel */
 	LDIMM	(r2, start_kernel)
@@ -134,7 +116,6 @@ loop1:
 /*
  * AP startup routine
  */
-	.text
 	.global	eit_vector
 ENTRY(startup_AP)
 ;; setup EVB
@@ -231,6 +212,7 @@ ENTRY(startup_AP)
 	nop
 #endif  /* CONFIG_SMP */
 
+	.text
 ENTRY(stack_start)
 	.long	init_thread_union+8192
 	.long	__KERNEL_DS
@@ -269,13 +251,13 @@ ENTRY(empty_zero_page)
 /*------------------------------------------------------------------------
  * Stack area
  */
-	.section .spi
+	.section .init.data, "aw"
 	ALIGN
 	.global spi_stack_top
 	.zero	1024
 spi_stack_top:
 
-	.section .spu
+	.section .init.data, "aw"
 	ALIGN
 	.global spu_stack_top
 	.zero	1024

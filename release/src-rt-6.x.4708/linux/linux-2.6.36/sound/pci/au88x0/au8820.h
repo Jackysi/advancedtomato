@@ -113,7 +113,7 @@
 #define VORTEX_MIX_VOL_B 0x8800
 
 #define 	VOL_MIN 0x80	/* Input volume when muted. */
-#define		VOL_MAX 0x7f	/* FIXME: Not confirmed! Just guessed. */
+#define		VOL_MAX 0x7f
 
 //#define MIX_OUTL    0xe
 //#define MIX_OUTR    0xf
@@ -164,7 +164,7 @@
 #define VORTEX_CODEC_CHN 0x11880
 #define VORTEX_CODEC_IO 0x11988
 
-#define VORTEX_SPDIF_FLAGS		0x1005c	/* FIXME */
+#define VORTEX_SPDIF_FLAGS		0x1005c
 #define VORTEX_SPDIF_CFG0		0x119D0
 #define VORTEX_SPDIF_CFG1		0x119D4
 #define VORTEX_SPDIF_SMPRATE	0x11994

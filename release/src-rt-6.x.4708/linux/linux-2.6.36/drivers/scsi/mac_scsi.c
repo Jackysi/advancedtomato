@@ -47,19 +47,19 @@
 
 #include <asm/macintosh.h>
 #include <asm/macints.h>
-#include <asm/machw.h>
 #include <asm/mac_via.h>
 
 #include "scsi.h"
 #include <scsi/scsi_host.h>
 #include "mac_scsi.h"
+
+/* These control the behaviour of the generic 5380 core */
+#define AUTOSENSE
+#define PSEUDO_DMA
+
 #include "NCR5380.h"
 
-#if 0
-#define NDEBUG (NDEBUG_INTR | NDEBUG_PSEUDO_DMA | NDEBUG_ARBITRATION | NDEBUG_SELECTION | NDEBUG_RESELECTION)
-#else
 #define NDEBUG (NDEBUG_ABORT)
-#endif
 
 #define RESET_BOOT
 #define DRIVER_SETUP
@@ -100,33 +100,6 @@ static volatile unsigned char *mac_scsi_nodrq = NULL;
  * NCR 5380 register access functions
  */
 
-#if 0
-/* Debug versions */
-#define CTRL(p,v) (*ctrl = (v))
-
-static char macscsi_read(struct Scsi_Host *instance, int reg)
-{
-  int iobase = instance->io_port;
-  int i;
-  int *ctrl = &((struct NCR5380_hostdata *)instance->hostdata)->ctrl;
-
-  CTRL(iobase, 0);
-  i = in_8(iobase + (reg<<4));
-  CTRL(iobase, 0x40);
-
-  return i;
-}
-
-static void macscsi_write(struct Scsi_Host *instance, int reg, int value)
-{
-  int iobase = instance->io_port;
-  int *ctrl = &((struct NCR5380_hostdata *)instance->hostdata)->ctrl;
-
-  CTRL(iobase, 0);
-  out_8(iobase + (reg<<4), value);
-  CTRL(iobase, 0x40);
-}
-#else
 
 /* Fast versions */
 static __inline__ char macscsi_read(struct Scsi_Host *instance, int reg)
@@ -138,7 +111,6 @@ static __inline__ void macscsi_write(struct Scsi_Host *instance, int reg, int va
 {
   out_8(instance->io_port + (reg<<4), value);
 }
-#endif
 
 
 /*
@@ -298,7 +270,7 @@ int macscsi_detect(struct scsi_host_template * tpnt)
 
     if (instance->irq != SCSI_IRQ_NONE)
 	if (request_irq(instance->irq, NCR5380_intr, IRQ_FLG_SLOW, 
-		"ncr5380", instance)) {
+			"ncr5380", instance)) {
 	    printk(KERN_WARNING "scsi%d: IRQ%d not free, interrupts disabled\n",
 		   instance->host_no, instance->irq);
 	    instance->irq = SCSI_IRQ_NONE;
@@ -321,7 +293,7 @@ int macscsi_detect(struct scsi_host_template * tpnt)
 int macscsi_release (struct Scsi_Host *shpnt)
 {
 	if (shpnt->irq != SCSI_IRQ_NONE)
-		free_irq (shpnt->irq, NCR5380_intr);
+		free_irq(shpnt->irq, shpnt);
 	NCR5380_exit(shpnt);
 
 	return 0;
@@ -375,16 +347,6 @@ const char * macscsi_info (struct Scsi_Host *spnt) {
 	return "";
 }
 
-/* 
-   Pseudo-DMA: (Ove Edlund)
-   The code attempts to catch bus errors that occur if one for example
-   "trips over the cable".
-   XXX: Since bus errors in the PDMA routines never happen on my 
-   computer, the bus error code is untested. 
-   If the code works as intended, a bus error results in Pseudo-DMA 
-   beeing disabled, meaning that the driver switches to slow handshake. 
-   If bus errors are NOT extremely rare, this has to be changed. 
-*/
 
 #define CP_IO_TO_MEM(s,d,len)				\
 __asm__ __volatile__					\
@@ -571,10 +533,6 @@ static int macscsi_pwrite (struct Scsi_Host *instance,
 }
 
 
-/* These control the behaviour of the generic 5380 core */
-#define AUTOSENSE
-#define PSEUDO_DMA
-
 #include "NCR5380.c"
 
 static struct scsi_host_template driver_template = {
@@ -591,7 +549,6 @@ static struct scsi_host_template driver_template = {
 	.this_id			= 7,
 	.sg_tablesize			= SG_ALL,
 	.cmd_per_lun			= CMD_PER_LUN,
-	.unchecked_isa_dma		= 0,
 	.use_clustering			= DISABLE_CLUSTERING
 };
 

@@ -28,11 +28,9 @@ int coda_fake_statfs;
 char * coda_f2s(struct CodaFid *f)
 {
 	static char s[60];
-#ifdef CONFIG_CODA_FS_OLD_API
- 	sprintf(s, "(%08x.%08x.%08x)", f->opaque[0], f->opaque[1], f->opaque[2]);
-#else
+
  	sprintf(s, "(%08x.%08x.%08x.%08x)", f->opaque[0], f->opaque[1], f->opaque[2], f->opaque[3]);
-#endif
+
 	return s;
 }
 
@@ -79,9 +77,6 @@ unsigned short coda_flags_to_cflags(unsigned short flags)
 void coda_vattr_to_iattr(struct inode *inode, struct coda_vattr *attr)
 {
         int inode_type;
-        /* inode's i_flags, i_ino are set by iget 
-           XXX: is this all we need ??
-           */
         switch (attr->va_type) {
         case C_VNON:
                 inode_type  = 0;
@@ -134,7 +129,7 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
         unsigned int valid;
 
         /* clean out */        
-        vattr->va_mode = (umode_t) -1;
+	vattr->va_mode = -1;
         vattr->va_uid = (vuid_t) -1; 
         vattr->va_gid = (vgid_t) -1;
         vattr->va_size = (off_t) -1;
@@ -154,19 +149,6 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
         vattr->va_flags = 0;
 
         /* determine the type */
-#if 0
-        mode = iattr->ia_mode;
-                if ( S_ISDIR(mode) ) {
-                vattr->va_type = C_VDIR; 
-        } else if ( S_ISREG(mode) ) {
-                vattr->va_type = C_VREG;
-        } else if ( S_ISLNK(mode) ) {
-                vattr->va_type = C_VLNK;
-        } else {
-                /* don't do others */
-                vattr->va_type = C_VNON;
-        }
-#endif 
 
         /* set those vattrs that need change */
         valid = iattr->ia_valid;
@@ -192,4 +174,3 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
                 vattr->va_ctime = iattr->ia_ctime;
 	}
 }
-

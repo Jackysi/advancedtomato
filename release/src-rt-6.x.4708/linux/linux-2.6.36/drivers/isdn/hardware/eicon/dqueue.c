@@ -1,4 +1,4 @@
-/* $Id: dqueue.c,v 1.5 2003/04/12 21:40:49 schindler Exp $
+/* $Id: dqueue.c,v 1.5 2003/04/12 21:40:49 Exp $
  *
  * Driver for Eicon DIVA Server ISDN cards.
  * User Mode IDI Interface

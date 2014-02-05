@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000-2004 LSI Logic Corporation.
+ *  Copyright (c) 2000-2008 LSI Corporation.
  *
  *
  *           Name:  mpi_fc.h
@@ -363,4 +363,3 @@ typedef struct _MSG_FC_PRIMITIVE_SEND_REPLY
   FcPrimitiveSendReply_t, MPI_POINTER pFcPrimitiveSendReply_t;
 
 #endif
-

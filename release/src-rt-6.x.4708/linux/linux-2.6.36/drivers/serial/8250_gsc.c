@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/serial_core.h>
 #include <linux/signal.h>
-#include <linux/slab.h>
 #include <linux/types.h>
 
 #include <asm/hardware.h>
@@ -25,8 +24,7 @@
 
 #include "8250.h"
 
-static int __init 
-serial_init_chip(struct parisc_device *dev)
+static int __init serial_init_chip(struct parisc_device *dev)
 {
 	struct uart_port port;
 	unsigned long address;
@@ -38,18 +36,17 @@ serial_init_chip(struct parisc_device *dev)
 		 * what we have here is a missing parent device, so tell
 		 * the user what they're missing.
 		 */
-		if (parisc_parent(dev)->id.hw_type != HPHW_IOA) {
-			printk(KERN_INFO "Serial: device 0x%lx not configured.\n"
+		if (parisc_parent(dev)->id.hw_type != HPHW_IOA)
+			printk(KERN_INFO
+				"Serial: device 0x%llx not configured.\n"
 				"Enable support for Wax, Lasi, Asp or Dino.\n",
-				dev->hpa.start);
-		}
+				(unsigned long long)dev->hpa.start);
 		return -ENODEV;
 	}
 
 	address = dev->hpa.start;
-	if (dev->id.sversion != 0x8d) {
+	if (dev->id.sversion != 0x8d)
 		address += 0x800;
-	}
 
 	memset(&port, 0, sizeof(port));
 	port.iotype	= UPIO_MEM;
@@ -63,11 +60,12 @@ serial_init_chip(struct parisc_device *dev)
 
 	err = serial8250_register_port(&port);
 	if (err < 0) {
-		printk(KERN_WARNING "serial8250_register_port returned error %d\n", err);
+		printk(KERN_WARNING
+			"serial8250_register_port returned error %d\n", err);
 		iounmap(port.membase);
 		return err;
 	}
-        
+
 	return 0;
 }
 
@@ -112,7 +110,7 @@ static struct parisc_driver serial_driver = {
 	.probe		= serial_init_chip,
 };
 
-int __init probe_serial_gsc(void)
+static int __init probe_serial_gsc(void)
 {
 	register_parisc_driver(&lasi_driver);
 	register_parisc_driver(&serial_driver);
@@ -120,3 +118,5 @@ int __init probe_serial_gsc(void)
 }
 
 module_init(probe_serial_gsc);
+
+MODULE_LICENSE("GPL");

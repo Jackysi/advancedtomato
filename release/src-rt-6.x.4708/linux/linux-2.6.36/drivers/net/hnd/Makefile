@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom Home Networking Division (HND) shared driver code
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,12 +18,16 @@
 # $Id: Makefile,v 1.5 2008-05-02 22:49:54 $
 #
 
-SHARED   := ../../../../../../$(SRCBASEDIR)/shared
-ROUTER   := ../../../../../router
-SRC      := ../../../../../../$(SRCBASEDIR)
+SHARED   := ../../../../../../src-rt-6.x.4708/shared
+ROUTER   := ../../../../../../src-rt-6.x.4708/router
+SRC      := ../../../../../../src-rt-6.x.4708
 WLSHARED := wlconfig_lx_shared
-WLCFGDIR := $(src)/../../../../../../$(SRCBASEDIR)/wl/config
-WLSYSDIR := $(src)/../../../../../../$(SRCBASEDIR)/wl/sys
+WLCFGDIR := $(src)/../../../../../../src-rt-6.x.4708/wl/config
+WLSYSDIR := $(src)/../../../../../../src-rt-6.x.4708/wl/sys
+
+ifeq ($(CONFIG_BUZZZ_FUNC),y)
+subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
+endif # CONFIG_BUZZZ_FUNC
 
 ifneq ($(wildcard $(WLCFGDIR)),)
 include $(WLCFGDIR)/$(WLSHARED)
@@ -34,6 +38,11 @@ hnd-objs := $(addprefix $(SHARED)/, $(sort $(WLFILES:.c=.o)))
 HND_OBJS := $(addprefix $(src)/$(SHARED)/, $(sort $(WLFILES:.c=.o)))
 
 EXTRA_CFLAGS += $(WLFLAGS) -DBCM5354 -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
+
+# For the ARM platform...
+ifneq ($(CONFIG_MACH_BRCM_NS),)
+EXTRA_CFLAGS    += -DROBO_SRAB -DBCMDMASGLISTOSL
+endif
 
 ifneq ($(CONFIG_BCM947XX),y)
 HND_OBJS += $(src)/$(SHARED)/nvramstubs.o
@@ -117,3 +126,5 @@ endif
 
 $(src)/shared_ksyms.c: $(src)/shared_ksyms.sh $(HND_OBJS)
 	sh -e $< $(HND_OBJS) > $@
+
+clean-files += $(SHARED)/*.o $(SHARED)/.*.o.cmd

@@ -1,7 +1,7 @@
 /*
  *  Interrupt handing routines for NEC VR4100 series.
  *
- *  Copyright (C) 2005-2007  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+ *  Copyright (C) 2005-2007  Yoichi Yuasa <yuasa@linux-mips.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ static irq_cascade_t irq_cascade[NR_IRQS] __cacheline_aligned;
 
 static struct irqaction cascade_irqaction = {
 	.handler	= no_action,
-	.mask		= CPU_MASK_NONE,
 	.name		= "cascade",
 };
 

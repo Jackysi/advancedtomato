@@ -11,6 +11,7 @@
  *
  * See the GNU General Public License for more details.
  */
+#include <linux/gfp.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
@@ -150,4 +151,3 @@ out:
 	sock_put(sk);
 	return rc;
 }
-

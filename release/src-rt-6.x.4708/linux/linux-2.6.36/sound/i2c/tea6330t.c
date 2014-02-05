@@ -1,7 +1,7 @@
 /*
  *  Routines for control of the TEA6330T circuit via i2c bus
  *  Sound fader control circuit for car radios by Philips Semiconductors
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -20,14 +20,13 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/control.h>
 #include <sound/tea6330t.h>
 
-MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
+MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("Routines for control of the TEA6330T circuit via i2c bus");
 MODULE_LICENSE("GPL");
 
@@ -67,16 +66,6 @@ int snd_tea6330t_detect(struct snd_i2c_bus *bus, int equalizer)
 	return res;
 }
 
-#if 0
-static void snd_tea6330t_set(struct tea6330t *tea,
-			     unsigned char addr, unsigned char value)
-{
-#if 0
-	printk(KERN_DEBUG "set - 0x%x/0x%x\n", addr, value);
-#endif
-	snd_i2c_write(tea->bus, TEA6330T_ADDR, addr, value, 1);
-}
-#endif
 
 #define TEA6330T_MASTER_VOLUME(xname, xindex) \
 { .iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, .index = xindex, \
@@ -142,15 +131,7 @@ static int snd_tea6330t_put_master_volume(struct snd_kcontrol *kcontrol,
   .info = snd_tea6330t_info_master_switch, \
   .get = snd_tea6330t_get_master_switch, .put = snd_tea6330t_put_master_switch }
 
-static int snd_tea6330t_info_master_switch(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
+#define snd_tea6330t_info_master_switch		snd_ctl_boolean_stereo_info
 
 static int snd_tea6330t_get_master_switch(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)

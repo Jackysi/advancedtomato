@@ -29,7 +29,6 @@
 #include <linux/personality.h>
 #include <linux/init.h>
 
-#include <asm/a.out.h>
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 
@@ -43,11 +42,7 @@ static int load_som_library(struct file *);
  * If we don't support core dumping, then supply a NULL so we
  * don't even try.
  */
-#if 0
-static int som_core_dump(long signr, struct pt_regs * regs);
-#else
 #define som_core_dump	NULL
-#endif
 
 #define SOM_PAGESTART(_v) ((_v) & ~(unsigned long)(SOM_PAGESIZE-1))
 #define SOM_PAGEOFFSET(_v) ((_v) & (SOM_PAGESIZE-1))
@@ -189,13 +184,11 @@ out:
 static int
 load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 {
-	int som_exec_fileno;
 	int retval;
 	unsigned int size;
 	unsigned long som_entry;
 	struct som_hdr *som_ex;
 	struct som_exec_auxhdr *hpuxhdr;
-	struct files_struct *files;
 
 	/* Get the exec-header */
 	som_ex = (struct som_hdr *) bprm->buf;
@@ -222,21 +215,6 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		goto out_free;
 	}
 
-	files = current->files; /* Refcounted so ok */
-	retval = unshare_files();
-	if (retval < 0)
-		goto out_free;
-	if (files == current->files) {
-		put_files_struct(files);
-		files = NULL;
-	}
-
-	retval = get_unused_fd();
-	if (retval < 0)
-		goto out_free;
-	get_file(bprm->file);
-	fd_install(som_exec_fileno = retval, bprm->file);
-
 	/* Flush all traces of the currently running executable */
 	retval = flush_old_exec(bprm);
 	if (retval)
@@ -245,6 +223,7 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	/* OK, This is the point of no return */
 	current->flags &= ~PF_FORKNOEXEC;
 	current->personality = PER_HPUX;
+	setup_new_exec(bprm);
 
 	/* Set the task size for HP-UX processes such that
 	 * the gateway page is outside the address space.
@@ -266,27 +245,17 @@ load_som_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	kfree(hpuxhdr);
 
 	set_binfmt(&som_format);
-	compute_creds(bprm);
+	install_exec_creds(bprm);
 	setup_arg_pages(bprm, STACK_TOP, EXSTACK_DEFAULT);
 
 	create_som_tables(bprm);
 
 	current->mm->start_stack = bprm->p;
 
-#if 0
-	printk("(start_brk) %08lx\n" , (unsigned long) current->mm->start_brk);
-	printk("(end_code) %08lx\n" , (unsigned long) current->mm->end_code);
-	printk("(start_code) %08lx\n" , (unsigned long) current->mm->start_code);
-	printk("(end_data) %08lx\n" , (unsigned long) current->mm->end_data);
-	printk("(start_stack) %08lx\n" , (unsigned long) current->mm->start_stack);
-	printk("(brk) %08lx\n" , (unsigned long) current->mm->brk);
-#endif
 
 	map_hpux_gateway_page(current,current->mm);
 
 	start_thread_som(regs, som_entry, bprm->p);
-	if (current->ptrace & PT_PTRACED)
-		send_sig(SIGTRAP, current, 0);
 	return 0;
 
 	/* error cleanup */
@@ -319,3 +288,5 @@ static void __exit exit_som_binfmt(void)
 
 core_initcall(init_som_binfmt);
 module_exit(exit_som_binfmt);
+
+MODULE_LICENSE("GPL");

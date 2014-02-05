@@ -1,4 +1,4 @@
-/* $Id: g364fb.c,v 1.3 1998/08/28 22:43:00 tsbogend Exp $
+/* $Id: g364fb.c,v 1.3 1998/08/28 22:43:00 Exp $
  *
  * linux/drivers/video/g364fb.c -- Mips Magnum frame buffer device
  *
@@ -20,7 +20,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>

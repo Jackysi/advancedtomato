@@ -1,8 +1,8 @@
 /* 
  *  Copyright (C) 1997	Wu Ching Chen
  *  2.1.x update (C) 1998  Krzysztof G. Baranowski
- *  2.5.x update (C) 2002  Red Hat <alan@redhat.com>
- *  2.6.x update (C) 2004  Red Hat <alan@redhat.com>
+ *  2.5.x update (C) 2002  Red Hat
+ *  2.6.x update (C) 2004  Red Hat
  *
  * Marcelo Tosatti <marcelo@conectiva.com.br> : SMP fixes
  *
@@ -29,6 +29,7 @@
 #include <linux/pci.h>
 #include <linux/blkdev.h>
 #include <linux/dma-mapping.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/io.h>
 
@@ -471,18 +472,8 @@ go_42:
 			/*
 			 *	Complete the command
 			 */
-			if (workreq->use_sg) {
-				pci_unmap_sg(dev->pdev,
-					(struct scatterlist *)workreq->request_buffer,
-					workreq->use_sg,
-					workreq->sc_data_direction);
-			} else if (workreq->request_bufflen &&
-					workreq->sc_data_direction != DMA_NONE) {
-				pci_unmap_single(dev->pdev,
-					workreq->SCp.dma_handle,
-					workreq->request_bufflen,
-					workreq->sc_data_direction);
-			}			
+			scsi_dma_unmap(workreq);
+
 			spin_lock_irqsave(dev->host->host_lock, flags);
 			(*workreq->scsi_done) (workreq);
 #ifdef ED_DBGP
@@ -624,7 +615,7 @@ static int atp870u_queuecommand(struct scsi_cmnd * req_p,
 
 	c = scmd_channel(req_p);
 	req_p->sense_buffer[0]=0;
-	req_p->resid = 0;
+	scsi_set_resid(req_p, 0);
 	if (scmd_channel(req_p) > 1) {
 		req_p->result = 0x00040000;
 		done(req_p);
@@ -722,7 +713,6 @@ static void send_s870(struct atp_unit *dev,unsigned char c)
 	unsigned short int tmpcip, w;
 	unsigned long l, bttl = 0;
 	unsigned int workport;
-	struct scatterlist *sgpnt;
 	unsigned long  sg_count;
 
 	if (dev->in_snd[c] != 0) {
@@ -758,7 +748,7 @@ static void send_s870(struct atp_unit *dev,unsigned char c)
 		dev->quhd[c] = 0;
 	}
 	workreq = dev->quereq[c][dev->quhd[c]];
-	if (dev->id[c][scmd_id(workreq)].curr_req == 0) {	
+	if (dev->id[c][scmd_id(workreq)].curr_req == NULL) {
 		dev->id[c][scmd_id(workreq)].curr_req = workreq;
 		dev->last_cmd[c] = scmd_id(workreq);
 		goto cmd_subp;
@@ -793,6 +783,8 @@ oktosend:
 	}
 	printk("\n");
 #endif	
+	l = scsi_bufflen(workreq);
+
 	if (dev->dev_id == ATP885_DEVID) {
 		j = inb(dev->baseport + 0x29) & 0xfe;
 		outb(j, dev->baseport + 0x29);
@@ -800,12 +792,11 @@ oktosend:
 	}
 	
 	if (workreq->cmnd[0] == READ_CAPACITY) {
-		if (workreq->request_bufflen > 8) {
-			workreq->request_bufflen = 0x08;
-		}
+		if (l > 8)
+			l = 8;
 	}
 	if (workreq->cmnd[0] == 0x00) {
-		workreq->request_bufflen = 0;
+		l = 0;
 	}
 
 	tmport = workport + 0x1b;
@@ -852,40 +843,8 @@ oktosend:
 #ifdef ED_DBGP	
 	printk("dev->id[%d][%d].devsp = %2x\n",c,target_id,dev->id[c][target_id].devsp);
 #endif
-	/*
-	 *	Figure out the transfer size
-	 */
-	if (workreq->use_sg) {
-#ifdef ED_DBGP
-		printk("Using SGL\n");
-#endif		
-		l = 0;
-		
-		sgpnt = (struct scatterlist *) workreq->request_buffer;
-		sg_count = pci_map_sg(dev->pdev, sgpnt, workreq->use_sg,
-	   			workreq->sc_data_direction);		
-		
-		for (i = 0; i < workreq->use_sg; i++) {
-			if (sgpnt[i].length == 0 || workreq->use_sg > ATP870U_SCATTER) {
-				panic("Foooooooood fight!");
-			}
-			l += sgpnt[i].length;
-		}
-#ifdef ED_DBGP		
-		printk( "send_s870: workreq->use_sg %d, sg_count %d l %8ld\n", workreq->use_sg, sg_count, l);
-#endif
-	} else if(workreq->request_bufflen && workreq->sc_data_direction != PCI_DMA_NONE) {
-#ifdef ED_DBGP
-		printk("Not using SGL\n");
-#endif					
-		workreq->SCp.dma_handle = pci_map_single(dev->pdev, workreq->request_buffer,
-				workreq->request_bufflen,
-				workreq->sc_data_direction);		
-		l = workreq->request_bufflen;
-#ifdef ED_DBGP		
-		printk( "send_s870: workreq->use_sg %d, l %8ld\n", workreq->use_sg, l);
-#endif
-	} else l = 0;
+
+	sg_count = scsi_dma_map(workreq);
 	/*
 	 *	Write transfer size
 	 */
@@ -938,16 +897,16 @@ oktosend:
 	 *	a linear chain.
 	 */
 
-	if (workreq->use_sg) {
-		sgpnt = (struct scatterlist *) workreq->request_buffer;
+	if (l) {
+		struct scatterlist *sgpnt;
 		i = 0;
-		for (j = 0; j < workreq->use_sg; j++) {
-			bttl = sg_dma_address(&sgpnt[j]);
-			l=sg_dma_len(&sgpnt[j]);
+		scsi_for_each_sg(workreq, sgpnt, sg_count, j) {
+			bttl = sg_dma_address(sgpnt);
+			l=sg_dma_len(sgpnt);
 #ifdef ED_DBGP		
-		printk("1. bttl %x, l %x\n",bttl, l);
+			printk("1. bttl %x, l %x\n",bttl, l);
 #endif			
-		while (l > 0x10000) {
+			while (l > 0x10000) {
 				(((u16 *) (prd))[i + 3]) = 0x0000;
 				(((u16 *) (prd))[i + 2]) = 0x0000;
 				(((u32 *) (prd))[i >> 1]) = cpu_to_le32(bttl);
@@ -965,32 +924,6 @@ oktosend:
 		printk("prd %4x %4x %4x %4x\n",(((unsigned short int *)prd)[0]),(((unsigned short int *)prd)[1]),(((unsigned short int *)prd)[2]),(((unsigned short int *)prd)[3]));
 		printk("2. bttl %x, l %x\n",bttl, l);
 #endif			
-	} else {
-		/*
-		 *	For a linear request write a chain of blocks
-		 */        
-		bttl = workreq->SCp.dma_handle;
-		l = workreq->request_bufflen;
-		i = 0;
-#ifdef ED_DBGP		
-		printk("3. bttl %x, l %x\n",bttl, l);
-#endif			
-		while (l > 0x10000) {
-				(((u16 *) (prd))[i + 3]) = 0x0000;
-				(((u16 *) (prd))[i + 2]) = 0x0000;
-				(((u32 *) (prd))[i >> 1]) = cpu_to_le32(bttl);
-				l -= 0x10000;
-				bttl += 0x10000;
-				i += 0x04;
-			}
-			(((u16 *) (prd))[i + 3]) = cpu_to_le16(0x8000);
-			(((u16 *) (prd))[i + 2]) = cpu_to_le16(l);
-			(((u32 *) (prd))[i >> 1]) = cpu_to_le32(bttl);		
-#ifdef ED_DBGP		
-		printk("prd %4x %4x %4x %4x\n",(((unsigned short int *)prd)[0]),(((unsigned short int *)prd)[1]),(((unsigned short int *)prd)[2]),(((unsigned short int *)prd)[3]));
-		printk("4. bttl %x, l %x\n",bttl, l);
-#endif			
-		
 	}
 	tmpcip += 4;
 #ifdef ED_DBGP		
@@ -2636,7 +2569,7 @@ static int atp870u_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (pci_enable_device(pdev))
 		goto err_eio;
 
-        if (!pci_set_dma_mask(pdev, DMA_32BIT_MASK)) {
+        if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
                 printk(KERN_INFO "atp870u: use 32bit DMA mask.\n");
         } else {
                 printk(KERN_ERR "atp870u: DMA mask required but not available.\n");
@@ -3978,4 +3911,3 @@ tar_dcons:
 
 module_init(atp870u_init);
 module_exit(atp870u_exit);
-

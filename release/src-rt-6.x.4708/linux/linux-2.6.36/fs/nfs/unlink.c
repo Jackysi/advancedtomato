@@ -3,7 +3,6 @@
  *
  * nfs sillydelete handling
  *
- * NOTE: we rely on holding the BKL for list manipulation protection.
  */
 
 #include <linux/slab.h>
@@ -12,49 +11,32 @@
 #include <linux/sunrpc/sched.h>
 #include <linux/sunrpc/clnt.h>
 #include <linux/nfs_fs.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 
+#include "internal.h"
+#include "nfs4_fs.h"
 
 struct nfs_unlinkdata {
-	struct nfs_unlinkdata	*next;
-	struct dentry	*dir, *dentry;
-	struct qstr	name;
-	struct rpc_task	task;
+	struct hlist_node list;
+	struct nfs_removeargs args;
+	struct nfs_removeres res;
+	struct inode *dir;
 	struct rpc_cred	*cred;
-	unsigned int	count;
+	struct nfs_fattr dir_attr;
 };
 
-static struct nfs_unlinkdata	*nfs_deletes;
-static RPC_WAITQ(nfs_delete_queue, "nfs_delete_queue");
-
 /**
- * nfs_detach_unlinkdata - Remove asynchronous unlink from global list
- * @data: pointer to descriptor
- */
-static inline void
-nfs_detach_unlinkdata(struct nfs_unlinkdata *data)
-{
-	struct nfs_unlinkdata	**q;
-
-	for (q = &nfs_deletes; *q != NULL; q = &((*q)->next)) {
-		if (*q == data) {
-			*q = data->next;
-			break;
-		}
-	}
-}
-
-/**
- * nfs_put_unlinkdata - release data from a sillydelete operation.
+ * nfs_free_unlinkdata - release data from a sillydelete operation.
  * @data: pointer to unlink structure.
  */
 static void
-nfs_put_unlinkdata(struct nfs_unlinkdata *data)
+nfs_free_unlinkdata(struct nfs_unlinkdata *data)
 {
-	if (--data->count == 0) {
-		nfs_detach_unlinkdata(data);
-		kfree(data->name.name);
-		kfree(data);
-	}
+	iput(data->dir);
+	put_rpccred(data->cred);
+	kfree(data->args.name.name);
+	kfree(data);
 }
 
 #define NAME_ALLOC_LEN(len)	((len+16) & ~15)
@@ -63,50 +45,31 @@ nfs_put_unlinkdata(struct nfs_unlinkdata *data)
  * @dentry: pointer to dentry
  * @data: nfs_unlinkdata
  */
-static inline void
-nfs_copy_dname(struct dentry *dentry, struct nfs_unlinkdata *data)
+static int nfs_copy_dname(struct dentry *dentry, struct nfs_unlinkdata *data)
 {
 	char		*str;
 	int		len = dentry->d_name.len;
 
-	str = kmalloc(NAME_ALLOC_LEN(len), GFP_KERNEL);
+	str = kmemdup(dentry->d_name.name, NAME_ALLOC_LEN(len), GFP_KERNEL);
 	if (!str)
-		return;
-	memcpy(str, dentry->d_name.name, len);
-	if (!data->name.len) {
-		data->name.len = len;
-		data->name.name = str;
-	} else
-		kfree(str);
+		return -ENOMEM;
+	data->args.name.len = len;
+	data->args.name.name = str;
+	return 0;
 }
 
-/**
- * nfs_async_unlink_init - Initialize the RPC info
- * @task: rpc_task of the sillydelete
- *
- * We delay initializing RPC info until after the call to dentry_iput()
- * in order to minimize races against rename().
- */
-static void nfs_async_unlink_init(struct rpc_task *task, void *calldata)
+static void nfs_free_dname(struct nfs_unlinkdata *data)
 {
-	struct nfs_unlinkdata	*data = calldata;
-	struct dentry		*dir = data->dir;
-	struct rpc_message	msg = {
-		.rpc_cred	= data->cred,
-	};
-	int			status = -ENOENT;
+	kfree(data->args.name.name);
+	data->args.name.name = NULL;
+	data->args.name.len = 0;
+}
 
-	if (!data->name.len)
-		goto out_err;
-
-	status = NFS_PROTO(dir->d_inode)->unlink_setup(&msg, dir, &data->name);
-	if (status < 0)
-		goto out_err;
-	nfs_begin_data_update(dir->d_inode);
-	rpc_call_setup(task, &msg, 0);
-	return;
- out_err:
-	rpc_exit(task, status);
+static void nfs_dec_sillycount(struct inode *dir)
+{
+	struct nfs_inode *nfsi = NFS_I(dir);
+	if (atomic_dec_return(&nfsi->silly_count) == 1)
+		wake_up(&nfsi->waitqueue);
 }
 
 /**
@@ -117,19 +80,11 @@ static void nfs_async_unlink_init(struct rpc_task *task, void *calldata)
  */
 static void nfs_async_unlink_done(struct rpc_task *task, void *calldata)
 {
-	struct nfs_unlinkdata	*data = calldata;
-	struct dentry		*dir = data->dir;
-	struct inode		*dir_i;
+	struct nfs_unlinkdata *data = calldata;
+	struct inode *dir = data->dir;
 
-	if (!dir)
-		return;
-	dir_i = dir->d_inode;
-	nfs_end_data_update(dir_i);
-	if (NFS_PROTO(dir_i)->unlink_done(dir, task))
-		return;
-	put_rpccred(data->cred);
-	data->cred = NULL;
-	dput(dir);
+	if (!NFS_PROTO(dir)->unlink_done(task, dir))
+		nfs_restart_rpc(task, NFS_SERVER(dir)->nfs_client);
 }
 
 /**
@@ -142,82 +97,209 @@ static void nfs_async_unlink_done(struct rpc_task *task, void *calldata)
 static void nfs_async_unlink_release(void *calldata)
 {
 	struct nfs_unlinkdata	*data = calldata;
-	nfs_put_unlinkdata(data);
+	struct super_block *sb = data->dir->i_sb;
+
+	nfs_dec_sillycount(data->dir);
+	nfs_free_unlinkdata(data);
+	nfs_sb_deactive(sb);
 }
 
+#if defined(CONFIG_NFS_V4_1)
+void nfs_unlink_prepare(struct rpc_task *task, void *calldata)
+{
+	struct nfs_unlinkdata *data = calldata;
+	struct nfs_server *server = NFS_SERVER(data->dir);
+
+	if (nfs4_setup_sequence(server, &data->args.seq_args,
+				&data->res.seq_res, 1, task))
+		return;
+	rpc_call_start(task);
+}
+#endif /* CONFIG_NFS_V4_1 */
+
 static const struct rpc_call_ops nfs_unlink_ops = {
-	.rpc_call_prepare = nfs_async_unlink_init,
 	.rpc_call_done = nfs_async_unlink_done,
 	.rpc_release = nfs_async_unlink_release,
+#if defined(CONFIG_NFS_V4_1)
+	.rpc_call_prepare = nfs_unlink_prepare,
+#endif /* CONFIG_NFS_V4_1 */
 };
+
+static int nfs_do_call_unlink(struct dentry *parent, struct inode *dir, struct nfs_unlinkdata *data)
+{
+	struct rpc_message msg = {
+		.rpc_argp = &data->args,
+		.rpc_resp = &data->res,
+		.rpc_cred = data->cred,
+	};
+	struct rpc_task_setup task_setup_data = {
+		.rpc_message = &msg,
+		.callback_ops = &nfs_unlink_ops,
+		.callback_data = data,
+		.workqueue = nfsiod_workqueue,
+		.flags = RPC_TASK_ASYNC,
+	};
+	struct rpc_task *task;
+	struct dentry *alias;
+
+	alias = d_lookup(parent, &data->args.name);
+	if (alias != NULL) {
+		int ret = 0;
+
+		/*
+		 * Hey, we raced with lookup... See if we need to transfer
+		 * the sillyrename information to the aliased dentry.
+		 */
+		nfs_free_dname(data);
+		spin_lock(&alias->d_lock);
+		if (alias->d_inode != NULL &&
+		    !(alias->d_flags & DCACHE_NFSFS_RENAMED)) {
+			alias->d_fsdata = data;
+			alias->d_flags |= DCACHE_NFSFS_RENAMED;
+			ret = 1;
+		}
+		spin_unlock(&alias->d_lock);
+		nfs_dec_sillycount(dir);
+		dput(alias);
+		return ret;
+	}
+	data->dir = igrab(dir);
+	if (!data->dir) {
+		nfs_dec_sillycount(dir);
+		return 0;
+	}
+	nfs_sb_active(dir->i_sb);
+	data->args.fh = NFS_FH(dir);
+	nfs_fattr_init(data->res.dir_attr);
+
+	NFS_PROTO(dir)->unlink_setup(&msg, dir);
+
+	task_setup_data.rpc_client = NFS_CLIENT(dir);
+	task = rpc_run_task(&task_setup_data);
+	if (!IS_ERR(task))
+		rpc_put_task(task);
+	return 1;
+}
+
+static int nfs_call_unlink(struct dentry *dentry, struct nfs_unlinkdata *data)
+{
+	struct dentry *parent;
+	struct inode *dir;
+	int ret = 0;
+
+
+	parent = dget_parent(dentry);
+	if (parent == NULL)
+		goto out_free;
+	dir = parent->d_inode;
+	if (nfs_copy_dname(dentry, data) != 0)
+		goto out_dput;
+	/* Non-exclusive lock protects against concurrent lookup() calls */
+	spin_lock(&dir->i_lock);
+	if (atomic_inc_not_zero(&NFS_I(dir)->silly_count) == 0) {
+		/* Deferred delete */
+		hlist_add_head(&data->list, &NFS_I(dir)->silly_list);
+		spin_unlock(&dir->i_lock);
+		ret = 1;
+		goto out_dput;
+	}
+	spin_unlock(&dir->i_lock);
+	ret = nfs_do_call_unlink(parent, dir, data);
+out_dput:
+	dput(parent);
+out_free:
+	return ret;
+}
+
+void nfs_block_sillyrename(struct dentry *dentry)
+{
+	struct nfs_inode *nfsi = NFS_I(dentry->d_inode);
+
+	wait_event(nfsi->waitqueue, atomic_cmpxchg(&nfsi->silly_count, 1, 0) == 1);
+}
+
+void nfs_unblock_sillyrename(struct dentry *dentry)
+{
+	struct inode *dir = dentry->d_inode;
+	struct nfs_inode *nfsi = NFS_I(dir);
+	struct nfs_unlinkdata *data;
+
+	atomic_inc(&nfsi->silly_count);
+	spin_lock(&dir->i_lock);
+	while (!hlist_empty(&nfsi->silly_list)) {
+		if (!atomic_inc_not_zero(&nfsi->silly_count))
+			break;
+		data = hlist_entry(nfsi->silly_list.first, struct nfs_unlinkdata, list);
+		hlist_del(&data->list);
+		spin_unlock(&dir->i_lock);
+		if (nfs_do_call_unlink(dentry, dir, data) == 0)
+			nfs_free_unlinkdata(data);
+		spin_lock(&dir->i_lock);
+	}
+	spin_unlock(&dir->i_lock);
+}
 
 /**
  * nfs_async_unlink - asynchronous unlinking of a file
+ * @dir: parent directory of dentry
  * @dentry: dentry to unlink
  */
 int
-nfs_async_unlink(struct dentry *dentry)
+nfs_async_unlink(struct inode *dir, struct dentry *dentry)
 {
-	struct dentry	*dir = dentry->d_parent;
-	struct nfs_unlinkdata	*data;
-	struct rpc_clnt	*clnt = NFS_CLIENT(dir->d_inode);
-	int		status = -ENOMEM;
+	struct nfs_unlinkdata *data;
+	int status = -ENOMEM;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
+	if (data == NULL)
 		goto out;
 
-	data->cred = rpcauth_lookupcred(clnt->cl_auth, 0);
+	data->cred = rpc_lookup_cred();
 	if (IS_ERR(data->cred)) {
 		status = PTR_ERR(data->cred);
 		goto out_free;
 	}
-	data->dir = dget(dir);
-	data->dentry = dentry;
+	data->res.seq_res.sr_slotid = NFS4_MAX_SLOT_TABLE;
+	data->res.dir_attr = &data->dir_attr;
 
-	data->next = nfs_deletes;
-	nfs_deletes = data;
-	data->count = 1;
-
-	rpc_init_task(&data->task, clnt, RPC_TASK_ASYNC, &nfs_unlink_ops, data);
-
+	status = -EBUSY;
 	spin_lock(&dentry->d_lock);
+	if (dentry->d_flags & DCACHE_NFSFS_RENAMED)
+		goto out_unlock;
 	dentry->d_flags |= DCACHE_NFSFS_RENAMED;
+	dentry->d_fsdata = data;
 	spin_unlock(&dentry->d_lock);
-
-	rpc_sleep_on(&nfs_delete_queue, &data->task, NULL, NULL);
-	status = 0;
- out:
-	return status;
+	return 0;
+out_unlock:
+	spin_unlock(&dentry->d_lock);
+	put_rpccred(data->cred);
 out_free:
 	kfree(data);
+out:
 	return status;
 }
 
 /**
  * nfs_complete_unlink - Initialize completion of the sillydelete
  * @dentry: dentry to delete
+ * @inode: inode
  *
  * Since we're most likely to be called by dentry_iput(), we
  * only use the dentry to find the sillydelete. We then copy the name
  * into the qstr.
  */
 void
-nfs_complete_unlink(struct dentry *dentry)
+nfs_complete_unlink(struct dentry *dentry, struct inode *inode)
 {
-	struct nfs_unlinkdata	*data;
+	struct nfs_unlinkdata	*data = NULL;
 
-	for(data = nfs_deletes; data != NULL; data = data->next) {
-		if (dentry == data->dentry)
-			break;
-	}
-	if (!data)
-		return;
-	data->count++;
-	nfs_copy_dname(dentry, data);
 	spin_lock(&dentry->d_lock);
-	dentry->d_flags &= ~DCACHE_NFSFS_RENAMED;
+	if (dentry->d_flags & DCACHE_NFSFS_RENAMED) {
+		dentry->d_flags &= ~DCACHE_NFSFS_RENAMED;
+		data = dentry->d_fsdata;
+	}
 	spin_unlock(&dentry->d_lock);
-	rpc_wake_up_task(&data->task);
-	nfs_put_unlinkdata(data);
+
+	if (data != NULL && (NFS_STALE(inode) || !nfs_call_unlink(dentry, data)))
+		nfs_free_unlinkdata(data);
 }

@@ -4,10 +4,10 @@ specify force effects to I-Force 2.0 devices.  None of this information comes
 from Immerse. That's why you should not trust what is written in this
 document. This document is intended to help understanding the protocol.
 This is not a reference. Comments and corrections are welcome.  To contact me,
-send an email to: deneux@ifrance.com
+send an email to: johann.deneux@gmail.com
 
 ** WARNING **
-I may not be held responsible for any dammage or harm caused if you try to
+I shall not be held responsible for any damage or harm caused if you try to
 send data to your I-Force device based on what you read in this document.
 
 ** Preliminary Notes:
@@ -67,7 +67,7 @@ LEN= 0e
 	Val 40 Spring (Force = f(pos))
 	Val 41 Friction (Force = f(velocity)) and Inertia (Force = f(acceleration))
 
-	
+
 02 Axes affected and trigger
 	Bits 4-7: Val 2 = effect along one axis. Byte 05 indicates direction
 	          Val 4 = X axis only. Byte 05 must contain 5a
@@ -151,13 +151,13 @@ OP=  ff
 Query command. Length varies according to the query type.
 The general format of this packet is:
 ff 01 QUERY [INDEX] CHECKSUM
-reponses are of the same form:
+responses are of the same form:
 FF LEN QUERY VALUE_QUERIED CHECKSUM2
 where LEN = 1 + length(VALUE_QUERIED)
 
 **** Query ram size ****
 QUERY = 42 ('B'uffer size)
-The device should reply with the same packet plus two additionnal bytes
+The device should reply with the same packet plus two additional bytes
 containing the size of the memory:
 ff 03 42 03 e8 CS would mean that the device has 1000 bytes of ram available.
 
@@ -176,7 +176,7 @@ QUERY = 50 ('P'roduct)
 Query the product id (2 bytes)
 
 **** Open device ****
-QUERY = 4f ('O'pen) 
+QUERY = 4f ('O'pen)
 No data returned.
 
 **** Close device *****
@@ -184,7 +184,7 @@ QUERY = 43 ('C')lose
 No data returned.
 
 **** Query effect ****
-QUERY = 45 ('E') 
+QUERY = 45 ('E')
 Send effect type.
 Returns nonzero if supported (2 bytes)
 
@@ -199,12 +199,12 @@ Sends back 3 bytes - major, minor, subminor
 OP=  40 <idx> <val> [<val>]
 LEN= 2 or 3
 00 Idx
-   Idx 00 Set dead zone (0..2048) 
-   Idx 01 Ignore Deadman sensor (0..1)     
-   Idx 02 Enable comm watchdog (0..1)     
-   Idx 03 Set the strength of the spring (0..100)   
+   Idx 00 Set dead zone (0..2048)
+   Idx 01 Ignore Deadman sensor (0..1)
+   Idx 02 Enable comm watchdog (0..1)
+   Idx 03 Set the strength of the spring (0..100)
    Idx 04 Enable or disable the spring (0/1)
-   Idx 05 Set axis saturation threshold (0..2048) 
+   Idx 05 Set axis saturation threshold (0..2048)
 
 **** Set Effect State ****
 OP=  42 <val>
@@ -234,20 +234,24 @@ is the amount of memory apparently needed for every set of parameters:
 
 ** Appendix: How to study the protocol ? **
 
-1. Generate effects using the force editor provided with the DirectX SDK, or use Immersion Studio (freely available at their web site in the developer section: www.immersion.com)
-2. Start a soft spying RS232 or USB (depending on where you connected your joystick/wheel). I used ComPortSpy from fCoder (alpha version!)
+1. Generate effects using the force editor provided with the DirectX SDK, or 
+use Immersion Studio (freely available at their web site in the developer section: 
+www.immersion.com)
+2. Start a soft spying RS232 or USB (depending on where you connected your 
+joystick/wheel). I used ComPortSpy from fCoder (alpha version!)
 3. Play the effect, and watch what happens on the spy screen.
 
 A few words about ComPortSpy:
-At first glance, this soft seems, hum, well... buggy. In fact, data appear with a few seconds latency. Personnaly, I restart it every time I play an effect.
+At first glance, this software seems, hum, well... buggy. In fact, data appear with a
+few seconds latency. Personally, I restart it every time I play an effect.
 Remember it's free (as in free beer) and alpha!
 
 ** URLS **
 Check www.immerse.com for Immersion Studio, and www.fcoder.com for ComPortSpy.
 
 ** Author of this document **
-Johann Deneux <deneux@ifrance.com>
-Home page at http://www.esil.univ-mrs.fr/~jdeneux/projects/ff/
+Johann Deneux <johann.deneux@gmail.com>
+Home page at http://web.archive.org/web/*/http://www.esil.univ-mrs.fr
 
 Additions by Vojtech Pavlik.
 

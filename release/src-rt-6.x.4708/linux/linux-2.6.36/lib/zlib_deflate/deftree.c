@@ -1110,4 +1110,3 @@ static void copy_block(
     memcpy(&s->pending_buf[s->pending], buf, len);
     s->pending += len;
 }
-

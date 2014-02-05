@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  *  linux/arch/arm/lib/csumpartial.S
  *
@@ -11,6 +12,7 @@
 #include <asm/assembler.h>
 
 		.text
+		.section .text.fastpath_host, "a"
 
 /*
  * Function: __u32 csum_partial(const char *src, int len, __u32 sum)
@@ -139,3 +141,4 @@ ENTRY(csum_partial)
 		tst	len, #0x1c
 		bne	4b
 		b	.Lless4
+ENDPROC(csum_partial)

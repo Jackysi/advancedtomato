@@ -3,8 +3,6 @@
  *
  *  Copyright (C) 2002 Thomas Gleixner (tglx@linutronix.de)
  *
- * $Id: nand_ids.c,v 1.16 2005/11/07 11:14:31 gleixner Exp $
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -84,8 +82,10 @@ struct nand_flash_dev nand_flash_ids[] = {
 	/* 1 Gigabit */
 	{"NAND 128MiB 1,8V 8-bit",	0xA1, 0, 128, 0, LP_OPTIONS},
 	{"NAND 128MiB 3,3V 8-bit",	0xF1, 0, 128, 0, LP_OPTIONS},
+	{"NAND 128MiB 3,3V 8-bit",	0xD1, 0, 128, 0, LP_OPTIONS},
 	{"NAND 128MiB 1,8V 16-bit",	0xB1, 0, 128, 0, LP_OPTIONS16},
 	{"NAND 128MiB 3,3V 16-bit",	0xC1, 0, 128, 0, LP_OPTIONS16},
+	{"NAND 128MiB 1,8V 16-bit",     0xAD, 0, 128, 0, LP_OPTIONS16},
 
 	/* 2 Gigabit */
 	{"NAND 256MiB 1,8V 8-bit",	0xAA, 0, 256, 0, LP_OPTIONS},
@@ -110,6 +110,9 @@ struct nand_flash_dev nand_flash_ids[] = {
 	{"NAND 2GiB 3,3V 8-bit",	0xD5, 0, 2048, 0, LP_OPTIONS},
 	{"NAND 2GiB 1,8V 16-bit",	0xB5, 0, 2048, 0, LP_OPTIONS16},
 	{"NAND 2GiB 3,3V 16-bit",	0xC5, 0, 2048, 0, LP_OPTIONS16},
+
+	/* 32 Gigabit */
+	{"NAND 4GiB 3,3V 8-bit",	0xD7, 0, 4096, 0, LP_OPTIONS},
 
 	/*
 	 * Renesas AND 1 Gigabit. Those chips do not support extended id and
@@ -141,7 +144,7 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_STMICRO, "ST Micro"},
 	{NAND_MFR_HYNIX, "Hynix"},
 	{NAND_MFR_MICRON, "Micron"},
-	{NAND_MFR_ZENTEL, "Zentel"},
+	{NAND_MFR_AMD, "AMD"},
 	{0x0, "Unknown"}
 };
 

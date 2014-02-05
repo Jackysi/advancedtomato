@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2007, 2008 Mellanox Technologies. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -30,13 +31,14 @@
  * SOFTWARE.
  */
 
-#include <linux/init.h>
 #include <linux/string.h>
-#include <linux/slab.h>
 
 #include <linux/mlx4/cmd.h>
 
 #include "mlx4.h"
+
+#define MGM_QPN_MASK       0x00FFFFFF
+#define MGM_BLCK_LB_BIT    30
 
 struct mlx4_mgm {
 	__be32			next_gid_index;
@@ -114,17 +116,7 @@ static int find_mgm(struct mlx4_dev *dev,
 		return err;
 
 	if (0)
-		mlx4_dbg(dev, "Hash for %04x:%04x:%04x:%04x:"
-			  "%04x:%04x:%04x:%04x is %04x\n",
-			  be16_to_cpu(((__be16 *) gid)[0]),
-			  be16_to_cpu(((__be16 *) gid)[1]),
-			  be16_to_cpu(((__be16 *) gid)[2]),
-			  be16_to_cpu(((__be16 *) gid)[3]),
-			  be16_to_cpu(((__be16 *) gid)[4]),
-			  be16_to_cpu(((__be16 *) gid)[5]),
-			  be16_to_cpu(((__be16 *) gid)[6]),
-			  be16_to_cpu(((__be16 *) gid)[7]),
-			  *hash);
+		mlx4_dbg(dev, "Hash for %pI6 is %04x\n", gid, *hash);
 
 	*index = *hash;
 	*prev  = -1;
@@ -153,7 +145,8 @@ static int find_mgm(struct mlx4_dev *dev,
 	return err;
 }
 
-int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
+int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+			  int block_mcast_loopback)
 {
 	struct mlx4_priv *priv = mlx4_priv(dev);
 	struct mlx4_cmd_mailbox *mailbox;
@@ -190,10 +183,6 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
 		}
 		index += dev->caps.num_mgms;
 
-		err = mlx4_READ_MCG(dev, index, mailbox);
-		if (err)
-			goto out;
-
 		memset(mgm, 0, sizeof *mgm);
 		memcpy(mgm->gid, gid, 16);
 	}
@@ -206,13 +195,18 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
 	}
 
 	for (i = 0; i < members_count; ++i)
-		if (mgm->qp[i] == cpu_to_be32(qp->qpn)) {
+		if ((be32_to_cpu(mgm->qp[i]) & MGM_QPN_MASK) == qp->qpn) {
 			mlx4_dbg(dev, "QP %06x already a member of MGM\n", qp->qpn);
 			err = 0;
 			goto out;
 		}
 
-	mgm->qp[members_count++] = cpu_to_be32(qp->qpn);
+	if (block_mcast_loopback)
+		mgm->qp[members_count++] = cpu_to_be32((qp->qpn & MGM_QPN_MASK) |
+						       (1U << MGM_BLCK_LB_BIT));
+	else
+		mgm->qp[members_count++] = cpu_to_be32(qp->qpn & MGM_QPN_MASK);
+
 	mgm->members_count       = cpu_to_be32(members_count);
 
 	err = mlx4_WRITE_MCG(dev, index, mailbox);
@@ -271,23 +265,14 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
 		goto out;
 
 	if (index == -1) {
-		mlx4_err(dev, "MGID %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x "
-			  "not found\n",
-			  be16_to_cpu(((__be16 *) gid)[0]),
-			  be16_to_cpu(((__be16 *) gid)[1]),
-			  be16_to_cpu(((__be16 *) gid)[2]),
-			  be16_to_cpu(((__be16 *) gid)[3]),
-			  be16_to_cpu(((__be16 *) gid)[4]),
-			  be16_to_cpu(((__be16 *) gid)[5]),
-			  be16_to_cpu(((__be16 *) gid)[6]),
-			  be16_to_cpu(((__be16 *) gid)[7]));
+		mlx4_err(dev, "MGID %pI6 not found\n", gid);
 		err = -EINVAL;
 		goto out;
 	}
 
 	members_count = be32_to_cpu(mgm->members_count);
 	for (loc = -1, i = 0; i < members_count; ++i)
-		if (mgm->qp[i] == cpu_to_be32(qp->qpn))
+		if ((be32_to_cpu(mgm->qp[i]) & MGM_QPN_MASK) == qp->qpn)
 			loc = i;
 
 	if (loc == -1) {
@@ -301,12 +286,10 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
 	mgm->qp[loc]       = mgm->qp[i - 1];
 	mgm->qp[i - 1]     = 0;
 
-	err = mlx4_WRITE_MCG(dev, index, mailbox);
-	if (err)
+	if (i != 1) {
+		err = mlx4_WRITE_MCG(dev, index, mailbox);
 		goto out;
-
-	if (i != 1)
-		goto out;
+	}
 
 	if (prev == -1) {
 		/* Remove entry from MGM */
@@ -359,13 +342,13 @@ out:
 }
 EXPORT_SYMBOL_GPL(mlx4_multicast_detach);
 
-int __devinit mlx4_init_mcg_table(struct mlx4_dev *dev)
+int mlx4_init_mcg_table(struct mlx4_dev *dev)
 {
 	struct mlx4_priv *priv = mlx4_priv(dev);
 	int err;
 
-	err = mlx4_bitmap_init(&priv->mcg_table.bitmap,
-			       dev->caps.num_amgms, dev->caps.num_amgms - 1, 0);
+	err = mlx4_bitmap_init(&priv->mcg_table.bitmap, dev->caps.num_amgms,
+			       dev->caps.num_amgms - 1, 0, 0);
 	if (err)
 		return err;
 

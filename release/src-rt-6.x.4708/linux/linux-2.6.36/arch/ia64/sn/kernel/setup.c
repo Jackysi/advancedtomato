@@ -25,7 +25,6 @@
 #include <linux/interrupt.h>
 #include <linux/acpi.h>
 #include <linux/compiler.h>
-#include <linux/sched.h>
 #include <linux/root_dev.h>
 #include <linux/nodemask.h>
 #include <linux/pm.h>
@@ -65,7 +64,6 @@ extern void sn_timer_init(void);
 extern unsigned long last_time_offset;
 extern void (*ia64_mark_idle) (int);
 extern void snidle(int);
-extern unsigned long long (*ia64_printk_clock)(void);
 
 unsigned long sn_rtc_cycles_per_second;
 EXPORT_SYMBOL(sn_rtc_cycles_per_second);
@@ -202,7 +200,7 @@ static int __cpuinitdata shub_1_1_found;
  * Set flag for enabling shub specific wars
  */
 
-static inline int __init is_shub_1_1(int nasid)
+static inline int __cpuinit is_shub_1_1(int nasid)
 {
 	unsigned long id;
 	int rev;
@@ -214,7 +212,7 @@ static inline int __init is_shub_1_1(int nasid)
 	return rev <= 2;
 }
 
-static void __init sn_check_for_wars(void)
+static void __cpuinit sn_check_for_wars(void)
 {
 	int cnode;
 
@@ -243,7 +241,7 @@ static void __init sn_check_for_wars(void)
  * Note:  This stuff is duped here because Altix requires the PCDP to
  * locate a usable VGA device due to lack of proper ACPI support.  Structures
  * could be used from drivers/firmware/pcdp.h, but it was decided that moving
- * this file to a more public location just for Altix use was undesireable.
+ * this file to a more public location just for Altix use was undesirable.
  */
 
 struct hcdp_uart_desc {
@@ -361,14 +359,6 @@ sn_scan_pcdp(void)
 
 static unsigned long sn2_rtc_initial;
 
-static unsigned long long ia64_sn2_printk_clock(void)
-{
-	unsigned long rtc_now = rtc_time();
-
-	return (rtc_now - sn2_rtc_initial) *
-		(1000000000 / sn_rtc_cycles_per_second);
-}
-
 /**
  * sn_setup - SN platform setup routine
  * @cmdline_p: kernel command line
@@ -400,24 +390,6 @@ void __init sn_setup(char **cmdline_p)
 	acpi_table_init();
 
 #if defined(CONFIG_VT) && defined(CONFIG_VGA_CONSOLE)
-	/*
-	 * Handle SN vga console.
-	 *
-	 * SN systems do not have enough ACPI table information
-	 * being passed from prom to identify VGA adapters and the legacy
-	 * addresses to access them.  Until that is done, SN systems rely
-	 * on the PCDP table to identify the primary VGA console if one
-	 * exists.
-	 *
-	 * However, kernel PCDP support is optional, and even if it is built
-	 * into the kernel, it will not be used if the boot cmdline contains
-	 * console= directives.
-	 *
-	 * So, to work around this mess, we duplicate some of the PCDP code
-	 * here so that the primary VGA console (as defined by PCDP) will
-	 * work on SN systems even if a different console (e.g. serial) is
-	 * selected on the boot line (or CONFIG_EFI_PCDP is off).
-	 */
 
 	if (! vga_console_membase)
 		sn_scan_pcdp();
@@ -469,8 +441,6 @@ void __init sn_setup(char **cmdline_p)
 
 	platform_intr_list[ACPI_INTERRUPT_CPEI] = IA64_CPE_VECTOR;
 
-	ia64_printk_clock = ia64_sn2_printk_clock;
-
 	printk("SGI SAL version %x.%02x\n", version >> 8, version & 0x00FF);
 
 	/*
@@ -519,12 +489,11 @@ static void __init sn_init_pdas(char **cmdline_p)
 	cnodeid_t cnode;
 
 	/*
-	 * Allocate & initalize the nodepda for each node.
+	 * Allocate & initialize the nodepda for each node.
 	 */
 	for_each_online_node(cnode) {
 		nodepdaindr[cnode] =
 		    alloc_bootmem_node(NODE_DATA(cnode), sizeof(nodepda_t));
-		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
 		memset(nodepdaindr[cnode]->phys_cpuid, -1,
 		    sizeof(nodepdaindr[cnode]->phys_cpuid));
 		spin_lock_init(&nodepdaindr[cnode]->ptc_lock);
@@ -533,11 +502,9 @@ static void __init sn_init_pdas(char **cmdline_p)
 	/*
 	 * Allocate & initialize nodepda for TIOs.  For now, put them on node 0.
 	 */
-	for (cnode = num_online_nodes(); cnode < num_cnodes; cnode++) {
+	for (cnode = num_online_nodes(); cnode < num_cnodes; cnode++)
 		nodepdaindr[cnode] =
 		    alloc_bootmem_node(NODE_DATA(0), sizeof(nodepda_t));
-		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
-	}
 
 	/*
 	 * Now copy the array of nodepda pointers to each nodepda.
@@ -747,8 +714,7 @@ void __init build_cnode_tables(void)
 		kl_config_hdr_t *klgraph_header;
 		nasid = cnodeid_to_nasid(node);
 		klgraph_header = ia64_sn_get_klconfig_addr(nasid);
-		if (klgraph_header == NULL)
-			BUG();
+		BUG_ON(klgraph_header == NULL);
 		brd = NODE_OFFSET_TO_LBOARD(nasid, klgraph_header->ch_board_info);
 		while (brd) {
 			if (board_needs_cnode(brd->brd_type) && physical_node_map[brd->brd_nasid] < 0) {
@@ -765,7 +731,7 @@ nasid_slice_to_cpuid(int nasid, int slice)
 {
 	long cpu;
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++)
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
 		if (cpuid_to_nasid(cpu) == nasid &&
 					cpuid_to_slice(cpu) == slice)
 			return cpu;
@@ -788,4 +754,3 @@ sn_kernel_launch_event(void)
 		printk(KERN_ERR "KEXEC is not supported in this PROM, Please update the PROM.\n");
 }
 EXPORT_SYMBOL(sn_prom_feature_available);
-

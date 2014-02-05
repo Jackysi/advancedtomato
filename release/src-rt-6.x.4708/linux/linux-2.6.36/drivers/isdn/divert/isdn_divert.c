@@ -1,4 +1,4 @@
-/* $Id: isdn_divert.c,v 1.6.6.3 2001/09/23 22:24:36 kai Exp $
+/* $Id: isdn_divert.c,v 1.6.6.3 2001/09/23 22:24:36 Exp $
  *
  * DSS1 main diversion supplementary handling for i4l.
  *
@@ -10,6 +10,7 @@
  */
 
 #include <linux/proc_fs.h>
+#include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
 
@@ -183,7 +184,7 @@ int cf_command(int drvid, int mode,
           (mode != 1) ? "" : " 0 ",
           (mode != 1) ? "" : fwd_nr);
  
-  retval = divert_if.ll_cmd(&cs->ics); /* excute command */
+  retval = divert_if.ll_cmd(&cs->ics); /* execute command */
 
   if (!retval)
    { cs->prev = NULL;
@@ -859,4 +860,3 @@ int ll_callback(isdn_ctrl *ic)
        return(isdn_divert_stat_callback(ic));
    }
 } /* ll_callback */
-

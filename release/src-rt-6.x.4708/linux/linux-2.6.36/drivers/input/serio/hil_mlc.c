@@ -58,6 +58,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/list.h>
 
@@ -76,7 +77,7 @@ static struct timer_list	hil_mlcs_kicker;
 static int			hil_mlcs_probe;
 
 static void hil_mlcs_process(unsigned long unused);
-DECLARE_TASKLET_DISABLED(hil_mlcs_tasklet, hil_mlcs_process, 0);
+static DECLARE_TASKLET_DISABLED(hil_mlcs_tasklet, hil_mlcs_process, 0);
 
 
 /* #define HIL_MLC_DEBUG */
@@ -291,14 +292,6 @@ static int hilse_inc_lcv(hil_mlc *mlc, int lim)
 	return mlc->lcv++ >= lim ? -1 : 0;
 }
 
-#if 0
-static int hilse_set_lcv(hil_mlc *mlc, int val)
-{
-	mlc->lcv = val;
-
-	return 0;
-}
-#endif
 
 /* Management of the discovered device index (zero based, -1 means no devs) */
 static int hilse_set_ddi(hil_mlc *mlc, int val)
@@ -459,7 +452,7 @@ static int hilse_operate(hil_mlc *mlc, int repoll)
 #define OUT_LAST(pack) \
 { HILSE_OUT_LAST,	{ .packet = pack }, 0, 0, 0, 0 },
 
-const struct hilse_node hil_mlc_se[HILSEN_END] = {
+static const struct hilse_node hil_mlc_se[HILSEN_END] = {
 
 	/* 0  HILSEN_START */
 	FUNC(hilse_init_lcv, 0,	HILSEN_NEXT,	HILSEN_SLEEP,	0)
@@ -784,7 +777,7 @@ static void hil_mlcs_process(unsigned long unused)
 
 /************************* Keepalive timer task *********************/
 
-void hil_mlcs_timer(unsigned long data)
+static void hil_mlcs_timer(unsigned long data)
 {
 	hil_mlcs_probe = 1;
 	tasklet_schedule(&hil_mlcs_tasklet);
@@ -934,6 +927,7 @@ int hil_mlc_register(hil_mlc *mlc)
 		snprintf(mlc_serio->name, sizeof(mlc_serio->name)-1, "HIL_SERIO%d", i);
 		snprintf(mlc_serio->phys, sizeof(mlc_serio->phys)-1, "HIL%d", i);
 		mlc_serio->id			= hil_mlc_serio_id;
+		mlc_serio->id.id		= i; /* HIL port no. */
 		mlc_serio->write		= hil_mlc_serio_write;
 		mlc_serio->open			= hil_mlc_serio_open;
 		mlc_serio->close		= hil_mlc_serio_close;
@@ -992,10 +986,8 @@ int hil_mlc_unregister(hil_mlc *mlc)
 
 static int __init hil_mlc_init(void)
 {
-	init_timer(&hil_mlcs_kicker);
-	hil_mlcs_kicker.expires = jiffies + HZ;
-	hil_mlcs_kicker.function = &hil_mlcs_timer;
-	add_timer(&hil_mlcs_kicker);
+	setup_timer(&hil_mlcs_kicker, &hil_mlcs_timer, 0);
+	mod_timer(&hil_mlcs_kicker, jiffies + HZ);
 
 	tasklet_enable(&hil_mlcs_tasklet);
 
@@ -1004,7 +996,7 @@ static int __init hil_mlc_init(void)
 
 static void __exit hil_mlc_exit(void)
 {
-	del_timer(&hil_mlcs_kicker);
+	del_timer_sync(&hil_mlcs_kicker);
 
 	tasklet_disable(&hil_mlcs_tasklet);
 	tasklet_kill(&hil_mlcs_tasklet);

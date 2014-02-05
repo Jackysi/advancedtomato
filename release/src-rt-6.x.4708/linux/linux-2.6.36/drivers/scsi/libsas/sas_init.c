@@ -24,6 +24,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
@@ -152,8 +153,6 @@ int sas_unregister_ha(struct sas_ha_struct *sas_ha)
 static int sas_get_linkerrors(struct sas_phy *phy)
 {
 	if (scsi_is_sas_phy_local(phy))
-		/* FIXME: we have no local phy stats
-		 * gathering at this time */
 		return -EINVAL;
 
 	return sas_smp_get_phy_events(phy);
@@ -259,6 +258,7 @@ static struct sas_function_template sft = {
 	.phy_reset = sas_phy_reset,
 	.set_phy_speed = sas_set_phy_speed,
 	.get_linkerrors = sas_get_linkerrors,
+	.smp_handler = sas_smp_handler,
 };
 
 struct scsi_transport_template *
@@ -292,7 +292,7 @@ EXPORT_SYMBOL_GPL(sas_domain_release_transport);
 static int __init sas_class_init(void)
 {
 	sas_task_cache = kmem_cache_create("sas_task", sizeof(struct sas_task),
-					   0, SLAB_HWCACHE_ALIGN, NULL, NULL);
+					   0, SLAB_HWCACHE_ALIGN, NULL);
 	if (!sas_task_cache)
 		return -ENOMEM;
 

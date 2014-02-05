@@ -145,7 +145,7 @@ static int hpux_ustat(dev_t dev, struct hpux_ustat __user *ubuf)
 	s = user_get_super(dev);
 	if (s == NULL)
 		goto out;
-	err = vfs_statfs(s->s_root, &sbuf);
+	err = statfs_by_dentry(s->s_root, &sbuf);
 	drop_super(s);
 	if (err)
 		goto out;
@@ -186,12 +186,12 @@ struct hpux_statfs {
      int16_t f_pad;
 };
 
-static int vfs_statfs_hpux(struct dentry *dentry, struct hpux_statfs *buf)
+static int do_statfs_hpux(struct path *path, struct hpux_statfs *buf)
 {
 	struct kstatfs st;
 	int retval;
 	
-	retval = vfs_statfs(dentry, &st);
+	retval = vfs_statfs(path, &st);
 	if (retval)
 		return retval;
 
@@ -210,19 +210,19 @@ static int vfs_statfs_hpux(struct dentry *dentry, struct hpux_statfs *buf)
 }
 
 /* hpux statfs */
-asmlinkage long hpux_statfs(const char __user *path,
+asmlinkage long hpux_statfs(const char __user *pathname,
 						struct hpux_statfs __user *buf)
 {
-	struct nameidata nd;
+	struct path path;
 	int error;
 
-	error = user_path_walk(path, &nd);
+	error = user_path(pathname, &path);
 	if (!error) {
 		struct hpux_statfs tmp;
-		error = vfs_statfs_hpux(nd.dentry, &tmp);
+		error = do_statfs_hpux(&path, &tmp);
 		if (!error && copy_to_user(buf, &tmp, sizeof(tmp)))
 			error = -EFAULT;
-		path_release(&nd);
+		path_put(&path);
 	}
 	return error;
 }
@@ -237,7 +237,7 @@ asmlinkage long hpux_fstatfs(unsigned int fd, struct hpux_statfs __user * buf)
 	file = fget(fd);
 	if (!file)
 		goto out;
-	error = vfs_statfs_hpux(file->f_path.dentry, &tmp);
+	error = do_statfs_hpux(&file->f_path, &tmp);
 	if (!error && copy_to_user(buf, &tmp, sizeof(tmp)))
 		error = -EFAULT;
 	fput(file);
@@ -287,10 +287,6 @@ static int hpux_uname(struct hpux_utsname __user *name)
 	/*  HP-UX  utsname has no domainname field.  */
 
 	/*  TODO:  Implement idnumber!!!  */
-#if 0
-	error |= __put_user(0,name->idnumber);
-	error |= __put_user(0,name->idnumber+HPUX_SNLEN-1);
-#endif
 
 	error = error ? -EFAULT : 0;
 
@@ -445,12 +441,7 @@ done:
 
 int hpux_pipe(int *kstack_fildes)
 {
-	int error;
-
-	lock_kernel();
-	error = do_pipe(kstack_fildes);
-	unlock_kernel();
-	return error;
+	return do_pipe_flags(kstack_fildes, 0);
 }
 
 /* lies - says it works, but it really didn't lock anything */

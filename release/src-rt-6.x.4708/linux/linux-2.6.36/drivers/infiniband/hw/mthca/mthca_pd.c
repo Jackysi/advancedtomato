@@ -30,8 +30,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * $Id: mthca_pd.c 1349 2004-12-16 21:09:43Z roland $
  */
 
 #include <linux/errno.h>
@@ -78,6 +76,5 @@ int mthca_init_pd_table(struct mthca_dev *dev)
 
 void mthca_cleanup_pd_table(struct mthca_dev *dev)
 {
-	/* XXX check if any PDs are still allocated? */
 	mthca_alloc_cleanup(&dev->pd_table.alloc);
 }

@@ -63,7 +63,6 @@ enum {
 
 struct spider_pic {
 	struct irq_host		*host;
-	struct device_node	*of_node;
 	void __iomem		*regs;
 	unsigned int		node_id;
 };
@@ -103,7 +102,7 @@ static void spider_ack_irq(unsigned int virq)
 
 	/* Reset edge detection logic if necessary
 	 */
-	if (get_irq_desc(virq)->status & IRQ_LEVEL)
+	if (irq_to_desc(virq)->status & IRQ_LEVEL)
 		return;
 
 	/* Only interrupts 47 to 50 can be set to edge */
@@ -120,7 +119,7 @@ static int spider_set_irq_type(unsigned int virq, unsigned int type)
 	struct spider_pic *pic = spider_virq_to_pic(virq);
 	unsigned int hw = irq_map[virq].hwirq;
 	void __iomem *cfg = spider_get_irq_config(pic, hw);
-	struct irq_desc *desc = get_irq_desc(virq);
+	struct irq_desc *desc = irq_to_desc(virq);
 	u32 old_mask;
 	u32 ic;
 
@@ -169,18 +168,12 @@ static int spider_set_irq_type(unsigned int virq, unsigned int type)
 }
 
 static struct irq_chip spider_pic = {
-	.typename = " SPIDER   ",
+	.name = "SPIDER",
 	.unmask = spider_unmask_irq,
 	.mask = spider_mask_irq,
 	.ack = spider_ack_irq,
 	.set_type = spider_set_irq_type,
 };
-
-static int spider_host_match(struct irq_host *h, struct device_node *node)
-{
-	struct spider_pic *pic = h->host_data;
-	return node == pic->of_node;
-}
 
 static int spider_host_map(struct irq_host *h, unsigned int virq,
 			irq_hw_number_t hw)
@@ -194,7 +187,7 @@ static int spider_host_map(struct irq_host *h, unsigned int virq,
 }
 
 static int spider_host_xlate(struct irq_host *h, struct device_node *ct,
-			   u32 *intspec, unsigned int intsize,
+			   const u32 *intspec, unsigned int intsize,
 			   irq_hw_number_t *out_hwirq, unsigned int *out_flags)
 
 {
@@ -208,7 +201,6 @@ static int spider_host_xlate(struct irq_host *h, struct device_node *ct,
 }
 
 static struct irq_host_ops spider_host_ops = {
-	.match = spider_host_match,
 	.map = spider_host_map,
 	.xlate = spider_host_xlate,
 };
@@ -247,18 +239,18 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
 	 * tree in case the device-tree is ever fixed
 	 */
 	struct of_irq oirq;
-	if (of_irq_map_one(pic->of_node, 0, &oirq) == 0) {
+	if (of_irq_map_one(pic->host->of_node, 0, &oirq) == 0) {
 		virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
 					     oirq.size);
 		return virq;
 	}
 
 	/* Now do the horrible hacks */
-	tmp = of_get_property(pic->of_node, "#interrupt-cells", NULL);
+	tmp = of_get_property(pic->host->of_node, "#interrupt-cells", NULL);
 	if (tmp == NULL)
 		return NO_IRQ;
 	intsize = *tmp;
-	imap = of_get_property(pic->of_node, "interrupt-map", &imaplen);
+	imap = of_get_property(pic->host->of_node, "interrupt-map", &imaplen);
 	if (imap == NULL || imaplen < (intsize + 1))
 		return NO_IRQ;
 	iic = of_find_node_by_phandle(imap[intsize]);
@@ -308,14 +300,12 @@ static void __init spider_init_one(struct device_node *of_node, int chip,
 		panic("spider_pic: can't map registers !");
 
 	/* Allocate a host */
-	pic->host = irq_alloc_host(IRQ_HOST_MAP_LINEAR, SPIDER_SRC_COUNT,
-				   &spider_host_ops, SPIDER_IRQ_INVALID);
+	pic->host = irq_alloc_host(of_node, IRQ_HOST_MAP_LINEAR,
+				   SPIDER_SRC_COUNT, &spider_host_ops,
+				   SPIDER_IRQ_INVALID);
 	if (pic->host == NULL)
 		panic("spider_pic: can't allocate irq host !");
 	pic->host->host_data = pic;
-
-	/* Fill out other bits */
-	pic->of_node = of_node_get(of_node);
 
 	/* Go through all sources and disable them */
 	for (i = 0; i < SPIDER_SRC_COUNT; i++) {
@@ -349,13 +339,6 @@ void __init spider_init_IRQ(void)
 	struct device_node *dn;
 	int chip = 0;
 
-	/* XXX node numbers are totally bogus. We _hope_ we get the device
-	 * nodes in the right order here but that's definitely not guaranteed,
-	 * we need to get the node from the device tree instead.
-	 * There is currently no proper property for it (but our whole
-	 * device-tree is bogus anyway) so all we can do is pray or maybe test
-	 * the address and deduce the node-id
-	 */
 	for (dn = NULL;
 	     (dn = of_find_node_by_name(dn, "interrupt-controller"));) {
 		if (of_device_is_compatible(dn, "CBEA,platform-spider-pic")) {

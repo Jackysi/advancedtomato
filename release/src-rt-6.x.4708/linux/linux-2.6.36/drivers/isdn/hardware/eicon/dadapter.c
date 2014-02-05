@@ -363,4 +363,3 @@ void IDI_CALL_LINK_T DIVA_DIDD_Read (void IDI_CALL_ENTITY_T * buffer,
                    int length) {
  diva_didd_read_adapter_array (buffer, length);
 }
-

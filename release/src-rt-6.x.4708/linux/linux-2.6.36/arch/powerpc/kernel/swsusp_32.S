@@ -5,7 +5,7 @@
 #include <asm/thread_info.h>
 #include <asm/ppc_asm.h>
 #include <asm/asm-offsets.h>
-
+#include <asm/mmu.h>
 
 /*
  * Structure for storing CPU registers on the save area.
@@ -112,10 +112,6 @@ _GLOBAL(swsusp_arch_suspend)
 	mfibatl	r4,3
 	stw	r4,SL_IBAT3+4(r11)
 
-#if  0
-	/* Backup various CPU config stuffs */
-	bl	__save_cpu_setup
-#endif
 	/* Call the low level suspend stuff (we should probably have made
 	 * a stackframe...
 	 */
@@ -133,10 +129,12 @@ _GLOBAL(swsusp_arch_suspend)
 /* Resume code */
 _GLOBAL(swsusp_arch_resume)
 
+#ifdef CONFIG_ALTIVEC
 	/* Stop pending alitvec streams and memory accesses */
 BEGIN_FTR_SECTION
 	DSSALL
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
+#endif
  	sync
 
 	/* Disable MSR:DR to make sure we don't take a TLB or
@@ -221,10 +219,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	ori	r11,r11,swsusp_save_area@l
 	tophys(r11,r11)
 
-#if 0
-	/* Restore various CPU config stuffs */
-	bl	__restore_cpu_setup
-#endif
 	/* Restore the BATs, and SDR1.  Then we can turn on the MMU.
 	 * This is a bit hairy as we are running out of those BATs,
 	 * but first, our code is probably in the icache, and we are
@@ -242,42 +236,8 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	lwz	r4,SL_SPRG0+12(r11)
 	mtsprg	3,r4
 
-#if 0
-	lwz	r4,SL_DBAT0(r11)
-	mtdbatu	0,r4
-	lwz	r4,SL_DBAT0+4(r11)
-	mtdbatl	0,r4
-	lwz	r4,SL_DBAT1(r11)
-	mtdbatu	1,r4
-	lwz	r4,SL_DBAT1+4(r11)
-	mtdbatl	1,r4
-	lwz	r4,SL_DBAT2(r11)
-	mtdbatu	2,r4
-	lwz	r4,SL_DBAT2+4(r11)
-	mtdbatl	2,r4
-	lwz	r4,SL_DBAT3(r11)
-	mtdbatu	3,r4
-	lwz	r4,SL_DBAT3+4(r11)
-	mtdbatl	3,r4
-	lwz	r4,SL_IBAT0(r11)
-	mtibatu	0,r4
-	lwz	r4,SL_IBAT0+4(r11)
-	mtibatl	0,r4
-	lwz	r4,SL_IBAT1(r11)
-	mtibatu	1,r4
-	lwz	r4,SL_IBAT1+4(r11)
-	mtibatl	1,r4
-	lwz	r4,SL_IBAT2(r11)
-	mtibatu	2,r4
-	lwz	r4,SL_IBAT2+4(r11)
-	mtibatl	2,r4
-	lwz	r4,SL_IBAT3(r11)
-	mtibatu	3,r4
-	lwz	r4,SL_IBAT3+4(r11)
-	mtibatl	3,r4
-#endif
 
-BEGIN_FTR_SECTION
+BEGIN_MMU_FTR_SECTION
 	li	r4,0
 	mtspr	SPRN_DBAT4U,r4
 	mtspr	SPRN_DBAT4L,r4
@@ -295,13 +255,13 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_IBAT6L,r4
 	mtspr	SPRN_IBAT7U,r4
 	mtspr	SPRN_IBAT7L,r4
-END_FTR_SECTION_IFSET(CPU_FTR_HAS_HIGH_BATS)
+END_MMU_FTR_SECTION_IFSET(MMU_FTR_USE_HIGH_BATS)
 
 	/* Flush all TLBs */
 	lis	r4,0x1000
 1:	addic.	r4,r4,-0x1000
 	tlbie	r4
-	blt	1b
+	bgt	1b
 	sync
 
 	/* restore the MSR and turn on the MMU */
@@ -330,14 +290,10 @@ END_FTR_SECTION_IFSET(CPU_FTR_HAS_HIGH_BATS)
 	lwz	r0,SL_LR(r11)
 	mtlr	r0
 
-	// XXX Note: we don't really need to call swsusp_resume
 
 	li	r3,0
 	blr
 
-/* FIXME:This construct is actually not useful since we don't shut
- * down the instruction MMU, we could just flip back MSR-DR on.
- */
 turn_on_mmu:
 	mflr	r4
 	mtsrr0	r4
@@ -345,4 +301,3 @@ turn_on_mmu:
 	sync
 	isync
 	rfi
-

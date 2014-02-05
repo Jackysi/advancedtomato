@@ -15,14 +15,14 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/slab.h>
+#include <linux/fs.h>
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/stddef.h>
 #include <linux/unistd.h>
 #include <linux/ptrace.h>
-#include <linux/slab.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
 #include <linux/reboot.h>
 #include <linux/init_task.h>
 #include <linux/mqueue.h>
@@ -40,17 +40,11 @@
  * alignment requirements and potentially different initial
  * setup.
  */
-static struct fs_struct init_fs = INIT_FS;
-static struct files_struct init_files = INIT_FILES;
 static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
 static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
-struct mm_struct init_mm = INIT_MM(init_mm);
-
-EXPORT_SYMBOL(init_mm);
-
-union thread_union init_thread_union
-__attribute__((section(".data.init_task"), aligned(THREAD_SIZE)))
-       = { INIT_THREAD_INFO(init_task) };
+union thread_union init_thread_union __init_task_data
+	__attribute__((aligned(THREAD_SIZE))) =
+		{ INIT_THREAD_INFO(init_task) };
 
 /* initial task structure */
 struct task_struct init_task = INIT_TASK(init_task);
@@ -79,7 +73,7 @@ unsigned long thread_saved_pc(struct task_struct *tsk)
 static void default_idle(void)
 {
 	if (!need_resched())
-#if defined(MACH_ATARI_ONLY) && !defined(CONFIG_HADES)
+#if defined(MACH_ATARI_ONLY)
 		/* block out HSYNC on the atari (falcon) */
 		__asm__("stop #0x2200" : : : "cc");
 #else
@@ -235,7 +229,7 @@ asmlinkage int m68k_clone(struct pt_regs *regs)
 		       parent_tidptr, child_tidptr);
 }
 
-int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
+int copy_thread(unsigned long clone_flags, unsigned long usp,
 		 unsigned long unused,
 		 struct task_struct * p, struct pt_regs * regs)
 {
@@ -257,6 +251,10 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 
 	p->thread.usp = usp;
 	p->thread.ksp = (unsigned long)childstack;
+
+	if (clone_flags & CLONE_SETTLS)
+		task_thread_info(p)->tp_value = regs->d5;
+
 	/*
 	 * Must save the current SFC/DFC value, NOT the value when
 	 * the parent was last descheduled - RGH  10-08-96
@@ -315,70 +313,22 @@ int dump_fpu (struct pt_regs *regs, struct user_m68kfp_struct *fpu)
 EXPORT_SYMBOL(dump_fpu);
 
 /*
- * fill in the user structure for a core dump..
- */
-void dump_thread(struct pt_regs * regs, struct user * dump)
-{
-	struct switch_stack *sw;
-
-/* changed the size calculations - should hopefully work better. lbt */
-	dump->magic = CMAGIC;
-	dump->start_code = 0;
-	dump->start_stack = rdusp() & ~(PAGE_SIZE - 1);
-	dump->u_tsize = ((unsigned long) current->mm->end_code) >> PAGE_SHIFT;
-	dump->u_dsize = ((unsigned long) (current->mm->brk +
-					  (PAGE_SIZE-1))) >> PAGE_SHIFT;
-	dump->u_dsize -= dump->u_tsize;
-	dump->u_ssize = 0;
-
-	if (dump->start_stack < TASK_SIZE)
-		dump->u_ssize = ((unsigned long) (TASK_SIZE - dump->start_stack)) >> PAGE_SHIFT;
-
-	dump->u_ar0 = (struct user_regs_struct *)((int)&dump->regs - (int)dump);
-	sw = ((struct switch_stack *)regs) - 1;
-	dump->regs.d1 = regs->d1;
-	dump->regs.d2 = regs->d2;
-	dump->regs.d3 = regs->d3;
-	dump->regs.d4 = regs->d4;
-	dump->regs.d5 = regs->d5;
-	dump->regs.d6 = sw->d6;
-	dump->regs.d7 = sw->d7;
-	dump->regs.a0 = regs->a0;
-	dump->regs.a1 = regs->a1;
-	dump->regs.a2 = regs->a2;
-	dump->regs.a3 = sw->a3;
-	dump->regs.a4 = sw->a4;
-	dump->regs.a5 = sw->a5;
-	dump->regs.a6 = sw->a6;
-	dump->regs.d0 = regs->d0;
-	dump->regs.orig_d0 = regs->orig_d0;
-	dump->regs.stkadj = regs->stkadj;
-	dump->regs.sr = regs->sr;
-	dump->regs.pc = regs->pc;
-	dump->regs.fmtvec = (regs->format << 12) | regs->vector;
-	/* dump floating point stuff */
-	dump->u_fpvalid = dump_fpu (regs, &dump->m68kfp);
-}
-EXPORT_SYMBOL(dump_thread);
-
-/*
  * sys_execve() executes a new program.
  */
-asmlinkage int sys_execve(char __user *name, char __user * __user *argv, char __user * __user *envp)
+asmlinkage int sys_execve(const char __user *name,
+			  const char __user *const __user *argv,
+			  const char __user *const __user *envp)
 {
 	int error;
 	char * filename;
 	struct pt_regs *regs = (struct pt_regs *) &name;
 
-	lock_kernel();
 	filename = getname(name);
 	error = PTR_ERR(filename);
 	if (IS_ERR(filename))
-		goto out;
+		return error;
 	error = do_execve(filename, argv, envp, regs);
 	putname(filename);
-out:
-	unlock_kernel();
 	return error;
 }
 

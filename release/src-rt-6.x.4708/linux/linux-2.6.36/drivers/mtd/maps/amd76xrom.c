@@ -2,14 +2,13 @@
  * amd76xrom.c
  *
  * Normal mappings of chips in physical memory
- * $Id: amd76xrom.c,v 1.21 2005/11/07 11:14:26 gleixner Exp $
  */
 
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <asm/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -162,7 +161,6 @@ static int __devinit amd76xrom_init_one (struct pci_dev *pdev,
 	pci_read_config_byte(pdev, 0x40, &byte);
 	pci_write_config_byte(pdev, 0x40, byte | 1);
 
-	/* FIXME handle registers 0x80 - 0x8C the bios region locks */
 
 	/* For write accesses caches are useless */
 	window->virt = ioremap_nocache(window->phys, window->size);
@@ -174,7 +172,6 @@ static int __devinit amd76xrom_init_one (struct pci_dev *pdev,
 
 	/* Get the first address to look for an rom chip at */
 	map_top = window->phys;
-#if 1
 	/* The probe sequence run over the firmware hub lock
 	 * registers sets them to 0x7 (no access).
 	 * Probe at most the last 4M of the address space.
@@ -182,7 +179,6 @@ static int __devinit amd76xrom_init_one (struct pci_dev *pdev,
 	if (map_top < 0xffc00000) {
 		map_top = 0xffc00000;
 	}
-#endif
 	/* Loop  through and look for rom chips */
 	while((map_top - 1) < 0xffffffffUL) {
 		struct cfi_private *cfi;
@@ -234,8 +230,8 @@ static int __devinit amd76xrom_init_one (struct pci_dev *pdev,
 		/* Trim the size if we are larger than the map */
 		if (map->mtd->size > map->map.size) {
 			printk(KERN_WARNING MOD_NAME
-				" rom(%u) larger than window(%lu). fixing...\n",
-				map->mtd->size, map->map.size);
+				" rom(%llu) larger than window(%lu). fixing...\n",
+				(unsigned long long)map->mtd->size, map->map.size);
 			map->mtd->size = map->map.size;
 		}
 		if (window->rsrc.parent) {
@@ -310,14 +306,6 @@ static struct pci_device_id amd76xrom_pci_tbl[] = {
 
 MODULE_DEVICE_TABLE(pci, amd76xrom_pci_tbl);
 
-#if 0
-static struct pci_driver amd76xrom_driver = {
-	.name =		MOD_NAME,
-	.id_table =	amd76xrom_pci_tbl,
-	.probe =	amd76xrom_init_one,
-	.remove =	amd76xrom_remove_one,
-};
-#endif
 
 static int __init init_amd76xrom(void)
 {
@@ -334,9 +322,6 @@ static int __init init_amd76xrom(void)
 		return amd76xrom_init_one(pdev, &amd76xrom_pci_tbl[0]);
 	}
 	return -ENXIO;
-#if 0
-	return pci_register_driver(&amd76xrom_driver);
-#endif
 }
 
 static void __exit cleanup_amd76xrom(void)
@@ -350,4 +335,3 @@ module_exit(cleanup_amd76xrom);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Eric Biederman <ebiederman@lnxi.com>");
 MODULE_DESCRIPTION("MTD map driver for BIOS chips on the AMD76X southbridge");
-

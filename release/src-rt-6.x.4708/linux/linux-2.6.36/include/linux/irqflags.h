@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * include/linux/irqflags.h
  *
@@ -11,19 +12,25 @@
 #ifndef _LINUX_TRACE_IRQFLAGS_H
 #define _LINUX_TRACE_IRQFLAGS_H
 
+#include <linux/typecheck.h>
+
+#ifndef BCMDBG
+#undef CONFIG_TRACE_IRQFLAGS
+#endif
+
 #ifdef CONFIG_TRACE_IRQFLAGS
-  extern void trace_hardirqs_on(void);
-  extern void trace_hardirqs_off(void);
   extern void trace_softirqs_on(unsigned long ip);
   extern void trace_softirqs_off(unsigned long ip);
+  extern void trace_hardirqs_on(void);
+  extern void trace_hardirqs_off(void);
 # define trace_hardirq_context(p)	((p)->hardirq_context)
 # define trace_softirq_context(p)	((p)->softirq_context)
 # define trace_hardirqs_enabled(p)	((p)->hardirqs_enabled)
 # define trace_softirqs_enabled(p)	((p)->softirqs_enabled)
 # define trace_hardirq_enter()	do { current->hardirq_context++; } while (0)
 # define trace_hardirq_exit()	do { current->hardirq_context--; } while (0)
-# define trace_softirq_enter()	do { current->softirq_context++; } while (0)
-# define trace_softirq_exit()	do { current->softirq_context--; } while (0)
+# define lockdep_softirq_enter()	do { current->softirq_context++; } while (0)
+# define lockdep_softirq_exit()	do { current->softirq_context--; } while (0)
 # define INIT_TRACE_IRQFLAGS	.softirqs_enabled = 1,
 #else
 # define trace_hardirqs_on()		do { } while (0)
@@ -36,9 +43,17 @@
 # define trace_softirqs_enabled(p)	0
 # define trace_hardirq_enter()		do { } while (0)
 # define trace_hardirq_exit()		do { } while (0)
-# define trace_softirq_enter()		do { } while (0)
-# define trace_softirq_exit()		do { } while (0)
+# define lockdep_softirq_enter()	do { } while (0)
+# define lockdep_softirq_exit()		do { } while (0)
 # define INIT_TRACE_IRQFLAGS
+#endif
+
+#if defined(CONFIG_IRQSOFF_TRACER) || defined(CONFIG_PREEMPT_TRACER)
+ extern void stop_critical_timings(void);
+ extern void start_critical_timings(void);
+#else
+# define stop_critical_timings() do { } while (0)
+# define start_critical_timings() do { } while (0)
 #endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT
@@ -49,18 +64,24 @@
 	do { trace_hardirqs_on(); raw_local_irq_enable(); } while (0)
 #define local_irq_disable() \
 	do { raw_local_irq_disable(); trace_hardirqs_off(); } while (0)
-#define local_irq_save(flags) \
-	do { raw_local_irq_save(flags); trace_hardirqs_off(); } while (0)
+#define local_irq_save(flags)				\
+	do {						\
+		typecheck(unsigned long, flags);	\
+		raw_local_irq_save(flags);		\
+		trace_hardirqs_off();			\
+	} while (0)
 
-#define local_irq_restore(flags)				\
-	do {							\
-		if (raw_irqs_disabled_flags(flags)) {		\
-			raw_local_irq_restore(flags);		\
-			trace_hardirqs_off();			\
-		} else {					\
-			trace_hardirqs_on();			\
-			raw_local_irq_restore(flags);		\
-		}						\
+
+#define local_irq_restore(flags)			\
+	do {						\
+		typecheck(unsigned long, flags);	\
+		if (raw_irqs_disabled_flags(flags)) {	\
+			raw_local_irq_restore(flags);	\
+			trace_hardirqs_off();		\
+		} else {				\
+			trace_hardirqs_on();		\
+			raw_local_irq_restore(flags);	\
+		}					\
 	} while (0)
 #else /* !CONFIG_TRACE_IRQFLAGS_SUPPORT */
 /*
@@ -69,8 +90,16 @@
  */
 # define raw_local_irq_disable()	local_irq_disable()
 # define raw_local_irq_enable()		local_irq_enable()
-# define raw_local_irq_save(flags)	local_irq_save(flags)
-# define raw_local_irq_restore(flags)	local_irq_restore(flags)
+# define raw_local_irq_save(flags)			\
+	do {						\
+		typecheck(unsigned long, flags);	\
+		local_irq_save(flags);			\
+	} while (0)
+# define raw_local_irq_restore(flags)			\
+	do {						\
+		typecheck(unsigned long, flags);	\
+		local_irq_restore(flags);		\
+	} while (0)
 #endif /* CONFIG_TRACE_IRQFLAGS_SUPPORT */
 
 #ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT
@@ -80,17 +109,25 @@
 		raw_safe_halt();				\
 	} while (0)
 
-#define local_save_flags(flags)		raw_local_save_flags(flags)
+#define local_save_flags(flags)				\
+	do {						\
+		typecheck(unsigned long, flags);	\
+		raw_local_save_flags(flags);		\
+	} while (0)
 
 #define irqs_disabled()						\
 ({								\
-	unsigned long flags;					\
+	unsigned long _flags;					\
 								\
-	raw_local_save_flags(flags);				\
-	raw_irqs_disabled_flags(flags);				\
+	raw_local_save_flags(_flags);				\
+	raw_irqs_disabled_flags(_flags);			\
 })
 
-#define irqs_disabled_flags(flags)	raw_irqs_disabled_flags(flags)
-#endif		/* CONFIG_X86 */
+#define irqs_disabled_flags(flags)		\
+({						\
+	typecheck(unsigned long, flags);	\
+	raw_irqs_disabled_flags(flags);		\
+})
+#endif /* CONFIG_TRACE_IRQFLAGS_SUPPORT */
 
 #endif

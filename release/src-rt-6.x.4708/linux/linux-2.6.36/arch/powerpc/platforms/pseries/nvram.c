@@ -15,7 +15,6 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/init.h>
-#include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 #include <asm/nvram.h>
@@ -131,8 +130,10 @@ int __init pSeries_nvram_init(void)
 		return -ENODEV;
 
 	nbytes_p = of_get_property(nvram, "#bytes", &proplen);
-	if (nbytes_p == NULL || proplen != sizeof(unsigned int))
+	if (nbytes_p == NULL || proplen != sizeof(unsigned int)) {
+		of_node_put(nvram);
 		return -EIO;
+	}
 
 	nvram_size = *nbytes_p;
 

@@ -49,10 +49,10 @@ sub usage {
 }
 
 sub collectcfiles {
-        my @file = `cat .tmp_versions/*.mod | grep '.*\.ko\$'`;
-        @file = grep {s/\.ko/.mod.c/} @file;
-	chomp @file;
-        return @file;
+    my @file
+	= `cat .tmp_versions/*.mod | grep '.*\.ko\$' | sed s/\.ko$/.mod.c/`;
+    chomp @file;
+    return @file;
 }
 
 my (%SYMBOL, %MODULE, %opt, @allcfiles);
@@ -71,48 +71,51 @@ if (not defined $opt{'k'}) {
 	$opt{'k'} = "Module.symvers";
 }
 
-unless (open(MODULE_SYMVERS, $opt{'k'})) {
-	die "Sorry, cannot open $opt{'k'}: $!\n";
-}
+open (my $module_symvers, '<', $opt{'k'})
+    or die "Sorry, cannot open $opt{'k'}: $!\n";
 
 if (defined $opt{'o'}) {
-	unless (open(OUTPUT_HANDLE, ">$opt{'o'}")) {
-		die "Sorry, cannot open $opt{'o'} $!\n";
-	}
-	select OUTPUT_HANDLE;
+    open (my $out, '>', $opt{'o'})
+	or die "Sorry, cannot open $opt{'o'} $!\n";
+
+    select $out;
 }
+
 #
 # collect all the symbols and their attributes from the
 # Module.symvers file
 #
-while ( <MODULE_SYMVERS> ) {
+while ( <$module_symvers> ) {
 	chomp;
 	my (undef, $symbol, $module, $gpl) = split;
 	$SYMBOL { $symbol } =  [ $module , "0" , $symbol, $gpl];
 }
-close(MODULE_SYMVERS);
+close($module_symvers);
 
 #
 # collect the usage count of each symbol.
 #
 foreach my $thismod (@allcfiles) {
-	unless (open(MODULE_MODULE, $thismod)) {
-		print "Sorry, cannot open $thismod: $!\n";
+	my $module;
+
+	unless (open ($module, '<', $thismod)) {
+		warn "Sorry, cannot open $thismod: $!\n";
 		next;
 	}
+
 	my $state=0;
-	while ( <MODULE_MODULE> ) {
+	while ( <$module> ) {
 		chomp;
-		if ($state eq 0) {
+		if ($state == 0) {
 			$state = 1 if ($_ =~ /static const struct modversion_info/);
 			next;
 		}
-		if ($state eq 1) {
+		if ($state == 1) {
 			$state = 2 if ($_ =~ /__attribute__\(\(section\("__versions"\)\)\)/);
 			next;
 		}
-		if ($state eq 2) {
-			if ( $_ !~ /0x[0-9a-f]{7,8},/ ) {
+		if ($state == 2) {
+			if ( $_ !~ /0x[0-9a-f]+,/ ) {
 				next;
 			}
 			my $sym = (split /([,"])/,)[4];
@@ -121,10 +124,10 @@ foreach my $thismod (@allcfiles) {
 			push(@{$MODULE{$thismod}} , $sym);
 		}
 	}
-	if ($state ne 2) {
+	if ($state != 2) {
 		print "WARNING:$thismod is not built with CONFIG_MODVERSION enabled\n";
 	}
-	close(MODULE_MODULE);
+	close($module);
 }
 
 print "\tThis file reports the exported symbols usage patterns by in-tree\n",

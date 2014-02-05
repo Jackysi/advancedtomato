@@ -9,4 +9,3 @@ obj-			:=
 
 # Power Management
 obj-$(CONFIG_PM) += pm.o sleep.o
-

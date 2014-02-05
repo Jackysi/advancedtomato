@@ -54,6 +54,9 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Edirol SD-20 */
 	{ USB_DEVICE(0x0582, 0x0027), .driver_info = USB_QUIRK_RESET_RESUME },
 
+	/* appletouch */
+	{ USB_DEVICE(0x05ac, 0x021a), .driver_info = USB_QUIRK_RESET_RESUME },
+
 	/* Avision AV600U */
 	{ USB_DEVICE(0x0638, 0x0a13), .driver_info =
 	  USB_QUIRK_STRING_FETCH_255 },
@@ -114,22 +117,26 @@ void usb_detect_quirks(struct usb_device *udev)
 		dev_dbg(&udev->dev, "USB quirks for this device: %x\n",
 				udev->quirks);
 
-	/* By default, disable autosuspend for all non-hubs */
 #ifdef	CONFIG_USB_SUSPEND
-	if (udev->descriptor.bDeviceClass != USB_CLASS_HUB)
-		udev->autosuspend_disabled = 1;
+
+	/* By default, disable autosuspend for all devices.  The hub driver
+	 * will enable it for hubs.
+	 */
+	usb_disable_autosuspend(udev);
+
+	/* Autosuspend can also be disabled if the initial autosuspend_delay
+	 * is negative.
+	 */
+	if (udev->autosuspend_delay < 0)
+		usb_autoresume_device(udev);
+
 #endif
 
-#ifdef	CONFIG_PM
-	/* Hubs are automatically enabled for USB-PERSIST */
-	if (udev->descriptor.bDeviceClass == USB_CLASS_HUB)
-		udev->persist_enabled = 1;
-#else
-	/* In the absense of PM, we can safely enable USB-PERSIST
+	/* For the present, all devices default to USB-PERSIST enabled */
+	/* In the absence of PM, we can safely enable USB-PERSIST
 	 * for all devices.  It will affect things like hub resets
 	 * and EMF-related port disables.
 	 */
 	if (!(udev->quirks & USB_QUIRK_RESET_MORPHS))
 		udev->persist_enabled = 1;
-#endif	/* CONFIG_PM */
 }

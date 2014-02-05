@@ -109,14 +109,14 @@ static void gx1_set_mode(struct fb_info *info)
 
 	par->vid_ops->set_dclk(info);
 
-	dclk_div = DC_GCFG_DCLK_DIV_1; /* FIXME: may need to divide DCLK by 2 sometimes? */
+	dclk_div = DC_GCFG_DCLK_DIV_1;
 	gcfg |= dclk_div;
 	writel(gcfg, par->dc_regs + DC_GENERAL_CFG);
 
 	/* Wait for the clock generatation to settle.  This is needed since
 	 * some of the register writes that follow require that clock to be
 	 * present. */
-	udelay(1000); /* FIXME: seems a little long */
+	udelay(1000);
 
 	/*
 	 * Setup new mode.
@@ -126,10 +126,8 @@ static void gx1_set_mode(struct fb_info *info)
 	gcfg = DC_GCFG_VRDY | dclk_div;
 
 	/* Set FIFO priority (default 6/5) and enable. */
-	/* FIXME: increase fifo priority for 1280x1024 modes? */
 	gcfg |= (6 << DC_GCFG_DFHPEL_POS) | (5 << DC_GCFG_DFHPSL_POS) | DC_GCFG_DFLE;
 
-	/* FIXME: Set pixel and line double bits if necessary. */
 
 	/* Framebuffer start offset. */
 	writel(0, par->dc_regs + DC_FB_ST_OFFSET);
@@ -181,7 +179,7 @@ static void gx1_set_mode(struct fb_info *info)
 	/* Write final register values. */
 	writel(ocfg, par->dc_regs + DC_OUTPUT_CFG);
 	writel(tcfg, par->dc_regs + DC_TIMING_CFG);
-	udelay(1000); /* delay after TIMING_CFG. FIXME: perhaps a little long */
+	udelay(1000);
 	writel(gcfg, par->dc_regs + DC_GENERAL_CFG);
 
 	par->vid_ops->configure_display(info);
@@ -189,8 +187,6 @@ static void gx1_set_mode(struct fb_info *info)
 	/* Relock display controller registers */
 	writel(0, par->dc_regs + DC_UNLOCK);
 
-	/* FIXME: write line_length and bpp to Graphics Pipeline GP_BLT_STATUS
-	 * register. */
 }
 
 static void gx1_set_hw_palette_reg(struct fb_info *info, unsigned regno,

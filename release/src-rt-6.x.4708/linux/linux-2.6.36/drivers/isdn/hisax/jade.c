@@ -1,4 +1,4 @@
-/* $Id: jade.c,v 1.9.2.4 2004/01/14 16:04:48 keil Exp $
+/* $Id: jade.c,v 1.9.2.4 2004/01/14 16:04:48 Exp $
  *
  * JADE stuff (derived from original hscx.c)
  *
@@ -17,6 +17,7 @@
 #include "jade.h"
 #include "isdnl1.h"
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 
 
 int
@@ -304,11 +305,10 @@ initjade(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, 1, jade_HDLC_IMR,  0x00);
 	/* Setup host access to hdlc controller */
 	jade_write_indirect(cs, jade_HDLCCNTRACCESS, (jadeINDIRECT_HAH1|jadeINDIRECT_HAH2));
-	/* Unmask HDLC int (don´t forget DSP int later on)*/
+	/* Unmask HDLC int (don't forget DSP int later on)*/
 	cs->BC_Write_Reg(cs, -1,jade_INT, (jadeINT_HDLC1|jadeINT_HDLC2));
 
 	/* once again TRANSPARENT */	
 	modejade(cs->bcs, 0, 0);
 	modejade(cs->bcs + 1, 0, 0);
 }
-

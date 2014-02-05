@@ -120,7 +120,7 @@ The following information is available in this file:
           list size to avoid SCSI malloc pool fragmentation.
         - Cleanup channel display in our /proc output.
         - Workaround duplicate device entries in the mid-layer
-          devlice list during add-single-device.
+          device list during add-single-device.
 
    1.3.6 (March 28th, 2003)
         - Correct a double free in the Domain Validation code.
@@ -194,7 +194,7 @@ The following information is available in this file:
           - Packetized SCSI Protocol at 160MB/s and 320MB/s
           - Quick Arbitration Selection (QAS)
           - Retained Training Information (Rev B. ASIC only)
-        - Interrupt Coalessing
+        - Interrupt Coalescing
         - Initiator Mode (target mode not currently 
           supported)
         - Support for the PCI-X standard up to 133MHz
@@ -447,7 +447,7 @@ The following information is available in this file:
       http://www.adaptec.com/buy-cables/.
 
    Europe
-    - Visit our Web site at http://www.adaptec-europe.com/.
+    - Visit our Web site at http://www.adaptec.com/en-US/_common/world_index.
     - To speak with a Technical Support Specialist, call, or email,
       * German:  +49 89 4366 5522, Monday-Friday, 9:00-17:00 CET,
         http://ask-de.adaptec.com/.

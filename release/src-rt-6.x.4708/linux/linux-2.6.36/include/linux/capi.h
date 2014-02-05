@@ -1,4 +1,4 @@
-/* $Id: capi.h,v 1.4.6.1 2001/09/23 22:25:05 kai Exp $
+/* $Id: capi.h,v 1.4.6.1 2001/09/23 22:25:05 Exp $
  * 
  * CAPI 2.0 Interface for Linux
  * 
@@ -12,7 +12,7 @@
 #ifndef __LINUX_CAPI_H__
 #define __LINUX_CAPI_H__
 
-#include <asm/types.h>
+#include <linux/types.h>
 #include <linux/ioctl.h>
 #ifndef __KERNEL__
 #include <linux/kernelcapi.h>

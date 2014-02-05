@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/gfp.h>
 #include <linux/pci.h>
 #include <linux/fb.h>
 
@@ -137,10 +138,9 @@ static int savage_setup_i2c_bus(struct savagefb_i2c_chan *chan,
 	if (chan->par) {
 		strcpy(chan->adapter.name, name);
 		chan->adapter.owner		= THIS_MODULE;
-		chan->adapter.id		= I2C_HW_B_SAVAGE;
 		chan->adapter.algo_data		= &chan->algo;
 		chan->adapter.dev.parent	= &chan->par->pcidev->dev;
-		chan->algo.udelay		= 40;
+		chan->algo.udelay		= 10;
 		chan->algo.timeout		= 20;
 		chan->algo.data 		= chan;
 

@@ -16,16 +16,33 @@
  * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #include <linux/mm.h>
-#include <linux/vmalloc.h>
 #include <linux/highmem.h>
+#include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
 #include "time.h"
 #include "kmem.h"
 
-#define MAX_VMALLOCS	6
-#define MAX_SLAB_SIZE	0x20000
+/*
+ * Greedy allocation.  May fail and may return vmalloced memory.
+ *
+ * Must be freed using kmem_free_large.
+ */
+void *
+kmem_zalloc_greedy(size_t *size, size_t minsize, size_t maxsize)
+{
+	void		*ptr;
+	size_t		kmsize = maxsize;
+
+	while (!(ptr = kmem_zalloc_large(kmsize))) {
+		if ((kmsize >>= 1) <= minsize)
+			kmsize = minsize;
+	}
+	if (ptr)
+		*size = kmsize;
+	return ptr;
+}
 
 void *
 kmem_alloc(size_t size, unsigned int __nocast flags)
@@ -34,26 +51,15 @@ kmem_alloc(size_t size, unsigned int __nocast flags)
 	gfp_t	lflags = kmem_flags_convert(flags);
 	void	*ptr;
 
-#ifdef DEBUG
-	if (unlikely(!(flags & KM_LARGE) && (size > PAGE_SIZE))) {
-		printk(KERN_WARNING "Large %s attempt, size=%ld\n",
-			__FUNCTION__, (long)size);
-		dump_stack();
-	}
-#endif
-
 	do {
-		if (size < MAX_SLAB_SIZE || retries > MAX_VMALLOCS)
-			ptr = kmalloc(size, lflags);
-		else
-			ptr = __vmalloc(size, lflags, PAGE_KERNEL);
+		ptr = kmalloc(size, lflags);
 		if (ptr || (flags & (KM_MAYFAIL|KM_NOSLEEP)))
 			return ptr;
 		if (!(++retries % 100))
 			printk(KERN_ERR "XFS: possible memory allocation "
 					"deadlock in %s (mode:0x%x)\n",
-					__FUNCTION__, lflags);
-		congestion_wait(WRITE, HZ/50);
+					__func__, lflags);
+		congestion_wait(BLK_RW_ASYNC, HZ/50);
 	} while (1);
 }
 
@@ -68,32 +74,10 @@ kmem_zalloc(size_t size, unsigned int __nocast flags)
 	return ptr;
 }
 
-void *
-kmem_zalloc_greedy(size_t *size, size_t minsize, size_t maxsize,
-		   unsigned int __nocast flags)
-{
-	void		*ptr;
-	size_t		kmsize = maxsize;
-	unsigned int	kmflags = (flags & ~KM_SLEEP) | KM_NOSLEEP;
-
-	while (!(ptr = kmem_zalloc(kmsize, kmflags))) {
-		if ((kmsize <= minsize) && (flags & KM_NOSLEEP))
-			break;
-		if ((kmsize >>= 1) <= minsize) {
-			kmsize = minsize;
-			kmflags = flags;
-		}
-	}
-	if (ptr)
-		*size = kmsize;
-	return ptr;
-}
-
 void
-kmem_free(void *ptr, size_t size)
+kmem_free(const void *ptr)
 {
-	if (((unsigned long)ptr < VMALLOC_START) ||
-	    ((unsigned long)ptr >= VMALLOC_END)) {
+	if (!is_vmalloc_addr(ptr)) {
 		kfree(ptr);
 	} else {
 		vfree(ptr);
@@ -101,7 +85,7 @@ kmem_free(void *ptr, size_t size)
 }
 
 void *
-kmem_realloc(void *ptr, size_t newsize, size_t oldsize,
+kmem_realloc(const void *ptr, size_t newsize, size_t oldsize,
 	     unsigned int __nocast flags)
 {
 	void	*new;
@@ -111,7 +95,7 @@ kmem_realloc(void *ptr, size_t newsize, size_t oldsize,
 		if (new)
 			memcpy(new, ptr,
 				((oldsize < newsize) ? oldsize : newsize));
-		kmem_free(ptr, oldsize);
+		kmem_free(ptr);
 	}
 	return new;
 }
@@ -130,8 +114,8 @@ kmem_zone_alloc(kmem_zone_t *zone, unsigned int __nocast flags)
 		if (!(++retries % 100))
 			printk(KERN_ERR "XFS: possible memory allocation "
 					"deadlock in %s (mode:0x%x)\n",
-					__FUNCTION__, lflags);
-		congestion_wait(WRITE, HZ/50);
+					__func__, lflags);
+		congestion_wait(BLK_RW_ASYNC, HZ/50);
 	} while (1);
 }
 

@@ -1,4 +1,4 @@
-/*  $Id: aty128.h,v 1.1 1999/10/12 11:00:40 geert Exp $
+/*  $Id: aty128.h,v 1.1 1999/10/12 11:00:40 Exp $
  *  linux/drivers/video/aty128.h
  *  Register definitions for ATI Rage128 boards
  *
@@ -21,9 +21,9 @@
 #define I2C_CNTL_1				0x0094
 #define PALETTE_INDEX				0x00b0
 #define PALETTE_DATA				0x00b4
-#define CONFIG_CNTL				0x00e0
+#define CNFG_CNTL				0x00e0
 #define GEN_RESET_CNTL				0x00f0
-#define CONFIG_MEMSIZE				0x00f8
+#define CNFG_MEMSIZE				0x00f8
 #define MEM_CNTL				0x0140
 #define MEM_POWER_MISC				0x015c
 #define AGP_BASE				0x0170
@@ -415,7 +415,7 @@
 #define PWR_MGT_SLOWDOWN_MCLK			0x00002000
 
 #define PMI_PMSCR_REG				0x60
-                                                                                
+
 /* used by ATI bug fix for hardware ROM */
 #define RAGE128_MPP_TB_CONFIG                   0x01c0
 

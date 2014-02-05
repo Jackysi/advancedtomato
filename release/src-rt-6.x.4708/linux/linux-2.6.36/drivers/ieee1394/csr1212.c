@@ -35,6 +35,7 @@
 
 #include <linux/errno.h>
 #include <linux/kernel.h>
+#include <linux/kmemcheck.h>
 #include <linux/string.h>
 #include <asm/bug.h>
 #include <asm/byteorder.h>
@@ -84,7 +85,7 @@ static const u8 csr1212_key_id_type_map[0x30] = {
 
 
 #define quads_to_bytes(_q) ((_q) * sizeof(u32))
-#define bytes_to_quads(_b) (((_b) + sizeof(u32) - 1) / sizeof(u32))
+#define bytes_to_quads(_b) DIV_ROUND_UP(_b, sizeof(u32))
 
 static void free_keyval(struct csr1212_keyval *kv)
 {
@@ -218,12 +219,10 @@ static struct csr1212_keyval *csr1212_new_keyval(u8 type, u8 key)
 	if (!kv)
 		return NULL;
 
+	atomic_set(&kv->refcnt, 1);
 	kv->key.type = type;
 	kv->key.id = key;
-
 	kv->associate = NULL;
-	kv->refcnt = 1;
-
 	kv->next = NULL;
 	kv->prev = NULL;
 	kv->offset = 0;
@@ -326,12 +325,13 @@ void csr1212_associate_keyval(struct csr1212_keyval *kv,
 	if (kv->associate)
 		csr1212_release_keyval(kv->associate);
 
-	associate->refcnt++;
+	csr1212_keep_keyval(associate);
 	kv->associate = associate;
 }
 
-int csr1212_attach_keyval_to_directory(struct csr1212_keyval *dir,
-				       struct csr1212_keyval *kv)
+static int __csr1212_attach_keyval_to_directory(struct csr1212_keyval *dir,
+						struct csr1212_keyval *kv,
+						bool keep_keyval)
 {
 	struct csr1212_dentry *dentry;
 
@@ -341,9 +341,9 @@ int csr1212_attach_keyval_to_directory(struct csr1212_keyval *dir,
 	if (!dentry)
 		return -ENOMEM;
 
+	if (keep_keyval)
+		csr1212_keep_keyval(kv);
 	dentry->kv = kv;
-
-	kv->refcnt++;
 
 	dentry->next = NULL;
 	dentry->prev = dir->value.directory.dentries_tail;
@@ -356,6 +356,12 @@ int csr1212_attach_keyval_to_directory(struct csr1212_keyval *dir,
 	dir->value.directory.dentries_tail = dentry;
 
 	return CSR1212_SUCCESS;
+}
+
+int csr1212_attach_keyval_to_directory(struct csr1212_keyval *dir,
+				       struct csr1212_keyval *kv)
+{
+	return __csr1212_attach_keyval_to_directory(dir, kv, true);
 }
 
 #define CSR1212_DESCRIPTOR_LEAF_DATA(kv) \
@@ -382,6 +388,7 @@ csr1212_new_descriptor_leaf(u8 dtype, u32 specifier_id,
 	if (!kv)
 		return NULL;
 
+	kmemcheck_annotate_variable(kv->value.leaf.data[0]);
 	CSR1212_DESCRIPTOR_LEAF_SET_TYPE(kv, dtype);
 	CSR1212_DESCRIPTOR_LEAF_SET_SPECIFIER_ID(kv, specifier_id);
 
@@ -483,14 +490,17 @@ void csr1212_detach_keyval_from_directory(struct csr1212_keyval *dir,
 
 /* This function is used to free the memory taken by a keyval.  If the given
  * keyval is a directory type, then any keyvals contained in that directory
- * will be destroyed as well if their respective refcnts are 0.  By means of
+ * will be destroyed as well if noone holds a reference on them.  By means of
  * list manipulation, this routine will descend a directory structure in a
  * non-recursive manner. */
-static void csr1212_destroy_keyval(struct csr1212_keyval *kv)
+void csr1212_release_keyval(struct csr1212_keyval *kv)
 {
 	struct csr1212_keyval *k, *a;
 	struct csr1212_dentry dentry;
 	struct csr1212_dentry *head, *tail;
+
+	if (!atomic_dec_and_test(&kv->refcnt))
+		return;
 
 	dentry.kv = kv;
 	dentry.next = NULL;
@@ -503,9 +513,8 @@ static void csr1212_destroy_keyval(struct csr1212_keyval *kv)
 		k = head->kv;
 
 		while (k) {
-			k->refcnt--;
-
-			if (k->refcnt > 0)
+			/* must not dec_and_test kv->refcnt again */
+			if (k != kv && !atomic_dec_and_test(&k->refcnt))
 				break;
 
 			a = k->associate;
@@ -534,14 +543,6 @@ static void csr1212_destroy_keyval(struct csr1212_keyval *kv)
 			CSR1212_FREE(tail);
 		}
 	}
-}
-
-void csr1212_release_keyval(struct csr1212_keyval *kv)
-{
-	if (kv->refcnt > 1)
-		kv->refcnt--;
-	else
-		csr1212_destroy_keyval(kv);
 }
 
 void csr1212_destroy_csr(struct csr1212_csr *csr)
@@ -1050,6 +1051,24 @@ int csr1212_read(struct csr1212_csr *csr, u32 offset, void *buffer, u32 len)
 	return -ENOENT;
 }
 
+/*
+ * Apparently there are many different wrong implementations of the CRC
+ * algorithm.  We don't fail, we just warn... approximately once per GUID.
+ */
+static void
+csr1212_check_crc(const u32 *buffer, size_t length, u16 crc, __be32 *guid)
+{
+	static u64 last_bad_eui64;
+	u64 eui64 = ((u64)be32_to_cpu(guid[0]) << 32) | be32_to_cpu(guid[1]);
+
+	if (csr1212_crc16(buffer, length) == crc ||
+	    csr1212_msft_crc16(buffer, length) == crc ||
+	    eui64 == last_bad_eui64)
+		return;
+
+	printk(KERN_DEBUG "ieee1394: config ROM CRC error\n");
+	last_bad_eui64 = eui64;
+}
 
 /* Parse a chunk of data as a Config ROM */
 
@@ -1060,15 +1079,10 @@ static int csr1212_parse_bus_info_block(struct csr1212_csr *csr)
 	int i;
 	int ret;
 
-	/* IEEE 1212 says that the entire bus info block should be readable in
-	 * a single transaction regardless of the max_rom value.
-	 * Unfortunately, many IEEE 1394 devices do not abide by that, so the
-	 * bus info block will be read 1 quadlet at a time.  The rest of the
-	 * ConfigROM will be read according to the max_rom field. */
 	for (i = 0; i < csr->bus_info_len; i += sizeof(u32)) {
 		ret = csr->ops->bus_read(csr, CSR1212_CONFIG_ROM_SPACE_BASE + i,
-			sizeof(u32), &csr->cache_head->data[bytes_to_quads(i)],
-			csr->private);
+				&csr->cache_head->data[bytes_to_quads(i)],
+				csr->private);
 		if (ret != CSR1212_SUCCESS)
 			return ret;
 
@@ -1087,17 +1101,14 @@ static int csr1212_parse_bus_info_block(struct csr1212_csr *csr)
 	 * a time. */
 	for (i = csr->bus_info_len; i <= csr->crc_len; i += sizeof(u32)) {
 		ret = csr->ops->bus_read(csr, CSR1212_CONFIG_ROM_SPACE_BASE + i,
-			sizeof(u32), &csr->cache_head->data[bytes_to_quads(i)],
-			csr->private);
+				&csr->cache_head->data[bytes_to_quads(i)],
+				csr->private);
 		if (ret != CSR1212_SUCCESS)
 			return ret;
 	}
 
-	/* Apparently there are many different wrong implementations of the CRC
-	 * algorithm.  We don't fail, we just warn. */
-	if ((csr1212_crc16(bi->data, bi->crc_length) != bi->crc) &&
-	    (csr1212_msft_crc16(bi->data, bi->crc_length) != bi->crc))
-		printk(KERN_DEBUG "IEEE 1394 device has ROM CRC error\n");
+	csr1212_check_crc(bi->data, bi->crc_length, bi->crc,
+			  &csr->bus_info_data[3]);
 
 	cr = CSR1212_MALLOC(sizeof(*cr));
 	if (!cr)
@@ -1126,6 +1137,7 @@ csr1212_parse_dir_entry(struct csr1212_keyval *dir, u32 ki, u32 kv_pos)
 	int ret = CSR1212_SUCCESS;
 	struct csr1212_keyval *k = NULL;
 	u32 offset;
+	bool keep_keyval = true;
 
 	switch (CSR1212_KV_KEY_TYPE(ki)) {
 	case CSR1212_KV_TYPE_IMMEDIATE:
@@ -1135,8 +1147,8 @@ csr1212_parse_dir_entry(struct csr1212_keyval *dir, u32 ki, u32 kv_pos)
 			ret = -ENOMEM;
 			goto out;
 		}
-
-		k->refcnt = 0;	/* Don't keep local reference when parsing. */
+		/* Don't keep local reference when parsing. */
+		keep_keyval = false;
 		break;
 
 	case CSR1212_KV_TYPE_CSR_OFFSET:
@@ -1146,7 +1158,8 @@ csr1212_parse_dir_entry(struct csr1212_keyval *dir, u32 ki, u32 kv_pos)
 			ret = -ENOMEM;
 			goto out;
 		}
-		k->refcnt = 0;	/* Don't keep local reference when parsing. */
+		/* Don't keep local reference when parsing. */
+		keep_keyval = false;
 		break;
 
 	default:
@@ -1174,8 +1187,10 @@ csr1212_parse_dir_entry(struct csr1212_keyval *dir, u32 ki, u32 kv_pos)
 			ret = -ENOMEM;
 			goto out;
 		}
-		k->refcnt = 0;	/* Don't keep local reference when parsing. */
-		k->valid = 0;	/* Contents not read yet so it's not valid. */
+		/* Don't keep local reference when parsing. */
+		keep_keyval = false;
+		/* Contents not read yet so it's not valid. */
+		k->valid = 0;
 		k->offset = offset;
 
 		k->prev = dir;
@@ -1183,7 +1198,7 @@ csr1212_parse_dir_entry(struct csr1212_keyval *dir, u32 ki, u32 kv_pos)
 		dir->next->prev = k;
 		dir->next = k;
 	}
-	ret = csr1212_attach_keyval_to_directory(dir, k);
+	ret = __csr1212_attach_keyval_to_directory(dir, k, keep_keyval);
 out:
 	if (ret != CSR1212_SUCCESS && k != NULL)
 		free_keyval(k);
@@ -1202,11 +1217,8 @@ int csr1212_parse_keyval(struct csr1212_keyval *kv,
 		&cache->data[bytes_to_quads(kv->offset - cache->offset)];
 	kvi_len = be16_to_cpu(kvi->length);
 
-	/* Apparently there are many different wrong implementations of the CRC
-	 * algorithm.  We don't fail, we just warn. */
-	if ((csr1212_crc16(kvi->data, kvi_len) != kvi->crc) &&
-	    (csr1212_msft_crc16(kvi->data, kvi_len) != kvi->crc))
-		printk(KERN_DEBUG "IEEE 1394 device has ROM CRC error\n");
+	/* GUID is wrong in here in case of extended ROM.  We don't care. */
+	csr1212_check_crc(kvi->data, kvi_len, kvi->crc, &cache->data[3]);
 
 	switch (kv->key.type) {
 	case CSR1212_KV_TYPE_DIRECTORY:
@@ -1274,7 +1286,7 @@ csr1212_read_keyval(struct csr1212_csr *csr, struct csr1212_keyval *kv)
 
 		if (csr->ops->bus_read(csr,
 				       CSR1212_REGISTER_SPACE_BASE + kv->offset,
-				       sizeof(u32), &q, csr->private))
+				       &q, csr->private))
 			return -EIO;
 
 		kv->value.leaf.len = be32_to_cpu(q) >> 16;
@@ -1357,17 +1369,8 @@ csr1212_read_keyval(struct csr1212_csr *csr, struct csr1212_keyval *kv)
 		addr = (CSR1212_CSR_ARCH_REG_SPACE_BASE + cache->offset +
 			cr->offset_end) & ~(csr->max_rom - 1);
 
-		if (csr->ops->bus_read(csr, addr, csr->max_rom, cache_ptr,
-				       csr->private)) {
-			if (csr->max_rom == 4)
-				/* We've got problems! */
-				return -EIO;
-
-			/* Apperently the max_rom value was a lie, set it to
-			 * do quadlet reads and try again. */
-			csr->max_rom = 4;
-			continue;
-		}
+		if (csr->ops->bus_read(csr, addr, cache_ptr, csr->private))
+			return -EIO;
 
 		cr->offset_end += csr->max_rom - (cr->offset_end &
 						  (csr->max_rom - 1));
@@ -1418,7 +1421,6 @@ csr1212_get_keyval(struct csr1212_csr *csr, struct csr1212_keyval *kv)
 
 int csr1212_parse_csr(struct csr1212_csr *csr)
 {
-	static const int mr_map[] = { 4, 64, 1024, 0 };
 	struct csr1212_dentry *dentry;
 	int ret;
 
@@ -1428,15 +1430,13 @@ int csr1212_parse_csr(struct csr1212_csr *csr)
 	if (ret != CSR1212_SUCCESS)
 		return ret;
 
-	if (!csr->ops->get_max_rom) {
-		csr->max_rom = mr_map[0];	/* default value */
-	} else {
-		int i = csr->ops->get_max_rom(csr->bus_info_data,
-					      csr->private);
-		if (i & ~0x3)
-			return -EINVAL;
-		csr->max_rom = mr_map[i];
-	}
+	/*
+	 * There has been a buggy firmware with bus_info_block.max_rom > 0
+	 * spotted which actually only supported quadlet read requests to the
+	 * config ROM.  Therefore read everything quadlet by quadlet regardless
+	 * of what the bus info block says.
+	 */
+	csr->max_rom = 4;
 
 	csr->cache_head->layout_head = csr->root_kv;
 	csr->cache_head->layout_tail = csr->root_kv;

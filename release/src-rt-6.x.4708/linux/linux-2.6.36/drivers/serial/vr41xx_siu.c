@@ -1,7 +1,7 @@
 /*
  *  Driver for NEC VR4100 series Serial Interface Unit.
  *
- *  Copyright (C) 2004-2007  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+ *  Copyright (C) 2004-2008  Yoichi Yuasa <yuasa@linux-mips.org>
  *
  *  Based on drivers/serial/8250.c, by Russell King.
  *
@@ -65,7 +65,9 @@ static struct uart_port siu_uart_ports[SIU_PORTS_MAX] = {
 	},
 };
 
+#ifdef CONFIG_SERIAL_VR41XX_CONSOLE
 static uint8_t lsr_break_flag[SIU_PORTS_MAX];
+#endif
 
 #define siu_read(port, offset)		readb((port)->membase + (offset))
 #define siu_write(port, offset, value)	writeb((value), (port)->membase + (offset))
@@ -89,7 +91,6 @@ void vr41xx_select_siu_interface(siu_interface_t interface)
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
-
 EXPORT_SYMBOL_GPL(vr41xx_select_siu_interface);
 
 void vr41xx_use_irda(irda_use_t use)
@@ -111,7 +112,6 @@ void vr41xx_use_irda(irda_use_t use)
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
-
 EXPORT_SYMBOL_GPL(vr41xx_use_irda);
 
 void vr41xx_select_irda_module(irda_module_t module, irda_speed_t speed)
@@ -145,7 +145,6 @@ void vr41xx_select_irda_module(irda_module_t module, irda_speed_t speed)
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
-
 EXPORT_SYMBOL_GPL(vr41xx_select_irda_module);
 
 static inline void siu_clear_fifo(struct uart_port *port)
@@ -319,7 +318,7 @@ static inline void receive_chars(struct uart_port *port, uint8_t *status)
 	char flag;
 	int max_count = RX_MAX_COUNT;
 
-	tty = port->info->tty;
+	tty = port->state->port.tty;
 	lsr = *status;
 
 	do {
@@ -387,7 +386,7 @@ static inline void check_modem_status(struct uart_port *port)
 	if (msr & UART_MSR_DCTS)
 		uart_handle_cts_change(port, msr & UART_MSR_CTS);
 
-	wake_up_interruptible(&port->info->delta_msr_wait);
+	wake_up_interruptible(&port->state->port.delta_msr_wait);
 }
 
 static inline void transmit_chars(struct uart_port *port)
@@ -395,7 +394,7 @@ static inline void transmit_chars(struct uart_port *port)
 	struct circ_buf *xmit;
 	int max_count = TX_MAX_COUNT;
 
-	xmit = &port->info->xmit;
+	xmit = &port->state->xmit;
 
 	if (port->x_char) {
 		siu_write(port, UART_TX, port->x_char);
@@ -785,7 +784,7 @@ static void siu_console_write(struct console *con, const char *s, unsigned count
 	siu_write(port, UART_IER, ier);
 }
 
-static int siu_console_setup(struct console *con, char *options)
+static int __init siu_console_setup(struct console *con, char *options)
 {
 	struct uart_port *port;
 	int baud = 9600;
@@ -803,7 +802,8 @@ static int siu_console_setup(struct console *con, char *options)
 		port->membase = ioremap(port->mapbase, siu_port_size(port));
 	}
 
-	vr41xx_select_siu_interface(SIU_INTERFACE_RS232C);
+	if (port->type == PORT_VR41XX_SIU)
+		vr41xx_select_siu_interface(SIU_INTERFACE_RS232C);
 
 	if (options != NULL)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
@@ -839,6 +839,19 @@ static int __devinit siu_console_init(void)
 }
 
 console_initcall(siu_console_init);
+
+void __init vr41xx_siu_early_setup(struct uart_port *port)
+{
+	if (port->type == PORT_UNKNOWN)
+		return;
+
+	siu_uart_ports[port->line].line = port->line;
+	siu_uart_ports[port->line].type = port->type;
+	siu_uart_ports[port->line].uartclk = SIU_BAUD_BASE * 16;
+	siu_uart_ports[port->line].mapbase = port->mapbase;
+	siu_uart_ports[port->line].mapbase = port->mapbase;
+	siu_uart_ports[port->line].ops = &siu_uart_ops;
+}
 
 #define SERIAL_VR41XX_CONSOLE	&siu_console
 #else
@@ -960,3 +973,6 @@ static void __exit vr41xx_siu_exit(void)
 
 module_init(vr41xx_siu_init);
 module_exit(vr41xx_siu_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:SIU");

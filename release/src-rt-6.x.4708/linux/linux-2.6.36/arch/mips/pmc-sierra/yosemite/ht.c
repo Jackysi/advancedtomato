@@ -26,7 +26,6 @@
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
-#include <linux/slab.h>
 #include <asm/pci.h>
 #include <asm/io.h>
 
@@ -63,7 +62,6 @@ static int titan_ht_config_read_dword(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                                         0x80000000 | 0x1;
@@ -91,7 +89,6 @@ static int titan_ht_config_read_word(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                                 0x80000000 | 0x1;
@@ -115,7 +112,7 @@ static int titan_ht_config_read_word(struct pci_dev *device,
 
 u32 longswap(unsigned long l)
 {
-        unsigned char b1,b2,b3,b4;
+        unsigned char b1, b2, b3, b4;
 
         b1 = l&255;
         b2 = (l>>8)&255;
@@ -138,7 +135,6 @@ static int titan_ht_config_read_byte(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                                         0x80000000 | 0x1;
@@ -179,7 +175,6 @@ static int titan_ht_config_write_dword(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                                         0x80000000 | 0x1;
@@ -206,7 +201,6 @@ static int titan_ht_config_write_word(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                 0x80000000 | 0x1;
@@ -239,7 +233,6 @@ static int titan_ht_config_write_byte(struct pci_dev *device,
         dev = PCI_SLOT(device->devfn);
         func = PCI_FUNC(device->devfn);
 
-	/* XXX Need to change the Bus # */
         if (bus > 2)
                 address = (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc) |
                                 0x80000000 | 0x1;
@@ -345,50 +338,13 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
         return pcibios_enable_resources(dev);
 }
 
-
-
-void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-                             struct resource *res, int resource)
-{
-        u32 new, check;
-        int reg;
-
-        return;
-
-        new = res->start | (res->flags & PCI_REGION_FLAG_MASK);
-        if (resource < 6) {
-                reg = PCI_BASE_ADDRESS_0 + 4 * resource;
-        } else if (resource == PCI_ROM_RESOURCE) {
-		res->flags |= IORESOURCE_ROM_ENABLE;
-                reg = dev->rom_base_reg;
-        } else {
-                /*
-                 * Somebody might have asked allocation of a non-standard
-                 * resource
-                 */
-                return;
-        }
-
-        pci_write_config_dword(dev, reg, new);
-        pci_read_config_dword(dev, reg, &check);
-        if ((new ^ check) &
-            ((new & PCI_BASE_ADDRESS_SPACE_IO) ? PCI_BASE_ADDRESS_IO_MASK :
-             PCI_BASE_ADDRESS_MEM_MASK)) {
-                printk(KERN_ERR "PCI: Error while updating region "
-                       "%s/%d (%08x != %08x)\n", pci_name(dev), resource,
-                       new, check);
-        }
-}
-
-
-void pcibios_align_resource(void *data, struct resource *res,
-                            resource_size_t size, resource_size_t align)
+resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+				resource_size_t size, resource_size_t align)
 {
         struct pci_dev *dev = data;
+	resource_size_t start = res->start;
 
         if (res->flags & IORESOURCE_IO) {
-                resource_size_t start = res->start;
-
                 /* We need to avoid collisions with `mirrored' VGA ports
                    and other strange ISA hardware, so we always want the
                    addresses kilobyte aligned.  */
@@ -399,8 +355,9 @@ void pcibios_align_resource(void *data, struct resource *res,
                 }
 
                 start = (start + 1024 - 1) & ~(1024 - 1);
-                res->start = start;
         }
+
+	return start;
 }
 
 struct pci_ops titan_pci_ops = {
@@ -421,13 +378,11 @@ void __init pcibios_init(void)
 {
 
         /* Reset PCI I/O and PCI MEM values */
-	/* XXX Need to add the proper values here */
         ioport_resource.start = 0xe0000000;
         ioport_resource.end   = 0xe0000000 + 0x20000000 - 1;
         iomem_resource.start  = 0xc0000000;
         iomem_resource.end    = 0xc0000000 + 0x20000000 - 1;
 
-	/* XXX Need to add bus values */
         pci_scan_bus(2, &titan_pci_ops, NULL);
         pci_scan_bus(3, &titan_pci_ops, NULL);
 }

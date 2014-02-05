@@ -1,4 +1,4 @@
-/* $Id: isdn_ppp.h,v 1.1.2.2 2004/01/12 22:37:19 keil Exp $
+/* $Id: isdn_ppp.h,v 1.1.2.2 2004/01/12 22:37:19 Exp $
  *
  * header for Linux ISDN subsystem, functions for synchronous PPP (linklevel).
  *
@@ -39,5 +39,3 @@ extern int isdn_ppp_unregister_compressor(struct isdn_ppp_compressor *ipc);
 #define IPPP_ASSIGNED	0x10
 
 #define IPPP_MAX_HEADER 10
-
-

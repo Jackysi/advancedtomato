@@ -47,7 +47,6 @@
  *  
  */
 
-#include <sound/driver.h>
 #include <asm/io.h>
 #include <linux/init.h>
 #include <linux/time.h>
@@ -139,7 +138,6 @@ static void snd_wavefront_midi_output_write(snd_wavefront_card_t *card)
 
 	while (max > 0) {
 
-		/* XXX fix me - no hard timing loops allowed! */
 
 		for (timeout = 30000; timeout > 0; timeout--) {
 			if (output_ready (midi))
@@ -182,7 +180,6 @@ static void snd_wavefront_midi_output_write(snd_wavefront_card_t *card)
 
 	while (max > 0) {
 
-		/* XXX fix me - no hard timing loops allowed! */
 
 		for (timeout = 30000; timeout > 0; timeout--) {
 			if (output_ready (midi))
@@ -236,8 +233,10 @@ static int snd_wavefront_midi_input_open(struct snd_rawmidi_substream *substream
 	snd_wavefront_midi_t *midi;
 	snd_wavefront_mpu_id mpu;
 
-	snd_assert(substream != NULL && substream->rmidi != NULL, return -EIO);
-	snd_assert(substream->rmidi->private_data != NULL, return -EIO);
+	if (snd_BUG_ON(!substream || !substream->rmidi))
+		return -ENXIO;
+	if (snd_BUG_ON(!substream->rmidi->private_data))
+		return -ENXIO;
 
 	mpu = *((snd_wavefront_mpu_id *) substream->rmidi->private_data);
 
@@ -258,8 +257,10 @@ static int snd_wavefront_midi_output_open(struct snd_rawmidi_substream *substrea
 	snd_wavefront_midi_t *midi;
 	snd_wavefront_mpu_id mpu;
 
-	snd_assert(substream != NULL && substream->rmidi != NULL, return -EIO);
-	snd_assert(substream->rmidi->private_data != NULL, return -EIO);
+	if (snd_BUG_ON(!substream || !substream->rmidi))
+		return -ENXIO;
+	if (snd_BUG_ON(!substream->rmidi->private_data))
+		return -ENXIO;
 
 	mpu = *((snd_wavefront_mpu_id *) substream->rmidi->private_data);
 
@@ -280,8 +281,10 @@ static int snd_wavefront_midi_input_close(struct snd_rawmidi_substream *substrea
 	snd_wavefront_midi_t *midi;
 	snd_wavefront_mpu_id mpu;
 
-	snd_assert(substream != NULL && substream->rmidi != NULL, return -EIO);
-	snd_assert(substream->rmidi->private_data != NULL, return -EIO);
+	if (snd_BUG_ON(!substream || !substream->rmidi))
+		return -ENXIO;
+	if (snd_BUG_ON(!substream->rmidi->private_data))
+		return -ENXIO;
 
 	mpu = *((snd_wavefront_mpu_id *) substream->rmidi->private_data);
 
@@ -301,8 +304,10 @@ static int snd_wavefront_midi_output_close(struct snd_rawmidi_substream *substre
 	snd_wavefront_midi_t *midi;
 	snd_wavefront_mpu_id mpu;
 
-	snd_assert(substream != NULL && substream->rmidi != NULL, return -EIO);
-	snd_assert(substream->rmidi->private_data != NULL, return -EIO);
+	if (snd_BUG_ON(!substream || !substream->rmidi))
+		return -ENXIO;
+	if (snd_BUG_ON(!substream->rmidi->private_data))
+		return -ENXIO;
 
 	mpu = *((snd_wavefront_mpu_id *) substream->rmidi->private_data);
 
@@ -490,7 +495,6 @@ snd_wavefront_midi_start (snd_wavefront_card_t *card)
 	   until its set into UART mode.
 	*/
 
-	/* XXX fix me - no hard timing loops allowed! */
 
 	for (i = 0; i < 30000 && !output_ready (midi); i++);
 
@@ -526,7 +530,6 @@ snd_wavefront_midi_start (snd_wavefront_card_t *card)
     
 	if (snd_wavefront_cmd (dev, WFC_MISYNTH_ON, rbuf, wbuf)) {
 		snd_printk ("can't enable MIDI-IN-2-synth routing.\n");
-		/* XXX error ? */
 	}
 
 	/* Turn on Virtual MIDI, but first *always* turn it off,
@@ -567,4 +570,3 @@ struct snd_rawmidi_ops snd_wavefront_midi_input =
 	.close =	snd_wavefront_midi_input_close,
 	.trigger =	snd_wavefront_midi_input_trigger,
 };
-

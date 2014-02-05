@@ -8,6 +8,9 @@
 #include <asm/io.h>
 #include <video/mach64.h>
 #include "atyfb.h"
+#ifdef CONFIG_PPC
+#include <asm/machdep.h>
+#endif
 
 #undef DEBUG
 
@@ -197,7 +200,7 @@ static int aty_dsp_gt(const struct fb_info *info, u32 bpp, struct pll_ct *pll)
 	pll->dsp_config = (dsp_precision << 20) | (pll->dsp_loop_latency << 16) | dsp_xclks;
 #ifdef DEBUG
 	printk("atyfb(%s): dsp_config 0x%08x, dsp_on_off 0x%08x\n",
-		__FUNCTION__, pll->dsp_config, pll->dsp_on_off);
+		__func__, pll->dsp_config, pll->dsp_on_off);
 #endif
 	return 0;
 }
@@ -208,7 +211,6 @@ static int aty_valid_pll_ct(const struct fb_info *info, u32 vclk_per, struct pll
 	struct atyfb_par *par = (struct atyfb_par *) info->par;
 	int pllvclk;
 
-	/* FIXME: use the VTB/GTB /{3,6,12} post dividers if they're better suited */
 	q = par->ref_clk_per * pll->pll_ref_div * 4 / vclk_per;
 	if (q < 16*8 || q > 255*8) {
 		printk(KERN_CRIT "atyfb: vclk out of range\n");
@@ -225,7 +227,7 @@ static int aty_valid_pll_ct(const struct fb_info *info, u32 vclk_per, struct pll
 		(par->ref_clk_per * pll->pll_ref_div);
 #ifdef DEBUG
 	printk("atyfb(%s): pllvclk=%d MHz, vclk=%d MHz\n",
-		__FUNCTION__, pllvclk, pllvclk / pll->vclk_post_div_real);
+		__func__, pllvclk, pllvclk / pll->vclk_post_div_real);
 #endif
 	pll->pll_vclk_cntl = 0x03; /* VCLK = PLL_VCLK/VCLKx_POST */
 
@@ -269,7 +271,7 @@ static u32 aty_pll_to_var_ct(const struct fb_info *info, const union aty_pll *pl
 	}
 #endif
 #ifdef DEBUG
-	printk("atyfb(%s): calculated 0x%08X(%i)\n", __FUNCTION__, ret, ret);
+	printk("atyfb(%s): calculated 0x%08X(%i)\n", __func__, ret, ret);
 #endif
 	return ret;
 }
@@ -284,11 +286,11 @@ void aty_set_pll_ct(const struct fb_info *info, const union aty_pll *pll)
 #ifdef DEBUG
 	printk("atyfb(%s): about to program:\n"
 		"pll_ext_cntl=0x%02x pll_gen_cntl=0x%02x pll_vclk_cntl=0x%02x\n",
-		__FUNCTION__,
+		__func__,
 		pll->ct.pll_ext_cntl, pll->ct.pll_gen_cntl, pll->ct.pll_vclk_cntl);
 
 	printk("atyfb(%s): setting clock %lu for FeedBackDivider %i, ReferenceDivider %i, PostDivider %i(%i)\n",
-		__FUNCTION__,
+		__func__,
 		par->clk_wr_offset, pll->ct.vclk_fb_div,
 		pll->ct.pll_ref_div, pll->ct.vclk_post_div, pll->ct.vclk_post_div_real);
 #endif
@@ -428,7 +430,7 @@ static int __devinit aty_init_pll_ct(const struct fb_info *info,
 
 #ifdef DEBUG
 	printk("atyfb(%s): mclk_fb_mult=%d, xclk_post_div=%d\n",
-		__FUNCTION__, pll->ct.mclk_fb_mult, pll->ct.xclk_post_div);
+		__func__, pll->ct.mclk_fb_mult, pll->ct.xclk_post_div);
 #endif
 
 	memcntl = aty_ld_le32(MEM_CNTL, par);
@@ -492,19 +494,6 @@ static int __devinit aty_init_pll_ct(const struct fb_info *info,
 
 	if (dsp_config)
 		pll->ct.dsp_loop_latency = (dsp_config & DSP_LOOP_LATENCY) >> 16;
-#if 0
-	FIXME: is it relevant for us?
-	if ((!dsp_on_off && !M64_HAS(RESET_3D)) ||
-		((dsp_on_off == vga_dsp_on_off) &&
-		(!dsp_config || !((dsp_config ^ vga_dsp_config) & DSP_XCLKS_PER_QW)))) {
-		vga_dsp_on_off &= VGA_DSP_OFF;
-		vga_dsp_config &= VGA_DSP_XCLKS_PER_QW;
-		if (ATIDivide(vga_dsp_on_off, vga_dsp_config, 5, 1) > 24)
-			pll->ct.fifo_size = 32;
-		else
-			pll->ct.fifo_size = 24;
-	}
-#endif
 	/* Exit if the user does not want us to tamper with the clock
 	rates of her chip. */
 	if (par->mclk_per == 0) {
@@ -521,7 +510,6 @@ static int __devinit aty_init_pll_ct(const struct fb_info *info,
 
 	pll->ct.pll_ref_div = par->pll_per * 2 * 255 / par->ref_clk_per;
 
-	/* FIXME: use the VTB/GTB /3 post divider if it's better suited */
 	q = par->ref_clk_per * pll->ct.pll_ref_div * 8 /
 		(pll->ct.mclk_fb_mult * par->xclk_per);
 
@@ -536,11 +524,19 @@ static int __devinit aty_init_pll_ct(const struct fb_info *info,
 	pll->ct.xclk_post_div_real = postdividers[xpost_div];
 	pll->ct.mclk_fb_div = q * pll->ct.xclk_post_div_real / 8;
 
+#ifdef CONFIG_PPC
+	if (machine_is(powermac)) {
+		/* Override PLL_EXT_CNTL & 0x07. */
+		pll->ct.xclk_post_div = xpost_div;
+		pll->ct.xclk_ref_div = 1;
+	}
+#endif
+
 #ifdef DEBUG
 	pllmclk = (1000000 * pll->ct.mclk_fb_mult * pll->ct.mclk_fb_div) /
 			(par->ref_clk_per * pll->ct.pll_ref_div);
 	printk("atyfb(%s): pllmclk=%d MHz, xclk=%d MHz\n",
-		__FUNCTION__, pllmclk, pllmclk / pll->ct.xclk_post_div_real);
+		__func__, pllmclk, pllmclk / pll->ct.xclk_post_div_real);
 #endif
 
 	if (M64_HAS(SDRAM_MAGIC_PLL) && (par->ram_type >= SDRAM))
@@ -581,7 +577,7 @@ static int __devinit aty_init_pll_ct(const struct fb_info *info,
 		pllsclk = (1000000 * 2 * pll->ct.sclk_fb_div) /
 			(par->ref_clk_per * pll->ct.pll_ref_div);
 		printk("atyfb(%s): use sclk, pllsclk=%d MHz, sclk=mclk=%d MHz\n",
-			__FUNCTION__, pllsclk, pllsclk / sclk_post_div_real);
+			__func__, pllsclk, pllsclk / sclk_post_div_real);
 #endif
 	}
 

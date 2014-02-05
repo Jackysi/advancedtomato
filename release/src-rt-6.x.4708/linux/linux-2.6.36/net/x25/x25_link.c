@@ -24,13 +24,14 @@
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
 #include <linux/timer.h>
+#include <linux/slab.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <asm/uaccess.h>
 #include <linux/init.h>
 #include <net/x25.h>
 
-static struct list_head x25_neigh_list = LIST_HEAD_INIT(x25_neigh_list);
+static LIST_HEAD(x25_neigh_list);
 static DEFINE_RWLOCK(x25_neigh_list_lock);
 
 static void x25_t20timer_expiry(unsigned long);
@@ -247,10 +248,7 @@ void x25_link_device_up(struct net_device *dev)
 		return;
 
 	skb_queue_head_init(&nb->queue);
-
-	init_timer(&nb->t20timer);
-	nb->t20timer.data     = (unsigned long)nb;
-	nb->t20timer.function = &x25_t20timer_expiry;
+	setup_timer(&nb->t20timer, x25_t20timer_expiry, (unsigned long)nb);
 
 	dev_hold(dev);
 	nb->dev      = dev;
@@ -396,6 +394,7 @@ void __exit x25_link_free(void)
 	list_for_each_safe(entry, tmp, &x25_neigh_list) {
 		nb = list_entry(entry, struct x25_neigh, node);
 		__x25_remove_neigh(nb);
+		dev_put(nb->dev);
 	}
 	write_unlock_bh(&x25_neigh_list_lock);
 }

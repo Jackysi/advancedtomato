@@ -25,6 +25,13 @@ basetarget = $(basename $(notdir $@))
 escsq = $(subst $(squote),'\$(squote)',$1)
 
 ###
+# Easy method for doing a status message
+       kecho := :
+ quiet_kecho := echo
+silent_kecho := :
+kecho := $($(quiet)kecho)
+
+###
 # filechk is used to check if the content of a generated file is updated.
 # Sample usage:
 # define filechk_sample
@@ -41,13 +48,13 @@ escsq = $(subst $(squote),'\$(squote)',$1)
 #   to specify a valid file as first prerequisite (often the kbuild file)
 define filechk
 	$(Q)set -e;				\
-	echo '  CHK     $@';			\
+	$(kecho) '  CHK     $@';		\
 	mkdir -p $(dir $@);			\
 	$(filechk_$(1)) < $< > $@.tmp;		\
 	if [ -r $@ ] && cmp -s $@ $@.tmp; then	\
 		rm -f $@.tmp;			\
 	else					\
-		echo '  UPD     $@';		\
+		$(kecho) '  UPD     $@';	\
 		mv -f $@.tmp $@;		\
 	fi
 endef
@@ -55,6 +62,17 @@ endef
 ######
 # gcc support functions
 # See documentation in Documentation/kbuild/makefiles.txt
+
+# cc-cross-prefix
+# Usage: CROSS_COMPILE := $(call cc-cross-prefix, m68k-linux-gnu- m68k-linux-)
+# Return first prefix where a prefix$(CC) is found in PATH.
+# If no $(CC) found in PATH with listed prefixes return nothing
+cc-cross-prefix =  \
+	$(word 1, $(foreach c,$(1),                                   \
+		$(shell set -e;                                       \
+		if (which $(strip $(c))$(CC)) > /dev/null 2>&1 ; then \
+			echo $(c);                                    \
+		fi)))
 
 # output directory for tests below
 TMPOUT := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/)
@@ -65,34 +83,35 @@ TMPOUT := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/)
 # is automatically cleaned up.
 try-run = $(shell set -e;		\
 	TMP="$(TMPOUT).$$$$.tmp";	\
+	TMPO="$(TMPOUT).$$$$.o";	\
 	if ($(1)) >/dev/null 2>&1;	\
 	then echo "$(2)";		\
 	else echo "$(3)";		\
 	fi;				\
-	rm -f "$$TMP")
+	rm -f "$$TMP" "$$TMPO")
 
 # as-option
 # Usage: cflags-y += $(call as-option,-Wa$(comma)-isa=foo,)
 
 as-option = $(call try-run,\
-	$(CC) $(CFLAGS) $(1) -c -xassembler /dev/null -o "$$TMP",$(1),$(2))
+	$(CC) $(KBUILD_CFLAGS) $(1) -c -xassembler /dev/null -o "$$TMP",$(1),$(2))
 
 # as-instr
 # Usage: cflags-y += $(call as-instr,instr,option1,option2)
 
 as-instr = $(call try-run,\
-	echo -e "$(1)" | $(CC) $(AFLAGS) -c -xassembler -o "$$TMP" -,$(2),$(3))
+	/bin/echo -e "$(1)" | $(CC) $(KBUILD_AFLAGS) -c -xassembler -o "$$TMP" -,$(2),$(3))
 
 # cc-option
 # Usage: cflags-y += $(call cc-option,-march=winchip-c6,-march=i586)
 
 cc-option = $(call try-run,\
-	$(CC) $(CFLAGS) $(1) -S -xc /dev/null -o "$$TMP",$(1),$(2))
+	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) $(1) -c -xc /dev/null -o "$$TMP",$(1),$(2))
 
 # cc-option-yn
 # Usage: flag := $(call cc-option-yn,-march=winchip-c6)
 cc-option-yn = $(call try-run,\
-	$(CC) $(CFLAGS) $(1) -S -xc /dev/null -o "$$TMP",y,n)
+	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) $(1) -c -xc /dev/null -o "$$TMP",y,n)
 
 # cc-option-align
 # Prefix align with either -falign or -malign
@@ -100,17 +119,27 @@ cc-option-align = $(subst -functions=0,,\
 	$(call cc-option,-falign-functions=0,-malign-functions=0))
 
 # cc-version
-# Usage gcc-ver := $(call cc-version,$(CC))
+# Usage gcc-ver := $(call cc-version)
 cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
+
+# cc-fullversion
+# Usage gcc-ver := $(call cc-fullversion)
+cc-fullversion = $(shell $(CONFIG_SHELL) \
+	$(srctree)/scripts/gcc-version.sh -p $(CC))
 
 # cc-ifversion
 # Usage:  EXTRA_CFLAGS += $(call cc-ifversion, -lt, 0402, -O1)
 cc-ifversion = $(shell [ $(call cc-version, $(CC)) $(1) $(2) ] && echo $(3))
 
-# ld-option
-# Usage: ldflags += $(call ld-option, -Wl$(comma)--hash-style=both)
-ld-option = $(call try-run,\
+# cc-ldoption
+# Usage: ldflags += $(call cc-ldoption, -Wl$(comma)--hash-style=both)
+cc-ldoption = $(call try-run,\
 	$(CC) $(1) -nostdlib -xc /dev/null -o "$$TMP",$(1),$(2))
+
+# ld-option
+# Usage: LDFLAGS += $(call ld-option, -X)
+ld-option = $(call try-run,\
+	$(CC) /dev/null -c -o "$$TMPO" ; $(LD) $(1) "$$TMPO" -o "$$TMP",$(1),$(2))
 
 ######
 
@@ -120,8 +149,16 @@ ld-option = $(call try-run,\
 # $(Q)$(MAKE) $(build)=dir
 build := -f $(if $(KBUILD_SRC),$(srctree)/)scripts/Makefile.build obj
 
+###
+# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.modbuiltin obj=
+# Usage:
+# $(Q)$(MAKE) $(modbuiltin)=dir
+modbuiltin := -f $(if $(KBUILD_SRC),$(srctree)/)scripts/Makefile.modbuiltin obj
+
 # Prefix -I with $(srctree) if it is not an absolute path.
-addtree = $(if $(filter-out -I/%,$(1)),$(patsubst -I%,-I$(srctree)/%,$(1))) $(1)
+# skip if -I has no parameter
+addtree = $(if $(patsubst -I%,%,$(1)), \
+$(if $(filter-out -I/%,$(1)),$(patsubst -I%,-I$(srctree)/%,$(1))) $(1))
 
 # Find all -I options and call addtree
 flags = $(foreach o,$($(1)),$(if $(filter -I%,$(o)),$(call addtree,$(o)),$(o)))

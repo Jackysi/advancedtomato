@@ -1,7 +1,7 @@
 /*
  * Flash mapping for BCM947XX boards
  *
- * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +18,7 @@
  * $Id: bcm947xx-flash.c,v 1.6 2009-07-27 07:34:33 $
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -26,7 +27,10 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 #include <linux/config.h>
+#endif
 
 #include <typedefs.h>
 #include <bcmnvram.h>
@@ -135,9 +139,13 @@ init_bcm947xx_map(void)
 	}
 
 	bcm947xx_mtd->owner = THIS_MODULE;
-#ifdef CONFIG_MTD_NFLASH
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 	bcm947xx_mtd->mutex = partitions_mutex_init();
+#else
+	/* The mutex does not seem to be needed anymore */
 #endif
+
 	/* Allow size override for testing */
 	size = flash ? : bcm947xx_mtd->size;
 

@@ -17,7 +17,6 @@
 */
 
 #include <linux/spinlock.h>
-#include <linux/version.h>
 #include <net/ip.h>
 #include <net/tcp.h>
 #include <linux/module.h>
@@ -29,6 +28,8 @@
 #include <linux/netfilter/xt_layer7.h>
 #include <linux/ctype.h>
 #include <linux/proc_fs.h>
+#include <net/net_namespace.h>
+#include <net/netfilter/nf_conntrack_acct.h>
 
 #include "regexp/regexp.c"
 
@@ -36,7 +37,7 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Matthew Strait <quadong@users.sf.net>, Ethan Sommer <sommere@users.sf.net>");
 MODULE_DESCRIPTION("iptables application layer match module");
 MODULE_ALIAS("ipt_layer7");
-MODULE_VERSION("2.18");
+MODULE_VERSION("2.0");
 
 static int maxdatalen = 2048; // this is the default
 module_param(maxdatalen, int, 0444);
@@ -46,9 +47,6 @@ MODULE_PARM_DESC(maxdatalen, "maximum bytes of data looked at by l7-filter");
 #else
 	#define DPRINTK(format,args...)
 #endif
-
-#define TOTAL_PACKETS master_conntrack->counters[IP_CT_DIR_ORIGINAL].packets + \
-		      master_conntrack->counters[IP_CT_DIR_REPLY].packets
 
 /* Number of packets whose data we look at.
 This can be modified through /proc/net/layer7_numpackets */
@@ -90,14 +88,14 @@ static char dec2hex(int i)
 {
 	switch (i) {
 		case 0 ... 9:
-			return (i + '0');
+			return (char)(i + '0');
 			break;
 		case 10 ... 15:
-			return (i - 10 + 'a');
+			return (char)(i - 10 + 'a');
 			break;
 		default:
 			if (net_ratelimit())
-				printk("layer7: Problem in dec2hex\n");
+				printk("Problem in dec2hex\n");
 			return '\0';
 	}
 }
@@ -127,8 +125,7 @@ static char * hex_print(unsigned char * s)
 
 /* Use instead of regcomp.  As we expect to be seeing the same regexps over and
 over again, it make sense to cache the results. */
-static regexp * compile_and_cache(const char * regex_string, 
-                                  const char * protocol)
+static regexp * compile_and_cache(char * regex_string, char * protocol)
 {
 	struct pattern_cache * node               = first_pattern_cache;
 	struct pattern_cache * last_pattern_cache = first_pattern_cache;
@@ -180,7 +177,7 @@ static regexp * compile_and_cache(const char * regex_string,
 	/* copy the string and compile the regex */
 	len = strlen(regex_string);
 	DPRINTK("About to compile this: \"%s\"\n", regex_string);
-	node->pattern = regcomp((char *)regex_string, &len);
+	node->pattern = regcomp(regex_string, &len);
 	if ( !node->pattern ) {
 		if (net_ratelimit())
 			printk(KERN_ERR "layer7: Error compiling regexp "
@@ -195,7 +192,7 @@ static regexp * compile_and_cache(const char * regex_string,
 
 static int can_handle(const struct sk_buff *skb)
 {
-	if(!ip_hdr(skb)) /* not IP */
+	if(skb->protocol != htons(ETH_P_IP))	/* not IP */
 		return 0;
 	if(ip_hdr(skb)->protocol != IPPROTO_TCP &&
 	   ip_hdr(skb)->protocol != IPPROTO_UDP &&
@@ -207,7 +204,7 @@ static int can_handle(const struct sk_buff *skb)
 /* Returns offset the into the skb->data that the application data starts */
 static int app_data_offset(const struct sk_buff *skb)
 {
-	/* In case we are ported somewhere (ebtables?) where ip_hdr(skb)
+	/* In case we are ported somewhere (ebtables?) where skb->nh.iph
 	isn't set, this can be gotten from 4*(skb->data[0] & 0x0f) as well. */
 	int ip_hl = 4*ip_hdr(skb)->ihl;
 
@@ -236,7 +233,7 @@ static int match_no_append(struct nf_conn * conntrack,
                            struct nf_conn * master_conntrack, 
                            enum ip_conntrack_info ctinfo,
                            enum ip_conntrack_info master_ctinfo,
-                           const struct xt_layer7_info * info)
+                           struct xt_layer7_info * info)
 {
 	/* If we're in here, throw the app data away */
 	if(master_conntrack->layer7.app_data != NULL) {
@@ -247,9 +244,14 @@ static int match_no_append(struct nf_conn * conntrack,
 			  friendly_print(master_conntrack->layer7.app_data);
 			char * g = 
 			  hex_print(master_conntrack->layer7.app_data);
+			struct nf_conn_counter *acct;
+			u_int32_t packets = 0;
+
+			if ((acct = nf_conn_acct_find(master_conntrack)))
+				packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
 			DPRINTK("\nl7-filter gave up after %d bytes "
 				"(%d packets):\n%s\n",
-				strlen(f), TOTAL_PACKETS, f);
+				strlen(f), packets, f);
 			kfree(f);
 			DPRINTK("In hex: %s\n", g);
 			kfree(g);
@@ -297,36 +299,34 @@ static int match_no_append(struct nf_conn * conntrack,
 }
 
 /* add the new app data to the conntrack.  Return number of bytes added. */
-static int add_datastr(char *target, int offset, char *app_data, int len)
+static int add_data(struct nf_conn * master_conntrack,
+                    char * app_data, int appdatalen)
 {
 	int length = 0, i;
-	
-	if (!target) return 0;
+	int oldlength = master_conntrack->layer7.app_data_len;
+
+	/* This is a fix for a race condition by Deti Fliegl. However, I'm not 
+	   clear on whether the race condition exists or whether this really 
+	   fixes it.  I might just be being dense... Anyway, if it's not really 
+	   a fix, all it does is waste a very small amount of time. */
+	if(!master_conntrack->layer7.app_data) return 0;
 
 	/* Strip nulls. Make everything lower case (our regex lib doesn't
 	do case insensitivity).  Add it to the end of the current data. */
-	for(i = 0; i < maxdatalen-offset-1 && i < len; i++) {
+	for(i = 0; i < maxdatalen-oldlength-1 &&
+		   i < appdatalen; i++) {
 		if(app_data[i] != '\0') {
 			/* the kernel version of tolower mungs 'upper ascii' */
-			target[length+offset] =
+			master_conntrack->layer7.app_data[length+oldlength] =
 				isascii(app_data[i])? 
 					tolower(app_data[i]) : app_data[i];
 			length++;
 		}
 	}
-	target[length+offset] = '\0';
-	
-	return length;
-}
 
-/* add the new app data to the conntrack.  Return number of bytes added. */
-static int add_data(struct nf_conn * master_conntrack,
-                    char * app_data, int appdatalen)
-{
-	int length;
+	master_conntrack->layer7.app_data[length+oldlength] = '\0';
+	master_conntrack->layer7.app_data_len = length + oldlength;
 
-	length = add_datastr(master_conntrack->layer7.app_data, master_conntrack->layer7.app_data_len, app_data, appdatalen);
-	master_conntrack->layer7.app_data_len += length;
 	return length;
 }
 
@@ -397,25 +397,19 @@ static int layer7_write_proc(struct file* file, const char* buffer,
 	return count;
 }
 
-static int
-match(const struct sk_buff *skbin,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      int *hotdrop)
+static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 {
 	/* sidestep const without getting a compiler warning... */
 	struct sk_buff * skb = (struct sk_buff *)skbin; 
 
-	const struct xt_layer7_info * info = matchinfo;
+	struct xt_layer7_info * info = (struct xt_layer7_info *)par->matchinfo;
 	enum ip_conntrack_info master_ctinfo, ctinfo;
 	struct nf_conn *master_conntrack, *conntrack;
-	unsigned char *app_data, *tmp_data;
+	unsigned char * app_data;
 	unsigned int pattern_result, appdatalen;
 	regexp * comppattern;
+	struct nf_conn_counter *acct;
+	u_int32_t packets = 0;
 
 	/* Be paranoid/incompetent - lock the entire match function. */
 	spin_lock_bh(&l7_lock);
@@ -429,8 +423,8 @@ match(const struct sk_buff *skbin,
 	/* Treat parent & all its children together as one connection, except
 	for the purpose of setting conntrack->layer7.app_proto in the actual
 	connection. This makes /proc/net/ip_conntrack more satisfying. */
-	if(!(conntrack = nf_ct_get(skb, &ctinfo)) ||
-	   !(master_conntrack=nf_ct_get(skb,&master_ctinfo))){
+	if(!(conntrack = nf_ct_get((struct sk_buff *)skb, &ctinfo)) ||
+	   !(master_conntrack=nf_ct_get((struct sk_buff *)skb,&master_ctinfo))){
 		DPRINTK("layer7: couldn't get conntrack.\n");
 		spin_unlock_bh(&l7_lock);
 		return info->invert;
@@ -441,8 +435,10 @@ match(const struct sk_buff *skbin,
 		master_conntrack = master_ct(master_conntrack);
 
 	/* if we've classified it or seen too many packets */
-	if(!info->pkt && (TOTAL_PACKETS > num_packets ||
-	   master_conntrack->layer7.app_proto)) {
+	if ((acct = nf_conn_acct_find(master_conntrack)))
+		packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
+	if(packets > num_packets ||
+	   master_conntrack->layer7.app_proto) {
 
 		pattern_result = match_no_append(conntrack, master_conntrack, 
 						 ctinfo, master_ctinfo, info);
@@ -470,32 +466,13 @@ match(const struct sk_buff *skbin,
 
 	/* now that the skb is linearized, it's safe to set these. */
 	app_data = skb->data + app_data_offset(skb);
-	appdatalen = skb_tail_pointer(skb) - app_data;
+	appdatalen = skb->tail - app_data;
 
 	/* the return value gets checked later, when we're ready to use it */
 	comppattern = compile_and_cache(info->pattern, info->protocol);
 
-	if (info->pkt) {
-		tmp_data = kmalloc(maxdatalen, GFP_ATOMIC);
-		if(!tmp_data){
-			if (net_ratelimit())
-				printk(KERN_ERR "layer7: out of memory in match, bailing.\n");
-			return info->invert;
-		}
-
-		tmp_data[0] = '\0';
-		add_datastr(tmp_data, 0, app_data, appdatalen);
-		pattern_result = ((comppattern && regexec(comppattern, tmp_data)) ? 1 : 0);
-
-		kfree(tmp_data);
-		tmp_data = NULL;
-		spin_unlock_bh(&l7_lock);
-
-		return (pattern_result ^ info->invert);
-	}
-
 	/* On the first packet of a connection, allocate space for app data */
-	if(TOTAL_PACKETS == 1 && !skb->cb[0] && 
+	if(packets == 1 && !skb->cb[0] && 
 	   !master_conntrack->layer7.app_data){
 		master_conntrack->layer7.app_data = 
 			kmalloc(maxdatalen, GFP_ATOMIC);
@@ -536,9 +513,14 @@ match(const struct sk_buff *skbin,
 	/* If looking for "unset", then always match. "Unset" means that we
 	haven't yet classified the connection. */
 	} else if(!strcmp(info->protocol, "unset")) {
+		struct nf_conn_counter *acct;
+		u_int32_t packets = 0;
+
+		if ((acct = nf_conn_acct_find(master_conntrack)))
+			packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
 		pattern_result = 2;
 		DPRINTK("layer7: matched unset: not yet classified "
-			"(%d/%d packets)\n", TOTAL_PACKETS, num_packets);
+			"(%d/%d packets)\n", packets, num_packets);
 	/* If the regexp failed to compile, don't bother running it */
 	} else if(comppattern && 
 		  regexec(comppattern, master_conntrack->layer7.app_data)){
@@ -568,26 +550,21 @@ match(const struct sk_buff *skbin,
 	return (pattern_result ^ info->invert);
 }
 
-static int check(const char *tablename,
-		 const void *inf,
-		 const struct xt_match *match,
-		 void *matchinfo,
-		 unsigned int hook_mask)
-
+static int check(const struct xt_mtchk_param *par)
 {
 	// load nf_conntrack_ipv4
-        if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+        if (nf_ct_l3proto_try_module_get(par->match->family) < 0) {
                 printk(KERN_WARNING "can't load conntrack support for "
-                                    "proto=%d\n", match->family);
-                return 0;
+                                    "proto=%d\n", par->match->family);
+                return -EINVAL;
         }
-	return 1;
+	return 0;
 }
 
 static void
-destroy(const struct xt_match *match, void *matchinfo)
+destroy(const struct xt_mtdtor_param *par)
 {
-	nf_ct_l3proto_module_put(match->family);
+	nf_ct_l3proto_module_put(par->match->family);
 }
 
 static struct xt_match xt_layer7_match[] = {
@@ -604,22 +581,14 @@ static struct xt_match xt_layer7_match[] = {
 
 static void layer7_cleanup_proc(void)
 {
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
-	remove_proc_entry("layer7_numpackets", proc_net);
-#else
 	remove_proc_entry("layer7_numpackets", init_net.proc_net);
-#endif
 }
 
 /* register the proc file */
 static void layer7_init_proc(void)
 {
 	struct proc_dir_entry* entry;
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
-	entry = create_proc_entry("layer7_numpackets", 0644, proc_net);
-#else
 	entry = create_proc_entry("layer7_numpackets", 0644, init_net.proc_net);
-#endif
 	entry->read_proc = layer7_read_proc;
 	entry->write_proc = layer7_write_proc;
 }
@@ -653,3 +622,4 @@ static void __exit xt_layer7_fini(void)
 
 module_init(xt_layer7_init);
 module_exit(xt_layer7_fini);
+

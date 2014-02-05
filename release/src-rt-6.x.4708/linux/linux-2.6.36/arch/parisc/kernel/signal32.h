@@ -43,7 +43,6 @@ struct compat_ucontext {
         compat_uint_t uc_flags;
         compat_uptr_t uc_link;
         compat_stack_t uc_stack;        /* struct compat_sigaltstack (12 bytes)*/
-        /* FIXME: Pad out to get uc_mcontext to start at an 8-byte aligned boundary */
         compat_uint_t pad[1];
         struct compat_sigcontext uc_mcontext;
         compat_sigset_t uc_sigmask;     /* mask last for extensibility */
@@ -131,10 +130,6 @@ struct compat_regfile {
 				COMPAT_SIGRESTARTBLOCK_TRAMP)
 
 struct compat_rt_sigframe {
-        /* XXX: Must match trampoline size in arch/parisc/kernel/signal.c
-                Secondary to that it must protect the ERESTART_RESTARTBLOCK
-                trampoline we left on the stack (we were bad and didn't
-                change sp so we could run really fast.) */
         compat_uint_t tramp[COMPAT_TRAMP_SIZE];
         compat_siginfo_t info;
         struct compat_ucontext uc;

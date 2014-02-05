@@ -33,7 +33,6 @@
 
 #include <linux/types.h>
 #include <linux/module.h>
-#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/sunrpc/sched.h>
 #include <linux/sunrpc/gss_asn1.h>
@@ -49,10 +48,6 @@
 	memcpy((ptr), (char *) (str), (len)); \
 	(ptr) += (len);
 
-/* XXXX this code currently makes the assumption that a mech oid will
-   never be longer than 127 bytes.  This assumption is not inherent in
-   the interfaces, so the code can be fixed if the OSI namespace
-   balloons unexpectedly. */
 
 /* Each token looks like this:
 
@@ -148,11 +143,11 @@ int
 g_token_size(struct xdr_netobj *mech, unsigned int body_size)
 {
 	/* set body_size to sequence contents size */
-	body_size += 4 + (int) mech->len;         /* NEED overflow check */
+	body_size += 2 + (int) mech->len;         /* NEED overflow check */
 	return(1 + der_length_size(body_size) + body_size);
 }
 
-EXPORT_SYMBOL(g_token_size);
+EXPORT_SYMBOL_GPL(g_token_size);
 
 /* fills in a buffer with the token header.  The buffer is assumed to
    be the right size.  buf is advanced past the token header */
@@ -161,13 +156,13 @@ void
 g_make_token_header(struct xdr_netobj *mech, int body_size, unsigned char **buf)
 {
 	*(*buf)++ = 0x60;
-	der_write_length(buf, 4 + mech->len + body_size);
+	der_write_length(buf, 2 + mech->len + body_size);
 	*(*buf)++ = 0x06;
 	*(*buf)++ = (unsigned char) mech->len;
 	TWRITE_STR(*buf, mech->data, ((int) mech->len));
 }
 
-EXPORT_SYMBOL(g_make_token_header);
+EXPORT_SYMBOL_GPL(g_make_token_header);
 
 /*
  * Given a buffer containing a token, reads and verifies the token,
@@ -231,5 +226,4 @@ g_verify_token_header(struct xdr_netobj *mech, int *body_size,
 	return(ret);
 }
 
-EXPORT_SYMBOL(g_verify_token_header);
-
+EXPORT_SYMBOL_GPL(g_verify_token_header);

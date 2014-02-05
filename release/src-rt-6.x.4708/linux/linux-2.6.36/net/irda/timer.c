@@ -18,7 +18,7 @@
  *     published by the Free Software Foundation; either version 2 of
  *     the License, or (at your option) any later version.
  *
- *     Neither Dag Brattli nor University of Tromsø admit liability nor
+ *     Neither Dag Brattli nor University of TromsÃ¸ admit liability nor
  *     provide warranty for any of this software. This material is
  *     provided "AS-IS" and at no charge.
  *
@@ -219,7 +219,7 @@ static void irlap_backoff_timer_expired(void *data)
  *
  *
  */
-void irlap_media_busy_expired(void* data)
+static void irlap_media_busy_expired(void *data)
 {
 	struct irlap_cb *self = (struct irlap_cb *) data;
 

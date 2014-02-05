@@ -8,28 +8,35 @@
 #ifndef _LINUX_SIGNALFD_H
 #define _LINUX_SIGNALFD_H
 
+#include <linux/types.h>
+/* For O_CLOEXEC and O_NONBLOCK */
+#include <linux/fcntl.h>
+
+/* Flags for signalfd4.  */
+#define SFD_CLOEXEC O_CLOEXEC
+#define SFD_NONBLOCK O_NONBLOCK
 
 struct signalfd_siginfo {
-	__u32 signo;
-	__s32 err;
-	__s32 code;
-	__u32 pid;
-	__u32 uid;
-	__s32 fd;
-	__u32 tid;
-	__u32 band;
-	__u32 overrun;
-	__u32 trapno;
-	__s32 status;
-	__s32 svint;
-	__u64 svptr;
-	__u64 utime;
-	__u64 stime;
-	__u64 addr;
+	__u32 ssi_signo;
+	__s32 ssi_errno;
+	__s32 ssi_code;
+	__u32 ssi_pid;
+	__u32 ssi_uid;
+	__s32 ssi_fd;
+	__u32 ssi_tid;
+	__u32 ssi_band;
+	__u32 ssi_overrun;
+	__u32 ssi_trapno;
+	__s32 ssi_status;
+	__s32 ssi_int;
+	__u64 ssi_ptr;
+	__u64 ssi_utime;
+	__u64 ssi_stime;
+	__u64 ssi_addr;
 
 	/*
 	 * Pad strcture to 128 bytes. Remember to update the
-	 * pad size when you add new memebers. We use a fixed
+	 * pad size when you add new members. We use a fixed
 	 * size structure to avoid compatibility problems with
 	 * future versions, and we leave extra space for additional
 	 * members. We use fixed size members because this strcture
@@ -62,4 +69,3 @@ static inline void signalfd_notify(struct task_struct *tsk, int sig) { }
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_SIGNALFD_H */
-

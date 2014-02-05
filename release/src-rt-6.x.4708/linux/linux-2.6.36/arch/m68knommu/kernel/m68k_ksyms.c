@@ -13,7 +13,6 @@
 #include <asm/pgalloc.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-#include <asm/semaphore.h>
 #include <asm/checksum.h>
 #include <asm/current.h>
 
@@ -24,14 +23,6 @@ extern int dump_fpu(struct pt_regs *, elf_fpregset_t *);
 EXPORT_SYMBOL(__ioremap);
 EXPORT_SYMBOL(iounmap);
 EXPORT_SYMBOL(dump_fpu);
-EXPORT_SYMBOL(strnlen);
-EXPORT_SYMBOL(strrchr);
-EXPORT_SYMBOL(strstr);
-EXPORT_SYMBOL(strchr);
-EXPORT_SYMBOL(strcat);
-EXPORT_SYMBOL(strlen);
-EXPORT_SYMBOL(strcmp);
-EXPORT_SYMBOL(strncmp);
 
 EXPORT_SYMBOL(ip_fast_csum);
 
@@ -46,14 +37,6 @@ EXPORT_SYMBOL(csum_partial_copy_nocheck);
    it's OK to leave it out of version control.  */
 EXPORT_SYMBOL(memcpy);
 EXPORT_SYMBOL(memset);
-EXPORT_SYMBOL(memcmp);
-EXPORT_SYMBOL(memscan);
-EXPORT_SYMBOL(memmove);
-
-EXPORT_SYMBOL(__down_failed);
-EXPORT_SYMBOL(__down_failed_interruptible);
-EXPORT_SYMBOL(__down_failed_trylock);
-EXPORT_SYMBOL(__up_wakeup);
 
 /*
  * libgcc functions - functions that are used internally by the
@@ -80,8 +63,6 @@ EXPORT_SYMBOL(__muldi3);
 EXPORT_SYMBOL(__mulsi3);
 EXPORT_SYMBOL(__udivsi3);
 EXPORT_SYMBOL(__umodsi3);
-
-EXPORT_SYMBOL(is_in_rom);
 
 #ifdef CONFIG_COLDFIRE
 extern unsigned int *dma_device_address;

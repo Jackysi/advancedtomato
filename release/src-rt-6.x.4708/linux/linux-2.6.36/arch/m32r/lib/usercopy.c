@@ -387,4 +387,3 @@ long strnlen_user(const char __user *s, long n)
 }
 
 #endif /* CONFIG_ISA_DUAL_ISSUE */
-

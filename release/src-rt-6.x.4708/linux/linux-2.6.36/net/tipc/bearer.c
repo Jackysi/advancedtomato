@@ -45,10 +45,10 @@
 
 #define MAX_ADDR_STR 32
 
-static struct media *media_list = NULL;
+static struct media media_list[MAX_MEDIA];
 static u32 media_count = 0;
 
-struct bearer *tipc_bearers = NULL;
+struct bearer tipc_bearers[MAX_BEARERS];
 
 /**
  * media_name_valid - validate media name
@@ -108,9 +108,11 @@ int  tipc_register_media(u32 media_type,
 	int res = -EINVAL;
 
 	write_lock_bh(&tipc_net_lock);
-	if (!media_list)
-		goto exit;
 
+	if (tipc_mode != TIPC_NET_MODE) {
+		warn("Media <%s> rejected, not in networked mode yet\n", name);
+		goto exit;
+	}
 	if (!media_name_valid(name)) {
 		warn("Media <%s> rejected, illegal name\n", name);
 		goto exit;
@@ -119,7 +121,7 @@ int  tipc_register_media(u32 media_type,
 		warn("Media <%s> rejected, no broadcast address\n", name);
 		goto exit;
 	}
-	if ((bearer_priority < TIPC_MIN_LINK_PRI) &&
+	if ((bearer_priority < TIPC_MIN_LINK_PRI) ||
 	    (bearer_priority > TIPC_MAX_LINK_PRI)) {
 		warn("Media <%s> rejected, illegal priority (%u)\n", name,
 		     bearer_priority);
@@ -370,7 +372,7 @@ void tipc_bearer_remove_dest(struct bearer *b_ptr, u32 dest)
  */
 static int bearer_push(struct bearer *b_ptr)
 {
-	u32 res = TIPC_OK;
+	u32 res = 0;
 	struct link *ln, *tln;
 
 	if (b_ptr->publ.blocked)
@@ -465,6 +467,18 @@ int tipc_bearer_resolve_congestion(struct bearer *b_ptr, struct link *l_ptr)
 	return res;
 }
 
+/**
+ * tipc_bearer_congested - determines if bearer is currently congested
+ */
+
+int tipc_bearer_congested(struct bearer *b_ptr, struct link *l_ptr)
+{
+	if (unlikely(b_ptr->publ.blocked))
+		return 1;
+	if (likely(list_empty(&b_ptr->cong_links)))
+		return 0;
+	return !tipc_bearer_resolve_congestion(b_ptr, l_ptr);
+}
 
 /**
  * tipc_enable_bearer - enable bearer with the given name
@@ -491,7 +505,7 @@ int tipc_enable_bearer(const char *name, u32 bcast_scope, u32 priority)
 		return -EINVAL;
 	}
 	if (!tipc_addr_domain_valid(bcast_scope) ||
-	    !in_scope(bcast_scope, tipc_own_addr)) {
+	    !tipc_in_scope(bcast_scope, tipc_own_addr)) {
 		warn("Bearer <%s> rejected, illegal broadcast scope\n", name);
 		return -EINVAL;
 	}
@@ -569,7 +583,7 @@ restart:
 	spin_lock_init(&b_ptr->publ.lock);
 	write_unlock_bh(&tipc_net_lock);
 	info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
-	     name, addr_string_fill(addr_string, bcast_scope), priority);
+	     name, tipc_addr_string_fill(addr_string, bcast_scope), priority);
 	return 0;
 failed:
 	write_unlock_bh(&tipc_net_lock);
@@ -599,7 +613,7 @@ int tipc_block_bearer(const char *name)
 	spin_lock_bh(&b_ptr->publ.lock);
 	b_ptr->publ.blocked = 1;
 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
-		struct node *n_ptr = l_ptr->owner;
+		struct tipc_node *n_ptr = l_ptr->owner;
 
 		spin_lock_bh(&n_ptr->lock);
 		tipc_link_reset(l_ptr);
@@ -607,7 +621,7 @@ int tipc_block_bearer(const char *name)
 	}
 	spin_unlock_bh(&b_ptr->publ.lock);
 	read_unlock_bh(&tipc_net_lock);
-	return TIPC_OK;
+	return 0;
 }
 
 /**
@@ -645,7 +659,7 @@ static int bearer_disable(const char *name)
 	}
 	spin_unlock_bh(&b_ptr->publ.lock);
 	memset(b_ptr, 0, sizeof(struct bearer));
-	return TIPC_OK;
+	return 0;
 }
 
 int tipc_disable_bearer(const char *name)
@@ -660,32 +674,9 @@ int tipc_disable_bearer(const char *name)
 
 
 
-int tipc_bearer_init(void)
-{
-	int res;
-
-	write_lock_bh(&tipc_net_lock);
-	tipc_bearers = kcalloc(MAX_BEARERS, sizeof(struct bearer), GFP_ATOMIC);
-	media_list = kcalloc(MAX_MEDIA, sizeof(struct media), GFP_ATOMIC);
-	if (tipc_bearers && media_list) {
-		res = TIPC_OK;
-	} else {
-		kfree(tipc_bearers);
-		kfree(media_list);
-		tipc_bearers = NULL;
-		media_list = NULL;
-		res = -ENOMEM;
-	}
-	write_unlock_bh(&tipc_net_lock);
-	return res;
-}
-
 void tipc_bearer_stop(void)
 {
 	u32 i;
-
-	if (!tipc_bearers)
-		return;
 
 	for (i = 0; i < MAX_BEARERS; i++) {
 		if (tipc_bearers[i].active)
@@ -695,11 +686,5 @@ void tipc_bearer_stop(void)
 		if (tipc_bearers[i].active)
 			bearer_disable(tipc_bearers[i].publ.name);
 	}
-	kfree(tipc_bearers);
-	kfree(media_list);
-	tipc_bearers = NULL;
-	media_list = NULL;
 	media_count = 0;
 }
-
-

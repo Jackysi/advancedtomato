@@ -579,4 +579,3 @@ typedef int operation;
 #define FMPY	(2<<2) | 3
 #define FDIV	(3<<2) | 3
 #define FREM	(4<<2) | 3
-

@@ -136,10 +136,6 @@ static int aha1542_queuecommand(Scsi_Cmnd *, void (*done)(Scsi_Cmnd *));
 static int aha1542_bus_reset(Scsi_Cmnd * SCpnt);
 static int aha1542_dev_reset(Scsi_Cmnd * SCpnt);
 static int aha1542_host_reset(Scsi_Cmnd * SCpnt);
-#if 0
-static int aha1542_old_abort(Scsi_Cmnd * SCpnt);
-static int aha1542_old_reset(Scsi_Cmnd *, unsigned int);
-#endif
 static int aha1542_biosparam(struct scsi_device *, struct block_device *,
 		sector_t, int *);
 

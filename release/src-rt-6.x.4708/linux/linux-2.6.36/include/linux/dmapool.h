@@ -32,4 +32,3 @@ struct dma_pool *dmam_pool_create(const char *name, struct device *dev,
 void dmam_pool_destroy(struct dma_pool *pool);
 
 #endif
-

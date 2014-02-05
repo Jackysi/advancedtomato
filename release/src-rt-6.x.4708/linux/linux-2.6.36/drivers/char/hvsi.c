@@ -75,7 +75,7 @@ struct hvsi_struct {
 	spinlock_t lock;
 	int index;
 	struct tty_struct *tty;
-	unsigned int count;
+	int count;
 	uint8_t throttle_buf[128];
 	uint8_t outbuf[N_OUTBUF]; /* to implement write_room and chars_in_buffer */
 	/* inbuf is for packet reassembly. leave a little room for leftovers. */
@@ -194,10 +194,8 @@ static inline void print_state(struct hvsi_struct *hp)
 		"HVSI_WAIT_FOR_MCTRL_RESPONSE",
 		"HVSI_FSP_DIED",
 	};
-	const char *name = state_names[hp->state];
-
-	if (hp->state > ARRAY_SIZE(state_names))
-		name = "UNKNOWN";
+	const char *name = (hp->state < ARRAY_SIZE(state_names))
+		? state_names[hp->state] : "UNKNOWN";
 
 	pr_debug("hvsi%i: state = %s\n", hp->index, name);
 #endif /* DEBUG */
@@ -246,7 +244,7 @@ static void compact_inbuf(struct hvsi_struct *hp, uint8_t *read_to)
 {
 	int remaining = (int)(hp->inbuf_end - read_to);
 
-	pr_debug("%s: %i chars remain\n", __FUNCTION__, remaining);
+	pr_debug("%s: %i chars remain\n", __func__, remaining);
 
 	if (read_to != hp->inbuf)
 		memmove(hp->inbuf, read_to, remaining);
@@ -365,7 +363,7 @@ static int hvsi_version_respond(struct hvsi_struct *hp, uint16_t query_seqno)
 	packet.u.version = HVSI_VERSION;
 	packet.query_seqno = query_seqno+1;
 
-	pr_debug("%s: sending %i bytes\n", __FUNCTION__, packet.len);
+	pr_debug("%s: sending %i bytes\n", __func__, packet.len);
 	dbg_dump_hex((uint8_t*)&packet, packet.len);
 
 	wrote = hvc_put_chars(hp->vtermno, (char *)&packet, packet.len);
@@ -405,7 +403,7 @@ static void hvsi_insert_chars(struct hvsi_struct *hp, const char *buf, int len)
 			hp->sysrq = 1;
 			continue;
 		} else if (hp->sysrq) {
-			handle_sysrq(c, hp->tty);
+			handle_sysrq(c);
 			hp->sysrq = 0;
 			continue;
 		}
@@ -437,7 +435,7 @@ static struct tty_struct *hvsi_recv_data(struct hvsi_struct *hp,
 		return NULL;
 
 	if (overflow > 0) {
-		pr_debug("%s: got >TTY_THRESHOLD_THROTTLE bytes\n", __FUNCTION__);
+		pr_debug("%s: got >TTY_THRESHOLD_THROTTLE bytes\n", __func__);
 		datalen = TTY_THRESHOLD_THROTTLE;
 	}
 
@@ -448,7 +446,7 @@ static struct tty_struct *hvsi_recv_data(struct hvsi_struct *hp,
 		 * we still have more data to deliver, so we need to save off the
 		 * overflow and send it later
 		 */
-		pr_debug("%s: deferring overflow\n", __FUNCTION__);
+		pr_debug("%s: deferring overflow\n", __func__);
 		memcpy(hp->throttle_buf, data + TTY_THRESHOLD_THROTTLE, overflow);
 		hp->n_throttle = overflow;
 	}
@@ -474,11 +472,11 @@ static int hvsi_load_chunk(struct hvsi_struct *hp, struct tty_struct **flip,
 
 	chunklen = hvsi_read(hp, hp->inbuf_end, HVSI_MAX_READ);
 	if (chunklen == 0) {
-		pr_debug("%s: 0-length read\n", __FUNCTION__);
+		pr_debug("%s: 0-length read\n", __func__);
 		return 0;
 	}
 
-	pr_debug("%s: got %i bytes\n", __FUNCTION__, chunklen);
+	pr_debug("%s: got %i bytes\n", __func__, chunklen);
 	dbg_dump_hex(hp->inbuf_end, chunklen);
 
 	hp->inbuf_end += chunklen;
@@ -495,7 +493,7 @@ static int hvsi_load_chunk(struct hvsi_struct *hp, struct tty_struct **flip,
 			continue;
 		}
 
-		pr_debug("%s: handling %i-byte packet\n", __FUNCTION__,
+		pr_debug("%s: handling %i-byte packet\n", __func__,
 				len_packet(packet));
 		dbg_dump_packet(packet);
 
@@ -526,7 +524,7 @@ static int hvsi_load_chunk(struct hvsi_struct *hp, struct tty_struct **flip,
 		packet += len_packet(packet);
 
 		if (*hangup || *handshake) {
-			pr_debug("%s: hangup or handshake\n", __FUNCTION__);
+			pr_debug("%s: hangup or handshake\n", __func__);
 			/*
 			 * we need to send the hangup now before receiving any more data.
 			 * If we get "data, hangup, data", we can't deliver the second
@@ -543,7 +541,7 @@ static int hvsi_load_chunk(struct hvsi_struct *hp, struct tty_struct **flip,
 
 static void hvsi_send_overflow(struct hvsi_struct *hp)
 {
-	pr_debug("%s: delivering %i bytes overflow\n", __FUNCTION__,
+	pr_debug("%s: delivering %i bytes overflow\n", __func__,
 			hp->n_throttle);
 
 	hvsi_insert_chars(hp, hp->throttle_buf, hp->n_throttle);
@@ -563,7 +561,7 @@ static irqreturn_t hvsi_interrupt(int irq, void *arg)
 	unsigned long flags;
 	int again = 1;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	while (again) {
 		spin_lock_irqsave(&hp->lock, flags);
@@ -647,7 +645,7 @@ static int hvsi_query(struct hvsi_struct *hp, uint16_t verb)
 	packet.seqno = atomic_inc_return(&hp->seqno);
 	packet.verb = verb;
 
-	pr_debug("%s: sending %i bytes\n", __FUNCTION__, packet.len);
+	pr_debug("%s: sending %i bytes\n", __func__, packet.len);
 	dbg_dump_hex((uint8_t*)&packet, packet.len);
 
 	wrote = hvc_put_chars(hp->vtermno, (char *)&packet, packet.len);
@@ -674,7 +672,7 @@ static int hvsi_get_mctrl(struct hvsi_struct *hp)
 		return ret;
 	}
 
-	pr_debug("%s: mctrl 0x%x\n", __FUNCTION__, hp->mctrl);
+	pr_debug("%s: mctrl 0x%x\n", __func__, hp->mctrl);
 
 	return 0;
 }
@@ -694,7 +692,7 @@ static int hvsi_set_mctrl(struct hvsi_struct *hp, uint16_t mctrl)
 	if (mctrl & TIOCM_DTR)
 		packet.word = HVSI_TSDTR;
 
-	pr_debug("%s: sending %i bytes\n", __FUNCTION__, packet.len);
+	pr_debug("%s: sending %i bytes\n", __func__, packet.len);
 	dbg_dump_hex((uint8_t*)&packet, packet.len);
 
 	wrote = hvc_put_chars(hp->vtermno, (char *)&packet, packet.len);
@@ -790,7 +788,7 @@ static void hvsi_close_protocol(struct hvsi_struct *hp)
 	packet.len = 6;
 	packet.verb = VSV_CLOSE_PROTOCOL;
 
-	pr_debug("%s: sending %i bytes\n", __FUNCTION__, packet.len);
+	pr_debug("%s: sending %i bytes\n", __func__, packet.len);
 	dbg_dump_hex((uint8_t*)&packet, packet.len);
 
 	hvc_put_chars(hp->vtermno, (char *)&packet, packet.len);
@@ -803,14 +801,13 @@ static int hvsi_open(struct tty_struct *tty, struct file *filp)
 	int line = tty->index;
 	int ret;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	if (line < 0 || line >= hvsi_count)
 		return -ENODEV;
 	hp = &hvsi_ports[line];
 
 	tty->driver_data = hp;
-	tty->low_latency = 1; /* avoid throttle/tty_flip_buffer_push race */
 
 	mb();
 	if (hp->state == HVSI_FSP_DIED)
@@ -868,7 +865,7 @@ static void hvsi_close(struct tty_struct *tty, struct file *filp)
 	struct hvsi_struct *hp = tty->driver_data;
 	unsigned long flags;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	if (tty_hung_up_p(filp))
 		return;
@@ -920,7 +917,7 @@ static void hvsi_hangup(struct tty_struct *tty)
 	struct hvsi_struct *hp = tty->driver_data;
 	unsigned long flags;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&hp->lock, flags);
 
@@ -942,7 +939,7 @@ static void hvsi_push(struct hvsi_struct *hp)
 	n = hvsi_put_chars(hp, hp->outbuf, hp->n_outbuf);
 	if (n > 0) {
 		/* success */
-		pr_debug("%s: wrote %i chars\n", __FUNCTION__, n);
+		pr_debug("%s: wrote %i chars\n", __func__, n);
 		hp->n_outbuf = 0;
 	} else if (n == -EIO) {
 		__set_state(hp, HVSI_FSP_DIED);
@@ -965,7 +962,7 @@ static void hvsi_write_worker(struct work_struct *work)
 
 	spin_lock_irqsave(&hp->lock, flags);
 
-	pr_debug("%s: %i chars in buffer\n", __FUNCTION__, hp->n_outbuf);
+	pr_debug("%s: %i chars in buffer\n", __func__, hp->n_outbuf);
 
 	if (!is_open(hp)) {
 		/*
@@ -983,7 +980,7 @@ static void hvsi_write_worker(struct work_struct *work)
 		schedule_delayed_work(&hp->writer, 10);
 	else {
 #ifdef DEBUG
-		pr_debug("%s: outbuf emptied after %li jiffies\n", __FUNCTION__,
+		pr_debug("%s: outbuf emptied after %li jiffies\n", __func__,
 				jiffies - start_j);
 		start_j = 0;
 #endif /* DEBUG */
@@ -997,14 +994,14 @@ out:
 
 static int hvsi_write_room(struct tty_struct *tty)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 
 	return N_OUTBUF - hp->n_outbuf;
 }
 
 static int hvsi_chars_in_buffer(struct tty_struct *tty)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 
 	return hp->n_outbuf;
 }
@@ -1020,11 +1017,11 @@ static int hvsi_write(struct tty_struct *tty,
 
 	spin_lock_irqsave(&hp->lock, flags);
 
-	pr_debug("%s: %i chars in buffer\n", __FUNCTION__, hp->n_outbuf);
+	pr_debug("%s: %i chars in buffer\n", __func__, hp->n_outbuf);
 
 	if (!is_open(hp)) {
 		/* we're either closing or not yet open; don't accept data */
-		pr_debug("%s: not open\n", __FUNCTION__);
+		pr_debug("%s: not open\n", __func__);
 		goto out;
 	}
 
@@ -1058,7 +1055,7 @@ out:
 	spin_unlock_irqrestore(&hp->lock, flags);
 
 	if (total != origcount)
-		pr_debug("%s: wanted %i, only wrote %i\n", __FUNCTION__, origcount,
+		pr_debug("%s: wanted %i, only wrote %i\n", __func__, origcount,
 			total);
 
 	return total;
@@ -1070,20 +1067,20 @@ out:
  */
 static void hvsi_throttle(struct tty_struct *tty)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	h_vio_signal(hp->vtermno, VIO_IRQ_DISABLE);
 }
 
 static void hvsi_unthrottle(struct tty_struct *tty)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 	unsigned long flags;
 	int shouldflip = 0;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&hp->lock, flags);
 	if (hp->n_throttle) {
@@ -1100,7 +1097,7 @@ static void hvsi_unthrottle(struct tty_struct *tty)
 
 static int hvsi_tiocmget(struct tty_struct *tty, struct file *file)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 
 	hvsi_get_mctrl(hp);
 	return hp->mctrl;
@@ -1109,7 +1106,7 @@ static int hvsi_tiocmget(struct tty_struct *tty, struct file *file)
 static int hvsi_tiocmset(struct tty_struct *tty, struct file *file,
 		unsigned int set, unsigned int clear)
 {
-	struct hvsi_struct *hp = (struct hvsi_struct *)tty->driver_data;
+	struct hvsi_struct *hp = tty->driver_data;
 	unsigned long flags;
 	uint16_t new_mctrl;
 
@@ -1231,11 +1228,12 @@ static struct tty_driver *hvsi_console_device(struct console *console,
 
 static int __init hvsi_console_setup(struct console *console, char *options)
 {
-	struct hvsi_struct *hp = &hvsi_ports[console->index];
+	struct hvsi_struct *hp;
 	int ret;
 
 	if (console->index < 0 || console->index >= hvsi_count)
 		return -1;
+	hp = &hvsi_ports[console->index];
 
 	/* give the FSP a chance to change the baud rate when we re-open */
 	hvsi_close_protocol(hp);
@@ -1257,7 +1255,7 @@ static int __init hvsi_console_setup(struct console *console, char *options)
 	return 0;
 }
 
-static struct console hvsi_con_driver = {
+static struct console hvsi_console = {
 	.name		= "hvsi",
 	.write		= hvsi_console_print,
 	.device		= hvsi_console_device,
@@ -1302,7 +1300,7 @@ static int __init hvsi_console_init(void)
 		hp->virq = irq_create_mapping(NULL, irq[0]);
 		if (hp->virq == NO_IRQ) {
 			printk(KERN_ERR "%s: couldn't create irq mapping for 0x%x\n",
-				__FUNCTION__, irq[0]);
+				__func__, irq[0]);
 			continue;
 		}
 
@@ -1310,7 +1308,7 @@ static int __init hvsi_console_init(void)
 	}
 
 	if (hvsi_count)
-		register_console(&hvsi_con_driver);
+		register_console(&hvsi_console);
 	return 0;
 }
 console_initcall(hvsi_console_init);

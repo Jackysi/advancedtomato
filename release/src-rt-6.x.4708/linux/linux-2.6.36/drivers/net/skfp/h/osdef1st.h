@@ -81,7 +81,6 @@
 
 
 // Number of RXDs for receive queue #1.
-// Note: Workaround for ASIC Errata #7: One extra RXD is required.
 #if (NUM_RECEIVE_BUFFERS > 100)
 #define SMT_R1_RXD_COUNT	(1 + 100)
 #else

@@ -11,7 +11,6 @@
  */
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/skbuff.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/if.h>
@@ -23,8 +22,7 @@
 #include "flask.h"
 #include "av_permissions.h"
 
-struct nlmsg_perm
-{
+struct nlmsg_perm {
 	u16	nlmsg_type;
 	u32	perm;
 };
@@ -64,6 +62,11 @@ static struct nlmsg_perm nlmsg_route_perms[] =
 	{ RTM_GETANYCAST,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
 	{ RTM_GETNEIGHTBL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
 	{ RTM_SETNEIGHTBL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+	{ RTM_NEWADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+	{ RTM_DELADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+	{ RTM_GETADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+	{ RTM_GETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+	{ RTM_SETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
 };
 
 static struct nlmsg_perm nlmsg_firewall_perms[] =
@@ -110,6 +113,10 @@ static struct nlmsg_perm nlmsg_audit_perms[] =
 	{ AUDIT_DEL_RULE,	NETLINK_AUDIT_SOCKET__NLMSG_WRITE    },
 	{ AUDIT_USER,		NETLINK_AUDIT_SOCKET__NLMSG_RELAY    },
 	{ AUDIT_SIGNAL_INFO,	NETLINK_AUDIT_SOCKET__NLMSG_READ     },
+	{ AUDIT_TRIM,		NETLINK_AUDIT_SOCKET__NLMSG_WRITE    },
+	{ AUDIT_MAKE_EQUIV,	NETLINK_AUDIT_SOCKET__NLMSG_WRITE    },
+	{ AUDIT_TTY_GET,	NETLINK_AUDIT_SOCKET__NLMSG_READ     },
+	{ AUDIT_TTY_SET,	NETLINK_AUDIT_SOCKET__NLMSG_TTY_AUDIT	},
 };
 
 
@@ -157,7 +164,7 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
 		if ((nlmsg_type >= AUDIT_FIRST_USER_MSG &&
 		     nlmsg_type <= AUDIT_LAST_USER_MSG) ||
 		    (nlmsg_type >= AUDIT_FIRST_USER_MSG2 &&
-                     nlmsg_type <= AUDIT_LAST_USER_MSG2)) {
+		     nlmsg_type <= AUDIT_LAST_USER_MSG2)) {
 			*perm = NETLINK_AUDIT_SOCKET__NLMSG_RELAY;
 		} else {
 			err = nlmsg_perm(nlmsg_type, perm, nlmsg_audit_perms,

@@ -151,9 +151,6 @@ polaris_init_arch(void)
 	 * for now assume that the firmware has done the right thing
 	 * already.
 	 */
-#if 0
-	printk("polaris_init_arch(): trusting firmware for setup\n");
-#endif
 
 	/*
 	 * Create our single hose.

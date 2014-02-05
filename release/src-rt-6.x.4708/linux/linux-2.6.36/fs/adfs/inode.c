@@ -7,17 +7,9 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include <linux/errno.h>
-#include <linux/fs.h>
-#include <linux/adfs_fs.h>
-#include <linux/time.h>
-#include <linux/stat.h>
-#include <linux/string.h>
-#include <linux/mm.h>
 #include <linux/smp_lock.h>
-#include <linux/module.h>
 #include <linux/buffer_head.h>
-
+#include <linux/writeback.h>
 #include "adfs.h"
 
 /*
@@ -28,9 +20,6 @@ static int
 adfs_get_block(struct inode *inode, sector_t block, struct buffer_head *bh,
 	       int create)
 {
-	if (block < 0)
-		goto abort_negative;
-
 	if (!create) {
 		if (block >= inode->i_blocks)
 			goto abort_toobig;
@@ -41,10 +30,6 @@ adfs_get_block(struct inode *inode, sector_t block, struct buffer_head *bh,
 		return 0;
 	}
 	/* don't support allocation of blocks yet */
-	return -EIO;
-
-abort_negative:
-	adfs_error(inode->i_sb, "block %d < 0", block);
 	return -EIO;
 
 abort_toobig:
@@ -61,10 +46,23 @@ static int adfs_readpage(struct file *file, struct page *page)
 	return block_read_full_page(page, adfs_get_block);
 }
 
-static int adfs_prepare_write(struct file *file, struct page *page, unsigned int from, unsigned int to)
+static int adfs_write_begin(struct file *file, struct address_space *mapping,
+			loff_t pos, unsigned len, unsigned flags,
+			struct page **pagep, void **fsdata)
 {
-	return cont_prepare_write(page, from, to, adfs_get_block,
-		&ADFS_I(page->mapping->host)->mmu_private);
+	int ret;
+
+	*pagep = NULL;
+	ret = cont_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+				adfs_get_block,
+				&ADFS_I(mapping->host)->mmu_private);
+	if (unlikely(ret)) {
+		loff_t isize = mapping->host->i_size;
+		if (pos + len > isize)
+			vmtruncate(mapping->host, isize);
+	}
+
+	return ret;
 }
 
 static sector_t _adfs_bmap(struct address_space *mapping, sector_t block)
@@ -76,8 +74,8 @@ static const struct address_space_operations adfs_aops = {
 	.readpage	= adfs_readpage,
 	.writepage	= adfs_writepage,
 	.sync_page	= block_sync_page,
-	.prepare_write	= adfs_prepare_write,
-	.commit_write	= generic_commit_write,
+	.write_begin	= adfs_write_begin,
+	.write_end	= generic_write_end,
 	.bmap		= _adfs_bmap
 };
 
@@ -150,7 +148,6 @@ adfs_mode2atts(struct super_block *sb, struct inode *inode)
 	int attr;
 	struct adfs_sb_info *asb = ADFS_SB(sb);
 
-	/* FIXME: should we be able to alter a link? */
 	if (S_ISLNK(inode->i_mode))
 		return ADFS_I(inode)->attr;
 
@@ -334,19 +331,12 @@ adfs_notify_change(struct dentry *dentry, struct iattr *attr)
 		goto out;
 
 	if (ia_valid & ATTR_SIZE)
-		error = vmtruncate(inode, attr->ia_size);
-
-	if (error)
-		goto out;
+		truncate_setsize(inode, attr->ia_size);
 
 	if (ia_valid & ATTR_MTIME) {
 		inode->i_mtime = attr->ia_mtime;
 		adfs_unix2adfs_time(inode, attr->ia_mtime.tv_sec);
 	}
-	/*
-	 * FIXME: should we make these == to i_mtime since we don't
-	 * have the ability to represent them in our filesystem?
-	 */
 	if (ia_valid & ATTR_ATIME)
 		inode->i_atime = attr->ia_atime;
 	if (ia_valid & ATTR_CTIME)
@@ -356,10 +346,6 @@ adfs_notify_change(struct dentry *dentry, struct iattr *attr)
 		inode->i_mode = adfs_atts2mode(sb, inode);
 	}
 
-	/*
-	 * FIXME: should we be marking this inode dirty even if
-	 * we don't have any metadata to write back?
-	 */
 	if (ia_valid & (ATTR_SIZE | ATTR_MTIME | ATTR_MODE))
 		mark_inode_dirty(inode);
 out:
@@ -372,7 +358,7 @@ out:
  * The adfs-specific inode data has already been updated by
  * adfs_notify_change()
  */
-int adfs_write_inode(struct inode *inode, int unused)
+int adfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	struct super_block *sb = inode->i_sb;
 	struct object_info obj;
@@ -387,8 +373,7 @@ int adfs_write_inode(struct inode *inode, int unused)
 	obj.attr	= ADFS_I(inode)->attr;
 	obj.size	= inode->i_size;
 
-	ret = adfs_dir_update(sb, &obj);
+	ret = adfs_dir_update(sb, &obj, wbc->sync_mode == WB_SYNC_ALL);
 	unlock_kernel();
 	return ret;
 }
-MODULE_LICENSE("GPL");

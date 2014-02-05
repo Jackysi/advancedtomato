@@ -88,13 +88,8 @@
 /* System Configuration Register */
 #define TESTON		0x80	/* test host data transfer reliability */
 #define SLEEP		0x40	/* sleep mode */
-#if 0
-#define FASTMODE	0x04	/* fast mode for intel 82360SL fast mode */
-#define BYTEMODE	0x02	/* byte mode */
-#else
 #define FASTMODE	0x20	/* fast mode for intel 82360SL fast mode */
 #define BYTEMODE	0x10	/* byte mode */
-#endif
 #define NIBBLEMODE	0x00	/* nibble mode */
 #define IRQINV		0x08	/* turn off IRQ line inverter */
 #define IRQNML		0x00	/* turn on IRQ line inverter */

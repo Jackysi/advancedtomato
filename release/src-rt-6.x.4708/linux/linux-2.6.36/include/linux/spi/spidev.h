@@ -22,6 +22,7 @@
 #ifndef SPIDEV_H
 #define SPIDEV_H
 
+#include <linux/types.h>
 
 /* User space versions of kernel symbols for SPI clocking modes,
  * matching <linux/spi/spi.h>
@@ -35,6 +36,12 @@
 #define SPI_MODE_2		(SPI_CPOL|0)
 #define SPI_MODE_3		(SPI_CPOL|SPI_CPHA)
 
+#define SPI_CS_HIGH		0x04
+#define SPI_LSB_FIRST		0x08
+#define SPI_3WIRE		0x10
+#define SPI_LOOP		0x20
+#define SPI_NO_CS		0x40
+#define SPI_READY		0x80
 
 /*---------------------------------------------------------------------------*/
 

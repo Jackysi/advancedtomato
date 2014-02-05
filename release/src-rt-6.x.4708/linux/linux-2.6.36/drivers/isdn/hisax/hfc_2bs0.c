@@ -1,4 +1,4 @@
-/* $Id: hfc_2bs0.c,v 1.20.2.6 2004/02/11 13:21:33 keil Exp $
+/* $Id: hfc_2bs0.c,v 1.20.2.6 2004/02/11 13:21:33 Exp $
  *
  * specific routines for CCD's HFC 2BS0
  *
@@ -16,6 +16,7 @@
 #include "isac.h"
 #include "isdnl1.h"
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 
 static inline int
 WaitForBusy(struct IsdnCardState *cs)

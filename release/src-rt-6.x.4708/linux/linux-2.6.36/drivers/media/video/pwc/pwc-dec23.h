@@ -64,4 +64,3 @@ void pwc_dec23_decompress(const struct pwc_device *pwc,
 
 
 /* vim: set cino= formatoptions=croql cindent shiftwidth=8 tabstop=8: */
-

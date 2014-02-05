@@ -48,16 +48,6 @@
 #include "subscr.h"
 #include "config.h"
 
-int  tipc_eth_media_start(void);
-void tipc_eth_media_stop(void);
-int  tipc_handler_start(void);
-void tipc_handler_stop(void);
-int  tipc_socket_init(void);
-void tipc_socket_stop(void);
-int  tipc_netlink_start(void);
-void tipc_netlink_stop(void);
-
-#define TIPC_MOD_VER "1.6.2"
 
 #ifndef CONFIG_TIPC_ZONES
 #define CONFIG_TIPC_ZONES 3
@@ -112,6 +102,30 @@ int tipc_get_mode(void)
 }
 
 /**
+ * buf_acquire - creates a TIPC message buffer
+ * @size: message size (including TIPC header)
+ *
+ * Returns a new buffer with data pointers set to the specified size.
+ *
+ * NOTE: Headroom is reserved to allow prepending of a data link header.
+ *       There may also be unrequested tailroom present at the buffer's end.
+ */
+
+struct sk_buff *buf_acquire(u32 size)
+{
+	struct sk_buff *skb;
+	unsigned int buf_size = (BUF_HEADROOM + size + 3) & ~3u;
+
+	skb = alloc_skb_fclone(buf_size, GFP_ATOMIC);
+	if (skb) {
+		skb_reserve(skb, BUF_HEADROOM);
+		skb_put(skb, size);
+		skb->next = NULL;
+	}
+	return skb;
+}
+
+/**
  * tipc_core_stop_net - shut down TIPC networking sub-systems
  */
 
@@ -125,11 +139,11 @@ void tipc_core_stop_net(void)
  * start_net - start TIPC networking sub-systems
  */
 
-int tipc_core_start_net(void)
+int tipc_core_start_net(unsigned long addr)
 {
 	int res;
 
-	if ((res = tipc_net_start()) ||
+	if ((res = tipc_net_start(addr)) ||
 	    (res = tipc_eth_media_start())) {
 		tipc_core_stop_net();
 	}
@@ -172,8 +186,7 @@ int tipc_core_start(void)
 	tipc_mode = TIPC_NODE_MODE;
 
 	if ((res = tipc_handler_start()) ||
-	    (res = tipc_ref_table_init(tipc_max_ports + tipc_max_subscriptions,
-				       tipc_random)) ||
+	    (res = tipc_ref_table_init(tipc_max_ports, tipc_random)) ||
 	    (res = tipc_reg_start()) ||
 	    (res = tipc_nametbl_init()) ||
 	    (res = tipc_k_signal((Handler)tipc_subscr_start, 0)) ||
@@ -190,7 +203,7 @@ static int __init tipc_init(void)
 {
 	int res;
 
-	tipc_log_reinit(CONFIG_TIPC_LOG);
+	tipc_log_resize(CONFIG_TIPC_LOG);
 	info("Activated (version " TIPC_MOD_VER
 	     " compiled " __DATE__ " " __TIME__ ")\n");
 
@@ -198,11 +211,11 @@ static int __init tipc_init(void)
 	tipc_remote_management = 1;
 	tipc_max_publications = 10000;
 	tipc_max_subscriptions = 2000;
-	tipc_max_ports = delimit(CONFIG_TIPC_PORTS, 127, 65536);
-	tipc_max_zones = delimit(CONFIG_TIPC_ZONES, 1, 255);
-	tipc_max_clusters = delimit(CONFIG_TIPC_CLUSTERS, 1, 1);
-	tipc_max_nodes = delimit(CONFIG_TIPC_NODES, 8, 2047);
-	tipc_max_slaves = delimit(CONFIG_TIPC_SLAVE_NODES, 0, 2047);
+	tipc_max_ports = CONFIG_TIPC_PORTS;
+	tipc_max_zones = CONFIG_TIPC_ZONES;
+	tipc_max_clusters = CONFIG_TIPC_CLUSTERS;
+	tipc_max_nodes = CONFIG_TIPC_NODES;
+	tipc_max_slaves = CONFIG_TIPC_SLAVE_NODES;
 	tipc_net_id = 4711;
 
 	if ((res = tipc_core_start()))
@@ -217,7 +230,7 @@ static void __exit tipc_exit(void)
 	tipc_core_stop_net();
 	tipc_core_stop();
 	info("Deactivated\n");
-	tipc_log_stop();
+	tipc_log_resize(0);
 }
 
 module_init(tipc_init);
@@ -277,10 +290,8 @@ EXPORT_SYMBOL(tipc_register_media);
 /* TIPC API for external APIs (see tipc_port.h) */
 
 EXPORT_SYMBOL(tipc_createport_raw);
-EXPORT_SYMBOL(tipc_set_msg_option);
 EXPORT_SYMBOL(tipc_reject_msg);
 EXPORT_SYMBOL(tipc_send_buf_fast);
 EXPORT_SYMBOL(tipc_acknowledge);
 EXPORT_SYMBOL(tipc_get_port);
 EXPORT_SYMBOL(tipc_get_handle);
-

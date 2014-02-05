@@ -13,10 +13,9 @@
 #include <linux/linkage.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
-#include <asm/highmem.h>
 #include <asm/spr-regs.h>
 
-	.section	.text
+	.section	.text..tlbmiss
 	.balign		4
 
 	.globl		__entry_insn_mmu_miss
@@ -134,15 +133,6 @@ __tlb_user_fault_sstep:
 	.globl		__entry_kernel_insn_tlb_miss
 	.type		__entry_kernel_insn_tlb_miss,@function
 __entry_kernel_insn_tlb_miss:
-#if 0
-	sethi.p		%hi(0xe1200004),gr30
-	setlo		%lo(0xe1200004),gr30
-	st		gr0,@(gr30,gr0)
-	sethi.p		%hi(0xffc00100),gr30
-	setlo		%lo(0xffc00100),gr30
-	sth		gr30,@(gr30,gr0)
-	membar
-#endif
 
 	movsg		ccr,gr30			/* save CCR */
 	movgs		gr30,scr2
@@ -264,15 +254,6 @@ __itlb_k_bigpage:
 	.globl		__entry_kernel_data_tlb_miss
 	.type		__entry_kernel_data_tlb_miss,@function
 __entry_kernel_data_tlb_miss:
-#if 0
-	sethi.p		%hi(0xe1200004),gr30
-	setlo		%lo(0xe1200004),gr30
-	st		gr0,@(gr30,gr0)
-	sethi.p		%hi(0xffc00100),gr30
-	setlo		%lo(0xffc00100),gr30
-	sth		gr30,@(gr30,gr0)
-	membar
-#endif
 
 	movsg		ccr,gr30			/* save CCR */
 	movgs		gr30,scr2
@@ -391,15 +372,6 @@ __dtlb_k_bigpage:
 	.globl		__entry_user_insn_tlb_miss
 	.type		__entry_user_insn_tlb_miss,@function
 __entry_user_insn_tlb_miss:
-#if 0
-	sethi.p		%hi(0xe1200004),gr30
-	setlo		%lo(0xe1200004),gr30
-	st		gr0,@(gr30,gr0)
-	sethi.p		%hi(0xffc00100),gr30
-	setlo		%lo(0xffc00100),gr30
-	sth		gr30,@(gr30,gr0)
-	membar
-#endif
 
 	movsg		ccr,gr30			/* save CCR */
 	movgs		gr30,scr2
@@ -509,15 +481,6 @@ __itlb_u_bigpage:
 	.globl		__entry_user_data_tlb_miss
 	.type		__entry_user_data_tlb_miss,@function
 __entry_user_data_tlb_miss:
-#if 0
-	sethi.p		%hi(0xe1200004),gr30
-	setlo		%lo(0xe1200004),gr30
-	st		gr0,@(gr30,gr0)
-	sethi.p		%hi(0xffc00100),gr30
-	setlo		%lo(0xffc00100),gr30
-	sth		gr30,@(gr30,gr0)
-	membar
-#endif
 
 	movsg		ccr,gr30			/* save CCR */
 	movgs		gr30,scr2

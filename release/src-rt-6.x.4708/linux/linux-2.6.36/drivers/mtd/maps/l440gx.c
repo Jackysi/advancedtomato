@@ -1,6 +1,4 @@
 /*
- * $Id: l440gx.c,v 1.18 2005/11/07 11:14:27 gleixner Exp $
- *
  * BIOS Flash chip on Intel 440GX board.
  *
  * Bugs this currently does not work under linuxBIOS.
@@ -47,12 +45,6 @@ static struct map_info l440gx_map = {
 	.size = WINDOW_SIZE,
 	.bankwidth = BUSWIDTH,
 	.phys = WINDOW_ADDR,
-#if 0
-	/* FIXME verify that this is the
-	 * appripriate code for vpp enable/disable
-	 */
-	.set_vpp = l440gx_set_vpp
-#endif
 };
 
 static int __init init_l440gx(void)

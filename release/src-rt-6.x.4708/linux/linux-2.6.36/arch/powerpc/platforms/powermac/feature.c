@@ -21,6 +21,8 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/spinlock.h>
 #include <linux/adb.h>
 #include <linux/pmu.h>
@@ -59,10 +61,10 @@ extern struct device_node *k2_skiplist[2];
  * We use a single global lock to protect accesses. Each driver has
  * to take care of its own locking
  */
-DEFINE_SPINLOCK(feature_lock);
+DEFINE_RAW_SPINLOCK(feature_lock);
 
-#define LOCK(flags)	spin_lock_irqsave(&feature_lock, flags);
-#define UNLOCK(flags)	spin_unlock_irqrestore(&feature_lock, flags);
+#define LOCK(flags)	raw_spin_lock_irqsave(&feature_lock, flags);
+#define UNLOCK(flags)	raw_spin_unlock_irqrestore(&feature_lock, flags);
 
 
 /*
@@ -826,13 +828,15 @@ core99_ata100_enable(struct device_node *node, long value)
 
 	if (value) {
 		if (pci_device_from_OF_node(node, &pbus, &pid) == 0)
-			pdev = pci_find_slot(pbus, pid);
+			pdev = pci_get_bus_and_slot(pbus, pid);
 		if (pdev == NULL)
 			return 0;
 		rc = pci_enable_device(pdev);
+		if (rc == 0)
+			pci_set_master(pdev);
+		pci_dev_put(pdev);
 		if (rc)
 			return rc;
-		pci_set_master(pdev);
 	}
 	return 0;
 }
@@ -1753,9 +1757,6 @@ core99_sleep(void)
 	UN_OUT(UNI_N_POWER_MGT, UNI_N_POWER_MGT_SLEEP);
 	mdelay(10);
 
-	/*
-	 * FIXME: A bit of black magic with OpenPIC (don't ask me why)
-	 */
 	if (pmac_mb.model_id == PMAC_TYPE_SAWTOOTH) {
 		MACIO_BIS(0x506e0, 0x00400000);
 		MACIO_BIS(0x506e0, 0x80000000);
@@ -1814,7 +1815,6 @@ core99_wake_up(void)
 	for (i=0; i<KEYLARGO_GPIO_CNT; i++)
 		MACIO_OUT8(KEYLARGO_GPIO_0+i, save_gpio_normal[i]);
 
-	/* FIXME more black magic with OpenPIC ... */
 	if (pmac_mb.model_id == PMAC_TYPE_SAWTOOTH) {
 		MACIO_BIC(0x506e0, 0x00400000);
 		MACIO_BIC(0x506e0, 0x80000000);
@@ -2189,7 +2189,11 @@ static struct pmac_mb_def pmac_mb_defs[] = {
 		PMAC_TYPE_UNKNOWN_INTREPID,	intrepid_features,
 		PMAC_MB_MAY_SLEEP,
 	},
-	{	"iMac,1",			"iMac (first generation)",
+	{       "PowerMac10,2",                 "Mac mini (Late 2005)",
+		PMAC_TYPE_UNKNOWN_INTREPID,     intrepid_features,
+		PMAC_MB_MAY_SLEEP,
+	},
+ 	{	"iMac,1",			"iMac (first generation)",
 		PMAC_TYPE_ORIG_IMAC,		paddington_features,
 		0
 	},
@@ -2417,14 +2421,14 @@ static int __init probe_motherboard(void)
 	dt = of_find_node_by_name(NULL, "device-tree");
 	if (dt != NULL)
 		model = of_get_property(dt, "model", NULL);
-	for(i=0; model && i<(sizeof(pmac_mb_defs)/sizeof(struct pmac_mb_def)); i++) {
+	for(i=0; model && i<ARRAY_SIZE(pmac_mb_defs); i++) {
 	    if (strcmp(model, pmac_mb_defs[i].model_string) == 0) {
 		pmac_mb = pmac_mb_defs[i];
 		goto found;
 	    }
 	}
-	for(i=0; i<(sizeof(pmac_mb_defs)/sizeof(struct pmac_mb_def)); i++) {
-	    if (machine_is_compatible(pmac_mb_defs[i].model_string)) {
+	for(i=0; i<ARRAY_SIZE(pmac_mb_defs); i++) {
+	    if (of_machine_is_compatible(pmac_mb_defs[i].model_string)) {
 		pmac_mb = pmac_mb_defs[i];
 		goto found;
 	    }
@@ -2563,6 +2567,8 @@ static void __init probe_uninorth(void)
 
 	/* Locate core99 Uni-N */
 	uninorth_node = of_find_node_by_name(NULL, "uni-n");
+	uninorth_maj = 1;
+
 	/* Locate G5 u3 */
 	if (uninorth_node == NULL) {
 		uninorth_node = of_find_node_by_name(NULL, "u3");
@@ -2573,8 +2579,10 @@ static void __init probe_uninorth(void)
 		uninorth_node = of_find_node_by_name(NULL, "u4");
 		uninorth_maj = 4;
 	}
-	if (uninorth_node == NULL)
+	if (uninorth_node == NULL) {
+		uninorth_maj = 0;
 		return;
+	}
 
 	addrp = of_get_property(uninorth_node, "reg", NULL);
 	if (addrp == NULL)
@@ -2583,9 +2591,16 @@ static void __init probe_uninorth(void)
 	if (address == 0)
 		return;
 	uninorth_base = ioremap(address, 0x40000);
+	if (uninorth_base == NULL)
+		return;
 	uninorth_rev = in_be32(UN_REG(UNI_N_VERSION));
-	if (uninorth_maj == 3 || uninorth_maj == 4)
+	if (uninorth_maj == 3 || uninorth_maj == 4) {
 		u3_ht_base = ioremap(address + U3_HT_CONFIG_BASE, 0x1000);
+		if (u3_ht_base == NULL) {
+			iounmap(uninorth_base);
+			return;
+		}
+	}
 
 	printk(KERN_INFO "Found %s memory controller & host bridge"
 	       " @ 0x%08x revision: 0x%02x\n", uninorth_maj == 3 ? "U3" :
@@ -2671,7 +2686,7 @@ static void __init probe_one_macio(const char *name, const char *compat, int typ
 	macio_chips[i].of_node	= node;
 	macio_chips[i].type	= type;
 	macio_chips[i].base	= base;
-	macio_chips[i].flags	= MACIO_FLAG_SCCB_ON | MACIO_FLAG_SCCB_ON;
+	macio_chips[i].flags	= MACIO_FLAG_SCCA_ON | MACIO_FLAG_SCCB_ON;
 	macio_chips[i].name	= macio_names[type];
 	revp = of_get_property(node, "revision-id", NULL);
 	if (revp)
@@ -2854,12 +2869,11 @@ set_initial_features(void)
 
 		/* Switch airport off */
 		for_each_node_by_name(np, "radio") {
-			if (np && np->parent == macio_chips[0].of_node) {
+			if (np->parent == macio_chips[0].of_node) {
 				macio_chips[0].flags |= MACIO_FLAG_AIRPORT_ON;
 				core99_airport_enable(np, 0, 0);
 			}
 		}
-		of_node_put(np);
 	}
 
 	/* On all machines that support sound PM, switch sound off */
@@ -2909,55 +2923,6 @@ pmac_feature_init(void)
 	set_initial_features();
 }
 
-#if 0
-static void dump_HT_speeds(char *name, u32 cfg, u32 frq)
-{
-	int	freqs[16] = { 200,300,400,500,600,800,1000,0,0,0,0,0,0,0,0,0 };
-	int	bits[8] = { 8,16,0,32,2,4,0,0 };
-	int	freq = (frq >> 8) & 0xf;
-
-	if (freqs[freq] == 0)
-		printk("%s: Unknown HT link frequency %x\n", name, freq);
-	else
-		printk("%s: %d MHz on main link, (%d in / %d out) bits width\n",
-		       name, freqs[freq],
-		       bits[(cfg >> 28) & 0x7], bits[(cfg >> 24) & 0x7]);
-}
-
-void __init pmac_check_ht_link(void)
-{
-	u32	ufreq, freq, ucfg, cfg;
-	struct device_node *pcix_node;
-	u8	px_bus, px_devfn;
-	struct pci_controller *px_hose;
-
-	(void)in_be32(u3_ht_base + U3_HT_LINK_COMMAND);
-	ucfg = cfg = in_be32(u3_ht_base + U3_HT_LINK_CONFIG);
-	ufreq = freq = in_be32(u3_ht_base + U3_HT_LINK_FREQ);
-	dump_HT_speeds("U3 HyperTransport", cfg, freq);
-
-	pcix_node = of_find_compatible_node(NULL, "pci", "pci-x");
-	if (pcix_node == NULL) {
-		printk("No PCI-X bridge found\n");
-		return;
-	}
-	if (pci_device_from_OF_node(pcix_node, &px_bus, &px_devfn) != 0) {
-		printk("PCI-X bridge found but not matched to pci\n");
-		return;
-	}
-	px_hose = pci_find_hose_for_OF_device(pcix_node);
-	if (px_hose == NULL) {
-		printk("PCI-X bridge found but not matched to host\n");
-		return;
-	}	
-	early_read_config_dword(px_hose, px_bus, px_devfn, 0xc4, &cfg);
-	early_read_config_dword(px_hose, px_bus, px_devfn, 0xcc, &freq);
-	dump_HT_speeds("PCI-X HT Uplink", cfg, freq);
-	early_read_config_dword(px_hose, px_bus, px_devfn, 0xc8, &cfg);
-	early_read_config_dword(px_hose, px_bus, px_devfn, 0xd0, &freq);
-	dump_HT_speeds("PCI-X HT Downlink", cfg, freq);
-}
-#endif /* 0 */
 
 /*
  * Early video resume hook
@@ -3027,3 +2992,8 @@ void pmac_resume_agp_for_card(struct pci_dev *dev)
 	pmac_agp_resume(pmac_agp_bridge);
 }
 EXPORT_SYMBOL(pmac_resume_agp_for_card);
+
+int pmac_get_uninorth_variant(void)
+{
+	return uninorth_maj;
+}

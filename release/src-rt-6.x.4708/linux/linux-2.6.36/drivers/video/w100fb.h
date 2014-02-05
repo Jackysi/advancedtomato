@@ -17,7 +17,7 @@
  *
  */
 
-#if !defined (_W100FB_H)
+#if !defined(_W100FB_H)
 #define _W100FB_H
 
 /* Block CIF Start: */
@@ -925,4 +925,3 @@ union dp_cntl_dst_dir_u {
 } __attribute__((packed));
 
 #endif
-

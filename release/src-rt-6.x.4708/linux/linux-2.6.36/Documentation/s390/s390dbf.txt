@@ -2,7 +2,7 @@ S390 Debug Feature
 ==================
 
 files: arch/s390/kernel/debug.c
-       include/asm-s390/debug.h
+       arch/s390/include/asm/debug.h
 
 Description:
 ------------
@@ -114,6 +114,27 @@ Return Value: Handle for generated debug area
 
 Description:  Allocates memory for a debug log     
               Must not be called within an interrupt handler 
+
+----------------------------------------------------------------------------
+debug_info_t *debug_register_mode(char *name, int pages, int nr_areas,
+				  int buf_size, mode_t mode, uid_t uid,
+				  gid_t gid);
+
+Parameter:    name:	   Name of debug log (e.g. used for debugfs entry)
+	      pages:	   Number of pages, which will be allocated per area
+	      nr_areas:    Number of debug areas
+	      buf_size:    Size of data area in each debug entry
+	      mode:	   File mode for debugfs files. E.g. S_IRWXUGO
+	      uid:	   User ID for debugfs files. Currently only 0 is
+			   supported.
+	      gid:	   Group ID for debugfs files. Currently only 0 is
+			   supported.
+
+Return Value: Handle for generated debug area
+	      NULL if register failed
+
+Description:  Allocates memory for a debug log
+	      Must not be called within an interrupt handler
 
 ---------------------------------------------------------------------------
 void debug_unregister (debug_info_t * id);
@@ -474,6 +495,13 @@ and for each vararg a long value. So e.g. for a debug entry with a format
 string plus two varargs one would need to allocate a (3 * sizeof(long)) 
 byte data area in the debug_register() function.
 
+IMPORTANT: Using "%s" in sprintf event functions is dangerous. You can only
+use "%s" in the sprintf event functions, if the memory for the passed string is
+available as long as the debug feature exists. The reason behind this is that
+due to performance considerations only a pointer to the string is stored in
+the debug feature. If you log a string that is freed afterwards, you will get
+an OOPS when inspecting the debug feature, because then the debug feature will
+access the already freed memory.
 
 NOTE: If using the sprintf view do NOT use other event/exception functions
 than the sprintf-event and -exception functions.

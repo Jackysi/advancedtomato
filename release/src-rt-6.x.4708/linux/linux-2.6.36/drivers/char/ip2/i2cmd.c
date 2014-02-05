@@ -161,21 +161,6 @@ static UCHAR ct87[] = { 1, BYP,     0x57                     }; // HW_TEST
 // This routine sets the parameters of command 47 and returns a pointer to the
 // appropriate structure.
 //******************************************************************************
-#if 0
-cmdSyntaxPtr
-i2cmdUnixFlags(unsigned short iflag,unsigned short cflag,unsigned short lflag)
-{
-	cmdSyntaxPtr pCM = (cmdSyntaxPtr) ct47;
-
-	pCM->cmd[1] = (unsigned char)  iflag;
-	pCM->cmd[2] = (unsigned char) (iflag >> 8);
-	pCM->cmd[3] = (unsigned char)  cflag;
-	pCM->cmd[4] = (unsigned char) (cflag >> 8);
-	pCM->cmd[5] = (unsigned char)  lflag;
-	pCM->cmd[6] = (unsigned char) (lflag >> 8);
-	return pCM;
-}
-#endif  /*  0  */
 
 //******************************************************************************
 // Function:   i2cmdBaudDef(which, rate)
@@ -207,4 +192,3 @@ i2cmdBaudDef(int which, unsigned short rate)
 	pCM->cmd[2] = (unsigned char) (rate >> 8);
 	return pCM;
 }
-

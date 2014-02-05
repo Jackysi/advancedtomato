@@ -27,4 +27,3 @@ void dlm_copy_master_names(struct dlm_ls *ls, char *inbuf, int inlen,
 	char *outbuf, int outlen, int nodeid);
 
 #endif				/* __DIR_DOT_H__ */
-

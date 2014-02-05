@@ -17,36 +17,38 @@
 #include <linux/list.h>
 #include <linux/timer.h>
 #include <linux/init.h>
+#include <linux/gpio.h>
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
+#include <linux/io.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/hardware/iomd.h>
 #include <asm/setup.h>
-#include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
 //#include <asm/debug-ll.h>
-#include <asm/arch/regs-serial.h>
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-lcd.h>
+#include <plat/regs-serial.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-lcd.h>
 
-#include <asm/arch/idle.h>
-#include <asm/arch/udc.h>
-#include <asm/arch/fb.h>
+#include <mach/idle.h>
+#include <plat/udc.h>
+#include <plat/iic.h>
+#include <mach/fb.h>
 
-#include <asm/plat-s3c24xx/s3c2410.h>
-#include <asm/plat-s3c24xx/s3c2412.h>
-#include <asm/plat-s3c24xx/clock.h>
-#include <asm/plat-s3c24xx/devs.h>
-#include <asm/plat-s3c24xx/cpu.h>
+#include <plat/s3c2410.h>
+#include <plat/s3c2412.h>
+#include <plat/clock.h>
+#include <plat/devs.h>
+#include <plat/cpu.h>
 
-#include <asm/plat-s3c24xx/common-smdk.h>
+#include <plat/common-smdk.h>
 
 static struct map_desc smdk2413_iodesc[] __initdata = {
 };
@@ -83,10 +85,10 @@ static void smdk2413_udc_pullup(enum s3c2410_udc_cmd_e cmd)
 	switch (cmd)
 	{
 		case S3C2410_UDC_P_ENABLE :
-			s3c2410_gpio_setpin(S3C2410_GPF2, 1);
+			gpio_set_value(S3C2410_GPF(2), 1);
 			break;
 		case S3C2410_UDC_P_DISABLE :
-			s3c2410_gpio_setpin(S3C2410_GPF2, 0);
+			gpio_set_value(S3C2410_GPF(2), 0);
 			break;
 		case S3C2410_UDC_P_RESET :
 			break;
@@ -102,10 +104,9 @@ static struct s3c2410_udc_mach_info smdk2413_udc_cfg __initdata = {
 
 
 static struct platform_device *smdk2413_devices[] __initdata = {
-	&s3c_device_usb,
-	//&s3c_device_lcd,
+	&s3c_device_ohci,
 	&s3c_device_wdt,
-	&s3c_device_i2c,
+	&s3c_device_i2c0,
 	&s3c_device_iis,
 	&s3c_device_usbgadget,
 };
@@ -118,7 +119,6 @@ static void __init smdk2413_fixup(struct machine_desc *desc,
 		mi->nr_banks=1;
 		mi->bank[0].start = 0x30000000;
 		mi->bank[0].size = SZ_64M;
-		mi->bank[0].node = 0;
 	}
 }
 
@@ -133,8 +133,8 @@ static void __init smdk2413_machine_init(void)
 {	/* Turn off suspend on both USB ports, and switch the
 	 * selectable USB port to USB device mode. */
 
-	s3c2410_gpio_setpin(S3C2410_GPF2, 0);
-	s3c2410_gpio_cfgpin(S3C2410_GPF2, S3C2410_GPIO_OUTPUT);
+	WARN_ON(gpio_request(S3C2410_GPF(2), "udc pull"));
+	gpio_direction_output(S3C2410_GPF(2), 0);
 
 	s3c2410_modify_misccr(S3C2410_MISCCR_USBHOST |
 			      S3C2410_MISCCR_USBSUSPND0 |
@@ -142,13 +142,14 @@ static void __init smdk2413_machine_init(void)
 
 
  	s3c24xx_udc_set_platdata(&smdk2413_udc_cfg);
+	s3c_i2c0_set_platdata(NULL);
 
 	platform_add_devices(smdk2413_devices, ARRAY_SIZE(smdk2413_devices));
 	smdk_machine_init();
 }
 
 MACHINE_START(S3C2413, "S3C2413")
-	/* Maintainer: Ben Dooks <ben@fluff.org> */
+	/* Maintainer: Ben Dooks <ben-linux@fluff.org> */
 	.phys_io	= S3C2410_PA_UART,
 	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
 	.boot_params	= S3C2410_SDRAM_PA + 0x100,
@@ -161,7 +162,7 @@ MACHINE_START(S3C2413, "S3C2413")
 MACHINE_END
 
 MACHINE_START(SMDK2412, "SMDK2412")
-	/* Maintainer: Ben Dooks <ben@fluff.org> */
+	/* Maintainer: Ben Dooks <ben-linux@fluff.org> */
 	.phys_io	= S3C2410_PA_UART,
 	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
 	.boot_params	= S3C2410_SDRAM_PA + 0x100,
@@ -174,7 +175,7 @@ MACHINE_START(SMDK2412, "SMDK2412")
 MACHINE_END
 
 MACHINE_START(SMDK2413, "SMDK2413")
-	/* Maintainer: Ben Dooks <ben@fluff.org> */
+	/* Maintainer: Ben Dooks <ben-linux@fluff.org> */
 	.phys_io	= S3C2410_PA_UART,
 	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
 	.boot_params	= S3C2410_SDRAM_PA + 0x100,

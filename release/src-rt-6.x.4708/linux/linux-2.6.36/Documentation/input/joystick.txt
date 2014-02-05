@@ -1,7 +1,6 @@
 		       Linux Joystick driver v2.0.0
 	       (c) 1996-2000 Vojtech Pavlik <vojtech@ucw.cz>
 			     Sponsored by SuSE
-	   $Id: joystick.txt,v 1.12 2002/03/03 12:13:07 jdeneux Exp $
 ----------------------------------------------------------------------------
 
 0. Disclaimer
@@ -403,7 +402,7 @@ for the port of the SoundFusion is supported by the cs461x.c module.
 ~~~~~~~~~~~~~~~~~~~~~~~~
   The Live! has a special PCI gameport, which, although it doesn't provide
 any "Enhanced" stuff like 4DWave and friends, is quite a bit faster than
-it's ISA counterparts. It also requires special support, hence the
+its ISA counterparts. It also requires special support, hence the
 emu10k1-gp.c module for it instead of the normal ns558.c one.
 
 3.15 SoundBlaster 64 and 128 - ES1370 and ES1371, ESS Solo1 and S3 SonicVibes

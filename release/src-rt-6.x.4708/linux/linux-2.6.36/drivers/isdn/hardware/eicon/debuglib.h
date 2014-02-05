@@ -177,7 +177,7 @@ DBG_DECL(PRV3)
 } }
 #endif
 /*
- * For event level debug use a separate define, the paramete are
+ * For event level debug use a separate define, the parameter are
  * different and cause compiler errors on some systems.
  */
 #define DBG_EVL_ID(args) \
@@ -235,7 +235,7 @@ typedef void ( * DbgOld) (unsigned short, char *, va_list) ;
 typedef void ( * DbgEv)  (unsigned short, unsigned long, va_list) ;
 typedef void ( * DbgIrq) (unsigned short, int, char *, va_list) ;
 typedef struct _DbgHandle_
-{ char    Registered ; /* driver successfull registered */
+{ char    Registered ; /* driver successfully registered */
 #define DBG_HANDLE_REG_NEW 0x01  /* this (new) structure    */
 #define DBG_HANDLE_REG_OLD 0x7f  /* old structure (see below)  */
  char    Version;  /* version of this structure  */

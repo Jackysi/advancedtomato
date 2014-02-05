@@ -3,7 +3,7 @@
 
 /*
  *  Digital Audio (Plugin interface) abstract layer
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -176,9 +176,9 @@ static inline int snd_pcm_plug_slave_format(int format, struct snd_mask *format_
 #endif
 
 #ifdef PLUGIN_DEBUG
-#define pdprintf( fmt, args... ) printk( "plugin: " fmt, ##args)
+#define pdprintf(fmt, args...) printk(KERN_DEBUG "plugin: " fmt, ##args)
 #else
-#define pdprintf( fmt, args... ) 
+#define pdprintf(fmt, args...)
 #endif
 
 #endif				/* __PCM_PLUGIN_H */

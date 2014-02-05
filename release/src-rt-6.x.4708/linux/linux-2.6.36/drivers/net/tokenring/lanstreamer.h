@@ -60,8 +60,6 @@
  *
  */
 
-#include <linux/version.h>
-
 /* MAX_INTR - the maximum number of times we can loop
  * inside the interrupt function before returning
  * control to the OS (maximum value is 256)
@@ -234,12 +232,6 @@
 /* Streamer defaults for buffers */
 
 #define STREAMER_RX_RING_SIZE 16	/* should be a power of 2 */
-/* Setting the number of TX descriptors to 1 is a workaround for an
- * undocumented hardware problem with the lanstreamer board. Setting
- * this to something higher may slightly increase the throughput you
- * can get from the card, but at the risk of locking up the box. - 
- * <yoder1@us.ibm.com>
- */
 #define STREAMER_TX_RING_SIZE 1	/* should be a power of 2 */
 
 #define PKT_BUF_SZ 4096		/* Default packet size */
@@ -301,7 +293,6 @@ struct streamer_private {
 	int tx_ring_free, tx_ring_last_status, rx_ring_last_received,
 	    free_tx_ring_entries;
 
-	struct net_device_stats streamer_stats;
 	__u16 streamer_lan_status;
 	__u8 streamer_ring_speed;
 	__u16 pkt_buf_sz;

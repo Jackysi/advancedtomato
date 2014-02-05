@@ -27,6 +27,7 @@
 #include "../seq_lock.h"
 #include "../seq_clientmgr.h"
 #include <linux/wait.h>
+#include <linux/slab.h>
 
 
 /*
@@ -63,8 +64,10 @@ snd_seq_oss_writeq_new(struct seq_oss_devinfo *dp, int maxlen)
 void
 snd_seq_oss_writeq_delete(struct seq_oss_writeq *q)
 {
-	snd_seq_oss_writeq_clear(q);	/* to be sure */
-	kfree(q);
+	if (q) {
+		snd_seq_oss_writeq_clear(q);	/* to be sure */
+		kfree(q);
+	}
 }
 
 
@@ -167,4 +170,3 @@ snd_seq_oss_writeq_set_output(struct seq_oss_writeq *q, int val)
 	pool.output_room = val;
 	snd_seq_oss_control(q->dp, SNDRV_SEQ_IOCTL_SET_CLIENT_POOL, &pool);
 }
-

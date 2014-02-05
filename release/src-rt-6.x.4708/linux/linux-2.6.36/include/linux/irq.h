@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 #ifndef _LINUX_IRQ_H
 #define _LINUX_IRQ_H
 
@@ -17,15 +18,19 @@
 #include <linux/cache.h>
 #include <linux/spinlock.h>
 #include <linux/cpumask.h>
+#include <linux/gfp.h>
 #include <linux/irqreturn.h>
+#include <linux/irqnr.h>
 #include <linux/errno.h>
+#include <linux/topology.h>
+#include <linux/wait.h>
 
 #include <asm/irq.h>
 #include <asm/ptrace.h>
 #include <asm/irq_regs.h>
 
 struct irq_desc;
-typedef	void fastcall (*irq_flow_handler_t)(unsigned int irq,
+typedef	void (*irq_flow_handler_t)(unsigned int irq,
 					    struct irq_desc *desc);
 
 
@@ -61,6 +66,12 @@ typedef	void fastcall (*irq_flow_handler_t)(unsigned int irq,
 #define IRQ_WAKEUP		0x00100000	/* IRQ triggers system wakeup */
 #define IRQ_MOVE_PENDING	0x00200000	/* need to re-target IRQ destination */
 #define IRQ_NO_BALANCING	0x00400000	/* IRQ is excluded from balancing */
+#define IRQ_SPURIOUS_DISABLED	0x00800000	/* IRQ was disabled by the spurious trap */
+#define IRQ_MOVE_PCNTXT		0x01000000	/* IRQ migration from process context */
+#define IRQ_AFFINITY_SET	0x02000000	/* IRQ affinity was set from userspace*/
+#define IRQ_SUSPENDED		0x04000000	/* IRQ has gone through suspend sequence */
+#define IRQ_ONESHOT		0x08000000	/* IRQ is not unmasked after hardirq */
+#define IRQ_NESTED_THREAD	0x10000000	/* IRQ is nested into another, no own handler thread */
 
 #ifdef CONFIG_IRQ_PER_CPU
 # define CHECK_IRQ_PER_CPU(var) ((var) & IRQ_PER_CPU)
@@ -80,7 +91,7 @@ struct msi_desc;
  * @startup:		start up the interrupt (defaults to ->enable if NULL)
  * @shutdown:		shut down the interrupt (defaults to ->disable if NULL)
  * @enable:		enable the interrupt (defaults to chip->unmask if NULL)
- * @disable:		disable the interrupt (defaults to chip->mask if NULL)
+ * @disable:		disable the interrupt
  * @ack:		start of a new interrupt
  * @mask:		mask an interrupt source
  * @mask_ack:		ack and mask an interrupt source
@@ -91,6 +102,9 @@ struct msi_desc;
  * @retrigger:		resend an IRQ to the CPU
  * @set_type:		set the flow type (IRQ_TYPE_LEVEL/etc.) of an IRQ
  * @set_wake:		enable/disable power-management wake-on of an IRQ
+ *
+ * @bus_lock:		function to lock access to slow bus (i2c) chips
+ * @bus_sync_unlock:	function to sync and unlock slow bus (i2c) chips
  *
  * @release:		release function solely used by UML
  * @typename:		obsoleted by name, kept as migration helper
@@ -109,10 +123,14 @@ struct irq_chip {
 	void		(*eoi)(unsigned int irq);
 
 	void		(*end)(unsigned int irq);
-	void		(*set_affinity)(unsigned int irq, cpumask_t dest);
+	int		(*set_affinity)(unsigned int irq,
+					const struct cpumask *dest);
 	int		(*retrigger)(unsigned int irq);
 	int		(*set_type)(unsigned int irq, unsigned int flow_type);
 	int		(*set_wake)(unsigned int irq, unsigned int on);
+
+	void		(*bus_lock)(unsigned int irq);
+	void		(*bus_sync_unlock)(unsigned int irq);
 
 	/* Currently used only by UML, might disappear one day.*/
 #ifdef CONFIG_IRQ_RELEASE_METHOD
@@ -125,9 +143,14 @@ struct irq_chip {
 	const char	*typename;
 };
 
+struct timer_rand_state;
+struct irq_2_iommu;
 /**
  * struct irq_desc - interrupt descriptor
- *
+ * @irq:		interrupt number for this descriptor
+ * @timer_rand_state:	pointer to timer rand state struct
+ * @kstat_irqs:		irq stats per cpu
+ * @irq_2_iommu:	iommu with this irq
  * @handle_irq:		highlevel irq-events handler [if NULL, __do_IRQ()]
  * @chip:		low level interrupt hardware access
  * @msi_desc:		MSI descriptor
@@ -139,16 +162,24 @@ struct irq_chip {
  * @depth:		disable-depth, for nested irq_disable() calls
  * @wake_depth:		enable depth, for multiple set_irq_wake() callers
  * @irq_count:		stats field to detect stalled irqs
+ * @last_unhandled:	aging timer for unhandled count
  * @irqs_unhandled:	stats field for spurious unhandled interrupts
  * @lock:		locking for SMP
  * @affinity:		IRQ affinity on SMP
- * @cpu:		cpu index useful for balancing
+ * @node:		node index useful for balancing
  * @pending_mask:	pending rebalanced interrupts
+ * @threads_active:	number of irqaction threads currently running
+ * @wait_for_threads:	wait queue for sync_irq to wait for threaded handlers
  * @dir:		/proc/irq/ procfs entry
- * @affinity_entry:	/proc/irq/smp_affinity procfs entry on SMP
  * @name:		flow handler name for /proc/interrupts output
  */
 struct irq_desc {
+	unsigned int		irq;
+	struct timer_rand_state *timer_rand_state;
+	unsigned int            *kstat_irqs;
+#ifdef CONFIG_INTR_REMAP
+	struct irq_2_iommu      *irq_2_iommu;
+#endif
 	irq_flow_handler_t	handle_irq;
 	struct irq_chip		*chip;
 	struct msi_desc		*msi_desc;
@@ -160,30 +191,43 @@ struct irq_desc {
 	unsigned int		depth;		/* nested irq disables */
 	unsigned int		wake_depth;	/* nested wake enables */
 	unsigned int		irq_count;	/* For detecting broken IRQs */
+	unsigned long		last_unhandled;	/* Aging timer for unhandled count */
 	unsigned int		irqs_unhandled;
-	spinlock_t		lock;
+	raw_spinlock_t		lock;
 #ifdef CONFIG_SMP
-	cpumask_t		affinity;
-	unsigned int		cpu;
+	cpumask_var_t		affinity;
+	const struct cpumask	*affinity_hint;
+	unsigned int		node;
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	cpumask_var_t		pending_mask;
 #endif
-#if defined(CONFIG_GENERIC_PENDING_IRQ) || defined(CONFIG_IRQBALANCE)
-	cpumask_t		pending_mask;
 #endif
+	atomic_t		threads_active;
+	wait_queue_head_t       wait_for_threads;
 #ifdef CONFIG_PROC_FS
 	struct proc_dir_entry	*dir;
 #endif
 	const char		*name;
 } ____cacheline_internodealigned_in_smp;
 
-extern struct irq_desc irq_desc[NR_IRQS];
+extern void arch_init_copy_chip_data(struct irq_desc *old_desc,
+					struct irq_desc *desc, int node);
+extern void arch_free_chip_data(struct irq_desc *old_desc, struct irq_desc *desc);
 
-/*
- * Migration helpers for obsolete names, they will go away:
- */
-#define hw_interrupt_type	irq_chip
-typedef struct irq_chip		hw_irq_controller;
-#define no_irq_type		no_irq_chip
-typedef struct irq_desc		irq_desc_t;
+#ifndef CONFIG_SPARSE_IRQ
+extern struct irq_desc irq_desc[NR_IRQS];
+#endif
+
+#ifdef CONFIG_NUMA_IRQ_DESC
+extern struct irq_desc *move_irq_desc(struct irq_desc *old_desc, int node);
+#else
+static inline struct irq_desc *move_irq_desc(struct irq_desc *desc, int node)
+{
+	return desc;
+}
+#endif
+
+extern struct irq_desc *irq_to_desc_alloc_node(unsigned int irq, int node);
 
 /*
  * Pick up the arch-dependent methods:
@@ -191,22 +235,18 @@ typedef struct irq_desc		irq_desc_t;
 #include <asm/hw_irq.h>
 
 extern int setup_irq(unsigned int irq, struct irqaction *new);
+extern void remove_irq(unsigned int irq, struct irqaction *act);
 
 #ifdef CONFIG_GENERIC_HARDIRQS
 
-#ifndef handle_dynamic_tick
-# define handle_dynamic_tick(a)		do { } while (0)
-#endif
-
 #ifdef CONFIG_SMP
 
-#if defined(CONFIG_GENERIC_PENDING_IRQ) || defined(CONFIG_IRQBALANCE)
+#ifdef CONFIG_GENERIC_PENDING_IRQ
 
-void set_pending_irq(unsigned int irq, cpumask_t mask);
 void move_native_irq(int irq);
 void move_masked_irq(int irq);
 
-#else /* CONFIG_GENERIC_PENDING_IRQ || CONFIG_IRQBALANCE */
+#else /* CONFIG_GENERIC_PENDING_IRQ */
 
 static inline void move_irq(int irq)
 {
@@ -220,73 +260,45 @@ static inline void move_masked_irq(int irq)
 {
 }
 
-static inline void set_pending_irq(unsigned int irq, cpumask_t mask)
-{
-}
-
 #endif /* CONFIG_GENERIC_PENDING_IRQ */
-
-extern int irq_set_affinity(unsigned int irq, cpumask_t cpumask);
-extern int irq_can_set_affinity(unsigned int irq);
 
 #else /* CONFIG_SMP */
 
 #define move_native_irq(x)
 #define move_masked_irq(x)
 
-static inline int irq_set_affinity(unsigned int irq, cpumask_t cpumask)
-{
-	return -EINVAL;
-}
-
-static inline int irq_can_set_affinity(unsigned int irq) { return 0; }
-
 #endif /* CONFIG_SMP */
-
-#ifdef CONFIG_IRQBALANCE
-extern void set_balance_irq_affinity(unsigned int irq, cpumask_t mask);
-#else
-static inline void set_balance_irq_affinity(unsigned int irq, cpumask_t mask)
-{
-}
-#endif
-
-#ifdef CONFIG_AUTO_IRQ_AFFINITY
-extern int select_smp_affinity(unsigned int irq);
-#else
-static inline int select_smp_affinity(unsigned int irq)
-{
-	return 1;
-}
-#endif
 
 extern int no_irq_affinity;
 
 static inline int irq_balancing_disabled(unsigned int irq)
 {
-	return irq_desc[irq].status & IRQ_NO_BALANCING_MASK;
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+	return desc->status & IRQ_NO_BALANCING_MASK;
 }
 
 /* Handle irq action chains: */
-extern int handle_IRQ_event(unsigned int irq, struct irqaction *action);
+extern irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action);
 
 /*
  * Built-in IRQ handlers for various IRQ types,
- * callable via desc->chip->handle_irq()
+ * callable via desc->handle_irq()
  */
-extern void fastcall handle_level_irq(unsigned int irq, struct irq_desc *desc);
-extern void fastcall handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc);
-extern void fastcall handle_edge_irq(unsigned int irq, struct irq_desc *desc);
-extern void fastcall handle_simple_irq(unsigned int irq, struct irq_desc *desc);
-extern void fastcall handle_percpu_irq(unsigned int irq, struct irq_desc *desc);
-extern void fastcall handle_bad_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_level_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_edge_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_simple_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_percpu_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_bad_irq(unsigned int irq, struct irq_desc *desc);
+extern void handle_nested_irq(unsigned int irq);
 
 /*
  * Monolithic do_IRQ implementation.
- * (is an explicit fastcall, because i386 4KSTACKS calls it from assembly)
  */
 #ifndef CONFIG_GENERIC_HARDIRQS_NO__DO_IRQ
-extern fastcall unsigned int __do_IRQ(unsigned int irq);
+extern unsigned int __do_IRQ(unsigned int irq);
 #endif
 
 /*
@@ -295,10 +307,8 @@ extern fastcall unsigned int __do_IRQ(unsigned int irq);
  * irqchip-style controller then we call the ->handle_irq() handler,
  * and it calls __do_IRQ() if it's attached to an irqtype-style controller.
  */
-static inline void generic_handle_irq(unsigned int irq)
+static inline void generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
 {
-	struct irq_desc *desc = irq_desc + irq;
-
 #ifdef CONFIG_GENERIC_HARDIRQS_NO__DO_IRQ
 	desc->handle_irq(irq, desc);
 #else
@@ -309,9 +319,14 @@ static inline void generic_handle_irq(unsigned int irq)
 #endif
 }
 
+static inline void generic_handle_irq(unsigned int irq)
+{
+	generic_handle_irq_desc(irq, irq_to_desc(irq));
+}
+
 /* Handling of unhandled and spurious interrupts: */
 extern void note_interrupt(unsigned int irq, struct irq_desc *desc,
-			   int action_ret);
+			   irqreturn_t action_ret);
 
 /* Resending of interrupts :*/
 void check_irq_resend(struct irq_desc *desc, unsigned int irq);
@@ -337,6 +352,16 @@ extern void
 __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 		  const char *name);
 
+/* caller has locked the irq_desc and both params are valid */
+static inline void __set_irq_handler_unlocked(int irq,
+					      irq_flow_handler_t handler)
+{
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+	desc->handle_irq = handler;
+}
+
 /*
  * Set a highlevel flow handler for a given IRQ:
  */
@@ -358,20 +383,28 @@ set_irq_chained_handler(unsigned int irq,
 	__set_irq_handler(irq, handle, 1, NULL);
 }
 
+extern void set_irq_nested_thread(unsigned int irq, int nest);
+
+extern void set_irq_noprobe(unsigned int irq);
+extern void set_irq_probe(unsigned int irq);
+
 /* Handle dynamic irq creation and destruction */
+extern unsigned int create_irq_nr(unsigned int irq_want, int node);
 extern int create_irq(void);
 extern void destroy_irq(unsigned int irq);
 
 /* Test to see if a driver has successfully requested an irq */
 static inline int irq_has_action(unsigned int irq)
 {
-	struct irq_desc *desc = irq_desc + irq;
+	struct irq_desc *desc = irq_to_desc(irq);
 	return desc->action != NULL;
 }
 
 /* Dynamic irq helper functions */
 extern void dynamic_irq_init(unsigned int irq);
+void dynamic_irq_init_keep_chip_data(unsigned int irq);
 extern void dynamic_irq_cleanup(unsigned int irq);
+void dynamic_irq_cleanup_keep_chip_data(unsigned int irq);
 
 /* Set/get chip/data for an IRQ: */
 extern int set_irq_chip(unsigned int irq, struct irq_chip *chip);
@@ -380,13 +413,113 @@ extern int set_irq_chip_data(unsigned int irq, void *data);
 extern int set_irq_type(unsigned int irq, unsigned int type);
 extern int set_irq_msi(unsigned int irq, struct msi_desc *entry);
 
-#define get_irq_chip(irq)	(irq_desc[irq].chip)
-#define get_irq_chip_data(irq)	(irq_desc[irq].chip_data)
-#define get_irq_data(irq)	(irq_desc[irq].handler_data)
-#define get_irq_msi(irq)	(irq_desc[irq].msi_desc)
+#define get_irq_chip(irq)	(irq_to_desc(irq)->chip)
+#define get_irq_chip_data(irq)	(irq_to_desc(irq)->chip_data)
+#define get_irq_data(irq)	(irq_to_desc(irq)->handler_data)
+#define get_irq_msi(irq)	(irq_to_desc(irq)->msi_desc)
+
+#define get_irq_desc_chip(desc)		((desc)->chip)
+#define get_irq_desc_chip_data(desc)	((desc)->chip_data)
+#define get_irq_desc_data(desc)		((desc)->handler_data)
+#define get_irq_desc_msi(desc)		((desc)->msi_desc)
 
 #endif /* CONFIG_GENERIC_HARDIRQS */
 
 #endif /* !CONFIG_S390 */
+
+#ifdef CONFIG_SMP
+/**
+ * alloc_desc_masks - allocate cpumasks for irq_desc
+ * @desc:	pointer to irq_desc struct
+ * @node:	node which will be handling the cpumasks
+ * @boot:	true if need bootmem
+ *
+ * Allocates affinity and pending_mask cpumask if required.
+ * Returns true if successful (or not required).
+ */
+static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
+							bool boot)
+{
+#ifdef CONFIG_CPUMASK_OFFSTACK
+	gfp_t gfp = GFP_ATOMIC;
+
+	if (boot)
+		gfp = GFP_NOWAIT;
+
+	if (!alloc_cpumask_var_node(&desc->affinity, gfp, node))
+		return false;
+
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	if (!alloc_cpumask_var_node(&desc->pending_mask, gfp, node)) {
+		free_cpumask_var(desc->affinity);
+		return false;
+	}
+#endif
+#endif
+	return true;
+}
+
+static inline void init_desc_masks(struct irq_desc *desc)
+{
+	cpumask_setall(desc->affinity);
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	cpumask_clear(desc->pending_mask);
+#endif
+}
+
+/**
+ * init_copy_desc_masks - copy cpumasks for irq_desc
+ * @old_desc:	pointer to old irq_desc struct
+ * @new_desc:	pointer to new irq_desc struct
+ *
+ * Insures affinity and pending_masks are copied to new irq_desc.
+ * If !CONFIG_CPUMASKS_OFFSTACK the cpumasks are embedded in the
+ * irq_desc struct so the copy is redundant.
+ */
+
+static inline void init_copy_desc_masks(struct irq_desc *old_desc,
+					struct irq_desc *new_desc)
+{
+#ifdef CONFIG_CPUMASK_OFFSTACK
+	cpumask_copy(new_desc->affinity, old_desc->affinity);
+
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	cpumask_copy(new_desc->pending_mask, old_desc->pending_mask);
+#endif
+#endif
+}
+
+static inline void free_desc_masks(struct irq_desc *old_desc,
+				   struct irq_desc *new_desc)
+{
+	free_cpumask_var(old_desc->affinity);
+
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	free_cpumask_var(old_desc->pending_mask);
+#endif
+}
+
+#else /* !CONFIG_SMP */
+
+static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
+								bool boot)
+{
+	return true;
+}
+
+static inline void init_desc_masks(struct irq_desc *desc)
+{
+}
+
+static inline void init_copy_desc_masks(struct irq_desc *old_desc,
+					struct irq_desc *new_desc)
+{
+}
+
+static inline void free_desc_masks(struct irq_desc *old_desc,
+				   struct irq_desc *new_desc)
+{
+}
+#endif	/* CONFIG_SMP */
 
 #endif /* _LINUX_IRQ_H */

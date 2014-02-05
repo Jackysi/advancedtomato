@@ -7,6 +7,7 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/spinlock.h>
 
 #include <asm/irq.h>
 
@@ -30,13 +31,9 @@ static unsigned long timer1_gettimeoffset (void)
 static irqreturn_t
 timer1_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
-
 	*CSR_TIMER1_CLR = 0;
 
 	timer_tick();
-
-	write_sequnlock(&xtime_lock);
 
 	return IRQ_HANDLED;
 }
@@ -59,8 +56,6 @@ static void __init footbridge_timer_init(void)
 	*CSR_TIMER1_CNTL = TIMER_CNTL_ENABLE | TIMER_CNTL_AUTORELOAD | TIMER_CNTL_DIV16;
 
 	setup_irq(IRQ_TIMER1, &footbridge_timer_irq);
-
-	isa_rtc_init();
 }
 
 struct sys_timer footbridge_timer = {

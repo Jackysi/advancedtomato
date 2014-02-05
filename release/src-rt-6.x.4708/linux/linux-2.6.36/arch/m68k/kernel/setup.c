@@ -20,12 +20,15 @@
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/bootmem.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/module.h>
 #include <linux/initrd.h>
 
 #include <asm/bootinfo.h>
+#include <asm/sections.h>
 #include <asm/setup.h>
+#include <asm/fpu.h>
 #include <asm/irq.h>
 #include <asm/io.h>
 #include <asm/machdep.h>
@@ -40,12 +43,18 @@
 #include <asm/dvma.h>
 #endif
 
+#if !FPSTATESIZE || !NR_IRQS
+#warning No CPU/platform type selected, your kernel will not work!
+#warning Are you building an allnoconfig kernel?
+#endif
+
 unsigned long m68k_machtype;
-unsigned long m68k_cputype;
 EXPORT_SYMBOL(m68k_machtype);
+unsigned long m68k_cputype;
 EXPORT_SYMBOL(m68k_cputype);
 unsigned long m68k_fputype;
 unsigned long m68k_mmutype;
+EXPORT_SYMBOL(m68k_mmutype);
 #ifdef CONFIG_VME
 unsigned long vme_brdtype;
 EXPORT_SYMBOL(vme_brdtype);
@@ -54,14 +63,13 @@ EXPORT_SYMBOL(vme_brdtype);
 int m68k_is040or060;
 EXPORT_SYMBOL(m68k_is040or060);
 
-extern int end;
 extern unsigned long availmem;
 
 int m68k_num_memory;
+EXPORT_SYMBOL(m68k_num_memory);
 int m68k_realnum_memory;
 EXPORT_SYMBOL(m68k_realnum_memory);
 unsigned long m68k_memoffset;
-EXPORT_SYMBOL(m68k_memoffset);
 struct mem_info m68k_memory[NUM_MEMINFO];
 EXPORT_SYMBOL(m68k_memory);
 
@@ -73,7 +81,7 @@ void (*mach_sched_init) (irq_handler_t handler) __initdata = NULL;
 /* machine dependent irq functions */
 void (*mach_init_IRQ) (void) __initdata = NULL;
 void (*mach_get_model) (char *model);
-int (*mach_get_hardware_list) (char *buffer);
+void (*mach_get_hardware_list) (struct seq_file *m);
 /* machine dependent timer functions */
 unsigned long (*mach_gettimeoffset) (void);
 int (*mach_hwclk) (int, struct rtc_time*);
@@ -115,6 +123,7 @@ extern int bvme6000_parse_bootinfo(const struct bi_record *);
 extern int mvme16x_parse_bootinfo(const struct bi_record *);
 extern int mvme147_parse_bootinfo(const struct bi_record *);
 extern int hp300_parse_bootinfo(const struct bi_record *);
+extern int apollo_parse_bootinfo(const struct bi_record *);
 
 extern void config_amiga(void);
 extern void config_atari(void);
@@ -182,6 +191,8 @@ static void __init m68k_parse_bootinfo(const struct bi_record *record)
 				unknown = mvme147_parse_bootinfo(record);
 			else if (MACH_IS_HP300)
 				unknown = hp300_parse_bootinfo(record);
+			else if (MACH_IS_APOLLO)
+				unknown = apollo_parse_bootinfo(record);
 			else
 				unknown = 1;
 		}
@@ -199,28 +210,21 @@ static void __init m68k_parse_bootinfo(const struct bi_record *record)
 		       (m68k_num_memory - 1));
 		m68k_num_memory = 1;
 	}
-	m68k_memoffset = m68k_memory[0].addr-PAGE_OFFSET;
 #endif
 }
 
 void __init setup_arch(char **cmdline_p)
 {
-	extern int _etext, _edata, _end;
 	int i;
 
 	/* The bootinfo is located right after the kernel bss */
-	m68k_parse_bootinfo((const struct bi_record *)&_end);
+	m68k_parse_bootinfo((const struct bi_record *)_end);
 
 	if (CPU_IS_040)
 		m68k_is040or060 = 4;
 	else if (CPU_IS_060)
 		m68k_is040or060 = 6;
 
-	/* FIXME: m68k_fputype is passed in by Penguin booter, which can
-	 * be confused by software FPU emulation. BEWARE.
-	 * We should really do our own FPU check at startup.
-	 * [what do we do with buggy 68LC040s? if we have problems
-	 *  with them, we should add a test to check_bugs() below] */
 #ifndef CONFIG_M68KFPU_EMU_ONLY
 	/* clear the fpu if we have one */
 	if (m68k_fputype & (FPU_68881|FPU_68882|FPU_68040|FPU_68060)) {
@@ -242,9 +246,9 @@ void __init setup_arch(char **cmdline_p)
 	}
 
 	init_mm.start_code = PAGE_OFFSET;
-	init_mm.end_code = (unsigned long) &_etext;
-	init_mm.end_data = (unsigned long) &_edata;
-	init_mm.brk = (unsigned long) &_end;
+	init_mm.end_code = (unsigned long)_etext;
+	init_mm.end_data = (unsigned long)_edata;
+	init_mm.brk = (unsigned long)_end;
 
 	*cmdline_p = m68k_command_line;
 	memcpy(boot_command_line, *cmdline_p, CL_SIZE);
@@ -324,7 +328,8 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (m68k_ramdisk.size) {
 		reserve_bootmem_node(__virt_to_node(phys_to_virt(m68k_ramdisk.addr)),
-				     m68k_ramdisk.addr, m68k_ramdisk.size);
+				     m68k_ramdisk.addr, m68k_ramdisk.size,
+				     BOOTMEM_DEFAULT);
 		initrd_start = (unsigned long)phys_to_virt(m68k_ramdisk.addr);
 		initrd_end = initrd_start + m68k_ramdisk.size;
 		printk("initrd: %08lx - %08lx\n", initrd_start, initrd_end);
@@ -345,19 +350,19 @@ void __init setup_arch(char **cmdline_p)
 
 /* set ISA defs early as possible */
 #if defined(CONFIG_ISA) && defined(MULTI_ISA)
-#if defined(CONFIG_Q40)
 	if (MACH_IS_Q40) {
-		isa_type = Q40_ISA;
+		isa_type = ISA_TYPE_Q40;
 		isa_sex = 0;
 	}
-#elif defined(CONFIG_GG2)
+#ifdef CONFIG_GG2
 	if (MACH_IS_AMIGA && AMIGAHW_PRESENT(GG2_ISA)) {
-		isa_type = GG2_ISA;
+		isa_type = ISA_TYPE_GG2;
 		isa_sex = 0;
 	}
-#elif defined(CONFIG_AMIGA_PCMCIA)
+#endif
+#ifdef CONFIG_AMIGA_PCMCIA
 	if (MACH_IS_AMIGA && AMIGAHW_PRESENT(PCMCIA)) {
-		isa_type = AG_ISA;
+		isa_type = ISA_TYPE_AG;
 		isa_sex = 1;
 	}
 #endif
@@ -450,16 +455,16 @@ static void *c_next(struct seq_file *m, void *v, loff_t *pos)
 static void c_stop(struct seq_file *m, void *v)
 {
 }
-struct seq_operations cpuinfo_op = {
+const struct seq_operations cpuinfo_op = {
 	.start	= c_start,
 	.next	= c_next,
 	.stop	= c_stop,
 	.show	= show_cpuinfo,
 };
 
-int get_hardware_list(char *buffer)
+#ifdef CONFIG_PROC_HARDWARE
+static int hardware_proc_show(struct seq_file *m, void *v)
 {
-	int len = 0;
 	char model[80];
 	unsigned long mem;
 	int i;
@@ -469,16 +474,36 @@ int get_hardware_list(char *buffer)
 	else
 		strcpy(model, "Unknown m68k");
 
-	len += sprintf(buffer + len, "Model:\t\t%s\n", model);
+	seq_printf(m, "Model:\t\t%s\n", model);
 	for (mem = 0, i = 0; i < m68k_num_memory; i++)
 		mem += m68k_memory[i].size;
-	len += sprintf(buffer + len, "System Memory:\t%ldK\n", mem >> 10);
+	seq_printf(m, "System Memory:\t%ldK\n", mem >> 10);
 
 	if (mach_get_hardware_list)
-		len += mach_get_hardware_list(buffer + len);
+		mach_get_hardware_list(m);
 
-	return len;
+	return 0;
 }
+
+static int hardware_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hardware_proc_show, NULL);
+}
+
+static const struct file_operations hardware_proc_fops = {
+	.open		= hardware_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int __init proc_hardware_init(void)
+{
+	proc_create("hardware", 0, NULL, &hardware_proc_fops);
+	return 0;
+}
+module_init(proc_hardware_init);
+#endif
 
 void check_bugs(void)
 {

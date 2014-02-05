@@ -11,18 +11,16 @@
 #include <linux/device.h>
 #include <linux/mm.h>
 #include <asm/io.h>
-#include <asm/scatterlist.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/usb.h>
-#include "hcd.h"
+#include <linux/usb/hcd.h>
 
 
 /*
  * DMA-Coherent Buffers
  */
 
-/* FIXME tune these based on pool statistics ... */
 static const size_t	pool_max [HCD_BUFFER_POOLS] = {
 	/* platforms without dma-friendly caches might need to
 	 * prevent cacheline sharing...
@@ -120,7 +118,7 @@ void *hcd_buffer_alloc(
 		if (size <= pool_max [i])
 			return dma_pool_alloc(hcd->pool [i], mem_flags, dma);
 	}
-	return dma_alloc_coherent(hcd->self.controller, size, dma, 0);
+	return dma_alloc_coherent(hcd->self.controller, size, dma, mem_flags);
 }
 
 void hcd_buffer_free(

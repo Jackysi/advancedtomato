@@ -37,7 +37,7 @@
  */
 struct ppp_mppe_state {
     struct crypto_tfm *arc4_tfm;
-    struct crypto_tfm *sha1_tfm;
+    struct crypto_hash *sha1_tfm;
     u8		*sha1_digest;
     u8		master_key[MPPE_MAX_KEY_LEN];
     u8		session_key[MPPE_MAX_KEY_LEN];
@@ -91,19 +91,20 @@ struct sha_pad {
 };
 static struct sha_pad *sha_pad;
 
-static inline void
+static unsigned int
 setup_sg(struct scatterlist *sg, const void  *address, unsigned int length)
 {
-    sg[0].page = virt_to_page(address);
+    sg[0].page_link = virt_to_page(address);
     sg[0].offset = offset_in_page(address);
     sg[0].length = length;
+    return length;
 }
 
 static inline void
 arc4_setkey(struct ppp_mppe_state *state, const unsigned char *key,
 	    const unsigned int keylen)
 {
-    crypto_cipher_setkey(__crypto_cipher_cast(state->arc4_tfm), key, keylen);
+    crypto_cipher_setkey(state->arc4_tfm, key, keylen);
 }
 
 static inline void
@@ -113,9 +114,10 @@ arc4_encrypt(struct ppp_mppe_state *state, const unsigned char *in,
     int i;
     for (i = 0; i < len; i++)
     {
-       crypto_cipher_encrypt_one(__crypto_cipher_cast(state->arc4_tfm), out+i, in+i);
+       crypto_cipher_encrypt_one(state->arc4_tfm, out+i, in+i);
     }
 }
+
 
 #define arc4_decrypt arc4_encrypt
 
@@ -126,15 +128,22 @@ arc4_encrypt(struct ppp_mppe_state *state, const unsigned char *in,
 static void
 get_new_key_from_sha(struct ppp_mppe_state *state, unsigned char *interim_key)
 {
-    struct scatterlist sg[4];
+	struct hash_desc desc;
+	struct scatterlist sg[4];
+	unsigned int nbytes;
 
-    setup_sg(&sg[0], state->master_key, state->keylen);
-    setup_sg(&sg[1], sha_pad->sha_pad1, sizeof(sha_pad->sha_pad1));
-    setup_sg(&sg[2], state->session_key, state->keylen);
-    setup_sg(&sg[3], sha_pad->sha_pad2, sizeof(sha_pad->sha_pad2));
 
-    crypto_digest_digest (state->sha1_tfm, sg, 4, state->sha1_digest);
+	nbytes = setup_sg(&sg[0], state->master_key, state->keylen);
+	nbytes += setup_sg(&sg[1], sha_pad->sha_pad1,
+			   sizeof(sha_pad->sha_pad1));
+	nbytes += setup_sg(&sg[2], state->session_key, state->keylen);
+	nbytes += setup_sg(&sg[3], sha_pad->sha_pad2,
+			   sizeof(sha_pad->sha_pad2));
 
+	desc.tfm = state->sha1_tfm;
+	desc.flags = 0;
+
+	crypto_hash_digest(&desc, sg, nbytes, state->sha1_digest);
     memcpy(interim_key, state->sha1_digest, state->keylen);
 }
 
@@ -264,7 +273,7 @@ mppe_alloc(unsigned char *options, int opt_len, int comp)
 	}
 
 	/* Load SHA1 algorithm */
-	state->sha1_tfm = crypto_alloc_base("sha1", 0, 0);
+	state->sha1_tfm = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
 	if (state->sha1_tfm == NULL) {
 	    crypto_free_tfm(state->arc4_tfm);
 	    if (state->mppc) {
@@ -277,9 +286,9 @@ mppe_alloc(unsigned char *options, int opt_len, int comp)
 	    return NULL;
 	}
 
-	digestsize = crypto_hash_digestsize(__crypto_hash_cast(state->sha1_tfm));
+	digestsize = crypto_hash_digestsize(state->sha1_tfm);
 	if (digestsize < MPPE_MAX_KEY_LEN) {
-	    crypto_free_tfm(state->sha1_tfm);
+	    crypto_free_hash(state->sha1_tfm);
 	    crypto_free_tfm(state->arc4_tfm);
 	    if (state->mppc) {
 		vfree(state->hash);
@@ -292,7 +301,7 @@ mppe_alloc(unsigned char *options, int opt_len, int comp)
 
 	state->sha1_digest = kmalloc(digestsize, GFP_KERNEL);
 	if (!state->sha1_digest) {
-	    crypto_free_tfm(state->sha1_tfm);
+	    crypto_free_hash(state->sha1_tfm);
 	    crypto_free_tfm(state->arc4_tfm);
 	    if (state->mppc) {
 		vfree(state->hash);
@@ -334,7 +343,7 @@ mppe_comp_free(void *arg)
 	    if (state->sha1_digest != NULL)
 		kfree(state->sha1_digest);
 	    if (state->sha1_tfm != NULL)
-		crypto_free_tfm(state->sha1_tfm);
+		crypto_free_hash(state->sha1_tfm);
 	    if (state->arc4_tfm != NULL)
 		crypto_free_tfm(state->arc4_tfm);
 	}

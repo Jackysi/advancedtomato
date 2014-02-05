@@ -639,4 +639,3 @@ void hfs_bnode_put(struct hfs_bnode *node)
 		spin_unlock(&tree->hash_lock);
 	}
 }
-

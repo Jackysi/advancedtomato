@@ -333,13 +333,6 @@ static struct SYM_FWA_SCR SYM_FWA_SCR = {
 	SCR_INT ^ IFFALSE (WHEN (SCR_MSG_OUT)),
 		SIR_SEL_ATN_NO_MSG_OUT,
 }/*-------------------------< SEL_DONE >-------------------------*/,{
-	/*
-	 *  C1010-33 errata work-around.
-	 *  Due to a race, the SCSI core may not have 
-	 *  loaded SCNTL3 on SEL_TBL instruction.
-	 *  We reload it once phase is stable.
-	 *  Patched with a NOOP for other chips.
-	 */
 	SCR_LOAD_REL (scntl3, 1),
 		offsetof(struct sym_dsb, select.sel_scntl3),
 }/*-------------------------< SEND_IDENT >-----------------------*/,{
@@ -560,12 +553,6 @@ static struct SYM_FWA_SCR SYM_FWA_SCR = {
 	SCR_RETURN,
 		0,
 }/*-------------------------< DATAO_PHASE >----------------------*/,{
-	/*
-	 *  C1010-66 errata work-around.
-	 *  Extra clocks of data hold must be inserted 
-	 *  in DATA OUT phase on 33 MHz PCI BUS.
-	 *  Patched with a NOOP for other chips.
-	 */
 	SCR_REG_REG (scntl4, SCR_OR, (XCLKH_DT|XCLKH_ST)),
 		0,
 	/*
@@ -1781,7 +1768,7 @@ static struct SYM_FWB_SCR SYM_FWB_SCR = {
 	 *  While testing with bogus QUANTUM drives, the C1010 
 	 *  sometimes raised a spurious phase mismatch with 
 	 *  WSR and the CHMOV(1) triggered another PM.
-	 *  Waiting explicitely for the PHASE seemed to avoid 
+	 *  Waiting explicitly for the PHASE seemed to avoid
 	 *  the nested phase mismatch. Btw, this didn't happen 
 	 *  using my IBM drives.
 	 */

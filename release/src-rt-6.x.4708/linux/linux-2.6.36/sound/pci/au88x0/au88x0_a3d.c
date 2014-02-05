@@ -44,15 +44,6 @@ a3dsrc_SetTimeConsts(a3dsrc_t * a, short HrtfTrack, short ItdTrack,
 		a3d_addrA(a->slice, a->source, A3D_A_CoeffTrackTC), CTrack);
 }
 
-#if 0
-static void
-a3dsrc_GetTimeConsts(a3dsrc_t * a, short *HrtfTrack, short *ItdTrack,
-		     short *GTrack, short *CTrack)
-{
-	// stub!
-}
-
-#endif
 /* Atmospheric absorbtion. */
 
 static void
@@ -95,41 +86,6 @@ a3dsrc_SetAtmosState(a3dsrc_t * a, short x1, short x2, short y1, short y2)
 	hwwrite(vortex->mmio, a3d_addrA(a->slice, a->source, A3D_A_y2), y2);
 }
 
-#if 0
-static void
-a3dsrc_GetAtmosTarget(a3dsrc_t * a, short *aa, short *b, short *c,
-		      short *d, short *e)
-{
-}
-static void
-a3dsrc_GetAtmosCurrent(a3dsrc_t * a, short *bb01, short *ab01, short *b2,
-		       short *aa12, short *ba12)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*aa12 =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_A12Current));
-	*ba12 =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_A12Current));
-	*ab01 =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_B01Current));
-	*bb01 =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_B01Current));
-	*b2 =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_B2Current));
-}
-
-static void
-a3dsrc_GetAtmosState(a3dsrc_t * a, short *x1, short *x2, short *y1, short *y2)
-{
-
-}
-
-#endif
 /* HRTF */
 
 static void
@@ -180,70 +136,6 @@ static void a3dsrc_SetHrtfOutput(a3dsrc_t * a, short left, short right)
 		a3d_addrA(a->slice, a->source, A3D_A_HrtfOutR), right);
 }
 
-#if 0
-static void a3dsrc_GetHrtfTarget(a3dsrc_t * a, a3d_Hrtf_t aa, a3d_Hrtf_t b)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	int i;
-
-	for (i = 0; i < HRTF_SZ; i++)
-		aa[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrA(a->slice, a->source,
-				     A3D_A_HrtfTarget + (i << 2)));
-	for (i = 0; i < HRTF_SZ; i++)
-		b[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrB(a->slice, a->source,
-				     A3D_B_HrtfTarget + (i << 2)));
-}
-
-static void a3dsrc_GetHrtfCurrent(a3dsrc_t * a, a3d_Hrtf_t aa, a3d_Hrtf_t b)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	int i;
-
-	for (i = 0; i < HRTF_SZ; i++)
-		aa[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrA(a->slice, a->source,
-				     A3D_A_HrtfCurrent + (i << 2)));
-	for (i = 0; i < HRTF_SZ; i++)
-		b[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrB(a->slice, a->source,
-				     A3D_B_HrtfCurrent + (i << 2)));
-}
-
-static void a3dsrc_GetHrtfState(a3dsrc_t * a, a3d_Hrtf_t aa, a3d_Hrtf_t b)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	int i;
-	// FIXME: verify this!
-	for (i = 0; i < HRTF_SZ; i++)
-		aa[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrA(a->slice, a->source,
-				     A3D_A_HrtfDelayLine + (i << 2)));
-	for (i = 0; i < HRTF_SZ; i++)
-		b[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrB(a->slice, a->source,
-				     A3D_B_HrtfDelayLine + (i << 2)));
-}
-
-static void a3dsrc_GetHrtfOutput(a3dsrc_t * a, short *left, short *right)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*left =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_HrtfOutL));
-	*right =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_HrtfOutR));
-}
-
-#endif
 
 /* Interaural Time Difference. 
  * "The other main clue that humans use to locate sounds, is called 
@@ -297,43 +189,6 @@ static void a3dsrc_SetItdDline(a3dsrc_t * a, a3d_ItdDline_t const dline)
 				  A3D_A_ITDDelayLine) + (i << 2), dline[i]);
 }
 
-#if 0
-static void a3dsrc_GetItdTarget(a3dsrc_t * a, short *litd, short *ritd)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*ritd =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_ITDTarget));
-	*litd =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_ITDTarget));
-}
-
-static void a3dsrc_GetItdCurrent(a3dsrc_t * a, short *litd, short *ritd)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-
-	*ritd =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_ITDCurrent));
-	*litd =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_ITDCurrent));
-}
-
-static void a3dsrc_GetItdDline(a3dsrc_t * a, a3d_ItdDline_t dline)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	int i;
-
-	for (i = 0; i < DLINE_SZ; i++)
-		dline[i] =
-		    hwread(vortex->mmio,
-			   a3d_addrA(a->slice, a->source,
-				     A3D_A_ITDDelayLine + (i << 2)));
-}
-
-#endif
 /* This is may be used for ILD Interaural Level Difference. */
 
 static void a3dsrc_SetGainTarget(a3dsrc_t * a, short left, short right)
@@ -352,37 +207,6 @@ static void a3dsrc_SetGainCurrent(a3dsrc_t * a, short left, short right)
 		(right << 0x10) | left);
 }
 
-#if 0
-static void a3dsrc_GetGainTarget(a3dsrc_t * a, short *left, short *right)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*right =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_GainTarget));
-	*left =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_GainTarget));
-}
-
-static void a3dsrc_GetGainCurrent(a3dsrc_t * a, short *left, short *right)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*right =
-	    hwread(vortex->mmio,
-		   a3d_addrA(a->slice, a->source, A3D_A_GainCurrent));
-	*left =
-	    hwread(vortex->mmio,
-		   a3d_addrB(a->slice, a->source, A3D_B_GainCurrent));
-}
-
-/* CA3dIO this func seems to be inlined all over this place. */
-static void CA3dIO_WriteReg(a3dsrc_t * a, unsigned long addr, short aa, short b)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	hwwrite(vortex->mmio, addr, (aa << 0x10) | b);
-}
-
-#endif
 /* Generic A3D stuff */
 
 static void a3dsrc_SetA3DSampleRate(a3dsrc_t * a, int sr)
@@ -422,28 +246,6 @@ static void a3dsrc_SetA3DPointerReg(a3dsrc_t * a, unsigned long ptr)
 	hwwrite(vortex->mmio, A3D_SLICE_Pointers + ((a->slice) << 0xd), ptr);
 }
 
-#if 0
-static void a3dsrc_GetA3DSampleRate(a3dsrc_t * a, int *sr)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*sr = ((hwread(vortex->mmio, A3D_SLICE_Control + (a->slice << 0xd))
-		>> 3) & 0x1f);
-	//*sr = ((hwread(vortex->mmio, 0x19C38 + (this08<<0xd))>>3)&0x1f);
-}
-
-static void a3dsrc_GetA3DControlReg(a3dsrc_t * a, unsigned long *ctrl)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*ctrl = hwread(vortex->mmio, A3D_SLICE_Control + ((a->slice) << 0xd));
-}
-
-static void a3dsrc_GetA3DPointerReg(a3dsrc_t * a, unsigned long *ptr)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-	*ptr = hwread(vortex->mmio, A3D_SLICE_Pointers + ((a->slice) << 0xd));
-}
-
-#endif
 static void a3dsrc_ZeroSliceIO(a3dsrc_t * a)
 {
 	vortex_t *vortex = (vortex_t *) (a->vortex);
@@ -462,9 +264,10 @@ static void a3dsrc_ZeroSliceIO(a3dsrc_t * a)
 /* Reset Single A3D source. */
 static void a3dsrc_ZeroState(a3dsrc_t * a)
 {
-
-	//printk("vortex: ZeroState slice: %d, source %d\n", a->slice, a->source);
-
+	/*
+	printk(KERN_DEBUG "vortex: ZeroState slice: %d, source %d\n",
+	       a->slice, a->source);
+	*/
 	a3dsrc_SetAtmosState(a, 0, 0, 0, 0);
 	a3dsrc_SetHrtfState(a, A3dHrirZeros, A3dHrirZeros);
 	a3dsrc_SetItdDline(a, A3dItdDlineZeros);
@@ -529,23 +332,6 @@ static void a3dsrc_ProgramPipe(a3dsrc_t * a)
 }
 
 /* VDB = Vortex audio Dataflow Bus */
-#if 0
-static void a3dsrc_ClearVDBData(a3dsrc_t * a, unsigned long aa)
-{
-	vortex_t *vortex = (vortex_t *) (a->vortex);
-
-	// ((aa >> 2) << 8) - (aa >> 2)
-	hwwrite(vortex->mmio,
-		a3d_addrS(a->slice, A3D_SLICE_VDBDest) + (a->source << 2), 0);
-	hwwrite(vortex->mmio,
-		a3d_addrS(a->slice,
-			  A3D_SLICE_VDBDest + 4) + (a->source << 2), 0);
-	/*
-	   hwwrite(vortex->mmio, 0x19c00 + (((aa>>2)*255*4)+aa)*8, 0);
-	   hwwrite(vortex->mmio, 0x19c04 + (((aa>>2)*255*4)+aa)*8, 0);
-	 */
-}
-#endif
 
 /* A3D HwSource stuff. */
 
@@ -622,7 +408,6 @@ static void vortex_Vort3D_connect(vortex_t * v, int en)
 	return;
 #endif
 	
-#if 1
 	/* Alloc Xtalk mixin resources */
 	v->mixxtlk[0] =
 	    vortex_adb_checkinout(v, v->fixed_res, en, VORTEX_RESOURCE_MIXIN);
@@ -638,7 +423,6 @@ static void vortex_Vort3D_connect(vortex_t * v, int en)
 		    ("vortex: vortex_Vort3D: ERROR: not enough free mixer resources.\n");
 		return;
 	}
-#endif
 
 	/* Connect A3D -> XTALK */
 	for (i = 0; i < 4; i++) {
@@ -646,10 +430,6 @@ static void vortex_Vort3D_connect(vortex_t * v, int en)
 		vortex_route(v, en, 0x11, ADB_A3DOUT(i * 2), ADB_XTALKIN(i));
 		vortex_route(v, en, 0x11, ADB_A3DOUT(i * 2) + 1, ADB_XTALKIN(5 + i));
 	}
-#if 0
-	vortex_route(v, en, 0x11, ADB_XTALKOUT(0), ADB_EQIN(2));
-	vortex_route(v, en, 0x11, ADB_XTALKOUT(1), ADB_EQIN(3));
-#else
 	/* Connect XTalk -> mixer */
 	vortex_route(v, en, 0x11, ADB_XTALKOUT(0), ADB_MIXIN(v->mixxtlk[0]));
 	vortex_route(v, en, 0x11, ADB_XTALKOUT(1), ADB_MIXIN(v->mixxtlk[1]));
@@ -671,7 +451,6 @@ static void vortex_Vort3D_connect(vortex_t * v, int en)
 					      v->mixxtlk[1],
 					      en ? MIX_DEFIGAIN : VOL_MIN);
 	}
-#endif
 }
 
 /* Initialize one single A3D source. */
@@ -702,22 +481,18 @@ static void vortex_Vort3D_InitializeSource(a3dsrc_t * a, int en)
 
 static void vortex_a3d_coord2hrtf(a3d_Hrtf_t hrtf, int *coord)
 {
-	/* FIXME: implement this. */
 
 }
 static void vortex_a3d_coord2itd(a3d_Itd_t itd, int *coord)
 {
-	/* FIXME: implement this. */
 
 }
 static void vortex_a3d_coord2ild(a3d_LRGains_t ild, int left, int right)
 {
-	/* FIXME: implement this. */
 
 }
 static void vortex_a3d_translate_filter(a3d_atmos_t filter, int *params)
 {
-	/* FIXME: implement this. */
 
 }
 

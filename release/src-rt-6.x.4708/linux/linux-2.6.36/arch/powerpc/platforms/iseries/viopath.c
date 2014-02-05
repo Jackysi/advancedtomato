@@ -29,6 +29,7 @@
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/vmalloc.h>
 #include <linux/string.h>
@@ -116,7 +117,7 @@ static int proc_viopath_show(struct seq_file *m, void *v)
 	u16 vlanMap;
 	dma_addr_t handle;
 	HvLpEvent_Rc hvrc;
-	DECLARE_COMPLETION(done);
+	DECLARE_COMPLETION_ONSTACK(done);
 	struct device_node *node;
 	const char *sysid;
 
@@ -124,8 +125,7 @@ static int proc_viopath_show(struct seq_file *m, void *v)
 	if (!buf)
 		return 0;
 
-	handle = dma_map_single(iSeries_vio_dev, buf, HW_PAGE_SIZE,
-				DMA_FROM_DEVICE);
+	handle = iseries_hv_map(buf, HW_PAGE_SIZE, DMA_FROM_DEVICE);
 
 	hvrc = HvCallEvent_signalLpEventFast(viopath_hostLp,
 			HvLpEvent_Type_VirtualIo,
@@ -146,8 +146,7 @@ static int proc_viopath_show(struct seq_file *m, void *v)
 	buf[HW_PAGE_SIZE-1] = '\0';
 	seq_printf(m, "%s", buf);
 
-	dma_unmap_single(iSeries_vio_dev, handle, HW_PAGE_SIZE,
-			 DMA_FROM_DEVICE);
+	iseries_hv_unmap(handle, HW_PAGE_SIZE, DMA_FROM_DEVICE);
 	kfree(buf);
 
 	seq_printf(m, "AVAILABLE_VETH=%x\n", vlanMap);
@@ -182,15 +181,10 @@ static const struct file_operations proc_viopath_operations = {
 
 static int __init vio_proc_init(void)
 {
-	struct proc_dir_entry *e;
-
 	if (!firmware_has_feature(FW_FEATURE_ISERIES))
 		return 0;
 
-	e = create_proc_entry("iSeries/config", 0, NULL);
-	if (e)
-		e->proc_fops = &proc_viopath_operations;
-
+	proc_create("iSeries/config", 0, NULL, &proc_viopath_operations);
         return 0;
 }
 __initcall(vio_proc_init);
@@ -596,7 +590,7 @@ int viopath_close(HvLpIndex remoteLp, int subtype, int numReq)
 		numOpen += viopathStatus[remoteLp].users[i];
 
 	if ((viopathStatus[remoteLp].isOpen) && (numOpen == 0)) {
-		printk(VIOPATH_KERN_INFO "closing connection to partition %d",
+		printk(VIOPATH_KERN_INFO "closing connection to partition %d\n",
 				remoteLp);
 
 		HvCallEvent_closeLpEventPath(remoteLp,

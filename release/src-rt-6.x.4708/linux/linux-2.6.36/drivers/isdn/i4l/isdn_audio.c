@@ -1,4 +1,4 @@
-/* $Id: isdn_audio.c,v 1.1.2.2 2004/01/12 22:37:18 keil Exp $
+/* $Id: isdn_audio.c,v 1.1.2.2 2004/01/12 22:37:18 Exp $
  *
  * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
@@ -12,6 +12,7 @@
  */
 
 #include <linux/isdn.h>
+#include <linux/slab.h>
 #include "isdn_audio.h"
 #include "isdn_common.h"
 

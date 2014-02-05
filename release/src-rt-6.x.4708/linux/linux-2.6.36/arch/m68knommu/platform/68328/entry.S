@@ -39,17 +39,17 @@
 .globl inthandler7
 
 badsys:
-	movel	#-ENOSYS,%sp@(PT_D0)
+	movel	#-ENOSYS,%sp@(PT_OFF_D0)
 	jra	ret_from_exception
 
 do_trace:
-	movel	#-ENOSYS,%sp@(PT_D0)	/* needed for strace*/
+	movel	#-ENOSYS,%sp@(PT_OFF_D0)	/* needed for strace*/
 	subql	#4,%sp
 	SAVE_SWITCH_STACK
 	jbsr	syscall_trace
 	RESTORE_SWITCH_STACK
 	addql	#4,%sp
-	movel	%sp@(PT_ORIG_D0),%d1
+	movel	%sp@(PT_OFF_ORIG_D0),%d1
 	movel	#-ENOSYS,%d0
 	cmpl	#NR_syscalls,%d1
 	jcc	1f
@@ -57,7 +57,7 @@ do_trace:
 	lea	sys_call_table, %a0
 	jbsr	%a0@(%d1)
 
-1:	movel	%d0,%sp@(PT_D0)		/* save the return value */
+1:	movel	%d0,%sp@(PT_OFF_D0)		/* save the return value */
 	subql	#4,%sp			/* dummy return address */
 	SAVE_SWITCH_STACK
 	jbsr	syscall_trace
@@ -75,7 +75,7 @@ ENTRY(system_call)
 	jbsr    set_esp0
 	addql   #4,%sp
 
-	movel	%sp@(PT_ORIG_D0),%d0
+	movel	%sp@(PT_OFF_ORIG_D0),%d0
 
 	movel	%sp,%d1			/* get thread_info pointer */
 	andl	#-THREAD_SIZE,%d1
@@ -88,10 +88,10 @@ ENTRY(system_call)
 	lea	sys_call_table,%a0
 	movel	%a0@(%d0), %a0
 	jbsr	%a0@
-	movel	%d0,%sp@(PT_D0)		/* save the return value*/
+	movel	%d0,%sp@(PT_OFF_D0)		/* save the return value*/
 
 ret_from_exception:
-	btst	#5,%sp@(PT_SR)		/* check if returning to kernel*/
+	btst	#5,%sp@(PT_OFF_SR)		/* check if returning to kernel*/
 	jeq	Luser_return		/* if so, skip resched, signals*/
 
 Lkernel_return:
@@ -133,8 +133,7 @@ Lreturn:
  */
 inthandler1:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -145,8 +144,7 @@ inthandler1:
 
 inthandler2:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -157,8 +155,7 @@ inthandler2:
 
 inthandler3:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -169,8 +166,7 @@ inthandler3:
 
 inthandler4:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -181,8 +177,7 @@ inthandler4:
 
 inthandler5:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -193,8 +188,7 @@ inthandler5:
 
 inthandler6:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -205,8 +199,7 @@ inthandler6:
 
 inthandler7:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -217,8 +210,7 @@ inthandler7:
 
 inthandler:
 	SAVE_ALL
-	addql	#1,local_irq_count	/*  put exception # in d0*/
-	movew	%sp@(PT_VECTOR), %d0
+	movew	%sp@(PT_OFF_VECTOR), %d0
 	and	#0x3ff, %d0
 
 	movel	%sp,%sp@-
@@ -228,17 +220,15 @@ inthandler:
 	bra	ret_from_interrupt
 
 ret_from_interrupt:
-	subql	#1,local_irq_count
 	jeq	1f
 2:
 	RESTORE_ALL
 1:
-	moveb	%sp@(PT_SR), %d0
+	moveb	%sp@(PT_OFF_SR), %d0
 	and	#7, %d0
 	jhi	2b
 
 	/* check if we need to do software interrupts */
-	movel	local_irq_count,%d0
 	jeq	ret_from_exception
 
 	pea	ret_from_exception
@@ -272,4 +262,3 @@ ENTRY(resume)
 	movel	%a0,%usp
 	movew	%a1@(TASK_THREAD+THREAD_SR),%sr	/* restore thread status reg */
 	rts
-

@@ -25,4 +25,3 @@ struct aaec2000_clcd_info {
 };
 
 extern void __init aaec2000_set_clcd_plat_data(struct aaec2000_clcd_info *);
-

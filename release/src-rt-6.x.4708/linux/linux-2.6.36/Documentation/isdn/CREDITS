@@ -5,7 +5,7 @@ I want to thank all who contributed to this project and especially to:
 Thomas Bogendörfer (tsbogend@bigbug.franken.de)
   Tester, lots of bugfixes and hints.
 
-Alan Cox (alan@redhat.com)
+Alan Cox (alan@lxorguk.ukuu.org.uk)
   For help getting into standard-kernel.
 
 Henner Eisen (eis@baty.hanse.de)
@@ -40,7 +40,7 @@ Andreas Kool (akool@Kool.f.EUnet.de)
 Pedro Roque Marques (roque@di.fc.ul.pt)
   For lot of new ideas and the pcbit driver.
 
-Eberhard Moenkeberg (emoenke@gwdg.de)
+Eberhard Mönkeberg (emoenke@gwdg.de)
   For testing and help to get into kernel.
 
 Thomas Neumann (tn@ruhr.de)

@@ -54,7 +54,6 @@ startup:
 	bnez	r1, 1b
 	.fillinsn
 2:
-	/* XXX: resolve plt */
 
 /*
  * Clear BSS first so that there are no surprises...
@@ -132,7 +131,8 @@ startup:
 
 	bl	decompress_kernel
 
-#if defined(CONFIG_CHIP_M32700) || defined(CONFIG_CHIP_OPSP) || defined(CONFIG_CHIP_VDEC2)
+#if defined(CONFIG_CHIP_M32700) || defined(CONFIG_CHIP_OPSP) || \
+	defined(CONFIG_CHIP_VDEC2)
 	/* Cache flush */
 	ldi	r0, -1
 	ldi	r1, 0xd0	; invalidate i-cache, copy back d-cache
@@ -173,4 +173,3 @@ fake_headers_as_bzImage:
 	.byte	0x00, 0x80
 	.long	0
 	.long	0
-

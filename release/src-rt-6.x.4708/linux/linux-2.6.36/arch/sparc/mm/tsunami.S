@@ -1,4 +1,4 @@
-/* $Id: tsunami.S,v 1.7 2001/12/21 04:56:15 davem Exp $
+/*
  * tsunami.S: High speed MicroSparc-I mmu/cache operations.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -24,7 +24,7 @@
 	/* Sliiick... */
 tsunami_flush_cache_page:
 tsunami_flush_cache_range:
-	ld	[%o0 + 0x0], %o0	/* XXX vma->vm_mm, GROSS XXX */
+	ld	[%o0 + 0x0], %o0
 tsunami_flush_cache_mm:
 	ld	[%o0 + AOFF_mm_context], %g2
 	cmp	%g2, -1
@@ -46,7 +46,7 @@ tsunami_flush_sig_insns:
 
 	/* More slick stuff... */
 tsunami_flush_tlb_range:
-	ld	[%o0 + 0x00], %o0	/* XXX vma->vm_mm GROSS XXX */
+	ld	[%o0 + 0x00], %o0
 tsunami_flush_tlb_mm:
 	ld	[%o0 + AOFF_mm_context], %g2
 	cmp	%g2, -1
@@ -65,7 +65,7 @@ tsunami_flush_tlb_out:
 
 	/* This one can be done in a fine grained manner... */
 tsunami_flush_tlb_page:
-	ld	[%o0 + 0x00], %o0	/* XXX vma->vm_mm GROSS XXX */
+	ld	[%o0 + 0x00], %o0
 	mov	SRMMU_CTX_REG, %g1
 	ld	[%o0 + AOFF_mm_context], %o3
 	andn	%o1, (PAGE_SIZE - 1), %o1
@@ -93,7 +93,6 @@ tsunami_flush_tlb_page_out:
 	ldd	[src + offset + 0x00], t2; \
 	std	t2, [dst + offset + 0x00];
 
-	.globl	tsunami_copy_1page
 tsunami_copy_1page:
 /* NOTE: This routine has to be shorter than 70insns --jj */
 	or	%g0, (PAGE_SIZE >> 8), %g1

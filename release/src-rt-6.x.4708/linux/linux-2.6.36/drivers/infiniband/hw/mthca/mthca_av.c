@@ -29,8 +29,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * $Id: mthca_av.c 1349 2004-12-16 21:09:43Z roland $
  */
 
 #include <linux/string.h>
@@ -216,7 +214,6 @@ on_hca_fail:
 				    ah_attr->grh.flow_label);
 		memcpy(av->dgid, ah_attr->grh.dgid.raw, 16);
 	} else {
-		/* Arbel workaround -- low byte of GID must be 2 */
 		av->dgid[3] = cpu_to_be32(2);
 	}
 

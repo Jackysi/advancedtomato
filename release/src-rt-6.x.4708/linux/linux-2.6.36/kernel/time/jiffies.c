@@ -45,12 +45,12 @@
  *
  * The value 8 is somewhat carefully chosen, as anything
  * larger can result in overflows. NSEC_PER_JIFFY grows as
- * HZ shrinks, so values greater then 8 overflow 32bits when
+ * HZ shrinks, so values greater than 8 overflow 32bits when
  * HZ=100.
  */
 #define JIFFIES_SHIFT	8
 
-static cycle_t jiffies_read(void)
+static cycle_t jiffies_read(struct clocksource *cs)
 {
 	return (cycle_t) jiffies;
 }
@@ -70,3 +70,8 @@ static int __init init_jiffies_clocksource(void)
 }
 
 core_initcall(init_jiffies_clocksource);
+
+struct clocksource * __init __weak clocksource_default_clock(void)
+{
+	return &clocksource_jiffies;
+}

@@ -122,7 +122,6 @@ GLOBAL_ENTRY(strlen)
 	// We must return try the recovery code iff
 	// val1_is_nat || (val1==8 && val2_is_nat)
 	//
-	// XXX Fixme
 	//	- there must be a better way of doing the test
 	//
 	cmp.eq  p8,p9=8,val1	// p6 = val1 had zero (disambiguate)
@@ -161,7 +160,6 @@ GLOBAL_ENTRY(strlen)
 	// supposed to fail. If that happens it means we have a bug and the
 	// code will cause of kernel fault.
 	//
-	// XXX Fixme
 	//	- today we restart from the beginning of the string instead
 	//	  of trying to continue where we left off.
 	//

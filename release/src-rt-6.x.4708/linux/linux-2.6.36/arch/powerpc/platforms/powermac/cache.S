@@ -63,11 +63,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	mtspr	SPRN_HID0,r4		/* Disable DPM */
 	sync
 
-	/* Disp-flush L1. We have a weird problem here that I never
-	 * totally figured out. On 750FX, using the ROM for the flush
-	 * results in a non-working flush. We use that workaround for
-	 * now until I finally understand what's going on. --BenH
-	 */
 
 	/* ROM base by default */
 	lis	r4,0xfff0

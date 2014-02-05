@@ -318,10 +318,8 @@ io7_init_hose(struct io7 *io7, int port)
 	 */
 	csrs->POx_CTRL.csr &= ~(1UL << 61);
 
-#if 1
 	printk("FIXME: disabling master aborts\n");
 	csrs->POx_MSK_HEI.csr &= ~(3UL << 14);
-#endif
 	/*
 	 * TBIA after modifying windows.
 	 */
@@ -378,11 +376,6 @@ marvel_find_console_vga_hose(void)
 		struct io7 *io7;
 		int pid, port;
 
-		/* FIXME - encoding is going to have to change for Marvel
-		 *         since hose will be able to overflow a byte...
-		 *         need to fix this decode when the console 
-		 *         changes its encoding
-		 */
 		printk("console graphics is on hose %d (console)\n", h);
 
 		/*
@@ -655,20 +648,12 @@ __marvel_rtc_io(u8 b, unsigned long addr, int write)
 
 	case 0x71:					/* RTC_PORT(1) */
 		rtc_access.index = index;
-		rtc_access.data = BCD_TO_BIN(b);
+		rtc_access.data = bcd2bin(b);
 		rtc_access.function = 0x48 + !write;	/* GET/PUT_TOY */
 
-#ifdef CONFIG_SMP
-		if (smp_processor_id() != boot_cpuid)
-			smp_call_function_on_cpu(__marvel_access_rtc,
-						 &rtc_access, 1, 1,
-						 cpumask_of_cpu(boot_cpuid));
-		else
-			__marvel_access_rtc(&rtc_access);
-#else
 		__marvel_access_rtc(&rtc_access);
-#endif
-		ret = BIN_TO_BCD(rtc_access.data);
+
+		ret = bin2bcd(rtc_access.data);
 		break;
 
 	default:
@@ -848,11 +833,6 @@ EXPORT_SYMBOL(marvel_iowrite8);
 /*
  * NUMA Support
  */
-/**********
- * FIXME - for now each cpu is a node by itself 
- *              -- no real support for striped mode 
- **********
- */
 int
 marvel_pa_to_nid(unsigned long pa)
 {
@@ -994,7 +974,7 @@ marvel_agp_configure(alpha_agp_info *agp)
 		 * rate, but warn the user.
 		 */
 		printk("%s: unknown PLL setting RNGB=%lx (PLL6_CTL=%016lx)\n",
-		       __FUNCTION__, IO7_PLL_RNGB(agp_pll), agp_pll);
+		       __func__, IO7_PLL_RNGB(agp_pll), agp_pll);
 		break;
 	}
 
@@ -1024,7 +1004,7 @@ marvel_agp_bind_memory(alpha_agp_info *agp, off_t pg_start, struct agp_memory *m
 {
 	struct marvel_agp_aperture *aper = agp->aperture.sysdata;
 	return iommu_bind(aper->arena, aper->pg_start + pg_start, 
-			  mem->page_count, mem->memory);
+			  mem->page_count, mem->pages);
 }
 
 static int 
@@ -1044,13 +1024,13 @@ marvel_agp_translate(alpha_agp_info *agp, dma_addr_t addr)
 
 	if (addr < agp->aperture.bus_base ||
 	    addr >= agp->aperture.bus_base + agp->aperture.size) {
-		printk("%s: addr out of range\n", __FUNCTION__);
+		printk("%s: addr out of range\n", __func__);
 		return -EINVAL;
 	}
 
 	pte = aper->arena->ptes[baddr >> PAGE_SHIFT];
 	if (!(pte & 1)) {
-		printk("%s: pte not valid\n", __FUNCTION__);
+		printk("%s: pte not valid\n", __func__);
 		return -EINVAL;
 	} 
 	return (pte >> 1) << PAGE_SHIFT;
@@ -1074,12 +1054,6 @@ marvel_agp_info(void)
 	alpha_agp_info *agp;
 	struct io7 *io7;
 
-	/*
-	 * Find the first IO7 with an AGP card.
-	 *
-	 * FIXME -- there should be a better way (we want to be able to
-	 * specify and what if the agp card is not video???)
-	 */
 	hose = NULL;
 	for (io7 = NULL; (io7 = marvel_next_io7(io7)) != NULL; ) {
 		struct pci_controller *h;
@@ -1111,6 +1085,8 @@ marvel_agp_info(void)
 	 * Allocate the info structure.
 	 */
 	agp = kmalloc(sizeof(*agp), GFP_KERNEL);
+	if (!agp)
+		return NULL;
 
 	/*
 	 * Fill it in.

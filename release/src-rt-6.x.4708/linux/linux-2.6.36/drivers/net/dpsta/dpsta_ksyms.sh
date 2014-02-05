@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.      
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.      
 #       
 # Permission to use, copy, modify, and/or distribute this software for any      
 # purpose with or without fee is hereby granted, provided that the above      
@@ -18,7 +18,10 @@
 #
 
 cat <<EOF
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 #include <linux/config.h>
+#endif
 #include <linux/module.h>
 EOF
 

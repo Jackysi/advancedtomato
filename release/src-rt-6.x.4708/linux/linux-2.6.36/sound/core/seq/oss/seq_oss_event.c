@@ -241,7 +241,6 @@ timing_event(struct seq_oss_devinfo *dp, union evrec *q, struct snd_seq_event *e
 		else {
 			union evrec tmp;
 			memset(&tmp, 0, sizeof(tmp));
-			/* XXX: only for little-endian! */
 			tmp.echo = (q->t.time << 8) | SEQ_ECHO;
 			return set_echo_event(dp, &tmp, ev);
 		} 
@@ -444,4 +443,3 @@ snd_seq_oss_event_input(struct snd_seq_event *ev, int direct, void *private_data
 	}
 	return 0;
 }
-

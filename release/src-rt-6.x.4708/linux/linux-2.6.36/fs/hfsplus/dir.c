@@ -97,9 +97,9 @@ again:
 		goto fail;
 	}
 	hfs_find_exit(&fd);
-	inode = iget(dir->i_sb, cnid);
-	if (!inode)
-		return ERR_PTR(-EACCES);
+	inode = hfsplus_iget(dir->i_sb, cnid);
+	if (IS_ERR(inode))
+		return ERR_CAST(inode);
 	if (S_ISREG(inode->i_mode))
 		HFSPLUS_I(inode).dev = linkid;
 out:
@@ -494,7 +494,7 @@ const struct inode_operations hfsplus_dir_inode_operations = {
 const struct file_operations hfsplus_dir_operations = {
 	.read		= generic_read_dir,
 	.readdir	= hfsplus_readdir,
-	.ioctl          = hfsplus_ioctl,
+	.unlocked_ioctl = hfsplus_ioctl,
 	.llseek		= generic_file_llseek,
 	.release	= hfsplus_dir_release,
 };

@@ -11,14 +11,12 @@
  * which is based on the code of neofb.
  */
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/tty.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/fb.h>
 #include <linux/svga.h>
@@ -46,11 +44,11 @@ struct s3fb_info {
 static const struct svga_fb_format s3fb_formats[] = {
 	{ 0,  {0, 6, 0},  {0, 6, 0},  {0, 6, 0}, {0, 0, 0}, 0,
 		FB_TYPE_TEXT, FB_AUX_TEXT_SVGA_STEP4,	FB_VISUAL_PSEUDOCOLOR, 8, 16},
-	{ 4,  {0, 6, 0},  {0, 6, 0},  {0, 6, 0}, {0, 0, 0}, 0,
+	{ 4,  {0, 4, 0},  {0, 4, 0},  {0, 4, 0}, {0, 0, 0}, 0,
 		FB_TYPE_PACKED_PIXELS, 0,		FB_VISUAL_PSEUDOCOLOR, 8, 16},
-	{ 4,  {0, 6, 0},  {0, 6, 0},  {0, 6, 0}, {0, 0, 0}, 1,
+	{ 4,  {0, 4, 0},  {0, 4, 0},  {0, 4, 0}, {0, 0, 0}, 1,
 		FB_TYPE_INTERLEAVED_PLANES, 1,		FB_VISUAL_PSEUDOCOLOR, 8, 16},
-	{ 8,  {0, 6, 0},  {0, 6, 0},  {0, 6, 0}, {0, 0, 0}, 0,
+	{ 8,  {0, 8, 0},  {0, 8, 0},  {0, 8, 0}, {0, 0, 0}, 0,
 		FB_TYPE_PACKED_PIXELS, 0,		FB_VISUAL_PSEUDOCOLOR, 4, 8},
 	{16,  {10, 5, 0}, {5, 5, 0},  {0, 5, 0}, {0, 0, 0}, 0,
 		FB_TYPE_PACKED_PIXELS, 0,		FB_VISUAL_TRUECOLOR, 2, 4},
@@ -73,7 +71,8 @@ static const char * const s3_names[] = {"S3 Unknown", "S3 Trio32", "S3 Trio64", 
 			"S3 Trio64UV+", "S3 Trio64V2/DX", "S3 Trio64V2/GX",
 			"S3 Plato/PX", "S3 Aurora64VP", "S3 Virge",
 			"S3 Virge/VX", "S3 Virge/DX", "S3 Virge/GX",
-			"S3 Virge/GX2", "S3 Virge/GX2P", "S3 Virge/GX2P"};
+			"S3 Virge/GX2", "S3 Virge/GX2P", "S3 Virge/GX2P",
+			"S3 Trio3D/1X", "S3 Trio3D/2X", "S3 Trio3D/2X"};
 
 #define CHIP_UNKNOWN		0x00
 #define CHIP_732_TRIO32		0x01
@@ -91,10 +90,14 @@ static const char * const s3_names[] = {"S3 Unknown", "S3 Trio32", "S3 Trio64", 
 #define CHIP_356_VIRGE_GX2	0x0D
 #define CHIP_357_VIRGE_GX2P	0x0E
 #define CHIP_359_VIRGE_GX2P	0x0F
+#define CHIP_360_TRIO3D_1X	0x10
+#define CHIP_362_TRIO3D_2X	0x11
+#define CHIP_368_TRIO3D_2X	0x12
 
 #define CHIP_XXX_TRIO		0x80
 #define CHIP_XXX_TRIO64V2_DXGX	0x81
 #define CHIP_XXX_VIRGE_DXGX	0x82
+#define CHIP_36X_TRIO3D_1X_2X	0x83
 
 #define CHIP_UNDECIDED_FLAG	0x80
 #define CHIP_MASK		0xFF
@@ -132,10 +135,10 @@ static const struct svga_timing_regs s3_timing_regs     = {
 /* Module parameters */
 
 
-static char *mode = "640x480-8@60";
+static char *mode_option __devinitdata = "640x480-8@60";
 
 #ifdef CONFIG_MTRR
-static int mtrr = 1;
+static int mtrr __devinitdata = 1;
 #endif
 
 static int fasttext = 1;
@@ -145,8 +148,10 @@ MODULE_AUTHOR("(c) 2006-2007 Ondrej Zajicek <santiago@crfreenet.org>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("fbdev driver for S3 Trio/Virge");
 
-module_param(mode, charp, 0444);
-MODULE_PARM_DESC(mode, "Default video mode ('640x480-8@60', etc)");
+module_param(mode_option, charp, 0444);
+MODULE_PARM_DESC(mode_option, "Default video mode ('640x480-8@60', etc)");
+module_param_named(mode, mode_option, charp, 0444);
+MODULE_PARM_DESC(mode, "Default video mode ('640x480-8@60', etc) (deprecated)");
 
 #ifdef CONFIG_MTRR
 module_param(mtrr, int, 0444);
@@ -324,6 +329,7 @@ static void s3fb_fillrect(struct fb_info *info, const struct fb_fillrect *rect)
 
 static void s3_set_pixclock(struct fb_info *info, u32 pixclock)
 {
+	struct s3fb_info *par = info->par;
 	u16 m, n, r;
 	u8 regval;
 	int rv;
@@ -339,7 +345,13 @@ static void s3_set_pixclock(struct fb_info *info, u32 pixclock)
 	vga_w(NULL, VGA_MIS_W, regval | VGA_MIS_ENB_PLL_LOAD);
 
 	/* Set S3 clock registers */
-	vga_wseq(NULL, 0x12, ((n - 2) | (r << 5)));
+	if (par->chip == CHIP_360_TRIO3D_1X ||
+	    par->chip == CHIP_362_TRIO3D_2X ||
+	    par->chip == CHIP_368_TRIO3D_2X) {
+		vga_wseq(NULL, 0x12, (n - 2) | ((r & 3) << 6));	/* n and two bits of r */
+		vga_wseq(NULL, 0x29, r >> 2); /* remaining highest bit of r */
+	} else
+		vga_wseq(NULL, 0x12, (n - 2) | (r << 5));
 	vga_wseq(NULL, 0x13, m - 2);
 
 	udelay(1000);
@@ -400,11 +412,17 @@ static int s3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	struct s3fb_info *par = info->par;
 	int rv, mem, step;
+	u16 m, n, r;
 
 	/* Find appropriate format */
 	rv = svga_match_format (s3fb_formats, var, NULL);
-	if ((rv < 0) || ((par->chip == CHIP_988_VIRGE_VX) ? (rv == 7) : (rv == 6)))
-	{		/* 24bpp on VIRGE VX, 32bpp on others */
+
+	/* 32bpp mode is not supported on VIRGE VX,
+	   24bpp is not supported on others */
+	if ((par->chip == CHIP_988_VIRGE_VX) ? (rv == 7) : (rv == 6))
+		rv = -EINVAL;
+
+	if (rv < 0) {
 		printk(KERN_ERR "fb%d: unsupported mode requested\n", info->node);
 		return rv;
 	}
@@ -422,17 +440,23 @@ static int s3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	/* Check whether have enough memory */
 	mem = ((var->bits_per_pixel * var->xres_virtual) >> 3) * var->yres_virtual;
-	if (mem > info->screen_size)
-	{
+	if (mem > info->screen_size) {
 		printk(KERN_ERR "fb%d: not enough framebuffer memory (%d kB requested , %d kB available)\n",
 			info->node, mem >> 10, (unsigned int) (info->screen_size >> 10));
 		return -EINVAL;
 	}
 
 	rv = svga_check_timings (&s3_timing_regs, var, info->node);
-	if (rv < 0)
-	{
+	if (rv < 0) {
 		printk(KERN_ERR "fb%d: invalid timings requested\n", info->node);
+		return rv;
+	}
+
+	rv = svga_compute_pll(&s3_pll, PICOS2KHZ(var->pixclock), &m, &n, &r,
+				info->node);
+	if (rv < 0) {
+		printk(KERN_ERR "fb%d: invalid pixclock value requested\n",
+			info->node);
 		return rv;
 	}
 
@@ -444,7 +468,7 @@ static int s3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 static int s3fb_set_par(struct fb_info *info)
 {
 	struct s3fb_info *par = info->par;
-	u32 value, mode, hmul, offset_value, screen_size, multiplex;
+	u32 value, mode, hmul, offset_value, screen_size, multiplex, dbytes;
 	u32 bpp = info->var.bits_per_pixel;
 
 	if (bpp != 0) {
@@ -506,7 +530,7 @@ static int s3fb_set_par(struct fb_info *info)
 	svga_wcrt_mask(0x33, 0x00, 0x08); /* no DDR ?	*/
 	svga_wcrt_mask(0x43, 0x00, 0x01); /* no DDR ?	*/
 
-	svga_wcrt_mask(0x5D, 0x00, 0x28); // Clear strange HSlen bits
+	svga_wcrt_mask(0x5D, 0x00, 0x28); /* Clear strange HSlen bits */
 
 /*	svga_wcrt_mask(0x58, 0x03, 0x03); */
 
@@ -518,10 +542,14 @@ static int s3fb_set_par(struct fb_info *info)
 	pr_debug("fb%d: offset register       : %d\n", info->node, offset_value);
 	svga_wcrt_multi(s3_offset_regs, offset_value);
 
-	vga_wcrt(NULL, 0x54, 0x18); /* M parameter */
-	vga_wcrt(NULL, 0x60, 0xff); /* N parameter */
-	vga_wcrt(NULL, 0x61, 0xff); /* L parameter */
-	vga_wcrt(NULL, 0x62, 0xff); /* L parameter */
+	if (par->chip != CHIP_360_TRIO3D_1X &&
+	    par->chip != CHIP_362_TRIO3D_2X &&
+	    par->chip != CHIP_368_TRIO3D_2X) {
+		vga_wcrt(NULL, 0x54, 0x18); /* M parameter */
+		vga_wcrt(NULL, 0x60, 0xff); /* N parameter */
+		vga_wcrt(NULL, 0x61, 0xff); /* L parameter */
+		vga_wcrt(NULL, 0x62, 0xff); /* L parameter */
+	}
 
 	vga_wcrt(NULL, 0x3A, 0x35);
 	svga_wattr(0x33, 0x00);
@@ -556,6 +584,16 @@ static int s3fb_set_par(struct fb_info *info)
 
 		vga_wcrt(NULL, 0x63, (mode <= 2) ? 0x90 : 0x09);
 		vga_wcrt(NULL, 0x66, 0x90);
+	}
+
+	if (par->chip == CHIP_360_TRIO3D_1X ||
+	    par->chip == CHIP_362_TRIO3D_2X ||
+	    par->chip == CHIP_368_TRIO3D_2X) {
+		dbytes = info->var.xres * ((bpp+7)/8);
+		vga_wcrt(NULL, 0x91, (dbytes + 7) / 8);
+		vga_wcrt(NULL, 0x90, (((dbytes + 7) / 8) >> 8) | 0x80);
+
+		vga_wcrt(NULL, 0x66, 0x81);
 	}
 
 	svga_wcrt_mask(0x31, 0x00, 0x40);
@@ -603,11 +641,13 @@ static int s3fb_set_par(struct fb_info *info)
 		break;
 	case 3:
 		pr_debug("fb%d: 8 bit pseudocolor\n", info->node);
-		if (info->var.pixclock > 20000) {
-			svga_wcrt_mask(0x50, 0x00, 0x30);
+		svga_wcrt_mask(0x50, 0x00, 0x30);
+		if (info->var.pixclock > 20000 ||
+		    par->chip == CHIP_360_TRIO3D_1X ||
+		    par->chip == CHIP_362_TRIO3D_2X ||
+		    par->chip == CHIP_368_TRIO3D_2X)
 			svga_wcrt_mask(0x67, 0x00, 0xF0);
-		} else {
-			svga_wcrt_mask(0x50, 0x00, 0x30);
+		else {
 			svga_wcrt_mask(0x67, 0x10, 0xF0);
 			multiplex = 1;
 		}
@@ -622,7 +662,10 @@ static int s3fb_set_par(struct fb_info *info)
 		} else {
 			svga_wcrt_mask(0x50, 0x10, 0x30);
 			svga_wcrt_mask(0x67, 0x30, 0xF0);
-			hmul = 2;
+			if (par->chip != CHIP_360_TRIO3D_1X &&
+			    par->chip != CHIP_362_TRIO3D_2X &&
+			    par->chip != CHIP_368_TRIO3D_2X)
+				hmul = 2;
 		}
 		break;
 	case 5:
@@ -635,7 +678,10 @@ static int s3fb_set_par(struct fb_info *info)
 		} else {
 			svga_wcrt_mask(0x50, 0x10, 0x30);
 			svga_wcrt_mask(0x67, 0x50, 0xF0);
-			hmul = 2;
+			if (par->chip != CHIP_360_TRIO3D_1X &&
+			    par->chip != CHIP_362_TRIO3D_2X &&
+			    par->chip != CHIP_368_TRIO3D_2X)
+				hmul = 2;
 		}
 		break;
 	case 6:
@@ -854,6 +900,17 @@ static int __devinit s3_identification(int chip)
 			return CHIP_385_VIRGE_GX;
 	}
 
+	if (chip == CHIP_36X_TRIO3D_1X_2X) {
+		switch (vga_rcrt(NULL, 0x2f)) {
+		case 0x00:
+			return CHIP_360_TRIO3D_1X;
+		case 0x01:
+			return CHIP_362_TRIO3D_2X;
+		case 0x02:
+			return CHIP_368_TRIO3D_2X;
+		}
+	}
+
 	return CHIP_UNKNOWN;
 }
 
@@ -874,7 +931,7 @@ static int __devinit s3_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	}
 
 	/* Allocate and fill driver data structure */
-	info = framebuffer_alloc(sizeof(struct s3fb_info), NULL);
+	info = framebuffer_alloc(sizeof(struct s3fb_info), &(dev->dev));
 	if (!info) {
 		dev_err(&(dev->dev), "cannot allocate memory\n");
 		return -ENOMEM;
@@ -889,13 +946,13 @@ static int __devinit s3_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	/* Prepare PCI device */
 	rc = pci_enable_device(dev);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot enable PCI device\n");
+		dev_err(info->device, "cannot enable PCI device\n");
 		goto err_enable_device;
 	}
 
 	rc = pci_request_regions(dev, "s3fb");
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot reserve framebuffer region\n");
+		dev_err(info->device, "cannot reserve framebuffer region\n");
 		goto err_request_regions;
 	}
 
@@ -907,7 +964,7 @@ static int __devinit s3_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	info->screen_base = pci_iomap(dev, 0, 0);
 	if (! info->screen_base) {
 		rc = -ENOMEM;
-		dev_err(&(dev->dev), "iomap for framebuffer failed\n");
+		dev_err(info->device, "iomap for framebuffer failed\n");
 		goto err_iomap;
 	}
 
@@ -918,16 +975,31 @@ static int __devinit s3_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	vga_wcrt(NULL, 0x38, 0x48);
 	vga_wcrt(NULL, 0x39, 0xA5);
 
-	/* Find how many physical memory there is on card */
-	/* 0x36 register is accessible even if other registers are locked */
-	regval = vga_rcrt(NULL, 0x36);
-	info->screen_size = s3_memsizes[regval >> 5] << 10;
-	info->fix.smem_len = info->screen_size;
-
+	/* Identify chip type */
 	par->chip = id->driver_data & CHIP_MASK;
 	par->rev = vga_rcrt(NULL, 0x2f);
 	if (par->chip & CHIP_UNDECIDED_FLAG)
 		par->chip = s3_identification(par->chip);
+
+	/* Find how many physical memory there is on card */
+	/* 0x36 register is accessible even if other registers are locked */
+	regval = vga_rcrt(NULL, 0x36);
+	if (par->chip == CHIP_360_TRIO3D_1X ||
+	    par->chip == CHIP_362_TRIO3D_2X ||
+	    par->chip == CHIP_368_TRIO3D_2X) {
+		switch ((regval & 0xE0) >> 5) {
+		case 0: /* 8MB -- only 4MB usable for display */
+		case 1: /* 4MB with 32-bit bus */
+		case 2:	/* 4MB */
+			info->screen_size = 4 << 20;
+			break;
+		case 6: /* 2MB */
+			info->screen_size = 2 << 20;
+			break;
+		}
+	} else
+		info->screen_size = s3_memsizes[regval >> 5] << 10;
+	info->fix.smem_len = info->screen_size;
 
 	/* Find MCLK frequency */
 	regval = vga_rseq(NULL, 0x10);
@@ -948,22 +1020,22 @@ static int __devinit s3_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	info->pseudo_palette = (void*) (par->pseudo_palette);
 
 	/* Prepare startup mode */
-	rc = fb_find_mode(&(info->var), info, mode, NULL, 0, NULL, 8);
+	rc = fb_find_mode(&(info->var), info, mode_option, NULL, 0, NULL, 8);
 	if (! ((rc == 1) || (rc == 2))) {
 		rc = -EINVAL;
-		dev_err(&(dev->dev), "mode %s not found\n", mode);
+		dev_err(info->device, "mode %s not found\n", mode_option);
 		goto err_find_mode;
 	}
 
 	rc = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot allocate colormap\n");
+		dev_err(info->device, "cannot allocate colormap\n");
 		goto err_alloc_cmap;
 	}
 
 	rc = register_framebuffer(info);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot register framebuffer\n");
+		dev_err(info->device, "cannot register framebuffer\n");
 		goto err_reg_fb;
 	}
 
@@ -1039,7 +1111,7 @@ static int s3_pci_suspend(struct pci_dev* dev, pm_message_t state)
 	struct fb_info *info = pci_get_drvdata(dev);
 	struct s3fb_info *par = info->par;
 
-	dev_info(&(dev->dev), "suspend\n");
+	dev_info(info->device, "suspend\n");
 
 	acquire_console_sem();
 	mutex_lock(&(par->open_lock));
@@ -1071,7 +1143,7 @@ static int s3_pci_resume(struct pci_dev* dev)
 	struct s3fb_info *par = info->par;
 	int err;
 
-	dev_info(&(dev->dev), "resume\n");
+	dev_info(info->device, "resume\n");
 
 	acquire_console_sem();
 	mutex_lock(&(par->open_lock));
@@ -1088,7 +1160,7 @@ static int s3_pci_resume(struct pci_dev* dev)
 	if (err) {
 		mutex_unlock(&(par->open_lock));
 		release_console_sem();
-		dev_err(&(dev->dev), "error %d enabling device for resume\n", err);
+		dev_err(info->device, "error %d enabling device for resume\n", err);
 		return err;
 	}
 	pci_set_master(dev);
@@ -1119,6 +1191,7 @@ static struct pci_device_id s3_devices[] __devinitdata = {
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8A10), .driver_data = CHIP_356_VIRGE_GX2},
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8A11), .driver_data = CHIP_357_VIRGE_GX2P},
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8A12), .driver_data = CHIP_359_VIRGE_GX2P},
+	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8A13), .driver_data = CHIP_36X_TRIO3D_1X_2X},
 
 	{0, 0, 0, 0, 0, 0, 0}
 };
@@ -1156,7 +1229,7 @@ static int  __init s3fb_setup(char *options)
 		else if (!strncmp(opt, "fasttext:", 9))
 			fasttext = simple_strtoul(opt + 9, NULL, 0);
 		else
-			mode = opt;
+			mode_option = opt;
 	}
 
 	return 0;

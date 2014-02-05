@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
@@ -184,16 +185,9 @@ int spi_bitbang_setup(struct spi_device *spi)
 	struct spi_bitbang_cs	*cs = spi->controller_state;
 	struct spi_bitbang	*bitbang;
 	int			retval;
+	unsigned long		flags;
 
 	bitbang = spi_master_get_devdata(spi->master);
-
-	/* REVISIT: some systems will want to support devices using lsb-first
-	 * bit encodings on the wire.  In pure software that would be trivial,
-	 * just bitbang_txrx_le_cphaX() routines shifting the other way, and
-	 * some hardware controllers also have this support.
-	 */
-	if ((spi->mode & SPI_LSB_FIRST) != 0)
-		return -EINVAL;
 
 	if (!cs) {
 		cs = kzalloc(sizeof *cs, GFP_KERNEL);
@@ -201,9 +195,6 @@ int spi_bitbang_setup(struct spi_device *spi)
 			return -ENOMEM;
 		spi->controller_state = cs;
 	}
-
-	if (!spi->bits_per_word)
-		spi->bits_per_word = 8;
 
 	/* per-word shift register access, in hardware or bitbanging */
 	cs->txrx_word = bitbang->txrx_word[spi->mode & (SPI_CPOL|SPI_CPHA)];
@@ -214,9 +205,7 @@ int spi_bitbang_setup(struct spi_device *spi)
 	if (retval < 0)
 		return retval;
 
-	dev_dbg(&spi->dev, "%s, mode %d, %u bits/w, %u nsec/bit\n",
-			__FUNCTION__, spi->mode & (SPI_CPOL | SPI_CPHA),
-			spi->bits_per_word, 2 * cs->nsecs);
+	dev_dbg(&spi->dev, "%s, %u nsec/bit\n", __func__, 2 * cs->nsecs);
 
 	/* NOTE we _need_ to call chipselect() early, ideally with adapter
 	 * setup, unless the hardware defaults cooperate to avoid confusion
@@ -224,12 +213,12 @@ int spi_bitbang_setup(struct spi_device *spi)
 	 */
 
 	/* deselect chip (low or high) */
-	spin_lock(&bitbang->lock);
+	spin_lock_irqsave(&bitbang->lock, flags);
 	if (!bitbang->busy) {
 		bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
 		ndelay(cs->nsecs);
 	}
-	spin_unlock(&bitbang->lock);
+	spin_unlock_irqrestore(&bitbang->lock, flags);
 
 	return 0;
 }
@@ -270,6 +259,10 @@ static void bitbang_work(struct work_struct *work)
 	struct spi_bitbang	*bitbang =
 		container_of(work, struct spi_bitbang, work);
 	unsigned long		flags;
+	int			(*setup_transfer)(struct spi_device *,
+					struct spi_transfer *);
+
+	setup_transfer = bitbang->setup_transfer;
 
 	spin_lock_irqsave(&bitbang->lock, flags);
 	bitbang->busy = 1;
@@ -281,40 +274,37 @@ static void bitbang_work(struct work_struct *work)
 		unsigned		tmp;
 		unsigned		cs_change;
 		int			status;
-		int			(*setup_transfer)(struct spi_device *,
-						struct spi_transfer *);
+		int			do_setup = -1;
 
 		m = container_of(bitbang->queue.next, struct spi_message,
 				queue);
 		list_del_init(&m->queue);
 		spin_unlock_irqrestore(&bitbang->lock, flags);
 
-		/* FIXME this is made-up ... the correct value is known to
-		 * word-at-a-time bitbang code, and presumably chipselect()
-		 * should enforce these requirements too?
-		 */
 		nsecs = 100;
 
 		spi = m->spi;
 		tmp = 0;
 		cs_change = 1;
 		status = 0;
-		setup_transfer = NULL;
 
 		list_for_each_entry (t, &m->transfers, transfer_list) {
 
-			/* override or restore speed and wordsize */
-			if (t->speed_hz || t->bits_per_word) {
-				setup_transfer = bitbang->setup_transfer;
+			/* override speed or wordsize? */
+			if (t->speed_hz || t->bits_per_word)
+				do_setup = 1;
+
+			/* init (-1) or override (1) transfer params */
+			if (do_setup != 0) {
 				if (!setup_transfer) {
 					status = -ENOPROTOOPT;
 					break;
 				}
-			}
-			if (setup_transfer) {
 				status = setup_transfer(spi, t);
 				if (status < 0)
 					break;
+				if (do_setup == -1)
+					do_setup = 0;
 			}
 
 			/* set up default clock polarity, and activate chip;
@@ -345,12 +335,14 @@ static void bitbang_work(struct work_struct *work)
 					t->rx_dma = t->tx_dma = 0;
 				status = bitbang->txrx_bufs(spi, t);
 			}
+			if (status > 0)
+				m->actual_length += status;
 			if (status != t->len) {
-				if (status > 0)
-					status = -EMSGSIZE;
+				/* always report some kind of error */
+				if (status >= 0)
+					status = -EREMOTEIO;
 				break;
 			}
-			m->actual_length += status;
 			status = 0;
 
 			/* protocol tweaks before next transfer */
@@ -372,10 +364,6 @@ static void bitbang_work(struct work_struct *work)
 
 		m->status = status;
 		m->complete(m->context);
-
-		/* restore speed and wordsize */
-		if (setup_transfer)
-			setup_transfer(spi, NULL);
 
 		/* normally deactivate chipselect ... unless no error and
 		 * cs_change has hinted that the next message will probably
@@ -456,6 +444,9 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
 	spin_lock_init(&bitbang->lock);
 	INIT_LIST_HEAD(&bitbang->queue);
 
+	if (!bitbang->master->mode_bits)
+		bitbang->master->mode_bits = SPI_CPOL | SPI_CPHA | bitbang->flags;
+
 	if (!bitbang->master->transfer)
 		bitbang->master->transfer = spi_bitbang_transfer;
 	if (!bitbang->txrx_bufs) {
@@ -474,7 +465,7 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
 	/* this task is the only thing to touch the SPI bits */
 	bitbang->busy = 0;
 	bitbang->workqueue = create_singlethread_workqueue(
-			bitbang->master->cdev.dev->bus_id);
+			dev_name(bitbang->master->dev.parent));
 	if (bitbang->workqueue == NULL) {
 		status = -EBUSY;
 		goto err1;
@@ -512,4 +503,3 @@ int spi_bitbang_stop(struct spi_bitbang *bitbang)
 EXPORT_SYMBOL_GPL(spi_bitbang_stop);
 
 MODULE_LICENSE("GPL");
-

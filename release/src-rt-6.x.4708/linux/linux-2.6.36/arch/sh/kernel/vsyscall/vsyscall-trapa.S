@@ -3,9 +3,6 @@
 	.type __kernel_vsyscall,@function
 __kernel_vsyscall:
 .LSTART_vsyscall:
-	/* XXX: We'll have to do something here once we opt to use the vDSO
-	 * page for something other than the signal trampoline.. as well as
-	 * fill out .eh_frame -- PFM. */
 .LEND_vsyscall:
 	.size __kernel_vsyscall,.-.LSTART_vsyscall
 	.previous

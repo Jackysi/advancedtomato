@@ -98,14 +98,7 @@ static void periodic_unlink (struct ehci_hcd *ehci, unsigned frame, void *ptr)
 	 */
 	*prev_p = *periodic_next_shadow(ehci, &here,
 			Q_NEXT_TYPE(ehci, *hw_p));
-
-	if (!ehci->use_dummy_qh ||
-	    *shadow_next_periodic(ehci, &here, Q_NEXT_TYPE(ehci, *hw_p))
-			!= EHCI_LIST_END(ehci))
-		*hw_p = *shadow_next_periodic(ehci, &here,
-				Q_NEXT_TYPE(ehci, *hw_p));
-	else
-		*hw_p = ehci->dummy->qh_dma;
+	*hw_p = *shadow_next_periodic(ehci, &here, Q_NEXT_TYPE(ehci, *hw_p));
 }
 
 /* how many of the uframe's 125 usecs are allocated? */
@@ -215,7 +208,7 @@ static inline unsigned char tt_start_uframe(struct ehci_hcd *ehci, __hc32 mask)
 }
 
 static const unsigned char
-max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 58, 0 };
+max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 30, 0 };
 
 /* carryover low/fullspeed bandwidth that crosses uframe boundries */
 static inline void carryover_tt_bandwidth(unsigned short tt_usecs[8])
@@ -430,7 +423,6 @@ static int tt_no_collision (
 
 					mask = hc32_to_cpu(ehci, here.sitd
 								->hw_uframe);
-					/* FIXME assumes no gap for IN! */
 					mask |= mask >> 8;
 					if (mask & uf_mask)
 						break;
@@ -600,12 +592,11 @@ static int qh_unlink_periodic(struct ehci_hcd *ehci, struct ehci_qh *qh)
 	unsigned	i;
 	unsigned	period;
 
-	// FIXME:
 	// IF this isn't high speed
 	//   and this qh is active in the current uframe
 	//   (and overlay token SplitXstate is false?)
 	// THEN
-	//   qh->hw_info1 |= __constant_cpu_to_hc32(1 << 7 /* "ignore" */);
+	//   qh->hw_info1 |= cpu_to_hc32(1 << 7 /* "ignore" */);
 
 	/* high bandwidth, or otherwise part of every microframe */
 	if ((period = qh->period) == 0)
@@ -676,12 +667,6 @@ static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 			HC_IS_RUNNING(ehci_to_hcd(ehci)->state)) {
 		rc = qh_schedule(ehci, qh);
 
-		/* An error here likely indicates handshake failure
-		 * or no space left in the schedule.  Neither fault
-		 * should happen often ...
-		 *
-		 * FIXME kill the now-dysfunctional queued urbs
-		 */
 		if (rc != 0)
 			ehci_err(ehci, "can't reschedule qh %p, err %d\n",
 					qh, rc);
@@ -887,8 +872,7 @@ static int intr_submit (
 
 	spin_lock_irqsave (&ehci->lock, flags);
 
-	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE,
-			&ehci_to_hcd(ehci)->flags))) {
+	if (unlikely(!HCD_HW_ACCESSIBLE(ehci_to_hcd(ehci)))) {
 		status = -ESHUTDOWN;
 		goto done_not_linked;
 	}
@@ -1422,11 +1406,6 @@ iso_stream_schedule (
 	if (likely (!list_empty (&stream->td_list))) {
 		u32	excess;
 
-		/* For high speed devices, allow scheduling within the
-		 * isochronous scheduling threshold.  For full speed devices
-		 * and Intel PCI-based controllers, don't (work around for
-		 * Intel ICH9 bug).
-		 */
 		if (!stream->highspeed && ehci->fs_i_thresh)
 			next = now + ehci->i_thresh;
 		else
@@ -1591,6 +1570,63 @@ itd_link (struct ehci_hcd *ehci, unsigned frame, struct ehci_itd *itd)
 	*hw_p = cpu_to_hc32(ehci, itd->itd_dma | Q_TYPE_ITD);
 }
 
+#define AB_REG_BAR_LOW 0xe0
+#define AB_REG_BAR_HIGH 0xe1
+#define AB_INDX(addr) ((addr) + 0x00)
+#define AB_DATA(addr) ((addr) + 0x04)
+#define NB_PCIE_INDX_ADDR 0xe0
+#define NB_PCIE_INDX_DATA 0xe4
+#define NB_PIF0_PWRDOWN_0 0x01100012
+#define NB_PIF0_PWRDOWN_1 0x01100013
+
+static void ehci_quirk_amd_L1(struct ehci_hcd *ehci, int disable)
+{
+	u32 addr, addr_low, addr_high, val;
+
+	outb_p(AB_REG_BAR_LOW, 0xcd6);
+	addr_low = inb_p(0xcd7);
+	outb_p(AB_REG_BAR_HIGH, 0xcd6);
+	addr_high = inb_p(0xcd7);
+	addr = addr_high << 8 | addr_low;
+	outl_p(0x30, AB_INDX(addr));
+	outl_p(0x40, AB_DATA(addr));
+	outl_p(0x34, AB_INDX(addr));
+	val = inl_p(AB_DATA(addr));
+
+	if (disable) {
+		val &= ~0x8;
+		val |= (1 << 4) | (1 << 9);
+	} else {
+		val |= 0x8;
+		val &= ~((1 << 4) | (1 << 9));
+	}
+	outl_p(val, AB_DATA(addr));
+
+	if (amd_nb_dev) {
+		addr = NB_PIF0_PWRDOWN_0;
+		pci_write_config_dword(amd_nb_dev, NB_PCIE_INDX_ADDR, addr);
+		pci_read_config_dword(amd_nb_dev, NB_PCIE_INDX_DATA, &val);
+		if (disable)
+			val &= ~(0x3f << 7);
+		else
+			val |= 0x3f << 7;
+
+		pci_write_config_dword(amd_nb_dev, NB_PCIE_INDX_DATA, val);
+
+		addr = NB_PIF0_PWRDOWN_1;
+		pci_write_config_dword(amd_nb_dev, NB_PCIE_INDX_ADDR, addr);
+		pci_read_config_dword(amd_nb_dev, NB_PCIE_INDX_DATA, &val);
+		if (disable)
+			val &= ~(0x3f << 7);
+		else
+			val |= 0x3f << 7;
+
+		pci_write_config_dword(amd_nb_dev, NB_PCIE_INDX_DATA, val);
+	}
+
+	return;
+}
+
 /* fit urb's itds into the selected schedule slot; activate as needed */
 static int
 itd_link_urb (
@@ -1617,6 +1653,12 @@ itd_link_urb (
 			urb->interval,
 			next_uframe >> 3, next_uframe & 0x7);
 	}
+
+	if (ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs == 0) {
+		if (ehci->amd_l1_fix == 1)
+			ehci_quirk_amd_L1(ehci, 1);
+	}
+
 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs++;
 
 	/* fill iTDs uframe by uframe */
@@ -1741,6 +1783,11 @@ itd_complete (
 	(void) disable_periodic(ehci);
 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs--;
 
+	if (ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs == 0) {
+		if (ehci->amd_l1_fix == 1)
+			ehci_quirk_amd_L1(ehci, 0);
+	}
+
 	if (unlikely(list_is_singular(&stream->td_list))) {
 		ehci_to_hcd(ehci)->self.bandwidth_allocated
 				-= stream->bandwidth;
@@ -1798,7 +1845,7 @@ static int itd_submit (struct ehci_hcd *ehci, struct urb *urb,
 #ifdef EHCI_URB_TRACE
 	ehci_dbg (ehci,
 		"%s %s urb %p ep%d%s len %d, %d pkts %d uframes [%p]\n",
-		__FUNCTION__, urb->dev->devpath, urb,
+		__func__, urb->dev->devpath, urb,
 		usb_pipeendpoint (urb->pipe),
 		usb_pipein (urb->pipe) ? "in" : "out",
 		urb->transfer_buffer_length,
@@ -1815,8 +1862,7 @@ static int itd_submit (struct ehci_hcd *ehci, struct urb *urb,
 
 	/* schedule ... need to lock */
 	spin_lock_irqsave (&ehci->lock, flags);
-	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE,
-			       &ehci_to_hcd(ehci)->flags))) {
+	if (unlikely(!HCD_HW_ACCESSIBLE(ehci_to_hcd(ehci)))) {
 		status = -ESHUTDOWN;
 		goto done_not_linked;
 	}
@@ -2027,6 +2073,12 @@ sitd_link_urb (
 			(next_uframe >> 3) & (ehci->periodic_size - 1),
 			stream->interval, hc32_to_cpu(ehci, stream->splits));
 	}
+
+	if (ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs == 0) {
+		if (ehci->amd_l1_fix == 1)
+			ehci_quirk_amd_L1(ehci, 1);
+	}
+
 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs++;
 
 	/* fill sITDs frame by frame */
@@ -2127,6 +2179,11 @@ sitd_complete (
 	(void) disable_periodic(ehci);
 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs--;
 
+	if (ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs == 0) {
+		if (ehci->amd_l1_fix == 1)
+			ehci_quirk_amd_L1(ehci, 0);
+	}
+
 	if (list_is_singular(&stream->td_list)) {
 		ehci_to_hcd(ehci)->self.bandwidth_allocated
 				-= stream->bandwidth;
@@ -2198,8 +2255,7 @@ static int sitd_submit (struct ehci_hcd *ehci, struct urb *urb,
 
 	/* schedule ... need to lock */
 	spin_lock_irqsave (&ehci->lock, flags);
-	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE,
-			       &ehci_to_hcd(ehci)->flags))) {
+	if (unlikely(!HCD_HW_ACCESSIBLE(ehci_to_hcd(ehci)))) {
 		status = -ESHUTDOWN;
 		goto done_not_linked;
 	}
@@ -2345,11 +2401,7 @@ restart:
 				 * pointer for much longer, if at all.
 				 */
 				*q_p = q.itd->itd_next;
-				if (!ehci->use_dummy_qh ||
-				    q.itd->hw_next != EHCI_LIST_END(ehci))
-					*hw_p = q.itd->hw_next;
-				else
-					*hw_p = ehci->dummy->qh_dma;
+				*hw_p = q.itd->hw_next;
 				type = Q_NEXT_TYPE(ehci, q.itd->hw_next);
 				wmb();
 				modified = itd_complete (ehci, q.itd);
@@ -2382,11 +2434,7 @@ restart:
 				 * URB completion.
 				 */
 				*q_p = q.sitd->sitd_next;
-				if (!ehci->use_dummy_qh ||
-				    q.sitd->hw_next != EHCI_LIST_END(ehci))
-					*hw_p = q.sitd->hw_next;
-				else
-					*hw_p = ehci->dummy->qh_dma;
+				*hw_p = q.sitd->hw_next;
 				type = Q_NEXT_TYPE(ehci, q.sitd->hw_next);
 				wmb();
 				modified = sitd_complete (ehci, q.sitd);
@@ -2418,13 +2466,11 @@ restart:
 			break;
 		}
 
-		// FIXME:  this assumes we won't get lapped when
 		// latencies climb; that should be rare, but...
 		// detect it, and just go all the way around.
 		// FLR might help detect this case, so long as latencies
 		// don't exceed periodic_size msec (default 1.024 sec).
 
-		// FIXME:  likewise assumes HC doesn't halt mid-scan
 
 		if (now_uframe == clock) {
 			unsigned	now;

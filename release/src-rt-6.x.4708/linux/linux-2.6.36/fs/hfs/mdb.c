@@ -11,6 +11,7 @@
 #include <linux/cdrom.h>
 #include <linux/genhd.h>
 #include <linux/nls.h>
+#include <linux/slab.h>
 
 #include "hfs_fs.h"
 #include "btree.h"
@@ -215,7 +216,7 @@ int hfs_mdb_get(struct super_block *sb)
 		attrib &= cpu_to_be16(~HFS_SB_ATTRIB_UNMNT);
 		attrib |= cpu_to_be16(HFS_SB_ATTRIB_INCNSTNT);
 		mdb->drAtrb = attrib;
-		mdb->drWrCnt = cpu_to_be32(be32_to_cpu(mdb->drWrCnt) + 1);
+		be32_add_cpu(&mdb->drWrCnt, 1);
 		mdb->drLsMod = hfs_mtime();
 
 		mark_buffer_dirty(HFS_SB(sb)->mdb_bh);
@@ -344,11 +345,10 @@ void hfs_mdb_put(struct super_block *sb)
 	brelse(HFS_SB(sb)->mdb_bh);
 	brelse(HFS_SB(sb)->alt_mdb_bh);
 
-	if (HFS_SB(sb)->nls_io)
-		unload_nls(HFS_SB(sb)->nls_io);
-	if (HFS_SB(sb)->nls_disk)
-		unload_nls(HFS_SB(sb)->nls_disk);
+	unload_nls(HFS_SB(sb)->nls_io);
+	unload_nls(HFS_SB(sb)->nls_disk);
 
+	free_pages((unsigned long)HFS_SB(sb)->bitmap, PAGE_SIZE < 8192 ? 1 : 0);
 	kfree(HFS_SB(sb));
 	sb->s_fs_info = NULL;
 }

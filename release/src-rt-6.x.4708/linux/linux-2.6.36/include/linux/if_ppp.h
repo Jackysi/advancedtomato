@@ -1,5 +1,4 @@
-/*	$Id: if_ppp.h,v 1.21 2000/03/27 06:03:36 paulus Exp $	*/
-
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * if_ppp.h - Point-to-Point Protocol definitions.
  *
@@ -21,7 +20,7 @@
  */
 
 /*
- *  ==FILEVERSION 20000724==
+ *  ==FILEVERSION 20050812==
  *
  *  NOTE TO MAINTAINERS:
  *     If you modify this file at all, please set the above date.
@@ -35,6 +34,7 @@
 #ifndef _IF_PPP_H_
 #define _IF_PPP_H_
 
+#include <linux/types.h>
 #include <linux/compiler.h>
 
 /*
@@ -72,7 +72,8 @@
 #define SC_LOG_RAWIN	0x00080000	/* log all chars received */
 #define SC_LOG_FLUSH	0x00100000	/* log all chars flushed */
 #define	SC_SYNC		0x00200000	/* synchronous serial mode */
-#define	SC_MASK		0x0f200fff	/* bits that user can change */
+#define	SC_MUST_COMP    0x00400000	/* no uncompressed packets may be sent or received */
+#define	SC_MASK		0x0f600fff	/* bits that user can change */
 
 /* state bits */
 #define SC_XMIT_BUSY	0x10000000	/* (used by isdn_ppp?) */
@@ -111,17 +112,17 @@ struct ifpppcstatsreq {
 
 /* For PPPIOCGL2TPSTATS */
 struct pppol2tp_ioc_stats {
-	__u16	tunnel_id;	/* redundant */
-	__u16	session_id;	/* if zero, get tunnel stats */
-	__u64	tx_packets;
-	__u64	tx_bytes;
-	__u64	tx_errors;
-	__u64	rx_packets;
-	__u64	rx_bytes;
-	__u64	rx_seq_discards;
-	__u64	rx_oos_packets;
-	__u64	rx_errors;
-	int	using_ipsec;	/* valid only for session_id == 0 */
+	__u16		tunnel_id;	/* redundant */
+	__u16		session_id;	/* if zero, get tunnel stats */
+	__u32		using_ipsec:1;	/* valid only for session_id == 0 */
+	aligned_u64	tx_packets;
+	aligned_u64	tx_bytes;
+	aligned_u64	tx_errors;
+	aligned_u64	rx_packets;
+	aligned_u64	rx_bytes;
+	aligned_u64	rx_seq_discards;
+	aligned_u64	rx_oos_packets;
+	aligned_u64	rx_errors;
 };
 
 #define ifr__name       b.ifr_ifrn.ifrn_name
@@ -168,6 +169,11 @@ struct pppol2tp_ioc_stats {
 
 #if !defined(ifr_mtu)
 #define ifr_mtu	ifr_ifru.ifru_metric
+#endif
+
+#ifdef CTF_PPPOE
+extern void ppp_rxstats_upd(void *pppif, struct sk_buff *skb);
+extern void ppp_txstats_upd(void *pppif, struct sk_buff *skb);
 #endif
 
 #endif /* _IF_PPP_H_ */

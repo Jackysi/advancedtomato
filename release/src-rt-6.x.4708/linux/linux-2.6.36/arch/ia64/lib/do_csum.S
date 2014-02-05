@@ -111,7 +111,7 @@
 #define buf		in0
 #define len		in1
 
-#define LOAD_LATENCY	2	// XXX fix me
+#define LOAD_LATENCY	2
 
 #if (LOAD_LATENCY != 1) && (LOAD_LATENCY != 2)
 # error "Only 1 or 2 is supported/tested for LOAD_LATENCY."

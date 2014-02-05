@@ -28,8 +28,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * $Id: ib_srp.h 3932 2005-11-01 17:19:29Z roland $
  */
 
 #ifndef IB_SRP_H
@@ -54,6 +52,7 @@ enum {
 
 	SRP_PORT_REDIRECT	= 1,
 	SRP_DLID_REDIRECT	= 2,
+	SRP_STALE_CONN		= 3,
 
 	SRP_MAX_LUN		= 512,
 	SRP_DEF_SG_TABLESIZE	= 12,
@@ -61,7 +60,6 @@ enum {
 	SRP_RQ_SHIFT    	= 6,
 	SRP_RQ_SIZE		= 1 << SRP_RQ_SHIFT,
 	SRP_SQ_SIZE		= SRP_RQ_SIZE - 1,
-	SRP_CQ_SIZE		= SRP_SQ_SIZE + SRP_RQ_SIZE,
 
 	SRP_TAG_TSK_MGMT	= 1 << (SRP_RQ_SHIFT + 1),
 
@@ -70,13 +68,16 @@ enum {
 	SRP_FMR_DIRTY_SIZE	= SRP_FMR_POOL_SIZE / 4
 };
 
-#define SRP_OP_RECV		(1 << 31)
-
 enum srp_target_state {
 	SRP_TARGET_LIVE,
 	SRP_TARGET_CONNECTING,
 	SRP_TARGET_DEAD,
 	SRP_TARGET_REMOVED
+};
+
+enum srp_request_type {
+	SRP_REQ_NORMAL,
+	SRP_REQ_TASK_MGMT,
 };
 
 struct srp_device {
@@ -91,9 +92,9 @@ struct srp_device {
 };
 
 struct srp_host {
-	struct srp_device      *dev;
+	struct srp_device      *srp_dev;
 	u8			port;
-	struct class_device	class_dev;
+	struct device		dev;
 	struct list_head	target_list;
 	spinlock_t		target_lock;
 	struct completion	released;
@@ -106,11 +107,6 @@ struct srp_request {
 	struct srp_iu	       *cmd;
 	struct srp_iu	       *tsk_mgmt;
 	struct ib_pool_fmr     *fmr;
-	/*
-	 * Fake scatterlist used when scmnd->use_sg==0.  Can be killed
-	 * when the SCSI midlayer no longer generates non-SG commands.
-	 */
-	struct scatterlist	fake_sg;
 	struct completion	done;
 	short			index;
 	u8			cmd_done;
@@ -134,7 +130,8 @@ struct srp_target_port {
 	int			path_query_id;
 
 	struct ib_cm_id	       *cm_id;
-	struct ib_cq	       *cq;
+	struct ib_cq	       *recv_cq;
+	struct ib_cq	       *send_cq;
 	struct ib_qp	       *qp;
 
 	int			max_ti_iu_len;

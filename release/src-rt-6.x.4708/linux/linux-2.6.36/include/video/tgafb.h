@@ -3,7 +3,7 @@
  *
  *  	Copyright (C) 1999,2000 Martin Lucina, Tom Zerucha
  *  
- *  $Id: tgafb.h,v 1.4.2.3 2000/04/04 06:44:56 mato Exp $
+ *  $Id: tgafb.h,v 1.4.2.3 2000/04/04 06:44:56 Exp $
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License. See the file COPYING in the main directory of this archive for
@@ -216,6 +216,7 @@ struct tga_par {
 	u32 pll_freq;			/* pixclock in mhz */
 	u32 bits_per_pixel;		/* bits per pixel */
 	u32 sync_on_green;		/* set if sync is on green */
+	u32 palette[16];
 };
 
 

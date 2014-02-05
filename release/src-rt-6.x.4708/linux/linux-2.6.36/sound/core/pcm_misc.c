@@ -1,6 +1,6 @@
 /*
  *  PCM Interface - misc routines
- *  Copyright (c) 1998 by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) 1998 by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This library is free software; you can redistribute it and/or modify
@@ -19,7 +19,6 @@
  *
  */
   
-#include <sound/driver.h>
 #include <linux/time.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -75,7 +74,7 @@ static struct pcm_format_data pcm_formats[SNDRV_PCM_FORMAT_LAST+1] = {
 	},
 	[SNDRV_PCM_FORMAT_U24_BE] = {
 		.width = 24, .phys = 32, .le = 0, .signd = 0,
-		.silence = { 0x80, 0x00, 0x00 },
+		.silence = { 0x00, 0x80, 0x00, 0x00 },
 	},
 	[SNDRV_PCM_FORMAT_S32_LE] = {
 		.width = 32, .phys = 32, .le = 1, .signd = 1,
@@ -129,7 +128,14 @@ static struct pcm_format_data pcm_formats[SNDRV_PCM_FORMAT_LAST+1] = {
 		.width = 4, .phys = 4, .le = -1, .signd = -1,
 		.silence = {},
 	},
-	/* FIXME: the following three formats are not defined properly yet */
+	[SNDRV_PCM_FORMAT_G723_24] = {
+		.width = 3, .phys = 3, .le = -1, .signd = -1,
+		.silence = {},
+	},
+	[SNDRV_PCM_FORMAT_G723_40] = {
+		.width = 5, .phys = 5, .le = -1, .signd = -1,
+		.silence = {},
+	},
 	[SNDRV_PCM_FORMAT_MPEG] = {
 		.le = -1, .signd = -1,
 	},
@@ -186,6 +192,14 @@ static struct pcm_format_data pcm_formats[SNDRV_PCM_FORMAT_LAST+1] = {
 	[SNDRV_PCM_FORMAT_U18_3BE] = {
 		.width = 18, .phys = 24, .le = 0, .signd = 0,
 		.silence = { 0x02, 0x00, 0x00 },
+	},
+	[SNDRV_PCM_FORMAT_G723_24_1B] = {
+		.width = 3, .phys = 8, .le = -1, .signd = -1,
+		.silence = {},
+	},
+	[SNDRV_PCM_FORMAT_G723_40_1B] = {
+		.width = 5, .phys = 8, .le = -1, .signd = -1,
+		.silence = {},
 	},
 };
 
@@ -320,6 +334,7 @@ EXPORT_SYMBOL(snd_pcm_format_physical_width);
 /**
  * snd_pcm_format_size - return the byte size of samples on the given format
  * @format: the format to check
+ * @samples: sampling rate
  *
  * Returns the byte size of the given samples for the format, or a
  * negative error code if unknown format.
@@ -383,12 +398,6 @@ int snd_pcm_format_set_silence(snd_pcm_format_t format, void *data, unsigned int
 	/* non-zero samples, fill using a loop */
 	width /= 8;
 	dst = data;
-#if 0
-	while (samples--) {
-		memcpy(dst, pat, width);
-		dst += width;
-	}
-#else
 	/* a bit optimization for constant width */
 	switch (width) {
 	case 2:
@@ -416,43 +425,10 @@ int snd_pcm_format_set_silence(snd_pcm_format_t format, void *data, unsigned int
 		}
 		break;
 	}
-#endif
 	return 0;
 }
 
 EXPORT_SYMBOL(snd_pcm_format_set_silence);
-
-/* [width][unsigned][bigendian] */
-static int linear_formats[4][2][2] = {
-	{{ SNDRV_PCM_FORMAT_S8, SNDRV_PCM_FORMAT_S8},
-	 { SNDRV_PCM_FORMAT_U8, SNDRV_PCM_FORMAT_U8}},
-	{{SNDRV_PCM_FORMAT_S16_LE, SNDRV_PCM_FORMAT_S16_BE},
-	 {SNDRV_PCM_FORMAT_U16_LE, SNDRV_PCM_FORMAT_U16_BE}},
-	{{SNDRV_PCM_FORMAT_S24_LE, SNDRV_PCM_FORMAT_S24_BE},
-	 {SNDRV_PCM_FORMAT_U24_LE, SNDRV_PCM_FORMAT_U24_BE}},
-	{{SNDRV_PCM_FORMAT_S32_LE, SNDRV_PCM_FORMAT_S32_BE},
-	 {SNDRV_PCM_FORMAT_U32_LE, SNDRV_PCM_FORMAT_U32_BE}}
-};
-
-/**
- * snd_pcm_build_linear_format - return the suitable linear format for the given condition
- * @width: the bit-width
- * @unsignd: 1 if unsigned, 0 if signed.
- * @big_endian: 1 if big-endian, 0 if little-endian
- *
- * Returns the suitable linear format for the given condition.
- */
-snd_pcm_format_t snd_pcm_build_linear_format(int width, int unsignd, int big_endian)
-{
-	if (width & 7)
-		return SND_PCM_FORMAT_UNKNOWN;
-	width = (width / 8) - 1;
-	if (width < 0 || width >= 4)
-		return SND_PCM_FORMAT_UNKNOWN;
-	return linear_formats[width][!!unsignd][!!big_endian];
-}
-
-EXPORT_SYMBOL(snd_pcm_build_linear_format);
 
 /**
  * snd_pcm_limit_hw_rates - determine rate_min/rate_max fields
@@ -465,21 +441,16 @@ EXPORT_SYMBOL(snd_pcm_build_linear_format);
  */
 int snd_pcm_limit_hw_rates(struct snd_pcm_runtime *runtime)
 {
-	static unsigned rates[] = {
-		/* ATTENTION: these values depend on the definition in pcm.h! */
-		5512, 8000, 11025, 16000, 22050, 32000, 44100, 48000,
-		64000, 88200, 96000, 176400, 192000
-	};
 	int i;
-	for (i = 0; i < (int)ARRAY_SIZE(rates); i++) {
+	for (i = 0; i < (int)snd_pcm_known_rates.count; i++) {
 		if (runtime->hw.rates & (1 << i)) {
-			runtime->hw.rate_min = rates[i];
+			runtime->hw.rate_min = snd_pcm_known_rates.list[i];
 			break;
 		}
 	}
-	for (i = (int)ARRAY_SIZE(rates) - 1; i >= 0; i--) {
+	for (i = (int)snd_pcm_known_rates.count - 1; i >= 0; i--) {
 		if (runtime->hw.rates & (1 << i)) {
-			runtime->hw.rate_max = rates[i];
+			runtime->hw.rate_max = snd_pcm_known_rates.list[i];
 			break;
 		}
 	}
@@ -487,3 +458,21 @@ int snd_pcm_limit_hw_rates(struct snd_pcm_runtime *runtime)
 }
 
 EXPORT_SYMBOL(snd_pcm_limit_hw_rates);
+
+/**
+ * snd_pcm_rate_to_rate_bit - converts sample rate to SNDRV_PCM_RATE_xxx bit
+ * @rate: the sample rate to convert
+ *
+ * Returns the SNDRV_PCM_RATE_xxx flag that corresponds to the given rate, or
+ * SNDRV_PCM_RATE_KNOT for an unknown rate.
+ */
+unsigned int snd_pcm_rate_to_rate_bit(unsigned int rate)
+{
+	unsigned int i;
+
+	for (i = 0; i < snd_pcm_known_rates.count; i++)
+		if (snd_pcm_known_rates.list[i] == rate)
+			return 1u << i;
+	return SNDRV_PCM_RATE_KNOT;
+}
+EXPORT_SYMBOL(snd_pcm_rate_to_rate_bit);

@@ -338,4 +338,3 @@ static inline unsigned int sub(unsigned int a, unsigned int b)
 }
 
 #endif /* __SOUND_PCM_PARAMS_H */
-

@@ -2,7 +2,7 @@
  *	Linux NET3:	Internet Group Management Protocol  [IGMP]
  *
  *	Authors:
- *		Alan Cox <Alan.Cox@linux.org>
+ *		Alan Cox <alan@lxorguk.ukuu.org.uk>
  *
  *	Extended to talk the BSD extended IGMP protocol of mrouted 3.6
  *
@@ -16,6 +16,7 @@
 #ifndef _LINUX_IGMP_H
 #define _LINUX_IGMP_H
 
+#include <linux/types.h>
 #include <asm/byteorder.h>
 
 /*
@@ -26,8 +27,7 @@
  *	Header in on cable format
  */
 
-struct igmphdr
-{
+struct igmphdr {
 	__u8 type;
 	__u8 code;		/* For newer IGMP */
 	__sum16 csum;
@@ -80,27 +80,6 @@ struct igmpv3_query {
 	__be32 srcs[0];
 };
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct igmphdr *igmp_hdr(const struct sk_buff *skb)
-{
-	return (struct igmphdr *)skb_transport_header(skb);
-}
-
-static inline struct igmpv3_report *
-			igmpv3_report_hdr(const struct sk_buff *skb)
-{
-	return (struct igmpv3_report *)skb_transport_header(skb);
-}
-
-static inline struct igmpv3_query *
-			igmpv3_query_hdr(const struct sk_buff *skb)
-{
-	return (struct igmpv3_query *)skb_transport_header(skb);
-}
-#endif
-
 #define IGMP_HOST_MEMBERSHIP_QUERY	0x11	/* From RFC1112 */
 #define IGMP_HOST_MEMBERSHIP_REPORT	0x12	/* Ditto */
 #define IGMP_DVMRP			0x13	/* DVMRP routing */
@@ -151,13 +130,30 @@ static inline struct igmpv3_query *
 #include <linux/timer.h>
 #include <linux/in.h>
 
+static inline struct igmphdr *igmp_hdr(const struct sk_buff *skb)
+{
+	return (struct igmphdr *)skb_transport_header(skb);
+}
+
+static inline struct igmpv3_report *
+			igmpv3_report_hdr(const struct sk_buff *skb)
+{
+	return (struct igmpv3_report *)skb_transport_header(skb);
+}
+
+static inline struct igmpv3_query *
+			igmpv3_query_hdr(const struct sk_buff *skb)
+{
+	return (struct igmpv3_query *)skb_transport_header(skb);
+}
+
 extern int sysctl_igmp_max_memberships;
 extern int sysctl_igmp_max_msf;
 
-struct ip_sf_socklist
-{
+struct ip_sf_socklist {
 	unsigned int		sl_max;
 	unsigned int		sl_count;
+	struct rcu_head		rcu;
 	__be32			sl_addr[0];
 };
 
@@ -170,16 +166,15 @@ struct ip_sf_socklist
    this list never used in fast path code
  */
 
-struct ip_mc_socklist
-{
+struct ip_mc_socklist {
 	struct ip_mc_socklist	*next;
 	struct ip_mreqn		multi;
 	unsigned int		sfmode;		/* MCAST_{INCLUDE,EXCLUDE} */
 	struct ip_sf_socklist	*sflist;
+	struct rcu_head		rcu;
 };
 
-struct ip_sf_list
-{
+struct ip_sf_list {
 	struct ip_sf_list	*sf_next;
 	__be32			sf_inaddr;
 	unsigned long		sf_count[2];	/* include/exclude counts */
@@ -188,8 +183,7 @@ struct ip_sf_list
 	unsigned char		sf_crcount;	/* retrans. left to send */
 };
 
-struct ip_mc_list
-{
+struct ip_mc_list {
 	struct in_device	*interface;
 	__be32			multiaddr;
 	struct ip_sf_list	*sources;
@@ -232,11 +226,12 @@ extern int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
 extern int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
 		struct group_filter __user *optval, int __user *optlen);
 extern int ip_mc_sf_allow(struct sock *sk, __be32 local, __be32 rmt, int dif);
-extern void ip_mr_init(void);
 extern void ip_mc_init_dev(struct in_device *);
 extern void ip_mc_destroy_dev(struct in_device *);
 extern void ip_mc_up(struct in_device *);
 extern void ip_mc_down(struct in_device *);
+extern void ip_mc_unmap(struct in_device *);
+extern void ip_mc_remap(struct in_device *);
 extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
 extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
 extern void ip_mc_rejoin_group(struct ip_mc_list *im);

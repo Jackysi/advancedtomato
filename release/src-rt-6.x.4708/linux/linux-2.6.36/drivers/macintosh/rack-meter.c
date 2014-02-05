@@ -18,6 +18,7 @@
 
 #include <linux/types.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -29,7 +30,6 @@
 #include <asm/prom.h>
 #include <asm/machdep.h>
 #include <asm/pmac_feature.h>
-#include <asm/dbdma.h>
 #include <asm/dbdma.h>
 #include <asm/macio.h>
 #include <asm/keylargo.h>
@@ -275,7 +275,7 @@ static void __devinit rackmeter_init_cpu_sniffer(struct rackmeter *rm)
 
 		if (cpu > 1)
 			continue;
-		rcpu = &rm->cpu[cpu];;
+		rcpu = &rm->cpu[cpu];
 		rcpu->prev_idle = get_cpu_idle_time(cpu);
 		rcpu->prev_wall = jiffies64_to_cputime64(get_jiffies_64());
 		schedule_delayed_work_on(cpu, &rm->cpu[cpu].sniffer,
@@ -289,7 +289,7 @@ static void __devexit rackmeter_stop_cpu_sniffer(struct rackmeter *rm)
 	cancel_rearming_delayed_work(&rm->cpu[1].sniffer);
 }
 
-static int rackmeter_setup(struct rackmeter *rm)
+static int __devinit rackmeter_setup(struct rackmeter *rm)
 {
 	pr_debug("rackmeter: setting up i2s..\n");
 	rackmeter_setup_i2s(rm);
@@ -308,7 +308,6 @@ static int rackmeter_setup(struct rackmeter *rm)
 	return 0;
 }
 
-/*  XXX FIXME: No PWM yet, this is 0/1 */
 static u32 rackmeter_calc_sample(struct rackmeter *rm, unsigned int index)
 {
 	int led;
@@ -375,7 +374,7 @@ static int __devinit rackmeter_probe(struct macio_dev* mdev,
 	pr_debug("rackmeter_probe()\n");
 
 	/* Get i2s-a node */
-	while ((i2s = of_get_next_child(mdev->ofdev.node, i2s)) != NULL)
+	while ((i2s = of_get_next_child(mdev->ofdev.dev.of_node, i2s)) != NULL)
 	       if (strcmp(i2s->name, "i2s-a") == 0)
 		       break;
 	if (i2s == NULL) {
@@ -407,35 +406,16 @@ static int __devinit rackmeter_probe(struct macio_dev* mdev,
 	mutex_init(&rm->sem);
 	dev_set_drvdata(&mdev->ofdev.dev, rm);
 	/* Check resources availability. We need at least resource 0 and 1 */
-#if 0 /* Use that when i2s-a is finally an mdev per-se */
-	if (macio_resource_count(mdev) < 2 || macio_irq_count(mdev) < 2) {
-		printk(KERN_ERR
-		       "rackmeter: found match but lacks resources: %s"
-		       " (%d resources, %d interrupts)\n",
-		       mdev->ofdev.node->full_name);
-		rc = -ENXIO;
-		goto bail_free;
-	}
-	if (macio_request_resources(mdev, "rackmeter")) {
-		printk(KERN_ERR
-		       "rackmeter: failed to request resources: %s\n",
-		       mdev->ofdev.node->full_name);
-		rc = -EBUSY;
-		goto bail_free;
-	}
-	rm->irq = macio_irq(mdev, 1);
-#else
 	rm->irq = irq_of_parse_and_map(i2s, 1);
 	if (rm->irq == NO_IRQ ||
 	    of_address_to_resource(i2s, 0, &ri2s) ||
 	    of_address_to_resource(i2s, 1, &rdma)) {
 		printk(KERN_ERR
 		       "rackmeter: found match but lacks resources: %s",
-		       mdev->ofdev.node->full_name);
+		       mdev->ofdev.dev.of_node->full_name);
 		rc = -ENXIO;
 		goto bail_free;
 	}
-#endif
 
 	pr_debug("  i2s @0x%08x\n", (unsigned int)ri2s.start);
 	pr_debug("  dma @0x%08x\n", (unsigned int)rdma.start);
@@ -458,22 +438,14 @@ static int __devinit rackmeter_probe(struct macio_dev* mdev,
 		rc = -ENOMEM;
 		goto bail_free_samples;
 	}
-#if 0
-	rm->i2s_regs = ioremap(macio_resource_start(mdev, 0), 0x1000);
-#else
 	rm->i2s_regs = ioremap(ri2s.start, 0x1000);
-#endif
 	if (rm->i2s_regs == NULL) {
 		printk(KERN_ERR
 		       "rackmeter: failed to map i2s registers !\n");
 		rc = -ENXIO;
 		goto bail_free_dma;
 	}
-#if 0
-	rm->dma_regs = ioremap(macio_resource_start(mdev, 1), 0x100);
-#else
 	rm->dma_regs = ioremap(rdma.start, 0x100);
-#endif
 	if (rm->dma_regs == NULL) {
 		printk(KERN_ERR
 		       "rackmeter: failed to map dma registers !\n");
@@ -511,9 +483,6 @@ static int __devinit rackmeter_probe(struct macio_dev* mdev,
  bail_free_samples:
 	free_page((unsigned long)rm->ubuf);
  bail_release:
-#if 0
-	macio_release_resources(mdev);
-#endif
  bail_free:
 	kfree(rm);
  bail:
@@ -551,10 +520,6 @@ static int __devexit rackmeter_remove(struct macio_dev* mdev)
 	/* Free samples */
 	free_page((unsigned long)rm->ubuf);
 
-#if 0
-	/* Release resources */
-	macio_release_resources(mdev);
-#endif
 
 	/* Get rid of me */
 	kfree(rm);
@@ -583,12 +548,14 @@ static struct of_device_id rackmeter_match[] = {
 	{ }
 };
 
-static struct macio_driver rackmeter_drv = {
-	.name = "rackmeter",
-	.owner = THIS_MODULE,
-	.match_table = rackmeter_match,
+static struct macio_driver rackmeter_driver = {
+	.driver = {
+		.name = "rackmeter",
+		.owner = THIS_MODULE,
+		.of_match_table = rackmeter_match,
+	},
 	.probe = rackmeter_probe,
-	.remove = rackmeter_remove,
+	.remove = __devexit_p(rackmeter_remove),
 	.shutdown = rackmeter_shutdown,
 };
 
@@ -597,14 +564,14 @@ static int __init rackmeter_init(void)
 {
 	pr_debug("rackmeter_init()\n");
 
-	return macio_register_driver(&rackmeter_drv);
+	return macio_register_driver(&rackmeter_driver);
 }
 
 static void __exit rackmeter_exit(void)
 {
 	pr_debug("rackmeter_exit()\n");
 
-	macio_unregister_driver(&rackmeter_drv);
+	macio_unregister_driver(&rackmeter_driver);
 }
 
 module_init(rackmeter_init);

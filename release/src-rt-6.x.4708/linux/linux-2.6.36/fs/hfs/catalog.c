@@ -190,6 +190,10 @@ int hfs_cat_find_brec(struct super_block *sb, u32 cnid,
 
 	fd->search_key->cat.ParID = rec.thread.ParID;
 	len = fd->search_key->cat.CName.len = rec.thread.CName.len;
+	if (len > HFS_NAMELEN) {
+		printk(KERN_ERR "hfs: bad catalog namelength\n");
+		return -EIO;
+	}
 	memcpy(fd->search_key->cat.CName.name, rec.thread.CName.name, len);
 	return hfs_brec_find(fd);
 }
@@ -222,9 +226,6 @@ int hfs_cat_delete(u32 cnid, struct inode *dir, struct qstr *str)
 		struct hfs_cat_file file;
 		hfs_bnode_read(fd.bnode, &file, fd.entryoffset, sizeof(file));
 		if (be32_to_cpu(file.FlNum) == cnid) {
-#if 0
-			hfs_free_fork(sb, &file, HFS_FK_DATA);
-#endif
 			hfs_free_fork(sb, &file, HFS_FK_RSRC);
 		}
 	}
@@ -285,6 +286,10 @@ int hfs_cat_move(u32 cnid, struct inode *src_dir, struct qstr *src_name,
 	err = hfs_brec_find(&src_fd);
 	if (err)
 		goto out;
+	if (src_fd.entrylength > sizeof(entry) || src_fd.entrylength < 0) {
+		err = -EIO;
+		goto out;
+	}
 
 	hfs_bnode_read(src_fd.bnode, &entry, src_fd.entryoffset,
 			    src_fd.entrylength);

@@ -36,7 +36,7 @@ struct xfs_trans;
 #define	XFS_DIR2_FREE_SPACE	2
 #define	XFS_DIR2_FREE_OFFSET	(XFS_DIR2_FREE_SPACE * XFS_DIR2_SPACE_SIZE)
 #define	XFS_DIR2_FREE_FIRSTDB(mp)	\
-	XFS_DIR2_BYTE_TO_DB(mp, XFS_DIR2_FREE_OFFSET)
+	xfs_dir2_byte_to_db(mp, XFS_DIR2_FREE_OFFSET)
 
 #define	XFS_DIR2_FREE_MAGIC	0x58443246	/* XD2F */
 
@@ -60,7 +60,6 @@ typedef struct xfs_dir2_free {
 /*
  * Convert data space db to the corresponding free db.
  */
-#define	XFS_DIR2_DB_TO_FDB(mp,db)	xfs_dir2_db_to_fdb(mp, db)
 static inline xfs_dir2_db_t
 xfs_dir2_db_to_fdb(struct xfs_mount *mp, xfs_dir2_db_t db)
 {
@@ -70,15 +69,12 @@ xfs_dir2_db_to_fdb(struct xfs_mount *mp, xfs_dir2_db_t db)
 /*
  * Convert data space db to the corresponding index in a free db.
  */
-#define	XFS_DIR2_DB_TO_FDINDEX(mp,db)	xfs_dir2_db_to_fdindex(mp, db)
 static inline int
 xfs_dir2_db_to_fdindex(struct xfs_mount *mp, xfs_dir2_db_t db)
 {
 	return ((db) % XFS_DIR2_MAX_FREE_BESTS(mp));
 }
 
-extern void xfs_dir2_free_log_bests(struct xfs_trans *tp, struct xfs_dabuf *bp,
-				    int first, int last);
 extern int xfs_dir2_leaf_to_node(struct xfs_da_args *args,
 				 struct xfs_dabuf *lbp);
 extern xfs_dahash_t xfs_dir2_leafn_lasthash(struct xfs_dabuf *bp, int *count);

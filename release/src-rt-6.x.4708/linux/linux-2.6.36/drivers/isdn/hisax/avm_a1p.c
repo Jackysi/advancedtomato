@@ -1,4 +1,4 @@
-/* $Id: avm_a1p.c,v 2.9.2.5 2004/01/24 20:47:19 keil Exp $
+/* $Id: avm_a1p.c,v 2.9.2.5 2004/01/24 20:47:19 Exp $
  *
  * low level stuff for the following AVM cards:
  * A1 PCMCIA
@@ -213,8 +213,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return 0;
 }
 
-int
-setup_avm_a1_pcmcia(struct IsdnCard *card)
+int __devinit setup_avm_a1_pcmcia(struct IsdnCard *card)
 {
 	u_char model, vers;
 	struct IsdnCardState *cs = card->cs;

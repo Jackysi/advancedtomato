@@ -20,7 +20,7 @@
 #include <linux/delay.h>
 #include <linux/mm.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
 #include <asm/setup.h>
@@ -34,8 +34,8 @@
 #include <asm/mach/irda.h>
 #include <asm/mach/map.h>
 #include <asm/mach/serial_sa1100.h>
-#include <asm/arch/assabet.h>
-#include <asm/arch/mcp.h>
+#include <mach/assabet.h>
+#include <mach/mcp.h>
 
 #include "generic.h"
 
@@ -249,10 +249,10 @@ static void __init assabet_init(void)
 #endif
 	}
 
-	sa11x0_set_flash_data(&assabet_flash_data, assabet_flash_resources,
-			      ARRAY_SIZE(assabet_flash_resources));
-	sa11x0_set_irda_data(&assabet_irda_data);
-	sa11x0_set_mcp_data(&assabet_mcp_data);
+	sa11x0_register_mtd(&assabet_flash_data, assabet_flash_resources,
+			    ARRAY_SIZE(assabet_flash_resources));
+	sa11x0_register_irda(&assabet_irda_data);
+	sa11x0_register_mcp(&assabet_mcp_data);
 }
 
 /*

@@ -1,7 +1,6 @@
 			  Linux Input drivers v1.0
 	       (c) 1999-2001 Vojtech Pavlik <vojtech@ucw.cz>
 			     Sponsored by SuSE
-	    $Id: input.txt,v 1.8 2002/05/29 03:15:01 bradleym Exp $
 ----------------------------------------------------------------------------
 
 0. Disclaimer
@@ -279,7 +278,7 @@ struct input_event {
 };
 
   'time' is the timestamp, it returns the time at which the event happened.
-Type is for example EV_REL for relative moment, REL_KEY for a keypress or
+Type is for example EV_REL for relative moment, EV_KEY for a keypress or
 release. More types are defined in include/linux/input.h.
 
   'code' is event code, for example REL_X or KEY_BACKSPACE, again a complete

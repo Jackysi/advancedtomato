@@ -188,9 +188,6 @@ wildfire_hardware_probe(void)
 	int i;
 
 	temp = fast->qsd_whami.csr;
-#if 0
-	printk(KERN_ERR "fast QSD_WHAMI at base %p is 0x%lx\n", fast, temp);
-#endif
 
 	hard_qbb = (temp >> 8) & 7;
 	soft_qbb = (temp >> 4) & 7;
@@ -215,9 +212,6 @@ wildfire_hardware_probe(void)
 	qsa = WILDFIRE_qsa(soft_qbb);
 
 	temp = qsa->qsa_qbb_id.csr;
-#if 0
-	printk(KERN_ERR "QSA_QBB_ID at base %p is 0x%lx\n", qsa, temp);
-#endif
 
 	if (temp & 0x40) /* Is there an HS? */
 		wildfire_hs_mask = 1;
@@ -227,10 +221,6 @@ wildfire_hardware_probe(void)
 		temp = 0;
 		for (i = 0; i < 4; i++) {
 			temp |= gp->gpa_qbb_map[i].csr << (i * 8);
-#if 0
-			printk(KERN_ERR "GPA_QBB_MAP[%d] at base %p is 0x%lx\n",
-			       i, gp, temp);
-#endif
 		}
 
 		for (hard_qbb = 0; hard_qbb < WILDFIRE_MAX_QBB; hard_qbb++) {
@@ -249,32 +239,20 @@ wildfire_hardware_probe(void)
 	    if (WILDFIRE_QBB_EXISTS(soft_qbb)) {
 	        qsd = WILDFIRE_qsd(soft_qbb);
 		temp = qsd->qsd_whami.csr;
-#if 0
-	printk(KERN_ERR "QSD_WHAMI at base %p is 0x%lx\n", qsd, temp);
-#endif
 		hard_qbb = (temp >> 8) & 7;
 		wildfire_hard_qbb_map[hard_qbb] = soft_qbb;
 		wildfire_soft_qbb_map[soft_qbb] = hard_qbb;
 
 		qsa = WILDFIRE_qsa(soft_qbb);
 		temp = qsa->qsa_qbb_pop[0].csr;
-#if 0
-	printk(KERN_ERR "QSA_QBB_POP_0 at base %p is 0x%lx\n", qsa, temp);
-#endif
 		wildfire_cpu_mask |= ((temp >> 0) & 0xf) << (soft_qbb << 2);
 		wildfire_mem_mask |= ((temp >> 4) & 0xf) << (soft_qbb << 2);
 
 		temp = qsa->qsa_qbb_pop[1].csr;
-#if 0
-	printk(KERN_ERR "QSA_QBB_POP_1 at base %p is 0x%lx\n", qsa, temp);
-#endif
 		wildfire_iop_mask |= (1 << soft_qbb);
 		wildfire_ior_mask |= ((temp >> 4) & 0xf) << (soft_qbb << 2);
 
 		temp = qsa->qsa_qbb_id.csr;
-#if 0
-	printk(KERN_ERR "QSA_QBB_ID at %p is 0x%lx\n", qsa, temp);
-#endif
 		if (temp & 0x20)
 		    wildfire_gp_mask |= (1 << soft_qbb);
 
@@ -327,7 +305,6 @@ wildfire_machine_check(unsigned long vector, unsigned long la_ptr)
 	mb();
 	mb();  /* magic */
 	draina();
-	/* FIXME: clear pci errors */
 	wrmces(0x7);
 	mb();
 

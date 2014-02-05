@@ -12,7 +12,18 @@
 #include <linux/module.h>
 #include <linux/uts.h>
 #include <linux/utsname.h>
-#include <linux/version.h>
+#include <linux/err.h>
+#include <linux/slab.h>
+
+static struct uts_namespace *create_uts_ns(void)
+{
+	struct uts_namespace *uts_ns;
+
+	uts_ns = kmalloc(sizeof(struct uts_namespace), GFP_KERNEL);
+	if (uts_ns)
+		kref_init(&uts_ns->kref);
+	return uts_ns;
+}
 
 /*
  * Clone a new ns copying an original utsname, setting refcount to 1
@@ -23,11 +34,13 @@ static struct uts_namespace *clone_uts_ns(struct uts_namespace *old_ns)
 {
 	struct uts_namespace *ns;
 
-	ns = kmalloc(sizeof(struct uts_namespace), GFP_KERNEL);
-	if (ns) {
-		memcpy(&ns->name, &old_ns->name, sizeof(ns->name));
-		kref_init(&ns->kref);
-	}
+	ns = create_uts_ns();
+	if (!ns)
+		return ERR_PTR(-ENOMEM);
+
+	down_read(&uts_sem);
+	memcpy(&ns->name, &old_ns->name, sizeof(ns->name));
+	up_read(&uts_sem);
 	return ns;
 }
 
@@ -37,7 +50,7 @@ static struct uts_namespace *clone_uts_ns(struct uts_namespace *old_ns)
  * utsname of this process won't be seen by parent, and vice
  * versa.
  */
-struct uts_namespace *copy_utsname(int flags, struct uts_namespace *old_ns)
+struct uts_namespace *copy_utsname(unsigned long flags, struct uts_namespace *old_ns)
 {
 	struct uts_namespace *new_ns;
 

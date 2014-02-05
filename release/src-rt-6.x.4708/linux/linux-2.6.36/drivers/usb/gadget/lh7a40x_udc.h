@@ -47,10 +47,10 @@
 #include <asm/irq.h>
 #include <asm/system.h>
 #include <asm/unaligned.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #include <linux/usb/ch9.h>
-#include <linux/usb_gadget.h>
+#include <linux/usb/gadget.h>
 
 /*
  * Memory map

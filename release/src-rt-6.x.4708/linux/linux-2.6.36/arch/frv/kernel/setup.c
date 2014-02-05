@@ -10,7 +10,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 
-#include <linux/utsrelease.h>
+#include <generated/utsrelease.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
@@ -29,6 +29,7 @@
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 #include <linux/serial_reg.h>
+#include <linux/serial_8250.h>
 
 #include <asm/setup.h>
 #include <asm/irq.h>
@@ -45,7 +46,6 @@
 #include <asm/io.h>
 
 #ifdef CONFIG_BLK_DEV_INITRD
-#include <linux/blk.h>
 #include <asm/pgtable.h>
 #endif
 
@@ -58,10 +58,6 @@ static void __init mb93090_display(void);
 static void __init setup_linux_memory(void);
 #else
 static void __init setup_uclinux_memory(void);
-#endif
-
-#ifdef CONFIG_CONSOLE
-extern struct consw *conswitchp;
 #endif
 
 #ifdef CONFIG_MB93090_MB00
@@ -209,33 +205,6 @@ static struct uart_port __pminitdata __frv_uart1 = {
 	.flags			= UPF_BOOT_AUTOCONF | UPF_SKIP_TEST,
 };
 
-#if 0
-static void __init printk_xampr(unsigned long ampr, unsigned long amlr, char i_d, int n)
-{
-	unsigned long phys, virt, cxn, size;
-
-#ifdef CONFIG_MMU
-	virt = amlr & 0xffffc000;
-	cxn = amlr & 0x3fff;
-#else
-	virt = ampr & 0xffffc000;
-	cxn = 0;
-#endif
-	phys = ampr & xAMPRx_PPFN;
-	size = 1 << (((ampr & xAMPRx_SS) >> 4) + 17);
-
-	printk("%cAMPR%d: va %08lx-%08lx [pa %08lx] %c%c%c%c [cxn:%04lx]\n",
-	       i_d, n,
-	       virt, virt + size - 1,
-	       phys,
-	       ampr & xAMPRx_S  ? 'S' : '-',
-	       ampr & xAMPRx_C  ? 'C' : '-',
-	       ampr & DAMPRx_WP ? 'W' : '-',
-	       ampr & xAMPRx_V  ? 'V' : '-',
-	       cxn
-	       );
-}
-#endif
 
 /*****************************************************************************/
 /*
@@ -244,75 +213,8 @@ static void __init printk_xampr(unsigned long ampr, unsigned long amlr, char i_d
 static void __init dump_memory_map(void)
 {
 
-#if 0
-	/* dump the protection map */
-	printk_xampr(__get_IAMPR(0),  __get_IAMLR(0),  'I', 0);
-	printk_xampr(__get_IAMPR(1),  __get_IAMLR(1),  'I', 1);
-	printk_xampr(__get_IAMPR(2),  __get_IAMLR(2),  'I', 2);
-	printk_xampr(__get_IAMPR(3),  __get_IAMLR(3),  'I', 3);
-	printk_xampr(__get_IAMPR(4),  __get_IAMLR(4),  'I', 4);
-	printk_xampr(__get_IAMPR(5),  __get_IAMLR(5),  'I', 5);
-	printk_xampr(__get_IAMPR(6),  __get_IAMLR(6),  'I', 6);
-	printk_xampr(__get_IAMPR(7),  __get_IAMLR(7),  'I', 7);
-	printk_xampr(__get_IAMPR(8),  __get_IAMLR(8),  'I', 8);
-	printk_xampr(__get_IAMPR(9),  __get_IAMLR(9),  'i', 9);
-	printk_xampr(__get_IAMPR(10), __get_IAMLR(10), 'I', 10);
-	printk_xampr(__get_IAMPR(11), __get_IAMLR(11), 'I', 11);
-	printk_xampr(__get_IAMPR(12), __get_IAMLR(12), 'I', 12);
-	printk_xampr(__get_IAMPR(13), __get_IAMLR(13), 'I', 13);
-	printk_xampr(__get_IAMPR(14), __get_IAMLR(14), 'I', 14);
-	printk_xampr(__get_IAMPR(15), __get_IAMLR(15), 'I', 15);
 
-	printk_xampr(__get_DAMPR(0),  __get_DAMLR(0),  'D', 0);
-	printk_xampr(__get_DAMPR(1),  __get_DAMLR(1),  'D', 1);
-	printk_xampr(__get_DAMPR(2),  __get_DAMLR(2),  'D', 2);
-	printk_xampr(__get_DAMPR(3),  __get_DAMLR(3),  'D', 3);
-	printk_xampr(__get_DAMPR(4),  __get_DAMLR(4),  'D', 4);
-	printk_xampr(__get_DAMPR(5),  __get_DAMLR(5),  'D', 5);
-	printk_xampr(__get_DAMPR(6),  __get_DAMLR(6),  'D', 6);
-	printk_xampr(__get_DAMPR(7),  __get_DAMLR(7),  'D', 7);
-	printk_xampr(__get_DAMPR(8),  __get_DAMLR(8),  'D', 8);
-	printk_xampr(__get_DAMPR(9),  __get_DAMLR(9),  'D', 9);
-	printk_xampr(__get_DAMPR(10), __get_DAMLR(10), 'D', 10);
-	printk_xampr(__get_DAMPR(11), __get_DAMLR(11), 'D', 11);
-	printk_xampr(__get_DAMPR(12), __get_DAMLR(12), 'D', 12);
-	printk_xampr(__get_DAMPR(13), __get_DAMLR(13), 'D', 13);
-	printk_xampr(__get_DAMPR(14), __get_DAMLR(14), 'D', 14);
-	printk_xampr(__get_DAMPR(15), __get_DAMLR(15), 'D', 15);
-#endif
 
-#if 0
-	/* dump the bus controller registers */
-	printk("LGCR: %08lx\n", __get_LGCR());
-	printk("Master: %08lx-%08lx CR=%08lx\n",
-	       __get_LEMBR(), __get_LEMBR() + __get_LEMAM(),
-	       __get_LMAICR());
-
-	int loop;
-	for (loop = 1; loop <= 7; loop++) {
-		unsigned long lcr = __get_LCR(loop), lsbr = __get_LSBR(loop);
-		printk("CS#%d: %08lx-%08lx %c%c%c%c%c%c%c%c%c\n",
-		       loop,
-		       lsbr, lsbr + __get_LSAM(loop),
-		       lcr & 0x80000000 ? 'r' : '-',
-		       lcr & 0x40000000 ? 'w' : '-',
-		       lcr & 0x08000000 ? 'b' : '-',
-		       lcr & 0x04000000 ? 'B' : '-',
-		       lcr & 0x02000000 ? 'C' : '-',
-		       lcr & 0x01000000 ? 'D' : '-',
-		       lcr & 0x00800000 ? 'W' : '-',
-		       lcr & 0x00400000 ? 'R' : '-',
-		       (lcr & 0x00030000) == 0x00000000 ? '4' :
-		       (lcr & 0x00030000) == 0x00010000 ? '2' :
-		       (lcr & 0x00030000) == 0x00020000 ? '1' :
-		       '-'
-		       );
-	}
-#endif
-
-#if 0
-	printk("\n");
-#endif
 } /* end dump_memory_map() */
 
 /*****************************************************************************/
@@ -711,7 +613,7 @@ static void __init reserve_dma_coherent(void)
 /*
  * calibrate the delay loop
  */
-void __init calibrate_delay(void)
+void __cpuinit calibrate_delay(void)
 {
 	loops_per_jiffy = __delay_loops_MHz * (1000000 / HZ);
 
@@ -734,9 +636,6 @@ static void __init parse_cmdline_early(char *cmdline)
 		if (*cmdline == ' ')
 			cmdline++;
 
-		/* "mem=XXX[kKmM]" sets SDRAM size to <mem>, overriding the value we worked
-		 * out from the SDRAM controller mask register
-		 */
 		if (!memcmp(cmdline, "mem=", 4)) {
 			unsigned long long mem_size;
 
@@ -795,13 +694,6 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 
-#if defined(CONFIG_CHR_DEV_FLASH) || defined(CONFIG_BLK_DEV_FLASH)
-	/* we need to initialize the Flashrom device here since we might
-	 * do things with flash early on in the boot
-	 */
-	flash_probe();
-#endif
-
 	/* deal with the command line - RedBoot may have passed one to the kernel */
 	memcpy(command_line, boot_command_line, sizeof(command_line));
 	*cmdline_p = &command_line[0];
@@ -816,11 +708,7 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.start_code = (unsigned long) &_stext;
 	init_mm.end_code = (unsigned long) &_etext;
 	init_mm.end_data = (unsigned long) &_edata;
-#if 0 /* DAVIDM - don't set brk just incase someone decides to use it */
-	init_mm.brk = (unsigned long) &_end;
-#else
 	init_mm.brk = (unsigned long) 0;
-#endif
 
 #ifdef DEBUG
 	printk("KERNEL -> TEXT=0x%06x-0x%06x DATA=0x%06x-0x%06x BSS=0x%06x-0x%06x\n",
@@ -836,11 +724,6 @@ void __init setup_arch(char **cmdline_p)
         conswitchp = &dummy_con;
 #endif
 #endif
-
-#ifdef CONFIG_BLK_DEV_BLKMEM
-	ROOT_DEV = MKDEV(BLKMEM_MAJOR,0);
-#endif
-	/*rom_length = (unsigned long)&_flashend - (unsigned long)&_romvec;*/
 
 #ifdef CONFIG_MMU
 	setup_linux_memory();
@@ -863,26 +746,6 @@ void __init setup_arch(char **cmdline_p)
 
 } /* end setup_arch() */
 
-#if 0
-/*****************************************************************************/
-/*
- *
- */
-static int __devinit setup_arch_serial(void)
-{
-	/* register those serial ports that are available */
-#ifndef CONFIG_GDBSTUB_UART0
-	early_serial_setup(&__frv_uart0);
-#endif
-#ifndef CONFIG_GDBSTUB_UART1
-	early_serial_setup(&__frv_uart1);
-#endif
-
-	return 0;
-} /* end setup_arch_serial() */
-
-late_initcall(setup_arch_serial);
-#endif
 
 /*****************************************************************************/
 /*
@@ -940,13 +803,15 @@ static void __init setup_linux_memory(void)
 #endif
 
 	/* take back the memory occupied by the kernel image and the bootmem alloc map */
-	reserve_bootmem(kstart, kend - kstart + bootmap_size);
+	reserve_bootmem(kstart, kend - kstart + bootmap_size,
+			BOOTMEM_DEFAULT);
 
 	/* reserve the memory occupied by the initial ramdisk */
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (LOADER_TYPE && INITRD_START) {
 		if (INITRD_START + INITRD_SIZE <= (low_top_pfn << PAGE_SHIFT)) {
-			reserve_bootmem(INITRD_START, INITRD_SIZE);
+			reserve_bootmem(INITRD_START, INITRD_SIZE,
+					BOOTMEM_DEFAULT);
 			initrd_start = INITRD_START + PAGE_OFFSET;
 			initrd_end = initrd_start + INITRD_SIZE;
 		}
@@ -1001,9 +866,10 @@ static void __init setup_uclinux_memory(void)
 
 	/* now take back the bits the core kernel is occupying */
 #ifndef CONFIG_PROTECT_KERNEL
-	reserve_bootmem(kend, bootmap_size);
+	reserve_bootmem(kend, bootmap_size, BOOTMEM_DEFAULT);
 	reserve_bootmem((unsigned long) &__kernel_image_start,
-			kend - (unsigned long) &__kernel_image_start);
+			kend - (unsigned long) &__kernel_image_start,
+			BOOTMEM_DEFAULT);
 
 #else
 	dampr = __get_DAMPR(0);
@@ -1011,14 +877,15 @@ static void __init setup_uclinux_memory(void)
 	dampr = (dampr >> 4) + 17;
 	dampr = 1 << dampr;
 
-	reserve_bootmem(__get_DAMPR(0) & xAMPRx_PPFN, dampr);
+	reserve_bootmem(__get_DAMPR(0) & xAMPRx_PPFN, dampr, BOOTMEM_DEFAULT);
 #endif
 
 	/* reserve some memory to do uncached DMA through if requested */
 #ifdef CONFIG_RESERVE_DMA_COHERENT
 	if (dma_coherent_mem_start)
 		reserve_bootmem(dma_coherent_mem_start,
-				dma_coherent_mem_end - dma_coherent_mem_start);
+				dma_coherent_mem_end - dma_coherent_mem_start,
+				BOOTMEM_DEFAULT);
 #endif
 
 } /* end setup_uclinux_memory() */
@@ -1124,7 +991,7 @@ static void c_stop(struct seq_file *m, void *v)
 {
 }
 
-struct seq_operations cpuinfo_op = {
+const struct seq_operations cpuinfo_op = {
 	.start	= c_start,
 	.next	= c_next,
 	.stop	= c_stop,

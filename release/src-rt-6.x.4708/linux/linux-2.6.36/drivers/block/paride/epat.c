@@ -205,7 +205,6 @@ static void epat_write_block( PIA *pi, char * buf, int count )
 #define WRi(r,v)         epat_write_regr(pi,0,r,v)
 #define RRi(r)           (epat_read_regr(pi,0,r))
 
-/* FIXME:  the CPP stuff should be fixed to handle multiple EPATs on a chain */
 
 #define CPP(x) 	w2(4);w0(0x22);w0(0xaa);w0(0x55);w0(0);w0(0xff);\
                 w0(0x87);w0(0x78);w0(x);w2(4);w2(5);w2(4);w0(0xff);

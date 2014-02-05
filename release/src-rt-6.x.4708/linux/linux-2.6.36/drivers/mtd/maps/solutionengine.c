@@ -1,6 +1,4 @@
 /*
- * $Id: solutionengine.c,v 1.15 2005/11/07 11:14:28 gleixner Exp $
- *
  * Flash and EPROM on Hitachi Solution Engine and similar boards.
  *
  * (C) 2001 Red Hat, Inc.
@@ -133,4 +131,3 @@ module_exit(cleanup_soleng_maps);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
 MODULE_DESCRIPTION("MTD map driver for Hitachi SolutionEngine (and similar) boards");
-

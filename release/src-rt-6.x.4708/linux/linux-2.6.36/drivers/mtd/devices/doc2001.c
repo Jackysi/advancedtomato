@@ -3,8 +3,6 @@
  * Linux driver for Disk-On-Chip Millennium
  * (c) 1999 Machine Vision Holdings, Inc.
  * (c) 1999, 2000 David Woodhouse <dwmw2@infradead.org>
- *
- * $Id: doc2001.c,v 1.49 2005/11/07 11:14:24 gleixner Exp $
  */
 
 #include <linux/kernel.h>
@@ -12,7 +10,6 @@
 #include <asm/errno.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
-#include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -179,8 +176,6 @@ static int DoC_IdentChip(struct DiskOnChip *doc, int floor, int chip)
 	int mfr, id, i, j;
 	volatile char dummy;
 
-	/* Page in the required floor/chip
-	   FIXME: is this supported by Millennium ?? */
 	DoC_SelectFloor(doc->virtadr, floor);
 	DoC_SelectChip(doc->virtadr, chip);
 
@@ -208,7 +203,6 @@ static int DoC_IdentChip(struct DiskOnChip *doc, int floor, int chip)
 	if (mfr == 0xff || mfr == 0)
 		return 0;
 
-	/* FIXME: to deal with multi-flash on multi-Millennium case more carefully */
 	for (i = 0; nand_flash_ids[i].name != NULL; i++) {
 		if ( id == nand_flash_ids[i].id) {
 			/* Try to identify manufacturer */
@@ -349,7 +343,6 @@ void DoCMil_init(struct mtd_info *mtd)
 	mtd->flags = MTD_CAP_NANDFLASH;
 	mtd->size = 0;
 
-	/* FIXME: erase size is not always 8KiB */
 	mtd->erasesize = 0x2000;
 
 	mtd->writesize = 512;
@@ -510,15 +503,9 @@ static int doc_write (struct mtd_info *mtd, loff_t to, size_t len,
 	if (to >= this->totlen)
 		return -EINVAL;
 
-#if 0
-	/* Don't allow a single write to cross a 512-byte block boundary */
-	if (to + len > ( (to | 0x1ff) + 1))
-		len = ((to | 0x1ff) + 1) - to;
-#else
 	/* Don't allow writes which aren't exactly one block */
 	if (to & 0x1ff || len != 0x200)
 		return -EINVAL;
-#endif
 
 	/* Find the chip which is to be used and select it */
 	if (this->curfloor != mychip->floor) {
@@ -583,9 +570,6 @@ static int doc_write (struct mtd_info *mtd, loff_t to, size_t len,
 	memcpy_toio(docptr + DoC_Mil_CDSN_IO, eccbuf, 6);
 #endif
 
-	/* write the block status BLOCK_USED (0x5555) at the end of ECC data
-	   FIXME: this is only a hack for programming the IPL area for LinuxBIOS
-	   and should be replace with proper codes in user space utilities */
 	WriteDOC(0x55, docptr, Mil_CDSN_IO);
 	WriteDOC(0x55, docptr, Mil_CDSN_IO + 1);
 
@@ -609,8 +593,6 @@ static int doc_write (struct mtd_info *mtd, loff_t to, size_t len,
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error programming flash\n");
-		/* Error in programming
-		   FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		*retlen = 0;
 		ret = -EIO;
 	}
@@ -746,7 +728,6 @@ static int doc_write_oob(struct mtd_info *mtd, loff_t ofs,
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error programming oob data\n");
-		/* FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		ops->retlen = 0;
 		ret = -EIO;
 	}
@@ -793,17 +774,11 @@ int doc_erase (struct mtd_info *mtd, struct erase_info *instr)
 
 	instr->state = MTD_ERASING;
 
-	/* Read the status of the flash device through CDSN IO register
-	   see Software Requirement 11.4 item 5.
-	   FIXME: it seems that we are not wait long enough, some blocks are not
-	   erased fully */
 	DoC_Command(docptr, NAND_CMD_STATUS, CDSN_CTRL_WP);
 	dummy = ReadDOC(docptr, ReadPipeInit);
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error Erasing at 0x%x\n", ofs);
-		/* There was an error
-		   FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		instr->state = MTD_ERASE_FAILED;
 	} else
 		instr->state = MTD_ERASE_DONE;

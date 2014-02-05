@@ -1,7 +1,7 @@
 /*
  *  Routines for control of the AK4114 via I2C and 4-wire serial interface
  *  IEC958 (S/PDIF) receiver by Asahi Kasei
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <sound/core.h>
@@ -28,8 +27,9 @@
 #include <sound/pcm.h>
 #include <sound/ak4114.h>
 #include <sound/asoundef.h>
+#include <sound/info.h>
 
-MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
+MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("AK4114 IEC958 (S/PDIF) receiver by Asahi Kasei");
 MODULE_LICENSE("GPL");
 
@@ -52,16 +52,6 @@ static inline unsigned char reg_read(struct ak4114 *ak4114, unsigned char reg)
 	return ak4114->read(ak4114->private_data, reg);
 }
 
-#if 0
-static void reg_dump(struct ak4114 *ak4114)
-{
-	int i;
-
-	printk(KERN_DEBUG "AK4114 REG DUMP:\n");
-	for (i = 0; i < 0x20; i++)
-		printk(KERN_DEBUG "reg[%02x] = %02x (%02x)\n", i, reg_read(ak4114, i), i < sizeof(ak4114->regmap) ? ak4114->regmap[i] : 0);
-}
-#endif
 
 static void snd_ak4114_free(struct ak4114 *chip)
 {
@@ -200,15 +190,7 @@ static int snd_ak4114_in_error_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int snd_ak4114_in_bit_info(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 1;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
+#define snd_ak4114_in_bit_info		snd_ctl_boolean_mono_info
 
 static int snd_ak4114_in_bit_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
@@ -455,6 +437,26 @@ static struct snd_kcontrol_new snd_ak4114_iec958_controls[] = {
 }
 };
 
+
+static void snd_ak4114_proc_regs_read(struct snd_info_entry *entry,
+		struct snd_info_buffer *buffer)
+{
+	struct ak4114 *ak4114 = entry->private_data;
+	int reg, val;
+	/* all ak4114 registers 0x00 - 0x1f */
+	for (reg = 0; reg < 0x20; reg++) {
+		val = reg_read(ak4114, reg);
+		snd_iprintf(buffer, "0x%02x = 0x%02x\n", reg, val);
+	}
+}
+
+static void snd_ak4114_proc_init(struct ak4114 *ak4114)
+{
+	struct snd_info_entry *entry;
+	if (!snd_card_proc_new(ak4114->card, "ak4114", &entry))
+		snd_info_set_text_ops(entry, ak4114, snd_ak4114_proc_regs_read);
+}
+
 int snd_ak4114_build(struct ak4114 *ak4114,
 		     struct snd_pcm_substream *ply_substream,
 		     struct snd_pcm_substream *cap_substream)
@@ -463,7 +465,8 @@ int snd_ak4114_build(struct ak4114 *ak4114,
 	unsigned int idx;
 	int err;
 
-	snd_assert(cap_substream, return -EINVAL);
+	if (snd_BUG_ON(!cap_substream))
+		return -EINVAL;
 	ak4114->playback_substream = ply_substream;
 	ak4114->capture_substream = cap_substream;
 	for (idx = 0; idx < AK4114_CONTROLS; idx++) {
@@ -487,6 +490,7 @@ int snd_ak4114_build(struct ak4114 *ak4114,
 			return err;
 		ak4114->kctls[idx] = kctl;
 	}
+	snd_ak4114_proc_init(ak4114);
 	/* trigger workq */
 	schedule_delayed_work(&ak4114->work, HZ / 10);
 	return 0;
@@ -599,7 +603,7 @@ static void ak4114_stats(struct work_struct *work)
 	struct ak4114 *chip = container_of(work, struct ak4114, work.work);
 
 	if (!chip->init)
-		snd_ak4114_check_rate_and_errors(chip, 0);
+		snd_ak4114_check_rate_and_errors(chip, chip->check_flags);
 
 	schedule_delayed_work(&chip->work, HZ / 10);
 }

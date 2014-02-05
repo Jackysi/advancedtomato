@@ -14,14 +14,12 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
-#include <linux/tty.h>
-#include <linux/console.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 
 #include <asm/setup.h>
 #include <asm/system.h>
 #include <asm/pgtable.h>
-#include <asm/irq.h>
 #include <asm/machdep.h>
 #include <asm/m68360.h>
 
@@ -40,8 +38,6 @@ extern void m360_cpm_reset(void);
 
 unsigned long int system_clock;
 
-void M68360_init_IRQ(void);
-
 extern QUICC *pquicc;
 
 /* TODO  DON"T Hard Code this */
@@ -49,24 +45,28 @@ extern QUICC *pquicc;
 // unsigned int system_clock = 33000000l;
 extern unsigned long int system_clock; //In kernel setup.c
 
-extern void config_M68360_irq(void);
 
-void BSP_sched_init(irq_handler_t timer_routine)
+static irqreturn_t hw_tick(int irq, void *dummy)
+{
+  /* Reset Timer1 */
+  /* TSTAT &= 0; */
+
+  pquicc->timer_ter1 = 0x0002; /* clear timer event */
+
+  return arch_timer_interrupt(irq, dummy);
+}
+
+static struct irqaction m68360_timer_irq = {
+	.name	 = "timer",
+	.flags	 = IRQF_DISABLED | IRQF_TIMER,
+	.handler = hw_tick,
+};
+
+void hw_timer_init(void)
 {
   unsigned char prescaler;
   unsigned short tgcr_save;
-  int return_value;
 
-#if 0
-  /* Restart mode, Enable int, 32KHz, Enable timer */
-  TCTL = TCTL_OM | TCTL_IRQEN | TCTL_CLKSOURCE_32KHZ | TCTL_TEN;
-  /* Set prescaler (Divide 32KHz by 32)*/
-  TPRER = 31;
-  /* Set compare register  32Khz / 32 / 10 = 100 */
-  TCMP = 10;                                                              
-
-  request_irq(IRQ_MACHSPEC | 1, timer_routine, IRQ_FLG_LOCK, "timer", NULL);
-#endif
 
   /* General purpose quicc timers: MC68360UM p7-20 */
 
@@ -86,28 +86,11 @@ void BSP_sched_init(irq_handler_t timer_routine)
   pquicc->timer_ter1 = 0x0003; /* clear timer events */
 
   /* enable timer 1 interrupt in CIMR */
-//  request_irq(IRQ_MACHSPEC | CPMVEC_TIMER1, timer_routine, IRQ_FLG_LOCK, "timer", NULL);
-  //return_value = request_irq( CPMVEC_TIMER1, timer_routine, IRQ_FLG_LOCK, "timer", NULL);
-  return_value = request_irq(CPMVEC_TIMER1 , timer_routine, IRQ_FLG_LOCK,
-          "Timer", NULL);
+  setup_irq(CPMVEC_TIMER1, &m68360_timer_irq);
 
   /* Start timer 1: */
   tgcr_save = (pquicc->timer_tgcr & 0xfff0) | 0x0001;
   pquicc->timer_tgcr  = tgcr_save;
-}
-
-
-void BSP_tick(void)
-{
-  /* Reset Timer1 */
-  /* TSTAT &= 0; */
-
-  pquicc->timer_ter1 = 0x0002; /* clear timer event */  
-}
-
-unsigned long BSP_gettimeoffset (void)
-{
-  return 0;
 }
 
 void BSP_gettod (int *yearp, int *monp, int *dayp,
@@ -115,26 +98,8 @@ void BSP_gettod (int *yearp, int *monp, int *dayp,
 {
 }
 
-int BSP_hwclk(int op, struct rtc_time *t)
+int BSP_set_clock_mmss(unsigned long nowtime)
 {
-  if (!op) {
-    /* read */
-  } else {
-    /* write */
-  }
-  return 0;
-}
-
-int BSP_set_clock_mmss (unsigned long nowtime)
-{
-#if 0
-  short real_seconds = nowtime % 60, real_minutes = (nowtime / 60) % 60;
-
-  tod->second1 = real_seconds / 10;
-  tod->second2 = real_seconds % 10;
-  tod->minute1 = real_minutes / 10;
-  tod->minute2 = real_minutes % 10;
-#endif
   return 0;
 }
 
@@ -153,7 +118,7 @@ void BSP_reset (void)
 unsigned char *scc1_hwaddr;
 static int errno;
 
-#if defined (CONFIG_UCQUICC)
+#if defined(CONFIG_UCQUICC)
 _bsc0(char *, getserialnum)
 _bsc1(unsigned char *, gethwaddr, int, a)
 _bsc1(char *, getbenv, char *, a)
@@ -183,26 +148,8 @@ void config_BSP(char *command, int len)
 
   printk(KERN_INFO "\n68360 QUICC support (C) 2000 Lineo Inc.\n");
 
-#if defined(CONFIG_UCQUICC) && 0
-  printk(KERN_INFO "uCquicc serial string [%s]\n",getserialnum());
-  p = scc1_hwaddr = gethwaddr(0);
-  printk(KERN_INFO "uCquicc hwaddr %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
-         p[0], p[1], p[2], p[3], p[4], p[5]);
-
-  p = getbenv("APPEND");
-  if (p)
-    strcpy(p,command);
-  else
-    command[0] = 0;
-#else
   scc1_hwaddr = "\00\01\02\03\04\05";
-#endif
  
-  mach_sched_init      = BSP_sched_init;
-  mach_tick            = BSP_tick;
-  mach_gettimeoffset   = BSP_gettimeoffset;
   mach_gettod          = BSP_gettod;
-  mach_hwclk           = NULL;
-  mach_set_clock_mmss  = NULL;
   mach_reset           = BSP_reset;
 }

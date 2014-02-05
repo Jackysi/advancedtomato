@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *  Universal interface for Audio Codec '97
  *
  *  For more details look to AC '97 component specification revision 2.2
@@ -23,7 +23,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -143,7 +142,6 @@ static unsigned char rate_reg_tables[2][4][9] = {
   }
 }};
 
-/* FIXME: more various mappings for ADC? */
 static unsigned char rate_cregs[9] = {
 	AC97_PCM_LR_ADC_RATE,	/* 3 */
 	AC97_PCM_LR_ADC_RATE,	/* 4 */
@@ -431,16 +429,6 @@ static unsigned int get_rates(struct ac97_pcm *pcm, unsigned int cidx, unsigned 
 	return rates;
 }
 
-/**
- * snd_ac97_pcm_assign - assign AC97 slots to given PCM streams
- * @bus: the ac97 bus instance
- * @pcms_count: count of PCMs to be assigned
- * @pcms: PCMs to be assigned
- *
- * It assigns available AC97 slots for given PCMs. If none or only
- * some slots are available, pcm->xxx.slots and pcm->xxx.rslots[] members
- * are reduced and might be zero.
- */
 int snd_ac97_pcm_assign(struct snd_ac97_bus *bus,
 			unsigned short pcms_count,
 			const struct ac97_pcm *pcms)
@@ -575,7 +563,6 @@ int snd_ac97_pcm_open(struct ac97_pcm *pcm, unsigned int rate,
 	r = rate > 48000;
 	bus = pcm->bus;
 	if (cfg == AC97_PCM_CFG_SPDIF) {
-		int err;
 		for (cidx = 0; cidx < 4; cidx++)
 			if (bus->codec[cidx] && (bus->codec[cidx]->ext_id & AC97_EI_SPDIF)) {
 				err = set_spdif_rate(bus->codec[cidx], rate);

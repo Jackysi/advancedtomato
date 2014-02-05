@@ -20,37 +20,26 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
 MODULE_DESCRIPTION("iptables TOS mangling module");
 
-static unsigned int
-target(struct sk_buff **pskb,
-       const struct net_device *in,
-       const struct net_device *out,
-       unsigned int hooknum,
-       const struct xt_target *target,
-       const void *targinfo)
+static unsigned int target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct ipt_tos_target_info *tosinfo = targinfo;
-	struct iphdr *iph = ip_hdr(*pskb);
+	const struct ipt_tos_target_info *tosinfo = par->targinfo;
+	struct iphdr *iph = ip_hdr(skb);
 
 	if ((iph->tos & IPTOS_TOS_MASK) != tosinfo->tos) {
 		__u8 oldtos;
-		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
+		if (!skb_make_writable(skb, sizeof(struct iphdr)))
 			return NF_DROP;
-		iph = ip_hdr(*pskb);
+		iph = ip_hdr(skb);
 		oldtos = iph->tos;
 		iph->tos = (iph->tos & IPTOS_PREC_MASK) | tosinfo->tos;
-		nf_csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
+		csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
 	}
 	return XT_CONTINUE;
 }
 
-static int
-checkentry(const char *tablename,
-	   const void *e_void,
-	   const struct xt_target *target,
-	   void *targinfo,
-	   unsigned int hook_mask)
+static int checkentry(const struct xt_tgchk_param *par)
 {
-	const u_int8_t tos = ((struct ipt_tos_target_info *)targinfo)->tos;
+	const u_int8_t tos = ((struct ipt_tos_target_info *)par->targinfo)->tos;
 
 	if (tos != IPTOS_LOWDELAY
 	    && tos != IPTOS_THROUGHPUT
@@ -58,14 +47,14 @@ checkentry(const char *tablename,
 	    && tos != IPTOS_MINCOST
 	    && tos != IPTOS_NORMALSVC) {
 		printk(KERN_WARNING "TOS: bad tos value %#x\n", tos);
-		return 0;
+		return -EINVAL;
 	}
-	return 1;
+	return 0;
 }
 
 static struct xt_target ipt_tos_reg = {
 	.name		= "TOS",
-	.family		= AF_INET,
+	.family		= NFPROTO_IPV4,
 	.target		= target,
 	.targetsize	= sizeof(struct ipt_tos_target_info),
 	.table		= "mangle",

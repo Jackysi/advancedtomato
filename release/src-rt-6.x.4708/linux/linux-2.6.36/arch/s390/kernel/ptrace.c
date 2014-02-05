@@ -26,14 +26,18 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
 #include <linux/user.h>
 #include <linux/security.h>
 #include <linux/audit.h>
 #include <linux/signal.h>
-
+#include <linux/elf.h>
+#include <linux/regset.h>
+#include <linux/tracehook.h>
+#include <linux/seccomp.h>
+#include <trace/syscall.h>
+#include <asm/compat.h>
 #include <asm/segment.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -41,16 +45,28 @@
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
+#include "entry.h"
 
 #ifdef CONFIG_COMPAT
 #include "compat_ptrace.h"
 #endif
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/syscalls.h>
+
+enum s390_regset {
+	REGSET_GENERAL,
+	REGSET_FP,
+	REGSET_LAST_BREAK,
+	REGSET_GENERAL_EXTENDED,
+};
 
 static void
 FixPerRegisters(struct task_struct *task)
 {
 	struct pt_regs *regs;
 	per_struct *per_info;
+	per_cr_words cr_words;
 
 	regs = task_pt_regs(task);
 	per_info = (per_struct *) &task->thread.per_info;
@@ -60,7 +76,7 @@ FixPerRegisters(struct task_struct *task)
 	if (per_info->single_step) {
 		per_info->control_regs.bits.starting_addr = 0;
 #ifdef CONFIG_COMPAT
-		if (test_thread_flag(TIF_31BIT))
+		if (is_compat_task())
 			per_info->control_regs.bits.ending_addr = 0x7fffffffUL;
 		else
 #endif
@@ -84,15 +100,22 @@ FixPerRegisters(struct task_struct *task)
 		per_info->control_regs.bits.storage_alt_space_ctl = 1;
 	else
 		per_info->control_regs.bits.storage_alt_space_ctl = 0;
+
+	if (task == current) {
+		__ctl_store(cr_words, 9, 11);
+		if (memcmp(&cr_words, &per_info->control_regs.words,
+			   sizeof(cr_words)) != 0)
+			__ctl_load(per_info->control_regs.words, 9, 11);
+	}
 }
 
-static void set_single_step(struct task_struct *task)
+void user_enable_single_step(struct task_struct *task)
 {
 	task->thread.per_info.single_step = 1;
 	FixPerRegisters(task);
 }
 
-static void clear_single_step(struct task_struct *task)
+void user_disable_single_step(struct task_struct *task)
 {
 	task->thread.per_info.single_step = 0;
 	FixPerRegisters(task);
@@ -107,7 +130,7 @@ void
 ptrace_disable(struct task_struct *child)
 {
 	/* make sure the single step bit is not set. */
-	clear_single_step(child);
+	user_disable_single_step(child);
 }
 
 #ifndef CONFIG_64BIT
@@ -125,24 +148,10 @@ ptrace_disable(struct task_struct *child)
  * struct user contain pad bytes that should be read as zeroes.
  * Lovely...
  */
-static int
-peek_user(struct task_struct *child, addr_t addr, addr_t data)
+static unsigned long __peek_user(struct task_struct *child, addr_t addr)
 {
 	struct user *dummy = NULL;
-	addr_t offset, tmp, mask;
-
-	/*
-	 * Stupid gdb peeks/pokes the access registers in 64 bit with
-	 * an alignment of 4. Programmers from hell...
-	 */
-	mask = __ADDR_MASK;
-#ifdef CONFIG_64BIT
-	if (addr >= (addr_t) &dummy->regs.acrs &&
-	    addr < (addr_t) &dummy->regs.orig_gpr2)
-		mask = 3;
-#endif
-	if ((addr & mask) || addr > sizeof(struct user) - __ADDR_MASK)
-		return -EIO;
+	addr_t offset, tmp;
 
 	if (addr < (addr_t) &dummy->regs.acrs) {
 		/*
@@ -176,6 +185,13 @@ peek_user(struct task_struct *child, addr_t addr, addr_t data)
 		 */
 		tmp = (addr_t) task_pt_regs(child)->orig_gpr2;
 
+	} else if (addr < (addr_t) &dummy->regs.fp_regs) {
+		/*
+		 * prevent reads of padding hole between
+		 * orig_gpr2 and fp_regs on s390.
+		 */
+		tmp = 0;
+
 	} else if (addr < (addr_t) (&dummy->regs.fp_regs + 1)) {
 		/* 
 		 * floating point regs. are stored in the thread structure
@@ -196,6 +212,28 @@ peek_user(struct task_struct *child, addr_t addr, addr_t data)
 	} else
 		tmp = 0;
 
+	return tmp;
+}
+
+static int
+peek_user(struct task_struct *child, addr_t addr, addr_t data)
+{
+	addr_t tmp, mask;
+
+	/*
+	 * Stupid gdb peeks/pokes the access registers in 64 bit with
+	 * an alignment of 4. Programmers from hell...
+	 */
+	mask = __ADDR_MASK;
+#ifdef CONFIG_64BIT
+	if (addr >= (addr_t) &((struct user *) NULL)->regs.acrs &&
+	    addr < (addr_t) &((struct user *) NULL)->regs.orig_gpr2)
+		mask = 3;
+#endif
+	if ((addr & mask) || addr > sizeof(struct user) - __ADDR_MASK)
+		return -EIO;
+
+	tmp = __peek_user(child, addr);
 	return put_user(tmp, (addr_t __user *) data);
 }
 
@@ -205,24 +243,10 @@ peek_user(struct task_struct *child, addr_t addr, addr_t data)
  * Stores to the program status word and on the floating point
  * control register needs to get checked for validity.
  */
-static int
-poke_user(struct task_struct *child, addr_t addr, addr_t data)
+static int __poke_user(struct task_struct *child, addr_t addr, addr_t data)
 {
 	struct user *dummy = NULL;
-	addr_t offset, mask;
-
-	/*
-	 * Stupid gdb peeks/pokes the access registers in 64 bit with
-	 * an alignment of 4. Programmers from hell indeed...
-	 */
-	mask = __ADDR_MASK;
-#ifdef CONFIG_64BIT
-	if (addr >= (addr_t) &dummy->regs.acrs &&
-	    addr < (addr_t) &dummy->regs.orig_gpr2)
-		mask = 3;
-#endif
-	if ((addr & mask) || addr > sizeof(struct user) - __ADDR_MASK)
-		return -EIO;
+	addr_t offset;
 
 	if (addr < (addr_t) &dummy->regs.acrs) {
 		/*
@@ -267,6 +291,13 @@ poke_user(struct task_struct *child, addr_t addr, addr_t data)
 		 */
 		task_pt_regs(child)->orig_gpr2 = data;
 
+	} else if (addr < (addr_t) &dummy->regs.fp_regs) {
+		/*
+		 * prevent writes of padding hole between
+		 * orig_gpr2 and fp_regs on s390.
+		 */
+		return 0;
+
 	} else if (addr < (addr_t) (&dummy->regs.fp_regs + 1)) {
 		/*
 		 * floating point regs. are stored in the thread structure
@@ -292,36 +323,35 @@ poke_user(struct task_struct *child, addr_t addr, addr_t data)
 }
 
 static int
-do_ptrace_normal(struct task_struct *child, long request, long addr, long data)
+poke_user(struct task_struct *child, addr_t addr, addr_t data)
 {
-	unsigned long tmp;
+	addr_t mask;
+
+	/*
+	 * Stupid gdb peeks/pokes the access registers in 64 bit with
+	 * an alignment of 4. Programmers from hell indeed...
+	 */
+	mask = __ADDR_MASK;
+#ifdef CONFIG_64BIT
+	if (addr >= (addr_t) &((struct user *) NULL)->regs.acrs &&
+	    addr < (addr_t) &((struct user *) NULL)->regs.orig_gpr2)
+		mask = 3;
+#endif
+	if ((addr & mask) || addr > sizeof(struct user) - __ADDR_MASK)
+		return -EIO;
+
+	return __poke_user(child, addr, data);
+}
+
+long arch_ptrace(struct task_struct *child, long request, long addr, long data)
+{
 	ptrace_area parea; 
 	int copied, ret;
 
 	switch (request) {
-	case PTRACE_PEEKTEXT:
-	case PTRACE_PEEKDATA:
-		/* Remove high order bit from address (only for 31 bit). */
-		addr &= PSW_ADDR_INSN;
-		/* read word at location addr. */
-		copied = access_process_vm(child, addr, &tmp, sizeof(tmp), 0);
-		if (copied != sizeof(tmp))
-			return -EIO;
-		return put_user(tmp, (unsigned long __force __user *) data);
-
 	case PTRACE_PEEKUSR:
 		/* read the word at location addr in the USER area. */
 		return peek_user(child, addr, data);
-
-	case PTRACE_POKETEXT:
-	case PTRACE_POKEDATA:
-		/* Remove high order bit from address (only for 31 bit). */
-		addr &= PSW_ADDR_INSN;
-		/* write the word at location addr. */
-		copied = access_process_vm(child, addr, &data, sizeof(data),1);
-		if (copied != sizeof(data))
-			return -EIO;
-		return 0;
 
 	case PTRACE_POKEUSR:
 		/* write the word at location addr in the USER area */
@@ -352,8 +382,15 @@ do_ptrace_normal(struct task_struct *child, long request, long addr, long data)
 			copied += sizeof(unsigned long);
 		}
 		return 0;
+	case PTRACE_GET_LAST_BREAK:
+		put_user(task_thread_info(child)->last_break,
+			 (unsigned long __user *) data);
+		return 0;
+	default:
+		/* Removing high order bit from addr (only for 31 bit). */
+		addr &= PSW_ADDR_INSN;
+		return ptrace_request(child, request, addr, data);
 	}
-	return ptrace_request(child, request, addr, data);
 }
 
 #ifdef CONFIG_COMPAT
@@ -374,17 +411,12 @@ do_ptrace_normal(struct task_struct *child, long request, long addr, long data)
 /*
  * Same as peek_user but for a 31 bit program.
  */
-static int
-peek_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
+static u32 __peek_user_compat(struct task_struct *child, addr_t addr)
 {
 	struct user32 *dummy32 = NULL;
 	per_struct32 *dummy_per32 = NULL;
 	addr_t offset;
 	__u32 tmp;
-
-	if (!test_thread_flag(TIF_31BIT) ||
-	    (addr & 3) || addr > sizeof(struct user) - 3)
-		return -EIO;
 
 	if (addr < (addr_t) &dummy32->regs.acrs) {
 		/*
@@ -416,6 +448,13 @@ peek_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
 		 */
 		tmp = *(__u32*)((addr_t) &task_pt_regs(child)->orig_gpr2 + 4);
 
+	} else if (addr < (addr_t) &dummy32->regs.fp_regs) {
+		/*
+		 * prevent reads of padding hole between
+		 * orig_gpr2 and fp_regs on s390.
+		 */
+		tmp = 0;
+
 	} else if (addr < (addr_t) (&dummy32->regs.fp_regs + 1)) {
 		/*
 		 * floating point regs. are stored in the thread structure 
@@ -442,25 +481,31 @@ peek_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
 	} else
 		tmp = 0;
 
+	return tmp;
+}
+
+static int peek_user_compat(struct task_struct *child,
+			    addr_t addr, addr_t data)
+{
+	__u32 tmp;
+
+	if (!is_compat_task() || (addr & 3) || addr > sizeof(struct user) - 3)
+		return -EIO;
+
+	tmp = __peek_user_compat(child, addr);
 	return put_user(tmp, (__u32 __user *) data);
 }
 
 /*
  * Same as poke_user but for a 31 bit program.
  */
-static int
-poke_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
+static int __poke_user_compat(struct task_struct *child,
+			      addr_t addr, addr_t data)
 {
 	struct user32 *dummy32 = NULL;
 	per_struct32 *dummy_per32 = NULL;
+	__u32 tmp = (__u32) data;
 	addr_t offset;
-	__u32 tmp;
-
-	if (!test_thread_flag(TIF_31BIT) ||
-	    (addr & 3) || addr > sizeof(struct user32) - 3)
-		return -EIO;
-
-	tmp = (__u32) data;
 
 	if (addr < (addr_t) &dummy32->regs.acrs) {
 		/*
@@ -494,6 +539,13 @@ poke_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
 		 * orig_gpr2 is stored on the kernel stack
 		 */
 		*(__u32*)((addr_t) &task_pt_regs(child)->orig_gpr2 + 4) = tmp;
+
+	} else if (addr < (addr_t) &dummy32->regs.fp_regs) {
+		/*
+		 * prevent writess of padding hole between
+		 * orig_gpr2 and fp_regs on s390.
+		 */
+		return 0;
 
 	} else if (addr < (addr_t) (&dummy32->regs.fp_regs + 1)) {
 		/*
@@ -535,38 +587,31 @@ poke_user_emu31(struct task_struct *child, addr_t addr, addr_t data)
 	return 0;
 }
 
-static int
-do_ptrace_emu31(struct task_struct *child, long request, long addr, long data)
+static int poke_user_compat(struct task_struct *child,
+			    addr_t addr, addr_t data)
 {
-	unsigned int tmp;  /* 4 bytes !! */
+	if (!is_compat_task() || (addr & 3) || addr > sizeof(struct user32) - 3)
+		return -EIO;
+
+	return __poke_user_compat(child, addr, data);
+}
+
+long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
+			compat_ulong_t caddr, compat_ulong_t cdata)
+{
+	unsigned long addr = caddr;
+	unsigned long data = cdata;
 	ptrace_area_emu31 parea; 
 	int copied, ret;
 
 	switch (request) {
-	case PTRACE_PEEKTEXT:
-	case PTRACE_PEEKDATA:
-		/* read word at location addr. */
-		copied = access_process_vm(child, addr, &tmp, sizeof(tmp), 0);
-		if (copied != sizeof(tmp))
-			return -EIO;
-		return put_user(tmp, (unsigned int __force __user *) data);
-
 	case PTRACE_PEEKUSR:
 		/* read the word at location addr in the USER area. */
-		return peek_user_emu31(child, addr, data);
-
-	case PTRACE_POKETEXT:
-	case PTRACE_POKEDATA:
-		/* write the word at location addr. */
-		tmp = data;
-		copied = access_process_vm(child, addr, &tmp, sizeof(tmp), 1);
-		if (copied != sizeof(tmp))
-			return -EIO;
-		return 0;
+		return peek_user_compat(child, addr, data);
 
 	case PTRACE_POKEUSR:
 		/* write the word at location addr in the USER area */
-		return poke_user_emu31(child, addr, data);
+		return poke_user_compat(child, addr, data);
 
 	case PTRACE_PEEKUSR_AREA:
 	case PTRACE_POKEUSR_AREA:
@@ -578,13 +623,13 @@ do_ptrace_emu31(struct task_struct *child, long request, long addr, long data)
 		copied = 0;
 		while (copied < parea.len) {
 			if (request == PTRACE_PEEKUSR_AREA)
-				ret = peek_user_emu31(child, addr, data);
+				ret = peek_user_compat(child, addr, data);
 			else {
 				__u32 utmp;
 				if (get_user(utmp,
 					     (__u32 __force __user *) data))
 					return -EFAULT;
-				ret = poke_user_emu31(child, addr, utmp);
+				ret = poke_user_compat(child, addr, utmp);
 			}
 			if (ret)
 				return ret;
@@ -593,177 +638,482 @@ do_ptrace_emu31(struct task_struct *child, long request, long addr, long data)
 			copied += sizeof(unsigned int);
 		}
 		return 0;
-	case PTRACE_GETEVENTMSG:
-		return put_user((__u32) child->ptrace_message,
-				(unsigned int __force __user *) data);
-	case PTRACE_GETSIGINFO:
-		if (child->last_siginfo == NULL)
-			return -EINVAL;
-		return copy_siginfo_to_user32((compat_siginfo_t
-					       __force __user *) data,
-					      child->last_siginfo);
-	case PTRACE_SETSIGINFO:
-		if (child->last_siginfo == NULL)
-			return -EINVAL;
-		return copy_siginfo_from_user32(child->last_siginfo,
-						(compat_siginfo_t
-						 __force __user *) data);
+	case PTRACE_GET_LAST_BREAK:
+		put_user(task_thread_info(child)->last_break,
+			 (unsigned int __user *) data);
+		return 0;
 	}
-	return ptrace_request(child, request, addr, data);
+	return compat_ptrace_request(child, request, addr, data);
 }
 #endif
 
-#define PT32_IEEE_IP 0x13c
-
-static int
-do_ptrace(struct task_struct *child, long request, long addr, long data)
+asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
 {
-	int ret;
+	long ret = 0;
 
-	if (request == PTRACE_ATTACH)
-		return ptrace_attach(child);
+	/* Do the secure computing check first. */
+	secure_computing(regs->gprs[2]);
 
 	/*
-	 * Special cases to get/store the ieee instructions pointer.
+	 * The sysc_tracesys code in entry.S stored the system
+	 * call number to gprs[2].
 	 */
-	if (child == current) {
-		if (request == PTRACE_PEEKUSR && addr == PT_IEEE_IP)
-			return peek_user(child, addr, data);
-		if (request == PTRACE_POKEUSR && addr == PT_IEEE_IP)
-			return poke_user(child, addr, data);
-#ifdef CONFIG_COMPAT
-		if (request == PTRACE_PEEKUSR &&
-		    addr == PT32_IEEE_IP && test_thread_flag(TIF_31BIT))
-			return peek_user_emu31(child, addr, data);
-		if (request == PTRACE_POKEUSR &&
-		    addr == PT32_IEEE_IP && test_thread_flag(TIF_31BIT))
-			return poke_user_emu31(child, addr, data);
-#endif
-	}
-
-	ret = ptrace_check_attach(child, request == PTRACE_KILL);
-	if (ret < 0)
-		return ret;
-
-	switch (request) {
-	case PTRACE_SYSCALL:
-		/* continue and stop at next (return from) syscall */
-	case PTRACE_CONT:
-		/* restart after signal. */
-		if (!valid_signal(data))
-			return -EIO;
-		if (request == PTRACE_SYSCALL)
-			set_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-		else
-			clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-		child->exit_code = data;
-		/* make sure the single step bit is not set. */
-		clear_single_step(child);
-		wake_up_process(child);
-		return 0;
-
-	case PTRACE_KILL:
+	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+	    (tracehook_report_syscall_entry(regs) ||
+	     regs->gprs[2] >= NR_syscalls)) {
 		/*
-		 * make the child exit.  Best I can do is send it a sigkill. 
-		 * perhaps it should be put in the status that it wants to 
-		 * exit.
+		 * Tracing decided this syscall should not happen or the
+		 * debugger stored an invalid system call number. Skip
+		 * the system call and the system call restart handling.
 		 */
-		if (child->exit_state == EXIT_ZOMBIE) /* already dead */
-			return 0;
-		child->exit_code = SIGKILL;
-		/* make sure the single step bit is not set. */
-		clear_single_step(child);
-		wake_up_process(child);
-		return 0;
+		regs->svcnr = 0;
+		ret = -1;
+	}
 
-	case PTRACE_SINGLESTEP:
-		/* set the trap flag. */
-		if (!valid_signal(data))
-			return -EIO;
-		clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-		child->exit_code = data;
-		if (data)
-			set_tsk_thread_flag(child, TIF_SINGLE_STEP);
-		else
-			set_single_step(child);
-		/* give it a chance to run. */
-		wake_up_process(child);
-		return 0;
+	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
+		trace_sys_enter(regs, regs->gprs[2]);
 
-	case PTRACE_DETACH:
-		/* detach a process that was attached. */
-		return ptrace_detach(child, data);
+	if (unlikely(current->audit_context))
+		audit_syscall_entry(is_compat_task() ?
+					AUDIT_ARCH_S390 : AUDIT_ARCH_S390X,
+				    regs->gprs[2], regs->orig_gpr2,
+				    regs->gprs[3], regs->gprs[4],
+				    regs->gprs[5]);
+	return ret ?: regs->gprs[2];
+}
 
+asmlinkage void do_syscall_trace_exit(struct pt_regs *regs)
+{
+	if (unlikely(current->audit_context))
+		audit_syscall_exit(AUDITSC_RESULT(regs->gprs[2]),
+				   regs->gprs[2]);
 
-	/* Do requests that differ for 31/64 bit */
-	default:
-#ifdef CONFIG_COMPAT
-		if (test_thread_flag(TIF_31BIT))
-			return do_ptrace_emu31(child, request, addr, data);
+	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
+		trace_sys_exit(regs, regs->gprs[2]);
+
+	if (test_thread_flag(TIF_SYSCALL_TRACE))
+		tracehook_report_syscall_exit(regs, 0);
+}
+
+/*
+ * user_regset definitions.
+ */
+
+static int s390_regs_get(struct task_struct *target,
+			 const struct user_regset *regset,
+			 unsigned int pos, unsigned int count,
+			 void *kbuf, void __user *ubuf)
+{
+	if (target == current)
+		save_access_regs(target->thread.acrs);
+
+	if (kbuf) {
+		unsigned long *k = kbuf;
+		while (count > 0) {
+			*k++ = __peek_user(target, pos);
+			count -= sizeof(*k);
+			pos += sizeof(*k);
+		}
+	} else {
+		unsigned long __user *u = ubuf;
+		while (count > 0) {
+			if (__put_user(__peek_user(target, pos), u++))
+				return -EFAULT;
+			count -= sizeof(*u);
+			pos += sizeof(*u);
+		}
+	}
+	return 0;
+}
+
+static int s390_regs_set(struct task_struct *target,
+			 const struct user_regset *regset,
+			 unsigned int pos, unsigned int count,
+			 const void *kbuf, const void __user *ubuf)
+{
+	int rc = 0;
+
+	if (target == current)
+		save_access_regs(target->thread.acrs);
+
+	if (kbuf) {
+		const unsigned long *k = kbuf;
+		while (count > 0 && !rc) {
+			rc = __poke_user(target, pos, *k++);
+			count -= sizeof(*k);
+			pos += sizeof(*k);
+		}
+	} else {
+		const unsigned long  __user *u = ubuf;
+		while (count > 0 && !rc) {
+			unsigned long word;
+			rc = __get_user(word, u++);
+			if (rc)
+				break;
+			rc = __poke_user(target, pos, word);
+			count -= sizeof(*u);
+			pos += sizeof(*u);
+		}
+	}
+
+	if (rc == 0 && target == current)
+		restore_access_regs(target->thread.acrs);
+
+	return rc;
+}
+
+static int s390_fpregs_get(struct task_struct *target,
+			   const struct user_regset *regset, unsigned int pos,
+			   unsigned int count, void *kbuf, void __user *ubuf)
+{
+	if (target == current)
+		save_fp_regs(&target->thread.fp_regs);
+
+	return user_regset_copyout(&pos, &count, &kbuf, &ubuf,
+				   &target->thread.fp_regs, 0, -1);
+}
+
+static int s390_fpregs_set(struct task_struct *target,
+			   const struct user_regset *regset, unsigned int pos,
+			   unsigned int count, const void *kbuf,
+			   const void __user *ubuf)
+{
+	int rc = 0;
+
+	if (target == current)
+		save_fp_regs(&target->thread.fp_regs);
+
+	/* If setting FPC, must validate it first. */
+	if (count > 0 && pos < offsetof(s390_fp_regs, fprs)) {
+		u32 fpc[2] = { target->thread.fp_regs.fpc, 0 };
+		rc = user_regset_copyin(&pos, &count, &kbuf, &ubuf, &fpc,
+					0, offsetof(s390_fp_regs, fprs));
+		if (rc)
+			return rc;
+		if ((fpc[0] & ~FPC_VALID_MASK) != 0 || fpc[1] != 0)
+			return -EINVAL;
+		target->thread.fp_regs.fpc = fpc[0];
+	}
+
+	if (rc == 0 && count > 0)
+		rc = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
+					target->thread.fp_regs.fprs,
+					offsetof(s390_fp_regs, fprs), -1);
+
+	if (rc == 0 && target == current)
+		restore_fp_regs(&target->thread.fp_regs);
+
+	return rc;
+}
+
+#ifdef CONFIG_64BIT
+
+static int s390_last_break_get(struct task_struct *target,
+			       const struct user_regset *regset,
+			       unsigned int pos, unsigned int count,
+			       void *kbuf, void __user *ubuf)
+{
+	if (count > 0) {
+		if (kbuf) {
+			unsigned long *k = kbuf;
+			*k = task_thread_info(target)->last_break;
+		} else {
+			unsigned long  __user *u = ubuf;
+			if (__put_user(task_thread_info(target)->last_break, u))
+				return -EFAULT;
+		}
+	}
+	return 0;
+}
+
 #endif
-		return do_ptrace_normal(child, request, addr, data);
+
+static const struct user_regset s390_regsets[] = {
+	[REGSET_GENERAL] = {
+		.core_note_type = NT_PRSTATUS,
+		.n = sizeof(s390_regs) / sizeof(long),
+		.size = sizeof(long),
+		.align = sizeof(long),
+		.get = s390_regs_get,
+		.set = s390_regs_set,
+	},
+	[REGSET_FP] = {
+		.core_note_type = NT_PRFPREG,
+		.n = sizeof(s390_fp_regs) / sizeof(long),
+		.size = sizeof(long),
+		.align = sizeof(long),
+		.get = s390_fpregs_get,
+		.set = s390_fpregs_set,
+	},
+#ifdef CONFIG_64BIT
+	[REGSET_LAST_BREAK] = {
+		.core_note_type = NT_S390_LAST_BREAK,
+		.n = 1,
+		.size = sizeof(long),
+		.align = sizeof(long),
+		.get = s390_last_break_get,
+	},
+#endif
+};
+
+static const struct user_regset_view user_s390_view = {
+	.name = UTS_MACHINE,
+	.e_machine = EM_S390,
+	.regsets = s390_regsets,
+	.n = ARRAY_SIZE(s390_regsets)
+};
+
+#ifdef CONFIG_COMPAT
+static int s390_compat_regs_get(struct task_struct *target,
+				const struct user_regset *regset,
+				unsigned int pos, unsigned int count,
+				void *kbuf, void __user *ubuf)
+{
+	if (target == current)
+		save_access_regs(target->thread.acrs);
+
+	if (kbuf) {
+		compat_ulong_t *k = kbuf;
+		while (count > 0) {
+			*k++ = __peek_user_compat(target, pos);
+			count -= sizeof(*k);
+			pos += sizeof(*k);
+		}
+	} else {
+		compat_ulong_t __user *u = ubuf;
+		while (count > 0) {
+			if (__put_user(__peek_user_compat(target, pos), u++))
+				return -EFAULT;
+			count -= sizeof(*u);
+			pos += sizeof(*u);
+		}
 	}
-	/* Not reached.  */
-	return -EIO;
+	return 0;
 }
 
-asmlinkage long
-sys_ptrace(long request, long pid, long addr, long data)
+static int s390_compat_regs_set(struct task_struct *target,
+				const struct user_regset *regset,
+				unsigned int pos, unsigned int count,
+				const void *kbuf, const void __user *ubuf)
 {
-	struct task_struct *child;
-	int ret;
+	int rc = 0;
 
-	lock_kernel();
-	if (request == PTRACE_TRACEME) {
-		 ret = ptrace_traceme();
-		 goto out;
+	if (target == current)
+		save_access_regs(target->thread.acrs);
+
+	if (kbuf) {
+		const compat_ulong_t *k = kbuf;
+		while (count > 0 && !rc) {
+			rc = __poke_user_compat(target, pos, *k++);
+			count -= sizeof(*k);
+			pos += sizeof(*k);
+		}
+	} else {
+		const compat_ulong_t  __user *u = ubuf;
+		while (count > 0 && !rc) {
+			compat_ulong_t word;
+			rc = __get_user(word, u++);
+			if (rc)
+				break;
+			rc = __poke_user_compat(target, pos, word);
+			count -= sizeof(*u);
+			pos += sizeof(*u);
+		}
 	}
 
-	child = ptrace_get_task_struct(pid);
-	if (IS_ERR(child)) {
-		ret = PTR_ERR(child);
-		goto out;
-	}
+	if (rc == 0 && target == current)
+		restore_access_regs(target->thread.acrs);
 
-	ret = do_ptrace(child, request, addr, data);
-	put_task_struct(child);
-out:
-	unlock_kernel();
-	return ret;
+	return rc;
 }
 
-asmlinkage void
-syscall_trace(struct pt_regs *regs, int entryexit)
+static int s390_compat_regs_high_get(struct task_struct *target,
+				     const struct user_regset *regset,
+				     unsigned int pos, unsigned int count,
+				     void *kbuf, void __user *ubuf)
 {
-	if (unlikely(current->audit_context) && entryexit)
-		audit_syscall_exit(AUDITSC_RESULT(regs->gprs[2]), regs->gprs[2]);
+	compat_ulong_t *gprs_high;
 
-	if (!test_thread_flag(TIF_SYSCALL_TRACE))
-		goto out;
-	if (!(current->ptrace & PT_PTRACED))
-		goto out;
-	ptrace_notify(SIGTRAP | ((current->ptrace & PT_TRACESYSGOOD)
-				 ? 0x80 : 0));
-
-	/*
-	 * If the debuffer has set an invalid system call number,
-	 * we prepare to skip the system call restart handling.
-	 */
-	if (!entryexit && regs->gprs[2] >= NR_syscalls)
-		regs->trap = -1;
-
-	/*
-	 * this isn't the same as continuing with a signal, but it will do
-	 * for normal use.  strace only continues with a signal if the
-	 * stopping signal is not SIGTRAP.  -brl
-	 */
-	if (current->exit_code) {
-		send_sig(current->exit_code, current, 1);
-		current->exit_code = 0;
+	gprs_high = (compat_ulong_t *)
+		&task_pt_regs(target)->gprs[pos / sizeof(compat_ulong_t)];
+	if (kbuf) {
+		compat_ulong_t *k = kbuf;
+		while (count > 0) {
+			*k++ = *gprs_high;
+			gprs_high += 2;
+			count -= sizeof(*k);
+		}
+	} else {
+		compat_ulong_t __user *u = ubuf;
+		while (count > 0) {
+			if (__put_user(*gprs_high, u++))
+				return -EFAULT;
+			gprs_high += 2;
+			count -= sizeof(*u);
+		}
 	}
- out:
-	if (unlikely(current->audit_context) && !entryexit)
-		audit_syscall_entry(test_thread_flag(TIF_31BIT)?AUDIT_ARCH_S390:AUDIT_ARCH_S390X,
-				    regs->gprs[2], regs->orig_gpr2, regs->gprs[3],
-				    regs->gprs[4], regs->gprs[5]);
+	return 0;
+}
+
+static int s390_compat_regs_high_set(struct task_struct *target,
+				     const struct user_regset *regset,
+				     unsigned int pos, unsigned int count,
+				     const void *kbuf, const void __user *ubuf)
+{
+	compat_ulong_t *gprs_high;
+	int rc = 0;
+
+	gprs_high = (compat_ulong_t *)
+		&task_pt_regs(target)->gprs[pos / sizeof(compat_ulong_t)];
+	if (kbuf) {
+		const compat_ulong_t *k = kbuf;
+		while (count > 0) {
+			*gprs_high = *k++;
+			*gprs_high += 2;
+			count -= sizeof(*k);
+		}
+	} else {
+		const compat_ulong_t  __user *u = ubuf;
+		while (count > 0 && !rc) {
+			unsigned long word;
+			rc = __get_user(word, u++);
+			if (rc)
+				break;
+			*gprs_high = word;
+			*gprs_high += 2;
+			count -= sizeof(*u);
+		}
+	}
+
+	return rc;
+}
+
+static int s390_compat_last_break_get(struct task_struct *target,
+				      const struct user_regset *regset,
+				      unsigned int pos, unsigned int count,
+				      void *kbuf, void __user *ubuf)
+{
+	compat_ulong_t last_break;
+
+	if (count > 0) {
+		last_break = task_thread_info(target)->last_break;
+		if (kbuf) {
+			unsigned long *k = kbuf;
+			*k = last_break;
+		} else {
+			unsigned long  __user *u = ubuf;
+			if (__put_user(last_break, u))
+				return -EFAULT;
+		}
+	}
+	return 0;
+}
+
+static const struct user_regset s390_compat_regsets[] = {
+	[REGSET_GENERAL] = {
+		.core_note_type = NT_PRSTATUS,
+		.n = sizeof(s390_compat_regs) / sizeof(compat_long_t),
+		.size = sizeof(compat_long_t),
+		.align = sizeof(compat_long_t),
+		.get = s390_compat_regs_get,
+		.set = s390_compat_regs_set,
+	},
+	[REGSET_FP] = {
+		.core_note_type = NT_PRFPREG,
+		.n = sizeof(s390_fp_regs) / sizeof(compat_long_t),
+		.size = sizeof(compat_long_t),
+		.align = sizeof(compat_long_t),
+		.get = s390_fpregs_get,
+		.set = s390_fpregs_set,
+	},
+	[REGSET_LAST_BREAK] = {
+		.core_note_type = NT_S390_LAST_BREAK,
+		.n = 1,
+		.size = sizeof(long),
+		.align = sizeof(long),
+		.get = s390_compat_last_break_get,
+	},
+	[REGSET_GENERAL_EXTENDED] = {
+		.core_note_type = NT_S390_HIGH_GPRS,
+		.n = sizeof(s390_compat_regs_high) / sizeof(compat_long_t),
+		.size = sizeof(compat_long_t),
+		.align = sizeof(compat_long_t),
+		.get = s390_compat_regs_high_get,
+		.set = s390_compat_regs_high_set,
+	},
+};
+
+static const struct user_regset_view user_s390_compat_view = {
+	.name = "s390",
+	.e_machine = EM_S390,
+	.regsets = s390_compat_regsets,
+	.n = ARRAY_SIZE(s390_compat_regsets)
+};
+#endif
+
+const struct user_regset_view *task_user_regset_view(struct task_struct *task)
+{
+#ifdef CONFIG_COMPAT
+	if (test_tsk_thread_flag(task, TIF_31BIT))
+		return &user_s390_compat_view;
+#endif
+	return &user_s390_view;
+}
+
+static const char *gpr_names[NUM_GPRS] = {
+	"r0", "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+};
+
+unsigned long regs_get_register(struct pt_regs *regs, unsigned int offset)
+{
+	if (offset >= NUM_GPRS)
+		return 0;
+	return regs->gprs[offset];
+}
+
+int regs_query_register_offset(const char *name)
+{
+	unsigned long offset;
+
+	if (!name || *name != 'r')
+		return -EINVAL;
+	if (strict_strtoul(name + 1, 10, &offset))
+		return -EINVAL;
+	if (offset >= NUM_GPRS)
+		return -EINVAL;
+	return offset;
+}
+
+const char *regs_query_register_name(unsigned int offset)
+{
+	if (offset >= NUM_GPRS)
+		return NULL;
+	return gpr_names[offset];
+}
+
+static int regs_within_kernel_stack(struct pt_regs *regs, unsigned long addr)
+{
+	unsigned long ksp = kernel_stack_pointer(regs);
+
+	return (addr & ~(THREAD_SIZE - 1)) == (ksp & ~(THREAD_SIZE - 1));
+}
+
+/**
+ * regs_get_kernel_stack_nth() - get Nth entry of the stack
+ * @regs:pt_regs which contains kernel stack pointer.
+ * @n:stack entry number.
+ *
+ * regs_get_kernel_stack_nth() returns @n th entry of the kernel stack which
+ * is specifined by @regs. If the @n th entry is NOT in the kernel stack,
+ * this returns 0.
+ */
+unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs, unsigned int n)
+{
+	unsigned long addr;
+
+	addr = kernel_stack_pointer(regs) + n * sizeof(long);
+	if (!regs_within_kernel_stack(regs, addr))
+		return 0;
+	return *(unsigned long *)addr;
 }

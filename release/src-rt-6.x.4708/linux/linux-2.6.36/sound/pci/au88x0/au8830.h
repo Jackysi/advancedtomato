@@ -140,7 +140,7 @@
 #define VORTEX_MIX_VOL_A 0x21800	/* Output Volume target */
 
 #define 	VOL_MIN 0x80	/* Input volume when muted. */
-#define		VOL_MAX 0x7f	/* FIXME: Not confirmed! Just guessed. */
+#define		VOL_MAX 0x7f
 
 /* SRC */
 #define VORTEX_SRC_CHNBASE		0x26c40

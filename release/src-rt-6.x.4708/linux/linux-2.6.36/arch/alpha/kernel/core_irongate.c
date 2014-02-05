@@ -241,7 +241,8 @@ albacore_init_arch(void)
 				       size / 1024);
 		}
 #endif
-		reserve_bootmem_node(NODE_DATA(0), pci_mem, memtop - pci_mem);
+		reserve_bootmem_node(NODE_DATA(0), pci_mem, memtop -
+				pci_mem, BOOTMEM_DEFAULT);
 		printk("irongate_init_arch: temporarily reserving "
 			"region %08lx-%08lx for PCI\n", pci_mem, memtop - 1);
 	}
@@ -345,7 +346,7 @@ irongate_ioremap(unsigned long addr, unsigned long size)
 	mmio_regs = (u32 *)(((unsigned long)IRONGATE0->bar1 &
 			PCI_BASE_ADDRESS_MEM_MASK) + IRONGATE_MEM);
 
-	gatt_pages = (u32 *)(phys_to_virt(mmio_regs[1])); /* FIXME */
+	gatt_pages = (u32 *)(phys_to_virt(mmio_regs[1]));
 
 	/*
 	 * Adjust the limits (mappings must be page aligned)
@@ -358,21 +359,6 @@ irongate_ioremap(unsigned long addr, unsigned long size)
 	last = addr + size - 1;
 	size = PAGE_ALIGN(last) - addr;
 
-#if 0
-	printk("irongate_ioremap(0x%lx, 0x%lx)\n", addr, size);
-	printk("irongate_ioremap:  gart_bus_addr  0x%lx\n", gart_bus_addr);
-	printk("irongate_ioremap:  gart_aper_size 0x%lx\n", gart_aper_size);
-	printk("irongate_ioremap:  mmio_regs      %p\n", mmio_regs);
-	printk("irongate_ioremap:  gatt_pages     %p\n", gatt_pages);
-	
-	for(baddr = addr; baddr <= last; baddr += PAGE_SIZE)
-	{
-		cur_gatt = phys_to_virt(GET_GATT(baddr) & ~1);
-		pte = cur_gatt[GET_GATT_OFF(baddr)] & ~1;
-		printk("irongate_ioremap:  cur_gatt %p pte 0x%x\n",
-		       cur_gatt, pte);
-	}
-#endif
 
 	/*
 	 * Map it
@@ -398,10 +384,6 @@ irongate_ioremap(unsigned long addr, unsigned long size)
 	flush_tlb_all();
 
 	vaddr = (unsigned long)area->addr + (addr & ~PAGE_MASK);
-#if 0
-	printk("irongate_ioremap(0x%lx, 0x%lx) returning 0x%lx\n",
-	       addr, size, vaddr);
-#endif
 	return (void __iomem *)vaddr;
 }
 EXPORT_SYMBOL(irongate_ioremap);

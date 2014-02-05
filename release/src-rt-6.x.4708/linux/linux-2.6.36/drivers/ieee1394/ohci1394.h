@@ -26,7 +26,7 @@
 
 #define OHCI1394_DRIVER_NAME      "ohci1394"
 
-#define OHCI1394_MAX_AT_REQ_RETRIES	0x2
+#define OHCI1394_MAX_AT_REQ_RETRIES	0xf
 #define OHCI1394_MAX_AT_RESP_RETRIES	0x2
 #define OHCI1394_MAX_PHYS_RESP_RETRIES	0x8
 #define OHCI1394_MAX_SELF_ID_ERRORS	16
@@ -64,17 +64,11 @@ struct dma_cmd {
         u32 status;
 };
 
-/*
- * FIXME:
- * It is important that a single at_dma_prg does not cross a page boundary
- * The proper way to do it would be to do the check dynamically as the
- * programs are inserted into the AT fifo.
- */
 struct at_dma_prg {
 	struct dma_cmd begin;
 	quadlet_t data[4];
 	struct dma_cmd end;
-	quadlet_t pad[4]; /* FIXME: quick hack for memory alignment */
+	quadlet_t pad[4];
 };
 
 /* identify whether a DMA context is asynchronous or isochronous */
@@ -190,22 +184,9 @@ struct ti_ohci {
 	unsigned long ir_multichannel_used; /* ditto */
         spinlock_t IR_channel_lock;
 
-	/* iso receive (legacy API) */
-	u64 ir_legacy_channels; /* note: this differs from ISO_channel_usage;
-				   it only accounts for channels listened to
-				   by the legacy API, so that we can know when
-				   it is safe to free the legacy API context */
-
-	struct dma_rcv_ctx ir_legacy_context;
-	struct ohci1394_iso_tasklet ir_legacy_tasklet;
-
         /* iso transmit */
 	int nb_iso_xmit_ctx;
 	unsigned long it_ctx_usage; /* use test_and_set_bit() for atomicity */
-
-	/* iso transmit (legacy API) */
-	struct dma_trm_ctx it_legacy_context;
-	struct ohci1394_iso_tasklet it_legacy_tasklet;
 
         u64 ISO_channel_usage;
 
@@ -221,7 +202,6 @@ struct ti_ohci {
 
 	/* Tasklets for iso receive and transmit, used by video1394
 	 * and dv1394 */
-
 	struct list_head iso_tasklet_list;
 	spinlock_t iso_tasklet_list_lock;
 

@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * linux/kernel/irq/spurious.c
  *
@@ -6,85 +7,136 @@
  * This file contains spurious interrupt handling.
  */
 
+#include <linux/jiffies.h>
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/kallsyms.h>
 #include <linux/interrupt.h>
+#include <linux/moduleparam.h>
+#include <linux/timer.h>
+
+#if defined(CONFIG_BUZZZ)
+#include <asm/buzzz.h>
+#endif	/*  CONFIG_BUZZZ */
 
 static int irqfixup __read_mostly;
+
+#define POLL_SPURIOUS_IRQ_INTERVAL (HZ/10)
+static void poll_spurious_irqs(unsigned long dummy);
+static DEFINE_TIMER(poll_spurious_irq_timer, poll_spurious_irqs, 0, 0);
 
 /*
  * Recovery handler for misrouted interrupts.
  */
+static int try_one_irq(int irq, struct irq_desc *desc)
+{
+	struct irqaction *action;
+	int ok = 0, work = 0;
+
+#if defined(BUZZZ_KEVT_LVL) && (BUZZZ_KEVT_LVL >= 1)
+	buzzz_kevt_log1(BUZZZ_KEVT_ID_IRQ_MISROUTED, irq);
+#endif	/* BUZZZ_KEVT_LVL */
+
+	raw_spin_lock(&desc->lock);
+	/* Already running on another processor */
+	if (desc->status & IRQ_INPROGRESS) {
+		/*
+		 * Already running: If it is shared get the other
+		 * CPU to go looking for our mystery interrupt too
+		 */
+		if (desc->action && (desc->action->flags & IRQF_SHARED))
+			desc->status |= IRQ_PENDING;
+		raw_spin_unlock(&desc->lock);
+		return ok;
+	}
+	/* Honour the normal IRQ locking */
+	desc->status |= IRQ_INPROGRESS;
+	action = desc->action;
+	raw_spin_unlock(&desc->lock);
+
+	while (action) {
+		/* Only shared IRQ handlers are safe to call */
+		if (action->flags & IRQF_SHARED) {
+			if (action->handler(irq, action->dev_id) ==
+				IRQ_HANDLED)
+				ok = 1;
+		}
+		action = action->next;
+	}
+	local_irq_disable();
+	/* Now clean up the flags */
+	raw_spin_lock(&desc->lock);
+	action = desc->action;
+
+	/*
+	 * While we were looking for a fixup someone queued a real
+	 * IRQ clashing with our walk:
+	 */
+	while ((desc->status & IRQ_PENDING) && action) {
+		/*
+		 * Perform real IRQ processing for the IRQ we deferred
+		 */
+		work = 1;
+		raw_spin_unlock(&desc->lock);
+		handle_IRQ_event(irq, action);
+		raw_spin_lock(&desc->lock);
+		desc->status &= ~IRQ_PENDING;
+	}
+	desc->status &= ~IRQ_INPROGRESS;
+	/*
+	 * If we did actual work for the real IRQ line we must let the
+	 * IRQ controller clean up too
+	 */
+	if (work && desc->chip && desc->chip->end)
+		desc->chip->end(irq);
+	raw_spin_unlock(&desc->lock);
+
+	return ok;
+}
+
 static int misrouted_irq(int irq)
 {
-	int i;
-	int ok = 0;
-	int work = 0;	/* Did we do work for a real IRQ */
+	struct irq_desc *desc;
+	int i, ok = 0;
 
-	for (i = 1; i < NR_IRQS; i++) {
-		struct irq_desc *desc = irq_desc + i;
-		struct irqaction *action;
+	for_each_irq_desc(i, desc) {
+		if (!i)
+			 continue;
 
 		if (i == irq)	/* Already tried */
 			continue;
 
-		spin_lock(&desc->lock);
-		/* Already running on another processor */
-		if (desc->status & IRQ_INPROGRESS) {
-			/*
-			 * Already running: If it is shared get the other
-			 * CPU to go looking for our mystery interrupt too
-			 */
-			if (desc->action && (desc->action->flags & IRQF_SHARED))
-				desc->status |= IRQ_PENDING;
-			spin_unlock(&desc->lock);
-			continue;
-		}
-		/* Honour the normal IRQ locking */
-		desc->status |= IRQ_INPROGRESS;
-		action = desc->action;
-		spin_unlock(&desc->lock);
-
-		while (action) {
-			/* Only shared IRQ handlers are safe to call */
-			if (action->flags & IRQF_SHARED) {
-				if (action->handler(i, action->dev_id) ==
-						IRQ_HANDLED)
-					ok = 1;
-			}
-			action = action->next;
-		}
-		local_irq_disable();
-		/* Now clean up the flags */
-		spin_lock(&desc->lock);
-		action = desc->action;
-
-		/*
-		 * While we were looking for a fixup someone queued a real
-		 * IRQ clashing with our walk:
-		 */
-		while ((desc->status & IRQ_PENDING) && action) {
-			/*
-			 * Perform real IRQ processing for the IRQ we deferred
-			 */
-			work = 1;
-			spin_unlock(&desc->lock);
-			handle_IRQ_event(i, action);
-			spin_lock(&desc->lock);
-			desc->status &= ~IRQ_PENDING;
-		}
-		desc->status &= ~IRQ_INPROGRESS;
-		/*
-		 * If we did actual work for the real IRQ line we must let the
-		 * IRQ controller clean up too
-		 */
-		if (work && desc->chip && desc->chip->end)
-			desc->chip->end(i);
-		spin_unlock(&desc->lock);
+		if (try_one_irq(i, desc))
+			ok = 1;
 	}
 	/* So the caller can adjust the irq error counts */
 	return ok;
+}
+
+static void poll_spurious_irqs(unsigned long dummy)
+{
+	struct irq_desc *desc;
+	int i;
+
+	for_each_irq_desc(i, desc) {
+		unsigned int status;
+
+		if (!i)
+			 continue;
+
+		/* Racy but it doesn't matter */
+		status = desc->status;
+		barrier();
+		if (!(status & IRQ_SPURIOUS_DISABLED))
+			continue;
+
+		local_irq_disable();
+		try_one_irq(i, desc);
+		local_irq_enable();
+	}
+
+	mod_timer(&poll_spurious_irq_timer,
+		  jiffies + POLL_SPURIOUS_IRQ_INTERVAL);
 }
 
 /*
@@ -135,7 +187,9 @@ report_bad_irq(unsigned int irq, struct irq_desc *desc, irqreturn_t action_ret)
 	}
 }
 
-static inline int try_misrouted_irq(unsigned int irq, struct irq_desc *desc, irqreturn_t action_ret)
+static inline int
+try_misrouted_irq(unsigned int irq, struct irq_desc *desc,
+		  irqreturn_t action_ret)
 {
 	struct irqaction *action;
 
@@ -172,7 +226,17 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
 		    irqreturn_t action_ret)
 {
 	if (unlikely(action_ret != IRQ_HANDLED)) {
-		desc->irqs_unhandled++;
+		/*
+		 * If we are seeing only the odd spurious IRQ caused by
+		 * bus asynchronicity then don't eventually trigger an error,
+		 * otherwise the counter becomes a doomsday timer for otherwise
+		 * working systems
+		 */
+		if (time_after(jiffies, desc->last_unhandled + HZ/10))
+			desc->irqs_unhandled = 1;
+		else
+			desc->irqs_unhandled++;
+		desc->last_unhandled = jiffies;
 		if (unlikely(action_ret != IRQ_NONE))
 			report_bad_irq(irq, desc, action_ret);
 	}
@@ -197,9 +261,12 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
 		 * Now kill the IRQ
 		 */
 		printk(KERN_EMERG "Disabling IRQ #%d\n", irq);
-		desc->status |= IRQ_DISABLED;
-		desc->depth = 1;
+		desc->status |= IRQ_DISABLED | IRQ_SPURIOUS_DISABLED;
+		desc->depth++;
 		desc->chip->disable(irq);
+
+		mod_timer(&poll_spurious_irq_timer,
+			  jiffies + POLL_SPURIOUS_IRQ_INTERVAL);
 	}
 	desc->irqs_unhandled = 0;
 }
@@ -215,6 +282,8 @@ int noirqdebug_setup(char *str)
 }
 
 __setup("noirqdebug", noirqdebug_setup);
+module_param(noirqdebug, bool, 0644);
+MODULE_PARM_DESC(noirqdebug, "Disable irq lockup detection when true");
 
 static int __init irqfixup_setup(char *str)
 {
@@ -226,6 +295,7 @@ static int __init irqfixup_setup(char *str)
 }
 
 __setup("irqfixup", irqfixup_setup);
+module_param(irqfixup, int, 0644);
 
 static int __init irqpoll_setup(char *str)
 {

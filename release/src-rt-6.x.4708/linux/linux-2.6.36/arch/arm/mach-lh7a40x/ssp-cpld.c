@@ -43,22 +43,22 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
-#include <asm/arch/ssp.h>
+#include <mach/ssp.h>
 
 //#define TALK
 
-#if defined (TALK)
+#if defined(TALK)
 #define PRINTK(f...)		printk (f)
 #else
 #define PRINTK(f...)		do {} while (0)
 #endif
 
-#if defined (CONFIG_ARCH_LH7A400)
+#if defined(CONFIG_ARCH_LH7A400)
 # define CPLD_SPID		__REGP16(CPLD06_VIRT) /* SPI data */
 # define CPLD_SPIC		__REGP16(CPLD08_VIRT) /* SPI control */
 # define CPLD_SPIC_CS_CODEC	(1<<0)
@@ -79,8 +79,6 @@
 #define CPLD_SPI_RX_SHIFT	(0)
 #define CPLD_SPI_RX		(1<<CPLD_SPI_RX_SHIFT)
 
-/* *** FIXME: these timing values are substantially larger than the
-   *** chip requires. We may implement an nsleep () function. */
 #define T_SKH	1		/* Clock time high (us) */
 #define T_SKL	1		/* Clock time low (us) */
 #define T_CS	1		/* Minimum chip select low time (us)  */
@@ -159,7 +157,7 @@ static int execute_spi_command (int v, int cwrite, int cread)
 {
 	unsigned long l = 0;
 
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	/* The codec and touch devices cannot be bit-banged.  Instead,
 	 * the CPLD provides an eight-bit shift register and a crude
 	 * interface.  */
@@ -170,7 +168,7 @@ static int execute_spi_command (int v, int cwrite, int cread)
 		PRINTK ("spi(%d %d.%d) 0x%04x",
 			ssp_configuration.device, cwrite, cread,
 			v);
-#if defined (TALK)
+#if defined(TALK)
 		if (ssp_configuration.device == DEVICE_CODEC)
 			PRINTK (" 0x%03x -> %2d", v & 0x1ff, (v >> 9) & 0x7f);
 #endif
@@ -193,7 +191,7 @@ static int execute_spi_command (int v, int cwrite, int cread)
 			v = 0;
 		}
 		if (cread) {
-			mdelay (2);	/* *** FIXME: required by ads7843? */
+			mdelay (2);
 			v = 0;
 			for (cread = (cread + 7)/8; cread-- > 0;) {
 				CPLD_SPID = 0;
@@ -269,7 +267,7 @@ static int ssp_init (void)
 
 static void ssp_chip_select (int enable)
 {
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	int select;
 
 	if (ssp_configuration.device == DEVICE_CODEC)

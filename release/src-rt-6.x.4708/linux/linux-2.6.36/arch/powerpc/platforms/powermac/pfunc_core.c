@@ -1,18 +1,13 @@
-/*
- *
- * FIXME: Properly make this race free with refcounting etc...
- *
- * FIXME: LOCKING !!!
- */
+
 
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 
-#include <asm/semaphore.h>
 #include <asm/prom.h>
 #include <asm/pmac_pfunc.h>
 
@@ -76,18 +71,6 @@ struct pmf_cmd {
 	int			error;
 };
 
-#if 0
-/* Debug output */
-static void print_blob(const char *title, const void *blob, int bytes)
-{
-	printk("%s", title);
-	while(bytes--) {
-		printk("%02x ", *((u8 *)blob));
-		blob += 1;
-	}
-	printk("\n");
-}
-#endif
 
 /*
  * Parser helpers
@@ -843,7 +826,7 @@ struct pmf_function *__pmf_find_function(struct device_node *target,
 	list_for_each_entry(func, &dev->functions, link) {
 		if (name && strcmp(name, func->name))
 			continue;
-		if (func->phandle && target->node != func->phandle)
+		if (func->phandle && target->phandle != func->phandle)
 			continue;
 		if ((func->flags & flags) == 0)
 			continue;
@@ -1016,4 +999,3 @@ int pmf_call_function(struct device_node *target, const char *name,
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pmf_call_function);
-

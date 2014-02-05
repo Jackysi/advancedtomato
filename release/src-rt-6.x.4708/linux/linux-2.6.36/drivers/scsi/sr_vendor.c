@@ -39,6 +39,7 @@
 #include <linux/string.h>
 #include <linux/bcd.h>
 #include <linux/blkdev.h>
+#include <linux/slab.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -48,9 +49,6 @@
 
 #include "sr.h"
 
-#if 0
-#define DEBUG
-#endif
 
 /* here are some constants to sort the vendors into groups */
 
@@ -85,11 +83,6 @@ void sr_vendor_init(Scsi_CD *cd)
 		    !strncmp(model, "CD-ROM DRIVE:36", 15) ||
 		    !strncmp(model, "CD-ROM DRIVE:83", 15) ||
 		    !strncmp(model, "CD-ROM DRIVE:84 ", 16)
-#if 0
-		/* my NEC 3x returns the read-raw data if a read-raw
-		   is followed by a read for the same sector - aeb */
-		    || !strncmp(model, "CD-ROM DRIVE:500", 16)
-#endif
 		    )
 			/* these can't handle multisession, may hang */
 			cd->cdi.mask |= CDC_MULTI_SESSION;
@@ -223,9 +216,9 @@ int sr_cd_check(struct cdrom_device_info *cdi)
 				no_multi = 1;
 				break;
 			}
-			min = BCD2BIN(buffer[15]);
-			sec = BCD2BIN(buffer[16]);
-			frame = BCD2BIN(buffer[17]);
+			min = bcd2bin(buffer[15]);
+			sec = bcd2bin(buffer[16]);
+			frame = bcd2bin(buffer[17]);
 			sector = min * CD_SECS * CD_FRAMES + sec * CD_FRAMES + frame;
 			break;
 		}
@@ -252,9 +245,9 @@ int sr_cd_check(struct cdrom_device_info *cdi)
 			}
 			if (rc != 0)
 				break;
-			min = BCD2BIN(buffer[1]);
-			sec = BCD2BIN(buffer[2]);
-			frame = BCD2BIN(buffer[3]);
+			min = bcd2bin(buffer[1]);
+			sec = bcd2bin(buffer[2]);
+			frame = bcd2bin(buffer[3]);
 			sector = min * CD_SECS * CD_FRAMES + sec * CD_FRAMES + frame;
 			if (sector)
 				sector -= CD_MSF_OFFSET;

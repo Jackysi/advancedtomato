@@ -18,8 +18,8 @@
  */
 
 #include <linux/usb.h>
+#include <linux/usb/hcd.h>
 #include "usb.h"
-#include "hcd.h"
 
 static inline const char *plural(int n)
 {
@@ -77,12 +77,6 @@ int usb_choose_configuration(struct usb_device *udev)
 		 * be reinstated when device firmwares become more reliable.
 		 * Don't hold your breath.
 		 */
-#if 0
-		/* Rule out self-powered configs for a bus-powered device */
-		if (bus_powered && (c->desc.bmAttributes &
-					USB_CONFIG_ATT_SELFPOWER))
-			continue;
-#endif
 
 		/*
 		 * The next test may not be as effective as it should be.
@@ -141,7 +135,7 @@ int usb_choose_configuration(struct usb_device *udev)
 
 	if (best) {
 		i = best->desc.bConfigurationValue;
-		dev_info(&udev->dev,
+		dev_dbg(&udev->dev,
 			"configuration #%d chosen from %d choice%s\n",
 			i, num_configs, plural(num_configs));
 	} else {
@@ -160,17 +154,22 @@ static int generic_probe(struct usb_device *udev)
 	/* Choose and set the configuration.  This registers the interfaces
 	 * with the driver core and lets interface drivers bind to them.
 	 */
-	c = usb_choose_configuration(udev);
-	if (c >= 0) {
-		err = usb_set_configuration(udev, c);
-		if (err) {
-			dev_err(&udev->dev, "can't set config #%d, error %d\n",
+	if (usb_device_is_owned(udev))
+		;		/* Don't configure if the device is owned */
+	else if (udev->authorized == 0)
+		dev_err(&udev->dev, "Device is not authorized for usage\n");
+	else {
+		c = usb_choose_configuration(udev);
+		if (c >= 0) {
+			err = usb_set_configuration(udev, c);
+			if (err) {
+				dev_err(&udev->dev, "can't set config #%d, error %d\n",
 					c, err);
-			/* This need not be fatal.  The user can try to
-			 * set other configurations. */
+				/* This need not be fatal.  The user can try to
+				 * set other configurations. */
+			}
 		}
 	}
-
 	/* USB device state == configured ... usable */
 	usb_notify_add_device(udev);
 
@@ -199,18 +198,18 @@ static int generic_suspend(struct usb_device *udev, pm_message_t msg)
 	 * interfaces manually by doing a bus (or "global") suspend.
 	 */
 	if (!udev->parent)
-		rc = hcd_bus_suspend(udev);
+		rc = hcd_bus_suspend(udev, msg);
 
 	/* Non-root devices don't need to do anything for FREEZE or PRETHAW */
 	else if (msg.event == PM_EVENT_FREEZE || msg.event == PM_EVENT_PRETHAW)
 		rc = 0;
 	else
-		rc = usb_port_suspend(udev);
+		rc = usb_port_suspend(udev, msg);
 
 	return rc;
 }
 
-static int generic_resume(struct usb_device *udev)
+static int generic_resume(struct usb_device *udev, pm_message_t msg)
 {
 	int rc;
 
@@ -220,9 +219,9 @@ static int generic_resume(struct usb_device *udev)
 	 * interfaces manually by doing a bus (or "global") resume.
 	 */
 	if (!udev->parent)
-		rc = hcd_bus_resume(udev);
+		rc = hcd_bus_resume(udev, msg);
 	else
-		rc = usb_port_resume(udev);
+		rc = usb_port_resume(udev, msg);
 	return rc;
 }
 

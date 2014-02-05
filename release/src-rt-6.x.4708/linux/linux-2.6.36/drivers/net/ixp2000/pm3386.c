@@ -148,10 +148,6 @@ void pm3386_init_port(int port)
 {
 	int pm = port >> 1;
 
-	/*
-	 * Work around ENP2611 bootloader programming MAC address
-	 * in reverse.
-	 */
 	if (pm3386_port_reg_read(port, 0x30a, 0x100) == 0x0000 &&
 	    (pm3386_port_reg_read(port, 0x309, 0x100) & 0xff00) == 0x5000) {
 		u16 temp[3];

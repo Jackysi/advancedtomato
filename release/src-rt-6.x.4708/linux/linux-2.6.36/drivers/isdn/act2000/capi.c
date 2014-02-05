@@ -1,4 +1,4 @@
-/* $Id: capi.c,v 1.9.6.2 2001/09/23 22:24:32 kai Exp $
+/* $Id: capi.c,v 1.9.6.2 2001/09/23 22:24:32 Exp $
  *
  * ISDN lowlevel-module for the IBM ISDN-S0 Active 2000.
  * CAPI encoder/decoder
@@ -78,7 +78,6 @@ static actcapi_msgdsc valid_msg[] = {
 #endif
 	{{ 0x00, 0x00}, NULL},
 };
-#define num_valid_msg (sizeof(valid_msg)/sizeof(actcapi_msgdsc))
 #define num_valid_imsg 27 /* MANUFACTURER_IND */
 
 /*
@@ -224,26 +223,6 @@ actcapi_manufacturer_req_net(act2000_card *card)
 /*
  * Switch V.42 on or off
  */
-#if 0
-int
-actcapi_manufacturer_req_v42(act2000_card *card, ulong arg)
-{
-	actcapi_msg *m;
-	struct sk_buff *skb;
-
-	ACTCAPI_MKHDR(8, 0xff, 0x00);
-        if (!skb) {
-
-                printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-                return -ENOMEM;
-        }
-	m->msg.manufacturer_req_v42.manuf_msg = 0x10;
-	m->msg.manufacturer_req_v42.controller = 0;
-	m->msg.manufacturer_req_v42.v42control = (arg?1:0);
-	ACTCAPI_QUEUE_TX;
-        return 0;
-}
-#endif  /*  0  */
 
 /*
  * Set error-handler
@@ -1025,7 +1004,7 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 #ifdef DEBUG_DUMP_SKB
 	dump_skb(skb);
 #endif
-	for (i = 0; i < num_valid_msg; i++)
+	for (i = 0; i < ARRAY_SIZE(valid_msg); i++)
 		if ((msg->hdr.cmd.cmd == valid_msg[i].cmd.cmd) &&
 		    (msg->hdr.cmd.subcmd == valid_msg[i].cmd.subcmd)) {
 			descr = valid_msg[i].description;

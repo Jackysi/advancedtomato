@@ -116,6 +116,13 @@ low order bit.  So when a chip's timing diagram shows the clock
 starting low (CPOL=0) and data stabilized for sampling during the
 trailing clock edge (CPHA=1), that's SPI mode 1.
 
+Note that the clock mode is relevant as soon as the chipselect goes
+active.  So the master must set the clock to inactive before selecting
+a slave, and the slave can tell the chosen polarity by sampling the
+clock level when its select line goes active.  That's why many devices
+support for example both modes 0 and 3:  they don't care about polarity,
+and alway clock data in/out on rising clock edges.
+
 
 How do these driver programming interfaces work?
 ------------------------------------------------
@@ -156,20 +163,28 @@ using the driver model to connect controller and protocol drivers using
 device tables provided by board specific initialization code.  SPI
 shows up in sysfs in several locations:
 
+   /sys/devices/.../CTLR ... physical node for a given SPI controller
+
    /sys/devices/.../CTLR/spiB.C ... spi_device on bus "B",
 	chipselect C, accessed through CTLR.
+
+   /sys/bus/spi/devices/spiB.C ... symlink to that physical
+   	.../CTLR/spiB.C device
 
    /sys/devices/.../CTLR/spiB.C/modalias ... identifies the driver
 	that should be used with this device (for hotplug/coldplug)
 
-   /sys/bus/spi/devices/spiB.C ... symlink to the physical
-   	spiB.C device
-
    /sys/bus/spi/drivers/D ... driver for one or more spi*.* devices
 
-   /sys/class/spi_master/spiB ... class device for the controller
-	managing bus "B".  All the spiB.* devices share the same
+   /sys/class/spi_master/spiB ... symlink (or actual device node) to
+	a logical node which could hold class related state for the
+	controller managing bus "B".  All spiB.* devices share one
 	physical SPI bus segment, with SCLK, MOSI, and MISO.
+
+Note that the actual location of the controller's class state depends
+on whether you enabled CONFIG_SYSFS_DEPRECATED or not.  At this time,
+the only class-specific state is the bus number ("B" in "spiB"), so
+those /sys/class entries are only useful to quickly identify busses.
 
 
 How does board-specific init code declare SPI devices?
@@ -195,12 +210,12 @@ board should normally be set up and registered.
 
 So for example arch/.../mach-*/board-*.c files might have code like:
 
-	#include <asm/arch/spi.h>	/* for mysoc_spi_data */
+	#include <mach/spi.h>	/* for mysoc_spi_data */
 
 	/* if your mach-* infrastructure doesn't support kernels that can
 	 * run on multiple boards, pdata wouldn't benefit from "__init".
 	 */
-	static struct mysoc_spi_data __init pdata = { ... };
+	static struct mysoc_spi_data __initdata pdata = { ... };
 
 	static __init board_init(void)
 	{
@@ -212,7 +227,7 @@ So for example arch/.../mach-*/board-*.c files might have code like:
 
 And SOC-specific utility code might look something like:
 
-	#include <asm/arch/spi.h>
+	#include <mach/spi.h>
 
 	static struct platform_device spi2 = { ... };
 
@@ -335,9 +350,10 @@ SPI protocol drivers somewhat resemble platform device drivers:
 		.resume		= CHIP_resume,
 	};
 
-The driver core will autmatically attempt to bind this driver to any SPI
+The driver core will automatically attempt to bind this driver to any SPI
 device whose board_info gave a modalias of "CHIP".  Your probe() code
-might look like this unless you're creating a class_device:
+might look like this unless you're creating a device which is managing
+a bus (appearing under /sys/class/spi_master).
 
 	static int __devinit CHIP_probe(struct spi_device *spi)
 	{
@@ -370,8 +386,14 @@ any more such messages.
       + when bidirectional reads and writes start ... by how its
         sequence of spi_transfer requests is arranged;
 
+      + which I/O buffers are used ... each spi_transfer wraps a
+        buffer for each transfer direction, supporting full duplex
+        (two pointers, maybe the same one in both cases) and half
+        duplex (one pointer is NULL) transfers;
+
       + optionally defining short delays after transfers ... using
-        the spi_transfer.delay_usecs setting;
+        the spi_transfer.delay_usecs setting (this delay can be the
+        only protocol effect, if the buffer length is zero);
 
       + whether the chipselect becomes inactive after a transfer and
         any delay ... by using the spi_transfer.cs_change flag;
@@ -442,7 +464,7 @@ An SPI controller will probably be registered on the platform_bus; write
 a driver to bind to the device, whichever bus is involved.
 
 The main task of this type of driver is to provide an "spi_master".
-Use spi_alloc_master() to allocate the master, and class_get_devdata()
+Use spi_alloc_master() to allocate the master, and spi_master_get_devdata()
 to get the driver-private data allocated for that device.
 
 	struct spi_master	*master;
@@ -452,7 +474,7 @@ to get the driver-private data allocated for that device.
 	if (!master)
 		return -ENODEV;
 
-	c = class_get_devdata(&master->cdev);
+	c = spi_master_get_devdata(master);
 
 The driver will initialize the fields of that spi_master, including the
 bus number (maybe the same as the platform device ID) and three methods
@@ -489,9 +511,15 @@ SPI MASTER METHODS
 	This sets up the device clock rate, SPI mode, and word sizes.
 	Drivers may change the defaults provided by board_info, and then
 	call spi_setup(spi) to invoke this routine.  It may sleep.
+
 	Unless each SPI slave has its own configuration registers, don't
 	change them right away ... otherwise drivers could corrupt I/O
 	that's in progress for other SPI devices.
+
+		** BUG ALERT:  for some reason the first version of
+		** many spi_master drivers seems to get this wrong.
+		** When you code setup(), ASSUME that the controller
+		** is actively processing transfers for another device.
 
     master->transfer(struct spi_device *spi, struct spi_message *message)
     	This must not sleep.  Its responsibility is arrange that the
@@ -510,7 +538,7 @@ SPI MESSAGE QUEUE
 The bulk of the driver will be managing the I/O queue fed by transfer().
 
 That queue could be purely conceptual.  For example, a driver used only
-for low-frequency sensor acess might be fine using synchronous PIO.
+for low-frequency sensor access might be fine using synchronous PIO.
 
 But the queue will probably be very real, using message->queue, PIO,
 often DMA (especially if the root filesystem is in SPI flash), and

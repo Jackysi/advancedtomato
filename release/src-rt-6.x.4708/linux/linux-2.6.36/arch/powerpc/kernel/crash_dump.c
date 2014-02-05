@@ -13,8 +13,10 @@
 
 #include <linux/crash_dump.h>
 #include <linux/bootmem.h>
+#include <linux/memblock.h>
+#include <asm/code-patching.h>
 #include <asm/kdump.h>
-#include <asm/lmb.h>
+#include <asm/prom.h>
 #include <asm/firmware.h>
 #include <asm/uaccess.h>
 
@@ -25,13 +27,19 @@
 #define DBG(fmt...)
 #endif
 
-void reserve_kdump_trampoline(void)
+/* Stores the physical address of elf header of crash image. */
+unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
+
+#ifndef CONFIG_RELOCATABLE
+void __init reserve_kdump_trampoline(void)
 {
-	lmb_reserve(0, KDUMP_RESERVE_LIMIT);
+	memblock_reserve(0, KDUMP_RESERVE_LIMIT);
 }
 
 static void __init create_trampoline(unsigned long addr)
 {
+	unsigned int *p = (unsigned int *)addr;
+
 	/* The maximum range of a single instruction branch, is the current
 	 * instruction's address + (32 MB - 4) bytes. For the trampoline we
 	 * need to branch to current address + 32 MB. So we insert a nop at
@@ -40,8 +48,8 @@ static void __init create_trampoline(unsigned long addr)
 	 * branch to "addr" we jump to ("addr" + 32 MB). Although it requires
 	 * two instructions it doesn't require any registers.
 	 */
-	create_instruction(addr, 0x60000000); /* nop */
-	create_branch(addr + 4, addr + PHYSICAL_START, 0);
+	patch_instruction(p, PPC_INST_NOP);
+	patch_branch(++p, addr + PHYSICAL_START, 0);
 }
 
 void __init setup_kdump_trampoline(void)
@@ -54,13 +62,20 @@ void __init setup_kdump_trampoline(void)
 		create_trampoline(i);
 	}
 
+#ifdef CONFIG_PPC_PSERIES
 	create_trampoline(__pa(system_reset_fwnmi) - PHYSICAL_START);
 	create_trampoline(__pa(machine_check_fwnmi) - PHYSICAL_START);
+#endif /* CONFIG_PPC_PSERIES */
 
 	DBG(" <- setup_kdump_trampoline()\n");
 }
+#endif /* CONFIG_RELOCATABLE */
 
-#ifdef CONFIG_PROC_VMCORE
+/*
+ * Note: elfcorehdr_addr is not just limited to vmcore. It is also used by
+ * is_kdump_kernel() to determine if we are booting after a panic. Hence
+ * ifdef it under CONFIG_CRASH_DUMP and not CONFIG_PROC_VMCORE.
+ */
 static int __init parse_elfcorehdr(char *p)
 {
 	if (p)
@@ -69,7 +84,6 @@ static int __init parse_elfcorehdr(char *p)
 	return 1;
 }
 __setup("elfcorehdr=", parse_elfcorehdr);
-#endif
 
 static int __init parse_savemaxmem(char *p)
 {
@@ -79,6 +93,19 @@ static int __init parse_savemaxmem(char *p)
 	return 1;
 }
 __setup("savemaxmem=", parse_savemaxmem);
+
+
+static size_t copy_oldmem_vaddr(void *vaddr, char *buf, size_t csize,
+                               unsigned long offset, int userbuf)
+{
+	if (userbuf) {
+		if (copy_to_user((char __user *)buf, (vaddr + offset), csize))
+			return -EFAULT;
+	} else
+		memcpy(buf, (vaddr + offset), csize);
+
+	return csize;
+}
 
 /**
  * copy_oldmem_page - copy one page from "oldmem"
@@ -101,16 +128,16 @@ ssize_t copy_oldmem_page(unsigned long pfn, char *buf,
 	if (!csize)
 		return 0;
 
-	vaddr = __ioremap(pfn << PAGE_SHIFT, PAGE_SIZE, 0);
+	csize = min_t(size_t, csize, PAGE_SIZE);
 
-	if (userbuf) {
-		if (copy_to_user((char __user *)buf, (vaddr + offset), csize)) {
-			iounmap(vaddr);
-			return -EFAULT;
-		}
-	} else
-		memcpy(buf, (vaddr + offset), csize);
+	if ((min_low_pfn < pfn) && (pfn < max_pfn)) {
+		vaddr = __va(pfn << PAGE_SHIFT);
+		csize = copy_oldmem_vaddr(vaddr, buf, csize, offset, userbuf);
+	} else {
+		vaddr = __ioremap(pfn << PAGE_SHIFT, PAGE_SIZE, 0);
+		csize = copy_oldmem_vaddr(vaddr, buf, csize, offset, userbuf);
+		iounmap(vaddr);
+	}
 
-	iounmap(vaddr);
 	return csize;
 }

@@ -14,7 +14,7 @@ extern void	rtnl_register(int protocol, int msgtype,
 extern int	rtnl_unregister(int protocol, int msgtype);
 extern void	rtnl_unregister_all(int protocol);
 
-static inline int rtnl_msg_family(struct nlmsghdr *nlh)
+static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
 {
 	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
 		return ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
@@ -55,13 +55,15 @@ struct rtnl_link_ops {
 	int			(*validate)(struct nlattr *tb[],
 					    struct nlattr *data[]);
 
-	int			(*newlink)(struct net_device *dev,
+	int			(*newlink)(struct net *src_net,
+					   struct net_device *dev,
 					   struct nlattr *tb[],
 					   struct nlattr *data[]);
 	int			(*changelink)(struct net_device *dev,
 					      struct nlattr *tb[],
 					      struct nlattr *data[]);
-	void			(*dellink)(struct net_device *dev);
+	void			(*dellink)(struct net_device *dev,
+					   struct list_head *head);
 
 	size_t			(*get_size)(const struct net_device *dev);
 	int			(*fill_info)(struct sk_buff *skb,
@@ -70,13 +72,24 @@ struct rtnl_link_ops {
 	size_t			(*get_xstats_size)(const struct net_device *dev);
 	int			(*fill_xstats)(struct sk_buff *skb,
 					       const struct net_device *dev);
+	int			(*get_tx_queues)(struct net *net, struct nlattr *tb[],
+						 unsigned int *tx_queues,
+						 unsigned int *real_tx_queues);
 };
 
 extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
 extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);
+extern void	rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops);
 
 extern int	rtnl_link_register(struct rtnl_link_ops *ops);
 extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
+
+extern struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
+extern struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
+	char *ifname, const struct rtnl_link_ops *ops, struct nlattr *tb[]);
+extern int rtnl_configure_link(struct net_device *dev,
+			       const struct ifinfomsg *ifm);
+extern const struct nla_policy ifla_policy[IFLA_MAX+1];
 
 #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
 

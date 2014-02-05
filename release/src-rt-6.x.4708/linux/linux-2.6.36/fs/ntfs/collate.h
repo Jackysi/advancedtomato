@@ -29,11 +29,6 @@
 static inline bool ntfs_is_collation_rule_supported(COLLATION_RULE cr) {
 	int i;
 
-	/*
-	 * FIXME:  At the moment we only support COLLATION_BINARY and
-	 * COLLATION_NTOFS_ULONG, so we return false for everything else for
-	 * now.
-	 */
 	if (unlikely(cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG))
 		return false;
 	i = le32_to_cpu(cr);

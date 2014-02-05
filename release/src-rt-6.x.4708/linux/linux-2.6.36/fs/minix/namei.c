@@ -18,30 +18,6 @@ static int add_nondir(struct dentry *dentry, struct inode *inode)
 	return err;
 }
 
-static int minix_hash(struct dentry *dentry, struct qstr *qstr)
-{
-	unsigned long hash;
-	int i;
-	const unsigned char *name;
-
-	i = minix_sb(dentry->d_inode->i_sb)->s_namelen;
-	if (i >= qstr->len)
-		return 0;
-	/* Truncate the name in place, avoids having to define a compare
-	   function. */
-	qstr->len = i;
-	name = qstr->name;
-	hash = init_name_hash();
-	while (i--)
-		hash = partial_name_hash(*name++, hash);
-	qstr->hash = end_name_hash(hash);
-	return 0;
-}
-
-struct dentry_operations minix_dentry_operations = {
-	.d_hash		= minix_hash,
-};
-
 static struct dentry *minix_lookup(struct inode * dir, struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode * inode = NULL;
@@ -54,10 +30,9 @@ static struct dentry *minix_lookup(struct inode * dir, struct dentry *dentry, st
 
 	ino = minix_inode_by_name(dentry);
 	if (ino) {
-		inode = iget(dir->i_sb, ino);
- 
-		if (!inode)
-			return ERR_PTR(-EACCES);
+		inode = minix_iget(dir->i_sb, ino);
+		if (IS_ERR(inode))
+			return ERR_CAST(inode);
 	}
 	d_add(dentry, inode);
 	return NULL;
@@ -71,10 +46,9 @@ static int minix_mknod(struct inode * dir, struct dentry *dentry, int mode, dev_
 	if (!old_valid_dev(rdev))
 		return -EINVAL;
 
-	inode = minix_new_inode(dir, &error);
+	inode = minix_new_inode(dir, mode, &error);
 
 	if (inode) {
-		inode->i_mode = mode;
 		minix_set_inode(inode, rdev);
 		mark_inode_dirty(inode);
 		error = add_nondir(dentry, inode);
@@ -98,11 +72,10 @@ static int minix_symlink(struct inode * dir, struct dentry *dentry,
 	if (i > dir->i_sb->s_blocksize)
 		goto out;
 
-	inode = minix_new_inode(dir, &err);
+	inode = minix_new_inode(dir, S_IFLNK | 0777, &err);
 	if (!inode)
 		goto out;
 
-	inode->i_mode = S_IFLNK | 0777;
 	minix_set_inode(inode, 0);
 	err = page_symlink(inode, symname, i);
 	if (err)
@@ -142,13 +115,10 @@ static int minix_mkdir(struct inode * dir, struct dentry *dentry, int mode)
 
 	inode_inc_link_count(dir);
 
-	inode = minix_new_inode(dir, &err);
+	inode = minix_new_inode(dir, S_IFDIR | mode, &err);
 	if (!inode)
 		goto out_dir;
 
-	inode->i_mode = S_IFDIR | mode;
-	if (dir->i_mode & S_ISGID)
-		inode->i_mode |= S_ISGID;
 	minix_set_inode(inode, 0);
 
 	inode_inc_link_count(inode);

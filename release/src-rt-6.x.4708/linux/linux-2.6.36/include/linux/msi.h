@@ -10,26 +10,35 @@ struct msi_msg {
 };
 
 /* Helper functions */
+struct irq_desc;
 extern void mask_msi_irq(unsigned int irq);
 extern void unmask_msi_irq(unsigned int irq);
+extern void read_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg);
+extern void get_cached_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg);
+extern void write_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg);
 extern void read_msi_msg(unsigned int irq, struct msi_msg *msg);
+extern void get_cached_msi_msg(unsigned int irq, struct msi_msg *msg);
 extern void write_msi_msg(unsigned int irq, struct msi_msg *msg);
 
 struct msi_desc {
 	struct {
-		__u8	type	: 5; 	/* {0: unused, 5h:MSI, 11h:MSI-X} */
+		__u8	is_msix	: 1;
+		__u8	multiple: 3;	/* log2 number of messages */
 		__u8	maskbit	: 1; 	/* mask-pending bit supported ?   */
-		__u8	masked	: 1;
 		__u8	is_64	: 1;	/* Address size: 0=32bit 1=64bit  */
 		__u8	pos;	 	/* Location of the msi capability */
 		__u16	entry_nr;    	/* specific enabled entry 	  */
 		unsigned default_irq;	/* default pre-assigned irq	  */
-	}msi_attrib;
+	} msi_attrib;
 
+	u32 masked;			/* mask bits */
 	unsigned int irq;
 	struct list_head list;
 
-	void __iomem *mask_base;
+	union {
+		void __iomem *mask_base;
+		u8 mask_pos;
+	};
 	struct pci_dev *dev;
 
 	/* Last set MSI message */

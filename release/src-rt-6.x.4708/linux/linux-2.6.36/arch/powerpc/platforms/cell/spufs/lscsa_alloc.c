@@ -22,11 +22,14 @@
 
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/slab.h>
 #include <linux/vmalloc.h>
 
 #include <asm/spu.h>
 #include <asm/spu_csa.h>
 #include <asm/mmu.h>
+
+#include "spufs.h"
 
 static int spu_alloc_lscsa_std(struct spu_state *csa)
 {
@@ -73,7 +76,7 @@ int spu_alloc_lscsa(struct spu_state *csa)
 	int		i, j, n_4k;
 
 	/* Check availability of 64K pages */
-	if (mmu_psize_defs[MMU_PAGE_64K].shift == 0)
+	if (!spu_64k_pages_available())
 		goto fail;
 
 	csa->use_big_pages = 1;
@@ -87,9 +90,6 @@ int spu_alloc_lscsa(struct spu_state *csa)
 	 * allowing us to require only 4 64K pages per context
 	 */
 	for (i = 0; i < SPU_LSCSA_NUM_BIG_PAGES; i++) {
-		/* XXX This is likely to fail, we should use a special pool
-		 *     similiar to what hugetlbfs does.
-		 */
 		csa->lscsa_pages[i] = alloc_pages(GFP_KERNEL,
 						  SPU_64K_PAGE_ORDER);
 		if (csa->lscsa_pages[i] == NULL)
@@ -121,12 +121,6 @@ int spu_alloc_lscsa(struct spu_state *csa)
 
 	memset(csa->lscsa, 0, sizeof(struct spu_lscsa));
 
-	/* Set LS pages reserved to allow for user-space mapping.
-	 *
-	 * XXX isn't that a bit obsolete ? I think we should just
-	 * make sure the page count is high enough. Anyway, won't harm
-	 * for now
-	 */
 	for (p = csa->lscsa->ls; p < csa->lscsa->ls + LS_SIZE; p += PAGE_SIZE)
 		SetPageReserved(vmalloc_to_page(p));
 

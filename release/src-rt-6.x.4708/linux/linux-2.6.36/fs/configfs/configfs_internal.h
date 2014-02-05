@@ -26,27 +26,37 @@
 
 #include <linux/slab.h>
 #include <linux/list.h>
+#include <linux/spinlock.h>
 
 struct configfs_dirent {
 	atomic_t		s_count;
+	int			s_dependent_count;
 	struct list_head	s_sibling;
 	struct list_head	s_children;
 	struct list_head	s_links;
-	void 			* s_element;
+	void			* s_element;
 	int			s_type;
 	umode_t			s_mode;
 	struct dentry		* s_dentry;
 	struct iattr		* s_iattr;
+#ifdef CONFIG_LOCKDEP
+	int			s_depth;
+#endif
 };
 
 #define CONFIGFS_ROOT		0x0001
 #define CONFIGFS_DIR		0x0002
-#define CONFIGFS_ITEM_ATTR 	0x0004
-#define CONFIGFS_ITEM_LINK 	0x0020
+#define CONFIGFS_ITEM_ATTR	0x0004
+#define CONFIGFS_ITEM_LINK	0x0020
 #define CONFIGFS_USET_DIR	0x0040
 #define CONFIGFS_USET_DEFAULT	0x0080
 #define CONFIGFS_USET_DROPPING	0x0100
+#define CONFIGFS_USET_IN_MKDIR	0x0200
+#define CONFIGFS_USET_CREATING	0x0400
 #define CONFIGFS_NOT_PINNED	(CONFIGFS_ITEM_ATTR)
+
+extern struct mutex configfs_symlink_mutex;
+extern spinlock_t configfs_dirent_lock;
 
 extern struct vfsmount * configfs_mount;
 extern struct kmem_cache *configfs_dir_cachep;
@@ -55,10 +65,13 @@ extern int configfs_is_root(struct config_item *item);
 
 extern struct inode * configfs_new_inode(mode_t mode, struct configfs_dirent *);
 extern int configfs_create(struct dentry *, int mode, int (*init)(struct inode *));
+extern int configfs_inode_init(void);
+extern void configfs_inode_exit(void);
 
 extern int configfs_create_file(struct config_item *, const struct configfs_attribute *);
 extern int configfs_make_dirent(struct configfs_dirent *,
 				struct dentry *, void *, umode_t, int);
+extern int configfs_dirent_is_ready(struct configfs_dirent *);
 
 extern int configfs_add_file(struct dentry *, const struct configfs_attribute *, int);
 extern void configfs_hash_and_remove(struct dentry * dir, const char * name);
@@ -144,4 +157,3 @@ static inline void configfs_put(struct configfs_dirent * sd)
 	if (atomic_dec_and_test(&sd->s_count))
 		release_configfs_dirent(sd);
 }
-

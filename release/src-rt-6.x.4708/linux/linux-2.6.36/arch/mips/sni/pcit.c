@@ -13,7 +13,6 @@
 #include <linux/pci.h>
 #include <linux/serial_8250.h>
 
-#include <asm/mc146818-time.h>
 #include <asm/sni.h>
 #include <asm/time.h>
 #include <asm/irq_cpu.h>
@@ -56,6 +55,30 @@ static struct platform_device pcit_cplus_serial8250_device = {
 	.dev			= {
 		.platform_data	= pcit_cplus_data,
 	},
+};
+
+static struct resource pcit_cmos_rsrc[] = {
+        {
+                .start = 0x70,
+                .end   = 0x71,
+                .flags = IORESOURCE_IO
+        },
+        {
+                .start = 8,
+                .end   = 8,
+                .flags = IORESOURCE_IRQ
+        }
+};
+
+static struct platform_device pcit_cmos_device = {
+        .name           = "rtc_cmos",
+        .num_resources  = ARRAY_SIZE(pcit_cmos_rsrc),
+        .resource       = pcit_cmos_rsrc
+};
+
+static struct platform_device pcit_pcspeaker_pdev = {
+	.name		= "pcspkr",
+	.id		= -1,
 };
 
 static struct resource sni_io_resource = {
@@ -153,7 +176,7 @@ void end_pcit_irq(unsigned int irq)
 }
 
 static struct irq_chip pcit_irq_type = {
-	.typename = "PCIT",
+	.name = "PCIT",
 	.ack = disable_pcit_irq,
 	.mask = disable_pcit_irq,
 	.mask_ack = disable_pcit_irq,
@@ -170,8 +193,8 @@ static void pcit_hwint1(void)
 	irq = ffs((pending >> 16) & 0x7f);
 
 	if (likely(irq > 0))
-		do_IRQ (irq + SNI_PCIT_INT_START - 1);
-	set_c0_status (IE_IRQ1);
+		do_IRQ(irq + SNI_PCIT_INT_START - 1);
+	set_c0_status(IE_IRQ1);
 }
 
 static void pcit_hwint0(void)
@@ -183,8 +206,8 @@ static void pcit_hwint0(void)
 	irq = ffs((pending >> 16) & 0x3f);
 
 	if (likely(irq > 0))
-		do_IRQ (irq + SNI_PCIT_INT_START - 1);
-	set_c0_status (IE_IRQ0);
+		do_IRQ(irq + SNI_PCIT_INT_START - 1);
+	set_c0_status(IE_IRQ0);
 }
 
 static void sni_pcit_hwint(void)
@@ -194,11 +217,11 @@ static void sni_pcit_hwint(void)
 	if (pending & C_IRQ1)
 		pcit_hwint1();
 	else if (pending & C_IRQ2)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 4);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 4);
 	else if (pending & C_IRQ3)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 5);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 5);
 	else if (pending & C_IRQ5)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 7);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 7);
 }
 
 static void sni_pcit_hwint_cplus(void)
@@ -208,13 +231,13 @@ static void sni_pcit_hwint_cplus(void)
 	if (pending & C_IRQ0)
 		pcit_hwint0();
 	else if (pending & C_IRQ1)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 3);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 3);
 	else if (pending & C_IRQ2)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 4);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 4);
 	else if (pending & C_IRQ3)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 5);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 5);
 	else if (pending & C_IRQ5)
-		do_IRQ (MIPS_CPU_IRQ_BASE + 7);
+		do_IRQ(MIPS_CPU_IRQ_BASE + 7);
 }
 
 void __init sni_pcit_irq_init(void)
@@ -223,11 +246,11 @@ void __init sni_pcit_irq_init(void)
 
 	mips_cpu_irq_init();
 	for (i = SNI_PCIT_INT_START; i <= SNI_PCIT_INT_END; i++)
-		set_irq_chip(i, &pcit_irq_type);
+		set_irq_chip_and_handler(i, &pcit_irq_type, handle_level_irq);
 	*(volatile u32 *)SNI_PCIT_INT_REG = 0;
 	sni_hwint = sni_pcit_hwint;
 	change_c0_status(ST0_IM, IE_IRQ1);
-	setup_irq (SNI_PCIT_INT_START + 6, &sni_isa_irq);
+	setup_irq(SNI_PCIT_INT_START + 6, &sni_isa_irq);
 }
 
 void __init sni_pcit_cplus_irq_init(void)
@@ -236,18 +259,15 @@ void __init sni_pcit_cplus_irq_init(void)
 
 	mips_cpu_irq_init();
 	for (i = SNI_PCIT_INT_START; i <= SNI_PCIT_INT_END; i++)
-		set_irq_chip(i, &pcit_irq_type);
+		set_irq_chip_and_handler(i, &pcit_irq_type, handle_level_irq);
 	*(volatile u32 *)SNI_PCIT_INT_REG = 0x40000000;
 	sni_hwint = sni_pcit_hwint_cplus;
 	change_c0_status(ST0_IM, IE_IRQ0);
-	setup_irq (MIPS_CPU_IRQ_BASE + 3, &sni_isa_irq);
+	setup_irq(MIPS_CPU_IRQ_BASE + 3, &sni_isa_irq);
 }
 
-void sni_pcit_init(void)
+void __init sni_pcit_init(void)
 {
-	rtc_mips_get_time = mc146818_get_cmos_time;
-	rtc_mips_set_time = mc146818_set_rtc_mmss;
-	board_time_init = sni_cpu_time_init;
 	ioport_resource.end = sni_io_resource.end;
 #ifdef CONFIG_PCI
 	PCIBIOS_MIN_IO = 0x9000;
@@ -261,10 +281,14 @@ static int __init snirm_pcit_setup_devinit(void)
 	switch (sni_brd_type) {
 	case SNI_BRD_PCI_TOWER:
 	        platform_device_register(&pcit_serial8250_device);
+	        platform_device_register(&pcit_cmos_device);
+		platform_device_register(&pcit_pcspeaker_pdev);
 	        break;
 
 	case SNI_BRD_PCI_TOWER_CPLUS:
 	        platform_device_register(&pcit_cplus_serial8250_device);
+	        platform_device_register(&pcit_cmos_device);
+		platform_device_register(&pcit_pcspeaker_pdev);
 	        break;
 	}
 	return 0;

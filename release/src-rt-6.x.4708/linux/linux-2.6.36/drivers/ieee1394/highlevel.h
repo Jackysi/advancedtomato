@@ -2,7 +2,7 @@
 #define IEEE1394_HIGHLEVEL_H
 
 #include <linux/list.h>
-#include <linux/spinlock_types.h>
+#include <linux/spinlock.h>
 #include <linux/types.h>
 
 struct module;
@@ -15,7 +15,7 @@ struct hpsb_host;
 struct hpsb_address_serve {
 	struct list_head host_list;	/* per host list */
 	struct list_head hl_list;	/* hpsb_highlevel list */
-	struct hpsb_address_ops *op;
+	const struct hpsb_address_ops *op;
 	struct hpsb_host *host;
 	u64 start;	/* first address handled, quadlet aligned */
 	u64 end;	/* first address behind, quadlet aligned */
@@ -26,9 +26,7 @@ struct hpsb_address_serve {
 struct hpsb_highlevel {
 	const char *name;
 
-	/* Any of the following pointers can legally be NULL, except for
-	 * iso_receive which can only be NULL when you don't request
-	 * channels. */
+	/* Any of the following pointers can legally be NULL. */
 
 	/* New host initialized.  Will also be called during
 	 * hpsb_register_highlevel for all hosts already installed. */
@@ -42,13 +40,6 @@ struct hpsb_highlevel {
 	 * Note that this one may occur during interrupt/bottom half handling.
 	 * You can not expect to be able to do stock hpsb_reads. */
 	void (*host_reset)(struct hpsb_host *host);
-
-	/* An isochronous packet was received.  Channel contains the channel
-	 * number for your convenience, it is also contained in the included
-	 * packet header (first quadlet, CRCs are missing).  You may get called
-	 * for channel/host combinations you did not request. */
-	void (*iso_receive)(struct hpsb_host *host, int channel,
-			    quadlet_t *data, size_t length);
 
 	/* A write request was received on either the FCP_COMMAND (direction =
 	 * 0) or the FCP_RESPONSE (direction = 1) register.  The cts arg
@@ -109,26 +100,33 @@ int highlevel_lock(struct hpsb_host *host, int nodeid, quadlet_t *store,
 int highlevel_lock64(struct hpsb_host *host, int nodeid, octlet_t *store,
 		     u64 addr, octlet_t data, octlet_t arg, int ext_tcode,
 		     u16 flags);
-void highlevel_iso_receive(struct hpsb_host *host, void *data, size_t length);
 void highlevel_fcp_request(struct hpsb_host *host, int nodeid, int direction,
 			   void *data, size_t length);
 
+/**
+ * hpsb_init_highlevel - initialize a struct hpsb_highlevel
+ *
+ * This is only necessary if hpsb_get_hostinfo_bykey can be called
+ * before hpsb_register_highlevel.
+ */
+static inline void hpsb_init_highlevel(struct hpsb_highlevel *hl)
+{
+	rwlock_init(&hl->host_info_lock);
+	INIT_LIST_HEAD(&hl->host_info_list);
+}
 void hpsb_register_highlevel(struct hpsb_highlevel *hl);
 void hpsb_unregister_highlevel(struct hpsb_highlevel *hl);
 
 u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 					 struct hpsb_host *host,
-					 struct hpsb_address_ops *ops,
+					 const struct hpsb_address_ops *ops,
 					 u64 size, u64 alignment,
 					 u64 start, u64 end);
 int hpsb_register_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			    struct hpsb_address_ops *ops, u64 start, u64 end);
+			    const struct hpsb_address_ops *ops,
+			    u64 start, u64 end);
 int hpsb_unregister_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
 			      u64 start);
-int hpsb_listen_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			unsigned int channel);
-void hpsb_unlisten_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			   unsigned int channel);
 
 void *hpsb_get_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host);
 void *hpsb_create_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host,

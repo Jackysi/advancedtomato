@@ -12,9 +12,9 @@
 
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <asm/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -264,7 +264,6 @@ static int __devinit esb2rom_init_one(struct pci_dev *pdev,
 		/* if not aligned on 4MiB, look 4MiB lower in address space */
 		map_top = window->phys + 0x400000;
 	}
-#if 1
 	/* The probe sequence run over the firmware hub lock
 	 * registers sets them to 0x7 (no access).
 	 * (Insane hardware design, but most copied Intel's.)
@@ -272,7 +271,6 @@ static int __devinit esb2rom_init_one(struct pci_dev *pdev,
 	 */
 	if (map_top < 0xffc00000)
 		map_top = 0xffc00000;
-#endif
 	/* Loop through and look for rom chips */
 	while ((map_top - 1) < 0xffffffffUL) {
 		struct cfi_private *cfi;
@@ -325,8 +323,8 @@ static int __devinit esb2rom_init_one(struct pci_dev *pdev,
 		/* Trim the size if we are larger than the map */
 		if (map->mtd->size > map->map.size) {
 			printk(KERN_WARNING MOD_NAME
-				" rom(%u) larger than window(%lu). fixing...\n",
-				map->mtd->size, map->map.size);
+				" rom(%llu) larger than window(%lu). fixing...\n",
+				(unsigned long long)map->mtd->size, map->map.size);
 			map->mtd->size = map->map.size;
 		}
 		if (window->rsrc.parent) {
@@ -403,16 +401,6 @@ static struct pci_device_id esb2rom_pci_tbl[] __devinitdata = {
 	{ 0, },
 };
 
-#if 0
-MODULE_DEVICE_TABLE(pci, esb2rom_pci_tbl);
-
-static struct pci_driver esb2rom_driver = {
-	.name =		MOD_NAME,
-	.id_table =	esb2rom_pci_tbl,
-	.probe =	esb2rom_init_one,
-	.remove =	esb2rom_remove_one,
-};
-#endif
 
 static int __init init_esb2rom(void)
 {
@@ -437,9 +425,6 @@ static int __init init_esb2rom(void)
 		return retVal;
 	}
 	return -ENXIO;
-#if 0
-	return pci_register_driver(&esb2rom_driver);
-#endif
 }
 
 static void __exit cleanup_esb2rom(void)

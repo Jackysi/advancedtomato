@@ -52,14 +52,13 @@ void machine_kexec_cleanup(struct kimage *image)
 
 void machine_shutdown(void)
 {
-	printk(KERN_INFO "kexec: machine_shutdown called\n");
 }
 
-void machine_kexec(struct kimage *image)
+static void __machine_kexec(void *data)
 {
 	relocate_kernel_t data_mover;
+	struct kimage *image = data;
 
-	smp_send_stop();
 	pfault_fini();
 	s390_reset_system();
 
@@ -68,4 +67,10 @@ void machine_kexec(struct kimage *image)
 	/* Call the moving routine */
 	(*data_mover)(&image->head, image->start);
 	for (;;);
+}
+
+void machine_kexec(struct kimage *image)
+{
+	smp_send_stop();
+	smp_switch_to_ipl_cpu(__machine_kexec, image);
 }

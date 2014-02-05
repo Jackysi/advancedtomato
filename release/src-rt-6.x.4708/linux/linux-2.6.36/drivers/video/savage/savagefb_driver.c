@@ -57,7 +57,6 @@
 #include <asm/irq.h>
 #include <asm/pgtable.h>
 #include <asm/system.h>
-#include <asm/uaccess.h>
 
 #ifdef CONFIG_MTRR
 #include <asm/mtrr.h>
@@ -1057,7 +1056,7 @@ static int savagefb_decode_var(struct fb_var_screeninfo   *var,
 
 	vga_out8(0x3d4, 0x3a, par);
 	tmp = vga_in8(0x3d5, par);
-	if (1 /*FIXME:psav->pci_burst*/)
+	if (1)
 		reg->CR3A = (tmp & 0x7f) | 0x15;
 	else
 		reg->CR3A = tmp | 0x95;
@@ -1566,7 +1565,7 @@ static int savagefb_blank(int blank, struct fb_info *info)
 		vga_out8(0x3c5, sr8, par);
 		vga_out8(0x3c4, 0x0d, par);
 		srd = vga_in8(0x3c5, par);
-		srd &= 0x03;
+		srd &= 0x50;
 
 		switch (blank) {
 		case FB_BLANK_UNBLANK:
@@ -1605,22 +1604,6 @@ static int savagefb_blank(int blank, struct fb_info *info)
 	}
 
 	return (blank == FB_BLANK_NORMAL) ? 1 : 0;
-}
-
-static void savagefb_save_state(struct fb_info *info)
-{
-	struct savagefb_par *par = info->par;
-
-	savage_get_default_par(par, &par->save);
-}
-
-static void savagefb_restore_state(struct fb_info *info)
-{
-	struct savagefb_par *par = info->par;
-
-	savagefb_blank(FB_BLANK_POWERDOWN, info);
-	savage_set_default_par(par, &par->save);
-	savagefb_blank(FB_BLANK_UNBLANK, info);
 }
 
 static int savagefb_open(struct fb_info *info, int user)
@@ -1668,8 +1651,6 @@ static struct fb_ops savagefb_ops = {
 	.fb_setcolreg   = savagefb_setcolreg,
 	.fb_pan_display = savagefb_pan_display,
 	.fb_blank       = savagefb_blank,
-	.fb_save_state  = savagefb_save_state,
-	.fb_restore_state = savagefb_restore_state,
 #if defined(CONFIG_FB_SAVAGE_ACCEL)
 	.fb_fillrect    = savagefb_fillrect,
 	.fb_copyarea    = savagefb_copyarea,
@@ -2174,11 +2155,10 @@ static int __devinit savage_init_fb_info(struct fb_info *info,
 
 #if defined(CONFIG_FB_SAVAGE_ACCEL)
 	/* FIFO size + padding for commands */
-	info->pixmap.addr = kmalloc(8*1024, GFP_KERNEL);
+	info->pixmap.addr = kcalloc(8, 1024, GFP_KERNEL);
 
 	err = -ENOMEM;
 	if (info->pixmap.addr) {
-		memset(info->pixmap.addr, 0, 8*1024);
 		info->pixmap.size = 8*1024;
 		info->pixmap.scan_align = 4;
 		info->pixmap.buf_align = 4;
@@ -2231,7 +2211,6 @@ static int __devinit savagefb_probe(struct pci_dev* dev,
 		goto failed_mmio;
 
 	video_len = savage_init_hw(par);
-	/* FIXME: cant be negative */
 	if (video_len < 0) {
 		err = video_len;
 		goto failed_mmio;

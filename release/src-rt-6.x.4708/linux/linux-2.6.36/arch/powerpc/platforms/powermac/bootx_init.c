@@ -12,12 +12,11 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/init.h>
-#include <linux/utsrelease.h>
+#include <generated/utsrelease.h>
 #include <asm/sections.h>
 #include <asm/prom.h>
 #include <asm/page.h>
 #include <asm/bootx.h>
-#include <asm/bootinfo.h>
 #include <asm/btext.h>
 #include <asm/io.h>
 
@@ -532,16 +531,13 @@ void __init bootx_init(unsigned long r3, unsigned long r4)
 	 * here. This hack will have been done by the boostrap anyway.
 	 */
 	if (bi->version < 4) {
-		/*
-		 * XXX If this is an iMac, turn off the USB controller.
-		 */
 		model = (char *) bootx_early_getprop(r4 + bi->deviceTreeOffset,
 						     4, "model");
 		if (model
 		    && (strcmp(model, "iMac,1") == 0
 			|| strcmp(model, "PowerMac1,1") == 0)) {
-			bootx_printf("iMac,1 detected, shutting down USB \n");
-			out_le32((unsigned __iomem *)0x80880008, 1);	/* XXX */
+			bootx_printf("iMac,1 detected, shutting down USB\n");
+			out_le32((unsigned __iomem *)0x80880008, 1);
 		}
 	}
 
@@ -555,7 +551,7 @@ void __init bootx_init(unsigned long r3, unsigned long r4)
 	} else
 		space = bi->totalParamsSize;
 
-	bootx_printf("Total space used by parameters & ramdisk: 0x%x \n", space);
+	bootx_printf("Total space used by parameters & ramdisk: 0x%x\n", space);
 
 	/* New BootX will have flushed all TLBs and enters kernel with
 	 * MMU switched OFF, so this should not be useful anymore.

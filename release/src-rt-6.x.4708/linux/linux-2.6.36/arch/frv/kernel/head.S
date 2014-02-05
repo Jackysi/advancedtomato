@@ -9,6 +9,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+#include <linux/init.h>
 #include <linux/threads.h>
 #include <linux/linkage.h>
 #include <asm/thread_info.h>
@@ -27,7 +28,7 @@
 #   command line string
 #
 ###############################################################################
-	.section	.text.head,"ax"
+	__HEAD
 	.balign		4
 
 	.globl		_boot, __head_reference
@@ -541,7 +542,7 @@ __head_end:
 	.size		_boot, .-_boot
 
 	# provide a point for GDB to place a break
-	.section	.text.start,"ax"
+	.section	.text..start,"ax"
 	.globl		_start
 	.balign		4
 _start:
@@ -601,42 +602,3 @@ __head_region_empty:
 # write the 32-bit hex number in GR8 to ttyS0
 #
 ###############################################################################
-#if 0
-	.globl		__head_write_to_ttyS0
-	.type		__head_write_to_ttyS0,@function
-__head_write_to_ttyS0:
-	sethi.p		%hi(0xfeff9c00),gr31
-	setlo		%lo(0xfeff9c00),gr31
-	setlos		#8,gr20
-
-0:	ldubi		@(gr31,#5*8),gr21
-	andi		gr21,#0x60,gr21
-	subicc		gr21,#0x60,gr21,icc0
-	bne		icc0,#0,0b
-
-1:	srli		gr8,#28,gr21
-	slli		gr8,#4,gr8
-
-	addi		gr21,#'0',gr21
-	subicc		gr21,#'9',gr0,icc0
-	bls		icc0,#2,2f
-	addi		gr21,#'A'-'0'-10,gr21
-2:
-	stbi		gr21,@(gr31,#0*8)
-	subicc		gr20,#1,gr20,icc0
-	bhi		icc0,#2,1b
-
-	setlos		#'\r',gr21
-	stbi		gr21,@(gr31,#0*8)
-
-	setlos		#'\n',gr21
-	stbi		gr21,@(gr31,#0*8)
-
-3:	ldubi		@(gr31,#5*8),gr21
-	andi		gr21,#0x60,gr21
-	subicc		gr21,#0x60,gr21,icc0
-	bne		icc0,#0,3b
-	bralr
-
-	.size		__head_write_to_ttyS0, .-__head_write_to_ttyS0
-#endif

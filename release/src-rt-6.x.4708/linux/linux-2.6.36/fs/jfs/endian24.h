@@ -29,11 +29,12 @@
 	__u32 __x = (x); \
 	((__u32)( \
 		((__x & (__u32)0x000000ffUL) << 16) | \
-		 (__x & (__u32)0x0000ff00UL)        | \
+		 (__x & (__u32)0x0000ff00UL)	    | \
 		((__x & (__u32)0x00ff0000UL) >> 16) )); \
 })
 
-#if (defined(__KERNEL__) && defined(__LITTLE_ENDIAN)) || (defined(__BYTE_ORDER) && (__BYTE_ORDER == __LITTLE_ENDIAN))
+#if (defined(__KERNEL__) && defined(__LITTLE_ENDIAN)) || (defined(__BYTE_ORDER) && \
+	(__BYTE_ORDER == __LITTLE_ENDIAN))
 	#define __cpu_to_le24(x) ((__u32)(x))
 	#define __le24_to_cpu(x) ((__u32)(x))
 #else

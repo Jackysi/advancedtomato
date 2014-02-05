@@ -1,6 +1,6 @@
 /* linux/arch/arm/mach-s3c2410/bast-irq.c
  *
- * Copyright (c) 2003,2005 Simtec Electronics
+ * Copyright 2003-2005 Simtec Electronics
  *   Ben Dooks <ben@simtec.co.uk>
  *
  * http://www.simtec.co.uk/products/EB2410ITX/
@@ -25,24 +25,21 @@
 #include <linux/module.h>
 #include <linux/ioport.h>
 #include <linux/sysdev.h>
+#include <linux/io.h>
 
 #include <asm/mach-types.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 
 #include <asm/mach/irq.h>
 
-#include <asm/arch/regs-irq.h>
-#include <asm/arch/bast-map.h>
-#include <asm/arch/bast-irq.h>
+#include <mach/regs-irq.h>
+#include <mach/bast-map.h>
+#include <mach/bast-irq.h>
 
-#include <asm/plat-s3c24xx/irq.h>
+#include <plat/irq.h>
 
-#if 0
-#include <asm/debug-ll.h>
-#endif
 
 #define irqdbf(x...)
 #define irqdbf2(x...)
@@ -130,8 +127,7 @@ bast_irq_pc104_demux(unsigned int irq,
 		for (i = 0; stat != 0; i++, stat >>= 1) {
 			if (stat & 1) {
 				irqno = bast_pc104_irqs[i];
-				desc = irq_desc + irqno;
-				desc_handle_irq(irqno, desc);
+				generic_handle_irq(irqno);
 			}
 		}
 	}
@@ -142,7 +138,7 @@ static __init int bast_irq_init(void)
 	unsigned int i;
 
 	if (machine_is_bast()) {
-		printk(KERN_INFO "BAST PC104 IRQ routing, (c) 2005 Simtec Electronics\n");
+		printk(KERN_INFO "BAST PC104 IRQ routing, Copyright 2005 Simtec Electronics\n");
 
 		/* zap all the IRQs */
 

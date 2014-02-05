@@ -215,7 +215,7 @@ Older Version	: 2.20.4.5 (scsi module), 2.20.2.5 (cmm module)
 
 3.	Convert pci_module_init to pci_register_driver
 	Convert from pci_module_init to pci_register_driver
-	(from:http://kerneljanitors.org/TODO)
+	(from:http://kernelnewbies.org/KernelJanitors/TODO)
 		- Signed-off-by: Domen Puncer <domen@coderock.org>
 
 4.	Use the pre defined DMA mask constants from dma-mapping.h
@@ -409,7 +409,7 @@ i.	Function reordering so that inline functions are defined before they
 	megaraid_mbox_prepare_pthru, megaraid_mbox_prepare_epthru,
 	megaraid_busywait_mbox
 
-		- Andrew Morton <akpm@osdl.org>, 08.19.2004
+		- Andrew Morton, 08.19.2004
 		linux-scsi mailing list
 
 	"Something else to clean up after inclusion: every instance of an
@@ -471,13 +471,13 @@ vi.	Add support for 64-bit applications. Current drivers assume only
 vii.	Move the function declarations for the management module from
 	megaraid_mm.h to megaraid_mm.c
 
-		- Andrew Morton <akpm@osdl.org>, 08.19.2004
+		- Andrew Morton, 08.19.2004
 		linux-scsi mailing list
 
 viii.	Change default values for MEGARAID_NEWGEN, MEGARAID_MM, and
 	MEGARAID_MAILBOX to 'n' in Kconfig.megaraid
 
-		- Andrew Morton <akpm@osdl.org>, 08.19.2004
+		- Andrew Morton, 08.19.2004
 		linux-scsi mailing list
 
 ix.	replace udelay with msleep
@@ -514,7 +514,7 @@ iv.	Remove yield() while mailbox handshake in synchronous commands
 
 v.	Remove redundant __megaraid_busywait_mbox routine
 
-vi.	Fix bug in the managment module, which causes a system lockup when the
+vi.	Fix bug in the management module, which causes a system lockup when the
 	IO module is loaded and then unloaded, followed by executing any
 	management utility. The current version of management module does not
 	handle the adapter unregister properly.

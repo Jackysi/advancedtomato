@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  *  linux/arch/arm/kernel/debug.S
  *
@@ -10,6 +11,7 @@
  *  32-bit debugging code
  */
 #include <linux/linkage.h>
+#include <asm/memory.h>
 
 		.text
 
@@ -24,7 +26,7 @@
 
 #if defined(CONFIG_CPU_V6)
 
-		.macro	addruart, rx
+		.macro	addruart, rx, tmp
 		.endm
 
 		.macro	senduart, rd, rx
@@ -49,9 +51,56 @@
 1002:
 		.endm
 
+#elif defined(CONFIG_CPU_V7)
+
+		.macro	addruart, rx, tmp
+		.endm
+
+		.macro	senduart, rd, rx
+		mcr	p14, 0, \rd, c0, c5, 0
+		.endm
+
+		.macro	busyuart, rd, rx
+busy:		mrc	p14, 0, pc, c0, c1, 0
+		bcs	busy
+		.endm
+
+		.macro	waituart, rd, rx
+wait:		mrc	p14, 0, pc, c0, c1, 0
+		bcs	wait
+
+		.endm
+
+#elif defined(CONFIG_CPU_XSCALE)
+
+		.macro	addruart, rx, tmp
+		.endm
+
+		.macro	senduart, rd, rx
+		mcr	p14, 0, \rd, c8, c0, 0
+		.endm
+
+		.macro	busyuart, rd, rx
+1001:
+		mrc	p14, 0, \rx, c14, c0, 0
+		tst	\rx, #0x10000000
+		beq	1001b
+		.endm
+
+		.macro	waituart, rd, rx
+		mov	\rd, #0x10000000
+1001:
+		subs	\rd, \rd, #1
+		bmi	1002f
+		mrc	p14, 0, \rx, c14, c0, 0
+		tst	\rx, #0x10000000
+		bne	1001b
+1002:
+		.endm
+
 #else
 
-		.macro	addruart, rx
+		.macro	addruart, rx, tmp
 		.endm
 
 		.macro	senduart, rd, rx
@@ -80,7 +129,7 @@
 #endif	/* CONFIG_CPU_V6 */
 
 #else
-#include <asm/arch/debug-macro.S>
+#include <mach/debug-macro.S>
 #endif	/* CONFIG_DEBUG_ICEDCC */
 
 /*
@@ -89,14 +138,20 @@
 ENTRY(printhex8)
 		mov	r1, #8
 		b	printhex
+ENDPROC(printhex8)
 
 ENTRY(printhex4)
 		mov	r1, #4
 		b	printhex
+ENDPROC(printhex4)
 
 ENTRY(printhex2)
 		mov	r1, #2
-printhex:	adr	r2, hexbuf
+printhex:	
+		mrc	p15, 0, r2, c1, c0	@ read SysCtrl
+		tst	r2, #1			@ MMU enabled?
+		ldrne	r2, =hexbuf		@ =1 virtual
+		ldreq	r2, =__virt_to_phys(hexbuf) @ =0 physical
 		add	r3, r2, r1
 		mov	r1, #0
 		strb	r1, [r3]
@@ -110,11 +165,12 @@ printhex:	adr	r2, hexbuf
 		bne	1b
 		mov	r0, r2
 		b	printascii
+ENDPROC(printhex2)
 
 		.ltorg
 
 ENTRY(printascii)
-		addruart r3
+		addruart r3, r1
 		b	2f
 1:		waituart r2, r3
 		senduart r1, r3
@@ -127,11 +183,14 @@ ENTRY(printascii)
 		teqne	r1, #0
 		bne	1b
 		mov	pc, lr
+ENDPROC(printascii)
 
 ENTRY(printch)
-		addruart r3
+		addruart r3, r1
 		mov	r1, r0
 		mov	r0, #0
 		b	1b
+ENDPROC(printch)
 
+		.bss
 hexbuf:		.space 16

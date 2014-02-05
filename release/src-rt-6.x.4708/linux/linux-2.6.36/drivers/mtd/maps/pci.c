@@ -7,8 +7,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  $Id: pci.c,v 1.14 2005/11/17 08:20:27 dwmw2 Exp $
- *
  * Generic PCI memory map driver.  We support the following boards:
  *  - Intel IQ80310 ATU.
  *  - Intel EBSA285 (blank rom programming mode). Tested working 27/09/2001
@@ -49,16 +47,6 @@ static map_word mtd_pci_read8(struct map_info *_map, unsigned long ofs)
 	return val;
 }
 
-#if 0
-static map_word mtd_pci_read16(struct map_info *_map, unsigned long ofs)
-{
-	struct map_pci_info *map = (struct map_pci_info *)_map;
-	map_word val;
-	val.x[0] = readw(map->base + map->translate(map, ofs));
-//	printk("read16: %08lx => %04x\n", ofs, val.x[0]);
-	return val;
-}
-#endif
 static map_word mtd_pci_read32(struct map_info *_map, unsigned long ofs)
 {
 	struct map_pci_info *map = (struct map_pci_info *)_map;
@@ -81,14 +69,6 @@ static void mtd_pci_write8(struct map_info *_map, map_word val, unsigned long of
 	writeb(val.x[0], map->base + map->translate(map, ofs));
 }
 
-#if 0
-static void mtd_pci_write16(struct map_info *_map, map_word val, unsigned long ofs)
-{
-	struct map_pci_info *map = (struct map_pci_info *)_map;
-//	printk("write16: %08lx <= %04x\n", ofs, val.x[0]);
-	writew(val.x[0], map->base + map->translate(map, ofs));
-}
-#endif
 static void mtd_pci_write32(struct map_info *_map, map_word val, unsigned long ofs)
 {
 	struct map_pci_info *map = (struct map_pci_info *)_map;
@@ -205,15 +185,8 @@ intel_dc21285_init(struct pci_dev *dev, struct map_pci_info *map)
 		 * not enabled, should we be allocating a new resource for it
 		 * or simply enabling it?
 		 */
-		if (!(pci_resource_flags(dev, PCI_ROM_RESOURCE) &
-				    IORESOURCE_ROM_ENABLE)) {
-		     	u32 val;
-			pci_resource_flags(dev, PCI_ROM_RESOURCE) |= IORESOURCE_ROM_ENABLE;
-			pci_read_config_dword(dev, PCI_ROM_ADDRESS, &val);
-			val |= PCI_ROM_ADDRESS_ENABLE;
-			pci_write_config_dword(dev, PCI_ROM_ADDRESS, val);
-			printk("%s: enabling expansion ROM\n", pci_name(dev));
-		}
+		pci_enable_rom(dev);
+		printk("%s: enabling expansion ROM\n", pci_name(dev));
 	}
 
 	if (!len || !base)
@@ -234,18 +207,13 @@ intel_dc21285_init(struct pci_dev *dev, struct map_pci_info *map)
 static void
 intel_dc21285_exit(struct pci_dev *dev, struct map_pci_info *map)
 {
-	u32 val;
-
 	if (map->base)
 		iounmap(map->base);
 
 	/*
 	 * We need to undo the PCI BAR2/PCI ROM BAR address alteration.
 	 */
-	pci_resource_flags(dev, PCI_ROM_RESOURCE) &= ~IORESOURCE_ROM_ENABLE;
-	pci_read_config_dword(dev, PCI_ROM_ADDRESS, &val);
-	val &= ~PCI_ROM_ADDRESS_ENABLE;
-	pci_write_config_dword(dev, PCI_ROM_ADDRESS, val);
+	pci_disable_rom(dev);
 }
 
 static unsigned long
@@ -383,4 +351,3 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Russell King <rmk@arm.linux.org.uk>");
 MODULE_DESCRIPTION("Generic PCI map driver");
 MODULE_DEVICE_TABLE(pci, mtd_pci_ids);
-

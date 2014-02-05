@@ -37,7 +37,7 @@
 #include <linux/proc_fs.h>
 #include <linux/device.h>
 #include <linux/usb/ch9.h>
-#include <linux/usb_gadget.h>
+#include <linux/usb/gadget.h>
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
@@ -71,15 +71,6 @@ MODULE_LICENSE("GPL");
  */
 static unsigned use_dma = 1;
 
-#if 0
-//#include <linux/moduleparam.h>
-/* "modprobe goku_udc use_dma=1" etc
- *	0 to disable dma
- *	1 to use IN dma only (normal operation)
- *	2 to use IN and OUT dma
- */
-module_param(use_dma, uint, S_IRUGO);
-#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -110,10 +101,10 @@ goku_ep_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 		return -EINVAL;
 	if (!dev->driver || dev->gadget.speed == USB_SPEED_UNKNOWN)
 		return -ESHUTDOWN;
-	if (ep->num != (desc->bEndpointAddress & 0x0f))
+	if (ep->num != usb_endpoint_num(desc))
 		return -EINVAL;
 
-	switch (desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) {
+	switch (usb_endpoint_type(desc)) {
 	case USB_ENDPOINT_XFER_BULK:
 	case USB_ENDPOINT_XFER_INT:
 		break;
@@ -127,7 +118,7 @@ goku_ep_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 
 	/* enabling the no-toggle interrupt mode would need an api hook */
 	mode = 0;
-	max = le16_to_cpu(get_unaligned(&desc->wMaxPacketSize));
+	max = get_unaligned_le16(&desc->wMaxPacketSize);
 	switch (max) {
 	case 64:	mode++;
 	case 32:	mode++;
@@ -142,7 +133,7 @@ goku_ep_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 	/* ep1/ep2 dma direction is chosen early; it works in the other
 	 * direction, with pio.  be cautious with out-dma.
 	 */
-	ep->is_in = (USB_DIR_IN & desc->bEndpointAddress) != 0;
+	ep->is_in = usb_endpoint_dir_in(desc);
 	if (ep->is_in) {
 		mode |= 1;
 		ep->dma = (use_dma != 0) && (ep->num == UDC_MSTRD_ENDPOINT);
@@ -389,12 +380,6 @@ static int write_fifo(struct goku_ep *ep, struct goku_request *req)
 		else
 			is_last = 1;
 	}
-#if 0		/* printk seemed to trash is_last...*/
-//#ifdef USB_TRACE
-	VDBG(dev, "wrote %s %u bytes%s IN %u left %p\n",
-		ep->ep.name, count, is_last ? "/last" : "",
-		req->req.length - req->req.actual, req);
-#endif
 
 	/* requests complete when all IN data is in the FIFO,
 	 * or sometimes later, if a zlp was needed.
@@ -654,11 +639,6 @@ static void abort_dma(struct goku_ep *ep, int status)
 	req = list_entry(ep->queue.next, struct goku_request, queue);
 	master = readl(&regs->dma_master) & MST_RW_BITS;
 
-	/* FIXME using these resets isn't usably documented. this may
-	 * not work unless it's followed by disabling the endpoint.
-	 *
-	 * FIXME the OUT reset path doesn't even behave consistently.
-	 */
 	if (ep->is_in) {
 		if (unlikely((readl(&regs->dma_master) & MST_RD_ENA) == 0))
 			goto finished;
@@ -692,7 +672,7 @@ static void abort_dma(struct goku_ep *ep, int status)
 	req->req.actual = (curr - req->req.dma) + 1;
 	req->req.status = status;
 
-	VDBG(ep->dev, "%s %s %s %d/%d\n", __FUNCTION__, ep->ep.name,
+	VDBG(ep->dev, "%s %s %s %d/%d\n", __func__, ep->ep.name,
 		ep->is_in ? "IN" : "OUT",
 		req->req.actual, req->req.length);
 
@@ -826,7 +806,7 @@ static int goku_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 	if (dev->ep0state == EP0_SUSPEND)
 		return -EBUSY;
 
-	VDBG(dev, "%s %s %s %s %p\n", __FUNCTION__, _ep->name,
+	VDBG(dev, "%s %s %s %s %p\n", __func__, _ep->name,
 		ep->is_in ? "IN" : "OUT",
 		ep->dma ? "dma" : "pio",
 		_req);
@@ -898,7 +878,7 @@ static int goku_set_halt(struct usb_ep *_ep, int value)
 
 	/* don't change EPxSTATUS_EP_INVALID to READY */
 	} else if (!ep->desc) {
-		DBG(ep->dev, "%s %s inactive?\n", __FUNCTION__, ep->ep.name);
+		DBG(ep->dev, "%s %s inactive?\n", __func__, ep->ep.name);
 		return -EINVAL;
 	}
 
@@ -940,7 +920,7 @@ static int goku_fifo_status(struct usb_ep *_ep)
 	regs = ep->dev->regs;
 	size = readl(&regs->EPxSizeLA[ep->num]) & DATASIZE;
 	size += readl(&regs->EPxSizeLB[ep->num]) & DATASIZE;
-	VDBG(ep->dev, "%s %s %u\n", __FUNCTION__, ep->ep.name, size);
+	VDBG(ep->dev, "%s %s %u\n", __func__, ep->ep.name, size);
 	return size;
 }
 
@@ -953,11 +933,11 @@ static void goku_fifo_flush(struct usb_ep *_ep)
 	if (!_ep)
 		return;
 	ep = container_of(_ep, struct goku_ep, ep);
-	VDBG(ep->dev, "%s %s\n", __FUNCTION__, ep->ep.name);
+	VDBG(ep->dev, "%s %s\n", __func__, ep->ep.name);
 
 	/* don't change EPxSTATUS_EP_INVALID to READY */
 	if (!ep->desc && ep->num != 0) {
-		DBG(ep->dev, "%s %s inactive?\n", __FUNCTION__, ep->ep.name);
+		DBG(ep->dev, "%s %s inactive?\n", __func__, ep->ep.name);
 		return;
 	}
 
@@ -1286,7 +1266,7 @@ static void ep0_start(struct goku_udc *dev)
 	struct goku_udc_regs __iomem	*regs = dev->regs;
 	unsigned			i;
 
-	VDBG(dev, "%s\n", __FUNCTION__);
+	VDBG(dev, "%s\n", __func__);
 
 	udc_reset(dev);
 	udc_reinit (dev);
@@ -1322,7 +1302,7 @@ static void udc_enable(struct goku_udc *dev)
 	if (readl(&dev->regs->power_detect) & PW_DETECT)
 		ep0_start(dev);
 	else {
-		DBG(dev, "%s\n", __FUNCTION__);
+		DBG(dev, "%s\n", __func__);
 		dev->int_enable = INT_PWRDETECT;
 		writel(dev->int_enable, &dev->regs->int_enable);
 	}
@@ -1349,7 +1329,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	int			retval;
 
 	if (!driver
-			|| driver->speed != USB_SPEED_FULL
+			|| driver->speed < USB_SPEED_FULL
 			|| !driver->bind
 			|| !driver->disconnect
 			|| !driver->setup)
@@ -1387,7 +1367,7 @@ stop_activity(struct goku_udc *dev, struct usb_gadget_driver *driver)
 {
 	unsigned	i;
 
-	DBG (dev, "%s\n", __FUNCTION__);
+	DBG (dev, "%s\n", __func__);
 
 	if (dev->gadget.speed == USB_SPEED_UNKNOWN)
 		driver = NULL;
@@ -1422,6 +1402,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	driver->unbind(&dev->gadget);
+	dev->gadget.dev.driver = NULL;
 
 	DBG(dev, "unregistered driver '%s'\n", driver->driver.name);
 	return 0;
@@ -1471,7 +1452,7 @@ static void ep0_setup(struct goku_udc *dev)
 				/* active endpoint */
 				if (tmp > 3 || (!dev->ep[tmp].desc && tmp != 0))
 					goto stall;
-				if (ctrl.wIndex & __constant_cpu_to_le16(
+				if (ctrl.wIndex & cpu_to_le16(
 						USB_DIR_IN)) {
 					if (!dev->ep[tmp].is_in)
 						goto stall;
@@ -1479,7 +1460,7 @@ static void ep0_setup(struct goku_udc *dev)
 					if (dev->ep[tmp].is_in)
 						goto stall;
 				}
-				if (ctrl.wValue != __constant_cpu_to_le16(
+				if (ctrl.wValue != cpu_to_le16(
 						USB_ENDPOINT_HALT))
 					goto stall;
 				if (tmp)
@@ -1492,7 +1473,7 @@ succeed:
 				return;
 			case USB_RECIP_DEVICE:
 				/* device remote wakeup: always clear */
-				if (ctrl.wValue != __constant_cpu_to_le16(1))
+				if (ctrl.wValue != cpu_to_le16(1))
 					goto stall;
 				VDBG(dev, "clear dev remote wakeup\n");
 				goto succeed;
@@ -1518,7 +1499,7 @@ succeed:
 	dev->req_config = (ctrl.bRequest == USB_REQ_SET_CONFIGURATION
 				&& ctrl.bRequestType == USB_RECIP_DEVICE);
 	if (unlikely(dev->req_config))
-		dev->configured = (ctrl.wValue != __constant_cpu_to_le16(0));
+		dev->configured = (ctrl.wValue != cpu_to_le16(0));
 
 	/* delegate everything to the gadget driver.
 	 * it may respond after this irq handler returns.
@@ -1569,7 +1550,6 @@ rescan:
 			stop_activity(dev, dev->driver);
 			stat = 0;
 			handled = 1;
-			// FIXME have a neater way to prevent re-enumeration
 			dev->driver = NULL;
 			goto done;
 		}
@@ -1725,7 +1705,7 @@ static void goku_remove(struct pci_dev *pdev)
 {
 	struct goku_udc		*dev = pci_get_drvdata(pdev);
 
-	DBG(dev, "%s\n", __FUNCTION__);
+	DBG(dev, "%s\n", __func__);
 
 	BUG_ON(dev->driver);
 
@@ -1767,7 +1747,7 @@ static int goku_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	 * usb_gadget_driver_{register,unregister}() must change.
 	 */
 	if (the_controller) {
-		WARN(dev, "ignoring %s\n", pci_name(pdev));
+		pr_warning("ignoring %s\n", pci_name(pdev));
 		return -EBUSY;
 	}
 	if (!pdev->irq) {
@@ -1789,7 +1769,7 @@ static int goku_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	dev->gadget.ops = &goku_ops;
 
 	/* the "gadget" abstracts/virtualizes the controller */
-	strcpy(dev->gadget.dev.bus_id, "gadget");
+	dev_set_name(&dev->gadget.dev, "gadget");
 	dev->gadget.dev.parent = &pdev->dev;
 	dev->gadget.dev.dma_mask = pdev->dev.dma_mask;
 	dev->gadget.dev.release = gadget_release;
@@ -1858,7 +1838,7 @@ done:
 
 /*-------------------------------------------------------------------------*/
 
-static struct pci_device_id pci_ids [] = { {
+static const struct pci_device_id pci_ids[] = { {
 	.class =	((PCI_CLASS_SERIAL_USB << 8) | 0xfe),
 	.class_mask =	~0,
 	.vendor =	0x102f,		/* Toshiba */
@@ -1877,7 +1857,6 @@ static struct pci_driver goku_pci_driver = {
 	.probe =	goku_probe,
 	.remove =	goku_remove,
 
-	/* FIXME add power management support */
 };
 
 static int __init init (void)

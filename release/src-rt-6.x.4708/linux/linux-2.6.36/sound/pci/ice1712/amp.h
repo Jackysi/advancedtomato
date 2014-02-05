@@ -6,7 +6,7 @@
  *
  *   Lowlevel functions for Advanced Micro Peripherals Ltd AUDIO2000
  *
- *	Copyright (c) 2000 Jaroslav Kysela <perex@suse.cz>
+ *	Copyright (c) 2000 Jaroslav Kysela <perex@perex.cz>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -27,11 +27,7 @@
 #define  AMP_AUDIO2000_DEVICE_DESC 	       "{AMP Ltd,AUDIO2000},"\
 					       "{Chaintech,AV-710},"
 
-#if 0
-#define VT1724_SUBDEVICE_AUDIO2000	0x12142417	/* Advanced Micro Peripherals Ltd AUDIO2000 */
-#else
 #define VT1724_SUBDEVICE_AUDIO2000	0x00030003	/* a dummy ID for AMP Audio2000 */
-#endif
 #define VT1724_SUBDEVICE_AV710		0x12142417	/* AV710 - the same ID with Audio2000! */
 
 /* WM8728 on I2C for AV710 */

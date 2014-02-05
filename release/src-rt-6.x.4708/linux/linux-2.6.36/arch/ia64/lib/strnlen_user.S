@@ -27,7 +27,6 @@ GLOBAL_ENTRY(__strnlen_user)
 	mov ar.lc=r3
 	mov r9=0
 	;;
-	// XXX braindead strlen loop---this needs to be optimized
 .Loop1:
 	EXCLR(.Lexit, ld1 r8=[in0],1)
 	add r9=1,r9

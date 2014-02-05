@@ -89,18 +89,6 @@ static void fill_async_lock(struct hpsb_packet *packet, u64 addr, int extcode,
 	packet->expect_response = 1;
 }
 
-static void fill_iso_packet(struct hpsb_packet *packet, int length, int channel,
-			    int tag, int sync)
-{
-	packet->header[0] = (length << 16) | (tag << 14) | (channel << 8)
-	    | (TCODE_ISO_DATA << 4) | sync;
-
-	packet->header_size = 4;
-	packet->data_size = length;
-	packet->type = hpsb_iso;
-	packet->tcode = TCODE_ISO_DATA;
-}
-
 static void fill_phy_packet(struct hpsb_packet *packet, quadlet_t data)
 {
 	packet->header[0] = data;
@@ -247,7 +235,6 @@ int hpsb_packet_success(struct hpsb_packet *packet)
 				 packet->node_id);
 			return -EAGAIN;
 		}
-		BUG();
 
 	case ACK_BUSY_X:
 	case ACK_BUSY_A:
@@ -294,7 +281,6 @@ int hpsb_packet_success(struct hpsb_packet *packet)
 			 packet->ack_code, packet->node_id, packet->tcode);
 		return -EAGAIN;
 	}
-	BUG();
 }
 
 struct hpsb_packet *hpsb_make_readpacket(struct hpsb_host *host, nodeid_t node,
@@ -491,28 +477,6 @@ struct hpsb_packet *hpsb_make_phypacket(struct hpsb_host *host, quadlet_t data)
 	return p;
 }
 
-struct hpsb_packet *hpsb_make_isopacket(struct hpsb_host *host,
-					int length, int channel,
-					int tag, int sync)
-{
-	struct hpsb_packet *p;
-
-	p = hpsb_alloc_packet(length);
-	if (!p)
-		return NULL;
-
-	p->host = host;
-	fill_iso_packet(p, length, channel, tag, sync);
-
-	p->generation = get_hpsb_generation(host);
-
-	return p;
-}
-
-/*
- * FIXME - these functions should probably read from / write to user space to
- * avoid in kernel buffers for user space callers
- */
 
 /**
  * hpsb_read - generic read function
@@ -532,8 +496,6 @@ int hpsb_read(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 
 	if (length == 0)
 		return -EINVAL;
-
-	BUG_ON(in_interrupt());	// We can't be called in an interrupt, yet
 
 	packet = hpsb_make_readpacket(host, node, addr, length);
 
@@ -582,8 +544,6 @@ int hpsb_write(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 	if (length == 0)
 		return -EINVAL;
 
-	BUG_ON(in_interrupt());	// We can't be called in an interrupt, yet
-
 	packet = hpsb_make_writepacket(host, node, addr, buffer, length);
 
 	if (!packet)
@@ -603,15 +563,11 @@ int hpsb_write(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 	return retval;
 }
 
-#if 0
-
 int hpsb_lock(struct hpsb_host *host, nodeid_t node, unsigned int generation,
-	      u64 addr, int extcode, quadlet_t * data, quadlet_t arg)
+	      u64 addr, int extcode, quadlet_t *data, quadlet_t arg)
 {
 	struct hpsb_packet *packet;
 	int retval = 0;
-
-	BUG_ON(in_interrupt());	// We can't be called in an interrupt, yet
 
 	packet = hpsb_make_lockpacket(host, node, addr, extcode, data, arg);
 	if (!packet)
@@ -624,49 +580,12 @@ int hpsb_lock(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 
 	retval = hpsb_packet_success(packet);
 
-	if (retval == 0) {
+	if (retval == 0)
 		*data = packet->data[0];
-	}
 
-      hpsb_lock_fail:
+hpsb_lock_fail:
 	hpsb_free_tlabel(packet);
 	hpsb_free_packet(packet);
 
 	return retval;
 }
-
-int hpsb_send_gasp(struct hpsb_host *host, int channel, unsigned int generation,
-		   quadlet_t * buffer, size_t length, u32 specifier_id,
-		   unsigned int version)
-{
-	struct hpsb_packet *packet;
-	int retval = 0;
-	u16 specifier_id_hi = (specifier_id & 0x00ffff00) >> 8;
-	u8 specifier_id_lo = specifier_id & 0xff;
-
-	HPSB_VERBOSE("Send GASP: channel = %d, length = %Zd", channel, length);
-
-	length += 8;
-
-	packet = hpsb_make_streampacket(host, NULL, length, channel, 3, 0);
-	if (!packet)
-		return -ENOMEM;
-
-	packet->data[0] = cpu_to_be32((host->node_id << 16) | specifier_id_hi);
-	packet->data[1] =
-	    cpu_to_be32((specifier_id_lo << 24) | (version & 0x00ffffff));
-
-	memcpy(&(packet->data[2]), buffer, length - 8);
-
-	packet->generation = generation;
-
-	packet->no_waiter = 1;
-
-	retval = hpsb_send_packet(packet);
-	if (retval < 0)
-		hpsb_free_packet(packet);
-
-	return retval;
-}
-
-#endif				/*  0  */

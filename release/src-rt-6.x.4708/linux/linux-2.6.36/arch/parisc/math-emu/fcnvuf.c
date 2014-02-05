@@ -315,4 +315,3 @@ dbl_to_dbl_fcnvuf(
 	Dbl_copytoptr(resultp1,resultp2,dstptr);
 	return(NOEXCEPTION);
 }
-

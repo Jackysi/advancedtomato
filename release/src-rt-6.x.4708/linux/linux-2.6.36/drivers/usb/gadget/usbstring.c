@@ -15,7 +15,7 @@
 #include <linux/init.h>
 
 #include <linux/usb/ch9.h>
-#include <linux/usb_gadget.h>
+#include <linux/usb/gadget.h>
 
 #include <asm/unaligned.h>
 
@@ -38,7 +38,7 @@ static int utf8_to_utf16le(const char *s, __le16 *cp, unsigned len)
 				uchar = (c & 0x1f) << 6;
 
 				c = (u8) *s++;
-				if ((c & 0xc0) != 0xc0)
+				if ((c & 0xc0) != 0x80)
 					goto fail;
 				c &= 0x3f;
 				uchar |= c;
@@ -49,13 +49,13 @@ static int utf8_to_utf16le(const char *s, __le16 *cp, unsigned len)
 				uchar = (c & 0x0f) << 12;
 
 				c = (u8) *s++;
-				if ((c & 0xc0) != 0xc0)
+				if ((c & 0xc0) != 0x80)
 					goto fail;
 				c &= 0x3f;
 				uchar |= c << 6;
 
 				c = (u8) *s++;
-				if ((c & 0xc0) != 0xc0)
+				if ((c & 0xc0) != 0x80)
 					goto fail;
 				c &= 0x3f;
 				uchar |= c;
@@ -68,13 +68,12 @@ static int utf8_to_utf16le(const char *s, __le16 *cp, unsigned len)
 			// 11101110wwwwzzzzyy + 110111yyyyxxxxxx
 			//     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
 			// (uuuuu = wwww + 1)
-			// FIXME accept the surrogate code points (only)
 
 			} else
 				goto fail;
 		} else
 			uchar = c;
-		put_unaligned (cpu_to_le16 (uchar), cp++);
+		put_unaligned_le16(uchar, cp++);
 		count++;
 		len--;
 	}
@@ -133,4 +132,3 @@ usb_gadget_get_string (struct usb_gadget_strings *table, int id, u8 *buf)
 	buf [1] = USB_DT_STRING;
 	return buf [0];
 }
-

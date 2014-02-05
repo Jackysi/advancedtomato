@@ -33,6 +33,10 @@
 #include <linux/interrupt.h>
 #include <linux/poison.h>
 #include <linux/bitrev.h>
+#include <linux/mutex.h>
+#include <linux/firmware.h>
+#include <linux/ihex.h>
+#include <linux/slab.h>
 
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -48,269 +52,6 @@ static inline void __init show_version (void) {
   printk ("%s version %s\n", description_string, version_string);
 }
 
-/*
-  
-  Theory of Operation
-  
-  I Hardware, detection, initialisation and shutdown.
-  
-  1. Supported Hardware
-  
-  This driver is for the PCI ATMizer-based Ambassador card (except
-  very early versions). It is not suitable for the similar EISA "TR7"
-  card. Commercially, both cards are known as Collage Server ATM
-  adapters.
-  
-  The loader supports image transfer to the card, image start and few
-  other miscellaneous commands.
-  
-  Only AAL5 is supported with vpi = 0 and vci in the range 0 to 1023.
-  
-  The cards are big-endian.
-  
-  2. Detection
-  
-  Standard PCI stuff, the early cards are detected and rejected.
-  
-  3. Initialisation
-  
-  The cards are reset and the self-test results are checked. The
-  microcode image is then transferred and started. This waits for a
-  pointer to a descriptor containing details of the host-based queues
-  and buffers and various parameters etc. Once they are processed
-  normal operations may begin. The BIA is read using a microcode
-  command.
-  
-  4. Shutdown
-  
-  This may be accomplished either by a card reset or via the microcode
-  shutdown command. Further investigation required.
-  
-  5. Persistent state
-  
-  The card reset does not affect PCI configuration (good) or the
-  contents of several other "shared run-time registers" (bad) which
-  include doorbell and interrupt control as well as EEPROM and PCI
-  control. The driver must be careful when modifying these registers
-  not to touch bits it does not use and to undo any changes at exit.
-  
-  II Driver software
-  
-  0. Generalities
-  
-  The adapter is quite intelligent (fast) and has a simple interface
-  (few features). VPI is always zero, 1024 VCIs are supported. There
-  is limited cell rate support. UBR channels can be capped and ABR
-  (explicit rate, but not EFCI) is supported. There is no CBR or VBR
-  support.
-  
-  1. Driver <-> Adapter Communication
-  
-  Apart from the basic loader commands, the driver communicates
-  through three entities: the command queue (CQ), the transmit queue
-  pair (TXQ) and the receive queue pairs (RXQ). These three entities
-  are set up by the host and passed to the microcode just after it has
-  been started.
-  
-  All queues are host-based circular queues. They are contiguous and
-  (due to hardware limitations) have some restrictions as to their
-  locations in (bus) memory. They are of the "full means the same as
-  empty so don't do that" variety since the adapter uses pointers
-  internally.
-  
-  The queue pairs work as follows: one queue is for supply to the
-  adapter, items in it are pending and are owned by the adapter; the
-  other is the queue for return from the adapter, items in it have
-  been dealt with by the adapter. The host adds items to the supply
-  (TX descriptors and free RX buffer descriptors) and removes items
-  from the return (TX and RX completions). The adapter deals with out
-  of order completions.
-  
-  Interrupts (card to host) and the doorbell (host to card) are used
-  for signalling.
-  
-  1. CQ
-  
-  This is to communicate "open VC", "close VC", "get stats" etc. to
-  the adapter. At most one command is retired every millisecond by the
-  card. There is no out of order completion or notification. The
-  driver needs to check the return code of the command, waiting as
-  appropriate.
-  
-  2. TXQ
-  
-  TX supply items are of variable length (scatter gather support) and
-  so the queue items are (more or less) pointers to the real thing.
-  Each TX supply item contains a unique, host-supplied handle (the skb
-  bus address seems most sensible as this works for Alphas as well,
-  there is no need to do any endian conversions on the handles).
-  
-  TX return items consist of just the handles above.
-  
-  3. RXQ (up to 4 of these with different lengths and buffer sizes)
-  
-  RX supply items consist of a unique, host-supplied handle (the skb
-  bus address again) and a pointer to the buffer data area.
-  
-  RX return items consist of the handle above, the VC, length and a
-  status word. This just screams "oh so easy" doesn't it?
-
-  Note on RX pool sizes:
-   
-  Each pool should have enough buffers to handle a back-to-back stream
-  of minimum sized frames on a single VC. For example:
-  
-    frame spacing = 3us (about right)
-    
-    delay = IRQ lat + RX handling + RX buffer replenish = 20 (us)  (a guess)
-    
-    min number of buffers for one VC = 1 + delay/spacing (buffers)
-
-    delay/spacing = latency = (20+2)/3 = 7 (buffers)  (rounding up)
-    
-  The 20us delay assumes that there is no need to sleep; if we need to
-  sleep to get buffers we are going to drop frames anyway.
-  
-  In fact, each pool should have enough buffers to support the
-  simultaneous reassembly of a separate frame on each VC and cope with
-  the case in which frames complete in round robin cell fashion on
-  each VC.
-  
-  Only one frame can complete at each cell arrival, so if "n" VCs are
-  open, the worst case is to have them all complete frames together
-  followed by all starting new frames together.
-  
-    desired number of buffers = n + delay/spacing
-    
-  These are the extreme requirements, however, they are "n+k" for some
-  "k" so we have only the constant to choose. This is the argument
-  rx_lats which current defaults to 7.
-  
-  Actually, "n ? n+k : 0" is better and this is what is implemented,
-  subject to the limit given by the pool size.
-  
-  4. Driver locking
-  
-  Simple spinlocks are used around the TX and RX queue mechanisms.
-  Anyone with a faster, working method is welcome to implement it.
-  
-  The adapter command queue is protected with a spinlock. We always
-  wait for commands to complete.
-  
-  A more complex form of locking is used around parts of the VC open
-  and close functions. There are three reasons for a lock: 1. we need
-  to do atomic rate reservation and release (not used yet), 2. Opening
-  sometimes involves two adapter commands which must not be separated
-  by another command on the same VC, 3. the changes to RX pool size
-  must be atomic. The lock needs to work over context switches, so we
-  use a semaphore.
-  
-  III Hardware Features and Microcode Bugs
-  
-  1. Byte Ordering
-  
-  *%^"$&%^$*&^"$(%^$#&^%$(&#%$*(&^#%!"!"!*!
-  
-  2. Memory access
-  
-  All structures that are not accessed using DMA must be 4-byte
-  aligned (not a problem) and must not cross 4MB boundaries.
-  
-  There is a DMA memory hole at E0000000-E00000FF (groan).
-  
-  TX fragments (DMA read) must not cross 4MB boundaries (would be 16MB
-  but for a hardware bug).
-  
-  RX buffers (DMA write) must not cross 16MB boundaries and must
-  include spare trailing bytes up to the next 4-byte boundary; they
-  will be written with rubbish.
-  
-  The PLX likes to prefetch; if reading up to 4 u32 past the end of
-  each TX fragment is not a problem, then TX can be made to go a
-  little faster by passing a flag at init that disables a prefetch
-  workaround. We do not pass this flag. (new microcode only)
-  
-  Now we:
-  . Note that alloc_skb rounds up size to a 16byte boundary.  
-  . Ensure all areas do not traverse 4MB boundaries.
-  . Ensure all areas do not start at a E00000xx bus address.
-  (I cannot be certain, but this may always hold with Linux)
-  . Make all failures cause a loud message.
-  . Discard non-conforming SKBs (causes TX failure or RX fill delay).
-  . Discard non-conforming TX fragment descriptors (the TX fails).
-  In the future we could:
-  . Allow RX areas that traverse 4MB (but not 16MB) boundaries.
-  . Segment TX areas into some/more fragments, when necessary.
-  . Relax checks for non-DMA items (ignore hole).
-  . Give scatter-gather (iovec) requirements using ???. (?)
-  
-  3. VC close is broken (only for new microcode)
-  
-  The VC close adapter microcode command fails to do anything if any
-  frames have been received on the VC but none have been transmitted.
-  Frames continue to be reassembled and passed (with IRQ) to the
-  driver.
-  
-  IV To Do List
-  
-  . Fix bugs!
-  
-  . Timer code may be broken.
-  
-  . Deal with buggy VC close (somehow) in microcode 12.
-  
-  . Handle interrupted and/or non-blocking writes - is this a job for
-    the protocol layer?
-  
-  . Add code to break up TX fragments when they span 4MB boundaries.
-  
-  . Add SUNI phy layer (need to know where SUNI lives on card).
-  
-  . Implement a tx_alloc fn to (a) satisfy TX alignment etc. and (b)
-    leave extra headroom space for Ambassador TX descriptors.
-  
-  . Understand these elements of struct atm_vcc: recvq (proto?),
-    sleep, callback, listenq, backlog_quota, reply and user_back.
-  
-  . Adjust TX/RX skb allocation to favour IP with LANE/CLIP (configurable).
-  
-  . Impose a TX-pending limit (2?) on each VC, help avoid TX q overflow.
-  
-  . Decide whether RX buffer recycling is or can be made completely safe;
-    turn it back on. It looks like Werner is going to axe this.
-  
-  . Implement QoS changes on open VCs (involves extracting parts of VC open
-    and close into separate functions and using them to make changes).
-  
-  . Hack on command queue so that someone can issue multiple commands and wait
-    on the last one (OR only "no-op" or "wait" commands are waited for).
-  
-  . Eliminate need for while-schedule around do_command.
-  
-*/
-
-/********** microcode **********/
-
-#ifdef AMB_NEW_MICROCODE
-#define UCODE(x) UCODE2(atmsar12.x)
-#else
-#define UCODE(x) UCODE2(atmsar11.x)
-#endif
-#define UCODE2(x) #x
-
-static u32 __devinitdata ucode_start =
-#include UCODE(start)
-;
-
-static region __devinitdata ucode_regions[] = {
-#include UCODE(regions)
-  { 0, 0 }
-};
-
-static u32 __devinitdata ucode_data[] = {
-#include UCODE(data)
-  0xdeadbeef
-};
 
 static void do_housekeeping (unsigned long arg);
 /********** globals **********/
@@ -437,7 +178,7 @@ static inline void dump_skb (char * prefix, unsigned int vc, struct sk_buff * sk
 
 /* see limitations under Hardware Features */
 
-static inline int check_area (void * start, size_t length) {
+static int check_area (void * start, size_t length) {
   // assumes length > 0
   const u32 fourmegmask = -1 << 22;
   const u32 twofivesixmask = -1 << 8;
@@ -456,7 +197,7 @@ static inline int check_area (void * start, size_t length) {
 
 /********** free an skb (as per ATM device driver documentation) **********/
 
-static inline void amb_kfree_skb (struct sk_buff * skb) {
+static void amb_kfree_skb (struct sk_buff * skb) {
   if (ATM_SKB(skb)->vcc->pop) {
     ATM_SKB(skb)->vcc->pop (ATM_SKB(skb)->vcc, skb);
   } else {
@@ -466,7 +207,7 @@ static inline void amb_kfree_skb (struct sk_buff * skb) {
 
 /********** TX completion **********/
 
-static inline void tx_complete (amb_dev * dev, tx_out * tx) {
+static void tx_complete (amb_dev * dev, tx_out * tx) {
   tx_simple * tx_descr = bus_to_virt (tx->handle);
   struct sk_buff * skb = tx_descr->skb;
   
@@ -496,7 +237,6 @@ static void rx_complete (amb_dev * dev, rx_out * rx) {
   
   PRINTD (DBG_FLOW|DBG_RX, "rx_complete %p %p (len=%hu)", dev, rx, rx_len);
   
-  // XXX move this in and add to VC stats ???
   if (!status) {
     struct atm_vcc * atm_vcc = dev->rxer[vc];
     dev->stats.rx.ok++;
@@ -643,7 +383,7 @@ static int command_do (amb_dev * dev, command * cmd) {
 
 /********** TX queue pair **********/
 
-static inline int tx_give (amb_dev * dev, tx_in * tx) {
+static int tx_give (amb_dev * dev, tx_in * tx) {
   amb_txq * txq = &dev->txq;
   unsigned long flags;
   
@@ -675,7 +415,7 @@ static inline int tx_give (amb_dev * dev, tx_in * tx) {
   }
 }
 
-static inline int tx_take (amb_dev * dev) {
+static int tx_take (amb_dev * dev) {
   amb_txq * txq = &dev->txq;
   unsigned long flags;
   
@@ -703,7 +443,7 @@ static inline int tx_take (amb_dev * dev) {
 
 /********** RX queue pairs **********/
 
-static inline int rx_give (amb_dev * dev, rx_in * rx, unsigned char pool) {
+static int rx_give (amb_dev * dev, rx_in * rx, unsigned char pool) {
   amb_rxq * rxq = &dev->rxq[pool];
   unsigned long flags;
   
@@ -728,7 +468,7 @@ static inline int rx_give (amb_dev * dev, rx_in * rx, unsigned char pool) {
   }
 }
 
-static inline int rx_take (amb_dev * dev, unsigned char pool) {
+static int rx_take (amb_dev * dev, unsigned char pool) {
   amb_rxq * rxq = &dev->rxq[pool];
   unsigned long flags;
   
@@ -761,7 +501,7 @@ static inline int rx_take (amb_dev * dev, unsigned char pool) {
 /********** RX Pool handling **********/
 
 /* pre: buffers_wanted = 0, post: pending = 0 */
-static inline void drain_rx_pool (amb_dev * dev, unsigned char pool) {
+static void drain_rx_pool (amb_dev * dev, unsigned char pool) {
   amb_rxq * rxq = &dev->rxq[pool];
   
   PRINTD (DBG_FLOW|DBG_POOL, "drain_rx_pool %p %hu", dev, pool);
@@ -796,7 +536,7 @@ static void drain_rx_pools (amb_dev * dev) {
     drain_rx_pool (dev, pool);
 }
 
-static inline void fill_rx_pool (amb_dev * dev, unsigned char pool,
+static void fill_rx_pool (amb_dev * dev, unsigned char pool,
                                  gfp_t priority)
 {
   rx_in rx;
@@ -846,7 +586,7 @@ static void fill_rx_pools (amb_dev * dev) {
 
 /********** enable host interrupts **********/
 
-static inline void interrupts_on (amb_dev * dev) {
+static void interrupts_on (amb_dev * dev) {
   wr_plain (dev, offsetof(amb_mem, interrupt_control),
 	    rd_plain (dev, offsetof(amb_mem, interrupt_control))
 	    | AMB_INTERRUPT_BITS);
@@ -854,7 +594,7 @@ static inline void interrupts_on (amb_dev * dev) {
 
 /********** disable host interrupts **********/
 
-static inline void interrupts_off (amb_dev * dev) {
+static void interrupts_off (amb_dev * dev) {
   wr_plain (dev, offsetof(amb_mem, interrupt_control),
 	    rd_plain (dev, offsetof(amb_mem, interrupt_control))
 	    &~ AMB_INTERRUPT_BITS);
@@ -1040,7 +780,7 @@ static int amb_open (struct atm_vcc * atm_vcc)
   struct atm_qos * qos;
   struct atm_trafprm * txtp;
   struct atm_trafprm * rxtp;
-  u16 tx_rate_bits;
+  u16 tx_rate_bits = -1; // hush gcc
   u16 tx_vc_bits = -1; // hush gcc
   u16 tx_frame_bits = -1; // hush gcc
   
@@ -1096,18 +836,13 @@ static int amb_open (struct atm_vcc * atm_vcc)
 	    r = round_up;
 	  }
 	  error = make_rate (pcr, r, &tx_rate_bits, NULL);
+	  if (error)
+	    return error;
 	  tx_vc_bits = TX_UBR_CAPPED;
 	  tx_frame_bits = TX_FRAME_CAPPED;
 	}
 	break;
       }
-#if 0
-      case ATM_ABR: {
-	pcr = atm_pcr_goal (txtp);
-	PRINTD (DBG_QOS, "pcr goal = %d", pcr);
-	break;
-      }
-#endif
       default: {
 	// PRINTD (DBG_QOS, "request for non-UBR/ABR denied");
 	PRINTD (DBG_QOS, "request for non-UBR denied");
@@ -1141,13 +876,6 @@ static int amb_open (struct atm_vcc * atm_vcc)
       case ATM_UBR: {
 	break;
       }
-#if 0
-      case ATM_ABR: {
-	pcr = atm_pcr_goal (rxtp);
-	PRINTD (DBG_QOS, "pcr goal = %d", pcr);
-	break;
-      }
-#endif
       default: {
 	// PRINTD (DBG_QOS, "request for non-UBR/ABR denied");
 	PRINTD (DBG_QOS, "request for non-UBR denied");
@@ -1175,7 +903,7 @@ static int amb_open (struct atm_vcc * atm_vcc)
     
     vcc->tx_frame_bits = tx_frame_bits;
     
-    down (&dev->vcc_sf);
+    mutex_lock(&dev->vcc_sf);
     if (dev->rxer[vci]) {
       // RXer on the channel already, just modify rate...
       cmd.request = cpu_to_be32 (SRB_MODIFY_VC_RATE);
@@ -1201,7 +929,7 @@ static int amb_open (struct atm_vcc * atm_vcc)
 	schedule();
     }
     dev->txer[vci].tx_present = 1;
-    up (&dev->vcc_sf);
+    mutex_unlock(&dev->vcc_sf);
   }
   
   if (rxtp->traffic_class != ATM_NONE) {
@@ -1209,7 +937,7 @@ static int amb_open (struct atm_vcc * atm_vcc)
     
     vcc->rx_info.pool = pool;
     
-    down (&dev->vcc_sf); 
+    mutex_lock(&dev->vcc_sf);
     /* grow RX buffer pool */
     if (!dev->rxq[pool].buffers_wanted)
       dev->rxq[pool].buffers_wanted = rx_lats;
@@ -1235,7 +963,7 @@ static int amb_open (struct atm_vcc * atm_vcc)
       schedule();
     // this link allows RX frames through
     dev->rxer[vci] = atm_vcc;
-    up (&dev->vcc_sf);
+    mutex_unlock(&dev->vcc_sf);
   }
   
   // indicate readiness
@@ -1260,13 +988,11 @@ static void amb_close (struct atm_vcc * atm_vcc) {
   if (atm_vcc->qos.txtp.traffic_class != ATM_NONE) {
     command cmd;
     
-    down (&dev->vcc_sf);
+    mutex_lock(&dev->vcc_sf);
     if (dev->rxer[vci]) {
-      // RXer still on the channel, just modify rate... XXX not really needed
       cmd.request = cpu_to_be32 (SRB_MODIFY_VC_RATE);
       cmd.args.modify_rate.vc = cpu_to_be32 (vci);  // vpi 0
       cmd.args.modify_rate.rate = cpu_to_be32 (0);
-      // ... and clear TX rate flags (XXX to stop RM cell output?), preserving RX pool
     } else {
       // no RXer on the channel, close channel
       cmd.request = cpu_to_be32 (SRB_CLOSE_VC);
@@ -1275,7 +1001,7 @@ static void amb_close (struct atm_vcc * atm_vcc) {
     dev->txer[vci].tx_present = 0;
     while (command_do (dev, &cmd))
       schedule();
-    up (&dev->vcc_sf);
+    mutex_unlock(&dev->vcc_sf);
   }
   
   // disable RXing
@@ -1285,9 +1011,8 @@ static void amb_close (struct atm_vcc * atm_vcc) {
     // this is (the?) one reason why we need the amb_vcc struct
     unsigned char pool = vcc->rx_info.pool;
     
-    down (&dev->vcc_sf);
+    mutex_lock(&dev->vcc_sf);
     if (dev->txer[vci].tx_present) {
-      // TXer still on the channel, just go to pool zero XXX not really needed
       cmd.request = cpu_to_be32 (SRB_MODIFY_VC_FLAGS);
       cmd.args.modify_flags.vc = cpu_to_be32 (vci);  // vpi 0
       cmd.args.modify_flags.flags = cpu_to_be32
@@ -1312,7 +1037,7 @@ static void amb_close (struct atm_vcc * atm_vcc) {
       dev->rxq[pool].buffers_wanted = 0;
       drain_rx_pool (dev, pool);
     }
-    up (&dev->vcc_sf);
+    mutex_unlock(&dev->vcc_sf);
   }
   
   // free our structure
@@ -1323,14 +1048,6 @@ static void amb_close (struct atm_vcc * atm_vcc) {
 
   return;
 }
-
-/********** Set socket options for a VC **********/
-
-// int amb_getsockopt (struct atm_vcc * atm_vcc, int level, int optname, void * optval, int optlen);
-
-/********** Set socket options for a VC **********/
-
-// int amb_setsockopt (struct atm_vcc * atm_vcc, int level, int optname, void * optval, int optlen);
 
 /********** Send **********/
 
@@ -1413,40 +1130,6 @@ static int amb_send (struct atm_vcc * atm_vcc, struct sk_buff * skb) {
 
 /********** Free RX Socket Buffer **********/
 
-#if 0
-static void amb_free_rx_skb (struct atm_vcc * atm_vcc, struct sk_buff * skb) {
-  amb_dev * dev = AMB_DEV (atm_vcc->dev);
-  amb_vcc * vcc = AMB_VCC (atm_vcc);
-  unsigned char pool = vcc->rx_info.pool;
-  rx_in rx;
-  
-  // This may be unsafe for various reasons that I cannot really guess
-  // at. However, I note that the ATM layer calls kfree_skb rather
-  // than dev_kfree_skb at this point so we are least covered as far
-  // as buffer locking goes. There may be bugs if pcap clones RX skbs.
-
-  PRINTD (DBG_FLOW|DBG_SKB, "amb_rx_free skb %p (atm_vcc %p, vcc %p)",
-	  skb, atm_vcc, vcc);
-  
-  rx.handle = virt_to_bus (skb);
-  rx.host_address = cpu_to_be32 (virt_to_bus (skb->data));
-  
-  skb->data = skb->head;
-  skb->tail = skb->head;
-  skb->len = 0;
-  
-  if (!rx_give (dev, &rx, pool)) {
-    // success
-    PRINTD (DBG_SKB|DBG_POOL, "recycled skb for pool %hu", pool);
-    return;
-  }
-  
-  // just do what the ATM layer would have done
-  dev_kfree_skb_any (skb);
-  
-  return;
-}
-#endif
 
 /********** Proc File Output **********/
 
@@ -1502,11 +1185,6 @@ static int amb_proc_read (struct atm_dev * atm_dev, loff_t * pos, char * page) {
     return count;
   }
   
-#if 0
-  if (!left--) {
-    // suni block etc?
-  }
-#endif
   
   return 0;
 }
@@ -1838,45 +1516,34 @@ static int __devinit get_loader_version (loader_block * lb,
 
 /* loader: write memory data blocks */
 
-static int __devinit loader_write (loader_block * lb,
-				const amb_dev * dev, const u32 * data,
-				u32 address, unsigned int count) {
-  unsigned int i;
+static int __devinit loader_write (loader_block* lb,
+				   const amb_dev *dev,
+				   const struct ihex_binrec *rec) {
   transfer_block * tb = &lb->payload.transfer;
   
   PRINTD (DBG_FLOW|DBG_LOAD, "loader_write");
-  
-  if (count > MAX_TRANSFER_DATA)
-    return -EINVAL;
-  tb->address = cpu_to_be32 (address);
-  tb->count = cpu_to_be32 (count);
-  for (i = 0; i < count; ++i)
-    tb->data[i] = cpu_to_be32 (data[i]);
+
+  tb->address = rec->addr;
+  tb->count = cpu_to_be32(be16_to_cpu(rec->len) / 4);
+  memcpy(tb->data, rec->data, be16_to_cpu(rec->len));
   return do_loader_command (lb, dev, write_adapter_memory);
 }
 
 /* loader: verify memory data blocks */
 
 static int __devinit loader_verify (loader_block * lb,
-				 const amb_dev * dev, const u32 * data,
-				 u32 address, unsigned int count) {
-  unsigned int i;
+				    const amb_dev *dev,
+				    const struct ihex_binrec *rec) {
   transfer_block * tb = &lb->payload.transfer;
   int res;
   
   PRINTD (DBG_FLOW|DBG_LOAD, "loader_verify");
   
-  if (count > MAX_TRANSFER_DATA)
-    return -EINVAL;
-  tb->address = cpu_to_be32 (address);
-  tb->count = cpu_to_be32 (count);
+  tb->address = rec->addr;
+  tb->count = cpu_to_be32(be16_to_cpu(rec->len) / 4);
   res = do_loader_command (lb, dev, read_adapter_memory);
-  if (!res)
-    for (i = 0; i < count; ++i)
-      if (tb->data[i] != cpu_to_be32 (data[i])) {
-	res = -EINVAL;
-	break;
-      }
+  if (!res && memcmp(tb->data, rec->data, be16_to_cpu(rec->len)))
+    res = -EINVAL;
   return res;
 }
 
@@ -1907,12 +1574,10 @@ static int amb_reset (amb_dev * dev, int diags) {
   wr_plain (dev, offsetof(amb_mem, reset_control), word | AMB_RESET_BITS);
   // wait a short while
   udelay (10);
-#if 1
   // put card into known good state
   wr_plain (dev, offsetof(amb_mem, interrupt_control), AMB_DOORBELL_BITS);
   // clear all interrupts just in case
   wr_plain (dev, offsetof(amb_mem, interrupt), -1);
-#endif
   // clear self-test done flag
   wr_plain (dev, offsetof(amb_mem, mb.loader.ready), 0);
   // take card out of reset state
@@ -1933,7 +1598,6 @@ static int amb_reset (amb_dev * dev, int diags) {
       }
     
     // get results of self-test
-    // XXX double check byte-order
     word = rd_mem (dev, offsetof(amb_mem, mb.loader.result));
     if (word & SELF_TEST_FAILURE) {
       if (word & GPINT_TST_FAILURE)
@@ -1959,47 +1623,53 @@ static int amb_reset (amb_dev * dev, int diags) {
 /********** transfer and start the microcode **********/
 
 static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
-  unsigned int i = 0;
-  unsigned int total = 0;
-  const u32 * pointer = ucode_data;
-  u32 address;
-  unsigned int count;
+  const struct firmware *fw;
+  unsigned long start_address;
+  const struct ihex_binrec *rec;
   int res;
   
+  res = request_ihex_firmware(&fw, "atmsar11.fw", &dev->pci_dev->dev);
+  if (res) {
+    PRINTK (KERN_ERR, "Cannot load microcode data");
+    return res;
+  }
+
+  /* First record contains just the start address */
+  rec = (const struct ihex_binrec *)fw->data;
+  if (be16_to_cpu(rec->len) != sizeof(__be32) || be32_to_cpu(rec->addr)) {
+    PRINTK (KERN_ERR, "Bad microcode data (no start record)");
+    return -EINVAL;
+  }
+  start_address = be32_to_cpup((__be32 *)rec->data);
+
+  rec = ihex_next_binrec(rec);
+
   PRINTD (DBG_FLOW|DBG_LOAD, "ucode_init");
-  
-  while (address = ucode_regions[i].start,
-	 count = ucode_regions[i].count) {
-    PRINTD (DBG_LOAD, "starting region (%x, %u)", address, count);
-    while (count) {
-      unsigned int words;
-      if (count <= MAX_TRANSFER_DATA)
-	words = count;
-      else
-	words = MAX_TRANSFER_DATA;
-      total += words;
-      res = loader_write (lb, dev, pointer, address, words);
-      if (res)
-	return res;
-      res = loader_verify (lb, dev, pointer, address, words);
-      if (res)
-	return res;
-      count -= words;
-      address += sizeof(u32) * words;
-      pointer += words;
+
+  while (rec) {
+    PRINTD (DBG_LOAD, "starting region (%x, %u)", be32_to_cpu(rec->addr),
+	    be16_to_cpu(rec->len));
+    if (be16_to_cpu(rec->len) > 4 * MAX_TRANSFER_DATA) {
+	    PRINTK (KERN_ERR, "Bad microcode data (record too long)");
+	    return -EINVAL;
     }
-    i += 1;
+    if (be16_to_cpu(rec->len) & 3) {
+	    PRINTK (KERN_ERR, "Bad microcode data (odd number of bytes)");
+	    return -EINVAL;
+    }
+    res = loader_write(lb, dev, rec);
+    if (res)
+      break;
+
+    res = loader_verify(lb, dev, rec);
+    if (res)
+      break;
   }
-  if (*pointer == ATM_POISON) {
-    return loader_start (lb, dev, ucode_start);
-  } else {
-    // cast needed as there is no %? for pointer differnces
-    PRINTD (DBG_LOAD|DBG_ERR,
-	    "offset=%li, *pointer=%x, address=%x, total=%u",
-	    (long) (pointer - ucode_data), *pointer, address, total);
-    PRINTK (KERN_ERR, "incorrect microcode data");
-    return -ENOMEM;
-  }
+  release_firmware(fw);
+  if (!res)
+    res = loader_start(lb, dev, start_address);
+
+  return res;
 }
 
 /********** give adapter parameters **********/
@@ -2161,7 +1831,6 @@ static int __devinit amb_init (amb_dev * dev)
 static void setup_dev(amb_dev *dev, struct pci_dev *pci_dev) 
 {
       unsigned char pool;
-      memset (dev, 0, sizeof(amb_dev));
       
       // set up known dev items straight away
       dev->pci_dev = pci_dev; 
@@ -2187,7 +1856,7 @@ static void setup_dev(amb_dev *dev, struct pci_dev *pci_dev)
       
       // semaphore for txer/rxer modifications - we cannot use a
       // spinlock as the critical region needs to switch processes
-      init_MUTEX (&dev->vcc_sf);
+      mutex_init(&dev->vcc_sf);
       // queue manipulation spinlocks; we want atomic reads and
       // writes to the queue descriptors (handles IRQ and SMP)
       // consider replacing "int pending" -> "atomic_t available"
@@ -2251,7 +1920,7 @@ static int __devinit amb_probe(struct pci_dev *pci_dev, const struct pci_device_
 		goto out_disable;
 	}
 
-	dev = kmalloc (sizeof(amb_dev), GFP_KERNEL);
+	dev = kzalloc(sizeof(amb_dev), GFP_KERNEL);
 	if (!dev) {
 		PRINTK (KERN_ERR, "out of memory!");
 		err = -ENOMEM;
@@ -2383,6 +2052,7 @@ static void __init amb_check_args (void) {
 MODULE_AUTHOR(maintainer_string);
 MODULE_DESCRIPTION(description_string);
 MODULE_LICENSE("GPL");
+MODULE_FIRMWARE("atmsar11.fw");
 module_param(debug,   ushort, 0644);
 module_param(cmds,    uint, 0);
 module_param(txs,     uint, 0);
@@ -2401,10 +2071,8 @@ MODULE_PARM_DESC(pci_lat, "PCI latency in bus cycles");
 /********** module entry **********/
 
 static struct pci_device_id amb_pci_tbl[] = {
-	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR, PCI_ANY_ID, PCI_ANY_ID,
-	  0, 0, 0 },
-	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR_BAD, PCI_ANY_ID, PCI_ANY_ID,
-	  0, 0, 0 },
+	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR), 0 },
+	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR_BAD), 0 },
 	{ 0, }
 };
 

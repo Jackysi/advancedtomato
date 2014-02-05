@@ -25,16 +25,8 @@
 
 #include <linux/input.h>
 #include <linux/workqueue.h>
-
-#define IR_TYPE_RC5     1
-#define IR_TYPE_PD      2 /* Pulse distance encoded IR */
-#define IR_TYPE_OTHER  99
-
-#define IR_KEYTAB_TYPE	u32
-#define IR_KEYTAB_SIZE	128  // enougth for rc5, probably need more some day ...
-
-#define IR_KEYCODE(tab,code)	(((unsigned)code < IR_KEYTAB_SIZE) \
-				 ? tab[code] : KEY_RESERVED)
+#include <linux/interrupt.h>
+#include <media/ir-core.h>
 
 #define RC5_START(x)	(((x)>>12)&3)
 #define RC5_TOGGLE(x)	(((x)>>11)&1)
@@ -43,12 +35,10 @@
 
 struct ir_input_state {
 	/* configuration */
-	int                ir_type;
-	IR_KEYTAB_TYPE     ir_codes[IR_KEYTAB_SIZE];
+	u64      ir_type;
 
 	/* key info */
-	u32                ir_raw;      /* raw data */
-	u32                ir_key;      /* ir key code */
+	u32                ir_key;      /* ir scancode */
 	u32                keycode;     /* linux key code */
 	int                keypressed;  /* current state */
 };
@@ -60,6 +50,10 @@ struct card_ir {
 	struct ir_input_state   ir;
 	char                    name[32];
 	char                    phys[32];
+	int			users;
+
+	u32			running:1;
+	struct ir_dev_props	props;
 
 	/* Usual gpio signalling */
 
@@ -85,66 +79,29 @@ struct card_ir {
 	u32 code;			/* raw code under construction */
 	struct timeval base_time;	/* time of last seen code */
 	int active;			/* building raw code */
+
+	/* NEC decoding */
+	u32			nec_gpio;
+	struct tasklet_struct   tlet;
+
+	/* IR core raw decoding */
+	u32			raw_decode;
 };
 
-void ir_input_init(struct input_dev *dev, struct ir_input_state *ir,
-		   int ir_type, IR_KEYTAB_TYPE *ir_codes);
+/* Routines from ir-functions.c */
+
+int ir_input_init(struct input_dev *dev, struct ir_input_state *ir,
+		   const u64 ir_type);
 void ir_input_nokey(struct input_dev *dev, struct ir_input_state *ir);
 void ir_input_keydown(struct input_dev *dev, struct ir_input_state *ir,
-		      u32 ir_key, u32 ir_raw);
+		      u32 ir_key);
 u32  ir_extract_bits(u32 data, u32 mask);
 int  ir_dump_samples(u32 *samples, int count);
 int  ir_decode_biphase(u32 *samples, int count, int low, int high);
 int  ir_decode_pulsedistance(u32 *samples, int count, int low, int high);
+u32  ir_rc5_decode(unsigned int code);
 
-u32 ir_rc5_decode(unsigned int code);
 void ir_rc5_timer_end(unsigned long data);
 void ir_rc5_timer_keyup(unsigned long data);
 
-/* Keymaps to be used by other modules */
-
-extern IR_KEYTAB_TYPE ir_codes_empty[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_avermedia[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_avermedia_dvbt[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_apac_viewcomp[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_pixelview[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_nebula[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_dntv_live_dvb_t[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_iodata_bctv7e[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_adstech_dvb_t_pci[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_msi_tvanywhere[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_cinergy_1400[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_avertv_303[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_dntv_live_dvbt_pro[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_em_terratec[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_pinnacle_grey[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_flyvideo[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_flydvb[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_cinergy[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_eztv[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_avermedia[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_videomate_tv_pvr[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_manli[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_gotview7135[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_purpletv[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_pctv_sedna[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_pv951[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_rc5_tv[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_winfast[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_pinnacle_color[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_hauppauge_new[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_npgtech[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_norwood[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_proteus_2309[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_budget_ci_old[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_asus_pc39[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_encore_enltv[IR_KEYTAB_SIZE];
-extern IR_KEYTAB_TYPE ir_codes_tt_1500[IR_KEYTAB_SIZE];
-
 #endif
-
-/*
- * Local variables:
- * c-basic-offset: 8
- * End:
- */

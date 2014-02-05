@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom EMF Layer
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -19,15 +19,19 @@
 #
 
 EMFSRCDIR := ../../../../../emf/emf
-EMFCSRCDIR := ../../../../../../$(SRCBASEDIR)/emf/emf
-EMFDIR := ../../../../../emf
+EMFCSRCDIR := ../../../../../emf/emf
+EMFDIR := ../../../../../emf$
 
 EMF_OBJS := $(EMFCSRCDIR)/emfc.o $(EMFSRCDIR)/emf_linux.o
 
-# Search for sources under src/emf/emf
+ifeq ($(CONFIG_BUZZZ_FUNC),y)
+subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
+endif # CONFIG_BUZZZ_FUNC
+
+# Search for sources under src/router/emf/emf
 ifneq ($(wildcard $(src)/$(EMFSRCDIR)),)
-	EXTRA_CFLAGS += -I../../emf/emf -I../../emf/igs
-	EXTRA_CFLAGS += -I../../../$(SRCBASEDIR)/include/emf/emf -I../../../$(SRCBASEDIR)/include/emf/igs
+	EXTRA_CFLAGS += -I$(SRCBASE)/emf/emf -I$(SRCBASE)/emf/igs
+	EXTRA_CFLAGS += -I$(SRCBASE)/include/emf/emf -I$(SRCBASE)/include/emf/igs
 	emf-objs := $(EMF_OBJS)
 else
 	emf-objs := $(EMFDIR)/emf.o
@@ -39,11 +43,11 @@ ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile
 else
 # Normal makefile
-KERNELDIR := ../../../../../linux/linux-2.6
+KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 clean:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` clean
 endif
 
-clean-files += $(EMFCSRCDIR)/*.o $(EMFSRCDIR)/*.o $(EMFSRCDIR)/.*.o.cmd
+clean-files += $(EMFCSRCDIR)/*.o $(EMFSRCDIR)/*.o $(EMFCSRCDIR)/.*.o.cmd $(EMFSRCDIR)/.*.o.cmd

@@ -25,13 +25,16 @@
 #include <linux/preempt.h>
 #include <linux/stop_machine.h>
 #include <linux/kdebug.h>
+#include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 #include <asm/sections.h>
-#include <asm/uaccess.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 DEFINE_PER_CPU(struct kprobe *, current_kprobe) = NULL;
 DEFINE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
+
+struct kretprobe_blackpoint kretprobe_blacklist[] = {{NULL, NULL}};
 
 int __kprobes arch_prepare_kprobe(struct kprobe *p)
 {
@@ -39,10 +42,8 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	if (is_prohibited_opcode((kprobe_opcode_t *) p->addr))
 		return -EINVAL;
 
-	if ((unsigned long)p->addr & 0x01) {
-		printk("Attempt to register kprobe at an unaligned address\n");
+	if ((unsigned long)p->addr & 0x01)
 		return -EINVAL;
-		}
 
 	/* Use the get_insn_slot() facility for correctness */
 	if (!(p->ainsn.insn = get_insn_slot()))
@@ -62,6 +63,8 @@ int __kprobes is_prohibited_opcode(kprobe_opcode_t *instruction)
 	case 0x0b:	/* bsm	 */
 	case 0x83:	/* diag  */
 	case 0x44:	/* ex	 */
+	case 0xac:	/* stnsm */
+	case 0xad:	/* stosm */
 		return -EINVAL;
 	}
 	switch (*(__u16 *) instruction) {
@@ -71,6 +74,7 @@ int __kprobes is_prohibited_opcode(kprobe_opcode_t *instruction)
 	case 0xb258:	/* bsg	 */
 	case 0xb218:	/* pc	 */
 	case 0xb228:	/* pt	 */
+	case 0xb98d:	/* epsw	 */
 		return -EINVAL;
 	}
 	return 0;
@@ -85,7 +89,7 @@ void __kprobes get_instruction_type(struct arch_specific_insn *ainsn)
 	ainsn->reg = (*ainsn->insn & 0xf0) >> 4;
 
 	/* save the instruction length (pop 5-5) in bytes */
-	switch (*(__u8 *) (ainsn->insn) >> 4) {
+	switch (*(__u8 *) (ainsn->insn) >> 6) {
 	case 0:
 		ainsn->ilen = 2;
 		break;
@@ -154,73 +158,43 @@ void __kprobes get_instruction_type(struct arch_specific_insn *ainsn)
 
 static int __kprobes swap_instruction(void *aref)
 {
+	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
+	unsigned long status = kcb->kprobe_status;
 	struct ins_replace_args *args = aref;
-	u32 *addr;
-	u32 instr;
-	int err = -EFAULT;
+	int rc;
 
-	/*
-	 * Text segment is read-only, hence we use stura to bypass dynamic
-	 * address translation to exchange the instruction. Since stura
-	 * always operates on four bytes, but we only want to exchange two
-	 * bytes do some calculations to get things right. In addition we
-	 * shall not cross any page boundaries (vmalloc area!) when writing
-	 * the new instruction.
-	 */
-	addr = (u32 *)((unsigned long)args->ptr & -4UL);
-	if ((unsigned long)args->ptr & 2)
-		instr = ((*addr) & 0xffff0000) | args->new;
-	else
-		instr = ((*addr) & 0x0000ffff) | args->new << 16;
-
-	asm volatile(
-		"	lra	%1,0(%1)\n"
-		"0:	stura	%2,%1\n"
-		"1:	la	%0,0\n"
-		"2:\n"
-		EX_TABLE(0b,2b)
-		: "+d" (err)
-		: "a" (addr), "d" (instr)
-		: "memory", "cc");
-
-	return err;
+	kcb->kprobe_status = KPROBE_SWAP_INST;
+	rc = probe_kernel_write(args->ptr, &args->new, sizeof(args->new));
+	kcb->kprobe_status = status;
+	return rc;
 }
 
 void __kprobes arch_arm_kprobe(struct kprobe *p)
 {
-	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
-	unsigned long status = kcb->kprobe_status;
 	struct ins_replace_args args;
 
 	args.ptr = p->addr;
 	args.old = p->opcode;
 	args.new = BREAKPOINT_INSTRUCTION;
-
-	kcb->kprobe_status = KPROBE_SWAP_INST;
-	stop_machine_run(swap_instruction, &args, NR_CPUS);
-	kcb->kprobe_status = status;
+	stop_machine(swap_instruction, &args, NULL);
 }
 
 void __kprobes arch_disarm_kprobe(struct kprobe *p)
 {
-	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
-	unsigned long status = kcb->kprobe_status;
 	struct ins_replace_args args;
 
 	args.ptr = p->addr;
 	args.old = BREAKPOINT_INSTRUCTION;
 	args.new = p->opcode;
-
-	kcb->kprobe_status = KPROBE_SWAP_INST;
-	stop_machine_run(swap_instruction, &args, NR_CPUS);
-	kcb->kprobe_status = status;
+	stop_machine(swap_instruction, &args, NULL);
 }
 
 void __kprobes arch_remove_kprobe(struct kprobe *p)
 {
-	mutex_lock(&kprobe_mutex);
-	free_insn_slot(p->ainsn.insn, 0);
-	mutex_unlock(&kprobe_mutex);
+	if (p->ainsn.insn) {
+		free_insn_slot(p->ainsn.insn, 0);
+		p->ainsn.insn = NULL;
+	}
 }
 
 static void __kprobes prepare_singlestep(struct kprobe *p, struct pt_regs *regs)
@@ -270,7 +244,6 @@ static void __kprobes set_current_kprobe(struct kprobe *p, struct pt_regs *regs,
 	__ctl_store(kcb->kprobe_saved_ctl, 9, 11);
 }
 
-/* Called with kretprobe_lock held */
 void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 					struct pt_regs *regs)
 {
@@ -332,7 +305,7 @@ static int __kprobes kprobe_handler(struct pt_regs *regs)
 		 * No kprobe at this address. The fault has not been
 		 * caused by a kprobe breakpoint. The race of breakpoint
 		 * vs. kprobe remove does not exist because on s390 we
-		 * use stop_machine_run to arm/disarm the breakpoints.
+		 * use stop_machine to arm/disarm the breakpoints.
 		 */
 		goto no_kprobe;
 
@@ -358,7 +331,7 @@ no_kprobe:
  *	- When the probed function returns, this probe
  *		causes the handlers to fire
  */
-void kretprobe_trampoline_holder(void)
+static void __used kretprobe_trampoline_holder(void)
 {
 	asm volatile(".global kretprobe_trampoline\n"
 		     "kretprobe_trampoline: bcr 0,0\n");
@@ -377,13 +350,12 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 	unsigned long trampoline_address = (unsigned long)&kretprobe_trampoline;
 
 	INIT_HLIST_HEAD(&empty_rp);
-	spin_lock_irqsave(&kretprobe_lock, flags);
-	head = kretprobe_inst_table_head(current);
+	kretprobe_hash_lock(current, &head, &flags);
 
 	/*
 	 * It is possible to have multiple instances associated with a given
 	 * task either because an multiple functions in the call path
-	 * have a return probe installed on them, and/or more then one return
+	 * have a return probe installed on them, and/or more than one return
 	 * return probe was registered for a target function.
 	 *
 	 * We can handle this because:
@@ -417,7 +389,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 	regs->psw.addr = orig_ret_address | PSW_ADDR_AMODE;
 
 	reset_current_kprobe();
-	spin_unlock_irqrestore(&kretprobe_lock, flags);
+	kretprobe_hash_unlock(current, &flags);
 	preempt_enable_no_resched();
 
 	hlist_for_each_entry_safe(ri, node, tmp, &empty_rp, hlist) {

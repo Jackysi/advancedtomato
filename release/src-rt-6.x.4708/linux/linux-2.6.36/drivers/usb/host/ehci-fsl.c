@@ -1,6 +1,6 @@
 /*
- * (C) Copyright David Brownell 2000-2002
- * Copyright (c) 2005 MontaVista Software
+ * Copyright 2005-2009 MontaVista Software, Inc.
+ * Copyright 2008      Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,17 +18,19 @@
  *
  * Ported to 834x by Randy Vinson <rvinson@mvista.com> using code provided
  * by Hunter Wu.
+ * Power Management support by Dave Liu <daveliu@freescale.com>,
+ * Jerry Huang <Chang-Ming.Huang@freescale.com> and
+ * Anton Vorontsov <avorontsov@ru.mvista.com>.
  */
 
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/delay.h>
+#include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/fsl_devices.h>
 
 #include "ehci-fsl.h"
-
-/* FIXME: Power Managment is un-ported so temporarily disable it */
-#undef CONFIG_PM
-
-/* PCI-based HCs are common, but plenty of non-PCI HCs are used too */
 
 /* configure so an HC device and id are always provided */
 /* always called with process context; sleeping is OK */
@@ -42,8 +44,8 @@
  * Allocates basic resources for this USB host controller.
  *
  */
-int usb_hcd_fsl_probe(const struct hc_driver *driver,
-		      struct platform_device *pdev)
+static int usb_hcd_fsl_probe(const struct hc_driver *driver,
+			     struct platform_device *pdev)
 {
 	struct fsl_usb2_platform_data *pdata;
 	struct usb_hcd *hcd;
@@ -58,7 +60,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
 	pdata = (struct fsl_usb2_platform_data *)pdev->dev.platform_data;
 	if (!pdata) {
 		dev_err(&pdev->dev,
-			"No platform data for %s.\n", pdev->dev.bus_id);
+			"No platform data for %s.\n", dev_name(&pdev->dev));
 		return -ENODEV;
 	}
 
@@ -71,7 +73,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
 	      (pdata->operating_mode == FSL_USB2_DR_OTG))) {
 		dev_err(&pdev->dev,
 			"Non Host Mode configured for %s. Wrong driver linked.\n",
-			pdev->dev.bus_id);
+			dev_name(&pdev->dev));
 		return -ENODEV;
 	}
 
@@ -79,12 +81,12 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
 	if (!res) {
 		dev_err(&pdev->dev,
 			"Found HC with no IRQ. Check %s setup!\n",
-			pdev->dev.bus_id);
+			dev_name(&pdev->dev));
 		return -ENODEV;
 	}
 	irq = res->start;
 
-	hcd = usb_create_hcd(driver, &pdev->dev, pdev->dev.bus_id);
+	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd) {
 		retval = -ENOMEM;
 		goto err1;
@@ -94,7 +96,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
 	if (!res) {
 		dev_err(&pdev->dev,
 			"Found HC with no register addr. Check %s setup!\n",
-			pdev->dev.bus_id);
+			dev_name(&pdev->dev));
 		retval = -ENODEV;
 		goto err2;
 	}
@@ -134,7 +136,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
       err2:
 	usb_put_hcd(hcd);
       err1:
-	dev_err(&pdev->dev, "init %s fail, %d\n", pdev->dev.bus_id, retval);
+	dev_err(&pdev->dev, "init %s fail, %d\n", dev_name(&pdev->dev), retval);
 	return retval;
 }
 
@@ -149,7 +151,8 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
  * Reverses the effect of usb_hcd_fsl_probe().
  *
  */
-void usb_hcd_fsl_remove(struct usb_hcd *hcd, struct platform_device *pdev)
+static void usb_hcd_fsl_remove(struct usb_hcd *hcd,
+			       struct platform_device *pdev)
 {
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
@@ -232,8 +235,13 @@ static void mpc83xx_usb_setup(struct usb_hcd *hcd)
 
 	/* put controller in host mode. */
 	ehci_writel(ehci, 0x00000003, non_ehci + FSL_SOC_USB_USBMODE);
+#ifdef CONFIG_PPC_85xx
+	out_be32(non_ehci + FSL_SOC_USB_PRICTRL, 0x00000008);
+	out_be32(non_ehci + FSL_SOC_USB_AGECNTTHRSH, 0x00000080);
+#else
 	out_be32(non_ehci + FSL_SOC_USB_PRICTRL, 0x0000000c);
 	out_be32(non_ehci + FSL_SOC_USB_AGECNTTHRSH, 0x00000040);
+#endif
 	out_be32(non_ehci + FSL_SOC_USB_SICTRL, 0x00000001);
 }
 
@@ -281,10 +289,84 @@ static int ehci_fsl_setup(struct usb_hcd *hcd)
 	return retval;
 }
 
+struct ehci_fsl {
+	struct ehci_hcd	ehci;
+
+#ifdef CONFIG_PM
+	/* Saved USB PHY settings, need to restore after deep sleep. */
+	u32 usb_ctrl;
+#endif
+};
+
+#ifdef CONFIG_PM
+
+static struct ehci_fsl *hcd_to_ehci_fsl(struct usb_hcd *hcd)
+{
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+
+	return container_of(ehci, struct ehci_fsl, ehci);
+}
+
+static int ehci_fsl_drv_suspend(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct ehci_fsl *ehci_fsl = hcd_to_ehci_fsl(hcd);
+	void __iomem *non_ehci = hcd->regs;
+
+	ehci_prepare_ports_for_controller_suspend(hcd_to_ehci(hcd),
+			device_may_wakeup(dev));
+	if (!fsl_deep_sleep())
+		return 0;
+
+	ehci_fsl->usb_ctrl = in_be32(non_ehci + FSL_SOC_USB_CTRL);
+	return 0;
+}
+
+static int ehci_fsl_drv_resume(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct ehci_fsl *ehci_fsl = hcd_to_ehci_fsl(hcd);
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+	void __iomem *non_ehci = hcd->regs;
+
+	ehci_prepare_ports_for_controller_resume(ehci);
+	if (!fsl_deep_sleep())
+		return 0;
+
+	usb_root_hub_lost_power(hcd->self.root_hub);
+
+	/* Restore USB PHY settings and enable the controller. */
+	out_be32(non_ehci + FSL_SOC_USB_CTRL, ehci_fsl->usb_ctrl);
+
+	ehci_reset(ehci);
+	ehci_fsl_reinit(ehci);
+
+	return 0;
+}
+
+static int ehci_fsl_drv_restore(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+
+	usb_root_hub_lost_power(hcd->self.root_hub);
+	return 0;
+}
+
+static struct dev_pm_ops ehci_fsl_pm_ops = {
+	.suspend = ehci_fsl_drv_suspend,
+	.resume = ehci_fsl_drv_resume,
+	.restore = ehci_fsl_drv_restore,
+};
+
+#define EHCI_FSL_PM_OPS		(&ehci_fsl_pm_ops)
+#else
+#define EHCI_FSL_PM_OPS		NULL
+#endif /* CONFIG_PM */
+
 static const struct hc_driver ehci_fsl_hc_driver = {
 	.description = hcd_name,
 	.product_desc = "Freescale On-Chip EHCI Host Controller",
-	.hcd_priv_size = sizeof(struct ehci_hcd),
+	.hcd_priv_size = sizeof(struct ehci_fsl),
 
 	/*
 	 * generic hardware linkage
@@ -306,6 +388,7 @@ static const struct hc_driver ehci_fsl_hc_driver = {
 	.urb_enqueue = ehci_urb_enqueue,
 	.urb_dequeue = ehci_urb_dequeue,
 	.endpoint_disable = ehci_endpoint_disable,
+	.endpoint_reset = ehci_endpoint_reset,
 
 	/*
 	 * scheduling support
@@ -321,6 +404,8 @@ static const struct hc_driver ehci_fsl_hc_driver = {
 	.bus_resume = ehci_bus_resume,
 	.relinquish_port = ehci_relinquish_port,
 	.port_handed_over = ehci_port_handed_over,
+
+	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
 };
 
 static int ehci_fsl_drv_probe(struct platform_device *pdev)
@@ -336,17 +421,17 @@ static int ehci_fsl_drv_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 
 	usb_hcd_fsl_remove(hcd, pdev);
-
 	return 0;
 }
 
-MODULE_ALIAS("fsl-ehci");
+MODULE_ALIAS("platform:fsl-ehci");
 
 static struct platform_driver ehci_fsl_driver = {
 	.probe = ehci_fsl_drv_probe,
 	.remove = ehci_fsl_drv_remove,
 	.shutdown = usb_hcd_platform_shutdown,
 	.driver = {
-		   .name = "fsl-ehci",
-		   },
+		.name = "fsl-ehci",
+		.pm = EHCI_FSL_PM_OPS,
+	},
 };

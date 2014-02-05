@@ -15,6 +15,7 @@
 #include <linux/string.h>
 #include <linux/net.h>
 #include <linux/socket.h>
+#include <linux/slab.h>
 #include <linux/sockios.h>
 #include <linux/init.h>
 #include <linux/skbuff.h>
@@ -85,7 +86,7 @@ static int dn_fib_hash_zombies;
 
 static inline dn_fib_idx_t dn_hash(dn_fib_key_t key, struct dn_zone *dz)
 {
-	u16 h = dn_ntohs(key.datum)>>(16 - dz->dz_order);
+	u16 h = le16_to_cpu(key.datum)>>(16 - dz->dz_order);
 	h ^= (h >> 10);
 	h ^= (h >> 6);
 	h &= DZ_HASHMASK(dz);
@@ -375,10 +376,11 @@ static void dn_rtmsg_fib(int event, struct dn_fib_node *f, int z, u32 tb_id,
 		kfree_skb(skb);
 		goto errout;
 	}
-	err = rtnl_notify(skb, pid, RTNLGRP_DECnet_ROUTE, nlh, GFP_KERNEL);
+	rtnl_notify(skb, &init_net, pid, RTNLGRP_DECnet_ROUTE, nlh, GFP_KERNEL);
+	return;
 errout:
 	if (err < 0)
-		rtnl_set_sk_err(RTNLGRP_DECnet_ROUTE, err);
+		rtnl_set_sk_err(&init_net, RTNLGRP_DECnet_ROUTE, err);
 }
 
 static __inline__ int dn_hash_dump_bucket(struct sk_buff *skb,
@@ -463,11 +465,15 @@ static int dn_fib_table_dump(struct dn_fib_table *tb, struct sk_buff *skb,
 
 int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
+	struct net *net = sock_net(skb->sk);
 	unsigned int h, s_h;
 	unsigned int e = 0, s_e;
 	struct dn_fib_table *tb;
 	struct hlist_node *node;
 	int dumped = 0;
+
+	if (!net_eq(net, &init_net))
+		return 0;
 
 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
 		((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED)
@@ -576,8 +582,9 @@ static int dn_fib_table_insert(struct dn_fib_table *tb, struct rtmsg *r, struct 
 		DN_FIB_SCAN_KEY(f, fp, key) {
 			if (fi->fib_priority != DN_FIB_INFO(f)->fib_priority)
 				break;
-			if (f->fn_type == type && f->fn_scope == r->rtm_scope
-					&& DN_FIB_INFO(f) == fi)
+			if (f->fn_type == type &&
+			    f->fn_scope == r->rtm_scope &&
+			    DN_FIB_INFO(f) == fi)
 				goto out;
 		}
 
@@ -881,7 +888,7 @@ void __init dn_fib_table_init(void)
 	dn_hash_kmem = kmem_cache_create("dn_fib_info_cache",
 					sizeof(struct dn_fib_info),
 					0, SLAB_HWCACHE_ALIGN,
-					NULL, NULL);
+					NULL);
 }
 
 void __exit dn_fib_table_cleanup(void)

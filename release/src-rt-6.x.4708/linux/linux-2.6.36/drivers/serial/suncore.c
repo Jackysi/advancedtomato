@@ -16,102 +16,104 @@
 #include <linux/tty.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/serial_core.h>
 #include <linux/init.h>
 
-#include <asm/oplib.h>
+#include <asm/prom.h>
 
 #include "suncore.h"
 
-int sunserial_current_minor = 64;
+static int sunserial_current_minor = 64;
 
-EXPORT_SYMBOL(sunserial_current_minor);
-
-void
-sunserial_console_termios(struct console *con)
+int sunserial_register_minors(struct uart_driver *drv, int count)
 {
-	char mode[16], buf[16], *s;
+	int err = 0;
+
+	drv->minor = sunserial_current_minor;
+	drv->nr += count;
+	/* Register the driver on the first call */
+	if (drv->nr == count)
+		err = uart_register_driver(drv);
+	if (err == 0) {
+		sunserial_current_minor += count;
+		drv->tty_driver->name_base = drv->minor - 64;
+	}
+	return err;
+}
+EXPORT_SYMBOL(sunserial_register_minors);
+
+void sunserial_unregister_minors(struct uart_driver *drv, int count)
+{
+	drv->nr -= count;
+	sunserial_current_minor -= count;
+
+	if (drv->nr == 0)
+		uart_unregister_driver(drv);
+}
+EXPORT_SYMBOL(sunserial_unregister_minors);
+
+int sunserial_console_match(struct console *con, struct device_node *dp,
+			    struct uart_driver *drv, int line, bool ignore_line)
+{
+	if (!con)
+		return 0;
+
+	drv->cons = con;
+
+	if (of_console_device != dp)
+		return 0;
+
+	if (!ignore_line) {
+		int off = 0;
+
+		if (of_console_options &&
+		    *of_console_options == 'b')
+			off = 1;
+
+		if ((line & 1) != off)
+			return 0;
+	}
+
+	if (!console_set_on_cmdline) {
+		con->index = line;
+		add_preferred_console(con->name, line, NULL);
+	}
+	return 1;
+}
+EXPORT_SYMBOL(sunserial_console_match);
+
+void sunserial_console_termios(struct console *con, struct device_node *uart_dp)
+{
+	const char *mode, *s;
 	char mode_prop[] = "ttyX-mode";
-	char cd_prop[]   = "ttyX-ignore-cd";
-	char dtr_prop[]  = "ttyX-rts-dtr-off";
-	char *ssp_console_modes_prop = "ssp-console-modes";
 	int baud, bits, stop, cflag;
 	char parity;
-	int carrier = 0;
-	int rtsdtr = 1;
-	int topnd, nd;
 
-	if (!serial_console)
-		return;
+	if (!strcmp(uart_dp->name, "rsc") ||
+	    !strcmp(uart_dp->name, "rsc-console") ||
+	    !strcmp(uart_dp->name, "rsc-control")) {
+		mode = of_get_property(uart_dp,
+				       "ssp-console-modes", NULL);
+		if (!mode)
+			mode = "115200,8,n,1,-";
+	} else if (!strcmp(uart_dp->name, "lom-console")) {
+		mode = "9600,8,n,1,-";
+	} else {
+		struct device_node *dp;
+		char c;
 
-	switch (serial_console) {
-	case PROMDEV_OTTYA:
-		mode_prop[3] = 'a';
-		cd_prop[3] = 'a';
-		dtr_prop[3] = 'a';
-		break;
+		c = 'a';
+		if (of_console_options)
+			c = *of_console_options;
 
-	case PROMDEV_OTTYB:
-		mode_prop[3] = 'b';
-		cd_prop[3] = 'b';
-		dtr_prop[3] = 'b';
-		break;
+		mode_prop[3] = c;
 
-	case PROMDEV_ORSC:
-
-		nd = prom_pathtoinode("rsc");
-		if (!nd) {
-			strcpy(mode, "115200,8,n,1,-");
-			goto no_options;
-		}
-
-		if (!prom_node_has_property(nd, ssp_console_modes_prop)) {
-			strcpy(mode, "115200,8,n,1,-");
-			goto no_options;
-		}
-
-		memset(mode, 0, sizeof(mode));
-		prom_getstring(nd, ssp_console_modes_prop, mode, sizeof(mode));
-		goto no_options;
-
-	default:
-		strcpy(mode, "9600,8,n,1,-");
-		goto no_options;
+		dp = of_find_node_by_path("/options");
+		mode = of_get_property(dp, mode_prop, NULL);
+		if (!mode)
+			mode = "9600,8,n,1,-";
 	}
 
-	topnd = prom_getchild(prom_root_node);
-	nd = prom_searchsiblings(topnd, "options");
-	if (!nd) {
-		strcpy(mode, "9600,8,n,1,-");
-		goto no_options;
-	}
-
-	if (!prom_node_has_property(nd, mode_prop)) {
-		strcpy(mode, "9600,8,n,1,-");
-		goto no_options;
-	}
-
-	memset(mode, 0, sizeof(mode));
-	prom_getstring(nd, mode_prop, mode, sizeof(mode));
-
-	if (prom_node_has_property(nd, cd_prop)) {
-		memset(buf, 0, sizeof(buf));
-		prom_getstring(nd, cd_prop, buf, sizeof(buf));
-		if (!strcmp(buf, "false"))
-			carrier = 1;
-
-		/* XXX: this is unused below. */
-	}
-
-	if (prom_node_has_property(nd, dtr_prop)) {
-		memset(buf, 0, sizeof(buf));
-		prom_getstring(nd, dtr_prop, buf, sizeof(buf));
-		if (!strcmp(buf, "false"))
-			rtsdtr = 0;
-
-		/* XXX: this is unused below. */
-	}
-
-no_options:
 	cflag = CREAD | HUPCL | CLOCAL;
 
 	s = mode;
@@ -123,7 +125,6 @@ no_options:
 	s = strchr(s, ',');
 	stop = simple_strtoul(++s, NULL, 0);
 	s = strchr(s, ',');
-	/* XXX handshake is not handled here. */
 
 	switch (baud) {
 		case 150: cflag |= B150; break;
@@ -163,8 +164,6 @@ no_options:
 
 	con->cflag = cflag;
 }
-
-EXPORT_SYMBOL(sunserial_console_termios);
 
 /* Sun serial MOUSE auto baud rate detection.  */
 static struct mouse_baud_cflag {

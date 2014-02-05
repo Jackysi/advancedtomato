@@ -27,7 +27,7 @@
 #include <linux/spi/spi.h>
 #include <linux/mtd/physmap.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
@@ -36,9 +36,9 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/board.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/at91rm9200_mc.h>
+#include <mach/board.h>
+#include <mach/gpio.h>
+#include <mach/at91rm9200_mc.h>
 
 #include "generic.h"
 
@@ -105,7 +105,7 @@ static struct at91_mmc_data __initdata picotux200_mmc_data = {
 // };
 
 #define PICOTUX200_FLASH_BASE	AT91_CHIPSELECT_0
-#define PICOTUX200_FLASH_SIZE	0x400000
+#define PICOTUX200_FLASH_SIZE	SZ_4M
 
 static struct physmap_flash_data picotux200_flash_data = {
 	.width	= 2,
@@ -139,7 +139,7 @@ static void __init picotux200_board_init(void)
 	// at91_add_device_udc(&picotux200_udc_data);
 	// at91_set_multi_drive(picotux200_udc_data.pullup_pin, 1);	/* pullup_pin is connected to reset */
 	/* I2C */
-	at91_add_device_i2c();
+	at91_add_device_i2c(NULL, 0);
 	/* SPI */
 	// at91_add_device_spi(picotux200_spi_devices, ARRAY_SIZE(picotux200_spi_devices));
 #ifdef CONFIG_MTD_AT91_DATAFLASH_CARD

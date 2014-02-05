@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  *  linux/arch/arm/lib/memcpy.S
  *
@@ -13,8 +14,11 @@
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 
+#define LDR1W_SHIFT	0
+#define STR1W_SHIFT	0
+
 	.macro ldr1w ptr reg abort
-	ldr \reg, [\ptr], #4
+	W(ldr) \reg, [\ptr], #4
 	.endm
 
 	.macro ldr4w ptr reg1 reg2 reg3 reg4 abort
@@ -30,7 +34,7 @@
 	.endm
 
 	.macro str1w ptr reg abort
-	str \reg, [\ptr], #4
+	W(str) \reg, [\ptr], #4
 	.endm
 
 	.macro str8w ptr reg1 reg2 reg3 reg4 reg5 reg6 reg7 reg8 abort
@@ -50,6 +54,7 @@
 	.endm
 
 	.text
+	.section .text.fastpath, "a"
 
 /* Prototype: void *memcpy(void *dest, const void *src, size_t n); */
 
@@ -57,3 +62,4 @@ ENTRY(memcpy)
 
 #include "copy_template.S"
 
+ENDPROC(memcpy)

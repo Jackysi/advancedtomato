@@ -26,8 +26,8 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/regs-uart.h>
-#include <asm/arch/regs-irq.h>
+#include <mach/regs-uart.h>
+#include <mach/regs-irq.h>
 
 #if defined(CONFIG_SERIAL_KS8695_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
 #define SUPPORT_SYSRQ
@@ -63,8 +63,44 @@
 #define UART_DUMMY_LSR_RX	0x100
 #define UART_PORT_SIZE		(KS8695_USR - KS8695_URRB + 4)
 
-#define tx_enabled(port) ((port)->unused[0])
-#define rx_enabled(port) ((port)->unused[1])
+static inline int tx_enabled(struct uart_port *port)
+{
+	return port->unused[0] & 1;
+}
+
+static inline int rx_enabled(struct uart_port *port)
+{
+	return port->unused[0] & 2;
+}
+
+static inline int ms_enabled(struct uart_port *port)
+{
+	return port->unused[0] & 4;
+}
+
+static inline void ms_enable(struct uart_port *port, int enabled)
+{
+	if(enabled)
+		port->unused[0] |= 4;
+	else
+		port->unused[0] &= ~4;
+}
+
+static inline void rx_enable(struct uart_port *port, int enabled)
+{
+	if(enabled)
+		port->unused[0] |= 2;
+	else
+		port->unused[0] &= ~2;
+}
+
+static inline void tx_enable(struct uart_port *port, int enabled)
+{
+	if(enabled)
+		port->unused[0] |= 1;
+	else
+		port->unused[0] &= ~1;
+}
 
 
 #ifdef SUPPORT_SYSRQ
@@ -74,8 +110,12 @@ static struct console ks8695_console;
 static void ks8695uart_stop_tx(struct uart_port *port)
 {
 	if (tx_enabled(port)) {
-		disable_irq(KS8695_IRQ_UART_TX);
-		tx_enabled(port) = 0;
+		/* use disable_irq_nosync() and not disable_irq() to avoid self
+		 * imposed deadlock by not waiting for irq handler to end,
+		 * since this ks8695uart_stop_tx() is called from interrupt context.
+		 */
+		disable_irq_nosync(KS8695_IRQ_UART_TX);
+		tx_enable(port, 0);
 	}
 }
 
@@ -83,7 +123,7 @@ static void ks8695uart_start_tx(struct uart_port *port)
 {
 	if (!tx_enabled(port)) {
 		enable_irq(KS8695_IRQ_UART_TX);
-		tx_enabled(port) = 1;
+		tx_enable(port, 1);
 	}
 }
 
@@ -91,24 +131,30 @@ static void ks8695uart_stop_rx(struct uart_port *port)
 {
 	if (rx_enabled(port)) {
 		disable_irq(KS8695_IRQ_UART_RX);
-		rx_enabled(port) = 0;
+		rx_enable(port, 0);
 	}
 }
 
 static void ks8695uart_enable_ms(struct uart_port *port)
 {
-	enable_irq(KS8695_IRQ_UART_MODEM_STATUS);
+	if (!ms_enabled(port)) {
+		enable_irq(KS8695_IRQ_UART_MODEM_STATUS);
+		ms_enable(port,1);
+	}
 }
 
 static void ks8695uart_disable_ms(struct uart_port *port)
 {
-	disable_irq(KS8695_IRQ_UART_MODEM_STATUS);
+	if (ms_enabled(port)) {
+		disable_irq(KS8695_IRQ_UART_MODEM_STATUS);
+		ms_enable(port,0);
+	}
 }
 
 static irqreturn_t ks8695uart_rx_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
-	struct tty_struct *tty = port->info->tty;
+	struct tty_struct *tty = port->state->port.tty;
 	unsigned int status, ch, lsr, flg, max_count = 256;
 
 	status = UART_GET_LSR(port);		/* clears pending LSR interrupts */
@@ -164,7 +210,7 @@ ignore_char:
 static irqreturn_t ks8695uart_tx_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
-	struct circ_buf *xmit = &port->info->xmit;
+	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int count;
 
 	if (port->x_char) {
@@ -220,7 +266,7 @@ static irqreturn_t ks8695uart_modem_status(int irq, void *dev_id)
 	if (status & URMS_URTERI)
 		port->icount.rng++;
 
-	wake_up_interruptible(&port->info->delta_msr_wait);
+	wake_up_interruptible(&port->state->port.delta_msr_wait);
 
 	return IRQ_HANDLED;
 }
@@ -285,8 +331,9 @@ static int ks8695uart_startup(struct uart_port *port)
 	int retval;
 
 	set_irq_flags(KS8695_IRQ_UART_TX, IRQF_VALID | IRQF_NOAUTOEN);
-	tx_enabled(port) = 0;
-	rx_enabled(port) = 1;
+	tx_enable(port, 0);
+	rx_enable(port, 1);
+	ms_enable(port, 1);
 
 	/*
 	 * Allocate the IRQ
@@ -506,7 +553,7 @@ static struct uart_port ks8695uart_ports[SERIAL_KS8695_NR] = {
 		.mapbase	= KS8695_UART_VA,
 		.iotype		= SERIAL_IO_MEM,
 		.irq		= KS8695_IRQ_UART_TX,
-		.uartclk	= CLOCK_TICK_RATE * 16,
+		.uartclk	= KS8695_CLOCK_RATE * 16,
 		.fifosize	= 16,
 		.ops		= &ks8695uart_pops,
 		.flags		= ASYNC_BOOT_AUTOCONF,
@@ -603,6 +650,7 @@ static struct console ks8695_console = {
 
 static int __init ks8695_console_init(void)
 {
+	add_preferred_console(SERIAL_KS8695_DEVNAME, 0, NULL);
 	register_console(&ks8695_console);
 	return 0;
 }

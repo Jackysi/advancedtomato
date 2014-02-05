@@ -233,27 +233,6 @@ static struct llc_conn_state_trans llc_common_state_trans_9 = {
 };
 
 /* State transitions for LLC_CONN_EV_RX_XXX_RSP_Fbit_SET_1 event */
-#if 0
-static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_10[] = {
-	[0] = llc_conn_ev_qlfy_p_flag_eq_0,
-	[1] = NULL,
-};
-
-static llc_conn_action_t llc_common_actions_10[] = {
-	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
-	[1] = llc_conn_ac_start_ack_timer,
-	[2] = llc_conn_ac_stop_other_timers,
-	[3] = llc_conn_ac_set_retry_cnt_0,
-	[4] = NULL,
-};
-
-static struct llc_conn_state_trans llc_common_state_trans_10 = {
-	.ev	       = llc_conn_ev_rx_xxx_rsp_fbit_set_1,
-	.next_state    = LLC_CONN_STATE_ERROR,
-	.ev_qualifiers = llc_common_ev_qfyrs_10,
-	.ev_actions    = llc_common_actions_10,
-};
-#endif
 
 /* State transitions for LLC_CONN_EV_P_TMR_EXP event */
 static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_11a[] = {

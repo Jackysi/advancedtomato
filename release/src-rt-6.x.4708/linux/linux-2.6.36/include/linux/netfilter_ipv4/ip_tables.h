@@ -17,11 +17,11 @@
 
 #ifdef __KERNEL__
 #include <linux/if.h>
-#include <linux/types.h>
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <linux/skbuff.h>
 #endif
+#include <linux/types.h>
 #include <linux/compiler.h>
 #include <linux/netfilter_ipv4.h>
 
@@ -62,7 +62,7 @@ struct ipt_ip {
 #define IPT_F_FRAG		0x01	/* Set if rule is a fragment rule */
 #define IPT_F_GOTO		0x02	/* Set if jump is a goto */
 #define IPT_F_MASK		0x03	/* All possible flag bits mask. */
-#define IPT_F_NO_DEF_MATCH	0x80	/* Internal: no default match rules present */
+#define IPT_F_NO_DEF_MATCH      0x80    /* Internal: no default match rules present */
 
 /* Values for "inv" field in struct ipt_ip. */
 #define IPT_INV_VIA_IN		0x01	/* Invert the sense of IN IFACE. */
@@ -77,8 +77,7 @@ struct ipt_ip {
 /* This structure defines each of the firewall rules.  Consists of 3
    parts which are 1) general IP header stuff 2) match specific
    stuff 3) the target to perform if the rule matches */
-struct ipt_entry
-{
+struct ipt_entry {
 	struct ipt_ip ip;
 
 	/* Mark with fields that we care about. */
@@ -136,8 +135,7 @@ struct ipt_entry
 #define IPT_UDP_INV_MASK	XT_UDP_INV_MASK
 
 /* ICMP matching stuff */
-struct ipt_icmp
-{
+struct ipt_icmp {
 	u_int8_t type;				/* type to match */
 	u_int8_t code[2];			/* range of code */
 	u_int8_t invflags;			/* Inverse flags */
@@ -147,8 +145,7 @@ struct ipt_icmp
 #define IPT_ICMP_INV	0x01	/* Invert the sense of type/code test */
 
 /* The argument to IPT_SO_GET_INFO */
-struct ipt_getinfo
-{
+struct ipt_getinfo {
 	/* Which table: caller fills this in. */
 	char name[IPT_TABLE_MAXNAMELEN];
 
@@ -157,10 +154,10 @@ struct ipt_getinfo
 	unsigned int valid_hooks;
 
 	/* Hook entry points: one per netfilter hook. */
-	unsigned int hook_entry[NF_IP_NUMHOOKS];
+	unsigned int hook_entry[NF_INET_NUMHOOKS];
 
 	/* Underflow points. */
-	unsigned int underflow[NF_IP_NUMHOOKS];
+	unsigned int underflow[NF_INET_NUMHOOKS];
 
 	/* Number of entries */
 	unsigned int num_entries;
@@ -170,8 +167,7 @@ struct ipt_getinfo
 };
 
 /* The argument to IPT_SO_SET_REPLACE. */
-struct ipt_replace
-{
+struct ipt_replace {
 	/* Which table. */
 	char name[IPT_TABLE_MAXNAMELEN];
 
@@ -186,10 +182,10 @@ struct ipt_replace
 	unsigned int size;
 
 	/* Hook entry points. */
-	unsigned int hook_entry[NF_IP_NUMHOOKS];
+	unsigned int hook_entry[NF_INET_NUMHOOKS];
 
 	/* Underflow points. */
-	unsigned int underflow[NF_IP_NUMHOOKS];
+	unsigned int underflow[NF_INET_NUMHOOKS];
 
 	/* Information about old entries: */
 	/* Number of counters (must be equal to current number of entries). */
@@ -205,8 +201,7 @@ struct ipt_replace
 #define ipt_counters_info xt_counters_info
 
 /* The argument to IPT_SO_GET_ENTRIES. */
-struct ipt_get_entries
-{
+struct ipt_get_entries {
 	/* Which table: user fills this in. */
 	char name[IPT_TABLE_MAXNAMELEN];
 
@@ -229,6 +224,7 @@ ipt_get_target(struct ipt_entry *e)
 	return (void *)e + e->target_offset;
 }
 
+#ifndef __KERNEL__
 /* fn returns 0 to continue iteration */
 #define IPT_MATCH_ITERATE(e, fn, args...) \
 	XT_MATCH_ITERATE(struct ipt_entry, e, fn, ## args)
@@ -236,11 +232,7 @@ ipt_get_target(struct ipt_entry *e)
 /* fn returns 0 to continue iteration */
 #define IPT_ENTRY_ITERATE(entries, size, fn, args...) \
 	XT_ENTRY_ITERATE(struct ipt_entry, entries, size, fn, ## args)
-
-/* fn returns 0 to continue iteration */
-#define IPT_ENTRY_ITERATE_CONTINUE(entries, size, n, fn, args...) \
-	XT_ENTRY_ITERATE_CONTINUE(struct ipt_entry, entries, size, n, fn, \
-				  ## args)
+#endif
 
 /*
  *	Main firewall chains definitions and global var's definitions.
@@ -250,25 +242,23 @@ ipt_get_target(struct ipt_entry *e)
 #include <linux/init.h>
 extern void ipt_init(void) __init;
 
-extern int ipt_register_table(struct xt_table *table,
-			      const struct ipt_replace *repl);
-extern void ipt_unregister_table(struct xt_table *table);
+extern struct xt_table *ipt_register_table(struct net *net,
+					   const struct xt_table *table,
+					   const struct ipt_replace *repl);
+extern void ipt_unregister_table(struct net *net, struct xt_table *table);
 
 /* Standard entry. */
-struct ipt_standard
-{
+struct ipt_standard {
 	struct ipt_entry entry;
 	struct ipt_standard_target target;
 };
 
-struct ipt_error_target
-{
+struct ipt_error_target {
 	struct ipt_entry_target target;
 	char errorname[IPT_FUNCTION_MAXNAMELEN];
 };
 
-struct ipt_error
-{
+struct ipt_error {
 	struct ipt_entry entry;
 	struct ipt_error_target target;
 };
@@ -295,7 +285,8 @@ struct ipt_error
 	.target.errorname = "ERROR",					       \
 }
 
-extern unsigned int ipt_do_table(struct sk_buff **pskb,
+extern void *ipt_alloc_initial_table(const struct xt_table *);
+extern unsigned int ipt_do_table(struct sk_buff *skb,
 				 unsigned int hook,
 				 const struct net_device *in,
 				 const struct net_device *out,
@@ -306,8 +297,7 @@ extern unsigned int ipt_do_table(struct sk_buff **pskb,
 #ifdef CONFIG_COMPAT
 #include <net/compat.h>
 
-struct compat_ipt_entry
-{
+struct compat_ipt_entry {
 	struct ipt_ip ip;
 	compat_uint_t nfcache;
 	u_int16_t target_offset;
@@ -316,6 +306,13 @@ struct compat_ipt_entry
 	struct compat_xt_counters counters;
 	unsigned char elems[0];
 };
+
+/* Helper functions */
+static inline struct ipt_entry_target *
+compat_ipt_get_target(struct compat_ipt_entry *e)
+{
+	return (void *)e + e->target_offset;
+}
 
 #define COMPAT_IPT_ALIGN(s) 	COMPAT_XT_ALIGN(s)
 

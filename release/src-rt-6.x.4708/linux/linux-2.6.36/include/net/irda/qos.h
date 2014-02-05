@@ -100,4 +100,3 @@ void irda_qos_bits_to_value(struct qos_info *qos);
 )
 
 #endif
-

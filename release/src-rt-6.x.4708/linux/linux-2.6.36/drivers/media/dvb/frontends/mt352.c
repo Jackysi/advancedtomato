@@ -32,7 +32,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/string.h>
@@ -96,7 +95,7 @@ static int mt352_read_register(struct mt352_state* state, u8 reg)
 
 	if (ret != 2) {
 		printk("%s: readreg error (reg=%d, ret==%i)\n",
-		       __FUNCTION__, reg, ret);
+		       __func__, reg, ret);
 		return ret;
 	}
 
@@ -136,7 +135,7 @@ static void mt352_calc_nominal_rate(struct mt352_state* state,
 	value = 64 * bw * (1<<16) / (7 * 8);
 	value = value * 1000 / adc_clock;
 	dprintk("%s: bw %d, adc_clock %d => 0x%x\n",
-		__FUNCTION__, bw, adc_clock, value);
+		__func__, bw, adc_clock, value);
 	buf[0] = msb(value);
 	buf[1] = lsb(value);
 }
@@ -153,10 +152,16 @@ static void mt352_calc_input_freq(struct mt352_state* state,
 	if (state->config.if2)
 		if2 = state->config.if2;
 
-	ife = (2*adc_clock - if2);
+	if (adc_clock >= if2 * 2)
+		ife = if2;
+	else {
+		ife = adc_clock - (if2 % adc_clock);
+		if (ife > adc_clock / 2)
+			ife = adc_clock - ife;
+	}
 	value = -16374 * ife / adc_clock;
 	dprintk("%s: if2 %d, ife %d, adc_clock %d => %d / 0x%x\n",
-		__FUNCTION__, if2, ife, adc_clock, value, value & 0x3fff);
+		__func__, if2, ife, adc_clock, value, value & 0x3fff);
 	buf[0] = msb(value);
 	buf[1] = lsb(value);
 }
@@ -419,17 +424,6 @@ static int mt352_read_status(struct dvb_frontend* fe, fe_status_t* status)
 	struct mt352_state* state = fe->demodulator_priv;
 	int s0, s1, s3;
 
-	/* FIXME:
-	 *
-	 * The MT352 design manual from Zarlink states (page 46-47):
-	 *
-	 * Notes about the TUNER_GO register:
-	 *
-	 * If the Read_Tuner_Byte (bit-1) is activated, then the tuner status
-	 * byte is copied from the tuner to the STATUS_3 register and
-	 * completion of the read operation is indicated by bit-5 of the
-	 * INTERRUPT_3 register.
-	 */
 
 	if ((s0 = mt352_read_register(state, STATUS_0)) < 0)
 		return -EREMOTEIO;
@@ -516,7 +510,7 @@ static int mt352_init(struct dvb_frontend* fe)
 
 	static u8 mt352_reset_attach [] = { RESET, 0xC0 };
 
-	dprintk("%s: hello\n",__FUNCTION__);
+	dprintk("%s: hello\n",__func__);
 
 	if ((mt352_read_register(state, CLOCK_CTL) & 0x10) == 0 ||
 	    (mt352_read_register(state, CONFIG) & 0x20) == 0) {

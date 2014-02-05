@@ -73,8 +73,8 @@ noritake_end_irq(unsigned int irq)
                 noritake_enable_irq(irq);
 }
 
-static struct hw_interrupt_type noritake_irq_type = {
-	.typename	= "NORITAKE",
+static struct irq_chip noritake_irq_type = {
+	.name		= "NORITAKE",
 	.startup	= noritake_startup_irq,
 	.shutdown	= noritake_disable_irq,
 	.enable		= noritake_enable_irq,
@@ -257,7 +257,7 @@ noritake_swizzle(struct pci_dev *dev, u8 *pinp)
 				slot = PCI_SLOT(dev->devfn) + 15;
 				break;
 			}
-			pin = bridge_swizzle(pin, PCI_SLOT(dev->devfn)) ;
+			pin = pci_swizzle_interrupt_pin(dev, pin);
 
 			/* Move up the chain of bridges.  */
 			dev = dev->bus->self;

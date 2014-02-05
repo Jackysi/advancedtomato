@@ -377,4 +377,3 @@ struct sun3_udc_regs {
 
 #endif /* ndef HOSTS_C */
 #endif /* SUN3_NCR5380_H */
-

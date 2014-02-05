@@ -23,9 +23,6 @@
 #define ARRAYCMD_H
 
 #include <asm/types.h>
-#if 0
-#include <linux/blkdev.h>
-#endif
 
 /* for the Smart Array 42XX cards */
 #define S42XX_REQUEST_PORT_OFFSET	0x40

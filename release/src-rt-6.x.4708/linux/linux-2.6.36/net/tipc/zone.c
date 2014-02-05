@@ -82,7 +82,7 @@ void tipc_zone_attach_cluster(struct _zone *z_ptr, struct cluster *c_ptr)
 
 	assert(c_ptr->addr);
 	assert(c_num <= tipc_max_clusters);
-	assert(z_ptr->clusters[c_num] == 0);
+	assert(z_ptr->clusters[c_num] == NULL);
 	z_ptr->clusters[c_num] = c_ptr;
 }
 
@@ -111,10 +111,10 @@ void tipc_zone_send_external_routes(struct _zone *z_ptr, u32 dest)
 	}
 }
 
-struct node *tipc_zone_select_remote_node(struct _zone *z_ptr, u32 addr, u32 ref)
+struct tipc_node *tipc_zone_select_remote_node(struct _zone *z_ptr, u32 addr, u32 ref)
 {
 	struct cluster *c_ptr;
-	struct node *n_ptr;
+	struct tipc_node *n_ptr;
 	u32 c_num;
 
 	if (!z_ptr)
@@ -170,4 +170,3 @@ u32 tipc_zone_next_node(u32 addr)
 		return tipc_cltr_next_node(c_ptr, addr);
 	return 0;
 }
-

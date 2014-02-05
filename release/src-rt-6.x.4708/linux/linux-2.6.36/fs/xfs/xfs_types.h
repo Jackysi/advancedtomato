@@ -21,14 +21,6 @@
 #ifdef __KERNEL__
 
 /*
- * POSIX Extensions
- */
-typedef unsigned char		uchar_t;
-typedef unsigned short		ushort_t;
-typedef unsigned int		uint_t;
-typedef unsigned long		ulong_t;
-
-/*
  * Additional type declarations for XFS
  */
 typedef signed char		__int8_t;
@@ -45,7 +37,7 @@ typedef __uint32_t		prid_t;		/* project ID */
 typedef __uint32_t		inst_t;		/* an instruction */
 
 typedef __s64			xfs_off_t;	/* <file offset> type */
-typedef __u64			xfs_ino_t;	/* <inode> type */
+typedef unsigned long long	xfs_ino_t;	/* <inode> type */
 typedef __s64			xfs_daddr_t;	/* <disk address> type */
 typedef char *			xfs_caddr_t;	/* <core address> type */
 typedef __u32			xfs_dev_t;
@@ -83,6 +75,8 @@ typedef	__uint32_t	xfs_dahash_t;	/* dir/attr hash value */
 
 typedef __uint16_t	xfs_prid_t;	/* prid_t truncated to 16bits in XFS */
 
+typedef __uint32_t	xlog_tid_t;	/* transaction ID type */
+
 /*
  * These types are 64 bits on disk but are either 32 or 64 bits in memory.
  * Disk based types:
@@ -110,8 +104,6 @@ typedef	__int32_t	xfs_srtblock_t;	/* signed version of xfs_rtblock_t */
 typedef __uint64_t	xfs_fileoff_t;	/* block number in a file */
 typedef __int64_t	xfs_sfiloff_t;	/* signed block number in a file */
 typedef __uint64_t	xfs_filblks_t;	/* number of blocks in a file */
-
-typedef __uint8_t	xfs_arch_t;	/* architecture of an xfs fs */
 
 /*
  * Null values for the types.
@@ -151,18 +143,6 @@ typedef __uint8_t	xfs_arch_t;	/* architecture of an xfs fs */
  */
 #define MAXNAMELEN	256
 
-typedef struct xfs_dirent {		/* data from readdir() */
-	xfs_ino_t	d_ino;		/* inode number of entry */
-	xfs_off_t	d_off;		/* offset of disk directory entry */
-	unsigned short	d_reclen;	/* length of this record */
-	char		d_name[1];	/* name of file */
-} xfs_dirent_t;
-
-#define DIRENTBASESIZE		(((xfs_dirent_t *)0)->d_name - (char *)0)
-#define DIRENTSIZE(namelen)	\
-	((DIRENTBASESIZE + (namelen) + \
-		sizeof(xfs_off_t)) & ~(sizeof(xfs_off_t) - 1))
-
 typedef enum {
 	XFS_LOOKUP_EQi, XFS_LOOKUP_LEi, XFS_LOOKUP_GEi
 } xfs_lookup_t;
@@ -171,5 +151,10 @@ typedef enum {
 	XFS_BTNUM_BNOi, XFS_BTNUM_CNTi, XFS_BTNUM_BMAPi, XFS_BTNUM_INOi,
 	XFS_BTNUM_MAX
 } xfs_btnum_t;
+
+struct xfs_name {
+	const unsigned char	*name;
+	int			len;
+};
 
 #endif	/* __XFS_TYPES_H__ */

@@ -125,7 +125,6 @@ GLOBAL_ENTRY(__strlen_user)
 	// We must return try the recovery code iff
 	// val1_is_nat || (val1==8 && val2_is_nat)
 	//
-	// XXX Fixme
 	//	- there must be a better way of doing the test
 	//
 	cmp.eq  p8,p9=8,val1	// p6 = val1 had zero (disambiguate)
@@ -158,7 +157,6 @@ GLOBAL_ENTRY(__strlen_user)
 	// mechanism. that's why the loop is not as good as the previous one
 	// because read ahead is not possible
 	//
-	// XXX Fixme
 	//	- today we restart from the beginning of the string instead
 	//	  of trying to continue where we left off.
 	//

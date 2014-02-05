@@ -12,8 +12,8 @@
 #include <asm/atomic.h>
 
 #ifdef CONFIG_SMP
-raw_spinlock_t __atomic_hash[ATOMIC_HASH_SIZE] __lock_aligned = {
-	[0 ... (ATOMIC_HASH_SIZE-1)]  = __RAW_SPIN_LOCK_UNLOCKED
+arch_spinlock_t __atomic_hash[ATOMIC_HASH_SIZE] __lock_aligned = {
+	[0 ... (ATOMIC_HASH_SIZE-1)]  = __ARCH_SPIN_LOCK_UNLOCKED
 };
 #endif
 
@@ -36,7 +36,7 @@ unsigned long __xchg32(int x, int *ptr)
 	long temp;
 
 	_atomic_spin_lock_irqsave(ptr, flags);
-	temp = (long) *ptr;	/* XXX - sign extension wanted? */
+	temp = (long) *ptr;
 	*ptr = x;
 	_atomic_spin_unlock_irqrestore(ptr, flags);
 	return (unsigned long)temp;
@@ -49,7 +49,7 @@ unsigned long __xchg8(char x, char *ptr)
 	long temp;
 
 	_atomic_spin_lock_irqsave(ptr, flags);
-	temp = (long) *ptr;	/* XXX - sign extension wanted? */
+	temp = (long) *ptr;
 	*ptr = x;
 	_atomic_spin_unlock_irqrestore(ptr, flags);
 	return (unsigned long)temp;

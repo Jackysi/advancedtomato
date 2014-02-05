@@ -1,7 +1,7 @@
 /**
  * attrib.c - NTFS attribute operations.  Part of the Linux-NTFS project.
  *
- * Copyright (c) 2001-2006 Anton Altaparmakov
+ * Copyright (c) 2001-2007 Anton Altaparmakov
  * Copyright (c) 2002 Richard Russon
  *
  * This program/include file is free software; you can redistribute it and/or
@@ -22,6 +22,7 @@
 
 #include <linux/buffer_head.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/writeback.h>
 
@@ -179,10 +180,7 @@ int ntfs_map_runlist_nolock(ntfs_inode *ni, VCN vcn, ntfs_attr_search_ctx *ctx)
 	 * ntfs_mapping_pairs_decompress() fails.
 	 */
 	end_vcn = sle64_to_cpu(a->data.non_resident.highest_vcn) + 1;
-	if (!a->data.non_resident.lowest_vcn && end_vcn == 1)
-		end_vcn = sle64_to_cpu(a->data.non_resident.allocated_size) >>
-				ni->vol->cluster_size_bits;
-	if (unlikely(vcn >= end_vcn)) {
+	if (unlikely(vcn && vcn >= end_vcn)) {
 		err = -ENOENT;
 		goto err_out;
 	}
@@ -943,14 +941,6 @@ static int ntfs_external_attr_find(const ATTR_TYPE type,
 			/* If the strings are not equal, continue search. */
 			if (rc)
 				continue;
-			/*
-			 * FIXME: Reverse engineering showed 0, IGNORE_CASE but
-			 * that is inconsistent with ntfs_attr_find().  The
-			 * subsequent rc checks were also different.  Perhaps I
-			 * made a mistake in one of the two.  Need to recheck
-			 * which is correct or at least see what is going on...
-			 * (AIA)
-			 */
 			rc = ntfs_collate_names(name, name_len, al_name,
 					al_name_len, 1, CASE_SENSITIVE,
 					vol->upcase, vol->upcase_len);
@@ -1500,40 +1490,6 @@ int ntfs_resident_attr_value_resize(MFT_RECORD *m, ATTR_RECORD *a,
 	return 0;
 }
 
-/**
- * ntfs_attr_make_non_resident - convert a resident to a non-resident attribute
- * @ni:		ntfs inode describing the attribute to convert
- * @data_size:	size of the resident data to copy to the non-resident attribute
- *
- * Convert the resident ntfs attribute described by the ntfs inode @ni to a
- * non-resident one.
- *
- * @data_size must be equal to the attribute value size.  This is needed since
- * we need to know the size before we can map the mft record and our callers
- * always know it.  The reason we cannot simply read the size from the vfs
- * inode i_size is that this is not necessarily uptodate.  This happens when
- * ntfs_attr_make_non_resident() is called in the ->truncate call path(s).
- *
- * Return 0 on success and -errno on error.  The following error return codes
- * are defined:
- *	-EPERM	- The attribute is not allowed to be non-resident.
- *	-ENOMEM	- Not enough memory.
- *	-ENOSPC	- Not enough disk space.
- *	-EINVAL	- Attribute not defined on the volume.
- *	-EIO	- I/o error or other error.
- * Note that -ENOSPC is also returned in the case that there is not enough
- * space in the mft record to do the conversion.  This can happen when the mft
- * record is already very full.  The caller is responsible for trying to make
- * space in the mft record and trying again.  FIXME: Do we need a separate
- * error return code for this kind of -ENOSPC or is it always worth trying
- * again in case the attribute may then fit in a resident state so no need to
- * make it non-resident at all?  Ho-hum...  (AIA)
- *
- * NOTE to self: No changes in the attribute list are required to move from
- *		 a resident to a non-resident attribute.
- *
- * Locking: - The caller must hold i_mutex on the inode.
- */
 int ntfs_attr_make_non_resident(ntfs_inode *ni, const u32 data_size)
 {
 	s64 new_size;
@@ -1562,10 +1518,6 @@ int ntfs_attr_make_non_resident(ntfs_inode *ni, const u32 data_size)
 					"volume!");
 		return err;
 	}
-	/*
-	 * FIXME: Compressed and encrypted attributes are not supported when
-	 * writing and we should never have gotten here for them.
-	 */
 	BUG_ON(NInoCompressed(ni));
 	BUG_ON(NInoEncrypted(ni));
 	/*
@@ -1770,14 +1722,6 @@ undo_err_out:
 	/* Resize the resident part of the attribute record. */
 	err2 = ntfs_attr_record_resize(m, a, arec_size);
 	if (unlikely(err2)) {
-		/*
-		 * This cannot happen (well if memory corruption is at work it
-		 * could happen in theory), but deal with it as well as we can.
-		 * If the old size is too small, truncate the attribute,
-		 * otherwise simply give it a larger allocated size.
-		 * FIXME: Should check whether chkdsk complains when the
-		 * allocated size is much bigger than the resident value size.
-		 */
 		arec_size = le32_to_cpu(a->length);
 		if ((mp_ofs + attr_size) > arec_size) {
 			err2 = attr_size;
@@ -2122,34 +2066,6 @@ retry_extend:
 	}
 	err = -EOPNOTSUPP;
 	goto conv_err_out;
-#if 0
-	// TODO: Attempt to make other attributes non-resident.
-	if (!err)
-		goto do_resident_extend;
-	/*
-	 * Both the attribute list attribute and the standard information
-	 * attribute must remain in the base inode.  Thus, if this is one of
-	 * these attributes, we have to try to move other attributes out into
-	 * extent mft records instead.
-	 */
-	if (ni->type == AT_ATTRIBUTE_LIST ||
-			ni->type == AT_STANDARD_INFORMATION) {
-		// TODO: Attempt to move other attributes into extent mft
-		// records.
-		err = -EOPNOTSUPP;
-		if (!err)
-			goto do_resident_extend;
-		goto err_out;
-	}
-	// TODO: Attempt to move this attribute to an extent mft record, but
-	// only if it is not already the only attribute in an mft record in
-	// which case there would be nothing to gain.
-	err = -EOPNOTSUPP;
-	if (!err)
-		goto do_resident_extend;
-	/* There is nothing we can do to make enough space. )-: */
-	goto err_out;
-#endif
 do_non_resident_extend:
 	BUG_ON(!NInoNonResident(ni));
 	if (new_alloc_size == allocated_size) {
@@ -2216,7 +2132,6 @@ skip_sparse:
 	while (rl->lcn < 0 && rl > ni->runlist.rl)
 		rl--;
 first_alloc:
-	// FIXME: Need to implement partial allocations so at least part of the
 	// write can be performed when start >= 0.  (Needed for POSIX write(2)
 	// conformance.)
 	rl2 = ntfs_cluster_alloc(vol, allocated_size >> vol->cluster_size_bits,
@@ -2340,16 +2255,6 @@ first_alloc:
 	write_lock_irqsave(&ni->size_lock, flags);
 	ni->allocated_size = new_alloc_size;
 	a->data.non_resident.allocated_size = cpu_to_sle64(new_alloc_size);
-	/*
-	 * FIXME: This would fail if @ni is a directory, $MFT, or an index,
-	 * since those can have sparse/compressed set.  For example can be
-	 * set compressed even though it is not compressed itself and in that
-	 * case the bit means that files are to be created compressed in the
-	 * directory...  At present this is ok as this code is only called for
-	 * regular files, and only for their $DATA attribute(s).
-	 * FIXME: The calculation is wrong if we created a hole above.  For now
-	 * it does not matter as we never create holes.
-	 */
 	if (NInoSparse(ni) || NInoCompressed(ni)) {
 		ni->itype.compressed.size += new_alloc_size - allocated_size;
 		a->data.non_resident.compressed_size =
@@ -2393,11 +2298,6 @@ restore_undo_alloc:
 				"recover.");
 		write_lock_irqsave(&ni->size_lock, flags);
 		ni->allocated_size = new_alloc_size;
-		/*
-		 * FIXME: This would fail if @ni is a directory...  See above.
-		 * FIXME: The calculation is wrong if we created a hole above.
-		 * For now it does not matter as we never create holes.
-		 */
 		if (NInoSparse(ni) || NInoCompressed(ni)) {
 			ni->itype.compressed.size += new_alloc_size -
 					allocated_size;
@@ -2500,7 +2400,7 @@ int ntfs_attr_set(ntfs_inode *ni, const s64 ofs, const s64 cnt, const u8 val)
 	struct page *page;
 	u8 *kaddr;
 	pgoff_t idx, end;
-	unsigned int start_ofs, end_ofs, size;
+	unsigned start_ofs, end_ofs, size;
 
 	ntfs_debug("Entering for ofs 0x%llx, cnt 0x%llx, val 0x%hx.",
 			(long long)ofs, (long long)cnt, val);
@@ -2508,10 +2408,6 @@ int ntfs_attr_set(ntfs_inode *ni, const s64 ofs, const s64 cnt, const u8 val)
 	BUG_ON(cnt < 0);
 	if (!cnt)
 		goto done;
-	/*
-	 * FIXME: Compressed and encrypted attributes are not supported when
-	 * writing and we should never have gotten here for them.
-	 */
 	BUG_ON(NInoCompressed(ni));
 	BUG_ON(NInoEncrypted(ni));
 	mapping = VFS_I(ni)->i_mapping;
@@ -2548,6 +2444,8 @@ int ntfs_attr_set(ntfs_inode *ni, const s64 ofs, const s64 cnt, const u8 val)
 		kunmap_atomic(kaddr, KM_USER0);
 		set_page_dirty(page);
 		page_cache_release(page);
+		balance_dirty_pages_ratelimited(mapping);
+		cond_resched();
 		if (idx == end)
 			goto done;
 		idx++;
@@ -2604,6 +2502,8 @@ int ntfs_attr_set(ntfs_inode *ni, const s64 ofs, const s64 cnt, const u8 val)
 		kunmap_atomic(kaddr, KM_USER0);
 		set_page_dirty(page);
 		page_cache_release(page);
+		balance_dirty_pages_ratelimited(mapping);
+		cond_resched();
 	}
 done:
 	ntfs_debug("Done.");

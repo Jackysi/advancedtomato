@@ -24,26 +24,14 @@
 #include <asm/asm-offsets.h>
 #include <asm/cputable.h>
 #include <asm/thread_info.h>
+#include <asm/kexec.h>
 
 	.text
 
-_GLOBAL(get_msr)
-	mfmsr	r3
-	blr
-
-_GLOBAL(get_srr0)
-	mfsrr0  r3
-	blr
-
-_GLOBAL(get_srr1)
-	mfsrr1  r3
-	blr
-
-#ifdef CONFIG_IRQSTACKS
 _GLOBAL(call_do_softirq)
 	mflr	r0
 	std	r0,16(r1)
-	stdu	r1,THREAD_SIZE-112(r3)
+	stdu	r1,THREAD_SIZE-STACK_FRAME_OVERHEAD(r3)
 	mr	r1,r3
 	bl	.__do_softirq
 	ld	r1,0(r1)
@@ -56,14 +44,13 @@ _GLOBAL(call_handle_irq)
 	mflr	r0
 	std	r0,16(r1)
 	mtctr	r8
-	stdu	r1,THREAD_SIZE-112(r5)
+	stdu	r1,THREAD_SIZE-STACK_FRAME_OVERHEAD(r5)
 	mr	r1,r5
 	bctrl
 	ld	r1,0(r1)
 	ld	r0,16(r1)
 	mtlr	r0
 	blr
-#endif /* CONFIG_IRQSTACKS */
 
 	.section	".toc","aw"
 PPC64_CACHES:
@@ -385,11 +372,6 @@ _GLOBAL(scom970_read)
 	mfspr	r0,SPRN_SCOMC
 	isync
 
-	/* XXX:	fixup result on some buggy 970's (ouch ! we lost a bit, bah
-	 * that's the best we can do). Not implemented yet as we don't use
-	 * the scom on any of the bogus CPUs yet, but may have to be done
-	 * ultimately
-	 */
 
 	/* restore interrupts */
 	mtmsrd	r4,1
@@ -438,8 +420,10 @@ _GLOBAL(kernel_thread)
 	li	r4,0		/* new sp (unused) */
 	li	r0,__NR_clone
 	sc
-	cmpdi	0,r3,0		/* parent or child? */
-	bne	1f		/* return if parent */
+	bns+	1f		/* did system call indicate error? */
+	neg	r3,r3		/* if so, make return code negative */
+1:	cmpdi	0,r3,0		/* parent or child? */
+	bne	2f		/* return if parent */
 	li	r0,0
 	stdu	r0,-STACK_FRAME_OVERHEAD(r1)
 	ld	r2,8(r29)
@@ -450,7 +434,7 @@ _GLOBAL(kernel_thread)
 	li	r0,__NR_exit	/* exit after child exits */
         li	r3,0
 	sc
-1:	addi	r1,r1,STACK_FRAME_OVERHEAD	
+2:	addi	r1,r1,STACK_FRAME_OVERHEAD
 	ld	r29,-24(r1)
 	ld	r30,-16(r1)
 	blr
@@ -467,64 +451,6 @@ _GLOBAL(disable_kernel_fp)
 	isync
 	blr
 
-#ifdef CONFIG_ALTIVEC
-
-#if 0 /* this has no callers for now */
-/*
- * disable_kernel_altivec()
- * Disable the VMX.
- */
-_GLOBAL(disable_kernel_altivec)
-	mfmsr	r3
-	rldicl	r0,r3,(63-MSR_VEC_LG),1
-	rldicl	r3,r0,(MSR_VEC_LG+1),0
-	mtmsrd	r3			/* disable use of VMX now */
-	isync
-	blr
-#endif /* 0 */
-
-/*
- * giveup_altivec(tsk)
- * Disable VMX for the task given as the argument,
- * and save the vector registers in its thread_struct.
- * Enables the VMX for use in the kernel on return.
- */
-_GLOBAL(giveup_altivec)
-	mfmsr	r5
-	oris	r5,r5,MSR_VEC@h
-	mtmsrd	r5			/* enable use of VMX now */
-	isync
-	cmpdi	0,r3,0
-	beqlr-				/* if no previous owner, done */
-	addi	r3,r3,THREAD		/* want THREAD of task */
-	ld	r5,PT_REGS(r3)
-	cmpdi	0,r5,0
-	SAVE_32VRS(0,r4,r3)
-	mfvscr	vr0
-	li	r4,THREAD_VSCR
-	stvx	vr0,r4,r3
-	beq	1f
-	ld	r4,_MSR-STACK_FRAME_OVERHEAD(r5)
-	lis	r3,MSR_VEC@h
-	andc	r4,r4,r3		/* disable FP for previous task */
-	std	r4,_MSR-STACK_FRAME_OVERHEAD(r5)
-1:
-#ifndef CONFIG_SMP
-	li	r5,0
-	ld	r4,last_task_used_altivec@got(r2)
-	std	r5,0(r4)
-#endif /* CONFIG_SMP */
-	blr
-
-#endif /* CONFIG_ALTIVEC */
-
-_GLOBAL(kernel_execve)
-	li	r0,__NR_execve
-	sc
-	bnslr
-	neg	r3,r3
-	blr
-
 /* kexec_wait(phys_cpu)
  *
  * wait for the flag to change, indicating this kernel is going away but
@@ -538,6 +464,10 @@ _GLOBAL(kexec_wait)
 	bl	1f
 1:	mflr	r5
 	addi	r5,r5,kexec_flag-1b
+
+	li	r4,KEXEC_STATE_REAL_MODE
+	stb	r4,PACAKEXECSTATE(r13)
+	SYNC
 
 99:	HMT_LOW
 #ifdef CONFIG_KEXEC		/* use no memory without kexec */
@@ -562,14 +492,11 @@ kexec_flag:
  * note: this is a terminal routine, it does not save lr
  *
  * get phys id from paca
- * set paca id to -1 to say we got here
  * switch to real mode
  * join other cpus in kexec_wait(phys_id)
  */
 _GLOBAL(kexec_smp_wait)
 	lhz	r3,PACAHWCPUID(r13)
-	li	r4,-1
-	sth	r4,PACAHWCPUID(r13)	/* let others know we left */
 	bl	real_mode
 	b	.kexec_wait
 
@@ -606,7 +533,7 @@ _GLOBAL(kexec_sequence)
 	std	r0,16(r1)
 
 	/* switch stacks to newstack -- &kexec_stack.stack */
-	stdu	r1,THREAD_SIZE-112(r3)
+	stdu	r1,THREAD_SIZE-STACK_FRAME_OVERHEAD(r3)
 	mr	r1,r3
 
 	li	r0,0
@@ -623,7 +550,7 @@ _GLOBAL(kexec_sequence)
 	std	r26,-48(r1)
 	std	r25,-56(r1)
 
-	stdu	r1,-112-64(r1)
+	stdu	r1,-STACK_FRAME_OVERHEAD-64(r1)
 
 	/* save args into preserved regs */
 	mr	r31,r3			/* newstack (both) */
@@ -645,6 +572,19 @@ _GLOBAL(kexec_sequence)
 
 	/* turn off mmu */
 	bl	real_mode
+
+	/* copy  0x100 bytes starting at start to 0 */
+	li	r3,0
+	mr	r4,r30		/* start, aka phys mem offset */
+	li	r5,0x100
+	li	r6,0
+	bl	.copy_and_flush	/* (dest, src, copy limit, start offset) */
+1:	/* assume normal blr return */
+
+	/* release other cpus to the new kernel secondary start at 0x60 */
+	mflr	r5
+	li	r6,1
+	stw	r6,kexec_flag-1b(5)
 
 	/* clear out hardware hash page table and tlb */
 	ld	r5,0(r27)		/* deref function descriptor */
@@ -676,19 +616,6 @@ _GLOBAL(kexec_sequence)
  *    are the boot cpu ?????
  *    other device tree differences (prop sizes, va vs pa, etc)...
  */
-
-	/* copy  0x100 bytes starting at start to 0 */
-	li	r3,0
-	mr	r4,r30
-	li	r5,0x100
-	li	r6,0
-	bl	.copy_and_flush	/* (dest, src, copy limit, start offset) */
-1:	/* assume normal blr return */
-
-	/* release other cpus to the new kernel secondary start at 0x60 */
-	mflr	r5
-	li	r6,1
-	stw	r6,kexec_flag-1b(5)
 	mr	r3,r25	# my phys cpu
 	mr	r4,r30	# start, aka phys mem offset
 	mtlr	4

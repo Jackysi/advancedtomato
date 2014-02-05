@@ -222,4 +222,3 @@ $exception:			# Destination for exception recovery(?)
 	nop			# .. E  .. ..	:
 	ret	$31, ($28), 1	# L0 .. .. ..	: L U L U
 	.end __do_clear_user
-

@@ -52,11 +52,14 @@
 
 #define RADEON_VERSION	"0.2.0"
 
+#include "radeonfb.h"
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/ctype.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -69,7 +72,7 @@
 #include <linux/device.h>
 
 #include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #ifdef CONFIG_PPC_OF
 
@@ -91,7 +94,6 @@
 
 #include "../edid.h" // MOVE THAT TO include/video
 #include "ati_ids.h"
-#include "radeonfb.h"		    
 
 #define MAX_MAPPED_VRAM	(2048*2048*4)
 #define MIN_MAPPED_VRAM	(1024*768*1)
@@ -102,6 +104,7 @@
 static struct pci_device_id radeonfb_pci_table[] = {
         /* Radeon Xpress 200m */
 	CHIP_DEF(PCI_CHIP_RS480_5955,   RS480,  CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
+	CHIP_DEF(PCI_CHIP_RS482_5975,	RS480,	CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
 	/* Mobility M6 */
 	CHIP_DEF(PCI_CHIP_RADEON_LY, 	RV100,	CHIP_HAS_CRTC2 | CHIP_IS_MOBILITY),
 	CHIP_DEF(PCI_CHIP_RADEON_LZ,	RV100,	CHIP_HAS_CRTC2 | CHIP_IS_MOBILITY),
@@ -144,6 +147,8 @@ static struct pci_device_id radeonfb_pci_table[] = {
 	/* 9000/Pro */
 	CHIP_DEF(PCI_CHIP_RV250_If,	RV250,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV250_Ig,	RV250,	CHIP_HAS_CRTC2),
+
+	CHIP_DEF(PCI_CHIP_RC410_5A62,   RC410,  CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
 	/* Mobility 9100 IGP (U3) */
 	CHIP_DEF(PCI_CHIP_RS300_5835,	RS300,	CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
 	CHIP_DEF(PCI_CHIP_RS350_7835,	RS300,	CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
@@ -199,6 +204,7 @@ static struct pci_device_id radeonfb_pci_table[] = {
 	CHIP_DEF(PCI_CHIP_RV380_3154,	RV380,	CHIP_HAS_CRTC2 | CHIP_IS_MOBILITY),
 	CHIP_DEF(PCI_CHIP_RV370_5B60,	RV380,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV370_5B62,	RV380,	CHIP_HAS_CRTC2),
+	CHIP_DEF(PCI_CHIP_RV370_5B63,	RV380,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV370_5B64,	RV380,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV370_5B65,	RV380,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV370_5460,	RV380,	CHIP_HAS_CRTC2 | CHIP_IS_MOBILITY),
@@ -692,8 +698,8 @@ static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 found:
 	/*
 	 * Some methods fail to retrieve SCLK and MCLK values, we apply default
-	 * settings in this case (200Mhz). If that really happne often, we could
-	 * fetch from registers instead...
+	 * settings in this case (200Mhz). If that really happens often, we
+	 * could fetch from registers instead...
 	 */
 	if (rinfo->pll.mclk == 0)
 		rinfo->pll.mclk = 20000;
@@ -726,10 +732,6 @@ static int radeonfb_check_var (struct fb_var_screeninfo *var, struct fb_info *in
 			v.bits_per_pixel = 16;
 			break;
 		case 17 ... 24:
-#if 0 /* Doesn't seem to work */
-			v.bits_per_pixel = 24;
-			break;
-#endif			
 			return -EINVAL;
 		case 25 ... 32:
 			v.bits_per_pixel = 32;
@@ -796,9 +798,6 @@ static int radeonfb_check_var (struct fb_var_screeninfo *var, struct fb_info *in
 		v.xres_virtual = v.xres;
                 
 
-	/* XXX I'm adjusting xres_virtual to the pitch, that may help XFree
-	 * with some panels, though I don't quite like this solution
-	 */
   	if (rinfo->info->flags & FBINFO_HWACCEL_DISABLED) {
 		v.xres_virtual = v.xres_virtual & ~7ul;
 	} else {
@@ -1240,15 +1239,7 @@ static void radeon_write_pll_regs(struct radeonfb_info *rinfo, struct radeon_reg
 
 	radeon_fifo_wait(20);
 
-	/* Workaround from XFree */
 	if (rinfo->is_mobility) {
-	        /* A temporal workaround for the occational blanking on certain laptop
-		 * panels. This appears to related to the PLL divider registers
-		 * (fail to lock?). It occurs even when all dividers are the same
-		 * with their old settings. In this case we really don't need to
-		 * fiddle with PLL registers. By doing this we can avoid the blanking
-		 * problem with some panels.
-	         */
 		if ((mode->ppll_ref_div == (INPLL(PPLL_REF_DIV) & PPLL_REF_DIV_MASK)) &&
 		    (mode->ppll_div_3 == (INPLL(PPLL_DIV_3) &
 					  (PPLL_POST3_DIV_MASK | PPLL_FB3_DIV_MASK)))) {
@@ -1280,10 +1271,10 @@ static void radeon_write_pll_regs(struct radeonfb_info *rinfo, struct radeon_reg
 	radeon_pll_errata_after_data(rinfo);
 
 	/* Set PPLL ref. div */
-	if (rinfo->family == CHIP_FAMILY_R300 ||
+	if (IS_R300_VARIANT(rinfo) ||
 	    rinfo->family == CHIP_FAMILY_RS300 ||
-	    rinfo->family == CHIP_FAMILY_R350 ||
-	    rinfo->family == CHIP_FAMILY_RV350) {
+	    rinfo->family == CHIP_FAMILY_RS400 ||
+	    rinfo->family == CHIP_FAMILY_RS480) {
 		if (mode->ppll_ref_div & R300_PPLL_REF_DIV_ACC_MASK) {
 			/* When restoring console mode, use saved PPLL_REF_DIV
 			 * setting.
@@ -1308,10 +1299,6 @@ static void radeon_write_pll_regs(struct radeonfb_info *rinfo, struct radeon_reg
 	OUTPLLP(PPLL_REF_DIV, PPLL_ATOMIC_UPDATE_W, ~PPLL_ATOMIC_UPDATE_W);
 
 	/* Wait read update complete */
-	/* FIXME: Certain revisions of R300 can't recover here.  Not sure of
-	   the cause yet, but this workaround will mask the problem for now.
-	   Other chips usually will pass at the very first test, so the
-	   workaround shouldn't have any effect on them. */
 	for (i = 0; (i < 10000 && INPLL(PPLL_REF_DIV) & PPLL_ATOMIC_UPDATE_R); i++)
 		;
 	
@@ -1433,16 +1420,6 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 	 * not sure which model starts having FP2_GEN_CNTL, I assume anything more
 	 * recent than an r(v)100...
 	 */
-#if 1
-	/* XXX I had reports of flicker happening with the cinema display
-	 * on TMDS1 that seem to be fixed if I also forbit odd dividers in
-	 * this case. This could just be a bandwidth calculation issue, I
-	 * haven't implemented the bandwidth code yet, but in the meantime,
-	 * forcing uses_dvo to 1 fixes it and shouln't have bad side effects,
-	 * I haven't seen a case were were absolutely needed an odd PLL
-	 * divider. I'll find a better fix once I have more infos on the
-	 * real cause of the problem.
-	 */
 	while (rinfo->has_CRTC2) {
 		u32 fp2_gen_cntl = INREG(FP2_GEN_CNTL);
 		u32 disp_output_cntl;
@@ -1454,10 +1431,7 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 		/* Not all chip revs have the same format for this register,
 		 * extract the source selection
 		 */
-		if (rinfo->family == CHIP_FAMILY_R200 ||
-		    rinfo->family == CHIP_FAMILY_R300 ||
-		    rinfo->family == CHIP_FAMILY_R350 ||
-		    rinfo->family == CHIP_FAMILY_RV350) {
+		if (rinfo->family == CHIP_FAMILY_R200 || IS_R300_VARIANT(rinfo)) {
 			source = (fp2_gen_cntl >> 10) & 0x3;
 			/* sourced from transform unit, check for transform unit
 			 * own source
@@ -1476,14 +1450,11 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 		uses_dvo = 1;
 		break;
 	}
-#else
-	uses_dvo = 1;
-#endif
 	if (freq > rinfo->pll.ppll_max)
 		freq = rinfo->pll.ppll_max;
 	if (freq*12 < rinfo->pll.ppll_min)
 		freq = rinfo->pll.ppll_min / 12;
-	RTRACE("freq = %lu, PLL min = %u, PLL max = %u\n",
+	pr_debug("freq = %lu, PLL min = %u, PLL max = %u\n",
 	       freq, rinfo->pll.ppll_min, rinfo->pll.ppll_max);
 
 	for (post_div = &post_divs[0]; post_div->divider; ++post_div) {
@@ -1504,7 +1475,7 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 		post_div = &post_divs[post_div->bitvalue];
 		pll_output_freq = post_div->divider * freq;
 	}
-	RTRACE("ref_div = %d, ref_clk = %d, output_freq = %d\n",
+	pr_debug("ref_div = %d, ref_clk = %d, output_freq = %d\n",
 	       rinfo->pll.ref_div, rinfo->pll.ref_clk,
 	       pll_output_freq);
 
@@ -1514,7 +1485,7 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 		post_div = &post_divs[post_div->bitvalue];
 		pll_output_freq = post_div->divider * freq;
 	}
-	RTRACE("ref_div = %d, ref_clk = %d, output_freq = %d\n",
+	pr_debug("ref_div = %d, ref_clk = %d, output_freq = %d\n",
 	       rinfo->pll.ref_div, rinfo->pll.ref_clk,
 	       pll_output_freq);
 
@@ -1523,9 +1494,9 @@ static void radeon_calc_pll_regs(struct radeonfb_info *rinfo, struct radeon_regs
 	regs->ppll_ref_div = rinfo->pll.ref_div;
 	regs->ppll_div_3 = fb_div | (post_div->bitvalue << 16);
 
-	RTRACE("post div = 0x%x\n", post_div->bitvalue);
-	RTRACE("fb_div = 0x%x\n", fb_div);
-	RTRACE("ppll_div_3 = 0x%x\n", regs->ppll_div_3);
+	pr_debug("post div = 0x%x\n", post_div->bitvalue);
+	pr_debug("fb_div = 0x%x\n", fb_div);
+	pr_debug("ppll_div_3 = 0x%x\n", regs->ppll_div_3);
 }
 
 static int radeonfb_set_par(struct fb_info *info)
@@ -1597,9 +1568,9 @@ static int radeonfb_set_par(struct fb_info *info)
 	dotClock = 1000000000 / pixClock;
 	freq = dotClock / 10; /* x100 */
 
-	RTRACE("hStart = %d, hEnd = %d, hTotal = %d\n",
+	pr_debug("hStart = %d, hEnd = %d, hTotal = %d\n",
 		hSyncStart, hSyncEnd, hTotal);
-	RTRACE("vStart = %d, vEnd = %d, vTotal = %d\n",
+	pr_debug("vStart = %d, vEnd = %d, vTotal = %d\n",
 		vSyncStart, vSyncEnd, vTotal);
 
 	hsync_wid = (hSyncEnd - hSyncStart) / 8;
@@ -1708,16 +1679,16 @@ static int radeonfb_set_par(struct fb_info *info)
 		newmode->surf_info[i] = 0;
 	}
 
-	RTRACE("h_total_disp = 0x%x\t   hsync_strt_wid = 0x%x\n",
+	pr_debug("h_total_disp = 0x%x\t   hsync_strt_wid = 0x%x\n",
 		newmode->crtc_h_total_disp, newmode->crtc_h_sync_strt_wid);
-	RTRACE("v_total_disp = 0x%x\t   vsync_strt_wid = 0x%x\n",
+	pr_debug("v_total_disp = 0x%x\t   vsync_strt_wid = 0x%x\n",
 		newmode->crtc_v_total_disp, newmode->crtc_v_sync_strt_wid);
 
 	rinfo->bpp = mode->bits_per_pixel;
 	rinfo->depth = depth;
 
-	RTRACE("pixclock = %lu\n", (unsigned long)pixClock);
-	RTRACE("freq = %lu\n", (unsigned long)freq);
+	pr_debug("pixclock = %lu\n", (unsigned long)pixClock);
+	pr_debug("freq = %lu\n", (unsigned long)freq);
 
 	/* We use PPLL_DIV_3 */
 	newmode->clk_cntl_index = 0x300;
@@ -1933,8 +1904,8 @@ static void fixup_memory_mappings(struct radeonfb_info *rinfo)
 	OUTREG(CRTC_GEN_CNTL, save_crtc_gen_cntl | CRTC_DISP_REQ_EN_B);
 	mdelay(100);
 
-	aper_base = INREG(CONFIG_APER_0_BASE);
-	aper_size = INREG(CONFIG_APER_SIZE);
+	aper_base = INREG(CNFG_APER_0_BASE);
+	aper_size = INREG(CNFG_APER_SIZE);
 
 #ifdef SET_MC_FB_FROM_APERTURE
 	/* Set framebuffer to be at the same address as set in PCI BAR */
@@ -1981,7 +1952,7 @@ static void fixup_memory_mappings(struct radeonfb_info *rinfo)
 	if (rinfo->has_CRTC2)
 		OUTREG(CRTC2_GEN_CNTL, save_crtc2_gen_cntl);	
 
-	RTRACE("aper_base: %08x MC_FB_LOC to: %08x, MC_AGP_LOC to: %08x\n",
+	pr_debug("aper_base: %08x MC_FB_LOC to: %08x, MC_AGP_LOC to: %08x\n",
 		aper_base,
 		((aper_base + aper_size - 1) & 0xffff0000) | (aper_base >> 16),
 		0xffff0000 | (agp_base >> 16));
@@ -1997,6 +1968,8 @@ static void radeon_identify_vram(struct radeonfb_info *rinfo)
         if ((rinfo->family == CHIP_FAMILY_RS100) ||
             (rinfo->family == CHIP_FAMILY_RS200) ||
             (rinfo->family == CHIP_FAMILY_RS300) ||
+            (rinfo->family == CHIP_FAMILY_RC410) ||
+            (rinfo->family == CHIP_FAMILY_RS400) ||
 	    (rinfo->family == CHIP_FAMILY_RS480) ) {
           u32 tom = INREG(NB_TOM);
           tmp = ((((tom >> 16) - (tom & 0xffff) + 1) << 6) * 1024);
@@ -2012,18 +1985,15 @@ static void radeon_identify_vram(struct radeonfb_info *rinfo)
 
           if ((rinfo->family == CHIP_FAMILY_RS100) ||
               (rinfo->family == CHIP_FAMILY_RS200)) {
-             /* This is to workaround the asic bug for RMX, some versions
-                of BIOS dosen't have this register initialized correctly.
-             */
              OUTREGP(CRTC_MORE_CNTL, CRTC_H_CUTOFF_ACTIVE_EN,
                      ~CRTC_H_CUTOFF_ACTIVE_EN);
           }
         } else {
-          tmp = INREG(CONFIG_MEMSIZE);
+          tmp = INREG(CNFG_MEMSIZE);
         }
 
 	/* mem size is bits [28:0], mask off the rest */
-	rinfo->video_ram = tmp & CONFIG_MEMSIZE_MASK;
+	rinfo->video_ram = tmp & CNFG_MEMSIZE_MASK;
 
 	/*
 	 * Hack to get around some busted production M6's
@@ -2077,7 +2047,7 @@ static void radeon_identify_vram(struct radeonfb_info *rinfo)
 	 * ToDo: identify these cases
 	 */
 
-	RTRACE("radeonfb (%s): Found %ldk of %s %d bits wide videoram\n",
+	pr_debug("radeonfb (%s): Found %ldk of %s %d bits wide videoram\n",
 	       pci_name(rinfo->pdev),
 	       rinfo->video_ram / 1024,
 	       rinfo->vram_ddr ? "DDR" : "SDRAM",
@@ -2090,19 +2060,13 @@ static void radeon_identify_vram(struct radeonfb_info *rinfo)
 
 static ssize_t radeon_show_one_edid(char *buf, loff_t off, size_t count, const u8 *edid)
 {
-	if (off > EDID_LENGTH)
-		return 0;
-
-	if (off + count > EDID_LENGTH)
-		count = EDID_LENGTH - off;
-
-	memcpy(buf, edid + off, count);
-
-	return count;
+	return memory_read_from_buffer(buf, count, &off, edid, EDID_LENGTH);
 }
 
 
-static ssize_t radeon_show_edid1(struct kobject *kobj, char *buf, loff_t off, size_t count)
+static ssize_t radeon_show_edid1(struct file *filp, struct kobject *kobj,
+				 struct bin_attribute *bin_attr,
+				 char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -2113,7 +2077,9 @@ static ssize_t radeon_show_edid1(struct kobject *kobj, char *buf, loff_t off, si
 }
 
 
-static ssize_t radeon_show_edid2(struct kobject *kobj, char *buf, loff_t off, size_t count)
+static ssize_t radeon_show_edid2(struct file *filp, struct kobject *kobj,
+				 struct bin_attribute *bin_attr,
+				 char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -2126,7 +2092,6 @@ static ssize_t radeon_show_edid2(struct kobject *kobj, char *buf, loff_t off, si
 static struct bin_attribute edid1_attr = {
 	.attr   = {
 		.name	= "edid1",
-		.owner	= THIS_MODULE,
 		.mode	= 0444,
 	},
 	.size	= EDID_LENGTH,
@@ -2136,7 +2101,6 @@ static struct bin_attribute edid1_attr = {
 static struct bin_attribute edid2_attr = {
 	.attr   = {
 		.name	= "edid2",
-		.owner	= THIS_MODULE,
 		.mode	= 0444,
 	},
 	.size	= EDID_LENGTH,
@@ -2150,8 +2114,10 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 	struct fb_info *info;
 	struct radeonfb_info *rinfo;
 	int ret;
+	unsigned char c1, c2;
+	int err = 0;
 
-	RTRACE("radeonfb_pci_register BEGIN\n");
+	pr_debug("radeonfb_pci_register BEGIN\n");
 	
 	/* Enable device in PCI config */
 	ret = pci_enable_device(pdev);
@@ -2177,9 +2143,15 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 	rinfo->lvds_timer.function = radeon_lvds_timer_func;
 	rinfo->lvds_timer.data = (unsigned long)rinfo;
 
-	strcpy(rinfo->name, "ATI Radeon XX ");
-	rinfo->name[11] = ent->device >> 8;
-	rinfo->name[12] = ent->device & 0xFF;
+	c1 = ent->device >> 8;
+	c2 = ent->device & 0xff;
+	if (isprint(c1) && isprint(c2))
+		snprintf(rinfo->name, sizeof(rinfo->name),
+			 "ATI Radeon %x \"%c%c\"", ent->device & 0xffff, c1, c2);
+	else
+		snprintf(rinfo->name, sizeof(rinfo->name),
+			 "ATI Radeon %x", ent->device & 0xffff);
+
 	rinfo->family = ent->driver_data & CHIP_FAMILY_MASK;
 	rinfo->chipset = pdev->device;
 	rinfo->has_CRTC2 = (ent->driver_data & CHIP_HAS_CRTC2) != 0;
@@ -2221,7 +2193,7 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 	 */
 	rinfo->errata = 0;
 	if (rinfo->family == CHIP_FAMILY_R300 &&
-	    (INREG(CONFIG_CNTL) & CFG_ATI_REV_ID_MASK)
+	    (INREG(CNFG_CNTL) & CFG_ATI_REV_ID_MASK)
 	    == CFG_ATI_REV_A11)
 		rinfo->errata |= CHIP_ERRATA_R300_CG;
 
@@ -2260,8 +2232,8 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 	do {
 		rinfo->fb_base = ioremap (rinfo->fb_base_phys,
 					  rinfo->mapped_vram);
-	} while (   rinfo->fb_base == 0 &&
-		  ((rinfo->mapped_vram /=2) >= MIN_MAPPED_VRAM) );
+	} while (rinfo->fb_base == NULL &&
+		 ((rinfo->mapped_vram /= 2) >= MIN_MAPPED_VRAM));
 
 	if (rinfo->fb_base == NULL) {
 		printk (KERN_ERR "radeonfb (%s): cannot map FB\n",
@@ -2270,7 +2242,7 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 		goto err_unmap_rom;
 	}
 
-	RTRACE("radeonfb (%s): mapped %ldk videoram\n", pci_name(rinfo->pdev),
+	pr_debug("radeonfb (%s): mapped %ldk videoram\n", pci_name(rinfo->pdev),
 	       rinfo->mapped_vram/1024);
 
 	/*
@@ -2323,9 +2295,14 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 
 	/* Register some sysfs stuff (should be done better) */
 	if (rinfo->mon1_EDID)
-		sysfs_create_bin_file(&rinfo->pdev->dev.kobj, &edid1_attr);
+		err |= sysfs_create_bin_file(&rinfo->pdev->dev.kobj,
+						&edid1_attr);
 	if (rinfo->mon2_EDID)
-		sysfs_create_bin_file(&rinfo->pdev->dev.kobj, &edid2_attr);
+		err |= sysfs_create_bin_file(&rinfo->pdev->dev.kobj,
+						&edid2_attr);
+	if (err)
+		pr_warning("%s() Creating sysfs files failed, continuing\n",
+			   __func__);
 
 	/* save current mode regs before we switch into the new one
 	 * so we can restore this upon __exit
@@ -2365,7 +2342,7 @@ static int __devinit radeonfb_pci_register (struct pci_dev *pdev,
 
 	if (rinfo->bios_seg)
 		radeon_unmap_ROM(rinfo, pdev);
-	RTRACE("radeonfb_pci_register END\n");
+	pr_debug("radeonfb_pci_register END\n");
 
 	return 0;
 err_unmap_fb:
@@ -2410,15 +2387,6 @@ static void __devexit radeonfb_pci_unregister (struct pci_dev *pdev)
 	if (rinfo->mon2_EDID)
 		sysfs_remove_bin_file(&rinfo->pdev->dev.kobj, &edid2_attr);
 
-#if 0
-	/* restore original state
-	 * 
-	 * Doesn't quite work yet, I suspect if we come from a legacy
-	 * VGA mode (or worse, text mode), we need to do some VGA black
-	 * magic here that I know nothing about. --BenH
-	 */
-        radeon_write_mode (rinfo, &rinfo->init_state, 1);
- #endif
 
 	del_timer_sync(&rinfo->lvds_timer);
 

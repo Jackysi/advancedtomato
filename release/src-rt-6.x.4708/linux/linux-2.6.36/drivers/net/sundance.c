@@ -84,7 +84,6 @@ static char *media[MAX_UNITS];
 #include <linux/timer.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
-#include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <linux/netdevice.h>
@@ -109,8 +108,9 @@ static char *media[MAX_UNITS];
 #endif
 
 /* These identify the driver base version and may not be removed. */
-static char version[] =
-KERN_INFO DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE "  Written by Donald Becker\n";
+static const char version[] __devinitconst =
+	KERN_INFO DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE
+	" Written by Donald Becker\n";
 
 MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
 MODULE_DESCRIPTION("Sundance Alta Ethernet driver");
@@ -200,12 +200,11 @@ IVc. Errata
 
 */
 
-/* Work-around for Kendin chip bugs. */
 #ifndef CONFIG_SUNDANCE_MMIO
 #define USE_IO_OPS 1
 #endif
 
-static const struct pci_device_id sundance_pci_tbl[] = {
+static DEFINE_PCI_DEVICE_TABLE(sundance_pci_tbl) = {
 	{ 0x1186, 0x1002, 0x1186, 0x1002, 0, 0, 0 },
 	{ 0x1186, 0x1002, 0x1186, 0x1003, 0, 0, 1 },
 	{ 0x1186, 0x1002, 0x1186, 0x1012, 0, 0, 2 },
@@ -340,9 +339,9 @@ enum mac_ctrl1_bits {
 /* Note that using only 32 bit fields simplifies conversion to big-endian
    architectures. */
 struct netdev_desc {
-	u32 next_desc;
-	u32 status;
-	struct desc_frag { u32 addr, length; } frag[1];
+	__le32 next_desc;
+	__le32 status;
+	struct desc_frag { __le32 addr, length; } frag[1];
 };
 
 /* Bits in netdev_desc.status */
@@ -368,7 +367,6 @@ struct netdev_private {
 	struct sk_buff* tx_skbuff[TX_RING_SIZE];
         dma_addr_t tx_ring_dma;
         dma_addr_t rx_ring_dma;
-	struct net_device_stats stats;
 	struct timer_list timer;		/* Media monitoring timer. */
 	/* Frequently used values: keep some adjacent for cache effect. */
 	spinlock_t lock;
@@ -397,7 +395,6 @@ struct netdev_private {
 	unsigned char phys[MII_CNT];		/* MII device addresses, only first one used. */
 	struct pci_dev *pci_dev;
 	void __iomem *base;
-	unsigned char pci_rev_id;
 };
 
 /* The station address location in the EEPROM. */
@@ -410,12 +407,13 @@ static int  change_mtu(struct net_device *dev, int new_mtu);
 static int  eeprom_read(void __iomem *ioaddr, int location);
 static int  mdio_read(struct net_device *dev, int phy_id, int location);
 static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
+static int  mdio_wait_link(struct net_device *dev, int wait);
 static int  netdev_open(struct net_device *dev);
 static void check_duplex(struct net_device *dev);
 static void netdev_timer(unsigned long data);
 static void tx_timeout(struct net_device *dev);
 static void init_ring(struct net_device *dev);
-static int  start_tx(struct sk_buff *skb, struct net_device *dev);
+static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev);
 static int reset_tx (struct net_device *dev);
 static irqreturn_t intr_handler(int irq, void *dev_instance);
 static void rx_poll(unsigned long data);
@@ -449,6 +447,19 @@ static void sundance_reset(struct net_device *dev, unsigned long reset_cmd)
 	}
 }
 
+static const struct net_device_ops netdev_ops = {
+	.ndo_open		= netdev_open,
+	.ndo_stop		= netdev_close,
+	.ndo_start_xmit		= start_tx,
+	.ndo_get_stats 		= get_stats,
+	.ndo_set_multicast_list = set_rx_mode,
+	.ndo_do_ioctl 		= netdev_ioctl,
+	.ndo_tx_timeout		= tx_timeout,
+	.ndo_change_mtu		= change_mtu,
+	.ndo_set_mac_address 	= eth_mac_addr,
+	.ndo_validate_addr	= eth_validate_addr,
+};
+
 static int __devinit sundance_probe1 (struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
@@ -467,8 +478,7 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 #else
 	int bar = 1;
 #endif
-	int phy, phy_idx = 0;
-
+	int phy, phy_end, phy_idx = 0;
 
 /* when built into the kernel, we only print version if device is found */
 #ifndef MODULE
@@ -486,7 +496,6 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 	dev = alloc_etherdev(sizeof(*np));
 	if (!dev)
 		return -ENOMEM;
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	if (pci_request_regions(pdev, DRV_NAME))
@@ -497,8 +506,8 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 		goto err_out_res;
 
 	for (i = 0; i < 3; i++)
-		((u16 *)dev->dev_addr)[i] =
-			le16_to_cpu(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
+		((__le16 *)dev->dev_addr)[i] =
+			cpu_to_le16(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
 
 	dev->base_addr = (unsigned long)ioaddr;
@@ -532,37 +541,35 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 	np->mii_if.reg_num_mask = 0x1f;
 
 	/* The chip-specific entries in the device structure. */
-	dev->open = &netdev_open;
-	dev->hard_start_xmit = &start_tx;
-	dev->stop = &netdev_close;
-	dev->get_stats = &get_stats;
-	dev->set_multicast_list = &set_rx_mode;
-	dev->do_ioctl = &netdev_ioctl;
+	dev->netdev_ops = &netdev_ops;
 	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-	dev->tx_timeout = &tx_timeout;
 	dev->watchdog_timeo = TX_TIMEOUT;
-	dev->change_mtu = &change_mtu;
-	pci_set_drvdata(pdev, dev);
 
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &np->pci_rev_id);
+	pci_set_drvdata(pdev, dev);
 
 	i = register_netdev(dev);
 	if (i)
 		goto err_out_unmap_rx;
 
-	printk(KERN_INFO "%s: %s at %p, ",
-		   dev->name, pci_id_tbl[chip_idx].name, ioaddr);
-	for (i = 0; i < 5; i++)
-			printk("%2.2x:", dev->dev_addr[i]);
-	printk("%2.2x, IRQ %d.\n", dev->dev_addr[i], irq);
+	printk(KERN_INFO "%s: %s at %p, %pM, IRQ %d.\n",
+	       dev->name, pci_id_tbl[chip_idx].name, ioaddr,
+	       dev->dev_addr, irq);
 
 	np->phys[0] = 1;		/* Default setting */
 	np->mii_preamble_required++;
+
 	/*
 	 * It seems some phys doesn't deal well with address 0 being accessed
-	 * first, so leave address zero to the end of the loop (32 & 31).
+	 * first
 	 */
-	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
+	if (sundance_pci_tbl[np->chip_id].device == 0x0200) {
+		phy = 0;
+		phy_end = 31;
+	} else {
+		phy = 1;
+		phy_end = 32;	/* wraps to zero, due to 'phy & 0x1f' */
+	}
+	for (; phy <= phy_end && phy_idx < MII_CNT; phy++) {
 		int phyx = phy & 0x1f;
 		int mii_status = mdio_read(dev, phyx, MII_BMSR);
 		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
@@ -594,8 +601,8 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 			    strcmp (media[card_idx], "4") == 0) {
 				np->speed = 100;
 				np->mii_if.full_duplex = 1;
-			} else if (strcmp (media[card_idx], "100mbps_hd") == 0
-				   || strcmp (media[card_idx], "3") == 0) {
+			} else if (strcmp (media[card_idx], "100mbps_hd") == 0 ||
+				   strcmp (media[card_idx], "3") == 0) {
 				np->speed = 100;
 				np->mii_if.full_duplex = 0;
 			} else if (strcmp (media[card_idx], "10mbps_fd") == 0 ||
@@ -780,7 +787,24 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
 		iowrite8(MDIO_EnbIn | MDIO_ShiftClk, mdio_addr);
 		mdio_delay();
 	}
-	return;
+}
+
+static int mdio_wait_link(struct net_device *dev, int wait)
+{
+	int bmsr;
+	int phy_id;
+	struct netdev_private *np;
+
+	np = netdev_priv(dev);
+	phy_id = np->phys[0];
+
+	do {
+		bmsr = mdio_read(dev, phy_id, MII_BMSR);
+		if (bmsr & 0x0004)
+			return 0;
+		mdelay(1);
+	} while (--wait > 0);
+	return -1;
 }
 
 static int netdev_open(struct net_device *dev)
@@ -792,7 +816,7 @@ static int netdev_open(struct net_device *dev)
 
 	/* Do we need to reset the chip??? */
 
-	i = request_irq(dev->irq, &intr_handler, IRQF_SHARED, dev->name, dev);
+	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
 	if (i)
 		return i;
 
@@ -828,7 +852,7 @@ static int netdev_open(struct net_device *dev)
 	iowrite8(100, ioaddr + RxDMAPollPeriod);
 	iowrite8(127, ioaddr + TxDMAPollPeriod);
 	/* Fix DFE-580TX packet drop issue */
-	if (np->pci_rev_id >= 0x14)
+	if (np->pci_dev->revision >= 0x14)
 		iowrite8(0x01, ioaddr + DebugCtrl1);
 	netif_start_queue(dev);
 
@@ -882,7 +906,7 @@ static void check_duplex(struct net_device *dev)
 			printk(KERN_INFO "%s: Setting %s-duplex based on MII #%d "
 				   "negotiated capability %4.4x.\n", dev->name,
 				   duplex ? "full" : "half", np->phys[0], negotiated);
-		iowrite16(ioread16(ioaddr + MACCtrl0) | duplex ? 0x20 : 0, ioaddr + MACCtrl0);
+		iowrite16(ioread16(ioaddr + MACCtrl0) | (duplex ? 0x20 : 0), ioaddr + MACCtrl0);
 	}
 }
 
@@ -946,8 +970,8 @@ static void tx_timeout(struct net_device *dev)
 
 	dev->if_port = 0;
 
-	dev->trans_start = jiffies;
-	np->stats.tx_errors++;
+	dev->trans_start = jiffies; /* prevent tx timeout */
+	dev->stats.tx_errors++;
 	if (np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 4) {
 		netif_wake_queue(dev);
 	}
@@ -996,7 +1020,6 @@ static void init_ring(struct net_device *dev)
 		np->tx_skbuff[i] = NULL;
 		np->tx_ring[i].status = 0;
 	}
-	return;
 }
 
 static void tx_poll (unsigned long data)
@@ -1023,10 +1046,9 @@ static void tx_poll (unsigned long data)
 	if (ioread32 (np->base + TxListPtr) == 0)
 		iowrite32 (np->tx_ring_dma + head * sizeof(struct netdev_desc),
 			np->base + TxListPtr);
-	return;
 }
 
-static int
+static netdev_tx_t
 start_tx (struct sk_buff *skb, struct net_device *dev)
 {
 	struct netdev_private *np = netdev_priv(dev);
@@ -1052,19 +1074,18 @@ start_tx (struct sk_buff *skb, struct net_device *dev)
 	tasklet_schedule(&np->tx_tasklet);
 
 	/* On some architectures: explicitly flush cache lines here. */
-	if (np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 1
-			&& !netif_queue_stopped(dev)) {
+	if (np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 1 &&
+	    !netif_queue_stopped(dev)) {
 		/* do nothing */
 	} else {
 		netif_stop_queue (dev);
 	}
-	dev->trans_start = jiffies;
 	if (netif_msg_tx_queued(np)) {
 		printk (KERN_DEBUG
 			"%s: Transmit frame #%d queued in slot %d.\n",
 			dev->name, np->cur_tx, entry);
 	}
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 /* Reset hardware tx and free all of tx buffers */
@@ -1088,14 +1109,14 @@ reset_tx (struct net_device *dev)
 		skb = np->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->tx_ring[i].frag[0].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				le32_to_cpu(np->tx_ring[i].frag[0].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			if (irq)
 				dev_kfree_skb_irq (skb);
 			else
 				dev_kfree_skb (skb);
 			np->tx_skbuff[i] = NULL;
-			np->stats.tx_dropped++;
+			dev->stats.tx_dropped++;
 		}
 	}
 	np->cur_tx = np->dirty_tx = 0;
@@ -1153,15 +1174,15 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 					if (netif_msg_tx_err(np))
 						printk("%s: Transmit error status %4.4x.\n",
 							   dev->name, tx_status);
-					np->stats.tx_errors++;
+					dev->stats.tx_errors++;
 					if (tx_status & 0x10)
-						np->stats.tx_fifo_errors++;
+						dev->stats.tx_fifo_errors++;
 					if (tx_status & 0x08)
-						np->stats.collisions++;
+						dev->stats.collisions++;
 					if (tx_status & 0x04)
-						np->stats.tx_fifo_errors++;
+						dev->stats.tx_fifo_errors++;
 					if (tx_status & 0x02)
-						np->stats.tx_window_errors++;
+						dev->stats.tx_window_errors++;
 
 					/*
 					** This reset has been verified on
@@ -1194,7 +1215,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 			hw_frame_id = ioread8(ioaddr + TxFrameId);
 		}
 
-		if (np->pci_rev_id >= 0x14) {
+		if (np->pci_dev->revision >= 0x14) {
 			spin_lock(&np->lock);
 			for (; np->cur_tx - np->dirty_tx > 0; np->dirty_tx++) {
 				int entry = np->dirty_tx % TX_RING_SIZE;
@@ -1212,7 +1233,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 				skb = np->tx_skbuff[entry];
 				/* Free the original skb. */
 				pci_unmap_single(np->pci_dev,
-					np->tx_ring[entry].frag[0].addr,
+					le32_to_cpu(np->tx_ring[entry].frag[0].addr),
 					skb->len, PCI_DMA_TODEVICE);
 				dev_kfree_skb_irq (np->tx_skbuff[entry]);
 				np->tx_skbuff[entry] = NULL;
@@ -1231,7 +1252,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 				skb = np->tx_skbuff[entry];
 				/* Free the original skb. */
 				pci_unmap_single(np->pci_dev,
-					np->tx_ring[entry].frag[0].addr,
+					le32_to_cpu(np->tx_ring[entry].frag[0].addr),
 					skb->len, PCI_DMA_TODEVICE);
 				dev_kfree_skb_irq (np->tx_skbuff[entry]);
 				np->tx_skbuff[entry] = NULL;
@@ -1285,11 +1306,15 @@ static void rx_poll(unsigned long data)
 			if (netif_msg_rx_err(np))
 				printk(KERN_DEBUG "  netdev_rx() Rx error was %8.8x.\n",
 					   frame_status);
-			np->stats.rx_errors++;
-			if (frame_status & 0x00100000) np->stats.rx_length_errors++;
-			if (frame_status & 0x00010000) np->stats.rx_fifo_errors++;
-			if (frame_status & 0x00060000) np->stats.rx_frame_errors++;
-			if (frame_status & 0x00080000) np->stats.rx_crc_errors++;
+			dev->stats.rx_errors++;
+			if (frame_status & 0x00100000)
+				dev->stats.rx_length_errors++;
+			if (frame_status & 0x00010000)
+				dev->stats.rx_fifo_errors++;
+			if (frame_status & 0x00060000)
+				dev->stats.rx_frame_errors++;
+			if (frame_status & 0x00080000)
+				dev->stats.rx_crc_errors++;
 			if (frame_status & 0x00100000) {
 				printk(KERN_WARNING "%s: Oversized Ethernet frame,"
 					   " status %8.8x.\n",
@@ -1305,23 +1330,23 @@ static void rx_poll(unsigned long data)
 #endif
 			/* Check if the packet is long enough to accept without copying
 			   to a minimally-sized skbuff. */
-			if (pkt_len < rx_copybreak
-				&& (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
+			if (pkt_len < rx_copybreak &&
+			    (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
 				pci_dma_sync_single_for_cpu(np->pci_dev,
-							    desc->frag[0].addr,
+							    le32_to_cpu(desc->frag[0].addr),
 							    np->rx_buf_sz,
 							    PCI_DMA_FROMDEVICE);
 
-				eth_copy_and_sum(skb, np->rx_skbuff[entry]->data, pkt_len, 0);
+				skb_copy_to_linear_data(skb, np->rx_skbuff[entry]->data, pkt_len);
 				pci_dma_sync_single_for_device(np->pci_dev,
-							       desc->frag[0].addr,
+							       le32_to_cpu(desc->frag[0].addr),
 							       np->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
 				skb_put(skb, pkt_len);
 			} else {
 				pci_unmap_single(np->pci_dev,
-					desc->frag[0].addr,
+					le32_to_cpu(desc->frag[0].addr),
 					np->rx_buf_sz,
 					PCI_DMA_FROMDEVICE);
 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
@@ -1330,7 +1355,6 @@ static void rx_poll(unsigned long data)
 			skb->protocol = eth_type_trans(skb, dev);
 			/* Note: checksum -> skb->ip_summed = CHECKSUM_UNNECESSARY; */
 			netif_rx(skb);
-			dev->last_rx = jiffies;
 		}
 		entry = (entry + 1) % RX_RING_SIZE;
 		received++;
@@ -1350,7 +1374,6 @@ not_done:
 	if (np->budget <= 0)
 		np->budget = RX_BUDGET;
 	tasklet_schedule(&np->rx_tasklet);
-	return;
 }
 
 static void refill_rx (struct net_device *dev)
@@ -1381,7 +1404,6 @@ static void refill_rx (struct net_device *dev)
 		np->rx_ring[entry].status = 0;
 		cnt++;
 	}
-	return;
 }
 static void netdev_error(struct net_device *dev, int intr_status)
 {
@@ -1391,41 +1413,51 @@ static void netdev_error(struct net_device *dev, int intr_status)
 	int speed;
 
 	if (intr_status & LinkChange) {
-		if (np->an_enable) {
-			mii_advertise = mdio_read (dev, np->phys[0], MII_ADVERTISE);
-			mii_lpa= mdio_read (dev, np->phys[0], MII_LPA);
-			mii_advertise &= mii_lpa;
-			printk (KERN_INFO "%s: Link changed: ", dev->name);
-			if (mii_advertise & ADVERTISE_100FULL) {
-				np->speed = 100;
-				printk ("100Mbps, full duplex\n");
-			} else if (mii_advertise & ADVERTISE_100HALF) {
-				np->speed = 100;
-				printk ("100Mbps, half duplex\n");
-			} else if (mii_advertise & ADVERTISE_10FULL) {
-				np->speed = 10;
-				printk ("10Mbps, full duplex\n");
-			} else if (mii_advertise & ADVERTISE_10HALF) {
-				np->speed = 10;
-				printk ("10Mbps, half duplex\n");
-			} else
-				printk ("\n");
+		if (mdio_wait_link(dev, 10) == 0) {
+			printk(KERN_INFO "%s: Link up\n", dev->name);
+			if (np->an_enable) {
+				mii_advertise = mdio_read(dev, np->phys[0],
+							   MII_ADVERTISE);
+				mii_lpa = mdio_read(dev, np->phys[0], MII_LPA);
+				mii_advertise &= mii_lpa;
+				printk(KERN_INFO "%s: Link changed: ",
+					dev->name);
+				if (mii_advertise & ADVERTISE_100FULL) {
+					np->speed = 100;
+					printk("100Mbps, full duplex\n");
+				} else if (mii_advertise & ADVERTISE_100HALF) {
+					np->speed = 100;
+					printk("100Mbps, half duplex\n");
+				} else if (mii_advertise & ADVERTISE_10FULL) {
+					np->speed = 10;
+					printk("10Mbps, full duplex\n");
+				} else if (mii_advertise & ADVERTISE_10HALF) {
+					np->speed = 10;
+					printk("10Mbps, half duplex\n");
+				} else
+					printk("\n");
 
+			} else {
+				mii_ctl = mdio_read(dev, np->phys[0], MII_BMCR);
+				speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
+				np->speed = speed;
+				printk(KERN_INFO "%s: Link changed: %dMbps ,",
+					dev->name, speed);
+				printk("%s duplex.\n",
+					(mii_ctl & BMCR_FULLDPLX) ?
+						"full" : "half");
+			}
+			check_duplex(dev);
+			if (np->flowctrl && np->mii_if.full_duplex) {
+				iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
+					ioaddr + MulticastFilter1+2);
+				iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
+					ioaddr + MACCtrl0);
+			}
+			netif_carrier_on(dev);
 		} else {
-			mii_ctl = mdio_read (dev, np->phys[0], MII_BMCR);
-			speed = (mii_ctl & BMCR_SPEED100) ? 100 : 10;
-			np->speed = speed;
-			printk (KERN_INFO "%s: Link changed: %dMbps ,",
-				dev->name, speed);
-			printk ("%s duplex.\n", (mii_ctl & BMCR_FULLDPLX) ?
-				"full" : "half");
-		}
-		check_duplex (dev);
-		if (np->flowctrl && np->mii_if.full_duplex) {
-			iowrite16(ioread16(ioaddr + MulticastFilter1+2) | 0x0200,
-				ioaddr + MulticastFilter1+2);
-			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
-				ioaddr + MACCtrl0);
+			printk(KERN_INFO "%s: Link down\n", dev->name);
+			netif_carrier_off(dev);
 		}
 	}
 	if (intr_status & StatsMax) {
@@ -1448,22 +1480,22 @@ static struct net_device_stats *get_stats(struct net_device *dev)
 	   the vulnerability window is very small and statistics are
 	   non-critical. */
 	/* The chip only need report frame silently dropped. */
-	np->stats.rx_missed_errors	+= ioread8(ioaddr + RxMissed);
-	np->stats.tx_packets += ioread16(ioaddr + TxFramesOK);
-	np->stats.rx_packets += ioread16(ioaddr + RxFramesOK);
-	np->stats.collisions += ioread8(ioaddr + StatsLateColl);
-	np->stats.collisions += ioread8(ioaddr + StatsMultiColl);
-	np->stats.collisions += ioread8(ioaddr + StatsOneColl);
-	np->stats.tx_carrier_errors += ioread8(ioaddr + StatsCarrierError);
+	dev->stats.rx_missed_errors	+= ioread8(ioaddr + RxMissed);
+	dev->stats.tx_packets += ioread16(ioaddr + TxFramesOK);
+	dev->stats.rx_packets += ioread16(ioaddr + RxFramesOK);
+	dev->stats.collisions += ioread8(ioaddr + StatsLateColl);
+	dev->stats.collisions += ioread8(ioaddr + StatsMultiColl);
+	dev->stats.collisions += ioread8(ioaddr + StatsOneColl);
+	dev->stats.tx_carrier_errors += ioread8(ioaddr + StatsCarrierError);
 	ioread8(ioaddr + StatsTxDefer);
 	for (i = StatsTxDefer; i <= StatsMcastRx; i++)
 		ioread8(ioaddr + i);
-	np->stats.tx_bytes += ioread16(ioaddr + TxOctetsLow);
-	np->stats.tx_bytes += ioread16(ioaddr + TxOctetsHigh) << 16;
-	np->stats.rx_bytes += ioread16(ioaddr + RxOctetsLow);
-	np->stats.rx_bytes += ioread16(ioaddr + RxOctetsHigh) << 16;
+	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsLow);
+	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsHigh) << 16;
+	dev->stats.rx_bytes += ioread16(ioaddr + RxOctetsLow);
+	dev->stats.rx_bytes += ioread16(ioaddr + RxOctetsHigh) << 16;
 
-	return &np->stats;
+	return &dev->stats;
 }
 
 static void set_rx_mode(struct net_device *dev)
@@ -1477,20 +1509,19 @@ static void set_rx_mode(struct net_device *dev)
 	if (dev->flags & IFF_PROMISC) {			/* Set promiscuous. */
 		memset(mc_filter, 0xff, sizeof(mc_filter));
 		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptAll | AcceptMyPhys;
-	} else if ((dev->mc_count > multicast_filter_limit)
-			   ||  (dev->flags & IFF_ALLMULTI)) {
+	} else if ((netdev_mc_count(dev) > multicast_filter_limit) ||
+		   (dev->flags & IFF_ALLMULTI)) {
 		/* Too many to match, or accept all multicasts. */
 		memset(mc_filter, 0xff, sizeof(mc_filter));
 		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
-	} else if (dev->mc_count) {
-		struct dev_mc_list *mclist;
+	} else if (!netdev_mc_empty(dev)) {
+		struct netdev_hw_addr *ha;
 		int bit;
 		int index;
 		int crc;
 		memset (mc_filter, 0, sizeof (mc_filter));
-		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-		     i++, mclist = mclist->next) {
-			crc = ether_crc_le (ETH_ALEN, mclist->dmi_addr);
+		netdev_for_each_mc_addr(ha, dev) {
+			crc = ether_crc_le(ETH_ALEN, ha->addr);
 			for (index=0, bit=0; bit < 6; bit++, crc <<= 1)
 				if (crc & 0x80000000) index |= 1 << bit;
 			mc_filter[index/16] |= (1 << (index % 16));
@@ -1589,15 +1620,12 @@ static const struct ethtool_ops ethtool_ops = {
 	.get_link = get_link,
 	.get_msglevel = get_msglevel,
 	.set_msglevel = set_msglevel,
-	.get_perm_addr = ethtool_op_get_perm_addr,
 };
 
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct netdev_private *np = netdev_priv(dev);
-	void __iomem *ioaddr = np->base;
 	int rc;
-	int i;
 
 	if (!netif_running(dev))
 		return -EINVAL;
@@ -1605,30 +1633,6 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	spin_lock_irq(&np->lock);
 	rc = generic_mii_ioctl(&np->mii_if, if_mii(rq), cmd, NULL);
 	spin_unlock_irq(&np->lock);
-	switch (cmd) {
-		case SIOCDEVPRIVATE:
-		for (i=0; i<TX_RING_SIZE; i++) {
-			printk(KERN_DEBUG "%02x %08llx %08x %08x(%02x) %08x %08x\n", i,
-				(unsigned long long)(np->tx_ring_dma + i*sizeof(*np->tx_ring)),
-				le32_to_cpu(np->tx_ring[i].next_desc),
-				le32_to_cpu(np->tx_ring[i].status),
-				(le32_to_cpu(np->tx_ring[i].status) >> 2)
-					& 0xff,
-				le32_to_cpu(np->tx_ring[i].frag[0].addr),
-				le32_to_cpu(np->tx_ring[i].frag[0].length));
-		}
-		printk(KERN_DEBUG "TxListPtr=%08x netif_queue_stopped=%d\n",
-			ioread32(np->base + TxListPtr),
-			netif_queue_stopped(dev));
-		printk(KERN_DEBUG "cur_tx=%d(%02x) dirty_tx=%d(%02x)\n",
-			np->cur_tx, np->cur_tx % TX_RING_SIZE,
-			np->dirty_tx, np->dirty_tx % TX_RING_SIZE);
-		printk(KERN_DEBUG "cur_rx=%d dirty_rx=%d\n", np->cur_rx, np->dirty_rx);
-		printk(KERN_DEBUG "cur_task=%d\n", np->cur_task);
-		printk(KERN_DEBUG "TxStatus=%04x\n", ioread16(ioaddr + TxStatus));
-			return 0;
-	}
-
 
 	return rc;
 }
@@ -1685,13 +1689,13 @@ static int netdev_close(struct net_device *dev)
 
 #ifdef __i386__
 	if (netif_msg_hw(np)) {
-		printk("\n"KERN_DEBUG"  Tx ring at %8.8x:\n",
+		printk(KERN_DEBUG "  Tx ring at %8.8x:\n",
 			   (int)(np->tx_ring_dma));
 		for (i = 0; i < TX_RING_SIZE; i++)
-			printk(" #%d desc. %4.4x %8.8x %8.8x.\n",
+			printk(KERN_DEBUG " #%d desc. %4.4x %8.8x %8.8x.\n",
 				   i, np->tx_ring[i].status, np->tx_ring[i].frag[0].addr,
 				   np->tx_ring[i].frag[0].length);
-		printk("\n"KERN_DEBUG "  Rx ring %8.8x:\n",
+		printk(KERN_DEBUG "  Rx ring %8.8x:\n",
 			   (int)(np->rx_ring_dma));
 		for (i = 0; i < /*RX_RING_SIZE*/4 ; i++) {
 			printk(KERN_DEBUG " #%d desc. %4.4x %4.4x %8.8x\n",
@@ -1708,23 +1712,23 @@ static int netdev_close(struct net_device *dev)
 	/* Free all the skbuffs in the Rx queue. */
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		np->rx_ring[i].status = 0;
-		np->rx_ring[i].frag[0].addr = 0xBADF00D0; /* An invalid address. */
 		skb = np->rx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->rx_ring[i].frag[0].addr, np->rx_buf_sz,
-				PCI_DMA_FROMDEVICE);
+				le32_to_cpu(np->rx_ring[i].frag[0].addr),
+				np->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(skb);
 			np->rx_skbuff[i] = NULL;
 		}
+		np->rx_ring[i].frag[0].addr = cpu_to_le32(0xBADF00D0); /* poison */
 	}
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		np->tx_ring[i].next_desc = 0;
 		skb = np->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->tx_ring[i].frag[0].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				le32_to_cpu(np->tx_ring[i].frag[0].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb(skb);
 			np->tx_skbuff[i] = NULL;
 		}
@@ -1775,5 +1779,3 @@ static void __exit sundance_exit(void)
 
 module_init(sundance_init);
 module_exit(sundance_exit);
-
-

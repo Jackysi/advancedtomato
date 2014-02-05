@@ -8,12 +8,14 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/efs_fs.h>
-#include <linux/efs_vh.h>
-#include <linux/efs_fs_sb.h>
+#include <linux/exportfs.h>
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
 #include <linux/vfs.h>
+
+#include "efs.h"
+#include <linux/efs_vh.h>
+#include <linux/efs_fs_sb.h>
 
 static int efs_statfs(struct dentry *dentry, struct kstatfs *buf);
 static int efs_fill_super(struct super_block *s, void *d, int silent);
@@ -68,19 +70,19 @@ static void efs_destroy_inode(struct inode *inode)
 	kmem_cache_free(efs_inode_cachep, INODE_INFO(inode));
 }
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct efs_inode_info *ei = (struct efs_inode_info *) foo;
 
 	inode_init_once(&ei->vfs_inode);
 }
- 
+
 static int init_inodecache(void)
 {
 	efs_inode_cachep = kmem_cache_create("efs_inode_cache",
 				sizeof(struct efs_inode_info),
 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
-				init_once, NULL);
+				init_once);
 	if (efs_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;
@@ -106,13 +108,14 @@ static int efs_remount(struct super_block *sb, int *flags, char *data)
 static const struct super_operations efs_superblock_operations = {
 	.alloc_inode	= efs_alloc_inode,
 	.destroy_inode	= efs_destroy_inode,
-	.read_inode	= efs_read_inode,
 	.put_super	= efs_put_super,
 	.statfs		= efs_statfs,
 	.remount_fs	= efs_remount,
 };
 
-static struct export_operations efs_export_ops = {
+static const struct export_operations efs_export_ops = {
+	.fh_to_dentry	= efs_fh_to_dentry,
+	.fh_to_parent	= efs_fh_to_parent,
 	.get_parent	= efs_get_parent,
 };
 
@@ -244,6 +247,7 @@ static int efs_fill_super(struct super_block *s, void *d, int silent)
 	struct efs_sb_info *sb;
 	struct buffer_head *bh;
 	struct inode *root;
+	int ret = -EINVAL;
 
  	sb = kzalloc(sizeof(struct efs_sb_info), GFP_KERNEL);
 	if (!sb)
@@ -300,12 +304,18 @@ static int efs_fill_super(struct super_block *s, void *d, int silent)
 	}
 	s->s_op   = &efs_superblock_operations;
 	s->s_export_op = &efs_export_ops;
-	root = iget(s, EFS_ROOTINODE);
-	s->s_root = d_alloc_root(root);
- 
-	if (!(s->s_root)) {
+	root = efs_iget(s, EFS_ROOTINODE);
+	if (IS_ERR(root)) {
 		printk(KERN_ERR "EFS: get root inode failed\n");
+		ret = PTR_ERR(root);
+		goto out_no_fs;
+	}
+
+	s->s_root = d_alloc_root(root);
+	if (!(s->s_root)) {
+		printk(KERN_ERR "EFS: get root dentry failed\n");
 		iput(root);
+		ret = -ENOMEM;
 		goto out_no_fs;
 	}
 
@@ -315,26 +325,27 @@ out_no_fs_ul:
 out_no_fs:
 	s->s_fs_info = NULL;
 	kfree(sb);
-	return -EINVAL;
+	return ret;
 }
 
 static int efs_statfs(struct dentry *dentry, struct kstatfs *buf) {
-	struct efs_sb_info *sb = SUPER_INFO(dentry->d_sb);
+	struct super_block *sb = dentry->d_sb;
+	struct efs_sb_info *sbi = SUPER_INFO(sb);
+	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 
 	buf->f_type    = EFS_SUPER_MAGIC;	/* efs magic number */
 	buf->f_bsize   = EFS_BLOCKSIZE;		/* blocksize */
-	buf->f_blocks  = sb->total_groups *	/* total data blocks */
-			(sb->group_size - sb->inode_blocks);
-	buf->f_bfree   = sb->data_free;		/* free data blocks */
-	buf->f_bavail  = sb->data_free;		/* free blocks for non-root */
-	buf->f_files   = sb->total_groups *	/* total inodes */
-			sb->inode_blocks *
+	buf->f_blocks  = sbi->total_groups *	/* total data blocks */
+			(sbi->group_size - sbi->inode_blocks);
+	buf->f_bfree   = sbi->data_free;	/* free data blocks */
+	buf->f_bavail  = sbi->data_free;	/* free blocks for non-root */
+	buf->f_files   = sbi->total_groups *	/* total inodes */
+			sbi->inode_blocks *
 			(EFS_BLOCKSIZE / sizeof(struct efs_dinode));
-	buf->f_ffree   = sb->inode_free;	/* free inodes */
-	buf->f_fsid.val[0] = (sb->fs_magic >> 16) & 0xffff; /* fs ID */
-	buf->f_fsid.val[1] =  sb->fs_magic        & 0xffff; /* fs ID */
+	buf->f_ffree   = sbi->inode_free;	/* free inodes */
+	buf->f_fsid.val[0] = (u32)id;
+	buf->f_fsid.val[1] = (u32)(id >> 32);
 	buf->f_namelen = EFS_MAXNAMELEN;	/* max filename length */
 
 	return 0;
 }
-

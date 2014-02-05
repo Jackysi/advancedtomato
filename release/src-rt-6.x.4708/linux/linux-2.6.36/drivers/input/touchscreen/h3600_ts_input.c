@@ -1,6 +1,4 @@
 /*
- * $Id: h3600_ts_input.c,v 1.4 2002/01/23 06:39:37 jsimmons Exp $
- *
  *  Copyright (c) 2001 "Crazy" James Simmons jsimmons@transvirtual.com
  *
  *  Sponsored by Transvirtual Technology.
@@ -41,8 +39,8 @@
 #include <linux/delay.h>
 
 /* SA1100 serial defines */
-#include <asm/arch/hardware.h>
-#include <asm/arch/irqs.h>
+#include <mach/hardware.h>
+#include <mach/irqs.h>
 
 #define DRIVER_DESC	"H3600 touchscreen driver"
 
@@ -109,7 +107,7 @@ struct h3600_dev {
 static irqreturn_t action_button_handler(int irq, void *dev_id)
 {
 	int down = (GPLR & GPIO_BITSY_ACTION_BUTTON) ? 0 : 1;
-	struct input_dev *dev = (struct input_dev *) dev_id;
+	struct input_dev *dev = dev_id;
 
 	input_report_key(dev, KEY_ENTER, down);
 	input_sync(dev);
@@ -120,7 +118,7 @@ static irqreturn_t action_button_handler(int irq, void *dev_id)
 static irqreturn_t npower_button_handler(int irq, void *dev_id)
 {
 	int down = (GPLR & GPIO_BITSY_NPOWER_BUTTON) ? 0 : 1;
-	struct input_dev *dev = (struct input_dev *) dev_id;
+	struct input_dev *dev = dev_id;
 
 	/*
 	 * This interrupt is only called when we release the key. So we have
@@ -150,9 +148,10 @@ unsigned int h3600_flite_power(struct input_dev *dev, enum flite_pwr pwr)
 	struct h3600_dev *ts = input_get_drvdata(dev);
 
 	/* Must be in this order */
-	ts->serio->write(ts->serio, 1);
-	ts->serio->write(ts->serio, pwr);
-	ts->serio->write(ts->serio, brightness);
+	serio_write(ts->serio, 1);
+	serio_write(ts->serio, pwr);
+	serio_write(ts->serio, brightness);
+
 	return 0;
 }
 
@@ -259,17 +258,6 @@ static void h3600ts_process_packet(struct h3600_dev *ts)
 static int h3600ts_event(struct input_dev *dev, unsigned int type,
 			 unsigned int code, int value)
 {
-#if 0
-	struct h3600_dev *ts = input_get_drvdata(dev);
-
-	switch (type) {
-		case EV_LED: {
-		//	ts->serio->write(ts->serio, SOME_CMD);
-			return 0;
-		}
-	}
-	return -1;
-#endif
 	return 0;
 }
 
@@ -365,7 +353,7 @@ static int h3600ts_connect(struct serio *serio, struct serio_driver *drv)
 	input_dev->phys = ts->phys;
 	input_dev->id.bustype = BUS_RS232;
 	input_dev->id.vendor = SERIO_H3600;
-	input_dev->id.product = 0x0666;  /* FIXME !!! We can ask the hardware */
+	input_dev->id.product = 0x0666;
 	input_dev->id.version = 0x0100;
 	input_dev->dev.parent = &serio->dev;
 
@@ -373,8 +361,9 @@ static int h3600ts_connect(struct serio *serio, struct serio_driver *drv)
 
 	input_dev->event = h3600ts_event;
 
-	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS) | BIT(EV_LED) | BIT(EV_PWR);
-	input_dev->ledbit[0] = BIT(LED_SLEEP);
+	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS) |
+		BIT_MASK(EV_LED) | BIT_MASK(EV_PWR);
+	input_dev->ledbit[0] = BIT_MASK(LED_SLEEP);
 	input_set_abs_params(input_dev, ABS_X, 60, 985, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 35, 1024, 0, 0);
 

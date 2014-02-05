@@ -34,18 +34,18 @@ static void delayed_reset_bus(struct work_struct *work)
 {
 	struct hpsb_host *host =
 		container_of(work, struct hpsb_host, delayed_reset.work);
-	int generation = host->csr.generation + 1;
+	u8 generation = host->csr.generation + 1;
 
 	/* The generation field rolls over to 2 rather than 0 per IEEE
 	 * 1394a-2000. */
 	if (generation > 0xf || generation < 2)
 		generation = 2;
 
-	CSR_SET_BUS_INFO_GENERATION(host->csr.rom, generation);
+	csr_set_bus_info_generation(host->csr.rom, generation);
 	if (csr1212_generate_csr_image(host->csr.rom) != CSR1212_SUCCESS) {
 		/* CSR image creation failed.
 		 * Reset generation field and do not issue a bus reset. */
-		CSR_SET_BUS_INFO_GENERATION(host->csr.rom,
+		csr_set_bus_info_generation(host->csr.rom,
 					    host->csr.generation);
 		return;
 	}
@@ -154,15 +154,16 @@ struct hpsb_host *hpsb_alloc_host(struct hpsb_host_driver *drv, size_t extra,
 
 	memcpy(&h->device, &nodemgr_dev_template_host, sizeof(h->device));
 	h->device.parent = dev;
-	snprintf(h->device.bus_id, BUS_ID_SIZE, "fw-host%d", h->id);
+	set_dev_node(&h->device, dev_to_node(dev));
+	dev_set_name(&h->device, "fw-host%d", h->id);
 
-	h->class_dev.dev = &h->device;
-	h->class_dev.class = &hpsb_host_class;
-	snprintf(h->class_dev.class_id, BUS_ID_SIZE, "fw-host%d", h->id);
+	h->host_dev.parent = &h->device;
+	h->host_dev.class = &hpsb_host_class;
+	dev_set_name(&h->host_dev, "fw-host%d", h->id);
 
 	if (device_register(&h->device))
 		goto fail;
-	if (class_device_register(&h->class_dev)) {
+	if (device_register(&h->host_dev)) {
 		device_unregister(&h->device);
 		goto fail;
 	}
@@ -202,7 +203,7 @@ void hpsb_remove_host(struct hpsb_host *host)
 	host->driver = &dummy_driver;
 	highlevel_remove_host(host);
 
-	class_device_unregister(&host->class_dev);
+	device_unregister(&host->host_dev);
 	device_unregister(&host->device);
 }
 

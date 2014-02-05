@@ -165,13 +165,6 @@ static int kpowerswd(void *param)
 /*
  * powerfail interruption handler (irq IRQ_FROM_REGION(CPU_IRQ_REGION)+2) 
  */
-#if 0
-static void powerfail_interrupt(int code, void *x)
-{
-	printk(KERN_CRIT "POWERFAIL INTERRUPTION !\n");
-	poweroff();
-}
-#endif
 
 
 
@@ -200,10 +193,6 @@ static int __init power_init(void)
 	unsigned long ret;
 	unsigned long soft_power_reg;
 
-#if 0
-	request_irq( IRQ_FROM_REGION(CPU_IRQ_REGION)+2, &powerfail_interrupt,
-		0, "powerfail", NULL);
-#endif
 
 	/* enable the soft power switch if possible */
 	ret = pdc_soft_power_info(&soft_power_reg);

@@ -139,8 +139,8 @@
 #define AD_AC97_PWR_CTL	0x126	/* == AC97_POWERDOWN */
 #define  AD_AC97_PWR_ADC 0x0001 /* ADC ready status */
 #define  AD_AC97_PWR_DAC 0x0002 /* DAC ready status */
-#define  AD_AC97_PWR_PR0 0x0100 /* PR0 (ADC) powerdown */
-#define  AD_AC97_PWR_PR1 0x0200 /* PR1 (DAC) powerdown */
+#define  AD_AC97_PWR_PR0 0x0100
+#define  AD_AC97_PWR_PR1 0x0200
 
 #define AD_MISC_CTL     0x176 /* misc control */
 #define  AD_MISC_CTL_DACZ   0x8000 /* set for zero fill, unset for repeat */

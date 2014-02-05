@@ -25,7 +25,7 @@
 
 #include <asm/io.h>
 
-#define PROC_INTERFACE     /* add code for /proc/scsi/in2000/xxx interface */
+#define PROC_INTERFACE
 #ifdef  PROC_INTERFACE
 #define PROC_STATISTICS    /* add code for keeping various real time stats */
 #endif

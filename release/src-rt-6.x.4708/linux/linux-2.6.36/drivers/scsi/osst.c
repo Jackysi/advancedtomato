@@ -16,14 +16,14 @@
   Copyright 1992 - 2002 Kai Makisara / 2000 - 2006 Willem Riede
 	 email osst@riede.org
 
-  $Header: /cvsroot/osst/Driver/osst.c,v 1.73 2005/01/01 21:13:34 wriede Exp $
+  $Header: /cvsroot/osst/Driver/osst.c,v 1.73 2005/01/01 21:13:34 Exp $
 
   Microscopic alterations - Rik Ling, 2000/12/21
   Last st.c sync: Tue Oct 15 22:01:04 2002 by makisara
   Some small formal changes - aeb, 950809
 */
 
-static const char * cvsid = "$Id: osst.c,v 1.73 2005/01/01 21:13:34 wriede Exp $";
+static const char * cvsid = "$Id: osst.c,v 1.73 2005/01/01 21:13:34 Exp $";
 static const char * osst_version = "0.99.4";
 
 /* The "failure to reconnect" firmware bug */
@@ -38,6 +38,7 @@ static const char * osst_version = "0.99.4";
 #include <linux/sched.h>
 #include <linux/proc_fs.h>
 #include <linux/mm.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/string.h>
 #include <linux/errno.h>
@@ -50,6 +51,7 @@ static const char * osst_version = "0.99.4";
 #include <linux/moduleparam.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#include <linux/smp_lock.h>
 #include <asm/uaccess.h>
 #include <asm/dma.h>
 #include <asm/system.h>
@@ -279,8 +281,8 @@ static int osst_chk_result(struct osst_tape * STp, struct osst_request * SRpnt)
 			static	int	notyetprinted = 1;
 
 			printk(KERN_WARNING
-			     "%s:W: Warning %x (sugg. bt 0x%x, driver bt 0x%x, host bt 0x%x).\n",
-			     name, result, suggestion(result), driver_byte(result) & DRIVER_MASK,
+			     "%s:W: Warning %x (driver bt 0x%x, host bt 0x%x).\n",
+			     name, result, driver_byte(result),
 			     host_byte(result));
 			if (notyetprinted) {
 				notyetprinted = 0;
@@ -316,18 +318,25 @@ static int osst_chk_result(struct osst_tape * STp, struct osst_request * SRpnt)
 
 
 /* Wakeup from interrupt */
-static void osst_sleep_done(void *data, char *sense, int result, int resid)
+static void osst_end_async(struct request *req, int update)
 {
-	struct osst_request *SRpnt = data;
+	struct osst_request *SRpnt = req->end_io_data;
 	struct osst_tape *STp = SRpnt->stp;
+	struct rq_map_data *mdata = &SRpnt->stp->buffer->map_data;
 
-	memcpy(SRpnt->sense, sense, SCSI_SENSE_BUFFERSIZE);
-	STp->buffer->cmdstat.midlevel_result = SRpnt->result = result;
+	STp->buffer->cmdstat.midlevel_result = SRpnt->result = req->errors;
 #if DEBUG
 	STp->write_pending = 0;
 #endif
 	if (SRpnt->waiting)
 		complete(SRpnt->waiting);
+
+	if (SRpnt->bio) {
+		kfree(mdata->pages);
+		blk_rq_unmap_user(SRpnt->bio);
+	}
+
+	__blk_put_request(req->q, req);
 }
 
 /* osst_request memory management */
@@ -339,6 +348,74 @@ static struct osst_request *osst_allocate_request(void)
 static void osst_release_request(struct osst_request *streq)
 {
 	kfree(streq);
+}
+
+static int osst_execute(struct osst_request *SRpnt, const unsigned char *cmd,
+			int cmd_len, int data_direction, void *buffer, unsigned bufflen,
+			int use_sg, int timeout, int retries)
+{
+	struct request *req;
+	struct page **pages = NULL;
+	struct rq_map_data *mdata = &SRpnt->stp->buffer->map_data;
+
+	int err = 0;
+	int write = (data_direction == DMA_TO_DEVICE);
+
+	req = blk_get_request(SRpnt->stp->device->request_queue, write, GFP_KERNEL);
+	if (!req)
+		return DRIVER_ERROR << 24;
+
+	req->cmd_type = REQ_TYPE_BLOCK_PC;
+	req->cmd_flags |= REQ_QUIET;
+
+	SRpnt->bio = NULL;
+
+	if (use_sg) {
+		struct scatterlist *sg, *sgl = (struct scatterlist *)buffer;
+		int i;
+
+		pages = kzalloc(use_sg * sizeof(struct page *), GFP_KERNEL);
+		if (!pages)
+			goto free_req;
+
+		for_each_sg(sgl, sg, use_sg, i)
+			pages[i] = sg_page(sg);
+
+		mdata->null_mapped = 1;
+
+		mdata->page_order = get_order(sgl[0].length);
+		mdata->nr_entries =
+			DIV_ROUND_UP(bufflen, PAGE_SIZE << mdata->page_order);
+		mdata->offset = 0;
+
+		err = blk_rq_map_user(req->q, req, mdata, NULL, bufflen, GFP_KERNEL);
+		if (err) {
+			kfree(pages);
+			goto free_req;
+		}
+		SRpnt->bio = req->bio;
+		mdata->pages = pages;
+
+	} else if (bufflen) {
+		err = blk_rq_map_kern(req->q, req, buffer, bufflen, GFP_KERNEL);
+		if (err)
+			goto free_req;
+	}
+
+	req->cmd_len = cmd_len;
+	memset(req->cmd, 0, BLK_MAX_CDB); /* ATAPI hates garbage after CDB */
+	memcpy(req->cmd, cmd, req->cmd_len);
+	req->sense = SRpnt->sense;
+	req->sense_len = 0;
+	req->timeout = timeout;
+	req->retries = retries;
+	req->end_io_data = SRpnt;
+
+	blk_execute_rq_nowait(req->q, NULL, req, 1, osst_end_async);
+	return 0;
+free_req:
+	blk_put_request(req);
+	return DRIVER_ERROR << 24;
 }
 
 /* Do the scsi command. Waits until command performed if do_wait is true.
@@ -402,8 +479,8 @@ static	struct osst_request * osst_do_scsi(struct osst_request *SRpnt, struct oss
 	STp->buffer->cmdstat.have_sense = 0;
 	STp->buffer->syscall_result = 0;
 
-	if (scsi_execute_async(STp->device, cmd, COMMAND_SIZE(cmd[0]), direction, bp, bytes,
-			use_sg, timeout, retries, SRpnt, osst_sleep_done, GFP_KERNEL))
+	if (osst_execute(SRpnt, cmd, COMMAND_SIZE(cmd[0]), direction, bp, bytes,
+			 use_sg, timeout, retries))
 		/* could not allocate the buffer or request was too large */
 		(STp->buffer)->syscall_result = (-EBUSY);
 	else if (do_wait) {
@@ -542,7 +619,7 @@ static int osst_verify_frame(struct osst_tape * STp, int frame_seq_number, int q
 	if (STp->raw) {
 		if (STp->buffer->syscall_result) {
 			for (i=0; i < STp->buffer->sg_segs; i++)
-				memset(page_address(STp->buffer->sg[i].page),
+				memset(page_address(sg_page(&STp->buffer->sg[i])),
 				       0, STp->buffer->sg[i].length);
 			strcpy(STp->buffer->b_data, "READ ERROR ON FRAME");
                 } else
@@ -593,10 +670,11 @@ static int osst_verify_frame(struct osst_tape * STp, int frame_seq_number, int q
 	if (aux->frame_type != OS_FRAME_TYPE_DATA &&
 	    aux->frame_type != OS_FRAME_TYPE_EOD &&
 	    aux->frame_type != OS_FRAME_TYPE_MARKER) {
-		if (!quiet)
+		if (!quiet) {
 #if DEBUG
 			printk(OSST_DEB_MSG "%s:D: Skipping frame, frame type %x\n", name, aux->frame_type);
 #endif
+		}
 		goto err_out;
 	}
 	if (aux->frame_type == OS_FRAME_TYPE_EOD &&
@@ -606,11 +684,12 @@ static int osst_verify_frame(struct osst_tape * STp, int frame_seq_number, int q
 		goto err_out;
 	}
         if (frame_seq_number != -1 && ntohl(aux->frame_seq_num) != frame_seq_number) {
-		if (!quiet)
+		if (!quiet) {
 #if DEBUG
 			printk(OSST_DEB_MSG "%s:D: Skipping frame, sequence number %u (expected %d)\n", 
 					    name, ntohl(aux->frame_seq_num), frame_seq_number);
 #endif
+		}
 		goto err_out;
 	}
 	if (aux->frame_type == OS_FRAME_TYPE_MARKER) {
@@ -3069,7 +3148,7 @@ static int osst_flush_write_buffer(struct osst_tape *STp, struct osst_request **
 				SRpnt->sense[12], SRpnt->sense[13]);
 #endif
 			if ((SRpnt->sense[0] & 0x70) == 0x70 &&
-			    (SRpnt->sense[2] & 0x40) && /* FIXME - SC-30 drive doesn't assert EOM bit */
+			    (SRpnt->sense[2] & 0x40) &&
 			    (SRpnt->sense[2] & 0x0f) == NO_SENSE) {
 				STp->dirty = 0;
 				(STp->buffer)->buffer_bytes = 0;
@@ -3081,7 +3160,7 @@ static int osst_flush_write_buffer(struct osst_tape *STp, struct osst_request **
 					result = (-EIO);
 				}
 			}
-			STps->drv_block = (-1);		/* FIXME - even if write recovery succeeds? */
+			STps->drv_block = (-1);
 		}
 		else {
 			STp->first_frame_position++;
@@ -3133,7 +3212,7 @@ static int osst_flush_buffer(struct osst_tape * STp, struct osst_request ** aSRp
 			    ((STp->buffer)->read_pointer + STp->block_size - 1        ) / STp->block_size ;
 		(STp->buffer)->buffer_bytes = 0;
 		(STp->buffer)->read_pointer = 0;
-		STp->frame_in_buffer = 0;		/* FIXME is this relevant w. OSST? */
+		STp->frame_in_buffer = 0;
 	}
 
 	if (!seek_next) {
@@ -3298,7 +3377,7 @@ static ssize_t osst_write(struct file * filp, const char __user * buf, size_t co
 	char		    * name = tape_name(STp);
 
 
-	if (down_interruptible(&STp->lock))
+	if (mutex_lock_interruptible(&STp->lock))
 		return (-ERESTARTSYS);
 
 	/*
@@ -3506,9 +3585,9 @@ if (SRpnt) printk(KERN_ERR "%s:A: Not supposed to have SRpnt at line %d\n", name
 		i = osst_write_frame(STp, &SRpnt, 1);
 
 		if (i == (-ENOSPC)) {
-			transfer = STp->buffer->writing;	/* FIXME -- check this logic */
+			transfer = STp->buffer->writing;
 			if (transfer <= do_count) {
-				filp->f_pos += do_count - transfer;
+				*ppos += do_count - transfer;
 				count -= do_count - transfer;
 				if (STps->drv_block >= 0) {
 					STps->drv_block += (do_count - transfer) / STp->block_size;
@@ -3546,7 +3625,7 @@ if (SRpnt) printk(KERN_ERR "%s:A: Not supposed to have SRpnt at line %d\n", name
 			goto out;
 		}
 
-		filp->f_pos += do_count;
+		*ppos += do_count;
 		b_point += do_count;
 		count -= do_count;
 		if (STps->drv_block >= 0) {
@@ -3568,7 +3647,7 @@ if (SRpnt) printk(KERN_ERR "%s:A: Not supposed to have SRpnt at line %d\n", name
 		if (STps->drv_block >= 0) {
 			STps->drv_block += blks;
 		}
-		filp->f_pos += count;
+		*ppos += count;
 		count = 0;
 	}
 
@@ -3600,7 +3679,7 @@ if (SRpnt) printk(KERN_ERR "%s:A: Not supposed to have SRpnt at line %d\n", name
 out:
 	if (SRpnt != NULL) osst_release_request(SRpnt);
 
-	up(&STp->lock);
+	mutex_unlock(&STp->lock);
 
 	return retval;
 }
@@ -3619,7 +3698,7 @@ static ssize_t osst_read(struct file * filp, char __user * buf, size_t count, lo
 	char		    * name  = tape_name(STp);
 
 
-	if (down_interruptible(&STp->lock))
+	if (mutex_lock_interruptible(&STp->lock))
 		return (-ERESTARTSYS);
 
 	/*
@@ -3667,7 +3746,6 @@ static ssize_t osst_read(struct file * filp, char __user * buf, size_t count, lo
 		if (retval)
 			goto out;
 		STps->rw = ST_IDLE;
-		/* FIXME -- this may leave the tape without EOD and up2date headers */
 	}
 
 	if ((count % STp->block_size) != 0) {
@@ -3744,7 +3822,7 @@ static ssize_t osst_read(struct file * filp, char __user * buf, size_t count, lo
 			}
 			STp->logical_blk_num += transfer / STp->block_size;
 			STps->drv_block      += transfer / STp->block_size;
-			filp->f_pos          += transfer;
+			*ppos          += transfer;
 			buf                  += transfer;
 			total                += transfer;
 		}
@@ -3785,7 +3863,7 @@ static ssize_t osst_read(struct file * filp, char __user * buf, size_t count, lo
 out:
 	if (SRpnt != NULL) osst_release_request(SRpnt);
 
-	up(&STp->lock);
+	mutex_unlock(&STp->lock);
 
 	return retval;
 }
@@ -4051,7 +4129,7 @@ static int osst_int_ioctl(struct osst_tape * STp, struct osst_request ** aSRpnt,
 
 	 case MTFSS:
 		cmd[0] = SPACE;
-		cmd[1] = 0x04; /* Space Setmarks */   /* FIXME -- OS can't do this? */
+		cmd[1] = 0x04; /* Space Setmarks */
 		cmd[2] = (arg >> 16);
 		cmd[3] = (arg >> 8);
 		cmd[4] = arg;
@@ -4067,7 +4145,7 @@ static int osst_int_ioctl(struct osst_tape * STp, struct osst_request ** aSRpnt,
 		break;
 	 case MTBSS:
 		cmd[0] = SPACE;
-		cmd[1] = 0x04; /* Space Setmarks */   /* FIXME -- OS can't do this? */
+		cmd[1] = 0x04; /* Space Setmarks */
 		ltmp = (-arg);
 		cmd[2] = (ltmp >> 16);
 		cmd[3] = (ltmp >> 8);
@@ -4107,7 +4185,7 @@ static int osst_int_ioctl(struct osst_tape * STp, struct osst_request ** aSRpnt,
 			return (-EACCES);
 		 if (!STp->raw)
 			return 0;
-		 cmd[0] = WRITE_FILEMARKS;   /* FIXME -- need OS version */
+		 cmd[0] = WRITE_FILEMARKS;
 		 if (cmd_in == MTWSM)
 			 cmd[1] = 2;
 		 cmd[2] = (arg >> 16);
@@ -4243,7 +4321,7 @@ static int osst_int_ioctl(struct osst_tape * STp, struct osst_request ** aSRpnt,
 						(OS_DATA_SIZE % (arg & MT_ST_BLKSIZE_MASK))?"":" now");
 			 return (-EINVAL);
 		 }
-		 return 0;  /* FIXME silently ignore if block size didn't change */
+		 return 0;
 
 	 default:
 		return (-ENOSYS);
@@ -4305,7 +4383,7 @@ os_bypass:
 		else if (cmd_in == MTLOAD) {
 			for (i=0; i < ST_NBR_PARTITIONS; i++) {
 			    STp->ps[i].rw = ST_IDLE;
-			    STp->ps[i].last_block_valid = 0;/* FIXME - where else is this field maintained? */
+			    STp->ps[i].last_block_valid = 0;
 			}
 			STp->partition = 0;
 		}
@@ -4357,7 +4435,7 @@ os_bypass:
 
 
 /* Open the device */
-static int os_scsi_tape_open(struct inode * inode, struct file * filp)
+static int __os_scsi_tape_open(struct inode * inode, struct file * filp)
 {
 	unsigned short	      flags;
 	int		      i, b_size, new_session = 0, retval = 0;
@@ -4437,7 +4515,7 @@ static int os_scsi_tape_open(struct inode * inode, struct file * filp)
 		for (i = 0, b_size = 0; 
 		     (i < STp->buffer->sg_segs) && ((b_size + STp->buffer->sg[i].length) <= OS_DATA_SIZE); 
 		     b_size += STp->buffer->sg[i++].length);
-		STp->buffer->aux = (os_aux_t *) (page_address(STp->buffer->sg[i].page) + OS_DATA_SIZE - b_size);
+		STp->buffer->aux = (os_aux_t *) (page_address(sg_page(&STp->buffer->sg[i])) + OS_DATA_SIZE - b_size);
 #if DEBUG
 		printk(OSST_DEB_MSG "%s:D: b_data points to %p in segment 0 at %p\n", name,
 			STp->buffer->b_data, page_address(STp->buffer->sg[0].page));
@@ -4467,7 +4545,7 @@ static int os_scsi_tape_open(struct inode * inode, struct file * filp)
 
 	SRpnt = osst_do_scsi(NULL, STp, cmd, 0, DMA_NONE, STp->timeout, MAX_RETRIES, 1);
 	if (!SRpnt) {
-		retval = (STp->buffer)->syscall_result;		/* FIXME - valid? */
+		retval = (STp->buffer)->syscall_result;
 		goto err_out;
 	}
 	if ((SRpnt->sense[0] & 0x70) == 0x70      &&
@@ -4515,7 +4593,7 @@ static int os_scsi_tape_open(struct inode * inode, struct file * filp)
 			STp->nbr_partitions = 1;  /* This guess will be updated later if necessary */
 		for (i=0; i < ST_NBR_PARTITIONS; i++) {
 			STps = &(STp->ps[i]);
-			STps->rw = ST_IDLE;		/* FIXME - seems to be redundant... */
+			STps->rw = ST_IDLE;
 			STps->eof = ST_NOEOF;
 			STps->at_sm = 0;
 			STps->last_block_valid = 0;
@@ -4636,7 +4714,7 @@ static int os_scsi_tape_open(struct inode * inode, struct file * filp)
 		}
 	}
 
-	if (osst_wait_ready(STp, &SRpnt, 15 * 60, 0))		/* FIXME - not allowed with NOBLOCK */
+	if (osst_wait_ready(STp, &SRpnt, 15 * 60, 0))
 		 printk(KERN_INFO "%s:I: Device did not become Ready in open\n", name);
 
 	if ((STp->buffer)->syscall_result != 0) {
@@ -4722,6 +4800,18 @@ err_out:
 
 	return retval;
 }
+
+/* BKL pushdown: spaghetti avoidance wrapper */
+static int os_scsi_tape_open(struct inode * inode, struct file * filp)
+{
+	int ret;
+
+	lock_kernel();
+	ret = __os_scsi_tape_open(inode, filp);
+	unlock_kernel();
+	return ret;
+}
+
 
 
 /* Flush the tape buffer before close */
@@ -4841,7 +4931,7 @@ static int os_scsi_tape_close(struct inode * inode, struct file * filp)
 
 
 /* The ioctl command */
-static int osst_ioctl(struct inode * inode,struct file * file,
+static long osst_ioctl(struct file * file,
 	 unsigned int cmd_in, unsigned long arg)
 {
 	int		      i, cmd_nr, cmd_type, blk, retval = 0;
@@ -4852,8 +4942,11 @@ static int osst_ioctl(struct inode * inode,struct file * file,
 	char		    * name  = tape_name(STp);
 	void	    __user  * p     = (void __user *)arg;
 
-	if (down_interruptible(&STp->lock))
+	lock_kernel();
+	if (mutex_lock_interruptible(&STp->lock)) {
+		unlock_kernel();
 		return -ERESTARTSYS;
+	}
 
 #if DEBUG
 	if (debugging && !STp->in_use) {
@@ -5163,14 +5256,17 @@ static int osst_ioctl(struct inode * inode,struct file * file,
 	}
 	if (SRpnt) osst_release_request(SRpnt);
 
-	up(&STp->lock);
+	mutex_unlock(&STp->lock);
 
-	return scsi_ioctl(STp->device, cmd_in, p);
+	retval = scsi_ioctl(STp->device, cmd_in, p);
+	unlock_kernel();
+	return retval;
 
 out:
 	if (SRpnt) osst_release_request(SRpnt);
 
-	up(&STp->lock);
+	mutex_unlock(&STp->lock);
+	unlock_kernel();
 
 	return retval;
 }
@@ -5252,30 +5348,25 @@ static int enlarge_buffer(struct osst_buffer *STbuffer, int need_dma)
 	/* Try to allocate the first segment up to OS_DATA_SIZE and the others
 	   big enough to reach the goal (code assumes no segments in place) */
 	for (b_size = OS_DATA_SIZE, order = OSST_FIRST_ORDER; b_size >= PAGE_SIZE; order--, b_size /= 2) {
-		STbuffer->sg[0].page = alloc_pages(priority, order);
+		struct page *page = alloc_pages(priority, order);
+
 		STbuffer->sg[0].offset = 0;
-		if (STbuffer->sg[0].page != NULL) {
-		    STbuffer->sg[0].length = b_size;
-		    STbuffer->b_data = page_address(STbuffer->sg[0].page);
+		if (page != NULL) {
+		    sg_set_page(&STbuffer->sg[0], page, b_size, 0);
+		    STbuffer->b_data = page_address(page);
 		    break;
 		}
 	}
-	if (STbuffer->sg[0].page == NULL) {
+	if (sg_page(&STbuffer->sg[0]) == NULL) {
 		printk(KERN_NOTICE "osst :I: Can't allocate tape buffer main segment.\n");
 		return 0;
 	}
 	/* Got initial segment of 'bsize,order', continue with same size if possible, except for AUX */
 	for (segs=STbuffer->sg_segs=1, got=b_size;
 	     segs < max_segs && got < OS_FRAME_SIZE; ) {
-		STbuffer->sg[segs].page =
-				alloc_pages(priority, (OS_FRAME_SIZE - got <= PAGE_SIZE) ? 0 : order);
+		struct page *page = alloc_pages(priority, (OS_FRAME_SIZE - got <= PAGE_SIZE) ? 0 : order);
 		STbuffer->sg[segs].offset = 0;
-		if (STbuffer->sg[segs].page == NULL) {
-			if (OS_FRAME_SIZE - got <= (max_segs - segs) * b_size / 2 && order) {
-				b_size /= 2;  /* Large enough for the rest of the buffers */
-				order--;
-				continue;
-			}
+		if (page == NULL) {
 			printk(KERN_WARNING "osst :W: Failed to enlarge buffer to %d bytes.\n",
 						OS_FRAME_SIZE);
 #if DEBUG
@@ -5284,7 +5375,7 @@ static int enlarge_buffer(struct osst_buffer *STbuffer, int need_dma)
 			normalize_buffer(STbuffer);
 			return 0;
 		}
-		STbuffer->sg[segs].length = (OS_FRAME_SIZE - got <= PAGE_SIZE / 2) ? (OS_FRAME_SIZE - got) : b_size;
+		sg_set_page(&STbuffer->sg[segs], page, (OS_FRAME_SIZE - got <= PAGE_SIZE / 2) ? (OS_FRAME_SIZE - got) : b_size, 0);
 		got += STbuffer->sg[segs].length;
 		STbuffer->buffer_size = got;
 		STbuffer->sg_segs = ++segs;
@@ -5316,7 +5407,7 @@ static void normalize_buffer(struct osst_buffer *STbuffer)
 		     b_size < STbuffer->sg[i].length;
 		     b_size *= 2, order++);
 
-		__free_pages(STbuffer->sg[i].page, order);
+		__free_pages(sg_page(&STbuffer->sg[i]), order);
 		STbuffer->buffer_size -= STbuffer->sg[i].length;
 	}
 #if DEBUG
@@ -5344,7 +5435,7 @@ static int append_to_buffer(const char __user *ubp, struct osst_buffer *st_bp, i
 	for ( ; i < st_bp->sg_segs && do_count > 0; i++) {
 		cnt = st_bp->sg[i].length - offset < do_count ?
 		      st_bp->sg[i].length - offset : do_count;
-		res = copy_from_user(page_address(st_bp->sg[i].page) + offset, ubp, cnt);
+		res = copy_from_user(page_address(sg_page(&st_bp->sg[i])) + offset, ubp, cnt);
 		if (res)
 			return (-EFAULT);
 		do_count -= cnt;
@@ -5377,7 +5468,7 @@ static int from_buffer(struct osst_buffer *st_bp, char __user *ubp, int do_count
 	for ( ; i < st_bp->sg_segs && do_count > 0; i++) {
 		cnt = st_bp->sg[i].length - offset < do_count ?
 		      st_bp->sg[i].length - offset : do_count;
-		res = copy_to_user(ubp, page_address(st_bp->sg[i].page) + offset, cnt);
+		res = copy_to_user(ubp, page_address(sg_page(&st_bp->sg[i])) + offset, cnt);
 		if (res)
 			return (-EFAULT);
 		do_count -= cnt;
@@ -5410,7 +5501,7 @@ static int osst_zero_buffer_tail(struct osst_buffer *st_bp)
 	     i < st_bp->sg_segs && do_count > 0; i++) {
 		cnt = st_bp->sg[i].length - offset < do_count ?
 		      st_bp->sg[i].length - offset : do_count ;
-		memset(page_address(st_bp->sg[i].page) + offset, 0, cnt);
+		memset(page_address(sg_page(&st_bp->sg[i])) + offset, 0, cnt);
 		do_count -= cnt;
 		offset = 0;
 	}
@@ -5430,7 +5521,7 @@ static int osst_copy_to_buffer(struct osst_buffer *st_bp, unsigned char *ptr)
 	for (i = 0; i < st_bp->sg_segs && do_count > 0; i++) {
 		cnt = st_bp->sg[i].length < do_count ?
 		      st_bp->sg[i].length : do_count ;
-		memcpy(page_address(st_bp->sg[i].page), ptr, cnt);
+		memcpy(page_address(sg_page(&st_bp->sg[i])), ptr, cnt);
 		do_count -= cnt;
 		ptr      += cnt;
 	}
@@ -5451,7 +5542,7 @@ static int osst_copy_from_buffer(struct osst_buffer *st_bp, unsigned char *ptr)
 	for (i = 0; i < st_bp->sg_segs && do_count > 0; i++) {
 		cnt = st_bp->sg[i].length < do_count ?
 		      st_bp->sg[i].length : do_count ;
-		memcpy(ptr, page_address(st_bp->sg[i].page), cnt);
+		memcpy(ptr, page_address(sg_page(&st_bp->sg[i])), cnt);
 		do_count -= cnt;
 		ptr      += cnt;
 	}
@@ -5483,9 +5574,6 @@ static void validate_options (void)
 }
 	
 #ifndef MODULE
-/* Set the boot options. Syntax: osst=xxx,yyy,...
-   where xxx is write threshold in 1024 byte blocks,
-   and   yyy is number of s/g segments to use. */
 static int __init osst_setup (char *str)
 {
   int i, ints[5];
@@ -5527,13 +5615,14 @@ static const struct file_operations osst_fops = {
 	.owner =        THIS_MODULE,
 	.read =         osst_read,
 	.write =        osst_write,
-	.ioctl =        osst_ioctl,
+	.unlocked_ioctl = osst_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = osst_compat_ioctl,
 #endif
 	.open =         os_scsi_tape_open,
 	.flush =        os_scsi_tape_flush,
 	.release =      os_scsi_tape_close,
+	.llseek =	noop_llseek,
 };
 
 static int osst_supports(struct scsi_device * SDp)
@@ -5546,7 +5635,6 @@ static int osst_supports(struct scsi_device * SDp)
 	};
 
 static	struct	osst_support_data support_list[] = {
-		/* {"XXX", "Yy-", "", NULL},  example */
 		SIGS_FROM_OSST,
 		{NULL, }};
 
@@ -5589,9 +5677,10 @@ static void osst_remove_sysfs_files(struct device_driver *sysfs)
  * sysfs support for accessing ADR header information
  */
 
-static ssize_t osst_adr_rev_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_adr_rev_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5599,11 +5688,13 @@ static ssize_t osst_adr_rev_show(struct class_device *class_dev, char *buf)
 	return l;
 }
 
-CLASS_DEVICE_ATTR(ADR_rev, S_IRUGO, osst_adr_rev_show, NULL);
+DEVICE_ATTR(ADR_rev, S_IRUGO, osst_adr_rev_show, NULL);
 
-static ssize_t osst_linux_media_version_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_linux_media_version_show(struct device *dev,
+					     struct device_attribute *attr,
+					     char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5611,11 +5702,12 @@ static ssize_t osst_linux_media_version_show(struct class_device *class_dev, cha
 	return l;
 }
 
-CLASS_DEVICE_ATTR(media_version, S_IRUGO, osst_linux_media_version_show, NULL);
+DEVICE_ATTR(media_version, S_IRUGO, osst_linux_media_version_show, NULL);
 
-static ssize_t osst_capacity_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_capacity_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5623,11 +5715,13 @@ static ssize_t osst_capacity_show(struct class_device *class_dev, char *buf)
 	return l;
 }
 
-CLASS_DEVICE_ATTR(capacity, S_IRUGO, osst_capacity_show, NULL);
+DEVICE_ATTR(capacity, S_IRUGO, osst_capacity_show, NULL);
 
-static ssize_t osst_first_data_ppos_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_first_data_ppos_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5635,11 +5729,13 @@ static ssize_t osst_first_data_ppos_show(struct class_device *class_dev, char *b
 	return l;
 }
 
-CLASS_DEVICE_ATTR(BOT_frame, S_IRUGO, osst_first_data_ppos_show, NULL);
+DEVICE_ATTR(BOT_frame, S_IRUGO, osst_first_data_ppos_show, NULL);
 
-static ssize_t osst_eod_frame_ppos_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_eod_frame_ppos_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5647,11 +5743,12 @@ static ssize_t osst_eod_frame_ppos_show(struct class_device *class_dev, char *bu
 	return l;
 }
 
-CLASS_DEVICE_ATTR(EOD_frame, S_IRUGO, osst_eod_frame_ppos_show, NULL);
+DEVICE_ATTR(EOD_frame, S_IRUGO, osst_eod_frame_ppos_show, NULL);
 
-static ssize_t osst_filemark_cnt_show(struct class_device *class_dev, char *buf)
+static ssize_t osst_filemark_cnt_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
 {
-	struct osst_tape * STp = (struct osst_tape *) class_get_devdata (class_dev);
+	struct osst_tape * STp = (struct osst_tape *) dev_get_drvdata (dev);
 	ssize_t l = 0;
 
 	if (STp && STp->header_ok && STp->linux_media)
@@ -5659,7 +5756,7 @@ static ssize_t osst_filemark_cnt_show(struct class_device *class_dev, char *buf)
 	return l;
 }
 
-CLASS_DEVICE_ATTR(file_count, S_IRUGO, osst_filemark_cnt_show, NULL);
+DEVICE_ATTR(file_count, S_IRUGO, osst_filemark_cnt_show, NULL);
 
 static struct class *osst_sysfs_class;
 
@@ -5676,44 +5773,37 @@ static int osst_sysfs_init(void)
 
 static void osst_sysfs_destroy(dev_t dev)
 {
-	class_device_destroy(osst_sysfs_class, dev);
+	device_destroy(osst_sysfs_class, dev);
 }
 
 static int osst_sysfs_add(dev_t dev, struct device *device, struct osst_tape * STp, char * name)
 {
-	struct class_device *osst_class_member;
+	struct device *osst_member;
 	int err;
 
-	osst_class_member = class_device_create(osst_sysfs_class, NULL, dev,
-						device, "%s", name);
-	if (IS_ERR(osst_class_member)) {
+	osst_member = device_create(osst_sysfs_class, device, dev, STp,
+				    "%s", name);
+	if (IS_ERR(osst_member)) {
 		printk(KERN_WARNING "osst :W: Unable to add sysfs class member %s\n", name);
-		return PTR_ERR(osst_class_member);
+		return PTR_ERR(osst_member);
 	}
 
-	class_set_devdata(osst_class_member, STp);
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_ADR_rev);
+	err = device_create_file(osst_member, &dev_attr_ADR_rev);
 	if (err)
 		goto err_out;
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_media_version);
+	err = device_create_file(osst_member, &dev_attr_media_version);
 	if (err)
 		goto err_out;
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_capacity);
+	err = device_create_file(osst_member, &dev_attr_capacity);
 	if (err)
 		goto err_out;
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_BOT_frame);
+	err = device_create_file(osst_member, &dev_attr_BOT_frame);
 	if (err)
 		goto err_out;
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_EOD_frame);
+	err = device_create_file(osst_member, &dev_attr_EOD_frame);
 	if (err)
 		goto err_out;
-	err = class_device_create_file(osst_class_member,
-				       &class_device_attr_file_count);
+	err = device_create_file(osst_member, &dev_attr_file_count);
 	if (err)
 		goto err_out;
 
@@ -5773,18 +5863,18 @@ static int osst_probe(struct device *dev)
 	}
 
 	/* find a free minor number */
-	for (i=0; os_scsi_tapes[i] && i<osst_max_dev; i++);
+	for (i = 0; i < osst_max_dev && os_scsi_tapes[i]; i++)
+		;
 	if(i >= osst_max_dev) panic ("Scsi_devices corrupt (osst)");
 	dev_num = i;
 
 	/* allocate a struct osst_tape for this device */
-	tpnt = kmalloc(sizeof(struct osst_tape), GFP_ATOMIC);
-	if (tpnt == NULL) {
+	tpnt = kzalloc(sizeof(struct osst_tape), GFP_ATOMIC);
+	if (!tpnt) {
 		write_unlock(&os_scsi_tapes_lock);
 		printk(KERN_ERR "osst :E: Can't allocate device descriptor, device not attached.\n");
 		goto out_put_disk;
 	}
-	memset(tpnt, 0, sizeof(struct osst_tape));
 
 	/* allocate a buffer for this device */
 	i = SDp->host->sg_tablesize;
@@ -5815,7 +5905,7 @@ static int osst_probe(struct device *dev)
 	tpnt->can_partitions = 0;
 	tpnt->two_fm = OSST_TWO_FM;
 	tpnt->fast_mteom = OSST_FAST_MTEOM;
-	tpnt->scsi2_logical = OSST_SCSI2LOGICAL; /* FIXME */
+	tpnt->scsi2_logical = OSST_SCSI2LOGICAL;
 	tpnt->write_threshold = osst_write_threshold;
 	tpnt->default_drvbuffer = 0xff; /* No forced buffering */
 	tpnt->partition = 0;
@@ -5866,7 +5956,7 @@ static int osst_probe(struct device *dev)
 	tpnt->modes[2].defined = 1;
 	tpnt->density_changed = tpnt->compression_changed = tpnt->blksize_changed = 0;
 
-	init_MUTEX(&tpnt->lock);
+	mutex_init(&tpnt->lock);
 	osst_nr_dev++;
 	write_unlock(&os_scsi_tapes_lock);
 

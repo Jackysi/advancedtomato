@@ -1,3 +1,5 @@
+#include "radeonfb.h"
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
@@ -11,7 +13,6 @@
 #include <asm/io.h>
 
 #include <video/radeon.h>
-#include "radeonfb.h"
 #include "../edid.h"
 
 static void radeon_gpio_setscl(void* data, int state)
@@ -68,16 +69,16 @@ static int radeon_setup_i2c_bus(struct radeon_i2c_chan *chan, const char *name)
 {
 	int rc;
 
-	strcpy(chan->adapter.name, name);
+	snprintf(chan->adapter.name, sizeof(chan->adapter.name),
+		 "radeonfb %s", name);
 	chan->adapter.owner		= THIS_MODULE;
-	chan->adapter.id		= I2C_HW_B_RADEON;
 	chan->adapter.algo_data		= &chan->algo;
 	chan->adapter.dev.parent	= &chan->rinfo->pdev->dev;
 	chan->algo.setsda		= radeon_gpio_setsda;
 	chan->algo.setscl		= radeon_gpio_setscl;
 	chan->algo.getsda		= radeon_gpio_getsda;
 	chan->algo.getscl		= radeon_gpio_getscl;
-	chan->algo.udelay		= 40;
+	chan->algo.udelay		= 10;
 	chan->algo.timeout		= 20;
 	chan->algo.data 		= chan;	
 	
@@ -137,32 +138,27 @@ void radeon_delete_i2c_busses(struct radeonfb_info *rinfo)
 int radeon_probe_i2c_connector(struct radeonfb_info *rinfo, int conn,
 			       u8 **out_edid)
 {
-	u32 reg = rinfo->i2c[conn-1].ddc_reg;
 	u8 *edid;
-
-	OUTREG(reg, INREG(reg) &
-			~(VGA_DDC_DATA_OUTPUT | VGA_DDC_CLK_OUTPUT));
 
 	edid = fb_ddc_read(&rinfo->i2c[conn-1].adapter);
 
 	if (out_edid)
 		*out_edid = edid;
 	if (!edid) {
-		RTRACE("radeonfb: I2C (port %d) ... not found\n", conn);
+		pr_debug("radeonfb: I2C (port %d) ... not found\n", conn);
 		return MT_NONE;
 	}
 	if (edid[0x14] & 0x80) {
 		/* Fix detection using BIOS tables */
 		if (rinfo->is_mobility /*&& conn == ddc_dvi*/ &&
 		    (INREG(LVDS_GEN_CNTL) & LVDS_ON)) {
-			RTRACE("radeonfb: I2C (port %d) ... found LVDS panel\n", conn);
+			pr_debug("radeonfb: I2C (port %d) ... found LVDS panel\n", conn);
 			return MT_LCD;
 		} else {
-			RTRACE("radeonfb: I2C (port %d) ... found TMDS panel\n", conn);
+			pr_debug("radeonfb: I2C (port %d) ... found TMDS panel\n", conn);
 			return MT_DFP;
 		}
 	}
-       	RTRACE("radeonfb: I2C (port %d) ... found CRT display\n", conn);
+	pr_debug("radeonfb: I2C (port %d) ... found CRT display\n", conn);
 	return MT_CRT;
 }
-

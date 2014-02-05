@@ -68,7 +68,7 @@ a compiler does not support explicit inlining, this macro should be defined
 to be `static'.
 -------------------------------------------------------------------------------
 */
-#define INLINE extern __inline__
+#define INLINE static inline
 
 
 /* For use as a GCC soft-float library we need some special function names. */
@@ -105,16 +105,5 @@ to be `static'.
 #define float64_le			___float64_le
 #define float64_lt			___float64_lt
 
-#if 0
-#define float64_add			__adddf3
-#define float64_sub			__subdf3
-#define float64_mul			__muldf3
-#define float64_div			__divdf3
-#define int32_to_float64		__floatsidf
-#define float64_to_int32_round_to_zero	__fixdfsi
-#define float64_to_uint32_round_to_zero	__fixunsdfsi
-#define float64_to_float32		__truncdfsf2
-#define float32_to_float64		__extendsfdf2
-#endif
 
 #endif

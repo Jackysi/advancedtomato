@@ -14,6 +14,7 @@
 #include <linux/time.h>
 #include <linux/capability.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
 #include <linux/jbd.h>
 #include <linux/ext3_fs.h>
 #include <linux/ext3_jbd.h>
@@ -117,7 +118,7 @@ static int ext3_valid_block_bitmap(struct super_block *sb,
 		return 1;
 
 err_out:
-	ext3_error(sb, __FUNCTION__,
+	ext3_error(sb, __func__,
 			"Invalid block bitmap - "
 			"block_group = %d, block = %lu",
 			block_group, bitmap_blk);
@@ -147,7 +148,7 @@ read_block_bitmap(struct super_block *sb, unsigned int block_group)
 	bitmap_blk = le32_to_cpu(desc->bg_block_bitmap);
 	bh = sb_getblk(sb, bitmap_blk);
 	if (unlikely(!bh)) {
-		ext3_error(sb, __FUNCTION__,
+		ext3_error(sb, __func__,
 			    "Cannot read block bitmap - "
 			    "block_group = %d, block_bitmap = %u",
 			    block_group, le32_to_cpu(desc->bg_block_bitmap));
@@ -158,7 +159,7 @@ read_block_bitmap(struct super_block *sb, unsigned int block_group)
 
 	if (bh_submit_read(bh) < 0) {
 		brelse(bh);
-		ext3_error(sb, __FUNCTION__,
+		ext3_error(sb, __func__,
 			    "Cannot read block bitmap - "
 			    "block_group = %d, block_bitmap = %u",
 			    block_group, le32_to_cpu(desc->bg_block_bitmap));
@@ -192,7 +193,6 @@ read_block_bitmap(struct super_block *sb, unsigned int block_group)
  * windows(start, end).	Otherwise, it will only print out the "bad" windows,
  * those windows that overlap with their immediate neighbors.
  */
-#if 1
 static void __rsv_window_dump(struct rb_root *root, int verbose,
 			      const char *fn)
 {
@@ -236,10 +236,7 @@ restart:
 	BUG_ON(bad);
 }
 #define rsv_window_dump(root, verbose) \
-	__rsv_window_dump((root), (verbose), __FUNCTION__)
-#else
-#define rsv_window_dump(root, verbose) do {} while (0)
-#endif
+	__rsv_window_dump((root), (verbose), __func__)
 
 /**
  * goal_in_my_reservation()
@@ -618,7 +615,7 @@ do_more:
 		if (!ext3_clear_bit_atomic(sb_bgl_lock(sbi, block_group),
 						bit + i, bitmap_bh->b_data)) {
 			jbd_unlock_bh_state(bitmap_bh);
-			ext3_error(sb, __FUNCTION__,
+			ext3_error(sb, __func__,
 				"bit already cleared for block "E3FSBLK,
 				 block + i);
 			jbd_lock_bh_state(bitmap_bh);
@@ -632,7 +629,7 @@ do_more:
 	spin_lock(sb_bgl_lock(sbi, block_group));
 	le16_add_cpu(&desc->bg_free_blocks_count, group_freed);
 	spin_unlock(sb_bgl_lock(sbi, block_group));
-	percpu_counter_mod(&sbi->s_freeblocks_counter, count);
+	percpu_counter_add(&sbi->s_freeblocks_counter, count);
 
 	/* We dirtied the bitmap block */
 	BUFFER_TRACE(bitmap_bh, "dirtied bitmap block");
@@ -649,7 +646,7 @@ do_more:
 		count = overflow;
 		goto do_more;
 	}
-	sb->s_dirt = 1;
+
 error_return:
 	brelse(bitmap_bh);
 	ext3_std_error(sb, err);
@@ -676,7 +673,7 @@ void ext3_free_blocks(handle_t *handle, struct inode *inode,
 	}
 	ext3_free_blocks_sb(handle, sb, block, count, &dquot_freed_blocks);
 	if (dquot_freed_blocks)
-		DQUOT_FREE_BLOCK(inode, dquot_freed_blocks);
+		dquot_free_block(inode, dquot_freed_blocks);
 	return;
 }
 
@@ -1422,7 +1419,7 @@ static int ext3_has_free_blocks(struct ext3_sb_info *sbi)
 	free_blocks = percpu_counter_read_positive(&sbi->s_freeblocks_counter);
 	root_blocks = le32_to_cpu(sbi->s_es->s_r_blocks_count);
 	if (free_blocks < root_blocks + 1 && !capable(CAP_SYS_RESOURCE) &&
-		sbi->s_resuid != current->fsuid &&
+		sbi->s_resuid != current_fsuid() &&
 		(sbi->s_resgid == 0 || !in_group_p (sbi->s_resgid))) {
 		return 0;
 	}
@@ -1502,8 +1499,9 @@ ext3_fsblk_t ext3_new_blocks(handle_t *handle, struct inode *inode,
 	/*
 	 * Check quota for allocation of this block.
 	 */
-	if (DQUOT_ALLOC_BLOCK(inode, num)) {
-		*errp = -EDQUOT;
+	err = dquot_alloc_block(inode, num);
+	if (err) {
+		*errp = err;
 		return 0;
 	}
 
@@ -1571,7 +1569,7 @@ retry_alloc:
 
 	/*
 	 * Now search the rest of the groups.  We assume that
-	 * i and gdp correctly point to the last group visited.
+	 * group_no and gdp correctly point to the last group visited.
 	 */
 	for (bgi = 0; bgi < ngroups; bgi++) {
 		group_no++;
@@ -1581,6 +1579,12 @@ retry_alloc:
 		if (!gdp)
 			goto io_error;
 		free_blocks = le16_to_cpu(gdp->bg_free_blocks_count);
+		/*
+		 * skip this group (and avoid loading bitmap) if there
+		 * are no free blocks
+		 */
+		if (!free_blocks)
+			continue;
 		/*
 		 * skip this group if the number of
 		 * free blocks is less than half of the reservation
@@ -1673,7 +1677,7 @@ allocated:
 			if (ext3_test_bit(grp_alloc_blk+i,
 					bh2jh(bitmap_bh)->b_committed_data)) {
 				printk("%s: block was unexpectedly set in "
-					"b_committed_data\n", __FUNCTION__);
+					"b_committed_data\n", __func__);
 			}
 		}
 	}
@@ -1701,20 +1705,19 @@ allocated:
 	spin_lock(sb_bgl_lock(sbi, group_no));
 	le16_add_cpu(&gdp->bg_free_blocks_count, -num);
 	spin_unlock(sb_bgl_lock(sbi, group_no));
-	percpu_counter_mod(&sbi->s_freeblocks_counter, -num);
+	percpu_counter_sub(&sbi->s_freeblocks_counter, num);
 
 	BUFFER_TRACE(gdp_bh, "journal_dirty_metadata for group descriptor");
 	err = ext3_journal_dirty_metadata(handle, gdp_bh);
 	if (!fatal)
 		fatal = err;
 
-	sb->s_dirt = 1;
 	if (fatal)
 		goto out;
 
 	*errp = 0;
 	brelse(bitmap_bh);
-	DQUOT_FREE_BLOCK(inode, *count-num);
+	dquot_free_block(inode, *count-num);
 	*count = num;
 	return ret_block;
 
@@ -1729,7 +1732,7 @@ out:
 	 * Undo the block allocation
 	 */
 	if (!performed_allocation)
-		DQUOT_FREE_BLOCK(inode, *count);
+		dquot_free_block(inode, *count);
 	brelse(bitmap_bh);
 	return 0;
 }
@@ -1801,14 +1804,6 @@ ext3_fsblk_t ext3_count_free_blocks(struct super_block *sb)
 #endif
 }
 
-static inline int
-block_in_use(ext3_fsblk_t block, struct super_block *sb, unsigned char *map)
-{
-	return ext3_test_bit ((block -
-		le32_to_cpu(EXT3_SB(sb)->s_es->s_first_data_block)) %
-			 EXT3_BLOCKS_PER_GROUP(sb), map);
-}
-
 static inline int test_root(int a, int b)
 {
 	int num = b;
@@ -1858,11 +1853,7 @@ static unsigned long ext3_bg_num_gdb_meta(struct super_block *sb, int group)
 
 static unsigned long ext3_bg_num_gdb_nometa(struct super_block *sb, int group)
 {
-	if (EXT3_HAS_RO_COMPAT_FEATURE(sb,
-				EXT3_FEATURE_RO_COMPAT_SPARSE_SUPER) &&
-			!ext3_group_sparse(group))
-		return 0;
-	return EXT3_SB(sb)->s_gdb_count;
+	return ext3_bg_has_super(sb, group) ? EXT3_SB(sb)->s_gdb_count : 0;
 }
 
 /**

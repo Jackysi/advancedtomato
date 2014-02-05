@@ -105,16 +105,8 @@ static const struct file_operations rtc_proc_fops = {
 
 void rtc_proc_add_device(struct rtc_device *rtc)
 {
-	if (rtc->id == 0) {
-		struct proc_dir_entry *ent;
-
-		ent = create_proc_entry("driver/rtc", 0, NULL);
-		if (ent) {
-			ent->proc_fops = &rtc_proc_fops;
-			ent->owner = rtc->owner;
-			ent->data = rtc;
-		}
-	}
+	if (rtc->id == 0)
+		proc_create_data("driver/rtc", 0, NULL, &rtc_proc_fops, rtc);
 }
 
 void rtc_proc_del_device(struct rtc_device *rtc)

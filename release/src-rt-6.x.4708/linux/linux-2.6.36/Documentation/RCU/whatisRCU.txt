@@ -1,3 +1,11 @@
+Please note that the "What is RCU?" LWN series is an excellent place
+to start learning about RCU:
+
+1.	What is RCU, Fundamentally?  http://lwn.net/Articles/262464/
+2.	What is RCU? Part 2: Usage   http://lwn.net/Articles/263130/
+3.	RCU part 3: the RCU API      http://lwn.net/Articles/264090/
+
+
 What is RCU?
 
 RCU is a synchronization mechanism that was added to the Linux kernel
@@ -128,10 +136,10 @@ rcu_read_lock()
 	Used by a reader to inform the reclaimer that the reader is
 	entering an RCU read-side critical section.  It is illegal
 	to block while in an RCU read-side critical section, though
-	kernels built with CONFIG_PREEMPT_RCU can preempt RCU read-side
-	critical sections.  Any RCU-protected data structure accessed
-	during an RCU read-side critical section is guaranteed to remain
-	unreclaimed for the full duration of that critical section.
+	kernels built with CONFIG_TREE_PREEMPT_RCU can preempt RCU
+	read-side critical sections.  Any RCU-protected data structure
+	accessed during an RCU read-side critical section is guaranteed to
+	remain unreclaimed for the full duration of that critical section.
 	Reference counts may be used in conjunction with RCU to maintain
 	longer-term references to data structures.
 
@@ -315,14 +323,17 @@ used as follows:
 	Defer			Protect
 
 a.	synchronize_rcu()	rcu_read_lock() / rcu_read_unlock()
-	call_rcu()
+	call_rcu()		rcu_dereference()
 
 b.	call_rcu_bh()		rcu_read_lock_bh() / rcu_read_unlock_bh()
+				rcu_dereference_bh()
 
-c.	synchronize_sched()	preempt_disable() / preempt_enable()
+c.	synchronize_sched()	rcu_read_lock_sched() / rcu_read_unlock_sched()
+				preempt_disable() / preempt_enable()
 				local_irq_save() / local_irq_restore()
 				hardirq enter / hardirq exit
 				NMI enter / NMI exit
+				rcu_dereference_sched()
 
 These three mechanisms are used as follows:
 
@@ -772,26 +783,16 @@ Linux-kernel source code, but it helps to have a full list of the
 APIs, since there does not appear to be a way to categorize them
 in docbook.  Here is the list, by category.
 
-Markers for RCU read-side critical sections:
+RCU list traversal:
 
-	rcu_read_lock
-	rcu_read_unlock
-	rcu_read_lock_bh
-	rcu_read_unlock_bh
-	srcu_read_lock
-	srcu_read_unlock
-
-RCU pointer/list traversal:
-
-	rcu_dereference
-	list_for_each_rcu		(to be deprecated in favor of
-					 list_for_each_entry_rcu)
 	list_for_each_entry_rcu
+	hlist_for_each_entry_rcu
+	hlist_nulls_for_each_entry_rcu
+
 	list_for_each_continue_rcu	(to be deprecated in favor of new
 					 list_for_each_entry_continue_rcu)
-	hlist_for_each_entry_rcu
 
-RCU pointer update:
+RCU pointer/list update:
 
 	rcu_assign_pointer
 	list_add_rcu
@@ -799,16 +800,51 @@ RCU pointer update:
 	list_del_rcu
 	list_replace_rcu
 	hlist_del_rcu
+	hlist_add_after_rcu
+	hlist_add_before_rcu
 	hlist_add_head_rcu
+	hlist_replace_rcu
+	list_splice_init_rcu()
 
-RCU grace period:
+RCU:	Critical sections	Grace period		Barrier
 
-	synchronize_net
-	synchronize_sched
-	synchronize_rcu
-	synchronize_srcu
-	call_rcu
-	call_rcu_bh
+	rcu_read_lock		synchronize_net		rcu_barrier
+	rcu_read_unlock		synchronize_rcu
+	rcu_dereference		synchronize_rcu_expedited
+				call_rcu
+
+
+bh:	Critical sections	Grace period		Barrier
+
+	rcu_read_lock_bh	call_rcu_bh		rcu_barrier_bh
+	rcu_read_unlock_bh	synchronize_rcu_bh
+	rcu_dereference_bh	synchronize_rcu_bh_expedited
+
+
+sched:	Critical sections	Grace period		Barrier
+
+	rcu_read_lock_sched	synchronize_sched	rcu_barrier_sched
+	rcu_read_unlock_sched	call_rcu_sched
+	[preempt_disable]	synchronize_sched_expedited
+	[and friends]
+	rcu_dereference_sched
+
+
+SRCU:	Critical sections	Grace period		Barrier
+
+	srcu_read_lock		synchronize_srcu	N/A
+	srcu_read_unlock	synchronize_srcu_expedited
+	srcu_dereference
+
+SRCU:	Initialization/cleanup
+	init_srcu_struct
+	cleanup_srcu_struct
+
+All:  lockdep-checked RCU-protected pointer access
+
+	rcu_dereference_check
+	rcu_dereference_protected
+	rcu_access_pointer
 
 See the comment headers in the source code (or the docbook generated
 from them) for more information.

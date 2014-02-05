@@ -1,5 +1,6 @@
 Documentation for /proc/sys/kernel/*	kernel version 2.2.10
 	(c) 1998, 1999,  Rik van Riel <riel@nl.linux.org>
+	(c) 2009,        Shen Feng<shen@cn.fujitsu.com>
 
 For general info and legal blurb, please look in README.
 
@@ -18,7 +19,12 @@ Currently, these files might (depending on your configuration)
 show up in /proc/sys/kernel:
 - acpi_video_flags
 - acct
+- bootloader_type	     [ X86 only ]
+- bootloader_version	     [ X86 only ]
+- callhome		     [ S390 only ]
+- auto_msgmni
 - core_pattern
+- core_pipe_limit
 - core_uses_pid
 - ctrl-alt-del
 - dentry-state
@@ -29,10 +35,12 @@ show up in /proc/sys/kernel:
 - java-interpreter            [ binfmt_java, obsolete ]
 - kstack_depth_to_print       [ X86 only ]
 - l2cr                        [ PPC only ]
-- modprobe                    ==> Documentation/kmod.txt
+- modprobe                    ==> Documentation/debugging-modules.txt
+- modules_disabled
 - msgmax
 - msgmnb
 - msgmni
+- nmi_watchdog
 - osrelease
 - ostype
 - overflowgid
@@ -40,7 +48,9 @@ show up in /proc/sys/kernel:
 - panic
 - pid_max
 - powersave-nap               [ PPC only ]
+- panic_on_unrecovered_nmi
 - printk
+- randomize_va_space
 - real-root-dev               ==> Documentation/initrd.txt
 - reboot-cmd                  [ SPARC only ]
 - rtsig-max
@@ -54,6 +64,7 @@ show up in /proc/sys/kernel:
 - sysrq                       ==> Documentation/sysrq.txt
 - tainted
 - threads-max
+- unknown_nmi_panic
 - version
 
 ==============================================================
@@ -84,6 +95,50 @@ valid for 30 seconds.
 
 ==============================================================
 
+bootloader_type:
+
+x86 bootloader identification
+
+This gives the bootloader type number as indicated by the bootloader,
+shifted left by 4, and OR'd with the low four bits of the bootloader
+version.  The reason for this encoding is that this used to match the
+type_of_loader field in the kernel header; the encoding is kept for
+backwards compatibility.  That is, if the full bootloader type number
+is 0x15 and the full version number is 0x234, this file will contain
+the value 340 = 0x154.
+
+See the type_of_loader and ext_loader_type fields in
+Documentation/x86/boot.txt for additional information.
+
+==============================================================
+
+bootloader_version:
+
+x86 bootloader version
+
+The complete bootloader version number.  In the example above, this
+file will contain the value 564 = 0x234.
+
+See the type_of_loader and ext_loader_ver fields in
+Documentation/x86/boot.txt for additional information.
+
+==============================================================
+
+callhome:
+
+Controls the kernel's callhome behavior in case of a kernel panic.
+
+The s390 hardware allows an operating system to send a notification
+to a service organization (callhome) in case of an operating system panic.
+
+When the value in this file is 0 (which is the default behavior)
+nothing happens in case of a kernel panic. If this value is set to "1"
+the complete kernel oops message is send to the IBM customer service
+organization in case the mainframe the Linux operating system is running
+on has a service contract with IBM.
+
+==============================================================
+
 core_pattern:
 
 core_pattern is used to specify a core dumpfile pattern name.
@@ -109,6 +164,27 @@ core_pattern is used to specify a core dumpfile pattern name.
 . If the first character of the pattern is a '|', the kernel will treat
   the rest of the pattern as a command to run.  The core dump will be
   written to the standard input of that program instead of to a file.
+
+==============================================================
+
+core_pipe_limit:
+
+This sysctl is only applicable when core_pattern is configured to pipe core
+files to a user space helper (when the first character of core_pattern is a '|',
+see above).  When collecting cores via a pipe to an application, it is
+occasionally useful for the collecting application to gather data about the
+crashing process from its /proc/pid directory.  In order to do this safely, the
+kernel must wait for the collecting process to exit, so as not to remove the
+crashing processes proc files prematurely.  This in turn creates the possibility
+that a misbehaving userspace collecting process can block the reaping of a
+crashed process simply by never exiting.  This sysctl defends against that.  It
+defines how many concurrent crashing processes may be piped to user space
+applications in parallel.  If this value is exceeded, then those crashing
+processes above that value are noted via the kernel log and their cores are
+skipped.  0 is a special value, indicating that unlimited processes may be
+captured in parallel, but that no waiting will take place (i.e. the collecting
+process is not guaranteed access to /proc/<crashing pid>/).  This value defaults
+to 0.
 
 ==============================================================
 
@@ -175,6 +251,16 @@ kstack_depth_to_print: (X86 only)
 
 Controls the number of words to print when dumping the raw
 kernel stack.
+
+==============================================================
+
+modules_disabled:
+
+A toggle value indicating if modules are allowed to be loaded
+in an otherwise modular kernel.  This toggle defaults to off
+(0), but can be set true (1).  Once true, modules can be
+neither loaded nor unloaded, and the toggle cannot be set back
+to false.
 
 ==============================================================
 
@@ -280,6 +366,46 @@ send before ratelimiting kicks in.
 
 ==============================================================
 
+printk_delay:
+
+Delay each printk message in printk_delay milliseconds
+
+Value from 0 - 10000 is allowed.
+
+==============================================================
+
+randomize-va-space:
+
+This option can be used to select the type of process address
+space randomization that is used in the system, for architectures
+that support this feature.
+
+0 - Turn the process address space randomization off.  This is the
+    default for architectures that do not support this feature anyways,
+    and kernels that are booted with the "norandmaps" parameter.
+
+1 - Make the addresses of mmap base, stack and VDSO page randomized.
+    This, among other things, implies that shared libraries will be
+    loaded to random addresses.  Also for PIE-linked binaries, the
+    location of code start is randomized.  This is the default if the
+    CONFIG_COMPAT_BRK option is enabled.
+
+2 - Additionally enable heap randomization.  This is the default if
+    CONFIG_COMPAT_BRK is disabled.
+
+    There are a few legacy applications out there (such as some ancient
+    versions of libc.so.5 from 1996) that assume that brk area starts
+    just after the end of the code+bss.  These applications break when
+    start of the brk area is randomized.  There are however no known
+    non-legacy applications that would be broken this way, so for most
+    systems it is safe to choose full randomization.
+
+    Systems with ancient and/or broken binaries should be configured
+    with CONFIG_COMPAT_BRK enabled, which excludes the heap from process
+    address space randomization.
+
+==============================================================
+
 reboot-cmd: (Sparc only)
 
 ??? This seems to be a way to give an argument to the Sparc
@@ -320,15 +446,83 @@ kernel.  This value defaults to SHMMAX.
 
 ==============================================================
 
+softlockup_thresh:
+
+This value can be used to lower the softlockup tolerance threshold.  The
+default threshold is 60 seconds.  If a cpu is locked up for 60 seconds,
+the kernel complains.  Valid values are 1-60 seconds.  Setting this
+tunable to zero will disable the softlockup detection altogether.
+
+==============================================================
+
 tainted: 
 
 Non-zero if the kernel has been tainted.  Numeric values, which
 can be ORed together:
 
-  1 - A module with a non-GPL license has been loaded, this
-      includes modules with no license.
-      Set by modutils >= 2.4.9 and module-init-tools.
-  2 - A module was force loaded by insmod -f.
-      Set by modutils >= 2.4.9 and module-init-tools.
-  4 - Unsafe SMP processors: SMP with CPUs not designed for SMP.
+   1 - A module with a non-GPL license has been loaded, this
+       includes modules with no license.
+       Set by modutils >= 2.4.9 and module-init-tools.
+   2 - A module was force loaded by insmod -f.
+       Set by modutils >= 2.4.9 and module-init-tools.
+   4 - Unsafe SMP processors: SMP with CPUs not designed for SMP.
+   8 - A module was forcibly unloaded from the system by rmmod -f.
+  16 - A hardware machine check error occurred on the system.
+  32 - A bad page was discovered on the system.
+  64 - The user has asked that the system be marked "tainted".  This
+       could be because they are running software that directly modifies
+       the hardware, or for other reasons.
+ 128 - The system has died.
+ 256 - The ACPI DSDT has been overridden with one supplied by the user
+        instead of using the one provided by the hardware.
+ 512 - A kernel warning has occurred.
+1024 - A module from drivers/staging was loaded.
+
+==============================================================
+
+auto_msgmni:
+
+Enables/Disables automatic recomputing of msgmni upon memory add/remove or
+upon ipc namespace creation/removal (see the msgmni description above).
+Echoing "1" into this file enables msgmni automatic recomputing.
+Echoing "0" turns it off.
+auto_msgmni default value is 1.
+
+==============================================================
+
+nmi_watchdog:
+
+Enables/Disables the NMI watchdog on x86 systems.  When the value is non-zero
+the NMI watchdog is enabled and will continuously test all online cpus to
+determine whether or not they are still functioning properly. Currently,
+passing "nmi_watchdog=" parameter at boot time is required for this function
+to work.
+
+If LAPIC NMI watchdog method is in use (nmi_watchdog=2 kernel parameter), the
+NMI watchdog shares registers with oprofile. By disabling the NMI watchdog,
+oprofile may have more registers to utilize.
+
+==============================================================
+
+unknown_nmi_panic:
+
+The value in this file affects behavior of handling NMI. When the value is
+non-zero, unknown NMI is trapped and then panic occurs. At that time, kernel
+debugging information is displayed on console.
+
+NMI switch that most IA32 servers have fires unknown NMI up, for example.
+If a system hangs up, try pressing the NMI switch.
+
+==============================================================
+
+panic_on_unrecovered_nmi:
+
+The default Linux behaviour on an NMI of either memory or unknown is to continue
+operation. For many environments such as scientific computing it is preferable
+that the box is taken out and the error dealt with than an uncorrected
+parity/ECC error get propogated.
+
+A small number of systems do generate NMI's for bizarre random reasons such as
+power management so the default is off. That sysctl works like the existing
+panic controls already in that directory.
 

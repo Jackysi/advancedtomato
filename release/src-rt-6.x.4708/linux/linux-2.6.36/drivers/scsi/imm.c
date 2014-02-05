@@ -15,6 +15,7 @@
 #include <linux/parport.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 #include <asm/io.h>
 
 #include <scsi/scsi.h>
@@ -163,7 +164,7 @@ static int imm_proc_info(struct Scsi_Host *host, char *buffer, char **start,
 
 #if IMM_DEBUG > 0
 #define imm_fail(x,y) printk("imm: imm_fail(%i) from %s at line %d\n",\
-	   y, __FUNCTION__, __LINE__); imm_fail_func(x,y);
+	   y, __func__, __LINE__); imm_fail_func(x,y);
 static inline void
 imm_fail_func(imm_struct *dev, int error_code)
 #else
@@ -489,16 +490,6 @@ static int imm_cpp(unsigned short ppb, unsigned char b)
 	w_dtr(ppb, 0x78);
 	udelay(10);		/* 7 usec - infinite */
 	s3 = r_str(ppb) & 0x38;
-	/*
-	 * Values for b are:
-	 * 0000 00aa    Assign address aa to current device
-	 * 0010 00aa    Select device aa in EPP Winbond mode
-	 * 0010 10aa    Select device aa in EPP mode
-	 * 0011 xxxx    Deselect all devices
-	 * 0110 00aa    Test device aa
-	 * 1101 00aa    Select device aa in ECP mode
-	 * 1110 00aa    Select device aa in Compatible mode
-	 */
 	w_dtr(ppb, b);
 	udelay(2);		/* 1 usec - infinite */
 	w_ctr(ppb, 0x0c);
@@ -705,9 +696,7 @@ static int imm_completion(struct scsi_cmnd *cmd)
 				cmd->SCp.buffer++;
 				cmd->SCp.this_residual =
 				    cmd->SCp.buffer->length;
-				cmd->SCp.ptr =
-				    page_address(cmd->SCp.buffer->page) +
-				    cmd->SCp.buffer->offset;
+				cmd->SCp.ptr = sg_virt(cmd->SCp.buffer);
 
 				/*
 				 * Make sure that we transfer even number of bytes
@@ -740,10 +729,6 @@ static void imm_interrupt(struct work_struct *work)
 	struct Scsi_Host *host = cmd->device->host;
 	unsigned long flags;
 
-	if (!cmd) {
-		printk("IMM: bug in imm_interrupt\n");
-		return;
-	}
 	if (imm_engine(dev, cmd)) {
 		schedule_delayed_work(&dev->imm_tq, 1);
 		return;
@@ -843,21 +828,16 @@ static int imm_engine(imm_struct *dev, struct scsi_cmnd *cmd)
 
 		/* Phase 4 - Setup scatter/gather buffers */
 	case 4:
-		if (cmd->use_sg) {
-			/* if many buffers are available, start filling the first */
-			cmd->SCp.buffer =
-			    (struct scatterlist *) cmd->request_buffer;
+		if (scsi_bufflen(cmd)) {
+			cmd->SCp.buffer = scsi_sglist(cmd);
 			cmd->SCp.this_residual = cmd->SCp.buffer->length;
-			cmd->SCp.ptr =
-			    page_address(cmd->SCp.buffer->page) +
-			    cmd->SCp.buffer->offset;
+			cmd->SCp.ptr = sg_virt(cmd->SCp.buffer);
 		} else {
-			/* else fill the only available buffer */
 			cmd->SCp.buffer = NULL;
-			cmd->SCp.this_residual = cmd->request_bufflen;
-			cmd->SCp.ptr = cmd->request_buffer;
+			cmd->SCp.this_residual = 0;
+			cmd->SCp.ptr = NULL;
 		}
-		cmd->SCp.buffers_residual = cmd->use_sg - 1;
+		cmd->SCp.buffers_residual = scsi_sg_count(cmd) - 1;
 		cmd->SCp.phase++;
 		if (cmd->SCp.this_residual & 0x01)
 			cmd->SCp.this_residual++;
@@ -1159,11 +1139,10 @@ static int __imm_attach(struct parport *pb)
 
 	init_waitqueue_head(&waiting);
 
-	dev = kmalloc(sizeof(imm_struct), GFP_KERNEL);
+	dev = kzalloc(sizeof(imm_struct), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
-	memset(dev, 0, sizeof(imm_struct));
 
 	dev->base = -1;
 	dev->mode = IMM_AUTODETECT;

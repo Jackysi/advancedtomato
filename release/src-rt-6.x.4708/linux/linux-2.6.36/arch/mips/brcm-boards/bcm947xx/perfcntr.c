@@ -1,7 +1,7 @@
 /*
  * Broadcom BCM47xx Performance Counters
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,11 @@
  * $Id: perfcntr.c 241435 2011-02-18 04:04:21Z $
  */
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 #include <linux/config.h>
+#endif
 
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
@@ -26,7 +30,6 @@
 #include <osl.h>
 #include <asm/mipsregs.h>
 #include <mipsinc.h>
-
 
 asmlinkage uint
 read_perf_cntr(uint sel)
@@ -36,6 +39,7 @@ read_perf_cntr(uint sel)
 	 * different assembly instruction in each case.
 	 */
 	switch (sel) {
+#ifdef	read_c0_perf
 	case 0:
 		return read_c0_perf(0);
 	case 1:
@@ -52,10 +56,26 @@ read_perf_cntr(uint sel)
 		return read_c0_perf(6);
 	case 7:
 		return read_c0_perf(7);
+#else
+	/* New style register access macros - LR */
+	case 0:	return read_c0_perfctrl0();	/* Control */
+	case 2:	return read_c0_perfctrl1();
+	case 4:	return read_c0_perfctrl2();
+	case 6:	return read_c0_perfctrl3();
+	case 1: return read_c0_perfcntr0();	/* Counter */
+	case 3: return read_c0_perfcntr1();
+	case 5: return read_c0_perfcntr2();
+	case 7: return read_c0_perfcntr3();
+#endif
 	default:
 		return 0;
 	}
 }
+
+/* HACK: map the old-style CP0 access macro */
+#ifndef	write_c0_perf
+#define write_c0_perf(sel,val) __write_32bit_c0_register($25, sel, val)
+#endif
 
 static uint perf_ctrl = 0;
 
@@ -172,9 +192,16 @@ static struct proc_dir_entry *perf_proc = NULL;
 static int __init
 perf_init(void)
 {
-	struct proc_dir_entry *ctrl_proc, *ctrlraw_proc, *cntrs_proc, *clear_proc;
+	struct proc_dir_entry * ctrl_proc, * ctrlraw_proc ;
+	struct proc_dir_entry * cntrs_proc, *clear_proc;
+	struct proc_dir_entry * proc_root_ptr ;
 	uint prid;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+	proc_root_ptr = NULL ;
+#else
+	proc_root_ptr = &proc_root ;
+#endif
 
 	/* create proc entries for enabling cache hit/miss counting */
 	prid = read_c0_prid();
@@ -182,7 +209,8 @@ perf_init(void)
 	    ((prid & PRID_IMP_MASK) == PRID_IMP_74K)) {
 
 		/* create proc entry cp0 in root */
-		perf_proc = create_proc_entry("perf", 0444 | S_IFDIR, &proc_root);
+		perf_proc = create_proc_entry("perf", 0444 | S_IFDIR, 
+			proc_root_ptr);
 		if (!perf_proc)
 			return -ENOMEM;
 
@@ -220,18 +248,25 @@ nocntrs:
 noctrlraw:
 	remove_proc_entry("ctrl", perf_proc);
 noctrl:
-	remove_proc_entry("perf", &proc_root);
+	remove_proc_entry("perf", proc_root_ptr);
 
 	return -ENOMEM;
 }
 
 static void __exit perf_cleanup(void)
 {
+	struct proc_dir_entry * proc_root_ptr ;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+	proc_root_ptr = NULL ;
+#else
+	proc_root_ptr = &proc_root ;
+#endif
+
 	remove_proc_entry("clear", perf_proc);
 	remove_proc_entry("cntrs", perf_proc);
 	remove_proc_entry("ctrlraw", perf_proc);
 	remove_proc_entry("ctrl", perf_proc);
-	remove_proc_entry("perf", &proc_root);
+	remove_proc_entry("perf", proc_root_ptr);
 	perf_proc = NULL;
 }
 

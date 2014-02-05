@@ -8,7 +8,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Authors: David Woodhouse <dwmw2@cambridge.redhat.com>
+ * Authors: David Woodhouse <dwmw2@infradead.org>
  *          David Howells <dhowells@redhat.com>
  *
  */
@@ -20,7 +20,6 @@
 #include <linux/sched.h>
 #include "internal.h"
 
-unsigned afs_vnode_update_timeout = 10;
 
 #define afs_breakring_space(server) \
 	CIRC_SPACE((server)->cb_break_head, (server)->cb_break_tail,	\
@@ -125,6 +124,9 @@ static void afs_break_callback(struct afs_server *server,
 		spin_unlock(&server->cb_lock);
 
 		queue_work(afs_callback_update_worker, &vnode->cb_broken_work);
+		if (list_empty(&vnode->granted_locks) &&
+		    !list_empty(&vnode->pending_locks))
+			afs_lock_may_be_available(vnode);
 		spin_unlock(&vnode->lock);
 	}
 }
@@ -351,107 +353,6 @@ void afs_flush_callback_breaks(struct afs_server *server)
 			   &server->cb_break_work, 0);
 }
 
-#if 0
-/*
- * update a bunch of callbacks
- */
-static void afs_callback_updater(struct work_struct *work)
-{
-	struct afs_server *server;
-	struct afs_vnode *vnode, *xvnode;
-	time_t now;
-	long timeout;
-	int ret;
-
-	server = container_of(work, struct afs_server, updater);
-
-	_enter("");
-
-	now = get_seconds();
-
-	/* find the first vnode to update */
-	spin_lock(&server->cb_lock);
-	for (;;) {
-		if (RB_EMPTY_ROOT(&server->cb_promises)) {
-			spin_unlock(&server->cb_lock);
-			_leave(" [nothing]");
-			return;
-		}
-
-		vnode = rb_entry(rb_first(&server->cb_promises),
-				 struct afs_vnode, cb_promise);
-		if (atomic_read(&vnode->usage) > 0)
-			break;
-		rb_erase(&vnode->cb_promise, &server->cb_promises);
-		vnode->cb_promised = false;
-	}
-
-	timeout = vnode->update_at - now;
-	if (timeout > 0) {
-		queue_delayed_work(afs_vnode_update_worker,
-				   &afs_vnode_update, timeout * HZ);
-		spin_unlock(&server->cb_lock);
-		_leave(" [nothing]");
-		return;
-	}
-
-	list_del_init(&vnode->update);
-	atomic_inc(&vnode->usage);
-	spin_unlock(&server->cb_lock);
-
-	/* we can now perform the update */
-	_debug("update %s", vnode->vldb.name);
-	vnode->state = AFS_VL_UPDATING;
-	vnode->upd_rej_cnt = 0;
-	vnode->upd_busy_cnt = 0;
-
-	ret = afs_vnode_update_record(vl, &vldb);
-	switch (ret) {
-	case 0:
-		afs_vnode_apply_update(vl, &vldb);
-		vnode->state = AFS_VL_UPDATING;
-		break;
-	case -ENOMEDIUM:
-		vnode->state = AFS_VL_VOLUME_DELETED;
-		break;
-	default:
-		vnode->state = AFS_VL_UNCERTAIN;
-		break;
-	}
-
-	/* and then reschedule */
-	_debug("reschedule");
-	vnode->update_at = get_seconds() + afs_vnode_update_timeout;
-
-	spin_lock(&server->cb_lock);
-
-	if (!list_empty(&server->cb_promises)) {
-		/* next update in 10 minutes, but wait at least 1 second more
-		 * than the newest record already queued so that we don't spam
-		 * the VL server suddenly with lots of requests
-		 */
-		xvnode = list_entry(server->cb_promises.prev,
-				    struct afs_vnode, update);
-		if (vnode->update_at <= xvnode->update_at)
-			vnode->update_at = xvnode->update_at + 1;
-		xvnode = list_entry(server->cb_promises.next,
-				    struct afs_vnode, update);
-		timeout = xvnode->update_at - now;
-		if (timeout < 0)
-			timeout = 0;
-	} else {
-		timeout = afs_vnode_update_timeout;
-	}
-
-	list_add_tail(&vnode->update, &server->cb_promises);
-
-	_debug("timeout %ld", timeout);
-	queue_delayed_work(afs_vnode_update_worker,
-			   &afs_vnode_update, timeout * HZ);
-	spin_unlock(&server->cb_lock);
-	afs_put_vnode(vl);
-}
-#endif
 
 /*
  * initialise the callback update process

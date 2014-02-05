@@ -10,7 +10,6 @@
 hostprogs-$(CONFIG_KALLSYMS)     += kallsyms
 hostprogs-$(CONFIG_LOGO)         += pnmtologo
 hostprogs-$(CONFIG_VT)           += conmakehash
-hostprogs-$(CONFIG_PROM_CONSOLE) += conmakehash
 hostprogs-$(CONFIG_IKCONFIG)     += bin2c
 
 always		:= $(hostprogs-y) $(hostprogs-m)
@@ -20,6 +19,8 @@ hostprogs-y += unifdef
 
 subdir-$(CONFIG_MODVERSIONS) += genksyms
 subdir-y                     += mod
+subdir-$(CONFIG_SECURITY_SELINUX) += selinux
+subdir-$(CONFIG_DTC)         += dtc
 
 # Let clean descend into subdirs
-subdir-	+= basic kconfig package
+subdir-	+= basic kconfig package selinux

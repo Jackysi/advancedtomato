@@ -256,5 +256,3 @@ struct keyspan_usa26_globalDebugMessage
 #define	STATUS_RATION	10
 
 #endif
-
-

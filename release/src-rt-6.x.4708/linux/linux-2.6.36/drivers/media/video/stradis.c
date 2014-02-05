@@ -26,6 +26,7 @@
 #include <linux/kernel.h>
 #include <linux/major.h>
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/poll.h>
@@ -43,6 +44,7 @@
 #include <linux/vmalloc.h>
 #include <linux/videodev.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 
 #include "saa7146.h"
 #include "saa7146reg.h"
@@ -58,7 +60,7 @@
 
 static struct saa7146 saa7146s[SAA7146_MAX];
 
-static int saa_num = 0;		/* number of SAA7146s in use */
+static int saa_num;		/* number of SAA7146s in use */
 
 static int video_nr = -1;
 module_param(video_nr, int, 0);
@@ -248,7 +250,7 @@ static void I2CBusScan(struct saa7146 *saa)
 			attach_inform(saa, i);
 }
 
-static int debiwait_maxwait = 0;
+static int debiwait_maxwait;
 
 static int wait_for_debi_done(struct saa7146 *saa)
 {
@@ -455,15 +457,6 @@ static irqreturn_t saa7146_irq(int irq, void *dev_id)
 				saa->vidinfo.frame_count = 0;
 				saa->vidinfo.h_size = 704;
 				saa->vidinfo.v_size = 480;
-#if 0
-				if (saa->endmarkhead != saa->endmarktail) {
-					saa->audhead =
-						saa->endmark[saa->endmarkhead];
-					saa->endmarkhead++;
-					if (saa->endmarkhead >= MAX_MARKS)
-						saa->endmarkhead = 0;
-				}
-#endif
 			}
 			if (istat & 0x4000) {	/* Sequence Error Code */
 				if (saa->endmarkhead != saa->endmarktail) {
@@ -940,13 +933,8 @@ send_fpga_stuff:
 		if (NewCard)
 			set_genlock_offset(saa, 0);
 		debiwrite(saa, debNormal, IBM_MP2_FRNT_ATTEN, 0, 2);
-#if 0
-		/* enable genlock */
-		debiwrite(saa, debNormal, XILINX_CTL0, 0x8000, 2);
-#else
 		/* disable genlock */
 		debiwrite(saa, debNormal, XILINX_CTL0, 0x8080, 2);
-#endif
 	}
 
 	return failure;
@@ -1043,9 +1031,6 @@ static int initialize_ibmmpeg2(struct video_code *microcode)
 		if (i != 0xa55a) {
 			printk(KERN_INFO "stradis%d: %04x != 0xa55a\n",
 				saa->nr, i);
-#if 0
-			return -1;
-#endif
 		}
 		if (!strncmp(microcode->loadwhat, "decoder.vid", 11)) {
 			if (saa->boardcfg[0] > 27)
@@ -1274,7 +1259,7 @@ static void make_clip_tab(struct saa7146 *saa, struct video_clip *cr, int ncr)
 		clip_draw_rectangle(clipmap, 0, 0, 1024, -saa->win.y);
 }
 
-static int saa_ioctl(struct inode *inode, struct file *file,
+static long saa_ioctl(struct file *file,
 		     unsigned int cmd, unsigned long argl)
 {
 	struct saa7146 *saa = file->private_data;
@@ -1321,7 +1306,7 @@ static int saa_ioctl(struct inode *inode, struct file *file,
 			u32 format;
 			if (copy_from_user(&p, arg, sizeof(p)))
 				return -EFAULT;
-			if (p.palette < sizeof(palette2fmt) / sizeof(u32)) {
+			if (p.palette < ARRAY_SIZE(palette2fmt)) {
 				format = palette2fmt[p.palette];
 				saa->win.color_fmt = format;
 				saawrite(format | 0x60,
@@ -1876,21 +1861,25 @@ static ssize_t saa_write(struct file *file, const char __user * buf,
 	return count;
 }
 
-static int saa_open(struct inode *inode, struct file *file)
+static int saa_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct saa7146 *saa = container_of(vdev, struct saa7146, video_dev);
 
+	lock_kernel();
 	file->private_data = saa;
 
 	saa->user++;
-	if (saa->user > 1)
+	if (saa->user > 1) {
+		unlock_kernel();
 		return 0;	/* device open already, don't reset */
+	}
 	saa->writemode = VID_WRITE_MPEG_VID;	/* default to video */
+	unlock_kernel();
 	return 0;
 }
 
-static int saa_release(struct inode *inode, struct file *file)
+static int saa_release(struct file *file)
 {
 	struct saa7146 *saa = file->private_data;
 	saa->user--;
@@ -1901,14 +1890,12 @@ static int saa_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations saa_fops = {
+static const struct v4l2_file_operations saa_fops = {
 	.owner = THIS_MODULE,
 	.open = saa_open,
 	.release = saa_release,
 	.ioctl = saa_ioctl,
-	.compat_ioctl = v4l_compat_ioctl32,
 	.read = saa_read,
-	.llseek = no_llseek,
 	.write = saa_write,
 	.mmap = saa_mmap,
 };
@@ -1916,10 +1903,8 @@ static const struct file_operations saa_fops = {
 /* template for video_device-structure */
 static struct video_device saa_template = {
 	.name = "SAA7146A",
-	.type = VID_TYPE_CAPTURE | VID_TYPE_OVERLAY,
-	.hardware = VID_HARDWARE_SAA7146,
 	.fops = &saa_fops,
-	.minor = -1,
+	.release = video_device_release_empty,
 };
 
 static int __devinit configure_saa7146(struct pci_dev *pdev, int num)
@@ -1969,7 +1954,6 @@ static int __devinit configure_saa7146(struct pci_dev *pdev, int num)
 
 	saa->id = pdev->device;
 	saa->irq = pdev->irq;
-	saa->video_dev.minor = -1;
 	saa->saa7146_adr = pci_resource_start(pdev, 0);
 	pci_read_config_byte(pdev, PCI_CLASS_REVISION, &saa->revision);
 
@@ -2048,12 +2032,6 @@ static int __devinit init_saa7146(struct pci_dev *pdev)
 		dev_err(&pdev->dev, "%d: debi kmalloc failed\n", saa->nr);
 		goto err;
 	}
-#if 0
-	saa->pagedebi = saa->dmadebi + 32768;	/* top 4k is for mmu */
-	saawrite(virt_to_bus(saa->pagedebi) /*|0x800 */ , SAA7146_DEBI_PAGE);
-	for (i = 0; i < 12; i++)	/* setup mmu page table */
-		saa->pagedebi[i] = virt_to_bus((saa->dmadebi + i * 4096));
-#endif
 	saa->audhead = saa->vidhead = saa->osdhead = 0;
 	saa->audtail = saa->vidtail = saa->osdtail = 0;
 	if (saa->vidbuf == NULL && (saa->vidbuf = vmalloc(524288)) == NULL) {
@@ -2131,7 +2109,7 @@ static void stradis_release_saa(struct pci_dev *pdev)
 	free_irq(saa->irq, saa);
 	if (saa->saa7146_mem)
 		iounmap(saa->saa7146_mem);
-	if (saa->video_dev.minor != -1)
+	if (video_is_registered(&saa->video_dev))
 		video_unregister_device(&saa->video_dev);
 }
 

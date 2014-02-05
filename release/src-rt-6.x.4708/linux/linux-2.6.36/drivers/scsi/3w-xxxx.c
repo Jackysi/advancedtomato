@@ -1,209 +1,15 @@
-/* 
-   3w-xxxx.c -- 3ware Storage Controller device driver for Linux.
 
-   Written By: Adam Radford <linuxraid@amcc.com>
-   Modifications By: Joel Jacobson <linux@3ware.com>
-   		     Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-                     Brad Strand <linux@3ware.com>
-
-   Copyright (C) 1999-2007 3ware Inc.
-
-   Kernel compatiblity By: 	Andre Hedrick <andre@suse.com>
-   Non-Copyright (C) 2000	Andre Hedrick <andre@suse.com>
-   
-   Further tiny build fixes and trivial hoovering    Alan Cox
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License.
-
-   This program is distributed in the hope that it will be useful,           
-   but WITHOUT ANY WARRANTY; without even the implied warranty of            
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             
-   GNU General Public License for more details.                              
-
-   NO WARRANTY                                                               
-   THE PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR        
-   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED INCLUDING, WITHOUT      
-   LIMITATION, ANY WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT,      
-   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. Each Recipient is    
-   solely responsible for determining the appropriateness of using and       
-   distributing the Program and assumes all risks associated with its        
-   exercise of rights under this Agreement, including but not limited to     
-   the risks and costs of program errors, damage to or loss of data,         
-   programs or equipment, and unavailability or interruption of operations.  
-
-   DISCLAIMER OF LIABILITY                                                   
-   NEITHER RECIPIENT NOR ANY CONTRIBUTORS SHALL HAVE ANY LIABILITY FOR ANY   
-   DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL        
-   DAMAGES (INCLUDING WITHOUT LIMITATION LOST PROFITS), HOWEVER CAUSED AND   
-   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR     
-   TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE    
-   USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE OF ANY RIGHTS GRANTED  
-   HEREUNDER, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES             
-
-   You should have received a copy of the GNU General Public License         
-   along with this program; if not, write to the Free Software               
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
-
-   Bugs/Comments/Suggestions should be mailed to:                            
-   linuxraid@amcc.com
-
-   For more information, goto:
-   http://www.amcc.com
-
-   History
-   -------
-   0.1.000 -     Initial release.
-   0.4.000 -     Added support for Asynchronous Event Notification through
-                 ioctls for 3DM.
-   1.0.000 -     Added DPO & FUA bit support for WRITE_10 & WRITE_6 cdb
-                 to disable drive write-cache before writes.
-   1.1.000 -     Fixed performance bug with DPO & FUA not existing for WRITE_6.
-   1.2.000 -     Added support for clean shutdown notification/feature table.
-   1.02.00.001 - Added support for full command packet posts through ioctls
-                 for 3DM.
-                 Bug fix so hot spare drives don't show up.
-   1.02.00.002 - Fix bug with tw_setfeature() call that caused oops on some
-                 systems.
-   08/21/00    - release previously allocated resources on failure at
-                 tw_allocate_memory (acme)
-   1.02.00.003 - Fix tw_interrupt() to report error to scsi layer when
-                 controller status is non-zero.
-                 Added handling of request_sense opcode.
-                 Fix possible null pointer dereference in 
-                 tw_reset_device_extension()
-   1.02.00.004 - Add support for device id of 3ware 7000 series controllers.
-                 Make tw_setfeature() call with interrupts disabled.
-                 Register interrupt handler before enabling interrupts.
-                 Clear attention interrupt before draining aen queue.
-   1.02.00.005 - Allocate bounce buffers and custom queue depth for raid5 for
-                 6000 and 5000 series controllers.
-                 Reduce polling mdelays causing problems on some systems.
-                 Fix use_sg = 1 calculation bug.
-                 Check for scsi_register returning NULL.
-                 Add aen count to /proc/scsi/3w-xxxx.
-                 Remove aen code unit masking in tw_aen_complete().
-   1.02.00.006 - Remove unit from printk in tw_scsi_eh_abort(), causing
-                 possible oops.
-                 Fix possible null pointer dereference in tw_scsi_queue()
-                 if done function pointer was invalid.
-   1.02.00.007 - Fix possible null pointer dereferences in tw_ioctl().
-                 Remove check for invalid done function pointer from
-                 tw_scsi_queue().
-   1.02.00.008 - Set max sectors per io to TW_MAX_SECTORS in tw_findcards().
-                 Add tw_decode_error() for printing readable error messages.
-                 Print some useful information on certain aen codes.
-                 Add tw_decode_bits() for interpreting status register output.
-                 Make scsi_set_pci_device() for kernels >= 2.4.4
-                 Fix bug where aen's could be lost before a reset.
-                 Re-add spinlocks in tw_scsi_detect().
-                 Fix possible null pointer dereference in tw_aen_drain_queue()
-                 during initialization.
-                 Clear pci parity errors during initialization and during io.
-   1.02.00.009 - Remove redundant increment in tw_state_request_start().
-                 Add ioctl support for direct ATA command passthru.
-                 Add entire aen code string list.
-   1.02.00.010 - Cleanup queueing code, fix jbod thoughput.
-                 Fix get_param for specific units.
-   1.02.00.011 - Fix bug in tw_aen_complete() where aen's could be lost.
-                 Fix tw_aen_drain_queue() to display useful info at init.
-                 Set tw_host->max_id for 12 port cards.
-                 Add ioctl support for raw command packet post from userspace
-                 with sglist fragments (parameter and io).
-   1.02.00.012 - Fix read capacity to under report by 1 sector to fix get
-                 last sector ioctl.
-   1.02.00.013 - Fix bug where more AEN codes weren't coming out during
-                 driver initialization.
-                 Improved handling of PCI aborts.
-   1.02.00.014 - Fix bug in tw_findcards() where AEN code could be lost.
-                 Increase timeout in tw_aen_drain_queue() to 30 seconds.
-   1.02.00.015 - Re-write raw command post with data ioctl method.
-                 Remove raid5 bounce buffers for raid5 for 6XXX for kernel 2.5
-                 Add tw_map/unmap_scsi_sg/single_data() for kernel 2.5
-                 Replace io_request_lock with host_lock for kernel 2.5
-                 Set max_cmd_len to 16 for 3dm for kernel 2.5
-   1.02.00.016 - Set host->max_sectors back up to 256.
-   1.02.00.017 - Modified pci parity error handling/clearing from config space
-                 during initialization.
-   1.02.00.018 - Better handling of request sense opcode and sense information
-                 for failed commands.  Add tw_decode_sense().
-                 Replace all mdelay()'s with scsi_sleep().
-   1.02.00.019 - Revert mdelay's and scsi_sleep's, this caused problems on
-                 some SMP systems.
-   1.02.00.020 - Add pci_set_dma_mask(), rewrite kmalloc()/virt_to_bus() to
-                 pci_alloc/free_consistent().
-                 Better alignment checking in tw_allocate_memory().
-                 Cleanup tw_initialize_device_extension().
-   1.02.00.021 - Bump cmd_per_lun in SHT to 255 for better jbod performance.
-                 Improve handling of errors in tw_interrupt().
-                 Add handling/clearing of controller queue error.
-                 Empty stale responses before draining aen queue.
-                 Fix tw_scsi_eh_abort() to not reset on every io abort.
-                 Set can_queue in SHT to 255 to prevent hang from AEN.
-   1.02.00.022 - Fix possible null pointer dereference in tw_scsi_release().
-   1.02.00.023 - Fix bug in tw_aen_drain_queue() where unit # was always zero.
-   1.02.00.024 - Add severity levels to AEN strings.
-   1.02.00.025 - Fix command interrupt spurious error messages.
-                 Fix bug in raw command post with data ioctl method.
-                 Fix bug where rollcall sometimes failed with cable errors.
-                 Print unit # on all command timeouts.
-   1.02.00.026 - Fix possible infinite retry bug with power glitch induced
-                 drive timeouts.
-                 Cleanup some AEN severity levels.
-   1.02.00.027 - Add drive not supported AEN code for SATA controllers.
-                 Remove spurious unknown ioctl error message.
-   1.02.00.028 - Fix bug where multiple controllers with no units were the
-                 same card number.
-                 Fix bug where cards were being shut down more than once.
-   1.02.00.029 - Add missing pci_free_consistent() in tw_allocate_memory().
-                 Replace pci_map_single() with pci_map_page() for highmem.
-                 Check for tw_setfeature() failure.
-   1.02.00.030 - Make driver 64-bit clean.
-   1.02.00.031 - Cleanup polling timeouts/routines in several places.
-                 Add support for mode sense opcode.
-                 Add support for cache mode page.
-                 Add support for synchronize cache opcode.
-   1.02.00.032 - Fix small multicard rollcall bug.
-                 Make driver stay loaded with no units for hot add/swap.
-                 Add support for "twe" character device for ioctls.
-                 Clean up request_id queueing code.
-                 Fix tw_scsi_queue() spinlocks.
-   1.02.00.033 - Fix tw_aen_complete() to not queue 'queue empty' AEN's.
-                 Initialize queues correctly when loading with no valid units.
-   1.02.00.034 - Fix tw_decode_bits() to handle multiple errors.
-                 Add support for user configurable cmd_per_lun.
-                 Add support for sht->slave_configure().
-   1.02.00.035 - Improve tw_allocate_memory() memory allocation.
-                 Fix tw_chrdev_ioctl() to sleep correctly.
-   1.02.00.036 - Increase character ioctl timeout to 60 seconds.
-   1.02.00.037 - Fix tw_ioctl() to handle all non-data ATA passthru cmds
-                 for 'smartmontools' support.
-   1.26.00.038 - Roll driver minor version to 26 to denote kernel 2.6.
-                 Add support for cmds_per_lun module parameter.
-   1.26.00.039 - Fix bug in tw_chrdev_ioctl() polling code.
-                 Fix data_buffer_length usage in tw_chrdev_ioctl().
-                 Update contact information.
-   1.26.02.000 - Convert driver to pci_driver format.
-   1.26.02.001 - Increase max ioctl buffer size to 512 sectors.
-                 Make tw_scsi_queue() return 0 for 'Unknown scsi opcode'.
-                 Fix tw_remove() to free irq handler/unregister_chrdev()
-                 before shutting down card.
-                 Change to new 'change_queue_depth' api.
-                 Fix 'handled=1' ISR usage, remove bogus IRQ check.
-   1.26.02.002 - Free irq handler in __tw_shutdown().
-                 Turn on RCD bit for caching mode page.
-                 Serialize reset code.
-*/
 
 #include <linux/module.h>
 #include <linux/reboot.h>
+#include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/delay.h>
+#include <linux/gfp.h>
 #include <linux/pci.h>
 #include <linux/time.h>
 #include <linux/mutex.h>
@@ -217,13 +23,13 @@
 #include "3w-xxxx.h"
 
 /* Globals */
-#define TW_DRIVER_VERSION "1.26.02.002"
+#define TW_DRIVER_VERSION "1.26.02.003"
 static TW_Device_Extension *tw_device_extension_list[TW_MAX_SLOT];
 static int tw_device_extension_count = 0;
 static int twe_major = -1;
 
 /* Module parameters */
-MODULE_AUTHOR("AMCC");
+MODULE_AUTHOR("LSI");
 MODULE_DESCRIPTION("3ware Storage Controller Linux Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(TW_DRIVER_VERSION);
@@ -484,9 +290,10 @@ static void tw_state_request_start(TW_Device_Extension *tw_dev, int *request_id)
 } /* End tw_state_request_start() */
 
 /* Show some statistics about the card */
-static ssize_t tw_show_stats(struct class_device *class_dev, char *buf)
+static ssize_t tw_show_stats(struct device *dev, struct device_attribute *attr,
+			     char *buf)
 {
-	struct Scsi_Host *host = class_to_shost(class_dev);
+	struct Scsi_Host *host = class_to_shost(dev);
 	TW_Device_Extension *tw_dev = (TW_Device_Extension *)host->hostdata;
 	unsigned long flags = 0;
 	ssize_t len;
@@ -519,8 +326,12 @@ static ssize_t tw_show_stats(struct class_device *class_dev, char *buf)
 } /* End tw_show_stats() */
 
 /* This function will set a devices queue depth */
-static int tw_change_queue_depth(struct scsi_device *sdev, int queue_depth)
+static int tw_change_queue_depth(struct scsi_device *sdev, int queue_depth,
+				 int reason)
 {
+	if (reason != SCSI_QDEPTH_DEFAULT)
+		return -EOPNOTSUPP;
+
 	if (queue_depth > TW_Q_LENGTH-2)
 		queue_depth = TW_Q_LENGTH-2;
 	scsi_adjust_queue_depth(sdev, MSG_ORDERED_TAG, queue_depth);
@@ -528,7 +339,7 @@ static int tw_change_queue_depth(struct scsi_device *sdev, int queue_depth)
 } /* End tw_change_queue_depth() */
 
 /* Create sysfs 'stats' entry */
-static struct class_device_attribute tw_host_stats_attr = {
+static struct device_attribute tw_host_stats_attr = {
 	.attr = {
 		.name = 	"stats",
 		.mode =		S_IRUGO,
@@ -537,7 +348,7 @@ static struct class_device_attribute tw_host_stats_attr = {
 };
 
 /* Host attributes initializer */
-static struct class_device_attribute *tw_host_attrs[] = {
+static struct device_attribute *tw_host_attrs[] = {
 	&tw_host_stats_attr,
 	NULL,
 };
@@ -873,7 +684,7 @@ static int tw_allocate_memory(TW_Device_Extension *tw_dev, int size, int which)
 } /* End tw_allocate_memory() */
 
 /* This function handles ioctl for the character device */
-static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+static long tw_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int request_id;
 	dma_addr_t dma_handle;
@@ -881,6 +692,7 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 	unsigned long flags;
 	unsigned int data_buffer_length = 0;
 	unsigned long data_buffer_length_adjusted = 0;
+	struct inode *inode = file->f_dentry->d_inode;
 	unsigned long *cpu_addr;
 	long timeout;
 	TW_New_Ioctl *tw_ioctl;
@@ -891,9 +703,12 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 
 	dprintk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl()\n");
 
+	lock_kernel();
 	/* Only let one of these through at a time */
-	if (mutex_lock_interruptible(&tw_dev->ioctl_lock))
+	if (mutex_lock_interruptible(&tw_dev->ioctl_lock)) {
+		unlock_kernel();
 		return -EINTR;
+	}
 
 	/* First copy down the buffer length */
 	if (copy_from_user(&data_buffer_length, argp, sizeof(unsigned int)))
@@ -1022,14 +837,17 @@ out2:
 	dma_free_coherent(&tw_dev->tw_pci_dev->dev, data_buffer_length_adjusted+sizeof(TW_New_Ioctl) - 1, cpu_addr, dma_handle);
 out:
 	mutex_unlock(&tw_dev->ioctl_lock);
+	unlock_kernel();
 	return retval;
 } /* End tw_chrdev_ioctl() */
 
 /* This function handles open for the character device */
+/* NOTE that this function races with remove. */
 static int tw_chrdev_open(struct inode *inode, struct file *file)
 {
 	unsigned int minor_number;
 
+	cycle_kernel_lock();
 	dprintk(KERN_WARNING "3w-xxxx: tw_ioctl_open()\n");
 
 	minor_number = iminor(inode);
@@ -1042,7 +860,7 @@ static int tw_chrdev_open(struct inode *inode, struct file *file)
 /* File operations struct for character device */
 static const struct file_operations tw_fops = {
 	.owner		= THIS_MODULE,
-	.ioctl		= tw_chrdev_ioctl,
+	.unlocked_ioctl	= tw_chrdev_ioctl,
 	.open		= tw_chrdev_open,
 	.release	= NULL
 };
@@ -1273,57 +1091,25 @@ static int tw_map_scsi_sg_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
 	int use_sg;
 
 	dprintk(KERN_WARNING "3w-xxxx: tw_map_scsi_sg_data()\n");
-	
-	if (cmd->use_sg == 0)
-		return 0;
 
-	use_sg = pci_map_sg(pdev, cmd->request_buffer, cmd->use_sg, DMA_BIDIRECTIONAL);
-	
-	if (use_sg == 0) {
+	use_sg = scsi_dma_map(cmd);
+	if (use_sg < 0) {
 		printk(KERN_WARNING "3w-xxxx: tw_map_scsi_sg_data(): pci_map_sg() failed.\n");
 		return 0;
 	}
 
 	cmd->SCp.phase = TW_PHASE_SGLIST;
 	cmd->SCp.have_data_in = use_sg;
-	
+
 	return use_sg;
 } /* End tw_map_scsi_sg_data() */
-
-static u32 tw_map_scsi_single_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
-{
-	dma_addr_t mapping;
-
-	dprintk(KERN_WARNING "3w-xxxx: tw_map_scsi_single_data()\n");
-
-	if (cmd->request_bufflen == 0)
-		return 0;
-
-	mapping = pci_map_page(pdev, virt_to_page(cmd->request_buffer), offset_in_page(cmd->request_buffer), cmd->request_bufflen, DMA_BIDIRECTIONAL);
-
-	if (mapping == 0) {
-		printk(KERN_WARNING "3w-xxxx: tw_map_scsi_single_data(): pci_map_page() failed.\n");
-		return 0;
-	}
-
-	cmd->SCp.phase = TW_PHASE_SINGLE;
-	cmd->SCp.have_data_in = mapping;
-
-	return mapping;
-} /* End tw_map_scsi_single_data() */
 
 static void tw_unmap_scsi_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
 {
 	dprintk(KERN_WARNING "3w-xxxx: tw_unmap_scsi_data()\n");
 
-	switch(cmd->SCp.phase) {
-		case TW_PHASE_SINGLE:
-			pci_unmap_page(pdev, cmd->SCp.have_data_in, cmd->request_bufflen, DMA_BIDIRECTIONAL);
-			break;
-		case TW_PHASE_SGLIST:
-			pci_unmap_sg(pdev, cmd->request_buffer, cmd->use_sg, DMA_BIDIRECTIONAL);
-			break;
-	}
+	if (cmd->SCp.phase == TW_PHASE_SGLIST)
+		scsi_dma_unmap(cmd);
 } /* End tw_unmap_scsi_data() */
 
 /* This function will reset a device extension */
@@ -1495,31 +1281,7 @@ static int tw_scsiop_inquiry(TW_Device_Extension *tw_dev, int request_id)
 static void tw_transfer_internal(TW_Device_Extension *tw_dev, int request_id,
 				 void *data, unsigned int len)
 {
-	struct scsi_cmnd *cmd = tw_dev->srb[request_id];
-	void *buf;
-	unsigned int transfer_len;
-	unsigned long flags = 0;
-
-	if (cmd->use_sg) {
-		struct scatterlist *sg =
-			(struct scatterlist *)cmd->request_buffer;
-		local_irq_save(flags);
-		buf = kmap_atomic(sg->page, KM_IRQ0) + sg->offset;
-		transfer_len = min(sg->length, len);
-	} else {
-		buf = cmd->request_buffer;
-		transfer_len = min(cmd->request_bufflen, len);
-	}
-
-	memcpy(buf, data, transfer_len);
-	
-	if (cmd->use_sg) {
-		struct scatterlist *sg;
-
-		sg = (struct scatterlist *)cmd->request_buffer;
-		kunmap_atomic(buf - sg->offset, KM_IRQ0);
-		local_irq_restore(flags);
-	}
+	scsi_sg_copy_from_buffer(tw_dev->srb[request_id], data, len);
 }
 
 /* This function is called by the isr to complete an inquiry command */
@@ -1764,19 +1526,20 @@ static int tw_scsiop_read_write(TW_Device_Extension *tw_dev, int request_id)
 {
 	TW_Command *command_packet;
 	unsigned long command_que_value;
-	u32 lba = 0x0, num_sectors = 0x0, buffaddr = 0x0;
+	u32 lba = 0x0, num_sectors = 0x0;
 	int i, use_sg;
 	struct scsi_cmnd *srb;
-	struct scatterlist *sglist;
+	struct scatterlist *sglist, *sg;
 
 	dprintk(KERN_NOTICE "3w-xxxx: tw_scsiop_read_write()\n");
 
-	if (tw_dev->srb[request_id]->request_buffer == NULL) {
+	srb = tw_dev->srb[request_id];
+
+	sglist = scsi_sglist(srb);
+	if (!sglist) {
 		printk(KERN_WARNING "3w-xxxx: tw_scsiop_read_write(): Request buffer NULL.\n");
 		return 1;
 	}
-	sglist = (struct scatterlist *)tw_dev->srb[request_id]->request_buffer;
-	srb = tw_dev->srb[request_id];
 
 	/* Initialize command packet */
 	command_packet = (TW_Command *)tw_dev->command_packet_virtual_address[request_id];
@@ -1819,33 +1582,18 @@ static int tw_scsiop_read_write(TW_Device_Extension *tw_dev, int request_id)
 	command_packet->byte8.io.lba = lba;
 	command_packet->byte6.block_count = num_sectors;
 
-	/* Do this if there are no sg list entries */
-	if (tw_dev->srb[request_id]->use_sg == 0) {    
-		dprintk(KERN_NOTICE "3w-xxxx: tw_scsiop_read_write(): SG = 0\n");
-		buffaddr = tw_map_scsi_single_data(tw_dev->tw_pci_dev, tw_dev->srb[request_id]);
-		if (buffaddr == 0)
-			return 1;
+	use_sg = tw_map_scsi_sg_data(tw_dev->tw_pci_dev, tw_dev->srb[request_id]);
+	if (!use_sg)
+		return 1;
 
-		command_packet->byte8.io.sgl[0].address = buffaddr;
-		command_packet->byte8.io.sgl[0].length = tw_dev->srb[request_id]->request_bufflen;
+	scsi_for_each_sg(tw_dev->srb[request_id], sg, use_sg, i) {
+		command_packet->byte8.io.sgl[i].address = sg_dma_address(sg);
+		command_packet->byte8.io.sgl[i].length = sg_dma_len(sg);
 		command_packet->size+=2;
 	}
 
-	/* Do this if we have multiple sg list entries */
-	if (tw_dev->srb[request_id]->use_sg > 0) {
-		use_sg = tw_map_scsi_sg_data(tw_dev->tw_pci_dev, tw_dev->srb[request_id]);
-		if (use_sg == 0)
-			return 1;
-
-		for (i=0;i<use_sg; i++) {
-			command_packet->byte8.io.sgl[i].address = sg_dma_address(&sglist[i]);
-			command_packet->byte8.io.sgl[i].length = sg_dma_len(&sglist[i]);
-			command_packet->size+=2;
-		}
-	}
-
 	/* Update SG statistics */
-	tw_dev->sgl_entries = tw_dev->srb[request_id]->use_sg;
+	tw_dev->sgl_entries = scsi_sg_count(tw_dev->srb[request_id]);
 	if (tw_dev->sgl_entries > tw_dev->max_sgl_entries)
 		tw_dev->max_sgl_entries = tw_dev->sgl_entries;
 
@@ -2306,6 +2054,15 @@ static void tw_shutdown(struct pci_dev *pdev)
 	__tw_shutdown(tw_dev);
 } /* End tw_shutdown() */
 
+/* This function gets called when a disk is coming online */
+static int tw_slave_configure(struct scsi_device *sdev)
+{
+	/* Force 60 second timeout */
+	blk_queue_rq_timeout(sdev->request_queue, 60 * HZ);
+
+	return 0;
+} /* End tw_slave_configure() */
+
 static struct scsi_host_template driver_template = {
 	.module			= THIS_MODULE,
 	.name			= "3ware Storage Controller",
@@ -2314,6 +2071,7 @@ static struct scsi_host_template driver_template = {
 	.bios_param		= tw_scsi_biosparam,
 	.change_queue_depth	= tw_change_queue_depth,
 	.can_queue		= TW_Q_LENGTH-2,
+	.slave_configure	= tw_slave_configure,
 	.this_id		= -1,
 	.sg_tablesize		= TW_MAX_SGL_LENGTH,
 	.max_sectors		= TW_MAX_SECTORS,
@@ -2351,8 +2109,6 @@ static int __devinit tw_probe(struct pci_dev *pdev, const struct pci_device_id *
 		goto out_disable_device;
 	}
 	tw_dev = (TW_Device_Extension *)host->hostdata;
-
-	memset(tw_dev, 0, sizeof(TW_Device_Extension));
 
 	/* Save values to device extension */
 	tw_dev->host = host;
@@ -2501,4 +2257,3 @@ static void __exit tw_exit(void)
 
 module_init(tw_init);
 module_exit(tw_exit);
-

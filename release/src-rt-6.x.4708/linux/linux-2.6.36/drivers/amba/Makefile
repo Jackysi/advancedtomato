@@ -1,2 +1,1 @@
 obj-y		+= bus.o
-

@@ -70,4 +70,3 @@ union lt_command {
 	struct lt_rcvlap rcvlap;
 };
 typedef union lt_command lt_command;
-

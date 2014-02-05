@@ -1,4 +1,4 @@
-/* $Id: isdn_x25iface.h,v 1.1.2.2 2004/01/12 22:37:19 keil Exp $
+/* $Id: isdn_x25iface.h,v 1.1.2.2 2004/01/12 22:37:19 Exp $
  *
  * header for Linux ISDN subsystem, x.25 related functions
  *
@@ -29,11 +29,3 @@ extern struct concap_proto     * isdn_x25iface_proto_new(void);
 
 
 #endif
-
-
-
-
-
-
-
-

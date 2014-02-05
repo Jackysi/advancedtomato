@@ -23,6 +23,7 @@ MODULE_AUTHOR("Fabrice MARIE <fabrice@netfilter.org>");
 MODULE_DESCRIPTION("Match arrival timestamp/date");
 MODULE_LICENSE("GPL");
 
+#if 0
 struct tm
 {
 	int tm_sec;                   /* Seconds.     [0-60] (1 leap second) */
@@ -38,6 +39,7 @@ struct tm
 	long int tm_gmtoff;           /* we don't care, we count from GMT */
 	const char *tm_zone;          /* we don't care, we count from GMT */
 };
+#endif
 
 void
 localtime(const u32 time, struct tm *r);

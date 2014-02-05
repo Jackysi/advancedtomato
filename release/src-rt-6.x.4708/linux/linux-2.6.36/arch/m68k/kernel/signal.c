@@ -100,7 +100,6 @@ do_rt_sigsuspend(struct pt_regs *regs)
 	size_t sigsetsize = (size_t)regs->d2;
 	sigset_t saveset, newset;
 
-	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -326,6 +325,9 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *usc, void __u
 	struct sigcontext context;
 	int err;
 
+	/* Always make any pending restarted system calls return -EINTR */
+	current_thread_info()->restart_block.fn = do_no_restart_syscall;
+
 	/* get previous context */
 	if (copy_from_user(&context, usc, sizeof(context)))
 		goto badframe;
@@ -410,6 +412,9 @@ rt_restore_ucontext(struct pt_regs *regs, struct switch_stack *sw,
 	greg_t __user *gregs = uc->uc_mcontext.gregs;
 	unsigned long usp;
 	int err;
+
+	/* Always make any pending restarted system calls return -EINTR */
+	current_thread_info()->restart_block.fn = do_no_restart_syscall;
 
 	err = __get_user(temp, &uc->uc_mcontext.version);
 	if (temp != MCONTEXT_VERSION)
@@ -891,10 +896,17 @@ static void setup_rt_frame (int sig, struct k_sigaction *ka, siginfo_t *info,
 
 	/* Set up to return from userspace.  */
 	err |= __put_user(frame->retcode, &frame->pretcode);
+#ifdef __mcoldfire__
+	/* movel #__NR_rt_sigreturn,d0; trap #0 */
+	err |= __put_user(0x203c0000, (long __user *)(frame->retcode + 0));
+	err |= __put_user(0x00004e40 + (__NR_rt_sigreturn << 16),
+			  (long __user *)(frame->retcode + 4));
+#else
 	/* moveq #,d0; notb d0; trap #0 */
 	err |= __put_user(0x70004600 + ((__NR_rt_sigreturn ^ 0xff) << 16),
 			  (long __user *)(frame->retcode + 0));
 	err |= __put_user(0x4e40, (short __user *)(frame->retcode + 4));
+#endif
 
 	if (err)
 		goto give_sigsegv;
@@ -934,6 +946,15 @@ handle_restart(struct pt_regs *regs, struct k_sigaction *ka, int has_handler)
 	case -ERESTARTNOHAND:
 		if (!has_handler)
 			goto do_restart;
+		regs->d0 = -EINTR;
+		break;
+
+	case -ERESTART_RESTARTBLOCK:
+		if (!has_handler) {
+			regs->d0 = __NR_restart_syscall;
+			regs->pc -= 2;
+			break;
+		}
 		regs->d0 = -EINTR;
 		break;
 

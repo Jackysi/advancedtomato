@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *  Universal interface for Audio Codec '97
  *
  *  For more details look to AC '97 component specification revision 2.2
@@ -22,7 +22,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -39,7 +38,7 @@
 
 #include "ac97_patch.c"
 
-MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
+MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("Universal interface for Audio Codec '97");
 MODULE_LICENSE("GPL");
 
@@ -49,9 +48,10 @@ module_param(enable_loopback, bool, 0444);
 MODULE_PARM_DESC(enable_loopback, "Enable AC97 ADC/DAC Loopback Control");
 
 #ifdef CONFIG_SND_AC97_POWER_SAVE
-static int power_save;
-module_param(power_save, bool, 0644);
-MODULE_PARM_DESC(power_save, "Enable AC97 power-saving control");
+static int power_save = CONFIG_SND_AC97_POWER_SAVE_DEFAULT;
+module_param(power_save, int, 0644);
+MODULE_PARM_DESC(power_save, "Automatic power-saving timeout "
+		 "(in second, 0 = disable).");
 #endif
 /*
 
@@ -67,8 +67,8 @@ struct ac97_codec_id {
 };
 
 static const struct ac97_codec_id snd_ac97_codec_id_vendors[] = {
-{ 0x414b4d00, 0xffffff00, "Asahi Kasei",	NULL,	NULL },
 { 0x41445300, 0xffffff00, "Analog Devices",	NULL,	NULL },
+{ 0x414b4d00, 0xffffff00, "Asahi Kasei",	NULL,	NULL },
 { 0x414c4300, 0xffffff00, "Realtek",		NULL,	NULL },
 { 0x414c4700, 0xffffff00, "Realtek",		NULL,	NULL },
 { 0x434d4900, 0xffffff00, "C-Media Electronics", NULL,	NULL },
@@ -83,6 +83,7 @@ static const struct ac97_codec_id snd_ac97_codec_id_vendors[] = {
 { 0x4e534300, 0xffffff00, "National Semiconductor", NULL, NULL },
 { 0x50534300, 0xffffff00, "Philips",		NULL,	NULL },
 { 0x53494c00, 0xffffff00, "Silicon Laboratory",	NULL,	NULL },
+{ 0x53544d00, 0xffffff00, "STMicroelectronics",	NULL,	NULL },
 { 0x54524100, 0xffffff00, "TriTech",		NULL,	NULL },
 { 0x54584e00, 0xffffff00, "Texas Instruments",	NULL,	NULL },
 { 0x56494100, 0xffffff00, "VIA Technologies",   NULL,	NULL },
@@ -94,11 +95,6 @@ static const struct ac97_codec_id snd_ac97_codec_id_vendors[] = {
 };
 
 static const struct ac97_codec_id snd_ac97_codec_ids[] = {
-{ 0x414b4d00, 0xffffffff, "AK4540",		NULL,		NULL },
-{ 0x414b4d01, 0xffffffff, "AK4542",		NULL,		NULL },
-{ 0x414b4d02, 0xffffffff, "AK4543",		NULL,		NULL },
-{ 0x414b4d06, 0xffffffff, "AK4544A",		NULL,		NULL },
-{ 0x414b4d07, 0xffffffff, "AK4545",		NULL,		NULL },
 { 0x41445303, 0xffffffff, "AD1819",		patch_ad1819,	NULL },
 { 0x41445340, 0xffffffff, "AD1881",		patch_ad1881,	NULL },
 { 0x41445348, 0xffffffff, "AD1881A",		patch_ad1881,	NULL },
@@ -112,20 +108,25 @@ static const struct ac97_codec_id snd_ac97_codec_ids[] = {
 { 0x41445374, 0xffffffff, "AD1981B",		patch_ad1981b,	NULL },
 { 0x41445375, 0xffffffff, "AD1985",		patch_ad1985,	NULL },
 { 0x41445378, 0xffffffff, "AD1986",		patch_ad1986,	NULL },
+{ 0x414b4d00, 0xffffffff, "AK4540",		NULL,		NULL },
+{ 0x414b4d01, 0xffffffff, "AK4542",		NULL,		NULL },
+{ 0x414b4d02, 0xffffffff, "AK4543",		NULL,		NULL },
+{ 0x414b4d06, 0xffffffff, "AK4544A",		NULL,		NULL },
+{ 0x414b4d07, 0xffffffff, "AK4545",		NULL,		NULL },
 { 0x414c4300, 0xffffff00, "ALC100,100P", 	NULL,		NULL },
 { 0x414c4710, 0xfffffff0, "ALC200,200P",	NULL,		NULL },
 { 0x414c4721, 0xffffffff, "ALC650D",		NULL,	NULL }, /* already patched */
 { 0x414c4722, 0xffffffff, "ALC650E",		NULL,	NULL }, /* already patched */
 { 0x414c4723, 0xffffffff, "ALC650F",		NULL,	NULL }, /* already patched */
 { 0x414c4720, 0xfffffff0, "ALC650",		patch_alc650,	NULL },
-{ 0x414c4760, 0xfffffff0, "ALC655",		patch_alc655,	NULL },
-{ 0x414c4781, 0xffffffff, "ALC658D",		NULL,	NULL }, /* already patched */
-{ 0x414c4780, 0xfffffff0, "ALC658",		patch_alc655,	NULL },
-{ 0x414c4790, 0xfffffff0, "ALC850",		patch_alc850,	NULL },
 { 0x414c4730, 0xffffffff, "ALC101",		NULL,		NULL },
 { 0x414c4740, 0xfffffff0, "ALC202",		NULL,		NULL },
 { 0x414c4750, 0xfffffff0, "ALC250",		NULL,		NULL },
-{ 0x414c4770, 0xfffffff0, "ALC203",		NULL,		NULL },
+{ 0x414c4760, 0xfffffff0, "ALC655",		patch_alc655,	NULL },
+{ 0x414c4770, 0xfffffff0, "ALC203",		patch_alc203,	NULL },
+{ 0x414c4781, 0xffffffff, "ALC658D",		NULL,	NULL }, /* already patched */
+{ 0x414c4780, 0xfffffff0, "ALC658",		patch_alc655,	NULL },
+{ 0x414c4790, 0xfffffff0, "ALC850",		patch_alc850,	NULL },
 { 0x434d4941, 0xffffffff, "CMI9738",		patch_cm9738,	NULL },
 { 0x434d4961, 0xffffffff, "CMI9739",		patch_cm9739,	NULL },
 { 0x434d4969, 0xffffffff, "CMI9780",		patch_cm9780,	NULL },
@@ -142,7 +143,8 @@ static const struct ac97_codec_id snd_ac97_codec_ids[] = {
 { 0x43525960, 0xfffffff8, "CS4291",		NULL,		NULL },
 { 0x43525970, 0xfffffff8, "CS4202",		NULL,		NULL },
 { 0x43585421, 0xffffffff, "HSD11246",		NULL,		NULL },	// SmartMC II
-{ 0x43585428, 0xfffffff8, "Cx20468",		patch_conexant,	NULL }, // SmartAMC fixme: the mask might be different
+{ 0x43585428, 0xfffffff8, "Cx20468",		patch_conexant,	NULL },
+{ 0x43585430, 0xffffffff, "Cx20468-31",		patch_conexant, NULL },
 { 0x43585431, 0xffffffff, "Cx20551",           patch_cx20551,  NULL },
 { 0x44543031, 0xfffffff0, "DT0398",		NULL,		NULL },
 { 0x454d4328, 0xffffffff, "EM28028",		NULL,		NULL },  // same as TR28028?
@@ -160,23 +162,25 @@ static const struct ac97_codec_id snd_ac97_codec_ids[] = {
 { 0x4e534350, 0xffffffff, "LM4550",		patch_lm4550,  	NULL }, // volume wrap fix 
 { 0x50534304, 0xffffffff, "UCB1400",		patch_ucb1400,	NULL },
 { 0x53494c20, 0xffffffe0, "Si3036,8",		mpatch_si3036,	mpatch_si3036, AC97_MODEM_PATCH },
+{ 0x53544d02, 0xffffffff, "ST7597",		NULL,		NULL },
 { 0x54524102, 0xffffffff, "TR28022",		NULL,		NULL },
+{ 0x54524103, 0xffffffff, "TR28023",		NULL,		NULL },
 { 0x54524106, 0xffffffff, "TR28026",		NULL,		NULL },
 { 0x54524108, 0xffffffff, "TR28028",		patch_tritech_tr28028,	NULL }, // added by xin jin [07/09/99]
 { 0x54524123, 0xffffffff, "TR28602",		NULL,		NULL }, // only guess --jk [TR28023 = eMicro EM28023 (new CT1297)]
 { 0x54584e20, 0xffffffff, "TLC320AD9xC",	NULL,		NULL },
 { 0x56494161, 0xffffffff, "VIA1612A",		NULL,		NULL }, // modified ICE1232 with S/PDIF
 { 0x56494170, 0xffffffff, "VIA1617A",		patch_vt1617a,	NULL }, // modified VT1616 with S/PDIF
-{ 0x56494182, 0xffffffff, "VIA1618",		NULL,		NULL },
+{ 0x56494182, 0xffffffff, "VIA1618",		patch_vt1618,   NULL },
 { 0x57454301, 0xffffffff, "W83971D",		NULL,		NULL },
-{ 0x574d4c00, 0xffffffff, "WM9701A",		NULL,		NULL },
+{ 0x574d4c00, 0xffffffff, "WM9701,WM9701A",	NULL,		NULL },
 { 0x574d4C03, 0xffffffff, "WM9703,WM9707,WM9708,WM9717", patch_wolfson03, NULL},
 { 0x574d4C04, 0xffffffff, "WM9704M,WM9704Q",	patch_wolfson04, NULL},
 { 0x574d4C05, 0xffffffff, "WM9705,WM9710",	patch_wolfson05, NULL},
 { 0x574d4C09, 0xffffffff, "WM9709",		NULL,		NULL},
-{ 0x574d4C12, 0xffffffff, "WM9711,WM9712",	patch_wolfson11, NULL},
+{ 0x574d4C12, 0xffffffff, "WM9711,WM9712,WM9715",	patch_wolfson11, NULL},
 { 0x574d4c13, 0xffffffff, "WM9713,WM9714",	patch_wolfson13, NULL, AC97_DEFAULT_POWER_OFF},
-{ 0x594d4800, 0xffffffff, "YMF743",		NULL,		NULL },
+{ 0x594d4800, 0xffffffff, "YMF743",		patch_yamaha_ymf743,	NULL },
 { 0x594d4802, 0xffffffff, "YMF752",		NULL,		NULL },
 { 0x594d4803, 0xffffffff, "YMF753",		patch_yamaha_ymf753,	NULL },
 { 0x83847600, 0xffffffff, "STAC9700,83,84",	patch_sigmatel_stac9700,	NULL },
@@ -211,6 +215,14 @@ static int snd_ac97_valid_reg(struct snd_ac97 *ac97, unsigned short reg)
 {
 	/* filter some registers for buggy codecs */
 	switch (ac97->id) {
+	case AC97_ID_ST_AC97_ID4:
+		if (reg == 0x08)
+			return 0;
+		/* fall through */
+	case AC97_ID_ST7597:
+		if (reg == 0x22 || reg == 0x7a)
+			return 1;
+		/* fall through */
 	case AC97_ID_AK4540:
 	case AC97_ID_AK4542:
 		if (reg <= 0x1c || reg == 0x20 || reg == 0x26 || reg >= 0x7c)
@@ -382,7 +394,7 @@ int snd_ac97_update_bits(struct snd_ac97 *ac97, unsigned short reg, unsigned sho
 
 EXPORT_SYMBOL(snd_ac97_update_bits);
 
-/* no lock version - see snd_ac97_updat_bits() */
+/* no lock version - see snd_ac97_update_bits() */
 int snd_ac97_update_bits_nolock(struct snd_ac97 *ac97, unsigned short reg,
 				unsigned short mask, unsigned short value)
 {
@@ -601,8 +613,8 @@ AC97_SINGLE("Tone Control - Treble", AC97_MASTER_TONE, 0, 15, 1)
 };
 
 static const struct snd_kcontrol_new snd_ac97_controls_pc_beep[2] = {
-AC97_SINGLE("PC Speaker Playback Switch", AC97_PC_BEEP, 15, 1, 1),
-AC97_SINGLE("PC Speaker Playback Volume", AC97_PC_BEEP, 1, 15, 1)
+AC97_SINGLE("Beep Playback Switch", AC97_PC_BEEP, 15, 1, 1),
+AC97_SINGLE("Beep Playback Volume", AC97_PC_BEEP, 1, 15, 1)
 };
 
 static const struct snd_kcontrol_new snd_ac97_controls_mic_boost =
@@ -704,7 +716,6 @@ static int snd_ac97_spdif_cmask_get(struct snd_kcontrol *kcontrol, struct snd_ct
                         
 static int snd_ac97_spdif_pmask_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	/* FIXME: AC'97 spec doesn't say which bits are used for what */
 	ucontrol->value.iec958.status[0] = IEC958_AES0_PROFESSIONAL |
 					   IEC958_AES0_NONAUDIO |
 					   IEC958_AES0_PRO_FS |
@@ -779,6 +790,12 @@ static int snd_ac97_spdif_default_put(struct snd_kcontrol *kcontrol, struct snd_
 		change |= snd_ac97_update_bits_nolock(ac97, AC97_CXR_AUDIO_MISC, 
 						      AC97_CXR_SPDIF_MASK | AC97_CXR_COPYRGT,
 						      v);
+	} else if (ac97->id == AC97_ID_YMF743) {
+		change |= snd_ac97_update_bits_nolock(ac97,
+						      AC97_YMF7X3_DIT_CTRL,
+						      0xff38,
+						      ((val << 4) & 0xff00) |
+						      ((val << 2) & 0x0038));
 	} else {
 		unsigned short extst = snd_ac97_read_cache(ac97, AC97_EXTENDED_STATUS);
 		snd_ac97_update_bits_nolock(ac97, AC97_EXTENDED_STATUS, AC97_EA_SPDIF, 0); /* turn off */
@@ -1375,7 +1392,8 @@ static int snd_ac97_mixer_build(struct snd_ac97 * ac97)
 			for (idx = 0; idx < 2; idx++) {
 				if ((err = snd_ctl_add(card, kctl = snd_ac97_cnew(&snd_ac97_controls_tone[idx], ac97))) < 0)
 					return err;
-				if (ac97->id == AC97_ID_YMF753) {
+				if (ac97->id == AC97_ID_YMF743 ||
+				    ac97->id == AC97_ID_YMF753) {
 					kctl->private_value &= ~(0xff << 16);
 					kctl->private_value |= 7 << 16;
 				}
@@ -1384,7 +1402,7 @@ static int snd_ac97_mixer_build(struct snd_ac97 * ac97)
 		}
 	}
 	
-	/* build PC Speaker controls */
+	/* build Beep controls */
 	if (!(ac97->flags & AC97_HAS_NO_PC_BEEP) && 
 		((ac97->flags & AC97_HAS_PC_BEEP) ||
 	    snd_ac97_try_volume_mix(ac97, AC97_PC_BEEP))) {
@@ -1635,7 +1653,10 @@ static int snd_ac97_modem_build(struct snd_card *card, struct snd_ac97 * ac97)
 {
 	int err, idx;
 
-	//printk("AC97_GPIO_CFG = %x\n",snd_ac97_read(ac97,AC97_GPIO_CFG));
+	/*
+	printk(KERN_DEBUG "AC97_GPIO_CFG = %x\n",
+	       snd_ac97_read(ac97,AC97_GPIO_CFG));
+	*/
 	snd_ac97_write(ac97, AC97_GPIO_CFG, 0xffff & ~(AC97_GPIO_LINE1_OH));
 	snd_ac97_write(ac97, AC97_GPIO_POLARITY, 0xffff & ~(AC97_GPIO_LINE1_OH));
 	snd_ac97_write(ac97, AC97_GPIO_STICKY, 0xffff);
@@ -1882,8 +1903,8 @@ int snd_ac97_bus(struct snd_card *card, int num, struct snd_ac97_bus_ops *ops,
 		.dev_free =	snd_ac97_bus_dev_free,
 	};
 
-	snd_assert(card != NULL, return -EINVAL);
-	snd_assert(rbus != NULL, return -EINVAL);
+	if (snd_BUG_ON(!card))
+		return -EINVAL;
 	bus = kzalloc(sizeof(*bus), GFP_KERNEL);
 	if (bus == NULL)
 		return -ENOMEM;
@@ -1898,7 +1919,8 @@ int snd_ac97_bus(struct snd_card *card, int num, struct snd_ac97_bus_ops *ops,
 		snd_ac97_bus_free(bus);
 		return err;
 	}
-	*rbus = bus;
+	if (rbus)
+		*rbus = bus;
 	return 0;
 }
 
@@ -1918,9 +1940,9 @@ static int snd_ac97_dev_register(struct snd_device *device)
 	ac97->dev.bus = &ac97_bus_type;
 	ac97->dev.parent = ac97->bus->card->dev;
 	ac97->dev.release = ac97_device_release;
-	snprintf(ac97->dev.bus_id, BUS_ID_SIZE, "%d-%d:%s",
-		 ac97->bus->card->number, ac97->num,
-		 snd_ac97_get_short_name(ac97));
+	dev_set_name(&ac97->dev, "%d-%d:%s",
+		     ac97->bus->card->number, ac97->num,
+		     snd_ac97_get_short_name(ac97));
 	if ((err = device_register(&ac97->dev)) < 0) {
 		snd_printk(KERN_ERR "Can't register ac97 bus\n");
 		ac97->dev.bus = NULL;
@@ -1983,10 +2005,14 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 		.dev_disconnect =	snd_ac97_dev_disconnect,
 	};
 
-	snd_assert(rac97 != NULL, return -EINVAL);
-	*rac97 = NULL;
-	snd_assert(bus != NULL && template != NULL, return -EINVAL);
-	snd_assert(template->num < 4 && bus->codec[template->num] == NULL, return -EINVAL);
+	if (rac97)
+		*rac97 = NULL;
+	if (snd_BUG_ON(!bus || !template))
+		return -EINVAL;
+	if (snd_BUG_ON(template->num >= 4))
+		return -EINVAL;
+	if (bus->codec[template->num])
+		return -EBUSY;
 
 	card = bus->card;
 	ac97 = kzalloc(sizeof(*ac97), GFP_KERNEL);
@@ -2036,11 +2062,12 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 	else {
 		udelay(50);
 		if (ac97->scaps & AC97_SCAP_SKIP_AUDIO)
-			err = ac97_reset_wait(ac97, HZ/2, 1);
+			err = ac97_reset_wait(ac97, msecs_to_jiffies(500), 1);
 		else {
-			err = ac97_reset_wait(ac97, HZ/2, 0);
+			err = ac97_reset_wait(ac97, msecs_to_jiffies(500), 0);
 			if (err < 0)
-				err = ac97_reset_wait(ac97, HZ/2, 1);
+				err = ac97_reset_wait(ac97,
+						      msecs_to_jiffies(500), 1);
 		}
 		if (err < 0) {
 			snd_printk(KERN_WARNING "AC'97 %d does not respond - RESET\n", ac97->num);
@@ -2090,10 +2117,9 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 		return -EACCES;
 	}
 
-	if (bus->ops->reset) // FIXME: always skipping?
+	if (bus->ops->reset)
 		goto __ready_ok;
 
-	/* FIXME: add powerdown control */
 	if (ac97_is_audio(ac97)) {
 		/* nothing should be in powerdown mode */
 		snd_ac97_write_cache(ac97, AC97_POWERDOWN, 0);
@@ -2104,7 +2130,7 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 		}
 		/* nothing should be in powerdown mode */
 		snd_ac97_write_cache(ac97, AC97_GENERAL_PURPOSE, 0);
-		end_time = jiffies + (HZ / 10);
+		end_time = jiffies + msecs_to_jiffies(5000);
 		do {
 			if ((snd_ac97_read(ac97, AC97_POWERDOWN) & 0x0f) == 0x0f)
 				goto __ready_ok;
@@ -2113,7 +2139,6 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 		snd_printk(KERN_WARNING "AC'97 %d analog subsections not ready\n", ac97->num);
 	}
 
-	/* FIXME: add powerdown control */
 	if (ac97_is_modem(ac97)) {
 		unsigned char tmp;
 
@@ -2136,7 +2161,7 @@ int snd_ac97_mixer(struct snd_ac97_bus *bus, struct snd_ac97_template *template,
 		udelay(100);
 		/* nothing should be in powerdown mode */
 		snd_ac97_write_cache(ac97, AC97_EXTENDED_MSTATUS, 0);
-		end_time = jiffies + (HZ / 10);
+		end_time = jiffies + msecs_to_jiffies(100);
 		do {
 			if ((snd_ac97_read(ac97, AC97_EXTENDED_MSTATUS) & tmp) == tmp)
 				goto __ready_ok;
@@ -2287,12 +2312,13 @@ static void snd_ac97_powerdown(struct snd_ac97 *ac97)
 	power |= AC97_PD_PR0 | AC97_PD_PR1;	/* ADC & DAC powerdown */
 	snd_ac97_write(ac97, AC97_POWERDOWN, power);
 	udelay(100);
-	power |= AC97_PD_PR2 | AC97_PD_PR3;	/* Analog Mixer powerdown */
+	power |= AC97_PD_PR2;	/* Analog Mixer powerdown (Vref on) */
 	snd_ac97_write(ac97, AC97_POWERDOWN, power);
 	if (ac97_is_power_save_mode(ac97)) {
+		power |= AC97_PD_PR3;	/* Analog Mixer powerdown */
+		snd_ac97_write(ac97, AC97_POWERDOWN, power);
 		udelay(100);
 		/* AC-link powerdown, internal Clk disable */
-		/* FIXME: this may cause click noises on some boards */
 		power |= AC97_PD_PR4 | AC97_PD_PR5;
 		snd_ac97_write(ac97, AC97_POWERDOWN, power);
 	}
@@ -2354,7 +2380,8 @@ int snd_ac97_update_power(struct snd_ac97 *ac97, int reg, int powerup)
 		 * (for avoiding loud click noises for many (OSS) apps
 		 *  that open/close frequently)
 		 */
-		schedule_delayed_work(&ac97->power_work, HZ*2);
+		schedule_delayed_work(&ac97->power_work,
+				      msecs_to_jiffies(power_save * 1000));
 	else {
 		cancel_delayed_work(&ac97->power_work);
 		update_power_regs(ac97);
@@ -2436,7 +2463,7 @@ EXPORT_SYMBOL(snd_ac97_suspend);
 /*
  * restore ac97 status
  */
-void snd_ac97_restore_status(struct snd_ac97 *ac97)
+static void snd_ac97_restore_status(struct snd_ac97 *ac97)
 {
 	int i;
 
@@ -2457,7 +2484,7 @@ void snd_ac97_restore_status(struct snd_ac97 *ac97)
 /*
  * restore IEC958 status
  */
-void snd_ac97_restore_iec958(struct snd_ac97 *ac97)
+static void snd_ac97_restore_iec958(struct snd_ac97 *ac97)
 {
 	if (ac97->ext_id & AC97_EI_SPDIF) {
 		if (ac97->regs[AC97_EXTENDED_STATUS] & AC97_EA_SPDIF) {
@@ -2494,7 +2521,10 @@ void snd_ac97_resume(struct snd_ac97 *ac97)
 
 	snd_ac97_write(ac97, AC97_POWERDOWN, 0);
 	if (! (ac97->flags & AC97_DEFAULT_POWER_OFF)) {
-		snd_ac97_write(ac97, AC97_RESET, 0);
+		if (!(ac97->scaps & AC97_SCAP_SKIP_AUDIO))
+			snd_ac97_write(ac97, AC97_RESET, 0);
+		else if (!(ac97->scaps & AC97_SCAP_SKIP_MODEM))
+			snd_ac97_write(ac97, AC97_EXTENDED_MID, 0);
 		udelay(100);
 		snd_ac97_write(ac97, AC97_POWERDOWN, 0);
 	}
@@ -2509,7 +2539,6 @@ void snd_ac97_resume(struct snd_ac97 *ac97)
 				break;
 			schedule_timeout_uninterruptible(1);
 		} while (time_after_eq(end_time, jiffies));
-		/* FIXME: extra delay */
 		ac97->bus->ops->write(ac97, AC97_MASTER, 0x8000);
 		if (snd_ac97_read(ac97, AC97_MASTER) != 0x8000)
 			msleep(250);
@@ -2605,7 +2634,6 @@ static int snd_ac97_swap_ctl(struct snd_ac97 *ac97, const char *s1,
 	return -ENOENT;
 }
 
-#if 1
 /* bind hp and master controls instead of using only hp control */
 static int bind_hp_volsw_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
@@ -2632,19 +2660,6 @@ static int tune_hp_only(struct snd_ac97 *ac97)
 	snd_ac97_remove_ctl(ac97, "Headphone Playback", "Volume");
 	return 0;
 }
-
-#else
-/* ac97 tune: use Headphone control as master */
-static int tune_hp_only(struct snd_ac97 *ac97)
-{
-	if (ctl_find(ac97, "Headphone Playback Switch", NULL) == NULL)
-		return -ENOENT;
-	snd_ac97_remove_ctl(ac97, "Master Playback", "Switch");
-	snd_ac97_remove_ctl(ac97, "Master Playback", "Volume");
-	snd_ac97_rename_vol_ctl(ac97, "Headphone Playback", "Master Playback");
-	return 0;
-}
-#endif
 
 /* ac97 tune: swap Headphone and Master controls */
 static int tune_swap_hp(struct snd_ac97 *ac97)
@@ -2819,18 +2834,6 @@ static int apply_quirk_str(struct snd_ac97 *ac97, const char *typestr)
 	return -EINVAL;
 }
 
-/**
- * snd_ac97_tune_hardware - tune up the hardware
- * @ac97: the ac97 instance
- * @quirk: quirk list
- * @override: explicit quirk value (overrides the list if non-NULL)
- *
- * Do some workaround for each pci device, such as renaming of the
- * headphone (true line-out) control as "Master".
- * The quirk-list must be terminated with a zero-filled entry.
- *
- * Returns zero if successful, or a negative error code on failure.
- */
 
 int snd_ac97_tune_hardware(struct snd_ac97 *ac97, struct ac97_quirk *quirk, const char *override)
 {

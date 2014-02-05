@@ -8,7 +8,9 @@ dlm-y :=			ast.o \
 				member.o \
 				memory.o \
 				midcomms.o \
+				netlink.o \
 				lowcomms.o \
+				plock.o \
 				rcom.o \
 				recover.o \
 				recoverd.o \
@@ -16,4 +18,3 @@ dlm-y :=			ast.o \
 				user.o \
 				util.o 
 dlm-$(CONFIG_DLM_DEBUG) +=	debug_fs.o
-

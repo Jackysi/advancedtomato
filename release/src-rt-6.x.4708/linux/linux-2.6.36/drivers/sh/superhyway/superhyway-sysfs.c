@@ -42,4 +42,3 @@ struct device_attribute superhyway_dev_attrs[] = {
 	__ATTR_RO(resource),
 	__ATTR_NULL,
 };
-

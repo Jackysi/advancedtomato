@@ -61,6 +61,7 @@ enum {
 	if ((DBG_##nlevel & jsm_debug))			\
 	dev_printk(KERN_##klevel, pdev->dev, fmt, ## args)
 
+#define	MAXLINES	256
 #define MAXPORTS	8
 #define MAX_STOPS_SENT	5
 
@@ -130,8 +131,6 @@ struct jsm_board
 	struct pci_dev	*pci_dev;
 	u32		maxports;	/* MAX ports this board can handle */
 
-	spinlock_t	bd_lock;	/* Used to protect board */
-
 	spinlock_t	bd_intr_lock;	/* Used to protect the poller tasklet and
 					 * the interrupt routine from each other.
 					 */
@@ -139,7 +138,6 @@ struct jsm_board
 	u32		nasync;		/* Number of ports on card */
 
 	u32		irq;		/* Interrupt request number */
-	u64		intr_count;	/* Count of interrupts */
 
 	u64		membase;	/* Start of base memory of the card */
 	u64		membase_end;	/* End of base memory of the card */
@@ -207,19 +205,12 @@ struct jsm_channel {
 
 	u64		ch_close_delay;	/* How long we should drop RTS/DTR for */
 
-	u64		ch_cpstime;	/* Time for CPS calculations	*/
-
 	tcflag_t	ch_c_iflag;	/* channel iflags		*/
 	tcflag_t	ch_c_cflag;	/* channel cflags		*/
 	tcflag_t	ch_c_oflag;	/* channel oflags		*/
 	tcflag_t	ch_c_lflag;	/* channel lflags		*/
 	u8		ch_stopc;	/* Stop character		*/
 	u8		ch_startc;	/* Start character		*/
-
-	u32		ch_old_baud;	/* Cache of the current baud */
-	u32		ch_custom_speed;/* Custom baud, if set */
-
-	u32		ch_wopen;	/* Waiting for open process cnt */
 
 	u8		ch_mostat;	/* FEP output modem status	*/
 	u8		ch_mistat;	/* FEP input modem status	*/
@@ -373,6 +364,7 @@ struct neo_uart_struct {
 #define PCI_DEVICE_NEO_2DB9PRI_PCI_NAME		"Neo 2 - DB9 Universal PCI - Powered Ring Indicator"
 #define PCI_DEVICE_NEO_2RJ45_PCI_NAME		"Neo 2 - RJ45 Universal PCI"
 #define PCI_DEVICE_NEO_2RJ45PRI_PCI_NAME	"Neo 2 - RJ45 Universal PCI - Powered Ring Indicator"
+#define PCIE_DEVICE_NEO_IBM_PCI_NAME		"Neo 4 - PCI Express - IBM"
 
 /*
  * Our Global Variables.

@@ -250,5 +250,3 @@ typedef struct keyspan_usa67_globalDebugMessage
 #define	STATUS_RATION	10
 
 #endif
-
-

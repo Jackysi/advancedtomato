@@ -9,9 +9,6 @@ main(int argc, char **argv)
 	unsigned char ei[EI_NIDENT];
 	union { short s; char c[2]; } endian_test;
 
-	if (argc != 2) {
-		fprintf(stderr, "Error: no arch\n");
-	}
 	if (fread(ei, 1, EI_NIDENT, stdin) != EI_NIDENT) {
 		fprintf(stderr, "Error: input truncated\n");
 		return 1;
@@ -55,12 +52,5 @@ main(int argc, char **argv)
 	else
 		exit(1);
 
-	if ((strcmp(argv[1], "v850") == 0) || (strcmp(argv[1], "h8300") == 0)
-	    || (strcmp(argv[1], "blackfin") == 0))
-		printf("#define MODULE_SYMBOL_PREFIX \"_\"\n");
-	else
-		printf("#define MODULE_SYMBOL_PREFIX \"\"\n");
-
 	return 0;
 }
-

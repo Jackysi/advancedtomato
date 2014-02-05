@@ -28,8 +28,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * $Id$
  */
 
 #include <asm/page.h>		/* PAGE_SHIFT */
@@ -75,6 +73,5 @@ void mthca_cleanup_uar_table(struct mthca_dev *dev)
 {
 	mthca_cleanup_db_tab(dev);
 
-	/* XXX check if any UARs are still allocated? */
 	mthca_alloc_cleanup(&dev->uar_table.alloc);
 }

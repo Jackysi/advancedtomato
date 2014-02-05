@@ -5,6 +5,7 @@
  *
  * Copyright (c) 1996, 1998, 1999, 2004 by Ralf Baechle
  * Copyright (c) 1999 Silicon Graphics, Inc.
+ * Copyright (C) 2011 MIPS Technologies, Inc.
  */
 #include <asm/asm.h>
 #include <asm/asm-offsets.h>
@@ -26,20 +27,34 @@
  *       the maximum is a tad hairier ...
  */
 LEAF(__strnlen_user_asm)
+	.set	noreorder
 	LONG_L		v0, TI_ADDR_LIMIT($28)	# pointer ok?
 	and		v0, a0
-	bnez		v0, fault
+#ifdef CONFIG_CPU_MICROMIPS
+	bnezc		v0, .Lfault
+#else
+	bnez		v0, .Lfault
+#endif
 
 FEXPORT(__strnlen_user_nocheck_asm)
-	move		v0, a0
 	PTR_ADDU	a1, a0			# stop pointer
+	move		v0, a0
 1:	beq		v0, a1, 1f		# limit reached?
-	EX(lb, t0, (v0), fault)
-	PTR_ADDU	v0, 1
+	 nop
+	EX(lb, t0, (v0), .Lfault)
+#ifdef CONFIG_CPU_MICROMIPS
+	addius5		v0, 1
+	bnezc		t0, 1b
+1:	jr		ra
+	PTR_SUBU	v0, a0
+#else
 	bnez		t0, 1b
-1:	PTR_SUBU	v0, a0
+	PTR_ADDU	v0, 1
 	jr		ra
+1:	PTR_SUBU	v0, a0
+#endif
 	END(__strnlen_user_asm)
 
-fault:	move		v0, zero
+.Lfault:
 	jr		ra
+	move		v0, zero

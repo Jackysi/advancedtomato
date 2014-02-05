@@ -2,13 +2,13 @@
  * ichxrom.c
  *
  * Normal mappings of chips in physical memory
- * $Id: ichxrom.c,v 1.19 2005/11/07 11:14:27 gleixner Exp $
  */
 
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <asm/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -196,7 +196,6 @@ static int __devinit ichxrom_init_one (struct pci_dev *pdev,
 	if ((window->phys & 0x3fffff) != 0) {
 		map_top = window->phys + 0x400000;
 	}
-#if 1
 	/* The probe sequence run over the firmware hub lock
 	 * registers sets them to 0x7 (no access).
 	 * Probe at most the last 4M of the address space.
@@ -204,7 +203,6 @@ static int __devinit ichxrom_init_one (struct pci_dev *pdev,
 	if (map_top < 0xffc00000) {
 		map_top = 0xffc00000;
 	}
-#endif
 	/* Loop through and look for rom chips */
 	while((map_top - 1) < 0xffffffffUL) {
 		struct cfi_private *cfi;
@@ -259,8 +257,8 @@ static int __devinit ichxrom_init_one (struct pci_dev *pdev,
 		/* Trim the size if we are larger than the map */
 		if (map->mtd->size > map->map.size) {
 			printk(KERN_WARNING MOD_NAME
-				" rom(%u) larger than window(%lu). fixing...\n",
-				map->mtd->size, map->map.size);
+				" rom(%llu) larger than window(%lu). fixing...\n",
+				(unsigned long long)map->mtd->size, map->map.size);
 			map->mtd->size = map->map.size;
 		}
 		if (window->rsrc.parent) {
@@ -338,16 +336,6 @@ static struct pci_device_id ichxrom_pci_tbl[] __devinitdata = {
 	{ 0, },
 };
 
-#if 0
-MODULE_DEVICE_TABLE(pci, ichxrom_pci_tbl);
-
-static struct pci_driver ichxrom_driver = {
-	.name =		MOD_NAME,
-	.id_table =	ichxrom_pci_tbl,
-	.probe =	ichxrom_init_one,
-	.remove =	ichxrom_remove_one,
-};
-#endif
 
 static int __init init_ichxrom(void)
 {
@@ -365,9 +353,6 @@ static int __init init_ichxrom(void)
 		return ichxrom_init_one(pdev, &ichxrom_pci_tbl[0]);
 	}
 	return -ENXIO;
-#if 0
-	return pci_register_driver(&ichxrom_driver);
-#endif
 }
 
 static void __exit cleanup_ichxrom(void)

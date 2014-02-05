@@ -26,12 +26,8 @@
 #include <linux/init.h>
 #include <linux/hash.h>
 #include <linux/highmem.h>
-#include <linux/blktrace_api.h>
+#include <linux/kgdb.h>
 #include <asm/tlbflush.h>
-void __this_fixmap_does_not_exist(void)
-{
-	panic("\n !!!! error , this fixmap not match ");
-}
 
 /*
  * Virtual_count is not a pure "count".
@@ -41,19 +37,24 @@ void __this_fixmap_does_not_exist(void)
  *    since the last TLB flush - so we can't use it.
  *  n means that there are (n-1) current users of it.
  */
-
 #ifdef CONFIG_HIGHMEM
 
 unsigned long totalhigh_pages __read_mostly;
+EXPORT_SYMBOL(totalhigh_pages);
 
 unsigned int nr_free_highpages (void)
 {
 	pg_data_t *pgdat;
 	unsigned int pages = 0;
 
-	for_each_online_pgdat(pgdat)
+	for_each_online_pgdat(pgdat) {
 		pages += zone_page_state(&pgdat->node_zones[ZONE_HIGHMEM],
 			NR_FREE_PAGES);
+		if (zone_movable_is_highmem())
+			pages += zone_page_state(
+					&pgdat->node_zones[ZONE_MOVABLE],
+					NR_FREE_PAGES);
+	}
 
 	return pages;
 }
@@ -66,9 +67,29 @@ pte_t * pkmap_page_table;
 
 static DECLARE_WAIT_QUEUE_HEAD(pkmap_map_wait);
 
+/*
+ * Most architectures have no use for kmap_high_get(), so let's abstract
+ * the disabling of IRQ out of the locking in that case to save on a
+ * potential useless overhead.
+ */
+#ifdef ARCH_NEEDS_KMAP_HIGH_GET
+#define lock_kmap()             spin_lock_irq(&kmap_lock)
+#define unlock_kmap()           spin_unlock_irq(&kmap_lock)
+#define lock_kmap_any(flags)    spin_lock_irqsave(&kmap_lock, flags)
+#define unlock_kmap_any(flags)  spin_unlock_irqrestore(&kmap_lock, flags)
+#else
+#define lock_kmap()             spin_lock(&kmap_lock)
+#define unlock_kmap()           spin_unlock(&kmap_lock)
+#define lock_kmap_any(flags)    \
+		do { spin_lock(&kmap_lock); (void)(flags); } while (0)
+#define unlock_kmap_any(flags)  \
+		do { spin_unlock(&kmap_lock); (void)(flags); } while (0)
+#endif
+
 static void flush_all_zero_pkmaps(void)
 {
 	int i;
+	int need_flush = 0;
 
 	flush_cache_kmaps();
 
@@ -100,17 +121,20 @@ static void flush_all_zero_pkmaps(void)
 			  &pkmap_page_table[i]);
 
 		set_page_address(page, NULL);
+		need_flush = 1;
 	}
-	flush_tlb_kernel_range(PKMAP_ADDR(0), PKMAP_ADDR(LAST_PKMAP));
+	if (need_flush)
+		flush_tlb_kernel_range(PKMAP_ADDR(0), PKMAP_ADDR(LAST_PKMAP));
 }
 
-/* Flush all unused kmap mappings in order to remove stray
-   mappings. */
+/**
+ * kmap_flush_unused - flush all unused kmap mappings in order to remove stray mappings
+ */
 void kmap_flush_unused(void)
 {
-	spin_lock(&kmap_lock);
+	lock_kmap();
 	flush_all_zero_pkmaps();
-	spin_unlock(&kmap_lock);
+	unlock_kmap();
 }
 
 static inline unsigned long map_new_virtual(struct page *page)
@@ -127,20 +151,8 @@ start:
 			flush_all_zero_pkmaps();
 			count = LAST_PKMAP;
 		}
-		if (!pkmap_count[last_pkmap_nr]) {
-			if (cpu_has_dc_aliases) {
-				unsigned int pfn, map_pfn;
-
-				/* check page color */
-				pfn = page_to_pfn(page);
-				map_pfn = PKMAP_ADDR(last_pkmap_nr) >> PAGE_SHIFT;
-
-				/* Avoide possibility of cache Aliasing */
-				if (!pages_do_alias((map_pfn << PAGE_SHIFT), (pfn << PAGE_SHIFT)))
-					break;      /* Found a usable entry */
-			} else
-				break;	/* Found a usable entry */
-		}
+		if (!pkmap_count[last_pkmap_nr])
+			break;	/* Found a usable entry */
 		if (--count)
 			continue;
 
@@ -152,10 +164,10 @@ start:
 
 			__set_current_state(TASK_UNINTERRUPTIBLE);
 			add_wait_queue(&pkmap_map_wait, &wait);
-			spin_unlock(&kmap_lock);
+			unlock_kmap();
 			schedule();
 			remove_wait_queue(&pkmap_map_wait, &wait);
-			spin_lock(&kmap_lock);
+			lock_kmap();
 
 			/* Somebody else might have mapped it while we slept */
 			if (page_address(page))
@@ -175,35 +187,75 @@ start:
 	return vaddr;
 }
 
-void fastcall *kmap_high(struct page *page)
+/**
+ * kmap_high - map a highmem page into memory
+ * @page: &struct page to map
+ *
+ * Returns the page's virtual memory address.
+ *
+ * We cannot call this from interrupts, as it may block.
+ */
+void *kmap_high(struct page *page)
 {
 	unsigned long vaddr;
 
 	/*
 	 * For highmem pages, we can't trust "virtual" until
 	 * after we have the lock.
-	 *
-	 * We cannot call this from interrupts, as it may block
 	 */
-	spin_lock(&kmap_lock);
+	lock_kmap();
 	vaddr = (unsigned long)page_address(page);
 	if (!vaddr)
 		vaddr = map_new_virtual(page);
 	pkmap_count[PKMAP_NR(vaddr)]++;
 	BUG_ON(pkmap_count[PKMAP_NR(vaddr)] < 2);
-	spin_unlock(&kmap_lock);
+	unlock_kmap();
 	return (void*) vaddr;
 }
 
 EXPORT_SYMBOL(kmap_high);
 
-void fastcall kunmap_high(struct page *page)
+#ifdef ARCH_NEEDS_KMAP_HIGH_GET
+/**
+ * kmap_high_get - pin a highmem page into memory
+ * @page: &struct page to pin
+ *
+ * Returns the page's current virtual memory address, or NULL if no mapping
+ * exists.  If and only if a non null address is returned then a
+ * matching call to kunmap_high() is necessary.
+ *
+ * This can be called from any context.
+ */
+void *kmap_high_get(struct page *page)
+{
+	unsigned long vaddr, flags;
+
+	lock_kmap_any(flags);
+	vaddr = (unsigned long)page_address(page);
+	if (vaddr) {
+		BUG_ON(pkmap_count[PKMAP_NR(vaddr)] < 1);
+		pkmap_count[PKMAP_NR(vaddr)]++;
+	}
+	unlock_kmap_any(flags);
+	return (void*) vaddr;
+}
+#endif
+
+/**
+ * kunmap_high - map a highmem page into memory
+ * @page: &struct page to unmap
+ *
+ * If ARCH_NEEDS_KMAP_HIGH_GET is not defined then this may be called
+ * only from user context.
+ */
+void kunmap_high(struct page *page)
 {
 	unsigned long vaddr;
 	unsigned long nr;
+	unsigned long flags;
 	int need_wakeup;
 
-	spin_lock(&kmap_lock);
+	lock_kmap_any(flags);
 	vaddr = (unsigned long)page_address(page);
 	BUG_ON(!vaddr);
 	nr = PKMAP_NR(vaddr);
@@ -229,7 +281,7 @@ void fastcall kunmap_high(struct page *page)
 		 */
 		need_wakeup = waitqueue_active(&pkmap_map_wait);
 	}
-	spin_unlock(&kmap_lock);
+	unlock_kmap_any(flags);
 
 	/* do wake-up, if needed, race-free outside of the spin lock */
 	if (need_wakeup)
@@ -271,6 +323,12 @@ static struct page_address_slot *page_slot(struct page *page)
 	return &page_address_htable[hash_ptr(page, PA_HASH_ORDER)];
 }
 
+/**
+ * page_address - get the mapped virtual address of a page
+ * @page: &struct page to get the virtual address of
+ *
+ * Returns the page's virtual address.
+ */
 void *page_address(struct page *page)
 {
 	unsigned long flags;
@@ -300,6 +358,11 @@ done:
 
 EXPORT_SYMBOL(page_address);
 
+/**
+ * set_page_address - set a page's virtual address
+ * @page: &struct page to set
+ * @virtual: virtual address to use
+ */
 void set_page_address(struct page *page, void *virtual)
 {
 	unsigned long flags;
@@ -359,3 +422,61 @@ void __init page_address_init(void)
 }
 
 #endif	/* defined(CONFIG_HIGHMEM) && !defined(WANT_PAGE_VIRTUAL) */
+
+#ifdef CONFIG_DEBUG_HIGHMEM
+
+void debug_kmap_atomic(enum km_type type)
+{
+	static int warn_count = 10;
+
+	if (unlikely(warn_count < 0))
+		return;
+
+	if (unlikely(in_interrupt())) {
+		if (in_nmi()) {
+			if (type != KM_NMI && type != KM_NMI_PTE) {
+				WARN_ON(1);
+				warn_count--;
+			}
+		} else if (in_irq()) {
+			if (type != KM_IRQ0 && type != KM_IRQ1 &&
+			    type != KM_BIO_SRC_IRQ && type != KM_BIO_DST_IRQ &&
+			    type != KM_BOUNCE_READ && type != KM_IRQ_PTE) {
+				WARN_ON(1);
+				warn_count--;
+			}
+		} else if (!irqs_disabled()) {	/* softirq */
+			if (type != KM_IRQ0 && type != KM_IRQ1 &&
+			    type != KM_SOFTIRQ0 && type != KM_SOFTIRQ1 &&
+			    type != KM_SKB_SUNRPC_DATA &&
+			    type != KM_SKB_DATA_SOFTIRQ &&
+			    type != KM_BOUNCE_READ) {
+				WARN_ON(1);
+				warn_count--;
+			}
+		}
+	}
+
+	if (type == KM_IRQ0 || type == KM_IRQ1 || type == KM_BOUNCE_READ ||
+			type == KM_BIO_SRC_IRQ || type == KM_BIO_DST_IRQ ||
+			type == KM_IRQ_PTE || type == KM_NMI ||
+			type == KM_NMI_PTE ) {
+		if (!irqs_disabled()) {
+			WARN_ON(1);
+			warn_count--;
+		}
+	} else if (type == KM_SOFTIRQ0 || type == KM_SOFTIRQ1) {
+		if (irq_count() == 0 && !irqs_disabled()) {
+			WARN_ON(1);
+			warn_count--;
+		}
+	}
+#ifdef CONFIG_KGDB_KDB
+	if (unlikely(type == KM_KDB && atomic_read(&kgdb_active) == -1)) {
+		WARN_ON(1);
+		warn_count--;
+	}
+#endif /* CONFIG_KGDB_KDB */
+}
+
+#endif

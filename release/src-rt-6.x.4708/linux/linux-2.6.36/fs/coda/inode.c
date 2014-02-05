@@ -18,6 +18,7 @@
 #include <linux/smp_lock.h>
 #include <linux/file.h>
 #include <linux/vfs.h>
+#include <linux/slab.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -34,7 +35,7 @@
 #include "coda_int.h"
 
 /* VFS super_block ops */
-static void coda_clear_inode(struct inode *);
+static void coda_evict_inode(struct inode *);
 static void coda_put_super(struct super_block *);
 static int coda_statfs(struct dentry *dentry, struct kstatfs *buf);
 
@@ -58,19 +59,19 @@ static void coda_destroy_inode(struct inode *inode)
 	kmem_cache_free(coda_inode_cachep, ITOC(inode));
 }
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct coda_inode_info *ei = (struct coda_inode_info *) foo;
 
 	inode_init_once(&ei->vfs_inode);
 }
- 
+
 int coda_init_inodecache(void)
 {
 	coda_inode_cachep = kmem_cache_create("coda_inode_cache",
 				sizeof(struct coda_inode_info),
 				0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD,
-				init_once, NULL);
+				init_once);
 	if (coda_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;
@@ -83,7 +84,7 @@ void coda_destroy_inodecache(void)
 
 static int coda_remount(struct super_block *sb, int *flags, char *data)
 {
-	*flags |= MS_NODIRATIME;
+	*flags |= MS_NOATIME;
 	return 0;
 }
 
@@ -92,7 +93,7 @@ static const struct super_operations coda_super_operations =
 {
 	.alloc_inode	= coda_alloc_inode,
 	.destroy_inode	= coda_destroy_inode,
-	.clear_inode	= coda_clear_inode,
+	.evict_inode	= coda_evict_inode,
 	.put_super	= coda_put_super,
 	.statfs		= coda_statfs,
 	.remount_fs	= coda_remount,
@@ -141,11 +142,10 @@ static int get_device_index(struct coda_mount_data *data)
 
 static int coda_fill_super(struct super_block *sb, void *data, int silent)
 {
-        struct inode *root = NULL; 
-	struct coda_sb_info *sbi = NULL;
+	struct inode *root = NULL;
 	struct venus_comm *vc = NULL;
 	struct CodaFid fid;
-        int error;
+	int error;
 	int idx;
 
 	idx = get_device_index((struct coda_mount_data *) data);
@@ -167,21 +167,19 @@ static int coda_fill_super(struct super_block *sb, void *data, int silent)
 		return -EBUSY;
 	}
 
-	sbi = kmalloc(sizeof(struct coda_sb_info), GFP_KERNEL);
-	if(!sbi) {
-		return -ENOMEM;
-	}
+	error = bdi_setup_and_register(&vc->bdi, "coda", BDI_CAP_MAP_COPY);
+	if (error)
+		goto bdi_err;
 
 	vc->vc_sb = sb;
 
-	sbi->sbi_vcomm = vc;
-
-        sb->s_fs_info = sbi;
-	sb->s_flags |= MS_NODIRATIME; /* probably even noatime */
-        sb->s_blocksize = 1024;	/* XXXXX  what do we put here?? */
-        sb->s_blocksize_bits = 10;
-        sb->s_magic = CODA_SUPER_MAGIC;
-        sb->s_op = &coda_super_operations;
+	sb->s_fs_info = vc;
+	sb->s_flags |= MS_NOATIME;
+	sb->s_blocksize = 4096;	/* XXXXX  what do we put here?? */
+	sb->s_blocksize_bits = 12;
+	sb->s_magic = CODA_SUPER_MAGIC;
+	sb->s_op = &coda_super_operations;
+	sb->s_bdi = &vc->bdi;
 
 	/* get root fid from Venus: this needs the root inode */
 	error = venus_rootfid(sb, &fid);
@@ -207,30 +205,29 @@ static int coda_fill_super(struct super_block *sb, void *data, int silent)
         return 0;
 
  error:
-	if (sbi) {
-		kfree(sbi);
-		if(vc)
-			vc->vc_sb = NULL;		
-	}
+	bdi_destroy(&vc->bdi);
+ bdi_err:
 	if (root)
-                iput(root);
+		iput(root);
+	if (vc)
+		vc->vc_sb = NULL;
 
-        return -EINVAL;
+	return -EINVAL;
 }
 
 static void coda_put_super(struct super_block *sb)
 {
-        struct coda_sb_info *sbi;
-
-	sbi = coda_sbp(sb);
-	sbi->sbi_vcomm->vc_sb = NULL;
+	bdi_destroy(&coda_vcp(sb)->bdi);
+	coda_vcp(sb)->vc_sb = NULL;
+	sb->s_fs_info = NULL;
 
 	printk("Coda: Bye bye.\n");
-	kfree(sbi);
 }
 
-static void coda_clear_inode(struct inode *inode)
+static void coda_evict_inode(struct inode *inode)
 {
+	truncate_inode_pages(&inode->i_data, 0);
+	end_writeback(inode);
 	coda_cache_clear_inode(inode);
 }
 
@@ -296,7 +293,7 @@ static int coda_statfs(struct dentry *dentry, struct kstatfs *buf)
 
 	/* and fill in the rest */
 	buf->f_type = CODA_SUPER_MAGIC;
-	buf->f_bsize = 1024;
+	buf->f_bsize = 4096;
 	buf->f_namelen = CODA_MAXNAMLEN;
 
 	return 0; 
@@ -317,4 +314,3 @@ struct file_system_type coda_fs_type = {
 	.kill_sb	= kill_anon_super,
 	.fs_flags	= FS_BINARY_MOUNTDATA,
 };
-

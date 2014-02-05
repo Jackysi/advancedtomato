@@ -18,4 +18,3 @@ quiet_cmd_devlist = DEVLIST $@
       cmd_devlist = ( cd $(obj); ./gen-devlist ) < $<
 $(obj)/devlist.h: $(src)/zorro.ids $(obj)/gen-devlist
 	$(call cmd,devlist)
-

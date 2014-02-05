@@ -25,7 +25,7 @@ char arch[] = "PowerPC";
 #define N_DESCR	6
 unsigned int descr[N_DESCR] = {
 	0xffffffff,		/* real-mode = true */
-	0x00c00000,		/* real-base, i.e. where we expect OF to be */
+	0x02000000,		/* real-base, i.e. where we expect OF to be */
 	0xffffffff,		/* real-size */
 	0xffffffff,		/* virt-base */
 	0xffffffff,		/* virt-size */
@@ -141,7 +141,6 @@ main(int ac, char **av)
 		ph += ps;
 	}
 
-	/* XXX check that the area we want to use is all zeroes */
 	for (i = 0; i < 2 * ps + nnote + nnote2; ++i)
 		if (buf[ph + i] != 0)
 			goto nospace;
@@ -153,7 +152,6 @@ main(int ac, char **av)
 	PUT_32BE(ph + PH_FILESZ, nnote);
 
 	/* fill in the note area we point to */
-	/* XXX we should probably make this a proper section */
 	PUT_32BE(ns, strlen(arch) + 1);
 	PUT_32BE(ns + 4, N_DESCR * 4);
 	PUT_32BE(ns + 8, 0x1275);

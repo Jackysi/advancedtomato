@@ -1,11 +1,10 @@
 /*
- *  drivers/s390/char/raw3270.h
- *    IBM/3270 Driver
+ * IBM/3270 Driver
  *
- *  Author(s):
- *    Original 3270 Code for 2.4 written by Richard Hitt (UTS Global)
- *    Rewritten for 2.5 by Martin Schwidefsky <schwidefsky@de.ibm.com>
- *	-- Copyright (C) 2003 IBM Deutschland Entwicklung GmbH, IBM Corporation
+ * Author(s):
+ *   Original 3270 Code for 2.4 written by Richard Hitt (UTS Global)
+ *   Rewritten for 2.5 by Martin Schwidefsky <schwidefsky@de.ibm.com>
+ *     Copyright IBM Corp. 2003, 2009
  */
 
 #include <asm/idals.h>
@@ -16,8 +15,8 @@
 #define TUBOCMD		_IO('3', 4)	/* set ccw command for fs writes. */
 #define TUBGETI		_IO('3', 7)	/* get ccw command for fs reads. */
 #define TUBGETO		_IO('3', 8)	/* get ccw command for fs writes. */
-#define TUBSETMOD	_IO('3',12)	/* FIXME: what does it do ?*/
-#define TUBGETMOD	_IO('3',13)	/* FIXME: what does it do ?*/
+#define TUBSETMOD	_IO('3',12)
+#define TUBGETMOD	_IO('3',13)
 
 /* Local Channel Commands */
 #define TC_WRITE	0x01		/* Write */
@@ -195,6 +194,7 @@ void raw3270_wait_cons_dev(struct raw3270 *);
 /* Notifier for device addition/removal */
 int raw3270_register_notifier(void (*notifier)(int, int));
 void raw3270_unregister_notifier(void (*notifier)(int, int));
+void raw3270_pm_unfreeze(struct raw3270_view *);
 
 /*
  * Little memory allocator for string objects. 
@@ -276,4 +276,3 @@ add_string_memory(struct list_head *free_list, void *mem, unsigned long size)
 	cs->size = size - sizeof(struct string);
 	free_string(free_list, cs);
 }
-

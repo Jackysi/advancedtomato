@@ -121,7 +121,7 @@ static int init_model2_yb = -1;
 
 /* 01.01.08 - Added for RCA video in support -LO */
 /* Settings for camera model 3 */
-static int init_model3_input = 0;
+static int init_model3_input;
 
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level: 0-9 (default=0)");
@@ -235,7 +235,7 @@ static videosize_t ibmcam_size_to_videosize(int size)
  * History:
  * 1/21/00  Created.
  */
-static enum ParseState ibmcam_find_header(struct uvd *uvd) /* FIXME: Add frame here */
+static enum ParseState ibmcam_find_header(struct uvd *uvd)
 {
 	struct usbvideo_frame *frame;
 	ibmcam_t *icam;
@@ -257,17 +257,11 @@ static enum ParseState ibmcam_find_header(struct uvd *uvd) /* FIXME: Add frame h
 			    (RING_QUEUE_PEEK(&uvd->dp, 1) == 0xFF) &&
 			    (RING_QUEUE_PEEK(&uvd->dp, 2) == 0x00))
 			{
-#if 0				/* This code helps to detect new frame markers */
-				info("Header sig: 00 FF 00 %02X", RING_QUEUE_PEEK(&uvd->dp, 3));
-#endif
 				frame->header = RING_QUEUE_PEEK(&uvd->dp, 3);
 				if ((frame->header == HDRSIG_MODEL1_128x96) ||
 				    (frame->header == HDRSIG_MODEL1_176x144) ||
 				    (frame->header == HDRSIG_MODEL1_352x288))
 				{
-#if 0
-					info("Header found.");
-#endif
 					RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 					icam->has_hdr = 1;
 					break;
@@ -294,9 +288,6 @@ case IBMCAM_MODEL_4:
 			if ((RING_QUEUE_PEEK(&uvd->dp, 0) == 0x00) &&
 			    (RING_QUEUE_PEEK(&uvd->dp, 1) == 0xFF))
 			{
-#if 0
-				info("Header found.");
-#endif
 				RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 				icam->has_hdr = 1;
 				frame->header = HDRSIG_MODEL1_176x144;
@@ -337,9 +328,6 @@ case IBMCAM_MODEL_4:
 				byte3 = RING_QUEUE_PEEK(&uvd->dp, 2);
 				byte4 = RING_QUEUE_PEEK(&uvd->dp, 3);
 				frame->header = (byte3 << 8) | byte4;
-#if 0
-				info("Header found.");
-#endif
 				RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 				icam->has_hdr = 1;
 				break;
@@ -354,7 +342,8 @@ case IBMCAM_MODEL_4:
 	}
 	if (!icam->has_hdr) {
 		if (uvd->debug > 2)
-			info("Skipping frame, no header");
+			dev_info(&uvd->dev->dev,
+				 "Skipping frame, no header\n");
 		return scan_EndParse;
 	}
 
@@ -736,12 +725,12 @@ static enum ParseState ibmcam_model2_320x240_parse_lines(
 		 * make black color and quit the horizontal scanning loop.
 		 */
 		if (((frame->curline + 2) >= scanHeight) || (i >= scanLength)) {
-			const int j = i * V4L_BYTES_PER_PIXEL;
+			const int offset = i * V4L_BYTES_PER_PIXEL;
 #if USES_IBMCAM_PUTPIXEL
 			/* Refresh 'f' because we don't use it much with PUTPIXEL */
-			f = frame->data + (v4l_linesize * frame->curline) + j;
+			f = frame->data + (v4l_linesize * frame->curline) + offset;
 #endif
-			memset(f, 0, v4l_linesize - j);
+			memset(f, 0, v4l_linesize - offset);
 			break;
 		}
 
@@ -802,6 +791,21 @@ static enum ParseState ibmcam_model2_320x240_parse_lines(
 		return scan_Continue;
 }
 
+/*
+ * ibmcam_model3_parse_lines()
+ *
+ * | Even lines |     Odd Lines       |
+ * -----------------------------------|
+ * |YYY........Y|UYVYUYVY.........UYVY|
+ * |YYY........Y|UYVYUYVY.........UYVY|
+ * |............|.....................|
+ * |YYY........Y|UYVYUYVY.........UYVY|
+ * |------------+---------------------|
+ *
+ * There is one (U, V) chroma pair for every four luma (Y) values.  This
+ * function reads a pair of lines at a time and obtains missing chroma values
+ * from adjacent pixels.
+ */
 static enum ParseState ibmcam_model3_parse_lines(
 	struct uvd *uvd,
 	struct usbvideo_frame *frame,
@@ -816,6 +820,7 @@ static enum ParseState ibmcam_model3_parse_lines(
 	const int ccm = 128; /* Color correction median - see below */
 	int i, u, v, rw, data_w=0, data_h=0, color_corr;
 	static unsigned char lineBuffer[640*3];
+	int line;
 
 	color_corr = (uvd->vpic.colour - 0x8000) >> 8; /* -128..+127 = -ccm..+(ccm-1)*/
 	RESTRICT_TO_RANGE(color_corr, -ccm, ccm+1);
@@ -865,19 +870,21 @@ static enum ParseState ibmcam_model3_parse_lines(
 	 */
 	if ((frame->curline + 1) >= data_h) {
 		if (uvd->debug >= 3)
-			info("Reached line %d. (frame is done)", frame->curline);
+			dev_info(&uvd->dev->dev,
+				 "Reached line %d. (frame is done)\n",
+				 frame->curline);
 		return scan_NextFrame;
 	}
 
-	/* Make sure there's enough data for the entire line */
-	len = 3 * data_w; /* <y-data> <uv-data> */
+	/* Make sure that lineBuffer can store two lines of data */
+	len = 3 * data_w; /* <y-data> <uyvy-data> */
 	assert(len <= sizeof(lineBuffer));
 
-	/* Make sure there's enough data for the entire line */
+	/* Make sure there's enough data for two lines */
 	if (RingQueue_GetLength(&uvd->dp) < len)
 		return scan_Out;
 
-	/* Suck one line out of the ring queue */
+	/* Suck two lines of data out of the ring queue */
 	RingQueue_Dequeue(&uvd->dp, lineBuffer, len);
 
 	data = lineBuffer;
@@ -887,15 +894,23 @@ static enum ParseState ibmcam_model3_parse_lines(
 	rw = (int)VIDEOSIZE_Y(frame->request) - (int)(frame->curline) - 1;
 	RESTRICT_TO_RANGE(rw, 0, VIDEOSIZE_Y(frame->request)-1);
 
-	for (i = 0; i < VIDEOSIZE_X(frame->request); i++) {
-		int y, rv, gv, bv;	/* RGB components */
+	/* Iterate over two lines. */
+	for (line = 0; line < 2; line++) {
+		for (i = 0; i < VIDEOSIZE_X(frame->request); i++) {
+			int y;
+			int rv, gv, bv;	/* RGB components */
 
-		if (i < data_w) {
-			y = data[i];	/* Luminosity is the first line */
+			if (i >= data_w) {
+				RGB24_PUTPIXEL(frame, i, rw, 0, 0, 0);
+				continue;
+			}
+
+			/* first line is YYY...Y; second is UYVY...UYVY */
+			y = data[(line == 0) ? i : (i*2 + 1)];
 
 			/* Apply static color correction */
-			u = color[i*2] + hue_corr;
-			v = color[i*2 + 1] + hue2_corr;
+			u = color[(i/2)*4] + hue_corr;
+			v = color[(i/2)*4 + 2] + hue2_corr;
 
 			/* Apply color correction */
 			if (color_corr != 0) {
@@ -903,13 +918,21 @@ static enum ParseState ibmcam_model3_parse_lines(
 				u = 128 + ((ccm + color_corr) * (u - 128)) / ccm;
 				v = 128 + ((ccm + color_corr) * (v - 128)) / ccm;
 			}
-		} else
-			y = 0, u = v = 128;
 
-		YUV_TO_RGB_BY_THE_BOOK(y, u, v, rv, gv, bv);
-		RGB24_PUTPIXEL(frame, i, rw, rv, gv, bv); /* Done by deinterlacing now */
+
+			YUV_TO_RGB_BY_THE_BOOK(y, u, v, rv, gv, bv);
+			RGB24_PUTPIXEL(frame, i, rw, rv, gv, bv);  /* No deinterlacing */
+		}
+
+		/* Check for the end of requested data */
+		if (rw == 0)
+			break;
+
+		/* Prepare for the second line */
+		rw--;
+		data = lineBuffer + data_w;
 	}
-	frame->deinterlace = Deinterlace_FillEvenLines;
+	frame->deinterlace = Deinterlace_None;
 
 	/*
 	 * Account for number of bytes that we wrote into output V4L frame.
@@ -922,8 +945,9 @@ static enum ParseState ibmcam_model3_parse_lines(
 
 	if (frame->curline >= VIDEOSIZE_Y(frame->request)) {
 		if (uvd->debug >= 3) {
-			info("All requested lines (%ld.) done.",
-			     VIDEOSIZE_Y(frame->request));
+			dev_info(&uvd->dev->dev,
+				 "All requested lines (%ld.) done.\n",
+				 VIDEOSIZE_Y(frame->request));
 		}
 		return scan_NextFrame;
 	} else
@@ -968,7 +992,9 @@ static enum ParseState ibmcam_model4_128x96_parse_lines(
 	 */
 	if ((frame->curline + 1) >= data_h) {
 		if (uvd->debug >= 3)
-			info("Reached line %d. (frame is done)", frame->curline);
+			dev_info(&uvd->dev->dev,
+				 "Reached line %d. (frame is done)\n",
+				 frame->curline);
 		return scan_NextFrame;
 	}
 
@@ -1017,8 +1043,9 @@ static enum ParseState ibmcam_model4_128x96_parse_lines(
 
 	if (frame->curline >= VIDEOSIZE_Y(frame->request)) {
 		if (uvd->debug >= 3) {
-			info("All requested lines (%ld.) done.",
-			     VIDEOSIZE_Y(frame->request));
+			dev_info(&uvd->dev->dev,
+				 "All requested lines (%ld.) done.\n",
+				 VIDEOSIZE_Y(frame->request));
 		}
 		return scan_NextFrame;
 	} else
@@ -1099,13 +1126,6 @@ static void ibmcam_ProcessIsocData(struct uvd *uvd,
 	/* Update the frame's uncompressed length. */
 	frame->seqRead_Length += copylen;
 
-#if 0
-	{
-		static unsigned char j=0;
-		memset(frame->data, j++, uvd->max_frame_size);
-		frame->frameState = FrameState_Ready;
-	}
-#endif
 }
 
 /*
@@ -1138,12 +1158,6 @@ static int ibmcam_veio(
 			cp,
 			sizeof(cp),
 			1000);
-#if 0
-		info("USB => %02x%02x%02x%02x%02x%02x%02x%02x "
-		       "(req=$%02x val=$%04x ind=$%04x)",
-		       cp[0],cp[1],cp[2],cp[3],cp[4],cp[5],cp[6],cp[7],
-		       req, value, index);
-#endif
 	} else {
 		i = usb_control_msg(
 			uvd->dev,
@@ -1417,10 +1431,9 @@ static void ibmcam_adjust_contrast(struct uvd *uvd)
  */
 static void ibmcam_change_lighting_conditions(struct uvd *uvd)
 {
-	static const char proc[] = "ibmcam_change_lighting_conditions";
-
 	if (debug > 0)
-		info("%s: Set lighting to %hu.", proc, lighting);
+		dev_info(&uvd->dev->dev,
+			 "%s: Set lighting to %hu.\n", __func__, lighting);
 
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_1:
@@ -1432,20 +1445,6 @@ static void ibmcam_change_lighting_conditions(struct uvd *uvd)
 		break;
 	}
 	case IBMCAM_MODEL_2:
-#if 0
-		/*
-		 * This command apparently requires camera to be stopped. My
-		 * experiments showed that it -is- possible to alter the lighting
-		 * conditions setting "on the fly", but why bother? This setting does
-		 * not work reliably in all cases, so I decided simply to leave the
-		 * setting where Xirlink put it - in the camera setup phase. This code
-		 * is commented out because it does not work at -any- moment, so its
-		 * presence makes no sense. You may use it for experiments.
-		 */
-		ibmcam_veio(uvd, 0, 0x0000, 0x010c);	/* Stop camera */
-		ibmcam_model2_Packet1(uvd, mod2_sensitivity, lighting);
-		ibmcam_veio(uvd, 0, 0x00c0, 0x010c);	/* Start camera */
-#endif
 		break;
 	case IBMCAM_MODEL_3:
 	case IBMCAM_MODEL_4:
@@ -1463,8 +1462,6 @@ static void ibmcam_change_lighting_conditions(struct uvd *uvd)
  */
 static void ibmcam_set_sharpness(struct uvd *uvd)
 {
-	static const char proc[] = "ibmcam_set_sharpness";
-
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_1:
 	{
@@ -1473,7 +1470,8 @@ static void ibmcam_set_sharpness(struct uvd *uvd)
 
 		RESTRICT_TO_RANGE(sharpness, SHARPNESS_MIN, SHARPNESS_MAX);
 		if (debug > 0)
-			info("%s: Set sharpness to %hu.", proc, sharpness);
+			dev_info(&uvd->dev->dev, "%s: Set sharpness to %hu.\n",
+				 __func__, sharpness);
 
 		sv = sa[sharpness - SHARPNESS_MIN];
 		for (i=0; i < 2; i++) {
@@ -1532,11 +1530,11 @@ static void ibmcam_set_sharpness(struct uvd *uvd)
  */
 static void ibmcam_set_brightness(struct uvd *uvd)
 {
-	static const char proc[] = "ibmcam_set_brightness";
 	static const unsigned short n = 1;
 
 	if (debug > 0)
-		info("%s: Set brightness to %hu.", proc, uvd->vpic.brightness);
+		dev_info(&uvd->dev->dev, "%s: Set brightness to %hu.\n",
+			 __func__, uvd->vpic.brightness);
 
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_1:
@@ -1610,19 +1608,6 @@ static void ibmcam_set_hue(struct uvd *uvd)
 	}
 	case IBMCAM_MODEL_3:
 	{
-#if 0 /* This seems not to work. No problem, will fix programmatically */
-		unsigned short hue = 0x05 + (uvd->vpic.hue / (0xFFFF / (0x37 - 0x05 + 1)));
-		RESTRICT_TO_RANGE(hue, 0x05, 0x37);
-		if (uvd->vpic_old.hue == hue)
-			return;
-		uvd->vpic_old.hue = hue;
-		ibmcam_veio(uvd, 0, 0x0000, 0x010c);	/* Stop */
-		ibmcam_model3_Packet1(uvd, 0x007e, hue);
-		ibmcam_veio(uvd, 0, 0x0001, 0x0114);
-		ibmcam_veio(uvd, 0, 0x00c0, 0x010c);	/* Go! */
-		usb_clear_halt(uvd->dev, usb_rcvisocpipe(uvd->dev, uvd->video_endp));
-		ibmcam_veio(uvd, 0, 0x0001, 0x0113);
-#endif
 		break;
 	}
 	case IBMCAM_MODEL_4:
@@ -1842,7 +1827,7 @@ static int ibmcam_model1_setup(struct uvd *uvd)
 
 	/* Default sharpness */
 	for (i=0; i < 2; i++)
-		ibmcam_PacketFormat2(uvd, sharp_13, 0x1a);	/* Level 4 FIXME */
+		ibmcam_PacketFormat2(uvd, sharp_13, 0x1a);
 
 	/* Default lighting conditions */
 	ibmcam_Packet_Format1(uvd, light_27, lighting); /* 0=Bright 2=Low */
@@ -1859,13 +1844,8 @@ static int ibmcam_model1_setup(struct uvd *uvd)
 		ibmcam_veio(uvd, 0, 0x04, 0x011a);	/* Same everywhere */
 		ibmcam_veio(uvd, 0, 0x2b, 0x011c);
 		ibmcam_veio(uvd, 0, 0x23, 0x012a);	/* Same everywhere */
-#if 0
-		ibmcam_veio(uvd, 0, 0x00, 0x0106);
-		ibmcam_veio(uvd, 0, 0x38, 0x0107);
-#else
 		ibmcam_veio(uvd, 0, 0x02, 0x0106);
 		ibmcam_veio(uvd, 0, 0x2a, 0x0107);
-#endif
 		break;
 	case VIDEOSIZE_176x144:
 		ibmcam_Packet_Format1(uvd, 0x2b, 0x1e);
@@ -2083,7 +2063,8 @@ static void ibmcam_model2_setup_after_video_if(struct uvd *uvd)
 			break;
 		}
 		if (uvd->debug > 0)
-			info("Framerate (hardware): %hd.", hw_fps);
+			dev_info(&uvd->dev->dev, "Framerate (hardware): %hd.\n",
+				 hw_fps);
 		RESTRICT_TO_RANGE(hw_fps, 0, 31);
 		ibmcam_model2_Packet1(uvd, mod2_set_framerate, hw_fps);
 	}
@@ -3455,7 +3436,7 @@ static void ibmcam_model3_setup_after_video_if(struct uvd *uvd)
 	/* 01.01.08 - Added for RCA video in support -LO */
 	if(init_model3_input) {
 		if (debug > 0)
-			info("Setting input to RCA.");
+			dev_info(&uvd->dev->dev, "Setting input to RCA.\n");
 		for (i=0; i < ARRAY_SIZE(initData); i++) {
 			ibmcam_veio(uvd, initData[i].req, initData[i].value, initData[i].index);
 		}
@@ -3501,7 +3482,6 @@ case IBMCAM_MODEL_4:
 		ibmcam_veio(uvd, 0, 0x0000, 0x0112);
 		break;
 	case IBMCAM_MODEL_3:
-#if 1
 		ibmcam_veio(uvd, 0, 0x0000, 0x010c);
 
 		/* Here we are supposed to select video interface alt. setting 0 */
@@ -3518,7 +3498,6 @@ case IBMCAM_MODEL_4:
 		ibmcam_veio(uvd, 0, 0x0000, 0x0112);
 		ibmcam_veio(uvd, 0, 0x0080, 0x0100);
 		IBMCAM_T(uvd)->initialized = 0;
-#endif
 		break;
 	} /* switch */
 }
@@ -3571,7 +3550,7 @@ static int ibmcam_setup_on_open(struct uvd *uvd)
 {
 	int setup_ok = 0; /* Success by default */
 	/* Send init sequence only once, it's large! */
-	if (!IBMCAM_T(uvd)->initialized) { /* FIXME rename */
+	if (!IBMCAM_T(uvd)->initialized) {
 		switch (IBMCAM_T(uvd)->camera_model) {
 		case IBMCAM_MODEL_1:
 			setup_ok = ibmcam_model1_setup(uvd);
@@ -3653,7 +3632,7 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 	unsigned char video_ep = 0;
 
 	if (debug >= 1)
-		info("ibmcam_probe(%p,%u.)", intf, ifnum);
+		dev_info(&dev->dev, "ibmcam_probe(%p,%u.)\n", intf, ifnum);
 
 	/* We don't handle multi-config cameras */
 	if (dev->descriptor.bNumConfigurations != 1)
@@ -3704,14 +3683,16 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 			brand = "IBM PC Camera"; /* a.k.a. Xirlink C-It */
 			break;
 		}
-		info("%s USB camera found (model %d, rev. 0x%04x)",
-		     brand, model, le16_to_cpu(dev->descriptor.bcdDevice));
+		dev_info(&dev->dev,
+			 "%s USB camera found (model %d, rev. 0x%04x)\n",
+			 brand, model, le16_to_cpu(dev->descriptor.bcdDevice));
 	} while (0);
 
 	/* Validate found interface: must have one ISO endpoint */
 	nas = intf->num_altsetting;
 	if (debug > 0)
-		info("Number of alternate settings=%d.", nas);
+		dev_info(&dev->dev, "Number of alternate settings=%d.\n",
+			 nas);
 	if (nas < 2) {
 		err("Too few alternate settings for this camera!");
 		return -ENODEV;
@@ -3735,11 +3716,11 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 			err("Alternate settings have different endpoint addresses!");
 			return -ENODEV;
 		}
-		if ((endpoint->bmAttributes & 0x03) != 0x01) {
+		if (!usb_endpoint_xfer_isoc(endpoint)) {
 			err("Interface %d. has non-ISO endpoint!", ifnum);
 			return -ENODEV;
 		}
-		if ((endpoint->bEndpointAddress & 0x80) == 0) {
+		if (usb_endpoint_dir_out(endpoint)) {
 			err("Interface %d. has ISO OUT endpoint!", ifnum);
 			return -ENODEV;
 		}
@@ -3755,7 +3736,9 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 				actInterface = i;
 				maxPS = le16_to_cpu(endpoint->wMaxPacketSize);
 				if (debug > 0)
-					info("Active setting=%d. maxPS=%d.", i, maxPS);
+					dev_info(&dev->dev,
+						 "Active setting=%d. "
+						 "maxPS=%d.\n", i, maxPS);
 			} else
 				err("More than one active alt. setting! Ignoring #%d.", i);
 		}
@@ -3784,7 +3767,7 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 		canvasY = 240;
 		break;
 	case IBMCAM_MODEL_3:
-		RESTRICT_TO_RANGE(lighting, 0, 15); /* FIXME */
+		RESTRICT_TO_RANGE(lighting, 0, 15);
 		switch (size) {
 		case SIZE_160x120:
 			canvasX = 160;
@@ -3794,7 +3777,7 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 			RESTRICT_TO_RANGE(framerate, 0, 5);
 			break;
 		default:
-			info("IBM camera: using 320x240");
+			dev_info(&dev->dev, "IBM camera: using 320x240\n");
 			size = SIZE_320x240;
 			/* No break here */
 		case SIZE_320x240:
@@ -3823,7 +3806,7 @@ static int ibmcam_probe(struct usb_interface *intf, const struct usb_device_id *
 			canvasY = 120;
 			break;
 		default:
-			info("IBM NetCamera: using 176x144");
+			dev_info(&dev->dev, "IBM NetCamera: using 176x144\n");
 			size = SIZE_176x144;
 			/* No break here */
 		case SIZE_176x144:

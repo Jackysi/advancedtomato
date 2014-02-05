@@ -28,7 +28,7 @@ struct cond_expr {
 #define COND_XOR	5 /* bool ^ bool */
 #define COND_EQ		6 /* bool == bool */
 #define COND_NEQ	7 /* bool != bool */
-#define COND_LAST	8
+#define COND_LAST	COND_NEQ
 	__u32 expr_type;
 	__u32 bool;
 	struct cond_expr *next;
@@ -59,10 +59,10 @@ struct cond_node {
 	struct cond_node *next;
 };
 
-int cond_policydb_init(struct policydb* p);
-void cond_policydb_destroy(struct policydb* p);
+int cond_policydb_init(struct policydb *p);
+void cond_policydb_destroy(struct policydb *p);
 
-int cond_init_bool_indexes(struct policydb* p);
+int cond_init_bool_indexes(struct policydb *p);
 int cond_destroy_bool(void *key, void *datum, void *p);
 
 int cond_index_bool(void *key, void *datum, void *datap);

@@ -27,10 +27,23 @@ static int hfsplus_writepage(struct page *page, struct writeback_control *wbc)
 	return block_write_full_page(page, hfsplus_get_block, wbc);
 }
 
-static int hfsplus_prepare_write(struct file *file, struct page *page, unsigned from, unsigned to)
+static int hfsplus_write_begin(struct file *file, struct address_space *mapping,
+			loff_t pos, unsigned len, unsigned flags,
+			struct page **pagep, void **fsdata)
 {
-	return cont_prepare_write(page, from, to, hfsplus_get_block,
-		&HFSPLUS_I(page->mapping->host).phys_size);
+	int ret;
+
+	*pagep = NULL;
+	ret = cont_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+				hfsplus_get_block,
+				&HFSPLUS_I(mapping->host).phys_size);
+	if (unlikely(ret)) {
+		loff_t isize = mapping->host->i_size;
+		if (pos + len > isize)
+			vmtruncate(mapping->host, isize);
+	}
+
+	return ret;
 }
 
 static sector_t hfsplus_bmap(struct address_space *mapping, sector_t block)
@@ -101,9 +114,24 @@ static ssize_t hfsplus_direct_IO(int rw, struct kiocb *iocb,
 {
 	struct file *file = iocb->ki_filp;
 	struct inode *inode = file->f_path.dentry->d_inode->i_mapping->host;
+	ssize_t ret;
 
-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+	ret = blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
 				  offset, nr_segs, hfsplus_get_block, NULL);
+
+	/*
+	 * In case of error extending write may have instantiated a few
+	 * blocks outside i_size. Trim these off again.
+	 */
+	if (unlikely((rw & WRITE) && ret < 0)) {
+		loff_t isize = i_size_read(inode);
+		loff_t end = offset + iov_length(iov, nr_segs);
+
+		if (end > isize)
+			vmtruncate(inode, isize);
+	}
+
+	return ret;
 }
 
 static int hfsplus_writepages(struct address_space *mapping,
@@ -116,8 +144,8 @@ const struct address_space_operations hfsplus_btree_aops = {
 	.readpage	= hfsplus_readpage,
 	.writepage	= hfsplus_writepage,
 	.sync_page	= block_sync_page,
-	.prepare_write	= hfsplus_prepare_write,
-	.commit_write	= generic_commit_write,
+	.write_begin	= hfsplus_write_begin,
+	.write_end	= generic_write_end,
 	.bmap		= hfsplus_bmap,
 	.releasepage	= hfsplus_releasepage,
 };
@@ -126,14 +154,14 @@ const struct address_space_operations hfsplus_aops = {
 	.readpage	= hfsplus_readpage,
 	.writepage	= hfsplus_writepage,
 	.sync_page	= block_sync_page,
-	.prepare_write	= hfsplus_prepare_write,
-	.commit_write	= generic_commit_write,
+	.write_begin	= hfsplus_write_begin,
+	.write_end	= generic_write_end,
 	.bmap		= hfsplus_bmap,
 	.direct_IO	= hfsplus_direct_IO,
 	.writepages	= hfsplus_writepages,
 };
 
-struct dentry_operations hfsplus_dentry_operations = {
+const struct dentry_operations hfsplus_dentry_operations = {
 	.d_hash       = hfsplus_hash_dentry,
 	.d_compare    = hfsplus_compare_dentry,
 };
@@ -234,18 +262,6 @@ static void hfsplus_set_perms(struct inode *inode, struct hfsplus_perm *perms)
 	perms->dev = cpu_to_be32(HFSPLUS_I(inode).dev);
 }
 
-static int hfsplus_permission(struct inode *inode, int mask, struct nameidata *nd)
-{
-	/* MAY_EXEC is also used for lookup, if no x bit is set allow lookup,
-	 * open_exec has the same test, so it's still not executable, if a x bit
-	 * is set fall back to standard permission check.
-	 */
-	if (S_ISREG(inode->i_mode) && mask & MAY_EXEC && !(inode->i_mode & 0111))
-		return 0;
-	return generic_permission(inode, mask, NULL);
-}
-
-
 static int hfsplus_file_open(struct inode *inode, struct file *file)
 {
 	if (HFSPLUS_IS_RSRC(inode))
@@ -274,10 +290,56 @@ static int hfsplus_file_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int hfsplus_setattr(struct dentry *dentry, struct iattr *attr)
+{
+	struct inode *inode = dentry->d_inode;
+	int error;
+
+	error = inode_change_ok(inode, attr);
+	if (error)
+		return error;
+
+	if ((attr->ia_valid & ATTR_SIZE) &&
+	    attr->ia_size != i_size_read(inode)) {
+		error = vmtruncate(inode, attr->ia_size);
+		if (error)
+			return error;
+	}
+
+	setattr_copy(inode, attr);
+	mark_inode_dirty(inode);
+	return 0;
+}
+
+static int hfsplus_file_fsync(struct file *filp, int datasync)
+{
+	struct inode *inode = filp->f_mapping->host;
+	struct super_block * sb;
+	int ret, err;
+
+	/* sync the inode to buffers */
+	ret = write_inode_now(inode, 0);
+
+	/* sync the superblock to buffers */
+	sb = inode->i_sb;
+	if (sb->s_dirt) {
+		if (!(sb->s_flags & MS_RDONLY))
+			hfsplus_sync_fs(sb, 1);
+		else
+			sb->s_dirt = 0;
+	}
+
+	/* .. finally sync the buffers to disk */
+	err = sync_blockdev(sb->s_bdev);
+	if (!ret)
+		ret = err;
+	return ret;
+}
+
 static const struct inode_operations hfsplus_file_inode_operations = {
 	.lookup		= hfsplus_file_lookup,
 	.truncate	= hfsplus_file_truncate,
-	.permission	= hfsplus_permission,
+	.setattr	= hfsplus_setattr,
 	.setxattr	= hfsplus_setxattr,
 	.getxattr	= hfsplus_getxattr,
 	.listxattr	= hfsplus_listxattr,
@@ -291,10 +353,10 @@ static const struct file_operations hfsplus_file_operations = {
 	.aio_write	= generic_file_aio_write,
 	.mmap		= generic_file_mmap,
 	.splice_read	= generic_file_splice_read,
-	.fsync		= file_fsync,
+	.fsync		= hfsplus_file_fsync,
 	.open		= hfsplus_file_open,
 	.release	= hfsplus_file_release,
-	.ioctl          = hfsplus_ioctl,
+	.unlocked_ioctl = hfsplus_ioctl,
 };
 
 struct inode *hfsplus_new_inode(struct super_block *sb, int mode)
@@ -305,8 +367,8 @@ struct inode *hfsplus_new_inode(struct super_block *sb, int mode)
 
 	inode->i_ino = HFSPLUS_SB(sb).next_cnid++;
 	inode->i_mode = mode;
-	inode->i_uid = current->fsuid;
-	inode->i_gid = current->fsgid;
+	inode->i_uid = current_fsuid();
+	inode->i_gid = current_fsgid();
 	inode->i_nlink = 1;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
 	INIT_LIST_HEAD(&HFSPLUS_I(inode).open_dir_list);

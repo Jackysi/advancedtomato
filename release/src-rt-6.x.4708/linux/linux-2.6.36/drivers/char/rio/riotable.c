@@ -29,9 +29,6 @@
 **
 ** -----------------------------------------------------------------------------
 */
-#ifdef SCCS_LABELS
-static char *_riotable_c_sccs_ = "@(#)riotable.c	1.2";
-#endif
 
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -42,7 +39,6 @@ static char *_riotable_c_sccs_ = "@(#)riotable.c	1.2";
 #include <asm/io.h>
 #include <asm/system.h>
 #include <asm/string.h>
-#include <asm/semaphore.h>
 #include <asm/uaccess.h>
 
 #include <linux/termios.h>
@@ -398,12 +394,6 @@ int RIONewTable(struct rio_info *p)
 	return 0;
 }
 
-/*
-** User process needs the config table - build it from first
-** principles.
-**
-*	FIXME: SMP locking
-*/
 int RIOApel(struct rio_info *p)
 {
 	int Host;
@@ -425,8 +415,10 @@ int RIOApel(struct rio_info *p)
 
 		MapP = &p->RIOConnectTable[Next++];
 		MapP->HostUniqueNum = HostP->UniqueNum;
-		if ((HostP->Flags & RUN_STATE) != RC_RUNNING)
+		if ((HostP->Flags & RUN_STATE) != RC_RUNNING) {
+			rio_spin_unlock_irqrestore(&HostP->HostLock, flags);
 			continue;
+		}
 		MapP->RtaUniqueNum = 0;
 		MapP->ID = 0;
 		MapP->Flags = SLOT_IN_USE;
@@ -863,8 +855,7 @@ int RIOReMapPorts(struct rio_info *p, struct Host *HostP, struct Map *HostMapP)
 		if (PortP->TxRingBuffer)
 			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
 		else if (p->RIOBufferSize) {
-			PortP->TxRingBuffer = kmalloc(p->RIOBufferSize, GFP_KERNEL);
-			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
+			PortP->TxRingBuffer = kzalloc(p->RIOBufferSize, GFP_KERNEL);
 		}
 		PortP->TxBufferOut = 0;
 		PortP->TxBufferIn = 0;

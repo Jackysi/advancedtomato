@@ -5,10 +5,10 @@
  */
 #include <linux/init.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/leds.h>
 #include <asm/system.h>
-#include <asm/arch/simpad.h>
+#include <mach/simpad.h>
 
 #include "leds.h"
 
@@ -97,4 +97,3 @@ void simpad_leds_event(led_event_t evt)
 	else 
 	        clear_cs3_bit(LED2_ON);
 }
-

@@ -17,7 +17,6 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/unistd.h>
-#include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -63,17 +62,6 @@ MODULE_LICENSE("GPL");
 /* Returns 0, unless there's a write error */
 static int qs6612_config_init(struct phy_device *phydev)
 {
-	/* The PHY powers up isolated on the RPX,
-	 * so send a command to allow operation.
-	 * XXX - My docs indicate this should be 0x0940
-	 * ...or something.  The current value sets three
-	 * reserved bits, bit 11, which specifies it should be
-	 * set to one, bit 10, which specifies it should be set
-	 * to 0, and bit 7, which doesn't specify.  However, my
-	 * docs are preliminary, and I will leave it like this
-	 * until someone more knowledgable corrects me or it.
-	 * -- Andy Fleming
-	 */
 	return phy_write(phydev, MII_QS6612_PCR, 0x0dc0);
 }
 
@@ -138,3 +126,10 @@ static void __exit qs6612_exit(void)
 
 module_init(qs6612_init);
 module_exit(qs6612_exit);
+
+static struct mdio_device_id qs6612_tbl[] = {
+	{ 0x00181440, 0xfffffff0 },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(mdio, qs6612_tbl);

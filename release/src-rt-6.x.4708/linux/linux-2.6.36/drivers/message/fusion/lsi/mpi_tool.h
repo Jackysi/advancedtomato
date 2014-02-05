@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2001-2005 LSI Logic Corporation.
+ *  Copyright (c) 2001-2008 LSI Corporation.
  *
  *
  *           Name:  mpi_tool.h
@@ -350,5 +350,3 @@ typedef struct _MSG_DIAG_RELEASE_REPLY
 
 
 #endif
-
-

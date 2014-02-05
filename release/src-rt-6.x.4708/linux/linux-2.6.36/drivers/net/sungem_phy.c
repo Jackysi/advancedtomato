@@ -79,7 +79,7 @@ static int reset_one_mii_phy(struct mii_phy* phy, int phy_id)
 
 	udelay(100);
 
-	while (limit--) {
+	while (--limit) {
 		val = __phy_read(phy, phy_id, MII_BMCR);
 		if ((val & BMCR_RESET) == 0)
 			break;
@@ -219,9 +219,6 @@ static int bcm5400_init(struct mii_phy* phy)
 
 static int bcm5400_suspend(struct mii_phy* phy)
 {
-#if 0 /* Commented out in Darwin... someone has those dawn docs ? */
-	phy_write(phy, MII_BMCR, BMCR_PDOWN);
-#endif
 	return 0;
 }
 
@@ -275,9 +272,6 @@ static int bcm5401_init(struct mii_phy* phy)
 
 static int bcm5401_suspend(struct mii_phy* phy)
 {
-#if 0 /* Commented out in Darwin... someone has those dawn docs ? */
-	phy_write(phy, MII_BMCR, BMCR_PDOWN);
-#endif
 	return 0;
 }
 
@@ -537,7 +531,6 @@ static int bcm54xx_setup_forced(struct mii_phy *phy, int speed, int fd)
 	if (fd == DUPLEX_FULL)
 		ctl |= BMCR_FULLDPLX;
 
-	// XXX Should we set the sungem to GII now on 1000BT ?
 
 	phy_write(phy, MII_BMCR, ctl);
 
@@ -768,12 +761,6 @@ static int marvell_setup_aneg(struct mii_phy *phy, u32 advertise)
 		adv |= ADVERTISE_PAUSE_ASYM;
 	phy_write(phy, MII_ADVERTISE, adv);
 
-	/* Setup 1000BT advertise & enable crossover detect
-	 * XXX How do we advertise 1000BT ? Darwin source is
-	 * confusing here, they read from specific control and
-	 * write to control... Someone has specs for those
-	 * beasts ?
-	 */
 	adv = phy_read(phy, MII_M1011_PHY_SPEC_CONTROL);
 	adv |= MII_M1011_PHY_SPEC_CONTROL_AUTO_MDIX;
 	adv &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP |
@@ -835,7 +822,6 @@ static int marvell_setup_forced(struct mii_phy *phy, int speed, int fd)
 			MII_1000BASETCONTROL_HALFDUPLEXCAP;
 	phy_write(phy, MII_1000BASETCONTROL, ctl2);
 
-	// XXX Should we set the sungem to GII now on 1000BT ?
 
 	phy_write(phy, MII_BMCR, ctl);
 
@@ -1196,4 +1182,3 @@ fail:
 
 EXPORT_SYMBOL(mii_phy_probe);
 MODULE_LICENSE("GPL");
-

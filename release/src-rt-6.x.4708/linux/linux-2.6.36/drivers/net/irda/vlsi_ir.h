@@ -476,31 +476,6 @@ calc_width_bits(unsigned baudrate, unsigned widthselect, unsigned clockselect)
 /* complete packet consists of A(1)+C(1)+I(<=IRDA_MTU) */
 #define IRLAP_SKB_ALLOCSIZE	(1+1+IRDA_MTU)
 
-/* the buffers we use to exchange frames with the hardware need to be
- * larger than IRLAP_SKB_ALLOCSIZE because we may have up to 4 bytes FCS
- * appended and, in SIR mode, a lot of frame wrapping bytes. The worst
- * case appears to be a SIR packet with I-size==IRDA_MTU and all bytes
- * requiring to be escaped to provide transparency. Furthermore, the peer
- * might ask for quite a number of additional XBOFs:
- *	up to 115+48 XBOFS		 163
- *	regular BOF			   1
- *	A-field				   1
- *	C-field				   1
- *	I-field, IRDA_MTU, all escaped	4096
- *	FCS (16 bit at SIR, escaped)	   4
- *	EOF				   1
- * AFAICS nothing in IrLAP guarantees A/C field not to need escaping
- * (f.e. 0xc0/0xc1 - i.e. BOF/EOF - are legal values there) so in the
- * worst case we have 4269 bytes total frame size.
- * However, the VLSI uses 12 bits only for all buffer length values,
- * which limits the maximum useable buffer size <= 4095.
- * Note this is not a limitation in the receive case because we use
- * the SIR filtering mode where the hw unwraps the frame and only the
- * bare packet+fcs is stored into the buffer - in contrast to the SIR
- * tx case where we have to pass frame-wrapped packets to the hw.
- * If this would ever become an issue in real life, the only workaround
- * I see would be using the legacy UART emulation in SIR mode.
- */
 
 #define XFER_BUF_SIZE		MAX_PACKET_LENGTH
 
@@ -521,32 +496,18 @@ calc_width_bits(unsigned baudrate, unsigned widthselect, unsigned clockselect)
 
 /******************************************************************/
 
-/* descriptors for rx/tx ring
- *
- * accessed by hardware - don't change!
- *
- * the descriptor is owned by hardware, when the ACTIVE status bit
- * is set and nothing (besides reading status to test the bit)
- * shall be done. The bit gets cleared by hw, when the descriptor
- * gets closed. Premature reaping of descriptors owned be the chip
- * can be achieved by disabling IRCFG_MSTR
- *
- * Attention: Writing addr overwrites status!
- *
- * ### FIXME: depends on endianess (but there ain't no non-i586 ob800 ;-)
- */
 
 struct ring_descr_hw {
-	volatile u16	rd_count;	/* tx/rx count [11:0] */
-	u16		reserved;
+	volatile __le16	rd_count;	/* tx/rx count [11:0] */
+	__le16		reserved;
 	union {
-		u32	addr;		/* [23:0] of the buffer's busaddress */
+		__le32	addr;		/* [23:0] of the buffer's busaddress */
 		struct {
 			u8		addr_res[3];
 			volatile u8	status;		/* descriptor status */
-		} __attribute__((packed)) rd_s;
-	} __attribute((packed)) rd_u;
-} __attribute__ ((packed));
+		} __packed rd_s;
+	} __packed rd_u;
+} __packed;
 
 #define rd_addr		rd_u.addr
 #define rd_status	rd_u.rd_s.status
@@ -617,7 +578,7 @@ static inline void rd_set_addr_status(struct ring_descr *rd, dma_addr_t a, u8 s)
 	 */
 
 	if ((a & ~DMA_MASK_MSTRPAGE)>>24 != MSTRPAGE_VALUE) {
-		IRDA_ERROR("%s: pci busaddr inconsistency!\n", __FUNCTION__);
+		IRDA_ERROR("%s: pci busaddr inconsistency!\n", __func__);
 		dump_stack();
 		return;
 	}
@@ -712,7 +673,6 @@ static inline struct ring_descr *ring_get(struct vlsi_ring *r)
 
 typedef struct vlsi_irda_dev {
 	struct pci_dev		*pdev;
-	struct net_device_stats	stats;
 
 	struct irlap_cb		*irlap;
 
@@ -728,7 +688,7 @@ typedef struct vlsi_irda_dev {
 	struct timeval		last_rx;
 
 	spinlock_t		lock;
-	struct semaphore	sem;
+	struct mutex		mtx;
 
 	u8			resume_ok;	
 	struct proc_dir_entry	*proc_entry;
@@ -756,4 +716,3 @@ typedef struct vlsi_irda_dev {
 /********************************************************/
 
 #endif /* IRDA_VLSI_FIR_H */
-

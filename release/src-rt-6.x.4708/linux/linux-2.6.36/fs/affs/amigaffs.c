@@ -170,21 +170,27 @@ affs_remove_link(struct dentry *dentry)
 		if (!link_bh)
 			goto done;
 
-		dir = iget(sb, be32_to_cpu(AFFS_TAIL(sb, link_bh)->parent));
-		if (!dir)
+		dir = affs_iget(sb, be32_to_cpu(AFFS_TAIL(sb, link_bh)->parent));
+		if (IS_ERR(dir)) {
+			retval = PTR_ERR(dir);
 			goto done;
+		}
 
 		affs_lock_dir(dir);
 		affs_fix_dcache(dentry, link_ino);
 		retval = affs_remove_hash(dir, link_bh);
-		if (retval)
+		if (retval) {
+			affs_unlock_dir(dir);
 			goto done;
+		}
 		mark_buffer_dirty_inode(link_bh, inode);
 
 		memcpy(AFFS_TAIL(sb, bh)->name, AFFS_TAIL(sb, link_bh)->name, 32);
 		retval = affs_insert_hash(dir, bh);
-		if (retval)
+		if (retval) {
+			affs_unlock_dir(dir);
 			goto done;
+		}
 		mark_buffer_dirty_inode(bh, inode);
 
 		affs_unlock_dir(dir);

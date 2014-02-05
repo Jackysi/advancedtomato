@@ -41,44 +41,37 @@
 #endif
 
 #ifdef XFS_NATIVE_HOST
-#define cpu_to_be16(val)	((__be16)(val))
-#define cpu_to_be32(val)	((__be32)(val))
-#define cpu_to_be64(val)	((__be64)(val))
-#define be16_to_cpu(val)	((__uint16_t)(val))
-#define be32_to_cpu(val)	((__uint32_t)(val))
-#define be64_to_cpu(val)	((__uint64_t)(val))
+#define cpu_to_be16(val)	((__force __be16)(__u16)(val))
+#define cpu_to_be32(val)	((__force __be32)(__u32)(val))
+#define cpu_to_be64(val)	((__force __be64)(__u64)(val))
+#define be16_to_cpu(val)	((__force __u16)(__be16)(val))
+#define be32_to_cpu(val)	((__force __u32)(__be32)(val))
+#define be64_to_cpu(val)	((__force __u64)(__be64)(val))
 #else
-#define cpu_to_be16(val)	(__swab16((__uint16_t)(val)))
-#define cpu_to_be32(val)	(__swab32((__uint32_t)(val)))
-#define cpu_to_be64(val)	(__swab64((__uint64_t)(val)))
-#define be16_to_cpu(val)	(__swab16((__be16)(val)))
-#define be32_to_cpu(val)	(__swab32((__be32)(val)))
-#define be64_to_cpu(val)	(__swab64((__be64)(val)))
+#define cpu_to_be16(val)	((__force __be16)__swab16((__u16)(val)))
+#define cpu_to_be32(val)	((__force __be32)__swab32((__u32)(val)))
+#define cpu_to_be64(val)	((__force __be64)__swab64((__u64)(val)))
+#define be16_to_cpu(val)	(__swab16((__force __u16)(__be16)(val)))
+#define be32_to_cpu(val)	(__swab32((__force __u32)(__be32)(val)))
+#define be64_to_cpu(val)	(__swab64((__force __u64)(__be64)(val)))
 #endif
+
+static inline void be16_add_cpu(__be16 *a, __s16 b)
+{
+	*a = cpu_to_be16(be16_to_cpu(*a) + b);
+}
+
+static inline void be32_add_cpu(__be32 *a, __s32 b)
+{
+	*a = cpu_to_be32(be32_to_cpu(*a) + b);
+}
+
+static inline void be64_add_cpu(__be64 *a, __s64 b)
+{
+	*a = cpu_to_be64(be64_to_cpu(*a) + b);
+}
 
 #endif	/* __KERNEL__ */
-
-/* do we need conversion? */
-#define ARCH_NOCONVERT 1
-#ifdef XFS_NATIVE_HOST
-# define ARCH_CONVERT	ARCH_NOCONVERT
-#else
-# define ARCH_CONVERT	0
-#endif
-
-/* generic swapping macros */
-
-#ifndef HAVE_SWABMACROS
-#define INT_SWAP16(type,var) ((typeof(type))(__swab16((__u16)(var))))
-#define INT_SWAP32(type,var) ((typeof(type))(__swab32((__u32)(var))))
-#define INT_SWAP64(type,var) ((typeof(type))(__swab64((__u64)(var))))
-#endif
-
-#define INT_SWAP(type, var) \
-    ((sizeof(type) == 8) ? INT_SWAP64(type,var) : \
-    ((sizeof(type) == 4) ? INT_SWAP32(type,var) : \
-    ((sizeof(type) == 2) ? INT_SWAP16(type,var) : \
-    (var))))
 
 /*
  * get and set integers from potentially unaligned locations
@@ -91,99 +84,6 @@
 	((__u8*)(pointer))[0] = (((value) >> 8) & 0xff); \
 	((__u8*)(pointer))[1] = (((value)     ) & 0xff); \
     }
-
-/* define generic INT_ macros */
-
-#define INT_GET(reference,arch) \
-    (((arch) == ARCH_NOCONVERT) \
-	? \
-	    (reference) \
-	: \
-	    INT_SWAP((reference),(reference)) \
-    )
-
-/* does not return a value */
-#define INT_SET(reference,arch,valueref) \
-    (__builtin_constant_p(valueref) ? \
-	(void)( (reference) = ( ((arch) != ARCH_NOCONVERT) ? (INT_SWAP((reference),(valueref))) : (valueref)) ) : \
-	(void)( \
-	    ((reference) = (valueref)), \
-	    ( ((arch) != ARCH_NOCONVERT) ? (reference) = INT_SWAP((reference),(reference)) : 0 ) \
-	) \
-    )
-
-/* does not return a value */
-#define INT_MOD_EXPR(reference,arch,code) \
-    (((arch) == ARCH_NOCONVERT) \
-	? \
-	    (void)((reference) code) \
-	: \
-	    (void)( \
-		(reference) = INT_GET((reference),arch) , \
-		((reference) code), \
-		INT_SET(reference, arch, reference) \
-	    ) \
-    )
-
-/* does not return a value */
-#define INT_MOD(reference,arch,delta) \
-    (void)( \
-	INT_MOD_EXPR(reference,arch,+=(delta)) \
-    )
-
-/*
- * INT_COPY - copy a value between two locations with the
- *	      _same architecture_ but _potentially different sizes_
- *
- *	    if the types of the two parameters are equal or they are
- *		in native architecture, a simple copy is done
- *
- *	    otherwise, architecture conversions are done
- *
- */
-
-/* does not return a value */
-#define INT_COPY(dst,src,arch) \
-    ( \
-	((sizeof(dst) == sizeof(src)) || ((arch) == ARCH_NOCONVERT)) \
-	    ? \
-		(void)((dst) = (src)) \
-	    : \
-		INT_SET(dst, arch, INT_GET(src, arch)) \
-    )
-
-/*
- * INT_XLATE - copy a value in either direction between two locations
- *	       with different architectures
- *
- *		    dir < 0	- copy from memory to buffer (native to arch)
- *		    dir > 0	- copy from buffer to memory (arch to native)
- */
-
-/* does not return a value */
-#define INT_XLATE(buf,mem,dir,arch) {\
-    ASSERT(dir); \
-    if (dir>0) { \
-	(mem)=INT_GET(buf, arch); \
-    } else { \
-	INT_SET(buf, arch, mem); \
-    } \
-}
-
-static inline void be16_add(__be16 *a, __s16 b)
-{
-	*a = cpu_to_be16(be16_to_cpu(*a) + b);
-}
-
-static inline void be32_add(__be32 *a, __s32 b)
-{
-	*a = cpu_to_be32(be32_to_cpu(*a) + b);
-}
-
-static inline void be64_add(__be64 *a, __s64 b)
-{
-	*a = cpu_to_be64(be64_to_cpu(*a) + b);
-}
 
 /*
  * In directories inode numbers are stored as unaligned arrays of unsigned

@@ -99,4 +99,3 @@ int irda_param_extract_all(void *self, __u8 *buf, int len,
 #define irda_param_insert_byte(buf,pi,pv) irda_param_pack(buf,"bbb",pi,1,pv)
 
 #endif /* IRDA_PARAMS_H */
-

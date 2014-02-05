@@ -117,7 +117,7 @@ gss_mech_register(struct gss_api_mech *gm)
 	return 0;
 }
 
-EXPORT_SYMBOL(gss_mech_register);
+EXPORT_SYMBOL_GPL(gss_mech_register);
 
 void
 gss_mech_unregister(struct gss_api_mech *gm)
@@ -129,7 +129,7 @@ gss_mech_unregister(struct gss_api_mech *gm)
 	gss_mech_free(gm);
 }
 
-EXPORT_SYMBOL(gss_mech_unregister);
+EXPORT_SYMBOL_GPL(gss_mech_unregister);
 
 struct gss_api_mech *
 gss_mech_get(struct gss_api_mech *gm)
@@ -138,7 +138,7 @@ gss_mech_get(struct gss_api_mech *gm)
 	return gm;
 }
 
-EXPORT_SYMBOL(gss_mech_get);
+EXPORT_SYMBOL_GPL(gss_mech_get);
 
 struct gss_api_mech *
 gss_mech_get_by_name(const char *name)
@@ -158,7 +158,7 @@ gss_mech_get_by_name(const char *name)
 
 }
 
-EXPORT_SYMBOL(gss_mech_get_by_name);
+EXPORT_SYMBOL_GPL(gss_mech_get_by_name);
 
 static inline int
 mech_supports_pseudoflavor(struct gss_api_mech *gm, u32 pseudoflavor)
@@ -191,7 +191,21 @@ gss_mech_get_by_pseudoflavor(u32 pseudoflavor)
 	return gm;
 }
 
-EXPORT_SYMBOL(gss_mech_get_by_pseudoflavor);
+EXPORT_SYMBOL_GPL(gss_mech_get_by_pseudoflavor);
+
+u32
+gss_svc_to_pseudoflavor(struct gss_api_mech *gm, u32 service)
+{
+	int i;
+
+	for (i = 0; i < gm->gm_pf_num; i++) {
+		if (gm->gm_pfs[i].service == service) {
+			return gm->gm_pfs[i].pseudoflavor;
+		}
+	}
+	return RPC_AUTH_MAXFLAVOR; /* illegal value */
+}
+EXPORT_SYMBOL_GPL(gss_svc_to_pseudoflavor);
 
 u32
 gss_pseudoflavor_to_service(struct gss_api_mech *gm, u32 pseudoflavor)
@@ -205,7 +219,7 @@ gss_pseudoflavor_to_service(struct gss_api_mech *gm, u32 pseudoflavor)
 	return 0;
 }
 
-EXPORT_SYMBOL(gss_pseudoflavor_to_service);
+EXPORT_SYMBOL_GPL(gss_pseudoflavor_to_service);
 
 char *
 gss_service_to_auth_domain_name(struct gss_api_mech *gm, u32 service)
@@ -219,7 +233,7 @@ gss_service_to_auth_domain_name(struct gss_api_mech *gm, u32 service)
 	return NULL;
 }
 
-EXPORT_SYMBOL(gss_service_to_auth_domain_name);
+EXPORT_SYMBOL_GPL(gss_service_to_auth_domain_name);
 
 void
 gss_mech_put(struct gss_api_mech * gm)
@@ -228,21 +242,22 @@ gss_mech_put(struct gss_api_mech * gm)
 		module_put(gm->gm_owner);
 }
 
-EXPORT_SYMBOL(gss_mech_put);
+EXPORT_SYMBOL_GPL(gss_mech_put);
 
 /* The mech could probably be determined from the token instead, but it's just
  * as easy for now to pass it in. */
 int
 gss_import_sec_context(const void *input_token, size_t bufsize,
 		       struct gss_api_mech	*mech,
-		       struct gss_ctx		**ctx_id)
+		       struct gss_ctx		**ctx_id,
+		       gfp_t gfp_mask)
 {
-	if (!(*ctx_id = kzalloc(sizeof(**ctx_id), GFP_KERNEL)))
-		return GSS_S_FAILURE;
+	if (!(*ctx_id = kzalloc(sizeof(**ctx_id), gfp_mask)))
+		return -ENOMEM;
 	(*ctx_id)->mech_type = gss_mech_get(mech);
 
 	return mech->gm_ops
-		->gss_import_sec_context(input_token, bufsize, *ctx_id);
+		->gss_import_sec_context(input_token, bufsize, *ctx_id, gfp_mask);
 }
 
 /* gss_get_mic: compute a mic over message and return mic_token. */
@@ -271,6 +286,20 @@ gss_verify_mic(struct gss_ctx		*context_handle,
 				 mic_token);
 }
 
+/*
+ * This function is called from both the client and server code.
+ * Each makes guarantees about how much "slack" space is available
+ * for the underlying function in "buf"'s head and tail while
+ * performing the wrap.
+ *
+ * The client and server code allocate RPC_MAX_AUTH_SIZE extra
+ * space in both the head and tail which is available for use by
+ * the wrap function.
+ *
+ * Underlying functions should verify they do not use more than
+ * RPC_MAX_AUTH_SIZE of extra space in either the head or tail
+ * when performing the wrap.
+ */
 u32
 gss_wrap(struct gss_ctx	*ctx_id,
 	 int		offset,
@@ -303,7 +332,7 @@ gss_delete_sec_context(struct gss_ctx	**context_handle)
 
 	if (!*context_handle)
 		return(GSS_S_NO_CONTEXT);
-	if ((*context_handle)->internal_ctx_id != 0)
+	if ((*context_handle)->internal_ctx_id)
 		(*context_handle)->mech_type->gm_ops
 			->gss_delete_sec_context((*context_handle)
 							->internal_ctx_id);

@@ -43,10 +43,10 @@
 #include <linux/err.h>
 #include <linux/clocksource.h>
 #include <linux/clockchips.h>
+#include <linux/io.h>
 
 #include <asm/system.h>
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/leds.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
@@ -56,45 +56,14 @@
 #define OMAP_MPU_TIMER_BASE		OMAP_MPU_TIMER1_BASE
 #define OMAP_MPU_TIMER_OFFSET		0x100
 
-/* cycles to nsec conversions taken from arch/i386/kernel/timers/timer_tsc.c,
- * converted to use kHz by Kevin Hilman */
-/* convert from cycles(64bits) => nanoseconds (64bits)
- *  basic equation:
- *		ns = cycles / (freq / ns_per_sec)
- *		ns = cycles * (ns_per_sec / freq)
- *		ns = cycles * (10^9 / (cpu_khz * 10^3))
- *		ns = cycles * (10^6 / cpu_khz)
- *
- *	Then we use scaling math (suggested by george at mvista.com) to get:
- *		ns = cycles * (10^6 * SC / cpu_khz / SC
- *		ns = cycles * cyc2ns_scale / SC
- *
- *	And since SC is a constant power of two, we can convert the div
- *  into a shift.
- *			-johnstul at us.ibm.com "math is hard, lets go shopping!"
- */
-static unsigned long cyc2ns_scale;
-#define CYC2NS_SCALE_FACTOR 10 /* 2^10, carefully chosen */
-
-static inline void set_cyc2ns_scale(unsigned long cpu_khz)
-{
-	cyc2ns_scale = (1000000 << CYC2NS_SCALE_FACTOR)/cpu_khz;
-}
-
-static inline unsigned long long cycles_2_ns(unsigned long long cyc)
-{
-	return (cyc * cyc2ns_scale) >> CYC2NS_SCALE_FACTOR;
-}
-
-
 typedef struct {
 	u32 cntl;			/* CNTL_TIMER, R/W */
 	u32 load_tim;			/* LOAD_TIM,   W */
 	u32 read_tim;			/* READ_TIM,   R */
 } omap_mpu_timer_regs_t;
 
-#define omap_mpu_timer_base(n)						\
-((volatile omap_mpu_timer_regs_t*)IO_ADDRESS(OMAP_MPU_TIMER_BASE +	\
+#define omap_mpu_timer_base(n)							\
+((volatile omap_mpu_timer_regs_t*)OMAP1_IO_ADDRESS(OMAP_MPU_TIMER_BASE +	\
 				 (n)*OMAP_MPU_TIMER_OFFSET))
 
 static inline unsigned long omap_mpu_timer_read(int nr)
@@ -132,13 +101,20 @@ static inline void omap_mpu_timer_start(int nr, unsigned long load_val,
 	timer->cntl = timerflags;
 }
 
+static inline void omap_mpu_timer_stop(int nr)
+{
+	volatile omap_mpu_timer_regs_t* timer = omap_mpu_timer_base(nr);
+
+	timer->cntl &= ~MPU_TIMER_ST;
+}
+
 /*
  * ---------------------------------------------------------------------------
  * MPU timer 1 ... count down to zero, interrupt, reload
  * ---------------------------------------------------------------------------
  */
 static int omap_mpu_set_next_event(unsigned long cycles,
-				    struct clock_event_device *evt)
+				   struct clock_event_device *evt)
 {
 	omap_mpu_timer_start(0, cycles, 0);
 	return 0;
@@ -152,17 +128,19 @@ static void omap_mpu_set_mode(enum clock_event_mode mode,
 		omap_mpu_set_autoreset(0);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
+		omap_mpu_timer_stop(0);
 		omap_mpu_remove_autoreset(0);
 		break;
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
+	case CLOCK_EVT_MODE_RESUME:
 		break;
 	}
 }
 
 static struct clock_event_device clockevent_mpu_timer1 = {
 	.name		= "mpu_timer1",
-	.features       = CLOCK_EVT_FEAT_PERIODIC, CLOCK_EVT_FEAT_ONESHOT,
+	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
 	.shift		= 32,
 	.set_next_event	= omap_mpu_set_next_event,
 	.set_mode	= omap_mpu_set_mode,
@@ -185,8 +163,6 @@ static struct irqaction omap_mpu_timer1_irq = {
 
 static __init void omap_init_mpu_timer(unsigned long rate)
 {
-	set_cyc2ns_scale(rate / 1000);
-
 	setup_irq(INT_TIMER1, &omap_mpu_timer1_irq);
 	omap_mpu_timer_start(0, (rate / HZ) - 1, 1);
 
@@ -197,7 +173,7 @@ static __init void omap_init_mpu_timer(unsigned long rate)
 	clockevent_mpu_timer1.min_delta_ns =
 		clockevent_delta2ns(1, &clockevent_mpu_timer1);
 
-	clockevent_mpu_timer1.cpumask = cpumask_of_cpu(0);
+	clockevent_mpu_timer1.cpumask = cpumask_of(0);
 	clockevents_register_device(&clockevent_mpu_timer1);
 }
 
@@ -222,7 +198,7 @@ static struct irqaction omap_mpu_timer2_irq = {
 	.handler	= omap_mpu_timer2_interrupt,
 };
 
-static cycle_t mpu_read(void)
+static cycle_t mpu_read(struct clocksource *cs)
 {
 	return ~omap_mpu_timer_read(1);
 }
@@ -249,22 +225,6 @@ static void __init omap_init_clocksource(unsigned long rate)
 
 	if (clocksource_register(&clocksource_mpu))
 		printk(err, clocksource_mpu.name);
-}
-
-
-/*
- * Scheduler clock - returns current time in nanosec units.
- */
-unsigned long long sched_clock(void)
-{
-	unsigned long ticks = 0 - omap_mpu_timer_read(1);
-	unsigned long long ticks64;
-
-	ticks64 = omap_mpu_timer2_overflows;
-	ticks64 <<= 32;
-	ticks64 |= ticks;
-
-	return cycles_2_ns(ticks64);
 }
 
 /*

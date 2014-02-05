@@ -43,6 +43,8 @@
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/rtc.h>
+#include <linux/smp_lock.h>
+#include <linux/semaphore.h>
 
 MODULE_AUTHOR("Brian S. Julin <bri@calyx.com>");
 MODULE_DESCRIPTION("HP i8042 SDC + MSM-58321 RTC Driver");
@@ -63,13 +65,12 @@ static DECLARE_WAIT_QUEUE_HEAD(hp_sdc_rtc_wait);
 static ssize_t hp_sdc_rtc_read(struct file *file, char __user *buf,
 			       size_t count, loff_t *ppos);
 
-static int hp_sdc_rtc_ioctl(struct inode *inode, struct file *file,
-			    unsigned int cmd, unsigned long arg);
+static long hp_sdc_rtc_unlocked_ioctl(struct file *file,
+				      unsigned int cmd, unsigned long arg);
 
 static unsigned int hp_sdc_rtc_poll(struct file *file, poll_table *wait);
 
 static int hp_sdc_rtc_open(struct inode *inode, struct file *file);
-static int hp_sdc_rtc_release(struct inode *inode, struct file *file);
 static int hp_sdc_rtc_fasync (int fd, struct file *filp, int on);
 
 static int hp_sdc_rtc_read_proc(char *page, char **start, off_t off,
@@ -208,7 +209,7 @@ static inline int hp_sdc_rtc_read_rt(struct timeval *res) {
 
 /* Read the i8042 fast handshake timer */
 static inline int hp_sdc_rtc_read_fhs(struct timeval *res) {
-	uint64_t raw;
+	int64_t raw;
 	unsigned int tenms;
 
 	raw = hp_sdc_rtc_read_i8042timer(HP_SDC_CMD_LOAD_FHS, 2);
@@ -411,17 +412,6 @@ static int hp_sdc_rtc_open(struct inode *inode, struct file *file)
         return 0;
 }
 
-static int hp_sdc_rtc_release(struct inode *inode, struct file *file)
-{
-	/* Turn off interrupts? */
-
-        if (file->f_flags & FASYNC) {
-                hp_sdc_rtc_fasync (-1, file, 0);
-        }
-
-        return 0;
-}
-
 static int hp_sdc_rtc_fasync (int fd, struct file *filp, int on)
 {
         return fasync_helper (fd, filp, on, &hp_sdc_rtc_async_queue);
@@ -455,35 +445,35 @@ static int hp_sdc_rtc_proc_output (char *buf)
 		p += sprintf(p, "i8042 rtc\t: READ FAILED!\n");
 	} else {
 		p += sprintf(p, "i8042 rtc\t: %ld.%02d seconds\n", 
-			     tv.tv_sec, tv.tv_usec/1000);
+			     tv.tv_sec, (int)tv.tv_usec/1000);
 	}
 
 	if (hp_sdc_rtc_read_fhs(&tv)) {
 		p += sprintf(p, "handshake\t: READ FAILED!\n");
 	} else {
         	p += sprintf(p, "handshake\t: %ld.%02d seconds\n", 
-			     tv.tv_sec, tv.tv_usec/1000);
+			     tv.tv_sec, (int)tv.tv_usec/1000);
 	}
 
 	if (hp_sdc_rtc_read_mt(&tv)) {
 		p += sprintf(p, "alarm\t\t: READ FAILED!\n");
 	} else {
 		p += sprintf(p, "alarm\t\t: %ld.%02d seconds\n", 
-			     tv.tv_sec, tv.tv_usec/1000);
+			     tv.tv_sec, (int)tv.tv_usec/1000);
 	}
 
 	if (hp_sdc_rtc_read_dt(&tv)) {
 		p += sprintf(p, "delay\t\t: READ FAILED!\n");
 	} else {
 		p += sprintf(p, "delay\t\t: %ld.%02d seconds\n", 
-			     tv.tv_sec, tv.tv_usec/1000);
+			     tv.tv_sec, (int)tv.tv_usec/1000);
 	}
 
 	if (hp_sdc_rtc_read_ct(&tv)) {
 		p += sprintf(p, "periodic\t: READ FAILED!\n");
 	} else {
 		p += sprintf(p, "periodic\t: %ld.%02d seconds\n", 
-			     tv.tv_sec, tv.tv_usec/1000);
+			     tv.tv_sec, (int)tv.tv_usec/1000);
 	}
 
         p += sprintf(p,
@@ -523,162 +513,33 @@ static int hp_sdc_rtc_read_proc(char *page, char **start, off_t off,
         return len;
 }
 
-static int hp_sdc_rtc_ioctl(struct inode *inode, struct file *file, 
+static int hp_sdc_rtc_ioctl(struct file *file, 
 			    unsigned int cmd, unsigned long arg)
 {
-#if 1
 	return -EINVAL;
-#else
-	
-        struct rtc_time wtime; 
-	struct timeval ttime;
-	int use_wtime = 0;
-
-	/* This needs major work. */
-
-        switch (cmd) {
-
-        case RTC_AIE_OFF:       /* Mask alarm int. enab. bit    */
-        case RTC_AIE_ON:        /* Allow alarm interrupts.      */
-	case RTC_PIE_OFF:       /* Mask periodic int. enab. bit */
-        case RTC_PIE_ON:        /* Allow periodic ints          */
-        case RTC_UIE_ON:        /* Allow ints for RTC updates.  */
-        case RTC_UIE_OFF:       /* Allow ints for RTC updates.  */
-        {
-		/* We cannot mask individual user timers and we
-		   cannot tell them apart when they occur, so it 
-		   would be disingenuous to succeed these IOCTLs */
-		return -EINVAL;
-        }
-        case RTC_ALM_READ:      /* Read the present alarm time */
-        {
-		if (hp_sdc_rtc_read_mt(&ttime)) return -EFAULT;
-		if (hp_sdc_rtc_read_bbrtc(&wtime)) return -EFAULT;
-
-		wtime.tm_hour = ttime.tv_sec / 3600;  ttime.tv_sec %= 3600;
-		wtime.tm_min  = ttime.tv_sec / 60;    ttime.tv_sec %= 60;
-		wtime.tm_sec  = ttime.tv_sec;
-                
-		break;
-        }
-        case RTC_IRQP_READ:     /* Read the periodic IRQ rate.  */
-        {
-                return put_user(hp_sdc_rtc_freq, (unsigned long *)arg);
-        }
-        case RTC_IRQP_SET:      /* Set periodic IRQ rate.       */
-        {
-                /* 
-                 * The max we can do is 100Hz.
-		 */
-
-                if ((arg < 1) || (arg > 100)) return -EINVAL;
-		ttime.tv_sec = 0;
-		ttime.tv_usec = 1000000 / arg;
-		if (hp_sdc_rtc_set_ct(&ttime)) return -EFAULT;
-		hp_sdc_rtc_freq = arg;
-                return 0;
-        }
-        case RTC_ALM_SET:       /* Store a time into the alarm */
-        {
-                /*
-                 * This expects a struct hp_sdc_rtc_time. Writing 0xff means
-                 * "don't care" or "match all" for PC timers.  The HP SDC
-		 * does not support that perk, but it could be emulated fairly
-		 * easily.  Only the tm_hour, tm_min and tm_sec are used.
-		 * We could do it with 10ms accuracy with the HP SDC, if the 
-		 * rtc interface left us a way to do that.
-                 */
-                struct hp_sdc_rtc_time alm_tm;
-
-                if (copy_from_user(&alm_tm, (struct hp_sdc_rtc_time*)arg,
-                                   sizeof(struct hp_sdc_rtc_time)))
-                       return -EFAULT;
-
-                if (alm_tm.tm_hour > 23) return -EINVAL;
-		if (alm_tm.tm_min  > 59) return -EINVAL;
-		if (alm_tm.tm_sec  > 59) return -EINVAL;  
-
-		ttime.sec = alm_tm.tm_hour * 3600 + 
-		  alm_tm.tm_min * 60 + alm_tm.tm_sec;
-		ttime.usec = 0;
-		if (hp_sdc_rtc_set_mt(&ttime)) return -EFAULT;
-                return 0;
-        }
-        case RTC_RD_TIME:       /* Read the time/date from RTC  */
-        {
-		if (hp_sdc_rtc_read_bbrtc(&wtime)) return -EFAULT;
-                break;
-        }
-        case RTC_SET_TIME:      /* Set the RTC */
-        {
-                struct rtc_time hp_sdc_rtc_tm;
-                unsigned char mon, day, hrs, min, sec, leap_yr;
-                unsigned int yrs;
-
-                if (!capable(CAP_SYS_TIME))
-                        return -EACCES;
-		if (copy_from_user(&hp_sdc_rtc_tm, (struct rtc_time *)arg,
-                                   sizeof(struct rtc_time)))
-                        return -EFAULT;
-
-                yrs = hp_sdc_rtc_tm.tm_year + 1900;
-                mon = hp_sdc_rtc_tm.tm_mon + 1;   /* tm_mon starts at zero */
-                day = hp_sdc_rtc_tm.tm_mday;
-                hrs = hp_sdc_rtc_tm.tm_hour;
-                min = hp_sdc_rtc_tm.tm_min;
-                sec = hp_sdc_rtc_tm.tm_sec;
-
-                if (yrs < 1970)
-                        return -EINVAL;
-
-                leap_yr = ((!(yrs % 4) && (yrs % 100)) || !(yrs % 400));
-
-                if ((mon > 12) || (day == 0))
-                        return -EINVAL;
-                if (day > (days_in_mo[mon] + ((mon == 2) && leap_yr)))
-                        return -EINVAL;
-		if ((hrs >= 24) || (min >= 60) || (sec >= 60))
-                        return -EINVAL;
-
-                if ((yrs -= eH) > 255)    /* They are unsigned */
-                        return -EINVAL;
-
-
-                return 0;
-        }
-        case RTC_EPOCH_READ:    /* Read the epoch.      */
-        {
-                return put_user (epoch, (unsigned long *)arg);
-        }
-        case RTC_EPOCH_SET:     /* Set the epoch.       */
-        {
-                /* 
-                 * There were no RTC clocks before 1900.
-                 */
-                if (arg < 1900)
-		  return -EINVAL;
-		if (!capable(CAP_SYS_TIME))
-		  return -EACCES;
-		
-                epoch = arg;
-                return 0;
-        }
-        default:
-                return -EINVAL;
-        }
-        return copy_to_user((void *)arg, &wtime, sizeof wtime) ? -EFAULT : 0;
-#endif
 }
 
+static long hp_sdc_rtc_unlocked_ioctl(struct file *file,
+				      unsigned int cmd, unsigned long arg)
+{
+	int ret;
+
+	lock_kernel();
+	ret = hp_sdc_rtc_ioctl(file, cmd, arg);
+	unlock_kernel();
+
+	return ret;
+}
+
+
 static const struct file_operations hp_sdc_rtc_fops = {
-        .owner =	THIS_MODULE,
-        .llseek =	no_llseek,
-        .read =		hp_sdc_rtc_read,
-        .poll =		hp_sdc_rtc_poll,
-        .ioctl =	hp_sdc_rtc_ioctl,
-        .open =		hp_sdc_rtc_open,
-        .release =	hp_sdc_rtc_release,
-        .fasync =	hp_sdc_rtc_fasync,
+        .owner =		THIS_MODULE,
+        .llseek =		no_llseek,
+        .read =			hp_sdc_rtc_read,
+        .poll =			hp_sdc_rtc_poll,
+        .unlocked_ioctl =	hp_sdc_rtc_unlocked_ioctl,
+        .open =			hp_sdc_rtc_open,
+        .fasync =		hp_sdc_rtc_fasync,
 };
 
 static struct miscdevice hp_sdc_rtc_dev = {
@@ -690,6 +551,11 @@ static struct miscdevice hp_sdc_rtc_dev = {
 static int __init hp_sdc_rtc_init(void)
 {
 	int ret;
+
+#ifdef __mc68000__
+	if (!MACH_IS_HP300)
+		return -ENODEV;
+#endif
 
 	init_MUTEX(&i8042tregs);
 

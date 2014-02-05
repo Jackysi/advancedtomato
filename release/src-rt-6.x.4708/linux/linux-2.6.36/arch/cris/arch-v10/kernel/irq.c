@@ -1,5 +1,4 @@
-/* $Id: irq.c,v 1.4 2005/01/04 12:22:28 starvik Exp $
- *
+/*
  *	linux/arch/cris/kernel/irq.c
  *
  *      Copyright (c) 2000-2002 Axis Communications AB
@@ -12,12 +11,14 @@
  */
 
 #include <asm/irq.h>
+#include <asm/current.h>
 #include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-#define mask_irq(irq_nr) (*R_VECT_MASK_CLR = 1 << (irq_nr));
-#define unmask_irq(irq_nr) (*R_VECT_MASK_SET = 1 << (irq_nr));
+#define crisv10_mask_irq(irq_nr) (*R_VECT_MASK_CLR = 1 << (irq_nr));
+#define crisv10_unmask_irq(irq_nr) (*R_VECT_MASK_SET = 1 << (irq_nr));
 
 /* don't use set_int_vector, it bypasses the linux interrupt handlers. it is
  * global just so that the kernel gdb can use it.
@@ -75,8 +76,8 @@ BUILD_IRQ(12, 0x1000)
 BUILD_IRQ(13, 0x2000)
 void mmu_bus_fault(void);      /* IRQ 14 is the bus fault interrupt */
 void multiple_interrupt(void); /* IRQ 15 is the multiple IRQ interrupt */
-BUILD_IRQ(16, 0x10000)
-BUILD_IRQ(17, 0x20000)
+BUILD_IRQ(16, 0x10000 | 0x20000)  /* ethernet tx interrupt needs to block rx */
+BUILD_IRQ(17, 0x20000 | 0x10000)  /* ...and vice versa */
 BUILD_IRQ(18, 0x40000)
 BUILD_IRQ(19, 0x80000)
 BUILD_IRQ(20, 0x100000)
@@ -115,12 +116,12 @@ static unsigned int startup_crisv10_irq(unsigned int irq)
 
 static void enable_crisv10_irq(unsigned int irq)
 {
-	unmask_irq(irq);
+	crisv10_unmask_irq(irq);
 }
 
 static void disable_crisv10_irq(unsigned int irq)
 {
-	mask_irq(irq);
+	crisv10_mask_irq(irq);
 }
 
 static void ack_crisv10_irq(unsigned int irq)
@@ -131,8 +132,8 @@ static void end_crisv10_irq(unsigned int irq)
 {
 }
 
-static struct hw_interrupt_type crisv10_irq_type = {
-	.typename =    "CRISv10",
+static struct irq_chip crisv10_irq_type = {
+	.name =        "CRISv10",
 	.startup =     startup_crisv10_irq,
 	.shutdown =    shutdown_crisv10_irq,
 	.enable =      enable_crisv10_irq,
@@ -146,6 +147,55 @@ void weird_irq(void);
 void system_call(void);  /* from entry.S */
 void do_sigtrap(void); /* from entry.S */
 void gdb_handle_breakpoint(void); /* from entry.S */
+
+extern void do_IRQ(int irq, struct pt_regs * regs);
+
+/* Handle multiple IRQs */
+void do_multiple_IRQ(struct pt_regs* regs)
+{
+	int bit;
+	unsigned masked;
+	unsigned mask;
+	unsigned ethmask = 0;
+
+	/* Get interrupts to mask and handle */
+	mask = masked = *R_VECT_MASK_RD;
+
+	/* Never mask timer IRQ */
+	mask &= ~(IO_MASK(R_VECT_MASK_RD, timer0));
+
+	/*
+	 * If either ethernet interrupt (rx or tx) is active then block
+	 * the other one too. Unblock afterwards also.
+	 */
+	if (mask &
+	    (IO_STATE(R_VECT_MASK_RD, dma0, active) |
+	     IO_STATE(R_VECT_MASK_RD, dma1, active))) {
+		ethmask = (IO_MASK(R_VECT_MASK_RD, dma0) |
+			   IO_MASK(R_VECT_MASK_RD, dma1));
+	}
+
+	/* Block them */
+	*R_VECT_MASK_CLR = (mask | ethmask);
+
+	/* An extra irq_enter here to prevent softIRQs to run after
+	 * each do_IRQ. This will decrease the interrupt latency.
+	 */
+	irq_enter();
+
+	/* Handle all IRQs */
+	for (bit = 2; bit < 32; bit++) {
+		if (masked & (1 << bit)) {
+			do_IRQ(bit, regs);
+		}
+	}
+
+	/* This irq_exit() will trigger the soft IRQs. */
+	irq_exit();
+
+	/* Unblock the IRQs again */
+	*R_VECT_MASK_SET = (masked | ethmask);
+}
 
 /* init_IRQ() is called by start_kernel and is responsible for fixing IRQ masks and
    setting the irq vector table.
@@ -169,7 +219,7 @@ init_IRQ(void)
         for (i = 0; i < 256; i++)
                etrax_irv->v[i] = weird_irq;
 
-	/* Initialize IRQ handler descriptiors. */
+	/* Initialize IRQ handler descriptors. */
 	for(i = 2; i < NR_IRQS; i++) {
 		irq_desc[i].chip = &crisv10_irq_type;
 		set_int_vector(i, interrupt[i]);

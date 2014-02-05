@@ -7,6 +7,7 @@
 #include <linux/pci.h>
 #include <linux/mm.h>
 #include <asm/io.h>
+#include <asm/pci-bridge.h>
 
 /*
  * Here comes the ppc64 implementation of the IOMAP 
@@ -64,14 +65,6 @@ EXPORT_SYMBOL(iowrite16be);
 EXPORT_SYMBOL(iowrite32);
 EXPORT_SYMBOL(iowrite32be);
 
-/*
- * These are the "repeat read/write" functions. Note the
- * non-CPU byte order. We do things in "IO byteorder"
- * here.
- *
- * FIXME! We could make these do EEH handling if we really
- * wanted. Not clear if we do.
- */
 void ioread8_rep(void __iomem *addr, void *dst, unsigned long count)
 {
 	_insb((u8 __iomem *) addr, dst, count);
@@ -118,8 +111,8 @@ EXPORT_SYMBOL(ioport_unmap);
 
 void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long max)
 {
-	unsigned long start = pci_resource_start(dev, bar);
-	unsigned long len = pci_resource_len(dev, bar);
+	resource_size_t start = pci_resource_start(dev, bar);
+	resource_size_t len = pci_resource_len(dev, bar);
 	unsigned long flags = pci_resource_flags(dev, bar);
 
 	if (!len)
@@ -136,7 +129,12 @@ void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long max)
 
 void pci_iounmap(struct pci_dev *dev, void __iomem *addr)
 {
-	/* Nothing to do */
+	if (isa_vaddr_is_ioport(addr))
+		return;
+	if (pcibios_vaddr_is_ioport(addr))
+		return;
+	iounmap(addr);
 }
+
 EXPORT_SYMBOL(pci_iomap);
 EXPORT_SYMBOL(pci_iounmap);

@@ -6,7 +6,7 @@
    the GNU General Public License.
  */
 
-/* $Id: nsp_message.c,v 1.6 2003/07/26 14:21:09 elca Exp $ */
+/* $Id: nsp_message.c,v 1.6 2003/07/26 14:21:09 Exp $ */
 
 static void nsp_message_in(struct scsi_cmnd *SCpnt)
 {
@@ -15,12 +15,6 @@ static void nsp_message_in(struct scsi_cmnd *SCpnt)
 	unsigned char data_reg, control_reg;
 	int           ret, len;
 
-	/*
-	 * XXX: NSP QUIRK
-	 * NSP invoke interrupts only in the case of scsi phase changes,
-	 * therefore we should poll the scsi phase here to catch 
-	 * the next "msg in" if exists (no scsi phase changes).
-	 */
 	ret = 16;
 	len = 0;
 
@@ -56,12 +50,6 @@ static void nsp_message_out(struct scsi_cmnd *SCpnt)
 	int ret = 1;
 	int len = data->MsgLen;
 
-	/*
-	 * XXX: NSP QUIRK
-	 * NSP invoke interrupts only in the case of scsi phase changes,
-	 * therefore we should poll the scsi phase here to catch 
-	 * the next "msg out" if exists (no scsi phase changes).
-	 */
 
 	nsp_dbg(NSP_DEBUG_MSGOUTOCCUR, "msgout loop");
 	do {

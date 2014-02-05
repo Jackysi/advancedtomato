@@ -10,17 +10,48 @@ extern void irq_chip_set_defaults(struct irq_chip *chip);
 /* Set default handler: */
 extern void compat_irq_chip_set_default_handler(struct irq_desc *desc);
 
+extern int __irq_set_trigger(struct irq_desc *desc, unsigned int irq,
+		unsigned long flags);
+extern void __disable_irq(struct irq_desc *desc, unsigned int irq, bool susp);
+extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
+
+extern struct lock_class_key irq_desc_lock_class;
+extern void init_kstat_irqs(struct irq_desc *desc, int node, int nr);
+extern void clear_kstat_irqs(struct irq_desc *desc);
+extern raw_spinlock_t sparse_irq_lock;
+
+#ifdef CONFIG_SPARSE_IRQ
+void replace_irq_desc(unsigned int irq, struct irq_desc *desc);
+#endif
+
 #ifdef CONFIG_PROC_FS
-extern void register_irq_proc(unsigned int irq);
+extern void register_irq_proc(unsigned int irq, struct irq_desc *desc);
 extern void register_handler_proc(unsigned int irq, struct irqaction *action);
 extern void unregister_handler_proc(unsigned int irq, struct irqaction *action);
 #else
-static inline void register_irq_proc(unsigned int irq) { }
+static inline void register_irq_proc(unsigned int irq, struct irq_desc *desc) { }
 static inline void register_handler_proc(unsigned int irq,
 					 struct irqaction *action) { }
 static inline void unregister_handler_proc(unsigned int irq,
 					   struct irqaction *action) { }
 #endif
+
+extern int irq_select_affinity_usr(unsigned int irq);
+
+extern void irq_set_thread_affinity(struct irq_desc *desc);
+
+/* Inline functions for support of irq chips on slow busses */
+static inline void chip_bus_lock(unsigned int irq, struct irq_desc *desc)
+{
+	if (unlikely(desc->chip->bus_lock))
+		desc->chip->bus_lock(irq);
+}
+
+static inline void chip_bus_sync_unlock(unsigned int irq, struct irq_desc *desc)
+{
+	if (unlikely(desc->chip->bus_sync_unlock))
+		desc->chip->bus_sync_unlock(irq);
+}
 
 /*
  * Debugging printout:
@@ -61,4 +92,3 @@ static inline void print_irq_desc(unsigned int irq, struct irq_desc *desc)
 }
 
 #undef P
-

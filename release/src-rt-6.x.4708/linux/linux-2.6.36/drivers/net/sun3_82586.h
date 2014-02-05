@@ -312,7 +312,3 @@ struct tbd_struct
 };
 
 #define TBD_LAST 0x8000         /* EOF-Flag, indicates last buffer in list */
-
-
-
-

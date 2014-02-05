@@ -219,10 +219,10 @@
    </para>
 
    <sect1 id="lock-intro">
-   <title>Two Main Types of Kernel Locks: Spinlocks and Semaphores</title>
+   <title>Two Main Types of Kernel Locks: Spinlocks and Mutexes</title>
 
    <para>
-     There are three main types of kernel locks.  The fundamental type
+     There are two main types of kernel locks.  The fundamental type
      is the spinlock 
      (<filename class="headerfile">include/asm/spinlock.h</filename>),
      which is a very simple single-holder lock: if you can't get the 
@@ -238,14 +238,6 @@
      else while you are waiting.  There are many cases when you simply
      can't sleep (see <xref linkend="sleeping-things"/>), and so have to
      use a spinlock instead.
-   </para>
-   <para>
-     The third type is a semaphore
-     (<filename class="headerfile">include/asm/semaphore.h</filename>): it
-     can have more than one holder at any time (the number decided at
-     initialization time), although it is most commonly used as a
-     single-holder lock (a mutex).  If you can't get a semaphore, your
-     task will be suspended and later on woken up - just like for mutexes.
    </para>
    <para>
      Neither type of lock is recursive: see
@@ -278,7 +270,7 @@
     </para>
 
     <para>
-      Semaphores still exist, because they are required for
+      Mutexes still exist, because they are required for
       synchronization between <firstterm linkend="gloss-usercontext">user 
       contexts</firstterm>, as we will see below.
     </para>
@@ -289,18 +281,17 @@
 
      <para>
        If you have a data structure which is only ever accessed from
-       user context, then you can use a simple semaphore
-       (<filename>linux/asm/semaphore.h</filename>) to protect it.  This 
-       is the most trivial case: you initialize the semaphore to the number 
-       of resources available (usually 1), and call
-       <function>down_interruptible()</function> to grab the semaphore, and 
-       <function>up()</function> to release it.  There is also a 
-       <function>down()</function>, which should be avoided, because it 
+       user context, then you can use a simple mutex
+       (<filename>include/linux/mutex.h</filename>) to protect it.  This
+       is the most trivial case: you initialize the mutex.  Then you can
+       call <function>mutex_lock_interruptible()</function> to grab the mutex,
+       and <function>mutex_unlock()</function> to release it.  There is also a 
+       <function>mutex_lock()</function>, which should be avoided, because it 
        will not return if a signal is received.
      </para>
 
      <para>
-       Example: <filename>linux/net/core/netfilter.c</filename> allows 
+       Example: <filename>net/netfilter/nf_sockopt.c</filename> allows 
        registration of new <function>setsockopt()</function> and 
        <function>getsockopt()</function> calls, with
        <function>nf_register_sockopt()</function>.  Registration and 
@@ -515,7 +506,7 @@
       <listitem>
 	<para>
           If you are in a process context (any syscall) and want to
-	lock other process out, use a semaphore.  You can take a semaphore
+	lock other process out, use a mutex.  You can take a mutex
 	and sleep (<function>copy_from_user*(</function> or
 	<function>kmalloc(x,GFP_KERNEL)</function>).
       </para>
@@ -662,7 +653,7 @@
 <entry>SLBH</entry>
 <entry>SLBH</entry>
 <entry>SLBH</entry>
-<entry>DI</entry>
+<entry>MLI</entry>
 <entry>None</entry>
 </row>
 
@@ -692,8 +683,8 @@
 <entry>spin_lock_bh</entry>
 </row>
 <row>
-<entry>DI</entry>
-<entry>down_interruptible</entry>
+<entry>MLI</entry>
+<entry>mutex_lock_interruptible</entry>
 </row>
 
 </tbody>
@@ -701,6 +692,31 @@
 </table>
 
 </sect1>
+</chapter>
+
+<chapter id="trylock-functions">
+ <title>The trylock Functions</title>
+  <para>
+   There are functions that try to acquire a lock only once and immediately
+   return a value telling about success or failure to acquire the lock.
+   They can be used if you need no access to the data protected with the lock
+   when some other thread is holding the lock. You should acquire the lock
+   later if you then need access to the data protected with the lock.
+  </para>
+
+  <para>
+    <function>spin_trylock()</function> does not spin but returns non-zero if
+    it acquires the spinlock on the first try or 0 if not. This function can
+    be used in all contexts like <function>spin_lock</function>: you must have
+    disabled the contexts that might interrupt you and acquire the spin lock.
+  </para>
+
+  <para>
+    <function>mutex_trylock()</function> does not suspend your task
+    but returns non-zero if it could lock the mutex on the first try
+    or 0 if not. This function cannot be safely used in hardware or software
+    interrupt contexts despite not sleeping.
+  </para>
 </chapter>
 
   <chapter id="Examples">
@@ -717,7 +733,7 @@ used, and when it gets full, throws out the least used one.
     <para>
 For our first example, we assume that all operations are in user
 context (ie. from system calls), so we can sleep.  This means we can
-use a semaphore to protect the cache and all the objects within
+use a mutex to protect the cache and all the objects within
 it.  Here's the code:
     </para>
 
@@ -725,7 +741,7 @@ it.  Here's the code:
 #include &lt;linux/list.h&gt;
 #include &lt;linux/slab.h&gt;
 #include &lt;linux/string.h&gt;
-#include &lt;asm/semaphore.h&gt;
+#include &lt;linux/mutex.h&gt;
 #include &lt;asm/errno.h&gt;
 
 struct object
@@ -737,7 +753,7 @@ struct object
 };
 
 /* Protects the cache, cache_num, and the objects within it */
-static DECLARE_MUTEX(cache_lock);
+static DEFINE_MUTEX(cache_lock);
 static LIST_HEAD(cache);
 static unsigned int cache_num = 0;
 #define MAX_CACHE_SIZE 10
@@ -789,17 +805,17 @@ int cache_add(int id, const char *name)
         obj-&gt;id = id;
         obj-&gt;popularity = 0;
 
-        down(&amp;cache_lock);
+        mutex_lock(&amp;cache_lock);
         __cache_add(obj);
-        up(&amp;cache_lock);
+        mutex_unlock(&amp;cache_lock);
         return 0;
 }
 
 void cache_delete(int id)
 {
-        down(&amp;cache_lock);
+        mutex_lock(&amp;cache_lock);
         __cache_delete(__cache_find(id));
-        up(&amp;cache_lock);
+        mutex_unlock(&amp;cache_lock);
 }
 
 int cache_find(int id, char *name)
@@ -807,13 +823,13 @@ int cache_find(int id, char *name)
         struct object *obj;
         int ret = -ENOENT;
 
-        down(&amp;cache_lock);
+        mutex_lock(&amp;cache_lock);
         obj = __cache_find(id);
         if (obj) {
                 ret = 0;
                 strcpy(name, obj-&gt;name);
         }
-        up(&amp;cache_lock);
+        mutex_unlock(&amp;cache_lock);
         return ret;
 }
 </programlisting>
@@ -853,8 +869,8 @@ The change is shown below, in standard patch format: the
          int popularity;
  };
 
--static DECLARE_MUTEX(cache_lock);
-+static spinlock_t cache_lock = SPIN_LOCK_UNLOCKED;
+-static DEFINE_MUTEX(cache_lock);
++static DEFINE_SPINLOCK(cache_lock);
  static LIST_HEAD(cache);
  static unsigned int cache_num = 0;
  #define MAX_CACHE_SIZE 10
@@ -870,22 +886,22 @@ The change is shown below, in standard patch format: the
          obj-&gt;id = id;
          obj-&gt;popularity = 0;
 
--        down(&amp;cache_lock);
+-        mutex_lock(&amp;cache_lock);
 +        spin_lock_irqsave(&amp;cache_lock, flags);
          __cache_add(obj);
--        up(&amp;cache_lock);
+-        mutex_unlock(&amp;cache_lock);
 +        spin_unlock_irqrestore(&amp;cache_lock, flags);
          return 0;
  }
 
  void cache_delete(int id)
  {
--        down(&amp;cache_lock);
+-        mutex_lock(&amp;cache_lock);
 +        unsigned long flags;
 +
 +        spin_lock_irqsave(&amp;cache_lock, flags);
          __cache_delete(__cache_find(id));
--        up(&amp;cache_lock);
+-        mutex_unlock(&amp;cache_lock);
 +        spin_unlock_irqrestore(&amp;cache_lock, flags);
  }
 
@@ -895,14 +911,14 @@ The change is shown below, in standard patch format: the
          int ret = -ENOENT;
 +        unsigned long flags;
 
--        down(&amp;cache_lock);
+-        mutex_lock(&amp;cache_lock);
 +        spin_lock_irqsave(&amp;cache_lock, flags);
          obj = __cache_find(id);
          if (obj) {
                  ret = 0;
                  strcpy(name, obj-&gt;name);
          }
--        up(&amp;cache_lock);
+-        mutex_unlock(&amp;cache_lock);
 +        spin_unlock_irqrestore(&amp;cache_lock, flags);
          return ret;
  }
@@ -1238,7 +1254,7 @@ Here is the "lock-per-object" implementation:
 -        int popularity;
  };
 
- static spinlock_t cache_lock = SPIN_LOCK_UNLOCKED;
+ static DEFINE_SPINLOCK(cache_lock);
 @@ -77,6 +84,7 @@
          obj-&gt;id = id;
          obj-&gt;popularity = 0;
@@ -1285,7 +1301,7 @@ as Alan Cox says, <quote>Lock data, not code</quote>.
     <para>
       There is a coding bug where a piece of code tries to grab a
       spinlock twice: it will spin forever, waiting for the lock to
-      be released (spinlocks, rwlocks and semaphores are not
+      be released (spinlocks, rwlocks and mutexes are not
       recursive in Linux).  This is trivial to diagnose: not a
       stay-up-five-nights-talk-to-fluffy-code-bunnies kind of
       problem.
@@ -1310,7 +1326,7 @@ as Alan Cox says, <quote>Lock data, not code</quote>.
 
     <para>
       This complete lockup is easy to diagnose: on SMP boxes the
-      watchdog timer or compiling with <symbol>DEBUG_SPINLOCKS</symbol> set
+      watchdog timer or compiling with <symbol>DEBUG_SPINLOCK</symbol> set
       (<filename>include/linux/spinlock.h</filename>) will show this up 
       immediately when it happens.
     </para>
@@ -1533,7 +1549,7 @@ the amount of locking which needs to be done.
    <title>Read/Write Lock Variants</title>
 
    <para>
-      Both spinlocks and semaphores have read/write variants:
+      Both spinlocks and mutexes have read/write variants:
       <type>rwlock_t</type> and <structname>struct rw_semaphore</structname>.
       These divide users into two classes: the readers and the writers.  If
       you are only reading the data, you can get a read lock, but to write to
@@ -1656,7 +1672,7 @@ the amount of locking which needs to be done.
  #include &lt;linux/slab.h&gt;
  #include &lt;linux/string.h&gt;
 +#include &lt;linux/rcupdate.h&gt;
- #include &lt;asm/semaphore.h&gt;
+ #include &lt;linux/mutex.h&gt;
  #include &lt;asm/errno.h&gt;
 
  struct object
@@ -1888,7 +1904,7 @@ machines due to caching.
        </listitem>
        <listitem>
         <para>
-          <function> put_user()</function>
+          <function>put_user()</function>
         </para>
        </listitem>
       </itemizedlist>
@@ -1902,13 +1918,16 @@ machines due to caching.
 
      <listitem>
       <para>
-      <function>down_interruptible()</function> and
-      <function>down()</function>
+      <function>mutex_lock_interruptible()</function> and
+      <function>mutex_lock()</function>
       </para>
       <para>
-       There is a <function>down_trylock()</function> which can be
-       used inside interrupt context, as it will not sleep.
-       <function>up()</function> will also never sleep.
+       There is a <function>mutex_trylock()</function> which does not
+       sleep.  Still, it must not be used inside interrupt context since
+       its implementation is not safe for that.
+       <function>mutex_unlock()</function> will also never sleep.
+       It cannot be used in interrupt context either since a mutex
+       must be released by the same task that acquired it.
       </para>
      </listitem>
     </itemizedlist>
@@ -1940,6 +1959,12 @@ machines due to caching.
      </listitem>
     </itemizedlist>
    </sect1>
+  </chapter>
+
+  <chapter id="apiref">
+   <title>Mutex API reference</title>
+!Iinclude/linux/mutex.h
+!Ekernel/mutex.c
   </chapter>
 
   <chapter id="references">
@@ -1998,7 +2023,7 @@ machines due to caching.
       <para>
         Prior to 2.5, or when <symbol>CONFIG_PREEMPT</symbol> is
         unset, processes in user context inside the kernel would not
-        preempt each other (ie. you had that CPU until you have it up,
+        preempt each other (ie. you had that CPU until you gave it up,
         except for interrupts).  With the addition of
         <symbol>CONFIG_PREEMPT</symbol> in 2.5.4, this changed: when
         in user context, higher priority tasks can "cut in": spinlocks

@@ -122,20 +122,8 @@ static int sh4202_read_vcr(unsigned long base, struct superhyway_vcr_info *vcr)
 	u32 vcrh, vcrl;
 	u64 tmp;
 
-	/*
-	 * XXX: Even though the SH4-202 Evaluation Device documentation
-	 * indicates that VCRL is mapped first with VCRH at a + 0x04
-	 * offset, the opposite seems to be true.
-	 *
-	 * Some modules (PBR and ePBR for instance) also appear to have
-	 * VCRL/VCRH flipped in the documentation, but on the SH4-202
-	 * itself it appears that these are all consistently mapped with
-	 * VCRH preceding VCRL.
-	 *
-	 * Do not trust the documentation, for it is evil.
-	 */
-	vcrh = ctrl_inl(base);
-	vcrl = ctrl_inl(base + sizeof(u32));
+	vcrh = __raw_readl(base);
+	vcrl = __raw_readl(base + sizeof(u32));
 
 	tmp = ((u64)vcrh << 32) | vcrl;
 	memcpy(vcr, &tmp, sizeof(u64));
@@ -147,8 +135,8 @@ static int sh4202_write_vcr(unsigned long base, struct superhyway_vcr_info vcr)
 {
 	u64 tmp = *(u64 *)&vcr;
 
-	ctrl_outl((tmp >> 32) & 0xffffffff, base);
-	ctrl_outl(tmp & 0xffffffff, base + sizeof(u32));
+	__raw_writel((tmp >> 32) & 0xffffffff, base);
+	__raw_writel(tmp & 0xffffffff, base + sizeof(u32));
 
 	return 0;
 }
@@ -168,4 +156,3 @@ int __init superhyway_scan_bus(struct superhyway_bus *bus)
 	return superhyway_add_devices(bus, sh4202_devices,
 				      ARRAY_SIZE(sh4202_devices));
 }
-

@@ -27,7 +27,6 @@
 #include <asm/mmu_context.h>
 #include <asm/dvma.h>
 
-extern void prom_reboot (char *) __attribute__ ((__noreturn__));
 
 #undef DEBUG_MMU_EMU
 #define DEBUG_PROM_MAPS
@@ -46,8 +45,8 @@ extern void prom_reboot (char *) __attribute__ ((__noreturn__));
 ** Globals
 */
 
-unsigned long vmalloc_end;
-EXPORT_SYMBOL(vmalloc_end);
+unsigned long m68k_vmalloc_end;
+EXPORT_SYMBOL(m68k_vmalloc_end);
 
 unsigned long pmeg_vaddr[PMEGS_NUM];
 unsigned char pmeg_alloc[PMEGS_NUM];
@@ -55,7 +54,7 @@ unsigned char pmeg_ctx[PMEGS_NUM];
 
 /* pointers to the mm structs for each task in each
    context. 0xffffffff is a marker for kernel context */
-struct mm_struct *ctx_alloc[CONTEXTS_NUM] = {
+static struct mm_struct *ctx_alloc[CONTEXTS_NUM] = {
     [0] = (struct mm_struct *)0xffffffff
 };
 
@@ -70,25 +69,6 @@ unsigned long rom_pages[256];
 /* Print a PTE value in symbolic form. For debugging. */
 void print_pte (pte_t pte)
 {
-#if 0
-	/* Verbose version. */
-	unsigned long val = pte_val (pte);
-	printk (" pte=%lx [addr=%lx",
-		val, (val & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT);
-	if (val & SUN3_PAGE_VALID)	printk (" valid");
-	if (val & SUN3_PAGE_WRITEABLE)	printk (" write");
-	if (val & SUN3_PAGE_SYSTEM)	printk (" sys");
-	if (val & SUN3_PAGE_NOCACHE)	printk (" nocache");
-	if (val & SUN3_PAGE_ACCESSED)	printk (" accessed");
-	if (val & SUN3_PAGE_MODIFIED)	printk (" modified");
-	switch (val & SUN3_PAGE_TYPE_MASK) {
-		case SUN3_PAGE_TYPE_MEMORY: printk (" memory"); break;
-		case SUN3_PAGE_TYPE_IO:     printk (" io");     break;
-		case SUN3_PAGE_TYPE_VME16:  printk (" vme16");  break;
-		case SUN3_PAGE_TYPE_VME32:  printk (" vme32");  break;
-	}
-	printk ("]\n");
-#else
 	/* Terse version. More likely to fit on a line. */
 	unsigned long val = pte_val (pte);
 	char flags[7], *type;
@@ -111,7 +91,6 @@ void print_pte (pte_t pte)
 
 	printk (" pte=%08lx [%07lx %s %s]\n",
 		val, (val & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT, flags, type);
-#endif
 }
 
 /* Print the PTE value for a given virtual address. For debugging. */
@@ -173,8 +152,8 @@ void mmu_emu_init(unsigned long bootmem_end)
 #endif
 			// the lowest mapping here is the end of our
 			// vmalloc region
-			if(!vmalloc_end)
-				vmalloc_end = seg;
+			if (!m68k_vmalloc_end)
+				m68k_vmalloc_end = seg;
 
 			// mark the segmap alloc'd, and reserve any
 			// of the first 0xbff pages the hardware is
@@ -239,7 +218,7 @@ void clear_context(unsigned long context)
 /* gets an empty context.  if full, kills the next context listed to
    die first */
 /* This context invalidation scheme is, well, totally arbitrary, I'm
-   sure it could be much more intellegent...  but it gets the job done
+   sure it could be much more intelligent...  but it gets the job done
    for now without much overhead in making it's decision. */
 /* todo: come up with optimized scheme for flushing contexts */
 unsigned long get_free_context(struct mm_struct *mm)

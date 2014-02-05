@@ -31,7 +31,8 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
-#include <asm/io.h>
+#include <linux/slab.h>
+#include <linux/io.h>
 
 #include <linux/scx200.h>
 
@@ -217,8 +218,10 @@ static void scx200_acb_machine(struct scx200_acb_iface *iface, u8 status)
 	return;
 
  error:
-	dev_err(&iface->adapter.dev, "%s in state %s\n", errmsg,
-		scx200_acb_state_name[iface->state]);
+	dev_err(&iface->adapter.dev,
+		"%s in state %s (addr=0x%02x, len=%d, status=0x%02x)\n", errmsg,
+		scx200_acb_state_name[iface->state], iface->address_byte,
+		iface->len, status);
 
 	iface->state = state_idle;
 	iface->result = -EIO;
@@ -310,8 +313,6 @@ static s32 scx200_acb_smbus_xfer(struct i2c_adapter *adapter,
 		break;
 
 	case I2C_SMBUS_I2C_BLOCK_DATA:
-		if (rw == I2C_SMBUS_READ)
-			data->block[0] = I2C_SMBUS_BLOCK_MAX; /* For now */
 		len = data->block[0];
 		if (len == 0 || len > I2C_SMBUS_BLOCK_MAX)
 			return -EINVAL;
@@ -388,7 +389,7 @@ static const struct i2c_algorithm scx200_acb_algorithm = {
 };
 
 static struct scx200_acb_iface *scx200_acb_list;
-static DECLARE_MUTEX(scx200_acb_list_mutex);
+static DEFINE_MUTEX(scx200_acb_list_mutex);
 
 static __init int scx200_acb_probe(struct scx200_acb_iface *iface)
 {
@@ -442,9 +443,8 @@ static __init struct scx200_acb_iface *scx200_create_iface(const char *text,
 	i2c_set_adapdata(adapter, iface);
 	snprintf(adapter->name, sizeof(adapter->name), "%s ACB%d", text, index);
 	adapter->owner = THIS_MODULE;
-	adapter->id = I2C_HW_SMBUS_SCX200;
 	adapter->algo = &scx200_acb_algorithm;
-	adapter->class = I2C_CLASS_HWMON;
+	adapter->class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
 	adapter->dev.parent = dev;
 
 	mutex_init(&iface->mutex);
@@ -472,10 +472,10 @@ static int __init scx200_acb_create(struct scx200_acb_iface *iface)
 		return -ENODEV;
 	}
 
-	down(&scx200_acb_list_mutex);
+	mutex_lock(&scx200_acb_list_mutex);
 	iface->next = scx200_acb_list;
 	scx200_acb_list = iface;
-	up(&scx200_acb_list_mutex);
+	mutex_unlock(&scx200_acb_list_mutex);
 
 	return 0;
 }
@@ -494,7 +494,7 @@ static __init int scx200_create_pci(const char *text, struct pci_dev *pdev,
 	iface->pdev = pdev;
 	iface->bar = bar;
 
-	rc = pci_enable_device_bars(iface->pdev, 1 << iface->bar);
+	rc = pci_enable_device_io(iface->pdev);
 	if (rc)
 		goto errout_free;
 
@@ -529,7 +529,7 @@ static int __init scx200_create_isa(const char *text, unsigned long base,
 	if (iface == NULL)
 		return -ENOMEM;
 
-	if (request_region(base, 8, iface->adapter.name) == 0) {
+	if (!request_region(base, 8, iface->adapter.name)) {
 		printk(KERN_ERR NAME ": can't allocate io 0x%lx-0x%lx\n",
 		       base, base + 8 - 1);
 		rc = -EBUSY;
@@ -552,7 +552,7 @@ static int __init scx200_create_isa(const char *text, unsigned long base,
  * the name and the BAR where the I/O address resource is located.  ISA
  * devices are flagged with a bar value of -1 */
 
-static struct pci_device_id scx200_pci[] = {
+static const struct pci_device_id scx200_pci[] __initconst = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_SCx200_BRIDGE),
 	  .driver_data = 0 },
 	{ PCI_DEVICE(PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_SC1100_BRIDGE),
@@ -633,10 +633,10 @@ static void __exit scx200_acb_cleanup(void)
 {
 	struct scx200_acb_iface *iface;
 
-	down(&scx200_acb_list_mutex);
+	mutex_lock(&scx200_acb_list_mutex);
 	while ((iface = scx200_acb_list) != NULL) {
 		scx200_acb_list = iface->next;
-		up(&scx200_acb_list_mutex);
+		mutex_unlock(&scx200_acb_list_mutex);
 
 		i2c_del_adapter(&iface->adapter);
 
@@ -648,9 +648,9 @@ static void __exit scx200_acb_cleanup(void)
 			release_region(iface->base, 8);
 
 		kfree(iface);
-		down(&scx200_acb_list_mutex);
+		mutex_lock(&scx200_acb_list_mutex);
 	}
-	up(&scx200_acb_list_mutex);
+	mutex_unlock(&scx200_acb_list_mutex);
 }
 
 module_init(scx200_acb_init);

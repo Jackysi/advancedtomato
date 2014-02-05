@@ -20,10 +20,7 @@ MODULE_AUTHOR("Jonathan Zarate");
 MODULE_DESCRIPTION("HTTP client request match (experimental)");
 MODULE_LICENSE("GPL");
 
-
-//	#define LOG			printk
 #define LOG(...)	do { } while (0);
-
 
 static int find(const char *data, const char *tail, const char *text)
 {
@@ -35,18 +32,6 @@ static int find(const char *data, const char *tail, const char *text)
 	while ((tail > data) && (*(tail - 1) == ' ')) --tail;
 
 	dlen = tail - data;
-
-#if 0
-	{
-		char tmp[128];
-		int z;
-		z = sizeof(tmp) - 1;
-		if (z > dlen) z = dlen;
-		memcpy(tmp, data, z);
-		tmp[z] = 0;
-		LOG(KERN_INFO "find in '%s'\n", tmp);
-	}
-#endif
 
 	// 012345
 	// text
@@ -114,25 +99,11 @@ static inline const char *findend(const char *data, const char *tail, int min)
 }
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-static int
-#else
 static bool
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-match(const struct sk_buff *skb, const struct net_device *in, const struct net_device *out,
-	const struct xt_match *match, const void *matchinfo, int offset,
-	unsigned int protoff, int *hotdrop)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
-match(const struct sk_buff *skb, const struct xt_match_param *par)
-#endif
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_web_info *info = matchinfo;
-#else
 	const struct ipt_web_info *info = par->matchinfo;
 	const int offset = par->fragoff;
-#endif
 	const struct iphdr *iph = ip_hdr(skb);
 	const struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
 	const char *data;
@@ -147,14 +118,6 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
  	data = (void *)tcph + doff;
 	dlen = ntohs(ip_hdr(skb)->tot_len);
 
-#if 0
-	printk(KERN_INFO "dlen=%d doff=%d\n", dlen, doff);
-	char tmp[16];
-	memcpy(tmp, data, sizeof(tmp));
-	tmp[sizeof(tmp) - 1] = 0;
-	printk(KERN_INFO "[%s]\n", tmp);
-#endif
-	
 	// POST / HTTP/1.0$$$$
 	// GET / HTTP/1.0$$$$
 	// 1234567890123456789
@@ -172,23 +135,12 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 		tail = data + 1024;
 	}
 
-
 	// POST / HTTP/1.0$$$$
 	// GET / HTTP/1.0$$$$	-- minimum
 	// 0123456789012345678
 	//      9876543210
 	if (((p = findend(data + 14, tail, 18)) == NULL) || (memcmp(p - 9, " HTTP/", 6) != 0))
 		return info->invert;
-
-#if 0
-	{
-		const char *qq = info->text;
-		while (*qq) {
-			printk(KERN_INFO "text=%s\n", qq);
-			qq += strlen(qq) + 1;
-		}
-	}
-#endif
 
 	switch (info->mode) {
 	case IPT_WEB_HTTP:
@@ -225,13 +177,6 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 		p = findend(data, tail, 8);	// p = current line's \r
 		if (p == NULL) return 0;
 
-#if 0
-			char tmp[64];
-			memcpy(tmp, data, 32);
-			tmp[32] = 0;
-			printk(KERN_INFO "data=[%s]\n", tmp);
-#endif
-
 		if (memcmp(data, "Host: ", 6) == 0)
 			return find(data + 6, p, info->text) ^ info->invert;
 	}
@@ -239,19 +184,10 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 	return !info->invert;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static int
-#else
-static bool
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-checkentry(const char *tablename, const void *inf, const struct xt_match *match,
-	void *matchinfo, unsigned int hook_mask)
-#else
 checkentry(const struct xt_mtchk_param *par)
-#endif
 {
-	return 1;
+	return 0;
 }
 
 static struct xt_match web_match = {
@@ -266,7 +202,6 @@ static struct xt_match web_match = {
 
 static int __init init(void)
 {
-//	LOG(KERN_INFO "ipt_web <" __DATE__ " " __TIME__ "> loaded\n");
 	return xt_register_match(&web_match);
 }
 

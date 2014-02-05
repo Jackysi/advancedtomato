@@ -35,8 +35,3 @@
 
 #define MEMOUTB(basemem, pnum, setmemval)  *(caddr_t)((basemem) + ( PCI_IO_OFFSET | pnum << 4 | pnum )) = (setmemval)
 #define MEMINB(basemem, pnum)  *(caddr_t)((basemem) + (PCI_IO_OFFSET | pnum << 4 | pnum ))   /* for PCI I/O */
-
-
-
-
-

@@ -108,4 +108,3 @@ typedef struct {
 } boardInfo;
 
 #endif  /*  __ISDN_SC_SCIOC_H__  */
-

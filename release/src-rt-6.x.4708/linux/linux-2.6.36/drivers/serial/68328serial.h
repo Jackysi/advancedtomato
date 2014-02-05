@@ -23,7 +23,7 @@ struct serial_struct {
 	int	baud_base;
 	unsigned short	close_delay;
 	char	reserved_char[2];
-	int	hub6;  /* FIXME: We don't have AT&T Hub6 boards! */
+	int	hub6;
 	unsigned short	closing_wait; /* time to wait before closing */
 	unsigned short	closing_wait2; /* no longer used... */
 	int	reserved[4];

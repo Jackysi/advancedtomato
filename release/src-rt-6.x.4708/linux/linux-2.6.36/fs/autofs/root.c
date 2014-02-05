@@ -13,8 +13,10 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/stat.h>
+#include <linux/slab.h>
 #include <linux/param.h>
 #include <linux/time.h>
+#include <linux/compat.h>
 #include <linux/smp_lock.h>
 #include "autofs_i.h"
 
@@ -24,12 +26,17 @@ static int autofs_root_symlink(struct inode *,struct dentry *,const char *);
 static int autofs_root_unlink(struct inode *,struct dentry *);
 static int autofs_root_rmdir(struct inode *,struct dentry *);
 static int autofs_root_mkdir(struct inode *,struct dentry *,int);
-static int autofs_root_ioctl(struct inode *, struct file *,unsigned int,unsigned long);
+static long autofs_root_ioctl(struct file *,unsigned int,unsigned long);
+static long autofs_root_compat_ioctl(struct file *,unsigned int,unsigned long);
 
 const struct file_operations autofs_root_operations = {
+	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
 	.readdir	= autofs_root_readdir,
-	.ioctl		= autofs_root_ioctl,
+	.unlocked_ioctl	= autofs_root_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= autofs_root_compat_ioctl,
+#endif
 };
 
 const struct inode_operations autofs_root_inode_operations = {
@@ -114,8 +121,8 @@ static int try_to_fill_dentry(struct dentry *dentry, struct super_block *sb, str
 	dentry->d_time = (unsigned long) ent;
 	
 	if (!dentry->d_inode) {
-		inode = iget(sb, ent->ino);
-		if (!inode) {
+		inode = autofs_iget(sb, ent->ino);
+		if (IS_ERR(inode)) {
 			/* Failed, but leave pending for next time */
 			return 1;
 		}
@@ -192,7 +199,7 @@ static int autofs_revalidate(struct dentry * dentry, struct nameidata *nd)
 	return 1;
 }
 
-static struct dentry_operations autofs_dentry_operations = {
+static const struct dentry_operations autofs_dentry_operations = {
 	.d_revalidate	= autofs_revalidate,
 };
 
@@ -214,8 +221,8 @@ static struct dentry *autofs_root_lookup(struct inode *dir, struct dentry *dentr
 
 	oz_mode = autofs_oz_mode(sbi);
 	DPRINTK(("autofs_lookup: pid = %u, pgrp = %u, catatonic = %d, "
-				"oz_mode = %d\n", pid_nr(task_pid(current)),
-				process_group(current), sbi->catatonic,
+				"oz_mode = %d\n", task_pid_nr(current),
+				task_pgrp_nr(current), sbi->catatonic,
 				oz_mode));
 
 	/*
@@ -274,6 +281,7 @@ static int autofs_root_symlink(struct inode *dir, struct dentry *dentry, const c
 	unsigned int n;
 	int slsize;
 	struct autofs_symlink *sl;
+	struct inode *inode;
 
 	DPRINTK(("autofs_root_symlink: %s <- ", symname));
 	autofs_say(dentry->d_name.name,dentry->d_name.len);
@@ -331,7 +339,12 @@ static int autofs_root_symlink(struct inode *dir, struct dentry *dentry, const c
 	ent->dentry = NULL;	/* We don't keep the dentry for symlinks */
 
 	autofs_hash_insert(dh,ent);
-	d_instantiate(dentry, iget(dir->i_sb,ent->ino));
+
+	inode = autofs_iget(dir->i_sb, ent->ino);
+	if (IS_ERR(inode))
+		return PTR_ERR(inode);
+
+	d_instantiate(dentry, inode);
 	unlock_kernel();
 	return 0;
 }
@@ -428,6 +441,7 @@ static int autofs_root_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	struct autofs_sb_info *sbi = autofs_sbi(dir->i_sb);
 	struct autofs_dirhash *dh = &sbi->dirhash;
 	struct autofs_dir_ent *ent;
+	struct inode *inode;
 	ino_t ino;
 
 	lock_kernel();
@@ -469,13 +483,39 @@ static int autofs_root_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	autofs_hash_insert(dh,ent);
 
 	inc_nlink(dir);
-	d_instantiate(dentry, iget(dir->i_sb,ino));
+
+	inode = autofs_iget(dir->i_sb, ino);
+	if (IS_ERR(inode)) {
+		drop_nlink(dir);
+		return PTR_ERR(inode);
+	}
+
+	d_instantiate(dentry, inode);
 	unlock_kernel();
 
 	return 0;
 }
 
 /* Get/set timeout ioctl() operation */
+#ifdef CONFIG_COMPAT
+static inline int autofs_compat_get_set_timeout(struct autofs_sb_info *sbi,
+					 unsigned int __user *p)
+{
+	unsigned long ntimeout;
+
+	if (get_user(ntimeout, p) ||
+	    put_user(sbi->exp_timeout / HZ, p))
+		return -EFAULT;
+
+	if (ntimeout > UINT_MAX/HZ)
+		sbi->exp_timeout = 0;
+	else
+		sbi->exp_timeout = ntimeout * HZ;
+
+	return 0;
+}
+#endif
+
 static inline int autofs_get_set_timeout(struct autofs_sb_info *sbi,
 					 unsigned long __user *p)
 {
@@ -530,13 +570,13 @@ static inline int autofs_expire_run(struct super_block *sb,
  * ioctl()'s on the root directory is the chief method for the daemon to
  * generate kernel reactions
  */
-static int autofs_root_ioctl(struct inode *inode, struct file *filp,
+static int autofs_do_root_ioctl(struct inode *inode, struct file *filp,
 			     unsigned int cmd, unsigned long arg)
 {
 	struct autofs_sb_info *sbi = autofs_sbi(inode->i_sb);
 	void __user *argp = (void __user *)arg;
 
-	DPRINTK(("autofs_ioctl: cmd = 0x%08x, arg = 0x%08lx, sbi = %p, pgrp = %u\n",cmd,arg,sbi,process_group(current)));
+	DPRINTK(("autofs_ioctl: cmd = 0x%08x, arg = 0x%08lx, sbi = %p, pgrp = %u\n",cmd,arg,sbi,task_pgrp_nr(current)));
 
 	if (_IOC_TYPE(cmd) != _IOC_TYPE(AUTOFS_IOC_FIRST) ||
 	     _IOC_NR(cmd) - _IOC_NR(AUTOFS_IOC_FIRST) >= AUTOFS_IOC_COUNT)
@@ -555,6 +595,10 @@ static int autofs_root_ioctl(struct inode *inode, struct file *filp,
 		return 0;
 	case AUTOFS_IOC_PROTOVER: /* Get protocol version */
 		return autofs_get_protover(argp);
+#ifdef CONFIG_COMPAT
+	case AUTOFS_IOC_SETTIMEOUT32:
+		return autofs_compat_get_set_timeout(sbi, argp);
+#endif
 	case AUTOFS_IOC_SETTIMEOUT:
 		return autofs_get_set_timeout(sbi, argp);
 	case AUTOFS_IOC_EXPIRE:
@@ -563,4 +607,37 @@ static int autofs_root_ioctl(struct inode *inode, struct file *filp,
 	default:
 		return -ENOSYS;
 	}
+
 }
+
+static long autofs_root_ioctl(struct file *filp,
+			     unsigned int cmd, unsigned long arg)
+{
+	int ret;
+
+	lock_kernel();
+	ret = autofs_do_root_ioctl(filp->f_path.dentry->d_inode,
+				   filp, cmd, arg);
+	unlock_kernel();
+
+	return ret;
+}
+
+#ifdef CONFIG_COMPAT
+static long autofs_root_compat_ioctl(struct file *filp,
+			     unsigned int cmd, unsigned long arg)
+{
+	struct inode *inode = filp->f_path.dentry->d_inode;
+	int ret;
+
+	lock_kernel();
+	if (cmd == AUTOFS_IOC_READY || cmd == AUTOFS_IOC_FAIL)
+		ret = autofs_do_root_ioctl(inode, filp, cmd, arg);
+	else
+		ret = autofs_do_root_ioctl(inode, filp, cmd,
+			(unsigned long)compat_ptr(arg));
+	unlock_kernel();
+
+	return ret;
+}
+#endif

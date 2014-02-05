@@ -76,7 +76,7 @@ static int tricn_write(adapter_t *adapter, int bundle_addr, int module_addr,
 	} while (busy && --attempts);
 
 	if (busy)
-		CH_ERR("%s: TRICN write timed out\n", adapter->name);
+		pr_err("%s: TRICN write timed out\n", adapter->name);
 
 	return busy;
 }
@@ -86,7 +86,7 @@ static int tricn_init(adapter_t *adapter)
 	int i, sme = 1;
 
 	if (!(readl(adapter->regs + A_ESPI_RX_RESET)  & F_RX_CLK_STATUS)) {
-		CH_ERR("%s: ESPI clock not ready\n", adapter->name);
+		pr_err("%s: ESPI clock not ready\n", adapter->name);
 		return -1;
 	}
 
@@ -267,10 +267,6 @@ int t1_espi_init(struct peespi *espi, int mac_type, int nports)
 
 	if (is_T2(adapter)) {
 		tricn_init(adapter);
-		/*
-		 * Always position the control at the 1st port egress IN
-		 * (sop,eop) counter to reduce PIOs for T/N210 workaround.
-		 */
 		espi->misc_ctrl = readl(adapter->regs + A_ESPI_MISC_CONTROL);
 		espi->misc_ctrl &= ~MON_MASK;
 		espi->misc_ctrl |= F_MONITORED_DIRECTION;
@@ -297,18 +293,6 @@ struct peespi *t1_espi_create(adapter_t *adapter)
 	return espi;
 }
 
-void t1_espi_set_misc_ctrl(adapter_t *adapter, u32 val)
-{
-	struct peespi *espi = adapter->espi;
-
-	if (!is_T2(adapter))
-		return;
-	spin_lock(&espi->lock);
-	espi->misc_ctrl = (val & ~MON_MASK) |
-			  (espi->misc_ctrl & MON_MASK);
-	writel(espi->misc_ctrl, adapter->regs + A_ESPI_MISC_CONTROL);
-	spin_unlock(&espi->lock);
-}
 
 u32 t1_espi_get_mon(adapter_t *adapter, u32 addr, u8 wait)
 {

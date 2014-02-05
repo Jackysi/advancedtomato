@@ -17,13 +17,13 @@
  * we locate the device directly by its MMIO or I/O port address.
  *
  * The user can specify the device directly, e.g.,
- *	console=uart,io,0x3f8,9600n8
- *	console=uart,mmio,0xff5e0000,115200n8
- * or platform code can call early_uart_console_init() to set
- * the early UART device.
- *
- * After the normal serial driver starts, we try to locate the
- * matching ttyS device and start a console there.
+ *	earlycon=uart8250,io,0x3f8,9600n8
+ *	earlycon=uart8250,mmio,0xff5e0000,115200n8
+ *	earlycon=uart8250,mmio32,0xff5e0000,115200n8
+ * or
+ *	console=uart8250,io,0x3f8,9600n8
+ *	console=uart8250,mmio,0xff5e0000,115200n8
+ *	console=uart8250,mmio32,0xff5e0000,115200n8
  */
 
 #include <linux/tty.h>
@@ -32,32 +32,49 @@
 #include <linux/serial_core.h>
 #include <linux/serial_reg.h>
 #include <linux/serial.h>
+#include <linux/serial_8250.h>
 #include <asm/io.h>
 #include <asm/serial.h>
+#ifdef CONFIG_FIX_EARLYCON_MEM
+#include <asm/pgtable.h>
+#include <asm/fixmap.h>
+#endif
 
-struct early_uart_device {
+struct early_serial8250_device {
 	struct uart_port port;
 	char options[16];		/* e.g., 115200n8 */
 	unsigned int baud;
 };
 
-static struct early_uart_device early_device __initdata;
-static int early_uart_registered __initdata;
+static struct early_serial8250_device early_device;
 
 static unsigned int __init serial_in(struct uart_port *port, int offset)
 {
-	if (port->iotype == UPIO_MEM)
+	switch (port->iotype) {
+	case UPIO_MEM:
 		return readb(port->membase + offset);
-	else
+	case UPIO_MEM32:
+		return readl(port->membase + (offset << 2));
+	case UPIO_PORT:
 		return inb(port->iobase + offset);
+	default:
+		return 0;
+	}
 }
 
 static void __init serial_out(struct uart_port *port, int offset, int value)
 {
-	if (port->iotype == UPIO_MEM)
+	switch (port->iotype) {
+	case UPIO_MEM:
 		writeb(value, port->membase + offset);
-	else
+		break;
+	case UPIO_MEM32:
+		writel(value, port->membase + (offset << 2));
+		break;
+	case UPIO_PORT:
 		outb(value, port->iobase + offset);
+		break;
+	}
 }
 
 #define BOTH_EMPTY (UART_LSR_TEMT | UART_LSR_THRE)
@@ -74,13 +91,14 @@ static void __init wait_for_xmitr(struct uart_port *port)
 	}
 }
 
-static void __init putc(struct uart_port *port, int c)
+static void __init serial_putc(struct uart_port *port, int c)
 {
 	wait_for_xmitr(port);
 	serial_out(port, UART_TX, c);
 }
 
-static void __init early_uart_write(struct console *console, const char *s, unsigned int count)
+static void __init early_serial8250_write(struct console *console,
+					const char *s, unsigned int count)
 {
 	struct uart_port *port = &early_device.port;
 	unsigned int ier;
@@ -89,7 +107,7 @@ static void __init early_uart_write(struct console *console, const char *s, unsi
 	ier = serial_in(port, UART_IER);
 	serial_out(port, UART_IER, 0);
 
-	uart_console_write(port, s, count, putc);
+	uart_console_write(port, s, count, serial_putc);
 
 	/* Wait for transmitter to become empty and restore the IER */
 	wait_for_xmitr(port);
@@ -111,7 +129,7 @@ static unsigned int __init probe_baud(struct uart_port *port)
 	return (port->uartclk / 16) / quot;
 }
 
-static void __init init_port(struct early_uart_device *device)
+static void __init init_port(struct early_serial8250_device *device)
 {
 	struct uart_port *port = &device->port;
 	unsigned int divisor;
@@ -130,26 +148,40 @@ static void __init init_port(struct early_uart_device *device)
 	serial_out(port, UART_LCR, c & ~UART_LCR_DLAB);
 }
 
-static int __init parse_options(struct early_uart_device *device, char *options)
+static int __init parse_options(struct early_serial8250_device *device,
+								char *options)
 {
 	struct uart_port *port = &device->port;
-	int mapsize = 64;
-	int mmio, length;
+	int mmio, mmio32, length;
 
 	if (!options)
 		return -ENODEV;
 
 	port->uartclk = BASE_BAUD * 16;
-	if (!strncmp(options, "mmio,", 5)) {
-		port->iotype = UPIO_MEM;
-		port->mapbase = simple_strtoul(options + 5, &options, 0);
-		port->membase = ioremap(port->mapbase, mapsize);
+
+	mmio = !strncmp(options, "mmio,", 5);
+	mmio32 = !strncmp(options, "mmio32,", 7);
+	if (mmio || mmio32) {
+		port->iotype = (mmio ? UPIO_MEM : UPIO_MEM32);
+		port->mapbase = simple_strtoul(options + (mmio ? 5 : 7),
+					       &options, 0);
+		if (mmio32)
+			port->regshift = 2;
+#ifdef CONFIG_FIX_EARLYCON_MEM
+		set_fixmap_nocache(FIX_EARLYCON_MEM_BASE,
+					port->mapbase & PAGE_MASK);
+		port->membase =
+			(void __iomem *)__fix_to_virt(FIX_EARLYCON_MEM_BASE);
+		port->membase += port->mapbase & ~PAGE_MASK;
+#else
+		port->membase = ioremap_nocache(port->mapbase, 64);
 		if (!port->membase) {
-			printk(KERN_ERR "%s: Couldn't ioremap 0x%lx\n",
-				__FUNCTION__, port->mapbase);
+			printk(KERN_ERR "%s: Couldn't ioremap 0x%llx\n",
+				__func__,
+			       (unsigned long long) port->mapbase);
 			return -ENOMEM;
 		}
-		mmio = 1;
+#endif
 	} else if (!strncmp(options, "io,", 3)) {
 		port->iotype = UPIO_PORT;
 		port->iobase = simple_strtoul(options + 3, &options, 0);
@@ -157,7 +189,8 @@ static int __init parse_options(struct early_uart_device *device, char *options)
 	} else
 		return -EINVAL;
 
-	if ((options = strchr(options, ','))) {
+	options = strchr(options, ',');
+	if (options) {
 		options++;
 		device->baud = simple_strtoul(options, NULL, 0);
 		length = min(strcspn(options, " "), sizeof(device->options));
@@ -168,83 +201,87 @@ static int __init parse_options(struct early_uart_device *device, char *options)
 			device->baud);
 	}
 
-	printk(KERN_INFO "Early serial console at %s 0x%lx (options '%s')\n",
-		mmio ? "MMIO" : "I/O port",
-		mmio ? port->mapbase : (unsigned long) port->iobase,
-		device->options);
+	if (mmio || mmio32)
+		printk(KERN_INFO
+		       "Early serial console at MMIO%s 0x%llx (options '%s')\n",
+			mmio32 ? "32" : "",
+			(unsigned long long)port->mapbase,
+			device->options);
+	else
+		printk(KERN_INFO
+		      "Early serial console at I/O port 0x%lx (options '%s')\n",
+			port->iobase,
+			device->options);
+
 	return 0;
 }
 
-static int __init early_uart_setup(struct console *console, char *options)
+static struct console early_serial8250_console __initdata = {
+	.name	= "uart",
+	.write	= early_serial8250_write,
+	.flags	= CON_PRINTBUFFER | CON_BOOT,
+	.index	= -1,
+};
+
+static int __init early_serial8250_setup(char *options)
 {
-	struct early_uart_device *device = &early_device;
+	struct early_serial8250_device *device = &early_device;
 	int err;
 
 	if (device->port.membase || device->port.iobase)
 		return 0;
 
-	if ((err = parse_options(device, options)) < 0)
+	err = parse_options(device, options);
+	if (err < 0)
 		return err;
 
 	init_port(device);
 	return 0;
 }
 
-static struct console early_uart_console __initdata = {
-	.name	= "uart",
-	.write	= early_uart_write,
-	.setup	= early_uart_setup,
-	.flags	= CON_PRINTBUFFER,
-	.index	= -1,
-};
-
-static int __init early_uart_console_init(void)
-{
-	if (!early_uart_registered) {
-		register_console(&early_uart_console);
-		early_uart_registered = 1;
-	}
-	return 0;
-}
-console_initcall(early_uart_console_init);
-
-int __init early_serial_console_init(char *cmdline)
+int __init setup_early_serial8250_console(char *cmdline)
 {
 	char *options;
 	int err;
 
-	options = strstr(cmdline, "console=uart,");
-	if (!options)
-		return -ENODEV;
+	options = strstr(cmdline, "uart8250,");
+	if (!options) {
+		options = strstr(cmdline, "uart,");
+		if (!options)
+			return 0;
+	}
 
 	options = strchr(cmdline, ',') + 1;
-	if ((err = early_uart_setup(NULL, options)) < 0)
+	err = early_serial8250_setup(options);
+	if (err < 0)
 		return err;
-	return early_uart_console_init();
-}
 
-static int __init early_uart_console_switch(void)
-{
-	struct early_uart_device *device = &early_device;
-	struct uart_port *port = &device->port;
-	int mmio, line;
-
-	if (!(early_uart_console.flags & CON_ENABLED))
-		return 0;
-
-	/* Try to start the normal driver on a matching line.  */
-	mmio = (port->iotype == UPIO_MEM);
-	line = serial8250_start_console(port, device->options);
-	if (line < 0)
-		printk("No ttyS device at %s 0x%lx for console\n",
-			mmio ? "MMIO" : "I/O port",
-			mmio ? port->mapbase :
-			    (unsigned long) port->iobase);
-
-	unregister_console(&early_uart_console);
-	if (mmio)
-		iounmap(port->membase);
+	register_console(&early_serial8250_console);
 
 	return 0;
 }
-late_initcall(early_uart_console_switch);
+
+int serial8250_find_port_for_earlycon(void)
+{
+	struct early_serial8250_device *device = &early_device;
+	struct uart_port *port = &device->port;
+	int line;
+	int ret;
+
+	if (!device->port.membase && !device->port.iobase)
+		return -ENODEV;
+
+	line = serial8250_find_port(port);
+	if (line < 0)
+		return -ENODEV;
+
+	ret = update_console_cmdline("uart", 8250,
+			     "ttyS", line, device->options);
+	if (ret < 0)
+		ret = update_console_cmdline("uart", 0,
+				     "ttyS", line, device->options);
+
+	return ret;
+}
+
+early_param("earlycon", setup_early_serial8250_console);

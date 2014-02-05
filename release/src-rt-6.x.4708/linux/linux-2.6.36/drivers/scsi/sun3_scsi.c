@@ -178,9 +178,6 @@ static inline void sun3_udc_write(unsigned short val, unsigned char reg)
 	udelay(SUN3_DMA_DELAY);
 }
 
-/*
- * XXX: status debug
- */
 static struct Scsi_Host *default_instance;
 
 /*
@@ -268,7 +265,7 @@ int sun3scsi_detect(struct scsi_host_template * tpnt)
         ((struct NCR5380_hostdata *)instance->hostdata)->ctrl = 0;
 
 	if (request_irq(instance->irq, scsi_sun3_intr,
-			     0, "Sun3SCSI-5380", NULL)) {
+			     0, "Sun3SCSI-5380", instance)) {
 #ifndef REAL_DMA
 		printk("scsi%d: IRQ%d not free, interrupts disabled\n",
 		       instance->host_no, instance->irq);
@@ -310,7 +307,7 @@ int sun3scsi_detect(struct scsi_host_template * tpnt)
 int sun3scsi_release (struct Scsi_Host *shpnt)
 {
 	if (shpnt->irq != SCSI_IRQ_NONE)
-		free_irq (shpnt->irq, NULL);
+		free_irq(shpnt->irq, shpnt);
 
 	iounmap((void *)sun3_scsi_regp);
 
@@ -400,19 +397,6 @@ static irqreturn_t scsi_sun3_intr(int irq, void *dummy)
  */
 
 /* this doesn't seem to get used at all -- sam */
-#if 0
-void sun3_sun3_debug (void)
-{
-	unsigned long flags;
-	NCR5380_local_declare();
-
-	if (default_instance) {
-			local_irq_save(flags);
-			NCR5380_print_status(default_instance);
-			local_irq_restore(flags);
-	}
-}
-#endif
 
 
 /* sun3scsi_dma_setup() -- initialize the dma controller for a read/write */
@@ -524,7 +508,7 @@ static inline unsigned long sun3scsi_dma_xfer_len(unsigned long wanted,
 						  struct scsi_cmnd *cmd,
 						  int write_flag)
 {
-	if(blk_fs_request(cmd->request))
+	if (cmd->request->cmd_type == REQ_TYPE_FS)
  		return wanted;
 	else
 		return 0;
@@ -546,7 +530,6 @@ static int sun3scsi_dma_finish(int write_flag)
 	int ret = 0;
 	
 	sun3_dma_active = 0;
-#if 1
 	// check to empty the fifo on a read
 	if(!write_flag) {
 		int tmo = 20000; /* .2 sec */
@@ -562,8 +545,6 @@ static int sun3scsi_dma_finish(int write_flag)
 			udelay(10);
 		}
 	}
-		
-#endif
 
 	count = sun3scsi_dma_count(default_instance);
 #ifdef OLDDMA

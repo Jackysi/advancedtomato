@@ -13,7 +13,7 @@
 /*
  * Updated: Hewlett-Packard <paul.moore@hp.com>
  *
- *      Added support to import/export the MLS label from NetLabel
+ *	Added support to import/export the MLS label from NetLabel
  *
  * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
  */
@@ -27,14 +27,19 @@
 int mls_compute_context_len(struct context *context);
 void mls_sid_to_context(struct context *context, char **scontext);
 int mls_context_isvalid(struct policydb *p, struct context *c);
+int mls_range_isvalid(struct policydb *p, struct mls_range *r);
+int mls_level_isvalid(struct policydb *p, struct mls_level *l);
 
-int mls_context_to_sid(char oldc,
-	               char **scontext,
+int mls_context_to_sid(struct policydb *p,
+		       char oldc,
+		       char **scontext,
 		       struct context *context,
 		       struct sidtab *s,
 		       u32 def_sid);
 
 int mls_from_string(char *str, struct context *context, gfp_t gfp_mask);
+
+int mls_range_set(struct context *context, struct mls_range *range);
 
 int mls_convert_context(struct policydb *oldp,
 			struct policydb *newp,
@@ -47,7 +52,7 @@ int mls_compute_sid(struct context *scontext,
 		    struct context *newcontext);
 
 int mls_setup_user_range(struct context *fromcon, struct user_datum *user,
-                         struct context *usercon);
+			 struct context *usercon);
 
 #ifdef CONFIG_NETLABEL
 void mls_export_netlbl_lvl(struct context *context,
@@ -82,4 +87,3 @@ static inline int mls_import_netlbl_cat(struct context *context,
 #endif
 
 #endif	/* _SS_MLS_H */
-

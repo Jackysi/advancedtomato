@@ -33,6 +33,8 @@ ENTRY(__ucmpdi2)
 	movhi	r0, #2
 	mov	pc, lr
 
+ENDPROC(__ucmpdi2)
+
 #ifdef CONFIG_AEABI
 
 ENTRY(__aeabi_ulcmp)
@@ -44,5 +46,6 @@ ENTRY(__aeabi_ulcmp)
 	movhi	r0, #1
 	mov	pc, lr
 
-#endif
+ENDPROC(__aeabi_ulcmp)
 
+#endif

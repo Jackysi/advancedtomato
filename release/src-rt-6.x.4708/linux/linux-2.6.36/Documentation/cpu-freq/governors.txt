@@ -117,25 +117,37 @@ accessible parameters:
 sampling_rate: measured in uS (10^-6 seconds), this is how often you
 want the kernel to look at the CPU usage and to make decisions on
 what to do about the frequency.  Typically this is set to values of
-around '10000' or more.
+around '10000' or more. It's default value is (cmp. with users-guide.txt):
+transition_latency * 1000
+Be aware that transition latency is in ns and sampling_rate is in us, so you
+get the same sysfs value by default.
+Sampling rate should always get adjusted considering the transition latency
+To set the sampling rate 750 times as high as the transition latency
+in the bash (as said, 1000 is default), do:
+echo `$(($(cat cpuinfo_transition_latency) * 750 / 1000)) \
+    >ondemand/sampling_rate
 
-show_sampling_rate_(min|max): the minimum and maximum sampling rates
-available that you may set 'sampling_rate' to.
+show_sampling_rate_min:
+The sampling rate is limited by the HW transition latency:
+transition_latency * 100
+Or by kernel restrictions:
+If CONFIG_NO_HZ is set, the limit is 10ms fixed.
+If CONFIG_NO_HZ is not set or no_hz=off boot parameter is used, the
+limits depend on the CONFIG_HZ option:
+HZ=1000: min=20000us  (20ms)
+HZ=250:  min=80000us  (80ms)
+HZ=100:  min=200000us (200ms)
+The highest value of kernel and HW latency restrictions is shown and
+used as the minimum sampling rate.
 
-up_threshold: defines what the average CPU usaged between the samplings
+show_sampling_rate_max: THIS INTERFACE IS DEPRECATED, DON'T USE IT.
+
+up_threshold: defines what the average CPU usage between the samplings
 of 'sampling_rate' needs to be for the kernel to make a decision on
 whether it should increase the frequency.  For example when it is set
-to its default value of '80' it means that between the checking
-intervals the CPU needs to be on average more than 80% in use to then
+to its default value of '95' it means that between the checking
+intervals the CPU needs to be on average more than 95% in use to then
 decide that the CPU frequency needs to be increased.  
-
-sampling_down_factor: this parameter controls the rate that the CPU
-makes a decision on when to decrease the frequency.  When set to its
-default value of '5' it means that at 1/5 the sampling_rate the kernel
-makes a decision to lower the frequency.  Five "lower rate" decisions
-have to be made in a row before the CPU frequency is actually lower.
-If set to '1' then the frequency decreases as quickly as it increases,
-if set to '2' it decreases at half the rate of the increase.
 
 ignore_nice_load: this parameter takes a value of '0' or '1'. When
 set to '0' (its default), all processes are counted towards the

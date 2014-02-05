@@ -636,4 +636,3 @@ struct cpl_mss_change {
 };
 
 #endif /* _CXGB_CPL5_CMD_H_ */
-

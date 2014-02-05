@@ -33,13 +33,6 @@
  * The NTFS in memory super block structure.
  */
 typedef struct {
-	/*
-	 * FIXME: Reorder to have commonly used together element within the
-	 * same cache line, aiming at a cache line size of 32 bytes. Aim for
-	 * 64 bytes for less commonly used together elements. Put most commonly
-	 * used elements to front of structure. Obviously do this only when the
-	 * structure has stabilized... (AIA)
-	 */
 	/* Device specifics. */
 	struct super_block *sb;		/* Pointer back to the super_block. */
 	LCN nr_blocks;			/* Number of sb->s_blocksize bytes

@@ -2,29 +2,33 @@
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2005 Intel Corporation.  All rights reserved.
  *
- * This Software is licensed under one of the following licenses:
+ * This software is available to you under a choice of one of two
+ * licenses.  You may choose to be licensed under the terms of the GNU
+ * General Public License (GPL) Version 2, available from the file
+ * COPYING in the main directory of this source tree, or the
+ * OpenIB.org BSD license below:
  *
- * 1) under the terms of the "Common Public License 1.0" a copy of which is
- *    available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/cpl.php.
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
  *
- * 2) under the terms of the "The BSD License" a copy of which is
- *    available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/bsd-license.php.
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
  *
- * 3) under the terms of the "GNU General Public License (GPL) Version 2" a
- *    copy of which is available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/gpl-license.php.
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
  *
- * Licensee has the right to choose one of the above licenses.
- *
- * Redistributions of source code must retain the above copyright
- * notice and one of the license notices.
- *
- * Redistributions in binary form must reproduce both the above copyright
- * notice, one of the license notices in the documentation
- * and/or other materials provided with the distribution.
- *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #if !defined(IB_ADDR_H)
@@ -32,6 +36,7 @@
 
 #include <linux/in.h>
 #include <linux/in6.h>
+#include <linux/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
 #include <rdma/ib_verbs.h>
@@ -56,7 +61,8 @@ struct rdma_dev_addr {
 	unsigned char src_dev_addr[MAX_ADDR_LEN];
 	unsigned char dst_dev_addr[MAX_ADDR_LEN];
 	unsigned char broadcast[MAX_ADDR_LEN];
-	enum rdma_node_type dev_type;
+	unsigned short dev_type;
+	int bound_dev_if;
 };
 
 /**
@@ -116,40 +122,29 @@ static inline void ib_addr_get_mgid(struct rdma_dev_addr *dev_addr,
 	memcpy(gid, dev_addr->broadcast + 4, sizeof *gid);
 }
 
-static inline void ib_addr_get_sgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
+static inline int rdma_addr_gid_offset(struct rdma_dev_addr *dev_addr)
 {
-	memcpy(gid, dev_addr->src_dev_addr + 4, sizeof *gid);
+	return dev_addr->dev_type == ARPHRD_INFINIBAND ? 4 : 0;
 }
 
-static inline void ib_addr_set_sgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
+static inline void rdma_addr_get_sgid(struct rdma_dev_addr *dev_addr, union ib_gid *gid)
 {
-	memcpy(dev_addr->src_dev_addr + 4, gid, sizeof *gid);
+	memcpy(gid, dev_addr->src_dev_addr + rdma_addr_gid_offset(dev_addr), sizeof *gid);
 }
 
-static inline void ib_addr_get_dgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
+static inline void rdma_addr_set_sgid(struct rdma_dev_addr *dev_addr, union ib_gid *gid)
 {
-	memcpy(gid, dev_addr->dst_dev_addr + 4, sizeof *gid);
+	memcpy(dev_addr->src_dev_addr + rdma_addr_gid_offset(dev_addr), gid, sizeof *gid);
 }
 
-static inline void ib_addr_set_dgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
+static inline void rdma_addr_get_dgid(struct rdma_dev_addr *dev_addr, union ib_gid *gid)
 {
-	memcpy(dev_addr->dst_dev_addr + 4, gid, sizeof *gid);
+	memcpy(gid, dev_addr->dst_dev_addr + rdma_addr_gid_offset(dev_addr), sizeof *gid);
 }
 
-static inline void iw_addr_get_sgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
+static inline void rdma_addr_set_dgid(struct rdma_dev_addr *dev_addr, union ib_gid *gid)
 {
-	memcpy(gid, dev_addr->src_dev_addr, sizeof *gid);
-}
-
-static inline void iw_addr_get_dgid(struct rdma_dev_addr *dev_addr,
-				    union ib_gid *gid)
-{
-	memcpy(gid, dev_addr->dst_dev_addr, sizeof *gid);
+	memcpy(dev_addr->dst_dev_addr + rdma_addr_gid_offset(dev_addr), gid, sizeof *gid);
 }
 
 #endif /* IB_ADDR_H */

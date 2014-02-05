@@ -18,7 +18,7 @@
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 
 
@@ -77,59 +77,41 @@ ENTRY(sa1100_cpu_suspend)
 	mov	r0, #90
 	bl	__udelay
 
-	/*
-	 * SA1110 SDRAM controller workaround.  register values:
-	 *
-	 * r0  = &MSC0
-	 * r1  = &MSC1
-	 * r2  = &MSC2
-	 * r3  = MSC0 value
-	 * r4  = MSC1 value
-	 * r5  = MSC2 value
-	 * r6  = &MDREFR
-	 * r7  = first MDREFR value
-	 * r8  = second MDREFR value
-	 * r9  = &MDCNFG
-	 * r10 = MDCNFG value
-	 * r11 = third MDREFR value
-	 * r12 = &PMCR
-	 * r13 = PMCR value (1)
-	 */
 
 	ldr	r0, =MSC0
 	ldr	r1, =MSC1
 	ldr	r2, =MSC2
 
-        ldr     r3, [r0]
-        bic     r3, r3, #FMsk(MSC_RT)
-        bic     r3, r3, #FMsk(MSC_RT)<<16
+	ldr	r3, [r0]
+	bic	r3, r3, #FMsk(MSC_RT)
+	bic	r3, r3, #FMsk(MSC_RT)<<16
 
-        ldr     r4, [r1]
-        bic     r4, r4, #FMsk(MSC_RT)
-        bic     r4, r4, #FMsk(MSC_RT)<<16
+	ldr	r4, [r1]
+	bic	r4, r4, #FMsk(MSC_RT)
+	bic	r4, r4, #FMsk(MSC_RT)<<16
 
-        ldr     r5, [r2]
-        bic     r5, r5, #FMsk(MSC_RT)
-        bic     r5, r5, #FMsk(MSC_RT)<<16
+	ldr	r5, [r2]
+	bic	r5, r5, #FMsk(MSC_RT)
+	bic	r5, r5, #FMsk(MSC_RT)<<16
 
-        ldr     r6, =MDREFR
+	ldr	r6, =MDREFR
 
-        ldr     r7, [r6]
-        bic     r7, r7, #0x0000FF00
-        bic     r7, r7, #0x000000F0
-        orr     r8, r7, #MDREFR_SLFRSH
+	ldr	r7, [r6]
+bic	r7, r7, #0x0000FF00
+bic	r7, r7, #0x000000F0
+orr	r8, r7, #MDREFR_SLFRSH
 
-        ldr     r9, =MDCNFG
-        ldr     r10, [r9]
-        bic     r10, r10, #(MDCNFG_DE0+MDCNFG_DE1)
-        bic     r10, r10, #(MDCNFG_DE2+MDCNFG_DE3)
+	ldr	r9, =MDCNFG
+	ldr	r10, [r9]
+	bic	r10, r10, #(MDCNFG_DE0+MDCNFG_DE1)
+	bic	r10, r10, #(MDCNFG_DE2+MDCNFG_DE3)
 
-        bic     r11, r8, #MDREFR_SLFRSH
-        bic     r11, r11, #MDREFR_E1PIN
+	bic	r11, r8, #MDREFR_SLFRSH
+	bic	r11, r11, #MDREFR_E1PIN
 
-        ldr     r12, =PMCR
+	ldr	r12, =PMCR
 
-        mov     r13, #PMCR_SF
+	mov	r13, #PMCR_SF
 
 	b	sa1110_sdram_controller_fix
 
@@ -188,10 +170,10 @@ ENTRY(sa1100_cpu_resume)
 	mcr	p15, 0, r1, c8, c7, 0   	@ flush I+D TLBs
 	mcr	p15, 0, r1, c7, c7, 0		@ flush I&D cache
 	mcr	p15, 0, r1, c9, c0, 0		@ invalidate RB
-	mcr     p15, 0, r1, c9, c0, 5		@ allow user space to use RB
+	mcr	p15, 0, r1, c9, c0, 5		@ allow user space to use RB
 
-	mcr 	p15, 0, r4, c3, c0, 0		@ domain ID
-	mcr 	p15, 0, r5, c2, c0, 0		@ translation table base addr
+	mcr	p15, 0, r4, c3, c0, 0		@ domain ID
+	mcr	p15, 0, r5, c2, c0, 0		@ translation table base addr
 	mcr	p15, 0, r6, c13, c0, 0		@ PID
 	b	resume_turn_on_mmu		@ cache align execution
 
@@ -209,7 +191,5 @@ sleep_save_sp:
 
 	.text
 resume_after_mmu:
-	mcr     p15, 0, r1, c15, c1, 2		@ enable clock switching
+	mcr	p15, 0, r1, c15, c1, 2		@ enable clock switching
 	ldmfd	sp!, {r4 - r12, pc}		@ return to caller
-
-

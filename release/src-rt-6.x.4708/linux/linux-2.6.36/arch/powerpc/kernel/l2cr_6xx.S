@@ -1,6 +1,6 @@
 /*
 	L2CR functions
-	Copyright © 1997-1998 by PowerLogix R & D, Inc.
+	Copyright Â© 1997-1998 by PowerLogix R & D, Inc.
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,30 +15,6 @@
 	You should have received a copy of the GNU General Public License
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-/*
-	Thur, Dec. 12, 1998.
-	- First public release, contributed by PowerLogix.
-	***********
-	Sat, Aug. 7, 1999.
-	- Terry: Made sure code disabled interrupts before running. (Previously
-			it was assumed interrupts were already disabled).
-	- Terry: Updated for tentative G4 support.  4MB of memory is now flushed
-			instead of 2MB.  (Prob. only 3 is necessary).
-	- Terry: Updated for workaround to HID0[DPM] processor bug
-			during global invalidates.
-	***********
-	Thu, July 13, 2000.
-	- Terry: Added isync to correct for an errata.
-
-	22 August 2001.
-	- DanM: Finally added the 7450 patch I've had for the past
-		several months.  The L2CR is similar, but I'm going
-		to assume the user of this functions knows what they
-		are doing.
-
-	Author:	Terry Greeniaus (tgree@phys.ualberta.ca)
-	Please e-mail updates to this file to me, thanks!
 */
 #include <asm/processor.h>
 #include <asm/cputable.h>
@@ -119,11 +95,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	mtmsr	r4
 	isync
 
-	/* Before we perform the global invalidation, we must disable dynamic
-	 * power management via HID0[DPM] to work around a processor bug where
-	 * DPM can possibly interfere with the state machine in the processor
-	 * that invalidates the L2 cache tags.
-	 */
 	mfspr	r8,SPRN_HID0		/* Save HID0 in r8 */
 	rlwinm	r4,r8,0,12,10		/* Turn off HID0[DPM] */
 	sync
@@ -466,5 +437,3 @@ _GLOBAL(__inval_enable_L1)
 	sync
 
  	blr
-
-

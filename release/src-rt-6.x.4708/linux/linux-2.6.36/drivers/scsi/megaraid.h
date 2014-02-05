@@ -381,7 +381,7 @@ typedef struct {
 	u8	battery_status;	/*
 				 * BIT 0: battery module missing
 				 * BIT 1: VBAD
-				 * BIT 2: temprature high
+				 * BIT 2: temperature high
 				 * BIT 3: battery pack missing
 				 * BIT 4,5:
 				 *   00 - charge complete
@@ -469,7 +469,7 @@ typedef struct {
 	u8	type;		/* Type of the device */
 	u8	cur_status;	/* current status of the device */
 	u8	tag_depth;	/* Level of tagging */
-	u8	sync_neg;	/* sync negotiation - ENABLE or DISBALE */
+	u8	sync_neg;	/* sync negotiation - ENABLE or DISABLE */
 	u32	size;		/* configurable size in terms of 512 byte
 				   blocks */
 }__attribute__ ((packed)) phys_drv;
@@ -888,8 +888,8 @@ typedef struct {
 
 	u8	sglen;	/* f/w supported scatter-gather list length */
 
+	unsigned char int_cdb[MAX_COMMAND_SIZE];
 	scb_t			int_scb;
-	Scsi_Cmnd		int_scmd;
 	struct mutex		int_mtx;	/* To synchronize the internal
 						commands */
 	struct completion	int_waitq;	/* wait queue for internal
@@ -1013,8 +1013,7 @@ static void mega_8_to_40ld (mraid_inquiry *inquiry,
 		mega_inquiry3 *enquiry3, mega_product_info *);
 
 static int megadev_open (struct inode *, struct file *);
-static int megadev_ioctl (struct inode *, struct file *, unsigned int,
-		unsigned long);
+static int megadev_ioctl (struct file *, unsigned int, unsigned long);
 static int mega_m_to_n(void __user *, nitioctl_t *);
 static int mega_n_to_m(void __user *, megacmd_t *);
 

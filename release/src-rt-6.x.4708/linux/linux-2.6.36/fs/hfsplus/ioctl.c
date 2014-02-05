@@ -14,16 +14,19 @@
 
 #include <linux/capability.h>
 #include <linux/fs.h>
+#include <linux/mount.h>
 #include <linux/sched.h>
 #include <linux/xattr.h>
+#include <linux/smp_lock.h>
 #include <asm/uaccess.h>
 #include "hfsplus_fs.h"
 
-int hfsplus_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
-		  unsigned long arg)
+long hfsplus_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	unsigned int flags;
 
+	lock_kernel();
 	switch (cmd) {
 	case HFSPLUS_IOC_EXT2_GETFLAGS:
 		flags = 0;
@@ -35,25 +38,34 @@ int hfsplus_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 			flags |= FS_NODUMP_FL; /* EXT2_NODUMP_FL */
 		return put_user(flags, (int __user *)arg);
 	case HFSPLUS_IOC_EXT2_SETFLAGS: {
-		if (IS_RDONLY(inode))
-			return -EROFS;
+		int err = 0;
+		err = mnt_want_write(filp->f_path.mnt);
+		if (err) {
+			unlock_kernel();
+			return err;
+		}
 
-		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
-			return -EACCES;
-
-		if (get_user(flags, (int __user *)arg))
-			return -EFAULT;
-
+		if (!is_owner_or_cap(inode)) {
+			err = -EACCES;
+			goto setflags_out;
+		}
+		if (get_user(flags, (int __user *)arg)) {
+			err = -EFAULT;
+			goto setflags_out;
+		}
 		if (flags & (FS_IMMUTABLE_FL|FS_APPEND_FL) ||
 		    HFSPLUS_I(inode).rootflags & (HFSPLUS_FLG_IMMUTABLE|HFSPLUS_FLG_APPEND)) {
-			if (!capable(CAP_LINUX_IMMUTABLE))
-				return -EPERM;
+			if (!capable(CAP_LINUX_IMMUTABLE)) {
+				err = -EPERM;
+				goto setflags_out;
+			}
 		}
 
 		/* don't silently ignore unsupported ext2 flags */
-		if (flags & ~(FS_IMMUTABLE_FL|FS_APPEND_FL|FS_NODUMP_FL))
-			return -EOPNOTSUPP;
-
+		if (flags & ~(FS_IMMUTABLE_FL|FS_APPEND_FL|FS_NODUMP_FL)) {
+			err = -EOPNOTSUPP;
+			goto setflags_out;
+		}
 		if (flags & FS_IMMUTABLE_FL) { /* EXT2_IMMUTABLE_FL */
 			inode->i_flags |= S_IMMUTABLE;
 			HFSPLUS_I(inode).rootflags |= HFSPLUS_FLG_IMMUTABLE;
@@ -75,9 +87,13 @@ int hfsplus_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
 		inode->i_ctime = CURRENT_TIME_SEC;
 		mark_inode_dirty(inode);
-		return 0;
+setflags_out:
+		mnt_drop_write(filp->f_path.mnt);
+		unlock_kernel();
+		return err;
 	}
 	default:
+		unlock_kernel();
 		return -ENOTTY;
 	}
 }

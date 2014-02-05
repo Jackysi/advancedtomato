@@ -9,9 +9,8 @@
  * Based on: sa1100-flash.c, which has the following copyright:
  * Flash memory access on SA11x0 based devices
  *
- * (C) 2000 Nicolas Pitre <nico@cam.org>
+ * (C) 2000 Nicolas Pitre <nico@fluxnic.net>
  *
- * $Id: ceiva.c,v 1.11 2004/09/16 23:27:12 gleixner Exp $
  */
 
 #include <linux/module.h>
@@ -26,7 +25,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/concat.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/io.h>
 #include <asm/sizes.h>
@@ -254,7 +253,7 @@ static void __exit clps_destroy_mtd(struct clps_info *clps, struct mtd_info *mtd
 
 static int __init clps_setup_flash(void)
 {
-	int nr;
+	int nr = 0;
 
 #ifdef CONFIG_ARCH_CEIVA
 	if (machine_is_ceiva()) {

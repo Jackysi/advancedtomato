@@ -5,14 +5,13 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_stp.c,v 1.4 2000/06/19 10:13:35 davem Exp $
- *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
 #include <linux/kernel.h>
+#include <linux/rculist.h>
 
 #include "br_private.h"
 #include "br_private_stp.h"
@@ -22,7 +21,7 @@
  */
 #define MESSAGE_AGE_INCR	((HZ < 256) ? 1 : (HZ/256))
 
-static const char *br_port_state_names[] = {
+static const char *const br_port_state_names[] = {
 	[BR_STATE_DISABLED] = "disabled",
 	[BR_STATE_LISTENING] = "listening",
 	[BR_STATE_LEARNING] = "learning",
@@ -32,10 +31,9 @@ static const char *br_port_state_names[] = {
 
 void br_log_state(const struct net_bridge_port *p)
 {
-	pr_info("%s: port %d(%s) entering %s state\n",
-		p->br->dev->name, p->port_no, p->dev->name,
+	br_info(p->br, "port %u(%s) entering %s state\n",
+		(unsigned) p->port_no, p->dev->name,
 		br_port_state_names[p->state]);
-
 }
 
 /* called under bridge lock */
@@ -301,13 +299,14 @@ void br_topology_change_detection(struct net_bridge *br)
 	if (br->stp_enabled != BR_KERNEL_STP)
 		return;
 
-	pr_info("%s: topology change detected, %s\n", br->dev->name,
+	br_info(br, "topology change detected, %s\n",
 		isroot ? "propagating" : "sending tcn bpdu");
 
 	if (isroot) {
+		u32 ratio = HZ/10;
 		br->topology_change = 1;
 		mod_timer(&br->topology_change_timer, jiffies
-			  + br->bridge_forward_delay + br->bridge_max_age);
+			  + (br->bridge_forward_delay + br->bridge_max_age)/ratio);
 	} else if (!br->topology_change_detected) {
 		br_transmit_tcn(br);
 		mod_timer(&br->tcn_timer, jiffies + br->bridge_hello_time);
@@ -386,6 +385,8 @@ static void br_make_forwarding(struct net_bridge_port *p)
 		p->state = BR_STATE_LISTENING;
 	else
 		p->state = BR_STATE_LEARNING;
+
+	br_multicast_enable_port(p);
 
 	br_log_state(p);
 
@@ -468,8 +469,8 @@ void br_received_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *b
 void br_received_tcn_bpdu(struct net_bridge_port *p)
 {
 	if (br_is_designated_port(p)) {
-		pr_info("%s: received tcn bpdu on port %i(%s)\n",
-		       p->br->dev->name, p->port_no, p->dev->name);
+		br_info(p->br, "port %u(%s) received tcn bpdu\n",
+			(unsigned) p->port_no, p->dev->name);
 
 		br_topology_change_detection(p->br);
 		br_topology_change_acknowledge(p);

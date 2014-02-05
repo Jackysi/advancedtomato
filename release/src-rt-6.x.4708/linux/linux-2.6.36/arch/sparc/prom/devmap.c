@@ -1,4 +1,4 @@
-/* $Id: devmap.c,v 1.7 2000/08/26 02:38:03 anton Exp $
+/*
  * promdevmap.c:  Map device/IO areas to virtual addresses.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -50,5 +50,4 @@ prom_unmapio(char *vaddr, unsigned int num_bytes)
 	(*(romvec->pv_v2devops.v2_dumb_munmap))(vaddr, num_bytes);
 	restore_current();
 	spin_unlock_irqrestore(&prom_lock, flags);
-	return;
 }

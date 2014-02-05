@@ -23,20 +23,19 @@
 #include <linux/bitops.h>
 #include <linux/pci.h>
 #include <linux/ioport.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/serial.h>
 #include <linux/tty.h>
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
 #include <linux/serial_8250.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/pgtable.h>
 #include <asm/page.h>
 #include <asm/system.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 
 #include <asm/mach/pci.h>
@@ -79,10 +78,8 @@ static void ixdp2x01_irq_handler(unsigned int irq, struct irq_desc *desc)
 
 	for (i = 0; i < IXP2000_BOARD_IRQS; i++) {
 		if (ex_interrupt & (1 << i)) {
-			struct irq_desc *cpld_desc;
 			int cpld_irq = IXP2000_BOARD_IRQ(0) + i;
-			cpld_desc = irq_desc + cpld_irq;
-			desc_handle_irq(cpld_irq, cpld_desc);
+			generic_handle_irq(cpld_irq);
 		}
 	}
 
@@ -456,5 +453,3 @@ MACHINE_START(IXDP28X5, "Intel IXDP2805/2855 Development Platform")
 	.init_machine	= ixdp2x01_init_machine,
 MACHINE_END
 #endif
-
-

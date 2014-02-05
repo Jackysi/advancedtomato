@@ -21,6 +21,7 @@
 
 #include <linux/fs.h>
 #include <linux/posix_acl_xattr.h>
+#include <linux/slab.h>
 #include "cifsfs.h"
 #include "cifspdu.h"
 #include "cifsglob.h"
@@ -64,16 +65,17 @@ int cifs_removexattr(struct dentry *direntry, const char *ea_name)
 
 	full_path = build_path_from_dentry(direntry);
 	if (full_path == NULL) {
+		rc = -ENOMEM;
 		FreeXid(xid);
-		return -ENOMEM;
+		return rc;
 	}
 	if (ea_name == NULL) {
-		cFYI(1, ("Null xattr names not supported"));
+		cFYI(1, "Null xattr names not supported");
 	} else if (strncmp(ea_name, CIFS_XATTR_USER_PREFIX, 5)
 		&& (strncmp(ea_name, CIFS_XATTR_OS2_PREFIX, 4))) {
 		cFYI(1,
-		    ("illegal xattr request %s (only user namespace supported)",
-			ea_name));
+		     "illegal xattr request %s (only user namespace supported)",
+		     ea_name);
 		/* BB what if no namespace prefix? */
 		/* Should we just pass them to server, except for
 		system and perhaps security prefixes? */
@@ -118,8 +120,9 @@ int cifs_setxattr(struct dentry *direntry, const char *ea_name,
 
 	full_path = build_path_from_dentry(direntry);
 	if (full_path == NULL) {
+		rc = -ENOMEM;
 		FreeXid(xid);
-		return -ENOMEM;
+		return rc;
 	}
 	/* return dos attributes as pseudo xattr */
 	/* return alt name if available as pseudo attr */
@@ -128,20 +131,20 @@ int cifs_setxattr(struct dentry *direntry, const char *ea_name,
 		search server for EAs or streams to
 		returns as xattrs */
 	if (value_size > MAX_EA_VALUE_SIZE) {
-		cFYI(1, ("size of EA value too large"));
+		cFYI(1, "size of EA value too large");
 		kfree(full_path);
 		FreeXid(xid);
 		return -EOPNOTSUPP;
 	}
 
 	if (ea_name == NULL) {
-		cFYI(1, ("Null xattr names not supported"));
+		cFYI(1, "Null xattr names not supported");
 	} else if (strncmp(ea_name, CIFS_XATTR_USER_PREFIX, 5) == 0) {
 		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_NO_XATTR)
 			goto set_ea_exit;
-		if (strncmp(ea_name, CIFS_XATTR_DOS_ATTRIB, 14) == 0) {
-			cFYI(1, ("attempt to set cifs inode metadata"));
-		}
+		if (strncmp(ea_name, CIFS_XATTR_DOS_ATTRIB, 14) == 0)
+			cFYI(1, "attempt to set cifs inode metadata");
+
 		ea_name += 5; /* skip past user. prefix */
 		rc = CIFSSMBSetEA(xid, pTcon, full_path, ea_name, ea_value,
 			(__u16)value_size, cifs_sb->local_nls,
@@ -166,9 +169,9 @@ int cifs_setxattr(struct dentry *direntry, const char *ea_name,
 					ACL_TYPE_ACCESS, cifs_sb->local_nls,
 					cifs_sb->mnt_cifs_flags &
 						CIFS_MOUNT_MAP_SPECIAL_CHR);
-			cFYI(1, ("set POSIX ACL rc %d", rc));
+			cFYI(1, "set POSIX ACL rc %d", rc);
 #else
-			cFYI(1, ("set POSIX ACL not supported"));
+			cFYI(1, "set POSIX ACL not supported");
 #endif
 		} else if (strncmp(ea_name, POSIX_ACL_XATTR_DEFAULT,
 				   strlen(POSIX_ACL_XATTR_DEFAULT)) == 0) {
@@ -179,13 +182,13 @@ int cifs_setxattr(struct dentry *direntry, const char *ea_name,
 					ACL_TYPE_DEFAULT, cifs_sb->local_nls,
 					cifs_sb->mnt_cifs_flags &
 						CIFS_MOUNT_MAP_SPECIAL_CHR);
-			cFYI(1, ("set POSIX default ACL rc %d", rc));
+			cFYI(1, "set POSIX default ACL rc %d", rc);
 #else
-			cFYI(1, ("set default POSIX ACL not supported"));
+			cFYI(1, "set default POSIX ACL not supported");
 #endif
 		} else {
-			cFYI(1, ("illegal xattr request %s (only user namespace"
-				 " supported)", ea_name));
+			cFYI(1, "illegal xattr request %s (only user namespace"
+				" supported)", ea_name);
 		  /* BB what if no namespace prefix? */
 		  /* Should we just pass them to server, except for
 		  system and perhaps security prefixes? */
@@ -225,23 +228,24 @@ ssize_t cifs_getxattr(struct dentry *direntry, const char *ea_name,
 
 	full_path = build_path_from_dentry(direntry);
 	if (full_path == NULL) {
+		rc = -ENOMEM;
 		FreeXid(xid);
-		return -ENOMEM;
+		return rc;
 	}
 	/* return dos attributes as pseudo xattr */
 	/* return alt name if available as pseudo attr */
 	if (ea_name == NULL) {
-		cFYI(1, ("Null xattr names not supported"));
+		cFYI(1, "Null xattr names not supported");
 	} else if (strncmp(ea_name, CIFS_XATTR_USER_PREFIX, 5) == 0) {
 		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_NO_XATTR)
 			goto get_ea_exit;
 
 		if (strncmp(ea_name, CIFS_XATTR_DOS_ATTRIB, 14) == 0) {
-			cFYI(1, ("attempt to query cifs inode metadata"));
+			cFYI(1, "attempt to query cifs inode metadata");
 			/* revalidate/getattr then populate from inode */
 		} /* BB add else when above is implemented */
 		ea_name += 5; /* skip past user. prefix */
-		rc = CIFSSMBQueryEA(xid, pTcon, full_path, ea_name, ea_value,
+		rc = CIFSSMBQAllEAs(xid, pTcon, full_path, ea_name, ea_value,
 			buf_size, cifs_sb->local_nls,
 			cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MAP_SPECIAL_CHR);
 	} else if (strncmp(ea_name, CIFS_XATTR_OS2_PREFIX, 4) == 0) {
@@ -249,7 +253,7 @@ ssize_t cifs_getxattr(struct dentry *direntry, const char *ea_name,
 			goto get_ea_exit;
 
 		ea_name += 4; /* skip past os2. prefix */
-		rc = CIFSSMBQueryEA(xid, pTcon, full_path, ea_name, ea_value,
+		rc = CIFSSMBQAllEAs(xid, pTcon, full_path, ea_name, ea_value,
 			buf_size, cifs_sb->local_nls,
 			cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MAP_SPECIAL_CHR);
 	} else if (strncmp(ea_name, POSIX_ACL_XATTR_ACCESS,
@@ -262,9 +266,9 @@ ssize_t cifs_getxattr(struct dentry *direntry, const char *ea_name,
 				cifs_sb->mnt_cifs_flags &
 					CIFS_MOUNT_MAP_SPECIAL_CHR);
 #ifdef CONFIG_CIFS_EXPERIMENTAL
-		else if(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_CIFS_ACL) {
+		else if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_CIFS_ACL) {
 			__u16 fid;
-			int oplock = FALSE;
+			int oplock = 0;
 			struct cifs_ntsd *pacl = NULL;
 			__u32 buflen = 0;
 			if (experimEnabled)
@@ -283,7 +287,7 @@ ssize_t cifs_getxattr(struct dentry *direntry, const char *ea_name,
 		}
 #endif /* EXPERIMENTAL */
 #else
-		cFYI(1, ("query POSIX ACL not supported yet"));
+		cFYI(1, "query POSIX ACL not supported yet");
 #endif /* CONFIG_CIFS_POSIX */
 	} else if (strncmp(ea_name, POSIX_ACL_XATTR_DEFAULT,
 			  strlen(POSIX_ACL_XATTR_DEFAULT)) == 0) {
@@ -295,19 +299,18 @@ ssize_t cifs_getxattr(struct dentry *direntry, const char *ea_name,
 				cifs_sb->mnt_cifs_flags &
 					CIFS_MOUNT_MAP_SPECIAL_CHR);
 #else
-		cFYI(1, ("query POSIX default ACL not supported yet"));
+		cFYI(1, "query POSIX default ACL not supported yet");
 #endif
 	} else if (strncmp(ea_name,
 		  CIFS_XATTR_TRUSTED_PREFIX, XATTR_TRUSTED_PREFIX_LEN) == 0) {
-		cFYI(1, ("Trusted xattr namespace not supported yet"));
+		cFYI(1, "Trusted xattr namespace not supported yet");
 	} else if (strncmp(ea_name,
 		  CIFS_XATTR_SECURITY_PREFIX, XATTR_SECURITY_PREFIX_LEN) == 0) {
-		cFYI(1, ("Security xattr namespace not supported yet"));
-	} else {
+		cFYI(1, "Security xattr namespace not supported yet");
+	} else
 		cFYI(1,
-		    ("illegal xattr request %s (only user namespace supported)",
-			ea_name));
-	}
+		    "illegal xattr request %s (only user namespace supported)",
+		     ea_name);
 
 	/* We could add an additional check for streams ie
 	    if proc/fs/cifs/streamstoxattr is set then
@@ -352,8 +355,9 @@ ssize_t cifs_listxattr(struct dentry *direntry, char *data, size_t buf_size)
 
 	full_path = build_path_from_dentry(direntry);
 	if (full_path == NULL) {
+		rc = -ENOMEM;
 		FreeXid(xid);
-		return -ENOMEM;
+		return rc;
 	}
 	/* return dos attributes as pseudo xattr */
 	/* return alt name if available as pseudo attr */
@@ -361,8 +365,8 @@ ssize_t cifs_listxattr(struct dentry *direntry, char *data, size_t buf_size)
 	/* if proc/fs/cifs/streamstoxattr is set then
 		search server for EAs or streams to
 		returns as xattrs */
-	rc = CIFSSMBQAllEAs(xid, pTcon, full_path, data, buf_size,
-				cifs_sb->local_nls,
+	rc = CIFSSMBQAllEAs(xid, pTcon, full_path, NULL, data,
+				buf_size, cifs_sb->local_nls,
 				cifs_sb->mnt_cifs_flags &
 					CIFS_MOUNT_MAP_SPECIAL_CHR);
 

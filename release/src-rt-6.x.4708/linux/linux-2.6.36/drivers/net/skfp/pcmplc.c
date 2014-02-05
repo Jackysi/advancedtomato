@@ -198,9 +198,6 @@ static int plc_imsk_na = PL_PCM_CODE | PL_TRACE_PROP | PL_PCM_BREAK |
 static const int plc_imsk_act = PL_PCM_CODE | PL_TRACE_PROP | PL_PCM_BREAK |
 			PL_PCM_ENABLED | PL_SELF_TEST | PL_EBUF_ERR;
 
-/* external functions */
-void all_selection_criteria(struct s_smc *smc);
-
 /* internal functions */
 static void pcm_fsm(struct s_smc *smc, struct s_phy *phy, int cmd);
 static void pc_rcode_actions(struct s_smc *smc, int bit, struct s_phy *phy);
@@ -547,23 +544,18 @@ static int plc_send_bits(struct s_smc *smc, struct s_phy *phy, int len)
 		n = (n<<1) | phy->t_val[phy->bitn+i] ;
 	}
 	if (inpw(PLC(np,PL_STATUS_B)) & PL_PCM_SIGNAL) {
-#if	0
-		printf("PL_PCM_SIGNAL is set\n") ;
-#endif
 		return(1) ;
 	}
 	/* write bit[n] & length = 1 to regs */
 	outpw(PLC(np,PL_VECTOR_LEN),len-1) ;	/* len=nr-1 */
 	outpw(PLC(np,PL_XMIT_VECTOR),n) ;
 #ifdef	DEBUG
-#if 1
 #ifdef	DEBUG_BRD
 	if (smc->debug.d_plc & 0x80)
 #else
 	if (debug.d_plc & 0x80)
 #endif
 		printf("SIGNALING bit %d .. %d\n",phy->bitn,phy->bitn+len-1) ;
-#endif
 #endif
 	return(0) ;
 }
@@ -752,12 +744,6 @@ static void pcm_fsm(struct s_smc *smc, struct s_phy *phy, int cmd)
 		/*
 		 * if vector is already loaded, go to OFF to clear PCM_SIGNAL
 		 */
-#if	0
-		if (inpw(PLC(np,PL_STATUS_B)) & PL_PCM_SIGNAL) {
-			plc_go_state(smc,np,PL_PCM_STOP) ;
-			/* TB_MIN ? */
-		}
-#endif
 		/*
 		 * Go to OFF state in any case.
 		 */
@@ -799,26 +785,9 @@ static void pcm_fsm(struct s_smc *smc, struct s_phy *phy, int cmd)
 			}
 		}
 
-		/*
-		 * Now give the Start command.
-		 * - The start command shall be done before setting the bits
-		 *   to be signaled. (In PLC-S description and PLCS in SN3.
-		 * - The start command shall be issued AFTER setting the
-		 *   XMIT vector and the XMIT length register.
-		 *
-		 * We do it exactly according this specs for the old PLC and
-		 * the new PLCS inside the SN3.
-		 * For the usual PLCS we try it the way it is done for the
-		 * old PLC and set the XMIT registers again, if the PLC is
-		 * not in SIGNAL state. This is done according to an PLCS
-		 * errata workaround.
-		 */
 
 		plc_go_state(smc,np,PL_PCM_START) ;
 
-		/*
-		 * workaround for PLC-S eng. sample errata
-		 */
 #ifdef	MOT_ELM
 		if (!(inpw(PLC(np,PL_STATUS_B)) & PL_PCM_SIGNAL))
 #else	/* nMOT_ELM */
@@ -833,9 +802,6 @@ static void pcm_fsm(struct s_smc *smc, struct s_phy *phy, int cmd)
 			 */
 			(void) plc_send_bits(smc,phy,3) ;
 		}
-		/*
-		 * end of workaround
-		 */
 
 		GO_STATE(PC5_SIGNAL) ;
 		plc->p_state = PS_BIT3 ;
@@ -963,7 +929,7 @@ static void pcm_fsm(struct s_smc *smc, struct s_phy *phy, int cmd)
 			/*PC88b*/
 			if (!phy->cf_join) {
 				phy->cf_join = TRUE ;
-				queue_event(smc,EVENT_CFM,CF_JOIN+np) ; ;
+				queue_event(smc,EVENT_CFM,CF_JOIN+np) ;
 			}
 			if (cmd == PC_JOIN)
 				GO_STATE(PC8_ACTIVE) ;
@@ -1280,7 +1246,7 @@ static void pc_rcode_actions(struct s_smc *smc, int bit, struct s_phy *phy)
 
 	mib = phy->mib ;
 
-	DB_PCMN(1,"SIG rec %x %x: \n", bit,phy->r_val[bit] ) ;
+	DB_PCMN(1,"SIG rec %x %x:\n", bit,phy->r_val[bit] ) ;
 	bit++ ;
 
 	switch(bit) {
@@ -1583,7 +1549,7 @@ static void pc_tcode_actions(struct s_smc *smc, const int bit, struct s_phy *phy
 		mib->fddiPORTMacIndicated.T_val = phy->t_val[9] ;
 		break ;
 	}
-	DB_PCMN(1,"SIG snd %x %x: \n", bit,phy->t_val[bit] ) ;
+	DB_PCMN(1,"SIG snd %x %x:\n", bit,phy->t_val[bit] ) ;
 }
 
 /*
@@ -1844,21 +1810,6 @@ void plc_irq(struct s_smc *smc, int np, unsigned int cmd)
 			}
 		}
 	}
-#if	0
-	if (cmd & PL_NP_ERR) {		/* NP has requested to r/w an inv reg*/
-		/*
-		 * It's a bug by AMD
-		 */
-		plc->np_err++ ;
-	}
-	/* pin inactiv (GND) */
-	if (cmd & PL_PARITY_ERR) {	/* p. error dedected on TX9-0 inp */
-		plc->parity_err++ ;
-	}
-	if (cmd & PL_LSDO) {		/* carrier detected */
-		;
-	}
-#endif
 }
 
 #ifdef	DEBUG

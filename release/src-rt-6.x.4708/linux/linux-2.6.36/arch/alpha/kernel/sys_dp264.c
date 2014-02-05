@@ -176,26 +176,30 @@ cpu_set_irq_affinity(unsigned int irq, cpumask_t affinity)
 	}
 }
 
-static void
-dp264_set_affinity(unsigned int irq, cpumask_t affinity)
+static int
+dp264_set_affinity(unsigned int irq, const struct cpumask *affinity)
 { 
 	spin_lock(&dp264_irq_lock);
-	cpu_set_irq_affinity(irq, affinity);
+	cpu_set_irq_affinity(irq, *affinity);
 	tsunami_update_irq_hw(cached_irq_mask);
 	spin_unlock(&dp264_irq_lock);
+
+	return 0;
 }
 
-static void
-clipper_set_affinity(unsigned int irq, cpumask_t affinity)
+static int
+clipper_set_affinity(unsigned int irq, const struct cpumask *affinity)
 { 
 	spin_lock(&dp264_irq_lock);
-	cpu_set_irq_affinity(irq - 16, affinity);
+	cpu_set_irq_affinity(irq - 16, *affinity);
 	tsunami_update_irq_hw(cached_irq_mask);
 	spin_unlock(&dp264_irq_lock);
+
+	return 0;
 }
 
-static struct hw_interrupt_type dp264_irq_type = {
-	.typename	= "DP264",
+static struct irq_chip dp264_irq_type = {
+	.name		= "DP264",
 	.startup	= dp264_startup_irq,
 	.shutdown	= dp264_disable_irq,
 	.enable		= dp264_enable_irq,
@@ -205,8 +209,8 @@ static struct hw_interrupt_type dp264_irq_type = {
 	.set_affinity	= dp264_set_affinity,
 };
 
-static struct hw_interrupt_type clipper_irq_type = {
-	.typename	= "CLIPPER",
+static struct irq_chip clipper_irq_type = {
+	.name		= "CLIPPER",
 	.startup	= clipper_startup_irq,
 	.shutdown	= clipper_disable_irq,
 	.enable		= clipper_enable_irq,
@@ -219,32 +223,7 @@ static struct hw_interrupt_type clipper_irq_type = {
 static void
 dp264_device_interrupt(unsigned long vector)
 {
-#if 1
-	printk("dp264_device_interrupt: NOT IMPLEMENTED YET!! \n");
-#else
-	unsigned long pld;
-	unsigned int i;
-
-	/* Read the interrupt summary register of TSUNAMI */
-	pld = TSUNAMI_cchip->dir0.csr;
-
-	/*
-	 * Now for every possible bit set, work through them and call
-	 * the appropriate interrupt handler.
-	 */
-	while (pld) {
-		i = ffz(~pld);
-		pld &= pld - 1; /* clear least bit set */
-		if (i == 55)
-			isa_device_interrupt(vector);
-		else
-			handle_irq(16 + i);
-#if 0
-		TSUNAMI_cchip->dir0.csr = 1UL << i; mb();
-		tmp = TSUNAMI_cchip->dir0.csr;
-#endif
-	}
-#endif
+	printk("dp264_device_interrupt: NOT IMPLEMENTED YET!!\n");
 }
 
 static void 
@@ -294,7 +273,7 @@ clipper_srm_device_interrupt(unsigned long vector)
 }
 
 static void __init
-init_tsunami_irqs(struct hw_interrupt_type * ops, int imin, int imax)
+init_tsunami_irqs(struct irq_chip * ops, int imin, int imax)
 {
 	long i;
 	for (i = imin; i <= imax; ++i) {
@@ -442,13 +421,8 @@ monet_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 		{    47,    47,    47,    47,    47}, /* IdSel 6 SCSI PCI1 */
 		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 7 ISA Bridge */
 		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 8 P2P PCI1 */
-#if 1
 		{    28,    28,    29,    30,    31}, /* IdSel 14 slot 4 PCI2*/
 		{    24,    24,    25,    26,    27}, /* IdSel 15 slot 5 PCI2*/
-#else
-		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 9 unused */
-		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 10 unused */
-#endif
 		{    40,    40,    41,    42,    43}, /* IdSel 11 slot 1 PCI0*/
 		{    36,    36,    37,    38,    39}, /* IdSel 12 slot 2 PCI0*/
 		{    32,    32,    33,    34,    35}, /* IdSel 13 slot 3 PCI0*/
@@ -481,7 +455,7 @@ monet_swizzle(struct pci_dev *dev, u8 *pinp)
 				slot = PCI_SLOT(dev->devfn);
 				break;
 			}
-			pin = bridge_swizzle(pin, PCI_SLOT(dev->devfn)) ;
+			pin = pci_swizzle_interrupt_pin(dev, pin);
 
 			/* Move up the chain of bridges.  */
 			dev = dev->bus->self;

@@ -22,6 +22,7 @@ enum raw1394_iso_state { RAW1394_ISO_INACTIVE = 0,
 struct file_info {
         struct list_head list;
 
+	struct mutex state_mutex;
         enum { opened, initialized, connected } state;
         unsigned int protocol_version;
 
@@ -35,11 +36,6 @@ struct file_info {
         struct list_head addr_list;	/* protected by host_info_lock */
 
         u8 __user *fcp_buffer;
-
-	/* old ISO API */
-        u64 listen_channels;
-        quadlet_t __user *iso_buffer;
-        size_t iso_buffer_length;
 
         u8 notification; /* (busreset-notification) RAW1394_NOTIFY_OFF/ON */
 

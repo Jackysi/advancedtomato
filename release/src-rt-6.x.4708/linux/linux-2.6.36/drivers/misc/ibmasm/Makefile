@@ -12,4 +12,3 @@ ibmasm-y :=	module.o      \
 		lowlevel.o
 
 ibmasm-$(CONFIG_SERIAL_8250) += uart.o
-

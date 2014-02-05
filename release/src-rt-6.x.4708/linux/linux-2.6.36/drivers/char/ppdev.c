@@ -64,10 +64,11 @@
 #include <linux/parport.h>
 #include <linux/ctype.h>
 #include <linux/poll.h>
+#include <linux/slab.h>
 #include <linux/major.h>
 #include <linux/ppdev.h>
-#include <linux/device.h>
-#include <asm/uaccess.h>
+#include <linux/smp_lock.h>
+#include <linux/uaccess.h>
 
 #define PP_VERSION "ppdev: user-space parallel port driver"
 #define CHRDEV "ppdev"
@@ -114,8 +115,7 @@ static ssize_t pp_read (struct file * file, char __user * buf, size_t count,
 
 	if (!(pp->flags & PP_CLAIMED)) {
 		/* Don't have the port claimed */
-		printk (KERN_DEBUG CHRDEV "%x: claim the port first\n",
-			minor);
+		pr_debug(CHRDEV "%x: claim the port first\n", minor);
 		return -EINVAL;
 	}
 
@@ -198,8 +198,7 @@ static ssize_t pp_write (struct file * file, const char __user * buf,
 
 	if (!(pp->flags & PP_CLAIMED)) {
 		/* Don't have the port claimed */
-		printk (KERN_DEBUG CHRDEV "%x: claim the port first\n",
-			minor);
+		pr_debug(CHRDEV "%x: claim the port first\n", minor);
 		return -EINVAL;
 	}
 
@@ -268,9 +267,9 @@ static ssize_t pp_write (struct file * file, const char __user * buf,
 	return bytes_written;
 }
 
-static void pp_irq (int irq, void * private)
+static void pp_irq (void *private)
 {
-	struct pp_struct * pp = (struct pp_struct *) private;
+	struct pp_struct *pp = private;
 
 	if (pp->irqresponse) {
 		parport_write_control (pp->pdev->port, pp->irqctl);
@@ -288,11 +287,9 @@ static int register_device (int minor, struct pp_struct *pp)
 	char *name;
 	int fl;
 
-	name = kmalloc (strlen (CHRDEV) + 3, GFP_KERNEL);
+	name = kasprintf(GFP_KERNEL, CHRDEV "%x", minor);
 	if (name == NULL)
 		return -ENOMEM;
-
-	sprintf (name, CHRDEV "%x", minor);
 
 	port = parport_find_number (minor);
 	if (!port) {
@@ -313,7 +310,7 @@ static int register_device (int minor, struct pp_struct *pp)
 	}
 
 	pp->pdev = pdev;
-	printk (KERN_DEBUG "%s: registered pardevice\n", name);
+	pr_debug("%s: registered pardevice\n", name);
 	return 0;
 }
 
@@ -328,10 +325,9 @@ static enum ieee1284_phase init_phase (int mode)
 	return IEEE1284_PH_FWD_IDLE;
 }
 
-static int pp_ioctl(struct inode *inode, struct file *file,
-		    unsigned int cmd, unsigned long arg)
+static int pp_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	unsigned int minor = iminor(inode);
+	unsigned int minor = iminor(file->f_path.dentry->d_inode);
 	struct pp_struct *pp = file->private_data;
 	struct parport * port;
 	void __user *argp = (void __user *)arg;
@@ -344,8 +340,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		int ret;
 
 		if (pp->flags & PP_CLAIMED) {
-			printk (KERN_DEBUG CHRDEV
-				"%x: you've already got it!\n", minor);
+			pr_debug(CHRDEV "%x: you've already got it!\n", minor);
 			return -EINVAL;
 		}
 
@@ -380,7 +375,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 	    }
 	case PPEXCL:
 		if (pp->pdev) {
-			printk (KERN_DEBUG CHRDEV "%x: too late for PPEXCL; "
+			pr_debug(CHRDEV "%x: too late for PPEXCL; "
 				"already registered\n", minor);
 			if (pp->flags & PP_EXCL)
 				/* But it's not really an error. */
@@ -398,7 +393,6 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		int mode;
 		if (copy_from_user (&mode, argp, sizeof (mode)))
 			return -EFAULT;
-		/* FIXME: validate mode */
 		pp->state.mode = mode;
 		pp->state.phase = init_phase (mode);
 
@@ -429,7 +423,6 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		if (copy_from_user (&phase, argp, sizeof (phase))) {
 			return -EFAULT;
 		}
-		/* FIXME: validate phase */
 		pp->state.phase = phase;
 
 		if (pp->flags & PP_CLAIMED) {
@@ -492,8 +485,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 	/* Everything else requires the port to be claimed, so check
 	 * that now. */
 	if ((pp->flags & PP_CLAIMED) == 0) {
-		printk (KERN_DEBUG CHRDEV "%x: claim the port first\n",
-			minor);
+		pr_debug(CHRDEV "%x: claim the port first\n", minor);
 		return -EINVAL;
 	}
 
@@ -625,8 +617,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		return 0;
 
 	default:
-		printk (KERN_DEBUG CHRDEV "%x: What? (cmd=0x%x)\n", minor,
-			cmd);
+		pr_debug(CHRDEV "%x: What? (cmd=0x%x)\n", minor, cmd);
 		return -EINVAL;
 	}
 
@@ -634,11 +625,21 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 	return 0;
 }
 
+static long pp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long ret;
+	lock_kernel();
+	ret = pp_do_ioctl(file, cmd, arg);
+	unlock_kernel();
+	return ret;
+}
+
 static int pp_open (struct inode * inode, struct file * file)
 {
 	unsigned int minor = iminor(inode);
 	struct pp_struct *pp;
 
+	cycle_kernel_lock();
 	if (minor >= PARPORT_MAX)
 		return -ENXIO;
 
@@ -689,9 +690,8 @@ static int pp_release (struct inode * inode, struct file * file)
 	}
 	if (compat_negot) {
 		parport_negotiate (pp->pdev->port, IEEE1284_MODE_COMPAT);
-		printk (KERN_DEBUG CHRDEV
-			"%x: negotiated back to compatibility mode because "
-			"user-space forgot\n", minor);
+		pr_debug(CHRDEV "%x: negotiated back to compatibility "
+			"mode because user-space forgot\n", minor);
 	}
 
 	if (pp->flags & PP_CLAIMED) {
@@ -704,7 +704,7 @@ static int pp_release (struct inode * inode, struct file * file)
 		info->phase = pp->saved_state.phase;
 		parport_release (pp->pdev);
 		if (compat_negot != 1) {
-			printk (KERN_DEBUG CHRDEV "%x: released pardevice "
+			pr_debug(CHRDEV "%x: released pardevice "
 				"because user-space forgot\n", minor);
 		}
 	}
@@ -714,8 +714,7 @@ static int pp_release (struct inode * inode, struct file * file)
 		parport_unregister_device (pp->pdev);
 		kfree (name);
 		pp->pdev = NULL;
-		printk (KERN_DEBUG CHRDEV "%x: unregistered pardevice\n",
-			minor);
+		pr_debug(CHRDEV "%x: unregistered pardevice\n", minor);
 	}
 
 	kfree (pp);
@@ -744,7 +743,7 @@ static const struct file_operations pp_fops = {
 	.read		= pp_read,
 	.write		= pp_write,
 	.poll		= pp_poll,
-	.ioctl		= pp_ioctl,
+	.unlocked_ioctl	= pp_ioctl,
 	.open		= pp_open,
 	.release	= pp_release,
 };
@@ -752,7 +751,7 @@ static const struct file_operations pp_fops = {
 static void pp_attach(struct parport *port)
 {
 	device_create(ppdev_class, port->dev, MKDEV(PP_MAJOR, port->number),
-			"parport%d", port->number);
+		      NULL, "parport%d", port->number);
 }
 
 static void pp_detach(struct parport *port)

@@ -39,7 +39,6 @@ struct mts_desc {
 	u8 ep_image;
 
 	struct Scsi_Host * host;
-	struct semaphore lock;
 
 	struct urb *urb;
 	struct mts_transfer_context context;
@@ -52,4 +51,3 @@ struct mts_desc {
 #define MTS_EP_TOTAL	0x3
 
 #define MTS_SCSI_ERR_MASK ~0x3fu
-

@@ -238,4 +238,3 @@ static const char * interfaces[ 2 ] = { "TP", "AUI" };
 #define SMC_INTERRUPT_MASK   (IM_EPH_INT | IM_RX_OVRN_INT | IM_RCV_INT)
 
 #endif  /* _SMC_9194_H_ */
-

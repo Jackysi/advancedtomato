@@ -1,4 +1,4 @@
-/* $Id: sunbmac.h,v 1.7 2000/07/11 22:35:22 davem Exp $
+/* $Id: sunbmac.h,v 1.7 2000/07/11 22:35:22 Exp $
  * sunbmac.h: Defines for the Sun "Big MAC" 100baseT ethernet cards.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -329,8 +329,8 @@ struct bigmac {
 	unsigned int		timer_ticks;
 
 	struct net_device_stats	enet_stats;
-	struct sbus_dev		*qec_sdev;
-	struct sbus_dev		*bigmac_sdev;
+	struct platform_device	*qec_op;
+	struct platform_device	*bigmac_op;
 	struct net_device	*dev;
 };
 

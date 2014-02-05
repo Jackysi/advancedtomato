@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SB support for BCM47xx (Linux support code)
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,10 +15,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: pcibios.c,v 1.11 2011-01-10 23:25:05 Exp $
+ * $Id: pcibios.c,v 1.11 2011-01-10 23:25:05 $
  */
 
-#include <linux/config.h>
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -28,6 +28,9 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/paccess.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
+#include <linux/config.h>
+#endif
 
 #include <typedefs.h>
 #include <bcmutils.h>
@@ -89,6 +92,28 @@ static struct pci_ops pcibios_ops = {
 static u32 pci_iobase = 0x100;
 static u32 pci_membase = SI_PCI_DMA;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+static struct resource bcm_pci_mem_resource = {
+        .name   = "bcm947xx PCI memory space",
+        .start  = SI_PCI_MEM  /* BCM_PCI_MEM_BASE_PA */,
+        .end    = SI_PCI_MEM + SI_PCI_MEM_SZ /* BCM_PCI_MEM_END_PA */,
+        .flags  = IORESOURCE_MEM
+};
+
+static struct resource bcm_pci_io_resource = {
+        .name   = "bcm947xx PCI IO space",
+        .start  = 0xc0000000 /* BCM_PCI_IO_BASE_PA */,
+        .end    = 0xc0001000 /* BCM_PCI_IO_END_PA */,
+        .flags  = IORESOURCE_IO
+};
+
+struct pci_controller bcm947xxcontroller = {
+        .pci_ops        = &pcibios_ops,
+        .io_resource    = &bcm_pci_io_resource,
+        .mem_resource   = &bcm_pci_mem_resource,
+};
+#endif
+
 void __init
 pcibios_init(void)
 {
@@ -99,7 +124,7 @@ pcibios_init(void)
 	 * can not generate 64-bit address on the backplane.
 	 */
 	if (sih->chip == BCM4716_CHIP_ID) {
-		printk("PCI: Using membase %x\n", SI_PCI_MEM);
+		printk(KERN_INFO "PCI: Using membase %x\n", SI_PCI_MEM);
 		pci_membase = SI_PCI_MEM;
 	}
 
@@ -114,7 +139,13 @@ pcibios_init(void)
 	set_io_port_base((unsigned long) ioremap_nocache(SI_PCI_MEM, 0x04000000));
 
 	/* Scan the SB bus */
+	printk(KERN_INFO "PCI: scanning bus %x\n", 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+	register_pci_controller( &bcm947xxcontroller );
+	pci_scan_bus(0, &pcibios_ops, &bcm947xxcontroller);
+#else
 	pci_scan_bus(0, &pcibios_ops, NULL);
+#endif
 }
 
 char * __init
@@ -128,7 +159,7 @@ pcibios_setup(char *str)
 	return (str);
 }
 
-void __init
+void __devinit
 pcibios_fixup_bus(struct pci_bus *b)
 {
 	struct list_head *ln;
@@ -198,7 +229,7 @@ pcibios_fixup_bus(struct pci_bus *b)
 }
 
 int
-pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	return (dev->irq);
 }
@@ -251,10 +282,13 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 		return 0;
 
 	spin_lock_irqsave(&sih_lock, flags);
-	coreidx = si_coreidx(sih);
+	
 	regs = si_setcoreidx(sih, PCI_SLOT(dev->devfn));
+	coreidx = si_coreidx(sih);
+	coreid = si_coreid(sih);
+
 	if (!regs) {
-		printk("WARNING! PCIBIOS_DEVICE_NOT_FOUND\n");
+		printk(KERN_ERR "WARNING! PCIBIOS_DEVICE_NOT_FOUND\n");
 		goto out;
 	}
 
@@ -267,7 +301,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 * should know about SB and should reset the bit back to 0
 	 * after calling pcibios_enable_device().
 	 */
-	if ((coreid = si_coreid(sih)) == USB_CORE_ID) {
+	if (coreid == USB_CORE_ID) {
 		si_core_disable(sih, si_core_cflags(sih, 0, 0));
 		si_core_reset(sih, 1 << 29, 0);
 	}
@@ -318,7 +352,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 				SPINWAIT((((tmp = readl(regs + 0x528)) & 0xc000) !=
 					0xc000), 100000);
 				if ((tmp & 0xc000) != 0xc000) {
-					printk("WARNING! USB20H mdio_rddata 0x%08x\n", tmp);
+					printk(KERN_WARNING "WARNING! USB20H mdio_rddata 0x%08x\n", tmp);
 					goto out;
 				}
 				writel(0x80000000, regs + 0x528);
@@ -329,15 +363,6 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 
 				/* Take USB and HSIC out of non-driving modes */
 				writel(0, regs + 0x510);
-			} else if (si_corerev(sih) >= 3) {
-				uint32 tmp = readl(regs + 0x50c);
-				udelay(50);
-				/* make sure pll lock is on */
-				if (!(tmp & 0x1000000)) {
-					goto out;
-				}
-				writel(0x7ff, regs + 0x200);
-				udelay(1);
 			} else {
 				writel(0x7ff, regs + 0x200);
 				udelay(1);
@@ -352,21 +377,22 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 			tmp &= ~8;
 			writel(tmp, regs + 0x400);
 			tmp = readl(regs + 0x400);
-			printk("USB20H fcr: 0x%x\n", tmp);
+			printk(KERN_DEBUG "USB20H fcr: 0x%x\n", tmp);
 
 			/* Change Shim control reg */
 			tmp = readl(regs + 0x304);
 			tmp &= ~0x100;
 			writel(tmp, regs + 0x304);
 			tmp = readl(regs + 0x304);
-			printk("USB20H shim cr: 0x%x\n", tmp);
+			printk(KERN_DEBUG "USB20H shim cr: 0x%x\n", tmp);
 		}
 		if (si_corerev(sih) == 5) {
 			usb_hsic_cap = 1;
 			usb_hsic_cap_port = 2;
 		}
-	} else
+	} else {
 		si_core_reset(sih, 0, 0);
+	}
 
 	/* Initialize USBHC core OK */
 	rc = 0;
@@ -374,22 +400,25 @@ out:
 	si_setcoreidx(sih, coreidx);
 	spin_unlock_irqrestore(&sih_lock, flags);
 
-#if 0
 	/* Reset the device */
 	if (coreid == USB20H_CORE_ID || coreid == USB_CORE_ID)	{
 		int wombo_reset = GPIO_PIN_NOTDEFINED;
+
 		if ((wombo_reset = getgpiopin(NULL, "wombo_reset", GPIO_PIN_NOTDEFINED)) !=
-		    GPIO_PIN_NOTDEFINED) {
+	    GPIO_PIN_NOTDEFINED) {
 			int reset = 1 << wombo_reset;
+
 			printk("wombo_reset set to gpio %d\n", wombo_reset);
+
 			si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
 			si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
 			mdelay(50);
+
 			si_gpioout(sih, reset, reset, GPIO_DRV_PRIORITY);
 			mdelay(20);
 		}
 	}
-#endif
+
 	return rc;
 }
 

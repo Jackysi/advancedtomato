@@ -99,9 +99,11 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/init.h>
+#include <linux/rculist.h>
 #include <linux/rcupdate.h>
 #include <linux/err.h>
 #include <linux/textsearch.h>
+#include <linux/slab.h>
 
 static LIST_HEAD(ts_ops);
 static DEFINE_SPINLOCK(ts_mod_lock);
@@ -266,7 +268,7 @@ struct ts_config *textsearch_prepare(const char *algo, const void *pattern,
 		return ERR_PTR(-EINVAL);
 
 	ops = lookup_ts_algo(algo);
-#ifdef CONFIG_KMOD
+#ifdef CONFIG_MODULES
 	/*
 	 * Why not always autoload you may ask. Some users are
 	 * in a situation where requesting a module may deadlock,

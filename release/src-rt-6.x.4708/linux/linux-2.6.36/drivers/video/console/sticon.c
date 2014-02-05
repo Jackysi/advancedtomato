@@ -93,12 +93,6 @@ static void sticon_putc(struct vc_data *conp, int c, int ypos, int xpos)
 
     if (conp->vc_mode != KD_TEXT)
     	    return;
-#if 0
-    if ((p->cursor_x == xpos) && (p->cursor_y == ypos)) {
-	    cursor_undrawn();
-	    redraw_cursor = 1;
-    }
-#endif
 
     sti_putc(sticon_sti, c, ypos, xpos);
 
@@ -117,13 +111,6 @@ static void sticon_putcs(struct vc_data *conp, const unsigned short *s,
     if (conp->vc_mode != KD_TEXT)
     	    return;
 
-#if 0
-    if ((p->cursor_y == ypos) && (xpos <= p->cursor_x) &&
-	(p->cursor_x < (xpos + count))) {
-	    cursor_undrawn();
-	    redraw_cursor = 1;
-    }
-#endif
 
     while (count--) {
 	sti_putc(sticon_sti, scr_readw(s++), ypos, xpos++);
@@ -187,13 +174,6 @@ static void sticon_bmove(struct vc_data *conp, int sy, int sx,
 {
     if (!width || !height)
 	    return;
-#if 0
-    if (((sy <= p->cursor_y) && (p->cursor_y < sy+height) &&
-	(sx <= p->cursor_x) && (p->cursor_x < sx+width)) ||
-	((dy <= p->cursor_y) && (p->cursor_y < dy+height) &&
-	(dx <= p->cursor_x) && (p->cursor_x < dx+width)))
-		sticon_cursor(p, CM_ERASE /*|CM_SOFTBACK*/);
-#endif
 
     sti_bmove(sticon_sti, sy, sx, dy, dx, height, width);
 }
@@ -370,7 +350,7 @@ static const struct consw sti_con = {
 
 
 
-int __init sticonsole_init(void)
+static int __init sticonsole_init(void)
 {
     /* already initialized ? */
     if (sticon_sti)

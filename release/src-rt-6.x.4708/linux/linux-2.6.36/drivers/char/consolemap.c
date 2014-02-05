@@ -177,6 +177,7 @@ struct uni_pagedir {
 	unsigned long	refcount;
 	unsigned long	sum;
 	unsigned char	*inverse_translations[4];
+	u16		*inverse_trans_unicode;
 	int		readonly;
 };
 
@@ -207,6 +208,41 @@ static void set_inverse_transl(struct vc_data *conp, struct uni_pagedir *p, int 
 	}
 }
 
+static void set_inverse_trans_unicode(struct vc_data *conp,
+				      struct uni_pagedir *p)
+{
+	int i, j, k, glyph;
+	u16 **p1, *p2;
+	u16 *q;
+
+	if (!p) return;
+	q = p->inverse_trans_unicode;
+	if (!q) {
+		q = p->inverse_trans_unicode =
+			kmalloc(MAX_GLYPH * sizeof(u16), GFP_KERNEL);
+		if (!q)
+			return;
+	}
+	memset(q, 0, MAX_GLYPH * sizeof(u16));
+
+	for (i = 0; i < 32; i++) {
+		p1 = p->uni_pgdir[i];
+		if (!p1)
+			continue;
+		for (j = 0; j < 32; j++) {
+			p2 = p1[j];
+			if (!p2)
+				continue;
+			for (k = 0; k < 64; k++) {
+				glyph = p2[k];
+				if (glyph >= 0 && glyph < MAX_GLYPH
+					       && q[glyph] < 32)
+		  			q[glyph] = (i << 11) + (j << 6) + k;
+			}
+		}
+	}
+}
+
 unsigned short *set_translate(int m, struct vc_data *vc)
 {
 	inv_translate[vc->vc_num] = m;
@@ -217,20 +253,31 @@ unsigned short *set_translate(int m, struct vc_data *vc)
  * Inverse translation is impossible for several reasons:
  * 1. The font<->character maps are not 1-1.
  * 2. The text may have been written while a different translation map
- *    was active, or using Unicode.
+ *    was active.
  * Still, it is now possible to a certain extent to cut and paste non-ASCII.
  */
-unsigned char inverse_translate(struct vc_data *conp, int glyph)
+u16 inverse_translate(struct vc_data *conp, int glyph, int use_unicode)
 {
 	struct uni_pagedir *p;
+	int m;
 	if (glyph < 0 || glyph >= MAX_GLYPH)
 		return 0;
-	else if (!(p = (struct uni_pagedir *)*conp->vc_uni_pagedir_loc) ||
-		 !p->inverse_translations[inv_translate[conp->vc_num]])
+	else if (!(p = (struct uni_pagedir *)*conp->vc_uni_pagedir_loc))
 		return glyph;
-	else
-		return p->inverse_translations[inv_translate[conp->vc_num]][glyph];
+	else if (use_unicode) {
+		if (!p->inverse_trans_unicode)
+			return glyph;
+		else
+			return p->inverse_trans_unicode[glyph];
+	} else {
+		m = inv_translate[conp->vc_num];
+		if (!p->inverse_translations[m])
+			return glyph;
+		else
+			return p->inverse_translations[m][glyph];
+	}
 }
+EXPORT_SYMBOL_GPL(inverse_translate);
 
 static void update_user_maps(void)
 {
@@ -243,6 +290,7 @@ static void update_user_maps(void)
 		p = (struct uni_pagedir *)*vc_cons[i].d->vc_uni_pagedir_loc;
 		if (p && p != q) {
 			set_inverse_transl(vc_cons[i].d, p, USER_MAP);
+			set_inverse_trans_unicode(vc_cons[i].d, p);
 			q = p;
 		}
 	}
@@ -353,6 +401,10 @@ static void con_release_unimap(struct uni_pagedir *p)
 		kfree(p->inverse_translations[i]);
 		p->inverse_translations[i] = NULL;
 	}
+	if (p->inverse_trans_unicode) {
+		kfree(p->inverse_trans_unicode);
+		p->inverse_trans_unicode = NULL;
+	}
 }
 
 void con_free_unimap(struct vc_data *vc)
@@ -443,12 +495,11 @@ int con_clear_unimap(struct vc_data *vc, struct unimapinit *ui)
 	p = (struct uni_pagedir *)*vc->vc_uni_pagedir_loc;
 	if (p && p->readonly) return -EIO;
 	if (!p || --p->refcount) {
-		q = kmalloc(sizeof(*p), GFP_KERNEL);
+		q = kzalloc(sizeof(*p), GFP_KERNEL);
 		if (!q) {
 			if (p) p->refcount++;
 			return -ENOMEM;
 		}
-		memset(q, 0, sizeof(*q));
 		q->refcount=1;
 		*vc->vc_uni_pagedir_loc = (unsigned long)q;
 	} else {
@@ -503,7 +554,7 @@ int con_set_unimap(struct vc_data *vc, ushort ct, struct unipair __user *list)
 		__get_user(fontpos, &list->fontpos);
 		if ((err1 = con_insert_unipair(p, unicode,fontpos)) != 0)
 			err = err1;
-			list++;
+		list++;
 	}
 	
 	if (con_unify_unimap(vc, p))
@@ -511,6 +562,7 @@ int con_set_unimap(struct vc_data *vc, ushort ct, struct unipair __user *list)
 
 	for (i = 0; i <= 3; i++)
 		set_inverse_transl(vc, p, i); /* Update all inverse translations */
+	set_inverse_trans_unicode(vc, p);
   
 	return err;
 }
@@ -561,6 +613,7 @@ int con_set_default_unimap(struct vc_data *vc)
 
 	for (i = 0; i <= 3; i++)
 		set_inverse_transl(vc, p, i);	/* Update all inverse translations */
+	set_inverse_trans_unicode(vc, p);
 	dflt = p;
 	return err;
 }
@@ -615,6 +668,29 @@ void con_protect_unimap(struct vc_data *vc, int rdonly)
 	
 	if (p)
 		p->readonly = rdonly;
+}
+
+/*
+ * Always use USER_MAP. These functions are used by the keyboard,
+ * which shouldn't be affected by G0/G1 switching, etc.
+ * If the user map still contains default values, i.e. the
+ * direct-to-font mapping, then assume user is using Latin1.
+ */
+/* may be called during an interrupt */
+u32 conv_8bit_to_uni(unsigned char c)
+{
+	unsigned short uni = translations[USER_MAP][c];
+	return uni == (0xf000 | c) ? c : uni;
+}
+
+int conv_uni_to_8bit(u32 uni)
+{
+	int c;
+	for (c = 0; c < 0x100; c++)
+		if (translations[USER_MAP][c] == uni ||
+		   (translations[USER_MAP][c] == (c | 0xf000) && uni == c))
+			return c;
+	return -1;
 }
 
 int

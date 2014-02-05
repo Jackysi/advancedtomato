@@ -5,7 +5,7 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 #include <asm/adc.h>
-#include <asm/hp6xx.h>
+#include <mach/hp6xx.h>
 
 #define MODNAME "hp680_ts_input"
 
@@ -81,8 +81,8 @@ static int __init hp680_ts_init(void)
 	if (!hp680_ts_dev)
 		return -ENOMEM;
 
-	hp680_ts_dev->evbit[0] = BIT(EV_ABS) | BIT(EV_KEY);
-	hp680_ts_dev->keybit[LONG(BTN_TOUCH)] = BIT(BTN_TOUCH);
+	hp680_ts_dev->evbit[0] = BIT_MASK(EV_ABS) | BIT_MASK(EV_KEY);
+	hp680_ts_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
 	input_set_abs_params(hp680_ts_dev, ABS_X,
 		HP680_TS_ABS_X_MIN, HP680_TS_ABS_X_MAX, 0, 0);

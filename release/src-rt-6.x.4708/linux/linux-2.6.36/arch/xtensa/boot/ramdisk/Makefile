@@ -20,4 +20,3 @@ arch/$(ARCH)/boot/ramdisk/ramdisk.o:
 		--add-section .initrd=$(RAMDISK_IMAGE)			    \
 		--set-section-flags .initrd=contents,alloc,load,load,data   \
 		arch/$(ARCH)/boot/ramdisk/ramdisk.o $@
-

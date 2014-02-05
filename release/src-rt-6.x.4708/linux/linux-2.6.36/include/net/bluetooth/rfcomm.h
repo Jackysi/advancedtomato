@@ -29,6 +29,7 @@
 #define RFCOMM_CONN_TIMEOUT (HZ * 30)
 #define RFCOMM_DISC_TIMEOUT (HZ * 20)
 #define RFCOMM_AUTH_TIMEOUT (HZ * 25)
+#define RFCOMM_IDLE_TIMEOUT (HZ * 2)
 
 #define RFCOMM_DEFAULT_MTU	127
 #define RFCOMM_DEFAULT_CREDITS	7
@@ -105,19 +106,19 @@ struct rfcomm_hdr {
 	u8 addr;
 	u8 ctrl;
 	u8 len;    // Actual size can be 2 bytes
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_cmd {
 	u8 addr;
 	u8 ctrl;
 	u8 len;
 	u8 fcs;
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_mcc {
 	u8 type;
 	u8 len;
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_pn {
 	u8  dlci;
@@ -127,7 +128,7 @@ struct rfcomm_pn {
 	__le16 mtu;
 	u8  max_retrans;
 	u8  credits;
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_rpn {
 	u8  dlci;
@@ -137,23 +138,24 @@ struct rfcomm_rpn {
 	u8  xon_char;
 	u8  xoff_char;
 	__le16 param_mask;
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_rls {
 	u8  dlci;
 	u8  status;
-} __attribute__ ((packed));
+} __packed;
 
 struct rfcomm_msc {
 	u8  dlci;
 	u8  v24_sig;
-} __attribute__ ((packed));
+} __packed;
 
 /* ---- Core structures, flags etc ---- */
 
 struct rfcomm_session {
 	struct list_head list;
 	struct socket   *sock;
+	struct timer_list timer;
 	unsigned long    state;
 	unsigned long    flags;
 	atomic_t         refcnt;
@@ -180,9 +182,12 @@ struct rfcomm_dlc {
 	u8            addr;
 	u8            priority;
 	u8            v24_sig;
+	u8            remote_v24_sig;
 	u8            mscex;
-
-	u32           link_mode;
+	u8            out;
+	u8            sec_level;
+	u8            role_switch;
+	u32           defer_setup;
 
 	uint          mtu;
 	uint          cfc;
@@ -200,10 +205,12 @@ struct rfcomm_dlc {
 #define RFCOMM_RX_THROTTLED 0
 #define RFCOMM_TX_THROTTLED 1
 #define RFCOMM_TIMED_OUT    2
-#define RFCOMM_MSC_PENDING  3 
-#define RFCOMM_AUTH_PENDING 4
-#define RFCOMM_AUTH_ACCEPT  5
-#define RFCOMM_AUTH_REJECT  6
+#define RFCOMM_MSC_PENDING  3
+#define RFCOMM_SEC_PENDING  4
+#define RFCOMM_AUTH_PENDING 5
+#define RFCOMM_AUTH_ACCEPT  6
+#define RFCOMM_AUTH_REJECT  7
+#define RFCOMM_DEFER_SETUP  8
 
 /* Scheduling flags and events */
 #define RFCOMM_SCHED_STATE  0
@@ -237,6 +244,7 @@ int  rfcomm_dlc_close(struct rfcomm_dlc *d, int reason);
 int  rfcomm_dlc_send(struct rfcomm_dlc *d, struct sk_buff *skb);
 int  rfcomm_dlc_set_modem_status(struct rfcomm_dlc *d, u8 v24_sig);
 int  rfcomm_dlc_get_modem_status(struct rfcomm_dlc *d, u8 *v24_sig);
+void rfcomm_dlc_accept(struct rfcomm_dlc *d);
 
 #define rfcomm_dlc_lock(d)     spin_lock(&d->lock)
 #define rfcomm_dlc_unlock(d)   spin_unlock(&d->lock)
@@ -252,8 +260,8 @@ static inline void rfcomm_dlc_put(struct rfcomm_dlc *d)
 		rfcomm_dlc_free(d);
 }
 
-extern void FASTCALL(__rfcomm_dlc_throttle(struct rfcomm_dlc *d));
-extern void FASTCALL(__rfcomm_dlc_unthrottle(struct rfcomm_dlc *d));
+extern void __rfcomm_dlc_throttle(struct rfcomm_dlc *d);
+extern void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d);
 
 static inline void rfcomm_dlc_throttle(struct rfcomm_dlc *d)
 {
@@ -302,7 +310,8 @@ struct rfcomm_pinfo {
 	struct bt_sock bt;
 	struct rfcomm_dlc   *dlc;
 	u8     channel;
-	u32    link_mode;
+	u8     sec_level;
+	u8     role_switch;
 };
 
 int  rfcomm_init_sockets(void);
@@ -331,7 +340,6 @@ struct rfcomm_dev_req {
 	bdaddr_t src;
 	bdaddr_t dst;
 	u8       channel;
-	
 };
 
 struct rfcomm_dev_info {
@@ -349,7 +357,17 @@ struct rfcomm_dev_list_req {
 };
 
 int  rfcomm_dev_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
+
+#ifdef CONFIG_BT_RFCOMM_TTY
 int  rfcomm_init_ttys(void);
 void rfcomm_cleanup_ttys(void);
-
+#else
+static inline int rfcomm_init_ttys(void)
+{
+	return 0;
+}
+static inline void rfcomm_cleanup_ttys(void)
+{
+}
+#endif
 #endif /* __RFCOMM_H */

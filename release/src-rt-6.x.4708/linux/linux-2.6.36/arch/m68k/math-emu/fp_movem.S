@@ -178,22 +178,6 @@ fpr_do_movem:
 	jne	2b
 5:
 	printf	PDECODE,"\n"
-#if 0
-	lea	(FPD_FPREG,FPDATA),%a0
-	printf	PMOVEM,"fp:"
-	printx	PMOVEM,%a0@(0)
-	printx	PMOVEM,%a0@(12)
-	printf	PMOVEM,"\n   "
-	printx	PMOVEM,%a0@(24)
-	printx	PMOVEM,%a0@(36)
-	printf	PMOVEM,"\n   "
-	printx	PMOVEM,%a0@(48)
-	printx	PMOVEM,%a0@(60)
-	printf	PMOVEM,"\n   "
-	printx	PMOVEM,%a0@(72)
-	printx	PMOVEM,%a0@(84)
-	printf	PMOVEM,"\n"
-#endif
 	jra	fp_end
 
 | set flags for decode macros for fmovem control register
@@ -302,18 +286,6 @@ fpc_immediate:
 	fp_put_pc %a1
 	printf	PDECODE,"#imm"
 |	jra	fpc_do_movem
-#if 0
-	swap	%d1
-	lsl.l	#5,%d1
-	lea	(FPD_FPCR,FPDATA),%a0
-	jra	3f
-1:	move.l	%d0,(%a0)
-2:	addq.l	#4,%a0
-3:	lsl.b	#1,%d1
-	jcs	1b
-	jne	2b
-	jra	fpc_movem_fin
-#endif
 
 fpc_do_movem:
 	swap	%d1			| get fpu register list
@@ -355,14 +327,4 @@ fpc_movem_fin:
 	and.l	%d0,%d1
 	move.w	%d1,(FPD_PREC,FPDATA)
 	printf	PDECODE,"\n"
-#if 0
-	printf	PMOVEM,"fpcr : %08x\n",1,FPDATA@(FPD_FPCR)
-	printf	PMOVEM,"fpsr : %08x\n",1,FPDATA@(FPD_FPSR)
-	printf	PMOVEM,"fpiar: %08x\n",1,FPDATA@(FPD_FPIAR)
-	clr.l	%d0
-	move.w	(FPD_PREC,FPDATA),%d0
-	printf	PMOVEM,"prec : %04x\n",1,%d0
-	move.w	(FPD_RND,FPDATA),%d0
-	printf	PMOVEM,"rnd  : %04x\n",1,%d0
-#endif
 	jra	fp_end

@@ -15,14 +15,14 @@
 #include <linux/fcntl.h>
 #include <linux/stat.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
+#include <linux/smp_lock.h>
 
 #include <linux/ncp_fs.h>
 #include "ncplib_kernel.h"
 
-static int ncp_fsync(struct file *file, struct dentry *dentry, int datasync)
+static int ncp_fsync(struct file *file, int datasync)
 {
 	return 0;
 }
@@ -203,7 +203,6 @@ ncp_file_write(struct file *file, const char __user *buf, size_t count, loff_t *
 
 	if (pos + count > MAX_NON_LFS && !(file->f_flags&O_LARGEFILE)) {
 		if (pos >= MAX_NON_LFS) {
-			send_sig(SIGXFSZ, current, 0);
 			return -EFBIG;
 		}
 		if (count > MAX_NON_LFS - (u32)pos) {
@@ -212,7 +211,6 @@ ncp_file_write(struct file *file, const char __user *buf, size_t count, loff_t *
 	}
 	if (pos >= inode->i_sb->s_maxbytes) {
 		if (count || pos > inode->i_sb->s_maxbytes) {
-			send_sig(SIGXFSZ, current, 0);
 			return -EFBIG;
 		}
 	}
@@ -283,12 +281,21 @@ static int ncp_release(struct inode *inode, struct file *file) {
 	return 0;
 }
 
+static loff_t ncp_remote_llseek(struct file *file, loff_t offset, int origin)
+{
+	loff_t ret;
+	lock_kernel();
+	ret = generic_file_llseek_unlocked(file, offset, origin);
+	unlock_kernel();
+	return ret;
+}
+
 const struct file_operations ncp_file_operations =
 {
-	.llseek		= remote_llseek,
+	.llseek 	= ncp_remote_llseek,
 	.read		= ncp_file_read,
 	.write		= ncp_file_write,
-	.ioctl		= ncp_ioctl,
+	.unlocked_ioctl	= ncp_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= ncp_compat_ioctl,
 #endif

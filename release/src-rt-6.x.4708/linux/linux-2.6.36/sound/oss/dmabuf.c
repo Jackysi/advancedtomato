@@ -26,6 +26,7 @@
 #define SAMPLE_ROUNDUP 0
 
 #include <linux/mm.h>
+#include <linux/gfp.h>
 #include "sound_config.h"
 
 #define DMAP_FREE_ON_CLOSE      0
@@ -439,11 +440,10 @@ int DMAbuf_sync(int dev)
 			DMAbuf_launch_output(dev, dmap);
 		adev->dmap_out->flags |= DMA_SYNCING;
 		adev->dmap_out->underrun_count = 0;
-		while (!signal_pending(current) && n++ <= adev->dmap_out->nbufs && 
+		while (!signal_pending(current) && n++ < adev->dmap_out->nbufs &&
 		       adev->dmap_out->qlen && adev->dmap_out->underrun_count == 0) {
 			long t = dmabuf_timeout(dmap);
 			spin_unlock_irqrestore(&dmap->lock,flags);
-			/* FIXME: not safe may miss events */
 			t = interruptible_sleep_on_timeout(&adev->out_sleeper, t);
 			spin_lock_irqsave(&dmap->lock,flags);
 			if (!t) {
@@ -589,7 +589,6 @@ int DMAbuf_getrdbuffer(int dev, char **buf, int *len, int dontblock)
 		timeout = interruptible_sleep_on_timeout(&adev->in_sleeper,
 							 timeout);
 		if (!timeout) {
-			/* FIXME: include device name */
 			err = -EIO;
 			printk(KERN_WARNING "Sound: DMA (input) timed out - IRQ/DRQ config error?\n");
 			dma_reset_input(dev);
@@ -795,9 +794,9 @@ static int find_output_space(int dev, char **buf, int *size)
 #ifdef BE_CONSERVATIVE
 	active_offs = dmap->byte_counter + dmap->qhead * dmap->fragment_size;
 #else
-	active_offs = DMAbuf_get_buffer_pointer(dev, dmap, DMODE_OUTPUT);
+	active_offs = max(DMAbuf_get_buffer_pointer(dev, dmap, DMODE_OUTPUT), 0);
 	/* Check for pointer wrapping situation */
-	if (active_offs < 0 || active_offs >= dmap->bytes_in_use)
+	if (active_offs >= dmap->bytes_in_use)
 		active_offs = 0;
 	active_offs += dmap->byte_counter;
 #endif

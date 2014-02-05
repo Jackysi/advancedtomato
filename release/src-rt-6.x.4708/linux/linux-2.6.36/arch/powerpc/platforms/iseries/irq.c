@@ -214,12 +214,12 @@ void __init iSeries_activate_IRQs()
 	unsigned long flags;
 
 	for_each_irq (irq) {
-		irq_desc_t *desc = get_irq_desc(irq);
+		struct irq_desc *desc = irq_to_desc(irq);
 
 		if (desc && desc->chip && desc->chip->startup) {
-			spin_lock_irqsave(&desc->lock, flags);
+			raw_spin_lock_irqsave(&desc->lock, flags);
 			desc->chip->startup(irq);
-			spin_unlock_irqrestore(&desc->lock, flags);
+			raw_spin_unlock_irqrestore(&desc->lock, flags);
 		}
 	}
 }
@@ -273,7 +273,7 @@ static void iseries_end_IRQ(unsigned int irq)
 }
 
 static struct irq_chip iseries_pic = {
-	.typename	= "iSeries irq controller",
+	.name		= "iSeries",
 	.startup	= iseries_startup_IRQ,
 	.shutdown	= iseries_shutdown_IRQ,
 	.unmask		= iseries_enable_IRQ,
@@ -346,8 +346,15 @@ static int iseries_irq_host_map(struct irq_host *h, unsigned int virq,
 	return 0;
 }
 
+static int iseries_irq_host_match(struct irq_host *h, struct device_node *np)
+{
+	/* Match all */
+	return 1;
+}
+
 static struct irq_host_ops iseries_irq_host_ops = {
 	.map = iseries_irq_host_map,
+	.match = iseries_irq_host_match,
 };
 
 /*
@@ -369,7 +376,8 @@ void __init iSeries_init_IRQ(void)
 	/* Create irq host. No need for a revmap since HV will give us
 	 * back our virtual irq number
 	 */
-	host = irq_alloc_host(IRQ_HOST_MAP_NOMAP, 0, &iseries_irq_host_ops, 0);
+	host = irq_alloc_host(NULL, IRQ_HOST_MAP_NOMAP, 0,
+			      &iseries_irq_host_ops, 0);
 	BUG_ON(host == NULL);
 	irq_set_default_host(host);
 

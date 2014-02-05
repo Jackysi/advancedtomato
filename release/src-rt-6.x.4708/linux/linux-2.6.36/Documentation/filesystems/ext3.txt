@@ -14,6 +14,11 @@ Options
 When mounting an ext3 filesystem, the following option are accepted:
 (*) == default
 
+ro			Mount filesystem read only. Note that ext3 will replay
+			the journal (and thus write to the partition) even when
+			mounted "read only". Mount options "ro,noload" can be
+			used to prevent writes to the filesystem.
+
 journal=update		Update the ext3 file system's journal to the current
 			format.
 
@@ -27,7 +32,9 @@ journal_dev=devnum	When the external journal device's major/minor numbers
 			identified through its new major/minor numbers encoded
 			in devnum.
 
-noload			Don't load the journal on mounting.
+norecovery		Don't load the journal on mounting. Note that this forces
+noload			mount of inconsistent filesystem, which can lead to
+			various problems.
 
 data=journal		All data are committed into the journal prior to being
 			written into the main file system.
@@ -52,8 +59,19 @@ commit=nrsec	(*)	Ext3 can be told to sync all its data and metadata
 			Setting it to very large values will improve
 			performance.
 
-barrier=1		This enables/disables barriers.  barrier=0 disables
-			it, barrier=1 enables it.
+barrier=<0(*)|1>	This enables/disables the use of write barriers in
+barrier			the jbd code.  barrier=0 disables, barrier=1 enables.
+nobarrier	(*)	This also requires an IO stack which can support
+			barriers, and if jbd gets an error on a barrier
+			write, it will disable again with a warning.
+			Write barriers enforce proper on-disk ordering
+			of journal commits, making volatile disk write caches
+			safe to use, at some performance penalty.  If
+			your disks are battery-backed in one way or another,
+			disabling barriers may safely improve performance.
+			The mount options "barrier" and "nobarrier" can
+			also be used to enable or disable barriers, for
+			consistency with other ext3 mount options.
 
 orlov		(*)	This enables the new Orlov block allocator. It is
 			enabled by default.
@@ -92,9 +110,17 @@ nocheck
 
 debug			Extra debugging information is sent to syslog.
 
-errors=remount-ro(*)	Remount the filesystem read-only on an error.
+errors=remount-ro	Remount the filesystem read-only on an error.
 errors=continue		Keep going on a filesystem error.
 errors=panic		Panic and halt the machine if an error occurs.
+			(These mount options override the errors behavior
+			specified in the superblock, which can be
+			configured using tune2fs.)
+
+data_err=ignore(*)	Just print an error message if an error occurs
+			in a file data buffer in ordered mode.
+data_err=abort		Abort the journal if an error occurs in a file
+			data buffer in ordered mode.
 
 grpid			Give objects the same group ID as their creator.
 bsdgroups
@@ -108,10 +134,18 @@ resuid=n		The user ID which may use the reserved blocks.
 
 sb=n			Use alternate superblock at this location.
 
-quota
-noquota
-grpquota
-usrquota
+quota			These options are ignored by the filesystem. They
+noquota			are used only by quota tools to recognize volumes
+grpquota		where quota should be turned on. See documentation
+usrquota		in the quota-tools package for more details
+			(http://sourceforge.net/projects/linuxquota).
+
+jqfmt=<quota type>	These options tell filesystem details about quota
+usrjquota=<file>	so that quota information can be properly updated
+grpjquota=<file>	during journal replay. They replace the above
+			quota options. See documentation in the quota-tools
+			package for more details
+			(http://sourceforge.net/projects/linuxquota).
 
 bh		(*)	ext3 associates buffer heads to data pages to
 nobh			(a) cache disk block mapping information
@@ -130,12 +164,12 @@ Device layer.
 
 Journaling Block Device layer
 -----------------------------
-The Journaling Block Device layer (JBD) isn't ext3 specific.  It was design to
-add journaling capabilities on a block device.  The ext3 filesystem code will
-inform the JBD of modifications it is performing (called a transaction).  The
-journal supports the transactions start and stop, and in case of crash, the
-journal can replayed the transactions to put the partition back in a
-consistent state fast.
+The Journaling Block Device layer (JBD) isn't ext3 specific.  It was designed
+to add journaling capabilities to a block device.  The ext3 filesystem code
+will inform the JBD of modifications it is performing (called a transaction).
+The journal supports the transactions start and stop, and in case of a crash,
+the journal can replay the transactions to quickly put the partition back into
+a consistent state.
 
 Handles represent a single atomic update to a filesystem.  JBD can handle an
 external journal on a block device.
@@ -164,7 +198,7 @@ written to the journal first, and then to its final location.
 In the event of a crash, the journal can be replayed, bringing both data and
 metadata into a consistent state.  This mode is the slowest except when data
 needs to be read from and written to disk at the same time where it
-outperforms all others modes.
+outperforms all other modes.
 
 Compatibility
 -------------
@@ -193,6 +227,5 @@ kernel source:	<file:fs/ext3/>
 programs: 	http://e2fsprogs.sourceforge.net/
 		http://ext2resize.sourceforge.net
 
-useful links:	http://www.zip.com.au/~akpm/linux/ext3/ext3-usage.html
-		http://www-106.ibm.com/developerworks/linux/library/l-fs7/
-		http://www-106.ibm.com/developerworks/linux/library/l-fs8/
+useful links:	http://www.ibm.com/developerworks/library/l-fs7.html
+		http://www.ibm.com/developerworks/library/l-fs8.html

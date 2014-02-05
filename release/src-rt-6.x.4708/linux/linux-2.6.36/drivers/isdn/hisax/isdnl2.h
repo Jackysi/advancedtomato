@@ -1,4 +1,4 @@
-/* $Id: isdnl2.h,v 1.3.6.2 2001/09/23 22:24:49 kai Exp $
+/* $Id: isdnl2.h,v 1.3.6.2 2001/09/23 22:24:49 Exp $
  *
  * Layer 2 defines
  *
@@ -23,4 +23,3 @@
 #define RSP    1
 
 #define LC_FLUSH_WAIT 1
-

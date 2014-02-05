@@ -82,7 +82,6 @@
 
 /*  MIXER (CAsp4Mix.s and CAsp4Mixer.s) */
 
-// FIXME: get rid of this.
 static int mchannels[NR_MIXIN];
 static int rampchs[NR_MIXIN];
 
@@ -97,85 +96,6 @@ static void vortex_mixer_dis_sr(vortex_t * vortex, int channel)
 		hwread(vortex->mmio, VORTEX_MIXER_SR) & ~(0x1 << channel));
 }
 
-#if 0
-static void
-vortex_mix_muteinputgain(vortex_t * vortex, unsigned char mix,
-			 unsigned char channel)
-{
-	hwwrite(vortex->mmio, VORTEX_MIX_INVOL_A + ((mix << 5) + channel),
-		0x80);
-	hwwrite(vortex->mmio, VORTEX_MIX_INVOL_B + ((mix << 5) + channel),
-		0x80);
-}
-
-static int vortex_mix_getvolume(vortex_t * vortex, unsigned char mix)
-{
-	int a;
-	a = hwread(vortex->mmio, VORTEX_MIX_VOL_A + (mix << 2)) & 0xff;
-	//FP2LinearFrac(a);
-	return (a);
-}
-
-static int
-vortex_mix_getinputvolume(vortex_t * vortex, unsigned char mix,
-			  int channel, int *vol)
-{
-	int a;
-	if (!(mchannels[mix] & (1 << channel)))
-		return 0;
-	a = hwread(vortex->mmio,
-		   VORTEX_MIX_INVOL_A + (((mix << 5) + channel) << 2));
-	/*
-	   if (rampchs[mix] == 0)
-	   a = FP2LinearFrac(a);
-	   else
-	   a = FP2LinearFracWT(a);
-	 */
-	*vol = a;
-	return (0);
-}
-
-static unsigned int vortex_mix_boost6db(unsigned char vol)
-{
-	return (vol + 8);	/* WOW! what a complex function! */
-}
-
-static void vortex_mix_rampvolume(vortex_t * vortex, int mix)
-{
-	int ch;
-	char a;
-	// This function is intended for ramping down only (see vortex_disableinput()).
-	for (ch = 0; ch < 0x20; ch++) {
-		if (((1 << ch) & rampchs[mix]) == 0)
-			continue;
-		a = hwread(vortex->mmio,
-			   VORTEX_MIX_INVOL_B + (((mix << 5) + ch) << 2));
-		if (a > -126) {
-			a -= 2;
-			hwwrite(vortex->mmio,
-				VORTEX_MIX_INVOL_A +
-				(((mix << 5) + ch) << 2), a);
-			hwwrite(vortex->mmio,
-				VORTEX_MIX_INVOL_B +
-				(((mix << 5) + ch) << 2), a);
-		} else
-			vortex_mix_killinput(vortex, mix, ch);
-	}
-}
-
-static int
-vortex_mix_getenablebit(vortex_t * vortex, unsigned char mix, int mixin)
-{
-	int addr, temp;
-	if (mixin >= 0)
-		addr = mixin;
-	else
-		addr = mixin + 3;
-	addr = ((mix << 3) + (addr >> 2)) << 2;
-	temp = hwread(vortex->mmio, VORTEX_MIX_ENIN + addr);
-	return ((temp >> (mixin & 3)) & 1);
-}
-#endif
 static void
 vortex_mix_setvolumebyte(vortex_t * vortex, unsigned char mix,
 			 unsigned char vol)
@@ -379,7 +299,6 @@ static void vortex_mixer_init(vortex_t * vortex)
 	u32 addr;
 	int x;
 
-	// FIXME: get rid of this crap.
 	memset(mchannels, 0, NR_MIXOUT * sizeof(int));
 	memset(rampchs, 0, NR_MIXOUT * sizeof(int));
 
@@ -427,7 +346,7 @@ static void vortex_mixer_init(vortex_t * vortex)
 
 	/* Set clipping ceiling (this may be all wrong). */
 	/*
-	for (x = 0; x > 0x80; x++) {
+	for (x = 0; x < 0x80; x++) {
 		hwwrite(vortex->mmio, VORTEX_MIXER_CLIP + (x << 2), 0x3ffff);
 	}
 	*/
@@ -500,61 +419,6 @@ vortex_src_persist_convratio(vortex_t * vortex, unsigned char src, int ratio)
 	return temp;
 }
 
-#if 0
-static void vortex_src_slowlock(vortex_t * vortex, unsigned char src)
-{
-	int temp;
-
-	hwwrite(vortex->mmio, VORTEX_SRC_DRIFT2 + (src << 2), 1);
-	hwwrite(vortex->mmio, VORTEX_SRC_DRIFT0 + (src << 2), 0);
-	temp = hwread(vortex->mmio, VORTEX_SRC_U0 + (src << 2));
-	if (temp & 0x200)
-		hwwrite(vortex->mmio, VORTEX_SRC_U0 + (src << 2),
-			temp & ~0x200L);
-}
-
-static void
-vortex_src_change_convratio(vortex_t * vortex, unsigned char src, int ratio)
-{
-	int temp, a;
-
-	if ((ratio & 0x10000) && (ratio != 0x10000)) {
-		if (ratio & 0x3fff)
-			a = (0x11 - ((ratio >> 0xe) & 0x3)) - 1;
-		else
-			a = (0x11 - ((ratio >> 0xe) & 0x3)) - 2;
-	} else
-		a = 0xc;
-	temp = hwread(vortex->mmio, VORTEX_SRC_U0 + (src << 2));
-	if (((temp >> 4) & 0xf) != a)
-		hwwrite(vortex->mmio, VORTEX_SRC_U0 + (src << 2),
-			(temp & 0xf) | ((a & 0xf) << 4));
-
-	vortex_src_persist_convratio(vortex, src, ratio);
-}
-
-static int
-vortex_src_checkratio(vortex_t * vortex, unsigned char src,
-		      unsigned int desired_ratio)
-{
-	int hw_ratio, lifeboat = 0;
-
-	hw_ratio = hwread(vortex->mmio, VORTEX_SRC_CONVRATIO + (src << 2));
-
-	while (hw_ratio != desired_ratio) {
-		hwwrite(vortex->mmio, VORTEX_SRC_CONVRATIO + (src << 2), desired_ratio);
-
-		if ((lifeboat++) > 15) {
-			printk(KERN_ERR "Vortex: could not set src-%d from %d to %d\n",
-			       src, hw_ratio, desired_ratio);
-			break;
-		}
-	}
-
-	return hw_ratio;
-}
-
-#endif
 /*
  Objective: Set samplerate for given SRC module.
  Arguments:
@@ -784,19 +648,6 @@ vortex_fifo_clearadbdata(vortex_t * vortex, int fifo, int x)
 			(((fifo << FIFO_SIZE_BITS) + x) << 2), 0);
 }
 
-#if 0
-static void vortex_fifo_adbinitialize(vortex_t * vortex, int fifo, int j)
-{
-	vortex_fifo_clearadbdata(vortex, fifo, FIFO_SIZE);
-#ifdef CHIP_AU8820
-	hwwrite(vortex->mmio, VORTEX_FIFO_ADBCTRL + (fifo << 2),
-		(FIFO_U1 | ((j & FIFO_MASK) << 0xb)));
-#else
-	hwwrite(vortex->mmio, VORTEX_FIFO_ADBCTRL + (fifo << 2),
-		(FIFO_U1 | ((j & FIFO_MASK) << 0xc)));
-#endif
-}
-#endif
 static void vortex_fifo_setadbvalid(vortex_t * vortex, int fifo, int en)
 {
 	hwwrite(vortex->mmio, VORTEX_FIFO_ADBCTRL + (fifo << 2),
@@ -1097,19 +948,12 @@ static void vortex_adbdma_setstartbuffer(vortex_t * vortex, int adbdma, int sb)
 
 static void
 vortex_adbdma_setbuffers(vortex_t * vortex, int adbdma,
-			 struct snd_sg_buf * sgbuf, int psize, int count)
+			 int psize, int count)
 {
 	stream_t *dma = &vortex->dma_adb[adbdma];
 
-	if (sgbuf == NULL) {
-		printk(KERN_INFO "vortex: FATAL: sgbuf is NULL!\n");
-		return;
-	}
-	//printk(KERN_INFO "vortex: page count = %d, tblcount = %d\n", count, sgbuf->tblsize);
-
 	dma->period_bytes = psize;
 	dma->nr_periods = count;
-	dma->sgbuf = sgbuf;
 
 	dma->cfg0 = 0;
 	dma->cfg1 = 0;
@@ -1120,29 +964,32 @@ vortex_adbdma_setbuffers(vortex_t * vortex, int adbdma,
 		dma->cfg1 |= 0x88000000 | 0x44000000 | 0x30000000 | (psize - 1);
 		hwwrite(vortex->mmio,
 			VORTEX_ADBDMA_BUFBASE + (adbdma << 4) + 0xc,
-			snd_sgbuf_get_addr(sgbuf, psize * 3));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize * 3));
 		/* 3 pages */
 	case 3:
 		dma->cfg0 |= 0x12000000;
 		dma->cfg1 |= 0x80000000 | 0x40000000 | ((psize - 1) << 0xc);
 		hwwrite(vortex->mmio,
 			VORTEX_ADBDMA_BUFBASE + (adbdma << 4) + 0x8,
-			snd_sgbuf_get_addr(sgbuf, psize * 2));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize * 2));
 		/* 2 pages */
 	case 2:
 		dma->cfg0 |= 0x88000000 | 0x44000000 | 0x10000000 | (psize - 1);
 		hwwrite(vortex->mmio,
 			VORTEX_ADBDMA_BUFBASE + (adbdma << 4) + 0x4,
-			snd_sgbuf_get_addr(sgbuf, psize));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize));
 		/* 1 page */
 	case 1:
 		dma->cfg0 |= 0x80000000 | 0x40000000 | ((psize - 1) << 0xc);
 		hwwrite(vortex->mmio,
 			VORTEX_ADBDMA_BUFBASE + (adbdma << 4),
-			snd_sgbuf_get_addr(sgbuf, 0));
+			snd_pcm_sgbuf_get_addr(dma->substream, 0));
 		break;
 	}
-	//printk("vortex: cfg0 = 0x%x\nvortex: cfg1=0x%x\n", dma->cfg0, dma->cfg1);
+	/*
+	printk(KERN_DEBUG "vortex: cfg0 = 0x%x\nvortex: cfg1=0x%x\n",
+	       dma->cfg0, dma->cfg1);
+	*/
 	hwwrite(vortex->mmio, VORTEX_ADBDMA_BUFCFG0 + (adbdma << 3), dma->cfg0);
 	hwwrite(vortex->mmio, VORTEX_ADBDMA_BUFCFG1 + (adbdma << 3), dma->cfg1);
 
@@ -1205,7 +1052,7 @@ static int vortex_adbdma_bufshift(vortex_t * vortex, int adbdma)
 			//hwwrite(vortex->mmio, VORTEX_ADBDMA_BUFBASE+(((adbdma << 2)+pp) << 2), dma->table[p].addr);
 			hwwrite(vortex->mmio,
 				VORTEX_ADBDMA_BUFBASE + (((adbdma << 2) + pp) << 2),
-				snd_sgbuf_get_addr(dma->sgbuf,
+				snd_pcm_sgbuf_get_addr(dma->substream,
 				dma->period_bytes * p));
 			/* Force write thru cache. */
 			hwread(vortex->mmio, VORTEX_ADBDMA_BUFBASE +
@@ -1244,7 +1091,10 @@ static void vortex_adbdma_resetup(vortex_t *vortex, int adbdma) {
 			if (pp >= 4)
 				pp -= 4;
 		}
-		hwwrite(vortex->mmio, VORTEX_ADBDMA_BUFBASE+(((adbdma << 2)+pp) << 2), snd_sgbuf_get_addr(dma->sgbuf, dma->period_bytes * p));
+		hwwrite(vortex->mmio,
+			VORTEX_ADBDMA_BUFBASE + (((adbdma << 2) + pp) << 2),
+			snd_pcm_sgbuf_get_addr(dma->substream,
+					       dma->period_bytes * p));
 		/* Force write thru cache. */
 		hwread(vortex->mmio, VORTEX_ADBDMA_BUFBASE + (((adbdma << 2)+pp) << 2));
 	}
@@ -1256,8 +1106,8 @@ static int inline vortex_adbdma_getlinearpos(vortex_t * vortex, int adbdma)
 	int temp;
 
 	temp = hwread(vortex->mmio, VORTEX_ADBDMA_STAT + (adbdma << 2));
-	temp = (dma->period_virt * dma->period_bytes) + (temp & POS_MASK);
-	return (temp);
+	temp = (dma->period_virt * dma->period_bytes) + (temp & (dma->period_bytes - 1));
+	return temp;
 }
 
 static void vortex_adbdma_startfifo(vortex_t * vortex, int adbdma)
@@ -1329,22 +1179,6 @@ static void vortex_adbdma_pausefifo(vortex_t * vortex, int adbdma)
 	dma->fifo_status = FIFO_PAUSE;
 }
 
-#if 0				// Using pause instead
-static void vortex_adbdma_stopfifo(vortex_t * vortex, int adbdma)
-{
-	stream_t *dma = &vortex->dma_adb[adbdma];
-
-	int this_4 = 0, this_8 = 0;
-	if (dma->fifo_status == FIFO_START)
-		vortex_fifo_setadbctrl(vortex, adbdma, dma->dma_unknown,
-				       this_4, this_8, 0, 0);
-	else if (dma->fifo_status == FIFO_STOP)
-		return;
-	dma->fifo_status = FIFO_STOP;
-	dma->fifo_enabled = 0;
-}
-
-#endif
 /* WTDMA */
 
 #ifndef CHIP_AU8810
@@ -1367,13 +1201,12 @@ static void vortex_wtdma_setstartbuffer(vortex_t * vortex, int wtdma, int sb)
 
 static void
 vortex_wtdma_setbuffers(vortex_t * vortex, int wtdma,
-			struct snd_sg_buf * sgbuf, int psize, int count)
+			int psize, int count)
 {
 	stream_t *dma = &vortex->dma_wt[wtdma];
 
 	dma->period_bytes = psize;
 	dma->nr_periods = count;
-	dma->sgbuf = sgbuf;
 
 	dma->cfg0 = 0;
 	dma->cfg1 = 0;
@@ -1383,23 +1216,23 @@ vortex_wtdma_setbuffers(vortex_t * vortex, int wtdma,
 	case 4:
 		dma->cfg1 |= 0x88000000 | 0x44000000 | 0x30000000 | (psize-1);
 		hwwrite(vortex->mmio, VORTEX_WTDMA_BUFBASE + (wtdma << 4) + 0xc,
-			snd_sgbuf_get_addr(sgbuf, psize * 3));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize * 3));
 		/* 3 pages */
 	case 3:
 		dma->cfg0 |= 0x12000000;
 		dma->cfg1 |= 0x80000000 | 0x40000000 | ((psize-1) << 0xc);
 		hwwrite(vortex->mmio, VORTEX_WTDMA_BUFBASE + (wtdma << 4)  + 0x8,
-			snd_sgbuf_get_addr(sgbuf, psize * 2));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize * 2));
 		/* 2 pages */
 	case 2:
 		dma->cfg0 |= 0x88000000 | 0x44000000 | 0x10000000 | (psize-1);
 		hwwrite(vortex->mmio, VORTEX_WTDMA_BUFBASE + (wtdma << 4) + 0x4,
-			snd_sgbuf_get_addr(sgbuf, psize));
+			snd_pcm_sgbuf_get_addr(dma->substream, psize));
 		/* 1 page */
 	case 1:
 		dma->cfg0 |= 0x80000000 | 0x40000000 | ((psize-1) << 0xc);
 		hwwrite(vortex->mmio, VORTEX_WTDMA_BUFBASE + (wtdma << 4),
-			snd_sgbuf_get_addr(sgbuf, 0));
+			snd_pcm_sgbuf_get_addr(dma->substream, 0));
 		break;
 	}
 	hwwrite(vortex->mmio, VORTEX_WTDMA_BUFCFG0 + (wtdma << 3), dma->cfg0);
@@ -1465,7 +1298,8 @@ static int vortex_wtdma_bufshift(vortex_t * vortex, int wtdma)
 			hwwrite(vortex->mmio,
 				VORTEX_WTDMA_BUFBASE +
 				(((wtdma << 2) + pp) << 2),
-				snd_sgbuf_get_addr(dma->sgbuf, dma->period_bytes * p));
+				snd_pcm_sgbuf_get_addr(dma->substream,
+						       dma->period_bytes * p));
 			/* Force write thru cache. */
 			hwread(vortex->mmio, VORTEX_WTDMA_BUFBASE +
 			       (((wtdma << 2) + pp) << 2));
@@ -1483,30 +1317,13 @@ static int vortex_wtdma_bufshift(vortex_t * vortex, int wtdma)
 	return delta;
 }
 
-#if 0
-static void
-vortex_wtdma_getposition(vortex_t * vortex, int wtdma, int *subbuf, int *pos)
-{
-	int temp;
-	temp = hwread(vortex->mmio, VORTEX_WTDMA_STAT + (wtdma << 2));
-	*subbuf = (temp >> WT_SUBBUF_SHIFT) & WT_SUBBUF_MASK;
-	*pos = temp & POS_MASK;
-}
-
-static int vortex_wtdma_getcursubuffer(vortex_t * vortex, int wtdma)
-{
-	return ((hwread(vortex->mmio, VORTEX_WTDMA_STAT + (wtdma << 2)) >>
-		 POS_SHIFT) & POS_MASK);
-}
-#endif
 static int inline vortex_wtdma_getlinearpos(vortex_t * vortex, int wtdma)
 {
 	stream_t *dma = &vortex->dma_wt[wtdma];
 	int temp;
 
 	temp = hwread(vortex->mmio, VORTEX_WTDMA_STAT + (wtdma << 2));
-	//temp = (temp & POS_MASK) + (((temp>>WT_SUBBUF_SHIFT) & WT_SUBBUF_MASK)*(dma->cfg0&POS_MASK));
-	temp = (temp & POS_MASK) + ((dma->period_virt) * (dma->period_bytes));
+	temp = (dma->period_virt * dma->period_bytes) + (temp & (dma->period_bytes - 1));
 	return temp;
 }
 
@@ -1743,40 +1560,6 @@ vortex_route(vortex_t * vortex, int en, unsigned char channel,
 	}
 }
 
-#if 0
-static void
-vortex_routes(vortex_t * vortex, int en, unsigned char channel,
-	      unsigned char source, unsigned char dest0, unsigned char dest1)
-{
-	ADBRamLink route[2];
-
-	route[0] = ((source & ADB_MASK) << ADB_SHIFT) | (dest0 & ADB_MASK);
-	route[1] = ((source & ADB_MASK) << ADB_SHIFT) | (dest1 & ADB_MASK);
-
-	if (en) {
-		vortex_adb_addroutes(vortex, channel, route, 2);
-		if ((source < (OFFSET_SRCOUT + NR_SRC))
-		    && (source >= (OFFSET_SRCOUT)))
-			vortex_src_addWTD(vortex, (source - OFFSET_SRCOUT),
-					  channel);
-		else if ((source < (OFFSET_MIXOUT + NR_MIXOUT))
-			 && (source >= (OFFSET_MIXOUT)))
-			vortex_mixer_addWTD(vortex,
-					    (source - OFFSET_MIXOUT), channel);
-	} else {
-		vortex_adb_delroutes(vortex, channel, route[0], route[1]);
-		if ((source < (OFFSET_SRCOUT + NR_SRC))
-		    && (source >= (OFFSET_SRCOUT)))
-			vortex_src_delWTD(vortex, (source - OFFSET_SRCOUT),
-					  channel);
-		else if ((source < (OFFSET_MIXOUT + NR_MIXOUT))
-			 && (source >= (OFFSET_MIXOUT)))
-			vortex_mixer_delWTD(vortex,
-					    (source - OFFSET_MIXOUT), channel);
-	}
-}
-
-#endif
 /* Route two sources to same target. Sources must be of same class !!! */
 static void
 vortex_routeLRT(vortex_t * vortex, int en, unsigned char ch,
@@ -1899,43 +1682,6 @@ vortex_connection_mix_src(vortex_t * vortex, int en, unsigned char ch,
 	vortex_mix_setvolumebyte(vortex, mix, MIX_DEFOGAIN);	// added to original code.
 }
 
-#if 0
-static void
-vortex_connection_adbdma_src_src(vortex_t * vortex, int en,
-				 unsigned char channel,
-				 unsigned char adbdma, unsigned char src0,
-				 unsigned char src1)
-{
-	vortex_routes(vortex, en, channel, ADB_DMA(adbdma),
-		      ADB_SRCIN(src0), ADB_SRCIN(src1));
-}
-
-// Connect two mix to AdbDma.
-static void
-vortex_connection_mix_mix_adbdma(vortex_t * vortex, int en,
-				 unsigned char ch, unsigned char mix0,
-				 unsigned char mix1, unsigned char adbdma)
-{
-
-	ADBRamLink routes[2];
-	routes[0] =
-	    (((mix0 +
-	       OFFSET_MIXOUT) & ADB_MASK) << ADB_SHIFT) | (adbdma & ADB_MASK);
-	routes[1] =
-	    (((mix1 + OFFSET_MIXOUT) & ADB_MASK) << ADB_SHIFT) | ((adbdma +
-								   0x20) &
-								  ADB_MASK);
-	if (en) {
-		vortex_adb_addroutes(vortex, ch, routes, 0x2);
-		vortex_mixer_addWTD(vortex, mix0, ch);
-		vortex_mixer_addWTD(vortex, mix1, ch);
-	} else {
-		vortex_adb_delroutes(vortex, ch, routes[0], routes[1]);
-		vortex_mixer_delWTD(vortex, mix0, ch);
-		vortex_mixer_delWTD(vortex, mix1, ch);
-	}
-}
-#endif
 
 /* CODEC connect. */
 
@@ -1946,7 +1692,6 @@ vortex_connect_codecplay(vortex_t * vortex, int en, unsigned char mixers[])
 	vortex_connection_mix_adb(vortex, en, 0x11, mixers[0], ADB_CODECOUT(0));
 	vortex_connection_mix_adb(vortex, en, 0x11, mixers[1], ADB_CODECOUT(1));
 #else
-#if 1
 	// Connect front channels through EQ.
 	vortex_connection_mix_adb(vortex, en, 0x11, mixers[0], ADB_EQIN(0));
 	vortex_connection_mix_adb(vortex, en, 0x11, mixers[1], ADB_EQIN(1));
@@ -1963,13 +1708,8 @@ vortex_connect_codecplay(vortex_t * vortex, int en, unsigned char mixers[])
 					  ADB_CODECOUT(0 + 4));
 		vortex_connection_mix_adb(vortex, en, 0x11, mixers[3],
 					  ADB_CODECOUT(1 + 4));
-		//printk("SDAC detected ");
+		/* printk(KERN_DEBUG "SDAC detected "); */
 	}
-#else
-	// Use plain direct output to codec.
-	vortex_connection_mix_adb(vortex, en, 0x11, mixers[0], ADB_CODECOUT(0));
-	vortex_connection_mix_adb(vortex, en, 0x11, mixers[1], ADB_CODECOUT(1));
-#endif
 #endif
 }
 
@@ -2017,7 +1757,11 @@ vortex_adb_checkinout(vortex_t * vortex, int resmap[], int out, int restype)
 					resmap[restype] |= (1 << i);
 				else
 					vortex->dma_adb[i].resources[restype] |= (1 << i);
-				//printk("vortex: ResManager: type %d out %d\n", restype, i);
+				/*
+				printk(KERN_DEBUG
+				       "vortex: ResManager: type %d out %d\n",
+				       restype, i);
+				*/
 				return i;
 			}
 		}
@@ -2028,7 +1772,11 @@ vortex_adb_checkinout(vortex_t * vortex, int resmap[], int out, int restype)
 		for (i = 0; i < qty; i++) {
 			if (resmap[restype] & (1 << i)) {
 				resmap[restype] &= ~(1 << i);
-				//printk("vortex: ResManager: type %d in %d\n",restype, i);
+				/*
+				printk(KERN_DEBUG
+				       "vortex: ResManager: type %d in %d\n",
+				       restype, i);
+				*/
 				return i;
 			}
 		}
@@ -2304,25 +2052,6 @@ vortex_adb_allocroute(vortex_t * vortex, int dma, int nr_ch, int dir, int type)
 	}
 	vortex->dma_adb[dma].nr_ch = nr_ch;
 
-#if 0
-	/* AC97 Codec channel setup. FIXME: this has no effect on some cards !! */
-	if (nr_ch < 4) {
-		/* Copy stereo to rear channel (surround) */
-		snd_ac97_write_cache(vortex->codec,
-				     AC97_SIGMATEL_DAC2INVERT,
-				     snd_ac97_read(vortex->codec,
-						   AC97_SIGMATEL_DAC2INVERT)
-				     | 4);
-	} else {
-		/* Allow separate front and rear channels. */
-		snd_ac97_write_cache(vortex->codec,
-				     AC97_SIGMATEL_DAC2INVERT,
-				     snd_ac97_read(vortex->codec,
-						   AC97_SIGMATEL_DAC2INVERT)
-				     & ~((u32)
-					 4));
-	}
-#endif
 	return dma;
 }
 
@@ -2356,20 +2085,6 @@ static void vortex_settimer(vortex_t * vortex, int period)
 	hwwrite(vortex->mmio, VORTEX_IRQ_STAT, period);
 }
 
-#if 0
-static void vortex_enable_timer_int(vortex_t * card)
-{
-	hwwrite(card->mmio, VORTEX_IRQ_CTRL,
-		hwread(card->mmio, VORTEX_IRQ_CTRL) | IRQ_TIMER | 0x60);
-}
-
-static void vortex_disable_timer_int(vortex_t * card)
-{
-	hwwrite(card->mmio, VORTEX_IRQ_CTRL,
-		hwread(card->mmio, VORTEX_IRQ_CTRL) & ~IRQ_TIMER);
-}
-
-#endif
 static void vortex_enable_int(vortex_t * card)
 {
 	// CAsp4ISR__EnableVortexInt_void_
@@ -2395,7 +2110,7 @@ static irqreturn_t vortex_interrupt(int irq, void *dev_id)
 	if (!(hwread(vortex->mmio, VORTEX_STAT) & 0x1))
 		return IRQ_NONE;
 
-	// This is the Interrrupt Enable flag we set before (consistency check).
+	// This is the Interrupt Enable flag we set before (consistency check).
 	if (!(hwread(vortex->mmio, VORTEX_CTRL) & CTRL_IRQ_ENABLE))
 		return IRQ_NONE;
 
@@ -2434,7 +2149,8 @@ static irqreturn_t vortex_interrupt(int irq, void *dev_id)
 		spin_lock(&vortex->lock);
 		for (i = 0; i < NR_ADB; i++) {
 			if (vortex->dma_adb[i].fifo_status == FIFO_START) {
-				if (vortex_adbdma_bufshift(vortex, i)) ;
+				if (!vortex_adbdma_bufshift(vortex, i))
+					continue;
 				spin_unlock(&vortex->lock);
 				snd_pcm_period_elapsed(vortex->dma_adb[i].
 						       substream);
@@ -2778,62 +2494,3 @@ static int vortex_alsafmt_aspfmt(int alsafmt)
 }
 
 /* Some not yet useful translations. */
-#if 0
-typedef enum {
-	ASPFMTLINEAR16 = 0,	/* 0x8 */
-	ASPFMTLINEAR8,		/* 0x1 */
-	ASPFMTULAW,		/* 0x2 */
-	ASPFMTALAW,		/* 0x3 */
-	ASPFMTSPORT,		/* ? */
-	ASPFMTSPDIF,		/* ? */
-} ASPENCODING;
-
-static int
-vortex_translateformat(vortex_t * vortex, char bits, char nch, int encod)
-{
-	int a, this_194;
-
-	if ((bits != 8) || (bits != 16))
-		return -1;
-
-	switch (encod) {
-	case 0:
-		if (bits == 0x10)
-			a = 8;	// 16 bit
-		break;
-	case 1:
-		if (bits == 8)
-			a = 1;	// 8 bit
-		break;
-	case 2:
-		a = 2;		// U_LAW
-		break;
-	case 3:
-		a = 3;		// A_LAW
-		break;
-	}
-	switch (nch) {
-	case 1:
-		this_194 = 0;
-		break;
-	case 2:
-		this_194 = 1;
-		break;
-	case 4:
-		this_194 = 1;
-		break;
-	case 6:
-		this_194 = 1;
-		break;
-	}
-	return (a);
-}
-
-static void vortex_cdmacore_setformat(vortex_t * vortex, int bits, int nch)
-{
-	short int d, this_148;
-
-	d = ((bits >> 3) * nch);
-	this_148 = 0xbb80 / d;
-}
-#endif

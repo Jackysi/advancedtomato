@@ -169,4 +169,3 @@ typedef struct _diva_man_var_header {
 } diva_man_var_header_t;
 
 #endif
-

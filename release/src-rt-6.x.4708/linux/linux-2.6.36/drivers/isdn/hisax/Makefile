@@ -16,10 +16,6 @@ obj-$(CONFIG_HISAX_HFCUSB)		+= hfc_usb.o
 obj-$(CONFIG_HISAX_HFC4S8S)		+= hfc4s8s_l1.o
 obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_isac.o hisax_fcpcipnp.o
 
-ifdef CONFIG_HISAX_HDLC
-obj-$(CONFIG_ISDN_DRV_HISAX)		+= isdnhdlc.o
-endif
-
 # Multipart objects.
 
 hisax_st5481-y 				:= st5481_init.o st5481_usb.o st5481_d.o \
@@ -60,4 +56,3 @@ hisax-$(CONFIG_HISAX_SCT_QUADRO)	+= bkm_a8.o isac.o arcofi.o hscx.o
 hisax-$(CONFIG_HISAX_GAZEL)		+= gazel.o isac.o arcofi.o hscx.o
 hisax-$(CONFIG_HISAX_W6692)		+= w6692.o
 hisax-$(CONFIG_HISAX_ENTERNOW_PCI)	+= enternow_pci.o amd7930_fn.o
-

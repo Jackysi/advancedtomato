@@ -44,11 +44,7 @@ struct tda10021_state {
 };
 
 
-#if 0
-#define dprintk(x...) printk(x)
-#else
 #define dprintk(x...)
-#endif
 
 static int verbose;
 
@@ -79,7 +75,7 @@ static int _tda10021_writereg (struct tda10021_state* state, u8 reg, u8 data)
 	if (ret != 1)
 		printk("DVB: TDA10021(%d): %s, writereg error "
 			"(reg == 0x%02x, val == 0x%02x, ret == %i)\n",
-			state->frontend.dvb->num, __FUNCTION__, reg, data, ret);
+			state->frontend.dvb->num, __func__, reg, data, ret);
 
 	msleep(10);
 	return (ret != 1) ? -EREMOTEIO : 0;
@@ -97,7 +93,7 @@ static u8 tda10021_readreg (struct tda10021_state* state, u8 reg)
 	// Don't print an error message if the id is read.
 	if (ret != 2 && reg != 0x1a)
 		printk("DVB: TDA10021: %s: readreg error (ret == %i)\n",
-				__FUNCTION__, ret);
+				__func__, ret);
 	return b1[0];
 }
 
@@ -176,7 +172,7 @@ static int tda10021_set_symbolrate (struct tda10021_state* state, u32 symbolrate
 	tmp =  ((symbolrate << 4) % FIN) << 8;
 	ratio = (ratio << 8) + tmp / FIN;
 	tmp = (tmp % FIN) << 8;
-	ratio = (ratio << 8) + (tmp + FIN/2) / FIN;
+	ratio = (ratio << 8) + DIV_ROUND_CLOSEST(tmp, FIN);
 
 	BDR = ratio;
 	BDRI = (((XIN << 5) / symbolrate) + 1) / 2;
@@ -301,6 +297,8 @@ static int tda10021_read_ber(struct dvb_frontend* fe, u32* ber)
 	u32 _ber = tda10021_readreg(state, 0x14) |
 		(tda10021_readreg(state, 0x15) << 8) |
 		((tda10021_readreg(state, 0x16) & 0x0f) << 16);
+	_tda10021_writereg(state, 0x10, (tda10021_readreg(state, 0x10) & ~0xc0)
+					| (tda10021_inittab[0x10] & 0xc0));
 	*ber = 10 * _ber;
 
 	return 0;
@@ -310,7 +308,11 @@ static int tda10021_read_signal_strength(struct dvb_frontend* fe, u16* strength)
 {
 	struct tda10021_state* state = fe->demodulator_priv;
 
+	u8 config = tda10021_readreg(state, 0x02);
 	u8 gain = tda10021_readreg(state, 0x17);
+	if (config & 0x02)
+		/* the agc value is inverted */
+		gain = ~gain;
 	*strength = (gain << 8) | gain;
 
 	return 0;
@@ -407,7 +409,7 @@ struct dvb_frontend* tda10021_attach(const struct tda1002x_config* config,
 	u8 id;
 
 	/* allocate memory for the internal state */
-	state = kmalloc(sizeof(struct tda10021_state), GFP_KERNEL);
+	state = kzalloc(sizeof(struct tda10021_state), GFP_KERNEL);
 	if (state == NULL) goto error;
 
 	/* setup the state */
@@ -419,6 +421,10 @@ struct dvb_frontend* tda10021_attach(const struct tda1002x_config* config,
 	/* check if the demod is there */
 	id = tda10021_readreg(state, 0x1a);
 	if ((id & 0xf0) != 0x70) goto error;
+
+	/* Don't claim TDA10023 */
+	if (id == 0x7d)
+		goto error;
 
 	printk("TDA10021: i2c-addr = 0x%02x, id = 0x%02x\n",
 	       state->config->demod_address, id);
@@ -439,14 +445,10 @@ static struct dvb_frontend_ops tda10021_ops = {
 		.name = "Philips TDA10021 DVB-C",
 		.type = FE_QAM,
 		.frequency_stepsize = 62500,
-		.frequency_min = 51000000,
-		.frequency_max = 858000000,
+		.frequency_min = 47000000,
+		.frequency_max = 862000000,
 		.symbol_rate_min = (XIN/2)/64,     /* SACLK/64 == (XIN/2)/64 */
 		.symbol_rate_max = (XIN/2)/4,      /* SACLK/4 */
-	#if 0
-		.frequency_tolerance = ???,
-		.symbol_rate_tolerance = ???,  /* ppm */  /* == 8% (spec p. 5) */
-	#endif
 		.caps = 0x400 | //FE_CAN_QAM_4
 			FE_CAN_QAM_16 | FE_CAN_QAM_32 | FE_CAN_QAM_64 |
 			FE_CAN_QAM_128 | FE_CAN_QAM_256 |

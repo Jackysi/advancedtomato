@@ -20,6 +20,7 @@
 
 struct xfs_buf;
 struct xfs_dinode;
+struct xfs_imap;
 struct xfs_mount;
 struct xfs_trans;
 
@@ -30,20 +31,14 @@ struct xfs_trans;
 #define	XFS_IALLOC_BLOCKS(mp)	(mp)->m_ialloc_blks
 
 /*
- * For small block file systems, move inodes in clusters of this size.
- * When we don't have a lot of memory, however, we go a bit smaller
- * to reduce the number of AGI and ialloc btree blocks we need to keep
- * around for xfs_dilocate().  We choose which one to use in
- * xfs_mount_int().
+ * Move inodes in clusters of this size.
  */
 #define	XFS_INODE_BIG_CLUSTER_SIZE	8192
-#define	XFS_INODE_SMALL_CLUSTER_SIZE	4096
 #define	XFS_INODE_CLUSTER_SIZE(mp)	(mp)->m_inode_cluster_size
 
 /*
  * Make an inode pointer out of the buffer/offset.
  */
-#define	XFS_MAKE_IPTR(mp,b,o)		xfs_make_iptr(mp,b,o)
 static inline struct xfs_dinode *
 xfs_make_iptr(struct xfs_mount *mp, struct xfs_buf *b, int o)
 {
@@ -54,14 +49,12 @@ xfs_make_iptr(struct xfs_mount *mp, struct xfs_buf *b, int o)
 /*
  * Find a free (set) bit in the inode bitmask.
  */
-#define	XFS_IALLOC_FIND_FREE(fp)	xfs_ialloc_find_free(fp)
 static inline int xfs_ialloc_find_free(xfs_inofree_t *fp)
 {
 	return xfs_lowbit64(*fp);
 }
 
 
-#ifdef __KERNEL__
 /*
  * Allocate an inode on disk.
  * Mode is used to tell whether the new inode will need space, and whether
@@ -110,17 +103,14 @@ xfs_difree(
 	xfs_ino_t	*first_ino);	/* first inode in deleted cluster */
 
 /*
- * Return the location of the inode in bno/len/off,
- * for mapping it into a buffer.
+ * Return the location of the inode in imap, for mapping it into a buffer.
  */
 int
-xfs_dilocate(
+xfs_imap(
 	struct xfs_mount *mp,		/* file system mount structure */
 	struct xfs_trans *tp,		/* transaction pointer */
 	xfs_ino_t	ino,		/* inode to locate */
-	xfs_fsblock_t	*bno,		/* output: block containing inode */
-	int		*len,		/* output: num blocks in cluster*/
-	int		*off,		/* output: index in block of inode */
+	struct xfs_imap	*imap,		/* location map structure */
 	uint		flags);		/* flags for inode btree lookup */
 
 /*
@@ -149,6 +139,26 @@ xfs_ialloc_read_agi(
 	xfs_agnumber_t	agno,		/* allocation group number */
 	struct xfs_buf	**bpp);		/* allocation group hdr buf */
 
-#endif	/* __KERNEL__ */
+/*
+ * Read in the allocation group header to initialise the per-ag data
+ * in the mount structure
+ */
+int
+xfs_ialloc_pagi_init(
+	struct xfs_mount *mp,		/* file system mount structure */
+	struct xfs_trans *tp,		/* transaction pointer */
+        xfs_agnumber_t  agno);		/* allocation group number */
+
+/*
+ * Lookup a record by ino in the btree given by cur.
+ */
+int xfs_inobt_lookup(struct xfs_btree_cur *cur, xfs_agino_t ino,
+		xfs_lookup_t dir, int *stat);
+
+/*
+ * Get the data from the pointed-to record.
+ */
+extern int xfs_inobt_get_rec(struct xfs_btree_cur *cur,
+		xfs_inobt_rec_incore_t *rec, int *stat);
 
 #endif	/* __XFS_IALLOC_H__ */

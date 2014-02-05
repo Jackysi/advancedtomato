@@ -39,4 +39,3 @@ union ip2breadcrumb
 
 #define	ITRC_QUEUE_ROOM	2
 #define	ITRC_QUEUE_CMD	6
-

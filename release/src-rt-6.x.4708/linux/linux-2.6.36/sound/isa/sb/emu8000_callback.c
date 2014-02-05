@@ -174,7 +174,7 @@ get_voice(struct snd_emux *emu, struct snd_emux_port *port)
 	hw = emu->hw;
 
 	for (i = 0; i < END; i++) {
-		best[i].time = (unsigned int)(-1); /* XXX MAX_?INT really */;
+		best[i].time = (unsigned int)(-1);;
 		best[i].voice = -1;
 	}
 
@@ -543,4 +543,3 @@ load_fx(struct snd_emux *emu, int type, int mode, const void __user *buf, long l
 	}
 	return -EINVAL;
 }
-

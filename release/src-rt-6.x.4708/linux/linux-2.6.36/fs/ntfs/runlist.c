@@ -1,7 +1,7 @@
 /**
  * runlist.c - NTFS runlist handling code.  Part of the Linux-NTFS project.
  *
- * Copyright (c) 2001-2005 Anton Altaparmakov
+ * Copyright (c) 2001-2007 Anton Altaparmakov
  * Copyright (c) 2002-2005 Richard Russon
  *
  * This program/include file is free software; you can redistribute it and/or
@@ -636,12 +636,6 @@ runlist_element *ntfs_runlists_merge(runlist_element *drl,
 		ss++;
 	if (marker && (drl[dins].vcn + drl[dins].length > srl[send - 1].vcn))
 		finish = false;
-#if 0
-	ntfs_debug("dfinal = %i, dend = %i", dfinal, dend);
-	ntfs_debug("sstart = %i, sfinal = %i, send = %i", sstart, sfinal, send);
-	ntfs_debug("start = %i, finish = %i", start, finish);
-	ntfs_debug("ds = %i, ss = %i, dins = %i", ds, ss, dins);
-#endif
 	if (start) {
 		if (finish)
 			drl = ntfs_rl_replace(drl, ds, srl + sstart, ss, dins);
@@ -718,34 +712,6 @@ finished:
 	return drl;
 }
 
-/**
- * ntfs_mapping_pairs_decompress - convert mapping pairs array to runlist
- * @vol:	ntfs volume on which the attribute resides
- * @attr:	attribute record whose mapping pairs array to decompress
- * @old_rl:	optional runlist in which to insert @attr's runlist
- *
- * It is up to the caller to serialize access to the runlist @old_rl.
- *
- * Decompress the attribute @attr's mapping pairs array into a runlist. On
- * success, return the decompressed runlist.
- *
- * If @old_rl is not NULL, decompressed runlist is inserted into the
- * appropriate place in @old_rl and the resultant, combined runlist is
- * returned. The original @old_rl is deallocated.
- *
- * On error, return -errno. @old_rl is left unmodified in that case.
- *
- * The following error codes are defined:
- *	-ENOMEM	- Not enough memory to allocate runlist array.
- *	-EIO	- Corrupt runlist.
- *	-EINVAL	- Invalid parameters were passed in.
- *	-ERANGE	- The two runlists overlap.
- *
- * FIXME: For now we take the conceptionally simplest approach of creating the
- * new runlist disregarding the already existing one and then splicing the
- * two into one, if that is possible (we check for overlap and discard the new
- * runlist if overlap present before returning ERR_PTR(-ERANGE)).
- */
 runlist_element *ntfs_mapping_pairs_decompress(const ntfs_volume *vol,
 		const ATTR_RECORD *attr, runlist_element *old_rl)
 {
@@ -1378,15 +1344,6 @@ int ntfs_mapping_pairs_build(const ntfs_volume *vol, s8 *dst,
 				length - delta);
 		if (unlikely(len_len < 0))
 			goto size_err;
-		/*
-		 * If the logical cluster number (lcn) denotes a hole and we
-		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
-		 * zero space.  On earlier NTFS versions we just write the lcn
-		 * change.  FIXME: Do we need to write the lcn change or just
-		 * the lcn in that case?  Not sure as I have never seen this
-		 * case on NT4. - We assume that we just need to write the lcn
-		 * change until someone tells us otherwise... (AIA)
-		 */
 		if (likely(rl->lcn >= 0 || vol->major_ver < 3)) {
 			prev_lcn = rl->lcn;
 			if (likely(rl->lcn >= 0))
@@ -1429,15 +1386,6 @@ int ntfs_mapping_pairs_build(const ntfs_volume *vol, s8 *dst,
 				length);
 		if (unlikely(len_len < 0))
 			goto size_err;
-		/*
-		 * If the logical cluster number (lcn) denotes a hole and we
-		 * are on NTFS 3.0+, we don't store it at all, i.e. we need
-		 * zero space.  On earlier NTFS versions we just write the lcn
-		 * change.  FIXME: Do we need to write the lcn change or just
-		 * the lcn in that case?  Not sure as I have never seen this
-		 * case on NT4. - We assume that we just need to write the lcn
-		 * change until someone tells us otherwise... (AIA)
-		 */
 		if (likely(rl->lcn >= 0 || vol->major_ver < 3)) {
 			/* Write change in lcn. */
 			lcn_len = ntfs_write_significant_bytes(dst + 1 +
@@ -1714,7 +1662,7 @@ extend_hole:
 					sizeof(*rl));
 		/* Adjust the beginning of the tail if necessary. */
 		if (end > rl->vcn) {
-			s64 delta = end - rl->vcn;
+			delta = end - rl->vcn;
 			rl->vcn = end;
 			rl->length -= delta;
 			/* Only adjust the lcn if it is real. */

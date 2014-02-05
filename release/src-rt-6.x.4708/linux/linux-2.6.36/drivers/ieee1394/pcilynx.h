@@ -52,7 +52,7 @@ struct ti_lynx {
         void __iomem *local_rom;
         void __iomem *local_ram;
         void __iomem *aux_port;
-	quadlet_t bus_info_block[5];
+	__be32 bus_info_block[5];
 
         /*
          * use local RAM of LOCALRAM_SIZE bytes for PCLs, which allows for
@@ -386,7 +386,7 @@ static inline u32 pcl_bus(const struct ti_lynx *lynx, pcl_t pclid)
 }
 
 
-#if defined (__BIG_ENDIAN)
+#if defined(__BIG_ENDIAN)
 typedef struct ti_pcl pcltmp_t;
 
 static inline struct ti_pcl *edit_pcl(const struct ti_lynx *lynx, pcl_t pclid,

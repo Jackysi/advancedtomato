@@ -37,23 +37,19 @@
 #include <linux/kernel.h>
 #include <linux/timer.h>
 #include <linux/mm.h>
+#include <linux/mutex.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/spinlock.h>
 #include <linux/cpufreq.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 #include <asm/system.h>
 
 #include "soc_common.h"
 
-/* FIXME: platform dependent resource declaration has to move out of this file */
-#ifdef CONFIG_ARCH_PXA
-#include <asm/arch/pxa-regs.h>
-#endif
-
-#ifdef DEBUG
+#ifdef CONFIG_PCMCIA_DEBUG
 
 static int pc_debug;
 module_param(pc_debug, int, 0644);
@@ -69,6 +65,7 @@ void soc_pcmcia_debug(struct soc_pcmcia_socket *skt, const char *func,
 		va_end(args);
 	}
 }
+EXPORT_SYMBOL(soc_pcmcia_debug);
 
 #endif
 
@@ -148,10 +145,10 @@ soc_common_pcmcia_config_skt(struct soc_pcmcia_socket *skt, socket_state_t *stat
 		 */
 		if (skt->irq_state != 1 && state->io_irq) {
 			skt->irq_state = 1;
-			set_irq_type(skt->irq, IRQT_FALLING);
+			set_irq_type(skt->socket.pci_irq, IRQ_TYPE_EDGE_FALLING);
 		} else if (skt->irq_state == 1 && state->io_irq == 0) {
 			skt->irq_state = 0;
-			set_irq_type(skt->irq, IRQT_NOEDGE);
+			set_irq_type(skt->socket.pci_irq, IRQ_TYPE_NONE);
 		}
 
 		skt->cs_state = *state;
@@ -340,8 +337,9 @@ soc_common_pcmcia_set_io_map(struct pcmcia_socket *sock, struct pccard_io_map *m
 	struct soc_pcmcia_socket *skt = to_soc_pcmcia_socket(sock);
 	unsigned short speed = map->speed;
 
-	debug(skt, 2, "map %u  speed %u start 0x%08x stop 0x%08x\n",
-		map->map, map->speed, map->start, map->stop);
+	debug(skt, 2, "map %u  speed %u start 0x%08llx stop 0x%08llx\n",
+		map->map, map->speed, (unsigned long long)map->start,
+		(unsigned long long)map->stop);
 	debug(skt, 2, "flags: %s%s%s%s%s%s%s%s\n",
 		(map->flags==0)?"<NONE>":"",
 		(map->flags&MAP_ACTIVE)?"ACTIVE ":"",
@@ -353,7 +351,7 @@ soc_common_pcmcia_set_io_map(struct pcmcia_socket *sock, struct pccard_io_map *m
 		(map->flags&MAP_PREFETCH)?"PREFETCH ":"");
 
 	if (map->map >= MAX_IO_WIN) {
-		printk(KERN_ERR "%s(): map (%d) out of range\n", __FUNCTION__,
+		printk(KERN_ERR "%s(): map (%d) out of range\n", __func__,
 		       map->map);
 		return -1;
 	}
@@ -495,7 +493,8 @@ static ssize_t show_status(struct device *dev, struct device_attribute *attr, ch
 
 	p+=sprintf(p, "Vcc      : %d\n", skt->cs_state.Vcc);
 	p+=sprintf(p, "Vpp      : %d\n", skt->cs_state.Vpp);
-	p+=sprintf(p, "IRQ      : %d (%d)\n", skt->cs_state.io_irq, skt->irq);
+	p+=sprintf(p, "IRQ      : %d (%d)\n", skt->cs_state.io_irq,
+		skt->socket.pci_irq);
 	if (skt->ops->show_timing)
 		p+=skt->ops->show_timing(skt, p);
 
@@ -526,7 +525,7 @@ int soc_pcmcia_request_irqs(struct soc_pcmcia_socket *skt,
 				  IRQF_DISABLED, irqs[i].str, skt);
 		if (res)
 			break;
-		set_irq_type(irqs[i].irq, IRQT_NOEDGE);
+		set_irq_type(irqs[i].irq, IRQ_TYPE_NONE);
 	}
 
 	if (res) {
@@ -559,7 +558,7 @@ void soc_pcmcia_disable_irqs(struct soc_pcmcia_socket *skt,
 
 	for (i = 0; i < nr; i++)
 		if (irqs[i].sock == skt->nr)
-			set_irq_type(irqs[i].irq, IRQT_NOEDGE);
+			set_irq_type(irqs[i].irq, IRQ_TYPE_NONE);
 }
 EXPORT_SYMBOL(soc_pcmcia_disable_irqs);
 
@@ -570,28 +569,15 @@ void soc_pcmcia_enable_irqs(struct soc_pcmcia_socket *skt,
 
 	for (i = 0; i < nr; i++)
 		if (irqs[i].sock == skt->nr) {
-			set_irq_type(irqs[i].irq, IRQT_RISING);
-			set_irq_type(irqs[i].irq, IRQT_BOTHEDGE);
+			set_irq_type(irqs[i].irq, IRQ_TYPE_EDGE_RISING);
+			set_irq_type(irqs[i].irq, IRQ_TYPE_EDGE_BOTH);
 		}
 }
 EXPORT_SYMBOL(soc_pcmcia_enable_irqs);
 
 
-LIST_HEAD(soc_pcmcia_sockets);
-DECLARE_MUTEX(soc_pcmcia_sockets_lock);
-
-static const char *skt_names[] = {
-	"PCMCIA socket 0",
-	"PCMCIA socket 1",
-};
-
-struct skt_dev_info {
-	int nskt;
-	struct soc_pcmcia_socket skt[0];
-};
-
-#define SKT_DEV_INFO_SIZE(n) \
-	(sizeof(struct skt_dev_info) + (n)*sizeof(struct soc_pcmcia_socket))
+static LIST_HEAD(soc_pcmcia_sockets);
+static DEFINE_MUTEX(soc_pcmcia_sockets_lock);
 
 #ifdef CONFIG_CPU_FREQ
 static int
@@ -601,11 +587,11 @@ soc_pcmcia_notifier(struct notifier_block *nb, unsigned long val, void *data)
 	struct cpufreq_freqs *freqs = data;
 	int ret = 0;
 
-	down(&soc_pcmcia_sockets_lock);
+	mutex_lock(&soc_pcmcia_sockets_lock);
 	list_for_each_entry(skt, &soc_pcmcia_sockets, node)
 		if ( skt->ops->frequency_change )
 			ret += skt->ops->frequency_change(skt, val, freqs);
-	up(&soc_pcmcia_sockets_lock);
+	mutex_unlock(&soc_pcmcia_sockets_lock);
 
 	return ret;
 }
@@ -625,203 +611,137 @@ static int soc_pcmcia_cpufreq_register(void)
 				"notifier for PCMCIA (%d)\n", ret);
 	return ret;
 }
+fs_initcall(soc_pcmcia_cpufreq_register);
 
 static void soc_pcmcia_cpufreq_unregister(void)
 {
 	cpufreq_unregister_notifier(&soc_pcmcia_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
 }
+module_exit(soc_pcmcia_cpufreq_unregister);
 
-#else
-static int soc_pcmcia_cpufreq_register(void) { return 0; }
-static void soc_pcmcia_cpufreq_unregister(void) {}
 #endif
 
-int soc_common_drv_pcmcia_probe(struct device *dev, struct pcmcia_low_level *ops, int first, int nr)
+void soc_pcmcia_remove_one(struct soc_pcmcia_socket *skt)
 {
-	struct skt_dev_info *sinfo;
-	struct soc_pcmcia_socket *skt;
-	int ret, i;
+	mutex_lock(&soc_pcmcia_sockets_lock);
+	del_timer_sync(&skt->poll_timer);
 
-	down(&soc_pcmcia_sockets_lock);
+	pcmcia_unregister_socket(&skt->socket);
 
-	sinfo = kzalloc(SKT_DEV_INFO_SIZE(nr), GFP_KERNEL);
-	if (!sinfo) {
+	flush_scheduled_work();
+
+	skt->ops->hw_shutdown(skt);
+
+	soc_common_pcmcia_config_skt(skt, &dead_socket);
+
+	list_del(&skt->node);
+	mutex_unlock(&soc_pcmcia_sockets_lock);
+
+	iounmap(skt->virt_io);
+	skt->virt_io = NULL;
+	release_resource(&skt->res_attr);
+	release_resource(&skt->res_mem);
+	release_resource(&skt->res_io);
+	release_resource(&skt->res_skt);
+}
+EXPORT_SYMBOL(soc_pcmcia_remove_one);
+
+int soc_pcmcia_add_one(struct soc_pcmcia_socket *skt)
+{
+	int ret;
+
+	init_timer(&skt->poll_timer);
+	skt->poll_timer.function = soc_common_pcmcia_poll_event;
+	skt->poll_timer.data = (unsigned long)skt;
+	skt->poll_timer.expires = jiffies + SOC_PCMCIA_POLL_PERIOD;
+
+	ret = request_resource(&iomem_resource, &skt->res_skt);
+	if (ret)
+		goto out_err_1;
+
+	ret = request_resource(&skt->res_skt, &skt->res_io);
+	if (ret)
+		goto out_err_2;
+
+	ret = request_resource(&skt->res_skt, &skt->res_mem);
+	if (ret)
+		goto out_err_3;
+
+	ret = request_resource(&skt->res_skt, &skt->res_attr);
+	if (ret)
+		goto out_err_4;
+
+	skt->virt_io = ioremap(skt->res_io.start, 0x10000);
+	if (skt->virt_io == NULL) {
 		ret = -ENOMEM;
-		goto out;
+		goto out_err_5;
 	}
 
-	sinfo->nskt = nr;
+	mutex_lock(&soc_pcmcia_sockets_lock);
+
+	list_add(&skt->node, &soc_pcmcia_sockets);
 
 	/*
-	 * Initialise the per-socket structure.
+	 * We initialize default socket timing here, because
+	 * we are not guaranteed to see a SetIOMap operation at
+	 * runtime.
 	 */
-	for (i = 0; i < nr; i++) {
-		skt = &sinfo->skt[i];
+	skt->ops->set_timing(skt);
 
-		skt->socket.ops = &soc_common_pcmcia_operations;
-		skt->socket.owner = ops->owner;
-		skt->socket.dev.parent = dev;
+	ret = skt->ops->hw_init(skt);
+	if (ret)
+		goto out_err_6;
 
-		init_timer(&skt->poll_timer);
-		skt->poll_timer.function = soc_common_pcmcia_poll_event;
-		skt->poll_timer.data = (unsigned long)skt;
-		skt->poll_timer.expires = jiffies + SOC_PCMCIA_POLL_PERIOD;
+	skt->socket.ops = &soc_common_pcmcia_operations;
+	skt->socket.features = SS_CAP_STATIC_MAP|SS_CAP_PCCARD;
+	skt->socket.resource_ops = &pccard_static_ops;
+	skt->socket.irq_mask = 0;
+	skt->socket.map_size = PAGE_SIZE;
+	skt->socket.io_offset = (unsigned long)skt->virt_io;
 
-		skt->nr		= first + i;
-		skt->irq	= NO_IRQ;
-		skt->dev	= dev;
-		skt->ops	= ops;
+	skt->status = soc_common_pcmcia_skt_state(skt);
 
-		skt->res_skt.start	= _PCMCIA(skt->nr);
-		skt->res_skt.end	= _PCMCIA(skt->nr) + PCMCIASp - 1;
-		skt->res_skt.name	= skt_names[skt->nr];
-		skt->res_skt.flags	= IORESOURCE_MEM;
+	ret = pcmcia_register_socket(&skt->socket);
+	if (ret)
+		goto out_err_7;
 
-		ret = request_resource(&iomem_resource, &skt->res_skt);
-		if (ret)
-			goto out_err_1;
+	add_timer(&skt->poll_timer);
 
-		skt->res_io.start	= _PCMCIAIO(skt->nr);
-		skt->res_io.end		= _PCMCIAIO(skt->nr) + PCMCIAIOSp - 1;
-		skt->res_io.name	= "io";
-		skt->res_io.flags	= IORESOURCE_MEM | IORESOURCE_BUSY;
+	mutex_unlock(&soc_pcmcia_sockets_lock);
 
-		ret = request_resource(&skt->res_skt, &skt->res_io);
-		if (ret)
-			goto out_err_2;
+	ret = device_create_file(&skt->socket.dev, &dev_attr_status);
+	if (ret)
+		goto out_err_8;
 
-		skt->res_mem.start	= _PCMCIAMem(skt->nr);
-		skt->res_mem.end	= _PCMCIAMem(skt->nr) + PCMCIAMemSp - 1;
-		skt->res_mem.name	= "memory";
-		skt->res_mem.flags	= IORESOURCE_MEM;
+	return ret;
 
-		ret = request_resource(&skt->res_skt, &skt->res_mem);
-		if (ret)
-			goto out_err_3;
-
-		skt->res_attr.start	= _PCMCIAAttr(skt->nr);
-		skt->res_attr.end	= _PCMCIAAttr(skt->nr) + PCMCIAAttrSp - 1;
-		skt->res_attr.name	= "attribute";
-		skt->res_attr.flags	= IORESOURCE_MEM;
-
-		ret = request_resource(&skt->res_skt, &skt->res_attr);
-		if (ret)
-			goto out_err_4;
-
-		skt->virt_io = ioremap(skt->res_io.start, 0x10000);
-		if (skt->virt_io == NULL) {
-			ret = -ENOMEM;
-			goto out_err_5;
-		}
-
-		if (list_empty(&soc_pcmcia_sockets))
-			soc_pcmcia_cpufreq_register();
-
-		list_add(&skt->node, &soc_pcmcia_sockets);
-
-		/*
-		 * We initialize default socket timing here, because
-		 * we are not guaranteed to see a SetIOMap operation at
-		 * runtime.
-		 */
-		ops->set_timing(skt);
-
-		ret = ops->hw_init(skt);
-		if (ret)
-			goto out_err_6;
-
-		skt->socket.features = SS_CAP_STATIC_MAP|SS_CAP_PCCARD;
-		skt->socket.resource_ops = &pccard_static_ops;
-		skt->socket.irq_mask = 0;
-		skt->socket.map_size = PAGE_SIZE;
-		skt->socket.pci_irq = skt->irq;
-		skt->socket.io_offset = (unsigned long)skt->virt_io;
-
-		skt->status = soc_common_pcmcia_skt_state(skt);
-
-		ret = pcmcia_register_socket(&skt->socket);
-		if (ret)
-			goto out_err_7;
-
-		WARN_ON(skt->socket.sock != i);
-
-		add_timer(&skt->poll_timer);
-
-		device_create_file(&skt->socket.dev, &dev_attr_status);
-	}
-
-	dev_set_drvdata(dev, sinfo);
-	ret = 0;
-	goto out;
-
-	do {
-		skt = &sinfo->skt[i];
-
-		del_timer_sync(&skt->poll_timer);
-		pcmcia_unregister_socket(&skt->socket);
+ out_err_8:
+	mutex_lock(&soc_pcmcia_sockets_lock);
+	del_timer_sync(&skt->poll_timer);
+	pcmcia_unregister_socket(&skt->socket);
 
  out_err_7:
-		flush_scheduled_work();
+	flush_scheduled_work();
 
-		ops->hw_shutdown(skt);
+	skt->ops->hw_shutdown(skt);
  out_err_6:
- 		list_del(&skt->node);
-		iounmap(skt->virt_io);
+	list_del(&skt->node);
+	mutex_unlock(&soc_pcmcia_sockets_lock);
+	iounmap(skt->virt_io);
  out_err_5:
-		release_resource(&skt->res_attr);
+	release_resource(&skt->res_attr);
  out_err_4:
-		release_resource(&skt->res_mem);
+	release_resource(&skt->res_mem);
  out_err_3:
-		release_resource(&skt->res_io);
+	release_resource(&skt->res_io);
  out_err_2:
-		release_resource(&skt->res_skt);
+	release_resource(&skt->res_skt);
  out_err_1:
-		i--;
-	} while (i > 0);
 
-	kfree(sinfo);
-
- out:
-	up(&soc_pcmcia_sockets_lock);
 	return ret;
 }
+EXPORT_SYMBOL(soc_pcmcia_add_one);
 
-int soc_common_drv_pcmcia_remove(struct device *dev)
-{
-	struct skt_dev_info *sinfo = dev_get_drvdata(dev);
-	int i;
-
-	dev_set_drvdata(dev, NULL);
-
-	down(&soc_pcmcia_sockets_lock);
-	for (i = 0; i < sinfo->nskt; i++) {
-		struct soc_pcmcia_socket *skt = &sinfo->skt[i];
-
-		del_timer_sync(&skt->poll_timer);
-
-		pcmcia_unregister_socket(&skt->socket);
-
-		flush_scheduled_work();
-
-		skt->ops->hw_shutdown(skt);
-
-		soc_common_pcmcia_config_skt(skt, &dead_socket);
-
-		list_del(&skt->node);
-		iounmap(skt->virt_io);
-		skt->virt_io = NULL;
-		release_resource(&skt->res_attr);
-		release_resource(&skt->res_mem);
-		release_resource(&skt->res_io);
-		release_resource(&skt->res_skt);
-	}
-	if (list_empty(&soc_pcmcia_sockets))
-		soc_pcmcia_cpufreq_unregister();
-
-	up(&soc_pcmcia_sockets_lock);
-
-	kfree(sinfo);
-
-	return 0;
-}
-EXPORT_SYMBOL(soc_common_drv_pcmcia_remove);
+MODULE_AUTHOR("John Dorsey <john+@cs.cmu.edu>");
+MODULE_DESCRIPTION("Linux PCMCIA Card Services: Common SoC support");
+MODULE_LICENSE("Dual MPL/GPL");

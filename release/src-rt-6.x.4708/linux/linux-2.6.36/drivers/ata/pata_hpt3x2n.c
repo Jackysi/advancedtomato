@@ -8,7 +8,7 @@
  * Copyright (C) 1999-2003		Andre Hedrick <andre@linux-ide.org>
  * Portions Copyright (C) 2001	        Sun Microsystems, Inc.
  * Portions Copyright (C) 2003		Red Hat Inc
- * Portions Copyright (C) 2005-2006	MontaVista Software, Inc.
+ * Portions Copyright (C) 2005-2009	MontaVista Software, Inc.
  *
  *
  * TODO
@@ -25,7 +25,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME	"pata_hpt3x2n"
-#define DRV_VERSION	"0.3.3"
+#define DRV_VERSION	"0.3.10"
 
 enum {
 	HPT_PCI_FAST	=	(1 << 31),
@@ -45,25 +45,24 @@ struct hpt_chip {
 
 /* key for bus clock timings
  * bit
- * 0:3    data_high_time. inactive time of DIOW_/DIOR_ for PIO and MW
- *        DMA. cycles = value + 1
- * 4:8    data_low_time. active time of DIOW_/DIOR_ for PIO and MW
- *        DMA. cycles = value + 1
- * 9:12   cmd_high_time. inactive time of DIOW_/DIOR_ during task file
+ * 0:3    data_high_time. Inactive time of DIOW_/DIOR_ for PIO and MW DMA.
+ *        cycles = value + 1
+ * 4:8    data_low_time. Active time of DIOW_/DIOR_ for PIO and MW DMA.
+ *        cycles = value + 1
+ * 9:12   cmd_high_time. Inactive time of DIOW_/DIOR_ during task file
  *        register access.
- * 13:17  cmd_low_time. active time of DIOW_/DIOR_ during task file
+ * 13:17  cmd_low_time. Active time of DIOW_/DIOR_ during task file
  *        register access.
- * 18:21  udma_cycle_time. clock freq and clock cycles for UDMA xfer.
- *        during task file register access.
- * 22:24  pre_high_time. time to initialize 1st cycle for PIO and MW DMA
- *        xfer.
- * 25:27  cmd_pre_high_time. time to initialize 1st PIO cycle for task
+ * 18:20  udma_cycle_time. Clock cycles for UDMA xfer.
+ * 21     CLK frequency for UDMA: 0=ATA clock, 1=dual ATA clock.
+ * 22:24  pre_high_time. Time to initialize 1st cycle for PIO and MW DMA xfer.
+ * 25:27  cmd_pre_high_time. Time to initialize 1st PIO cycle for task file
  *        register access.
- * 28     UDMA enable
- * 29     DMA enable
- * 30     PIO_MST enable. if set, the chip is in bus master mode during
- *        PIO.
- * 31     FIFO enable.
+ * 28     UDMA enable.
+ * 29     DMA  enable.
+ * 30     PIO_MST enable. If set, the chip is in bus master mode during
+ *        PIO xfer.
+ * 31     FIFO enable. Only for PIO.
  */
 
 /* 66MHz DPLL clocks */
@@ -80,14 +79,13 @@ static struct hpt_clock hpt3x2n_clocks[] = {
 
 	{	XFER_MW_DMA_2,	0x2c829c62	},
 	{	XFER_MW_DMA_1,	0x2c829c66	},
-	{	XFER_MW_DMA_0,	0x2c829d2c	},
+	{	XFER_MW_DMA_0,	0x2c829d2e	},
 
 	{	XFER_PIO_4,	0x0c829c62	},
 	{	XFER_PIO_3,	0x0c829c84	},
 	{	XFER_PIO_2,	0x0c829ca6	},
 	{	XFER_PIO_1,	0x0d029d26	},
 	{	XFER_PIO_0,	0x0d029d5e	},
-	{	0,		0x0d029d5e	}
 };
 
 /**
@@ -128,12 +126,15 @@ static int hpt3x2n_cable_detect(struct ata_port *ap)
 
 	pci_read_config_byte(pdev, 0x5B, &scr2);
 	pci_write_config_byte(pdev, 0x5B, scr2 & ~0x01);
+
+	udelay(10); /* debounce */
+
 	/* Cable register now active */
 	pci_read_config_byte(pdev, 0x5A, &ata66);
 	/* Restore state */
 	pci_write_config_byte(pdev, 0x5B, scr2);
 
-	if (ata66 & (1 << ap->port_no))
+	if (ata66 & (2 >> ap->port_no))
 		return ATA_CBL_PATA40;
 	else
 		return ATA_CBL_PATA80;
@@ -141,33 +142,53 @@ static int hpt3x2n_cable_detect(struct ata_port *ap)
 
 /**
  *	hpt3x2n_pre_reset	-	reset the hpt3x2n bus
- *	@ap: ATA port to reset
+ *	@link: ATA link to reset
  *	@deadline: deadline jiffies for the operation
  *
  *	Perform the initial reset handling for the 3x2n series controllers.
  *	Reset the hardware and state machine,
  */
 
-static int hpt3xn_pre_reset(struct ata_port *ap, unsigned long deadline)
+static int hpt3x2n_pre_reset(struct ata_link *link, unsigned long deadline)
 {
+	struct ata_port *ap = link->ap;
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	/* Reset the state machine */
 	pci_write_config_byte(pdev, 0x50 + 4 * ap->port_no, 0x37);
 	udelay(100);
 
-	return ata_std_prereset(ap, deadline);
+	return ata_sff_prereset(link, deadline);
 }
 
-/**
- *	hpt3x2n_error_handler	-	probe the hpt3x2n bus
- *	@ap: ATA port to reset
- *
- *	Perform the probe reset handling for the 3x2N
- */
-
-static void hpt3x2n_error_handler(struct ata_port *ap)
+static void hpt3x2n_set_mode(struct ata_port *ap, struct ata_device *adev,
+			     u8 mode)
 {
-	ata_bmdma_drive_eh(ap, hpt3xn_pre_reset, ata_std_softreset, NULL, ata_std_postreset);
+	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
+	u32 addr1, addr2;
+	u32 reg, timing, mask;
+	u8 fast;
+
+	addr1 = 0x40 + 4 * (adev->devno + 2 * ap->port_no);
+	addr2 = 0x51 + 4 * ap->port_no;
+
+	/* Fast interrupt prediction disable, hold off interrupt disable */
+	pci_read_config_byte(pdev, addr2, &fast);
+	fast &= ~0x07;
+	pci_write_config_byte(pdev, addr2, fast);
+
+	/* Determine timing mask and find matching mode entry */
+	if (mode < XFER_MW_DMA_0)
+		mask = 0xcfc3ffff;
+	else if (mode < XFER_UDMA_0)
+		mask = 0x31c001ff;
+	else
+		mask = 0x303c0000;
+
+	timing = hpt3x2n_find_mode(ap, mode);
+
+	pci_read_config_dword(pdev, addr1, &reg);
+	reg = (reg & ~mask) | (timing & mask);
+	pci_write_config_dword(pdev, addr1, reg);
 }
 
 /**
@@ -180,26 +201,7 @@ static void hpt3x2n_error_handler(struct ata_port *ap)
 
 static void hpt3x2n_set_piomode(struct ata_port *ap, struct ata_device *adev)
 {
-	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
-	u32 addr1, addr2;
-	u32 reg;
-	u32 mode;
-	u8 fast;
-
-	addr1 = 0x40 + 4 * (adev->devno + 2 * ap->port_no);
-	addr2 = 0x51 + 4 * ap->port_no;
-
-	/* Fast interrupt prediction disable, hold off interrupt disable */
-	pci_read_config_byte(pdev, addr2, &fast);
-	fast &= ~0x07;
-	pci_write_config_byte(pdev, addr2, fast);
-
-	pci_read_config_dword(pdev, addr1, &reg);
-	mode = hpt3x2n_find_mode(ap, adev->pio_mode);
-	mode &= ~0x8000000;	/* No FIFO in PIO */
-	mode &= ~0x30070000;	/* Leave config bits alone */
-	reg &= 0x30070000;	/* Strip timing bits */
-	pci_write_config_dword(pdev, addr1, reg | mode);
+	hpt3x2n_set_mode(ap, adev, adev->pio_mode);
 }
 
 /**
@@ -207,32 +209,12 @@ static void hpt3x2n_set_piomode(struct ata_port *ap, struct ata_device *adev)
  *	@ap: ATA interface
  *	@adev: Device being configured
  *
- *	Set up the channel for MWDMA or UDMA modes. Much the same as with
- *	PIO, load the mode number and then set MWDMA or UDMA flag.
+ *	Set up the channel for MWDMA or UDMA modes.
  */
 
 static void hpt3x2n_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 {
-	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
-	u32 addr1, addr2;
-	u32 reg;
-	u32 mode;
-	u8 fast;
-
-	addr1 = 0x40 + 4 * (adev->devno + 2 * ap->port_no);
-	addr2 = 0x51 + 4 * ap->port_no;
-
-	/* Fast interrupt prediction disable, hold off interrupt disable */
-	pci_read_config_byte(pdev, addr2, &fast);
-	fast &= ~0x07;
-	pci_write_config_byte(pdev, addr2, fast);
-
-	pci_read_config_dword(pdev, addr1, &reg);
-	mode = hpt3x2n_find_mode(ap, adev->dma_mode);
-	mode |= 0x8000000;	/* FIFO in MWDMA or UDMA */
-	mode &= ~0xC0000000;	/* Leave config bits alone */
-	reg &= 0xC0000000;	/* Strip timing bits */
-	pci_write_config_dword(pdev, addr1, reg | mode);
+	hpt3x2n_set_mode(ap, adev, adev->dma_mode);
 }
 
 /**
@@ -274,7 +256,7 @@ static void hpt3x2n_bmdma_stop(struct ata_queued_cmd *qc)
 
 static void hpt3x2n_set_clock(struct ata_port *ap, int source)
 {
-	void __iomem *bmdma = ap->ioaddr.bmdma_addr;
+	void __iomem *bmdma = ap->ioaddr.bmdma_addr - ap->port_no * 8;
 
 	/* Tristate the bus */
 	iowrite8(0x80, bmdma+0x73);
@@ -284,9 +266,9 @@ static void hpt3x2n_set_clock(struct ata_port *ap, int source)
 	iowrite8(source, bmdma+0x7B);
 	iowrite8(0xC0, bmdma+0x79);
 
-	/* Reset state machines */
-	iowrite8(0x37, bmdma+0x70);
-	iowrite8(0x37, bmdma+0x74);
+	/* Reset state machines, avoid enabling the disabled channels */
+	iowrite8(ioread8(bmdma+0x70) | 0x32, bmdma+0x70);
+	iowrite8(ioread8(bmdma+0x74) | 0x32, bmdma+0x74);
 
 	/* Complete reset */
 	iowrite8(0x00, bmdma+0x79);
@@ -296,21 +278,10 @@ static void hpt3x2n_set_clock(struct ata_port *ap, int source)
 	iowrite8(0x00, bmdma+0x77);
 }
 
-/* Check if our partner interface is busy */
-
-static int hpt3x2n_pair_idle(struct ata_port *ap)
-{
-	struct ata_host *host = ap->host;
-	struct ata_port *pair = host->ports[ap->port_no ^ 1];
-
-	if (pair->hsm_task_state == HSM_ST_IDLE)
-		return 1;
-	return 0;
-}
-
 static int hpt3x2n_use_dpll(struct ata_port *ap, int writing)
 {
 	long flags = (long)ap->host->private_data;
+
 	/* See if we should use the DPLL */
 	if (writing)
 		return USE_DPLL;	/* Needed for write */
@@ -319,40 +290,41 @@ static int hpt3x2n_use_dpll(struct ata_port *ap, int writing)
 	return 0;
 }
 
-static unsigned int hpt3x2n_qc_issue_prot(struct ata_queued_cmd *qc)
+static int hpt3x2n_qc_defer(struct ata_queued_cmd *qc)
 {
-	struct ata_taskfile *tf = &qc->tf;
+	struct ata_port *ap = qc->ap;
+	struct ata_port *alt = ap->host->ports[ap->port_no ^ 1];
+	int rc, flags = (long)ap->host->private_data;
+	int dpll = hpt3x2n_use_dpll(ap, qc->tf.flags & ATA_TFLAG_WRITE);
+
+	/* First apply the usual rules */
+	rc = ata_std_qc_defer(qc);
+	if (rc != 0)
+		return rc;
+
+	if ((flags & USE_DPLL) != dpll && alt->qc_active)
+		return ATA_DEFER_PORT;
+	return 0;
+}
+
+static unsigned int hpt3x2n_qc_issue(struct ata_queued_cmd *qc)
+{
 	struct ata_port *ap = qc->ap;
 	int flags = (long)ap->host->private_data;
+	int dpll = hpt3x2n_use_dpll(ap, qc->tf.flags & ATA_TFLAG_WRITE);
 
-	if (hpt3x2n_pair_idle(ap)) {
-		int dpll = hpt3x2n_use_dpll(ap, (tf->flags & ATA_TFLAG_WRITE));
-		if ((flags & USE_DPLL) != dpll) {
-			if (dpll == 1)
-				hpt3x2n_set_clock(ap, 0x21);
-			else
-				hpt3x2n_set_clock(ap, 0x23);
-		}
+	if ((flags & USE_DPLL) != dpll) {
+		flags &= ~USE_DPLL;
+		flags |= dpll;
+		ap->host->private_data = (void *)(long)flags;
+
+		hpt3x2n_set_clock(ap, dpll ? 0x21 : 0x23);
 	}
-	return ata_qc_issue_prot(qc);
+	return ata_bmdma_qc_issue(qc);
 }
 
 static struct scsi_host_template hpt3x2n_sht = {
-	.module			= THIS_MODULE,
-	.name			= DRV_NAME,
-	.ioctl			= ata_scsi_ioctl,
-	.queuecommand		= ata_scsi_queuecmd,
-	.can_queue		= ATA_DEF_QUEUE,
-	.this_id		= ATA_SHT_THIS_ID,
-	.sg_tablesize		= LIBATA_MAX_PRD,
-	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
-	.emulated		= ATA_SHT_EMULATED,
-	.use_clustering		= ATA_SHT_USE_CLUSTERING,
-	.proc_name		= DRV_NAME,
-	.dma_boundary		= ATA_DMA_BOUNDARY,
-	.slave_configure	= ata_scsi_slave_config,
-	.slave_destroy		= ata_scsi_slave_destroy,
-	.bios_param		= ata_std_bios_param,
+	ATA_BMDMA_SHT(DRV_NAME),
 };
 
 /*
@@ -360,39 +332,17 @@ static struct scsi_host_template hpt3x2n_sht = {
  */
 
 static struct ata_port_operations hpt3x2n_port_ops = {
-	.port_disable	= ata_port_disable,
+	.inherits	= &ata_bmdma_port_ops,
+
+	.bmdma_stop	= hpt3x2n_bmdma_stop,
+
+	.qc_defer	= hpt3x2n_qc_defer,
+	.qc_issue	= hpt3x2n_qc_issue,
+
+	.cable_detect	= hpt3x2n_cable_detect,
 	.set_piomode	= hpt3x2n_set_piomode,
 	.set_dmamode	= hpt3x2n_set_dmamode,
-	.mode_filter	= ata_pci_default_filter,
-
-	.tf_load	= ata_tf_load,
-	.tf_read	= ata_tf_read,
-	.check_status 	= ata_check_status,
-	.exec_command	= ata_exec_command,
-	.dev_select 	= ata_std_dev_select,
-
-	.freeze		= ata_bmdma_freeze,
-	.thaw		= ata_bmdma_thaw,
-	.error_handler	= hpt3x2n_error_handler,
-	.post_internal_cmd = ata_bmdma_post_internal_cmd,
-	.cable_detect	= hpt3x2n_cable_detect,
-
-	.bmdma_setup 	= ata_bmdma_setup,
-	.bmdma_start 	= ata_bmdma_start,
-	.bmdma_stop	= hpt3x2n_bmdma_stop,
-	.bmdma_status 	= ata_bmdma_status,
-
-	.qc_prep 	= ata_qc_prep,
-	.qc_issue	= hpt3x2n_qc_issue_prot,
-
-	.data_xfer	= ata_data_xfer,
-
-	.irq_handler	= ata_interrupt,
-	.irq_clear	= ata_bmdma_irq_clear,
-	.irq_on		= ata_irq_on,
-	.irq_ack	= ata_irq_ack,
-
-	.port_start	= ata_port_start,
+	.prereset	= hpt3x2n_pre_reset,
 };
 
 /**
@@ -489,44 +439,43 @@ static int hpt3x2n_init_one(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	/* HPT372N and friends - UDMA133 */
 	static const struct ata_port_info info = {
-		.sht = &hpt3x2n_sht,
-		.flags = ATA_FLAG_SLAVE_POSS | ATA_FLAG_SRST,
-		.pio_mask = 0x1f,
-		.mwdma_mask = 0x07,
-		.udma_mask = 0x7f,
+		.flags = ATA_FLAG_SLAVE_POSS,
+		.pio_mask = ATA_PIO4,
+		.mwdma_mask = ATA_MWDMA2,
+		.udma_mask = ATA_UDMA6,
 		.port_ops = &hpt3x2n_port_ops
 	};
-	struct ata_port_info port = info;
-	const struct ata_port_info *ppi[] = { &port, NULL };
-
+	const struct ata_port_info *ppi[] = { &info, NULL };
+	u8 rev = dev->revision;
 	u8 irqmask;
-	u32 class_rev;
-
 	unsigned int pci_mhz;
 	unsigned int f_low, f_high;
 	int adjust;
 	unsigned long iobase = pci_resource_start(dev, 4);
+	void *hpriv = (void *)USE_DPLL;
+	int rc;
 
-	pci_read_config_dword(dev, PCI_CLASS_REVISION, &class_rev);
-	class_rev &= 0xFF;
+	rc = pcim_enable_device(dev);
+	if (rc)
+		return rc;
 
 	switch(dev->device) {
 		case PCI_DEVICE_ID_TTI_HPT366:
-			if (class_rev < 6)
+			if (rev < 6)
 				return -ENODEV;
 			break;
 		case PCI_DEVICE_ID_TTI_HPT371:
-			if (class_rev < 2)
+			if (rev < 2)
 				return -ENODEV;
 			/* 371N if rev > 1 */
 			break;
 		case PCI_DEVICE_ID_TTI_HPT372:
 			/* 372N if rev >= 2*/
-			if (class_rev < 2)
+			if (rev < 2)
 				return -ENODEV;
 			break;
 		case PCI_DEVICE_ID_TTI_HPT302:
-			if (class_rev < 2)
+			if (rev < 2)
 				return -ENODEV;
 			break;
 		case PCI_DEVICE_ID_TTI_HPT372N:
@@ -579,26 +528,27 @@ static int hpt3x2n_init_one(struct pci_dev *dev, const struct pci_device_id *id)
 		pci_write_config_dword(dev, 0x5C, (f_high << 16) | f_low);
 	}
 	if (adjust == 8) {
-		printk(KERN_WARNING "hpt3x2n: DPLL did not stabilize.\n");
+		printk(KERN_ERR "pata_hpt3x2n: DPLL did not stabilize!\n");
 		return -ENODEV;
 	}
 
+	printk(KERN_INFO "pata_hpt37x: bus clock %dMHz, using 66MHz DPLL.\n",
+	       pci_mhz);
 	/* Set our private data up. We only need a few flags so we use
 	   it directly */
-	port.private_data = NULL;
-	if (pci_mhz > 60) {
-		port.private_data = (void *)PCI66;
-		/*
-		 * On  HPT371N, if ATA clock is 66 MHz we must set bit 2 in
-		 * the MISC. register to stretch the UltraDMA Tss timing.
-		 * NOTE: This register is only writeable via I/O space.
-		 */
-		if (dev->device == PCI_DEVICE_ID_TTI_HPT371)
-			outb(inb(iobase + 0x9c) | 0x04, iobase + 0x9c);
-	}
+	if (pci_mhz > 60)
+		hpriv = (void *)(PCI66 | USE_DPLL);
+
+	/*
+	 * On  HPT371N, if ATA clock is 66 MHz we must set bit 2 in
+	 * the MISC. register to stretch the UltraDMA Tss timing.
+	 * NOTE: This register is only writeable via I/O space.
+	 */
+	if (dev->device == PCI_DEVICE_ID_TTI_HPT371)
+		outb(inb(iobase + 0x9c) | 0x04, iobase + 0x9c);
 
 	/* Now kick off ATA set up */
-	return ata_pci_init_one(dev, ppi);
+	return ata_pci_bmdma_init_one(dev, ppi, &hpt3x2n_sht, hpriv, 0);
 }
 
 static const struct pci_device_id hpt3x2n[] = {

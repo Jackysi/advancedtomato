@@ -1,4 +1,4 @@
-/* $Id: mul.S,v 1.4 1996/09/30 02:22:32 davem Exp $
+/*
  * mul.S:       This routine was taken from glibc-1.09 and is covered
  *              by the GNU Library General Public License Version 2.
  */
@@ -65,20 +65,6 @@ _Mul:	/* needed for export */
 	!	(%o0 * %o1) + (%o1 << 32))
 	! We fix that here.
 
-#if 0
-	tst	%o0
-	bge	1f
-	 rd	%y, %o0
-
-	! %o0 was indeed negative; fix upper 32 bits of result by subtracting 
-	! %o1 (i.e., return %o4 - %o1 in %o1).
-	retl
-	 sub	%o4, %o1, %o1
-
-1:
-	retl
-	 mov	%o4, %o1
-#else
 	/* Faster code adapted from tege@sics.se's code for umul.S.  */
 	sra	%o0, 31, %o2	! make mask from sign bit
 	and	%o1, %o2, %o2	! %o2 = 0 or %o1, depending on sign of %o0
@@ -86,7 +72,6 @@ _Mul:	/* needed for export */
 	retl
 	 sub	%o4, %o2, %o1	! subtract compensation 
 				!  and put upper half in place
-#endif
 
 Lmul_shortway:
 	/*

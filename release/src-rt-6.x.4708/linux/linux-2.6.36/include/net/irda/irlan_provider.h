@@ -48,5 +48,3 @@ void irlan_provider_send_reply(struct irlan_cb *self, int command,
 int irlan_provider_open_ctrl_tsap(struct irlan_cb *self);
 
 #endif
-
-

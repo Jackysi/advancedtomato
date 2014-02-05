@@ -1,5 +1,4 @@
 /* lcd-panel.h
-     $Id$
 
    written by Marc Singer
    18 Jul 2005
@@ -34,13 +33,11 @@
 
 */
 
-#if !defined (__LCD_PANEL_H__)
+#if !defined(__LCD_PANEL_H__)
 #    define   __LCD_PANEL_H__
 
-#if defined (MACH_LPD79520)\
- || defined (MACH_LPD79524)\
- || defined (MACH_LPD7A400)\
- || defined (MACH_LPD7A404)
+#if defined(MACH_LPD79520) || defined(MACH_LPD79524) || defined(MACH_LPD7A400) || \
+	defined(MACH_LPD7A404)
 # define USE_RGB555
 #endif
 

@@ -1,4 +1,4 @@
-/* $Id: capifunc.c,v 1.61.4.7 2005/02/11 19:40:25 armin Exp $
+/* $Id: capifunc.c,v 1.61.4.7 2005/02/11 19:40:25 Exp $
  *
  * ISDN interface module for Eicon active cards DIVA.
  * CAPI Interface common functions
@@ -321,7 +321,7 @@ void sendf(APPL * appl, word command, dword Id, word Number, byte * format, ...)
 				  DBG_BLK((((char *)(long)GET_DWORD(&msg.info.data_b3_ind.Data)) + i,
 				  	((dlength - i) < 256) ? (dlength - i) : 256))
 				  if (!(myDriverDebugHandle.dbgMask & DL_PRV0))
-					  break; /* not more if not explicitely requested */
+					  break; /* not more if not explicitly requested */
 				}
 			}
 			break;
@@ -930,7 +930,7 @@ static u16 diva_send_message(struct capi_ctr *ctrl,
 #endif
 
 		if (clength == 24)
-			clength = 22;	/* workaround for PPcom bug */
+			clength = 22;
 		/* header is always 22      */
 		if (GET_WORD(&msg->info.data_b3_req.Data_Length) >
 		    this->MaxDataLength
@@ -965,7 +965,7 @@ static u16 diva_send_message(struct capi_ctr *ctrl,
 					((GET_WORD(&msg->info.data_b3_req.Data_Length) - j) <
 					  256) ? (GET_WORD(&msg->info.data_b3_req.Data_Length) - j) : 256))
 				if (!(myDriverDebugHandle.dbgMask & DL_PRV0))
-					break;	/* not more if not explicitely requested */
+					break;	/* not more if not explicitly requested */
 			}
 		}
 #endif

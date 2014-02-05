@@ -33,7 +33,6 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
 #include <linux/jiffies.h>
@@ -92,7 +91,7 @@ static int bcm3510_writebytes (struct bcm3510_state *state, u8 reg, u8 *buf, u8 
 	if ((err = i2c_transfer (state->i2c, &msg, 1)) != 1) {
 
 		deb_info("%s: i2c write error (addr %02x, reg %02x, err == %i)\n",
-			__FUNCTION__, state->config->demod_address, reg,  err);
+			__func__, state->config->demod_address, reg,  err);
 		return -EREMOTEIO;
 	}
 
@@ -111,7 +110,7 @@ static int bcm3510_readbytes (struct bcm3510_state *state, u8 reg, u8 *buf, u8 l
 
 	if ((err = i2c_transfer (state->i2c, msg, 2)) != 2) {
 		deb_info("%s: i2c read error (addr %02x, reg %02x, err == %i)\n",
-			__FUNCTION__, state->config->demod_address, reg,  err);
+			__func__, state->config->demod_address, reg,  err);
 		return -EREMOTEIO;
 	}
 	deb_i2c("i2c rd %02x: ",reg);
@@ -230,25 +229,6 @@ error:
 	return ret;
 }
 
-#if 0
-/* not needed, we use a semaphore to prevent HAB races */
-static int bcm3510_is_ap_ready(struct bcm3510_state *st)
-{
-	bcm3510_register_value ap,hab;
-	int ret;
-
-	if ((ret = bcm3510_readB(st,0xa8,&hab)) < 0 ||
-		(ret = bcm3510_readB(st,0xa2,&ap) < 0))
-		return ret;
-
-	if (ap.APSTAT1_a2.RESET || ap.APSTAT1_a2.IDLE || ap.APSTAT1_a2.STOP || hab.HABSTAT_a8.HABR) {
-		deb_info("AP is busy\n");
-		return -EBUSY;
-	}
-
-	return 0;
-}
-#endif
 
 static int bcm3510_bert_reset(struct bcm3510_state *st)
 {
@@ -591,7 +571,8 @@ static void bcm3510_release(struct dvb_frontend* fe)
  */
 #define BCM3510_DEFAULT_FIRMWARE "dvb-fe-bcm3510-01.fw"
 
-static int bcm3510_write_ram(struct bcm3510_state *st, u16 addr, u8 *b, u16 len)
+static int bcm3510_write_ram(struct bcm3510_state *st, u16 addr, const u8 *b,
+			     u16 len)
 {
 	int ret = 0,i;
 	bcm3510_register_value vH, vL,vD;
@@ -615,7 +596,7 @@ static int bcm3510_download_firmware(struct dvb_frontend* fe)
 	struct bcm3510_state* st = fe->demodulator_priv;
 	const struct firmware *fw;
 	u16 addr,len;
-	u8  *b;
+	const u8 *b;
 	int ret,i;
 
 	deb_info("requesting firmware\n");

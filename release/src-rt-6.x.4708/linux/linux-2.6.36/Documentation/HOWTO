@@ -77,7 +77,8 @@ documentation files are also added which explain how to use the feature.
 When a kernel change causes the interface that the kernel exposes to
 userspace to change, it is recommended that you send the information or
 a patch to the manual pages explaining the change to the manual pages
-maintainer at mtk-manpages@gmx.net.
+maintainer at mtk.manpages@gmail.com, and CC the list
+linux-api@vger.kernel.org.
 
 Here is a list of files that are in the kernel source tree that are
 required reading:
@@ -111,7 +112,7 @@ required reading:
 
     Other excellent descriptions of how to create patches properly are:
 	"The Perfect Patch"
-		http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+		http://userweb.kernel.org/~akpm/stuff/tpp.txt
 	"Linux kernel patch submission format"
 		http://linux.yyz.us/patch-format.html
 
@@ -186,7 +187,7 @@ apply a patch.
 If you do not know where you want to start, but you want to look for
 some task to start doing to join into the kernel development community,
 go to the Linux Kernel Janitor's project:
-	http://janitor.kernelnewbies.org/
+	http://kernelnewbies.org/KernelJanitors	
 It is a great place to start.  It describes a list of relatively simple
 problems that need to be cleaned up and fixed within the Linux kernel
 source tree.  Working with the developers in charge of this project, you
@@ -208,7 +209,7 @@ tools.  One such tool that is particularly recommended is the Linux
 Cross-Reference project, which is able to present source code in a
 self-referential, indexed webpage format. An excellent up-to-date
 repository of the kernel code may be found at:
-	http://sosdg.org/~coywolf/lxr/
+	http://users.sosdg.org/~qiyong/lxr/
 
 
 The development process
@@ -220,8 +221,8 @@ branches.  These different branches are:
   - main 2.6.x kernel tree
   - 2.6.x.y -stable kernel tree
   - 2.6.x -git kernel patches
-  - 2.6.x -mm kernel patches
   - subsystem specific kernel trees and patches
+  - the 2.6.x -next kernel tree for integration tests
 
 2.6.x kernel tree
 -----------------
@@ -231,9 +232,9 @@ process is as follows:
   - As soon as a new kernel is released a two weeks window is open,
     during this period of time maintainers can submit big diffs to
     Linus, usually the patches that have already been included in the
-    -mm kernel for a few weeks.  The preferred way to submit big changes
+    -next kernel for a few weeks.  The preferred way to submit big changes
     is using git (the kernel's source management tool, more information
-    can be found at http://git.or.cz/) but plain patches are also just
+    can be found at http://git-scm.com/) but plain patches are also just
     fine.
   - After two weeks a -rc1 kernel is released it is now possible to push
     only patches that do not include new features that could affect the
@@ -249,6 +250,11 @@ process is as follows:
     release a new -rc kernel every week.
   - Process continues until the kernel is considered "ready", the
     process should last around 6 weeks.
+  - Known regressions in each release are periodically posted to the 
+    linux-kernel mailing list.  The goal is to reduce the length of 
+    that list to zero before declaring the kernel to be "ready," but, in
+    the real world, a small number of regressions often remain at 
+    release time.
 
 It is worth mentioning what Andrew Morton wrote on the linux-kernel
 mailing list about kernel releases:
@@ -258,7 +264,7 @@ mailing list about kernel releases:
 
 2.6.x.y -stable kernel tree
 ---------------------------
-Kernels with 4 digit versions are -stable kernels. They contain
+Kernels with 4-part versions are -stable kernels. They contain
 relatively small and critical fixes for security problems or significant
 regressions discovered in a given 2.6.x kernel.
 
@@ -270,7 +276,10 @@ If no 2.6.x.y kernel is available, then the highest numbered 2.6.x
 kernel is the current stable kernel.
 
 2.6.x.y are maintained by the "stable" team <stable@kernel.org>, and are
-released almost every other week.
+released as needs dictate.  The normal release period is approximately 
+two weeks, but it can be longer if there are no pressing problems.  A
+security-related problem, instead, can cause a release to happen almost
+instantly.
 
 The file Documentation/stable_kernel_rules.txt in the kernel tree
 documents what kinds of changes are acceptable for the -stable tree, and
@@ -284,81 +293,43 @@ daily and represent the current state of Linus' tree.  They are more
 experimental than -rc kernels since they are generated automatically
 without even a cursory glance to see if they are sane.
 
-2.6.x -mm kernel patches
-------------------------
-These are experimental kernel patches released by Andrew Morton.  Andrew
-takes all of the different subsystem kernel trees and patches and mushes
-them together, along with a lot of patches that have been plucked from
-the linux-kernel mailing list.  This tree serves as a proving ground for
-new features and patches.  Once a patch has proved its worth in -mm for
-a while Andrew or the subsystem maintainer pushes it on to Linus for
-inclusion in mainline.
-
-It is heavily encouraged that all new patches get tested in the -mm tree
-before they are sent to Linus for inclusion in the main kernel tree.
-
-These kernels are not appropriate for use on systems that are supposed
-to be stable and they are more risky to run than any of the other
-branches.
-
-If you wish to help out with the kernel development process, please test
-and use these kernel releases and provide feedback to the linux-kernel
-mailing list if you have any problems, and if everything works properly.
-
-In addition to all the other experimental patches, these kernels usually
-also contain any changes in the mainline -git kernels available at the
-time of release.
-
-The -mm kernels are not released on a fixed schedule, but usually a few
--mm kernels are released in between each -rc kernel (1 to 3 is common).
-
 Subsystem Specific kernel trees and patches
 -------------------------------------------
-A number of the different kernel subsystem developers expose their
-development trees so that others can see what is happening in the
-different areas of the kernel.  These trees are pulled into the -mm
-kernel releases as described above.
+The maintainers of the various kernel subsystems --- and also many
+kernel subsystem developers --- expose their current state of
+development in source repositories.  That way, others can see what is
+happening in the different areas of the kernel.  In areas where
+development is rapid, a developer may be asked to base his submissions
+onto such a subsystem kernel tree so that conflicts between the
+submission and other already ongoing work are avoided.
 
-Here is a list of some of the different kernel trees available:
-  git trees:
-    - Kbuild development tree, Sam Ravnborg <sam@ravnborg.org>
-	git.kernel.org:/pub/scm/linux/kernel/git/sam/kbuild.git
+Most of these repositories are git trees, but there are also other SCMs
+in use, or patch queues being published as quilt series.  Addresses of
+these subsystem repositories are listed in the MAINTAINERS file.  Many
+of them can be browsed at http://git.kernel.org/.
 
-    - ACPI development tree, Len Brown <len.brown@intel.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/lenb/linux-acpi-2.6.git
+Before a proposed patch is committed to such a subsystem tree, it is
+subject to review which primarily happens on mailing lists (see the
+respective section below).  For several kernel subsystems, this review
+process is tracked with the tool patchwork.  Patchwork offers a web
+interface which shows patch postings, any comments on a patch or
+revisions to it, and maintainers can mark patches as under review,
+accepted, or rejected.  Most of these patchwork sites are listed at
+http://patchwork.kernel.org/.
 
-    - Block development tree, Jens Axboe <axboe@suse.de>
-	git.kernel.org:/pub/scm/linux/kernel/git/axboe/linux-2.6-block.git
+2.6.x -next kernel tree for integration tests
+---------------------------------------------
+Before updates from subsystem trees are merged into the mainline 2.6.x
+tree, they need to be integration-tested.  For this purpose, a special
+testing repository exists into which virtually all subsystem trees are
+pulled on an almost daily basis:
+	http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git
+	http://linux.f-seidel.de/linux-next/pmwiki/
 
-    - DRM development tree, Dave Airlie <airlied@linux.ie>
-	git.kernel.org:/pub/scm/linux/kernel/git/airlied/drm-2.6.git
+This way, the -next kernel gives a summary outlook onto what will be
+expected to go into the mainline kernel at the next merge period.
+Adventurous testers are very welcome to runtime-test the -next kernel.
 
-    - ia64 development tree, Tony Luck <tony.luck@intel.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/aegl/linux-2.6.git
-
-    - infiniband, Roland Dreier <rolandd@cisco.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/roland/infiniband.git
-
-    - libata, Jeff Garzik <jgarzik@pobox.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
-
-    - network drivers, Jeff Garzik <jgarzik@pobox.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-
-    - pcmcia, Dominik Brodowski <linux@dominikbrodowski.net>
-	git.kernel.org:/pub/scm/linux/kernel/git/brodo/pcmcia-2.6.git
-
-    - SCSI, James Bottomley <James.Bottomley@SteelEye.com>
-	git.kernel.org:/pub/scm/linux/kernel/git/jejb/scsi-misc-2.6.git
-
-  quilt trees:
-    - USB, PCI, Driver Core, and I2C, Greg Kroah-Hartman <gregkh@suse.de>
-	kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/
-    - x86-64, partly i386, Andi Kleen <ak@suse.de>
-        ftp.firstfloor.org:/pub/ak/x86_64/quilt/
-
-  Other kernel trees can be found listed at http://git.kernel.org/ and in
-  the MAINTAINERS file.
 
 Bug Reporting
 -------------
@@ -366,7 +337,7 @@ Bug Reporting
 bugzilla.kernel.org is where the Linux kernel developers track kernel
 bugs.  Users are encouraged to report all bugs that they find in this
 tool.  For details on how to use the kernel bugzilla, please see:
-	http://test.kernel.org/bugzilla/faq.html
+	http://bugzilla.kernel.org/page.cgi?id=faq.html
 
 The file REPORTING-BUGS in the main kernel source directory has a good
 template for how to report a possible kernel bug, and details what kind
@@ -381,7 +352,7 @@ One of the best ways to put into practice your hacking skills is by fixing
 bugs reported by other people. Not only you will help to make the kernel
 more stable, you'll learn to fix real world problems and you will improve
 your skills, and other developers will be aware of your presence. Fixing
-bugs is one of the best ways to earn merit amongst the developers, because
+bugs is one of the best ways to get merits among other developers, because
 not many people like wasting time fixing other people's bugs.
 
 To work in the already reported bug reports, go to http://bugzilla.kernel.org.
@@ -389,8 +360,8 @@ If you want to be advised of the future bug reports, you can subscribe to the
 bugme-new mailing list (only new bug reports are mailed here) or to the
 bugme-janitor mailing list (every change in the bugzilla is mailed here)
 
-	http://lists.osdl.org/mailman/listinfo/bugme-new
-	http://lists.osdl.org/mailman/listinfo/bugme-janitors
+	http://lists.linux-foundation.org/mailman/listinfo/bugme-new
+	http://lists.linux-foundation.org/mailman/listinfo/bugme-janitors
 
 
 
@@ -608,7 +579,7 @@ all time.  It should describe the patch completely, containing:
 For more details on what this should all look like, please see the
 ChangeLog section of the document:
   "The Perfect Patch"
-      http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+      http://userweb.kernel.org/~akpm/stuff/tpp.txt
 
 
 
@@ -624,7 +595,7 @@ start exactly where you are now.
 
 ----------
 Thanks to Paolo Ciarrocchi who allowed the "Development Process"
-(http://linux.tar.bz/articles/2.6-development_process) section
+(http://lwn.net/Articles/94386/) section
 to be based on text he had written, and to Randy Dunlap and Gerrit
 Huizenga for some of the list of things you should and should not say.
 Also thanks to Pat Mochel, Hanna Linder, Randy Dunlap, Kay Sievers,

@@ -1,4 +1,4 @@
-/* $Id: os_bri.c,v 1.21 2004/03/21 17:26:01 armin Exp $ */
+/* $Id: os_bri.c,v 1.21 2004/03/21 17:26:01 Exp $ */
 
 #include "platform.h"
 #include "debuglib.h"
@@ -736,7 +736,7 @@ diva_bri_start_adapter(PISDN_ADAPTER IoAdapter,
 
 	IoAdapter->Properties.Features = (word) features;
 	diva_xdi_display_adapter_features(IoAdapter->ANum);
-	DBG_LOG(("A(%d) BRI adapter successfull started", IoAdapter->ANum))
+	DBG_LOG(("A(%d) BRI adapter successfully started", IoAdapter->ANum))
 	    /*
 	       Register with DIDD
 	     */

@@ -10,6 +10,7 @@
  */
 
 #include <linux/init.h>
+#include <linux/gfp.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/sysdev.h>
@@ -17,14 +18,13 @@
 
 //#include <linux/module.h>
 //#include <linux/time.h>
-//#include <asm/hardware.h>
 
 //#include <asm/mach/time.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 
 #include <asm/system.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <linux/amba/bus.h>
 #include <linux/amba/clcd.h>
 
@@ -42,19 +42,19 @@
 
 static void lh7a40x_clcd_disable (struct clcd_fb *fb)
 {
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	CPLD_CONTROL &= ~(1<<1);	/* Disable LCD Vee */
 #endif
 
-#if defined (CONFIG_MACH_LPD7A404)
+#if defined(CONFIG_MACH_LPD7A404)
 	GPIO_PCD  &= ~(1<<3);		/* Disable LCD Vee */
 #endif
 
-#if defined (CONFIG_ARCH_LH7A400)
+#if defined(CONFIG_ARCH_LH7A400)
 	HRTFTC_HRSETUP &= ~(1<<13);	/* Disable HRTFT controller */
 #endif
 
-#if defined (CONFIG_ARCH_LH7A404)
+#if defined(CONFIG_ARCH_LH7A404)
 	ALI_SETUP &= ~(1<<13);		/* Disable ALI */
 #endif
 }
@@ -64,16 +64,16 @@ static void lh7a40x_clcd_enable (struct clcd_fb *fb)
 	struct clcd_panel_extra* extra
 		= (struct clcd_panel_extra*) fb->board_data;
 
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	CPLD_CONTROL |= (1<<1);		/* Enable LCD Vee */
 #endif
 
-#if defined (CONFIG_MACH_LPD7A404)
+#if defined(CONFIG_MACH_LPD7A404)
 	GPIO_PCDD &= ~(1<<3);		/* Enable LCD Vee */
 	GPIO_PCD  |=  (1<<3);
 #endif
 
-#if defined (CONFIG_ARCH_LH7A400)
+#if defined(CONFIG_ARCH_LH7A400)
 
 	if (extra) {
 		HRTFTC_HRSETUP
@@ -98,7 +98,7 @@ static void lh7a40x_clcd_enable (struct clcd_fb *fb)
 			| 0xc;
 #endif
 
-#if defined (CONFIG_ARCH_LH7A404)
+#if defined(CONFIG_ARCH_LH7A404)
 
 	if (extra) {
 		ALI_SETUP
@@ -141,7 +141,7 @@ static int lh7a40x_clcd_setup (struct clcd_fb *fb)
 	if (!(fb->panel->tim2 & TIM2_IVS))
 		fb->fb.var.sync |= FB_SYNC_VERT_HIGH_ACT;
 
-#if defined (HAS_LCD_PANEL_EXTRA)
+#if defined(HAS_LCD_PANEL_EXTRA)
 	fb->board_data = &lcd_panel_extra;
 #endif
 
@@ -158,7 +158,7 @@ static int lh7a40x_clcd_setup (struct clcd_fb *fb)
 		return -ENOMEM;
 	}
 
-#if defined (USE_RGB555)
+#if defined(USE_RGB555)
 	fb->fb.var.green.length = 5; /* Panel uses RGB 5:5:5 */
 #endif
 
@@ -208,7 +208,7 @@ static struct clcd_board clcd_platform_data = {
 static struct amba_device name##_device = {			\
 	.dev = {						\
 		.coherent_dma_mask = ~0,			\
-		.bus_id	= busid,				\
+		.init_name = busid,				\
 		.platform_data = plat,				\
 		},						\
 	.res = {						\

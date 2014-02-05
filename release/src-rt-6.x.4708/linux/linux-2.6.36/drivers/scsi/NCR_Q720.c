@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mca.h>
+#include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -86,7 +87,6 @@ NCR_Q720_probe_one(struct NCR_Q720_private *p, int siop,
 	int error;
 
 	scsi_id = scsr1 >> 4;
-	/* enable burst length 16 (FIXME: should allow this) */
 	scsr1 |= 0x02;
 	/* force a siop reset */
 	scsr1 |= 0x04;
@@ -148,11 +148,10 @@ NCR_Q720_probe(struct device *dev)
 	__u32 base_addr, mem_size;
 	void __iomem *mem_base;
 
-	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
 
-	memset(p, 0, sizeof(*p));
 	pos2 = mca_device_read_pos(mca_dev, 2);
 	/* enable device */
 	pos2 |=  NCR_Q720_POS2_BOARD_ENABLE | NCR_Q720_POS2_INTERRUPT_ENABLE;

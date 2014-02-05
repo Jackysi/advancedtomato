@@ -1,4 +1,4 @@
-/* $Id: parport_share.c,v 1.15 1998/01/11 12:06:17 philip Exp $
+/*
  * Parallel-port resource manager code.
  * 
  * Authors: David Campbell <campbell@tirian.che.curtin.edu.au>
@@ -524,7 +524,7 @@ void parport_remove_port(struct parport *port)
 struct pardevice *
 parport_register_device(struct parport *port, const char *name,
 			int (*pf)(void *), void (*kf)(void *),
-			void (*irq_func)(int, void *), 
+			void (*irq_func)(void *), 
 			int flags, void *handle)
 {
 	struct pardevice *tmp;
@@ -614,7 +614,10 @@ parport_register_device(struct parport *port, const char *name,
 	 * pardevice fields. -arca
 	 */
 	port->ops->init_state(tmp, tmp->state);
-	parport_device_proc_register(tmp);
+	if (!test_and_set_bit(PARPORT_DEVPROC_REGISTERED, &port->devflags)) {
+		port->proc_device = tmp;
+		parport_device_proc_register(tmp);
+	}
 	return tmp;
 
  out_free_all:
@@ -646,9 +649,13 @@ void parport_unregister_device(struct pardevice *dev)
 	}
 #endif
 
-	parport_device_proc_unregister(dev);
-
 	port = dev->port->physport;
+
+	if (port->proc_device == dev) {
+		port->proc_device = NULL;
+		clear_bit(PARPORT_DEVPROC_REGISTERED, &port->devflags);
+		parport_device_proc_unregister(dev);
+	}
 
 	if (port->cad == dev) {
 		printk(KERN_DEBUG "%s: %s forgot to release port\n",
@@ -820,7 +827,6 @@ int parport_claim(struct pardevice *dev)
 #ifdef CONFIG_PARPORT_1284
 	/* If it's a mux port, select it. */
 	if (dev->port->muxport >= 0) {
-		/* FIXME */
 		port->muxsel = dev->port->muxport;
 	}
 
@@ -887,14 +893,6 @@ int parport_claim_or_block(struct pardevice *dev)
 #ifdef PARPORT_DEBUG_SHARING
 		printk(KERN_DEBUG "%s: parport_claim() returned -EAGAIN\n", dev->name);
 #endif
-		/*
-		 * FIXME!!! Use the proper locking for dev->waiting,
-		 * and make this use the "wait_event_interruptible()"
-		 * interfaces. The cli/sti that used to be here
-		 * did nothing.
-		 *
-		 * See also parport_release()
-		 */
 
 		/* If dev->waiting is clear now, an interrupt
 		   gave us the port and we would deadlock if we slept.  */
@@ -951,7 +949,6 @@ void parport_release(struct pardevice *dev)
 #ifdef CONFIG_PARPORT_1284
 	/* If this is on a mux port, deselect it. */
 	if (dev->port->muxport >= 0) {
-		/* FIXME */
 		port->muxsel = -1;
 	}
 
@@ -995,6 +992,15 @@ void parport_release(struct pardevice *dev)
 	}
 }
 
+irqreturn_t parport_irq_handler(int irq, void *dev_id)
+{
+	struct parport *port = dev_id;
+
+	parport_generic_irq(port);
+
+	return IRQ_HANDLED;
+}
+
 /* Exported symbols for modules. */
 
 EXPORT_SYMBOL(parport_claim);
@@ -1011,5 +1017,6 @@ EXPORT_SYMBOL(parport_get_port);
 EXPORT_SYMBOL(parport_put_port);
 EXPORT_SYMBOL(parport_find_number);
 EXPORT_SYMBOL(parport_find_base);
+EXPORT_SYMBOL(parport_irq_handler);
 
 MODULE_LICENSE("GPL");

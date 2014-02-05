@@ -37,9 +37,10 @@ static int smb_link(struct dentry *, struct inode *, struct dentry *);
 
 const struct file_operations smb_dir_operations =
 {
+	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
 	.readdir	= smb_readdir,
-	.ioctl		= smb_ioctl,
+	.unlocked_ioctl	= smb_ioctl,
 	.open		= smb_dir_open,
 };
 
@@ -277,7 +278,7 @@ static int smb_hash_dentry(struct dentry *, struct qstr *);
 static int smb_compare_dentry(struct dentry *, struct qstr *, struct qstr *);
 static int smb_delete_dentry(struct dentry *);
 
-static struct dentry_operations smbfs_dentry_operations =
+static const struct dentry_operations smbfs_dentry_operations =
 {
 	.d_revalidate	= smb_lookup_validate,
 	.d_hash		= smb_hash_dentry,
@@ -285,7 +286,7 @@ static struct dentry_operations smbfs_dentry_operations =
 	.d_delete	= smb_delete_dentry,
 };
 
-static struct dentry_operations smbfs_dentry_operations_case =
+static const struct dentry_operations smbfs_dentry_operations_case =
 {
 	.d_revalidate	= smb_lookup_validate,
 	.d_delete	= smb_delete_dentry,
@@ -639,7 +640,6 @@ smb_rename(struct inode *old_dir, struct dentry *old_dentry,
 				DENTRY_PATH(new_dentry), error);
 			goto out;
 		}
-		/* FIXME */
 		d_delete(new_dentry);
 	}
 
@@ -655,10 +655,6 @@ out:
 	return error;
 }
 
-/*
- * FIXME: samba servers won't let you create device nodes unless uid/gid
- * matches the connection credentials (and we don't know which those are ...)
- */
 static int
 smb_make_node(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 {
@@ -667,8 +663,7 @@ smb_make_node(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 
 	attr.ia_valid = ATTR_MODE | ATTR_UID | ATTR_GID;
 	attr.ia_mode = mode;
-	attr.ia_uid = current->euid;
-	attr.ia_gid = current->egid;
+	current_euid_egid(&attr.ia_uid, &attr.ia_gid);
 
 	if (!new_valid_dev(dev))
 		return -EINVAL;

@@ -33,11 +33,7 @@
 /* to make sure we are talking the same size under all OS's     */
 typedef unsigned char sigBYTE;
 typedef unsigned short sigWORD;
-#if (defined(_MULTI_DATAMODEL) && defined(sun) && !defined(_ILP32))
-typedef uint32_t sigLONG;
-#else
-typedef unsigned long sigLONG;
-#endif
+typedef unsigned int sigINT;
 
 /*
  * use sigWORDLittleEndian for:
@@ -49,7 +45,7 @@ typedef unsigned long sigLONG;
  *      dsOS
  * so that the sig can be standardised to Little Endian
  */
-#if (defined(_DPT_BIG_ENDIAN))
+#if defined(_DPT_BIG_ENDIAN)
 # define sigWORDLittleEndian(x) ((((x)&0xFF)<<8)|(((x)>>8)&0xFF))
 # define sigLONGLittleEndian(x) \
         ((((x)&0xFF)<<24) |             \
@@ -69,7 +65,7 @@ typedef unsigned long sigLONG;
 /* is not checked.  If using BCC, do not use the -a option.             */
 
 #ifndef NO_PACK
-#if defined (_DPT_AIX)
+#if defined(_DPT_AIX)
 #pragma options align=packed
 #else
 #pragma pack(1)
@@ -89,7 +85,7 @@ typedef unsigned long sigLONG;
 /* ------------------------------------------------------------------ */
 /* What type of processor the file is meant to run on. */
 /* This will let us know whether to read sigWORDs as high/low or low/high. */
-#define PROC_INTEL      0x00    /* Intel 80x86 */
+#define PROC_INTEL      0x00    /* Intel 80x86/ia64 */
 #define PROC_MOTOROLA   0x01    /* Motorola 68K */
 #define PROC_MIPS4000   0x02    /* MIPS RISC 4000 */
 #define PROC_ALPHA      0x03    /* DEC Alpha */
@@ -108,6 +104,7 @@ typedef unsigned long sigLONG;
 #define PROC_486        0x08    /* Intel 80486 */
 #define PROC_PENTIUM    0x10    /* Intel 586 aka P5 aka Pentium */
 #define PROC_SEXIUM	0x20	/* Intel 686 aka P6 aka Pentium Pro or MMX */
+#define PROC_IA64	0x40	/* Intel IA64 processor */
 
 /* PROC_i960: */
 #define PROC_960RX      0x01    /* Intel 80960RC/RD */
@@ -288,7 +285,7 @@ typedef unsigned long sigLONG;
  * You may adjust dsDescription_size with an override to a value less than
  * 50 so that the structure allocates less real space.
  */
-#if (!defined(dsDescription_size))
+#if !defined(dsDescription_size)
 # define dsDescription_size 50
 #endif
 
@@ -300,7 +297,7 @@ typedef struct dpt_sig {
     sigBYTE dsFiletype;          /* type of file */
     sigBYTE dsFiletypeFlags;     /* flags to specify load type, etc. */
     sigBYTE dsOEM;               /* OEM file was created for */
-    sigLONG dsOS;                /* which Operating systems */
+    sigINT  dsOS;                /* which Operating systems */
     sigWORD dsCapabilities;      /* RAID levels, etc. */
     sigWORD dsDeviceSupp;        /* Types of SCSI devices supported */
     sigWORD dsAdapterSupp;       /* DPT adapter families supported */
@@ -323,9 +320,9 @@ typedef struct dpt_sig {
 /* restore it. */
 
 #ifndef NO_UNPACK
-#if defined (_DPT_AIX)
+#if defined(_DPT_AIX)
 #pragma options align=reset
-#elif defined (UNPACK_FOUR)
+#elif defined(UNPACK_FOUR)
 #pragma pack(4)
 #else
 #pragma pack()

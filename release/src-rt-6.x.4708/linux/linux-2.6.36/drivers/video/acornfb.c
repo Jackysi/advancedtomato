@@ -1,35 +1,19 @@
-/*
- *  linux/drivers/video/acornfb.c
- *
- *  Copyright (C) 1998-2001 Russell King
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * Frame buffer code for Acorn platforms
- *
- * NOTE: Most of the modes with X!=640 will disappear shortly.
- * NOTE: Startup setting of HS & VS polarity not supported.
- *       (do we need to support it if we're coming up in 640x480?)
- *
- * FIXME: (things broken by the "new improved" FBCON API)
- *  - Blanking 8bpp displays with VIDC
- */
+
 
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
-#include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/fb.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/io.h>
+#include <linux/gfp.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 #include <asm/pgtable.h>
@@ -138,17 +122,6 @@ static struct pixclock arc_clocks[] = {
 	{  41250,  42083, VIDC_CTRL_DIV1,   VID_CTL_24MHz },	/* 24.000MHz */
 };
 
-#ifdef CONFIG_ARCH_A5K
-static struct pixclock a5k_clocks[] = {
-	{ 117974, 120357, VIDC_CTRL_DIV3,   VID_CTL_25MHz },	/*  8.392MHz */
-	{  78649,  80238, VIDC_CTRL_DIV2,   VID_CTL_25MHz },	/* 12.588MHz */
-	{  58987,  60178, VIDC_CTRL_DIV1_5, VID_CTL_25MHz },	/* 16.588MHz */
-	{  55000,  56111, VIDC_CTRL_DIV2,   VID_CTL_36MHz },	/* 18.000MHz */
-	{  39325,  40119, VIDC_CTRL_DIV1,   VID_CTL_25MHz },	/* 25.175MHz */
-	{  27500,  28055, VIDC_CTRL_DIV1,   VID_CTL_36MHz },	/* 36.000MHz */
-};
-#endif
-
 static struct pixclock *
 acornfb_valid_pixrate(struct fb_var_screeninfo *var)
 {
@@ -162,15 +135,6 @@ acornfb_valid_pixrate(struct fb_var_screeninfo *var)
 		if (pixclock > arc_clocks[i].min_clock &&
 		    pixclock < arc_clocks[i].max_clock)
 			return arc_clocks + i;
-
-#ifdef CONFIG_ARCH_A5K
-	if (machine_is_a5k()) {
-		for (i = 0; i < ARRAY_SIZE(a5k_clocks); i++)
-			if (pixclock > a5k_clocks[i].min_clock &&
-			    pixclock < a5k_clocks[i].max_clock)
-				return a5k_clocks + i;
-	}
-#endif
 
 	return NULL;
 }
@@ -358,7 +322,7 @@ acornfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 #endif
 
 #ifdef HAS_VIDC20
-#include <asm/arch/acornfb.h>
+#include <mach/acornfb.h>
 
 #define MAX_SIZE	2*1024*1024
 
@@ -721,9 +685,6 @@ acornfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	u_int fontht;
 	int err;
 
-	/*
-	 * FIXME: Find the font height
-	 */
 	fontht = 8;
 
 	var->red.msb_right = 0;
@@ -878,43 +839,6 @@ acornfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	return 0;
 }
 
-/*
- * Note that we are entered with the kernel locked.
- */
-static int
-acornfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
-{
-	unsigned long off, start;
-	u32 len;
-
-	off = vma->vm_pgoff << PAGE_SHIFT;
-
-	start = info->fix.smem_start;
-	len = PAGE_ALIGN(start & ~PAGE_MASK) + info->fix.smem_len;
-	start &= PAGE_MASK;
-	if ((vma->vm_end - vma->vm_start + off) > len)
-		return -EINVAL;
-	off += start;
-	vma->vm_pgoff = off >> PAGE_SHIFT;
-
-	/* This is an IO map - tell maydump to skip this VMA */
-	vma->vm_flags |= VM_IO;
-
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-
-	/*
-	 * Don't alter the page protection flags; we want to keep the area
-	 * cached for better performance.  This does mean that we may miss
-	 * some updates to the screen occasionally, but process switches
-	 * should cause the caches and buffers to be flushed often enough.
-	 */
-	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
-				vma->vm_end - vma->vm_start,
-				vma->vm_page_prot))
-		return -EAGAIN;
-	return 0;
-}
-
 static struct fb_ops acornfb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_check_var	= acornfb_check_var,
@@ -924,7 +848,6 @@ static struct fb_ops acornfb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_mmap	= acornfb_mmap,
 };
 
 /*
@@ -1278,7 +1201,7 @@ free_unused_pages(unsigned int virtual_start, unsigned int virtual_end)
 	printk("acornfb: freed %dK memory\n", mb_freed);
 }
 
-static int __init acornfb_probe(struct platform_device *dev)
+static int __devinit acornfb_probe(struct platform_device *dev)
 {
 	unsigned long size;
 	u_int h_sync, v_sync;

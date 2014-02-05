@@ -29,7 +29,6 @@
 
 #include <linux/init.h>
 #include <linux/types.h>
-#include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
@@ -37,6 +36,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
+#include <linux/memblock.h>
+#include <linux/gfp.h>
 #include <asm/io.h>
 #include <asm/prom.h>
 #include <asm/iommu.h>
@@ -44,7 +45,6 @@
 #include <asm/machdep.h>
 #include <asm/abs_addr.h>
 #include <asm/cacheflush.h>
-#include <asm/lmb.h>
 #include <asm/ppc-pci.h>
 
 #include "dart.h"
@@ -147,9 +147,10 @@ static void dart_flush(struct iommu_table *tbl)
 	}
 }
 
-static void dart_build(struct iommu_table *tbl, long index,
+static int dart_build(struct iommu_table *tbl, long index,
 		       long npages, unsigned long uaddr,
-		       enum dma_data_direction direction)
+		       enum dma_data_direction direction,
+		       struct dma_attrs *attrs)
 {
 	unsigned int *dp;
 	unsigned int rpn;
@@ -159,7 +160,7 @@ static void dart_build(struct iommu_table *tbl, long index,
 
 	dp = ((unsigned int*)tbl->it_base) + index;
 
-	/* On U3, all memory is contigous, so we can move this
+	/* On U3, all memory is contiguous, so we can move this
 	 * out of the loop.
 	 */
 	l = npages;
@@ -183,6 +184,7 @@ static void dart_build(struct iommu_table *tbl, long index,
 	} else {
 		dart_dirty = 1;
 	}
+	return 0;
 }
 
 
@@ -204,7 +206,7 @@ static void dart_free(struct iommu_table *tbl, long index, long npages)
 }
 
 
-static int dart_init(struct device_node *dart_node)
+static int __init dart_init(struct device_node *dart_node)
 {
 	unsigned int i;
 	unsigned long tmp, base, size;
@@ -226,11 +228,7 @@ static int dart_init(struct device_node *dart_node)
 	flush_dcache_phys_range(dart_tablebase,
 				dart_tablebase + dart_tablesize);
 
-	/* Allocate a spare page to map all invalid DART pages. We need to do
-	 * that to work around what looks like a problem with the HT bridge
-	 * prefetching into invalid pages and corrupting data
-	 */
-	tmp = lmb_alloc(DART_PAGE_SIZE, DART_PAGE_SIZE);
+	tmp = memblock_alloc(DART_PAGE_SIZE, DART_PAGE_SIZE);
 	dart_emptyval = DARTMAP_VALID | ((tmp >> DART_PAGE_SHIFT) &
 					 DARTMAP_RPNMASK);
 
@@ -295,7 +293,7 @@ static void pci_dma_dev_setup_dart(struct pci_dev *dev)
 	/* We only have one iommu table on the mac for now, which makes
 	 * things simple. Setup all PCI devices to point to this table
 	 */
-	dev->dev.archdata.dma_data = &iommu_table_dart;
+	set_iommu_table_base(&dev->dev, &iommu_table_dart);
 }
 
 static void pci_dma_bus_setup_dart(struct pci_bus *bus)
@@ -313,7 +311,7 @@ static void pci_dma_bus_setup_dart(struct pci_bus *bus)
 		PCI_DN(dn)->iommu_table = &iommu_table_dart;
 }
 
-void iommu_init_early_dart(void)
+void __init iommu_init_early_dart(void)
 {
 	struct device_node *dn;
 
@@ -405,7 +403,7 @@ void __init alloc_dart_table(void)
 	if (iommu_is_off)
 		return;
 
-	if (!iommu_force_on && lmb_end_of_DRAM() <= 0x40000000ull)
+	if (!iommu_force_on && memblock_end_of_DRAM() <= 0x40000000ull)
 		return;
 
 	/* 512 pages (2MB) is max DART tablesize. */
@@ -414,7 +412,7 @@ void __init alloc_dart_table(void)
 	 * will blow up an entire large page anyway in the kernel mapping
 	 */
 	dart_tablebase = (unsigned long)
-		abs_to_virt(lmb_alloc_base(1UL<<24, 1UL<<24, 0x80000000L));
+		abs_to_virt(memblock_alloc_base(1UL<<24, 1UL<<24, 0x80000000L));
 
 	printk(KERN_INFO "DART table allocated at: %lx\n", dart_tablebase);
 }

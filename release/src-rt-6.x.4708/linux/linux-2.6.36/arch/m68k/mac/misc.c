@@ -8,7 +8,6 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-#include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/rtc.h>
 #include <linux/mm.h>
@@ -35,7 +34,6 @@
 
 #define RTC_OFFSET 2082844800
 
-extern struct mac_booter_data mac_bi_data;
 static void (*rom_reset)(void);
 
 #ifdef CONFIG_ADB_CUDA
@@ -104,8 +102,8 @@ static long pmu_read_time(void)
 	while (!req.complete)
 		pmu_poll();
 
-	time = (req.reply[0] << 24) | (req.reply[1] << 16)
-		| (req.reply[2] << 8) | req.reply[3];
+	time = (req.reply[1] << 24) | (req.reply[2] << 16)
+		| (req.reply[3] << 8) | req.reply[4];
 	return time - RTC_OFFSET;
 }
 
@@ -148,53 +146,10 @@ static void pmu_write_pram(int offset, __u8 data)
 #define pmu_write_pram NULL
 #endif
 
-#ifdef CONFIG_ADB_MACIISI
-extern int maciisi_request(struct adb_request *req,
-			void (*done)(struct adb_request *), int nbytes, ...);
-
-static long maciisi_read_time(void)
-{
-	struct adb_request req;
-	long time;
-
-	if (maciisi_request(&req, NULL, 2, CUDA_PACKET, CUDA_GET_TIME))
-		return 0;
-
-	time = (req.reply[3] << 24) | (req.reply[4] << 16)
-		| (req.reply[5] << 8) | req.reply[6];
-	return time - RTC_OFFSET;
-}
-
-static void maciisi_write_time(long data)
-{
-	struct adb_request req;
-	data += RTC_OFFSET;
-	maciisi_request(&req, NULL, 6, CUDA_PACKET, CUDA_SET_TIME,
-			(data >> 24) & 0xFF, (data >> 16) & 0xFF,
-			(data >> 8) & 0xFF, data & 0xFF);
-}
-
-static __u8 maciisi_read_pram(int offset)
-{
-	struct adb_request req;
-	if (maciisi_request(&req, NULL, 4, CUDA_PACKET, CUDA_GET_PRAM,
-			(offset >> 8) & 0xFF, offset & 0xFF))
-		return 0;
-	return req.reply[3];
-}
-
-static void maciisi_write_pram(int offset, __u8 data)
-{
-	struct adb_request req;
-	maciisi_request(&req, NULL, 5, CUDA_PACKET, CUDA_SET_PRAM,
-			(offset >> 8) & 0xFF, offset & 0xFF, data);
-}
-#else
 #define maciisi_read_time() 0
 #define maciisi_write_time(n)
 #define maciisi_read_pram NULL
 #define maciisi_write_pram NULL
-#endif
 
 /*
  * VIA PRAM/RTC access routines
@@ -382,9 +337,6 @@ static void via_shutdown(void)
 	}
 }
 
-/*
- * FIXME: not sure how this is supposed to work exactly...
- */
 
 static void oss_shutdown(void)
 {
@@ -717,13 +669,8 @@ int mac_hwclk(int op, struct rtc_time *t)
 		unmktime(now, 0,
 			 &t->tm_year, &t->tm_mon, &t->tm_mday,
 			 &t->tm_hour, &t->tm_min, &t->tm_sec);
-		printk("mac_hwclk: read %04d-%02d-%-2d %02d:%02d:%02d\n",
-			t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
 	} else { /* write */
-		printk("mac_hwclk: tried to write %04d-%02d-%-2d %02d:%02d:%02d\n",
-			t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
 
-#if 0	/* it trashes my rtc */
 		now = mktime(t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
 			     t->tm_hour, t->tm_min, t->tm_sec);
 
@@ -742,7 +689,6 @@ int mac_hwclk(int op, struct rtc_time *t)
 		case MAC_ADB_IISI:
 			maciisi_write_time(now);
 		}
-#endif
 	}
 	return 0;
 }

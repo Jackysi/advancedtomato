@@ -756,7 +756,7 @@ static int enslave(char *master_ifname, char *slave_ifname)
 		 */
 		if (abi_ver < 1) {
 			/* For old ABI, the master needs to be
-			 * down before setting it's hwaddr
+			 * down before setting its hwaddr
 			 */
 			res = set_if_down(master_ifname, master_flags.ifr_flags);
 			if (res) {
@@ -1081,7 +1081,7 @@ static int set_if_addr(char *master_ifname, char *slave_ifname)
 
 		}
 
-		ipaddr = ifr.ifr_addr.sa_data;
+		ipaddr = (unsigned char *)ifr.ifr_addr.sa_data;
 		v_print("Interface '%s': set IP %s to %d.%d.%d.%d\n",
 			slave_ifname, ifra[i].desc,
 			ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]);
@@ -1100,4 +1100,3 @@ static int set_if_addr(char *master_ifname, char *slave_ifname)
  *  compile-command: "gcc -Wall -Wstrict-prototypes -O -I/usr/src/linux/include ifenslave.c -o ifenslave"
  * End:
  */
-

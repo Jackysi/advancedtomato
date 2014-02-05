@@ -206,4 +206,3 @@ snd_seq_oss_ioctl(struct seq_oss_devinfo *dp, unsigned int cmd, unsigned long ca
 	}
 	return 0;
 }
-

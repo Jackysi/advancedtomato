@@ -1402,7 +1402,7 @@ Syscalls are implemented on Linux for S390 by the Supervisor call instruction (S
 possibilities of these as the instruction is made up of a  0xA opcode & the second byte being
 the syscall number. They are traced using the simple command.
 TR SVC  <Optional value or range>
-the syscalls are defined in linux/include/asm-s390/unistd.h
+the syscalls are defined in linux/arch/s390/include/asm/unistd.h
 e.g. to trace all file opens just do
 TR SVC 5 ( as this is the syscall number of open )
 
@@ -1984,7 +1984,7 @@ break *$pc
 
 break *0x400618
 
-heres a really useful one for large programs
+Here's a really useful one for large programs
 rbr
 Set a breakpoint for all functions matching REGEXP
 e.g.
@@ -2211,7 +2211,7 @@ Breakpoint 2 at 0x4d87a4: file top.c, line 2609.
 #5  0x51692c in readline_internal () at readline.c:521
 #6  0x5164fe in readline (prompt=0x7ffff810 "\177ÿøx\177ÿ÷Ø\177ÿøxÀ")
     at readline.c:349
-#7  0x4d7a8a in command_line_input (prrompt=0x564420 "(gdb) ", repeat=1,
+#7  0x4d7a8a in command_line_input (prompt=0x564420 "(gdb) ", repeat=1,
     annotation_suffix=0x4d6b44 "prompt") at top.c:2091
 #8  0x4d6cf0 in command_loop () at top.c:1345
 #9  0x4e25bc in main (argc=1, argv=0x7ffffdf4) at main.c:635
@@ -2531,5 +2531,5 @@ Special Thanks
 ==============
 Special thanks to Neale Ferguson who maintains a much
 prettier HTML version of this page at
-http://penguinvm.princeton.edu/notes.html#Debug390
+http://linuxvm.org/penguinvm/
 Bob Grainger Stefan Bader & others for reporting bugs

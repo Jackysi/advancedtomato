@@ -1,4 +1,4 @@
-/* $Id: concap.h,v 1.3.2.2 2004/01/12 23:08:35 keil Exp $
+/* $Id: concap.h,v 1.3.2.2 2004/01/12 23:08:35 Exp $
  *
  * Copyright 1997 by Henner Eisen <eis@baty.hanse.de>
  *
@@ -8,7 +8,7 @@
 
 #ifndef _LINUX_CONCAP_H
 #define _LINUX_CONCAP_H
-#ifdef __KERNEL__
+
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
@@ -109,5 +109,4 @@ extern int concap_nop(struct concap_proto *cprot);
 /* dummy submit method
  */
 extern int concap_drop_skb(struct concap_proto *cprot, struct sk_buff *skb);
-#endif
 #endif

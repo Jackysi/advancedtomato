@@ -4,8 +4,12 @@ Kernel driver lm87
 Supported chips:
   * National Semiconductor LM87
     Prefix: 'lm87'
-    Addresses scanned: I2C 0x2c - 0x2f
+    Addresses scanned: I2C 0x2c - 0x2e
     Datasheet: http://www.national.com/pf/LM/LM87.html
+  * Analog Devices ADM1024
+    Prefix: 'adm1024'
+    Addresses scanned: I2C 0x2c - 0x2e
+    Datasheet: http://www.analog.com/en/prod/0,2877,ADM1024,00.html
 
 Authors:
         Frodo Looijaard <frodol@dds.nl>,
@@ -19,11 +23,12 @@ Authors:
 Description
 -----------
 
-This driver implements support for the National Semiconductor LM87.
+This driver implements support for the National Semiconductor LM87
+and the Analog Devices ADM1024.
 
 The LM87 implements up to three temperature sensors, up to two fan
 rotation speed sensors, up to seven voltage sensors, alarms, and some
-miscellaneous stuff.
+miscellaneous stuff. The ADM1024 is fully compatible.
 
 Temperatures are measured in degrees Celsius. Each input has a high
 and low alarm settings. A high limit produces an alarm when the value
@@ -60,11 +65,10 @@ The LM87 has four pins which can serve one of two possible functions,
 depending on the hardware configuration.
 
 Some functions share pins, so not all functions are available at the same
-time. Which are depends on the hardware setup. This driver assumes that
-the BIOS configured the chip correctly. In that respect, it differs from
-the original driver (from lm_sensors for Linux 2.4), which would force the
-LM87 to an arbitrary, compile-time chosen mode, regardless of the actual
-chipset wiring.
+time. Which are depends on the hardware setup. This driver normally
+assumes that firmware configured the chip correctly. Where this is not
+the case, platform code must set the I2C client's platform_data to point
+to a u8 value to be written to the channel register.
 
 For reference, here is the list of exclusive functions:
  - in0+in5 (default) or temp3

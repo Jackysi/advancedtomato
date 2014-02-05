@@ -32,7 +32,7 @@ braindamaged document, if it's finally working, well, it's working.
 
 For one reason or another, low level drivers don't receive as much
 attention or testing as core code, and bugs on driver detach or
-initilaization failure doesn't happen often enough to be noticeable.
+initialization failure don't happen often enough to be noticeable.
 Init failure path is worse because it's much less travelled while
 needs to handle multiple entry points.
 
@@ -160,7 +160,7 @@ resources on failure.  For example,
   devres_release_group(dev, NULL);
   return err_code;
 
-As resource acquision failure usually means probe failure, constructs
+As resource acquisition failure usually means probe failure, constructs
 like above are usually useful in midlayer driver (e.g. libata core
 layer) where interface function shouldn't have side effect on failure.
 For LLDs, just returning error code suffices in most cases.
@@ -188,7 +188,7 @@ For example, you can do something like the following.
 
   void my_midlayer_destroy_something()
   {
-	devres_release_group(dev, my_midlayer_create_soemthing);
+	devres_release_group(dev, my_midlayer_create_something);
   }
 
 
@@ -207,7 +207,7 @@ responsibility.  This is usually non-issue because bus ops and
 resource allocations already do the job.
 
 For an example of single-instance devres type, read pcim_iomap_table()
-in lib/iomap.c.
+in lib/devres.c.
 
 All devres interface functions can be called without context if the
 right gfp mask is given.

@@ -2,7 +2,7 @@
 #define _AHA152X_H
 
 /*
- * $Id: aha152x.h,v 2.7 2004/01/24 11:39:03 fischer Exp $
+ * $Id: aha152x.h,v 2.7 2004/01/24 11:39:03 Exp $
  */
 
 /* number of queueable commands
@@ -298,7 +298,7 @@ typedef union {
 enum {
   debug_procinfo  = 0x0001,
   debug_queue     = 0x0002,
-  debug_locks     = 0x0004,
+  debug_locking   = 0x0004,
   debug_intr      = 0x0008,
   debug_selection = 0x0010,
   debug_msgo      = 0x0020,

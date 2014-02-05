@@ -21,8 +21,6 @@
 
 #include <linux/i2o-dev.h>
 
-#include <asm/semaphore.h> /* Needed for MUTEX init macros */
-#include <linux/version.h>
 #include <linux/notifier.h>
 #include <asm/atomic.h>
 
@@ -394,7 +392,6 @@ struct i2o_sys_tbl
 /* Message header defines for VersionOffset */
 #define I2OVER15	0x0001
 #define I2OVER20	0x0002
-/* Default is 1.5, FIXME: Need support for both 1.5 and 2.0 */
 #define I2OVERSION	I2OVER15
 #define SGL_OFFSET_0    I2OVERSION
 #define SGL_OFFSET_4    (0x0040 | I2OVERSION)

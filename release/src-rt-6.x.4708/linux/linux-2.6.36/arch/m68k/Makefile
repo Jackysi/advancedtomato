@@ -13,16 +13,17 @@
 # Copyright (C) 1994 by Hamish Macdonald
 #
 
-# test for cross compiling
-COMPILE_ARCH = $(shell uname -m)
+KBUILD_DEFCONFIG := multi_defconfig
 
 # override top level makefile
 AS += -m68020
 LDFLAGS := -m m68kelf
-LDFLAGS_MODULE += -T $(srctree)/arch/m68k/kernel/module.lds
-ifneq ($(COMPILE_ARCH),$(ARCH))
-	# prefix for cross-compiling binaries
-	CROSS_COMPILE = m68k-linux-gnu-
+KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/m68k/kernel/module.lds
+ifneq ($(SUBARCH),$(ARCH))
+	ifeq ($(CROSS_COMPILE),)
+		CROSS_COMPILE := $(call cc-cross-prefix, \
+			m68k-linux-gnu- m68k-linux- m68k-unknown-linux-gnu-)
+	endif
 endif
 
 ifdef CONFIG_SUN3
@@ -32,18 +33,18 @@ endif
 CHECKFLAGS += -D__mc68000__
 
 # without -fno-strength-reduce the 53c7xx.c driver fails ;-(
-CFLAGS += -pipe -fno-strength-reduce -ffixed-a2
+KBUILD_CFLAGS += -pipe -fno-strength-reduce -ffixed-a2
 
 # enable processor switch if compiled only for a single cpu
 ifndef CONFIG_M68020
 ifndef CONFIG_M68030
 
 ifndef CONFIG_M68060
-CFLAGS := $(CFLAGS) -m68040
+KBUILD_CFLAGS += -m68040
 endif
 
 ifndef CONFIG_M68040
-CFLAGS := $(CFLAGS) -m68060
+KBUILD_CFLAGS += -m68060
 endif
 
 endif
@@ -52,7 +53,7 @@ endif
 ifdef CONFIG_KGDB
 # If configured for kgdb support, include debugging infos and keep the
 # frame pointer
-CFLAGS := $(subst -fomit-frame-pointer,,$(CFLAGS)) -g
+KBUILD_CFLAGS := $(subst -fomit-frame-pointer,,$(KBUILD_CFLAGS)) -g
 endif
 
 ifndef CONFIG_SUN3
@@ -116,3 +117,6 @@ endif
 
 archclean:
 	rm -f vmlinux.gz vmlinux.bz2
+
+install:
+	sh $(srctree)/arch/m68k/install.sh $(KERNELRELEASE) vmlinux.gz System.map "$(INSTALL_PATH)"

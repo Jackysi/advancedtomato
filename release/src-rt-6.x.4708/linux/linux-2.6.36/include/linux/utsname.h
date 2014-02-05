@@ -22,12 +22,12 @@ struct old_utsname {
 };
 
 struct new_utsname {
-	char sysname[65];
-	char nodename[65];
-	char release[65];
-	char version[65];
-	char machine[65];
-	char domainname[65];
+	char sysname[__NEW_UTS_LEN + 1];
+	char nodename[__NEW_UTS_LEN + 1];
+	char release[__NEW_UTS_LEN + 1];
+	char version[__NEW_UTS_LEN + 1];
+	char machine[__NEW_UTS_LEN + 1];
+	char domainname[__NEW_UTS_LEN + 1];
 };
 
 #ifdef __KERNEL__
@@ -35,7 +35,7 @@ struct new_utsname {
 #include <linux/sched.h>
 #include <linux/kref.h>
 #include <linux/nsproxy.h>
-#include <asm/atomic.h>
+#include <linux/err.h>
 
 struct uts_namespace {
 	struct kref kref;
@@ -43,13 +43,14 @@ struct uts_namespace {
 };
 extern struct uts_namespace init_uts_ns;
 
+#ifdef CONFIG_UTS_NS
 static inline void get_uts_ns(struct uts_namespace *ns)
 {
 	kref_get(&ns->kref);
 }
 
-#ifdef CONFIG_UTS_NS
-extern struct uts_namespace *copy_utsname(int flags, struct uts_namespace *ns);
+extern struct uts_namespace *copy_utsname(unsigned long flags,
+					struct uts_namespace *ns);
 extern void free_uts_ns(struct kref *kref);
 
 static inline void put_uts_ns(struct uts_namespace *ns)
@@ -57,14 +58,21 @@ static inline void put_uts_ns(struct uts_namespace *ns)
 	kref_put(&ns->kref, free_uts_ns);
 }
 #else
-static inline struct uts_namespace *copy_utsname(int flags,
-						struct uts_namespace *ns)
+static inline void get_uts_ns(struct uts_namespace *ns)
 {
-	return ns;
 }
 
 static inline void put_uts_ns(struct uts_namespace *ns)
 {
+}
+
+static inline struct uts_namespace *copy_utsname(unsigned long flags,
+					struct uts_namespace *ns)
+{
+	if (flags & CLONE_NEWUTS)
+		return ERR_PTR(-EINVAL);
+
+	return ns;
 }
 #endif
 

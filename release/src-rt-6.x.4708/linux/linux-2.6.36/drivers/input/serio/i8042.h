@@ -16,8 +16,10 @@
 
 #if defined(CONFIG_MACH_JAZZ)
 #include "i8042-jazzio.h"
-#elif defined(CONFIG_SGI_IP22)
+#elif defined(CONFIG_SGI_HAS_I8042)
 #include "i8042-ip22io.h"
+#elif defined(CONFIG_SNI_RM)
+#include "i8042-snirm.h"
 #elif defined(CONFIG_PPC)
 #include "i8042-ppcio.h"
 #elif defined(CONFIG_SPARC)
@@ -59,28 +61,6 @@
 #define I8042_CTR_KBDDIS	0x10
 #define I8042_CTR_AUXDIS	0x20
 #define I8042_CTR_XLATE		0x40
-
-/*
- * Commands.
- */
-
-#define I8042_CMD_CTL_RCTR	0x0120
-#define I8042_CMD_CTL_WCTR	0x1060
-#define I8042_CMD_CTL_TEST	0x01aa
-
-#define I8042_CMD_KBD_DISABLE	0x00ad
-#define I8042_CMD_KBD_ENABLE	0x00ae
-#define I8042_CMD_KBD_TEST	0x01ab
-#define I8042_CMD_KBD_LOOP	0x11d2
-
-#define I8042_CMD_AUX_DISABLE	0x00a7
-#define I8042_CMD_AUX_ENABLE	0x00a8
-#define I8042_CMD_AUX_TEST	0x01a9
-#define I8042_CMD_AUX_SEND	0x10d4
-#define I8042_CMD_AUX_LOOP	0x11d3
-
-#define I8042_CMD_MUX_PFX	0x0090
-#define I8042_CMD_MUX_SEND	0x1090
 
 /*
  * Return codes.

@@ -19,10 +19,10 @@ boot-y	:= bootstrap.o
 OBJS	:= $(addprefix $(obj)/,$(boot-y))
 LIBS	:= arch/xtensa/boot/lib/lib.a arch/xtensa/lib/lib.a
 
-LIBGCC := $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
+LIBGCC := $(shell $(CC) $(KBUILD_CFLAGS) -print-libgcc-file-name)
 
 zImage: vmlinux $(OBJS) $(LIBS)
-	$(OBJCOPY) --strip-all -R .comment -R .xt.insn -O binary \
+	$(OBJCOPY) --strip-all -R .comment -R .note.gnu.build-id -O binary \
 		vmlinux vmlinux.tmp
 	gzip -vf9 vmlinux.tmp
 	$(OBJCOPY) $(OBJCOPY_ARGS) -R .comment \
@@ -32,4 +32,3 @@ zImage: vmlinux $(OBJS) $(LIBS)
 	$(LD) $(LD_ARGS) -o $@.elf $@.tmp $(LIBS) -L/xtensa-elf/lib $(LIBGCC)
 	$(OBJCOPY) -S -O binary $@.elf arch/$(ARCH)/boot/$@.redboot
 	rm -f $@.tmp $@.elf vmlinux.tmp.gz
-

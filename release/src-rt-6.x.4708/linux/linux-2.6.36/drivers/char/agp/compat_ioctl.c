@@ -28,7 +28,9 @@
 
 #include <linux/kernel.h>
 #include <linux/pci.h>
+#include <linux/fs.h>
 #include <linux/agpgart.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
 #include "agp.h"
 #include "compat_ioctl.h"
@@ -213,7 +215,7 @@ long compat_agp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret_val = -EINVAL;
 		goto ioctl_out;
 	}
-	if ((agp_fe.backend_acquired != TRUE) &&
+	if ((agp_fe.backend_acquired != true) &&
 	    (cmd != AGPIOC_ACQUIRE32)) {
 		ret_val = -EBUSY;
 		goto ioctl_out;
@@ -272,6 +274,10 @@ long compat_agp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case AGPIOC_UNBIND32:
 		ret_val = compat_agpioc_unbind_wrap(curr_priv, (void __user *) arg);
 		break;
+
+	case AGPIOC_CHIPSET_FLUSH32:
+		ret_val = agpioc_chipset_flush_wrap(curr_priv);
+		break;
 	}
 
 ioctl_out:
@@ -279,4 +285,3 @@ ioctl_out:
 	mutex_unlock(&(agp_fe.agp_mutex));
 	return ret_val;
 }
-

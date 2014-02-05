@@ -17,71 +17,39 @@
  */
 #include "xfs.h"
 #include "xfs_types.h"
-#include "xfs_dmapi.h"
+#include "xfs_inum.h"
 #include "xfs_log.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
+#include "xfs_ag.h"
+#include "xfs_dir2.h"
 #include "xfs_mount.h"
 #include "xfs_export.h"
-
-static struct dentry dotdot = { .d_name.name = "..", .d_name.len = 2, };
+#include "xfs_vnodeops.h"
+#include "xfs_bmap_btree.h"
+#include "xfs_inode.h"
+#include "xfs_inode_item.h"
+#include "xfs_trace.h"
 
 /*
- * XFS encodes and decodes the fileid portion of NFS filehandles
- * itself instead of letting the generic NFS code do it.  This
- * allows filesystems with 64 bit inode numbers to be exported.
- *
- * Note that a side effect is that xfs_vget() won't be passed a
- * zero inode/generation pair under normal circumstances.  As
- * however a malicious client could send us such data, the check
- * remains in that code.
+ * Note that we only accept fileids which are long enough rather than allow
+ * the parent generation number to default to zero.  XFS considers zero a
+ * valid generation number not an invalid/wildcard value.
  */
-
-STATIC struct dentry *
-xfs_fs_decode_fh(
-	struct super_block	*sb,
-	__u32			*fh,
-	int			fh_len,
-	int			fileid_type,
-	int (*acceptable)(
-		void		*context,
-		struct dentry	*de),
-	void			*context)
+static int xfs_fileid_length(int fileid_type)
 {
-	xfs_fid2_t		ifid;
-	xfs_fid2_t		pfid;
-	void			*parent = NULL;
-	int			is64 = 0;
-	__u32			*p = fh;
-
-#if XFS_BIG_INUMS
-	is64 = (fileid_type & XFS_FILEID_TYPE_64FLAG);
-	fileid_type &= ~XFS_FILEID_TYPE_64FLAG;
-#endif
-
-	/*
-	 * Note that we only accept fileids which are long enough
-	 * rather than allow the parent generation number to default
-	 * to zero.  XFS considers zero a valid generation number not
-	 * an invalid/wildcard value.  There's little point printk'ing
-	 * a warning here as we don't have the client information
-	 * which would make such a warning useful.
-	 */
-	if (fileid_type > 2 ||
-	    fh_len < xfs_fileid_length((fileid_type == 2), is64))
-		return NULL;
-
-	p = xfs_fileid_decode_fid2(p, &ifid, is64);
-
-	if (fileid_type == 2) {
-		p = xfs_fileid_decode_fid2(p, &pfid, is64);
-		parent = &pfid;
+	switch (fileid_type) {
+	case FILEID_INO32_GEN:
+		return 2;
+	case FILEID_INO32_GEN_PARENT:
+		return 4;
+	case FILEID_INO32_GEN | XFS_FILEID_TYPE_64FLAG:
+		return 3;
+	case FILEID_INO32_GEN_PARENT | XFS_FILEID_TYPE_64FLAG:
+		return 6;
 	}
-
-	fh = (__u32 *)&ifid;
-	return sb->s_export_op->find_exported_dentry(sb, fh, parent, acceptable, context);
+	return 255; /* invalid */
 }
-
 
 STATIC int
 xfs_fs_encode_fh(
@@ -90,23 +58,21 @@ xfs_fs_encode_fh(
 	int			*max_len,
 	int			connectable)
 {
+	struct fid		*fid = (struct fid *)fh;
+	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fh;
 	struct inode		*inode = dentry->d_inode;
-	int			type = 1;
-	__u32			*p = fh;
+	int			fileid_type;
 	int			len;
-	int			is64 = 0;
-#if XFS_BIG_INUMS
-	bhv_vfs_t		*vfs = vfs_from_sb(inode->i_sb);
-
-	if (!(vfs->vfs_flag & VFS_32BITINODES)) {
-		/* filesystem may contain 64bit inode numbers */
-		is64 = XFS_FILEID_TYPE_64FLAG;
-	}
-#endif
 
 	/* Directories don't need their parent encoded, they have ".." */
-	if (S_ISDIR(inode->i_mode))
-	    connectable = 0;
+	if (S_ISDIR(inode->i_mode) || !connectable)
+		fileid_type = FILEID_INO32_GEN;
+	else
+		fileid_type = FILEID_INO32_GEN_PARENT;
+
+	/* filesystem may contain 64bit inode numbers */
+	if (!(XFS_M(inode->i_sb)->m_flags & XFS_MOUNT_SMALL_INUMS))
+		fileid_type |= XFS_FILEID_TYPE_64FLAG;
 
 	/*
 	 * Only encode if there is enough space given.  In practice
@@ -114,44 +80,123 @@ xfs_fs_encode_fh(
 	 * over NFSv2 with the subtree_check export option; the other
 	 * seven combinations work.  The real answer is "don't use v2".
 	 */
-	len = xfs_fileid_length(connectable, is64);
+	len = xfs_fileid_length(fileid_type);
 	if (*max_len < len)
 		return 255;
 	*max_len = len;
 
-	p = xfs_fileid_encode_inode(p, inode, is64);
-	if (connectable) {
+	switch (fileid_type) {
+	case FILEID_INO32_GEN_PARENT:
 		spin_lock(&dentry->d_lock);
-		p = xfs_fileid_encode_inode(p, dentry->d_parent->d_inode, is64);
+		fid->i32.parent_ino = dentry->d_parent->d_inode->i_ino;
+		fid->i32.parent_gen = dentry->d_parent->d_inode->i_generation;
 		spin_unlock(&dentry->d_lock);
-		type = 2;
+		/*FALLTHRU*/
+	case FILEID_INO32_GEN:
+		fid->i32.ino = inode->i_ino;
+		fid->i32.gen = inode->i_generation;
+		break;
+	case FILEID_INO32_GEN_PARENT | XFS_FILEID_TYPE_64FLAG:
+		spin_lock(&dentry->d_lock);
+		fid64->parent_ino = dentry->d_parent->d_inode->i_ino;
+		fid64->parent_gen = dentry->d_parent->d_inode->i_generation;
+		spin_unlock(&dentry->d_lock);
+		/*FALLTHRU*/
+	case FILEID_INO32_GEN | XFS_FILEID_TYPE_64FLAG:
+		fid64->ino = inode->i_ino;
+		fid64->gen = inode->i_generation;
+		break;
 	}
-	BUG_ON((p - fh) != len);
-	return type | is64;
+
+	return fileid_type;
+}
+
+STATIC struct inode *
+xfs_nfs_get_inode(
+	struct super_block	*sb,
+	u64			ino,
+	u32			generation)
+ {
+ 	xfs_mount_t		*mp = XFS_M(sb);
+	xfs_inode_t		*ip;
+	int			error;
+
+	/*
+	 * NFS can sometimes send requests for ino 0.  Fail them gracefully.
+	 */
+	if (ino == 0)
+		return ERR_PTR(-ESTALE);
+
+	/*
+	 * The XFS_IGET_UNTRUSTED means that an invalid inode number is just
+	 * fine and not an indication of a corrupted filesystem as clients can
+	 * send invalid file handles and we have to handle it gracefully..
+	 */
+	error = xfs_iget(mp, NULL, ino, XFS_IGET_UNTRUSTED, 0, &ip);
+	if (error) {
+		/*
+		 * EINVAL means the inode cluster doesn't exist anymore.
+		 * This implies the filehandle is stale, so we should
+		 * translate it here.
+		 * We don't use ESTALE directly down the chain to not
+		 * confuse applications using bulkstat that expect EINVAL.
+		 */
+		if (error == EINVAL)
+			error = ESTALE;
+		return ERR_PTR(-error);
+	}
+
+	if (ip->i_d.di_gen != generation) {
+		IRELE(ip);
+		return ERR_PTR(-ENOENT);
+	}
+
+	return VFS_I(ip);
 }
 
 STATIC struct dentry *
-xfs_fs_get_dentry(
-	struct super_block	*sb,
-	void			*data)
+xfs_fs_fh_to_dentry(struct super_block *sb, struct fid *fid,
+		 int fh_len, int fileid_type)
 {
-	bhv_vnode_t		*vp;
-	struct inode		*inode;
-	struct dentry		*result;
-	bhv_vfs_t		*vfsp = vfs_from_sb(sb);
-	int			error;
+	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fid;
+	struct inode		*inode = NULL;
 
-	error = bhv_vfs_vget(vfsp, &vp, (fid_t *)data);
-	if (error || vp == NULL)
-		return ERR_PTR(-ESTALE) ;
+	if (fh_len < xfs_fileid_length(fileid_type))
+		return NULL;
 
-	inode = vn_to_inode(vp);
-	result = d_alloc_anon(inode);
-        if (!result) {
-		iput(inode);
-		return ERR_PTR(-ENOMEM);
+	switch (fileid_type) {
+	case FILEID_INO32_GEN_PARENT:
+	case FILEID_INO32_GEN:
+		inode = xfs_nfs_get_inode(sb, fid->i32.ino, fid->i32.gen);
+		break;
+	case FILEID_INO32_GEN_PARENT | XFS_FILEID_TYPE_64FLAG:
+	case FILEID_INO32_GEN | XFS_FILEID_TYPE_64FLAG:
+		inode = xfs_nfs_get_inode(sb, fid64->ino, fid64->gen);
+		break;
 	}
-	return result;
+
+	return d_obtain_alias(inode);
+}
+
+STATIC struct dentry *
+xfs_fs_fh_to_parent(struct super_block *sb, struct fid *fid,
+		 int fh_len, int fileid_type)
+{
+	struct xfs_fid64	*fid64 = (struct xfs_fid64 *)fid;
+	struct inode		*inode = NULL;
+
+	switch (fileid_type) {
+	case FILEID_INO32_GEN_PARENT:
+		inode = xfs_nfs_get_inode(sb, fid->i32.parent_ino,
+					      fid->i32.parent_gen);
+		break;
+	case FILEID_INO32_GEN_PARENT | XFS_FILEID_TYPE_64FLAG:
+		inode = xfs_nfs_get_inode(sb, fid64->parent_ino,
+					      fid64->parent_gen);
+		break;
+	}
+
+	return d_obtain_alias(inode);
 }
 
 STATIC struct dentry *
@@ -159,26 +204,37 @@ xfs_fs_get_parent(
 	struct dentry		*child)
 {
 	int			error;
-	bhv_vnode_t		*vp, *cvp;
-	struct dentry		*parent;
+	struct xfs_inode	*cip;
 
-	cvp = NULL;
-	vp = vn_from_inode(child->d_inode);
-	error = bhv_vop_lookup(vp, &dotdot, &cvp, 0, NULL, NULL);
+	error = xfs_lookup(XFS_I(child->d_inode), &xfs_name_dotdot, &cip, NULL);
 	if (unlikely(error))
 		return ERR_PTR(-error);
 
-	parent = d_alloc_anon(vn_to_inode(cvp));
-	if (unlikely(!parent)) {
-		VN_RELE(cvp);
-		return ERR_PTR(-ENOMEM);
-	}
-	return parent;
+	return d_obtain_alias(VFS_I(cip));
 }
 
-struct export_operations xfs_export_operations = {
-	.decode_fh		= xfs_fs_decode_fh,
+STATIC int
+xfs_fs_nfs_commit_metadata(
+	struct inode		*inode)
+{
+	struct xfs_inode	*ip = XFS_I(inode);
+	struct xfs_mount	*mp = ip->i_mount;
+	int			error = 0;
+
+	xfs_ilock(ip, XFS_ILOCK_SHARED);
+	if (xfs_ipincount(ip)) {
+		error = _xfs_log_force_lsn(mp, ip->i_itemp->ili_last_lsn,
+				XFS_LOG_SYNC, NULL);
+	}
+	xfs_iunlock(ip, XFS_ILOCK_SHARED);
+
+	return error;
+}
+
+const struct export_operations xfs_export_operations = {
 	.encode_fh		= xfs_fs_encode_fh,
+	.fh_to_dentry		= xfs_fs_fh_to_dentry,
+	.fh_to_parent		= xfs_fs_fh_to_parent,
 	.get_parent		= xfs_fs_get_parent,
-	.get_dentry		= xfs_fs_get_dentry,
+	.commit_metadata	= xfs_fs_nfs_commit_metadata,
 };

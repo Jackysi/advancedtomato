@@ -73,7 +73,6 @@
 #ifdef SIS_CP
 #undef SIS_CP
 #endif
-#include <linux/version.h>
 #include <linux/types.h>
 #include <asm/io.h>
 #include <linux/fb.h>
@@ -791,18 +790,6 @@ static const unsigned char SiS_HiTVSt2Timing[] = {
 	0x63,0x4f,0x27,0x00,0xfc,0xff,0x6a,0x00
 };
 
-#if 0
-static const unsigned char SiS_HiTVTextTiming[] = {
-	0x32,0x65,0x2c,0x5f,0x08,0x31,0x3a,0x65,
-	0x28,0x02,0x01,0x3d,0x06,0x3e,0x35,0x6d,
-	0x06,0x14,0x3e,0x35,0x6d,0x00,0xc5,0x3f,
-	0x65,0x90,0xe7,0xbc,0x03,0x0c,0x97,0x03,
-	0x14,0x78,0x14,0x08,0x20,0x14,0x08,0x20,
-	0xc8,0xc8,0x3b,0xd2,0x26,0x92,0x0f,0x40,
-        0x60,0x80,0x14,0x90,0x8c,0x60,0x04,0x96,
-	0x72,0x5c,0x11,0x00,0xfc,0xff,0x32,0x00
-};
-#endif
 
 static const unsigned char SiS_HiTVGroup3Data[] = {
 	0x00,0x1a,0x22,0x63,0x62,0x22,0x08,0x5f,
@@ -826,18 +813,6 @@ static const unsigned char SiS_HiTVGroup3Simu[] = {
 	0x18,0x05,0x18,0x05,0x4c,0xa8,0x01
 };
 
-#if 0
-static const unsigned char SiS_HiTVGroup3Text[] = {
-	0x00,0x1a,0x22,0x63,0x62,0x22,0x08,0xa7,
-	0xf5,0x20,0xce,0xce,0x55,0x47,0x2a,0xa6,
-	0x25,0x2f,0x47,0xfa,0xc8,0xff,0x8e,0x20,
-	0x8c,0x6e,0x60,0x18,0x2c,0x0c,0x20,0x22,
-	0x56,0x36,0x4f,0x6e,0x3f,0x80,0x00,0x80,
-	0x93,0x3c,0x01,0x50,0x2f,0x10,0xf4,0xca,
-	0x01,0x05,0x03,0x7e,0x65,0x31,0x14,0x75,
-	0x18,0x05,0x18,0x05,0x4c,0xa8,0x01
-};
-#endif
 
 static const struct SiS_TVData SiS_StPALData[] =
 {
@@ -882,27 +857,7 @@ static const struct SiS_TVData SiS_ExtNTSCData[] =
  {  143, 120,1056, 643,1270, 440,   0, 1,   0,    0,0xf4,0x10,0x1c,0x00},    /* 800x600, 400x300  */
  {  143,  76, 836, 523,1270, 440,   0, 1,   0,    0,0xee,0x0c,0x22,0x08},    /* 720x480 - BETTER (from 300 series) */
  {    1,   1,1100, 811,1412, 440,   0, 1,   0,    0,0xee,0x0c,0x22,0x08},    /* 1024x768 (525i) CORRECTED */
-#if 0  /* flimmert und ist unten abgeschnitten (NTSCHT, NTSC clock) */
- {   65,  64,1056, 791,1270, 480, 455, 0,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 0
- {    1,   1,1100, 811,1412, 440,   0, 1,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 0
- {    1,   1,1120, 821,1516, 420,   0, 1,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 0
- {    1,   1, 938, 821,1516, 420,   0, 1,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 0 /* zoom hin, unten abgeschnitten (NTSC2HT, NTSC1024 clock) */
- {    1,   1,1072, 791,1270, 480, 455, 0,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 1 /* zu weit links (squeezed) (NTSC2HT, NTSC1024 clock) */
  {    1,   1,1100, 846,1270, 440, 455, 0,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
-#if 0 /* zu weit links, rechts abgeschnitten (NTSC2HT, NTSC1024 clock) */
- {    1,   1,1100, 846,1412, 440, 455, 0,   0,    0,0x00,0x00,0x00,0x00}     /* 1024x768 (525p) */
-#endif
 };
 
 static const struct SiS_TVData SiS_StHiTVData[] =  /* Slave + TVSimu */
@@ -1025,22 +980,6 @@ static const struct SiS_LCDData SiS_ExtLCD1280x768_2Data[] = /* 2.03.00 */
 	{  16,   15, 1600,  750, 1600,  806 }  /* 1280x720 */
 };
 
-#if 0  /* Not used; _3 now reserved for NetVista (SiS301) */
-static const struct SiS_LCDData SiS_LCD1280x768_3Data[] =
-{
-	{  64,   25, 1056,  422, 1664,  798 },			/* 640x400 */
-	{ 128,   39,  884,  396, 1408,  806 }, /* ,640 */
-	{  64,   25, 1056,  422, 1664,  798 },			/* 640x400 */
-	{ 128,   39,  884,  396, 1408,  806 }, /* ,640 */
-	{  32,   15, 1056,  513, 1408,  806 }, /* ,664 */	/* 640x480 */
-	{ 176,  125, 1280,  640, 1408,  806 }, /* ,768 */	/* 800x600 */
-	{  64,   61, 1342,  806, 1408,  806 },			/* 1024x768 */
-	{   0,    0,    0,    0,    0,    0 },
-	{   1,    1, 1408,  806, 1408,  806 },			/* 1280x768 */
-	{   0,    0,    0,    0,    0,    0 },
-	{  16,   15, 1600,  750, 1600,  806 }  /* 1280x720  from above */
-};
-#endif
 
 static const struct SiS_LCDData SiS_LCD1280x800Data[] = /* 0.93.12a (TMDS) */
 {
@@ -1072,22 +1011,6 @@ static const struct SiS_LCDData SiS_LCD1280x800_2Data[] = /* 2.03.00 (LVDS) */
 	{  97,   90, 1600,  730, 1552,  812 }  /* 1280x720 */
 };
 
-#if 0
-static const struct SiS_LCDData SiS_LCD1280x800_3Data[] = /* 2.02.05a (LVDS); m250 */
-{
-	{ 128,   51, 1122,  412, 1408,  816 }, /* 640x400 */
-	{ 128,   49, 1232,  361, 1408,  816 },
-	{ 128,   51, 1122,  412, 1408,  816 },
-	{ 128,   49, 1232,  361, 1408,  816 },
-	{   8,    3,  880,  491, 1408,  816 }, /* 640x480 */
-	{  11,    6, 1024,  612, 1408,  816 }, /* 800x600 */
-	{  22,   21, 1400,  784, 1408,  816 }, /* 1024x768 */
-	{   0,    0,    0,    0,    0,    0 }, /* 1280x1024 */
-	{   1,    1, 1408,  816, 1408,  816 }, /* 1280x800 */
-	{   0,    0,    0,    0,    0,    0 }, /* 1280x768 - patch index */
-	{   0,    0,    0,    0,    0,    0 }  /* 1280x720 */
-};
-#endif
 
 static const struct SiS_LCDData SiS_LCD1280x854Data[] = /* 2.21.00CS (LVDS) */
 {
@@ -1395,11 +1318,6 @@ static const struct SiS_LVDSCRT1Data SiS_LVDSCRT1320x240_2[] =
  {{0x7f,0x63,0x83,0x6c,0x1c,0x72,0xf0,
    0x58,0x8c,0x57,0x73,0x20,0x00,0x06,
    0x01}},
-#if 0
- {{0x2d,0x27,0x90,0x2c,0x80,0x0b,0x3e,
-   0xe9,0x8b,0xe7,0x04,0x00,0x00,0x00,
-   0x00}}
-#endif
  {{0x5f,0x4f,0x83,0x55,0x81,0x0b,0x3e,
    0xe9,0x8b,0xe8,0x0c,0x00,0x00,0x05,
    0x00}},
@@ -1652,4 +1570,3 @@ extern unsigned int	sisfb_read_mio_pci_word(struct SiS_Private *SiS_Pr, int reg)
 #endif
 
 #endif
-

@@ -590,7 +590,6 @@ modrem_kernel(struct fp_ext *dest, struct fp_ext *src, int mode)
 	if (IS_ZERO(dest) || IS_INF(src))
 		return dest;
 
-	/* FIXME: there is almost certainly a smarter way to do this */
 	fp_copy_ext(&tmp, dest);
 	fp_fdiv(&tmp, src);		/* NOTE: src might be modified */
 	fp_roundint(&tmp, mode);
@@ -698,4 +697,3 @@ fp_fscale(struct fp_ext *dest, struct fp_ext *src)
 
 	return dest;
 }
-

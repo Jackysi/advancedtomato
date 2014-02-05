@@ -107,4 +107,3 @@ putc:
 env:
 	.long	0
 	.text
-

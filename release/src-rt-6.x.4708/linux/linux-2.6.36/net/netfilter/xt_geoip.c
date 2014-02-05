@@ -27,7 +27,7 @@ MODULE_DESCRIPTION("xtables module for geoip match");
 MODULE_ALIAS("ipt_geoip");
 
 struct geoip_info *head = NULL;
-static spinlock_t geoip_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(geoip_lock);
 
 static struct geoip_info *add_node(struct geoip_info *memcpy)
 {
@@ -99,16 +99,9 @@ static struct geoip_info *find_node(u_int16_t cc)
    return NULL;
 }
 
-static int xt_geoip_mt(const struct sk_buff *skb,
-		       const struct net_device *in,
-		       const struct net_device *out,
-		       const struct xt_match *match,
-		       const void *matchinfo,
-		       int offset,
-		       unsigned int protoff,
-		       int *hotdrop)
+static bool xt_geoip_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-   const struct xt_geoip_match_info *info = (void*)matchinfo;
+   const struct xt_geoip_match_info *info = par->matchinfo;
    const struct geoip_info *node; /* This keeps the code sexy */
    const struct iphdr *iph = ip_hdr(skb);
    u_int32_t ip, i, j;
@@ -138,14 +131,10 @@ static int xt_geoip_mt(const struct sk_buff *skb,
    return (info->flags & XT_GEOIP_INV) ? 1 : 0;
 }
 
-static int xt_geoip_mt_checkentry(const char *tablename,
-	   const void *ip,
-	   const struct xt_match *match,
-	   void *matchinfo,
-	   unsigned int hook_mask)
+static int xt_geoip_mt_checkentry(const struct xt_mtchk_param *par)
 {
    
-   struct xt_geoip_match_info *info = (void *)matchinfo;
+   struct xt_geoip_match_info *info = par->matchinfo;
    struct geoip_info *node;
    u_int8_t i;
 
@@ -163,7 +152,7 @@ static int xt_geoip_mt_checkentry(const char *tablename,
     * this entry. */
    if (info->refcount != NULL) {
       atomic_inc((atomic_t *)info->refcount);
-      return 1;
+      return 0;
    }
    
    
@@ -176,7 +165,7 @@ static int xt_geoip_mt_checkentry(const char *tablename,
             printk(KERN_ERR
                   "xt_geoip: unable to load '%c%c' into memory\n",
                   COUNTRY(info->cc[i]));
-            return 0;
+            return -ENOMEM;
          }
 
       /* Free userspace allocated memory for that country.
@@ -204,17 +193,16 @@ static int xt_geoip_mt_checkentry(const char *tablename,
    info->refcount = kmalloc(sizeof(u_int8_t), GFP_KERNEL);
    if (info->refcount == NULL) {
       printk(KERN_ERR "xt_geoip: failed to allocate `refcount' memory\n");
-      return 0;
+      return -ENOMEM;
    }
    *(info->refcount) = 1;
    
-   return 1;
+   return 0;
 }
 
-static void xt_geoip_mt_destroy(const struct xt_match *matcn,
-				void *matchinfo)
+static void xt_geoip_mt_destroy(const struct xt_mtdtor_param *par)
 {
-   struct xt_geoip_match_info *info = (void *)matchinfo;
+   struct xt_geoip_match_info *info = par->matchinfo;
    struct geoip_info *node; /* this keeps the code sexy */
    u_int8_t i;
  
@@ -256,7 +244,7 @@ static void xt_geoip_mt_destroy(const struct xt_match *matcn,
 }
 
 static struct xt_match xt_geoip_match __read_mostly = {
-		.family		= AF_INET,
+		.family		= NFPROTO_IPV4,
 		.name		= "geoip",
 		.match		= xt_geoip_mt,
 		.checkentry	= xt_geoip_mt_checkentry,

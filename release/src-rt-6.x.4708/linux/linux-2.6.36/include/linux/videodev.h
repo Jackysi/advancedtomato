@@ -16,7 +16,7 @@
 #include <linux/ioctl.h>
 #include <linux/videodev2.h>
 
-#if defined(__MIN_V4L1) && defined (__KERNEL__)
+#if defined(__MIN_V4L1) && defined(__KERNEL__)
 
 /*
  * Used by those V4L2 core functions that need a minimum V4L1 support,
@@ -33,7 +33,7 @@ struct video_mbuf
 #define VIDIOCGMBUF		_IOR('v',20, struct video_mbuf)		/* Memory map buffer info */
 
 #else
-#if defined(CONFIG_VIDEO_V4L1_COMPAT) || !defined (__KERNEL__)
+#if defined(CONFIG_VIDEO_V4L1_COMPAT) || !defined(__KERNEL__)
 
 #define VID_TYPE_CAPTURE	1	/* Can capture */
 #define VID_TYPE_TUNER		2	/* Can tune */

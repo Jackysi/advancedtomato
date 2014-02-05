@@ -1,7 +1,7 @@
 /*
  *  Routines for control of the AK4117 via 4-wire serial interface
  *  IEC958 (S/PDIF) receiver by Asahi Kasei
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <sound/core.h>
@@ -29,7 +28,7 @@
 #include <sound/ak4117.h>
 #include <sound/asoundef.h>
 
-MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
+MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("AK4117 IEC958 (S/PDIF) receiver by Asahi Kasei");
 MODULE_LICENSE("GPL");
 
@@ -49,16 +48,6 @@ static inline unsigned char reg_read(struct ak4117 *ak4117, unsigned char reg)
 	return ak4117->read(ak4117->private_data, reg);
 }
 
-#if 0
-static void reg_dump(struct ak4117 *ak4117)
-{
-	int i;
-
-	printk(KERN_DEBUG "AK4117 REG DUMP:\n");
-	for (i = 0; i < 0x1b; i++)
-		printk(KERN_DEBUG "reg[%02x] = %02x (%02x)\n", i, reg_read(ak4117, i), i < sizeof(ak4117->regmap) ? ak4117->regmap[i] : 0);
-}
-#endif
 
 static void snd_ak4117_free(struct ak4117 *chip)
 {
@@ -181,15 +170,7 @@ static int snd_ak4117_in_error_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int snd_ak4117_in_bit_info(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 1;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
+#define snd_ak4117_in_bit_info		snd_ctl_boolean_mono_info
 
 static int snd_ak4117_in_bit_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
@@ -440,7 +421,8 @@ int snd_ak4117_build(struct ak4117 *ak4117, struct snd_pcm_substream *cap_substr
 	unsigned int idx;
 	int err;
 
-	snd_assert(cap_substream, return -EINVAL);
+	if (snd_BUG_ON(!cap_substream))
+		return -EINVAL;
 	ak4117->substream = cap_substream;
 	for (idx = 0; idx < AK4117_CONTROLS; idx++) {
 		kctl = snd_ctl_new1(&snd_ak4117_iec958_controls[idx], ak4117);

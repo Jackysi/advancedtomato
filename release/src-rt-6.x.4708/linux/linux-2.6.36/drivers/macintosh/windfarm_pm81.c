@@ -188,7 +188,7 @@ struct wf_smu_sys_fans_state {
 };
 
 /*
- * Configs for SMU Sytem Fan control loop
+ * Configs for SMU System Fan control loop
  */
 static struct wf_smu_sys_fans_param wf_smu_sys_all_params[] = {
 	/* Model ID 2 */
@@ -726,10 +726,6 @@ static int __devexit wf_smu_remove(struct platform_device *ddev)
 {
 	wf_unregister_client(&wf_smu_events);
 
-	/* XXX We don't have yet a guarantee that our callback isn't
-	 * in progress when returning from wf_unregister_client, so
-	 * we add an arbitrary delay. I'll have to fix that in the core
-	 */
 	msleep(1000);
 
 	/* Release all sensors */
@@ -757,10 +753,8 @@ static int __devexit wf_smu_remove(struct platform_device *ddev)
 		wf_put_control(cpufreq_clamp);
 
 	/* Destroy control loops state structures */
-	if (wf_smu_sys_fans)
-		kfree(wf_smu_sys_fans);
-	if (wf_smu_cpu_fans)
-		kfree(wf_smu_cpu_fans);
+	kfree(wf_smu_sys_fans);
+	kfree(wf_smu_cpu_fans);
 
 	return 0;
 }
@@ -770,7 +764,7 @@ static struct platform_driver wf_smu_driver = {
         .remove = __devexit_p(wf_smu_remove),
 	.driver = {
 		.name = "windfarm",
-		.bus = &platform_bus_type,
+		.owner	= THIS_MODULE,
 	},
 };
 
@@ -779,8 +773,8 @@ static int __init wf_smu_init(void)
 {
 	int rc = -ENODEV;
 
-	if (machine_is_compatible("PowerMac8,1") ||
-	    machine_is_compatible("PowerMac8,2"))
+	if (of_machine_is_compatible("PowerMac8,1") ||
+	    of_machine_is_compatible("PowerMac8,2"))
 		rc = wf_init_pm();
 
 	if (rc == 0) {
@@ -810,4 +804,4 @@ module_exit(wf_smu_exit);
 MODULE_AUTHOR("Benjamin Herrenschmidt <benh@kernel.crashing.org>");
 MODULE_DESCRIPTION("Thermal control logic for iMac G5");
 MODULE_LICENSE("GPL");
-
+MODULE_ALIAS("platform:windfarm");

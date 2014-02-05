@@ -4,9 +4,6 @@
 /* (C) 1999 Machine Vision Holdings, Inc.			*/
 /* (C) 1999-2003 David Woodhouse <dwmw2@infradead.org>		*/
 
-/* $Id: docprobe.c,v 1.46 2005/11/07 11:14:25 gleixner Exp $	*/
-
-
 
 /* DOC_PASSIVE_PROBE:
    In order to ensure that the BIOS checksum is correct at boot time, and
@@ -52,7 +49,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/doc2000.h>
-#include <linux/mtd/compatmac.h>
 
 /* Where to look for the devices? */
 #ifndef CONFIG_MTD_DOCPROBE_ADDRESS
@@ -65,7 +61,7 @@ module_param(doc_config_location, ulong, 0);
 MODULE_PARM_DESC(doc_config_location, "Physical memory address at which to probe for DiskOnChip");
 
 static unsigned long __initdata doc_locations[] = {
-#if defined (__alpha__) || defined(__i386__) || defined(__x86_64__)
+#if defined(__alpha__) || defined(__i386__) || defined(__x86_64__)
 #ifdef CONFIG_MTD_DOCPROBE_HIGH
 	0xfffc8000, 0xfffca000, 0xfffcc000, 0xfffce000,
 	0xfffd0000, 0xfffd2000, 0xfffd4000, 0xfffd6000,
@@ -79,13 +75,6 @@ static unsigned long __initdata doc_locations[] = {
 	0xe0000, 0xe2000, 0xe4000, 0xe6000,
 	0xe8000, 0xea000, 0xec000, 0xee000,
 #endif /*  CONFIG_MTD_DOCPROBE_HIGH */
-#elif defined(__PPC__)
-	0xe4000000,
-#elif defined(CONFIG_MOMENCO_OCELOT)
-	0x2f000000,
-	0xff000000,
-#elif defined(CONFIG_MOMENCO_OCELOT_G) || defined (CONFIG_MOMENCO_OCELOT_C)
-	0xff000000,
 #else
 #warning Unknown architecture for DiskOnChip. No default probe locations defined
 #endif
@@ -345,4 +334,3 @@ module_init(init_doc);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
 MODULE_DESCRIPTION("Probe code for DiskOnChip 2000 and Millennium devices");
-

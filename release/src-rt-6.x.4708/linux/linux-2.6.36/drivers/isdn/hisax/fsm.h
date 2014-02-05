@@ -1,4 +1,4 @@
-/* $Id: fsm.h,v 1.3.2.2 2001/09/23 22:24:47 kai Exp $
+/* $Id: fsm.h,v 1.3.2.2 2001/09/23 22:24:47 Exp $
  *
  * Finite state machine
  *

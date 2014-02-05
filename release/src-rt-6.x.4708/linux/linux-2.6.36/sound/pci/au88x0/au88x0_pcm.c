@@ -21,7 +21,6 @@
  * It remains stuck,and DMA transfers do not happen. 
  */
 #include <sound/asoundef.h>
-#include <sound/driver.h>
 #include <linux/time.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -43,11 +42,7 @@ static struct snd_pcm_hardware snd_vortex_playback_hw_adb = {
 	.rate_min = 5000,
 	.rate_max = 48000,
 	.channels_min = 1,
-#ifdef CHIP_AU8830
-	.channels_max = 4,
-#else
 	.channels_max = 2,
-#endif
 	.buffer_bytes_max = 0x10000,
 	.period_bytes_min = 0x1,
 	.period_bytes_max = 0x1000,
@@ -116,6 +111,17 @@ static struct snd_pcm_hardware snd_vortex_playback_hw_wt = {
 	.periods_max = 64,
 };
 #endif
+#ifdef CHIP_AU8830
+static unsigned int au8830_channels[3] = {
+	1, 2, 4,
+};
+
+static struct snd_pcm_hw_constraint_list hw_constraints_au8830_channels = {
+	.count = ARRAY_SIZE(au8830_channels),
+	.list = au8830_channels,
+	.mask = 0,
+};
+#endif
 /* open callback */
 static int snd_vortex_pcm_open(struct snd_pcm_substream *substream)
 {
@@ -157,6 +163,15 @@ static int snd_vortex_pcm_open(struct snd_pcm_substream *substream)
 		if (VORTEX_PCM_TYPE(substream->pcm) == VORTEX_PCM_ADB
 		    || VORTEX_PCM_TYPE(substream->pcm) == VORTEX_PCM_I2S)
 			runtime->hw = snd_vortex_playback_hw_adb;
+#ifdef CHIP_AU8830
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
+			VORTEX_PCM_TYPE(substream->pcm) == VORTEX_PCM_ADB) {
+			runtime->hw.channels_max = 4;
+			snd_pcm_hw_constraint_list(runtime, 0,
+				SNDRV_PCM_HW_PARAM_CHANNELS,
+				&hw_constraints_au8830_channels);
+		}
+#endif
 		substream->runtime->private_data = NULL;
 	}
 #ifndef CHIP_AU8810
@@ -190,7 +205,6 @@ snd_vortex_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	vortex_t *chip = snd_pcm_substream_chip(substream);
 	stream_t *stream = (stream_t *) (substream->runtime->private_data);
-	struct snd_sg_buf *sgbuf;
 	int err;
 
 	// Alloc buffer memory.
@@ -200,8 +214,6 @@ snd_vortex_pcm_hw_params(struct snd_pcm_substream *substream,
 		printk(KERN_ERR "Vortex: pcm page alloc failed!\n");
 		return err;
 	}
-	//sgbuf = (struct snd_sg_buf *) substream->runtime->dma_private;
-	sgbuf = snd_pcm_substream_sgbuf(substream);
 	/*
 	   printk(KERN_INFO "Vortex: periods %d, period_bytes %d, channels = %d\n", params_periods(hw_params),
 	   params_period_bytes(hw_params), params_channels(hw_params));
@@ -227,7 +239,7 @@ snd_vortex_pcm_hw_params(struct snd_pcm_substream *substream,
 		stream = substream->runtime->private_data = &chip->dma_adb[dma];
 		stream->substream = substream;
 		/* Setup Buffers. */
-		vortex_adbdma_setbuffers(chip, dma, sgbuf,
+		vortex_adbdma_setbuffers(chip, dma,
 					 params_period_bytes(hw_params),
 					 params_periods(hw_params));
 	}
@@ -241,7 +253,7 @@ snd_vortex_pcm_hw_params(struct snd_pcm_substream *substream,
 		    &chip->dma_wt[substream->number];
 		stream->dma = substream->number;
 		stream->substream = substream;
-		vortex_wtdma_setbuffers(chip, substream->number, sgbuf,
+		vortex_wtdma_setbuffers(chip, substream->number,
 					params_period_bytes(hw_params),
 					params_periods(hw_params));
 	}
@@ -301,7 +313,6 @@ static int snd_vortex_pcm_prepare(struct snd_pcm_substream *substream)
 #ifndef CHIP_AU8810
 	else {
 		vortex_wtdma_setmode(chip, dma, 1, fmt, 0, 0);
-		// FIXME: Set rate (i guess using vortex_wt_writereg() somehow).
 		vortex_wtdma_setstartbuffer(chip, dma, 0);
 	}
 #endif
@@ -393,13 +404,6 @@ static snd_pcm_uframes_t snd_vortex_pcm_pointer(struct snd_pcm_substream *substr
 	return (bytes_to_frames(substream->runtime, current_ptr));
 }
 
-/* Page callback. */
-/*
-static struct page *snd_pcm_sgbuf_ops_page(struct snd_pcm_substream *substream, unsigned long offset) {
-	
-	
-}
-*/
 /* operators */
 static struct snd_pcm_ops snd_vortex_playback_ops = {
 	.open = snd_vortex_pcm_open,
@@ -499,14 +503,14 @@ static struct snd_kcontrol_new snd_vortex_mixer_spdif[] __devinitdata = {
 };
 
 /* create a pcm device */
-static int __devinit snd_vortex_new_pcm(vortex_t * chip, int idx, int nr)
+static int __devinit snd_vortex_new_pcm(vortex_t *chip, int idx, int nr)
 {
 	struct snd_pcm *pcm;
 	struct snd_kcontrol *kctl;
 	int i;
 	int err, nr_capt;
 
-	if ((chip == 0) || (idx < 0) || (idx >= VORTEX_PCM_LAST))
+	if (!chip || idx < 0 || idx >= VORTEX_PCM_LAST)
 		return -ENODEV;
 
 	/* idx indicates which kind of PCM device. ADB, SPDIF, I2S and A3D share the 
@@ -515,9 +519,9 @@ static int __devinit snd_vortex_new_pcm(vortex_t * chip, int idx, int nr)
 		nr_capt = nr;
 	else
 		nr_capt = 0;
-	if ((err =
-	     snd_pcm_new(chip->card, vortex_pcm_prettyname[idx], idx, nr,
-			 nr_capt, &pcm)) < 0)
+	err = snd_pcm_new(chip->card, vortex_pcm_prettyname[idx], idx, nr,
+			  nr_capt, &pcm);
+	if (err < 0)
 		return err;
 	strcpy(pcm->name, vortex_pcm_name[idx]);
 	chip->pcm[idx] = pcm;

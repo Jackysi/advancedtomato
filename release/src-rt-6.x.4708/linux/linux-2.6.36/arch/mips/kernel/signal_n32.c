@@ -74,7 +74,7 @@ struct rt_sigframe_n32 {
 	struct ucontextn32 rs_uc;
 };
 
-extern void sigset_from_compat (sigset_t *set, compat_sigset_t *compat);
+extern void sigset_from_compat(sigset_t *set, compat_sigset_t *compat);
 
 asmlinkage int sysn32_rt_sigsuspend(nabi_no_regargs struct pt_regs regs)
 {
@@ -83,7 +83,6 @@ asmlinkage int sysn32_rt_sigsuspend(nabi_no_regargs struct pt_regs regs)
 	size_t sigsetsize;
 	sigset_t newset;
 
-	/* XXX Don't preclude handling different sized sigset_t's.  */
 	sigsetsize = regs.regs[5];
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
@@ -91,7 +90,7 @@ asmlinkage int sysn32_rt_sigsuspend(nabi_no_regargs struct pt_regs regs)
 	unewset = (compat_sigset_t __user *) regs.regs[4];
 	if (copy_from_user(&uset, unewset, sizeof(uset)))
 		return -EFAULT;
-	sigset_from_compat (&newset, &uset);
+	sigset_from_compat(&newset, &uset);
 	sigdelsetmask(&newset, ~_BLOCKABLE);
 
 	spin_lock_irq(&current->sighand->siglock);

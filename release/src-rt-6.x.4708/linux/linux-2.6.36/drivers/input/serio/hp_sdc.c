@@ -67,6 +67,7 @@
 #include <linux/module.h>
 #include <linux/ioport.h>
 #include <linux/time.h>
+#include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/hil.h>
 #include <asm/io.h>
@@ -103,6 +104,10 @@ EXPORT_SYMBOL(hp_sdc_release_cooked_irq);
 EXPORT_SYMBOL(__hp_sdc_enqueue_transaction);
 EXPORT_SYMBOL(hp_sdc_enqueue_transaction);
 EXPORT_SYMBOL(hp_sdc_dequeue_transaction);
+
+static unsigned int hp_sdc_disabled;
+module_param_named(no_hpsdc, hp_sdc_disabled, bool, 0);
+MODULE_PARM_DESC(no_hpsdc, "Do not enable HP SDC driver.");
 
 static hp_i8042_sdc	hp_sdc;	/* All driver state is kept in here. */
 
@@ -277,17 +282,6 @@ static irqreturn_t hp_sdc_nmisr(int irq, void *dev_id)
 	status = hp_sdc_status_in8();
 	printk(KERN_WARNING PREFIX "NMI !\n");
 
-#if 0
-	if (status & HP_SDC_NMISTATUS_FHS) {
-		read_lock(&hp_sdc.hook_lock);
-		if (hp_sdc.timer != NULL)
-			hp_sdc.timer(irq, dev_id, status, 0);
-		read_unlock(&hp_sdc.hook_lock);
-	} else {
-		/* TODO: pass this on to the HIL handler, or do SAK here? */
-		printk(KERN_WARNING PREFIX "HIL NMI\n");
-	}
-#endif
 
 	return IRQ_HANDLED;
 }
@@ -318,7 +312,7 @@ static void hp_sdc_tasklet(unsigned long foo)
 			 * it back to the application. and be less verbose.
 			 */
 			printk(KERN_WARNING PREFIX "read timeout (%ius)!\n",
-			       tv.tv_usec - hp_sdc.rtv.tv_usec);
+			       (int)(tv.tv_usec - hp_sdc.rtv.tv_usec));
 			curr->idx += hp_sdc.rqty;
 			hp_sdc.rqty = 0;
 			tmp = curr->seq[curr->actidx];
@@ -814,6 +808,7 @@ static const struct parisc_device_id hp_sdc_tbl[] = {
 MODULE_DEVICE_TABLE(parisc, hp_sdc_tbl);
 
 static int __init hp_sdc_init_hppa(struct parisc_device *d);
+static struct delayed_work moduleloader_work;
 
 static struct parisc_driver hp_sdc_driver = {
 	.name =		"hp_sdc",
@@ -925,8 +920,15 @@ static int __init hp_sdc_init(void)
 
 #if defined(__hppa__)
 
+static void request_module_delayed(struct work_struct *work)
+{
+	request_module("hp_sdc_mlc");
+}
+
 static int __init hp_sdc_init_hppa(struct parisc_device *d)
 {
+	int ret;
+
 	if (!d)
 		return 1;
 	if (hp_sdc.dev != NULL)
@@ -939,17 +941,26 @@ static int __init hp_sdc_init_hppa(struct parisc_device *d)
 	hp_sdc.data_io		= d->hpa.start + 0x800;
 	hp_sdc.status_io	= d->hpa.start + 0x801;
 
-	return hp_sdc_init();
+	INIT_DELAYED_WORK(&moduleloader_work, request_module_delayed);
+
+	ret = hp_sdc_init();
+	/* after successfull initialization give SDC some time to settle
+	 * and then load the hp_sdc_mlc upper layer driver */
+	if (!ret)
+		schedule_delayed_work(&moduleloader_work,
+			msecs_to_jiffies(2000));
+
+	return ret;
 }
 
 #endif /* __hppa__ */
 
-#if !defined(__mc68000__) /* Link error on m68k! */
-static void __exit hp_sdc_exit(void)
-#else
 static void hp_sdc_exit(void)
-#endif
 {
+	/* do nothing if we don't have a SDC */
+	if (!hp_sdc.dev)
+		return;
+
 	write_lock_irq(&hp_sdc.lock);
 
 	/* Turn off all maskable "sub-function" irq's. */
@@ -968,6 +979,7 @@ static void hp_sdc_exit(void)
 	tasklet_kill(&hp_sdc.task);
 
 #if defined(__hppa__)
+	cancel_delayed_work_sync(&moduleloader_work);
 	if (unregister_parisc_driver(&hp_sdc_driver))
 		printk(KERN_WARNING PREFIX "Error unregistering HP SDC");
 #endif
@@ -982,6 +994,11 @@ static int __init hp_sdc_register(void)
 	mm_segment_t fs;
 	unsigned char i;
 #endif
+
+	if (hp_sdc_disabled) {
+		printk(KERN_WARNING PREFIX "HP SDC driver disabled by no_hpsdc=1.\n");
+		return -ENODEV;
+	}
 
 	hp_sdc.dev = NULL;
 	hp_sdc.dev_err = 0;

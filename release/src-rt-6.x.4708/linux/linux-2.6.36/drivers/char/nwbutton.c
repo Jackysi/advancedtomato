@@ -36,22 +36,6 @@ static struct button_callback button_callback_list[32]; /* The callback list */
 static int callback_count;		/* The number of callbacks registered */
 static int reboot_count = NUM_PRESSES_REBOOT; /* Number of presses to reboot */
 
-/*
- * This function is called by other drivers to register a callback function
- * to be called when a particular number of button presses occurs.
- * The callback list is a static array of 32 entries (I somehow doubt many
- * people are ever going to want to register more than 32 different actions
- * to be performed by the kernel on different numbers of button presses ;).
- * However, if an attempt to register a 33rd entry (perhaps a stuck loop
- * somewhere registering the same entry over and over?) it will fail to
- * do so and return -ENOMEM. If an attempt is made to register a null pointer,
- * it will fail to do so and return -EINVAL.
- * Because callbacks can be unregistered at random the list can become
- * fragmented, so we need to search through the list until we find the first
- * free entry.
- *
- * FIXME: Has anyone spotted any locking functions int his code recently ??
- */
 
 int button_add_callback (void (*callback) (void), int count)
 {

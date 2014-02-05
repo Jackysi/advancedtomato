@@ -25,91 +25,17 @@
 #include "xfs_sb.h"
 #include "xfs_ag.h"
 #include "xfs_dir2.h"
-#include "xfs_dmapi.h"
 #include "xfs_mount.h"
 #include "xfs_bmap_btree.h"
-#include "xfs_dir2_sf.h"
-#include "xfs_attr_sf.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_inode_item.h"
 #include "xfs_bmap.h"
 #include "xfs_error.h"
 #include "xfs_quota.h"
-#include "xfs_rw.h"
 #include "xfs_itable.h"
 #include "xfs_utils.h"
 
-/*
- * xfs_get_dir_entry is used to get a reference to an inode given
- * its parent directory inode and the name of the file.	 It does
- * not lock the child inode, and it unlocks the directory before
- * returning.  The directory's generation number is returned for
- * use by a later call to xfs_lock_dir_and_entry.
- */
-int
-xfs_get_dir_entry(
-	bhv_vname_t	*dentry,
-	xfs_inode_t	**ipp)
-{
-	bhv_vnode_t	*vp;
-
-	vp = VNAME_TO_VNODE(dentry);
-
-	*ipp = xfs_vtoi(vp);
-	if (!*ipp)
-		return XFS_ERROR(ENOENT);
-	VN_HOLD(vp);
-	return 0;
-}
-
-int
-xfs_dir_lookup_int(
-	bhv_desc_t	*dir_bdp,
-	uint		lock_mode,
-	bhv_vname_t	*dentry,
-	xfs_ino_t	*inum,
-	xfs_inode_t	**ipp)
-{
-	bhv_vnode_t	*dir_vp;
-	xfs_inode_t	*dp;
-	int		error;
-
-	dir_vp = BHV_TO_VNODE(dir_bdp);
-	vn_trace_entry(dir_vp, __FUNCTION__, (inst_t *)__return_address);
-
-	dp = XFS_BHVTOI(dir_bdp);
-
-	error = xfs_dir_lookup(NULL, dp, VNAME(dentry), VNAMELEN(dentry), inum);
-	if (!error) {
-		/*
-		 * Unlock the directory. We do this because we can't
-		 * hold the directory lock while doing the vn_get()
-		 * in xfs_iget().  Doing so could cause us to hold
-		 * a lock while waiting for the inode to finish
-		 * being inactive while it's waiting for a log
-		 * reservation in the inactive routine.
-		 */
-		xfs_iunlock(dp, lock_mode);
-		error = xfs_iget(dp->i_mount, NULL, *inum, 0, 0, ipp, 0);
-		xfs_ilock(dp, lock_mode);
-
-		if (error) {
-			*ipp = NULL;
-		} else if ((*ipp)->i_d.di_mode == 0) {
-			/*
-			 * The inode has been freed.  Something is
-			 * wrong so just get out of here.
-			 */
-			xfs_iunlock(dp, lock_mode);
-			xfs_iput_new(*ipp, 0);
-			*ipp = NULL;
-			xfs_ilock(dp, lock_mode);
-			error = XFS_ERROR(ENOENT);
-		}
-	}
-	return error;
-}
 
 /*
  * Allocates a new inode from disk and return a pointer to the
@@ -236,12 +162,18 @@ xfs_dir_ialloc(
 			xfs_buf_relse(ialloc_context);
 			if (dqinfo) {
 				tp->t_dqinfo = dqinfo;
-				XFS_TRANS_FREE_DQINFO(tp->t_mountp, tp);
+				xfs_trans_free_dqinfo(tp);
 			}
 			*tpp = ntp;
 			*ipp = NULL;
 			return code;
 		}
+
+		/*
+		 * transaction commit worked ok so we can drop the extra ticket
+		 * reference that we gained in xfs_trans_dup()
+		 */
+		xfs_log_ticket_put(tp->t_ticket);
 		code = xfs_trans_reserve(tp, 0, log_res, 0,
 					 XFS_TRANS_PERM_LOG_RES, log_count);
 		/*
@@ -307,6 +239,7 @@ xfs_droplink(
 
 	ASSERT (ip->i_d.di_nlink > 0);
 	ip->i_d.di_nlink--;
+	drop_nlink(VFS_I(ip));
 	xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
 
 	error = 0;
@@ -335,23 +268,22 @@ xfs_bump_ino_vers2(
 	xfs_inode_t	*ip)
 {
 	xfs_mount_t	*mp;
-	unsigned long		s;
 
-	ASSERT(ismrlocked (&ip->i_lock, MR_UPDATE));
-	ASSERT(ip->i_d.di_version == XFS_DINODE_VERSION_1);
+	ASSERT(xfs_isilocked(ip, XFS_ILOCK_EXCL));
+	ASSERT(ip->i_d.di_version == 1);
 
-	ip->i_d.di_version = XFS_DINODE_VERSION_2;
+	ip->i_d.di_version = 2;
 	ip->i_d.di_onlink = 0;
 	memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 	mp = tp->t_mountp;
-	if (!XFS_SB_VERSION_HASNLINK(&mp->m_sb)) {
-		s = XFS_SB_LOCK(mp);
-		if (!XFS_SB_VERSION_HASNLINK(&mp->m_sb)) {
-			XFS_SB_VERSION_ADDNLINK(&mp->m_sb);
-			XFS_SB_UNLOCK(mp, s);
+	if (!xfs_sb_version_hasnlink(&mp->m_sb)) {
+		spin_lock(&mp->m_sb_lock);
+		if (!xfs_sb_version_hasnlink(&mp->m_sb)) {
+			xfs_sb_version_addnlink(&mp->m_sb);
+			spin_unlock(&mp->m_sb_lock);
 			xfs_mod_sb(tp, XFS_SB_VERSIONNUM);
 		} else {
-			XFS_SB_UNLOCK(mp, s);
+			spin_unlock(&mp->m_sb_lock);
 		}
 	}
 	/* Caller must log the inode */
@@ -371,7 +303,8 @@ xfs_bumplink(
 
 	ASSERT(ip->i_d.di_nlink > 0);
 	ip->i_d.di_nlink++;
-	if ((ip->i_d.di_version == XFS_DINODE_VERSION_1) &&
+	inc_nlink(VFS_I(ip));
+	if ((ip->i_d.di_version == 1) &&
 	    (ip->i_d.di_nlink > XFS_MAXLINK_1)) {
 		/*
 		 * The inode has increased its number of links beyond
@@ -386,87 +319,4 @@ xfs_bumplink(
 
 	xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
 	return 0;
-}
-
-/*
- * Try to truncate the given file to 0 length.  Currently called
- * only out of xfs_remove when it has to truncate a file to free
- * up space for the remove to proceed.
- */
-int
-xfs_truncate_file(
-	xfs_mount_t	*mp,
-	xfs_inode_t	*ip)
-{
-	xfs_trans_t	*tp;
-	int		error;
-
-#ifdef QUOTADEBUG
-	/*
-	 * This is called to truncate the quotainodes too.
-	 */
-	if (XFS_IS_UQUOTA_ON(mp)) {
-		if (ip->i_ino != mp->m_sb.sb_uquotino)
-			ASSERT(ip->i_udquot);
-	}
-	if (XFS_IS_OQUOTA_ON(mp)) {
-		if (ip->i_ino != mp->m_sb.sb_gquotino)
-			ASSERT(ip->i_gdquot);
-	}
-#endif
-	/*
-	 * Make the call to xfs_itruncate_start before starting the
-	 * transaction, because we cannot make the call while we're
-	 * in a transaction.
-	 */
-	xfs_ilock(ip, XFS_IOLOCK_EXCL);
-	error = xfs_itruncate_start(ip, XFS_ITRUNC_DEFINITE, (xfs_fsize_t)0);
-	if (error) {
-		xfs_iunlock(ip, XFS_IOLOCK_EXCL);
-		return error;
-	}
-
-	tp = xfs_trans_alloc(mp, XFS_TRANS_TRUNCATE_FILE);
-	if ((error = xfs_trans_reserve(tp, 0, XFS_ITRUNCATE_LOG_RES(mp), 0,
-				      XFS_TRANS_PERM_LOG_RES,
-				      XFS_ITRUNCATE_LOG_COUNT))) {
-		xfs_trans_cancel(tp, 0);
-		xfs_iunlock(ip, XFS_IOLOCK_EXCL);
-		return error;
-	}
-
-	/*
-	 * Follow the normal truncate locking protocol.  Since we
-	 * hold the inode in the transaction, we know that it's number
-	 * of references will stay constant.
-	 */
-	xfs_ilock(ip, XFS_ILOCK_EXCL);
-	xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
-	xfs_trans_ihold(tp, ip);
-	/*
-	 * Signal a sync xaction.  The only case where that isn't
-	 * the case is if we're truncating an already unlinked file
-	 * on a wsync fs.  In that case, we know the blocks can't
-	 * reappear in the file because the links to file are
-	 * permanently toast.  Currently, we're always going to
-	 * want a sync transaction because this code is being
-	 * called from places where nlink is guaranteed to be 1
-	 * but I'm leaving the tests in to protect against future
-	 * changes -- rcc.
-	 */
-	error = xfs_itruncate_finish(&tp, ip, (xfs_fsize_t)0,
-				     XFS_DATA_FORK,
-				     ((ip->i_d.di_nlink != 0 ||
-				       !(mp->m_flags & XFS_MOUNT_WSYNC))
-				      ? 1 : 0));
-	if (error) {
-		xfs_trans_cancel(tp, XFS_TRANS_RELEASE_LOG_RES |
-				 XFS_TRANS_ABORT);
-	} else {
-		xfs_ichgtime(ip, XFS_ICHGTIME_MOD | XFS_ICHGTIME_CHG);
-		error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES);
-	}
-	xfs_iunlock(ip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
-
-	return error;
 }

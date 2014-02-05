@@ -1,4 +1,4 @@
-/* $Id: fsm.c,v 1.14.6.4 2001/09/23 22:24:47 kai Exp $
+/* $Id: fsm.c,v 1.14.6.4 2001/09/23 22:24:47 Exp $
  *
  * Finite state machine
  *
@@ -15,6 +15,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include "hisax.h"
 

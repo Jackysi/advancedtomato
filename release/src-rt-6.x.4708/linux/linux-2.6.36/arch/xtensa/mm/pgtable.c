@@ -67,6 +67,3 @@ struct page* pte_alloc_one(struct mm_struct *mm, unsigned long address)
 }
 
 #endif
-
-
-

@@ -49,7 +49,6 @@ static int ntfs_collate_ntofs_ulong(ntfs_volume *vol,
 	u32 d1, d2;
 
 	ntfs_debug("Entering.");
-	// FIXME:  We don't really want to bug here.
 	BUG_ON(data1_len != data2_len);
 	BUG_ON(data1_len != 4);
 	d1 = le32_to_cpup(data1);
@@ -104,10 +103,6 @@ int ntfs_collate(ntfs_volume *vol, COLLATION_RULE cr,
 	int i;
 
 	ntfs_debug("Entering.");
-	/*
-	 * FIXME:  At the moment we only support COLLATION_BINARY and
-	 * COLLATION_NTOFS_ULONG, so we BUG() for everything else for now.
-	 */
 	BUG_ON(cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG);
 	i = le32_to_cpu(cr);
 	BUG_ON(i < 0);

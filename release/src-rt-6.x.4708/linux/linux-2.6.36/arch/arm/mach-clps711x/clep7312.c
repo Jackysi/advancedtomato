@@ -32,7 +32,6 @@ fixup_clep7312(struct machine_desc *desc, struct tag *tags,
 	mi->nr_banks=1;
 	mi->bank[0].start = 0xc0000000;
 	mi->bank[0].size = 0x01000000;
-	mi->bank[0].node = 0;
 }
 
 
@@ -46,4 +45,3 @@ MACHINE_START(CLEP7212, "Cirrus Logic 7212/7312")
 	.init_irq	= clps711x_init_irq,
 	.timer		= &clps711x_timer,
 MACHINE_END
-

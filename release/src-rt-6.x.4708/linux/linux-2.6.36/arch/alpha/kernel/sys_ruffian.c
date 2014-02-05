@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/pci.h>
 #include <linux/ioport.h>
+#include <linux/timex.h>
 #include <linux/init.h>
 
 #include <asm/ptrace.h>
@@ -65,7 +66,7 @@ ruffian_init_irq(void)
 	common_init_isa_dma();
 }
 
-#define RUFFIAN_LATCH	((PIT_TICK_RATE + HZ / 2) / HZ)
+#define RUFFIAN_LATCH	DIV_ROUND_CLOSEST(PIT_TICK_RATE, HZ)
 
 static void __init
 ruffian_init_rtc(void)
@@ -89,12 +90,6 @@ static void
 ruffian_kill_arch (int mode)
 {
 	cia_kill_arch(mode);
-#if 0
-	/* This only causes re-entry to ARCSBIOS */
-	/* Perhaps this works for other PYXIS as well?  */
-	*(vuip) PYXIS_RESET = 0x0000dead;
-	mb();
-#endif
 }
 
 /*
@@ -160,7 +155,7 @@ ruffian_swizzle(struct pci_dev *dev, u8 *pinp)
 				slot = PCI_SLOT(dev->devfn) + 10;
 				break;
 			}
-			pin = bridge_swizzle(pin, PCI_SLOT(dev->devfn));
+			pin = pci_swizzle_interrupt_pin(dev, pin);
 
 			/* Move up the chain of bridges.  */
 			dev = dev->bus->self;

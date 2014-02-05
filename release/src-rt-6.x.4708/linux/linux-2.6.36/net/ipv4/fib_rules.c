@@ -32,8 +32,6 @@
 #include <net/ip_fib.h>
 #include <net/fib_rules.h>
 
-static struct fib_rules_ops fib4_rules_ops;
-
 struct fib4_rule
 {
 	struct fib_rule		common;
@@ -56,14 +54,14 @@ u32 fib_rules_tclass(struct fib_result *res)
 }
 #endif
 
-int fib_lookup(struct flowi *flp, struct fib_result *res)
+int fib_lookup(struct net *net, struct flowi *flp, struct fib_result *res)
 {
 	struct fib_lookup_arg arg = {
 		.result = res,
 	};
 	int err;
 
-	err = fib_rules_lookup(&fib4_rules_ops, flp, 0, &arg);
+	err = fib_rules_lookup(net->ipv4.rules_ops, flp, 0, &arg);
 	res->r = arg.rule;
 
 	return err;
@@ -93,26 +91,16 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
 		goto errout;
 	}
 
-	if ((tbl = fib_get_table(rule->table)) == NULL)
+	if ((tbl = fib_get_table(rule->fr_net, rule->table)) == NULL)
 		goto errout;
 
-	err = tbl->tb_lookup(tbl, flp, (struct fib_result *) arg->result);
+	err = fib_table_lookup(tbl, flp, (struct fib_result *) arg->result);
 	if (err > 0)
 		err = -EAGAIN;
 errout:
 	return err;
 }
 
-
-void fib_select_default(const struct flowi *flp, struct fib_result *res)
-{
-	if (res->r && res->r->action == FR_ACT_TO_TBL &&
-	    FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) {
-		struct fib_table *tb;
-		if ((tb = fib_get_table(res->r->table)) != NULL)
-			tb->tb_select_default(tb, flp, res);
-	}
-}
 
 static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
 {
@@ -130,13 +118,13 @@ static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
 	return 1;
 }
 
-static struct fib_table *fib_empty_table(void)
+static struct fib_table *fib_empty_table(struct net *net)
 {
 	u32 id;
 
 	for (id = 1; id <= RT_TABLE_MAX; id++)
-		if (fib_get_table(id) == NULL)
-			return fib_new_table(id);
+		if (fib_get_table(net, id) == NULL)
+			return fib_new_table(net, id);
 	return NULL;
 }
 
@@ -146,9 +134,10 @@ static const struct nla_policy fib4_rule_policy[FRA_MAX+1] = {
 };
 
 static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
-			       struct nlmsghdr *nlh, struct fib_rule_hdr *frh,
+			       struct fib_rule_hdr *frh,
 			       struct nlattr **tb)
 {
+	struct net *net = sock_net(skb->sk);
 	int err = -EINVAL;
 	struct fib4_rule *rule4 = (struct fib4_rule *) rule;
 
@@ -159,7 +148,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
 		if (rule->action == FR_ACT_TO_TBL) {
 			struct fib_table *table;
 
-			table = fib_empty_table();
+			table = fib_empty_table(net);
 			if (table == NULL) {
 				err = -ENOBUFS;
 				goto errout;
@@ -220,11 +209,10 @@ static int fib4_rule_compare(struct fib_rule *rule, struct fib_rule_hdr *frh,
 }
 
 static int fib4_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
-			  struct nlmsghdr *nlh, struct fib_rule_hdr *frh)
+			  struct fib_rule_hdr *frh)
 {
 	struct fib4_rule *rule4 = (struct fib4_rule *) rule;
 
-	frh->family = AF_INET;
 	frh->dst_len = rule4->dst_len;
 	frh->src_len = rule4->src_len;
 	frh->tos = rule4->tos;
@@ -245,23 +233,6 @@ nla_put_failure:
 	return -ENOBUFS;
 }
 
-static u32 fib4_rule_default_pref(void)
-{
-	struct list_head *pos;
-	struct fib_rule *rule;
-
-	if (!list_empty(&fib4_rules_ops.rules_list)) {
-		pos = fib4_rules_ops.rules_list.next;
-		if (pos->next != &fib4_rules_ops.rules_list) {
-			rule = list_entry(pos->next, struct fib_rule, list);
-			if (rule->pref)
-				return rule->pref - 1;
-		}
-	}
-
-	return 0;
-}
-
 static size_t fib4_rule_nlmsg_payload(struct fib_rule *rule)
 {
 	return nla_total_size(4) /* dst */
@@ -269,12 +240,12 @@ static size_t fib4_rule_nlmsg_payload(struct fib_rule *rule)
 	       + nla_total_size(4); /* flow */
 }
 
-static void fib4_rule_flush_cache(void)
+static void fib4_rule_flush_cache(struct fib_rules_ops *ops)
 {
-	rt_cache_flush(-1);
+	rt_cache_flush(ops->fro_net, -1);
 }
 
-static struct fib_rules_ops fib4_rules_ops = {
+static const struct fib_rules_ops __net_initdata fib4_rules_ops_template = {
 	.family		= AF_INET,
 	.rule_size	= sizeof(struct fib4_rule),
 	.addr_size	= sizeof(u32),
@@ -283,36 +254,52 @@ static struct fib_rules_ops fib4_rules_ops = {
 	.configure	= fib4_rule_configure,
 	.compare	= fib4_rule_compare,
 	.fill		= fib4_rule_fill,
-	.default_pref	= fib4_rule_default_pref,
+	.default_pref	= fib_default_rule_pref,
 	.nlmsg_payload	= fib4_rule_nlmsg_payload,
 	.flush_cache	= fib4_rule_flush_cache,
 	.nlgroup	= RTNLGRP_IPV4_RULE,
 	.policy		= fib4_rule_policy,
-	.rules_list	= LIST_HEAD_INIT(fib4_rules_ops.rules_list),
 	.owner		= THIS_MODULE,
 };
 
-static int __init fib_default_rules_init(void)
+static int fib_default_rules_init(struct fib_rules_ops *ops)
 {
 	int err;
 
-	err = fib_default_rule_add(&fib4_rules_ops, 0,
-				   RT_TABLE_LOCAL, FIB_RULE_PERMANENT);
+	err = fib_default_rule_add(ops, 0, RT_TABLE_LOCAL, 0);
 	if (err < 0)
 		return err;
-	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFE,
-				   RT_TABLE_MAIN, 0);
+	err = fib_default_rule_add(ops, 0x7FFE, RT_TABLE_MAIN, 0);
 	if (err < 0)
 		return err;
-	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFF,
-				   RT_TABLE_DEFAULT, 0);
+	err = fib_default_rule_add(ops, 0x7FFF, RT_TABLE_DEFAULT, 0);
 	if (err < 0)
 		return err;
 	return 0;
 }
 
-void __init fib4_rules_init(void)
+int __net_init fib4_rules_init(struct net *net)
 {
-	BUG_ON(fib_default_rules_init());
-	fib_rules_register(&fib4_rules_ops);
+	int err;
+	struct fib_rules_ops *ops;
+
+	ops = fib_rules_register(&fib4_rules_ops_template, net);
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
+
+	err = fib_default_rules_init(ops);
+	if (err < 0)
+		goto fail;
+	net->ipv4.rules_ops = ops;
+	return 0;
+
+fail:
+	/* also cleans all rules already added */
+	fib_rules_unregister(ops);
+	return err;
+}
+
+void __net_exit fib4_rules_exit(struct net *net)
+{
+	fib_rules_unregister(net->ipv4.rules_ops);
 }

@@ -23,34 +23,17 @@
  *	the BPF code definitions which need to match so you can share filters
  */
  
-struct sock_filter	/* Filter block */
-{
+struct sock_filter {	/* Filter block */
 	__u16	code;   /* Actual filter code */
 	__u8	jt;	/* Jump true */
 	__u8	jf;	/* Jump false */
 	__u32	k;      /* Generic multiuse field */
 };
 
-struct sock_fprog	/* Required for SO_ATTACH_FILTER. */
-{
+struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
 	unsigned short		len;	/* Number of filter blocks */
 	struct sock_filter __user *filter;
 };
-
-#ifdef __KERNEL__
-struct sk_filter
-{
-	atomic_t		refcnt;
-	unsigned int         	len;	/* Number of filter blocks */
-	struct rcu_head		rcu;
-	struct sock_filter     	insns[0];
-};
-
-static inline unsigned int sk_filter_len(struct sk_filter *fp)
-{
-	return fp->len*sizeof(struct sock_filter) + sizeof(*fp);
-}
-#endif
 
 /*
  * Instruction classes
@@ -108,6 +91,54 @@ static inline unsigned int sk_filter_len(struct sk_filter *fp)
 #define         BPF_TAX         0x00
 #define         BPF_TXA         0x80
 
+enum {
+	BPF_S_RET_K = 0,
+	BPF_S_RET_A,
+	BPF_S_ALU_ADD_K,
+	BPF_S_ALU_ADD_X,
+	BPF_S_ALU_SUB_K,
+	BPF_S_ALU_SUB_X,
+	BPF_S_ALU_MUL_K,
+	BPF_S_ALU_MUL_X,
+	BPF_S_ALU_DIV_X,
+	BPF_S_ALU_AND_K,
+	BPF_S_ALU_AND_X,
+	BPF_S_ALU_OR_K,
+	BPF_S_ALU_OR_X,
+	BPF_S_ALU_LSH_K,
+	BPF_S_ALU_LSH_X,
+	BPF_S_ALU_RSH_K,
+	BPF_S_ALU_RSH_X,
+	BPF_S_ALU_NEG,
+	BPF_S_LD_W_ABS,
+	BPF_S_LD_H_ABS,
+	BPF_S_LD_B_ABS,
+	BPF_S_LD_W_LEN,
+	BPF_S_LD_W_IND,
+	BPF_S_LD_H_IND,
+	BPF_S_LD_B_IND,
+	BPF_S_LD_IMM,
+	BPF_S_LDX_W_LEN,
+	BPF_S_LDX_B_MSH,
+	BPF_S_LDX_IMM,
+	BPF_S_MISC_TAX,
+	BPF_S_MISC_TXA,
+	BPF_S_ALU_DIV_K,
+	BPF_S_LD_MEM,
+	BPF_S_LDX_MEM,
+	BPF_S_ST,
+	BPF_S_STX,
+	BPF_S_JMP_JA,
+	BPF_S_JMP_JEQ_K,
+	BPF_S_JMP_JEQ_X,
+	BPF_S_JMP_JGE_K,
+	BPF_S_JMP_JGE_X,
+	BPF_S_JMP_JGT_K,
+	BPF_S_JMP_JGT_X,
+	BPF_S_JMP_JSET_K,
+	BPF_S_JMP_JSET_X,
+};
+
 #ifndef BPF_MAXINSNS
 #define BPF_MAXINSNS 4096
 #endif
@@ -136,16 +167,37 @@ static inline unsigned int sk_filter_len(struct sk_filter *fp)
 #define SKF_AD_PROTOCOL 0
 #define SKF_AD_PKTTYPE 	4
 #define SKF_AD_IFINDEX 	8
-#define SKF_AD_MAX 	12
+#define SKF_AD_NLATTR	12
+#define SKF_AD_NLATTR_NEST	16
+#define SKF_AD_MARK 	20
+#define SKF_AD_QUEUE	24
+#define SKF_AD_HATYPE	28
+#define SKF_AD_MAX	32
 #define SKF_NET_OFF   (-0x100000)
 #define SKF_LL_OFF    (-0x200000)
 
 #ifdef __KERNEL__
+struct sk_filter
+{
+	atomic_t		refcnt;
+	unsigned int         	len;	/* Number of filter blocks */
+	struct rcu_head		rcu;
+	struct sock_filter     	insns[0];
+};
+
+static inline unsigned int sk_filter_len(const struct sk_filter *fp)
+{
+	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
+}
+
 struct sk_buff;
 struct sock;
 
-extern unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen);
+extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+extern unsigned int sk_run_filter(struct sk_buff *skb,
+				  struct sock_filter *filter, int flen);
 extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+extern int sk_detach_filter(struct sock *sk);
 extern int sk_chk_filter(struct sock_filter *filter, int flen);
 #endif /* __KERNEL__ */
 

@@ -9,21 +9,6 @@ static void radeon_fixup_offset(struct radeonfb_info *rinfo)
 {
 	u32 local_base;
 
-	/* *** Ugly workaround *** */
-	/*
-	 * On some platforms, the video memory is mapped at 0 in radeon chip space
-	 * (like PPCs) by the firmware. X will always move it up so that it's seen
-	 * by the chip to be at the same address as the PCI BAR.
-	 * That means that when switching back from X, there is a mismatch between
-	 * the offsets programmed into the engine. This means that potentially,
-	 * accel operations done before radeonfb has a chance to re-init the engine
-	 * will have incorrect offsets, and potentially trash system memory !
-	 *
-	 * The correct fix is for fbcon to never call any accel op before the engine
-	 * has properly been re-initialized (by a call to set_var), but this is a
-	 * complex fix. This workaround in the meantime, called before every accel
-	 * operation, makes sure the offsets are in sync.
-	 */
 
 	radeon_fifo_wait (1);
 	local_base = INREG(MC_FB_LOCATION) << 16;
@@ -54,6 +39,10 @@ static void radeonfb_prim_fillrect(struct radeonfb_info *rinfo,
 		OUTREG(DP_BRUSH_FRGD_CLR, region->color);
 	OUTREG(DP_WRITE_MSK, 0xffffffff);
 	OUTREG(DP_CNTL, (DST_X_LEFT_TO_RIGHT | DST_Y_TOP_TO_BOTTOM));
+
+	radeon_fifo_wait(2);
+	OUTREG(DSTCACHE_CTLSTAT, RB2D_DC_FLUSH_ALL);
+	OUTREG(WAIT_UNTIL, (WAIT_2D_IDLECLEAN | WAIT_DMA_GUI_IDLE));
 
 	radeon_fifo_wait(2);  
 	OUTREG(DST_Y_X, (region->dy << 16) | region->dx);
@@ -115,6 +104,10 @@ static void radeonfb_prim_copyarea(struct radeonfb_info *rinfo,
 	OUTREG(DP_WRITE_MSK, 0xffffffff);
 	OUTREG(DP_CNTL, (xdir>=0 ? DST_X_LEFT_TO_RIGHT : 0)
 			| (ydir>=0 ? DST_Y_TOP_TO_BOTTOM : 0));
+
+	radeon_fifo_wait(2);
+	OUTREG(DSTCACHE_CTLSTAT, RB2D_DC_FLUSH_ALL);
+	OUTREG(WAIT_UNTIL, (WAIT_2D_IDLECLEAN | WAIT_DMA_GUI_IDLE));
 
 	radeon_fifo_wait(3);
 	OUTREG(SRC_Y_X, (sy << 16) | sx);
@@ -203,9 +196,7 @@ void radeonfb_engine_reset(struct radeonfb_info *rinfo)
 	host_path_cntl = INREG(HOST_PATH_CNTL);
 	rbbm_soft_reset = INREG(RBBM_SOFT_RESET);
 
-	if (rinfo->family == CHIP_FAMILY_R300 ||
-	    rinfo->family == CHIP_FAMILY_R350 ||
-	    rinfo->family == CHIP_FAMILY_RV350) {
+	if (IS_R300_VARIANT(rinfo)) {
 		u32 tmp;
 
 		OUTREG(RBBM_SOFT_RESET, (rbbm_soft_reset |
@@ -215,7 +206,7 @@ void radeonfb_engine_reset(struct radeonfb_info *rinfo)
 		INREG(RBBM_SOFT_RESET);
 		OUTREG(RBBM_SOFT_RESET, 0);
 		tmp = INREG(RB2D_DSTCACHE_MODE);
-		OUTREG(RB2D_DSTCACHE_MODE, tmp | (1 << 17)); /* FIXME */
+		OUTREG(RB2D_DSTCACHE_MODE, tmp | (1 << 17));
 	} else {
 		OUTREG(RBBM_SOFT_RESET, rbbm_soft_reset |
 					SOFT_RESET_CP |
@@ -241,9 +232,7 @@ void radeonfb_engine_reset(struct radeonfb_info *rinfo)
 	INREG(HOST_PATH_CNTL);
 	OUTREG(HOST_PATH_CNTL, host_path_cntl);
 
-	if (rinfo->family != CHIP_FAMILY_R300 ||
-	    rinfo->family != CHIP_FAMILY_R350 ||
-	    rinfo->family != CHIP_FAMILY_RV350)
+	if (!IS_R300_VARIANT(rinfo))
 		OUTREG(RBBM_SOFT_RESET, rbbm_soft_reset);
 
 	OUTREG(CLOCK_CNTL_INDEX, clock_cntl_index);
@@ -260,10 +249,18 @@ void radeonfb_engine_init (struct radeonfb_info *rinfo)
 	radeonfb_engine_reset(rinfo);
 
 	radeon_fifo_wait (1);
-	if ((rinfo->family != CHIP_FAMILY_R300) &&
-	    (rinfo->family != CHIP_FAMILY_R350) &&
-	    (rinfo->family != CHIP_FAMILY_RV350))
+	if (IS_R300_VARIANT(rinfo)) {
+		OUTREG(RB2D_DSTCACHE_MODE, INREG(RB2D_DSTCACHE_MODE) |
+		       RB2D_DC_AUTOFLUSH_ENABLE |
+		       RB2D_DC_DC_DISABLE_IGNORE_PE);
+	} else {
+		/* This needs to be double checked with ATI. Latest X driver
+		 * completely "forgets" to set this register on < r3xx, and
+		 * we used to just write 0 there... I'll keep the 0 and update
+		 * that when we have sorted things out on X side.
+		 */
 		OUTREG(RB2D_DSTCACHE_MODE, 0);
+	}
 
 	radeon_fifo_wait (3);
 	/* We re-read MC_FB_LOCATION from card as it can have been

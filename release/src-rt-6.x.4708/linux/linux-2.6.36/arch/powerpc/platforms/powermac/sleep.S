@@ -17,6 +17,7 @@
 #include <asm/cache.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
+#include <asm/mmu.h>
 
 #define MAGIC	0x4c617273	/* 'Lars' */
 
@@ -45,8 +46,8 @@
 	.section .text
 	.align	5
 
-#if defined(CONFIG_PM) || defined(CONFIG_CPU_FREQ_PMAC) || \
-    (defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_PPC32))
+#if defined(CONFIG_PM) || defined(CONFIG_CPU_FREQ_PMAC) || (defined(CONFIG_HOTPLUG_CPU) \
+	&& defined(CONFIG_PPC32))
 
 /* This gets called by via-pmu.c late during the sleep process.
  * The PMU was already send the sleep command and will shut us down
@@ -174,7 +175,6 @@ low_cpu_die:
 	isync
 
 BEGIN_FTR_SECTION
-	/* Flush any pending L2 data prefetches to work around HW bug */
 	sync
 	lis	r3,0xfff0
 	lwz	r0,0(r3)	/* perform cache-inhibited load to ROM */
@@ -323,7 +323,7 @@ grackle_wake_up:
 	lwz	r4,SL_IBAT3+4(r1)
 	mtibatl	3,r4
 
-BEGIN_FTR_SECTION
+BEGIN_MMU_FTR_SECTION
 	li	r4,0
 	mtspr	SPRN_DBAT4U,r4
 	mtspr	SPRN_DBAT4L,r4
@@ -341,7 +341,7 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_IBAT6L,r4
 	mtspr	SPRN_IBAT7U,r4
 	mtspr	SPRN_IBAT7L,r4
-END_FTR_SECTION_IFSET(CPU_FTR_HAS_HIGH_BATS)
+END_MMU_FTR_SECTION_IFSET(MMU_FTR_USE_HIGH_BATS)
 
 	/* Flush all TLBs */
 	lis	r4,0x1000

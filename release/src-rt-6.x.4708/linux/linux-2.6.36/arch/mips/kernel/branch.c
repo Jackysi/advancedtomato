@@ -13,16 +13,196 @@
 #include <asm/cpu.h>
 #include <asm/cpu-features.h>
 #include <asm/fpu.h>
+#include <asm/fpu_emulator.h>
 #include <asm/inst.h>
 #include <asm/ptrace.h>
 #include <asm/uaccess.h>
 
 /*
+ * Calculate and return exception epc in case of
+ * branch delay slot for microMIPS/MIPS16e
+ * It doesn't clear ISA mode bit.
+ */
+int __isa_exception_epc(struct pt_regs *regs)
+{
+	long epc;
+	union mips16e_instruction inst;
+
+	/* calc exception pc in branch delay slot */
+	epc = regs->cp0_epc;
+	if (__get_user(inst.full, (u16 __user *) (epc & ~MIPS_ISA_MODE))) {
+		/* it should never happens... because delay slot was checked */
+		force_sig(SIGSEGV, current);
+		return epc;
+	}
+	if (cpu_has_mips16) {
+		if (inst.ri.opcode == MIPS16e_jal_op)
+			epc += 4;
+		else
+			epc += 2;
+	} else if (mm_is16bit(inst.full))
+		epc += 2;
+	else
+		epc += 4;
+
+	return epc;
+}
+
+/*
+ * Compute the return address and do emulate branch simulation in MIPS16e mode,
+ * if required.
+ * After exception only - doesn't do 'compact' branch/jumps and can't be used
+ * during interrupt (compact B/J doesn't do exception)
+ */
+int __MIPS16e_compute_return_epc(struct pt_regs *regs)
+{
+	u16 __user *addr;
+	union mips16e_instruction inst;
+	u16 inst2;
+	u32 fullinst;
+	long epc;
+
+	epc = regs->cp0_epc;
+	/*
+	 * Read the instruction
+	 */
+	addr = (u16 __user *) (epc & ~MIPS_ISA_MODE);
+	if (__get_user(inst.full, addr)) {
+		force_sig(SIGSEGV, current);
+		return -EFAULT;
+	}
+
+	switch (inst.ri.opcode) {
+	case MIPS16e_extend_op:
+		regs->cp0_epc += 4;
+		return 0;
+
+		/*
+		 *  JAL and JALX in MIPS16e mode
+		 */
+	case MIPS16e_jal_op:
+		addr += 1;
+		if (__get_user(inst2, addr)) {
+			force_sig(SIGSEGV, current);
+			return -EFAULT;
+		}
+		fullinst = ((unsigned)inst.full << 16) | inst2;
+		regs->regs[31] = epc + 6;
+		epc += 4;
+		epc >>= 28;
+		epc <<= 28;
+		/*
+		 * JAL:5 X:1 TARGET[20-16]:5 TARGET[25:21]:5 TARGET[15:0]:16
+		 *
+		 * ......TARGET[15:0].................TARGET[20:16]...........
+		 * ......TARGET[25:21]
+		 */
+		epc |=
+		    ((fullinst & 0xffff) << 2) | ((fullinst & 0x3e00000) >> 3) |
+		    ((fullinst & 0x1f0000) << 7);
+		if (!inst.jal.x)
+			epc |= MIPS_ISA_MODE;	/* set ISA mode 1 */
+		regs->cp0_epc = epc;
+		return 0;
+
+		/*
+		 *  J(AL)R(C)
+		 */
+	case MIPS16e_rr_op:
+		if (inst.rr.func == MIPS16e_jr_func) {
+
+			if (inst.rr.ra)
+				regs->cp0_epc = regs->regs[31];
+			else
+				regs->cp0_epc =
+				    regs->regs[mips16e_reg2gpr[inst.rr.rx]];
+
+			if (inst.rr.l) {
+				if (inst.rr.nd)
+					regs->regs[31] = epc + 2;
+				else
+					regs->regs[31] = epc + 4;
+			}
+			return 0;
+		}
+		break;
+	}
+
+	/* all other cases have no branch delay slot and are 16bits,
+	   and branches do not do exception */
+	regs->cp0_epc += 2;
+
+	return 0;
+}
+
+/*
+ * Compute the return address and do emulate branch simulation in
+ * microMIPS mode, if required.
+ * After exception only - doesn't do 'compact' branch/jumps and can't be used
+ * during interrupt (compact B/J doesn't do exception)
+ */
+int __microMIPS_compute_return_epc(struct pt_regs *regs)
+{
+	u16 __user *pc16;
+	u16 halfword;
+	unsigned int word;
+	unsigned long contpc;
+	struct decoded_instn mminst = { 0 };
+
+	mminst.micro_mips_mode = 1;
+
+	/*
+	 * This load never faults.
+	 */
+	pc16 = (unsigned short __user *)(regs->cp0_epc & ~MIPS_ISA_MODE);
+	__get_user(halfword, pc16);
+	pc16++;
+	contpc = regs->cp0_epc + 2;
+	word = ((unsigned int)halfword << 16);
+	mminst.pc_inc = 2;
+
+	if (!mm_is16bit(halfword)) {
+		__get_user(halfword, pc16);
+		pc16++;
+		contpc = regs->cp0_epc + 4;
+		mminst.pc_inc = 4;
+		word |= halfword;
+	}
+	mminst.insn = word;
+
+	if (get_user(halfword, pc16))
+		goto sigsegv;
+	mminst.next_pc_inc = 2;
+	word = ((unsigned int)halfword << 16);
+
+	if (!mm_is16bit(halfword)) {
+		pc16++;
+		if (get_user(halfword, pc16))
+			goto sigsegv;
+		mminst.next_pc_inc = 4;
+		word |= halfword;
+	}
+	mminst.next_insn = word;
+
+	mm_isBranchInstr(regs, mminst, &contpc);
+
+	regs->cp0_epc = contpc;
+
+	return 0;
+
+sigsegv:
+	force_sig(SIGSEGV, current);
+	return -EFAULT;
+}
+
+/*
  * Compute the return address and do emulate branch simulation, if required.
+ * This function should be called only in branch delay slot active.
  */
 int __compute_return_epc(struct pt_regs *regs)
 {
-	unsigned int *addr, bit, fcr31, dspcontrol;
+	unsigned int __user *addr;
+	unsigned int bit, fcr31, dspcontrol;
 	long epc;
 	union mips_instruction insn;
 
@@ -33,7 +213,7 @@ int __compute_return_epc(struct pt_regs *regs)
 	/*
 	 * Read the instruction
 	 */
-	addr = (unsigned int *) epc;
+	addr = (unsigned int __user *) epc;
 	if (__get_user(insn.word, addr)) {
 		force_sig(SIGSEGV, current);
 		return -EFAULT;
@@ -61,7 +241,7 @@ int __compute_return_epc(struct pt_regs *regs)
 	 */
 	case bcond_op:
 		switch (insn.i_format.rt) {
-	 	case bltz_op:
+		case bltz_op:
 		case bltzl_op:
 			if ((long)regs->regs[insn.i_format.rs] < 0)
 				epc = epc + 4 + (insn.i_format.simmediate << 2);
@@ -124,6 +304,8 @@ int __compute_return_epc(struct pt_regs *regs)
 		epc <<= 28;
 		epc |= (insn.j_format.target << 2);
 		regs->cp0_epc = epc;
+		if (insn.i_format.opcode == jalx_op)
+			regs->cp0_epc |= MIPS_ISA_MODE;
 		break;
 
 	/*
@@ -149,7 +331,7 @@ int __compute_return_epc(struct pt_regs *regs)
 		regs->cp0_epc = epc;
 		break;
 
-	case blez_op: /* not really i_format */
+	case blez_op:	/* not really i_format */
 	case blezl_op:
 		/* rt field assumed to be zero */
 		if ((long)regs->regs[insn.i_format.rs] <= 0)
@@ -203,6 +385,39 @@ int __compute_return_epc(struct pt_regs *regs)
 			break;
 		}
 		break;
+#ifdef CONFIG_CPU_CAVIUM_OCTEON
+	case lwc2_op:		/* This is bbit0 on Octeon */
+		if ((regs->regs[insn.i_format.rs] & (1ull << insn.i_format.rt))
+		    == 0)
+			epc = epc + 4 + (insn.i_format.simmediate << 2);
+		else
+			epc += 8;
+		regs->cp0_epc = epc;
+		break;
+	case ldc2_op:		/* This is bbit032 on Octeon */
+		if ((regs->regs[insn.i_format.rs] &
+		     (1ull << (insn.i_format.rt + 32))) == 0)
+			epc = epc + 4 + (insn.i_format.simmediate << 2);
+		else
+			epc += 8;
+		regs->cp0_epc = epc;
+		break;
+	case swc2_op:		/* This is bbit1 on Octeon */
+		if (regs->regs[insn.i_format.rs] & (1ull << insn.i_format.rt))
+			epc = epc + 4 + (insn.i_format.simmediate << 2);
+		else
+			epc += 8;
+		regs->cp0_epc = epc;
+		break;
+	case sdc2_op:		/* This is bbit132 on Octeon */
+		if (regs->regs[insn.i_format.rs] &
+		    (1ull << (insn.i_format.rt + 32)))
+			epc = epc + 4 + (insn.i_format.simmediate << 2);
+		else
+			epc += 8;
+		regs->cp0_epc = epc;
+		break;
+#endif
 	}
 
 	return 0;

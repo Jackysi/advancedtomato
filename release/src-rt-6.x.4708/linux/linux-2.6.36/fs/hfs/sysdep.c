@@ -31,10 +31,9 @@ static int hfs_revalidate_dentry(struct dentry *dentry, struct nameidata *nd)
 	return 1;
 }
 
-struct dentry_operations hfs_dentry_operations =
+const struct dentry_operations hfs_dentry_operations =
 {
 	.d_revalidate	= hfs_revalidate_dentry,
 	.d_hash		= hfs_hash_dentry,
 	.d_compare	= hfs_compare_dentry,
 };
-

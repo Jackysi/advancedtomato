@@ -5,16 +5,10 @@ This little file attempts to document how the deadline io scheduler works.
 In particular, it will clarify the meaning of the exposed tunables that may be
 of interest to power users.
 
-Each io queue has a set of io scheduler tunables associated with it. These
-tunables control how the io scheduler works. You can find these entries
-in:
-
-/sys/block/<device>/queue/iosched
-
-assuming that you have sysfs mounted on /sys. If you don't have sysfs mounted,
-you can do so by typing:
-
-# mount none /sys -t sysfs
+Selecting IO schedulers
+-----------------------
+Refer to Documentation/block/switching-sched.txt for information on
+selecting an io scheduler on a per-device basis.
 
 
 ********************************************************************************
@@ -36,19 +30,22 @@ write_expire	(in ms)
 Similar to read_expire mentioned above, but for writes.
 
 
-fifo_batch
+fifo_batch	(number of requests)
 ----------
 
-When a read request expires its deadline, we must move some requests from
-the sorted io scheduler list to the block device dispatch queue. fifo_batch
-controls how many requests we move, based on the cost of each request. A
-request is either qualified as a seek or a stream. The io scheduler knows
-the last request that was serviced by the drive (or will be serviced right
-before this one). See seek_cost and stream_unit.
+Requests are grouped into ``batches'' of a particular data direction (read or
+write) which are serviced in increasing sector order.  To limit extra seeking,
+deadline expiries are only checked between batches.  fifo_batch controls the
+maximum number of requests per batch.
+
+This parameter tunes the balance between per-request latency and aggregate
+throughput.  When low latency is the primary concern, smaller is better (where
+a value of 1 yields first-come first-served behaviour).  Increasing fifo_batch
+generally improves throughput, at the cost of latency variation.
 
 
-write_starved	(number of dispatches)
--------------
+writes_starved	(number of dispatches)
+--------------
 
 When we have to move requests from the io scheduler queue to the block
 device dispatch queue, we always give a preference to reads. However, we
@@ -61,7 +58,7 @@ same criteria as reads.
 front_merges	(bool)
 ------------
 
-Sometimes it happens that a request enters the io scheduler that is contigious
+Sometimes it happens that a request enters the io scheduler that is contiguous
 with a request that is already on the queue. Either it fits in the back of that
 request, or it fits at the front. That is called either a back merge candidate
 or a front merge candidate. Due to the way files are typically laid out,
@@ -73,6 +70,6 @@ that comes at basically 0 cost we leave that on. We simply disable the
 rbtree front sector lookup when the io scheduler merge function is called.
 
 
-Nov 11 2002, Jens Axboe <axboe@suse.de>
+Nov 11 2002, Jens Axboe <jens.axboe@oracle.com>
 
 

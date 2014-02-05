@@ -1,4 +1,4 @@
-/* $Id: su.c,v 1.55 2002/01/08 16:00:16 davem Exp $
+/*
  * su.c: Small serial driver for keyboard/mouse interface on sparc32/PCI
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -29,17 +29,18 @@
 #include <linux/serial.h>
 #include <linux/sysrq.h>
 #include <linux/console.h>
+#include <linux/slab.h>
 #ifdef CONFIG_SERIO
 #include <linux/serio.h>
 #endif
 #include <linux/serial_reg.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/of_device.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/prom.h>
-#include <asm/of_device.h>
 
 #if defined(CONFIG_SERIAL_SUNSU_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
 #define SUPPORT_SYSRQ
@@ -88,7 +89,7 @@ struct uart_sunsu_port {
 
 	/* Probing information.  */
 	enum su_type		su_type;
-	unsigned int		type_probed;	/* XXX Stupid */
+	unsigned int		type_probed;
 	unsigned long		reg_size;
 
 #ifdef CONFIG_SERIO
@@ -164,19 +165,6 @@ static void serial_icr_write(struct uart_sunsu_port *up, int offset, int value)
 	serial_out(up, UART_ICR, value);
 }
 
-#if 0 /* Unused currently */
-static unsigned int serial_icr_read(struct uart_sunsu_port *up, int offset)
-{
-	unsigned int value;
-
-	serial_icr_write(up, UART_ACR, up->acr | UART_ACR_ICRRD);
-	serial_out(up, UART_SCR, offset);
-	value = serial_in(up, UART_ICR);
-	serial_icr_write(up, UART_ACR, up->acr);
-
-	return value;
-}
-#endif
 
 #ifdef CONFIG_SERIAL_8250_RSA
 /*
@@ -311,7 +299,7 @@ static void sunsu_enable_ms(struct uart_port *port)
 static struct tty_struct *
 receive_chars(struct uart_sunsu_port *up, unsigned char *status)
 {
-	struct tty_struct *tty = up->port.info->tty;
+	struct tty_struct *tty = up->port.state->port.tty;
 	unsigned char ch, flag;
 	int max_count = 256;
 	int saw_console_brk = 0;
@@ -389,7 +377,7 @@ receive_chars(struct uart_sunsu_port *up, unsigned char *status)
 
 static void transmit_chars(struct uart_sunsu_port *up)
 {
-	struct circ_buf *xmit = &up->port.info->xmit;
+	struct circ_buf *xmit = &up->port.state->xmit;
 	int count;
 
 	if (up->port.x_char) {
@@ -441,7 +429,7 @@ static void check_modem_status(struct uart_sunsu_port *up)
 	if (status & UART_MSR_DCTS)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
 
-	wake_up_interruptible(&up->port.info->delta_msr_wait);
+	wake_up_interruptible(&up->port.state->port.delta_msr_wait);
 }
 
 static irqreturn_t sunsu_serial_interrupt(int irq, void *dev_id)
@@ -797,11 +785,6 @@ sunsu_change_speed(struct uart_port *port, unsigned int cflag,
 		cval |= UART_LCR_SPAR;
 #endif
 
-	/*
-	 * Work around a bug in the Oxford Semiconductor 952 rev B
-	 * chip which causes it to seriously miscalculate baud rates
-	 * when DLL is 0.
-	 */
 	if ((quot & 0xff) == 0 && up->port.type == PORT_16C950 &&
 	    up->rev == 0x5201)
 		quot ++;
@@ -925,7 +908,7 @@ static void sunsu_config_port(struct uart_port *port, int flags)
 		 * splitting all the OBP probing crap from the UART probing.
 		 * We'll do it when we kill sunsu.c altogether.
 		 */
-		port->type = up->type_probed;	/* XXX */
+		port->type = up->type_probed;
 	}
 }
 
@@ -1150,7 +1133,7 @@ static void sunsu_autoconfig(struct uart_sunsu_port *up)
 
 	if (up->port.type == PORT_UNKNOWN)
 		goto out;
-	up->type_probed = up->port.type;	/* XXX */
+	up->type_probed = up->port.type;
 
 	/*
 	 * Reset the UART.
@@ -1173,12 +1156,12 @@ out:
 
 static struct uart_driver sunsu_reg = {
 	.owner			= THIS_MODULE,
-	.driver_name		= "serial",
+	.driver_name		= "sunsu",
 	.dev_name		= "ttyS",
 	.major			= TTY_MAJOR,
 };
 
-static int __init sunsu_kbd_ms_init(struct uart_sunsu_port *up)
+static int __devinit sunsu_kbd_ms_init(struct uart_sunsu_port *up)
 {
 	int quot, baud;
 #ifdef CONFIG_SERIO
@@ -1198,10 +1181,11 @@ static int __init sunsu_kbd_ms_init(struct uart_sunsu_port *up)
 	if (up->port.type == PORT_UNKNOWN)
 		return -ENODEV;
 
-	printk("%s: %s port at %lx, irq %u\n",
-	       to_of_device(up->port.dev)->node->full_name,
+	printk("%s: %s port at %llx, irq %u\n",
+	       up->port.dev->of_node->full_name,
 	       (up->su_type == SU_PORT_KBD) ? "Keyboard" : "Mouse",
-	       up->port.mapbase, up->port.irq);
+	       (unsigned long long) up->port.mapbase,
+	       up->port.irq);
 
 #ifdef CONFIG_SERIO
 	serio = &up->serio;
@@ -1328,11 +1312,9 @@ static void sunsu_console_write(struct console *co, const char *s,
  */
 static int __init sunsu_console_setup(struct console *co, char *options)
 {
+	static struct ktermios dummy;
+	struct ktermios termios;
 	struct uart_port *port;
-	int baud = 9600;
-	int bits = 8;
-	int parity = 'n';
-	int flow = 'n';
 
 	printk("Console: ttyS%d (SU)\n",
 	       (sunsu_reg.minor - 64) + co->index);
@@ -1351,10 +1333,15 @@ static int __init sunsu_console_setup(struct console *co, char *options)
 	 */
 	spin_lock_init(&port->lock);
 
-	if (options)
-		uart_parse_options(options, &baud, &parity, &bits, &flow);
+	/* Get firmware console settings.  */
+	sunserial_console_termios(co, port->dev->of_node);
 
-	return uart_set_options(port, co, baud, parity, bits, flow);
+	memset(&termios, 0, sizeof(struct ktermios));
+	termios.c_cflag = co->cflag;
+	port->mctrl |= TIOCM_DTR;
+	port->ops->set_termios(port, &termios, &dummy);
+
+	return 0;
 }
 
 static struct console sunsu_console = {
@@ -1371,28 +1358,12 @@ static struct console sunsu_console = {
  *	Register console.
  */
 
-static inline struct console *SUNSU_CONSOLE(int num_uart)
+static inline struct console *SUNSU_CONSOLE(void)
 {
-	int i;
-
-	if (con_is_present())
-		return NULL;
-
-	for (i = 0; i < num_uart; i++) {
-		int this_minor = sunsu_reg.minor + i;
-
-		if ((this_minor - 64) == (serial_console - 1))
-			break;
-	}
-	if (i == num_uart)
-		return NULL;
-
-	sunsu_console.index = i;
-
 	return &sunsu_console;
 }
 #else
-#define SUNSU_CONSOLE(num_uart)		(NULL)
+#define SUNSU_CONSOLE()			(NULL)
 #define sunsu_serial_console_init()	do { } while (0)
 #endif
 
@@ -1417,13 +1388,14 @@ static enum su_type __devinit su_get_type(struct device_node *dp)
 	return SU_PORT_PORT;
 }
 
-static int __devinit su_probe(struct of_device *op, const struct of_device_id *match)
+static int __devinit su_probe(struct platform_device *op, const struct of_device_id *match)
 {
 	static int inst;
-	struct device_node *dp = op->node;
+	struct device_node *dp = op->dev.of_node;
 	struct uart_sunsu_port *up;
 	struct resource *rp;
 	enum su_type type;
+	bool ignore_line;
 	int err;
 
 	type = su_get_type(dp);
@@ -1453,7 +1425,7 @@ static int __devinit su_probe(struct of_device *op, const struct of_device_id *m
 		return -ENOMEM;
 	}
 
-	up->port.irq = op->irqs[0];
+	up->port.irq = op->archdata.irqs[0];
 
 	up->port.dev = &op->dev;
 
@@ -1464,8 +1436,10 @@ static int __devinit su_probe(struct of_device *op, const struct of_device_id *m
 	if (up->su_type == SU_PORT_KBD || up->su_type == SU_PORT_MS) {
 		err = sunsu_kbd_ms_init(up);
 		if (err) {
+			of_iounmap(&op->resource[0],
+				   up->port.membase, up->reg_size);
 			kfree(up);
-			goto out_unmap;
+			return err;
 		}
 		dev_set_drvdata(&op->dev, up);
 
@@ -1482,6 +1456,14 @@ static int __devinit su_probe(struct of_device *op, const struct of_device_id *m
 
 	up->port.ops = &sunsu_pops;
 
+	ignore_line = false;
+	if (!strcmp(dp->name, "rsc-console") ||
+	    !strcmp(dp->name, "lom-console"))
+		ignore_line = true;
+
+	sunserial_console_match(SUNSU_CONSOLE(), dp,
+				&sunsu_reg, up->port.line,
+				ignore_line);
 	err = uart_add_one_port(&sunsu_reg, &up->port);
 	if (err)
 		goto out_unmap;
@@ -1497,29 +1479,34 @@ out_unmap:
 	return err;
 }
 
-static int __devexit su_remove(struct of_device *op)
+static int __devexit su_remove(struct platform_device *op)
 {
 	struct uart_sunsu_port *up = dev_get_drvdata(&op->dev);
+	bool kbdms = false;
 
 	if (up->su_type == SU_PORT_MS ||
-	    up->su_type == SU_PORT_KBD) {
+	    up->su_type == SU_PORT_KBD)
+		kbdms = true;
+
+	if (kbdms) {
 #ifdef CONFIG_SERIO
 		serio_unregister_port(&up->serio);
 #endif
-		kfree(up);
-	} else if (up->port.type != PORT_UNKNOWN) {
+	} else if (up->port.type != PORT_UNKNOWN)
 		uart_remove_one_port(&sunsu_reg, &up->port);
-	}
 
 	if (up->port.membase)
 		of_iounmap(&op->resource[0], up->port.membase, up->reg_size);
+
+	if (kbdms)
+		kfree(up);
 
 	dev_set_drvdata(&op->dev, NULL);
 
 	return 0;
 }
 
-static struct of_device_id su_match[] = {
+static const struct of_device_id su_match[] = {
 	{
 		.name = "su",
 	},
@@ -1530,25 +1517,30 @@ static struct of_device_id su_match[] = {
 		.name = "serial",
 		.compatible = "su",
 	},
+	{
+		.type = "serial",
+		.compatible = "su",
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, su_match);
 
 static struct of_platform_driver su_driver = {
-	.name		= "su",
-	.match_table	= su_match,
+	.driver = {
+		.name = "su",
+		.owner = THIS_MODULE,
+		.of_match_table = su_match,
+	},
 	.probe		= su_probe,
 	.remove		= __devexit_p(su_remove),
 };
-
-static int num_uart;
 
 static int __init sunsu_init(void)
 {
 	struct device_node *dp;
 	int err;
+	int num_uart = 0;
 
-	num_uart = 0;
 	for_each_node_by_name(dp, "su") {
 		if (su_get_type(dp) == SU_PORT_PORT)
 			num_uart++;
@@ -1563,29 +1555,30 @@ static int __init sunsu_init(void)
 				num_uart++;
 		}
 	}
-
-	if (num_uart) {
-		sunsu_reg.minor = sunserial_current_minor;
-		sunsu_reg.nr = num_uart;
-		err = uart_register_driver(&sunsu_reg);
-		if (err)
-			return err;
-		sunsu_reg.tty_driver->name_base = sunsu_reg.minor - 64;
-		sunserial_current_minor += num_uart;
-		sunsu_reg.cons = SUNSU_CONSOLE(num_uart);
+	for_each_node_by_type(dp, "serial") {
+		if (of_device_is_compatible(dp, "su")) {
+			if (su_get_type(dp) == SU_PORT_PORT)
+				num_uart++;
+		}
 	}
 
-	err = of_register_driver(&su_driver, &of_bus_type);
+	if (num_uart) {
+		err = sunserial_register_minors(&sunsu_reg, num_uart);
+		if (err)
+			return err;
+	}
+
+	err = of_register_platform_driver(&su_driver);
 	if (err && num_uart)
-		uart_unregister_driver(&sunsu_reg);
+		sunserial_unregister_minors(&sunsu_reg, num_uart);
 
 	return err;
 }
 
 static void __exit sunsu_exit(void)
 {
-	if (num_uart)
-		uart_unregister_driver(&sunsu_reg);
+	if (sunsu_reg.nr)
+		sunserial_unregister_minors(&sunsu_reg, sunsu_reg.nr);
 }
 
 module_init(sunsu_init);

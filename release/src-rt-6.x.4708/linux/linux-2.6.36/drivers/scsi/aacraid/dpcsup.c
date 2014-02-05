@@ -1,6 +1,6 @@
 /*
  *	Adaptec AAC series RAID controller driver
- *	(c) Copyright 2001 Red Hat Inc.	<alan@redhat.com>
+ *	(c) Copyright 2001 Red Hat Inc.
  *
  * based on the old aacraid driver that is..
  * Adaptec aacraid device driver for Linux.
@@ -36,7 +36,7 @@
 #include <linux/slab.h>
 #include <linux/completion.h>
 #include <linux/blkdev.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 
 #include "aacraid.h"
 
@@ -57,9 +57,9 @@ unsigned int aac_response_normal(struct aac_queue * q)
 	struct hw_fib * hwfib;
 	struct fib * fib;
 	int consumed = 0;
-	unsigned long flags;
+	unsigned long flags, mflags;
 
-	spin_lock_irqsave(q->lock, flags);	
+	spin_lock_irqsave(q->lock, flags);
 	/*
 	 *	Keep pulling response QEs off the response queue and waking
 	 *	up the waiters until there are no more QEs. We then return
@@ -120,16 +120,26 @@ unsigned int aac_response_normal(struct aac_queue * q)
 			 *	NOTE:  we cannot touch the fib after this
 			 *	    call, because it may have been deallocated.
 			 */
+			fib->flags = 0;
 			fib->callback(fib->callback_data, fib);
 		} else {
 			unsigned long flagv;
 			spin_lock_irqsave(&fib->event_lock, flagv);
-			if (!fib->done)
+			if (!fib->done) {
 				fib->done = 1;
-			up(&fib->event_wait);
+				up(&fib->event_wait);
+			}
 			spin_unlock_irqrestore(&fib->event_lock, flagv);
+
+			spin_lock_irqsave(&dev->manage_lock, mflags);
+			dev->management_fib_count--;
+			spin_unlock_irqrestore(&dev->manage_lock, mflags);
+
 			FIB_COUNTER_INCREMENT(aac_config.NormalRecved);
 			if (fib->done == 2) {
+				spin_lock_irqsave(&fib->event_lock, flagv);
+				fib->done = 0;
+				spin_unlock_irqrestore(&fib->event_lock, flagv);
 				aac_fib_complete(fib);
 				aac_fib_free(fib);
 			}
@@ -229,11 +239,10 @@ unsigned int aac_command_normal(struct aac_queue *q)
  *	all QE there are and wake up all the waiters before exiting.
  */
 
-unsigned int aac_intr_normal(struct aac_dev * dev, u32 Index)
+unsigned int aac_intr_normal(struct aac_dev * dev, u32 index)
 {
-	u32 index = le32_to_cpu(Index);
-
-	dprintk((KERN_INFO "aac_intr_normal(%p,%x)\n", dev, Index));
+	unsigned long mflags;
+	dprintk((KERN_INFO "aac_intr_normal(%p,%x)\n", dev, index));
 	if ((index & 0x00000002L)) {
 		struct hw_fib * hw_fib;
 		struct fib * fib;
@@ -254,7 +263,7 @@ unsigned int aac_intr_normal(struct aac_dev * dev, u32 Index)
 			kfree (fib);
 			return 1;
 		}
-		memcpy(hw_fib, (struct hw_fib *)(((ptrdiff_t)(dev->regs.sa)) +
+		memcpy(hw_fib, (struct hw_fib *)(((uintptr_t)(dev->regs.sa)) +
 		  (index & ~0x00000002L)), sizeof(struct hw_fib));
 		INIT_LIST_HEAD(&fib->fiblink);
 		fib->type = FSAFS_NTC_FIB_CONTEXT;
@@ -301,7 +310,7 @@ unsigned int aac_intr_normal(struct aac_dev * dev, u32 Index)
 
 		if (hwfib->header.Command == cpu_to_le16(NuFileSystem))
 		{
-			u32 *pstatus = (u32 *)hwfib->data;
+			__le32 *pstatus = (__le32 *)hwfib->data;
 			if (*pstatus & cpu_to_le32(0xffff0000))
 				*pstatus = cpu_to_le32(ST_OK);
 		}
@@ -315,16 +324,31 @@ unsigned int aac_intr_normal(struct aac_dev * dev, u32 Index)
 			 *	NOTE:  we cannot touch the fib after this
 			 *	    call, because it may have been deallocated.
 			 */
+			fib->flags = 0;
 			fib->callback(fib->callback_data, fib);
 		} else {
 			unsigned long flagv;
 	  		dprintk((KERN_INFO "event_wait up\n"));
 			spin_lock_irqsave(&fib->event_lock, flagv);
-			if (!fib->done)
+			if (!fib->done) {
 				fib->done = 1;
-			up(&fib->event_wait);
+				up(&fib->event_wait);
+			}
 			spin_unlock_irqrestore(&fib->event_lock, flagv);
+
+			spin_lock_irqsave(&dev->manage_lock, mflags);
+			dev->management_fib_count--;
+			spin_unlock_irqrestore(&dev->manage_lock, mflags);
+
 			FIB_COUNTER_INCREMENT(aac_config.NormalRecved);
+			if (fib->done == 2) {
+				spin_lock_irqsave(&fib->event_lock, flagv);
+				fib->done = 0;
+				spin_unlock_irqrestore(&fib->event_lock, flagv);
+				aac_fib_complete(fib);
+				aac_fib_free(fib);
+			}
+
 		}
 		return 0;
 	}

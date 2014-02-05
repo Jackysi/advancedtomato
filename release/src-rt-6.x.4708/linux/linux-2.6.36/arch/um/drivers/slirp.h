@@ -4,16 +4,6 @@
 #include "slip_common.h"
 
 #define SLIRP_MAX_ARGS 100
-/*
- * XXX this next definition is here because I don't understand why this
- * initializer doesn't work in slirp_kern.c:
- *
- *   argv :  { init->argv[ 0 ... SLIRP_MAX_ARGS-1 ] },
- *
- * or why I can't typecast like this:
- *
- *   argv :  (char* [SLIRP_MAX_ARGS])(init->argv), 
- */
 struct arg_list_dummy_wrapper { char *argv[SLIRP_MAX_ARGS]; };
 
 struct slirp_data {

@@ -59,7 +59,7 @@ void set_thresholds(unsigned long cpu)
 	mtspr(SPRN_THRM1, THRM1_THRES(tau[cpu].low) | THRM1_V | THRM1_TIE | THRM1_TID);
 
 	/* setup THRM2,
-	 * threshold, valid bit, enable interrupts, interrupt when above threshhold
+	 * threshold, valid bit, enable interrupts, interrupt when above threshold
 	 */
 	mtspr (SPRN_THRM2, THRM1_THRES(tau[cpu].high) | THRM1_V | THRM1_TIE);
 #else
@@ -157,11 +157,9 @@ static void tau_timeout(void * info)
 			tau[cpu].high -= shrink;
 		} else { /* size must have been min_window + 1 */
 			tau[cpu].low += 1;
-#if 1 /* debug */
 			if ((tau[cpu].high - tau[cpu].low) != min_window){
 				printk(KERN_ERR "temp.c: line %d, logic error\n", __LINE__);
 			}
-#endif
 		}
 	}
 
@@ -192,7 +190,7 @@ static void tau_timeout_smp(unsigned long unused)
 
 	/* schedule ourselves to be run again */
 	mod_timer(&tau_timer, jiffies + shrink_timer) ;
-	on_each_cpu(tau_timeout, NULL, 1, 0);
+	on_each_cpu(tau_timeout, NULL, 0);
 }
 
 /*
@@ -234,7 +232,7 @@ int __init TAU_init(void)
 	tau_timer.expires = jiffies + shrink_timer;
 	add_timer(&tau_timer);
 
-	on_each_cpu(TAU_init_smp, NULL, 1, 0);
+	on_each_cpu(TAU_init_smp, NULL, 0);
 
 	printk("Thermal assist unit ");
 #ifdef CONFIG_TAU_INT

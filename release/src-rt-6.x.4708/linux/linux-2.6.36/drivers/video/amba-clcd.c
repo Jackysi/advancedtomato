@@ -24,6 +24,7 @@
 #include <linux/amba/bus.h>
 #include <linux/amba/clcd.h>
 #include <linux/clk.h>
+#include <linux/hardirq.h>
 
 #include <asm/sizes.h>
 
@@ -64,22 +65,25 @@ static void clcdfb_disable(struct clcd_fb *fb)
 	if (fb->board->disable)
 		fb->board->disable(fb);
 
-	val = readl(fb->regs + CLCD_CNTL);
+	val = readl(fb->regs + fb->off_cntl);
 	if (val & CNTL_LCDPWR) {
 		val &= ~CNTL_LCDPWR;
-		writel(val, fb->regs + CLCD_CNTL);
+		writel(val, fb->regs + fb->off_cntl);
 
 		clcdfb_sleep(20);
 	}
 	if (val & CNTL_LCDEN) {
 		val &= ~CNTL_LCDEN;
-		writel(val, fb->regs + CLCD_CNTL);
+		writel(val, fb->regs + fb->off_cntl);
 	}
 
 	/*
 	 * Disable CLCD clock source.
 	 */
-	clk_disable(fb->clk);
+	if (fb->clk_enabled) {
+		fb->clk_enabled = false;
+		clk_disable(fb->clk);
+	}
 }
 
 static void clcdfb_enable(struct clcd_fb *fb, u32 cntl)
@@ -87,13 +91,16 @@ static void clcdfb_enable(struct clcd_fb *fb, u32 cntl)
 	/*
 	 * Enable the CLCD clock source.
 	 */
-	clk_enable(fb->clk);
+	if (!fb->clk_enabled) {
+		fb->clk_enabled = true;
+		clk_enable(fb->clk);
+	}
 
 	/*
 	 * Bring up by first enabling..
 	 */
 	cntl |= CNTL_LCDEN;
-	writel(cntl, fb->regs + CLCD_CNTL);
+	writel(cntl, fb->regs + fb->off_cntl);
 
 	clcdfb_sleep(20);
 
@@ -101,7 +108,7 @@ static void clcdfb_enable(struct clcd_fb *fb, u32 cntl)
 	 * and now apply power.
 	 */
 	cntl |= CNTL_LCDPWR;
-	writel(cntl, fb->regs + CLCD_CNTL);
+	writel(cntl, fb->regs + fb->off_cntl);
 
 	/*
 	 * finally, enable the interface.
@@ -225,13 +232,14 @@ static int clcdfb_set_par(struct fb_info *info)
 	clcdfb_enable(fb, regs.cntl);
 
 #ifdef DEBUG
-	printk(KERN_INFO "CLCD: Registers set to\n"
-	       KERN_INFO "  %08x %08x %08x %08x\n"
-	       KERN_INFO "  %08x %08x %08x %08x\n",
+	printk(KERN_INFO
+	       "CLCD: Registers set to\n"
+	       "  %08x %08x %08x %08x\n"
+	       "  %08x %08x %08x %08x\n",
 		readl(fb->regs + CLCD_TIM0), readl(fb->regs + CLCD_TIM1),
 		readl(fb->regs + CLCD_TIM2), readl(fb->regs + CLCD_TIM3),
 		readl(fb->regs + CLCD_UBAS), readl(fb->regs + CLCD_LBAS),
-		readl(fb->regs + CLCD_IENB), readl(fb->regs + CLCD_CNTL));
+		readl(fb->regs + fb->off_ienb), readl(fb->regs + fb->off_cntl));
 #endif
 
 	return 0;
@@ -343,14 +351,31 @@ static int clcdfb_register(struct clcd_fb *fb)
 {
 	int ret;
 
-	fb->clk = clk_get(&fb->dev->dev, "CLCDCLK");
+	/*
+	 * ARM PL111 always has IENB at 0x1c; it's only PL110
+	 * which is reversed on some platforms.
+	 */
+	if (amba_manf(fb->dev) == 0x41 && amba_part(fb->dev) == 0x111) {
+		fb->off_ienb = CLCD_PL111_IENB;
+		fb->off_cntl = CLCD_PL111_CNTL;
+	} else {
+#ifdef CONFIG_ARCH_VERSATILE
+		fb->off_ienb = CLCD_PL111_IENB;
+		fb->off_cntl = CLCD_PL111_CNTL;
+#else
+		fb->off_ienb = CLCD_PL110_IENB;
+		fb->off_cntl = CLCD_PL110_CNTL;
+#endif
+	}
+
+	fb->clk = clk_get(&fb->dev->dev, NULL);
 	if (IS_ERR(fb->clk)) {
 		ret = PTR_ERR(fb->clk);
 		goto out;
 	}
 
 	fb->fb.fix.mmio_start	= fb->dev->res.start;
-	fb->fb.fix.mmio_len	= SZ_4K;
+	fb->fb.fix.mmio_len	= resource_size(&fb->dev->res);
 
 	fb->regs = ioremap(fb->fb.fix.mmio_start, fb->fb.fix.mmio_len);
 	if (!fb->regs) {
@@ -407,12 +432,14 @@ static int clcdfb_register(struct clcd_fb *fb)
 	/*
 	 * Allocate colourmap.
 	 */
-	fb_alloc_cmap(&fb->fb.cmap, 256, 0);
+	ret = fb_alloc_cmap(&fb->fb.cmap, 256, 0);
+	if (ret)
+		goto unmap;
 
 	/*
 	 * Ensure interrupts are disabled.
 	 */
-	writel(0, fb->regs + CLCD_IENB);
+	writel(0, fb->regs + fb->off_ienb);
 
 	fb_set_var(&fb->fb, &fb->fb.var);
 
@@ -425,6 +452,8 @@ static int clcdfb_register(struct clcd_fb *fb)
 
 	printk(KERN_ERR "CLCD: cannot register framebuffer (%d)\n", ret);
 
+	fb_dealloc_cmap(&fb->fb.cmap);
+ unmap:
 	iounmap(fb->regs);
  free_clk:
 	clk_put(fb->clk);
@@ -432,7 +461,7 @@ static int clcdfb_register(struct clcd_fb *fb)
 	return ret;
 }
 
-static int clcdfb_probe(struct amba_device *dev, void *id)
+static int clcdfb_probe(struct amba_device *dev, struct amba_id *id)
 {
 	struct clcd_board *board = dev->dev.platform_data;
 	struct clcd_fb *fb;
@@ -447,13 +476,12 @@ static int clcdfb_probe(struct amba_device *dev, void *id)
 		goto out;
 	}
 
-	fb = kmalloc(sizeof(struct clcd_fb), GFP_KERNEL);
+	fb = kzalloc(sizeof(struct clcd_fb), GFP_KERNEL);
 	if (!fb) {
 		printk(KERN_INFO "CLCD: could not allocate new clcd_fb struct\n");
 		ret = -ENOMEM;
 		goto free_region;
 	}
-	memset(fb, 0, sizeof(struct clcd_fb));
 
 	fb->dev = dev;
 	fb->board = board;
@@ -485,6 +513,8 @@ static int clcdfb_remove(struct amba_device *dev)
 
 	clcdfb_disable(fb);
 	unregister_framebuffer(&fb->fb);
+	if (fb->fb.cmap.len)
+		fb_dealloc_cmap(&fb->fb.cmap);
 	iounmap(fb->regs);
 	clk_put(fb->clk);
 

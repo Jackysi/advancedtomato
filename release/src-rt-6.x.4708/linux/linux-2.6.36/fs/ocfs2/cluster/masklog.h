@@ -48,34 +48,33 @@
  * only emit the appropriage printk() when the caller passes in a constant
  * mask, as is almost always the case.
  *
- * All this bitmask nonsense is hidden from the /proc interface so that Joel
- * doesn't have an aneurism.  Reading the file gives a straight forward
- * indication of which bits are on or off:
- * 	ENTRY off
- * 	EXIT off
+ * All this bitmask nonsense is managed from the files under
+ * /sys/fs/o2cb/logmask/.  Reading the files gives a straightforward
+ * indication of which bits are allowed (allow) or denied (off/deny).
+ * 	ENTRY deny
+ * 	EXIT deny
  * 	TCP off
  * 	MSG off
  * 	SOCKET off
- * 	ERROR off
- * 	NOTICE on
+ * 	ERROR allow
+ * 	NOTICE allow
  *
  * Writing changes the state of a given bit and requires a strictly formatted
  * single write() call:
  *
- * 	write(fd, "ENTRY on", 8);
+ * 	write(fd, "allow", 5);
  *
- * would turn the entry bit on.  "1" is also accepted in the place of "on", and
- * "off" and "0" behave as expected.
+ * Echoing allow/deny/off string into the logmask files can flip the bits
+ * on or off as expected; here is the bash script for example:
  *
- * Some trivial shell can flip all the bits on or off:
+ * log_mask="/sys/fs/o2cb/log_mask"
+ * for node in ENTRY EXIT TCP MSG SOCKET ERROR NOTICE; do
+ *	echo allow >"$log_mask"/"$node"
+ * done
  *
- * log_mask="/proc/fs/ocfs2_nodemanager/log_mask"
- * cat $log_mask | (
- * 	while read bit status; do
- * 		# $1 is "on" or "off", say
- * 		echo "$bit $1" > $log_mask
- * 	done
- * )
+ * The debugfs.ocfs2 tool can also flip the bits with the -l option:
+ *
+ * debugfs.ocfs2 -l TCP allow
  */
 
 /* for task_struct */
@@ -112,10 +111,15 @@
 #define ML_CONN		0x0000000004000000ULL /* net connection management */
 #define ML_QUORUM	0x0000000008000000ULL /* net connection quorum */
 #define ML_EXPORT	0x0000000010000000ULL /* ocfs2 export operations */
+#define ML_XATTR	0x0000000020000000ULL /* ocfs2 extended attributes */
+#define ML_QUOTA	0x0000000040000000ULL /* ocfs2 quota operations */
+#define ML_REFCOUNT	0x0000000080000000ULL /* refcount tree operations */
+#define ML_BASTS	0x0000001000000000ULL /* dlmglue asts and basts */
 /* bits that are infrequently given and frequently matched in the high word */
 #define ML_ERROR	0x0000000100000000ULL /* sent to KERN_ERR */
 #define ML_NOTICE	0x0000000200000000ULL /* setn to KERN_NOTICE */
 #define ML_KTHREAD	0x0000000400000000ULL /* kernel thread activity */
+#define	ML_RESERVATIONS	0x0000000800000000ULL /* ocfs2 alloc reservations */
 
 #define MLOG_INITIAL_AND_MASK (ML_ERROR|ML_NOTICE)
 #define MLOG_INITIAL_NOT_MASK (ML_ENTRY|ML_EXIT)
@@ -192,9 +196,9 @@ extern struct mlog_bits mlog_and_bits, mlog_not_bits;
  * previous token if args expands to nothing.
  */
 #define __mlog_printk(level, fmt, args...)				\
-	printk(level "(%u,%lu):%s:%d " fmt, current->pid,		\
-	       __mlog_cpu_guess, __PRETTY_FUNCTION__, __LINE__ ,	\
-	       ##args)
+	printk(level "(%s,%u,%lu):%s:%d " fmt, current->comm,		\
+	       task_pid_nr(current), __mlog_cpu_guess,			\
+	       __PRETTY_FUNCTION__, __LINE__ , ##args)
 
 #define mlog(mask, fmt, args...) do {					\
 	u64 __m = MLOG_MASK_PREFIX | (mask);				\
@@ -212,7 +216,7 @@ extern struct mlog_bits mlog_and_bits, mlog_not_bits;
 #define mlog_errno(st) do {						\
 	int _st = (st);							\
 	if (_st != -ERESTARTSYS && _st != -EINTR &&			\
-	    _st != AOP_TRUNCATED_PAGE)					\
+	    _st != AOP_TRUNCATED_PAGE && _st != -ENOSPC)		\
 		mlog(ML_ERROR, "status = %lld\n", (long long)_st);	\
 } while (0)
 

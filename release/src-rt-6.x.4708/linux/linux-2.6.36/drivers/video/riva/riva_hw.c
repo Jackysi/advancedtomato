@@ -231,7 +231,7 @@ typedef struct {
   int nvclk_khz;
   char mem_page_miss;
   char mem_latency;
-  int memory_type;
+  u32 memory_type;
   int memory_width;
   char enable_video;
   char gr_during_vid;
@@ -1223,6 +1223,8 @@ static int CalcVClock
         }
     }
     }
+
+    /* non-zero: M/N/P/clock values assigned.  zero: error (not set) */
     return (DeltaOld != 0xFFFFFFFF);
 }
 /*
@@ -1240,7 +1242,10 @@ int CalcStateExt
     int            dotClock
 )
 {
-    int pixelDepth, VClk, m, n, p;
+    int pixelDepth;
+    int uninitialized_var(VClk),uninitialized_var(m),
+        uninitialized_var(n),	uninitialized_var(p);
+
     /*
      * Save mode parameters.
      */
@@ -1336,23 +1341,6 @@ int CalcStateExt
 /*
  * Load fixed function state and pre-calculated/stored state.
  */
-#if 0
-#define LOAD_FIXED_STATE(tbl,dev)                                       \
-    for (i = 0; i < sizeof(tbl##Table##dev)/8; i++)                 \
-        chip->dev[tbl##Table##dev[i][0]] = tbl##Table##dev[i][1]
-#define LOAD_FIXED_STATE_8BPP(tbl,dev)                                  \
-    for (i = 0; i < sizeof(tbl##Table##dev##_8BPP)/8; i++)            \
-        chip->dev[tbl##Table##dev##_8BPP[i][0]] = tbl##Table##dev##_8BPP[i][1]
-#define LOAD_FIXED_STATE_15BPP(tbl,dev)                                 \
-    for (i = 0; i < sizeof(tbl##Table##dev##_15BPP)/8; i++)           \
-        chip->dev[tbl##Table##dev##_15BPP[i][0]] = tbl##Table##dev##_15BPP[i][1]
-#define LOAD_FIXED_STATE_16BPP(tbl,dev)                                 \
-    for (i = 0; i < sizeof(tbl##Table##dev##_16BPP)/8; i++)           \
-        chip->dev[tbl##Table##dev##_16BPP[i][0]] = tbl##Table##dev##_16BPP[i][1]
-#define LOAD_FIXED_STATE_32BPP(tbl,dev)                                 \
-    for (i = 0; i < sizeof(tbl##Table##dev##_32BPP)/8; i++)           \
-        chip->dev[tbl##Table##dev##_32BPP[i][0]] = tbl##Table##dev##_32BPP[i][1]
-#endif
 
 #define LOAD_FIXED_STATE(tbl,dev)                                       \
     for (i = 0; i < sizeof(tbl##Table##dev)/8; i++)                 \
@@ -2102,7 +2090,7 @@ static void nv10GetConfig
 )
 {
     struct pci_dev* dev;
-    int amt;
+    u32 amt;
 
 #ifdef __BIG_ENDIAN
     /* turn on big endian register access */
@@ -2260,4 +2248,3 @@ int RivaGetConfig
     chip->Tri03  = (RivaTexturedTriangle03 __iomem *)&(chip->FIFO[0x0000E000/4]);
     return (0);
 }
-

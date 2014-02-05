@@ -23,7 +23,7 @@
 #define WD33C93_H
 
 
-#define PROC_INTERFACE     /* add code for /proc/scsi/wd33c93/xxx interface */
+#define PROC_INTERFACE
 #ifdef  PROC_INTERFACE
 #define PROC_STATISTICS    /* add code for keeping various real time stats */
 #endif
@@ -155,7 +155,7 @@
 #define WD33C93_FS_12_15 OWNID_FS_12
 #define WD33C93_FS_16_20 OWNID_FS_16
 
-   /* pass input-clock explicitely. accepted mhz values are 8-10,12-20 */
+   /* pass input-clock explicitly. accepted mhz values are 8-10,12-20 */
 #define WD33C93_FS_MHZ(mhz) (mhz)
 
    /* Control register */
@@ -348,6 +348,5 @@ int wd33c93_queuecommand (struct scsi_cmnd *cmd,
 void wd33c93_intr (struct Scsi_Host *instance);
 int wd33c93_proc_info(struct Scsi_Host *, char *, char **, off_t, int, int);
 int wd33c93_host_reset (struct scsi_cmnd *);
-void wd33c93_release(void);
 
 #endif /* WD33C93_H */

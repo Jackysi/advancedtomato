@@ -8,15 +8,15 @@
  * SA1111 Bus Glue
  *
  * Written by Christopher Hoover <ch@hpl.hp.com>
- * Based on fragments of previous driver by Rusell King et al.
+ * Based on fragments of previous driver by Russell King et al.
  *
  * This file is licenced under the GPL.
  */
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch/assabet.h>
-#include <asm/arch/badge4.h>
+#include <mach/assabet.h>
+#include <mach/badge4.h>
 #include <asm/hardware/sa1111.h>
 
 #ifndef CONFIG_SA1111
@@ -31,8 +31,8 @@ static void sa1111_start_hc(struct sa1111_dev *dev)
 {
 	unsigned int usb_rst = 0;
 
-	printk(KERN_DEBUG __FILE__
-	       ": starting SA-1111 OHCI USB Controller\n");
+	printk(KERN_DEBUG "%s: starting SA-1111 OHCI USB Controller\n",
+	       __FILE__);
 
 #ifdef CONFIG_SA1100_BADGE4
 	if (machine_is_badge4()) {
@@ -65,8 +65,8 @@ static void sa1111_start_hc(struct sa1111_dev *dev)
 static void sa1111_stop_hc(struct sa1111_dev *dev)
 {
 	unsigned int usb_rst;
-	printk(KERN_DEBUG __FILE__
-	       ": stopping SA-1111 OHCI USB Controller\n");
+	printk(KERN_DEBUG "%s: stopping SA-1111 OHCI USB Controller\n",
+	       __FILE__);
 
 	/*
 	 * Put the USB host controller into reset.
@@ -91,19 +91,6 @@ static void sa1111_stop_hc(struct sa1111_dev *dev)
 
 /*-------------------------------------------------------------------------*/
 
-#if 0
-static void dump_hci_status(struct usb_hcd *hcd, const char *label)
-{
-	unsigned long status = sa1111_readl(hcd->regs + SA1111_USB_STATUS);
-
-	dbg ("%s USB_STATUS = { %s%s%s%s%s}", label,
-	     ((status & USB_STATUS_IRQHCIRMTWKUP) ? "IRQHCIRMTWKUP " : ""),
-	     ((status & USB_STATUS_IRQHCIBUFFACC) ? "IRQHCIBUFFACC " : ""),
-	     ((status & USB_STATUS_NIRQHCIM) ? "" : "IRQHCIM "),
-	     ((status & USB_STATUS_NHCIMFCLR) ? "" : "HCIMFCLR "),
-	     ((status & USB_STATUS_USBPWRSENSE) ? "USBPWRSENSE " : ""));
-}
-#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -231,7 +218,6 @@ static const struct hc_driver ohci_sa1111_hc_driver = {
 	 */
 	.hub_status_data =	ohci_hub_status_data,
 	.hub_control =		ohci_hub_control,
-	.hub_irq_enable =	ohci_rhsc_enable,
 #ifdef	CONFIG_PM
 	.bus_suspend =		ohci_bus_suspend,
 	.bus_resume =		ohci_bus_resume,
@@ -268,4 +254,3 @@ static struct sa1111_driver ohci_hcd_sa1111_driver = {
 	.probe		= ohci_hcd_sa1111_drv_probe,
 	.remove		= ohci_hcd_sa1111_drv_remove,
 };
-

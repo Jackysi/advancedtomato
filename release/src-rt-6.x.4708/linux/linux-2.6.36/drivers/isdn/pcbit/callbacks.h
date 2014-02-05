@@ -42,5 +42,3 @@ extern void cb_open(struct pcbit_dev * dev, struct pcbit_chan* chan,
 		    struct callb_data *data);
 
 #endif
-
-

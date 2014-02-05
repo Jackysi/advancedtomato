@@ -19,7 +19,7 @@ config PCI_MSI
 	   by using the 'pci=nomsi' option.  This disables MSI for the
 	   entire system.
 
-	   If you don't know what to do here, say N.
+	   If you don't know what to do here, say Y.
 
 config PCI_DEBUG
 	bool "PCI Debugging"
@@ -31,6 +31,15 @@ config PCI_DEBUG
 
 	  When in doubt, say N.
 
+config PCI_STUB
+	tristate "PCI Stub driver"
+	depends on PCI
+	help
+	  Say Y or M here if you want be able to reserve a PCI device
+	  when it is going to be assigned to a guest operating system.
+
+	  When in doubt, say N.
+
 config HT_IRQ
 	bool "Interrupts on hypertransport devices"
 	default y
@@ -39,3 +48,20 @@ config HT_IRQ
 	   This allows native hypertransport devices to use interrupts.
 
 	   If unsure say Y.
+
+config PCI_IOV
+	bool "PCI IOV support"
+	depends on PCI
+	help
+	  I/O Virtualization is a PCI feature supported by some devices
+	  which allows them to create virtual devices which share their
+	  physical resources.
+
+	  If unsure, say N.
+
+config PCI_IOAPIC
+	bool
+	depends on PCI
+	depends on ACPI
+	depends on HOTPLUG
+	default y

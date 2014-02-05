@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000-2001 LSI Logic Corporation. All rights reserved.
+ *  Copyright (c) 2000-2008 LSI Corporation. All rights reserved.
  *
  *  NAME:           fc_log.h
  *  SUMMARY:        MPI IocLogInfo definitions for the SYMFC9xx chips
@@ -7,7 +7,7 @@
  *                  in the IOCLogInfo field of a MPI Default Reply Message.
  *
  *  CREATION DATE:  6/02/2000
- *  ID:             $Id: fc_log.h,v 4.6 2001/07/26 14:41:33 sschremm Exp $
+ *  ID:             $Id: fc_log.h,v 4.6 2001/07/26 14:41:33 Exp $
  */
 
 

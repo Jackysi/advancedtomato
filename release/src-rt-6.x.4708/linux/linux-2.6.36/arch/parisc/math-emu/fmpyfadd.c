@@ -2652,4 +2652,3 @@ unsigned int *status;
 		else Set_inexactflag();
     	return(NOEXCEPTION);
 }
-

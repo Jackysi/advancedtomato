@@ -15,61 +15,72 @@
 #include <asm/ppc_asm.h>
 #include <asm/asm-offsets.h>
 #include <asm/cache.h>
+#include <asm/mmu.h>
 
 _GLOBAL(__setup_cpu_603)
-	b	setup_common_caches
+	mflr	r5
+BEGIN_MMU_FTR_SECTION
+	li	r10,0
+	mtspr	SPRN_SPRG_603_LRU,r10		/* init SW LRU tracking */
+END_MMU_FTR_SECTION_IFSET(MMU_FTR_NEED_DTLB_SW_LRU)
+BEGIN_FTR_SECTION
+	bl	__init_fpu_registers
+END_FTR_SECTION_IFCLR(CPU_FTR_FPU_UNAVAILABLE)
+	bl	setup_common_caches
+	mtlr	r5
+	blr
 _GLOBAL(__setup_cpu_604)
-	mflr	r4
+	mflr	r5
 	bl	setup_common_caches
 	bl	setup_604_hid0
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_750)
-	mflr	r4
+	mflr	r5
 	bl	__init_fpu_registers
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_750cx)
-	mflr	r4
+	mflr	r5
 	bl	__init_fpu_registers
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
 	bl	setup_750cx
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_750fx)
-	mflr	r4
+	mflr	r5
 	bl	__init_fpu_registers
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
 	bl	setup_750fx
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_7400)
-	mflr	r4
+	mflr	r5
 	bl	__init_fpu_registers
 	bl	setup_7400_workarounds
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_7410)
-	mflr	r4
+	mflr	r5
 	bl	__init_fpu_registers
 	bl	setup_7410_workarounds
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
 	li	r3,0
 	mtspr	SPRN_L2CR2,r3
-	mtlr	r4
+	mtlr	r5
 	blr
 _GLOBAL(__setup_cpu_745x)
-	mflr	r4
+	mflr	r5
 	bl	setup_common_caches
 	bl	setup_745x_specifics
-	mtlr	r4
+	mtlr	r5
 	blr
 
 /* Enable caches for 603's, 604, 750 & 7400 */
@@ -103,20 +114,6 @@ setup_604_hid0:
 	isync
 	blr
 
-/* 7400 <= rev 2.7 and 7410 rev = 1.0 suffer from some
- * erratas we work around here.
- * Moto MPC710CE.pdf describes them, those are errata
- * #3, #4 and #5
- * Note that we assume the firmware didn't choose to
- * apply other workarounds (there are other ones documented
- * in the .pdf). It appear that Apple firmware only works
- * around #3 and with the same fix we use. We may want to
- * check if the CPU is using 60x bus mode in which case
- * the workaround for errata #4 is useless. Also, we may
- * want to explicitely clear HID0_NOPDST as this is not
- * needed once we have applied workaround #5 (though it's
- * not set by Apple's firmware at least).
- */
 setup_7400_workarounds:
 	mfpvr	r3
 	rlwinm	r3,r3,0,20,31
@@ -183,10 +180,10 @@ setup_750cx:
 	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq
 	cror	4*cr0+eq,4*cr0+eq,4*cr2+eq
 	bnelr
-	lwz	r6,CPU_SPEC_FEATURES(r5)
+	lwz	r6,CPU_SPEC_FEATURES(r4)
 	li	r7,CPU_FTR_CAN_NAP
 	andc	r6,r6,r7
-	stw	r6,CPU_SPEC_FEATURES(r5)
+	stw	r6,CPU_SPEC_FEATURES(r4)
 	blr
 
 /* 750fx specific
@@ -214,12 +211,12 @@ BEGIN_FTR_SECTION
 	andis.	r11,r11,L3CR_L3E@h
 	beq	1f
 END_FTR_SECTION_IFSET(CPU_FTR_L3CR)
-	lwz	r6,CPU_SPEC_FEATURES(r5)
+	lwz	r6,CPU_SPEC_FEATURES(r4)
 	andi.	r0,r6,CPU_FTR_L3_DISABLE_NAP
 	beq	1f
 	li	r7,CPU_FTR_CAN_NAP
 	andc	r6,r6,r7
-	stw	r6,CPU_SPEC_FEATURES(r5)
+	stw	r6,CPU_SPEC_FEATURES(r4)
 1:
 	mfspr	r11,SPRN_HID0
 
@@ -228,6 +225,9 @@ END_FTR_SECTION_IFSET(CPU_FTR_L3CR)
 	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE
 	ori	r11,r11,HID0_LRSTK | HID0_BTIC
 	oris	r11,r11,HID0_DPM@h
+BEGIN_MMU_FTR_SECTION
+	oris	r11,r11,HID0_HIGH_BAT@h
+END_MMU_FTR_SECTION_IFSET(MMU_FTR_USE_HIGH_BATS)
 BEGIN_FTR_SECTION
 	xori	r11,r11,HID0_BTIC
 END_FTR_SECTION_IFSET(CPU_FTR_NO_BTIC)
@@ -260,11 +260,6 @@ END_FTR_SECTION_IFSET(CPU_FTR_NO_DPM)
 	isync
 	blr
 
-/*
- * Initialize the FPU registers. This is needed to work around an errata
- * in some 750 cpus where using a not yet initialized FPU register after
- * power on reset may hang the CPU
- */
 _GLOBAL(__init_fpu_registers)
 	mfmsr	r10
 	ori	r11,r10,MSR_FP
@@ -472,4 +467,3 @@ _GLOBAL(__restore_cpu_setup)
 1:
 	mtcr	r7
 	blr
-

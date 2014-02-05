@@ -6,8 +6,10 @@
  * published by the Free Software Foundation.
  */
 #include <linux/vmalloc.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/slab.h>
 
 #include <asm/pgtable.h>
 #include <asm/addrspace.h>
@@ -38,11 +40,6 @@ void __iomem *__ioremap(unsigned long phys_addr, size_t size,
 	if (!size || last_addr < phys_addr)
 		return NULL;
 
-	/*
-	 * XXX: When mapping regular RAM, we'd better make damn sure
-	 * it's never used for anything else.  But this is really the
-	 * caller's responsibility...
-	 */
 	if (PHYSADDR(P2SEGADDR(phys_addr)) == phys_addr)
 		return (void __iomem *)P2SEGADDR(phys_addr);
 

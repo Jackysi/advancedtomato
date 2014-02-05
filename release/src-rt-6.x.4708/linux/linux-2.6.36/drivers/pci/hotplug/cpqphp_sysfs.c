@@ -28,11 +28,13 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/proc_fs.h>
 #include <linux/workqueue.h>
 #include <linux/pci.h>
 #include <linux/pci_hotplug.h>
+#include <linux/smp_lock.h>
 #include <linux/debugfs.h>
 #include "cpqphp.h"
 
@@ -225,7 +227,8 @@ void cpqhp_shutdown_debugfs(void)
 
 void cpqhp_create_debugfs_files(struct controller *ctrl)
 {
-	ctrl->dentry = debugfs_create_file(ctrl->pci_dev->dev.bus_id, S_IRUGO, root, ctrl, &debug_ops);
+	ctrl->dentry = debugfs_create_file(dev_name(&ctrl->pci_dev->dev),
+					   S_IRUGO, root, ctrl, &debug_ops);
 }
 
 void cpqhp_remove_debugfs_files(struct controller *ctrl)
@@ -234,4 +237,3 @@ void cpqhp_remove_debugfs_files(struct controller *ctrl)
 		debugfs_remove(ctrl->dentry);
 	ctrl->dentry = NULL;
 }
-

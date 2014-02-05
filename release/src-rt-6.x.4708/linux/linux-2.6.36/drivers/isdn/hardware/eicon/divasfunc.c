@@ -1,4 +1,4 @@
-/* $Id: divasfunc.c,v 1.23.4.2 2004/08/28 20:03:53 armin Exp $
+/* $Id: divasfunc.c,v 1.23.4.2 2004/08/28 20:03:53 Exp $
  *
  * Low level driver for Eicon DIVA Server ISDN cards.
  *
@@ -74,7 +74,6 @@ void diva_xdi_didd_register_adapter(int card)
 		d.features = IoAdapters[card - 1]->Properties.Features;
 		DBG_TRC(("DIDD register A(%d) channels=%d", card,
 			 d.channels))
-		    /* workaround for different Name in structure */
 		    strlcpy(IoAdapters[card - 1]->Name,
 			    IoAdapters[card - 1]->Properties.Name,
 			    sizeof(IoAdapters[card - 1]->Name));

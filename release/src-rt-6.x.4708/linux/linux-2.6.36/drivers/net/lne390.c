@@ -53,9 +53,6 @@ static const char *version =
 
 static int lne390_probe1(struct net_device *dev, int ioaddr);
 
-static int lne390_open(struct net_device *dev);
-static int lne390_close(struct net_device *dev);
-
 static void lne390_reset_8390(struct net_device *dev);
 
 static void lne390_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_page);
@@ -110,8 +107,6 @@ static int __init do_lne390_probe(struct net_device *dev)
 	int irq = dev->irq;
 	int mem_start = dev->mem_start;
 	int ret;
-
-	SET_MODULE_OWNER(dev);
 
 	if (ioaddr > 0x1ff) {		/* Check a single specified location. */
 		if (!request_region(ioaddr, LNE390_IO_EXTENT, DRV_NAME))
@@ -189,23 +184,13 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
 
 	revision = (eisa_id >> 24) & 0x01;	/* 0 = rev A, 1 rev B */
 
-#if 0
-/*	Check the Mylex vendor ID as well. Not really required. */
-	if (inb(ioaddr + LNE390_SA_PROM + 0) != LNE390_ADDR0
-		|| inb(ioaddr + LNE390_SA_PROM + 1) != LNE390_ADDR1
-		|| inb(ioaddr + LNE390_SA_PROM + 2) != LNE390_ADDR2 ) {
-		printk("lne390.c: card not found");
-		for(i = 0; i < ETHER_ADDR_LEN; i++)
-			printk(" %02x", inb(ioaddr + LNE390_SA_PROM + i));
-		printk(" (invalid prefix).\n");
-		return -ENODEV;
-	}
-#endif
 
-	printk("lne390.c: LNE390%X in EISA slot %d, address", 0xa+revision, ioaddr/0x1000);
 	for(i = 0; i < ETHER_ADDR_LEN; i++)
-		printk(" %02x", (dev->dev_addr[i] = inb(ioaddr + LNE390_SA_PROM + i)));
-	printk(".\nlne390.c: ");
+		dev->dev_addr[i] = inb(ioaddr + LNE390_SA_PROM + i);
+	printk("lne390.c: LNE390%X in EISA slot %d, address %pM.\n",
+	       0xa+revision, ioaddr/0x1000, dev->dev_addr);
+
+	printk("lne390.c: ");
 
 	/* Snarf the interrupt now. CFG file has them all listed as `edge' with share=NO */
 	if (dev->irq == 0) {
@@ -278,11 +263,7 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
 	ei_status.block_output = &lne390_block_output;
 	ei_status.get_8390_hdr = &lne390_get_8390_hdr;
 
-	dev->open = &lne390_open;
-	dev->stop = &lne390_close;
-#ifdef CONFIG_NET_POLL_CONTROLLER
-	dev->poll_controller = ei_poll;
-#endif
+	dev->netdev_ops = &ei_netdev_ops;
 	NS8390_init(dev, 0);
 
 	ret = register_netdev(dev);
@@ -314,8 +295,6 @@ static void lne390_reset_8390(struct net_device *dev)
 	ei_status.txing = 0;
 	outb(0x01, ioaddr + LNE390_RESET_PORT);
 	if (ei_debug > 1) printk("reset done\n");
-
-	return;
 }
 
 /*
@@ -374,21 +353,6 @@ static void lne390_block_output(struct net_device *dev, int count,
 	memcpy_toio(shmem, buf, count);
 }
 
-static int lne390_open(struct net_device *dev)
-{
-	ei_open(dev);
-	return 0;
-}
-
-static int lne390_close(struct net_device *dev)
-{
-
-	if (ei_debug > 1)
-		printk("%s: Shutting down ethercard.\n", dev->name);
-
-	ei_close(dev);
-	return 0;
-}
 
 #ifdef MODULE
 #define MAX_LNE_CARDS	4	/* Max number of LNE390 cards per module */
@@ -454,4 +418,3 @@ void __exit cleanup_module(void)
 	}
 }
 #endif /* MODULE */
-

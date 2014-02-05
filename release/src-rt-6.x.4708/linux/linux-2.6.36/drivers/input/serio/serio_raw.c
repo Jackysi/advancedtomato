@@ -9,7 +9,9 @@
  * the Free Software Foundation.
  */
 
+#include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/poll.h>
 #include <linux/module.h>
 #include <linux/serio.h>
@@ -57,10 +59,8 @@ static unsigned int serio_raw_no;
 static int serio_raw_fasync(int fd, struct file *file, int on)
 {
 	struct serio_raw_list *list = file->private_data;
-	int retval;
 
-	retval = fasync_helper(fd, file, on, &list->fasync);
-	return retval < 0 ? retval : 0;
+	return fasync_helper(fd, file, on, &list->fasync);
 }
 
 static struct serio_raw *serio_raw_locate(int minor)
@@ -85,7 +85,8 @@ static int serio_raw_open(struct inode *inode, struct file *file)
 	if (retval)
 		return retval;
 
-	if (!(serio_raw = serio_raw_locate(iminor(inode)))) {
+	serio_raw = serio_raw_locate(iminor(inode));
+	if (!serio_raw) {
 		retval = -ENODEV;
 		goto out;
 	}
@@ -95,7 +96,8 @@ static int serio_raw_open(struct inode *inode, struct file *file)
 		goto out;
 	}
 
-	if (!(list = kzalloc(sizeof(struct serio_raw_list), GFP_KERNEL))) {
+	list = kzalloc(sizeof(struct serio_raw_list), GFP_KERNEL);
+	if (!list) {
 		retval = -ENOMEM;
 		goto out;
 	}
@@ -131,7 +133,6 @@ static int serio_raw_release(struct inode *inode, struct file *file)
 
 	mutex_lock(&serio_raw_mutex);
 
-	serio_raw_fasync(-1, file, 0);
 	serio_raw_cleanup(serio_raw);
 
 	mutex_unlock(&serio_raw_mutex);
@@ -160,7 +161,7 @@ static ssize_t serio_raw_read(struct file *file, char __user *buffer, size_t cou
 {
 	struct serio_raw_list *list = file->private_data;
 	struct serio_raw *serio_raw = list->serio_raw;
-	char c;
+	char uninitialized_var(c);
 	ssize_t retval = 0;
 
 	if (!serio_raw->serio)
@@ -365,6 +366,12 @@ static void serio_raw_disconnect(struct serio *serio)
 static struct serio_device_id serio_raw_serio_ids[] = {
 	{
 		.type	= SERIO_8042,
+		.proto	= SERIO_ANY,
+		.id	= SERIO_ANY,
+		.extra	= SERIO_ANY,
+	},
+	{
+		.type	= SERIO_8042_XL,
 		.proto	= SERIO_ANY,
 		.id	= SERIO_ANY,
 		.extra	= SERIO_ANY,

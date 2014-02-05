@@ -40,4 +40,3 @@ void pwc_dec1_init(int type, int release, void *buffer, void *private_data);
 void pwc_dec1_exit(void);
 
 #endif
-

@@ -1,4 +1,4 @@
-/* $Id: hscx.c,v 1.24.2.4 2004/01/24 20:47:23 keil Exp $
+/* $Id: hscx.c,v 1.24.2.4 2004/01/24 20:47:23 Exp $
  *
  * HSCX specific routines
  *
@@ -16,6 +16,7 @@
 #include "isac.h"
 #include "isdnl1.h"
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 
 static char *HSCXVer[] =
 {"A1", "?1", "A2", "?3", "A3", "V2.1", "?6", "?7",

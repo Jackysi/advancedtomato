@@ -4,12 +4,12 @@ Kernel driver lm78
 Supported chips:
   * National Semiconductor LM78 / LM78-J
     Prefix: 'lm78'
-    Addresses scanned: I2C 0x20 - 0x2f, ISA 0x290 (8 I/O ports)
+    Addresses scanned: I2C 0x28 - 0x2f, ISA 0x290 (8 I/O ports)
     Datasheet: Publicly available at the National Semiconductor website
                http://www.national.com/
   * National Semiconductor LM79
     Prefix: 'lm79'
-    Addresses scanned: I2C 0x20 - 0x2f, ISA 0x290 (8 I/O ports)
+    Addresses scanned: I2C 0x28 - 0x2f, ISA 0x290 (8 I/O ports)
     Datasheet: Publicly available at the National Semiconductor website
                http://www.national.com/
 
@@ -55,16 +55,6 @@ The VID lines encode the core voltage value: the voltage level your processor
 should work with. This is hardcoded by the mainboard and/or processor itself.
 It is a value in volts. When it is unconnected, you will often find the
 value 3.50 V here.
-
-In addition to the alarms described above, there are a couple of additional
-ones. There is a BTI alarm, which gets triggered when an external chip has
-crossed its limits. Usually, this is connected to all LM75 chips; if at
-least one crosses its limits, this bit gets set. The CHAS alarm triggers
-if your computer case is open. The FIFO alarms should never trigger; it
-indicates an internal error. The SMI_IN alarm indicates some other chip
-has triggered an SMI interrupt. As we do not use SMI interrupts at all,
-this condition usually indicates there is a problem with some other
-device.
 
 If an alarm triggers, it will remain triggered until the hardware register
 is read at least once. This means that the cause for the alarm may

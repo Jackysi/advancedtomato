@@ -68,7 +68,7 @@ struct parsed_partitions;
 #define VBLK_SIZE_DSK3		12
 #define VBLK_SIZE_DSK4		45
 #define VBLK_SIZE_PRT3		28
-#define VBLK_SIZE_VOL5		59
+#define VBLK_SIZE_VOL5		58
 
 /* component types */
 #define COMP_STRIPE		0x01		/* Stripe-set */
@@ -97,11 +97,6 @@ struct parsed_partitions;
 
 #define TOC_BITMAP1		"config"	/* Names of the two defined */
 #define TOC_BITMAP2		"log"		/* bitmaps in the TOCBLOCK. */
-
-/* Most numbers we deal with are big-endian and won't be aligned. */
-#define BE16(x)			((u16)be16_to_cpu(get_unaligned((__be16*)(x))))
-#define BE32(x)			((u32)be32_to_cpu(get_unaligned((__be32*)(x))))
-#define BE64(x)			((u64)be64_to_cpu(get_unaligned((__be64*)(x))))
 
 /* Borrowed from msdos.c */
 #define SYS_IND(p)		(get_unaligned(&(p)->sys_ind))
@@ -214,7 +209,6 @@ struct ldmdb {				/* Cache of the database */
 	struct list_head v_part;
 };
 
-int ldm_partition (struct parsed_partitions *state, struct block_device *bdev);
+int ldm_partition(struct parsed_partitions *state);
 
 #endif /* _FS_PT_LDM_H_ */
-

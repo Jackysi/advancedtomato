@@ -64,7 +64,7 @@ dig_setup (char **cmdline_p)
 	screen_info.orig_video_cols  = num_cols;
 	screen_info.orig_video_lines = num_rows;
 	screen_info.orig_video_points = font_height;
-	screen_info.orig_video_mode = 3;	/* XXX fake */
-	screen_info.orig_video_isVGA = 1;	/* XXX fake */
-	screen_info.orig_video_ega_bx = 3;	/* XXX fake */
+	screen_info.orig_video_mode = 3;
+	screen_info.orig_video_isVGA = 1;
+	screen_info.orig_video_ega_bx = 3;
 }

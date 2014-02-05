@@ -13,7 +13,7 @@ dump of the system kernel's memory needs to be taken (for example, when
 the system panics). The system kernel's memory image is preserved across
 the reboot and is accessible to the dump-capture kernel.
 
-You can use common Linux commands, such as cp and scp, to copy the
+You can use common commands, such as cp and scp, to copy the
 memory image to a dump file on the local disk, or across the network to
 a remote system.
 
@@ -65,26 +65,26 @@ Install kexec-tools
 
 2) Download the kexec-tools user-space package from the following URL:
 
-http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing.tar.gz
+http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools.tar.gz
 
-This is a symlink to the latest version, which at the time of writing is
-20061214, the only release of kexec-tools-testing so far. As other versions
-are made released, the older onese will remain available at
-http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/
+This is a symlink to the latest version.
 
-Note: Latest kexec-tools-testing git tree is available at
+The latest kexec-tools git tree is available at:
 
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/kexec-tools-testing.git
+git://git.kernel.org/pub/scm/linux/kernel/git/horms/kexec-tools.git
 or
-http://www.kernel.org/git/?p=linux/kernel/git/horms/kexec-tools-testing.git;a=summary
+http://www.kernel.org/git/?p=linux/kernel/git/horms/kexec-tools.git
+
+More information about kexec-tools can be found at
+http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/README.html
 
 3) Unpack the tarball with the tar command, as follows:
 
-   tar xvpzf kexec-tools-testing.tar.gz
+   tar xvpzf kexec-tools.tar.gz
 
 4) Change to the kexec-tools directory, as follows:
 
-   cd kexec-tools-testing-VERSION
+   cd kexec-tools-VERSION
 
 5) Configure the package, as follows:
 
@@ -108,8 +108,9 @@ There are two possible methods of using Kdump.
 
 2) Or use the system kernel binary itself as dump-capture kernel and there is
    no need to build a separate dump-capture kernel. This is possible
-   only with the architecutres which support a relocatable kernel. As
-   of today i386 and ia64 architectures support relocatable kernel.
+   only with the architectures which support a relocatable kernel. As
+   of today, i386, x86_64, ppc64 and ia64 architectures support relocatable
+   kernel.
 
 Building a relocatable kernel is advantageous from the point of view that
 one does not have to build a second kernel for capturing the dump. But
@@ -159,16 +160,17 @@ Dump-capture kernel config options (Arch Independent)
    CONFIG_PROC_VMCORE=y
    (CONFIG_PROC_VMCORE is set by default when CONFIG_CRASH_DUMP is selected.)
 
-Dump-capture kernel config options (Arch Dependent, i386)
---------------------------------------------------------
-1) On x86, enable high memory support under "Processor type and
+Dump-capture kernel config options (Arch Dependent, i386 and x86_64)
+--------------------------------------------------------------------
+
+1) On i386, enable high memory support under "Processor type and
    features":
 
    CONFIG_HIGHMEM64G=y
    or
    CONFIG_HIGHMEM4G
 
-2) On x86 and x86_64, disable symmetric multi-processing support
+2) On i386 and x86_64, disable symmetric multi-processing support
    under "Processor type and features":
 
    CONFIG_SMP=n
@@ -203,39 +205,24 @@ Dump-capture kernel config options (Arch Dependent, i386)
 5) Make and install the kernel and its modules. DO NOT add this kernel
    to the boot loader configuration files.
 
-Dump-capture kernel config options (Arch Dependent, x86_64)
-----------------------------------------------------------
-1) On x86 and x86_64, disable symmetric multi-processing support
-   under "Processor type and features":
-
-   CONFIG_SMP=n
-
-   (If CONFIG_SMP=y, then specify maxcpus=1 on the kernel command line
-   when loading the dump-capture kernel, see section "Load the Dump-capture
-   Kernel".)
-
-2) Use a suitable value for "Physical address where the kernel is
-   loaded" (under "Processor type and features"). This only appears when
-   "kernel crash dumps" is enabled. By default this value is 0x1000000
-   (16MB). It should be the same as X in the "crashkernel=Y@X" boot
-   parameter.
-
-   For x86_64, normally "CONFIG_PHYSICAL_START=0x1000000".
-
-3) Make and install the kernel and its modules. DO NOT add this kernel
-   to the boot loader configuration files.
-
 Dump-capture kernel config options (Arch Dependent, ppc64)
 ----------------------------------------------------------
 
-*  Make and install the kernel and its modules. DO NOT add this kernel
-   to the boot loader configuration files.
+1) Enable "Build a kdump crash kernel" support under "Kernel" options:
+
+   CONFIG_CRASH_DUMP=y
+
+2)   Enable "Build a relocatable kernel" support
+
+   CONFIG_RELOCATABLE=y
+
+   Make and install the kernel and its modules.
 
 Dump-capture kernel config options (Arch Dependent, ia64)
 ----------------------------------------------------------
 
 - No specific options are required to create a dump-capture kernel
-  for ia64, other than those specified in the arch idependent section
+  for ia64, other than those specified in the arch independent section
   above. This means that it is possible to use the system kernel
   as a dump-capture kernel if desired.
 
@@ -250,6 +237,35 @@ Dump-capture kernel config options (Arch Dependent, ia64)
   If the start address is specified, note that the start address of the
   kernel will be aligned to 64Mb, so if the start address is not then
   any space below the alignment point will be wasted.
+
+
+Extended crashkernel syntax
+===========================
+
+While the "crashkernel=size[@offset]" syntax is sufficient for most
+configurations, sometimes it's handy to have the reserved memory dependent
+on the value of System RAM -- that's mostly for distributors that pre-setup
+the kernel command line to avoid a unbootable system after some memory has
+been removed from the machine.
+
+The syntax is:
+
+    crashkernel=<range1>:<size1>[,<range2>:<size2>,...][@offset]
+    range=start-[end]
+
+    'start' is inclusive and 'end' is exclusive.
+
+For example:
+
+    crashkernel=512M-2G:64M,2G-:128M
+
+This would mean:
+
+    1) if the RAM is smaller than 512M, then don't reserve anything
+       (this is the "rescue" case)
+    2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
+    3) if the RAM size is larger than 2G, then reserve 128M
+
 
 
 Boot into System Kernel
@@ -282,11 +298,9 @@ Based on the architecture and type of image (relocatable or not), one
 can choose to load the uncompressed vmlinux or compressed bzImage/vmlinuz
 of dump-capture kernel. Following is the summary.
 
-For i386:
+For i386 and x86_64:
 	- Use vmlinux if kernel is not relocatable.
 	- Use bzImage/vmlinuz if kernel is relocatable.
-For x86_64:
-	- Use vmlinux
 For ppc64:
 	- Use vmlinux
 For ia64:
@@ -315,20 +329,22 @@ Following are the arch specific command line options to be used while
 loading dump-capture kernel.
 
 For i386, x86_64 and ia64:
-	"1 irqpoll maxcpus=1"
+	"1 irqpoll maxcpus=1 reset_devices"
 
 For ppc64:
-	"1 maxcpus=1 noirqdistrib"
+	"1 maxcpus=1 noirqdistrib reset_devices"
 
 
 Notes on loading the dump-capture kernel:
 
 * By default, the ELF headers are stored in ELF64 format to support
-  systems with more than 4GB memory. The --elf32-core-headers option can
-  be used to force the generation of ELF32 headers. This is necessary
-  because GDB currently cannot open vmcore files with ELF64 headers on
-  32-bit systems. ELF32 headers can be used on non-PAE systems (that is,
-  less than 4GB of memory).
+  systems with more than 4GB memory. On i386, kexec automatically checks if
+  the physical RAM size exceeds the 4 GB limit and if not, uses ELF32.
+  So, on non-PAE systems, ELF32 is always used.
+
+  The --elf32-core-headers option can be used to force the generation of ELF32
+  headers. This is necessary because GDB currently cannot open vmcore files
+  with ELF64 headers on 32-bit systems.
 
 * The "irqpoll" boot parameter reduces driver initialization failures
   due to shared interrupts in the dump-capture kernel.
@@ -360,7 +376,7 @@ If die() is called, and it happens to be a thread with pid 0 or 1, or die()
 is called inside interrupt context or die() is called and panic_on_oops is set,
 the system will boot into the dump-capture kernel.
 
-On powererpc systems when a soft-reset is generated, die() is called by all cpus
+On powerpc systems when a soft-reset is generated, die() is called by all cpus
 and the system will boot into the dump-capture kernel.
 
 For testing purposes, you can trigger a crash by using "ALT-SysRq-c",
@@ -426,9 +442,3 @@ Contact
 Vivek Goyal (vgoyal@in.ibm.com)
 Maneesh Soni (maneesh@in.ibm.com)
 
-
-Trademark
-=========
-
-Linux is a trademark of Linus Torvalds in the United States, other
-countries, or both.

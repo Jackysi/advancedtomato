@@ -25,11 +25,6 @@
  *      Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
  *      USA.
  *
- * Revision history:
- * $Log: rio.c,v $
- * Revision 1.1  1999/07/11 10:13:54  wolff
- * Initial revision
- *
  * */
 
 #include <linux/module.h>
@@ -49,6 +44,7 @@
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/miscdevice.h>
 #include <linux/init.h>
 
@@ -136,7 +132,6 @@ static struct Conf
 				/* intrpolltime */ 1,
 				/* The frequency of OUR polls */
 				/* breakinterval */ 25,
-				/* x10 mS XXX: units seem to be 1ms not 10! -- REW */
 				/* timer */ 10,
 				/* mS */
 	/* RtaLoadBase */ 0x7000,
@@ -178,13 +173,13 @@ static void rio_disable_tx_interrupts(void *ptr);
 static void rio_enable_tx_interrupts(void *ptr);
 static void rio_disable_rx_interrupts(void *ptr);
 static void rio_enable_rx_interrupts(void *ptr);
-static int rio_get_CD(void *ptr);
+static int rio_carrier_raised(struct tty_port *port);
 static void rio_shutdown_port(void *ptr);
 static int rio_set_real_termios(void *ptr);
 static void rio_hungup(void *ptr);
 static void rio_close(void *ptr);
 static int rio_chars_in_buffer(void *ptr);
-static int rio_fw_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg);
+static long rio_fw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 static int rio_init_drivers(void);
 
 static void my_hd(void *addr, int len);
@@ -229,7 +224,6 @@ static struct real_driver rio_real_driver = {
 	rio_enable_tx_interrupts,
 	rio_disable_rx_interrupts,
 	rio_enable_rx_interrupts,
-	rio_get_CD,
 	rio_shutdown_port,
 	rio_set_real_termios,
 	rio_chars_in_buffer,
@@ -245,7 +239,7 @@ static struct real_driver rio_real_driver = {
 
 static const struct file_operations rio_fw_fops = {
 	.owner = THIS_MODULE,
-	.ioctl = rio_fw_ioctl,
+	.unlocked_ioctl = rio_fw_ioctl,
 };
 
 static struct miscdevice rio_fw_device = {
@@ -339,12 +333,12 @@ void rio_copy_to_card(void *from, void __iomem *to, int len)
 
 int rio_minor(struct tty_struct *tty)
 {
-	return tty->index + (tty->driver == rio_driver) ? 0 : 256;
+	return tty->index + ((tty->driver == rio_driver) ? 0 : 256);
 }
 
 static int rio_set_real_termios(void *ptr)
 {
-	return RIOParam((struct Port *) ptr, CONFIG, 1, 1);
+	return RIOParam((struct Port *) ptr, RIOC_CONFIG, 1, 1);
 }
 
 
@@ -436,7 +430,7 @@ static void rio_disable_tx_interrupts(void *ptr)
 {
 	func_enter();
 
-	/*  port->gs.flags &= ~GS_TX_INTEN; */
+	/*  port->gs.port.flags &= ~GS_TX_INTEN; */
 
 	func_exit();
 }
@@ -460,7 +454,7 @@ static void rio_enable_tx_interrupts(void *ptr)
 	 * In general we cannot count on "tx empty" interrupts, although
 	 * the interrupt routine seems to be able to tell the difference.
 	 */
-	PortP->gs.flags &= ~GS_TX_INTEN;
+	PortP->gs.port.flags &= ~GS_TX_INTEN;
 
 	func_exit();
 }
@@ -481,13 +475,13 @@ static void rio_enable_rx_interrupts(void *ptr)
 
 
 /* Jeez. Isn't this simple?  */
-static int rio_get_CD(void *ptr)
+static int rio_carrier_raised(struct tty_port *port)
 {
-	struct Port *PortP = ptr;
+	struct Port *PortP = container_of(port, struct Port, gs.port);
 	int rv;
 
 	func_enter();
-	rv = (PortP->ModemState & MSVR1_CD) != 0;
+	rv = (PortP->ModemState & RIOC_MSVR1_CD) != 0;
 
 	rio_dprintk(RIO_DEBUG_INIT, "Getting CD status: %d\n", rv);
 
@@ -515,7 +509,7 @@ static void rio_shutdown_port(void *ptr)
 	func_enter();
 
 	PortP = (struct Port *) ptr;
-	PortP->gs.tty = NULL;
+	PortP->gs.port.tty = NULL;
 	func_exit();
 }
 
@@ -534,7 +528,7 @@ static void rio_hungup(void *ptr)
 	func_enter();
 
 	PortP = (struct Port *) ptr;
-	PortP->gs.tty = NULL;
+	PortP->gs.port.tty = NULL;
 
 	func_exit();
 }
@@ -554,24 +548,26 @@ static void rio_close(void *ptr)
 
 	riotclose(ptr);
 
-	if (PortP->gs.count) {
-		printk(KERN_ERR "WARNING port count:%d\n", PortP->gs.count);
-		PortP->gs.count = 0;
+	if (PortP->gs.port.count) {
+		printk(KERN_ERR "WARNING port count:%d\n", PortP->gs.port.count);
+		PortP->gs.port.count = 0;
 	}
 
-	PortP->gs.tty = NULL;
+	PortP->gs.port.tty = NULL;
 	func_exit();
 }
 
 
 
-static int rio_fw_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
+static long rio_fw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int rc = 0;
 	func_enter();
 
 	/* The "dev" argument isn't used. */
+	lock_kernel();
 	rc = riocontrol(p, 0, cmd, arg, capable(CAP_SYS_ADMIN));
+	unlock_kernel();
 
 	func_exit();
 	return rc;
@@ -607,7 +603,8 @@ static int rio_ioctl(struct tty_struct *tty, struct file *filp, unsigned int cmd
 			rio_dprintk(RIO_DEBUG_TTY, "BREAK on deleted RTA\n");
 			rc = -EIO;
 		} else {
-			if (RIOShortCommand(p, PortP, SBREAK, 2, 250) == RIO_FAIL) {
+			if (RIOShortCommand(p, PortP, RIOC_SBREAK, 2, 250) ==
+					RIO_FAIL) {
 				rio_dprintk(RIO_DEBUG_INTR, "SBREAK RIOShortCommand failed\n");
 				rc = -EIO;
 			}
@@ -622,7 +619,8 @@ static int rio_ioctl(struct tty_struct *tty, struct file *filp, unsigned int cmd
 			l = arg ? arg * 100 : 250;
 			if (l > 255)
 				l = 255;
-			if (RIOShortCommand(p, PortP, SBREAK, 2, arg ? arg * 100 : 250) == RIO_FAIL) {
+			if (RIOShortCommand(p, PortP, RIOC_SBREAK, 2,
+					arg ? arg * 100 : 250) == RIO_FAIL) {
 				rio_dprintk(RIO_DEBUG_INTR, "SBREAK RIOShortCommand failed\n");
 				rc = -EIO;
 			}
@@ -798,18 +796,9 @@ static int rio_init_drivers(void)
 	return 1;
 }
 
-
-static void *ckmalloc(int size)
-{
-	void *p;
-
-	p = kmalloc(size, GFP_KERNEL);
-	if (p)
-		memset(p, 0, size);
-	return p;
-}
-
-
+static const struct tty_port_operations rio_port_ops = {
+	.carrier_raised = rio_carrier_raised,
+};
 
 static int rio_init_datastructures(void)
 {
@@ -829,37 +818,30 @@ static int rio_init_datastructures(void)
 #define TMIO_SZ sizeof(struct termios *)
 	rio_dprintk(RIO_DEBUG_INIT, "getting : %Zd %Zd %Zd %Zd %Zd bytes\n", RI_SZ, RIO_HOSTS * HOST_SZ, RIO_PORTS * PORT_SZ, RIO_PORTS * TMIO_SZ, RIO_PORTS * TMIO_SZ);
 
-	if (!(p = ckmalloc(RI_SZ)))
+	if (!(p = kzalloc(RI_SZ, GFP_KERNEL)))
 		goto free0;
-	if (!(p->RIOHosts = ckmalloc(RIO_HOSTS * HOST_SZ)))
+	if (!(p->RIOHosts = kzalloc(RIO_HOSTS * HOST_SZ, GFP_KERNEL)))
 		goto free1;
-	if (!(p->RIOPortp = ckmalloc(RIO_PORTS * PORT_SZ)))
+	if (!(p->RIOPortp = kzalloc(RIO_PORTS * PORT_SZ, GFP_KERNEL)))
 		goto free2;
 	p->RIOConf = RIOConf;
 	rio_dprintk(RIO_DEBUG_INIT, "Got : %p %p %p\n", p, p->RIOHosts, p->RIOPortp);
 
-#if 1
 	for (i = 0; i < RIO_PORTS; i++) {
-		port = p->RIOPortp[i] = ckmalloc(sizeof(struct Port));
+		port = p->RIOPortp[i] = kzalloc(sizeof(struct Port), GFP_KERNEL);
 		if (!port) {
 			goto free6;
 		}
 		rio_dprintk(RIO_DEBUG_INIT, "initing port %d (%d)\n", i, port->Mapped);
+		tty_port_init(&port->gs.port);
+		port->gs.port.ops = &rio_port_ops;
 		port->PortNum = i;
 		port->gs.magic = RIO_MAGIC;
 		port->gs.close_delay = HZ / 2;
 		port->gs.closing_wait = 30 * HZ;
 		port->gs.rd = &rio_real_driver;
 		spin_lock_init(&port->portSem);
-		/*
-		 * Initializing wait queue
-		 */
-		init_waitqueue_head(&port->gs.open_wait);
-		init_waitqueue_head(&port->gs.close_wait);
 	}
-#else
-	/* We could postpone initializing them to when they are configured. */
-#endif
 
 
 

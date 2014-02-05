@@ -23,6 +23,7 @@ Contents:
 1.3 sparc64
 1.4 ppc
 1.5 SuperH
+1.6 Blackfin
 
 2. "Policy" / "Governor"?
 2.1 Policy
@@ -30,7 +31,6 @@ Contents:
 
 3. How to change the CPU cpufreq policy and/or speed
 3.1 Preferred interface: sysfs
-3.2 Deprecated interfaces
 
 
 
@@ -45,6 +45,7 @@ The following ARM processors are supported by cpufreq:
 ARM Integrator
 ARM-SA1100
 ARM-SA1110
+Intel PXA
 
 
 1.2 x86
@@ -91,10 +92,19 @@ Several "PowerBook" and "iBook2" notebooks are supported.
 1.5 SuperH
 ----------
 
-The following SuperH processors are supported by cpufreq:
+All SuperH processors supporting rate rounding through the clock
+framework are supported by cpufreq.
 
-SH-3
-SH-4
+1.6 Blackfin
+------------
+
+The following Blackfin processors are supported by cpufreq:
+
+BF522, BF523, BF524, BF525, BF526, BF527, Rev 0.1 or higher
+BF531, BF532, BF533, Rev 0.3 or higher
+BF534, BF536, BF537, Rev 0.2 or higher
+BF561, Rev 0.3 or higher
+BF542, BF544, BF547, BF548, BF549, Rev 0.1 or higher
 
 
 2. "Policy" / "Governor" ?
@@ -141,6 +151,18 @@ cpuinfo_min_freq :		this file shows the minimum operating
 				frequency the processor can run at(in kHz) 
 cpuinfo_max_freq :		this file shows the maximum operating
 				frequency the processor can run at(in kHz) 
+cpuinfo_transition_latency	The time it takes on this CPU to
+				switch between two frequencies in nano
+				seconds. If unknown or known to be
+				that high that the driver does not
+				work with the ondemand governor, -1
+				(CPUFREQ_ETERNAL) will be returned.
+				Using this information can be useful
+				to choose an appropriate polling
+				frequency for a kernel governor or
+				userspace daemon. Make sure to not
+				switch the frequency too often
+				resulting in performance loss.
 scaling_driver :		this file shows what cpufreq driver is
 				used to set the frequency on this CPU
 
@@ -153,6 +175,13 @@ scaling_governor,		and by "echoing" the name of another
 				that some governors won't load - they only
 				work on some specific architectures or
 				processors.
+
+cpuinfo_cur_freq :		Current frequency of the CPU as obtained from
+				the hardware, in KHz. This is the frequency
+				the CPU actually runs at.
+
+scaling_available_frequencies : List of available frequencies, in KHz.
+
 scaling_min_freq and
 scaling_max_freq		show the current "policy limits" (in
 				kHz). By echoing new values into these
@@ -161,6 +190,29 @@ scaling_max_freq		show the current "policy limits" (in
 				first set scaling_max_freq, then
 				scaling_min_freq.
 
+affected_cpus :			List of CPUs that require software coordination
+				of frequency.
+
+related_cpus :			List of CPUs that need some sort of frequency
+				coordination, whether software or hardware.
+
+scaling_driver :		Hardware driver for cpufreq.
+
+scaling_cur_freq :		Current frequency of the CPU as determined by
+				the governor and cpufreq core, in KHz. This is
+				the frequency the kernel thinks the CPU runs
+				at.
+
+bios_limit :			If the BIOS tells the OS to limit a CPU to
+				lower frequencies, the user can read out the
+				maximum available frequency from this file.
+				This typically can happen through (often not
+				intended) BIOS settings, restrictions
+				triggered through a service processor or other
+				BIOS/HW based implementations.
+				This does not cover thermal ACPI limitations
+				which can be detected through the generic
+				thermal driver.
 
 If you have selected the "userspace" governor which allows you to
 set the CPU operating frequency to a specific value, you can read out
@@ -170,19 +222,3 @@ scaling_setspeed.		By "echoing" a new frequency into this
 				you can change the speed of the CPU,
 				but only within the limits of
 				scaling_min_freq and scaling_max_freq.
-				
-
-3.2 Deprecated Interfaces
--------------------------
-
-Depending on your kernel configuration, you might find the following 
-cpufreq-related files:
-/proc/cpufreq
-/proc/sys/cpu/*/speed
-/proc/sys/cpu/*/speed-min
-/proc/sys/cpu/*/speed-max
-
-These are files for deprecated interfaces to cpufreq, which offer far
-less functionality. Because of this, these interfaces aren't described
-here.
-

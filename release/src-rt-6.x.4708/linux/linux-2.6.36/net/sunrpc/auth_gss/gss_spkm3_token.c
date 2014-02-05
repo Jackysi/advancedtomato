@@ -90,7 +90,7 @@ asn1_bitstring_len(struct xdr_netobj *in, int *enclen, int *zerobits)
 int
 decode_asn1_bitstring(struct xdr_netobj *out, char *in, int enclen, int explen)
 {
-	if (!(out->data = kzalloc(explen,GFP_KERNEL)))
+	if (!(out->data = kzalloc(explen,GFP_NOFS)))
 		return 0;
 	out->len = explen;
 	memcpy(out->data, in, enclen);
@@ -223,7 +223,7 @@ spkm3_verify_mic_token(unsigned char **tokp, int *mic_hdrlen, unsigned char **ck
 
 	/* only support SPKM_MIC_TOK */
 	if((ptr[6] != 0x01) || (ptr[7] != 0x01)) {
-		dprintk("RPC:       ERROR unsupported SPKM3 token \n");
+		dprintk("RPC:       ERROR unsupported SPKM3 token\n");
 		goto out;
 	}
 
@@ -264,4 +264,3 @@ out:
 	kfree(spkm3_ctx_id.data);
 	return ret;
 }
-

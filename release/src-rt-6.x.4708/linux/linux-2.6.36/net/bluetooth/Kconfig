@@ -3,8 +3,9 @@
 #
 
 menuconfig BT
-	depends on NET && !S390
 	tristate "Bluetooth subsystem support"
+	depends on NET && !S390
+	depends on RFKILL || !RFKILL
 	help
 	  Bluetooth is low-cost, low-power, short-range wireless technology.
 	  It was designed as a replacement for cables and other short-range
@@ -33,6 +34,7 @@ menuconfig BT
 config BT_L2CAP
 	tristate "L2CAP protocol support"
 	depends on BT
+	select CRC16
 	help
 	  L2CAP (Logical Link Control and Adaptation Protocol) provides
 	  connection oriented and connection-less data transport.  L2CAP

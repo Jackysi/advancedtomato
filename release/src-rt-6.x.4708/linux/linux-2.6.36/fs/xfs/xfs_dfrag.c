@@ -24,190 +24,236 @@
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
-#include "xfs_dir2.h"
-#include "xfs_dmapi.h"
 #include "xfs_mount.h"
 #include "xfs_bmap_btree.h"
-#include "xfs_alloc_btree.h"
-#include "xfs_ialloc_btree.h"
-#include "xfs_dir2_sf.h"
-#include "xfs_attr_sf.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_inode_item.h"
 #include "xfs_bmap.h"
-#include "xfs_btree.h"
-#include "xfs_ialloc.h"
 #include "xfs_itable.h"
 #include "xfs_dfrag.h"
 #include "xfs_error.h"
-#include "xfs_rw.h"
+#include "xfs_vnodeops.h"
+#include "xfs_trace.h"
+
+
+static int xfs_swap_extents(
+	xfs_inode_t	*ip,	/* target inode */
+	xfs_inode_t	*tip,	/* tmp inode */
+	xfs_swapext_t	*sxp);
 
 /*
- * Syssgi interface for swapext
+ * ioctl interface for swapext
  */
 int
 xfs_swapext(
-	xfs_swapext_t	__user *sxu)
+	xfs_swapext_t	*sxp)
 {
-	xfs_swapext_t	*sxp;
-	xfs_inode_t     *ip=NULL, *tip=NULL;
-	xfs_mount_t     *mp;
-	struct file	*fp = NULL, *tfp = NULL;
-	bhv_vnode_t	*vp, *tvp;
+	xfs_inode_t     *ip, *tip;
+	struct file	*file, *tmp_file;
 	int		error = 0;
 
-	sxp = kmem_alloc(sizeof(xfs_swapext_t), KM_MAYFAIL);
-	if (!sxp) {
-		error = XFS_ERROR(ENOMEM);
-		goto error0;
-	}
-
-	if (copy_from_user(sxp, sxu, sizeof(xfs_swapext_t))) {
-		error = XFS_ERROR(EFAULT);
-		goto error0;
-	}
-
 	/* Pull information for the target fd */
-	if (((fp = fget((int)sxp->sx_fdtarget)) == NULL) ||
-	    ((vp = vn_from_inode(fp->f_path.dentry->d_inode)) == NULL))  {
+	file = fget((int)sxp->sx_fdtarget);
+	if (!file) {
 		error = XFS_ERROR(EINVAL);
-		goto error0;
+		goto out;
 	}
 
-	ip = xfs_vtoi(vp);
-	if (ip == NULL) {
+	if (!(file->f_mode & FMODE_WRITE) ||
+	    !(file->f_mode & FMODE_READ) ||
+	    (file->f_flags & O_APPEND)) {
 		error = XFS_ERROR(EBADF);
-		goto error0;
+		goto out_put_file;
 	}
 
-	if (((tfp = fget((int)sxp->sx_fdtmp)) == NULL) ||
-	    ((tvp = vn_from_inode(tfp->f_path.dentry->d_inode)) == NULL)) {
+	tmp_file = fget((int)sxp->sx_fdtmp);
+	if (!tmp_file) {
 		error = XFS_ERROR(EINVAL);
-		goto error0;
+		goto out_put_file;
 	}
 
-	tip = xfs_vtoi(tvp);
-	if (tip == NULL) {
+	if (!(tmp_file->f_mode & FMODE_WRITE) ||
+	    !(tmp_file->f_mode & FMODE_READ) ||
+	    (tmp_file->f_flags & O_APPEND)) {
 		error = XFS_ERROR(EBADF);
-		goto error0;
+		goto out_put_tmp_file;
 	}
+
+	if (IS_SWAPFILE(file->f_path.dentry->d_inode) ||
+	    IS_SWAPFILE(tmp_file->f_path.dentry->d_inode)) {
+		error = XFS_ERROR(EINVAL);
+		goto out_put_tmp_file;
+	}
+
+	ip = XFS_I(file->f_path.dentry->d_inode);
+	tip = XFS_I(tmp_file->f_path.dentry->d_inode);
 
 	if (ip->i_mount != tip->i_mount) {
-		error =  XFS_ERROR(EINVAL);
-		goto error0;
+		error = XFS_ERROR(EINVAL);
+		goto out_put_tmp_file;
 	}
 
 	if (ip->i_ino == tip->i_ino) {
-		error =  XFS_ERROR(EINVAL);
-		goto error0;
+		error = XFS_ERROR(EINVAL);
+		goto out_put_tmp_file;
 	}
 
-	mp = ip->i_mount;
-
-	if (XFS_FORCED_SHUTDOWN(mp)) {
-		error =  XFS_ERROR(EIO);
-		goto error0;
+	if (XFS_FORCED_SHUTDOWN(ip->i_mount)) {
+		error = XFS_ERROR(EIO);
+		goto out_put_tmp_file;
 	}
 
-	error = XFS_SWAP_EXTENTS(mp, &ip->i_iocore, &tip->i_iocore, sxp);
+	error = xfs_swap_extents(ip, tip, sxp);
 
- error0:
-	if (fp != NULL)
-		fput(fp);
-	if (tfp != NULL)
-		fput(tfp);
-
-	if (sxp != NULL)
-		kmem_free(sxp, sizeof(xfs_swapext_t));
-
+ out_put_tmp_file:
+	fput(tmp_file);
+ out_put_file:
+	fput(file);
+ out:
 	return error;
 }
 
-int
+/*
+ * We need to check that the format of the data fork in the temporary inode is
+ * valid for the target inode before doing the swap. This is not a problem with
+ * attr1 because of the fixed fork offset, but attr2 has a dynamically sized
+ * data fork depending on the space the attribute fork is taking so we can get
+ * invalid formats on the target inode.
+ *
+ * E.g. target has space for 7 extents in extent format, temp inode only has
+ * space for 6.  If we defragment down to 7 extents, then the tmp format is a
+ * btree, but when swapped it needs to be in extent format. Hence we can't just
+ * blindly swap data forks on attr2 filesystems.
+ *
+ * Note that we check the swap in both directions so that we don't end up with
+ * a corrupt temporary inode, either.
+ *
+ * Note that fixing the way xfs_fsr sets up the attribute fork in the source
+ * inode will prevent this situation from occurring, so all we do here is
+ * reject and log the attempt. basically we are putting the responsibility on
+ * userspace to get this right.
+ */
+static int
+xfs_swap_extents_check_format(
+	xfs_inode_t	*ip,	/* target inode */
+	xfs_inode_t	*tip)	/* tmp inode */
+{
+
+	/* Should never get a local format */
+	if (ip->i_d.di_format == XFS_DINODE_FMT_LOCAL ||
+	    tip->i_d.di_format == XFS_DINODE_FMT_LOCAL)
+		return EINVAL;
+
+	/*
+	 * if the target inode has less extents that then temporary inode then
+	 * why did userspace call us?
+	 */
+	if (ip->i_d.di_nextents < tip->i_d.di_nextents)
+		return EINVAL;
+
+	/*
+	 * if the target inode is in extent form and the temp inode is in btree
+	 * form then we will end up with the target inode in the wrong format
+	 * as we already know there are less extents in the temp inode.
+	 */
+	if (ip->i_d.di_format == XFS_DINODE_FMT_EXTENTS &&
+	    tip->i_d.di_format == XFS_DINODE_FMT_BTREE)
+		return EINVAL;
+
+	/* Check temp in extent form to max in target */
+	if (tip->i_d.di_format == XFS_DINODE_FMT_EXTENTS &&
+	    XFS_IFORK_NEXTENTS(tip, XFS_DATA_FORK) > ip->i_df.if_ext_max)
+		return EINVAL;
+
+	/* Check target in extent form to max in temp */
+	if (ip->i_d.di_format == XFS_DINODE_FMT_EXTENTS &&
+	    XFS_IFORK_NEXTENTS(ip, XFS_DATA_FORK) > tip->i_df.if_ext_max)
+		return EINVAL;
+
+	/*
+	 * If we are in a btree format, check that the temp root block will fit
+	 * in the target and that it has enough extents to be in btree format
+	 * in the target.
+	 *
+	 * Note that we have to be careful to allow btree->extent conversions
+	 * (a common defrag case) which will occur when the temp inode is in
+	 * extent format...
+	 */
+	if (tip->i_d.di_format == XFS_DINODE_FMT_BTREE &&
+	    ((XFS_IFORK_BOFF(ip) &&
+	      tip->i_df.if_broot_bytes > XFS_IFORK_BOFF(ip)) ||
+	     XFS_IFORK_NEXTENTS(tip, XFS_DATA_FORK) <= ip->i_df.if_ext_max))
+		return EINVAL;
+
+	/* Reciprocal target->temp btree format checks */
+	if (ip->i_d.di_format == XFS_DINODE_FMT_BTREE &&
+	    ((XFS_IFORK_BOFF(tip) &&
+	      ip->i_df.if_broot_bytes > XFS_IFORK_BOFF(tip)) ||
+	     XFS_IFORK_NEXTENTS(ip, XFS_DATA_FORK) <= tip->i_df.if_ext_max))
+		return EINVAL;
+
+	return 0;
+}
+
+static int
 xfs_swap_extents(
-	xfs_inode_t	*ip,
-	xfs_inode_t	*tip,
+	xfs_inode_t	*ip,	/* target inode */
+	xfs_inode_t	*tip,	/* tmp inode */
 	xfs_swapext_t	*sxp)
 {
 	xfs_mount_t	*mp;
-	xfs_inode_t	*ips[2];
 	xfs_trans_t	*tp;
 	xfs_bstat_t	*sbp = &sxp->sx_stat;
-	bhv_vnode_t	*vp, *tvp;
 	xfs_ifork_t	*tempifp, *ifp, *tifp;
 	int		ilf_fields, tilf_fields;
-	static uint	lock_flags = XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL;
 	int		error = 0;
 	int		aforkblks = 0;
 	int		taforkblks = 0;
 	__uint64_t	tmp;
-	char		locked = 0;
 
 	mp = ip->i_mount;
 
 	tempifp = kmem_alloc(sizeof(xfs_ifork_t), KM_MAYFAIL);
 	if (!tempifp) {
 		error = XFS_ERROR(ENOMEM);
-		goto error0;
+		goto out;
 	}
 
 	sbp = &sxp->sx_stat;
-	vp = XFS_ITOV(ip);
-	tvp = XFS_ITOV(tip);
 
-	/* Lock in i_ino order */
-	if (ip->i_ino < tip->i_ino) {
-		ips[0] = ip;
-		ips[1] = tip;
-	} else {
-		ips[0] = tip;
-		ips[1] = ip;
-	}
-
-	xfs_lock_inodes(ips, 2, 0, lock_flags);
-	locked = 1;
-
-	/* Check permissions */
-	error = xfs_iaccess(ip, S_IWUSR, NULL);
-	if (error)
-		goto error0;
-
-	error = xfs_iaccess(tip, S_IWUSR, NULL);
-	if (error)
-		goto error0;
+	/*
+	 * we have to do two separate lock calls here to keep lockdep
+	 * happy. If we try to get all the locks in one call, lock will
+	 * report false positives when we drop the ILOCK and regain them
+	 * below.
+	 */
+	xfs_lock_two_inodes(ip, tip, XFS_IOLOCK_EXCL);
+	xfs_lock_two_inodes(ip, tip, XFS_ILOCK_EXCL);
 
 	/* Verify that both files have the same format */
 	if ((ip->i_d.di_mode & S_IFMT) != (tip->i_d.di_mode & S_IFMT)) {
 		error = XFS_ERROR(EINVAL);
-		goto error0;
+		goto out_unlock;
 	}
 
 	/* Verify both files are either real-time or non-realtime */
-	if ((ip->i_d.di_flags & XFS_DIFLAG_REALTIME) !=
-	    (tip->i_d.di_flags & XFS_DIFLAG_REALTIME)) {
+	if (XFS_IS_REALTIME_INODE(ip) != XFS_IS_REALTIME_INODE(tip)) {
 		error = XFS_ERROR(EINVAL);
-		goto error0;
+		goto out_unlock;
 	}
 
-	/* Should never get a local format */
-	if (ip->i_d.di_format == XFS_DINODE_FMT_LOCAL ||
-	    tip->i_d.di_format == XFS_DINODE_FMT_LOCAL) {
-		error = XFS_ERROR(EINVAL);
-		goto error0;
-	}
-
-	if (VN_CACHED(tvp) != 0) {
-		xfs_inval_cached_trace(&tip->i_iocore, 0, -1, 0, -1);
-		error = bhv_vop_flushinval_pages(tvp, 0, -1, FI_REMAPF_LOCKED);
+	if (VN_CACHED(VFS_I(tip)) != 0) {
+		error = xfs_flushinval_pages(tip, 0, -1,
+				FI_REMAPF_LOCKED);
 		if (error)
-			goto error0;
+			goto out_unlock;
 	}
 
 	/* Verify O_DIRECT for ftmp */
-	if (VN_CACHED(tvp) != 0) {
+	if (VN_CACHED(VFS_I(tip)) != 0) {
 		error = XFS_ERROR(EINVAL);
-		goto error0;
+		goto out_unlock;
 	}
 
 	/* Verify all data are being swapped */
@@ -215,17 +261,19 @@ xfs_swap_extents(
 	    sxp->sx_length != ip->i_d.di_size ||
 	    sxp->sx_length != tip->i_d.di_size) {
 		error = XFS_ERROR(EFAULT);
-		goto error0;
+		goto out_unlock;
 	}
 
-	/*
-	 * If the target has extended attributes, the tmp file
-	 * must also in order to ensure the correct data fork
-	 * format.
-	 */
-	if ( XFS_IFORK_Q(ip) != XFS_IFORK_Q(tip) ) {
-		error = XFS_ERROR(EINVAL);
-		goto error0;
+	trace_xfs_swap_extent_before(ip, 0);
+	trace_xfs_swap_extent_before(tip, 1);
+
+	/* check inode formats now that data is flushed */
+	error = xfs_swap_extents_check_format(ip, tip);
+	if (error) {
+		xfs_fs_cmn_err(CE_NOTE, mp,
+		    "%s: inode 0x%llx format is incompatible for exchanging.",
+				__FILE__, ip->i_ino);
+		goto out_unlock;
 	}
 
 	/*
@@ -235,12 +283,12 @@ xfs_swap_extents(
 	 * process that the file was not changed out from
 	 * under it.
 	 */
-	if ((sbp->bs_ctime.tv_sec != ip->i_d.di_ctime.t_sec) ||
-	    (sbp->bs_ctime.tv_nsec != ip->i_d.di_ctime.t_nsec) ||
-	    (sbp->bs_mtime.tv_sec != ip->i_d.di_mtime.t_sec) ||
-	    (sbp->bs_mtime.tv_nsec != ip->i_d.di_mtime.t_nsec)) {
+	if ((sbp->bs_ctime.tv_sec != VFS_I(ip)->i_ctime.tv_sec) ||
+	    (sbp->bs_ctime.tv_nsec != VFS_I(ip)->i_ctime.tv_nsec) ||
+	    (sbp->bs_mtime.tv_sec != VFS_I(ip)->i_mtime.tv_sec) ||
+	    (sbp->bs_mtime.tv_nsec != VFS_I(ip)->i_mtime.tv_nsec)) {
 		error = XFS_ERROR(EBUSY);
-		goto error0;
+		goto out_unlock;
 	}
 
 	/* We need to fail if the file is memory mapped.  Once we have tossed
@@ -249,9 +297,9 @@ xfs_swap_extents(
 	 * vop_read (or write in the case of autogrow) they block on the iolock
 	 * until we have switched the extents.
 	 */
-	if (VN_MAPPED(vp)) {
+	if (VN_MAPPED(VFS_I(ip))) {
 		error = XFS_ERROR(EBUSY);
-		goto error0;
+		goto out_unlock;
 	}
 
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
@@ -265,7 +313,7 @@ xfs_swap_extents(
 	 * fields change.
 	 */
 
-	bhv_vop_toss_pages(vp, 0, -1, FI_REMAPF);
+	xfs_tosspages(ip, 0, -1, FI_REMAPF);
 
 	tp = xfs_trans_alloc(mp, XFS_TRANS_SWAPEXT);
 	if ((error = xfs_trans_reserve(tp, 0,
@@ -274,10 +322,9 @@ xfs_swap_extents(
 		xfs_iunlock(ip,  XFS_IOLOCK_EXCL);
 		xfs_iunlock(tip, XFS_IOLOCK_EXCL);
 		xfs_trans_cancel(tp, 0);
-		locked = 0;
-		goto error0;
+		goto out;
 	}
-	xfs_lock_inodes(ips, 2, 0, XFS_ILOCK_EXCL);
+	xfs_lock_two_inodes(ip, tip, XFS_ILOCK_EXCL);
 
 	/*
 	 * Count the number of extended attribute blocks
@@ -285,19 +332,15 @@ xfs_swap_extents(
 	if ( ((XFS_IFORK_Q(ip) != 0) && (ip->i_d.di_anextents > 0)) &&
 	     (ip->i_d.di_aformat != XFS_DINODE_FMT_LOCAL)) {
 		error = xfs_bmap_count_blocks(tp, ip, XFS_ATTR_FORK, &aforkblks);
-		if (error) {
-			xfs_trans_cancel(tp, 0);
-			goto error0;
-		}
+		if (error)
+			goto out_trans_cancel;
 	}
 	if ( ((XFS_IFORK_Q(tip) != 0) && (tip->i_d.di_anextents > 0)) &&
 	     (tip->i_d.di_aformat != XFS_DINODE_FMT_LOCAL)) {
 		error = xfs_bmap_count_blocks(tp, tip, XFS_ATTR_FORK,
 			&taforkblks);
-		if (error) {
-			xfs_trans_cancel(tp, 0);
-			goto error0;
-		}
+		if (error)
+			goto out_trans_cancel;
 	}
 
 	/*
@@ -308,6 +351,16 @@ xfs_swap_extents(
 	*tempifp = *ifp;	/* struct copy */
 	*ifp = *tifp;		/* struct copy */
 	*tifp = *tempifp;	/* struct copy */
+
+	/*
+	 * Fix the in-memory data fork values that are dependent on the fork
+	 * offset in the inode. We can't assume they remain the same as attr2
+	 * has dynamic fork offsets.
+	 */
+	ifp->if_ext_max = XFS_IFORK_SIZE(ip, XFS_DATA_FORK) /
+					(uint)sizeof(xfs_bmbt_rec_t);
+	tifp->if_ext_max = XFS_IFORK_SIZE(tip, XFS_DATA_FORK) /
+					(uint)sizeof(xfs_bmbt_rec_t);
 
 	/*
 	 * Fix the on-disk inode values
@@ -362,16 +415,9 @@ xfs_swap_extents(
 		break;
 	}
 
-	/*
-	 * Increment vnode ref counts since xfs_trans_commit &
-	 * xfs_trans_cancel will both unlock the inodes and
-	 * decrement the associated ref counts.
-	 */
-	VN_HOLD(vp);
-	VN_HOLD(tvp);
 
-	xfs_trans_ijoin(tp, ip, lock_flags);
-	xfs_trans_ijoin(tp, tip, lock_flags);
+	xfs_trans_ijoin_ref(tp, ip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
+	xfs_trans_ijoin_ref(tp, tip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
 
 	xfs_trans_log_inode(tp, ip,  ilf_fields);
 	xfs_trans_log_inode(tp, tip, tilf_fields);
@@ -380,19 +426,23 @@ xfs_swap_extents(
 	 * If this is a synchronous mount, make sure that the
 	 * transaction goes to disk before returning to the user.
 	 */
-	if (mp->m_flags & XFS_MOUNT_WSYNC) {
+	if (mp->m_flags & XFS_MOUNT_WSYNC)
 		xfs_trans_set_sync(tp);
-	}
 
 	error = xfs_trans_commit(tp, XFS_TRANS_SWAPEXT);
-	locked = 0;
 
- error0:
-	if (locked) {
-		xfs_iunlock(ip,  lock_flags);
-		xfs_iunlock(tip, lock_flags);
-	}
-	if (tempifp != NULL)
-		kmem_free(tempifp, sizeof(xfs_ifork_t));
+	trace_xfs_swap_extent_after(ip, 0);
+	trace_xfs_swap_extent_after(tip, 1);
+out:
+	kmem_free(tempifp);
 	return error;
+
+out_unlock:
+	xfs_iunlock(ip,  XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
+	xfs_iunlock(tip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
+	goto out;
+
+out_trans_cancel:
+	xfs_trans_cancel(tp, 0);
+	goto out_unlock;
 }

@@ -8,10 +8,16 @@ mainmenu "uClinux/68k (w/o MMU) Kernel Configuration"
 config M68K
 	bool
 	default y
+	select HAVE_IDE
 
 config MMU
 	bool
 	default n
+
+config NO_DMA
+	bool
+	depends on !COLDFIRE
+	default y
 
 config FPU
 	bool
@@ -41,7 +47,15 @@ config GENERIC_FIND_NEXT_BIT
 	bool
 	default y
 
+config GENERIC_GPIO
+	bool
+	default n
+
 config GENERIC_HWEIGHT
+	bool
+	default y
+
+config GENERIC_HARDIRQS
 	bool
 	default y
 
@@ -49,14 +63,24 @@ config GENERIC_CALIBRATE_DELAY
 	bool
 	default y
 
+config GENERIC_CMOS_UPDATE
+	bool
+	default y
+
 config TIME_LOW_RES
 	bool
 	default y
+
+config GENERIC_CLOCKEVENTS
+	bool
+	default n
 
 config NO_IOPORT
 	def_bool y
 
 source "init/Kconfig"
+
+source "kernel/Kconfig.freezer"
 
 menu "Processor type and features"
 
@@ -96,11 +120,13 @@ config M5206e
 
 config M520x
 	bool "MCF520x"
+	select GENERIC_CLOCKEVENTS
 	help
 	   Freescale Coldfire 5207/5208 processor support.
 
 config M523x
 	bool "MCF523x"
+	select GENERIC_CLOCKEVENTS
 	help
 	  Freescale Coldfire 5230/1/2/4/5 processor support
 
@@ -126,6 +152,7 @@ config M5275
 
 config M528x
 	bool "MCF528x"
+	select GENERIC_CLOCKEVENTS
 	help
 	  Motorola ColdFire 5280/5282 processor support.
 
@@ -149,11 +176,14 @@ endchoice
 config M527x
 	bool
 	depends on (M5271 || M5275)
+	select GENERIC_CLOCKEVENTS
 	default y
 
 config COLDFIRE
 	bool
 	depends on (M5206 || M5206e || M520x || M523x || M5249 || M527x || M5272 || M528x || M5307 || M532x || M5407)
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
 	default y
 
 config CLOCK_SET
@@ -211,6 +241,18 @@ config XCOPILOT_BUGS
 	depends on PILOT3
 	help
 	  Support the bugs of Xcopilot.
+
+config UC5272
+        bool 'Arcturus Networks uC5272 dimm board support'
+        depends on M5272
+        help
+          Support for the Arcturus Networks uC5272 dimm board.
+
+config UC5282
+       bool "Arcturus Networks uC5282 board support"
+          depends on M528x
+       help
+          Support for the Arcturus Networks uC5282 dimm board.
 
 config UCSIMM
 	bool "uCsimm module support"
@@ -338,6 +380,18 @@ config SOM5282EM
 	depends on M528x
 	help
 	  Support for the EMAC.Inc SOM5282EM module.  
+	  
+config WILDFIRE
+	bool "Intec Automation Inc. WildFire board support"
+	depends on M528x
+	help
+	  Support for the Intec Automation Inc. WildFire.
+	  
+config WILDFIREMOD
+	bool "Intec Automation Inc. WildFire module support"
+	depends on M528x
+	help
+	  Support for the Intec Automation Inc. WildFire module.
 
 config ARN5307
 	bool "Arnewsh 5307 board support"
@@ -350,12 +404,6 @@ config M5307C3
 	depends on M5307
 	help
 	  Support for the Motorola M5307C3 board.
-
-config eLIA
-	bool "Moreton Bay eLIA board support"
-	depends on M5307
-	help
-	  Support for the Moreton Bay eLIA board.
 
 config SECUREEDGEMP3
 	bool "SnapGear SecureEdge/MP3 platform support"
@@ -423,6 +471,12 @@ config MOD5272
 	help
 	  Support for the Netburner MOD-5272 board.
 
+config SAVANTrosie1
+	bool "Savant Rosie1 board support"
+	depends on M523x
+	help
+	  Support for the Savant Rosie1 board.
+
 config ROMFS_FROM_ROM
 	bool "ROMFS image not RAM resident"
 	depends on (NETtel || SNAPGEAR)
@@ -464,11 +518,23 @@ config SNEHA
         bool
 	default y
 	depends on CPU16B
-	
+
+config SAVANT
+	bool
+	default y
+	depends on SAVANTrosie1
+
 config AVNET
 	bool
 	default y
 	depends on (AVNET5282)
+
+config UBOOT
+	bool "Support for U-Boot command line parameters"
+	help
+	  If you say Y here kernel will try to collect command
+	  line parameters from the initial u-boot stack.
+	default n
 
 config 4KSTACKS
 	bool "Use 4Kb for kernel stacks instead of 8Kb"
@@ -478,6 +544,11 @@ config 4KSTACKS
 	  kernel stack attached to each process/thread. This facilitates
 	  running more threads on a system and also reduces the pressure
 	  on the VM subsystem for higher order allocations.
+
+config HZ
+	int
+	default 1000 if CLEOPATRA
+	default 100
 
 comment "RAM configuration"
 
@@ -491,7 +562,7 @@ config RAMBASE
 	  processor address space.
 
 config RAMSIZE
-	hex "Size of RAM (in bytes)"
+	hex "Size of RAM (in bytes), or 0 for automatic"
 	default "0x400000"
 	help
 	  Define the size of the system RAM. If you select 0 then the
@@ -619,6 +690,12 @@ config ROMKERNEL
 
 endchoice
 
+if COLDFIRE
+source "kernel/Kconfig.preempt"
+endif
+
+source "kernel/time/Kconfig"
+
 source "mm/Kconfig"
 
 endmenu
@@ -628,24 +705,7 @@ config ISA_DMA_API
 	depends on !M5272
 	default y
 
-menu "Bus options (PCI, PCMCIA, EISA, MCA, ISA)"
-
-config PCI
-	bool "PCI support"
-	help
-	  Support for PCI bus.
-
-config COMEMPCI
-	bool "CO-MEM lite PCI controller support"
-	depends on (M5307 || M5407)
-
-source "drivers/pci/Kconfig"
-
 source "drivers/pcmcia/Kconfig"
-
-source "drivers/pci/hotplug/Kconfig"
-
-endmenu
 
 menu "Executable file formats"
 

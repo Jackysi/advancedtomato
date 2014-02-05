@@ -76,4 +76,3 @@ void gunzip (void *dst, int dstlen, unsigned char *src, int *lenp)
         *lenp = s.next_out - (unsigned char *) dst;
         zlib_inflateEnd(&s);
 }
-

@@ -16,11 +16,6 @@ enum {
 };
 
 enum {
-	NO_WAIT = 0,
-	WAIT = 1,
-};
-
-enum {
 	NO_FORCE = 0,
 	FORCE = 1,
 };
@@ -28,4 +23,3 @@ enum {
 #define GFS2_FAST_NAME_SIZE 8
 
 #endif /* __GFS2_DOT_H__ */
-

@@ -24,7 +24,9 @@ use IO::Handle;
 @components = ( "sp8870", "sp887x", "tda10045", "tda10046",
 		"tda10046lifeview", "av7110", "dec2000t", "dec2540t",
 		"dec3000s", "vp7041", "dibusb", "nxt2002", "nxt2004",
-		"or51211", "or51132_qam", "or51132_vsb", "bluebird");
+		"or51211", "or51132_qam", "or51132_vsb", "bluebird",
+		"opera1", "cx231xx", "cx18", "cx23885", "pvrusb2", "mpc718",
+		"af9015", "ngene", "az6027");
 
 # Check args
 syntax() if (scalar(@ARGV) != 1);
@@ -36,8 +38,8 @@ for ($i=0; $i < scalar(@components); $i++) {
 	$outfile = eval($cid);
 	die $@ if $@;
 	print STDERR <<EOF;
-Firmware $outfile extracted successfully.
-Now copy it to either /usr/lib/hotplug/firmware or /lib/firmware
+Firmware(s) $outfile extracted successfully.
+Now copy it(them) to either /usr/lib/hotplug/firmware or /lib/firmware
 (depending on configuration of firmware hotplug).
 EOF
 	exit(0);
@@ -111,7 +113,7 @@ sub tda10045 {
 
 sub tda10046 {
 	my $sourcefile = "TT_PCI_2.19h_28_11_2006.zip";
-	my $url = "http://technotrend-online.com/download/software/219/$sourcefile";
+	my $url = "http://www.tt-download.com/download/updates/219/$sourcefile";
 	my $hash = "6a7e1e2f2644b162ff0502367553c72d";
 	my $outfile = "dvb-fe-tda10046.fw";
 	my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
@@ -128,8 +130,8 @@ sub tda10046 {
 }
 
 sub tda10046lifeview {
-    my $sourcefile = "Drv_2.11.02.zip";
-    my $url = "http://www.lifeview.com.tw/drivers/pci_card/FlyDVB-T/$sourcefile";
+    my $sourcefile = "7%5Cdrv_2.11.02.zip";
+    my $url = "http://www.lifeview.hk/dbimages/document/$sourcefile";
     my $hash = "1ea24dee4eea8fe971686981f34fd2e0";
     my $outfile = "dvb-fe-tda10046.fw";
     my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
@@ -210,6 +212,45 @@ sub dec3000s {
 
     $outfile;
 }
+sub opera1{
+	my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 0);
+
+	checkstandard();
+	my $fwfile1="dvb-usb-opera1-fpga-01.fw";
+	my $fwfile2="dvb-usb-opera-01.fw";
+	extract("2830SCap2.sys", 0x62e8, 55024, "$tmpdir/opera1-fpga.fw");
+	extract("2830SLoad2.sys",0x3178,0x3685-0x3178,"$tmpdir/fw1part1");
+	extract("2830SLoad2.sys",0x0980,0x3150-0x0980,"$tmpdir/fw1part2");
+	delzero("$tmpdir/fw1part1","$tmpdir/fw1part1-1");
+	delzero("$tmpdir/fw1part2","$tmpdir/fw1part2-1");
+	verify("$tmpdir/fw1part1-1","5e0909858fdf0b5b09ad48b9fe622e70");
+	verify("$tmpdir/fw1part2-1","d6e146f321427e931df2c6fcadac37a1");
+	verify("$tmpdir/opera1-fpga.fw","0f8133f5e9051f5f3c1928f7e5a1b07d");
+
+	my $RES1="\x01\x92\x7f\x00\x01\x00";
+	my $RES0="\x01\x92\x7f\x00\x00\x00";
+	my $DAT1="\x01\x00\xe6\x00\x01\x00";
+	my $DAT0="\x01\x00\xe6\x00\x00\x00";
+	open FW,">$tmpdir/opera.fw";
+	print FW "$RES1";
+	print FW "$DAT1";
+	print FW "$RES1";
+	print FW "$DAT1";
+	appendfile(FW,"$tmpdir/fw1part1-1");
+	print FW "$RES0";
+	print FW "$DAT0";
+	print FW "$RES1";
+	print FW "$DAT1";
+	appendfile(FW,"$tmpdir/fw1part2-1");
+	print FW "$RES1";
+	print FW "$DAT1";
+	print FW "$RES0";
+	print FW "$DAT0";
+	copy ("$tmpdir/opera1-fpga.fw",$fwfile1);
+	copy ("$tmpdir/opera.fw",$fwfile2);
+
+	$fwfile1.",".$fwfile2;
+}
 
 sub vp7041 {
     my $sourcefile = "2.422.zip";
@@ -277,7 +318,7 @@ sub nxt2002 {
 
 sub nxt2004 {
     my $sourcefile = "AVerTVHD_MCE_A180_Drv_v1.2.2.16.zip";
-    my $url = "http://www.aver.com/support/Drivers/$sourcefile";
+    my $url = "http://www.avermedia-usa.com/support/Drivers/$sourcefile";
     my $hash = "111cb885b1e009188346d72acfed024c";
     my $outfile = "dvb-fe-nxt2004.fw";
     my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
@@ -303,6 +344,136 @@ sub or51211 {
     verify($fwfile, $hash);
 
     $fwfile;
+}
+
+sub cx231xx {
+    my $fwfile = "v4l-cx231xx-avcore-01.fw";
+    my $url = "http://linuxtv.org/downloads/firmware/$fwfile";
+    my $hash = "7d3bb956dc9df0eafded2b56ba57cc42";
+
+    checkstandard();
+
+    wgetfile($fwfile, $url);
+    verify($fwfile, $hash);
+
+    $fwfile;
+}
+
+sub cx18 {
+    my $url = "http://linuxtv.org/downloads/firmware/";
+
+    my %files = (
+	'v4l-cx23418-apu.fw' => '588f081b562f5c653a3db1ad8f65939a',
+	'v4l-cx23418-cpu.fw' => 'b6c7ed64bc44b1a6e0840adaeac39d79',
+	'v4l-cx23418-dig.fw' => '95bc688d3e7599fd5800161e9971cc55',
+    );
+
+    checkstandard();
+
+    my $allfiles;
+    foreach my $fwfile (keys %files) {
+	wgetfile($fwfile, "$url/$fwfile");
+	verify($fwfile, $files{$fwfile});
+	$allfiles .= " $fwfile";
+    }
+
+    $allfiles =~ s/^\s//;
+
+    $allfiles;
+}
+
+sub mpc718 {
+    my $archive = 'Yuan MPC718 TV Tuner Card 2.13.10.1016.zip';
+    my $url = "ftp://ftp.work.acer-euro.com/desktop/aspire_idea510/vista/Drivers/$archive";
+    my $fwfile = "dvb-cx18-mpc718-mt352.fw";
+    my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
+
+    checkstandard();
+    wgetfile($archive, $url);
+    unzip($archive, $tmpdir);
+
+    my $sourcefile = "$tmpdir/Yuan MPC718 TV Tuner Card 2.13.10.1016/mpc718_32bit/yuanrap.sys";
+    my $found = 0;
+
+    open IN, '<', $sourcefile or die "Couldn't open $sourcefile to extract $fwfile data\n";
+    binmode IN;
+    open OUT, '>', $fwfile;
+    binmode OUT;
+    {
+	# Block scope because we change the line terminator variable $/
+	my $prevlen = 0;
+	my $currlen;
+
+	# Buried in the data segment are 3 runs of almost identical
+	# register-value pairs that end in 0x5d 0x01 which is a "TUNER GO"
+	# command for the MT352.
+	# Pull out the middle run (because it's easy) of register-value
+	# pairs to make the "firmware" file.
+
+	local $/ = "\x5d\x01"; # MT352 "TUNER GO"
+
+	while (<IN>) {
+	    $currlen = length($_);
+	    if ($prevlen == $currlen && $currlen <= 64) {
+		chop; chop; # Get rid of "TUNER GO"
+		s/^\0\0//;  # get rid of leading 00 00 if it's there
+		printf OUT "$_";
+		$found = 1;
+		last;
+	    }
+	    $prevlen = $currlen;
+	}
+    }
+    close OUT;
+    close IN;
+    if (!$found) {
+	unlink $fwfile;
+	die "Couldn't find valid register-value sequence in $sourcefile for $fwfile\n";
+    }
+    $fwfile;
+}
+
+sub cx23885 {
+    my $url = "http://linuxtv.org/downloads/firmware/";
+
+    my %files = (
+	'v4l-cx23885-avcore-01.fw' => 'a9f8f5d901a7fb42f552e1ee6384f3bb',
+	'v4l-cx23885-enc.fw'       => 'a9f8f5d901a7fb42f552e1ee6384f3bb',
+    );
+
+    checkstandard();
+
+    my $allfiles;
+    foreach my $fwfile (keys %files) {
+	wgetfile($fwfile, "$url/$fwfile");
+	verify($fwfile, $files{$fwfile});
+	$allfiles .= " $fwfile";
+    }
+
+    $allfiles =~ s/^\s//;
+
+    $allfiles;
+}
+
+sub pvrusb2 {
+    my $url = "http://linuxtv.org/downloads/firmware/";
+
+    my %files = (
+	'v4l-cx25840.fw'           => 'dadb79e9904fc8af96e8111d9cb59320',
+    );
+
+    checkstandard();
+
+    my $allfiles;
+    foreach my $fwfile (keys %files) {
+	wgetfile($fwfile, "$url/$fwfile");
+	verify($fwfile, $files{$fwfile});
+	$allfiles .= " $fwfile";
+    }
+
+    $allfiles =~ s/^\s//;
+
+    $allfiles;
 }
 
 sub or51132_qam {
@@ -344,6 +515,75 @@ sub bluebird {
 	$outfile;
 }
 
+sub af9015 {
+	my $sourcefile = "download.ashx?file=57";
+	my $url = "http://www.ite.com.tw/EN/Services/$sourcefile";
+	my $hash = "e3f08935158038d385ad382442f4bb2d";
+	my $outfile = "dvb-usb-af9015.fw";
+	my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
+	my $fwoffset = 0x25690;
+	my $fwlength = 18725;
+	my ($chunklength, $buf, $rcount);
+
+	checkstandard();
+
+	wgetfile($sourcefile, $url);
+	unzip($sourcefile, $tmpdir);
+	verify("$tmpdir/Driver/Files/AF15BDA.sys", $hash);
+
+	open INFILE, '<', "$tmpdir/Driver/Files/AF15BDA.sys";
+	open OUTFILE, '>', $outfile;
+
+	sysseek(INFILE, $fwoffset, SEEK_SET);
+	while($fwlength > 0) {
+		$chunklength = 55;
+		$chunklength = $fwlength if ($chunklength > $fwlength);
+		$rcount = sysread(INFILE, $buf, $chunklength);
+		die "Ran out of data\n" if ($rcount != $chunklength);
+		syswrite(OUTFILE, $buf);
+		sysread(INFILE, $buf, 8);
+		$fwlength -= $rcount + 8;
+	}
+
+	close OUTFILE;
+	close INFILE;
+}
+
+sub ngene {
+    my $url = "http://www.digitaldevices.de/download/";
+    my $file1 = "ngene_15.fw";
+    my $hash1 = "d798d5a757121174f0dbc5f2833c0c85";
+    my $file2 = "ngene_17.fw";
+    my $hash2 = "26b687136e127b8ac24b81e0eeafc20b";
+
+    checkstandard();
+
+    wgetfile($file1, $url . $file1);
+    verify($file1, $hash1);
+
+    wgetfile($file2, $url . $file2);
+    verify($file2, $hash2);
+
+    "$file1, $file2";
+}
+
+sub az6027{
+    my $file = "AZ6027_Linux_Driver.tar.gz";
+    my $url = "http://linux.terratec.de/files/$file";
+    my $firmware = "dvb-usb-az6027-03.fw";
+
+    wgetfile($file, $url);
+
+    #untar
+    if( system("tar xzvf $file $firmware")){
+        die "failed to untar firmware";
+    }
+    if( system("rm $file")){
+        die ("unable to remove unnecessary files");
+    }
+
+    $firmware;
+}
 # ---------------------------------------------------------------
 # Utilities
 
@@ -440,9 +680,29 @@ sub appendfile {
     close(INFILE);
 }
 
+sub delzero{
+	my ($infile,$outfile) =@_;
+
+	open INFILE,"<$infile";
+	open OUTFILE,">$outfile";
+	while (1){
+		$rcount=sysread(INFILE,$buf,22);
+		$len=ord(substr($buf,0,1));
+		print OUTFILE substr($buf,0,1);
+		print OUTFILE substr($buf,2,$len+3);
+	last if ($rcount<1);
+	printf OUTFILE "%c",0;
+#print $len." ".length($buf)."\n";
+
+	}
+	close(INFILE);
+	close(OUTFILE);
+}
+
 sub syntax() {
     print STDERR "syntax: get_dvb_firmware <component>\n";
     print STDERR "Supported components:\n";
+    @components = sort @components;
     for($i=0; $i < scalar(@components); $i++) {
 	print STDERR "\t" . $components[$i] . "\n";
     }

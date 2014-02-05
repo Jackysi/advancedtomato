@@ -22,11 +22,6 @@
 #ifndef CONFIG_AMIGA
 #include <asm/vga.h>
 #else
-/*
- * FIXME
- * Ugh, we don't have PCI space, so map readb() and friends to use Zorro space
- * for MMIO accesses. This should make cirrusfb work again on Amiga
- */
 #undef inb_p
 #undef inw_p
 #undef outb_p

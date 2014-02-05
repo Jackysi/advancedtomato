@@ -2,7 +2,7 @@
  * include/linux/tipc_config.h: Include file for TIPC configuration interface
  * 
  * Copyright (c) 2003-2006, Ericsson AB
- * Copyright (c) 2005, Wind River Systems
+ * Copyright (c) 2005-2007, Wind River Systems
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,13 +74,8 @@
 #define  TIPC_CMD_SHOW_NAME_TABLE   0x0005    /* tx name_tbl_query, rx ultra_string */
 #define  TIPC_CMD_SHOW_PORTS        0x0006    /* tx none, rx ultra_string */
 #define  TIPC_CMD_SHOW_LINK_STATS   0x000B    /* tx link_name, rx ultra_string */
+#define  TIPC_CMD_SHOW_STATS        0x000F    /* tx unsigned, rx ultra_string */
 
-#if 0
-#define  TIPC_CMD_SHOW_PORT_STATS   0x0008    /* tx port_ref, rx ultra_string */
-#define  TIPC_CMD_RESET_PORT_STATS  0x0009    /* tx port_ref, rx none */
-#define  TIPC_CMD_GET_ROUTES        0x000A    /* tx ?, rx ? */
-#define  TIPC_CMD_GET_LINK_PEER     0x000D    /* tx link_name, rx ? */
-#endif
 
 /* 
  * Protected commands:
@@ -108,12 +103,6 @@
 #define  TIPC_CMD_DUMP_LOG          0x410B    /* tx none, rx ultra_string */
 #define  TIPC_CMD_RESET_LINK_STATS  0x410C    /* tx link_name, rx none */
 
-#if 0
-#define  TIPC_CMD_CREATE_LINK       0x4103    /* tx link_create, rx none */
-#define  TIPC_CMD_REMOVE_LINK       0x4104    /* tx link_name, rx none */
-#define  TIPC_CMD_BLOCK_LINK        0x4105    /* tx link_name, rx none */
-#define  TIPC_CMD_UNBLOCK_LINK      0x4106    /* tx link_name, rx none */
-#endif
 
 /* 
  * Private commands:
@@ -122,9 +111,6 @@
  */
 
 #define  TIPC_CMD_SET_NODE_ADDR     0x8001    /* tx net_addr, rx none */
-#if 0
-#define  TIPC_CMD_SET_ZONE_MASTER   0x8002    /* tx none, rx none */
-#endif
 #define  TIPC_CMD_SET_REMOTE_MNG    0x8003    /* tx unsigned, rx none */
 #define  TIPC_CMD_SET_MAX_PORTS     0x8004    /* tx unsigned, rx none */
 #define  TIPC_CMD_SET_MAX_PUBL      0x8005    /* tx unsigned, rx none */
@@ -134,6 +120,14 @@
 #define  TIPC_CMD_SET_MAX_NODES     0x8009    /* tx unsigned, rx none */
 #define  TIPC_CMD_SET_MAX_SLAVES    0x800A    /* tx unsigned, rx none */
 #define  TIPC_CMD_SET_NETID         0x800B    /* tx unsigned, rx none */
+
+/*
+ * Reserved commands:
+ * May not be issued by any process.
+ * Used internally by TIPC.
+ */
+
+#define  TIPC_CMD_NOT_NET_ADMIN     0xC001    /* tx none, rx none */
 
 /*
  * TLV types defined for TIPC
@@ -238,19 +232,6 @@ struct tipc_name_table_query {
 #define TIPC_CFG_NOT_SUPPORTED  "\x84"	/* request is not supported by TIPC */
 #define TIPC_CFG_INVALID_VALUE  "\x85"  /* request has invalid argument value */
 
-#if 0
-/* prototypes TLV structures for proposed commands */
-struct tipc_link_create {
-	__u32   domain;
-	struct tipc_media_addr peer_addr;
-	char bearer_name[TIPC_MAX_BEARER_NAME];
-};
-
-struct tipc_route_info {
-	__u32 dest;
-	__u32 router;
-};
-#endif
 
 /*
  * A TLV consists of a descriptor, followed by the TLV value.

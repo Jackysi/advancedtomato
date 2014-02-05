@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *  I/O routines for GF1/InterWave synthesizer chips
  *
  *
@@ -19,7 +19,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/time.h>
 #include <sound/core.h>
@@ -244,30 +243,6 @@ unsigned short snd_gf1_i_look16(struct snd_gus_card * gus, unsigned char reg)
 	return res;
 }
 
-#if 0
-
-void snd_gf1_i_adlib_write(struct snd_gus_card * gus,
-		           unsigned char reg,
-		           unsigned char data)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&gus->reg_lock, flags);
-	__snd_gf1_adlib_write(gus, reg, data);
-	spin_unlock_irqrestore(&gus->reg_lock, flags);
-}
-
-void snd_gf1_i_write_addr(struct snd_gus_card * gus, unsigned char reg,
-			  unsigned int addr, short w_16bit)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&gus->reg_lock, flags);
-	__snd_gf1_write_addr(gus, reg, addr, w_16bit);
-	spin_unlock_irqrestore(&gus->reg_lock, flags);
-}
-
-#endif  /*  0  */
 
 #ifdef CONFIG_SND_DEBUG
 static unsigned int snd_gf1_i_read_addr(struct snd_gus_card * gus,
@@ -335,85 +310,6 @@ unsigned char snd_gf1_peek(struct snd_gus_card * gus, unsigned int addr)
 	return res;
 }
 
-#if 0
-
-void snd_gf1_pokew(struct snd_gus_card * gus, unsigned int addr, unsigned short data)
-{
-	unsigned long flags;
-
-#ifdef CONFIG_SND_DEBUG
-	if (!gus->interwave)
-		snd_printk(KERN_DEBUG "snd_gf1_pokew - GF1!!!\n");
-#endif
-	spin_lock_irqsave(&gus->reg_lock, flags);
-	outb(SNDRV_GF1_GW_DRAM_IO_LOW, gus->gf1.reg_regsel);
-	mb();
-	outw((unsigned short) addr, gus->gf1.reg_data16);
-	mb();
-	outb(SNDRV_GF1_GB_DRAM_IO_HIGH, gus->gf1.reg_regsel);
-	mb();
-	outb((unsigned char) (addr >> 16), gus->gf1.reg_data8);
-	mb();
-	outb(SNDRV_GF1_GW_DRAM_IO16, gus->gf1.reg_regsel);
-	mb();
-	outw(data, gus->gf1.reg_data16);
-	spin_unlock_irqrestore(&gus->reg_lock, flags);
-}
-
-unsigned short snd_gf1_peekw(struct snd_gus_card * gus, unsigned int addr)
-{
-	unsigned long flags;
-	unsigned short res;
-
-#ifdef CONFIG_SND_DEBUG
-	if (!gus->interwave)
-		snd_printk(KERN_DEBUG "snd_gf1_peekw - GF1!!!\n");
-#endif
-	spin_lock_irqsave(&gus->reg_lock, flags);
-	outb(SNDRV_GF1_GW_DRAM_IO_LOW, gus->gf1.reg_regsel);
-	mb();
-	outw((unsigned short) addr, gus->gf1.reg_data16);
-	mb();
-	outb(SNDRV_GF1_GB_DRAM_IO_HIGH, gus->gf1.reg_regsel);
-	mb();
-	outb((unsigned char) (addr >> 16), gus->gf1.reg_data8);
-	mb();
-	outb(SNDRV_GF1_GW_DRAM_IO16, gus->gf1.reg_regsel);
-	mb();
-	res = inw(gus->gf1.reg_data16);
-	spin_unlock_irqrestore(&gus->reg_lock, flags);
-	return res;
-}
-
-void snd_gf1_dram_setmem(struct snd_gus_card * gus, unsigned int addr,
-			 unsigned short value, unsigned int count)
-{
-	unsigned long port;
-	unsigned long flags;
-
-#ifdef CONFIG_SND_DEBUG
-	if (!gus->interwave)
-		snd_printk(KERN_DEBUG "snd_gf1_dram_setmem - GF1!!!\n");
-#endif
-	addr &= ~1;
-	count >>= 1;
-	port = GUSP(gus, GF1DATALOW);
-	spin_lock_irqsave(&gus->reg_lock, flags);
-	outb(SNDRV_GF1_GW_DRAM_IO_LOW, gus->gf1.reg_regsel);
-	mb();
-	outw((unsigned short) addr, gus->gf1.reg_data16);
-	mb();
-	outb(SNDRV_GF1_GB_DRAM_IO_HIGH, gus->gf1.reg_regsel);
-	mb();
-	outb((unsigned char) (addr >> 16), gus->gf1.reg_data8);
-	mb();
-	outb(SNDRV_GF1_GW_DRAM_IO16, gus->gf1.reg_regsel);
-	while (count--)
-		outw(value, port);
-	spin_unlock_irqrestore(&gus->reg_lock, flags);
-}
-
-#endif  /*  0  */
 
 void snd_gf1_select_active_voices(struct snd_gus_card * gus)
 {
@@ -475,67 +371,5 @@ void snd_gf1_print_voice_registers(struct snd_gus_card * gus)
 		printk(KERN_INFO " -%i- GF1  pan                    = 0x%x\n", voice, snd_gf1_i_read8(gus, 0x0c));
 }
 
-#if 0
-
-void snd_gf1_print_global_registers(struct snd_gus_card * gus)
-{
-	unsigned char global_mode = 0x00;
-
-	printk(KERN_INFO " -G- GF1 active voices            = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_ACTIVE_VOICES));
-	if (gus->interwave) {
-		global_mode = snd_gf1_i_read8(gus, SNDRV_GF1_GB_GLOBAL_MODE);
-		printk(KERN_INFO " -G- GF1 global mode              = 0x%x\n", global_mode);
-	}
-	if (global_mode & 0x02)	/* LFO enabled? */
-		printk(KERN_INFO " -G- GF1 LFO base                 = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_LFO_BASE));
-	printk(KERN_INFO " -G- GF1 voices IRQ read          = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_VOICES_IRQ_READ));
-	printk(KERN_INFO " -G- GF1 DRAM DMA control         = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_DRAM_DMA_CONTROL));
-	printk(KERN_INFO " -G- GF1 DRAM DMA high/low        = 0x%x/0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_DRAM_DMA_HIGH), snd_gf1_i_read16(gus, SNDRV_GF1_GW_DRAM_DMA_LOW));
-	printk(KERN_INFO " -G- GF1 DRAM IO high/low         = 0x%x/0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_DRAM_IO_HIGH), snd_gf1_i_read16(gus, SNDRV_GF1_GW_DRAM_IO_LOW));
-	if (!gus->interwave)
-		printk(KERN_INFO " -G- GF1 record DMA control       = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_REC_DMA_CONTROL));
-	printk(KERN_INFO " -G- GF1 DRAM IO 16               = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_DRAM_IO16));
-	if (gus->gf1.enh_mode) {
-		printk(KERN_INFO " -G- GFA1 memory config           = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_MEMORY_CONFIG));
-		printk(KERN_INFO " -G- GFA1 memory control          = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_MEMORY_CONTROL));
-		printk(KERN_INFO " -G- GFA1 FIFO record base        = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_FIFO_RECORD_BASE_ADDR));
-		printk(KERN_INFO " -G- GFA1 FIFO playback base      = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_FIFO_PLAY_BASE_ADDR));
-		printk(KERN_INFO " -G- GFA1 interleave control      = 0x%x\n", snd_gf1_i_look16(gus, SNDRV_GF1_GW_INTERLEAVE));
-	}
-}
-
-void snd_gf1_print_setup_registers(struct snd_gus_card * gus)
-{
-	printk(KERN_INFO " -S- mix control                  = 0x%x\n", inb(GUSP(gus, MIXCNTRLREG)));
-	printk(KERN_INFO " -S- IRQ status                   = 0x%x\n", inb(GUSP(gus, IRQSTAT)));
-	printk(KERN_INFO " -S- timer control                = 0x%x\n", inb(GUSP(gus, TIMERCNTRL)));
-	printk(KERN_INFO " -S- timer data                   = 0x%x\n", inb(GUSP(gus, TIMERDATA)));
-	printk(KERN_INFO " -S- status read                  = 0x%x\n", inb(GUSP(gus, REGCNTRLS)));
-	printk(KERN_INFO " -S- Sound Blaster control        = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_SOUND_BLASTER_CONTROL));
-	printk(KERN_INFO " -S- AdLib timer 1/2              = 0x%x/0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_ADLIB_TIMER_1), snd_gf1_i_look8(gus, SNDRV_GF1_GB_ADLIB_TIMER_2));
-	printk(KERN_INFO " -S- reset                        = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_RESET));
-	if (gus->interwave) {
-		printk(KERN_INFO " -S- compatibility                = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_COMPATIBILITY));
-		printk(KERN_INFO " -S- decode control               = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_DECODE_CONTROL));
-		printk(KERN_INFO " -S- version number               = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_VERSION_NUMBER));
-		printk(KERN_INFO " -S- MPU-401 emul. control A/B    = 0x%x/0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_MPU401_CONTROL_A), snd_gf1_i_look8(gus, SNDRV_GF1_GB_MPU401_CONTROL_B));
-		printk(KERN_INFO " -S- emulation IRQ                = 0x%x\n", snd_gf1_i_look8(gus, SNDRV_GF1_GB_EMULATION_IRQ));
-	}
-}
-
-void snd_gf1_peek_print_block(struct snd_gus_card * gus, unsigned int addr, int count, int w_16bit)
-{
-	if (!w_16bit) {
-		while (count-- > 0)
-			printk(count > 0 ? "%02x:" : "%02x", snd_gf1_peek(gus, addr++));
-	} else {
-		while (count-- > 0) {
-			printk(count > 0 ? "%04x:" : "%04x", snd_gf1_peek(gus, addr) | (snd_gf1_peek(gus, addr + 1) << 8));
-			addr += 2;
-		}
-	}
-}
-
-#endif  /*  0  */
 
 #endif

@@ -4,7 +4,7 @@
 |M68060 Software Package
 |Production Release P1.00 -- October 10, 1994
 |
-|M68060 Software Package Copyright © 1993, 1994 Motorola Inc.  All rights reserved.
+|M68060 Software Package Copyright Â© 1993, 1994 Motorola Inc.  All rights reserved.
 |
 |THE SOFTWARE is provided on an "AS IS" basis and without warranty.
 |To the maximum extent permitted by applicable law,
@@ -297,53 +297,6 @@ dmwls:	move.l		%d0,(%a0)		| store super longword
 	rts
 
 
-#if 0
-|###############################################
-
-|
-| Use these routines if your kernel doesn't have _copyout/_copyin equivalents.
-| Assumes that D0/D1/A0/A1 are scratch registers. The _copyin/_copyout
-| below assume that the SFC/DFC have been set previously.
-|
-| Linux/68k: These are basically non-inlined versions of
-| memcpy_{to,from}fs, but without long-transfer optimization
-| Note: Assumed that SFC/DFC are pointing correctly to user data
-| space... Should be right, or are there any exceptions?
-
-|
-| int _copyout(supervisor_addr, user_addr, nbytes)
-|
-	.global		_copyout
-_copyout:
-	move.l		4(%sp),%a0		| source
-	move.l		8(%sp),%a1		| destination
-	move.l		12(%sp),%d0		| count
-	subq.l		#1,%d0
-moreout:
-	move.b		(%a0)+,%d1		| fetch supervisor byte
-copyoutae:
-	movs.b		%d1,(%a1)+		| store user byte
-	dbra		%d0,moreout		| are we through yet?
-	moveq		#0,%d0			| return success
-	rts
-
-|
-| int _copyin(user_addr, supervisor_addr, nbytes)
-|
-	.global		_copyin
-_copyin:
-	move.l		4(%sp),%a0		| source
-	move.l		8(%sp),%a1		| destination
-	move.l		12(%sp),%d0		| count
-    subq.l      #1,%d0
-morein:
-copyinae:
-	movs.b		(%a0)+,%d1		| fetch user byte
-	move.b		%d1,(%a1)+		| write supervisor byte
-	dbra		%d0,morein		| are we through yet?
-	moveq		#0,%d0			| return success
-	rts
-#endif
 
 |###########################################################################
 

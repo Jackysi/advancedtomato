@@ -73,7 +73,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *      $Id: aic7xxx.c,v 1.119 1997/06/27 19:39:18 gibbs Exp $
+ *      $Id: aic7xxx.c,v 1.119 1997/06/27 19:39:18 Exp $
  *---------------------------------------------------------------------------
  *
  *  Thanks also go to (in alphabetical order) the following:
@@ -93,7 +93,7 @@
  *
  *  Daniel M. Eischen, deischen@iworks.InterWorks.org, 1/23/97
  *
- *  $Id: aic7xxx.c,v 4.1 1997/06/12 08:23:42 deang Exp $
+ *  $Id: aic7xxx.c,v 4.1 1997/06/12 08:23:42 Exp $
  *-M*************************************************************************/
 
 /*+M**************************************************************************
@@ -1045,11 +1045,6 @@ static struct aic7xxx_syncrate {
 #define WARN_LEAD KERN_WARNING "(scsi%d:%d:%d:%d) "
 #define INFO_LEAD KERN_INFO "(scsi%d:%d:%d:%d) "
 
-/*
- * XXX - these options apply unilaterally to _all_ 274x/284x/294x
- *       cards in the system.  This should be fixed.  Exceptions to this
- *       rule are noted in the comments.
- */
 
 /*
  * Use this as the default queue depth when setting tagged queueing on.
@@ -1745,9 +1740,6 @@ aic7xxx_loadseq(struct aic7xxx_host *p)
   {
     printk(KERN_INFO "(scsi%d) Downloading sequencer code...", p->host_no);
   }
-#if 0
-  download_consts[TMODE_NUMCMDS] = p->num_targetcmds;
-#endif
   download_consts[TMODE_NUMCMDS] = 0;
   cur_patch = &sequencer_patches[0];
   downloaded = 0;
@@ -2690,22 +2682,13 @@ aic7xxx_done(struct aic7xxx_host *p, struct aic7xxx_scb *scb)
 	struct aic7xxx_scb *scbp;
 	unsigned char queue_depth;
 
-  if (cmd->use_sg > 1)
-  {
-    struct scatterlist *sg;
+        scsi_dma_unmap(cmd);
 
-    sg = (struct scatterlist *)cmd->request_buffer;
-    pci_unmap_sg(p->pdev, sg, cmd->use_sg, cmd->sc_data_direction);
-  }
-  else if (cmd->request_bufflen)
-    pci_unmap_single(p->pdev, aic7xxx_mapping(cmd),
-		     cmd->request_bufflen,
-                     cmd->sc_data_direction);
   if (scb->flags & SCB_SENSE)
   {
     pci_unmap_single(p->pdev,
                      le32_to_cpu(scb->sg_list[0].address),
-                     sizeof(cmd->sense_buffer),
+                     SCSI_SENSE_BUFFERSIZE,
                      PCI_DMA_FROMDEVICE);
   }
   if (scb->flags & SCB_RECOVERY_SCB)
@@ -3869,7 +3852,7 @@ aic7xxx_calculate_residual (struct aic7xxx_host *p, struct aic7xxx_scb *scb)
        * the mid layer didn't check residual data counts to see if the
        * command needs retried.
        */
-      cmd->resid = scb->sg_length - actual;
+      scsi_set_resid(cmd, scb->sg_length - actual);
       aic7xxx_status(cmd) = hscb->target_status;
     }
   }
@@ -4268,27 +4251,19 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
             case CHECK_CONDITION:
               if ( !(scb->flags & SCB_SENSE) )
               {
-                /*
-                 * Send a sense command to the requesting target.
-                 * XXX - revisit this and get rid of the memcopys.
-                 */
                 memcpy(scb->sense_cmd, &generic_sense[0],
                        sizeof(generic_sense));
 
                 scb->sense_cmd[1] = (cmd->device->lun << 5);
-                scb->sense_cmd[4] = sizeof(cmd->sense_buffer);
+                scb->sense_cmd[4] = SCSI_SENSE_BUFFERSIZE;
 
                 scb->sg_list[0].length = 
-                  cpu_to_le32(sizeof(cmd->sense_buffer));
+                  cpu_to_le32(SCSI_SENSE_BUFFERSIZE);
 		scb->sg_list[0].address =
                         cpu_to_le32(pci_map_single(p->pdev, cmd->sense_buffer,
-                                                   sizeof(cmd->sense_buffer),
+                                                   SCSI_SENSE_BUFFERSIZE,
                                                    PCI_DMA_FROMDEVICE));
 
-                /*
-                 * XXX - We should allow disconnection, but can't as it
-                 * might allow overlapped tagged commands.
-                 */
                 /* hscb->control &= DISCENB; */
                 hscb->control = 0;
                 hscb->target_status = 0;
@@ -4305,7 +4280,7 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
                 hscb->residual_data_count[2] = 0;
 
                 scb->sg_count = hscb->SG_segment_count = 1;
-                scb->sg_length = sizeof(cmd->sense_buffer);
+                scb->sg_length = SCSI_SENSE_BUFFERSIZE;
                 scb->tag_action = 0;
                 scb->flags |= SCB_SENSE;
                 /*
@@ -4622,16 +4597,6 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
         unsigned int i;
 
         scb = (p->scb_data->scb_array[scb_index]);
-        /*
-         * XXX - What do we really want to do on an overrun?  The
-         *       mid-level SCSI code should handle this, but for now,
-         *       we'll just indicate that the command should retried.
-         *    If we retrieved sense info on this target, then the 
-         *    base SENSE info should have been saved prior to the
-         *    overrun error.  In that case, we return DID_OK and let
-         *    the mid level code pick up on the sense info.  Otherwise
-         *    we return DID_ERROR so the command will get retried.
-         */
         if ( !(scb->flags & SCB_SENSE) )
         {
           printk(WARN_LEAD "Data overrun detected in %s phase, tag %d;\n",
@@ -4676,9 +4641,6 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
         {
           printk(WARN_LEAD "invalid scb_index during WIDE_RESIDUE.\n",
             p->host_no, -1, -1, -1);
-          /*
-           * XXX: Add error handling here
-           */
           break;
         }
         scb = p->scb_data->scb_array[scb_index];
@@ -4820,9 +4782,6 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
            p->host_no, -1, -1, -1, aic_inb(p, SG_CACHEPTR),
            aic_inb(p, SSTAT2), aic_inb(p, STCNT + 2) << 16 |
            aic_inb(p, STCNT + 1) << 8 | aic_inb(p, STCNT));
-        /*
-         * XXX: Add error handling here
-         */
         break;
       }
       scb = p->scb_data->scb_array[scb_index];
@@ -4883,7 +4842,6 @@ aic7xxx_handle_seqint(struct aic7xxx_host *p, unsigned char intstat)
       }
       break;
 
-    /* XXX Fill these in later */
     case MSG_BUFFER_BUSY:
       printk("aic7xxx: Message buffer busy.\n");
       break;
@@ -6443,9 +6401,6 @@ aic7xxx_isr(void *dev_id)
 
   if (intstat & SEQINT)
   {
-    /*
-     * Read the CCSCBCTL register to work around a bug in the Ultra2 cards
-     */
     if(p->features & AHC_ULTRA2)
     {
       aic_inb(p, CCSCBCTL);
@@ -6481,7 +6436,7 @@ do_aic7xxx_isr(int irq, void *dev_id)
   unsigned long cpu_flags;
   struct aic7xxx_host *p;
   
-  p = (struct aic7xxx_host *)dev_id;
+  p = dev_id;
   if(!p)
     return IRQ_NONE;
   spin_lock_irqsave(p->host->host_lock, cpu_flags);
@@ -6581,7 +6536,7 @@ aic7xxx_slave_alloc(struct scsi_device *SDptr)
   struct aic7xxx_host *p = (struct aic7xxx_host *)SDptr->host->hostdata;
   struct aic_dev_data *aic_dev;
 
-  aic_dev = kmalloc(sizeof(struct aic_dev_data), GFP_ATOMIC | GFP_KERNEL);
+  aic_dev = kmalloc(sizeof(struct aic_dev_data), GFP_KERNEL);
   if(!aic_dev)
     return 1;
   /*
@@ -6992,19 +6947,6 @@ read_284x_seeprom(struct aic7xxx_host *p, struct seeprom_config *sc)
     CLOCK_PULSE(p);
   }
 
-#if 0
-  printk("Computed checksum 0x%x, checksum read 0x%x\n", checksum, sc->checksum);
-  printk("Serial EEPROM:");
-  for (k = 0; k < (sizeof(*sc) / 2); k++)
-  {
-    if (((k % 8) == 0) && (k != 0))
-    {
-      printk("\n              ");
-    }
-    printk(" 0x%x", seeprom[k]);
-  }
-  printk("\n");
-#endif
 
   if (checksum != sc->checksum)
   {
@@ -7234,20 +7176,6 @@ read_seeprom(struct aic7xxx_host *p, int offset,
    */
   release_seeprom(p);
 
-#if 0
-  printk("Computed checksum 0x%x, checksum read 0x%x\n",
-         checksum, scarray[len - 1]);
-  printk("Serial EEPROM:");
-  for (k = 0; k < len; k++)
-  {
-    if (((k % 8) == 0) && (k != 0))
-    {
-      printk("\n              ");
-    }
-    printk(" 0x%x", scarray[k]);
-  }
-  printk("\n");
-#endif
   if ( (checksum != scarray[len - 1]) || (checksum == 0) )
   {
     return (0);
@@ -8425,10 +8353,9 @@ aic7xxx_alloc(struct scsi_host_template *sht, struct aic7xxx_host *temp)
     *p = *temp;
     p->host = host;
 
-    p->scb_data = kmalloc(sizeof(scb_data_type), GFP_ATOMIC);
-    if (p->scb_data != NULL)
+    p->scb_data = kzalloc(sizeof(scb_data_type), GFP_ATOMIC);
+    if (p->scb_data)
     {
-      memset(p->scb_data, 0, sizeof(scb_data_type));
       scbq_init (&p->scb_data->free_scbs);
     }
     else
@@ -8973,18 +8900,6 @@ aic7xxx_configure_bugs(struct aic7xxx_host *p)
 }
 
 
-/*+F*************************************************************************
- * Function:
- *   aic7xxx_detect
- *
- * Description:
- *   Try to detect and register an Adaptec 7770 or 7870 SCSI controller.
- *
- * XXX - This should really be called aic7xxx_probe().  A sequence of
- *       probe(), attach()/detach(), and init() makes more sense than
- *       one do-it-all function.  This may be useful when (and if) the
- *       mid-level SCSI code is overhauled.
- *-F*************************************************************************/
 static int
 aic7xxx_detect(struct scsi_host_template *template)
 {
@@ -9205,10 +9120,9 @@ aic7xxx_detect(struct scsi_host_template *template)
             printk(KERN_INFO "         this driver, we are ignoring it.\n");
           }
         }
-        else if ( (temp_p = kmalloc(sizeof(struct aic7xxx_host),
+        else if ( (temp_p = kzalloc(sizeof(struct aic7xxx_host),
                                     GFP_ATOMIC)) != NULL )
         {
-          memset(temp_p, 0, sizeof(struct aic7xxx_host));
           temp_p->chip = aic_pdevs[i].chip | AHC_PCI;
           temp_p->flags = aic_pdevs[i].flags;
           temp_p->features = aic_pdevs[i].features;
@@ -10137,6 +10051,7 @@ static void aic7xxx_buildscb(struct aic7xxx_host *p, struct scsi_cmnd *cmd,
   struct scsi_device *sdptr = cmd->device;
   unsigned char tindex = TARGET_INDEX(cmd);
   struct request *req = cmd->request;
+  int use_sg;
 
   mask = (0x01 << tindex);
   hscb = scb->hscb;
@@ -10201,16 +10116,14 @@ static void aic7xxx_buildscb(struct aic7xxx_host *p, struct scsi_cmnd *cmd,
    * scatter-gather array.
    */
 
-  /*
-   * XXX - this relies on the host data being stored in a
-   *       little-endian format.
-   */
   hscb->SCSI_cmd_length = cmd->cmd_len;
   memcpy(scb->cmnd, cmd->cmnd, cmd->cmd_len);
   hscb->SCSI_cmd_pointer = cpu_to_le32(SCB_DMA_ADDR(scb, scb->cmnd));
 
-  if (cmd->use_sg)
-  {
+  use_sg = scsi_dma_map(cmd);
+  BUG_ON(use_sg < 0);
+
+  if (use_sg) {
     struct scatterlist *sg;  /* Must be mid-level SCSI code scatterlist */
 
     /*
@@ -10219,11 +10132,11 @@ static void aic7xxx_buildscb(struct aic7xxx_host *p, struct scsi_cmnd *cmd,
      * differences and the kernel SG list uses virtual addresses where
      * we need physical addresses.
      */
-    int i, use_sg;
+    int i;
 
-    sg = (struct scatterlist *)cmd->request_buffer;
     scb->sg_length = 0;
-    use_sg = pci_map_sg(p->pdev, sg, cmd->use_sg, cmd->sc_data_direction);
+
+
     /*
      * Copy the segments into the SG array.  NOTE!!! - We used to
      * have the first entry both in the data_pointer area and the first
@@ -10231,10 +10144,9 @@ static void aic7xxx_buildscb(struct aic7xxx_host *p, struct scsi_cmnd *cmd,
      * entry in both places, but now we download the address of
      * scb->sg_list[1] instead of 0 to the sg pointer in the hscb.
      */
-    for (i = 0; i < use_sg; i++)
-    {
-      unsigned int len = sg_dma_len(sg+i);
-      scb->sg_list[i].address = cpu_to_le32(sg_dma_address(sg+i));
+    scsi_for_each_sg(cmd, sg, use_sg, i) {
+      unsigned int len = sg_dma_len(sg);
+      scb->sg_list[i].address = cpu_to_le32(sg_dma_address(sg));
       scb->sg_list[i].length = cpu_to_le32(len);
       scb->sg_length += len;
     }
@@ -10244,33 +10156,13 @@ static void aic7xxx_buildscb(struct aic7xxx_host *p, struct scsi_cmnd *cmd,
     scb->sg_count = i;
     hscb->SG_segment_count = i;
     hscb->SG_list_pointer = cpu_to_le32(SCB_DMA_ADDR(scb, &scb->sg_list[1]));
-  }
-  else
-  {
-    if (cmd->request_bufflen)
-    {
-      unsigned int address = pci_map_single(p->pdev, cmd->request_buffer,
-					    cmd->request_bufflen,
-                                            cmd->sc_data_direction);
-      aic7xxx_mapping(cmd) = address;
-      scb->sg_list[0].address = cpu_to_le32(address);
-      scb->sg_list[0].length = cpu_to_le32(cmd->request_bufflen);
-      scb->sg_count = 1;
-      scb->sg_length = cmd->request_bufflen;
-      hscb->SG_segment_count = 1;
-      hscb->SG_list_pointer = cpu_to_le32(SCB_DMA_ADDR(scb, &scb->sg_list[0]));
-      hscb->data_count = scb->sg_list[0].length;
-      hscb->data_pointer = scb->sg_list[0].address;
-    }
-    else
-    {
+  } else {
       scb->sg_count = 0;
       scb->sg_length = 0;
       hscb->SG_segment_count = 0;
       hscb->SG_list_pointer = 0;
       hscb->data_count = 0;
       hscb->data_pointer = 0;
-    }
   }
 }
 
@@ -10322,7 +10214,6 @@ static int aic7xxx_queue(struct scsi_cmnd *cmd, void (*fn)(struct scsi_cmnd *))
   aic7xxx_position(cmd) = scb->hscb->tag;
   cmd->scsi_done = fn;
   cmd->result = DID_OK;
-  memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
   aic7xxx_error(cmd) = DID_OK;
   aic7xxx_status(cmd) = 0;
   cmd->host_scribble = NULL;

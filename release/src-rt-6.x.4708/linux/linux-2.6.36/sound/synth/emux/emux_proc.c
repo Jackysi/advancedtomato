@@ -18,9 +18,7 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <sound/driver.h>
 #include <linux/wait.h>
-#include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/emux_synth.h>
 #include <sound/info.h>
@@ -63,45 +61,6 @@ snd_emux_proc_info_read(struct snd_info_entry *entry,
 		snd_iprintf(buf, "Locked Samples: %d\n", emu->sflist->sample_locked);
 		mutex_unlock(&emu->sflist->presets_mutex);
 	}
-#if 0  /* debug */
-	if (emu->voices[0].state != SNDRV_EMUX_ST_OFF && emu->voices[0].ch >= 0) {
-		struct snd_emux_voice *vp = &emu->voices[0];
-		snd_iprintf(buf, "voice 0: on\n");
-		snd_iprintf(buf, "mod delay=%x, atkhld=%x, dcysus=%x, rel=%x\n",
-			    vp->reg.parm.moddelay,
-			    vp->reg.parm.modatkhld,
-			    vp->reg.parm.moddcysus,
-			    vp->reg.parm.modrelease);
-		snd_iprintf(buf, "vol delay=%x, atkhld=%x, dcysus=%x, rel=%x\n",
-			    vp->reg.parm.voldelay,
-			    vp->reg.parm.volatkhld,
-			    vp->reg.parm.voldcysus,
-			    vp->reg.parm.volrelease);
-		snd_iprintf(buf, "lfo1 delay=%x, lfo2 delay=%x, pefe=%x\n",
-			    vp->reg.parm.lfo1delay,
-			    vp->reg.parm.lfo2delay,
-			    vp->reg.parm.pefe);
-		snd_iprintf(buf, "fmmod=%x, tremfrq=%x, fm2frq2=%x\n",
-			    vp->reg.parm.fmmod,
-			    vp->reg.parm.tremfrq,
-			    vp->reg.parm.fm2frq2);
-		snd_iprintf(buf, "cutoff=%x, filterQ=%x, chorus=%x, reverb=%x\n",
-			    vp->reg.parm.cutoff,
-			    vp->reg.parm.filterQ,
-			    vp->reg.parm.chorus,
-			    vp->reg.parm.reverb);
-		snd_iprintf(buf, "avol=%x, acutoff=%x, apitch=%x\n",
-			    vp->avol, vp->acutoff, vp->apitch);
-		snd_iprintf(buf, "apan=%x, aaux=%x, ptarget=%x, vtarget=%x, ftarget=%x\n",
-			    vp->apan, vp->aaux,
-			    vp->ptarget,
-			    vp->vtarget,
-			    vp->ftarget);
-		snd_iprintf(buf, "start=%x, end=%x, loopstart=%x, loopend=%x\n",
-			    vp->reg.start, vp->reg.end, vp->reg.loopstart, vp->reg.loopend);
-		snd_iprintf(buf, "sample_mode=%x, rate=%x\n", vp->reg.sample_mode, vp->reg.rate_offset);
-	}
-#endif
 	mutex_unlock(&emu->register_mutex);
 }
 

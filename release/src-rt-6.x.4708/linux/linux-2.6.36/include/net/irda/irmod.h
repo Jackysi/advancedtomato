@@ -98,12 +98,3 @@ void irda_notify_init(notify_t *notify);
 #define irda_unlock(lock)	(test_and_clear_bit(0, (void *) (lock)))
 
 #endif /* IRMOD_H */
-
-
-
-
-
-
-
-
-

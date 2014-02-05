@@ -46,7 +46,7 @@
 
 #define SMB_TTL_DEFAULT 1000
 
-static void smb_delete_inode(struct inode *);
+static void smb_evict_inode(struct inode *);
 static void smb_put_super(struct super_block *);
 static int  smb_statfs(struct dentry *, struct kstatfs *);
 static int  smb_show_options(struct seq_file *, struct vfsmount *);
@@ -67,20 +67,20 @@ static void smb_destroy_inode(struct inode *inode)
 	kmem_cache_free(smb_inode_cachep, SMB_I(inode));
 }
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo)
 {
 	struct smb_inode_info *ei = (struct smb_inode_info *) foo;
 
 	inode_init_once(&ei->vfs_inode);
 }
- 
+
 static int init_inodecache(void)
 {
 	smb_inode_cachep = kmem_cache_create("smb_inode_cache",
 					     sizeof(struct smb_inode_info),
 					     0, (SLAB_RECLAIM_ACCOUNT|
 						SLAB_MEM_SPREAD),
-					     init_once, NULL);
+					     init_once);
 	if (smb_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;
@@ -102,7 +102,7 @@ static const struct super_operations smb_sops =
 	.alloc_inode	= smb_alloc_inode,
 	.destroy_inode	= smb_destroy_inode,
 	.drop_inode	= generic_delete_inode,
-	.delete_inode	= smb_delete_inode,
+	.evict_inode	= smb_evict_inode,
 	.put_super	= smb_put_super,
 	.statfs		= smb_statfs,
 	.show_options	= smb_show_options,
@@ -324,15 +324,15 @@ out:
  * All blocking cleanup operations need to go here to avoid races.
  */
 static void
-smb_delete_inode(struct inode *ino)
+smb_evict_inode(struct inode *ino)
 {
 	DEBUG1("ino=%ld\n", ino->i_ino);
 	truncate_inode_pages(&ino->i_data, 0);
+	end_writeback(ino);
 	lock_kernel();
 	if (smb_close(ino))
 		PARANOIA("could not close inode %ld\n", ino->i_ino);
 	unlock_kernel();
-	clear_inode(ino);
 }
 
 static struct option opts[] = {
@@ -459,20 +459,16 @@ smb_show_options(struct seq_file *s, struct vfsmount *m)
 static void
 smb_unload_nls(struct smb_sb_info *server)
 {
-	if (server->remote_nls) {
-		unload_nls(server->remote_nls);
-		server->remote_nls = NULL;
-	}
-	if (server->local_nls) {
-		unload_nls(server->local_nls);
-		server->local_nls = NULL;
-	}
+	unload_nls(server->remote_nls);
+	unload_nls(server->local_nls);
 }
 
 static void
 smb_put_super(struct super_block *sb)
 {
 	struct smb_sb_info *server = SMB_SB(sb);
+
+	lock_kernel();
 
 	smb_lock_server(server);
 	server->state = CONN_INVALID;
@@ -483,12 +479,15 @@ smb_put_super(struct super_block *sb)
 	if (server->conn_pid)
 		kill_pid(server->conn_pid, SIGTERM, 1);
 
+	bdi_destroy(&server->bdi);
 	kfree(server->ops);
 	smb_unload_nls(server);
 	sb->s_fs_info = NULL;
 	smb_unlock_server(server);
 	put_pid(server->conn_pid);
 	kfree(server);
+
+	unlock_kernel();
 }
 
 static int smb_fill_super(struct super_block *sb, void *raw_data, int silent)
@@ -500,6 +499,13 @@ static int smb_fill_super(struct super_block *sb, void *raw_data, int silent)
 	struct smb_fattr root;
 	int ver;
 	void *mem;
+	static int warn_count;
+
+	if (warn_count < 5) {
+		warn_count++;
+		printk(KERN_EMERG "smbfs is deprecated and will be removed"
+			" from the 2.6.27 kernel. Please migrate to cifs\n");
+	}
 
 	if (!raw_data)
 		goto out_no_data;
@@ -520,6 +526,11 @@ static int smb_fill_super(struct super_block *sb, void *raw_data, int silent)
 	if (!server)
 		goto out_no_server;
 	sb->s_fs_info = server;
+	
+	if (bdi_setup_and_register(&server->bdi, "smbfs", BDI_CAP_MAP_COPY))
+		goto out_bdi;
+
+	sb->s_bdi = &server->bdi;
 
 	server->super_block = sb;
 	server->mnt = NULL;
@@ -535,8 +546,7 @@ static int smb_fill_super(struct super_block *sb, void *raw_data, int silent)
 	server->generation = 0;
 
 	/* Allocate the global temp buffer and some superblock helper structs */
-	/* FIXME: move these to the smb_sb_info struct */
-	VERBOSE("alloc chunk = %d\n", sizeof(struct smb_ops) +
+	VERBOSE("alloc chunk = %lu\n", sizeof(struct smb_ops) +
 		sizeof(struct smb_mount_data_kernel));
 	mem = kmalloc(sizeof(struct smb_ops) +
 		      sizeof(struct smb_mount_data_kernel), GFP_KERNEL);
@@ -579,7 +589,7 @@ static int smb_fill_super(struct super_block *sb, void *raw_data, int silent)
 		if (parse_options(mnt, raw_data))
 			goto out_bad_option;
 	}
-	mnt->mounted_uid = current->uid;
+	mnt->mounted_uid = current_uid();
 	smb_setcodepage(server, &mnt->codepage);
 
 	/*
@@ -619,6 +629,8 @@ out_no_smbiod:
 out_bad_option:
 	kfree(mem);
 out_no_mem:
+	bdi_destroy(&server->bdi);
+out_bdi:
 	if (!server->mnt)
 		printk(KERN_ERR "smb_fill_super: allocation failure\n");
 	sb->s_fs_info = NULL;
@@ -701,16 +713,13 @@ smb_notify_change(struct dentry *dentry, struct iattr *attr)
 		error = server->ops->truncate(inode, attr->ia_size);
 		if (error)
 			goto out;
-		error = vmtruncate(inode, attr->ia_size);
-		if (error)
-			goto out;
+		truncate_setsize(inode, attr->ia_size);
 		refresh = 1;
 	}
 
 	if (server->opt.capabilities & SMB_CAP_UNIX) {
 		/* For now we don't want to set the size with setattr_unix */
 		attr->ia_valid &= ~ATTR_SIZE;
-		/* FIXME: only call if we actually want to set something? */
 		error = smb_proc_setattr_unix(dentry, attr, 0, 0);
 		if (!error)
 			refresh = 1;

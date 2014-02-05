@@ -20,14 +20,15 @@
  *
  */
 
-#include <sound/driver.h>
 #include <asm/io.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/time.h>
 #include <linux/wait.h>
+#include <linux/firmware.h>
 #include <linux/moduleparam.h>
+#include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/snd_wavefront.h>
 #include <sound/initval.h>
@@ -51,11 +52,9 @@ static int debug_default = 0;  /* you can set this to control debugging
 				  wavefront.h
 			       */
 
-/* XXX this needs to be made firmware and hardware version dependent */
 
-static char *ospath = "/etc/sound/wavefront.os"; /* where to find a processed
-						    version of the WaveFront OS
-						 */
+#define DEFAULT_OSPATH	"wavefront.os"
+static char *ospath = DEFAULT_OSPATH; /* the firmware file name */
 
 static int wait_usecs = 150; /* This magic number seems to give pretty optimal
 				throughput based on my limited experimentation.
@@ -97,7 +96,7 @@ MODULE_PARM_DESC(sleep_interval, "how long to sleep when waiting for reply");
 module_param(sleep_tries, int, 0444);
 MODULE_PARM_DESC(sleep_tries, "how many times to try sleeping during a wait");
 module_param(ospath, charp, 0444);
-MODULE_PARM_DESC(ospath, "full pathname to processed ICS2115 OS firmware");
+MODULE_PARM_DESC(ospath, "pathname to processed ICS2115 OS firmware");
 module_param(reset_time, int, 0444);
 MODULE_PARM_DESC(reset_time, "how long to wait for a reset to take effect");
 module_param(ramcheck_time, int, 0444);
@@ -634,7 +633,7 @@ wavefront_get_sample_status (snd_wavefront_t *dev, int assume_rom)
 		wbuf[1] = i >> 7;
 
 		if (snd_wavefront_cmd (dev, WFC_IDENTIFY_SAMPLE_TYPE, rbuf, wbuf)) {
-			snd_printk("cannot identify sample "
+			snd_printk(KERN_WARNING "cannot identify sample "
 				   "type of slot %d\n", i);
 			dev->sample_status[i] = WF_ST_EMPTY;
 			continue;
@@ -810,18 +809,12 @@ wavefront_send_program (snd_wavefront_t *dev, wavefront_patch_info *header)
 
 	dev->prog_status[header->number] = WF_SLOT_USED;
 
-	/* XXX need to zero existing SLOT_USED bit for program_status[i]
-	   where `i' is the program that's being (potentially) overwritten.
-	*/
     
 	for (i = 0; i < WF_NUM_LAYERS; i++) {
 		if (header->hdr.pr.layer[i].mute) {
 			dev->patch_status[header->hdr.pr.layer[i].patch_number] |=
 				WF_SLOT_USED;
 
-			/* XXX need to mark SLOT_USED for sample used by
-			   patch_number, but this means we have to load it. Ick.
-			*/
 		}
 	}
 
@@ -899,28 +892,6 @@ wavefront_send_sample (snd_wavefront_t *dev,
 
 	if (header->size) {
 
-		/* XXX it's a debatable point whether or not RDONLY semantics
-		   on the ROM samples should cover just the sample data or
-		   the sample header. For now, it only covers the sample data,
-		   so anyone is free at all times to rewrite sample headers.
-
-		   My reason for this is that we have the sample headers
-		   available in the WFB file for General MIDI, and so these
-		   can always be reset if needed. The sample data, however,
-		   cannot be recovered without a complete reset and firmware
-		   reload of the ICS2115, which is a very expensive operation.
-
-		   So, doing things this way allows us to honor the notion of
-		   "RESETSAMPLES" reasonably cheaply. Note however, that this
-		   is done purely at user level: there is no WFB parser in
-		   this driver, and so a complete reset (back to General MIDI,
-		   or theoretically some other configuration) is the
-		   responsibility of the user level library. 
-
-		   To try to do this in the kernel would be a little
-		   crazy: we'd need 158K of kernel space just to hold
-		   a copy of the patch/program/sample header data.
-		*/
 
 		if (dev->rom_samples_rdonly) {
 			if (dev->sample_status[header->number] & WF_SLOT_ROM) {
@@ -1335,22 +1306,6 @@ wavefront_find_free_sample (snd_wavefront_t *dev)
 	return -1;
 }
 
-#if 0
-static int 
-wavefront_find_free_patch (snd_wavefront_t *dev)
-
-{
-	int i;
-
-	for (i = 0; i < WF_MAX_PATCH; i++) {
-		if (!(dev->patch_status[i] & WF_SLOT_FILLED)) {
-			return i;
-		}
-	}
-	snd_printk ("no free patch slots!\n");
-	return -1;
-}
-#endif
 
 static int
 wavefront_load_patch (snd_wavefront_t *dev, const char __user *addr)
@@ -1649,9 +1604,10 @@ snd_wavefront_synth_ioctl (struct snd_hwdep *hw, struct file *file,
 
 	card = (struct snd_card *) hw->card;
 
-	snd_assert(card != NULL, return -ENODEV);
-
-	snd_assert(card->private_data != NULL, return -ENODEV);
+	if (snd_BUG_ON(!card))
+		return -ENODEV;
+	if (snd_BUG_ON(!card->private_data))
+		return -ENODEV;
 
 	acard = card->private_data;
 	dev = &acard->wavefront;
@@ -1664,12 +1620,11 @@ snd_wavefront_synth_ioctl (struct snd_hwdep *hw, struct file *file,
 		break;
 
 	case WFCTL_WFCMD:
-		wc = kmalloc(sizeof(*wc), GFP_KERNEL);
-		if (! wc)
-			return -ENOMEM;
-		if (copy_from_user (wc, argp, sizeof (*wc)))
-			err = -EFAULT;
-		else if (wavefront_synth_control (acard, wc) < 0)
+		wc = memdup_user(argp, sizeof(*wc));
+		if (IS_ERR(wc))
+			return PTR_ERR(wc);
+
+		if (wavefront_synth_control (acard, wc) < 0)
 			err = -EIO;
 		else if (copy_to_user (argp, wc, sizeof (*wc)))
 			err = -EFAULT;
@@ -1768,7 +1723,7 @@ snd_wavefront_interrupt_bits (int irq)
 
 static void __devinit
 wavefront_should_cause_interrupt (snd_wavefront_t *dev, 
-				  int val, int port, int timeout)
+				  int val, int port, unsigned long timeout)
 
 {
 	wait_queue_t wait;
@@ -1779,11 +1734,9 @@ wavefront_should_cause_interrupt (snd_wavefront_t *dev,
 	dev->irq_ok = 0;
 	outb (val,port);
 	spin_unlock_irq(&dev->irq_lock);
-	while (1) {
-		if ((timeout = schedule_timeout_interruptible(timeout)) == 0)
-			return;
-		if (dev->irq_ok)
-			return;
+	while (!dev->irq_ok && time_before(jiffies, timeout)) {
+		schedule_timeout_uninterruptible(1);
+		barrier();
 	}
 }
 
@@ -1870,21 +1823,6 @@ wavefront_reset_to_cleanliness (snd_wavefront_t *dev)
 		goto gone_bad;
 	} 
 
-	/* Note: data port is now the data port, not the h/w initialization
-	   port.
-
-	   At this point, only "HW VERSION" or "DOWNLOAD OS" commands
-	   will work. So, issue one of them, and wait for TX
-	   interrupt. This can take a *long* time after a cold boot,
-	   while the ISC ROM does its RAM test. The SDK says up to 4
-	   seconds - with 12MB of RAM on a Tropez+, it takes a lot
-	   longer than that (~16secs). Note that the card understands
-	   the difference between a warm and a cold boot, so
-	   subsequent ISC2115 reboots (say, caused by module
-	   reloading) will get through this much faster.
-
-	   XXX Interesting question: why is no RX interrupt received first ?
-	*/
 
 	wavefront_should_cause_interrupt(dev, WFC_HARDWARE_VERSION, 
 					 dev->data_port, ramcheck_time*HZ);
@@ -1938,111 +1876,75 @@ wavefront_reset_to_cleanliness (snd_wavefront_t *dev)
 	return (1);
 }
 
-#include <linux/fs.h>
-#include <linux/mm.h>
-#include <linux/slab.h>
-#include <linux/unistd.h>
-#include <linux/syscalls.h>
-#include <asm/uaccess.h>
-
-
 static int __devinit
 wavefront_download_firmware (snd_wavefront_t *dev, char *path)
 
 {
-	unsigned char section[WF_SECTION_MAX];
-	signed char section_length; /* yes, just a char; max value is WF_SECTION_MAX */
+	const unsigned char *buf;
+	int len, err;
 	int section_cnt_downloaded = 0;
-	int fd;
-	int c;
-	int i;
-	mm_segment_t fs;
+	const struct firmware *firmware;
 
-	/* This tries to be a bit cleverer than the stuff Alan Cox did for
-	   the generic sound firmware, in that it actually knows
-	   something about the structure of the Motorola firmware. In
-	   particular, it uses a version that has been stripped of the
-	   20K of useless header information, and had section lengths
-	   added, making it possible to load the entire OS without any
-	   [kv]malloc() activity, since the longest entity we ever read is
-	   42 bytes (well, WF_SECTION_MAX) long.
-	*/
-
-	fs = get_fs();
-	set_fs (get_ds());
-
-	if ((fd = sys_open ((char __user *) path, 0, 0)) < 0) {
-		snd_printk ("Unable to load \"%s\".\n",
-			path);
+	err = request_firmware(&firmware, path, dev->card->dev);
+	if (err < 0) {
+		snd_printk(KERN_ERR "firmware (%s) download failed!!!\n", path);
 		return 1;
 	}
 
-	while (1) {
-		int x;
-
-		if ((x = sys_read (fd, (char __user *) &section_length, sizeof (section_length))) !=
-		    sizeof (section_length)) {
-			snd_printk ("firmware read error.\n");
-			goto failure;
-		}
-
-		if (section_length == 0) {
+	len = 0;
+	buf = firmware->data;
+	for (;;) {
+		int section_length = *(signed char *)buf;
+		if (section_length == 0)
 			break;
-		}
-
 		if (section_length < 0 || section_length > WF_SECTION_MAX) {
-			snd_printk ("invalid firmware section length %d\n",
-				    section_length);
+			snd_printk(KERN_ERR
+				   "invalid firmware section length %d\n",
+				   section_length);
 			goto failure;
 		}
+		buf++;
+		len++;
 
-		if (sys_read (fd, (char __user *) section, section_length) != section_length) {
-			snd_printk ("firmware section "
-				"read error.\n");
+		if (firmware->size < len + section_length) {
+			snd_printk(KERN_ERR "firmware section read error.\n");
 			goto failure;
 		}
 
 		/* Send command */
-	
-		if (wavefront_write (dev, WFC_DOWNLOAD_OS)) {
+		if (wavefront_write(dev, WFC_DOWNLOAD_OS))
 			goto failure;
-		}
 	
-		for (i = 0; i < section_length; i++) {
-			if (wavefront_write (dev, section[i])) {
+		for (; section_length; section_length--) {
+			if (wavefront_write(dev, *buf))
 				goto failure;
-			}
+			buf++;
+			len++;
 		}
 	
 		/* get ACK */
-	
-		if (wavefront_wait (dev, STAT_CAN_READ)) {
-
-			if ((c = inb (dev->data_port)) != WF_ACK) {
-
-				snd_printk ("download "
-					    "of section #%d not "
-					    "acknowledged, ack = 0x%x\n",
-					    section_cnt_downloaded + 1, c);
-				goto failure;
-		
-			}
-
-		} else {
-			snd_printk ("time out for firmware ACK.\n");
+		if (!wavefront_wait(dev, STAT_CAN_READ)) {
+			snd_printk(KERN_ERR "time out for firmware ACK.\n");
+			goto failure;
+		}
+		err = inb(dev->data_port);
+		if (err != WF_ACK) {
+			snd_printk(KERN_ERR
+				   "download of section #%d not "
+				   "acknowledged, ack = 0x%x\n",
+				   section_cnt_downloaded + 1, err);
 			goto failure;
 		}
 
+		section_cnt_downloaded++;
 	}
 
-	sys_close (fd);
-	set_fs (fs);
+	release_firmware(firmware);
 	return 0;
 
  failure:
-	sys_close (fd);
-	set_fs (fs);
-	snd_printk ("firmware download failed!!!\n");
+	release_firmware(firmware);
+	snd_printk(KERN_ERR "firmware download failed!!!\n");
 	return 1;
 }
 
@@ -2149,7 +2051,6 @@ snd_wavefront_start (snd_wavefront_t *dev)
 	if (dev->israw) {
 		samples_are_from_rom = 1;
 	} else {
-		/* XXX is this always true ? */
 		samples_are_from_rom = 0;
 	}
 
@@ -2232,3 +2133,5 @@ snd_wavefront_detect (snd_wavefront_card_t *card)
 
 	return 0;
 }
+
+MODULE_FIRMWARE(DEFAULT_OSPATH);

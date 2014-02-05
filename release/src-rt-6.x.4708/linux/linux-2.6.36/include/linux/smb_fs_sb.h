@@ -9,9 +9,8 @@
 #ifndef _SMB_FS_SB
 #define _SMB_FS_SB
 
-#ifdef __KERNEL__
-
 #include <linux/types.h>
+#include <linux/backing-dev.h>
 #include <linux/smb.h>
 
 /*
@@ -76,6 +75,8 @@ struct smb_sb_info {
 	struct smb_ops *ops;
 
 	struct super_block *super_block;
+
+	struct backing_dev_info bdi;
 };
 
 static inline int
@@ -95,7 +96,5 @@ smb_unlock_server(struct smb_sb_info *server)
 {
 	up(&(server->sem));
 }
-
-#endif /* __KERNEL__ */
 
 #endif

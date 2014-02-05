@@ -1,117 +1,4 @@
-/*
- *    in2000.c -  Linux device driver for the
- *                Always IN2000 ISA SCSI card.
- *
- * Copyright (c) 1996 John Shifflett, GeoLog Consulting
- *    john@geolog.com
- *    jshiffle@netcom.com
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * For the avoidance of doubt the "preferred form" of this code is one which
- * is in an open non patent encumbered format. Where cryptographic key signing
- * forms part of the process of creating an executable the information
- * including keys needed to generate an equivalently functional executable
- * are deemed to be part of the source code.
- *
- * Drew Eckhardt's excellent 'Generic NCR5380' sources provided
- * much of the inspiration and some of the code for this driver.
- * The Linux IN2000 driver distributed in the Linux kernels through
- * version 1.2.13 was an extremely valuable reference on the arcane
- * (and still mysterious) workings of the IN2000's fifo. It also
- * is where I lifted in2000_biosparam(), the gist of the card
- * detection scheme, and other bits of code. Many thanks to the
- * talented and courageous people who wrote, contributed to, and
- * maintained that driver (including Brad McLean, Shaun Savage,
- * Bill Earnest, Larry Doolittle, Roger Sunshine, John Luckey,
- * Matt Postiff, Peter Lu, zerucha@shell.portal.com, and Eric
- * Youngdale). I should also mention the driver written by
- * Hamish Macdonald for the (GASP!) Amiga A2091 card, included
- * in the Linux-m68k distribution; it gave me a good initial
- * understanding of the proper way to run a WD33c93 chip, and I
- * ended up stealing lots of code from it.
- *
- * _This_ driver is (I feel) an improvement over the old one in
- * several respects:
- *    -  All problems relating to the data size of a SCSI request are
- *          gone (as far as I know). The old driver couldn't handle
- *          swapping to partitions because that involved 4k blocks, nor
- *          could it deal with the st.c tape driver unmodified, because
- *          that usually involved 4k - 32k blocks. The old driver never
- *          quite got away from a morbid dependence on 2k block sizes -
- *          which of course is the size of the card's fifo.
- *
- *    -  Target Disconnection/Reconnection is now supported. Any
- *          system with more than one device active on the SCSI bus
- *          will benefit from this. The driver defaults to what I'm
- *          calling 'adaptive disconnect' - meaning that each command
- *          is evaluated individually as to whether or not it should
- *          be run with the option to disconnect/reselect (if the
- *          device chooses), or as a "SCSI-bus-hog".
- *
- *    -  Synchronous data transfers are now supported. Because there
- *          are a few devices (and many improperly terminated systems)
- *          that choke when doing sync, the default is sync DISABLED
- *          for all devices. This faster protocol can (and should!)
- *          be enabled on selected devices via the command-line.
- *
- *    -  Runtime operating parameters can now be specified through
- *       either the LILO or the 'insmod' command line. For LILO do:
- *          "in2000=blah,blah,blah"
- *       and with insmod go like:
- *          "insmod /usr/src/linux/modules/in2000.o setup_strings=blah,blah"
- *       The defaults should be good for most people. See the comment
- *       for 'setup_strings' below for more details.
- *
- *    -  The old driver relied exclusively on what the Western Digital
- *          docs call "Combination Level 2 Commands", which are a great
- *          idea in that the CPU is relieved of a lot of interrupt
- *          overhead. However, by accepting a certain (user-settable)
- *          amount of additional interrupts, this driver achieves
- *          better control over the SCSI bus, and data transfers are
- *          almost as fast while being much easier to define, track,
- *          and debug.
- *
- *    -  You can force detection of a card whose BIOS has been disabled.
- *
- *    -  Multiple IN2000 cards might almost be supported. I've tried to
- *       keep it in mind, but have no way to test...
- *
- *
- * TODO:
- *       tagged queuing. multiple cards.
- *
- *
- * NOTE:
- *       When using this or any other SCSI driver as a module, you'll
- *       find that with the stock kernel, at most _two_ SCSI hard
- *       drives will be linked into the device list (ie, usable).
- *       If your IN2000 card has more than 2 disks on its bus, you
- *       might want to change the define of 'SD_EXTRA_DEVS' in the
- *       'hosts.h' file from 2 to whatever is appropriate. It took
- *       me a while to track down this surprisingly obscure and
- *       undocumented little "feature".
- *
- *
- * People with bug reports, wish-lists, complaints, comments,
- * or improvements are asked to pah-leeez email me (John Shifflett)
- * at john@geolog.com or jshiffle@netcom.com! I'm anxious to get
- * this thing into as good a shape as possible, and I'm positive
- * there are lots of lurking bugs and "Stupid Places".
- *
- * Updated for Linux 2.5 by Alan Cox <alan@redhat.com>
- *	- Using new_eh handler
- *	- Hopefully got all the locking right again
- *	See "FIXME" notes for items that could do with more work
- */
+
 
 #include <linux/module.h>
 #include <linux/blkdev.h>
@@ -343,7 +230,7 @@ static int in2000_queuecommand(Scsi_Cmnd * cmd, void (*done) (Scsi_Cmnd *))
 	instance = cmd->device->host;
 	hostdata = (struct IN2000_hostdata *) instance->hostdata;
 
-	DB(DB_QUEUE_COMMAND, scmd_printk(KERN_DEBUG, cmd, "Q-%02x-%ld(", cmd->cmnd[0], cmd->pid))
+	DB(DB_QUEUE_COMMAND, scmd_printk(KERN_DEBUG, cmd, "Q-%02x-%ld(", cmd->cmnd[0], cmd->serial_number))
 
 /* Set up a few fields in the Scsi_Cmnd structure for our own use:
  *  - host_scribble is the pointer to the next cmd in the input queue
@@ -354,31 +241,17 @@ static int in2000_queuecommand(Scsi_Cmnd * cmd, void (*done) (Scsi_Cmnd *))
 	cmd->scsi_done = done;
 	cmd->result = 0;
 
-/* We use the Scsi_Pointer structure that's included with each command
- * as a scratchpad (as it's intended to be used!). The handy thing about
- * the SCp.xxx fields is that they're always associated with a given
- * cmd, and are preserved across disconnect-reselect. This means we
- * can pretty much ignore SAVE_POINTERS and RESTORE_POINTERS messages
- * if we keep all the critical pointers and counters in SCp:
- *  - SCp.ptr is the pointer into the RAM buffer
- *  - SCp.this_residual is the size of that buffer
- *  - SCp.buffer points to the current scatter-gather buffer
- *  - SCp.buffers_residual tells us how many S.G. buffers there are
- *  - SCp.have_data_in helps keep track of >2048 byte transfers
- *  - SCp.sent_command is not used
- *  - SCp.phase records this command's SRCID_ER bit setting
- */
 
-	if (cmd->use_sg) {
-		cmd->SCp.buffer = (struct scatterlist *) cmd->request_buffer;
-		cmd->SCp.buffers_residual = cmd->use_sg - 1;
-		cmd->SCp.ptr = (char *) page_address(cmd->SCp.buffer->page) + cmd->SCp.buffer->offset;
+	if (scsi_bufflen(cmd)) {
+		cmd->SCp.buffer = scsi_sglist(cmd);
+		cmd->SCp.buffers_residual = scsi_sg_count(cmd) - 1;
+		cmd->SCp.ptr = sg_virt(cmd->SCp.buffer);
 		cmd->SCp.this_residual = cmd->SCp.buffer->length;
 	} else {
 		cmd->SCp.buffer = NULL;
 		cmd->SCp.buffers_residual = 0;
-		cmd->SCp.ptr = (char *) cmd->request_buffer;
-		cmd->SCp.this_residual = cmd->request_bufflen;
+		cmd->SCp.ptr = NULL;
+		cmd->SCp.this_residual = 0;
 	}
 	cmd->SCp.have_data_in = 0;
 
@@ -427,7 +300,7 @@ static int in2000_queuecommand(Scsi_Cmnd * cmd, void (*done) (Scsi_Cmnd *))
 
 	in2000_execute(cmd->device->host);
 
-	DB(DB_QUEUE_COMMAND, printk(")Q-%ld ", cmd->pid))
+	DB(DB_QUEUE_COMMAND, printk(")Q-%ld ", cmd->serial_number))
 	    return 0;
 }
 
@@ -703,7 +576,7 @@ static void in2000_execute(struct Scsi_Host *instance)
 	 * to search the input_Q again...
 	 */
 
-	DB(DB_EXECUTE, printk("%s%ld)EX-2 ", (cmd->SCp.phase) ? "d:" : "", cmd->pid))
+	DB(DB_EXECUTE, printk("%s%ld)EX-2 ", (cmd->SCp.phase) ? "d:" : "", cmd->serial_number))
 
 }
 
@@ -764,7 +637,7 @@ static void transfer_bytes(Scsi_Cmnd * cmd, int data_in_dir)
 		++cmd->SCp.buffer;
 		--cmd->SCp.buffers_residual;
 		cmd->SCp.this_residual = cmd->SCp.buffer->length;
-		cmd->SCp.ptr = page_address(cmd->SCp.buffer->page) + cmd->SCp.buffer->offset;
+		cmd->SCp.ptr = sg_virt(cmd->SCp.buffer);
 	}
 
 /* Set up hardware registers */
@@ -1147,7 +1020,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 	case CSR_XFER_DONE | PHS_COMMAND:
 	case CSR_UNEXP | PHS_COMMAND:
 	case CSR_SRV_REQ | PHS_COMMAND:
-		DB(DB_INTR, printk("CMND-%02x,%ld", cmd->cmnd[0], cmd->pid))
+		DB(DB_INTR, printk("CMND-%02x,%ld", cmd->cmnd[0], cmd->serial_number))
 		    transfer_pio(cmd->cmnd, cmd->cmd_len, DATA_OUT_DIR, hostdata);
 		hostdata->state = S_CONNECTED;
 		break;
@@ -1189,7 +1062,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 		switch (msg) {
 
 		case COMMAND_COMPLETE:
-			DB(DB_INTR, printk("CCMP-%ld", cmd->pid))
+			DB(DB_INTR, printk("CCMP-%ld", cmd->serial_number))
 			    write_3393_cmd(hostdata, WD_CMD_NEGATE_ACK);
 			hostdata->state = S_PRE_CMP_DISC;
 			break;
@@ -1327,7 +1200,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 
 		write_3393(hostdata, WD_SOURCE_ID, SRCID_ER);
 		if (phs == 0x60) {
-			DB(DB_INTR, printk("SX-DONE-%ld", cmd->pid))
+			DB(DB_INTR, printk("SX-DONE-%ld", cmd->serial_number))
 			    cmd->SCp.Message = COMMAND_COMPLETE;
 			lun = read_3393(hostdata, WD_TARGET_LUN);
 			DB(DB_INTR, printk(":%d.%d", cmd->SCp.Status, lun))
@@ -1348,7 +1221,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 
 			in2000_execute(instance);
 		} else {
-			printk("%02x:%02x:%02x-%ld: Unknown SEL_XFER_DONE phase!!---", asr, sr, phs, cmd->pid);
+			printk("%02x:%02x:%02x-%ld: Unknown SEL_XFER_DONE phase!!---", asr, sr, phs, cmd->serial_number);
 		}
 		break;
 
@@ -1415,7 +1288,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 			spin_unlock_irqrestore(instance->host_lock, flags);
 			return IRQ_HANDLED;
 		}
-		DB(DB_INTR, printk("UNEXP_DISC-%ld", cmd->pid))
+		DB(DB_INTR, printk("UNEXP_DISC-%ld", cmd->serial_number))
 		    hostdata->connected = NULL;
 		hostdata->busy[cmd->device->id] &= ~(1 << cmd->device->lun);
 		hostdata->state = S_UNCONNECTED;
@@ -1440,7 +1313,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
  */
 
 		write_3393(hostdata, WD_SOURCE_ID, SRCID_ER);
-		DB(DB_INTR, printk("DISC-%ld", cmd->pid))
+		DB(DB_INTR, printk("DISC-%ld", cmd->serial_number))
 		    if (cmd == NULL) {
 			printk(" - Already disconnected! ");
 			hostdata->state = S_UNCONNECTED;
@@ -1573,7 +1446,7 @@ static irqreturn_t in2000_intr(int irqnum, void *dev_id)
 		} else
 			hostdata->state = S_CONNECTED;
 
-		DB(DB_INTR, printk("-%ld", cmd->pid))
+		DB(DB_INTR, printk("-%ld", cmd->serial_number))
 		    break;
 
 	default:
@@ -1619,7 +1492,6 @@ static int reset_hardware(struct Scsi_Host *instance, int type)
 	write1_io(0, IO_FIFO_WRITE);	/* clear fifo counter */
 	write1_io(0, IO_FIFO_READ);	/* start fifo out in read mode */
 	write_3393(hostdata, WD_COMMAND, WD_CMD_RESET);
-	/* FIXME: timeout ?? */
 	while (!(READ_AUX_STAT() & ASR_INT))
 		cpu_relax();	/* wait for RESET to complete */
 
@@ -1702,7 +1574,7 @@ static int __in2000_abort(Scsi_Cmnd * cmd)
 				prev->host_scribble = cmd->host_scribble;
 			cmd->host_scribble = NULL;
 			cmd->result = DID_ABORT << 16;
-			printk(KERN_WARNING "scsi%d: Abort - removing command %ld from input_Q. ", instance->host_no, cmd->pid);
+			printk(KERN_WARNING "scsi%d: Abort - removing command %ld from input_Q. ", instance->host_no, cmd->serial_number);
 			cmd->scsi_done(cmd);
 			return SUCCESS;
 		}
@@ -1723,7 +1595,7 @@ static int __in2000_abort(Scsi_Cmnd * cmd)
 
 	if (hostdata->connected == cmd) {
 
-		printk(KERN_WARNING "scsi%d: Aborting connected command %ld - ", instance->host_no, cmd->pid);
+		printk(KERN_WARNING "scsi%d: Aborting connected command %ld - ", instance->host_no, cmd->serial_number);
 
 		printk("sending wd33c93 ABORT command - ");
 		write_3393(hostdata, WD_CONTROL, CTRL_IDI | CTRL_EDI | CTRL_POLLED);
@@ -2089,8 +1961,6 @@ static int __init in2000_detect(struct scsi_host_template * tpnt)
 #endif
 
 
-		/* FIXME: not strictly needed I think but the called code expects
-		   to be locked */
 		spin_lock_irqsave(instance->host_lock, flags);
 		x = reset_hardware(instance, (hostdata->args & A_NO_SCSI_RESET) ? RESET_CARD : RESET_CARD_AND_BUS);
 		spin_unlock_irqrestore(instance->host_lock, flags);
@@ -2268,7 +2138,7 @@ static int in2000_proc_info(struct Scsi_Host *instance, char *buf, char **start,
 		strcat(bp, "\nconnected:     ");
 		if (hd->connected) {
 			cmd = (Scsi_Cmnd *) hd->connected;
-			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->pid, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
+			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->serial_number, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
 			strcat(bp, tbuf);
 		}
 	}
@@ -2276,7 +2146,7 @@ static int in2000_proc_info(struct Scsi_Host *instance, char *buf, char **start,
 		strcat(bp, "\ninput_Q:       ");
 		cmd = (Scsi_Cmnd *) hd->input_Q;
 		while (cmd) {
-			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->pid, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
+			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->serial_number, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
 			strcat(bp, tbuf);
 			cmd = (Scsi_Cmnd *) cmd->host_scribble;
 		}
@@ -2285,7 +2155,7 @@ static int in2000_proc_info(struct Scsi_Host *instance, char *buf, char **start,
 		strcat(bp, "\ndisconnected_Q:");
 		cmd = (Scsi_Cmnd *) hd->disconnected_Q;
 		while (cmd) {
-			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->pid, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
+			sprintf(tbuf, " %ld-%d:%d(%02x)", cmd->serial_number, cmd->device->id, cmd->device->lun, cmd->cmnd[0]);
 			strcat(bp, tbuf);
 			cmd = (Scsi_Cmnd *) cmd->host_scribble;
 		}

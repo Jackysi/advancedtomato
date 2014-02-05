@@ -4,4 +4,3 @@ ifeq ($(CONFIG_ARCH_SA1100),y)
 endif
 params_phys-y	:= 0xc0000100
 initrd_phys-y	:= 0xc0800000
-

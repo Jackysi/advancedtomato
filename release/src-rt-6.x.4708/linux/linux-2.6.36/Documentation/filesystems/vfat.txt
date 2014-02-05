@@ -8,6 +8,12 @@ if you want to format from within Linux.
 
 VFAT MOUNT OPTIONS
 ----------------------------------------------------------------------
+uid=###       -- Set the owner of all files on this filesystem.
+		 The default is the uid of current process.
+
+gid=###       -- Set the group of all files on this filesystem.
+		 The default is the gid of current process.
+
 umask=###     -- The permission mask (for files and directories, see umask(1)).
                  The default is the umask of current process.
 
@@ -36,7 +42,7 @@ codepage=###  -- Sets the codepage number for converting to shortname
 		 characters on FAT filesystem.
 		 By default, FAT_DEFAULT_CODEPAGE setting is used.
 
-iocharset=name -- Character set to use for converting between the
+iocharset=<name> -- Character set to use for converting between the
 		 encoding is used for user visible filename and 16 bit
 		 Unicode characters. Long filenames are stored on disk
 		 in Unicode format, but Unix for the most part doesn't
@@ -86,6 +92,8 @@ check=s|r|n   -- Case sensitivity checking setting.
                  r: relaxed, case insensitive
                  n: normal, default setting, currently case insensitive
 
+nocase        -- This was deprecated for vfat. Use shortname=win95 instead.
+
 shortname=lower|win95|winnt|mixed
 	      -- Shortname display/create setting.
 		 lower: convert to lowercase for display,
@@ -94,7 +102,40 @@ shortname=lower|win95|winnt|mixed
 		 winnt: emulate the Windows NT rule for display/create.
 		 mixed: emulate the Windows NT rule for display,
 			emulate the Windows 95 rule for create.
-		 Default setting is `lower'.
+		 Default setting is `mixed'.
+
+tz=UTC        -- Interpret timestamps as UTC rather than local time.
+                 This option disables the conversion of timestamps
+                 between local time (as used by Windows on FAT) and UTC
+                 (which Linux uses internally).  This is particularly
+                 useful when mounting devices (like digital cameras)
+                 that are set to UTC in order to avoid the pitfalls of
+                 local time.
+
+showexec      -- If set, the execute permission bits of the file will be
+		 allowed only if the extension part of the name is .EXE,
+		 .COM, or .BAT. Not set by default.
+
+debug         -- Can be set, but unused by the current implementation.
+
+sys_immutable -- If set, ATTR_SYS attribute on FAT is handled as
+		 IMMUTABLE flag on Linux. Not set by default.
+
+flush         -- If set, the filesystem will try to flush to disk more
+		 early than normal. Not set by default.
+
+rodir	      -- FAT has the ATTR_RO (read-only) attribute. On Windows,
+		 the ATTR_RO of the directory will just be ignored,
+		 and is used only by applications as a flag (e.g. it's set
+		 for the customized folder).
+
+		 If you want to use ATTR_RO as read-only flag even for
+		 the directory, set this option.
+
+errors=panic|continue|remount-ro
+	      -- specify FAT behavior on critical errors: panic, continue
+		 without doing anything or remount the partition in
+		 read-only mode (default behavior).
 
 <bool>: 0,1,yes,no,true,false
 
@@ -124,7 +165,8 @@ TEST SUITE
 If you plan to make any modifications to the vfat filesystem, please
 get the test suite that comes with the vfat distribution at
 
-  http://bmrc.berkeley.edu/people/chaffee/vfat.html
+  http://web.archive.org/web/*/http://bmrc.berkeley.edu/
+  people/chaffee/vfat.html
 
 This tests quite a few parts of the vfat filesystem and additional
 tests for new features or untested features would be appreciated.

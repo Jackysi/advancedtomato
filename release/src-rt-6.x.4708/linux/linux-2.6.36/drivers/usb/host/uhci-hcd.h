@@ -67,17 +67,22 @@
 #define   USBPORTSC_RES3	0x4000	/* reserved, write zeroes */
 #define   USBPORTSC_RES4	0x8000	/* reserved, write zeroes */
 
-/* Legacy support register */
+/* PCI legacy support register */
 #define USBLEGSUP		0xc0
 #define   USBLEGSUP_DEFAULT	0x2000	/* only PIRQ enable set */
 #define   USBLEGSUP_RWC		0x8f00	/* the R/WC bits */
 #define   USBLEGSUP_RO		0x5040	/* R/O and reserved bits */
 
-#define UHCI_PTR_BITS		__constant_cpu_to_le32(0x000F)
-#define UHCI_PTR_TERM		__constant_cpu_to_le32(0x0001)
-#define UHCI_PTR_QH		__constant_cpu_to_le32(0x0002)
-#define UHCI_PTR_DEPTH		__constant_cpu_to_le32(0x0004)
-#define UHCI_PTR_BREADTH	__constant_cpu_to_le32(0x0000)
+/* PCI Intel-specific resume-enable register */
+#define USBRES_INTEL		0xc4
+#define   USBPORT1EN		0x01
+#define   USBPORT2EN		0x02
+
+#define UHCI_PTR_BITS		cpu_to_le32(0x000F)
+#define UHCI_PTR_TERM		cpu_to_le32(0x0001)
+#define UHCI_PTR_QH		cpu_to_le32(0x0002)
+#define UHCI_PTR_DEPTH		cpu_to_le32(0x0004)
+#define UHCI_PTR_BREADTH	cpu_to_le32(0x0000)
 
 #define UHCI_NUMFRAMES		1024	/* in the frame list [array] */
 #define UHCI_MAX_SOF_NUMBER	2047	/* in an SOF packet */
@@ -272,46 +277,6 @@ static inline u32 td_status(struct uhci_td *td) {
  *	Skeleton Queue Headers
  */
 
-/*
- * The UHCI driver uses QHs with Interrupt, Control and Bulk URBs for
- * automatic queuing. To make it easy to insert entries into the schedule,
- * we have a skeleton of QHs for each predefined Interrupt latency.
- * Asynchronous QHs (low-speed control, full-speed control, and bulk)
- * go onto the period-1 interrupt list, since they all get accessed on
- * every frame.
- *
- * When we want to add a new QH, we add it to the list starting from the
- * appropriate skeleton QH.  For instance, the schedule can look like this:
- *
- * skel int128 QH
- * dev 1 interrupt QH
- * dev 5 interrupt QH
- * skel int64 QH
- * skel int32 QH
- * ...
- * skel int1 + async QH
- * dev 5 low-speed control QH
- * dev 1 bulk QH
- * dev 2 bulk QH
- *
- * There is a special terminating QH used to keep full-speed bandwidth
- * reclamation active when no full-speed control or bulk QHs are linked
- * into the schedule.  It has an inactive TD (to work around a PIIX bug,
- * see the Intel errata) and it points back to itself.
- *
- * There's a special skeleton QH for Isochronous QHs which never appears
- * on the schedule.  Isochronous TDs go on the schedule before the
- * the skeleton QHs.  The hardware accesses them directly rather than
- * through their QH, which is used only for bookkeeping purposes.
- * While the UHCI spec doesn't forbid the use of QHs for Isochronous,
- * it doesn't use them either.  And the spec says that queues never
- * advance on an error completion status, which makes them totally
- * unsuitable for Isochronous transfers.
- *
- * There's also a special skeleton QH used for QHs which are in the process
- * of unlinking and so may still be in use by the hardware.  It too never
- * appears on the schedule.
- */
 
 #define UHCI_NUM_SKELQH		11
 #define SKEL_UNLINK		0

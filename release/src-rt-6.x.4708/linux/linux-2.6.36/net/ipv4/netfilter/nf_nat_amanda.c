@@ -24,7 +24,7 @@ MODULE_DESCRIPTION("Amanda NAT helper");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ip_nat_amanda");
 
-static unsigned int help(struct sk_buff **pskb,
+static unsigned int help(struct sk_buff *skb,
 			 enum ip_conntrack_info ctinfo,
 			 unsigned int matchoff,
 			 unsigned int matchlen,
@@ -45,7 +45,7 @@ static unsigned int help(struct sk_buff **pskb,
 	/* Try to get same port: if not, try to change it. */
 	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
 		exp->tuple.dst.u.tcp.port = htons(port);
-		if (nf_conntrack_expect_related(exp) == 0)
+		if (nf_ct_expect_related(exp) == 0)
 			break;
 	}
 
@@ -53,11 +53,11 @@ static unsigned int help(struct sk_buff **pskb,
 		return NF_DROP;
 
 	sprintf(buffer, "%u", port);
-	ret = nf_nat_mangle_udp_packet(pskb, exp->master, ctinfo,
+	ret = nf_nat_mangle_udp_packet(skb, exp->master, ctinfo,
 				       matchoff, matchlen,
 				       buffer, strlen(buffer));
 	if (ret != NF_ACCEPT)
-		nf_conntrack_unexpect_related(exp);
+		nf_ct_unexpect_related(exp);
 	return ret;
 }
 
@@ -69,7 +69,7 @@ static void __exit nf_nat_amanda_fini(void)
 
 static int __init nf_nat_amanda_init(void)
 {
-	BUG_ON(rcu_dereference(nf_nat_amanda_hook));
+	BUG_ON(nf_nat_amanda_hook != NULL);
 	rcu_assign_pointer(nf_nat_amanda_hook, help);
 	return 0;
 }

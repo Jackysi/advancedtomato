@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/fs.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -54,7 +55,7 @@ static ssize_t eisa_eeprom_read(struct file * file,
 	ssize_t ret;
 	int i;
 	
-	if (*ppos >= HPEE_MAX_LENGTH)
+	if (*ppos < 0 || *ppos >= HPEE_MAX_LENGTH)
 		return 0;
 	
 	count = *ppos + count < HPEE_MAX_LENGTH ? count : HPEE_MAX_LENGTH - *ppos;
@@ -74,16 +75,9 @@ static ssize_t eisa_eeprom_read(struct file * file,
 	return ret;
 }
 
-static int eisa_eeprom_ioctl(struct inode *inode, struct file *file, 
-			   unsigned int cmd,
-			   unsigned long arg)
-{
-	return -ENOTTY;
-}
-
 static int eisa_eeprom_open(struct inode *inode, struct file *file)
 {
-	if (file->f_mode & 2)
+	if (file->f_mode & FMODE_WRITE)
 		return -EINVAL;
    
 	return 0;
@@ -101,7 +95,6 @@ static const struct file_operations eisa_eeprom_fops = {
 	.owner =	THIS_MODULE,
 	.llseek =	eisa_eeprom_llseek,
 	.read =		eisa_eeprom_read,
-	.ioctl =	eisa_eeprom_ioctl,
 	.open =		eisa_eeprom_open,
 	.release =	eisa_eeprom_release,
 };

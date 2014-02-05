@@ -298,9 +298,16 @@ static inline int find_and_clear_bit_16(unsigned long *field)
 {
   int rv;
 
-  if (*field == 0) panic("No free mscp");
-  asm("xorl %0,%0\n0:\tbsfw %1,%w0\n\tbtr %0,%1\n\tjnc 0b"
-      : "=&r" (rv), "=m" (*field) : "1" (*field));
+  if (*field == 0)
+    panic("No free mscp");
+
+  asm volatile (
+	"xorl %0,%0\n\t"
+	"0: bsfw %1,%w0\n\t"
+	"btr %0,%1\n\t"
+	"jnc 0b"
+	: "=&r" (rv), "=m" (*field) :);
+
   return rv;
 }
 
@@ -500,10 +507,6 @@ static int ultrastor_14f_detect(struct scsi_host_template * tpnt)
     config.mscp_free = ~0;
 #endif
 
-    /*
-     * Brrr, &config.mscp[0].SCint->host) it is something magical....
-     * XXX and FIXME
-     */
     if (request_irq(config.interrupt, do_ultrastor_interrupt, 0, "Ultrastor", &config.mscp[0].SCint->device->host)) {
 	printk("Unable to allocate IRQ%u for UltraStor controller.\n",
 	       config.interrupt);
@@ -675,16 +678,15 @@ static const char *ultrastor_info(struct Scsi_Host * shpnt)
 
 static inline void build_sg_list(struct mscp *mscp, struct scsi_cmnd *SCpnt)
 {
-	struct scatterlist *sl;
+	struct scatterlist *sg;
 	long transfer_length = 0;
 	int i, max;
 
-	sl = (struct scatterlist *) SCpnt->request_buffer;
-	max = SCpnt->use_sg;
-	for (i = 0; i < max; i++) {
-		mscp->sglist[i].address = isa_page_to_bus(sl[i].page) + sl[i].offset;
-		mscp->sglist[i].num_bytes = sl[i].length;
-		transfer_length += sl[i].length;
+	max = scsi_sg_count(SCpnt);
+	scsi_for_each_sg(SCpnt, sg, max, i) {
+		mscp->sglist[i].address = isa_page_to_bus(sg_page(sg)) + sg->offset;
+		mscp->sglist[i].num_bytes = sg->length;
+		transfer_length += sg->length;
 	}
 	mscp->number_of_sg_list = max;
 	mscp->transfer_data = isa_virt_to_bus(mscp->sglist);
@@ -730,19 +732,19 @@ static int ultrastor_queuecommand(struct scsi_cmnd *SCpnt,
     my_mscp->target_id = SCpnt->device->id;
     my_mscp->ch_no = 0;
     my_mscp->lun = SCpnt->device->lun;
-    if (SCpnt->use_sg) {
+    if (scsi_sg_count(SCpnt)) {
 	/* Set scatter/gather flag in SCSI command packet */
 	my_mscp->sg = TRUE;
 	build_sg_list(my_mscp, SCpnt);
     } else {
 	/* Unset scatter/gather flag in SCSI command packet */
 	my_mscp->sg = FALSE;
-	my_mscp->transfer_data = isa_virt_to_bus(SCpnt->request_buffer);
-	my_mscp->transfer_data_length = SCpnt->request_bufflen;
+	my_mscp->transfer_data = isa_virt_to_bus(scsi_sglist(SCpnt));
+	my_mscp->transfer_data_length = scsi_bufflen(SCpnt);
     }
     my_mscp->command_link = 0;		/*???*/
     my_mscp->scsi_command_link_id = 0;	/*???*/
-    my_mscp->length_of_sense_byte = sizeof SCpnt->sense_buffer;
+    my_mscp->length_of_sense_byte = SCSI_SENSE_BUFFERSIZE;
     my_mscp->length_of_scsi_cdbs = SCpnt->cmd_len;
     memcpy(my_mscp->scsi_cdbs, SCpnt->cmnd, my_mscp->length_of_scsi_cdbs);
     my_mscp->adapter_status = 0;
@@ -752,11 +754,6 @@ static int ultrastor_queuecommand(struct scsi_cmnd *SCpnt,
     my_mscp->SCint = SCpnt;
     SCpnt->host_scribble = (unsigned char *)my_mscp;
 
-    /* Find free OGM slot.  On 24F, look for OGM status byte == 0.
-       On 14F and 34F, wait for local interrupt pending flag to clear. 
-       
-       FIXME: now we are using new_eh we should punt here and let the
-       midlayer sort it out */
 
 retry:
     if (config.slot)
@@ -892,7 +889,6 @@ static int ultrastor_abort(struct scsi_cmnd *SCpnt)
 	printk("Ux4F: abort while completed command pending\n");
 	
 	spin_lock_irqsave(host->host_lock, flags);
-	/* FIXME: Ewww... need to think about passing host around properly */
 	ultrastor_interrupt(NULL);
 	spin_unlock_irqrestore(host->host_lock, flags);
 	return SUCCESS;
@@ -922,7 +918,6 @@ static int ultrastor_abort(struct scsi_cmnd *SCpnt)
 	printk(out, ogm_status, ogm_addr, icm_status, icm_addr);
 #endif
 	spin_unlock_irqrestore(host->host_lock, flags);
-	/* FIXME: add a wait for the abort to complete */
 	return SUCCESS;
       }
 
@@ -935,17 +930,13 @@ static int ultrastor_abort(struct scsi_cmnd *SCpnt)
        still be using it.  Setting SCint = 0 causes the interrupt
        handler to ignore the command.  */
 
-    /* FIXME - devices that implement soft resets will still be running
-       the command after a bus reset.  We would probably rather leave
-       the command in the queue.  The upper level code will automatically
-       leave the command in the active state instead of requeueing it. ERY */
 
 #if ULTRASTOR_DEBUG & UD_ABORT
     if (config.mscp[mscp_index].SCint != SCpnt)
 	printk("abort: command mismatch, %p != %p\n",
 	       config.mscp[mscp_index].SCint, SCpnt);
 #endif
-    if (config.mscp[mscp_index].SCint == 0)
+    if (config.mscp[mscp_index].SCint == NULL)
 	return FAILED;
 
     if (config.mscp[mscp_index].SCint != SCpnt) panic("Bad abort");
@@ -1005,11 +996,6 @@ static int ultrastor_host_reset(struct scsi_cmnd * SCpnt)
       }
 #endif
 
-    /* FIXME - if the device implements soft resets, then the command
-       will still be running.  ERY  
-       
-       Even bigger deal with new_eh! 
-     */
 
     memset((unsigned char *)config.aborted, 0, sizeof config.aborted);
 #if ULTRASTOR_MAX_CMDS == 1
@@ -1032,10 +1018,6 @@ int ultrastor_biosparam(struct scsi_device *sdev, struct block_device *bdev,
     dkinfo[0] = config.heads;
     dkinfo[1] = config.sectors;
     dkinfo[2] = size / s;	/* Ignore partial cylinders */
-#if 0
-    if (dkinfo[2] > 1024)
-	dkinfo[2] = 1024;
-#endif
     return 0;
 }
 
@@ -1095,7 +1077,7 @@ static void ultrastor_interrupt(void *dev_id)
     SCtmp = mscp->SCint;
     mscp->SCint = NULL;
 
-    if (SCtmp == 0)
+    if (!SCtmp)
       {
 #if ULTRASTOR_DEBUG & (UD_ABORT|UD_INTERRUPT)
 	printk("MSCP %d (%x): no command\n", mscp_index, (unsigned int) mscp);

@@ -203,11 +203,7 @@ static const unsigned short  pas16_offset[ 8 ] =
  6 = yellow
  7 = white
 */
-#if 1
 #define rtrc(i) {inb(0x3da); outb(0x31, 0x3c0); outb((i), 0x3c0);}
-#else
-#define rtrc(i) {}
-#endif
 
 
 /*
@@ -453,7 +449,8 @@ int __init pas16_detect(struct scsi_host_template * tpnt)
 	    instance->irq = NCR5380_probe_irq(instance, PAS16_IRQS);
 
 	if (instance->irq != SCSI_IRQ_NONE) 
-	    if (request_irq(instance->irq, pas16_intr, IRQF_DISABLED, "pas16", instance)) {
+	    if (request_irq(instance->irq, pas16_intr, IRQF_DISABLED,
+			    "pas16", instance)) {
 		printk("scsi%d : IRQ%d not free, interrupts disabled\n", 
 		    instance->host_no, instance->irq);
 		instance->irq = SCSI_IRQ_NONE;
@@ -501,12 +498,6 @@ int __init pas16_detect(struct scsi_host_template * tpnt)
  *	
  */
 
-/* 
- * XXX Most SCSI boards use this mapping, I could be incorrect.  Some one
- * using hard disks on a trantor should verify that this mapping corresponds
- * to that used by the BIOS / ASPI driver by running the linux fdisk program
- * and matching the H_C_S coordinates to what DOS uses.
- */
 
 int pas16_biosparam(struct scsi_device *sdev, struct block_device *dev,
 		sector_t capacity, int * ip)
@@ -604,7 +595,7 @@ static inline int NCR5380_pwrite (struct Scsi_Host *instance, unsigned char *src
 static int pas16_release(struct Scsi_Host *shost)
 {
 	if (shost->irq)
-		free_irq(shost->irq, NULL);
+		free_irq(shost->irq, shost);
 	NCR5380_exit(shost);
 	if (shost->dma_channel != 0xff)
 		free_dma(shost->dma_channel);

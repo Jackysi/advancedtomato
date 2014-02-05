@@ -18,8 +18,8 @@
 #include <linux/security.h>
 #include <linux/init.h>
 #include <linux/signal.h>
+#include <linux/uaccess.h>
 
-#include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <asm/system.h>
 #include <asm/traps.h>
@@ -33,24 +33,104 @@
  * in exit.c or in signal.c.
  */
 
-#if 0
-/*
- * Breakpoint SWI instruction: SWI &9F0001
- */
-#define BREAKINST_ARM	0xef9f0001
-#define BREAKINST_THUMB	0xdf00		/* fill this in later */
-#else
-/*
- * New breakpoints - use an undefined instruction.  The ARM architecture
- * reference manual guarantees that the following instruction space
- * will produce an undefined instruction exception on all CPUs:
- *
- *  ARM:   xxxx 0111 1111 xxxx xxxx xxxx 1111 xxxx
- *  Thumb: 1101 1110 xxxx xxxx
- */
 #define BREAKINST_ARM	0xe7f001f0
 #define BREAKINST_THUMB	0xde01
-#endif
+
+struct pt_regs_offset {
+	const char *name;
+	int offset;
+};
+
+#define REG_OFFSET_NAME(r) \
+	{.name = #r, .offset = offsetof(struct pt_regs, ARM_##r)}
+#define REG_OFFSET_END {.name = NULL, .offset = 0}
+
+static const struct pt_regs_offset regoffset_table[] = {
+	REG_OFFSET_NAME(r0),
+	REG_OFFSET_NAME(r1),
+	REG_OFFSET_NAME(r2),
+	REG_OFFSET_NAME(r3),
+	REG_OFFSET_NAME(r4),
+	REG_OFFSET_NAME(r5),
+	REG_OFFSET_NAME(r6),
+	REG_OFFSET_NAME(r7),
+	REG_OFFSET_NAME(r8),
+	REG_OFFSET_NAME(r9),
+	REG_OFFSET_NAME(r10),
+	REG_OFFSET_NAME(fp),
+	REG_OFFSET_NAME(ip),
+	REG_OFFSET_NAME(sp),
+	REG_OFFSET_NAME(lr),
+	REG_OFFSET_NAME(pc),
+	REG_OFFSET_NAME(cpsr),
+	REG_OFFSET_NAME(ORIG_r0),
+	REG_OFFSET_END,
+};
+
+/**
+ * regs_query_register_offset() - query register offset from its name
+ * @name:	the name of a register
+ *
+ * regs_query_register_offset() returns the offset of a register in struct
+ * pt_regs from its name. If the name is invalid, this returns -EINVAL;
+ */
+int regs_query_register_offset(const char *name)
+{
+	const struct pt_regs_offset *roff;
+	for (roff = regoffset_table; roff->name != NULL; roff++)
+		if (!strcmp(roff->name, name))
+			return roff->offset;
+	return -EINVAL;
+}
+
+/**
+ * regs_query_register_name() - query register name from its offset
+ * @offset:	the offset of a register in struct pt_regs.
+ *
+ * regs_query_register_name() returns the name of a register from its
+ * offset in struct pt_regs. If the @offset is invalid, this returns NULL;
+ */
+const char *regs_query_register_name(unsigned int offset)
+{
+	const struct pt_regs_offset *roff;
+	for (roff = regoffset_table; roff->name != NULL; roff++)
+		if (roff->offset == offset)
+			return roff->name;
+	return NULL;
+}
+
+/**
+ * regs_within_kernel_stack() - check the address in the stack
+ * @regs:      pt_regs which contains kernel stack pointer.
+ * @addr:      address which is checked.
+ *
+ * regs_within_kernel_stack() checks @addr is within the kernel stack page(s).
+ * If @addr is within the kernel stack, it returns true. If not, returns false.
+ */
+bool regs_within_kernel_stack(struct pt_regs *regs, unsigned long addr)
+{
+	return ((addr & ~(THREAD_SIZE - 1))  ==
+		(kernel_stack_pointer(regs) & ~(THREAD_SIZE - 1)));
+}
+
+/**
+ * regs_get_kernel_stack_nth() - get Nth entry of the stack
+ * @regs:	pt_regs which contains kernel stack pointer.
+ * @n:		stack entry number.
+ *
+ * regs_get_kernel_stack_nth() returns @n th entry of the kernel stack which
+ * is specified by @regs. If the @n th entry is NOT in the kernel stack,
+ * this returns 0.
+ */
+unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs, unsigned int n)
+{
+	unsigned long *addr = (unsigned long *)kernel_stack_pointer(regs);
+	addr += n;
+	if (regs_within_kernel_stack(regs, (unsigned long)addr))
+		return *addr;
+	else
+		return 0;
+}
 
 /*
  * this routine will get a word off of the processes privileged stack.
@@ -126,7 +206,7 @@ ptrace_getrn(struct task_struct *child, unsigned long insn)
 
 	val = get_user_reg(child, reg);
 	if (reg == 15)
-		val = pc_pointer(val + 8);
+		val += 8;
 
 	return val;
 }
@@ -278,8 +358,7 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 				else
 					base -= aluop2;
 			}
-			if (read_u32(child, base, &alt) == 0)
-				alt = pc_pointer(alt);
+			read_u32(child, base, &alt);
 		}
 		break;
 
@@ -305,8 +384,7 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 
 			base = ptrace_getrn(child, insn);
 
-			if (read_u32(child, base + nr_regs, &alt) == 0)
-				alt = pc_pointer(alt);
+			read_u32(child, base + nr_regs, &alt);
 			break;
 		}
 		break;
@@ -382,16 +460,16 @@ static void clear_breakpoint(struct task_struct *task, struct debug_entry *bp)
 
 		if (ret != 2 || old_insn.thumb != BREAKINST_THUMB)
 			printk(KERN_ERR "%s:%d: corrupted Thumb breakpoint at "
-				"0x%08lx (0x%04x)\n", task->comm, task->pid,
-				addr, old_insn.thumb);
+				"0x%08lx (0x%04x)\n", task->comm,
+				task_pid_nr(task), addr, old_insn.thumb);
 	} else {
 		ret = swap_insn(task, addr & ~3, &old_insn.arm,
 				&bp->insn.arm, 4);
 
 		if (ret != 4 || old_insn.arm != BREAKINST_ARM)
 			printk(KERN_ERR "%s:%d: corrupted ARM breakpoint at "
-				"0x%08lx (0x%08x)\n", task->comm, task->pid,
-				addr, old_insn.arm);
+				"0x%08lx (0x%08x)\n", task->comm,
+				task_pid_nr(task), addr, old_insn.arm);
 	}
 }
 
@@ -454,12 +532,23 @@ void ptrace_cancel_bpt(struct task_struct *child)
 		clear_breakpoint(child, &child->thread.debug.bp[i]);
 }
 
+void user_disable_single_step(struct task_struct *task)
+{
+	task->ptrace &= ~PT_SINGLESTEP;
+	ptrace_cancel_bpt(task);
+}
+
+void user_enable_single_step(struct task_struct *task)
+{
+	task->ptrace |= PT_SINGLESTEP;
+}
+
 /*
  * Called by kernel/ptrace.c when detaching..
  */
 void ptrace_disable(struct task_struct *child)
 {
-	single_step_disable(child);
+	user_disable_single_step(child);
 }
 
 /*
@@ -501,10 +590,41 @@ static struct undef_hook thumb_break_hook = {
 	.fn		= break_trap,
 };
 
+static int thumb2_break_trap(struct pt_regs *regs, unsigned int instr)
+{
+	unsigned int instr2;
+	void __user *pc;
+
+	/* Check the second half of the instruction.  */
+	pc = (void __user *)(instruction_pointer(regs) + 2);
+
+	if (processor_mode(regs) == SVC_MODE) {
+		instr2 = *(u16 *) pc;
+	} else {
+		get_user(instr2, (u16 __user *)pc);
+	}
+
+	if (instr2 == 0xa000) {
+		ptrace_break(current, regs);
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+static struct undef_hook thumb2_break_hook = {
+	.instr_mask	= 0xffff,
+	.instr_val	= 0xf7f0,
+	.cpsr_mask	= PSR_T_BIT,
+	.cpsr_val	= PSR_T_BIT,
+	.fn		= thumb2_break_trap,
+};
+
 static int __init ptrace_break_init(void)
 {
 	register_undef_hook(&arm_break_hook);
 	register_undef_hook(&thumb_break_hook);
+	register_undef_hook(&thumb2_break_hook);
 	return 0;
 }
 
@@ -523,7 +643,13 @@ static int ptrace_read_user(struct task_struct *tsk, unsigned long off,
 		return -EIO;
 
 	tmp = 0;
-	if (off < sizeof(struct pt_regs))
+	if (off == PT_TEXT_ADDR)
+		tmp = tsk->mm->start_code;
+	else if (off == PT_DATA_ADDR)
+		tmp = tsk->mm->start_data;
+	else if (off == PT_TEXT_END_ADDR)
+		tmp = tsk->mm->end_code;
+	else if (off < sizeof(struct pt_regs))
 		tmp = get_user_reg(tsk, off >> 2);
 
 	return put_user(tmp, ret);
@@ -655,95 +781,67 @@ static int ptrace_setcrunchregs(struct task_struct *tsk, void __user *ufp)
 }
 #endif
 
+#ifdef CONFIG_VFP
+/*
+ * Get the child VFP state.
+ */
+static int ptrace_getvfpregs(struct task_struct *tsk, void __user *data)
+{
+	struct thread_info *thread = task_thread_info(tsk);
+	union vfp_state *vfp = &thread->vfpstate;
+	struct user_vfp __user *ufp = data;
+
+	vfp_sync_hwstate(thread);
+
+	/* copy the floating point registers */
+	if (copy_to_user(&ufp->fpregs, &vfp->hard.fpregs,
+			 sizeof(vfp->hard.fpregs)))
+		return -EFAULT;
+
+	/* copy the status and control register */
+	if (put_user(vfp->hard.fpscr, &ufp->fpscr))
+		return -EFAULT;
+
+	return 0;
+}
+
+/*
+ * Set the child VFP state.
+ */
+static int ptrace_setvfpregs(struct task_struct *tsk, void __user *data)
+{
+	struct thread_info *thread = task_thread_info(tsk);
+	union vfp_state *vfp = &thread->vfpstate;
+	struct user_vfp __user *ufp = data;
+
+	vfp_sync_hwstate(thread);
+
+	/* copy the floating point registers */
+	if (copy_from_user(&vfp->hard.fpregs, &ufp->fpregs,
+			   sizeof(vfp->hard.fpregs)))
+		return -EFAULT;
+
+	/* copy the status and control register */
+	if (get_user(vfp->hard.fpscr, &ufp->fpscr))
+		return -EFAULT;
+
+	vfp_flush_hwstate(thread);
+
+	return 0;
+}
+#endif
+
 long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 {
-	unsigned long tmp;
 	int ret;
 
 	switch (request) {
-		/*
-		 * read word at location "addr" in the child process.
-		 */
-		case PTRACE_PEEKTEXT:
-		case PTRACE_PEEKDATA:
-			ret = access_process_vm(child, addr, &tmp,
-						sizeof(unsigned long), 0);
-			if (ret == sizeof(unsigned long))
-				ret = put_user(tmp, (unsigned long __user *) data);
-			else
-				ret = -EIO;
-			break;
-
 		case PTRACE_PEEKUSR:
 			ret = ptrace_read_user(child, addr, (unsigned long __user *)data);
 			break;
 
-		/*
-		 * write the word at location addr.
-		 */
-		case PTRACE_POKETEXT:
-		case PTRACE_POKEDATA:
-			ret = access_process_vm(child, addr, &data,
-						sizeof(unsigned long), 1);
-			if (ret == sizeof(unsigned long))
-				ret = 0;
-			else
-				ret = -EIO;
-			break;
-
 		case PTRACE_POKEUSR:
 			ret = ptrace_write_user(child, addr, data);
-			break;
-
-		/*
-		 * continue/restart and stop at next (return from) syscall
-		 */
-		case PTRACE_SYSCALL:
-		case PTRACE_CONT:
-			ret = -EIO;
-			if (!valid_signal(data))
-				break;
-			if (request == PTRACE_SYSCALL)
-				set_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-			else
-				clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-			child->exit_code = data;
-			single_step_disable(child);
-			wake_up_process(child);
-			ret = 0;
-			break;
-
-		/*
-		 * make the child exit.  Best I can do is send it a sigkill.
-		 * perhaps it should be put in the status that it wants to
-		 * exit.
-		 */
-		case PTRACE_KILL:
-			single_step_disable(child);
-			if (child->exit_state != EXIT_ZOMBIE) {
-				child->exit_code = SIGKILL;
-				wake_up_process(child);
-			}
-			ret = 0;
-			break;
-
-		/*
-		 * execute single instruction.
-		 */
-		case PTRACE_SINGLESTEP:
-			ret = -EIO;
-			if (!valid_signal(data))
-				break;
-			single_step_enable(child);
-			clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-			child->exit_code = data;
-			/* give it a chance to run. */
-			wake_up_process(child);
-			ret = 0;
-			break;
-
-		case PTRACE_DETACH:
-			ret = ptrace_detach(child, data);
 			break;
 
 		case PTRACE_GETREGS:
@@ -789,6 +887,16 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 
 		case PTRACE_SETCRUNCHREGS:
 			ret = ptrace_setcrunchregs(child, (void __user *)data);
+			break;
+#endif
+
+#ifdef CONFIG_VFP
+		case PTRACE_GETVFPREGS:
+			ret = ptrace_getvfpregs(child, (void __user *)data);
+			break;
+
+		case PTRACE_SETVFPREGS:
+			ret = ptrace_setvfpregs(child, (void __user *)data);
 			break;
 #endif
 

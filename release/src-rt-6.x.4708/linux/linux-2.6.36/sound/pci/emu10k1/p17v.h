@@ -73,17 +73,6 @@
 #define ADC_NOISE_CTRL		0x00000013	/*ADC Noise Gate Control */
 #define ADC_LIMIT_CTRL		0x00000014	/*ADC Limiter Control */
 #define ADC_MUX			0x00000015  	/*ADC Mux offset */
-#if 0
-/* FIXME: Not tested yet. */
-#define ADC_GAIN_MASK		0x000000ff	//Mask for ADC Gain
-#define ADC_ZERODB		0x000000cf	//Value to set ADC to 0dB
-#define ADC_MUTE_MASK		0x000000c0	//Mask for ADC mute
-#define ADC_MUTE		0x000000c0	//Value to mute ADC
-#define ADC_OSR			0x00000008	//Mask for ADC oversample rate select
-#define ADC_TIMEOUT_DISABLE	0x00000008	//Value and mask to disable Timeout clock
-#define ADC_HPF_DISABLE		0x00000100	//Value and mask to disable High pass filter
-#define ADC_TRANWIN_MASK	0x00000070	//Mask for Length of Transient Window
-#endif
 
 #define ADC_MUX_MASK		0x0000000f	//Mask for ADC Mux
 #define ADC_MUX_0		0x00000001	//Value to select Unknown at ADC Mux (Not used)
@@ -150,9 +139,3 @@
 #define P17V_SRP_BYPASS			0x8D	/* srps channel bypass and srps bypass */
 /* 8E - 92: Not used */
 #define P17V_I2S_SRC_SEL		0x93	/* I2SIN mode sel */
-
-
-
-
-
-

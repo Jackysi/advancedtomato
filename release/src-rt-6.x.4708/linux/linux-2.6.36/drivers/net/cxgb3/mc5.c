@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Chelsio, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Chelsio, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -452,7 +452,7 @@ void t3_mc5_intr_handler(struct mc5 *mc5)
 	t3_write_reg(adap, A_MC5_DB_INT_CAUSE, cause);
 }
 
-void __devinit t3_mc5_prep(struct adapter *adapter, struct mc5 *mc5, int mode)
+void t3_mc5_prep(struct adapter *adapter, struct mc5 *mc5, int mode)
 {
 #define K * 1024
 

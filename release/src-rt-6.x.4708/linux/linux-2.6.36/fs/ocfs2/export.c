@@ -31,6 +31,7 @@
 
 #include "ocfs2.h"
 
+#include "alloc.h"
 #include "dir.h"
 #include "dlmglue.h"
 #include "dcache.h"
@@ -38,6 +39,7 @@
 #include "inode.h"
 
 #include "buffer_head_io.h"
+#include "suballoc.h"
 
 struct ocfs2_inode_handle
 {
@@ -49,34 +51,98 @@ static struct dentry *ocfs2_get_dentry(struct super_block *sb, void *vobjp)
 {
 	struct ocfs2_inode_handle *handle = vobjp;
 	struct inode *inode;
+	struct ocfs2_super *osb = OCFS2_SB(sb);
+	u64 blkno = handle->ih_blkno;
+	int status, set;
 	struct dentry *result;
 
 	mlog_entry("(0x%p, 0x%p)\n", sb, handle);
 
-	if (handle->ih_blkno == 0) {
-		mlog_errno(-ESTALE);
-		return ERR_PTR(-ESTALE);
+	if (blkno == 0) {
+		mlog(0, "nfs wants inode with blkno: 0\n");
+		result = ERR_PTR(-ESTALE);
+		goto bail;
 	}
 
-	inode = ocfs2_iget(OCFS2_SB(sb), handle->ih_blkno, 0);
+	inode = ocfs2_ilookup(sb, blkno);
+	/*
+	 * If the inode exists in memory, we only need to check it's
+	 * generation number
+	 */
+	if (inode)
+		goto check_gen;
 
-	if (IS_ERR(inode))
-		return (void *)inode;
+	/*
+	 * This will synchronize us against ocfs2_delete_inode() on
+	 * all nodes
+	 */
+	status = ocfs2_nfs_sync_lock(osb, 1);
+	if (status < 0) {
+		mlog(ML_ERROR, "getting nfs sync lock(EX) failed %d\n", status);
+		goto check_err;
+	}
 
+	status = ocfs2_test_inode_bit(osb, blkno, &set);
+	if (status < 0) {
+		if (status == -EINVAL) {
+			/*
+			 * The blkno NFS gave us doesn't even show up
+			 * as an inode, we return -ESTALE to be
+			 * nice
+			 */
+			mlog(0, "test inode bit failed %d\n", status);
+			status = -ESTALE;
+		} else {
+			mlog(ML_ERROR, "test inode bit failed %d\n", status);
+		}
+		goto unlock_nfs_sync;
+	}
+
+	/* If the inode allocator bit is clear, this inode must be stale */
+	if (!set) {
+		mlog(0, "inode %llu suballoc bit is clear\n",
+		     (unsigned long long)blkno);
+		status = -ESTALE;
+		goto unlock_nfs_sync;
+	}
+
+	inode = ocfs2_iget(osb, blkno, 0, 0);
+
+unlock_nfs_sync:
+	ocfs2_nfs_sync_unlock(osb, 1);
+
+check_err:
+	if (status < 0) {
+		if (status == -ESTALE) {
+			mlog(0, "stale inode ino: %llu generation: %u\n",
+			     (unsigned long long)blkno, handle->ih_generation);
+		}
+		result = ERR_PTR(status);
+		goto bail;
+	}
+
+	if (IS_ERR(inode)) {
+		mlog_errno(PTR_ERR(inode));
+		result = (void *)inode;
+		goto bail;
+	}
+
+check_gen:
 	if (handle->ih_generation != inode->i_generation) {
 		iput(inode);
-		return ERR_PTR(-ESTALE);
+		mlog(0, "stale inode ino: %llu generation: %u\n",
+		     (unsigned long long)blkno, handle->ih_generation);
+		result = ERR_PTR(-ESTALE);
+		goto bail;
 	}
 
-	result = d_alloc_anon(inode);
+	result = d_obtain_alias(inode);
+	if (!IS_ERR(result))
+		result->d_op = &ocfs2_dentry_ops;
+	else
+		mlog_errno(PTR_ERR(result));
 
-	if (!result) {
-		iput(inode);
-		mlog_errno(-ENOMEM);
-		return ERR_PTR(-ENOMEM);
-	}
-	result->d_op = &ocfs2_dentry_ops;
-
+bail:
 	mlog_exit_ptr(result);
 	return result;
 }
@@ -86,10 +152,7 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 	int status;
 	u64 blkno;
 	struct dentry *parent;
-	struct inode *inode;
 	struct inode *dir = child->d_inode;
-	struct buffer_head *dirent_bh = NULL;
-	struct ocfs2_dir_entry *dirent;
 
 	mlog_entry("(0x%p, '%.*s')\n", child,
 		   child->d_name.len, child->d_name.name);
@@ -97,7 +160,7 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 	mlog(0, "find parent of directory %llu\n",
 	     (unsigned long long)OCFS2_I(dir)->ip_blkno);
 
-	status = ocfs2_meta_lock(dir, NULL, 0);
+	status = ocfs2_inode_lock(dir, NULL, 0);
 	if (status < 0) {
 		if (status != -ENOENT)
 			mlog_errno(status);
@@ -105,34 +168,18 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 		goto bail;
 	}
 
-	status = ocfs2_find_files_on_disk("..", 2, &blkno, dir, &dirent_bh,
-					  &dirent);
+	status = ocfs2_lookup_ino_from_name(dir, "..", 2, &blkno);
 	if (status < 0) {
 		parent = ERR_PTR(-ENOENT);
 		goto bail_unlock;
 	}
 
-	inode = ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0);
-	if (IS_ERR(inode)) {
-		mlog(ML_ERROR, "Unable to create inode %llu\n",
-		     (unsigned long long)blkno);
-		parent = ERR_PTR(-EACCES);
-		goto bail_unlock;
-	}
-
-	parent = d_alloc_anon(inode);
-	if (!parent) {
-		iput(inode);
-		parent = ERR_PTR(-ENOMEM);
-	}
-
-	parent->d_op = &ocfs2_dentry_ops;
+	parent = d_obtain_alias(ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0, 0));
+	if (!IS_ERR(parent))
+		parent->d_op = &ocfs2_dentry_ops;
 
 bail_unlock:
-	ocfs2_meta_unlock(dir, 0);
-
-	if (dirent_bh)
-		brelse(dirent_bh);
+	ocfs2_inode_unlock(dir, 0);
 
 bail:
 	mlog_exit_ptr(parent);
@@ -192,7 +239,7 @@ static int ocfs2_encode_fh(struct dentry *dentry, u32 *fh_in, int *max_len,
 		mlog(0, "Encoding parent: blkno: %llu, generation: %u\n",
 		     (unsigned long long)blkno, generation);
 	}
-	
+
 	*max_len = len;
 
 bail:

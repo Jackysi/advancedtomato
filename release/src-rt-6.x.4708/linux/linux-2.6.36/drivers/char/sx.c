@@ -1,202 +1,4 @@
 
-/* sx.c -- driver for the Specialix SX series cards. 
- *
- *  This driver will also support the older SI, and XIO cards.
- *
- *
- *   (C) 1998 - 2004  R.E.Wolff@BitWizard.nl
- *
- *  Simon Allen (simonallen@cix.compulink.co.uk) wrote a previous
- *  version of this driver. Some fragments may have been copied. (none
- *  yet :-)
- *
- * Specialix pays for the development and support of this driver.
- * Please DO contact support@specialix.co.uk if you require
- * support. But please read the documentation (sx.txt) first.
- *
- *
- *
- *      This program is free software; you can redistribute it and/or
- *      modify it under the terms of the GNU General Public License as
- *      published by the Free Software Foundation; either version 2 of
- *      the License, or (at your option) any later version.
- *
- *      This program is distributed in the hope that it will be
- *      useful, but WITHOUT ANY WARRANTY; without even the implied
- *      warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- *      PURPOSE.  See the GNU General Public License for more details.
- *
- *      You should have received a copy of the GNU General Public
- *      License along with this program; if not, write to the Free
- *      Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
- *      USA.
- *
- * Revision history:
- * Revision 1.33  2000/03/09 10:00:00  pvdl,wolff
- * - Fixed module and port counting
- * - Fixed signal handling
- * - Fixed an Ooops
- * 
- * Revision 1.32  2000/03/07 09:00:00  wolff,pvdl
- * - Fixed some sx_dprintk typos
- * - added detection for an invalid board/module configuration
- *
- * Revision 1.31  2000/03/06 12:00:00  wolff,pvdl
- * - Added support for EISA
- *
- * Revision 1.30  2000/01/21 17:43:06  wolff
- * - Added support for SX+
- *
- * Revision 1.26  1999/08/05 15:22:14  wolff
- * - Port to 2.3.x
- * - Reformatted to Linus' liking.
- *
- * Revision 1.25  1999/07/30 14:24:08  wolff
- * Had accidentally left "gs_debug" set to "-1" instead of "off" (=0).
- *
- * Revision 1.24  1999/07/28 09:41:52  wolff
- * - I noticed the remark about use-count straying in sx.txt. I checked
- *   sx_open, and found a few places where that could happen. I hope it's
- *   fixed now.
- *
- * Revision 1.23  1999/07/28 08:56:06  wolff
- * - Fixed crash when sx_firmware run twice.
- * - Added sx_slowpoll as a module parameter (I guess nobody really wanted
- *   to change it from the default... )
- * - Fixed a stupid editing problem I introduced in 1.22.
- * - Fixed dropping characters on a termios change.
- *
- * Revision 1.22  1999/07/26 21:01:43  wolff
- * Russell Brown noticed that I had overlooked 4 out of six modem control
- * signals in sx_getsignals. Ooops.
- *
- * Revision 1.21  1999/07/23 09:11:33  wolff
- * I forgot to free dynamically allocated memory when the driver is unloaded.
- *
- * Revision 1.20  1999/07/20 06:25:26  wolff
- * The "closing wait" wasn't honoured. Thanks to James Griffiths for
- * reporting this.
- *
- * Revision 1.19  1999/07/11 08:59:59  wolff
- * Fixed an oops in close, when an open was pending. Changed the memtest
- * a bit. Should also test the board in word-mode, however my card fails the
- * memtest then. I still have to figure out what is wrong...
- *
- * Revision 1.18  1999/06/10 09:38:42  wolff
- * Changed the format of the firmware revision from %04x to %x.%02x .
- *
- * Revision 1.17  1999/06/04 09:44:35  wolff
- * fixed problem: reference to pci stuff when config_pci was off...
- * Thanks to Jorge Novo for noticing this.
- *
- * Revision 1.16  1999/06/02 08:30:15  wolff
- * added/removed the workaround for the DCD bug in the Firmware.
- * A bit more debugging code to locate that...
- *
- * Revision 1.15  1999/06/01 11:35:30  wolff
- * when DCD is left low (floating?), on TA's the firmware first tells us
- * that DCD is high, but after a short while suddenly comes to the
- * conclusion that it is low. All this would be fine, if it weren't that
- * Unix requires us to send a "hangup" signal in that case. This usually
- * all happens BEFORE the program has had a chance to ioctl the device
- * into clocal mode..
- *
- * Revision 1.14  1999/05/25 11:18:59  wolff
- * Added PCI-fix.
- * Added checks for return code of sx_sendcommand.
- * Don't issue "reconfig" if port isn't open yet. (bit us on TA modules...)
- *
- * Revision 1.13  1999/04/29 15:18:01  wolff
- * Fixed an "oops" that showed on SuSE 6.0 systems.
- * Activate DTR again after stty 0.
- *
- * Revision 1.12  1999/04/29 07:49:52  wolff
- * Improved "stty 0" handling a bit. (used to change baud to 9600 assuming
- *     the connection would be dropped anyway. That is not always the case,
- *     and confuses people).
- * Told the card to always monitor the modem signals.
- * Added support for dynamic  gs_debug adjustments.
- * Now tells the rest of the system the number of ports.
- *
- * Revision 1.11  1999/04/24 11:11:30  wolff
- * Fixed two stupid typos in the memory test.
- *
- * Revision 1.10  1999/04/24 10:53:39  wolff
- * Added some of Christian's suggestions.
- * Fixed an HW_COOK_IN bug (ISIG was not in I_OTHER. We used to trust the
- * card to send the signal to the process.....)
- *
- * Revision 1.9  1999/04/23 07:26:38  wolff
- * Included Christian Lademann's 2.0 compile-warning fixes and interrupt
- *    assignment redesign.
- * Cleanup of some other stuff.
- *
- * Revision 1.8  1999/04/16 13:05:30  wolff
- * fixed a DCD change unnoticed bug.
- *
- * Revision 1.7  1999/04/14 22:19:51  wolff
- * Fixed typo that showed up in 2.0.x builds (get_user instead of Get_user!)
- *
- * Revision 1.6  1999/04/13 18:40:20  wolff
- * changed misc-minor to 161, as assigned by HPA.
- *
- * Revision 1.5  1999/04/13 15:12:25  wolff
- * Fixed use-count leak when "hangup" occurred.
- * Added workaround for a stupid-PCIBIOS bug.
- *
- *
- * Revision 1.4  1999/04/01 22:47:40  wolff
- * Fixed < 1M linux-2.0 problem.
- * (vremap isn't compatible with ioremap in that case)
- *
- * Revision 1.3  1999/03/31 13:45:45  wolff
- * Firmware loading is now done through a separate IOCTL.
- *
- * Revision 1.2  1999/03/28 12:22:29  wolff
- * rcs cleanup
- *
- * Revision 1.1  1999/03/28 12:10:34  wolff
- * Readying for release on 2.0.x (sorry David, 1.01 becomes 1.1 for RCS). 
- *
- * Revision 0.12  1999/03/28 09:20:10  wolff
- * Fixed problem in 0.11, continueing cleanup.
- *
- * Revision 0.11  1999/03/28 08:46:44  wolff
- * cleanup. Not good.
- *
- * Revision 0.10  1999/03/28 08:09:43  wolff
- * Fixed loosing characters on close.
- *
- * Revision 0.9  1999/03/21 22:52:01  wolff
- * Ported back to 2.2.... (minor things)
- *
- * Revision 0.8  1999/03/21 22:40:33  wolff
- * Port to 2.0
- *
- * Revision 0.7  1999/03/21 19:06:34  wolff
- * Fixed hangup processing.
- *
- * Revision 0.6  1999/02/05 08:45:14  wolff
- * fixed real_raw problems. Inclusion into kernel imminent.
- *
- * Revision 0.5  1998/12/21 23:51:06  wolff
- * Snatched a nasty bug: sx_transmit_chars was getting re-entered, and it
- * shouldn't have. THATs why I want to have transmit interrupts even when
- * the buffer is empty.
- *
- * Revision 0.4  1998/12/17 09:34:46  wolff
- * PPP works. ioctl works. Basically works!
- *
- * Revision 0.3  1998/12/15 13:05:18  wolff
- * It works! Wow! Gotta start implementing IOCTL and stuff....
- *
- * Revision 0.2  1998/12/01 08:33:53  wolff
- * moved over to 2.1.130
- *
- * Revision 0.1  1998/11/03 21:23:51  wolff
- * Initial revision. Detects SX card.
- *
- * */
 
 #define SX_VERSION	1.33
 
@@ -217,6 +19,7 @@
 #include <linux/eisa.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/miscdevice.h>
 #include <linux/bitops.h>
@@ -265,30 +68,21 @@
    interrupt. Use polling. */
 #undef IRQ_RATE_LIMIT
 
-#if 0
-/* Not implemented */
-/* 
- * The following defines are mostly for testing purposes. But if you need
- * some nice reporting in your syslog, you can define them also.
- */
-#define SX_REPORT_FIFO
-#define SX_REPORT_OVERRUN
-#endif
 
 /* Function prototypes */
 static void sx_disable_tx_interrupts(void *ptr);
 static void sx_enable_tx_interrupts(void *ptr);
 static void sx_disable_rx_interrupts(void *ptr);
 static void sx_enable_rx_interrupts(void *ptr);
-static int sx_get_CD(void *ptr);
+static int sx_carrier_raised(struct tty_port *port);
 static void sx_shutdown_port(void *ptr);
 static int sx_set_real_termios(void *ptr);
 static void sx_close(void *ptr);
 static int sx_chars_in_buffer(void *ptr);
 static int sx_init_board(struct sx_board *board);
 static int sx_init_portstructs(int nboards, int nports);
-static int sx_fw_ioctl(struct inode *inode, struct file *filp,
-		unsigned int cmd, unsigned long arg);
+static long sx_fw_ioctl(struct file *filp, unsigned int cmd,
+						unsigned long arg);
 static int sx_init_drivers(void);
 
 static struct tty_driver *sx_driver;
@@ -361,7 +155,6 @@ static struct real_driver sx_real_driver = {
 	sx_enable_tx_interrupts,
 	sx_disable_rx_interrupts,
 	sx_enable_rx_interrupts,
-	sx_get_CD,
 	sx_shutdown_port,
 	sx_set_real_termios,
 	sx_chars_in_buffer,
@@ -384,11 +177,11 @@ static struct real_driver sx_real_driver = {
 #define sx_dprintk(f, str...)	/* nothing */
 #endif
 
-#define func_enter()	sx_dprintk(SX_DEBUG_FLOW, "sx: enter %s\n",__FUNCTION__)
-#define func_exit()	sx_dprintk(SX_DEBUG_FLOW, "sx: exit  %s\n",__FUNCTION__)
+#define func_enter()	sx_dprintk(SX_DEBUG_FLOW, "sx: enter %s\n",__func__)
+#define func_exit()	sx_dprintk(SX_DEBUG_FLOW, "sx: exit  %s\n",__func__)
 
 #define func_enter2()	sx_dprintk(SX_DEBUG_FLOW, "sx: enter %s (port %d)\n", \
-				__FUNCTION__, port->line)
+				__func__, port->line)
 
 /* 
  *  Firmware loader driver specific routines
@@ -397,7 +190,7 @@ static struct real_driver sx_real_driver = {
 
 static const struct file_operations sx_fw_fops = {
 	.owner = THIS_MODULE,
-	.ioctl = sx_fw_ioctl,
+	.unlocked_ioctl = sx_fw_ioctl,
 };
 
 static struct miscdevice sx_fw_device = {
@@ -792,7 +585,7 @@ static int sx_getsignals(struct sx_port *port)
 	sx_dprintk(SX_DEBUG_MODEMSIGNALS, "getsignals: %d/%d  (%d/%d) "
 			"%02x/%02x\n",
 			(o_stat & OP_DTR) != 0, (o_stat & OP_RTS) != 0,
-			port->c_dcd, sx_get_CD(port),
+			port->c_dcd, tty_port_carrier_raised(&port->gs.port),
 			sx_read_channel_byte(port, hi_ip),
 			sx_read_channel_byte(port, hi_state));
 
@@ -858,7 +651,6 @@ static void sx_set_baud(struct sx_port *port)
 		if (t > 0) {
 /* The baud rate is not set to 0, so we're enabeling DTR... -- REW */
 			sx_setsignals(port, 1, -1);
-			/* XXX This is not TA & MTA compatible */
 			sx_write_channel_byte(port, hi_csr, 0xff);
 
 			sx_write_channel_byte(port, hi_txbaud, t);
@@ -930,7 +722,7 @@ static int sx_set_real_termios(void *ptr)
 
 	func_enter2();
 
-	if (!port->gs.tty)
+	if (!port->gs.port.tty)
 		return 0;
 
 	/* What is this doing here? -- REW
@@ -941,19 +733,19 @@ static int sx_set_real_termios(void *ptr)
 
 	sx_set_baud(port);
 
-#define CFLAG port->gs.tty->termios->c_cflag
+#define CFLAG port->gs.port.tty->termios->c_cflag
 	sx_write_channel_byte(port, hi_mr1,
-			(C_PARENB(port->gs.tty) ? MR1_WITH : MR1_NONE) |
-			(C_PARODD(port->gs.tty) ? MR1_ODD : MR1_EVEN) |
-			(C_CRTSCTS(port->gs.tty) ? MR1_RTS_RXFLOW : 0) |
+			(C_PARENB(port->gs.port.tty) ? MR1_WITH : MR1_NONE) |
+			(C_PARODD(port->gs.port.tty) ? MR1_ODD : MR1_EVEN) |
+			(C_CRTSCTS(port->gs.port.tty) ? MR1_RTS_RXFLOW : 0) |
 			(((CFLAG & CSIZE) == CS8) ? MR1_8_BITS : 0) |
 			(((CFLAG & CSIZE) == CS7) ? MR1_7_BITS : 0) |
 			(((CFLAG & CSIZE) == CS6) ? MR1_6_BITS : 0) |
 			(((CFLAG & CSIZE) == CS5) ? MR1_5_BITS : 0));
 
 	sx_write_channel_byte(port, hi_mr2,
-			(C_CRTSCTS(port->gs.tty) ? MR2_CTS_TXFLOW : 0) |
-			(C_CSTOPB(port->gs.tty) ? MR2_2_STOP :
+			(C_CRTSCTS(port->gs.port.tty) ? MR2_CTS_TXFLOW : 0) |
+			(C_CSTOPB(port->gs.port.tty) ? MR2_2_STOP :
 			MR2_1_STOP));
 
 	switch (CFLAG & CSIZE) {
@@ -970,47 +762,50 @@ static int sx_set_real_termios(void *ptr)
 		sx_write_channel_byte(port, hi_mask, 0x1f);
 		break;
 	default:
-		printk(KERN_INFO "sx: Invalid wordsize: %u\n", CFLAG & CSIZE);
+		printk(KERN_INFO "sx: Invalid wordsize: %u\n",
+			(unsigned int)CFLAG & CSIZE);
 		break;
 	}
 
 	sx_write_channel_byte(port, hi_prtcl,
-			(I_IXON(port->gs.tty) ? SP_TXEN : 0) |
-			(I_IXOFF(port->gs.tty) ? SP_RXEN : 0) |
-			(I_IXANY(port->gs.tty) ? SP_TANY : 0) | SP_DCEN);
+			(I_IXON(port->gs.port.tty) ? SP_TXEN : 0) |
+			(I_IXOFF(port->gs.port.tty) ? SP_RXEN : 0) |
+			(I_IXANY(port->gs.port.tty) ? SP_TANY : 0) | SP_DCEN);
 
 	sx_write_channel_byte(port, hi_break,
-			(I_IGNBRK(port->gs.tty) ? BR_IGN : 0 |
-			I_BRKINT(port->gs.tty) ? BR_INT : 0));
+			(I_IGNBRK(port->gs.port.tty) ? BR_IGN : 0 |
+			I_BRKINT(port->gs.port.tty) ? BR_INT : 0));
 
-	sx_write_channel_byte(port, hi_txon, START_CHAR(port->gs.tty));
-	sx_write_channel_byte(port, hi_rxon, START_CHAR(port->gs.tty));
-	sx_write_channel_byte(port, hi_txoff, STOP_CHAR(port->gs.tty));
-	sx_write_channel_byte(port, hi_rxoff, STOP_CHAR(port->gs.tty));
+	sx_write_channel_byte(port, hi_txon, START_CHAR(port->gs.port.tty));
+	sx_write_channel_byte(port, hi_rxon, START_CHAR(port->gs.port.tty));
+	sx_write_channel_byte(port, hi_txoff, STOP_CHAR(port->gs.port.tty));
+	sx_write_channel_byte(port, hi_rxoff, STOP_CHAR(port->gs.port.tty));
 
 	sx_reconfigure_port(port);
 
 	/* Tell line discipline whether we will do input cooking */
-	if (I_OTHER(port->gs.tty)) {
-		clear_bit(TTY_HW_COOK_IN, &port->gs.tty->flags);
+	if (I_OTHER(port->gs.port.tty)) {
+		clear_bit(TTY_HW_COOK_IN, &port->gs.port.tty->flags);
 	} else {
-		set_bit(TTY_HW_COOK_IN, &port->gs.tty->flags);
+		set_bit(TTY_HW_COOK_IN, &port->gs.port.tty->flags);
 	}
 	sx_dprintk(SX_DEBUG_TERMIOS, "iflags: %x(%d) ",
-			port->gs.tty->termios->c_iflag, I_OTHER(port->gs.tty));
+			(unsigned int)port->gs.port.tty->termios->c_iflag,
+			I_OTHER(port->gs.port.tty));
 
 /* Tell line discipline whether we will do output cooking.
  * If OPOST is set and no other output flags are set then we can do output
  * processing.  Even if only *one* other flag in the O_OTHER group is set
  * we do cooking in software.
  */
-	if (O_OPOST(port->gs.tty) && !O_OTHER(port->gs.tty)) {
-		set_bit(TTY_HW_COOK_OUT, &port->gs.tty->flags);
+	if (O_OPOST(port->gs.port.tty) && !O_OTHER(port->gs.port.tty)) {
+		set_bit(TTY_HW_COOK_OUT, &port->gs.port.tty->flags);
 	} else {
-		clear_bit(TTY_HW_COOK_OUT, &port->gs.tty->flags);
+		clear_bit(TTY_HW_COOK_OUT, &port->gs.port.tty->flags);
 	}
 	sx_dprintk(SX_DEBUG_TERMIOS, "oflags: %x(%d)\n",
-			port->gs.tty->termios->c_oflag, O_OTHER(port->gs.tty));
+			(unsigned int)port->gs.port.tty->termios->c_oflag,
+			O_OTHER(port->gs.port.tty));
 	/* port->c_dcd = sx_get_CD (port); */
 	func_exit();
 	return 0;
@@ -1099,8 +894,8 @@ static void sx_transmit_chars(struct sx_port *port)
 		sx_disable_tx_interrupts(port);
 	}
 
-	if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.tty) {
-		tty_wakeup(port->gs.tty);
+	if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.port.tty) {
+		tty_wakeup(port->gs.port.tty);
 		sx_dprintk(SX_DEBUG_TRANSMIT, "Waking up.... ldisc (%d)....\n",
 				port->gs.wakeup_chars);
 	}
@@ -1123,7 +918,7 @@ static inline void sx_receive_chars(struct sx_port *port)
 	unsigned char *rp;
 
 	func_enter2();
-	tty = port->gs.tty;
+	tty = port->gs.port.tty;
 	while (1) {
 		rx_op = sx_read_channel_byte(port, hi_rxopos);
 		c = (sx_read_channel_byte(port, hi_rxipos) - rx_op) & 0xff;
@@ -1188,7 +983,7 @@ static inline void sx_check_modem_signals(struct sx_port *port)
 
 	hi_state = sx_read_channel_byte(port, hi_state);
 	sx_dprintk(SX_DEBUG_MODEMSIGNALS, "Checking modem signals (%d/%d)\n",
-			port->c_dcd, sx_get_CD(port));
+			port->c_dcd, tty_port_carrier_raised(&port->gs.port));
 
 	if (hi_state & ST_BREAK) {
 		hi_state &= ~ST_BREAK;
@@ -1200,20 +995,20 @@ static inline void sx_check_modem_signals(struct sx_port *port)
 		hi_state &= ~ST_DCD;
 		sx_dprintk(SX_DEBUG_MODEMSIGNALS, "got a DCD change.\n");
 		sx_write_channel_byte(port, hi_state, hi_state);
-		c_dcd = sx_get_CD(port);
+		c_dcd = tty_port_carrier_raised(&port->gs.port);
 		sx_dprintk(SX_DEBUG_MODEMSIGNALS, "DCD is now %d\n", c_dcd);
 		if (c_dcd != port->c_dcd) {
 			port->c_dcd = c_dcd;
-			if (sx_get_CD(port)) {
+			if (tty_port_carrier_raised(&port->gs.port)) {
 				/* DCD went UP */
 				if ((sx_read_channel_byte(port, hi_hstat) !=
 						HS_IDLE_CLOSED) &&
-						!(port->gs.tty->termios->
+						!(port->gs.port.tty->termios->
 							c_cflag & CLOCAL)) {
 					/* Are we blocking in open? */
 					sx_dprintk(SX_DEBUG_MODEMSIGNALS, "DCD "
 						"active, unblocking open\n");
-					wake_up_interruptible(&port->gs.
+					wake_up_interruptible(&port->gs.port.
 							open_wait);
 				} else {
 					sx_dprintk(SX_DEBUG_MODEMSIGNALS, "DCD "
@@ -1221,10 +1016,10 @@ static inline void sx_check_modem_signals(struct sx_port *port)
 				}
 			} else {
 				/* DCD went down! */
-				if (!(port->gs.tty->termios->c_cflag & CLOCAL)){
+				if (!(port->gs.port.tty->termios->c_cflag & CLOCAL)){
 					sx_dprintk(SX_DEBUG_MODEMSIGNALS, "DCD "
 						"dropped. hanging up....\n");
-					tty_hangup(port->gs.tty);
+					tty_hangup(port->gs.port.tty);
 				} else {
 					sx_dprintk(SX_DEBUG_MODEMSIGNALS, "DCD "
 						"dropped. ignoring.\n");
@@ -1322,7 +1117,7 @@ static irqreturn_t sx_interrupt(int irq, void *ptr)
 
 	for (i = 0; i < board->nports; i++) {
 		port = &board->ports[i];
-		if (port->gs.flags & GS_ACTIVE) {
+		if (port->gs.port.flags & GS_ACTIVE) {
 			if (sx_read_channel_byte(port, hi_state)) {
 				sx_dprintk(SX_DEBUG_INTERRUPTS, "Port %d: "
 						"modem signal change?... \n",i);
@@ -1331,7 +1126,7 @@ static irqreturn_t sx_interrupt(int irq, void *ptr)
 			if (port->gs.xmit_cnt) {
 				sx_transmit_chars(port);
 			}
-			if (!(port->gs.flags & SX_RX_THROTTLE)) {
+			if (!(port->gs.port.flags & SX_RX_THROTTLE)) {
 				sx_receive_chars(port);
 			}
 		}
@@ -1370,7 +1165,7 @@ static void sx_disable_tx_interrupts(void *ptr)
 	struct sx_port *port = ptr;
 	func_enter2();
 
-	port->gs.flags &= ~GS_TX_INTEN;
+	port->gs.port.flags &= ~GS_TX_INTEN;
 
 	func_exit();
 }
@@ -1389,9 +1184,8 @@ static void sx_enable_tx_interrupts(void *ptr)
 	data_in_buffer = (sx_read_channel_byte(port, hi_txipos) -
 			  sx_read_channel_byte(port, hi_txopos)) & 0xff;
 
-	/* XXX Must be "HIGH_WATER" for SI card according to doc. */
 	if (data_in_buffer < LOW_WATER)
-		port->gs.flags &= ~GS_TX_INTEN;
+		port->gs.port.flags &= ~GS_TX_INTEN;
 
 	func_exit();
 }
@@ -1413,13 +1207,10 @@ static void sx_enable_rx_interrupts(void *ptr)
 }
 
 /* Jeez. Isn't this simple? */
-static int sx_get_CD(void *ptr)
+static int sx_carrier_raised(struct tty_port *port)
 {
-	struct sx_port *port = ptr;
-	func_enter2();
-
-	func_exit();
-	return ((sx_read_channel_byte(port, hi_ip) & IP_DCD) != 0);
+	struct sx_port *sp = container_of(port, struct sx_port, gs.port);
+	return ((sx_read_channel_byte(sp, hi_ip) & IP_DCD) != 0);
 }
 
 /* Jeez. Isn't this simple? */
@@ -1439,8 +1230,8 @@ static void sx_shutdown_port(void *ptr)
 
 	func_enter();
 
-	port->gs.flags &= ~GS_ACTIVE;
-	if (port->gs.tty && (port->gs.tty->termios->c_cflag & HUPCL)) {
+	port->gs.port.flags &= ~GS_ACTIVE;
+	if (port->gs.port.tty && (port->gs.port.tty->termios->c_cflag & HUPCL)) {
 		sx_setsignals(port, 0, 0);
 		sx_reconfigure_port(port);
 	}
@@ -1467,7 +1258,7 @@ static int sx_open(struct tty_struct *tty, struct file *filp)
 
 	line = tty->index;
 	sx_dprintk(SX_DEBUG_OPEN, "%d: opening line %d. tty=%p ctty=%p, "
-			"np=%d)\n", current->pid, line, tty,
+			"np=%d)\n", task_pid_nr(current), line, tty,
 			current->signal->tty, sx_nports);
 
 	if ((line < 0) || (line >= SX_NPORTS) || (line >= sx_nports))
@@ -1482,8 +1273,8 @@ static int sx_open(struct tty_struct *tty, struct file *filp)
 	spin_lock_irqsave(&port->gs.driver_lock, flags);
 
 	tty->driver_data = port;
-	port->gs.tty = tty;
-	port->gs.count++;
+	port->gs.port.tty = tty;
+	port->gs.port.count++;
 	spin_unlock_irqrestore(&port->gs.driver_lock, flags);
 
 	sx_dprintk(SX_DEBUG_OPEN, "starting port\n");
@@ -1494,28 +1285,23 @@ static int sx_open(struct tty_struct *tty, struct file *filp)
 	retval = gs_init_port(&port->gs);
 	sx_dprintk(SX_DEBUG_OPEN, "done gs_init\n");
 	if (retval) {
-		port->gs.count--;
+		port->gs.port.count--;
 		return retval;
 	}
 
-	port->gs.flags |= GS_ACTIVE;
-	if (port->gs.count <= 1)
+	port->gs.port.flags |= GS_ACTIVE;
+	if (port->gs.port.count <= 1)
 		sx_setsignals(port, 1, 1);
 
-#if 0
-	if (sx_debug & SX_DEBUG_OPEN)
-		my_hd(port, sizeof(*port));
-#else
 	if (sx_debug & SX_DEBUG_OPEN)
 		my_hd_io(port->board->base + port->ch_base, sizeof(*port));
-#endif
 
-	if (port->gs.count <= 1) {
+	if (port->gs.port.count <= 1) {
 		if (sx_send_command(port, HS_LOPEN, -1, HS_IDLE_OPEN) != 1) {
 			printk(KERN_ERR "sx: Card didn't respond to LOPEN "
 					"command.\n");
 			spin_lock_irqsave(&port->gs.driver_lock, flags);
-			port->gs.count--;
+			port->gs.port.count--;
 			spin_unlock_irqrestore(&port->gs.driver_lock, flags);
 			return -EIO;
 		}
@@ -1523,18 +1309,18 @@ static int sx_open(struct tty_struct *tty, struct file *filp)
 
 	retval = gs_block_til_ready(port, filp);
 	sx_dprintk(SX_DEBUG_OPEN, "Block til ready returned %d. Count=%d\n",
-			retval, port->gs.count);
+			retval, port->gs.port.count);
 
 	if (retval) {
 /*
- * Don't lower gs.count here because sx_close() will be called later
+ * Don't lower gs.port.count here because sx_close() will be called later
  */
 
 		return retval;
 	}
 	/* tty->low_latency = 1; */
 
-	port->c_dcd = sx_get_CD(port);
+	port->c_dcd = sx_carrier_raised(&port->gs.port);
 	sx_dprintk(SX_DEBUG_OPEN, "at open: cd=%d\n", port->c_dcd);
 
 	func_exit();
@@ -1568,14 +1354,14 @@ static void sx_close(void *ptr)
 	}
 
 	sx_dprintk(SX_DEBUG_CLOSE, "waited %d jiffies for close. count=%d\n",
-			5 * HZ - to - 1, port->gs.count);
+			5 * HZ - to - 1, port->gs.port.count);
 
-	if (port->gs.count) {
+	if (port->gs.port.count) {
 		sx_dprintk(SX_DEBUG_CLOSE, "WARNING port count:%d\n",
-				port->gs.count);
+				port->gs.port.count);
 		/*printk("%s SETTING port count to zero: %p count: %d\n",
-				__FUNCTION__, port, port->gs.count);
-		port->gs.count = 0;*/
+				__func__, port, port->gs.port.count);
+		port->gs.port.count = 0;*/
 	}
 
 	func_exit();
@@ -1645,49 +1431,11 @@ static int do_memtest(struct sx_board *board, int min, int max)
 #define R0		if (read_sx_word(board, i) != 0x55aa) return 1
 #define R1		if (read_sx_word(board, i) != 0xaa55) return 1
 
-#if 0
-/* This memtest takes a human-noticable time. You normally only do it
-   once a boot, so I guess that it is worth it. */
-static int do_memtest_w(struct sx_board *board, int min, int max)
+
+static long sx_fw_ioctl(struct file *filp, unsigned int cmd,
+							unsigned long arg)
 {
-	int i;
-
-	MARCHUP {
-		W0;
-	}
-	MARCHUP {
-		R0;
-		W1;
-		R1;
-		W0;
-		R0;
-		W1;
-	}
-	MARCHUP {
-		R1;
-		W0;
-		W1;
-	}
-	MARCHDOWN {
-		R1;
-		W0;
-		W1;
-		W0;
-	}
-	MARCHDOWN {
-		R0;
-		W1;
-		W0;
-	}
-
-	return 0;
-}
-#endif
-
-static int sx_fw_ioctl(struct inode *inode, struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-	int rc = 0;
+	long rc = 0;
 	int __user *descr = (int __user *)arg;
 	int i;
 	static struct sx_board *board = NULL;
@@ -1697,13 +1445,10 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 
 	func_enter();
 
-#if 0
-	/* Removed superuser check: Sysops can use the permissions on the device
-	   file to restrict access. Recommendation: Root only. (root.root 600) */
-	if (!capable(CAP_SYS_ADMIN)) {
+	if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;
-	}
-#endif
+
+	tty_lock();
 
 	sx_dprintk(SX_DEBUG_FIRMWARE, "IOCTL %x: %lx\n", cmd, arg);
 
@@ -1718,19 +1463,22 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 		for (i = 0; i < SX_NBOARDS; i++)
 			sx_dprintk(SX_DEBUG_FIRMWARE, "<%x> ", boards[i].flags);
 		sx_dprintk(SX_DEBUG_FIRMWARE, "\n");
-		return -EIO;
+		rc = -EIO;
+		goto out;
 	}
 
 	switch (cmd) {
 	case SXIO_SET_BOARD:
 		sx_dprintk(SX_DEBUG_FIRMWARE, "set board to %ld\n", arg);
+		rc = -EIO;
 		if (arg >= SX_NBOARDS)
-			return -EIO;
+			break;
 		sx_dprintk(SX_DEBUG_FIRMWARE, "not out of range\n");
 		if (!(boards[arg].flags & SX_BOARD_PRESENT))
-			return -EIO;
+			break;
 		sx_dprintk(SX_DEBUG_FIRMWARE, ".. and present!\n");
 		board = &boards[arg];
+		rc = 0;
 		break;
 	case SXIO_GET_TYPE:
 		rc = -ENOENT;	/* If we manage to miss one, return error. */
@@ -1744,11 +1492,13 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 			rc = SX_TYPE_SI;
 		if (IS_EISA_BOARD(board))
 			rc = SX_TYPE_SI;
-		sx_dprintk(SX_DEBUG_FIRMWARE, "returning type= %d\n", rc);
+		sx_dprintk(SX_DEBUG_FIRMWARE, "returning type= %ld\n", rc);
 		break;
 	case SXIO_DO_RAMTEST:
-		if (sx_initialized)	/* Already initialized: better not ramtest the board.  */
-			return -EPERM;
+		if (sx_initialized) {	/* Already initialized: better not ramtest the board.  */
+			rc = -EPERM;
+			break;
+		}
 		if (IS_SX_BOARD(board)) {
 			rc = do_memtest(board, 0, 0x7000);
 			if (!rc)
@@ -1758,19 +1508,25 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 			rc = do_memtest(board, 0, 0x7ff8);
 			/* if (!rc) rc = do_memtest_w (board, 0, 0x7ff8); */
 		}
-		sx_dprintk(SX_DEBUG_FIRMWARE, "returning memtest result= %d\n",
-			   rc);
+		sx_dprintk(SX_DEBUG_FIRMWARE,
+				"returning memtest result= %ld\n", rc);
 		break;
 	case SXIO_DOWNLOAD:
-		if (sx_initialized)	/* Already initialized */
-			return -EEXIST;
-		if (!sx_reset(board))
-			return -EIO;
+		if (sx_initialized) {/* Already initialized */
+			rc = -EEXIST;
+			break;
+		}
+		if (!sx_reset(board)) {
+			rc = -EIO;
+			break;
+		}
 		sx_dprintk(SX_DEBUG_INIT, "reset the board...\n");
 
 		tmp = kmalloc(SX_CHUNK_SIZE, GFP_USER);
-		if (!tmp)
-			return -ENOMEM;
+		if (!tmp) {
+			rc = -ENOMEM;
+			break;
+		}
 		get_user(nbytes, descr++);
 		get_user(offset, descr++);
 		get_user(data, descr++);
@@ -1780,7 +1536,8 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 						(i + SX_CHUNK_SIZE > nbytes) ?
 						nbytes - i : SX_CHUNK_SIZE)) {
 					kfree(tmp);
-					return -EFAULT;
+					rc = -EFAULT;
+					goto out;
 				}
 				memcpy_toio(board->base2 + offset + i, tmp,
 						(i + SX_CHUNK_SIZE > nbytes) ?
@@ -1796,13 +1553,17 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 		rc = sx_nports;
 		break;
 	case SXIO_INIT:
-		if (sx_initialized)	/* Already initialized */
-			return -EEXIST;
+		if (sx_initialized) {	/* Already initialized */
+			rc = -EEXIST;
+			break;
+		}
 		/* This is not allowed until all boards are initialized... */
 		for (i = 0; i < SX_NBOARDS; i++) {
 			if ((boards[i].flags & SX_BOARD_PRESENT) &&
-				!(boards[i].flags & SX_BOARD_INITIALIZED))
-				return -EIO;
+				!(boards[i].flags & SX_BOARD_INITIALIZED)) {
+				rc = -EIO;
+				break;
+			}
 		}
 		for (i = 0; i < SX_NBOARDS; i++)
 			if (!(boards[i].flags & SX_BOARD_PRESENT))
@@ -1830,20 +1591,22 @@ static int sx_fw_ioctl(struct inode *inode, struct file *filp,
 		rc = sx_nports;
 		break;
 	default:
-		printk(KERN_WARNING "Unknown ioctl on firmware device (%x).\n",
-				cmd);
+		rc = -ENOTTY;
 		break;
 	}
+out:
+	tty_unlock();
 	func_exit();
 	return rc;
 }
 
-static void sx_break(struct tty_struct *tty, int flag)
+static int sx_break(struct tty_struct *tty, int flag)
 {
 	struct sx_port *port = tty->driver_data;
 	int rv;
 
 	func_enter();
+	tty_lock();
 
 	if (flag)
 		rv = sx_send_command(port, HS_START, -1, HS_IDLE_BREAK);
@@ -1852,8 +1615,9 @@ static void sx_break(struct tty_struct *tty, int flag)
 	if (rv != 1)
 		printk(KERN_ERR "sx: couldn't send break (%x).\n",
 			read_sx_byte(port->board, CHAN_OFFSET(port, hi_hstat)));
-
+	tty_unlock();
 	func_exit();
+	return 0;
 }
 
 static int sx_tiocmget(struct tty_struct *tty, struct file *file)
@@ -1888,23 +1652,12 @@ static int sx_ioctl(struct tty_struct *tty, struct file *filp,
 	int rc;
 	struct sx_port *port = tty->driver_data;
 	void __user *argp = (void __user *)arg;
-	int ival;
 
 	/* func_enter2(); */
 
 	rc = 0;
+	tty_lock();
 	switch (cmd) {
-	case TIOCGSOFTCAR:
-		rc = put_user(((tty->termios->c_cflag & CLOCAL) ? 1 : 0),
-				(unsigned __user *)argp);
-		break;
-	case TIOCSSOFTCAR:
-		if ((rc = get_user(ival, (unsigned __user *)argp)) == 0) {
-			tty->termios->c_cflag =
-				(tty->termios->c_cflag & ~CLOCAL) |
-				(ival ? CLOCAL : 0);
-		}
-		break;
 	case TIOCGSERIAL:
 		rc = gs_getserial(&port->gs, argp);
 		break;
@@ -1915,6 +1668,7 @@ static int sx_ioctl(struct tty_struct *tty, struct file *filp,
 		rc = -ENOIOCTLCMD;
 		break;
 	}
+	tty_unlock();
 
 	/* func_exit(); */
 	return rc;
@@ -1938,28 +1692,28 @@ static int sx_ioctl(struct tty_struct *tty, struct file *filp,
 
 static void sx_throttle(struct tty_struct *tty)
 {
-	struct sx_port *port = (struct sx_port *)tty->driver_data;
+	struct sx_port *port = tty->driver_data;
 
 	func_enter2();
 	/* If the port is using any type of input flow
 	 * control then throttle the port.
 	 */
 	if ((tty->termios->c_cflag & CRTSCTS) || (I_IXOFF(tty))) {
-		port->gs.flags |= SX_RX_THROTTLE;
+		port->gs.port.flags |= SX_RX_THROTTLE;
 	}
 	func_exit();
 }
 
 static void sx_unthrottle(struct tty_struct *tty)
 {
-	struct sx_port *port = (struct sx_port *)tty->driver_data;
+	struct sx_port *port = tty->driver_data;
 
 	func_enter2();
 	/* Always unthrottle even if flow control is not enabled on
 	 * this port in case we disabled flow control while the port
 	 * was throttled
 	 */
-	port->gs.flags &= ~SX_RX_THROTTLE;
+	port->gs.port.flags &= ~SX_RX_THROTTLE;
 	func_exit();
 	return;
 }
@@ -2031,7 +1785,6 @@ static int sx_init_board(struct sx_board *board)
 	board->ta_type = mod_compat_type(sx_read_module_byte(board, 0x80,
 				mc_chip));
 
-	/* XXX byteorder */
 	for (addr = 0x80; addr != 0; addr = read_sx_word(board, addr) & 0x7fff){
 		type = sx_read_module_byte(board, addr, mc_chip);
 		sx_dprintk(SX_DEBUG_INIT, "Module at %x: %d channels\n",
@@ -2072,17 +1825,6 @@ static int sx_init_board(struct sx_board *board)
 			chans = 0;
 			break;
 		}
-#if 0				/* Problem fixed: firmware 3.05 */
-		if (IS_SX_BOARD(board) && (type == TA8)) {
-			/* There are some issues with the firmware and the DCD/RTS
-			   lines. It might work if you tie them together or something.
-			   It might also work if you get a newer sx_firmware.   Therefore
-			   this is just a warning. */
-			printk(KERN_WARNING
-			       "sx: The SX host doesn't work too well "
-			       "with the TA8 adapters.\nSpecialix is working on it.\n");
-		}
-#endif
 	}
 
 	if (chans) {
@@ -2347,6 +2089,10 @@ static const struct tty_operations sx_ops = {
 	.tiocmset = sx_tiocmset,
 };
 
+static const struct tty_port_operations sx_port_ops = {
+	.carrier_raised = sx_carrier_raised,
+};
+
 static int sx_init_drivers(void)
 {
 	int error;
@@ -2402,6 +2148,8 @@ static int sx_init_portstructs(int nboards, int nports)
 		board->ports = port;
 		for (j = 0; j < boards[i].nports; j++) {
 			sx_dprintk(SX_DEBUG_INIT, "initing port %d\n", j);
+			tty_port_init(&port->gs.port);
+			port->gs.port.ops = &sx_port_ops;
 			port->gs.magic = SX_MAGIC;
 			port->gs.close_delay = HZ / 2;
 			port->gs.closing_wait = 30 * HZ;
@@ -2414,9 +2162,6 @@ static int sx_init_portstructs(int nboards, int nports)
 			/*
 			 * Initializing wait queue
 			 */
-			init_waitqueue_head(&port->gs.open_wait);
-			init_waitqueue_head(&port->gs.close_wait);
-
 			port++;
 		}
 	}
@@ -2431,7 +2176,6 @@ static int sx_init_portstructs(int nboards, int nports)
 				board->nports);
 		if (board->nports <= 0)
 			continue;
-		/* XXX byteorder ?? */
 		for (addr = 0x80; addr != 0;
 				addr = read_sx_word(board, addr) & 0x7fff) {
 			chans = sx_read_module_byte(board, addr, mc_type);
@@ -2499,7 +2243,7 @@ static void __devexit sx_remove_card(struct sx_board *board,
 		del_timer(&board->timer);
 		if (pdev) {
 #ifdef CONFIG_PCI
-			pci_iounmap(pdev, board->base);
+			iounmap(board->base2);
 			pci_release_region(pdev, IS_CF_BOARD(board) ? 3 : 2);
 #endif
 		} else {
@@ -2549,7 +2293,7 @@ static int __devinit sx_eisa_probe(struct device *dev)
 		goto err_flag;
 	}
 	board->base2 =
-	board->base = ioremap(board->hw_base, SI2_EISA_WINDOW_LEN);
+	board->base = ioremap_nocache(board->hw_base, SI2_EISA_WINDOW_LEN);
 	if (!board->base) {
 		dev_err(dev, "can't remap memory\n");
 		goto err_reg;
@@ -2626,7 +2370,7 @@ static void __devinit fix_sx_pci(struct pci_dev *pdev, struct sx_board *board)
 
 	pci_read_config_dword(pdev, PCI_BASE_ADDRESS_0, &hwbase);
 	hwbase &= PCI_BASE_ADDRESS_MEM_MASK;
-	rebase = ioremap(hwbase, 0x80);
+	rebase = ioremap_nocache(hwbase, 0x80);
 	t = readl(rebase + CNTRL_REG_OFFSET);
 	if (t != CNTRL_REG_GOODVALUE) {
 		printk(KERN_DEBUG "sx: performing cntrl reg fix: %08x -> "
@@ -2672,7 +2416,7 @@ static int __devinit sx_pci_probe(struct pci_dev *pdev,
 	}
 	board->hw_base = pci_resource_start(pdev, reg);
 	board->base2 =
-	board->base = pci_iomap(pdev, reg, WINDOW_LEN(board));
+	board->base = ioremap_nocache(board->hw_base, WINDOW_LEN(board));
 	if (!board->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		goto err_reg;
@@ -2698,7 +2442,7 @@ static int __devinit sx_pci_probe(struct pci_dev *pdev,
 
 	return 0;
 err_unmap:
-	pci_iounmap(pdev, board->base);
+	iounmap(board->base2);
 err_reg:
 	pci_release_region(pdev, reg);
 err_flag:
@@ -2770,7 +2514,7 @@ static int __init sx_init(void)
 		if (!request_region(board->hw_base, board->hw_len, "sx"))
 			continue;
 		board->base2 =
-		board->base = ioremap(board->hw_base, board->hw_len);
+		board->base = ioremap_nocache(board->hw_base, board->hw_len);
 		if (!board->base)
 			goto err_sx_reg;
 		board->flags &= ~SX_BOARD_TYPE;
@@ -2794,7 +2538,7 @@ err_sx_reg:
 		if (!request_region(board->hw_base, board->hw_len, "sx"))
 			continue;
 		board->base2 =
-		board->base = ioremap(board->hw_base, board->hw_len);
+		board->base = ioremap_nocache(board->hw_base, board->hw_len);
 		if (!board->base)
 			goto err_si_reg;
 		board->flags &= ~SX_BOARD_TYPE;
@@ -2817,7 +2561,7 @@ err_si_reg:
 		if (!request_region(board->hw_base, board->hw_len, "sx"))
 			continue;
 		board->base2 =
-		board->base = ioremap(board->hw_base, board->hw_len);
+		board->base = ioremap_nocache(board->hw_base, board->hw_len);
 		if (!board->base)
 			goto err_si1_reg;
 		board->flags &= ~SX_BOARD_TYPE;

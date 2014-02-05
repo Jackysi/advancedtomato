@@ -56,6 +56,8 @@
 #include <linux/errno.h>	/* for -EBUSY */
 #include <linux/ioport.h>	/* for request_region */
 #include <linux/delay.h>	/* for loops_per_jiffy */
+#include <linux/sched.h>
+#include <linux/smp_lock.h>	/* cycle_kernel_lock() */
 #include <asm/io.h>		/* for inb_p, outb_p, inb, outb, etc. */
 #include <asm/uaccess.h>	/* for get_user, etc. */
 #include <linux/wait.h>		/* for wait_queue */
@@ -91,8 +93,8 @@ static ssize_t dtlk_write(struct file *, const char __user *,
 static unsigned int dtlk_poll(struct file *, poll_table *);
 static int dtlk_open(struct inode *, struct file *);
 static int dtlk_release(struct inode *, struct file *);
-static int dtlk_ioctl(struct inode *inode, struct file *file,
-		      unsigned int cmd, unsigned long arg);
+static long dtlk_ioctl(struct file *file,
+		       unsigned int cmd, unsigned long arg);
 
 static const struct file_operations dtlk_fops =
 {
@@ -100,7 +102,7 @@ static const struct file_operations dtlk_fops =
 	.read		= dtlk_read,
 	.write		= dtlk_write,
 	.poll		= dtlk_poll,
-	.ioctl		= dtlk_ioctl,
+	.unlocked_ioctl	= dtlk_ioctl,
 	.open		= dtlk_open,
 	.release	= dtlk_release,
 };
@@ -261,10 +263,9 @@ static void dtlk_timer_tick(unsigned long data)
 	wake_up_interruptible(&dtlk_process_list);
 }
 
-static int dtlk_ioctl(struct inode *inode,
-		      struct file *file,
-		      unsigned int cmd,
-		      unsigned long arg)
+static long dtlk_ioctl(struct file *file,
+		       unsigned int cmd,
+		       unsigned long arg)
 {
 	char __user *argp = (char __user *)arg;
 	struct dtlk_settings *sp;
@@ -274,7 +275,9 @@ static int dtlk_ioctl(struct inode *inode,
 	switch (cmd) {
 
 	case DTLK_INTERROGATE:
+		lock_kernel();
 		sp = dtlk_interrogate();
+		unlock_kernel();
 		if (copy_to_user(argp, sp, sizeof(struct dtlk_settings)))
 			return -EINVAL;
 		return 0;
@@ -288,10 +291,12 @@ static int dtlk_ioctl(struct inode *inode,
 	}
 }
 
+/* Note that nobody ever sets dtlk_busy... */
 static int dtlk_open(struct inode *inode, struct file *file)
 {
 	TRACE_TEXT("(dtlk_open");
 
+	cycle_kernel_lock();
 	nonseekable_open(inode, file);
 	switch (iminor(inode)) {
 	case DTLK_MINOR:
@@ -391,10 +396,6 @@ static int __init dtlk_dev_probe(void)
 		return -EBUSY;
 
 	for (i = 0; dtlk_portlist[i]; i++) {
-#if 0
-		printk("DoubleTalk PC - Port %03x = %04x\n",
-		       dtlk_portlist[i], (testval = inw_p(dtlk_portlist[i])));
-#endif
 
 		if (!request_region(dtlk_portlist[i], DTLK_IO_EXTENT, 
 			       "dtlk"))
@@ -568,7 +569,7 @@ static char dtlk_read_tts(void)
 		portval = inb_p(dtlk_port_tts);
 	} while ((portval & TTS_READABLE) == 0 &&
 		 retries++ < DTLK_MAX_RETRIES);
-	if (retries == DTLK_MAX_RETRIES)
+	if (retries > DTLK_MAX_RETRIES)
 		printk(KERN_ERR "dtlk_read_tts() timeout\n");
 
 	ch = inb_p(dtlk_port_tts);	/* input from TTS port */
@@ -580,7 +581,7 @@ static char dtlk_read_tts(void)
 		portval = inb_p(dtlk_port_tts);
 	} while ((portval & TTS_READABLE) != 0 &&
 		 retries++ < DTLK_MAX_RETRIES);
-	if (retries == DTLK_MAX_RETRIES)
+	if (retries > DTLK_MAX_RETRIES)
 		printk(KERN_ERR "dtlk_read_tts() timeout\n");
 
 	TRACE_RET;
@@ -637,7 +638,7 @@ static char dtlk_write_tts(char ch)
 		while ((inb_p(dtlk_port_tts) & TTS_WRITABLE) == 0 &&
 		       retries++ < DTLK_MAX_RETRIES)	/* DT ready? */
 			;
-	if (retries == DTLK_MAX_RETRIES)
+	if (retries > DTLK_MAX_RETRIES)
 		printk(KERN_ERR "dtlk_write_tts() timeout\n");
 
 	outb_p(ch, dtlk_port_tts);	/* output to TTS port */

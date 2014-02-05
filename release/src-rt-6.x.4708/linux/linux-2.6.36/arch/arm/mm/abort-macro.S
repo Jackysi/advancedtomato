@@ -39,4 +39,3 @@ not_thumb:
 	moveq	pc, lr
 not_ldrd:
 	.endm
-

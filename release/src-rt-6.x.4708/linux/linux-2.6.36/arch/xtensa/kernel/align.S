@@ -90,41 +90,6 @@
 
 #endif
 
-/*
- *	xxxx xxxx = imm8 field
- *	     yyyy = imm4 field
- *	     ssss = s field
- *	     tttt = t field
- *
- *	       		 16		    0
- *		          -------------------
- *	L32I.N		  yyyy ssss tttt 1000
- *	S32I.N	          yyyy ssss tttt 1001
- *
- *	       23			    0
- *		-----------------------------
- *	res	          0000           0010
- *	L16UI	xxxx xxxx 0001 ssss tttt 0010
- *	L32I	xxxx xxxx 0010 ssss tttt 0010
- *	XXX	          0011 ssss tttt 0010
- *	XXX	          0100 ssss tttt 0010
- *	S16I	xxxx xxxx 0101 ssss tttt 0010
- *	S32I	xxxx xxxx 0110 ssss tttt 0010
- *	XXX	          0111 ssss tttt 0010
- *	XXX	          1000 ssss tttt 0010
- *	L16SI	xxxx xxxx 1001 ssss tttt 0010
- *	XXX	          1010           0010
- *      **L32AI	xxxx xxxx 1011 ssss tttt 0010 unsupported
- *	XXX	          1100           0010
- *	XXX	          1101           0010
- *	XXX	          1110           0010
- *	**S32RI	xxxx xxxx 1111 ssss tttt 0010 unsupported
- *		-----------------------------
- *                           ^         ^    ^
- *    sub-opcode (NIBBLE_R) -+         |    |
- *       t field (NIBBLE_T) -----------+    |
- *  major opcode (NIBBLE_OP0) --------------+
- */
 
 #define OP0_L32I_N	0x8		/* load immediate narrow */
 #define OP0_S32I_N	0x9		/* store immediate narrow */
@@ -452,4 +417,3 @@ ENTRY(fast_unaligned)
 
 
 #endif /* XCHAL_UNALIGNED_LOAD_EXCEPTION || XCHAL_UNALIGNED_STORE_EXCEPTION */
-

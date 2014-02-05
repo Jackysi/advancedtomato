@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/wait.h>
 #include <linux/ptrace.h>
+#include <linux/tracehook.h>
 #include <linux/unistd.h>
 #include <linux/stddef.h>
 #include <linux/compat.h>
@@ -33,7 +34,6 @@
 #include <asm/asm-offsets.h>
 
 #ifdef CONFIG_COMPAT
-#include <linux/compat.h>
 #include "signal32.h"
 #endif
 
@@ -142,7 +142,6 @@ sys_rt_sigreturn(struct pt_regs *regs, int in_syscall)
 	if (is_compat_task()) {
 		DBG(1,"sys_rt_sigreturn: compat_frame->uc.uc_mcontext 0x%p\n",
 				&compat_frame->uc.uc_mcontext);
-// FIXME: Load upper half from register file
 		if (restore_sigcontext32(&compat_frame->uc.uc_mcontext, 
 					&compat_frame->regs, regs))
 			goto give_sigsegv;
@@ -181,8 +180,8 @@ give_sigsegv:
 	si.si_signo = SIGSEGV;
 	si.si_errno = 0;
 	si.si_code = SI_KERNEL;
-	si.si_pid = current->pid;
-	si.si_uid = current->uid;
+	si.si_pid = task_pid_vnr(current);
+	si.si_uid = current_uid();
 	si.si_addr = &frame->uc;
 	force_sig_info(SIGSEGV, &si, current);
 	return;
@@ -195,8 +194,6 @@ give_sigsegv:
 static inline void __user *
 get_sigframe(struct k_sigaction *ka, unsigned long sp, size_t frame_size)
 {
-	/*FIXME: ELF32 vs. ELF64 has different frame_size, but since we
-	  don't use the parameter it doesn't matter */
 
 	DBG(1,"get_sigframe: ka = %#lx, sp = %#lx, frame_size = %#lx\n",
 			(unsigned long)ka, sp, frame_size);
@@ -257,7 +254,6 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 #endif
 	
 	usp = (regs->gr[30] & ~(0x01UL));
-	/*FIXME: frame_size parameter is unused, remove it. */
 	frame = get_sigframe(ka, usp, sizeof(*frame));
 
 	DBG(1,"SETUP_RT_FRAME: START\n");
@@ -298,7 +294,6 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 		DBG(1,"setup_rt_frame: frame->uc = 0x%p\n", &frame->uc);
 		DBG(1,"setup_rt_frame: frame->uc.uc_mcontext = 0x%p\n", &frame->uc.uc_mcontext);
 		err |= setup_sigcontext(&frame->uc.uc_mcontext, regs, in_syscall);
-		/* FIXME: Should probably be converted aswell for the compat case */
 		err |= __copy_to_user(&frame->uc.uc_sigmask, set, sizeof(*set));
 	}
 	
@@ -333,7 +328,7 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	flush_user_icache_range((unsigned long) &frame->tramp[0],
 			   (unsigned long) &frame->tramp[TRAMP_SIZE]);
 
-	/* TRAMP Words 0-4, Lenght 5 = SIGRESTARTBLOCK_TRAMP
+	/* TRAMP Words 0-4, Length 5 = SIGRESTARTBLOCK_TRAMP
 	 * TRAMP Words 5-9, Length 4 = SIGRETURN_TRAMP
 	 * So the SIGRETURN_TRAMP is at the end of SIGRESTARTBLOCK_TRAMP
 	 */
@@ -467,6 +462,11 @@ handle_signal(unsigned long sig, siginfo_t *info, struct k_sigaction *ka,
 		sigaddset(&current->blocked,sig);
 	recalc_sigpending();
 	spin_unlock_irq(&current->sighand->siglock);
+
+	tracehook_signal_handler(sig, info, ka, regs, 
+		test_thread_flag(TIF_SINGLESTEP) ||
+		test_thread_flag(TIF_BLOCKSTEP));
+
 	return 1;
 }
 
@@ -534,7 +534,8 @@ insert_restart_trampoline(struct pt_regs *regs)
 		 * Flushing one cacheline is cheap.
 		 * "sync" on bigger (> 4 way) boxes is not.
 		 */
-		flush_icache_range(regs->gr[30], regs->gr[30] + 4);
+		flush_user_dcache_range(regs->gr[30], regs->gr[30] + 4);
+		flush_user_icache_range(regs->gr[30], regs->gr[30] + 4);
 
 		regs->gr[31] = regs->gr[30] + 8;
 		/* Preserve original r28. */
@@ -644,4 +645,11 @@ void do_notify_resume(struct pt_regs *regs, long in_syscall)
 	if (test_thread_flag(TIF_SIGPENDING) ||
 	    test_thread_flag(TIF_RESTORE_SIGMASK))
 		do_signal(regs, in_syscall);
+
+	if (test_thread_flag(TIF_NOTIFY_RESUME)) {
+		clear_thread_flag(TIF_NOTIFY_RESUME);
+		tracehook_notify_resume(regs);
+		if (current->replacement_session_keyring)
+			key_replace_session_keyring();
+	}
 }

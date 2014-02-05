@@ -11,7 +11,7 @@
  *  Copyright (C) 2002 Tensilica Inc.
  */
 
-#include <asm/variant/core.h>
+#include <variant/core.h>
 #include <linux/errno.h>
 
 /* Load or store instructions that may cause exceptions use the EX macro. */
@@ -222,4 +222,3 @@ fixup_s:
 fixup_l:
 	movi	a2, -EFAULT
 	retw
-

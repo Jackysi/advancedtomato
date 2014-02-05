@@ -46,15 +46,6 @@
 #define TIPC_LINK_REQ_FAST	2000	/* normal delay if bearer has no links */
 #define TIPC_LINK_REQ_SLOW	600000	/* normal delay if bearer has links */
 
-#if 0
-#define  GET_NODE_INFO         300
-#define  GET_NODE_INFO_RESULT  301
-#define  FORWARD_LINK_PROBE    302
-#define  LINK_REQUEST_REJECTED 303
-#define  LINK_REQUEST_ACCEPTED 304
-#define  DROP_LINK_REQUEST     305
-#define  CHECK_LINK_COUNT      306
-#endif
 
 /*
  * TODO: Most of the inter-cluster setup stuff should be
@@ -79,15 +70,6 @@ struct link_req {
 };
 
 
-#if 0
-int disc_create_link(const struct tipc_link_create *argv)
-{
-	/*
-	 * Code for inter cluster link setup here
-	 */
-	return TIPC_OK;
-}
-#endif
 
 /*
  * disc_lost_link(): A link has lost contact
@@ -120,9 +102,8 @@ static struct sk_buff *tipc_disc_init_msg(u32 type,
 
 	if (buf) {
 		msg = buf_msg(buf);
-		msg_init(msg, LINK_CONFIG, type, TIPC_OK, DSC_H_SIZE,
-			 dest_domain);
-		msg_set_non_seq(msg);
+		tipc_msg_init(msg, LINK_CONFIG, type, DSC_H_SIZE, dest_domain);
+		msg_set_non_seq(msg, 1);
 		msg_set_req_links(msg, req_links);
 		msg_set_dest_domain(msg, dest_domain);
 		msg_set_bc_netid(msg, tipc_net_id);
@@ -145,7 +126,7 @@ static void disc_dupl_alert(struct bearer *b_ptr, u32 node_addr,
 	char media_addr_str[64];
 	struct print_buf pb;
 
-	addr_string_fill(node_addr_str, node_addr);
+	tipc_addr_string_fill(node_addr_str, node_addr);
 	tipc_printbuf_init(&pb, media_addr_str, sizeof(media_addr_str));
 	tipc_media_addr_printf(&pb, media_addr);
 	tipc_printbuf_validate(&pb);
@@ -156,11 +137,11 @@ static void disc_dupl_alert(struct bearer *b_ptr, u32 node_addr,
 /**
  * tipc_disc_recv_msg - handle incoming link setup message (request or response)
  * @buf: buffer containing message
+ * @b_ptr: bearer that message arrived on
  */
 
-void tipc_disc_recv_msg(struct sk_buff *buf)
+void tipc_disc_recv_msg(struct sk_buff *buf, struct bearer *b_ptr)
 {
-	struct bearer *b_ptr = (struct bearer *)TIPC_SKB_CB(buf)->handle;
 	struct link *link;
 	struct tipc_media_addr media_addr;
 	struct tipc_msg *msg = buf_msg(buf);
@@ -184,7 +165,7 @@ void tipc_disc_recv_msg(struct sk_buff *buf)
 			disc_dupl_alert(b_ptr, tipc_own_addr, &media_addr);
 		return;
 	}
-	if (!in_scope(dest, tipc_own_addr))
+	if (!tipc_in_scope(dest, tipc_own_addr))
 		return;
 	if (is_slave(tipc_own_addr) && is_slave(orig))
 		return;
@@ -194,15 +175,14 @@ void tipc_disc_recv_msg(struct sk_buff *buf)
 		/* Always accept link here */
 		struct sk_buff *rbuf;
 		struct tipc_media_addr *addr;
-		struct node *n_ptr = tipc_node_find(orig);
+		struct tipc_node *n_ptr = tipc_node_find(orig);
 		int link_fully_up;
 
 		dbg(" in own cluster\n");
 		if (n_ptr == NULL) {
 			n_ptr = tipc_node_create(orig);
-		}
-		if (n_ptr == NULL) {
-			return;
+			if (!n_ptr)
+				return;
 		}
 		spin_lock_bh(&n_ptr->lock);
 		link = n_ptr->links[b_ptr->identity];
@@ -226,7 +206,7 @@ void tipc_disc_recv_msg(struct sk_buff *buf)
 			memcpy(addr, &media_addr, sizeof(*addr));
 			tipc_link_reset(link);
 		}
-		link_fully_up = (link->state == WORKING_WORKING);
+		link_fully_up = link_working_working(link);
 		spin_unlock_bh(&n_ptr->lock);
 		if ((type == DSC_RESP_MSG) || link_fully_up)
 			return;
@@ -343,4 +323,3 @@ struct link_req *tipc_disc_init_link_req(struct bearer *b_ptr,
 	k_start_timer(&req->timer, req->timer_intv);
 	return req;
 }
-

@@ -26,5 +26,3 @@ ENTRY(v4_early_abort)
 	tst	r3, #1 << 20			@ L = 1 -> write?
 	orreq	r1, r1, #1 << 11		@ yes.
 	mov	pc, lr
-
-

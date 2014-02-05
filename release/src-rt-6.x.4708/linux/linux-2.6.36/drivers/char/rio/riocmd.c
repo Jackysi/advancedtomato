@@ -30,18 +30,15 @@
 **
 ** -----------------------------------------------------------------------------
 */
-#ifdef SCCS_LABELS
-static char *_riocmd_c_sccs_ = "@(#)riocmd.c	1.2";
-#endif
 
 #include <linux/module.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/tty.h>
 #include <asm/io.h>
 #include <asm/system.h>
 #include <asm/string.h>
-#include <asm/semaphore.h>
 #include <asm/uaccess.h>
 
 #include <linux/termios.h>
@@ -418,7 +415,7 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 	PortP = p->RIOPortp[SysPort];
 	rio_spin_lock_irqsave(&PortP->portSem, flags);
 	switch (readb(&PktCmdP->Command)) {
-	case BREAK_RECEIVED:
+	case RIOC_BREAK_RECEIVED:
 		rio_dprintk(RIO_DEBUG_CMD, "Received a break!\n");
 		/* If the current line disc. is not multi-threading and
 		   the current processor is not the default, reset rup_intr
@@ -429,16 +426,16 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 		gs_got_break(&PortP->gs);
 		break;
 
-	case COMPLETE:
+	case RIOC_COMPLETE:
 		rio_dprintk(RIO_DEBUG_CMD, "Command complete on phb %d host %Zd\n", readb(&PktCmdP->PhbNum), HostP - p->RIOHosts);
 		subCommand = 1;
 		switch (readb(&PktCmdP->SubCommand)) {
-		case MEMDUMP:
+		case RIOC_MEMDUMP:
 			rio_dprintk(RIO_DEBUG_CMD, "Memory dump cmd (0x%x) from addr 0x%x\n", readb(&PktCmdP->SubCommand), readw(&PktCmdP->SubAddr));
 			break;
-		case READ_REGISTER:
+		case RIOC_READ_REGISTER:
 			rio_dprintk(RIO_DEBUG_CMD, "Read register (0x%x)\n", readw(&PktCmdP->SubAddr));
-			p->CdRegister = (readb(&PktCmdP->ModemStatus) & MSVR1_HOST);
+			p->CdRegister = (readb(&PktCmdP->ModemStatus) & RIOC_MSVR1_HOST);
 			break;
 		default:
 			subCommand = 0;
@@ -457,14 +454,15 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 			rio_dprintk(RIO_DEBUG_CMD, "No change\n");
 
 		/* FALLTHROUGH */
-	case MODEM_STATUS:
+	case RIOC_MODEM_STATUS:
 		/*
 		 ** Knock out the tbusy and tstop bits, as these are not relevant
 		 ** to the check for modem status change (they're just there because
 		 ** it's a convenient place to put them!).
 		 */
 		ReportedModemStatus = readb(&PktCmdP->ModemStatus);
-		if ((PortP->ModemState & MSVR1_HOST) == (ReportedModemStatus & MSVR1_HOST)) {
+		if ((PortP->ModemState & RIOC_MSVR1_HOST) ==
+				(ReportedModemStatus & RIOC_MSVR1_HOST)) {
 			rio_dprintk(RIO_DEBUG_CMD, "Modem status unchanged 0x%x\n", PortP->ModemState);
 			/*
 			 ** Update ModemState just in case tbusy or tstop states have
@@ -487,18 +485,18 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 				 ** If the device is a modem, then check the modem
 				 ** carrier.
 				 */
-				if (PortP->gs.tty == NULL)
+				if (PortP->gs.port.tty == NULL)
 					break;
-				if (PortP->gs.tty->termios == NULL)
+				if (PortP->gs.port.tty->termios == NULL)
 					break;
 
-				if (!(PortP->gs.tty->termios->c_cflag & CLOCAL) && ((PortP->State & (RIO_MOPEN | RIO_WOPEN)))) {
+				if (!(PortP->gs.port.tty->termios->c_cflag & CLOCAL) && ((PortP->State & (RIO_MOPEN | RIO_WOPEN)))) {
 
 					rio_dprintk(RIO_DEBUG_CMD, "Is there a Carrier?\n");
 					/*
 					 ** Is there a carrier?
 					 */
-					if (PortP->ModemState & MSVR1_CD) {
+					if (PortP->ModemState & RIOC_MSVR1_CD) {
 						/*
 						 ** Has carrier just appeared?
 						 */
@@ -509,7 +507,7 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 							 ** wakeup anyone in WOPEN
 							 */
 							if (PortP->State & (PORT_ISOPEN | RIO_WOPEN))
-								wake_up_interruptible(&PortP->gs.open_wait);
+								wake_up_interruptible(&PortP->gs.port.open_wait);
 						}
 					} else {
 						/*
@@ -517,7 +515,7 @@ static int RIOCommandRup(struct rio_info *p, uint Rup, struct Host *HostP, struc
 						 */
 						if (PortP->State & RIO_CARR_ON) {
 							if (PortP->State & (PORT_ISOPEN | RIO_WOPEN | RIO_MOPEN))
-								tty_hangup(PortP->gs.tty);
+								tty_hangup(PortP->gs.port.tty);
 							PortP->State &= ~RIO_CARR_ON;
 							rio_dprintk(RIO_DEBUG_CMD, "Carrirer just went down\n");
 						}
@@ -556,9 +554,7 @@ struct CmdBlk *RIOGetCmdBlk(void)
 {
 	struct CmdBlk *CmdBlkP;
 
-	CmdBlkP = kmalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
-	if (CmdBlkP)
-		memset(CmdBlkP, 0, sizeof(struct CmdBlk));
+	CmdBlkP = kzalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
 	return CmdBlkP;
 }
 
@@ -694,7 +690,7 @@ void RIOPollHostCommands(struct rio_info *p, struct Host *HostP)
 				 */
 				rio_spin_unlock_irqrestore(&UnixRupP->RupLock, flags);
 				FreeMe = RIOCommandRup(p, Rup, HostP, PacketP);
-				if (readb(&PacketP->data[5]) == MEMDUMP) {
+				if (readb(&PacketP->data[5]) == RIOC_MEMDUMP) {
 					rio_dprintk(RIO_DEBUG_CMD, "Memdump from 0x%x complete\n", readw(&(PacketP->data[6])));
 					rio_memcpy_fromio(p->RIOMemDump, &(PacketP->data[8]), 32);
 				}

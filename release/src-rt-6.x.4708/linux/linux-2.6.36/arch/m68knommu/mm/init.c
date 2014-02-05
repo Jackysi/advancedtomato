@@ -29,7 +29,7 @@
 #include <linux/highmem.h>
 #include <linux/pagemap.h>
 #include <linux/bootmem.h>
-#include <linux/slab.h>
+#include <linux/gfp.h>
 
 #include <asm/setup.h>
 #include <asm/segment.h>
@@ -62,33 +62,6 @@ static unsigned long empty_bad_page;
 
 unsigned long empty_zero_page;
 
-void show_mem(void)
-{
-    unsigned long i;
-    int free = 0, total = 0, reserved = 0, shared = 0;
-    int cached = 0;
-
-    printk(KERN_INFO "\nMem-info:\n");
-    show_free_areas();
-    i = max_mapnr;
-    while (i-- > 0) {
-	total++;
-	if (PageReserved(mem_map+i))
-	    reserved++;
-	else if (PageSwapCache(mem_map+i))
-	    cached++;
-	else if (!page_count(mem_map+i))
-	    free++;
-	else
-	    shared += page_count(mem_map+i) - 1;
-    }
-    printk(KERN_INFO "%d pages of RAM\n",total);
-    printk(KERN_INFO "%d free pages\n",free);
-    printk(KERN_INFO "%d reserved pages\n",reserved);
-    printk(KERN_INFO "%d pages shared\n",shared);
-    printk(KERN_INFO "%d pages swap cached\n",cached);
-}
-
 extern unsigned long memory_start;
 extern unsigned long memory_end;
 
@@ -98,7 +71,7 @@ extern unsigned long memory_end;
  * The parameters are pointers to where to stick the starting and ending
  * addresses of available kernel virtual memory.
  */
-void paging_init(void)
+void __init paging_init(void)
 {
 	/*
 	 * Make sure start_mem is page aligned, otherwise bootmem and
@@ -138,16 +111,12 @@ void paging_init(void)
 	{
 		unsigned long zones_size[MAX_NR_ZONES] = {0, };
 
-		zones_size[ZONE_DMA] = 0 >> PAGE_SHIFT;
-		zones_size[ZONE_NORMAL] = (end_mem - PAGE_OFFSET) >> PAGE_SHIFT;
-#ifdef CONFIG_HIGHMEM
-		zones_size[ZONE_HIGHMEM] = 0;
-#endif
+		zones_size[ZONE_DMA] = (end_mem - PAGE_OFFSET) >> PAGE_SHIFT;
 		free_area_init(zones_size);
 	}
 }
 
-void mem_init(void)
+void __init mem_init(void)
 {
 	int codek = 0, datak = 0, initk = 0;
 	unsigned long tmp;
@@ -157,9 +126,7 @@ void mem_init(void)
 	unsigned long start_mem = memory_start; /* DAVIDM - these must start at end of kernel */
 	unsigned long end_mem   = memory_end; /* DAVIDM - this must not include kernel stack at top */
 
-#ifdef DEBUG
-	printk(KERN_DEBUG "Mem_init: start=%lx, end=%lx\n", start_mem, end_mem);
-#endif
+	pr_debug("Mem_init: start=%lx, end=%lx\n", start_mem, end_mem);
 
 	end_mem &= PAGE_MASK;
 	high_memory = (void *) end_mem;
@@ -195,7 +162,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 		totalram_pages++;
 		pages++;
 	}
-	printk (KERN_NOTICE "Freeing initrd memory: %dk freed\n", pages);
+	printk (KERN_NOTICE "Freeing initrd memory: %dk freed\n", pages * (PAGE_SIZE / 1024));
 }
 #endif
 
@@ -223,4 +190,3 @@ free_initmem()
 			(int)(addr - PAGE_SIZE));
 #endif
 }
-

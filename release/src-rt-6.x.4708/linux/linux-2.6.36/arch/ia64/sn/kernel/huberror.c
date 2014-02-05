@@ -37,7 +37,7 @@ static irqreturn_t hub_eint_handler(int irq, void *arg)
 			(u64) nasid, 0, 0, 0, 0, 0, 0);
 
 		if ((int)ret_stuff.v0)
-			panic("%s: Fatal %s Error", __FUNCTION__,
+			panic("%s: Fatal %s Error", __func__,
 				((nasid & 1) ? "TIO" : "HUBII"));
 
 		if (!(nasid & 1)) /* Not a TIO, handle CRB errors */
@@ -48,7 +48,7 @@ static irqreturn_t hub_eint_handler(int irq, void *arg)
 				(u64) nasid, 0, 0, 0, 0, 0, 0);
 
 			if ((int)ret_stuff.v0)
-				panic("%s: Fatal TIO Error", __FUNCTION__);
+				panic("%s: Fatal TIO Error", __func__);
 		} else
 			bte_error_handler((unsigned long)NODEPDA(nasid_to_cnodeid(nasid)));
 
@@ -88,26 +88,6 @@ void hubiio_crb_free(struct hubdev_info *hubdev_info, int crbnum)
 
 }
 
-/*
- * hubiio_crb_error_handler
- *
- *	This routine gets invoked when a hub gets an error 
- *	interrupt. So, the routine is running in interrupt context
- *	at error interrupt level.
- * Action:
- *	It's responsible for identifying ALL the CRBs that are marked
- *	with error, and process them. 
- *	
- * 	If you find the CRB that's marked with error, map this to the
- *	reason it caused error, and invoke appropriate error handler.
- *
- *	XXX Be aware of the information in the context register.
- *
- * NOTE:
- *	Use REMOTE_HUB_* macro instead of LOCAL_HUB_* so that the interrupt
- *	handler can be run on any node. (not necessarily the node 
- *	corresponding to the hub that encountered error).
- */
 
 void hubiio_crb_error_handler(struct hubdev_info *hubdev_info)
 {
@@ -123,9 +103,6 @@ void hubiio_crb_error_handler(struct hubdev_info *hubdev_info)
 
 	nasid = hubdev_info->hdi_nasid;
 
-	/*
-	 * XXX - Add locking for any recovery actions
-	 */
 	/*
 	 * Scan through all CRBs in the Hub, and handle the errors
 	 * in any of the CRBs marked.
@@ -185,11 +162,14 @@ void hubiio_crb_error_handler(struct hubdev_info *hubdev_info)
  */
 void hub_error_init(struct hubdev_info *hubdev_info)
 {
+
 	if (request_irq(SGI_II_ERROR, hub_eint_handler, IRQF_SHARED,
-			"SN_hub_error", (void *)hubdev_info))
-		printk("hub_error_init: Failed to request_irq for 0x%p\n",
+			"SN_hub_error", hubdev_info)) {
+		printk(KERN_ERR "hub_error_init: Failed to request_irq for 0x%p\n",
 		    hubdev_info);
-	return;
+		return;
+	}
+	sn_set_err_irq_affinity(SGI_II_ERROR);
 }
 
 
@@ -202,11 +182,13 @@ void hub_error_init(struct hubdev_info *hubdev_info)
  */
 void ice_error_init(struct hubdev_info *hubdev_info)
 {
+
         if (request_irq
             (SGI_TIO_ERROR, (void *)hub_eint_handler, IRQF_SHARED, "SN_TIO_error",
-             (void *)hubdev_info))
+             (void *)hubdev_info)) {
                 printk("ice_error_init: request_irq() error hubdev_info 0x%p\n",
                        hubdev_info);
-        return;
+		return;
+	}
+	sn_set_err_irq_affinity(SGI_TIO_ERROR);
 }
-

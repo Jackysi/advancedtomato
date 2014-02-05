@@ -10,6 +10,7 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include "hisax_if.h"
 #include "hisax.h"
@@ -910,4 +911,3 @@ init_ipacx(struct IsdnCardState *cs, int part)
 }
 
 //----------------- end of file -----------------------
-

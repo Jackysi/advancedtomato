@@ -133,13 +133,6 @@ void __init prom_identify_arch(u32 magic)
 	dec_firmrev = (dec_sysid & 0xff00) >> 8;
 	dec_etc = dec_sysid & 0xff;
 
-	/* We're obviously one of the DEC machines */
-	mips_machgroup = MACH_GROUP_DEC;
-
-	/*
-	 * FIXME: This may not be an exhaustive list of DECStations/Servers!
-	 * Put all model-specific initialisation calls here.
-	 */
 	switch (dec_systype) {
 	case DS2100_3100:
 		mips_machtype = MACH_DS23100;

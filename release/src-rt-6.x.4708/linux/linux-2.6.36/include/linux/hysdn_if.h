@@ -1,4 +1,4 @@
-/* $Id: hysdn_if.h,v 1.1.8.3 2001/09/23 22:25:05 kai Exp $
+/* $Id: hysdn_if.h,v 1.1.8.3 2001/09/23 22:25:05 Exp $
  *
  * Linux driver for HYSDN cards
  * ioctl definitions shared by hynetmgr and driver.
@@ -27,7 +27,3 @@
 #define ERR_CONF_LONG     1009 /* conf line is too long */ 
 #define ERR_INV_CHAN      1010 /* invalid channel number */ 
 #define ERR_ASYNC_TIME    1011 /* timeout sending async data */ 
-
-
-
-

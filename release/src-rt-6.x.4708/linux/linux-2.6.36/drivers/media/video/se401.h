@@ -2,18 +2,20 @@
 #ifndef __LINUX_se401_H
 #define __LINUX_se401_H
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/videodev.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 #include <linux/mutex.h>
 
 #define se401_DEBUG	/* Turn on debug messages */
 
 #ifdef se401_DEBUG
 #  define PDEBUG(level, fmt, args...) \
-if (debug >= level) info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , ## args)
+if (debug >= level) \
+	info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , ## args)
 #else
-#  define PDEBUG(level, fmt, args...) do {} while(0)
+#  define PDEBUG(level, fmt, args...) do {} while (0)
 #endif
 
 /* An almost drop-in replacement for sleep_on_interruptible */
@@ -231,4 +233,3 @@ struct usb_se401 {
 
 
 #endif
-

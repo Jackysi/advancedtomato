@@ -27,8 +27,7 @@
 #include <linux/compiler.h>
 
 /* This structure gets passed by the SIOCADDRT and SIOCDELRT calls. */
-struct rtentry 
-{
+struct rtentry {
 	unsigned long	rt_pad1;
 	struct sockaddr	rt_dst;		/* target address		*/
 	struct sockaddr	rt_gateway;	/* gateway addr (RTF_GATEWAY)	*/
@@ -67,4 +66,3 @@ struct rtentry
 
 
 #endif	/* _LINUX_ROUTE_H */
-

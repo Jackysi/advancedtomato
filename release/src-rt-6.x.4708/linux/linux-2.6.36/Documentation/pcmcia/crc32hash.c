@@ -8,7 +8,7 @@ $ ./crc32hash "Dual Speed"
 #include <ctype.h>
 #include <stdlib.h>
 
-unsigned int crc32(unsigned char const *p, unsigned int len)
+static unsigned int crc32(unsigned char const *p, unsigned int len)
 {
 	int i;
 	unsigned int crc = 0;
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 		printf("no string passed as argument\n");
 		return -1;
 	}
-	result = crc32(argv[1], strlen(argv[1]));
+	result = crc32((unsigned char const *)argv[1], strlen(argv[1]));
 	printf("0x%x\n", result);
 	return 0;
 }

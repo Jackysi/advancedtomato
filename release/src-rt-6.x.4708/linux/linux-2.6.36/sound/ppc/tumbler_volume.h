@@ -247,4 +247,3 @@ static unsigned int snapper_bass_volume_table[] = {
 	0x18, 0x11, 0x0a,
 	0x01,
 };
-

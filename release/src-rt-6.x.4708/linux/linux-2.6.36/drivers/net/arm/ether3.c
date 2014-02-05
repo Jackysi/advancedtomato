@@ -51,7 +51,6 @@
 #include <linux/types.h>
 #include <linux/fcntl.h>
 #include <linux/interrupt.h>
-#include <linux/ptrace.h>
 #include <linux/ioport.h>
 #include <linux/in.h>
 #include <linux/slab.h>
@@ -69,7 +68,7 @@
 #include <asm/ecard.h>
 #include <asm/io.h>
 
-static char version[] __initdata = "ether3 ethernet driver (c) 1995-2000 R.M.King v1.17\n";
+static char version[] __devinitdata = "ether3 ethernet driver (c) 1995-2000 R.M.King v1.17\n";
 
 #include "ether3.h"
 
@@ -464,7 +463,7 @@ static void ether3_setmulticastlist(struct net_device *dev)
 	if (dev->flags & IFF_PROMISC) {
 		/* promiscuous mode */
 		priv(dev)->regs.config1 |= CFG1_RECVPROMISC;
-	} else if (dev->flags & IFF_ALLMULTI) {
+	} else if (dev->flags & IFF_ALLMULTI || !netdev_mc_empty(dev)) {
 		priv(dev)->regs.config1 |= CFG1_RECVSPECBRMULTI;
 	} else
 		priv(dev)->regs.config1 |= CFG1_RECVSPECBROAD;
@@ -512,7 +511,7 @@ ether3_sendpacket(struct sk_buff *skb, struct net_device *dev)
 		dev_kfree_skb(skb);
 		priv(dev)->stats.tx_dropped ++;
 		netif_start_queue(dev);
-		return 0;
+		return NETDEV_TX_OK;
 	}
 
 	length = (length + 1) & ~1;
@@ -527,10 +526,9 @@ ether3_sendpacket(struct sk_buff *skb, struct net_device *dev)
 
 	if (priv(dev)->tx_tail == next_ptr) {
 		local_irq_restore(flags);
-		return 1;	/* unable to queue */
+		return NETDEV_TX_BUSY;	/* unable to queue */
 	}
 
-	dev->trans_start = jiffies;
 	ptr		 = 0x600 * priv(dev)->tx_head;
 	priv(dev)->tx_head = next_ptr;
 	next_ptr	*= 0x600;
@@ -563,7 +561,7 @@ ether3_sendpacket(struct sk_buff *skb, struct net_device *dev)
 		netif_stop_queue(dev);
 
  out:
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 static irqreturn_t
@@ -771,12 +769,24 @@ static void __devinit ether3_banner(void)
 		printk(KERN_INFO "%s", version);
 }
 
+static const struct net_device_ops ether3_netdev_ops = {
+	.ndo_open		= ether3_open,
+	.ndo_stop		= ether3_close,
+	.ndo_start_xmit		= ether3_sendpacket,
+	.ndo_get_stats		= ether3_getstats,
+	.ndo_set_multicast_list	= ether3_setmulticastlist,
+	.ndo_tx_timeout		= ether3_timeout,
+	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_set_mac_address	= eth_mac_addr,
+};
+
 static int __devinit
 ether3_probe(struct expansion_card *ec, const struct ecard_id *id)
 {
 	const struct ether3_data *data = id->data;
 	struct net_device *dev;
-	int i, bus_type, ret;
+	int bus_type, ret;
 
 	ether3_banner();
 
@@ -790,7 +800,6 @@ ether3_probe(struct expansion_card *ec, const struct ecard_id *id)
 		goto release;
 	}
 
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &ec->dev);
 
 	priv(dev)->base = ecardm_iomap(ec, ECARD_RES_MEMC, 0, 0);
@@ -848,21 +857,15 @@ ether3_probe(struct expansion_card *ec, const struct ecard_id *id)
 		goto free;
 	}
 
-	dev->open		= ether3_open;
-	dev->stop		= ether3_close;
-	dev->hard_start_xmit	= ether3_sendpacket;
-	dev->get_stats		= ether3_getstats;
-	dev->set_multicast_list	= ether3_setmulticastlist;
-	dev->tx_timeout		= ether3_timeout;
+	dev->netdev_ops		= &ether3_netdev_ops;
 	dev->watchdog_timeo	= 5 * HZ / 100;
 
 	ret = register_netdev(dev);
 	if (ret)
 		goto free;
 
-	printk("%s: %s in slot %d, ", dev->name, data->name, ec->slot_no);
-	for (i = 0; i < 6; i++)
-		printk("%2.2x%c", dev->dev_addr[i], i == 5 ? '\n' : ':');
+	printk("%s: %s in slot %d, %pM\n",
+	       dev->name, data->name, ec->slot_no, dev->dev_addr);
 
 	ecard_set_drvdata(ec, dev);
 	return 0;

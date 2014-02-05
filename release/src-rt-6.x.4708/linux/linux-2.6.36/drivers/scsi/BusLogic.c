@@ -42,6 +42,7 @@
 #include <linux/spinlock.h>
 #include <linux/jiffies.h>
 #include <linux/dma-mapping.h>
+#include <linux/slab.h>
 #include <scsi/scsicam.h>
 
 #include <asm/dma.h>
@@ -304,18 +305,10 @@ static struct BusLogic_CCB *BusLogic_AllocateCCB(struct BusLogic_HostAdapter
 static void BusLogic_DeallocateCCB(struct BusLogic_CCB *CCB)
 {
 	struct BusLogic_HostAdapter *HostAdapter = CCB->HostAdapter;
-	struct scsi_cmnd *cmd = CCB->Command;
 
-	if (cmd->use_sg != 0) {
-		pci_unmap_sg(HostAdapter->PCI_Device,
-				(struct scatterlist *)cmd->request_buffer,
-				cmd->use_sg, cmd->sc_data_direction);
-	} else if (cmd->request_bufflen != 0) {
-		pci_unmap_single(HostAdapter->PCI_Device, CCB->DataPointer,
-				CCB->DataLength, cmd->sc_data_direction);
-	}
+	scsi_dma_unmap(CCB->Command);
 	pci_unmap_single(HostAdapter->PCI_Device, CCB->SenseDataPointer,
-			CCB->SenseDataLength, PCI_DMA_FROMDEVICE);
+			 CCB->SenseDataLength, PCI_DMA_FROMDEVICE);
 
 	CCB->Command = NULL;
 	CCB->Status = BusLogic_CCB_Free;
@@ -675,7 +668,7 @@ static int __init BusLogic_InitializeMultiMasterProbeInfo(struct BusLogic_HostAd
 		if (pci_enable_device(PCI_Device))
 			continue;
 
-		if (pci_set_dma_mask(PCI_Device, DMA_32BIT_MASK ))
+		if (pci_set_dma_mask(PCI_Device, DMA_BIT_MASK(32) ))
 			continue;
 
 		Bus = PCI_Device->bus->number;
@@ -842,7 +835,7 @@ static int __init BusLogic_InitializeMultiMasterProbeInfo(struct BusLogic_HostAd
 		if (pci_enable_device(PCI_Device))
 			continue;
 
-		if (pci_set_dma_mask(PCI_Device, DMA_32BIT_MASK))
+		if (pci_set_dma_mask(PCI_Device, DMA_BIT_MASK(32)))
 			continue;
 
 		Bus = PCI_Device->bus->number;
@@ -896,7 +889,7 @@ static int __init BusLogic_InitializeFlashPointProbeInfo(struct BusLogic_HostAda
 		if (pci_enable_device(PCI_Device))
 			continue;
 
-		if (pci_set_dma_mask(PCI_Device, DMA_32BIT_MASK))
+		if (pci_set_dma_mask(PCI_Device, DMA_BIT_MASK(32)))
 			continue;
 
 		Bus = PCI_Device->bus->number;
@@ -904,7 +897,7 @@ static int __init BusLogic_InitializeFlashPointProbeInfo(struct BusLogic_HostAda
 		IRQ_Channel = PCI_Device->irq;
 		IO_Address = BaseAddress0 = pci_resource_start(PCI_Device, 0);
 		PCI_Address = BaseAddress1 = pci_resource_start(PCI_Device, 1);
-#ifndef CONFIG_SCSI_OMIT_FLASHPOINT
+#ifdef CONFIG_SCSI_FLASHPOINT
 		if (pci_resource_flags(PCI_Device, 0) & IORESOURCE_MEM) {
 			BusLogic_Error("BusLogic: Base Address0 0x%X not I/O for " "FlashPoint Host Adapter\n", NULL, BaseAddress0);
 			BusLogic_Error("at PCI Bus %d Device %d I/O Address 0x%X\n", NULL, Bus, Device, IO_Address);
@@ -1014,6 +1007,9 @@ static void __init BusLogic_InitializeProbeInfoList(struct BusLogic_HostAdapter
 }
 
 
+#else
+#define BusLogic_InitializeProbeInfoList(adapter) \
+		BusLogic_InitializeProbeInfoListISA(adapter)
 #endif				/* CONFIG_PCI */
 
 
@@ -2567,22 +2563,6 @@ static void BusLogic_ProcessCompletedCCBs(struct BusLogic_HostAdapter *HostAdapt
 			   Place CCB back on the Host Adapter's free list.
 			 */
 			BusLogic_DeallocateCCB(CCB);
-#if 0				/* this needs to be redone different for new EH */
-			/*
-			   Bus Device Reset CCBs have the Command field non-NULL only when a
-			   Bus Device Reset was requested for a Command that did not have a
-			   currently active CCB in the Host Adapter (i.e., a Synchronous
-			   Bus Device Reset), and hence would not have its Completion Routine
-			   called otherwise.
-			 */
-			while (Command != NULL) {
-				struct scsi_cmnd *NextCommand = Command->reset_chain;
-				Command->reset_chain = NULL;
-				Command->result = DID_RESET << 16;
-				Command->scsi_done(Command);
-				Command = NextCommand;
-			}
-#endif
 			/*
 			   Iterate over the CCBs for this Host Adapter performing completion
 			   processing for any CCBs marked as Reset for this Target.
@@ -2648,7 +2628,8 @@ static void BusLogic_ProcessCompletedCCBs(struct BusLogic_HostAdapter *HostAdapt
 			 */
 			if (CCB->CDB[0] == INQUIRY && CCB->CDB[1] == 0 && CCB->HostAdapterStatus == BusLogic_CommandCompletedNormally) {
 				struct BusLogic_TargetFlags *TargetFlags = &HostAdapter->TargetFlags[CCB->TargetID];
-				struct SCSI_Inquiry *InquiryResult = (struct SCSI_Inquiry *) Command->request_buffer;
+				struct SCSI_Inquiry *InquiryResult =
+					(struct SCSI_Inquiry *) scsi_sglist(Command);
 				TargetFlags->TargetExists = true;
 				TargetFlags->TaggedQueuingSupported = InquiryResult->CmdQue;
 				TargetFlags->WideTransfersSupported = InquiryResult->WBus16;
@@ -2819,9 +2800,8 @@ static int BusLogic_QueueCommand(struct scsi_cmnd *Command, void (*CompletionRou
 	int CDB_Length = Command->cmd_len;
 	int TargetID = Command->device->id;
 	int LogicalUnit = Command->device->lun;
-	void *BufferPointer = Command->request_buffer;
-	int BufferLength = Command->request_bufflen;
-	int SegmentCount = Command->use_sg;
+	int BufferLength = scsi_bufflen(Command);
+	int Count;
 	struct BusLogic_CCB *CCB;
 	/*
 	   SCSI REQUEST_SENSE commands will be executed automatically by the Host
@@ -2851,36 +2831,35 @@ static int BusLogic_QueueCommand(struct scsi_cmnd *Command, void (*CompletionRou
 			return 0;
 		}
 	}
+
 	/*
 	   Initialize the fields in the BusLogic Command Control Block (CCB).
 	 */
-	if (SegmentCount == 0 && BufferLength != 0) {
-		CCB->Opcode = BusLogic_InitiatorCCB;
-		CCB->DataLength = BufferLength;
-		CCB->DataPointer = pci_map_single(HostAdapter->PCI_Device,
-				BufferPointer, BufferLength,
-				Command->sc_data_direction);
-	} else if (SegmentCount != 0) {
-		struct scatterlist *ScatterList = (struct scatterlist *) BufferPointer;
-		int Segment, Count;
+	Count = scsi_dma_map(Command);
+	BUG_ON(Count < 0);
+	if (Count) {
+		struct scatterlist *sg;
+		int i;
 
-		Count = pci_map_sg(HostAdapter->PCI_Device, ScatterList, SegmentCount,
-				Command->sc_data_direction);
 		CCB->Opcode = BusLogic_InitiatorCCB_ScatterGather;
 		CCB->DataLength = Count * sizeof(struct BusLogic_ScatterGatherSegment);
 		if (BusLogic_MultiMasterHostAdapterP(HostAdapter))
 			CCB->DataPointer = (unsigned int) CCB->DMA_Handle + ((unsigned long) &CCB->ScatterGatherList - (unsigned long) CCB);
 		else
 			CCB->DataPointer = Virtual_to_32Bit_Virtual(CCB->ScatterGatherList);
-		for (Segment = 0; Segment < Count; Segment++) {
-			CCB->ScatterGatherList[Segment].SegmentByteCount = sg_dma_len(ScatterList + Segment);
-			CCB->ScatterGatherList[Segment].SegmentDataPointer = sg_dma_address(ScatterList + Segment);
+
+		scsi_for_each_sg(Command, sg, Count, i) {
+			CCB->ScatterGatherList[i].SegmentByteCount =
+				sg_dma_len(sg);
+			CCB->ScatterGatherList[i].SegmentDataPointer =
+				sg_dma_address(sg);
 		}
-	} else {
+	} else if (!Count) {
 		CCB->Opcode = BusLogic_InitiatorCCB;
 		CCB->DataLength = BufferLength;
 		CCB->DataPointer = 0;
 	}
+
 	switch (CDB[0]) {
 	case READ_6:
 	case READ_10:
@@ -2956,7 +2935,7 @@ static int BusLogic_QueueCommand(struct scsi_cmnd *Command, void (*CompletionRou
 		}
 	}
 	memcpy(CCB->CDB, CDB, CDB_Length);
-	CCB->SenseDataLength = sizeof(Command->sense_buffer);
+	CCB->SenseDataLength = SCSI_SENSE_BUFFERSIZE;
 	CCB->SenseDataPointer = pci_map_single(HostAdapter->PCI_Device, Command->sense_buffer, CCB->SenseDataLength, PCI_DMA_FROMDEVICE);
 	CCB->Command = Command;
 	Command->scsi_done = CompletionRoutine;
@@ -3000,78 +2979,6 @@ static int BusLogic_QueueCommand(struct scsi_cmnd *Command, void (*CompletionRou
 }
 
 
-#if 0
-/*
-  BusLogic_AbortCommand aborts Command if possible.
-*/
-
-static int BusLogic_AbortCommand(struct scsi_cmnd *Command)
-{
-	struct BusLogic_HostAdapter *HostAdapter = (struct BusLogic_HostAdapter *) Command->device->host->hostdata;
-
-	int TargetID = Command->device->id;
-	struct BusLogic_CCB *CCB;
-	BusLogic_IncrementErrorCounter(&HostAdapter->TargetStatistics[TargetID].CommandAbortsRequested);
-	/*
-	   Attempt to find an Active CCB for this Command.  If no Active CCB for this
-	   Command is found, then no Abort is necessary.
-	 */
-	for (CCB = HostAdapter->All_CCBs; CCB != NULL; CCB = CCB->NextAll)
-		if (CCB->Command == Command)
-			break;
-	if (CCB == NULL) {
-		BusLogic_Warning("Unable to Abort Command to Target %d - " "No CCB Found\n", HostAdapter, TargetID);
-		return SUCCESS;
-	} else if (CCB->Status == BusLogic_CCB_Completed) {
-		BusLogic_Warning("Unable to Abort Command to Target %d - " "CCB Completed\n", HostAdapter, TargetID);
-		return SUCCESS;
-	} else if (CCB->Status == BusLogic_CCB_Reset) {
-		BusLogic_Warning("Unable to Abort Command to Target %d - " "CCB Reset\n", HostAdapter, TargetID);
-		return SUCCESS;
-	}
-	if (BusLogic_MultiMasterHostAdapterP(HostAdapter)) {
-		/*
-		   Attempt to Abort this CCB.  MultiMaster Firmware versions prior to 5.xx
-		   do not generate Abort Tag messages, but only generate the non-tagged
-		   Abort message.  Since non-tagged commands are not sent by the Host
-		   Adapter until the queue of outstanding tagged commands has completed,
-		   and the Abort message is treated as a non-tagged command, it is
-		   effectively impossible to abort commands when Tagged Queuing is active.
-		   Firmware version 5.xx does generate Abort Tag messages, so it is
-		   possible to abort commands when Tagged Queuing is active.
-		 */
-		if (HostAdapter->TargetFlags[TargetID].TaggedQueuingActive && HostAdapter->FirmwareVersion[0] < '5') {
-			BusLogic_Warning("Unable to Abort CCB #%ld to Target %d - " "Abort Tag Not Supported\n", HostAdapter, CCB->SerialNumber, TargetID);
-			return FAILURE;
-		} else if (BusLogic_WriteOutgoingMailbox(HostAdapter, BusLogic_MailboxAbortCommand, CCB)) {
-			BusLogic_Warning("Aborting CCB #%ld to Target %d\n", HostAdapter, CCB->SerialNumber, TargetID);
-			BusLogic_IncrementErrorCounter(&HostAdapter->TargetStatistics[TargetID].CommandAbortsAttempted);
-			return SUCCESS;
-		} else {
-			BusLogic_Warning("Unable to Abort CCB #%ld to Target %d - " "No Outgoing Mailboxes\n", HostAdapter, CCB->SerialNumber, TargetID);
-			return FAILURE;
-		}
-	} else {
-		/*
-		   Call the FlashPoint SCCB Manager to abort execution of the CCB.
-		 */
-		BusLogic_Warning("Aborting CCB #%ld to Target %d\n", HostAdapter, CCB->SerialNumber, TargetID);
-		BusLogic_IncrementErrorCounter(&HostAdapter->TargetStatistics[TargetID].CommandAbortsAttempted);
-		FlashPoint_AbortCCB(HostAdapter->CardHandle, CCB);
-		/*
-		   The Abort may have already been completed and
-		   BusLogic_QueueCompletedCCB been called, or it
-		   may still be pending.
-		 */
-		if (CCB->Status == BusLogic_CCB_Completed) {
-			BusLogic_ProcessCompletedCCBs(HostAdapter);
-		}
-		return SUCCESS;
-	}
-	return SUCCESS;
-}
-
-#endif
 /*
   BusLogic_ResetHostAdapter resets Host Adapter if possible, marking all
   currently executing SCSI Commands as having been Reset.
@@ -3578,9 +3485,6 @@ static struct scsi_host_template Bus_Logic_template = {
 	.slave_configure = BusLogic_SlaveConfigure,
 	.bios_param = BusLogic_BIOSDiskParameters,
 	.eh_host_reset_handler = BusLogic_host_reset,
-#if 0
-	.eh_abort_handler = BusLogic_AbortCommand,
-#endif
 	.unchecked_isa_dma = 1,
 	.max_sectors = 128,
 	.use_clustering = ENABLE_CLUSTERING,

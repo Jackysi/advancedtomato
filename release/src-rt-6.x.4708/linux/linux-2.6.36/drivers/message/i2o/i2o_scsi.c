@@ -370,19 +370,15 @@ static int i2o_scsi_reply(struct i2o_controller *c, u32 m,
 	 */
 	if (cmd->result)
 		memcpy(cmd->sense_buffer, &msg->body[3],
-		       min(sizeof(cmd->sense_buffer), (size_t) 40));
+		       min(SCSI_SENSE_BUFFERSIZE, 40));
 
 	/* only output error code if AdapterStatus is not HBA_SUCCESS */
 	if ((error >> 8) & 0xff)
 		osm_err("SCSI error %08x\n", error);
 
 	dev = &c->pdev->dev;
-	if (cmd->use_sg)
-		dma_unmap_sg(dev, cmd->request_buffer, cmd->use_sg,
-			     cmd->sc_data_direction);
-	else if (cmd->SCp.dma_handle)
-		dma_unmap_single(dev, cmd->SCp.dma_handle, cmd->request_bufflen,
-				 cmd->sc_data_direction);
+
+	scsi_dma_unmap(cmd);
 
 	cmd->scsi_done(cmd);
 
@@ -394,7 +390,7 @@ static int i2o_scsi_reply(struct i2o_controller *c, u32 m,
  *	@i2o_dev: the I2O device which was added
  *
  *	If a I2O device is added we catch the notification, because I2O classes
- *	other then SCSI peripheral will not be received through
+ *	other than SCSI peripheral will not be received through
  *	i2o_scsi_probe().
  */
 static void i2o_scsi_notify_device_add(struct i2o_device *i2o_dev)
@@ -532,7 +528,6 @@ static int i2o_scsi_queuecommand(struct scsi_cmnd *SCpnt,
 	 *      Do the incoming paperwork
 	 */
 	i2o_dev = SCpnt->device->hostdata;
-	c = i2o_dev->iop;
 
 	SCpnt->scsi_done = done;
 
@@ -542,7 +537,7 @@ static int i2o_scsi_queuecommand(struct scsi_cmnd *SCpnt,
 		done(SCpnt);
 		goto exit;
 	}
-
+	c = i2o_dev->iop;
 	tid = i2o_dev->lct_data.tid;
 
 	osm_debug("qcmd: Tid = %03x\n", tid);
@@ -589,45 +584,6 @@ static int i2o_scsi_queuecommand(struct scsi_cmnd *SCpnt,
 
 	mptr = &msg->body[0];
 
-#if 0 /* this code can't work */
-#ifdef CONFIG_I2O_EXT_ADAPTEC
-	if (c->adaptec) {
-		u32 adpt_flags = 0;
-
-		if (SCpnt->sc_request && SCpnt->sc_request->upper_private_data) {
-			i2o_sg_io_hdr_t __user *usr_ptr =
-			    ((Sg_request *) (SCpnt->sc_request->
-					     upper_private_data))->header.
-			    usr_ptr;
-
-			if (usr_ptr)
-				get_user(adpt_flags, &usr_ptr->flags);
-		}
-
-		switch (i2o_dev->lct_data.class_id) {
-		case I2O_CLASS_EXECUTIVE:
-		case I2O_CLASS_RANDOM_BLOCK_STORAGE:
-			/* interpret flag has to be set for executive */
-			adpt_flags ^= I2O_DPT_SG_FLAG_INTERPRET;
-			break;
-
-		default:
-			break;
-		}
-
-		/*
-		 * for Adaptec controllers we use the PRIVATE command, because
-		 * the normal SCSI EXEC doesn't support all SCSI commands on
-		 * all controllers (for example READ CAPACITY).
-		 */
-		if (sgl_offset == SGL_OFFSET_10)
-			sgl_offset = SGL_OFFSET_12;
-		cmd = I2O_CMD_PRIVATE << 24;
-		*mptr++ = cpu_to_le32(I2O_VENDOR_DPT << 16 | I2O_CMD_SCSI_EXEC);
-		*mptr++ = cpu_to_le32(adpt_flags | tid);
-	}
-#endif
-#endif
 
 	msg->u.head[1] = cpu_to_le32(cmd | HOST_TID << 12 | tid);
 	msg->u.s.icntxt = cpu_to_le32(i2o_scsi_driver.context);
@@ -647,14 +603,6 @@ static int i2o_scsi_queuecommand(struct scsi_cmnd *SCpnt,
 	 */
 
 	/* Attach tags to the devices */
-	/* FIXME: implement
-	   if(SCpnt->device->tagged_supported) {
-	   if(SCpnt->tag == HEAD_OF_QUEUE_TAG)
-	   scsi_flags |= 0x01000000;
-	   else if(SCpnt->tag == ORDERED_QUEUE_TAG)
-	   scsi_flags |= 0x01800000;
-	   }
-	 */
 
 	*mptr++ = cpu_to_le32(scsi_flags | SCpnt->cmd_len);
 
@@ -664,20 +612,14 @@ static int i2o_scsi_queuecommand(struct scsi_cmnd *SCpnt,
 
 	if (sgl_offset != SGL_OFFSET_0) {
 		/* write size of data addressed by SGL */
-		*mptr++ = cpu_to_le32(SCpnt->request_bufflen);
+		*mptr++ = cpu_to_le32(scsi_bufflen(SCpnt));
 
 		/* Now fill in the SGList and command */
-		if (SCpnt->use_sg) {
-			if (!i2o_dma_map_sg(c, SCpnt->request_buffer,
-					    SCpnt->use_sg,
+
+		if (scsi_sg_count(SCpnt)) {
+			if (!i2o_dma_map_sg(c, scsi_sglist(SCpnt),
+					    scsi_sg_count(SCpnt),
 					    SCpnt->sc_data_direction, &mptr))
-				goto nomem;
-		} else {
-			SCpnt->SCp.dma_handle =
-			    i2o_dma_map_single(c, SCpnt->request_buffer,
-					       SCpnt->request_bufflen,
-					       SCpnt->sc_data_direction, &mptr);
-			if (dma_mapping_error(SCpnt->SCp.dma_handle))
 				goto nomem;
 		}
 	}

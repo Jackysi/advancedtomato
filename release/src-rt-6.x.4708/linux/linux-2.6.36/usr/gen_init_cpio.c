@@ -354,7 +354,10 @@ static int cpio_mkfile(const char *name, const char *location,
 		push_pad();
 
 		if (size) {
-			fwrite(filebuf, size, 1, stdout);
+			if (fwrite(filebuf, size, 1, stdout) != 1) {
+				fprintf(stderr, "writing filebuf failed\n");
+				goto error;
+			}
 			offset += size;
 			push_pad();
 		}
@@ -369,6 +372,30 @@ error:
 	if (file >= 0) close(file);
 	return rc;
 }
+
+static char *cpio_replace_env(char *new_location)
+{
+       char expanded[PATH_MAX + 1];
+       char env_var[PATH_MAX + 1];
+       char *start;
+       char *end;
+
+       for (start = NULL; (start = strstr(new_location, "${")); ) {
+               end = strchr(start, '}');
+               if (start < end) {
+                       *env_var = *expanded = '\0';
+                       strncat(env_var, start + 2, end - start - 2);
+                       strncat(expanded, new_location, start - new_location);
+                       strncat(expanded, getenv(env_var), PATH_MAX);
+                       strncat(expanded, end + 1, PATH_MAX);
+                       strncpy(new_location, expanded, PATH_MAX);
+               } else
+                       break;
+       }
+
+       return new_location;
+}
+
 
 static int cpio_mkfile_line(const char *line)
 {
@@ -415,13 +442,14 @@ static int cpio_mkfile_line(const char *line)
 	} else {
 		dname = name;
 	}
-	rc = cpio_mkfile(dname, location, mode, uid, gid, nlinks);
+	rc = cpio_mkfile(dname, cpio_replace_env(location),
+	                 mode, uid, gid, nlinks);
  fail:
 	if (dname_len) free(dname);
 	return rc;
 }
 
-void usage(const char *prog)
+static void usage(const char *prog)
 {
 	fprintf(stderr, "Usage:\n"
 		"\t%s <cpio_list>\n"
@@ -439,6 +467,7 @@ void usage(const char *prog)
 		"\n"
 		"<name>       name of the file/dir/nod/etc in the archive\n"
 		"<location>   location of the file in the current filesystem\n"
+		"             expands shell variables quoted with ${}\n"
 		"<target>     link target\n"
 		"<mode>       mode/permissions of the file\n"
 		"<uid>        user id (0=root)\n"
@@ -498,7 +527,9 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	if (! (cpio_list = fopen(argv[1], "r"))) {
+	if (!strcmp(argv[1], "-"))
+		cpio_list = stdin;
+	else if (! (cpio_list = fopen(argv[1], "r"))) {
 		fprintf(stderr, "ERROR: unable to open '%s': %s\n\n",
 			argv[1], strerror(errno));
 		usage(argv[0]);

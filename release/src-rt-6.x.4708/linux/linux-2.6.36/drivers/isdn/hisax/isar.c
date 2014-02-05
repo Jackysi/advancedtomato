@@ -1,4 +1,4 @@
-/* $Id: isar.c,v 1.22.2.6 2004/02/11 13:21:34 keil Exp $
+/* $Id: isar.c,v 1.22.2.6 2004/02/11 13:21:34 Exp $
  *
  * isar.c   ISAR (Siemens PSB 7110) specific routines
  *
@@ -13,6 +13,7 @@
 #include "isar.h"
 #include "isdnl1.h"
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 
 #define DBG_LOADFIRM	0
 #define DUMP_MBOXFRAME	2
@@ -138,7 +139,7 @@ waitrecmsg(struct IsdnCardState *cs, u_char *len,
 	while((!(cs->BC_Read_Reg(cs, 0, ISAR_IRQBIT) & ISAR_IRQSTA)) &&
 		(timeout++ < maxdelay))
 		udelay(1);
-	if (timeout >= maxdelay) {
+	if (timeout > maxdelay) {
 		printk(KERN_WARNING"isar recmsg IRQSTA timeout\n");
 		return(0);
 	}
@@ -1894,8 +1895,7 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 	return(0);
 }
 
-void __devinit
-initisar(struct IsdnCardState *cs)
+void initisar(struct IsdnCardState *cs)
 {
 	cs->bcs[0].BC_SetStack = setstack_isar;
 	cs->bcs[1].BC_SetStack = setstack_isar;

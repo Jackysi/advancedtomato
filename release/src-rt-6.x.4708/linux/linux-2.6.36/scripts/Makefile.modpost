@@ -30,7 +30,7 @@
 #     - See include/linux/module.h for more details
 
 # Step 4 is solely used to allow module versioning in external modules,
-# where the CRC of each module is retrieved from the Module.symers file.
+# where the CRC of each module is retrieved from the Module.symvers file.
 
 # KBUILD_MODPOST_WARN can be set to avoid error out in case of undefined
 # symbols in the final module linking stage
@@ -41,6 +41,19 @@ _modpost: __modpost
 
 include include/config/auto.conf
 include scripts/Kbuild.include
+
+# When building external modules load the Kbuild file to retreive EXTRA_SYMBOLS info
+ifneq ($(KBUILD_EXTMOD),)
+
+# set src + obj - they may be used when building the .mod.c file
+obj := $(KBUILD_EXTMOD)
+src := $(obj)
+
+# Include the module's Makefile to find KBUILD_EXTRA_SYMBOLS
+include $(if $(wildcard $(KBUILD_EXTMOD)/Kbuild), \
+             $(KBUILD_EXTMOD)/Kbuild, $(KBUILD_EXTMOD)/Makefile)
+endif
+
 include scripts/Makefile.lib
 
 kernelsymfile := $(objtree)/Module.symvers
@@ -53,27 +66,34 @@ modules   := $(patsubst %.o,%.ko, $(wildcard $(__modules:.ko=.o)))
 # Stop after building .o files if NOFINAL is set. Makes compile tests quicker
 _modpost: $(if $(KBUILD_MODPOST_NOFINAL), $(modules:.ko:.o),$(modules))
 
+ifneq ($(KBUILD_BUILDHOST),$(ARCH))
+        cross_build := 1
+endif
 
 # Step 2), invoke modpost
 #  Includes step 3,4
+modpost = scripts/mod/modpost                    \
+ $(if $(CONFIG_MODVERSIONS),-m)                  \
+ $(if $(CONFIG_MODULE_SRCVERSION_ALL),-a,)       \
+ $(if $(KBUILD_EXTMOD),-i,-o) $(kernelsymfile)   \
+ $(if $(KBUILD_EXTMOD),-I $(modulesymfile))      \
+ $(if $(KBUILD_EXTRA_SYMBOLS), $(patsubst %, -e %,$(KBUILD_EXTRA_SYMBOLS))) \
+ $(if $(KBUILD_EXTMOD),-o $(modulesymfile))      \
+ $(if $(CONFIG_DEBUG_SECTION_MISMATCH),,-S)      \
+ $(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w) \
+ $(if $(cross_build),-c)
+
 quiet_cmd_modpost = MODPOST $(words $(filter-out vmlinux FORCE, $^)) modules
-      cmd_modpost = scripts/mod/modpost            \
-        $(if $(CONFIG_MODVERSIONS),-m)             \
-	$(if $(CONFIG_MODULE_SRCVERSION_ALL),-a,)  \
-	$(if $(KBUILD_EXTMOD),-i,-o) $(kernelsymfile) \
-	$(if $(KBUILD_EXTMOD),-I $(modulesymfile)) \
-	$(if $(KBUILD_EXTMOD),-o $(modulesymfile)) \
-	$(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w)
+      cmd_modpost = $(modpost) -s
 
 PHONY += __modpost
 __modpost: $(modules:.ko=.o) FORCE
 	$(call cmd,modpost) $(wildcard vmlinux) $(filter-out FORCE,$^)
 
 quiet_cmd_kernel-mod = MODPOST $@
-      cmd_kernel-mod = $(cmd_modpost) $(KBUILD_VMLINUX_OBJS)
+      cmd_kernel-mod = $(modpost) $@
 
-PHONY += vmlinux
-vmlinux: FORCE
+vmlinux.o: FORCE
 	$(call cmd,kernel-mod)
 
 # Declare generated files as targets for modpost
@@ -87,7 +107,7 @@ $(modules:.ko=.mod.c): __modpost ;
 modname = $(notdir $(@:.mod.o=))
 
 quiet_cmd_cc_o_c = CC      $@
-      cmd_cc_o_c = $(CC) $(c_flags) $(CFLAGS_MODULE)	\
+      cmd_cc_o_c = $(CC) $(c_flags) $(KBUILD_CFLAGS_MODULE) $(CFLAGS_MODULE) \
 		   -c -o $@ $<
 
 $(modules:.ko=.mod.o): %.mod.o: %.mod.c FORCE
@@ -97,8 +117,9 @@ targets += $(modules:.ko=.mod.o)
 
 # Step 6), final link of the modules
 quiet_cmd_ld_ko_o = LD [M]  $@
-      cmd_ld_ko_o = $(LD) $(LDFLAGS) $(LDFLAGS_MODULE) -o $@		\
-			  $(filter-out FORCE,$^)
+      cmd_ld_ko_o = $(LD) -r $(LDFLAGS)                                 \
+                             $(KBUILD_LDFLAGS_MODULE) $(LDFLAGS_MODULE) \
+                             -o $@ $(filter-out FORCE,$^)
 
 $(modules): %.ko :%.o %.mod.o FORCE
 	$(call if_changed,ld_ko_o)

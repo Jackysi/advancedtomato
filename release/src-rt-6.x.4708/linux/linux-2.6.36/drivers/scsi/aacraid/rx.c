@@ -1,6 +1,6 @@
 /*
  *	Adaptec AAC series RAID controller driver
- *	(c) Copyright 2001 Red Hat Inc.	<alan@redhat.com>
+ *	(c) Copyright 2001 Red Hat Inc.
  *
  * based on the old aacraid driver that is..
  * Adaptec aacraid device driver for Linux.
@@ -33,13 +33,11 @@
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/spinlock.h>
-#include <linux/slab.h>
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
-#include <asm/semaphore.h>
 
 #include <scsi/scsi_host.h>
 
@@ -354,9 +352,8 @@ static int aac_rx_check_health(struct aac_dev *dev)
 		pci_free_consistent(dev->pdev, sizeof(struct POSTSTATUS),
 		  post, paddr);
 		if (likely((buffer[0] == '0') && ((buffer[1] == 'x') || (buffer[1] == 'X')))) {
-			ret = (buffer[2] <= '9') ? (buffer[2] - '0') : (buffer[2] - 'A' + 10);
-			ret <<= 4;
-			ret += (buffer[3] <= '9') ? (buffer[3] - '0') : (buffer[3] - 'A' + 10);
+			ret = (hex_to_bin(buffer[2]) << 4) +
+				hex_to_bin(buffer[3]);
 		}
 		pci_free_consistent(dev->pdev, 512, buffer, baddr);
 		return ret;
@@ -464,21 +461,24 @@ static int aac_rx_restart_adapter(struct aac_dev *dev, int bled)
 {
 	u32 var;
 
-	if (bled)
-		printk(KERN_ERR "%s%d: adapter kernel panic'd %x.\n",
-			dev->name, dev->id, bled);
-	else {
-		bled = aac_adapter_sync_cmd(dev, IOP_RESET_ALWAYS,
-		  0, 0, 0, 0, 0, 0, &var, NULL, NULL, NULL, NULL);
-		if (!bled && (var != 0x00000001))
-			bled = -EINVAL;
-	}
-	if (bled && (bled != -ETIMEDOUT))
-		bled = aac_adapter_sync_cmd(dev, IOP_RESET,
-		  0, 0, 0, 0, 0, 0, &var, NULL, NULL, NULL, NULL);
+	if (!(dev->supplement_adapter_info.SupportedOptions2 &
+	  AAC_OPTION_MU_RESET) || (bled >= 0) || (bled == -2)) {
+		if (bled)
+			printk(KERN_ERR "%s%d: adapter kernel panic'd %x.\n",
+				dev->name, dev->id, bled);
+		else {
+			bled = aac_adapter_sync_cmd(dev, IOP_RESET_ALWAYS,
+			  0, 0, 0, 0, 0, 0, &var, NULL, NULL, NULL, NULL);
+			if (!bled && (var != 0x00000001) && (var != 0x3803000F))
+				bled = -EINVAL;
+		}
+		if (bled && (bled != -ETIMEDOUT))
+			bled = aac_adapter_sync_cmd(dev, IOP_RESET,
+			  0, 0, 0, 0, 0, 0, &var, NULL, NULL, NULL, NULL);
 
-	if (bled && (bled != -ETIMEDOUT))
-		return -EINVAL;
+		if (bled && (bled != -ETIMEDOUT))
+			return -EINVAL;
+	}
 	if (bled || (var == 0x3803000F)) { /* USE_OTHER_METHOD */
 		rx_writel(dev, MUnit.reserved2, 3);
 		msleep(5000); /* Delay 5 seconds */
@@ -546,7 +546,9 @@ int _aac_rx_init(struct aac_dev *dev)
 	dev->OIMR = status = rx_readb (dev, MUnit.OIMR);
 	if ((((status & 0x0c) != 0x0c) || aac_reset_devices || reset_devices) &&
 	  !aac_rx_restart_adapter(dev, 0))
-		++restart;
+		/* Make sure the Hardware FIFO is empty */
+		while ((++restart < 512) &&
+		  (rx_readl(dev, MUnit.OutboundQueue) != 0xFFFFFFFFL));
 	/*
 	 *	Check to see if the board panic'd while booting.
 	 */
@@ -596,7 +598,7 @@ int _aac_rx_init(struct aac_dev *dev)
 		}
 		msleep(1);
 	}
-	if (restart)
+	if (restart && aac_commit)
 		aac_commit = 1;
 	/*
 	 *	Fill in the common function dispatch table.
@@ -620,8 +622,11 @@ int _aac_rx_init(struct aac_dev *dev)
 	if (aac_init_adapter(dev) == NULL)
 		goto error_iounmap;
 	aac_adapter_comm(dev, dev->comm_interface);
-	if (request_irq(dev->scsi_host_ptr->irq, dev->a_ops.adapter_intr,
+	dev->msi = aac_msi && !pci_enable_msi(dev->pdev);
+	if (request_irq(dev->pdev->irq, dev->a_ops.adapter_intr,
 			IRQF_SHARED|IRQF_DISABLED, "aacraid", dev) < 0) {
+		if (dev->msi)
+			pci_disable_msi(dev->pdev);
 		printk(KERN_ERR "%s%d: Interrupt unavailable.\n",
 			name, instance);
 		goto error_iounmap;

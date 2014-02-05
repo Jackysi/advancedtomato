@@ -1,8 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  * SCSI layer glue code
  *
- * $Id: scsiglue.c,v 1.26 2002/04/22 03:39:43 mdharm Exp $
- *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
  *
@@ -45,7 +43,6 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 
@@ -75,13 +72,13 @@
 
 static const char* host_info(struct Scsi_Host *host)
 {
-	return "SCSI emulation for USB Mass Storage devices";
+	struct us_data *us = host_to_us(host);
+	return us->scsi_name;
 }
 
 static int slave_alloc (struct scsi_device *sdev)
 {
 	struct us_data *us = host_to_us(sdev->host);
-	struct usb_host_endpoint *bulk_in_ep;
 
 	/*
 	 * Set the INQUIRY transfer length to 36.  We don't use any of
@@ -90,16 +87,22 @@ static int slave_alloc (struct scsi_device *sdev)
 	 */
 	sdev->inquiry_len = 36;
 
-	/* Scatter-gather buffers (all but the last) must have a length
-	 * divisible by the bulk maxpacket size.  Otherwise a data packet
-	 * would end up being short, causing a premature end to the data
-	 * transfer.  We'll use the maxpacket value of the bulk-IN pipe
-	 * to set the SCSI device queue's DMA alignment mask.
+	/* USB has unusual DMA-alignment requirements: Although the
+	 * starting address of each scatter-gather element doesn't matter,
+	 * the length of each element except the last must be divisible
+	 * by the Bulk maxpacket value.  There's currently no way to
+	 * express this by block-layer constraints, so we'll cop out
+	 * and simply require addresses to be aligned at 512-byte
+	 * boundaries.  This is okay since most block I/O involves
+	 * hardware sectors that are multiples of 512 bytes in length,
+	 * and since host controllers up through USB 2.0 have maxpacket
+	 * values no larger than 512.
+	 *
+	 * But it doesn't suffice for Wireless USB, where Bulk maxpacket
+	 * values can be as large as 2048.  To make that work properly
+	 * will require changes to the block layer.
 	 */
-	bulk_in_ep = us->pusb_dev->ep_in[usb_pipeendpoint(us->recv_bulk_pipe)];
-	blk_queue_update_dma_alignment(sdev->request_queue,
-			le16_to_cpu(bulk_in_ep->desc.wMaxPacketSize) - 1);
-			/* wMaxPacketSize must be a power of 2 */
+	blk_queue_update_dma_alignment(sdev->request_queue, (512 - 1));
 
 	/*
 	 * The UFI spec treates the Peripheral Qualifier bits in an
@@ -129,15 +132,15 @@ static int slave_configure(struct scsi_device *sdev)
 
 		if (us->fflags & US_FL_MAX_SECTORS_MIN)
 			max_sectors = PAGE_CACHE_SIZE >> 9;
-		if (sdev->request_queue->max_sectors > max_sectors)
-			blk_queue_max_sectors(sdev->request_queue,
+		if (queue_max_hw_sectors(sdev->request_queue) > max_sectors)
+			blk_queue_max_hw_sectors(sdev->request_queue,
 					      max_sectors);
 	} else if (sdev->type == TYPE_TAPE) {
 		/* Tapes need much higher max_sector limits, so just
 		 * raise it to the maximum possible (4 GB / 512) and
 		 * let the queue segment size sort out the real limit.
 		 */
-		blk_queue_max_sectors(sdev->request_queue, 0x7FFFFF);
+		blk_queue_max_hw_sectors(sdev->request_queue, 0x7FFFFF);
 	}
 
 	/* Some USB host controllers can't do DMA; they have to use PIO.
@@ -173,7 +176,7 @@ static int slave_configure(struct scsi_device *sdev)
 		/* Disk-type devices use MODE SENSE(6) if the protocol
 		 * (SubClass) is Transparent SCSI, otherwise they use
 		 * MODE SENSE(10). */
-		if (us->subclass != US_SC_SCSI)
+		if (us->subclass != US_SC_SCSI && us->subclass != US_SC_CYP_ATACB)
 			sdev->use_10_for_ms = 1;
 
 		/* Many disks only accept MODE SENSE transfer lengths of
@@ -279,12 +282,12 @@ static int queuecommand(struct scsi_cmnd *srb,
 {
 	struct us_data *us = host_to_us(srb->device->host);
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* check for state-transition errors */
 	if (us->srb != NULL) {
 		printk(KERN_ERR USB_STORAGE "Error in %s: us->srb = %p\n",
-			__FUNCTION__, us->srb);
+			__func__, us->srb);
 		return SCSI_MLQUEUE_HOST_BUSY;
 	}
 
@@ -313,7 +316,7 @@ static int command_abort(struct scsi_cmnd *srb)
 {
 	struct us_data *us = host_to_us(srb->device->host);
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* us->srb together with the TIMED_OUT, RESETTING, and ABORTING
 	 * bits are protected by the host lock. */
@@ -350,7 +353,7 @@ static int device_reset(struct scsi_cmnd *srb)
 	struct us_data *us = host_to_us(srb->device->host);
 	int result;
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* lock the device pointers and do the reset */
 	mutex_lock(&(us->dev_mutex));
@@ -366,7 +369,7 @@ static int bus_reset(struct scsi_cmnd *srb)
 	struct us_data *us = host_to_us(srb->device->host);
 	int result;
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 	result = usb_stor_port_reset(us);
 	return result < 0 ? FAILED : SUCCESS;
 }
@@ -458,10 +461,6 @@ US_DO_ALL_FLAGS
 		*(pos++) = '\n';
 	}
 
-
-	SPRINTF("         Port: %s\n", us->pusb_dev->devpath);
-	// Added Port descriptor
-
 	/*
 	 * Calculate start of next buffer, and return value.
 	 */
@@ -484,7 +483,7 @@ static ssize_t show_max_sectors(struct device *dev, struct device_attribute *att
 {
 	struct scsi_device *sdev = to_scsi_device(dev);
 
-	return sprintf(buf, "%u\n", sdev->request_queue->max_sectors);
+	return sprintf(buf, "%u\n", queue_max_hw_sectors(sdev->request_queue));
 }
 
 /* Input routine for the sysfs max_sectors file */
@@ -494,9 +493,9 @@ static ssize_t store_max_sectors(struct device *dev, struct device_attribute *at
 	struct scsi_device *sdev = to_scsi_device(dev);
 	unsigned short ms;
 
-	if (sscanf(buf, "%hu", &ms) > 0 && ms <= SCSI_DEFAULT_MAX_SECTORS) {
-		blk_queue_max_sectors(sdev->request_queue, ms);
-		return strlen(buf);
+	if (sscanf(buf, "%hu", &ms) > 0) {
+		blk_queue_max_hw_sectors(sdev->request_queue, ms);
+		return count;
 	}
 	return -EINVAL;	
 }
@@ -539,10 +538,14 @@ struct scsi_host_template usb_stor_host_template = {
 	.slave_configure =		slave_configure,
 
 	/* lots of sg segments can be handled */
-	.sg_tablesize =			SG_ALL,
+	.sg_tablesize =			SCSI_MAX_SG_CHAIN_SEGMENTS,
 
+#ifdef CONFIG_BCM47XX
+	.max_sectors =                  960,
+#else
 	/* limit the total size of a transfer to 120 KB */
 	.max_sectors =                  240,
+#endif
 
 	/* merge commands... this seems to help performance, but
 	 * periodically someone should test to see which setting is more
@@ -570,4 +573,4 @@ unsigned char usb_stor_sense_invalidCDB[18] = {
 	[7]	= 0x0a,			    /* additional length */
 	[12]	= 0x24			    /* Invalid Field in CDB */
 };
-
+EXPORT_SYMBOL_GPL(usb_stor_sense_invalidCDB);

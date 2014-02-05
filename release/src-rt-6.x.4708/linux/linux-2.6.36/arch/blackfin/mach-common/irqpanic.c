@@ -1,55 +1,25 @@
 /*
- * File:         arch/blackfin/mach-common/irqpanic.c
- * Based on:
- * Author:
+ * panic kernel with dump information
  *
- * Created:      ?
- * Description:  panic kernel with dump information
+ * Copyright 2005-2009 Analog Devices Inc.
  *
- * Modified:     rgetz - added cache checking code 14Feb06
- *               Copyright 2004-2006 Analog Devices Inc.
- *
- * Bugs:         Enter bugs at http://blackfin.uclinux.org/
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see the file COPYING, or write
- * to the Free Software Foundation, Inc.,
- * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ * Licensed under the GPL-2 or later.
  */
 
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
 #include <linux/sched.h>
-#include <asm/traps.h>
 #include <asm/blackfin.h>
 
-#include "../oprofile/op_blackfin.h"
-
-#ifdef CONFIG_DEBUG_ICACHE_CHECK
 #define L1_ICACHE_START 0xffa10000
 #define L1_ICACHE_END   0xffa13fff
-void irq_panic(int reason, struct pt_regs *regs) __attribute__ ((l1_text));
-#endif
 
 /*
  * irq_panic - calls panic with string setup
  */
+__attribute__ ((l1_text))
 asmlinkage void irq_panic(int reason, struct pt_regs *regs)
 {
-	int sig = 0;
-	siginfo_t info;
-
-#ifdef CONFIG_DEBUG_ICACHE_CHECK
 	unsigned int cmd, tag, ca, cache_hi, cache_lo, *pa;
 	unsigned short i, j, die;
 	unsigned int bad[10][6];
@@ -131,64 +101,6 @@ asmlinkage void irq_panic(int reason, struct pt_regs *regs)
 			     bad[j][3], bad[j][4], bad[j][5]);
 		}
 		panic("icache coherency error");
-	} else {
+	} else
 		printk(KERN_EMERG "icache checked, and OK\n");
-	}
-#endif
-
-	printk(KERN_EMERG "\n");
-	printk(KERN_EMERG "Exception: IRQ 0x%x entered\n", reason);
-	printk(KERN_EMERG " code=[0x%08lx],   stack frame=0x%08lx,  "
-	    " bad PC=0x%08lx\n",
-	    (unsigned long)regs->seqstat,
-	    (unsigned long)regs,
-	    (unsigned long)regs->pc);
-	if (reason == 0x5) {
-		printk(KERN_EMERG "----------- HARDWARE ERROR -----------\n");
-
-		/* There is only need to check for Hardware Errors, since other
-		 * EXCEPTIONS are handled in TRAPS.c (MH)
-		 */
-		switch (regs->seqstat & SEQSTAT_HWERRCAUSE) {
-		case (SEQSTAT_HWERRCAUSE_SYSTEM_MMR):	/* System MMR Error */
-			info.si_code = BUS_ADRALN;
-			sig = SIGBUS;
-			printk(KERN_EMERG HWC_x2);
-			break;
-		case (SEQSTAT_HWERRCAUSE_EXTERN_ADDR):	/* External Memory Addressing Error */
-			info.si_code = BUS_ADRERR;
-			sig = SIGBUS;
-			printk(KERN_EMERG HWC_x3);
-			break;
-		case (SEQSTAT_HWERRCAUSE_PERF_FLOW):	/* Performance Monitor Overflow */
-			printk(KERN_EMERG HWC_x12);
-			break;
-		case (SEQSTAT_HWERRCAUSE_RAISE_5):	/* RAISE 5 instruction */
-			printk(KERN_EMERG HWC_x18);
-			break;
-		default:	/* Reserved */
-			printk(KERN_EMERG HWC_default);
-			break;
-		}
-	}
-
-	regs->ipend = bfin_read_IPEND();
-	dump_bfin_regs(regs, (void *)regs->pc);
-	if (0 == (info.si_signo = sig) || 0 == user_mode(regs))	/* in kernelspace */
-		panic("Unhandled IRQ or exceptions!\n");
-	else {			/* in userspace */
-		info.si_errno = 0;
-		info.si_addr = (void *)regs->pc;
-		force_sig_info(sig, &info, current);
-	}
 }
-
-#ifdef CONFIG_HARDWARE_PM
-/*
- * call the handler of Performance overflow
- */
-asmlinkage void pm_overflow(int irq, struct pt_regs *regs)
-{
-	pm_overflow_handler(irq, regs);
-}
-#endif

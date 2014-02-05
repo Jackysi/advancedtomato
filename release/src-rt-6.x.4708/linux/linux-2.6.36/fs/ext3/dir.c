@@ -42,14 +42,12 @@ const struct file_operations ext3_dir_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
 	.readdir	= ext3_readdir,		/* we take BKL. needed?*/
-	.ioctl		= ext3_ioctl,		/* BKL held */
+	.unlocked_ioctl	= ext3_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= ext3_compat_ioctl,
 #endif
 	.fsync		= ext3_sync_file,	/* BKL held */
-#ifdef CONFIG_EXT3_INDEX
 	.release	= ext3_release_dir,
-#endif
 };
 
 
@@ -108,7 +106,6 @@ static int ext3_readdir(struct file * filp,
 
 	sb = inode->i_sb;
 
-#ifdef CONFIG_EXT3_INDEX
 	if (EXT3_HAS_COMPAT_FEATURE(inode->i_sb,
 				    EXT3_FEATURE_COMPAT_DIR_INDEX) &&
 	    ((EXT3_I(inode)->i_flags & EXT3_INDEX_FL) ||
@@ -124,7 +121,6 @@ static int ext3_readdir(struct file * filp,
 		 */
 		EXT3_I(filp->f_path.dentry->d_inode)->i_flags &= ~EXT3_INDEX_FL;
 	}
-#endif
 	stored = 0;
 	offset = filp->f_pos & (sb->s_blocksize - 1);
 
@@ -134,15 +130,16 @@ static int ext3_readdir(struct file * filp,
 		struct buffer_head *bh = NULL;
 
 		map_bh.b_state = 0;
-		err = ext3_get_blocks_handle(NULL, inode, blk, 1,
-						&map_bh, 0, 0);
+		err = ext3_get_blocks_handle(NULL, inode, blk, 1, &map_bh, 0);
 		if (err > 0) {
-			page_cache_readahead(sb->s_bdev->bd_inode->i_mapping,
-				&filp->f_ra,
-				filp,
-				map_bh.b_blocknr >>
-					(PAGE_CACHE_SHIFT - inode->i_blkbits),
-				1);
+			pgoff_t index = map_bh.b_blocknr >>
+					(PAGE_CACHE_SHIFT - inode->i_blkbits);
+			if (!ra_has_index(&filp->f_ra, index))
+				page_cache_sync_readahead(
+					sb->s_bdev->bd_inode->i_mapping,
+					&filp->f_ra, filp,
+					index, 1);
+			filp->f_ra.prev_pos = (loff_t)index << PAGE_CACHE_SHIFT;
 			bh = ext3_bread(NULL, inode, blk, 0, &err);
 		}
 
@@ -152,7 +149,7 @@ static int ext3_readdir(struct file * filp,
 		 */
 		if (!bh) {
 			if (!dir_has_error) {
-				ext3_error(sb, __FUNCTION__, "directory #%lu "
+				ext3_error(sb, __func__, "directory #%lu "
 					"contains a hole at offset %lld",
 					inode->i_ino, filp->f_pos);
 				dir_has_error = 1;
@@ -212,7 +209,7 @@ revalidate:
 				 * not the directory has been modified
 				 * during the copy operation.
 				 */
-				unsigned long version = filp->f_version;
+				u64 version = filp->f_version;
 
 				error = filldir(dirent, de->name,
 						de->name_len,
@@ -234,7 +231,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_EXT3_INDEX
 /*
  * These functions convert from the major/minor hash to an f_pos
  * value.
@@ -301,7 +297,7 @@ static void free_rb_tree_fname(struct rb_root *root)
 			kfree (old);
 		}
 		if (!parent)
-			root->rb_node = NULL;
+			*root = RB_ROOT;
 		else if (parent->rb_left == n)
 			parent->rb_left = NULL;
 		else if (parent->rb_right == n)
@@ -520,5 +516,3 @@ static int ext3_release_dir (struct inode * inode, struct file * filp)
 
 	return 0;
 }
-
-#endif

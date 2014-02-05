@@ -14,6 +14,8 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 #include <asm/setup.h>
 #include <asm/system.h>
 #include <asm/page.h>
@@ -125,7 +127,7 @@ static void nubus_advance(unsigned char **ptr, int len, int map)
 	{
 		while(not_useful(p,map))
 			p++;
-			p++;
+		p++;
 		len--;
 	}
 	*ptr = p;
@@ -186,6 +188,7 @@ void nubus_get_rsrc_mem(void *dest, const struct nubus_dirent* dirent,
 		len--;
 	}
 }
+EXPORT_SYMBOL(nubus_get_rsrc_mem);
 
 void nubus_get_rsrc_str(void *dest, const struct nubus_dirent* dirent,
 			int len)
@@ -200,6 +203,7 @@ void nubus_get_rsrc_str(void *dest, const struct nubus_dirent* dirent,
 		len--;
 	}
 }
+EXPORT_SYMBOL(nubus_get_rsrc_str);
 
 int nubus_get_root_dir(const struct nubus_board* board,
 		       struct nubus_dir* dir)
@@ -209,6 +213,7 @@ int nubus_get_root_dir(const struct nubus_board* board,
 	dir->mask = board->lanes;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_get_root_dir);
 
 /* This is a slyly renamed version of the above */
 int nubus_get_func_dir(const struct nubus_dev* dev,
@@ -219,6 +224,7 @@ int nubus_get_func_dir(const struct nubus_dev* dev,
 	dir->mask = dev->board->lanes;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_get_func_dir);
 
 int nubus_get_board_dir(const struct nubus_board* board,
 			struct nubus_dir* dir)
@@ -237,6 +243,7 @@ int nubus_get_board_dir(const struct nubus_board* board,
 		return -1;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_get_board_dir);
 
 int nubus_get_subdir(const struct nubus_dirent *ent,
 		     struct nubus_dir *dir)
@@ -246,6 +253,7 @@ int nubus_get_subdir(const struct nubus_dirent *ent,
 	dir->mask = ent->mask;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_get_subdir);
 
 int nubus_readdir(struct nubus_dir *nd, struct nubus_dirent *ent)
 {
@@ -274,12 +282,14 @@ int nubus_readdir(struct nubus_dir *nd, struct nubus_dirent *ent)
 	ent->mask  = nd->mask;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_readdir);
 
 int nubus_rewinddir(struct nubus_dir* dir)
 {
 	dir->ptr = dir->base;
 	return 0;
 }
+EXPORT_SYMBOL(nubus_rewinddir);
 
 /* Driver interface functions, more or less like in pci.c */
 
@@ -303,6 +313,7 @@ nubus_find_device(unsigned short category,
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(nubus_find_device);
 
 struct nubus_dev*
 nubus_find_type(unsigned short category,
@@ -320,6 +331,7 @@ nubus_find_type(unsigned short category,
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(nubus_find_type);
 
 struct nubus_dev*
 nubus_find_slot(unsigned int slot,
@@ -335,6 +347,7 @@ nubus_find_slot(unsigned int slot,
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(nubus_find_slot);
 
 int
 nubus_find_rsrc(struct nubus_dir* dir, unsigned char rsrc_type,
@@ -346,15 +359,12 @@ nubus_find_rsrc(struct nubus_dir* dir, unsigned char rsrc_type,
 	}	
 	return -1;
 }
+EXPORT_SYMBOL(nubus_find_rsrc);
 
 /* Initialization functions - decide which slots contain stuff worth
    looking at, and print out lots and lots of information from the
    resource blocks. */
 
-/* FIXME: A lot of this stuff will eventually be useful after
-   initializaton, for intelligently probing Ethernet and video chips,
-   among other things.  The rest of it should go in the /proc code.
-   For now, we just use it to give verbose boot logs. */
 
 static int __init nubus_show_display_resource(struct nubus_dev* dev,
 					      const struct nubus_dirent* ent)
@@ -466,9 +476,8 @@ static struct nubus_dev* __init
 		       parent->base, dir.base);
 
 	/* Actually we should probably panic if this fails */
-	if ((dev = kmalloc(sizeof(*dev), GFP_ATOMIC)) == NULL)
+	if ((dev = kzalloc(sizeof(*dev), GFP_ATOMIC)) == NULL)
 		return NULL;	
-	memset(dev, 0, sizeof(*dev));
 	dev->resid = parent->type;
 	dev->directory = dir.base;
 	dev->board = board;
@@ -546,7 +555,6 @@ static int __init nubus_get_vidnames(struct nubus_board* board,
 {
 	struct nubus_dir    dir;
 	struct nubus_dirent ent;
-	/* FIXME: obviously we want to put this in a header file soon */
 	struct vidmode {
 		u32 size;
 		/* Don't know what this is yet */
@@ -757,16 +765,6 @@ static void __init nubus_find_rom_dir(struct nubus_board* board)
 	if (console_loglevel >= 10)
 		printk(KERN_DEBUG "nubus_get_rom_dir: entry %02x %06x\n", ent.type, ent.data);
 
-	/* FIXME: the first one is *not* always the right one.  We
-	   suspect this has something to do with the ROM revision.
-	   "The HORROR ROM" (LC-series) uses 0x7e, while "The HORROR
-	   Continues" (Q630) uses 0x7b.  The DAFB Macs evidently use
-	   something else.  Please run "Slots" on your Mac (see
-	   include/linux/nubus.h for where to get this program) and
-	   tell us where the 'SiDirPtr' for Slot 0 is.  If you feel
-	   brave, you should also use MacsBug to walk down the ROM
-	   directories like this function does and try to find the
-	   path to that address... */
 	if (nubus_readdir(&dir, &ent) == -1)
 		goto badrom;
 	if (console_loglevel >= 10)
@@ -800,9 +798,8 @@ static struct nubus_board* __init nubus_add_board(int slot, int bytelanes)
 	nubus_rewind(&rp, FORMAT_BLOCK_SIZE, bytelanes);
 
 	/* Actually we should probably panic if this fails */
-	if ((board = kmalloc(sizeof(*board), GFP_ATOMIC)) == NULL)
+	if ((board = kzalloc(sizeof(*board), GFP_ATOMIC)) == NULL)
 		return NULL;	
-	memset(board, 0, sizeof(*board));
 	board->fblock = rp;
 
 	/* Dump the format block for debugging purposes */
@@ -850,7 +847,6 @@ static struct nubus_board* __init nubus_add_board(int slot, int bytelanes)
 	 * since the initial Macintosh ROM releases skipped the check.
 	 */
 
-	/* Attempt to work around slot zero weirdness */
 	nubus_find_rom_dir(board);
 	nubus_get_root_dir(board, &dir);	
 

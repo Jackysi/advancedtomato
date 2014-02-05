@@ -1,6 +1,4 @@
 /*
- * $Id: ct82c710.c,v 1.11 2001/09/25 10:12:07 vojtech Exp $
- *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  */
 
@@ -37,6 +35,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include <asm/io.h>
 

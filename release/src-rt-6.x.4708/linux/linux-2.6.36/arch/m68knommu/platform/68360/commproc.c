@@ -50,10 +50,6 @@ extern unsigned int system_clock;
 static uint dp_alloc_base;	/* Starting offset in DP ram */
 static uint dp_alloc_top;	/* Max offset + 1 */
 
-#if 0
-static	void	*host_buffer;	/* One page of host buffer */
-static	void	*host_end;	    /* end + 1 */
-#endif
 
 /* struct  cpm360_t *cpmp; */         /* Pointer to comm processor space */
 
@@ -110,7 +106,7 @@ void m360_cpm_reset()
 	/* 	pte = find_pte(&init_mm, host_page_addr); */
 	/* 	pte_val(*pte) |= _PAGE_NO_CACHE; */
 	/* 	flush_tlb_page(current->mm->mmap, host_buffer); */
-	
+
 	/* Tell everyone where the comm processor resides.
 	*/
 /* 	cpmp = (cpm360_t *)commproc; */
@@ -172,26 +168,7 @@ cpm_interrupt(int irq, void * dev, struct pt_regs * regs)
 	/* call that vector's handler */
 	/* clear the irq's bit in the service register */
 
-#if 0 /* old 860 stuff: */
-	/* Get the vector by setting the ACK bit and then reading
-	 * the register.
-	 */
-	((volatile immap_t *)IMAP_ADDR)->im_cpic.cpic_civr = 1;
-	vec = ((volatile immap_t *)IMAP_ADDR)->im_cpic.cpic_civr;
-	vec >>= 11;
 
-
-	if (cpm_vecs[vec].handler != 0)
-		(*cpm_vecs[vec].handler)(cpm_vecs[vec].dev_id);
-	else
-		((immap_t *)IMAP_ADDR)->im_cpic.cpic_cimr &= ~(1 << vec);
-
-	/* After servicing the interrupt, we have to remove the status
-	 * indicator.
-	 */
-	((immap_t *)IMAP_ADDR)->im_cpic.cpic_cisr |= (1 << vec);
-#endif
-	
 }
 
 /* The CPM can generate the error interrupt when there is a race condition
@@ -256,24 +233,6 @@ m360_cpm_dpalloc(uint size)
 }
 
 
-#if 0 /* mleslie - for now these are simply kmalloc'd */
-/* We also own one page of host buffer space for the allocation of
- * UART "fifos" and the like.
- */
-uint
-m360_cpm_hostalloc(uint size)
-{
-	uint	retloc;
-
-	if ((host_buffer + size) >= host_end)
-		return(0);
-
-	retloc = host_buffer;
-	host_buffer += size;
-
-	return(retloc);
-}
-#endif
 
 
 /* Set a baud rate generator.  This needs lots of work.  There are

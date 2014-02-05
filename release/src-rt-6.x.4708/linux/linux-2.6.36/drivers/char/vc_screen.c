@@ -34,6 +34,7 @@
 #include <linux/kbd_kern.h>
 #include <linux/console.h>
 #include <linux/device.h>
+#include <linux/smp_lock.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -460,9 +461,13 @@ static int
 vcs_open(struct inode *inode, struct file *filp)
 {
 	unsigned int currcons = iminor(inode) & 127;
+	int ret = 0;
+	
+	tty_lock();
 	if(currcons && !vc_cons_allocated(currcons-1))
-		return -ENXIO;
-	return 0;
+		ret = -ENXIO;
+	tty_unlock();
+	return ret;
 }
 
 static const struct file_operations vcs_fops = {
@@ -474,27 +479,31 @@ static const struct file_operations vcs_fops = {
 
 static struct class *vc_class;
 
-void vcs_make_sysfs(struct tty_struct *tty)
+void vcs_make_sysfs(int index)
 {
-	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, tty->index + 1),
-			"vcs%u", tty->index + 1);
-	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, tty->index + 129),
-			"vcsa%u", tty->index + 1);
+	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, index + 1), NULL,
+		      "vcs%u", index + 1);
+	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, index + 129), NULL,
+		      "vcsa%u", index + 1);
 }
 
-void vcs_remove_sysfs(struct tty_struct *tty)
+void vcs_remove_sysfs(int index)
 {
-	device_destroy(vc_class, MKDEV(VCS_MAJOR, tty->index + 1));
-	device_destroy(vc_class, MKDEV(VCS_MAJOR, tty->index + 129));
+	device_destroy(vc_class, MKDEV(VCS_MAJOR, index + 1));
+	device_destroy(vc_class, MKDEV(VCS_MAJOR, index + 129));
 }
 
 int __init vcs_init(void)
 {
+	unsigned int i;
+
 	if (register_chrdev(VCS_MAJOR, "vcs", &vcs_fops))
 		panic("unable to get major %d for vcs device", VCS_MAJOR);
 	vc_class = class_create(THIS_MODULE, "vc");
 
-	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 0), "vcs");
-	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 128), "vcsa");
+	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 0), NULL, "vcs");
+	device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 128), NULL, "vcsa");
+	for (i = 0; i < MIN_NR_CONSOLES; i++)
+		vcs_make_sysfs(i);
 	return 0;
 }

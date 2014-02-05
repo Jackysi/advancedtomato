@@ -100,15 +100,7 @@ struct COFF_filehdr {
 
 #define	COFF_I386MAGIC	        0x14c   /* Linux's system    */
 
-#if 0   /* Perhaps, someday, these formats may be used.      */
-#define COFF_I386PTXMAGIC	0x154
-#define COFF_I386AIXMAGIC	0x175   /* IBM's AIX system  */
-#define COFF_I386BADMAG(x) ((COFF_SHORT((x).f_magic) != COFF_I386MAGIC) \
-			  && COFF_SHORT((x).f_magic) != COFF_I386PTXMAGIC \
-			  && COFF_SHORT((x).f_magic) != COFF_I386AIXMAGIC)
-#else
 #define COFF_I386BADMAG(x) (COFF_SHORT((x).f_magic) != COFF_I386MAGIC)
-#endif
 
 #define	COFF_FILHDR	struct COFF_filehdr
 #define	COFF_FILHSZ	sizeof(COFF_FILHDR)

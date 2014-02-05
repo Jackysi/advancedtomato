@@ -21,18 +21,18 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/errno.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/fpga.h>
-#include <asm/arch/gpio.h>
+#include <plat/fpga.h>
+#include <mach/gpio.h>
 
 static void fpga_mask_irq(unsigned int irq)
 {
-	irq -= OMAP1510_IH_FPGA_BASE;
+	irq -= OMAP_FPGA_IRQ_BASE;
 
 	if (irq < 8)
 		__raw_writeb((__raw_readb(OMAP1510_FPGA_IMR_LO)
@@ -65,7 +65,7 @@ static void fpga_ack_irq(unsigned int irq)
 
 static void fpga_unmask_irq(unsigned int irq)
 {
-	irq -= OMAP1510_IH_FPGA_BASE;
+	irq -= OMAP_FPGA_IRQ_BASE;
 
 	if (irq < 8)
 		__raw_writeb((__raw_readb(OMAP1510_FPGA_IMR_LO) | (1 << irq)),
@@ -86,7 +86,6 @@ static void fpga_mask_ack_irq(unsigned int irq)
 
 void innovator_fpga_IRQ_demux(unsigned int irq, struct irq_desc *desc)
 {
-	struct irq_desc *d;
 	u32 stat;
 	int fpga_irq;
 
@@ -95,12 +94,11 @@ void innovator_fpga_IRQ_demux(unsigned int irq, struct irq_desc *desc)
 	if (!stat)
 		return;
 
-	for (fpga_irq = OMAP1510_IH_FPGA_BASE;
-	     (fpga_irq < (OMAP1510_IH_FPGA_BASE + NR_FPGA_IRQS)) && stat;
+	for (fpga_irq = OMAP_FPGA_IRQ_BASE;
+	     (fpga_irq < OMAP_FPGA_IRQ_END) && stat;
 	     fpga_irq++, stat >>= 1) {
 		if (stat & 1) {
-			d = irq_desc + fpga_irq;
-			desc_handle_irq(fpga_irq, d);
+			generic_handle_irq(fpga_irq);
 		}
 	}
 }
@@ -120,29 +118,6 @@ static struct irq_chip omap_fpga_irq = {
 	.unmask		= fpga_unmask_irq,
 };
 
-/*
- * All of the FPGA interrupt request inputs except for the touchscreen are
- * edge-sensitive; the touchscreen is level-sensitive.  The edge-sensitive
- * interrupts are acknowledged as a side-effect of reading the interrupt
- * status register from the FPGA.  The edge-sensitive interrupt inputs
- * cause a problem with level interrupt requests, such as Ethernet.  The
- * problem occurs when a level interrupt request is asserted while its
- * interrupt input is masked in the FPGA, which results in a missed
- * interrupt.
- *
- * In an attempt to workaround the problem with missed interrupts, the
- * mask_ack routine for all of the FPGA interrupts has been changed from
- * fpga_mask_ack_irq() to fpga_ack_irq() so that the specific FPGA interrupt
- * being serviced is left unmasked.  We can do this because the FPGA cascade
- * interrupt is installed with the IRQF_DISABLED flag, which leaves all
- * interrupts masked at the CPU while an FPGA interrupt handler executes.
- *
- * Limited testing indicates that this workaround appears to be effective
- * for the smc9194 Ethernet driver used on the Innovator.  It should work
- * on other FPGA interrupts as well, but any drivers that explicitly mask
- * interrupts at the interrupt controller via disable_irq/enable_irq
- * could pose a problem.
- */
 void omap1510_fpga_init_irq(void)
 {
 	int i;
@@ -151,7 +126,7 @@ void omap1510_fpga_init_irq(void)
 	__raw_writeb(0, OMAP1510_FPGA_IMR_HI);
 	__raw_writeb(0, INNOVATOR_FPGA_IMR2);
 
-	for (i = OMAP1510_IH_FPGA_BASE; i < (OMAP1510_IH_FPGA_BASE + NR_FPGA_IRQS); i++) {
+	for (i = OMAP_FPGA_IRQ_BASE; i < OMAP_FPGA_IRQ_END; i++) {
 
 		if (i == OMAP1510_INT_FPGA_TS) {
 			/*
@@ -179,9 +154,9 @@ void omap1510_fpga_init_irq(void)
 	 * NOTE: For general GPIO/MPUIO access and interrupts, please see
 	 * gpio.[ch]
 	 */
-	omap_request_gpio(13);
-	omap_set_gpio_direction(13, 1);
-	set_irq_type(OMAP_GPIO_IRQ(13), IRQT_RISING);
+	gpio_request(13, "FPGA irq");
+	gpio_direction_input(13);
+	set_irq_type(gpio_to_irq(13), IRQ_TYPE_EDGE_RISING);
 	set_irq_chained_handler(OMAP1510_INT_FPGA, innovator_fpga_IRQ_demux);
 }
 

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.6 2004/12/13 12:21:51 starvik Exp $
+# $Id: Makefile,v 1.6 2004/12/13 12:21:51 Exp $
 #
 # Makefile for the linux kernel.
 #
@@ -15,4 +15,3 @@ obj-$(CONFIG_ETRAX_FAST_TIMER) += fasttimer.o
 obj-$(CONFIG_MODULES)    += crisksyms.o
 
 clean:
-

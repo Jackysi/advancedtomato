@@ -34,15 +34,8 @@
  * needed for RCU lookups (because root->height is unreliable). The only
  * time callers need worry about this is when doing a lookup_slot under
  * RCU.
- *
- * Indirect pointer in fact is also used to tag the last pointer of a node
- * when it is shrunk, before we rcu free the node. See shrink code for
- * details.
  */
 #define RADIX_TREE_INDIRECT_PTR	1
-
-#define radix_tree_indirect_to_ptr(ptr) \
-	radix_tree_indirect_to_ptr((void __force *)(ptr))
 
 static inline int radix_tree_is_indirect_ptr(void *ptr)
 {

@@ -268,11 +268,6 @@ int hfsplus_delete_cat(u32 cnid, struct inode *dir, struct qstr *str)
 
 	type = hfs_bnode_read_u16(fd.bnode, fd.entryoffset);
 	if (type == HFSPLUS_FILE) {
-#if 0
-		off = fd.entryoffset + offsetof(hfsplus_cat_file, data_fork);
-		hfs_bnode_read(fd.bnode, &fork, off, sizeof(fork));
-		hfsplus_free_fork(sb, cnid, &fork, HFSPLUS_TYPE_DATA);
-#endif
 
 		off = fd.entryoffset + offsetof(struct hfsplus_cat_file, rsrc_fork);
 		hfs_bnode_read(fd.bnode, &fork, off, sizeof(fork));

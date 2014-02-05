@@ -29,7 +29,6 @@ unsigned long hub_pio_map(cnodeid_t cnode, xwidgetnum_t widget,
 			  unsigned long xtalk_addr, size_t size)
 {
 	nasid_t nasid = COMPACT_TO_NASID_NODEID(cnode);
-	volatile hubreg_t junk;
 	unsigned i;
 
 	/* use small-window mapping if possible */
@@ -64,7 +63,7 @@ unsigned long hub_pio_map(cnodeid_t cnode, xwidgetnum_t widget,
 		 * after we write it.
 		 */
 		IIO_ITTE_PUT(nasid, i, HUB_PIO_MAP_TO_MEM, widget, xtalk_addr);
-		junk = HUB_L(IIO_ITTE_GET(nasid, i));
+		(void) HUB_L(IIO_ITTE_GET(nasid, i));
 
 		return NODE_BWIN_BASE(nasid, widget) + (xtalk_addr % BWIN_SIZE);
 	}
@@ -116,24 +115,6 @@ static void hub_setup_prb(nasid_t nasid, int prbnum, int credits)
 	REMOTE_HUB_S(nasid, prb_offset, prb.iprb_regval);
 }
 
-/**
- * hub_set_piomode  -  set pio mode for a given hub
- *
- * @nasid:	physical node ID for the hub in question
- *
- * Put the hub into either "PIO conveyor belt" mode or "fire-and-forget" mode.
- * To do this, we have to make absolutely sure that no PIOs are in progress
- * so we turn off access to all widgets for the duration of the function.
- *
- * XXX - This code should really check what kind of widget we're talking
- * to.  Bridges can only handle three requests, but XG will do more.
- * How many can crossbow handle to widget 0?  We're assuming 1.
- *
- * XXX - There is a bug in the crossbow that link reset PIOs do not
- * return write responses.  The easiest solution to this problem is to
- * leave widget 0 (xbow) in fire-and-forget mode at all times.  This
- * only affects pio's to xbow registers, which should be rare.
- **/
 static void hub_set_piomode(nasid_t nasid)
 {
 	hubreg_t ii_iowa;
@@ -157,10 +138,6 @@ static void hub_set_piomode(nasid_t nasid)
 		hub_setup_prb(nasid, 0, 1);
 	}
 
-	/*
-	 * XXX - Here's where we should take the widget type into
-	 * when account assigning credits.
-	 */
 	for (i = HUB_WIDGET_ID_MIN; i <= HUB_WIDGET_ID_MAX; i++)
 		hub_setup_prb(nasid, i, 3);
 
@@ -168,7 +145,7 @@ static void hub_set_piomode(nasid_t nasid)
 }
 
 /*
- * hub_pio_init  -  PIO-related hub initalization
+ * hub_pio_init  -  PIO-related hub initialization
  *
  * @hub:	hubinfo structure for our hub
  */

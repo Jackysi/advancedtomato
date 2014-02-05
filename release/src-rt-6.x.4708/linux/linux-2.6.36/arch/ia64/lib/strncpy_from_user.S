@@ -27,7 +27,6 @@ GLOBAL_ENTRY(__strncpy_from_user)
 	cmp.eq p6,p0=r0,in2
 (p6)	br.ret.spnt.many rp
 
-	// XXX braindead copy loop---this needs to be optimized
 .Loop1:
 	EX(.Lexit, ld1 r8=[in1],1)
 	;;

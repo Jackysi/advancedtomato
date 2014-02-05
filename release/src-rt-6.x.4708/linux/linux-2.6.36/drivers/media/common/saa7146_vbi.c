@@ -16,16 +16,11 @@ static int vbi_workaround(struct saa7146_dev *dev)
 
 	DEB_VBI(("dev:%p\n",dev));
 
-	/* once again, a bug in the saa7146: the brs acquisition
-	   is buggy and especially the BXO-counter does not work
-	   as specified. there is this workaround, but please
-	   don't let me explain it. ;-) */
 
 	cpu = pci_alloc_consistent(dev->pci, 4096, &dma_addr);
 	if (NULL == cpu)
 		return -ENOMEM;
 
-	/* setup some basic programming, just for the workaround */
 	saa7146_write(dev, BASE_EVEN3,	dma_addr);
 	saa7146_write(dev, BASE_ODD3,	dma_addr+vbi_pixel_to_capture);
 	saa7146_write(dev, PROT_ADDR3,	dma_addr+4096);
@@ -80,11 +75,8 @@ static int vbi_workaround(struct saa7146_dev *dev)
 	/* stop rps1 */
 	WRITE_RPS1(CMD_STOP);
 
-	/* we have to do the workaround twice to be sure that
-	   everything is ok */
 	for(i = 0; i < 2; i++) {
 
-		/* indicate to the irq handler that we do the workaround */
 		saa7146_write(dev, MC2, MASK_31|MASK_15);
 
 		saa7146_write(dev, NUM_LINE_BYTE3, (1<<16)|(2<<0));
@@ -97,7 +89,6 @@ static int vbi_workaround(struct saa7146_dev *dev)
 		add_wait_queue(&vv->vbi_wq, &wait);
 		current->state = TASK_INTERRUPTIBLE;
 
-		/* start rps1 to enable workaround */
 		saa7146_write(dev, RPS_ADDR1, dev->d_rps1.dma_handle);
 		saa7146_write(dev, MC1, (MASK_13 | MASK_29));
 
@@ -165,7 +156,7 @@ static void saa7146_set_vbi_capture(struct saa7146_dev *dev, struct saa7146_buf 
 	/* we don't wait here for the first field anymore. this is different from the video
 	   capture and might cause that the first buffer is only half filled (with only
 	   one field). but since this is some sort of streaming data, this is not that negative.
-	   but by doing this, we can use the whole engine from video-buf.c... */
+	   but by doing this, we can use the whole engine from videobuf-dma-sg.c... */
 
 /*
 	WRITE_RPS1(CMD_PAUSE | CMD_OAN | CMD_SIG1 | e_wait);
@@ -205,7 +196,7 @@ static int buffer_activate(struct saa7146_dev *dev,
 			   struct saa7146_buf *next)
 {
 	struct saa7146_vv *vv = dev->vv_data;
-	buf->vb.state = STATE_ACTIVE;
+	buf->vb.state = VIDEOBUF_ACTIVE;
 
 	DEB_VBI(("dev:%p, buf:%p, next:%p\n",dev,buf,next));
 	saa7146_set_vbi_capture(dev,buf,next);
@@ -238,11 +229,13 @@ static int buffer_prepare(struct videobuf_queue *q, struct videobuf_buffer *vb,e
 	if (buf->vb.size != size)
 		saa7146_dma_free(dev,q,buf);
 
-	if (STATE_NEEDS_INIT == buf->vb.state) {
+	if (VIDEOBUF_NEEDS_INIT == buf->vb.state) {
+		struct videobuf_dmabuf *dma=videobuf_to_dma(&buf->vb);
+
 		buf->vb.width  = llength;
 		buf->vb.height = lines;
 		buf->vb.size   = size;
-		buf->vb.field  = field;	// FIXME: check this
+		buf->vb.field  = field;
 
 		saa7146_pgtable_free(dev->pci, &buf->pt[2]);
 		saa7146_pgtable_alloc(dev->pci, &buf->pt[2]);
@@ -250,11 +243,12 @@ static int buffer_prepare(struct videobuf_queue *q, struct videobuf_buffer *vb,e
 		err = videobuf_iolock(q,&buf->vb, NULL);
 		if (err)
 			goto oops;
-		err = saa7146_pgtable_build_single(dev->pci, &buf->pt[2], buf->vb.dma.sglist, buf->vb.dma.sglen);
+		err = saa7146_pgtable_build_single(dev->pci, &buf->pt[2],
+						 dma->sglist, dma->sglen);
 		if (0 != err)
 			return err;
 	}
-	buf->vb.state = STATE_PREPARED;
+	buf->vb.state = VIDEOBUF_PREPARED;
 	buf->activate = buffer_activate;
 
 	return 0;
@@ -332,7 +326,7 @@ static void vbi_stop(struct saa7146_fh *fh, struct file *file)
 	saa7146_write(dev, MC1, MASK_20);
 
 	if (vv->vbi_q.curr) {
-		saa7146_buffer_finish(dev,&vv->vbi_q,STATE_DONE);
+		saa7146_buffer_finish(dev,&vv->vbi_q,VIDEOBUF_DONE);
 	}
 
 	videobuf_queue_cancel(&fh->vbi_q);
@@ -372,7 +366,7 @@ static void vbi_init(struct saa7146_dev *dev, struct saa7146_vv *vv)
 
 static int vbi_open(struct saa7146_dev *dev, struct file *file)
 {
-	struct saa7146_fh *fh = (struct saa7146_fh *)file->private_data;
+	struct saa7146_fh *fh = file->private_data;
 
 	u32 arbtr_ctrl	= saa7146_read(dev, PCI_BT_V1);
 	int ret = 0;
@@ -398,19 +392,17 @@ static int vbi_open(struct saa7146_dev *dev, struct file *file)
 	fh->vbi_fmt.samples_per_line	= vbi_pixel_to_capture;
 	fh->vbi_fmt.sample_format	= V4L2_PIX_FMT_GREY;
 
-	/* fixme: this only works for PAL */
 	fh->vbi_fmt.start[0] = 5;
 	fh->vbi_fmt.count[0] = 16;
 	fh->vbi_fmt.start[1] = 312;
 	fh->vbi_fmt.count[1] = 16;
 
-	videobuf_queue_init(&fh->vbi_q, &vbi_qops,
-			    dev->pci, &dev->slock,
+	videobuf_queue_sg_init(&fh->vbi_q, &vbi_qops,
+			    &dev->pci->dev, &dev->slock,
 			    V4L2_BUF_TYPE_VBI_CAPTURE,
-			    V4L2_FIELD_SEQ_TB, // FIXME: does this really work?
+			    V4L2_FIELD_SEQ_TB,
 			    sizeof(struct saa7146_buf),
 			    file);
-	mutex_init(&fh->vbi_q.lock);
 
 	init_timer(&fh->vbi_read_timeout);
 	fh->vbi_read_timeout.function = vbi_read_timeout;
@@ -435,7 +427,7 @@ static int vbi_open(struct saa7146_dev *dev, struct file *file)
 
 static void vbi_close(struct saa7146_dev *dev, struct file *file)
 {
-	struct saa7146_fh *fh = (struct saa7146_fh *)file->private_data;
+	struct saa7146_fh *fh = file->private_data;
 	struct saa7146_vv *vv = dev->vv_data;
 	DEB_VBI(("dev:%p, fh:%p\n",dev,fh));
 
@@ -455,7 +447,7 @@ static void vbi_irq_done(struct saa7146_dev *dev, unsigned long status)
 		/* this must be += 2, one count for each field */
 		vv->vbi_fieldcount+=2;
 		vv->vbi_q.curr->vb.field_count = vv->vbi_fieldcount;
-		saa7146_buffer_finish(dev,&vv->vbi_q,STATE_DONE);
+		saa7146_buffer_finish(dev,&vv->vbi_q,VIDEOBUF_DONE);
 	} else {
 		DEB_VBI(("dev:%p\n",dev));
 	}
@@ -474,8 +466,6 @@ static ssize_t vbi_read(struct file *file, char __user *data, size_t count, loff
 	DEB_VBI(("dev:%p, fh:%p\n",dev,fh));
 
 	if( NULL == vv->vbi_streaming ) {
-		// fixme: check if dma3 is available
-		// fixme: activate vbi engine here if necessary. (really?)
 		vv->vbi_streaming = fh;
 	}
 

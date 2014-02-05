@@ -361,4 +361,3 @@ typedef struct _failStat
 #pragma pack()                  // Reset padding to command-line default
 
 #endif      // I2PACK_H
-

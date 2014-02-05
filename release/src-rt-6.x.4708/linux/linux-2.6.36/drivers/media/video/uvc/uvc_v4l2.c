@@ -245,18 +245,6 @@ static int uvc_v4l2_try_format(struct uvc_streaming *stream,
 	probe->bFormatIndex = format->index;
 	probe->bFrameIndex = frame->bFrameIndex;
 	probe->dwFrameInterval = uvc_try_frame_interval(frame, interval);
-	/* Some webcams stall the probe control set request when the
-	 * dwMaxVideoFrameSize field is set to zero. The UVC specification
-	 * clearly states that the field is read-only from the host, so this
-	 * is a webcam bug. Set dwMaxVideoFrameSize to the value reported by
-	 * the webcam to work around the problem.
-	 *
-	 * The workaround could probably be enabled for all webcams, so the
-	 * quirk can be removed if needed. It's currently useful to detect
-	 * webcam bugs and fix them before they hit the market (providing
-	 * developers test their webcams with the Linux driver as well as with
-	 * the Windows driver).
-	 */
 	if (stream->dev->quirks & UVC_QUIRK_PROBE_EXTRAFIELDS)
 		probe->dwMaxVideoFrameSize =
 			stream->ctrl.dwMaxVideoFrameSize;
@@ -1109,7 +1097,7 @@ static void uvc_vm_close(struct vm_area_struct *vma)
 	buffer->vma_use_count--;
 }
 
-static struct vm_operations_struct uvc_vm_ops = {
+static const struct vm_operations_struct uvc_vm_ops = {
 	.open		= uvc_vm_open,
 	.close		= uvc_vm_close,
 };
@@ -1188,4 +1176,3 @@ const struct v4l2_file_operations uvc_fops = {
 	.mmap		= uvc_v4l2_mmap,
 	.poll		= uvc_v4l2_poll,
 };
-

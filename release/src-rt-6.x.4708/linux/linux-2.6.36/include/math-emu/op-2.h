@@ -25,7 +25,7 @@
 #ifndef __MATH_EMU_OP_2_H__
 #define __MATH_EMU_OP_2_H__
 
-#define _FP_FRAC_DECL_2(X)	_FP_W_TYPE X##_f0, X##_f1
+#define _FP_FRAC_DECL_2(X)	_FP_W_TYPE X##_f0 = 0, X##_f1 = 0
 #define _FP_FRAC_COPY_2(D,S)	(D##_f0 = S##_f0, D##_f1 = S##_f1)
 #define _FP_FRAC_SET_2(X,I)	__FP_FRAC_SET_2(X, I)
 #define _FP_FRAC_HIGH_2(X)	(X##_f1)
@@ -142,29 +142,6 @@
     }				\
   } while(0)
 
-#if 0
-
-#ifndef __FP_FRAC_ADDI_2
-#define __FP_FRAC_ADDI_2(xh, xl, i)	\
-  (xh += ((xl += i) < i))
-#endif
-#ifndef __FP_FRAC_ADD_2
-#define __FP_FRAC_ADD_2(rh, rl, xh, xl, yh, yl)	\
-  (rh = xh + yh + ((rl = xl + yl) < xl))
-#endif
-#ifndef __FP_FRAC_SUB_2
-#define __FP_FRAC_SUB_2(rh, rl, xh, xl, yh, yl)	\
-  (rh = xh - yh - ((rl = xl - yl) > xl))
-#endif
-#ifndef __FP_FRAC_DEC_2
-#define __FP_FRAC_DEC_2(xh, xl, yh, yl)	\
-  do {					\
-    UWtype _t = xl;			\
-    xh -= yh + ((xl -= yl) > _t);	\
-  } while (0)
-#endif
-
-#else
 
 #undef __FP_FRAC_ADDI_2
 #define __FP_FRAC_ADDI_2(xh, xl, i)	add_ssaaaa(xh, xl, xh, xl, 0, i)
@@ -174,8 +151,6 @@
 #define __FP_FRAC_SUB_2			sub_ddmmss
 #undef __FP_FRAC_DEC_2
 #define __FP_FRAC_DEC_2(xh, xl, yh, yl)	sub_ddmmss(xh, xl, xh, xl, yh, yl)
-
-#endif
 
 /*
  * Unpack the raw bits of a native fp value.  Do not classify or

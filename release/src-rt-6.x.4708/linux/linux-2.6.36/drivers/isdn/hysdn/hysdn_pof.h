@@ -1,4 +1,4 @@
-/* $Id: hysdn_pof.h,v 1.2.6.1 2001/09/23 22:24:54 kai Exp $
+/* $Id: hysdn_pof.h,v 1.2.6.1 2001/09/23 22:24:54 Exp $
  *
  * Linux driver for HYSDN cards, definitions used for handling pof-files.
  *
@@ -60,7 +60,7 @@ typedef struct PofRecHdr_tag {	/* Pof record header */
 
 typedef struct PofTimeStamp_tag {
 /*00 */ unsigned long UnixTime __attribute__((packed));
-	/*04 */ unsigned char DateTimeText[0x28] __attribute__((packed));
+	/*04 */ unsigned char DateTimeText[0x28];
 	/* =40 */
 /*2C */
 } tPofTimeStamp;

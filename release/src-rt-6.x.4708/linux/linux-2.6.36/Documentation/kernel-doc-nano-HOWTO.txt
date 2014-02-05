@@ -1,6 +1,113 @@
 kernel-doc nano-HOWTO
 =====================
 
+How to format kernel-doc comments
+---------------------------------
+
+In order to provide embedded, 'C' friendly, easy to maintain,
+but consistent and extractable documentation of the functions and
+data structures in the Linux kernel, the Linux kernel has adopted
+a consistent style for documenting functions and their parameters,
+and structures and their members.
+
+The format for this documentation is called the kernel-doc format.
+It is documented in this Documentation/kernel-doc-nano-HOWTO.txt file.
+
+This style embeds the documentation within the source files, using
+a few simple conventions.  The scripts/kernel-doc perl script, some
+SGML templates in Documentation/DocBook, and other tools understand
+these conventions, and are used to extract this embedded documentation
+into various documents.
+
+In order to provide good documentation of kernel functions and data
+structures, please use the following conventions to format your
+kernel-doc comments in Linux kernel source.
+
+We definitely need kernel-doc formatted documentation for functions
+that are exported to loadable modules using EXPORT_SYMBOL.
+
+We also look to provide kernel-doc formatted documentation for
+functions externally visible to other kernel files (not marked
+"static").
+
+We also recommend providing kernel-doc formatted documentation
+for private (file "static") routines, for consistency of kernel
+source code layout.  But this is lower priority and at the
+discretion of the MAINTAINER of that kernel source file.
+
+Data structures visible in kernel include files should also be
+documented using kernel-doc formatted comments.
+
+The opening comment mark "/**" is reserved for kernel-doc comments.
+Only comments so marked will be considered by the kernel-doc scripts,
+and any comment so marked must be in kernel-doc format.  Do not use
+"/**" to be begin a comment block unless the comment block contains
+kernel-doc formatted comments.  The closing comment marker for
+kernel-doc comments can be either "*/" or "**/", but "*/" is
+preferred in the Linux kernel tree.
+
+Kernel-doc comments should be placed just before the function
+or data structure being described.
+
+Example kernel-doc function comment:
+
+/**
+ * foobar() - short function description of foobar
+ * @arg1:	Describe the first argument to foobar.
+ * @arg2:	Describe the second argument to foobar.
+ *		One can provide multiple line descriptions
+ *		for arguments.
+ *
+ * A longer description, with more discussion of the function foobar()
+ * that might be useful to those using or modifying it.  Begins with
+ * empty comment line, and may include additional embedded empty
+ * comment lines.
+ *
+ * The longer description can have multiple paragraphs.
+ */
+
+The short description following the subject can span multiple lines
+and ends with an @argument description, an empty line or the end of
+the comment block.
+
+The @argument descriptions must begin on the very next line following
+this opening short function description line, with no intervening
+empty comment lines.
+
+If a function parameter is "..." (varargs), it should be listed in
+kernel-doc notation as:
+ * @...: description
+
+
+Example kernel-doc data structure comment.
+
+/**
+ * struct blah - the basic blah structure
+ * @mem1:	describe the first member of struct blah
+ * @mem2:	describe the second member of struct blah,
+ *		perhaps with more lines and words.
+ *
+ * Longer description of this structure.
+ */
+
+The kernel-doc function comments describe each parameter to the
+function, in order, with the @name lines.
+
+The kernel-doc data structure comments describe each structure member
+in the data structure, with the @name lines.
+
+The longer description formatting is "reflowed", losing your line
+breaks.  So presenting carefully formatted lists within these
+descriptions won't work so well; derived documentation will lose
+the formatting.
+
+See the section below "How to add extractable documentation to your
+source files" for more details and notes on how to format kernel-doc
+comments.
+
+Components of the kernel-doc system
+-----------------------------------
+
 Many places in the source tree have extractable documentation in the
 form of block comments above functions.  The components of this system
 are:
@@ -69,10 +176,10 @@ if ($#ARGV < 0) {
 mkdir $ARGV[0],0777;
 $state = 0;
 while (<STDIN>) {
-    if (/^\.TH \"[^\"]*\" 4 \"([^\"]*)\"/) {
+    if (/^\.TH \"[^\"]*\" 9 \"([^\"]*)\"/) {
 	if ($state == 1) { close OUT }
 	$state = 1;
-	$fn = "$ARGV[0]/$1.4";
+	$fn = "$ARGV[0]/$1.9";
 	print STDERR "Creating $fn\n";
 	open OUT, ">$fn" or die "can't open $fn: $!\n";
 	print OUT $_;
@@ -107,11 +214,13 @@ The format of the block comment is like this:
  * (section header: (section description)? )*
 (*)?*/
 
-The short function description ***cannot be multiline***, but the other
-descriptions can be (and they can contain blank lines).  If you continue
-that initial short description onto a second line, that second line will
-appear further down at the beginning of the description section, which is
-almost certainly not what you had in mind.
+All "description" text can span multiple lines, although the
+function_name & its short description are traditionally on a single line.
+Description text may also contain blank lines (i.e., lines that contain
+only a "*").
+
+"section header:" names must be unique per function (or struct,
+union, typedef, enum).
 
 Avoid putting a spurious blank line after the function name, or else the
 description will be repeated!
@@ -164,7 +273,10 @@ Use the argument mechanism to document members or constants.
 
 Inside a struct description, you can use the "private:" and "public:"
 comment tags.  Structure fields that are inside a "private:" area
-are not listed in the generated output documentation.
+are not listed in the generated output documentation.  The "private:"
+and "public:" tags must begin immediately following a "/*" comment
+marker.  They may optionally include comments between the ":" and the
+ending "*/" marker.
 
 Example:
 
@@ -178,9 +290,35 @@ Example:
 struct my_struct {
     int a;
     int b;
-/* private: */
+/* private: internal use only */
     int c;
 };
+
+
+Including documentation blocks in source files
+----------------------------------------------
+
+To facilitate having source code and comments close together, you can
+include kernel-doc documentation blocks that are free-form comments
+instead of being kernel-doc for functions, structures, unions,
+enums, or typedefs.  This could be used for something like a
+theory of operation for a driver or library code, for example.
+
+This is done by using a DOC: section keyword with a section title.  E.g.:
+
+/**
+ * DOC: Theory of Operation
+ *
+ * The whizbang foobar is a dilly of a gizmo.  It can do whatever you
+ * want it to do, at any time.  It reads your mind.  Here's how it works.
+ *
+ * foo bar splat
+ *
+ * The only drawback to this gizmo is that is can sometimes damage
+ * hardware, software, or its subject(s).
+ */
+
+DOC: sections are used in SGML templates files as indicated below.
 
 
 How to make new SGML template files
@@ -203,6 +341,14 @@ exported using EXPORT_SYMBOL.
 !F<filename> <function [functions...]> is replaced by the
 documentation, in <filename>, for the functions listed.
 
+!P<filename> <section title> is replaced by the contents of the DOC:
+section titled <section title> from <filename>.
+Spaces are allowed in <section title>; do not quote the <section title>.
+
+!C<filename> is replaced by nothing, but makes the tools check that
+all DOC: sections and documented functions, symbols, etc. are used.
+This makes sense to use when you use !F/!P only and want to verify
+that all documentation is included.
 
 Tim.
 */ <twaugh@redhat.com>

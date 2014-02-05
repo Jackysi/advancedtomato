@@ -13,6 +13,7 @@
 #define IEEE1394_ISO_H
 
 #include <linux/spinlock_types.h>
+#include <linux/wait.h>
 #include <asm/atomic.h>
 #include <asm/types.h>
 
@@ -123,6 +124,8 @@ struct hpsb_iso {
 
 	/* how many times the buffer has overflowed or underflowed */
 	atomic_t overflows;
+	/* how many cycles were skipped for a given context */
+	atomic_t skips;
 
 	/* Current number of bytes lost in discarded packets */
 	int bytes_discarded;
@@ -142,9 +145,6 @@ struct hpsb_iso {
 	 * -1 if not known */
 	int xmit_cycle;
 
-	/* ringbuffer of packet descriptors in regular kernel memory
-	 * XXX Keep this last, since we use over-allocated memory from
-	 * this entry to fill this field. */
 	struct hpsb_iso_packet_info *infos;
 };
 

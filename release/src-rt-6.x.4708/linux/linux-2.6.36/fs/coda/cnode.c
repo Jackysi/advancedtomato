@@ -55,11 +55,6 @@ static int coda_set_inode(struct inode *inode, void *data)
 	return 0;
 }
 
-static int coda_fail_inode(struct inode *inode, void *data)
-{
-	return -1;
-}
-
 struct inode * coda_iget(struct super_block * sb, struct CodaFid * fid,
 			 struct coda_vattr * attr)
 {
@@ -123,7 +118,6 @@ void coda_replace_fid(struct inode *inode, struct CodaFid *oldfid,
 	BUG_ON(!coda_fideq(&cii->c_fid, oldfid));
 
 	/* replace fid and rehash inode */
-	/* XXX we probably need to hold some lock here! */
 	remove_inode_hash(inode);
 	cii->c_fid = *newfid;
 	inode->i_ino = hash;
@@ -141,7 +135,7 @@ struct inode *coda_fid_to_inode(struct CodaFid *fid, struct super_block *sb)
 		return NULL;
 	}
 
-	inode = iget5_locked(sb, hash, coda_test_inode, coda_fail_inode, fid);
+	inode = ilookup5(sb, hash, coda_test_inode, fid);
 	if ( !inode )
 		return NULL;
 
@@ -168,4 +162,3 @@ int coda_cnode_makectl(struct inode **inode, struct super_block *sb)
 
 	return error;
 }
-

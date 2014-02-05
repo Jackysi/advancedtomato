@@ -30,13 +30,12 @@
 #include <linux/freezer.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
+#include <linux/mfd/ucb1x00.h>
 
-#include <asm/dma.h>
-#include <asm/semaphore.h>
-#include <asm/arch/collie.h>
+#include <mach/dma.h>
+#include <mach/collie.h>
 #include <asm/mach-types.h>
 
-#include "ucb1x00.h"
 
 
 struct ucb1x00_ts {
@@ -205,10 +204,10 @@ static inline int ucb1x00_ts_pen_down(struct ucb1x00_ts *ts)
 static int ucb1x00_thread(void *_ts)
 {
 	struct ucb1x00_ts *ts = _ts;
-	struct task_struct *tsk = current;
-	DECLARE_WAITQUEUE(wait, tsk);
+	DECLARE_WAITQUEUE(wait, current);
 	int valid = 0;
 
+	set_freezable();
 	add_wait_queue(&ts->irq_wait, &wait);
 	while (!kthread_should_stop()) {
 		unsigned int x, y, p;
@@ -234,7 +233,7 @@ static int ucb1x00_thread(void *_ts)
 
 
 		if (ucb1x00_ts_pen_down(ts)) {
-			set_task_state(tsk, TASK_INTERRUPTIBLE);
+			set_current_state(TASK_INTERRUPTIBLE);
 
 			ucb1x00_enable_irq(ts->ucb, UCB_IRQ_TSPX, machine_is_collie() ? UCB_RISING : UCB_FALLING);
 			ucb1x00_disable(ts->ucb);
@@ -262,7 +261,7 @@ static int ucb1x00_thread(void *_ts)
 				valid = 1;
 			}
 
-			set_task_state(tsk, TASK_INTERRUPTIBLE);
+			set_current_state(TASK_INTERRUPTIBLE);
 			timeout = HZ / 100;
 		}
 

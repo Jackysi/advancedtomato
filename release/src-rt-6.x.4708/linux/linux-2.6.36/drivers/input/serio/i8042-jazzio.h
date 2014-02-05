@@ -50,20 +50,12 @@ static inline void i8042_write_command(int val)
 
 static inline int i8042_platform_init(void)
 {
-#if 0
-	/* XXX JAZZ_KEYBOARD_ADDRESS is a virtual address */
-	if (!request_mem_region(JAZZ_KEYBOARD_ADDRESS, 2, "i8042"))
-		return -EBUSY;
-#endif
 
 	return 0;
 }
 
 static inline void i8042_platform_exit(void)
 {
-#if 0
-	release_mem_region(JAZZ_KEYBOARD_ADDRESS, 2);
-#endif
 }
 
 #endif /* _I8042_JAZZ_H */

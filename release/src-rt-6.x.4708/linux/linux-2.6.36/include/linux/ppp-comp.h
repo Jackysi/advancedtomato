@@ -23,8 +23,6 @@
  * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
  * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
  * OR MODIFICATIONS.
- *
- * $Id: ppp-comp.h,v 1.6 1997/11/27 06:04:44 paulus Exp $
  */
 
 /*
@@ -111,6 +109,10 @@ struct compressor {
 
 	/* Used in locking compressor modules */
 	struct module *owner;
+#if !defined(CONFIG_PPP_MPPE_MPPC)
+	/* Extra skb space needed by the compressor algorithm */
+	unsigned int comp_extra;
+#endif
 };
 
 /*
@@ -194,9 +196,10 @@ struct compressor {
  * Definitions for MPPE/MPPC.
  */
 
-#define CI_MPPE			18	/* config option for MPPE */
-#define CILEN_MPPE		6	/* length of config option */
+#define CI_MPPE                18      /* config option for MPPE */
+#define CILEN_MPPE              6      /* length of config option */
 
+#if defined(CONFIG_PPP_MPPE_MPPC)
 #define MPPE_OVHD		4	/* MPPE overhead */
 #define MPPE_MAX_KEY_LEN	16	/* largest key length (128-bit) */
 
@@ -225,6 +228,7 @@ struct compressor {
 
 #define LZS_EXT_BIT_FLUSHED	0x80	/* bit A */
 #define LZS_EXT_BIT_COMP	0x20	/* bit C */
+#endif
 
 /*
  * Definitions for other, as yet unsupported, compression methods.

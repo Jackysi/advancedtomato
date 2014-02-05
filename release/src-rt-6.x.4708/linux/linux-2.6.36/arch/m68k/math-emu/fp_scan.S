@@ -65,11 +65,7 @@ fp_scan:
 	fp_get_pc %a0
 	printf	PDECODE,"%08x: ",1,%a0
 	getuser.b (%a0),%d0,fp_err_ua1,%a0
-#if 1
 	cmp.b	#0xf2,%d0		| cpid = 1
-#else
-	cmp.b	#0xfc,%d0		| cpid = 6
-#endif
 	jne	fp_nonstd
 | first two instruction words are kept in %d2
 	getuser.l (%a0)+,%d2,fp_err_ua1,%a0

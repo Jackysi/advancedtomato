@@ -1,6 +1,4 @@
 /*
- *	linux/arch/mips/dec/kn01-berr.c
- *
  *	Bus error event handling code for DECstation/DECsystem 3100
  *	and 2100 (KN01) systems equipped with parity error detection
  *	logic.
@@ -48,7 +46,7 @@
  * There is no default value -- it has to be initialized.
  */
 u16 cached_kn01_csr;
-DEFINE_SPINLOCK(kn01_lock);
+static DEFINE_RAW_SPINLOCK(kn01_lock);
 
 
 static inline void dec_kn01_be_ack(void)
@@ -56,12 +54,12 @@ static inline void dec_kn01_be_ack(void)
 	volatile u16 *csr = (void *)CKSEG1ADDR(KN01_SLOT_BASE + KN01_CSR);
 	unsigned long flags;
 
-	spin_lock_irqsave(&kn01_lock, flags);
+	raw_spin_lock_irqsave(&kn01_lock, flags);
 
 	*csr = cached_kn01_csr | KN01_CSR_MEMERR;	/* Clear bus IRQ. */
 	iob();
 
-	spin_unlock_irqrestore(&kn01_lock, flags);
+	raw_spin_unlock_irqrestore(&kn01_lock, flags);
 }
 
 static int dec_kn01_be_backend(struct pt_regs *regs, int is_fixup, int invoker)
@@ -166,13 +164,6 @@ irqreturn_t dec_kn01_be_interrupt(int irq, void *dev_id)
 	if (action == MIPS_BE_DISCARD)
 		return IRQ_HANDLED;
 
-	/*
-	 * FIXME: Find the affected processes and kill them, otherwise
-	 * we must die.
-	 *
-	 * The interrupt is asynchronously delivered thus EPC and RA
-	 * may be irrelevant, but are printed for a reference.
-	 */
 	printk(KERN_ALERT "Fatal bus interrupt, epc == %08lx, ra == %08lx\n",
 	       regs->cp0_epc, regs->regs[31]);
 	die("Unrecoverable bus error", regs);
@@ -184,7 +175,7 @@ void __init dec_kn01_be_init(void)
 	volatile u16 *csr = (void *)CKSEG1ADDR(KN01_SLOT_BASE + KN01_CSR);
 	unsigned long flags;
 
-	spin_lock_irqsave(&kn01_lock, flags);
+	raw_spin_lock_irqsave(&kn01_lock, flags);
 
 	/* Preset write-only bits of the Control Register cache. */
 	cached_kn01_csr = *csr;
@@ -196,7 +187,7 @@ void __init dec_kn01_be_init(void)
 	*csr = cached_kn01_csr;
 	iob();
 
-	spin_unlock_irqrestore(&kn01_lock, flags);
+	raw_spin_unlock_irqrestore(&kn01_lock, flags);
 
 	/* Clear any leftover errors from the firmware. */
 	dec_kn01_be_ack();

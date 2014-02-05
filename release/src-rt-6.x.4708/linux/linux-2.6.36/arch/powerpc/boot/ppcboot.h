@@ -42,7 +42,7 @@ typedef struct bd_info {
 	unsigned long	bi_flashoffset; /* reserved area for startup monitor */
 	unsigned long	bi_sramstart;	/* start of SRAM memory */
 	unsigned long	bi_sramsize;	/* size	 of SRAM memory */
-#if defined(TARGET_8xx) || defined(TARGET_CPM2) || defined(TARGET_85xx) ||\
+#if defined(TARGET_8xx) || defined(TARGET_CPM2) || defined(TARGET_85xx) || \
 	defined(TARGET_83xx)
 	unsigned long	bi_immr_base;	/* base of IMMR register */
 #endif
@@ -78,17 +78,18 @@ typedef struct bd_info {
 	hymod_conf_t	bi_hymod_conf;	/* hymod configuration information */
 #endif
 #if defined(TARGET_EVB64260) || defined(TARGET_405EP) || defined(TARGET_44x) || \
-	defined(TARGET_85xx) ||	defined(TARGET_83xx)
+	defined(TARGET_85xx) ||	defined(TARGET_83xx) || defined(TARGET_HAS_ETH1)
 	/* second onboard ethernet port */
 	unsigned char	bi_enet1addr[6];
 #define HAVE_ENET1ADDR
 #endif
-#if defined(TARGET_EVB64260) || defined(TARGET_440GX) || defined(TARGET_85xx)
+#if defined(TARGET_EVB64260) || defined(TARGET_440GX) || defined(TARGET_85xx) || \
+	defined(TARGET_HAS_ETH2)
 	/* third onboard ethernet ports */
 	unsigned char	bi_enet2addr[6];
 #define HAVE_ENET2ADDR
 #endif
-#if defined(TARGET_440GX)
+#if defined(TARGET_440GX) || defined(TARGET_HAS_ETH3)
 	/* fourth onboard ethernet ports */
 	unsigned char	bi_enet3addr[6];
 #define HAVE_ENET3ADDR

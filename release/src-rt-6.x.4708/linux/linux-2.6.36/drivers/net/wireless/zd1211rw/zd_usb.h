@@ -1,4 +1,7 @@
-/* zd_usb.h: Header for USB interface implemented by ZD1211 chip
+/* ZD1211 USB-WLAN driver for Linux
+ *
+ * Copyright (C) 2005-2007 Ulrich Kunitz <kune@deine-taler.de>
+ * Copyright (C) 2006-2007 Daniel Drake <dsd@gentoo.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +29,9 @@
 
 #include "zd_def.h"
 
+#define ZD_USB_TX_HIGH  5
+#define ZD_USB_TX_LOW   2
+
 enum devicetype {
 	DEVICE_ZD1211  = 0,
 	DEVICE_ZD1211B = 1,
@@ -42,10 +48,6 @@ enum endpoints {
 
 enum {
 	USB_MAX_TRANSFER_SIZE		= 4096, /* bytes */
-	/* FIXME: The original driver uses this value. We have to check,
-	 * whether the MAX_TRANSFER_SIZE is sufficient and this needs only be
-	 * used if one combined frame is split over two USB transactions.
-	 */
 	USB_MAX_RX_SIZE			= 4800, /* bytes */
 	USB_MAX_IOWRITE16_COUNT		= 15,
 	USB_MAX_IOWRITE32_COUNT		= USB_MAX_IOWRITE16_COUNT/2,
@@ -73,17 +75,17 @@ enum control_requests {
 struct usb_req_read_regs {
 	__le16 id;
 	__le16 addr[0];
-} __attribute__((packed));
+} __packed;
 
 struct reg_data {
 	__le16 addr;
 	__le16 value;
-} __attribute__((packed));
+} __packed;
 
 struct usb_req_write_regs {
 	__le16 id;
 	struct reg_data reg_writes[0];
-} __attribute__((packed));
+} __packed;
 
 enum {
 	RF_IF_LE = 0x02,
@@ -100,7 +102,7 @@ struct usb_req_rfwrite {
 	/* RF2595: 24 */
 	__le16 bit_values[0];
 	/* (CR203 & ~(RF_IF_LE | RF_CLK | RF_DATA)) | (bit ? RF_DATA : 0) */
-} __attribute__((packed));
+} __packed;
 
 /* USB interrupt */
 
@@ -117,12 +119,12 @@ enum usb_int_flags {
 struct usb_int_header {
 	u8 type;	/* must always be 1 */
 	u8 id;
-} __attribute__((packed));
+} __packed;
 
 struct usb_int_regs {
 	struct usb_int_header hdr;
 	struct reg_data regs[0];
-} __attribute__((packed));
+} __packed;
 
 struct usb_int_retry_fail {
 	struct usb_int_header hdr;
@@ -130,7 +132,7 @@ struct usb_int_retry_fail {
 	u8 _dummy;
 	u8 addr[ETH_ALEN];
 	u8 ibss_wakeup_dest;
-} __attribute__((packed));
+} __packed;
 
 struct read_regs_int {
 	struct completion completion;
@@ -165,7 +167,7 @@ static inline struct usb_int_regs *get_read_regs(struct zd_usb_interrupt *intr)
 	return (struct usb_int_regs *)intr->read_regs.buffer;
 }
 
-#define URBS_COUNT 5
+#define RX_URBS_COUNT 5
 
 struct zd_usb_rx {
 	spinlock_t lock;
@@ -176,8 +178,21 @@ struct zd_usb_rx {
 	int urbs_count;
 };
 
+/**
+ * struct zd_usb_tx - structure used for transmitting frames
+ * @lock: lock for transmission
+ * @free_urb_list: list of free URBs, contains all the URBs, which can be used
+ * @submitted_urbs: atomic integer that counts the URBs having sent to the
+ *	device, which haven't been completed
+ * @enabled: enabled flag, indicates whether tx is enabled
+ * @stopped: indicates whether higher level tx queues are stopped
+ */
 struct zd_usb_tx {
 	spinlock_t lock;
+	struct list_head free_urb_list;
+	int submitted_urbs;
+	int enabled;
+	int stopped;
 };
 
 /* Contains the usb parts. The structure doesn't require a lock because intf
@@ -188,6 +203,7 @@ struct zd_usb {
 	struct zd_usb_rx rx;
 	struct zd_usb_tx tx;
 	struct usb_interface *intf;
+	u8 is_zd1211b:1, initialized:1;
 };
 
 #define zd_usb_dev(usb) (&usb->intf->dev)
@@ -197,17 +213,17 @@ static inline struct usb_device *zd_usb_to_usbdev(struct zd_usb *usb)
 	return interface_to_usbdev(usb->intf);
 }
 
-static inline struct net_device *zd_intf_to_netdev(struct usb_interface *intf)
+static inline struct ieee80211_hw *zd_intf_to_hw(struct usb_interface *intf)
 {
 	return usb_get_intfdata(intf);
 }
 
-static inline struct net_device *zd_usb_to_netdev(struct zd_usb *usb)
+static inline struct ieee80211_hw *zd_usb_to_hw(struct zd_usb *usb)
 {
-	return zd_intf_to_netdev(usb->intf);
+	return zd_intf_to_hw(usb->intf);
 }
 
-void zd_usb_init(struct zd_usb *usb, struct net_device *netdev,
+void zd_usb_init(struct zd_usb *usb, struct ieee80211_hw *hw,
 	         struct usb_interface *intf);
 int zd_usb_init_hw(struct zd_usb *usb);
 void zd_usb_clear(struct zd_usb *usb);
@@ -220,7 +236,10 @@ void zd_usb_disable_int(struct zd_usb *usb);
 int zd_usb_enable_rx(struct zd_usb *usb);
 void zd_usb_disable_rx(struct zd_usb *usb);
 
-int zd_usb_tx(struct zd_usb *usb, const u8 *frame, unsigned int length);
+void zd_usb_enable_tx(struct zd_usb *usb);
+void zd_usb_disable_tx(struct zd_usb *usb);
+
+int zd_usb_tx(struct zd_usb *usb, struct sk_buff *skb);
 
 int zd_usb_ioread16v(struct zd_usb *usb, u16 *values,
 	         const zd_addr_t *addresses, unsigned int count);
@@ -235,6 +254,8 @@ int zd_usb_iowrite16v(struct zd_usb *usb, const struct zd_ioreq16 *ioreqs,
 	              unsigned int count);
 
 int zd_usb_rfwrite(struct zd_usb *usb, u32 value, u8 bits);
+
+int zd_usb_read_fw(struct zd_usb *usb, zd_addr_t addr, u8 *data, u16 len);
 
 extern struct workqueue_struct *zd_workqueue;
 

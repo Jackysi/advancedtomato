@@ -57,11 +57,7 @@
  * rescanning partner information upon a user's request.
  *
  * Each vty-server, prior to being exposed to this driver is reference counted
- * using the 2.6 Linux kernel kobject construct.  This kobject is also used by
- * the vio bus to provide a vio device sysfs entry that this driver attaches
- * device specific attributes to, including partner information.  The vio bus
- * framework also provides a sysfs entry for each vio driver.  The hvcs driver
- * provides driver attributes in this entry.
+ * using the 2.6 Linux kernel kref construct.
  *
  * For direction on installation and usage of this driver please reference
  * Documentation/powerpc/hvcs.txt.
@@ -71,13 +67,14 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
-#include <linux/kobject.h>
+#include <linux/kref.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/major.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/stat.h>
 #include <linux/tty.h>
@@ -118,7 +115,7 @@
  * the hvcs_final_close() function in order to get it out of the spinlock.
  * Rearranged hvcs_close().  Cleaned up some printks and did some housekeeping
  * on the changelog.  Removed local CLC_LENGTH and used HVCS_CLC_LENGTH from
- * include/asm-powerpc/hvcserver.h 
+ * arch/powerepc/include/asm/hvcserver.h
  *
  * 1.3.2 -> 1.3.3 Replaced yield() in hvcs_close() with tty_wait_until_sent() to
  * prevent possible lockup with realtime scheduling as similarily pointed out by
@@ -210,9 +207,9 @@ static struct ktermios hvcs_tty_termios = {
 static int hvcs_parm_num_devs = -1;
 module_param(hvcs_parm_num_devs, int, 0);
 
-char hvcs_driver_name[] = "hvcs";
-char hvcs_device_node[] = "hvcs";
-char hvcs_driver_string[]
+static const char hvcs_driver_name[] = "hvcs";
+static const char hvcs_device_node[] = "hvcs";
+static const char hvcs_driver_string[]
 	= "IBM hvcs (Hypervisor Virtual Console Server) Driver";
 
 /* Status of partner info rescan triggered via sysfs. */
@@ -273,7 +270,7 @@ struct hvcs_struct {
 	unsigned int index;
 
 	struct tty_struct *tty;
-	unsigned int open_count;
+	int open_count;
 
 	/*
 	 * Used to tell the driver kernel_thread what operations need to take
@@ -293,12 +290,12 @@ struct hvcs_struct {
 	int chars_in_buffer;
 
 	/*
-	 * Any variable below the kobject is valid before a tty is connected and
+	 * Any variable below the kref is valid before a tty is connected and
 	 * stays valid after the tty is disconnected.  These shouldn't be
 	 * whacked until the koject refcount reaches zero though some entries
 	 * may be changed via sysfs initiatives.
 	 */
-	struct kobject kobj; /* ref count & hvcs_struct lifetime */
+	struct kref kref; /* ref count & hvcs_struct lifetime */
 	int connected; /* is the vty-server currently connected to a vty? */
 	uint32_t p_unit_address; /* partner unit address */
 	uint32_t p_partition_ID; /* partner partition ID */
@@ -307,10 +304,10 @@ struct hvcs_struct {
 	struct vio_dev *vdev;
 };
 
-/* Required to back map a kobject to its containing object */
-#define from_kobj(kobj) container_of(kobj, struct hvcs_struct, kobj)
+/* Required to back map a kref to its containing object */
+#define from_kref(k) container_of(k, struct hvcs_struct, kref)
 
-static struct list_head hvcs_structs = LIST_HEAD_INIT(hvcs_structs);
+static LIST_HEAD(hvcs_structs);
 static DEFINE_SPINLOCK(hvcs_structs_lock);
 
 static void hvcs_unthrottle(struct tty_struct *tty);
@@ -334,7 +331,6 @@ static void hvcs_partner_free(struct hvcs_struct *hvcsd);
 static int hvcs_enable_device(struct hvcs_struct *hvcsd,
 		uint32_t unit_address, unsigned int irq, struct vio_dev *dev);
 
-static void destroy_hvcs_struct(struct kobject *kobj);
 static int hvcs_open(struct tty_struct *tty, struct file *filp);
 static void hvcs_close(struct tty_struct *tty, struct file *filp);
 static void hvcs_hangup(struct tty_struct * tty);
@@ -352,7 +348,7 @@ static void __exit hvcs_module_exit(void);
 
 static inline struct hvcs_struct *from_vio_dev(struct vio_dev *viod)
 {
-	return viod->dev.driver_data;
+	return dev_get_drvdata(&viod->dev);
 }
 /* The sysfs interface for the driver and devices */
 
@@ -703,10 +699,10 @@ static void hvcs_return_index(int index)
 		hvcs_index_list[index] = -1;
 }
 
-/* callback when the kboject ref count reaches zero */
-static void destroy_hvcs_struct(struct kobject *kobj)
+/* callback when the kref ref count reaches zero */
+static void destroy_hvcs_struct(struct kref *kref)
 {
-	struct hvcs_struct *hvcsd = from_kobj(kobj);
+	struct hvcs_struct *hvcsd = from_kref(kref);
 	struct vio_dev *vdev;
 	unsigned long flags;
 
@@ -742,10 +738,6 @@ static void destroy_hvcs_struct(struct kobject *kobj)
 
 	kfree(hvcsd);
 }
-
-static struct kobj_type hvcs_kobj_type = {
-	.release = destroy_hvcs_struct,
-};
 
 static int hvcs_get_index(void)
 {
@@ -784,21 +776,17 @@ static int __devinit hvcs_probe(
 		return -EFAULT;
 	}
 
-	hvcsd = kmalloc(sizeof(*hvcsd), GFP_KERNEL);
+	hvcsd = kzalloc(sizeof(*hvcsd), GFP_KERNEL);
 	if (!hvcsd)
 		return -ENODEV;
 
-	/* hvcsd->tty is zeroed out with the memset */
-	memset(hvcsd, 0x00, sizeof(*hvcsd));
 
 	spin_lock_init(&hvcsd->lock);
 	/* Automatically incs the refcount the first time */
-	kobject_init(&hvcsd->kobj);
-	/* Set up the callback for terminating the hvcs_struct's life */
-	hvcsd->kobj.ktype = &hvcs_kobj_type;
+	kref_init(&hvcsd->kref);
 
 	hvcsd->vdev = dev;
-	dev->dev.driver_data = hvcsd;
+	dev_set_drvdata(&dev->dev, hvcsd);
 
 	hvcsd->index = index;
 
@@ -844,21 +832,18 @@ static int __devinit hvcs_probe(
 
 static int __devexit hvcs_remove(struct vio_dev *dev)
 {
-	struct hvcs_struct *hvcsd = dev->dev.driver_data;
+	struct hvcs_struct *hvcsd = dev_get_drvdata(&dev->dev);
 	unsigned long flags;
-	struct kobject *kobjp;
 	struct tty_struct *tty;
 
 	if (!hvcsd)
 		return -ENODEV;
 
-	/* By this time the vty-server won't be getting any more interrups */
+	/* By this time the vty-server won't be getting any more interrupts */
 
 	spin_lock_irqsave(&hvcsd->lock, flags);
 
 	tty = hvcsd->tty;
-
-	kobjp = &hvcsd->kobj;
 
 	spin_unlock_irqrestore(&hvcsd->lock, flags);
 
@@ -866,7 +851,7 @@ static int __devexit hvcs_remove(struct vio_dev *dev)
 	 * Let the last holder of this object cause it to be removed, which
 	 * would probably be tty_hangup below.
 	 */
-	kobject_put (kobjp);
+	kref_put(&hvcsd->kref, destroy_hvcs_struct);
 
 	/*
 	 * The hangup is a scheduled function which will auto chain call
@@ -884,7 +869,7 @@ static int __devexit hvcs_remove(struct vio_dev *dev)
 static struct vio_driver hvcs_vio_driver = {
 	.id_table	= hvcs_driver_table,
 	.probe		= hvcs_probe,
-	.remove		= hvcs_remove,
+	.remove		= __devexit_p(hvcs_remove),
 	.driver		= {
 		.name	= hvcs_driver_name,
 		.owner	= THIS_MODULE,
@@ -1088,13 +1073,13 @@ static int hvcs_enable_device(struct hvcs_struct *hvcsd, uint32_t unit_address,
 }
 
 /*
- * This always increments the kobject ref count if the call is successful.
+ * This always increments the kref ref count if the call is successful.
  * Please remember to dec when you are done with the instance.
  *
  * NOTICE: Do NOT hold either the hvcs_struct.lock or hvcs_structs_lock when
  * calling this function or you will get deadlock.
  */
-struct hvcs_struct *hvcs_get_by_index(int index)
+static struct hvcs_struct *hvcs_get_by_index(int index)
 {
 	struct hvcs_struct *hvcsd = NULL;
 	unsigned long flags;
@@ -1105,7 +1090,7 @@ struct hvcs_struct *hvcs_get_by_index(int index)
 		list_for_each_entry(hvcsd, &hvcs_structs, next) {
 			spin_lock_irqsave(&hvcsd->lock, flags);
 			if (hvcsd->index == index) {
-				kobject_get(&hvcsd->kobj);
+				kref_get(&hvcsd->kref);
 				spin_unlock_irqrestore(&hvcsd->lock, flags);
 				spin_unlock(&hvcs_structs_lock);
 				return hvcsd;
@@ -1131,14 +1116,13 @@ static int hvcs_open(struct tty_struct *tty, struct file *filp)
 	unsigned int irq;
 	struct vio_dev *vdev;
 	unsigned long unit_address;
-	struct kobject *kobjp;
 
 	if (tty->driver_data)
 		goto fast_open;
 
 	/*
 	 * Is there a vty-server that shares the same index?
-	 * This function increments the kobject index.
+	 * This function increments the kref index.
 	 */
 	if (!(hvcsd = hvcs_get_by_index(tty->index))) {
 		printk(KERN_WARNING "HVCS: open failed, no device associated"
@@ -1155,15 +1139,6 @@ static int hvcs_open(struct tty_struct *tty, struct file *filp)
 	hvcsd->open_count = 1;
 	hvcsd->tty = tty;
 	tty->driver_data = hvcsd;
-
-	/*
-	 * Set this driver to low latency so that we actually have a chance at
-	 * catching a throttled TTY after we flip_buffer_push.  Otherwise the
-	 * flush_to_async may not execute until after the kernel_thread has
-	 * yielded and resumed the next flip_buffer_push resulting in data
-	 * loss.
-	 */
-	tty->low_latency = 1;
 
 	memset(&hvcsd->buffer[0], 0x00, HVCS_BUFF_LEN);
 
@@ -1183,7 +1158,7 @@ static int hvcs_open(struct tty_struct *tty, struct file *filp)
 	 * and will grab the spinlock and free the connection if it fails.
 	 */
 	if (((rc = hvcs_enable_device(hvcsd, unit_address, irq, vdev)))) {
-		kobject_put(&hvcsd->kobj);
+		kref_put(&hvcsd->kref, destroy_hvcs_struct);
 		printk(KERN_WARNING "HVCS: enable device failed.\n");
 		return rc;
 	}
@@ -1194,17 +1169,11 @@ fast_open:
 	hvcsd = tty->driver_data;
 
 	spin_lock_irqsave(&hvcsd->lock, flags);
-	if (!kobject_get(&hvcsd->kobj)) {
-		spin_unlock_irqrestore(&hvcsd->lock, flags);
-		printk(KERN_ERR "HVCS: Kobject of open"
-			" hvcs doesn't exist.\n");
-		return -EFAULT; /* Is this the right return value? */
-	}
-
+	kref_get(&hvcsd->kref);
 	hvcsd->open_count++;
-
 	hvcsd->todo_mask |= HVCS_SCHED_READ;
 	spin_unlock_irqrestore(&hvcsd->lock, flags);
+
 open_success:
 	hvcs_kick();
 
@@ -1214,9 +1183,8 @@ open_success:
 	return 0;
 
 error_release:
-	kobjp = &hvcsd->kobj;
 	spin_unlock_irqrestore(&hvcsd->lock, flags);
-	kobject_put(&hvcsd->kobj);
+	kref_put(&hvcsd->kref, destroy_hvcs_struct);
 
 	printk(KERN_WARNING "HVCS: partner connect failed.\n");
 	return retval;
@@ -1226,7 +1194,6 @@ static void hvcs_close(struct tty_struct *tty, struct file *filp)
 {
 	struct hvcs_struct *hvcsd;
 	unsigned long flags;
-	struct kobject *kobjp;
 	int irq = NO_IRQ;
 
 	/*
@@ -1247,7 +1214,6 @@ static void hvcs_close(struct tty_struct *tty, struct file *filp)
 	hvcsd = tty->driver_data;
 
 	spin_lock_irqsave(&hvcsd->lock, flags);
-	kobjp = &hvcsd->kobj;
 	if (--hvcsd->open_count == 0) {
 
 		vio_disable_interrupts(hvcsd->vdev);
@@ -1272,7 +1238,7 @@ static void hvcs_close(struct tty_struct *tty, struct file *filp)
 		tty->driver_data = NULL;
 
 		free_irq(irq, hvcsd);
-		kobject_put(kobjp);
+		kref_put(&hvcsd->kref, destroy_hvcs_struct);
 		return;
 	} else if (hvcsd->open_count < 0) {
 		printk(KERN_ERR "HVCS: vty-server@%X open_count: %d"
@@ -1281,7 +1247,7 @@ static void hvcs_close(struct tty_struct *tty, struct file *filp)
 	}
 
 	spin_unlock_irqrestore(&hvcsd->lock, flags);
-	kobject_put(kobjp);
+	kref_put(&hvcsd->kref, destroy_hvcs_struct);
 }
 
 static void hvcs_hangup(struct tty_struct * tty)
@@ -1289,21 +1255,17 @@ static void hvcs_hangup(struct tty_struct * tty)
 	struct hvcs_struct *hvcsd = tty->driver_data;
 	unsigned long flags;
 	int temp_open_count;
-	struct kobject *kobjp;
 	int irq = NO_IRQ;
 
 	spin_lock_irqsave(&hvcsd->lock, flags);
-	/* Preserve this so that we know how many kobject refs to put */
+	/* Preserve this so that we know how many kref refs to put */
 	temp_open_count = hvcsd->open_count;
 
 	/*
-	 * Don't kobject put inside the spinlock because the destruction
+	 * Don't kref put inside the spinlock because the destruction
 	 * callback may use the spinlock and it may get called before the
-	 * spinlock has been released.  Get a pointer to the kobject and
-	 * kobject_put on that after releasing the spinlock.
+	 * spinlock has been released.
 	 */
-	kobjp = &hvcsd->kobj;
-
 	vio_disable_interrupts(hvcsd->vdev);
 
 	hvcsd->todo_mask = 0;
@@ -1326,7 +1288,7 @@ static void hvcs_hangup(struct tty_struct * tty)
 	free_irq(irq, hvcsd);
 
 	/*
-	 * We need to kobject_put() for every open_count we have since the
+	 * We need to kref_put() for every open_count we have since the
 	 * tty_hangup() function doesn't invoke a close per open connection on a
 	 * non-console device.
 	 */
@@ -1337,7 +1299,7 @@ static void hvcs_hangup(struct tty_struct * tty)
 		 * NOTE:  If this hangup was signaled from user space then the
 		 * final put will never happen.
 		 */
-		kobject_put(kobjp);
+		kref_put(&hvcsd->kref, destroy_hvcs_struct);
 	}
 }
 

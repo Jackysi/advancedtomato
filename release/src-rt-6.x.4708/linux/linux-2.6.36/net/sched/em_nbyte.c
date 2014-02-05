@@ -9,6 +9,7 @@
  * Authors:	Thomas Graf <tgraf@suug.ch>
  */
 
+#include <linux/gfp.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -76,3 +77,5 @@ MODULE_LICENSE("GPL");
 
 module_init(init_em_nbyte);
 module_exit(exit_em_nbyte);
+
+MODULE_ALIAS_TCF_EMATCH(TCF_EM_NBYTE);

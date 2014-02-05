@@ -1,4 +1,4 @@
-/* $Id: sungem.h,v 1.10.2.4 2002/03/11 08:54:48 davem Exp $
+/* $Id: sungem.h,v 1.10.2.4 2002/03/11 08:54:48 Exp $
  * sungem.h: Definitions for Sun GEM ethernet driver.
  *
  * Copyright (C) 2000 David S. Miller (davem@redhat.com)
@@ -828,8 +828,8 @@
  * DMA mappings for a transmitted packet.
  */
 struct gem_txd {
-	u64	control_word;
-	u64	buffer;
+	__le64	control_word;
+	__le64	buffer;
 };
 
 #define TXDCTRL_BUFSZ	0x0000000000007fffULL	/* Buffer Size		*/
@@ -863,8 +863,8 @@ struct gem_txd {
  * by the host driver just as in the TX descriptor case above.
  */
 struct gem_rxd {
-	u64	status_word;
-	u64	buffer;
+	__le64	status_word;
+	__le64	buffer;
 };
 
 #define RXDCTRL_TCPCSUM	0x000000000000ffffULL	/* TCP Pseudo-CSUM	*/
@@ -993,6 +993,7 @@ struct gem {
 	u32			msg_enable;
 	u32			status;
 
+	struct napi_struct	napi;
 	struct net_device_stats net_stats;
 
 	int			tx_fifo_sz;
@@ -1030,8 +1031,8 @@ struct gem {
 #endif
 };
 
-#define found_mii_phy(gp) ((gp->phy_type == phy_mii_mdio0 || gp->phy_type == phy_mii_mdio1) \
-				&& gp->phy_mii.def && gp->phy_mii.def->ops)
+#define found_mii_phy(gp) ((gp->phy_type == phy_mii_mdio0 || gp->phy_type == phy_mii_mdio1) && \
+			   gp->phy_mii.def && gp->phy_mii.def->ops)
 
 #define ALIGNED_RX_SKB_ADDR(addr) \
         ((((unsigned long)(addr) + (64UL - 1UL)) & ~(64UL - 1UL)) - (unsigned long)(addr))

@@ -26,12 +26,12 @@
 
 #include <linux/sys.h>
 #include <linux/linkage.h>
-#include <asm/thread_info.h>
 #include <asm/errno.h>
 #include <asm/setup.h>
 #include <asm/segment.h>
 #include <asm/asm-offsets.h>
 #include <asm/entry.h>
+#include <asm/unistd.h>
 
 .text
 
@@ -46,7 +46,7 @@
 ENTRY(buserr)
 	SAVE_ALL
 	moveq	#-1,%d0
-	movel	%d0,%sp@(PT_ORIG_D0)
+	movel	%d0,%sp@(PT_OFF_ORIG_D0)
 	movel	%sp,%sp@- 		/* stack frame pointer argument */
 	jsr	buserr_c
 	addql	#4,%sp
@@ -55,7 +55,7 @@ ENTRY(buserr)
 ENTRY(trap)
 	SAVE_ALL
 	moveq	#-1,%d0
-	movel	%d0,%sp@(PT_ORIG_D0)
+	movel	%d0,%sp@(PT_OFF_ORIG_D0)
 	movel	%sp,%sp@- 		/* stack frame pointer argument */
 	jsr	trap_c
 	addql	#4,%sp
@@ -67,7 +67,7 @@ ENTRY(trap)
 ENTRY(dbginterrupt)
 	SAVE_ALL
 	moveq	#-1,%d0
-	movel	%d0,%sp@(PT_ORIG_D0)
+	movel	%d0,%sp@(PT_OFF_ORIG_D0)
 	movel	%sp,%sp@- 		/* stack frame pointer argument */
 	jsr	dbginterrupt_c
 	addql	#4,%sp
@@ -140,3 +140,10 @@ ENTRY(sys_rt_sigreturn)
 	RESTORE_SWITCH_STACK
 	rts
 
+ENTRY(ret_from_user_signal)
+	moveq #__NR_sigreturn,%d0
+	trap #0
+
+ENTRY(ret_from_user_rt_signal)
+	movel #__NR_rt_sigreturn,%d0
+	trap #0

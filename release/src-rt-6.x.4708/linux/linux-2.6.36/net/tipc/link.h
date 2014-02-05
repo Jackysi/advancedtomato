@@ -116,7 +116,7 @@ struct link {
 	char name[TIPC_MAX_LINK_NAME];
 	struct tipc_media_addr media_addr;
 	struct timer_list timer;
-	struct node *owner;
+	struct tipc_node *owner;
 	struct list_head link_list;
 
 	/* Management and link supervision data */
@@ -210,10 +210,6 @@ struct link {
 		u32 msg_length_counts;
 		u32 msg_lengths_total;
 		u32 msg_length_profile[7];
-#if 0
-		u32 sent_tunneled;
-		u32 recv_tunneled;
-#endif
 	} stats;
 
 	struct print_buf print_buf;
@@ -290,6 +286,41 @@ static inline int less(u32 left, u32 right)
 static inline u32 lesser(u32 left, u32 right)
 {
 	return less_eq(left, right) ? left : right;
+}
+
+
+/*
+ * Link status checking routines
+ */
+
+static inline int link_working_working(struct link *l_ptr)
+{
+	return (l_ptr->state == WORKING_WORKING);
+}
+
+static inline int link_working_unknown(struct link *l_ptr)
+{
+	return (l_ptr->state == WORKING_UNKNOWN);
+}
+
+static inline int link_reset_unknown(struct link *l_ptr)
+{
+	return (l_ptr->state == RESET_UNKNOWN);
+}
+
+static inline int link_reset_reset(struct link *l_ptr)
+{
+	return (l_ptr->state == RESET_RESET);
+}
+
+static inline int link_blocked(struct link *l_ptr)
+{
+	return (l_ptr->exp_msg_count || l_ptr->blocked);
+}
+
+static inline int link_congested(struct link *l_ptr)
+{
+	return (l_ptr->out_queue_size >= l_ptr->queue_limit[0]);
 }
 
 #endif

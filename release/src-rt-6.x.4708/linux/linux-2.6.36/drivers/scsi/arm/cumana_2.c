@@ -217,25 +217,7 @@ cumanascsi_2_dma_pseudo(struct Scsi_Host *host, struct scsi_pointer *SCp,
 	addr = SCp->ptr;
 
 	if (direction == DMA_OUT)
-#if 0
-		while (length > 1) {
-			unsigned long word;
-			unsigned int status = readb(info->base + CUMANASCSI2_STATUS);
-
-			if (status & STATUS_INT)
-				goto end;
-
-			if (!(status & STATUS_DRQ))
-				continue;
-
-			word = *addr | *(addr + 1) << 8;
-			writew(word, info->base + CUMANASCSI2_PSEUDODMA);
-			addr += 2;
-			length -= 2;
-		}
-#else
 		printk ("PSEUDO_OUT???\n");
-#endif
 	else {
 		if (transfer && (transfer & 255)) {
 			while (length >= 256) {
@@ -318,7 +300,7 @@ cumanascsi_2_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
 {
 	int ret = length;
 
-	if (length >= 11 && strcmp(buffer, "CUMANASCSI2") == 0) {
+	if (length >= 11 && strncmp(buffer, "CUMANASCSI2", 11) == 0) {
 		buffer += 11;
 		length -= 11;
 
@@ -390,7 +372,8 @@ static struct scsi_host_template cumanascsi2_template = {
 	.eh_abort_handler		= fas216_eh_abort,
 	.can_queue			= 1,
 	.this_id			= 7,
-	.sg_tablesize			= SG_ALL,
+	.sg_tablesize			= SCSI_MAX_SG_CHAIN_SEGMENTS,
+	.dma_boundary			= IOMD_DMA_BOUNDARY,
 	.cmd_per_lun			= 1,
 	.use_clustering			= DISABLE_CLUSTERING,
 	.proc_name			= "cumanascsi2",

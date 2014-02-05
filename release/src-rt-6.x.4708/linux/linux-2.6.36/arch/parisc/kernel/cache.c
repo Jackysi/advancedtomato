@@ -1,5 +1,4 @@
-/* $Id: cache.c,v 1.4 2000/01/25 00:11:38 prumpf Exp $
- *
+/*
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
@@ -51,12 +50,12 @@ static struct pdc_btlb_info btlb_info __read_mostly;
 void
 flush_data_cache(void)
 {
-	on_each_cpu(flush_data_cache_local, NULL, 1, 1);
+	on_each_cpu(flush_data_cache_local, NULL, 1);
 }
 void 
 flush_instruction_cache(void)
 {
-	on_each_cpu(flush_instruction_cache_local, NULL, 1, 1);
+	on_each_cpu(flush_instruction_cache_local, NULL, 1);
 }
 #endif
 
@@ -69,9 +68,9 @@ flush_cache_all_local(void)
 EXPORT_SYMBOL(flush_cache_all_local);
 
 void
-update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t pte)
+update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t *ptep)
 {
-	struct page *page = pte_page(pte);
+	struct page *page = pte_page(*ptep);
 
 	if (pfn_valid(page_to_pfn(page)) && page_mapping(page) &&
 	    test_bit(PG_dcache_dirty, &page->flags)) {
@@ -130,62 +129,6 @@ parisc_cache_init(void)
 	if (pdc_cache_info(&cache_info) < 0)
 		panic("parisc_cache_init: pdc_cache_info failed");
 
-#if 0
-	printk("ic_size %lx dc_size %lx it_size %lx\n",
-		cache_info.ic_size,
-		cache_info.dc_size,
-		cache_info.it_size);
-
-	printk("DC  base 0x%lx stride 0x%lx count 0x%lx loop 0x%lx\n",
-		cache_info.dc_base,
-		cache_info.dc_stride,
-		cache_info.dc_count,
-		cache_info.dc_loop);
-
-	printk("dc_conf = 0x%lx  alias %d blk %d line %d shift %d\n",
-		*(unsigned long *) (&cache_info.dc_conf),
-		cache_info.dc_conf.cc_alias,
-		cache_info.dc_conf.cc_block,
-		cache_info.dc_conf.cc_line,
-		cache_info.dc_conf.cc_shift);
-	printk("	wt %d sh %d cst %d hv %d\n",
-		cache_info.dc_conf.cc_wt,
-		cache_info.dc_conf.cc_sh,
-		cache_info.dc_conf.cc_cst,
-		cache_info.dc_conf.cc_hv);
-
-	printk("IC  base 0x%lx stride 0x%lx count 0x%lx loop 0x%lx\n",
-		cache_info.ic_base,
-		cache_info.ic_stride,
-		cache_info.ic_count,
-		cache_info.ic_loop);
-
-	printk("ic_conf = 0x%lx  alias %d blk %d line %d shift %d\n",
-		*(unsigned long *) (&cache_info.ic_conf),
-		cache_info.ic_conf.cc_alias,
-		cache_info.ic_conf.cc_block,
-		cache_info.ic_conf.cc_line,
-		cache_info.ic_conf.cc_shift);
-	printk("	wt %d sh %d cst %d hv %d\n",
-		cache_info.ic_conf.cc_wt,
-		cache_info.ic_conf.cc_sh,
-		cache_info.ic_conf.cc_cst,
-		cache_info.ic_conf.cc_hv);
-
-	printk("D-TLB conf: sh %d page %d cst %d aid %d pad1 %d \n",
-		cache_info.dt_conf.tc_sh,
-		cache_info.dt_conf.tc_page,
-		cache_info.dt_conf.tc_cst,
-		cache_info.dt_conf.tc_aid,
-		cache_info.dt_conf.tc_pad1);
-
-	printk("I-TLB conf: sh %d page %d cst %d aid %d pad1 %d \n",
-		cache_info.it_conf.tc_sh,
-		cache_info.it_conf.tc_page,
-		cache_info.it_conf.tc_cst,
-		cache_info.it_conf.tc_aid,
-		cache_info.it_conf.tc_pad1);
-#endif
 
 	split_tlb = 0;
 	if (cache_info.dt_conf.tc_sh == 0 || cache_info.dt_conf.tc_sh == 2) {
@@ -216,9 +159,6 @@ parisc_cache_init(void)
 	if ((boot_cpu_data.pdc.capabilities & PDC_MODEL_NVA_MASK) ==
 						PDC_MODEL_NVA_UNSUPPORTED) {
 		printk(KERN_WARNING "parisc_cache_init: Only equivalent aliasing supported!\n");
-#if 0
-		panic("SMP kernel required to avoid non-equivalent aliasing");
-#endif
 	}
 }
 
@@ -305,7 +245,7 @@ flush_user_cache_page_non_current(struct vm_area_struct *vma,
 	/* save the current process space and pgd */
 	unsigned long space = mfsp(3), pgd = mfctl(25);
 
-	/* we don't mind taking interrups since they may not
+	/* we don't mind taking interrupts since they may not
 	 * do anything with user space, but we can't
 	 * be preempted here */
 	preempt_disable();
@@ -398,12 +338,13 @@ EXPORT_SYMBOL(flush_kernel_icache_range_asm);
 
 void clear_user_page_asm(void *page, unsigned long vaddr)
 {
+	unsigned long flags;
 	/* This function is implemented in assembly in pacache.S */
 	extern void __clear_user_page_asm(void *page, unsigned long vaddr);
 
-	purge_tlb_start();
+	purge_tlb_start(flags);
 	__clear_user_page_asm(page, vaddr);
-	purge_tlb_end();
+	purge_tlb_end(flags);
 }
 
 #define FLUSH_THRESHOLD 0x80000 /* 0.5MB */
@@ -444,20 +385,24 @@ extern void clear_user_page_asm(void *page, unsigned long vaddr);
 
 void clear_user_page(void *page, unsigned long vaddr, struct page *pg)
 {
+	unsigned long flags;
+
 	purge_kernel_dcache_page((unsigned long)page);
-	purge_tlb_start();
+	purge_tlb_start(flags);
 	pdtlb_kernel(page);
-	purge_tlb_end();
+	purge_tlb_end(flags);
 	clear_user_page_asm(page, vaddr);
 }
 EXPORT_SYMBOL(clear_user_page);
 
 void flush_kernel_dcache_page_addr(void *addr)
 {
+	unsigned long flags;
+
 	flush_kernel_dcache_page_asm(addr);
-	purge_tlb_start();
+	purge_tlb_start(flags);
 	pdtlb_kernel(addr);
-	purge_tlb_end();
+	purge_tlb_end(flags);
 }
 EXPORT_SYMBOL(flush_kernel_dcache_page_addr);
 
@@ -490,8 +435,10 @@ void __flush_tlb_range(unsigned long sid, unsigned long start,
 	if (npages >= 512)  /* 2MB of space: arbitrary, should be tuned */
 		flush_tlb_all();
 	else {
+		unsigned long flags;
+
 		mtsp(sid, 1);
-		purge_tlb_start();
+		purge_tlb_start(flags);
 		if (split_tlb) {
 			while (npages--) {
 				pdtlb(start);
@@ -504,7 +451,7 @@ void __flush_tlb_range(unsigned long sid, unsigned long start,
 				start += PAGE_SIZE;
 			}
 		}
-		purge_tlb_end();
+		purge_tlb_end(flags);
 	}
 }
 
@@ -515,7 +462,7 @@ static void cacheflush_h_tmp_function(void *dummy)
 
 void flush_cache_all(void)
 {
-	on_each_cpu(cacheflush_h_tmp_function, NULL, 1, 1);
+	on_each_cpu(cacheflush_h_tmp_function, NULL, 1);
 }
 
 void flush_cache_mm(struct mm_struct *mm)
@@ -551,10 +498,7 @@ void flush_cache_range(struct vm_area_struct *vma,
 {
 	int sr3;
 
-	if (!vma->vm_mm->context) {
-		BUG();
-		return;
-	}
+	BUG_ON(!vma->vm_mm->context);
 
 	sr3 = mfsp(3);
 	if (vma->vm_mm->context == sr3) {

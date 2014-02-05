@@ -1,4 +1,4 @@
-/* $Id: dqueue.h,v 1.1.2.2 2001/02/08 12:25:43 armin Exp $ */
+/* $Id: dqueue.h,v 1.1.2.2 2001/02/08 12:25:43 Exp $ */
 
 #ifndef _DIVA_USER_MODE_IDI_DATA_QUEUE_H__
 #define _DIVA_USER_MODE_IDI_DATA_QUEUE_H__

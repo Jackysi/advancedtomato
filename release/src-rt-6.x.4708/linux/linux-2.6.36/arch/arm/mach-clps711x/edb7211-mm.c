@@ -22,9 +22,8 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/page.h>
-#include <asm/pgtable.h>
 #include <asm/sizes.h>
  
 #include <asm/mach/map.h>
@@ -79,4 +78,3 @@ void __init edb7211_map_io(void)
         clps711x_map_io();
         iotable_init(edb7211_io_desc, ARRAY_SIZE(edb7211_io_desc));
 }
-

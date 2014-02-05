@@ -153,4 +153,3 @@ static void timer_done(struct s_smc *smc, int restart)
 	if (restart && smc->t.st_queue)
 		hwt_start(smc,smc->t.st_queue->tm_delta) ;
 }
-

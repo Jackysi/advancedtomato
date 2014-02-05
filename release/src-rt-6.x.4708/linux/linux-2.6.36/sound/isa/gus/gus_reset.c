@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/time.h>
@@ -133,9 +132,6 @@ void snd_gf1_smart_stop_voice(struct snd_gus_card * gus, unsigned short voice)
 
 	spin_lock_irqsave(&gus->reg_lock, flags);
 	snd_gf1_select_voice(gus, voice);
-#if 0
-	printk(KERN_DEBUG " -%i- smart stop voice - volume = 0x%x\n", voice, snd_gf1_i_read16(gus, SNDRV_GF1_VW_VOLUME));
-#endif
 	snd_gf1_ctrl_stop(gus, SNDRV_GF1_VB_ADDRESS_CONTROL);
 	snd_gf1_ctrl_stop(gus, SNDRV_GF1_VB_VOLUME_CONTROL);
 	spin_unlock_irqrestore(&gus->reg_lock, flags);
@@ -147,18 +143,11 @@ void snd_gf1_stop_voice(struct snd_gus_card * gus, unsigned short voice)
 
 	spin_lock_irqsave(&gus->reg_lock, flags);
 	snd_gf1_select_voice(gus, voice);
-#if 0
-	printk(KERN_DEBUG " -%i- stop voice - volume = 0x%x\n", voice, snd_gf1_i_read16(gus, SNDRV_GF1_VW_VOLUME));
-#endif
 	snd_gf1_ctrl_stop(gus, SNDRV_GF1_VB_ADDRESS_CONTROL);
 	snd_gf1_ctrl_stop(gus, SNDRV_GF1_VB_VOLUME_CONTROL);
 	if (gus->gf1.enh_mode)
 		snd_gf1_write8(gus, SNDRV_GF1_VB_ACCUMULATOR, 0);
 	spin_unlock_irqrestore(&gus->reg_lock, flags);
-#if 0
-	snd_gf1_lfo_shutdown(gus, voice, ULTRA_LFO_VIBRATO);
-	snd_gf1_lfo_shutdown(gus, voice, ULTRA_LFO_TREMOLO);
-#endif
 }
 
 static void snd_gf1_clear_voices(struct snd_gus_card * gus, unsigned short v_min,
@@ -170,10 +159,6 @@ static void snd_gf1_clear_voices(struct snd_gus_card * gus, unsigned short v_min
 
 	daddr = gus->gf1.default_voice_address << 4;
 	for (i = v_min; i <= v_max; i++) {
-#if 0
-		if (gus->gf1.syn_voices)
-			gus->gf1.syn_voices[i].flags = ~VFLG_DYNAMIC;
-#endif
 		spin_lock_irqsave(&gus->reg_lock, flags);
 		snd_gf1_select_voice(gus, i);
 		snd_gf1_ctrl_stop(gus, SNDRV_GF1_VB_ADDRESS_CONTROL);	/* Voice Control Register = voice stop */
@@ -196,10 +181,6 @@ static void snd_gf1_clear_voices(struct snd_gus_card * gus, unsigned short v_min
 			snd_gf1_write16(gus, SNDRV_GF1_VW_EFFECT_VOLUME_FINAL, 0);
 		}
 		spin_unlock_irqrestore(&gus->reg_lock, flags);
-#if 0
-		snd_gf1_lfo_shutdown(gus, i, ULTRA_LFO_VIBRATO);
-		snd_gf1_lfo_shutdown(gus, i, ULTRA_LFO_TREMOLO);
-#endif
 	}
 }
 
@@ -351,9 +332,6 @@ int snd_gf1_start(struct snd_gus_card * gus)
 	} else {
 		gus->gf1.sw_lfo = 1;
 	}
-#if 0
-	snd_gf1_lfo_init(gus);
-#endif
 	if (gus->gf1.memory > 0)
 		for (i = 0; i < 4; i++)
 			snd_gf1_poke(gus, gus->gf1.default_voice_address + i, 0);
@@ -383,15 +361,6 @@ int snd_gf1_start(struct snd_gus_card * gus)
 	snd_gus_irq_profile_init(gus);
 #endif
 
-#if 0
-	if (gus->pnp_flag) {
-		if (gus->chip.playback_fifo_size > 0)
-			snd_gf1_i_write16(gus, SNDRV_GF1_GW_FIFO_RECORD_BASE_ADDR, gus->chip.playback_fifo_block->ptr >> 8);
-		if (gus->chip.record_fifo_size > 0)
-			snd_gf1_i_write16(gus, SNDRV_GF1_GW_FIFO_PLAY_BASE_ADDR, gus->chip.record_fifo_block->ptr >> 8);
-		snd_gf1_i_write16(gus, SNDRV_GF1_GW_FIFO_SIZE, gus->chip.interwave_fifo_reg);
-	}
-#endif
 
 	return 0;
 }
@@ -407,8 +376,5 @@ int snd_gf1_stop(struct snd_gus_card * gus)
 	snd_gf1_i_write8(gus, SNDRV_GF1_GB_RESET, 1);	/* disable IRQ & DAC */
 	snd_gf1_timers_done(gus);
 	snd_gf1_mem_done(gus);
-#if 0
-	snd_gf1_lfo_done(gus);
-#endif
 	return 0;
 }

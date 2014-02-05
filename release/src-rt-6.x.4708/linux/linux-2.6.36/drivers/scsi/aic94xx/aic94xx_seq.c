@@ -27,6 +27,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/gfp.h>
 #include <linux/pci.h>
 #include <linux/module.h>
 #include <linux/firmware.h>
@@ -46,7 +47,7 @@
 static const struct firmware *sequencer_fw;
 static u16 cseq_vecs[CSEQ_NUM_VECS], lseq_vecs[LSEQ_NUM_VECS], mode2_task,
 	cseq_idle_loop, lseq_idle_loop;
-static u8 *cseq_code, *lseq_code;
+static const u8 *cseq_code, *lseq_code;
 static u32 cseq_code_size, lseq_code_size;
 
 static u16 first_scb_site_no = 0xFFFF;
@@ -60,7 +61,7 @@ static u16 last_scb_site_no;
  *
  * Return 0 on success, negative on failure.
  */
-int asd_pause_cseq(struct asd_ha_struct *asd_ha)
+static int asd_pause_cseq(struct asd_ha_struct *asd_ha)
 {
 	int	count = PAUSE_TRIES;
 	u32	arp2ctl;
@@ -87,7 +88,7 @@ int asd_pause_cseq(struct asd_ha_struct *asd_ha)
  *
  * Return 0 on success, negative on error.
  */
-int asd_unpause_cseq(struct asd_ha_struct *asd_ha)
+static int asd_unpause_cseq(struct asd_ha_struct *asd_ha)
 {
 	u32	arp2ctl;
 	int	count = PAUSE_TRIES;
@@ -115,7 +116,7 @@ int asd_unpause_cseq(struct asd_ha_struct *asd_ha)
  *
  * Return 0 on success, negative on error.
  */
-static inline int asd_seq_pause_lseq(struct asd_ha_struct *asd_ha, int lseq)
+static int asd_seq_pause_lseq(struct asd_ha_struct *asd_ha, int lseq)
 {
 	u32    arp2ctl;
 	int    count = PAUSE_TRIES;
@@ -143,7 +144,7 @@ static inline int asd_seq_pause_lseq(struct asd_ha_struct *asd_ha, int lseq)
  *
  * Return 0 on success, negative on failure.
  */
-int asd_pause_lseq(struct asd_ha_struct *asd_ha, u8 lseq_mask)
+static int asd_pause_lseq(struct asd_ha_struct *asd_ha, u8 lseq_mask)
 {
 	int lseq;
 	int err = 0;
@@ -164,7 +165,7 @@ int asd_pause_lseq(struct asd_ha_struct *asd_ha, u8 lseq_mask)
  *
  * Return 0 on success, negative on error.
  */
-static inline int asd_seq_unpause_lseq(struct asd_ha_struct *asd_ha, int lseq)
+static int asd_seq_unpause_lseq(struct asd_ha_struct *asd_ha, int lseq)
 {
 	u32 arp2ctl;
 	int count = PAUSE_TRIES;
@@ -185,27 +186,6 @@ static inline int asd_seq_unpause_lseq(struct asd_ha_struct *asd_ha, int lseq)
 	return 0;
 }
 
-
-/**
- * asd_unpause_lseq - unpause the link sequencer(s)
- * @asd_ha: pointer to host adapter structure
- * @lseq_mask: mask of link sequencers of interest
- *
- * Return 0 on success, negative on failure.
- */
-int asd_unpause_lseq(struct asd_ha_struct *asd_ha, u8 lseq_mask)
-{
-	int lseq;
-	int err = 0;
-
-	for_each_sequencer(lseq_mask, lseq_mask, lseq) {
-		err = asd_seq_unpause_lseq(asd_ha, lseq);
-		if (err)
-			return err;
-	}
-
-	return err;
-}
 
 /* ---------- Downloading CSEQ/LSEQ microcode ---------- */
 
@@ -608,7 +588,7 @@ static void asd_init_cseq_mdp(struct asd_ha_struct *asd_ha)
  * asd_init_cseq_scratch -- setup and init CSEQ
  * @asd_ha: pointer to host adapter structure
  *
- * Setup and initialize Central sequencers. Initialiaze the mode
+ * Setup and initialize Central sequencers. Initialize the mode
  * independent and dependent scratch page to the default settings.
  */
 static void asd_init_cseq_scratch(struct asd_ha_struct *asd_ha)
@@ -802,7 +782,7 @@ static void asd_init_lseq_mdp(struct asd_ha_struct *asd_ha,  int lseq)
 	asd_write_reg_word(asd_ha, LmSEQ_OOB_INT_ENABLES(lseq), 0);
 	/*
 	 * Set the desired interval between transmissions of the NOTIFY
-	 * (ENABLE SPINUP) primitive.  Must be initilized to val - 1.
+	 * (ENABLE SPINUP) primitive.  Must be initialized to val - 1.
 	 */
 	asd_write_reg_word(asd_ha, LmSEQ_NOTIFY_TIMER_TIMEOUT(lseq),
 			   ASD_NOTIFY_TIMEOUT - 1);
@@ -918,8 +898,6 @@ static void asd_init_scb_sites(struct asd_ha_struct *asd_ha)
 		 * frames received to be dropped. */
 		asd_scbsite_write_byte(asd_ha, site_no, 0x49, 0x01);
 
-		/* Workaround needed by SEQ to fix a SATA issue is to exclude
-		 * certain SCB sites from the free list. */
 		if (!SCB_SITE_VALID(site_no))
 			continue;
 
@@ -1256,7 +1234,8 @@ int asd_release_firmware(void)
 static int asd_request_firmware(struct asd_ha_struct *asd_ha)
 {
 	int err, i;
-	struct sequencer_file_header header, *hdr_ptr;
+	struct sequencer_file_header header;
+	const struct sequencer_file_header *hdr_ptr;
 	u32 csum = 0;
 	u16 *ptr_cseq_vecs, *ptr_lseq_vecs;
 
@@ -1270,7 +1249,7 @@ static int asd_request_firmware(struct asd_ha_struct *asd_ha)
 	if (err)
 		return err;
 
-	hdr_ptr = (struct sequencer_file_header *)sequencer_fw->data;
+	hdr_ptr = (const struct sequencer_file_header *)sequencer_fw->data;
 
 	header.csum = le32_to_cpu(hdr_ptr->csum);
 	header.major = le32_to_cpu(hdr_ptr->major);

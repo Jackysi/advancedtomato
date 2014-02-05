@@ -71,8 +71,8 @@
 #include <asm/processor.h>	/* for boot_cpu_data */
 
 static DEFINE_SPINLOCK(pdc_lock);
-static unsigned long pdc_result[32] __attribute__ ((aligned (8)));
-static unsigned long pdc_result2[32] __attribute__ ((aligned (8)));
+extern unsigned long pdc_result[NUM_PDC_RESULT];
+extern unsigned long pdc_result2[NUM_PDC_RESULT];
 
 #ifdef CONFIG_64BIT
 #define WIDE_FIRMWARE 0x1
@@ -150,26 +150,40 @@ static void convert_to_wide(unsigned long *addr)
 #endif
 }
 
+#ifdef CONFIG_64BIT
+void __cpuinit set_firmware_width_unlocked(void)
+{
+	int ret;
+
+	ret = mem_pdc_call(PDC_MODEL, PDC_MODEL_CAPABILITIES,
+		__pa(pdc_result), 0);
+	convert_to_wide(pdc_result);
+	if (pdc_result[0] != NARROW_FIRMWARE)
+		parisc_narrow_firmware = 0;
+}
+	
 /**
  * set_firmware_width - Determine if the firmware is wide or narrow.
  * 
- * This function must be called before any pdc_* function that uses the convert_to_wide
- * function.
+ * This function must be called before any pdc_* function that uses the
+ * convert_to_wide function.
  */
-void __init set_firmware_width(void)
+void __cpuinit set_firmware_width(void)
 {
-#ifdef CONFIG_64BIT
-	int retval;
 	unsigned long flags;
-
-        spin_lock_irqsave(&pdc_lock, flags);
-	retval = mem_pdc_call(PDC_MODEL, PDC_MODEL_CAPABILITIES, __pa(pdc_result), 0);
-	convert_to_wide(pdc_result);
-	if(pdc_result[0] != NARROW_FIRMWARE)
-		parisc_narrow_firmware = 0;
-        spin_unlock_irqrestore(&pdc_lock, flags);
-#endif
+	spin_lock_irqsave(&pdc_lock, flags);
+	set_firmware_width_unlocked();
+	spin_unlock_irqrestore(&pdc_lock, flags);
 }
+#else
+void __cpuinit set_firmware_width_unlocked(void) {
+	return;
+}
+
+void __cpuinit set_firmware_width(void) {
+	return;
+}
+#endif /*CONFIG_64BIT*/
 
 /**
  * pdc_emergency_unlock - Unlock the linux pdc lock
@@ -288,6 +302,20 @@ int pdc_chassis_warn(unsigned long *warn)
 	return retval;
 }
 
+int __cpuinit pdc_coproc_cfg_unlocked(struct pdc_coproc_cfg *pdc_coproc_info)
+{
+	int ret;
+
+	ret = mem_pdc_call(PDC_COPROC, PDC_COPROC_CFG, __pa(pdc_result));
+	convert_to_wide(pdc_result);
+	pdc_coproc_info->ccr_functional = pdc_result[0];
+	pdc_coproc_info->ccr_present = pdc_result[1];
+	pdc_coproc_info->revision = pdc_result[17];
+	pdc_coproc_info->model = pdc_result[18];
+
+	return ret;
+}
+
 /**
  * pdc_coproc_cfg - To identify coprocessors attached to the processor.
  * @pdc_coproc_info: Return buffer address.
@@ -295,21 +323,16 @@ int pdc_chassis_warn(unsigned long *warn)
  * This PDC call returns the presence and status of all the coprocessors
  * attached to the processor.
  */
-int __init pdc_coproc_cfg(struct pdc_coproc_cfg *pdc_coproc_info)
+int __cpuinit pdc_coproc_cfg(struct pdc_coproc_cfg *pdc_coproc_info)
 {
-        int retval;
+	int ret;
 	unsigned long flags;
 
-        spin_lock_irqsave(&pdc_lock, flags);
-        retval = mem_pdc_call(PDC_COPROC, PDC_COPROC_CFG, __pa(pdc_result));
-        convert_to_wide(pdc_result);
-        pdc_coproc_info->ccr_functional = pdc_result[0];
-        pdc_coproc_info->ccr_present = pdc_result[1];
-        pdc_coproc_info->revision = pdc_result[17];
-        pdc_coproc_info->model = pdc_result[18];
-        spin_unlock_irqrestore(&pdc_lock, flags);
+	spin_lock_irqsave(&pdc_lock, flags);
+	ret = pdc_coproc_cfg_unlocked(pdc_coproc_info);
+	spin_unlock_irqrestore(&pdc_lock, flags);
 
-        return retval;
+	return ret;
 }
 
 /**
@@ -504,7 +527,11 @@ int pdc_model_capabilities(unsigned long *capabilities)
         pdc_result[0] = 0; /* preset zero (call may not be implemented!) */
         retval = mem_pdc_call(PDC_MODEL, PDC_MODEL_CAPABILITIES, __pa(pdc_result), 0);
         convert_to_wide(pdc_result);
-        *capabilities = pdc_result[0];
+        if (retval == PDC_OK) {
+                *capabilities = pdc_result[0];
+        } else {
+                *capabilities = PDC_MODEL_OS32;
+        }
         spin_unlock_irqrestore(&pdc_lock, flags);
 
         return retval;
@@ -619,7 +646,6 @@ int pdc_lan_station_id(char *lan_addr, unsigned long hpa)
 	retval = mem_pdc_call(PDC_LAN_STATION_ID, PDC_LAN_STATION_ID_READ,
 			__pa(pdc_result), hpa);
 	if (retval < 0) {
-		/* FIXME: else read MAC from NVRAM */
 		memset(lan_addr, 0, PDC_LAN_STATION_ID_SIZE);
 	} else {
 		memcpy(lan_addr, pdc_result, PDC_LAN_STATION_ID_SIZE);
@@ -764,7 +790,6 @@ int pdc_get_initiator(struct hardware_path *hwpath, struct pdc_initiator *initia
 
 	spin_lock_irqsave(&pdc_lock, flags);
 
-/* BCJ-XXXX series boxes. E.G. "9000/785/C3000" */
 #define IS_SPROCKETS() (strlen(boot_cpu_data.pdc.sys_model_name) == 14 && \
 	strncmp(boot_cpu_data.pdc.sys_model_name, "9000/785", 8) == 0)
 
@@ -859,54 +884,6 @@ int pdc_pci_irt(unsigned long num_entries, unsigned long hpa, void *tbl)
 }
 
 
-#if 0	/* UNTEST CODE - left here in case someone needs it */
-
-/** 
- * pdc_pci_config_read - read PCI config space.
- * @hpa		token from PDC to indicate which PCI device
- * @pci_addr	configuration space address to read from
- *
- * Read PCI Configuration space *before* linux PCI subsystem is running.
- */
-unsigned int pdc_pci_config_read(void *hpa, unsigned long cfg_addr)
-{
-	int retval;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pdc_lock, flags);
-	pdc_result[0] = 0;
-	pdc_result[1] = 0;
-	retval = mem_pdc_call(PDC_PCI_INDEX, PDC_PCI_READ_CONFIG, 
-			      __pa(pdc_result), hpa, cfg_addr&~3UL, 4UL);
-	spin_unlock_irqrestore(&pdc_lock, flags);
-
-	return retval ? ~0 : (unsigned int) pdc_result[0];
-}
-
-
-/** 
- * pdc_pci_config_write - read PCI config space.
- * @hpa		token from PDC to indicate which PCI device
- * @pci_addr	configuration space address to write
- * @val		value we want in the 32-bit register
- *
- * Write PCI Configuration space *before* linux PCI subsystem is running.
- */
-void pdc_pci_config_write(void *hpa, unsigned long cfg_addr, unsigned int val)
-{
-	int retval;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pdc_lock, flags);
-	pdc_result[0] = 0;
-	retval = mem_pdc_call(PDC_PCI_INDEX, PDC_PCI_WRITE_CONFIG, 
-			      __pa(pdc_result), hpa,
-			      cfg_addr&~3UL, 4UL, (unsigned long) val);
-	spin_unlock_irqrestore(&pdc_lock, flags);
-
-	return retval;
-}
-#endif /* UNTESTED CODE */
 
 /**
  * pdc_tod_read - Read the Time-Of-Day clock.
@@ -967,10 +944,6 @@ int pdc_mem_mem_table(struct pdc_memory_table_raddr *r_addr,
 }
 #endif /* CONFIG_64BIT */
 
-/* FIXME: Is this pdc used?  I could not find type reference to ftc_bitmap
- * so I guessed at unsigned long.  Someone who knows what this does, can fix
- * it later. :)
- */
 int pdc_do_firm_test_reset(unsigned long ftc_bitmap)
 {
         int retval;
@@ -1080,78 +1053,48 @@ void pdc_io_reset_devices(void)
 	spin_unlock_irqrestore(&pdc_lock, flags);
 }
 
+/* locked by pdc_console_lock */
+static int __attribute__((aligned(8)))   iodc_retbuf[32];
+static char __attribute__((aligned(64))) iodc_dbuf[4096];
 
 /**
- * pdc_iodc_putc - Console character print using IODC.
- * @c: the character to output.
+ * pdc_iodc_print - Console print using IODC.
+ * @str: the string to output.
+ * @count: length of str
  *
  * Note that only these special chars are architected for console IODC io:
  * BEL, BS, CR, and LF. Others are passed through.
  * Since the HP console requires CR+LF to perform a 'newline', we translate
  * "\n" to "\r\n".
  */
-void pdc_iodc_putc(unsigned char c)
+int pdc_iodc_print(const unsigned char *str, unsigned count)
 {
-        /* XXX Should we spinlock posx usage */
-        static int posx;        /* for simple TAB-Simulation... */
-        static int __attribute__((aligned(8)))   iodc_retbuf[32];
-        static char __attribute__((aligned(64))) iodc_dbuf[4096];
-        unsigned int n;
+	unsigned int i;
 	unsigned long flags;
 
-        switch (c) {
-        case '\n':
-                iodc_dbuf[0] = '\r';
-                iodc_dbuf[1] = '\n';
-                n = 2;
-                posx = 0;
-                break;
-        case '\t':
-                pdc_iodc_putc(' ');
-                while (posx & 7)        /* expand TAB */
-                        pdc_iodc_putc(' ');
-                return;         /* return since IODC can't handle this */
-        case '\b':
-                posx-=2;                /* BS */
-        default:
-                iodc_dbuf[0] = c;
-                n = 1;
-                posx++;
-                break;
-        }
+	for (i = 0; i < count;) {
+		switch(str[i]) {
+		case '\n':
+			iodc_dbuf[i+0] = '\r';
+			iodc_dbuf[i+1] = '\n';
+			i += 2;
+			goto print;
+		default:
+			iodc_dbuf[i] = str[i];
+			i++;
+			break;
+		}
+	}
 
+print:
         spin_lock_irqsave(&pdc_lock, flags);
         real32_call(PAGE0->mem_cons.iodc_io,
                     (unsigned long)PAGE0->mem_cons.hpa, ENTRY_IO_COUT,
                     PAGE0->mem_cons.spa, __pa(PAGE0->mem_cons.dp.layers),
-                    __pa(iodc_retbuf), 0, __pa(iodc_dbuf), n, 0);
+                    __pa(iodc_retbuf), 0, __pa(iodc_dbuf), i, 0);
         spin_unlock_irqrestore(&pdc_lock, flags);
-}
 
-/**
- * pdc_iodc_outc - Console character print using IODC (without conversions).
- * @c: the character to output.
- *
- * Write the character directly to the IODC console.
- */
-void pdc_iodc_outc(unsigned char c)
-{
-	unsigned int n;
-	unsigned long flags;
-
-	/* fill buffer with one caracter and print it */
-        static int __attribute__((aligned(8)))   iodc_retbuf[32];
-        static char __attribute__((aligned(64))) iodc_dbuf[4096];
-
-	n = 1;
-	iodc_dbuf[0] = c;
-
-	spin_lock_irqsave(&pdc_lock, flags);
-	real32_call(PAGE0->mem_cons.iodc_io,
-		    (unsigned long)PAGE0->mem_cons.hpa, ENTRY_IO_COUT,
-		    PAGE0->mem_cons.spa, __pa(PAGE0->mem_cons.dp.layers),
-		    __pa(iodc_retbuf), 0, __pa(iodc_dbuf), n, 0);
-	spin_unlock_irqrestore(&pdc_lock, flags);
+	return i;
 }
 
 /**
@@ -1162,11 +1105,9 @@ void pdc_iodc_outc(unsigned char c)
  */
 int pdc_iodc_getc(void)
 {
-	unsigned long flags;
-        static int __attribute__((aligned(8)))   iodc_retbuf[32];
-        static char __attribute__((aligned(64))) iodc_dbuf[4096];
 	int ch;
 	int status;
+	unsigned long flags;
 
 	/* Bail if no console input device. */
 	if (!PAGE0->mem_kbd.iodc_io)
@@ -1497,4 +1438,3 @@ long real64_call(unsigned long fn, ...)
 }
 
 #endif /* CONFIG_64BIT */
-

@@ -49,12 +49,6 @@
 
 #include <linux/ctype.h>
 #define MAX_SIMUL_SETUP 8 /* XXX: use max_outstanding */
-#define INFOP(fmt, args...) printk(KERN_INFO "%s: %s: " fmt, __FILE__, __FUNCTION__ , ## args)
-#if 0
-#define DEBUGP(fmt, args...) printk(KERN_DEBUG "%s: %s: " fmt, __FILE__, __FUNCTION__ , ## args)
-#else
-#define DEBUGP(fmt, args...)
-#endif
 
 #define MAX_PORTS 8
 static int ports[MAX_PORTS];
@@ -75,7 +69,9 @@ MODULE_PARM_DESC(setup_timeout, "timeout on for unestablished data channels");
 static char *rtsp_buffer;
 static DEFINE_SPINLOCK(rtsp_buffer_lock);
 
-unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
+static struct nf_conntrack_expect_policy rtsp_exp_policy; 
+
+unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
 				 enum ip_conntrack_info ctinfo,
 				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
 				 struct nf_conntrack_expect *exp);
@@ -118,10 +114,10 @@ rtsp_parse_message(char* ptcp, uint tcplen, uint* ptcpoff,
 	uint    entitylen = 0;
 	uint    lineoff;
 	uint    linelen;
-
+	
 	if (!nf_nextline(ptcp, tcplen, ptcpoff, &lineoff, &linelen))
 		return 0;
-
+	
 	*phdrsoff = *ptcpoff;
 	while (nf_mime_nextline(ptcp, tcplen, ptcpoff, &lineoff, &linelen)) {
 		if (linelen == 0) {
@@ -130,20 +126,20 @@ rtsp_parse_message(char* ptcp, uint tcplen, uint* ptcpoff,
 			break;
 		}
 		if (lineoff+linelen > tcplen) {
-			DEBUGP("!! overrun !!\n");
+			pr_info("!! overrun !!\n");
 			break;
 		}
-
+		
 		if (nf_strncasecmp(ptcp+lineoff, "CSeq:", 5) == 0) {
 			*pcseqoff = lineoff;
 			*pcseqlen = linelen;
-		}
+		} 
 
 		if (nf_strncasecmp(ptcp+lineoff, "Transport:", 10) == 0) {
 			*transoff = lineoff;
 			*translen = linelen;
 		}
-
+		
 		if (nf_strncasecmp(ptcp+lineoff, "Content-Length:", 15) == 0) {
 			uint off = lineoff+15;
 			SKIP_WSPACE(ptcp+lineoff, linelen, off);
@@ -151,7 +147,7 @@ rtsp_parse_message(char* ptcp, uint tcplen, uint* ptcpoff,
 		}
 	}
 	*phdrslen = (*ptcpoff) - (*phdrsoff);
-
+	
 	return 1;
 }
 
@@ -175,44 +171,44 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 {
 	int     rc = 0;
 	uint    off = 0;
-
+	
 	if (tranlen < 10 || !iseol(ptran[tranlen-1]) ||
 	    nf_strncasecmp(ptran, "Transport:", 10) != 0) {
-		DEBUGP("sanity check failed\n");
+		pr_info("sanity check failed\n");
 		return 0;
 	}
-
-	DEBUGP("tran='%.*s'\n", (int)tranlen, ptran);
+	
+	pr_debug("tran='%.*s'\n", (int)tranlen, ptran);
 	off += 10;
 	SKIP_WSPACE(ptran, tranlen, off);
-
+	
 	/* Transport: tran;field;field=val,tran;field;field=val,... */
 	while (off < tranlen) {
 		const char* pparamend;
 		uint        nextparamoff;
-
+		
 		pparamend = memchr(ptran+off, ',', tranlen-off);
 		pparamend = (pparamend == NULL) ? ptran+tranlen : pparamend+1;
 		nextparamoff = pparamend-ptran;
-
+		
 		while (off < nextparamoff) {
 			const char* pfieldend;
 			uint        nextfieldoff;
-
+			
 			pfieldend = memchr(ptran+off, ';', nextparamoff-off);
 			nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
-
+		   
 			if (strncmp(ptran+off, "client_port=", 12) == 0) {
 				u_int16_t   port;
 				uint        numlen;
-
+		    
 				off += 12;
 				numlen = nf_strtou16(ptran+off, &port);
 				off += numlen;
 				if (prtspexp->loport != 0 && prtspexp->loport != port)
-					DEBUGP("multiple ports found, port %hu ignored\n", port);
+					pr_debug("multiple ports found, port %hu ignored\n", port);
 				else {
-					DEBUGP("lo port found : %hu\n", port);
+					pr_debug("lo port found : %hu\n", port);
 					prtspexp->loport = prtspexp->hiport = port;
 					if (ptran[off] == '-') {
 						off++;
@@ -220,12 +216,12 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 						off += numlen;
 						prtspexp->pbtype = pb_range;
 						prtspexp->hiport = port;
-
+						
 						// If we have a range, assume rtp:
 						// loport must be even, hiport must be loport+1
 						if ((prtspexp->loport & 0x0001) != 0 ||
 						    prtspexp->hiport != prtspexp->loport+1) {
-							DEBUGP("incorrect range: %hu-%hu, correcting\n",
+							pr_debug("incorrect range: %hu-%hu, correcting\n",
 							       prtspexp->loport, prtspexp->hiport);
 							prtspexp->loport &= 0xfffe;
 							prtspexp->hiport = prtspexp->loport+1;
@@ -240,31 +236,30 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 					rc = 1;
 				}
 			}
-
+			
 			/*
 			 * Note we don't look for the destination parameter here.
 			 * If we are using NAT, the NAT module will handle it.  If not,
 			 * and the client is sending packets elsewhere, the expectation
 			 * will quietly time out.
 			 */
-
+			
 			off = nextfieldoff;
 		}
-
+		
 		off = nextparamoff;
 	}
-
+	
 	return rc;
 }
 
 void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 {
-	typeof(nf_nat_rtsp_hook_expectfn) nf_nat_rtsp_expectfn;
-	nf_nat_rtsp_expectfn = rcu_dereference(nf_nat_rtsp_hook_expectfn);
-
-	if (nf_nat_rtsp_expectfn && ct->master->status & IPS_NAT_MASK) {
-		nf_nat_rtsp_expectfn(ct,exp);
-	}
+		typeof(nf_nat_rtsp_hook_expectfn) nf_nat_rtsp_expectfn;
+		nf_nat_rtsp_expectfn = rcu_dereference(nf_nat_rtsp_hook_expectfn);
+    if(nf_nat_rtsp_expectfn && ct->master->status & IPS_NAT_MASK) {
+        nf_nat_rtsp_expectfn(ct,exp);
+    }
 }
 
 /*** conntrack functions ***/
@@ -272,11 +267,11 @@ void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 /* outbound packet: client->server */
 
 static inline int
-help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
-	struct nf_conn *ct, enum ip_conntrack_info ctinfo)
+help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
+                struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	struct ip_ct_rtsp_expect expinfo;
-
+	
 	int dir = CTINFO2DIR(ctinfo);   /* = IP_CT_DIR_ORIGINAL */
 	//struct  tcphdr* tcph = (void*)iph + iph->ihl * 4;
 	//uint    tcplen = pktlen - iph->ihl * 4;
@@ -284,14 +279,15 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 	//uint    datalen = tcplen - tcph->doff * 4;
 	uint    dataoff = 0;
 	int ret = NF_ACCEPT;
-
+	
 	struct nf_conntrack_expect *exp;
+	
+	__be16 be_loport;
+	
 	typeof(nf_nat_rtsp_hook) nf_nat_rtsp;
 
-	__be16 be_loport;
-
 	memset(&expinfo, 0, sizeof(expinfo));
-
+	
 	while (dataoff < datalen) {
 		uint    cmdoff = dataoff;
 		uint    hdrsoff = 0;
@@ -301,16 +297,16 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		uint    transoff = 0;
 		uint    translen = 0;
 		uint    off;
-
+		
 		if (!rtsp_parse_message(pdata, datalen, &dataoff,
 					&hdrsoff, &hdrslen,
 					&cseqoff, &cseqlen,
 					&transoff, &translen))
 			break;      /* not a valid message */
-
+		
 		if (strncmp(pdata+cmdoff, "SETUP ", 6) != 0)
 			continue;   /* not a SETUP message */
-		DEBUGP("found a setup message\n");
+		pr_debug("found a setup message\n");
 
 		off = 0;
 		if(translen) {
@@ -318,14 +314,14 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		}
 
 		if (expinfo.loport == 0) {
-			DEBUGP("no udp transports found\n");
+			pr_debug("no udp transports found\n");
 			continue;   /* no udp transports found */
 		}
 
-		DEBUGP("udp transport found, ports=(%d,%hu,%hu)\n",
+		pr_debug("udp transport found, ports=(%d,%hu,%hu)\n",
 		       (int)expinfo.pbtype, expinfo.loport, expinfo.hiport);
 
-		exp = nf_conntrack_expect_alloc(ct);
+		exp = nf_ct_expect_alloc(ct);
 		if (!exp) {
 			ret = NF_DROP;
 			goto out;
@@ -333,11 +329,11 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 
 		be_loport = htons(expinfo.loport);
 
-		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
+		nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, nf_ct_l3num(ct),
 			/* media stream source can be different from the RTSP server address */
 			// &ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
 			NULL, &ct->tuplehash[!dir].tuple.dst.u3,
-			IPPROTO_UDP, NULL, &be_loport);
+			IPPROTO_UDP, NULL, &be_loport); 
 
 		exp->master = ct;
 
@@ -345,25 +341,25 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		exp->flags = 0;
 
 		if (expinfo.pbtype == pb_range) {
-			DEBUGP("Changing expectation mask to handle multiple ports\n");
-			//exp->mask.src.u.udp.port  = 0xfffe;
+			pr_debug("Changing expectation mask to handle multiple ports\n");
+			//exp->mask.dst.u.udp.port  = 0xfffe;
 		}
 
-		DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
-		       NIPQUAD(exp->tuple.src.u3.ip),
+		pr_debug("expect_related %pI4:%u-%pI4:%u\n",
+		       &exp->tuple.src.u3.ip,
 		       ntohs(exp->tuple.src.u.udp.port),
-		       NIPQUAD(exp->tuple.dst.u3.ip),
+		       &exp->tuple.dst.u3.ip,
 		       ntohs(exp->tuple.dst.u.udp.port));
 
 		nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
 		if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
 			/* pass the request off to the nat helper */
-			ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
-		else if (nf_conntrack_expect_related(exp) != 0) {
-			DEBUGP("nf_conntrack_expect_related failed\n");
+			ret = nf_nat_rtsp(skb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+		else if (nf_ct_expect_related(exp) != 0) {
+			pr_info("nf_conntrack_expect_related failed\n");
 			ret  = NF_DROP;
 		}
-		nf_conntrack_expect_put(exp);
+		nf_ct_expect_put(exp);
 		goto out;
 	}
 out:
@@ -373,14 +369,14 @@ out:
 
 
 static inline int
-help_in(struct sk_buff **pskb, size_t pktlen,
-	struct nf_conn* ct, enum ip_conntrack_info ctinfo)
+help_in(struct sk_buff *skb, size_t pktlen,
+ struct nf_conn* ct, enum ip_conntrack_info ctinfo)
 {
-	return NF_ACCEPT;
+ return NF_ACCEPT;
 }
 
-static int help(struct sk_buff **pskb, unsigned int protoff,
-		struct nf_conn *ct, enum ip_conntrack_info ctinfo)
+static int help(struct sk_buff *skb, unsigned int protoff,
+		struct nf_conn *ct, enum ip_conntrack_info ctinfo) 
 {
 	struct tcphdr _tcph, *th;
 	unsigned int dataoff, datalen;
@@ -388,27 +384,27 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 	int ret = NF_DROP;
 
 	/* Until there's been traffic both ways, don't look in packets. */
-	if (ctinfo != IP_CT_ESTABLISHED &&
+	if (ctinfo != IP_CT_ESTABLISHED && 
 	    ctinfo != IP_CT_ESTABLISHED + IP_CT_IS_REPLY) {
-		DEBUGP("conntrackinfo = %u\n", ctinfo);
+		pr_debug("conntrackinfo = %u\n", ctinfo);
 		return NF_ACCEPT;
-	}
+	} 
 
 	/* Not whole TCP header? */
-	th = skb_header_pointer(*pskb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(skb,protoff, sizeof(_tcph), &_tcph);
 
 	if (!th)
 		return NF_ACCEPT;
-
+   
 	/* No data ? */
 	dataoff = protoff + th->doff*4;
-	datalen = (*pskb)->len - dataoff;
-	if (dataoff >= (*pskb)->len)
+	datalen = skb->len - dataoff;
+	if (dataoff >= skb->len)
 		return NF_ACCEPT;
 
 	spin_lock_bh(&rtsp_buffer_lock);
-	rb_ptr = skb_header_pointer(*pskb, dataoff,
-				    (*pskb)->len - dataoff, rtsp_buffer);
+	rb_ptr = skb_header_pointer(skb, dataoff,
+				    skb->len - dataoff, rtsp_buffer);
 	BUG_ON(rb_ptr == NULL);
 
 #if 0
@@ -425,10 +421,10 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 
 	switch (CTINFO2DIR(ctinfo)) {
 	case IP_CT_DIR_ORIGINAL:
-		ret = help_out(pskb, rb_ptr, datalen, ct, ctinfo);
+		ret = help_out(skb, rb_ptr, datalen, ct, ctinfo);
 		break;
 	case IP_CT_DIR_REPLY:
-		DEBUGP("IP_CT_DIR_REPLY\n");
+		pr_debug("IP_CT_DIR_REPLY\n");
 		/* inbound packet: server->client */
 		ret = NF_ACCEPT;
 		break;
@@ -450,7 +446,7 @@ fini(void)
 	for (i = 0; i < num_ports; i++) {
 		if (rtsp_helpers[i].me == NULL)
 			continue;
-		DEBUGP("unregistering port %d\n", ports[i]);
+		pr_debug("unregistering port %d\n", ports[i]);
 		nf_conntrack_helper_unregister(&rtsp_helpers[i]);
 	}
 	kfree(rtsp_buffer);
@@ -474,8 +470,11 @@ init(void)
 		return -EBUSY;
 	}
 
+  rtsp_exp_policy.max_expected = max_outstanding;
+  rtsp_exp_policy.timeout = setup_timeout;
+	
 	rtsp_buffer = kmalloc(65536, GFP_KERNEL);
-	if (!rtsp_buffer)
+	if (!rtsp_buffer) 
 		return -ENOMEM;
 
 	/* If no port given, default to standard rtsp port */
@@ -489,11 +488,9 @@ init(void)
 		hlpr->tuple.src.l3num = AF_INET;
 		hlpr->tuple.src.u.tcp.port = htons(ports[i]);
 		hlpr->tuple.dst.protonum = IPPROTO_TCP;
-		hlpr->mask.src.l3num = 0xFFFF;
-		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
-		hlpr->mask.dst.protonum = 0xFF;
-		hlpr->max_expected = max_outstanding;
-		hlpr->timeout = setup_timeout;
+		//hlpr->mask.src.u.tcp.port = 0xFFFF;
+		//hlpr->mask.dst.protonum = 0xFF;
+		hlpr->expect_policy = &rtsp_exp_policy;
 		hlpr->me = THIS_MODULE;
 		hlpr->help = help;
 
@@ -505,7 +502,7 @@ init(void)
 		}
 		hlpr->name = tmpname;
 
-		DEBUGP("port #%d: %d\n", i, ports[i]);
+		pr_debug("port #%d: %d\n", i, ports[i]);
 
 		ret = nf_conntrack_helper_register(hlpr);
 

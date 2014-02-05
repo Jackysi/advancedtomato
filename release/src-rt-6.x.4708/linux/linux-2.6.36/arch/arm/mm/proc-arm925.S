@@ -1,58 +1,9 @@
-/*
- *  linux/arch/arm/mm/arm925.S: MMU functions for ARM925
- *
- *  Copyright (C) 1999,2000 ARM Limited
- *  Copyright (C) 2000 Deep Blue Solutions Ltd.
- *  Copyright (C) 2002 RidgeRun, Inc.
- *  Copyright (C) 2002-2003 MontaVista Software, Inc.
- *
- *  Update for Linux-2.6 and cache flush improvements
- *  Copyright (C) 2004 Nokia Corporation by Tony Lindgren <tony@atomide.com>
- *
- *  hacked for non-paged-MM by Hyok S. Choi, 2004.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- *
- * These are the low level assembler for performing cache and TLB
- * functions on the arm925.
- *
- *  CONFIG_CPU_ARM925_CPU_IDLE -> nohlt
- *
- * Some additional notes based on deciphering the TI TRM on OMAP-5910:
- *
- * NOTE1: The TI925T Configuration Register bit "D-cache clean and flush
- *	  entry mode" must be 0 to flush the entries in both segments
- *	  at once. This is the default value. See TRM 2-20 and 2-24 for
- *	  more information.
- *
- * NOTE2: Default is the "D-cache clean and flush entry mode". It looks
- *	  like the "Transparent mode" must be on for partial cache flushes
- *	  to work in this mode. This mode only works with 16-bit external
- *	  memory. See TRM 2-24 for more information.
- *
- * NOTE3: Write-back cache flushing seems to be flakey with devices using
- *        direct memory access, such as USB OHCI. The workaround is to use
- *        write-through cache with CONFIG_CPU_DCACHE_WRITETHROUGH (this is
- *        the default for OMAP-1510).
- */
+
 
 #include <linux/linkage.h>
 #include <linux/init.h>
 #include <asm/assembler.h>
-#include <asm/elf.h>
+#include <asm/hwcap.h>
 #include <asm/pgtable-hwdef.h>
 #include <asm/pgtable.h>
 #include <asm/page.h>
@@ -92,15 +43,11 @@ ENTRY(cpu_arm925_proc_init)
  * cpu_arm925_proc_fin()
  */
 ENTRY(cpu_arm925_proc_fin)
-	stmfd	sp!, {lr}
-	mov	ip, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
-	msr	cpsr_c, ip
-	bl	arm925_flush_kern_cache_all
 	mrc	p15, 0, r0, c1, c0, 0		@ ctrl register
 	bic	r0, r0, #0x1000			@ ...i............
 	bic	r0, r0, #0x000e			@ ............wca.
 	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
-	ldmfd	sp!, {pc}
+	mov	pc, lr
 
 /*
  * cpu_arm925_reset(loc)
@@ -251,15 +198,16 @@ ENTRY(arm925_coherent_user_range)
 	mov	pc, lr
 
 /*
- *	flush_kern_dcache_page(void *page)
+ *	flush_kern_dcache_area(void *addr, size_t size)
  *
  *	Ensure no D cache aliasing occurs, either with itself or
  *	the I cache
  *
- *	- addr	- page aligned address
+ *	- addr	- kernel address
+ *	- size	- region size
  */
-ENTRY(arm925_flush_kern_dcache_page)
-	add	r1, r0, #PAGE_SZ
+ENTRY(arm925_flush_kern_dcache_area)
+	add	r1, r0, r1
 1:	mcr	p15, 0, r0, c7, c14, 1		@ clean+invalidate D entry
 	add	r0, r0, #CACHE_DLINESIZE
 	cmp	r0, r1
@@ -282,7 +230,7 @@ ENTRY(arm925_flush_kern_dcache_page)
  *
  * (same as v4wb)
  */
-ENTRY(arm925_dma_inv_range)
+arm925_dma_inv_range:
 #ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
 	tst	r0, #CACHE_DLINESIZE - 1
 	mcrne	p15, 0, r0, c7, c10, 1		@ clean D entry
@@ -307,7 +255,7 @@ ENTRY(arm925_dma_inv_range)
  *
  * (same as v4wb)
  */
-ENTRY(arm925_dma_clean_range)
+arm925_dma_clean_range:
 #ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
 	bic	r0, r0, #CACHE_DLINESIZE - 1
 1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
@@ -332,7 +280,7 @@ ENTRY(arm925_dma_flush_range)
 #ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, r0, c7, c14, 1		@ clean+invalidate D entry
 #else
-	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
+	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
 #endif
 	add	r0, r0, #CACHE_DLINESIZE
 	cmp	r0, r1
@@ -340,15 +288,39 @@ ENTRY(arm925_dma_flush_range)
 	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
 	mov	pc, lr
 
+/*
+ *	dma_map_area(start, size, dir)
+ *	- start	- kernel virtual start address
+ *	- size	- size of region
+ *	- dir	- DMA direction
+ */
+ENTRY(arm925_dma_map_area)
+	add	r1, r1, r0
+	cmp	r2, #DMA_TO_DEVICE
+	beq	arm925_dma_clean_range
+	bcs	arm925_dma_inv_range
+	b	arm925_dma_flush_range
+ENDPROC(arm925_dma_map_area)
+
+/*
+ *	dma_unmap_area(start, size, dir)
+ *	- start	- kernel virtual start address
+ *	- size	- size of region
+ *	- dir	- DMA direction
+ */
+ENTRY(arm925_dma_unmap_area)
+	mov	pc, lr
+ENDPROC(arm925_dma_unmap_area)
+
 ENTRY(arm925_cache_fns)
 	.long	arm925_flush_kern_cache_all
 	.long	arm925_flush_user_cache_all
 	.long	arm925_flush_user_cache_range
 	.long	arm925_coherent_kern_range
 	.long	arm925_coherent_user_range
-	.long	arm925_flush_kern_dcache_page
-	.long	arm925_dma_inv_range
-	.long	arm925_dma_clean_range
+	.long	arm925_flush_kern_dcache_area
+	.long	arm925_dma_map_area
+	.long	arm925_dma_unmap_area
 	.long	arm925_dma_flush_range
 
 ENTRY(cpu_arm925_dcache_clean_area)
@@ -398,29 +370,7 @@ ENTRY(cpu_arm925_switch_mm)
 	.align	5
 ENTRY(cpu_arm925_set_pte_ext)
 #ifdef CONFIG_MMU
-	str	r1, [r0], #-2048		@ linux version
-
-	eor	r1, r1, #L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_WRITE | L_PTE_DIRTY
-
-	bic	r2, r1, #PTE_SMALL_AP_MASK
-	bic	r2, r2, #PTE_TYPE_MASK
-	orr	r2, r2, #PTE_TYPE_SMALL
-
-	tst	r1, #L_PTE_USER			@ User?
-	orrne	r2, r2, #PTE_SMALL_AP_URO_SRW
-
-	tst	r1, #L_PTE_WRITE | L_PTE_DIRTY	@ Write and Dirty?
-	orreq	r2, r2, #PTE_SMALL_AP_UNO_SRW
-
-	tst	r1, #L_PTE_PRESENT | L_PTE_YOUNG	@ Present and Young?
-	movne	r2, #0
-
-#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
-	eor	r3, r2, #0x0a			@ C & small page?
-	tst	r3, #0x0b
-	biceq	r2, r2, #4
-#endif
-	str	r2, [r0]			@ hardware version
+	armv3_set_pte_ext
 	mov	r0, r0
 #ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
@@ -484,6 +434,7 @@ arm925_crval:
 	.type	arm925_processor_functions, #object
 arm925_processor_functions:
 	.word	v4t_early_abort
+	.word	legacy_pabort
 	.word	cpu_arm925_proc_init
 	.word	cpu_arm925_proc_fin
 	.word	cpu_arm925_reset

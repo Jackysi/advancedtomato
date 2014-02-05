@@ -82,4 +82,3 @@ void iriap_do_r_connect_event(struct iriap_cb *self, IRIAP_EVENT event,
 			      struct sk_buff *skb);
 
 #endif /* IRIAP_FSM_H */
-

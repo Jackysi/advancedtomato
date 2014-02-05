@@ -99,6 +99,7 @@ struct rtc_pll_info {
 
 #ifdef __KERNEL__
 
+#include <linux/types.h>
 #include <linux/interrupt.h>
 
 extern int rtc_month_days(unsigned int month, unsigned int year);
@@ -115,6 +116,23 @@ extern void rtc_time_to_tm(unsigned long time, struct rtc_time *tm);
 
 extern struct class *rtc_class;
 
+/*
+ * For these RTC methods the device parameter is the physical device
+ * on whatever bus holds the hardware (I2C, Platform, SPI, etc), which
+ * was passed to rtc_device_register().  Its driver_data normally holds
+ * device state, including the rtc_device pointer for the RTC.
+ *
+ * Most of these methods are called with rtc_device.ops_lock held,
+ * through the rtc_*(struct rtc_device *, ...) calls.
+ *
+ * The (current) exceptions are mostly filesystem hooks:
+ *   - the proc() hook for procfs
+ *   - non-ioctl() chardev hooks:  open(), release(), read_callback()
+ *   - periodic irq calls:  irq_set_state(), irq_set_freq()
+ *
+ * REVISIT those periodic irq calls *do* have ops_lock when they're
+ * issued through ioctl() ...
+ */
 struct rtc_class_ops {
 	int (*open)(struct device *);
 	void (*release)(struct device *);
@@ -128,10 +146,15 @@ struct rtc_class_ops {
 	int (*irq_set_state)(struct device *, int enabled);
 	int (*irq_set_freq)(struct device *, int freq);
 	int (*read_callback)(struct device *, int data);
+	int (*alarm_irq_enable)(struct device *, unsigned int enabled);
+	int (*update_irq_enable)(struct device *, unsigned int enabled);
 };
 
 #define RTC_DEVICE_NAME_SIZE 20
 struct rtc_task;
+
+/* flags */
+#define RTC_DEV_BUSY 0
 
 struct rtc_device
 {
@@ -145,7 +168,7 @@ struct rtc_device
 	struct mutex ops_lock;
 
 	struct cdev char_dev;
-	struct mutex char_lock;
+	unsigned long flags;
 
 	unsigned long irq_data;
 	spinlock_t irq_lock;
@@ -161,7 +184,7 @@ struct rtc_device
 	struct timer_list uie_timer;
 	/* Those fields are protected by rtc->irq_lock */
 	unsigned int oldsecs;
-	unsigned int irq_active:1;
+	unsigned int uie_irq_active:1;
 	unsigned int stop_uie_polling:1;
 	unsigned int uie_task_active:1;
 	unsigned int uie_timer_active:1;
@@ -196,6 +219,10 @@ extern int rtc_irq_set_state(struct rtc_device *rtc,
 				struct rtc_task *task, int enabled);
 extern int rtc_irq_set_freq(struct rtc_device *rtc,
 				struct rtc_task *task, int freq);
+extern int rtc_update_irq_enable(struct rtc_device *rtc, unsigned int enabled);
+extern int rtc_alarm_irq_enable(struct rtc_device *rtc, unsigned int enabled);
+extern int rtc_dev_update_irq_enable_emul(struct rtc_device *rtc,
+						unsigned int enabled);
 
 typedef struct rtc_task {
 	void (*func)(void *private_data);
@@ -205,8 +232,17 @@ typedef struct rtc_task {
 int rtc_register(rtc_task_t *task);
 int rtc_unregister(rtc_task_t *task);
 int rtc_control(rtc_task_t *t, unsigned int cmd, unsigned long arg);
-void rtc_get_rtc_time(struct rtc_time *rtc_tm);
-irqreturn_t rtc_interrupt(int irq, void *dev_id);
+
+static inline bool is_leap_year(unsigned int year)
+{
+	return (!(year % 4) && (year % 100)) || !(year % 400);
+}
+
+#ifdef CONFIG_RTC_HCTOSYS
+extern int rtc_hctosys_ret;
+#else
+#define rtc_hctosys_ret -ENODEV
+#endif
 
 #endif /* __KERNEL__ */
 

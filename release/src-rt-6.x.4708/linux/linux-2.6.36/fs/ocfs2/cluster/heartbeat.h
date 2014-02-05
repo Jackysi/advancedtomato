@@ -35,7 +35,7 @@
 #define O2HB_LIVE_THRESHOLD	   2
 /* number of equal samples to be seen as dead */
 extern unsigned int o2hb_dead_threshold;
-#define O2HB_DEFAULT_DEAD_THRESHOLD	   7
+#define O2HB_DEFAULT_DEAD_THRESHOLD	   31
 /* Otherwise MAX_WRITE_TIMEOUT will be zero... */
 #define O2HB_MIN_DEAD_THRESHOLD	  2
 #define O2HB_MAX_WRITE_TIMEOUT_MS (O2HB_REGION_TIMEOUT_MS * (o2hb_dead_threshold - 1))
@@ -69,11 +69,14 @@ void o2hb_setup_callback(struct o2hb_callback_func *hc,
 			 o2hb_cb_func *func,
 			 void *data,
 			 int priority);
-int o2hb_register_callback(struct o2hb_callback_func *hc);
-void o2hb_unregister_callback(struct o2hb_callback_func *hc);
+int o2hb_register_callback(const char *region_uuid,
+			   struct o2hb_callback_func *hc);
+void o2hb_unregister_callback(const char *region_uuid,
+			      struct o2hb_callback_func *hc);
 void o2hb_fill_node_map(unsigned long *map,
 			unsigned bytes);
-void o2hb_init(void);
+void o2hb_exit(void);
+int o2hb_init(void);
 int o2hb_check_node_heartbeating(u8 node_num);
 int o2hb_check_node_heartbeating_from_callback(u8 node_num);
 int o2hb_check_local_node_heartbeating(void);

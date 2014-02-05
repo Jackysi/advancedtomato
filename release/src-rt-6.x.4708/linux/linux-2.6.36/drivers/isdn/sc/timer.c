@@ -1,4 +1,4 @@
-/* $Id: timer.c,v 1.3.6.1 2001/09/23 22:24:59 kai Exp $
+/* $Id: timer.c,v 1.3.6.1 2001/09/23 22:24:59 Exp $
  *
  * Copyright (C) 1996  SpellCaster Telecommunications Inc.
  *
@@ -43,7 +43,7 @@ static void setup_ports(int card)
  * Then, check to see if the signate has been set. Next, set the
  * signature to a known value and issue a startproc if needed.
  */
-void check_reset(unsigned long data)
+void sc_check_reset(unsigned long data)
 {
 	unsigned long flags;
 	unsigned long sig;
@@ -120,4 +120,3 @@ void check_phystat(unsigned long data)
 	sendmessage(card, CEPID,ceReqTypePhy,ceReqClass2,
 		ceReqPhyStatus,0,0,NULL);
 }
-

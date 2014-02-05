@@ -69,23 +69,6 @@ __setup("pdcchassis=", pdc_chassis_setup);
  * Currently, only E class and A180 are known to work with this.
  * Inspired by Christoph Plattner
  */
-#if 0
-static void __init pdc_chassis_checkold(void)
-{
-	switch(CPU_HVERSION) {
-		case 0x480:		/* E25 */
-		case 0x481:		/* E35 */
-		case 0x482:		/* E45 */
-		case 0x483:		/* E55 */
-		case 0x516:		/* A180 */
-			break;
-
-		default:
-			break;
-	}
-	DPRINTK(KERN_DEBUG "%s: pdc_chassis_checkold(); pdc_chassis_old = %d\n", __FILE__, pdc_chassis_old);
-}
-#endif
 
 /**
  * pdc_chassis_panic_event() - Called by the panic handler.

@@ -4,11 +4,8 @@
 
 #include <asm/byteorder.h>
 #include <linux/completion.h>
+#include <linux/mutex.h>
 
-/*	FIXME - rename and use the following two types or delete them!
- *              and the types really should go to st.h anyway...
- *	INQUIRY packet command - Data Format (From Table 6-8 of QIC-157C)
- */
 typedef struct {
 	unsigned	device_type	:5;	/* Peripheral Device Type */
 	unsigned	reserved0_765	:3;	/* Peripheral Qualifier - Reserved */
@@ -519,6 +516,7 @@ struct osst_buffer {
   int syscall_result;
   struct osst_request *last_SRpnt;
   struct st_cmdstatus cmdstat;
+  struct rq_map_data map_data;
   unsigned char *b_data;
   os_aux_t *aux;               /* onstream AUX structure at end of each block     */
   unsigned short use_sg;       /* zero or number of s/g segments for this adapter */
@@ -532,7 +530,7 @@ struct osst_tape {
   struct scsi_driver *driver;
   unsigned capacity;
   struct scsi_device *device;
-  struct semaphore lock;       /* for serialization */
+  struct mutex lock;           /* for serialization */
   struct completion wait;      /* for SCSI commands */
   struct osst_buffer * buffer;
 
@@ -633,6 +631,7 @@ struct osst_request {
 	int result;
 	struct osst_tape *stp;
 	struct completion *waiting;
+	struct bio *bio;
 };
 
 /* Values of write_type */

@@ -95,10 +95,6 @@ InitCommonPointer(struct SiS_Private *SiS_Pr)
    SiS_Pr->SiS_HiTVExtTiming  = SiS_HiTVExtTiming;
    SiS_Pr->SiS_HiTVGroup3Data = SiS_HiTVGroup3Data;
    SiS_Pr->SiS_HiTVGroup3Simu = SiS_HiTVGroup3Simu;
-#if 0
-   SiS_Pr->SiS_HiTVTextTiming = SiS_HiTVTextTiming;
-   SiS_Pr->SiS_HiTVGroup3Text = SiS_HiTVGroup3Text;
-#endif
 
    SiS_Pr->SiS_StPALData   = SiS_StPALData;
    SiS_Pr->SiS_ExtPALData  = SiS_ExtPALData;
@@ -145,12 +141,6 @@ InitCommonPointer(struct SiS_Private *SiS_Pr)
    SiS_Pr->SiS_LVDSCRT1320x240_3_H   = SiS_LVDSCRT1320x240_3_H;
    SiS_Pr->SiS_LVDSCRT1640x480_1     = SiS_LVDSCRT1640x480_1;
    SiS_Pr->SiS_LVDSCRT1640x480_1_H   = SiS_LVDSCRT1640x480_1_H;
-#if 0
-   SiS_Pr->SiS_LVDSCRT11024x600_1    = SiS_LVDSCRT11024x600_1;
-   SiS_Pr->SiS_LVDSCRT11024x600_1_H  = SiS_LVDSCRT11024x600_1_H;
-   SiS_Pr->SiS_LVDSCRT11024x600_2    = SiS_LVDSCRT11024x600_2;
-   SiS_Pr->SiS_LVDSCRT11024x600_2_H  = SiS_LVDSCRT11024x600_2_H;
-#endif
 
    SiS_Pr->SiS_CHTVUNTSCData = SiS_CHTVUNTSCData;
    SiS_Pr->SiS_CHTVONTSCData = SiS_CHTVONTSCData;
@@ -1755,17 +1745,6 @@ SiS_OpenCRTC(struct SiS_Private *SiS_Pr)
 static void
 SiS_CloseCRTC(struct SiS_Private *SiS_Pr)
 {
-#if 0 /* This locks some CRTC registers. We don't want that. */
-   unsigned short temp1 = 0, temp2 = 0;
-
-   if(IS_SIS661741660760) {
-      if(SiS_Pr->SiS_VBInfo & SetCRT2ToLCDA) {
-         temp1 = 0xa0; temp2 = 0x08;
-      }
-      SiS_SetRegANDOR(SiS_Pr->SiS_P3d4,0x51,0x1f,temp1);
-      SiS_SetRegANDOR(SiS_Pr->SiS_P3d4,0x56,0xe7,temp2);
-   }
-#endif
 }
 
 static void
@@ -1773,14 +1752,6 @@ SiS_HandleCRT1(struct SiS_Private *SiS_Pr)
 {
    /* Enable CRT1 gating */
    SiS_SetRegAND(SiS_Pr->SiS_P3d4,SiS_Pr->SiS_MyCR63,0xbf);
-#if 0
-   if(!(SiS_GetReg(SiS_Pr->SiS_P3c4,0x15) & 0x01)) {
-      if((SiS_GetReg(SiS_Pr->SiS_P3c4,0x15) & 0x0a) ||
-         (SiS_GetReg(SiS_Pr->SiS_P3c4,0x16) & 0x01)) {
-         SiS_SetRegOR(SiS_Pr->SiS_P3d4,SiS_Pr->SiS_MyCR63,0x40);
-      }
-   }
-#endif
 }
 
 /*********************************************/
@@ -2849,29 +2820,6 @@ SiS_SetCRT1ModeRegs(struct SiS_Private *SiS_Pr, unsigned short ModeNo,
 static void
 SiS_SetupDualChip(struct SiS_Private *SiS_Pr)
 {
-#if 0
-   /* TODO: Find out about IOAddress2 */
-   SISIOADDRESS P2_3c2 = SiS_Pr->IOAddress2 + 0x12;
-   SISIOADDRESS P2_3c4 = SiS_Pr->IOAddress2 + 0x14;
-   SISIOADDRESS P2_3ce = SiS_Pr->IOAddress2 + 0x1e;
-   int i;
-
-   if((SiS_Pr->ChipRevision != 0) ||
-      (!(SiS_GetReg(SiS_Pr->SiS_P3c4,0x3a) & 0x04)))
-      return;
-
-   for(i = 0; i <= 4; i++) {					/* SR00 - SR04 */
-      SiS_SetReg(P2_3c4,i,SiS_GetReg(SiS_Pr->SiS_P3c4,i));
-   }
-   for(i = 0; i <= 8; i++) {					/* GR00 - GR08 */
-      SiS_SetReg(P2_3ce,i,SiS_GetReg(SiS_Pr->SiS_P3ce,i));
-   }
-   SiS_SetReg(P2_3c4,0x05,0x86);
-   SiS_SetReg(P2_3c4,0x06,SiS_GetReg(SiS_Pr->SiS_P3c4,0x06));	/* SR06 */
-   SiS_SetReg(P2_3c4,0x21,SiS_GetReg(SiS_Pr->SiS_P3c4,0x21));	/* SR21 */
-   SiS_SetRegByte(P2_3c2,SiS_GetRegByte(SiS_Pr->SiS_P3cc));	/* MISC */
-   SiS_SetReg(P2_3c4,0x05,0x00);
-#endif
 }
 #endif
 
@@ -3301,7 +3249,8 @@ SiSSetMode(struct SiS_Private *SiS_Pr, unsigned short ModeNo)
    SiS_GetSysFlags(SiS_Pr);
 
    SiS_Pr->SiS_VGAINFO = 0x11;
-#if defined(SIS_XORG_XF86) && (defined(i386) || defined(__i386) || defined(__i386__) || defined(__AMD64__) || defined(__amd64__) || defined(__x86_64__))
+#if defined(SIS_XORG_XF86) && (defined(i386) || defined(__i386) || defined(__i386__) || \
+	defined(__AMD64__) || defined(__amd64__) || defined(__x86_64__))
    if(pScrn) SiS_Pr->SiS_VGAINFO = SiS_GetSetBIOSScratch(pScrn, 0x489, 0xff);
 #endif
 
@@ -3523,7 +3472,8 @@ SiSBIOSSetModeCRT2(struct SiS_Private *SiS_Pr, ScrnInfoPtr pScrn,
    SiSRegInit(SiS_Pr, BaseAddr);
    SiSInitPtr(SiS_Pr);
    SiS_GetSysFlags(SiS_Pr);
-#if defined(i386) || defined(__i386) || defined(__i386__) || defined(__AMD64__) || defined(__amd64__) || defined(__x86_64__)
+#if defined(i386) || defined(__i386) || defined(__i386__) || defined(__AMD64__) || \
+	defined(__amd64__) || defined(__x86_64__)
    SiS_Pr->SiS_VGAINFO = SiS_GetSetBIOSScratch(pScrn, 0x489, 0xff);
 #else
    SiS_Pr->SiS_VGAINFO = 0x11;
@@ -3545,14 +3495,6 @@ SiSBIOSSetModeCRT2(struct SiS_Private *SiS_Pr, ScrnInfoPtr pScrn,
       pSiSEnt->CRT2CR31 = SiS_GetReg(SiS_Pr->SiS_P3d4,0x31);
       pSiSEnt->CRT2CR35 = SiS_GetReg(SiS_Pr->SiS_P3d4,0x35);
       pSiSEnt->CRT2CR38 = SiS_GetReg(SiS_Pr->SiS_P3d4,0x38);
-#if 0
-      /* We can't set CRT2 mode before CRT1 mode is set - says who...? */
-      if(pSiSEnt->CRT1ModeNo == -1) {
-	 xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, 3,
-		"Setting CRT2 mode delayed until after setting CRT1 mode\n");
-	 return true;
-      }
-#endif
       pSiSEnt->CRT2ModeSet = true;
    }
 #endif
@@ -3706,7 +3648,8 @@ SiSBIOSSetModeCRT1(struct SiS_Private *SiS_Pr, ScrnInfoPtr pScrn,
    SiSInitPtr(SiS_Pr);
    SiSRegInit(SiS_Pr, BaseAddr);
    SiS_GetSysFlags(SiS_Pr);
-#if defined(i386) || defined(__i386) || defined(__i386__) || defined(__AMD64__) || defined(__amd64__) || defined(__x86_64__)
+#if defined(i386) || defined(__i386) || defined(__i386__) || defined(__AMD64__) || \
+	defined(__amd64__) || defined(__x86_64__)
    SiS_Pr->SiS_VGAINFO = SiS_GetSetBIOSScratch(pScrn, 0x489, 0xff);
 #else
    SiS_Pr->SiS_VGAINFO = 0x11;
@@ -4198,12 +4141,6 @@ SiS_Generic_ConvertCRData(struct SiS_Private *SiS_Pr, unsigned char *crdata,
    current->VSyncEnd   = ((VRS & ~0x1f) | VRE) + 1;
    if(VRE <= (VRS & 0x1f)) current->VSyncEnd += 32;
    current->VTotal     = E + D + C + F;
-#if 0
-   current->VDisplay   = E;
-   current->VSyncStart = E + D;
-   current->VSyncEnd   = E + D + C;
-   current->VTotal     = E + D + C + F;
-#endif
 #ifdef TWDEBUG
    xf86DrvMsg(0, X_INFO,
 	"V: A %d B %d C %d D %d E %d F %d  VT %d VDE %d VRS %d VBS %d VBE %d VRE %d\n",
@@ -4239,7 +4176,3 @@ SiS_Generic_ConvertCRData(struct SiS_Private *SiS_Pr, unsigned char *crdata,
    }
 
 }
-
-
-
-

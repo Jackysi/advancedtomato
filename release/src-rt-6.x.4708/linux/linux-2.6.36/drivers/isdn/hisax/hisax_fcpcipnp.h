@@ -55,4 +55,3 @@ struct fritz_adapter {
 	u32  (*read_hdlc_status) (struct fritz_adapter *adapter, int nr);
 	void (*write_ctrl) (struct fritz_bcs *bcs, int which);
 };
-

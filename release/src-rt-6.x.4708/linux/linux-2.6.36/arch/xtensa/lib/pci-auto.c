@@ -307,21 +307,6 @@ int __init pciauto_bus_scan(struct pci_controller *pci_ctrl, int current_bus)
 		}
 
 
-#if 0
-		/* Skip legacy mode IDE controller */
-
-		if ((pci_class >> 16) == PCI_CLASS_STORAGE_IDE) {
-
-			unsigned char prg_iface;
-			pci_read_config_byte(dev, PCI_CLASS_PROG, &prg_iface);
-
-			if (!(prg_iface & PCIAUTO_IDE_MODE_MASK)) {
-				DBG("PCI Autoconfig: Skipping legacy mode "
-				    "IDE controller\n");
-				continue;
-			}
-		}
-#endif
 
 		/*
 		 * Found a peripheral, enable some standard
@@ -345,8 +330,3 @@ int __init pciauto_bus_scan(struct pci_controller *pci_ctrl, int current_bus)
 	}
 	return sub_bus;
 }
-
-
-
-
-

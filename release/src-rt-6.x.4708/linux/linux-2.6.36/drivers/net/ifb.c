@@ -34,12 +34,12 @@
 #include <linux/init.h>
 #include <linux/moduleparam.h>
 #include <net/pkt_sched.h>
+#include <net/net_namespace.h>
 
 #define TX_TIMEOUT  (2*HZ)
 
 #define TX_Q_LIMIT    32
 struct ifb_private {
-	struct net_device_stats stats;
 	struct tasklet_struct   ifb_tasklet;
 	int     tasklet_pending;
 	/* mostly debug stats leave in for now */
@@ -59,8 +59,7 @@ struct ifb_private {
 static int numifbs = 2;
 
 static void ri_tasklet(unsigned long dev);
-static int ifb_xmit(struct sk_buff *skb, struct net_device *dev);
-static struct net_device_stats *ifb_get_stats(struct net_device *dev);
+static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev);
 static int ifb_open(struct net_device *dev);
 static int ifb_close(struct net_device *dev);
 
@@ -69,19 +68,21 @@ static void ri_tasklet(unsigned long dev)
 
 	struct net_device *_dev = (struct net_device *)dev;
 	struct ifb_private *dp = netdev_priv(_dev);
-	struct net_device_stats *stats = &dp->stats;
+	struct net_device_stats *stats = &_dev->stats;
+	struct netdev_queue *txq;
 	struct sk_buff *skb;
 
+	txq = netdev_get_tx_queue(_dev, 0);
 	dp->st_task_enter++;
 	if ((skb = skb_peek(&dp->tq)) == NULL) {
 		dp->st_txq_refl_try++;
-		if (netif_tx_trylock(_dev)) {
+		if (__netif_tx_trylock(txq)) {
 			dp->st_rxq_enter++;
 			while ((skb = skb_dequeue(&dp->rq)) != NULL) {
 				skb_queue_tail(&dp->tq, skb);
 				dp->st_rx2tx_tran++;
 			}
-			netif_tx_unlock(_dev);
+			__netif_tx_unlock(txq);
 		} else {
 			/* reschedule */
 			dp->st_rxq_notenter++;
@@ -97,13 +98,18 @@ static void ri_tasklet(unsigned long dev)
 		stats->tx_packets++;
 		stats->tx_bytes +=skb->len;
 
-		skb->dev = __dev_get_by_index(skb->iif);
+		rcu_read_lock();
+		skb->dev = dev_get_by_index_rcu(&init_net, skb->skb_iif);
 		if (!skb->dev) {
+			rcu_read_unlock();
 			dev_kfree_skb(skb);
 			stats->tx_dropped++;
+			if (skb_queue_len(&dp->tq) != 0)
+				goto resched;
 			break;
 		}
-		skb->iif = _dev->ifindex;
+		rcu_read_unlock();
+		skb->skb_iif = _dev->ifindex;
 
 		if (from & AT_EGRESS) {
 			dp->st_rx_frm_egr++;
@@ -116,7 +122,7 @@ static void ri_tasklet(unsigned long dev)
 			BUG();
 	}
 
-	if (netif_tx_trylock(_dev)) {
+	if (__netif_tx_trylock(txq)) {
 		dp->st_rxq_check++;
 		if ((skb = skb_peek(&dp->rq)) == NULL) {
 			dp->tasklet_pending = 0;
@@ -124,10 +130,10 @@ static void ri_tasklet(unsigned long dev)
 				netif_wake_queue(_dev);
 		} else {
 			dp->st_rxq_rsch++;
-			netif_tx_unlock(_dev);
+			__netif_tx_unlock(txq);
 			goto resched;
 		}
-		netif_tx_unlock(_dev);
+		__netif_tx_unlock(txq);
 	} else {
 resched:
 		dp->tasklet_pending = 1;
@@ -136,72 +142,56 @@ resched:
 
 }
 
-static void __init ifb_setup(struct net_device *dev)
+static const struct net_device_ops ifb_netdev_ops = {
+	.ndo_open	= ifb_open,
+	.ndo_stop	= ifb_close,
+	.ndo_start_xmit	= ifb_xmit,
+	.ndo_validate_addr = eth_validate_addr,
+};
+
+static void ifb_setup(struct net_device *dev)
 {
 	/* Initialize the device structure. */
-	dev->get_stats = ifb_get_stats;
-	dev->hard_start_xmit = ifb_xmit;
-	dev->open = &ifb_open;
-	dev->stop = &ifb_close;
+	dev->destructor = free_netdev;
+	dev->netdev_ops = &ifb_netdev_ops;
 
 	/* Fill in device structure with ethernet-generic values. */
 	ether_setup(dev);
 	dev->tx_queue_len = TX_Q_LIMIT;
-	dev->change_mtu = NULL;
+
 	dev->flags |= IFF_NOARP;
 	dev->flags &= ~IFF_MULTICAST;
-	SET_MODULE_OWNER(dev);
+	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
 	random_ether_addr(dev->dev_addr);
 }
 
-static int ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct ifb_private *dp = netdev_priv(dev);
-	struct net_device_stats *stats = &dp->stats;
-	int ret = 0;
+	struct net_device_stats *stats = &dev->stats;
 	u32 from = G_TC_FROM(skb->tc_verd);
 
 	stats->rx_packets++;
 	stats->rx_bytes+=skb->len;
 
-	if (!(from & (AT_INGRESS|AT_EGRESS)) || !skb->iif) {
+	if (!(from & (AT_INGRESS|AT_EGRESS)) || !skb->skb_iif) {
 		dev_kfree_skb(skb);
 		stats->rx_dropped++;
-		return ret;
+		return NETDEV_TX_OK;
 	}
 
 	if (skb_queue_len(&dp->rq) >= dev->tx_queue_len) {
 		netif_stop_queue(dev);
 	}
 
-	dev->trans_start = jiffies;
 	skb_queue_tail(&dp->rq, skb);
 	if (!dp->tasklet_pending) {
 		dp->tasklet_pending = 1;
 		tasklet_schedule(&dp->ifb_tasklet);
 	}
 
-	return ret;
+	return NETDEV_TX_OK;
 }
-
-static struct net_device_stats *ifb_get_stats(struct net_device *dev)
-{
-	struct ifb_private *dp = netdev_priv(dev);
-	struct net_device_stats *stats = &dp->stats;
-
-	pr_debug("tasklets stats %ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld \n",
-		dp->st_task_enter, dp->st_txq_refl_try, dp->st_rxq_enter,
-		dp->st_rx2tx_tran, dp->st_rxq_notenter, dp->st_rx_frm_egr,
-		dp->st_rx_frm_ing, dp->st_rxq_check, dp->st_rxq_rsch);
-
-	return stats;
-}
-
-static struct net_device **ifbs;
-
-/* Number of ifb devices to be set up by this module. */
-module_param(numifbs, int, 0);
-MODULE_PARM_DESC(numifbs, "Number of ifb devices");
 
 static int ifb_close(struct net_device *dev)
 {
@@ -226,6 +216,28 @@ static int ifb_open(struct net_device *dev)
 	return 0;
 }
 
+static int ifb_validate(struct nlattr *tb[], struct nlattr *data[])
+{
+	if (tb[IFLA_ADDRESS]) {
+		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
+			return -EINVAL;
+		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
+			return -EADDRNOTAVAIL;
+	}
+	return 0;
+}
+
+static struct rtnl_link_ops ifb_link_ops __read_mostly = {
+	.kind		= "ifb",
+	.priv_size	= sizeof(struct ifb_private),
+	.setup		= ifb_setup,
+	.validate	= ifb_validate,
+};
+
+/* Number of ifb devices to be set up by this module. */
+module_param(numifbs, int, 0);
+MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+
 static int __init ifb_init_one(int index)
 {
 	struct net_device *dev_ifb;
@@ -237,49 +249,45 @@ static int __init ifb_init_one(int index)
 	if (!dev_ifb)
 		return -ENOMEM;
 
-	if ((err = register_netdev(dev_ifb))) {
-		free_netdev(dev_ifb);
-		dev_ifb = NULL;
-	} else {
-		ifbs[index] = dev_ifb;
-	}
+	err = dev_alloc_name(dev_ifb, dev_ifb->name);
+	if (err < 0)
+		goto err;
 
+	dev_ifb->rtnl_link_ops = &ifb_link_ops;
+	err = register_netdevice(dev_ifb);
+	if (err < 0)
+		goto err;
+
+	return 0;
+
+err:
+	free_netdev(dev_ifb);
 	return err;
-}
-
-static void ifb_free_one(int index)
-{
-	unregister_netdev(ifbs[index]);
-	free_netdev(ifbs[index]);
 }
 
 static int __init ifb_init_module(void)
 {
-	int i, err = 0;
-	ifbs = kmalloc(numifbs * sizeof(void *), GFP_KERNEL);
-	if (!ifbs)
-		return -ENOMEM;
+	int i, err;
+
+	rtnl_lock();
+	err = __rtnl_link_register(&ifb_link_ops);
+
 	for (i = 0; i < numifbs && !err; i++)
 		err = ifb_init_one(i);
-	if (err) {
-		i--;
-		while (--i >= 0)
-			ifb_free_one(i);
-	}
+	if (err)
+		__rtnl_link_unregister(&ifb_link_ops);
+	rtnl_unlock();
 
 	return err;
 }
 
 static void __exit ifb_cleanup_module(void)
 {
-	int i;
-
-	for (i = 0; i < numifbs; i++)
-		ifb_free_one(i);
-	kfree(ifbs);
+	rtnl_link_unregister(&ifb_link_ops);
 }
 
 module_init(ifb_init_module);
 module_exit(ifb_cleanup_module);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jamal Hadi Salim");
+MODULE_ALIAS_RTNL_LINK("ifb");

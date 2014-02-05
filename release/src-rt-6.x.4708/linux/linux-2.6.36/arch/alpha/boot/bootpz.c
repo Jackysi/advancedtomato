@@ -10,8 +10,9 @@
  * and the decompression code from MILO.
  */
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/string.h>
-#include <linux/utsrelease.h>
+#include <generated/utsrelease.h>
 #include <linux/mm.h>
 
 #include <asm/system.h>
@@ -24,9 +25,7 @@
 
 #include "kzsize.h"
 
-/* FIXME FIXME FIXME */
 #define MALLOC_AREA_SIZE 0x200000 /* 2MB for now */
-/* FIXME FIXME FIXME */
 
 
 /*
@@ -378,16 +377,10 @@ start_kernel(void)
 				   uncompressed_image_start,
 				   uncompressed_image_end))
 		{
-#if 0
-			uncompressed_image_start += K_COPY_IMAGE_SIZE;
-			uncompressed_image_end += K_COPY_IMAGE_SIZE;
-			initrd_image_start += K_COPY_IMAGE_SIZE;
-#else
 			/* Keep as close as possible to end of BOOTP image. */
 			uncompressed_image_start += PAGE_SIZE;
 			uncompressed_image_end += PAGE_SIZE;
 			initrd_image_start += PAGE_SIZE;
-#endif
 		}
 	}
 

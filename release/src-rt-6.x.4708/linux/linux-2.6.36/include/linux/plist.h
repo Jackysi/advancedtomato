@@ -45,7 +45,7 @@
  * the insertion of new nodes. There are no nodes with duplicate
  * priorites on the list.
  *
- * The nodes on the node_list is ordered by priority and can contain
+ * The nodes on the node_list are ordered by priority and can contain
  * entries which have the same priority. Those entries are ordered
  * FIFO
  *
@@ -81,7 +81,8 @@ struct plist_head {
 	struct list_head prio_list;
 	struct list_head node_list;
 #ifdef CONFIG_DEBUG_PI_LIST
-	spinlock_t *lock;
+	raw_spinlock_t *rawlock;
+	spinlock_t *spinlock;
 #endif
 };
 
@@ -91,10 +92,16 @@ struct plist_node {
 };
 
 #ifdef CONFIG_DEBUG_PI_LIST
-# define PLIST_HEAD_LOCK_INIT(_lock)	.lock = _lock
+# define PLIST_HEAD_LOCK_INIT(_lock)		.spinlock = _lock
+# define PLIST_HEAD_LOCK_INIT_RAW(_lock)	.rawlock = _lock
 #else
 # define PLIST_HEAD_LOCK_INIT(_lock)
+# define PLIST_HEAD_LOCK_INIT_RAW(_lock)
 #endif
+
+#define _PLIST_HEAD_INIT(head)				\
+	.prio_list = LIST_HEAD_INIT((head).prio_list),	\
+	.node_list = LIST_HEAD_INIT((head).node_list)
 
 /**
  * PLIST_HEAD_INIT - static struct plist_head initializer
@@ -103,9 +110,19 @@ struct plist_node {
  */
 #define PLIST_HEAD_INIT(head, _lock)			\
 {							\
-	.prio_list = LIST_HEAD_INIT((head).prio_list),	\
-	.node_list = LIST_HEAD_INIT((head).node_list),	\
+	_PLIST_HEAD_INIT(head),				\
 	PLIST_HEAD_LOCK_INIT(&(_lock))			\
+}
+
+/**
+ * PLIST_HEAD_INIT_RAW - static struct plist_head initializer
+ * @head:	struct plist_head variable name
+ * @_lock:	lock to initialize for this list
+ */
+#define PLIST_HEAD_INIT_RAW(head, _lock)		\
+{							\
+	_PLIST_HEAD_INIT(head),				\
+	PLIST_HEAD_LOCK_INIT_RAW(&(_lock))		\
 }
 
 /**
@@ -116,13 +133,13 @@ struct plist_node {
 #define PLIST_NODE_INIT(node, __prio)			\
 {							\
 	.prio  = (__prio),				\
-	.plist = PLIST_HEAD_INIT((node).plist, NULL),	\
+	.plist = { _PLIST_HEAD_INIT((node).plist) },	\
 }
 
 /**
  * plist_head_init - dynamic struct plist_head initializer
  * @head:	&struct plist_head pointer
- * @lock:	list spinlock, remembered for debugging
+ * @lock:	spinlock protecting the list (debugging)
  */
 static inline void
 plist_head_init(struct plist_head *head, spinlock_t *lock)
@@ -130,7 +147,24 @@ plist_head_init(struct plist_head *head, spinlock_t *lock)
 	INIT_LIST_HEAD(&head->prio_list);
 	INIT_LIST_HEAD(&head->node_list);
 #ifdef CONFIG_DEBUG_PI_LIST
-	head->lock = lock;
+	head->spinlock = lock;
+	head->rawlock = NULL;
+#endif
+}
+
+/**
+ * plist_head_init_raw - dynamic struct plist_head initializer
+ * @head:	&struct plist_head pointer
+ * @lock:	raw_spinlock protecting the list (debugging)
+ */
+static inline void
+plist_head_init_raw(struct plist_head *head, raw_spinlock_t *lock)
+{
+	INIT_LIST_HEAD(&head->prio_list);
+	INIT_LIST_HEAD(&head->node_list);
+#ifdef CONFIG_DEBUG_PI_LIST
+	head->rawlock = lock;
+	head->spinlock = NULL;
 #endif
 }
 
@@ -226,14 +260,43 @@ static inline int plist_node_empty(const struct plist_node *node)
 #endif
 
 /**
+ * plist_last_entry - get the struct for the last entry
+ * @head:	the &struct plist_head pointer
+ * @type:	the type of the struct this is embedded in
+ * @member:	the name of the list_struct within the struct
+ */
+#ifdef CONFIG_DEBUG_PI_LIST
+# define plist_last_entry(head, type, member)	\
+({ \
+	WARN_ON(plist_head_empty(head)); \
+	container_of(plist_last(head), type, member); \
+})
+#else
+# define plist_last_entry(head, type, member)	\
+	container_of(plist_last(head), type, member)
+#endif
+
+/**
  * plist_first - return the first node (and thus, highest priority)
  * @head:	the &struct plist_head pointer
  *
  * Assumes the plist is _not_ empty.
  */
-static inline struct plist_node* plist_first(const struct plist_head *head)
+static inline struct plist_node *plist_first(const struct plist_head *head)
 {
 	return list_entry(head->node_list.next,
+			  struct plist_node, plist.node_list);
+}
+
+/**
+ * plist_last - return the last node (and thus, lowest priority)
+ * @head:	the &struct plist_head pointer
+ *
+ * Assumes the plist is _not_ empty.
+ */
+static inline struct plist_node *plist_last(const struct plist_head *head)
+{
+	return list_entry(head->node_list.prev,
 			  struct plist_node, plist.node_list);
 }
 

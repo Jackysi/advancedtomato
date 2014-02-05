@@ -192,4 +192,3 @@
 #define EFR_AUTO_CTS		0x80	// Use CTS for Tx flow control
 
 #endif	// if !defined(_16654_H)
-

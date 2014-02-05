@@ -1,4 +1,7 @@
-/* zd_rf_rfmd.c: Functions for the RFMD RF controller
+/* ZD1211 USB-WLAN driver for Linux
+ *
+ * Copyright (C) 2005-2007 Ulrich Kunitz <kune@deine-taler.de>
+ * Copyright (C) 2006-2007 Daniel Drake <dsd@gentoo.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,110 +41,6 @@ static const u32 rf2959_table[][2] = {
 	RF_CHANNEL(14) = { 0x181a60, 0x1c0000 },
 };
 
-#if 0
-static int bits(u32 rw, int from, int to)
-{
-	rw &= ~(0xffffffffU << (to+1));
-	rw >>= from;
-	return rw;
-}
-
-static int bit(u32 rw, int bit)
-{
-	return bits(rw, bit, bit);
-}
-
-static void dump_regwrite(u32 rw)
-{
-	int reg = bits(rw, 18, 22);
-	int rw_flag = bits(rw, 23, 23);
-	PDEBUG("rf2959 %#010x reg %d rw %d", rw, reg, rw_flag);
-
-	switch (reg) {
-	case 0:
-		PDEBUG("reg0 CFG1 ref_sel %d hybernate %d rf_vco_reg_en %d"
-		       " if_vco_reg_en %d if_vga_en %d",
-		       bits(rw, 14, 15), bit(rw, 3), bit(rw, 2), bit(rw, 1),
-		       bit(rw, 0));
-		break;
-	case 1:
-		PDEBUG("reg1 IFPLL1 pll_en1 %d kv_en1 %d vtc_en1 %d lpf1 %d"
-		       " cpl1 %d pdp1 %d autocal_en1 %d ld_en1 %d ifloopr %d"
-		       " ifloopc %d dac1 %d",
-		       bit(rw, 17), bit(rw, 16), bit(rw, 15), bit(rw, 14),
-		       bit(rw, 13), bit(rw, 12), bit(rw, 11), bit(rw, 10),
-		       bits(rw, 7, 9), bits(rw, 4, 6), bits(rw, 0, 3));
-		break;
-	case 2:
-		PDEBUG("reg2 IFPLL2 n1 %d num1 %d",
-		       bits(rw, 6, 17), bits(rw, 0, 5));
-		break;
-	case 3:
-		PDEBUG("reg3 IFPLL3 num %d", bits(rw, 0, 17));
-		break;
-	case 4:
-		PDEBUG("reg4 IFPLL4 dn1 %#04x ct_def1 %d kv_def1 %d",
-		       bits(rw, 8, 16), bits(rw, 4, 7), bits(rw, 0, 3));
-		break;
-	case 5:
-		PDEBUG("reg5 RFPLL1 pll_en %d kv_en %d vtc_en %d lpf %d cpl %d"
-		       " pdp %d autocal_en %d ld_en %d rfloopr %d rfloopc %d"
-		       " dac %d",
-		       bit(rw, 17), bit(rw, 16), bit(rw, 15), bit(rw, 14),
-		       bit(rw, 13), bit(rw, 12), bit(rw, 11), bit(rw, 10),
-		       bits(rw, 7, 9), bits(rw, 4, 6), bits(rw, 0,3));
-		break;
-	case 6:
-		PDEBUG("reg6 RFPLL2 n %d num %d",
-		       bits(rw, 6, 17), bits(rw, 0, 5));
-		break;
-	case 7:
-		PDEBUG("reg7 RFPLL3 num2 %d", bits(rw, 0, 17));
-		break;
-	case 8:
-		PDEBUG("reg8 RFPLL4 dn %#06x ct_def %d kv_def %d",
-		       bits(rw, 8, 16), bits(rw, 4, 7), bits(rw, 0, 3));
-		break;
-	case 9:
-		PDEBUG("reg9 CAL1 tvco %d tlock %d m_ct_value %d ld_window %d",
-		       bits(rw, 13, 17), bits(rw, 8, 12), bits(rw, 3, 7),
-		       bits(rw, 0, 2));
-		break;
-	case 10:
-		PDEBUG("reg10 TXRX1 rxdcfbbyps %d pcontrol %d txvgc %d"
-		       " rxlpfbw %d txlpfbw %d txdiffmode %d txenmode %d"
-		       " intbiasen %d tybypass %d",
-		       bit(rw, 17), bits(rw, 15, 16), bits(rw, 10, 14),
-		       bits(rw, 7, 9), bits(rw, 4, 6), bit(rw, 3), bit(rw, 2),
-		       bit(rw, 1), bit(rw, 0));
-		break;
-	case 11:
-		PDEBUG("reg11 PCNT1 mid_bias %d p_desired %d pc_offset %d"
-			" tx_delay %d",
-			bits(rw, 15, 17), bits(rw, 9, 14), bits(rw, 3, 8),
-			bits(rw, 0, 2));
-		break;
-	case 12:
-		PDEBUG("reg12 PCNT2 max_power %d mid_power %d min_power %d",
-		       bits(rw, 12, 17), bits(rw, 6, 11), bits(rw, 0, 5));
-		break;
-	case 13:
-		PDEBUG("reg13 VCOT1 rfpll vco comp %d ifpll vco comp %d"
-		       " lobias %d if_biasbuf %d if_biasvco %d rf_biasbuf %d"
-		       " rf_biasvco %d",
-		       bit(rw, 17), bit(rw, 16), bit(rw, 15),
-		       bits(rw, 8, 9), bits(rw, 5, 7), bits(rw, 3, 4),
-		       bits(rw, 0, 2));
-		break;
-	case 14:
-		PDEBUG("reg14 IQCAL rx_acal %d rx_pcal %d"
-		       " tx_acal %d tx_pcal %d",
-		       bits(rw, 13, 17), bits(rw, 9, 12), bits(rw, 4, 8),
-		       bits(rw, 0, 3));
-		break;
-	}
-}
-#endif /* 0 */
 
 static int rf2959_init_hw(struct zd_rf *rf)
 {
@@ -265,7 +164,7 @@ int zd_rf_init_rf2959(struct zd_rf *rf)
 {
 	struct zd_chip *chip = zd_rf_to_chip(rf);
 
-	if (chip->is_zd1211b) {
+	if (zd_chip_is_zd1211b(chip)) {
 		dev_err(zd_chip_dev(chip),
 		       "RF2959 is currently not supported for ZD1211B"
 		       " devices\n");

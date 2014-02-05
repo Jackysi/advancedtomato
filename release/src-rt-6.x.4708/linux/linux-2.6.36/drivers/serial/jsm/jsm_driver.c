@@ -26,6 +26,7 @@
  ***********************************************************************/
 #include <linux/moduleparam.h>
 #include <linux/pci.h>
+#include <linux/slab.h>
 
 #include "jsm.h"
 
@@ -48,16 +49,26 @@ struct uart_driver jsm_uart_driver = {
 	.nr		= NR_PORTS,
 };
 
+static pci_ers_result_t jsm_io_error_detected(struct pci_dev *pdev,
+                                       pci_channel_state_t state);
+static pci_ers_result_t jsm_io_slot_reset(struct pci_dev *pdev);
+static void jsm_io_resume(struct pci_dev *pdev);
+
+static struct pci_error_handlers jsm_err_handler = {
+	.error_detected = jsm_io_error_detected,
+	.slot_reset = jsm_io_slot_reset,
+	.resume = jsm_io_resume,
+};
+
 int jsm_debug;
 module_param(jsm_debug, int, 0);
 MODULE_PARM_DESC(jsm_debug, "Driver debugging level");
 
-static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+static int __devinit jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int rc = 0;
 	struct jsm_board *brd;
 	static int adapter_count = 0;
-	int retval;
 
 	rc = pci_enable_device(pdev);
 	if (rc) {
@@ -82,13 +93,17 @@ static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* store the info for the board we've found */
 	brd->boardnum = adapter_count++;
 	brd->pci_dev = pdev;
-	brd->maxports = 2;
+	if (pdev->device == PCIE_DEVICE_ID_NEO_4_IBM)
+		brd->maxports = 4;
+	else if (pdev->device == PCI_DEVICE_ID_DIGI_NEO_8)
+		brd->maxports = 8;
+	else
+		brd->maxports = 2;
 
-	spin_lock_init(&brd->bd_lock);
 	spin_lock_init(&brd->bd_intr_lock);
 
 	/* store which revision we have */
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &brd->rev);
+	brd->rev = pdev->revision;
 
 	brd->irq = pdev->irq;
 
@@ -120,7 +135,7 @@ static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	rc = request_irq(brd->irq, brd->bd_ops->intr,
-			IRQF_DISABLED|IRQF_SHARED, "JSM", brd);
+			IRQF_SHARED, "JSM", brd);
 	if (rc) {
 		printk(KERN_WARNING "Failed to hook IRQ %d\n",brd->irq);
 		goto out_iounmap;
@@ -129,15 +144,14 @@ static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	rc = jsm_tty_init(brd);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "Can't init tty devices (%d)\n", rc);
-		retval = -ENXIO;
+		rc = -ENXIO;
 		goto out_free_irq;
 	}
 
 	rc = jsm_uart_port_init(brd);
 	if (rc < 0) {
-		/* XXX: leaking all resources from jsm_tty_init here! */
 		dev_err(&pdev->dev, "Can't init uart port (%d)\n", rc);
-		retval = -ENXIO;
+		rc = -ENXIO;
 		goto out_free_irq;
 	}
 
@@ -153,17 +167,17 @@ static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	 */
 	brd->flipbuf = kzalloc(MYFLIPLEN, GFP_KERNEL);
 	if (!brd->flipbuf) {
-		/* XXX: leaking all resources from jsm_tty_init and
-		 	jsm_uart_port_init here! */
 		dev_err(&pdev->dev, "memory allocation for flipbuf failed\n");
-		retval = -ENOMEM;
+		rc = -ENOMEM;
 		goto out_free_irq;
 	}
 
 	pci_set_drvdata(pdev, brd);
+	pci_save_state(pdev);
 
 	return 0;
  out_free_irq:
+	jsm_remove_uart_port(brd);
 	free_irq(brd->irq, brd);
  out_iounmap:
 	iounmap(brd->re_map_membase);
@@ -177,7 +191,7 @@ static int jsm_probe_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	return rc;
 }
 
-static void jsm_remove_one(struct pci_dev *pdev)
+static void __devexit jsm_remove_one(struct pci_dev *pdev)
 {
 	struct jsm_board *brd = pci_get_drvdata(pdev);
 	int i = 0;
@@ -208,6 +222,8 @@ static struct pci_device_id jsm_pci_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_NEO_2DB9PRI), 0, 0, 1 },
 	{ PCI_DEVICE(PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_NEO_2RJ45), 0, 0, 2 },
 	{ PCI_DEVICE(PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_NEO_2RJ45PRI), 0, 0, 3 },
+	{ PCI_DEVICE(PCI_VENDOR_ID_DIGI, PCIE_DEVICE_ID_NEO_4_IBM), 0, 0, 4 },
+	{ PCI_DEVICE(PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_NEO_8), 0, 0, 5 },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, jsm_pci_tbl);
@@ -217,7 +233,41 @@ static struct pci_driver jsm_driver = {
 	.id_table	= jsm_pci_tbl,
 	.probe		= jsm_probe_one,
 	.remove		= __devexit_p(jsm_remove_one),
+	.err_handler    = &jsm_err_handler,
 };
+
+static pci_ers_result_t jsm_io_error_detected(struct pci_dev *pdev,
+					pci_channel_state_t state)
+{
+	struct jsm_board *brd = pci_get_drvdata(pdev);
+
+	jsm_remove_uart_port(brd);
+
+	return PCI_ERS_RESULT_NEED_RESET;
+}
+
+static pci_ers_result_t jsm_io_slot_reset(struct pci_dev *pdev)
+{
+	int rc;
+
+	rc = pci_enable_device(pdev);
+
+	if (rc)
+		return PCI_ERS_RESULT_DISCONNECT;
+
+	pci_set_master(pdev);
+
+	return PCI_ERS_RESULT_RECOVERED;
+}
+
+static void jsm_io_resume(struct pci_dev *pdev)
+{
+	struct jsm_board *brd = pci_get_drvdata(pdev);
+
+	pci_restore_state(pdev);
+
+	jsm_uart_port_init(brd);
+}
 
 static int __init jsm_init_module(void)
 {

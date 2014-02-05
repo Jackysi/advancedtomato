@@ -200,13 +200,10 @@ static int mangle_http_header(const struct sk_buff *skb, int flags)
 
 static int get_http_info(const struct sk_buff *skb, int flags, httpinfo_t *info)
 {
-//    struct iphdr *iph = (skb)->nh.iph;
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = (void *)iph + iph->ihl*4;
     unsigned char *data = (void *)tcph + tcph->doff*4;
-//    unsigned int datalen = (skb)->len - (iph->ihl*4) - (tcph->doff*4);
-    unsigned int datalen = ntohs(ip_hdr(skb)->tot_len);
-   
+    unsigned int datalen = (skb)->len - (iph->ihl*4) - (tcph->doff*4);
 
     int found, offset;
     int hostlen, pathlen;
@@ -216,21 +213,15 @@ static int get_http_info(const struct sk_buff *skb, int flags, httpinfo_t *info)
     SPARQ_LOG("%s: seq=%u\n", __FUNCTION__, ntohl(tcph->seq));
 
     /* Basic checking, is it HTTP packet? */
-    if (datalen < 10) {
-	SPARQ_LOG("%s: Not enough length, ignore it!\n", __FUNCTION__);
+    if (datalen < 10)
 	return ret;	/* Not enough length, ignore it */
-	}
     if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
         memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
-        memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0) { //zg add 2006.09.28 for cdrouter3.3 item 186(cdrouter_urlfilter_15)
-	SPARQ_LOG("%s: Pass it\n", __FUNCTION__);
+        memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0) //zg add 2006.09.28 for cdrouter3.3 item 186(cdrouter_urlfilter_15)
 	return ret;	/* Pass it */
-	}
 
-    if (!(flags & (HTTP_HOST | HTTP_URL))) {
-	SPARQ_LOG("%s: Non-flag\n", __FUNCTION__);
+    if (!(flags & (HTTP_HOST | HTTP_URL)))
 	return ret;
-	}
 
     /* find the 'Host: ' value */
     found = find_pattern2(data, datalen, "Host: ", 
@@ -294,18 +285,9 @@ static char *search_linear (char *needle, char *haystack, int needle_len, int ha
 }
 
 
-static int
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      int *hotdrop)
+static bool match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ipt_webstr_info *info = matchinfo;
-//	struct iphdr *ip = skb->nh.iph;
+	const struct ipt_webstr_info *info = par->matchinfo;
 	struct iphdr *ip = ip_hdr(skb);
 	proc_ipt_search search=search_linear;
 
@@ -317,13 +299,8 @@ match(const struct sk_buff *skb,
 	long int opt = 0;
 
 
-	if (!ip || info->len < 1) {
-		if (!ip)
-		    SPARQ_LOG("non-IP\n");
-		else
-		    SPARQ_LOG("info->len < 1\n");
+	if (!ip || info->len < 1)
 	    return 0;
-	}
 
 	SPARQ_LOG("\n************************************************\n"
 		"%s: type=%s\n", __FUNCTION__, (info->type == IPT_WEBSTR_URL) 
@@ -436,18 +413,13 @@ match_ret:
 	return (found ^ info->invert);
 }
 
-static int
-checkentry(const char *tablename,
-	   const void *entry,
-	   const struct xt_match *match,
-           void *matchinfo,
-           unsigned int hook_mask)
+static int checkentry(const struct xt_mtchk_param *par)
 {
 #if 0
        if (matchsize != IPT_ALIGN(sizeof(struct ipt_webstr_info)))
                return 0;
 #endif
-       return 1;
+       return 0;
 }
 
 static struct xt_match xt_webstr_match[] = {

@@ -87,7 +87,7 @@ struct ncp_objectname_ioctl
 #define NCP_AUTH_NDS	0x32
 	int		auth_type;
 	size_t		object_name_len;
-	void __user *	object_name;	/* an userspace data, in most cases user name */
+	void __user *	object_name;	/* a userspace data, in most cases user name */
 };
 
 struct ncp_privatedata_ioctl
@@ -148,8 +148,6 @@ struct ncp_nls_ioctl
 #include <linux/ncp_fs_i.h>
 #include <linux/ncp_fs_sb.h>
 
-/* undef because public define in umsdos_fs.h (ncp_fs.h isn't public) */
-#undef PRINTK
 /* define because it is easy to change PRINTK to {*}PRINTK */
 #define PRINTK(format, args...) printk(KERN_DEBUG format , ## args)
 
@@ -206,12 +204,13 @@ void ncp_update_inode2(struct inode *, struct ncp_entry_info *);
 /* linux/fs/ncpfs/dir.c */
 extern const struct inode_operations ncp_dir_inode_operations;
 extern const struct file_operations ncp_dir_operations;
+extern const struct dentry_operations ncp_root_dentry_operations;
 int ncp_conn_logged_in(struct super_block *);
 int ncp_date_dos2unix(__le16 time, __le16 date);
 void ncp_date_unix2dos(int unix_date, __le16 * time, __le16 * date);
 
 /* linux/fs/ncpfs/ioctl.c */
-int ncp_ioctl(struct inode *, struct file *, unsigned int, unsigned long);
+long ncp_ioctl(struct file *, unsigned int, unsigned long);
 long ncp_compat_ioctl(struct file *, unsigned int, unsigned long);
 
 /* linux/fs/ncpfs/sock.c */
@@ -224,6 +223,12 @@ int ncp_connect(struct ncp_server *server);
 int ncp_disconnect(struct ncp_server *server);
 void ncp_lock_server(struct ncp_server *server);
 void ncp_unlock_server(struct ncp_server *server);
+
+/* linux/fs/ncpfs/symlink.c */
+#if defined(CONFIG_NCPFS_EXTRAS) || defined(CONFIG_NCPFS_NFS_NS)
+extern const struct address_space_operations ncp_symlink_aops;
+int ncp_symlink(struct inode*, struct dentry*, const char*);
+#endif
 
 /* linux/fs/ncpfs/file.c */
 extern const struct inode_operations ncp_file_inode_operations;

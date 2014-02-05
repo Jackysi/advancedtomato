@@ -13,22 +13,19 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/stat.h>
+#include <linux/cred.h>
 #include <linux/errno.h>
 #include <linux/smp_lock.h>
 #include <linux/string.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
 
 #include <linux/coda.h>
 #include <linux/coda_linux.h>
 #include <linux/coda_fs_i.h>
 #include <linux/coda_psdev.h>
-#include <linux/coda_proc.h>
 
 #include "coda_int.h"
-
-/* if CODA_STORE fails with EOPNOTSUPP, venus clearly doesn't support
- * CODA_STORE/CODA_RELEASE and we fall back on using the CODA_CLOSE upcall */
-static int use_coda_close;
 
 static ssize_t
 coda_file_read(struct file *coda_file, char __user *buf, size_t count, loff_t *ppos)
@@ -51,6 +48,8 @@ coda_file_splice_read(struct file *coda_file, loff_t *ppos,
 		      struct pipe_inode_info *pipe, size_t count,
 		      unsigned int flags)
 {
+	ssize_t (*splice_read)(struct file *, loff_t *,
+			       struct pipe_inode_info *, size_t, unsigned int);
 	struct coda_file_info *cfi;
 	struct file *host_file;
 
@@ -58,10 +57,11 @@ coda_file_splice_read(struct file *coda_file, loff_t *ppos,
 	BUG_ON(!cfi || cfi->cfi_magic != CODA_MAGIC);
 	host_file = cfi->cfi_container;
 
-	if (!host_file->f_op || !host_file->f_op->splice_read)
-		return -EINVAL;
+	splice_read = host_file->f_op->splice_read;
+	if (!splice_read)
+		splice_read = default_file_splice_read;
 
-	return host_file->f_op->splice_read(host_file, ppos, pipe, count,flags);
+	return splice_read(host_file, ppos, pipe, count, flags);
 }
 
 static ssize_t
@@ -134,8 +134,6 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	unsigned short coda_flags = coda_flags_to_cflags(flags);
 	struct coda_file_info *cfi;
 
-	coda_vfs_stat.open++;
-
 	cfi = kmalloc(sizeof(struct coda_file_info), GFP_KERNEL);
 	if (!cfi)
 		return -ENOMEM;
@@ -143,8 +141,11 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	lock_kernel();
 
 	error = venus_open(coda_inode->i_sb, coda_i2f(coda_inode), coda_flags,
-			   &host_file); 
-	if (error || !host_file) {
+			   &host_file);
+	if (!host_file)
+		error = -EIO;
+
+	if (error) {
 		kfree(cfi);
 		unlock_kernel();
 		return error;
@@ -163,49 +164,6 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	return 0;
 }
 
-int coda_flush(struct file *coda_file, fl_owner_t id)
-{
-	unsigned short flags = coda_file->f_flags & ~O_EXCL;
-	unsigned short coda_flags = coda_flags_to_cflags(flags);
-	struct coda_file_info *cfi;
-	struct inode *coda_inode;
-	int err = 0, fcnt;
-
-	lock_kernel();
-
-	coda_vfs_stat.flush++;
-
-	/* last close semantics */
-	fcnt = file_count(coda_file);
-	if (fcnt > 1)
-		goto out;
-
-	/* No need to make an upcall when we have not made any modifications
-	 * to the file */
-	if ((coda_file->f_flags & O_ACCMODE) == O_RDONLY)
-		goto out;
-
-	if (use_coda_close)
-		goto out;
-
-	cfi = CODA_FTOC(coda_file);
-	BUG_ON(!cfi || cfi->cfi_magic != CODA_MAGIC);
-
-	coda_inode = coda_file->f_path.dentry->d_inode;
-
-	err = venus_store(coda_inode->i_sb, coda_i2f(coda_inode), coda_flags,
-			  coda_file->f_uid);
-
-	if (err == -EOPNOTSUPP) {
-		use_coda_close = 1;
-		err = 0;
-	}
-
-out:
-	unlock_kernel();
-	return err;
-}
-
 int coda_release(struct inode *coda_inode, struct file *coda_file)
 {
 	unsigned short flags = (coda_file->f_flags) & (~O_EXCL);
@@ -216,23 +174,12 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 	int err = 0;
 
 	lock_kernel();
-	coda_vfs_stat.release++;
- 
-	if (!use_coda_close) {
-		err = venus_release(coda_inode->i_sb, coda_i2f(coda_inode),
-				    coda_flags);
-		if (err == -EOPNOTSUPP) {
-			use_coda_close = 1;
-			err = 0;
-		}
-	}
 
 	cfi = CODA_FTOC(coda_file);
 	BUG_ON(!cfi || cfi->cfi_magic != CODA_MAGIC);
 
-	if (use_coda_close)
-		err = venus_close(coda_inode->i_sb, coda_i2f(coda_inode),
-				  coda_flags, coda_file->f_uid);
+	err = venus_close(coda_inode->i_sb, coda_i2f(coda_inode),
+			  coda_flags, coda_file->f_cred->fsuid);
 
 	host_inode = cfi->cfi_container->f_path.dentry->d_inode;
 	cii = ITOC(coda_inode);
@@ -249,14 +196,16 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 	coda_file->private_data = NULL;
 
 	unlock_kernel();
-	return err;
+
+	/* VFS fput ignores the return value from file_operations->release, so
+	 * there is no use returning an error here */
+	return 0;
 }
 
-int coda_fsync(struct file *coda_file, struct dentry *coda_dentry, int datasync)
+int coda_fsync(struct file *coda_file, int datasync)
 {
 	struct file *host_file;
-	struct dentry *host_dentry;
-	struct inode *host_inode, *coda_inode = coda_dentry->d_inode;
+	struct inode *coda_inode = coda_file->f_path.dentry->d_inode;
 	struct coda_file_info *cfi;
 	int err = 0;
 
@@ -268,16 +217,7 @@ int coda_fsync(struct file *coda_file, struct dentry *coda_dentry, int datasync)
 	BUG_ON(!cfi || cfi->cfi_magic != CODA_MAGIC);
 	host_file = cfi->cfi_container;
 
-	coda_vfs_stat.fsync++;
-
-	if (host_file->f_op && host_file->f_op->fsync) {
-		host_dentry = host_file->f_path.dentry;
-		host_inode = host_dentry->d_inode;
-		mutex_lock(&host_inode->i_mutex);
-		err = host_file->f_op->fsync(host_file, host_dentry, datasync);
-		mutex_unlock(&host_inode->i_mutex);
-	}
-
+	err = vfs_fsync(host_file, datasync);
 	if ( !err && !datasync ) {
 		lock_kernel();
 		err = venus_fsync(coda_inode->i_sb, coda_i2f(coda_inode));
@@ -293,9 +233,7 @@ const struct file_operations coda_file_operations = {
 	.write		= coda_file_write,
 	.mmap		= coda_file_mmap,
 	.open		= coda_open,
-	.flush		= coda_flush,
 	.release	= coda_release,
 	.fsync		= coda_fsync,
 	.splice_read	= coda_file_splice_read,
 };
-

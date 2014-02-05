@@ -8,8 +8,8 @@
 
 #undef MCCR
 
-#if defined(CONFIG_CHIP_XNUX2) || defined(CONFIG_CHIP_M32700) \
-	|| defined(CONFIG_CHIP_VDEC2) || defined(CONFIG_CHIP_OPSP)
+#if defined(CONFIG_CHIP_XNUX2) || defined(CONFIG_CHIP_M32700) || \
+	defined(CONFIG_CHIP_VDEC2) || defined(CONFIG_CHIP_OPSP)
 /* Cache Control Register */
 #define MCCR		((volatile unsigned long*)0xfffffffc)
 #define MCCR_CC		(1UL << 7)	/* Cache mode modify bit */

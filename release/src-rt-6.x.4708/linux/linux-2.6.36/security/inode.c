@@ -20,8 +20,7 @@
 #include <linux/init.h>
 #include <linux/namei.h>
 #include <linux/security.h>
-
-#define SECURITYFS_MAGIC	0x73636673
+#include <linux/magic.h>
 
 static struct vfsmount *mount;
 static int mount_count;
@@ -62,9 +61,6 @@ static struct inode *get_inode(struct super_block *sb, int mode, dev_t dev)
 
 	if (inode) {
 		inode->i_mode = mode;
-		inode->i_uid = 0;
-		inode->i_gid = 0;
-		inode->i_blocks = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 		switch (mode & S_IFMT) {
 		default:
@@ -90,7 +86,7 @@ static int mknod(struct inode *dir, struct dentry *dentry,
 			 int mode, dev_t dev)
 {
 	struct inode *inode;
-	int error = -EPERM;
+	int error = -ENOMEM;
 
 	if (dentry->d_inode)
 		return -EEXIST;
@@ -160,25 +156,20 @@ static int create_by_name(const char *name, mode_t mode,
 	 * block. A pointer to that is in the struct vfsmount that we
 	 * have around.
 	 */
-	if (!parent ) {
-		if (mount && mount->mnt_sb) {
-			parent = mount->mnt_sb->s_root;
-		}
-	}
-	if (!parent) {
-		pr_debug("securityfs: Ah! can not find a parent!\n");
-		return -EFAULT;
-	}
+	if (!parent)
+		parent = mount->mnt_sb->s_root;
 
 	mutex_lock(&parent->d_inode->i_mutex);
 	*dentry = lookup_one_len(name, parent, strlen(name));
-	if (!IS_ERR(dentry)) {
+	if (!IS_ERR(*dentry)) {
 		if ((mode & S_IFMT) == S_IFDIR)
 			error = mkdir(parent->d_inode, *dentry, mode);
 		else
 			error = create(parent->d_inode, *dentry, mode);
+		if (error)
+			dput(*dentry);
 	} else
-		error = PTR_ERR(dentry);
+		error = PTR_ERR(*dentry);
 	mutex_unlock(&parent->d_inode->i_mutex);
 
 	return error;
@@ -190,7 +181,7 @@ static int create_by_name(const char *name, mode_t mode,
  * @name: a pointer to a string containing the name of the file to create.
  * @mode: the permission that the file should have
  * @parent: a pointer to the parent dentry for this file.  This should be a
- *          directory dentry if set.  If this paramater is NULL, then the
+ *          directory dentry if set.  If this parameter is %NULL, then the
  *          file will be created in the root of the securityfs filesystem.
  * @data: a pointer to something that the caller will want to get to later
  *        on.  The inode.i_private pointer will point to this value on
@@ -199,19 +190,18 @@ static int create_by_name(const char *name, mode_t mode,
  *        this file.
  *
  * This is the basic "create a file" function for securityfs.  It allows for a
- * wide range of flexibility in createing a file, or a directory (if you
+ * wide range of flexibility in creating a file, or a directory (if you
  * want to create a directory, the securityfs_create_dir() function is
- * recommended to be used instead.)
+ * recommended to be used instead).
  *
- * This function will return a pointer to a dentry if it succeeds.  This
+ * This function returns a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the securityfs_remove() function when the file is
  * to be removed (no automatic cleanup happens if your module is unloaded,
- * you are responsible here.)  If an error occurs, NULL will be returned.
+ * you are responsible here).  If an error occurs, the function will return
+ * the erorr value (via ERR_PTR).
  *
- * If securityfs is not enabled in the kernel, the value -ENODEV will be
- * returned.  It is not wise to check for this value, but rather, check for
- * NULL or !NULL instead as to eliminate the need for #ifdef in the calling
- * code.
+ * If securityfs is not enabled in the kernel, the value %-ENODEV is
+ * returned.
  */
 struct dentry *securityfs_create_file(const char *name, mode_t mode,
 				   struct dentry *parent, void *data,
@@ -252,19 +242,19 @@ EXPORT_SYMBOL_GPL(securityfs_create_file);
  * @name: a pointer to a string containing the name of the directory to
  *        create.
  * @parent: a pointer to the parent dentry for this file.  This should be a
- *          directory dentry if set.  If this paramater is NULL, then the
+ *          directory dentry if set.  If this parameter is %NULL, then the
  *          directory will be created in the root of the securityfs filesystem.
  *
- * This function creates a directory in securityfs with the given name.
+ * This function creates a directory in securityfs with the given @name.
  *
- * This function will return a pointer to a dentry if it succeeds.  This
+ * This function returns a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the securityfs_remove() function when the file is
  * to be removed (no automatic cleanup happens if your module is unloaded,
- * you are responsible here.)  If an error occurs, NULL will be returned.
+ * you are responsible here).  If an error occurs, %NULL will be returned.
  *
- * If securityfs is not enabled in the kernel, the value -ENODEV will be
+ * If securityfs is not enabled in the kernel, the value %-ENODEV is
  * returned.  It is not wise to check for this value, but rather, check for
- * NULL or !NULL instead as to eliminate the need for #ifdef in the calling
+ * %NULL or !%NULL instead as to eliminate the need for #ifdef in the calling
  * code.
  */
 struct dentry *securityfs_create_dir(const char *name, struct dentry *parent)
@@ -278,22 +268,21 @@ EXPORT_SYMBOL_GPL(securityfs_create_dir);
 /**
  * securityfs_remove - removes a file or directory from the securityfs filesystem
  *
- * @dentry: a pointer to a the dentry of the file or directory to be
- *          removed.
+ * @dentry: a pointer to a the dentry of the file or directory to be removed.
  *
  * This function removes a file or directory in securityfs that was previously
  * created with a call to another securityfs function (like
  * securityfs_create_file() or variants thereof.)
  *
  * This function is required to be called in order for the file to be
- * removed, no automatic cleanup of files will happen when a module is
- * removed, you are responsible here.
+ * removed. No automatic cleanup of files will happen when a module is
+ * removed; you are responsible here.
  */
 void securityfs_remove(struct dentry *dentry)
 {
 	struct dentry *parent;
 
-	if (!dentry)
+	if (!dentry || IS_ERR(dentry))
 		return;
 
 	parent = dentry->d_parent;
@@ -315,31 +304,21 @@ void securityfs_remove(struct dentry *dentry)
 }
 EXPORT_SYMBOL_GPL(securityfs_remove);
 
-static decl_subsys(security, NULL, NULL);
+static struct kobject *security_kobj;
 
 static int __init securityfs_init(void)
 {
 	int retval;
 
-	kobj_set_kset_s(&security_subsys, kernel_subsys);
-	retval = subsystem_register(&security_subsys);
-	if (retval)
-		return retval;
+	security_kobj = kobject_create_and_add("security", kernel_kobj);
+	if (!security_kobj)
+		return -EINVAL;
 
 	retval = register_filesystem(&fs_type);
 	if (retval)
-		subsystem_unregister(&security_subsys);
+		kobject_put(security_kobj);
 	return retval;
 }
 
-static void __exit securityfs_exit(void)
-{
-	simple_release_fs(&mount, &mount_count);
-	unregister_filesystem(&fs_type);
-	subsystem_unregister(&security_subsys);
-}
-
 core_initcall(securityfs_init);
-module_exit(securityfs_exit);
 MODULE_LICENSE("GPL");
-

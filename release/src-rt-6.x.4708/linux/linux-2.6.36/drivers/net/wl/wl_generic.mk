@@ -7,11 +7,11 @@
 # $Id: wl_generic.mk,v 1.10 2011-01-21 22:12:09 $
 #
 
-#REBUILD_WL_MODULE=$(shell if [ -d "$(src)/$(SRCBASE)/wl/sys" -a "$(REUSE_PREBUILT_WL)" != "1" ]; then echo 1; else echo 0; fi)
+#REBUILD_WL_MODULE=$(shell if [ -d "$(src)/$(SRCBASE_OFFSET)/wl/sys" -a "$(REUSE_PREBUILT_WL)" != "1" ]; then echo 1; else echo 0; fi)
 REBUILD_WL_MODULE=0
 
 # If source directory (src/wl/sys) exists and REUSE_PREBUILT_WL is undefined, 
-# then build inside $(SRCBASE)/wl/sys, otherwise use pre-builts
+# then build inside $(SRCBASE_OFFSET)/wl/sys, otherwise use pre-builts
 ifeq ($(REBUILD_WL_MODULE),1)
 
     # Get the source files and flags from the specified config file
@@ -22,7 +22,7 @@ ifeq ($(REBUILD_WL_MODULE),1)
     endif
     
     WLCONFFILE := $(strip $(subst ",,$(CONFIG_WL_CONF))) 
-    WLCFGDIR   := $(src)/$(SRCBASE)/wl/config
+    WLCFGDIR   := $(src)/$(SRCBASE_OFFSET)/wl/config
     
     # define OS flag to pick up wl osl file from wl.mk
     WLLX=1
@@ -33,11 +33,15 @@ ifeq ($(REBUILD_WL_MODULE),1)
         DPSTA=1
     endif
     include $(WLCFGDIR)/$(WLCONFFILE)
+    # Disable ROUTER_COMA in ARM router for now.
+ifeq ($(ARCH), arm)
+    ROUTER_COMA=0
+endif
     include $(WLCFGDIR)/wl.mk
 
     ifeq ($(WLCLMAPI),1)
-        WLAN_ComponentsInUse := bcmwifi clm
-        include $(src)/$(SRCBASE)/makefiles/WLAN_Common.mk
+        WLAN_ComponentsInUse := bcmwifi clm ppr
+        include $(src)/$(SRCBASE_OFFSET)/makefiles/WLAN_Common.mk
     endif
     
     ifeq ($(WLFILES_SRC),)
@@ -45,7 +49,8 @@ ifeq ($(REBUILD_WL_MODULE),1)
     endif
     
     ifeq ($(WLCLMAPI),1)
-    $(call WLAN_GenClmCompilerRule,$(src)/$(SRCBASE)/wl/clm/src,$(src)/$(SRCBASE),--ccrev all)
+    CLM_TYPE := generic
+    $(call WLAN_GenClmCompilerRule,$(src)/$(SRCBASE_OFFSET)/wl/clm/src,$(src)/$(SRCBASE_OFFSET))
     endif
     
     # need -I. to pick up wlconf.h in build directory
@@ -57,25 +62,28 @@ ifeq ($(REBUILD_WL_MODULE),1)
     EXTRA_CFLAGS    += -DWL_ALL_PASSIVE
     endif
     endif
-    EXTRA_CFLAGS += -DDMA $(WLFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE)/wl/linux \
-		    -I$(src)/$(SRCBASE)/wl/sys $(WLAN_ComponentIncPath) -Werror
+    ifeq ($(CONFIG_CACHE_L310),y)
+    EXTRA_CFLAGS    += -DWL_PL310_WAR
+    endif
+    EXTRA_CFLAGS += -DDMA $(WLFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE_OFFSET)/wl/linux \
+		    -I$(src)/$(SRCBASE_OFFSET)/wl/sys $(WLAN_ComponentIncPath) -Werror
 
     ifneq ("$(CONFIG_CC_OPTIMIZE_FOR_SIZE)","y")
          EXTRA_CFLAGS += -finline-limit=2048
     endif
     
     # include path for dpsta.h
-    EXTRA_CFLAGS += -I$(src)/$(SRCBASE)/router/dpsta
+    EXTRA_CFLAGS += -I$(src)/$(SRCBASE_OFFSET)/router/dpsta
 
     # Build the phy source files iff -DPHY_HAL is present.
     ifneq ($(findstring PHY_HAL,$(WLFLAGS)),)
-        EXTRA_CFLAGS += -I$(src)/$(SRCBASE)/wl/phy
+        EXTRA_CFLAGS += -I$(src)/$(SRCBASE_OFFSET)/wl/phy
     else
 	WLFILES_SRC := $(filter-out src/wl/phy/%,$(WLFILES_SRC))
     endif
 
     # The paths in WLFILES_SRC need a bit of adjustment.
-    WL_OBJS := $(sort $(patsubst %.c,%.o,$(addprefix $(SRCBASE)/,$(patsubst src/%,%,$(WLFILES_SRC)))))
+    WL_OBJS := $(sort $(patsubst %.c,%.o,$(addprefix $(SRCBASE_OFFSET)/,$(patsubst src/%,%,$(WLFILES_SRC)))))
 
     # wl-objs is for linking to wl.o
     $(TARGET)-objs := $(WLCONF_O) $(WL_OBJS)
@@ -84,12 +92,12 @@ ifeq ($(REBUILD_WL_MODULE),1)
 else # SRCBASE/wl/sys doesn't exist
 
     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
-    prebuilt := wl_$(wl_suffix).o
-    $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
+    #prebuilt := wl_$(wl_suffix).o
+    $(TARGET)-objs := $(SRCBASE_OFFSET)/wl/linux/wl.o
     obj-$(CONFIG_WL) := $(TARGET).o
 
     ifeq ("$(CONFIG_WL_USBAP)","y")
-        wl_high-objs := $(SRCBASE)/wl/linux/wl_high.o
+        wl_high-objs := $(SRCBASE_OFFSET)/wl/linux/wl_high.o
         obj-m += wl_high.o
     endif
 endif
@@ -114,4 +122,4 @@ $(obj)/$(WLCONF_H): $(WLCFGDIR)/$(WLTUNEFILE) FORCE
 
 FORCE:
 
-clean-files += $(SRCBASE)/wl/sys/*.o $(SRCBASE)/wl/phy/*.o $(SRCBASE)/wl/sys/.*.*.cmd $(SRCBASE)/wl/phy/.*.*.cmd $(WLCONF_H) $(WLCONF_O)
+clean-files += $(SRCBASE_OFFSET)/wl/sys/*.o $(SRCBASE_OFFSET)/wl/phy/*.o $(SRCBASE_OFFSET)/wl/ppr/src/*.o $(SRCBASE_OFFSET)/wl/sys/.*.*.cmd $(SRCBASE_OFFSET)/wl/phy/.*.*.cmd $(SRCBASE_OFFSET)/bcmcrypto/.*.*.cmd $(SRCBASE_OFFSET)/wl/clm/src/*.o $(SRCBASE_OFFSET)/wl/clm/src/.*.*.cmd $(SRCBASE_OFFSET)/shared/bcmwifi/src/.*.*.cmd $(SRCBASE_OFFSET)/shared/bcmwifi/src/.*.*.cmd $(WLCONF_H) $(WLCONF_O)

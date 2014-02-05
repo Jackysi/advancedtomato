@@ -396,10 +396,6 @@ typedef struct {
   u16                 channel;
   u16                 tx_xbr_bits;
   u16                 tx_pcr_bits;
-#if 0
-  u16                 tx_scr_bits;
-  u16                 tx_bucket_bits;
-#endif
   hrz_aal             aal;
 } hrz_vcc;
 
@@ -423,7 +419,7 @@ struct hrz_dev {
   wait_queue_head_t   tx_queue;
 
   u8                  irq;
-  long		      flags;
+  unsigned long	      flags;
   u8                  tx_last;
   u8                  tx_idle;
 

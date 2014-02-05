@@ -12,7 +12,6 @@
 #include <asm/pgalloc.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-#include <asm/semaphore.h>
 #include <asm/checksum.h>
 #include <asm/hardirq.h>
 #include <asm/cacheflush.h>
@@ -27,10 +26,6 @@ EXPORT_SYMBOL(iounmap);
 
 EXPORT_SYMBOL(ip_fast_csum);
 
-#if 0
-EXPORT_SYMBOL(local_irq_count);
-EXPORT_SYMBOL(local_bh_count);
-#endif
 EXPORT_SYMBOL(kernel_thread);
 
 EXPORT_SYMBOL(__res_bus_clock_speed_HZ);
@@ -68,6 +63,10 @@ EXPORT_SYMBOL(atomic_sub_return);
 EXPORT_SYMBOL(__xchg_32);
 EXPORT_SYMBOL(__cmpxchg_32);
 #endif
+EXPORT_SYMBOL(atomic64_add_return);
+EXPORT_SYMBOL(atomic64_sub_return);
+EXPORT_SYMBOL(__xchg_64);
+EXPORT_SYMBOL(__cmpxchg_64);
 
 EXPORT_SYMBOL(__debug_bug_printk);
 EXPORT_SYMBOL(__delay_loops_MHz);

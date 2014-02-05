@@ -73,7 +73,6 @@
 /* $4c           0x18   0x19                                    */
 /* $50           0x1a   0x1b                                    */
 
-/* FIXME: could be 0x1b 0x1a here */
 
 /* $54           0x1d   0x1c                                    */
 /* $5C           0xf                       SEE NOTE 4           */
@@ -273,7 +272,7 @@ struct OboeSlot
   __u8 control;                 /*Slot control/status see below */
   __u32 address;                /*Slot buffer address */
 }
-__attribute__ ((packed));
+__packed;
 
 #define OBOE_NTASKS OBOE_TXRING_OFFSET_IN_SLOTS
 
@@ -308,7 +307,6 @@ struct OboeRing
 struct toshoboe_cb
 {
   struct net_device *netdev;    /* Yes! we are some kind of netdevice */
-  struct net_device_stats stats;
   struct tty_driver ttydev;
 
   struct irlap_cb *irlap;       /* The link layer we are binded to */

@@ -6,8 +6,6 @@
  * (c) 1999 Machine Vision Holdings, Inc.
  * (c) 1999, 2000 David Woodhouse <dwmw2@infradead.org>
  *
- * $Id: doc2001plus.c,v 1.14 2005/11/07 11:14:24 gleixner Exp $
- *
  * Released under GPL
  */
 
@@ -16,7 +14,6 @@
 #include <asm/errno.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
-#include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -178,8 +175,6 @@ static int DoC_SelectFloor(void __iomem * docptr, int floor)
  *  | Data 0    | ECC 0 |Flags0 |Flags1 | Data 1       |ECC 1    | OOB 1 + 2 |
  *  +-----------+-------+-------+-------+--------------+---------+-----------+
  */
-/* FIXME: This lives in INFTL not here. Other users of flash devices
-   may not want it */
 static unsigned int DoC_GetDataOffset(struct mtd_info *mtd, loff_t *from)
 {
 	struct DiskOnChip *this = mtd->priv;
@@ -508,80 +503,6 @@ void DoCMilPlus_init(struct mtd_info *mtd)
 }
 EXPORT_SYMBOL_GPL(DoCMilPlus_init);
 
-#if 0
-static int doc_dumpblk(struct mtd_info *mtd, loff_t from)
-{
-	int i;
-	loff_t fofs;
-	struct DiskOnChip *this = mtd->priv;
-	void __iomem * docptr = this->virtadr;
-	struct Nand *mychip = &this->chips[from >> (this->chipshift)];
-	unsigned char *bp, buf[1056];
-	char c[32];
-
-	from &= ~0x3ff;
-
-	/* Don't allow read past end of device */
-	if (from >= this->totlen)
-		return -EINVAL;
-
-	DoC_CheckASIC(docptr);
-
-	/* Find the chip which is to be used and select it */
-	if (this->curfloor != mychip->floor) {
-		DoC_SelectFloor(docptr, mychip->floor);
-		DoC_SelectChip(docptr, mychip->chip);
-	} else if (this->curchip != mychip->chip) {
-		DoC_SelectChip(docptr, mychip->chip);
-	}
-	this->curfloor = mychip->floor;
-	this->curchip = mychip->chip;
-
-	/* Millennium Plus bus cycle sequence as per figure 2, section 2.4 */
-	WriteDOC((DOC_FLASH_CE | DOC_FLASH_WP), docptr, Mplus_FlashSelect);
-
-	/* Reset the chip, see Software Requirement 11.4 item 1. */
-	DoC_Command(docptr, NAND_CMD_RESET, 0);
-	DoC_WaitReady(docptr);
-
-	fofs = from;
-	DoC_Command(docptr, DoC_GetDataOffset(mtd, &fofs), 0);
-	DoC_Address(this, 3, fofs, 0, 0x00);
-	WriteDOC(0, docptr, Mplus_FlashControl);
-	DoC_WaitReady(docptr);
-
-	/* disable the ECC engine */
-	WriteDOC(DOC_ECC_RESET, docptr, Mplus_ECCConf);
-
-	ReadDOC(docptr, Mplus_ReadPipeInit);
-	ReadDOC(docptr, Mplus_ReadPipeInit);
-
-	/* Read the data via the internal pipeline through CDSN IO
-	   register, see Pipelined Read Operations 11.3 */
-	MemReadDOC(docptr, buf, 1054);
-	buf[1054] = ReadDOC(docptr, Mplus_LastDataRead);
-	buf[1055] = ReadDOC(docptr, Mplus_LastDataRead);
-
-	memset(&c[0], 0, sizeof(c));
-	printk("DUMP OFFSET=%x:\n", (int)from);
-
-        for (i = 0, bp = &buf[0]; (i < 1056); i++) {
-                if ((i % 16) == 0)
-                        printk("%08x: ", i);
-                printk(" %02x", *bp);
-                c[(i & 0xf)] = ((*bp >= 0x20) && (*bp <= 0x7f)) ? *bp : '.';
-                bp++;
-                if (((i + 1) % 16) == 0)
-                        printk("    %s\n", c);
-        }
-	printk("\n");
-
-	/* Disable flash internally */
-	WriteDOC(0, docptr, Mplus_FlashSelect);
-
-	return 0;
-}
-#endif
 
 static int doc_read(struct mtd_info *mtd, loff_t from, size_t len,
 		    size_t *retlen, u_char *buf)
@@ -748,7 +669,7 @@ static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 	WriteDOC(DoC_GetDataOffset(mtd, &fto), docptr, Mplus_FlashCmd);
 
 	/* On interleaved devices the flags for 2nd half 512 are before data */
-	if (eccbuf && before)
+	if (before)
 		fto -= 2;
 
 	/* issue the Serial Data In command to initial the Page Program process */
@@ -811,8 +732,6 @@ static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 	DoC_Delay(docptr, 2);
 	if ((dummy = ReadDOC(docptr, Mplus_LastDataRead)) & 1) {
 		printk("MTD: Error 0x%x programming at 0x%x\n", dummy, (int)to);
-		/* Error in programming
-		   FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		*retlen = 0;
 		ret = -EIO;
 	}
@@ -1000,7 +919,6 @@ static int doc_write_oob(struct mtd_info *mtd, loff_t ofs,
 		if ((dummy = ReadDOC(docptr, Mplus_LastDataRead)) & 1) {
 			printk("MTD: Error 0x%x programming oob at 0x%x\n",
 				dummy, (int)ofs);
-			/* FIXME: implement Bad Block Replacement */
 			ops->retlen = 0;
 			ret = -EIO;
 		}
@@ -1064,7 +982,6 @@ int doc_erase(struct mtd_info *mtd, struct erase_info *instr)
 	dummy = ReadDOC(docptr, Mplus_ReadPipeInit);
 	if ((dummy = ReadDOC(docptr, Mplus_LastDataRead)) & 1) {
 		printk("MTD: Error 0x%x erasing at 0x%x\n", dummy, ofs);
-		/* FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		instr->state = MTD_ERASE_FAILED;
 	} else {
 		instr->state = MTD_ERASE_DONE;

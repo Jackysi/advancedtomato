@@ -25,6 +25,7 @@ int show_interrupts(struct seq_file *p, void *v)
 	static const char *intrclass_names[] = { "EXT", "I/O", };
 	int i = *(loff_t *) v, j;
 
+	get_online_cpus();
 	if (i == 0) {
 		seq_puts(p, "           ");
 		for_each_online_cpu(j)
@@ -43,7 +44,7 @@ int show_interrupts(struct seq_file *p, void *v)
                 seq_putc(p, '\n');
 
         }
-
+	put_online_cpus();
         return 0;
 }
 
@@ -60,8 +61,6 @@ init_IRQ(void)
 /*
  * Switch to the asynchronous interrupt stack for softirq execution.
  */
-extern void __do_softirq(void);
-
 asmlinkage void do_softirq(void)
 {
 	unsigned long flags, old, new;
@@ -95,8 +94,8 @@ asmlinkage void do_softirq(void)
 
 	local_irq_restore(flags);
 }
-EXPORT_SYMBOL(do_softirq);
 
+#ifdef CONFIG_PROC_FS
 void init_irq_proc(void)
 {
 	struct proc_dir_entry *root_irq_dir;
@@ -104,3 +103,4 @@ void init_irq_proc(void)
 	root_irq_dir = proc_mkdir("irq", NULL);
 	create_prof_cpu_mask(root_irq_dir);
 }
+#endif

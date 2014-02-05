@@ -14,4 +14,3 @@ if [ $? = 1 ]; then
 	echo alias block-major-152 aoe >> $f
 	echo alias char-major-152 aoe >> $f
 fi
-

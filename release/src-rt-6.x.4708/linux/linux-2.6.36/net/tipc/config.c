@@ -2,7 +2,7 @@
  * net/tipc/config.c: TIPC configuration management code
  *
  * Copyright (c) 2002-2006, Ericsson AB
- * Copyright (c) 2004-2006, Wind River Systems
+ * Copyright (c) 2004-2007, Wind River Systems
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,9 +56,6 @@ struct subscr_data {
 struct manager {
 	u32 user_ref;
 	u32 port_ref;
-	u32 subscr_ref;
-	u32 link_subscriptions;
-	struct list_head link_subscribers;
 };
 
 static struct manager mng = { 0};
@@ -68,12 +65,6 @@ static DEFINE_SPINLOCK(config_lock);
 static const void *req_tlv_area;	/* request message TLV area */
 static int req_tlv_space;		/* request message TLV area size */
 static int rep_headroom;		/* reply message headroom to use */
-
-
-void tipc_cfg_link_event(u32 addr, char *name, int up)
-{
-	/* TIPC DOESN'T HANDLE LINK EVENT SUBSCRIPTIONS AT THE MOMENT */
-}
 
 
 struct sk_buff *tipc_cfg_reply_alloc(int payload_size)
@@ -131,124 +122,40 @@ struct sk_buff *tipc_cfg_reply_string_type(u16 tlv_type, char *string)
 
 
 
+#define MAX_STATS_INFO 2000
 
-#if 0
-
-/* Now obsolete code for handling commands not yet implemented the new way */
-
-int tipc_cfg_cmd(const struct tipc_cmd_msg * msg,
-		 char *data,
-		 u32 sz,
-		 u32 *ret_size,
-		 struct tipc_portid *orig)
+static struct sk_buff *tipc_show_stats(void)
 {
-	int rv = -EINVAL;
-	u32 cmd = msg->cmd;
+	struct sk_buff *buf;
+	struct tlv_desc *rep_tlv;
+	struct print_buf pb;
+	int str_len;
+	u32 value;
 
-	*ret_size = 0;
-	switch (cmd) {
-	case TIPC_REMOVE_LINK:
-	case TIPC_CMD_BLOCK_LINK:
-	case TIPC_CMD_UNBLOCK_LINK:
-		if (!cfg_check_connection(orig))
-			rv = link_control(msg->argv.link_name, msg->cmd, 0);
-		break;
-	case TIPC_ESTABLISH:
-		{
-			int connected;
+	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
+		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
 
-			tipc_isconnected(mng.conn_port_ref, &connected);
-			if (connected || !orig) {
-				rv = TIPC_FAILURE;
-				break;
-			}
-			rv = tipc_connect2port(mng.conn_port_ref, orig);
-			if (rv == TIPC_OK)
-				orig = 0;
-			break;
-		}
-	case TIPC_GET_PEER_ADDRESS:
-		*ret_size = link_peer_addr(msg->argv.link_name, data, sz);
-		break;
-	case TIPC_GET_ROUTES:
-		rv = TIPC_OK;
-		break;
-	default: {}
-	}
-	if (*ret_size)
-		rv = TIPC_OK;
-	return rv;
+	value = ntohl(*(u32 *)TLV_DATA(req_tlv_area));
+	if (value != 0)
+		return tipc_cfg_reply_error_string("unsupported argument");
+
+	buf = tipc_cfg_reply_alloc(TLV_SPACE(MAX_STATS_INFO));
+	if (buf == NULL)
+		return NULL;
+
+	rep_tlv = (struct tlv_desc *)buf->data;
+	tipc_printbuf_init(&pb, (char *)TLV_DATA(rep_tlv), MAX_STATS_INFO);
+
+	tipc_printf(&pb, "TIPC version " TIPC_MOD_VER "\n");
+
+	/* Use additional tipc_printf()'s to return more info ... */
+
+	str_len = tipc_printbuf_validate(&pb);
+	skb_put(buf, TLV_SPACE(str_len));
+	TLV_SET(rep_tlv, TIPC_TLV_ULTRA_STRING, NULL, str_len);
+
+	return buf;
 }
-
-static void cfg_cmd_event(struct tipc_cmd_msg *msg,
-			  char *data,
-			  u32 sz,
-			  struct tipc_portid const *orig)
-{
-	int rv = -EINVAL;
-	struct tipc_cmd_result_msg rmsg;
-	struct iovec msg_sect[2];
-	int *arg;
-
-	msg->cmd = ntohl(msg->cmd);
-
-	cfg_prepare_res_msg(msg->cmd, msg->usr_handle, rv, &rmsg, msg_sect,
-			    data, 0);
-	if (ntohl(msg->magic) != TIPC_MAGIC)
-		goto exit;
-
-	switch (msg->cmd) {
-	case TIPC_CREATE_LINK:
-		if (!cfg_check_connection(orig))
-			rv = disc_create_link(&msg->argv.create_link);
-		break;
-	case TIPC_LINK_SUBSCRIBE:
-		{
-			struct subscr_data *sub;
-
-			if (mng.link_subscriptions > 64)
-				break;
-			sub = kmalloc(sizeof(*sub),
-							    GFP_ATOMIC);
-			if (sub == NULL) {
-				warn("Memory squeeze; dropped remote link subscription\n");
-				break;
-			}
-			INIT_LIST_HEAD(&sub->subd_list);
-			tipc_createport(mng.user_ref,
-					(void *)sub,
-					TIPC_HIGH_IMPORTANCE,
-					0,
-					0,
-					(tipc_conn_shutdown_event)cfg_linksubscr_cancel,
-					0,
-					0,
-					(tipc_conn_msg_event)cfg_linksubscr_cancel,
-					0,
-					&sub->port_ref);
-			if (!sub->port_ref) {
-				kfree(sub);
-				break;
-			}
-			memcpy(sub->usr_handle,msg->usr_handle,
-			       sizeof(sub->usr_handle));
-			sub->domain = msg->argv.domain;
-			list_add_tail(&sub->subd_list, &mng.link_subscribers);
-			tipc_connect2port(sub->port_ref, orig);
-			rmsg.retval = TIPC_OK;
-			tipc_send(sub->port_ref, 2u, msg_sect);
-			mng.link_subscriptions++;
-			return;
-		}
-	default:
-		rv = tipc_cfg_cmd(msg, data, sz, (u32 *)&msg_sect[1].iov_len, orig);
-	}
-	exit:
-	rmsg.result_len = htonl(msg_sect[1].iov_len);
-	rmsg.retval = htonl(rv);
-	tipc_cfg_respond(msg_sect, 2u, orig);
-}
-#endif
 
 static struct sk_buff *cfg_enable_bearer(void)
 {
@@ -293,7 +200,6 @@ static struct sk_buff *cfg_set_own_addr(void)
 	if (tipc_mode == TIPC_NET_MODE)
 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
 						   " (cannot change node address once assigned)");
-	tipc_own_addr = addr;
 
 	/*
 	 * Must release all spinlocks before calling start_net() because
@@ -306,7 +212,7 @@ static struct sk_buff *cfg_set_own_addr(void)
 	 */
 
 	spin_unlock_bh(&config_lock);
-	tipc_core_start_net();
+	tipc_core_start_net(addr);
 	spin_lock_bh(&config_lock);
 	return tipc_cfg_reply_none();
 }
@@ -520,19 +426,14 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
 	case TIPC_CMD_SHOW_PORTS:
 		rep_tlv_buf = tipc_port_get_ports();
 		break;
-#if 0
-	case TIPC_CMD_SHOW_PORT_STATS:
-		rep_tlv_buf = port_show_stats(req_tlv_area, req_tlv_space);
-		break;
-	case TIPC_CMD_RESET_PORT_STATS:
-		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED);
-		break;
-#endif
 	case TIPC_CMD_SET_LOG_SIZE:
-		rep_tlv_buf = tipc_log_resize(req_tlv_area, req_tlv_space);
+		rep_tlv_buf = tipc_log_resize_cmd(req_tlv_area, req_tlv_space);
 		break;
 	case TIPC_CMD_DUMP_LOG:
 		rep_tlv_buf = tipc_log_dump();
+		break;
+	case TIPC_CMD_SHOW_STATS:
+		rep_tlv_buf = tipc_show_stats();
 		break;
 	case TIPC_CMD_SET_LINK_TOL:
 	case TIPC_CMD_SET_LINK_PRI:
@@ -602,6 +503,10 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
 	case TIPC_CMD_GET_NETID:
 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_net_id);
 		break;
+	case TIPC_CMD_NOT_NET_ADMIN:
+		rep_tlv_buf =
+			tipc_cfg_reply_error_string(TIPC_CFG_NOT_NET_ADMIN);
+		break;
 	default:
 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
 							  " (unknown command)");
@@ -663,9 +568,6 @@ int tipc_cfg_init(void)
 {
 	struct tipc_name_seq seq;
 	int res;
-
-	memset(&mng, 0, sizeof(mng));
-	INIT_LIST_HEAD(&mng.link_subscribers);
 
 	res = tipc_attach(&mng.user_ref, NULL, NULL);
 	if (res)

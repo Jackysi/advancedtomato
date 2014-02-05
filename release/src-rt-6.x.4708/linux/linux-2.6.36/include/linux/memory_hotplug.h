@@ -3,14 +3,23 @@
 
 #include <linux/mmzone.h>
 #include <linux/spinlock.h>
-#include <linux/mmzone.h>
 #include <linux/notifier.h>
 
 struct page;
 struct zone;
 struct pglist_data;
+struct mem_section;
 
 #ifdef CONFIG_MEMORY_HOTPLUG
+
+/*
+ * Types for free bootmem.
+ * The normal smallest mapcount is -1. Here is smaller value than it.
+ */
+#define SECTION_INFO		(-1 - 1)
+#define MIX_SECTION_INFO	(-1 - 2)
+#define NODE_INFO		(-1 - 3)
+
 /*
  * pgdat resizing functions
  */
@@ -59,9 +68,12 @@ extern int add_one_highpage(struct page *page, int pfn, int bad_ppro);
 extern void online_page(struct page *page);
 /* VM interface that may be used by firmware interface */
 extern int online_pages(unsigned long, unsigned long);
+extern void __offline_isolated_pages(unsigned long, unsigned long);
 
 /* reasonably generic interface to expand the physical pages in a zone  */
-extern int __add_pages(struct zone *zone, unsigned long start_pfn,
+extern int __add_pages(int nid, struct zone *zone, unsigned long start_pfn,
+	unsigned long nr_pages);
+extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
 	unsigned long nr_pages);
 
 #ifdef CONFIG_NUMA
@@ -94,12 +106,6 @@ extern void arch_refresh_nodedata(int nid, pg_data_t *pgdat);
 #define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
 
 #ifdef CONFIG_NUMA
-/*
- * If ARCH_HAS_NODEDATA_EXTENSION=n, this func is used to allocate pgdat.
- * XXX: kmalloc_node() can't work well to get new node's memory at this time.
- *	Because, pgdat for the new node is not allocated/initialized yet itself.
- *	To use new node's memory, more consideration will be necessary.
- */
 #define generic_alloc_nodedata(nid)				\
 ({								\
 	kzalloc(sizeof(pg_data_t), GFP_KERNEL);			\
@@ -133,6 +139,18 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
 #endif /* CONFIG_NUMA */
 #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
 
+#ifdef CONFIG_SPARSEMEM_VMEMMAP
+static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
+{
+}
+static inline void put_page_bootmem(struct page *page)
+{
+}
+#else
+extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
+extern void put_page_bootmem(struct page *page);
+#endif
+
 #else /* ! CONFIG_MEMORY_HOTPLUG */
 /*
  * Stub functions for when hotplug is off
@@ -160,19 +178,32 @@ static inline int mhp_notimplemented(const char *func)
 	return -ENOSYS;
 }
 
-#endif /* ! CONFIG_MEMORY_HOTPLUG */
-static inline int __remove_pages(struct zone *zone, unsigned long start_pfn,
-	unsigned long nr_pages)
+static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
 {
-	printk(KERN_WARNING "%s() called, not yet supported\n", __FUNCTION__);
-	dump_stack();
-	return -ENOSYS;
 }
 
+#endif /* ! CONFIG_MEMORY_HOTPLUG */
+
+#ifdef CONFIG_MEMORY_HOTREMOVE
+
+extern int is_mem_section_removable(unsigned long pfn, unsigned long nr_pages);
+
+#else
+static inline int is_mem_section_removable(unsigned long pfn,
+					unsigned long nr_pages)
+{
+	return 0;
+}
+#endif /* CONFIG_MEMORY_HOTREMOVE */
+
+extern int mem_online_node(int nid);
 extern int add_memory(int nid, u64 start, u64 size);
 extern int arch_add_memory(int nid, u64 start, u64 size);
 extern int remove_memory(u64 start, u64 size);
 extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
 								int nr_pages);
+extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms);
+extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
+					  unsigned long pnum);
 
 #endif /* __LINUX_MEMORY_HOTPLUG_H */

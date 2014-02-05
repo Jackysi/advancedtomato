@@ -533,7 +533,6 @@ static void neo_copy_data_from_queue_to_uart(struct jsm_channel *ch)
 	if (!(ch->ch_flags & (CH_TX_FIFO_EMPTY | CH_TX_FIFO_LWM)))
 		return;
 
-	len_written = 0;
 	n = UART_17158_TX_FIFOSIZE - ch->ch_t_tlevel;
 
 	/* cache head and tail of queue */
@@ -577,9 +576,6 @@ static void neo_parse_modem(struct jsm_channel *ch, u8 signals)
 	jsm_printk(MSIGS, INFO, &ch->ch_bd->pci_dev,
 			"neo_parse_modem: port: %d msignals: %x\n", ch->ch_portnum, msignals);
 
-	if (!ch)
-		return;
-
 	/* Scrub off lower bits. They signify delta's, which I don't care about */
 	/* Keep DDCD and DDSR though */
 	msignals &= 0xf8;
@@ -622,14 +618,10 @@ static void neo_parse_modem(struct jsm_channel *ch, u8 signals)
 /* Make the UART raise any of the output signals we want up */
 static void neo_assert_modem_signals(struct jsm_channel *ch)
 {
-	u8 out;
-
 	if (!ch)
 		return;
 
-	out = ch->ch_mostat;
-
-	writeb(out, &ch->ch_neo_uart->mcr);
+	writeb(ch->ch_mostat, &ch->ch_neo_uart->mcr);
 
 	/* flush write operation */
 	neo_pci_posting_flush(ch->ch_bd);
@@ -939,10 +931,9 @@ static inline void neo_parse_lsr(struct jsm_board *brd, u32 port)
 static void neo_param(struct jsm_channel *ch)
 {
 	u8 lcr = 0;
-	u8 uart_lcr = 0;
-	u8 ier = 0;
-	u32 baud = 9600;
-	int quot = 0;
+	u8 uart_lcr, ier;
+	u32 baud;
+	int quot;
 	struct jsm_board *bd;
 
 	bd = ch->ch_bd;
@@ -963,13 +954,8 @@ static void neo_param(struct jsm_channel *ch)
 		ch->ch_flags |= (CH_BAUD0);
 		ch->ch_mostat &= ~(UART_MCR_RTS | UART_MCR_DTR);
 		neo_assert_modem_signals(ch);
-		ch->ch_old_baud = 0;
 		return;
 
-	} else if (ch->ch_custom_speed) {
-			baud = ch->ch_custom_speed;
-			if (ch->ch_flags & CH_BAUD0)
-				ch->ch_flags &= ~(CH_BAUD0);
 	} else {
 		int i;
 		unsigned int cflag;
@@ -998,7 +984,7 @@ static void neo_param(struct jsm_channel *ch)
 			{     50, B50     },
 		};
 
-		cflag = C_BAUD(ch->uart_port.info->tty);
+		cflag = C_BAUD(ch->uart_port.state->port.tty);
 		baud = 9600;
 		for (i = 0; i < ARRAY_SIZE(baud_rates); i++) {
 			if (baud_rates[i].cflag == cflag) {
@@ -1054,7 +1040,6 @@ static void neo_param(struct jsm_channel *ch)
 	quot = ch->ch_bd->bd_dividend / baud;
 
 	if (quot != 0) {
-		ch->ch_old_baud = baud;
 		writeb(UART_LCR_DLAB, &ch->ch_neo_uart->lcr);
 		writeb((quot & 0xff), &ch->ch_neo_uart->txrx);
 		writeb((quot >> 8), &ch->ch_neo_uart->ier);
@@ -1131,8 +1116,6 @@ static irqreturn_t neo_intr(int irq, void *voidbrd)
 	unsigned long lock_flags;
 	unsigned long lock_flags2;
 	int outofloop_count = 0;
-
-	brd->intr_count++;
 
 	/* Lock out the slow poller from running on this board. */
 	spin_lock_irqsave(&brd->bd_intr_lock, lock_flags);

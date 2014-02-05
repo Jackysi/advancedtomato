@@ -141,4 +141,3 @@
 #define IS_DMA_INT	0x04	/* =0 iff DMA done interrupt. */
 #define IS_R_INT	0x02	/* =0 iff unmasked Rcv interrupt */
 #define IS_X_INT	0x01	/* =0 iff unmasked Xmt interrupt */
-

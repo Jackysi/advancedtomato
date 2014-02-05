@@ -9,7 +9,7 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 .Linsw_bad_alignment:
 		adr	r0, .Linsw_bad_align_msg
@@ -103,5 +103,3 @@ ENTRY(__raw_readsw)
 		strneb	r3, [r1]
 
 		ldmfd	sp!, {r4, r5, r6, pc}
-
-

@@ -177,11 +177,11 @@ static int uvc_get_video_ctrl(struct uvc_streaming *stream,
 	ctrl->wCompQuality = le16_to_cpup((__le16 *)&data[12]);
 	ctrl->wCompWindowSize = le16_to_cpup((__le16 *)&data[14]);
 	ctrl->wDelay = le16_to_cpup((__le16 *)&data[16]);
-	ctrl->dwMaxVideoFrameSize = get_unaligned((u32 *)&(data[18]));
-	ctrl->dwMaxPayloadTransferSize = get_unaligned((u32 *)&(data[22]));
+	ctrl->dwMaxVideoFrameSize = get_unaligned_le32(&data[18]);
+	ctrl->dwMaxPayloadTransferSize = get_unaligned_le32(&data[22]);
 
 	if (size == 34) {
-		ctrl->dwClockFrequency = get_unaligned((u32 *)&(data[26]));
+		ctrl->dwClockFrequency = get_unaligned_le32(&data[26]);
 		ctrl->bmFramingInfo = data[30];
 		ctrl->bPreferedVersion = data[31];
 		ctrl->bMinVersion = data[32];
@@ -227,11 +227,11 @@ static int uvc_set_video_ctrl(struct uvc_streaming *stream,
 	*(__le16 *)&data[12] = cpu_to_le16(ctrl->wCompQuality);
 	*(__le16 *)&data[14] = cpu_to_le16(ctrl->wCompWindowSize);
 	*(__le16 *)&data[16] = cpu_to_le16(ctrl->wDelay);
-	put_unaligned(ctrl->dwMaxVideoFrameSize, (u32 *)&(data[18]));
-	put_unaligned(ctrl->dwMaxPayloadTransferSize, (u32 *)&(data[22]));
+	put_unaligned_le32(ctrl->dwMaxVideoFrameSize, &data[18]);
+	put_unaligned_le32(ctrl->dwMaxPayloadTransferSize, &data[22]);
 
 	if (size == 34) {
-		put_unaligned(ctrl->dwClockFrequency, (u32 *)&(data[26]));
+		put_unaligned_le32(ctrl->dwClockFrequency, &data[26]);
 		data[30] = ctrl->bmFramingInfo;
 		data[31] = ctrl->bPreferedVersion;
 		data[32] = ctrl->bMinVersion;
@@ -748,7 +748,7 @@ static void uvc_free_urb_buffers(struct uvc_streaming *stream)
 
 	for (i = 0; i < UVC_URBS; ++i) {
 		if (stream->urb_buffer[i]) {
-			usb_buffer_free(stream->dev->udev, stream->urb_size,
+			usb_free_coherent(stream->dev->udev, stream->urb_size,
 				stream->urb_buffer[i], stream->urb_dma[i]);
 			stream->urb_buffer[i] = NULL;
 		}
@@ -789,7 +789,7 @@ static int uvc_alloc_urb_buffers(struct uvc_streaming *stream,
 	for (; npackets > 1; npackets /= 2) {
 		for (i = 0; i < UVC_URBS; ++i) {
 			stream->urb_size = psize * npackets;
-			stream->urb_buffer[i] = usb_buffer_alloc(
+			stream->urb_buffer[i] = usb_alloc_coherent(
 				stream->dev->udev, stream->urb_size,
 				gfp_flags | __GFP_NOWARN, &stream->urb_dma[i]);
 			if (!stream->urb_buffer[i]) {
@@ -1217,4 +1217,3 @@ int uvc_video_enable(struct uvc_streaming *stream, int enable)
 
 	return uvc_init_video(stream, GFP_KERNEL);
 }
-

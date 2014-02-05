@@ -491,8 +491,6 @@ verify_tb_operation(void)
 	if (mcheck_taken(0)) {
 		printk("pci: failed valid tag invalid pte reload test "
 		       "(mcheck; workaround available)\n");
-		/* Work around this bug by aligning new allocations
-		   on 4 page boundaries.  */
 		arena->align_entry = 4;
 	} else if (temp != data0) {
 		printk("pci: failed valid tag invalid pte reload test "
@@ -735,19 +733,6 @@ do_init_arch(int is_pyxis)
 	*(vip)CIA_IOC_PCI_W2_MASK = (__direct_map_size - 1) & 0xfff00000;
 	*(vip)CIA_IOC_PCI_T2_BASE = 0 >> 2;
 
-	/* On PYXIS we have the monster window, selected by bit 40, so
-	   there is no need for window3 to be enabled.
-
-	   On CIA, we don't have true arbitrary addressing -- bits <39:32>
-	   are compared against W_DAC.  We can, however, directly map 4GB,
-	   which is better than before.  However, due to assumptions made
-	   elsewhere, we should not claim that we support DAC unless that
-	   4GB covers all of physical memory.
-
-	   On CIA rev 1, apparently W1 and W2 can't be used for SG. 
-	   At least, there are reports that it doesn't work for Alcor. 
-	   In that case, we have no choice but to use W3 for the TBIA 
-	   workaround, which means we can't use DAC at all. */ 
 
 	tbia_window = 1;
 	if (is_pyxis) {
@@ -766,7 +751,6 @@ do_init_arch(int is_pyxis)
 		*(vip)CIA_IOC_PCI_W_DAC = alpha_mv.pci_dac_offset >> 32;
 	}
 
-	/* Prepare workaround for apparently broken tbia. */
 	cia_prepare_tbia_workaround(tbia_window);
 }
 

@@ -352,4 +352,3 @@ static int set_min_max(int maxflag, u_long mib, u_long limit, u_long *oper)
 		*oper = mib ;
 	return(old != *oper) ;
 }
-

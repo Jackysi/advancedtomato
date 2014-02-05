@@ -62,10 +62,9 @@ mempool_t *mempool_create_node(int min_nr, mempool_alloc_t *alloc_fn,
 			mempool_free_t *free_fn, void *pool_data, int node_id)
 {
 	mempool_t *pool;
-	pool = kmalloc_node(sizeof(*pool), GFP_KERNEL, node_id);
+	pool = kmalloc_node(sizeof(*pool), GFP_KERNEL | __GFP_ZERO, node_id);
 	if (!pool)
 		return NULL;
-	memset(pool, 0, sizeof(*pool));
 	pool->elements = kmalloc_node(min_nr * sizeof(void *),
 					GFP_KERNEL, node_id);
 	if (!pool->elements) {
@@ -239,10 +238,6 @@ repeat_alloc:
 	prepare_to_wait(&pool->wait, &wait, TASK_UNINTERRUPTIBLE);
 	smp_mb();
 	if (!pool->curr_nr) {
-		/*
-		 * FIXME: this should be io_schedule().  The timeout is there
-		 * as a workaround for some DM problems in 2.6.18.
-		 */
 		io_schedule_timeout(5*HZ);
 	}
 	finish_wait(&pool->wait, &wait);
@@ -262,6 +257,9 @@ EXPORT_SYMBOL(mempool_alloc);
 void mempool_free(void *element, mempool_t *pool)
 {
 	unsigned long flags;
+
+	if (unlikely(element == NULL))
+		return;
 
 	smp_mb();
 	if (pool->curr_nr < pool->min_nr) {
@@ -297,21 +295,14 @@ EXPORT_SYMBOL(mempool_free_slab);
 
 /*
  * A commonly used alloc and free fn that kmalloc/kfrees the amount of memory
- * specfied by pool_data
+ * specified by pool_data
  */
 void *mempool_kmalloc(gfp_t gfp_mask, void *pool_data)
 {
-	size_t size = (size_t)(long)pool_data;
+	size_t size = (size_t)pool_data;
 	return kmalloc(size, gfp_mask);
 }
 EXPORT_SYMBOL(mempool_kmalloc);
-
-void *mempool_kzalloc(gfp_t gfp_mask, void *pool_data)
-{
-	size_t size = (size_t) pool_data;
-	return kzalloc(size, gfp_mask);
-}
-EXPORT_SYMBOL(mempool_kzalloc);
 
 void mempool_kfree(void *element, void *pool_data)
 {

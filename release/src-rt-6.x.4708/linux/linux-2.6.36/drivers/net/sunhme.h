@@ -1,4 +1,4 @@
-/* $Id: sunhme.h,v 1.33 2001/08/03 06:23:04 davem Exp $
+/* $Id: sunhme.h,v 1.33 2001/08/03 06:23:04 Exp $
  * sunhme.h: Definitions for Sparc HME/BigMac 10/100baseT ethernet driver.
  *           Also known as the "Happy Meal".
  *
@@ -302,9 +302,11 @@
  * Always write the address first before setting the ownership
  * bits to avoid races with the hardware scanning the ring.
  */
+typedef u32 __bitwise__ hme32;
+
 struct happy_meal_rxd {
-	u32 rx_flags;
-	u32 rx_addr;
+	hme32 rx_flags;
+	hme32 rx_addr;
 };
 
 #define RXFLAG_OWN         0x80000000 /* 1 = hardware, 0 = software */
@@ -313,8 +315,8 @@ struct happy_meal_rxd {
 #define RXFLAG_CSUM        0x0000ffff /* HW computed checksum       */
 
 struct happy_meal_txd {
-	u32 tx_flags;
-	u32 tx_addr;
+	hme32 tx_flags;
+	hme32 tx_addr;
 };
 
 #define TXFLAG_OWN         0x80000000 /* 1 = hardware, 0 = software */
@@ -400,17 +402,14 @@ struct happy_meal {
 	struct hmeal_init_block  *happy_block;	/* RX and TX descriptors (CPU addr)  */
 
 #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
-	u32 (*read_desc32)(u32 *);
+	u32 (*read_desc32)(hme32 *);
 	void (*write_txd)(struct happy_meal_txd *, u32, u32);
 	void (*write_rxd)(struct happy_meal_rxd *, u32, u32);
-	u32 (*dma_map)(void *, void *, long, int);
-	void (*dma_unmap)(void *, u32, long, int);
-	void (*dma_sync_for_cpu)(void *, u32, long, int);
-	void (*dma_sync_for_device)(void *, u32, long, int);
 #endif
 
-	/* This is either a sbus_dev or a pci_dev. */
+	/* This is either an platform_device or a pci_dev. */
 	void			  *happy_dev;
+	struct device		  *dma_dev;
 
 	spinlock_t		  happy_lock;
 
@@ -471,7 +470,7 @@ struct happy_meal {
 #define HFLAG_FULL                0x00000020      /* Full duplex enable                */
 #define HFLAG_MACFULL             0x00000040      /* Using full duplex in the MAC      */
 #define HFLAG_POLLENABLE          0x00000080      /* Actually try MIF polling          */
-#define HFLAG_RXCV                0x00000100      /* XXX RXCV ENABLE                   */
+#define HFLAG_RXCV                0x00000100
 #define HFLAG_INIT                0x00000200      /* Init called at least once         */
 #define HFLAG_LINKUP              0x00000400      /* 1 = Link is up                    */
 #define HFLAG_PCI                 0x00000800      /* PCI based Happy Meal              */

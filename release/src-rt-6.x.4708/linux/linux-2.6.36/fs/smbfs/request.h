@@ -20,7 +20,6 @@ struct smb_request {
 	int rq_bufsize;
 	unsigned char *rq_buffer;
 
-	/* FIXME: this is not good enough for merging IO requests. */
 	unsigned char *rq_page;
 	int rq_rsize;
 

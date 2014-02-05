@@ -25,7 +25,6 @@
 #include <linux/module.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
-#include <linux/slab.h>
 #include <linux/init.h>
 #include <asm/atomic.h>
 #include "crc32defs.h"
@@ -101,7 +100,7 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32 (*tab)[256])
  * @p: pointer to buffer over which CRC is run
  * @len: length of buffer @p
  */
-u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len);
+u32 __pure crc32_le(u32 crc, unsigned char const *p, size_t len);
 
 #if CRC_LE_BITS == 1
 /*
@@ -109,7 +108,7 @@ u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len);
  * simplified by inlining the table in ?: form.
  */
 
-u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len)
+u32 __pure crc32_le(u32 crc, unsigned char const *p, size_t len)
 {
 	int i;
 	while (len--) {
@@ -121,7 +120,7 @@ u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len)
 }
 #else				/* Table-based approach */
 
-u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len)
+u32 __pure crc32_le(u32 crc, unsigned char const *p, size_t len)
 {
 # if CRC_LE_BITS == 8
 	const u32      (*tab)[] = crc32table_le;
@@ -156,7 +155,7 @@ u32 __attribute_pure__ crc32_le(u32 crc, unsigned char const *p, size_t len)
  * @p: pointer to buffer over which CRC is run
  * @len: length of buffer @p
  */
-u32 __attribute_pure__ crc32_be(u32 crc, unsigned char const *p, size_t len);
+u32 __pure crc32_be(u32 crc, unsigned char const *p, size_t len);
 
 #if CRC_BE_BITS == 1
 /*
@@ -164,7 +163,7 @@ u32 __attribute_pure__ crc32_be(u32 crc, unsigned char const *p, size_t len);
  * simplified by inlining the table in ?: form.
  */
 
-u32 __attribute_pure__ crc32_be(u32 crc, unsigned char const *p, size_t len)
+u32 __pure crc32_be(u32 crc, unsigned char const *p, size_t len)
 {
 	int i;
 	while (len--) {
@@ -178,7 +177,7 @@ u32 __attribute_pure__ crc32_be(u32 crc, unsigned char const *p, size_t len)
 }
 
 #else				/* Table-based approach */
-u32 __attribute_pure__ crc32_be(u32 crc, unsigned char const *p, size_t len)
+u32 __pure crc32_be(u32 crc, unsigned char const *p, size_t len)
 {
 # if CRC_BE_BITS == 8
 	const u32      (*tab)[] = crc32table_be;
@@ -319,7 +318,7 @@ EXPORT_SYMBOL(crc32_be);
  * but again the multiple of the polynomial to subtract depends only on
  * the high bits, the high 8 bits in this case.  
  *
- * The multile we need in that case is the low 32 bits of a 40-bit
+ * The multiple we need in that case is the low 32 bits of a 40-bit
  * value whose high 8 bits are given, and which is a multiple of the
  * generator polynomial.  This is simply the CRC-32 of the given
  * one-byte message.
@@ -341,17 +340,6 @@ EXPORT_SYMBOL(crc32_be);
 #include <stdlib.h>
 #include <stdio.h>
 
-#if 0				/*Not used at present */
-static void
-buf_dump(char const *prefix, unsigned char const *buf, size_t len)
-{
-	fputs(prefix, stdout);
-	while (len--)
-		printf(" %02x", *buf++);
-	putchar('\n');
-
-}
-#endif
 
 static void bytereverse(unsigned char *buf, size_t len)
 {
@@ -367,15 +355,6 @@ static void random_garbage(unsigned char *buf, size_t len)
 		*buf++ = (unsigned char) random();
 }
 
-#if 0				/* Not used at present */
-static void store_le(u32 x, unsigned char *buf)
-{
-	buf[0] = (unsigned char) x;
-	buf[1] = (unsigned char) (x >> 8);
-	buf[2] = (unsigned char) (x >> 16);
-	buf[3] = (unsigned char) (x >> 24);
-}
-#endif
 
 static void store_be(u32 x, unsigned char *buf)
 {

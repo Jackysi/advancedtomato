@@ -37,7 +37,6 @@
 #include <linux/mutex.h>
 
 #include <asm/uaccess.h>
-#include <asm/semaphore.h>
 #include <linux/list.h>
 #include <linux/init.h>
 #include <linux/compiler.h>
@@ -77,8 +76,7 @@ static DEFINE_SPINLOCK(idr_lock);
  * we assume that the new SIGEV_THREAD_ID shares no bits with the other
  * SIGEV values.  Here we put out an error if this assumption fails.
  */
-#if SIGEV_THREAD_ID != (SIGEV_THREAD_ID & \
-                       ~(SIGEV_SIGNAL | SIGEV_NONE | SIGEV_THREAD))
+#if SIGEV_THREAD_ID != (SIGEV_THREAD_ID & ~(SIGEV_SIGNAL | SIGEV_NONE | SIGEV_THREAD))
 #error "SIGEV_THREAD_ID must not share bit with other SIGEV values!"
 #endif
 
@@ -117,7 +115,7 @@ static DEFINE_SPINLOCK(idr_lock);
  *	    must supply functions here, even if the function just returns
  *	    ENOSYS.  The standard POSIX timer management code assumes the
  *	    following: 1.) The k_itimer struct (sched.h) is used for the
- *	    timer.  2.) The list, it_lock, it_clock, it_id and it_process
+ *	    timer.  2.) The list, it_lock, it_clock, it_id and it_pid
  *	    fields are not modified by timer code.
  *
  *          At this time all functions EXCEPT clock_nanosleep can be
@@ -198,6 +196,17 @@ static int common_timer_create(struct k_itimer *new_timer)
 	return 0;
 }
 
+static int no_timer_create(struct k_itimer *new_timer)
+{
+	return -EOPNOTSUPP;
+}
+
+static int no_nsleep(const clockid_t which_clock, int flags,
+		     struct timespec *tsave, struct timespec __user *rmtp)
+{
+	return -EOPNOTSUPP;
+}
+
 /*
  * Return nonzero if we know a priori this clockid_t value is bogus.
  */
@@ -224,6 +233,34 @@ static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
 }
 
 /*
+ * Get monotonic time for posix timers
+ */
+static int posix_get_monotonic_raw(clockid_t which_clock, struct timespec *tp)
+{
+	getrawmonotonic(tp);
+	return 0;
+}
+
+
+static int posix_get_realtime_coarse(clockid_t which_clock, struct timespec *tp)
+{
+	*tp = current_kernel_time();
+	return 0;
+}
+
+static int posix_get_monotonic_coarse(clockid_t which_clock,
+						struct timespec *tp)
+{
+	*tp = get_monotonic_coarse();
+	return 0;
+}
+
+static int posix_get_coarse_res(const clockid_t which_clock, struct timespec *tp)
+{
+	*tp = ktime_to_timespec(KTIME_LOW_RES);
+	return 0;
+}
+/*
  * Initialize everything, well, just everything in Posix clocks/timers ;)
  */
 static __init int init_posix_timers(void)
@@ -236,12 +273,37 @@ static __init int init_posix_timers(void)
 		.clock_get = posix_ktime_get_ts,
 		.clock_set = do_posix_clock_nosettime,
 	};
+	struct k_clock clock_monotonic_raw = {
+		.clock_getres = hrtimer_get_res,
+		.clock_get = posix_get_monotonic_raw,
+		.clock_set = do_posix_clock_nosettime,
+		.timer_create = no_timer_create,
+		.nsleep = no_nsleep,
+	};
+	struct k_clock clock_realtime_coarse = {
+		.clock_getres = posix_get_coarse_res,
+		.clock_get = posix_get_realtime_coarse,
+		.clock_set = do_posix_clock_nosettime,
+		.timer_create = no_timer_create,
+		.nsleep = no_nsleep,
+	};
+	struct k_clock clock_monotonic_coarse = {
+		.clock_getres = posix_get_coarse_res,
+		.clock_get = posix_get_monotonic_coarse,
+		.clock_set = do_posix_clock_nosettime,
+		.timer_create = no_timer_create,
+		.nsleep = no_nsleep,
+	};
 
 	register_posix_clock(CLOCK_REALTIME, &clock_realtime);
 	register_posix_clock(CLOCK_MONOTONIC, &clock_monotonic);
+	register_posix_clock(CLOCK_MONOTONIC_RAW, &clock_monotonic_raw);
+	register_posix_clock(CLOCK_REALTIME_COARSE, &clock_realtime_coarse);
+	register_posix_clock(CLOCK_MONOTONIC_COARSE, &clock_monotonic_coarse);
 
 	posix_timers_cache = kmem_cache_create("posix_timers_cache",
-					sizeof (struct k_itimer), 0, 0, NULL, NULL);
+					sizeof (struct k_itimer), 0, SLAB_PANIC,
+					NULL);
 	idr_init(&posix_timers_id);
 	return 0;
 }
@@ -289,41 +351,28 @@ void do_schedule_next_timer(struct siginfo *info)
 		else
 			schedule_next_timer(timr);
 
-		info->si_overrun = timr->it_overrun_last;
+		info->si_overrun += timr->it_overrun_last;
 	}
 
 	if (timr)
 		unlock_timer(timr, flags);
 }
 
-int posix_timer_event(struct k_itimer *timr,int si_private)
+int posix_timer_event(struct k_itimer *timr, int si_private)
 {
-	memset(&timr->sigq->info, 0, sizeof(siginfo_t));
+	struct task_struct *task;
+	int shared, ret = -1;
 	timr->sigq->info.si_sys_private = si_private;
-	/* Send signal to the process that owns this timer.*/
 
-	timr->sigq->info.si_signo = timr->it_sigev_signo;
-	timr->sigq->info.si_errno = 0;
-	timr->sigq->info.si_code = SI_TIMER;
-	timr->sigq->info.si_tid = timr->it_id;
-	timr->sigq->info.si_value = timr->it_sigev_value;
-
-	if (timr->it_sigev_notify & SIGEV_THREAD_ID) {
-		struct task_struct *leader;
-		int ret = send_sigqueue(timr->it_sigev_signo, timr->sigq,
-					timr->it_process);
-
-		if (likely(ret >= 0))
-			return ret;
-
-		timr->it_sigev_notify = SIGEV_SIGNAL;
-		leader = timr->it_process->group_leader;
-		put_task_struct(timr->it_process);
-		timr->it_process = leader;
+	rcu_read_lock();
+	task = pid_task(timr->it_pid, PIDTYPE_PID);
+	if (task) {
+		shared = !(timr->it_sigev_notify & SIGEV_THREAD_ID);
+		ret = send_sigqueue(timr->sigq, task, shared);
 	}
-
-	return send_group_sigqueue(timr->it_sigev_signo, timr->sigq,
-				   timr->it_process);
+	rcu_read_unlock();
+	/* If we failed to send the signal the timer stops. */
+	return ret > 0;
 }
 EXPORT_SYMBOL_GPL(posix_timer_event);
 
@@ -356,28 +405,6 @@ static enum hrtimer_restart posix_timer_fn(struct hrtimer *timer)
 		if (timr->it.real.interval.tv64 != 0) {
 			ktime_t now = hrtimer_cb_get_time(timer);
 
-			/*
-			 * FIXME: What we really want, is to stop this
-			 * timer completely and restart it in case the
-			 * SIG_IGN is removed. This is a non trivial
-			 * change which involves sighand locking
-			 * (sigh !), which we don't want to do late in
-			 * the release cycle.
-			 *
-			 * For now we just let timers with an interval
-			 * less than a jiffie expire every jiffie to
-			 * avoid softirq starvation in case of SIG_IGN
-			 * and a very small interval, which would put
-			 * the timer right back on the softirq pending
-			 * list. By moving now ahead of time we trick
-			 * hrtimer_forward() to expire the timer
-			 * later, while we still maintain the overrun
-			 * accuracy, but have some inconsistency in
-			 * the timer_gettime() case. This is at least
-			 * better than a starved softirq. A more
-			 * complex fix which solves also another related
-			 * inconsistency is already in the pipeline.
-			 */
 #ifdef CONFIG_HIGH_RES_TIMERS
 			{
 				ktime_t kj = ktime_set(0, NSEC_PER_SEC / HZ);
@@ -398,13 +425,13 @@ static enum hrtimer_restart posix_timer_fn(struct hrtimer *timer)
 	return ret;
 }
 
-static struct task_struct * good_sigevent(sigevent_t * event)
+static struct pid *good_sigevent(sigevent_t * event)
 {
 	struct task_struct *rtn = current->group_leader;
 
 	if ((event->sigev_notify & SIGEV_THREAD_ID ) &&
-		(!(rtn = find_task_by_pid(event->sigev_notify_thread_id)) ||
-		 rtn->tgid != current->tgid ||
+		(!(rtn = find_task_by_vpid(event->sigev_notify_thread_id)) ||
+		 !same_thread_group(rtn, current) ||
 		 (event->sigev_notify & ~SIGEV_THREAD_ID) != SIGEV_SIGNAL))
 		return NULL;
 
@@ -412,7 +439,7 @@ static struct task_struct * good_sigevent(sigevent_t * event)
 	    ((event->sigev_signo <= 0) || (event->sigev_signo > SIGRTMAX)))
 		return NULL;
 
-	return rtn;
+	return task_pid(rtn);
 }
 
 void register_posix_clock(const clockid_t clock_id, struct k_clock *new_clock)
@@ -435,8 +462,9 @@ static struct k_itimer * alloc_posix_timer(void)
 		return tmr;
 	if (unlikely(!(tmr->sigq = sigqueue_alloc()))) {
 		kmem_cache_free(posix_timers_cache, tmr);
-		tmr = NULL;
+		return NULL;
 	}
+	memset(&tmr->sigq->info, 0, sizeof(siginfo_t));
 	return tmr;
 }
 
@@ -450,25 +478,19 @@ static void release_posix_timer(struct k_itimer *tmr, int it_id_set)
 		idr_remove(&posix_timers_id, tmr->it_id);
 		spin_unlock_irqrestore(&idr_lock, flags);
 	}
+	put_pid(tmr->it_pid);
 	sigqueue_free(tmr->sigq);
-	if (unlikely(tmr->it_process) &&
-	    tmr->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
-		put_task_struct(tmr->it_process);
 	kmem_cache_free(posix_timers_cache, tmr);
 }
 
 /* Create a POSIX.1b interval timer. */
 
-asmlinkage long
-sys_timer_create(const clockid_t which_clock,
-		 struct sigevent __user *timer_event_spec,
-		 timer_t __user * created_timer_id)
+SYSCALL_DEFINE3(timer_create, const clockid_t, which_clock,
+		struct sigevent __user *, timer_event_spec,
+		timer_t __user *, created_timer_id)
 {
-	int error = 0;
-	struct k_itimer *new_timer = NULL;
-	int new_timer_id;
-	struct task_struct *process = NULL;
-	unsigned long flags;
+	struct k_itimer *new_timer;
+	int error, new_timer_id;
 	sigevent_t event;
 	int it_id_set = IT_ID_NOT_SET;
 
@@ -486,14 +508,13 @@ sys_timer_create(const clockid_t which_clock,
 		goto out;
 	}
 	spin_lock_irq(&idr_lock);
-	error = idr_get_new(&posix_timers_id, (void *) new_timer,
-			    &new_timer_id);
+	error = idr_get_new(&posix_timers_id, new_timer, &new_timer_id);
 	spin_unlock_irq(&idr_lock);
-	if (error == -EAGAIN)
-		goto retry;
-	else if (error) {
+	if (error) {
+		if (error == -EAGAIN)
+			goto retry;
 		/*
-		 * Wierd looking, but we return EAGAIN if the IDR is
+		 * Weird looking, but we return EAGAIN if the IDR is
 		 * full (proper POSIX return value for this)
 		 */
 		error = -EAGAIN;
@@ -504,85 +525,56 @@ sys_timer_create(const clockid_t which_clock,
 	new_timer->it_id = (timer_t) new_timer_id;
 	new_timer->it_clock = which_clock;
 	new_timer->it_overrun = -1;
-	error = CLOCK_DISPATCH(which_clock, timer_create, (new_timer));
-	if (error)
-		goto out;
 
-	/*
-	 * return the timer_id now.  The next step is hard to
-	 * back out if there is an error.
-	 */
-	if (copy_to_user(created_timer_id,
-			 &new_timer_id, sizeof (new_timer_id))) {
-		error = -EFAULT;
-		goto out;
-	}
 	if (timer_event_spec) {
 		if (copy_from_user(&event, timer_event_spec, sizeof (event))) {
 			error = -EFAULT;
 			goto out;
 		}
-		new_timer->it_sigev_notify = event.sigev_notify;
-		new_timer->it_sigev_signo = event.sigev_signo;
-		new_timer->it_sigev_value = event.sigev_value;
-
-		read_lock(&tasklist_lock);
-		if ((process = good_sigevent(&event))) {
-			/*
-			 * We may be setting up this process for another
-			 * thread.  It may be exiting.  To catch this
-			 * case the we check the PF_EXITING flag.  If
-			 * the flag is not set, the siglock will catch
-			 * him before it is too late (in exit_itimers).
-			 *
-			 * The exec case is a bit more invloved but easy
-			 * to code.  If the process is in our thread
-			 * group (and it must be or we would not allow
-			 * it here) and is doing an exec, it will cause
-			 * us to be killed.  In this case it will wait
-			 * for us to die which means we can finish this
-			 * linkage with our last gasp. I.e. no code :)
-			 */
-			spin_lock_irqsave(&process->sighand->siglock, flags);
-			if (!(process->flags & PF_EXITING)) {
-				new_timer->it_process = process;
-				list_add(&new_timer->list,
-					 &process->signal->posix_timers);
-				spin_unlock_irqrestore(&process->sighand->siglock, flags);
-				if (new_timer->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
-					get_task_struct(process);
-			} else {
-				spin_unlock_irqrestore(&process->sighand->siglock, flags);
-				process = NULL;
-			}
-		}
-		read_unlock(&tasklist_lock);
-		if (!process) {
+		rcu_read_lock();
+		new_timer->it_pid = get_pid(good_sigevent(&event));
+		rcu_read_unlock();
+		if (!new_timer->it_pid) {
 			error = -EINVAL;
 			goto out;
 		}
 	} else {
-		new_timer->it_sigev_notify = SIGEV_SIGNAL;
-		new_timer->it_sigev_signo = SIGALRM;
-		new_timer->it_sigev_value.sival_int = new_timer->it_id;
-		process = current->group_leader;
-		spin_lock_irqsave(&process->sighand->siglock, flags);
-		new_timer->it_process = process;
-		list_add(&new_timer->list, &process->signal->posix_timers);
-		spin_unlock_irqrestore(&process->sighand->siglock, flags);
+		event.sigev_notify = SIGEV_SIGNAL;
+		event.sigev_signo = SIGALRM;
+		event.sigev_value.sival_int = new_timer->it_id;
+		new_timer->it_pid = get_pid(task_tgid(current));
 	}
 
+	new_timer->it_sigev_notify     = event.sigev_notify;
+	new_timer->sigq->info.si_signo = event.sigev_signo;
+	new_timer->sigq->info.si_value = event.sigev_value;
+	new_timer->sigq->info.si_tid   = new_timer->it_id;
+	new_timer->sigq->info.si_code  = SI_TIMER;
+
+	if (copy_to_user(created_timer_id,
+			 &new_timer_id, sizeof (new_timer_id))) {
+		error = -EFAULT;
+		goto out;
+	}
+
+	error = CLOCK_DISPATCH(which_clock, timer_create, (new_timer));
+	if (error)
+		goto out;
+
+	spin_lock_irq(&current->sighand->siglock);
+	new_timer->it_signal = current->signal;
+	list_add(&new_timer->list, &current->signal->posix_timers);
+	spin_unlock_irq(&current->sighand->siglock);
+
+	return 0;
  	/*
 	 * In the case of the timer belonging to another task, after
 	 * the task is unlocked, the timer is owned by the other task
 	 * and may cease to exist at any time.  Don't use or modify
 	 * new_timer after the unlock call.
 	 */
-
 out:
-	if (error)
-		release_posix_timer(new_timer, it_id_set);
-
+	release_posix_timer(new_timer, it_id_set);
 	return error;
 }
 
@@ -593,7 +585,7 @@ out:
  * the find to the timer lock.  To avoid a dead lock, the timer id MUST
  * be release with out holding the timer lock.
  */
-static struct k_itimer * lock_timer(timer_t timer_id, unsigned long *flags)
+static struct k_itimer *lock_timer(timer_t timer_id, unsigned long *flags)
 {
 	struct k_itimer *timr;
 	/*
@@ -601,22 +593,19 @@ static struct k_itimer * lock_timer(timer_t timer_id, unsigned long *flags)
 	 * flags part over to the timer lock.  Must not let interrupts in
 	 * while we are moving the lock.
 	 */
-
 	spin_lock_irqsave(&idr_lock, *flags);
-	timr = (struct k_itimer *) idr_find(&posix_timers_id, (int) timer_id);
+	timr = idr_find(&posix_timers_id, (int)timer_id);
 	if (timr) {
 		spin_lock(&timr->it_lock);
-		spin_unlock(&idr_lock);
-
-		if ((timr->it_id != timer_id) || !(timr->it_process) ||
-				timr->it_process->tgid != current->tgid) {
-			unlock_timer(timr, *flags);
-			timr = NULL;
+		if (timr->it_signal == current->signal) {
+			spin_unlock(&idr_lock);
+			return timr;
 		}
-	} else
-		spin_unlock_irqrestore(&idr_lock, *flags);
+		spin_unlock(&timr->it_lock);
+	}
+	spin_unlock_irqrestore(&idr_lock, *flags);
 
-	return timr;
+	return NULL;
 }
 
 /*
@@ -663,7 +652,7 @@ common_timer_get(struct k_itimer *timr, struct itimerspec *cur_setting)
 	    (timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE))
 		timr->it_overrun += (unsigned int) hrtimer_forward(timer, now, iv);
 
-	remaining = ktime_sub(timer->expires, now);
+	remaining = ktime_sub(hrtimer_get_expires(timer), now);
 	/* Return 0 only, when the timer is expired and not pending */
 	if (remaining.tv64 <= 0) {
 		/*
@@ -677,8 +666,8 @@ common_timer_get(struct k_itimer *timr, struct itimerspec *cur_setting)
 }
 
 /* Get the time remaining on a POSIX.1b interval timer. */
-asmlinkage long
-sys_timer_gettime(timer_t timer_id, struct itimerspec __user *setting)
+SYSCALL_DEFINE2(timer_gettime, timer_t, timer_id,
+		struct itimerspec __user *, setting)
 {
 	struct k_itimer *timr;
 	struct itimerspec cur_setting;
@@ -707,12 +696,11 @@ sys_timer_gettime(timer_t timer_id, struct itimerspec __user *setting)
  * the call back to do_schedule_next_timer().  So all we need to do is
  * to pick up the frozen overrun.
  */
-asmlinkage long
-sys_timer_getoverrun(timer_t timer_id)
+SYSCALL_DEFINE1(timer_getoverrun, timer_t, timer_id)
 {
 	struct k_itimer *timr;
 	int overrun;
-	long flags;
+	unsigned long flags;
 
 	timr = lock_timer(timer_id, &flags);
 	if (!timr)
@@ -757,7 +745,7 @@ common_timer_set(struct k_itimer *timr, int flags,
 	hrtimer_init(&timr->it.real.timer, timr->it_clock, mode);
 	timr->it.real.timer.function = posix_timer_fn;
 
-	timer->expires = timespec_to_ktime(new_setting->it_value);
+	hrtimer_set_expires(timer, timespec_to_ktime(new_setting->it_value));
 
 	/* Convert interval */
 	timr->it.real.interval = timespec_to_ktime(new_setting->it_interval);
@@ -765,26 +753,25 @@ common_timer_set(struct k_itimer *timr, int flags,
 	/* SIGEV_NONE timers are not queued ! See common_timer_get */
 	if (((timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE)) {
 		/* Setup correct expiry time for relative timers */
-		if (mode == HRTIMER_MODE_REL)
-			timer->expires = ktime_add(timer->expires,
-						   timer->base->get_time());
+		if (mode == HRTIMER_MODE_REL) {
+			hrtimer_add_expires(timer, timer->base->get_time());
+		}
 		return 0;
 	}
 
-	hrtimer_start(timer, timer->expires, mode);
+	hrtimer_start_expires(timer, mode);
 	return 0;
 }
 
 /* Set a POSIX.1b interval timer */
-asmlinkage long
-sys_timer_settime(timer_t timer_id, int flags,
-		  const struct itimerspec __user *new_setting,
-		  struct itimerspec __user *old_setting)
+SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
+		const struct itimerspec __user *, new_setting,
+		struct itimerspec __user *, old_setting)
 {
 	struct k_itimer *timr;
 	struct itimerspec new_spec, old_spec;
 	int error = 0;
-	long flag;
+	unsigned long flag;
 	struct itimerspec *rtn = old_setting ? &old_spec : NULL;
 
 	if (!new_setting)
@@ -832,11 +819,10 @@ static inline int timer_delete_hook(struct k_itimer *timer)
 }
 
 /* Delete a POSIX.1b interval timer. */
-asmlinkage long
-sys_timer_delete(timer_t timer_id)
+SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
 {
 	struct k_itimer *timer;
-	long flags;
+	unsigned long flags;
 
 retry_delete:
 	timer = lock_timer(timer_id, &flags);
@@ -855,11 +841,8 @@ retry_delete:
 	 * This keeps any tasks waiting on the spin lock from thinking
 	 * they got something (see the lock code above).
 	 */
-	if (timer->it_process) {
-		if (timer->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
-			put_task_struct(timer->it_process);
-		timer->it_process = NULL;
-	}
+	timer->it_signal = NULL;
+
 	unlock_timer(timer, flags);
 	release_posix_timer(timer, IT_ID_SET);
 	return 0;
@@ -884,11 +867,8 @@ retry_delete:
 	 * This keeps any tasks waiting on the spin lock from thinking
 	 * they got something (see the lock code above).
 	 */
-	if (timer->it_process) {
-		if (timer->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
-			put_task_struct(timer->it_process);
-		timer->it_process = NULL;
-	}
+	timer->it_signal = NULL;
+
 	unlock_timer(timer, flags);
 	release_posix_timer(timer, IT_ID_SET);
 }
@@ -925,8 +905,8 @@ int do_posix_clock_nonanosleep(const clockid_t clock, int flags,
 }
 EXPORT_SYMBOL_GPL(do_posix_clock_nonanosleep);
 
-asmlinkage long sys_clock_settime(const clockid_t which_clock,
-				  const struct timespec __user *tp)
+SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
+		const struct timespec __user *, tp)
 {
 	struct timespec new_tp;
 
@@ -938,8 +918,8 @@ asmlinkage long sys_clock_settime(const clockid_t which_clock,
 	return CLOCK_DISPATCH(which_clock, clock_set, (which_clock, &new_tp));
 }
 
-asmlinkage long
-sys_clock_gettime(const clockid_t which_clock, struct timespec __user *tp)
+SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
+		struct timespec __user *,tp)
 {
 	struct timespec kernel_tp;
 	int error;
@@ -955,8 +935,8 @@ sys_clock_gettime(const clockid_t which_clock, struct timespec __user *tp)
 
 }
 
-asmlinkage long
-sys_clock_getres(const clockid_t which_clock, struct timespec __user *tp)
+SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock,
+		struct timespec __user *, tp)
 {
 	struct timespec rtn_tp;
 	int error;
@@ -985,10 +965,9 @@ static int common_nsleep(const clockid_t which_clock, int flags,
 				 which_clock);
 }
 
-asmlinkage long
-sys_clock_nanosleep(const clockid_t which_clock, int flags,
-		    const struct timespec __user *rqtp,
-		    struct timespec __user *rmtp)
+SYSCALL_DEFINE4(clock_nanosleep, const clockid_t, which_clock, int, flags,
+		const struct timespec __user *, rqtp,
+		struct timespec __user *, rmtp)
 {
 	struct timespec t;
 

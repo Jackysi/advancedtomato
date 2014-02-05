@@ -25,18 +25,18 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  *  Stripped of 2.4 stuff ready for main kernel submit by
- *		Alan Cox <alan@redhat.com>
+ *		Alan Cox <alan@lxorguk.ukuu.org.uk>
  *
  ****************************************************************************/
 
 #include "cpia2.h"
 
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/vmalloc.h>
+#include <linux/firmware.h>
 
-//#define _CPIA2_DEBUG_
-
-#include "cpia2patch.h"
+/* #define _CPIA2_DEBUG_ */
 
 #ifdef _CPIA2_DEBUG_
 
@@ -48,7 +48,7 @@ static const char *block_name[] = {
 };
 #endif
 
-static unsigned int debugs_on = 0;//DEBUG_REG;
+static unsigned int debugs_on;	/* default 0 - DEBUG_REG */
 
 
 /******************************************************************************
@@ -570,7 +570,7 @@ int cpia2_send_command(struct camera_data *cam, struct cpia2_command *cmd)
 			    block_name[block_index]);
 		break;
 	default:
-		LOG("%s: invalid request mode\n",__FUNCTION__);
+		LOG("%s: invalid request mode\n",__func__);
 		return -EINVAL;
 	}
 
@@ -663,15 +663,13 @@ int cpia2_reset_camera(struct camera_data *cam)
 		cpia2_send_command(cam, &cmd);
 	}
 
-	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(100 * HZ / 1000);	/* wait for 100 msecs */
+	schedule_timeout_interruptible(msecs_to_jiffies(100));
 
 	if (cam->params.pnp_id.device_type == DEVICE_STV_672)
 		retval = apply_vp_patch(cam);
 
 	/* wait for vp to go to sleep */
-	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(100 * HZ / 1000);	/* wait for 100 msecs */
+	schedule_timeout_interruptible(msecs_to_jiffies(100));
 
 	/***
 	 * If this is a 676, apply VP5 fixes before we start streaming
@@ -720,8 +718,7 @@ int cpia2_reset_camera(struct camera_data *cam)
 	set_default_user_mode(cam);
 
 	/* Give VP time to wake up */
-	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(100 * HZ / 1000);	/* wait for 100 msecs */
+	schedule_timeout_interruptible(msecs_to_jiffies(100));
 
 	set_all_properties(cam);
 
@@ -896,24 +893,53 @@ int cpia2_set_low_power(struct camera_data *cam)
  *  apply_vp_patch
  *
  *****************************************************************************/
+static int cpia2_send_onebyte_command(struct camera_data *cam,
+				      struct cpia2_command *cmd,
+				      u8 start, u8 datum)
+{
+	cmd->buffer.block_data[0] = datum;
+	cmd->start = start;
+	cmd->reg_count = 1;
+	return cpia2_send_command(cam, cmd);
+}
+
 static int apply_vp_patch(struct camera_data *cam)
 {
-	int i, j;
+	const struct firmware *fw;
+	const char fw_name[] = "cpia2/stv0672_vp4.bin";
+	int i, ret;
 	struct cpia2_command cmd;
+
+	ret = request_firmware(&fw, fw_name, &cam->dev->dev);
+	if (ret) {
+		printk(KERN_ERR "cpia2: failed to load VP patch \"%s\"\n",
+		       fw_name);
+		return ret;
+	}
 
 	cmd.req_mode = CAMERAACCESS_TYPE_REPEAT | CAMERAACCESS_VP;
 	cmd.direction = TRANSFER_WRITE;
 
-	for (i = 0; i < PATCH_DATA_SIZE; i++) {
-		for (j = 0; j < patch_data[i].count; j++) {
-			cmd.buffer.block_data[j] = patch_data[i].data[j];
-		}
+	/* First send the start address... */
+	cpia2_send_onebyte_command(cam, &cmd, 0x0A, fw->data[0]); /* hi */
+	cpia2_send_onebyte_command(cam, &cmd, 0x0B, fw->data[1]); /* lo */
 
-		cmd.start = patch_data[i].reg;
-		cmd.reg_count = patch_data[i].count;
+	/* ... followed by the data payload */
+	for (i = 2; i < fw->size; i += 64) {
+		cmd.start = 0x0C; /* Data */
+		cmd.reg_count = min_t(int, 64, fw->size - i);
+		memcpy(cmd.buffer.block_data, &fw->data[i], cmd.reg_count);
 		cpia2_send_command(cam, &cmd);
 	}
 
+	/* Next send the start address... */
+	cpia2_send_onebyte_command(cam, &cmd, 0x0A, fw->data[0]); /* hi */
+	cpia2_send_onebyte_command(cam, &cmd, 0x0B, fw->data[1]); /* lo */
+
+	/* ... followed by the 'goto' command */
+	cpia2_send_onebyte_command(cam, &cmd, 0x0D, 1);
+
+	release_firmware(fw);
 	return 0;
 }
 
@@ -955,7 +981,7 @@ static int set_default_user_mode(struct camera_data *cam)
 			frame_rate = CPIA2_VP_FRAMERATE_30;
 		break;
 	default:
-		LOG("%s: Invalid sensor flag value 0x%0X\n",__FUNCTION__,
+		LOG("%s: Invalid sensor flag value 0x%0X\n",__func__,
 		    cam->params.version.sensor_flags);
 		return -EINVAL;
 	}
@@ -1511,7 +1537,7 @@ static int config_sensor_500(struct camera_data *cam,
  *
  *  This sets all user changeable properties to the values in cam->params.
  *****************************************************************************/
-int set_all_properties(struct camera_data *cam)
+static int set_all_properties(struct camera_data *cam)
 {
 	/**
 	 * Don't set target_kb here, it will be set later.
@@ -1562,7 +1588,7 @@ void cpia2_save_camera_state(struct camera_data *cam)
  *  get_color_params
  *
  *****************************************************************************/
-void get_color_params(struct camera_data *cam)
+static void get_color_params(struct camera_data *cam)
 {
 	cpia2_do_command(cam, CPIA2_CMD_GET_VP_BRIGHTNESS, TRANSFER_READ, 0);
 	cpia2_do_command(cam, CPIA2_CMD_GET_VP_SATURATION, TRANSFER_READ, 0);
@@ -1796,7 +1822,7 @@ int cpia2_set_fps(struct camera_data *cam, int framerate)
 
 	if (cam->params.pnp_id.device_type == DEVICE_STV_672 &&
 	    framerate == CPIA2_VP_FRAMERATE_15)
-		framerate = 0; /* Work around bug in VP4 */
+		framerate = 0;
 
 	retval = cpia2_do_command(cam,
 				 CPIA2_CMD_FRAMERATE_REQ,
@@ -1855,7 +1881,7 @@ void cpia2_set_saturation(struct camera_data *cam, unsigned char value)
  *  wake_system
  *
  *****************************************************************************/
-void wake_system(struct camera_data *cam)
+static void wake_system(struct camera_data *cam)
 {
 	cpia2_do_command(cam, CPIA2_CMD_SET_WAKEUP, TRANSFER_WRITE, 0);
 }
@@ -1866,7 +1892,7 @@ void wake_system(struct camera_data *cam)
  *
  *  Valid for STV500 sensor only
  *****************************************************************************/
-void set_lowlight_boost(struct camera_data *cam)
+static void set_lowlight_boost(struct camera_data *cam)
 {
 	struct cpia2_command cmd;
 
@@ -2143,7 +2169,7 @@ void cpia2_dbg_dump_registers(struct camera_data *cam)
  *
  *  Sets all values to the defaults
  *****************************************************************************/
-void reset_camera_struct(struct camera_data *cam)
+static void reset_camera_struct(struct camera_data *cam)
 {
 	/***
 	 * The following parameter values are the defaults from the register map.
@@ -2227,15 +2253,13 @@ struct camera_data *cpia2_init_camera_struct(void)
 {
 	struct camera_data *cam;
 
-	cam = kmalloc(sizeof(*cam), GFP_KERNEL);
+	cam = kzalloc(sizeof(*cam), GFP_KERNEL);
 
 	if (!cam) {
 		ERR("couldn't kmalloc cpia2 struct\n");
 		return NULL;
 	}
 
-	/* Default everything to 0 */
-	memset(cam, 0, sizeof(struct camera_data));
 
 	cam->present = 1;
 	mutex_init(&cam->busy_lock);
@@ -2361,12 +2385,12 @@ long cpia2_read(struct camera_data *cam,
 	}
 
 	if (!buf) {
-		ERR("%s: buffer NULL\n",__FUNCTION__);
+		ERR("%s: buffer NULL\n",__func__);
 		return -EINVAL;
 	}
 
 	if (!cam) {
-		ERR("%s: Internal error, camera_data NULL!\n",__FUNCTION__);
+		ERR("%s: Internal error, camera_data NULL!\n",__func__);
 		return -EINVAL;
 	}
 
@@ -2375,7 +2399,7 @@ long cpia2_read(struct camera_data *cam,
 		return -ERESTARTSYS;
 
 	if (!cam->present) {
-		LOG("%s: camera removed\n",__FUNCTION__);
+		LOG("%s: camera removed\n",__func__);
 		mutex_unlock(&cam->busy_lock);
 		return 0;	/* EOF */
 	}
@@ -2439,7 +2463,7 @@ unsigned int cpia2_poll(struct camera_data *cam, struct file *filp,
 	unsigned int status=0;
 
 	if(!cam) {
-		ERR("%s: Internal error, camera_data not found!\n",__FUNCTION__);
+		ERR("%s: Internal error, camera_data not found!\n",__func__);
 		return POLLERR;
 	}
 
@@ -2522,4 +2546,3 @@ int cpia2_remap_buffer(struct camera_data *cam, struct vm_area_struct *vma)
 	mutex_unlock(&cam->busy_lock);
 	return 0;
 }
-

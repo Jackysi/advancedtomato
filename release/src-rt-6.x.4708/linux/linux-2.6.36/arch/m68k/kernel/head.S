@@ -196,7 +196,7 @@
  * for them and trying to understand what they mean.
  *
  * CONFIG_xxx:	These are the obvious machine configuration defines created
- * during configuration.  These are defined in include/linux/autoconf.h.
+ * during configuration.  These are defined in autoconf.h.
  *
  * CONSOLE:	There is support for head.S console in this file.  This
  * console can talk to a Mac frame buffer, but could easily be extrapolated
@@ -577,7 +577,7 @@ func_define	putn,1
 #endif
 .endm
 
-.text
+__HEAD
 ENTRY(_stext)
 /*
  * Version numbers of the bootinfo interface
@@ -661,26 +661,6 @@ ENTRY(__start)
 	movel	%a0@,%a1@
 #endif /* MAC_SERIAL_DEBUG */
 
-#if 0
-	/*
-	 * Clear the screen
-	 */
-	lea	%pc@(L(mac_videobase)),%a0
-	movel	%a0@,%a1
-	lea	%pc@(L(mac_dimensions)),%a0
-	movel	%a0@,%d1
-	swap	%d1		/* #rows is high bytes */
-	andl	#0xFFFF,%d1	/* rows */
-	subl	#10,%d1
-	lea	%pc@(L(mac_rowbytes)),%a0
-loopy2:
-	movel	%a0@,%d0
-	subql	#1,%d0
-loopx2:
-	moveb	#0x55, %a1@+
-	dbra	%d0,loopx2
-	dbra	%d1,loopy2
-#endif
 
 L(test_notmac):
 #endif /* CONFIG_MAC */
@@ -1434,7 +1414,7 @@ L(mmu_fixup_done):
 #endif
 
 #ifdef CONFIG_HP300
-	is_not_hp300(1f)
+	is_not_hp300(2f)
 	/*
 	 * Fix up the iobase register to point to the new location of the LEDs.
 	 */
@@ -1663,70 +1643,6 @@ mmu_040_print:
 	puts	"rp:"
 	putn	%a5
 	putc	'\n'
-#if 0
-	/*
-	 * The following #if/#endif block is a tight algorithm for dumping the 040
-	 * MMU Map in gory detail.  It really isn't that practical unless the
-	 * MMU Map algorithm appears to go awry and you need to debug it at the
-	 * entry per entry level.
-	 */
-	movel	#ROOT_TABLE_SIZE,%d5
-#if 0
-	movel	%a5@+,%d7		| Burn an entry to skip the kernel mappings,
-	subql	#1,%d5			| they (might) work
-#endif
-1:	tstl	%d5
-	jbeq	mmu_print_done
-	subq	#1,%d5
-	movel	%a5@+,%d7
-	btst	#1,%d7
-	jbeq	1b
-
-2:	putn	%d7
-	andil	#0xFFFFFE00,%d7
-	movel	%d7,%a4
-	movel	#PTR_TABLE_SIZE,%d4
-	putc	' '
-3:	tstl	%d4
-	jbeq	11f
-	subq	#1,%d4
-	movel	%a4@+,%d7
-	btst	#1,%d7
-	jbeq	3b
-
-4:	putn	%d7
-	andil	#0xFFFFFF00,%d7
-	movel	%d7,%a3
-	movel	#PAGE_TABLE_SIZE,%d3
-5:	movel	#8,%d2
-6:	tstl	%d3
-	jbeq	31f
-	subq	#1,%d3
-	movel	%a3@+,%d6
-	btst	#0,%d6
-	jbeq	6b
-7:	tstl	%d2
-	jbeq	8f
-	subq	#1,%d2
-	putc	' '
-	jbra	91f
-8:	putc	'\n'
-	movel	#8+1+8+1+1,%d2
-9:	putc	' '
-	dbra	%d2,9b
-	movel	#7,%d2
-91:	putn	%d6
-	jbra	6b
-
-31:	putc	'\n'
-	movel	#8+1,%d2
-32:	putc	' '
-	dbra	%d2,32b
-	jbra	3b
-
-11:	putc	'\n'
-	jbra	1b
-#endif /* MMU 040 Dumping code that's gory and detailed */
 
 	lea	%pc@(kernel_pg_dir),%a5
 	movel	%a5,%a0			/* a0 has the address of the root table ptr */
@@ -2543,11 +2459,6 @@ func_return	mmu_engage
 
 func_start	mmu_get_root_table_entry,%d0/%a1
 
-#if 0
-	dputs	"mmu_get_root_table_entry:"
-	dputn	ARG1
-	dputs	" ="
-#endif
 
 	movel	%pc@(L(kernel_pgdir_ptr)),%a0
 	tstl	%a0
@@ -2600,10 +2511,6 @@ func_start	mmu_get_root_table_entry,%d0/%a1
 	movel	ARG1,%d0
 	lea	%a0@(%d0*4),%a0
 
-#if 0
-	dputn	%a0
-	dputc	'\n'
-#endif
 
 func_return	mmu_get_root_table_entry
 
@@ -2611,12 +2518,6 @@ func_return	mmu_get_root_table_entry
 
 func_start	mmu_get_ptr_table_entry,%d0/%a1
 
-#if 0
-	dputs	"mmu_get_ptr_table_entry:"
-	dputn	ARG1
-	dputn	ARG2
-	dputs	" ="
-#endif
 
 	movel	ARG1,%a0
 	movel	%a0@,%d0
@@ -2661,22 +2562,12 @@ func_start	mmu_get_ptr_table_entry,%d0/%a1
 	movel	ARG2,%d0
 	lea	%a0@(%d0*4),%a0
 
-#if 0
-	dputn	%a0
-	dputc	'\n'
-#endif
 
 func_return	mmu_get_ptr_table_entry
 
 
 func_start	mmu_get_page_table_entry,%d0/%a1
 
-#if 0
-	dputs	"mmu_get_page_table_entry:"
-	dputn	ARG1
-	dputn	ARG2
-	dputs	" ="
-#endif
 
 	movel	ARG1,%a0
 	movel	%a0@,%d0
@@ -2715,10 +2606,6 @@ func_start	mmu_get_page_table_entry,%d0/%a1
 	movel	ARG2,%d0
 	lea	%a0@(%d0*4),%a0
 
-#if 0
-	dputn	%a0
-	dputc	'\n'
-#endif
 
 func_return	mmu_get_page_table_entry
 
@@ -3262,18 +3149,14 @@ func_return	putn
  */
 ENTRY(mac_serial_print)
 	moveml	%d0/%a0,%sp@-
-#if 1
 	move	%sr,%sp@-
 	ori	#0x0700,%sr
-#endif
 	movel	%sp@(10),%a0		/* fetch parameter */
 	jra	2f
 1:	serial_putc	%d0
 2:	moveb	%a0@+,%d0
 	jne	1b
-#if 1
 	move	%sp@+,%sr
-#endif
 	moveml	%sp@+,%d0/%a0
 	rts
 #endif /* CONFIG_MAC */
@@ -3781,44 +3664,12 @@ L(console_plot_pixel_exit):
 func_return	console_plot_pixel
 #endif /* CONSOLE */
 
-#if 0
-/*
- * This is some old code lying around.  I don't believe
- * it's used or important anymore.  My guess is it contributed
- * to getting to this point, but it's done for now.
- * It was still in the 2.1.77 head.S, so it's still here.
- * (And still not used!)
- */
-L(showtest):
-	moveml	%a0/%d7,%sp@-
-	puts	"A="
-	putn	%a1
-
-	.long	0xf0119f15		| ptestr	#5,%a1@,#7,%a0
-
-	puts	"DA="
-	putn	%a0
-
-	puts	"D="
-	putn	%a0@
-
-	puts	"S="
-	lea	%pc@(L(mmu)),%a0
-	.long	0xf0106200		| pmove		%psr,%a0@
-	clrl	%d7
-	movew	%a0@,%d7
-	putn	%d7
-
-	putc	'\n'
-	moveml	%sp@+,%a0/%d7
-	rts
-#endif	/* 0 */
 
 __INITDATA
 	.align	4
 
-#if defined(CONFIG_ATARI) || defined(CONFIG_AMIGA) || \
-    defined(CONFIG_HP300) || defined(CONFIG_APOLLO)
+#if defined(CONFIG_ATARI) || defined(CONFIG_AMIGA) || defined(CONFIG_HP300) || \
+	defined(CONFIG_APOLLO)
 L(custom):
 L(iobase):
 	.long 0
@@ -3864,12 +3715,12 @@ L(kernel_pgdir_ptr):
 L(temp_mmap_mem):
 	.long	0
 
-#if defined (CONFIG_MVME147)
+#if defined(CONFIG_MVME147)
 M147_SCC_CTRL_A = 0xfffe3002
 M147_SCC_DATA_A = 0xfffe3003
 #endif
 
-#if defined (CONFIG_MVME16x)
+#if defined(CONFIG_MVME16x)
 M162_SCC_CTRL_A = 0xfff45005
 M167_CYCAR = 0xfff450ee
 M167_CYIER = 0xfff45011
@@ -3880,7 +3731,7 @@ M167_PCSCCTICR = 0xfff4201e
 M167_PCTPIACKR = 0xfff42025
 #endif
 
-#if defined (CONFIG_BVME6000)
+#if defined(CONFIG_BVME6000)
 BVME_SCC_CTRL_A	= 0xffb0000b
 BVME_SCC_DATA_A	= 0xffb0000f
 #endif
@@ -3902,7 +3753,7 @@ L(mac_sccbase):
 #endif /* MAC_SERIAL_DEBUG */
 #endif
 
-#if defined (CONFIG_APOLLO)
+#if defined(CONFIG_APOLLO)
 LSRB0        = 0x10412
 LTHRB0       = 0x10416
 LCPUCTRL     = 0x10100

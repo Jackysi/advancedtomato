@@ -1,12 +1,10 @@
+#ifndef FS_MINIX_H
+#define FS_MINIX_H
+
 #include <linux/fs.h>
 #include <linux/pagemap.h>
 #include <linux/minix_fs.h>
 
-/*
- * change the define below to 0 if you want names > info->s_namelen chars to be
- * truncated. Else they will be disallowed (ENAMETOOLONG).
- */
-#define NO_TRUNCATE 1
 #define INODE_VERSION(inode)	minix_sb(inode->i_sb)->s_version
 #define MINIX_V1		0x0001		/* original minix fs */
 #define MINIX_V2		0x0002		/* minix V2 fs */
@@ -45,20 +43,21 @@ struct minix_sb_info {
 	unsigned short s_version;
 };
 
+extern struct inode *minix_iget(struct super_block *, unsigned long);
 extern struct minix_inode * minix_V1_raw_inode(struct super_block *, ino_t, struct buffer_head **);
 extern struct minix2_inode * minix_V2_raw_inode(struct super_block *, ino_t, struct buffer_head **);
-extern struct inode * minix_new_inode(const struct inode * dir, int * error);
+extern struct inode * minix_new_inode(const struct inode *, int, int *);
 extern void minix_free_inode(struct inode * inode);
 extern unsigned long minix_count_free_inodes(struct minix_sb_info *sbi);
 extern int minix_new_block(struct inode * inode);
 extern void minix_free_block(struct inode *inode, unsigned long block);
 extern unsigned long minix_count_free_blocks(struct minix_sb_info *sbi);
 extern int minix_getattr(struct vfsmount *, struct dentry *, struct kstat *);
+extern int minix_prepare_chunk(struct page *page, loff_t pos, unsigned len);
 
 extern void V1_minix_truncate(struct inode *);
 extern void V2_minix_truncate(struct inode *);
 extern void minix_truncate(struct inode *);
-extern int minix_sync_inode(struct inode *);
 extern void minix_set_inode(struct inode *, dev_t);
 extern int V1_minix_get_block(struct inode *, long, struct buffer_head *, int);
 extern int V2_minix_get_block(struct inode *, long, struct buffer_head *, int);
@@ -73,13 +72,11 @@ extern int minix_empty_dir(struct inode*);
 extern void minix_set_link(struct minix_dir_entry*, struct page*, struct inode*);
 extern struct minix_dir_entry *minix_dotdot(struct inode*, struct page**);
 extern ino_t minix_inode_by_name(struct dentry*);
-extern int minix_sync_file(struct file *, struct dentry *, int);
 
 extern const struct inode_operations minix_file_inode_operations;
 extern const struct inode_operations minix_dir_inode_operations;
 extern const struct file_operations minix_file_operations;
 extern const struct file_operations minix_dir_operations;
-extern struct dentry_operations minix_dentry_operations;
 
 static inline struct minix_sb_info *minix_sb(struct super_block *sb)
 {
@@ -90,3 +87,5 @@ static inline struct minix_inode_info *minix_i(struct inode *inode)
 {
 	return list_entry(inode, struct minix_inode_info, vfs_inode);
 }
+
+#endif /* FS_MINIX_H */

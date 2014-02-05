@@ -1,6 +1,6 @@
 /* drivers/char/ser_a2232.c */
 
-/* $Id: ser_a2232.c,v 0.4 2000/01/25 12:00:00 ehaase Exp $ */
+/* $Id: ser_a2232.c,v 0.4 2000/01/25 12:00:00 Exp $ */
 
 /* Linux serial driver for the Amiga A2232 board */
 
@@ -89,6 +89,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/sched.h>
 #include <linux/tty.h>
 
 #include <asm/setup.h>
@@ -122,7 +123,7 @@ static void a2232_disable_tx_interrupts(void *ptr);
 static void a2232_enable_tx_interrupts(void *ptr);
 static void a2232_disable_rx_interrupts(void *ptr);
 static void a2232_enable_rx_interrupts(void *ptr);
-static int  a2232_get_CD(void *ptr);
+static int  a2232_carrier_raised(struct tty_port *port);
 static void a2232_shutdown_port(void *ptr);
 static int  a2232_set_real_termios(void *ptr);
 static int  a2232_chars_in_buffer(void *ptr);
@@ -148,7 +149,6 @@ static struct real_driver a2232_real_driver = {
         a2232_enable_tx_interrupts,
         a2232_disable_rx_interrupts,
         a2232_enable_rx_interrupts,
-        a2232_get_CD,
         a2232_shutdown_port,
         a2232_set_real_termios,
         a2232_chars_in_buffer,
@@ -192,20 +192,8 @@ static inline void a2232_receive_char(struct a2232_port *port, int ch, int err)
 	Maybe one could implement a more efficient version by not only
 	transferring one character at a time.
 */
-	struct tty_struct *tty = port->gs.tty;
+	struct tty_struct *tty = port->gs.port.tty;
 
-#if 0
-	switch(err) {
-	case TTY_BREAK:
-		break;
-	case TTY_PARITY:
-		break;
-	case TTY_OVERRUN:
-		break;
-	case TTY_FRAME:
-		break;
-	}
-#endif
 
 	tty_insert_flip_char(tty, ch, err);
 	tty_flip_buffer_push(tty);
@@ -226,7 +214,7 @@ static void a2232_disable_tx_interrupts(void *ptr)
 
 	/* Does this here really have to be? */
 	local_irq_save(flags);
-	port->gs.flags &= ~GS_TX_INTEN;
+	port->gs.port.flags &= ~GS_TX_INTEN;
 	local_irq_restore(flags);
 }
 
@@ -242,7 +230,7 @@ static void a2232_enable_tx_interrupts(void *ptr)
 
 	/* Does this here really have to be? */
 	local_irq_save(flags);
-	port->gs.flags |= GS_TX_INTEN;
+	port->gs.port.flags |= GS_TX_INTEN;
 	local_irq_restore(flags);
 }
 
@@ -260,9 +248,10 @@ static void a2232_enable_rx_interrupts(void *ptr)
 	port->disable_rx = 0;
 }
 
-static int  a2232_get_CD(void *ptr)
+static int  a2232_carrier_raised(struct tty_port *port)
 {
-	return ((struct a2232_port *) ptr)->cd_status;
+	struct a2232_port *ap = container_of(port, struct a2232_port, gs.port);
+	return ap->cd_status;
 }
 
 static void a2232_shutdown_port(void *ptr)
@@ -276,9 +265,9 @@ static void a2232_shutdown_port(void *ptr)
 
 	local_irq_save(flags);
 
-	port->gs.flags &= ~GS_ACTIVE;
+	port->gs.port.flags &= ~GS_ACTIVE;
 	
-	if (port->gs.tty && port->gs.tty->termios->c_cflag & HUPCL) {
+	if (port->gs.port.tty && port->gs.port.tty->termios->c_cflag & HUPCL) {
 		/* Set DTR and RTS to Low, flush output.
 		   The NetBSD driver "msc.c" does it this way. */
 		stat->Command = (	(stat->Command & ~A2232CMD_CMask) | 
@@ -309,7 +298,7 @@ static int  a2232_set_real_termios(void *ptr)
 	volatile struct a2232status *status;
 	volatile struct a2232memory *mem;
 
-	if (!port->gs.tty || !port->gs.tty->termios) return 0;
+	if (!port->gs.port.tty || !port->gs.port.tty->termios) return 0;
 
 	status = a2232stat(port->which_a2232, port->which_port_on_a2232);
 	mem = a2232mem(port->which_a2232);
@@ -345,7 +334,7 @@ static int  a2232_set_real_termios(void *ptr)
 	}
 	a2232_param |= rate;
 
-	cflag  = port->gs.tty->termios->c_cflag;
+	cflag  = port->gs.port.tty->termios->c_cflag;
 
 	// get character size
 	chsize = cflag & CSIZE;
@@ -382,7 +371,7 @@ static int  a2232_set_real_termios(void *ptr)
 		the conventional way of inserting START/STOP characters
 		by hand in throttle()/unthrottle().
 	*/
-	softflow = !!( port->gs.tty->termios->c_iflag & IXOFF );
+	softflow = !!( port->gs.port.tty->termios->c_iflag & IXOFF );
 
 	// get Parity (Enabled/Disabled? If Enabled, Odd or Even?)
 	parity = cflag & (PARENB | PARODD);
@@ -400,9 +389,9 @@ static int  a2232_set_real_termios(void *ptr)
 	/*	Hmm. Maybe an own a2232_port structure
 		member would be cleaner?	*/
 	if (cflag & CLOCAL)
-		port->gs.flags &= ~ASYNC_CHECK_CD;
+		port->gs.port.flags &= ~ASYNC_CHECK_CD;
 	else
-		port->gs.flags |= ASYNC_CHECK_CD;
+		port->gs.port.flags |= ASYNC_CHECK_CD;
 
 
 	/* Now we have all parameters and can go to set them: */
@@ -460,14 +449,14 @@ static void a2232_throttle(struct tty_struct *tty)
    if switched on. So the only thing we can do at this
    layer here is not taking any characters out of the
    A2232 buffer any more. */
-	struct a2232_port *port = (struct a2232_port *) tty->driver_data;
+	struct a2232_port *port = tty->driver_data;
 	port->throttle_input = -1;
 }
 
 static void a2232_unthrottle(struct tty_struct *tty)
 {
 /* Unthrottle: dual to "throttle()" above. */
-	struct a2232_port *port = (struct a2232_port *) tty->driver_data;
+	struct a2232_port *port = tty->driver_data;
 	port->throttle_input = 0;
 }
 
@@ -482,18 +471,18 @@ static int  a2232_open(struct tty_struct * tty, struct file * filp)
 	port = &a2232_ports[line];
 	
 	tty->driver_data = port;
-	port->gs.tty = tty;
-	port->gs.count++;
+	port->gs.port.tty = tty;
+	port->gs.port.count++;
 	retval = gs_init_port(&port->gs);
 	if (retval) {
-		port->gs.count--;
+		port->gs.port.count--;
 		return retval;
 	}
-	port->gs.flags |= GS_ACTIVE;
+	port->gs.port.flags |= GS_ACTIVE;
 	retval = gs_block_til_ready(port, filp);
 
 	if (retval) {
-		port->gs.count--;
+		port->gs.port.count--;
 		return retval;
 	}
 
@@ -522,7 +511,7 @@ int ch, err, n, p;
 		for (p = 0; p < NUMLINES; p++){	/* for every port on this board */
 			err = 0;
 			port = &a2232_ports[n*NUMLINES+p];
-			if ( port->gs.flags & GS_ACTIVE ){ /* if the port is used */
+			if ( port->gs.port.flags & GS_ACTIVE ){ /* if the port is used */
 
 				status = a2232stat(n,p);
 
@@ -577,8 +566,8 @@ int ch, err, n, p;
 				obuf = mem->OutBuf[p];
 				bufpos = status->OutHead;
 				while ( (port->gs.xmit_cnt > 0)		&&
-					(!port->gs.tty->stopped)	&&
-					(!port->gs.tty->hw_stopped) ){	/* While there are chars to transmit */
+					(!port->gs.port.tty->stopped)	&&
+					(!port->gs.port.tty->hw_stopped) ){	/* While there are chars to transmit */
 					if (((bufpos+1) & A2232_IOBUFLENMASK) != status->OutTail) { /* If the A2232 buffer is not full */
 						ch = port->gs.xmit_buf[port->gs.xmit_tail];					/* get the next char to transmit */
 						port->gs.xmit_tail = (port->gs.xmit_tail+1) & (SERIAL_XMIT_SIZE-1); /* modulo-addition for the gs.xmit_buf ring-buffer */
@@ -592,8 +581,8 @@ int ch, err, n, p;
 				status->OutHead = bufpos;
 					
 				/* WakeUp if output buffer runs low */
-				if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.tty) {
-					tty_wakeup(port->gs.tty);
+				if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.port.tty) {
+					tty_wakeup(port->gs.port.tty);
 				}
 			} // if the port is used
 		} // for every port on the board
@@ -613,16 +602,16 @@ int ch, err, n, p;
 						struct a2232_port *port = &a2232_ports[n*7+p];
 						port->cd_status = !(ncd & 1); /* ncd&1 <=> CD is now off */
 
-						if (!(port->gs.flags & ASYNC_CHECK_CD))
+						if (!(port->gs.port.flags & ASYNC_CHECK_CD))
 							;	/* Don't report DCD changes */
 						else if (port->cd_status) { // if DCD on: DCD went UP!
 							
 							/* Are we blocking in open?*/
-							wake_up_interruptible(&port->gs.open_wait);
+							wake_up_interruptible(&port->gs.port.open_wait);
 						}
 						else { // if DCD off: DCD went DOWN!
-							if (port->gs.tty)
-								tty_hangup (port->gs.tty);
+							if (port->gs.port.tty)
+								tty_hangup (port->gs.port.tty);
 						}
 						
 					} // if CD changed for this port
@@ -638,6 +627,10 @@ int ch, err, n, p;
 	return IRQ_HANDLED;
 }
 
+static const struct tty_port_operations a2232_port_ops = {
+	.carrier_raised = a2232_carrier_raised,
+};
+
 static void a2232_init_portstructs(void)
 {
 	struct a2232_port *port;
@@ -645,6 +638,8 @@ static void a2232_init_portstructs(void)
 
 	for (i = 0; i < MAX_A2232_BOARDS*NUMLINES; i++) {
 		port = a2232_ports + i;
+		tty_port_init(&port->gs.port);
+		port->gs.port.ops = &a2232_port_ops;
 		port->which_a2232 = i/NUMLINES;
 		port->which_port_on_a2232 = i%NUMLINES;
 		port->disable_rx = port->throttle_input = port->cd_status = 0;
@@ -652,11 +647,6 @@ static void a2232_init_portstructs(void)
 		port->gs.close_delay = HZ/2;
 		port->gs.closing_wait = 30 * HZ;
 		port->gs.rd = &a2232_real_driver;
-#ifdef NEW_WRITE_LOCKING
-		init_MUTEX(&(port->gs.port_write_mutex));
-#endif
-		init_waitqueue_head(&port->gs.open_wait);
-		init_waitqueue_head(&port->gs.close_wait);
 	}
 }
 
@@ -717,6 +707,7 @@ static int __init a2232board_init(void)
 	u_char *from;
 	volatile u_char *to;
 	volatile struct a2232memory *mem;
+	int error, i;
 
 #ifdef CONFIG_SMP
 	return -ENODEV;	/* This driver is not SMP aware. Is there an SMP ZorroII-bus-machine? */
@@ -796,8 +787,15 @@ static int __init a2232board_init(void)
 	*/
 	if (a2232_init_drivers()) return -ENODEV; // maybe we should use a different -Exxx?
 
-	request_irq(IRQ_AMIGA_VERTB, a2232_vbl_inter, 0, "A2232 serial VBL", a2232_driver_ID);
-	return 0;
+	error = request_irq(IRQ_AMIGA_VERTB, a2232_vbl_inter, 0,
+			    "A2232 serial VBL", a2232_driver_ID);
+	if (error) {
+		for (i = 0; i < nr_a2232; i++)
+			zorro_release_device(zd_a2232[i]);
+		tty_unregister_driver(a2232_driver);
+		put_tty_driver(a2232_driver);
+	}
+	return error;
 }
 
 static void __exit a2232board_exit(void)

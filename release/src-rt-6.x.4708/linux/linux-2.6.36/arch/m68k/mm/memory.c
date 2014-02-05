@@ -9,9 +9,9 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/pagemap.h>
+#include <linux/gfp.h>
 
 #include <asm/setup.h>
 #include <asm/segment.h>
@@ -260,10 +260,6 @@ void cache_push (unsigned long paddr, int len)
 	 */
 	len += paddr & (PAGE_SIZE - 1);
 
-	/*
-	 * Work around bug I17 in the 68060 affecting some instruction
-	 * lines not being invalidated properly.
-	 */
 	paddr &= PAGE_MASK;
 
 	do {
@@ -292,4 +288,3 @@ void cache_push (unsigned long paddr, int len)
 #endif
 }
 EXPORT_SYMBOL(cache_push);
-

@@ -184,5 +184,3 @@ typedef enum {NV1,NV3,NV4,NumNVChips} NVChipType;
 NVChipType GetChipType(void);
 
 #endif
-
-

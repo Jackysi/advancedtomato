@@ -49,20 +49,10 @@
 #include <scsi/scsi_host.h>
 #include "aha152x.h"
 
-#include <pcmcia/cs_types.h>
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>
 #include <pcmcia/ds.h>
 
-#ifdef PCMCIA_DEBUG
-static int pc_debug = PCMCIA_DEBUG;
-module_param(pc_debug, int, 0644);
-#define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
-static char *version =
-"aha152x_cs.c 1.54 2000/06/12 21:27:25 (David Hinds)";
-#else
-#define DEBUG(n, args...)
-#endif
 
 /*====================================================================*/
 
@@ -89,7 +79,6 @@ MODULE_LICENSE("Dual MPL/GPL");
 
 typedef struct scsi_info_t {
 	struct pcmcia_device	*p_dev;
-    dev_node_t		node;
     struct Scsi_Host	*host;
 } scsi_info_t;
 
@@ -103,20 +92,16 @@ static int aha152x_probe(struct pcmcia_device *link)
 {
     scsi_info_t *info;
 
-    DEBUG(0, "aha152x_attach()\n");
+    dev_dbg(&link->dev, "aha152x_attach()\n");
 
     /* Create new SCSI device */
-    info = kmalloc(sizeof(*info), GFP_KERNEL);
+    info = kzalloc(sizeof(*info), GFP_KERNEL);
     if (!info) return -ENOMEM;
-    memset(info, 0, sizeof(*info));
     info->p_dev = link;
     link->priv = info;
 
-    link->io.NumPorts1 = 0x20;
-    link->io.Attributes1 = IO_DATA_PATH_WIDTH_AUTO;
-    link->io.IOAddrLines = 10;
-    link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
-    link->irq.IRQInfo1 = IRQ_LEVEL_ID;
+    link->resource[0]->end = 0x20;
+    link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
     link->conf.Attributes = CONF_ENABLE_IRQ;
     link->conf.IntType = INT_MEMORY_AND_IO;
     link->conf.Present = PRESENT_OPTION;
@@ -128,7 +113,7 @@ static int aha152x_probe(struct pcmcia_device *link)
 
 static void aha152x_detach(struct pcmcia_device *link)
 {
-    DEBUG(0, "aha152x_detach(0x%p)\n", link);
+    dev_dbg(&link->dev, "aha152x_detach\n");
 
     aha152x_release_cs(link);
 
@@ -138,55 +123,52 @@ static void aha152x_detach(struct pcmcia_device *link)
 
 /*====================================================================*/
 
-#define CS_CHECK(fn, ret) \
-do { last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; } while (0)
+static int aha152x_config_check(struct pcmcia_device *p_dev,
+				cistpl_cftable_entry_t *cfg,
+				cistpl_cftable_entry_t *dflt,
+				unsigned int vcc,
+				void *priv_data)
+{
+	p_dev->io_lines = 10;
+	/* For New Media T&J, look for a SCSI window */
+	if (cfg->io.win[0].len >= 0x20)
+		p_dev->resource[0]->start = cfg->io.win[0].base;
+	else if ((cfg->io.nwin > 1) &&
+		 (cfg->io.win[1].len >= 0x20))
+		p_dev->resource[0]->start = cfg->io.win[1].base;
+	if ((cfg->io.nwin > 0) &&
+	    (p_dev->resource[0]->start < 0xffff)) {
+		if (!pcmcia_request_io(p_dev))
+			return 0;
+	}
+	return -EINVAL;
+}
 
 static int aha152x_config_cs(struct pcmcia_device *link)
 {
     scsi_info_t *info = link->priv;
     struct aha152x_setup s;
-    tuple_t tuple;
-    cisparse_t parse;
-    int i, last_ret, last_fn;
-    u_char tuple_data[64];
+    int ret;
     struct Scsi_Host *host;
-    
-    DEBUG(0, "aha152x_config(0x%p)\n", link);
 
-    tuple.TupleData = tuple_data;
-    tuple.TupleDataMax = 64;
-    tuple.TupleOffset = 0;
-    tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
-    tuple.Attributes = 0;
-    CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &tuple));
-    while (1) {
-	if (pcmcia_get_tuple_data(link, &tuple) != 0 ||
-		pcmcia_parse_tuple(link, &tuple, &parse) != 0)
-	    goto next_entry;
-	/* For New Media T&J, look for a SCSI window */
-	if (parse.cftable_entry.io.win[0].len >= 0x20)
-	    link->io.BasePort1 = parse.cftable_entry.io.win[0].base;
-	else if ((parse.cftable_entry.io.nwin > 1) &&
-		 (parse.cftable_entry.io.win[1].len >= 0x20))
-	    link->io.BasePort1 = parse.cftable_entry.io.win[1].base;
-	if ((parse.cftable_entry.io.nwin > 0) &&
-	    (link->io.BasePort1 < 0xffff)) {
-	    link->conf.ConfigIndex = parse.cftable_entry.index;
-	    i = pcmcia_request_io(link, &link->io);
-	    if (i == CS_SUCCESS) break;
-	}
-    next_entry:
-	CS_CHECK(GetNextTuple, pcmcia_get_next_tuple(link, &tuple));
-    }
-    
-    CS_CHECK(RequestIRQ, pcmcia_request_irq(link, &link->irq));
-    CS_CHECK(RequestConfiguration, pcmcia_request_configuration(link, &link->conf));
+    dev_dbg(&link->dev, "aha152x_config\n");
+
+    ret = pcmcia_loop_config(link, aha152x_config_check, NULL);
+    if (ret)
+	    goto failed;
+
+    if (!link->irq)
+	    goto failed;
+
+    ret = pcmcia_request_configuration(link, &link->conf);
+    if (ret)
+	    goto failed;
     
     /* Set configuration options for the aha152x driver */
     memset(&s, 0, sizeof(s));
     s.conf        = "PCMCIA setup";
-    s.io_port     = link->io.BasePort1;
-    s.irq         = link->irq.AssignedIRQ;
+    s.io_port     = link->resource[0]->start;
+    s.irq         = link->irq;
     s.scsiid      = host_id;
     s.reconnect   = reconnect;
     s.parity      = parity;
@@ -198,17 +180,14 @@ static int aha152x_config_cs(struct pcmcia_device *link)
     host = aha152x_probe_one(&s);
     if (host == NULL) {
 	printk(KERN_INFO "aha152x_cs: no SCSI devices found\n");
-	goto cs_failed;
+	goto failed;
     }
 
-    sprintf(info->node.dev_name, "scsi%d", host->host_no);
-    link->dev_node = &info->node;
     info->host = host;
 
     return 0;
 
-cs_failed:
-    cs_error(link, last_fn, last_ret);
+failed:
     aha152x_release_cs(link);
     return -ENODEV;
 }

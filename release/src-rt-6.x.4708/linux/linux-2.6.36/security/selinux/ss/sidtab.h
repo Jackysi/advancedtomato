@@ -32,18 +32,13 @@ struct sidtab {
 int sidtab_init(struct sidtab *s);
 int sidtab_insert(struct sidtab *s, u32 sid, struct context *context);
 struct context *sidtab_search(struct sidtab *s, u32 sid);
+struct context *sidtab_search_force(struct sidtab *s, u32 sid);
 
 int sidtab_map(struct sidtab *s,
 	       int (*apply) (u32 sid,
 			     struct context *context,
 			     void *args),
 	       void *args);
-
-void sidtab_map_remove_on_error(struct sidtab *s,
-				int (*apply) (u32 sid,
-					      struct context *context,
-					      void *args),
-				void *args);
 
 int sidtab_context_to_sid(struct sidtab *s,
 			  struct context *context,
@@ -55,5 +50,3 @@ void sidtab_set(struct sidtab *dst, struct sidtab *src);
 void sidtab_shutdown(struct sidtab *s);
 
 #endif	/* _SS_SIDTAB_H_ */
-
-

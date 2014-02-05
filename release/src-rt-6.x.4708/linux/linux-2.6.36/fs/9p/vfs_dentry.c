@@ -34,10 +34,11 @@
 #include <linux/namei.h>
 #include <linux/idr.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
+#include <net/9p/9p.h>
+#include <net/9p/client.h>
 
-#include "debug.h"
 #include "v9fs.h"
-#include "9p.h"
 #include "v9fs_vfs.h"
 #include "fid.h"
 
@@ -52,7 +53,8 @@
 
 static int v9fs_dentry_delete(struct dentry *dentry)
 {
-	dprintk(DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_iname, dentry);
+	P9_DPRINTK(P9_DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_name.name,
+									dentry);
 
 	return 1;
 }
@@ -69,7 +71,8 @@ static int v9fs_dentry_delete(struct dentry *dentry)
 static int v9fs_cached_dentry_delete(struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
-	dprintk(DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_iname, dentry);
+	P9_DPRINTK(P9_DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_name.name,
+									dentry);
 
 	if(!inode)
 		return 1;
@@ -85,35 +88,29 @@ static int v9fs_cached_dentry_delete(struct dentry *dentry)
 
 void v9fs_dentry_release(struct dentry *dentry)
 {
-	int err;
+	struct v9fs_dentry *dent;
+	struct p9_fid *temp, *current_fid;
 
-	dprintk(DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_iname, dentry);
-
-	if (dentry->d_fsdata != NULL) {
-		struct list_head *fid_list = dentry->d_fsdata;
-		struct v9fs_fid *temp = NULL;
-		struct v9fs_fid *current_fid = NULL;
-
-		list_for_each_entry_safe(current_fid, temp, fid_list, list) {
-			err = v9fs_t_clunk(current_fid->v9ses, current_fid->fid);
-
-			if (err < 0)
-				dprintk(DEBUG_ERROR, "clunk failed: %d name %s\n",
-					err, dentry->d_iname);
-
-			v9fs_fid_destroy(current_fid);
+	P9_DPRINTK(P9_DEBUG_VFS, " dentry: %s (%p)\n", dentry->d_name.name,
+									dentry);
+	dent = dentry->d_fsdata;
+	if (dent) {
+		list_for_each_entry_safe(current_fid, temp, &dent->fidlist,
+									dlist) {
+			p9_client_clunk(current_fid);
 		}
 
-		kfree(dentry->d_fsdata);	/* free the list_head */
+		kfree(dent);
+		dentry->d_fsdata = NULL;
 	}
 }
 
-struct dentry_operations v9fs_cached_dentry_operations = {
+const struct dentry_operations v9fs_cached_dentry_operations = {
 	.d_delete = v9fs_cached_dentry_delete,
 	.d_release = v9fs_dentry_release,
 };
 
-struct dentry_operations v9fs_dentry_operations = {
+const struct dentry_operations v9fs_dentry_operations = {
 	.d_delete = v9fs_dentry_delete,
 	.d_release = v9fs_dentry_release,
 };

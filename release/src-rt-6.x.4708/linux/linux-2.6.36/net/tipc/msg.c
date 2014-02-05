@@ -40,8 +40,104 @@
 #include "msg.h"
 #include "bearer.h"
 
+u32 tipc_msg_tot_importance(struct tipc_msg *m)
+{
+	if (likely(msg_isdata(m))) {
+		if (likely(msg_orignode(m) == tipc_own_addr))
+			return msg_importance(m);
+		return msg_importance(m) + 4;
+	}
+	if ((msg_user(m) == MSG_FRAGMENTER)  &&
+	    (msg_type(m) == FIRST_FRAGMENT))
+		return msg_importance(msg_get_wrapped(m));
+	return msg_importance(m);
+}
 
-void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str)
+
+void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
+			    u32 hsize, u32 destnode)
+{
+	memset(m, 0, hsize);
+	msg_set_version(m);
+	msg_set_user(m, user);
+	msg_set_hdr_sz(m, hsize);
+	msg_set_size(m, hsize);
+	msg_set_prevnode(m, tipc_own_addr);
+	msg_set_type(m, type);
+	if (!msg_short(m)) {
+		msg_set_orignode(m, tipc_own_addr);
+		msg_set_destnode(m, destnode);
+	}
+}
+
+/**
+ * tipc_msg_calc_data_size - determine total data size for message
+ */
+
+int tipc_msg_calc_data_size(struct iovec const *msg_sect, u32 num_sect)
+{
+	int dsz = 0;
+	int i;
+
+	for (i = 0; i < num_sect; i++)
+		dsz += msg_sect[i].iov_len;
+	return dsz;
+}
+
+/**
+ * tipc_msg_build - create message using specified header and data
+ *
+ * Note: Caller must not hold any locks in case copy_from_user() is interrupted!
+ *
+ * Returns message data size or errno
+ */
+
+int tipc_msg_build(struct tipc_msg *hdr,
+			    struct iovec const *msg_sect, u32 num_sect,
+			    int max_size, int usrmem, struct sk_buff** buf)
+{
+	int dsz, sz, hsz, pos, res, cnt;
+
+	dsz = tipc_msg_calc_data_size(msg_sect, num_sect);
+	if (unlikely(dsz > TIPC_MAX_USER_MSG_SIZE)) {
+		*buf = NULL;
+		return -EINVAL;
+	}
+
+	pos = hsz = msg_hdr_sz(hdr);
+	sz = hsz + dsz;
+	msg_set_size(hdr, sz);
+	if (unlikely(sz > max_size)) {
+		*buf = NULL;
+		return dsz;
+	}
+
+	*buf = buf_acquire(sz);
+	if (!(*buf))
+		return -ENOMEM;
+	skb_copy_to_linear_data(*buf, hdr, hsz);
+	for (res = 1, cnt = 0; res && (cnt < num_sect); cnt++) {
+		if (likely(usrmem))
+			res = !copy_from_user((*buf)->data + pos,
+					      msg_sect[cnt].iov_base,
+					      msg_sect[cnt].iov_len);
+		else
+			skb_copy_to_linear_data_offset(*buf, pos,
+						       msg_sect[cnt].iov_base,
+						       msg_sect[cnt].iov_len);
+		pos += msg_sect[cnt].iov_len;
+	}
+	if (likely(res))
+		return dsz;
+
+	buf_discard(*buf);
+	*buf = NULL;
+	return -EFAULT;
+}
+
+#ifdef CONFIG_TIPC_DEBUG
+
+void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
 {
 	u32 usr = msg_user(msg);
 	tipc_printf(buf, str);
@@ -73,10 +169,10 @@ void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str
 		tipc_printf(buf, "NO(%u/%u):",msg_long_msgno(msg),
 			    msg_fragm_no(msg));
 		break;
-	case DATA_LOW:
-	case DATA_MEDIUM:
-	case DATA_HIGH:
-	case DATA_CRITICAL:
+	case TIPC_LOW_IMPORTANCE:
+	case TIPC_MEDIUM_IMPORTANCE:
+	case TIPC_HIGH_IMPORTANCE:
+	case TIPC_CRITICAL_IMPORTANCE:
 		tipc_printf(buf, "DAT%u:", msg_user(msg));
 		if (msg_short(msg)) {
 			tipc_printf(buf, "CON:");
@@ -228,13 +324,10 @@ void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str
 
 	switch (usr) {
 	case CONN_MANAGER:
-	case NAME_DISTRIBUTOR:
-	case DATA_LOW:
-	case DATA_MEDIUM:
-	case DATA_HIGH:
-	case DATA_CRITICAL:
-		if (msg_short(msg))
-			break;	/* No error */
+	case TIPC_LOW_IMPORTANCE:
+	case TIPC_MEDIUM_IMPORTANCE:
+	case TIPC_HIGH_IMPORTANCE:
+	case TIPC_CRITICAL_IMPORTANCE:
 		switch (msg_errcode(msg)) {
 		case TIPC_OK:
 			break;
@@ -315,9 +408,11 @@ void tipc_msg_print(struct print_buf *buf, struct tipc_msg *msg, const char *str
 	}
 	tipc_printf(buf, "\n");
 	if ((usr == CHANGEOVER_PROTOCOL) && (msg_msgcnt(msg))) {
-		tipc_msg_print(buf,msg_get_wrapped(msg),"      /");
+		tipc_msg_dbg(buf, msg_get_wrapped(msg), "      /");
 	}
 	if ((usr == MSG_FRAGMENTER) && (msg_type(msg) == FIRST_FRAGMENT)) {
-		tipc_msg_print(buf,msg_get_wrapped(msg),"      /");
+		tipc_msg_dbg(buf, msg_get_wrapped(msg), "      /");
 	}
 }
+
+#endif

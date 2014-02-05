@@ -22,11 +22,7 @@
 #include <linux/string.h>
 #include <linux/kernel.h>
 
-#if 0
-#define DEBUGP printk
-#else
 #define DEBUGP(fmt...)
-#endif
 
 void *module_alloc(unsigned long size)
 {
@@ -44,8 +40,6 @@ void *module_alloc(unsigned long size)
 void module_free(struct module *mod, void *module_region)
 {
 	vfree(module_region);
-	/* FIXME: If module_region == mod->init_region, trim exception
-           table entries. */
 }
 
 /* We don't need anything special. */
@@ -237,11 +231,6 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 		       unsigned int relsec,
 		       struct module *me)
 {
-#if 0
-	printk(KERN_ERR "module %s: REL RELOCATION unsupported\n",
-	       me->name);
-	return -ENOEXEC;
-#endif
 	return 0;
 
 }

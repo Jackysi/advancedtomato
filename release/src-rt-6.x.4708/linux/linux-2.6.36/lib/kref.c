@@ -13,6 +13,7 @@
 
 #include <linux/kref.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 /**
  * kref_init - initialize object.
@@ -20,7 +21,7 @@
  */
 void kref_init(struct kref *kref)
 {
-	atomic_set(&kref->refcount,1);
+	atomic_set(&kref->refcount, 1);
 	smp_mb();
 }
 

@@ -24,12 +24,12 @@ MODULE_LICENSE("GPL");
 #ifdef DEFAULT_DEBUG
 #define DPRINT(a) \
 	do { \
-		if (unlikely(pfm_sysctl.debug >0)) { printk("%s.%d: CPU%d ", __FUNCTION__, __LINE__, smp_processor_id()); printk a; } \
+		if (unlikely(pfm_sysctl.debug >0)) { printk("%s.%d: CPU%d ", __func__, __LINE__, smp_processor_id()); printk a; } \
 	} while (0)
 
 #define DPRINT_ovfl(a) \
 	do { \
-		if (unlikely(pfm_sysctl.debug > 0 && pfm_sysctl.debug_ovfl >0)) { printk("%s.%d: CPU%d ", __FUNCTION__, __LINE__, smp_processor_id()); printk a; } \
+		if (unlikely(pfm_sysctl.debug > 0 && pfm_sysctl.debug_ovfl >0)) { printk("%s.%d: CPU%d ", __func__, __LINE__, smp_processor_id()); printk a; } \
 	} while (0)
 
 #else
@@ -44,11 +44,11 @@ default_validate(struct task_struct *task, unsigned int flags, int cpu, void *da
 	int ret = 0;
 
 	if (data == NULL) {
-		DPRINT(("[%d] no argument passed\n", task->pid));
+		DPRINT(("[%d] no argument passed\n", task_pid_nr(task)));
 		return -EINVAL;
 	}
 
-	DPRINT(("[%d] validate flags=0x%x CPU%d\n", task->pid, flags, cpu));
+	DPRINT(("[%d] validate flags=0x%x CPU%d\n", task_pid_nr(task), flags, cpu));
 
 	/*
 	 * must hold at least the buffer header + one minimally sized entry
@@ -88,7 +88,7 @@ default_init(struct task_struct *task, void *buf, unsigned int flags, int cpu, v
 	hdr->hdr_count        = 0UL;
 
 	DPRINT(("[%d] buffer=%p buf_size=%lu hdr_size=%lu hdr_version=%u cur_offs=%lu\n",
-		task->pid,
+		task_pid_nr(task),
 		buf,
 		hdr->hdr_buf_size,
 		sizeof(*hdr),
@@ -245,7 +245,7 @@ default_restart(struct task_struct *task, pfm_ovfl_ctrl_t *ctrl, void *buf, stru
 static int
 default_exit(struct task_struct *task, void *buf, struct pt_regs *regs)
 {
-	DPRINT(("[%d] exit(%p)\n", task->pid, buf));
+	DPRINT(("[%d] exit(%p)\n", task_pid_nr(task), buf));
 	return 0;
 }
 
@@ -293,4 +293,3 @@ pfm_default_smpl_cleanup_module(void)
 
 module_init(pfm_default_smpl_init_module);
 module_exit(pfm_default_smpl_cleanup_module);
-

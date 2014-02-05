@@ -6,6 +6,9 @@
  */
 
 #include "ql4_def.h"
+#include "ql4_glbl.h"
+#include "ql4_dbg.h"
+#include "ql4_inline.h"
 
 static inline void eeprom_cmd(uint32_t cmd, struct scsi_qla_host *ha)
 {
@@ -146,7 +149,7 @@ static int eeprom_readword(int eepromAddr, u16 * value,
 /* Hardware_lock must be set before calling */
 u16 rd_nvram_word(struct scsi_qla_host * ha, int offset)
 {
-	u16 val;
+	u16 val = 0;
 
 	/* NOTE: NVRAM uses half-word addresses */
 	eeprom_readword(offset, &val, ha);

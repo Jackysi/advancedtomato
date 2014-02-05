@@ -23,12 +23,16 @@
 #include <linux/ioport.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/input.h>
+#include <linux/gpio_keys.h>
+#include <linux/pwm_backlight.h>
+#include <linux/smc91x.h>
 
 #include <asm/types.h>
 #include <asm/setup.h>
 #include <asm/memory.h>
 #include <asm/mach-types.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/sizes.h>
 
@@ -37,16 +41,84 @@
 #include <asm/mach/irq.h>
 #include <asm/mach/flash.h>
 
-#include <asm/arch/pxa-regs.h>
-#include <asm/arch/mainstone.h>
-#include <asm/arch/audio.h>
-#include <asm/arch/pxafb.h>
-#include <asm/arch/mmc.h>
-#include <asm/arch/irda.h>
-#include <asm/arch/ohci.h>
+#include <mach/pxa27x.h>
+#include <mach/gpio.h>
+#include <mach/mainstone.h>
+#include <mach/audio.h>
+#include <mach/pxafb.h>
+#include <plat/i2c.h>
+#include <mach/mmc.h>
+#include <mach/irda.h>
+#include <mach/ohci.h>
+#include <mach/pxa27x_keypad.h>
 
 #include "generic.h"
+#include "devices.h"
 
+static unsigned long mainstone_pin_config[] = {
+	/* Chip Select */
+	GPIO15_nCS_1,
+
+	/* LCD - 16bpp Active TFT */
+	GPIOxx_LCD_TFT_16BPP,
+	GPIO16_PWM0_OUT,	/* Backlight */
+
+	/* MMC */
+	GPIO32_MMC_CLK,
+	GPIO112_MMC_CMD,
+	GPIO92_MMC_DAT_0,
+	GPIO109_MMC_DAT_1,
+	GPIO110_MMC_DAT_2,
+	GPIO111_MMC_DAT_3,
+
+	/* USB Host Port 1 */
+	GPIO88_USBH1_PWR,
+	GPIO89_USBH1_PEN,
+
+	/* PC Card */
+	GPIO48_nPOE,
+	GPIO49_nPWE,
+	GPIO50_nPIOR,
+	GPIO51_nPIOW,
+	GPIO85_nPCE_1,
+	GPIO54_nPCE_2,
+	GPIO79_PSKTSEL,
+	GPIO55_nPREG,
+	GPIO56_nPWAIT,
+	GPIO57_nIOIS16,
+
+	/* AC97 */
+	GPIO28_AC97_BITCLK,
+	GPIO29_AC97_SDATA_IN_0,
+	GPIO30_AC97_SDATA_OUT,
+	GPIO31_AC97_SYNC,
+	GPIO45_AC97_SYSCLK,
+
+	/* Keypad */
+	GPIO93_KP_DKIN_0,
+	GPIO94_KP_DKIN_1,
+	GPIO95_KP_DKIN_2,
+	GPIO100_KP_MKIN_0	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO101_KP_MKIN_1	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO102_KP_MKIN_2	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO97_KP_MKIN_3	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO98_KP_MKIN_4	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO99_KP_MKIN_5	| WAKEUP_ON_LEVEL_HIGH,
+	GPIO103_KP_MKOUT_0,
+	GPIO104_KP_MKOUT_1,
+	GPIO105_KP_MKOUT_2,
+	GPIO106_KP_MKOUT_3,
+	GPIO107_KP_MKOUT_4,
+	GPIO108_KP_MKOUT_5,
+	GPIO96_KP_MKOUT_6,
+
+	/* I2C */
+	GPIO117_I2C_SCL,
+	GPIO118_I2C_SDA,
+
+	/* GPIO */
+	GPIO1_GPIO | WAKEUP_ON_EDGE_BOTH,
+};
 
 static unsigned long mainstone_irq_enabled;
 
@@ -75,11 +147,10 @@ static void mainstone_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	unsigned long pending = MST_INTSETCLR & mainstone_irq_enabled;
 	do {
-		GEDR(0) = GPIO_bit(0);  /* clear useless edge notification */
+		desc->chip->ack(irq);	/* clear useless edge notification */
 		if (likely(pending)) {
 			irq = MAINSTONE_IRQ(0) + __ffs(pending);
-			desc = irq_desc + irq;
-			desc_handle_irq(irq, desc);
+			generic_handle_irq(irq);
 		}
 		pending = MST_INTSETCLR & mainstone_irq_enabled;
 	} while (pending);
@@ -89,7 +160,7 @@ static void __init mainstone_init_irq(void)
 {
 	int irq;
 
-	pxa_init_irq();
+	pxa27x_init_irq();
 
 	/* setup extra Mainstone irqs */
 	for(irq = MAINSTONE_IRQ(0); irq <= MAINSTONE_IRQ(15); irq++) {
@@ -107,7 +178,7 @@ static void __init mainstone_init_irq(void)
 	MST_INTSETCLR = 0;
 
 	set_irq_chained_handler(IRQ_GPIO(0), mainstone_irq_handler);
-	set_irq_type(IRQ_GPIO(0), IRQT_FALLING);
+	set_irq_type(IRQ_GPIO(0), IRQ_TYPE_EDGE_FALLING);
 }
 
 #ifdef CONFIG_PM
@@ -119,7 +190,7 @@ static int mainstone_irq_resume(struct sys_device *dev)
 }
 
 static struct sysdev_class mainstone_irq_sysclass = {
-	set_kset_name("cpld_irq"),
+	.name = "cpld_irq",
 	.resume = mainstone_irq_resume,
 };
 
@@ -129,9 +200,13 @@ static struct sys_device mainstone_irq_device = {
 
 static int __init mainstone_irq_device_init(void)
 {
-	int ret = sysdev_class_register(&mainstone_irq_sysclass);
-	if (ret == 0)
-		ret = sysdev_register(&mainstone_irq_device);
+	int ret = -ENODEV;
+
+	if (machine_is_mainstone()) {
+		ret = sysdev_class_register(&mainstone_irq_sysclass);
+		if (ret == 0)
+			ret = sysdev_register(&mainstone_irq_device);
+	}
 	return ret;
 }
 
@@ -149,8 +224,13 @@ static struct resource smc91x_resources[] = {
 	[1] = {
 		.start	= MAINSTONE_IRQ(3),
 		.end	= MAINSTONE_IRQ(3),
-		.flags	= IORESOURCE_IRQ,
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE,
 	}
+};
+
+static struct smc91x_platdata mainstone_smc91x_info = {
+	.flags	= SMC91X_USE_8BIT | SMC91X_USE_16BIT | SMC91X_USE_32BIT |
+		  SMC91X_NOWAIT | SMC91X_USE_DMA,
 };
 
 static struct platform_device smc91x_device = {
@@ -158,6 +238,9 @@ static struct platform_device smc91x_device = {
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(smc91x_resources),
 	.resource	= smc91x_resources,
+	.dev		= {
+		.platform_data = &mainstone_smc91x_info,
+	},
 };
 
 static int mst_audio_startup(struct snd_pcm_substream *substream, void *priv)
@@ -191,12 +274,6 @@ static pxa2xx_audio_ops_t mst_audio_ops = {
 	.shutdown	= mst_audio_shutdown,
 	.suspend	= mst_audio_suspend,
 	.resume		= mst_audio_resume,
-};
-
-static struct platform_device mst_audio_device = {
-	.name		= "pxa2xx-ac97",
-	.id		= -1,
-	.dev		= { .platform_data = &mst_audio_ops },
 };
 
 static struct resource flash_resources[] = {
@@ -262,21 +339,31 @@ static struct platform_device mst_flash_device[2] = {
 	},
 };
 
-static void mainstone_backlight_power(int on)
+#if defined(CONFIG_FB_PXA) || defined(CONFIG_FB_PXA_MODULE)
+static struct platform_pwm_backlight_data mainstone_backlight_data = {
+	.pwm_id		= 0,
+	.max_brightness	= 1023,
+	.dft_brightness	= 1023,
+	.pwm_period_ns	= 78770,
+};
+
+static struct platform_device mainstone_backlight_device = {
+	.name		= "pwm-backlight",
+	.dev		= {
+		.parent = &pxa27x_device_pwm0.dev,
+		.platform_data = &mainstone_backlight_data,
+	},
+};
+
+static void __init mainstone_backlight_register(void)
 {
-	if (on) {
-		pxa_gpio_mode(GPIO16_PWM0_MD);
-		pxa_set_cken(CKEN_PWM0, 1);
-		PWM_CTRL0 = 0;
-		PWM_PWDUTY0 = 0x3ff;
-		PWM_PERVAL0 = 0x3ff;
-	} else {
-		PWM_CTRL0 = 0;
-		PWM_PWDUTY0 = 0x0;
-		PWM_PERVAL0 = 0x3FF;
-		pxa_set_cken(CKEN_PWM0, 0);
-	}
+	int ret = platform_device_register(&mainstone_backlight_device);
+	if (ret)
+		printk(KERN_ERR "mainstone: failed to register backlight device: %d\n", ret);
 }
+#else
+#define mainstone_backlight_register()	do { } while (0)
+#endif
 
 static struct pxafb_mode_info toshiba_ltm04c380k_mode = {
 	.pixclock		= 50000,
@@ -308,24 +395,12 @@ static struct pxafb_mode_info toshiba_ltm035a776c_mode = {
 
 static struct pxafb_mach_info mainstone_pxafb_info = {
 	.num_modes      	= 1,
-	.lccr0			= LCCR0_Act,
-	.lccr3			= LCCR3_PCP,
-	.pxafb_backlight_power	= mainstone_backlight_power,
+	.lcd_conn		= LCD_COLOR_TFT_16BPP | LCD_PCLK_EDGE_FALL,
 };
 
 static int mainstone_mci_init(struct device *dev, irq_handler_t mstone_detect_int, void *data)
 {
 	int err;
-
-	/*
-	 * setup GPIO for PXA27x MMC controller
-	 */
-	pxa_gpio_mode(GPIO32_MMCCLK_MD);
-	pxa_gpio_mode(GPIO112_MMCCMD_MD);
-	pxa_gpio_mode(GPIO92_MMCDAT0_MD);
-	pxa_gpio_mode(GPIO109_MMCDAT1_MD);
-	pxa_gpio_mode(GPIO110_MMCDAT2_MD);
-	pxa_gpio_mode(GPIO111_MMCDAT3_MD);
 
 	/* make sure SD/Memory Stick multiplexer's signals
 	 * are routed to MMC controller
@@ -334,12 +409,10 @@ static int mainstone_mci_init(struct device *dev, irq_handler_t mstone_detect_in
 
 	err = request_irq(MAINSTONE_MMC_IRQ, mstone_detect_int, IRQF_DISABLED,
 			     "MMC card detect", data);
-	if (err) {
+	if (err)
 		printk(KERN_ERR "mainstone_mci_init: MMC/SD: can't request MMC card detect IRQ\n");
-		return -1;
-	}
 
-	return 0;
+	return err;
 }
 
 static void mainstone_mci_setpower(struct device *dev, unsigned int vdd)
@@ -347,11 +420,11 @@ static void mainstone_mci_setpower(struct device *dev, unsigned int vdd)
 	struct pxamci_platform_data* p_d = dev->platform_data;
 
 	if (( 1 << vdd) & p_d->ocr_mask) {
-		printk(KERN_DEBUG "%s: on\n", __FUNCTION__);
+		printk(KERN_DEBUG "%s: on\n", __func__);
 		MST_MSCWR1 |= MST_MSCWR1_MMC_ON;
 		MST_MSCWR1 &= ~MST_MSCWR1_MS_SEL;
 	} else {
-		printk(KERN_DEBUG "%s: off\n", __FUNCTION__);
+		printk(KERN_DEBUG "%s: off\n", __func__);
 		MST_MSCWR1 &= ~MST_MSCWR1_MMC_ON;
 	}
 }
@@ -362,10 +435,13 @@ static void mainstone_mci_exit(struct device *dev, void *data)
 }
 
 static struct pxamci_platform_data mainstone_mci_platform_data = {
-	.ocr_mask	= MMC_VDD_32_33|MMC_VDD_33_34,
-	.init 		= mainstone_mci_init,
-	.setpower 	= mainstone_mci_setpower,
-	.exit		= mainstone_mci_exit,
+	.ocr_mask		= MMC_VDD_32_33|MMC_VDD_33_34,
+	.init 			= mainstone_mci_init,
+	.setpower 		= mainstone_mci_setpower,
+	.exit			= mainstone_mci_exit,
+	.gpio_card_detect	= -1,
+	.gpio_card_ro		= -1,
+	.gpio_power		= -1,
 };
 
 static void mainstone_irda_transceiver_mode(struct device *dev, int mode)
@@ -378,6 +454,7 @@ static void mainstone_irda_transceiver_mode(struct device *dev, int mode)
 	} else if (mode & IR_FIRMODE) {
 		MST_MSCWR1 |= MST_MSCWR1_IRDA_FIR;
 	}
+	pxa2xx_transceiver_mode(dev, mode);
 	if (mode & IR_OFF) {
 		MST_MSCWR1 = (MST_MSCWR1 & ~MST_MSCWR1_IRDA_MASK) | MST_MSCWR1_IRDA_OFF;
 	} else {
@@ -387,39 +464,106 @@ static void mainstone_irda_transceiver_mode(struct device *dev, int mode)
 }
 
 static struct pxaficp_platform_data mainstone_ficp_platform_data = {
-	.transceiver_cap  = IR_SIRMODE | IR_FIRMODE | IR_OFF,
-	.transceiver_mode = mainstone_irda_transceiver_mode,
+	.gpio_pwdown		= -1,
+	.transceiver_cap	= IR_SIRMODE | IR_FIRMODE | IR_OFF,
+	.transceiver_mode	= mainstone_irda_transceiver_mode,
+};
+
+static struct gpio_keys_button gpio_keys_button[] = {
+	[0] = {
+		.desc	= "wakeup",
+		.code	= KEY_SUSPEND,
+		.type	= EV_KEY,
+		.gpio	= 1,
+		.wakeup	= 1,
+	},
+};
+
+static struct gpio_keys_platform_data mainstone_gpio_keys = {
+	.buttons	= gpio_keys_button,
+	.nbuttons	= 1,
+};
+
+static struct platform_device mst_gpio_keys_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &mainstone_gpio_keys,
+	},
 };
 
 static struct platform_device *platform_devices[] __initdata = {
 	&smc91x_device,
-	&mst_audio_device,
 	&mst_flash_device[0],
 	&mst_flash_device[1],
+	&mst_gpio_keys_device,
 };
-
-static int mainstone_ohci_init(struct device *dev)
-{
-	/* setup Port1 GPIO pin. */
-	pxa_gpio_mode( 88 | GPIO_ALT_FN_1_IN);	/* USBHPWR1 */
-	pxa_gpio_mode( 89 | GPIO_ALT_FN_2_OUT);	/* USBHPEN1 */
-
-	/* Set the Power Control Polarity Low and Power Sense
-	   Polarity Low to active low. */
-	UHCHR = (UHCHR | UHCHR_PCPL | UHCHR_PSPL) &
-		~(UHCHR_SSEP1 | UHCHR_SSEP2 | UHCHR_SSEP3 | UHCHR_SSE);
-
-	return 0;
-}
 
 static struct pxaohci_platform_data mainstone_ohci_platform_data = {
 	.port_mode	= PMM_PERPORT_MODE,
-	.init		= mainstone_ohci_init,
+	.flags		= ENABLE_PORT_ALL | POWER_CONTROL_LOW | POWER_SENSE_LOW,
 };
+
+#if defined(CONFIG_KEYBOARD_PXA27x) || defined(CONFIG_KEYBOARD_PXA27x_MODULE)
+static unsigned int mainstone_matrix_keys[] = {
+	KEY(0, 0, KEY_A), KEY(1, 0, KEY_B), KEY(2, 0, KEY_C),
+	KEY(3, 0, KEY_D), KEY(4, 0, KEY_E), KEY(5, 0, KEY_F),
+	KEY(0, 1, KEY_G), KEY(1, 1, KEY_H), KEY(2, 1, KEY_I),
+	KEY(3, 1, KEY_J), KEY(4, 1, KEY_K), KEY(5, 1, KEY_L),
+	KEY(0, 2, KEY_M), KEY(1, 2, KEY_N), KEY(2, 2, KEY_O),
+	KEY(3, 2, KEY_P), KEY(4, 2, KEY_Q), KEY(5, 2, KEY_R),
+	KEY(0, 3, KEY_S), KEY(1, 3, KEY_T), KEY(2, 3, KEY_U),
+	KEY(3, 3, KEY_V), KEY(4, 3, KEY_W), KEY(5, 3, KEY_X),
+	KEY(2, 4, KEY_Y), KEY(3, 4, KEY_Z),
+
+	KEY(0, 4, KEY_DOT),	/* . */
+	KEY(1, 4, KEY_CLOSE),	/* @ */
+	KEY(4, 4, KEY_SLASH),
+	KEY(5, 4, KEY_BACKSLASH),
+	KEY(0, 5, KEY_HOME),
+	KEY(1, 5, KEY_LEFTSHIFT),
+	KEY(2, 5, KEY_SPACE),
+	KEY(3, 5, KEY_SPACE),
+	KEY(4, 5, KEY_ENTER),
+	KEY(5, 5, KEY_BACKSPACE),
+
+	KEY(0, 6, KEY_UP),
+	KEY(1, 6, KEY_DOWN),
+	KEY(2, 6, KEY_LEFT),
+	KEY(3, 6, KEY_RIGHT),
+	KEY(4, 6, KEY_SELECT),
+};
+
+struct pxa27x_keypad_platform_data mainstone_keypad_info = {
+	.matrix_key_rows	= 6,
+	.matrix_key_cols	= 7,
+	.matrix_key_map		= mainstone_matrix_keys,
+	.matrix_key_map_size	= ARRAY_SIZE(mainstone_matrix_keys),
+
+	.enable_rotary0		= 1,
+	.rotary0_up_key		= KEY_UP,
+	.rotary0_down_key	= KEY_DOWN,
+
+	.debounce_interval	= 30,
+};
+
+static void __init mainstone_init_keypad(void)
+{
+	pxa_set_keypad_info(&mainstone_keypad_info);
+}
+#else
+static inline void mainstone_init_keypad(void) {}
+#endif
 
 static void __init mainstone_init(void)
 {
-	int SW7 = 0;  /* FIXME: get from SCR (Mst doc section 3.2.1.1) */
+	int SW7 = 0;
+
+	pxa2xx_mfp_config(ARRAY_AND_SIZE(mainstone_pin_config));
+
+	pxa_set_ffuart_info(NULL);
+	pxa_set_btuart_info(NULL);
+	pxa_set_stuart_info(NULL);
 
 	mst_flash_data[0].width = (BOOT_DEF & 1) ? 2 : 4;
 	mst_flash_data[1].width = 4;
@@ -437,12 +581,6 @@ static void __init mainstone_init(void)
 	 */
 	ARB_CNTRL = ARB_CORE_PARK | 0x234;
 
-	/*
-	 * On Mainstone, we route AC97_SYSCLK via GPIO45 to
-	 * the audio daughter card
-	 */
-	pxa_gpio_mode(GPIO45_SYSCLK_AC97_MD);
-
 	platform_add_devices(platform_devices, ARRAY_SIZE(platform_devices));
 
 	/* reading Mainstone's "Virtual Configuration Register"
@@ -453,10 +591,15 @@ static void __init mainstone_init(void)
 		mainstone_pxafb_info.modes = &toshiba_ltm035a776c_mode;
 
 	set_pxa_fb_info(&mainstone_pxafb_info);
+	mainstone_backlight_register();
 
 	pxa_set_mci_info(&mainstone_mci_platform_data);
 	pxa_set_ficp_info(&mainstone_ficp_platform_data);
 	pxa_set_ohci_info(&mainstone_ohci_platform_data);
+	pxa_set_i2c_info(NULL);
+	pxa_set_ac97_info(&mst_audio_ops);
+
+	mainstone_init_keypad();
 }
 
 
@@ -474,23 +617,9 @@ static void __init mainstone_map_io(void)
 	pxa_map_io();
 	iotable_init(mainstone_io_desc, ARRAY_SIZE(mainstone_io_desc));
 
-	/* initialize sleep mode regs (wake-up sources, etc) */
-	PGSR0 = 0x00008800;
-	PGSR1 = 0x00000002;
-	PGSR2 = 0x0001FC00;
-	PGSR3 = 0x00001F81;
-	PWER  = 0xC0000002;
-	PRER  = 0x00000002;
-	PFER  = 0x00000002;
  	/*	for use I SRAM as framebuffer.	*/
  	PSLR |= 0xF04;
  	PCFR = 0x66;
- 	/*	For Keypad wakeup.	*/
- 	KPC &=~KPC_ASACT;
- 	KPC |=KPC_AS;
- 	PKWR  = 0x000FD000;
- 	/*	Need read PKWR back after set it.	*/
- 	PKWR;
 }
 
 MACHINE_START(MAINSTONE, "Intel HCDDBBVA0 Development Platform (aka Mainstone)")

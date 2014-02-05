@@ -41,22 +41,21 @@ Table of Contents
   VI - System-on-a-chip devices and nodes
     1) Defining child nodes of an SOC
     2) Representing devices without a current OF specification
-      a) MDIO IO device
-      c) PHY nodes
-      b) Gianfar-compatible ethernet nodes
-      d) Interrupt controllers
-      e) I2C
-      f) Freescale SOC USB controllers
-      g) Freescale SOC SEC Security Engines
-      h) Board Control and Status (BCSR)
-      i) Freescale QUICC Engine module (QE)
-      g) Flash chip nodes
+      a) PHY nodes
+      b) Interrupt controllers
+      c) 4xx/Axon EMAC ethernet nodes
+      d) Xilinx IP cores
+      e) USB EHCI controllers
+      f) MDIO on GPIOs
+      g) SPI busses
 
   VII - Specifying interrupt information for devices
     1) interrupts property
     2) interrupt-parent property
     3) OpenPIC Interrupt Controllers
     4) ISA Interrupt Controllers
+
+  VIII - Specifying device power management information (sleep property)
 
   Appendix A - Sample SOC node for MPC8540
 
@@ -240,7 +239,7 @@ it with special cases.
         a 64-bit platform.
 
         d) request and get assigned a platform number (see PLATFORM_*
-        constants in include/asm-powerpc/processor.h
+        constants in arch/powerpc/include/asm/processor.h
 
 32-bit embedded kernels:
 
@@ -302,7 +301,7 @@ the block to RAM before passing it to the kernel.
 ---------
 
    The kernel is entered with r3 pointing to an area of memory that is
-   roughly described in include/asm-powerpc/prom.h by the structure
+   roughly described in arch/powerpc/include/asm/prom.h by the structure
    boot_param_header:
 
 struct boot_param_header {
@@ -626,6 +625,14 @@ So the node content can be summarized as a start token, a full path,
 a list of properties, a list of child nodes, and an end token. Every
 child node is a full node structure itself as defined above.
 
+NOTE: The above definition requires that all property definitions for
+a particular node MUST precede any subnode definitions for that node.
+Although the structure would not be ambiguous if properties and
+subnodes were intermingled, the kernel parser requires that the
+properties come first (up until at least 2.6.22).  Any tools
+manipulating a flattened tree must take care to preserve this
+constraint.
+
 4) Device tree "strings" block
 
 In order to save space, property names, which are generally redundant,
@@ -661,10 +668,10 @@ device or bus to be described by the device tree.
 
 In general, the format of an address for a device is defined by the
 parent bus type, based on the #address-cells and #size-cells
-property. In the absence of such a property, the parent's parent
-values are used, etc... The kernel requires the root node to have
-those properties defining addresses format for devices directly mapped
-on the processor bus.
+properties.  Note that the parent's parent definitions of #address-cells
+and #size-cells are not inherited so every node with children must specify
+them.  The kernel requires the root node to have those properties defining
+addresses format for devices directly mapped on the processor bus.
 
 Those 2 properties define 'cells' for representing an address and a
 size. A "cell" is a 32-bit number. For example, if both contain 2
@@ -701,13 +708,14 @@ define a bus type with a more complex address format, including things
 like address space bits, you'll have to add a bus translator to the
 prom_parse.c file of the recent kernels for your bus type.
 
-The "reg" property only defines addresses and sizes (if #size-cells
-is non-0) within a given bus. In order to translate addresses upward
+The "reg" property only defines addresses and sizes (if #size-cells is
+non-0) within a given bus. In order to translate addresses upward
 (that is into parent bus addresses, and possibly into CPU physical
 addresses), all busses must contain a "ranges" property. If the
 "ranges" property is missing at a given level, it's assumed that
-translation isn't possible. The format of the "ranges" property for a
-bus is a list of:
+translation isn't possible, i.e., the registers are not visible on the
+parent bus.  The format of the "ranges" property for a bus is a list
+of:
 
 	bus address, parent bus address, size
 
@@ -725,6 +733,10 @@ fit in a single 32-bit word.   New 32-bit powerpc boards should use a
 1/1 format, unless the processor supports physical addresses greater
 than 32-bits, in which case a 2/1 format is recommended.
 
+Alternatively, the "ranges" property may be empty, indicating that the
+registers are visible on the parent bus using an identity mapping
+translation.  In other words, the parent bus address space is the same
+as the child bus address space.
 
 2) Note about "compatible" properties
 -------------------------------------
@@ -842,11 +854,17 @@ address which can extend beyond that limit.
         /cpus/PowerPC,970FX@0
         /cpus/PowerPC,970FX@1
       (unit addresses do not require leading zeroes)
-    - d-cache-line-size : one cell, L1 data cache line size in bytes
-    - i-cache-line-size : one cell, L1 instruction cache line size in
+    - d-cache-block-size : one cell, L1 data cache block size in bytes (*)
+    - i-cache-block-size : one cell, L1 instruction cache block size in
       bytes
     - d-cache-size : one cell, size of L1 data cache in bytes
     - i-cache-size : one cell, size of L1 instruction cache in bytes
+
+(*) The cache "block" size is the size on which the cache management
+instructions operate. Historically, this document used the cache
+"line" size here which is incorrect. The kernel will prefer the cache
+block size and will fallback to cache line size for backward
+compatibility.
 
   Recommended properties:
 
@@ -861,6 +879,10 @@ address which can extend beyond that limit.
       for the above, the common code doesn't use that property, but
       you are welcome to re-use the pSeries or Maple one. A future
       kernel version might provide a common function for this.
+    - d-cache-line-size : one cell, L1 data cache line size in bytes
+      if different from the block size
+    - i-cache-line-size : one cell, L1 instruction cache line size in
+      bytes if different from the block size
 
   You are welcome to add any property you find relevant to your board,
   like some information about the mechanism used to soft-reset the
@@ -949,7 +971,7 @@ address which can extend beyond that limit.
       translation of SOC addresses for memory mapped SOC registers.
     - bus-frequency: Contains the bus frequency for the SOC node.
       Typically, the value of this field is filled in by the boot
-      loader. 
+      loader.
 
 
   Recommended properties:
@@ -999,7 +1021,7 @@ IV - "dtc", the device tree compiler
 
 
 dtc source code can be found at
-<http://ozlabs.org/~dgibson/dtc/dtc.tar.gz>
+<http://git.jdl.com/gitweb/?p=dtc.git>
 
 WARNING: This version is still in early development stage; the
 resulting device-tree "blobs" have not yet been validated with the
@@ -1189,601 +1211,6 @@ descriptions for the SOC devices for which new nodes have been
 defined; this list will expand as more and more SOC-containing
 platforms are moved over to use the flattened-device-tree model.
 
-  a) MDIO IO device
-
-  The MDIO is a bus to which the PHY devices are connected.  For each
-  device that exists on this bus, a child node should be created.  See
-  the definition of the PHY node below for an example of how to define
-  a PHY.
-
-  Required properties:
-    - reg : Offset and length of the register set for the device
-    - device_type : Should be "mdio"
-    - compatible : Should define the compatible device type for the
-      mdio.  Currently, this is most likely to be "gianfar"
-
-  Example:
-
-	mdio@24520 {
-		reg = <24520 20>;
-		device_type = "mdio"; 
-		compatible = "gianfar";
-
-		ethernet-phy@0 {
-			......
-		};
-	};
-
-
-  b) Gianfar-compatible ethernet nodes
-
-  Required properties:
-
-    - device_type : Should be "network"
-    - model : Model of the device.  Can be "TSEC", "eTSEC", or "FEC"
-    - compatible : Should be "gianfar"
-    - reg : Offset and length of the register set for the device
-    - mac-address : List of bytes representing the ethernet address of
-      this controller
-    - interrupts : <a b> where a is the interrupt number and b is a
-      field that represents an encoding of the sense and level
-      information for the interrupt.  This should be encoded based on
-      the information in section 2) depending on the type of interrupt
-      controller you have.
-    - interrupt-parent : the phandle for the interrupt controller that
-      services interrupts for this device.
-    - phy-handle : The phandle for the PHY connected to this ethernet
-      controller.
-
-  Recommended properties:
-
-    - linux,network-index : This is the intended "index" of this
-      network device.  This is used by the bootwrapper to interpret
-      MAC addresses passed by the firmware when no information other
-      than indices is available to associate an address with a device.
-
-  Example:
-
-	ethernet@24000 {
-		#size-cells = <0>;
-		device_type = "network";
-		model = "TSEC";
-		compatible = "gianfar";
-		reg = <24000 1000>;
-		mac-address = [ 00 E0 0C 00 73 00 ];
-		interrupts = <d 3 e 3 12 3>;
-		interrupt-parent = <40000>;
-		phy-handle = <2452000>
-	};
-
-
-
-   c) PHY nodes
-
-   Required properties:
-
-    - device_type : Should be "ethernet-phy"
-    - interrupts : <a b> where a is the interrupt number and b is a
-      field that represents an encoding of the sense and level
-      information for the interrupt.  This should be encoded based on
-      the information in section 2) depending on the type of interrupt
-      controller you have.
-    - interrupt-parent : the phandle for the interrupt controller that
-      services interrupts for this device.
-    - reg : The ID number for the phy, usually a small integer
-    - linux,phandle :  phandle for this node; likely referenced by an
-      ethernet controller node.
-
-
-   Example:
-
-	ethernet-phy@0 {
-		linux,phandle = <2452000>
-		interrupt-parent = <40000>;
-		interrupts = <35 1>;
-		reg = <0>;
-		device_type = "ethernet-phy";
-	};
-
-
-   d) Interrupt controllers
-
-   Some SOC devices contain interrupt controllers that are different
-   from the standard Open PIC specification.  The SOC device nodes for
-   these types of controllers should be specified just like a standard
-   OpenPIC controller.  Sense and level information should be encoded
-   as specified in section 2) of this chapter for each device that
-   specifies an interrupt.
-
-   Example :
-
-	pic@40000 {
-		linux,phandle = <40000>;
-		clock-frequency = <0>;
-		interrupt-controller;
-		#address-cells = <0>;
-		reg = <40000 40000>;
-		built-in;
-		compatible = "chrp,open-pic";
-		device_type = "open-pic";
-		big-endian;
-	};
-
-
-   e) I2C
-
-   Required properties :
-
-    - device_type : Should be "i2c"
-    - reg : Offset and length of the register set for the device
-
-   Recommended properties :
-
-    - compatible : Should be "fsl-i2c" for parts compatible with
-      Freescale I2C specifications.
-    - interrupts : <a b> where a is the interrupt number and b is a
-      field that represents an encoding of the sense and level
-      information for the interrupt.  This should be encoded based on
-      the information in section 2) depending on the type of interrupt
-      controller you have.
-    - interrupt-parent : the phandle for the interrupt controller that
-      services interrupts for this device.
-    - dfsrr : boolean; if defined, indicates that this I2C device has
-      a digital filter sampling rate register
-    - fsl5200-clocking : boolean; if defined, indicated that this device
-      uses the FSL 5200 clocking mechanism.
-
-   Example :
-
-	i2c@3000 {
-		interrupt-parent = <40000>;
-		interrupts = <1b 3>;
-		reg = <3000 18>;
-		device_type = "i2c";
-		compatible  = "fsl-i2c";
-		dfsrr;
-	};
-
-
-   f) Freescale SOC USB controllers
-
-   The device node for a USB controller that is part of a Freescale
-   SOC is as described in the document "Open Firmware Recommended
-   Practice : Universal Serial Bus" with the following modifications
-   and additions :  
-
-   Required properties :
-    - compatible : Should be "fsl-usb2-mph" for multi port host USB
-      controllers, or "fsl-usb2-dr" for dual role USB controllers
-    - phy_type : For multi port host USB controllers, should be one of
-      "ulpi", or "serial". For dual role USB controllers, should be
-      one of "ulpi", "utmi", "utmi_wide", or "serial".
-    - reg : Offset and length of the register set for the device
-    - port0 : boolean; if defined, indicates port0 is connected for
-      fsl-usb2-mph compatible controllers.  Either this property or
-      "port1" (or both) must be defined for "fsl-usb2-mph" compatible 
-      controllers.
-    - port1 : boolean; if defined, indicates port1 is connected for
-      fsl-usb2-mph compatible controllers.  Either this property or
-      "port0" (or both) must be defined for "fsl-usb2-mph" compatible 
-      controllers.
-    - dr_mode : indicates the working mode for "fsl-usb2-dr" compatible
-      controllers.  Can be "host", "peripheral", or "otg".  Default to
-      "host" if not defined for backward compatibility.
-
-   Recommended properties :
-    - interrupts : <a b> where a is the interrupt number and b is a
-      field that represents an encoding of the sense and level
-      information for the interrupt.  This should be encoded based on
-      the information in section 2) depending on the type of interrupt
-      controller you have.
-    - interrupt-parent : the phandle for the interrupt controller that
-      services interrupts for this device.
-
-   Example multi port host USB controller device node :
-	usb@22000 {
-	        device_type = "usb";
-		compatible = "fsl-usb2-mph";
-		reg = <22000 1000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-parent = <700>;
-		interrupts = <27 1>;
-		phy_type = "ulpi";
-		port0;
-		port1;
-	};
-
-   Example dual role USB controller device node :
-	usb@23000 {
-		device_type = "usb";
-		compatible = "fsl-usb2-dr";
-		reg = <23000 1000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-parent = <700>;
-		interrupts = <26 1>;
-		dr_mode = "otg";
-		phy = "ulpi";
-	};
-
-
-   g) Freescale SOC SEC Security Engines
-
-   Required properties:
-
-    - device_type : Should be "crypto"
-    - model : Model of the device.  Should be "SEC1" or "SEC2"
-    - compatible : Should be "talitos"
-    - reg : Offset and length of the register set for the device
-    - interrupts : <a b> where a is the interrupt number and b is a
-      field that represents an encoding of the sense and level
-      information for the interrupt.  This should be encoded based on
-      the information in section 2) depending on the type of interrupt
-      controller you have.
-    - interrupt-parent : the phandle for the interrupt controller that
-      services interrupts for this device.
-    - num-channels : An integer representing the number of channels
-      available.
-    - channel-fifo-len : An integer representing the number of
-      descriptor pointers each channel fetch fifo can hold.
-    - exec-units-mask : The bitmask representing what execution units
-      (EUs) are available. It's a single 32-bit cell. EU information
-      should be encoded following the SEC's Descriptor Header Dword
-      EU_SEL0 field documentation, i.e. as follows:
-
-        bit 0 = reserved - should be 0
-        bit 1 = set if SEC has the ARC4 EU (AFEU)
-        bit 2 = set if SEC has the DES/3DES EU (DEU)
-        bit 3 = set if SEC has the message digest EU (MDEU)
-        bit 4 = set if SEC has the random number generator EU (RNG)
-        bit 5 = set if SEC has the public key EU (PKEU)
-        bit 6 = set if SEC has the AES EU (AESU)
-        bit 7 = set if SEC has the Kasumi EU (KEU)
-
-      bits 8 through 31 are reserved for future SEC EUs.
-
-    - descriptor-types-mask : The bitmask representing what descriptors
-      are available. It's a single 32-bit cell. Descriptor type
-      information should be encoded following the SEC's Descriptor
-      Header Dword DESC_TYPE field documentation, i.e. as follows:
-
-        bit 0  = set if SEC supports the aesu_ctr_nonsnoop desc. type
-        bit 1  = set if SEC supports the ipsec_esp descriptor type
-        bit 2  = set if SEC supports the common_nonsnoop desc. type
-        bit 3  = set if SEC supports the 802.11i AES ccmp desc. type
-        bit 4  = set if SEC supports the hmac_snoop_no_afeu desc. type
-        bit 5  = set if SEC supports the srtp descriptor type
-        bit 6  = set if SEC supports the non_hmac_snoop_no_afeu desc.type
-        bit 7  = set if SEC supports the pkeu_assemble descriptor type
-        bit 8  = set if SEC supports the aesu_key_expand_output desc.type
-        bit 9  = set if SEC supports the pkeu_ptmul descriptor type
-        bit 10 = set if SEC supports the common_nonsnoop_afeu desc. type
-        bit 11 = set if SEC supports the pkeu_ptadd_dbl descriptor type
-
-      ..and so on and so forth.
-
-   Example:
-
-       /* MPC8548E */
-       crypto@30000 {
-               device_type = "crypto";
-               model = "SEC2";
-               compatible = "talitos";
-               reg = <30000 10000>;
-               interrupts = <1d 3>;
-               interrupt-parent = <40000>;
-               num-channels = <4>;
-               channel-fifo-len = <18>;
-               exec-units-mask = <000000fe>;
-               descriptor-types-mask = <012b0ebf>;
-       };
-
-   h) Board Control and Status (BCSR)
-
-   Required properties:
-
-    - device_type : Should be "board-control"
-    - reg : Offset and length of the register set for the device
-
-    Example:
-
-	bcsr@f8000000 {
-		device_type = "board-control";
-		reg = <f8000000 8000>;
-	};
-
-   i) Freescale QUICC Engine module (QE)
-   This represents qe module that is installed on PowerQUICC II Pro.
-   Hopefully it will merge backward compatibility with CPM/CPM2.
-   Basically, it is a bus of devices, that could act more or less
-   as a complete entity (UCC, USB etc ). All of them should be siblings on
-   the "root" qe node, using the common properties from there.
-   The description below applies to the qe of MPC8360 and
-   more nodes and properties would be extended in the future.
-
-   i) Root QE device
-
-   Required properties:
-   - device_type : should be "qe";
-   - model : precise model of the QE, Can be "QE", "CPM", or "CPM2"
-   - reg : offset and length of the device registers.
-   - bus-frequency : the clock frequency for QUICC Engine.
-
-   Recommended properties
-   - brg-frequency : the internal clock source frequency for baud-rate
-     generators in Hz.
-
-   Example:
-	qe@e0100000 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		#interrupt-cells = <2>;
-		device_type = "qe";
-		model = "QE";
-		ranges = <0 e0100000 00100000>;
-		reg = <e0100000 480>;
-		brg-frequency = <0>;
-		bus-frequency = <179A7B00>;
-	}
-
-
-   ii) SPI (Serial Peripheral Interface)
-
-   Required properties:
-   - device_type : should be "spi".
-   - compatible : should be "fsl_spi".
-   - mode : the SPI operation mode, it can be "cpu" or "qe".
-   - reg : Offset and length of the register set for the device
-   - interrupts : <a b> where a is the interrupt number and b is a
-     field that represents an encoding of the sense and level
-     information for the interrupt.  This should be encoded based on
-     the information in section 2) depending on the type of interrupt
-     controller you have.
-   - interrupt-parent : the phandle for the interrupt controller that
-     services interrupts for this device.
-
-   Example:
-	spi@4c0 {
-		device_type = "spi";
-		compatible = "fsl_spi";
-		reg = <4c0 40>;
-		interrupts = <82 0>;
-		interrupt-parent = <700>;
-		mode = "cpu";
-	};
-
-
-   iii) USB (Universal Serial Bus Controller)
-
-   Required properties:
-   - device_type : should be "usb".
-   - compatible : could be "qe_udc" or "fhci-hcd".
-   - mode : the could be "host" or "slave".
-   - reg : Offset and length of the register set for the device
-   - interrupts : <a b> where a is the interrupt number and b is a
-     field that represents an encoding of the sense and level
-     information for the interrupt.  This should be encoded based on
-     the information in section 2) depending on the type of interrupt
-     controller you have.
-   - interrupt-parent : the phandle for the interrupt controller that
-     services interrupts for this device.
-
-   Example(slave):
-	usb@6c0 {
-		device_type = "usb";
-		compatible = "qe_udc";
-		reg = <6c0 40>;
-		interrupts = <8b 0>;
-		interrupt-parent = <700>;
-		mode = "slave";
-	};
-
-
-   iv) UCC (Unified Communications Controllers)
-
-   Required properties:
-   - device_type : should be "network", "hldc", "uart", "transparent"
-    "bisync" or "atm".
-   - compatible : could be "ucc_geth" or "fsl_atm" and so on.
-   - model : should be "UCC".
-   - device-id : the ucc number(1-8), corresponding to UCCx in UM.
-   - reg : Offset and length of the register set for the device
-   - interrupts : <a b> where a is the interrupt number and b is a
-     field that represents an encoding of the sense and level
-     information for the interrupt.  This should be encoded based on
-     the information in section 2) depending on the type of interrupt
-     controller you have.
-   - interrupt-parent : the phandle for the interrupt controller that
-     services interrupts for this device.
-   - pio-handle : The phandle for the Parallel I/O port configuration.
-   - rx-clock : represents the UCC receive clock source.
-     0x00 : clock source is disabled;
-     0x1~0x10 : clock source is BRG1~BRG16 respectively;
-     0x11~0x28: clock source is QE_CLK1~QE_CLK24 respectively.
-   - tx-clock: represents the UCC transmit clock source;
-     0x00 : clock source is disabled;
-     0x1~0x10 : clock source is BRG1~BRG16 respectively;
-     0x11~0x28: clock source is QE_CLK1~QE_CLK24 respectively.
-
-   Required properties for network device_type:
-   - mac-address : list of bytes representing the ethernet address.
-   - phy-handle : The phandle for the PHY connected to this controller.
-
-   Recommended properties:
-   - linux,network-index : This is the intended "index" of this
-     network device.  This is used by the bootwrapper to interpret
-     MAC addresses passed by the firmware when no information other
-     than indices is available to associate an address with a device.
-   - phy-connection-type : a string naming the controller/PHY interface type,
-     i.e., "mii" (default), "rmii", "gmii", "rgmii", "rgmii-id", "tbi",
-     or "rtbi".
-
-   Example:
-	ucc@2000 {
-		device_type = "network";
-		compatible = "ucc_geth";
-		model = "UCC";
-		device-id = <1>;
-		reg = <2000 200>;
-		interrupts = <a0 0>;
-		interrupt-parent = <700>;
-		mac-address = [ 00 04 9f 00 23 23 ];
-		rx-clock = "none";
-		tx-clock = "clk9";
-		phy-handle = <212000>;
-		phy-connection-type = "gmii";
-		pio-handle = <140001>;
-	};
-
-
-   v) Parallel I/O Ports
-
-   This node configures Parallel I/O ports for CPUs with QE support.
-   The node should reside in the "soc" node of the tree.  For each
-   device that using parallel I/O ports, a child node should be created.
-   See the definition of the Pin configuration nodes below for more
-   information.
-
-   Required properties:
-   - device_type : should be "par_io".
-   - reg : offset to the register set and its length.
-   - num-ports : number of Parallel I/O ports
-
-   Example:
-	par_io@1400 {
-		reg = <1400 100>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		device_type = "par_io";
-		num-ports = <7>;
-		ucc_pin@01 {
-			......
-		};
-
-
-   vi) Pin configuration nodes
-
-   Required properties:
-   - linux,phandle : phandle of this node; likely referenced by a QE
-     device.
-   - pio-map : array of pin configurations.  Each pin is defined by 6
-     integers.  The six numbers are respectively: port, pin, dir,
-     open_drain, assignment, has_irq.
-     - port : port number of the pin; 0-6 represent port A-G in UM.
-     - pin : pin number in the port.
-     - dir : direction of the pin, should encode as follows:
-
-	0 = The pin is disabled
-	1 = The pin is an output
-	2 = The pin is an input
-	3 = The pin is I/O
-
-     - open_drain : indicates the pin is normal or wired-OR:
-
-	0 = The pin is actively driven as an output
-	1 = The pin is an open-drain driver. As an output, the pin is
-	    driven active-low, otherwise it is three-stated.
-
-     - assignment : function number of the pin according to the Pin Assignment
-       tables in User Manual.  Each pin can have up to 4 possible functions in
-       QE and two options for CPM.
-     - has_irq : indicates if the pin is used as source of external
-       interrupts.
-
-   Example:
-	ucc_pin@01 {
-		linux,phandle = <140001>;
-		pio-map = <
-		/* port  pin  dir  open_drain  assignment  has_irq */
-			0  3  1  0  1  0 	/* TxD0 */
-			0  4  1  0  1  0 	/* TxD1 */
-			0  5  1  0  1  0 	/* TxD2 */
-			0  6  1  0  1  0 	/* TxD3 */
-			1  6  1  0  3  0 	/* TxD4 */
-			1  7  1  0  1  0 	/* TxD5 */
-			1  9  1  0  2  0 	/* TxD6 */
-			1  a  1  0  2  0 	/* TxD7 */
-			0  9  2  0  1  0 	/* RxD0 */
-			0  a  2  0  1  0 	/* RxD1 */
-			0  b  2  0  1  0 	/* RxD2 */
-			0  c  2  0  1  0 	/* RxD3 */
-			0  d  2  0  1  0 	/* RxD4 */
-			1  1  2  0  2  0 	/* RxD5 */
-			1  0  2  0  2  0 	/* RxD6 */
-			1  4  2  0  2  0 	/* RxD7 */
-			0  7  1  0  1  0 	/* TX_EN */
-			0  8  1  0  1  0 	/* TX_ER */
-			0  f  2  0  1  0 	/* RX_DV */
-			0  10 2  0  1  0 	/* RX_ER */
-			0  0  2  0  1  0 	/* RX_CLK */
-			2  9  1  0  3  0 	/* GTX_CLK - CLK10 */
-			2  8  2  0  1  0>;	/* GTX125 - CLK9 */
-	};
-
-   vii) Multi-User RAM (MURAM)
-
-   Required properties:
-   - device_type : should be "muram".
-   - mode : the could be "host" or "slave".
-   - ranges : Should be defined as specified in 1) to describe the
-      translation of MURAM addresses.
-   - data-only : sub-node which defines the address area under MURAM
-      bus that can be allocated as data/parameter
-
-   Example:
-
-	muram@10000 {
-		device_type = "muram";
-		ranges = <0 00010000 0000c000>;
-
-		data-only@0{
-			reg = <0 c000>;
-		};
-	};
-
-    j) Flash chip nodes
-
-    Flash chips (Memory Technology Devices) are often used for solid state
-    file systems on embedded devices.
-
-    Required properties:
-
-     - device_type : has to be "rom"
-     - compatible : Should specify what this flash device is compatible with.
-       Currently, this is most likely to be "direct-mapped" (which
-       corresponds to the MTD physmap mapping driver).
-     - reg : Offset and length of the register set (or memory mapping) for
-       the device.
-     - bank-width : Width of the flash data bus in bytes. Required
-       for the NOR flashes (compatible == "direct-mapped" and others) ONLY.
-
-    Recommended properties :
-
-     - partitions : Several pairs of 32-bit values where the first value is
-       partition's offset from the start of the device and the second one is
-       partition size in bytes with LSB used to signify a read only
-       partition (so, the partition size should always be an even number).
-     - partition-names : The list of concatenated zero terminated strings
-       representing the partition names.
-     - probe-type : The type of probe which should be done for the chip
-       (JEDEC vs CFI actually). Valid ONLY for NOR flashes.
-
-   Example:
-
- 	flash@ff000000 {
- 		device_type = "rom";
- 		compatible = "direct-mapped";
- 		probe-type = "CFI";
- 		reg = <ff000000 01000000>;
- 		bank-width = <4>;
- 		partitions = <00000000 00f80000
- 			      00f80000 00080001>;
- 		partition-names = "fs\0firmware";
- 	};
-
-   More devices will be defined as this spec matures.
-
 VII - Specifying interrupt information for devices
 ===================================================
 
@@ -1835,7 +1262,7 @@ link between a device node and its interrupt parent in
 the interrupt tree.  The value of interrupt-parent is the
 phandle of the parent node.
 
-If the interrupt-parent property is not defined for a node, it's
+If the interrupt-parent property is not defined for a node, its
 interrupt parent is assumed to be an ancestor in the node's
 _device tree_ hierarchy.
 
@@ -1870,120 +1297,151 @@ encodings listed below:
 	2 =  high to low edge sensitive type enabled
 	3 =  low to high edge sensitive type enabled
 
+VIII - Specifying Device Power Management Information (sleep property)
+===================================================================
+
+Devices on SOCs often have mechanisms for placing devices into low-power
+states that are decoupled from the devices' own register blocks.  Sometimes,
+this information is more complicated than a cell-index property can
+reasonably describe.  Thus, each device controlled in such a manner
+may contain a "sleep" property which describes these connections.
+
+The sleep property consists of one or more sleep resources, each of
+which consists of a phandle to a sleep controller, followed by a
+controller-specific sleep specifier of zero or more cells.
+
+The semantics of what type of low power modes are possible are defined
+by the sleep controller.  Some examples of the types of low power modes
+that may be supported are:
+
+ - Dynamic: The device may be disabled or enabled at any time.
+ - System Suspend: The device may request to be disabled or remain
+   awake during system suspend, but will not be disabled until then.
+ - Permanent: The device is disabled permanently (until the next hard
+   reset).
+
+Some devices may share a clock domain with each other, such that they should
+only be suspended when none of the devices are in use.  Where reasonable,
+such nodes should be placed on a virtual bus, where the bus has the sleep
+property.  If the clock domain is shared among devices that cannot be
+reasonably grouped in this manner, then create a virtual sleep controller
+(similar to an interrupt nexus, except that defining a standardized
+sleep-map should wait until its necessity is demonstrated).
 
 Appendix A - Sample SOC node for MPC8540
 ========================================
 
-Note that the #address-cells and #size-cells for the SoC node
-in this example have been explicitly listed; these are likely
-not necessary as they are usually the same as the root node.
-
-	soc8540@e0000000 {
+	soc@e0000000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		#interrupt-cells = <2>;
+		compatible = "fsl,mpc8540-ccsr", "simple-bus";
 		device_type = "soc";
-		ranges = <00000000 e0000000 00100000>
-		reg = <e0000000 00003000>;
+		ranges = <0x00000000 0xe0000000 0x00100000>
 		bus-frequency = <0>;
-
-		mdio@24520 {
-			reg = <24520 20>;
-			device_type = "mdio";
-			compatible = "gianfar";
-
-			ethernet-phy@0 {
-				linux,phandle = <2452000>
-				interrupt-parent = <40000>;
-				interrupts = <35 1>;
-				reg = <0>;
-				device_type = "ethernet-phy";
-			};
-
-			ethernet-phy@1 {
-				linux,phandle = <2452001>
-				interrupt-parent = <40000>;
-				interrupts = <35 1>;
-				reg = <1>;
-				device_type = "ethernet-phy";
-			};
-
-			ethernet-phy@3 {
-				linux,phandle = <2452002>
-				interrupt-parent = <40000>;
-				interrupts = <35 1>;
-				reg = <3>;
-				device_type = "ethernet-phy";
-			};
-
-		};
+		interrupt-parent = <&pic>;
 
 		ethernet@24000 {
-			#size-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
 			device_type = "network";
 			model = "TSEC";
-			compatible = "gianfar";
-			reg = <24000 1000>;
-			mac-address = [ 00 E0 0C 00 73 00 ];
-			interrupts = <d 3 e 3 12 3>;
-			interrupt-parent = <40000>;
-			phy-handle = <2452000>;
+			compatible = "gianfar", "simple-bus";
+			reg = <0x24000 0x1000>;
+			local-mac-address = [ 00 E0 0C 00 73 00 ];
+			interrupts = <29 2 30 2 34 2>;
+			phy-handle = <&phy0>;
+			sleep = <&pmc 00000080>;
+			ranges;
+
+			mdio@24520 {
+				reg = <0x24520 0x20>;
+				compatible = "fsl,gianfar-mdio";
+
+				phy0: ethernet-phy@0 {
+					interrupts = <5 1>;
+					reg = <0>;
+					device_type = "ethernet-phy";
+				};
+
+				phy1: ethernet-phy@1 {
+					interrupts = <5 1>;
+					reg = <1>;
+					device_type = "ethernet-phy";
+				};
+
+				phy3: ethernet-phy@3 {
+					interrupts = <7 1>;
+					reg = <3>;
+					device_type = "ethernet-phy";
+				};
+			};
 		};
 
 		ethernet@25000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			device_type = "network";
 			model = "TSEC";
 			compatible = "gianfar";
-			reg = <25000 1000>;
-			mac-address = [ 00 E0 0C 00 73 01 ];
-			interrupts = <13 3 14 3 18 3>;
-			interrupt-parent = <40000>;
-			phy-handle = <2452001>;
+			reg = <0x25000 0x1000>;
+			local-mac-address = [ 00 E0 0C 00 73 01 ];
+			interrupts = <13 2 14 2 18 2>;
+			phy-handle = <&phy1>;
+			sleep = <&pmc 00000040>;
 		};
 
 		ethernet@26000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			device_type = "network";
 			model = "FEC";
 			compatible = "gianfar";
-			reg = <26000 1000>;
-			mac-address = [ 00 E0 0C 00 73 02 ];
-			interrupts = <19 3>;
-			interrupt-parent = <40000>;
-			phy-handle = <2452002>;
+			reg = <0x26000 0x1000>;
+			local-mac-address = [ 00 E0 0C 00 73 02 ];
+			interrupts = <41 2>;
+			phy-handle = <&phy3>;
+			sleep = <&pmc 00000020>;
 		};
 
 		serial@4500 {
-			device_type = "serial";
-			compatible = "ns16550";
-			reg = <4500 100>;
-			clock-frequency = <0>;
-			interrupts = <1a 3>;
-			interrupt-parent = <40000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "fsl,mpc8540-duart", "simple-bus";
+			sleep = <&pmc 00000002>;
+			ranges;
+
+			serial@4500 {
+				device_type = "serial";
+				compatible = "ns16550";
+				reg = <0x4500 0x100>;
+				clock-frequency = <0>;
+				interrupts = <42 2>;
+			};
+
+			serial@4600 {
+				device_type = "serial";
+				compatible = "ns16550";
+				reg = <0x4600 0x100>;
+				clock-frequency = <0>;
+				interrupts = <42 2>;
+			};
 		};
 
-		pic@40000 {
-			linux,phandle = <40000>;
-			clock-frequency = <0>;
+		pic: pic@40000 {
 			interrupt-controller;
 			#address-cells = <0>;
-			reg = <40000 40000>;
-			built-in;
+			#interrupt-cells = <2>;
+			reg = <0x40000 0x40000>;
 			compatible = "chrp,open-pic";
 			device_type = "open-pic";
-                        big-endian;
 		};
 
 		i2c@3000 {
-			interrupt-parent = <40000>;
-			interrupts = <1b 3>;
-			reg = <3000 18>;
-			device_type = "i2c";
+			interrupts = <43 2>;
+			reg = <0x3000 0x100>;
 			compatible  = "fsl-i2c";
 			dfsrr;
+			sleep = <&pmc 00000004>;
 		};
 
+		pmc: power@e0070 {
+			compatible = "fsl,mpc8540-pmc", "fsl,mpc8548-pmc";
+			reg = <0xe0070 0x20>;
+		};
 	};

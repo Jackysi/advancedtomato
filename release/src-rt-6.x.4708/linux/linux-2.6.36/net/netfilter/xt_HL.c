@@ -9,7 +9,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
@@ -26,19 +26,16 @@ MODULE_DESCRIPTION("Xtables: Hoplimit/TTL Limit field modification target");
 MODULE_LICENSE("GPL");
 
 static unsigned int
-ttl_tg(struct sk_buff **pskb,
-       const struct net_device *in, const struct net_device *out,
-       unsigned int hooknum, const struct xt_target *target,
-       const void *targinfo)
+ttl_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct iphdr *iph;
-	const struct ipt_TTL_info *info = targinfo;
+	const struct ipt_TTL_info *info = par->targinfo;
 	int new_ttl;
 
-	if (!skb_make_writable(pskb, (*pskb)->len))
+	if (!skb_make_writable(skb, skb->len))
 		return NF_DROP;
 
-	iph = ip_hdr(*pskb);
+	iph = ip_hdr(skb);
 
 	switch (info->mode) {
 		case IPT_TTL_SET:
@@ -60,8 +57,8 @@ ttl_tg(struct sk_buff **pskb,
 	}
 
 	if (new_ttl != iph->ttl) {
-		nf_csum_replace2(&iph->check, htons(iph->ttl << 8),
-					      htons(new_ttl << 8));
+		csum_replace2(&iph->check, htons(iph->ttl << 8),
+					   htons(new_ttl << 8));
 		iph->ttl = new_ttl;
 	}
 
@@ -69,19 +66,16 @@ ttl_tg(struct sk_buff **pskb,
 }
 
 static unsigned int
-hl_tg6(struct sk_buff **pskb,
-       const struct net_device *in, const struct net_device *out,
-       unsigned int hooknum, const struct xt_target *target,
-       const void *targinfo)
+hl_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	struct ipv6hdr *ip6h;
-	const struct ip6t_HL_info *info = targinfo;
+	const struct ip6t_HL_info *info = par->targinfo;
 	int new_hl;
 
-	if (!skb_make_writable(pskb, (*pskb)->len))
+	if (!skb_make_writable(skb, skb->len))
 		return NF_DROP;
 
-	ip6h = ipv6_hdr(*pskb);
+	ip6h = ipv6_hdr(skb);
 
 	switch (info->mode) {
 		case IP6T_HL_SET:
@@ -107,50 +101,40 @@ hl_tg6(struct sk_buff **pskb,
 	return XT_CONTINUE;
 }
 
-static int ttl_tg_check(const char *tablename,
-			const void *e,
-			const struct xt_target *target,
-			void *targinfo,
-			unsigned int hook_mask)
+static int ttl_tg_check(const struct xt_tgchk_param *par)
 {
-	const struct ipt_TTL_info *info = targinfo;
+	const struct ipt_TTL_info *info = par->targinfo;
 
 	if (info->mode > IPT_TTL_MAXMODE) {
-		printk(KERN_WARNING "ipt_TTL: invalid or unknown Mode %u\n",
-			info->mode);
-		return 0;
+		pr_info("TTL: invalid or unknown mode %u\n", info->mode);
+		return -EINVAL;
 	}
 	if (info->mode != IPT_TTL_SET && info->ttl == 0)
-		return 0;
-	return 1;
+		return -EINVAL;
+	return 0;
 }
 
-static int hl_tg6_check(const char *tablename,
-			const void *e,
-			const struct xt_target *target,
-			void *targinfo,
-			unsigned int hook_mask)
+static int hl_tg6_check(const struct xt_tgchk_param *par)
 {
-	const struct ip6t_HL_info *info = targinfo;
+	const struct ip6t_HL_info *info = par->targinfo;
 
 	if (info->mode > IP6T_HL_MAXMODE) {
-		printk(KERN_WARNING "ip6t_HL: invalid or unknown Mode %u\n",
-			info->mode);
-		return 0;
+		pr_info("invalid or unknown mode %u\n", info->mode);
+		return -EINVAL;
 	}
 	if (info->mode != IP6T_HL_SET && info->hop_limit == 0) {
-		printk(KERN_WARNING "ip6t_HL: increment/decrement doesn't "
+		pr_info("increment/decrement does not "
 			"make sense with value 0\n");
-		return 0;
+		return -EINVAL;
 	}
-	return 1;
+	return 0;
 }
 
 static struct xt_target hl_tg_reg[] __read_mostly = {
 	{
 		.name       = "TTL",
 		.revision   = 0,
-		.family     = AF_INET,
+		.family     = NFPROTO_IPV4,
 		.target     = ttl_tg,
 		.targetsize = sizeof(struct ipt_TTL_info),
 		.table      = "mangle",
@@ -160,7 +144,7 @@ static struct xt_target hl_tg_reg[] __read_mostly = {
 	{
 		.name       = "HL",
 		.revision   = 0,
-		.family     = AF_INET6,
+		.family     = NFPROTO_IPV6,
 		.target     = hl_tg6,
 		.targetsize = sizeof(struct ip6t_HL_info),
 		.table      = "mangle",

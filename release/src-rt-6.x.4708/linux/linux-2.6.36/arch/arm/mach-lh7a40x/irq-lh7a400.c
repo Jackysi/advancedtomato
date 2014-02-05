@@ -12,10 +12,10 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
-#include <asm/arch/irqs.h>
+#include <mach/irqs.h>
 
 #include "common.h"
 
@@ -84,8 +84,6 @@ void __init lh7a400_init_irq (void)
 
 	lh7a40x_init_board_irq ();
 
-/* *** FIXME: the LH7a400 does use FIQ interrupts in some cases.  For
-   the time being, these are not initialized. */
 
 /*	init_FIQ(); */
 }

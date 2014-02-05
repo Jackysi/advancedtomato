@@ -7,16 +7,15 @@
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/memblock.h>
 
 #include <asm/sections.h>
 #include <asm/prom.h>
 #include <asm/btext.h>
-#include <asm/prom.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
-#include <asm/lmb.h>
 #include <asm/processor.h>
 #include <asm/udbg.h>
 
@@ -187,13 +186,12 @@ int btext_initialize(struct device_node *np)
 		pitch = *prop;
 	if (pitch == 1)
 		pitch = 0x1000;
-	prop = of_get_property(np, "address", NULL);
+	prop = of_get_property(np, "linux,bootx-addr", NULL);
+	if (prop == NULL)
+		prop = of_get_property(np, "address", NULL);
 	if (prop)
 		address = *prop;
 
-	/* FIXME: Add support for PCI reg properties. Right now, only
-	 * reliable on macs
-	 */
 	if (address == 0)
 		return -EINVAL;
 
@@ -235,7 +233,7 @@ int __init btext_find_display(int allow_nonstdout)
 	if (rc == 0 || !allow_nonstdout)
 		return rc;
 
-	for (np = NULL; (np = of_find_node_by_type(np, "display"));) {
+	for_each_node_by_type(np, "display") {
 		if (of_get_property(np, "linux,opened", NULL)) {
 			printk("trying %s ...\n", np->full_name);
 			rc = btext_initialize(np);
@@ -441,28 +439,26 @@ void btext_drawtext(const char *c, unsigned int len)
 
 void btext_drawhex(unsigned long v)
 {
-	char *hex_table = "0123456789abcdef";
-
 	if (!boot_text_mapped)
 		return;
 #ifdef CONFIG_PPC64
-	btext_drawchar(hex_table[(v >> 60) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 56) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 52) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 48) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 44) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 40) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 36) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 32) & 0x0000000FUL]);
+	btext_drawchar(hex_asc_hi(v >> 56));
+	btext_drawchar(hex_asc_lo(v >> 56));
+	btext_drawchar(hex_asc_hi(v >> 48));
+	btext_drawchar(hex_asc_lo(v >> 48));
+	btext_drawchar(hex_asc_hi(v >> 40));
+	btext_drawchar(hex_asc_lo(v >> 40));
+	btext_drawchar(hex_asc_hi(v >> 32));
+	btext_drawchar(hex_asc_lo(v >> 32));
 #endif
-	btext_drawchar(hex_table[(v >> 28) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 24) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 20) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 16) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >> 12) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >>  8) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >>  4) & 0x0000000FUL]);
-	btext_drawchar(hex_table[(v >>  0) & 0x0000000FUL]);
+	btext_drawchar(hex_asc_hi(v >> 24));
+	btext_drawchar(hex_asc_lo(v >> 24));
+	btext_drawchar(hex_asc_hi(v >> 16));
+	btext_drawchar(hex_asc_lo(v >> 16));
+	btext_drawchar(hex_asc_hi(v >> 8));
+	btext_drawchar(hex_asc_lo(v >> 8));
+	btext_drawchar(hex_asc_hi(v));
+	btext_drawchar(hex_asc_lo(v));
 	btext_drawchar(' ');
 }
 

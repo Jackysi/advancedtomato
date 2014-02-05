@@ -156,4 +156,3 @@ MODULE_ALIAS("irda-dongle-1"); /* IRDA_ESI_DONGLE */
 
 module_init(esi_sir_init);
 module_exit(esi_sir_cleanup);
-

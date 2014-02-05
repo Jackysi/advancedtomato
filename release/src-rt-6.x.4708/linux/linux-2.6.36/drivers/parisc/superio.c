@@ -73,6 +73,7 @@
 #include <linux/termios.h>
 #include <linux/tty.h>
 #include <linux/serial_core.h>
+#include <linux/serial_8250.h>
 #include <linux/delay.h>
 
 #include <asm/io.h>
@@ -154,6 +155,7 @@ superio_init(struct pci_dev *pcidev)
 	struct superio_device *sio = &sio_dev;
 	struct pci_dev *pdev = sio->lio_pdev;
 	u16 word;
+	int ret;
 
 	if (sio->suckyio_irq_enabled)
 		return;
@@ -167,7 +169,7 @@ superio_init(struct pci_dev *pcidev)
 	/* ...then properly fixup the USB to point at suckyio PIC */
 	sio->usb_pdev->irq = superio_fixup_irq(sio->usb_pdev);
 
-	printk(KERN_INFO PFX "Found NS87560 Legacy I/O device at %s (IRQ %i) \n",
+	printk(KERN_INFO PFX "Found NS87560 Legacy I/O device at %s (IRQ %i)\n",
 	       pci_name(pdev), pdev->irq);
 
 	pci_read_config_dword (pdev, SIO_SP1BAR, &sio->sp1_base);
@@ -199,16 +201,9 @@ superio_init(struct pci_dev *pcidev)
 	pci_write_config_word (pdev, PCI_COMMAND, word);
 
 	pci_set_master (pdev);
-	pci_enable_device(pdev);
+	ret = pci_enable_device(pdev);
+	BUG_ON(ret < 0);	/* not too much we can do about this... */
 
-	/*
-	 * Next project is programming the onboard interrupt controllers.
-	 * PDC hasn't done this for us, since it's using polled I/O.
-	 *
-	 * XXX Use dword writes to avoid bugs in Elroy or Suckyio Config
-	 *     space access.  PCI is by nature a 32-bit bus and config
-	 *     space can be sensitive to that.
-	 */
 
 	/* 0x64 - 0x67 :
 		DMA Rtg 2
@@ -322,8 +317,8 @@ static unsigned int superio_startup_irq(unsigned int irq)
 	return 0;
 }
 
-static struct hw_interrupt_type superio_interrupt_type = {
-	.typename =	SUPERIO,
+static struct irq_chip superio_interrupt_type = {
+	.name	 =	SUPERIO,
 	.startup =	superio_startup_irq,
 	.shutdown =	superio_disable_irq,
 	.enable =	superio_enable_irq,
@@ -360,7 +355,9 @@ int superio_fixup_irq(struct pci_dev *pcidev)
 #endif
 
 	for (i = 0; i < 16; i++) {
-		irq_desc[i].chip = &superio_interrupt_type;
+		struct irq_desc *desc = irq_to_desc(i);
+
+		desc->chip = &superio_interrupt_type;
 	}
 
 	/*
@@ -400,7 +397,6 @@ static void __init superio_serial_init(void)
 	serial_port.type	= PORT_16550A;
 	serial_port.uartclk	= 115200*16;
 	serial_port.fifosize	= 16;
-	spin_lock_init(&serial_port.lock);
 
 	/* serial port #1 */
 	serial_port.iobase	= sio_dev.sp1_base;
@@ -430,7 +426,8 @@ static void __init superio_parport_init(void)
 			0 /*base_hi*/,
 			PAR_IRQ, 
 			PARPORT_DMA_NONE /* dma */,
-			NULL /*struct pci_dev* */) )
+			NULL /*struct pci_dev* */,
+			0 /* shared irq flags */))
 
 		printk(KERN_WARNING PFX "Probing parallel port failed.\n");
 #endif	/* CONFIG_PARPORT_PC */
@@ -471,7 +468,6 @@ superio_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	if (dev->device == PCI_DEVICE_ID_NS_87560_LIO) {	/* Function 1 */
 		superio_parport_init();
 		superio_serial_init();
-		/* REVISIT XXX : superio_fdc_init() ? */
 		return 0;
 	} else if (dev->device == PCI_DEVICE_ID_NS_87415) {	/* Function 0 */
 		DBG_INIT("superio_probe: ignoring IDE 87415\n");

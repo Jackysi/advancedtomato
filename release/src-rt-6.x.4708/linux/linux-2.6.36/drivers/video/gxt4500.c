@@ -238,7 +238,7 @@ static int calc_pll(int period_ps, struct gxt4500_par *par)
 	for (pdiv1 = 1; pdiv1 <= 8; ++pdiv1) {
 		for (pdiv2 = 1; pdiv2 <= pdiv1; ++pdiv2) {
 			postdiv = pdiv1 * pdiv2;
-			pll_period = (period_ps + postdiv - 1) / postdiv;
+			pll_period = DIV_ROUND_UP(period_ps, postdiv);
 			/* keep pll in range 350..600 MHz */
 			if (pll_period < 1666 || pll_period > 2857)
 				continue;
@@ -401,7 +401,6 @@ static int gxt4500_set_par(struct fb_info *info)
 	writereg(par, PLL_N, ndivtab[par->pll_n - 2]);
 	tmp = ((8 - par->pll_pd2) << 3) | (8 - par->pll_pd1);
 	if (par->pll_pd1 == 8 || par->pll_pd2 == 8) {
-		/* work around erratum */
 		writereg(par, PLL_POSTDIV, tmp | 0x9);
 		udelay(1);
 	}
@@ -455,7 +454,6 @@ static int gxt4500_set_par(struct fb_info *info)
 	/* Set up framebuffer definition */
 	wid_tiles = (var->xres_virtual + 63) >> 6;
 
-	/* XXX add proper FB allocation here someday */
 	writereg(par, FB_AB_CTRL, FB_CTRL_TYPE | (wid_tiles << 16) | 0);
 	writereg(par, REFRESH_AB_CTRL, FB_CTRL_TYPE | (wid_tiles << 16) | 0);
 	writereg(par, FB_CD_CTRL, FB_CTRL_TYPE | (wid_tiles << 16) | 0);
@@ -636,7 +634,7 @@ static int __devinit gxt4500_probe(struct pci_dev *pdev,
 
 	info = framebuffer_alloc(sizeof(struct gxt4500_par), &pdev->dev);
 	if (!info) {
-		dev_err(&pdev->dev, "gxt4500: cannot alloc FB info record");
+		dev_err(&pdev->dev, "gxt4500: cannot alloc FB info record\n");
 		goto err_free_fb;
 	}
 	par = info->par;
@@ -648,7 +646,7 @@ static int __devinit gxt4500_probe(struct pci_dev *pdev,
 	info->pseudo_palette = par->pseudo_palette;
 
 	info->fix.mmio_start = reg_phys;
-	par->regs = ioremap(reg_phys, pci_resource_len(pdev, 0));
+	par->regs = pci_ioremap_bar(pdev, 0);
 	if (!par->regs) {
 		dev_err(&pdev->dev, "gxt4500: cannot map registers\n");
 		goto err_free_all;
@@ -656,7 +654,7 @@ static int __devinit gxt4500_probe(struct pci_dev *pdev,
 
 	info->fix.smem_start = fb_phys;
 	info->fix.smem_len = pci_resource_len(pdev, 1);
-	info->screen_base = ioremap(fb_phys, pci_resource_len(pdev, 1));
+	info->screen_base = pci_ioremap_bar(pdev, 1);
 	if (!info->screen_base) {
 		dev_err(&pdev->dev, "gxt4500: cannot map framebuffer\n");
 		goto err_unmap_regs;

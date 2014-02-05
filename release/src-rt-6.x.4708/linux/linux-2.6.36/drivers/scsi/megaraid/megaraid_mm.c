@@ -15,12 +15,14 @@
  * Common management module
  */
 #include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include "megaraid_mm.h"
 
 
 // Entry points for char node driver
 static int mraid_mm_open(struct inode *, struct file *);
-static int mraid_mm_ioctl(struct inode *, struct file *, uint, unsigned long);
+static long mraid_mm_unlocked_ioctl(struct file *, uint, unsigned long);
 
 
 // routines to convert to and from the old the format
@@ -59,7 +61,6 @@ EXPORT_SYMBOL(mraid_mm_register_adp);
 EXPORT_SYMBOL(mraid_mm_unregister_adp);
 EXPORT_SYMBOL(mraid_mm_adapter_app_handle);
 
-static int majorno;
 static uint32_t drvr_ver	= 0x02200207;
 
 static int adapters_count_g;
@@ -69,11 +70,17 @@ static wait_queue_head_t wait_q;
 
 static const struct file_operations lsi_fops = {
 	.open	= mraid_mm_open,
-	.ioctl	= mraid_mm_ioctl,
+	.unlocked_ioctl = mraid_mm_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = mraid_mm_compat_ioctl,
 #endif
 	.owner	= THIS_MODULE,
+};
+
+static struct miscdevice megaraid_mm_dev = {
+	.minor	= MISC_DYNAMIC_MINOR,
+	.name   = "megadev0",
+	.fops   = &lsi_fops,
 };
 
 /**
@@ -91,6 +98,7 @@ mraid_mm_open(struct inode *inode, struct file *filep)
 	 */
 	if (!capable(CAP_SYS_ADMIN)) return (-EACCES);
 
+	cycle_kernel_lock();
 	return 0;
 }
 
@@ -102,8 +110,7 @@ mraid_mm_open(struct inode *inode, struct file *filep)
  * @arg		: user ioctl packet
  */
 static int
-mraid_mm_ioctl(struct inode *inode, struct file *filep, unsigned int cmd,
-							unsigned long arg)
+mraid_mm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	uioc_t		*kioc;
 	char		signature[EXT_IOCTL_SIGN_SZ]	= {0};
@@ -210,6 +217,19 @@ mraid_mm_ioctl(struct inode *inode, struct file *filep, unsigned int cmd,
 	return rval;
 }
 
+static long
+mraid_mm_unlocked_ioctl(struct file *filep, unsigned int cmd,
+		        unsigned long arg)
+{
+	int err;
+
+	/* inconsistant: mraid_mm_compat_ioctl doesn't take the BKL */
+	lock_kernel();
+	err = mraid_mm_ioctl(filep, cmd, arg);
+	unlock_kernel();
+
+	return err;
+}
 
 /**
  * mraid_mm_get_adapter - Returns corresponding adapters for the mimd packet
@@ -890,12 +910,11 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
 	if (lld_adp->drvr_type != DRVRTYPE_MBOX)
 		return (-EINVAL);
 
-	adapter = kmalloc(sizeof(mraid_mmadp_t), GFP_KERNEL);
+	adapter = kzalloc(sizeof(mraid_mmadp_t), GFP_KERNEL);
 
 	if (!adapter)
 		return -ENOMEM;
 
-	memset(adapter, 0, sizeof(mraid_mmadp_t));
 
 	adapter->unique_id	= lld_adp->unique_id;
 	adapter->drvr_type	= lld_adp->drvr_type;
@@ -923,7 +942,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
 			!adapter->pthru_dma_pool) {
 
 		con_log(CL_ANN, (KERN_WARNING
-			"megaraid cmm: out of memory, %s %d\n", __FUNCTION__,
+			"megaraid cmm: out of memory, %s %d\n", __func__,
 			__LINE__));
 
 		rval = (-ENOMEM);
@@ -951,7 +970,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
 
 			con_log(CL_ANN, (KERN_WARNING
 				"megaraid cmm: out of memory, %s %d\n",
-					__FUNCTION__, __LINE__));
+					__func__, __LINE__));
 
 			rval = (-ENOMEM);
 
@@ -1185,15 +1204,16 @@ mraid_mm_teardown_dma_pools(mraid_mmadp_t *adp)
 static int __init
 mraid_mm_init(void)
 {
+	int err;
+
 	// Announce the driver version
 	con_log(CL_ANN, (KERN_INFO "megaraid cmm: %s %s\n",
 		LSI_COMMON_MOD_VERSION, LSI_COMMON_MOD_EXT_VERSION));
 
-	majorno = register_chrdev(0, "megadev", &lsi_fops);
-
-	if (majorno < 0) {
-		con_log(CL_ANN, ("megaraid cmm: cannot get major\n"));
-		return majorno;
+	err = misc_register(&megaraid_mm_dev);
+	if (err < 0) {
+		con_log(CL_ANN, ("megaraid cmm: cannot register misc device\n"));
+		return err;
 	}
 
 	init_waitqueue_head(&wait_q);
@@ -1217,7 +1237,7 @@ mraid_mm_compat_ioctl(struct file *filep, unsigned int cmd,
 {
 	int err;
 
-	err = mraid_mm_ioctl(NULL, filep, cmd, arg);
+	err = mraid_mm_ioctl(filep, cmd, arg);
 
 	return err;
 }
@@ -1231,7 +1251,7 @@ mraid_mm_exit(void)
 {
 	con_log(CL_DLEVEL1 , ("exiting common mod\n"));
 
-	unregister_chrdev(majorno, "megadev");
+	misc_deregister(&megaraid_mm_dev);
 }
 
 module_init(mraid_mm_init);

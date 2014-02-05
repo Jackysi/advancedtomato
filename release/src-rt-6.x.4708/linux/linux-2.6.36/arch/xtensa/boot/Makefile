@@ -8,13 +8,13 @@
 #
 
 
-CFLAGS 		+= -fno-builtin -Iarch/$(ARCH)/boot/include
+# KBUILD_CFLAGS used when building rest of boot (takes effect recursively)
+KBUILD_CFLAGS	+= -fno-builtin -Iarch/$(ARCH)/boot/include
 HOSTFLAGS	+= -Iarch/$(ARCH)/boot/include
 
 BIG_ENDIAN	:= $(shell echo -e __XTENSA_EB__ | $(CC) -E - | grep -v "\#")
 
-export CFLAGS
-export AFLAGS
+export EXTRA_CFLAGS
 export BIG_ENDIAN
 
 subdir-y	:= lib
@@ -30,4 +30,3 @@ zImage zImage.initrd Image Image.initrd: $(bootdir-y)
 $(bootdir-y): $(addprefix $(obj)/,$(subdir-y)) \
 	      $(addprefix $(obj)/,$(host-progs))
 	$(Q)$(MAKE) $(build)=$(obj)/$@ $(MAKECMDGOALS)
-

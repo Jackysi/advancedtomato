@@ -46,36 +46,6 @@ static struct ncr_chip zalon720_chip __initdata = {
 
 
 
-#if 0
-/* FIXME:
- * Is this function dead code? or is someone planning on using it in the
- * future.  The clock = (int) pdc_result[16] does not look correct to
- * me ... I think it should be iodc_data[16].  Since this cause a compile
- * error with the new encapsulated PDC, I'm not compiling in this function.
- * - RB
- */
-/* poke SCSI clock out of iodc data */
-
-static u8 iodc_data[32] __attribute__ ((aligned (64)));
-static unsigned long pdc_result[32] __attribute__ ((aligned (16))) ={0,0,0,0};
-
-static int 
-lasi_scsi_clock(void * hpa, int defaultclock)
-{
-	int clock, status;
-
-	status = pdc_iodc_read(&pdc_result, hpa, 0, &iodc_data, 32 );
-	if (status == PDC_RET_OK) {
-		clock = (int) pdc_result[16];
-	} else {
-		printk(KERN_WARNING "%s: pdc_iodc_read returned %d\n", __FUNCTION__, status);
-		clock = defaultclock; 
-	}
-
-	printk(KERN_DEBUG "%s: SCSI clock %d\n", __FUNCTION__, clock);
- 	return clock;
-}
-#endif
 
 static struct scsi_host_template zalon7xx_template = {
 	.module		= THIS_MODULE,
@@ -100,7 +70,6 @@ zalon_probe(struct parisc_device *dev)
 	__raw_writel(IOIIDATA_MINT5EN | IOIIDATA_PACKEN | IOIIDATA_PREFETCHEN,
 		zalon + IO_MODULE_II_CDATA);
 
-	/* XXX: Save the Zalon version for bug workarounds? */
 	zalon_vers = (__raw_readl(zalon + IO_MODULE_II_CDATA) >> 24) & 0x07;
 
 	/* Setup the interrupts first.
@@ -108,13 +77,13 @@ zalon_probe(struct parisc_device *dev)
 	*/
 	dev->irq = gsc_alloc_irq(&gsc_irq);
 
-	printk(KERN_INFO "%s: Zalon version %d, IRQ %d\n", __FUNCTION__,
+	printk(KERN_INFO "%s: Zalon version %d, IRQ %d\n", __func__,
 		zalon_vers, dev->irq);
 
 	__raw_writel(gsc_irq.txn_addr | gsc_irq.txn_data, zalon + IO_MODULE_EIM);
 
 	if (zalon_vers == 0)
-		printk(KERN_WARNING "%s: Zalon 1.1 or earlier\n", __FUNCTION__);
+		printk(KERN_WARNING "%s: Zalon 1.1 or earlier\n", __func__);
 
 	memset(&device, 0, sizeof(struct ncr_device));
 
@@ -134,11 +103,11 @@ zalon_probe(struct parisc_device *dev)
 
 	host = ncr_attach(&zalon7xx_template, unit, &device);
 	if (!host)
-		goto fail;
+		return -ENODEV;
 
 	if (request_irq(dev->irq, ncr53c8xx_intr, IRQF_SHARED, "zalon", host)) {
-		printk(KERN_ERR "%s: irq problem with %d, detaching\n ",
-			dev->dev.bus_id, dev->irq);
+	  dev_printk(KERN_ERR, &dev->dev, "irq problem with %d, detaching\n ",
+		     dev->irq);
 		goto fail;
 	}
 

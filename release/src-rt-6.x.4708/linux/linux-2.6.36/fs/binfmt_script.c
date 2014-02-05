@@ -1,14 +1,13 @@
 /*
  *  linux/fs/binfmt_script.c
  *
- *  Copyright (C) 1996  Martin von Löwis
+ *  Copyright (C) 1996  Martin von LÃ¶wis
  *  original #!-checking implemented by tytso.
  */
 
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/stat.h>
-#include <linux/slab.h>
 #include <linux/binfmts.h>
 #include <linux/init.h>
 #include <linux/file.h>
@@ -17,19 +16,21 @@
 
 static int load_script(struct linux_binprm *bprm,struct pt_regs *regs)
 {
-	char *cp, *i_name, *i_arg;
+	const char *i_arg, *i_name;
+	char *cp;
 	struct file *file;
 	char interp[BINPRM_BUF_SIZE];
 	int retval;
 
-	if ((bprm->buf[0] != '#') || (bprm->buf[1] != '!') || (bprm->sh_bang)) 
+	if ((bprm->buf[0] != '#') || (bprm->buf[1] != '!') ||
+	    (bprm->recursion_depth > BINPRM_MAX_RECURSION))
 		return -ENOEXEC;
 	/*
 	 * This section does the #! interpretation.
 	 * Sorta complicated, but hopefully it will work.  -TYT
 	 */
 
-	bprm->sh_bang++;
+	bprm->recursion_depth++;
 	allow_write_access(bprm->file);
 	fput(bprm->file);
 	bprm->file = NULL;
@@ -67,7 +68,9 @@ static int load_script(struct linux_binprm *bprm,struct pt_regs *regs)
 	 * This is done in reverse order, because of how the
 	 * user environment and arguments are stored.
 	 */
-	remove_arg_zero(bprm);
+	retval = remove_arg_zero(bprm);
+	if (retval)
+		return retval;
 	retval = copy_strings_kernel(1, &bprm->interp, bprm);
 	if (retval < 0) return retval; 
 	bprm->argc++;

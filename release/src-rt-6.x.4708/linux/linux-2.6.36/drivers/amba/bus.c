@@ -12,9 +12,10 @@
 #include <linux/device.h>
 #include <linux/string.h>
 #include <linux/slab.h>
+#include <linux/io.h>
 #include <linux/amba/bus.h>
 
-#include <asm/io.h>
+#include <asm/irq.h>
 #include <asm/sizes.h>
 
 #define to_amba_device(d)	container_of(d, struct amba_device, dev)
@@ -44,15 +45,12 @@ static int amba_match(struct device *dev, struct device_driver *drv)
 }
 
 #ifdef CONFIG_HOTPLUG
-static int amba_uevent(struct device *dev, char **envp, int nr_env, char *buf, int bufsz)
+static int amba_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct amba_device *pcdev = to_amba_device(dev);
-	int retval = 0, i = 0, len = 0;
+	int retval = 0;
 
-	retval = add_uevent_var(envp, nr_env, &i,
-				buf, bufsz, &len,
-				"AMBA_ID=%08x", pcdev->periphid);
-	envp[i] = NULL;
+	retval = add_uevent_var(env, "AMBA_ID=%08x", pcdev->periphid);
 	return retval;
 }
 #else
@@ -124,6 +122,31 @@ static int __init amba_init(void)
 
 postcore_initcall(amba_init);
 
+static int amba_get_enable_pclk(struct amba_device *pcdev)
+{
+	struct clk *pclk = clk_get(&pcdev->dev, "apb_pclk");
+	int ret;
+
+	pcdev->pclk = pclk;
+
+	if (IS_ERR(pclk))
+		return PTR_ERR(pclk);
+
+	ret = clk_enable(pclk);
+	if (ret)
+		clk_put(pclk);
+
+	return ret;
+}
+
+static void amba_put_disable_pclk(struct amba_device *pcdev)
+{
+	struct clk *pclk = pcdev->pclk;
+
+	clk_disable(pclk);
+	clk_put(pclk);
+}
+
 /*
  * These are the device model conversion veneers; they convert the
  * device model structures to our more specific structures.
@@ -132,17 +155,33 @@ static int amba_probe(struct device *dev)
 {
 	struct amba_device *pcdev = to_amba_device(dev);
 	struct amba_driver *pcdrv = to_amba_driver(dev->driver);
-	struct amba_id *id;
+	struct amba_id *id = amba_lookup(pcdrv->id_table, pcdev);
+	int ret;
 
-	id = amba_lookup(pcdrv->id_table, pcdev);
+	do {
+		ret = amba_get_enable_pclk(pcdev);
+		if (ret)
+			break;
 
-	return pcdrv->probe(pcdev, id);
+		ret = pcdrv->probe(pcdev, id);
+		if (ret == 0)
+			break;
+
+		amba_put_disable_pclk(pcdev);
+	} while (0);
+
+	return ret;
 }
 
 static int amba_remove(struct device *dev)
 {
+	struct amba_device *pcdev = to_amba_device(dev);
 	struct amba_driver *drv = to_amba_driver(dev->driver);
-	return drv->remove(to_amba_device(dev));
+	int ret = drv->remove(pcdev);
+
+	amba_put_disable_pclk(pcdev);
+
+	return ret;
 }
 
 static void amba_shutdown(struct device *dev)
@@ -205,14 +244,24 @@ static void amba_device_release(struct device *dev)
  */
 int amba_device_register(struct amba_device *dev, struct resource *parent)
 {
-	u32 pid, cid;
+	u32 size;
 	void __iomem *tmp;
 	int i, ret;
+
+	device_initialize(&dev->dev);
+
+	/*
+	 * Copy from device_add
+	 */
+	if (dev->dev.init_name) {
+		dev_set_name(&dev->dev, "%s", dev->dev.init_name);
+		dev->dev.init_name = NULL;
+	}
 
 	dev->dev.release = amba_device_release;
 	dev->dev.bus = &amba_bustype;
 	dev->dev.dma_mask = &dev->dma_mask;
-	dev->res.name = dev->dev.bus_id;
+	dev->res.name = dev_name(&dev->dev);
 
 	if (!dev->dev.coherent_dma_mask && dev->dma_mask)
 		dev_warn(&dev->dev, "coherent dma mask is unset\n");
@@ -221,28 +270,47 @@ int amba_device_register(struct amba_device *dev, struct resource *parent)
 	if (ret)
 		goto err_out;
 
-	tmp = ioremap(dev->res.start, SZ_4K);
+	/*
+	 * Dynamically calculate the size of the resource
+	 * and use this for iomap
+	 */
+	size = resource_size(&dev->res);
+	tmp = ioremap(dev->res.start, size);
 	if (!tmp) {
 		ret = -ENOMEM;
 		goto err_release;
 	}
 
-	for (pid = 0, i = 0; i < 4; i++)
-		pid |= (readl(tmp + 0xfe0 + 4 * i) & 255) << (i * 8);
-	for (cid = 0, i = 0; i < 4; i++)
-		cid |= (readl(tmp + 0xff0 + 4 * i) & 255) << (i * 8);
+	ret = amba_get_enable_pclk(dev);
+	if (ret == 0) {
+		u32 pid, cid;
+
+		/*
+		 * Read pid and cid based on size of resource
+		 * they are located at end of region
+		 */
+		for (pid = 0, i = 0; i < 4; i++)
+			pid |= (readl(tmp + size - 0x20 + 4 * i) & 255) <<
+				(i * 8);
+		for (cid = 0, i = 0; i < 4; i++)
+			cid |= (readl(tmp + size - 0x10 + 4 * i) & 255) <<
+				(i * 8);
+
+		amba_put_disable_pclk(dev);
+
+		if (cid == 0xb105f00d)
+			dev->periphid = pid;
+
+		if (!dev->periphid)
+			ret = -ENODEV;
+	}
 
 	iounmap(tmp);
 
-	if (cid == 0xb105f00d)
-		dev->periphid = pid;
-
-	if (!dev->periphid) {
-		ret = -ENODEV;
+	if (ret)
 		goto err_release;
-	}
 
-	ret = device_register(&dev->dev);
+	ret = device_add(&dev->dev);
 	if (ret)
 		goto err_release;
 
@@ -296,7 +364,7 @@ static int amba_find_match(struct device *dev, void *data)
 	if (d->parent)
 		r &= d->parent == dev->parent;
 	if (d->busid)
-		r &= strcmp(dev->bus_id, d->busid) == 0;
+		r &= strcmp(dev_name(dev), d->busid) == 0;
 
 	if (r) {
 		get_device(dev);
@@ -345,11 +413,14 @@ amba_find_device(const char *busid, struct device *parent, unsigned int id,
 int amba_request_regions(struct amba_device *dev, const char *name)
 {
 	int ret = 0;
+	u32 size;
 
 	if (!name)
 		name = dev->dev.driver->name;
 
-	if (!request_mem_region(dev->res.start, SZ_4K, name))
+	size = resource_size(&dev->res);
+
+	if (!request_mem_region(dev->res.start, size, name))
 		ret = -EBUSY;
 
 	return ret;
@@ -363,7 +434,10 @@ int amba_request_regions(struct amba_device *dev, const char *name)
  */
 void amba_release_regions(struct amba_device *dev)
 {
-	release_mem_region(dev->res.start, SZ_4K);
+	u32 size;
+
+	size = resource_size(&dev->res);
+	release_mem_region(dev->res.start, size);
 }
 
 EXPORT_SYMBOL(amba_driver_register);

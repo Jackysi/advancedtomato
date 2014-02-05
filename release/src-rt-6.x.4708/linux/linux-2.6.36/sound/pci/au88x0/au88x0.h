@@ -18,7 +18,6 @@
 #define __SOUND_AU88X0_H
 
 #ifdef __KERNEL__
-#include <sound/driver.h>
 #include <linux/pci.h>
 #include <asm/io.h>
 #include <sound/core.h>
@@ -126,7 +125,6 @@ typedef struct {
 	/* Virtual page extender stuff */
 	int nr_periods;
 	int period_bytes;
-	struct snd_sg_buf *sgbuf;	/* DMA Scatter Gather struct */
 	int period_real;
 	int period_virt;
 
@@ -196,16 +194,14 @@ static void vortex_adb_setsrc(vortex_t * vortex, int adbdma,
 
 /* DMA Engines. */
 static void vortex_adbdma_setbuffers(vortex_t * vortex, int adbdma,
-				     struct snd_sg_buf * sgbuf, int size,
-				     int count);
+				     int size, int count);
 static void vortex_adbdma_setmode(vortex_t * vortex, int adbdma, int ie,
 				  int dir, int fmt, int d,
 				  u32 offset);
 static void vortex_adbdma_setstartbuffer(vortex_t * vortex, int adbdma, int sb);
 #ifndef CHIP_AU8810
 static void vortex_wtdma_setbuffers(vortex_t * vortex, int wtdma,
-				    struct snd_sg_buf * sgbuf, int size,
-				    int count);
+				    int size, int count);
 static void vortex_wtdma_setmode(vortex_t * vortex, int wtdma, int ie, int fmt, int d,	/*int e, */
 				 u32 offset);
 static void vortex_wtdma_setstartbuffer(vortex_t * vortex, int wtdma, int sb);
@@ -253,11 +249,6 @@ static void vortex_wt_init(vortex_t * vortex);
 
 static void vortex_route(vortex_t * vortex, int en, unsigned char channel,
 			 unsigned char source, unsigned char dest);
-#if 0
-static void vortex_routes(vortex_t * vortex, int en, unsigned char channel,
-			  unsigned char source, unsigned char dest0,
-			  unsigned char dest1);
-#endif
 static void vortex_connection_mixin_mix(vortex_t * vortex, int en,
 					unsigned char mixin,
 					unsigned char mix, int a);

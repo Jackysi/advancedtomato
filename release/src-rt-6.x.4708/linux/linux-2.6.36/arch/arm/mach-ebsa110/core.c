@@ -14,10 +14,10 @@
 #include <linux/interrupt.h>
 #include <linux/serial_8250.h>
 #include <linux/init.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/pgtable.h>
@@ -178,8 +178,6 @@ ebsa110_timer_interrupt(int irq, void *dev_id)
 {
 	u32 count;
 
-	write_seqlock(&xtime_lock);
-
 	/* latch and read timer 1 */
 	__raw_writeb(0x40, PIT_CTRL);
 	count = __raw_readb(PIT_T1);
@@ -191,8 +189,6 @@ ebsa110_timer_interrupt(int irq, void *dev_id)
 	__raw_writeb(count >> 8, PIT_T1);
 
 	timer_tick();
-
-	write_sequnlock(&xtime_lock);
 
 	return IRQ_HANDLED;
 }

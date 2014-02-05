@@ -390,4 +390,3 @@ typedef	struct	_SXCHANNEL
 #endif						/* _sxwindow_h */
 
 /* End of SXWINDOW.H */
-

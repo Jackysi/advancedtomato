@@ -42,12 +42,12 @@ struct lecdatahdr_8025 {
  *
  */
 struct lane2_ops {
-	int (*resolve) (struct net_device *dev, u8 *dst_mac, int force,
+	int (*resolve) (struct net_device *dev, const u8 *dst_mac, int force,
 			u8 **tlvs, u32 *sizeoftlvs);
-	int (*associate_req) (struct net_device *dev, u8 *lan_dst,
-			      u8 *tlvs, u32 sizeoftlvs);
-	void (*associate_indicator) (struct net_device *dev, u8 *mac_addr,
-				     u8 *tlvs, u32 sizeoftlvs);
+	int (*associate_req) (struct net_device *dev, const u8 *lan_dst,
+			      const u8 *tlvs, u32 sizeoftlvs);
+	void (*associate_indicator) (struct net_device *dev, const u8 *mac_addr,
+				     const u8 *tlvs, u32 sizeoftlvs);
 };
 
 /*
@@ -69,7 +69,6 @@ struct lane2_ops {
 #define LEC_ARP_TABLE_SIZE 16
 
 struct lec_priv {
-	struct net_device_stats stats;
 	unsigned short lecid;			/* Lecid of this client */
 	struct hlist_head lec_arp_empty_ones;
 						/* Used for storing VCC's that don't have a MAC address attached yet */

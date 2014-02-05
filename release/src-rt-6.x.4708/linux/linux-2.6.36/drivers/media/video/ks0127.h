@@ -24,8 +24,6 @@
 #ifndef KS0127_H
 #define KS0127_H
 
-#include <linux/videodev.h>
-
 /* input channels */
 #define KS_INPUT_COMPOSITE_1    0
 #define KS_INPUT_COMPOSITE_2    1
@@ -50,4 +48,3 @@
 #define KS_STD_PAL_M            113       /* 60 Hz PAL  */
 
 #endif /* KS0127_H */
-

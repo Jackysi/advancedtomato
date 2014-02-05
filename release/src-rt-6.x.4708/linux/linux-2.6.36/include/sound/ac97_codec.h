@@ -2,7 +2,7 @@
 #define __SOUND_AC97_CODEC_H
 
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *  Universal interface for Audio Codec '97
  *
  *  For more details look to AC '97 component specification revision 2.1
@@ -31,6 +31,9 @@
 #include "pcm.h"
 #include "control.h"
 #include "info.h"
+
+/* maximum number of devices on the AC97 bus */
+#define	AC97_BUS_MAX_DEVICES	4
 
 /*
  *  AC'97 codec registers
@@ -281,10 +284,12 @@
 /* specific - Analog Devices */
 #define AC97_AD_TEST		0x5a	/* test register */
 #define AC97_AD_TEST2		0x5c	/* undocumented test register 2 */
+#define AC97_AD_HPFD_SHIFT	12	/* High Pass Filter Disable */
 #define AC97_AD_CODEC_CFG	0x70	/* codec configuration */
 #define AC97_AD_JACK_SPDIF	0x72	/* Jack Sense & S/PDIF */
 #define AC97_AD_SERIAL_CFG	0x74	/* Serial Configuration */
 #define AC97_AD_MISC		0x76	/* Misc Control Bits */
+#define AC97_AD_VREFD_SHIFT	2	/* V_REFOUT Disable (AD1888) */
 
 /* specific - Cirrus Logic */
 #define AC97_CSR_ACMODE		0x5e	/* AC Mode Register */
@@ -345,9 +350,9 @@
 #define AC97_ALC650_GPIO_STATUS		0x78
 #define AC97_ALC650_CLOCK		0x7a
 
-/* specific - Yamaha YMF753 */
-#define AC97_YMF753_DIT_CTRL2	0x66	/* DIT Control 2 */
-#define AC97_YMF753_3D_MODE_SEL	0x68	/* 3D Mode Select */
+/* specific - Yamaha YMF7x3 */
+#define AC97_YMF7X3_DIT_CTRL	0x66	/* DIT Control (YMF743) / 2 (YMF753) */
+#define AC97_YMF7X3_3D_MODE_SEL	0x68	/* 3D Mode Select */
 
 /* specific - C-Media */
 #define AC97_CM9738_VENDOR_CTRL	0x5a
@@ -397,6 +402,7 @@
 #define AC97_HAS_NO_TONE	(1<<16) /* no Tone volume */
 #define AC97_HAS_NO_STD_PCM	(1<<17)	/* no standard AC97 PCM volume and mute */
 #define AC97_HAS_NO_AUX		(1<<18) /* no standard AC97 AUX volume and mute */
+#define AC97_HAS_8CH		(1<<19) /* supports 8-channel output */
 
 /* rates indexes */
 #define AC97_RATES_FRONT_DAC	0
@@ -504,6 +510,7 @@ struct snd_ac97 {
 			unsigned short pcmreg[3];	// PCM registers
 			unsigned short codec_cfg[3];	// CODEC_CFG bits
 			unsigned char swap_mic_linein;	// AD1986/AD1986A only
+			unsigned char lo_as_master;	/* LO as master */
 		} ad18xx;
 		unsigned int dev_flags;		/* device specific */
 	} spec;
@@ -586,7 +593,7 @@ enum {
 
 struct ac97_quirk {
 	unsigned short subvendor; /* PCI subsystem vendor id */
-	unsigned short subdevice; /* PCI sybsystem device id */
+	unsigned short subdevice; /* PCI subsystem device id */
 	unsigned short mask;	/* device id bit mask, 0 = accept all */
 	unsigned int codec_id;	/* codec id (if any), 0 = accept all */
 	const char *name;	/* name shown as info */
@@ -637,5 +644,11 @@ int snd_ac97_pcm_double_rate_rules(struct snd_pcm_runtime *runtime);
 
 /* ad hoc AC97 device driver access */
 extern struct bus_type ac97_bus_type;
+
+/* AC97 platform_data adding function */
+static inline void snd_ac97_dev_add_pdata(struct snd_ac97 *ac97, void *data)
+{
+	ac97->dev.platform_data = data;
+}
 
 #endif /* __SOUND_AC97_CODEC_H */

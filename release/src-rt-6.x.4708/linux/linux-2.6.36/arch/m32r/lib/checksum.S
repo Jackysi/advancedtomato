@@ -296,16 +296,6 @@ unsigned int csum_partial_copy_generic (const char *src, char *dst,
 				  int len, int sum, int *src_err_ptr, int *dst_err_ptr)
  */
 
-/*
- * Copy from ds while checksumming, otherwise like csum_partial
- *
- * The macros SRC and DST specify the type of access for the instruction.
- * thus we can call a custom exception handler for all access types.
- *
- * FIXME: could someone double-check whether I haven't mixed up some SRC and
- *	  DST definitions? It's damn hard to trigger all cases.  I hope I got
- *	  them all but there's no guarantee.
- */
 
 ENTRY(csum_partial_copy_generic)
 	nop

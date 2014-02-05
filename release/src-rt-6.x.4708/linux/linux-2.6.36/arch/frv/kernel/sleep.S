@@ -1,7 +1,7 @@
 /* sleep.S: power saving mode entry
  *
  * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
- * Written by David Woodhouse (dwmw2@redhat.com)
+ * Written by David Woodhouse (dwmw2@infradead.org)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -166,12 +166,6 @@ __icache_lock_start:
 	nop
 	.endr
 
-#if 0 // Fujitsu recommend to skip this and will update docs.
-	#      Release the interrupt mask setting of the MASK register of the
-	#      interrupt controller if necessary.
-	sti		gr10,@(gr9,#0)
-	membar
-#endif
 
 	# Set the PSR register ET bit to 1 to enable interrupts.
 	movgs		gr8,psr
@@ -319,16 +313,6 @@ __core_sleep_icache_lock_start:
 	andi		gr8,#~(PSR_ET),gr4
 	movgs		gr4,psr
 
-#if 0 // Fujitsu recommend to skip this and will update docs.
-	# (2) Set '1' to all bits in the MASK register of the interrupt
-	#     controller and mask interrupts.
-	sethi.p		%hi(__addr_MASK),gr9
-	setlo		%lo(__addr_MASK),gr9
-	sethi.p		%hi(0xffff0000),gr4
-	setlo		%lo(0xffff0000),gr4
-	ldi		@(gr9,#0),gr10
-	sti		gr4,@(gr9,#0)
-#endif
 	# (3) Flush all data in the cache using the DCEF instruction.
 	dcef		@(gr0,gr0),#1
 
@@ -348,12 +332,6 @@ __core_sleep_icache_lock_start:
 	nop
 	.endr
 
-#if 0 // Fujitsu recommend to skip this and will update docs.
-	# (9) Release the interrupt mask setting of the MASK register of the
-	#     interrupt controller if necessary.
-	sti		gr10,@(gr9,#0)
-	membar
-#endif
 
 	# (10) Set the PSR register ET bit to 1 to enable interrupts.
 	movgs		gr8,psr

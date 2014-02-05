@@ -259,5 +259,3 @@
 #define SRCR_UNFAIR     0x08
 #define SRCR_AUTOPRI    0x02
 #define SRCR_PRISEL     0x01
-
-

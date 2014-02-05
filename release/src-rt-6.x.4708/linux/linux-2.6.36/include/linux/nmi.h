@@ -20,16 +20,44 @@ extern void touch_nmi_watchdog(void);
 extern void acpi_nmi_disable(void);
 extern void acpi_nmi_enable(void);
 #else
+#ifndef CONFIG_HARDLOCKUP_DETECTOR
 static inline void touch_nmi_watchdog(void)
 {
 	touch_softlockup_watchdog();
 }
+#else
+extern void touch_nmi_watchdog(void);
+#endif
 static inline void acpi_nmi_disable(void) { }
 static inline void acpi_nmi_enable(void) { }
 #endif
 
-#ifndef trigger_all_cpu_backtrace
-#define trigger_all_cpu_backtrace() do { } while (0)
+/*
+ * Create trigger_all_cpu_backtrace() out of the arch-provided
+ * base function. Return whether such support was available,
+ * to allow calling code to fall back to some other mechanism:
+ */
+#ifdef arch_trigger_all_cpu_backtrace
+static inline bool trigger_all_cpu_backtrace(void)
+{
+	arch_trigger_all_cpu_backtrace();
+
+	return true;
+}
+#else
+static inline bool trigger_all_cpu_backtrace(void)
+{
+	return false;
+}
+#endif
+
+#ifdef CONFIG_LOCKUP_DETECTOR
+int hw_nmi_is_cpu_stuck(struct pt_regs *);
+u64 hw_nmi_get_sample_period(void);
+extern int watchdog_enabled;
+struct ctl_table;
+extern int proc_dowatchdog_enabled(struct ctl_table *, int ,
+			void __user *, size_t *, loff_t *);
 #endif
 
 #endif

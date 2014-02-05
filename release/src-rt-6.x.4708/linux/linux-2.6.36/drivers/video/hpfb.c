@@ -10,7 +10,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/fb.h>
@@ -207,7 +206,8 @@ static struct fb_ops hpfb_ops = {
 #define HPFB_FBOMSB	0x5d	/* Frame buffer offset		*/
 #define HPFB_FBOLSB	0x5f
 
-static int __init hpfb_init_one(unsigned long phys_base, unsigned long virt_base)
+static int __devinit hpfb_init_one(unsigned long phys_base,
+				   unsigned long virt_base)
 {
 	unsigned long fboff, fb_width, fb_height, fb_start;
 
@@ -381,7 +381,7 @@ int __init hpfb_init(void)
 #define INTFBPADDR 0x560000
 
 	if (!MACH_IS_HP300)
-		return -ENXIO;
+		return -ENODEV;
 
 	if (fb_get_options("hpfb", NULL))
 		return -ENODEV;

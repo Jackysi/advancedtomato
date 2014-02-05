@@ -35,15 +35,16 @@
 #include <linux/percpu.h>
 #include <linux/types.h>
 #include <linux/ioport.h>
+#include <linux/kernel_stat.h>
 
 #include <asm/io.h>
 #include <asm/pgtable.h>
 #include <asm/prom.h>
 #include <asm/ptrace.h>
 #include <asm/machdep.h>
+#include <asm/cell-regs.h>
 
 #include "interrupt.h"
-#include "cbe_regs.h"
 
 struct iic {
 	struct cbe_iic_thread_regs __iomem *regs;
@@ -53,7 +54,7 @@ struct iic {
 	struct device_node *node;
 };
 
-static DEFINE_PER_CPU(struct iic, iic);
+static DEFINE_PER_CPU(struct iic, cpu_iic);
 #define IIC_NODE_COUNT	2
 static struct irq_host *iic_host;
 
@@ -81,13 +82,13 @@ static void iic_unmask(unsigned int irq)
 
 static void iic_eoi(unsigned int irq)
 {
-	struct iic *iic = &__get_cpu_var(iic);
+	struct iic *iic = &__get_cpu_var(cpu_iic);
 	out_be64(&iic->regs->prio, iic->eoi_stack[--iic->eoi_ptr]);
 	BUG_ON(iic->eoi_ptr < 0);
 }
 
 static struct irq_chip iic_chip = {
-	.typename = " CELL-IIC ",
+	.name = "CELL-IIC",
 	.mask = iic_mask,
 	.unmask = iic_unmask,
 	.eoi = iic_eoi,
@@ -132,7 +133,7 @@ static void iic_ioexc_cascade(unsigned int irq, struct irq_desc *desc)
 
 
 static struct irq_chip iic_ioexc_chip = {
-	.typename = " CELL-IOEX",
+	.name = "CELL-IOEX",
 	.mask = iic_mask,
 	.unmask = iic_unmask,
 	.eoi = iic_ioexc_eoi,
@@ -145,9 +146,9 @@ static unsigned int iic_get_irq(void)
 	struct iic *iic;
 	unsigned int virq;
 
-	iic = &__get_cpu_var(iic);
+	iic = &__get_cpu_var(cpu_iic);
 	*(unsigned long *) &pending =
-		in_be64((unsigned long __iomem *) &iic->regs->pending_destr);
+		in_be64((u64 __iomem *) &iic->regs->pending_destr);
 	if (!(pending.flags & CBE_IIC_IRQ_VALID))
 		return NO_IRQ;
 	virq = irq_linear_revmap(iic_host, iic_pending_to_hwnum(pending));
@@ -158,6 +159,18 @@ static unsigned int iic_get_irq(void)
 	return virq;
 }
 
+void iic_setup_cpu(void)
+{
+	out_be64(&__get_cpu_var(cpu_iic).regs->prio, 0xff);
+}
+
+u8 iic_get_target_id(int cpu)
+{
+	return per_cpu(cpu_iic, cpu).target_id;
+}
+
+EXPORT_SYMBOL_GPL(iic_get_target_id);
+
 #ifdef CONFIG_SMP
 
 /* Use the highest interrupt priorities for IPI */
@@ -166,28 +179,16 @@ static inline int iic_ipi_to_irq(int ipi)
 	return IIC_IRQ_TYPE_IPI + 0xf - ipi;
 }
 
-void iic_setup_cpu(void)
-{
-	out_be64(&__get_cpu_var(iic).regs->prio, 0xff);
-}
-
 void iic_cause_IPI(int cpu, int mesg)
 {
-	out_be64(&per_cpu(iic, cpu).regs->generate, (0xf - mesg) << 4);
+	out_be64(&per_cpu(cpu_iic, cpu).regs->generate, (0xf - mesg) << 4);
 }
-
-u8 iic_get_target_id(int cpu)
-{
-	return per_cpu(iic, cpu).target_id;
-}
-EXPORT_SYMBOL_GPL(iic_get_target_id);
 
 struct irq_host *iic_get_irq_host(int node)
 {
 	return iic_host;
 }
 EXPORT_SYMBOL_GPL(iic_get_irq_host);
-
 
 static irqreturn_t iic_ipi_action(int irq, void *dev_id)
 {
@@ -217,6 +218,7 @@ void iic_request_IPIs(void)
 {
 	iic_request_ipi(PPC_MSG_CALL_FUNCTION, "IPI-call");
 	iic_request_ipi(PPC_MSG_RESCHEDULE, "IPI-resched");
+	iic_request_ipi(PPC_MSG_CALL_FUNC_SINGLE, "IPI-call-single");
 #ifdef CONFIG_DEBUGGER
 	iic_request_ipi(PPC_MSG_DEBUGGER_BREAK, "IPI-debug");
 #endif /* CONFIG_DEBUGGER */
@@ -231,6 +233,52 @@ static int iic_host_match(struct irq_host *h, struct device_node *node)
 				    "IBM,CBEA-Internal-Interrupt-Controller");
 }
 
+extern int noirqdebug;
+
+static void handle_iic_irq(unsigned int irq, struct irq_desc *desc)
+{
+	raw_spin_lock(&desc->lock);
+
+	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
+
+	/*
+	 * If we're currently running this IRQ, or its disabled,
+	 * we shouldn't process the IRQ. Mark it pending, handle
+	 * the necessary masking and go out
+	 */
+	if (unlikely((desc->status & (IRQ_INPROGRESS | IRQ_DISABLED)) ||
+		    !desc->action)) {
+		desc->status |= IRQ_PENDING;
+		goto out_eoi;
+	}
+
+	kstat_incr_irqs_this_cpu(irq, desc);
+
+	/* Mark the IRQ currently in progress.*/
+	desc->status |= IRQ_INPROGRESS;
+
+	do {
+		struct irqaction *action = desc->action;
+		irqreturn_t action_ret;
+
+		if (unlikely(!action))
+			goto out_eoi;
+
+		desc->status &= ~IRQ_PENDING;
+		raw_spin_unlock(&desc->lock);
+		action_ret = handle_IRQ_event(irq, action);
+		if (!noirqdebug)
+			note_interrupt(irq, desc, action_ret);
+		raw_spin_lock(&desc->lock);
+
+	} while ((desc->status & (IRQ_PENDING | IRQ_DISABLED)) == IRQ_PENDING);
+
+	desc->status &= ~IRQ_INPROGRESS;
+out_eoi:
+	desc->chip->eoi(irq);
+	raw_spin_unlock(&desc->lock);
+}
+
 static int iic_host_map(struct irq_host *h, unsigned int virq,
 			irq_hw_number_t hw)
 {
@@ -240,16 +288,16 @@ static int iic_host_map(struct irq_host *h, unsigned int virq,
 		break;
 	case IIC_IRQ_TYPE_IOEXC:
 		set_irq_chip_and_handler(virq, &iic_ioexc_chip,
-					 handle_fasteoi_irq);
+					 handle_iic_irq);
 		break;
 	default:
-		set_irq_chip_and_handler(virq, &iic_chip, handle_fasteoi_irq);
+		set_irq_chip_and_handler(virq, &iic_chip, handle_iic_irq);
 	}
 	return 0;
 }
 
 static int iic_host_xlate(struct irq_host *h, struct device_node *ct,
-			   u32 *intspec, unsigned int intsize,
+			   const u32 *intspec, unsigned int intsize,
 			   irq_hw_number_t *out_hwirq, unsigned int *out_flags)
 
 {
@@ -297,10 +345,7 @@ static struct irq_host_ops iic_host_ops = {
 static void __init init_one_iic(unsigned int hw_cpu, unsigned long addr,
 				struct device_node *node)
 {
-	/* XXX FIXME: should locate the linux CPU number from the HW cpu
-	 * number properly. We are lucky for now
-	 */
-	struct iic *iic = &per_cpu(iic, hw_cpu);
+	struct iic *iic = &per_cpu(cpu_iic, hw_cpu);
 
 	iic->regs = ioremap(addr, sizeof(struct cbe_iic_thread_regs));
 	BUG_ON(iic->regs == NULL);
@@ -343,11 +388,6 @@ static int __init setup_iic(void)
 		init_one_iic(np[0], r0.start, dn);
 		init_one_iic(np[1], r1.start, dn);
 
-		/* Setup cascade for IO exceptions. XXX cleanup tricks to get
-		 * node vs CPU etc...
-		 * Note that we configure the IIC_IRR here with a hard coded
-		 * priority of 1. We might want to improve that later.
-		 */
 		node = np[0] >> 1;
 		node_iic = cbe_get_cpu_iic_regs(np[0]);
 		cascade = node << IIC_IRQ_NODE_SHIFT;
@@ -381,7 +421,7 @@ static int __init setup_iic(void)
 void __init iic_init_IRQ(void)
 {
 	/* Setup an irq host data structure */
-	iic_host = irq_alloc_host(IRQ_HOST_MAP_LINEAR, IIC_SOURCE_COUNT,
+	iic_host = irq_alloc_host(NULL, IRQ_HOST_MAP_LINEAR, IIC_SOURCE_COUNT,
 				  &iic_host_ops, IIC_IRQ_INVALID);
 	BUG_ON(iic_host == NULL);
 	irq_set_default_host(iic_host);

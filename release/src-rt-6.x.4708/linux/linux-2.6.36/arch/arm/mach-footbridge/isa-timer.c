@@ -7,8 +7,8 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/irq.h>
 
 #include <asm/mach/time.h>
@@ -64,9 +64,7 @@ static unsigned long isa_gettimeoffset(void)
 static irqreturn_t
 isa_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
 	timer_tick();
-	write_sequnlock(&xtime_lock);
 	return IRQ_HANDLED;
 }
 
@@ -78,8 +76,6 @@ static struct irqaction isa_timer_irq = {
 
 static void __init isa_timer_init(void)
 {
-	isa_rtc_init();
-
 	/* enable PIT timer */
 	/* set for periodic (4) and LSB/MSB write (0x30) */
 	outb(0x34, 0x43);

@@ -19,11 +19,6 @@
  *
  */
 
-#include <sound/driver.h>
-
-#ifdef CONFIG_SND_PCM_OSS_PLUGINS
-
-#include <linux/slab.h>
 #include <linux/time.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -58,7 +53,8 @@ static snd_pcm_sframes_t route_transfer(struct snd_pcm_plugin *plugin,
 	struct snd_pcm_plugin_channel *dvp;
 	int format;
 
-	snd_assert(plugin != NULL && src_channels != NULL && dst_channels != NULL, return -ENXIO);
+	if (snd_BUG_ON(!plugin || !src_channels || !dst_channels))
+		return -ENXIO;
 	if (frames == 0)
 		return 0;
 
@@ -94,10 +90,13 @@ int snd_pcm_plugin_build_route(struct snd_pcm_substream *plug,
 	struct snd_pcm_plugin *plugin;
 	int err;
 
-	snd_assert(r_plugin != NULL, return -ENXIO);
+	if (snd_BUG_ON(!r_plugin))
+		return -ENXIO;
 	*r_plugin = NULL;
-	snd_assert(src_format->rate == dst_format->rate, return -ENXIO);
-	snd_assert(src_format->format == dst_format->format, return -ENXIO);
+	if (snd_BUG_ON(src_format->rate != dst_format->rate))
+		return -ENXIO;
+	if (snd_BUG_ON(src_format->format != dst_format->format))
+		return -ENXIO;
 
 	err = snd_pcm_plugin_build(plug, "route conversion",
 				   src_format, dst_format, 0, &plugin);
@@ -108,5 +107,3 @@ int snd_pcm_plugin_build_route(struct snd_pcm_substream *plug,
 	*r_plugin = plugin;
 	return 0;
 }
-
-#endif

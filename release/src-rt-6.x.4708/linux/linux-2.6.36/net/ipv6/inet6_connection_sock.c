@@ -17,6 +17,7 @@
 #include <linux/in6.h>
 #include <linux/ipv6.h>
 #include <linux/jhash.h>
+#include <linux/slab.h>
 
 #include <net/addrconf.h>
 #include <net/inet_connection_sock.h>
@@ -33,6 +34,10 @@ int inet6_csk_bind_conflict(const struct sock *sk,
 	const struct hlist_node *node;
 
 	/* We must walk the whole port owner list in this case. -DaveM */
+	/*
+	 * See comment in inet_csk_bind_conflict about sock lookup
+	 * vs net namespaces issues.
+	 */
 	sk_for_each_bound(sk2, node, &tb->owners) {
 		if (sk != sk2 &&
 		    (!sk->sk_bound_dev_if ||
@@ -55,8 +60,6 @@ EXPORT_SYMBOL_GPL(inet6_csk_bind_conflict);
 static u32 inet6_synq_hash(const struct in6_addr *raddr, const __be16 rport,
 			   const u32 rnd, const u16 synq_hsize)
 {
-/* SpeedMod */
-#if 0
 	u32 a = (__force u32)raddr->s6_addr32[0];
 	u32 b = (__force u32)raddr->s6_addr32[1];
 	u32 c = (__force u32)raddr->s6_addr32[2];
@@ -69,18 +72,7 @@ static u32 inet6_synq_hash(const struct in6_addr *raddr, const __be16 rport,
 	a += (__force u32)raddr->s6_addr32[3];
 	b += (__force u32)rport;
 	__jhash_mix(a, b, c);
-#else
-	u32 c;
-	u32 key[5] = {
-		(__force u32)raddr->s6_addr32[0],
-		(__force u32)raddr->s6_addr32[1],
-		(__force u32)raddr->s6_addr32[2],
-		(__force u32)raddr->s6_addr32[3],
-		(__force u32)rport
-	};
 
-	c = jhash2(key, 5, rnd);
-#endif
 	return c & (synq_hsize - 1);
 }
 
@@ -107,7 +99,7 @@ struct request_sock *inet6_csk_search_req(const struct sock *sk,
 		    ipv6_addr_equal(&treq->rmt_addr, raddr) &&
 		    ipv6_addr_equal(&treq->loc_addr, laddr) &&
 		    (!treq->iif || treq->iif == iif)) {
-			BUG_TRAP(req->sk == NULL);
+			WARN_ON(req->sk != NULL);
 			*prevp = prev;
 			return req;
 		}
@@ -141,7 +133,7 @@ void inet6_csk_addr2sockaddr(struct sock *sk, struct sockaddr * uaddr)
 
 	sin6->sin6_family = AF_INET6;
 	ipv6_addr_copy(&sin6->sin6_addr, &np->daddr);
-	sin6->sin6_port	= inet_sk(sk)->dport;
+	sin6->sin6_port	= inet_sk(sk)->inet_dport;
 	/* We do not store received flowlabel for TCP */
 	sin6->sin6_flowinfo = 0;
 	sin6->sin6_scope_id = 0;
@@ -152,14 +144,48 @@ void inet6_csk_addr2sockaddr(struct sock *sk, struct sockaddr * uaddr)
 
 EXPORT_SYMBOL_GPL(inet6_csk_addr2sockaddr);
 
-int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
+static inline
+void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
+			   struct in6_addr *daddr, struct in6_addr *saddr)
+{
+	__ip6_dst_store(sk, dst, daddr, saddr);
+
+#ifdef CONFIG_XFRM
+	{
+		struct rt6_info *rt = (struct rt6_info  *)dst;
+		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
+	}
+#endif
+}
+
+static inline
+struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
+{
+	struct dst_entry *dst;
+
+	dst = __sk_dst_check(sk, cookie);
+
+#ifdef CONFIG_XFRM
+	if (dst) {
+		struct rt6_info *rt = (struct rt6_info *)dst;
+		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
+			__sk_dst_reset(sk);
+			dst = NULL;
+		}
+	}
+#endif
+
+	return dst;
+}
+
+int inet6_csk_xmit(struct sk_buff *skb)
 {
 	struct sock *sk = skb->sk;
 	struct inet_sock *inet = inet_sk(sk);
 	struct ipv6_pinfo *np = inet6_sk(sk);
 	struct flowi fl;
 	struct dst_entry *dst;
-	struct in6_addr *final_p = NULL, final;
+	struct in6_addr *final_p, final;
 
 	memset(&fl, 0, sizeof(fl));
 	fl.proto = sk->sk_protocol;
@@ -168,18 +194,14 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
 	fl.fl6_flowlabel = np->flow_label;
 	IP6_ECN_flow_xmit(sk, fl.fl6_flowlabel);
 	fl.oif = sk->sk_bound_dev_if;
-	fl.fl_ip_sport = inet->sport;
-	fl.fl_ip_dport = inet->dport;
+	fl.mark = sk->sk_mark;
+	fl.fl_ip_sport = inet->inet_sport;
+	fl.fl_ip_dport = inet->inet_dport;
 	security_sk_classify_flow(sk, &fl);
 
-	if (np->opt && np->opt->srcrt) {
-		struct rt0_hdr *rt0 = (struct rt0_hdr *)np->opt->srcrt;
-		ipv6_addr_copy(&final, &fl.fl6_dst);
-		ipv6_addr_copy(&fl.fl6_dst, rt0->addr);
-		final_p = &final;
-	}
+	final_p = fl6_update_dst(&fl, np->opt, &final);
 
-	dst = __sk_dst_check(sk, np->dst_cookie);
+	dst = __inet6_csk_dst_check(sk, np->dst_cookie);
 
 	if (dst == NULL) {
 		int err = ip6_dst_lookup(sk, &dst, &fl);
@@ -193,21 +215,21 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
 		if (final_p)
 			ipv6_addr_copy(&fl.fl6_dst, final_p);
 
-		if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0) {
+		if ((err = xfrm_lookup(sock_net(sk), &dst, &fl, sk, 0)) < 0) {
 			sk->sk_route_caps = 0;
 			kfree_skb(skb);
 			return err;
 		}
 
-		__ip6_dst_store(sk, dst, NULL, NULL);
+		__inet6_csk_dst_store(sk, dst, NULL, NULL);
 	}
 
-	skb->dst = dst_clone(dst);
+	skb_dst_set(skb, dst_clone(dst));
 
 	/* Restore final destination back after routing done */
 	ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
 
-	return ip6_xmit(sk, skb, &fl, np->opt, 0);
+	return ip6_xmit(sk, skb, &fl, np->opt);
 }
 
 EXPORT_SYMBOL_GPL(inet6_csk_xmit);

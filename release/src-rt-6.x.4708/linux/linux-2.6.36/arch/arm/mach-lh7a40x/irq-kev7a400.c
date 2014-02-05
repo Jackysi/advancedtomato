@@ -79,7 +79,6 @@ lh7a400_init_board_irq (void)
 		/* Clear all CPLD interrupts */
 	CPLD_CL_INT = 0xff; /* CPLD_INTR_MMC_CD | CPLD_INTR_ETH_INT; */
 
-    /* *** FIXME CF enabled in ide-probe.c */
 
 	GPIO_GPIOINTEN = 0;		/* Disable all GPIO interrupts */
 	barrier();

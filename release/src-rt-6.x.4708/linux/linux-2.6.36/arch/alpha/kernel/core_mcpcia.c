@@ -588,8 +588,6 @@ mcpcia_machine_check(unsigned long vector, unsigned long la_ptr)
 	switch (expected) {
 	case 0:
 	    {
-		/* FIXME: how do we figure out which hose the
-		   error was on?  */	
 		struct pci_controller *hose;
 		for (hose = hose_head; hose; hose = hose->next)
 			mcpcia_pci_clr_err(MCPCIA_HOSE2MID(hose->index));

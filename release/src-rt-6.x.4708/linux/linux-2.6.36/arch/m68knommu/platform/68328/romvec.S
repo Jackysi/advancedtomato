@@ -32,4 +32,3 @@ e_vectors:
 .long trap, trap, trap, trap
 .long trap, trap, trap, trap
 .long 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-

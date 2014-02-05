@@ -170,7 +170,7 @@ static void cpia_usb_complete(struct urb *urb)
 	/* resubmit */
 	urb->dev = ucpia->dev;
 	if ((i = usb_submit_urb(urb, GFP_ATOMIC)) != 0)
-		printk(KERN_ERR "%s: usb_submit_urb ret %d\n", __FUNCTION__,  i);
+		printk(KERN_ERR "%s: usb_submit_urb ret %d\n", __func__,  i);
 }
 
 static int cpia_usb_open(void *privdata)
@@ -584,7 +584,6 @@ static void cpia_disconnect(struct usb_interface *intf)
 {
 	struct cam_data *cam = usb_get_intfdata(intf);
 	struct usb_cpia *ucpia;
-	struct usb_device *udev;
 
 	usb_set_intfdata(intf, NULL);
 	if (!cam)
@@ -605,8 +604,6 @@ static void cpia_disconnect(struct usb_interface *intf)
 
 	if (waitqueue_active(&ucpia->wq_stream))
 		wake_up_interruptible(&ucpia->wq_stream);
-
-	udev = interface_to_usbdev(intf);
 
 	ucpia->curbuff = ucpia->workbuff = NULL;
 
@@ -640,4 +637,3 @@ static void __exit usb_cpia_cleanup(void)
 
 module_init (usb_cpia_init);
 module_exit (usb_cpia_cleanup);
-

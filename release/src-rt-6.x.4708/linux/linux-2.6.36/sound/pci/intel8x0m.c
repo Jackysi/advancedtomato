@@ -1,7 +1,7 @@
 /*
  *   ALSA modem driver for Intel ICH (i8x0) chipsets
  *
- *	Copyright (c) 2000 Jaroslav Kysela <perex@suse.cz>
+ *	Copyright (c) 2000 Jaroslav Kysela <perex@perex.cz>
  *
  *   This is modified (by Sasha Khapyorsky <sashak@alsa-project.org>) version
  *   of ALSA ICH sound driver intel8x0.c .
@@ -23,7 +23,6 @@
  *
  */      
 
-#include <sound/driver.h>
 #include <asm/io.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -37,7 +36,7 @@
 #include <sound/info.h>
 #include <sound/initval.h>
 
-MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
+MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("Intel 82801AA,82901AB,i810,i820,i830,i840,i845,MX440; "
 		   "SiS 7013; NVidia MCP/2/2S/3 modems");
 MODULE_LICENSE("GPL");
@@ -220,26 +219,22 @@ struct intel8x0m {
 	unsigned int pcm_pos_shift;
 };
 
-static struct pci_device_id snd_intel8x0m_ids[] = {
-	{ 0x8086, 0x2416, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* 82801AA */
-	{ 0x8086, 0x2426, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* 82901AB */
-	{ 0x8086, 0x2446, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* 82801BA */
-	{ 0x8086, 0x2486, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* ICH3 */
-	{ 0x8086, 0x24c6, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL }, /* ICH4 */
-	{ 0x8086, 0x24d6, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL }, /* ICH5 */
-	{ 0x8086, 0x266d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* ICH6 */
-	{ 0x8086, 0x27dd, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* ICH7 */
-	{ 0x8086, 0x7196, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* 440MX */
-	{ 0x1022, 0x7446, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* AMD768 */
-	{ 0x1039, 0x7013, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_SIS },	/* SI7013 */
-	{ 0x10de, 0x01c1, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_NFORCE }, /* NFORCE */
-	{ 0x10de, 0x0069, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_NFORCE }, /* NFORCE2 */
-	{ 0x10de, 0x0089, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_NFORCE }, /* NFORCE2s */
-	{ 0x10de, 0x00d9, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_NFORCE }, /* NFORCE3 */
-#if 0
-	{ 0x1022, 0x746d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* AMD8111 */
-	{ 0x10b9, 0x5455, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_ALI },   /* Ali5455 */
-#endif
+static DEFINE_PCI_DEVICE_TABLE(snd_intel8x0m_ids) = {
+	{ PCI_VDEVICE(INTEL, 0x2416), DEVICE_INTEL },	/* 82801AA */
+	{ PCI_VDEVICE(INTEL, 0x2426), DEVICE_INTEL },	/* 82901AB */
+	{ PCI_VDEVICE(INTEL, 0x2446), DEVICE_INTEL },	/* 82801BA */
+	{ PCI_VDEVICE(INTEL, 0x2486), DEVICE_INTEL },	/* ICH3 */
+	{ PCI_VDEVICE(INTEL, 0x24c6), DEVICE_INTEL }, /* ICH4 */
+	{ PCI_VDEVICE(INTEL, 0x24d6), DEVICE_INTEL }, /* ICH5 */
+	{ PCI_VDEVICE(INTEL, 0x266d), DEVICE_INTEL },	/* ICH6 */
+	{ PCI_VDEVICE(INTEL, 0x27dd), DEVICE_INTEL },	/* ICH7 */
+	{ PCI_VDEVICE(INTEL, 0x7196), DEVICE_INTEL },	/* 440MX */
+	{ PCI_VDEVICE(AMD, 0x7446), DEVICE_INTEL },	/* AMD768 */
+	{ PCI_VDEVICE(SI, 0x7013), DEVICE_SIS },	/* SI7013 */
+	{ PCI_VDEVICE(NVIDIA, 0x01c1), DEVICE_NFORCE }, /* NFORCE */
+	{ PCI_VDEVICE(NVIDIA, 0x0069), DEVICE_NFORCE }, /* NFORCE2 */
+	{ PCI_VDEVICE(NVIDIA, 0x0089), DEVICE_NFORCE }, /* NFORCE2s */
+	{ PCI_VDEVICE(NVIDIA, 0x00d9), DEVICE_NFORCE }, /* NFORCE3 */
 	{ 0, }
 };
 
@@ -307,7 +302,8 @@ static unsigned int get_ich_codec_bit(struct intel8x0m *chip, unsigned int codec
 	static unsigned int codec_bit[3] = {
 		ICH_PCR, ICH_SCR, ICH_TCR
 	};
-	snd_assert(codec < 3, return ICH_PCR);
+	if (snd_BUG_ON(codec >= 3))
+		return ICH_PCR;
 	return codec_bit[codec];
 }
 
@@ -411,7 +407,10 @@ static void snd_intel8x0_setup_periods(struct intel8x0m *chip, struct ichdev *ic
 			bdbar[idx + 0] = cpu_to_le32(ichdev->physbuf + (((idx >> 1) * ichdev->fragsize) % ichdev->size));
 			bdbar[idx + 1] = cpu_to_le32(0x80000000 | /* interrupt on completion */
 						     ichdev->fragsize >> chip->pcm_pos_shift);
-			// printk("bdbar[%i] = 0x%x [0x%x]\n", idx + 0, bdbar[idx + 0], bdbar[idx + 1]);
+			/*
+			printk(KERN_DEBUG "bdbar[%i] = 0x%x [0x%x]\n",
+			       idx + 0, bdbar[idx + 0], bdbar[idx + 1]);
+			*/
 		}
 		ichdev->frags = ichdev->size / ichdev->fragsize;
 	}
@@ -420,10 +419,6 @@ static void snd_intel8x0_setup_periods(struct intel8x0m *chip, struct ichdev *ic
 	iputbyte(chip, port + ICH_REG_OFF_CIV, 0);
 	ichdev->lvi_frag = ICH_REG_LVI_MASK % ichdev->frags;
 	ichdev->position = 0;
-#if 0
-	printk("lvi_frag = %i, frags = %i, period_size = 0x%x, period_size1 = 0x%x\n",
-			ichdev->lvi_frag, ichdev->frags, ichdev->fragsize, ichdev->fragsize1);
-#endif
 	/* clear interrupts */
 	iputbyte(chip, port + ichdev->roff_sr, ICH_FIFOE | ICH_BCIS | ICH_LVBCI);
 }
@@ -464,12 +459,6 @@ static inline void snd_intel8x0_update(struct intel8x0m *chip, struct ichdev *ic
 		ichdev->bdbar[ichdev->lvi * 2] = cpu_to_le32(ichdev->physbuf +
 							     ichdev->lvi_frag *
 							     ichdev->fragsize1);
-#if 0
-		printk("new: bdbar[%i] = 0x%x [0x%x], prefetch = %i, all = 0x%x, 0x%x\n",
-		       ichdev->lvi * 2, ichdev->bdbar[ichdev->lvi * 2],
-		       ichdev->bdbar[ichdev->lvi * 2 + 1], inb(ICH_REG_OFF_PIV + port),
-		       inl(port + 4), inb(port + ICH_REG_OFF_CR));
-#endif
 		if (--ichdev->ack == 0) {
 			ichdev->ack = ichdev->ack_reload;
 			ack = 1;
@@ -758,25 +747,8 @@ static int __devinit snd_intel8x0_pcm(struct intel8x0m *chip)
 	int i, tblsize, device, err;
 	struct ich_pcm_table *tbl, *rec;
 
-#if 1
 	tbl = intel_pcms;
 	tblsize = 1;
-#else
-	switch (chip->device_type) {
-	case DEVICE_NFORCE:
-		tbl = nforce_pcms;
-		tblsize = ARRAY_SIZE(nforce_pcms);
-		break;
-	case DEVICE_ALI:
-		tbl = ali_pcms;
-		tblsize = ARRAY_SIZE(ali_pcms);
-		break;
-	default:
-		tbl = intel_pcms;
-		tblsize = 2;
-		break;
-	}
-#endif
 	device = 0;
 	for (i = 0; i < tblsize; i++) {
 		rec = tbl + i;
@@ -986,17 +958,15 @@ static int snd_intel8x0_free(struct intel8x0m *chip)
 	/* reset channels */
 	for (i = 0; i < chip->bdbars_count; i++)
 		iputbyte(chip, ICH_REG_OFF_CR + chip->ichd[i].reg_offset, ICH_RESETREGS);
-	/* --- */
-	synchronize_irq(chip->irq);
-      __hw_end:
+ __hw_end:
+	if (chip->irq >= 0)
+		free_irq(chip->irq, chip);
 	if (chip->bdbars.area)
 		snd_dma_free_pages(&chip->bdbars);
 	if (chip->addr)
 		pci_iounmap(chip->pci, chip->addr);
 	if (chip->bmaddr)
 		pci_iounmap(chip->pci, chip->bmaddr);
-	if (chip->irq >= 0)
-		free_irq(chip->irq, chip);
 	pci_release_regions(chip->pci);
 	pci_disable_device(chip->pci);
 	kfree(chip);
@@ -1018,7 +988,6 @@ static int intel8x0m_suspend(struct pci_dev *pci, pm_message_t state)
 		snd_pcm_suspend_all(chip->pcm[i]);
 	snd_ac97_suspend(chip->ac97);
 	if (chip->irq >= 0) {
-		synchronize_irq(chip->irq);
 		free_irq(chip->irq, chip);
 		chip->irq = -1;
 	}
@@ -1257,10 +1226,6 @@ static struct shortname_table {
 	{ PCI_DEVICE_ID_NVIDIA_MCP2_MODEM, "NVidia nForce2" },
 	{ PCI_DEVICE_ID_NVIDIA_MCP2S_MODEM, "NVidia nForce2s" },
 	{ PCI_DEVICE_ID_NVIDIA_MCP3_MODEM, "NVidia nForce3" },
-#if 0
-	{ 0x5455, "ALi M5455" },
-	{ 0x746d, "AMD AMD8111" },
-#endif
 	{ 0 },
 };
 
@@ -1272,9 +1237,9 @@ static int __devinit snd_intel8x0m_probe(struct pci_dev *pci,
 	int err;
 	struct shortname_table *name;
 
-	card = snd_card_new(index, id, THIS_MODULE, 0);
-	if (card == NULL)
-		return -ENOMEM;
+	err = snd_card_create(index, id, THIS_MODULE, 0, &card);
+	if (err < 0)
+		return err;
 
 	strcpy(card->driver, "ICH-MODEM");
 	strcpy(card->shortname, "Intel ICH");

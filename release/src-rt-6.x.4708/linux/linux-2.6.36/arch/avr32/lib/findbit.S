@@ -67,8 +67,6 @@ ENTRY(find_next_zero_bit)
 	rsub	r9, r11
 	add	r10, r9
 
-	/* XXX: If we don't have to return exactly "size" when the bit
-	   is not found, we may drop this "min" thing */
 	min	r12, r11, r10
 	retal	r12
 
@@ -116,6 +114,36 @@ ENTRY(find_next_bit)
 
 	/* Main loop. offset must be word-aligned */
 1:	ld.w	r8, r12[0]
+	cp.w	r8, 0
+	brne	.L_found
+	sub	r12, -4
+	sub	r9, 32
+	brgt	1b
+	retal	r11
+
+ENTRY(generic_find_next_le_bit)
+	lsr	r8, r10, 5
+	sub	r9, r11, r10
+	retle	r11
+
+	lsl	r8, 2
+	add	r12, r8
+	andl	r10, 31, COH
+	breq	1f
+
+	/* offset is not word-aligned. Handle the first (32 - r10) bits */
+	ldswp.w	r8, r12[0]
+	sub	r12, -4
+	lsr	r8, r8, r10
+	brne	.L_found
+
+	/* r9 = r9 - (32 - r10) = r9 + r10 - 32 */
+	add	r9, r10
+	sub	r9, 32
+	retle	r11
+
+	/* Main loop. offset must be word-aligned */
+1:	ldswp.w	r8, r12[0]
 	cp.w	r8, 0
 	brne	.L_found
 	sub	r12, -4

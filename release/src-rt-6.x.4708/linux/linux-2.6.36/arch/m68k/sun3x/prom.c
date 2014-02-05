@@ -92,7 +92,7 @@ static struct console sun3x_debug = {
 	.index	= -1,
 };
 
-void sun3x_prom_init(void)
+void __init sun3x_prom_init(void)
 {
 	/* Read the vector table */
 
@@ -113,9 +113,6 @@ void sun3x_prom_init(void)
 		idprom->id_machtype = SM_SUN3X | SM_3_80;
 	}
 
-	/* point trap #14 at abort.
-	 * XXX this is futile since we restore the vbr first - oops
-	 */
 	vectors[VEC_TRAP14] = sun3x_prom_abort;
 }
 

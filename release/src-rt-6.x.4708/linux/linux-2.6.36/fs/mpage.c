@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * fs/mpage.c
  *
@@ -6,7 +7,7 @@
  * Contains functions related to preparing and submitting BIOs which contain
  * multiple pagecache pages.
  *
- * 15May2002	akpm@zip.com.au
+ * 15May2002	Andrew Morton
  *		Initial version
  * 27Jun2002	axboe@suse.de
  *		use bio_add_page() to build bio's just the right size
@@ -16,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/kdev_t.h>
+#include <linux/gfp.h>
 #include <linux/bio.h>
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
@@ -26,6 +28,9 @@
 #include <linux/writeback.h>
 #include <linux/backing-dev.h>
 #include <linux/pagevec.h>
+
+#include <typedefs.h>
+#include <bcmdefs.h>
 
 /*
  * I/O completion handler for multipage BIOs.
@@ -39,13 +44,10 @@
  * status of that page is hard.  See end_buffer_async_read() for the details.
  * There is no point in duplicating all that complexity.
  */
-static int mpage_end_io_read(struct bio *bio, unsigned int bytes_done, int err)
+static void mpage_end_io_read(struct bio *bio, int err)
 {
 	const int uptodate = test_bit(BIO_UPTODATE, &bio->bi_flags);
 	struct bio_vec *bvec = bio->bi_io_vec + bio->bi_vcnt - 1;
-
-	if (bio->bi_size)
-		return 1;
 
 	do {
 		struct page *page = bvec->bv_page;
@@ -62,16 +64,12 @@ static int mpage_end_io_read(struct bio *bio, unsigned int bytes_done, int err)
 		unlock_page(page);
 	} while (bvec >= bio->bi_io_vec);
 	bio_put(bio);
-	return 0;
 }
 
-static int mpage_end_io_write(struct bio *bio, unsigned int bytes_done, int err)
+static void mpage_end_io_write(struct bio *bio, int err)
 {
 	const int uptodate = test_bit(BIO_UPTODATE, &bio->bi_flags);
 	struct bio_vec *bvec = bio->bi_io_vec + bio->bi_vcnt - 1;
-
-	if (bio->bi_size)
-		return 1;
 
 	do {
 		struct page *page = bvec->bv_page;
@@ -87,7 +85,6 @@ static int mpage_end_io_write(struct bio *bio, unsigned int bytes_done, int err)
 		end_page_writeback(page);
 	} while (bvec >= bio->bi_io_vec);
 	bio_put(bio);
-	return 0;
 }
 
 static struct bio *mpage_bio_submit(int rw, struct bio *bio)
@@ -172,7 +169,7 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  * represent the validity of its disk mapping and to decide when to do the next
  * get_block() call.
  */
-static struct bio *
+static struct bio * BCMFASTPATH_HOST
 do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		sector_t *last_block_in_bio, struct buffer_head *map_bh,
 		unsigned long *first_logical_block, get_block_t get_block)
@@ -248,7 +245,6 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 				first_hole = page_block;
 			page_block++;
 			block_in_file++;
-			clear_buffer_mapped(map_bh);
 			continue;
 		}
 
@@ -284,9 +280,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	}
 
 	if (first_hole != blocks_per_page) {
-		zero_user_page(page, first_hole << blkbits,
-				PAGE_CACHE_SIZE - (first_hole << blkbits),
-				KM_USER0);
+		zero_user_segment(page, first_hole << blkbits, PAGE_CACHE_SIZE);
 		if (first_hole == 0) {
 			SetPageUptodate(page);
 			unlock_page(page);
@@ -317,7 +311,10 @@ alloc_new:
 		goto alloc_new;
 	}
 
-	if (buffer_boundary(map_bh) || (first_hole != blocks_per_page))
+	relative_block = block_in_file - *first_logical_block;
+	nblocks = map_bh->b_size >> blkbits;
+	if ((buffer_boundary(map_bh) && relative_block == nblocks) ||
+	    (first_hole != blocks_per_page))
 		bio = mpage_bio_submit(READ, bio);
 	else
 		*last_block_in_bio = blocks[blocks_per_page - 1];
@@ -335,16 +332,12 @@ confused:
 }
 
 /**
- * mpage_readpages - populate an address space with some pages, and
- *                       start reads against them.
- *
+ * mpage_readpages - populate an address space with some pages & start reads against them
  * @mapping: the address_space
  * @pages: The address of a list_head which contains the target pages.  These
  *   pages have their ->index populated and are otherwise uninitialised.
- *
  *   The page at @pages->prev has the lowest file offset, and reads should be
  *   issued in @pages->prev to @pages->next order.
- *
  * @nr_pages: The number of pages at *@pages
  * @get_block: The filesystem's block mapper function.
  *
@@ -370,6 +363,7 @@ confused:
  * So an mpage read of the first 16 blocks of an ext2 file will cause I/O to be
  * submitted in the following order:
  * 	12 0 1 2 3 4 5 6 7 8 9 10 11 13 14 15 16
+ *
  * because the indirect block has to be read to get the mappings of blocks
  * 13,14,15,16.  Obviously, this impacts performance.
  *
@@ -387,31 +381,26 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 	struct bio *bio = NULL;
 	unsigned page_idx;
 	sector_t last_block_in_bio = 0;
-	struct pagevec lru_pvec;
 	struct buffer_head map_bh;
 	unsigned long first_logical_block = 0;
 
-	clear_buffer_mapped(&map_bh);
-	pagevec_init(&lru_pvec, 0);
+	map_bh.b_state = 0;
+	map_bh.b_size = 0;
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_entry(pages->prev, struct page, lru);
 
 		prefetchw(&page->flags);
 		list_del(&page->lru);
-		if (!add_to_page_cache(page, mapping,
+		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
 					&last_block_in_bio, &map_bh,
 					&first_logical_block,
 					get_block);
-			if (!pagevec_add(&lru_pvec, page))
-				__pagevec_lru_add(&lru_pvec);
-		} else {
-			page_cache_release(page);
 		}
+		page_cache_release(page);
 	}
-	pagevec_lru_add(&lru_pvec);
 	BUG_ON(!list_empty(pages));
 	if (bio)
 		mpage_bio_submit(READ, bio);
@@ -429,7 +418,8 @@ int mpage_readpage(struct page *page, get_block_t get_block)
 	struct buffer_head map_bh;
 	unsigned long first_logical_block = 0;
 
-	clear_buffer_mapped(&map_bh);
+	map_bh.b_state = 0;
+	map_bh.b_size = 0;
 	bio = do_mpage_readpage(bio, page, 1, &last_block_in_bio,
 			&map_bh, &first_logical_block, get_block);
 	if (bio)
@@ -438,22 +428,7 @@ int mpage_readpage(struct page *page, get_block_t get_block)
 }
 EXPORT_SYMBOL(mpage_readpage);
 
-/*
- * Writing is not so simple.
- *
- * If the page has buffers then they will be used for obtaining the disk
- * mapping.  We only support pages which are fully mapped-and-dirty, with a
- * special case for pages which are unmapped at the end: end-of-file.
- *
- * If the page has no buffers (preferred) then the page is mapped here.
- *
- * If all blocks are found to be contiguous then the page can go into the
- * BIO.  Otherwise fall back to the mapping's writepage().
- * 
- * FIXME: This code wants an estimate of how many pages are still to be
- * written, so it can intelligently allocate a suitably-sized BIO.  For now,
- * just allocate full-size (16-page) BIOs.
- */
+
 struct mpage_data {
 	struct bio *bio;
 	sector_t last_block_in_bio;
@@ -462,7 +437,7 @@ struct mpage_data {
 };
 
 static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
-			     void *data)
+		      void *data)
 {
 	struct mpage_data *mpd = data;
 	struct bio *bio = mpd->bio;
@@ -575,7 +550,7 @@ page_is_mapped:
 	if (page->index >= end_index) {
 		/*
 		 * The page straddles i_size.  It must be zeroed out on each
-		 * and every writepage invokation because it may be mmapped.
+		 * and every writepage invocation because it may be mmapped.
 		 * "A file is mapped in multiples of the page size.  For a file
 		 * that is not a multiple of the page size, the remaining memory
 		 * is zeroed when mapped, and writes to that region are not
@@ -585,8 +560,7 @@ page_is_mapped:
 
 		if (page->index > end_index || !offset)
 			goto confused;
-		zero_user_page(page, offset, PAGE_CACHE_SIZE - offset,
-				KM_USER0);
+		zero_user_segment(page, offset, PAGE_CACHE_SIZE);
 	}
 
 	/*
@@ -673,9 +647,7 @@ out:
 }
 
 /**
- * mpage_writepages - walk the list of dirty pages of the given
- * address space and writepage() all of them.
- * 
+ * mpage_writepages - walk the list of dirty pages of the given address space & writepage() all of them
  * @mapping: address space structure to write
  * @wbc: subtract the number of written pages from *@wbc->nr_to_write
  * @get_block: the filesystem's block mapper function.

@@ -2,7 +2,7 @@ TARGET_DRV 	:= drxvi314
 INTERFACE 	:= src/Interface/usb/
 COMMON		:= src/Common/
 
-FLAG = $(shell if [ -d "$(TOPDIR)/drivers/usb/Beceem_driver/src" ]; then echo 1; else echo 0; fi)
+FLAG = $(shell if [ -d "$(SRCBASE)/linux/linux-2.6/drivers/usb/Beceem_driver/src" ]; then echo 1; else echo 0; fi)
 
 ifeq ($(FLAG),1)
 ifdef CONFIG_USB_BECEEM

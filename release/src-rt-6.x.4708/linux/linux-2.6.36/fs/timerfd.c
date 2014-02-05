@@ -14,6 +14,7 @@
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/time.h>
@@ -52,11 +53,9 @@ static enum hrtimer_restart timerfd_tmrproc(struct hrtimer *htmr)
 
 static ktime_t timerfd_get_remaining(struct timerfd_ctx *ctx)
 {
-	ktime_t now, remaining;
+	ktime_t remaining;
 
-	now = ctx->tmr.base->get_time();
-	remaining = ktime_sub(ctx->tmr.expires, now);
-
+	remaining = hrtimer_expires_remaining(&ctx->tmr);
 	return remaining.tv64 < 0 ? ktime_set(0, 0): remaining;
 }
 
@@ -74,7 +73,7 @@ static void timerfd_setup(struct timerfd_ctx *ctx, int flags,
 	ctx->ticks = 0;
 	ctx->tintv = timespec_to_ktime(ktmr->it_interval);
 	hrtimer_init(&ctx->tmr, ctx->clockid, htmode);
-	ctx->tmr.expires = texp;
+	hrtimer_set_expires(&ctx->tmr, texp);
 	ctx->tmr.function = timerfd_tmrproc;
 	if (texp.tv64 != 0)
 		hrtimer_start(&ctx->tmr, texp, htmode);
@@ -111,31 +110,14 @@ static ssize_t timerfd_read(struct file *file, char __user *buf, size_t count,
 	struct timerfd_ctx *ctx = file->private_data;
 	ssize_t res;
 	u64 ticks = 0;
-	DECLARE_WAITQUEUE(wait, current);
 
 	if (count < sizeof(ticks))
 		return -EINVAL;
 	spin_lock_irq(&ctx->wqh.lock);
-	res = -EAGAIN;
-	if (!ctx->ticks && !(file->f_flags & O_NONBLOCK)) {
-		__add_wait_queue(&ctx->wqh, &wait);
-		for (res = 0;;) {
-			set_current_state(TASK_INTERRUPTIBLE);
-			if (ctx->ticks) {
-				res = 0;
-				break;
-			}
-			if (signal_pending(current)) {
-				res = -ERESTARTSYS;
-				break;
-			}
-			spin_unlock_irq(&ctx->wqh.lock);
-			schedule();
-			spin_lock_irq(&ctx->wqh.lock);
-		}
-		__remove_wait_queue(&ctx->wqh, &wait);
-		__set_current_state(TASK_RUNNING);
-	}
+	if (file->f_flags & O_NONBLOCK)
+		res = -EAGAIN;
+	else
+		res = wait_event_interruptible_locked_irq(ctx->wqh, ctx->ticks);
 	if (ctx->ticks) {
 		ticks = ctx->ticks;
 		if (ctx->expired && ctx->tintv.tv64) {
@@ -179,10 +161,14 @@ static struct file *timerfd_fget(int fd)
 	return file;
 }
 
-asmlinkage long sys_timerfd_create(int clockid, int flags)
+SYSCALL_DEFINE2(timerfd_create, int, clockid, int, flags)
 {
 	int ufd;
 	struct timerfd_ctx *ctx;
+
+	/* Check the TFD_* constants for consistency.  */
+	BUILD_BUG_ON(TFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(TFD_NONBLOCK != O_NONBLOCK);
 
 	if ((flags & ~TFD_CREATE_FLAGS) ||
 	    (clockid != CLOCK_MONOTONIC &&
@@ -198,16 +184,16 @@ asmlinkage long sys_timerfd_create(int clockid, int flags)
 	hrtimer_init(&ctx->tmr, clockid, HRTIMER_MODE_ABS);
 
 	ufd = anon_inode_getfd("[timerfd]", &timerfd_fops, ctx,
-			       flags & TFD_SHARED_FCNTL_FLAGS);
+			       O_RDWR | (flags & TFD_SHARED_FCNTL_FLAGS));
 	if (ufd < 0)
 		kfree(ctx);
 
 	return ufd;
 }
 
-asmlinkage long sys_timerfd_settime(int ufd, int flags,
-				    const struct itimerspec __user *utmr,
-				    struct itimerspec __user *otmr)
+SYSCALL_DEFINE4(timerfd_settime, int, ufd, int, flags,
+		const struct itimerspec __user *, utmr,
+		struct itimerspec __user *, otmr)
 {
 	struct file *file;
 	struct timerfd_ctx *ctx;
@@ -263,7 +249,7 @@ asmlinkage long sys_timerfd_settime(int ufd, int flags,
 	return 0;
 }
 
-asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr)
+SYSCALL_DEFINE2(timerfd_gettime, int, ufd, struct itimerspec __user *, otmr)
 {
 	struct file *file;
 	struct timerfd_ctx *ctx;
@@ -288,4 +274,3 @@ asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr)
 
 	return copy_to_user(otmr, &kotmr, sizeof(kotmr)) ? -EFAULT: 0;
 }
-

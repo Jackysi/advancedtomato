@@ -62,4 +62,3 @@ static int __init mb93093_pm_init(void)
 }
 
 __initcall(mb93093_pm_init);
-

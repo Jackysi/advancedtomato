@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  *  linux/arch/arm/kernel/bios32.c
  *
@@ -10,8 +11,8 @@
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <linux/init.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/mach-types.h>
 #include <asm/mach/pci.h>
 
@@ -279,6 +280,24 @@ static void __devinit pci_fixup_cy82c693(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_CONTAQ, PCI_DEVICE_ID_CONTAQ_82C693, pci_fixup_cy82c693);
 
+static void __init pci_fixup_it8152(struct pci_dev *dev)
+{
+	int i;
+	/* fixup for ITE 8152 devices */
+	if ((dev->class >> 8) == PCI_CLASS_BRIDGE_HOST ||
+	    dev->class == 0x68000 ||
+	    dev->class == 0x80103) {
+		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
+			dev->resource[i].start = 0;
+			dev->resource[i].end   = 0;
+			dev->resource[i].flags = 0;
+		}
+	}
+}
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ITE, PCI_DEVICE_ID_ITE_8152, pci_fixup_it8152);
+
+
+
 void __devinit pcibios_update_irq(struct pci_dev *dev, int irq)
 {
 	if (debug_pci)
@@ -292,9 +311,12 @@ void __devinit pcibios_update_irq(struct pci_dev *dev, int irq)
  */
 static inline int pdev_bad_for_parity(struct pci_dev *dev)
 {
-	return (dev->vendor == PCI_VENDOR_ID_INTERG &&
-		(dev->device == PCI_DEVICE_ID_INTERG_2000 ||
-		 dev->device == PCI_DEVICE_ID_INTERG_2010));
+	return ((dev->vendor == PCI_VENDOR_ID_INTERG &&
+		 (dev->device == PCI_DEVICE_ID_INTERG_2000 ||
+		  dev->device == PCI_DEVICE_ID_INTERG_2010)) ||
+		(dev->vendor == PCI_VENDOR_ID_ITE &&
+		 dev->device == PCI_DEVICE_ID_ITE_8152));
+
 }
 
 /*
@@ -334,15 +356,20 @@ pbus_assign_bus_resources(struct pci_bus *bus, struct pci_sys_data *root)
 	}
 }
 
+extern bool plat_fixup_bus(struct pci_bus *b);
+
 /*
  * pcibios_fixup_bus - Called after each bus is probed,
  * but before its children are examined.
  */
-void __devinit pcibios_fixup_bus(struct pci_bus *bus)
+void pcibios_fixup_bus(struct pci_bus *bus)
 {
 	struct pci_sys_data *root = bus->sysdata;
 	struct pci_dev *dev;
 	u16 features = PCI_COMMAND_SERR | PCI_COMMAND_PARITY | PCI_COMMAND_FAST_BACK;
+	
+	if (plat_fixup_bus(bus))
+		return;
 
 	pbus_assign_bus_resources(bus, root);
 
@@ -419,7 +446,7 @@ void __devinit pcibios_fixup_bus(struct pci_bus *bus)
 /*
  * Convert from Linux-centric to bus-centric addresses for bridge devices.
  */
-void __devinit
+void
 pcibios_resource_to_bus(struct pci_dev *dev, struct pci_bus_region *region,
 			 struct resource *res)
 {
@@ -456,33 +483,6 @@ EXPORT_SYMBOL(pcibios_fixup_bus);
 EXPORT_SYMBOL(pcibios_resource_to_bus);
 EXPORT_SYMBOL(pcibios_bus_to_resource);
 #endif
-
-/*
- * This is the standard PCI-PCI bridge swizzling algorithm:
- *
- *   Dev: 0  1  2  3
- *    A   A  B  C  D
- *    B   B  C  D  A
- *    C   C  D  A  B
- *    D   D  A  B  C
- *        ^^^^^^^^^^ irq pin on bridge
- */
-u8 __devinit pci_std_swizzle(struct pci_dev *dev, u8 *pinp)
-{
-	int pin = *pinp - 1;
-
-	while (dev->bus->self) {
-		pin = (pin + PCI_SLOT(dev->devfn)) & 3;
-		/*
-		 * move up the chain of bridges,
-		 * swizzling as we go.
-		 */
-		dev = dev->bus->self;
-	}
-	*pinp = pin + 1;
-
-	return PCI_SLOT(dev->devfn);
-}
 
 /*
  * Swizzle the device pin each time we cross a bridge.
@@ -532,6 +532,9 @@ static void __init pcibios_init_hw(struct hw_pci *hw)
 		if (!sys)
 			panic("PCI: unable to allocate sys data!");
 
+#ifdef CONFIG_PCI_DOMAINS
+		sys->domain  = hw->domain;
+#endif
 		sys->hw      = hw;
 		sys->busnr   = busnr;
 		sys->swizzle = hw->swizzle;
@@ -621,60 +624,18 @@ char * __init pcibios_setup(char *str)
  * but we want to try to avoid allocating at 0x2900-0x2bff
  * which might be mirrored at 0x0100-0x03ff..
  */
-void pcibios_align_resource(void *data, struct resource *res,
-			    resource_size_t size, resource_size_t align)
+resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+				resource_size_t size, resource_size_t align)
 {
 	resource_size_t start = res->start;
 
 	if (res->flags & IORESOURCE_IO && start & 0x300)
 		start = (start + 0x3ff) & ~0x3ff;
 
-	res->start = (start + align - 1) & ~(align - 1);
+	start = (start + align - 1) & ~(align - 1);
+
+	return start;
 }
-
-/**
- * pcibios_enable_device - Enable I/O and memory.
- * @dev: PCI device to be enabled
- */
-int pcibios_enable_device(struct pci_dev *dev, int mask)
-{
-	u16 cmd, old_cmd;
-	int idx;
-	struct resource *r;
-
-	pci_read_config_word(dev, PCI_COMMAND, &cmd);
-	old_cmd = cmd;
-	for (idx = 0; idx < 6; idx++) {
-		/* Only set up the requested stuff */
-		if (!(mask & (1 << idx)))
-			continue;
-
-		r = dev->resource + idx;
-		if (!r->start && r->end) {
-			printk(KERN_ERR "PCI: Device %s not available because"
-			       " of resource collisions\n", pci_name(dev));
-			return -EINVAL;
-		}
-		if (r->flags & IORESOURCE_IO)
-			cmd |= PCI_COMMAND_IO;
-		if (r->flags & IORESOURCE_MEM)
-			cmd |= PCI_COMMAND_MEMORY;
-	}
-
-	/*
-	 * Bridges (eg, cardbus bridges) need to be fully enabled
-	 */
-	if ((dev->class >> 16) == PCI_BASE_CLASS_BRIDGE)
-		cmd |= PCI_COMMAND_IO | PCI_COMMAND_MEMORY;
-
-	if (cmd != old_cmd) {
-		printk("PCI: enabling device %s (%04x -> %04x)\n",
-		       pci_name(dev), old_cmd, cmd);
-		pci_write_config_word(dev, PCI_COMMAND, cmd);
-	}
-	return 0;
-}
-
 int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 			enum pci_mmap_state mmap_state, int write_combine)
 {

@@ -1,6 +1,4 @@
 /*
- *  net/dccp/ccids/ccid2.h
- *
  *  Copyright (c) 2005 Andrea Bittau <a.bittau@cs.ucl.ac.uk>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,6 +22,8 @@
 #include <linux/timer.h>
 #include <linux/types.h>
 #include "../ccid.h"
+/* NUMDUPACK parameter from RFC 4341, p. 6 */
+#define NUMDUPACK	3
 
 struct sock;
 
@@ -38,45 +38,36 @@ struct ccid2_seq {
 #define CCID2_SEQBUF_LEN 1024
 #define CCID2_SEQBUF_MAX 128
 
-/** struct ccid2_hc_tx_sock - CCID2 TX half connection
- *
- * @ccid2hctx_ssacks - ACKs recv in slow start
- * @ccid2hctx_acks - ACKS recv in AI phase
- * @ccid2hctx_sent - packets sent in this window
- * @ccid2hctx_lastrtt -time RTT was last measured
- * @ccid2hctx_arsent - packets sent [ack ratio]
- * @ccid2hctx_ackloss - ack was lost in this win
- * @ccid2hctx_rpseq - last consecutive seqno
- * @ccid2hctx_rpdupack - dupacks since rpseq
-*/
+/**
+ * struct ccid2_hc_tx_sock - CCID2 TX half connection
+ * @tx_{cwnd,ssthresh,pipe}: as per RFC 4341, section 5
+ * @tx_packets_acked:	     Ack counter for deriving cwnd growth (RFC 3465)
+ * @tx_lastrtt:		     time RTT was last measured
+ * @tx_rpseq:		     last consecutive seqno
+ * @tx_rpdupack:	     dupacks since rpseq
+ */
 struct ccid2_hc_tx_sock {
-	int			ccid2hctx_cwnd;
-	int			ccid2hctx_ssacks;
-	int			ccid2hctx_acks;
-	unsigned int		ccid2hctx_ssthresh;
-	int			ccid2hctx_pipe;
-	int			ccid2hctx_numdupack;
-	struct ccid2_seq	*ccid2hctx_seqbuf[CCID2_SEQBUF_MAX];
-	int			ccid2hctx_seqbufc;
-	struct ccid2_seq	*ccid2hctx_seqh;
-	struct ccid2_seq	*ccid2hctx_seqt;
-	long			ccid2hctx_rto;
-	long			ccid2hctx_srtt;
-	long			ccid2hctx_rttvar;
-	int			ccid2hctx_sent;
-	unsigned long		ccid2hctx_lastrtt;
-	struct timer_list	ccid2hctx_rtotimer;
-	unsigned long		ccid2hctx_arsent;
-	int			ccid2hctx_ackloss;
-	u64			ccid2hctx_rpseq;
-	int			ccid2hctx_rpdupack;
-	int			ccid2hctx_sendwait;
-	unsigned long		ccid2hctx_last_cong;
-	u64			ccid2hctx_high_ack;
+	u32			tx_cwnd;
+	u32			tx_ssthresh;
+	u32			tx_pipe;
+	u32			tx_packets_acked;
+	struct ccid2_seq	*tx_seqbuf[CCID2_SEQBUF_MAX];
+	int			tx_seqbufc;
+	struct ccid2_seq	*tx_seqh;
+	struct ccid2_seq	*tx_seqt;
+	long			tx_rto;
+	long			tx_srtt;
+	long			tx_rttvar;
+	unsigned long		tx_lastrtt;
+	struct timer_list	tx_rtotimer;
+	u64			tx_rpseq;
+	int			tx_rpdupack;
+	unsigned long		tx_last_cong;
+	u64			tx_high_ack;
 };
 
 struct ccid2_hc_rx_sock {
-	int	ccid2hcrx_data;
+	int	rx_data;
 };
 
 static inline struct ccid2_hc_tx_sock *ccid2_hc_tx_sk(const struct sock *sk)

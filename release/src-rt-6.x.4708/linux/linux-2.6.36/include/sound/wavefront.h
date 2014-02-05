@@ -370,7 +370,7 @@ typedef struct wf_sample_offset wavefront_sample_offset;
    as a sample type.
 */
 
-#define WF_SLOT_USED      0x80   /* XXX don't rely on this being accurate */
+#define WF_SLOT_USED      0x80
 #define WF_SLOT_FILLED    0x40
 #define WF_SLOT_ROM       0x20
 

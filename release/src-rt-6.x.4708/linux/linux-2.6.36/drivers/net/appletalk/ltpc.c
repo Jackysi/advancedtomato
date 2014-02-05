@@ -215,7 +215,6 @@ static int dma;
 #include <linux/ioport.h>
 #include <linux/spinlock.h>
 #include <linux/in.h>
-#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -228,6 +227,7 @@ static int dma;
 #include <linux/timer.h>
 #include <linux/atalk.h>
 #include <linux/bitops.h>
+#include <linux/gfp.h>
 
 #include <asm/system.h>
 #include <asm/dma.h>
@@ -261,7 +261,6 @@ static unsigned char *ltdmacbuf;
 
 struct ltpc_private
 {
-	struct net_device_stats stats;
 	struct atalk_addr my_addr;
 };
 
@@ -498,9 +497,6 @@ static void idle(struct net_device *dev)
 {
 	unsigned long flags;
 	int state;
-	/* FIXME This is initialized to shut the warning up, but I need to
-	 * think this through again.
-	 */
 	struct xmitQel *q = NULL;
 	int oops;
 	int i;
@@ -642,7 +638,6 @@ done:
 		inb_p(base+7);
 		inb_p(base+7);
 	}
-	return;
 }
 
 
@@ -698,8 +693,7 @@ static int do_read(struct net_device *dev, void *cbuf, int cbuflen,
 
 static struct timer_list ltpc_timer;
 
-static int ltpc_xmit(struct sk_buff *skb, struct net_device *dev);
-static struct net_device_stats *ltpc_get_stats(struct net_device *dev);
+static netdev_tx_t ltpc_xmit(struct sk_buff *skb, struct net_device *dev);
 
 static int read_30 ( struct net_device *dev)
 {
@@ -726,7 +720,6 @@ static int sendup_buffer (struct net_device *dev)
 	int dnode, snode, llaptype, len; 
 	int sklen;
 	struct sk_buff *skb;
-	struct net_device_stats *stats = &((struct ltpc_private *)dev->priv)->stats;
 	struct lt_rcvlap *ltc = (struct lt_rcvlap *) ltdmacbuf;
 
 	if (ltc->command != LT_RCVLAP) {
@@ -778,12 +771,11 @@ static int sendup_buffer (struct net_device *dev)
 
 	skb_reset_transport_header(skb);
 
-	stats->rx_packets++;
-	stats->rx_bytes+=skb->len;
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += skb->len;
 
 	/* toss it onwards */
 	netif_rx(skb);
-	dev->last_rx = jiffies;
 	return 0;
 }
 
@@ -823,7 +815,8 @@ static int ltpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct sockaddr_at *sa = (struct sockaddr_at *) &ifr->ifr_addr;
 	/* we'll keep the localtalk node address in dev->pa_addr */
-	struct atalk_addr *aa = &((struct ltpc_private *)dev->priv)->my_addr;
+	struct ltpc_private *ltpc_priv = netdev_priv(dev);
+	struct atalk_addr *aa = &ltpc_priv->my_addr;
 	struct lt_init c;
 	int ltflags;
 
@@ -870,15 +863,6 @@ static void set_multicast_list(struct net_device *dev)
 	/* Actually netatalk needs fixing! */
 }
 
-static int ltpc_hard_header (struct sk_buff *skb, struct net_device *dev, 
-	unsigned short type, void *daddr, void *saddr, unsigned len)
-{
-	if(debug & DEBUG_VERBOSE)
-		printk("ltpc_hard_header called for device %s\n",
-			dev->name);
-	return 0;
-}
-
 static int ltpc_poll_counter;
 
 static void ltpc_poll(unsigned long l)
@@ -907,14 +891,11 @@ static void ltpc_poll(unsigned long l)
 
 /* DDP to LLAP translation */
 
-static int ltpc_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t ltpc_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	/* in kernel 1.3.xx, on entry skb->data points to ddp header,
 	 * and skb->len is the length of the ddp data + ddp header
 	 */
-
-	struct net_device_stats *stats = &((struct ltpc_private *)dev->priv)->stats;
-
 	int i;
 	struct lt_sendlap cbuf;
 	unsigned char *hdr;
@@ -943,17 +924,11 @@ static int ltpc_xmit(struct sk_buff *skb, struct net_device *dev)
 		printk("\n");
 	}
 
-	stats->tx_packets++;
-	stats->tx_bytes+=skb->len;
+	dev->stats.tx_packets++;
+	dev->stats.tx_bytes += skb->len;
 
 	dev_kfree_skb(skb);
-	return 0;
-}
-
-static struct net_device_stats *ltpc_get_stats(struct net_device *dev)
-{
-	struct net_device_stats *stats = &((struct ltpc_private *) dev->priv)->stats;
-	return stats;
+	return NETDEV_TX_OK;
 }
 
 /* initialization stuff */
@@ -994,7 +969,6 @@ static int __init ltpc_probe_dma(int base, int dma)
 	}
 	/* set up request */
 
-	/* FIXME -- do timings better! */
 
 	ltdmabuf[0] = LT_READMEM;
 	ltdmabuf[1] = 1;  /* mailbox */
@@ -1033,6 +1007,12 @@ static int __init ltpc_probe_dma(int base, int dma)
 	return (want & 2) ? 3 : 1;
 }
 
+static const struct net_device_ops ltpc_netdev = {
+	.ndo_start_xmit		= ltpc_xmit,
+	.ndo_do_ioctl		= ltpc_ioctl,
+	.ndo_set_multicast_list = set_multicast_list,
+};
+
 struct net_device * __init ltpc_probe(void)
 {
 	struct net_device *dev;
@@ -1045,8 +1025,6 @@ struct net_device * __init ltpc_probe(void)
 	dev = alloc_ltalkdev(sizeof(struct ltpc_private));
 	if (!dev)
 		goto out;
-
-	SET_MODULE_OWNER(dev);
 
 	/* probe for the I/O port address */
 	
@@ -1141,16 +1119,7 @@ struct net_device * __init ltpc_probe(void)
 	else
 		printk(KERN_INFO "Apple/Farallon LocalTalk-PC card at %03x, DMA%d.  Using polled mode.\n",io,dma);
 
-	/* Fill in the fields of the device structure with ethernet-generic values. */
-	dev->hard_start_xmit = ltpc_xmit;
-	dev->hard_header = ltpc_hard_header;
-	dev->get_stats = ltpc_get_stats;
-
-	/* add the ltpc-specific things */
-	dev->do_ioctl = &ltpc_ioctl;
-
-	dev->set_multicast_list = &set_multicast_list;
-	dev->mc_list = NULL;
+	dev->netdev_ops = &ltpc_netdev;
 	dev->base_addr = io;
 	dev->irq = irq;
 	dev->dma = dma;
@@ -1183,7 +1152,7 @@ struct net_device * __init ltpc_probe(void)
 	}
 
 	/* grab it and don't let go :-) */
-	if (irq && request_irq( irq, &ltpc_interrupt, 0, "ltpc", dev) >= 0)
+	if (irq && request_irq( irq, ltpc_interrupt, 0, "ltpc", dev) >= 0)
 	{
 		(void) inb_p(io+7);  /* enable interrupts from board */
 		(void) inb_p(io+7);  /* and reset irq line */
@@ -1245,7 +1214,7 @@ static int __init ltpc_setup(char *str)
 		if (ints[0] > 2) {
 			dma = ints[3];
 		}
-		/* ignore any other paramters */
+		/* ignore any other parameters */
 	}
 	return 1;
 }
@@ -1264,7 +1233,7 @@ module_param(irq, int, 0);
 module_param(dma, int, 0);
 
 
-int __init init_module(void)
+static int __init ltpc_module_init(void)
 {
         if(io == 0)
 		printk(KERN_NOTICE
@@ -1275,6 +1244,7 @@ int __init init_module(void)
 		return PTR_ERR(dev_ltpc);
 	return 0;
 }
+module_init(ltpc_module_init);
 #endif
 
 static void __exit ltpc_cleanup(void)

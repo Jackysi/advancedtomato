@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Atmel Corporation
+ * Copyright (C) 2006, 2008 Atmel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,14 +12,20 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/platform_device.h>
+#include <linux/sysdev.h>
 
 #include <asm/io.h>
 
 #include "intc.h"
 
 struct intc {
-	void __iomem	*regs;
-	struct irq_chip	chip;
+	void __iomem		*regs;
+	struct irq_chip		chip;
+	struct sys_device	sysdev;
+#ifdef CONFIG_PM
+	unsigned long		suspend_ipr;
+	unsigned long		saved_ipr[64];
+#endif
 };
 
 extern struct platform_device at32_intc0_device;
@@ -136,7 +142,76 @@ fail:
 	panic("Interrupt controller initialization failed!\n");
 }
 
-unsigned long intc_get_pending(int group)
+#ifdef CONFIG_PM
+void intc_set_suspend_handler(unsigned long offset)
+{
+	intc0.suspend_ipr = offset;
+}
+
+static int intc_suspend(struct sys_device *sdev, pm_message_t state)
+{
+	struct intc *intc = container_of(sdev, struct intc, sysdev);
+	int i;
+
+	if (unlikely(!irqs_disabled())) {
+		pr_err("intc_suspend: called with interrupts enabled\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(!intc->suspend_ipr)) {
+		pr_err("intc_suspend: suspend_ipr not initialized\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < 64; i++) {
+		intc->saved_ipr[i] = intc_readl(intc, INTPR0 + 4 * i);
+		intc_writel(intc, INTPR0 + 4 * i, intc->suspend_ipr);
+	}
+
+	return 0;
+}
+
+static int intc_resume(struct sys_device *sdev)
+{
+	struct intc *intc = container_of(sdev, struct intc, sysdev);
+	int i;
+
+	WARN_ON(!irqs_disabled());
+
+	for (i = 0; i < 64; i++)
+		intc_writel(intc, INTPR0 + 4 * i, intc->saved_ipr[i]);
+
+	return 0;
+}
+#else
+#define intc_suspend	NULL
+#define intc_resume	NULL
+#endif
+
+static struct sysdev_class intc_class = {
+	.name		= "intc",
+	.suspend	= intc_suspend,
+	.resume		= intc_resume,
+};
+
+static int __init intc_init_sysdev(void)
+{
+	int ret;
+
+	ret = sysdev_class_register(&intc_class);
+	if (ret)
+		return ret;
+
+	intc0.sysdev.id = 0;
+	intc0.sysdev.cls = &intc_class;
+	ret = sysdev_register(&intc0.sysdev);
+
+	return ret;
+}
+device_initcall(intc_init_sysdev);
+
+unsigned long intc_get_pending(unsigned int group)
 {
 	return intc_readl(&intc0, INTREQ0 + 4 * group);
 }
+EXPORT_SYMBOL_GPL(intc_get_pending);

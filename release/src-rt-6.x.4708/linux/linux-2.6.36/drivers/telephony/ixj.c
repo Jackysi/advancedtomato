@@ -42,8 +42,6 @@
  ***************************************************************************/
 
 /*
- * $Log: ixj.c,v $
- *
  * Revision 4.8  2003/07/09 19:39:00  Daniele Bellucci
  * Audit some copy_*_user and minor cleanup.
  *
@@ -259,6 +257,7 @@
 #include <linux/fs.h>		/* everything... */
 #include <linux/errno.h>	/* error codes */
 #include <linux/slab.h>
+#include <linux/smp_lock.h>
 #include <linux/mm.h>
 #include <linux/ioport.h>
 #include <linux/interrupt.h>
@@ -2330,7 +2329,6 @@ static int ixj_release(struct inode *inode, struct file *file_p)
 	j->rec_codec = j->play_codec = 0;
 	j->rec_frame_size = j->play_frame_size = 0;
 	j->flags.cidsent = j->flags.cidring = 0;
-	ixj_fasync(-1, file_p, 0);	/* remove from list of async notification */
 
 	if(j->cardtype == QTI_LINEJACK && !j->readers && !j->writers) {
 		ixj_set_port(j, PORT_PSTN);
@@ -3453,7 +3451,6 @@ static void ixj_write_frame(IXJ *j)
 {
 	int cnt, frame_count, dly;
 	IXJ_WORD dat;
-	BYTES blankword;
 
 	frame_count = 0;
 	if(j->flags.cidplay) {
@@ -3501,6 +3498,8 @@ static void ixj_write_frame(IXJ *j)
 		}
 		if (frame_count >= 1) {
 			if (j->ver.low == 0x12 && j->play_mode && j->flags.play_first_frame) {
+				BYTES blankword;
+
 				switch (j->play_mode) {
 				case PLAYBACK_MODE_ULAW:
 				case PLAYBACK_MODE_ALAW:
@@ -3508,6 +3507,7 @@ static void ixj_write_frame(IXJ *j)
 					break;
 				case PLAYBACK_MODE_8LINEAR:
 				case PLAYBACK_MODE_16LINEAR:
+				default:
 					blankword.low = blankword.high = 0x00;
 					break;
 				case PLAYBACK_MODE_8LINEAR_WSS:
@@ -3531,6 +3531,8 @@ static void ixj_write_frame(IXJ *j)
 				j->flags.play_first_frame = 0;
 			} else	if (j->play_codec == G723_63 && j->flags.play_first_frame) {
 				for (cnt = 0; cnt < 24; cnt++) {
+					BYTES blankword;
+
 					if(cnt == 12) {
 						blankword.low = 0x02;
 						blankword.high = 0x00;
@@ -4188,7 +4190,7 @@ static void ixj_aec_start(IXJ *j, int level)
 				ixj_WriteDSPCommand(0x1224, j);
 
 			ixj_WriteDSPCommand(0xE014, j);
-			ixj_WriteDSPCommand(0x0003, j);	/* Lock threashold at 3dB */
+			ixj_WriteDSPCommand(0x0003, j);	/* Lock threshold at 3dB */
 
 			ixj_WriteDSPCommand(0xE338, j);	/* Set Echo Suppresser Attenuation to 0dB */
 
@@ -4233,7 +4235,7 @@ static void ixj_aec_start(IXJ *j, int level)
 				ixj_WriteDSPCommand(0x1224, j);
 
 			ixj_WriteDSPCommand(0xE014, j);
-			ixj_WriteDSPCommand(0x0003, j);	/* Lock threashold at 3dB */
+			ixj_WriteDSPCommand(0x0003, j);	/* Lock threshold at 3dB */
 
 			ixj_WriteDSPCommand(0xE338, j);	/* Set Echo Suppresser Attenuation to 0dB */
 
@@ -4868,6 +4870,7 @@ static char daa_CR_read(IXJ *j, int cr)
 		bytes.high = 0xB0 + cr;
 		break;
 	case SOP_PU_PULSEDIALING:
+	default:
 		bytes.high = 0xF0 + cr;
 		break;
 	}
@@ -5876,20 +5879,13 @@ out:
 static int ixj_build_filter_cadence(IXJ *j, IXJ_FILTER_CADENCE __user * cp)
 {
 	IXJ_FILTER_CADENCE *lcp;
-	lcp = kmalloc(sizeof(IXJ_FILTER_CADENCE), GFP_KERNEL);
-	if (lcp == NULL) {
+	lcp = memdup_user(cp, sizeof(IXJ_FILTER_CADENCE));
+	if (IS_ERR(lcp)) {
 		if(ixjdebug & 0x0001) {
-			printk(KERN_INFO "Could not allocate memory for cadence\n");
+			printk(KERN_INFO "Could not allocate memory for cadence or could not copy cadence to kernel\n");
 		}
-		return -ENOMEM;
+		return PTR_ERR(lcp);
         }
-	if (copy_from_user(lcp, cp, sizeof(IXJ_FILTER_CADENCE))) {
-		if(ixjdebug & 0x0001) {
-			printk(KERN_INFO "Could not copy cadence to kernel\n");
-		}
-		kfree(lcp);
-		return -EFAULT;
-	}
 	if (lcp->filter > 5) {
 		if(ixjdebug & 0x0001) {
 			printk(KERN_INFO "Cadence out of range\n");
@@ -6090,15 +6086,15 @@ static int capabilities_check(IXJ *j, struct phone_capability *pcreq)
 	return retval;
 }
 
-static int ixj_ioctl(struct inode *inode, struct file *file_p, unsigned int cmd, unsigned long arg)
+static long do_ixj_ioctl(struct file *file_p, unsigned int cmd, unsigned long arg)
 {
 	IXJ_TONE ti;
 	IXJ_FILTER jf;
 	IXJ_FILTER_RAW jfr;
 	void __user *argp = (void __user *)arg;
-
-	unsigned int raise, mant;
+	struct inode *inode = file_p->f_path.dentry->d_inode;
 	unsigned int minor = iminor(inode);
+	unsigned int raise, mant;
 	int board = NUM(inode);
 
 	IXJ *j = get_ixj(NUM(inode));
@@ -6656,6 +6652,15 @@ static int ixj_ioctl(struct inode *inode, struct file *file_p, unsigned int cmd,
 	return retval;
 }
 
+static long ixj_ioctl(struct file *file_p, unsigned int cmd, unsigned long arg)
+{
+	long ret;
+	lock_kernel();
+	ret = do_ixj_ioctl(file_p, cmd, arg);
+	unlock_kernel();
+	return ret;
+}
+
 static int ixj_fasync(int fd, struct file *file_p, int mode)
 {
 	IXJ *j = get_ixj(NUM(file_p->f_path.dentry->d_inode));
@@ -6669,7 +6674,7 @@ static const struct file_operations ixj_fops =
         .read           = ixj_enhanced_read,
         .write          = ixj_enhanced_write,
         .poll           = ixj_poll,
-        .ioctl          = ixj_ioctl,
+        .unlocked_ioctl = ixj_ioctl,
         .release        = ixj_release,
         .fasync         = ixj_fasync
 };
@@ -9230,29 +9235,6 @@ static s16 tone_table[][19] =
 		 21,		/* 21/32 in-band to broad-band ratio */
 		 0x0FF5		/* shift-mask 0x0FF (look at 16 half-frames) bit count = 5 */
 	},
-#if 0
-	{			/* f425 */
-		30881,		/* A1 = -1.884827 */
-		 -32603,	/* A2 = 0.994965 */
-		 -496,		/* B2 = -0.015144 */
-		 0,		/* B1 = 0.000000 */
-		 496,		/* B0 = 0.015144 */
-		 30880,		/* A1 = -1.884766 */
-		 -32692,	/* A2 = 0.997711 */
-		 24767,		/* B2 = 0.755859 */
-		 -23290,	/* B1 = -1.421509 */
-		 24767,		/* B0 = 0.755859 */
-		 30967,		/* A1 = -1.890076 */
-		 -32694,	/* A2 = 0.997772 */
-		 728,		/* B2 = 0.022232 */
-		 -691,		/* B1 = -0.042194 */
-		 728,		/* B0 = 0.022232 */
-		 5,		/* Internal filter scaling */
-		 159,		/* Minimum in-band energy threshold */
-		 21,		/* 21/32 in-band to broad-band ratio */
-		 0x0FF5		/* shift-mask 0x0FF (look at 16 half-frames) bit count = 5 */
-	},
-#else
 	{
 		30850,
 		-32534,
@@ -9274,7 +9256,6 @@ static s16 tone_table[][19] =
 		17,
 		0xff5
 	},
-#endif
 	{			/* f425_450[] */
 		30646,		/* A1 = 1.870544 */
 		 -32327,	/* A2 = -0.986572 */
@@ -10542,4 +10523,3 @@ static int ixj_init_tone(IXJ *j, IXJ_TONE * ti)
 	}
 	return freq0;
 }
-

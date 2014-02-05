@@ -1,31 +1,10 @@
-/*
- *  linux/arch/arm/mach-ebsa110/isamem.c
- *
- *  Copyright (C) 2001 Russell King
- *
- * Perform "ISA" memory and IO accesses.  The EBSA110 has some "peculiarities"
- * in the way it handles accesses to odd IO ports on 16-bit devices.  These
- * devices have their D0-D15 lines connected to the processors D0-D15 lines.
- * Since they expect all byte IO operations to be performed on D0-D7, and the
- * StrongARM expects to transfer the byte to these odd addresses on D8-D15,
- * we must use a trick to get the required behaviour.
- *
- * The trick employed here is to use long word stores to odd address -1.  The
- * glue logic picks this up as a "trick" access, and asserts the LSB of the
- * peripherals address bus, thereby accessing the odd IO port.  Meanwhile, the
- * StrongARM transfers its data on D0-D7 as expected.
- *
- * Things get more interesting on the pass-1 EBSA110 - the PCMCIA controller
- * wiring was screwed in such a way that it had limited memory space access.
- * Luckily, the work-around for this is not too horrible.  See
- * __isamem_convert_addr for the details.
- */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/page.h>
 
 static void __iomem *__isamem_convert_addr(const volatile void __iomem *addr)

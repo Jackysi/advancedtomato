@@ -12,7 +12,7 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #define CPSR2SPSR(rt) \
 		mrs	rt, cpsr; \
@@ -42,4 +42,3 @@ ENTRY(ecard_loader_reset)
 		mov	lr, pc
 		add	pc, r1, #8
 		ldmfd	sp!, {r4 - r12, pc}
-

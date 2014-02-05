@@ -8,14 +8,15 @@
  * This file initializes the trap entry points
  */
 
+#include <linux/jiffies.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/tty.h>
 #include <linux/delay.h>
-#include <linux/smp_lock.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kallsyms.h>
+#include <linux/ratelimit.h>
 
 #include <asm/gentrap.h>
 #include <asm/uaccess.h>
@@ -26,11 +27,10 @@
 
 #include "proto.h"
 
-/* Work-around for some SRMs which mishandle opDEC faults.  */
 
 static int opDEC_fix;
 
-static void __init
+static void __cpuinit
 opDEC_check(void)
 {
 	__asm__ __volatile__ (
@@ -90,17 +90,8 @@ dik_show_regs(struct pt_regs *regs, unsigned long *r9_15)
 	printk("t11= %016lx  pv = %016lx  at = %016lx\n",
 	       regs->r25, regs->r27, regs->r28);
 	printk("gp = %016lx  sp = %p\n", regs->gp, regs+1);
-#if 0
-__halt();
-#endif
 }
 
-#if 0
-static char * ireg_name[] = {"v0", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-			   "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6",
-			   "a0", "a1", "a2", "a3", "a4", "a5", "t8", "t9",
-			   "t10", "t11", "ra", "pv", "at", "gp", "sp", "zero"};
-#endif
 
 static void
 dik_show_code(unsigned int *pc)
@@ -182,8 +173,9 @@ die_if_kernel(char * str, struct pt_regs *regs, long err, unsigned long *r9_15)
 #ifdef CONFIG_SMP
 	printk("CPU %d ", hard_smp_processor_id());
 #endif
-	printk("%s(%d): %s %ld\n", current->comm, current->pid, str, err);
+	printk("%s(%d): %s %ld\n", current->comm, task_pid_nr(current), str, err);
 	dik_show_regs(regs, r9_15);
+	add_taint(TAINT_DIE);
 	dik_show_trace((unsigned long *)(regs+1));
 	dik_show_code((unsigned int *)regs->pc);
 
@@ -445,7 +437,7 @@ struct unaligned_stat {
 
 
 /* Macro for exception fixup code to access integer registers.  */
-#define una_reg(r)  (regs->regs[(r) >= 16 && (r) <= 18 ? (r)+19 : (r)])
+#define una_reg(r)  (_regs[(r) >= 16 && (r) <= 18 ? (r)+19 : (r)])
 
 
 asmlinkage void
@@ -454,6 +446,7 @@ do_entUna(void * va, unsigned long opcode, unsigned long reg,
 {
 	long error, tmp1, tmp2, tmp3, tmp4;
 	unsigned long pc = regs->pc - 4;
+	unsigned long *_regs = regs->regs;
 	const struct exception_table_entry *fixup;
 
 	unaligned[0].count++;
@@ -619,8 +612,7 @@ do_entUna(void * va, unsigned long opcode, unsigned long reg,
 		return;
 	}
 
-	lock_kernel();
-	printk("Bad unaligned kernel access at %016lx: %p %lx %ld\n",
+	printk("Bad unaligned kernel access at %016lx: %p %lx %lu\n",
 		pc, va, opcode, reg);
 	do_exit(SIGSEGV);
 
@@ -642,10 +634,9 @@ got_exception:
 	 * Yikes!  No one to forward the exception to.
 	 * Since the registers are in a weird format, dump them ourselves.
  	 */
-	lock_kernel();
 
 	printk("%s(%d): unhandled unaligned exception\n",
-	       current->comm, current->pid);
+	       current->comm, task_pid_nr(current));
 
 	printk("pc = [<%016lx>]  ra = [<%016lx>]  ps = %04lx\n",
 	       pc, una_reg(26), regs->ps);
@@ -768,8 +759,7 @@ asmlinkage void
 do_entUnaUser(void __user * va, unsigned long opcode,
 	      unsigned long reg, struct pt_regs *regs)
 {
-	static int cnt = 0;
-	static long last_time = 0;
+	static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 5);
 
 	unsigned long tmp1, tmp2, tmp3, tmp4;
 	unsigned long fake_reg, *reg_addr = &fake_reg;
@@ -780,15 +770,11 @@ do_entUnaUser(void __user * va, unsigned long opcode,
 	   with the unaliged access.  */
 
 	if (!test_thread_flag (TIF_UAC_NOPRINT)) {
-		if (cnt >= 5 && jiffies - last_time > 5*HZ) {
-			cnt = 0;
-		}
-		if (++cnt < 5) {
+		if (__ratelimit(&ratelimit)) {
 			printk("%s(%d): unaligned trap at %016lx: %p %lx %ld\n",
-			       current->comm, current->pid,
+			       current->comm, task_pid_nr(current),
 			       regs->pc - 4, va, opcode, reg);
 		}
-		last_time = jiffies;
 	}
 	if (test_thread_flag (TIF_UAC_SIGBUS))
 		goto give_sigbus;
@@ -1069,7 +1055,7 @@ give_sigbus:
 	return;
 }
 
-void __init
+void __cpuinit
 trap_init(void)
 {
 	/* Tell PAL-code what global pointer we want in the kernel.  */

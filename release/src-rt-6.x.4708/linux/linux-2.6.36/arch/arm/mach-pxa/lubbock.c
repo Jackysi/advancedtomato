@@ -21,15 +21,16 @@
 #include <linux/interrupt.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/smc91x.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
-#include <asm/arch/pxa2xx_spi.h>
+#include <mach/pxa2xx_spi.h>
 
 #include <asm/setup.h>
 #include <asm/memory.h>
 #include <asm/mach-types.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/sizes.h>
 
@@ -40,17 +41,73 @@
 
 #include <asm/hardware/sa1111.h>
 
-#include <asm/arch/pxa-regs.h>
-#include <asm/arch/lubbock.h>
-#include <asm/arch/udc.h>
-#include <asm/arch/irda.h>
-#include <asm/arch/pxafb.h>
-#include <asm/arch/mmc.h>
+#include <mach/pxa25x.h>
+#include <mach/gpio.h>
+#include <mach/audio.h>
+#include <mach/lubbock.h>
+#include <mach/udc.h>
+#include <mach/irda.h>
+#include <mach/pxafb.h>
+#include <mach/mmc.h>
+#include <mach/pm.h>
 
 #include "generic.h"
+#include "clock.h"
+#include "devices.h"
 
+static unsigned long lubbock_pin_config[] __initdata = {
+	GPIO15_nCS_1,	/* CS1 - Flash */
+	GPIO78_nCS_2,	/* CS2 - Baseboard FGPA */
+	GPIO79_nCS_3,	/* CS3 - SMC ethernet */
+	GPIO80_nCS_4,	/* CS4 - SA1111 */
 
+	/* SSP data pins */
+	GPIO23_SSP1_SCLK,
+	GPIO25_SSP1_TXD,
+	GPIO26_SSP1_RXD,
+
+	/* AC97 */
+	GPIO28_AC97_BITCLK,
+	GPIO29_AC97_SDATA_IN_0,
+	GPIO30_AC97_SDATA_OUT,
+	GPIO31_AC97_SYNC,
+
+	/* LCD - 16bpp DSTN */
+	GPIOxx_LCD_DSTN_16BPP,
+
+	/* BTUART */
+	GPIO42_BTUART_RXD,
+	GPIO43_BTUART_TXD,
+	GPIO44_BTUART_CTS,
+	GPIO45_BTUART_RTS,
+
+	/* PC Card */
+	GPIO48_nPOE,
+	GPIO49_nPWE,
+	GPIO50_nPIOR,
+	GPIO51_nPIOW,
+	GPIO52_nPCE_1,
+	GPIO53_nPCE_2,
+	GPIO54_nPSKTSEL,
+	GPIO55_nPREG,
+	GPIO56_nPWAIT,
+	GPIO57_nIOIS16,
+
+	/* MMC */
+	GPIO6_MMC_CLK,
+	GPIO8_MMC_CS0,
+
+	/* wakeup */
+	GPIO1_GPIO | WAKEUP_ON_EDGE_RISE,
+};
+
+#define LUB_HEXLED		__LUB_REG(LUBBOCK_FPGA_PHYS + 0x010)
 #define LUB_MISC_WR		__LUB_REG(LUBBOCK_FPGA_PHYS + 0x080)
+
+void lubbock_set_hexled(uint32_t value)
+{
+	LUB_HEXLED = value;
+}
 
 void lubbock_set_misc_wr(unsigned int mask, unsigned int set)
 {
@@ -89,11 +146,10 @@ static void lubbock_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	unsigned long pending = LUB_IRQ_SET_CLR & lubbock_irq_enabled;
 	do {
-		GEDR(0) = GPIO_bit(0);	/* clear our parent irq */
+		desc->chip->ack(irq);	/* clear our parent irq */
 		if (likely(pending)) {
 			irq = LUBBOCK_IRQ(0) + __ffs(pending);
-			desc = irq_desc + irq;
-			desc_handle_irq(irq, desc);
+			generic_handle_irq(irq);
 		}
 		pending = LUB_IRQ_SET_CLR & lubbock_irq_enabled;
 	} while (pending);
@@ -103,7 +159,7 @@ static void __init lubbock_init_irq(void)
 {
 	int irq;
 
-	pxa_init_irq();
+	pxa25x_init_irq();
 
 	/* setup extra lubbock irqs */
 	for (irq = LUBBOCK_IRQ(0); irq <= LUBBOCK_LAST_IRQ; irq++) {
@@ -113,7 +169,7 @@ static void __init lubbock_init_irq(void)
 	}
 
 	set_irq_chained_handler(IRQ_GPIO(0), lubbock_irq_handler);
-	set_irq_type(IRQ_GPIO(0), IRQT_FALLING);
+	set_irq_type(IRQ_GPIO(0), IRQ_TYPE_EDGE_FALLING);
 }
 
 #ifdef CONFIG_PM
@@ -125,7 +181,7 @@ static int lubbock_irq_resume(struct sys_device *dev)
 }
 
 static struct sysdev_class lubbock_irq_sysclass = {
-	set_kset_name("cpld_irq"),
+	.name = "cpld_irq",
 	.resume = lubbock_irq_resume,
 };
 
@@ -135,9 +191,13 @@ static struct sys_device lubbock_irq_device = {
 
 static int __init lubbock_irq_device_init(void)
 {
-	int ret = sysdev_class_register(&lubbock_irq_sysclass);
-	if (ret == 0)
-		ret = sysdev_register(&lubbock_irq_device);
+	int ret = -ENODEV;
+
+	if (machine_is_lubbock()) {
+		ret = sysdev_class_register(&lubbock_irq_sysclass);
+		if (ret == 0)
+			ret = sysdev_register(&lubbock_irq_device);
+	}
 	return ret;
 }
 
@@ -155,11 +215,6 @@ static struct pxa2xx_udc_mach_info udc_info __initdata = {
 	// no D+ pullup; lubbock can't connect/disconnect in software
 };
 
-static struct platform_device lub_audio_device = {
-	.name		= "pxa2xx-ac97",
-	.id		= -1,
-};
-
 static struct resource sa1111_resources[] = {
 	[0] = {
 		.start	= 0x10000000,
@@ -173,30 +228,17 @@ static struct resource sa1111_resources[] = {
 	},
 };
 
+static struct sa1111_platform_data sa1111_info = {
+	.irq_base	= IRQ_BOARD_END,
+};
+
 static struct platform_device sa1111_device = {
 	.name		= "sa1111",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(sa1111_resources),
 	.resource	= sa1111_resources,
-};
-
-static struct resource smc91x_resources[] = {
-	[0] = {
-		.name	= "smc91x-regs",
-		.start	= 0x0c000c00,
-		.end	= 0x0c0fffff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= LUBBOCK_ETH_IRQ,
-		.end	= LUBBOCK_ETH_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		.name	= "smc91x-attrib",
-		.start	= 0x0e000000,
-		.end	= 0x0e0fffff,
-		.flags	= IORESOURCE_MEM,
+	.dev		= {
+		.platform_data	= &sa1111_info,
 	},
 };
 
@@ -205,33 +247,8 @@ static struct resource smc91x_resources[] = {
  * (to J5) and poking board registers (as done below).  Else it's only useful
  * for the temperature sensors.
  */
-static struct resource pxa_ssp_resources[] = {
-	[0] = {
-		.start	= __PREG(SSCR0_P(1)),
-		.end	= __PREG(SSCR0_P(1)) + 0x14,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= IRQ_SSP,
-		.end	= IRQ_SSP,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
 static struct pxa2xx_spi_master pxa_ssp_master_info = {
-	.ssp_type	= PXA25x_SSP,
-	.clock_enable	= CKEN_SSP,
-	.num_chipselect	= 0,
-};
-
-static struct platform_device pxa_ssp = {
-	.name		= "pxa2xx-spi",
-	.id		= 1,
-	.resource	= pxa_ssp_resources,
-	.num_resources	= ARRAY_SIZE(pxa_ssp_resources),
-	.dev = {
-		.platform_data	= &pxa_ssp_master_info,
-	},
+	.num_chipselect	= 1,
 };
 
 static int lubbock_ads7846_pendown_state(void)
@@ -272,11 +289,38 @@ static struct spi_board_info spi_board_info[] __initdata = { {
 },
 };
 
+static struct resource smc91x_resources[] = {
+	[0] = {
+		.name	= "smc91x-regs",
+		.start	= 0x0c000c00,
+		.end	= 0x0c0fffff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= LUBBOCK_ETH_IRQ,
+		.end	= LUBBOCK_ETH_IRQ,
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE,
+	},
+	[2] = {
+		.name	= "smc91x-attrib",
+		.start	= 0x0e000000,
+		.end	= 0x0e0fffff,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct smc91x_platdata lubbock_smc91x_info = {
+	.flags	= SMC91X_USE_16BIT | SMC91X_NOWAIT | SMC91X_IO_SHIFT_2,
+};
+
 static struct platform_device smc91x_device = {
 	.name		= "smc91x",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(smc91x_resources),
 	.resource	= smc91x_resources,
+	.dev		= {
+		.platform_data = &lubbock_smc91x_info,
+	},
 };
 
 static struct resource flash_resources[] = {
@@ -344,11 +388,9 @@ static struct platform_device lubbock_flash_device[2] = {
 
 static struct platform_device *devices[] __initdata = {
 	&sa1111_device,
-	&lub_audio_device,
 	&smc91x_device,
 	&lubbock_flash_device[0],
 	&lubbock_flash_device[1],
-	&pxa_ssp,
 };
 
 static struct pxafb_mode_info sharp_lm8v31_mode = {
@@ -371,8 +413,8 @@ static struct pxafb_mach_info sharp_lm8v31 = {
 	.num_modes	= 1,
 	.cmap_inverse	= 0,
 	.cmap_static	= 0,
-	.lccr0		= LCCR0_SDS,
-	.lccr3		= LCCR3_PCP | LCCR3_Acb(255),
+	.lcd_conn	= LCD_COLOR_DSTN_16BPP | LCD_PCLK_EDGE_FALL |
+			  LCD_AC_BIAS_FREQ(255),
 };
 
 #define	MMC_POLL_RATE		msecs_to_jiffies(1000)
@@ -415,10 +457,6 @@ static int lubbock_mci_init(struct device *dev,
 		irq_handler_t detect_int,
 		void *data)
 {
-	/* setup GPIO for PXA25x MMC controller	*/
-	pxa_gpio_mode(GPIO6_MMCCLK_MD);
-	pxa_gpio_mode(GPIO8_MMCCS0_MD);
-
 	/* detect card insert/eject */
 	mmc_detect_int = detect_int;
 	init_timer(&mmc_timer);
@@ -439,11 +477,14 @@ static void lubbock_mci_exit(struct device *dev, void *data)
 }
 
 static struct pxamci_platform_data lubbock_mci_platform_data = {
-	.ocr_mask	= MMC_VDD_32_33|MMC_VDD_33_34,
-	.detect_delay	= 1,
-	.init 		= lubbock_mci_init,
-	.get_ro		= lubbock_mci_get_ro,
-	.exit 		= lubbock_mci_exit,
+	.ocr_mask		= MMC_VDD_32_33|MMC_VDD_33_34,
+	.detect_delay_ms	= 10,
+	.init 			= lubbock_mci_init,
+	.get_ro			= lubbock_mci_get_ro,
+	.exit 			= lubbock_mci_exit,
+	.gpio_card_detect	= -1,
+	.gpio_card_ro		= -1,
+	.gpio_power		= -1,
 };
 
 static void lubbock_irda_transceiver_mode(struct device *dev, int mode)
@@ -456,22 +497,32 @@ static void lubbock_irda_transceiver_mode(struct device *dev, int mode)
 	} else if (mode & IR_FIRMODE) {
 		LUB_MISC_WR |= 1 << 4;
 	}
+	pxa2xx_transceiver_mode(dev, mode);
 	local_irq_restore(flags);
 }
 
 static struct pxaficp_platform_data lubbock_ficp_platform_data = {
-	.transceiver_cap  = IR_SIRMODE | IR_FIRMODE,
-	.transceiver_mode = lubbock_irda_transceiver_mode,
+	.gpio_pwdown		= -1,
+	.transceiver_cap	= IR_SIRMODE | IR_FIRMODE,
+	.transceiver_mode	= lubbock_irda_transceiver_mode,
 };
 
 static void __init lubbock_init(void)
 {
 	int flashboot = (LUB_CONF_SWITCHES & 1);
 
+	pxa2xx_mfp_config(ARRAY_AND_SIZE(lubbock_pin_config));
+
+	pxa_set_ffuart_info(NULL);
+	pxa_set_btuart_info(NULL);
+	pxa_set_stuart_info(NULL);
+
+	clk_add_alias("SA1111_CLK", NULL, "GPIO11_CLK", NULL);
 	pxa_set_udc_info(&udc_info);
 	set_pxa_fb_info(&sharp_lm8v31);
 	pxa_set_mci_info(&lubbock_mci_platform_data);
 	pxa_set_ficp_info(&lubbock_ficp_platform_data);
+	pxa_set_ac97_info(NULL);
 
 	lubbock_flash_data[0].width = lubbock_flash_data[1].width =
 		(BOOT_DEF & 1) ? 2 : 4;
@@ -483,6 +534,7 @@ static void __init lubbock_init(void)
 	lubbock_flash_data[flashboot].name = "boot-rom";
 	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
 
+	pxa2xx_set_spi_info(1, &pxa_ssp_master_info);
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 }
 
@@ -500,27 +552,6 @@ static void __init lubbock_map_io(void)
 	pxa_map_io();
 	iotable_init(lubbock_io_desc, ARRAY_SIZE(lubbock_io_desc));
 
-	/* SSP data pins */
-	pxa_gpio_mode(GPIO23_SCLK_MD);
-	pxa_gpio_mode(GPIO25_STXD_MD);
-	pxa_gpio_mode(GPIO26_SRXD_MD);
-
-	/* This enables the BTUART */
-	pxa_gpio_mode(GPIO42_BTRXD_MD);
-	pxa_gpio_mode(GPIO43_BTTXD_MD);
-	pxa_gpio_mode(GPIO44_BTCTS_MD);
-	pxa_gpio_mode(GPIO45_BTRTS_MD);
-
-	/* This is for the SMC chip select */
-	pxa_gpio_mode(GPIO79_nCS_3_MD);
-
-	/* setup sleep mode values */
-	PWER  = 0x00000002;
-	PFER  = 0x00000000;
-	PRER  = 0x00000002;
-	PGSR0 = 0x00008000;
-	PGSR1 = 0x003F0202;
-	PGSR2 = 0x0001C000;
 	PCFR |= PCFR_OPDE;
 }
 

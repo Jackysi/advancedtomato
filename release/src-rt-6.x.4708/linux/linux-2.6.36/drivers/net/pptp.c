@@ -417,7 +417,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		}
 	}
 #endif
-	tdev = rt->u.dst.dev;
+	tdev = rt->dst.dev;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	max_headroom = ((tdev->hard_header_len+15)&~15) + sizeof(*iph)+sizeof(*hdr)+2;
@@ -524,7 +524,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 #endif
 	iph->version		=	4;
 	iph->ihl		=	sizeof(struct iphdr) >> 2;
-	if (ip_dont_fragment(sk, &rt->u.dst))
+	if (ip_dont_fragment(sk, &rt->dst))
 		iph->frag_off	=	htons(IP_DF);
 	else
 		iph->frag_off	=	0;
@@ -535,28 +535,28 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	iph->ttl = sk->protinfo.af_inet.ttl;
 #else
-	iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
+	iph->ttl = dst_metric(&rt->dst, RTAX_HOPLIMIT);
 #endif
 	iph->tot_len = htons(skb->len);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 	skb_dst_drop(skb);
-	skb_dst_set(skb,&rt->u.dst);
+	skb_dst_set(skb,&rt->dst);
 #else
 	dst_release(skb->dst);
-	skb->dst = &rt->u.dst;
+	skb->dst = &rt->dst;
 #endif
 
 	nf_reset(skb);
 
 	skb->ip_summed = CHECKSUM_NONE;
-	ip_select_ident(iph, &rt->u.dst, NULL);
+	ip_select_ident(iph, &rt->dst, NULL);
 	ip_send_check(iph);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, ip_send);
+ 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->dst.dev, ip_send);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, dst_output);
+ 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->dst.dev, dst_output);
 #else
  	err = ip_local_out(skb);
 #endif
@@ -873,13 +873,13 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 			error = -EHOSTUNREACH;
 			goto end;
 		}
-		sk_setup_caps(sk, &rt->u.dst);
+		sk_setup_caps(sk, &rt->dst);
 	}
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	po->chan.mtu=PPP_MTU;
 #else
-	po->chan.mtu=dst_mtu(&rt->u.dst);
+	po->chan.mtu=dst_mtu(&rt->dst);
 	if (!po->chan.mtu) po->chan.mtu=PPP_MTU;
 #endif
 	ip_rt_put(rt);
@@ -1163,7 +1163,7 @@ static int __init pptp_init_module(void)
 {
 	int err=0;
 	printk(KERN_INFO "PPTP driver version " PPTP_DRIVER_VERSION "\n");
-
+printk("=== PPTP init ===\n");
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
 	                        GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);

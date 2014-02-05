@@ -14,28 +14,23 @@
  */
 
 #include <linux/sched.h>
-#include <linux/slab.h>
 #include <linux/mman.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/dma.h>
-#include <asm/io.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/map.h>
-#include <asm/arch/irqs.h>
+#include <mach/irqs.h>
 
 #include <asm/mach/dma.h>
 
-#if 0
-#define IRQDBG(args...) printk(args)
-#else
 #define IRQDBG(args...) do {} while(0)
-#endif
 
 void __init arch_dma_init(dma_t *dma)
 {
@@ -103,15 +98,13 @@ static void
 h720x_gpio_handler(unsigned int mask, unsigned int irq,
                  struct irq_desc *desc)
 {
-	IRQDBG("%s irq: %d\n",__FUNCTION__,irq);
-	desc = irq_desc + irq;
+	IRQDBG("%s irq: %d\n", __func__, irq);
 	while (mask) {
 		if (mask & 1) {
 			IRQDBG("handling irq %d\n", irq);
-			desc_handle_irq(irq, desc);
+			generic_handle_irq(irq);
 		}
 		irq++;
-		desc++;
 		mask >>= 1;
 	}
 }
@@ -123,7 +116,7 @@ h720x_gpioa_demux_handler(unsigned int irq_unused, struct irq_desc *desc)
 
 	mask = CPU_REG(GPIO_A_VIRT,GPIO_STAT);
 	irq = IRQ_CHAINED_GPIOA(0);
-	IRQDBG("%s mask: 0x%08x irq: %d\n",__FUNCTION__,mask,irq);
+	IRQDBG("%s mask: 0x%08x irq: %d\n", __func__, mask,irq);
 	h720x_gpio_handler(mask, irq, desc);
 }
 
@@ -133,7 +126,7 @@ h720x_gpiob_demux_handler(unsigned int irq_unused, struct irq_desc *desc)
 	unsigned int mask, irq;
 	mask = CPU_REG(GPIO_B_VIRT,GPIO_STAT);
 	irq = IRQ_CHAINED_GPIOB(0);
-	IRQDBG("%s mask: 0x%08x irq: %d\n",__FUNCTION__,mask,irq);
+	IRQDBG("%s mask: 0x%08x irq: %d\n", __func__, mask,irq);
 	h720x_gpio_handler(mask, irq, desc);
 }
 
@@ -144,7 +137,7 @@ h720x_gpioc_demux_handler(unsigned int irq_unused, struct irq_desc *desc)
 
 	mask = CPU_REG(GPIO_C_VIRT,GPIO_STAT);
 	irq = IRQ_CHAINED_GPIOC(0);
-	IRQDBG("%s mask: 0x%08x irq: %d\n",__FUNCTION__,mask,irq);
+	IRQDBG("%s mask: 0x%08x irq: %d\n", __func__, mask,irq);
 	h720x_gpio_handler(mask, irq, desc);
 }
 
@@ -155,7 +148,7 @@ h720x_gpiod_demux_handler(unsigned int irq_unused, struct irq_desc *desc)
 
 	mask = CPU_REG(GPIO_D_VIRT,GPIO_STAT);
 	irq = IRQ_CHAINED_GPIOD(0);
-	IRQDBG("%s mask: 0x%08x irq: %d\n",__FUNCTION__,mask,irq);
+	IRQDBG("%s mask: 0x%08x irq: %d\n", __func__, mask,irq);
 	h720x_gpio_handler(mask, irq, desc);
 }
 
@@ -167,7 +160,7 @@ h720x_gpioe_demux_handler(unsigned int irq_unused, struct irq_desc *desc)
 
 	mask = CPU_REG(GPIO_E_VIRT,GPIO_STAT);
 	irq = IRQ_CHAINED_GPIOE(0);
-	IRQDBG("%s mask: 0x%08x irq: %d\n",__FUNCTION__,mask,irq);
+	IRQDBG("%s mask: 0x%08x irq: %d\n", __func__, mask,irq);
 	h720x_gpio_handler(mask, irq, desc);
 }
 #endif

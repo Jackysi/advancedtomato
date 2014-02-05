@@ -20,6 +20,7 @@
 #include "opl4_local.h"
 #include <sound/initval.h>
 #include <linux/ioport.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <asm/io.h>
 
@@ -151,7 +152,8 @@ static int snd_opl4_detect(struct snd_opl4 *opl4)
 	return 0;
 }
 
-#if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && defined(CONFIG_SND_SEQUENCER_MODULE))
+#if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && \
+	defined(CONFIG_SND_SEQUENCER_MODULE))
 static void snd_opl4_seq_dev_free(struct snd_seq_device *seq_dev)
 {
 	struct snd_opl4 *opl4 = seq_dev->private_data;
@@ -251,7 +253,8 @@ int snd_opl4_create(struct snd_card *card,
 	snd_opl4_create_proc(opl4);
 #endif
 
-#if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && defined(CONFIG_SND_SEQUENCER_MODULE))
+#if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && \
+	defined(CONFIG_SND_SEQUENCER_MODULE))
 	opl4->seq_client = -1;
 	if (opl4->hardware < OPL3_HW_OPL4_ML)
 		snd_opl4_create_seq_dev(opl4, seq_device);

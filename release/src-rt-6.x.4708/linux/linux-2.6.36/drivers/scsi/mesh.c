@@ -23,7 +23,6 @@
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/string.h>
-#include <linux/slab.h>
 #include <linux/blkdev.h>
 #include <linux/proc_fs.h>
 #include <linux/stat.h>
@@ -50,10 +49,8 @@
 
 #include "mesh.h"
 
-#if 1
 #undef KERN_DEBUG
 #define KERN_DEBUG KERN_WARNING
-#endif
 
 MODULE_AUTHOR("Paul Mackerras (paulus@samba.org)");
 MODULE_DESCRIPTION("PowerMac MESH SCSI driver");
@@ -413,7 +410,6 @@ static void mesh_start_cmd(struct mesh_state *ms, struct scsi_cmnd *cmd)
 	ms->tgts[id].data_goes_out = cmd->sc_data_direction == DMA_TO_DEVICE;
 	ms->tgts[id].current_req = cmd;
 
-#if 1
 	if (DEBUG_TARGET(cmd)) {
 		int i;
 		printk(KERN_DEBUG "mesh_start: %p ser=%lu tgt=%d cmd=",
@@ -421,9 +417,8 @@ static void mesh_start_cmd(struct mesh_state *ms, struct scsi_cmnd *cmd)
 		for (i = 0; i < cmd->cmd_len; ++i)
 			printk(" %x", cmd->cmnd[i]);
 		printk(" use_sg=%d buffer=%p bufflen=%u\n",
-		       cmd->use_sg, cmd->request_buffer, cmd->request_bufflen);
+		       scsi_sg_count(cmd), scsi_sglist(cmd), scsi_bufflen(cmd));
 	}
-#endif
 	if (ms->dma_started)
 		panic("mesh: double DMA start !\n");
 
@@ -473,7 +468,6 @@ static void mesh_start_cmd(struct mesh_state *ms, struct scsi_cmnd *cmd)
 			udelay(1);
 		}
 		if (in_8(&mr->bus_status1) & (BS1_BSY | BS1_SEL)) {
-			/* XXX should try again in a little while */
 			ms->stat = DID_BUS_BUSY;
 			ms->phase = idle;
 			mesh_done(ms, 0);
@@ -602,13 +596,7 @@ static void mesh_done(struct mesh_state *ms, int start_next)
 			cmd->result += (cmd->SCp.Message << 8);
 		if (DEBUG_TARGET(cmd)) {
 			printk(KERN_DEBUG "mesh_done: result = %x, data_ptr=%d, buflen=%d\n",
-			       cmd->result, ms->data_ptr, cmd->request_bufflen);
-			if ((cmd->cmnd[0] == 0 || cmd->cmnd[0] == 0x12 || cmd->cmnd[0] == 3)
-			    && cmd->request_buffer != 0) {
-				unsigned char *b = cmd->request_buffer;
-				printk(KERN_DEBUG "buffer = %x %x %x %x %x %x %x %x\n",
-				       b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
-			}
+			       cmd->result, ms->data_ptr, scsi_bufflen(cmd));
 		}
 		cmd->SCp.this_residual -= ms->data_ptr;
 		mesh_completed(ms, cmd);
@@ -1265,15 +1253,18 @@ static void set_dma_cmds(struct mesh_state *ms, struct scsi_cmnd *cmd)
 	dcmds = ms->dma_cmds;
 	dtot = 0;
 	if (cmd) {
-		cmd->SCp.this_residual = cmd->request_bufflen;
-		if (cmd->use_sg > 0) {
-			int nseg;
+		int nseg;
+
+		cmd->SCp.this_residual = scsi_bufflen(cmd);
+
+		nseg = scsi_dma_map(cmd);
+		BUG_ON(nseg < 0);
+
+		if (nseg) {
 			total = 0;
-			scl = (struct scatterlist *) cmd->request_buffer;
 			off = ms->data_ptr;
-			nseg = pci_map_sg(ms->pdev, scl, cmd->use_sg,
-					  cmd->sc_data_direction);
-			for (i = 0; i <nseg; ++i, ++scl) {
+
+			scsi_for_each_sg(cmd, scl, nseg, i) {
 				u32 dma_addr = sg_dma_address(scl);
 				u32 dma_len = sg_dma_len(scl);
 				
@@ -1292,16 +1283,6 @@ static void set_dma_cmds(struct mesh_state *ms, struct scsi_cmnd *cmd)
 				dtot += dma_len - off;
 				off = 0;
 			}
-		} else if (ms->data_ptr < cmd->request_bufflen) {
-			dtot = cmd->request_bufflen - ms->data_ptr;
-			if (dtot > 0xffff)
-				panic("mesh: transfer size >= 64k");
-			st_le16(&dcmds->req_count, dtot);
-			/* XXX Use pci DMA API here ... */
-			st_le32(&dcmds->phy_addr,
-				virt_to_phys(cmd->request_buffer) + ms->data_ptr);
-			dcmds->xfer_status = 0;
-			++dcmds;
 		}
 	}
 	if (dtot == 0) {
@@ -1356,18 +1337,14 @@ static void halt_dma(struct mesh_state *ms)
 		dumplog(ms, ms->conn_tgt);
 		dumpslog(ms);
 #endif /* MESH_DBG */
-	} else if (cmd && cmd->request_bufflen != 0 &&
-		   ms->data_ptr > cmd->request_bufflen) {
+	} else if (cmd && scsi_bufflen(cmd) &&
+		   ms->data_ptr > scsi_bufflen(cmd)) {
 		printk(KERN_DEBUG "mesh: target %d overrun, "
 		       "data_ptr=%x total=%x goes_out=%d\n",
-		       ms->conn_tgt, ms->data_ptr, cmd->request_bufflen,
+		       ms->conn_tgt, ms->data_ptr, scsi_bufflen(cmd),
 		       ms->tgts[ms->conn_tgt].data_goes_out);
 	}
-	if (cmd->use_sg != 0) {
-		struct scatterlist *sg;
-		sg = (struct scatterlist *)cmd->request_buffer;
-		pci_unmap_sg(ms->pdev, sg, cmd->use_sg, cmd->sc_data_direction);
-	}
+	scsi_dma_unmap(cmd);
 	ms->dma_started = 0;
 }
 
@@ -1667,13 +1644,6 @@ static void mesh_interrupt(struct mesh_state *ms)
 	volatile struct mesh_regs __iomem *mr = ms->mesh;
 	int intr;
 
-#if 0
-	if (ALLOW_DEBUG(ms->conn_tgt))
-		printk(KERN_DEBUG "mesh_intr, bs0=%x int=%x exc=%x err=%x "
-		       "phase=%d msgphase=%d\n", mr->bus_status0,
-		       mr->interrupt, mr->exception, mr->error,
-		       ms->phase, ms->msgphase);
-#endif
 	while ((intr = in_8(&mr->interrupt)) != 0) {
 		dlog(ms, "interrupt intr/err/exc/seq=%.8x", 
 		     MKWORD(intr, mr->error, mr->exception, mr->sequence));
@@ -1767,12 +1737,13 @@ static int mesh_suspend(struct macio_dev *mdev, pm_message_t mesg)
 
 	switch (mesg.event) {
 	case PM_EVENT_SUSPEND:
+	case PM_EVENT_HIBERNATE:
 	case PM_EVENT_FREEZE:
 		break;
 	default:
 		return 0;
 	}
-	if (mesg.event == mdev->ofdev.dev.power.power_state.event)
+	if (ms->phase == sleeping)
 		return 0;
 
 	scsi_block_requests(ms->host);
@@ -1787,8 +1758,6 @@ static int mesh_suspend(struct macio_dev *mdev, pm_message_t mesg)
 	disable_irq(ms->meshintr);
 	set_mesh_power(ms, 0);
 
-	mdev->ofdev.dev.power.power_state = mesg;
-
 	return 0;
 }
 
@@ -1797,7 +1766,7 @@ static int mesh_resume(struct macio_dev *mdev)
 	struct mesh_state *ms = (struct mesh_state *)macio_get_drvdata(mdev);
 	unsigned long flags;
 
-	if (mdev->ofdev.dev.power.power_state.event == PM_EVENT_ON)
+	if (ms->phase != sleeping)
 		return 0;
 
 	set_mesh_power(ms, 1);
@@ -1807,8 +1776,6 @@ static int mesh_resume(struct macio_dev *mdev)
 	spin_unlock_irqrestore(ms->host->host_lock, flags);
 	enable_irq(ms->meshintr);
 	scsi_unblock_requests(ms->host);
-
-	mdev->ofdev.dev.power.power_state.event = PM_EVENT_ON;
 
 	return 0;
 }
@@ -2048,8 +2015,11 @@ MODULE_DEVICE_TABLE (of, mesh_match);
 
 static struct macio_driver mesh_driver = 
 {
-	.name 		= "mesh",
-	.match_table	= mesh_match,
+	.driver = {
+		.name 		= "mesh",
+		.owner		= THIS_MODULE,
+		.of_match_table	= mesh_match,
+	},
 	.probe		= mesh_probe,
 	.remove		= mesh_remove,
 	.shutdown	= mesh_shutdown,

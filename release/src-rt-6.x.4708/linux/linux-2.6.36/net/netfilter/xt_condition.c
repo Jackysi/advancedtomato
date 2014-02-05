@@ -26,7 +26,6 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
-#include <asm/semaphore.h>
 #include <linux/string.h>
 #include <linux/list.h>
 #include <asm/atomic.h>
@@ -67,7 +66,7 @@ struct condition_variable {
 
 /* proc_lock is a user context only semaphore used for write access */
 /*           to the conditions' list.                               */
-static DECLARE_MUTEX(proc_lock);
+static DEFINE_MUTEX(proc_lock);
 
 static LIST_HEAD(conditions_list);
 static struct proc_dir_entry *proc_net_condition = NULL;
@@ -115,22 +114,11 @@ xt_condition_write_info(struct file *file, const char __user *buffer,
 }
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-static int
-match(const struct sk_buff *skb, const struct net_device *in,
-      const struct net_device *out, const struct xt_match *match,
-      const void *matchinfo, int offset,
-      unsigned int protoff, int *hotdrop)
-#else
-bool
-match(const struct sk_buff *skb, const struct net_device *in,
-      const struct net_device *out, const struct xt_match *match,
-      const void *matchinfo, int offset,
-      unsigned int protoff, bool *hotdrop)
-#endif
+static bool
+match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct condition_info *info =
-	    (const struct condition_info *) matchinfo;
+	    (const struct condition_info *) par->matchinfo;
 	struct condition_variable *var;
 	int condition_status = 0;
 
@@ -148,21 +136,11 @@ match(const struct sk_buff *skb, const struct net_device *in,
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 static int
-#else
-bool
-#endif
-checkentry(const char *tablename, const void *ip,
-	   const struct xt_match *match,
-	   void *matchinfo,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-	   unsigned int matchsize,
-#endif
-	   unsigned int hook_mask)
+checkentry(const struct xt_mtchk_param *par)
 {
 	static const char * const forbidden_names[]={ "", ".", ".." };
-	struct condition_info *info = (struct condition_info *) matchinfo;
+	struct condition_info *info = (struct condition_info *) par->matchinfo;
 	struct list_head *pos;
 	struct condition_variable *var, *newvar;
 
@@ -171,28 +149,28 @@ checkentry(const char *tablename, const void *ip,
 	/* We don't want a '/' in a proc file name. */
 	for (i=0; i < CONDITION_NAME_LEN && info->name[i] != '\0'; i++)
 		if (info->name[i] == '/')
-			return 0;
+			return -EINVAL;
 	/* We can't handle file names longer than CONDITION_NAME_LEN and */
 	/* we want a NULL terminated string. */
 	if (i == CONDITION_NAME_LEN)
-		return 0;
+		return -EINVAL;
 
 	/* We don't want certain reserved names. */
 	for (i=0; i < sizeof(forbidden_names)/sizeof(char *); i++)
 		if(strcmp(info->name, forbidden_names[i])==0)
-			return 0;
+			return -EINVAL;
 
 	/* Let's acquire the lock, check for the condition and add it */
 	/* or increase the reference counter.                         */
-	if (down_interruptible(&proc_lock))
+	if (mutex_lock_interruptible(&proc_lock))
 	   return -EINTR;
 
 	list_for_each(pos, &conditions_list) {
 		var = list_entry(pos, struct condition_variable, list);
 		if (strcmp(info->name, var->status_proc->name) == 0) {
 			var->refcount++;
-			up(&proc_lock);
-			return 1;
+			mutex_unlock(&proc_lock);
+			return 0;
 		}
 	}
 
@@ -200,7 +178,7 @@ checkentry(const char *tablename, const void *ip,
 	newvar = kmalloc(sizeof(struct condition_variable), GFP_KERNEL);
 
 	if (!newvar) {
-		up(&proc_lock);
+		mutex_unlock(&proc_lock);
 		return -ENOMEM;
 	}
 
@@ -209,13 +187,12 @@ checkentry(const char *tablename, const void *ip,
 
 	if (!newvar->status_proc) {
 		kfree(newvar);
-		up(&proc_lock);
+		mutex_unlock(&proc_lock);
 		return -ENOMEM;
 	}
 
 	newvar->refcount = 1;
 	newvar->enabled = 0;
-	newvar->status_proc->owner = THIS_MODULE;
 	newvar->status_proc->data = newvar;
 	wmb();
 	newvar->status_proc->read_proc = xt_condition_read_info;
@@ -226,30 +203,21 @@ checkentry(const char *tablename, const void *ip,
 	newvar->status_proc->uid = condition_uid_perms;
 	newvar->status_proc->gid = condition_gid_perms;
 
-	up(&proc_lock);
+	mutex_unlock(&proc_lock);
 
-	return 1;
+	return 0;
 }
 
 
 static void
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-destroy(const struct xt_match *match, void *matchinfo,
-	unsigned int matchsize)
-#else
-destroy(const struct xt_match *match, void *matchinfo)
-#endif
+destroy(const struct xt_mtdtor_param *par)
 {
-	struct condition_info *info = (struct condition_info *) matchinfo;
+	struct condition_info *info = (struct condition_info *) par->matchinfo;
 	struct list_head *pos;
 	struct condition_variable *var;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-	if (matchsize != XT_ALIGN(sizeof(struct condition_info)))
-		return;
-#endif
 
-	down(&proc_lock);
+	mutex_lock(&proc_lock);
 
 	list_for_each(pos, &conditions_list) {
 		var = list_entry(pos, struct condition_variable, list);
@@ -257,7 +225,7 @@ destroy(const struct xt_match *match, void *matchinfo)
 			if (--var->refcount == 0) {
 				list_del_rcu(pos);
 				remove_proc_entry(var->status_proc->name, proc_net_condition);
-				up(&proc_lock);
+				mutex_unlock(&proc_lock);
 				/* synchronize_rcu() would be goog enough, but synchronize_net() */
 				/* guarantees that no packet will go out with the old rule after */
 				/* succesful removal.                                            */
@@ -269,13 +237,13 @@ destroy(const struct xt_match *match, void *matchinfo)
 		}
 	}
 
-	up(&proc_lock);
+	mutex_unlock(&proc_lock);
 }
 
 
 static struct xt_match condition_match = {
 	.name = "condition",
-	.family = AF_INET,
+	.family = NFPROTO_IPV4,
 	.matchsize = sizeof(struct condition_info),
 	.match = &match,
 	.checkentry = &checkentry,
@@ -285,7 +253,7 @@ static struct xt_match condition_match = {
 
 static struct xt_match condition6_match = {
 	.name = "condition",
-	.family = AF_INET6,
+	.family = NFPROTO_IPV6,
 	.matchsize = sizeof(struct condition_info),
 	.match = &match,
 	.checkentry = &checkentry,
@@ -296,9 +264,7 @@ static struct xt_match condition6_match = {
 static int __init
 init(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	struct proc_dir_entry * const proc_net=init_net.proc_net;
-#endif
 	int errorcode;
 
 	dir_name = compat_dir_name? "ipt_condition": "nf_condition";
@@ -333,11 +299,7 @@ fini(void)
 {
 	xt_unregister_match(&condition6_match);
 	xt_unregister_match(&condition_match);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	remove_proc_entry(dir_name, init_net.proc_net);
-#else
-	remove_proc_entry(dir_name, proc_net);
-#endif
 }
 
 module_init(init);

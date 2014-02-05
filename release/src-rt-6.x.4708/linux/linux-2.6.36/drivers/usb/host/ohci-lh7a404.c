@@ -8,7 +8,7 @@
  * Bus Glue for Sharp LH7A404
  *
  * Written by Christopher Hoover <ch@hpl.hp.com>
- * Based on fragments of previous driver by Rusell King et al.
+ * Based on fragments of previous driver by Russell King et al.
  *
  * Modified for LH7A404 from ohci-sa1111.c
  *  by Durgesh Pattamatta <pattamattad@sharpsec.com>
@@ -19,7 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/signal.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 
 extern int usb_disabled(void);
@@ -28,8 +28,8 @@ extern int usb_disabled(void);
 
 static void lh7a404_start_hc(struct platform_device *dev)
 {
-	printk(KERN_DEBUG __FILE__
-	       ": starting LH7A404 OHCI USB Controller\n");
+	printk(KERN_DEBUG "%s: starting LH7A404 OHCI USB Controller\n",
+	       __FILE__);
 
 	/*
 	 * Now, carefully enable the USB clock, and take
@@ -39,14 +39,13 @@ static void lh7a404_start_hc(struct platform_device *dev)
 	udelay(1000);
 	USBH_CMDSTATUS = OHCI_HCR;
 
-	printk(KERN_DEBUG __FILE__
-		   ": Clock to USB host has been enabled \n");
+	printk(KERN_DEBUG "%s: Clock to USB host has been enabled \n", __FILE__);
 }
 
 static void lh7a404_stop_hc(struct platform_device *dev)
 {
-	printk(KERN_DEBUG __FILE__
-	       ": stopping LH7A404 OHCI USB Controller\n");
+	printk(KERN_DEBUG "%s: stopping LH7A404 OHCI USB Controller\n",
+	       __FILE__);
 
 	CSC_PWRCNT &= ~CSC_PWRCNT_USBH_EN; /* Disable clock */
 }
@@ -193,7 +192,6 @@ static const struct hc_driver ohci_lh7a404_hc_driver = {
 	 */
 	.hub_status_data =	ohci_hub_status_data,
 	.hub_control =		ohci_hub_control,
-	.hub_irq_enable =	ohci_rhsc_enable,
 #ifdef	CONFIG_PM
 	.bus_suspend =		ohci_bus_suspend,
 	.bus_resume =		ohci_bus_resume,
@@ -251,3 +249,4 @@ static struct platform_driver ohci_hcd_lh7a404_driver = {
 	},
 };
 
+MODULE_ALIAS("platform:lh7a404-ohci");

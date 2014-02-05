@@ -1,4 +1,4 @@
-#include <asm/variant/core.h>
+#include <variant/core.h>
 #include <asm/regs.h>
 #include <asm/asmmacro.h>
 #include <asm/cacheasm.h>
@@ -127,23 +127,6 @@ _reloc:
 	/* RedBoot is now at the end of the memory, so we don't have
 	 * to copy the parameter list. Keep the code around; in case
 	 * we need it again. */
-#if 0
-	# a0: load address
-	# a2: start address of parameter list
-	# a3: length of parameter list
-	# a4: __start
-
-	/* copy the parameter list out of the way */
-
-	movi	a6, _param_start
-	add	a3, a2, a3
-2:
-	l32i	a8, a2, 0
-	s32i	a8, a6, 0
-	addi	a2, a2, 4
-	addi	a6, a6, 4
-	blt	a2, a3, 2b
-#endif
 
 	/* clear BSS section */
 	movi	a6, __bss_start

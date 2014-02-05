@@ -99,4 +99,3 @@ _exit:
 
 	/* Pad the size of this crt0.o to be multiple of 16 bytes. */
 .balignl 16, 0x0
-

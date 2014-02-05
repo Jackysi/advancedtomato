@@ -47,4 +47,3 @@ int pwc_dec1_alloc(struct pwc_device *pwc)
 		return -ENOMEM;
 	return 0;
 }
-

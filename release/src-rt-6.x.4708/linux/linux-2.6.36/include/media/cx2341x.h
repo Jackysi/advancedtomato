@@ -1,5 +1,5 @@
 /*
-    cx23415/6 header containing common defines.
+    cx23415/6/8 header containing common defines.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
 #ifndef CX2341X_H
 #define CX2341X_H
 
+#include <media/v4l2-ctrls.h>
+
 enum cx2341x_port {
 	CX2341X_PORT_MEMORY    = 0,
 	CX2341X_PORT_STREAMING = 1,
@@ -27,6 +29,8 @@ enum cx2341x_port {
 
 enum cx2341x_cap {
 	CX2341X_CAP_HAS_SLICED_VBI = 1 << 0,
+	CX2341X_CAP_HAS_TS 	   = 1 << 1,
+	CX2341X_CAP_HAS_AC3 	   = 1 << 2,
 };
 
 struct cx2341x_mpeg_params {
@@ -46,11 +50,12 @@ struct cx2341x_mpeg_params {
 	enum v4l2_mpeg_audio_sampling_freq audio_sampling_freq;
 	enum v4l2_mpeg_audio_encoding audio_encoding;
 	enum v4l2_mpeg_audio_l2_bitrate audio_l2_bitrate;
+	enum v4l2_mpeg_audio_ac3_bitrate audio_ac3_bitrate;
 	enum v4l2_mpeg_audio_mode audio_mode;
 	enum v4l2_mpeg_audio_mode_extension audio_mode_extension;
 	enum v4l2_mpeg_audio_emphasis audio_emphasis;
 	enum v4l2_mpeg_audio_crc audio_crc;
-	u16 audio_properties;
+	u32 audio_properties;
 	u16 audio_mute;
 
 	/* video */
@@ -83,18 +88,113 @@ struct cx2341x_mpeg_params {
 #define CX2341X_MBOX_MAX_DATA 16
 
 extern const u32 cx2341x_mpeg_ctrls[];
-typedef int (*cx2341x_mbox_func)(void *priv, int cmd, int in, int out,
+typedef int (*cx2341x_mbox_func)(void *priv, u32 cmd, int in, int out,
 		u32 data[CX2341X_MBOX_MAX_DATA]);
 int cx2341x_update(void *priv, cx2341x_mbox_func func,
 		const struct cx2341x_mpeg_params *old,
 		const struct cx2341x_mpeg_params *new);
-int cx2341x_ctrl_query(struct cx2341x_mpeg_params *params,
+int cx2341x_ctrl_query(const struct cx2341x_mpeg_params *params,
 		struct v4l2_queryctrl *qctrl);
-const char **cx2341x_ctrl_get_menu(u32 id);
-int cx2341x_ext_ctrls(struct cx2341x_mpeg_params *params,
+const char **cx2341x_ctrl_get_menu(const struct cx2341x_mpeg_params *p, u32 id);
+int cx2341x_ext_ctrls(struct cx2341x_mpeg_params *params, int busy,
 		struct v4l2_ext_controls *ctrls, unsigned int cmd);
 void cx2341x_fill_defaults(struct cx2341x_mpeg_params *p);
-void cx2341x_log_status(struct cx2341x_mpeg_params *p, const char *prefix);
+void cx2341x_log_status(const struct cx2341x_mpeg_params *p, const char *prefix);
+
+struct cx2341x_handler;
+
+struct cx2341x_handler_ops {
+	/* needed for the video clock freq */
+	int (*s_audio_sampling_freq)(struct cx2341x_handler *hdl, u32 val);
+	/* needed for dualwatch */
+	int (*s_audio_mode)(struct cx2341x_handler *hdl, u32 val);
+	/* needed for setting up the video resolution */
+	int (*s_video_encoding)(struct cx2341x_handler *hdl, u32 val);
+	/* needed for setting up the sliced vbi insertion data structures */
+	int (*s_stream_vbi_fmt)(struct cx2341x_handler *hdl, u32 val);
+};
+
+struct cx2341x_handler {
+	u32 capabilities;
+	enum cx2341x_port port;
+	u16 width;
+	u16 height;
+	u16 is_50hz;
+	u32 audio_properties;
+
+	struct v4l2_ctrl_handler hdl;
+	void *priv;
+	cx2341x_mbox_func func;
+	const struct cx2341x_handler_ops *ops;
+
+	struct v4l2_ctrl *stream_vbi_fmt;
+
+	struct {
+		/* audio cluster */
+		struct v4l2_ctrl *audio_sampling_freq;
+		struct v4l2_ctrl *audio_encoding;
+		struct v4l2_ctrl *audio_l2_bitrate;
+		struct v4l2_ctrl *audio_mode;
+		struct v4l2_ctrl *audio_mode_extension;
+		struct v4l2_ctrl *audio_emphasis;
+		struct v4l2_ctrl *audio_crc;
+		struct v4l2_ctrl *audio_ac3_bitrate;
+	};
+
+	struct {
+		/* video gop cluster */
+		struct v4l2_ctrl *video_b_frames;
+		struct v4l2_ctrl *video_gop_size;
+	};
+
+	struct {
+		/* stream type cluster */
+		struct v4l2_ctrl *stream_type;
+		struct v4l2_ctrl *video_encoding;
+		struct v4l2_ctrl *video_bitrate_mode;
+		struct v4l2_ctrl *video_bitrate;
+		struct v4l2_ctrl *video_bitrate_peak;
+	};
+
+	struct {
+		/* video mute cluster */
+		struct v4l2_ctrl *video_mute;
+		struct v4l2_ctrl *video_mute_yuv;
+	};
+
+	struct {
+		/* video filter mode cluster */
+		struct v4l2_ctrl *video_spatial_filter_mode;
+		struct v4l2_ctrl *video_temporal_filter_mode;
+		struct v4l2_ctrl *video_median_filter_type;
+	};
+
+	struct {
+		/* video filter type cluster */
+		struct v4l2_ctrl *video_luma_spatial_filter_type;
+		struct v4l2_ctrl *video_chroma_spatial_filter_type;
+	};
+
+	struct  {
+		/* video filter cluster */
+		struct v4l2_ctrl *video_spatial_filter;
+		struct v4l2_ctrl *video_temporal_filter;
+	};
+
+	struct {
+		/* video median cluster */
+		struct v4l2_ctrl *video_luma_median_filter_top;
+		struct v4l2_ctrl *video_luma_median_filter_bottom;
+		struct v4l2_ctrl *video_chroma_median_filter_top;
+		struct v4l2_ctrl *video_chroma_median_filter_bottom;
+	};
+};
+
+int cx2341x_handler_init(struct cx2341x_handler *cxhdl,
+			 unsigned nr_of_controls_hint);
+void cx2341x_handler_set_50hz(struct cx2341x_handler *cxhdl, int is_50hz);
+int cx2341x_handler_setup(struct cx2341x_handler *cxhdl);
+void cx2341x_handler_set_busy(struct cx2341x_handler *cxhdl, int busy);
 
 /* Firmware names */
 #define CX2341X_FIRM_ENC_FILENAME "v4l-cx2341x-enc.fw"

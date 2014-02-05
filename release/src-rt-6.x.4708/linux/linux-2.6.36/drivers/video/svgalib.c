@@ -15,7 +15,6 @@
 #include <linux/string.h>
 #include <linux/fb.h>
 #include <linux/svga.h>
-#include <linux/slab.h>
 #include <asm/types.h>
 #include <asm/io.h>
 
@@ -167,25 +166,6 @@ void svga_set_textmode_vga_regs(void)
 	vga_w(NULL, VGA_ATT_W, 0x20);
 }
 
-#if 0
-void svga_dump_var(struct fb_var_screeninfo *var, int node)
-{
-	pr_debug("fb%d: var.vmode         : 0x%X\n", node, var->vmode);
-	pr_debug("fb%d: var.xres          : %d\n", node, var->xres);
-	pr_debug("fb%d: var.yres          : %d\n", node, var->yres);
-	pr_debug("fb%d: var.bits_per_pixel: %d\n", node, var->bits_per_pixel);
-	pr_debug("fb%d: var.xres_virtual  : %d\n", node, var->xres_virtual);
-	pr_debug("fb%d: var.yres_virtual  : %d\n", node, var->yres_virtual);
-	pr_debug("fb%d: var.left_margin   : %d\n", node, var->left_margin);
-	pr_debug("fb%d: var.right_margin  : %d\n", node, var->right_margin);
-	pr_debug("fb%d: var.upper_margin  : %d\n", node, var->upper_margin);
-	pr_debug("fb%d: var.lower_margin  : %d\n", node, var->lower_margin);
-	pr_debug("fb%d: var.hsync_len     : %d\n", node, var->hsync_len);
-	pr_debug("fb%d: var.vsync_len     : %d\n", node, var->vsync_len);
-	pr_debug("fb%d: var.sync          : 0x%X\n", node, var->sync);
-	pr_debug("fb%d: var.pixclock      : %d\n\n", node, var->pixclock);
-}
-#endif  /*  0  */
 
 
 /* ------------------------------------------------------------------------- */
@@ -598,9 +578,11 @@ void svga_set_timings(const struct svga_timing_regs *tm, struct fb_var_screeninf
 /* ------------------------------------------------------------------------- */
 
 
-int svga_match_format(const struct svga_fb_format *frm, struct fb_var_screeninfo *var, struct fb_fix_screeninfo *fix)
+static inline int match_format(const struct svga_fb_format *frm,
+			       struct fb_var_screeninfo *var)
 {
 	int i = 0;
+	int stored = -EINVAL;
 
 	while (frm->bits_per_pixel != SVGA_FORMAT_END_VAL)
 	{
@@ -609,25 +591,38 @@ int svga_match_format(const struct svga_fb_format *frm, struct fb_var_screeninfo
 		    (var->green.length   <= frm->green.length)   &&
 		    (var->blue.length    <= frm->blue.length)    &&
 		    (var->transp.length  <= frm->transp.length)  &&
-		    (var->nonstd	 == frm->nonstd)) {
-		    	var->bits_per_pixel = frm->bits_per_pixel;
-			var->red            = frm->red;
-			var->green          = frm->green;
-			var->blue           = frm->blue;
-			var->transp         = frm->transp;
-			var->nonstd         = frm->nonstd;
-			if (fix != NULL) {
-				fix->type      = frm->type;
-				fix->type_aux  = frm->type_aux;
-				fix->visual    = frm->visual;
-				fix->xpanstep  = frm->xpanstep;
-			}
+		    (var->nonstd	 == frm->nonstd))
 			return i;
-		}
+		if (var->bits_per_pixel == frm->bits_per_pixel)
+			stored = i;
 		i++;
 		frm++;
 	}
-	return -EINVAL;
+	return stored;
+}
+
+int svga_match_format(const struct svga_fb_format *frm,
+		      struct fb_var_screeninfo *var,
+		      struct fb_fix_screeninfo *fix)
+{
+	int i = match_format(frm, var);
+
+	if (i >= 0) {
+		var->bits_per_pixel = frm[i].bits_per_pixel;
+		var->red            = frm[i].red;
+		var->green          = frm[i].green;
+		var->blue           = frm[i].blue;
+		var->transp         = frm[i].transp;
+		var->nonstd         = frm[i].nonstd;
+		if (fix != NULL) {
+			fix->type      = frm[i].type;
+			fix->type_aux  = frm[i].type_aux;
+			fix->visual    = frm[i].visual;
+			fix->xpanstep  = frm[i].xpanstep;
+		}
+	}
+
+	return i;
 }
 
 

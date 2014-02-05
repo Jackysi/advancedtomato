@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
+#include <linux/smp.h>
 #include <asm/sn/arch.h>
 #include <asm/pci/bridge.h>
 #include <asm/paccess.h>
@@ -26,10 +27,6 @@
  */
 #define MAX_DEVICES_PER_PCIBUS	8
 
-/*
- * XXX: No kmalloc available when we do our crosstalk scan,
- * 	we should try to move it later in the boot process.
- */
 static struct bridge_controller bridges[MAX_PCI_BUSSES];
 
 /*
@@ -48,9 +45,10 @@ int __cpuinit bridge_probe(nasid_t nasid, int widget_id, int masterwid)
 	bridge_t *bridge;
 	int slot;
 
+	pci_probe_only = 1;
+
 	printk("a bridge\n");
 
-	/* XXX: kludge alert.. */
 	if (!num_bridges)
 		ioport_resource.end = ~0UL;
 
@@ -100,6 +98,11 @@ int __cpuinit bridge_probe(nasid_t nasid, int widget_id, int masterwid)
 	 */
 	bridge->b_wid_control |= BRIDGE_CTRL_IO_SWAP |
 	                         BRIDGE_CTRL_MEM_SWAP;
+#ifdef CONFIG_PAGE_SIZE_4KB
+	bridge->b_wid_control &= ~BRIDGE_CTRL_PAGE_SIZE;
+#else /* 16kB or larger */
+	bridge->b_wid_control |= BRIDGE_CTRL_PAGE_SIZE;
+#endif
 
 	/*
 	 * Hmm...  IRIX sets additional bits in the address which
@@ -134,15 +137,9 @@ int __cpuinit bridge_probe(nasid_t nasid, int widget_id, int masterwid)
  * A given PCI device, in general, should be able to intr any of the cpus
  * on any one of the hubs connected to its xbow.
  */
-int __devinit pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+int __devinit pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	return 0;
-}
-
-/* Most MIPS systems have straight-forward swizzling needs.  */
-static inline u8 bridge_swizzle(u8 pin, u8 slot)
-{
-	return (((pin - 1) + slot) % 4) + 1;
 }
 
 static inline struct pci_dev *bridge_root_dev(struct pci_dev *dev)
@@ -180,12 +177,6 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 	return 0;
 }
 
-/*
- * Device might live on a subordinate PCI bus.  XXX Walk up the chain of buses
- * to find the slot number in sense of the bridge device register.
- * XXX This also means multiple devices might rely on conflicting bridge
- * settings.
- */
 
 static inline void pci_disable_swapping(struct pci_dev *dev)
 {
@@ -220,6 +211,7 @@ int pcibus_to_node(struct pci_bus *bus)
 
 	return bc->nasid;
 }
+EXPORT_SYMBOL(pcibus_to_node);
 
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SGI, PCI_DEVICE_ID_SGI_IOC3,
 	pci_fixup_ioc3);

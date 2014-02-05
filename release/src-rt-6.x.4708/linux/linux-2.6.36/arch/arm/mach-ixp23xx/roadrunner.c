@@ -23,7 +23,6 @@
 #include <linux/tty.h>
 #include <linux/bitops.h>
 #include <linux/ioport.h>
-#include <linux/serial.h>
 #include <linux/serial_8250.h>
 #include <linux/serial_core.h>
 #include <linux/device.h>
@@ -34,7 +33,7 @@
 #include <asm/types.h>
 #include <asm/setup.h>
 #include <asm/memory.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
 #include <asm/system.h>
@@ -44,7 +43,6 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/arch.h>
-#include <asm/mach/irq.h>
 #include <asm/mach/pci.h>
 
 /*
@@ -112,8 +110,8 @@ static int __init roadrunner_map_irq(struct pci_dev *dev, u8 idsel, u8 pin)
 
 static void __init roadrunner_pci_preinit(void)
 {
-	set_irq_type(IRQ_ROADRUNNER_PCI_INTC, IRQT_LOW);
-	set_irq_type(IRQ_ROADRUNNER_PCI_INTD, IRQT_LOW);
+	set_irq_type(IRQ_ROADRUNNER_PCI_INTC, IRQ_TYPE_LEVEL_LOW);
+	set_irq_type(IRQ_ROADRUNNER_PCI_INTD, IRQ_TYPE_LEVEL_LOW);
 
 	ixp23xx_pci_preinit();
 }

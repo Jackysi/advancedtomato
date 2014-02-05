@@ -5,11 +5,7 @@
 #include <linux/string.h>
 #include <linux/kernel.h>
 
-#if 0
-#define DEBUGP printk
-#else
 #define DEBUGP(fmt...)
-#endif
 
 void *module_alloc(unsigned long size)
 {
@@ -23,8 +19,6 @@ void *module_alloc(unsigned long size)
 void module_free(struct module *mod, void *module_region)
 {
 	vfree(module_region);
-	/* FIXME: If module_region == mod->init_region, trim exception
-           table entries. */
 }
 
 /* We don't need anything special. */

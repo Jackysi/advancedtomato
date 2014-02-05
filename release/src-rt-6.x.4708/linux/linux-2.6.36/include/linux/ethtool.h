@@ -7,11 +7,13 @@
  * Portions Copyright 2002 Intel (eli.kupermann@intel.com,
  *                                christopher.leech@intel.com,
  *                                scott.feldman@intel.com)
+ * Portions Copyright (C) Sun Microsystems 2008
  */
 
 #ifndef _LINUX_ETHTOOL_H
 #define _LINUX_ETHTOOL_H
 
+#include <linux/types.h>
 
 /* This should work for both 32 and 64 bit userland. */
 struct ethtool_cmd {
@@ -24,22 +26,49 @@ struct ethtool_cmd {
 	__u8	phy_address;
 	__u8	transceiver;	/* Which transceiver to use */
 	__u8	autoneg;	/* Enable or disable autonegotiation */
+	__u8	mdio_support;
 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
-	__u32	reserved[4];
+	__u16	speed_hi;
+	__u8	eth_tp_mdix;
+	__u8	reserved2;
+	__u32	lp_advertising;	/* Features the link partner advertises */
+	__u32	reserved[2];
 };
 
+static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+						__u32 speed)
+{
+
+	ep->speed = (__u16)speed;
+	ep->speed_hi = (__u16)(speed >> 16);
+}
+
+static inline __u32 ethtool_cmd_speed(struct ethtool_cmd *ep)
+{
+	return (ep->speed_hi << 16) | ep->speed;
+}
+
+#define ETHTOOL_FWVERS_LEN	32
 #define ETHTOOL_BUSINFO_LEN	32
 /* these strings are set to whatever the driver author decides... */
 struct ethtool_drvinfo {
 	__u32	cmd;
 	char	driver[32];	/* driver short name, "tulip", "eepro100" */
 	char	version[32];	/* driver version string */
-	char	fw_version[32];	/* firmware version string, if applicable */
+	char	fw_version[ETHTOOL_FWVERS_LEN];	/* firmware version string */
 	char	bus_info[ETHTOOL_BUSINFO_LEN];	/* Bus info for this IF. */
 				/* For PCI devices, use pci_name(pci_dev). */
 	char	reserved1[32];
-	char	reserved2[16];
+	char	reserved2[12];
+				/*
+				 * Some struct members below are filled in
+				 * using ops->get_sset_count().  Obtaining
+				 * this info from ethtool_drvinfo is now
+				 * deprecated; Use ETHTOOL_GSSET_INFO
+				 * instead.
+				 */
+	__u32	n_priv_flags;	/* number of flags valid in ETHTOOL_GPFLAGS */
 	__u32	n_stats;	/* number of u64's from ETHTOOL_GSTATS */
 	__u32	testinfo_len;
 	__u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
@@ -219,6 +248,8 @@ struct ethtool_pauseparam {
 enum ethtool_stringset {
 	ETH_SS_TEST		= 0,
 	ETH_SS_STATS,
+	ETH_SS_PRIV_FLAGS,
+	ETH_SS_NTUPLE_FILTERS,
 };
 
 /* for passing string sets for data tagging */
@@ -227,6 +258,17 @@ struct ethtool_gstrings {
 	__u32	string_set;	/* string set id e.c. ETH_SS_TEST, etc*/
 	__u32	len;		/* number of strings in the string set */
 	__u8	data[0];
+};
+
+struct ethtool_sset_info {
+	__u32	cmd;		/* ETHTOOL_GSSET_INFO */
+	__u32	reserved;
+	__u64	sset_mask;	/* input: each bit selects an sset to query */
+				/* output: each bit a returned sset */
+	__u32	data[0];	/* ETH_SS_xxx count, in order, based on bits
+				   in sset_mask.  One bit implies one
+				   __u32, two bits implies two
+				   __u32's, etc. */
 };
 
 enum ethtool_test_flags {
@@ -256,23 +298,178 @@ struct ethtool_perm_addr {
 	__u8	data[0];
 };
 
+/* boolean flags controlling per-interface behavior characteristics.
+ * When reading, the flag indicates whether or not a certain behavior
+ * is enabled/present.  When writing, the flag indicates whether
+ * or not the driver should turn on (set) or off (clear) a behavior.
+ *
+ * Some behaviors may read-only (unconditionally absent or present).
+ * If such is the case, return EINVAL in the set-flags operation if the
+ * flag differs from the read-only value.
+ */
+enum ethtool_flags {
+	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
+	ETH_FLAG_RXHASH		= (1 << 28),
+};
+
+/* The following structures are for supporting RX network flow
+ * classification configuration. Note, all multibyte fields, e.g.,
+ * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
+ * byte order.
+ */
+struct ethtool_tcpip4_spec {
+	__be32	ip4src;
+	__be32	ip4dst;
+	__be16	psrc;
+	__be16	pdst;
+	__u8    tos;
+};
+
+struct ethtool_ah_espip4_spec {
+	__be32	ip4src;
+	__be32	ip4dst;
+	__be32	spi;
+	__u8    tos;
+};
+
+struct ethtool_rawip4_spec {
+	__be32	ip4src;
+	__be32	ip4dst;
+	__u8	hdata[64];
+};
+
+struct ethtool_ether_spec {
+	__be16	ether_type;
+	__u8	frame_size;
+	__u8	eframe[16];
+};
+
+#define	ETH_RX_NFC_IP4	1
+#define	ETH_RX_NFC_IP6	2
+
+struct ethtool_usrip4_spec {
+	__be32	ip4src;
+	__be32	ip4dst;
+	__be32	l4_4_bytes;
+	__u8    tos;
+	__u8    ip_ver;
+	__u8    proto;
+};
+
+struct ethtool_rx_flow_spec {
+	__u32		flow_type;
+	union {
+		struct ethtool_tcpip4_spec		tcp_ip4_spec;
+		struct ethtool_tcpip4_spec		udp_ip4_spec;
+		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+		struct ethtool_rawip4_spec		raw_ip4_spec;
+		struct ethtool_ether_spec		ether_spec;
+		struct ethtool_usrip4_spec		usr_ip4_spec;
+		__u8					hdata[64];
+	} h_u, m_u; /* entry, mask */
+	__u64		ring_cookie;
+	__u32		location;
+};
+
+struct ethtool_rxnfc {
+	__u32				cmd;
+	__u32				flow_type;
+	/* The rx flow hash value or the rule DB size */
+	__u64				data;
+	/* The following fields are not valid and must not be used for
+	 * the ETHTOOL_{G,X}RXFH commands. */
+	struct ethtool_rx_flow_spec	fs;
+	__u32				rule_cnt;
+	__u32				rule_locs[0];
+};
+
+struct ethtool_rxfh_indir {
+	__u32	cmd;
+	/* On entry, this is the array size of the user buffer.  On
+	 * return from ETHTOOL_GRXFHINDIR, this is the array size of
+	 * the hardware indirection table. */
+	__u32	size;
+	__u32	ring_index[0];	/* ring/queue index for each hash value */
+};
+
+struct ethtool_rx_ntuple_flow_spec {
+	__u32		 flow_type;
+	union {
+		struct ethtool_tcpip4_spec		tcp_ip4_spec;
+		struct ethtool_tcpip4_spec		udp_ip4_spec;
+		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+		struct ethtool_rawip4_spec		raw_ip4_spec;
+		struct ethtool_ether_spec		ether_spec;
+		struct ethtool_usrip4_spec		usr_ip4_spec;
+		__u8					hdata[64];
+	} h_u, m_u; /* entry, mask */
+
+	__u16	        vlan_tag;
+	__u16	        vlan_tag_mask;
+	__u64		data;      /* user-defined flow spec data */
+	__u64		data_mask; /* user-defined flow spec mask */
+
+	/* signed to distinguish between queue and actions (DROP) */
+	__s32		action;
+#define ETHTOOL_RXNTUPLE_ACTION_DROP -1
+};
+
+struct ethtool_rx_ntuple {
+	__u32					cmd;
+	struct ethtool_rx_ntuple_flow_spec	fs;
+};
+
+#define ETHTOOL_FLASH_MAX_FILENAME	128
+enum ethtool_flash_op_type {
+	ETHTOOL_FLASH_ALL_REGIONS	= 0,
+};
+
+/* for passing firmware flashing related parameters */
+struct ethtool_flash {
+	__u32	cmd;
+	__u32	region;
+	char	data[ETHTOOL_FLASH_MAX_FILENAME];
+};
+
 #ifdef __KERNEL__
+
+#include <linux/rculist.h>
+
+struct ethtool_rx_ntuple_flow_spec_container {
+	struct ethtool_rx_ntuple_flow_spec fs;
+	struct list_head list;
+};
+
+struct ethtool_rx_ntuple_list {
+#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
+#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
+	struct list_head	list;
+	unsigned int		count;
+};
 
 struct net_device;
 
 /* Some generic methods drivers may use in their ethtool_ops */
 u32 ethtool_op_get_link(struct net_device *dev);
+u32 ethtool_op_get_rx_csum(struct net_device *dev);
 u32 ethtool_op_get_tx_csum(struct net_device *dev);
 int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
 int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data);
+int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data);
 u32 ethtool_op_get_sg(struct net_device *dev);
 int ethtool_op_set_sg(struct net_device *dev, u32 data);
 u32 ethtool_op_get_tso(struct net_device *dev);
 int ethtool_op_set_tso(struct net_device *dev, u32 data);
-int ethtool_op_get_perm_addr(struct net_device *dev, 
-			     struct ethtool_perm_addr *addr, u8 *data);
 u32 ethtool_op_get_ufo(struct net_device *dev);
 int ethtool_op_set_ufo(struct net_device *dev, u32 data);
+u32 ethtool_op_get_flags(struct net_device *dev);
+int ethtool_op_set_flags(struct net_device *dev, u32 data, u32 supported);
+void ethtool_ntuple_flush(struct net_device *dev);
 
 /**
  * &ethtool_ops - Alter and report network device settings
@@ -293,7 +490,7 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
  * get_ringparam: Report ring sizes
  * set_ringparam: Set ring sizes
  * get_pauseparam: Report pause parameters
- * set_pauseparam: Set pause paramters
+ * set_pauseparam: Set pause parameters
  * get_rx_csum: Report whether receive checksums are turned on or off
  * set_rx_csum: Turn receive checksum on or off
  * get_tx_csum: Report whether transmit checksums are turned on or off
@@ -305,11 +502,12 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
  * get_ufo: Report whether UDP fragmentation offload is enabled
  * set_ufo: Turn UDP fragmentation offload on or off
  * self_test: Run specified self-tests
- * get_strings: Return a set of strings that describe the requested objects 
+ * get_strings: Return a set of strings that describe the requested objects
  * phys_id: Identify the device
  * get_stats: Return statistics about the device
- * get_perm_addr: Gets the permanent hardware address
- * 
+ * get_flags: get 32-bit flags bitmap
+ * set_flags: set 32-bit flags bitmap
+ *
  * Description:
  *
  * get_settings:
@@ -345,14 +543,20 @@ struct ethtool_ops {
 	int	(*nway_reset)(struct net_device *);
 	u32	(*get_link)(struct net_device *);
 	int	(*get_eeprom_len)(struct net_device *);
-	int	(*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
-	int	(*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
+	int	(*get_eeprom)(struct net_device *,
+			      struct ethtool_eeprom *, u8 *);
+	int	(*set_eeprom)(struct net_device *,
+			      struct ethtool_eeprom *, u8 *);
 	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
 	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
-	void	(*get_ringparam)(struct net_device *, struct ethtool_ringparam *);
-	int	(*set_ringparam)(struct net_device *, struct ethtool_ringparam *);
-	void	(*get_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
-	int	(*set_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
+	void	(*get_ringparam)(struct net_device *,
+				 struct ethtool_ringparam *);
+	int	(*set_ringparam)(struct net_device *,
+				 struct ethtool_ringparam *);
+	void	(*get_pauseparam)(struct net_device *,
+				  struct ethtool_pauseparam*);
+	int	(*set_pauseparam)(struct net_device *,
+				  struct ethtool_pauseparam*);
 	u32	(*get_rx_csum)(struct net_device *);
 	int	(*set_rx_csum)(struct net_device *, u32);
 	u32	(*get_tx_csum)(struct net_device *);
@@ -361,17 +565,32 @@ struct ethtool_ops {
 	int	(*set_sg)(struct net_device *, u32);
 	u32	(*get_tso)(struct net_device *);
 	int	(*set_tso)(struct net_device *, u32);
-	int	(*self_test_count)(struct net_device *);
 	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
 	int	(*phys_id)(struct net_device *, u32);
-	int	(*get_stats_count)(struct net_device *);
-	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
-	int	(*get_perm_addr)(struct net_device *, struct ethtool_perm_addr *, u8 *);
+	void	(*get_ethtool_stats)(struct net_device *,
+				     struct ethtool_stats *, u64 *);
 	int	(*begin)(struct net_device *);
 	void	(*complete)(struct net_device *);
-	u32     (*get_ufo)(struct net_device *);
-	int     (*set_ufo)(struct net_device *, u32);
+	u32	(*get_ufo)(struct net_device *);
+	int	(*set_ufo)(struct net_device *, u32);
+	u32	(*get_flags)(struct net_device *);
+	int	(*set_flags)(struct net_device *, u32);
+	u32	(*get_priv_flags)(struct net_device *);
+	int	(*set_priv_flags)(struct net_device *, u32);
+	int	(*get_sset_count)(struct net_device *, int);
+	int	(*get_rxnfc)(struct net_device *,
+			     struct ethtool_rxnfc *, void *);
+	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
+	int	(*flash_device)(struct net_device *, struct ethtool_flash *);
+	int	(*reset)(struct net_device *, u32 *);
+	int	(*set_rx_ntuple)(struct net_device *,
+				 struct ethtool_rx_ntuple *);
+	int	(*get_rx_ntuple)(struct net_device *, u32 stringset, void *);
+	int	(*get_rxfh_indir)(struct net_device *,
+				  struct ethtool_rxfh_indir *);
+	int	(*set_rxfh_indir)(struct net_device *,
+				  const struct ethtool_rxfh_indir *);
 };
 #endif /* __KERNEL__ */
 
@@ -413,6 +632,28 @@ struct ethtool_ops {
 #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
 #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
 #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
+#define ETHTOOL_GFLAGS		0x00000025 /* Get flags bitmap(ethtool_value) */
+#define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
+#define ETHTOOL_GPFLAGS		0x00000027 /* Get driver-private flags bitmap */
+#define ETHTOOL_SPFLAGS		0x00000028 /* Set driver-private flags bitmap */
+
+#define ETHTOOL_GRXFH		0x00000029 /* Get RX flow hash configuration */
+#define ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
+#define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
+#define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
+#define ETHTOOL_GRXRINGS	0x0000002d /* Get RX rings available for LB */
+#define ETHTOOL_GRXCLSRLCNT	0x0000002e /* Get RX class rule count */
+#define ETHTOOL_GRXCLSRULE	0x0000002f /* Get RX classification rule */
+#define ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
+#define ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
+#define ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
+#define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+#define ETHTOOL_RESET		0x00000034 /* Reset hardware */
+#define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
+#define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
+#define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+#define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table */
+#define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table */
 
 /* compatibility with older code */
 #define SPARC_ETH_GSET		ETHTOOL_GSET
@@ -435,6 +676,11 @@ struct ethtool_ops {
 #define SUPPORTED_Pause			(1 << 13)
 #define SUPPORTED_Asym_Pause		(1 << 14)
 #define SUPPORTED_2500baseX_Full	(1 << 15)
+#define SUPPORTED_Backplane		(1 << 16)
+#define SUPPORTED_1000baseKX_Full	(1 << 17)
+#define SUPPORTED_10000baseKX4_Full	(1 << 18)
+#define SUPPORTED_10000baseKR_Full	(1 << 19)
+#define SUPPORTED_10000baseR_FEC	(1 << 20)
 
 /* Indicates what features are advertised by the interface. */
 #define ADVERTISED_10baseT_Half		(1 << 0)
@@ -453,6 +699,11 @@ struct ethtool_ops {
 #define ADVERTISED_Pause		(1 << 13)
 #define ADVERTISED_Asym_Pause		(1 << 14)
 #define ADVERTISED_2500baseX_Full	(1 << 15)
+#define ADVERTISED_Backplane		(1 << 16)
+#define ADVERTISED_1000baseKX_Full	(1 << 17)
+#define ADVERTISED_10000baseKX4_Full	(1 << 18)
+#define ADVERTISED_10000baseKR_Full	(1 << 19)
+#define ADVERTISED_10000baseR_FEC	(1 << 20)
 
 /* The following are all involved in forcing a particular link
  * mode for the device for setting things.  When getting the
@@ -477,6 +728,9 @@ struct ethtool_ops {
 #define PORT_MII		0x02
 #define PORT_FIBRE		0x03
 #define PORT_BNC		0x04
+#define PORT_DA			0x05
+#define PORT_NONE		0xef
+#define PORT_OTHER		0xff
 
 /* Which transceiver to use. */
 #define XCVR_INTERNAL		0x00
@@ -491,6 +745,11 @@ struct ethtool_ops {
 #define AUTONEG_DISABLE		0x00
 #define AUTONEG_ENABLE		0x01
 
+/* Mode MDI or MDI-X */
+#define ETH_TP_MDI_INVALID	0x00
+#define ETH_TP_MDI		0x01
+#define ETH_TP_MDI_X		0x02
+
 /* Wake-On-Lan options. */
 #define WAKE_PHY		(1 << 0)
 #define WAKE_UCAST		(1 << 1)
@@ -499,5 +758,64 @@ struct ethtool_ops {
 #define WAKE_ARP		(1 << 4)
 #define WAKE_MAGIC		(1 << 5)
 #define WAKE_MAGICSECURE	(1 << 6) /* only meaningful if WAKE_MAGIC */
+
+/* L3-L4 network traffic flow types */
+#define	TCP_V4_FLOW	0x01
+#define	UDP_V4_FLOW	0x02
+#define	SCTP_V4_FLOW	0x03
+#define	AH_ESP_V4_FLOW	0x04
+#define	TCP_V6_FLOW	0x05
+#define	UDP_V6_FLOW	0x06
+#define	SCTP_V6_FLOW	0x07
+#define	AH_ESP_V6_FLOW	0x08
+#define	AH_V4_FLOW	0x09
+#define	ESP_V4_FLOW	0x0a
+#define	AH_V6_FLOW	0x0b
+#define	ESP_V6_FLOW	0x0c
+#define	IP_USER_FLOW	0x0d
+#define	IPV4_FLOW	0x10
+#define	IPV6_FLOW	0x11
+
+/* L3-L4 network traffic flow hash options */
+#define	RXH_L2DA	(1 << 1)
+#define	RXH_VLAN	(1 << 2)
+#define	RXH_L3_PROTO	(1 << 3)
+#define	RXH_IP_SRC	(1 << 4)
+#define	RXH_IP_DST	(1 << 5)
+#define	RXH_L4_B_0_1	(1 << 6) /* src port in case of TCP/UDP/SCTP */
+#define	RXH_L4_B_2_3	(1 << 7) /* dst port in case of TCP/UDP/SCTP */
+#define	RXH_DISCARD	(1 << 31)
+
+#define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
+
+/* Reset flags */
+/* The reset() operation must clear the flags for the components which
+ * were actually reset.  On successful return, the flags indicate the
+ * components which were not reset, either because they do not exist
+ * in the hardware or because they cannot be reset independently.  The
+ * driver must never reset any components that were not requested.
+ */
+enum ethtool_reset_flags {
+	/* These flags represent components dedicated to the interface
+	 * the command is addressed to.  Shift any flag left by
+	 * ETH_RESET_SHARED_SHIFT to reset a shared component of the
+	 * same type.
+	 */
+	ETH_RESET_MGMT		= 1 << 0,	/* Management processor */
+	ETH_RESET_IRQ		= 1 << 1,	/* Interrupt requester */
+	ETH_RESET_DMA		= 1 << 2,	/* DMA engine */
+	ETH_RESET_FILTER	= 1 << 3,	/* Filtering/flow direction */
+	ETH_RESET_OFFLOAD	= 1 << 4,	/* Protocol offload */
+	ETH_RESET_MAC		= 1 << 5,	/* Media access controller */
+	ETH_RESET_PHY		= 1 << 6,	/* Transceiver/PHY */
+	ETH_RESET_RAM		= 1 << 7,	/* RAM shared between
+						 * multiple components */
+
+	ETH_RESET_DEDICATED	= 0x0000ffff,	/* All components dedicated to
+						 * this interface */
+	ETH_RESET_ALL		= 0xffffffff,	/* All components used by this
+						 * interface, even if shared */
+};
+#define ETH_RESET_SHARED_SHIFT	16
 
 #endif /* _LINUX_ETHTOOL_H */

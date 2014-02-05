@@ -124,7 +124,6 @@ int pwc_decompress(struct pwc_device *pdev)
 
 	if (DEVICE_USE_CODEC1(pdev->type)) {
 
-		/* TODO & FIXME */
 		PWC_ERROR("This chipset is not supported for now\n");
 		return -ENXIO; /* No such device or address: missing decompressor */
 

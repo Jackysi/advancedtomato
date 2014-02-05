@@ -24,7 +24,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/pci.h>
-#include <linux/slab.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 
@@ -52,7 +51,6 @@
 u32 tsi108_pci_cfg_base;
 static u32 tsi108_pci_cfg_phys;
 u32 tsi108_csr_vir_base;
-static struct device_node *pci_irq_node;
 static struct irq_host *pci_irq_host;
 
 extern u32 get_vir_csrbase(void);
@@ -64,9 +62,10 @@ tsi108_direct_write_config(struct pci_bus *bus, unsigned int devfunc,
 			   int offset, int len, u32 val)
 {
 	volatile unsigned char *cfg_addr;
+	struct pci_controller *hose = pci_bus_to_host(bus);
 
 	if (ppc_md.pci_exclude_device)
-		if (ppc_md.pci_exclude_device(bus->number, devfunc))
+		if (ppc_md.pci_exclude_device(hose, bus->number, devfunc))
 			return PCIBIOS_DEVICE_NOT_FOUND;
 
 	cfg_addr = (unsigned char *)(tsi_mk_config_addr(bus->number,
@@ -149,10 +148,11 @@ tsi108_direct_read_config(struct pci_bus *bus, unsigned int devfn, int offset,
 			  int len, u32 * val)
 {
 	volatile unsigned char *cfg_addr;
+	struct pci_controller *hose = pci_bus_to_host(bus);
 	u32 temp;
 
 	if (ppc_md.pci_exclude_device)
-		if (ppc_md.pci_exclude_device(bus->number, devfn))
+		if (ppc_md.pci_exclude_device(hose, bus->number, devfn))
 			return PCIBIOS_DEVICE_NOT_FOUND;
 
 	cfg_addr = (unsigned char *)(tsi_mk_config_addr(bus->number,
@@ -191,8 +191,8 @@ void tsi108_clear_pci_cfg_error(void)
 }
 
 static struct pci_ops tsi108_direct_pci_ops = {
-	tsi108_direct_read_config,
-	tsi108_direct_write_config
+	.read = tsi108_direct_read_config,
+	.write = tsi108_direct_write_config,
 };
 
 int __init tsi108_setup_pci(struct device_node *dev, u32 cfg_phys, int primary)
@@ -206,7 +206,7 @@ int __init tsi108_setup_pci(struct device_node *dev, u32 cfg_phys, int primary)
 	/* PCI Config mapping */
 	tsi108_pci_cfg_base = (u32)ioremap(cfg_phys, TSI108_PCI_CFG_SIZE);
 	tsi108_pci_cfg_phys = cfg_phys;
-	DBG("TSI_PCI: %s tsi108_pci_cfg_base=0x%x\n", __FUNCTION__,
+	DBG("TSI_PCI: %s tsi108_pci_cfg_base=0x%x\n", __func__,
 	    tsi108_pci_cfg_base);
 
 	/* Fetch host bridge registers address */
@@ -219,14 +219,12 @@ int __init tsi108_setup_pci(struct device_node *dev, u32 cfg_phys, int primary)
 		       " bus 0\n", dev->full_name);
 	}
 
-	hose = pcibios_alloc_controller();
+	hose = pcibios_alloc_controller(dev);
 
 	if (!hose) {
 		printk("PCI Host bridge init failed\n");
 		return -ENOMEM;
 	}
-	hose->arch_data = dev;
-	hose->set_cfg_type = 1;
 
 	hose->first_busno = bus_range ? bus_range[0] : 0;
 	hose->last_busno = bus_range ? bus_range[1] : 0xff;
@@ -377,7 +375,7 @@ static void tsi108_pci_irq_end(u_int irq)
  */
 
 static struct irq_chip tsi108_pci_irq = {
-	.typename = "tsi108_PCI_int",
+	.name = "tsi108_PCI_int",
 	.mask = tsi108_pci_irq_disable,
 	.ack = tsi108_pci_irq_ack,
 	.end = tsi108_pci_irq_end,
@@ -385,7 +383,7 @@ static struct irq_chip tsi108_pci_irq = {
 };
 
 static int pci_irq_host_xlate(struct irq_host *h, struct device_node *ct,
-			    u32 *intspec, unsigned int intsize,
+			    const u32 *intspec, unsigned int intsize,
 			    irq_hw_number_t *out_hwirq, unsigned int *out_flags)
 {
 	*out_hwirq = intspec[0];
@@ -396,22 +394,16 @@ static int pci_irq_host_xlate(struct irq_host *h, struct device_node *ct,
 static int pci_irq_host_map(struct irq_host *h, unsigned int virq,
 			  irq_hw_number_t hw)
 {	unsigned int irq;
-	DBG("%s(%d, 0x%lx)\n", __FUNCTION__, virq, hw);
+	DBG("%s(%d, 0x%lx)\n", __func__, virq, hw);
 	if ((virq >= 1) && (virq <= 4)){
 		irq = virq + IRQ_PCI_INTAD_BASE - 1;
-		get_irq_desc(irq)->status |= IRQ_LEVEL;
+		irq_to_desc(irq)->status |= IRQ_LEVEL;
 		set_irq_chip(irq, &tsi108_pci_irq);
 	}
 	return 0;
 }
 
-static int pci_irq_host_match(struct irq_host *h, struct device_node *node)
-{
-	return pci_irq_node == node;
-}
-
 static struct irq_host_ops pci_irq_host_ops = {
-	.match = pci_irq_host_match,
 	.map = pci_irq_host_map,
 	.xlate = pci_irq_host_xlate,
 };
@@ -433,8 +425,8 @@ void __init tsi108_pci_int_init(struct device_node *node)
 {
 	DBG("Tsi108_pci_int_init: initializing PCI interrupts\n");
 
-	pci_irq_node = of_node_get(node);
-	pci_irq_host = irq_alloc_host(IRQ_HOST_MAP_LEGACY, 0, &pci_irq_host_ops, 0);
+	pci_irq_host = irq_alloc_host(node, IRQ_HOST_MAP_LEGACY,
+				      0, &pci_irq_host_ops, 0);
 	if (pci_irq_host == NULL) {
 		printk(KERN_ERR "pci_irq_host: failed to allocate irq host !\n");
 		return;

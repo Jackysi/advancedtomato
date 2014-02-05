@@ -13,9 +13,6 @@
 #include <linux/mca.h>
 #include <linux/serial_8250.h>
 
-/*
- * FIXME: Should we be doing AUTO_IRQ here?
- */
 #ifdef CONFIG_SERIAL_8250_DETECT_IRQ
 #define MCA_FLAGS	UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_AUTO_IRQ
 #else

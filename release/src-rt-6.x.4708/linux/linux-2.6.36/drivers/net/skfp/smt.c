@@ -19,6 +19,7 @@
 #include "h/smc.h"
 #include "h/smt_p.h"
 #include <linux/bitrev.h>
+#include <linux/kernel.h>
 
 #define KERNEL
 #include "h/smtstate.h"
@@ -52,16 +53,6 @@ static const char *const smt_class_name[] = {
 static const struct fddi_addr SMT_Unknown = {
 	{ 0,0,0x1f,0,0,0 }
 } ;
-
-/*
- * external variables
- */
-extern const struct fddi_addr fddi_broadcast ;
-
-/*
- * external functions
- */
-int pcm_status_twisted(struct s_smc *smc);
 
 /*
  * function prototypes
@@ -504,13 +495,6 @@ void smt_received_pack(struct s_smc *smc, SMbuf *mb, int fs)
 		smt_free_mbuf(smc,mb) ;
 		return ;
 	}
-#if	0		/* for DUP recognition, do NOT filter them */
-	/* ignore loop back packets */
-	if (is_my_addr(smc,&sm->smt_source) && !local) {
-		smt_free_mbuf(smc,mb) ;
-		return ;
-	}
-#endif
 
 	smt_swap_para(sm,(int) mb->sm_len,1) ;
 	DB_SMT("SMT : received packet [%s] at 0x%x\n",
@@ -583,7 +567,7 @@ void smt_received_pack(struct s_smc *smc, SMbuf *mb, int fs)
 		if (smt_check_para(smc,sm,plist_nif)) {
 			DB_SMT("SMT: NIF with para problem, ignoring\n",0,0) ;
 			break ;
-		} ;
+		}
 		switch (sm->smt_type) {
 		case SMT_ANNOUNCE :
 		case SMT_REQUEST :
@@ -712,7 +696,7 @@ void smt_received_pack(struct s_smc *smc, SMbuf *mb, int fs)
 			smc->mib.priv.fddiPRIVECF_Reply_Rx++ ;
 			DB_SMT("SMT: received ECF reply from %s\n",
 				addr_to_string(&sm->smt_source),0) ;
-			if (sm_to_para(smc,sm,SMT_P_ECHODATA) == 0) {
+			if (sm_to_para(smc,sm,SMT_P_ECHODATA) == NULL) {
 				DB_SMT("SMT: ECHODATA missing\n",0,0) ;
 				break ;
 			}
@@ -1118,11 +1102,6 @@ SMbuf *smt_build_frame(struct s_smc *smc, int class, int type,
 	SMbuf			*mb ;
 	struct smt_header	*smt ;
 
-#if	0
-	if (!smc->r.sm_ma_avail) {
-		return(0) ;
-	}
-#endif
 	if (!(mb = smt_get_mbuf(smc)))
 		return(mb) ;
 
@@ -1631,10 +1610,6 @@ static const struct smt_pdef {
 	{ SMT_P001C, sizeof(struct smt_p_001c) , SWAP_SMT_P001C } ,
 	{ SMT_P001D, sizeof(struct smt_p_001d) , SWAP_SMT_P001D } ,
 #endif
-#if	0
-	{ SMT_P_FSC,	sizeof(struct smt_p_fsc) ,
-		SWAP_SMT_P_FSC					} ,
-#endif
 
 	{ SMT_P_SETCOUNT,0,	SWAP_SMT_P_SETCOUNT		} ,
 	{ SMT_P1048,	0,	SWAP_SMT_P1048			} ,
@@ -1654,7 +1629,7 @@ static const struct smt_pdef {
 	{ SMT_P4053,	0,	SWAP_SMT_P4053			} ,
 } ;
 
-#define N_SMT_PLEN	(sizeof(smt_pdef)/sizeof(smt_pdef[0]))
+#define N_SMT_PLEN	ARRAY_SIZE(smt_pdef)
 
 int smt_check_para(struct s_smc *smc, struct smt_header	*sm,
 		   const u_short list[])
@@ -1701,49 +1676,20 @@ void *sm_to_para(struct s_smc *smc, struct smt_header *sm, int para)
 	return NULL;
 }
 
-#if	0
-/*
- * send ANTC data test frame
- */
-void fddi_send_antc(struct s_smc *smc, struct fddi_addr *dest)
-{
-	SK_UNUSED(smc) ;
-	SK_UNUSED(dest) ;
-#if	0
-	SMbuf			*mb ;
-	struct smt_header	*smt ;
-	int			i ;
-	char			*p ;
-
-	mb = smt_get_mbuf() ;
-	mb->sm_len = 3000+12 ;
-	p = smtod(mb, char *) + 12 ;
-	for (i = 0 ; i < 3000 ; i++)
-		*p++ = 1 << (i&7) ;
-
-	smt = smtod(mb, struct smt_header *) ;
-	smt->smt_dest = *dest ;
-	smt->smt_source = smc->mib.m[MAC0].fddiMACSMTAddress ;
-	smt_send_mbuf(smc,mb,FC_ASYNC_LLC) ;
-#endif
-}
-#endif
 
 #ifdef	DEBUG
-#define hextoasc(x)	"0123456789abcdef"[x]
-
 char *addr_to_string(struct fddi_addr *addr)
 {
 	int	i ;
 	static char	string[6*3] = "****" ;
 
 	for (i = 0 ; i < 6 ; i++) {
-		string[i*3] = hextoasc((addr->a[i]>>4)&0xf) ;
-		string[i*3+1] = hextoasc((addr->a[i])&0xf) ;
-		string[i*3+2] = ':' ;
+		string[i * 3] = hex_asc_hi(addr->a[i]);
+		string[i * 3 + 1] = hex_asc_lo(addr->a[i]);
+		string[i * 3 + 2] = ':';
 	}
-	string[5*3+2] = 0 ;
-	return(string) ;
+	string[5 * 3 + 2] = 0;
+	return(string);
 }
 #endif
 
@@ -2054,4 +2000,3 @@ static void hwm_conv_can(struct s_smc *smc, char *data, int len)
 #endif
 
 #endif	/* no SLIM_SMT */
-

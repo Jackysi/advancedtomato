@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom IGS Layer
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -36,15 +36,19 @@ endif
 
 obj-$(CONFIG_EMF) := igs.o
 
+ifeq ($(CONFIG_BUZZZ_FUNC),y)
+subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
+endif # CONFIG_BUZZZ_FUNC
+
 ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile
 else
 # Normal makefile
-KERNELDIR := ../../../../../linux/linux-2.6
+KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 clean:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` clean
 endif
 
-clean-files += $(IGSCSRCDIR)/*.o $(IGSSRCDIR)/*.o $(IGSSRCDIR)/.*.o.cmd
+clean-files += $(IGSCSRCDIR)/*.o $(IGSSRCDIR)/*.o $(IGSCSRCDIR)/.*.o.cmd $(IGSSRCDIR)/.*.o.cmd

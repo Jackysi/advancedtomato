@@ -104,4 +104,3 @@ int superhyway_add_devices(struct superhyway_bus *bus, struct superhyway_device 
 extern struct device_attribute superhyway_dev_attrs[];
 
 #endif /* __LINUX_SUPERHYWAY_H */
-

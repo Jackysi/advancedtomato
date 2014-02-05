@@ -110,4 +110,3 @@ SYM (__modsi3):
 	subl	d0, d1		/* d1 = a - (a/b)*b */
 	movel	d1, d0
 	rts
-

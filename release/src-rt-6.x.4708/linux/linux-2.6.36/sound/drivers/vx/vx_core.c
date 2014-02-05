@@ -20,7 +20,6 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
@@ -206,7 +205,8 @@ static int vx_read_status(struct vx_core *chip, struct vx_rmh *rmh)
 
 	if (size < 1)
 		return 0;
-	snd_assert(size <= SIZE_MAX_STATUS, return -EINVAL);
+	if (snd_BUG_ON(size > SIZE_MAX_STATUS))
+		return -EINVAL;
 
 	for (i = 1; i <= size; i++) {
 		/* trigger an irq MESS_WRITE_NEXT */
@@ -250,16 +250,6 @@ int vx_send_msg_nolock(struct vx_core *chip, struct vx_rmh *rmh)
 		return err;
 	}
 
-#if 0
-	printk(KERN_DEBUG "rmh: cmd = 0x%06x, length = %d, stype = %d\n",
-	       rmh->Cmd[0], rmh->LgCmd, rmh->DspStat);
-	if (rmh->LgCmd > 1) {
-		printk(KERN_DEBUG "  ");
-		for (i = 1; i < rmh->LgCmd; i++)
-			printk("0x%06x ", rmh->Cmd[i]);
-		printk("\n");
-	}
-#endif
 	/* Check bit M is set according to length of the command */
 	if (rmh->LgCmd > 1)
 		rmh->Cmd[0] |= MASK_MORE_THAN_1_WORD_COMMAND;
@@ -373,9 +363,6 @@ int vx_send_rih_nolock(struct vx_core *chip, int cmd)
 	if (chip->chip_status & VX_STAT_IS_STALE)
 		return -EBUSY;
 
-#if 0
-	printk(KERN_DEBUG "send_rih: cmd = 0x%x\n", cmd);
-#endif
 	if ((err = vx_reset_chk(chip)) < 0)
 		return err;
 	/* send the IRQ */
@@ -426,15 +413,10 @@ int snd_vx_load_boot_image(struct vx_core *chip, const struct firmware *boot)
 	int no_fillup = vx_has_new_dsp(chip);
 
 	/* check the length of boot image */
-	snd_assert(boot->size > 0, return -EINVAL);
-	snd_assert(boot->size % 3 == 0, return -EINVAL);
-#if 0
-	{
-		/* more strict check */
-		unsigned int c = ((u32)boot->data[0] << 16) | ((u32)boot->data[1] << 8) | boot->data[2];
-		snd_assert(boot->size == (c + 2) * 3, return -EINVAL);
-	}
-#endif
+	if (boot->size <= 0)
+		return -EINVAL;
+	if (boot->size % 3)
+		return -EINVAL;
 
 	/* reset dsp */
 	vx_reset_dsp(chip);
@@ -454,7 +436,7 @@ int snd_vx_load_boot_image(struct vx_core *chip, const struct firmware *boot)
 			vx_outb(chip, TXM, 0);
 			vx_outb(chip, TXL, 0);
 		} else {
-			unsigned char *image = boot->data + i;
+			const unsigned char *image = boot->data + i;
 			if (vx_wait_isr_bit(chip, ISR_TX_EMPTY) < 0) {
 				snd_printk(KERN_ERR "dsp boot failed at %d\n", i);
 				return -EIO;
@@ -504,10 +486,6 @@ static void vx_interrupt(unsigned long private_data)
 	if (vx_test_irq_src(chip, &events) < 0)
 		return;
     
-#if 0
-	if (events & 0x000800)
-		printk(KERN_ERR "DSP Stream underrun ! IRQ events = 0x%x\n", events);
-#endif
 	// printk(KERN_DEBUG "IRQ events = 0x%x\n", events);
 
 	/* We must prevent any application using this DSP
@@ -545,7 +523,7 @@ irqreturn_t snd_vx_irq_handler(int irq, void *dev)
 	    (chip->chip_status & VX_STAT_IS_STALE))
 		return IRQ_NONE;
 	if (! vx_test_and_ack(chip))
-		tasklet_hi_schedule(&chip->tq);
+		tasklet_schedule(&chip->tq);
 	return IRQ_HANDLED;
 }
 
@@ -555,7 +533,8 @@ EXPORT_SYMBOL(snd_vx_irq_handler);
  */
 static void vx_reset_board(struct vx_core *chip, int cold_reset)
 {
-	snd_assert(chip->ops->reset_board, return);
+	if (snd_BUG_ON(!chip->ops->reset_board))
+		return;
 
 	/* current source, later sync'ed with target */
 	chip->audio_source = VX_AUDIO_SRC_LINE;
@@ -672,9 +651,10 @@ int snd_vx_dsp_load(struct vx_core *chip, const struct firmware *dsp)
 	unsigned int i;
 	int err;
 	unsigned int csum = 0;
-	unsigned char *image, *cptr;
+	const unsigned char *image, *cptr;
 
-	snd_assert(dsp->size % 3 == 0, return -EINVAL);
+	if (dsp->size % 3)
+		return -EINVAL;
 
 	vx_toggle_dac_mute(chip, 1);
 
@@ -683,7 +663,8 @@ int snd_vx_dsp_load(struct vx_core *chip, const struct firmware *dsp)
 		image = dsp->data + i;
 		/* Wait DSP ready for a new read */
 		if ((err = vx_wait_isr_bit(chip, ISR_TX_EMPTY)) < 0) {
-			printk("dsp loading error at position %d\n", i);
+			printk(KERN_ERR
+			       "dsp loading error at position %d\n", i);
 			return err;
 		}
 		cptr = image;
@@ -776,7 +757,8 @@ struct vx_core *snd_vx_create(struct snd_card *card, struct snd_vx_hardware *hw,
 {
 	struct vx_core *chip;
 
-	snd_assert(card && hw && ops, return NULL);
+	if (snd_BUG_ON(!card || !hw || !ops))
+		return NULL;
 
 	chip = kzalloc(sizeof(*chip) + extra_size, GFP_KERNEL);
 	if (! chip) {

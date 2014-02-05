@@ -19,7 +19,6 @@
 #include <linux/kernel.h>
 
 #include <linux/types.h>
-#include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/skbuff.h>
 
@@ -344,6 +343,3 @@ void cb_open(struct pcbit_dev * dev, struct pcbit_chan* chan,
         ictl.arg=chan->id;
         dev->dev_if->statcallb(&ictl);
 }
-
-
-

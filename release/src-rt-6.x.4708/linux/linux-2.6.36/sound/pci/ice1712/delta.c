@@ -1,10 +1,10 @@
 /*
  *   ALSA driver for ICEnsemble ICE1712 (Envy24)
  *
- *   Lowlevel functions for M-Audio Delta 1010, 44, 66, Dio2496, Audiophile
- *                          Digigram VX442
+ *   Lowlevel functions for M-Audio Delta 1010, 1010E, 44, 66, 66E, Dio2496,
+ *			    Audiophile, Digigram VX442
  *
- *	Copyright (c) 2000 Jaroslav Kysela <perex@suse.cz>
+ *	Copyright (c) 2000 Jaroslav Kysela <perex@perex.cz>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
  *
  */      
 
-#include <sound/driver.h>
 #include <asm/io.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -87,6 +86,7 @@ static unsigned char ap_cs8427_codec_select(struct snd_ice1712 *ice)
 	unsigned char tmp;
 	tmp = snd_ice1712_read(ice, ICE1712_IREG_GPIO_DATA);
 	switch (ice->eeprom.subvendor) {
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTA1010LT:
 		tmp &= ~ICE1712_DELTA_1010LT_CS;
 		tmp |= ICE1712_DELTA_1010LT_CCLK | ICE1712_DELTA_1010LT_CS_CS8427;
@@ -110,6 +110,7 @@ static unsigned char ap_cs8427_codec_select(struct snd_ice1712 *ice)
 static void ap_cs8427_codec_deassert(struct snd_ice1712 *ice, unsigned char tmp)
 {
 	switch (ice->eeprom.subvendor) {
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTA1010LT:
 		tmp &= ~ICE1712_DELTA_1010LT_CS;
 		tmp |= ICE1712_DELTA_1010LT_CS_NONE;
@@ -393,26 +394,19 @@ static void delta_setup_spdif(struct snd_ice1712 *ice, int rate)
 	snd_ice1712_delta_cs8403_spdif_write(ice, tmp);
 }
 
-static int snd_ice1712_delta1010lt_wordclock_status_info(struct snd_kcontrol *kcontrol,
-			  struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 1;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
+#define snd_ice1712_delta1010lt_wordclock_status_info \
+	snd_ctl_boolean_mono_info
 
 static int snd_ice1712_delta1010lt_wordclock_status_get(struct snd_kcontrol *kcontrol,
 			 struct snd_ctl_elem_value *ucontrol)
 {
-	char reg = 0x10; // cs8427 receiver error register
+	char reg = 0x10; /* CS8427 receiver error register */
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
 	if (snd_i2c_sendbytes(ice->cs8427, &reg, 1) != 1)
 		snd_printk(KERN_ERR "unable to send register 0x%x byte to CS8427\n", reg);
 	snd_i2c_readbytes(ice->cs8427, &reg, 1);
-	ucontrol->value.integer.value[0] = (reg ? 1 : 0);
+	ucontrol->value.integer.value[0] = (reg & CS8427_UNLOCK) ? 1 : 0;
 	return 0;
 }
 
@@ -542,6 +536,14 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 	int err;
 	struct snd_akm4xxx *ak;
 
+	if (ice->eeprom.subvendor == ICE1712_SUBDEVICE_DELTA1010 &&
+	    ice->eeprom.gpiodir == 0x7b)
+		ice->eeprom.subvendor = ICE1712_SUBDEVICE_DELTA1010E;
+
+	if (ice->eeprom.subvendor == ICE1712_SUBDEVICE_DELTA66 &&
+	    ice->eeprom.gpiodir == 0xfb)
+	    	ice->eeprom.subvendor = ICE1712_SUBDEVICE_DELTA66E;
+
 	/* determine I2C, DACs and ADCs */
 	switch (ice->eeprom.subvendor) {
 	case ICE1712_SUBDEVICE_AUDIOPHILE:
@@ -558,6 +560,7 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 		ice->num_total_adcs = ice->omni ? 8 : 4;
 		break;
 	case ICE1712_SUBDEVICE_DELTA1010:
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTA1010LT:
 	case ICE1712_SUBDEVICE_MEDIASTATION:
 		ice->num_total_dacs = 8;
@@ -567,6 +570,7 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 		ice->num_total_dacs = 4;	/* two AK4324 codecs */
 		break;
 	case ICE1712_SUBDEVICE_VX442:
+	case ICE1712_SUBDEVICE_DELTA66E:	/* omni not suported yet */
 		ice->num_total_dacs = 4;
 		ice->num_total_adcs = 4;
 		break;
@@ -576,8 +580,10 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 	switch (ice->eeprom.subvendor) {
 	case ICE1712_SUBDEVICE_AUDIOPHILE:
 	case ICE1712_SUBDEVICE_DELTA410:
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTA1010LT:
 	case ICE1712_SUBDEVICE_VX442:
+	case ICE1712_SUBDEVICE_DELTA66E:
 		if ((err = snd_i2c_bus_create(ice->card, "ICE1712 GPIO 1", NULL, &ice->i2c)) < 0) {
 			snd_printk(KERN_ERR "unable to create I2C bus\n");
 			return err;
@@ -609,6 +615,7 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 	/* no analog? */
 	switch (ice->eeprom.subvendor) {
 	case ICE1712_SUBDEVICE_DELTA1010:
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTADIO2496:
 	case ICE1712_SUBDEVICE_MEDIASTATION:
 		return 0;
@@ -635,6 +642,7 @@ static int __devinit snd_ice1712_delta_init(struct snd_ice1712 *ice)
 		err = snd_ice1712_akm4xxx_init(ak, &akm_delta44, &akm_delta44_priv, ice);
 		break;
 	case ICE1712_SUBDEVICE_VX442:
+	case ICE1712_SUBDEVICE_DELTA66E:
 		err = snd_ice1712_akm4xxx_init(ak, &akm_vx442, &akm_vx442_priv, ice);
 		break;
 	default:
@@ -682,6 +690,7 @@ static int __devinit snd_ice1712_delta_add_controls(struct snd_ice1712 *ice)
 		if (err < 0)
 			return err;
 		break;
+	case ICE1712_SUBDEVICE_DELTA1010E:
 	case ICE1712_SUBDEVICE_DELTA1010LT:
 		err = snd_ctl_add(ice->card, snd_ctl_new1(&snd_ice1712_delta1010lt_wordclock_select, ice));
 		if (err < 0)
@@ -724,6 +733,7 @@ static int __devinit snd_ice1712_delta_add_controls(struct snd_ice1712 *ice)
 	case ICE1712_SUBDEVICE_DELTA44:
 	case ICE1712_SUBDEVICE_DELTA66:
 	case ICE1712_SUBDEVICE_VX442:
+	case ICE1712_SUBDEVICE_DELTA66E:
 		err = snd_ice1712_akm4xxx_build_controls(ice);
 		if (err < 0)
 			return err;

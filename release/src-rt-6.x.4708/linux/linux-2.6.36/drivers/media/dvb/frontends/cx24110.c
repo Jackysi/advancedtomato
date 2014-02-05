@@ -1,4 +1,4 @@
-	/*
+/*
     cx24110 - Single Chip Satellite Channel Receiver driver module
 
     Copyright (C) 2002 Peter Hettkamp <peter.hettkamp@htp-tel.de> based on
@@ -25,7 +25,6 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/init.h>
 
 #include "dvb_frontend.h"
@@ -97,7 +96,7 @@ static struct {u8 reg; u8 data;} cx24110_regdata[]=
 	 {0x42,0x00}, /* @ middle bytes " */
 	 {0x43,0x00}, /* @ LSB          " */
 		      /* leave the carrier tracking loop parameters on default */
-		      /* leave the bit timing loop parameters at gefault */
+		      /* leave the bit timing loop parameters at default */
 	 {0x56,0x4d}, /* set the filtune voltage to 2.7V, as recommended by */
 		      /* the cx24108 data sheet for symbol rates above 15MS/s */
 	 {0x57,0x00}, /* @ Filter sigma delta enabled, positive */
@@ -122,7 +121,7 @@ static int cx24110_writereg (struct cx24110_state* state, int reg, int data)
 
 	if ((err = i2c_transfer(state->i2c, &msg, 1)) != 1) {
 		dprintk ("%s: writereg error (err == %i, reg == 0x%02x,"
-			 " data == 0x%02x)\n", __FUNCTION__, err, reg, data);
+			 " data == 0x%02x)\n", __func__, err, reg, data);
 		return -EREMOTEIO;
 	}
 
@@ -146,7 +145,6 @@ static int cx24110_readreg (struct cx24110_state* state, u8 reg)
 
 static int cx24110_set_inversion (struct cx24110_state* state, fe_spectral_inversion_t inversion)
 {
-/* fixme (low): error handling */
 
 	switch (inversion) {
 	case INVERSION_OFF:
@@ -180,7 +178,6 @@ static int cx24110_set_inversion (struct cx24110_state* state, fe_spectral_inver
 
 static int cx24110_set_fec (struct cx24110_state* state, fe_code_rate_t fec)
 {
-/* fixme (low): error handling */
 
 	static const int rate[]={-1,1,2,3,5,7,-1};
 	static const int g1[]={-1,0x01,0x02,0x05,0x15,0x45,-1};
@@ -218,7 +215,6 @@ static int cx24110_set_fec (struct cx24110_state* state, fe_code_rate_t fec)
 			/* not sure if this is the right way: I always used AutoAcq mode */
 	   } else
 		   return -EOPNOTSUPP;
-/* fixme (low): which is the correct return code? */
 	};
 	return 0;
 }
@@ -231,24 +227,19 @@ static fe_code_rate_t cx24110_get_fec (struct cx24110_state* state)
 	if(!(i&0x08)) {
 		return FEC_1_2 + i - 1;
 	} else {
-/* fixme (low): a special code rate has been selected. In theory, we need to
-   return a denominator value, a numerator value, and a pair of puncture
-   maps to correctly describe this mode. But this should never happen in
-   practice, because it cannot be set by cx24110_get_fec. */
 	   return FEC_NONE;
 	}
 }
 
 static int cx24110_set_symbolrate (struct cx24110_state* state, u32 srate)
 {
-/* fixme (low): add error handling */
 	u32 ratio;
 	u32 tmp, fclk, BDRI;
 
 	static const u32 bands[]={5000000UL,15000000UL,90999000UL/2};
 	int i;
 
-	dprintk("cx24110 debug: entering %s(%d)\n",__FUNCTION__,srate);
+	dprintk("cx24110 debug: entering %s(%d)\n",__func__,srate);
 	if (srate>90999000UL/2)
 		srate=90999000UL/2;
 	if (srate<500000)
@@ -320,7 +311,6 @@ static int _cx24110_pll_write (struct dvb_frontend* fe, u8 *buf, int len)
 
 /* tuner data is 21 bits long, must be left-aligned in data */
 /* tuner cx24108 is written through a dedicated 3wire interface on the demod chip */
-/* FIXME (low): add error handling, avoid infinite loops if HW fails... */
 
 	cx24110_writereg(state,0x6d,0x30); /* auto mode at 62kHz */
 	cx24110_writereg(state,0x70,0x15); /* auto mode 21 bits */
@@ -356,10 +346,9 @@ static int _cx24110_pll_write (struct dvb_frontend* fe, u8 *buf, int len)
 static int cx24110_initfe(struct dvb_frontend* fe)
 {
 	struct cx24110_state *state = fe->demodulator_priv;
-/* fixme (low): error handling */
 	int i;
 
-	dprintk("%s: init chip\n", __FUNCTION__);
+	dprintk("%s: init chip\n", __func__);
 
 	for(i = 0; i < ARRAY_SIZE(cx24110_regdata); i++) {
 		cx24110_writereg(state, cx24110_regdata[i].reg, cx24110_regdata[i].data);
@@ -469,7 +458,6 @@ static int cx24110_read_ber(struct dvb_frontend* fe, u32* ber)
 {
 	struct cx24110_state *state = fe->demodulator_priv;
 
-	/* fixme (maybe): value range is 16 bit. Scale? */
 	if(cx24110_readreg(state,0x24)&0x10) {
 		/* the Viterbi error counter has finished one counting window */
 		cx24110_writereg(state,0x24,0x04); /* select the ber reg */
@@ -599,7 +587,7 @@ struct dvb_frontend* cx24110_attach(const struct cx24110_config* config,
 	int ret;
 
 	/* allocate memory for the internal state */
-	state = kmalloc(sizeof(struct cx24110_state), GFP_KERNEL);
+	state = kzalloc(sizeof(struct cx24110_state), GFP_KERNEL);
 	if (state == NULL) goto error;
 
 	/* setup the state */

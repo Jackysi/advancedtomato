@@ -55,17 +55,9 @@
 /*
  * Debugging.
  */
-#if 0
-#define DEBUG_AUTOCONF(fmt...)	printk(fmt)
-#else
 #define DEBUG_AUTOCONF(fmt...)	do { } while (0)
-#endif
 
-#if 0
-#define DEBUG_INTR(fmt...)	printk(fmt)
-#else
 #define DEBUG_INTR(fmt...)	do { } while (0)
-#endif
 
 #define PASS_LIMIT	256
 
@@ -286,7 +278,7 @@ static void m32r_sio_start_tx(struct uart_port *port)
 {
 #ifdef CONFIG_SERIAL_M32R_PLDSIO
 	struct uart_sio_port *up = (struct uart_sio_port *)port;
-	struct circ_buf *xmit = &up->port.info->xmit;
+	struct circ_buf *xmit = &up->port.state->xmit;
 
 	if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
@@ -325,7 +317,7 @@ static void m32r_sio_enable_ms(struct uart_port *port)
 
 static void receive_chars(struct uart_sio_port *up, int *status)
 {
-	struct tty_struct *tty = up->port.info->tty;
+	struct tty_struct *tty = up->port.state->port.tty;
 	unsigned char ch;
 	unsigned char flag;
 	int max_count = 256;
@@ -398,11 +390,11 @@ static void receive_chars(struct uart_sio_port *up, int *status)
 
 static void transmit_chars(struct uart_sio_port *up)
 {
-	struct circ_buf *xmit = &up->port.info->xmit;
+	struct circ_buf *xmit = &up->port.state->xmit;
 	int count;
 
 	if (up->port.x_char) {
-#ifndef CONFIG_SERIAL_M32R_PLDSIO	/* XXX */
+#ifndef CONFIG_SERIAL_M32R_PLDSIO
 		serial_out(up, UART_TX, up->port.x_char);
 #endif
 		up->port.icount.tx++;
@@ -421,7 +413,7 @@ static void transmit_chars(struct uart_sio_port *up)
 		up->port.icount.tx++;
 		if (uart_circ_empty(xmit))
 			break;
-		while (!serial_in(up, UART_LSR) & UART_LSR_THRE);
+		while (!(serial_in(up, UART_LSR) & UART_LSR_THRE));
 
 	} while (--count > 0);
 
@@ -539,7 +531,7 @@ static void serial_do_unlink(struct irq_info *i, struct uart_sio_port *up)
 static int serial_link_irq_chain(struct uart_sio_port *up)
 {
 	struct irq_info *i = irq_lists + up->port.irq;
-	int ret, irq_flags = up->port.flags & UPF_SHARE_IRQ ? IRQF_SHARED : 0;
+	int ret, irq_flags = 0;
 
 	spin_lock_irq(&i->lock);
 
@@ -922,7 +914,7 @@ static void m32r_sio_config_port(struct uart_port *port, int flags)
 static int
 m32r_sio_verify_port(struct uart_port *port, struct serial_struct *ser)
 {
-	if (ser->irq >= NR_IRQS || ser->irq < 0 ||
+	if (ser->irq >= nr_irqs || ser->irq < 0 ||
 	    ser->baud_base < 9600 || ser->type < PORT_UNKNOWN ||
 	    ser->type >= ARRAY_SIZE(uart_config))
 		return -EINVAL;
@@ -1160,9 +1152,9 @@ static int __init m32r_sio_init(void)
 {
 	int ret, i;
 
-	printk(KERN_INFO "Serial: M32R SIO driver $Revision: 1.11 $ ");
+	printk(KERN_INFO "Serial: M32R SIO driver\n");
 
-	for (i = 0; i < NR_IRQS; i++)
+	for (i = 0; i < nr_irqs; i++)
 		spin_lock_init(&irq_lists[i].lock);
 
 	ret = uart_register_driver(&m32r_sio_reg);
@@ -1189,4 +1181,4 @@ EXPORT_SYMBOL(m32r_sio_suspend_port);
 EXPORT_SYMBOL(m32r_sio_resume_port);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Generic M32R SIO serial driver $Revision: 1.11 $");
+MODULE_DESCRIPTION("Generic M32R SIO serial driver");

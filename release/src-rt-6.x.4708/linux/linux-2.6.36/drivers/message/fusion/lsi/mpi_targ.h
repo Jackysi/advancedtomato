@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000-2004 LSI Logic Corporation.
+ *  Copyright (c) 2000-2008 LSI Corporation.
  *
  *
  *           Name:  mpi_targ.h
@@ -647,4 +647,3 @@ typedef struct _MSG_TARGET_MODE_ABORT_REPLY
 
 
 #endif
-

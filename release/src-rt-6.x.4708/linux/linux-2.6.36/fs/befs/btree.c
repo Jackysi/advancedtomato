@@ -232,7 +232,7 @@ befs_bt_read_node(struct super_block *sb, befs_data_stream * ds,
  * @key: Key string to lookup in btree
  * @value: Value stored with @key
  *
- * On sucess, returns BEFS_OK and sets *@value to the value stored
+ * On success, returns BEFS_OK and sets *@value to the value stored
  * with @key (usually the disk block number of an inode).
  *
  * On failure, returns BEFS_ERR or BEFS_BT_NOT_FOUND.
@@ -723,65 +723,3 @@ befs_compare_strings(const void *key1, int keylen1,
 }
 
 /* These will be used for non-string keyed btrees */
-#if 0
-static int
-btree_compare_int32(cont void *key1, int keylen1, const void *key2, int keylen2)
-{
-	return *(int32_t *) key1 - *(int32_t *) key2;
-}
-
-static int
-btree_compare_uint32(cont void *key1, int keylen1,
-		     const void *key2, int keylen2)
-{
-	if (*(u_int32_t *) key1 == *(u_int32_t *) key2)
-		return 0;
-	else if (*(u_int32_t *) key1 > *(u_int32_t *) key2)
-		return 1;
-
-	return -1;
-}
-static int
-btree_compare_int64(cont void *key1, int keylen1, const void *key2, int keylen2)
-{
-	if (*(int64_t *) key1 == *(int64_t *) key2)
-		return 0;
-	else if (*(int64_t *) key1 > *(int64_t *) key2)
-		return 1;
-
-	return -1;
-}
-
-static int
-btree_compare_uint64(cont void *key1, int keylen1,
-		     const void *key2, int keylen2)
-{
-	if (*(u_int64_t *) key1 == *(u_int64_t *) key2)
-		return 0;
-	else if (*(u_int64_t *) key1 > *(u_int64_t *) key2)
-		return 1;
-
-	return -1;
-}
-
-static int
-btree_compare_float(cont void *key1, int keylen1, const void *key2, int keylen2)
-{
-	float result = *(float *) key1 - *(float *) key2;
-	if (result == 0.0f)
-		return 0;
-
-	return (result < 0.0f) ? -1 : 1;
-}
-
-static int
-btree_compare_double(cont void *key1, int keylen1,
-		     const void *key2, int keylen2)
-{
-	double result = *(double *) key1 - *(double *) key2;
-	if (result == 0.0)
-		return 0;
-
-	return (result < 0.0) ? -1 : 1;
-}
-#endif				//0

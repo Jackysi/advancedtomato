@@ -281,41 +281,12 @@ void mca_set_adapter_name(int slot, char* name)
 }
 EXPORT_SYMBOL(mca_set_adapter_name);
 
-/**
- *	mca_is_adapter_used - check if claimed by driver
- *	@slot:	slot to check
- *
- *	Returns 1 if the slot has been claimed by a driver
- */
-
-int mca_is_adapter_used(int slot)
-{
-	struct mca_device *mca_dev = mca_find_device_by_slot(slot);
-
-	if(!mca_dev)
-		return 0;
-
-	return mca_device_claimed(mca_dev);
-}
-EXPORT_SYMBOL(mca_is_adapter_used);
-
-/**
- *	mca_mark_as_used - claim an MCA device
- *	@slot:	slot to claim
- *	FIXME:  should we make this threadsafe
- *
- *	Claim an MCA slot for a device driver. If the
- *	slot is already taken the function returns 1,
- *	if it is not taken it is claimed and 0 is
- *	returned.
- */
 
 int mca_mark_as_used(int slot)
 {
 	struct mca_device *mca_dev = mca_find_device_by_slot(slot);
 
 	if(!mca_dev)
-		/* FIXME: this is actually a severe error */
 		return 1;
 
 	if(mca_device_claimed(mca_dev))
@@ -344,4 +315,3 @@ void mca_mark_as_unused(int slot)
 	mca_device_set_claim(mca_dev, 0);
 }
 EXPORT_SYMBOL(mca_mark_as_unused);
-

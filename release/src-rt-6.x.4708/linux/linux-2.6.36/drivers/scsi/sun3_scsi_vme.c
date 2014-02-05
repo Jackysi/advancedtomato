@@ -120,9 +120,6 @@ static inline void sun3scsi_write(int reg, int value)
 	sun3_scsi_regp[reg] = value;
 }
 
-/*
- * XXX: status debug
- */
 static struct Scsi_Host *default_instance;
 
 /*
@@ -230,7 +227,7 @@ static int sun3scsi_detect(struct scsi_host_template * tpnt)
         ((struct NCR5380_hostdata *)instance->hostdata)->ctrl = 0;
 
 	if (request_irq(instance->irq, scsi_sun3_intr,
-			     0, "Sun3SCSI-5380VME", NULL)) {
+			0, "Sun3SCSI-5380VME", instance)) {
 #ifndef REAL_DMA
 		printk("scsi%d: IRQ%d not free, interrupts disabled\n",
 		       instance->host_no, instance->irq);
@@ -279,7 +276,7 @@ static int sun3scsi_detect(struct scsi_host_template * tpnt)
 int sun3scsi_release (struct Scsi_Host *shpnt)
 {
 	if (shpnt->irq != SCSI_IRQ_NONE)
-		free_irq (shpnt->irq, NULL);
+		free_irq(shpnt->irq, shpnt);
 
 	iounmap((void *)sun3_scsi_regp);
 
@@ -383,19 +380,6 @@ static irqreturn_t scsi_sun3_intr(int irq, void *dummy)
  */
 
 /* this doesn't seem to get used at all -- sam */
-#if 0
-void sun3_sun3_debug (void)
-{
-	unsigned long flags;
-	NCR5380_local_declare();
-
-	if (default_instance) {
-			local_irq_save(flags);
-			NCR5380_print_status(default_instance);
-			local_irq_restore(flags);
-	}
-}
-#endif
 
 
 /* sun3scsi_dma_setup() -- initialize the dma controller for a read/write */
@@ -417,11 +401,6 @@ static unsigned long sun3scsi_dma_setup(void *data, unsigned long count, int wri
 #endif
 
 //	dregs->fifo_count = 0;
-#if 0	
-	/* reset fifo */
-	dregs->csr &= ~CSR_FIFO;
-	dregs->csr |= CSR_FIFO;
-#endif	
 	/* set direction */
 	if(write_flag)
 		dregs->csr |= CSR_SEND;
@@ -458,7 +437,7 @@ static inline unsigned long sun3scsi_dma_xfer_len(unsigned long wanted,
 						  struct scsi_cmnd *cmd,
 						  int write_flag)
 {
-	if(blk_fs_request(cmd->request))
+	if (cmd->request->cmd_type == REQ_TYPE_FS)
  		return wanted;
 	else
 		return 0;
@@ -551,11 +530,6 @@ static int sun3scsi_dma_finish(int write_flag)
 	
 //	dregs->csr |= CSR_DMA_ENABLE;
 	
-#if 0
-	/* reset fifo */
-	dregs->csr &= ~CSR_FIFO;
-	dregs->csr |= CSR_FIFO;
-#endif	
 	sun3_dma_setup_done = NULL;
 
 	return ret;
@@ -582,3 +556,4 @@ static struct scsi_host_template driver_template = {
 
 #include "scsi_module.c"
 
+MODULE_LICENSE("GPL");

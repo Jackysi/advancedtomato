@@ -49,9 +49,7 @@
 	 * (0x170-0x17f) are used to preserve k0, k1, and ra.
 	 */
 
-#ifndef CONFIG_HOTPLUG_CPU
-	__INIT			/* no __CPUINIT; it's a 2.6.25 thing  */
-#endif
+	__CPUINIT
 
 LEAF(except_vec2_sb1)
 	/*
@@ -144,9 +142,7 @@ unrecoverable:
 
 END(except_vec2_sb1)
 
-#ifndef CONFIG_HOTPLUG_CPU
 	__FINIT
-#endif
 
 	LEAF(handle_vec2_sb1)
 	mfc0	k0,CP0_CONFIG

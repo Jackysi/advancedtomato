@@ -66,7 +66,7 @@
  *	- FrameBuffer memory is now allocated at run-time when the
  *	  driver is initialized.    
  *
- * 2000/04/10: Nicolas Pitre <nico@cam.org>
+ * 2000/04/10: Nicolas Pitre <nico@fluxnic.net>
  *	- Big cleanup for dynamic selection of machine type at run time.
  *
  * 2000/07/19: Jamey Hicks <jamey@crl.dec.com>
@@ -114,7 +114,7 @@
  *	- convert dma address types to dma_addr_t
  *	- remove unused 'montype' stuff
  *	- remove redundant zero inits of init_var after the initial
- *	  memzero.
+ *	  memset.
  *	- remove allow_modeset (acornfb idea does not belong here)
  *
  * 2001/05/28: <rmk@arm.linux.org.uk>
@@ -167,6 +167,7 @@
 #include <linux/string.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -174,13 +175,13 @@
 #include <linux/cpufreq.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/mutex.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/uaccess.h>
-#include <asm/arch/assabet.h>
-#include <asm/arch/shannon.h>
+#include <mach/assabet.h>
+#include <mach/shannon.h>
 
 /*
  * debugging?
@@ -198,13 +199,17 @@
 extern void (*sa1100fb_backlight_power)(int on);
 extern void (*sa1100fb_lcd_power)(int on);
 
-/*
- * IMHO this looks wrong.  In 8BPP, length should be 8.
- */
-static struct sa1100fb_rgb rgb_8 = {
+static struct sa1100fb_rgb rgb_4 = {
 	.red	= { .offset = 0,  .length = 4, },
 	.green	= { .offset = 0,  .length = 4, },
 	.blue	= { .offset = 0,  .length = 4, },
+	.transp	= { .offset = 0,  .length = 0, },
+};
+
+static struct sa1100fb_rgb rgb_8 = {
+	.red	= { .offset = 0,  .length = 8, },
+	.green	= { .offset = 0,  .length = 8, },
+	.blue	= { .offset = 0,  .length = 8, },
 	.transp	= { .offset = 0,  .length = 0, },
 };
 
@@ -248,22 +253,6 @@ static struct sa1100fb_mach_info pal_info __initdata = {
 	.lccr3		= LCCR3_OutEnH | LCCR3_PixRsEdg | LCCR3_ACBsDiv(512),
 };
 #endif
-#endif
-
-#ifdef CONFIG_SA1100_H3800
-static struct sa1100fb_mach_info h3800_info __initdata = {
-	.pixclock	= 174757, 	.bpp		= 16,
-	.xres		= 320,		.yres		= 240,
-
-	.hsync_len	= 3,		.vsync_len	= 3,
-	.left_margin	= 12,		.upper_margin	= 10,
-	.right_margin	= 17,		.lower_margin	= 1,
-
-	.cmap_static	= 1,
-
-	.lccr0		= LCCR0_Color | LCCR0_Sngl | LCCR0_Act,
-	.lccr3		= LCCR3_OutEnH | LCCR3_PixRsEdg | LCCR3_ACBsDiv(2),
-};
 #endif
 
 #ifdef CONFIG_SA1100_H3600
@@ -429,11 +418,6 @@ sa1100fb_get_machine_info(struct sa1100fb_info *fbi)
 	if (machine_is_h3600()) {
 		inf = &h3600_info;
 		fbi->rgb[RGB_16] = &h3600_rgb_16;
-	}
-#endif
-#ifdef CONFIG_SA1100_H3800
-	if (machine_is_h3800()) {
-		inf = &h3800_info;
 	}
 #endif
 #ifdef CONFIG_SA1100_COLLIE
@@ -633,7 +617,7 @@ sa1100fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	DPRINTK("var->bits_per_pixel=%d\n", var->bits_per_pixel);
 	switch (var->bits_per_pixel) {
 	case 4:
-		rgbidx = RGB_8;
+		rgbidx = RGB_4;
 		break;
 	case 8:
 		rgbidx = RGB_8;
@@ -674,18 +658,10 @@ sa1100fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 static inline void sa1100fb_set_truecolor(u_int is_true_color)
 {
 	if (machine_is_assabet()) {
-#if 1		// phase 4 or newer Assabet's
 		if (is_true_color)
 			ASSABET_BCR_set(ASSABET_BCR_LCD_12RGB);
 		else
 			ASSABET_BCR_clear(ASSABET_BCR_LCD_12RGB);
-#else
-		// older Assabet's
-		if (is_true_color)
-			ASSABET_BCR_clear(ASSABET_BCR_LCD_12RGB);
-		else
-			ASSABET_BCR_set(ASSABET_BCR_LCD_12RGB);
-#endif
 	}
 }
 
@@ -734,22 +710,6 @@ static int sa1100fb_set_par(struct fb_info *info)
 	return 0;
 }
 
-#if 0
-static int
-sa1100fb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
-		  struct fb_info *info)
-{
-	struct sa1100fb_info *fbi = (struct sa1100fb_info *)info;
-
-	/*
-	 * Make sure the user isn't doing something stupid.
-	 */
-	if (!kspc && (fbi->fb.var.bits_per_pixel == 16 || fbi->cmap_static))
-		return -EINVAL;
-
-	return gen_set_cmap(cmap, kspc, con, info);
-}
-#endif
 
 /*
  * Formal definition of the VESA spec:
@@ -1108,7 +1068,7 @@ static void set_ctrlr_state(struct sa1100fb_info *fbi, u_int state)
 {
 	u_int old_state;
 
-	down(&fbi->ctrlr_sem);
+	mutex_lock(&fbi->ctrlr_lock);
 
 	old_state = fbi->state;
 
@@ -1193,7 +1153,7 @@ static void set_ctrlr_state(struct sa1100fb_info *fbi, u_int state)
 		}
 		break;
 	}
-	up(&fbi->ctrlr_sem);
+	mutex_unlock(&fbi->ctrlr_lock);
 }
 
 /*
@@ -1216,35 +1176,7 @@ static void sa1100fb_task(struct work_struct *w)
  */
 static unsigned int sa1100fb_min_dma_period(struct sa1100fb_info *fbi)
 {
-#if 0
-	unsigned int min_period = (unsigned int)-1;
-	int i;
-
-	for (i = 0; i < MAX_NR_CONSOLES; i++) {
-		struct display *disp = &fb_display[i];
-		unsigned int period;
-
-		/*
-		 * Do we own this display?
-		 */
-		if (disp->fb_info != &fbi->fb)
-			continue;
-
-		/*
-		 * Ok, calculate its DMA period
-		 */
-		period = sa1100fb_display_dma_period(&disp->var);
-		if (period < min_period)
-			min_period = period;
-	}
-
-	return min_period;
-#else
-	/*
-	 * FIXME: we need to verify _all_ consoles.
-	 */
 	return sa1100fb_display_dma_period(&fbi->fb.var);
-#endif
 }
 
 /*
@@ -1347,12 +1279,6 @@ static int __init sa1100fb_map_video_memory(struct sa1100fb_info *fbi)
 	if (fbi->map_cpu) {
 		fbi->fb.screen_base = fbi->map_cpu + PAGE_SIZE;
 		fbi->screen_dma = fbi->map_dma + PAGE_SIZE;
-		/*
-		 * FIXME: this is actually the wrong thing to place in
-		 * smem_start.  But fbdev suffers from the problem that
-		 * it needs an API which doesn't exist (in this case,
-		 * dma_writecombine_mmap)
-		 */
 		fbi->fb.fix.smem_start = fbi->screen_dma;
 	}
 
@@ -1402,6 +1328,7 @@ static struct sa1100fb_info * __init sa1100fb_init_fbinfo(struct device *dev)
 	fbi->fb.monspecs	= monspecs;
 	fbi->fb.pseudo_palette	= (fbi + 1);
 
+	fbi->rgb[RGB_4]		= &rgb_4;
 	fbi->rgb[RGB_8]		= &rgb_8;
 	fbi->rgb[RGB_16]	= &def_rgb_16;
 
@@ -1445,12 +1372,12 @@ static struct sa1100fb_info * __init sa1100fb_init_fbinfo(struct device *dev)
 
 	init_waitqueue_head(&fbi->ctrlr_wait);
 	INIT_WORK(&fbi->task, sa1100fb_task);
-	init_MUTEX(&fbi->ctrlr_sem);
+	mutex_init(&fbi->ctrlr_lock);
 
 	return fbi;
 }
 
-static int __init sa1100fb_probe(struct platform_device *pdev)
+static int __devinit sa1100fb_probe(struct platform_device *pdev)
 {
 	struct sa1100fb_info *fbi;
 	int ret, irq;
@@ -1534,42 +1461,6 @@ int __init sa1100fb_init(void)
 
 int __init sa1100fb_setup(char *options)
 {
-#if 0
-	char *this_opt;
-
-	if (!options || !*options)
-		return 0;
-
-	while ((this_opt = strsep(&options, ",")) != NULL) {
-
-		if (!strncmp(this_opt, "bpp:", 4))
-			current_par.max_bpp =
-			    simple_strtoul(this_opt + 4, NULL, 0);
-
-		if (!strncmp(this_opt, "lccr0:", 6))
-			lcd_shadow.lccr0 =
-			    simple_strtoul(this_opt + 6, NULL, 0);
-		if (!strncmp(this_opt, "lccr1:", 6)) {
-			lcd_shadow.lccr1 =
-			    simple_strtoul(this_opt + 6, NULL, 0);
-			current_par.max_xres =
-			    (lcd_shadow.lccr1 & 0x3ff) + 16;
-		}
-		if (!strncmp(this_opt, "lccr2:", 6)) {
-			lcd_shadow.lccr2 =
-			    simple_strtoul(this_opt + 6, NULL, 0);
-			current_par.max_yres =
-			    (lcd_shadow.
-			     lccr0 & LCCR0_SDS) ? ((lcd_shadow.
-						    lccr2 & 0x3ff) +
-						   1) *
-			    2 : ((lcd_shadow.lccr2 & 0x3ff) + 1);
-		}
-		if (!strncmp(this_opt, "lccr3:", 6))
-			lcd_shadow.lccr3 =
-			    simple_strtoul(this_opt + 6, NULL, 0);
-	}
-#endif
 	return 0;
 }
 

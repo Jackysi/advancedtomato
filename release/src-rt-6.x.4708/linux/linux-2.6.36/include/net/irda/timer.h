@@ -102,4 +102,3 @@ void irlmp_start_idle_timer(struct lap_cb *, int timeout);
 void irlmp_stop_idle_timer(struct lap_cb *self);
 
 #endif
-

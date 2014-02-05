@@ -44,7 +44,7 @@
 #define LANAI_DMADIR	0x8cUL		/* DMA direction.		*/
 #define LANAI_DMASTAT	0x90UL		/* DMA status.			*/
 #define LANAI_TIMEO	0x94UL		/* Timeout register.		*/
-#define LANAI_MYRINET	0x98UL		/* XXX MAGIC myricom thing	*/
+#define LANAI_MYRINET	0x98UL
 #define LANAI_HWDEBUG	0x9cUL		/* Hardware debugging reg.	*/
 #define LANAI_LEDS	0xa0UL		/* LED control.			*/
 #define LANAI_VERS	0xa4UL		/* Version register.		*/
@@ -161,7 +161,7 @@ struct myri_rxd {
 struct myri_txd {
 	struct myri_sglist myri_gathers[MYRI_GATHER_ENTRIES]; /* DMA scatter list.  */
 	u32 num_sg;	/* Total scatter entries.   */
-	u16 addr[4];	/* XXX address              */
+	u16 addr[4];
 	u32 chan;
 	u32 len;	/* Total length of packet.  */
 	u32 csum_off;	/* Where data to csum is.   */
@@ -185,7 +185,6 @@ struct myri_txd {
 /* GRRR... */
 static __inline__ int NEXT_RX(int num)
 {
-	/* XXX >=??? */
 	if(++num > RX_RING_SIZE)
 		num = 0;
 	return num;
@@ -280,7 +279,6 @@ struct myri_eth {
 	void __iomem			*lregs;		/* Quick ptr to LANAI regs.   */
 	struct sk_buff	       *rx_skbs[RX_RING_SIZE+1];/* RX skb's                   */
 	struct sk_buff	       *tx_skbs[TX_RING_SIZE];  /* TX skb's                   */
-	struct net_device_stats		enet_stats;	/* Interface stats.           */
 
 	/* These are less frequently accessed. */
 	void __iomem			*regs;          /* MyriCOM register space.    */
@@ -289,7 +287,7 @@ struct myri_eth {
 	struct myri_eeprom		eeprom;		/* Local copy of EEPROM.      */
 	unsigned int			reg_size;	/* Size of register space.    */
 	unsigned int			shmem_base;	/* Offset to shared ram.      */
-	struct sbus_dev			*myri_sdev;	/* Our SBUS device struct.    */
+	struct platform_device		*myri_op;	/* Our OF device struct.    */
 };
 
 /* We use this to acquire receive skb's that we can DMA directly into. */

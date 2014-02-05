@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/fb.h>
 #include <linux/console.h>
@@ -58,8 +59,8 @@ extern int _ramstart, _ramend;
 extern char _target_name[];
 extern void h8300_gpio_init(void);
 
-#if (defined(CONFIG_H8300H_SIM) || defined(CONFIG_H8S_SIM)) \
-    && defined(CONFIG_GDB_MAGICPRINT)
+#if (defined(CONFIG_H8300H_SIM) || defined(CONFIG_H8S_SIM)) && \
+	defined(CONFIG_GDB_MAGICPRINT)
 /* printk with gdb service */
 static void gdb_console_output(struct console *c, const char *msg, unsigned len)
 {
@@ -123,7 +124,8 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.end_data = (unsigned long) &_edata;
 	init_mm.brk = (unsigned long) 0; 
 
-#if (defined(CONFIG_H8300H_SIM) || defined(CONFIG_H8S_SIM)) && defined(CONFIG_GDB_MAGICPRINT)
+#if (defined(CONFIG_H8300H_SIM) || defined(CONFIG_H8S_SIM)) && \
+	defined(CONFIG_GDB_MAGICPRINT)
 	register_console((struct console *)&gdb_console);
 #endif
 
@@ -173,7 +175,7 @@ void __init setup_arch(char **cmdline_p)
 	 * the bootmem bitmap so we then reserve it after freeing it :-)
 	 */
 	free_bootmem(memory_start, memory_end - memory_start);
-	reserve_bootmem(memory_start, bootmap_size);
+	reserve_bootmem(memory_start, bootmap_size, BOOTMEM_DEFAULT);
 	/*
 	 * get kmalloc into gear
 	 */
@@ -236,7 +238,7 @@ static void c_stop(struct seq_file *m, void *v)
 {
 }
 
-struct seq_operations cpuinfo_op = {
+const struct seq_operations cpuinfo_op = {
 	.start	= c_start,
 	.next	= c_next,
 	.stop	= c_stop,

@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * INET		An implementation of the TCP/IP protocol suite for the LINUX
  *		operating system.  INET is implemented using the  BSD Socket
@@ -16,6 +17,7 @@
 #define _INET_TIMEWAIT_SOCK_
 
 
+#include <linux/kmemcheck.h>
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/timer.h>
@@ -38,24 +40,10 @@ struct inet_hashinfo;
  * If time > 4sec, it is "slow" path, no recycling is required,
  * so that we select tick to get range about 4 seconds.
  */
-#if HZ <= 16 || HZ > 4096
-# error Unsupported: HZ <= 16 or HZ > 4096
-#elif HZ <= 32
-# define INET_TWDR_RECYCLE_TICK (5 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 64
-# define INET_TWDR_RECYCLE_TICK (6 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 128
-# define INET_TWDR_RECYCLE_TICK (7 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 256
-# define INET_TWDR_RECYCLE_TICK (8 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 512
-# define INET_TWDR_RECYCLE_TICK (9 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 1024
-# define INET_TWDR_RECYCLE_TICK (10 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-#elif HZ <= 2048
-# define INET_TWDR_RECYCLE_TICK (11 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
+#if	(SHIFT_HZ >= 5)
+#define INET_TWDR_RECYCLE_TICK (SHIFT_HZ + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
 #else
-# define INET_TWDR_RECYCLE_TICK (12 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
+#define INET_TWDR_RECYCLE_TICK (1)
 #endif
 
 /* TIME_WAIT reaping mechanism. */
@@ -110,11 +98,13 @@ struct inet_timewait_sock {
 #define tw_state		__tw_common.skc_state
 #define tw_reuse		__tw_common.skc_reuse
 #define tw_bound_dev_if		__tw_common.skc_bound_dev_if
-#define tw_node			__tw_common.skc_node
+#define tw_node			__tw_common.skc_nulls_node
 #define tw_bind_node		__tw_common.skc_bind_node
 #define tw_refcnt		__tw_common.skc_refcnt
 #define tw_hash			__tw_common.skc_hash
 #define tw_prot			__tw_common.skc_prot
+#define tw_net			__tw_common.skc_net
+	int			tw_timeout;
 	volatile unsigned char	tw_substate;
 	/* 3 bits hole, try to pack */
 	unsigned char		tw_rcv_wscale;
@@ -125,20 +115,22 @@ struct inet_timewait_sock {
 	__be32			tw_rcv_saddr;
 	__be16			tw_dport;
 	__u16			tw_num;
+	kmemcheck_bitfield_begin(flags);
 	/* And these are ours. */
-	__u8			tw_ipv6only:1;
-	/* 15 bits hole, try to pack */
-	__u16			tw_ipv6_offset;
-	int			tw_timeout;
+	unsigned int		tw_ipv6only     : 1,
+				tw_transparent  : 1,
+				tw_pad		: 14,	/* 14 bits hole */
+				tw_ipv6_offset  : 16;
+	kmemcheck_bitfield_end(flags);
 	unsigned long		tw_ttd;
 	struct inet_bind_bucket	*tw_tb;
 	struct hlist_node	tw_death_node;
 };
 
-static inline void inet_twsk_add_node(struct inet_timewait_sock *tw,
-				      struct hlist_head *list)
+static inline void inet_twsk_add_node_rcu(struct inet_timewait_sock *tw,
+				      struct hlist_nulls_head *list)
 {
-	hlist_add_head(&tw->tw_node, list);
+	hlist_nulls_add_head_rcu(&tw->tw_node, list);
 }
 
 static inline void inet_twsk_add_bind_node(struct inet_timewait_sock *tw,
@@ -173,7 +165,7 @@ static inline int inet_twsk_del_dead_node(struct inet_timewait_sock *tw)
 }
 
 #define inet_twsk_for_each(tw, node, head) \
-	hlist_for_each_entry(tw, node, head, tw_node)
+	hlist_nulls_for_each_entry(tw, node, head, tw_node)
 
 #define inet_twsk_for_each_inmate(tw, node, jail) \
 	hlist_for_each_entry(tw, node, jail, tw_death_node)
@@ -189,28 +181,18 @@ static inline struct inet_timewait_sock *inet_twsk(const struct sock *sk)
 static inline __be32 inet_rcv_saddr(const struct sock *sk)
 {
 	return likely(sk->sk_state != TCP_TIME_WAIT) ?
-		inet_sk(sk)->rcv_saddr : inet_twsk(sk)->tw_rcv_saddr;
+		inet_sk(sk)->inet_rcv_saddr : inet_twsk(sk)->tw_rcv_saddr;
 }
 
-static inline void inet_twsk_put(struct inet_timewait_sock *tw)
-{
-	if (atomic_dec_and_test(&tw->tw_refcnt)) {
-		struct module *owner = tw->tw_prot->owner;
-		twsk_destructor((struct sock *)tw);
-#ifdef SOCK_REFCNT_DEBUG
-		printk(KERN_DEBUG "%s timewait_sock %p released\n",
-		       tw->tw_prot->name, tw);
-#endif
-		kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
-		module_put(owner);
-	}
-}
+extern void inet_twsk_put(struct inet_timewait_sock *tw);
+
+extern int inet_twsk_unhash(struct inet_timewait_sock *tw);
+
+extern int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
+				 struct inet_hashinfo *hashinfo);
 
 extern struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
 						  const int state);
-
-extern void __inet_twsk_kill(struct inet_timewait_sock *tw,
-			     struct inet_hashinfo *hashinfo);
 
 extern void __inet_twsk_hashdance(struct inet_timewait_sock *tw,
 				  struct sock *sk,
@@ -221,4 +203,27 @@ extern void inet_twsk_schedule(struct inet_timewait_sock *tw,
 			       const int timeo, const int timewait_len);
 extern void inet_twsk_deschedule(struct inet_timewait_sock *tw,
 				 struct inet_timewait_death_row *twdr);
+
+extern void inet_twsk_purge(struct inet_hashinfo *hashinfo,
+			    struct inet_timewait_death_row *twdr, int family);
+
+static inline
+struct net *twsk_net(const struct inet_timewait_sock *twsk)
+{
+#ifdef CONFIG_NET_NS
+	return rcu_dereference_raw(twsk->tw_net); /* protected by locking, */
+						  /* reference counting, */
+						  /* initialization, or RCU. */
+#else
+	return &init_net;
+#endif
+}
+
+static inline
+void twsk_net_set(struct inet_timewait_sock *twsk, struct net *net)
+{
+#ifdef CONFIG_NET_NS
+	rcu_assign_pointer(twsk->tw_net, net);
+#endif
+}
 #endif	/* _INET_TIMEWAIT_SOCK_ */

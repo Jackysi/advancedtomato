@@ -4,8 +4,8 @@
 # $Id: Makefile,v 1.3 2008-05-02 22:49:54 $
 #
 
-B57SRCDIR := ../../../../../../$(SRCBASEDIR)/bcm57xx
-SHAREDSRCDIR := ../../../../../../$(SRCBASEDIR)/shared
+B57SRCDIR := ../../../../../bcm57xx
+SHAREDSRCDIR := ../../../../../shared
 
 obj-$(CONFIG_BCM57XX) := bcm57xx.o
 
@@ -30,9 +30,6 @@ else
 bcm57xx-objs := $(B57SRCDIR)/linux/bcm57xx.o
 
 endif
-
-# Set in linux-2.6 makefile
-#EXTRA_CFLAGS += -DPKTC
 
 ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile

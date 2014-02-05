@@ -47,7 +47,7 @@ typedef struct irq_swizzle_struct
 
 static irq_swizzle_t *sable_lynx_irq_swizzle;
 
-static void sable_lynx_init_irq(int nr_irqs);
+static void sable_lynx_init_irq(int nr_of_irqs);
 
 #if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SABLE)
 
@@ -425,7 +425,7 @@ lynx_swizzle(struct pci_dev *dev, u8 *pinp)
 				slot = PCI_SLOT(dev->devfn) + 11;
 				break;
 			}
-			pin = bridge_swizzle(pin, PCI_SLOT(dev->devfn)) ;
+			pin = pci_swizzle_interrupt_pin(dev, pin);
 
 			/* Move up the chain of bridges.  */
 			dev = dev->bus->self;
@@ -452,10 +452,6 @@ sable_lynx_enable_irq(unsigned int irq)
 	mask = sable_lynx_irq_swizzle->shadow_mask &= ~(1UL << bit);
 	sable_lynx_irq_swizzle->update_irq_hw(bit, mask);
 	spin_unlock(&sable_lynx_irq_lock);
-#if 0
-	printk("%s: mask 0x%lx bit 0x%x irq 0x%x\n",
-	       __FUNCTION__, mask, bit, irq);
-#endif
 }
 
 static void
@@ -468,10 +464,6 @@ sable_lynx_disable_irq(unsigned int irq)
 	mask = sable_lynx_irq_swizzle->shadow_mask |= 1UL << bit;
 	sable_lynx_irq_swizzle->update_irq_hw(bit, mask);
 	spin_unlock(&sable_lynx_irq_lock);
-#if 0
-	printk("%s: mask 0x%lx bit 0x%x irq 0x%x\n",
-	       __FUNCTION__, mask, bit, irq);
-#endif
 }
 
 static unsigned int
@@ -501,8 +493,8 @@ sable_lynx_mask_and_ack_irq(unsigned int irq)
 	spin_unlock(&sable_lynx_irq_lock);
 }
 
-static struct hw_interrupt_type sable_lynx_irq_type = {
-	.typename	= "SABLE/LYNX",
+static struct irq_chip sable_lynx_irq_type = {
+	.name		= "SABLE/LYNX",
 	.startup	= sable_lynx_startup_irq,
 	.shutdown	= sable_lynx_disable_irq,
 	.enable		= sable_lynx_enable_irq,
@@ -522,19 +514,15 @@ sable_lynx_srm_device_interrupt(unsigned long vector)
 
 	bit = (vector - 0x800) >> 4;
 	irq = sable_lynx_irq_swizzle->mask_to_irq[bit];
-#if 0
-	printk("%s: vector 0x%lx bit 0x%x irq 0x%x\n",
-	       __FUNCTION__, vector, bit, irq);
-#endif
 	handle_irq(irq);
 }
 
 static void __init
-sable_lynx_init_irq(int nr_irqs)
+sable_lynx_init_irq(int nr_of_irqs)
 {
 	long i;
 
-	for (i = 0; i < nr_irqs; ++i) {
+	for (i = 0; i < nr_of_irqs; ++i) {
 		irq_desc[i].status = IRQ_DISABLED | IRQ_LEVEL;
 		irq_desc[i].chip = &sable_lynx_irq_type;
 	}
@@ -556,8 +544,8 @@ sable_lynx_init_pci(void)
  * these games with GAMMA_BIAS.
  */
 
-#if defined(CONFIG_ALPHA_GENERIC) || \
-    (defined(CONFIG_ALPHA_SABLE) && !defined(CONFIG_ALPHA_GAMMA))
+#if defined(CONFIG_ALPHA_GENERIC) || (defined(CONFIG_ALPHA_SABLE) && \
+	!defined(CONFIG_ALPHA_GAMMA))
 #undef GAMMA_BIAS
 #define GAMMA_BIAS 0
 struct alpha_machine_vector sable_mv __initmv = {
@@ -588,8 +576,8 @@ struct alpha_machine_vector sable_mv __initmv = {
 ALIAS_MV(sable)
 #endif /* GENERIC || (SABLE && !GAMMA) */
 
-#if defined(CONFIG_ALPHA_GENERIC) || \
-    (defined(CONFIG_ALPHA_SABLE) && defined(CONFIG_ALPHA_GAMMA))
+#if defined(CONFIG_ALPHA_GENERIC) || (defined(CONFIG_ALPHA_SABLE) && \
+	defined(CONFIG_ALPHA_GAMMA))
 #undef GAMMA_BIAS
 #define GAMMA_BIAS _GAMMA_BIAS
 struct alpha_machine_vector sable_gamma_mv __initmv = {

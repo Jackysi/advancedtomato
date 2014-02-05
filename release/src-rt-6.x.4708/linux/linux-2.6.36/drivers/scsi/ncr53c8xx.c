@@ -98,6 +98,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
+#include <linux/gfp.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
@@ -529,43 +530,20 @@ static void __unmap_scsi_data(struct device *dev, struct scsi_cmnd *cmd)
 {
 	switch(cmd->__data_mapped) {
 	case 2:
-		dma_unmap_sg(dev, cmd->request_buffer, cmd->use_sg,
-				cmd->sc_data_direction);
-		break;
-	case 1:
-		dma_unmap_single(dev, cmd->__data_mapping,
-				 cmd->request_bufflen,
-				 cmd->sc_data_direction);
+		scsi_dma_unmap(cmd);
 		break;
 	}
 	cmd->__data_mapped = 0;
-}
-
-static u_long __map_scsi_single_data(struct device *dev, struct scsi_cmnd *cmd)
-{
-	dma_addr_t mapping;
-
-	if (cmd->request_bufflen == 0)
-		return 0;
-
-	mapping = dma_map_single(dev, cmd->request_buffer,
-				 cmd->request_bufflen,
-				 cmd->sc_data_direction);
-	cmd->__data_mapped = 1;
-	cmd->__data_mapping = mapping;
-
-	return mapping;
 }
 
 static int __map_scsi_sg_data(struct device *dev, struct scsi_cmnd *cmd)
 {
 	int use_sg;
 
-	if (cmd->use_sg == 0)
+	use_sg = scsi_dma_map(cmd);
+	if (!use_sg)
 		return 0;
 
-	use_sg = dma_map_sg(dev, cmd->request_buffer, cmd->use_sg,
-			cmd->sc_data_direction);
 	cmd->__data_mapped = 2;
 	cmd->__data_mapping = use_sg;
 
@@ -573,7 +551,6 @@ static int __map_scsi_sg_data(struct device *dev, struct scsi_cmnd *cmd)
 }
 
 #define unmap_scsi_data(np, cmd)	__unmap_scsi_data(np->dev, cmd)
-#define map_scsi_single_data(np, cmd)	__map_scsi_single_data(np->dev, cmd)
 #define map_scsi_sg_data(np, cmd)	__map_scsi_sg_data(np->dev, cmd)
 
 /*==========================================================
@@ -1486,10 +1463,6 @@ struct head {
 #define  xerr_status   phys.xerr_st
 #define  nego_status   phys.nego_st
 
-#if 0
-#define  sync_status   phys.sync_st
-#define  wide_status   phys.wide_st
-#endif
 
 /*==========================================================
 **
@@ -2013,9 +1986,6 @@ static inline char *ncr_name (struct ncb *np)
 #define	RELOC_SOFTC	0x40000000
 #define	RELOC_LABEL	0x50000000
 #define	RELOC_REGISTER	0x60000000
-#if 0
-#define	RELOC_KVAR	0x70000000
-#endif
 #define	RELOC_LABELH	0x80000000
 #define	RELOC_MASK	0xf0000000
 
@@ -2024,21 +1994,7 @@ static inline char *ncr_name (struct ncb *np)
 #define PADDRH(label)   (RELOC_LABELH | offsetof(struct scripth, label))
 #define	RADDR(label)	(RELOC_REGISTER | REG(label))
 #define	FADDR(label,ofs)(RELOC_REGISTER | ((REG(label))+(ofs)))
-#if 0
-#define	KVAR(which)	(RELOC_KVAR | (which))
-#endif
 
-#if 0
-#define	SCRIPT_KVAR_JIFFIES	(0)
-#define	SCRIPT_KVAR_FIRST		SCRIPT_KVAR_JIFFIES
-#define	SCRIPT_KVAR_LAST		SCRIPT_KVAR_JIFFIES
-/*
- * Kernel variables referenced in the scripts.
- * THESE MUST ALL BE ALIGNED TO A 4-BYTE BOUNDARY.
- */
-static void *script_kvars[] __initdata =
-	{ (void *)&jiffies };
-#endif
 
 static	struct script script0 __initdata = {
 /*--------------------------< START >-----------------------*/ {
@@ -2195,11 +2151,6 @@ static	struct script script0 __initdata = {
 	SCR_COPY (1),
 		RADDR (scratcha),
 		NADDR (msgout),
-#if 0
-	SCR_COPY (1),
-		RADDR (scratcha),
-		NADDR (msgin),
-#endif
 	/*
 	**	Anticipate the COMMAND phase.
 	**	This is the normal case for initial selection.
@@ -2234,13 +2185,6 @@ static	struct script script0 __initdata = {
 
 	SCR_RETURN ^ IFTRUE (IF (SCR_DATA_OUT)),
 		0,
-	/*
-	**	DEL 397 - 53C875 Rev 3 - Part Number 609-0392410 - ITEM 4.
-	**	Possible data corruption during Memory Write and Invalidate.
-	**	This work-around resets the addressing logic prior to the 
-	**	start of the first MOVE of a DATA IN phase.
-	**	(See Documentation/scsi/ncr53c8xx.txt for more information)
-	*/
 	SCR_JUMPR ^ IFFALSE (IF (SCR_DATA_IN)),
 		20,
 	SCR_COPY (4),
@@ -4194,8 +4138,8 @@ static int ncr_queue_command (struct ncb *np, struct scsi_cmnd *cmd)
 	**
 	**----------------------------------------------------
 	*/
-	if (np->settle_time && cmd->timeout_per_command >= HZ) {
-		u_long tlimit = jiffies + cmd->timeout_per_command - HZ;
+	if (np->settle_time && cmd->request->timeout >= HZ) {
+		u_long tlimit = jiffies + cmd->request->timeout - HZ;
 		if (time_after(np->settle_time, tlimit))
 			np->settle_time = tlimit;
 	}
@@ -4408,10 +4352,6 @@ static int ncr_queue_command (struct ncb *np, struct scsi_cmnd *cmd)
 	cp->parity_status		= 0;
 
 	cp->xerr_status			= XE_OK;
-#if 0
-	cp->sync_status			= tp->sval;
-	cp->wide_status			= tp->wval;
-#endif
 
 	/*----------------------------------------------------
 	**
@@ -4642,88 +4582,6 @@ static int ncr_reset_bus (struct ncb *np, struct scsi_cmnd *cmd, int sync_reset)
 	return SUCCESS;
 }
 
-#if 0 /* unused and broken.. */
-/*==========================================================
-**
-**
-**	Abort an SCSI command.
-**	This is called from the generic SCSI driver.
-**
-**
-**==========================================================
-*/
-static int ncr_abort_command (struct ncb *np, struct scsi_cmnd *cmd)
-{
-/*	struct scsi_device        *device    = cmd->device; */
-	struct ccb *cp;
-	int found;
-	int retv;
-
-/*
- * First, look for the scsi command in the waiting list
- */
-	if (remove_from_waiting_list(np, cmd)) {
-		cmd->result = ScsiResult(DID_ABORT, 0);
-		ncr_queue_done_cmd(np, cmd);
-		return SCSI_ABORT_SUCCESS;
-	}
-
-/*
- * Then, look in the wakeup list
- */
-	for (found=0, cp=np->ccb; cp; cp=cp->link_ccb) {
-		/*
-		**	look for the ccb of this command.
-		*/
-		if (cp->host_status == HS_IDLE) continue;
-		if (cp->cmd == cmd) {
-			found = 1;
-			break;
-		}
-	}
-
-	if (!found) {
-		return SCSI_ABORT_NOT_RUNNING;
-	}
-
-	if (np->settle_time) {
-		return SCSI_ABORT_SNOOZE;
-	}
-
-	/*
-	**	If the CCB is active, patch schedule jumps for the 
-	**	script to abort the command.
-	*/
-
-	switch(cp->host_status) {
-	case HS_BUSY:
-	case HS_NEGOTIATE:
-		printk ("%s: abort ccb=%p (cancel)\n", ncr_name (np), cp);
-			cp->start.schedule.l_paddr =
-				cpu_to_scr(NCB_SCRIPTH_PHYS (np, cancel));
-		retv = SCSI_ABORT_PENDING;
-		break;
-	case HS_DISCONNECT:
-		cp->restart.schedule.l_paddr =
-				cpu_to_scr(NCB_SCRIPTH_PHYS (np, abort));
-		retv = SCSI_ABORT_PENDING;
-		break;
-	default:
-		retv = SCSI_ABORT_NOT_RUNNING;
-		break;
-
-	}
-
-	/*
-	**      If there are no requests, the script
-	**      processor will sleep on SEL_WAIT_RESEL.
-	**      Let's wake it up, since it may have to work.
-	*/
-	OUTB (nc_istat, SIGP);
-
-	return retv;
-}
-#endif
 
 static void ncr_detach(struct ncb *np)
 {
@@ -4987,10 +4845,11 @@ void ncr_complete (struct ncb *np, struct ccb *cp)
 		**	Copy back sense data to caller's buffer.
 		*/
 		memcpy(cmd->sense_buffer, cp->sense_buf,
-		       min(sizeof(cmd->sense_buffer), sizeof(cp->sense_buf)));
+		       min_t(size_t, SCSI_SENSE_BUFFERSIZE,
+			     sizeof(cp->sense_buf)));
 
 		if (DEBUG_FLAGS & (DEBUG_RESULT|DEBUG_TINY)) {
-			u_char * p = (u_char*) & cmd->sense_buffer;
+			u_char *p = cmd->sense_buffer;
 			int i;
 			PRINT_ADDR(cmd, "sense data:");
 			for (i=0; i<14; i++) printk (" %x", *p++);
@@ -5467,7 +5326,7 @@ static void ncr_getsync(struct ncb *np, u_char sfac, u_char *fakp, u_char *scntl
 	**	input speed faster than the period.
 	*/
 	kpc = per * clk;
-	while (--div >= 0)
+	while (--div > 0)
 		if (kpc >= (div_10M[div] << 2)) break;
 
 	/*
@@ -5476,26 +5335,6 @@ static void ncr_getsync(struct ncb *np, u_char sfac, u_char *fakp, u_char *scntl
 	*/
 	fak = (kpc - 1) / div_10M[div] + 1;
 
-#if 0	/* This optimization does not seem very useful */
-
-	per = (fak * div_10M[div]) / clk;
-
-	/*
-	**	Why not to try the immediate lower divisor and to choose 
-	**	the one that allows the fastest output speed ?
-	**	We don't want input speed too much greater than output speed.
-	*/
-	if (div >= 1 && fak < 8) {
-		u_long fak2, per2;
-		fak2 = (kpc - 1) / div_10M[div-1] + 1;
-		per2 = (fak2 * div_10M[div-1]) / clk;
-		if (per2 < per && fak2 <= 8) {
-			fak = fak2;
-			per = per2;
-			--div;
-		}
-	}
-#endif
 
 	if (fak < 4) fak = 4;	/* Should never happen, too bad ... */
 
@@ -5534,10 +5373,6 @@ static void ncr_set_sync_wide_status (struct ncb *np, u_char target)
 	for (cp = np->ccb; cp; cp = cp->link_ccb) {
 		if (!cp->cmd) continue;
 		if (scmd_id(cp->cmd) != target) continue;
-#if 0
-		cp->sync_status = tp->sval;
-		cp->wide_status = tp->wval;
-#endif
 		cp->phys.select.sel_scntl3 = tp->wval;
 		cp->phys.select.sel_sxfer  = tp->sval;
 	}
@@ -6518,7 +6353,7 @@ static void ncr_int_ma (struct ncb *np)
 	**	we force a SIR_NEGO_PROTO interrupt (it is a hack that avoids 
 	**	bloat for such a should_not_happen situation).
 	**	In all other situation, we reset the BUS.
-	**	Are these assumptions reasonnable ? (Wait and see ...)
+	**	Are these assumptions reasonable ? (Wait and see ...)
 	*/
 unexpected_phase:
 	dsp -= 8;
@@ -6528,11 +6363,6 @@ unexpected_phase:
 	case 2:	/* COMMAND phase */
 		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
 		break;
-#if 0
-	case 3:	/* STATUS  phase */
-		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
-		break;
-#endif
 	case 6:	/* MSG OUT phase */
 		np->scripth->nxtdsp_go_on[0] = cpu_to_scr(dsp + 8);
 		if	(dsp == NCB_SCRIPT_PHYS (np, send_ident)) {
@@ -6544,11 +6374,6 @@ unexpected_phase:
 			nxtdsp = NCB_SCRIPTH_PHYS (np, nego_bad_phase);
 		}
 		break;
-#if 0
-	case 7:	/* MSG IN  phase */
-		nxtdsp = NCB_SCRIPT_PHYS (np, clrack);
-		break;
-#endif
 	}
 
 	if (nxtdsp) {
@@ -7131,23 +6956,6 @@ void ncr_int_sir (struct ncb *np)
 		PRINT_ADDR(cp->cmd, "IGNORE_WIDE_RESIDUE received, but not yet "
 				"implemented.\n");
 		break;
-#if 0
-	case SIR_MISSING_SAVE:
-		/*-----------------------------------------------
-		**
-		**	We received an DISCONNECT message,
-		**	but the datapointer wasn't saved before.
-		**
-		**-----------------------------------------------
-		*/
-
-		PRINT_ADDR(cp->cmd, "DISCONNECT received, but datapointer "
-				"not saved: data=%x save=%x goal=%x.\n",
-			(unsigned) INL (nc_temp),
-			(unsigned) scr_to_cpu(np->header.savep),
-			(unsigned) scr_to_cpu(np->header.goalp));
-		break;
-#endif
 	}
 
 out:
@@ -7226,13 +7034,6 @@ static struct ccb *ncr_get_ccb(struct ncb *np, struct scsi_cmnd *cmd)
 	/*
 	**	Wait until available.
 	*/
-#if 0
-	while (cp->magic) {
-		if (flags & SCSI_NOSLEEP) break;
-		if (tsleep ((caddr_t)cp, PRIBIO|PCATCH, "ncr", 0))
-			break;
-	}
-#endif
 
 	if (cp->magic)
 		return NULL;
@@ -7322,10 +7123,6 @@ static void ncr_free_ccb (struct ncb *np, struct ccb *cp)
 		cp->queued = 0;
 	}
 
-#if 0
-	if (cp == np->ccb)
-		wakeup ((caddr_t) cp);
-#endif
 }
 
 
@@ -7667,39 +7464,16 @@ fail:
 **	sizes to the data segment array.
 */
 
-static int ncr_scatter_no_sglist(struct ncb *np, struct ccb *cp, struct scsi_cmnd *cmd)
-{
-	struct scr_tblmove *data = &cp->phys.data[MAX_SCATTER - 1];
-	int segment;
-
-	cp->data_len = cmd->request_bufflen;
-
-	if (cmd->request_bufflen) {
-		dma_addr_t baddr = map_scsi_single_data(np, cmd);
-		if (baddr) {
-			ncr_build_sge(np, data, baddr, cmd->request_bufflen);
-			segment = 1;
-		} else {
-			segment = -2;
-		}
-	} else {
-		segment = 0;
-	}
-
-	return segment;
-}
-
 static int ncr_scatter(struct ncb *np, struct ccb *cp, struct scsi_cmnd *cmd)
 {
 	int segment	= 0;
-	int use_sg	= (int) cmd->use_sg;
+	int use_sg	= scsi_sg_count(cmd);
 
 	cp->data_len	= 0;
 
-	if (!use_sg)
-		segment = ncr_scatter_no_sglist(np, cp, cmd);
-	else if ((use_sg = map_scsi_sg_data(np, cmd)) > 0) {
-		struct scatterlist *scatter = (struct scatterlist *)cmd->request_buffer;
+	use_sg = map_scsi_sg_data(np, cmd);
+	if (use_sg > 0) {
+		struct scatterlist *sg;
 		struct scr_tblmove *data;
 
 		if (use_sg > MAX_SCATTER) {
@@ -7709,16 +7483,15 @@ static int ncr_scatter(struct ncb *np, struct ccb *cp, struct scsi_cmnd *cmd)
 
 		data = &cp->phys.data[MAX_SCATTER - use_sg];
 
-		for (segment = 0; segment < use_sg; segment++) {
-			dma_addr_t baddr = sg_dma_address(&scatter[segment]);
-			unsigned int len = sg_dma_len(&scatter[segment]);
+		scsi_for_each_sg(cmd, sg, use_sg, segment) {
+			dma_addr_t baddr = sg_dma_address(sg);
+			unsigned int len = sg_dma_len(sg);
 
 			ncr_build_sge(np, &data[segment], baddr, len);
 			cp->data_len += len;
 		}
-	} else {
+	} else
 		segment = -2;
-	}
 
 	return segment;
 }
@@ -7745,11 +7518,7 @@ static int __init ncr_regtest (struct ncb* np)
 	data = 0xffffffff;
 	OUTL_OFF(offsetof(struct ncr_reg, nc_dstat), data);
 	data = INL_OFF(offsetof(struct ncr_reg, nc_dstat));
-#if 1
 	if (data == 0xffffffff) {
-#else
-	if ((data & 0xe2f0fffd) != 0x02000080) {
-#endif
 		printk ("CACHE TEST FAILED: reg dstat-sstat2 readback %x.\n",
 			(unsigned) data);
 		return (0x10);
@@ -8049,15 +7818,6 @@ static int ncr53c8xx_slave_configure(struct scsi_device *device)
 				 MSG_SIMPLE_TAG : 0),
 				depth_to_use);
 
-	/*
-	**	Since the queue depth is not tunable under Linux,
-	**	we need to know this value in order not to 
-	**	announce stupid things to user.
-	**
-	**	XXX(hch): As of Linux 2.6 it certainly _is_ tunable..
-	**		  In fact we just tuned it, or did I miss
-	**		  something important? :)
-	*/
 	if (lp) {
 		lp->numtags = lp->maxtags = numtags;
 		lp->scdev_depth = depth_to_use;
@@ -8183,34 +7943,6 @@ static int ncr53c8xx_bus_reset(struct scsi_cmnd *cmd)
 	return sts;
 }
 
-#if 0 /* unused and broken */
-static int ncr53c8xx_abort(struct scsi_cmnd *cmd)
-{
-	struct ncb *np = ((struct host_data *) cmd->device->host->hostdata)->ncb;
-	int sts;
-	unsigned long flags;
-	struct scsi_cmnd *done_list;
-
-#if defined SCSI_RESET_SYNCHRONOUS && defined SCSI_RESET_ASYNCHRONOUS
-	printk("ncr53c8xx_abort: pid=%lu serial_number=%ld\n",
-		cmd->pid, cmd->serial_number);
-#else
-	printk("ncr53c8xx_abort: command pid %lu\n", cmd->pid);
-#endif
-
-	NCR_LOCK_NCB(np, flags);
-
-	sts = ncr_abort_command(np, cmd);
-out:
-	done_list     = np->done_list;
-	np->done_list = NULL;
-	NCR_UNLOCK_NCB(np, flags);
-
-	ncr_flush_done_cmds(done_list);
-
-	return sts;
-}
-#endif
 
 
 /*
@@ -8238,7 +7970,7 @@ static void insert_into_waiting_list(struct ncb *np, struct scsi_cmnd *cmd)
 	cmd->next_wcmd = NULL;
 	if (!(wcmd = np->waiting_list)) np->waiting_list = cmd;
 	else {
-		while ((wcmd->next_wcmd) != 0)
+		while (wcmd->next_wcmd)
 			wcmd = (struct scsi_cmnd *) wcmd->next_wcmd;
 		wcmd->next_wcmd = (char *) cmd;
 	}
@@ -8274,7 +8006,7 @@ static void process_waiting_list(struct ncb *np, int sts)
 #ifdef DEBUG_WAITING_LIST
 	if (waiting_list) printk("%s: waiting_list=%lx processing sts=%d\n", ncr_name(np), (u_long) waiting_list, sts);
 #endif
-	while ((wcmd = waiting_list) != 0) {
+	while ((wcmd = waiting_list) != NULL) {
 		waiting_list = (struct scsi_cmnd *) wcmd->next_wcmd;
 		wcmd->next_wcmd = NULL;
 		if (sts == DID_OK) {
@@ -8295,7 +8027,8 @@ static void process_waiting_list(struct ncb *np, int sts)
 
 #undef next_wcmd
 
-static ssize_t show_ncr53c8xx_revision(struct class_device *dev, char *buf)
+static ssize_t show_ncr53c8xx_revision(struct device *dev,
+				       struct device_attribute *attr, char *buf)
 {
 	struct Scsi_Host *host = class_to_shost(dev);
 	struct host_data *host_data = (struct host_data *)host->hostdata;
@@ -8303,12 +8036,12 @@ static ssize_t show_ncr53c8xx_revision(struct class_device *dev, char *buf)
 	return snprintf(buf, 20, "0x%x\n", host_data->ncb->revision_id);
 }
   
-static struct class_device_attribute ncr53c8xx_revision_attr = {
+static struct device_attribute ncr53c8xx_revision_attr = {
 	.attr	= { .name = "revision", .mode = S_IRUGO, },
 	.show	= show_ncr53c8xx_revision,
 };
   
-static struct class_device_attribute *ncr53c8xx_host_attrs[] = {
+static struct device_attribute *ncr53c8xx_host_attrs[] = {
 	&ncr53c8xx_revision_attr,
 	NULL
 };
@@ -8576,18 +8309,15 @@ struct Scsi_Host * __init ncr_attach(struct scsi_host_template *tpnt,
 }
 
 
-int ncr53c8xx_release(struct Scsi_Host *host)
+void ncr53c8xx_release(struct Scsi_Host *host)
 {
-	struct host_data *host_data;
+	struct host_data *host_data = shost_priv(host);
 #ifdef DEBUG_NCR53C8XX
 	printk("ncr53c8xx: release\n");
 #endif
-	if (!host)
-		return 1;
-	host_data = (struct host_data *)host->hostdata;
-	if (host_data && host_data->ncb)
+	if (host_data->ncb)
 		ncr_detach(host_data->ncb);
-	return 1;
+	scsi_host_put(host);
 }
 
 static void ncr53c8xx_set_period(struct scsi_target *starget, int period)

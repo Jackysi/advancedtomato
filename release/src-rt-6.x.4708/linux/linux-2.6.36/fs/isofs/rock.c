@@ -209,6 +209,11 @@ repeat:
 
 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
 		rr = (struct rock_ridge *)rs.chr;
+		/*
+		 * Ignore rock ridge info if rr->len is out of range, but
+		 * don't return -EIO because that would make the file
+		 * invisible.
+		 */
 		if (rr->len < 3)
 			goto out;	/* Something got screwed up here */
 		sig = isonum_721(rs.chr);
@@ -216,8 +221,12 @@ repeat:
 			goto eio;
 		rs.chr += rr->len;
 		rs.len -= rr->len;
+		/*
+		 * As above, just ignore the rock ridge info if rr->len
+		 * is bogus.
+		 */
 		if (rs.len < 0)
-			goto eio;	/* corrupted isofs */
+			goto out;	/* Something got screwed up here */
 
 		switch (sig) {
 		case SIG('R', 'R'):
@@ -307,6 +316,11 @@ parse_rock_ridge_inode_internal(struct iso_directory_record *de,
 repeat:
 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
 		rr = (struct rock_ridge *)rs.chr;
+		/*
+		 * Ignore rock ridge info if rr->len is out of range, but
+		 * don't return -EIO because that would make the file
+		 * invisible.
+		 */
 		if (rr->len < 3)
 			goto out;	/* Something got screwed up here */
 		sig = isonum_721(rs.chr);
@@ -314,8 +328,12 @@ repeat:
 			goto eio;
 		rs.chr += rr->len;
 		rs.len -= rr->len;
+		/*
+		 * As above, just ignore the rock ridge info if rr->len
+		 * is bogus.
+		 */
 		if (rs.len < 0)
-			goto eio;	/* corrupted isofs */
+			goto out;	/* Something got screwed up here */
 
 		switch (sig) {
 #ifndef CONFIG_ZISOFS		/* No flag for SF or ZF */
@@ -474,8 +492,10 @@ repeat:
 			    isofs_iget(inode->i_sb,
 				       ISOFS_I(inode)->i_first_extent,
 				       0);
-			if (!reloc)
+			if (IS_ERR(reloc)) {
+				ret = PTR_ERR(reloc);
 				goto out;
+			}
 			inode->i_mode = reloc->i_mode;
 			inode->i_nlink = reloc->i_nlink;
 			inode->i_uid = reloc->i_uid;
@@ -498,8 +518,7 @@ repeat:
 			if (algo == SIG('p', 'z')) {
 				int block_shift =
 					isonum_711(&rr->u.ZF.parms[1]);
-				if (block_shift < PAGE_CACHE_SHIFT
-						|| block_shift > 17) {
+				if (block_shift > 17) {
 					printk(KERN_WARNING "isofs: "
 						"Can't handle ZF block "
 						"size of 2^%d\n",

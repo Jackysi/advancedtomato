@@ -68,4 +68,3 @@ struct fc_nl_event {
 
 
 #endif /* SCSI_NETLINK_FC_H */
-

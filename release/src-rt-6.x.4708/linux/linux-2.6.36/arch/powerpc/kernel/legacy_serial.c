@@ -4,6 +4,8 @@
 #include <linux/serial_core.h>
 #include <linux/console.h>
 #include <linux/pci.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <asm/io.h>
 #include <asm/mmu.h>
 #include <asm/prom.h>
@@ -31,6 +33,17 @@ static struct legacy_serial_info {
 	int				irq_check_parent;
 	phys_addr_t			taddr;
 } legacy_serial_infos[MAX_LEGACY_SERIAL_PORTS];
+
+static struct __initdata of_device_id legacy_serial_parents[] = {
+	{.type = "soc",},
+	{.type = "tsi-bridge",},
+	{.type = "opb", },
+	{.compatible = "ibm,opb",},
+	{.compatible = "simple-bus",},
+	{.compatible = "wrs,epld-localbus",},
+	{},
+};
+
 static unsigned int legacy_serial_count;
 static int legacy_serial_console = -1;
 
@@ -123,6 +136,11 @@ static int __init add_legacy_soc_port(struct device_node *np,
 	 * encoded in the device-tree.
 	 */
 	if (of_get_property(np, "clock-frequency", NULL) == NULL)
+		return -1;
+
+	/* if reg-shift or offset, don't try to use it */
+	if ((of_get_property(np, "reg-shift", NULL) != NULL) ||
+		(of_get_property(np, "reg-offset", NULL) != NULL))
 		return -1;
 
 	/* if rtas uses this device, don't try to use it as well */
@@ -306,19 +324,21 @@ void __init find_legacy_serial_ports(void)
 		DBG(" no linux,stdout-path !\n");
 	}
 
-	/* First fill our array with SOC ports */
-	for (np = NULL; (np = of_find_compatible_node(np, "serial", "ns16550")) != NULL;) {
-		struct device_node *soc = of_get_parent(np);
-		if (soc && !strcmp(soc->type, "soc")) {
+	/* Iterate over all the 16550 ports, looking for known parents */
+	for_each_compatible_node(np, "serial", "ns16550") {
+		struct device_node *parent = of_get_parent(np);
+		if (!parent)
+			continue;
+		if (of_match_node(legacy_serial_parents, parent) != NULL) {
 			index = add_legacy_soc_port(np, np);
 			if (index >= 0 && np == stdout)
 				legacy_serial_console = index;
 		}
-		of_node_put(soc);
+		of_node_put(parent);
 	}
 
-	/* First fill our array with ISA ports */
-	for (np = NULL; (np = of_find_node_by_type(np, "serial"));) {
+	/* Next, fill our array with ISA ports */
+	for_each_node_by_type(np, "serial") {
 		struct device_node *isa = of_get_parent(np);
 		if (isa && !strcmp(isa->name, "isa")) {
 			index = add_legacy_isa_port(np, isa);
@@ -326,28 +346,6 @@ void __init find_legacy_serial_ports(void)
 				legacy_serial_console = index;
 		}
 		of_node_put(isa);
-	}
-
-	/* First fill our array with tsi-bridge ports */
-	for (np = NULL; (np = of_find_compatible_node(np, "serial", "ns16550")) != NULL;) {
-		struct device_node *tsi = of_get_parent(np);
-		if (tsi && !strcmp(tsi->type, "tsi-bridge")) {
-			index = add_legacy_soc_port(np, np);
-			if (index >= 0 && np == stdout)
-				legacy_serial_console = index;
-		}
-		of_node_put(tsi);
-	}
-
-	/* First fill our array with opb bus ports */
-	for (np = NULL; (np = of_find_compatible_node(np, "serial", "ns16750")) != NULL;) {
-		struct device_node *opb = of_get_parent(np);
-		if (opb && !strcmp(opb->type, "opb")) {
-			index = add_legacy_soc_port(np, np);
-			if (index >= 0 && np == stdout)
-				legacy_serial_console = index;
-		}
-		of_node_put(opb);
 	}
 
 #ifdef CONFIG_PCI
@@ -472,8 +470,8 @@ static int __init serial_dev_init(void)
 		return -ENODEV;
 
 	/*
-	 * Before we register the platfrom serial devices, we need
-	 * to fixup their interrutps and their IO ports.
+	 * Before we register the platform serial devices, we need
+	 * to fixup their interrupts and their IO ports.
 	 */
 	DBG("Fixing serial ports interrupts and IO ports ...\n");
 
@@ -493,21 +491,21 @@ static int __init serial_dev_init(void)
 
 	return platform_device_register(&serial_device);
 }
-arch_initcall(serial_dev_init);
+device_initcall(serial_dev_init);
 
 
+#ifdef CONFIG_SERIAL_8250_CONSOLE
 /*
  * This is called very early, as part of console_init() (typically just after
  * time_init()). This function is respondible for trying to find a good
  * default console on serial ports. It tries to match the open firmware
- * default output with one of the available serial console drivers, either
- * one of the platform serial ports that have been probed earlier by
- * find_legacy_serial_ports() or some more platform specific ones.
+ * default output with one of the available serial console drivers that have
+ * been probed earlier by find_legacy_serial_ports()
  */
 static int __init check_legacy_serial_console(void)
 {
 	struct device_node *prom_stdout = NULL;
-	int speed = 0, offset = 0;
+	int i, speed = 0, offset = 0;
 	const char *name;
 	const u32 *spd;
 
@@ -551,31 +549,20 @@ static int __init check_legacy_serial_console(void)
 	if (spd)
 		speed = *spd;
 
-	if (0)
-		;
-#ifdef CONFIG_SERIAL_8250_CONSOLE
-	else if (strcmp(name, "serial") == 0) {
-		int i;
-		/* Look for it in probed array */
-		for (i = 0; i < legacy_serial_count; i++) {
-			if (prom_stdout != legacy_serial_infos[i].np)
-				continue;
-			offset = i;
-			speed = legacy_serial_infos[i].speed;
-			break;
-		}
-		if (i >= legacy_serial_count)
-			goto not_found;
-	}
-#endif /* CONFIG_SERIAL_8250_CONSOLE */
-#ifdef CONFIG_SERIAL_PMACZILOG_CONSOLE
-	else if (strcmp(name, "ch-a") == 0)
-		offset = 0;
-	else if (strcmp(name, "ch-b") == 0)
-		offset = 1;
-#endif /* CONFIG_SERIAL_PMACZILOG_CONSOLE */
-	else
+	if (strcmp(name, "serial") != 0)
 		goto not_found;
+
+	/* Look for it in probed array */
+	for (i = 0; i < legacy_serial_count; i++) {
+		if (prom_stdout != legacy_serial_infos[i].np)
+			continue;
+		offset = i;
+		speed = legacy_serial_infos[i].speed;
+		break;
+	}
+	if (i >= legacy_serial_count)
+		goto not_found;
+
 	of_node_put(prom_stdout);
 
 	DBG("Found serial console at ttyS%d\n", offset);
@@ -594,3 +581,4 @@ static int __init check_legacy_serial_console(void)
 }
 console_initcall(check_legacy_serial_console);
 
+#endif /* CONFIG_SERIAL_8250_CONSOLE */

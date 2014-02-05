@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Chelsio, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Chelsio, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -79,9 +79,17 @@ static inline struct t3c_tid_entry *lookup_tid(const struct tid_info *t,
 static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
 						unsigned int tid)
 {
+	union listen_entry *e;
+
 	if (tid < t->stid_base || tid >= t->stid_base + t->nstids)
 		return NULL;
-	return &(stid2entry(t, tid)->t3c_tid);
+
+	e = stid2entry(t, tid);
+	if ((void *)e->next >= (void *)t->tid_tab &&
+	    (void *)e->next < (void *)&t->atid_tab[t->natids])
+		return NULL;
+
+	return &e->t3c_tid;
 }
 
 /*
@@ -90,9 +98,17 @@ static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
 static inline struct t3c_tid_entry *lookup_atid(const struct tid_info *t,
 						unsigned int tid)
 {
+	union active_open_entry *e;
+
 	if (tid < t->atid_base || tid >= t->atid_base + t->natids)
 		return NULL;
-	return &(atid2entry(t, tid)->t3c_tid);
+
+	e = atid2entry(t, tid);
+	if ((void *)e->next >= (void *)t->tid_tab &&
+	    (void *)e->next < (void *)&t->atid_tab[t->natids])
+		return NULL;
+
+	return &e->t3c_tid;
 }
 
 int process_rx(struct t3cdev *dev, struct sk_buff **skbs, int n);

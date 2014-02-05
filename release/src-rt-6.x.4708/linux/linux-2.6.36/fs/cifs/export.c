@@ -24,7 +24,7 @@
  */
 
  /*
-  * See Documentation/filesystems/Exporting
+  * See Documentation/filesystems/nfs/Exporting
   * and examples in fs/exportfs
   *
   * Since cifs is a network file system, an "fsid" must be included for
@@ -40,7 +40,7 @@
   */
 
 #include <linux/fs.h>
-
+#include <linux/exportfs.h>
 #include "cifsglob.h"
 #include "cifs_debug.h"
 #include "cifsfs.h"
@@ -49,11 +49,11 @@
 static struct dentry *cifs_get_parent(struct dentry *dentry)
 {
 	/* BB need to add code here eventually to enable export via NFSD */
-	cFYI(1, ("get parent for %p", dentry));
+	cFYI(1, "get parent for %p", dentry);
 	return ERR_PTR(-EACCES);
 }
 
-struct export_operations cifs_export_ops = {
+const struct export_operations cifs_export_ops = {
 	.get_parent = cifs_get_parent,
 /*	Following five export operations are unneeded so far and can default:
 	.get_dentry =
@@ -64,4 +64,3 @@ struct export_operations cifs_export_ops = {
 };
 
 #endif /* EXPERIMENTAL */
-

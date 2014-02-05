@@ -273,4 +273,3 @@ u32 i810_get_watermark(const struct fb_var_screeninfo *var,
 	}
 	return wm_best;		
 }	
-

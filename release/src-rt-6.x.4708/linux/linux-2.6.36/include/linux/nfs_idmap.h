@@ -37,7 +37,8 @@
 #ifndef NFS_IDMAP_H
 #define NFS_IDMAP_H
 
-/* XXX from bits/utmp.h  */
+#include <linux/types.h>
+
 #define IDMAP_NAMESZ  128
 
 #define IDMAP_TYPE_USER  0

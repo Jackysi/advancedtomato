@@ -27,6 +27,7 @@
 #include <linux/pagemap.h>
 #include <linux/quotaops.h>
 #include <linux/slab.h>
+#include <linux/log2.h>
 
 #include "aops.h"
 #include "attrib.h"
@@ -34,7 +35,6 @@
 #include "dir.h"
 #include "debug.h"
 #include "inode.h"
-#include "attrib.h"
 #include "lcnalloc.h"
 #include "malloc.h"
 #include "mft.h"
@@ -530,7 +530,7 @@ err_corrupt_attr:
  * the ntfs inode.
  *
  * Q: What locks are held when the function is called?
- * A: i_state has I_LOCK set, hence the inode is locked, also
+ * A: i_state has I_NEW set, hence the inode is locked, also
  *    i_count is set to 1, so it is not going to go away
  *    i_flags is set to 0 and we have no business touching it.  Only an ioctl()
  *    is allowed to write to them. We should of course be honouring them but
@@ -596,23 +596,7 @@ static int ntfs_read_locked_inode(struct inode *vi)
 	/* Transfer information from mft record into vfs and ntfs inodes. */
 	vi->i_generation = ni->seq_no = le16_to_cpu(m->sequence_number);
 
-	/*
-	 * FIXME: Keep in mind that link_count is two for files which have both
-	 * a long file name and a short file name as separate entries, so if
-	 * we are hiding short file names this will be too high. Either we need
-	 * to account for the short file names by subtracting them or we need
-	 * to make sure we delete files even though i_nlink is not zero which
-	 * might be tricky due to vfs interactions. Need to think about this
-	 * some more when implementing the unlink command.
-	 */
 	vi->i_nlink = le16_to_cpu(m->link_count);
-	/*
-	 * FIXME: Reparse points can have the directory bit set even though
-	 * they would be S_IFLNK. Need to deal with this further below when we
-	 * implement reparse points / symbolic links but it will do for now.
-	 * Also if not a directory, it could be something else, rather than
-	 * a regular file. But again, will do for now.
-	 */
 	/* Everyone gets all permissions. */
 	vi->i_mode |= S_IRWXUGO;
 	/* If read-only, noone gets write permissions. */
@@ -789,7 +773,6 @@ skip_attr_list_load:
 				0, NULL, 0, ctx);
 		if (unlikely(err)) {
 			if (err == -ENOENT) {
-				// FIXME: File is corrupt! Hot-fix with empty
 				// index root attribute if recovery option is
 				// set.
 				ntfs_error(vi->i_sb, "$INDEX_ROOT attribute "
@@ -1041,7 +1024,6 @@ skip_large_dir_stuff:
 			 */
 			if (ntfs_is_extended_system_file(ctx) > 0)
 				goto no_data_attr_special_case;
-			// FIXME: File is corrupt! Hot-fix with empty data
 			// attribute if recovery option is set.
 			ntfs_error(vi->i_sb, "$DATA attribute is missing.");
 			goto unm_err_out;
@@ -1207,7 +1189,7 @@ err_out:
  * necessary fields in @vi as well as initializing the ntfs inode.
  *
  * Q: What locks are held when the function is called?
- * A: i_state has I_LOCK set, hence the inode is locked, also
+ * A: i_state has I_NEW set, hence the inode is locked, also
  *    i_count is set to 1, so it is not going to go away
  *
  * Return 0 on success and -errno on error.  In the error case, the inode will
@@ -1407,9 +1389,6 @@ static int ntfs_read_locked_attr_inode(struct inode *base_vi, struct inode *vi)
 		ni->allocated_size = sle64_to_cpu(
 				a->data.non_resident.allocated_size);
 	}
-	/* Setup the operations for this attribute inode. */
-	vi->i_op = NULL;
-	vi->i_fop = NULL;
 	if (NInoMstProtected(ni))
 		vi->i_mapping->a_ops = &ntfs_mst_aops;
 	else
@@ -1477,7 +1456,7 @@ err_out:
  * normal directory inodes.
  *
  * Q: What locks are held when the function is called?
- * A: i_state has I_LOCK set, hence the inode is locked, also
+ * A: i_state has I_NEW set, hence the inode is locked, also
  *    i_count is set to 1, so it is not going to go away
  *
  * Return 0 on success and -errno on error.  In the error case, the inode will
@@ -1574,7 +1553,7 @@ static int ntfs_read_locked_index_inode(struct inode *base_vi, struct inode *vi)
 	ntfs_debug("Index collation rule is 0x%x.",
 			le32_to_cpu(ir->collation_rule));
 	ni->itype.index.block_size = le32_to_cpu(ir->index_block_size);
-	if (ni->itype.index.block_size & (ni->itype.index.block_size - 1)) {
+	if (!is_power_of_2(ni->itype.index.block_size)) {
 		ntfs_error(vi->i_sb, "Index block size (%u) is not a power of "
 				"two.", ni->itype.index.block_size);
 		goto unm_err_out;
@@ -1842,7 +1821,6 @@ int ntfs_read_inode_mount(struct inode *vi)
 
 	/* Apply the mst fixups. */
 	if (post_read_mst_fixup((NTFS_RECORD*)m, vol->mft_record_size)) {
-		/* FIXME: Try to use the $MFTMirr now. */
 		ntfs_error(sb, "MST fixup failed. $MFT is corrupt.");
 		goto err_out;
 	}
@@ -1951,17 +1929,6 @@ int ntfs_read_inode_mount(struct inode *vi)
 					a->data.resident.value_length));
 		}
 		/* The attribute list is now setup in memory. */
-		/*
-		 * FIXME: I don't know if this case is actually possible.
-		 * According to logic it is not possible but I have seen too
-		 * many weird things in MS software to rely on logic... Thus we
-		 * perform a manual search and make sure the first $MFT/$DATA
-		 * extent is in the base inode. If it is not we abort with an
-		 * error and if we ever see a report of this error we will need
-		 * to do some magic in order to have the necessary mft record
-		 * loaded and in the right place in the page cache. But
-		 * hopefully logic will prevail and this never happens...
-		 */
 		al_entry = (ATTR_LIST_ENTRY*)ni->attr_list;
 		al_end = (u8*)al_entry + ni->attr_list_size;
 		for (;; al_entry = next_al_entry) {
@@ -1979,8 +1946,7 @@ int ntfs_read_inode_mount(struct inode *vi)
 				goto em_put_err_out;
 			next_al_entry = (ATTR_LIST_ENTRY*)((u8*)al_entry +
 					le16_to_cpu(al_entry->length));
-			if (le32_to_cpu(al_entry->type) >
-					const_le32_to_cpu(AT_DATA))
+			if (le32_to_cpu(al_entry->type) > le32_to_cpu(AT_DATA))
 				goto em_put_err_out;
 			if (AT_DATA != al_entry->type)
 				continue;
@@ -2231,7 +2197,6 @@ void ntfs_clear_extent_inode(ntfs_inode *ni)
 		if (!is_bad_inode(VFS_I(ni->ext.base_ntfs_ino)))
 			ntfs_error(ni->vol->sb, "Clearing dirty extent inode!  "
 					"Losing data!  This is a BUG!!!");
-		// FIXME:  Do something!!!
 	}
 #endif /* NTFS_RW */
 
@@ -2242,7 +2207,7 @@ void ntfs_clear_extent_inode(ntfs_inode *ni)
 }
 
 /**
- * ntfs_clear_big_inode - clean up the ntfs specific part of an inode
+ * ntfs_evict_big_inode - clean up the ntfs specific part of an inode
  * @vi:		vfs inode pending annihilation
  *
  * When the VFS is going to remove an inode from memory, ntfs_clear_big_inode()
@@ -2251,9 +2216,12 @@ void ntfs_clear_extent_inode(ntfs_inode *ni)
  *
  * If the MFT record is dirty, we commit it before doing anything else.
  */
-void ntfs_clear_big_inode(struct inode *vi)
+void ntfs_evict_big_inode(struct inode *vi)
 {
 	ntfs_inode *ni = NTFS_I(vi);
+
+	truncate_inode_pages(&vi->i_data, 0);
+	end_writeback(vi);
 
 #ifdef NTFS_RW
 	if (NInoDirty(ni)) {
@@ -2265,7 +2233,6 @@ void ntfs_clear_big_inode(struct inode *vi)
 		if (!was_bad && (is_bad_inode(vi) || NInoDirty(ni))) {
 			ntfs_error(vi->i_sb, "Failed to commit dirty inode "
 					"0x%lx.  Losing data!", vi->i_ino);
-			// FIXME:  Do something!!!
 		}
 	}
 #endif /* NTFS_RW */
@@ -2500,8 +2467,6 @@ retry_truncate:
 	/* Resize the attribute record to best fit the new attribute size. */
 	if (new_size < vol->mft_record_size &&
 			!ntfs_resident_attr_value_resize(m, a, new_size)) {
-		unsigned long flags;
-
 		/* The resize succeeded! */
 		flush_dcache_mft_record_page(ctx->ntfs_ino);
 		mark_mft_record_dirty(ctx->ntfs_ino);
@@ -2588,34 +2553,6 @@ retry_truncate:
 				"yet.");
 	err = -EOPNOTSUPP;
 	goto conv_err_out;
-#if 0
-	// TODO: Attempt to make other attributes non-resident.
-	if (!err)
-		goto do_resident_extend;
-	/*
-	 * Both the attribute list attribute and the standard information
-	 * attribute must remain in the base inode.  Thus, if this is one of
-	 * these attributes, we have to try to move other attributes out into
-	 * extent mft records instead.
-	 */
-	if (ni->type == AT_ATTRIBUTE_LIST ||
-			ni->type == AT_STANDARD_INFORMATION) {
-		// TODO: Attempt to move other attributes into extent mft
-		// records.
-		err = -EOPNOTSUPP;
-		if (!err)
-			goto do_resident_extend;
-		goto err_out;
-	}
-	// TODO: Attempt to move this attribute to an extent mft record, but
-	// only if it is not already the only attribute in an mft record in
-	// which case there would be nothing to gain.
-	err = -EOPNOTSUPP;
-	if (!err)
-		goto do_resident_extend;
-	/* There is nothing we can do to make enough space. )-: */
-	goto err_out;
-#endif
 do_non_resident_truncate:
 	BUG_ON(!NInoNonResident(ni));
 	if (alloc_change < 0) {
@@ -2885,9 +2822,6 @@ void ntfs_truncate_vfs(struct inode *vi) {
  *
  * Called with ->i_mutex held.  For the ATTR_SIZE (i.e. ->truncate) case, also
  * called with ->i_alloc_sem held for writing.
- *
- * Basically this is a copy of generic notify_change() and inode_setattr()
- * functionality, except we intercept and abort changes in i_size.
  */
 int ntfs_setattr(struct dentry *dentry, struct iattr *attr)
 {
@@ -2908,10 +2842,6 @@ int ntfs_setattr(struct dentry *dentry, struct iattr *attr)
 	if (ia_valid & ATTR_SIZE) {
 		if (attr->ia_size != i_size_read(vi)) {
 			ntfs_inode *ni = NTFS_I(vi);
-			/*
-			 * FIXME: For now we do not support resizing of
-			 * compressed or encrypted files yet.
-			 */
 			if (NInoCompressed(ni) || NInoEncrypted(ni)) {
 				ntfs_warning(vi->i_sb, "Changes in inode size "
 						"are not supported yet for "
@@ -2963,7 +2893,7 @@ out:
  *
  * Return 0 on success and -errno on error.
  */
-int ntfs_write_inode(struct inode *vi, int sync)
+int __ntfs_write_inode(struct inode *vi, int sync)
 {
 	sle64 nt;
 	ntfs_inode *ni = NTFS_I(vi);

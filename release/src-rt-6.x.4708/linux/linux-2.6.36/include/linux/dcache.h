@@ -1,15 +1,15 @@
 #ifndef __LINUX_DCACHE_H
 #define __LINUX_DCACHE_H
 
-#ifdef __KERNEL__
-
 #include <asm/atomic.h>
 #include <linux/list.h>
+#include <linux/rculist.h>
 #include <linux/spinlock.h>
 #include <linux/cache.h>
 #include <linux/rcupdate.h>
 
 struct nameidata;
+struct path;
 struct vfsmount;
 
 /*
@@ -75,14 +75,22 @@ full_name_hash(const unsigned char *name, unsigned int len)
 	return end_name_hash(hash);
 }
 
-struct dcookie_struct;
-
-#define DNAME_INLINE_LEN_MIN 36
+/*
+ * Try to keep struct dentry aligned on 64 byte cachelines (this will
+ * give reasonable cacheline footprint with larger lines without the
+ * large memory footprint increase).
+ */
+#ifdef CONFIG_64BIT
+#define DNAME_INLINE_LEN_MIN 32 /* 192 bytes */
+#else
+#define DNAME_INLINE_LEN_MIN 40 /* 128 bytes */
+#endif
 
 struct dentry {
 	atomic_t d_count;
 	unsigned int d_flags;		/* protected by d_lock */
 	spinlock_t d_lock;		/* per dentry lock */
+	int d_mounted;
 	struct inode *d_inode;		/* Where the name belongs to - NULL is
 					 * negative */
 	/*
@@ -104,13 +112,10 @@ struct dentry {
 	struct list_head d_subdirs;	/* our children */
 	struct list_head d_alias;	/* inode alias list */
 	unsigned long d_time;		/* used by d_revalidate */
-	struct dentry_operations *d_op;
+	const struct dentry_operations *d_op;
 	struct super_block *d_sb;	/* The root of the dentry tree */
 	void *d_fsdata;			/* fs-specific data */
-#ifdef CONFIG_PROFILING
-	struct dcookie_struct *d_cookie; /* cookie, if any */
-#endif
-	int d_mounted;
+
 	unsigned char d_iname[DNAME_INLINE_LEN_MIN];	/* small names */
 };
 
@@ -175,9 +180,16 @@ d_iput:		no		no		no       yes
 #define DCACHE_REFERENCED	0x0008  /* Recently used, don't discard. */
 #define DCACHE_UNHASHED		0x0010	
 
-#define DCACHE_INOTIFY_PARENT_WATCHED	0x0020 /* Parent inode is watched */
+#define DCACHE_INOTIFY_PARENT_WATCHED	0x0020 /* Parent inode is watched by inotify */
+
+#define DCACHE_COOKIE		0x0040	/* For use by dcookie subsystem */
+
+#define DCACHE_FSNOTIFY_PARENT_WATCHED	0x0080 /* Parent inode is watched by some fsnotify listener */
+
+#define DCACHE_CANT_MOUNT	0x0100
 
 extern spinlock_t dcache_lock;
+extern seqlock_t rename_lock;
 
 /**
  * d_drop - drop a dentry
@@ -227,8 +239,9 @@ extern void d_delete(struct dentry *);
 
 /* allocate/de-allocate */
 extern struct dentry * d_alloc(struct dentry *, const struct qstr *);
-extern struct dentry * d_alloc_anon(struct inode *);
 extern struct dentry * d_splice_alias(struct inode *, struct dentry *);
+extern struct dentry * d_add_ci(struct dentry *, struct inode *, struct qstr *);
+extern struct dentry * d_obtain_alias(struct inode *);
 extern void shrink_dcache_sb(struct super_block *);
 extern void shrink_dcache_parent(struct dentry *);
 extern void shrink_dcache_for_umount(struct super_block *);
@@ -285,6 +298,7 @@ static inline struct dentry *d_add_unique(struct dentry *entry, struct inode *in
 
 /* used for rename() and baskets */
 extern void d_move(struct dentry *, struct dentry *);
+extern struct dentry *d_ancestor(struct dentry *, struct dentry *);
 
 /* appendix may either be NULL or be used for transname suffixes */
 extern struct dentry * d_lookup(struct dentry *, struct qstr *);
@@ -299,8 +313,12 @@ extern int d_validate(struct dentry *, struct dentry *);
  */
 extern char *dynamic_dname(struct dentry *, char *, int, const char *, ...);
 
-extern char * d_path(struct dentry *, struct vfsmount *, char *, int);
-  
+extern char *__d_path(const struct path *path, struct path *root, char *, int);
+extern char *d_path(const struct path *, char *, int);
+extern char *d_path_with_unreachable(const struct path *, char *, int);
+extern char *__dentry_path(struct dentry *, char *, int);
+extern char *dentry_path(struct dentry *, char *, int);
+
 /* Allocation counts.. */
 
 /**
@@ -339,6 +357,23 @@ static inline int d_unhashed(struct dentry *dentry)
 	return (dentry->d_flags & DCACHE_UNHASHED);
 }
 
+static inline int d_unlinked(struct dentry *dentry)
+{
+	return d_unhashed(dentry) && !IS_ROOT(dentry);
+}
+
+static inline int cant_mount(struct dentry *dentry)
+{
+	return (dentry->d_flags & DCACHE_CANT_MOUNT);
+}
+
+static inline void dont_mount(struct dentry *dentry)
+{
+	spin_lock(&dentry->d_lock);
+	dentry->d_flags |= DCACHE_CANT_MOUNT;
+	spin_unlock(&dentry->d_lock);
+}
+
 static inline struct dentry *dget_parent(struct dentry *dentry)
 {
 	struct dentry *ret;
@@ -356,12 +391,9 @@ static inline int d_mountpoint(struct dentry *dentry)
 	return dentry->d_mounted;
 }
 
-extern struct vfsmount *lookup_mnt(struct vfsmount *, struct dentry *);
-extern struct vfsmount *__lookup_mnt(struct vfsmount *, struct dentry *, int);
+extern struct vfsmount *lookup_mnt(struct path *);
 extern struct dentry *lookup_create(struct nameidata *nd, int is_dir);
 
 extern int sysctl_vfs_cache_pressure;
-
-#endif /* __KERNEL__ */
 
 #endif	/* __LINUX_DCACHE_H */

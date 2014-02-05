@@ -121,16 +121,6 @@ static int bit_getsda(void *data)
 	return reg_read((struct ti_lynx *) data, SERIAL_EEPROM_CONTROL) & 0x00000010;
 }
 
-static int bit_reg(struct i2c_client *client)
-{
-	return 0;
-}
-
-static int bit_unreg(struct i2c_client *client)
-{
-	return 0;
-}
-
 static struct i2c_algo_bit_data bit_data = {
 	.setsda			= bit_setsda,
 	.setscl			= bit_setscl,
@@ -139,14 +129,6 @@ static struct i2c_algo_bit_data bit_data = {
 	.udelay			= 5,
 	.timeout		= 100,
 };
-
-static struct i2c_adapter bit_ops = {
-	.id 			= 0xAA, //FIXME: probably we should get an id in i2c-id.h
-	.client_register	= bit_reg,
-	.client_unregister	= bit_unreg,
-	.name			= "PCILynx I2C",
-};
-
 
 
 /*
@@ -159,7 +141,6 @@ static pcl_t alloc_pcl(struct ti_lynx *lynx)
         int i, j;
 
         spin_lock(&lynx->lock);
-        /* FIXME - use ffz() to make this readable */
         for (i = 0; i < (LOCALRAM_SIZE / 1024); i++) {
                 m = lynx->pcl_bmap[i];
                 for (j = 0; j < 8; j++) {
@@ -178,54 +159,6 @@ static pcl_t alloc_pcl(struct ti_lynx *lynx)
 }
 
 
-#if 0
-static void free_pcl(struct ti_lynx *lynx, pcl_t pclid)
-{
-        int off, bit;
-
-        off = pclid / 8;
-        bit = pclid % 8;
-
-        if (pclid < 0) {
-                return;
-        }
-
-        spin_lock(&lynx->lock);
-        if (lynx->pcl_bmap[off] & 1<<bit) {
-                lynx->pcl_bmap[off] &= ~(1<<bit);
-        } else {
-                PRINT(KERN_ERR, lynx->id,
-                      "attempted to free unallocated PCL %d", pclid);
-        }
-        spin_unlock(&lynx->lock);
-}
-
-/* functions useful for debugging */
-static void pretty_print_pcl(const struct ti_pcl *pcl)
-{
-        int i;
-
-        printk("PCL next %08x, userdata %08x, status %08x, remtrans %08x, nextbuf %08x\n",
-               pcl->next, pcl->user_data, pcl->pcl_status,
-               pcl->remaining_transfer_count, pcl->next_data_buffer);
-
-        printk("PCL");
-        for (i=0; i<13; i++) {
-                printk(" c%x:%08x d%x:%08x",
-                       i, pcl->buffer[i].control, i, pcl->buffer[i].pointer);
-                if (!(i & 0x3) && (i != 12)) printk("\nPCL");
-        }
-        printk("\n");
-}
-
-static void print_pcl(const struct ti_lynx *lynx, pcl_t pclid)
-{
-        struct ti_pcl pcl;
-
-        get_pcl(lynx, pclid, &pcl);
-        pretty_print_pcl(&pcl);
-}
-#endif
 
 
 
@@ -244,7 +177,7 @@ static int get_phy_reg(struct ti_lynx *lynx, int addr)
         if (addr > 15) {
                 PRINT(KERN_ERR, lynx->id,
                       "%s: PHY register address %d out of range",
-		      __FUNCTION__, addr);
+		      __func__, addr);
                 return -1;
         }
 
@@ -256,7 +189,7 @@ static int get_phy_reg(struct ti_lynx *lynx, int addr)
 
                 if (i > 10000) {
                         PRINT(KERN_ERR, lynx->id, "%s: runaway loop, aborting",
-			      __FUNCTION__);
+			      __func__);
                         retval = -1;
                         break;
                 }
@@ -279,13 +212,13 @@ static int set_phy_reg(struct ti_lynx *lynx, int addr, int val)
 
         if (addr > 15) {
                 PRINT(KERN_ERR, lynx->id,
-                      "%s: PHY register address %d out of range", __FUNCTION__, addr);
+		      "%s: PHY register address %d out of range", __func__, addr);
                 return -1;
         }
 
         if (val > 0xff) {
                 PRINT(KERN_ERR, lynx->id,
-                      "%s: PHY register value %d out of range", __FUNCTION__, val);
+		      "%s: PHY register value %d out of range", __func__, val);
                 return -1;
         }
 
@@ -305,7 +238,7 @@ static int sel_phy_reg_page(struct ti_lynx *lynx, int page)
 
         if (page > 7) {
                 PRINT(KERN_ERR, lynx->id,
-                      "%s: PHY page %d out of range", __FUNCTION__, page);
+		      "%s: PHY page %d out of range", __func__, page);
                 return -1;
         }
 
@@ -320,28 +253,6 @@ static int sel_phy_reg_page(struct ti_lynx *lynx, int page)
         }
 }
 
-#if 0 /* not needed at this time */
-static int sel_phy_reg_port(struct ti_lynx *lynx, int port)
-{
-        int reg;
-
-        if (port > 15) {
-                PRINT(KERN_ERR, lynx->id,
-                      "%s: PHY port %d out of range", __FUNCTION__, port);
-                return -1;
-        }
-
-        reg = get_phy_reg(lynx, 7);
-        if (reg != -1) {
-                reg &= 0xf0;
-                reg |= port;
-                set_phy_reg(lynx, 7, reg);
-                return 0;
-        } else {
-                return -1;
-        }
-}
-#endif
 
 static u32 get_phy_vendorid(struct ti_lynx *lynx)
 {
@@ -377,8 +288,6 @@ static quadlet_t generate_own_selfid(struct ti_lynx *lynx,
                 phyreg[i] = get_phy_reg(lynx, i);
         }
 
-        /* FIXME? We assume a TSB21LV03A phy here.  This code doesn't support
-           more than 3 ports on the PHY anyway. */
 
         lsid = 0x80400000 | ((phyreg[0] & 0xfc) << 22);
         lsid |= (phyreg[1] & 0x3f) << 16; /* gap count */
@@ -462,7 +371,7 @@ static void handle_selfid(struct ti_lynx *lynx, struct hpsb_host *host)
 
         if (host->in_bus_reset) return; /* in bus reset again */
 
-        if (isroot) reg_set_bits(lynx, LINK_CONTROL, LINK_CONTROL_CYCMASTER); //FIXME: I do not think, we need this here
+        if (isroot) reg_set_bits(lynx, LINK_CONTROL, LINK_CONTROL_CYCMASTER);
         reg_set_bits(lynx, LINK_CONTROL,
                      LINK_CONTROL_RCV_CMP_VALID | LINK_CONTROL_TX_ASYNC_EN
                      | LINK_CONTROL_RX_ASYNC_EN | LINK_CONTROL_CYCTIMEREN);
@@ -477,7 +386,7 @@ static void send_next(struct ti_lynx *lynx, int what)
         struct lynx_send_data *d;
         struct hpsb_packet *packet;
 
-        d = (what == hpsb_iso ? &lynx->iso_send : &lynx->async);
+	d = &lynx->async;
         if (!list_empty(&d->pcl_queue)) {
                 PRINT(KERN_ERR, lynx->id, "trying to queue a new packet in nonempty fifo");
                 BUG();
@@ -511,9 +420,6 @@ static void send_next(struct ti_lynx *lynx, int what)
         case hpsb_async:
                 pcl.buffer[0].control |= PCL_CMD_XMT;
                 break;
-        case hpsb_iso:
-                pcl.buffer[0].control |= PCL_CMD_XMT | PCL_ISOMODE;
-                break;
         case hpsb_raw:
                 pcl.buffer[0].control |= PCL_CMD_UNFXMT;
                 break;
@@ -541,9 +447,6 @@ static int lynx_transmit(struct hpsb_host *host, struct hpsb_packet *packet)
         case hpsb_async:
         case hpsb_raw:
                 d = &lynx->async;
-                break;
-        case hpsb_iso:
-                d = &lynx->iso_send;
                 break;
         default:
                 PRINT(KERN_ERR, lynx->id, "invalid packet type %d",
@@ -748,8 +651,7 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
                 spin_lock_irqsave(&lynx->async.queue_lock, flags);
 
                 reg_write(lynx, DMA_CHAN_CTRL(CHANNEL_ASYNC_SEND), 0);
-		list_splice(&lynx->async.queue, &packet_list);
-		INIT_LIST_HEAD(&lynx->async.queue);
+		list_splice_init(&lynx->async.queue, &packet_list);
 
                 if (list_empty(&lynx->async.pcl_queue)) {
                         spin_unlock_irqrestore(&lynx->async.queue_lock, flags);
@@ -757,7 +659,6 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
                 } else {
                         struct ti_pcl pcl;
                         u32 ack;
-                        struct hpsb_packet *packet;
 
                         PRINT(KERN_INFO, lynx->id, "cancelling async packet, that was already in PCL");
 
@@ -797,29 +698,6 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 		}
 
                 break;
-
-        case ISO_LISTEN_CHANNEL:
-                spin_lock_irqsave(&lynx->iso_rcv.lock, flags);
-
-                if (lynx->iso_rcv.chan_count++ == 0) {
-                        reg_write(lynx, DMA_WORD1_CMP_ENABLE(CHANNEL_ISO_RCV),
-                                  DMA_WORD1_CMP_ENABLE_MASTER);
-                }
-
-                spin_unlock_irqrestore(&lynx->iso_rcv.lock, flags);
-                break;
-
-        case ISO_UNLISTEN_CHANNEL:
-                spin_lock_irqsave(&lynx->iso_rcv.lock, flags);
-
-                if (--lynx->iso_rcv.chan_count == 0) {
-                        reg_write(lynx, DMA_WORD1_CMP_ENABLE(CHANNEL_ISO_RCV),
-                                  0);
-                }
-
-                spin_unlock_irqrestore(&lynx->iso_rcv.lock, flags);
-                break;
-
         default:
                 PRINT(KERN_ERR, lynx->id, "unknown devctl command %d", cmd);
                 retval = -1;
@@ -1009,11 +887,6 @@ static irqreturn_t lynx_irq_handler(int irq, void *dev_id)
                                 pci_unmap_single(lynx->dev, lynx->iso_send.data_dma,
                                                  packet->data_size, PCI_DMA_TODEVICE);
                         }
-
-                        if (!list_empty(&lynx->iso_send.queue)) {
-                                send_next(lynx, hpsb_iso);
-                        }
-
                         spin_unlock(&lynx->iso_send.queue_lock);
 
                         if (pcl.pcl_status & DMA_CHAN_STAT_PKTCMPL) {
@@ -1029,7 +902,7 @@ static irqreturn_t lynx_irq_handler(int irq, void *dev_id)
                                 ack = ACKX_SEND_ERROR;
                         }
 
-                        hpsb_packet_sent(host, packet, ack); //FIXME: maybe we should just use ACK_COMPLETE and ACKX_SEND_ERROR
+                        hpsb_packet_sent(host, packet, ack);
                 }
         }
 
@@ -1183,7 +1056,7 @@ static int __devinit add_card(struct pci_dev *dev,
 
         error = -ENXIO;
 
-        if (pci_set_dma_mask(dev, DMA_32BIT_MASK))
+        if (pci_set_dma_mask(dev, DMA_BIT_MASK(32)))
                 FAIL("DMA address limits not supported for PCILynx hardware");
         if (pci_enable_device(dev))
                 FAIL("failed to enable PCILynx hardware");
@@ -1402,8 +1275,6 @@ static int __devinit add_card(struct pci_dev *dev,
 
 	if (!lynx->phyic.reg_1394a) {
 		if (!hpsb_disable_irm) {
-			/* attempt to enable contender bit -FIXME- would this
-			 * work elsewhere? */
 			reg_set_bits(lynx, GPIO_CTRL_A, 0x1);
 			reg_write(lynx, GPIO_DATA_BASE + 0x3c, 0x1);
 		}
@@ -1428,9 +1299,10 @@ static int __devinit add_card(struct pci_dev *dev,
         	struct i2c_algo_bit_data i2c_adapter_data;
 
         	error = -ENOMEM;
-		i2c_ad = kmemdup(&bit_ops, sizeof(*i2c_ad), GFP_KERNEL);
+		i2c_ad = kzalloc(sizeof(*i2c_ad), GFP_KERNEL);
         	if (!i2c_ad) FAIL("failed to allocate I2C adapter memory");
 
+		strlcpy(i2c_ad->name, "PCILynx I2C", sizeof(i2c_ad->name));
                 i2c_adapter_data = bit_data;
                 i2c_ad->algo_data = &i2c_adapter_data;
                 i2c_adapter_data.data = lynx;
@@ -1457,17 +1329,12 @@ static int __devinit add_card(struct pci_dev *dev,
                                                   { 0x50, I2C_M_RD, 20, (unsigned char*) lynx->bus_info_block }
                                                 };
 
-                        /* we use i2c_transfer, because i2c_smbus_read_block_data does not work properly and we
-                           do it more efficiently in one transaction rather then using several reads */
+			/* we use i2c_transfer because we have no i2c_client
+			   at hand */
                         if (i2c_transfer(i2c_ad, msg, 2) < 0) {
                                 PRINT(KERN_ERR, lynx->id, "unable to read bus info block from i2c");
                         } else {
-                                int i;
-
                                 PRINT(KERN_INFO, lynx->id, "got bus info block from serial eeprom");
-				/* FIXME: probably we shoud rewrite the max_rec, max_ROM(1394a),
-				 * generation(1394a) and link_spd(1394a) field and recalculate
-				 * the CRC */
 
                                 for (i = 0; i < 5 ; i++)
                                         PRINTD(KERN_DEBUG, lynx->id, "Businfo block quadlet %i: %08x",
@@ -1475,7 +1342,7 @@ static int __devinit add_card(struct pci_dev *dev,
 
                                 /* info_length, crc_length and 1394 magic number to check, if it is really a bus info block */
 				if (((be32_to_cpu(lynx->bus_info_block[0]) & 0xffff0000) == 0x04040000) &&
-				    (lynx->bus_info_block[1] == __constant_cpu_to_be32(0x31333934)))
+				    (lynx->bus_info_block[1] == IEEE1394_BUSID_MAGIC))
                                 {
                                         PRINT(KERN_DEBUG, lynx->id, "read a valid bus info block from");
                                 } else {

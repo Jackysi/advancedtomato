@@ -126,11 +126,3 @@ struct board_chan
 #define MODEMCHG_IND     0x20
 
 #define FEP_HUPCL  0002000
-#if 0
-#define RTS   0x02
-#define CD    0x08
-#define DSR   0x10
-#define CTS   0x20
-#define RI    0x40
-#define DTR   0x80
-#endif

@@ -180,5 +180,3 @@ int atari_scsi_release (struct Scsi_Host *);
 
 #endif /* ndef ASM */
 #endif /* ATARI_SCSI_H */
-
-

@@ -21,7 +21,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/isa.h>
@@ -32,7 +31,7 @@
 #include <asm/dma.h>
 #include <sound/core.h>
 #include <sound/sb.h>
-#include <sound/ad1848.h>
+#include <sound/wss.h>
 #include <sound/control.h>
 #define SNDRV_LEGACY_FIND_FREE_IRQ
 #define SNDRV_LEGACY_FIND_FREE_DMA
@@ -125,9 +124,6 @@ static int __devinit snd_sgalaxy_setup_wss(unsigned long port, int irq, int dma)
 		snd_printdd("I/O address dead (0x%lx)\n", port);
 		return 0;
 	}
-#if 0
-	snd_printdd("WSS signature = 0x%x\n", tmp);
-#endif
 
         if ((tmp & 0x3f) != 0x04 &&
             (tmp & 0x3f) != 0x0f &&
@@ -137,9 +133,6 @@ static int __devinit snd_sgalaxy_setup_wss(unsigned long port, int irq, int dma)
 		return 0;
 	}
 
-#if 0
-	snd_printdd(PFX "setting up IRQ/DMA for WSS\n");
-#endif
 
         /* initialize IRQ for WSS codec */
         tmp = interrupt_bits[irq % 16];
@@ -162,9 +155,6 @@ static int __devinit snd_sgalaxy_setup_wss(unsigned long port, int irq, int dma)
 
 static int __devinit snd_sgalaxy_detect(int dev, int irq, int dma)
 {
-#if 0
-	snd_printdd(PFX "switching to WSS mode\n");
-#endif
 
 	/* switch to WSS mode */
 	snd_sgalaxy_sbdsp_reset(sbport[dev]);
@@ -176,12 +166,14 @@ static int __devinit snd_sgalaxy_detect(int dev, int irq, int dma)
 	return snd_sgalaxy_setup_wss(wssport[dev], irq, dma);
 }
 
-static struct ad1848_mix_elem snd_sgalaxy_controls[] = {
-AD1848_DOUBLE("Aux Playback Switch", 0, SGALAXY_AUXC_LEFT, SGALAXY_AUXC_RIGHT, 7, 7, 1, 1),
-AD1848_DOUBLE("Aux Playback Volume", 0, SGALAXY_AUXC_LEFT, SGALAXY_AUXC_RIGHT, 0, 0, 31, 0)
+static struct snd_kcontrol_new snd_sgalaxy_controls[] = {
+WSS_DOUBLE("Aux Playback Switch", 0,
+		SGALAXY_AUXC_LEFT, SGALAXY_AUXC_RIGHT, 7, 7, 1, 1),
+WSS_DOUBLE("Aux Playback Volume", 0,
+		SGALAXY_AUXC_LEFT, SGALAXY_AUXC_RIGHT, 0, 0, 31, 0)
 };
 
-static int __devinit snd_sgalaxy_mixer(struct snd_ad1848 *chip)
+static int __devinit snd_sgalaxy_mixer(struct snd_wss *chip)
 {
 	struct snd_card *card = chip->card;
 	struct snd_ctl_elem_id id1, id2;
@@ -211,7 +203,9 @@ static int __devinit snd_sgalaxy_mixer(struct snd_ad1848 *chip)
 		return err;
 	/* build AUX2 input */
 	for (idx = 0; idx < ARRAY_SIZE(snd_sgalaxy_controls); idx++) {
-		if ((err = snd_ad1848_add_ctl_elem(chip, &snd_sgalaxy_controls[idx])) < 0)
+		err = snd_ctl_add(card,
+				snd_ctl_new1(&snd_sgalaxy_controls[idx], chip));
+		if (err < 0)
 			return err;
 	}
 	return 0;
@@ -238,11 +232,11 @@ static int __devinit snd_sgalaxy_probe(struct device *devptr, unsigned int dev)
 	static int possible_dmas[] = {1, 3, 0, -1};
 	int err, xirq, xdma1;
 	struct snd_card *card;
-	struct snd_ad1848 *chip;
+	struct snd_wss *chip;
 
-	card = snd_card_new(index[dev], id[dev], THIS_MODULE, 0);
-	if (card == NULL)
-		return -ENOMEM;
+	err = snd_card_create(index[dev], id[dev], THIS_MODULE, 0, &card);
+	if (err < 0)
+		return err;
 
 	xirq = irq[dev];
 	if (xirq == SNDRV_AUTO_IRQ) {
@@ -264,18 +258,21 @@ static int __devinit snd_sgalaxy_probe(struct device *devptr, unsigned int dev)
 	if ((err = snd_sgalaxy_detect(dev, xirq, xdma1)) < 0)
 		goto _err;
 
-	if ((err = snd_ad1848_create(card, wssport[dev] + 4,
-				     xirq, xdma1,
-				     AD1848_HW_DETECT, &chip)) < 0)
+	err = snd_wss_create(card, wssport[dev] + 4, -1,
+			     xirq, xdma1, -1,
+			     WSS_HW_DETECT, 0, &chip);
+	if (err < 0)
 		goto _err;
 	card->private_data = chip;
 
-	if ((err = snd_ad1848_pcm(chip, 0, NULL)) < 0) {
-		snd_printdd(PFX "error creating new ad1848 PCM device\n");
+	err = snd_wss_pcm(chip, 0, NULL);
+	if (err < 0) {
+		snd_printdd(PFX "error creating new WSS PCM device\n");
 		goto _err;
 	}
-	if ((err = snd_ad1848_mixer(chip)) < 0) {
-		snd_printdd(PFX "error creating new ad1848 mixer\n");
+	err = snd_wss_mixer(chip);
+	if (err < 0) {
+		snd_printdd(PFX "error creating new WSS mixer\n");
 		goto _err;
 	}
 	if ((err = snd_sgalaxy_mixer(chip)) < 0) {
@@ -313,7 +310,7 @@ static int snd_sgalaxy_suspend(struct device *pdev, unsigned int n,
 			       pm_message_t state)
 {
 	struct snd_card *card = dev_get_drvdata(pdev);
-	struct snd_ad1848 *chip = card->private_data;
+	struct snd_wss *chip = card->private_data;
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
 	chip->suspend(chip);
@@ -323,11 +320,11 @@ static int snd_sgalaxy_suspend(struct device *pdev, unsigned int n,
 static int snd_sgalaxy_resume(struct device *pdev, unsigned int n)
 {
 	struct snd_card *card = dev_get_drvdata(pdev);
-	struct snd_ad1848 *chip = card->private_data;
+	struct snd_wss *chip = card->private_data;
 
 	chip->resume(chip);
-	snd_ad1848_out(chip, SGALAXY_AUXC_LEFT, chip->image[SGALAXY_AUXC_LEFT]);
-	snd_ad1848_out(chip, SGALAXY_AUXC_RIGHT, chip->image[SGALAXY_AUXC_RIGHT]);
+	snd_wss_out(chip, SGALAXY_AUXC_LEFT, chip->image[SGALAXY_AUXC_LEFT]);
+	snd_wss_out(chip, SGALAXY_AUXC_RIGHT, chip->image[SGALAXY_AUXC_RIGHT]);
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
 	return 0;

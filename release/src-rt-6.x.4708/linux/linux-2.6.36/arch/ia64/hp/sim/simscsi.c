@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/timer.h>
 #include <asm/irq.h>
+#include "hpsim_ssc.h"
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -59,8 +60,6 @@ struct disk_stat {
 	unsigned count;
 };
 
-extern long ia64_ssc (long arg0, long arg1, long arg2, long arg3, int nr);
-
 static int desc[16] = {
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
 };
@@ -85,7 +84,6 @@ static char *simscsi_root = DEFAULT_SIMSCSI_ROOT;
 static int __init
 simscsi_setup (char *s)
 {
-	/* XXX Fix me we may need to strcpy() ? */
 	if (strlen(s) > MAX_ROOT_LEN) {
 		printk(KERN_ERR "simscsi_setup: prefix too long---using default %s\n",
 		       simscsi_root);
@@ -101,7 +99,7 @@ simscsi_interrupt (unsigned long val)
 {
 	struct scsi_cmnd *sc;
 
-	while ((sc = queue[rd].sc) != 0) {
+	while ((sc = queue[rd].sc) != NULL) {
 		atomic_dec(&num_reqs);
 		queue[rd].sc = NULL;
 		if (DBG)
@@ -122,48 +120,22 @@ simscsi_biosparam (struct scsi_device *sdev, struct block_device *n,
 }
 
 static void
-simscsi_readwrite (struct scsi_cmnd *sc, int mode, unsigned long offset, unsigned long len)
-{
-	struct disk_stat stat;
-	struct disk_req req;
-
-	req.addr = __pa(sc->request_buffer);
-	req.len  = len;			/* # of bytes to transfer */
-
-	if (sc->request_bufflen < req.len)
-		return;
-
-	stat.fd = desc[sc->device->id];
-	if (DBG)
-		printk("simscsi_%s @ %lx (off %lx)\n",
-		       mode == SSC_READ ? "read":"write", req.addr, offset);
-	ia64_ssc(stat.fd, 1, __pa(&req), offset, mode);
-	ia64_ssc(__pa(&stat), 0, 0, 0, SSC_WAIT_COMPLETION);
-
-	if (stat.count == req.len) {
-		sc->result = GOOD;
-	} else {
-		sc->result = DID_ERROR << 16;
-	}
-}
-
-static void
 simscsi_sg_readwrite (struct scsi_cmnd *sc, int mode, unsigned long offset)
 {
-	int list_len = sc->use_sg;
-	struct scatterlist *sl = (struct scatterlist *)sc->request_buffer;
+	int i;
+	struct scatterlist *sl;
 	struct disk_stat stat;
 	struct disk_req req;
 
 	stat.fd = desc[sc->device->id];
 
-	while (list_len) {
-		req.addr = __pa(page_address(sl->page) + sl->offset);
+	scsi_for_each_sg(sc, sl, scsi_sg_count(sc), i) {
+		req.addr = __pa(sg_virt(sl));
 		req.len  = sl->length;
 		if (DBG)
 			printk("simscsi_sg_%s @ %lx (off %lx) use_sg=%d len=%d\n",
 			       mode == SSC_READ ? "read":"write", req.addr, offset,
-			       list_len, sl->length);
+			       scsi_sg_count(sc) - i, sl->length);
 		ia64_ssc(stat.fd, 1, __pa(&req), offset, mode);
 		ia64_ssc(__pa(&stat), 0, 0, 0, SSC_WAIT_COMPLETION);
 
@@ -173,8 +145,6 @@ simscsi_sg_readwrite (struct scsi_cmnd *sc, int mode, unsigned long offset)
 			return;
 		}
 		offset +=  sl->length;
-		sl++;
-		list_len--;
 	}
 	sc->result = GOOD;
 }
@@ -190,10 +160,7 @@ simscsi_readwrite6 (struct scsi_cmnd *sc, int mode)
 	unsigned long offset;
 
 	offset = (((sc->cmnd[1] & 0x1f) << 16) | (sc->cmnd[2] << 8) | sc->cmnd[3])*512;
-	if (sc->use_sg > 0)
-		simscsi_sg_readwrite(sc, mode, offset);
-	else
-		simscsi_readwrite(sc, mode, offset, sc->cmnd[4]*512);
+	simscsi_sg_readwrite(sc, mode, offset);
 }
 
 static size_t
@@ -230,28 +197,7 @@ simscsi_readwrite10 (struct scsi_cmnd *sc, int mode)
 		| ((unsigned long)sc->cmnd[3] << 16)
 		| ((unsigned long)sc->cmnd[4] <<  8) 
 		| ((unsigned long)sc->cmnd[5] <<  0))*512UL;
-	if (sc->use_sg > 0)
-		simscsi_sg_readwrite(sc, mode, offset);
-	else
-		simscsi_readwrite(sc, mode, offset, ((sc->cmnd[7] << 8) | sc->cmnd[8])*512);
-}
-
-static void simscsi_fillresult(struct scsi_cmnd *sc, char *buf, unsigned len)
-{
-
-	int scatterlen = sc->use_sg;
-	struct scatterlist *slp;
-
-	if (scatterlen == 0)
-		memcpy(sc->request_buffer, buf, len);
-	else for (slp = (struct scatterlist *)sc->request_buffer;
-		  scatterlen-- > 0 && len > 0; slp++) {
-		unsigned thislen = min(len, slp->length);
-
-		memcpy(page_address(slp->page) + slp->offset, buf, thislen);
-		slp++;
-		len -= thislen;
-	}
+	simscsi_sg_readwrite(sc, mode, offset);
 }
 
 static int
@@ -275,7 +221,7 @@ simscsi_queuecommand (struct scsi_cmnd *sc, void (*done)(struct scsi_cmnd *))
 	if (target_id <= 15 && sc->device->lun == 0) {
 		switch (sc->cmnd[0]) {
 		      case INQUIRY:
-			if (sc->request_bufflen < 35) {
+			if (scsi_bufflen(sc) < 35) {
 				break;
 			}
 			sprintf (fname, "%s%c", simscsi_root, 'a' + target_id);
@@ -295,7 +241,7 @@ simscsi_queuecommand (struct scsi_cmnd *sc, void (*done)(struct scsi_cmnd *))
 			buf[6] = 0;	/* reserved */
 			buf[7] = 0;	/* various flags */
 			memcpy(buf + 8, "HP      SIMULATED DISK  0.00",  28);
-			simscsi_fillresult(sc, buf, 36);
+			scsi_sg_copy_from_buffer(sc, buf, 36);
 			sc->result = GOOD;
 			break;
 
@@ -328,7 +274,7 @@ simscsi_queuecommand (struct scsi_cmnd *sc, void (*done)(struct scsi_cmnd *))
 			break;
 
 		      case READ_CAPACITY:
-			if (desc[target_id] < 0 || sc->request_bufflen < 8) {
+			if (desc[target_id] < 0 || scsi_bufflen(sc) < 8) {
 				break;
 			}
 			buf = localbuf;
@@ -343,14 +289,15 @@ simscsi_queuecommand (struct scsi_cmnd *sc, void (*done)(struct scsi_cmnd *))
 			buf[5] = 0;
 			buf[6] = 2;
 			buf[7] = 0;
-			simscsi_fillresult(sc, buf, 8);
+			scsi_sg_copy_from_buffer(sc, buf, 8);
 			sc->result = GOOD;
 			break;
 
 		      case MODE_SENSE:
 		      case MODE_SENSE_10:
 			/* sd.c uses this to determine whether disk does write-caching. */
-			simscsi_fillresult(sc, (char *)empty_zero_page, sc->request_bufflen);
+			scsi_sg_copy_from_buffer(sc, (char *)empty_zero_page,
+						 PAGE_SIZE);
 			sc->result = GOOD;
 			break;
 
@@ -409,8 +356,13 @@ simscsi_init(void)
 		return -ENOMEM;
 
 	error = scsi_add_host(host, NULL);
-	if (!error)
-		scsi_scan_host(host);
+	if (error)
+		goto free_host;
+	scsi_scan_host(host);
+	return 0;
+
+ free_host:
+	scsi_host_put(host);
 	return error;
 }
 

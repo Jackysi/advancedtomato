@@ -1,3 +1,4 @@
+/* Modified by Broadcom Corp. Portions Copyright (c) Broadcom Corp, 2012. */
 /*
  * Copyright (C) 1995-2003 Russell King
  *               2001-2002 Keith Owens
@@ -10,12 +11,16 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/kernel.h>
+#include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
+#include <linux/dma-mapping.h>
 #include <asm/mach/arch.h>
 #include <asm/thread_info.h>
 #include <asm/memory.h>
 #include <asm/procinfo.h>
+#include <linux/kbuild.h>
 
 /*
  * Make sure that the compiler and target are compatible.
@@ -23,28 +28,17 @@
 #if defined(__APCS_26__)
 #error Sorry, your compiler targets APCS-26 but this kernel requires APCS-32
 #endif
-/*
- * GCC 3.0, 3.1: general bad code generation.
- * GCC 3.2.0: incorrect function argument offset calculation.
- * GCC 3.2.x: miscompiles NEW_AUX_ENT in fs/binfmt_elf.c
- *            (http://gcc.gnu.org/PR8896) and incorrect structure
- *	      initialisation in fs/jffs2/erase.c
- */
 #if (__GNUC__ == 3 && __GNUC_MINOR__ < 3)
 #error Your compiler is too buggy; it is known to miscompile kernels.
 #error    Known good compilers: 3.3
 #endif
 
-/* Use marker if you need to separate the values later */
-
-#define DEFINE(sym, val) \
-        asm volatile("\n->" #sym " %0 " #val : : "i" (val))
-
-#define BLANK() asm volatile("\n->" : : )
-
 int main(void)
 {
   DEFINE(TSK_ACTIVE_MM,		offsetof(struct task_struct, active_mm));
+#ifdef CONFIG_CC_STACKPROTECTOR
+  DEFINE(TSK_STACK_CANARY,	offsetof(struct task_struct, stack_canary));
+#endif
   BLANK();
   DEFINE(TI_FLAGS,		offsetof(struct thread_info, flags));
   DEFINE(TI_PREEMPT,		offsetof(struct thread_info, preempt_count));
@@ -58,6 +52,9 @@ int main(void)
   DEFINE(TI_TP_VALUE,		offsetof(struct thread_info, tp_value));
   DEFINE(TI_FPSTATE,		offsetof(struct thread_info, fpstate));
   DEFINE(TI_VFPSTATE,		offsetof(struct thread_info, vfpstate));
+#ifdef CONFIG_ARM_THUMBEE
+  DEFINE(TI_THUMBEE_STATE,	offsetof(struct thread_info, thumbee_state));
+#endif
 #ifdef CONFIG_IWMMXT
   DEFINE(TI_IWMMXT_STATE,	offsetof(struct thread_info, fpstate.iwmmxt));
 #endif
@@ -108,5 +105,16 @@ int main(void)
   DEFINE(PROCINFO_INITFUNC,	offsetof(struct proc_info_list, __cpu_flush));
   DEFINE(PROCINFO_MM_MMUFLAGS,	offsetof(struct proc_info_list, __cpu_mm_mmu_flags));
   DEFINE(PROCINFO_IO_MMUFLAGS,	offsetof(struct proc_info_list, __cpu_io_mmu_flags));
+  BLANK();
+#ifdef MULTI_DABORT
+  DEFINE(PROCESSOR_DABT_FUNC,	offsetof(struct processor, _data_abort));
+#endif
+#ifdef MULTI_PABORT
+  DEFINE(PROCESSOR_PABT_FUNC,	offsetof(struct processor, _prefetch_abort));
+#endif
+  BLANK();
+  DEFINE(DMA_BIDIRECTIONAL,	DMA_BIDIRECTIONAL);
+  DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
+  DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
   return 0; 
 }

@@ -13,7 +13,7 @@
 #include <linux/slab.h>
 #include "internal.h"
 
-unsigned afs_server_timeout = 10;	/* server timeout in seconds */
+static unsigned afs_server_timeout = 10;	/* server timeout in seconds */
 
 static void afs_reap_server(struct work_struct *);
 
@@ -91,9 +91,10 @@ static struct afs_server *afs_alloc_server(struct afs_cell *cell,
 
 		memcpy(&server->addr, addr, sizeof(struct in_addr));
 		server->addr.s_addr = addr->s_addr;
+		_leave(" = %p{%d}", server, atomic_read(&server->usage));
+	} else {
+		_leave(" = NULL [nomem]");
 	}
-
-	_leave(" = %p{%d}", server, atomic_read(&server->usage));
 	return server;
 }
 
@@ -105,7 +106,7 @@ struct afs_server *afs_lookup_server(struct afs_cell *cell,
 {
 	struct afs_server *server, *candidate;
 
-	_enter("%p,"NIPQUAD_FMT, cell, NIPQUAD(addr->s_addr));
+	_enter("%p,%pI4", cell, &addr->s_addr);
 
 	/* quick scan of the list to see if we already have the server */
 	read_lock(&cell->servers_lock);
@@ -168,9 +169,8 @@ found_server:
 server_in_two_cells:
 	write_unlock(&cell->servers_lock);
 	kfree(candidate);
-	printk(KERN_NOTICE "kAFS:"
-	       " Server "NIPQUAD_FMT" appears to be in two cells\n",
-	       NIPQUAD(*addr));
+	printk(KERN_NOTICE "kAFS: Server %pI4 appears to be in two cells\n",
+	       addr);
 	_leave(" = -EEXIST");
 	return ERR_PTR(-EEXIST);
 }
@@ -184,7 +184,7 @@ struct afs_server *afs_find_server(const struct in_addr *_addr)
 	struct rb_node *p;
 	struct in_addr addr = *_addr;
 
-	_enter(NIPQUAD_FMT, NIPQUAD(addr.s_addr));
+	_enter("%pI4", &addr.s_addr);
 
 	read_lock(&afs_servers_lock);
 

@@ -4,7 +4,7 @@
  * Description: cfag12864b LCD driver header
  *     License: GPLv2
  *
- *      Author: Copyright (C) Miguel Ojeda Sandonis <maxextreme@gmail.com>
+ *      Author: Copyright (C) Miguel Ojeda Sandonis
  *        Date: 2006-10-12
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -79,4 +79,3 @@ extern unsigned char cfag12864b_isenabled(void);
 extern unsigned char cfag12864b_isinited(void);
 
 #endif /* _CFAG12864B_H_ */
-

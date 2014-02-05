@@ -1,4 +1,4 @@
-/* $Id: command.c,v 1.4.10.1 2001/09/23 22:24:59 kai Exp $
+/* $Id: command.c,v 1.4.10.1 2001/09/23 22:24:59 Exp $
  *
  * Copyright (C) 1996  SpellCaster Telecommunications Inc.
  *
@@ -344,7 +344,7 @@ int reset(int card)
 
 	spin_lock_irqsave(&sc_adapter[card]->lock, flags);
 	init_timer(&sc_adapter[card]->reset_timer);
-	sc_adapter[card]->reset_timer.function = check_reset;
+	sc_adapter[card]->reset_timer.function = sc_check_reset;
 	sc_adapter[card]->reset_timer.data = card;
 	sc_adapter[card]->reset_timer.expires = jiffies + CHECKRESET_TIME;
 	add_timer(&sc_adapter[card]->reset_timer);

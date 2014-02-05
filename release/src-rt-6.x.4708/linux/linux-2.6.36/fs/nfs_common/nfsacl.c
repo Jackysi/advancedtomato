@@ -22,6 +22,7 @@
 
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/gfp.h>
 #include <linux/sunrpc/xdr.h>
 #include <linux/nfsacl.h>
 #include <linux/nfs3.h>
@@ -29,8 +30,8 @@
 
 MODULE_LICENSE("GPL");
 
-EXPORT_SYMBOL(nfsacl_encode);
-EXPORT_SYMBOL(nfsacl_decode);
+EXPORT_SYMBOL_GPL(nfsacl_encode);
+EXPORT_SYMBOL_GPL(nfsacl_decode);
 
 struct nfsacl_encode_desc {
 	struct xdr_array2_desc desc;

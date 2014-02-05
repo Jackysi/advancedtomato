@@ -2,17 +2,12 @@ Naming and data format standards for sysfs files
 ------------------------------------------------
 
 The libsensors library offers an interface to the raw sensors data
-through the sysfs interface. See libsensors documentation and source for
-further information. As of writing this document, libsensors
-(from lm_sensors 2.8.3) is heavily chip-dependent. Adding or updating
-support for any given chip requires modifying the library's code.
-This is because libsensors was written for the procfs interface
-older kernel modules were using, which wasn't standardized enough.
-Recent versions of libsensors (from lm_sensors 2.8.2 and later) have
-support for the sysfs interface, though.
-
-The new sysfs interface was designed to be as chip-independent as
-possible.
+through the sysfs interface. Since lm-sensors 3.0.0, libsensors is
+completely chip-independent. It assumes that all the kernel drivers
+implement the standard sysfs interface described in this document.
+This makes adding or updating support for any given chip very easy, as
+libsensors, and applications using it, do not need to be modified.
+This is a major improvement compared to lm-sensors 2.
 
 Note that motherboards vary widely in the connections to sensor chips.
 There is no standard that ensures, for example, that the second
@@ -35,18 +30,16 @@ access this data in a simple and consistent way. That said, such programs
 will have to implement conversion, labeling and hiding of inputs. For
 this reason, it is still not recommended to bypass the library.
 
-If you are developing a userspace application please send us feedback on
-this standard.
-
-Note that this standard isn't completely established yet, so it is subject
-to changes. If you are writing a new hardware monitoring driver those
-features can't seem to fit in this interface, please contact us with your
-extension proposal. Keep in mind that backward compatibility must be
-preserved.
-
 Each chip gets its own directory in the sysfs /sys/devices tree.  To
 find all sensor chips, it is easier to follow the device symlinks from
 /sys/class/hwmon/hwmon*.
+
+Up to lm-sensors 3.0.0, libsensors looks for hardware monitoring attributes
+in the "physical" device directory. Since lm-sensors 3.0.1, attributes found
+in the hwmon "class" device directory are also supported. Complex drivers
+(e.g. drivers for multifunction chips) may want to use this possibility to
+avoid namespace pollution. The only drawback will be that older versions of
+libsensors won't support the driver in question.
 
 All sysfs values are fixed point numbers.
 
@@ -67,19 +60,43 @@ between readings to be caught and alarmed. The exact definition of an
 alarm (for example, whether a threshold must be met or must be exceeded
 to cause an alarm) is chip-dependent.
 
+When setting values of hwmon sysfs attributes, the string representation of
+the desired value must be written, note that strings which are not a number
+are interpreted as 0! For more on how written strings are interpreted see the
+"sysfs attribute writes interpretation" section at the end of this file.
 
 -------------------------------------------------------------------------
 
 [0-*]	denotes any positive number starting from 0
 [1-*]	denotes any positive number starting from 1
 RO	read only value
+WO	write only value
 RW	read/write value
 
 Read/write values may be read-only for some chips, depending on the
 hardware implementation.
 
-All entries are optional, and should only be created in a given driver
-if the chip has the feature.
+All entries (except name) are optional, and should only be created in a
+given driver if the chip has the feature.
+
+
+*********************
+* Global attributes *
+*********************
+
+name		The chip name.
+		This should be a short, lowercase string, not containing
+		spaces nor dashes, representing the chip name. This is
+		the only mandatory attribute.
+		I2C devices get this attribute created automatically.
+		RO
+
+update_interval	The interval at which the chip will update readings.
+		Unit: millisecond
+		RW
+		Some devices have a variable update rate or interval.
+		This attribute can be used to change it to the desired value.
+
 
 ************
 * Voltages *
@@ -89,10 +106,24 @@ in[0-*]_min	Voltage min value.
 		Unit: millivolt
 		RW
 		
+in[0-*]_lcrit	Voltage critical min value.
+		Unit: millivolt
+		RW
+		If voltage drops to or below this limit, the system may
+		take drastic action such as power down or reset. At the very
+		least, it should report a fault.
+
 in[0-*]_max	Voltage max value.
 		Unit: millivolt
 		RW
 		
+in[0-*]_crit	Voltage critical max value.
+		Unit: millivolt
+		RW
+		If voltage reaches or exceeds this limit, the system may
+		take drastic action such as power down or reset. At the very
+		least, it should report a fault.
+
 in[0-*]_input	Voltage input value.
 		Unit: millivolt
 		RO
@@ -104,18 +135,17 @@ in[0-*]_input	Voltage input value.
 		by the chip driver, and must be done by the application.
 		However, some drivers (notably lm87 and via686a)
 		do scale, because of internal resistors built into a chip.
-		These drivers will output the actual voltage.
+		These drivers will output the actual voltage. Rule of
+		thumb: drivers should report the voltage values at the
+		"pins" of the chip.
 
-		Typical usage:
-			in0_*	CPU #1 voltage (not scaled)
-			in1_*	CPU #2 voltage (not scaled)
-			in2_*	3.3V nominal (not scaled)
-			in3_*	5.0V nominal (scaled)
-			in4_*	12.0V nominal (scaled)
-			in5_*	-12.0V nominal (scaled)
-			in6_*	-5.0V nominal (scaled)
-			in7_*	varies
-			in8_*	varies
+in[0-*]_label	Suggested voltage channel label.
+		Text string
+		Should only be created if the driver has hints about what
+		this voltage channel is being used for, and user-space
+		doesn't. In all other cases, the label is provided by
+		user-space.
+		RO
 
 cpu[0-*]_vid	CPU core reference voltage.
 		Unit: millivolt
@@ -141,6 +171,11 @@ fan[1-*]_min	Fan minimum value
 		Unit: revolution/min (RPM)
 		RW
 
+fan[1-*]_max	Fan maximum value
+		Unit: revolution/min (RPM)
+		Only rarely supported by the hardware.
+		RW
+
 fan[1-*]_input	Fan input value.
 		Unit: revolution/min (RPM)
 		RO
@@ -159,6 +194,13 @@ fan[1-*]_target
 		Only makes sense if the chip supports closed-loop fan speed
 		control based on the measured fan speed.
 
+fan[1-*]_label	Suggested fan channel label.
+		Text string
+		Should only be created if the driver has hints about what
+		this fan channel is being used for, and user-space doesn't.
+		In all other cases, the label is provided by user-space.
+		RO
+
 Also see the Alarms section for status flags associated with fans.
 
 
@@ -172,11 +214,10 @@ pwm[1-*]	Pulse width modulation fan control.
 		255 is max or 100%.
 
 pwm[1-*]_enable
-		Switch PWM on and off.
-		Not always present even if pwmN is.
-		0: turn off
-		1: turn on in manual mode
-		2+: turn on in automatic mode
+		Fan speed control method:
+		0: no fan speed control (i.e. fan at full speed)
+		1: manual fan speed control enabled (using pwm[1-*])
+		2+: automatic fan speed control enabled
 		Check individual chip documentation files for automatic mode
 		details.
 		RW
@@ -204,8 +245,6 @@ pwm[1-*]_auto_point[1-*]_temp_hyst
 		to PWM output channels.
 		RW
 
-OR
-
 temp[1-*]_auto_point[1-*]_pwm
 temp[1-*]_auto_point[1-*]_temp
 temp[1-*]_auto_point[1-*]_temp_hyst
@@ -214,18 +253,27 @@ temp[1-*]_auto_point[1-*]_temp_hyst
 		to temperature channels.
 		RW
 
+There is a third case where trip points are associated to both PWM output
+channels and temperature channels: the PWM values are associated to PWM
+output channels while the temperature values are associated to temperature
+channels. In that case, the result is determined by the mapping between
+temperature inputs and PWM outputs. When several temperature inputs are
+mapped to a given PWM output, this leads to several candidate PWM values.
+The actual result is up to the chip, but in general the highest candidate
+value (fastest fan speed) wins.
+
 
 ****************
 * Temperatures *
 ****************
 
 temp[1-*]_type	Sensor type selection.
-		Integers 1 to 6 or thermistor Beta value (typically 3435)
+		Integers 1 to 6
 		RW
 		1: PII/Celeron Diode
 		2: 3904 transistor
 		3: thermal diode
-		4: thermistor (default/unknown Beta)
+		4: thermistor
 		5: AMD AMDSI
 		6: Intel PECI
 		Not all types are supported by all chips
@@ -249,7 +297,7 @@ temp[1-*]_input Temperature input value.
 		Unit: millidegree Celsius
 		RO
 
-temp[1-*]_crit	Temperature critical value, typically greater than
+temp[1-*]_crit	Temperature critical max value, typically greater than
 		corresponding temp_max values.
 		Unit: millidegree Celsius
 		RW
@@ -261,18 +309,42 @@ temp[1-*]_crit_hyst
 		from the critical value.
 		RW
 
-temp[1-4]_offset
+temp[1-*]_lcrit	Temperature critical min value, typically lower than
+		corresponding temp_min values.
+		Unit: millidegree Celsius
+		RW
+
+temp[1-*]_offset
 		Temperature offset which is added to the temperature reading
 		by the chip.
 		Unit: millidegree Celsius
 		Read/Write value.
 
-		If there are multiple temperature sensors, temp1_* is
-		generally the sensor inside the chip itself,
-		reported as "motherboard temperature".  temp2_* to
-		temp4_* are generally sensors external to the chip
-		itself, for example the thermal diode inside the CPU or
-		a thermistor nearby.
+temp[1-*]_label	Suggested temperature channel label.
+		Text string
+		Should only be created if the driver has hints about what
+		this temperature channel is being used for, and user-space
+		doesn't. In all other cases, the label is provided by
+		user-space.
+		RO
+
+temp[1-*]_lowest
+		Historical minimum temperature
+		Unit: millidegree Celsius
+		RO
+
+temp[1-*]_highest
+		Historical maximum temperature
+		Unit: millidegree Celsius
+		RO
+
+temp[1-*]_reset_history
+		Reset temp_lowest and temp_highest
+		WO
+
+temp_reset_history
+		Reset temp_lowest and temp_highest for all sensors
+		WO
 
 Some chips measure temperature using external thermistors and an ADC, and
 report the temperature measurement as a voltage. Converting this voltage
@@ -290,9 +362,6 @@ Also see the Alarms section for status flags associated with temperatures.
 * Currents *
 ************
 
-Note that no known chip provides current measurements as of writing,
-so this part is theoretical, so to say.
-
 curr[1-*]_max	Current max value
 		Unit: milliampere
 		RW
@@ -304,6 +373,105 @@ curr[1-*]_min	Current min value.
 curr[1-*]_input	Current input value
 		Unit: milliampere
 		RO
+
+*********
+* Power *
+*********
+
+power[1-*]_average		Average power use
+				Unit: microWatt
+				RO
+
+power[1-*]_average_interval	Power use averaging interval.  A poll
+				notification is sent to this file if the
+				hardware changes the averaging interval.
+				Unit: milliseconds
+				RW
+
+power[1-*]_average_interval_max	Maximum power use averaging interval
+				Unit: milliseconds
+				RO
+
+power[1-*]_average_interval_min	Minimum power use averaging interval
+				Unit: milliseconds
+				RO
+
+power[1-*]_average_highest	Historical average maximum power use
+				Unit: microWatt
+				RO
+
+power[1-*]_average_lowest	Historical average minimum power use
+				Unit: microWatt
+				RO
+
+power[1-*]_average_max		A poll notification is sent to
+				power[1-*]_average when power use
+				rises above this value.
+				Unit: microWatt
+				RW
+
+power[1-*]_average_min		A poll notification is sent to
+				power[1-*]_average when power use
+				sinks below this value.
+				Unit: microWatt
+				RW
+
+power[1-*]_input		Instantaneous power use
+				Unit: microWatt
+				RO
+
+power[1-*]_input_highest	Historical maximum power use
+				Unit: microWatt
+				RO
+
+power[1-*]_input_lowest		Historical minimum power use
+				Unit: microWatt
+				RO
+
+power[1-*]_reset_history	Reset input_highest, input_lowest,
+				average_highest and average_lowest.
+				WO
+
+power[1-*]_accuracy		Accuracy of the power meter.
+				Unit: Percent
+				RO
+
+power[1-*]_alarm		1 if the system is drawing more power than the
+				cap allows; 0 otherwise.  A poll notification is
+				sent to this file when the power use exceeds the
+				cap.  This file only appears if the cap is known
+				to be enforced by hardware.
+				RO
+
+power[1-*]_cap			If power use rises above this limit, the
+				system should take action to reduce power use.
+				A poll notification is sent to this file if the
+				cap is changed by the hardware.  The *_cap
+				files only appear if the cap is known to be
+				enforced by hardware.
+				Unit: microWatt
+				RW
+
+power[1-*]_cap_hyst		Margin of hysteresis built around capping and
+				notification.
+				Unit: microWatt
+				RW
+
+power[1-*]_cap_max		Maximum cap that can be set.
+				Unit: microWatt
+				RO
+
+power[1-*]_cap_min		Minimum cap that can be set.
+				Unit: microWatt
+				RO
+
+**********
+* Energy *
+**********
+
+energy[1-*]_input		Cumulative energy use
+				Unit: microJoule
+				RO
 
 
 **********
@@ -318,6 +486,7 @@ limit-related alarms, not both. The driver should just reflect the hardware
 implementation.
 
 in[0-*]_alarm
+curr[1-*]_alarm
 fan[1-*]_alarm
 temp[1-*]_alarm
 		Channel alarm
@@ -329,7 +498,10 @@ OR
 
 in[0-*]_min_alarm
 in[0-*]_max_alarm
+curr[1-*]_min_alarm
+curr[1-*]_max_alarm
 fan[1-*]_min_alarm
+fan[1-*]_max_alarm
 temp[1-*]_min_alarm
 temp[1-*]_max_alarm
 temp[1-*]_crit_alarm
@@ -343,9 +515,8 @@ to notify open diodes, unconnected fans etc. where the hardware
 supports it. When this boolean has value 1, the measurement for that
 channel should not be trusted.
 
-in[0-*]_input_fault
-fan[1-*]_input_fault
-temp[1-*]_input_fault
+fan[1-*]_fault
+temp[1-*]_fault
 		Input fault condition
 		0: no fault occured
 		1: fault condition
@@ -359,6 +530,7 @@ beep_enable	Master beep enable
 		RW
 
 in[0-*]_beep
+curr[1-*]_beep
 fan[1-*]_beep
 temp[1-*]_beep
 		Channel beep
@@ -394,14 +566,74 @@ beep_mask	Bitmask for beep.
 		RW
 
 
-*********
-* Other *
-*********
+***********************
+* Intrusion detection *
+***********************
 
-eeprom		Raw EEPROM data in binary form.
-		RO
+intrusion[0-*]_alarm
+		Chassis intrusion detection
+		0: OK
+		1: intrusion detected
+		RW
+		Contrary to regular alarm flags which clear themselves
+		automatically when read, this one sticks until cleared by
+		the user. This is done by writing 0 to the file. Writing
+		other values is unsupported.
 
-pec		Enable or disable PEC (SMBus only)
+intrusion[0-*]_beep
+		Chassis intrusion beep
 		0: disable
 		1: enable
 		RW
+
+
+sysfs attribute writes interpretation
+-------------------------------------
+
+hwmon sysfs attributes always contain numbers, so the first thing to do is to
+convert the input to a number, there are 2 ways todo this depending whether
+the number can be negative or not:
+unsigned long u = simple_strtoul(buf, NULL, 10);
+long s = simple_strtol(buf, NULL, 10);
+
+With buf being the buffer with the user input being passed by the kernel.
+Notice that we do not use the second argument of strto[u]l, and thus cannot
+tell when 0 is returned, if this was really 0 or is caused by invalid input.
+This is done deliberately as checking this everywhere would add a lot of
+code to the kernel.
+
+Notice that it is important to always store the converted value in an
+unsigned long or long, so that no wrap around can happen before any further
+checking.
+
+After the input string is converted to an (unsigned) long, the value should be
+checked if its acceptable. Be careful with further conversions on the value
+before checking it for validity, as these conversions could still cause a wrap
+around before the check. For example do not multiply the result, and only
+add/subtract if it has been divided before the add/subtract.
+
+What to do if a value is found to be invalid, depends on the type of the
+sysfs attribute that is being set. If it is a continuous setting like a
+tempX_max or inX_max attribute, then the value should be clamped to its
+limits using SENSORS_LIMIT(value, min_limit, max_limit). If it is not
+continuous like for example a tempX_type, then when an invalid value is
+written, -EINVAL should be returned.
+
+Example1, temp1_max, register is a signed 8 bit value (-128 - 127 degrees):
+
+	long v = simple_strtol(buf, NULL, 10) / 1000;
+	v = SENSORS_LIMIT(v, -128, 127);
+	/* write v to register */
+
+Example2, fan divider setting, valid values 2, 4 and 8:
+
+	unsigned long v = simple_strtoul(buf, NULL, 10);
+
+	switch (v) {
+	case 2: v = 1; break;
+	case 4: v = 2; break;
+	case 8: v = 3; break;
+	default:
+		return -EINVAL;
+	}
+	/* write v to register */

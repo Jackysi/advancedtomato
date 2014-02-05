@@ -19,6 +19,8 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
+#include <linux/smp_lock.h>
+#include <linux/gfp.h>
 
 #include <asm/uaccess.h>
 
@@ -53,6 +55,7 @@ static int raw_open(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
+	lock_kernel();
 	mutex_lock(&raw_mutex);
 
 	/*
@@ -63,13 +66,13 @@ static int raw_open(struct inode *inode, struct file *filp)
 	if (!bdev)
 		goto out;
 	igrab(bdev->bd_inode);
-	err = blkdev_get(bdev, filp->f_mode, 0);
+	err = blkdev_get(bdev, filp->f_mode);
 	if (err)
 		goto out;
 	err = bd_claim(bdev, raw_open);
 	if (err)
 		goto out1;
-	err = set_blocksize(bdev, bdev_hardsect_size(bdev));
+	err = set_blocksize(bdev, bdev_logical_block_size(bdev));
 	if (err)
 		goto out2;
 	filp->f_flags |= O_DIRECT;
@@ -79,14 +82,16 @@ static int raw_open(struct inode *inode, struct file *filp)
 			bdev->bd_inode->i_mapping;
 	filp->private_data = bdev;
 	mutex_unlock(&raw_mutex);
+	unlock_kernel();
 	return 0;
 
 out2:
 	bd_release(bdev);
 out1:
-	blkdev_put(bdev);
+	blkdev_put(bdev, filp->f_mode);
 out:
 	mutex_unlock(&raw_mutex);
+	unlock_kernel();
 	return err;
 }
 
@@ -109,26 +114,30 @@ static int raw_release(struct inode *inode, struct file *filp)
 	mutex_unlock(&raw_mutex);
 
 	bd_release(bdev);
-	blkdev_put(bdev);
+	blkdev_put(bdev, filp->f_mode);
 	return 0;
 }
 
 /*
  * Forward ioctls to the underlying block device.
  */
-static int
-raw_ioctl(struct inode *inode, struct file *filp,
-		  unsigned int command, unsigned long arg)
+static long
+raw_ioctl(struct file *filp, unsigned int command, unsigned long arg)
 {
 	struct block_device *bdev = filp->private_data;
+	int ret;
 
-	return blkdev_ioctl(bdev->bd_inode, NULL, command, arg);
+	lock_kernel();
+	ret = blkdev_ioctl(bdev, 0, command, arg);
+	unlock_kernel();
+
+	return ret;
 }
 
 static void bind_device(struct raw_config_request *rq)
 {
 	device_destroy(raw_class, MKDEV(RAW_MAJOR, rq->raw_minor));
-	device_create(raw_class, NULL, MKDEV(RAW_MAJOR, rq->raw_minor),
+	device_create(raw_class, NULL, MKDEV(RAW_MAJOR, rq->raw_minor), NULL,
 		      "raw%d", rq->raw_minor);
 }
 
@@ -136,13 +145,14 @@ static void bind_device(struct raw_config_request *rq)
  * Deal with ioctls against the raw-device control interface, to bind
  * and unbind other raw devices.
  */
-static int raw_ctl_ioctl(struct inode *inode, struct file *filp,
-			unsigned int command, unsigned long arg)
+static long raw_ctl_ioctl(struct file *filp, unsigned int command,
+			  unsigned long arg)
 {
 	struct raw_config_request rq;
 	struct raw_device_data *rawdev;
 	int err = 0;
 
+	lock_kernel();
 	switch (command) {
 	case RAW_SETBIND:
 	case RAW_GETBIND:
@@ -235,30 +245,34 @@ static int raw_ctl_ioctl(struct inode *inode, struct file *filp,
 		break;
 	}
 out:
+	unlock_kernel();
 	return err;
 }
 
 static const struct file_operations raw_fops = {
-	.read	=	do_sync_read,
-	.aio_read = 	generic_file_aio_read,
-	.write	=	do_sync_write,
-	.aio_write = 	generic_file_aio_write_nolock,
-	.open	=	raw_open,
-	.release=	raw_release,
-	.ioctl	=	raw_ioctl,
-	.owner	=	THIS_MODULE,
+	.read		= do_sync_read,
+	.aio_read	= generic_file_aio_read,
+	.write		= do_sync_write,
+	.aio_write	= blkdev_aio_write,
+	.fsync		= blkdev_fsync,
+	.open		= raw_open,
+	.release	= raw_release,
+	.unlocked_ioctl = raw_ioctl,
+	.owner		= THIS_MODULE,
 };
 
 static const struct file_operations raw_ctl_fops = {
-	.ioctl	=	raw_ctl_ioctl,
-	.open	=	raw_open,
-	.owner	=	THIS_MODULE,
+	.unlocked_ioctl = raw_ctl_ioctl,
+	.open		= raw_open,
+	.owner		= THIS_MODULE,
 };
 
-static struct cdev raw_cdev = {
-	.kobj	=	{.name = "raw", },
-	.owner	=	THIS_MODULE,
-};
+static struct cdev raw_cdev;
+
+static char *raw_devnode(struct device *dev, mode_t *mode)
+{
+	return kasprintf(GFP_KERNEL, "raw/%s", dev_name(dev));
+}
 
 static int __init raw_init(void)
 {
@@ -283,7 +297,8 @@ static int __init raw_init(void)
 		ret = PTR_ERR(raw_class);
 		goto error_region;
 	}
-	device_create(raw_class, NULL, MKDEV(RAW_MAJOR, 0), "rawctl");
+	raw_class->devnode = raw_devnode;
+	device_create(raw_class, NULL, MKDEV(RAW_MAJOR, 0), NULL, "rawctl");
 
 	return 0;
 

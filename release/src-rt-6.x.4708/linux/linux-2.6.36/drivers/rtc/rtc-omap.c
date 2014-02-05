@@ -22,7 +22,6 @@
 #include <linux/platform_device.h>
 
 #include <asm/io.h>
-#include <asm/mach/time.h>
 
 
 /* The OMAP1 RTC is a year/month/day/hours/minutes/seconds BCD clock
@@ -88,21 +87,10 @@
 #define OMAP_RTC_INTERRUPTS_IT_ALARM    (1<<3)
 #define OMAP_RTC_INTERRUPTS_IT_TIMER    (1<<2)
 
+static void __iomem	*rtc_base;
 
-#define rtc_read(addr)		omap_readb(OMAP_RTC_BASE + (addr))
-#define rtc_write(val, addr)	omap_writeb(val, OMAP_RTC_BASE + (addr))
-
-
-/* platform_bus isn't hotpluggable, so for static linkage it'd be safe
- * to get rid of probe() and remove() code ... too bad the driver struct
- * remembers probe(), that's about 25% of the runtime footprint!!
- */
-#ifndef	MODULE
-#undef	__devexit
-#undef	__devexit_p
-#define	__devexit	__exit
-#define	__devexit_p	__exit_p
-#endif
+#define rtc_read(addr)		__raw_readb(rtc_base + (addr))
+#define rtc_write(val, addr)	__raw_writeb(val, rtc_base + (addr))
 
 
 /* we rely on the rtc framework to handle locking (rtc->ops_lock),
@@ -199,30 +187,30 @@ static int tm2bcd(struct rtc_time *tm)
 	if (rtc_valid_tm(tm) != 0)
 		return -EINVAL;
 
-	tm->tm_sec = BIN2BCD(tm->tm_sec);
-	tm->tm_min = BIN2BCD(tm->tm_min);
-	tm->tm_hour = BIN2BCD(tm->tm_hour);
-	tm->tm_mday = BIN2BCD(tm->tm_mday);
+	tm->tm_sec = bin2bcd(tm->tm_sec);
+	tm->tm_min = bin2bcd(tm->tm_min);
+	tm->tm_hour = bin2bcd(tm->tm_hour);
+	tm->tm_mday = bin2bcd(tm->tm_mday);
 
-	tm->tm_mon = BIN2BCD(tm->tm_mon + 1);
+	tm->tm_mon = bin2bcd(tm->tm_mon + 1);
 
 	/* epoch == 1900 */
 	if (tm->tm_year < 100 || tm->tm_year > 199)
 		return -EINVAL;
-	tm->tm_year = BIN2BCD(tm->tm_year - 100);
+	tm->tm_year = bin2bcd(tm->tm_year - 100);
 
 	return 0;
 }
 
 static void bcd2tm(struct rtc_time *tm)
 {
-	tm->tm_sec = BCD2BIN(tm->tm_sec);
-	tm->tm_min = BCD2BIN(tm->tm_min);
-	tm->tm_hour = BCD2BIN(tm->tm_hour);
-	tm->tm_mday = BCD2BIN(tm->tm_mday);
-	tm->tm_mon = BCD2BIN(tm->tm_mon) - 1;
+	tm->tm_sec = bcd2bin(tm->tm_sec);
+	tm->tm_min = bcd2bin(tm->tm_min);
+	tm->tm_hour = bcd2bin(tm->tm_hour);
+	tm->tm_mday = bcd2bin(tm->tm_mday);
+	tm->tm_mon = bcd2bin(tm->tm_mon) - 1;
 	/* epoch == 1900 */
-	tm->tm_year = BCD2BIN(tm->tm_year) + 100;
+	tm->tm_year = bcd2bin(tm->tm_year) + 100;
 }
 
 
@@ -325,7 +313,7 @@ static struct rtc_class_ops omap_rtc_ops = {
 static int omap_rtc_alarm;
 static int omap_rtc_timer;
 
-static int __devinit omap_rtc_probe(struct platform_device *pdev)
+static int __init omap_rtc_probe(struct platform_device *pdev)
 {
 	struct resource		*res, *mem;
 	struct rtc_device	*rtc;
@@ -343,24 +331,23 @@ static int __devinit omap_rtc_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	/* NOTE:  using static mapping for RTC registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res && res->start != OMAP_RTC_BASE) {
-		pr_debug("%s: RTC registers at %08x, expected %08x\n",
-			pdev->name, (unsigned) res->start, OMAP_RTC_BASE);
+	if (!res) {
+		pr_debug("%s: RTC resource data missing\n", pdev->name);
 		return -ENOENT;
 	}
 
-	if (res)
-		mem = request_mem_region(res->start,
-				res->end - res->start + 1,
-				pdev->name);
-	else
-		mem = NULL;
+	mem = request_mem_region(res->start, resource_size(res), pdev->name);
 	if (!mem) {
 		pr_debug("%s: RTC registers at %08x are not free\n",
-			pdev->name, OMAP_RTC_BASE);
+			pdev->name, res->start);
 		return -EBUSY;
+	}
+
+	rtc_base = ioremap(res->start, resource_size(res));
+	if (!rtc_base) {
+		pr_debug("%s: RTC registers can't be mapped\n", pdev->name);
+		goto fail;
 	}
 
 	rtc = rtc_device_register(pdev->name, &pdev->dev,
@@ -368,7 +355,7 @@ static int __devinit omap_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(rtc)) {
 		pr_debug("%s: can't register RTC device, err %ld\n",
 			pdev->name, PTR_ERR(rtc));
-		goto fail;
+		goto fail0;
 	}
 	platform_set_drvdata(pdev, rtc);
 	dev_set_drvdata(&rtc->dev, mem);
@@ -390,16 +377,17 @@ static int __devinit omap_rtc_probe(struct platform_device *pdev)
 
 	/* handle periodic and alarm irqs */
 	if (request_irq(omap_rtc_timer, rtc_irq, IRQF_DISABLED,
-			rtc->dev.bus_id, rtc)) {
+			dev_name(&rtc->dev), rtc)) {
 		pr_debug("%s: RTC timer interrupt IRQ%d already claimed\n",
 			pdev->name, omap_rtc_timer);
-		goto fail0;
+		goto fail1;
 	}
-	if (request_irq(omap_rtc_alarm, rtc_irq, IRQF_DISABLED,
-			rtc->dev.bus_id, rtc)) {
+	if ((omap_rtc_timer != omap_rtc_alarm) &&
+		(request_irq(omap_rtc_alarm, rtc_irq, IRQF_DISABLED,
+			dev_name(&rtc->dev), rtc))) {
 		pr_debug("%s: RTC alarm interrupt IRQ%d already claimed\n",
 			pdev->name, omap_rtc_alarm);
-		goto fail1;
+		goto fail2;
 	}
 
 	/* On boards with split power, RTC_ON_NOFF won't reset the RTC */
@@ -432,18 +420,20 @@ static int __devinit omap_rtc_probe(struct platform_device *pdev)
 
 	return 0;
 
-fail1:
+fail2:
 	free_irq(omap_rtc_timer, NULL);
-fail0:
+fail1:
 	rtc_device_unregister(rtc);
+fail0:
+	iounmap(rtc_base);
 fail:
 	release_resource(mem);
 	return -EIO;
 }
 
-static int __devexit omap_rtc_remove(struct platform_device *pdev)
+static int __exit omap_rtc_remove(struct platform_device *pdev)
 {
-	struct rtc_device	*rtc = platform_get_drvdata(pdev);;
+	struct rtc_device	*rtc = platform_get_drvdata(pdev);
 
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -451,7 +441,9 @@ static int __devexit omap_rtc_remove(struct platform_device *pdev)
 	rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
 
 	free_irq(omap_rtc_timer, rtc);
-	free_irq(omap_rtc_alarm, rtc);
+
+	if (omap_rtc_timer != omap_rtc_alarm)
+		free_irq(omap_rtc_alarm, rtc);
 
 	release_resource(dev_get_drvdata(&rtc->dev));
 	rtc_device_unregister(rtc);
@@ -466,10 +458,6 @@ static int omap_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	irqstat = rtc_read(OMAP_RTC_INTERRUPTS_REG);
 
-	/* FIXME the RTC alarm is not currently acting as a wakeup event
-	 * source, and in fact this enable() call is just saving a flag
-	 * that's never used...
-	 */
 	if (device_may_wakeup(&pdev->dev))
 		enable_irq_wake(omap_rtc_alarm);
 	else
@@ -497,10 +485,9 @@ static void omap_rtc_shutdown(struct platform_device *pdev)
 	rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
 }
 
-MODULE_ALIAS("omap_rtc");
+MODULE_ALIAS("platform:omap_rtc");
 static struct platform_driver omap_rtc_driver = {
-	.probe		= omap_rtc_probe,
-	.remove		= __devexit_p(omap_rtc_remove),
+	.remove		= __exit_p(omap_rtc_remove),
 	.suspend	= omap_rtc_suspend,
 	.resume		= omap_rtc_resume,
 	.shutdown	= omap_rtc_shutdown,
@@ -512,7 +499,7 @@ static struct platform_driver omap_rtc_driver = {
 
 static int __init rtc_init(void)
 {
-	return platform_driver_register(&omap_rtc_driver);
+	return platform_driver_probe(&omap_rtc_driver, omap_rtc_probe);
 }
 module_init(rtc_init);
 

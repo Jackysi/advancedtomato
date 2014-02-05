@@ -103,6 +103,7 @@
 #include <linux/module.h>
 #include <linux/parport.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/stddef.h>
 #include <linux/types.h>
@@ -582,8 +583,6 @@ static int parport_ip32_dma_start(enum dma_data_direction dir,
 
 	pr_trace(NULL, "(%d, %lu)", dir, (unsigned long)count);
 
-	/* FIXME - add support for DMA_FROM_DEVICE.  In this case, buffer must
-	 * be 64 bytes aligned. */
 	BUG_ON(dir != DMA_TO_DEVICE);
 
 	/* Reset DMA controller */
@@ -723,7 +722,6 @@ static int parport_ip32_dma_register(void)
 	if (err)
 		goto fail_b;
 #if DEBUG_PARPORT_IP32
-	/* FIXME - what is this IRQ for? */
 	err = request_irq(MACEISA_PAR_MERR_IRQ, parport_ip32_merr_interrupt,
 			  0, "parport_ip32", NULL);
 	if (err)
@@ -778,14 +776,16 @@ static irqreturn_t parport_ip32_interrupt(int irq, void *dev_id)
 	struct parport * const p = dev_id;
 	struct parport_ip32_private * const priv = p->physport->private_data;
 	enum parport_ip32_irq_mode irq_mode = priv->irq_mode;
+
 	switch (irq_mode) {
 	case PARPORT_IP32_IRQ_FWD:
-		parport_generic_irq(irq, p);
-		break;
+		return parport_irq_handler(irq, dev_id);
+
 	case PARPORT_IP32_IRQ_HERE:
 		parport_ip32_wakeup(p);
 		break;
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -1480,8 +1480,6 @@ static size_t parport_ip32_fifo_write_block(struct parport *p,
 {
 	size_t written = 0;
 	if (len)
-		/* FIXME - Maybe some threshold value should be set for @len
-		 * under which we revert to PIO mode? */
 		written = (p->modes & PARPORT_MODE_DMA) ?
 			parport_ip32_fifo_write_block_dma(p, buf, len) :
 			parport_ip32_fifo_write_block_pio(p, buf, len);
@@ -1543,11 +1541,6 @@ static unsigned int parport_ip32_get_fifo_residue(struct parport *p,
 	unsigned int residue;
 	unsigned int cnfga;
 
-	/* FIXME - We are missing one byte if the printer is off-line.  I
-	 * don't know how to detect this.  It looks that the full bit is not
-	 * always reliable.  For the moment, the problem is avoided in most
-	 * cases by testing for BUSY in parport_ip32_compat_write_data().
-	 */
 	if (parport_ip32_read_econtrol(p) & ECR_F_EMPTY)
 		residue = 0;
 	else {
@@ -1679,9 +1672,6 @@ stop:
 	return written;
 }
 
-/*
- * FIXME - Insert here parport_ip32_ecp_read_data().
- */
 
 /**
  * parport_ip32_ecp_write_data - write a block of data in ECP mode
@@ -1760,9 +1750,6 @@ stop:
 	return written;
 }
 
-/*
- * FIXME - Insert here parport_ip32_ecp_write_addr().
- */
 
 /*--- Default parport operations ---------------------------------------*/
 
@@ -2126,7 +2113,6 @@ static __init struct parport *parport_ip32_probe_port(void)
 	if (features & PARPORT_IP32_ENABLE_ECP) {
 		/* Enable ECP FIFO mode */
 		p->ops->ecp_write_data = parport_ip32_ecp_write_data;
-		/* FIXME - not implemented */
 /*		p->ops->ecp_read_data  = parport_ip32_ecp_read_data; */
 /*		p->ops->ecp_write_addr = parport_ip32_ecp_write_addr; */
 		p->modes |= PARPORT_MODE_ECP;

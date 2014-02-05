@@ -26,8 +26,7 @@
 #include <linux/workqueue.h>
 #include <linux/mii.h>
 #include <linux/usb.h>
-
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
 
 
 /*
@@ -219,7 +218,7 @@ static const struct driver_info	blob_info = {
 /*-------------------------------------------------------------------------*/
 
 #ifndef	HAVE_HARDWARE
-#error You need to configure some hardware for this driver
+#warning You need to configure some hardware for this driver
 #endif
 
 /*
@@ -305,9 +304,13 @@ static const struct usb_device_id	products [] = {
 	USB_DEVICE (0x8086, 0x07d3),	// "blob" bootloader
 	.driver_info =	(unsigned long) &blob_info,
 }, {
-	// Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
-	// e.g. Gumstix, current OpenZaurus, ...
-	USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
+	USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
+	.driver_info =  (unsigned long) &blob_info,
+}, {
+	// Linux Ethernet/RNDIS gadget, mostly on PXA, second config
+	// e.g. Gumstix, current OpenZaurus, ... or anything else
+	// that just enables this gadget option.
+	USB_DEVICE (0x0525, 0xa4a2),
 	.driver_info =	(unsigned long) &linuxdev_info,
 },
 #endif

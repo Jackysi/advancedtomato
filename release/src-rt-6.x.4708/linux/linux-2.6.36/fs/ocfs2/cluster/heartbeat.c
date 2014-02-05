@@ -33,6 +33,8 @@
 #include <linux/random.h>
 #include <linux/crc32.h>
 #include <linux/time.h>
+#include <linux/debugfs.h>
+#include <linux/slab.h>
 
 #include "heartbeat.h"
 #include "tcp.h"
@@ -60,6 +62,11 @@ static unsigned long o2hb_live_node_bitmap[BITS_TO_LONGS(O2NM_MAX_NODES)];
 static LIST_HEAD(o2hb_node_events);
 static DECLARE_WAIT_QUEUE_HEAD(o2hb_steady_queue);
 
+#define O2HB_DEBUG_DIR			"o2hb"
+#define O2HB_DEBUG_LIVENODES		"livenodes"
+static struct dentry *o2hb_debug_dir;
+static struct dentry *o2hb_debug_livenodes;
+
 static LIST_HEAD(o2hb_all_regions);
 
 static struct o2hb_callback {
@@ -72,7 +79,7 @@ static struct o2hb_callback *hbcall_from_type(enum o2hb_callback_type type);
 
 unsigned int o2hb_dead_threshold = O2HB_DEFAULT_DEAD_THRESHOLD;
 
-/* Only sets a new threshold if there are no active regions. 
+/* Only sets a new threshold if there are no active regions.
  *
  * No locking or otherwise interesting code is required for reading
  * o2hb_dead_threshold as it can't change once regions are active and
@@ -164,13 +171,14 @@ static void o2hb_write_timeout(struct work_struct *work)
 
 	mlog(ML_ERROR, "Heartbeat write timeout to device %s after %u "
 	     "milliseconds\n", reg->hr_dev_name,
-	     jiffies_to_msecs(jiffies - reg->hr_last_timeout_start)); 
+	     jiffies_to_msecs(jiffies - reg->hr_last_timeout_start));
 	o2quo_disk_timeout();
 }
 
 static void o2hb_arm_write_timeout(struct o2hb_region *reg)
 {
-	mlog(0, "Queue write timeout for %u ms\n", O2HB_MAX_WRITE_TIMEOUT_MS);
+	mlog(ML_HEARTBEAT, "Queue write timeout for %u ms\n",
+	     O2HB_MAX_WRITE_TIMEOUT_MS);
 
 	cancel_delayed_work(&reg->hr_write_timeout_work);
 	reg->hr_last_timeout_start = jiffies;
@@ -216,8 +224,7 @@ static void o2hb_wait_on_io(struct o2hb_region *reg,
 	wait_for_completion(&wc->wc_io_complete);
 }
 
-static int o2hb_bio_end_io(struct bio *bio,
-			   unsigned int bytes_done,
+static void o2hb_bio_end_io(struct bio *bio,
 			   int error)
 {
 	struct o2hb_bio_wait_ctxt *wc = bio->bi_private;
@@ -227,12 +234,8 @@ static int o2hb_bio_end_io(struct bio *bio,
 		wc->wc_error = error;
 	}
 
-	if (bio->bi_size)
-		return 1;
-
 	o2hb_bio_wait_dec(wc, 1);
 	bio_put(bio);
-	return 0;
 }
 
 /* Setup a Bio to cover I/O against num_slots slots starting at
@@ -272,7 +275,7 @@ static struct bio *o2hb_setup_one_bio(struct o2hb_region *reg,
 		current_page = cs / spp;
 		page = reg->hr_slot_data[current_page];
 
-		vec_len = min(PAGE_CACHE_SIZE,
+		vec_len = min(PAGE_CACHE_SIZE - vec_start,
 			      (max_slots-cs) * (PAGE_CACHE_SIZE/spp) );
 
 		mlog(ML_HB_BIO, "page %d, vec_len = %u, vec_start = %u\n",
@@ -622,7 +625,7 @@ static int o2hb_check_slot(struct o2hb_region *reg,
 	     "seq %llu last %llu changed %u equal %u\n",
 	     slot->ds_node_num, (long long)slot->ds_last_generation,
 	     le32_to_cpu(hb_block->hb_cksum),
-	     (unsigned long long)le64_to_cpu(hb_block->hb_seq), 
+	     (unsigned long long)le64_to_cpu(hb_block->hb_seq),
 	     (unsigned long long)slot->ds_last_time, slot->ds_changed_samples,
 	     slot->ds_equal_samples);
 
@@ -859,7 +862,7 @@ static int o2hb_thread(void *data)
 
 	while (!kthread_should_stop() && !reg->hr_unclean_stop) {
 		/* We track the time spent inside
-		 * o2hb_do_disk_heartbeat so that we avoid more then
+		 * o2hb_do_disk_heartbeat so that we avoid more than
 		 * hr_timeout_ms between disk writes. On busy systems
 		 * this should result in a heartbeat which is less
 		 * likely to time itself out. */
@@ -873,7 +876,8 @@ static int o2hb_thread(void *data)
 		do_gettimeofday(&after_hb);
 		elapsed_msec = o2hb_elapsed_msecs(&before_hb, &after_hb);
 
-		mlog(0, "start = %lu.%lu, end = %lu.%lu, msec = %u\n",
+		mlog(ML_HEARTBEAT,
+		     "start = %lu.%lu, end = %lu.%lu, msec = %u\n",
 		     before_hb.tv_sec, (unsigned long) before_hb.tv_usec,
 		     after_hb.tv_sec, (unsigned long) after_hb.tv_usec,
 		     elapsed_msec);
@@ -891,12 +895,6 @@ static int o2hb_thread(void *data)
 	for(i = 0; !reg->hr_unclean_stop && i < reg->hr_blocks; i++)
 		o2hb_shutdown_slot(&reg->hr_slots[i]);
 
-	/* Explicit down notification - avoid forcing the other nodes
-	 * to timeout on this region when we could just as easily
-	 * write a clear generation - thus indicating to them that
-	 * this node has left this region.
-	 *
-	 * XXX: Should we skip this on unclean_stop? */
 	o2hb_prepare_block(reg, 0);
 	ret = o2hb_issue_node_write(reg, &write_wc);
 	if (ret == 0) {
@@ -910,7 +908,77 @@ static int o2hb_thread(void *data)
 	return 0;
 }
 
-void o2hb_init(void)
+#ifdef CONFIG_DEBUG_FS
+static int o2hb_debug_open(struct inode *inode, struct file *file)
+{
+	unsigned long map[BITS_TO_LONGS(O2NM_MAX_NODES)];
+	char *buf = NULL;
+	int i = -1;
+	int out = 0;
+
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		goto bail;
+
+	o2hb_fill_node_map(map, sizeof(map));
+
+	while ((i = find_next_bit(map, O2NM_MAX_NODES, i + 1)) < O2NM_MAX_NODES)
+		out += snprintf(buf + out, PAGE_SIZE - out, "%d ", i);
+	out += snprintf(buf + out, PAGE_SIZE - out, "\n");
+
+	i_size_write(inode, out);
+
+	file->private_data = buf;
+
+	return 0;
+bail:
+	return -ENOMEM;
+}
+
+static int o2hb_debug_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+	return 0;
+}
+
+static ssize_t o2hb_debug_read(struct file *file, char __user *buf,
+				 size_t nbytes, loff_t *ppos)
+{
+	return simple_read_from_buffer(buf, nbytes, ppos, file->private_data,
+				       i_size_read(file->f_mapping->host));
+}
+#else
+static int o2hb_debug_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+static int o2hb_debug_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+static ssize_t o2hb_debug_read(struct file *file, char __user *buf,
+			       size_t nbytes, loff_t *ppos)
+{
+	return 0;
+}
+#endif  /* CONFIG_DEBUG_FS */
+
+static const struct file_operations o2hb_debug_fops = {
+	.open =		o2hb_debug_open,
+	.release =	o2hb_debug_release,
+	.read =		o2hb_debug_read,
+	.llseek =	generic_file_llseek,
+};
+
+void o2hb_exit(void)
+{
+	if (o2hb_debug_livenodes)
+		debugfs_remove(o2hb_debug_livenodes);
+	if (o2hb_debug_dir)
+		debugfs_remove(o2hb_debug_dir);
+}
+
+int o2hb_init(void)
 {
 	int i;
 
@@ -923,6 +991,24 @@ void o2hb_init(void)
 	INIT_LIST_HEAD(&o2hb_node_events);
 
 	memset(o2hb_live_node_bitmap, 0, sizeof(o2hb_live_node_bitmap));
+
+	o2hb_debug_dir = debugfs_create_dir(O2HB_DEBUG_DIR, NULL);
+	if (!o2hb_debug_dir) {
+		mlog_errno(-ENOMEM);
+		return -ENOMEM;
+	}
+
+	o2hb_debug_livenodes = debugfs_create_file(O2HB_DEBUG_LIVENODES,
+						   S_IFREG|S_IRUSR,
+						   o2hb_debug_dir, NULL,
+						   &o2hb_debug_fops);
+	if (!o2hb_debug_livenodes) {
+		mlog_errno(-ENOMEM);
+		debugfs_remove(o2hb_debug_dir);
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 
 /* if we're already in a callback then we're already serialized by the sem */
@@ -981,7 +1067,7 @@ static void o2hb_region_release(struct config_item *item)
 	}
 
 	if (reg->hr_bdev)
-		blkdev_put(reg->hr_bdev);
+		blkdev_put(reg->hr_bdev, FMODE_READ|FMODE_WRITE);
 
 	if (reg->hr_slots)
 		kfree(reg->hr_slots);
@@ -1273,7 +1359,7 @@ static ssize_t o2hb_region_dev_write(struct o2hb_region *reg,
 		goto out;
 
 	reg->hr_bdev = I_BDEV(filp->f_mapping->host);
-	ret = blkdev_get(reg->hr_bdev, FMODE_WRITE | FMODE_READ, 0);
+	ret = blkdev_get(reg->hr_bdev, FMODE_WRITE | FMODE_READ);
 	if (ret) {
 		reg->hr_bdev = NULL;
 		goto out;
@@ -1282,7 +1368,7 @@ static ssize_t o2hb_region_dev_write(struct o2hb_region *reg,
 
 	bdevname(reg->hr_bdev, reg->hr_dev_name);
 
-	sectsize = bdev_hardsect_size(reg->hr_bdev);
+	sectsize = bdev_logical_block_size(reg->hr_bdev);
 	if (sectsize != reg->hr_block_bytes) {
 		mlog(ML_ERROR,
 		     "blocksize %u incorrect for device, expected %d",
@@ -1335,6 +1421,7 @@ static ssize_t o2hb_region_dev_write(struct o2hb_region *reg,
 	ret = wait_event_interruptible(o2hb_steady_queue,
 				atomic_read(&reg->hr_steady_iterations) == 0);
 	if (ret) {
+		/* We got interrupted (hello ptrace!).  Clean up */
 		spin_lock(&o2hb_live_lock);
 		hb_task = reg->hr_task;
 		reg->hr_task = NULL;
@@ -1345,7 +1432,16 @@ static ssize_t o2hb_region_dev_write(struct o2hb_region *reg,
 		goto out;
 	}
 
-	ret = count;
+	/* Ok, we were woken.  Make sure it wasn't by drop_item() */
+	spin_lock(&o2hb_live_lock);
+	hb_task = reg->hr_task;
+	spin_unlock(&o2hb_live_lock);
+
+	if (hb_task)
+		ret = count;
+	else
+		ret = -EIO;
+
 out:
 	if (filp)
 		fput(filp);
@@ -1353,7 +1449,7 @@ out:
 		iput(inode);
 	if (ret < 0) {
 		if (reg->hr_bdev) {
-			blkdev_put(reg->hr_bdev);
+			blkdev_put(reg->hr_bdev, FMODE_READ|FMODE_WRITE);
 			reg->hr_bdev = NULL;
 		}
 	}
@@ -1367,7 +1463,7 @@ static ssize_t o2hb_region_pid_read(struct o2hb_region *reg,
 
 	spin_lock(&o2hb_live_lock);
 	if (reg->hr_task)
-		pid = reg->hr_task->pid;
+		pid = task_pid_nr(reg->hr_task);
 	spin_unlock(&o2hb_live_lock);
 
 	if (!pid)
@@ -1488,24 +1584,18 @@ static struct config_item *o2hb_heartbeat_group_make_item(struct config_group *g
 							  const char *name)
 {
 	struct o2hb_region *reg = NULL;
-	struct config_item *ret = NULL;
 
 	reg = kzalloc(sizeof(struct o2hb_region), GFP_KERNEL);
 	if (reg == NULL)
-		goto out; /* ENOMEM */
+		return ERR_PTR(-ENOMEM);
 
 	config_item_init_type_name(&reg->hr_item, name, &o2hb_region_type);
-
-	ret = &reg->hr_item;
 
 	spin_lock(&o2hb_live_lock);
 	list_add_tail(&reg->hr_all_item, &o2hb_all_regions);
 	spin_unlock(&o2hb_live_lock);
-out:
-	if (ret == NULL)
-		kfree(reg);
 
-	return ret;
+	return &reg->hr_item;
 }
 
 static void o2hb_heartbeat_group_drop_item(struct config_group *group,
@@ -1522,6 +1612,15 @@ static void o2hb_heartbeat_group_drop_item(struct config_group *group,
 
 	if (hb_task)
 		kthread_stop(hb_task);
+
+	/*
+	 * If we're racing a dev_write(), we need to wake them.  They will
+	 * check reg->hr_task
+	 */
+	if (atomic_read(&reg->hr_steady_iterations) != 0) {
+		atomic_set(&reg->hr_steady_iterations, 0);
+		wake_up(&o2hb_steady_queue);
+	}
 
 	config_item_put(item);
 }
@@ -1665,7 +1764,67 @@ void o2hb_setup_callback(struct o2hb_callback_func *hc,
 }
 EXPORT_SYMBOL_GPL(o2hb_setup_callback);
 
-int o2hb_register_callback(struct o2hb_callback_func *hc)
+static struct o2hb_region *o2hb_find_region(const char *region_uuid)
+{
+	struct o2hb_region *p, *reg = NULL;
+
+	assert_spin_locked(&o2hb_live_lock);
+
+	list_for_each_entry(p, &o2hb_all_regions, hr_all_item) {
+		if (!strcmp(region_uuid, config_item_name(&p->hr_item))) {
+			reg = p;
+			break;
+		}
+	}
+
+	return reg;
+}
+
+static int o2hb_region_get(const char *region_uuid)
+{
+	int ret = 0;
+	struct o2hb_region *reg;
+
+	spin_lock(&o2hb_live_lock);
+
+	reg = o2hb_find_region(region_uuid);
+	if (!reg)
+		ret = -ENOENT;
+	spin_unlock(&o2hb_live_lock);
+
+	if (ret)
+		goto out;
+
+	ret = o2nm_depend_this_node();
+	if (ret)
+		goto out;
+
+	ret = o2nm_depend_item(&reg->hr_item);
+	if (ret)
+		o2nm_undepend_this_node();
+
+out:
+	return ret;
+}
+
+static void o2hb_region_put(const char *region_uuid)
+{
+	struct o2hb_region *reg;
+
+	spin_lock(&o2hb_live_lock);
+
+	reg = o2hb_find_region(region_uuid);
+
+	spin_unlock(&o2hb_live_lock);
+
+	if (reg) {
+		o2nm_undepend_item(&reg->hr_item);
+		o2nm_undepend_this_node();
+	}
+}
+
+int o2hb_register_callback(const char *region_uuid,
+			   struct o2hb_callback_func *hc)
 {
 	struct o2hb_callback_func *tmp;
 	struct list_head *iter;
@@ -1679,6 +1838,12 @@ int o2hb_register_callback(struct o2hb_callback_func *hc)
 	if (IS_ERR(hbcall)) {
 		ret = PTR_ERR(hbcall);
 		goto out;
+	}
+
+	if (region_uuid) {
+		ret = o2hb_region_get(region_uuid);
+		if (ret)
+			goto out;
 	}
 
 	down_write(&o2hb_callback_sem);
@@ -1702,7 +1867,8 @@ out:
 }
 EXPORT_SYMBOL_GPL(o2hb_register_callback);
 
-void o2hb_unregister_callback(struct o2hb_callback_func *hc)
+void o2hb_unregister_callback(const char *region_uuid,
+			      struct o2hb_callback_func *hc)
 {
 	BUG_ON(hc->hc_magic != O2HB_CB_MAGIC);
 
@@ -1711,6 +1877,9 @@ void o2hb_unregister_callback(struct o2hb_callback_func *hc)
 
 	if (list_empty(&hc->hc_item))
 		return;
+
+	if (region_uuid)
+		o2hb_region_put(region_uuid);
 
 	down_write(&o2hb_callback_sem);
 

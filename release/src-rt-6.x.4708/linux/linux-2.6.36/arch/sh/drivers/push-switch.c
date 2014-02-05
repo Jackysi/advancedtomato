@@ -8,6 +8,7 @@
  * for more details.
  */
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
@@ -138,4 +139,4 @@ module_exit(switch_exit);
 
 MODULE_VERSION(DRV_VERSION);
 MODULE_AUTHOR("Paul Mundt");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");

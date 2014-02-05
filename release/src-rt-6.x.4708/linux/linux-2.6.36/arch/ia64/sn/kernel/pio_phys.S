@@ -67,5 +67,3 @@ GLOBAL_ENTRY(pio_atomic_phys_write_mmrs)
 	srlz.d
 	br.ret.sptk.many rp
 END(pio_atomic_phys_write_mmrs)
-
-

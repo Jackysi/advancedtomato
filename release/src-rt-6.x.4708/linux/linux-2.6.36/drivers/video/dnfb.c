@@ -2,7 +2,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
@@ -44,27 +43,27 @@
 #define FRAME_BUFFER_LEN 0x40000
 
 /* CREG 0 */
-#define VECTOR_MODE 0x40	/* 010x.xxxx */
-#define DBLT_MODE   0x80	/* 100x.xxxx */
-#define NORMAL_MODE 0xE0	/* 111x.xxxx */
+#define VECTOR_MODE 0x40
+#define DBLT_MODE   0x80
+#define NORMAL_MODE 0xE0
 #define SHIFT_BITS  0x1F	/* xxx1.1111 */
 	/* other bits are Shift value */
 
 /* CREG 1 */
-#define AD_BLT      0x80	/* 1xxx.xxxx */
-#define NORMAL      0x80 /* 1xxx.xxxx */	/* What is happening here ?? */
-#define INVERSE     0x00 /* 0xxx.xxxx */	/* Clearing this reverses the screen */
-#define PIX_BLT     0x00	/* 0xxx.xxxx */
+#define AD_BLT      0x80
+#define NORMAL      0x80	/* What is happening here ?? */
+#define INVERSE     0x00	/* Clearing this reverses the screen */
+#define PIX_BLT     0x00
 
-#define AD_HIBIT        0x40	/* xIxx.xxxx */
+#define AD_HIBIT        0x40
 
-#define ROP_EN          0x10	/* xxx1.xxxx */
-#define DST_EQ_SRC      0x00	/* xxx0.xxxx */
-#define nRESET_SYNC     0x08	/* xxxx.1xxx */
-#define SYNC_ENAB       0x02	/* xxxx.xx1x */
+#define ROP_EN          0x10
+#define DST_EQ_SRC      0x00
+#define nRESET_SYNC     0x08
+#define SYNC_ENAB       0x02
 
-#define BLANK_DISP      0x00	/* xxxx.xxx0 */
-#define ENAB_DISP       0x01	/* xxxx.xxx1 */
+#define BLANK_DISP      0x00
+#define ENAB_DISP       0x01
 
 #define NORM_CREG1      (nRESET_SYNC | SYNC_ENAB | ENAB_DISP)	/* no reset sync */
 
@@ -74,9 +73,9 @@
  * Following 3 defines are common to 1, 4 and 8 plane.
  */
 
-#define S_DATA_1s   0x00 /* 00xx.xxxx */	/* set source to all 1's -- vector drawing */
-#define S_DATA_PIX  0x40 /* 01xx.xxxx */	/* takes source from ls-bits and replicates over 16 bits */
-#define S_DATA_PLN  0xC0 /* 11xx.xxxx */	/* normal, each data access =16-bits in
+#define S_DATA_1s   0x00	/* set source to all 1's -- vector drawing */
+#define S_DATA_PIX  0x40	/* takes source from ls-bits and replicates over 16 bits */
+#define S_DATA_PLN  0xC0	/* normal, each data access =16-bits in
 						   one plane of image mem */
 
 /* CREG 3A/CREG 3B */
@@ -283,6 +282,9 @@ static struct platform_device dnfb_device = {
 int __init dnfb_init(void)
 {
 	int ret;
+
+	if (!MACH_IS_APOLLO)
+		return -ENODEV;
 
 	if (fb_get_options("dnfb", NULL))
 		return -ENODEV;

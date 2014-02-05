@@ -782,7 +782,7 @@ printk(KERN_INFO "FKS: ess_handle_channel %s irq_mode=%d\n", channel, irq_mode);
 			break;
 
 		default:;
-			/* printk(KERN_WARN "ESS: Unexpected interrupt\n"); */
+			/* printk(KERN_WARNING "ESS: Unexpected interrupt\n"); */
 	}
 }
 
@@ -1152,17 +1152,6 @@ FKS_test (devc);
 				}
 			};
 		};
-#if 0
-		/*
-		 * this one failed:
-		 * the probing of bit 4 is another thought: from ES1788 and up, all
-		 * chips seem to have hardware volume control. Bit 4 is readonly to
-		 * check if a hardware volume interrupt has fired.
-		 * Cause ES688/ES1688 don't have this feature, bit 4 might be writeable
-		 * for these chips.
-		 */
-		if (chip == NULL && !ess_probe(devc, 0x64, (1 << 4))) {
-#endif
 		/*
 		 * the probing of bit 2 is my idea. The ES1887 docs want me to probe
 		 * bit 3. This results in ES1688 being detected as ES1788.
@@ -1829,4 +1818,3 @@ int ess_midi_init(sb_devc * devc, struct address_info *hw_config)
 
 	return 1;
 }
-

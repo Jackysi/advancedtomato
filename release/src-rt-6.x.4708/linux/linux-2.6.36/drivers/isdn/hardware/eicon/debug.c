@@ -1188,7 +1188,7 @@ int SuperTraceASSIGN (void* AdapterHandle, byte* data) {
 
     if ((features[0] & DIVA_XDI_EXTENDED_FEATURES_VALID) &&
         (features[0] & DIVA_XDI_EXTENDED_FEATURE_MANAGEMENT_DMA)) {
-      dword rx_dma_magic;
+      dword uninitialized_var(rx_dma_magic);
       if ((pC->dma_handle = diva_get_dma_descriptor (pC->request, &rx_dma_magic)) >= 0) {
         pC->xbuffer[0] = LLI;
         pC->xbuffer[1] = 8;
@@ -1198,7 +1198,7 @@ int SuperTraceASSIGN (void* AdapterHandle, byte* data) {
         pC->xbuffer[5] = (byte)(rx_dma_magic >>  8);
         pC->xbuffer[6] = (byte)(rx_dma_magic >> 16);
         pC->xbuffer[7] = (byte)(rx_dma_magic >> 24);
-        pC->xbuffer[8] = (byte)DIVA_MAX_MANAGEMENT_TRANSFER_SIZE;
+	pC->xbuffer[8] = (byte)(DIVA_MAX_MANAGEMENT_TRANSFER_SIZE & 0xFF);
         pC->xbuffer[9] = (byte)(DIVA_MAX_MANAGEMENT_TRANSFER_SIZE >> 8);
         pC->xbuffer[10] = 0;
 
@@ -2130,4 +2130,3 @@ static void diva_free_dma_descriptor (IDI_CALL request, int nr) {
 
   (*request)((ENTITY*)pReq);
 }
-

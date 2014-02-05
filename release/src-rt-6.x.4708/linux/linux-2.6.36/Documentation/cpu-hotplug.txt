@@ -2,7 +2,7 @@
 
 		Maintainers:
 		CPU Hotplug Core:
-			Rusty Russell <rusty@rustycorp.com.au>
+			Rusty Russell <rusty@rustcorp.com.au>
 			Srivatsa Vaddagiri <vatsa@in.ibm.com>
 		i386:
 			Zwane Mwaikambo <zwane@arm.linux.org.uk>
@@ -49,25 +49,27 @@ maxcpus=n    Restrict boot time cpus to n. Say if you have 4 cpus, using
 additional_cpus=n (*)	Use this to limit hotpluggable cpus. This option sets
   			cpu_possible_map = cpu_present_map + additional_cpus
 
+cede_offline={"off","on"}  Use this option to disable/enable putting offlined
+		            processors to an extended H_CEDE state on
+			    supported pseries platforms.
+			    If nothing is specified,
+			    cede_offline is set to "on".
+
 (*) Option valid only for following architectures
-- x86_64, ia64, s390
+- ia64
 
-ia64 and x86_64 use the number of disabled local apics in ACPI tables MADT
-to determine the number of potentially hot-pluggable cpus. The implementation
-should only rely on this to count the # of cpus, but *MUST* not rely on the
-apicid values in those tables for disabled apics. In the event BIOS doesn't
-mark such hot-pluggable cpus as disabled entries, one could use this
-parameter "additional_cpus=x" to represent those cpus in the cpu_possible_map.
+ia64 uses the number of disabled local apics in ACPI tables MADT to
+determine the number of potentially hot-pluggable cpus. The implementation
+should only rely on this to count the # of cpus, but *MUST* not rely
+on the apicid values in those tables for disabled apics. In the event
+BIOS doesn't mark such hot-pluggable cpus as disabled entries, one could
+use this parameter "additional_cpus=x" to represent those cpus in the
+cpu_possible_map.
 
-s390 uses the number of cpus it detects at IPL time to also the number of bits
-in cpu_possible_map. If it is desired to add additional cpus at a later time
-the number should be specified using this option or the possible_cpus option.
-
-possible_cpus=n		[s390 only] use this to set hotpluggable cpus.
+possible_cpus=n		[s390,x86_64] use this to set hotpluggable cpus.
 			This option sets possible_cpus bits in
 			cpu_possible_map. Thus keeping the numbers of bits set
 			constant even if the machine gets rebooted.
-			This option overrides additional_cpus.
 
 CPU maps and such
 -----------------
@@ -109,12 +111,13 @@ Never use anything other than cpumask_t to represent bitmap of CPUs.
 	for_each_cpu_mask(x,mask) - Iterate over some random collection of cpu mask.
 
 	#include <linux/cpu.h>
-	lock_cpu_hotplug() and unlock_cpu_hotplug():
+	get_online_cpus() and put_online_cpus():
 
-The above calls are used to inhibit cpu hotplug operations. While holding the
-cpucontrol mutex, cpu_online_map will not change. If you merely need to avoid
-cpus going away, you could also use preempt_disable() and preempt_enable()
-for those sections. Just remember the critical section cannot call any
+The above calls are used to inhibit cpu hotplug operations. While the
+cpu_hotplug.refcount is non zero, the cpu_online_map will not change.
+If you merely need to avoid cpus going away, you could also use
+preempt_disable() and preempt_enable() for those sections.
+Just remember the critical section cannot call any
 function that can sleep or schedule this process away. The preempt_disable()
 will work as long as stop_machine_run() is used to take a cpu down.
 
@@ -220,7 +223,9 @@ A: The following happen, listed in no particular order :-)
   CPU_DOWN_PREPARE or CPU_DOWN_PREPARE_FROZEN, depending on whether or not the
   CPU is being offlined while tasks are frozen due to a suspend operation in
   progress
-- All process is migrated away from this outgoing CPU to a new CPU
+- All processes are migrated away from this outgoing CPU to new CPUs.
+  The new CPU is chosen from each process' current cpuset, which may be
+  a subset of all online CPUs.
 - All interrupts targeted to this CPU is migrated to a new CPU
 - timers/bottom half/task lets are also migrated to a new CPU
 - Once all services are migrated, kernel calls an arch specific routine
@@ -310,41 +315,26 @@ A: The following are what is required for CPU hotplug infrastructure to work
 
 Q: I need to ensure that a particular cpu is not removed when there is some
    work specific to this cpu is in progress.
-A: First switch the current thread context to preferred cpu
+A: There are two ways.  If your code can be run in interrupt context, use
+   smp_call_function_single(), otherwise use work_on_cpu().  Note that
+   work_on_cpu() is slow, and can fail due to out of memory:
 
 	int my_func_on_cpu(int cpu)
 	{
-		cpumask_t saved_mask, new_mask = CPU_MASK_NONE;
-		int curr_cpu, err = 0;
-
-		saved_mask = current->cpus_allowed;
-		cpu_set(cpu, new_mask);
-		err = set_cpus_allowed(current, new_mask);
-
-		if (err)
-			return err;
-
-		/*
-		 * If we got scheduled out just after the return from
-		 * set_cpus_allowed() before running the work, this ensures
-		 * we stay locked.
-		 */
-		curr_cpu = get_cpu();
-
-		if (curr_cpu != cpu) {
-			err = -EAGAIN;
-			goto ret;
-		} else {
-			/*
-			 * Do work : But cant sleep, since get_cpu() disables preempt
-			 */
-		}
-		ret:
-			put_cpu();
-			set_cpus_allowed(current, saved_mask);
-			return err;
-		}
-
+		int err;
+		get_online_cpus();
+		if (!cpu_online(cpu))
+			err = -EINVAL;
+		else
+#if NEEDS_BLOCKING
+			err = work_on_cpu(cpu, __my_func_on_cpu, NULL);
+#else
+			smp_call_function_single(cpu, __my_func_on_cpu, &err,
+						 true);
+#endif
+		put_online_cpus();
+		return err;
+	}
 
 Q: How do we determine how many CPUs are available for hotplug.
 A: There is no clear spec defined way from ACPI that can give us that

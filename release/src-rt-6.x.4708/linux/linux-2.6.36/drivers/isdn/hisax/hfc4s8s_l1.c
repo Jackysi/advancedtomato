@@ -1,5 +1,5 @@
 /*************************************************************************/
-/* $Id: hfc4s8s_l1.c,v 1.10 2005/02/09 16:31:09 martinb1 Exp $           */
+/* $Id: hfc4s8s_l1.c,v 1.10 2005/02/09 16:31:09 Exp $           */
 /* HFC-4S/8S low layer interface for Cologne Chip HFC-4S/8S isdn chips   */
 /* The low layer (L1) is implemented as a loadable module for usage with */
 /* the HiSax isdn driver for passive cards.                              */
@@ -25,6 +25,7 @@
 #include <linux/pci.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/skbuff.h>
 #include <linux/wait.h>
@@ -309,7 +310,7 @@ wait_busy(hfc4s8s_hw * a)
 
 /******************************************************/
 /* function to read critical counter registers that   */
-/* may be udpated by the chip during read             */
+/* may be updated by the chip during read             */
 /******************************************************/
 static u_char
 Read_hfc8_stable(hfc4s8s_hw * hw, int reg)

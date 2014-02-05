@@ -5,8 +5,6 @@
  *
  * Author: Arjan Van De Ven <arjanv@redhat.com>
  * Loosly based on i82365.c from the pcmcia-cs package
- *
- * $Id: i82092aa.c,v 1.2 2001/10/23 14:43:34 arjanv Exp $
  */
 
 #include <linux/kernel.h>
@@ -17,7 +15,6 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 
-#include <pcmcia/cs_types.h>
 #include <pcmcia/ss.h>
 #include <pcmcia/cs.h>
 
@@ -41,27 +38,11 @@ static struct pci_device_id i82092aa_pci_ids[] = {
 };
 MODULE_DEVICE_TABLE(pci, i82092aa_pci_ids);
 
-#ifdef CONFIG_PM
-static int i82092aa_socket_suspend (struct pci_dev *dev, pm_message_t state)
-{
-	return pcmcia_socket_dev_suspend(&dev->dev, state);
-}
-
-static int i82092aa_socket_resume (struct pci_dev *dev)
-{
-	return pcmcia_socket_dev_resume(&dev->dev);
-}
-#endif
-
-static struct pci_driver i82092aa_pci_drv = {
+static struct pci_driver i82092aa_pci_driver = {
 	.name           = "i82092aa",
 	.id_table       = i82092aa_pci_ids,
 	.probe          = i82092aa_pci_probe,
 	.remove         = __devexit_p(i82092aa_pci_remove),
-#ifdef CONFIG_PM
-	.suspend        = i82092aa_socket_suspend,
-	.resume         = i82092aa_socket_resume,
-#endif
 };
 
 
@@ -82,7 +63,7 @@ struct socket_info {
 				    1 = empty socket, 
 				    2 = card but not initialized,
 				    3 = operational card */
-	kio_addr_t io_base; 	/* base io address of the socket */
+	unsigned int io_base; 	/* base io address of the socket */
 	
 	struct pcmcia_socket socket;
 	struct pci_dev *dev;	/* The PCI device for the socket */
@@ -135,6 +116,7 @@ static int __devinit i82092aa_pci_probe(struct pci_dev *dev, const struct pci_de
 		sockets[i].socket.map_size = 0x1000;
 		sockets[i].socket.irq_mask = 0;
 		sockets[i].socket.pci_irq  = dev->irq;
+		sockets[i].socket.cb_dev  = dev;
 		sockets[i].socket.owner = THIS_MODULE;
 
 		sockets[i].number = i;
@@ -219,24 +201,6 @@ static unsigned char indirect_read(int socket, unsigned short reg)
 	return val;
 }
 
-#if 0
-static unsigned short indirect_read16(int socket, unsigned short reg)
-{
-	unsigned short int port;
-	unsigned short tmp;
-	unsigned long flags;
-	spin_lock_irqsave(&port_lock,flags);
-	reg  = reg + socket * 0x40;
-	port = sockets[socket].io_base;
-	outb(reg,port);
-	tmp = inb(port+1);
-	reg++;
-	outb(reg,port);
-	tmp = tmp | (inb(port+1)<<8);
-	spin_unlock_irqrestore(&port_lock,flags);
-	return tmp;
-}
-#endif
 
 static void indirect_write(int socket, unsigned short reg, unsigned char value)
 {
@@ -647,7 +611,12 @@ static int i82092aa_set_mem_map(struct pcmcia_socket *socket, struct pccard_mem_
 	if ( (mem->card_start > 0x3ffffff) || (region.start > region.end) ||
 	     (mem->speed > 1000) ) {
 		leave("i82092aa_set_mem_map: invalid address / speed");
-		printk("invalid mem map for socket %i : %lx to %lx with a start of %x \n",sock,region.start, region.end, mem->card_start);
+		printk("invalid mem map for socket %i: %llx to %llx with a "
+			"start of %x\n",
+			sock,
+			(unsigned long long)region.start,
+			(unsigned long long)region.end,
+			mem->card_start);
 		return -EINVAL;
 	}
 	
@@ -709,13 +678,13 @@ static int i82092aa_set_mem_map(struct pcmcia_socket *socket, struct pccard_mem_
 
 static int i82092aa_module_init(void)
 {
-	return pci_register_driver(&i82092aa_pci_drv);
+	return pci_register_driver(&i82092aa_pci_driver);
 }
 
 static void i82092aa_module_exit(void)
 {
 	enter("i82092aa_module_exit");
-	pci_unregister_driver(&i82092aa_pci_drv);
+	pci_unregister_driver(&i82092aa_pci_driver);
 	if (sockets[0].io_base>0)
 			 release_region(sockets[0].io_base, 2);
 	leave("i82092aa_module_exit");
@@ -723,4 +692,3 @@ static void i82092aa_module_exit(void)
 
 module_init(i82092aa_module_init);
 module_exit(i82092aa_module_exit);
-

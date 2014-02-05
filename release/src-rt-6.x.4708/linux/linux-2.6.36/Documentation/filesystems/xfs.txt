@@ -52,16 +52,15 @@ When mounting an XFS filesystem, the following options are accepted.
 	and also gets the setgid bit set if it is a directory itself.
 
   ihashsize=value
-	Sets the number of hash buckets available for hashing the
-	in-memory inodes of the specified mount point.  If a value
-	of zero is used, the value selected by the default algorithm
-	will be displayed in /proc/mounts.
+	In memory inode hashes have been removed, so this option has
+	no function as of August 2007. Option is deprecated.
 
   ikeep/noikeep
-	When inode clusters are emptied of inodes, keep them around
-	on the disk (ikeep) - this is the traditional XFS behaviour
-	and is still the default for now.  Using the noikeep option,
-	inode clusters are returned to the free space pool.
+	When ikeep is specified, XFS does not delete empty inode clusters
+	and keeps them around on disk. ikeep is the traditional XFS
+	behaviour. When noikeep is specified, empty inode clusters
+	are returned to the free space pool. The default is noikeep for
+	non-DMAPI mounts, while ikeep is the default when DMAPI is in use.
 
   inode64
 	Indicates that XFS is allowed to create inodes at any location
@@ -131,17 +130,6 @@ When mounting an XFS filesystem, the following options are accepted.
   nouuid
 	Don't check for double mounted file systems using the file system uuid.
 	This is useful to mount LVM snapshot volumes.
-
-  osyncisosync
-	Make O_SYNC writes implement true O_SYNC.  WITHOUT this option,
-	Linux XFS behaves as if an "osyncisdsync" option is used,
-	which will make writes to files opened with the O_SYNC flag set
-	behave as if the O_DSYNC flag had been used instead.
-	This can result in better performance without compromising
-	data safety.
-	However if this option is not in effect, timestamp updates from
-	O_SYNC writes can be lost if the system crashes.
-	If timestamp updates are critical, use the osyncisosync option.
 
   uquota/usrquota/uqnoenforce/quota
 	User disk quota accounting enabled, and limits (optionally)
@@ -229,10 +217,6 @@ The following sysctls are available for the XFS filesystem:
 	ID or one of the supplementary group IDs of the parent dir, the
 	ISGID bit is cleared if the irix_sgid_inherit compatibility sysctl
 	is set.
-
-  fs.xfs.restrict_chown		(Min: 0  Default: 1  Max: 1)
-  	Controls whether unprivileged users can use chown to "give away"
-	a file to another user.
 
   fs.xfs.inherit_sync		(Min: 0  Default: 1  Max: 1)
 	Setting this to "1" will cause the "sync" flag set

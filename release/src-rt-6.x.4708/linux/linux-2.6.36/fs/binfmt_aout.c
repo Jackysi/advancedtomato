@@ -20,18 +20,20 @@
 #include <linux/fcntl.h>
 #include <linux/ptrace.h>
 #include <linux/user.h>
-#include <linux/slab.h>
 #include <linux/binfmts.h>
 #include <linux/personality.h>
 #include <linux/init.h>
+#include <linux/coredump.h>
+#include <linux/slab.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
+#include <asm/a.out-core.h>
 
 static int load_aout_binary(struct linux_binprm *, struct pt_regs * regs);
 static int load_aout_library(struct file*);
-static int aout_core_dump(long signr, struct pt_regs * regs, struct file *file);
+static int aout_core_dump(struct coredump_params *cprm);
 
 static struct linux_binfmt aout_format = {
 	.module		= THIS_MODULE,
@@ -59,26 +61,6 @@ static int set_brk(unsigned long start, unsigned long end)
 }
 
 /*
- * These are the only things you should do on a core-file: use only these
- * macros to write out all the necessary info.
- */
-
-static int dump_write(struct file *file, const void *addr, int nr)
-{
-	return file->f_op->write(file, addr, nr, &file->f_pos) == nr;
-}
-
-#define DUMP_WRITE(addr, nr)	\
-	if (!dump_write(file, (void *)(addr), (nr))) \
-		goto end_coredump;
-
-#define DUMP_SEEK(offset) \
-if (file->f_op->llseek) { \
-	if (file->f_op->llseek(file,(offset),0) != (offset)) \
- 		goto end_coredump; \
-} else file->f_pos = (offset)
-
-/*
  * Routine writes a core dump image in the current directory.
  * Currently only a stub-function.
  *
@@ -88,107 +70,70 @@ if (file->f_op->llseek) { \
  * dumping of the process results in another error..
  */
 
-static int aout_core_dump(long signr, struct pt_regs * regs, struct file *file)
+static int aout_core_dump(struct coredump_params *cprm)
 {
+	struct file *file = cprm->file;
 	mm_segment_t fs;
 	int has_dumped = 0;
-	unsigned long dump_start, dump_size;
+	void __user *dump_start;
+	int dump_size;
 	struct user dump;
-#if defined(__alpha__)
-#       define START_DATA(u)	(u.start_data)
-#elif defined(__arm__)
-#	define START_DATA(u)	((u.u_tsize << PAGE_SHIFT) + u.start_code)
-#elif defined(__sparc__)
-#       define START_DATA(u)    (u.u_tsize)
-#elif defined(__i386__) || defined(__mc68000__) || defined(__arch_um__)
-#       define START_DATA(u)	(u.u_tsize << PAGE_SHIFT)
-#endif
-#ifdef __sparc__
-#       define START_STACK(u)   ((regs->u_regs[UREG_FP]) & ~(PAGE_SIZE - 1))
+#ifdef __alpha__
+#       define START_DATA(u)	((void __user *)u.start_data)
 #else
-#       define START_STACK(u)   (u.start_stack)
+#	define START_DATA(u)	((void __user *)((u.u_tsize << PAGE_SHIFT) + \
+				 u.start_code))
 #endif
+#       define START_STACK(u)   ((void __user *)u.start_stack)
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	has_dumped = 1;
 	current->flags |= PF_DUMPCORE;
        	strncpy(dump.u_comm, current->comm, sizeof(dump.u_comm));
-#ifndef __sparc__
-	dump.u_ar0 = (void *)(((unsigned long)(&dump.regs)) - ((unsigned long)(&dump)));
-#endif
-	dump.signal = signr;
-	dump_thread(regs, &dump);
+	dump.u_ar0 = offsetof(struct user, regs);
+	dump.signal = cprm->signr;
+	aout_dump_thread(cprm->regs, &dump);
 
 /* If the size of the dump file exceeds the rlimit, then see what would happen
    if we wrote the stack, but not the data area.  */
-#ifdef __sparc__
-	if ((dump.u_dsize+dump.u_ssize) >
-	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
+	if ((dump.u_dsize + dump.u_ssize+1) * PAGE_SIZE > cprm->limit)
 		dump.u_dsize = 0;
-#else
-	if ((dump.u_dsize+dump.u_ssize+1) * PAGE_SIZE >
-	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
-		dump.u_dsize = 0;
-#endif
 
 /* Make sure we have enough room to write the stack and data areas. */
-#ifdef __sparc__
-	if ((dump.u_ssize) >
-	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
+	if ((dump.u_ssize + 1) * PAGE_SIZE > cprm->limit)
 		dump.u_ssize = 0;
-#else
-	if ((dump.u_ssize+1) * PAGE_SIZE >
-	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
-		dump.u_ssize = 0;
-#endif
 
 /* make sure we actually have a data and stack area to dump */
 	set_fs(USER_DS);
-#ifdef __sparc__
-	if (!access_ok(VERIFY_READ, (void __user *)START_DATA(dump), dump.u_dsize))
+	if (!access_ok(VERIFY_READ, START_DATA(dump), dump.u_dsize << PAGE_SHIFT))
 		dump.u_dsize = 0;
-	if (!access_ok(VERIFY_READ, (void __user *)START_STACK(dump), dump.u_ssize))
+	if (!access_ok(VERIFY_READ, START_STACK(dump), dump.u_ssize << PAGE_SHIFT))
 		dump.u_ssize = 0;
-#else
-	if (!access_ok(VERIFY_READ, (void __user *)START_DATA(dump), dump.u_dsize << PAGE_SHIFT))
-		dump.u_dsize = 0;
-	if (!access_ok(VERIFY_READ, (void __user *)START_STACK(dump), dump.u_ssize << PAGE_SHIFT))
-		dump.u_ssize = 0;
-#endif
 
 	set_fs(KERNEL_DS);
 /* struct user */
-	DUMP_WRITE(&dump,sizeof(dump));
+	if (!dump_write(file, &dump, sizeof(dump)))
+		goto end_coredump;
 /* Now dump all of the user data.  Include malloced stuff as well */
-#ifndef __sparc__
-	DUMP_SEEK(PAGE_SIZE);
-#endif
+	if (!dump_seek(cprm->file, PAGE_SIZE - sizeof(dump)))
+		goto end_coredump;
 /* now we start writing out the user space info */
 	set_fs(USER_DS);
 /* Dump the data area */
 	if (dump.u_dsize != 0) {
 		dump_start = START_DATA(dump);
-#ifdef __sparc__
-		dump_size = dump.u_dsize;
-#else
 		dump_size = dump.u_dsize << PAGE_SHIFT;
-#endif
-		DUMP_WRITE(dump_start,dump_size);
+		if (!dump_write(file, dump_start, dump_size))
+			goto end_coredump;
 	}
 /* Now prepare to dump the stack area */
 	if (dump.u_ssize != 0) {
 		dump_start = START_STACK(dump);
-#ifdef __sparc__
-		dump_size = dump.u_ssize;
-#else
 		dump_size = dump.u_ssize << PAGE_SHIFT;
-#endif
-		DUMP_WRITE(dump_start,dump_size);
+		if (!dump_write(file, dump_start, dump_size))
+			goto end_coredump;
 	}
-/* Finally dump the task struct.  Not be used by gdb, but could be useful */
-	set_fs(KERNEL_DS);
-	DUMP_WRITE(current,sizeof(*current));
 end_coredump:
 	set_fs(fs);
 	return has_dumped;
@@ -208,29 +153,24 @@ static unsigned long __user *create_aout_tables(char __user *p, struct linux_bin
 	int envc = bprm->envc;
 
 	sp = (void __user *)((-(unsigned long)sizeof(char *)) & (unsigned long) p);
-#ifdef __sparc__
-	/* This imposes the proper stack alignment for a new process. */
-	sp = (void __user *) (((unsigned long) sp) & ~7);
-	if ((envc+argc+3)&1) --sp;
-#endif
 #ifdef __alpha__
 /* whee.. test-programs are so much fun. */
 	put_user(0, --sp);
 	put_user(0, --sp);
 	if (bprm->loader) {
 		put_user(0, --sp);
-		put_user(0x3eb, --sp);
+		put_user(1003, --sp);
 		put_user(bprm->loader, --sp);
-		put_user(0x3ea, --sp);
+		put_user(1002, --sp);
 	}
 	put_user(bprm->exec, --sp);
-	put_user(0x3e9, --sp);
+	put_user(1001, --sp);
 #endif
 	sp -= envc+1;
 	envp = (char __user * __user *) sp;
 	sp -= argc+1;
 	argv = (char __user * __user *) sp;
-#if defined(__i386__) || defined(__mc68000__) || defined(__arm__) || defined(__arch_um__)
+#ifndef __alpha__
 	put_user((unsigned long) envp,--sp);
 	put_user((unsigned long) argv,--sp);
 #endif
@@ -291,7 +231,7 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	 * size limits imposed on them by creating programs with large
 	 * arrays in the data or bss.
 	 */
-	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
+	rlim = rlimit(RLIMIT_DATA);
 	if (rlim >= RLIM_INFINITY)
 		rlim = ~0;
 	if (ex.a_data + ex.a_bss > rlim)
@@ -303,16 +243,12 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		return retval;
 
 	/* OK, This is the point of no return */
-#if defined(__alpha__)
+#ifdef __alpha__
 	SET_AOUT_PERSONALITY(bprm, ex);
-#elif defined(__sparc__)
-	set_personality(PER_SUNOS);
-#if !defined(__sparc_v9__)
-	memcpy(&current->thread.core_exec, &ex, sizeof(struct exec));
-#endif
 #else
 	set_personality(PER_LINUX);
 #endif
+	setup_new_exec(bprm);
 
 	current->mm->end_code = ex.a_text +
 		(current->mm->start_code = N_TXTADDR(ex));
@@ -323,27 +259,8 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	current->mm->free_area_cache = current->mm->mmap_base;
 	current->mm->cached_hole_size = 0;
 
-	current->mm->mmap = NULL;
-	compute_creds(bprm);
+	install_exec_creds(bprm);
  	current->flags &= ~PF_FORKNOEXEC;
-#ifdef __sparc__
-	if (N_MAGIC(ex) == NMAGIC) {
-		loff_t pos = fd_offset;
-		/* Fuck me plenty... */
-		/* <AOL></AOL> */
-		down_write(&current->mm->mmap_sem);	
-		error = do_brk(N_TXTADDR(ex), ex.a_text);
-		up_write(&current->mm->mmap_sem);
-		bprm->file->f_op->read(bprm->file, (char *) N_TXTADDR(ex),
-			  ex.a_text, &pos);
-		down_write(&current->mm->mmap_sem);
-		error = do_brk(N_DATADDR(ex), ex.a_data);
-		up_write(&current->mm->mmap_sem);
-		bprm->file->f_op->read(bprm->file, (char *) N_DATADDR(ex),
-			  ex.a_data, &pos);
-		goto beyond_if;
-	}
-#endif
 
 	if (N_MAGIC(ex) == OMAGIC) {
 		unsigned long text_addr, map_size;
@@ -351,7 +268,7 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 		text_addr = N_TXTADDR(ex);
 
-#if defined(__alpha__) || defined(__sparc__)
+#ifdef __alpha__
 		pos = fd_offset;
 		map_size = ex.a_text+ex.a_data + PAGE_SIZE - 1;
 #else
@@ -376,21 +293,17 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			 
 		flush_icache_range(text_addr, text_addr+ex.a_text+ex.a_data);
 	} else {
-		static unsigned long error_time, error_time2;
 		if ((ex.a_text & 0xfff || ex.a_data & 0xfff) &&
-		    (N_MAGIC(ex) != NMAGIC) && (jiffies-error_time2) > 5*HZ)
+		    (N_MAGIC(ex) != NMAGIC) && printk_ratelimit())
 		{
 			printk(KERN_NOTICE "executable not page aligned\n");
-			error_time2 = jiffies;
 		}
 
-		if ((fd_offset & ~PAGE_MASK) != 0 &&
-		    (jiffies-error_time) > 5*HZ)
+		if ((fd_offset & ~PAGE_MASK) != 0 && printk_ratelimit())
 		{
 			printk(KERN_WARNING 
 			       "fd_offset is not page aligned. Please convert program: %s\n",
 			       bprm->file->f_path.dentry->d_name.name);
-			error_time = jiffies;
 		}
 
 		if (!bprm->file->f_op->mmap||((fd_offset & ~PAGE_MASK) != 0)) {
@@ -452,12 +365,6 @@ beyond_if:
 	regs->gp = ex.a_gpvalue;
 #endif
 	start_thread(regs, ex.a_entry, current->mm->start_stack);
-	if (unlikely(current->ptrace & PT_PTRACED)) {
-		if (current->ptrace & PT_TRACE_EXEC)
-			ptrace_notify ((PTRACE_EVENT_EXEC << 8) | SIGTRAP);
-		else
-			send_sig(SIGTRAP, current, 0);
-	}
 	return 0;
 }
 
@@ -499,15 +406,13 @@ static int load_aout_library(struct file *file)
 	start_addr =  ex.a_entry & 0xfffff000;
 
 	if ((N_TXTOFF(ex) & ~PAGE_MASK) != 0) {
-		static unsigned long error_time;
 		loff_t pos = N_TXTOFF(ex);
 
-		if ((jiffies-error_time) > 5*HZ)
+		if (printk_ratelimit())
 		{
 			printk(KERN_WARNING 
 			       "N_TXTOFF is not page aligned. Please convert library: %s\n",
 			       file->f_path.dentry->d_name.name);
-			error_time = jiffies;
 		}
 		down_write(&current->mm->mmap_sem);
 		do_brk(start_addr, ex.a_text + ex.a_data + ex.a_bss);

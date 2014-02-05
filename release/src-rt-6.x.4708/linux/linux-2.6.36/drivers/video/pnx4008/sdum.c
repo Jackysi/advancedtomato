@@ -20,7 +20,6 @@
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/tty.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -29,8 +28,9 @@
 #include <linux/init.h>
 #include <linux/dma-mapping.h>
 #include <linux/clk.h>
+#include <linux/gfp.h>
 #include <asm/uaccess.h>
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 
 #include "sdum.h"
 #include "fbcommon.h"
@@ -605,83 +605,6 @@ int pnx4008_set_dum_channel_dirty_detect(int channr, int val, int dev_id)
 
 EXPORT_SYMBOL(pnx4008_set_dum_channel_dirty_detect);
 
-#if 0 /* Functions not used currently, but likely to be used in future */
-
-static int get_channel(struct dumchannel *p_chan)
-{
-	int i = p_chan->channelnr;
-
-	if (i < 0 || i > MAX_DUM_CHANNELS)
-		return -EINVAL;
-	else {
-		p_chan->dum_ch_min = DUM_CH_MIN(i);
-		p_chan->dum_ch_max = DUM_CH_MAX(i);
-		p_chan->dum_ch_conf = DUM_CH_CONF(i);
-		p_chan->dum_ch_stat = DUM_CH_STAT(i);
-		p_chan->dum_ch_ctrl = 0;	/* WriteOnly control register */
-	}
-
-	return 0;
-}
-
-int pnx4008_get_dum_channel_uf(struct dumchannel_uf *p_chan_uf, int dev_id)
-{
-	int i = p_chan_uf->channelnr;
-
-	if (i < 0 || i > MAX_DUM_CHANNELS)
-		return -EINVAL;
-	else if (dum_data.fb_owning_channel[i] != dev_id)
-		return -EFBNOTOWNER;
-	else {
-		p_chan_uf->dirty = dum_data.chan_uf_store[i].dirty;
-		p_chan_uf->source = dum_data.chan_uf_store[i].source;
-		p_chan_uf->x_offset = dum_data.chan_uf_store[i].x_offset;
-		p_chan_uf->y_offset = dum_data.chan_uf_store[i].y_offset;
-		p_chan_uf->width = dum_data.chan_uf_store[i].width;
-		p_chan_uf->height = dum_data.chan_uf_store[i].height;
-	}
-
-	return 0;
-}
-
-EXPORT_SYMBOL(pnx4008_get_dum_channel_uf);
-
-int pnx4008_get_dum_channel_config(int channr, int dev_id)
-{
-	int ret;
-	struct dumchannel chan;
-
-	if (channr < 0 || channr > MAX_DUM_CHANNELS)
-		return -EINVAL;
-	else if (dum_data.fb_owning_channel[channr] != dev_id)
-		return -EFBNOTOWNER;
-	else {
-		chan.channelnr = channr;
-		if ((ret = get_channel(&chan)) != 0)
-			return ret;
-	}
-
-	return (chan.dum_ch_conf & DUM_CHANNEL_CFG_MASK);
-}
-
-EXPORT_SYMBOL(pnx4008_get_dum_channel_config);
-
-int pnx4008_force_update_dum_channel(int channr, int dev_id)
-{
-	if (channr < 0 || channr > MAX_DUM_CHANNELS)
-		return -EINVAL;
-
-	else if (dum_data.fb_owning_channel[channr] != dev_id)
-		return -EFBNOTOWNER;
-	else
-		DUM_CH_CTRL(channr) = CTRL_SETDIRTY;
-
-	return 0;
-}
-
-EXPORT_SYMBOL(pnx4008_force_update_dum_channel);
-
-#endif
 
 int pnx4008_sdum_mmap(struct fb_info *info, struct vm_area_struct *vma,
 		      struct device *dev)

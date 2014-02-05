@@ -17,16 +17,18 @@
 #include <linux/serial.h>
 #include <linux/tty.h>
 #include <linux/serial_8250.h>
-#include <linux/slab.h>
-
+#include <linux/i2c-gpio.h>
 #include <asm/types.h>
 #include <asm/setup.h>
 #include <asm/memory.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/flash.h>
+
+#define AVILA_SDA_PIN	7
+#define AVILA_SCL_PIN	6
 
 static struct flash_platform_data avila_flash_data = {
 	.map_name	= "cfi_probe",
@@ -47,18 +49,17 @@ static struct platform_device avila_flash = {
 	.resource	= &avila_flash_resource,
 };
 
-static struct ixp4xx_i2c_pins avila_i2c_gpio_pins = {
+static struct i2c_gpio_platform_data avila_i2c_gpio_data = {
 	.sda_pin	= AVILA_SDA_PIN,
 	.scl_pin	= AVILA_SCL_PIN,
 };
 
-static struct platform_device avila_i2c_controller = {
-	.name		= "IXP4XX-I2C",
+static struct platform_device avila_i2c_gpio = {
+	.name		= "i2c-gpio",
 	.id		= 0,
-	.dev		= {
-		.platform_data = &avila_i2c_gpio_pins,
+	.dev	 = {
+		.platform_data	= &avila_i2c_gpio_data,
 	},
-	.num_resources	= 0
 };
 
 static struct resource avila_uart_resources[] = {
@@ -133,7 +134,7 @@ static struct platform_device avila_pata = {
 };
 
 static struct platform_device *avila_devices[] __initdata = {
-	&avila_i2c_controller,
+	&avila_i2c_gpio,
 	&avila_flash,
 	&avila_uart
 };
@@ -189,4 +190,3 @@ MACHINE_START(LOFT, "Giant Shoulder Inc Loft board")
 	.init_machine	= avila_init,
 MACHINE_END
 #endif
-

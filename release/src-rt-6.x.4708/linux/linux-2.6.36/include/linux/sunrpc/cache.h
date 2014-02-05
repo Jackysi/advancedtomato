@@ -59,6 +59,15 @@ struct cache_head {
 
 #define	CACHE_NEW_EXPIRY 120	/* keep new things pending confirmation for 120 seconds */
 
+struct cache_detail_procfs {
+	struct proc_dir_entry	*proc_ent;
+	struct proc_dir_entry   *flush_ent, *channel_ent, *content_ent;
+};
+
+struct cache_detail_pipefs {
+	struct dentry *dir;
+};
+
 struct cache_detail {
 	struct module *		owner;
 	int			hash_size;
@@ -70,15 +79,17 @@ struct cache_detail {
 	char			*name;
 	void			(*cache_put)(struct kref *);
 
-	void			(*cache_request)(struct cache_detail *cd,
-						 struct cache_head *h,
-						 char **bpp, int *blen);
+	int			(*cache_upcall)(struct cache_detail *,
+						struct cache_head *);
+
 	int			(*cache_parse)(struct cache_detail *,
 					       char *buf, int len);
 
 	int			(*cache_show)(struct seq_file *m,
 					      struct cache_detail *cd,
 					      struct cache_head *h);
+	void			(*warn_no_listener)(struct cache_detail *cd,
+					      int has_died);
 
 	struct cache_head *	(*alloc)(void);
 	int			(*match)(struct cache_head *orig, struct cache_head *new);
@@ -96,13 +107,15 @@ struct cache_detail {
 
 	/* fields for communication over channel */
 	struct list_head	queue;
-	struct proc_dir_entry	*proc_ent;
-	struct proc_dir_entry   *flush_ent, *channel_ent, *content_ent;
 
 	atomic_t		readers;		/* how many time is /chennel open */
 	time_t			last_close;		/* if no readers, when did last close */
 	time_t			last_warn;		/* when we last warned about no readers */
-	void			(*warn_no_listener)(struct cache_detail *cd);
+
+	union {
+		struct cache_detail_procfs procfs;
+		struct cache_detail_pipefs pipefs;
+	} u;
 };
 
 
@@ -120,13 +133,16 @@ struct cache_deferred_req {
 	struct list_head	hash;	/* on hash chain */
 	struct list_head	recent; /* on fifo */
 	struct cache_head	*item;  /* cache item we wait on */
-	time_t			recv_time;
 	void			*owner; /* we might need to discard all defered requests
 					 * owned by someone */
 	void			(*revisit)(struct cache_deferred_req *req,
 					   int too_many);
 };
 
+
+extern const struct file_operations cache_file_operations_pipefs;
+extern const struct file_operations content_file_operations_pipefs;
+extern const struct file_operations cache_flush_operations_pipefs;
 
 extern struct cache_head *
 sunrpc_cache_lookup(struct cache_detail *detail,
@@ -135,16 +151,13 @@ extern struct cache_head *
 sunrpc_cache_update(struct cache_detail *detail,
 		    struct cache_head *new, struct cache_head *old, int hash);
 
+extern int
+sunrpc_cache_pipe_upcall(struct cache_detail *detail, struct cache_head *h,
+		void (*cache_request)(struct cache_detail *,
+				      struct cache_head *,
+				      char **,
+				      int *));
 
-#define cache_for_each(pos, detail, index, member) 						\
-	for (({read_lock(&(detail)->hash_lock); index = (detail)->hash_size;}) ;		\
-	     ({if (index==0)read_unlock(&(detail)->hash_lock); index--;});			\
-		)										\
-		for (pos = container_of((detail)->hash_table[index], typeof(*pos), member);	\
-		     &pos->member;								\
-		     pos = container_of(pos->member.next, typeof(*pos), member))
-
-	     
 
 extern void cache_clean_deferred(void *owner);
 
@@ -179,8 +192,13 @@ extern int cache_check(struct cache_detail *detail,
 extern void cache_flush(void);
 extern void cache_purge(struct cache_detail *detail);
 #define NEVER (0x7FFFFFFF)
-extern void cache_register(struct cache_detail *cd);
-extern int cache_unregister(struct cache_detail *cd);
+extern void __init cache_initialize(void);
+extern int cache_register(struct cache_detail *cd);
+extern void cache_unregister(struct cache_detail *cd);
+
+extern int sunrpc_cache_register_pipefs(struct dentry *parent, const char *,
+					mode_t, struct cache_detail *);
+extern void sunrpc_cache_unregister_pipefs(struct cache_detail *);
 
 extern void qword_add(char **bpp, int *lp, char *str);
 extern void qword_addhex(char **bpp, int *lp, char *buf, int blen);

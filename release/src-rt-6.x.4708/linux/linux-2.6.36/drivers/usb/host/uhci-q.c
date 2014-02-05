@@ -123,14 +123,10 @@ static struct uhci_td *uhci_alloc_td(struct uhci_hcd *uhci)
 
 static void uhci_free_td(struct uhci_hcd *uhci, struct uhci_td *td)
 {
-	if (!list_empty(&td->list)) {
-		dev_warn(uhci_dev(uhci), "td %p still in list!\n", td);
-		WARN_ON(1);
-	}
-	if (!list_empty(&td->fl_list)) {
-		dev_warn(uhci_dev(uhci), "td %p still in fl_list!\n", td);
-		WARN_ON(1);
-	}
+	if (!list_empty(&td->list))
+		dev_WARN(uhci_dev(uhci), "td %p still in list!\n", td);
+	if (!list_empty(&td->fl_list))
+		dev_WARN(uhci_dev(uhci), "td %p still in fl_list!\n", td);
 
 	dma_pool_free(uhci->td_pool, td, td->dma_handle);
 }
@@ -295,10 +291,8 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
 static void uhci_free_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 {
 	WARN_ON(qh->state != QH_STATE_IDLE && qh->udev);
-	if (!list_empty(&qh->queue)) {
-		dev_warn(uhci_dev(uhci), "qh %p list not empty!\n", qh);
-		WARN_ON(1);
-	}
+	if (!list_empty(&qh->queue))
+		dev_WARN(uhci_dev(uhci), "qh %p list not empty!\n", qh);
 
 	list_del(&qh->node);
 	if (qh->udev) {
@@ -408,7 +402,7 @@ static void uhci_fixup_toggles(struct uhci_qh *qh, int skip_first)
 		/* Otherwise all the toggles in the URB have to be switched */
 		} else {
 			list_for_each_entry(td, &urbp->td_list, list) {
-				td->token ^= __constant_cpu_to_le32(
+				td->token ^= cpu_to_le32(
 							TD_TOKEN_TOGGLE);
 				toggle ^= 1;
 			}
@@ -746,11 +740,9 @@ static void uhci_free_urb_priv(struct uhci_hcd *uhci,
 {
 	struct uhci_td *td, *tmp;
 
-	if (!list_empty(&urbp->node)) {
-		dev_warn(uhci_dev(uhci), "urb %p still on QH's list!\n",
+	if (!list_empty(&urbp->node))
+		dev_WARN(uhci_dev(uhci), "urb %p still on QH's list!\n",
 				urbp->urb);
-		WARN_ON(1);
-	}
 
 	list_for_each_entry_safe(td, tmp, &urbp->td_list, list) {
 		uhci_remove_td_from_urbp(td);
@@ -891,7 +883,7 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 
 	uhci_fill_td(td, 0, USB_PID_OUT | uhci_explen(0), 0);
 	wmb();
-	qh->dummy_td->status |= __constant_cpu_to_le32(TD_CTRL_ACTIVE);
+	qh->dummy_td->status |= cpu_to_le32(TD_CTRL_ACTIVE);
 	qh->dummy_td = td;
 
 	/* Low-speed transfers get a different queue, and won't hog the bus.
@@ -1009,7 +1001,7 @@ static int uhci_submit_common(struct uhci_hcd *uhci, struct urb *urb,
 	 * fast side but not enough to justify delaying an interrupt
 	 * more than 2 or 3 URBs, so we will ignore the URB_NO_INTERRUPT
 	 * flag setting. */
-	td->status |= __constant_cpu_to_le32(TD_CTRL_IOC);
+	td->status |= cpu_to_le32(TD_CTRL_IOC);
 
 	/*
 	 * Build the new dummy TD and activate the old one
@@ -1021,7 +1013,7 @@ static int uhci_submit_common(struct uhci_hcd *uhci, struct urb *urb,
 
 	uhci_fill_td(td, 0, USB_PID_OUT | uhci_explen(0), 0);
 	wmb();
-	qh->dummy_td->status |= __constant_cpu_to_le32(TD_CTRL_ACTIVE);
+	qh->dummy_td->status |= cpu_to_le32(TD_CTRL_ACTIVE);
 	qh->dummy_td = td;
 
 	usb_settoggle(urb->dev, usb_pipeendpoint(urb->pipe),
@@ -1174,7 +1166,7 @@ static int uhci_result_common(struct uhci_hcd *uhci, struct urb *urb)
 				/* Some debugging code */
 				dev_dbg(&urb->dev->dev,
 						"%s: failed with status %x\n",
-						__FUNCTION__, status);
+						__func__, status);
 
 				if (debug > 1 && errbuf) {
 					/* Print the chain for debugging */
@@ -1323,7 +1315,7 @@ static int uhci_submit_isochronous(struct uhci_hcd *uhci, struct urb *urb,
 	}
 
 	/* Set the interrupt-on-completion flag on the last packet. */
-	td->status |= __constant_cpu_to_le32(TD_CTRL_IOC);
+	td->status |= cpu_to_le32(TD_CTRL_IOC);
 
 	/* Add the TDs to the frame list */
 	frame = urb->start_frame;
@@ -1684,7 +1676,6 @@ static int uhci_advance_check(struct uhci_hcd *uhci, struct uhci_qh *qh)
 
 	if (time_after(jiffies, qh->advance_jiffies + QH_WAIT_TIMEOUT)) {
 
-		/* Detect the Intel bug and work around it */
 		if (qh->post_td && qh_element(qh) == LINK_TO_TD(qh->post_td)) {
 			qh->element = qh->post_td->link;
 			qh->advance_jiffies = jiffies;

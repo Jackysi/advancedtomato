@@ -1235,4 +1235,3 @@
 #define RS(nbr)	(0x70 + (nbr))	/* Rx CAS Reg (0 to 15) */
 
 #endif	/* _FALC_LH_H */
-

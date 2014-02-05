@@ -49,4 +49,3 @@ __ioremap(unsigned long phys_addr, unsigned long size, unsigned long flags)
 void iounmap(volatile void __iomem *addr)
 {
 }
-

@@ -45,7 +45,7 @@
  * to the correct location.
  */
 #include <asm/asmmacro.h>
-#include <asm-ia64/break.h>
+#include <asm/break.h>
 
 	/*
 	 * void jprobe_break(void)
@@ -87,4 +87,3 @@ GLOBAL_ENTRY(flush_register_stack)
 	;;
 	br.ret.sptk.many rp
 END(flush_register_stack)
-

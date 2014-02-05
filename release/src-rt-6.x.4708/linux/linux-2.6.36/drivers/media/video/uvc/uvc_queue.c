@@ -515,4 +515,3 @@ struct uvc_buffer *uvc_queue_next_buffer(struct uvc_video_queue *queue,
 	wake_up(&buf->wait);
 	return nextbuf;
 }
-

@@ -1,4 +1,4 @@
-/* $Id: hfc_sx.h,v 1.2.6.1 2001/09/23 22:24:48 kai Exp $
+/* $Id: hfc_sx.h,v 1.2.6.1 2001/09/23 22:24:48 Exp $
  *
  * specific defines for CCD's HFC 2BDS0 S+,SP chips
  *

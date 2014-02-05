@@ -79,9 +79,3 @@ capi_channel(struct pcbit_dev *dev, struct sk_buff *skb)
 }
 
 #endif
-
-
-
-
-
-

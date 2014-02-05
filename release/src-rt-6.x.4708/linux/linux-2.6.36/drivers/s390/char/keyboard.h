@@ -16,18 +16,15 @@ struct kbd_data;
 
 typedef void (fn_handler_fn)(struct kbd_data *);
 
-/*
- * FIXME: explain key_maps tricks.
- */
 
 struct kbd_data {
 	struct tty_struct *tty;
 	unsigned short **key_maps;
 	char **func_table;
 	fn_handler_fn **fn_handler;
-	struct kbdiacr *accent_table;
+	struct kbdiacruc *accent_table;
 	unsigned int accent_table_size;
-	unsigned char diacr;
+	unsigned int diacr;
 	unsigned short sysrq;
 };
 

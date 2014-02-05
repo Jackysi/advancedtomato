@@ -46,10 +46,6 @@ static DEFINE_RWLOCK(hl_irqs_lock);
 
 static DEFINE_RWLOCK(addr_space_lock);
 
-/* addr_space list will have zero and max already included as bounds */
-static struct hpsb_address_ops dummy_ops = { NULL, NULL, NULL, NULL };
-static struct hpsb_address_serve dummy_zero_addr, dummy_max_addr;
-
 
 static struct hl_host_info *hl_get_hostinfo(struct hpsb_highlevel *hl,
 					    struct hpsb_host *host)
@@ -228,10 +224,8 @@ void hpsb_register_highlevel(struct hpsb_highlevel *hl)
 {
 	unsigned long flags;
 
+	hpsb_init_highlevel(hl);
 	INIT_LIST_HEAD(&hl->addr_list);
-	INIT_LIST_HEAD(&hl->host_info_list);
-
-	rwlock_init(&hl->host_info_lock);
 
 	down_write(&hl_drivers_sem);
 	list_add_tail(&hl->hl_list, &hl_drivers);
@@ -326,7 +320,7 @@ void hpsb_unregister_highlevel(struct hpsb_highlevel *hl)
  */
 u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 					 struct hpsb_host *host,
-					 struct hpsb_address_ops *ops,
+					 const struct hpsb_address_ops *ops,
 					 u64 size, u64 alignment,
 					 u64 start, u64 end)
 {
@@ -339,7 +333,7 @@ u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 	if ((alignment & 3) || (alignment > 0x800000000000ULL) ||
 	    (hweight64(alignment) != 1)) {
 		HPSB_ERR("%s called with invalid alignment: 0x%048llx",
-			 __FUNCTION__, (unsigned long long)alignment);
+			 __func__, (unsigned long long)alignment);
 		return retval;
 	}
 
@@ -354,7 +348,7 @@ u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 	if (((start|end) & ~align_mask) || (start >= end) ||
 	    (end > CSR1212_ALL_SPACE_END)) {
 		HPSB_ERR("%s called with invalid addresses "
-			 "(start = %012Lx  end = %012Lx)", __FUNCTION__,
+			 "(start = %012Lx  end = %012Lx)", __func__,
 			 (unsigned long long)start,(unsigned long long)end);
 		return retval;
 	}
@@ -413,7 +407,8 @@ u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
  * are automatically deallocated together with the hpsb_highlevel @hl.
  */
 int hpsb_register_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			    struct hpsb_address_ops *ops, u64 start, u64 end)
+			    const struct hpsb_address_ops *ops,
+			    u64 start, u64 end)
 {
 	struct hpsb_address_serve *as;
 	struct list_head *lh;
@@ -422,11 +417,11 @@ int hpsb_register_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
 
 	if (((start|end) & 3) || (start >= end) ||
 	    (end > CSR1212_ALL_SPACE_END)) {
-		HPSB_ERR("%s called with invalid addresses", __FUNCTION__);
+		HPSB_ERR("%s called with invalid addresses", __func__);
 		return 0;
 	}
 
-	as = kmalloc(sizeof(*as), GFP_ATOMIC);
+	as = kmalloc(sizeof(*as), GFP_KERNEL);
 	if (!as)
 		return 0;
 
@@ -483,51 +478,23 @@ int hpsb_unregister_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
 	return retval;
 }
 
-/**
- * hpsb_listen_channel - enable receving a certain isochronous channel
- *
- * Reception is handled through the @hl's iso_receive op.
- */
-int hpsb_listen_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			unsigned int channel)
-{
-	if (channel > 63) {
-		HPSB_ERR("%s called with invalid channel", __FUNCTION__);
-		return -EINVAL;
-	}
-	if (host->iso_listen_count[channel]++ == 0)
-		return host->driver->devctl(host, ISO_LISTEN_CHANNEL, channel);
-	return 0;
-}
+static const struct hpsb_address_ops dummy_ops;
 
-/**
- * hpsb_unlisten_channel - disable receving a certain isochronous channel
- */
-void hpsb_unlisten_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
-			   unsigned int channel)
-{
-	if (channel > 63) {
-		HPSB_ERR("%s called with invalid channel", __FUNCTION__);
-		return;
-	}
-	if (--host->iso_listen_count[channel] == 0)
-		host->driver->devctl(host, ISO_UNLISTEN_CHANNEL, channel);
-}
-
+/* dummy address spaces as lower and upper bounds of the host's a.s. list */
 static void init_hpsb_highlevel(struct hpsb_host *host)
 {
-	INIT_LIST_HEAD(&dummy_zero_addr.host_list);
-	INIT_LIST_HEAD(&dummy_zero_addr.hl_list);
-	INIT_LIST_HEAD(&dummy_max_addr.host_list);
-	INIT_LIST_HEAD(&dummy_max_addr.hl_list);
+	INIT_LIST_HEAD(&host->dummy_zero_addr.host_list);
+	INIT_LIST_HEAD(&host->dummy_zero_addr.hl_list);
+	INIT_LIST_HEAD(&host->dummy_max_addr.host_list);
+	INIT_LIST_HEAD(&host->dummy_max_addr.hl_list);
 
-	dummy_zero_addr.op = dummy_max_addr.op = &dummy_ops;
+	host->dummy_zero_addr.op = host->dummy_max_addr.op = &dummy_ops;
 
-	dummy_zero_addr.start = dummy_zero_addr.end = 0;
-	dummy_max_addr.start = dummy_max_addr.end = ((u64) 1) << 48;
+	host->dummy_zero_addr.start = host->dummy_zero_addr.end = 0;
+	host->dummy_max_addr.start = host->dummy_max_addr.end = ((u64) 1) << 48;
 
-	list_add_tail(&dummy_zero_addr.host_list, &host->addr_space);
-	list_add_tail(&dummy_max_addr.host_list, &host->addr_space);
+	list_add_tail(&host->dummy_zero_addr.host_list, &host->addr_space);
+	list_add_tail(&host->dummy_max_addr.host_list, &host->addr_space);
 }
 
 void highlevel_add_host(struct hpsb_host *host)
@@ -566,20 +533,6 @@ void highlevel_host_reset(struct hpsb_host *host)
 	list_for_each_entry(hl, &hl_irqs, irq_list) {
 		if (hl->host_reset)
 			hl->host_reset(host);
-	}
-	read_unlock_irqrestore(&hl_irqs_lock, flags);
-}
-
-void highlevel_iso_receive(struct hpsb_host *host, void *data, size_t length)
-{
-	unsigned long flags;
-	struct hpsb_highlevel *hl;
-	int channel = (((quadlet_t *)data)[0] >> 8) & 0x3f;
-
-	read_lock_irqsave(&hl_irqs_lock, flags);
-	list_for_each_entry(hl, &hl_irqs, irq_list) {
-		if (hl->iso_receive)
-			hl->iso_receive(host, channel, data, length);
 	}
 	read_unlock_irqrestore(&hl_irqs_lock, flags);
 }

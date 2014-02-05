@@ -129,5 +129,3 @@ void pwc_construct(struct pwc_device *pdev)
 	/* length of image, in YUV format; always allocate enough memory. */
 	pdev->len_per_image = PAGE_ALIGN((pdev->abs_max.x * pdev->abs_max.y * 3) / 2);
 }
-
-

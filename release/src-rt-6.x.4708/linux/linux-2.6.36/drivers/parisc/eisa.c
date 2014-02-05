@@ -45,11 +45,7 @@
 #include <asm/eisa_bus.h>
 #include <asm/eisa_eeprom.h>
 
-#if 0
-#define EISA_DBG(msg, arg... ) printk(KERN_DEBUG "eisa: " msg , ## arg )
-#else
 #define EISA_DBG(msg, arg... )  
-#endif
 
 #define SNAKES_EEPROM_BASE_ADDR 0xF0810400
 #define MIRAGE_EEPROM_BASE_ADDR 0xF00C0400
@@ -188,8 +184,8 @@ static unsigned int eisa_startup_irq(unsigned int irq)
 	return 0;
 }
 
-static struct hw_interrupt_type eisa_interrupt_type = {
-	.typename =	"EISA",
+static struct irq_chip eisa_interrupt_type = {
+	.name	 =	"EISA",
 	.startup =	eisa_startup_irq,
 	.shutdown =	eisa_disable_irq,
 	.enable =	eisa_enable_irq,
@@ -314,7 +310,7 @@ static int __init eisa_probe(struct parisc_device *dev)
 	char *name = is_mongoose(dev) ? "Mongoose" : "Wax";
 
 	printk(KERN_INFO "%s EISA Adapter found at 0x%08lx\n", 
-		name, dev->hpa.start);
+		name, (unsigned long)dev->hpa.start);
 
 	eisa_dev.hba.dev = dev;
 	eisa_dev.hba.iommu = ccio_get_iommu(dev);
@@ -346,10 +342,10 @@ static int __init eisa_probe(struct parisc_device *dev)
 	}
 	
 	/* Reserve IRQ2 */
-	irq_desc[2].action = &irq2_action;
+	irq_to_desc(2)->action = &irq2_action;
 	
 	for (i = 0; i < 16; i++) {
-		irq_desc[i].chip = &eisa_interrupt_type;
+		irq_to_desc(i)->chip = &eisa_interrupt_type;
 	}
 	
 	EISA_bus = 1;
@@ -371,9 +367,8 @@ static int __init eisa_probe(struct parisc_device *dev)
 	init_eisa_pic();
 
 	if (result >= 0) {
-		/* FIXME : Don't enumerate the bus twice. */
 		eisa_dev.root.dev = &dev->dev;
-		dev->dev.driver_data = &eisa_dev.root;
+		dev_set_drvdata(&dev->dev, &eisa_dev.root);
 		eisa_dev.root.bus_base_addr = 0;
 		eisa_dev.root.res = &eisa_dev.hba.io_space;
 		eisa_dev.root.slots = result;
@@ -460,4 +455,3 @@ static int __init eisa_irq_setup(char *str)
 }
 
 __setup("eisa_irq_edge=", eisa_irq_setup);
-

@@ -21,6 +21,7 @@
 #include <linux/mm.h>
 #include <linux/netdevice.h>
 #include <linux/signal.h>
+#include <linux/slab.h>
 #include <net/scm.h>
 #include <net/sock.h>
 #include <linux/ipx.h>
@@ -759,11 +760,6 @@ static int ncp_do_request(struct ncp_server *server, int size,
 		else
 			mask = sigmask(SIGKILL);
 		if (server->m.flags & NCP_MOUNT_INTR) {
-			/* FIXME: This doesn't seem right at all.  So, like,
-			   we can't handle SIGINT and get whatever to stop?
-			   What if we've blocked it ourselves?  What about
-			   alarms?  Why, in fact, are we mucking with the
-			   sigmask at all? -- r~ */
 			if (current->sighand->action[SIGINT - 1].sa.sa_handler == SIG_DFL)
 				mask |= sigmask(SIGINT);
 			if (current->sighand->action[SIGQUIT - 1].sa.sa_handler == SIG_DFL)

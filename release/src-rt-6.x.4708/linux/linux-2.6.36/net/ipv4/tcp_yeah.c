@@ -58,7 +58,7 @@ static void tcp_yeah_init(struct sock *sk)
 }
 
 
-static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
+static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	struct yeah *yeah = inet_csk_ca(sk);
@@ -66,11 +66,10 @@ static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
 	if (icsk->icsk_ca_state == TCP_CA_Open)
 		yeah->pkts_acked = pkts_acked;
 
-	tcp_vegas_pkts_acked(sk, pkts_acked, last);
+	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
 }
 
-static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
-				u32 seq_rtt, u32 in_flight, int flag)
+static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct yeah *yeah = inet_csk_ca(sk);
@@ -84,7 +83,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
 	else if (!yeah->doing_reno_now) {
 		/* Scalable */
 
-		tp->snd_cwnd_cnt+=yeah->pkts_acked;
+		tp->snd_cwnd_cnt += yeah->pkts_acked;
 		if (tp->snd_cwnd_cnt > min(tp->snd_cwnd, TCP_SCALABLE_AI_CNT)){
 			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
 				tp->snd_cwnd++;
@@ -95,14 +94,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
 
 	} else {
 		/* Reno */
-
-		if (tp->snd_cwnd_cnt < tp->snd_cwnd)
-			tp->snd_cwnd_cnt++;
-
-		if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-			tp->snd_cwnd++;
-			tp->snd_cwnd_cnt = 0;
-		}
+		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
 	}
 
 	/* The key players are v_vegas.beg_snd_una and v_beg_snd_nxt.
@@ -165,8 +157,8 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
 
 			if (queue > TCP_YEAH_ALPHA ||
 			    rtt - yeah->vegas.baseRTT > (yeah->vegas.baseRTT / TCP_YEAH_PHY)) {
-				if (queue > TCP_YEAH_ALPHA
-				    && tp->snd_cwnd > yeah->reno_count) {
+				if (queue > TCP_YEAH_ALPHA &&
+				    tp->snd_cwnd > yeah->reno_count) {
 					u32 reduction = min(queue / TCP_YEAH_GAMMA ,
 							    tp->snd_cwnd >> TCP_YEAH_EPSILON);
 
@@ -225,7 +217,7 @@ static u32 tcp_yeah_ssthresh(struct sock *sk) {
 
 		reduction = max( reduction, tp->snd_cwnd >> TCP_YEAH_DELTA);
 	} else
-		reduction = max(tp->snd_cwnd>>1,2U);
+		reduction = max(tp->snd_cwnd>>1, 2U);
 
 	yeah->fast_count = 0;
 	yeah->reno_count = max(yeah->reno_count>>1, 2U);

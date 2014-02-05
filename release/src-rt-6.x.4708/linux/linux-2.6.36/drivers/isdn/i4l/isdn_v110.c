@@ -1,4 +1,4 @@
-/* $Id: isdn_v110.c,v 1.1.2.2 2004/01/12 22:37:19 keil Exp $
+/* $Id: isdn_v110.c,v 1.1.2.2 2004/01/12 22:37:19 Exp $
  *
  * Linux ISDN subsystem, V.110 related functions (linklevel).
  *
@@ -62,7 +62,7 @@ static unsigned char V110_OffMatrix_38400[] =
  * and to 67452301 when keylen = 2. This is necessary because ordering on
  * the isdn line is the other way.
  */
-static __inline unsigned char
+static inline unsigned char
 FlipBits(unsigned char c, int keylen)
 {
 	unsigned char b = c;

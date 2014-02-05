@@ -115,13 +115,12 @@ static void tcp_lp_init(struct sock *sk)
  * Will only call newReno CA when away from inference.
  * From TCP-LP's paper, this will be handled in additive increasement.
  */
-static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 rtt, u32 in_flight,
-			      int flag)
+static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
 {
 	struct lp *lp = inet_csk_ca(sk);
 
 	if (!(lp->flag & LP_WITHIN_INF))
-		tcp_reno_cong_avoid(sk, ack, rtt, in_flight, flag);
+		tcp_reno_cong_avoid(sk, ack, in_flight);
 }
 
 /**
@@ -144,8 +143,8 @@ static u32 tcp_lp_remote_hz_estimator(struct sock *sk)
 		goto out;
 
 	/* we can't calc remote HZ with no different!! */
-	if (tp->rx_opt.rcv_tsval == lp->remote_ref_time
-	    || tp->rx_opt.rcv_tsecr == lp->local_ref_time)
+	if (tp->rx_opt.rcv_tsval == lp->remote_ref_time ||
+	    tp->rx_opt.rcv_tsecr == lp->local_ref_time)
 		goto out;
 
 	m = HZ * (tp->rx_opt.rcv_tsval -
@@ -261,13 +260,13 @@ static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
  * newReno in increase case.
  * We work it out by following the idea from TCP-LP's paper directly
  */
-static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
+static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct lp *lp = inet_csk_ca(sk);
 
-	if (!ktime_equal(last, net_invalid_timestamp()))
-		tcp_lp_rtt_sample(sk,  ktime_to_us(net_timedelta(last)));
+	if (rtt_us > 0)
+		tcp_lp_rtt_sample(sk, rtt_us);
 
 	/* calc inference */
 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
@@ -293,9 +292,6 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
 	if (lp->flag & LP_WITHIN_THR)
 		return;
 
-	/* FIXME: try to reset owd_min and owd_max here
-	 * so decrease the chance the min/max is no longer suitable
-	 * and will usually within threshold when whithin inference */
 	lp->owd_min = lp->sowd >> 3;
 	lp->owd_max = lp->sowd >> 2;
 	lp->owd_max_rsv = lp->sowd >> 2;

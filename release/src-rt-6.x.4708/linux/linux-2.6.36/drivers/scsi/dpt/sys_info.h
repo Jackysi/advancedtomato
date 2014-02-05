@@ -55,7 +55,7 @@
 #include        "osd_util.h"
 
 #ifndef NO_PACK
-#if defined (_DPT_AIX)
+#if defined(_DPT_AIX)
 #pragma options align=packed
 #else
 #pragma pack(1)
@@ -145,8 +145,8 @@
    uCHAR        smartROMRevision;
    uSHORT       flags;                  /* See bit definitions above */
    uSHORT       conventionalMemSize;    /* in KB */
-   uLONG        extendedMemSize;        /* in KB */
-   uLONG        osType;                 /* Same as DPTSIG's definition */
+   uINT         extendedMemSize;        /* in KB */
+   uINT         osType;                 /* Same as DPTSIG's definition */
    uCHAR        osMajorVersion;
    uCHAR        osMinorVersion;         /* The OS version */
    uCHAR        osRevision;
@@ -404,9 +404,9 @@
 
   /* Restore default structure packing */
 #ifndef NO_UNPACK
-#if defined (_DPT_AIX)
+#if defined(_DPT_AIX)
 #pragma options align=reset
-#elif defined (UNPACK_FOUR)
+#elif defined(UNPACK_FOUR)
 #pragma pack(4)
 #else
 #pragma pack()
@@ -414,4 +414,3 @@
 #endif  // no unpack
 
 #endif  // __SYS_INFO_H
-

@@ -35,22 +35,6 @@
  * 0x800000 - 0xffffff : texture memory         (8MB)
  */
 
-/*
- * misc notes, TODOs, toASKs, and deep thoughts
-
--TODO: at one time or another test that the mode is acceptable by the monitor
--ASK: Can I choose different ordering for the color bitfields (rgba argb ...)
-      which one should i use ? is there any preferred one ? It seems ARGB is
-      the one ...
--TODO: in  set_var check the validity of timings (hsync vsync)...
--TODO: check and recheck the use of sst_wait_idle : we don't flush the fifo via
-       a nop command. so it's ok as long as the commands we pass don't go
-       through the fifo. warning: issuing a nop command seems to need pci_fifo
--FIXME: in case of failure in the init sequence, be sure we return to a safe
-        state.
-- FIXME: Use accelerator for 2D scroll
--FIXME: 4MB boards have banked memory (FbiInit2 bits 1 & 20)
- */
 
 /*
  * debug info
@@ -86,9 +70,8 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/init.h>
-#include <linux/slab.h>
 #include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <video/sstfb.h>
 
 
@@ -222,16 +205,12 @@ static int __sst_wait_idle(u8 __iomem *vbase)
 	while(1) {
 		if (__sst_read(vbase, STATUS) & STATUS_FBI_BUSY) {
 			f_dddprintk("status: busy\n");
-/* FIXME basicaly, this is a busy wait. maybe not that good. oh well;
- * this is a small loop after all.
- * Or maybe we should use mdelay() or udelay() here instead ? */
 			count = 0;
 		} else {
 			count++;
 			f_dddprintk("status: idle(%d)\n", count);
 		}
 		if (count >= 5) return 1;
-/* XXX  do something to avoid hanging the machine if the voodoo is out */
 	}
 }
 
@@ -431,7 +410,6 @@ static int sstfb_check_var(struct fb_var_screeninfo *var,
 	}
 
 	/* it seems that the fbi uses tiles of 64x16 pixels to "map" the mem */
-	/* FIXME: i don't like this... looks wrong */
 	real_length = tiles_in_X  * (IS_VOODOO2(par) ? 32 : 64 )
 	              * ((var->bits_per_pixel == 16) ? 2 : 4);
 
@@ -563,13 +541,6 @@ static int sstfb_set_par(struct fb_info *info)
 	            | SEL_INPUT_VCLK_2X
 		 /* | (2 << VCLK_2X_SEL_DEL_SHIFT)
 	            | (2 << VCLK_DEL_SHIFT) */;
-/* try with vclk_in_delay =0 (bits 29:30) , vclk_out_delay =0 (bits(27:28)
- in (near) future set them accordingly to revision + resolution (cf glide)
- first understand what it stands for :)
- FIXME: there are some artefacts... check for the vclk_in_delay
- lets try with 6ns delay in both vclk_out & in...
- doh... they're still there :\
-*/
 
 	ntiles = par->tiles_in_X;
 	if (IS_VOODOO2(par)) {
@@ -768,55 +739,11 @@ static int sstfb_ioctl(struct fb_info *info, unsigned int cmd,
 /*
  * Screen-to-Screen BitBlt 2D command (for the bmove fb op.) - Voodoo2 only
  */
-#if 0
-static void sstfb_copyarea(struct fb_info *info, const struct fb_copyarea *area)
-{
-	struct sstfb_par *par = info->par;
-	u32 stride = info->fix.line_length;
-   
-	if (!IS_VOODOO2(par))
-		return;
-
-	sst_write(BLTSRCBASEADDR, 0);
-	sst_write(BLTDSTBASEADDR, 0);
-	sst_write(BLTROP, BLTROP_COPY);
-	sst_write(BLTXYSTRIDES, stride | (stride << 16));
-	sst_write(BLTSRCXY, area->sx | (area->sy << 16));
-	sst_write(BLTDSTXY, area->dx | (area->dy << 16));
-	sst_write(BLTSIZE, area->width | (area->height << 16));
-	sst_write(BLTCOMMAND, BLT_SCR2SCR_BITBLT | LAUNCH_BITBLT |
-		(BLT_16BPP_FMT << 3) /* | BIT(14) */ | BIT(15) );
-	sst_wait_idle();
-}
-#endif
 
 
 /*
  * FillRect 2D command (solidfill or invert (via ROP_XOR)) - Voodoo2 only
  */
-#if 0
-static void sstfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect) 
-{
-	struct sstfb_par *par = info->par;
-	u32 stride = info->fix.line_length;
-
-	if (!IS_VOODOO2(par))
-		return;
-   	
-	sst_write(BLTCLIPX, info->var.xres);
-	sst_write(BLTCLIPY, info->var.yres);
-	
-	sst_write(BLTDSTBASEADDR, 0);
-	sst_write(BLTCOLOR, rect->color);
-	sst_write(BLTROP, rect->rop == ROP_COPY ? BLTROP_COPY : BLTROP_XOR);
-	sst_write(BLTXYSTRIDES, stride | (stride << 16));
-	sst_write(BLTDSTXY, rect->dx | (rect->dy << 16));
-	sst_write(BLTSIZE, rect->width | (rect->height << 16));
-	sst_write(BLTCOMMAND, BLT_RECFILL_BITBLT | LAUNCH_BITBLT
-		 | (BLT_16BPP_FMT << 3) /* | BIT(14) */ | BIT(15) | BIT(16) );
-	sst_wait_idle();
-}
-#endif
 
 
 
@@ -1006,7 +933,7 @@ static int sst_set_pll_att_ti(struct fb_info *info,
 		break;
 	default:
 		dprintk("%s: wrong clock code '%d'\n",
-		        __FUNCTION__, clock);
+		        __func__, clock);
 		return 0;
 		}
 	udelay(300);
@@ -1048,7 +975,7 @@ static int sst_set_pll_ics(struct fb_info *info,
 		break;
 	default:
 		dprintk("%s: wrong clock code '%d'\n",
-		        __FUNCTION__, clock);
+		        __func__, clock);
 		return 0;
 		}
 	udelay(300);
@@ -1079,7 +1006,7 @@ static void sst_set_vidmod_att_ti(struct fb_info *info, const int bpp)
 		sst_dac_write(DACREG_RMR, (cr0 & 0x0f) | DACREG_CR0_16BPP);
 		break;
 	default:
-		dprintk("%s: bad depth '%u'\n", __FUNCTION__, bpp);
+		dprintk("%s: bad depth '%u'\n", __func__, bpp);
 		break;
 	}
 }
@@ -1093,7 +1020,7 @@ static void sst_set_vidmod_ics(struct fb_info *info, const int bpp)
 		sst_dac_write(DACREG_ICS_CMD, DACREG_ICS_CMD_16BPP);
 		break;
 	default:
-		dprintk("%s: bad depth '%u'\n", __FUNCTION__, bpp);
+		dprintk("%s: bad depth '%u'\n", __func__, bpp);
 		break;
 	}
 }
@@ -1102,7 +1029,7 @@ static void sst_set_vidmod_ics(struct fb_info *info, const int bpp)
  * detect dac type
  * prerequisite : write to FbiInitx enabled, video and fbi and pci fifo reset,
  * dram refresh disabled, FbiInit remaped.
- * TODO: mmh.. maybe i shoud put the "prerequisite" in the func ...
+ * TODO: mmh.. maybe i should put the "prerequisite" in the func ...
  */
 
 
@@ -1133,7 +1060,7 @@ static int __devinit sst_detect_dactype(struct fb_info *info, struct sstfb_par *
 	}
 	if (!ret)
 		return 0;
-	f_dprintk("%s found %s\n", __FUNCTION__, dacs[i].name);
+	f_dprintk("%s found %s\n", __func__, dacs[i].name);
 	par->dac_sw = dacs[i];
 	return 1;
 }
@@ -1184,7 +1111,6 @@ static int __devinit sst_init(struct fb_info *info, struct sstfb_par *par)
 	/* detect dac type */
 	if (!sst_detect_dactype(info, par)) {
 		printk(KERN_ERR "sstfb: unknown dac type.\n");
-		//FIXME watch it: we are not in a safe state, bad bad bad.
 		return 0;
 	}
 
@@ -1348,7 +1274,7 @@ static int __devinit sstfb_probe(struct pci_dev *pdev,
 	f_ddprintk("found device : %s\n", spec->name);
 
 	par->dev = pdev;
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &par->revision);
+	par->revision = pdev->revision;
 
 	fix->mmio_start = pci_resource_start(pdev,0);
 	fix->mmio_len	= 0x400000;
@@ -1401,7 +1327,7 @@ static int __devinit sstfb_probe(struct pci_dev *pdev,
 
 	fix->type	= FB_TYPE_PACKED_PIXELS;
 	fix->visual	= FB_VISUAL_TRUECOLOR;
-	fix->accel	= FB_ACCEL_NONE;  /* FIXME */
+	fix->accel	= FB_ACCEL_NONE;
 	/*
 	 * According to the specs, the linelength must be of 1024 *pixels*
 	 * and the 24bpp mode is in fact a 32 bpp mode (and both are in
@@ -1421,13 +1347,16 @@ static int __devinit sstfb_probe(struct pci_dev *pdev,
 		goto fail;
 	}
 	
-	fb_alloc_cmap(&info->cmap, 256, 0);
+	if (fb_alloc_cmap(&info->cmap, 256, 0)) {
+		printk(KERN_ERR "sstfb: can't alloc cmap memory.\n");
+		goto fail;
+	}
 
 	/* register fb */
 	info->device = &pdev->dev;
 	if (register_framebuffer(info) < 0) {
 		printk(KERN_ERR "sstfb: can't register framebuffer.\n");
-		goto fail;
+		goto fail_register;
 	}
 
 	sstfb_clear_screen(info);
@@ -1441,8 +1370,9 @@ static int __devinit sstfb_probe(struct pci_dev *pdev,
 
 	return 0;
 
-fail:
+fail_register:
 	fb_dealloc_cmap(&info->cmap);
+fail:
 	iounmap(info->screen_base);
 fail_fb_remap:
 	iounmap(par->mmio_vbase);
@@ -1527,4 +1457,3 @@ module_param(slowpci, bool, 0);
 MODULE_PARM_DESC(slowpci, "Uses slow PCI settings (0 or 1) (default=0)");
 module_param(mode_option, charp, 0);
 MODULE_PARM_DESC(mode_option, "Initial video mode (default=" DEFAULT_VIDEO_MODE ")");
-

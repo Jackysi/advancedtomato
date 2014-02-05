@@ -46,9 +46,11 @@
 #include <linux/init.h>
 #include <linux/wait.h>
 #include <linux/blkdev.h>
+#include <linux/smp_lock.h>
 #include <linux/blkpg.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/gfp.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -70,29 +72,6 @@ static int xd[5] = { -1,-1,-1,-1, };
 
 static XD_INFO xd_info[XD_MAXDRIVES];
 
-/* If you try this driver and find that your card is not detected by the driver at bootup, you need to add your BIOS
-   signature and details to the following list of signatures. A BIOS signature is a string embedded into the first
-   few bytes of your controller's on-board ROM BIOS. To find out what yours is, use something like MS-DOS's DEBUG
-   command. Run DEBUG, and then you can examine your BIOS signature with:
-
-	d xxxx:0000
-
-   where xxxx is the segment of your controller (like C800 or D000 or something). On the ASCII dump at the right, you should
-   be able to see a string mentioning the manufacturer's copyright etc. Add this string into the table below. The parameters
-   in the table are, in order:
-
-	offset			; this is the offset (in bytes) from the start of your ROM where the signature starts
-	signature		; this is the actual text of the signature
-	xd_?_init_controller	; this is the controller init routine used by your controller
-	xd_?_init_drive		; this is the drive init routine used by your controller
-
-   The controllers directly supported at the moment are: DTC 5150x, WD 1004A27X, ST11M/R and override. If your controller is
-   made by the same manufacturer as one of these, try using the same init routines as they do. If that doesn't work, your
-   best bet is to use the "override" routines. These routines use a "portable" method of getting the disk's geometry, and
-   may work with your card. If none of these seem to work, try sending me some email and I'll see what I can do <grin>.
-
-   NOTE: You can now specify your XT controller's parameters from the command line in the form xd=TYPE,IRQ,IO,DMA. The driver
-   should be able to detect your drive's geometry from this info. (eg: xd=0,5,0x320,3 is the "standard"). */
 
 #include <asm/page.h>
 #define xd_dma_mem_alloc(size) __get_dma_pages(GFP_KERNEL,get_order(size))
@@ -130,7 +109,7 @@ static struct gendisk *xd_gendisk[2];
 
 static int xd_getgeo(struct block_device *bdev, struct hd_geometry *geo);
 
-static struct block_device_operations xd_fops = {
+static const struct block_device_operations xd_fops = {
 	.owner	= THIS_MODULE,
 	.ioctl	= xd_ioctl,
 	.getgeo = xd_getgeo,
@@ -169,13 +148,6 @@ static int __init xd_init(void)
 
 	init_timer (&xd_watchdog_int); xd_watchdog_int.function = xd_watchdog;
 
-	if (!xd_dma_buffer)
-		xd_dma_buffer = (char *)xd_dma_mem_alloc(xd_maxsectors * 0x200);
-	if (!xd_dma_buffer) {
-		printk(KERN_ERR "xd: Out of memory.\n");
-		return -ENOMEM;
-	}
-
 	err = -EBUSY;
 	if (register_blkdev(XT_DISK_MAJOR, "xd"))
 		goto out1;
@@ -200,6 +172,19 @@ static int __init xd_init(void)
 		
 		printk("Detected %d hard drive%s (using IRQ%d & DMA%d)\n",
 			xd_drives,xd_drives == 1 ? "" : "s",xd_irq,xd_dma);
+	}
+
+	/*
+	 * With the drive detected, xd_maxsectors should now be known.
+	 * If xd_maxsectors is 0, nothing was detected and we fall through
+	 * to return -ENODEV
+	 */
+	if (!xd_dma_buffer && xd_maxsectors) {
+		xd_dma_buffer = (char *)xd_dma_mem_alloc(xd_maxsectors * 0x200);
+		if (!xd_dma_buffer) {
+			printk(KERN_ERR "xd: Out of memory.\n");
+			goto out3;
+		}
 	}
 
 	err = -ENODEV;
@@ -236,7 +221,7 @@ static int __init xd_init(void)
 	}
 
 	/* xd_maxsectors depends on controller - so set after detection */
-	blk_queue_max_sectors(xd_queue, xd_maxsectors);
+	blk_queue_max_hw_sectors(xd_queue, xd_maxsectors);
 
 	for (i = 0; i < xd_drives; i++)
 		add_disk(xd_gendisk[i]);
@@ -249,15 +234,17 @@ out4:
 	for (i = 0; i < xd_drives; i++)
 		put_disk(xd_gendisk[i]);
 out3:
-	release_region(xd_iobase,4);
+	if (xd_maxsectors)
+		release_region(xd_iobase,4);
+
+	if (xd_dma_buffer)
+		xd_dma_mem_free((unsigned long)xd_dma_buffer,
+				xd_maxsectors * 0x200);
 out2:
 	blk_cleanup_queue(xd_queue);
 out1a:
 	unregister_blkdev(XT_DISK_MAJOR, "xd");
 out1:
-	if (xd_dma_buffer)
-		xd_dma_mem_free((unsigned long)xd_dma_buffer,
-				xd_maxsectors * 0x200);
 	return err;
 Enomem:
 	err = -ENOMEM;
@@ -298,37 +285,32 @@ static u_char __init xd_detect (u_char *controller, unsigned int *address)
 }
 
 /* do_xd_request: handle an incoming request */
-static void do_xd_request (request_queue_t * q)
+static void do_xd_request (struct request_queue * q)
 {
 	struct request *req;
 
 	if (xdc_busy)
 		return;
 
-	while ((req = elv_next_request(q)) != NULL) {
-		unsigned block = req->sector;
-		unsigned count = req->nr_sectors;
-		int rw = rq_data_dir(req);
+	req = blk_fetch_request(q);
+	while (req) {
+		unsigned block = blk_rq_pos(req);
+		unsigned count = blk_rq_cur_sectors(req);
 		XD_INFO *disk = req->rq_disk->private_data;
-		int res = 0;
+		int res = -EIO;
 		int retry;
 
-		if (!blk_fs_request(req)) {
-			end_request(req, 0);
-			continue;
-		}
-		if (block + count > get_capacity(req->rq_disk)) {
-			end_request(req, 0);
-			continue;
-		}
-		if (rw != READ && rw != WRITE) {
-			printk("do_xd_request: unknown request\n");
-			end_request(req, 0);
-			continue;
-		}
+		if (req->cmd_type != REQ_TYPE_FS)
+			goto done;
+		if (block + count > get_capacity(req->rq_disk))
+			goto done;
 		for (retry = 0; (retry < XD_RETRIES) && !res; retry++)
-			res = xd_readwrite(rw, disk, req->buffer, block, count);
-		end_request(req, res);	/* wrap up, 0 = fail, 1 = success */
+			res = xd_readwrite(rq_data_dir(req), disk, req->buffer,
+					   block, count);
+	done:
+		/* wrap up, 0 = success, -errno = fail */
+		if (!__blk_end_request_cur(req, res))
+			req = blk_fetch_request(q);
 	}
 }
 
@@ -343,7 +325,7 @@ static int xd_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 }
 
 /* xd_ioctl: handle device ioctl's */
-static int xd_ioctl (struct inode *inode,struct file *file,u_int cmd,u_long arg)
+static int xd_locked_ioctl(struct block_device *bdev, fmode_t mode, u_int cmd, u_long arg)
 {
 	switch (cmd) {
 		case HDIO_SET_DMA:
@@ -369,6 +351,18 @@ static int xd_ioctl (struct inode *inode,struct file *file,u_int cmd,u_long arg)
 		default:
 			return -EINVAL;
 	}
+}
+
+static int xd_ioctl(struct block_device *bdev, fmode_t mode,
+			     unsigned int cmd, unsigned long param)
+{
+	int ret;
+
+	lock_kernel();
+	ret = xd_locked_ioctl(bdev, mode, cmd, param);
+	unlock_kernel();
+
+	return ret;
 }
 
 /* xd_readwrite: handle a read/write request */
@@ -418,7 +412,7 @@ static int xd_readwrite (u_char operation,XD_INFO *p,char *buffer,u_int block,u_
 				printk("xd%c: %s timeout, recalibrating drive\n",'a'+drive,(operation == READ ? "read" : "write"));
 				xd_recalibrate(drive);
 				spin_lock_irq(&xd_lock);
-				return (0);
+				return -EIO;
 			case 2:
 				if (sense[0] & 0x30) {
 					printk("xd%c: %s - ",'a'+drive,(operation == READ ? "reading" : "writing"));
@@ -439,7 +433,7 @@ static int xd_readwrite (u_char operation,XD_INFO *p,char *buffer,u_int block,u_
 				else
 					printk(" - no valid disk address\n");
 				spin_lock_irq(&xd_lock);
-				return (0);
+				return -EIO;
 		}
 		if (xd_dma_buffer)
 			for (i=0; i < (temp * 0x200); i++)
@@ -448,7 +442,7 @@ static int xd_readwrite (u_char operation,XD_INFO *p,char *buffer,u_int block,u_
 		count -= temp, buffer += temp * 0x200, block += temp;
 	}
 	spin_lock_irq(&xd_lock);
-	return (1);
+	return 0;
 }
 
 /* xd_recalibrate: recalibrate a given drive and reset controller if necessary */
@@ -698,11 +692,6 @@ static void __init xd_dtc5150cx_init_drive (u_char drive)
 			xd_info[drive].heads = (u_char)(geometry_table[n][1]);			/* heads */
 			xd_info[drive].cylinders = geometry_table[n][0];	/* cylinders */
 			xd_info[drive].sectors = 17;				/* sectors */
-#if 0
-			xd_info[drive].rwrite = geometry_table[n][2];	/* reduced write */
-			xd_info[drive].precomp = geometry_table[n][3]		/* write precomp */
-			xd_info[drive].ecc = 0x0B;				/* ecc length */
-#endif /* 0 */
 		}
 		else {
 			printk("xd%c: undetermined drive geometry\n",'a'+drive);
@@ -724,11 +713,6 @@ static void __init xd_dtc_init_drive (u_char drive)
 		xd_info[drive].sectors = 17;				/* sectors */
 		if (xd_geo[3*drive])
 			xd_manual_geo_set(drive);
-#if 0
-		xd_info[drive].rwrite = ((u_short *) (buf + 1))[0x05];	/* reduced write */
-		xd_info[drive].precomp = ((u_short *) (buf + 1))[0x06];	/* write precomp */
-		xd_info[drive].ecc = buf[0x0F];				/* ecc length */
-#endif /* 0 */
 		xd_info[drive].control = 0;				/* control byte */
 
 		xd_setparam(CMD_DTCSETPARAM,drive,xd_info[drive].heads,xd_info[drive].cylinders,((u_short *) (buf + 1))[0x05],((u_short *) (buf + 1))[0x06],buf[0x0F]);
@@ -794,11 +778,6 @@ static void __init xd_wd_init_drive (u_char drive)
 		xd_info[drive].sectors = 17;					/* sectors */
 		if (xd_geo[3*drive])
 			xd_manual_geo_set(drive);
-#if 0
-		xd_info[drive].rwrite = ((u_short *) (buf))[0xD8];		/* reduced write */
-		xd_info[drive].wprecomp = ((u_short *) (buf))[0xDA];		/* write precomp */
-		xd_info[drive].ecc = buf[0x1B4];				/* ecc length */
-#endif /* 0 */
 		xd_info[drive].control = buf[0x1B5];				/* control byte */
 		use_jumper_geo = !(xd_info[drive].heads) || !(xd_info[drive].cylinders);
 		if (xd_geo[3*drive]) {
@@ -810,11 +789,6 @@ static void __init xd_wd_init_drive (u_char drive)
 			xd_info[drive].cylinders = geometry_table[n][0];
 			xd_info[drive].heads = (u_char)(geometry_table[n][1]);
 			xd_info[drive].control = rll ? 7 : 5;
-#if 0
-			xd_info[drive].rwrite = geometry_table[n][2];
-			xd_info[drive].wprecomp = geometry_table[n][3];
-			xd_info[drive].ecc = 0x0B;
-#endif /* 0 */
 		}
 		if (!wd_1002) {
 			if (use_jumper_geo)
@@ -831,12 +805,6 @@ static void __init xd_wd_init_drive (u_char drive)
 			if ((xd_info[drive].cylinders *= 26,
 			     xd_info[drive].cylinders /= 17) > 1023)
 				xd_info[drive].cylinders = 1023;  /* 1024 ? */
-#if 0
-			xd_info[drive].rwrite *= 26; 
-			xd_info[drive].rwrite /= 17;
-			xd_info[drive].wprecomp *= 26
-			xd_info[drive].wprecomp /= 17;
-#endif /* 0 */
 		}
 	}
 	else
@@ -964,11 +932,6 @@ static void __init xd_xebec_init_drive (u_char drive)
 		xd_info[drive].heads = (u_char)(geometry_table[n][1]);			/* heads */
 		xd_info[drive].cylinders = geometry_table[n][0];	/* cylinders */
 		xd_info[drive].sectors = 17;				/* sectors */
-#if 0
-		xd_info[drive].rwrite = geometry_table[n][2];	/* reduced write */
-		xd_info[drive].precomp = geometry_table[n][3]		/* write precomp */
-		xd_info[drive].ecc = 0x0B;				/* ecc length */
-#endif /* 0 */
 	}
 	xd_info[drive].control = geometry_table[n][4];			/* control byte */
 	xd_setparam(CMD_XBSETPARAM,drive,xd_info[drive].heads,xd_info[drive].cylinders,geometry_table[n][2],geometry_table[n][3],0x0B);

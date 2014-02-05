@@ -46,6 +46,7 @@
 #include <linux/init.h>
 #include <linux/capability.h>
 #include <linux/bitops.h>
+#include <linux/slab.h>
 #include <asm/byteorder.h>
 #include <asm/system.h>
 #include <asm/string.h>
@@ -86,12 +87,8 @@ static int num=0x5a;
 static int rx_buf_sizes[NP]  = {128,  256,  512, 1024, 2048, 4096, 16384, 65520};
 /* log2:                 7     8     9    10    11    12    14     16 */
 
-#if 0
-static int rx_pool_sizes[NP] = {1024, 1024, 512, 256,  128,  64,   32,    32};
-#else
 /* debug */
 static int rx_pool_sizes[NP] = {128,  128,  128, 64,   64,   64,   32,    32};
-#endif
 /* log2:                 10    10    9    8     7     6     5      5  */
 /* sumlog2:              17    18    18   18    18    18    19     21 */
 /* mem allocated:        128k  256k  256k 256k  256k  256k  512k   2M */
@@ -101,28 +98,6 @@ static int rx_pool_sizes[NP] = {128,  128,  128, 64,   64,   64,   32,    32};
 #undef NP
 
 
-/* Small hardware gotcha:
-
-   The FS50 CAM (VP/VC match registers) always take the lowest channel
-   number that matches. This is not a problem.
-
-   However, they also ignore whether the channel is enabled or
-   not. This means that if you allocate channel 0 to 1.2 and then
-   channel 1 to 0.0, then disabeling channel 0 and writing 0 to the
-   match channel for channel 0 will "steal" the traffic from channel
-   1, even if you correctly disable channel 0.
-
-   Workaround: 
-
-   - When disabling channels, write an invalid VP/VC value to the
-   match register. (We use 0xffffffff, which in the worst case 
-   matches VP/VC = <maxVP>/<maxVC>, but I expect it not to match
-   anything as some "when not in use, program to 0" bits are now
-   programmed to 1...)
-
-   - Don't initialize the match registers to 0, as 0.0 is a valid
-   channel.
-*/
 
 
 /* Optimization hints and tips.
@@ -171,8 +146,8 @@ static char *res_strings[] = {
 	"packet purged", 
 	"packet ageing timeout", 
 	"channel ageing timeout", 
-	"calculated lenght error", 
-	"programmed lenght limit error", 
+	"calculated length error", 
+	"programmed length limit error", 
 	"aal5 crc32 error", 
 	"oam transp or transpc crc10 error", 
 	"reserved 25", 
@@ -312,7 +287,6 @@ module_param(fs_debug, int, 0644);
 module_param(loopback, int, 0);
 module_param(num, int, 0);
 module_param(fs_keystream, int, 0);
-/* XXX Add rx_buf_sizes, and rx_pool_sizes As per request Amar. -- REW */
 #endif
 
 
@@ -331,8 +305,8 @@ module_param(fs_keystream, int, 0);
 #define FS_DEBUG_QSIZE   0x00001000
 
 
-#define func_enter() fs_dprintk (FS_DEBUG_FLOW, "fs: enter %s\n", __FUNCTION__)
-#define func_exit()  fs_dprintk (FS_DEBUG_FLOW, "fs: exit  %s\n", __FUNCTION__)
+#define func_enter() fs_dprintk(FS_DEBUG_FLOW, "fs: enter %s\n", __func__)
+#define func_exit()  fs_dprintk(FS_DEBUG_FLOW, "fs: exit  %s\n", __func__)
 
 
 static struct fs_dev *fs_boards = NULL;
@@ -595,8 +569,6 @@ static void submit_qentry (struct fs_dev *dev, struct queue *q, struct FS_QENTRY
 	u32 wp;
 	struct FS_QENTRY *cqe;
 
-	/* XXX Sanity check: the write pointer can be checked to be 
-	   still the same as the value passed as qe... -- REW */
 	/*  udelay (5); */
 	while ((wp = read_fs (dev, Q_WP (q->offset))) & Q_FULL) {
 		fs_dprintk (FS_DEBUG_TXQ, "Found queue at %x full. Waiting.\n", 
@@ -657,19 +629,7 @@ static void submit_queue (struct fs_dev *dev, struct queue *q,
 }
 
 /* Test the "other" way one day... -- REW */
-#if 1
 #define submit_command submit_queue
-#else
-
-static void submit_command (struct fs_dev *dev, struct queue *q, 
-			    u32 cmd, u32 p1, u32 p2, u32 p3)
-{
-	write_fs (dev, CMDR0, cmd);
-	write_fs (dev, CMDR1, p1);
-	write_fs (dev, CMDR2, p2);
-	write_fs (dev, CMDR3, p3);
-}
-#endif
 
 
 
@@ -809,10 +769,6 @@ static void process_incoming (struct fs_dev *dev, struct queue *q)
 			if (atm_vcc) {
 				skb = pe->skb;
 				pe->fp->n--;
-#if 0
-				fs_dprintk (FS_DEBUG_QUEUE, "Got skb: %p\n", skb);
-				if (FS_DEBUG_QUEUE & fs_debug) my_hd (bus_to_virt (pe->bsa), 0x20);
-#endif
 				skb_put (skb, qe->p1 & 0xffff); 
 				ATM_SKB(skb)->vcc = atm_vcc;
 				atomic_inc(&atm_vcc->stats->rx);
@@ -882,12 +838,11 @@ static int fs_open(struct atm_vcc *atm_vcc)
 
 	if ((atm_vcc->qos.aal != ATM_AAL5) &&
 	    (atm_vcc->qos.aal != ATM_AAL2))
-	  return -EINVAL; /* XXX AAL0 */
+	  return -EINVAL;
 
 	fs_dprintk (FS_DEBUG_OPEN, "fs: (itf %d): open %d.%d\n", 
 		    atm_vcc->dev->number, atm_vcc->vpi, atm_vcc->vci);	
 
-	/* XXX handle qos parameters (rate limiting) ? */
 
 	vcc = kmalloc(sizeof(struct fs_vcc), GFP_KERNEL);
 	fs_dprintk (FS_DEBUG_ALLOC, "Alloc VCC: %p(%Zd)\n", vcc, sizeof(struct fs_vcc));
@@ -961,7 +916,7 @@ static int fs_open(struct atm_vcc *atm_vcc)
 		    | TC_FLAGS_TRANSPARENT_PAYLOAD
 		    | TC_FLAGS_PACKET
 		    | (1 << 28)
-		    | TC_FLAGS_TYPE_UBR /* XXX Change to VBR -- PVDL */
+		    | TC_FLAGS_TYPE_UBR
 		    | TC_FLAGS_CAL0;
 		  break;
 		case ATM_AAL5:
@@ -978,13 +933,12 @@ static int fs_open(struct atm_vcc *atm_vcc)
 		/* Docs are vague about this atm_hdr field. By the way, the FS
 		 * chip makes odd errors if lower bits are set.... -- REW */
 		tc->atm_hdr =  (vpi << 20) | (vci << 4); 
+		tmc0 = 0;
 		{
 			int pcr = atm_pcr_goal (txtp);
 
 			fs_dprintk (FS_DEBUG_OPEN, "pcr = %d.\n", pcr);
 
-			/* XXX Hmm. officially we're only allowed to do this if rounding 
-			   is round_down -- REW */
 			if (IS_FS50(dev)) {
 				if (pcr > 51840000/53/8)  pcr = 51840000/53/8;
 			} else {
@@ -1055,9 +1009,7 @@ static int fs_open(struct atm_vcc *atm_vcc)
 		if (bfp >= FS_NR_FREE_POOLS) {
 			fs_dprintk (FS_DEBUG_OPEN, "No free pool fits sdu: %d.\n", 
 				    atm_vcc->qos.rxtp.max_sdu);
-			/* XXX Cleanup? -- Would just calling fs_close work??? -- REW */
 
-			/* XXX clear tx inuse. Close TX part? */
 			dev->atm_vccs[vcc->channo] = NULL;
 			kfree (vcc);
 			return -EINVAL;
@@ -1084,7 +1036,7 @@ static int fs_open(struct atm_vcc *atm_vcc)
 			submit_command (dev, &dev->hp_txq, 
 					QE_CMD_REG_WR | QE_CMD_IMM_INQ,
 					0x80 + vcc->channo,
-					(vpi << 16) | vci, 0 ); /* XXX -- Use defines. */
+					(vpi << 16) | vci, 0 );
 		}
 		submit_command (dev, &dev->hp_txq, 
 				QE_CMD_RX_EN | QE_CMD_IMM_INQ | vcc->channo,
@@ -1114,13 +1066,6 @@ static void fs_close(struct atm_vcc *atm_vcc)
 	if (vcc->last_skb) {
 		fs_dprintk (FS_DEBUG_QUEUE, "Waiting for skb %p to be sent.\n", 
 			    vcc->last_skb);
-		/* We're going to wait for the last packet to get sent on this VC. It would
-		   be impolite not to send them don't you think? 
-		   XXX
-		   We don't know which packets didn't get sent. So if we get interrupted in 
-		   this sleep_on, we'll lose any reference to these packets. Memory leak!
-		   On the other hand, it's awfully convenient that we can abort a "close" that
-		   is taking too long. Maybe just use non-interruptible sleep on? -- REW */
 		interruptible_sleep_on (& vcc->close_wait);
 	}
 
@@ -1128,8 +1073,6 @@ static void fs_close(struct atm_vcc *atm_vcc)
 	rxtp = &atm_vcc->qos.rxtp;
   
 
-	/* See App note XXX (Unpublished as of now) for the reason for the 
-	   removal of the "CMD_IMM_INQ" part of the TX_PURGE_INH... -- REW */
 
 	if (DO_DIRECTION (txtp)) {
 		submit_command (dev,  &dev->hp_txq,
@@ -1224,57 +1167,6 @@ static int fs_send (struct atm_vcc *atm_vcc, struct sk_buff *skb)
 
 /* Some function placeholders for functions we don't yet support. */
 
-#if 0
-static int fs_ioctl(struct atm_dev *dev,unsigned int cmd,void __user *arg)
-{
-	func_enter ();
-	func_exit ();
-	return -ENOIOCTLCMD;
-}
-
-
-static int fs_getsockopt(struct atm_vcc *vcc,int level,int optname,
-			 void __user *optval,int optlen)
-{
-	func_enter ();
-	func_exit ();
-	return 0;
-}
-
-
-static int fs_setsockopt(struct atm_vcc *vcc,int level,int optname,
-			 void __user *optval,int optlen)
-{
-	func_enter ();
-	func_exit ();
-	return 0;
-}
-
-
-static void fs_phy_put(struct atm_dev *dev,unsigned char value,
-		       unsigned long addr)
-{
-	func_enter ();
-	func_exit ();
-}
-
-
-static unsigned char fs_phy_get(struct atm_dev *dev,unsigned long addr)
-{
-	func_enter ();
-	func_exit ();
-	return 0;
-}
-
-
-static int fs_change_qos(struct atm_vcc *vcc,struct atm_qos *qos,int flags)
-{
-	func_enter ();
-	func_exit ();
-	return 0;
-};
-
-#endif
 
 
 static const struct atmdev_ops ops = {
@@ -1295,7 +1187,7 @@ static const struct atmdev_ops ops = {
 
 static void __devinit undocumented_pci_fix (struct pci_dev *pdev)
 {
-	int tint;
+	u32 tint;
 
 	/* The Windows driver says: */
 	/* Switch off FireStream Retry Limit Threshold 
@@ -1456,12 +1348,7 @@ static int __devinit init_fp (struct fs_dev *dev,
 
 static inline int nr_buffers_in_freepool (struct fs_dev *dev, struct freepool *fp)
 {
-#if 0
-	/* This seems to be unreliable.... */
-	return read_fs (dev, FP_CNT (fp->offset));
-#else
 	return fp->n;
-#endif
 }
 
 
@@ -1503,11 +1390,6 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
 		ne->skb = skb;
 		ne->fp = fp;
 
-		/*
-		 * FIXME: following code encodes and decodes
-		 * machine pointers (could be 64-bit) into a
-		 * 32-bit register.
-		 */
 
 		qe_tmp = read_fs (dev, FP_EA(fp->offset));
 		fs_dprintk (FS_DEBUG_QUEUE, "link at %x\n", qe_tmp);
@@ -1519,7 +1401,7 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
 			write_fs (dev, FP_SA(fp->offset), virt_to_bus(ne));
 
 		write_fs (dev, FP_EA(fp->offset), virt_to_bus (ne));
-		fp->n++;   /* XXX Atomic_inc? */
+		fp->n++;
 		write_fs (dev, FP_CTU(fp->offset), 1);
 	}
 
@@ -1596,7 +1478,7 @@ static irqreturn_t fs_irq (int irq, void *dev_id)
 
 	/* print the bits in the ISR register. */
 	if (fs_debug & FS_DEBUG_IRQ) {
-		/* The FS_DEBUG things are unneccesary here. But this way it is
+		/* The FS_DEBUG things are unnecessary here. But this way it is
 		   clear for grep that these are debug prints. */
 		fs_dprintk (FS_DEBUG_IRQ,  "IRQ status:");
 		for (i=0;i<27;i++) 
@@ -1689,17 +1571,17 @@ static int __devinit fs_init (struct fs_dev *dev)
 		  | (0 * SARMODE0_SHADEN) /* We don't use shadow registers. */
 		  | (1 * SARMODE0_INTMODE_READCLEAR)
 		  | (1 * SARMODE0_CWRE)
-		  | IS_FS50(dev)?SARMODE0_PRPWT_FS50_5: 
-		                 SARMODE0_PRPWT_FS155_3
+		  | (IS_FS50(dev) ? SARMODE0_PRPWT_FS50_5:
+			  SARMODE0_PRPWT_FS155_3)
 		  | (1 * SARMODE0_CALSUP_1)
-		  | IS_FS50 (dev)?(0
+		  | (IS_FS50(dev) ? (0
 				   | SARMODE0_RXVCS_32
 				   | SARMODE0_ABRVCS_32 
 				   | SARMODE0_TXVCS_32):
 		                  (0
 				   | SARMODE0_RXVCS_1k
 				   | SARMODE0_ABRVCS_1k 
-				   | SARMODE0_TXVCS_1k));
+				   | SARMODE0_TXVCS_1k)));
 
 	/* 10ms * 100 is 1 second. That should be enough, as AN3:9 says it takes
 	   1ms. */
@@ -1710,7 +1592,7 @@ static int __devinit fs_init (struct fs_dev *dev)
 		/* This bit is documented as "RESERVED" */
 		if (isr & ISR_INIT_ERR) {
 			printk (KERN_ERR "Error initializing the FS... \n");
-			return 1;
+			goto unmap;
 		}
 		if (isr & ISR_INIT) {
 			fs_dprintk (FS_DEBUG_INIT, "Ha! Initialized OK!\n");
@@ -1723,17 +1605,16 @@ static int __devinit fs_init (struct fs_dev *dev)
 
 	if (!to) {
 		printk (KERN_ERR "timeout initializing the FS... \n");
-		return 1;
+		goto unmap;
 	}
 
-	/* XXX fix for fs155 */
 	dev->channel_mask = 0x1f; 
 	dev->channo = 0;
 
 	/* AN3: 10 */
 	write_fs (dev, SARMODE1, 0 
-		  | (fs_keystream * SARMODE1_DEFHEC) /* XXX PHY */
-		  | ((loopback == 1) * SARMODE1_TSTLP) /* XXX Loopback mode enable... */
+		  | (fs_keystream * SARMODE1_DEFHEC)
+		  | ((loopback == 1) * SARMODE1_TSTLP)
 		  | (1 * SARMODE1_DCRM)
 		  | (1 * SARMODE1_DCOAM)
 		  | (0 * SARMODE1_OAMCRC)
@@ -1749,7 +1630,7 @@ static int __devinit fs_init (struct fs_dev *dev)
 		  | (1 * SARMODE1_HECM1)
 		  | (1 * SARMODE1_HECM0)
 		  | (1 << 12) /* That's what hang's driver does. Program to 0 */
-		  | (0 * 0xff) /* XXX FS155 */);
+		  | (0 * 0xff));
 
 
 	/* Cal prescale etc */
@@ -1802,8 +1683,7 @@ static int __devinit fs_init (struct fs_dev *dev)
 
 	if (!dev->atm_vccs) {
 		printk (KERN_WARNING "Couldn't allocate memory for VCC buffers. Woops!\n");
-		/* XXX Clean up..... */
-		return 1;
+		goto unmap;
 	}
 
 	dev->tx_inuse = kzalloc (dev->nchannels / 8 /* bits/byte */ , GFP_KERNEL);
@@ -1812,8 +1692,7 @@ static int __devinit fs_init (struct fs_dev *dev)
 
 	if (!dev->tx_inuse) {
 		printk (KERN_WARNING "Couldn't allocate memory for tx_inuse bits!\n");
-		/* XXX Clean up..... */
-		return 1;
+		goto unmap;
 	}
 	/* -- RAS1 : FS155 and 50 differ. Default (0) should be OK for both */
 	/* -- RAS2 : FS50 only: Default is OK. */
@@ -1839,8 +1718,7 @@ static int __devinit fs_init (struct fs_dev *dev)
 	dev->irq = pci_dev->irq;
 	if (request_irq (dev->irq, fs_irq, IRQF_SHARED, "firestream", dev)) {
 		printk (KERN_WARNING "couldn't get irq %d for firestream.\n", pci_dev->irq);
-		/* XXX undo all previous stuff... */
-		return 1;
+		goto unmap;
 	}
 	fs_dprintk (FS_DEBUG_INIT, "Grabbed irq %d for dev at %p.\n", dev->irq, dev);
   
@@ -1890,6 +1768,9 @@ static int __devinit fs_init (struct fs_dev *dev)
   
 	func_exit ();
 	return 0;
+unmap:
+	iounmap(dev->base);
+	return 1;
 }
 
 static int __devinit firestream_init_one (struct pci_dev *pci_dev,
@@ -1938,28 +1819,10 @@ static void __devexit firestream_remove_one (struct pci_dev *pdev)
   
 	func_enter ();
 
-#if 0
-	printk ("hptxq:\n");
-	for (i=0;i<60;i++) {
-		printk ("%d: %08x %08x %08x %08x \n", 
-			i, pq[qp].cmd, pq[qp].p0, pq[qp].p1, pq[qp].p2);
-		qp++;
-		if (qp >= 60) qp = 0;
-	}
-
-	printk ("descriptors:\n");
-	for (i=0;i<60;i++) {
-		printk ("%d: %p: %08x %08x %p %p\n", 
-			i, da[qd], dq[qd].flags, dq[qd].bsa, dq[qd].skb, dq[qd].dev);
-		qd++;
-		if (qd >= 60) qd = 0;
-	}
-#endif
 
 	for (dev = fs_boards;dev != NULL;dev=nxtdev) {
 		fs_dprintk (FS_DEBUG_CLEANUP, "Releasing resources for dev at %p.\n", dev);
 
-		/* XXX Hit all the tx channels too! */
 
 		for (i=0;i < dev->nchannels;i++) {
 			if (dev->atm_vccs[i]) {
@@ -1972,7 +1835,6 @@ static void __devexit firestream_remove_one (struct pci_dev *pdev)
 			}
 		}
 
-		/* XXX Wait a while for the chip to release all buffers. */
 
 		for (i=0;i < FS_NR_FREE_POOLS;i++) {
 			for (fp=bus_to_virt (read_fs (dev, FP_SA(dev->rx_fp[i].offset)));
@@ -2012,6 +1874,7 @@ static void __devexit firestream_remove_one (struct pci_dev *pdev)
 		for (i=0;i < FS_NR_RX_QUEUES;i++)
 			free_queue (dev, &dev->rx_rq[i]);
 
+		iounmap(dev->base);
 		fs_dprintk (FS_DEBUG_ALLOC, "Free fs-dev: %p\n", dev);
 		nxtdev = dev->next;
 		kfree (dev);
@@ -2021,10 +1884,8 @@ static void __devexit firestream_remove_one (struct pci_dev *pdev)
 }
 
 static struct pci_device_id firestream_pci_tbl[] = {
-	{ PCI_VENDOR_ID_FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS50, 
-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, FS_IS50},
-	{ PCI_VENDOR_ID_FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS155, 
-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, FS_IS155},
+	{ PCI_VDEVICE(FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS50), FS_IS50},
+	{ PCI_VDEVICE(FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS155), FS_IS155},
 	{ 0, }
 };
 
@@ -2056,6 +1917,3 @@ module_init(firestream_init_module);
 module_exit(firestream_cleanup_module);
 
 MODULE_LICENSE("GPL");
-
-
-

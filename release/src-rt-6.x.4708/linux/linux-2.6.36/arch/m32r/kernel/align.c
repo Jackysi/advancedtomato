@@ -581,4 +581,3 @@ int handle_unaligned_access(unsigned long insn32, struct pt_regs *regs)
 
 	return res;
 }
-

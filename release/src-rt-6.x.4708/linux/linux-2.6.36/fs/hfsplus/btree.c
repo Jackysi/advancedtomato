@@ -22,6 +22,7 @@ struct hfs_btree *hfs_btree_open(struct super_block *sb, u32 id)
 	struct hfs_btree *tree;
 	struct hfs_btree_header_rec *head;
 	struct address_space *mapping;
+	struct inode *inode;
 	struct page *page;
 	unsigned int size;
 
@@ -33,9 +34,10 @@ struct hfs_btree *hfs_btree_open(struct super_block *sb, u32 id)
 	spin_lock_init(&tree->hash_lock);
 	tree->sb = sb;
 	tree->cnid = id;
-	tree->inode = iget(sb, id);
-	if (!tree->inode)
+	inode = hfsplus_iget(sb, id);
+	if (IS_ERR(inode))
 		goto free_tree;
+	tree->inode = inode;
 
 	mapping = tree->inode->i_mapping;
 	page = read_mapping_page(mapping, 0, NULL);
@@ -182,7 +184,9 @@ struct hfs_bnode *hfs_bmap_alloc(struct hfs_btree *tree)
 	struct hfs_bnode *node, *next_node;
 	struct page **pagep;
 	u32 nidx, idx;
-	u16 off, len;
+	unsigned off;
+	u16 off16;
+	u16 len;
 	u8 *data, byte, m;
 	int i;
 
@@ -209,7 +213,8 @@ struct hfs_bnode *hfs_bmap_alloc(struct hfs_btree *tree)
 	node = hfs_bnode_find(tree, nidx);
 	if (IS_ERR(node))
 		return node;
-	len = hfs_brec_lenoff(node, 2, &off);
+	len = hfs_brec_lenoff(node, 2, &off16);
+	off = off16;
 
 	off += node->page_offset;
 	pagep = node->page + (off >> PAGE_CACHE_SHIFT);
@@ -254,7 +259,8 @@ struct hfs_bnode *hfs_bmap_alloc(struct hfs_btree *tree)
 			return next_node;
 		node = next_node;
 
-		len = hfs_brec_lenoff(node, 0, &off);
+		len = hfs_brec_lenoff(node, 0, &off16);
+		off = off16;
 		off += node->page_offset;
 		pagep = node->page + (off >> PAGE_CACHE_SHIFT);
 		data = kmap(*pagep);

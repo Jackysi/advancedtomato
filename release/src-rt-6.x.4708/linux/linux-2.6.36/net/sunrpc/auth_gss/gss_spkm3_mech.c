@@ -76,7 +76,7 @@ simple_get_netobj(const void *p, const void *end, struct xdr_netobj *res)
 	q = (const void *)((const char *)p + len);
 	if (unlikely(q > end || q < p))
 		return ERR_PTR(-EFAULT);
-	res->data = kmemdup(p, len, GFP_KERNEL);
+	res->data = kmemdup(p, len, GFP_NOFS);
 	if (unlikely(res->data == NULL))
 		return ERR_PTR(-ENOMEM);
 	return q;
@@ -84,13 +84,14 @@ simple_get_netobj(const void *p, const void *end, struct xdr_netobj *res)
 
 static int
 gss_import_sec_context_spkm3(const void *p, size_t len,
-				struct gss_ctx *ctx_id)
+				struct gss_ctx *ctx_id,
+				gfp_t gfp_mask)
 {
 	const void *end = (const void *)((const char *)p + len);
 	struct	spkm3_ctx *ctx;
 	int	version;
 
-	if (!(ctx = kzalloc(sizeof(*ctx), GFP_KERNEL)))
+	if (!(ctx = kzalloc(sizeof(*ctx), gfp_mask)))
 		goto out_err;
 
 	p = simple_get_bytes(p, end, &version, sizeof(version));
@@ -99,6 +100,7 @@ gss_import_sec_context_spkm3(const void *p, size_t len,
 	if (version != 1) {
 		dprintk("RPC:       unknown spkm3 token format: "
 				"obsolete nfs-utils?\n");
+		p = ERR_PTR(-EINVAL);
 		goto out_err_free_ctx;
 	}
 
@@ -134,8 +136,10 @@ gss_import_sec_context_spkm3(const void *p, size_t len,
 	if (IS_ERR(p))
 		goto out_err_free_intg_alg;
 
-	if (p != end)
+	if (p != end) {
+		p = ERR_PTR(-EFAULT);
 		goto out_err_free_intg_key;
+	}
 
 	ctx_id->internal_ctx_id = ctx;
 
@@ -217,6 +221,7 @@ static struct pf_desc gss_spkm3_pfs[] = {
 static struct gss_api_mech gss_spkm3_mech = {
 	.gm_name	= "spkm3",
 	.gm_owner	= THIS_MODULE,
+	.gm_oid		= {7, "\053\006\001\005\005\001\003"},
 	.gm_ops		= &gss_spkm3_ops,
 	.gm_pf_num	= ARRAY_SIZE(gss_spkm3_pfs),
 	.gm_pfs		= gss_spkm3_pfs,

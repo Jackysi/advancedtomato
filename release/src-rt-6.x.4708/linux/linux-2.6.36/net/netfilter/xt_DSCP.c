@@ -9,7 +9,7 @@
  *
  * See RFC2474 for a description of the DSCP field within the IP Header.
 */
-
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
@@ -20,97 +20,145 @@
 #include <linux/netfilter/xt_DSCP.h>
 
 MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
-MODULE_DESCRIPTION("x_tables DSCP modification module");
+MODULE_DESCRIPTION("Xtables: DSCP/TOS field modification");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_DSCP");
 MODULE_ALIAS("ip6t_DSCP");
+MODULE_ALIAS("ipt_TOS");
+MODULE_ALIAS("ip6t_TOS");
 
-static unsigned int target(struct sk_buff **pskb,
-			   const struct net_device *in,
-			   const struct net_device *out,
-			   unsigned int hooknum,
-			   const struct xt_target *target,
-			   const void *targinfo)
+static unsigned int
+dscp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_DSCP_info *dinfo = targinfo;
-	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(*pskb)) >> XT_DSCP_SHIFT;
+	const struct xt_DSCP_info *dinfo = par->targinfo;
+	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(skb)) >> XT_DSCP_SHIFT;
 
 	if (dscp != dinfo->dscp) {
-		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
+		if (!skb_make_writable(skb, sizeof(struct iphdr)))
 			return NF_DROP;
 
-		ipv4_change_dsfield(ip_hdr(*pskb), (__u8)(~XT_DSCP_MASK),
+		ipv4_change_dsfield(ip_hdr(skb), (__u8)(~XT_DSCP_MASK),
 				    dinfo->dscp << XT_DSCP_SHIFT);
 
 	}
 	return XT_CONTINUE;
 }
 
-static unsigned int target6(struct sk_buff **pskb,
-			    const struct net_device *in,
-			    const struct net_device *out,
-			    unsigned int hooknum,
-			    const struct xt_target *target,
-			    const void *targinfo)
+static unsigned int
+dscp_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	const struct xt_DSCP_info *dinfo = targinfo;
-	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(*pskb)) >> XT_DSCP_SHIFT;
+	const struct xt_DSCP_info *dinfo = par->targinfo;
+	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(skb)) >> XT_DSCP_SHIFT;
 
 	if (dscp != dinfo->dscp) {
-		if (!skb_make_writable(pskb, sizeof(struct ipv6hdr)))
+		if (!skb_make_writable(skb, sizeof(struct ipv6hdr)))
 			return NF_DROP;
 
-		ipv6_change_dsfield(ipv6_hdr(*pskb), (__u8)(~XT_DSCP_MASK),
+		ipv6_change_dsfield(ipv6_hdr(skb), (__u8)(~XT_DSCP_MASK),
 				    dinfo->dscp << XT_DSCP_SHIFT);
 	}
 	return XT_CONTINUE;
 }
 
-static int checkentry(const char *tablename,
-		      const void *e_void,
-		      const struct xt_target *target,
-		      void *targinfo,
-		      unsigned int hook_mask)
+static int dscp_tg_check(const struct xt_tgchk_param *par)
 {
-	const u_int8_t dscp = ((struct xt_DSCP_info *)targinfo)->dscp;
+	const struct xt_DSCP_info *info = par->targinfo;
 
-	if ((dscp > XT_DSCP_MAX)) {
-		printk(KERN_WARNING "DSCP: dscp %x out of range\n", dscp);
-		return 0;
+	if (info->dscp > XT_DSCP_MAX) {
+		pr_info("dscp %x out of range\n", info->dscp);
+		return -EDOM;
 	}
-	return 1;
+	return 0;
 }
 
-static struct xt_target xt_dscp_target[] = {
+static unsigned int
+tos_tg(struct sk_buff *skb, const struct xt_action_param *par)
+{
+	const struct xt_tos_target_info *info = par->targinfo;
+	struct iphdr *iph = ip_hdr(skb);
+	u_int8_t orig, nv;
+
+	orig = ipv4_get_dsfield(iph);
+	nv   = (orig & ~info->tos_mask) ^ info->tos_value;
+
+	if (orig != nv) {
+		if (!skb_make_writable(skb, sizeof(struct iphdr)))
+			return NF_DROP;
+		iph = ip_hdr(skb);
+		ipv4_change_dsfield(iph, 0, nv);
+	}
+
+	return XT_CONTINUE;
+}
+
+static unsigned int
+tos_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+{
+	const struct xt_tos_target_info *info = par->targinfo;
+	struct ipv6hdr *iph = ipv6_hdr(skb);
+	u_int8_t orig, nv;
+
+	orig = ipv6_get_dsfield(iph);
+	nv   = (orig & info->tos_mask) ^ info->tos_value;
+
+	if (orig != nv) {
+		if (!skb_make_writable(skb, sizeof(struct iphdr)))
+			return NF_DROP;
+		iph = ipv6_hdr(skb);
+		ipv6_change_dsfield(iph, 0, nv);
+	}
+
+	return XT_CONTINUE;
+}
+
+static struct xt_target dscp_tg_reg[] __read_mostly = {
 	{
 		.name		= "DSCP",
-		.family		= AF_INET,
-		.checkentry	= checkentry,
-		.target		= target,
+		.family		= NFPROTO_IPV4,
+		.checkentry	= dscp_tg_check,
+		.target		= dscp_tg,
 		.targetsize	= sizeof(struct xt_DSCP_info),
 		.table		= "mangle",
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "DSCP",
-		.family		= AF_INET6,
-		.checkentry	= checkentry,
-		.target		= target6,
+		.family		= NFPROTO_IPV6,
+		.checkentry	= dscp_tg_check,
+		.target		= dscp_tg6,
 		.targetsize	= sizeof(struct xt_DSCP_info),
 		.table		= "mangle",
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "TOS",
+		.revision	= 1,
+		.family		= NFPROTO_IPV4,
+		.table		= "mangle",
+		.target		= tos_tg,
+		.targetsize	= sizeof(struct xt_tos_target_info),
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "TOS",
+		.revision	= 1,
+		.family		= NFPROTO_IPV6,
+		.table		= "mangle",
+		.target		= tos_tg6,
+		.targetsize	= sizeof(struct xt_tos_target_info),
 		.me		= THIS_MODULE,
 	},
 };
 
-static int __init xt_dscp_target_init(void)
+static int __init dscp_tg_init(void)
 {
-	return xt_register_targets(xt_dscp_target, ARRAY_SIZE(xt_dscp_target));
+	return xt_register_targets(dscp_tg_reg, ARRAY_SIZE(dscp_tg_reg));
 }
 
-static void __exit xt_dscp_target_fini(void)
+static void __exit dscp_tg_exit(void)
 {
-	xt_unregister_targets(xt_dscp_target, ARRAY_SIZE(xt_dscp_target));
+	xt_unregister_targets(dscp_tg_reg, ARRAY_SIZE(dscp_tg_reg));
 }
 
-module_init(xt_dscp_target_init);
-module_exit(xt_dscp_target_fini);
+module_init(dscp_tg_init);
+module_exit(dscp_tg_exit);

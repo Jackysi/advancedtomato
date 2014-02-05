@@ -54,4 +54,3 @@ extern int compaq_nvram_store	(void __iomem *rom_start);
 #endif
 
 #endif
-

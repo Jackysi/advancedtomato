@@ -1,4 +1,4 @@
-/* $Id: hfc_2bds0.c,v 1.18.2.6 2004/02/11 13:21:33 keil Exp $
+/* $Id: hfc_2bds0.c,v 1.18.2.6 2004/02/11 13:21:33 Exp $
  *
  * specific routines for CCD's HFC 2BDS0
  *
@@ -11,6 +11,8 @@
  */
 
 #include <linux/init.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
 #include "hisax.h"
 #include "hfc_2bds0.h"
 #include "isdnl1.h"
@@ -1019,7 +1021,8 @@ hfc_dbusy_timer(struct IsdnCardState *cs)
 static unsigned int
 *init_send_hfcd(int cnt)
 {
-	int i, *send;
+	int i;
+	unsigned *send;
 
 	if (!(send = kmalloc(cnt * sizeof(unsigned int), GFP_ATOMIC))) {
 		printk(KERN_WARNING

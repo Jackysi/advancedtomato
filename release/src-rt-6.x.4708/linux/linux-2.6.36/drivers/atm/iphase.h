@@ -819,12 +819,6 @@ typedef struct srv_cls_param {
         u32 tbe;                /* Transient Buffer Exposure (24-bit) */
         u32 frtt;               /* Fixed Round Trip Time (24-bit) */
  
-#if 0   /* Additional Parameters of TM 4.0 */
-bits  31          30           29          28       27-25 24-22 21-19  18-9
------------------------------------------------------------------------------
-| NRM present | TRM prsnt | CDF prsnt | ADTF prsnt | NRM | TRM | CDF | ADTF |
------------------------------------------------------------------------------
-#endif /* 0 */
  
         u8 nrm;                 /* Max # of Cells for each forward RM
                                         cell (3-bit) */
@@ -1022,10 +1016,11 @@ typedef struct iadev_t {
 	struct dle_q rx_dle_q;  
 	struct free_desc_q *rx_free_desc_qhead;  
 	struct sk_buff_head rx_dma_q;  
-        spinlock_t rx_lock, misc_lock;
+	spinlock_t rx_lock;
 	struct atm_vcc **rx_open;	/* list of all open VCs */  
         u16 num_rx_desc, rx_buf_sz, rxing;
-        u32 rx_pkt_ram, rx_tmp_cnt, rx_tmp_jif;
+        u32 rx_pkt_ram, rx_tmp_cnt;
+        unsigned long rx_tmp_jif;
         void __iomem *RX_DESC_BASE_ADDR;
         u32 drop_rxpkt, drop_rxcell, rx_cell_cnt, rx_pkt_cnt;
 	struct atm_dev *next_board;	/* other iphase devices */  

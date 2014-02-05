@@ -36,6 +36,7 @@
 #include <linux/errno.h>
 #include <asm/system.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/ipmi.h>
@@ -43,6 +44,7 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/compat.h>
+#include <linux/smp_lock.h>
 
 struct ipmi_file_private
 {
@@ -100,7 +102,9 @@ static int ipmi_fasync(int fd, struct file *file, int on)
 	struct ipmi_file_private *priv = file->private_data;
 	int                      result;
 
+	lock_kernel(); /* could race against open() otherwise */
 	result = fasync_helper(fd, file, on, &priv->fasync_queue);
+	unlock_kernel();
 
 	return (result);
 }
@@ -121,6 +125,7 @@ static int ipmi_open(struct inode *inode, struct file *file)
 	if (!priv)
 		return -ENOMEM;
 
+	lock_kernel();
 	priv->file = file;
 
 	rv = ipmi_create_user(if_num,
@@ -129,7 +134,7 @@ static int ipmi_open(struct inode *inode, struct file *file)
 			      &(priv->user));
 	if (rv) {
 		kfree(priv);
-		return rv;
+		goto out;
 	}
 
 	file->private_data = priv;
@@ -144,7 +149,9 @@ static int ipmi_open(struct inode *inode, struct file *file)
 	priv->default_retries = -1;
 	priv->default_retry_time_ms = 0;
 
-	return 0;
+out:
+	unlock_kernel();
+	return rv;
 }
 
 static int ipmi_release(struct inode *inode, struct file *file)
@@ -156,9 +163,6 @@ static int ipmi_release(struct inode *inode, struct file *file)
 	if (rv)
 		return rv;
 
-	ipmi_fasync (-1, file, 0);
-
-	/* FIXME - free the messages in the list. */
 	kfree(priv);
 
 	return 0;
@@ -223,8 +227,7 @@ static int handle_send_req(ipmi_user_t     user,
 	return rv;
 }
 
-static int ipmi_ioctl(struct inode  *inode,
-		      struct file   *file,
+static int ipmi_ioctl(struct file   *file,
 		      unsigned int  cmd,
 		      unsigned long data)
 {
@@ -625,6 +628,23 @@ static int ipmi_ioctl(struct inode  *inode,
 	return rv;
 }
 
+/*
+ * Note: it doesn't make sense to take the BKL here but
+ *       not in compat_ipmi_ioctl. -arnd
+ */
+static long ipmi_unlocked_ioctl(struct file   *file,
+			        unsigned int  cmd,
+			        unsigned long data)
+{
+	int ret;
+
+	lock_kernel();
+	ret = ipmi_ioctl(file, cmd, data);
+	unlock_kernel();
+
+	return ret;
+}
+
 #ifdef CONFIG_COMPAT
 
 /*
@@ -797,7 +817,7 @@ static long compat_ipmi_ioctl(struct file *filep, unsigned int cmd,
 		if (copy_to_user(precv64, &recv64, sizeof(recv64)))
 			return -EFAULT;
 
-		rc = ipmi_ioctl(filep->f_path.dentry->d_inode, filep,
+		rc = ipmi_ioctl(filep,
 				((cmd == COMPAT_IPMICTL_RECEIVE_MSG)
 				 ? IPMICTL_RECEIVE_MSG
 				 : IPMICTL_RECEIVE_MSG_TRUNC),
@@ -814,14 +834,14 @@ static long compat_ipmi_ioctl(struct file *filep, unsigned int cmd,
 		return rc;
 	}
 	default:
-		return ipmi_ioctl(filep->f_path.dentry->d_inode, filep, cmd, arg);
+		return ipmi_ioctl(filep, cmd, arg);
 	}
 }
 #endif
 
 static const struct file_operations ipmi_fops = {
 	.owner		= THIS_MODULE,
-	.ioctl		= ipmi_ioctl,
+	.unlocked_ioctl	= ipmi_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl   = compat_ipmi_ioctl,
 #endif
@@ -865,7 +885,7 @@ static void ipmi_new_smi(int if_num, struct device *device)
 	entry->dev = dev;
 
 	mutex_lock(&reg_list_mutex);
-	class_device_create(ipmi_class, NULL, dev, device, "ipmi%d", if_num);
+	device_create(ipmi_class, device, dev, NULL, "ipmi%d", if_num);
 	list_add(&entry->link, &reg_list);
 	mutex_unlock(&reg_list_mutex);
 }
@@ -883,7 +903,7 @@ static void ipmi_smi_gone(int if_num)
 			break;
 		}
 	}
-	class_device_destroy(ipmi_class, dev);
+	device_destroy(ipmi_class, dev);
 	mutex_unlock(&reg_list_mutex);
 }
 
@@ -938,7 +958,7 @@ static __exit void cleanup_ipmi(void)
 	mutex_lock(&reg_list_mutex);
 	list_for_each_entry_safe(entry, entry2, &reg_list, link) {
 		list_del(&entry->link);
-		class_device_destroy(ipmi_class, entry->dev);
+		device_destroy(ipmi_class, entry->dev);
 		kfree(entry);
 	}
 	mutex_unlock(&reg_list_mutex);
@@ -951,3 +971,4 @@ module_exit(cleanup_ipmi);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Corey Minyard <minyard@mvista.com>");
 MODULE_DESCRIPTION("Linux device interface for the IPMI message handler.");
+MODULE_ALIAS("platform:ipmi_si");

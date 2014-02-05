@@ -1,4 +1,4 @@
-/* $Id: netjet.h,v 2.8.2.2 2004/01/12 22:52:28 keil Exp $
+/* $Id: netjet.h,v 2.8.2.2 2004/01/12 22:52:28 Exp $
  *
  * NETjet common header file
  *
@@ -11,8 +11,6 @@
  * of the GNU General Public License, incorporated herein by reference.
  *
  */
-
-extern const char *CardType[];
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
@@ -69,4 +67,3 @@ void netjet_fill_dma(struct BCState *bcs);
 void netjet_interrupt(int intno, void *dev_id);
 void inittiger(struct IsdnCardState *cs);
 void release_io_netjet(struct IsdnCardState *cs);
-

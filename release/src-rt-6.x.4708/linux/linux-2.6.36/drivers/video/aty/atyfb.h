@@ -126,6 +126,7 @@ union aty_pll {
      */
 
 struct atyfb_par {
+	u32 pseudo_palette[16];
 	struct { u8 red, green, blue; } palette[256];
 	const struct aty_dac_ops *dac_ops;
 	const struct aty_pll_ops *pll_ops;
@@ -186,6 +187,8 @@ struct atyfb_par {
 	int mtrr_reg;
 #endif
 	u32 mem_cntl;
+	struct crtc saved_crtc;
+	union aty_pll saved_pll;
 };
 
     /*
@@ -216,6 +219,7 @@ struct atyfb_par {
 #define M64F_XL_DLL		0x00080000
 #define M64F_MFB_FORCE_4	0x00100000
 #define M64F_HW_TRIPLE		0x00200000
+#define M64F_XL_MEM		0x00400000
     /*
      *  Register access
      */
@@ -285,7 +289,7 @@ static inline void aty_st_8(int regindex, u8 val, const struct atyfb_par *par)
 }
 
 #if defined(CONFIG_PM) || defined(CONFIG_PMAC_BACKLIGHT) || \
-defined (CONFIG_FB_ATY_GENERIC_LCD) || defined (CONFIG_FB_ATY_BACKLIGHT)
+	defined(CONFIG_FB_ATY_GENERIC_LCD) || defined(CONFIG_FB_ATY_BACKLIGHT)
 extern void aty_st_lcd(int index, u32 val, const struct atyfb_par *par);
 extern u32 aty_ld_lcd(int index, const struct atyfb_par *par);
 #endif
@@ -362,4 +366,3 @@ extern u8   aty_ld_pll_ct(int offset, const struct atyfb_par *par);
 void atyfb_copyarea(struct fb_info *info, const struct fb_copyarea *area);
 void atyfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect);
 void atyfb_imageblit(struct fb_info *info, const struct fb_image *image);
-

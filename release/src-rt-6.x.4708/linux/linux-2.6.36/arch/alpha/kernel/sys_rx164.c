@@ -72,8 +72,8 @@ rx164_end_irq(unsigned int irq)
 		rx164_enable_irq(irq);
 }
 
-static struct hw_interrupt_type rx164_irq_type = {
-	.typename	= "RX164",
+static struct irq_chip rx164_irq_type = {
+	.name		= "RX164",
 	.startup	= rx164_startup_irq,
 	.shutdown	= rx164_disable_irq,
 	.enable		= rx164_enable_irq,
@@ -163,17 +163,6 @@ rx164_init_irq(void)
 static int __init
 rx164_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
-#if 0
-	static char irq_tab_pass1[6][5] __initdata = {
-	  /*INT   INTA  INTB  INTC   INTD */
-	  { 16+3, 16+3, 16+8, 16+13, 16+18},      /* IdSel 5,  slot 2 */
-	  { 16+5, 16+5, 16+10, 16+15, 16+20},     /* IdSel 6,  slot 0 */
-	  { 16+4, 16+4, 16+9, 16+14, 16+19},      /* IdSel 7,  slot 1 */
-	  { -1,     -1,    -1,    -1,   -1},      /* IdSel 8, PCI/ISA bridge */
-	  { 16+2, 16+2, 16+7, 16+12, 16+17},      /* IdSel 9,  slot 3 */
-	  { 16+1, 16+1, 16+6, 16+11, 16+16},      /* IdSel 10, slot 4 */
-	};
-#else
 	static char irq_tab[6][5] __initdata = {
 	  /*INT   INTA  INTB  INTC   INTD */
 	  { 16+0, 16+0, 16+6, 16+11, 16+16},      /* IdSel 5,  slot 0 */
@@ -183,7 +172,6 @@ rx164_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 	  { 16+3, 16+3, 16+9, 16+14, 16+19},      /* IdSel 9,  slot 3 */
 	  { 16+4, 16+4, 16+10, 16+15, 16+5},      /* IdSel 10, PCI-PCI */
 	};
-#endif
 	const long min_idsel = 5, max_idsel = 10, irqs_per_slot = 5;
 
 	/* JRP - Need to figure out how to distinguish pass1 from pass2,

@@ -17,162 +17,13 @@
 *! Jun 17 1999  Hendrik Ruijter Added gdb 4.18 support. 'X', 'qC' and 'qL'.
 *! Jul 21 1999  Bjorn Wesen     eLinux port
 *!
-*! $Log: kgdb.c,v $
-*! Revision 1.6  2005/01/14 10:12:17  starvik
-*! KGDB on separate port.
-*! Console fixes from 2.4.
-*!
-*! Revision 1.5  2004/10/07 13:59:08  starvik
-*! Corrected call to set_int_vector
-*!
-*! Revision 1.4  2003/04/09 05:20:44  starvik
-*! Merge of Linux 2.5.67
-*!
-*! Revision 1.3  2003/01/21 19:11:08  starvik
-*! Modified include path for new dir layout
-*!
-*! Revision 1.2  2002/11/19 14:35:24  starvik
-*! Changes from linux 2.4
-*! Changed struct initializer syntax to the currently preferred notation
-*!
-*! Revision 1.1  2001/12/17 13:59:27  bjornw
-*! Initial revision
-*!
-*! Revision 1.6  2001/10/09 13:10:03  matsfg
-*! Added $ on registers and removed some underscores
-*!
-*! Revision 1.5  2001/04/17 13:58:39  orjanf
-*! * Renamed CONFIG_KGDB to CONFIG_ETRAX_KGDB.
-*!
-*! Revision 1.4  2001/02/23 13:45:19  bjornw
-*! config.h check
-*!
-*! Revision 1.3  2001/01/31 18:08:23  orjanf
-*! Removed kgdb_handle_breakpoint from being the break 8 handler.
-*!
-*! Revision 1.2  2001/01/12 14:22:25  orjanf
-*! Updated kernel debugging support to work with ETRAX 100LX.
-*!
-*! Revision 1.1  2000/07/10 16:25:21  bjornw
-*! Initial revision
-*!
-*! Revision 1.1.1.1  1999/12/03 14:57:31  bjornw
-*! * Initial version of arch/cris, the latest CRIS architecture with an MMU.
-*!   Mostly copied from arch/etrax100 with appropriate renames of files.
-*!   The mm/ subdir is copied from arch/i386.
-*!   This does not compile yet at all.
-*!
-*!
-*! Revision 1.4  1999/07/22 17:25:25  bjornw
-*! Dont wait for + in putpacket if we havent hit the initial breakpoint yet. Added a kgdb_init function which sets up the break and irq vectors.
-*!
-*! Revision 1.3  1999/07/21 19:51:18  bjornw
-*! Check if the interrupting char is a ctrl-C, ignore otherwise.
-*!
-*! Revision 1.2  1999/07/21 18:09:39  bjornw
-*! Ported to eLinux architecture, and added some kgdb documentation.
-*!
-*!
 *!---------------------------------------------------------------------------
-*!
-*! $Id: kgdb.c,v 1.6 2005/01/14 10:12:17 starvik Exp $
 *!
 *! (C) Copyright 1999, Axis Communications AB, LUND, SWEDEN
 *!
 *!**************************************************************************/
 /* @(#) cris_stub.c 1.3 06/17/99 */
 
-/*
- *  kgdb usage notes:
- *  -----------------
- *
- * If you select CONFIG_ETRAX_KGDB in the configuration, the kernel will be 
- * built with different gcc flags: "-g" is added to get debug infos, and
- * "-fomit-frame-pointer" is omitted to make debugging easier. Since the
- * resulting kernel will be quite big (approx. > 7 MB), it will be stripped
- * before compresion. Such a kernel will behave just as usually, except if
- * given a "debug=<device>" command line option. (Only serial devices are
- * allowed for <device>, i.e. no printers or the like; possible values are
- * machine depedend and are the same as for the usual debug device, the one
- * for logging kernel messages.) If that option is given and the device can be
- * initialized, the kernel will connect to the remote gdb in trap_init(). The
- * serial parameters are fixed to 8N1 and 115200 bps, for easyness of
- * implementation.
- *
- * To start a debugging session, start that gdb with the debugging kernel
- * image (the one with the symbols, vmlinux.debug) named on the command line.
- * This file will be used by gdb to get symbol and debugging infos about the
- * kernel. Next, select remote debug mode by
- *    target remote <device>
- * where <device> is the name of the serial device over which the debugged
- * machine is connected. Maybe you have to adjust the baud rate by
- *    set remotebaud <rate>
- * or also other parameters with stty:
- *    shell stty ... </dev/...
- * If the kernel to debug has already booted, it waited for gdb and now
- * connects, and you'll see a breakpoint being reported. If the kernel isn't
- * running yet, start it now. The order of gdb and the kernel doesn't matter.
- * Another thing worth knowing about in the getting-started phase is how to
- * debug the remote protocol itself. This is activated with
- *    set remotedebug 1
- * gdb will then print out each packet sent or received. You'll also get some
- * messages about the gdb stub on the console of the debugged machine.
- *
- * If all that works, you can use lots of the usual debugging techniques on
- * the kernel, e.g. inspecting and changing variables/memory, setting
- * breakpoints, single stepping and so on. It's also possible to interrupt the
- * debugged kernel by pressing C-c in gdb. Have fun! :-)
- *
- * The gdb stub is entered (and thus the remote gdb gets control) in the
- * following situations:
- *
- *  - If breakpoint() is called. This is just after kgdb initialization, or if
- *    a breakpoint() call has been put somewhere into the kernel source.
- *    (Breakpoints can of course also be set the usual way in gdb.)
- *    In eLinux, we call breakpoint() in init/main.c after IRQ initialization.
- *
- *  - If there is a kernel exception, i.e. bad_super_trap() or die_if_kernel()
- *    are entered. All the CPU exceptions are mapped to (more or less..., see
- *    the hard_trap_info array below) appropriate signal, which are reported
- *    to gdb. die_if_kernel() is usually called after some kind of access
- *    error and thus is reported as SIGSEGV.
- *
- *  - When panic() is called. This is reported as SIGABRT.
- *
- *  - If C-c is received over the serial line, which is treated as
- *    SIGINT.
- *
- * Of course, all these signals are just faked for gdb, since there is no
- * signal concept as such for the kernel. It also isn't possible --obviously--
- * to set signal handlers from inside gdb, or restart the kernel with a
- * signal.
- *
- * Current limitations:
- *
- *  - While the kernel is stopped, interrupts are disabled for safety reasons
- *    (i.e., variables not changing magically or the like). But this also
- *    means that the clock isn't running anymore, and that interrupts from the
- *    hardware may get lost/not be served in time. This can cause some device
- *    errors...
- *
- *  - When single-stepping, only one instruction of the current thread is
- *    executed, but interrupts are allowed for that time and will be serviced
- *    if pending. Be prepared for that.
- *
- *  - All debugging happens in kernel virtual address space. There's no way to
- *    access physical memory not mapped in kernel space, or to access user
- *    space. A way to work around this is using get_user_long & Co. in gdb
- *    expressions, but only for the current process.
- *
- *  - Interrupting the kernel only works if interrupts are currently allowed,
- *    and the interrupt of the serial line isn't blocked by some other means
- *    (IPL too high, disabled, ...)
- *
- *  - The gdb stub is currently not reentrant, i.e. errors that happen therein
- *    (e.g. accessing invalid memory) may not be caught correctly. This could
- *    be removed in future by introducing a stack of struct registers.
- *
- */
 
 /*
  *  To enable debugger support, two things need to happen.  One, a
@@ -234,7 +85,7 @@
 #include <asm/setup.h>
 #include <asm/ptrace.h>
 
-#include <asm/arch/svinto.h>
+#include <arch/svinto.h>
 #include <asm/irq.h>
 
 static int kgdb_started = 0;
@@ -336,14 +187,6 @@ void putDebugChar (int val);
 
 void enableDebugIRQ (void);
 
-/* Returns the character equivalent of a nibble, bit 7, 6, 5, and 4 of a byte,
-   represented by int x. */
-static char highhex (int x);
-
-/* Returns the character equivalent of a nibble, bit 3, 2, 1, and 0 of a byte,
-   represented by int x. */
-static char lowhex (int x);
-
 /* Returns the integer equivalent of a hexadecimal character. */
 static int hex (char ch);
 
@@ -414,9 +257,6 @@ extern unsigned char executing_task;
 /* Run-length encoding maximum length. Send 64 at most. */
 #define RUNLENMAX 64
 
-/* Definition of all valid hexadecimal characters */
-static const char hexchars[] = "0123456789abcdef";
-
 /* The inbound/outbound buffers used in packet I/O */
 static char remcomInBuffer[BUFMAX];
 static char remcomOutBuffer[BUFMAX];
@@ -476,7 +316,6 @@ static int register_size[] =
    part of the code in order to avoid horrible addressing modes. */
 static registers reg;
 
-/* FIXME: Should this be used? Delete otherwise. */
 /* Contains the assumed consistency state of the register image. Uses the
    enum error_type for state information. */
 static int consistency_status = SUCCESS;
@@ -557,8 +396,8 @@ gdb_cris_strtol (const char *s, char **endptr, int base)
 	char *sd;
 	int x = 0;
 	
-	for (s1 = (char*)s; (sd = gdb_cris_memchr(hexchars, *s1, base)) != NULL; ++s1)
-		x = x * base + (sd - hexchars);
+	for (s1 = (char*)s; (sd = gdb_cris_memchr(hex_asc, *s1, base)) != NULL; ++s1)
+		x = x * base + (sd - hex_asc);
         
         if (endptr)
         {
@@ -728,22 +567,6 @@ read_register (char regno, unsigned int *valptr)
 }
 
 /********************************** Packet I/O ******************************/
-/* Returns the character equivalent of a nibble, bit 7, 6, 5, and 4 of a byte,
-   represented by int x. */
-static inline char
-highhex(int x)
-{
-	return hexchars[(x >> 4) & 0xf];
-}
-
-/* Returns the character equivalent of a nibble, bit 3, 2, 1, and 0 of a byte,
-   represented by int x. */
-static inline char
-lowhex(int x)
-{
-	return hexchars[x & 0xf];
-}
-
 /* Returns the integer equivalent of a hexadecimal character. */
 static int
 hex (char ch)
@@ -770,7 +593,6 @@ mem2hex(char *buf, unsigned char *mem, int count)
 	int ch;
         
         if (mem == NULL) {
-                /* Bogus read from m0. FIXME: What constitutes a valid address? */
                 for (i = 0; i < count; i++) {
                         *buf++ = '0';
                         *buf++ = '0';
@@ -779,8 +601,7 @@ mem2hex(char *buf, unsigned char *mem, int count)
                 /* Valid mem address. */
                 for (i = 0; i < count; i++) {
                         ch = *mem++;
-                        *buf++ = highhex (ch);
-                        *buf++ = lowhex (ch);
+			buf = pack_hex_byte(buf, ch);
                 }
         }
         
@@ -915,9 +736,9 @@ putpacket(char *buffer)
 				src++;
 			}
 		}
-		putDebugChar ('#');
-		putDebugChar (highhex (checksum));
-		putDebugChar (lowhex (checksum));
+		putDebugChar('#');
+		putDebugChar(hex_asc_hi(checksum));
+		putDebugChar(hex_asc_lo(checksum));
 	} while(kgdb_started && (getDebugChar() != '+'));
 }
 
@@ -953,13 +774,12 @@ stub_is_stopped(int sigval)
         
 	/* Send trap type (converted to signal) */
 
-	*ptr++ = 'T';	
-	*ptr++ = highhex (sigval);
-	*ptr++ = lowhex (sigval);
+	*ptr++ = 'T';
+	ptr = pack_hex_byte(ptr, sigval);
 
 	/* Send register contents. We probably only need to send the
 	 * PC, frame pointer and stack pointer here. Other registers will be
-	 * explicitely asked for. But for now, send all. 
+	 * explicitly asked for. But for now, send all.
 	 */
 	
 	for (regno = R0; regno <= USP; regno++) {
@@ -968,9 +788,7 @@ stub_is_stopped(int sigval)
                 status = read_register (regno, &reg_cont);
                 
 		if (status == SUCCESS) {
-                        
-                        *ptr++ = highhex (regno);
-                        *ptr++ = lowhex (regno);
+			ptr = pack_hex_byte(ptr, regno);
                         *ptr++ = ':';
 
                         ptr = mem2hex(ptr, (unsigned char *)&reg_cont,
@@ -995,8 +813,8 @@ stub_is_stopped(int sigval)
 	/* Store thread:r...; with the executing task TID. */
 	gdb_cris_strcpy (&remcomOutBuffer[pos], "thread:");
 	pos += gdb_cris_strlen ("thread:");
-	remcomOutBuffer[pos++] = highhex (executing_task);
-	remcomOutBuffer[pos++] = lowhex (executing_task);
+	remcomOutBuffer[pos++] = hex_asc_hi(executing_task);
+	remcomOutBuffer[pos++] = hex_asc_lo(executing_task);
 	gdb_cris_strcpy (&remcomOutBuffer[pos], ";");
 #endif
 
@@ -1184,8 +1002,8 @@ handle_exception (int sigval)
 				   Success: SAA, where AA is the signal number.
 				   Failure: void. */
 				remcomOutBuffer[0] = 'S';
-				remcomOutBuffer[1] = highhex (sigval);
-				remcomOutBuffer[2] = lowhex (sigval);
+				remcomOutBuffer[1] = hex_asc_hi(sigval);
+				remcomOutBuffer[2] = hex_asc_lo(sigval);
 				remcomOutBuffer[3] = 0;
 				break;
 				
@@ -1271,8 +1089,6 @@ handle_exception (int sigval)
 				
 			case 'q':
 			case 'Q':
-				/* Query of general interest. qXXXX
-				   Set general value XXXX. QXXXX=yyyy */
 				{
 					int pos;
 					int nextpos;
@@ -1282,23 +1098,23 @@ handle_exception (int sigval)
 						case 'C':
 							/* Identify the remote current thread. */
 							gdb_cris_strcpy (&remcomOutBuffer[0], "QC");
-							remcomOutBuffer[2] = highhex (current_thread_c);
-							remcomOutBuffer[3] = lowhex (current_thread_c);
+							remcomOutBuffer[2] = hex_asc_hi(current_thread_c);
+							remcomOutBuffer[3] = hex_asc_lo(current_thread_c);
 							remcomOutBuffer[4] = '\0';
 							break;
 						case 'L':
 							gdb_cris_strcpy (&remcomOutBuffer[0], "QM");
 							/* Reply with number of threads. */
 							if (os_is_started()) {
-								remcomOutBuffer[2] = highhex (number_of_tasks);
-								remcomOutBuffer[3] = lowhex (number_of_tasks);
+								remcomOutBuffer[2] = hex_asc_hi(number_of_tasks);
+								remcomOutBuffer[3] = hex_asc_lo(number_of_tasks);
 							}
 							else {
-								remcomOutBuffer[2] = highhex (0);
-								remcomOutBuffer[3] = lowhex (1);
+								remcomOutBuffer[2] = hex_asc_hi(0);
+								remcomOutBuffer[3] = hex_asc_lo(1);
 							}
 							/* Done with the reply. */
-							remcomOutBuffer[4] = lowhex (1);
+							remcomOutBuffer[4] = hex_asc_lo(1);
 							pos = 5;
 							/* Expects the argument thread id. */
 							for (; pos < (5 + HEXCHARS_IN_THREAD_ID); pos++)
@@ -1309,16 +1125,16 @@ handle_exception (int sigval)
 								for (thread_id = 0; thread_id < number_of_tasks; thread_id++) {
 									nextpos = pos + HEXCHARS_IN_THREAD_ID - 1;
 									for (; pos < nextpos; pos ++)
-										remcomOutBuffer[pos] = lowhex (0);
-									remcomOutBuffer[pos++] = lowhex (thread_id);
+										remcomOutBuffer[pos] = hex_asc_lo(0);
+									remcomOutBuffer[pos++] = hex_asc_lo(thread_id);
 								}
 							}
 							else {
 								/* Store the thread identifier of the boot task. */
 								nextpos = pos + HEXCHARS_IN_THREAD_ID - 1;
 								for (; pos < nextpos; pos ++)
-									remcomOutBuffer[pos] = lowhex (0);
-								remcomOutBuffer[pos++] = lowhex (current_thread_c);
+									remcomOutBuffer[pos] = hex_asc_lo(0);
+								remcomOutBuffer[pos++] = hex_asc_lo(current_thread_c);
 							}
 							remcomOutBuffer[pos] = '\0';
 							break;

@@ -17,21 +17,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-/*
- * BCM1x80/1x55-specific PCI support
- *
- * This module provides the glue between Linux's PCI subsystem
- * and the hardware.  We basically provide glue for accessing
- * configuration space, and set up the translation for I/O
- * space accesses.
- *
- * To access configuration space, we use ioremap.  In the 32-bit
- * kernel, this consumes either 4 or 8 page table pages, and 16MB of
- * kernel mapped memory.  Hopefully neither of these should be a huge
- * problem.
- *
- * XXX: AT THIS TIME, ONLY the NATIVE PCI-X INTERFACE IS SUPPORTED.
- */
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
@@ -49,15 +34,15 @@
  * Macros for calculating offsets into config space given a device
  * structure or dev/fun/reg
  */
-#define CFGOFFSET(bus,devfn,where) (((bus)<<16)+((devfn)<<8)+(where))
-#define CFGADDR(bus,devfn,where)   CFGOFFSET((bus)->number,(devfn),where)
+#define CFGOFFSET(bus, devfn, where) (((bus)<<16)+((devfn)<<8)+(where))
+#define CFGADDR(bus, devfn, where)   CFGOFFSET((bus)->number, (devfn), where)
 
 static void *cfg_space;
 
 #define PCI_BUS_ENABLED	1
 #define PCI_DEVICE_MODE	2
 
-static int bcm1480_bus_status = 0;
+static int bcm1480_bus_status;
 
 #define PCI_BRIDGE_DEVICE  0
 
@@ -74,7 +59,7 @@ static inline void WRITECFG32(u32 addr, u32 data)
 	*(u32 *)(cfg_space + (addr & ~3)) = data;
 }
 
-int pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	if (pin == 0)
 		return -1;
@@ -178,8 +163,8 @@ struct pci_ops bcm1480_pci_ops = {
 
 static struct resource bcm1480_mem_resource = {
 	.name	= "BCM1480 PCI MEM",
-	.start	= 0x30000000UL,
-	.end	= 0x3fffffffUL,
+	.start	= A_BCM1480_PHYS_PCI_MEM_MATCH_BYTES,
+	.end	= A_BCM1480_PHYS_PCI_MEM_MATCH_BYTES + 0xfffffffUL,
 	.flags	= IORESOURCE_MEM,
 };
 
@@ -202,7 +187,6 @@ static int __init bcm1480_pcibios_init(void)
 {
 	uint32_t cmdreg;
 	uint64_t reg;
-	extern int pci_probe_only;
 
 	/* CFE will assign PCI resources */
 	pci_probe_only = 1;
@@ -230,7 +214,7 @@ static int __init bcm1480_pcibios_init(void)
 			printk
 			    ("PCI: Skipping PCI probe.  Bus is not initialized.\n");
 			iounmap(cfg_space);
-			return 1; /* XXX */
+			return 1;
 		}
 		bcm1480_bus_status |= PCI_BUS_ENABLED;
 	}
@@ -241,26 +225,16 @@ static int __init bcm1480_pcibios_init(void)
 			cmdreg | 0x10);
 	cmdreg = READCFG32(CFGOFFSET(0, PCI_DEVFN(PCI_BRIDGE_DEVICE, 0), 0x40));
 
-	/*
-	 * Establish mappings in KSEG2 (kernel virtual) to PCI I/O
-	 * space.  Use "match bytes" policy to make everything look
-	 * little-endian.  So, you need to also set
-	 * CONFIG_SWAP_IO_SPACE, but this is the combination that
-	 * works correctly with most of Linux's drivers.
-	 * XXX ehs: Should this happen in PCI Device mode?
-	 */
 
 	bcm1480_controller.io_map_base = (unsigned long)
 		ioremap(A_BCM1480_PHYS_PCI_IO_MATCH_BYTES, 65536);
 	bcm1480_controller.io_map_base -= bcm1480_controller.io_offset;
 	set_io_port_base(bcm1480_controller.io_map_base);
-	isa_slot_offset = (unsigned long)
-		ioremap(A_BCM1480_PHYS_PCI_MEM_MATCH_BYTES, 1024*1024);
 
 	register_pci_controller(&bcm1480_controller);
 
 #ifdef CONFIG_VGA_CONSOLE
-	take_over_console(&vga_con,0,MAX_NR_CONSOLES-1,1);
+	take_over_console(&vga_con, 0, MAX_NR_CONSOLES-1, 1);
 #endif
 	return 0;
 }

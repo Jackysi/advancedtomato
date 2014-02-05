@@ -6,6 +6,9 @@
 #include <linux/mman.h>
 #include <linux/shm.h>
 #include <linux/sched.h>
+#include <linux/io.h>
+#include <linux/random.h>
+#include <asm/cputype.h>
 #include <asm/system.h>
 
 #define COLOUR_ALIGN(addr,pgoff)		\
@@ -37,8 +40,8 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	 * caches alias.  This is indicated by bits 9 and 21 of the
 	 * cache type register.
 	 */
-	cache_type = read_cpuid(CPUID_CACHETYPE);
-	if (cache_type != read_cpuid(CPUID_ID)) {
+	cache_type = read_cpuid_cachetype();
+	if (cache_type != read_cpuid_id()) {
 		aliasing = (cache_type | cache_type >> 12) & (1 << 11);
 		if (aliasing)
 			do_align = filp || flags & MAP_SHARED;
@@ -52,7 +55,8 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	 * We enforce the MAP_FIXED case.
 	 */
 	if (flags & MAP_FIXED) {
-		if (aliasing && flags & MAP_SHARED && addr & (SHMLBA - 1))
+		if (aliasing && flags & MAP_SHARED &&
+		    (addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1))
 			return -EINVAL;
 		return addr;
 	}
@@ -77,6 +81,9 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	        start_addr = addr = TASK_UNMAPPED_BASE;
 	        mm->cached_hole_size = 0;
 	}
+	/* 8 bits of randomness in 20 address space bits */
+	if (current->flags & PF_RANDOMIZE)
+		addr += (get_random_int() % (1 << 8)) << PAGE_SHIFT;
 
 full_search:
 	if (do_align)
@@ -120,7 +127,9 @@ full_search:
  */
 int valid_phys_addr_range(unsigned long addr, size_t size)
 {
-	if (addr + size > __pa(high_memory))
+	if (addr < PHYS_OFFSET)
+		return 0;
+	if (addr + size > __pa(high_memory - 1) + 1)
 		return 0;
 
 	return 1;

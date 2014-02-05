@@ -303,4 +303,3 @@ void ax25_digi_invert(const ax25_digi *in, ax25_digi *out)
 		}
 	}
 }
-

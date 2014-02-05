@@ -27,6 +27,7 @@
 #include <linux/init.h>
 #include <linux/smp_lock.h>
 #include <linux/mutex.h>
+#include <linux/jiffies.h>
 
 #include <asm/hardware/dec21285.h>
 #include <asm/io.h>
@@ -57,8 +58,6 @@ static int gbWriteBase64Enable;
 static volatile unsigned char *FLASH_BASE;
 static int gbFlashSize = KFLASH_SIZE;
 static DEFINE_MUTEX(nwflash_mutex);
-
-extern spinlock_t gpio_lock;
 
 static int get_flash_id(void)
 {
@@ -95,8 +94,9 @@ static int get_flash_id(void)
 	return c2;
 }
 
-static int flash_ioctl(struct inode *inodep, struct file *filep, unsigned int cmd, unsigned long arg)
+static long flash_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
+	lock_kernel();
 	switch (cmd) {
 	case CMD_WRITE_DISABLE:
 		gbWriteBase64Enable = 0;
@@ -114,43 +114,30 @@ static int flash_ioctl(struct inode *inodep, struct file *filep, unsigned int cm
 	default:
 		gbWriteBase64Enable = 0;
 		gbWriteEnable = 0;
+		unlock_kernel();
 		return -EINVAL;
 	}
+	unlock_kernel();
 	return 0;
 }
 
 static ssize_t flash_read(struct file *file, char __user *buf, size_t size,
 			  loff_t *ppos)
 {
-	unsigned long p = *ppos;
-	unsigned int count = size;
-	int ret = 0;
+	ssize_t ret;
 
 	if (flashdebug)
-		printk(KERN_DEBUG "flash_read: flash_read: offset=0x%lX, "
-		       "buffer=%p, count=0x%X.\n", p, buf, count);
+		printk(KERN_DEBUG "flash_read: flash_read: offset=0x%llx, "
+		       "buffer=%p, count=0x%zx.\n", *ppos, buf, size);
+	/*
+	 * We now lock against reads and writes. --rmk
+	 */
+	if (mutex_lock_interruptible(&nwflash_mutex))
+		return -ERESTARTSYS;
 
-	if (count)
-		ret = -ENXIO;
+	ret = simple_read_from_buffer(buf, size, ppos, (void *)FLASH_BASE, gbFlashSize);
+	mutex_unlock(&nwflash_mutex);
 
-	if (p < gbFlashSize) {
-		if (count > gbFlashSize - p)
-			count = gbFlashSize - p;
-
-		/*
-		 * We now lock against reads and writes. --rmk
-		 */
-		if (mutex_lock_interruptible(&nwflash_mutex))
-			return -ERESTARTSYS;
-
-		ret = copy_to_user(buf, (void *)(FLASH_BASE + p), count);
-		if (ret == 0) {
-			ret = count;
-			*ppos += count;
-		} else
-			ret = -EFAULT;
-		mutex_unlock(&nwflash_mutex);
-	}
 	return ret;
 }
 
@@ -631,9 +618,9 @@ static void kick_open(void)
 	 * we want to write a bit pattern XXX1 to Xilinx to enable
 	 * the write gate, which will be open for about the next 2ms.
 	 */
-	spin_lock_irqsave(&gpio_lock, flags);
-	cpld_modify(1, 1);
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	spin_lock_irqsave(&nw_gpio_lock, flags);
+	nw_cpld_modify(CPLD_FLASH_WR_ENABLE, CPLD_FLASH_WR_ENABLE);
+	spin_unlock_irqrestore(&nw_gpio_lock, flags);
 
 	/*
 	 * let the ISA bus to catch on...
@@ -647,7 +634,7 @@ static const struct file_operations flash_fops =
 	.llseek		= flash_llseek,
 	.read		= flash_read,
 	.write		= flash_write,
-	.ioctl		= flash_ioctl,
+	.unlocked_ioctl	= flash_ioctl,
 };
 
 static struct miscdevice flash_miscdev =

@@ -9,15 +9,7 @@
  *
  *  E and F format directory handling
  */
-#include <linux/errno.h>
-#include <linux/fs.h>
-#include <linux/adfs_fs.h>
-#include <linux/time.h>
-#include <linux/stat.h>
-#include <linux/spinlock.h>
 #include <linux/buffer_head.h>
-#include <linux/string.h>
-
 #include "adfs.h"
 #include "dir_f.h"
 
@@ -122,9 +114,9 @@ adfs_dir_checkbyte(const struct adfs_dir *dir)
 		ptr.ptr8 = bufoff(bh, i);
 		end.ptr8 = ptr.ptr8 + last - i;
 
-		do
+		do {
 			dircheck = *ptr.ptr8++ ^ ror13(dircheck);
-		while (ptr.ptr8 < end.ptr8);
+		} while (ptr.ptr8 < end.ptr8);
 	}
 
 	/*
@@ -405,7 +397,6 @@ adfs_f_update(struct adfs_dir *dir, struct object_info *obj)
 	 */
 	dir->bh[dir->nr_buffers - 1]->b_data[sb->s_blocksize - 1] = ret;
 
-#if 1
 	{
 	const unsigned int blocksize_bits = sb->s_blocksize_bits;
 
@@ -423,18 +414,31 @@ adfs_f_update(struct adfs_dir *dir, struct object_info *obj)
 	if (adfs_dir_checkbyte(dir) != dir->dirtail.new.dircheckbyte)
 		goto bad_dir;
 	}
-#endif
 	for (i = dir->nr_buffers - 1; i >= 0; i--)
 		mark_buffer_dirty(dir->bh[i]);
 
 	ret = 0;
 out:
 	return ret;
-#if 1
 bad_dir:
 	adfs_error(dir->sb, "whoops!  I broke a directory!");
 	return -EIO;
-#endif
+}
+
+static int
+adfs_f_sync(struct adfs_dir *dir)
+{
+	int err = 0;
+	int i;
+
+	for (i = dir->nr_buffers - 1; i >= 0; i--) {
+		struct buffer_head *bh = dir->bh[i];
+		sync_dirty_buffer(bh);
+		if (buffer_req(bh) && !buffer_uptodate(bh))
+			err = -EIO;
+	}
+
+	return err;
 }
 
 static void
@@ -456,5 +460,6 @@ struct adfs_dir_ops adfs_f_dir_ops = {
 	.setpos		= adfs_f_setpos,
 	.getnext	= adfs_f_getnext,
 	.update		= adfs_f_update,
+	.sync		= adfs_f_sync,
 	.free		= adfs_f_free
 };

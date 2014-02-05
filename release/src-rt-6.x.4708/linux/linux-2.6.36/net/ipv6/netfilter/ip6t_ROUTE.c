@@ -114,13 +114,13 @@ route6(struct sk_buff *skb,
 	}
 
 	/* Drop old route. */
-	dst_release(skb->dst);
-	skb->dst = &rt->u.dst;
+	//dst_release(skb->dst);
+	//skb->dst = &rt->u.dst;
 	skb->dev = rt->rt6i_dev;
 	return 1;
 
  wrong_route:
-	dst_release(&rt->u.dst);
+	dst_release(&rt->dst);
  no_route:
 	if (!net_ratelimit())
 		return 0;
@@ -143,7 +143,7 @@ route6(struct sk_buff *skb,
  */
 static void ip_direct_send(struct sk_buff *skb)
 {
-	struct dst_entry *dst = skb->dst;
+	struct dst_entry *dst = skb_dst(skb);
 	struct hh_cache *hh = dst->hh;
 	unsigned seq;
 
@@ -255,13 +255,19 @@ target(struct sk_buff *skb,
        unsigned int hooknum,
        const struct xt_target *target,
        const void *targinfo)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 target(struct sk_buff *skb,
        const struct xt_target_param *par)
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36) */
+target(struct sk_buff *skb,
+       const struct xt_action_param *par)
 #endif
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 	const struct ip6t_route_target_info *route_info = targinfo;
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
+	const struct ip6t_route_target_info *route_info = par->targinfo;
+	unsigned int hooknum = par->hooknum;
 #else
 	const struct ip6t_route_target_info *route_info = par->targinfo;
 	unsigned int hooknum = par->hooknum;
@@ -285,10 +291,10 @@ target(struct sk_buff *skb,
 
 		if (ipv6h->hop_limit <= 1) {
 			/* Force OUTPUT device used as source address */
-			skb->dev = skb->dst->dev;
+			skb->dev = skb_dst(skb)->dev;
 
 			icmpv6_send(skb, ICMPV6_TIME_EXCEED, 
-				    ICMPV6_EXC_HOPLIMIT, 0, skb->dev);
+				    ICMPV6_EXC_HOPLIMIT, 0);
 
 			return NF_DROP;
 		}

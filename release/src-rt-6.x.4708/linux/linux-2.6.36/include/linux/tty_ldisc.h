@@ -99,12 +99,18 @@
  *	cease I/O to the tty driver. Can sleep. The driver should
  *	seek to perform this action quickly but should wait until
  *	any pending driver I/O is completed.
+ *
+ * void (*dcd_change)(struct tty_struct *tty, unsigned int status,
+ * 			struct timespec *ts)
+ *
+ *	Tells the discipline that the DCD pin has changed its status and
+ *	the relative timestamp. Pointer ts can be NULL.
  */
 
 #include <linux/fs.h>
 #include <linux/wait.h>
 
-struct tty_ldisc {
+struct tty_ldisc_ops {
 	int	magic;
 	char	*name;
 	int	num;
@@ -136,10 +142,17 @@ struct tty_ldisc {
 	void	(*receive_buf)(struct tty_struct *, const unsigned char *cp,
 			       char *fp, int count);
 	void	(*write_wakeup)(struct tty_struct *);
+	void	(*dcd_change)(struct tty_struct *, unsigned int,
+				struct timespec *);
 
 	struct  module *owner;
 	
 	int refcount;
+};
+
+struct tty_ldisc {
+	struct tty_ldisc_ops *ops;
+	atomic_t users;
 };
 
 #define TTY_LDISC_MAGIC	0x5403

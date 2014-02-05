@@ -129,7 +129,6 @@ registers, use byte operations only.
 //------------------------------------------------
 //
 #include "ip2types.h"
-#include "i2os.h"    /* For any o.s., compiler, or host-related issues */
 
 //-------------------------------------------------------------------------
 // Manifests for the I/O map:
@@ -560,7 +559,7 @@ Loadware may be sent to the board in two ways:
 
 2) It may be hard-coded into your source by including a .h file (typically
 	supplied by Computone), which declares a data array and initializes every
-	element. This acheives the same result as if an entire loadware file had 
+	element. This achieves the same result as if an entire loadware file had 
 	been read into the array.
 
 	This requires more data space in your program, but access to the file system
@@ -644,5 +643,9 @@ typedef union _loadHdrStr
 #define ABS_BIGGEST_BOX 16    // Absolute the most ports per box
 #define ABS_MOST_PORTS  (ABS_MAX_BOXES * ABS_BIGGEST_BOX)
 
-#endif   // I2HW_H
+#define I2_OUTSW(port, addr, count)	outsw((port), (addr), (((count)+1)/2))
+#define I2_OUTSB(port, addr, count)	outsb((port), (addr), (((count)+1))&-2)
+#define I2_INSW(port, addr, count)	insw((port), (addr), (((count)+1)/2))
+#define I2_INSB(port, addr, count)	insb((port), (addr), (((count)+1))&-2)
 
+#endif   // I2HW_H

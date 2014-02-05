@@ -37,7 +37,6 @@ static const char version[] =
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/in.h>
-#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -67,7 +66,6 @@ static unsigned int net_debug = NET_DEBUG;
 
 /* Information that need to be kept for each board. */
 struct net_local {
-	struct net_device_stats stats;
 	unsigned short receive_ptr;		/* What address in packet memory do we expect a recv_pkt_header? */
 	long open_time;				/* Useless example local info. */
 };
@@ -82,11 +80,11 @@ struct net_local {
 static int seeq8005_probe1(struct net_device *dev, int ioaddr);
 static int seeq8005_open(struct net_device *dev);
 static void seeq8005_timeout(struct net_device *dev);
-static int seeq8005_send_packet(struct sk_buff *skb, struct net_device *dev);
+static netdev_tx_t seeq8005_send_packet(struct sk_buff *skb,
+					struct net_device *dev);
 static irqreturn_t seeq8005_interrupt(int irq, void *dev_id);
 static void seeq8005_rx(struct net_device *dev);
 static int seeq8005_close(struct net_device *dev);
-static struct net_device_stats *seeq8005_get_stats(struct net_device *dev);
 static void set_multicast_list(struct net_device *dev);
 
 /* Example routines you must write ;->. */
@@ -144,6 +142,17 @@ out:
 	free_netdev(dev);
 	return ERR_PTR(err);
 }
+
+static const struct net_device_ops seeq8005_netdev_ops = {
+	.ndo_open		= seeq8005_open,
+	.ndo_stop		= seeq8005_close,
+	.ndo_start_xmit 	= seeq8005_send_packet,
+	.ndo_tx_timeout		= seeq8005_timeout,
+	.ndo_set_multicast_list = set_multicast_list,
+	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_set_mac_address 	= eth_mac_addr,
+	.ndo_validate_addr	= eth_validate_addr,
+};
 
 /* This is the real probe routine.  Linux has a history of friendly device
    probes on the ISA bus.  A good device probes avoids doing writes, and
@@ -219,19 +228,6 @@ static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
 		j+= SA_prom[i] = inw(SEEQ_BUFFER) & 0xff;
 	}
 
-#if 0
-	/* untested because I only have the one card */
-	if ( (j&0xff) != 0 ) {						/* checksum appears to be 8bit = 0 */
-		if (net_debug>1) {					/* check this before deciding that we have a card */
-			printk("seeq8005: prom sum error\n");
-		}
-		outw( old_stat, SEEQ_STATUS);
-		outw( old_dmaar, SEEQ_DMAAR);
-		outw( old_cfg1, SEEQ_CFG1);
-		retval = -ENODEV;
-		goto out;
-	}
-#endif
 
 	outw( SEEQCFG2_RESET, SEEQ_CFG2);				/* reset the card */
 	udelay(5);
@@ -256,41 +252,6 @@ static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
 		}
 	}
 
-#if 0
-	/*
-	 * testing the packet buffer memory doesn't work yet
-	 * but all other buffer accesses do
-	 *			- fixing is not a priority
-	 */
-	if (net_debug>1) {					/* test packet buffer memory */
-		printk("seeq8005: testing packet buffer ... ");
-		outw( SEEQCFG1_BUFFER_BUFFER, SEEQ_CFG1);
-		outw( SEEQCMD_FIFO_WRITE | SEEQCMD_SET_ALL_OFF, SEEQ_CMD);
-		outw( 0 , SEEQ_DMAAR);
-		for(i=0;i<32768;i++) {
-			outw(0x5a5a, SEEQ_BUFFER);
-		}
-		j=jiffies+HZ;
-		while ( ((inw(SEEQ_STATUS) & SEEQSTAT_FIFO_EMPTY) != SEEQSTAT_FIFO_EMPTY) && time_before(jiffies, j) )
-			mb();
-		outw( 0 , SEEQ_DMAAR);
-		while ( ((inw(SEEQ_STATUS) & SEEQSTAT_WINDOW_INT) != SEEQSTAT_WINDOW_INT) && time_before(jiffies, j+HZ))
-			mb();
-		if ( (inw(SEEQ_STATUS) & SEEQSTAT_WINDOW_INT) == SEEQSTAT_WINDOW_INT)
-			outw( SEEQCMD_WINDOW_INT_ACK | (inw(SEEQ_STATUS)& SEEQCMD_INT_MASK), SEEQ_CMD);
-		outw( SEEQCMD_FIFO_READ | SEEQCMD_SET_ALL_OFF, SEEQ_CMD);
-		j=0;
-		for(i=0;i<32768;i++) {
-			if (inw(SEEQ_BUFFER) != 0x5a5a)
-				j++;
-		}
-		if (j) {
-			printk("%i\n",j);
-		} else {
-			printk("ok.\n");
-		}
-	}
-#endif
 
 	if (net_debug  &&  version_printed++ == 0)
 		printk(version);
@@ -303,7 +264,8 @@ static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
 
 	/* Retrieve and print the ethernet address. */
 	for (i = 0; i < 6; i++)
-		printk(" %2.2x", dev->dev_addr[i] = SA_prom[i+6]);
+		dev->dev_addr[i] = SA_prom[i+6];
+	printk("%pM", dev->dev_addr);
 
 	if (dev->irq == 0xff)
 		;			/* Do nothing: a user-level program will set it. */
@@ -322,24 +284,8 @@ static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
 	   */
 	  dev->irq = 9;
 
-#if 0
-	{
-		 int irqval = request_irq(dev->irq, &seeq8005_interrupt, 0, "seeq8005", dev);
-		 if (irqval) {
-			 printk ("%s: unable to get IRQ %d (irqval=%d).\n", dev->name,
-					 dev->irq, irqval);
-			 retval = -EAGAIN;
-			 goto out;
-		 }
-	}
-#endif
-	dev->open		= seeq8005_open;
-	dev->stop		= seeq8005_close;
-	dev->hard_start_xmit 	= seeq8005_send_packet;
-	dev->tx_timeout		= seeq8005_timeout;
+	dev->netdev_ops = &seeq8005_netdev_ops;
 	dev->watchdog_timeo	= HZ/20;
-	dev->get_stats		= seeq8005_get_stats;
-	dev->set_multicast_list = set_multicast_list;
 	dev->flags &= ~IFF_MULTICAST;
 
 	return 0;
@@ -361,7 +307,7 @@ static int seeq8005_open(struct net_device *dev)
 	struct net_local *lp = netdev_priv(dev);
 
 	{
-		 int irqval = request_irq(dev->irq, &seeq8005_interrupt, 0, "seeq8005", dev);
+		 int irqval = request_irq(dev->irq, seeq8005_interrupt, 0, "seeq8005", dev);
 		 if (irqval) {
 			 printk ("%s: unable to get IRQ %d (irqval=%d).\n", dev->name,
 					 dev->irq, irqval);
@@ -385,19 +331,19 @@ static void seeq8005_timeout(struct net_device *dev)
 		   tx_done(dev) ? "IRQ conflict" : "network cable problem");
 	/* Try to restart the adaptor. */
 	seeq8005_init(dev, 1);
-	dev->trans_start = jiffies;
+	dev->trans_start = jiffies; /* prevent tx timeout */
 	netif_wake_queue(dev);
 }
 
-static int seeq8005_send_packet(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t seeq8005_send_packet(struct sk_buff *skb,
+					struct net_device *dev)
 {
-	struct net_local *lp = netdev_priv(dev);
 	short length = skb->len;
 	unsigned char *buf;
 
 	if (length < ETH_ZLEN) {
 		if (skb_padto(skb, ETH_ZLEN))
-			return 0;
+			return NETDEV_TX_OK;
 		length = ETH_ZLEN;
 	}
 	buf = skb->data;
@@ -406,12 +352,11 @@ static int seeq8005_send_packet(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	hardware_send_packet(dev, buf, length);
-	dev->trans_start = jiffies;
-	lp->stats.tx_bytes += length;
+	dev->stats.tx_bytes += length;
 	dev_kfree_skb (skb);
 	/* You might need to clean up and record Tx statistics here. */
 
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 /*
@@ -463,7 +408,7 @@ static irqreturn_t seeq8005_interrupt(int irq, void *dev_id)
 		if (status & SEEQSTAT_TX_INT) {
 			handled = 1;
 			outw( SEEQCMD_TX_INT_ACK | (status & SEEQCMD_INT_MASK), SEEQ_CMD);
-			lp->stats.tx_packets++;
+			dev->stats.tx_packets++;
 			netif_wake_queue(dev);	/* Inform upper layers. */
 		}
 		if (status & SEEQSTAT_RX_INT) {
@@ -531,11 +476,11 @@ static void seeq8005_rx(struct net_device *dev)
 		}
 
 		if (pkt_hdr & SEEQPKTS_ANY_ERROR) {				/* There was an error. */
-			lp->stats.rx_errors++;
-			if (pkt_hdr & SEEQPKTS_SHORT) lp->stats.rx_frame_errors++;
-			if (pkt_hdr & SEEQPKTS_DRIB) lp->stats.rx_frame_errors++;
-			if (pkt_hdr & SEEQPKTS_OVERSIZE) lp->stats.rx_over_errors++;
-			if (pkt_hdr & SEEQPKTS_CRC_ERR) lp->stats.rx_crc_errors++;
+			dev->stats.rx_errors++;
+			if (pkt_hdr & SEEQPKTS_SHORT) dev->stats.rx_frame_errors++;
+			if (pkt_hdr & SEEQPKTS_DRIB) dev->stats.rx_frame_errors++;
+			if (pkt_hdr & SEEQPKTS_OVERSIZE) dev->stats.rx_over_errors++;
+			if (pkt_hdr & SEEQPKTS_CRC_ERR) dev->stats.rx_crc_errors++;
 			/* skip over this packet */
 			outw( SEEQCMD_FIFO_WRITE | SEEQCMD_DMA_INT_ACK | (status & SEEQCMD_INT_MASK), SEEQ_CMD);
 			outw( (lp->receive_ptr & 0xff00)>>8, SEEQ_REA);
@@ -547,7 +492,7 @@ static void seeq8005_rx(struct net_device *dev)
 			skb = dev_alloc_skb(pkt_len);
 			if (skb == NULL) {
 				printk("%s: Memory squeeze, dropping packet.\n", dev->name);
-				lp->stats.rx_dropped++;
+				dev->stats.rx_dropped++;
 				break;
 			}
 			skb_reserve(skb, 2);	/* align data on 16 byte */
@@ -566,16 +511,14 @@ static void seeq8005_rx(struct net_device *dev)
 
 			skb->protocol=eth_type_trans(skb,dev);
 			netif_rx(skb);
-			dev->last_rx = jiffies;
-			lp->stats.rx_packets++;
-			lp->stats.rx_bytes += pkt_len;
+			dev->stats.rx_packets++;
+			dev->stats.rx_bytes += pkt_len;
 		}
 	} while ((--boguscount) && (pkt_hdr & SEEQPKTH_CHAIN));
 
 	/* If any worth-while packets have been received, netif_rx()
 	   has done a mark_bh(NET_BH) for us and will work on them
 	   when we get to the bottom-half routine. */
-	return;
 }
 
 /* The inverse routine to net_open(). */
@@ -599,15 +542,6 @@ static int seeq8005_close(struct net_device *dev)
 
 }
 
-/* Get the current statistics.	This may be called with the card open or
-   closed. */
-static struct net_device_stats *seeq8005_get_stats(struct net_device *dev)
-{
-	struct net_local *lp = netdev_priv(dev);
-
-	return &lp->stats;
-}
-
 /* Set or clear the multicast filter for this adaptor.
    num_addrs == -1	Promiscuous mode, receive all packets
    num_addrs == 0	Normal mode, clear multicast list
@@ -620,20 +554,6 @@ static void set_multicast_list(struct net_device *dev)
  * I _could_ do up to 6 addresses here, but won't (yet?)
  */
 
-#if 0
-	int ioaddr = dev->base_addr;
-/*
- * hmm, not even sure if my matching works _anyway_ - seem to be receiving
- * _everything_ . . .
- */
-
-	if (num_addrs) {			/* Enable promiscuous mode */
-		outw( (inw(SEEQ_CFG1) & ~SEEQCFG1_MATCH_MASK)| SEEQCFG1_MATCH_ALL,  SEEQ_CFG1);
-		dev->flags|=IFF_PROMISC;
-	} else {				/* Disable promiscuous mode, use normal mode */
-		outw( (inw(SEEQ_CFG1) & ~SEEQCFG1_MATCH_MASK)| SEEQCFG1_MATCH_BROAD, SEEQ_CFG1);
-	}
-#endif
 }
 
 void seeq8005_init(struct net_device *dev, int startp)
@@ -757,12 +677,3 @@ void __exit cleanup_module(void)
 }
 
 #endif /* MODULE */
-
-/*
- * Local variables:
- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c skeleton.c"
- *  version-control: t
- *  kept-new-versions: 5
- *  tab-width: 4
- * End:
- */

@@ -12,20 +12,12 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
-#include <linux/signal.h>
-#include <linux/sched.h>
 #include <linux/interrupt.h>
-#include <linux/irq.h>
+#include <linux/ftrace.h>
 
-#include <asm/mipsregs.h>
-#include <asm/addrspace.h>
 #include <asm/irq_cpu.h>
-
-#include <asm/sgi/ioc.h>
 #include <asm/sgi/hpc3.h>
 #include <asm/sgi/ip22.h>
-
-/* #define DEBUG_SGINT */
 
 /* So far nothing hangs here */
 #undef USE_LIO3_IRQ
@@ -159,12 +151,12 @@ static void indy_local1_irqdispatch(void)
 
 extern void ip22_be_interrupt(int irq);
 
-static void indy_buserror_irq(void)
+static void __irq_entry indy_buserror_irq(void)
 {
 	int irq = SGI_BUSERR_IRQ;
 
 	irq_enter();
-	kstat_this_cpu.irqs[irq]++;
+	kstat_incr_irqs_this_cpu(irq, irq_to_desc(irq));
 	ip22_be_interrupt(irq);
 	irq_exit();
 }
@@ -204,7 +196,6 @@ static struct irqaction map1_cascade = {
 #define SGI_INTERRUPTS	SGINT_LOCAL3
 #endif
 
-extern void indy_r4k_timer_interrupt(void);
 extern void indy_8254timer_irq(void);
 
 /*
@@ -243,7 +234,7 @@ asmlinkage void plat_irq_dispatch(void)
 	 * First we check for r4k counter/timer IRQ.
 	 */
 	if (pending & CAUSEF_IP7)
-		indy_r4k_timer_interrupt();
+		do_IRQ(SGI_TIMER_IRQ);
 	else if (pending & CAUSEF_IP2)
 		indy_local0_irqdispatch();
 	else if (pending & CAUSEF_IP3)

@@ -67,13 +67,13 @@ static struct dongle_driver ma600 = {
 
 static int __init ma600_sir_init(void)
 {
-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+	IRDA_DEBUG(2, "%s()\n", __func__);
 	return irda_register_dongle(&ma600);
 }
 
 static void __exit ma600_sir_cleanup(void)
 {
-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+	IRDA_DEBUG(2, "%s()\n", __func__);
 	irda_unregister_dongle(&ma600);
 }
 
@@ -88,7 +88,7 @@ static int ma600_open(struct sir_dev *dev)
 {
 	struct qos_info *qos = &dev->qos;
 
-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+	IRDA_DEBUG(2, "%s()\n", __func__);
 
 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
 
@@ -106,7 +106,7 @@ static int ma600_open(struct sir_dev *dev)
 
 static int ma600_close(struct sir_dev *dev)
 {
-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+	IRDA_DEBUG(2, "%s()\n", __func__);
 
 	/* Power off dongle */
 	sirdev_set_dtr_rts(dev, FALSE, FALSE);
@@ -176,7 +176,7 @@ static int ma600_change_speed(struct sir_dev *dev, unsigned speed)
 {
 	u8	byte;
 	
-	IRDA_DEBUG(2, "%s(), speed=%d (was %d)\n", __FUNCTION__,
+	IRDA_DEBUG(2, "%s(), speed=%d (was %d)\n", __func__,
 		speed, dev->speed);
 
 	/* dongle already reset, dongle and port at default speed (9600) */
@@ -192,7 +192,6 @@ static int ma600_change_speed(struct sir_dev *dev, unsigned speed)
 	/* Wait at least 10ms: fake wait_until_sent - 10 bits at 9600 baud*/
 	msleep(15);					/* old ma600 uses 15ms */
 
-#if 1
 	/* read-back of the control byte. ma600 is the first dongle driver
 	 * which uses this so there might be some unidentified issues.
 	 * Disable this in case of problems with readback.
@@ -201,13 +200,12 @@ static int ma600_change_speed(struct sir_dev *dev, unsigned speed)
 	sirdev_raw_read(dev, &byte, sizeof(byte));
 	if (byte != get_control_byte(speed))  {
 		IRDA_WARNING("%s(): bad control byte read-back %02x != %02x\n",
-			     __FUNCTION__, (unsigned) byte,
+			     __func__, (unsigned) byte,
 			     (unsigned) get_control_byte(speed));
 		return -1;
 	}
 	else
-		IRDA_DEBUG(2, "%s() control byte write read OK\n", __FUNCTION__);
-#endif
+		IRDA_DEBUG(2, "%s() control byte write read OK\n", __func__);
 
 	/* Set DTR, Set RTS */
 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
@@ -236,9 +234,9 @@ static int ma600_change_speed(struct sir_dev *dev, unsigned speed)
  * avoid the state machine complexity before we get things working
  */
 
-int ma600_reset(struct sir_dev *dev)
+static int ma600_reset(struct sir_dev *dev)
 {
-	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+	IRDA_DEBUG(2, "%s()\n", __func__);
 
 	/* Reset the dongle : set DTR low for 10 ms */
 	sirdev_set_dtr_rts(dev, FALSE, TRUE);
@@ -260,4 +258,3 @@ MODULE_ALIAS("irda-dongle-11"); /* IRDA_MA600_DONGLE */
 		
 module_init(ma600_sir_init);
 module_exit(ma600_sir_cleanup);
-

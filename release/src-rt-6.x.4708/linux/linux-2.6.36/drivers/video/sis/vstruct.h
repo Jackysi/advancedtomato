@@ -342,7 +342,7 @@ struct SiS_Private
 	unsigned short			SiS_RY4COE;
 	unsigned short			SiS_LCDHDES;
 	unsigned short			SiS_LCDVDES;
-	unsigned short			SiS_DDC_Port;
+	SISIOADDRESS			SiS_DDC_Port;
 	unsigned short			SiS_DDC_Index;
 	unsigned short			SiS_DDC_Data;
 	unsigned short			SiS_DDC_NData;
@@ -418,10 +418,6 @@ struct SiS_Private
 	const unsigned char		*SiS_HiTVSt2Timing;
 	const unsigned char		*SiS_HiTVGroup3Data;
 	const unsigned char		*SiS_HiTVGroup3Simu;
-#if 0
-	const unsigned char		*SiS_HiTVTextTiming;
-	const unsigned char		*SiS_HiTVGroup3Text;
-#endif
 
 	const struct SiS_Part2PortTbl	*SiS_CRT2Part2_1024x768_1;
 	const struct SiS_Part2PortTbl	*SiS_CRT2Part2_1024x768_2;
@@ -560,4 +556,3 @@ struct SiS_Private
 };
 
 #endif
-

@@ -155,4 +155,3 @@ enum {
 #define MI1_OP_INDIRECT_READ     3
 
 #endif /* _CXGB_ELMER0_H_ */
-

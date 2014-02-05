@@ -79,6 +79,11 @@ static int hfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		filp->f_pos++;
 		/* fall through */
 	case 1:
+		if (fd.entrylength > sizeof(entry) || fd.entrylength < 0) {
+			err = -EIO;
+			goto out;
+		}
+
 		hfs_bnode_read(fd.bnode, &entry, fd.entryoffset, fd.entrylength);
 		if (entry.type != HFS_CDR_THD) {
 			printk(KERN_ERR "hfs: bad catalog folder thread\n");
@@ -109,6 +114,12 @@ static int hfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 			err = -EIO;
 			goto out;
 		}
+
+		if (fd.entrylength > sizeof(entry) || fd.entrylength < 0) {
+			err = -EIO;
+			goto out;
+		}
+
 		hfs_bnode_read(fd.bnode, &entry, fd.entryoffset, fd.entrylength);
 		type = entry.type;
 		len = hfs_mac2asc(sb, strbuf, &fd.key->cat.CName);
@@ -280,17 +291,6 @@ static int hfs_rmdir(struct inode *dir, struct dentry *dentry)
 	return 0;
 }
 
-/*
- * hfs_rename()
- *
- * This is the rename() entry in the inode_operations structure for
- * regular HFS directories.  The purpose is to rename an existing
- * file or directory, given the inode for the current directory and
- * the name (and its length) of the existing file/directory and the
- * inode for the new directory and the name (and its length) of the
- * new file/directory.
- * XXX: how do you handle must_be dir?
- */
 static int hfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		      struct inode *new_dir, struct dentry *new_dentry)
 {

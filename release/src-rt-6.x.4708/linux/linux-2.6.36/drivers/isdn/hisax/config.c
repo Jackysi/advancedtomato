@@ -1,4 +1,4 @@
-/* $Id: config.c,v 2.84.2.5 2004/02/11 13:21:33 keil Exp $
+/* $Id: config.c,v 2.84.2.5 2004/02/11 13:21:33 Exp $
  *
  * Author       Karsten Keil
  * Copyright    by Karsten Keil      <keil@isdn4linux.de>
@@ -23,6 +23,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 #define HISAX_STATUS_BUFSIZE 4096
 
 /*
@@ -361,12 +362,6 @@ module_param_array(io1, int, NULL, 0);
 
 int nrcards;
 
-extern char *l1_revision;
-extern char *l2_revision;
-extern char *l3_revision;
-extern char *lli_revision;
-extern char *tei_revision;
-
 char *HiSax_getrev(const char *revision)
 {
 	char *rev;
@@ -590,15 +585,6 @@ static inline struct IsdnCardState *hisax_findcard(int driverid)
 /*
  * Find card with given card number
  */
-#if 0
-struct IsdnCardState *hisax_get_card(int cardnr)
-{
-	if ((cardnr <= nrcards) && (cardnr > 0))
-		if (cards[cardnr - 1].cs)
-			return cards[cardnr - 1].cs;
-	return NULL;
-}
-#endif  /*  0  */
 
 static int HiSax_readstatus(u_char __user *buf, int len, int id, int channel)
 {
@@ -801,7 +787,7 @@ static void closecard(int cardnr)
 	}
 	if (csta->cardmsg)
 		csta->cardmsg(csta, CARD_RELEASE, NULL);
-	if (csta->dbusytimer.function != NULL) // FIXME?
+	if (csta->dbusytimer.function != NULL)
 		del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
@@ -847,95 +833,10 @@ static int init_card(struct IsdnCardState *cs)
 	return 3;
 }
 
-static int checkcard(int cardnr, char *id, int *busy_flag, struct module *lockowner)
+static int __devinit hisax_cs_setup_card(struct IsdnCard *card)
 {
-	int ret = 0;
-	struct IsdnCard *card = cards + cardnr;
-	struct IsdnCardState *cs;
+	int ret;
 
-	cs = kzalloc(sizeof(struct IsdnCardState), GFP_ATOMIC);
-	if (!cs) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for IsdnCardState(card %d)\n",
-		       cardnr + 1);
-		goto out;
-	}
-	card->cs = cs;
-	spin_lock_init(&cs->statlock);
-	spin_lock_init(&cs->lock);
-	cs->chanlimit = 2;	/* maximum B-channel number */
-	cs->logecho = 0;	/* No echo logging */
-	cs->cardnr = cardnr;
-	cs->debug = L1_DEB_WARN;
-	cs->HW_Flags = 0;
-	cs->busy_flag = busy_flag;
-	cs->irq_flags = I4L_IRQ_FLAG;
-#if TEI_PER_CARD
-	if (card->protocol == ISDN_PTYPE_NI1)
-		test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
-#else
-	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
-#endif
-	cs->protocol = card->protocol;
-
-	if (card->typ <= 0 || card->typ > ISDN_CTYPE_COUNT) {
-		printk(KERN_WARNING
-		       "HiSax: Card Type %d out of range\n", card->typ);
-		goto outf_cs;
-	}
-	if (!(cs->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for dlog(card %d)\n", cardnr + 1);
-		goto outf_cs;
-	}
-	if (!(cs->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for status_buf(card %d)\n",
-		       cardnr + 1);
-		goto outf_dlog;
-	}
-	cs->stlist = NULL;
-	cs->status_read = cs->status_buf;
-	cs->status_write = cs->status_buf;
-	cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
-	cs->typ = card->typ;
-#ifdef MODULE
-	cs->iif.owner = lockowner;
-#endif
-	strcpy(cs->iif.id, id);
-	cs->iif.channels = 2;
-	cs->iif.maxbufsize = MAX_DATA_SIZE;
-	cs->iif.hl_hdrlen = MAX_HEADER_LEN;
-	cs->iif.features =
-		ISDN_FEATURE_L2_X75I |
-		ISDN_FEATURE_L2_HDLC |
-		ISDN_FEATURE_L2_HDLC_56K |
-		ISDN_FEATURE_L2_TRANS |
-		ISDN_FEATURE_L3_TRANS |
-#ifdef	CONFIG_HISAX_1TR6
-		ISDN_FEATURE_P_1TR6 |
-#endif
-#ifdef	CONFIG_HISAX_EURO
-		ISDN_FEATURE_P_EURO |
-#endif
-#ifdef	CONFIG_HISAX_NI1
-		ISDN_FEATURE_P_NI1 |
-#endif
-		0;
-
-	cs->iif.command = HiSax_command;
-	cs->iif.writecmd = NULL;
-	cs->iif.writebuf_skb = HiSax_writebuf_skb;
-	cs->iif.readstat = HiSax_readstatus;
-	register_isdn(&cs->iif);
-	cs->myid = cs->iif.channels;
-	printk(KERN_INFO
-	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
-	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
-	       (card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
-	       (card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
-	       (card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
-	       "NONE", cs->iif.id, cs->myid);
 	switch (card->typ) {
 #if CARD_TELES0
 	case ISDN_CTYPE_16_0:
@@ -1094,13 +995,115 @@ static int checkcard(int cardnr, char *id, int *busy_flag, struct module *lockow
 		printk(KERN_WARNING
 		       "HiSax: Support for %s Card not selected\n",
 		       CardType[card->typ]);
-		ll_unload(cs);
+		ret = 0;
+		break;
+	}
+
+	return ret;
+}
+
+static int hisax_cs_new(int cardnr, char *id, struct IsdnCard *card,
+			struct IsdnCardState **cs_out, int *busy_flag,
+			struct module *lockowner)
+{
+	struct IsdnCardState *cs;
+
+	*cs_out = NULL;
+
+	cs = kzalloc(sizeof(struct IsdnCardState), GFP_ATOMIC);
+	if (!cs) {
+		printk(KERN_WARNING
+		       "HiSax: No memory for IsdnCardState(card %d)\n",
+		       cardnr + 1);
+		goto out;
+	}
+	card->cs = cs;
+	spin_lock_init(&cs->statlock);
+	spin_lock_init(&cs->lock);
+	cs->chanlimit = 2;	/* maximum B-channel number */
+	cs->logecho = 0;	/* No echo logging */
+	cs->cardnr = cardnr;
+	cs->debug = L1_DEB_WARN;
+	cs->HW_Flags = 0;
+	cs->busy_flag = busy_flag;
+	cs->irq_flags = I4L_IRQ_FLAG;
+#if TEI_PER_CARD
+	if (card->protocol == ISDN_PTYPE_NI1)
+		test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
+#else
+	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
+#endif
+	cs->protocol = card->protocol;
+
+	if (card->typ <= 0 || card->typ > ISDN_CTYPE_COUNT) {
+		printk(KERN_WARNING
+		       "HiSax: Card Type %d out of range\n", card->typ);
 		goto outf_cs;
 	}
-	if (!ret) {
-		ll_unload(cs);
+	if (!(cs->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
+		printk(KERN_WARNING
+		       "HiSax: No memory for dlog(card %d)\n", cardnr + 1);
 		goto outf_cs;
 	}
+	if (!(cs->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
+		printk(KERN_WARNING
+		       "HiSax: No memory for status_buf(card %d)\n",
+		       cardnr + 1);
+		goto outf_dlog;
+	}
+	cs->stlist = NULL;
+	cs->status_read = cs->status_buf;
+	cs->status_write = cs->status_buf;
+	cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
+	cs->typ = card->typ;
+#ifdef MODULE
+	cs->iif.owner = lockowner;
+#endif
+	strcpy(cs->iif.id, id);
+	cs->iif.channels = 2;
+	cs->iif.maxbufsize = MAX_DATA_SIZE;
+	cs->iif.hl_hdrlen = MAX_HEADER_LEN;
+	cs->iif.features =
+		ISDN_FEATURE_L2_X75I |
+		ISDN_FEATURE_L2_HDLC |
+		ISDN_FEATURE_L2_HDLC_56K |
+		ISDN_FEATURE_L2_TRANS |
+		ISDN_FEATURE_L3_TRANS |
+#ifdef	CONFIG_HISAX_1TR6
+		ISDN_FEATURE_P_1TR6 |
+#endif
+#ifdef	CONFIG_HISAX_EURO
+		ISDN_FEATURE_P_EURO |
+#endif
+#ifdef	CONFIG_HISAX_NI1
+		ISDN_FEATURE_P_NI1 |
+#endif
+		0;
+
+	cs->iif.command = HiSax_command;
+	cs->iif.writecmd = NULL;
+	cs->iif.writebuf_skb = HiSax_writebuf_skb;
+	cs->iif.readstat = HiSax_readstatus;
+	register_isdn(&cs->iif);
+	cs->myid = cs->iif.channels;
+
+	*cs_out = cs;
+	return 1;	/* success */
+
+outf_dlog:
+	kfree(cs->dlog);
+outf_cs:
+	kfree(cs);
+	card->cs = NULL;
+out:
+	return 0;	/* error */
+}
+
+static int hisax_cs_setup(int cardnr, struct IsdnCard *card,
+			  struct IsdnCardState *cs)
+{
+	int ret;
+
 	if (!(cs->rcvbuf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
 		printk(KERN_WARNING "HiSax: No memory for isac rcvbuf\n");
 		ll_unload(cs);
@@ -1129,25 +1132,58 @@ static int checkcard(int cardnr, char *id, int *busy_flag, struct module *lockow
 	}
 	if (ret) {
 		closecard(cardnr);
-		ret = 0;
 		goto outf_cs;
 	}
 	init_tei(cs, cs->protocol);
 	ret = CallcNewChan(cs);
 	if (ret) {
 		closecard(cardnr);
-		ret = 0;
 		goto outf_cs;
 	}
 	/* ISAR needs firmware download first */
 	if (!test_bit(HW_ISAR, &cs->HW_Flags))
 		ll_run(cs, 0);
 
-	ret = 1;
+	return 1;
+
+outf_cs:
+	kfree(cs);
+	card->cs = NULL;
+	return 0;
+}
+
+/* Used from an exported function but calls __devinit functions.
+ * Tell modpost not to warn (__ref)
+ */
+static int __ref checkcard(int cardnr, char *id, int *busy_flag,
+			   struct module *lockowner,
+			   hisax_setup_func_t card_setup)
+{
+	int ret;
+	struct IsdnCard *card = cards + cardnr;
+	struct IsdnCardState *cs;
+
+	ret = hisax_cs_new(cardnr, id, card, &cs, busy_flag, lockowner);
+	if (!ret)
+		return 0;
+
+	printk(KERN_INFO
+	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
+	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
+	       (card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
+	       (card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
+	       (card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
+	       "NONE", cs->iif.id, cs->myid);
+
+	ret = card_setup(card);
+	if (!ret) {
+		ll_unload(cs);
+		goto outf_cs;
+	}
+
+	ret = hisax_cs_setup(cardnr, card, cs);
 	goto out;
 
- outf_dlog:
-	kfree(cs->dlog);
  outf_cs:
 	kfree(cs);
 	card->cs = NULL;
@@ -1163,7 +1199,7 @@ static void HiSax_shiftcards(int idx)
 		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
-static int HiSax_inithardware(int *busy_flag)
+static int __init HiSax_inithardware(int *busy_flag)
 {
 	int foundcards = 0;
 	int i = 0;
@@ -1193,7 +1229,8 @@ static int HiSax_inithardware(int *busy_flag)
 			else
 				sprintf(ids, "%s%d", id, i);
 		}
-		if (checkcard(i, ids, busy_flag, THIS_MODULE)) {
+		if (checkcard(i, ids, busy_flag, THIS_MODULE,
+			      hisax_cs_setup_card)) {
 			foundcards++;
 			i++;
 		} else {
@@ -1491,7 +1528,9 @@ static void __exit HiSax_exit(void)
 	printk(KERN_INFO "HiSax module removed\n");
 }
 
-int hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
+#ifdef CONFIG_HOTPLUG
+
+int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
 {
 	u_char ids[16];
 	int ret = -1;
@@ -1501,7 +1540,8 @@ int hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
 		sprintf(ids, "HiSax%d", nrcards);
 	else
 		sprintf(ids, "HiSax");
-	if (!checkcard(nrcards, ids, busy_flag, THIS_MODULE))
+	if (!checkcard(nrcards, ids, busy_flag, THIS_MODULE,
+		       hisax_cs_setup_card))
 		goto error;
 
 	ret = nrcards;
@@ -1511,6 +1551,8 @@ error:
 }
 
 EXPORT_SYMBOL(hisax_init_pcmcia);
+#endif
+
 EXPORT_SYMBOL(HiSax_closecard);
 
 #include "hisax_if.h"
@@ -1527,6 +1569,11 @@ static int hisax_bc_setstack(struct PStack *st, struct BCState *bcs);
 static void hisax_bc_close(struct BCState *bcs);
 static void hisax_bh(struct work_struct *work);
 static void EChannel_proc_rcv(struct hisax_d_if *d_if);
+
+static int hisax_setup_card_dynamic(struct IsdnCard *card)
+{
+	return 2;
+}
 
 int hisax_register(struct hisax_d_if *hisax_d_if, struct hisax_b_if *b_if[],
 		   char *name, int protocol)
@@ -1547,7 +1594,8 @@ int hisax_register(struct hisax_d_if *hisax_d_if, struct hisax_b_if *b_if[],
 	cards[i].protocol = protocol;
 	sprintf(id, "%s%d", name, i);
 	nrcards++;
-	retval = checkcard(i, id, NULL, hisax_d_if->owner);
+	retval = checkcard(i, id, NULL, hisax_d_if->owner,
+				hisax_setup_card_dynamic);
 	if (retval == 0) { // yuck
 		cards[i].typ = 0;
 		nrcards--;
@@ -1680,7 +1728,6 @@ static void hisax_b_l1l2(struct hisax_if *ifc, int pr, void *arg)
 	struct PStack *st = bcs->st;
 	struct sk_buff *skb;
 
-	// FIXME use isdnl1?
 	switch (pr) {
 	case PH_ACTIVATE | INDICATION:
 		st->l1.l1l2(st, pr, NULL);
@@ -1734,7 +1781,6 @@ static void hisax_d_l2l1(struct PStack *st, int pr, void *arg)
 		if (cs->debug & DEB_DLOG_VERBOSE)
 			dlogframe(cs, skb, 0);
 		Logl2Frame(cs, skb, "PH_DATA_REQ", 0);
-		// FIXME lock?
 		if (!test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			D_L2L1(hisax_d_if, PH_DATA | REQUEST, skb);
 		else
@@ -1768,7 +1814,6 @@ static void hisax_b_l2l1(struct PStack *st, int pr, void *arg)
 		break;
 	case PH_DATA | REQUEST:
 	case PH_PULL | INDICATION:
-		// FIXME lock?
 		if (!test_and_set_bit(BC_FLG_BUSY, &bcs->Flag)) {
 			B_L2L1(b_if, PH_DATA | REQUEST, arg);
 		} else {
@@ -1852,68 +1897,68 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
 
 static struct pci_device_id hisax_pci_tbl[] __devinitdata = {
 #ifdef CONFIG_HISAX_FRITZPCI
-	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,           PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VDEVICE(AVM,      PCI_DEVICE_ID_AVM_A1)			},
 #endif
 #ifdef CONFIG_HISAX_DIEHLDIVA
-	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20,     PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20_U,   PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA201,    PCI_ANY_ID, PCI_ANY_ID},
-//#########################################################################################	
-	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA202,    PCI_ANY_ID, PCI_ANY_ID},
-//#########################################################################################	
+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA20)		},
+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA20_U)	},
+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA201)		},
+/*##########################################################################*/
+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA202)		},
+/*##########################################################################*/
 #endif
 #ifdef CONFIG_HISAX_ELSA
-	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK,   PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_QS3000,      PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VDEVICE(ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK)	},
+	{PCI_VDEVICE(ELSA,     PCI_DEVICE_ID_ELSA_QS3000)		},
 #endif
 #ifdef CONFIG_HISAX_GAZEL
-	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R685,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R753,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_DJINN_ITOO,   PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_OLITEC,       PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_R685)			},
+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_R753)			},
+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_DJINN_ITOO)	},
+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_OLITEC)		},
 #endif
 #ifdef CONFIG_HISAX_SCT_QUADRO
-	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_9050,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_9050)			},
 #endif
 #ifdef CONFIG_HISAX_NICCY
-	{PCI_VENDOR_ID_SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY,   PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VDEVICE(SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY)	},
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
-	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100,     PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VDEVICE(TIGERJET, PCI_DEVICE_ID_TIGERJET_100)		},
 #endif
 #if defined(CONFIG_HISAX_NETJET) || defined(CONFIG_HISAX_NETJET_U)
-	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_300,     PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VDEVICE(TIGERJET, PCI_DEVICE_ID_TIGERJET_300)		},
 #endif
 #if defined(CONFIG_HISAX_TELESPCI) || defined(CONFIG_HISAX_SCT_QUADRO)
-	{PCI_VENDOR_ID_ZORAN,    PCI_DEVICE_ID_ZORAN_36120,      PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VDEVICE(ZORAN,    PCI_DEVICE_ID_ZORAN_36120)		},
 #endif
 #ifdef CONFIG_HISAX_W6692
-	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH,  PCI_ANY_ID,PCI_ANY_ID},
-	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692,    PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VDEVICE(DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH)	},
+	{PCI_VDEVICE(WINBOND2, PCI_DEVICE_ID_WINBOND2_6692)		},
 #endif
 #ifdef CONFIG_HISAX_HFC_PCI
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_2BD0,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B000,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B006,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B007,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B008,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B009,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00A,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00B,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00C,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B100,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B700,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B701,         PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1,      PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675,     PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT, PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_A1T,       PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_ANIGMA,   PCI_DEVICE_ID_ANIGMA_MC145575,  PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_ZOLTRIX,  PCI_DEVICE_ID_ZOLTRIX_2BD0,     PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_E, PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_E,      PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_A, PCI_ANY_ID, PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_A,      PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_2BD0)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B000)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B006)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B007)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B008)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B009)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00A)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00B)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00C)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B100)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B700)			},
+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B701)			},
+	{PCI_VDEVICE(ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1)		},
+	{PCI_VDEVICE(ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675)		},
+	{PCI_VDEVICE(BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT)	},
+	{PCI_VDEVICE(BERKOM,   PCI_DEVICE_ID_BERKOM_A1T)		},
+	{PCI_VDEVICE(ANIGMA,   PCI_DEVICE_ID_ANIGMA_MC145575)	},
+	{PCI_VDEVICE(ZOLTRIX,  PCI_DEVICE_ID_ZOLTRIX_2BD0)		},
+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_E)	},
+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_E)		},
+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_A)	},
+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_A)		},
 #endif
 	{ }				/* Terminating entry */
 };

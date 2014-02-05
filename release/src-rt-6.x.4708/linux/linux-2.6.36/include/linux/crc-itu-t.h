@@ -25,4 +25,3 @@ static inline u16 crc_itu_t_byte(u16 crc, const u8 data)
 }
 
 #endif /* CRC_ITU_T_H */
-

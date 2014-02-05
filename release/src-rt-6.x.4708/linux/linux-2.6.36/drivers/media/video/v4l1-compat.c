@@ -312,9 +312,9 @@ static noinline long v4l1_compat_get_capabilities(
 	cap->channels  = count_inputs(file, drv);
 	check_size(file, drv,
 		   &cap->maxwidth, &cap->maxheight);
-	cap->audios    =  0; /* FIXME */
-	cap->minwidth  = 48; /* FIXME */
-	cap->minheight = 32; /* FIXME */
+	cap->audios    =  0;
+	cap->minwidth  = 48;
+	cap->minheight = 32;
 
 done:
 	kfree(cap2);

@@ -30,7 +30,6 @@
 #include "vgatypes.h"
 #include "vstruct.h"
 
-#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/fb.h>
 
@@ -161,11 +160,6 @@ sisfb_mode_rate_to_ddata(struct SiS_Private *SiS_Pr, unsigned char modeno,
     }
 
     if((var->vmode & FB_VMODE_MASK) == FB_VMODE_INTERLACED) {
-#if 0  /* Do this? */
-       var->upper_margin <<= 1;
-       var->lower_margin <<= 1;
-       var->vsync_len <<= 1;
-#endif
     } else if((var->vmode & FB_VMODE_MASK) == FB_VMODE_DOUBLE) {
        var->upper_margin >>= 1;
        var->lower_margin >>= 1;
@@ -228,6 +222,3 @@ sisfb_gettotalfrommode(struct SiS_Private *SiS_Pr, unsigned char modeno, int *ht
 
     return true;
 }
-
-
-

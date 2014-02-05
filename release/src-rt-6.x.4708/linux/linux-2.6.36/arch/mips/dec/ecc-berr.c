@@ -1,6 +1,4 @@
 /*
- *	linux/arch/mips/dec/ecc-berr.c
- *
  *	Bus error event handling code for systems equipped with ECC
  *	handling logic, i.e. DECstation/DECsystem 5000/200 (KN02),
  *	5000/240 (KN03), 5000/260 (KN05) and DECsystem 5900 (KN03),
@@ -210,13 +208,6 @@ irqreturn_t dec_ecc_be_interrupt(int irq, void *dev_id)
 	if (action == MIPS_BE_DISCARD)
 		return IRQ_HANDLED;
 
-	/*
-	 * FIXME: Find the affected processes and kill them, otherwise
-	 * we must die.
-	 *
-	 * The interrupt is asynchronously delivered thus EPC and RA
-	 * may be irrelevant, but are printed for a reference.
-	 */
 	printk(KERN_ALERT "Fatal bus interrupt, epc == %08lx, ra == %08lx\n",
 	       regs->cp0_epc, regs->regs[31]);
 	die("Unrecoverable bus error", regs);
@@ -263,7 +254,7 @@ static inline void dec_kn03_be_init(void)
 	 */
 	*mcr = (*mcr & ~(KN03_MCR_DIAGCHK | KN03_MCR_DIAGGEN)) |
 	       KN03_MCR_CORRECT;
-	if (current_cpu_data.cputype == CPU_R4400SC)
+	if (current_cpu_type() == CPU_R4400SC)
 		*mbcs |= KN4K_MB_CSR_EE;
 	fast_iob();
 }

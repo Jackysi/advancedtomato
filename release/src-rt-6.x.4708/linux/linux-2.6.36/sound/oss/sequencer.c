@@ -212,7 +212,6 @@ int sequencer_write(int dev, struct file *file, const char __user *buf, int coun
 {
 	unsigned char event_rec[EV_SZ], ev_code;
 	int p = 0, c, ev_size;
-	int err;
 	int mode = translate_mode(file);
 
 	dev = dev >> 4;
@@ -285,7 +284,7 @@ int sequencer_write(int dev, struct file *file, const char __user *buf, int coun
 		{
 			if (!midi_opened[event_rec[2]])
 			{
-				int mode;
+				int err, mode;
 				int dev = event_rec[2];
 
 				if (dev >= max_mididev || midi_devs[dev]==NULL)
@@ -1632,8 +1631,6 @@ unsigned long compute_finetune(unsigned long base_freq, int bend, int range,
 	}
 
 	semitones = bend / 100;
-	if (semitones > 99)
-		semitones = 99;
 	cents = bend % 100;
 
 	amount = (int) (semitone_tuning[semitones] * multiplier * cent_tuning[cents]) / 10000;

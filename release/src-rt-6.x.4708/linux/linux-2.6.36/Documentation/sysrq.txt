@@ -1,6 +1,5 @@
 Linux Magic System Request Key Hacks
 Documentation for sysrq.c
-Last update: 2007-MAR-14
 
 *  What is the magic SysRq key?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,7 +42,7 @@ On x86   - You press the key combo 'ALT-SysRq-<command key>'. Note - Some
            keyboards may not have a key labeled 'SysRq'. The 'SysRq' key is
            also known as the 'Print Screen' key. Also some keyboards cannot
 	   handle so many keys being pressed at the same time, so you might
-	   have better luck with "press Alt", "press SysRq", "release Alt",
+	   have better luck with "press Alt", "press SysRq", "release SysRq",
 	   "press <command key>", release everything.
 
 On SPARC - You press 'ALT-STOP-<command key>', I believe.
@@ -67,7 +66,8 @@ On all -  write a character to /proc/sysrq-trigger.  e.g.:
 'b'     - Will immediately reboot the system without syncing or unmounting
           your disks.
 
-'c'	- Will perform a kexec reboot in order to take a crashdump.
+'c'	- Will perform a system crash by a NULL pointer dereference.
+          A crashdump will be taken if configured.
 
 'd'	- Shows all locks that are held.
 
@@ -78,12 +78,16 @@ On all -  write a character to /proc/sysrq-trigger.  e.g.:
 'g'	- Used by kgdb on ppc and sh platforms.
 
 'h'     - Will display help (actually any other key than those listed
-          above will display help. but 'h' is easy to remember :-)
+          here will display help. but 'h' is easy to remember :-)
 
 'i'     - Send a SIGKILL to all processes, except for init.
 
+'j'     - Forcibly "Just thaw it" - filesystems frozen by the FIFREEZE ioctl.
+
 'k'     - Secure Access Key (SAK) Kills all programs on the current virtual
           console. NOTE: See important comments below in SAK section.
+
+'l'     - Shows a stack backtrace for all active CPUs.
 
 'm'     - Will dump current memory info to your console.
 
@@ -93,7 +97,9 @@ On all -  write a character to /proc/sysrq-trigger.  e.g.:
 
 'p'     - Will dump the current registers and flags to your console.
 
-'q'     - Will dump a list of all running timers.
+'q'     - Will dump per CPU lists of all armed hrtimers (but NOT regular
+          timer_list timers) and detailed information about all
+          clockevent devices.
 
 'r'     - Turns off keyboard raw mode and sets it to XLATE.
 
@@ -109,6 +115,8 @@ On all -  write a character to /proc/sysrq-trigger.  e.g.:
 'w'	- Dumps tasks that are in uninterruptable (blocked) state.
 
 'x'	- Used by xmon interface on ppc/powerpc platforms.
+
+'z'	- Dump the ftrace buffer
 
 '0'-'9' - Sets the console log level, controlling which kernel messages
           will be printed to your console. ('0', for example would make
@@ -134,8 +142,8 @@ useful when you want to exit a program that will not let you switch consoles.
 re'B'oot is good when you're unable to shut down. But you should also 'S'ync
 and 'U'mount first.
 
-'C'rashdump can be used to manually trigger a crashdump when the system is hung.
-The kernel needs to have been built with CONFIG_KEXEC enabled.
+'C'rash can be used to manually trigger a crashdump when the system is hung.
+Note that this just triggers a crash if there is no dump mechanism available.
 
 'S'ync is great when your system is locked up, it allows you to sync your
 disks and will certainly lessen the chance of data loss and fscking. Note
@@ -157,6 +165,9 @@ t'E'rm and k'I'll are useful if you have some sort of runaway process you
 are unable to kill any other way, especially if it's spawning other
 processes.
 
+"'J'ust thaw it" is useful if your system becomes unresponsive due to a frozen
+(probably root) filesystem via the FIFREEZE ioctl.
+
 *  Sometimes SysRq seems to get 'stuck' after using it, what can I do?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 That happens to me, also. I've found that tapping shift, alt, and control
@@ -166,13 +177,13 @@ virtual console (ALT+Fn) and then back again should also help.
 
 *  I hit SysRq, but nothing seems to happen, what's wrong?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-There are some keyboards that send different scancodes for SysRq than the
-pre-defined 0x54. So if SysRq doesn't work out of the box for a certain
-keyboard, run 'showkey -s' to find out the proper scancode sequence. Then
-use 'setkeycodes <sequence> 84' to define this sequence to the usual SysRq
-code (84 is decimal for 0x54). It's probably best to put this command in a
-boot script. Oh, and by the way, you exit 'showkey' by not typing anything
-for ten seconds.
+There are some keyboards that produce a different keycode for SysRq than the
+pre-defined value of 99 (see KEY_SYSRQ in include/linux/input.h), or which
+don't have a SysRq key at all. In these cases, run 'showkey -s' to find an
+appropriate scancode sequence, and use 'setkeycodes <sequence> 99' to map
+this sequence to the usual SysRq code (e.g., 'setkeycodes e05b 99'). It's
+probably best to put this command in a boot script. Oh, and by the way, you
+exit 'showkey' by not typing anything for ten seconds.
 
 *  I want to add SysRQ key events to a module, how does it work?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,6 +217,24 @@ If for some reason you feel the need to call the handle_sysrq function from
 within a function called by handle_sysrq, you must be aware that you are in
 a lock (you are also in an interrupt handler, which means don't sleep!), so
 you must call __handle_sysrq_nolock instead.
+
+*  When I hit a SysRq key combination only the header appears on the console?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Sysrq output is subject to the same console loglevel control as all
+other console output.  This means that if the kernel was booted 'quiet'
+as is common on distro kernels the output may not appear on the actual
+console, even though it will appear in the dmesg buffer, and be accessible
+via the dmesg command and to the consumers of /proc/kmsg.  As a specific
+exception the header line from the sysrq command is passed to all console
+consumers as if the current loglevel was maximum.  If only the header
+is emitted it is almost certain that the kernel loglevel is too low.
+Should you require the output on the console channel then you will need
+to temporarily up the console loglevel using alt-sysrq-8 or:
+
+    echo 8 > /proc/sysrq-trigger
+
+Remember to return the loglevel to normal after triggering the sysrq
+command you are interested in.
 
 *  I have more questions, who can I ask?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -14,7 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -26,7 +26,7 @@
 
 #define CPLD_INT_NETHERNET	(1<<0)
 #define CPLD_INTMASK_ETHERNET	(1<<2)
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 # define CPLD_INT_NTOUCH		(1<<1)
 # define CPLD_INTMASK_TOUCH	(1<<3)
 # define CPLD_INT_PEN		(1<<4)
@@ -95,7 +95,7 @@ static struct platform_device lh7a40x_usbclient_device = {
 	.resource	= lh7a40x_usbclient_resources,
 };
 
-#if defined (CONFIG_ARCH_LH7A404)
+#if defined(CONFIG_ARCH_LH7A404)
 
 static struct resource lh7a404_usbhost_resources [] = {
 	[0] = {
@@ -128,7 +128,7 @@ static struct platform_device lh7a404_usbhost_device = {
 static struct platform_device* lpd7a40x_devs[] __initdata = {
 	&smc91x_device,
 	&lh7a40x_usbclient_device,
-#if defined (CONFIG_ARCH_LH7A404)
+#if defined(CONFIG_ARCH_LH7A404)
 	&lh7a404_usbhost_device,
 #endif
 };
@@ -137,7 +137,7 @@ extern void lpd7a400_map_io (void);
 
 static void __init lpd7a40x_init (void)
 {
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	CPLD_CONTROL |= 0
 		| CPLD_CONTROL_SWINT /* Disable software interrupt */
 		| CPLD_CONTROL_OCMSK; /* Mask USB1 connection IRQ */
@@ -147,14 +147,14 @@ static void __init lpd7a40x_init (void)
 		);
 #endif
 
-#if defined (CONFIG_MACH_LPD7A404)
+#if defined(CONFIG_MACH_LPD7A404)
 	CPLD_CONTROL &= ~(0
 			  | CPLD_CONTROL_WRLAN_NENABLE	/* Enable SMC91x */
 		);
 #endif
 
 	platform_add_devices (lpd7a40x_devs, ARRAY_SIZE (lpd7a40x_devs));
-#if defined (CONFIG_FB_ARMCLCD)
+#if defined(CONFIG_FB_ARMCLCD)
         lh7a40x_clcd_init ();
 #endif
 }
@@ -163,7 +163,7 @@ static void lh7a40x_ack_cpld_irq (u32 irq)
 {
 	/* CPLD doesn't have ack capability, but some devices may */
 
-#if defined (CPLD_INTMASK_TOUCH)
+#if defined(CPLD_INTMASK_TOUCH)
 	/* The touch control *must* mask the interrupt because the
 	 * interrupt bit is read by the driver to determine if the pen
 	 * is still down. */
@@ -178,7 +178,7 @@ static void lh7a40x_mask_cpld_irq (u32 irq)
 	case IRQ_LPD7A40X_ETH_INT:
 		CPLD_INTERRUPTS |= CPLD_INTMASK_ETHERNET;
 		break;
-#if defined (IRQ_TOUCH)
+#if defined(IRQ_TOUCH)
 	case IRQ_TOUCH:
 		CPLD_INTERRUPTS |= CPLD_INTMASK_TOUCH;
 		break;
@@ -192,7 +192,7 @@ static void lh7a40x_unmask_cpld_irq (u32 irq)
 	case IRQ_LPD7A40X_ETH_INT:
 		CPLD_INTERRUPTS &= ~CPLD_INTMASK_ETHERNET;
 		break;
-#if defined (IRQ_TOUCH)
+#if defined(IRQ_TOUCH)
 	case IRQ_TOUCH:
 		CPLD_INTERRUPTS &= ~CPLD_INTMASK_TOUCH;
 		break;
@@ -214,11 +214,11 @@ static void lpd7a40x_cpld_handler (unsigned int irq, struct irq_desc *desc)
 	desc->chip->ack (irq);
 
 	if ((mask & (1<<0)) == 0)	/* WLAN */
-		IRQ_DISPATCH (IRQ_LPD7A40X_ETH_INT);
+		generic_handle_irq(IRQ_LPD7A40X_ETH_INT);
 
-#if defined (IRQ_TOUCH)
+#if defined(IRQ_TOUCH)
 	if ((mask & (1<<1)) == 0)	/* Touch */
-		IRQ_DISPATCH (IRQ_TOUCH);
+		generic_handle_irq(IRQ_TOUCH);
 #endif
 
 	desc->chip->unmask (irq); /* Level-triggered need this */
@@ -256,16 +256,13 @@ void __init lh7a40x_init_board_irq (void)
 		/* Then, configure CPLD interrupt */
 
 			/* Disable all CPLD interrupts */
-#if defined (CONFIG_MACH_LPD7A400)
+#if defined(CONFIG_MACH_LPD7A400)
 	CPLD_INTERRUPTS	= CPLD_INTMASK_TOUCH | CPLD_INTMASK_PEN
 		| CPLD_INTMASK_ETHERNET;
-	/* *** FIXME: don't know why we need 7 and 4. 7 is way wrong
-               and 4 is uncefined. */
 	// (1<<7)|(1<<4)|(1<<3)|(1<<2);
 #endif
-#if defined (CONFIG_MACH_LPD7A404)
+#if defined(CONFIG_MACH_LPD7A404)
 	CPLD_INTERRUPTS	= CPLD_INTMASK_ETHERNET;
-	/* *** FIXME: don't know why we need 6 and 5, neither is defined. */
 	// (1<<6)|(1<<5)|(1<<3);
 #endif
 	GPIO_PFDD	&= ~(1 << pinCPLD); /* Make input */
@@ -296,7 +293,7 @@ static struct map_desc lpd7a40x_io_desc[] __initdata = {
 		.length		= IO_SIZE,
 		.type		= MT_DEVICE
 	},
-	{	/* Mapping added to work around chip select problems */
+	{
 		.virtual	= IOBARRIER_VIRT,
 		.pfn		= __phys_to_pfn(IOBARRIER_PHYS),
 		.length		= IOBARRIER_SIZE,

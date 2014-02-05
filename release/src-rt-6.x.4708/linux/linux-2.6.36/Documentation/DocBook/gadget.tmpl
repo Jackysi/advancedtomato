@@ -144,7 +144,7 @@ with the lowest level (which directly handles hardware).
 	<para>This is the lowest software level.
 	It is the only layer that talks to hardware,
 	through registers, fifos, dma, irqs, and the like.
-	The <filename>&lt;linux/usb_gadget.h&gt;</filename> API abstracts
+	The <filename>&lt;linux/usb/gadget.h&gt;</filename> API abstracts
 	the peripheral controller endpoint hardware.
 	That hardware is exposed through endpoint objects, which accept
 	streams of IN/OUT buffers, and through callbacks that interact
@@ -494,7 +494,7 @@ side drivers (and usbcore).
 <sect1 id="core"><title>Core Objects and Methods</title>
 
 <para>These are declared in
-<filename>&lt;linux/usb_gadget.h&gt;</filename>,
+<filename>&lt;linux/usb/gadget.h&gt;</filename>,
 and are used by gadget drivers to interact with
 USB peripheral controller drivers.
 </para>
@@ -509,7 +509,7 @@ USB peripheral controller drivers.
 	     unless the explanations are trivial.
 	  -->
 
-!Iinclude/linux/usb_gadget.h
+!Iinclude/linux/usb/gadget.h
 </sect1>
 
 <sect1 id="utils"><title>Optional Utilities</title>
@@ -523,6 +523,47 @@ These utilities include endpoint autoconfiguration.
 !Edrivers/usb/gadget/config.c
 <!-- !Edrivers/usb/gadget/epautoconf.c -->
 </sect1>
+
+<sect1 id="composite"><title>Composite Device Framework</title>
+
+<para>The core API is sufficient for writing drivers for composite
+USB devices (with more than one function in a given configuration),
+and also multi-configuration devices (also more than one function,
+but not necessarily sharing a given configuration).
+There is however an optional framework which makes it easier to
+reuse and combine functions.
+</para>
+
+<para>Devices using this framework provide a <emphasis>struct
+usb_composite_driver</emphasis>, which in turn provides one or
+more <emphasis>struct usb_configuration</emphasis> instances.
+Each such configuration includes at least one
+<emphasis>struct usb_function</emphasis>, which packages a user
+visible role such as "network link" or "mass storage device".
+Management functions may also exist, such as "Device Firmware
+Upgrade".
+</para>
+
+!Iinclude/linux/usb/composite.h
+!Edrivers/usb/gadget/composite.c
+
+</sect1>
+
+<sect1 id="functions"><title>Composite Device Functions</title>
+
+<para>At this writing, a few of the current gadget drivers have
+been converted to this framework.
+Near-term plans include converting all of them, except for "gadgetfs".
+</para>
+
+!Edrivers/usb/gadget/f_acm.c
+!Edrivers/usb/gadget/f_ecm.c
+!Edrivers/usb/gadget/f_subset.c
+!Edrivers/usb/gadget/f_obex.c
+!Edrivers/usb/gadget/f_serial.c
+
+</sect1>
+
 
 </chapter>
 

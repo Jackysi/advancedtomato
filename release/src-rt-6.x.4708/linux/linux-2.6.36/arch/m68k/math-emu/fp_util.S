@@ -1399,32 +1399,6 @@ fp_finaltest:
 	| as defined in fp_emu.h.
 fp_final:
 	move.l	(FPD_FPSR,FPDATA),%d0
-#if 0
-	btst	#FPSR_EXC_SNAN,%d0	| EXC_SNAN
-	jne	1f
-	btst	#FPSR_EXC_OPERR,%d0	| EXC_OPERR
-	jeq	2f
-1:	bset	#FPSR_AEXC_IOP,%d0	| set IOP bit
-2:	btst	#FPSR_EXC_OVFL,%d0	| EXC_OVFL
-	jeq	1f
-	bset	#FPSR_AEXC_OVFL,%d0	| set OVFL bit
-1:	btst	#FPSR_EXC_UNFL,%d0	| EXC_UNFL
-	jeq	1f
-	btst	#FPSR_EXC_INEX2,%d0	| EXC_INEX2
-	jeq	1f
-	bset	#FPSR_AEXC_UNFL,%d0	| set UNFL bit
-1:	btst	#FPSR_EXC_DZ,%d0	| EXC_INEX1
-	jeq	1f
-	bset	#FPSR_AEXC_DZ,%d0	| set DZ bit
-1:	btst	#FPSR_EXC_OVFL,%d0	| EXC_OVFL
-	jne	1f
-	btst	#FPSR_EXC_INEX2,%d0	| EXC_INEX2
-	jne	1f
-	btst	#FPSR_EXC_INEX1,%d0	| EXC_INEX1
-	jeq	2f
-1:	bset	#FPSR_AEXC_INEX,%d0	| set INEX bit
-2:	move.l	%d0,(FPD_FPSR,FPDATA)
-#else
 	| same as above, greatly optimized, but untested (yet)
 	move.l	%d0,%d2
 	lsr.l	#5,%d0
@@ -1446,7 +1420,6 @@ fp_final:
 	and.b	#0xf8,%d0
 	or.b	%d0,%d2
 	move.l	%d2,(FPD_FPSR,FPDATA)
-#endif
 	move.b	(FPD_FPSR+2,FPDATA),%d0
 	and.b	(FPD_FPCR+2,FPDATA),%d0
 	jeq	1f

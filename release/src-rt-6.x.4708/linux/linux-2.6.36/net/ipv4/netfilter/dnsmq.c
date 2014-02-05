@@ -8,7 +8,7 @@
  * 	- increase module usage count as soon as we have rules inside
  * 	  a table
  */
-#include <linux/config.h>
+//#include <linux/config.h>
 #include <linux/cache.h>
 #include <linux/skbuff.h>
 #include <linux/kmod.h>
@@ -239,10 +239,10 @@ static int __init init(void)
 #ifdef CONFIG_PROC_FS
 	struct proc_dir_entry *p;
 
-	p = create_proc_entry("dnsmqctrl", 0200, proc_net);
+	p = create_proc_entry("dnsmqctrl", 0200, init_net.proc_net);
 
 	if(p) {
-		p->owner = THIS_MODULE;
+		//p->owner = THIS_MODULE;
 		p->write_proc = dnsmq_ctrl;
 	}
 #endif

@@ -17,12 +17,13 @@
 #include <linux/sched.h>
 #include <linux/device.h>
 #include <linux/serial_8250.h>
-#include <linux/pata_platform.h>
+#include <linux/ata_platform.h>
+#include <linux/io.h>
+#include <linux/i2c.h>
 
 #include <asm/elf.h>
-#include <asm/io.h>
 #include <asm/mach-types.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/page.h>
 #include <asm/domain.h>
 #include <asm/setup.h>
@@ -50,12 +51,6 @@ static int __init parse_tag_acorn(const struct tag *tag)
 	default:
 		break;
 	}
-#if 0
-	if (vram_size) {
-		desc->video_start = 0x02000000;
-		desc->video_end   = 0x02000000 + vram_size;
-	}
-#endif
 	return 0;
 }
 
@@ -87,7 +82,7 @@ static void __init rpc_map_io(void)
 	/*
 	 * Turn off floppy.
 	 */
-	outb(0xc, 0x3f2);
+	writeb(0xc, PCIO_BASE + (0x3f2 << 2));
 
 	/*
 	 * RiscPC can't handle half-word loads and stores
@@ -201,8 +196,13 @@ static struct platform_device *devs[] __initdata = {
 	&pata_device,
 };
 
+static struct i2c_board_info i2c_rtc = {
+	I2C_BOARD_INFO("pcf8583", 0x50)
+};
+
 static int __init rpc_init(void)
 {
+	i2c_register_board_info(0, &i2c_rtc, 1);
 	return platform_add_devices(devs, ARRAY_SIZE(devs));
 }
 

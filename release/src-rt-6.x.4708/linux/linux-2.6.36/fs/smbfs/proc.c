@@ -16,7 +16,6 @@
 #include <linux/stat.h>
 #include <linux/fcntl.h>
 #include <linux/dcache.h>
-#include <linux/dirent.h>
 #include <linux/nls.h>
 #include <linux/smp_lock.h>
 #include <linux/net.h>
@@ -92,18 +91,6 @@ str_upper(char *name, int len)
 	}
 }
 
-#if 0
-static void
-str_lower(char *name, int len)
-{
-	while (len--)
-	{
-		if (*name >= 'A' && *name <= 'Z')
-			*name += ('a' - 'A');
-		name++;
-	}
-}
-#endif
 
 /* reverse a string inline. This is used by the dircache walking routines */
 static void reverse_string(char *buf, int len)
@@ -510,7 +497,7 @@ date_unix2dos(struct smb_sb_info *server,
 		month = 2;
 	} else {
 		nl_day = (year & 3) || day <= 59 ? day : day - 1;
-		for (month = 0; month < 12; month++)
+		for (month = 1; month < 12; month++)
 			if (day_n[month] > nl_day)
 				break;
 	}
@@ -529,7 +516,6 @@ static struct timespec
 smb_ntutc2unixutc(u64 ntutc)
 {
 	struct timespec ts;
-	/* FIXME: what about the timezone difference? */
 	/* Subtract the NTFS time offset, then convert to 1s intervals. */
 	u64 t = ntutc - NTFS_TIME_OFFSET;
 	ts.tv_nsec = do_div(t, 10000000) * 100;
@@ -865,7 +851,7 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 		goto out;
 
 	error = -EACCES;
-	if (current->uid != server->mnt->mounted_uid && 
+	if (current_uid() != server->mnt->mounted_uid &&
 	    !capable(CAP_SYS_ADMIN))
 		goto out;
 
@@ -918,7 +904,6 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 	else if (server->opt.protocol == SMB_PROTOCOL_NT1 &&
 		 (server->opt.max_xmit < 0x1000) &&
 		 !(server->opt.capabilities & SMB_CAP_NT_SMBS)) {
-		/* FIXME: can we kill the WIN95 flag now? */
 		server->mnt->flags |= SMB_MOUNT_WIN95;
 		VERBOSE("detected WIN95 server\n");
 		install_ops(server->ops, &smb_ops_win95);
@@ -932,7 +917,6 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 		install_ops(server->ops, &smb_ops_winNT);
 	}
 
-	/* FIXME: the win9x code wants to modify these ... (seek/trunc bug) */
 	if (server->mnt->flags & SMB_MOUNT_OLDATTR) {
 		server->ops->getattr = smb_proc_getattr_core;
 	} else if (server->mnt->flags & SMB_MOUNT_DIRATTR) {
@@ -952,15 +936,6 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 	} else {
 		server->mnt->flags &= ~SMB_MOUNT_UNICODE;
 	}
-#if 0
-	/* flags we may test for other patches ... */
-	if (server->opt.capabilities & SMB_CAP_LARGE_READX) {
-		VERBOSE("Large reads enabled\n");
-	}
-	if (server->opt.capabilities & SMB_CAP_LARGE_WRITEX) {
-		VERBOSE("Large writes enabled\n");
-	}
-#endif
 	if (server->opt.capabilities & SMB_CAP_UNIX) {
 		struct inode *inode;
 		VERBOSE("Using UNIX CIFS extensions\n");
@@ -974,7 +949,6 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 		server->opt.protocol, server->opt.max_xmit,
 		pid_nr(server->conn_pid), server->opt.capabilities);
 
-	/* FIXME: this really should be done by smbmount. */
 	if (server->opt.max_xmit > SMB_MAX_PACKET_SIZE) {
 		server->opt.max_xmit = SMB_MAX_PACKET_SIZE;
 	}
@@ -1105,16 +1079,6 @@ smb_proc_open(struct smb_sb_info *server, struct dentry *dentry, int wish)
 	mode = read_write;
 	if (!(ino->i_mode & (S_IWUSR | S_IWGRP | S_IWOTH)))
 		mode = read_only;
-#if 0
-	/* FIXME: why is this code not in? below we fix it so that a caller
-	   wanting RO doesn't get RW. smb_revalidate_inode does some 
-	   optimization based on access mode. tail -f needs it to be correct.
-
-	   We must open rw since we don't do the open if called a second time
-	   with different 'wish'. Is that not supported by smb servers? */
-	if (!(wish & (O_WRONLY | O_RDWR)))
-		mode = read_only;
-#endif
 
 	res = -ENOMEM;
 	if (! (req = smb_alloc_request(server, PAGE_SIZE)))
@@ -1222,12 +1186,6 @@ out:
 	return result;
 }
 
-/*
- * Win NT 4.0 has an apparent bug in that it fails to update the
- * modify time when writing to a file. As a workaround, we update
- * both modify and access time locally, and post the times to the
- * server when closing the file.
- */
 static int 
 smb_proc_close_inode(struct smb_sb_info *server, struct inode * ino)
 {
@@ -1655,7 +1613,6 @@ smb_set_rw(struct dentry *dentry,struct smb_sb_info *server)
 	int result;
 	struct smb_fattr fattr;
 
-	/* FIXME: cifsUE should allow removing a readonly file. */
 
 	/* first get current attribute */
 	smb_init_dirent(server, &fattr);
@@ -1775,7 +1732,6 @@ smb_proc_trunc64(struct inode *inode, loff_t length)
 	param = req->rq_buffer;
 	data = req->rq_buffer + 6;
 
-	/* FIXME: must we also set allocation size? winNT seems to do that */
 	WSET(param, 0, SMB_I(inode)->fileid);
 	WSET(param, 2, SMB_SET_FILE_END_OF_FILE_INFO);
 	WSET(param, 4, 0);
@@ -1807,13 +1763,6 @@ smb_proc_trunc95(struct inode *inode, loff_t length)
 	struct smb_sb_info *server = server_from_inode(inode);
 	int result = smb_proc_trunc32(inode, length);
  
-	/*
-	 * win9x doesn't appear to update the size immediately.
-	 * It will return the old file size after the truncate,
-	 * confusing smbfs. So we force an update.
-	 *
-	 * FIXME: is this still necessary?
-	 */
 	smb_proc_flush(server, SMB_I(inode)->fileid);
 	return result;
 }
@@ -1882,7 +1831,7 @@ smb_decode_short_dirent(struct smb_sb_info *server, char *p,
 	 * SMB doesn't have a concept of inode numbers ...
 	 */
 	smb_init_dirent(server, fattr);
-	fattr->f_ino = 0;	/* FIXME: do we need this? */
+	fattr->f_ino = 0;
 
 	p += SMB_STATUS_SIZE;	/* reserved (search_status) */
 	fattr->attr = *p;
@@ -1902,20 +1851,6 @@ smb_decode_short_dirent(struct smb_sb_info *server, char *p,
 
 	smb_finish_dirent(server, fattr);
 
-#if 0
-	/* FIXME: These only work for ascii chars, and recent smbmount doesn't
-	   allow the flag to be set anyway. It kills const. Remove? */
-	switch (server->opt.case_handling) {
-	case SMB_CASE_UPPER:
-		str_upper(entry->name, len);
-		break;
-	case SMB_CASE_LOWER:
-		str_lower(entry->name, len);
-		break;
-	default:
-		break;
-	}
-#endif
 
 	qname->len = 0;
 	len = server->ops->convert(name_buf, SMB_MAXNAMELEN,
@@ -2079,12 +2014,10 @@ static void smb_decode_unix_basic(struct smb_fattr *fattr, struct smb_sb_info *s
 {
 	u64 size, disk_bytes;
 
-	/* FIXME: verify nls support. all is sent as utf8? */
 
 	fattr->f_unix = 1;
 	fattr->f_mode = 0;
 
-	/* FIXME: use the uniqueID from the remote instead? */
 	/* 0 L file size in bytes */
 	/* 8 L file size on disk in bytes (block count) */
 	/* 40 L uid */
@@ -2173,7 +2106,7 @@ smb_decode_long_dirent(struct smb_sb_info *server, char *p, int level,
 	 * SMB doesn't have a concept of inode numbers ...
 	 */
 	smb_init_dirent(server, fattr);
-	fattr->f_ino = 0;	/* FIXME: do we need this? */
+	fattr->f_ino = 0;
 
 	switch (level) {
 	case 1:
@@ -2227,7 +2160,6 @@ smb_decode_long_dirent(struct smb_sb_info *server, char *p, int level,
 		qname->name = p + 108;
 
 		len = strlen(qname->name);
-		/* FIXME: should we check the length?? */
 
 		p += 8;
 		smb_decode_unix_basic(fattr, server, p);
@@ -2242,20 +2174,6 @@ smb_decode_long_dirent(struct smb_sb_info *server, char *p, int level,
 
 	smb_finish_dirent(server, fattr);
 
-#if 0
-	/* FIXME: These only work for ascii chars, and recent smbmount doesn't
-	   allow the flag to be set anyway. Remove? */
-	switch (server->opt.case_handling) {
-	case SMB_CASE_UPPER:
-		str_upper(qname->name, len);
-		break;
-	case SMB_CASE_LOWER:
-		str_lower(qname->name, len);
-		break;
-	default:
-		break;
-	}
-#endif
 
 	qname->len = 0;
 	n = server->ops->convert(name_buf, SMB_MAXNAMELEN,
@@ -2457,23 +2375,6 @@ smb_proc_readdir_long(struct file *filp, void *dirent, filldir_t filldir,
 
 		VERBOSE("received %d entries, eos=%d\n", ff_searchcount,ff_eos);
 
-		/*
-		 * We might need the lastname for continuations.
-		 *
-		 * Note that some servers (win95?) point to the filename and
-		 * others (NT4, Samba using NT1) to the dir entry. We assume
-		 * here that those who do not point to a filename do not need
-		 * this info to continue the listing.
-		 *
-		 * OS/2 needs this and talks infolevel 1.
-		 * NetApps want lastname with infolevel 260.
-		 * win2k want lastname with infolevel 260, and points to
-		 *       the record not to the name.
-		 * Samba+CifsUnixExt doesn't need lastname.
-		 *
-		 * Both are happy if we return the data they point to. So we do.
-		 * (FIXME: above is not true with win2k)
-		 */
 		mask_len = 0;
 		if (info_level != SMB_FIND_FILE_UNIX &&
 		    ff_lastname > 0 && ff_lastname < req->rq_ldata) {
@@ -2593,7 +2494,7 @@ smb_proc_getattr_ff(struct smb_sb_info *server, struct dentry *dentry,
 	fattr->f_mtime.tv_sec = date_dos2unix(server, date, time);
 	fattr->f_mtime.tv_nsec = 0;
 	VERBOSE("name=%s, date=%x, time=%x, mtime=%ld\n",
-		mask, date, time, fattr->f_mtime);
+		mask, date, time, fattr->f_mtime.tv_sec);
 	fattr->f_size = DVAL(req->rq_data, 12);
 	/* ULONG allocation size */
 	fattr->attr = WVAL(req->rq_data, 20);
@@ -2803,7 +2704,6 @@ smb_proc_getattr_95(struct smb_sb_info *server, struct dentry *dir,
 	struct inode *inode = dir->d_inode;
 	int result;
 
-	/* FIXME: why not use the "all" version? */
 	result = smb_proc_getattr_trans2_std(server, dir, attr);
 	if (result < 0)
 		goto out;
@@ -3125,12 +3025,6 @@ smb_proc_setattr_unix(struct dentry *d, struct iattr *attr,
 		LSET(data, 8, 0); /* can't set anyway */
 	}
 
-	/*
-	 * FIXME: check the conversion function it the correct one
-	 *
-	 * we can't set ctime but we might as well pass this to the server
-	 * and let it ignore it.
-	 */
 	if (attr->ia_valid & ATTR_CTIME) {
 		nttime = smb_unixutc2ntutc(attr->ia_ctime);
 		LSET(data, 16, nttime);
@@ -3425,7 +3319,6 @@ smb_proc_query_cifsunix(struct smb_sb_info *server)
 
 	DEBUG1("Server implements CIFS Extensions for UNIX systems v%d.%d\n",
 	       major, minor);
-	/* FIXME: verify that we are ok with this major/minor? */
 
 	caps = LVAL(req->rq_data, 4);
 	DEBUG1("Server capabilities 0x%016llx\n", caps);
@@ -3490,7 +3383,6 @@ static struct smb_ops smb_ops_unix =
 	.write		= smb_proc_writeX,
 	.readdir	= smb_proc_readdir_long,
 	.getattr	= smb_proc_getattr_unix,
-	/* FIXME: core/ext/time setattr needs to be cleaned up! */
 	/* .setattr	= smb_proc_setattr_unix, */
 	.truncate	= smb_proc_trunc64,
 };

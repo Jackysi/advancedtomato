@@ -164,11 +164,11 @@ static int __initdata stifb_bpp_pref[MAX_STI_ROMS];
 # define  DEBUG_ON()  debug_on=1
 # define WRITE_BYTE(value,fb,reg)	do { if (debug_on) \
 						printk(KERN_DEBUG "%30s: WRITE_BYTE(0x%06x) = 0x%02x (old=0x%02x)\n", \
-							__FUNCTION__, reg, value, READ_BYTE(fb,reg)); 		  \
+							__func__, reg, value, READ_BYTE(fb,reg)); 		  \
 					gsc_writeb((value),(fb)->info.fix.mmio_start + (reg)); } while (0)
 # define WRITE_WORD(value,fb,reg)	do { if (debug_on) \
 						printk(KERN_DEBUG "%30s: WRITE_WORD(0x%06x) = 0x%08x (old=0x%08x)\n", \
-							__FUNCTION__, reg, value, READ_WORD(fb,reg)); 		  \
+							__func__, reg, value, READ_WORD(fb,reg)); 		  \
 					gsc_writel((value),(fb)->info.fix.mmio_start + (reg)); } while (0)
 #endif /* DEBUG_STIFB_REGS */
 
@@ -281,13 +281,6 @@ CRX24_SETUP_RAMDAC(struct stifb_info *fb)
 	WRITE_WORD(0x03000000, fb, 0x1008);
 }
 
-#if 0
-static void 
-HCRX_SETUP_RAMDAC(struct stifb_info *fb)
-{
-	WRITE_WORD(0xffffffff, fb, REG_32);
-}
-#endif
 
 static void 
 CRX24_SET_OVLY_MASK(struct stifb_info *fb)
@@ -505,16 +498,24 @@ ngleSetupAttrPlanes(struct stifb_info *fb, int BufferNumber)
 static void
 rattlerSetupPlanes(struct stifb_info *fb)
 {
+	int saved_id, y;
+
+ 	/* Write RAMDAC pixel read mask register so all overlay
+	 * planes are display-enabled.  (CRX24 uses Bt462 pixel
+	 * read mask register for overlay planes, not image planes).
+	 */
 	CRX24_SETUP_RAMDAC(fb);
     
-	/* replacement for: SETUP_FB(fb, CRX24_OVERLAY_PLANES); */
-	WRITE_WORD(0x83000300, fb, REG_14);
-	SETUP_HW(fb);
-	WRITE_BYTE(1, fb, REG_16b1);
+	/* change fb->id temporarily to fool SETUP_FB() */
+	saved_id = fb->id;
+	fb->id = CRX24_OVERLAY_PLANES;
+	SETUP_FB(fb);
+	fb->id = saved_id;
 
-	fb_memset((void*)fb->info.fix.smem_start, 0xff,
-		fb->info.var.yres*fb->info.fix.line_length);
-    
+	for (y = 0; y < fb->info.var.yres; ++y)
+		memset(fb->info.screen_base + y * fb->info.fix.line_length,
+			0xff, fb->info.var.xres * fb->info.var.bits_per_pixel/8);
+
 	CRX24_SET_OVLY_MASK(fb);
 	SETUP_FB(fb);
 }
@@ -540,45 +541,6 @@ typedef union	/* Note assumption that fields are packed left-to-right */
 } NgleLutBltCtl;
 
 
-#if 0
-static NgleLutBltCtl
-setNgleLutBltCtl(struct stifb_info *fb, int offsetWithinLut, int length)
-{
-	NgleLutBltCtl lutBltCtl;
-
-	/* set enable, zero reserved fields */
-	lutBltCtl.all           = 0x80000000;
-	lutBltCtl.fields.length = length;
-
-	switch (fb->id) 
-	{
-	case S9000_ID_A1439A:		/* CRX24 */
-		if (fb->var.bits_per_pixel == 8) {
-			lutBltCtl.fields.lutType = NGLE_CMAP_OVERLAY_TYPE;
-			lutBltCtl.fields.lutOffset = 0;
-		} else {
-			lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
-			lutBltCtl.fields.lutOffset = 0 * 256;
-		}
-		break;
-		
-	case S9000_ID_ARTIST:
-		lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
-		lutBltCtl.fields.lutOffset = 0 * 256;
-		break;
-		
-	default:
-		lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
-		lutBltCtl.fields.lutOffset = 0;
-		break;
-	}
-
-	/* Offset points to start of LUT.  Adjust for within LUT */
-	lutBltCtl.fields.lutOffset += offsetWithinLut;
-
-	return lutBltCtl;
-}
-#endif
 
 static NgleLutBltCtl
 setHyperLutBltCtl(struct stifb_info *fb, int offsetWithinLut, int length) 
@@ -641,13 +603,11 @@ static void hyperUndoITE(struct stifb_info *fb)
 static void 
 ngleDepth8_ClearImagePlanes(struct stifb_info *fb)
 {
-	/* FIXME! */
 }
 
 static void 
 ngleDepth24_ClearImagePlanes(struct stifb_info *fb)
 {
-	/* FIXME! */
 }
 
 static void
@@ -678,13 +638,6 @@ ngleResetAttrPlanes(struct stifb_info *fb, unsigned int ctlPlaneReg)
 	NGLE_SET_DSTXY(fb, packed_dst);
 	SET_LENXY_START_RECFILL(fb, packed_len);
 
-	/*
-	 * In order to work around an ELK hardware problem (Buffy doesn't
-	 * always flush it's buffers when writing to the attribute
-	 * planes), at least 4 pixels must be written to the attribute
-	 * planes starting at (X == 1280) and (Y != to the last Y written
-	 * by BIF):
-	 */
 
 	if (fb->id == S9000_ID_A1659A) {   /* ELK_DEVICE_ID */
 		/* It's safe to use scanline zero: */
@@ -748,9 +701,9 @@ hyperResetPlanes(struct stifb_info *fb, int enable)
 		if (fb->info.var.bits_per_pixel == 32)
 			controlPlaneReg = 0x04000F00;
 		else
-			controlPlaneReg = 0x00000F00;   /* 0x00000800 should be enought, but lets clear all 4 bits */
+			controlPlaneReg = 0x00000F00;   /* 0x00000800 should be enough, but lets clear all 4 bits */
 	else
-		controlPlaneReg = 0x00000F00; /* 0x00000100 should be enought, but lets clear all 4 bits */
+		controlPlaneReg = 0x00000F00; /* 0x00000100 should be enough, but lets clear all 4 bits */
 
 	switch (enable) {
 	case ENABLE:
@@ -797,62 +750,6 @@ hyperResetPlanes(struct stifb_info *fb, int enable)
 static void 
 ngleGetDeviceRomData(struct stifb_info *fb)
 {
-#if 0
-XXX: FIXME: !!!
-	int	*pBytePerLongDevDepData;/* data byte == LSB */
-	int 	*pRomTable;
-	NgleDevRomData	*pPackedDevRomData;
-	int	sizePackedDevRomData = sizeof(*pPackedDevRomData);
-	char	*pCard8;
-	int	i;
-	char	*mapOrigin = NULL;
-    
-	int romTableIdx;
-
-	pPackedDevRomData = fb->ngle_rom;
-
-	SETUP_HW(fb);
-	if (fb->id == S9000_ID_ARTIST) {
-		pPackedDevRomData->cursor_pipeline_delay = 4;
-		pPackedDevRomData->video_interleaves     = 4;
-	} else {
-		/* Get pointer to unpacked byte/long data in ROM */
-		pBytePerLongDevDepData = fb->sti->regions[NGLEDEVDEPROM_CRT_REGION];
-
-		/* Tomcat supports several resolutions: 1280x1024, 1024x768, 640x480 */
-		if (fb->id == S9000_ID_TOMCAT)
-	{
-	    /*  jump to the correct ROM table  */
-	    GET_ROMTABLE_INDEX(romTableIdx);
-	    while  (romTableIdx > 0)
-	    {
-		pCard8 = (Card8 *) pPackedDevRomData;
-		pRomTable = pBytePerLongDevDepData;
-		/* Pack every fourth byte from ROM into structure */
-		for (i = 0; i < sizePackedDevRomData; i++)
-		{
-		    *pCard8++ = (Card8) (*pRomTable++);
-		}
-
-		pBytePerLongDevDepData = (Card32 *)
-			((Card8 *) pBytePerLongDevDepData +
-			       pPackedDevRomData->sizeof_ngle_data);
-
-		romTableIdx--;
-	    }
-	}
-
-	pCard8 = (Card8 *) pPackedDevRomData;
-
-	/* Pack every fourth byte from ROM into structure */
-	for (i = 0; i < sizePackedDevRomData; i++)
-	{
-	    *pCard8++ = (Card8) (*pBytePerLongDevDepData++);
-	}
-    }
-
-    SETUP_FB(fb);
-#endif
 }
 
 
@@ -1070,8 +967,7 @@ static struct fb_ops stifb_ops = {
  *  Initialization
  */
 
-int __init
-stifb_init_fb(struct sti_struct *sti, int bpp_pref)
+static int __init stifb_init_fb(struct sti_struct *sti, int bpp_pref)
 {
 	struct fb_fix_screeninfo *fix;
 	struct fb_var_screeninfo *var;
@@ -1108,10 +1004,9 @@ stifb_init_fb(struct sti_struct *sti, int bpp_pref)
 		  if the device name contains the string "DX" and tell the
 		  user how to reconfigure the card. */
 		if (strstr(sti->outptr.dev_name, "DX")) {
-		   printk(KERN_WARNING "WARNING: stifb framebuffer driver does not "
-			"support '%s' in double-buffer mode.\n"
-			KERN_WARNING "WARNING: Please disable the double-buffer mode "
-			"in IPL menu (the PARISC-BIOS).\n",
+		   printk(KERN_WARNING
+"WARNING: stifb framebuffer driver does not support '%s' in double-buffer mode.\n"
+"WARNING: Please disable the double-buffer mode in IPL menu (the PARISC-BIOS).\n",
 			sti->outptr.dev_name);
 		   goto out_err0;
 		}
@@ -1155,10 +1050,6 @@ stifb_init_fb(struct sti_struct *sti, int bpp_pref)
 			var->grayscale = 1;
 		break;
 	case S9000_ID_TOMCAT:	/* Dual CRX, behaves else like a CRX */
-		/* FIXME: TomCat supports two heads:
-		 * fb.iobase = REGION_BASE(fb_info,3);
-		 * fb.screen_base = ioremap_nocache(REGION_BASE(fb_info,2),xxx);
-		 * for now we only support the left one ! */
 		xres = fb->ngle_rom.x_size_visible;
 		yres = fb->ngle_rom.y_size_visible;
 		fb->id = S9000_ID_A1659A;
@@ -1255,24 +1146,25 @@ stifb_init_fb(struct sti_struct *sti, int bpp_pref)
 	info->flags = FBINFO_DEFAULT;
 	info->pseudo_palette = &fb->pseudo_palette;
 
-	/* This has to been done !!! */
-	fb_alloc_cmap(&info->cmap, NR_PALETTE, 0);
+	/* This has to be done !!! */
+	if (fb_alloc_cmap(&info->cmap, NR_PALETTE, 0))
+		goto out_err1;
 	stifb_init_display(fb);
 
 	if (!request_mem_region(fix->smem_start, fix->smem_len, "stifb fb")) {
 		printk(KERN_ERR "stifb: cannot reserve fb region 0x%04lx-0x%04lx\n",
 				fix->smem_start, fix->smem_start+fix->smem_len);
-		goto out_err1;
+		goto out_err2;
 	}
 		
 	if (!request_mem_region(fix->mmio_start, fix->mmio_len, "stifb mmio")) {
 		printk(KERN_ERR "stifb: cannot reserve sti mmio region 0x%04lx-0x%04lx\n",
 				fix->mmio_start, fix->mmio_start+fix->mmio_len);
-		goto out_err2;
+		goto out_err3;
 	}
 
 	if (register_framebuffer(&fb->info) < 0)
-		goto out_err3;
+		goto out_err4;
 
 	sti->info = info; /* save for unregister_framebuffer() */
 
@@ -1290,13 +1182,14 @@ stifb_init_fb(struct sti_struct *sti, int bpp_pref)
 	return 0;
 
 
-out_err3:
+out_err4:
 	release_mem_region(fix->mmio_start, fix->mmio_len);
-out_err2:
+out_err3:
 	release_mem_region(fix->smem_start, fix->smem_len);
+out_err2:
+	fb_dealloc_cmap(&info->cmap);
 out_err1:
 	iounmap(info->screen_base);
-	fb_dealloc_cmap(&info->cmap);
 out_err0:
 	kfree(fb);
 	return -ENXIO;
@@ -1307,8 +1200,7 @@ static int stifb_disabled __initdata;
 int __init
 stifb_setup(char *options);
 
-int __init
-stifb_init(void)
+static int __init stifb_init(void)
 {
 	struct sti_struct *sti;
 	struct sti_struct *def_sti;
@@ -1372,7 +1264,7 @@ stifb_cleanup(void)
 				if (info->screen_base)
 					iounmap(info->screen_base);
 		        fb_dealloc_cmap(&info->cmap);
-		        kfree(info); 
+		        framebuffer_release(info);
 		}
 		sti->info = NULL;
 	}

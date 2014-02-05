@@ -12,14 +12,12 @@
  * (http://davesdomain.org.uk/viafb/)
  */
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/tty.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/fb.h>
 #include <linux/svga.h>
@@ -68,26 +66,26 @@ static const struct svga_pll vt8623_pll = {2, 127, 2, 7, 0, 3,
 
 /* CRT timing register sets */
 
-struct vga_regset vt8623_h_total_regs[]       = {{0x00, 0, 7}, {0x36, 3, 3}, VGA_REGSET_END};
-struct vga_regset vt8623_h_display_regs[]     = {{0x01, 0, 7}, VGA_REGSET_END};
-struct vga_regset vt8623_h_blank_start_regs[] = {{0x02, 0, 7}, VGA_REGSET_END};
-struct vga_regset vt8623_h_blank_end_regs[]   = {{0x03, 0, 4}, {0x05, 7, 7}, {0x33, 5, 5}, VGA_REGSET_END};
-struct vga_regset vt8623_h_sync_start_regs[]  = {{0x04, 0, 7}, {0x33, 4, 4}, VGA_REGSET_END};
-struct vga_regset vt8623_h_sync_end_regs[]    = {{0x05, 0, 4}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_total_regs[]       = {{0x00, 0, 7}, {0x36, 3, 3}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_display_regs[]     = {{0x01, 0, 7}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_blank_start_regs[] = {{0x02, 0, 7}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_blank_end_regs[]   = {{0x03, 0, 4}, {0x05, 7, 7}, {0x33, 5, 5}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_sync_start_regs[]  = {{0x04, 0, 7}, {0x33, 4, 4}, VGA_REGSET_END};
+static struct vga_regset vt8623_h_sync_end_regs[]    = {{0x05, 0, 4}, VGA_REGSET_END};
 
-struct vga_regset vt8623_v_total_regs[]       = {{0x06, 0, 7}, {0x07, 0, 0}, {0x07, 5, 5}, {0x35, 0, 0}, VGA_REGSET_END};
-struct vga_regset vt8623_v_display_regs[]     = {{0x12, 0, 7}, {0x07, 1, 1}, {0x07, 6, 6}, {0x35, 2, 2}, VGA_REGSET_END};
-struct vga_regset vt8623_v_blank_start_regs[] = {{0x15, 0, 7}, {0x07, 3, 3}, {0x09, 5, 5}, {0x35, 3, 3}, VGA_REGSET_END};
-struct vga_regset vt8623_v_blank_end_regs[]   = {{0x16, 0, 7}, VGA_REGSET_END};
-struct vga_regset vt8623_v_sync_start_regs[]  = {{0x10, 0, 7}, {0x07, 2, 2}, {0x07, 7, 7}, {0x35, 1, 1}, VGA_REGSET_END};
-struct vga_regset vt8623_v_sync_end_regs[]    = {{0x11, 0, 3}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_total_regs[]       = {{0x06, 0, 7}, {0x07, 0, 0}, {0x07, 5, 5}, {0x35, 0, 0}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_display_regs[]     = {{0x12, 0, 7}, {0x07, 1, 1}, {0x07, 6, 6}, {0x35, 2, 2}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_blank_start_regs[] = {{0x15, 0, 7}, {0x07, 3, 3}, {0x09, 5, 5}, {0x35, 3, 3}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_blank_end_regs[]   = {{0x16, 0, 7}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_sync_start_regs[]  = {{0x10, 0, 7}, {0x07, 2, 2}, {0x07, 7, 7}, {0x35, 1, 1}, VGA_REGSET_END};
+static struct vga_regset vt8623_v_sync_end_regs[]    = {{0x11, 0, 3}, VGA_REGSET_END};
 
-struct vga_regset vt8623_offset_regs[]        = {{0x13, 0, 7}, {0x35, 5, 7}, VGA_REGSET_END};
-struct vga_regset vt8623_line_compare_regs[]  = {{0x18, 0, 7}, {0x07, 4, 4}, {0x09, 6, 6}, {0x33, 0, 2}, {0x35, 4, 4}, VGA_REGSET_END};
-struct vga_regset vt8623_fetch_count_regs[]   = {{0x1C, 0, 7}, {0x1D, 0, 1}, VGA_REGSET_END};
-struct vga_regset vt8623_start_address_regs[] = {{0x0d, 0, 7}, {0x0c, 0, 7}, {0x34, 0, 7}, {0x48, 0, 1}, VGA_REGSET_END};
+static struct vga_regset vt8623_offset_regs[]        = {{0x13, 0, 7}, {0x35, 5, 7}, VGA_REGSET_END};
+static struct vga_regset vt8623_line_compare_regs[]  = {{0x18, 0, 7}, {0x07, 4, 4}, {0x09, 6, 6}, {0x33, 0, 2}, {0x35, 4, 4}, VGA_REGSET_END};
+static struct vga_regset vt8623_fetch_count_regs[]   = {{0x1C, 0, 7}, {0x1D, 0, 1}, VGA_REGSET_END};
+static struct vga_regset vt8623_start_address_regs[] = {{0x0d, 0, 7}, {0x0c, 0, 7}, {0x34, 0, 7}, {0x48, 0, 1}, VGA_REGSET_END};
 
-struct svga_timing_regs vt8623_timing_regs     = {
+static struct svga_timing_regs vt8623_timing_regs     = {
 	vt8623_h_total_regs, vt8623_h_display_regs, vt8623_h_blank_start_regs,
 	vt8623_h_blank_end_regs, vt8623_h_sync_start_regs, vt8623_h_sync_end_regs,
 	vt8623_v_total_regs, vt8623_v_display_regs, vt8623_v_blank_start_regs,
@@ -100,7 +98,7 @@ struct svga_timing_regs vt8623_timing_regs     = {
 
 /* Module parameters */
 
-static char *mode = "640x480-8@60";
+static char *mode_option = "640x480-8@60";
 
 #ifdef CONFIG_MTRR
 static int mtrr = 1;
@@ -110,8 +108,10 @@ MODULE_AUTHOR("(c) 2006 Ondrej Zajicek <santiago@crfreenet.org>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("fbdev driver for integrated graphics core in VIA VT8623 [CLE266]");
 
-module_param(mode, charp, 0644);
-MODULE_PARM_DESC(mode, "Default video mode ('640x480-8@60', etc)");
+module_param(mode_option, charp, 0644);
+MODULE_PARM_DESC(mode_option, "Default video mode ('640x480-8@60', etc)");
+module_param_named(mode, mode_option, charp, 0);
+MODULE_PARM_DESC(mode, "Default video mode e.g. '648x480-8@60' (deprecated)");
 
 #ifdef CONFIG_MTRR
 module_param(mtrr, int, 0444);
@@ -434,6 +434,10 @@ static int vt8623fb_set_par(struct fb_info *info)
 	svga_wcrt_multi(vt8623_offset_regs, offset_value);
 	svga_wseq_multi(vt8623_fetch_count_regs, fetch_value);
 
+	/* Clear H/V Skew */
+	svga_wcrt_mask(0x03, 0x00, 0x60);
+	svga_wcrt_mask(0x05, 0x00, 0x60);
+
 	if (info->var.vmode & FB_VMODE_DOUBLE)
 		svga_wcrt_mask(0x09, 0x80, 0x80);
 	else
@@ -441,7 +445,7 @@ static int vt8623fb_set_par(struct fb_info *info)
 
 	svga_wseq_mask(0x1E, 0xF0, 0xF0); // DI/DVP bus
 	svga_wseq_mask(0x2A, 0x0F, 0x0F); // DI/DVP bus
-	svga_wseq_mask(0x16, 0x08, 0xBF); // FIFO read treshold
+	svga_wseq_mask(0x16, 0x08, 0xBF); // FIFO read threshold
 	vga_wseq(NULL, 0x17, 0x1F);       // FIFO depth
 	vga_wseq(NULL, 0x18, 0x4E);
 	svga_wseq_mask(0x1A, 0x08, 0x08); // enable MMIO ?
@@ -655,7 +659,7 @@ static int __devinit vt8623_pci_probe(struct pci_dev *dev, const struct pci_devi
 	}
 
 	/* Allocate and fill driver data structure */
-	info = framebuffer_alloc(sizeof(struct vt8623fb_info), NULL);
+	info = framebuffer_alloc(sizeof(struct vt8623fb_info), &(dev->dev));
 	if (! info) {
 		dev_err(&(dev->dev), "cannot allocate memory\n");
 		return -ENOMEM;
@@ -671,13 +675,13 @@ static int __devinit vt8623_pci_probe(struct pci_dev *dev, const struct pci_devi
 
 	rc = pci_enable_device(dev);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot enable PCI device\n");
+		dev_err(info->device, "cannot enable PCI device\n");
 		goto err_enable_device;
 	}
 
 	rc = pci_request_regions(dev, "vt8623fb");
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot reserve framebuffer region\n");
+		dev_err(info->device, "cannot reserve framebuffer region\n");
 		goto err_request_regions;
 	}
 
@@ -690,14 +694,14 @@ static int __devinit vt8623_pci_probe(struct pci_dev *dev, const struct pci_devi
 	info->screen_base = pci_iomap(dev, 0, 0);
 	if (! info->screen_base) {
 		rc = -ENOMEM;
-		dev_err(&(dev->dev), "iomap for framebuffer failed\n");
+		dev_err(info->device, "iomap for framebuffer failed\n");
 		goto err_iomap_1;
 	}
 
 	par->mmio_base = pci_iomap(dev, 1, 0);
 	if (! par->mmio_base) {
 		rc = -ENOMEM;
-		dev_err(&(dev->dev), "iomap for MMIO failed\n");
+		dev_err(info->device, "iomap for MMIO failed\n");
 		goto err_iomap_2;
 	}
 
@@ -708,7 +712,7 @@ static int __devinit vt8623_pci_probe(struct pci_dev *dev, const struct pci_devi
 	if ((16 <= memsize1) && (memsize1 <= 64) && (memsize1 == memsize2))
 		info->screen_size = memsize1 << 20;
 	else {
-		dev_err(&(dev->dev), "memory size detection failed (%x %x), suppose 16 MB\n", memsize1, memsize2);
+		dev_err(info->device, "memory size detection failed (%x %x), suppose 16 MB\n", memsize1, memsize2);
 		info->screen_size = 16 << 20;
 	}
 
@@ -722,22 +726,24 @@ static int __devinit vt8623_pci_probe(struct pci_dev *dev, const struct pci_devi
 
 	/* Prepare startup mode */
 
-	rc = fb_find_mode(&(info->var), info, mode, NULL, 0, NULL, 8);
+	kparam_block_sysfs_write(mode_option);
+	rc = fb_find_mode(&(info->var), info, mode_option, NULL, 0, NULL, 8);
+	kparam_unblock_sysfs_write(mode_option);
 	if (! ((rc == 1) || (rc == 2))) {
 		rc = -EINVAL;
-		dev_err(&(dev->dev), "mode %s not found\n", mode);
+		dev_err(info->device, "mode %s not found\n", mode_option);
 		goto err_find_mode;
 	}
 
 	rc = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot allocate colormap\n");
+		dev_err(info->device, "cannot allocate colormap\n");
 		goto err_alloc_cmap;
 	}
 
 	rc = register_framebuffer(info);
 	if (rc < 0) {
-		dev_err(&(dev->dev), "cannot register framebugger\n");
+		dev_err(info->device, "cannot register framebugger\n");
 		goto err_reg_fb;
 	}
 
@@ -811,7 +817,7 @@ static int vt8623_pci_suspend(struct pci_dev* dev, pm_message_t state)
 	struct fb_info *info = pci_get_drvdata(dev);
 	struct vt8623fb_info *par = info->par;
 
-	dev_info(&(dev->dev), "suspend\n");
+	dev_info(info->device, "suspend\n");
 
 	acquire_console_sem();
 	mutex_lock(&(par->open_lock));
@@ -842,16 +848,13 @@ static int vt8623_pci_resume(struct pci_dev* dev)
 	struct fb_info *info = pci_get_drvdata(dev);
 	struct vt8623fb_info *par = info->par;
 
-	dev_info(&(dev->dev), "resume\n");
+	dev_info(info->device, "resume\n");
 
 	acquire_console_sem();
 	mutex_lock(&(par->open_lock));
 
-	if (par->ref_count == 0) {
-		mutex_unlock(&(par->open_lock));
-		release_console_sem();
-		return 0;
-	}
+	if (par->ref_count == 0)
+		goto fail;
 
 	pci_set_power_state(dev, PCI_D0);
 	pci_restore_state(dev);
@@ -864,8 +867,8 @@ static int vt8623_pci_resume(struct pci_dev* dev)
 	vt8623fb_set_par(info);
 	fb_set_suspend(info, 0);
 
-	mutex_unlock(&(par->open_lock));
 fail:
+	mutex_unlock(&(par->open_lock));
 	release_console_sem();
 
 	return 0;
@@ -903,7 +906,7 @@ static void __exit vt8623fb_cleanup(void)
 
 /* Driver Initialisation */
 
-int __init vt8623fb_init(void)
+static int __init vt8623fb_init(void)
 {
 
 #ifndef MODULE
@@ -913,7 +916,7 @@ int __init vt8623fb_init(void)
 		return -ENODEV;
 
 	if (option && *option)
-		mode = option;
+		mode_option = option;
 #endif
 
 	pr_debug("vt8623fb: initializing\n");

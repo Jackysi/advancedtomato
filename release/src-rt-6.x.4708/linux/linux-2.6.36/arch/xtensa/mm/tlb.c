@@ -91,10 +91,6 @@ void flush_tlb_range (struct vm_area_struct *vma,
 	if (mm->context == NO_CONTEXT)
 		return;
 
-#if 0
-	printk("[tlbrange<%02lx,%08lx,%08lx>]\n",
-			(unsigned long)mm->context, start, end);
-#endif
 	local_save_flags(flags);
 
 	if (end-start + (PAGE_SIZE-1) <= _TLB_ENTRIES << PAGE_SHIFT) {
@@ -141,4 +137,3 @@ void flush_tlb_page (struct vm_area_struct *vma, unsigned long page)
 
 	local_irq_restore(flags);
 }
-

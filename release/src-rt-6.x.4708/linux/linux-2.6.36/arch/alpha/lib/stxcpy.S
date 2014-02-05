@@ -27,10 +27,6 @@
 
 	.text
 
-/* There is a problem with either gdb (as of 4.16) or gas (as of 2.7) that
-   doesn't like putting the entry point for a procedure somewhere in the
-   middle of the procedure descriptor.  Work around this by putting the
-   aligned copy in its own procedure descriptor */
 
 	.ent stxcpy_aligned
 	.align 3

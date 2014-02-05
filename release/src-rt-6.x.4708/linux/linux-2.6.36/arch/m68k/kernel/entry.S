@@ -77,17 +77,17 @@ ENTRY(ret_from_fork)
 	jra	.Lret_from_exception
 
 do_trace_entry:
-	movel	#-ENOSYS,%sp@(PT_D0)	| needed for strace
+	movel	#-ENOSYS,%sp@(PT_OFF_D0)| needed for strace
 	subql	#4,%sp
 	SAVE_SWITCH_STACK
 	jbsr	syscall_trace
 	RESTORE_SWITCH_STACK
 	addql	#4,%sp
-	movel	%sp@(PT_ORIG_D0),%d0
+	movel	%sp@(PT_OFF_ORIG_D0),%d0
 	cmpl	#NR_syscalls,%d0
 	jcs	syscall
 badsys:
-	movel	#-ENOSYS,%sp@(PT_D0)
+	movel	#-ENOSYS,%sp@(PT_OFF_D0)
 	jra	ret_from_syscall
 
 do_trace_exit:
@@ -103,7 +103,7 @@ ENTRY(ret_from_signal)
 	addql	#4,%sp
 /* on 68040 complete pending writebacks if any */
 #ifdef CONFIG_M68040
-	bfextu	%sp@(PT_VECTOR){#0,#4},%d0
+	bfextu	%sp@(PT_OFF_FORMATVEC){#0,#4},%d0
 	subql	#7,%d0				| bus error frame ?
 	jbne	1f
 	movel	%sp,%sp@-
@@ -127,7 +127,7 @@ ENTRY(system_call)
 	jcc	badsys
 syscall:
 	jbsr	@(sys_call_table,%d0:l:4)@(0)
-	movel	%d0,%sp@(PT_D0)		| save the return value
+	movel	%d0,%sp@(PT_OFF_D0)	| save the return value
 ret_from_syscall:
 	|oriw	#0x0700,%sr
 	movew	%curptr@(TASK_INFO+TINFO_FLAGS+2),%d0
@@ -135,7 +135,7 @@ ret_from_syscall:
 1:	RESTORE_ALL
 
 syscall_exit_work:
-	btst	#5,%sp@(PT_SR)		| check if returning to kernel
+	btst	#5,%sp@(PT_OFF_SR)	| check if returning to kernel
 	bnes	1b			| if so, skip resched, signals
 	lslw	#1,%d0
 	jcs	do_trace_exit
@@ -148,7 +148,7 @@ syscall_exit_work:
 
 ENTRY(ret_from_exception)
 .Lret_from_exception:
-	btst	#5,%sp@(PT_SR)		| check if returning to kernel
+	btst	#5,%sp@(PT_OFF_SR)	| check if returning to kernel
 	bnes	1f			| if so, skip resched, signals
 	| only allow interrupts when we are really the last one on the
 	| kernel stack, otherwise stack overflow can occur during
@@ -179,10 +179,14 @@ do_signal_return:
 	addql	#8,%sp
 	RESTORE_SWITCH_STACK
 	addql	#4,%sp
-	jbra	resume_userspace
+	tstl	%d0
+	jeq	resume_userspace
+	| when single stepping into handler stop at the first insn
+	btst	#6,%curptr@(TASK_INFO+TINFO_FLAGS+2)
+	jeq	resume_userspace
 
 do_delayed_trace:
-	bclr	#7,%sp@(PT_SR)		| clear trace bit in SR
+	bclr	#7,%sp@(PT_OFF_SR)	| clear trace bit in SR
 	pea	1			| send SIGTRAP
 	movel	%curptr,%sp@-
 	pea	LSIGTRAP
@@ -199,7 +203,7 @@ ENTRY(auto_inthandler)
 	GET_CURRENT(%d0)
 	addqb	#1,%curptr@(TASK_INFO+TINFO_PREEMPT+1)
 					|  put exception # in d0
-	bfextu	%sp@(PT_VECTOR){#4,#10},%d0
+	bfextu	%sp@(PT_OFF_FORMATVEC){#4,#10},%d0
 	subw	#VEC_SPUR,%d0
 
 	movel	%sp,%sp@-
@@ -216,7 +220,7 @@ ret_from_interrupt:
 	ALIGN
 ret_from_last_interrupt:
 	moveq	#(~ALLOWINT>>8)&0xff,%d0
-	andb	%sp@(PT_SR),%d0
+	andb	%sp@(PT_OFF_SR),%d0
 	jne	2b
 
 	/* check if we need to do software interrupts */
@@ -232,7 +236,7 @@ ENTRY(user_inthandler)
 	GET_CURRENT(%d0)
 	addqb	#1,%curptr@(TASK_INFO+TINFO_PREEMPT+1)
 					|  put exception # in d0
-	bfextu	%sp@(PT_VECTOR){#4,#10},%d0
+	bfextu	%sp@(PT_OFF_FORMATVEC){#4,#10},%d0
 user_irqvec_fixup = . + 2
 	subw	#VEC_USER,%d0
 
@@ -424,7 +428,7 @@ resume:
 .data
 ALIGN
 sys_call_table:
-	.long sys_ni_syscall	/* 0  -  old "setup()" system call*/
+	.long sys_restart_syscall	/* 0 - old "setup()" system call, used for restarting */
 	.long sys_exit
 	.long sys_fork
 	.long sys_read
@@ -506,15 +510,15 @@ sys_call_table:
 	.long sys_settimeofday
 	.long sys_getgroups16	/* 80 */
 	.long sys_setgroups16
-	.long old_select
+	.long sys_old_select
 	.long sys_symlink
 	.long sys_lstat
 	.long sys_readlink	/* 85 */
 	.long sys_uselib
 	.long sys_swapon
 	.long sys_reboot
-	.long old_readdir
-	.long old_mmap		/* 90 */
+	.long sys_old_readdir
+	.long sys_old_mmap	/* 90 */
 	.long sys_munmap
 	.long sys_truncate
 	.long sys_ftruncate
@@ -735,4 +739,32 @@ sys_call_table:
 	.long sys_tee
 	.long sys_vmsplice
 	.long sys_move_pages		/* 310 */
-
+	.long sys_sched_setaffinity
+	.long sys_sched_getaffinity
+	.long sys_kexec_load
+	.long sys_getcpu
+	.long sys_epoll_pwait		/* 315 */
+	.long sys_utimensat
+	.long sys_signalfd
+	.long sys_timerfd_create
+	.long sys_eventfd
+	.long sys_fallocate		/* 320 */
+	.long sys_timerfd_settime
+	.long sys_timerfd_gettime
+	.long sys_signalfd4
+	.long sys_eventfd2
+	.long sys_epoll_create1		/* 325 */
+	.long sys_dup3
+	.long sys_pipe2
+	.long sys_inotify_init1
+	.long sys_preadv
+	.long sys_pwritev		/* 330 */
+	.long sys_rt_tgsigqueueinfo
+	.long sys_perf_event_open
+	.long sys_get_thread_area
+	.long sys_set_thread_area
+	.long sys_atomic_cmpxchg_32	/* 335 */
+	.long sys_atomic_barrier
+	.long sys_fanotify_init
+	.long sys_fanotify_mark
+	.long sys_prlimit64

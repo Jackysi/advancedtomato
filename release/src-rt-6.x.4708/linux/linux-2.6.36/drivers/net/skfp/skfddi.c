@@ -73,17 +73,18 @@ static const char * const boot_msg =
 
 /* Include files */
 
+#include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
-#include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <linux/netdevice.h>
 #include <linux/fddidevice.h>
 #include <linux/skbuff.h>
 #include <linux/bitops.h>
+#include <linux/gfp.h>
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
@@ -107,7 +108,8 @@ static void skfp_ctl_set_multicast_list(struct net_device *dev);
 static void skfp_ctl_set_multicast_list_wo_lock(struct net_device *dev);
 static int skfp_ctl_set_mac_address(struct net_device *dev, void *addr);
 static int skfp_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-static int skfp_send_pkt(struct sk_buff *skb, struct net_device *dev);
+static netdev_tx_t skfp_send_pkt(struct sk_buff *skb,
+				       struct net_device *dev);
 static void send_queued_packets(struct s_smc *smc);
 static void CheckSourceAddress(unsigned char *frame, unsigned char *hw_addr);
 static void ResetAdapter(struct s_smc *smc);
@@ -135,14 +137,11 @@ void dump_data(unsigned char *Data, int length);
 
 // External functions from the hardware module
 extern u_int mac_drv_check_space(void);
-extern void read_address(struct s_smc *smc, u_char * mac_addr);
-extern void card_stop(struct s_smc *smc);
 extern int mac_drv_init(struct s_smc *smc);
 extern void hwm_tx_frag(struct s_smc *smc, char far * virt, u_long phys,
 			int len, int frame_status);
 extern int hwm_tx_init(struct s_smc *smc, u_char fc, int frag_count,
 		       int frame_len, int frame_status);
-extern int init_smt(struct s_smc *smc, u_char * mac_addr);
 extern void fddi_isr(struct s_smc *smc);
 extern void hwm_rx_frag(struct s_smc *smc, char far * virt, u_long phys,
 			int len, int frame_status);
@@ -150,7 +149,7 @@ extern void mac_drv_rx_mode(struct s_smc *smc, int mode);
 extern void mac_drv_clear_rx_queue(struct s_smc *smc);
 extern void enable_tx_irq(struct s_smc *smc, u_short queue);
 
-static struct pci_device_id skfddi_pci_tbl[] = {
+static DEFINE_PCI_DEVICE_TABLE(skfddi_pci_tbl) = {
 	{ PCI_VENDOR_ID_SK, PCI_DEVICE_ID_SK_FP, PCI_ANY_ID, PCI_ANY_ID, },
 	{ }			/* Terminating entry */
 };
@@ -162,11 +161,16 @@ MODULE_AUTHOR("Mirko Lindner <mlindner@syskonnect.de>");
 
 static int num_boards;	/* total number of adapters configured */
 
-#ifdef DRIVERDEBUG
-#define PRINTK(s, args...) printk(s, ## args)
-#else
-#define PRINTK(s, args...)
-#endif				// DRIVERDEBUG
+static const struct net_device_ops skfp_netdev_ops = {
+	.ndo_open		= skfp_open,
+	.ndo_stop		= skfp_close,
+	.ndo_start_xmit		= skfp_send_pkt,
+	.ndo_get_stats		= skfp_ctl_get_stats,
+	.ndo_change_mtu		= fddi_change_mtu,
+	.ndo_set_multicast_list = skfp_ctl_set_multicast_list,
+	.ndo_set_mac_address	= skfp_ctl_set_mac_address,
+	.ndo_do_ioctl		= skfp_ioctl,
+};
 
 /*
  * =================
@@ -205,7 +209,7 @@ static int skfp_init_one(struct pci_dev *pdev,
 	void __iomem *mem;
 	int err;
 
-	PRINTK(KERN_INFO "entering skfp_init_one\n");
+	pr_debug(KERN_INFO "entering skfp_init_one\n");
 
 	if (num_boards == 0) 
 		printk("%s\n", boot_msg);
@@ -253,16 +257,8 @@ static int skfp_init_one(struct pci_dev *pdev,
 	}
 
 	dev->irq = pdev->irq;
-	dev->get_stats = &skfp_ctl_get_stats;
-	dev->open = &skfp_open;
-	dev->stop = &skfp_close;
-	dev->hard_start_xmit = &skfp_send_pkt;
-	dev->set_multicast_list = &skfp_ctl_set_multicast_list;
-	dev->set_mac_address = &skfp_ctl_set_mac_address;
-	dev->do_ioctl = &skfp_ioctl;
-	dev->header_cache_update = NULL;	/* not supported */
+	dev->netdev_ops = &skfp_netdev_ops;
 
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	/* Initialize board structure with bus-specific info */
@@ -389,7 +385,7 @@ static  int skfp_driver_init(struct net_device *dev)
 	skfddi_priv *bp = &smc->os;
 	int err = -EIO;
 
-	PRINTK(KERN_INFO "entering skfp_driver_init\n");
+	pr_debug(KERN_INFO "entering skfp_driver_init\n");
 
 	// set the io address in private structures
 	bp->base_addr = dev->base_addr;
@@ -409,7 +405,7 @@ static  int skfp_driver_init(struct net_device *dev)
 
 	// Determine the required size of the 'shared' memory area.
 	bp->SharedMemSize = mac_drv_check_space();
-	PRINTK(KERN_INFO "Memory for HWM: %ld\n", bp->SharedMemSize);
+	pr_debug(KERN_INFO "Memory for HWM: %ld\n", bp->SharedMemSize);
 	if (bp->SharedMemSize > 0) {
 		bp->SharedMemSize += 16;	// for descriptor alignment
 
@@ -433,19 +429,13 @@ static  int skfp_driver_init(struct net_device *dev)
 
 	card_stop(smc);		// Reset adapter.
 
-	PRINTK(KERN_INFO "mac_drv_init()..\n");
+	pr_debug(KERN_INFO "mac_drv_init()..\n");
 	if (mac_drv_init(smc) != 0) {
-		PRINTK(KERN_INFO "mac_drv_init() failed.\n");
+		pr_debug(KERN_INFO "mac_drv_init() failed.\n");
 		goto fail;
 	}
 	read_address(smc, NULL);
-	PRINTK(KERN_INFO "HW-Addr: %02x %02x %02x %02x %02x %02x\n",
-	       smc->hw.fddi_canon_addr.a[0],
-	       smc->hw.fddi_canon_addr.a[1],
-	       smc->hw.fddi_canon_addr.a[2],
-	       smc->hw.fddi_canon_addr.a[3],
-	       smc->hw.fddi_canon_addr.a[4],
-	       smc->hw.fddi_canon_addr.a[5]);
+	pr_debug(KERN_INFO "HW-Addr: %pMF\n", smc->hw.fddi_canon_addr.a);
 	memcpy(dev->dev_addr, smc->hw.fddi_canon_addr.a, 6);
 
 	smt_reset_defaults(smc, 0);
@@ -495,9 +485,9 @@ static int skfp_open(struct net_device *dev)
 	struct s_smc *smc = netdev_priv(dev);
 	int err;
 
-	PRINTK(KERN_INFO "entering skfp_open\n");
+	pr_debug(KERN_INFO "entering skfp_open\n");
 	/* Register IRQ - support shared interrupts by passing device ptr */
-	err = request_irq(dev->irq, (void *) skfp_interrupt, IRQF_SHARED,
+	err = request_irq(dev->irq, skfp_interrupt, IRQF_SHARED,
 			  dev->name, dev);
 	if (err)
 		return err;
@@ -614,7 +604,7 @@ static int skfp_close(struct net_device *dev)
  *   Interrupts are disabled, then reenabled at the adapter.
  */
 
-irqreturn_t skfp_interrupt(int irq, void *dev_id)
+static irqreturn_t skfp_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct s_smc *smc;	/* private board structure pointer */
@@ -681,7 +671,7 @@ irqreturn_t skfp_interrupt(int irq, void *dev_id)
  *   independent.
  *
  */
-struct net_device_stats *skfp_ctl_get_stats(struct net_device *dev)
+static struct net_device_stats *skfp_ctl_get_stats(struct net_device *dev)
 {
 	struct s_smc *bp = netdev_priv(dev);
 
@@ -690,120 +680,6 @@ struct net_device_stats *skfp_ctl_get_stats(struct net_device *dev)
 	bp->os.MacStat.port_bs_flag[0] = 0x1234;
 	bp->os.MacStat.port_bs_flag[1] = 0x5678;
 // goos: need to fill out fddi statistic
-#if 0
-	/* Get FDDI SMT MIB objects */
-
-/* Fill the bp->stats structure with the SMT MIB object values */
-
-	memcpy(bp->stats.smt_station_id, &bp->cmd_rsp_virt->smt_mib_get.smt_station_id, sizeof(bp->cmd_rsp_virt->smt_mib_get.smt_station_id));
-	bp->stats.smt_op_version_id = bp->cmd_rsp_virt->smt_mib_get.smt_op_version_id;
-	bp->stats.smt_hi_version_id = bp->cmd_rsp_virt->smt_mib_get.smt_hi_version_id;
-	bp->stats.smt_lo_version_id = bp->cmd_rsp_virt->smt_mib_get.smt_lo_version_id;
-	memcpy(bp->stats.smt_user_data, &bp->cmd_rsp_virt->smt_mib_get.smt_user_data, sizeof(bp->cmd_rsp_virt->smt_mib_get.smt_user_data));
-	bp->stats.smt_mib_version_id = bp->cmd_rsp_virt->smt_mib_get.smt_mib_version_id;
-	bp->stats.smt_mac_cts = bp->cmd_rsp_virt->smt_mib_get.smt_mac_ct;
-	bp->stats.smt_non_master_cts = bp->cmd_rsp_virt->smt_mib_get.smt_non_master_ct;
-	bp->stats.smt_master_cts = bp->cmd_rsp_virt->smt_mib_get.smt_master_ct;
-	bp->stats.smt_available_paths = bp->cmd_rsp_virt->smt_mib_get.smt_available_paths;
-	bp->stats.smt_config_capabilities = bp->cmd_rsp_virt->smt_mib_get.smt_config_capabilities;
-	bp->stats.smt_config_policy = bp->cmd_rsp_virt->smt_mib_get.smt_config_policy;
-	bp->stats.smt_connection_policy = bp->cmd_rsp_virt->smt_mib_get.smt_connection_policy;
-	bp->stats.smt_t_notify = bp->cmd_rsp_virt->smt_mib_get.smt_t_notify;
-	bp->stats.smt_stat_rpt_policy = bp->cmd_rsp_virt->smt_mib_get.smt_stat_rpt_policy;
-	bp->stats.smt_trace_max_expiration = bp->cmd_rsp_virt->smt_mib_get.smt_trace_max_expiration;
-	bp->stats.smt_bypass_present = bp->cmd_rsp_virt->smt_mib_get.smt_bypass_present;
-	bp->stats.smt_ecm_state = bp->cmd_rsp_virt->smt_mib_get.smt_ecm_state;
-	bp->stats.smt_cf_state = bp->cmd_rsp_virt->smt_mib_get.smt_cf_state;
-	bp->stats.smt_remote_disconnect_flag = bp->cmd_rsp_virt->smt_mib_get.smt_remote_disconnect_flag;
-	bp->stats.smt_station_status = bp->cmd_rsp_virt->smt_mib_get.smt_station_status;
-	bp->stats.smt_peer_wrap_flag = bp->cmd_rsp_virt->smt_mib_get.smt_peer_wrap_flag;
-	bp->stats.smt_time_stamp = bp->cmd_rsp_virt->smt_mib_get.smt_msg_time_stamp.ls;
-	bp->stats.smt_transition_time_stamp = bp->cmd_rsp_virt->smt_mib_get.smt_transition_time_stamp.ls;
-	bp->stats.mac_frame_status_functions = bp->cmd_rsp_virt->smt_mib_get.mac_frame_status_functions;
-	bp->stats.mac_t_max_capability = bp->cmd_rsp_virt->smt_mib_get.mac_t_max_capability;
-	bp->stats.mac_tvx_capability = bp->cmd_rsp_virt->smt_mib_get.mac_tvx_capability;
-	bp->stats.mac_available_paths = bp->cmd_rsp_virt->smt_mib_get.mac_available_paths;
-	bp->stats.mac_current_path = bp->cmd_rsp_virt->smt_mib_get.mac_current_path;
-	memcpy(bp->stats.mac_upstream_nbr, &bp->cmd_rsp_virt->smt_mib_get.mac_upstream_nbr, FDDI_K_ALEN);
-	memcpy(bp->stats.mac_downstream_nbr, &bp->cmd_rsp_virt->smt_mib_get.mac_downstream_nbr, FDDI_K_ALEN);
-	memcpy(bp->stats.mac_old_upstream_nbr, &bp->cmd_rsp_virt->smt_mib_get.mac_old_upstream_nbr, FDDI_K_ALEN);
-	memcpy(bp->stats.mac_old_downstream_nbr, &bp->cmd_rsp_virt->smt_mib_get.mac_old_downstream_nbr, FDDI_K_ALEN);
-	bp->stats.mac_dup_address_test = bp->cmd_rsp_virt->smt_mib_get.mac_dup_address_test;
-	bp->stats.mac_requested_paths = bp->cmd_rsp_virt->smt_mib_get.mac_requested_paths;
-	bp->stats.mac_downstream_port_type = bp->cmd_rsp_virt->smt_mib_get.mac_downstream_port_type;
-	memcpy(bp->stats.mac_smt_address, &bp->cmd_rsp_virt->smt_mib_get.mac_smt_address, FDDI_K_ALEN);
-	bp->stats.mac_t_req = bp->cmd_rsp_virt->smt_mib_get.mac_t_req;
-	bp->stats.mac_t_neg = bp->cmd_rsp_virt->smt_mib_get.mac_t_neg;
-	bp->stats.mac_t_max = bp->cmd_rsp_virt->smt_mib_get.mac_t_max;
-	bp->stats.mac_tvx_value = bp->cmd_rsp_virt->smt_mib_get.mac_tvx_value;
-	bp->stats.mac_frame_error_threshold = bp->cmd_rsp_virt->smt_mib_get.mac_frame_error_threshold;
-	bp->stats.mac_frame_error_ratio = bp->cmd_rsp_virt->smt_mib_get.mac_frame_error_ratio;
-	bp->stats.mac_rmt_state = bp->cmd_rsp_virt->smt_mib_get.mac_rmt_state;
-	bp->stats.mac_da_flag = bp->cmd_rsp_virt->smt_mib_get.mac_da_flag;
-	bp->stats.mac_una_da_flag = bp->cmd_rsp_virt->smt_mib_get.mac_unda_flag;
-	bp->stats.mac_frame_error_flag = bp->cmd_rsp_virt->smt_mib_get.mac_frame_error_flag;
-	bp->stats.mac_ma_unitdata_available = bp->cmd_rsp_virt->smt_mib_get.mac_ma_unitdata_available;
-	bp->stats.mac_hardware_present = bp->cmd_rsp_virt->smt_mib_get.mac_hardware_present;
-	bp->stats.mac_ma_unitdata_enable = bp->cmd_rsp_virt->smt_mib_get.mac_ma_unitdata_enable;
-	bp->stats.path_tvx_lower_bound = bp->cmd_rsp_virt->smt_mib_get.path_tvx_lower_bound;
-	bp->stats.path_t_max_lower_bound = bp->cmd_rsp_virt->smt_mib_get.path_t_max_lower_bound;
-	bp->stats.path_max_t_req = bp->cmd_rsp_virt->smt_mib_get.path_max_t_req;
-	memcpy(bp->stats.path_configuration, &bp->cmd_rsp_virt->smt_mib_get.path_configuration, sizeof(bp->cmd_rsp_virt->smt_mib_get.path_configuration));
-	bp->stats.port_my_type[0] = bp->cmd_rsp_virt->smt_mib_get.port_my_type[0];
-	bp->stats.port_my_type[1] = bp->cmd_rsp_virt->smt_mib_get.port_my_type[1];
-	bp->stats.port_neighbor_type[0] = bp->cmd_rsp_virt->smt_mib_get.port_neighbor_type[0];
-	bp->stats.port_neighbor_type[1] = bp->cmd_rsp_virt->smt_mib_get.port_neighbor_type[1];
-	bp->stats.port_connection_policies[0] = bp->cmd_rsp_virt->smt_mib_get.port_connection_policies[0];
-	bp->stats.port_connection_policies[1] = bp->cmd_rsp_virt->smt_mib_get.port_connection_policies[1];
-	bp->stats.port_mac_indicated[0] = bp->cmd_rsp_virt->smt_mib_get.port_mac_indicated[0];
-	bp->stats.port_mac_indicated[1] = bp->cmd_rsp_virt->smt_mib_get.port_mac_indicated[1];
-	bp->stats.port_current_path[0] = bp->cmd_rsp_virt->smt_mib_get.port_current_path[0];
-	bp->stats.port_current_path[1] = bp->cmd_rsp_virt->smt_mib_get.port_current_path[1];
-	memcpy(&bp->stats.port_requested_paths[0 * 3], &bp->cmd_rsp_virt->smt_mib_get.port_requested_paths[0], 3);
-	memcpy(&bp->stats.port_requested_paths[1 * 3], &bp->cmd_rsp_virt->smt_mib_get.port_requested_paths[1], 3);
-	bp->stats.port_mac_placement[0] = bp->cmd_rsp_virt->smt_mib_get.port_mac_placement[0];
-	bp->stats.port_mac_placement[1] = bp->cmd_rsp_virt->smt_mib_get.port_mac_placement[1];
-	bp->stats.port_available_paths[0] = bp->cmd_rsp_virt->smt_mib_get.port_available_paths[0];
-	bp->stats.port_available_paths[1] = bp->cmd_rsp_virt->smt_mib_get.port_available_paths[1];
-	bp->stats.port_pmd_class[0] = bp->cmd_rsp_virt->smt_mib_get.port_pmd_class[0];
-	bp->stats.port_pmd_class[1] = bp->cmd_rsp_virt->smt_mib_get.port_pmd_class[1];
-	bp->stats.port_connection_capabilities[0] = bp->cmd_rsp_virt->smt_mib_get.port_connection_capabilities[0];
-	bp->stats.port_connection_capabilities[1] = bp->cmd_rsp_virt->smt_mib_get.port_connection_capabilities[1];
-	bp->stats.port_bs_flag[0] = bp->cmd_rsp_virt->smt_mib_get.port_bs_flag[0];
-	bp->stats.port_bs_flag[1] = bp->cmd_rsp_virt->smt_mib_get.port_bs_flag[1];
-	bp->stats.port_ler_estimate[0] = bp->cmd_rsp_virt->smt_mib_get.port_ler_estimate[0];
-	bp->stats.port_ler_estimate[1] = bp->cmd_rsp_virt->smt_mib_get.port_ler_estimate[1];
-	bp->stats.port_ler_cutoff[0] = bp->cmd_rsp_virt->smt_mib_get.port_ler_cutoff[0];
-	bp->stats.port_ler_cutoff[1] = bp->cmd_rsp_virt->smt_mib_get.port_ler_cutoff[1];
-	bp->stats.port_ler_alarm[0] = bp->cmd_rsp_virt->smt_mib_get.port_ler_alarm[0];
-	bp->stats.port_ler_alarm[1] = bp->cmd_rsp_virt->smt_mib_get.port_ler_alarm[1];
-	bp->stats.port_connect_state[0] = bp->cmd_rsp_virt->smt_mib_get.port_connect_state[0];
-	bp->stats.port_connect_state[1] = bp->cmd_rsp_virt->smt_mib_get.port_connect_state[1];
-	bp->stats.port_pcm_state[0] = bp->cmd_rsp_virt->smt_mib_get.port_pcm_state[0];
-	bp->stats.port_pcm_state[1] = bp->cmd_rsp_virt->smt_mib_get.port_pcm_state[1];
-	bp->stats.port_pc_withhold[0] = bp->cmd_rsp_virt->smt_mib_get.port_pc_withhold[0];
-	bp->stats.port_pc_withhold[1] = bp->cmd_rsp_virt->smt_mib_get.port_pc_withhold[1];
-	bp->stats.port_ler_flag[0] = bp->cmd_rsp_virt->smt_mib_get.port_ler_flag[0];
-	bp->stats.port_ler_flag[1] = bp->cmd_rsp_virt->smt_mib_get.port_ler_flag[1];
-	bp->stats.port_hardware_present[0] = bp->cmd_rsp_virt->smt_mib_get.port_hardware_present[0];
-	bp->stats.port_hardware_present[1] = bp->cmd_rsp_virt->smt_mib_get.port_hardware_present[1];
-
-
-	/* Fill the bp->stats structure with the FDDI counter values */
-
-	bp->stats.mac_frame_cts = bp->cmd_rsp_virt->cntrs_get.cntrs.frame_cnt.ls;
-	bp->stats.mac_copied_cts = bp->cmd_rsp_virt->cntrs_get.cntrs.copied_cnt.ls;
-	bp->stats.mac_transmit_cts = bp->cmd_rsp_virt->cntrs_get.cntrs.transmit_cnt.ls;
-	bp->stats.mac_error_cts = bp->cmd_rsp_virt->cntrs_get.cntrs.error_cnt.ls;
-	bp->stats.mac_lost_cts = bp->cmd_rsp_virt->cntrs_get.cntrs.lost_cnt.ls;
-	bp->stats.port_lct_fail_cts[0] = bp->cmd_rsp_virt->cntrs_get.cntrs.lct_rejects[0].ls;
-	bp->stats.port_lct_fail_cts[1] = bp->cmd_rsp_virt->cntrs_get.cntrs.lct_rejects[1].ls;
-	bp->stats.port_lem_reject_cts[0] = bp->cmd_rsp_virt->cntrs_get.cntrs.lem_rejects[0].ls;
-	bp->stats.port_lem_reject_cts[1] = bp->cmd_rsp_virt->cntrs_get.cntrs.lem_rejects[1].ls;
-	bp->stats.port_lem_cts[0] = bp->cmd_rsp_virt->cntrs_get.cntrs.link_errors[0].ls;
-	bp->stats.port_lem_cts[1] = bp->cmd_rsp_virt->cntrs_get.cntrs.link_errors[1].ls;
-
-#endif
 	return ((struct net_device_stats *) &bp->os.MacStat);
 }				// ctl_get_stat
 
@@ -854,7 +730,6 @@ static void skfp_ctl_set_multicast_list(struct net_device *dev)
 	spin_lock_irqsave(&bp->DriverLock, Flags);
 	skfp_ctl_set_multicast_list_wo_lock(dev);
 	spin_unlock_irqrestore(&bp->DriverLock, Flags);
-	return;
 }				// skfp_ctl_set_multicast_list
 
 
@@ -862,18 +737,17 @@ static void skfp_ctl_set_multicast_list(struct net_device *dev)
 static void skfp_ctl_set_multicast_list_wo_lock(struct net_device *dev)
 {
 	struct s_smc *smc = netdev_priv(dev);
-	struct dev_mc_list *dmi;	/* ptr to multicast addr entry */
-	int i;
+	struct netdev_hw_addr *ha;
 
 	/* Enable promiscuous mode, if necessary */
 	if (dev->flags & IFF_PROMISC) {
 		mac_drv_rx_mode(smc, RX_ENABLE_PROMISC);
-		PRINTK(KERN_INFO "PROMISCUOUS MODE ENABLED\n");
+		pr_debug(KERN_INFO "PROMISCUOUS MODE ENABLED\n");
 	}
 	/* Else, update multicast address table */
 	else {
 		mac_drv_rx_mode(smc, RX_DISABLE_PROMISC);
-		PRINTK(KERN_INFO "PROMISCUOUS MODE DISABLED\n");
+		pr_debug(KERN_INFO "PROMISCUOUS MODE DISABLED\n");
 
 		// Reset all MC addresses
 		mac_clear_multicast(smc);
@@ -881,45 +755,34 @@ static void skfp_ctl_set_multicast_list_wo_lock(struct net_device *dev)
 
 		if (dev->flags & IFF_ALLMULTI) {
 			mac_drv_rx_mode(smc, RX_ENABLE_ALLMULTI);
-			PRINTK(KERN_INFO "ENABLE ALL MC ADDRESSES\n");
-		} else if (dev->mc_count > 0) {
-			if (dev->mc_count <= FPMAX_MULTICAST) {
+			pr_debug(KERN_INFO "ENABLE ALL MC ADDRESSES\n");
+		} else if (!netdev_mc_empty(dev)) {
+			if (netdev_mc_count(dev) <= FPMAX_MULTICAST) {
 				/* use exact filtering */
 
 				// point to first multicast addr
-				dmi = dev->mc_list;
+				netdev_for_each_mc_addr(ha, dev) {
+					mac_add_multicast(smc,
+						(struct fddi_addr *)ha->addr,
+						1);
 
-				for (i = 0; i < dev->mc_count; i++) {
-					mac_add_multicast(smc, 
-							  (struct fddi_addr *)dmi->dmi_addr, 
-							  1);
-
-					PRINTK(KERN_INFO "ENABLE MC ADDRESS:");
-					PRINTK(" %02x %02x %02x ",
-					       dmi->dmi_addr[0],
-					       dmi->dmi_addr[1],
-					       dmi->dmi_addr[2]);
-					PRINTK("%02x %02x %02x\n",
-					       dmi->dmi_addr[3],
-					       dmi->dmi_addr[4],
-					       dmi->dmi_addr[5]);
-					dmi = dmi->next;
-				}	// for
+					pr_debug(KERN_INFO "ENABLE MC ADDRESS: %pMF\n",
+						ha->addr);
+				}
 
 			} else {	// more MC addresses than HW supports
 
 				mac_drv_rx_mode(smc, RX_ENABLE_ALLMULTI);
-				PRINTK(KERN_INFO "ENABLE ALL MC ADDRESSES\n");
+				pr_debug(KERN_INFO "ENABLE ALL MC ADDRESSES\n");
 			}
 		} else {	// no MC addresses
 
-			PRINTK(KERN_INFO "DISABLE ALL MC ADDRESSES\n");
+			pr_debug(KERN_INFO "DISABLE ALL MC ADDRESSES\n");
 		}
 
 		/* Update adapter filters */
 		mac_update_multicast(smc);
 	}
-	return;
 }				// skfp_ctl_set_multicast_list_wo_lock
 
 
@@ -1000,13 +863,13 @@ static int skfp_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SKFP_CLR_STATS:	/* Zero out the driver statistics */
 		if (!capable(CAP_NET_ADMIN)) {
-			memset(&lp->MacStat, 0, sizeof(lp->MacStat));
-		} else {
 			status = -EPERM;
+		} else {
+			memset(&lp->MacStat, 0, sizeof(lp->MacStat));
 		}
 		break;
 	default:
-		printk("ioctl for %s: unknow cmd: %04x\n", dev->name, ioc.cmd);
+		printk("ioctl for %s: unknown cmd: %04x\n", dev->name, ioc.cmd);
 		status = -EOPNOTSUPP;
 
 	}			// switch
@@ -1062,12 +925,13 @@ static int skfp_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  * Side Effects:
  *   None
  */
-static int skfp_send_pkt(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t skfp_send_pkt(struct sk_buff *skb,
+				       struct net_device *dev)
 {
 	struct s_smc *smc = netdev_priv(dev);
 	skfddi_priv *bp = &smc->os;
 
-	PRINTK(KERN_INFO "skfp_send_pkt\n");
+	pr_debug(KERN_INFO "skfp_send_pkt\n");
 
 	/*
 	 * Verify that incoming transmit request is OK
@@ -1083,12 +947,12 @@ static int skfp_send_pkt(struct sk_buff *skb, struct net_device *dev)
 		// dequeue packets from xmt queue and send them
 		netif_start_queue(dev);
 		dev_kfree_skb(skb);
-		return (0);	/* return "success" */
+		return NETDEV_TX_OK;	/* return "success" */
 	}
 	if (bp->QueueSkb == 0) {	// return with tbusy set: queue full
 
 		netif_stop_queue(dev);
-		return 1;
+		return NETDEV_TX_BUSY;
 	}
 	bp->QueueSkb--;
 	skb_queue_tail(&bp->SendSkbQueue, skb);
@@ -1096,8 +960,7 @@ static int skfp_send_pkt(struct sk_buff *skb, struct net_device *dev)
 	if (bp->QueueSkb == 0) {
 		netif_stop_queue(dev);
 	}
-	dev->trans_start = jiffies;
-	return 0;
+	return NETDEV_TX_OK;
 
 }				// skfp_send_pkt
 
@@ -1137,13 +1000,13 @@ static void send_queued_packets(struct s_smc *smc)
 
 	int frame_status;	// HWM tx frame status.
 
-	PRINTK(KERN_INFO "send queued packets\n");
+	pr_debug(KERN_INFO "send queued packets\n");
 	for (;;) {
 		// send first buffer from queue
 		skb = skb_dequeue(&bp->SendSkbQueue);
 
 		if (!skb) {
-			PRINTK(KERN_INFO "queue empty\n");
+			pr_debug(KERN_INFO "queue empty\n");
 			return;
 		}		// queue empty !
 
@@ -1174,11 +1037,11 @@ static void send_queued_packets(struct s_smc *smc)
 
 			if ((frame_status & RING_DOWN) != 0) {
 				// Ring is down.
-				PRINTK("Tx attempt while ring down.\n");
+				pr_debug("Tx attempt while ring down.\n");
 			} else if ((frame_status & OUT_OF_TXD) != 0) {
-				PRINTK("%s: out of TXDs.\n", bp->dev->name);
+				pr_debug("%s: out of TXDs.\n", bp->dev->name);
 			} else {
-				PRINTK("%s: out of transmit resources",
+				pr_debug("%s: out of transmit resources",
 					bp->dev->name);
 			}
 
@@ -1226,7 +1089,7 @@ static void send_queued_packets(struct s_smc *smc)
  * Verify if the source address is set. Insert it if necessary.
  *
  ************************/
-void CheckSourceAddress(unsigned char *frame, unsigned char *hw_addr)
+static void CheckSourceAddress(unsigned char *frame, unsigned char *hw_addr)
 {
 	unsigned char SRBit;
 
@@ -1255,7 +1118,7 @@ void CheckSourceAddress(unsigned char *frame, unsigned char *hw_addr)
 static void ResetAdapter(struct s_smc *smc)
 {
 
-	PRINTK(KERN_INFO "[fddi: ResetAdapter]\n");
+	pr_debug(KERN_INFO "[fddi: ResetAdapter]\n");
 
 	// Stop the adapter.
 
@@ -1301,7 +1164,7 @@ void llc_restart_tx(struct s_smc *smc)
 {
 	skfddi_priv *bp = &smc->os;
 
-	PRINTK(KERN_INFO "[llc_restart_tx]\n");
+	pr_debug(KERN_INFO "[llc_restart_tx]\n");
 
 	// Try to send queued packets
 	spin_unlock(&bp->DriverLock);
@@ -1331,7 +1194,7 @@ void *mac_drv_get_space(struct s_smc *smc, unsigned int size)
 {
 	void *virt;
 
-	PRINTK(KERN_INFO "mac_drv_get_space (%d bytes), ", size);
+	pr_debug(KERN_INFO "mac_drv_get_space (%d bytes), ", size);
 	virt = (void *) (smc->os.SharedMemAddr + smc->os.SharedMemHeap);
 
 	if ((smc->os.SharedMemHeap + size) > smc->os.SharedMemSize) {
@@ -1340,9 +1203,9 @@ void *mac_drv_get_space(struct s_smc *smc, unsigned int size)
 	}
 	smc->os.SharedMemHeap += size;	// Move heap pointer.
 
-	PRINTK(KERN_INFO "mac_drv_get_space end\n");
-	PRINTK(KERN_INFO "virt addr: %lx\n", (ulong) virt);
-	PRINTK(KERN_INFO "bus  addr: %lx\n", (ulong)
+	pr_debug(KERN_INFO "mac_drv_get_space end\n");
+	pr_debug(KERN_INFO "virt addr: %lx\n", (ulong) virt);
+	pr_debug(KERN_INFO "bus  addr: %lx\n", (ulong)
 	       (smc->os.SharedMemDMA +
 		((char *) virt - (char *)smc->os.SharedMemAddr)));
 	return (virt);
@@ -1372,7 +1235,7 @@ void *mac_drv_get_desc_mem(struct s_smc *smc, unsigned int size)
 
 	char *virt;
 
-	PRINTK(KERN_INFO "mac_drv_get_desc_mem\n");
+	pr_debug(KERN_INFO "mac_drv_get_desc_mem\n");
 
 	// Descriptor memory must be aligned on 16-byte boundary.
 
@@ -1381,8 +1244,8 @@ void *mac_drv_get_desc_mem(struct s_smc *smc, unsigned int size)
 	size = (u_int) (16 - (((unsigned long) virt) & 15UL));
 	size = size % 16;
 
-	PRINTK("Allocate %u bytes alignment gap ", size);
-	PRINTK("for descriptor memory.\n");
+	pr_debug("Allocate %u bytes alignment gap ", size);
+	pr_debug("for descriptor memory.\n");
 
 	if (!mac_drv_get_space(smc, size)) {
 		printk("fddi: Unable to align descriptor memory.\n");
@@ -1516,11 +1379,11 @@ void mac_drv_tx_complete(struct s_smc *smc, volatile struct s_smt_fp_txd *txd)
 {
 	struct sk_buff *skb;
 
-	PRINTK(KERN_INFO "entering mac_drv_tx_complete\n");
+	pr_debug(KERN_INFO "entering mac_drv_tx_complete\n");
 	// Check if this TxD points to a skb
 
 	if (!(skb = txd->txd_os.skb)) {
-		PRINTK("TXD with no skb assigned.\n");
+		pr_debug("TXD with no skb assigned.\n");
 		return;
 	}
 	txd->txd_os.skb = NULL;
@@ -1536,7 +1399,7 @@ void mac_drv_tx_complete(struct s_smc *smc, volatile struct s_smt_fp_txd *txd)
 	// free the skb
 	dev_kfree_skb_irq(skb);
 
-	PRINTK(KERN_INFO "leaving mac_drv_tx_complete\n");
+	pr_debug(KERN_INFO "leaving mac_drv_tx_complete\n");
 }				// mac_drv_tx_complete
 
 
@@ -1603,7 +1466,7 @@ void mac_drv_rx_complete(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 	unsigned short ri;
 	u_int RifLength;
 
-	PRINTK(KERN_INFO "entering mac_drv_rx_complete (len=%d)\n", len);
+	pr_debug(KERN_INFO "entering mac_drv_rx_complete (len=%d)\n", len);
 	if (frag_count != 1) {	// This is not allowed to happen.
 
 		printk("fddi: Multi-fragment receive!\n");
@@ -1612,7 +1475,7 @@ void mac_drv_rx_complete(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 	}
 	skb = rxd->rxd_os.skb;
 	if (!skb) {
-		PRINTK(KERN_INFO "No skb in rxd\n");
+		pr_debug(KERN_INFO "No skb in rxd\n");
 		smc->os.MacStat.gen.rx_errors++;
 		goto RequeueRxd;
 	}
@@ -1642,11 +1505,11 @@ void mac_drv_rx_complete(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 	else {
 		int n;
 // goos: RIF removal has still to be tested
-		PRINTK(KERN_INFO "RIF found\n");
+		pr_debug(KERN_INFO "RIF found\n");
 		// Get RIF length from Routing Control (RC) field.
 		cp = virt + FDDI_MAC_HDR_LEN;	// Point behind MAC header.
 
-		ri = ntohs(*((unsigned short *) cp));
+		ri = ntohs(*((__be16 *) cp));
 		RifLength = ri & FDDI_RCF_LEN_MASK;
 		if (len < (int) (FDDI_MAC_HDR_LEN + RifLength)) {
 			printk("fddi: Invalid RIF.\n");
@@ -1682,13 +1545,12 @@ void mac_drv_rx_complete(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 	skb->protocol = fddi_type_trans(skb, bp->dev);
 
 	netif_rx(skb);
-	bp->dev->last_rx = jiffies;
 
 	HWM_RX_CHECK(smc, RX_LOW_WATERMARK);
 	return;
 
       RequeueRxd:
-	PRINTK(KERN_INFO "Rx: re-queue RXD.\n");
+	pr_debug(KERN_INFO "Rx: re-queue RXD.\n");
 	mac_drv_requeue_rxd(smc, rxd, frag_count);
 	smc->os.MacStat.gen.rx_errors++;	// Count receive packets
 						// not indicated.
@@ -1737,7 +1599,7 @@ void mac_drv_requeue_rxd(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 		skb = src_rxd->rxd_os.skb;
 		if (skb == NULL) {	// this should not happen
 
-			PRINTK("Requeue with no skb in rxd!\n");
+			pr_debug("Requeue with no skb in rxd!\n");
 			skb = alloc_skb(MaxFrameSize + 3, GFP_ATOMIC);
 			if (skb) {
 				// we got a skb
@@ -1752,7 +1614,7 @@ void mac_drv_requeue_rxd(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 				rxd->rxd_os.dma_addr = b_addr;
 			} else {
 				// no skb available, use local buffer
-				PRINTK("Queueing invalid buffer!\n");
+				pr_debug("Queueing invalid buffer!\n");
 				rxd->rxd_os.skb = NULL;
 				v_addr = smc->os.LocalRxBuffer;
 				b_addr = smc->os.LocalRxBufferDMA;
@@ -1799,7 +1661,7 @@ void mac_drv_fill_rxd(struct s_smc *smc)
 	struct sk_buff *skb;
 	volatile struct s_smt_fp_rxd *rxd;
 
-	PRINTK(KERN_INFO "entering mac_drv_fill_rxd\n");
+	pr_debug(KERN_INFO "entering mac_drv_fill_rxd\n");
 
 	// Walk through the list of free receive buffers, passing receive
 	// buffers to the HWM as long as RXDs are available.
@@ -1807,7 +1669,7 @@ void mac_drv_fill_rxd(struct s_smc *smc)
 	MaxFrameSize = smc->os.MaxFrameSize;
 	// Check if there is any RXD left.
 	while (HWM_GET_RX_FREE(smc) > 0) {
-		PRINTK(KERN_INFO ".\n");
+		pr_debug(KERN_INFO ".\n");
 
 		rxd = HWM_GET_CURR_RXD(smc);
 		skb = alloc_skb(MaxFrameSize + 3, GFP_ATOMIC);
@@ -1827,7 +1689,7 @@ void mac_drv_fill_rxd(struct s_smc *smc)
 			// keep the receiver running in hope of better times.
 			// Multiple descriptors may point to this local buffer,
 			// so data in it must be considered invalid.
-			PRINTK("Queueing invalid buffer!\n");
+			pr_debug("Queueing invalid buffer!\n");
 			v_addr = smc->os.LocalRxBuffer;
 			b_addr = smc->os.LocalRxBufferDMA;
 		}
@@ -1838,7 +1700,7 @@ void mac_drv_fill_rxd(struct s_smc *smc)
 		hwm_rx_frag(smc, v_addr, b_addr, MaxFrameSize,
 			    FIRST_FRAG | LAST_FRAG);
 	}
-	PRINTK(KERN_INFO "leaving mac_drv_fill_rxd\n");
+	pr_debug(KERN_INFO "leaving mac_drv_fill_rxd\n");
 }				// mac_drv_fill_rxd
 
 
@@ -1864,7 +1726,7 @@ void mac_drv_clear_rxd(struct s_smc *smc, volatile struct s_smt_fp_rxd *rxd,
 
 	struct sk_buff *skb;
 
-	PRINTK("entering mac_drv_clear_rxd\n");
+	pr_debug("entering mac_drv_clear_rxd\n");
 
 	if (frag_count != 1)	// This is not allowed to happen.
 
@@ -1920,19 +1782,19 @@ int mac_drv_rx_init(struct s_smc *smc, int len, int fc,
 {
 	struct sk_buff *skb;
 
-	PRINTK("entering mac_drv_rx_init(len=%d)\n", len);
+	pr_debug("entering mac_drv_rx_init(len=%d)\n", len);
 
 	// "Received" a SMT or NSA frame of the local SMT.
 
 	if (len != la_len || len < FDDI_MAC_HDR_LEN || !look_ahead) {
-		PRINTK("fddi: Discard invalid local SMT frame\n");
-		PRINTK("  len=%d, la_len=%d, (ULONG) look_ahead=%08lXh.\n",
+		pr_debug("fddi: Discard invalid local SMT frame\n");
+		pr_debug("  len=%d, la_len=%d, (ULONG) look_ahead=%08lXh.\n",
 		       len, la_len, (unsigned long) look_ahead);
 		return (0);
 	}
 	skb = alloc_skb(len + 3, GFP_ATOMIC);
 	if (!skb) {
-		PRINTK("fddi: Local SMT: skb memory exhausted.\n");
+		pr_debug("fddi: Local SMT: skb memory exhausted.\n");
 		return (0);
 	}
 	skb_reserve(skb, 3);
@@ -1941,7 +1803,6 @@ int mac_drv_rx_init(struct s_smc *smc, int len, int fc,
 
 	// deliver frame to system
 	skb->protocol = fddi_type_trans(skb, smc->os.dev);
-	skb->dev->last_rx = jiffies;
 	netif_rx(skb);
 
 	return (0);
@@ -1983,40 +1844,40 @@ void smt_timer_poll(struct s_smc *smc)
  ************************/
 void ring_status_indication(struct s_smc *smc, u_long status)
 {
-	PRINTK("ring_status_indication( ");
+	pr_debug("ring_status_indication( ");
 	if (status & RS_RES15)
-		PRINTK("RS_RES15 ");
+		pr_debug("RS_RES15 ");
 	if (status & RS_HARDERROR)
-		PRINTK("RS_HARDERROR ");
+		pr_debug("RS_HARDERROR ");
 	if (status & RS_SOFTERROR)
-		PRINTK("RS_SOFTERROR ");
+		pr_debug("RS_SOFTERROR ");
 	if (status & RS_BEACON)
-		PRINTK("RS_BEACON ");
+		pr_debug("RS_BEACON ");
 	if (status & RS_PATHTEST)
-		PRINTK("RS_PATHTEST ");
+		pr_debug("RS_PATHTEST ");
 	if (status & RS_SELFTEST)
-		PRINTK("RS_SELFTEST ");
+		pr_debug("RS_SELFTEST ");
 	if (status & RS_RES9)
-		PRINTK("RS_RES9 ");
+		pr_debug("RS_RES9 ");
 	if (status & RS_DISCONNECT)
-		PRINTK("RS_DISCONNECT ");
+		pr_debug("RS_DISCONNECT ");
 	if (status & RS_RES7)
-		PRINTK("RS_RES7 ");
+		pr_debug("RS_RES7 ");
 	if (status & RS_DUPADDR)
-		PRINTK("RS_DUPADDR ");
+		pr_debug("RS_DUPADDR ");
 	if (status & RS_NORINGOP)
-		PRINTK("RS_NORINGOP ");
+		pr_debug("RS_NORINGOP ");
 	if (status & RS_VERSION)
-		PRINTK("RS_VERSION ");
+		pr_debug("RS_VERSION ");
 	if (status & RS_STUCKBYPASSS)
-		PRINTK("RS_STUCKBYPASSS ");
+		pr_debug("RS_STUCKBYPASSS ");
 	if (status & RS_EVENT)
-		PRINTK("RS_EVENT ");
+		pr_debug("RS_EVENT ");
 	if (status & RS_RINGOPCHANGE)
-		PRINTK("RS_RINGOPCHANGE ");
+		pr_debug("RS_RINGOPCHANGE ");
 	if (status & RS_RES0)
-		PRINTK("RS_RES0 ");
-	PRINTK("]\n");
+		pr_debug("RS_RES0 ");
+	pr_debug("]\n");
 }				// ring_status_indication
 
 
@@ -2059,17 +1920,17 @@ void smt_stat_counter(struct s_smc *smc, int stat)
 {
 //      BOOLEAN RingIsUp ;
 
-	PRINTK(KERN_INFO "smt_stat_counter\n");
+	pr_debug(KERN_INFO "smt_stat_counter\n");
 	switch (stat) {
 	case 0:
-		PRINTK(KERN_INFO "Ring operational change.\n");
+		pr_debug(KERN_INFO "Ring operational change.\n");
 		break;
 	case 1:
-		PRINTK(KERN_INFO "Receive fifo overflow.\n");
+		pr_debug(KERN_INFO "Receive fifo overflow.\n");
 		smc->os.MacStat.gen.rx_errors++;
 		break;
 	default:
-		PRINTK(KERN_INFO "Unknown status (%d).\n", stat);
+		pr_debug(KERN_INFO "Unknown status (%d).\n", stat);
 		break;
 	}
 }				// smt_stat_counter
@@ -2125,10 +1986,10 @@ void cfm_state_change(struct s_smc *smc, int c_state)
 		s = "SC11_C_WRAP_S";
 		break;
 	default:
-		PRINTK(KERN_INFO "cfm_state_change: unknown %d\n", c_state);
+		pr_debug(KERN_INFO "cfm_state_change: unknown %d\n", c_state);
 		return;
 	}
-	PRINTK(KERN_INFO "cfm_state_change: %s\n", s);
+	pr_debug(KERN_INFO "cfm_state_change: %s\n", s);
 #endif				// DRIVERDEBUG
 }				// cfm_state_change
 
@@ -2183,7 +2044,7 @@ void ecm_state_change(struct s_smc *smc, int e_state)
 		s = "unknown";
 		break;
 	}
-	PRINTK(KERN_INFO "ecm_state_change: %s\n", s);
+	pr_debug(KERN_INFO "ecm_state_change: %s\n", s);
 #endif				//DRIVERDEBUG
 }				// ecm_state_change
 
@@ -2238,7 +2099,7 @@ void rmt_state_change(struct s_smc *smc, int r_state)
 		s = "unknown";
 		break;
 	}
-	PRINTK(KERN_INFO "[rmt_state_change: %s]\n", s);
+	pr_debug(KERN_INFO "[rmt_state_change: %s]\n", s);
 #endif				// DRIVERDEBUG
 }				// rmt_state_change
 
@@ -2258,7 +2119,7 @@ void rmt_state_change(struct s_smc *smc, int r_state)
  ************************/
 void drv_reset_indication(struct s_smc *smc)
 {
-	PRINTK(KERN_INFO "entering drv_reset_indication\n");
+	pr_debug(KERN_INFO "entering drv_reset_indication\n");
 
 	smc->os.ResetRequested = TRUE;	// Set flag.
 

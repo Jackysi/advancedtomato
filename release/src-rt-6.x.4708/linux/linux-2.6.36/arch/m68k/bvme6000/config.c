@@ -25,6 +25,7 @@
 #include <linux/genhd.h>
 #include <linux/rtc.h>
 #include <linux/interrupt.h>
+#include <linux/bcd.h>
 
 #include <asm/bootinfo.h>
 #include <asm/system.h>
@@ -37,17 +38,12 @@
 #include <asm/bvme6000hw.h>
 
 static void bvme6000_get_model(char *model);
-static int  bvme6000_get_hardware_list(char *buffer);
 extern void bvme6000_sched_init(irq_handler_t handler);
 extern unsigned long bvme6000_gettimeoffset (void);
 extern int bvme6000_hwclk (int, struct rtc_time *);
 extern int bvme6000_set_clock_mmss (unsigned long);
 extern void bvme6000_reset (void);
-extern void bvme6000_waitbut(void);
 void bvme6000_set_vectors (void);
-
-static unsigned char bcd2bin (unsigned char b);
-static unsigned char bin2bcd (unsigned char b);
 
 /* Save tick handler routine pointer, will point to do_timer() in
  * kernel/sched.c, called via bvme6000_process_int() */
@@ -84,20 +80,11 @@ static void bvme6000_get_model(char *model)
     sprintf(model, "BVME%d000", m68k_cputype == CPU_68060 ? 6 : 4);
 }
 
-
-/* No hardware options on BVME6000? */
-
-static int bvme6000_get_hardware_list(char *buffer)
-{
-    *buffer = '\0';
-    return 0;
-}
-
 /*
  * This function is called during kernel startup to initialize
  * the bvme6000 IRQ handling routines.
  */
-static void bvme6000_init_IRQ(void)
+static void __init bvme6000_init_IRQ(void)
 {
 	m68k_setup_user_interrupt(VEC_USER, 192, NULL);
 }
@@ -113,13 +100,6 @@ void __init config_bvme6000(void)
 	else
 	    vme_brdtype = VME_TYPE_BVME4000;
     }
-#if 0
-    /* Call bvme6000_set_vectors() so ABORT will work, along with BVMBug
-     * debugger.  Note trap_init() will splat the abort vector, but
-     * bvme6000_init_IRQ() will put it back again.  Hopefully. */
-
-    bvme6000_set_vectors();
-#endif
 
     mach_max_dma_address = 0xffffffff;
     mach_sched_init      = bvme6000_sched_init;
@@ -129,7 +109,6 @@ void __init config_bvme6000(void)
     mach_set_clock_mmss	 = bvme6000_set_clock_mmss;
     mach_reset		 = bvme6000_reset;
     mach_get_model       = bvme6000_get_model;
-    mach_get_hardware_list = bvme6000_get_hardware_list;
 
     printk ("Board is %sconfigured as a System Controller\n",
 		*config_reg_ptr & BVME_CONFIG_SW1 ? "" : "not ");
@@ -264,17 +243,6 @@ unsigned long bvme6000_gettimeoffset (void)
     return v;
 }
 
-static unsigned char bcd2bin (unsigned char b)
-{
-	return ((b>>4)*10 + (b&15));
-}
-
-static unsigned char bin2bcd (unsigned char b)
-{
-	return (((b/10)*16) + (b%10));
-}
-
-
 /*
  * Looks like op is non-zero for setting the clock, and zero for
  * reading the clock.
@@ -372,4 +340,3 @@ int bvme6000_set_clock_mmss (unsigned long nowtime)
 
 	return retval;
 }
-

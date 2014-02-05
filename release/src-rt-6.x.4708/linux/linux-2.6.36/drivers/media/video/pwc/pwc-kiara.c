@@ -890,4 +890,3 @@ const unsigned int KiaraRomTable [8][2][16][8] =
   }
  }
 };
-

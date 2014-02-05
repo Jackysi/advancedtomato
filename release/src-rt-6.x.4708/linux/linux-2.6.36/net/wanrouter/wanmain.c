@@ -46,9 +46,9 @@
 #include <linux/capability.h>
 #include <linux/errno.h>	/* return codes */
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/module.h>	/* support for loadable modules */
 #include <linux/slab.h>		/* kmalloc(), kfree() */
+#include <linux/mutex.h>
 #include <linux/mm.h>
 #include <linux/string.h>	/* inline mem*, str* functions */
 
@@ -58,9 +58,10 @@
 #include <linux/vmalloc.h>	/* vmalloc, vfree */
 #include <asm/uaccess.h>        /* copy_to/from_user */
 #include <linux/init.h>         /* __initfunc et al. */
-#include <net/syncppp.h>
 
 #define KMEM_SAFETYZONE 8
+
+#define DEV_TO_SLAVE(dev)	(*((struct net_device **)netdev_priv(dev)))
 
 /*
  * 	Function Prototypes
@@ -70,6 +71,7 @@
  *	WAN device IOCTL handlers
  */
 
+static DEFINE_MUTEX(wanrouter_mutex);
 static int wanrouter_device_setup(struct wan_device *wandev,
 				  wandev_conf_t __user *u_conf);
 static int wanrouter_device_stat(struct wan_device *wandev,
@@ -86,8 +88,10 @@ static int wanrouter_device_del_if(struct wan_device *wandev,
 
 static struct wan_device *wanrouter_find_device(char *name);
 static int wanrouter_delete_interface(struct wan_device *wandev, char *name);
-static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
-static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
+static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+	__acquires(lock);
+static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+	__releases(lock);
 
 
 
@@ -104,10 +108,6 @@ struct wan_device* wanrouter_router_devlist; /* list of registered devices */
  *	Organize Unique Identifiers for encapsulation/decapsulation
  */
 
-#if 0
-static unsigned char wanrouter_oui_ether[] = { 0x00, 0x00, 0x00 };
-static unsigned char wanrouter_oui_802_2[] = { 0x00, 0x80, 0xC2 };
-#endif
 
 static int __init wanrouter_init(void)
 {
@@ -246,104 +246,6 @@ int unregister_wan_device(char *name)
 	return 0;
 }
 
-#if 0
-
-/*
- *	Encapsulate packet.
- *
- *	Return:	encapsulation header size
- *		< 0	- unsupported Ethertype
- *
- *	Notes:
- *	1. This function may be called on interrupt context.
- */
-
-
-int wanrouter_encapsulate(struct sk_buff *skb, struct net_device *dev,
-			  unsigned short type)
-{
-	int hdr_len = 0;
-
-	switch (type) {
-	case ETH_P_IP:		/* IP datagram encapsulation */
-		hdr_len += 1;
-		skb_push(skb, 1);
-		skb->data[0] = NLPID_IP;
-		break;
-
-	case ETH_P_IPX:		/* SNAP encapsulation */
-	case ETH_P_ARP:
-		hdr_len += 7;
-		skb_push(skb, 7);
-		skb->data[0] = 0;
-		skb->data[1] = NLPID_SNAP;
-		skb_copy_to_linear_data_offset(skb, 2, wanrouter_oui_ether,
-					       sizeof(wanrouter_oui_ether));
-		*((unsigned short*)&skb->data[5]) = htons(type);
-		break;
-
-	default:		/* Unknown packet type */
-		printk(KERN_INFO
-			"%s: unsupported Ethertype 0x%04X on interface %s!\n",
-			wanrouter_modname, type, dev->name);
-		hdr_len = -EINVAL;
-	}
-	return hdr_len;
-}
-
-
-/*
- *	Decapsulate packet.
- *
- *	Return:	Ethertype (in network order)
- *			0	unknown encapsulation
- *
- *	Notes:
- *	1. This function may be called on interrupt context.
- */
-
-
-__be16 wanrouter_type_trans(struct sk_buff *skb, struct net_device *dev)
-{
-	int cnt = skb->data[0] ? 0 : 1;	/* there may be a pad present */
-	__be16 ethertype;
-
-	switch (skb->data[cnt]) {
-	case NLPID_IP:		/* IP datagramm */
-		ethertype = htons(ETH_P_IP);
-		cnt += 1;
-		break;
-
-	case NLPID_SNAP:	/* SNAP encapsulation */
-		if (memcmp(&skb->data[cnt + 1], wanrouter_oui_ether,
-			   sizeof(wanrouter_oui_ether))){
-			printk(KERN_INFO
-				"%s: unsupported SNAP OUI %02X-%02X-%02X "
-				"on interface %s!\n", wanrouter_modname,
-				skb->data[cnt+1], skb->data[cnt+2],
-				skb->data[cnt+3], dev->name);
-			return 0;
-		}
-		ethertype = *((__be16*)&skb->data[cnt+4]);
-		cnt += 6;
-		break;
-
-	/* add other protocols, e.g. CLNP, ESIS, ISIS, if needed */
-
-	default:
-		printk(KERN_INFO
-			"%s: unsupported NLPID 0x%02X on interface %s!\n",
-			wanrouter_modname, skb->data[cnt], dev->name);
-		return 0;
-	}
-	skb->protocol = ethertype;
-	skb->pkt_type = PACKET_HOST;	/*	Physically point to point */
-	skb_pull(skb, cnt);
-	skb_reset_mac_header(skb);
-	return ethertype;
-}
-
-#endif  /*  0  */
 
 /*
  *	WAN device IOCTL.
@@ -351,9 +253,9 @@ __be16 wanrouter_type_trans(struct sk_buff *skb, struct net_device *dev)
  *	o execute requested action or pass command to the device driver
  */
 
-int wanrouter_ioctl(struct inode *inode, struct file *file,
-		unsigned int cmd, unsigned long arg)
+long wanrouter_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+	struct inode *inode = file->f_path.dentry->d_inode;
 	int err = 0;
 	struct proc_dir_entry *dent;
 	struct wan_device *wandev;
@@ -373,6 +275,7 @@ int wanrouter_ioctl(struct inode *inode, struct file *file,
 	if (wandev->magic != ROUTER_MAGIC)
 		return -EINVAL;
 
+	mutex_lock(&wanrouter_mutex);
 	switch (cmd) {
 	case ROUTER_SETUP:
 		err = wanrouter_device_setup(wandev, data);
@@ -404,6 +307,7 @@ int wanrouter_ioctl(struct inode *inode, struct file *file,
 			err = wandev->ioctl(wandev, cmd, arg);
 		else err = -EINVAL;
 	}
+	mutex_unlock(&wanrouter_mutex);
 	return err;
 }
 
@@ -511,7 +415,7 @@ static int wanrouter_device_shutdown(struct wan_device *wandev)
 		if (err)
 			return err;
 		/* The above function deallocates the current dev
-		 * structure. Therefore, we cannot use dev->priv
+		 * structure. Therefore, we cannot use netdev_priv(dev)
 		 * as the next element: wandev->dev points to the
 		 * next element */
 		dev = wandev->dev;
@@ -566,9 +470,6 @@ static int wanrouter_device_new_if(struct wan_device *wandev,
 {
 	wanif_conf_t *cnf;
 	struct net_device *dev = NULL;
-#ifdef CONFIG_WANPIPE_MULTPPP
-	struct ppp_device *pppdev=NULL;
-#endif
 	int err;
 
 	if ((wandev->state == WAN_UNCONFIGURED) || (wandev->new_if == NULL))
@@ -587,30 +488,11 @@ static int wanrouter_device_new_if(struct wan_device *wandev,
 		goto out;
 
 	if (cnf->config_id == WANCONFIG_MPPP) {
-#ifdef CONFIG_WANPIPE_MULTPPP
-		pppdev = kzalloc(sizeof(struct ppp_device), GFP_KERNEL);
-		err = -ENOBUFS;
-		if (pppdev == NULL)
-			goto out;
-		pppdev->dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
-		if (pppdev->dev == NULL) {
-			kfree(pppdev);
-			err = -ENOBUFS;
-			goto out;
-		}
-		err = wandev->new_if(wandev, (struct net_device *)pppdev, cnf);
-		dev = pppdev->dev;
-#else
 		printk(KERN_INFO "%s: Wanpipe Mulit-Port PPP support has not been compiled in!\n",
 				wandev->name);
 		err = -EPROTONOSUPPORT;
 		goto out;
-#endif
 	} else {
-		dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
-		err = -ENOBUFS;
-		if (dev == NULL)
-			goto out;
 		err = wandev->new_if(wandev, dev, cnf);
 	}
 
@@ -640,10 +522,9 @@ static int wanrouter_device_new_if(struct wan_device *wandev,
 					wandev->dev = dev;
 				} else {
 					for (slave=wandev->dev;
-					 *((struct net_device **)slave->priv);
-				 slave = *((struct net_device **)slave->priv));
-
-				     *((struct net_device **)slave->priv) = dev;
+					     DEV_TO_SLAVE(slave);
+					     slave = DEV_TO_SLAVE(slave))
+						DEV_TO_SLAVE(slave) = dev;
 				}
 				++wandev->ndev;
 
@@ -654,22 +535,8 @@ static int wanrouter_device_new_if(struct wan_device *wandev,
 		}
 		if (wandev->del_if)
 			wandev->del_if(wandev, dev);
+		free_netdev(dev);
 	}
-
-	/* This code has moved from del_if() function */
-	kfree(dev->priv);
-	dev->priv = NULL;
-
-#ifdef CONFIG_WANPIPE_MULTPPP
-	if (cnf->config_id == WANCONFIG_MPPP)
-		kfree(pppdev);
-	else
-		kfree(dev);
-#else
-	/* Sync PPP is disabled */
-	if (cnf->config_id != WANCONFIG_MPPP)
-		kfree(dev);
-#endif
 
 out:
 	kfree(cnf);
@@ -760,7 +627,7 @@ static int wanrouter_delete_interface(struct wan_device *wandev, char *name)
 	dev = wandev->dev;
 	prev = NULL;
 	while (dev && strcmp(name, dev->name)) {
-		struct net_device **slave = dev->priv;
+		struct net_device **slave = netdev_priv(dev);
 		prev = dev;
 		dev = *slave;
 	}
@@ -777,23 +644,18 @@ static int wanrouter_delete_interface(struct wan_device *wandev, char *name)
 
 	lock_adapter_irq(&wandev->lock, &smp_flags);
 	if (prev) {
-		struct net_device **prev_slave = prev->priv;
-		struct net_device **slave = dev->priv;
+		struct net_device **prev_slave = netdev_priv(prev);
+		struct net_device **slave = netdev_priv(dev);
 
 		*prev_slave = *slave;
 	} else {
-		struct net_device **slave = dev->priv;
+		struct net_device **slave = netdev_priv(dev);
 		wandev->dev = *slave;
 	}
 	--wandev->ndev;
 	unlock_adapter_irq(&wandev->lock, &smp_flags);
 
 	printk(KERN_INFO "%s: unregistering '%s'\n", wandev->name, dev->name);
-
-	/* Due to new interface linking method using dev->priv,
-	 * this code has moved from del_if() function.*/
-	kfree(dev->priv);
-	dev->priv=NULL;
 
 	unregister_netdev(dev);
 
@@ -803,12 +665,14 @@ static int wanrouter_delete_interface(struct wan_device *wandev, char *name)
 }
 
 static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+	__acquires(lock)
 {
 	spin_lock_irqsave(lock, *smp_flags);
 }
 
 
 static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+	__releases(lock)
 {
 	spin_unlock_irqrestore(lock, *smp_flags);
 }

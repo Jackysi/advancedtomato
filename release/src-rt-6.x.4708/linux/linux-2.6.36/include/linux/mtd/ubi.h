@@ -26,23 +26,6 @@
 #include <mtd/ubi-user.h>
 
 /*
- * UBI data type hint constants.
- *
- * UBI_LONGTERM: long-term data
- * UBI_SHORTTERM: short-term data
- * UBI_UNKNOWN: data persistence is unknown
- *
- * These constants are used when data is written to UBI volumes in order to
- * help the UBI wear-leveling unit to find more appropriate physical
- * eraseblocks.
- */
-enum {
-	UBI_LONGTERM = 1,
-	UBI_SHORTTERM,
-	UBI_UNKNOWN
-};
-
-/*
  * enum ubi_open_mode - UBI volume open mode constants.
  *
  * UBI_READONLY: read-only mode
@@ -62,13 +45,13 @@ enum {
  * @size: how many physical eraseblocks are reserved for this volume
  * @used_bytes: how many bytes of data this volume contains
  * @used_ebs: how many physical eraseblocks of this volume actually contain any
- * data
+ *            data
  * @vol_type: volume type (%UBI_DYNAMIC_VOLUME or %UBI_STATIC_VOLUME)
  * @corrupted: non-zero if the volume is corrupted (static volumes only)
  * @upd_marker: non-zero if the volume has update marker set
  * @alignment: volume alignment
  * @usable_leb_size: how many bytes are available in logical eraseblocks of
- * this volume
+ *                   this volume
  * @name_len: volume name length
  * @name: volume name
  * @cdev: UBI volume character device major and minor numbers
@@ -149,6 +132,39 @@ struct ubi_device_info {
 	dev_t cdev;
 };
 
+/*
+ * enum - volume notification types.
+ * @UBI_VOLUME_ADDED: volume has been added
+ * @UBI_VOLUME_REMOVED: start volume volume
+ * @UBI_VOLUME_RESIZED: volume size has been re-sized
+ * @UBI_VOLUME_RENAMED: volume name has been re-named
+ * @UBI_VOLUME_UPDATED: volume name has been updated
+ *
+ * These constants define which type of event has happened when a volume
+ * notification function is invoked.
+ */
+enum {
+	UBI_VOLUME_ADDED,
+	UBI_VOLUME_REMOVED,
+	UBI_VOLUME_RESIZED,
+	UBI_VOLUME_RENAMED,
+	UBI_VOLUME_UPDATED,
+};
+
+/*
+ * struct ubi_notification - UBI notification description structure.
+ * @di: UBI device description object
+ * @vi: UBI volume description object
+ *
+ * UBI notifiers are called with a pointer to an object of this type. The
+ * object describes the notification. Namely, it provides a description of the
+ * UBI device and UBI volume the notification informs about.
+ */
+struct ubi_notification {
+	struct ubi_device_info di;
+	struct ubi_volume_info vi;
+};
+
 /* UBI descriptor given to users when they open UBI volumes */
 struct ubi_volume_desc;
 
@@ -158,6 +174,12 @@ void ubi_get_volume_info(struct ubi_volume_desc *desc,
 struct ubi_volume_desc *ubi_open_volume(int ubi_num, int vol_id, int mode);
 struct ubi_volume_desc *ubi_open_volume_nm(int ubi_num, const char *name,
 					   int mode);
+struct ubi_volume_desc *ubi_open_volume_path(const char *pathname, int mode);
+
+int ubi_register_volume_notifier(struct notifier_block *nb,
+				 int ignore_existing);
+int ubi_unregister_volume_notifier(struct notifier_block *nb);
+
 void ubi_close_volume(struct ubi_volume_desc *desc);
 int ubi_leb_read(struct ubi_volume_desc *desc, int lnum, char *buf, int offset,
 		 int len, int check);
@@ -167,7 +189,9 @@ int ubi_leb_change(struct ubi_volume_desc *desc, int lnum, const void *buf,
 		   int len, int dtype);
 int ubi_leb_erase(struct ubi_volume_desc *desc, int lnum);
 int ubi_leb_unmap(struct ubi_volume_desc *desc, int lnum);
+int ubi_leb_map(struct ubi_volume_desc *desc, int lnum, int dtype);
 int ubi_is_mapped(struct ubi_volume_desc *desc, int lnum);
+int ubi_sync(int ubi_num);
 
 /*
  * This function is the same as the 'ubi_leb_read()' function, but it does not

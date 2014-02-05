@@ -31,9 +31,9 @@
 #include <linux/spinlock.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #define OCPI_BASE		0xfffec320
 #define OCPI_FAULT		(OCPI_BASE + 0x00)
@@ -50,10 +50,6 @@
 
 static struct clk *ocpi_ck;
 
-/*
- * Enables device access to OMAP buses via the OCPI bridge
- * FIXME: Add locking
- */
 int ocpi_enable(void)
 {
 	unsigned int val;

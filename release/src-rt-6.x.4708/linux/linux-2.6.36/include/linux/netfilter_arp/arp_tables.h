@@ -11,11 +11,11 @@
 
 #ifdef __KERNEL__
 #include <linux/if.h>
-#include <linux/types.h>
 #include <linux/in.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
 #endif
+#include <linux/types.h>
 #include <linux/compiler.h>
 #include <linux/netfilter_arp.h>
 
@@ -23,8 +23,6 @@
 
 #define ARPT_FUNCTION_MAXNAMELEN XT_FUNCTION_MAXNAMELEN
 #define ARPT_TABLE_MAXNAMELEN XT_TABLE_MAXNAMELEN
-#define arpt_target xt_target
-#define arpt_table xt_table
 
 #define ARPT_DEV_ADDR_LEN_MAX 16
 
@@ -134,8 +132,7 @@ struct arpt_entry
 #define ARPT_RETURN XT_RETURN
 
 /* The argument to ARPT_SO_GET_INFO */
-struct arpt_getinfo
-{
+struct arpt_getinfo {
 	/* Which table: caller fills this in. */
 	char name[ARPT_TABLE_MAXNAMELEN];
 
@@ -157,8 +154,7 @@ struct arpt_getinfo
 };
 
 /* The argument to ARPT_SO_SET_REPLACE. */
-struct arpt_replace
-{
+struct arpt_replace {
 	/* Which table. */
 	char name[ARPT_TABLE_MAXNAMELEN];
 
@@ -193,8 +189,7 @@ struct arpt_replace
 #define arpt_counters xt_counters
 
 /* The argument to ARPT_SO_GET_ENTRIES. */
-struct arpt_get_entries
-{
+struct arpt_get_entries {
 	/* Which table: user fills this in. */
 	char name[ARPT_TABLE_MAXNAMELEN];
 
@@ -216,9 +211,11 @@ static __inline__ struct arpt_entry_target *arpt_get_target(struct arpt_entry *e
 	return (void *)e + e->target_offset;
 }
 
+#ifndef __KERNEL__
 /* fn returns 0 to continue iteration */
 #define ARPT_ENTRY_ITERATE(entries, size, fn, args...) \
 	XT_ENTRY_ITERATE(struct arpt_entry, entries, size, fn, ## args)
+#endif
 
 /*
  *	Main firewall chains definitions and global var's definitions.
@@ -226,20 +223,17 @@ static __inline__ struct arpt_entry_target *arpt_get_target(struct arpt_entry *e
 #ifdef __KERNEL__
 
 /* Standard entry. */
-struct arpt_standard
-{
+struct arpt_standard {
 	struct arpt_entry entry;
 	struct arpt_standard_target target;
 };
 
-struct arpt_error_target
-{
+struct arpt_error_target {
 	struct arpt_entry_target target;
 	char errorname[ARPT_FUNCTION_MAXNAMELEN];
 };
 
-struct arpt_error
-{
+struct arpt_error {
 	struct arpt_entry entry;
 	struct arpt_error_target target;
 };
@@ -266,20 +260,39 @@ struct arpt_error
 	.target.errorname = "ERROR",					       \
 }
 
-#define arpt_register_target(tgt) 	\
-({	(tgt)->family = NF_ARP;		\
- 	xt_register_target(tgt); })
-#define arpt_unregister_target(tgt) xt_unregister_target(tgt)
-
-extern int arpt_register_table(struct arpt_table *table,
-			       const struct arpt_replace *repl);
-extern void arpt_unregister_table(struct arpt_table *table);
-extern unsigned int arpt_do_table(struct sk_buff **pskb,
+extern void *arpt_alloc_initial_table(const struct xt_table *);
+extern struct xt_table *arpt_register_table(struct net *net,
+					    const struct xt_table *table,
+					    const struct arpt_replace *repl);
+extern void arpt_unregister_table(struct xt_table *table);
+extern unsigned int arpt_do_table(struct sk_buff *skb,
 				  unsigned int hook,
 				  const struct net_device *in,
 				  const struct net_device *out,
-				  struct arpt_table *table);
+				  struct xt_table *table);
 
-#define ARPT_ALIGN(s) (((s) + (__alignof__(struct arpt_entry)-1)) & ~(__alignof__(struct arpt_entry)-1))
+#define ARPT_ALIGN(s) XT_ALIGN(s)
+
+#ifdef CONFIG_COMPAT
+#include <net/compat.h>
+
+struct compat_arpt_entry {
+	struct arpt_arp arp;
+	u_int16_t target_offset;
+	u_int16_t next_offset;
+	compat_uint_t comefrom;
+	struct compat_xt_counters counters;
+	unsigned char elems[0];
+};
+
+static inline struct arpt_entry_target *
+compat_arpt_get_target(struct compat_arpt_entry *e)
+{
+	return (void *)e + e->target_offset;
+}
+
+#define COMPAT_ARPT_ALIGN(s)	COMPAT_XT_ALIGN(s)
+
+#endif /* CONFIG_COMPAT */
 #endif /*__KERNEL__*/
 #endif /* _ARPTABLES_H */

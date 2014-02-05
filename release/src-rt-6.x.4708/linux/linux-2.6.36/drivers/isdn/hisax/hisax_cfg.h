@@ -1,4 +1,4 @@
-/* $Id: hisax_cfg.h,v 1.1.2.1 2004/01/24 20:47:23 keil Exp $
+/* $Id: hisax_cfg.h,v 1.1.2.1 2004/01/24 20:47:23 Exp $
  * define of the basic HiSax configuration structures
  * and pcmcia interface
  *
@@ -59,6 +59,8 @@ struct IsdnCard {
 	unsigned long	para[4];
 	IsdnCardState_t	*cs;
 };
+
+typedef int (*hisax_setup_func_t)(struct IsdnCard *card);
 
 extern void	HiSax_closecard(int);
 extern int	hisax_init_pcmcia(void *, int *, IsdnCard_t *);

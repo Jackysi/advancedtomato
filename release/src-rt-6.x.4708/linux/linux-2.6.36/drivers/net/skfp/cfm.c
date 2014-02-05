@@ -256,18 +256,6 @@ void cfm(struct s_smc *smc, int event)
 	if (cond != smc->mib.fddiSMTPeerWrapFlag)
 		smt_srf_event(smc,SMT_COND_SMT_PEER_WRAP,0,cond) ;
 
-#if	0
-	/*
-	 * Don't send ever MAC_PATH_CHANGE events. Our MAC is hard-wired
-	 * to the primary path.
-	 */
-	/*
-	 * path change
-	 */
-	if (smc->mib.fddiSMTCF_State != oldstate) {
-		smt_srf_event(smc,SMT_EVENT_MAC_PATH_CHANGE,INDEX_MAC,0) ;
-	}
-#endif
 #endif	/* no SLIM_SMT */
 
 	/*

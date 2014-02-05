@@ -202,11 +202,6 @@ static struct irq_chip mv64x60_chip_gpp = {
  * mv64x60_host_ops functions
  */
 
-static int mv64x60_host_match(struct irq_host *h, struct device_node *np)
-{
-	return mv64x60_irq_host->host_data == np;
-}
-
 static struct irq_chip *mv64x60_chips[] = {
 	[MV64x60_LEVEL1_LOW]  = &mv64x60_chip_low,
 	[MV64x60_LEVEL1_HIGH] = &mv64x60_chip_high,
@@ -218,7 +213,7 @@ static int mv64x60_host_map(struct irq_host *h, unsigned int virq,
 {
 	int level1;
 
-	get_irq_desc(virq)->status |= IRQ_LEVEL;
+	irq_to_desc(virq)->status |= IRQ_LEVEL;
 
 	level1 = (hwirq & MV64x60_LEVEL1_MASK) >> MV64x60_LEVEL1_OFFSET;
 	BUG_ON(level1 > MV64x60_LEVEL1_GPP);
@@ -228,7 +223,6 @@ static int mv64x60_host_map(struct irq_host *h, unsigned int virq,
 }
 
 static struct irq_host_ops mv64x60_host_ops = {
-	.match = mv64x60_host_match,
 	.map   = mv64x60_host_map,
 };
 
@@ -244,22 +238,20 @@ void __init mv64x60_init_irq(void)
 	const unsigned int *reg;
 	unsigned long flags;
 
-	np = of_find_compatible_node(NULL, NULL, "marvell,mv64x60-gpp");
+	np = of_find_compatible_node(NULL, NULL, "marvell,mv64360-gpp");
 	reg = of_get_property(np, "reg", &size);
 	paddr = of_translate_address(np, reg);
 	mv64x60_gpp_reg_base = ioremap(paddr, reg[1]);
 	of_node_put(np);
 
-	np = of_find_compatible_node(NULL, NULL, "marvell,mv64x60-pic");
+	np = of_find_compatible_node(NULL, NULL, "marvell,mv64360-pic");
 	reg = of_get_property(np, "reg", &size);
 	paddr = of_translate_address(np, reg);
-	of_node_put(np);
 	mv64x60_irq_reg_base = ioremap(paddr, reg[1]);
 
-	mv64x60_irq_host = irq_alloc_host(IRQ_HOST_MAP_LINEAR, MV64x60_NUM_IRQS,
+	mv64x60_irq_host = irq_alloc_host(np, IRQ_HOST_MAP_LINEAR,
+					  MV64x60_NUM_IRQS,
 					  &mv64x60_host_ops, MV64x60_NUM_IRQS);
-
-	mv64x60_irq_host->host_data = np;
 
 	spin_lock_irqsave(&mv64x60_lock, flags);
 	out_le32(mv64x60_gpp_reg_base + MV64x60_GPP_INTR_MASK,

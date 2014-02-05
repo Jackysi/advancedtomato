@@ -29,7 +29,6 @@
 #include <linux/spi/spi.h>
 #include <linux/mtd/physmap.h>
 
-#include <asm/hardware.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
@@ -38,23 +37,13 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/board.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/at91rm9200_mc.h>
+#include <mach/hardware.h>
+#include <mach/board.h>
+#include <mach/gpio.h>
+#include <mach/at91rm9200_mc.h>
 
 #include "generic.h"
 
-
-/*
- * Serial port configuration.
- *    0 .. 3 = USART0 .. USART3
- *    4      = DBGU
- */
-static struct at91_uart_config __initdata dk_uart_config = {
-	.console_tty	= 0,				/* ttyS0 */
-	.nr_tty		= 2,
-	.tty_map	= { 4, 1, -1, -1, -1 }		/* ttyS0, ..., ttyS4 */
-};
 
 static void __init dk_map_io(void)
 {
@@ -64,8 +53,16 @@ static void __init dk_map_io(void)
 	/* Setup the LEDs */
 	at91_init_leds(AT91_PIN_PB2, AT91_PIN_PB2);
 
-	/* Setup the serial ports and console */
-	at91_init_serial(&dk_uart_config);
+	/* DBGU on ttyS0. (Rx & Tx only) */
+	at91_register_uart(0, 0, 0);
+
+	/* USART1 on ttyS1. (Rx, Tx, CTS, RTS, DTR, DSR, DCD, RI) */
+	at91_register_uart(AT91RM9200_ID_US1, 1, ATMEL_UART_CTS | ATMEL_UART_RTS
+			   | ATMEL_UART_DTR | ATMEL_UART_DSR | ATMEL_UART_DCD
+			   | ATMEL_UART_RI);
+
+	/* set serial console to ttyS0 (ie, DBGU) */
+	at91_set_serial_console(0);
 }
 
 static void __init dk_init_irq(void)
@@ -124,6 +121,18 @@ static struct spi_board_info dk_spi_devices[] = {
 #endif
 };
 
+static struct i2c_board_info __initdata dk_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("ics1523", 0x26),
+	},
+	{
+		I2C_BOARD_INFO("x9429", 0x28),
+	},
+	{
+		I2C_BOARD_INFO("24c1024", 0x50),
+	}
+};
+
 static struct mtd_partition __initdata dk_nand_partition[] = {
 	{
 		.name	= "NAND Partition 1",
@@ -138,7 +147,7 @@ static struct mtd_partition * __init nand_partitions(int size, int *num_partitio
 	return dk_nand_partition;
 }
 
-static struct at91_nand_data __initdata dk_nand_data = {
+static struct atmel_nand_data __initdata dk_nand_data = {
 	.ale		= 22,
 	.cle		= 21,
 	.det_pin	= AT91_PIN_PB1,
@@ -148,10 +157,10 @@ static struct at91_nand_data __initdata dk_nand_data = {
 };
 
 #define DK_FLASH_BASE	AT91_CHIPSELECT_0
-#define DK_FLASH_SIZE	0x200000
+#define DK_FLASH_SIZE	SZ_2M
 
 static struct physmap_flash_data dk_flash_data = {
-	.width	= 2,
+	.width		= 2,
 };
 
 static struct resource dk_flash_resource = {
@@ -170,6 +179,14 @@ static struct platform_device dk_flash = {
 	.num_resources	= 1,
 };
 
+static struct gpio_led dk_leds[] = {
+	{
+		.name			= "led0",
+		.gpio			= AT91_PIN_PB2,
+		.active_low		= 1,
+		.default_trigger	= "heartbeat",
+	}
+};
 
 static void __init dk_board_init(void)
 {
@@ -185,7 +202,7 @@ static void __init dk_board_init(void)
 	/* Compact Flash */
 	at91_add_device_cf(&dk_cf_data);
 	/* I2C */
-	at91_add_device_i2c();
+	at91_add_device_i2c(dk_i2c_devices, ARRAY_SIZE(dk_i2c_devices));
 	/* SPI */
 	at91_add_device_spi(dk_spi_devices, ARRAY_SIZE(dk_spi_devices));
 #ifdef CONFIG_MTD_AT91_DATAFLASH_CARD
@@ -200,6 +217,8 @@ static void __init dk_board_init(void)
 	at91_add_device_nand(&dk_nand_data);
 	/* NOR Flash */
 	platform_device_register(&dk_flash);
+	/* LEDs */
+	at91_gpio_leds(dk_leds, ARRAY_SIZE(dk_leds));
 	/* VGA */
 //	dk_add_device_video();
 }

@@ -44,14 +44,12 @@
 
 #include <linux/linkage.h>
 #include <asm/ptrace.h>
-#include <asm/ptrace.h>
 #include <asm/current.h>
 #include <asm/asm-offsets.h>
 #include <asm/pgtable.h>
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/thread_info.h>
-#include <asm/processor.h>
 
 #define WINDOW_VECTORS_SIZE   0x180
 
@@ -106,99 +104,6 @@ ENTRY(_KernelExceptionVector)
 	jx	a0
 
 
-/*
- * Double exception vector (Exceptions with PS.EXCM == 1)
- * We get this exception when another exception occurs while were are
- * already in an exception, such as window overflow/underflow exception,
- * or 'expected' exceptions, for example memory exception when we were trying
- * to read data from an invalid address in user space.
- *
- * Note that this vector is never invoked for level-1 interrupts, because such
- * interrupts are disabled (masked) when PS.EXCM is set.
- *
- * We decode the exception and take the appropriate action.  However, the
- * double exception vector is much more careful, because a lot more error
- * cases go through the double exception vector than through the user and
- * kernel exception vectors.
- *
- * Occasionally, the kernel expects a double exception to occur.  This usually
- * happens when accessing user-space memory with the user's permissions
- * (l32e/s32e instructions).  The kernel state, though, is not always suitable
- * for immediate transfer of control to handle_double, where "normal" exception
- * processing occurs. Also in kernel mode, TLB misses can occur if accessing
- * vmalloc memory, possibly requiring repair in a double exception handler.
- *
- * The variable at TABLE_FIXUP offset from the pointer in EXCSAVE_1 doubles as
- * a boolean variable and a pointer to a fixup routine. If the variable
- * EXC_TABLE_FIXUP is non-zero, this handler jumps to that address. A value of
- * zero indicates to use the default kernel/user exception handler.
- * There is only one exception, when the value is identical to the exc_table
- * label, the kernel is in trouble. This mechanism is used to protect critical
- * sections, mainly when the handler writes to the stack to assert the stack
- * pointer is valid. Once the fixup/default handler leaves that area, the
- * EXC_TABLE_FIXUP variable is reset to the fixup handler or zero.
- *
- * Procedures wishing to use this mechanism should set EXC_TABLE_FIXUP to the
- * nonzero address of a fixup routine before it could cause a double exception
- * and reset it before it returns.
- *
- * Some other things to take care of when a fast exception handler doesn't
- * specify a particular fixup handler but wants to use the default handlers:
- *
- *  - The original stack pointer (in a1) must not be modified. The fast
- *    exception handler should only use a2 as the stack pointer.
- *
- *  - If the fast handler manipulates the stack pointer (in a2), it has to
- *    register a valid fixup handler and cannot use the default handlers.
- *
- *  - The handler can use any other generic register from a3 to a15, but it
- *    must save the content of these registers to stack (PT_AREG3...PT_AREGx)
- *
- *  - These registers must be saved before a double exception can occur.
- *
- *  - If we ever implement handling signals while in double exceptions, the
- *    number of registers a fast handler has saved (excluding a0 and a1) must
- *    be written to  PT_AREG1. (1 if only a3 is used, 2 for a3 and a4, etc. )
- *
- * The fixup handlers are special handlers:
- *
- *  - Fixup entry conditions differ from regular exceptions:
- *
- *	a0:	   DEPC
- *	a1: 	   a1
- *	a2:	   trashed, original value in EXC_TABLE_DOUBLE_A2
- *	a3:	   exctable
- *	depc:	   a0
- *	excsave_1: a3
- *
- *  - When the kernel enters the fixup handler, it still assumes it is in a
- *    critical section, so EXC_TABLE_FIXUP variable is set to exc_table.
- *    The fixup handler, therefore, has to re-register itself as the fixup
- *    handler before it returns from the double exception.
- *
- *  - Fixup handler can share the same exception frame with the fast handler.
- *    The kernel stack pointer is not changed when entering the fixup handler.
- *
- *  - Fixup handlers can jump to the default kernel and user exception
- *    handlers. Before it jumps, though, it has to setup a exception frame
- *    on stack. Because the default handler resets the register fixup handler
- *    the fixup handler must make sure that the default handler returns to
- *    it instead of the exception address, so it can re-register itself as
- *    the fixup handler.
- *
- * In case of a critical condition where the kernel cannot recover, we jump
- * to unrecoverable_exception with the following entry conditions.
- * All registers a0...a15 are unchanged from the last exception, except:
- *
- *	a0:	   last address before we jumped to the unrecoverable_exception.
- *	excsave_1: a0
- *
- *
- * See the handle_alloca_user and spill_registers routines for example clients.
- *
- * FIXME: Note: we currently don't allow signal handling coming from a double
- *        exception, so the item markt with (*) is not required.
- */
 
 	.section .DoubleExceptionVector.text, "ax"
 	.begin literal_prefix .DoubleExceptionVector
@@ -309,6 +214,7 @@ ENTRY(_DoubleExceptionVector)
 	 * All other exceptions are unexpected and thus unrecoverable!
 	 */
 
+#ifdef CONFIG_MMU
 	.extern fast_second_level_miss_double_kernel
 
 .Lksp:	/* a0: a0, a1: a1, a2: a2, a3: trashed, depc: depc, excsave: a3 */
@@ -319,6 +225,9 @@ ENTRY(_DoubleExceptionVector)
 	bnez	a3, .Lunrecoverable
 1:	movi	a3, fast_second_level_miss_double_kernel
 	jx	a3
+#else
+.equ	.Lksp,	.Lunrecoverable
+#endif
 
 	/* Critical! We can't handle this situation. PANIC! */
 
@@ -462,5 +371,3 @@ _WindowUnderflow12:
 	rfwu
 
 	.text
-
-

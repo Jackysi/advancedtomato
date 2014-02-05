@@ -21,14 +21,6 @@
 
 #undef VWSND_DEBUG			/* define for debugging */
 
-/*
- * XXX to do -
- *
- *	External sync.
- *	Rename swbuf, hwbuf, u&i, hwptr&swptr to something rational.
- *	Bug - if select() called before read(), pcm_setup() not called.
- *	Bug - output doesn't stop soon enough if process killed.
- */
 
 /*
  * Things to test -
@@ -149,8 +141,9 @@
 #include <linux/wait.h>
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
 
-#include <asm/mach-visws/cobalt.h>
+#include <asm/visws/cobalt.h>
 
 #include "sound_config.h"
 
@@ -194,11 +187,11 @@ static void dbgassert(const char *fcn, int line, const char *expr)
  *	DBGRV	- debug print function return when verbose
  */
 
-#define ASSERT(e)      ((e) ? (void) 0 : dbgassert(__FUNCTION__, __LINE__, #e))
+#define ASSERT(e)      ((e) ? (void) 0 : dbgassert(__func__, __LINE__, #e))
 #define DBGDO(x)            x
 #define DBGX(fmt, args...)  (in_interrupt() ? 0 : printk(KERN_ERR fmt, ##args))
-#define DBGP(fmt, args...)  (DBGX("%s: " fmt, __FUNCTION__ , ##args))
-#define DBGE(fmt, args...)  (DBGX("%s" fmt, __FUNCTION__ , ##args))
+#define DBGP(fmt, args...)  (DBGX("%s: " fmt, __func__ , ##args))
+#define DBGE(fmt, args...)  (DBGX("%s" fmt, __func__ , ##args))
 #define DBGC(rtn)           (DBGP("calling %s\n", rtn))
 #define DBGR()              (DBGP("returning\n"))
 #define DBGXV(fmt, args...) (shut_up ? 0 : DBGX(fmt, ##args))
@@ -628,7 +621,7 @@ static void li_setup_dma(dma_chan_t *chan,
 	ASSERT(!(buffer_paddr & 0xFF));
 	chan->baseval = (buffer_paddr >> 8) | 1 << (37 - 8);
 
-	chan->cfgval = (!LI_CCFG_LOCK |
+	chan->cfgval = ((chan->cfgval & ~LI_CCFG_LOCK) |
 			SHIFT_FIELD(desc->ad1843_slot, LI_CCFG_SLOT) |
 			desc->direction |
 			mode |
@@ -638,9 +631,9 @@ static void li_setup_dma(dma_chan_t *chan,
 	tmask = 13 - fragshift;		/* See Lithium DMA Notes above. */
 	ASSERT(size >= 2 && size <= 7);
 	ASSERT(tmask >= 1 && tmask <= 7);
-	chan->ctlval = (!LI_CCTL_RESET |
+	chan->ctlval = ((chan->ctlval & ~LI_CCTL_RESET) |
 			SHIFT_FIELD(size, LI_CCTL_SIZE) |
-			!LI_CCTL_DMA_ENABLE |
+			(chan->ctlval & ~LI_CCTL_DMA_ENABLE) |
 			SHIFT_FIELD(tmask, LI_CCTL_TMASK) |
 			SHIFT_FIELD(0, LI_CCTL_TPTR));
 
@@ -1509,7 +1502,7 @@ typedef struct vwsnd_dev {
 	struct mutex open_mutex;
 	struct mutex io_mutex;
 	struct mutex mix_mutex;
-	mode_t		open_mode;
+	fmode_t		open_mode;
 	wait_queue_head_t open_wait;
 
 	lithium_t	lith;
@@ -1526,18 +1519,6 @@ static atomic_t vwsnd_use_count = ATOMIC_INIT(0);
 # define DEC_USE_COUNT (atomic_dec(&vwsnd_use_count))
 # define IN_USE        (atomic_read(&vwsnd_use_count) != 0)
 
-/*
- * Lithium can only DMA multiples of 32 bytes.  Its DMA buffer may
- * be up to 8 Kb.  This driver always uses 8 Kb.
- *
- * Memory bug workaround -- I'm not sure what's going on here, but
- * somehow pcm_copy_out() was triggering segv's going on to the next
- * page of the hw buffer.  So, I make the hw buffer one size bigger
- * than we actually use.  That way, the following page is allocated
- * and mapped, and no error.  I suspect that something is broken
- * in Cobalt, but haven't really investigated.  HBO is the actual
- * size of the buffer, and HWBUF_ORDER is what we allocate.
- */
 
 #define HWBUF_SHIFT 13
 #define HWBUF_SIZE (1 << HWBUF_SHIFT)
@@ -2428,8 +2409,7 @@ static unsigned int vwsnd_audio_poll(struct file *file,
 	return mask;
 }
 
-static int vwsnd_audio_do_ioctl(struct inode *inode,
-				struct file *file,
+static int vwsnd_audio_do_ioctl(struct file *file,
 				unsigned int cmd,
 				unsigned long arg)
 {
@@ -2445,8 +2425,8 @@ static int vwsnd_audio_do_ioctl(struct inode *inode,
 	int ival;
 
 	
-	DBGEV("(inode=0x%p, file=0x%p, cmd=0x%x, arg=0x%lx)\n",
-	      inode, file, cmd, arg);
+	DBGEV("(file=0x%p, cmd=0x%x, arg=0x%lx)\n",
+	      file, cmd, arg);
 	switch (cmd) {
 	case OSS_GETVERSION:		/* _SIOR ('M', 118, int) */
 		DBGX("OSS_GETVERSION\n");
@@ -2673,7 +2653,9 @@ static int vwsnd_audio_do_ioctl(struct inode *inode,
 
 	case SNDCTL_DSP_NONBLOCK:	/* _SIO  ('P',14) */
 		DBGX("SNDCTL_DSP_NONBLOCK\n");
+		spin_lock(&file->f_lock);
 		file->f_flags |= O_NONBLOCK;
+		spin_unlock(&file->f_lock);
 		return 0;
 
 	case SNDCTL_DSP_RESET:		/* _SIO  ('P', 0) */
@@ -2882,17 +2864,19 @@ static int vwsnd_audio_do_ioctl(struct inode *inode,
 	return -EINVAL;
 }
 
-static int vwsnd_audio_ioctl(struct inode *inode,
-				struct file *file,
+static long vwsnd_audio_ioctl(struct file *file,
 				unsigned int cmd,
 				unsigned long arg)
 {
 	vwsnd_dev_t *devc = (vwsnd_dev_t *) file->private_data;
 	int ret;
 
+	lock_kernel();
 	mutex_lock(&devc->io_mutex);
-	ret = vwsnd_audio_do_ioctl(inode, file, cmd, arg);
+	ret = vwsnd_audio_do_ioctl(file, cmd, arg);
 	mutex_unlock(&devc->io_mutex);
+	unlock_kernel();
+
 	return ret;
 }
 
@@ -2918,6 +2902,7 @@ static int vwsnd_audio_open(struct inode *inode, struct file *file)
 
 	DBGE("(inode=0x%p, file=0x%p)\n", inode, file);
 
+	lock_kernel();
 	INC_USE_COUNT;
 	for (devc = vwsnd_dev_list; devc; devc = devc->next_dev)
 		if ((devc->audio_minor & ~0x0F) == (minor & ~0x0F))
@@ -2925,6 +2910,7 @@ static int vwsnd_audio_open(struct inode *inode, struct file *file)
 
 	if (devc == NULL) {
 		DEC_USE_COUNT;
+		unlock_kernel();
 		return -ENODEV;
 	}
 
@@ -2933,11 +2919,13 @@ static int vwsnd_audio_open(struct inode *inode, struct file *file)
 		mutex_unlock(&devc->open_mutex);
 		if (file->f_flags & O_NONBLOCK) {
 			DEC_USE_COUNT;
+			unlock_kernel();
 			return -EBUSY;
 		}
 		interruptible_sleep_on(&devc->open_wait);
 		if (signal_pending(current)) {
 			DEC_USE_COUNT;
+			unlock_kernel();
 			return -ERESTARTSYS;
 		}
 		mutex_lock(&devc->open_mutex);
@@ -2990,6 +2978,7 @@ static int vwsnd_audio_open(struct inode *inode, struct file *file)
 
 	file->private_data = devc;
 	DBGRV();
+	unlock_kernel();
 	return 0;
 }
 
@@ -3041,7 +3030,7 @@ static const struct file_operations vwsnd_audio_fops = {
 	.read =		vwsnd_audio_read,
 	.write =	vwsnd_audio_write,
 	.poll =		vwsnd_audio_poll,
-	.ioctl =	vwsnd_audio_ioctl,
+	.unlocked_ioctl = vwsnd_audio_ioctl,
 	.mmap =		vwsnd_audio_mmap,
 	.open =		vwsnd_audio_open,
 	.release =	vwsnd_audio_release,
@@ -3059,15 +3048,18 @@ static int vwsnd_mixer_open(struct inode *inode, struct file *file)
 	DBGEV("(inode=0x%p, file=0x%p)\n", inode, file);
 
 	INC_USE_COUNT;
+	lock_kernel();
 	for (devc = vwsnd_dev_list; devc; devc = devc->next_dev)
 		if (devc->mixer_minor == iminor(inode))
 			break;
 
 	if (devc == NULL) {
 		DEC_USE_COUNT;
+		unlock_kernel();
 		return -ENODEV;
 	}
 	file->private_data = devc;
+	unlock_kernel();
 	return 0;
 }
 
@@ -3200,8 +3192,7 @@ static int mixer_write_ioctl(vwsnd_dev_t *devc, unsigned int nr, void __user *ar
 
 /* This is the ioctl entry to the mixer driver. */
 
-static int vwsnd_mixer_ioctl(struct inode *ioctl,
-			      struct file *file,
+static long vwsnd_mixer_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
 {
@@ -3212,6 +3203,7 @@ static int vwsnd_mixer_ioctl(struct inode *ioctl,
 
 	DBGEV("(devc=0x%p, cmd=0x%x, arg=0x%lx)\n", devc, cmd, arg);
 
+	lock_kernel();
 	mutex_lock(&devc->mix_mutex);
 	{
 		if ((cmd & ~nrmask) == MIXER_READ(0))
@@ -3222,13 +3214,14 @@ static int vwsnd_mixer_ioctl(struct inode *ioctl,
 			retval = -EINVAL;
 	}
 	mutex_unlock(&devc->mix_mutex);
+	unlock_kernel();
 	return retval;
 }
 
 static const struct file_operations vwsnd_mixer_fops = {
 	.owner =	THIS_MODULE,
 	.llseek =	no_llseek,
-	.ioctl =	vwsnd_mixer_ioctl,
+	.unlocked_ioctl = vwsnd_mixer_ioctl,
 	.open =		vwsnd_mixer_open,
 	.release =	vwsnd_mixer_release,
 };
@@ -3246,7 +3239,6 @@ static int __init probe_vwsnd(struct address_info *hw_config)
 
 	DBGEV("(hw_config=0x%p)\n", hw_config);
 
-	/* XXX verify lithium present (to prevent crash on non-vw) */
 
 	if (li_create(&lith, hw_config->io_base) != 0) {
 		printk(KERN_WARNING "probe_vwsnd: can't map lithium\n");

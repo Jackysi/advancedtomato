@@ -30,6 +30,7 @@
 #include <media/pwc-ioctl.h>
 
 #include <linux/string.h>
+#include <linux/slab.h>
 
 /*
  * USE_LOOKUP_TABLE_TO_CLAMP
@@ -175,33 +176,6 @@ static void fill_table_dc00_d800(struct pwc_dec23_private *pdec)
 	}
 }
 
-/*
- * To decode the stream:
- *   if look_bits(2) == 0:	# op == 2 in the lookup table
- *      skip_bits(2)
- *      end of the stream
- *   elif look_bits(3) == 7:	# op == 1 in the lookup table
- *      skip_bits(3)
- *      yyyy = get_bits(4)
- *      xxxx = get_bits(8)
- *   else:			# op == 0 in the lookup table
- *      skip_bits(x)
- *
- * For speedup processing, we build a lookup table and we takes the first 6 bits.
- *
- * struct {
- *   unsigned char op;	    // operation to execute
- *   unsigned char bits;    // bits use to perform operation
- *   unsigned char offset1; // offset to add to access in the table_0004 % 16
- *   unsigned char offset2; // offset to add to access in the table_0004
- * }
- *
- * How to build this table ?
- *   op == 2 when (i%4)==0
- *   op == 1 when (i%8)==7
- *   op == 0 otherwise
- *
- */
 static const unsigned char hash_table_ops[64*4] = {
 	0x02, 0x00, 0x00, 0x00,
 	0x00, 0x03, 0x01, 0x00,
@@ -672,10 +646,6 @@ static void decode_block(struct pwc_dec23_private *pdec,
 			skip_nbits(pdec, 2);
 
 		} else if (op == 1) {
-			/* 15bits [ xxxx xxxx yyyy 111 ]
-			 * yyy => offset in the table8004
-			 * xxx => offset in the tabled004 (tree)
-			 */
 			unsigned int mask, shift;
 			unsigned int nbits, col1;
 			unsigned int yyyy;
@@ -687,7 +657,6 @@ static void decode_block(struct pwc_dec23_private *pdec,
 			offset1 &= 0x0F;
 			nbits = ptable8004[offset1 * 2];
 
-			/* col1 = xxxx xxxx */
 			__get_nbits(pdec, nbits+1, col1);
 
 			/* Bit mask table */

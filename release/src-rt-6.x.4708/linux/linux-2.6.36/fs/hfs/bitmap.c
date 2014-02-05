@@ -109,33 +109,6 @@ done:
 	return start;
 }
 
-/*
- * hfs_vbm_search_free()
- *
- * Description:
- *   Search for 'num_bits' consecutive cleared bits in the bitmap blocks of
- *   the hfs MDB. 'mdb' had better be locked or the returned range
- *   may be no longer free, when this functions returns!
- *   XXX Currently the search starts from bit 0, but it should start with
- *   the bit number stored in 's_alloc_ptr' of the MDB.
- * Input Variable(s):
- *   struct hfs_mdb *mdb: Pointer to the hfs MDB
- *   u16 *num_bits: Pointer to the number of cleared bits
- *     to search for
- * Output Variable(s):
- *   u16 *num_bits: The number of consecutive clear bits of the
- *     returned range. If the bitmap is fragmented, this will be less than
- *     requested and it will be zero, when the disk is full.
- * Returns:
- *   The number of the first bit of the range of cleared bits which has been
- *   found. When 'num_bits' is zero, this is invalid!
- * Preconditions:
- *   'mdb' points to a "valid" (struct hfs_mdb).
- *   'num_bits' points to a variable of type (u16), which contains
- *	the number of cleared bits to find.
- * Postconditions:
- *   'num_bits' is set to the length of the found sequence.
- */
 u32 hfs_vbm_search_free(struct super_block *sb, u32 goal, u32 *num_bits)
 {
 	void *bitmap;
@@ -145,7 +118,7 @@ u32 hfs_vbm_search_free(struct super_block *sb, u32 goal, u32 *num_bits)
 	if (!*num_bits)
 		return 0;
 
-	down(&HFS_SB(sb)->bitmap_lock);
+	mutex_lock(&HFS_SB(sb)->bitmap_lock);
 	bitmap = HFS_SB(sb)->bitmap;
 
 	pos = hfs_find_set_zero_bits(bitmap, HFS_SB(sb)->fs_ablocks, goal, num_bits);
@@ -162,7 +135,7 @@ u32 hfs_vbm_search_free(struct super_block *sb, u32 goal, u32 *num_bits)
 	HFS_SB(sb)->free_ablocks -= *num_bits;
 	hfs_bitmap_dirty(sb);
 out:
-	up(&HFS_SB(sb)->bitmap_lock);
+	mutex_unlock(&HFS_SB(sb)->bitmap_lock);
 	return pos;
 }
 
@@ -205,7 +178,7 @@ int hfs_clear_vbm_bits(struct super_block *sb, u16 start, u16 count)
 	if ((start + count) > HFS_SB(sb)->fs_ablocks)
 		return -2;
 
-	down(&HFS_SB(sb)->bitmap_lock);
+	mutex_lock(&HFS_SB(sb)->bitmap_lock);
 	/* bitmap is always on a 32-bit boundary */
 	curr = HFS_SB(sb)->bitmap + (start / 32);
 	len = count;
@@ -236,7 +209,7 @@ int hfs_clear_vbm_bits(struct super_block *sb, u16 start, u16 count)
 	}
 out:
 	HFS_SB(sb)->free_ablocks += len;
-	up(&HFS_SB(sb)->bitmap_lock);
+	mutex_unlock(&HFS_SB(sb)->bitmap_lock);
 	hfs_bitmap_dirty(sb);
 
 	return 0;

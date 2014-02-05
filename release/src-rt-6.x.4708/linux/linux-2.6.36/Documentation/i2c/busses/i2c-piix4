@@ -4,9 +4,11 @@ Supported adapters:
   * Intel 82371AB PIIX4 and PIIX4E
   * Intel 82443MX (440MX)
     Datasheet: Publicly available at the Intel website
-  * ServerWorks OSB4, CSB5, CSB6 and HT-1000 southbridges
+  * ServerWorks OSB4, CSB5, CSB6, HT-1000 and HT-1100 southbridges
     Datasheet: Only available via NDA from ServerWorks
-  * ATI IXP200, IXP300, IXP400 and SB600 southbridges
+  * ATI IXP200, IXP300, IXP400, SB600, SB700 and SB800 southbridges
+    Datasheet: Not publicly available
+  * AMD Hudson-2
     Datasheet: Not publicly available
   * Standard Microsystems (SMSC) SLC90E66 (Victory66) southbridge
     Datasheet: Publicly available at the SMSC website http://www.smsc.com
@@ -95,4 +97,4 @@ of all affected systems, so the only safe solution was to prevent access to
 the SMBus on all IBM systems (detected using DMI data.)
 
 For additional information, read:
-http://www2.lm-sensors.nu/~lm78/cvs/lm_sensors2/README.thinkpad
+http://www.lm-sensors.org/browser/lm-sensors/trunk/README

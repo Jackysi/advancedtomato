@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2011 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
+/* Copyright (c) 2004-2012 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -114,7 +114,11 @@ struct t_ipt_account_table {
 };
 
 static LIST_HEAD(ipt_account_tables);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
+static rwlock_t ipt_account_lock = __RW_LOCK_UNLOCKED(ipt_account_lock); /* lock, to assure that table list can be safely modified */
+#else
 static rwlock_t ipt_account_lock = RW_LOCK_UNLOCKED; /* lock, to assure that table list can be safely modified */
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
 static DEFINE_MUTEX(ipt_account_mutex); /* additional checkentry protection */
 #else
@@ -192,7 +196,11 @@ ipt_account_table_init(struct t_ipt_account_info *info)
   /*
    * Reset locks.
    */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
+  table->stats_lock = __RW_LOCK_UNLOCKED(table->stats_lock);
+#else
   table->stats_lock = RW_LOCK_UNLOCKED;
+#endif
   
   /*
    * Create /proc/ipt_account/name entry.
@@ -619,7 +627,7 @@ checkentry(
       up(&ipt_account_mutex);
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
-      return -EINVAL;
+      return 0;
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
       return true;
 #else
@@ -689,7 +697,7 @@ checkentry(
   up(&ipt_account_mutex);
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
-  return 0;
+   return 0;
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
   return true;
 #else
@@ -900,7 +908,7 @@ static struct seq_operations ipt_account_seq_ops = {
 
 static ssize_t ipt_account_proc_write(struct file *file, const char __user *input, size_t size, loff_t *ofs)
 {
-  char buffer[1024];
+  char *buffer;
   struct proc_dir_entry *pde = PDE(file->f_dentry->d_inode);
   struct t_ipt_account_table *table = pde->data;
 
@@ -908,11 +916,17 @@ static ssize_t ipt_account_proc_write(struct file *file, const char __user *inpu
   struct t_ipt_account_stats_long l;
   struct t_ipt_account_stats_short s;
 
+  buffer = kmalloc(1024, GFP_ATOMIC);
+  if (!buffer)
+	return -ENOMEM;
+
 #ifdef DEBUG_IPT_ACCOUNT  
   if (debug) printk(KERN_DEBUG "ipt_account [ipt_account_proc_write]: name = %s.\n", table->name);
 #endif  
-  if (copy_from_user(buffer, input, 1024))
+  if (copy_from_user(buffer, input, 1024)) {
+    kfree(buffer);
     return -EFAULT;
+  }
   buffer[1023] = '\0';
 
   if (!strncmp(buffer, "reset\n", 6)) {
@@ -1012,9 +1026,11 @@ static ssize_t ipt_account_proc_write(struct file *file, const char __user *inpu
     /*
      * We don't understand what user have just wrote.
      */
+    kfree(buffer);
     return -EIO;
   }
 
+  kfree(buffer);
   return size;
 }
 
@@ -1063,7 +1079,7 @@ static int __init init(void)
 {
   int ret = 0;
 
-  printk(KERN_INFO "ipt_account %s : Piotr Gasidlo <quaker@barbara.eu.org>, http://www.barbara.eu.org/~quaker/ipt_account/\n", IPT_ACCOUNT_VERSION);
+  printk(KERN_INFO "ipt_account %s : Piotr Gasidlo <quaker@barbara.eu.org>, http://code.google.com/p/ipt-account/\n", IPT_ACCOUNT_VERSION);
 
   /* Check module parameters. */
   if (netmask > 32 || netmask < 0) {

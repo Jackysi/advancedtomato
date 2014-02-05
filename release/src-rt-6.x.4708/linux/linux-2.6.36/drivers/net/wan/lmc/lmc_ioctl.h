@@ -1,6 +1,6 @@
 #ifndef _LMC_IOCTL_H_
 #define _LMC_IOCTL_H_
-/*	$Id: lmc_ioctl.h,v 1.15 2000/04/06 12:16:43 asj Exp $	*/
+/*	$Id: lmc_ioctl.h,v 1.15 2000/04/06 12:16:43 Exp $	*/
 
  /*
   * Copyright (c) 1997-2000 LAN Media Corporation (LMC)
@@ -61,7 +61,7 @@
 /*
  * IFTYPE defines
  */
-#define LMC_PPP         1               /* use sppp interface */
+#define LMC_PPP         1               /* use generic HDLC interface */
 #define LMC_NET         2               /* use direct net interface */
 #define LMC_RAW         3               /* use direct net interface */
 

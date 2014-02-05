@@ -17,10 +17,10 @@
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/bitops.h>
 
 #include <asm/io.h>
 #include <asm/system.h>
-#include <asm/bitops.h>
 #include <asm/delay.h>
 #include <asm/irq.h>
 #include <asm/irc-regs.h>
@@ -109,28 +109,24 @@ static struct irqaction fpga_irq[4]  = {
 	[0] = {
 		.handler	= fpga_interrupt,
 		.flags		= IRQF_DISABLED | IRQF_SHARED,
-		.mask		= CPU_MASK_NONE,
 		.name		= "fpga.0",
 		.dev_id		= (void *) 0x0028UL,
 	},
 	[1] = {
 		.handler	= fpga_interrupt,
 		.flags		= IRQF_DISABLED | IRQF_SHARED,
-		.mask		= CPU_MASK_NONE,
 		.name		= "fpga.1",
 		.dev_id		= (void *) 0x0050UL,
 	},
 	[2] = {
 		.handler	= fpga_interrupt,
 		.flags		= IRQF_DISABLED | IRQF_SHARED,
-		.mask		= CPU_MASK_NONE,
 		.name		= "fpga.2",
 		.dev_id		= (void *) 0x1c00UL,
 	},
 	[3] = {
 		.handler	= fpga_interrupt,
 		.flags		= IRQF_DISABLED | IRQF_SHARED,
-		.mask		= CPU_MASK_NONE,
 		.name		= "fpga.3",
 		.dev_id		= (void *) 0x6386UL,
 	}

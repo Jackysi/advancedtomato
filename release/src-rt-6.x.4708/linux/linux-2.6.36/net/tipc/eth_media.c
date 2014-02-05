@@ -1,8 +1,8 @@
 /*
  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
  *
- * Copyright (c) 2001-2006, Ericsson AB
- * Copyright (c) 2005-2006, Wind River Systems
+ * Copyright (c) 2001-2007, Ericsson AB
+ * Copyright (c) 2005-2007, Wind River Systems
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,8 @@
 #include <net/tipc/tipc_bearer.h>
 #include <net/tipc/tipc_msg.h>
 #include <linux/netdevice.h>
+#include <linux/slab.h>
+#include <net/net_namespace.h>
 
 #define MAX_ETH_BEARERS		2
 #define ETH_LINK_PRIORITY	TIPC_DEF_LINK_PRI
@@ -76,17 +78,20 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
 		skb_reset_network_header(clone);
 		dev = ((struct eth_bearer *)(tb_ptr->usr_handle))->dev;
 		clone->dev = dev;
-		dev->hard_header(clone, dev, ETH_P_TIPC,
+		dev_hard_header(clone, dev, ETH_P_TIPC,
 				 &dest->dev_addr.eth_addr,
 				 dev->dev_addr, clone->len);
 		dev_queue_xmit(clone);
 	}
-	return TIPC_OK;
+	return 0;
 }
 
 /**
  * recv_msg - handle incoming TIPC message from an Ethernet interface
  *
+ * Accept only packets explicitly sent to this node, or broadcast packets;
+ * ignores packets sent using Ethernet multicast, and traffic sent to other
+ * nodes (which can happen if interface is running in promiscuous mode).
  * Routine truncates any Ethernet padding/CRC appended to the message,
  * and ensures message size matches actual length
  */
@@ -97,21 +102,24 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
 	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
 	u32 size;
 
+	if (!net_eq(dev_net(dev), &init_net)) {
+		kfree_skb(buf);
+		return 0;
+	}
+
 	if (likely(eb_ptr->bearer)) {
-	       if (likely(!dev->promiscuity) ||
-		   !memcmp(skb_mac_header(buf), dev->dev_addr, ETH_ALEN) ||
-		   !memcmp(skb_mac_header(buf), dev->broadcast, ETH_ALEN)) {
+		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
 			size = msg_size((struct tipc_msg *)buf->data);
 			skb_trim(buf, size);
 			if (likely(buf->len == size)) {
 				buf->next = NULL;
 				tipc_recv_msg(buf, eb_ptr->bearer);
-				return TIPC_OK;
+				return 0;
 			}
 		}
 	}
 	kfree_skb(buf);
-	return TIPC_OK;
+	return 0;
 }
 
 /**
@@ -128,7 +136,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
 
 	/* Find device with specified name */
 
-	for_each_netdev(pdev){
+	for_each_netdev(&init_net, pdev){
 		if (!strncmp(pdev->name, driver_name, IFNAMSIZ)) {
 			dev = pdev;
 			break;
@@ -160,7 +168,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
 	tb_ptr->mtu = dev->mtu;
 	tb_ptr->blocked = 0;
 	tb_ptr->addr.type = htonl(TIPC_MEDIA_TYPE_ETH);
-	memcpy(&tb_ptr->addr.dev_addr, &dev->dev_addr, ETH_ALEN);
+	memcpy(&tb_ptr->addr.dev_addr, dev->dev_addr, ETH_ALEN);
 	return 0;
 }
 
@@ -190,6 +198,9 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
 	struct net_device *dev = (struct net_device *)dv;
 	struct eth_bearer *eb_ptr = &eth_bearers[0];
 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+
+	if (!net_eq(dev_net(dev), &init_net))
+		return NOTIFY_DONE;
 
 	while ((eb_ptr->dev != dev)) {
 		if (++eb_ptr == stop)
@@ -237,8 +248,7 @@ static char *eth_addr2str(struct tipc_media_addr *a, char *str_buf, int str_size
 	if (str_size < 18)
 		*str_buf = '\0';
 	else
-		sprintf(str_buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		sprintf(str_buf, "%pM", addr);
 	return str_buf;
 }
 

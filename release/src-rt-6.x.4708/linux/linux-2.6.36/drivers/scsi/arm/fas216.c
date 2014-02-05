@@ -240,7 +240,7 @@ static void __fas216_checkmagic(FAS216_Info *info, const char *func)
 		panic("scsi memory space corrupted in %s", func);
 	}
 }
-#define fas216_checkmagic(info) __fas216_checkmagic((info), __FUNCTION__)
+#define fas216_checkmagic(info) __fas216_checkmagic((info), __func__)
 #else
 #define fas216_checkmagic(info)
 #endif
@@ -1022,11 +1022,6 @@ fas216_reselected_intr(FAS216_Info *info)
 		 */
 		fas216_cmd(info, CMD_SETATN);
 
-#if 0
-		if (tag)
-			msgqueue_addmsg(&info->scsi.msgs, 2, ABORT_TAG, tag);
-		else
-#endif
 			msgqueue_addmsg(&info->scsi.msgs, 1, ABORT);
 		info->scsi.phase = PHASE_MSGOUT_EXPECT;
 		info->scsi.aborting = 1;
@@ -1744,12 +1739,6 @@ static void __fas216_start_command(FAS216_Info *info, struct scsi_cmnd *SCpnt)
  */
 static int parity_test(FAS216_Info *info, int target)
 {
-#if 0
-	if (target == 3) {
-		info->device[target].parity_check = 0;
-		return 1;
-	}
-#endif
 	return info->device[target].parity_check;
 }
 
@@ -2018,6 +2007,7 @@ static void fas216_rq_sns_done(FAS216_Info *info, struct scsi_cmnd *SCpnt,
 	 * the upper layers to process.  This would have been set
 	 * correctly by fas216_std_done.
 	 */
+	scsi_eh_restore_cmnd(SCpnt, &info->ses);
 	SCpnt->scsi_done(SCpnt);
 }
 
@@ -2103,23 +2093,12 @@ request_sense:
 	if (SCpnt->cmnd[0] == REQUEST_SENSE)
 		goto done;
 
+	scsi_eh_prep_cmnd(SCpnt, &info->ses, NULL, 0, ~0);
 	fas216_log_target(info, LOG_CONNECT, SCpnt->device->id,
 			  "requesting sense");
-	memset(SCpnt->cmnd, 0, sizeof (SCpnt->cmnd));
-	SCpnt->cmnd[0] = REQUEST_SENSE;
-	SCpnt->cmnd[1] = SCpnt->device->lun << 5;
-	SCpnt->cmnd[4] = sizeof(SCpnt->sense_buffer);
-	SCpnt->cmd_len = COMMAND_SIZE(SCpnt->cmnd[0]);
-	SCpnt->SCp.buffer = NULL;
-	SCpnt->SCp.buffers_residual = 0;
-	SCpnt->SCp.ptr = (char *)SCpnt->sense_buffer;
-	SCpnt->SCp.this_residual = sizeof(SCpnt->sense_buffer);
-	SCpnt->SCp.phase = sizeof(SCpnt->sense_buffer);
+	init_SCp(SCpnt);
 	SCpnt->SCp.Message = 0;
 	SCpnt->SCp.Status = 0;
-	SCpnt->request_bufflen = sizeof(SCpnt->sense_buffer);
-	SCpnt->sc_data_direction = DMA_FROM_DEVICE;
-	SCpnt->use_sg = 0;
 	SCpnt->tag = 0;
 	SCpnt->host_scribble = (void *)fas216_rq_sns_done;
 
@@ -2526,7 +2505,7 @@ int fas216_eh_device_reset(struct scsi_cmnd *SCpnt)
 		if (info->scsi.phase == PHASE_IDLE)
 			fas216_kick(info);
 
-		mod_timer(&info->eh_timer, 30 * HZ);
+		mod_timer(&info->eh_timer, jiffies + 30 * HZ);
 		spin_unlock_irqrestore(&info->host_lock, flags);
 
 		/*
@@ -2668,7 +2647,7 @@ int fas216_eh_host_reset(struct scsi_cmnd *SCpnt)
 	fas216_checkmagic(info);
 
 	printk("scsi%d.%c: %s: resetting host\n",
-		info->host->host_no, '0' + SCpnt->device->id, __FUNCTION__);
+		info->host->host_no, '0' + SCpnt->device->id, __func__);
 
 	/*
 	 * Reset the SCSI chip.

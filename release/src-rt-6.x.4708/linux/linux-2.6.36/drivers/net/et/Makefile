@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom et driver
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,14 +18,23 @@
 # $Id: Makefile,v 1.5 2010-12-07 04:47:36 $
 #
 
-ETSRCDIR := ../../../../../../$(SRCBASEDIR)/et
+ETSRCDIR := ../../../../../../src-rt-6.x.4708/et
 
 et-objs := $(ETSRCDIR)/sys/et_linux.o $(ETSRCDIR)/sys/etc.o
+
+ifeq ($(CONFIG_BUZZZ_FUNC),y)
+subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
+endif # CONFIG_BUZZZ_FUNC
 
 ifeq ($(CONFIG_ET_47XX),y)
 et-objs		+= $(ETSRCDIR)/sys/etc47xx.o $(ETSRCDIR)/sys/etc_adm.o
 et-objs		+= $(ETSRCDIR)/sys/etcgmac.o
 EXTRA_CFLAGS	+= -DCFG_GMAC -DBCM47XX_CHOPS -DETROBO -DETADM -DBCMDMA64 -DBCMDMA32
+endif
+
+ifeq ($(CONFIG_BCM_FA),y)
+et-objs		+= $(ETSRCDIR)/sys/etc_fa.o
+EXTRA_CFLAGS	+= -DETFA
 endif
 
 obj-$(CONFIG_ET) := et.o
@@ -41,7 +50,7 @@ endif	# /* CONFIG_ET_ALL_PASSIVE_ON */
 
 # Search for sources under src/et/sys or objects under src/et/linux
 ifneq ($(wildcard $(src)/$(ETSRCDIR)/sys),)
-EXTRA_CFLAGS	+= -I$(src)/$(ETSRCDIR)/sys
+EXTRA_CFLAGS	+= -I$(src)/$(ETSRCDIR)/sys -I$(src)/$(ETSRCDIR)/include
 else
 et-objs := $(ETSRCDIR)/linux/et.o
 endif
@@ -50,7 +59,7 @@ ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile
 else
 # Normal makefile
-KERNELDIR := ../../../../../linux/linux-2.6
+KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 

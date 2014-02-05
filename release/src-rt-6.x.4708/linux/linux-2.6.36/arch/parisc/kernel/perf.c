@@ -24,7 +24,7 @@
  *
  *  This driver programs the PCX-U/PCX-W performance counters
  *  on the PA-RISC 2.0 chips.  The driver keeps all images now
- *  internally to the kernel to hopefully eliminate the possiblity
+ *  internally to the kernel to hopefully eliminate the possibility
  *  of a bad image halting the CPU.  Also, there are different
  *  images for the PCX-W and later chips vs the PCX-U chips.
  *
@@ -46,6 +46,7 @@
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/miscdevice.h>
+#include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 
 #include <asm/uaccess.h>
@@ -260,13 +261,16 @@ printk("Preparing to start counters\n");
  */
 static int perf_open(struct inode *inode, struct file *file)
 {
+	lock_kernel();
 	spin_lock(&perf_lock);
 	if (perf_enabled) {
 		spin_unlock(&perf_lock);
+		unlock_kernel();
 		return -EBUSY;
 	}
 	perf_enabled = 1;
  	spin_unlock(&perf_lock);
+	unlock_kernel();
 
 	return 0;
 }
@@ -359,76 +363,6 @@ static ssize_t perf_write(struct file *file, const char __user *buf, size_t coun
  */
 static void perf_patch_images(void)
 {
-#if 0 /* FIXME!! */
-/* 
- * NOTE:  this routine is VERY specific to the current TLB image.
- * If the image is changed, this routine might also need to be changed.
- */
-	extern void $i_itlb_miss_2_0();
-	extern void $i_dtlb_miss_2_0();
-	extern void PA2_0_iva();
-
-	/* 
-	 * We can only use the lower 32-bits, the upper 32-bits should be 0
-	 * anyway given this is in the kernel 
-	 */
-	uint32_t itlb_addr  = (uint32_t)&($i_itlb_miss_2_0);
-	uint32_t dtlb_addr  = (uint32_t)&($i_dtlb_miss_2_0);
-	uint32_t IVAaddress = (uint32_t)&PA2_0_iva;
-
-	if (perf_processor_interface == ONYX_INTF) {
-		/* clear last 2 bytes */
-		onyx_images[TLBMISS][15] &= 0xffffff00;  
-		/* set 2 bytes */
-		onyx_images[TLBMISS][15] |= (0x000000ff&((dtlb_addr) >> 24));
-		onyx_images[TLBMISS][16] = (dtlb_addr << 8)&0xffffff00;
-		onyx_images[TLBMISS][17] = itlb_addr;
-
-		/* clear last 2 bytes */
-		onyx_images[TLBHANDMISS][15] &= 0xffffff00;  
-		/* set 2 bytes */
-		onyx_images[TLBHANDMISS][15] |= (0x000000ff&((dtlb_addr) >> 24));
-		onyx_images[TLBHANDMISS][16] = (dtlb_addr << 8)&0xffffff00;
-		onyx_images[TLBHANDMISS][17] = itlb_addr;
-
-		/* clear last 2 bytes */
-		onyx_images[BIG_CPI][15] &= 0xffffff00;  
-		/* set 2 bytes */
-		onyx_images[BIG_CPI][15] |= (0x000000ff&((dtlb_addr) >> 24));
-		onyx_images[BIG_CPI][16] = (dtlb_addr << 8)&0xffffff00;
-		onyx_images[BIG_CPI][17] = itlb_addr;
-
-	    onyx_images[PANIC][15] &= 0xffffff00;  /* clear last 2 bytes */
-	 	onyx_images[PANIC][15] |= (0x000000ff&((IVAaddress) >> 24)); /* set 2 bytes */
-		onyx_images[PANIC][16] = (IVAaddress << 8)&0xffffff00;
-
-
-	} else if (perf_processor_interface == CUDA_INTF) {
-		/* Cuda interface */
-		cuda_images[TLBMISS][16] =  
-			(cuda_images[TLBMISS][16]&0xffff0000) |
-			((dtlb_addr >> 8)&0x0000ffff);
-		cuda_images[TLBMISS][17] = 
-			((dtlb_addr << 24)&0xff000000) | ((itlb_addr >> 16)&0x000000ff);
-		cuda_images[TLBMISS][18] = (itlb_addr << 16)&0xffff0000;
-
-		cuda_images[TLBHANDMISS][16] = 
-			(cuda_images[TLBHANDMISS][16]&0xffff0000) |
-			((dtlb_addr >> 8)&0x0000ffff);
-		cuda_images[TLBHANDMISS][17] = 
-			((dtlb_addr << 24)&0xff000000) | ((itlb_addr >> 16)&0x000000ff);
-		cuda_images[TLBHANDMISS][18] = (itlb_addr << 16)&0xffff0000;
-
-		cuda_images[BIG_CPI][16] = 
-			(cuda_images[BIG_CPI][16]&0xffff0000) |
-			((dtlb_addr >> 8)&0x0000ffff);
-		cuda_images[BIG_CPI][17] = 
-			((dtlb_addr << 24)&0xff000000) | ((itlb_addr >> 16)&0x000000ff);
-		cuda_images[BIG_CPI][18] = (itlb_addr << 16)&0xffff0000;
-	} else {
-		/* Unknown type */
-	}
-#endif
 }
 
 
@@ -537,9 +471,9 @@ static int __init perf_init(void)
 	spin_lock_init(&perf_lock);
 
 	/* TODO: this only lets us access the first cpu.. what to do for SMP? */
-	cpu_device = cpu_data[0].dev;
+	cpu_device = per_cpu(cpu_data, 0).dev;
 	printk("Performance monitoring counters enabled for %s\n",
-		cpu_data[0].dev->name);
+		per_cpu(cpu_data, 0).dev->name);
 
 	return 0;
 }

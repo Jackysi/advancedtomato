@@ -1,5 +1,4 @@
-/* $Id: process.c,v 1.12 2004/12/27 11:18:32 starvik Exp $
- * 
+/*
  *  linux/arch/cris/kernel/process.c
  *
  *  Copyright (C) 1995  Linus Torvalds
@@ -12,10 +11,10 @@
  */
 
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/fs.h>
-#include <linux/slab.h>
-#include <asm/arch/svinto.h>
+#include <arch/svinto.h>
 #include <linux/init.h>
 
 #ifdef CONFIG_ETRAX_GPIO
@@ -64,7 +63,7 @@ void hard_reset_now (void)
 #if defined(CONFIG_ETRAX_WATCHDOG) && !defined(CONFIG_SVINTO_SIM)
 	cause_of_death = 0xbedead;
 #else
-	/* Since we dont plan to keep on reseting the watchdog,
+	/* Since we dont plan to keep on resetting the watchdog,
 	   the key can be arbitrary hence three */
 	*R_WATCHDOG = IO_FIELD(R_WATCHDOG, key, 3) |
 		IO_STATE(R_WATCHDOG, enable, start);
@@ -116,7 +115,7 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
  */
 asmlinkage void ret_from_fork(void);
 
-int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
+int copy_thread(unsigned long clone_flags, unsigned long usp,
 		unsigned long unused,
 		struct task_struct *p, struct pt_regs *regs)
 {
@@ -182,7 +181,6 @@ asmlinkage int sys_fork(long r10, long r11, long r12, long r13, long mof, long s
 }
 
 /* if newusp is 0, we just grab the old usp */
-/* FIXME: Is parent_tid/child_tid really third/fourth argument? Update lib? */
 asmlinkage int sys_clone(unsigned long newusp, unsigned long flags,
 			 int* parent_tid, int* child_tid, long mof, long srp,
 			 struct pt_regs *regs)
@@ -205,7 +203,9 @@ asmlinkage int sys_vfork(long r10, long r11, long r12, long r13, long mof, long 
 /*
  * sys_execve() executes a new program.
  */
-asmlinkage int sys_execve(const char *fname, char **argv, char **envp,
+asmlinkage int sys_execve(const char *fname,
+			  const char *const *argv,
+			  const char *const *envp,
 			  long r13, long mof, long srp, 
 			  struct pt_regs *regs)
 {
@@ -225,29 +225,6 @@ asmlinkage int sys_execve(const char *fname, char **argv, char **envp,
 
 unsigned long get_wchan(struct task_struct *p)
 {
-#if 0
-	/* YURGH. TODO. */
-
-        unsigned long ebp, esp, eip;
-        unsigned long stack_page;
-        int count = 0;
-        if (!p || p == current || p->state == TASK_RUNNING)
-                return 0;
-        stack_page = (unsigned long)p;
-        esp = p->thread.esp;
-        if (!stack_page || esp < stack_page || esp > 8188+stack_page)
-                return 0;
-        /* include/asm-i386/system.h:switch_to() pushes ebp last. */
-        ebp = *(unsigned long *) esp;
-        do {
-                if (ebp < stack_page || ebp > 8184+stack_page)
-                        return 0;
-                eip = *(unsigned long *) (ebp+4);
-		if (!in_sched_functions(eip))
-			return eip;
-                ebp = *(unsigned long *) ebp;
-        } while (count++ < 16);
-#endif
         return 0;
 }
 #undef last_sched
@@ -267,4 +244,3 @@ void show_regs(struct pt_regs * regs)
 	printk("r12: %08lx r13: %08lx oR10: %08lx\n",
 	       regs->r12, regs->r13, regs->orig_r10);
 }
-

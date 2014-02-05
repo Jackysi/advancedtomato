@@ -1,4 +1,4 @@
-/* $Id: strlen.S,v 1.2 2001/06/29 14:07:15 gniibe Exp $
+/* $Id: strlen.S,v 1.2 2001/06/29 14:07:15 Exp $
  *
  * "strlen" implementation of SuperH
  *
@@ -35,7 +35,7 @@ ENTRY(strlen)
 	mov.b	@r4+,r1
 	tst	r1,r1
 	bt	8f
-	add	#1,r2	
+	add	#1,r2
 
 1:
 	mov	#0,r3

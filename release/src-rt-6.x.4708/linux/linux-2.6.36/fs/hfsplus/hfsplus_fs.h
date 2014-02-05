@@ -327,7 +327,7 @@ void hfsplus_file_truncate(struct inode *);
 /* inode.c */
 extern const struct address_space_operations hfsplus_aops;
 extern const struct address_space_operations hfsplus_btree_aops;
-extern struct dentry_operations hfsplus_dentry_operations;
+extern const struct dentry_operations hfsplus_dentry_operations;
 
 void hfsplus_inode_read_fork(struct inode *, struct hfsplus_fork_raw *);
 void hfsplus_inode_write_fork(struct inode *, struct hfsplus_fork_raw *);
@@ -337,8 +337,7 @@ struct inode *hfsplus_new_inode(struct super_block *, int);
 void hfsplus_delete_inode(struct inode *);
 
 /* ioctl.c */
-int hfsplus_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
-		  unsigned long arg);
+long hfsplus_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 int hfsplus_setxattr(struct dentry *dentry, const char *name,
 		     const void *value, size_t size, int flags);
 ssize_t hfsplus_getxattr(struct dentry *dentry, const char *name,
@@ -349,6 +348,10 @@ ssize_t hfsplus_listxattr(struct dentry *dentry, char *buffer, size_t size);
 int hfsplus_parse_options(char *, struct hfsplus_sb_info *);
 void hfsplus_fill_defaults(struct hfsplus_sb_info *);
 int hfsplus_show_options(struct seq_file *, struct vfsmount *);
+
+/* super.c */
+struct inode *hfsplus_iget(struct super_block *, unsigned long);
+int hfsplus_sync_fs(struct super_block *sb, int wait);
 
 /* tables.c */
 extern u16 hfsplus_case_fold_table[];
@@ -382,13 +385,8 @@ static inline struct hfsplus_inode_info *HFSPLUS_I(struct inode *inode)
 #define HFSPLUS_SB(super)	(*(struct hfsplus_sb_info *)(super)->s_fs_info)
 #define HFSPLUS_I(inode)	(*list_entry(inode, struct hfsplus_inode_info, vfs_inode))
 
-#if 1
 #define hfsplus_kmap(p)		({ struct page *__p = (p); kmap(__p); })
 #define hfsplus_kunmap(p)	({ struct page *__p = (p); kunmap(__p); __p; })
-#else
-#define hfsplus_kmap(p)		kmap(p)
-#define hfsplus_kunmap(p)	kunmap(p)
-#endif
 
 #define sb_bread512(sb, sec, data) ({			\
 	struct buffer_head *__bh;			\

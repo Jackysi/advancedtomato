@@ -44,5 +44,3 @@ extern const unsigned int KiaraRomTable[8][2][16][8];
 extern const unsigned int Kiara_fps_vector[PWC_FPS_MAX_KIARA];
 
 #endif
-
-

@@ -16,6 +16,24 @@ const char hex_asc[] = "0123456789abcdef";
 EXPORT_SYMBOL(hex_asc);
 
 /**
+ * hex_to_bin - convert a hex digit to its real value
+ * @ch: ascii character represents hex digit
+ *
+ * hex_to_bin() converts one hex digit to its actual value or -1 in case of bad
+ * input.
+ */
+int hex_to_bin(char ch)
+{
+	if ((ch >= '0') && (ch <= '9'))
+		return ch - '0';
+	ch = tolower(ch);
+	if ((ch >= 'a') && (ch <= 'f'))
+		return ch - 'a' + 10;
+	return -1;
+}
+EXPORT_SYMBOL(hex_to_bin);
+
+/**
  * hex_dump_to_buffer - convert a blob of data to "hex ASCII" in memory
  * @buf: data blob to dump
  * @len: number of bytes in the @buf
@@ -113,7 +131,7 @@ void hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
 		linebuf[lx++] = ' ';
 	for (j = 0; (j < len) && (lx + 2) < linebuflen; j++) {
 		ch = ptr[j];
-		linebuf[lx++] = isprint(ch) ? ch : '.';
+		linebuf[lx++] = (isascii(ch) && isprint(ch)) ? ch : '.';
 	}
 nil:
 	linebuf[lx++] = '\0';
@@ -152,8 +170,8 @@ EXPORT_SYMBOL(hex_dump_to_buffer);
  * ffffffff88089af0: 73727170 77767574 7b7a7978 7f7e7d7c  pqrstuvwxyz{|}~.
  */
 void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
-			int rowsize, int groupsize,
-			const void *buf, size_t len, bool ascii)
+		    int rowsize, int groupsize,
+		    const void *buf, size_t len, bool ascii)
 {
 	const u8 *ptr = buf;
 	int i, linelen, remaining = len;
@@ -198,7 +216,7 @@ EXPORT_SYMBOL(print_hex_dump);
  * rowsize of 16, groupsize of 1, and ASCII output included.
  */
 void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
-			const void *buf, size_t len)
+			  const void *buf, size_t len)
 {
 	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, 16, 1,
 		       buf, len, true);

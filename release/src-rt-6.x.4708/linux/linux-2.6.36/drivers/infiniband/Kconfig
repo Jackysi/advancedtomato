@@ -1,13 +1,13 @@
-menu "InfiniBand support"
-	depends on HAS_IOMEM
-
-config INFINIBAND
-	depends on PCI || BROKEN
+menuconfig INFINIBAND
 	tristate "InfiniBand support"
+	depends on PCI || BROKEN
+	depends on HAS_IOMEM
 	---help---
 	  Core support for InfiniBand (IB).  Make sure to also select
 	  any protocols you wish to use as well as drivers for your
 	  InfiniBand hardware.
+
+if INFINIBAND
 
 config INFINIBAND_USER_MAD
 	tristate "InfiniBand userspace MAD support"
@@ -20,7 +20,7 @@ config INFINIBAND_USER_MAD
 
 config INFINIBAND_USER_ACCESS
 	tristate "InfiniBand userspace access (verbs and CM)"
-	depends on INFINIBAND
+	select ANON_INODES
 	---help---
 	  Userspace InfiniBand access support.  This enables the
 	  kernel side of userspace verbs and the userspace
@@ -37,16 +37,19 @@ config INFINIBAND_USER_MEM
 
 config INFINIBAND_ADDR_TRANS
 	bool
-	depends on INFINIBAND && INET
+	depends on INET
+	depends on !(INFINIBAND = y && IPV6 = m)
 	default y
 
 source "drivers/infiniband/hw/mthca/Kconfig"
 source "drivers/infiniband/hw/ipath/Kconfig"
+source "drivers/infiniband/hw/qib/Kconfig"
 source "drivers/infiniband/hw/ehca/Kconfig"
 source "drivers/infiniband/hw/amso1100/Kconfig"
 source "drivers/infiniband/hw/cxgb3/Kconfig"
-
+source "drivers/infiniband/hw/cxgb4/Kconfig"
 source "drivers/infiniband/hw/mlx4/Kconfig"
+source "drivers/infiniband/hw/nes/Kconfig"
 
 source "drivers/infiniband/ulp/ipoib/Kconfig"
 
@@ -54,4 +57,4 @@ source "drivers/infiniband/ulp/srp/Kconfig"
 
 source "drivers/infiniband/ulp/iser/Kconfig"
 
-endmenu
+endif # INFINIBAND

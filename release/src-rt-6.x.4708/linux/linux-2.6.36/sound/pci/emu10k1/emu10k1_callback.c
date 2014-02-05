@@ -35,9 +35,9 @@ struct best_voice {
 /*
  * prototypes
  */
-static void lookup_voices(struct snd_emux *emu, struct snd_emu10k1 *hw,
+static void lookup_voices(struct snd_emux *emux, struct snd_emu10k1 *hw,
 			  struct best_voice *best, int active_only);
-static struct snd_emux_voice *get_voice(struct snd_emux *emu,
+static struct snd_emux_voice *get_voice(struct snd_emux *emux,
 					struct snd_emux_port *port);
 static int start_voice(struct snd_emux_voice *vp);
 static void trigger_voice(struct snd_emux_voice *vp);
@@ -45,7 +45,6 @@ static void release_voice(struct snd_emux_voice *vp);
 static void update_voice(struct snd_emux_voice *vp, int update);
 static void terminate_voice(struct snd_emux_voice *vp);
 static void free_voice(struct snd_emux_voice *vp);
-
 static void set_fmmod(struct snd_emu10k1 *hw, struct snd_emux_voice *vp);
 static void set_fm2frq2(struct snd_emu10k1 *hw, struct snd_emux_voice *vp);
 static void set_filterQ(struct snd_emu10k1 *hw, struct snd_emux_voice *vp);
@@ -75,9 +74,9 @@ static struct snd_emux_operators emu10k1_ops = {
 };
 
 void
-snd_emu10k1_ops_setup(struct snd_emux *emu)
+snd_emu10k1_ops_setup(struct snd_emux *emux)
 {
-	emu->ops = emu10k1_ops;
+	emux->ops = emu10k1_ops;
 }
 
 
@@ -104,7 +103,10 @@ snd_emu10k1_synth_get_voice(struct snd_emu10k1 *hw)
 			int ch;
 			vp = &emu->voices[best[i].voice];
 			if ((ch = vp->ch) < 0) {
-				//printk("synth_get_voice: ch < 0 (%d) ??", i);
+				/*
+				printk(KERN_WARNING
+				       "synth_get_voice: ch < 0 (%d) ??", i);
+				*/
 				continue;
 			}
 			vp->emu->num_voices--;
@@ -146,7 +148,8 @@ terminate_voice(struct snd_emux_voice *vp)
 {
 	struct snd_emu10k1 *hw;
 	
-	snd_assert(vp, return);
+	if (snd_BUG_ON(!vp))
+		return;
 	hw = vp->hw;
 	snd_emu10k1_ptr_write(hw, DCYSUSV, vp->ch, 0x807f | DCYSUSV_CHANNELENABLE_MASK);
 	if (vp->block) {
@@ -166,7 +169,10 @@ free_voice(struct snd_emux_voice *vp)
 	struct snd_emu10k1 *hw;
 	
 	hw = vp->hw;
-	if (vp->ch >= 0) {
+	/* This can get called with hw == 0 */
+	/* Problem apparent on plug, unplug then plug */
+	/* on the Audigy 2 ZS Notebook. */
+	if (hw && (vp->ch >= 0)) {
 		snd_emu10k1_ptr_write(hw, IFATN, vp->ch, 0xff00);
 		snd_emu10k1_ptr_write(hw, DCYSUSV, vp->ch, 0x807f | DCYSUSV_CHANNELENABLE_MASK);
 		// snd_emu10k1_ptr_write(hw, DCYSUSV, vp->ch, 0);
@@ -220,7 +226,7 @@ lookup_voices(struct snd_emux *emu, struct snd_emu10k1 *hw,
 	int  i;
 
 	for (i = 0; i < V_END; i++) {
-		best[i].time = (unsigned int)-1; /* XXX MAX_?INT really */;
+		best[i].time = (unsigned int)-1;;
 		best[i].voice = -1;
 	}
 
@@ -244,11 +250,9 @@ lookup_voices(struct snd_emux *emu, struct snd_emu10k1 *hw,
 		else if (state == SNDRV_EMUX_ST_RELEASED ||
 			 state == SNDRV_EMUX_ST_PENDING) {
 			bp = best + V_RELEASED;
-#if 1
 			val = snd_emu10k1_ptr_read(hw, CVCF_CURRENTVOL, vp->ch);
 			if (! val)
 				bp = best + V_OFF;
-#endif
 		}
 		else if (state == SNDRV_EMUX_ST_STANDBY)
 			continue;
@@ -322,7 +326,8 @@ start_voice(struct snd_emux_voice *vp)
 	
 	hw = vp->hw;
 	ch = vp->ch;
-	snd_assert(ch >= 0, return -EINVAL);
+	if (snd_BUG_ON(ch < 0))
+		return -EINVAL;
 	chan = vp->chan;
 
 	emem = (struct snd_emu10k1_memblk *)vp->block;
@@ -330,7 +335,7 @@ start_voice(struct snd_emux_voice *vp)
 		return -EINVAL;
 	emem->map_locked++;
 	if (snd_emu10k1_memblk_map(hw, emem) < 0) {
-		// printk("emu: cannot map!\n");
+		/* printk(KERN_ERR "emu: cannot map!\n"); */
 		return -ENOMEM;
 	}
 	mapped_offset = snd_emu10k1_memblk_offset(emem) >> 1;
@@ -411,35 +416,6 @@ start_voice(struct snd_emux_voice *vp)
 	temp = (hw->silent_page.addr << 1) | MAP_PTI_MASK;
 	snd_emu10k1_ptr_write(hw, MAPA, ch, temp);
 	snd_emu10k1_ptr_write(hw, MAPB, ch, temp);
-#if 0
-	/* cache */
-	{
-		unsigned int val, sample;
-		val = 32;
-		if (vp->reg.sample_mode & SNDRV_SFNT_SAMPLE_8BITS)
-			sample = 0x80808080;
-		else {
-			sample = 0;
-			val *= 2;
-		}
-
-		/* cache */
-		snd_emu10k1_ptr_write(hw, CCR, ch, 0x1c << 16);
-		snd_emu10k1_ptr_write(hw, CDE, ch, sample);
-		snd_emu10k1_ptr_write(hw, CDF, ch, sample);
-
-		/* invalidate maps */
-		temp = ((unsigned int)hw->silent_page.addr << 1) | MAP_PTI_MASK;
-		snd_emu10k1_ptr_write(hw, MAPA, ch, temp);
-		snd_emu10k1_ptr_write(hw, MAPB, ch, temp);
-		
-		/* fill cache */
-		val -= 4;
-		val <<= 25;
-		val |= 0x1c << 16;
-		snd_emu10k1_ptr_write(hw, CCR, ch, val);
-	}
-#endif
 
 	/* Q & current address (Q 4bit value, MSB) */
 	addr = vp->reg.start;
@@ -478,11 +454,7 @@ trigger_voice(struct snd_emux_voice *vp)
 	if (! emem || emem->mapped_page < 0)
 		return; /* not mapped */
 
-#if 0
-	ptarget = (unsigned int)vp->ptarget << 16;
-#else
 	ptarget = IP_TO_CP(vp->apitch);
-#endif
 	/* set pitch target and pan (volume) */
 	temp = ptarget | (vp->apan << 8) | vp->aaux;
 	snd_emu10k1_ptr_write(hw, PTRX, vp->ch, temp);

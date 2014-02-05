@@ -40,6 +40,8 @@
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/pci.h>
@@ -94,7 +96,7 @@ static inline int VAR_MATCH(struct fb_var_screeninfo *x, struct fb_var_screeninf
 struct fb_info_control {
 	struct fb_info		info;
 	struct fb_par_control	par;
-	u32			pseudo_palette[17];
+	u32			pseudo_palette[16];
 		
 	struct cmap_regs	__iomem *cmap_regs;
 	unsigned long		cmap_regs_phys;
@@ -298,10 +300,10 @@ static int controlfb_mmap(struct fb_info *info,
                        return -EINVAL;
                start = info->fix.mmio_start;
                len = PAGE_ALIGN((start & ~PAGE_MASK)+info->fix.mmio_len);
-               pgprot_val(vma->vm_page_prot) |= _PAGE_NO_CACHE|_PAGE_GUARDED;
+	       vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
        } else {
                /* framebuffer */
-               pgprot_val(vma->vm_page_prot) |= _PAGE_WRITETHRU;
+	       vma->vm_page_prot = pgprot_cached_wthru(vma->vm_page_prot);
        }
        start &= PAGE_MASK;
        if ((vma->vm_end - vma->vm_start + off) > len)
@@ -730,7 +732,7 @@ static int __init control_of_init(struct device_node *dp)
 	}
 	p->control_regs = ioremap(p->control_regs_phys, p->control_regs_size);
 
-	p->cmap_regs_phys = 0xf301b000;	 /* XXX not in prom? */
+	p->cmap_regs_phys = 0xf301b000;
 	if (!request_mem_region(p->cmap_regs_phys, 0x1000, "controlfb cmap")) {
 		p->cmap_regs_phys = 0;
 		goto error_out;
@@ -1088,5 +1090,3 @@ static void control_cleanup(void)
 		release_mem_region(p->fb_orig_base, p->fb_orig_size);
 	kfree(p);
 }
-
-

@@ -75,8 +75,6 @@ extern struct net_device *atarilance_probe(int unit);
 extern struct net_device *sun3lance_probe(int unit);
 extern struct net_device *sun3_82586_probe(int unit);
 extern struct net_device *apne_probe(int unit);
-extern struct net_device *bionet_probe(int unit);
-extern struct net_device *pamsnet_probe(int unit);
 extern struct net_device *cs89x0_probe(int unit);
 extern struct net_device *hplance_probe(int unit);
 extern struct net_device *bagetlance_probe(int unit);
@@ -183,8 +181,8 @@ static struct devprobe2 isa_probes[] __initdata = {
 #ifdef CONFIG_E2100		/* Cabletron E21xx series. */
 	{e2100_probe, 0},
 #endif
-#if defined(CONFIG_NE2000) || \
-    defined(CONFIG_NE_H8300)  /* ISA (use ne2k-pci for PCI cards) */
+#if defined(CONFIG_NE2000) || defined(CONFIG_NE_H8300)  /* ISA (use ne2k-pci for PCI \
+	cards) */
 	{ne_probe, 0},
 #endif
 #ifdef CONFIG_LANCE		/* ISA/VLB (use pcnet32 for PCI cards) */
@@ -214,17 +212,12 @@ static struct devprobe2 isa_probes[] __initdata = {
 #ifdef CONFIG_EWRK3             /* DEC EtherWORKS 3 */
     	{ewrk3_probe, 0},
 #endif
-#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
+#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || \
+	defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
 	{i82596_probe, 0},
 #endif
 #ifdef CONFIG_EL1		/* 3c501 */
 	{el1_probe, 0},
-#endif
-#ifdef CONFIG_WAVELAN		/* WaveLAN */
-	{wavelan_probe, 0},
-#endif
-#ifdef CONFIG_ARLAN		/* Aironet */
-	{arlan_probe, 0},
 #endif
 #ifdef CONFIG_EL16		/* 3c507 */
 	{el16_probe, 0},
@@ -263,12 +256,6 @@ static struct devprobe2 m68k_probes[] __initdata = {
 #endif
 #ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
 	{apne_probe, 0},
-#endif
-#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
-	{bionet_probe, 0},
-#endif
-#ifdef CONFIG_ATARI_PAMSNET	/* Atari PAMsNet Ethernet board */
-	{pamsnet_probe, 0},
 #endif
 #ifdef CONFIG_MVME147_NET	/* MVME147 internal Ethernet */
 	{mvme147lance_probe, 0},

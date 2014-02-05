@@ -150,17 +150,10 @@ static inline int sirdev_schedule_dtr_rts(struct sir_dev *dev, int dtr, int rts)
 	return sirdev_schedule_request(dev, SIRDEV_STATE_SET_DTR_RTS, dtrrts);
 }
 
-#if 0
-static inline int sirdev_schedule_mode(struct sir_dev *dev, int mode)
-{
-	return sirdev_schedule_request(dev, SIRDEV_STATE_SET_MODE, mode);
-}
-#endif
 
 
 struct sir_dev {
 	struct net_device *netdev;
-	struct net_device_stats stats;
 
 	struct irlap_cb    *irlap;
 

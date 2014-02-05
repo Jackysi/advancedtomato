@@ -13,6 +13,7 @@ struct module;
 
 #include "ieee1394_types.h"
 #include "csr.h"
+#include "highlevel.h"
 
 struct hpsb_packet;
 struct hpsb_iso;
@@ -27,8 +28,6 @@ struct hpsb_host {
 	struct list_head pending_packets;
 	struct timer_list timeout;
 	unsigned long timeout_interval;
-
-	unsigned char iso_listen_count[64];
 
 	int node_count;      /* number of identified nodes on this bus */
 	int selfid_count;    /* total number of SelfIDs received */
@@ -57,7 +56,7 @@ struct hpsb_host {
 	struct hpsb_host_driver *driver;
 	struct pci_dev *pdev;
 	struct device device;
-	struct class_device class_dev;
+	struct device host_dev;
 
 	struct delayed_work delayed_reset;
 	unsigned config_roms:31;
@@ -74,6 +73,9 @@ struct hpsb_host {
 	struct { DECLARE_BITMAP(map, 64); } tl_pool[ALL_NODES];
 
 	struct csr_control csr;
+
+	struct hpsb_address_serve dummy_zero_addr;
+	struct hpsb_address_serve dummy_max_addr;
 };
 
 enum devctl_cmd {
@@ -85,8 +87,6 @@ enum devctl_cmd {
 	/* Arg is void, return value is the hardware cycle counter value. */
 	GET_CYCLE_COUNTER,
 
-	/* Set the hardware cycle counter to the value in arg, return void.
-	 * FIXME - setting is probably not required. */
 	SET_CYCLE_COUNTER,
 
 	/* Configure hardware for new bus ID in arg, return void. */
@@ -99,12 +99,6 @@ enum devctl_cmd {
 	/* Cancel all outstanding async requests without resetting the bus.
 	 * Return void. */
 	CANCEL_REQUESTS,
-
-	/* Start or stop receiving isochronous channel in arg.  Return void.
-	 * This acts as an optimization hint, hosts are not required not to
-	 * listen on unrequested channels. */
-	ISO_LISTEN_CHANNEL,
-	ISO_UNLISTEN_CHANNEL
 };
 
 enum isoctl_cmd {
@@ -158,7 +152,7 @@ struct hpsb_host_driver {
 	 * to set the hardware ConfigROM if the hardware supports handling
 	 * reads to the ConfigROM on its own. */
 	void (*set_hw_config_rom)(struct hpsb_host *host,
-				  quadlet_t *config_rom);
+				  __be32 *config_rom);
 
 	/* This function shall implement packet transmission based on
 	 * packet->type.  It shall CRC both parts of the packet (unless

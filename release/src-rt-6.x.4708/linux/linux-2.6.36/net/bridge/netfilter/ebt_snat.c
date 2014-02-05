@@ -7,20 +7,19 @@
  *  June, 2002
  *
  */
-
-#include <linux/netfilter.h>
-#include <linux/netfilter_bridge/ebtables.h>
-#include <linux/netfilter_bridge/ebt_nat.h>
 #include <linux/module.h>
 #include <net/sock.h>
 #include <linux/if_arp.h>
 #include <net/arp.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter_bridge/ebtables.h>
+#include <linux/netfilter_bridge/ebt_nat.h>
 
-static int ebt_target_snat(struct sk_buff *skb, unsigned int hooknr,
-   const struct net_device *in, const struct net_device *out,
-   const void *data, unsigned int datalen)
+static unsigned int
+ebt_snat_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	struct ebt_nat_info *info = (struct ebt_nat_info *) data;
+	const struct ebt_nat_info *info = par->targinfo;
 
 	if (!skb_make_writable(skb, 0))
 		return EBT_DROP;
@@ -28,7 +27,8 @@ static int ebt_target_snat(struct sk_buff *skb, unsigned int hooknr,
 	memcpy(eth_hdr(skb)->h_source, info->mac, ETH_ALEN);
 	if (!(info->target & NAT_ARP_BIT) &&
 	    eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) {
-		struct arphdr _ah, *ap;
+		const struct arphdr *ap;
+		struct arphdr _ah;
 
 		ap = skb_header_pointer(skb, 0, sizeof(_ah), &_ah);
 		if (ap == NULL)
@@ -42,21 +42,13 @@ out:
 	return info->target | ~EBT_VERDICT_BITS;
 }
 
-static int ebt_target_snat_check(const char *tablename, unsigned int hookmask,
-   const struct ebt_entry *e, void *data, unsigned int datalen)
+static int ebt_snat_tg_check(const struct xt_tgchk_param *par)
 {
-	struct ebt_nat_info *info = (struct ebt_nat_info *) data;
+	const struct ebt_nat_info *info = par->targinfo;
 	int tmp;
 
-	if (datalen != EBT_ALIGN(sizeof(struct ebt_nat_info)))
-		return -EINVAL;
 	tmp = info->target | ~EBT_VERDICT_BITS;
 	if (BASE_CHAIN && tmp == EBT_RETURN)
-		return -EINVAL;
-	CLEAR_BASE_CHAIN_BIT;
-	if (strcmp(tablename, "nat"))
-		return -EINVAL;
-	if (hookmask & ~(1 << NF_BR_POST_ROUTING))
 		return -EINVAL;
 
 	if (tmp < -NUM_STANDARD_TARGETS || tmp >= 0)
@@ -67,24 +59,29 @@ static int ebt_target_snat_check(const char *tablename, unsigned int hookmask,
 	return 0;
 }
 
-static struct ebt_target snat =
-{
-	.name		= EBT_SNAT_TARGET,
-	.target		= ebt_target_snat,
-	.check		= ebt_target_snat_check,
+static struct xt_target ebt_snat_tg_reg __read_mostly = {
+	.name		= "snat",
+	.revision	= 0,
+	.family		= NFPROTO_BRIDGE,
+	.table		= "nat",
+	.hooks		= (1 << NF_BR_NUMHOOKS) | (1 << NF_BR_POST_ROUTING),
+	.target		= ebt_snat_tg,
+	.checkentry	= ebt_snat_tg_check,
+	.targetsize	= sizeof(struct ebt_nat_info),
 	.me		= THIS_MODULE,
 };
 
 static int __init ebt_snat_init(void)
 {
-	return ebt_register_target(&snat);
+	return xt_register_target(&ebt_snat_tg_reg);
 }
 
 static void __exit ebt_snat_fini(void)
 {
-	ebt_unregister_target(&snat);
+	xt_unregister_target(&ebt_snat_tg_reg);
 }
 
 module_init(ebt_snat_init);
 module_exit(ebt_snat_fini);
+MODULE_DESCRIPTION("Ebtables: Source MAC address translation");
 MODULE_LICENSE("GPL");

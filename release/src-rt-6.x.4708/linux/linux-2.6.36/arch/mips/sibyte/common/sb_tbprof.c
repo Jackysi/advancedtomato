@@ -27,7 +27,6 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/fs.h>
 #include <linux/errno.h>
@@ -158,10 +157,6 @@ static void arm_tb(void)
 	u64 next = (1ULL << 40) - tb_period;
 	u64 tb_options = M_SCD_TRACE_CFG_FREEZE_FULL;
 
-	/*
-	 * Generate an SCD_PERFCNT interrupt in TB_PERIOD Zclks to
-	 * trigger start of trace.  XXX vary sampling period
-	 */
 	__raw_writeq(0, IOADDR(A_SCD_PERF_CNT_1));
 	scdperfcnt = __raw_readq(IOADDR(A_SCD_PERF_CNT_CFG));
 
@@ -191,10 +186,6 @@ static void arm_tb(void)
 	__raw_writeq(next, IOADDR(A_SCD_PERF_CNT_1));
 	/* Reset the trace buffer */
 	__raw_writeq(M_SCD_TRACE_CFG_RESET, IOADDR(A_SCD_TRACE_CFG));
-#if 0 && defined(M_SCD_TRACE_CFG_FORCECNT)
-	/* XXXKW may want to expose control to the data-collector */
-	tb_options |= M_SCD_TRACE_CFG_FORCECNT;
-#endif
 	__raw_writeq(tb_options, IOADDR(A_SCD_TRACE_CFG));
 	sbp.tb_armed = 1;
 }
@@ -206,7 +197,6 @@ static irqreturn_t sbprof_tb_intr(int irq, void *dev_id)
 	pr_debug(DEVNAME ": tb_intr\n");
 
 	if (sbp.next_tb_sample < MAX_TB_SAMPLES) {
-		/* XXX should use XKPHYS to make writes bypass L2 */
 		u64 *p = sbp.sbprof_tbbuf[sbp.next_tb_sample++];
 		/* Read out trace */
 		__raw_writeq(M_SCD_TRACE_CFG_START_READ,
@@ -276,8 +266,8 @@ static int sbprof_zbprof_start(struct file *filp)
 	sbp.next_tb_sample = 0;
 	filp->f_pos = 0;
 
-	err = request_irq (K_INT_TRACE_FREEZE, sbprof_tb_intr, 0,
-			   DEVNAME " trace freeze", &sbp);
+	err = request_irq(K_INT_TRACE_FREEZE, sbprof_tb_intr, 0,
+			  DEVNAME " trace freeze", &sbp);
 	if (err)
 		return -EBUSY;
 
@@ -412,14 +402,19 @@ static int sbprof_tb_open(struct inode *inode, struct file *filp)
 
 	memset(&sbp, 0, sizeof(struct sbprof_tb));
 	sbp.sbprof_tbbuf = vmalloc(MAX_TBSAMPLE_BYTES);
-	if (!sbp.sbprof_tbbuf)
+	if (!sbp.sbprof_tbbuf) {
+		sbp.open = SB_CLOSED;
+		wmb();
 		return -ENOMEM;
+	}
+
 	memset(sbp.sbprof_tbbuf, 0, MAX_TBSAMPLE_BYTES);
 	init_waitqueue_head(&sbp.tb_sync);
 	init_waitqueue_head(&sbp.tb_read);
 	mutex_init(&sbp.lock);
 
 	sbp.open = SB_OPEN;
+	wmb();
 
 	return 0;
 }
@@ -429,7 +424,7 @@ static int sbprof_tb_release(struct inode *inode, struct file *filp)
 	int minor;
 
 	minor = iminor(inode);
-	if (minor != 0 || !sbp.open)
+	if (minor != 0 || sbp.open != SB_CLOSED)
 		return -ENODEV;
 
 	mutex_lock(&sbp.lock);
@@ -438,7 +433,8 @@ static int sbprof_tb_release(struct inode *inode, struct file *filp)
 		sbprof_zbprof_stop();
 
 	vfree(sbp.sbprof_tbbuf);
-	sbp.open = 0;
+	sbp.open = SB_CLOSED;
+	wmb();
 
 	mutex_unlock(&sbp.lock);
 
@@ -565,14 +561,15 @@ static int __init sbprof_tb_init(void)
 
 	tb_class = tbc;
 
-	dev = device_create(tbc, NULL, MKDEV(SBPROF_TB_MAJOR, 0), "tb");
+	dev = device_create(tbc, NULL, MKDEV(SBPROF_TB_MAJOR, 0), NULL, "tb");
 	if (IS_ERR(dev)) {
 		err = PTR_ERR(dev);
 		goto out_class;
 	}
 	tb_dev = dev;
 
-	sbp.open = 0;
+	sbp.open = SB_CLOSED;
+	wmb();
 	tb_period = zbbus_mhz * 10000LL;
 	pr_info(DEVNAME ": initialized - tb_period = %lld\n",
 		(long long) tb_period);

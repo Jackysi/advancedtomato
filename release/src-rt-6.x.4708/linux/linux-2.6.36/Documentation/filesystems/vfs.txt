@@ -3,7 +3,7 @@
 
 	Original author: Richard Gooch <rgooch@atnf.csiro.au>
 
-		  Last updated on October 28, 2005
+		  Last updated on June 24, 2007.
 
   Copyright (C) 1999 Richard Gooch
   Copyright (C) 2005 Pekka Enberg
@@ -72,7 +72,7 @@ structure (this is the kernel-side implementation of file
 descriptors). The freshly allocated file structure is initialized with
 a pointer to the dentry and a set of file operation member functions.
 These are taken from the inode data. The open() file method is then
-called so the specific filesystem implementation can do it's work. You
+called so the specific filesystem implementation can do its work. You
 can see that this is another switch performed by the VFS. The file
 structure is placed into the file descriptor table for the process.
 
@@ -107,7 +107,7 @@ file /proc/filesystems.
 struct file_system_type
 -----------------------
 
-This describes the filesystem. As of kernel 2.6.13, the following
+This describes the filesystem. As of kernel 2.6.22, the following
 members are defined:
 
 struct file_system_type {
@@ -119,6 +119,8 @@ struct file_system_type {
         struct module *owner;
         struct file_system_type * next;
         struct list_head fs_supers;
+	struct lock_class_key s_lock_key;
+	struct lock_class_key s_umount_key;
 };
 
   name: the name of the filesystem type, such as "ext2", "iso9660",
@@ -137,25 +139,27 @@ struct file_system_type {
 
   next: for internal VFS use: you should initialize this to NULL
 
+  s_lock_key, s_umount_key: lockdep-specific
+
 The get_sb() method has the following arguments:
 
-  struct super_block *sb: the superblock structure. This is partially
-	initialized by the VFS and the rest must be initialized by the
-	get_sb() method
+  struct file_system_type *fs_type: describes the filesystem, partly initialized
+  	by the specific filesystem code
 
   int flags: mount flags
 
   const char *dev_name: the device name we are mounting.
 
   void *data: arbitrary mount options, usually comes as an ASCII
-	string
+	string (see "Mount Options" section)
 
-  int silent: whether or not to be silent on error
+  struct vfsmount *mnt: a vfs-internal representation of a mount point
 
 The get_sb() method must determine if the block device specified
-in the superblock contains a filesystem of the type the method
-supports. On success the method returns the superblock pointer, on
-failure it returns NULL.
+in the dev_name and fs_type contains a filesystem of the type the method
+supports. If it succeeds in opening the named block device, it initializes a
+struct super_block descriptor for the filesystem contained by the block device.
+On failure it returns an error.
 
 The most interesting member of the superblock structure that the
 get_sb() method fills in is the "s_op" field. This is a pointer to
@@ -178,7 +182,7 @@ A fill_super() method implementation has the following arguments:
   	must initialize this properly.
 
   void *data: arbitrary mount options, usually comes as an ASCII
-	string
+	string (see "Mount Options" section)
 
   int silent: whether or not to be silent on error
 
@@ -193,31 +197,26 @@ struct super_operations
 -----------------------
 
 This describes how the VFS can manipulate the superblock of your
-filesystem. As of kernel 2.6.13, the following members are defined:
+filesystem. As of kernel 2.6.22, the following members are defined:
 
 struct super_operations {
         struct inode *(*alloc_inode)(struct super_block *sb);
         void (*destroy_inode)(struct inode *);
 
-        void (*read_inode) (struct inode *);
-
         void (*dirty_inode) (struct inode *);
         int (*write_inode) (struct inode *, int);
-        void (*put_inode) (struct inode *);
         void (*drop_inode) (struct inode *);
         void (*delete_inode) (struct inode *);
         void (*put_super) (struct super_block *);
         void (*write_super) (struct super_block *);
         int (*sync_fs)(struct super_block *sb, int wait);
-        void (*write_super_lockfs) (struct super_block *);
-        void (*unlockfs) (struct super_block *);
+        int (*freeze_fs) (struct super_block *);
+        int (*unfreeze_fs) (struct super_block *);
         int (*statfs) (struct dentry *, struct kstatfs *);
         int (*remount_fs) (struct super_block *, int *, char *);
         void (*clear_inode) (struct inode *);
         void (*umount_begin) (struct super_block *);
 
-        void (*sync_inodes) (struct super_block *sb,
-                                struct writeback_control *wbc);
         int (*show_options)(struct seq_file *, struct vfsmount *);
 
         ssize_t (*quota_read)(struct super_block *, int, char *, size_t, loff_t);
@@ -240,23 +239,11 @@ or bottom half).
   	->alloc_inode was defined and simply undoes anything done by
 	->alloc_inode.
 
-  read_inode: this method is called to read a specific inode from the
-        mounted filesystem.  The i_ino member in the struct inode is
-	initialized by the VFS to indicate which inode to read. Other
-	members are filled in by this method.
-
-	You can set this to NULL and use iget5_locked() instead of iget()
-	to read inodes.  This is necessary for filesystems for which the
-	inode number is not sufficient to identify an inode.
-
   dirty_inode: this method is called by the VFS to mark an inode dirty.
 
   write_inode: this method is called when the VFS needs to write an
 	inode to disc.  The second parameter indicates whether the write
 	should be synchronous or not, not all filesystems check this flag.
-
-  put_inode: called when the VFS inode is removed from the inode
-	cache.
 
   drop_inode: called when the last access to the inode is dropped,
 	with the inode_lock spinlock held.
@@ -283,15 +270,14 @@ or bottom half).
   	a superblock. The second parameter indicates whether the method
 	should wait until the write out has been completed. Optional.
 
-  write_super_lockfs: called when VFS is locking a filesystem and
+  freeze_fs: called when VFS is locking a filesystem and
   	forcing it into a consistent state.  This method is currently
   	used by the Logical Volume Manager (LVM).
 
-  unlockfs: called when VFS is unlocking a filesystem and making it writable
+  unfreeze_fs: called when VFS is unlocking a filesystem and making it writable
   	again.
 
-  statfs: called when the VFS needs to get filesystem statistics. This
-	is called with the kernel lock held
+  statfs: called when the VFS needs to get filesystem statistics.
 
   remount_fs: called when the filesystem is remounted. This is called
 	with the kernel lock held
@@ -300,18 +286,16 @@ or bottom half).
 
   umount_begin: called when the VFS is unmounting a filesystem.
 
-  sync_inodes: called when the VFS is writing out dirty data associated with
-  	a superblock.
-
-  show_options: called by the VFS to show mount options for /proc/<pid>/mounts.
+  show_options: called by the VFS to show mount options for
+	/proc/<pid>/mounts.  (see "Mount Options" section)
 
   quota_read: called by the VFS to read from filesystem quota file.
 
   quota_write: called by the VFS to write to filesystem quota file.
 
-The read_inode() method is responsible for filling in the "i_op"
-field. This is a pointer to a "struct inode_operations" which
-describes the methods that can be performed on individual inodes.
+Whoever sets up the inode is responsible for filling in the "i_op" field. This
+is a pointer to a "struct inode_operations" which describes the methods that
+can be performed on individual inodes.
 
 
 The Inode Object
@@ -324,7 +308,7 @@ struct inode_operations
 -----------------------
 
 This describes how the VFS can manipulate an inode in your
-filesystem. As of kernel 2.6.13, the following members are defined:
+filesystem. As of kernel 2.6.22, the following members are defined:
 
 struct inode_operations {
 	int (*create) (struct inode *,struct dentry *,int, struct nameidata *);
@@ -348,6 +332,7 @@ struct inode_operations {
 	ssize_t (*getxattr) (struct dentry *, const char *, void *, size_t);
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
 	int (*removexattr) (struct dentry *, const char *);
+	void (*truncate_range)(struct inode *, loff_t, loff_t);
 };
 
 Again, all methods are called without any locks being held, unless
@@ -416,10 +401,15 @@ otherwise noted.
   	started might not be in the page cache at the end of the
   	walk).
 
-  truncate: called by the VFS to change the size of a file.  The
+  truncate: Deprecated. This will not be called if ->setsize is defined.
+	Called by the VFS to change the size of a file.  The
  	i_size field of the inode is set to the desired size by the
  	VFS before this method is called.  This method is called by
  	the truncate(2) system call and related functionality.
+
+	Note: ->truncate and vmtruncate are deprecated. Do not add new
+	instances/calls of these. Filesystems should be converted to do their
+	truncate sequence via ->setattr().
 
   permission: called by the VFS to check for access rights on a POSIX-like
   	filesystem.
@@ -443,6 +433,9 @@ otherwise noted.
 
   removexattr: called by the VFS to remove an extended attribute from
   	a file. This method is called by removexattr(2) system call.
+
+  truncate_range: a method provided by the underlying filesystem to truncate a
+  	range of blocks , i.e. punch a hole somewhere in a file.
 
 
 The Address Space Object
@@ -484,7 +477,7 @@ __sync_single_inode) to check if ->writepages has been successful in
 writing out the whole address_space.
 
 The Writeback tag is used by filemap*wait* and sync_page* functions,
-via wait_on_page_writeback_range, to wait for all writeback to
+via filemap_fdatawait_range, to wait for all writeback to
 complete.  While waiting ->sync_page (if defined) will be called on
 each page that is found to require writeback.
 
@@ -503,7 +496,7 @@ written-back to storage typically in whole pages, however the
 address_space has finer control of write sizes.
 
 The read process essentially only requires 'readpage'.  The write
-process is more complicated and uses prepare_write/commit_write or
+process is more complicated and uses write_begin/write_end or
 set_page_dirty to write data into the address_space, and writepage,
 sync_page, and writepages to writeback data to storage.
 
@@ -522,7 +515,7 @@ struct address_space_operations
 -------------------------------
 
 This describes how the VFS can manipulate mapping of a file to page cache in
-your filesystem. As of kernel 2.6.16, the following members are defined:
+your filesystem. As of kernel 2.6.22, the following members are defined:
 
 struct address_space_operations {
 	int (*writepage)(struct page *page, struct writeback_control *wbc);
@@ -532,8 +525,12 @@ struct address_space_operations {
 	int (*set_page_dirty)(struct page *page);
 	int (*readpages)(struct file *filp, struct address_space *mapping,
 			struct list_head *pages, unsigned nr_pages);
-	int (*prepare_write)(struct file *, struct page *, unsigned, unsigned);
-	int (*commit_write)(struct file *, struct page *, unsigned, unsigned);
+	int (*write_begin)(struct file *, struct address_space *mapping,
+				loff_t pos, unsigned len, unsigned flags,
+				struct page **pagep, void **fsdata);
+	int (*write_end)(struct file *, struct address_space *mapping,
+				loff_t pos, unsigned len, unsigned copied,
+				struct page *page, void *fsdata);
 	sector_t (*bmap)(struct address_space *, sector_t);
 	int (*invalidatepage) (struct page *, unsigned long);
 	int (*releasepage) (struct page *, int);
@@ -543,6 +540,8 @@ struct address_space_operations {
 			int);
 	/* migrate the contents of a page to the specified target */
 	int (*migratepage) (struct page *, struct page *);
+	int (*launder_page) (struct page *);
+	int (*error_remove_page) (struct mapping *mapping, struct page *page);
 };
 
   writepage: called by the VM to write a dirty page to backing store.
@@ -602,32 +601,40 @@ struct address_space_operations {
 	readpages is only used for read-ahead, so read errors are
   	ignored.  If anything goes wrong, feel free to give up.
 
-  prepare_write: called by the generic write path in VM to set up a write
-  	request for a page.  This indicates to the address space that
-  	the given range of bytes is about to be written.  The
-  	address_space should check that the write will be able to
-  	complete, by allocating space if necessary and doing any other
-  	internal housekeeping.  If the write will update parts of
-  	any basic-blocks on storage, then those blocks should be
-  	pre-read (if they haven't been read already) so that the
-  	updated blocks can be written out properly.
-	The page will be locked.  If prepare_write wants to unlock the
-  	page it, like readpage, may do so and return
-  	AOP_TRUNCATED_PAGE.
-	In this case the prepare_write will be retried one the lock is
-  	regained.
+  write_begin:
+	Called by the generic buffered write code to ask the filesystem to
+	prepare to write len bytes at the given offset in the file. The
+	address_space should check that the write will be able to complete,
+	by allocating space if necessary and doing any other internal
+	housekeeping.  If the write will update parts of any basic-blocks on
+	storage, then those blocks should be pre-read (if they haven't been
+	read already) so that the updated blocks can be written out properly.
 
-	Note: the page _must not_ be marked uptodate in this function
-	(or anywhere else) unless it actually is uptodate right now. As
-	soon as a page is marked uptodate, it is possible for a concurrent
-	read(2) to copy it to userspace.
+        The filesystem must return the locked pagecache page for the specified
+	offset, in *pagep, for the caller to write into.
 
-  commit_write: If prepare_write succeeds, new data will be copied
-        into the page and then commit_write will be called.  It will
-        typically update the size of the file (if appropriate) and
-        mark the inode as dirty, and do any other related housekeeping
-        operations.  It should avoid returning an error if possible -
-        errors should have been handled by prepare_write.
+	It must be able to cope with short writes (where the length passed to
+	write_begin is greater than the number of bytes copied into the page).
+
+	flags is a field for AOP_FLAG_xxx flags, described in
+	include/linux/fs.h.
+
+        A void * may be returned in fsdata, which then gets passed into
+        write_end.
+
+        Returns 0 on success; < 0 on failure (which is the error code), in
+	which case write_end is not called.
+
+  write_end: After a successful write_begin, and data copy, write_end must
+        be called. len is the original len passed to write_begin, and copied
+        is the amount that was able to be copied (copied == len is always true
+	if write_begin was called with the AOP_FLAG_UNINTERRUPTIBLE flag).
+
+        The filesystem must take care of unlocking the page and releasing it
+        refcount, and updating i_size.
+
+        Returns < 0 on failure, otherwise the number of bytes (<= 'copied')
+        that were able to be copied into pagecache.
 
   bmap: called by the VFS to map a logical block offset within object to
   	physical block number. This method is used by the FIBMAP
@@ -661,7 +668,7 @@ struct address_space_operations {
         wants to make it a free page.  If ->releasepage succeeds, the
         page will be removed from the address_space and become free.
 
-	The second case if when a request has been made to invalidate
+	The second case is when a request has been made to invalidate
         some or all pages in an address_space.  This can happen
         through the fadvice(POSIX_FADV_DONTNEED) system call or by the
         filesystem explicitly requesting it as nfs and 9fs do (when
@@ -689,6 +696,16 @@ struct address_space_operations {
 	transfer any private data across and update any references
         that it has to the page.
 
+  launder_page: Called before freeing a page - it writes back the dirty page. To
+  	prevent redirtying the page, it is kept locked during the whole
+	operation.
+
+  error_remove_page: normally set to generic_error_remove_page if truncation
+	is ok for this address space. Used for memory failure handling.
+	Setting this implies you deal with pages going away under you,
+	unless you have them locked or reference counts increased.
+
+
 The File Object
 ===============
 
@@ -699,9 +716,10 @@ struct file_operations
 ----------------------
 
 This describes how the VFS can manipulate an open file. As of kernel
-2.6.17, the following members are defined:
+2.6.22, the following members are defined:
 
 struct file_operations {
+	struct module *owner;
 	loff_t (*llseek) (struct file *, loff_t, int);
 	ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
 	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
@@ -709,14 +727,13 @@ struct file_operations {
 	ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
 	int (*readdir) (struct file *, void *, filldir_t);
 	unsigned int (*poll) (struct file *, struct poll_table_struct *);
-	int (*ioctl) (struct inode *, struct file *, unsigned int, unsigned long);
 	long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
 	long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
 	int (*mmap) (struct file *, struct vm_area_struct *);
 	int (*open) (struct inode *, struct file *);
 	int (*flush) (struct file *);
 	int (*release) (struct inode *, struct file *);
-	int (*fsync) (struct file *, struct dentry *, int datasync);
+	int (*fsync) (struct file *, int datasync);
 	int (*aio_fsync) (struct kiocb *, int datasync);
 	int (*fasync) (int, struct file *, int);
 	int (*lock) (struct file *, int, struct file_lock *);
@@ -726,12 +743,9 @@ struct file_operations {
 	ssize_t (*sendpage) (struct file *, struct page *, int, size_t, loff_t *, int);
 	unsigned long (*get_unmapped_area)(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
 	int (*check_flags)(int);
-	int (*dir_notify)(struct file *filp, unsigned long arg);
 	int (*flock) (struct file *, int, struct file_lock *);
-	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, size_t, unsigned 
-int);
-	ssize_t (*splice_read)(struct file *, struct pipe_inode_info *, size_t, unsigned  
-int);
+	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, size_t, unsigned int);
+	ssize_t (*splice_read)(struct file *, struct pipe_inode_info *, size_t, unsigned int);
 };
 
 Again, all methods are called without any locks being held, unless
@@ -753,10 +767,7 @@ otherwise noted.
 	activity on this file and (optionally) go to sleep until there
 	is activity. Called by the select(2) and poll(2) system calls
 
-  ioctl: called by the ioctl(2) system call
-
-  unlocked_ioctl: called by the ioctl(2) system call. Filesystems that do not
-  	require the BKL should use this method instead of the ioctl() above.
+  unlocked_ioctl: called by the ioctl(2) system call.
 
   compat_ioctl: called by the ioctl(2) system call when 32 bit system calls
  	 are used on 64 bit kernels.
@@ -794,8 +805,6 @@ otherwise noted.
   get_unmapped_area: called by the mmap(2) system call
 
   check_flags: called by the fcntl(2) system call for F_SETFL command
-
-  dir_notify: called by the fcntl(2) system call for F_NOTIFY command
 
   flock: called by the flock(2) system call
 
@@ -861,9 +870,9 @@ struct dentry_operations {
 	iput() yourself
 
   d_dname: called when the pathname of a dentry should be generated.
-	Usefull for some pseudo filesystems (sockfs, pipefs, ...) to delay
+	Useful for some pseudo filesystems (sockfs, pipefs, ...) to delay
 	pathname generation. (Instead of doing it when dentry is created,
-	its done only when the path is needed.). Real filesystems probably
+	it's done only when the path is needed.). Real filesystems probably
 	dont want to use it, because their dentries are present in global
 	dcache hash, so their hash should be an invariant. As no lock is
 	held, d_dname() should not try to modify the dentry itself, unless
@@ -926,12 +935,55 @@ manipulate dentries:
   d_lookup: look up a dentry given its parent and path name component
 	It looks up the child of that given name from the dcache
 	hash table. If it is found, the reference count is incremented
-	and the dentry is returned. The caller must use d_put()
+	and the dentry is returned. The caller must use dput()
 	to free the dentry when it finishes using it.
 
 For further information on dentry locking, please refer to the document
 Documentation/filesystems/dentry-locking.txt.
 
+Mount Options
+=============
+
+Parsing options
+---------------
+
+On mount and remount the filesystem is passed a string containing a
+comma separated list of mount options.  The options can have either of
+these forms:
+
+  option
+  option=value
+
+The <linux/parser.h> header defines an API that helps parse these
+options.  There are plenty of examples on how to use it in existing
+filesystems.
+
+Showing options
+---------------
+
+If a filesystem accepts mount options, it must define show_options()
+to show all the currently active options.  The rules are:
+
+  - options MUST be shown which are not default or their values differ
+    from the default
+
+  - options MAY be shown which are enabled by default or have their
+    default value
+
+Options used only internally between a mount helper and the kernel
+(such as file descriptors), or which only have an effect during the
+mounting (such as ones controlling the creation of a journal) are exempt
+from the above rules.
+
+The underlying reason for the above rules is to make sure, that a
+mount can be accurately replicated (e.g. umounting and mounting again)
+based on the information found in /proc/mounts.
+
+A simple method of saving options at mount/remount time and showing
+them is provided with the save_mount_options() and
+generic_show_options() helper functions.  Please note, that using
+these may have drawbacks.  For more info see header comments for these
+functions in fs/namespace.c.
 
 Resources
 =========

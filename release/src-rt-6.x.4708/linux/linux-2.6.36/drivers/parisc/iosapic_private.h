@@ -185,4 +185,3 @@ struct sapic_info {
 	extint_info_t           *si_extint_info;/* External Intr info      */
 };
 #endif
-

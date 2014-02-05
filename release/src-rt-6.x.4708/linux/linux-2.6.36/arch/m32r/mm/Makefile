@@ -9,4 +9,3 @@ obj-y 	:= init.o fault-nommu.o mmu.o extable.o ioremap-nommu.o cache.o page.o
 endif
 
 obj-$(CONFIG_DISCONTIGMEM)	+= discontig.o
-

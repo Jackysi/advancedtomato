@@ -25,8 +25,10 @@
  */
 
 #include <linux/pci.h>
+#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/firmware.h>
 
 #include "aic94xx.h"
 #include "aic94xx_reg.h"
@@ -38,16 +40,14 @@ u32 MBAR0_SWB_SIZE;
 
 /* ---------- Initialization ---------- */
 
-static void asd_get_user_sas_addr(struct asd_ha_struct *asd_ha)
+static int asd_get_user_sas_addr(struct asd_ha_struct *asd_ha)
 {
-	extern char sas_addr_str[];
-	/* If the user has specified a WWN it overrides other settings
-	 */
-	if (sas_addr_str[0] != '\0')
-		asd_destringify_sas_addr(asd_ha->hw_prof.sas_addr,
-					 sas_addr_str);
-	else if (asd_ha->hw_prof.sas_addr[0] != 0)
-		asd_stringify_sas_addr(sas_addr_str, asd_ha->hw_prof.sas_addr);
+	/* adapter came with a sas address */
+	if (asd_ha->hw_prof.sas_addr[0])
+		return 0;
+
+	return sas_request_addr(asd_ha->sas_ha.core.shost,
+				asd_ha->hw_prof.sas_addr);
 }
 
 static void asd_propagate_sas_addr(struct asd_ha_struct *asd_ha)
@@ -91,7 +91,7 @@ static int asd_init_phy(struct asd_phy *phy)
 
 	sas_phy->enabled = 1;
 	sas_phy->class = SAS;
-	sas_phy->iproto = SAS_PROTO_ALL;
+	sas_phy->iproto = SAS_PROTOCOL_ALL;
 	sas_phy->tproto = 0;
 	sas_phy->type = PHY_TYPE_PHYSICAL;
 	sas_phy->role = PHY_ROLE_INITIATOR;
@@ -251,7 +251,7 @@ static int asd_init_scbs(struct asd_ha_struct *asd_ha)
 	return 0;
 }
 
-static inline void asd_get_max_scb_ddb(struct asd_ha_struct *asd_ha)
+static void asd_get_max_scb_ddb(struct asd_ha_struct *asd_ha)
 {
 	asd_ha->hw_prof.max_scbs = asd_get_cmdctx_size(asd_ha)/ASD_SCB_SIZE;
 	asd_ha->hw_prof.max_ddbs = asd_get_devctx_size(asd_ha)/ASD_DDB_SIZE;
@@ -657,8 +657,7 @@ int asd_init_hw(struct asd_ha_struct *asd_ha)
 
 	asd_init_ctxmem(asd_ha);
 
-	asd_get_user_sas_addr(asd_ha);
-	if (!asd_ha->hw_prof.sas_addr[0]) {
+	if (asd_get_user_sas_addr(asd_ha)) {
 		asd_printk("No SAS Address provided for %s\n",
 			   pci_name(asd_ha->pcidev));
 		err = -ENODEV;
@@ -707,16 +706,6 @@ Out:
 
 /* ---------- Chip reset ---------- */
 
-/**
- * asd_chip_reset -- reset the host adapter, etc
- * @asd_ha: pointer to host adapter structure of interest
- *
- * Called from the ISR.  Hard reset the chip.  Let everything
- * timeout.  This should be no different than hot-unplugging the
- * host adapter.  Once everything times out we'll init the chip with
- * a call to asd_init_chip() and enable interrupts with asd_enable_ints().
- * XXX finish.
- */
 static void asd_chip_reset(struct asd_ha_struct *asd_ha)
 {
 	struct sas_ha_struct *sas_ha = &asd_ha->sas_ha;
@@ -773,7 +762,7 @@ static void asd_dl_tasklet_handler(unsigned long data)
  * asd_process_donelist_isr -- schedule processing of done list entries
  * @asd_ha: pointer to host adapter structure
  */
-static inline void asd_process_donelist_isr(struct asd_ha_struct *asd_ha)
+static void asd_process_donelist_isr(struct asd_ha_struct *asd_ha)
 {
 	tasklet_schedule(&asd_ha->seq.dl_tasklet);
 }
@@ -782,7 +771,7 @@ static inline void asd_process_donelist_isr(struct asd_ha_struct *asd_ha)
  * asd_com_sas_isr -- process device communication interrupt (COMINT)
  * @asd_ha: pointer to host adapter structure
  */
-static inline void asd_com_sas_isr(struct asd_ha_struct *asd_ha)
+static void asd_com_sas_isr(struct asd_ha_struct *asd_ha)
 {
 	u32 comstat = asd_read_reg_dword(asd_ha, COMSTAT);
 
@@ -821,7 +810,7 @@ static inline void asd_com_sas_isr(struct asd_ha_struct *asd_ha)
 	asd_chip_reset(asd_ha);
 }
 
-static inline void asd_arp2_err(struct asd_ha_struct *asd_ha, u32 dchstatus)
+static void asd_arp2_err(struct asd_ha_struct *asd_ha, u32 dchstatus)
 {
 	static const char *halt_code[256] = {
 		"UNEXPECTED_INTERRUPT0",
@@ -890,7 +879,6 @@ static inline void asd_arp2_err(struct asd_ha_struct *asd_ha, u32 dchstatus)
 				asd_printk("%s: LSEQ%d arp2int:0x%x\n",
 					   pci_name(asd_ha->pcidev),
 					   lseq, arp2int);
-				/* XXX we should only do lseq reset */
 			} else if (arp2int & ARP2HALTC)
 				asd_printk("%s: LSEQ%d halted: %s\n",
 					   pci_name(asd_ha->pcidev),
@@ -908,7 +896,7 @@ static inline void asd_arp2_err(struct asd_ha_struct *asd_ha, u32 dchstatus)
  * asd_dch_sas_isr -- process device channel interrupt (DEVINT)
  * @asd_ha: pointer to host adapter structure
  */
-static inline void asd_dch_sas_isr(struct asd_ha_struct *asd_ha)
+static void asd_dch_sas_isr(struct asd_ha_struct *asd_ha)
 {
 	u32 dchstatus = asd_read_reg_dword(asd_ha, DCHSTATUS);
 
@@ -923,7 +911,7 @@ static inline void asd_dch_sas_isr(struct asd_ha_struct *asd_ha)
  * ads_rbi_exsi_isr -- process external system interface interrupt (INITERR)
  * @asd_ha: pointer to host adapter structure
  */
-static inline void asd_rbi_exsi_isr(struct asd_ha_struct *asd_ha)
+static void asd_rbi_exsi_isr(struct asd_ha_struct *asd_ha)
 {
 	u32 stat0r = asd_read_reg_dword(asd_ha, ASISTAT0R);
 
@@ -971,7 +959,7 @@ static inline void asd_rbi_exsi_isr(struct asd_ha_struct *asd_ha)
  *
  * Asserted on PCIX errors: target abort, etc.
  */
-static inline void asd_hst_pcix_isr(struct asd_ha_struct *asd_ha)
+static void asd_hst_pcix_isr(struct asd_ha_struct *asd_ha)
 {
 	u16 status;
 	u32 pcix_status;
@@ -993,7 +981,6 @@ static inline void asd_hst_pcix_isr(struct asd_ha_struct *asd_ha)
 		asd_printk("received split completion error for %s\n",
 			   pci_name(asd_ha->pcidev));
 		pci_write_config_dword(asd_ha->pcidev,PCIX_STATUS,pcix_status);
-		/* XXX: Abort task? */
 		return;
 	} else if (pcix_status & UNEXP_SC) {
 		asd_printk("unexpected split completion for %s\n",
@@ -1044,8 +1031,8 @@ irqreturn_t asd_hw_isr(int irq, void *dev_id)
 
 /* ---------- SCB handling ---------- */
 
-static inline struct asd_ascb *asd_ascb_alloc(struct asd_ha_struct *asd_ha,
-					      gfp_t gfp_flags)
+static struct asd_ascb *asd_ascb_alloc(struct asd_ha_struct *asd_ha,
+				       gfp_t gfp_flags)
 {
 	extern struct kmem_cache *asd_ascb_cache;
 	struct asd_seq_data *seq = &asd_ha->seq;
@@ -1144,8 +1131,8 @@ struct asd_ascb *asd_ascb_alloc_list(struct asd_ha_struct
  *
  * LOCKING: called with the pending list lock held.
  */
-static inline void asd_swap_head_scb(struct asd_ha_struct *asd_ha,
-				     struct asd_ascb *ascb)
+static void asd_swap_head_scb(struct asd_ha_struct *asd_ha,
+			      struct asd_ascb *ascb)
 {
 	struct asd_seq_data *seq = &asd_ha->seq;
 	struct asd_ascb *last = list_entry(ascb->list.prev,
@@ -1171,7 +1158,7 @@ static inline void asd_swap_head_scb(struct asd_ha_struct *asd_ha,
  * intended to be called from asd_post_ascb_list(), just prior to
  * posting the SCBs to the sequencer.
  */
-static inline void asd_start_scb_timers(struct list_head *list)
+static void asd_start_scb_timers(struct list_head *list)
 {
 	struct asd_ascb *ascb;
 	list_for_each_entry(ascb, list, list) {
@@ -1331,7 +1318,6 @@ static int asd_enable_phy(struct asd_ha_struct *asd_ha, int phy_id)
 			   HOTPLUG_DELAY_TIMEOUT);
 
 	/* Get defaults from manuf. sector */
-	/* XXX we need defaults for those in case MS is broken. */
 	asd_write_reg_byte(asd_ha, LmSEQ_OOB_REG(phy_id, PHY_CONTROL_0),
 			   phy->phy_desc->phy_control_0);
 	asd_write_reg_byte(asd_ha, LmSEQ_OOB_REG(phy_id, PHY_CONTROL_1),
@@ -1361,7 +1347,7 @@ int asd_enable_phys(struct asd_ha_struct *asd_ha, const u8 phy_mask)
 	struct asd_ascb *ascb_list;
 
 	if (!phy_mask) {
-		asd_printk("%s called with phy_mask of 0!?\n", __FUNCTION__);
+		asd_printk("%s called with phy_mask of 0!?\n", __func__);
 		return 0;
 	}
 

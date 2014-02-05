@@ -1,4 +1,4 @@
-/* $Id: netjet.c,v 1.29.2.4 2004/02/11 13:21:34 keil Exp $
+/* $Id: netjet.c,v 1.29.2.4 2004/02/11 13:21:34 Exp $
  *
  * low level stuff for Traverse Technologie NETJet ISDN cards
  *
@@ -21,6 +21,7 @@
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
+#include <linux/slab.h>
 #include <asm/io.h>
 #include "netjet.h"
 
@@ -978,4 +979,3 @@ release_io_netjet(struct IsdnCardState *cs)
 	releasetiger(cs);
 	release_region(cs->hw.njet.base, 256);
 }
-

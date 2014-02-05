@@ -147,25 +147,6 @@ static void write_mdr(struct s_smc *smc, u_long val)
 	MDRW(val) ;
 }
 
-#if 0
-/*
- * read long value from buffer memory over memory data register (MDR),
- */
-static u_long read_mdr(struct s_smc *smc, unsigned int addr)
-{
-	long p ;
-	CHECK_NPP() ;
-	MARR(addr) ;
-	outpw(FM_A(FM_CMDREG1),FM_IRMEMWO) ;
-	CHECK_NPP() ;	/* needed for PCI to prevent from timeing violations */
-/*	p = MDRR() ; */	/* bad read values if the workaround */
-			/* smc->hw.mc_dummy = *((short volatile far *)(addr)))*/
-			/* is used */
-	p = (u_long)inpw(FM_A(FM_MDRU))<<16 ;
-	p += (u_long)inpw(FM_A(FM_MDRL)) ;
-	return(p) ;
-}
-#endif
 
 /*
  * clear buffer memory
@@ -398,21 +379,21 @@ static void copy_tx_mac(struct s_smc *smc, u_long td, struct fddi_mac *mac,
 /* u_long td;		 transmit descriptor */
 /* struct fddi_mac *mac; mac frame pointer */
 /* unsigned off;	 start address within buffer memory */
-/* int len ;		 lenght of the frame including the FC */
+/* int len ;		 length of the frame including the FC */
 {
 	int	i ;
-	u_int	*p ;
+	__le32	*p ;
 
 	CHECK_NPP() ;
 	MARW(off) ;		/* set memory address reg for writes */
 
-	p = (u_int *) mac ;
+	p = (__le32 *) mac ;
 	for (i = (len + 3)/4 ; i ; i--) {
 		if (i == 1) {
 			/* last word, set the tag bit */
 			outpw(FM_A(FM_CMDREG2),FM_ISTTB) ;
 		}
-		write_mdr(smc,MDR_REVERSE(*p)) ;
+		write_mdr(smc,le32_to_cpu(*p)) ;
 		p++ ;
 	}
 
@@ -444,7 +425,7 @@ static void copy_tx_mac(struct s_smc *smc, u_long td, struct fddi_mac *mac,
  */
 static void directed_beacon(struct s_smc *smc)
 {
-	SK_LOC_DECL(u_int,a[2]) ;
+	SK_LOC_DECL(__le32,a[2]) ;
 
 	/*
 	 * set UNA in frame
@@ -458,9 +439,9 @@ static void directed_beacon(struct s_smc *smc)
 	CHECK_NPP() ;
 	 /* set memory address reg for writes */
 	MARW(smc->hw.fp.fifo.rbc_ram_start+DBEACON_FRAME_OFF+4) ;
-	write_mdr(smc,MDR_REVERSE(a[0])) ;
+	write_mdr(smc,le32_to_cpu(a[0])) ;
 	outpw(FM_A(FM_CMDREG2),FM_ISTTB) ;	/* set the tag bit */
-	write_mdr(smc,MDR_REVERSE(a[1])) ;
+	write_mdr(smc,le32_to_cpu(a[1])) ;
 
 	outpw(FM_A(FM_SABC),smc->hw.fp.fifo.rbc_ram_start + DBEACON_FRAME_OFF) ;
 }
@@ -557,85 +538,6 @@ static void enable_formac(struct s_smc *smc)
 	outpw(FM_A(FM_IMSK3L),(unsigned short)~mac_imsk3l);
 }
 
-#if 0	/* Removed because the driver should use the ASICs TX complete IRQ. */
-	/* The FORMACs tx complete IRQ should be used any longer */
-
-/*
-	BEGIN_MANUAL_ENTRY(if,func;others;4)
-
-	void enable_tx_irq(smc, queue)
-	struct s_smc *smc ;
-	u_short	queue ;
-
-Function	DOWNCALL	(SMT, fplustm.c)
-		enable_tx_irq() enables the FORMACs transmit complete
-		interrupt of the queue.
-
-Para	queue	= QUEUE_S:	synchronous queue
-		= QUEUE_A0:	asynchronous queue
-
-Note	After any ring operational change the transmit complete
-	interrupts are disabled.
-	The operating system dependent module must enable
-	the transmit complete interrupt of a queue,
-		- when it queues the first frame,
-		  because of no transmit resources are beeing
-		  available and
-		- when it escapes from the function llc_restart_tx
-		  while some frames are still queued.
-
-	END_MANUAL_ENTRY
- */
-void enable_tx_irq(struct s_smc *smc, u_short queue)
-/* u_short queue; 0 = synchronous queue, 1 = asynchronous queue 0 */
-{
-	u_short	imask ;
-
-	imask = ~(inpw(FM_A(FM_IMSK1U))) ;
-
-	if (queue == 0) {
-		outpw(FM_A(FM_IMSK1U),~(imask|FM_STEFRMS)) ;
-	}
-	if (queue == 1) {
-		outpw(FM_A(FM_IMSK1U),~(imask|FM_STEFRMA0)) ;
-	}
-}
-
-/*
-	BEGIN_MANUAL_ENTRY(if,func;others;4)
-
-	void disable_tx_irq(smc, queue)
-	struct s_smc *smc ;
-	u_short	queue ;
-
-Function	DOWNCALL	(SMT, fplustm.c)
-		disable_tx_irq disables the FORMACs transmit complete
-		interrupt of the queue
-
-Para	queue	= QUEUE_S:	synchronous queue
-		= QUEUE_A0:	asynchronous queue
-
-Note	The operating system dependent module should disable
-	the transmit complete interrupts if it escapes from the
-	function llc_restart_tx and no frames are queued.
-
-	END_MANUAL_ENTRY
- */
-void disable_tx_irq(struct s_smc *smc, u_short queue)
-/* u_short queue; 0 = synchronous queue, 1 = asynchronous queue 0 */
-{
-	u_short	imask ;
-
-	imask = ~(inpw(FM_A(FM_IMSK1U))) ;
-
-	if (queue == 0) {
-		outpw(FM_A(FM_IMSK1U),~(imask&~FM_STEFRMS)) ;
-	}
-	if (queue == 1) {
-		outpw(FM_A(FM_IMSK1U),~(imask&~FM_STEFRMA0)) ;
-	}
-}
-#endif
 
 static void disable_formac(struct s_smc *smc)
 {
@@ -1352,7 +1254,7 @@ void rtm_set_timer(struct s_smc *smc)
 	/*
 	 * MIB timer and hardware timer have the same resolution of 80nS
 	 */
-	DB_RMT("RMT: setting new fddiPATHT_Rmode, t = %d ns \n",
+	DB_RMT("RMT: setting new fddiPATHT_Rmode, t = %d ns\n",
 		(int) smc->mib.a[PATH0].fddiPATHT_Rmode,0) ;
 	outpd(ADDR(B2_RTM_INI),smc->mib.a[PATH0].fddiPATHT_Rmode) ;
 }
@@ -1488,4 +1390,3 @@ void formac_reinit_tx(struct s_smc *smc)
 		(void)init_mac(smc,0) ;
 	}
 }
-

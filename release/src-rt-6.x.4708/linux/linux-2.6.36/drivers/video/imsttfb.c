@@ -21,7 +21,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -29,7 +28,7 @@
 #include <linux/init.h>
 #include <linux/pci.h>
 #include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #if defined(CONFIG_PPC)
 #include <linux/nvram.h>
@@ -89,15 +88,6 @@ enum {
 	SSTATUS	= 36, /* 0x90 */
 	PRC	= 37, /* 0x94 */
 
-#if 0	
-	/* PCI Registers */
-	DVID	= 0x00000000L,
-	SC	= 0x00000004L,
-	CCR	= 0x00000008L,
-	OG	= 0x0000000CL,
-	BARM	= 0x00000010L,
-	BARER	= 0x00000030L,
-#endif
 };
 
 /* IBM 624 RAMDAC Direct Registers */
@@ -1086,176 +1076,6 @@ imsttfb_copyarea(struct fb_info *info, const struct fb_copyarea *area)
 	while(read_reg_le32(par->dc_regs, SSTATUS) & 0x40);
 }
 
-#if 0
-static int
-imsttfb_load_cursor_image(struct imstt_par *par, int width, int height, __u8 fgc)
-{
-	u_int x, y;
-
-	if (width > 32 || height > 32)
-		return -EINVAL;
-
-	if (par->ramdac == IBM) {
-		par->cmap_regs[PIDXHI] = 1;	eieio();
-		for (x = 0; x < 0x100; x++) {
-			par->cmap_regs[PIDXLO] = x;		eieio();
-			par->cmap_regs[PIDXDATA] = 0x00;	eieio();
-		}
-		par->cmap_regs[PIDXHI] = 1;	eieio();
-		for (y = 0; y < height; y++)
-			for (x = 0; x < width >> 2; x++) {
-				par->cmap_regs[PIDXLO] = x + y * 8;	eieio();
-				par->cmap_regs[PIDXDATA] = 0xff;	eieio();
-			}
-		par->cmap_regs[PIDXHI] = 0;		eieio();
-		par->cmap_regs[PIDXLO] = CURS1R;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS1G;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS1B;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS2R;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS2G;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS2B;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS3R;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS3G;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-		par->cmap_regs[PIDXLO] = CURS3B;	eieio();
-		par->cmap_regs[PIDXDATA] = fgc;		eieio();
-	} else {
-		par->cmap_regs[TVPADDRW] = TVPIRICC;	eieio();
-		par->cmap_regs[TVPIDATA] &= 0x03;	eieio();
-		par->cmap_regs[TVPADDRW] = 0;		eieio();
-		for (x = 0; x < 0x200; x++) {
-			par->cmap_regs[TVPCRDAT] = 0x00;	eieio();
-		}
-		for (x = 0; x < 0x200; x++) {
-			par->cmap_regs[TVPCRDAT] = 0xff;	eieio();
-		}
-		par->cmap_regs[TVPADDRW] = TVPIRICC;	eieio();
-		par->cmap_regs[TVPIDATA] &= 0x03;	eieio();
-		for (y = 0; y < height; y++)
-			for (x = 0; x < width >> 3; x++) {
-				par->cmap_regs[TVPADDRW] = x + y * 8;	eieio();
-				par->cmap_regs[TVPCRDAT] = 0xff;		eieio();
-			}
-		par->cmap_regs[TVPADDRW] = TVPIRICC;	eieio();
-		par->cmap_regs[TVPIDATA] |= 0x08;	eieio();
-		for (y = 0; y < height; y++)
-			for (x = 0; x < width >> 3; x++) {
-				par->cmap_regs[TVPADDRW] = x + y * 8;	eieio();
-				par->cmap_regs[TVPCRDAT] = 0xff;		eieio();
-			}
-		par->cmap_regs[TVPCADRW] = 0x00;	eieio();
-		for (x = 0; x < 12; x++)
-			par->cmap_regs[TVPCDATA] = fgc;	eieio();
-	}
-	return 1;
-}
-
-static void
-imstt_set_cursor(struct imstt_par *par, struct fb_image *d, int on)
-{
-	if (par->ramdac == IBM) {
-		par->cmap_regs[PIDXHI] = 0;	eieio();
-		if (!on) {
-			par->cmap_regs[PIDXLO] = CURSCTL;	eieio();
-			par->cmap_regs[PIDXDATA] = 0x00;	eieio();
-		} else {
-			par->cmap_regs[PIDXLO] = CURSXHI;	eieio();
-			par->cmap_regs[PIDXDATA] = d->dx >> 8;	eieio();
-			par->cmap_regs[PIDXLO] = CURSXLO;	eieio();
-			par->cmap_regs[PIDXDATA] = d->dx & 0xff;eieio();
-			par->cmap_regs[PIDXLO] = CURSYHI;	eieio();
-			par->cmap_regs[PIDXDATA] = d->dy >> 8;	eieio();
-			par->cmap_regs[PIDXLO] = CURSYLO;	eieio();
-			par->cmap_regs[PIDXDATA] = d->dy & 0xff;eieio();
-			par->cmap_regs[PIDXLO] = CURSCTL;	eieio();
-			par->cmap_regs[PIDXDATA] = 0x02;	eieio();
-		}
-	} else {
-		if (!on) {
-			par->cmap_regs[TVPADDRW] = TVPIRICC;	eieio();
-			par->cmap_regs[TVPIDATA] = 0x00;	eieio();
-		} else {
-			__u16 x = d->dx + 0x40, y = d->dy + 0x40;
-
-			par->cmap_regs[TVPCXPOH] = x >> 8;	eieio();
-			par->cmap_regs[TVPCXPOL] = x & 0xff;	eieio();
-			par->cmap_regs[TVPCYPOH] = y >> 8;	eieio();
-			par->cmap_regs[TVPCYPOL] = y & 0xff;	eieio();
-			par->cmap_regs[TVPADDRW] = TVPIRICC;	eieio();
-			par->cmap_regs[TVPIDATA] = 0x02;	eieio();
-		}
-	}
-}
-
-static int 
-imsttfb_cursor(struct fb_info *info, struct fb_cursor *cursor)
-{
-	struct imstt_par *par = info->par;
-        u32 flags = cursor->set, fg, bg, xx, yy;
-
-	if (cursor->dest == NULL && cursor->rop == ROP_XOR)
-		return 1;
-	
-	imstt_set_cursor(info, cursor, 0);
-
-	if (flags & FB_CUR_SETPOS) {
-		xx = cursor->image.dx - info->var.xoffset;
-		yy = cursor->image.dy - info->var.yoffset;
-	}
-
-	if (flags & FB_CUR_SETSIZE) {
-        }
-
-        if (flags & (FB_CUR_SETSHAPE | FB_CUR_SETCMAP)) {
-                int fg_idx = cursor->image.fg_color;
-                int width = (cursor->image.width+7)/8;
-                u8 *dat = (u8 *) cursor->image.data;
-                u8 *dst = (u8 *) cursor->dest;
-                u8 *msk = (u8 *) cursor->mask;
-
-                switch (cursor->rop) {
-                case ROP_XOR:
-                        for (i = 0; i < cursor->image.height; i++) {
-                                for (j = 0; j < width; j++) {
-                                        d_idx = i * MAX_CURS/8  + j;
-                                        data[d_idx] =  byte_rev[dat[s_idx] ^
-                                                                dst[s_idx]];
-                                        mask[d_idx] = byte_rev[msk[s_idx]];
-                                        s_idx++;
-                                }
-                        }
-                        break;
-                case ROP_COPY:
-                default:
-                        for (i = 0; i < cursor->image.height; i++) {
-                                for (j = 0; j < width; j++) {
-                                        d_idx = i * MAX_CURS/8 + j;
-                                        data[d_idx] = byte_rev[dat[s_idx]];
-                                        mask[d_idx] = byte_rev[msk[s_idx]];
-                                        s_idx++;
-                                }
-			}
-			break;
-		}
-
-		fg = ((info->cmap.red[fg_idx] & 0xf8) << 7) |
-                     ((info->cmap.green[fg_idx] & 0xf8) << 2) |
-                     ((info->cmap.blue[fg_idx] & 0xf8) >> 3) | 1 << 15;
-
-		imsttfb_load_cursor_image(par, xx, yy, fgc);
-	}
-	if (cursor->enable)
-		imstt_set_cursor(info, cursor, 1);
-	return 0;
-}
-#endif
 
 #define FBIMSTT_SETREG		0x545401
 #define FBIMSTT_GETREG		0x545402
@@ -1391,7 +1211,7 @@ init_imstt(struct fb_info *info)
 		}
 	}
 
-#if USE_NV_MODES && defined(CONFIG_PPC)
+#if USE_NV_MODES && defined(CONFIG_PPC32)
 	{
 		int vmode = init_vmode, cmode = init_cmode;
 
@@ -1476,7 +1296,7 @@ imsttfb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	
 	dp = pci_device_to_OF_node(pdev);
 	if(dp)
-		printk(KERN_INFO "%s: OF name %s\n",__FUNCTION__, dp->name);
+		printk(KERN_INFO "%s: OF name %s\n",__func__, dp->name);
 	else
 		printk(KERN_ERR "imsttfb: no OF node for pci device\n");
 #endif /* CONFIG_PPC_OF */
@@ -1625,4 +1445,3 @@ MODULE_LICENSE("GPL");
 
 module_init(imsttfb_init);
 module_exit(imsttfb_exit);
-

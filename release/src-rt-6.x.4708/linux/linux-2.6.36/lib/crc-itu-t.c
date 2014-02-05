@@ -66,4 +66,3 @@ EXPORT_SYMBOL(crc_itu_t);
 
 MODULE_DESCRIPTION("CRC ITU-T V.41 calculations");
 MODULE_LICENSE("GPL");
-

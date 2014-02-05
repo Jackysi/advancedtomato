@@ -17,5 +17,3 @@ clean:
 
 sortofclean:
 	rm -f $(LATEXFILE).aux $(LATEXFILE).log 
-
-

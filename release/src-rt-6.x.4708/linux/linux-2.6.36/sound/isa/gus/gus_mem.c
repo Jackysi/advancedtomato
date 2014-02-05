@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  *  GUS's memory allocation routines / bottom layer
  *
  *
@@ -19,7 +19,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <sound/core.h>
@@ -128,7 +127,8 @@ static struct snd_gf1_mem_block *snd_gf1_mem_share(struct snd_gf1_mem * alloc,
 	    !share_id[2] && !share_id[3])
 		return NULL;
 	for (block = alloc->first; block; block = block->next)
-		if (!memcmp(share_id, block->share_id, sizeof(share_id)))
+		if (!memcmp(share_id, block->share_id,
+				sizeof(block->share_id)))
 			return block;
 	return NULL;
 }
@@ -341,11 +341,5 @@ static void snd_gf1_mem_info_read(struct snd_info_entry *entry,
 	snd_iprintf(buffer, "  Total: memory = %i, used = %i, free = %i\n",
 		    total, used, total - used);
 	mutex_unlock(&alloc->memory_mutex);
-#if 0
-	ultra_iprintf(buffer, "  Verify: free = %i, max 8-bit block = %i, max 16-bit block = %i\n",
-		      ultra_memory_free_size(card, &card->gf1.mem_alloc),
-		  ultra_memory_free_block(card, &card->gf1.mem_alloc, 0),
-		 ultra_memory_free_block(card, &card->gf1.mem_alloc, 1));
-#endif
 }
 #endif

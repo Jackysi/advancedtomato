@@ -1,4 +1,4 @@
-/* $Id: newport.h,v 1.5 1999/08/04 06:01:51 ulfc Exp $
+/* $Id: newport.h,v 1.5 1999/08/04 06:01:51 Exp $
  *
  * newport.h: Defines and register layout for NEWPORT graphics
  *            hardware.
@@ -453,7 +453,7 @@ static __inline__ int newport_wait(struct newport_regs *regs)
 {
 	int t = BUSY_TIMEOUT;
 
-	while (t--)
+	while (--t)
 		if (!(regs->cset.status & NPORT_STAT_GBUSY))
 			break;
 	return !t;
@@ -463,7 +463,7 @@ static __inline__ int newport_bfwait(struct newport_regs *regs)
 {
 	int t = BUSY_TIMEOUT;
 
-	while (t--)
+	while (--t)
 		if(!(regs->cset.status & NPORT_STAT_BBUSY))
 			break;
 	return !t;
@@ -580,4 +580,3 @@ xmap9SetModeReg (struct newport_regs *rex, unsigned int modereg, unsigned int da
 #define BT445_REVISION_REG	0x01
 
 #endif /* !(_SGI_NEWPORT_H) */
-

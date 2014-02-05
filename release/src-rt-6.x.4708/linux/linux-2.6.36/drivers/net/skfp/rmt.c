@@ -651,4 +651,3 @@ static void stop_rmt_timer2(struct s_smc *smc)
 	if (smc->r.rmt_timer2.tm_active)
 		smt_timer_stop(smc,&smc->r.rmt_timer2) ;
 }
-

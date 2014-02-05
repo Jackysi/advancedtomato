@@ -22,13 +22,12 @@
 #include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
+#include "xfs_ag.h"
 #include "xfs_dir2.h"
-#include "xfs_dmapi.h"
 #include "xfs_mount.h"
 #include "xfs_da_btree.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_dir2_sf.h"
-#include "xfs_attr_sf.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_bmap.h"
@@ -36,8 +35,8 @@
 #include "xfs_dir2_leaf.h"
 #include "xfs_dir2_block.h"
 #include "xfs_dir2_node.h"
-#include "xfs_dir2_trace.h"
 #include "xfs_error.h"
+#include "xfs_trace.h"
 
 /*
  * Function declarations.
@@ -64,7 +63,7 @@ static int xfs_dir2_node_addname_int(xfs_da_args_t *args,
 /*
  * Log entries from a freespace block.
  */
-void
+STATIC void
 xfs_dir2_free_log_bests(
 	xfs_trans_t		*tp,		/* transaction pointer */
 	xfs_dabuf_t		*bp,		/* freespace buffer */
@@ -122,7 +121,8 @@ xfs_dir2_leaf_to_node(
 	__be16			*to;		/* pointer to freespace entry */
 	xfs_trans_t		*tp;		/* transaction pointer */
 
-	xfs_dir2_trace_args_b("leaf_to_node", args, lbp);
+	trace_xfs_dir2_leaf_to_node(args);
+
 	dp = args->dp;
 	mp = dp->i_mount;
 	tp = args->trans;
@@ -136,14 +136,14 @@ xfs_dir2_leaf_to_node(
 	/*
 	 * Get the buffer for the new freespace block.
 	 */
-	if ((error = xfs_da_get_buf(tp, dp, XFS_DIR2_DB_TO_DA(mp, fdb), -1, &fbp,
+	if ((error = xfs_da_get_buf(tp, dp, xfs_dir2_db_to_da(mp, fdb), -1, &fbp,
 			XFS_DATA_FORK))) {
 		return error;
 	}
 	ASSERT(fbp != NULL);
 	free = fbp->data;
 	leaf = lbp->data;
-	ltp = XFS_DIR2_LEAF_TAIL_P(mp, leaf);
+	ltp = xfs_dir2_leaf_tail_p(mp, leaf);
 	/*
 	 * Initialize the freespace block header.
 	 */
@@ -155,7 +155,7 @@ xfs_dir2_leaf_to_node(
 	 * Copy freespace entries from the leaf block to the new block.
 	 * Count active entries.
 	 */
-	for (i = n = 0, from = XFS_DIR2_LEAF_BESTS_P(ltp), to = free->bests;
+	for (i = n = 0, from = xfs_dir2_leaf_bests_p(ltp), to = free->bests;
 	     i < be32_to_cpu(ltp->bestcount); i++, from++, to++) {
 		if ((off = be16_to_cpu(*from)) != NULLDATAOFF)
 			n++;
@@ -195,7 +195,8 @@ xfs_dir2_leafn_add(
 	xfs_mount_t		*mp;		/* filesystem mount point */
 	xfs_trans_t		*tp;		/* transaction pointer */
 
-	xfs_dir2_trace_args_sb("leafn_add", args, index, bp);
+	trace_xfs_dir2_leafn_add(args, index);
+
 	dp = args->dp;
 	mp = dp->i_mount;
 	tp = args->trans;
@@ -215,7 +216,7 @@ xfs_dir2_leafn_add(
 	 * a compact.
 	 */
 
-	if (be16_to_cpu(leaf->hdr.count) == XFS_DIR2_MAX_LEAF_ENTS(mp)) {
+	if (be16_to_cpu(leaf->hdr.count) == xfs_dir2_max_leaf_ents(mp)) {
 		if (!leaf->hdr.stale)
 			return XFS_ERROR(ENOSPC);
 		compact = be16_to_cpu(leaf->hdr.stale) > 1;
@@ -225,7 +226,7 @@ xfs_dir2_leafn_add(
 	ASSERT(index == be16_to_cpu(leaf->hdr.count) ||
 	       be32_to_cpu(leaf->ents[index].hashval) >= args->hashval);
 
-	if (args->justcheck)
+	if (args->op_flags & XFS_DA_OP_JUSTCHECK)
 		return 0;
 
 	/*
@@ -253,7 +254,7 @@ xfs_dir2_leafn_add(
 				(be16_to_cpu(leaf->hdr.count) - index) * sizeof(*lep));
 		lfloglow = index;
 		lfloghigh = be16_to_cpu(leaf->hdr.count);
-		be16_add(&leaf->hdr.count, 1);
+		be16_add_cpu(&leaf->hdr.count, 1);
 	}
 	/*
 	 * There are stale entries.  We'll use one for the new entry.
@@ -321,13 +322,13 @@ xfs_dir2_leafn_add(
 			lfloglow = MIN(index, lfloglow);
 			lfloghigh = MAX(highstale, lfloghigh);
 		}
-		be16_add(&leaf->hdr.stale, -1);
+		be16_add_cpu(&leaf->hdr.stale, -1);
 	}
 	/*
 	 * Insert the new entry, log everything.
 	 */
 	lep->hashval = cpu_to_be32(args->hashval);
-	lep->address = cpu_to_be32(XFS_DIR2_DB_OFF_TO_DATAPTR(mp,
+	lep->address = cpu_to_be32(xfs_dir2_db_off_to_dataptr(mp,
 				args->blkno, args->index));
 	xfs_dir2_leaf_log_header(tp, bp);
 	xfs_dir2_leaf_log_ents(tp, bp, lfloglow, lfloghigh);
@@ -352,7 +353,7 @@ xfs_dir2_leafn_check(
 	leaf = bp->data;
 	mp = dp->i_mount;
 	ASSERT(be16_to_cpu(leaf->hdr.info.magic) == XFS_DIR2_LEAFN_MAGIC);
-	ASSERT(be16_to_cpu(leaf->hdr.count) <= XFS_DIR2_MAX_LEAF_ENTS(mp));
+	ASSERT(be16_to_cpu(leaf->hdr.count) <= xfs_dir2_max_leaf_ents(mp));
 	for (i = stale = 0; i < be16_to_cpu(leaf->hdr.count); i++) {
 		if (i + 1 < be16_to_cpu(leaf->hdr.count)) {
 			ASSERT(be32_to_cpu(leaf->ents[i].hashval) <=
@@ -386,28 +387,26 @@ xfs_dir2_leafn_lasthash(
 }
 
 /*
- * Look up a leaf entry in a node-format leaf block.
- * If this is an addname then the extrablk in state is a freespace block,
- * otherwise it's a data block.
+ * Look up a leaf entry for space to add a name in a node-format leaf block.
+ * The extrablk in state is a freespace block.
  */
-int
-xfs_dir2_leafn_lookup_int(
+STATIC int
+xfs_dir2_leafn_lookup_for_addname(
 	xfs_dabuf_t		*bp,		/* leaf buffer */
 	xfs_da_args_t		*args,		/* operation arguments */
 	int			*indexp,	/* out: leaf entry index */
 	xfs_da_state_t		*state)		/* state to fill in */
 {
-	xfs_dabuf_t		*curbp;		/* current data/free buffer */
-	xfs_dir2_db_t		curdb;		/* current data block number */
-	xfs_dir2_db_t		curfdb;		/* current free block number */
-	xfs_dir2_data_entry_t	*dep;		/* data block entry */
+	xfs_dabuf_t		*curbp = NULL;	/* current data/free buffer */
+	xfs_dir2_db_t		curdb = -1;	/* current data block number */
+	xfs_dir2_db_t		curfdb = -1;	/* current free block number */
 	xfs_inode_t		*dp;		/* incore directory inode */
 	int			error;		/* error return value */
 	int			fi;		/* free entry index */
-	xfs_dir2_free_t		*free=NULL;	/* free block structure */
+	xfs_dir2_free_t		*free = NULL;	/* free block structure */
 	int			index;		/* leaf entry index */
 	xfs_dir2_leaf_t		*leaf;		/* leaf structure */
-	int			length=0;	/* length of new data entry */
+	int			length;		/* length of new data entry */
 	xfs_dir2_leaf_entry_t	*lep;		/* leaf entry */
 	xfs_mount_t		*mp;		/* filesystem mount point */
 	xfs_dir2_db_t		newdb;		/* new data block number */
@@ -430,33 +429,20 @@ xfs_dir2_leafn_lookup_int(
 	/*
 	 * Do we have a buffer coming in?
 	 */
-	if (state->extravalid)
+	if (state->extravalid) {
+		/* If so, it's a free block buffer, get the block number. */
 		curbp = state->extrablk.bp;
-	else
-		curbp = NULL;
-	/*
-	 * For addname, it's a free block buffer, get the block number.
-	 */
-	if (args->addname) {
-		curfdb = curbp ? state->extrablk.blkno : -1;
-		curdb = -1;
-		length = XFS_DIR2_DATA_ENTSIZE(args->namelen);
-		if ((free = (curbp ? curbp->data : NULL)))
-			ASSERT(be32_to_cpu(free->hdr.magic) == XFS_DIR2_FREE_MAGIC);
+		curfdb = state->extrablk.blkno;
+		free = curbp->data;
+		ASSERT(be32_to_cpu(free->hdr.magic) == XFS_DIR2_FREE_MAGIC);
 	}
-	/*
-	 * For others, it's a data block buffer, get the block number.
-	 */
-	else {
-		curfdb = -1;
-		curdb = curbp ? state->extrablk.blkno : -1;
-	}
+	length = xfs_dir2_data_entsize(args->namelen);
 	/*
 	 * Loop over leaf entries with the right hash value.
 	 */
-	for (lep = &leaf->ents[index];
-	     index < be16_to_cpu(leaf->hdr.count) && be32_to_cpu(lep->hashval) == args->hashval;
-	     lep++, index++) {
+	for (lep = &leaf->ents[index]; index < be16_to_cpu(leaf->hdr.count) &&
+				be32_to_cpu(lep->hashval) == args->hashval;
+				lep++, index++) {
 		/*
 		 * Skip stale leaf entries.
 		 */
@@ -465,163 +451,246 @@ xfs_dir2_leafn_lookup_int(
 		/*
 		 * Pull the data block number from the entry.
 		 */
-		newdb = XFS_DIR2_DATAPTR_TO_DB(mp, be32_to_cpu(lep->address));
+		newdb = xfs_dir2_dataptr_to_db(mp, be32_to_cpu(lep->address));
 		/*
 		 * For addname, we're looking for a place to put the new entry.
 		 * We want to use a data block with an entry of equal
 		 * hash value to ours if there is one with room.
+		 *
+		 * If this block isn't the data block we already have
+		 * in hand, take a look at it.
 		 */
-		if (args->addname) {
+		if (newdb != curdb) {
+			curdb = newdb;
 			/*
-			 * If this block isn't the data block we already have
-			 * in hand, take a look at it.
+			 * Convert the data block to the free block
+			 * holding its freespace information.
 			 */
-			if (newdb != curdb) {
-				curdb = newdb;
-				/*
-				 * Convert the data block to the free block
-				 * holding its freespace information.
-				 */
-				newfdb = XFS_DIR2_DB_TO_FDB(mp, newdb);
-				/*
-				 * If it's not the one we have in hand,
-				 * read it in.
-				 */
-				if (newfdb != curfdb) {
-					/*
-					 * If we had one before, drop it.
-					 */
-					if (curbp)
-						xfs_da_brelse(tp, curbp);
-					/*
-					 * Read the free block.
-					 */
-					if ((error = xfs_da_read_buf(tp, dp,
-							XFS_DIR2_DB_TO_DA(mp,
-								newfdb),
-							-1, &curbp,
-							XFS_DATA_FORK))) {
-						return error;
-					}
-					free = curbp->data;
-					ASSERT(be32_to_cpu(free->hdr.magic) ==
-					       XFS_DIR2_FREE_MAGIC);
-					ASSERT((be32_to_cpu(free->hdr.firstdb) %
-						XFS_DIR2_MAX_FREE_BESTS(mp)) ==
-					       0);
-					ASSERT(be32_to_cpu(free->hdr.firstdb) <= curdb);
-					ASSERT(curdb <
-					       be32_to_cpu(free->hdr.firstdb) +
-					       be32_to_cpu(free->hdr.nvalid));
-				}
-				/*
-				 * Get the index for our entry.
-				 */
-				fi = XFS_DIR2_DB_TO_FDINDEX(mp, curdb);
-				/*
-				 * If it has room, return it.
-				 */
-				if (unlikely(be16_to_cpu(free->bests[fi]) == NULLDATAOFF)) {
-					XFS_ERROR_REPORT("xfs_dir2_leafn_lookup_int",
-							 XFS_ERRLEVEL_LOW, mp);
-					if (curfdb != newfdb)
-						xfs_da_brelse(tp, curbp);
-					return XFS_ERROR(EFSCORRUPTED);
-				}
-				curfdb = newfdb;
-				if (be16_to_cpu(free->bests[fi]) >= length) {
-					*indexp = index;
-					state->extravalid = 1;
-					state->extrablk.bp = curbp;
-					state->extrablk.blkno = curfdb;
-					state->extrablk.index = fi;
-					state->extrablk.magic =
-						XFS_DIR2_FREE_MAGIC;
-					ASSERT(args->oknoent);
-					return XFS_ERROR(ENOENT);
-				}
-			}
-		}
-		/*
-		 * Not adding a new entry, so we really want to find
-		 * the name given to us.
-		 */
-		else {
+			newfdb = xfs_dir2_db_to_fdb(mp, newdb);
 			/*
-			 * If it's a different data block, go get it.
+			 * If it's not the one we have in hand, read it in.
 			 */
-			if (newdb != curdb) {
+			if (newfdb != curfdb) {
 				/*
-				 * If we had a block before, drop it.
+				 * If we had one before, drop it.
 				 */
 				if (curbp)
 					xfs_da_brelse(tp, curbp);
 				/*
-				 * Read the data block.
+				 * Read the free block.
 				 */
-				if ((error =
-				    xfs_da_read_buf(tp, dp,
-					    XFS_DIR2_DB_TO_DA(mp, newdb), -1,
-					    &curbp, XFS_DATA_FORK))) {
+				error = xfs_da_read_buf(tp, dp,
+						xfs_dir2_db_to_da(mp, newfdb),
+						-1, &curbp, XFS_DATA_FORK);
+				if (error)
 					return error;
-				}
-				xfs_dir2_data_check(dp, curbp);
-				curdb = newdb;
+				free = curbp->data;
+				ASSERT(be32_to_cpu(free->hdr.magic) ==
+					XFS_DIR2_FREE_MAGIC);
+				ASSERT((be32_to_cpu(free->hdr.firstdb) %
+					XFS_DIR2_MAX_FREE_BESTS(mp)) == 0);
+				ASSERT(be32_to_cpu(free->hdr.firstdb) <= curdb);
+				ASSERT(curdb < be32_to_cpu(free->hdr.firstdb) +
+					be32_to_cpu(free->hdr.nvalid));
 			}
 			/*
-			 * Point to the data entry.
+			 * Get the index for our entry.
 			 */
-			dep = (xfs_dir2_data_entry_t *)
-			      ((char *)curbp->data +
-			       XFS_DIR2_DATAPTR_TO_OFF(mp, be32_to_cpu(lep->address)));
+			fi = xfs_dir2_db_to_fdindex(mp, curdb);
 			/*
-			 * Compare the entry, return it if it matches.
+			 * If it has room, return it.
 			 */
-			if (dep->namelen == args->namelen &&
-			    dep->name[0] == args->name[0] &&
-			    memcmp(dep->name, args->name, args->namelen) == 0) {
-				args->inumber = be64_to_cpu(dep->inumber);
-				*indexp = index;
-				state->extravalid = 1;
-				state->extrablk.bp = curbp;
-				state->extrablk.blkno = curdb;
-				state->extrablk.index =
-					(int)((char *)dep -
-					      (char *)curbp->data);
-				state->extrablk.magic = XFS_DIR2_DATA_MAGIC;
-				return XFS_ERROR(EEXIST);
+			if (unlikely(be16_to_cpu(free->bests[fi]) == NULLDATAOFF)) {
+				XFS_ERROR_REPORT("xfs_dir2_leafn_lookup_int",
+							XFS_ERRLEVEL_LOW, mp);
+				if (curfdb != newfdb)
+					xfs_da_brelse(tp, curbp);
+				return XFS_ERROR(EFSCORRUPTED);
 			}
+			curfdb = newfdb;
+			if (be16_to_cpu(free->bests[fi]) >= length)
+				goto out;
 		}
 	}
-	/*
-	 * Didn't find a match.
-	 * If we are holding a buffer, give it back in case our caller
-	 * finds it useful.
-	 */
-	if ((state->extravalid = (curbp != NULL))) {
+	/* Didn't find any space */
+	fi = -1;
+out:
+	ASSERT(args->op_flags & XFS_DA_OP_OKNOENT);
+	if (curbp) {
+		/* Giving back a free block. */
+		state->extravalid = 1;
 		state->extrablk.bp = curbp;
-		state->extrablk.index = -1;
-		/*
-		 * For addname, giving back a free block.
-		 */
-		if (args->addname) {
-			state->extrablk.blkno = curfdb;
-			state->extrablk.magic = XFS_DIR2_FREE_MAGIC;
-		}
-		/*
-		 * For other callers, giving back a data block.
-		 */
-		else {
-			state->extrablk.blkno = curdb;
-			state->extrablk.magic = XFS_DIR2_DATA_MAGIC;
-		}
+		state->extrablk.index = fi;
+		state->extrablk.blkno = curfdb;
+		state->extrablk.magic = XFS_DIR2_FREE_MAGIC;
+	} else {
+		state->extravalid = 0;
 	}
 	/*
-	 * Return the final index, that will be the insertion point.
+	 * Return the index, that will be the insertion point.
 	 */
 	*indexp = index;
-	ASSERT(index == be16_to_cpu(leaf->hdr.count) || args->oknoent);
 	return XFS_ERROR(ENOENT);
+}
+
+/*
+ * Look up a leaf entry in a node-format leaf block.
+ * The extrablk in state a data block.
+ */
+STATIC int
+xfs_dir2_leafn_lookup_for_entry(
+	xfs_dabuf_t		*bp,		/* leaf buffer */
+	xfs_da_args_t		*args,		/* operation arguments */
+	int			*indexp,	/* out: leaf entry index */
+	xfs_da_state_t		*state)		/* state to fill in */
+{
+	xfs_dabuf_t		*curbp = NULL;	/* current data/free buffer */
+	xfs_dir2_db_t		curdb = -1;	/* current data block number */
+	xfs_dir2_data_entry_t	*dep;		/* data block entry */
+	xfs_inode_t		*dp;		/* incore directory inode */
+	int			error;		/* error return value */
+	int			index;		/* leaf entry index */
+	xfs_dir2_leaf_t		*leaf;		/* leaf structure */
+	xfs_dir2_leaf_entry_t	*lep;		/* leaf entry */
+	xfs_mount_t		*mp;		/* filesystem mount point */
+	xfs_dir2_db_t		newdb;		/* new data block number */
+	xfs_trans_t		*tp;		/* transaction pointer */
+	enum xfs_dacmp		cmp;		/* comparison result */
+
+	dp = args->dp;
+	tp = args->trans;
+	mp = dp->i_mount;
+	leaf = bp->data;
+	ASSERT(be16_to_cpu(leaf->hdr.info.magic) == XFS_DIR2_LEAFN_MAGIC);
+#ifdef __KERNEL__
+	ASSERT(be16_to_cpu(leaf->hdr.count) > 0);
+#endif
+	xfs_dir2_leafn_check(dp, bp);
+	/*
+	 * Look up the hash value in the leaf entries.
+	 */
+	index = xfs_dir2_leaf_search_hash(args, bp);
+	/*
+	 * Do we have a buffer coming in?
+	 */
+	if (state->extravalid) {
+		curbp = state->extrablk.bp;
+		curdb = state->extrablk.blkno;
+	}
+	/*
+	 * Loop over leaf entries with the right hash value.
+	 */
+	for (lep = &leaf->ents[index]; index < be16_to_cpu(leaf->hdr.count) &&
+				be32_to_cpu(lep->hashval) == args->hashval;
+				lep++, index++) {
+		/*
+		 * Skip stale leaf entries.
+		 */
+		if (be32_to_cpu(lep->address) == XFS_DIR2_NULL_DATAPTR)
+			continue;
+		/*
+		 * Pull the data block number from the entry.
+		 */
+		newdb = xfs_dir2_dataptr_to_db(mp, be32_to_cpu(lep->address));
+		/*
+		 * Not adding a new entry, so we really want to find
+		 * the name given to us.
+		 *
+		 * If it's a different data block, go get it.
+		 */
+		if (newdb != curdb) {
+			/*
+			 * If we had a block before that we aren't saving
+			 * for a CI name, drop it
+			 */
+			if (curbp && (args->cmpresult == XFS_CMP_DIFFERENT ||
+						curdb != state->extrablk.blkno))
+				xfs_da_brelse(tp, curbp);
+			/*
+			 * If needing the block that is saved with a CI match,
+			 * use it otherwise read in the new data block.
+			 */
+			if (args->cmpresult != XFS_CMP_DIFFERENT &&
+					newdb == state->extrablk.blkno) {
+				ASSERT(state->extravalid);
+				curbp = state->extrablk.bp;
+			} else {
+				error = xfs_da_read_buf(tp, dp,
+						xfs_dir2_db_to_da(mp, newdb),
+						-1, &curbp, XFS_DATA_FORK);
+				if (error)
+					return error;
+			}
+			xfs_dir2_data_check(dp, curbp);
+			curdb = newdb;
+		}
+		/*
+		 * Point to the data entry.
+		 */
+		dep = (xfs_dir2_data_entry_t *)((char *)curbp->data +
+			xfs_dir2_dataptr_to_off(mp, be32_to_cpu(lep->address)));
+		/*
+		 * Compare the entry and if it's an exact match, return
+		 * EEXIST immediately. If it's the first case-insensitive
+		 * match, store the block & inode number and continue looking.
+		 */
+		cmp = mp->m_dirnameops->compname(args, dep->name, dep->namelen);
+		if (cmp != XFS_CMP_DIFFERENT && cmp != args->cmpresult) {
+			/* If there is a CI match block, drop it */
+			if (args->cmpresult != XFS_CMP_DIFFERENT &&
+						curdb != state->extrablk.blkno)
+				xfs_da_brelse(tp, state->extrablk.bp);
+			args->cmpresult = cmp;
+			args->inumber = be64_to_cpu(dep->inumber);
+			*indexp = index;
+			state->extravalid = 1;
+			state->extrablk.bp = curbp;
+			state->extrablk.blkno = curdb;
+			state->extrablk.index = (int)((char *)dep -
+							(char *)curbp->data);
+			state->extrablk.magic = XFS_DIR2_DATA_MAGIC;
+			if (cmp == XFS_CMP_EXACT)
+				return XFS_ERROR(EEXIST);
+		}
+	}
+	ASSERT(index == be16_to_cpu(leaf->hdr.count) ||
+					(args->op_flags & XFS_DA_OP_OKNOENT));
+	if (curbp) {
+		if (args->cmpresult == XFS_CMP_DIFFERENT) {
+			/* Giving back last used data block. */
+			state->extravalid = 1;
+			state->extrablk.bp = curbp;
+			state->extrablk.index = -1;
+			state->extrablk.blkno = curdb;
+			state->extrablk.magic = XFS_DIR2_DATA_MAGIC;
+		} else {
+			/* If the curbp is not the CI match block, drop it */
+			if (state->extrablk.bp != curbp)
+				xfs_da_brelse(tp, curbp);
+		}
+	} else {
+		state->extravalid = 0;
+	}
+	*indexp = index;
+	return XFS_ERROR(ENOENT);
+}
+
+/*
+ * Look up a leaf entry in a node-format leaf block.
+ * If this is an addname then the extrablk in state is a freespace block,
+ * otherwise it's a data block.
+ */
+int
+xfs_dir2_leafn_lookup_int(
+	xfs_dabuf_t		*bp,		/* leaf buffer */
+	xfs_da_args_t		*args,		/* operation arguments */
+	int			*indexp,	/* out: leaf entry index */
+	xfs_da_state_t		*state)		/* state to fill in */
+{
+	if (args->op_flags & XFS_DA_OP_ADDNAME)
+		return xfs_dir2_leafn_lookup_for_addname(bp, args, indexp,
+							state);
+	return xfs_dir2_leafn_lookup_for_entry(bp, args, indexp, state);
 }
 
 /*
@@ -642,8 +711,8 @@ xfs_dir2_leafn_moveents(
 	int		stale;			/* count stale leaves copied */
 	xfs_trans_t	*tp;			/* transaction pointer */
 
-	xfs_dir2_trace_args_bibii("leafn_moveents", args, bp_s, start_s, bp_d,
-		start_d, count);
+	trace_xfs_dir2_leafn_moveents(args, start_s, start_d, count);
+
 	/*
 	 * Silently return if nothing to do.
 	 */
@@ -696,10 +765,10 @@ xfs_dir2_leafn_moveents(
 	/*
 	 * Update the headers and log them.
 	 */
-	be16_add(&leaf_s->hdr.count, -(count));
-	be16_add(&leaf_s->hdr.stale, -(stale));
-	be16_add(&leaf_d->hdr.count, count);
-	be16_add(&leaf_d->hdr.stale, stale);
+	be16_add_cpu(&leaf_s->hdr.count, -(count));
+	be16_add_cpu(&leaf_s->hdr.stale, -(stale));
+	be16_add_cpu(&leaf_d->hdr.count, count);
+	be16_add_cpu(&leaf_d->hdr.stale, stale);
 	xfs_dir2_leaf_log_header(tp, bp_s);
 	xfs_dir2_leaf_log_header(tp, bp_d);
 	xfs_dir2_leafn_check(args->dp, bp_s);
@@ -822,9 +891,10 @@ xfs_dir2_leafn_rebalance(
 	 */
 	if (!state->inleaf)
 		blk2->index = blk1->index - be16_to_cpu(leaf1->hdr.count);
-	
-	/* 
-	 * Finally sanity check just to make sure we are not returning a negative index 
+
+	/*
+	 * Finally sanity check just to make sure we are not returning a
+	 * negative index
 	 */
 	if(blk2->index < 0) {
 		state->inleaf = 1;
@@ -863,7 +933,8 @@ xfs_dir2_leafn_remove(
 	int			needscan;	/* need to rescan data frees */
 	xfs_trans_t		*tp;		/* transaction pointer */
 
-	xfs_dir2_trace_args_sb("leafn_remove", args, index, bp);
+	trace_xfs_dir2_leafn_remove(args, index);
+
 	dp = args->dp;
 	tp = args->trans;
 	mp = dp->i_mount;
@@ -876,15 +947,15 @@ xfs_dir2_leafn_remove(
 	/*
 	 * Extract the data block and offset from the entry.
 	 */
-	db = XFS_DIR2_DATAPTR_TO_DB(mp, be32_to_cpu(lep->address));
+	db = xfs_dir2_dataptr_to_db(mp, be32_to_cpu(lep->address));
 	ASSERT(dblk->blkno == db);
-	off = XFS_DIR2_DATAPTR_TO_OFF(mp, be32_to_cpu(lep->address));
+	off = xfs_dir2_dataptr_to_off(mp, be32_to_cpu(lep->address));
 	ASSERT(dblk->index == off);
 	/*
 	 * Kill the leaf entry by marking it stale.
 	 * Log the leaf block changes.
 	 */
-	be16_add(&leaf->hdr.stale, 1);
+	be16_add_cpu(&leaf->hdr.stale, 1);
 	xfs_dir2_leaf_log_header(tp, bp);
 	lep->address = cpu_to_be32(XFS_DIR2_NULL_DATAPTR);
 	xfs_dir2_leaf_log_ents(tp, bp, index, index);
@@ -898,7 +969,7 @@ xfs_dir2_leafn_remove(
 	longest = be16_to_cpu(data->hdr.bestfree[0].length);
 	needlog = needscan = 0;
 	xfs_dir2_data_make_free(tp, dbp, off,
-		XFS_DIR2_DATA_ENTSIZE(dep->namelen), &needlog, &needscan);
+		xfs_dir2_data_entsize(dep->namelen), &needlog, &needscan);
 	/*
 	 * Rescan the data block freespaces for bestfree.
 	 * Log the data block header if needed.
@@ -924,8 +995,8 @@ xfs_dir2_leafn_remove(
 		 * Convert the data block number to a free block,
 		 * read in the free block.
 		 */
-		fdb = XFS_DIR2_DB_TO_FDB(mp, db);
-		if ((error = xfs_da_read_buf(tp, dp, XFS_DIR2_DB_TO_DA(mp, fdb),
+		fdb = xfs_dir2_db_to_fdb(mp, db);
+		if ((error = xfs_da_read_buf(tp, dp, xfs_dir2_db_to_da(mp, fdb),
 				-1, &fbp, XFS_DATA_FORK))) {
 			return error;
 		}
@@ -937,7 +1008,7 @@ xfs_dir2_leafn_remove(
 		/*
 		 * Calculate which entry we need to fix.
 		 */
-		findex = XFS_DIR2_DB_TO_FDINDEX(mp, db);
+		findex = xfs_dir2_db_to_fdindex(mp, db);
 		longest = be16_to_cpu(data->hdr.bestfree[0].length);
 		/*
 		 * If the data block is now empty we can get rid of it
@@ -970,7 +1041,7 @@ xfs_dir2_leafn_remove(
 			/*
 			 * One less used entry in the free table.
 			 */
-			be32_add(&free->hdr.nused, -1);
+			be32_add_cpu(&free->hdr.nused, -1);
 			xfs_dir2_free_log_header(tp, fbp);
 			/*
 			 * If this was the last entry in the table, we can
@@ -1034,7 +1105,7 @@ xfs_dir2_leafn_remove(
 	}
 	xfs_dir2_leafn_check(dp, bp);
 	/*
-	 * Return indication of whether this leaf block is emtpy enough
+	 * Return indication of whether this leaf block is empty enough
 	 * to justify trying to join it with a neighbor.
 	 */
 	*rval =
@@ -1073,7 +1144,7 @@ xfs_dir2_leafn_split(
 	/*
 	 * Initialize the new leaf block.
 	 */
-	error = xfs_dir2_leaf_init(args, XFS_DIR2_DA_TO_DB(mp, blkno),
+	error = xfs_dir2_leaf_init(args, xfs_dir2_da_to_db(mp, blkno),
 		&newblk->bp, XFS_DIR2_LEAFN_MAGIC);
 	if (error) {
 		return error;
@@ -1293,7 +1364,8 @@ xfs_dir2_node_addname(
 	int			rval;		/* sub-return value */
 	xfs_da_state_t		*state;		/* btree cursor */
 
-	xfs_dir2_trace_args("node_addname", args);
+	trace_xfs_dir2_node_addname(args);
+
 	/*
 	 * Allocate and initialize the state (btree cursor).
 	 */
@@ -1331,7 +1403,7 @@ xfs_dir2_node_addname(
 		/*
 		 * It worked, fix the hash values up the btree.
 		 */
-		if (!args->justcheck)
+		if (!(args->op_flags & XFS_DA_OP_JUSTCHECK))
 			xfs_da_fixhashpath(state, &state->path);
 	} else {
 		/*
@@ -1385,7 +1457,7 @@ xfs_dir2_node_addname_int(
 	dp = args->dp;
 	mp = dp->i_mount;
 	tp = args->trans;
-	length = XFS_DIR2_DATA_ENTSIZE(args->namelen);
+	length = xfs_dir2_data_entsize(args->namelen);
 	/*
 	 * If we came in with a freespace block that means that lookup
 	 * found an entry with our hash value.  This is the freespace
@@ -1438,7 +1510,7 @@ xfs_dir2_node_addname_int(
 
 		if ((error = xfs_bmap_last_offset(tp, dp, &fo, XFS_DATA_FORK)))
 			return error;
-		lastfbno = XFS_DIR2_DA_TO_DB(mp, (xfs_dablk_t)fo);
+		lastfbno = xfs_dir2_da_to_db(mp, (xfs_dablk_t)fo);
 		fbno = ifbno;
 	}
 	/*
@@ -1474,7 +1546,7 @@ xfs_dir2_node_addname_int(
 			 * to avoid it.
 			 */
 			if ((error = xfs_da_read_buf(tp, dp,
-					XFS_DIR2_DB_TO_DA(mp, fbno), -2, &fbp,
+					xfs_dir2_db_to_da(mp, fbno), -2, &fbp,
 					XFS_DATA_FORK))) {
 				return error;
 			}
@@ -1514,7 +1586,8 @@ xfs_dir2_node_addname_int(
 		/*
 		 * Not allowed to allocate, return failure.
 		 */
-		if (args->justcheck || args->total == 0) {
+		if ((args->op_flags & XFS_DA_OP_JUSTCHECK) ||
+							args->total == 0) {
 			/*
 			 * Drop the freespace buffer unless it came from our
 			 * caller.
@@ -1550,9 +1623,9 @@ xfs_dir2_node_addname_int(
 		 * Get the freespace block corresponding to the data block
 		 * that was just allocated.
 		 */
-		fbno = XFS_DIR2_DB_TO_FDB(mp, dbno);
+		fbno = xfs_dir2_db_to_fdb(mp, dbno);
 		if (unlikely(error = xfs_da_read_buf(tp, dp,
-				XFS_DIR2_DB_TO_DA(mp, fbno), -2, &fbp,
+				xfs_dir2_db_to_da(mp, fbno), -2, &fbp,
 				XFS_DATA_FORK))) {
 			xfs_da_buf_done(dbp);
 			return error;
@@ -1567,14 +1640,14 @@ xfs_dir2_node_addname_int(
 				return error;
 			}
 
-			if (unlikely(XFS_DIR2_DB_TO_FDB(mp, dbno) != fbno)) {
+			if (unlikely(xfs_dir2_db_to_fdb(mp, dbno) != fbno)) {
 				cmn_err(CE_ALERT,
 					"xfs_dir2_node_addname_int: dir ino "
 					"%llu needed freesp block %lld for\n"
 					"  data block %lld, got %lld\n"
 					"  ifbno %llu lastfbno %d\n",
 					(unsigned long long)dp->i_ino,
-					(long long)XFS_DIR2_DB_TO_FDB(mp, dbno),
+					(long long)xfs_dir2_db_to_fdb(mp, dbno),
 					(long long)dbno, (long long)fbno,
 					(unsigned long long)ifbno, lastfbno);
 				if (fblk) {
@@ -1598,7 +1671,7 @@ xfs_dir2_node_addname_int(
 			 * Get a buffer for the new block.
 			 */
 			if ((error = xfs_da_get_buf(tp, dp,
-						   XFS_DIR2_DB_TO_DA(mp, fbno),
+						   xfs_dir2_db_to_da(mp, fbno),
 						   -1, &fbp, XFS_DATA_FORK))) {
 				return error;
 			}
@@ -1623,7 +1696,7 @@ xfs_dir2_node_addname_int(
 		/*
 		 * Set the freespace block index from the data block number.
 		 */
-		findex = XFS_DIR2_DB_TO_FDINDEX(mp, dbno);
+		findex = xfs_dir2_db_to_fdindex(mp, dbno);
 		/*
 		 * If it's after the end of the current entries in the
 		 * freespace block, extend that table.
@@ -1641,7 +1714,7 @@ xfs_dir2_node_addname_int(
 		 * (this should always be true) then update the header.
 		 */
 		if (be16_to_cpu(free->bests[findex]) == NULLDATAOFF) {
-			be32_add(&free->hdr.nused, 1);
+			be32_add_cpu(&free->hdr.nused, 1);
 			xfs_dir2_free_log_header(tp, fbp);
 		}
 		/*
@@ -1660,7 +1733,7 @@ xfs_dir2_node_addname_int(
 		/*
 		 * If just checking, we succeeded.
 		 */
-		if (args->justcheck) {
+		if (args->op_flags & XFS_DA_OP_JUSTCHECK) {
 			if ((fblk == NULL || fblk->bp == NULL) && fbp != NULL)
 				xfs_da_buf_done(fbp);
 			return 0;
@@ -1669,7 +1742,7 @@ xfs_dir2_node_addname_int(
 		 * Read the data block in.
 		 */
 		if (unlikely(
-		    error = xfs_da_read_buf(tp, dp, XFS_DIR2_DB_TO_DA(mp, dbno),
+		    error = xfs_da_read_buf(tp, dp, xfs_dir2_db_to_da(mp, dbno),
 				-1, &dbp, XFS_DATA_FORK))) {
 			if ((fblk == NULL || fblk->bp == NULL) && fbp != NULL)
 				xfs_da_buf_done(fbp);
@@ -1698,7 +1771,7 @@ xfs_dir2_node_addname_int(
 	dep->inumber = cpu_to_be64(args->inumber);
 	dep->namelen = args->namelen;
 	memcpy(dep->name, args->name, dep->namelen);
-	tagp = XFS_DIR2_DATA_ENTRY_TAG_P(dep);
+	tagp = xfs_dir2_data_entry_tag_p(dep);
 	*tagp = cpu_to_be16((char *)dep - (char *)data);
 	xfs_dir2_data_log_entry(tp, dbp, dep);
 	/*
@@ -1751,7 +1824,8 @@ xfs_dir2_node_lookup(
 	int		rval;			/* operation return value */
 	xfs_da_state_t	*state;			/* btree cursor */
 
-	xfs_dir2_trace_args("node_lookup", args);
+	trace_xfs_dir2_node_lookup(args);
+
 	/*
 	 * Allocate and initialize the btree cursor.
 	 */
@@ -1766,6 +1840,14 @@ xfs_dir2_node_lookup(
 	error = xfs_da_node_lookup_int(state, &rval);
 	if (error)
 		rval = error;
+	else if (rval == ENOENT && args->cmpresult == XFS_CMP_CASE) {
+		/* If a CI match, dup the actual name and return EEXIST */
+		xfs_dir2_data_entry_t	*dep;
+
+		dep = (xfs_dir2_data_entry_t *)((char *)state->extrablk.bp->
+						data + state->extrablk.index);
+		rval = xfs_dir_cilookup_result(args, dep->name, dep->namelen);
+	}
 	/*
 	 * Release the btree blocks and leaf block.
 	 */
@@ -1796,7 +1878,8 @@ xfs_dir2_node_removename(
 	int			rval;		/* operation return value */
 	xfs_da_state_t		*state;		/* btree cursor */
 
-	xfs_dir2_trace_args("node_removename", args);
+	trace_xfs_dir2_node_removename(args);
+
 	/*
 	 * Allocate and initialize the btree cursor.
 	 */
@@ -1809,9 +1892,8 @@ xfs_dir2_node_removename(
 	 * Look up the entry we're deleting, set up the cursor.
 	 */
 	error = xfs_da_node_lookup_int(state, &rval);
-	if (error) {
+	if (error)
 		rval = error;
-	}
 	/*
 	 * Didn't find it, upper layer screwed up.
 	 */
@@ -1828,9 +1910,8 @@ xfs_dir2_node_removename(
 	 */
 	error = xfs_dir2_leafn_remove(args, blk->bp, blk->index,
 		&state->extrablk, &rval);
-	if (error) {
+	if (error)
 		return error;
-	}
 	/*
 	 * Fix the hash values up the btree.
 	 */
@@ -1867,7 +1948,8 @@ xfs_dir2_node_replace(
 	int			rval;		/* internal return value */
 	xfs_da_state_t		*state;		/* btree cursor */
 
-	xfs_dir2_trace_args("node_replace", args);
+	trace_xfs_dir2_node_replace(args);
+
 	/*
 	 * Allocate and initialize the btree cursor.
 	 */
@@ -1904,7 +1986,7 @@ xfs_dir2_node_replace(
 		ASSERT(be32_to_cpu(data->hdr.magic) == XFS_DIR2_DATA_MAGIC);
 		dep = (xfs_dir2_data_entry_t *)
 		      ((char *)data +
-		       XFS_DIR2_DATAPTR_TO_OFF(state->mp, be32_to_cpu(lep->address)));
+		       xfs_dir2_dataptr_to_off(state->mp, be32_to_cpu(lep->address)));
 		ASSERT(inum != be64_to_cpu(dep->inumber));
 		/*
 		 * Fill in the new inode number and log the entry.
@@ -1980,7 +2062,7 @@ xfs_dir2_node_trim_free(
 	 * Blow the block away.
 	 */
 	if ((error =
-	    xfs_dir2_shrink_inode(args, XFS_DIR2_DA_TO_DB(mp, (xfs_dablk_t)fo),
+	    xfs_dir2_shrink_inode(args, xfs_dir2_da_to_db(mp, (xfs_dablk_t)fo),
 		    bp))) {
 		/*
 		 * Can't fail with ENOSPC since that only happens with no

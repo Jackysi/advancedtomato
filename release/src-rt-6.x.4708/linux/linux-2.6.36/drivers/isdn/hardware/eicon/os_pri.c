@@ -1,4 +1,4 @@
-/* $Id: os_pri.c,v 1.32 2004/03/21 17:26:01 armin Exp $ */
+/* $Id: os_pri.c,v 1.32 2004/03/21 17:26:01 Exp $ */
 
 #include "platform.h"
 #include "debuglib.h"
@@ -513,7 +513,7 @@ diva_pri_start_adapter(PISDN_ADAPTER IoAdapter,
 
 	diva_xdi_display_adapter_features(IoAdapter->ANum);
 
-	DBG_LOG(("A(%d) PRI adapter successfull started", IoAdapter->ANum))
+	DBG_LOG(("A(%d) PRI adapter successfully started", IoAdapter->ANum))
 	/*
 	   Register with DIDD
 	 */

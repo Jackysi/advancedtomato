@@ -29,13 +29,6 @@
 unsigned long
 __copy_user (void __user *pdst, const void *psrc, unsigned long pn)
 {
-  /* We want the parameters put in special registers.
-     Make sure the compiler is able to make something useful of this.
-     As it is now: r10 -> r13; r11 -> r11 (nop); r12 -> r12 (nop).
-
-     FIXME: Comment for old gcc version.  Check.
-     If gcc was allright, it really would need no temporaries, and no
-     stack space to save stuff on. */
 
   register char *dst __asm__ ("r13") = pdst;
   register const char *src __asm__ ("r11") = psrc;
@@ -130,8 +123,6 @@ __copy_user (void __user *pdst, const void *psrc, unsigned long pn)
     n -= 16;
   }
 
-  /* Having a separate by-four loops cuts down on cache footprint.
-     FIXME:  Test with and without; increasing switch to be 0..15.  */
   while (n >= 4)
   {
     __asm_copy_to_user_4 (dst, src, retn);
@@ -161,15 +152,8 @@ __copy_user (void __user *pdst, const void *psrc, unsigned long pn)
    inaccessible.  */
 
 unsigned long
-__copy_user_zeroing (void __user *pdst, const void *psrc, unsigned long pn)
+__copy_user_zeroing(void *pdst, const void __user *psrc, unsigned long pn)
 {
-  /* We want the parameters put in special registers.
-     Make sure the compiler is able to make something useful of this.
-     As it is now: r10 -> r13; r11 -> r11 (nop); r12 -> r12 (nop).
-
-     FIXME: Comment for old gcc version.  Check.
-     If gcc was allright, it really would need no temporaries, and no
-     stack space to save stuff on.  */
 
   register char *dst __asm__ ("r13") = pdst;
   register const char *src __asm__ ("r11") = psrc;
@@ -327,13 +311,6 @@ copy_exception_bytes:
 unsigned long
 __do_clear_user (void __user *pto, unsigned long pn)
 {
-  /* We want the parameters put in special registers.
-     Make sure the compiler is able to make something useful of this.
-      As it is now: r10 -> r13; r11 -> r11 (nop); r12 -> r12 (nop).
-
-     FIXME: Comment for old gcc version.  Check.
-     If gcc was allright, it really would need no temporaries, and no
-     stack space to save stuff on. */
 
   register char *dst __asm__ ("r13") = pto;
   register int n __asm__ ("r12") = pn;
@@ -357,8 +334,6 @@ __do_clear_user (void __user *pto, unsigned long pn)
     }
   }
 
-  /* Decide which copying method to use.
-     FIXME: This number is from the "ordinary" kernel memset.  */
   if (n >= 48)
   {
     /* For large clears we use 'movem' */
@@ -443,8 +418,6 @@ __do_clear_user (void __user *pto, unsigned long pn)
     n -= 16;
   }
 
-  /* Having a separate by-four loops cuts down on cache footprint.
-     FIXME:  Test with and without; increasing switch to be 0..15.  */
   while (n >= 4)
   {
     __asm_clear_4 (dst, retn);

@@ -100,4 +100,3 @@ __alpha_using_srm:		# For use by bootpheader
 __callback_init_done:		# For use by bootpheader
 	.long 7			# value is not 1 for link debugging
 	.weak callback_init_done; callback_init_done = __callback_init_done
-

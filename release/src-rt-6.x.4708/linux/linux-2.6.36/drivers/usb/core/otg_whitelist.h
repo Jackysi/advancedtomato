@@ -14,7 +14,7 @@
  * mostly use of USB_DEVICE() or USB_DEVICE_VER() entries..
  *
  * YOU _SHOULD_ CHANGE THIS LIST TO MATCH YOUR PRODUCT AND ITS TESTING!
- */ 
+ */
 
 static struct usb_device_id whitelist_table [] = {
 
@@ -23,9 +23,6 @@ static struct usb_device_id whitelist_table [] = {
 { USB_DEVICE_INFO(USB_CLASS_HUB, 0, 1), },
 
 #ifdef	CONFIG_USB_PRINTER		/* ignoring nonstatic linkage! */
-/* FIXME actually, printers are NOT supposed to use device classes;
- * they're supposed to use interface classes...
- */
 { USB_DEVICE_INFO(7, 1, 1) },
 { USB_DEVICE_INFO(7, 1, 2) },
 { USB_DEVICE_INFO(7, 1, 3) },
@@ -55,7 +52,7 @@ static int is_targeted(struct usb_device *dev)
 		return 1;
 
 	/* HNP test device is _never_ targeted (see OTG spec 6.6.6) */
-	if ((le16_to_cpu(dev->descriptor.idVendor) == 0x1a0a && 
+	if ((le16_to_cpu(dev->descriptor.idVendor) == 0x1a0a &&
 	     le16_to_cpu(dev->descriptor.idProduct) == 0xbadd))
 		return 0;
 
@@ -86,7 +83,7 @@ static int is_targeted(struct usb_device *dev)
 			continue;
 
 		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_SUBCLASS) &&
-		    (id->bDeviceSubClass!= dev->descriptor.bDeviceSubClass))
+		    (id->bDeviceSubClass != dev->descriptor.bDeviceSubClass))
 			continue;
 
 		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_PROTOCOL) &&
@@ -109,4 +106,3 @@ static int is_targeted(struct usb_device *dev)
 	return 1;
 #endif
 }
-

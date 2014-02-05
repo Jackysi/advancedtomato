@@ -4,6 +4,7 @@
  * EBSA285 machine fixup
  */
 #include <linux/init.h>
+#include <linux/spinlock.h>
 
 #include <asm/hardware/dec21285.h>
 #include <asm/mach-types.h>
@@ -23,4 +24,3 @@ MACHINE_START(EBSA285, "EBSA285")
 	.init_irq	= footbridge_init_irq,
 	.timer		= &footbridge_timer,
 MACHINE_END
-

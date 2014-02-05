@@ -9,17 +9,14 @@
 #include <linux/atmdev.h>
 #include <linux/sonet.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
 
 #include "uPD98402.h"
 
 
-#if 0
-#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
-#else
 #define DPRINTK(format,args...)
-#endif
 
 
 struct uPD98402_priv {

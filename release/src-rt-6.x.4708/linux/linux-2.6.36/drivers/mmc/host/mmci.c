@@ -1,7 +1,8 @@
 /*
- *  linux/drivers/mmc/mmci.c - ARM PrimeCell MMCI PL180/1 driver
+ *  linux/drivers/mmc/host/mmci.c - ARM PrimeCell MMCI PL180/1 driver
  *
  *  Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
+ *  Copyright (C) 2010 ST-Ericsson AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,25 +17,83 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/highmem.h>
+#include <linux/log2.h>
 #include <linux/mmc/host.h>
 #include <linux/amba/bus.h>
 #include <linux/clk.h>
+#include <linux/scatterlist.h>
+#include <linux/gpio.h>
+#include <linux/amba/mmci.h>
+#include <linux/regulator/consumer.h>
 
-#include <asm/cacheflush.h>
 #include <asm/div64.h>
 #include <asm/io.h>
-#include <asm/scatterlist.h>
 #include <asm/sizes.h>
-#include <asm/mach/mmc.h>
 
 #include "mmci.h"
 
 #define DRIVER_NAME "mmci-pl18x"
 
-#define DBG(host,fmt,args...)	\
-	pr_debug("%s: %s: " fmt, mmc_hostname(host->mmc), __func__ , args)
-
 static unsigned int fmax = 515633;
+
+/**
+ * struct variant_data - MMCI variant-specific quirks
+ * @clkreg: default value for MCICLOCK register
+ * @clkreg_enable: enable value for MMCICLOCK register
+ * @datalength_bits: number of bits in the MMCIDATALENGTH register
+ */
+struct variant_data {
+	unsigned int		clkreg;
+	unsigned int		clkreg_enable;
+	unsigned int		datalength_bits;
+};
+
+static struct variant_data variant_arm = {
+	.datalength_bits	= 16,
+};
+
+static struct variant_data variant_u300 = {
+	.clkreg_enable		= 1 << 13, /* HWFCEN */
+	.datalength_bits	= 16,
+};
+
+static struct variant_data variant_ux500 = {
+	.clkreg			= MCI_CLK_ENABLE,
+	.clkreg_enable		= 1 << 14, /* HWFCEN */
+	.datalength_bits	= 24,
+};
+/*
+ * This must be called with host->lock held
+ */
+static void mmci_set_clkreg(struct mmci_host *host, unsigned int desired)
+{
+	struct variant_data *variant = host->variant;
+	u32 clk = variant->clkreg;
+
+	if (desired) {
+		if (desired >= host->mclk) {
+			clk = MCI_CLK_BYPASS;
+			host->cclk = host->mclk;
+		} else {
+			clk = host->mclk / (2 * desired) - 1;
+			if (clk >= 256)
+				clk = 255;
+			host->cclk = host->mclk / (2 * (clk + 1));
+		}
+
+		clk |= variant->clkreg_enable;
+		clk |= MCI_CLK_ENABLE;
+		/* This hasn't proven to be worthwhile */
+		/* clk |= MCI_CLK_PWRSAVE; */
+	}
+
+	if (host->mmc->ios.bus_width == MMC_BUS_WIDTH_4)
+		clk |= MCI_4BIT_BUS;
+	if (host->mmc->ios.bus_width == MMC_BUS_WIDTH_8)
+		clk |= MCI_ST_8BIT_BUS;
+
+	writel(clk, host->base + MMCICLOCK);
+}
 
 static void
 mmci_request_end(struct mmci_host *host, struct mmc_request *mrq)
@@ -65,6 +124,18 @@ static void mmci_stop_data(struct mmci_host *host)
 	host->data = NULL;
 }
 
+static void mmci_init_sg(struct mmci_host *host, struct mmc_data *data)
+{
+	unsigned int flags = SG_MITER_ATOMIC;
+
+	if (data->flags & MMC_DATA_READ)
+		flags |= SG_MITER_TO_SG;
+	else
+		flags |= SG_MITER_FROM_SG;
+
+	sg_miter_start(&host->sg_miter, data->sg, data->sg_len, flags);
+}
+
 static void mmci_start_data(struct mmci_host *host, struct mmc_data *data)
 {
 	unsigned int datactrl, timeout, irqmask;
@@ -72,11 +143,11 @@ static void mmci_start_data(struct mmci_host *host, struct mmc_data *data)
 	void __iomem *base;
 	int blksz_bits;
 
-	DBG(host, "blksz %04x blks %04x flags %08x\n",
-	    data->blksz, data->blocks, data->flags);
+	dev_dbg(mmc_dev(host->mmc), "blksz %04x blks %04x flags %08x\n",
+		data->blksz, data->blocks, data->flags);
 
 	host->data = data;
-	host->size = data->blksz;
+	host->size = data->blksz * data->blocks;
 	host->data_xfered = 0;
 
 	mmci_init_sg(host, data);
@@ -122,7 +193,7 @@ mmci_start_command(struct mmci_host *host, struct mmc_command *cmd, u32 c)
 {
 	void __iomem *base = host->base;
 
-	DBG(host, "op %02x arg %08x flags %08x\n",
+	dev_dbg(mmc_dev(host->mmc), "op %02x arg %08x flags %08x\n",
 	    cmd->opcode, cmd->arg, cmd->flags);
 
 	if (readl(base + MMCICOMMAND) & MCI_CPSM_ENABLE) {
@@ -151,22 +222,43 @@ mmci_data_irq(struct mmci_host *host, struct mmc_data *data,
 {
 	if (status & MCI_DATABLOCKEND) {
 		host->data_xfered += data->blksz;
+#ifdef CONFIG_ARCH_U300
+		/*
+		 * On the U300 some signal or other is
+		 * badly routed so that a data write does
+		 * not properly terminate with a MCI_DATAEND
+		 * status flag. This quirk will make writes
+		 * work again.
+		 */
+		if (data->flags & MMC_DATA_WRITE)
+			status |= MCI_DATAEND;
+#endif
 	}
 	if (status & (MCI_DATACRCFAIL|MCI_DATATIMEOUT|MCI_TXUNDERRUN|MCI_RXOVERRUN)) {
+		dev_dbg(mmc_dev(host->mmc), "MCI ERROR IRQ (status %08x)\n", status);
 		if (status & MCI_DATACRCFAIL)
-			data->error = MMC_ERR_BADCRC;
+			data->error = -EILSEQ;
 		else if (status & MCI_DATATIMEOUT)
-			data->error = MMC_ERR_TIMEOUT;
+			data->error = -ETIMEDOUT;
 		else if (status & (MCI_TXUNDERRUN|MCI_RXOVERRUN))
-			data->error = MMC_ERR_FIFO;
+			data->error = -EIO;
 		status |= MCI_DATAEND;
 
 		/*
 		 * We hit an error condition.  Ensure that any data
 		 * partially written to a page is properly coherent.
 		 */
-		if (host->sg_len && data->flags & MMC_DATA_READ)
-			flush_dcache_page(host->sg_ptr->page);
+		if (data->flags & MMC_DATA_READ) {
+			struct sg_mapping_iter *sg_miter = &host->sg_miter;
+			unsigned long flags;
+
+			local_irq_save(flags);
+			if (sg_miter_next(sg_miter)) {
+				flush_dcache_page(sg_miter->page);
+				sg_miter_stop(sg_miter);
+			}
+			local_irq_restore(flags);
+		}
 	}
 	if (status & MCI_DATAEND) {
 		mmci_stop_data(host);
@@ -193,12 +285,12 @@ mmci_cmd_irq(struct mmci_host *host, struct mmc_command *cmd,
 	cmd->resp[3] = readl(base + MMCIRESPONSE3);
 
 	if (status & MCI_CMDTIMEOUT) {
-		cmd->error = MMC_ERR_TIMEOUT;
+		cmd->error = -ETIMEDOUT;
 	} else if (status & MCI_CMDCRCFAIL && cmd->flags & MMC_RSP_CRC) {
-		cmd->error = MMC_ERR_BADCRC;
+		cmd->error = -EILSEQ;
 	}
 
-	if (!cmd->data || cmd->error != MMC_ERR_NONE) {
+	if (!cmd->data || cmd->error) {
 		if (host->data)
 			mmci_stop_data(host);
 		mmci_request_end(host, cmd->mrq);
@@ -212,9 +304,10 @@ static int mmci_pio_read(struct mmci_host *host, char *buffer, unsigned int rema
 	void __iomem *base = host->base;
 	char *ptr = buffer;
 	u32 status;
+	int host_remain = host->size;
 
 	do {
-		int count = host->size - (readl(base + MMCIFIFOCNT) << 2);
+		int count = host_remain - (readl(base + MMCIFIFOCNT) << 2);
 
 		if (count > remain)
 			count = remain;
@@ -226,6 +319,7 @@ static int mmci_pio_read(struct mmci_host *host, char *buffer, unsigned int rema
 
 		ptr += count;
 		remain -= count;
+		host_remain -= count;
 
 		if (remain == 0)
 			break;
@@ -267,15 +361,18 @@ static int mmci_pio_write(struct mmci_host *host, char *buffer, unsigned int rem
 static irqreturn_t mmci_pio_irq(int irq, void *dev_id)
 {
 	struct mmci_host *host = dev_id;
+	struct sg_mapping_iter *sg_miter = &host->sg_miter;
 	void __iomem *base = host->base;
+	unsigned long flags;
 	u32 status;
 
 	status = readl(base + MMCISTATUS);
 
-	DBG(host, "irq1 %08x\n", status);
+	dev_dbg(mmc_dev(host->mmc), "irq1 (pio) %08x\n", status);
+
+	local_irq_save(flags);
 
 	do {
-		unsigned long flags;
 		unsigned int remain, len;
 		char *buffer;
 
@@ -289,11 +386,11 @@ static irqreturn_t mmci_pio_irq(int irq, void *dev_id)
 		if (!(status & (MCI_TXFIFOHALFEMPTY|MCI_RXDATAAVLBL)))
 			break;
 
-		/*
-		 * Map the current scatter buffer.
-		 */
-		buffer = mmci_kmap_atomic(host, &flags) + host->sg_off;
-		remain = host->sg_ptr->length - host->sg_off;
+		if (!sg_miter_next(sg_miter))
+			break;
+
+		buffer = sg_miter->addr;
+		remain = sg_miter->length;
 
 		len = 0;
 		if (status & MCI_RXACTIVE)
@@ -301,30 +398,23 @@ static irqreturn_t mmci_pio_irq(int irq, void *dev_id)
 		if (status & MCI_TXACTIVE)
 			len = mmci_pio_write(host, buffer, remain, status);
 
-		/*
-		 * Unmap the buffer.
-		 */
-		mmci_kunmap_atomic(host, buffer, &flags);
+		sg_miter->consumed = len;
 
-		host->sg_off += len;
 		host->size -= len;
 		remain -= len;
 
 		if (remain)
 			break;
 
-		/*
-		 * If we were reading, and we have completed this
-		 * page, ensure that the data cache is coherent.
-		 */
 		if (status & MCI_RXACTIVE)
-			flush_dcache_page(host->sg_ptr->page);
-
-		if (!mmci_next_sg(host))
-			break;
+			flush_dcache_page(sg_miter->page);
 
 		status = readl(base + MMCISTATUS);
 	} while (1);
+
+	sg_miter_stop(sg_miter);
+
+	local_irq_restore(flags);
 
 	/*
 	 * If we're nearing the end of the read, switch to
@@ -366,7 +456,7 @@ static irqreturn_t mmci_irq(int irq, void *dev_id)
 		status &= readl(host->base + MMCIMASK0);
 		writel(status, host->base + MMCICLEAR);
 
-		DBG(host, "irq0 %08x\n", status);
+		dev_dbg(mmc_dev(host->mmc), "irq0 (data+cmd) %08x\n", status);
 
 		data = host->data;
 		if (status & (MCI_DATACRCFAIL|MCI_DATATIMEOUT|MCI_TXUNDERRUN|
@@ -388,10 +478,19 @@ static irqreturn_t mmci_irq(int irq, void *dev_id)
 static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct mmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
 
 	WARN_ON(host->mrq != NULL);
 
-	spin_lock_irq(&host->lock);
+	if (mrq->data && !is_power_of_2(mrq->data->blksz)) {
+		dev_err(mmc_dev(mmc), "unsupported block size (%d bytes)\n",
+			mrq->data->blksz);
+		mrq->cmd->error = -EINVAL;
+		mmc_request_done(mmc, mrq);
+		return;
+	}
+
+	spin_lock_irqsave(&host->lock, flags);
 
 	host->mrq = mrq;
 
@@ -400,73 +499,102 @@ static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	mmci_start_command(host, mrq->cmd, 0);
 
-	spin_unlock_irq(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static void mmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct mmci_host *host = mmc_priv(mmc);
-	u32 clk = 0, pwr = 0;
-
-	if (ios->clock) {
-		if (ios->clock >= host->mclk) {
-			clk = MCI_CLK_BYPASS;
-			host->cclk = host->mclk;
-		} else {
-			clk = host->mclk / (2 * ios->clock) - 1;
-			if (clk > 256)
-				clk = 255;
-			host->cclk = host->mclk / (2 * (clk + 1));
-		}
-		clk |= MCI_CLK_ENABLE;
-	}
-
-	if (host->plat->translate_vdd)
-		pwr |= host->plat->translate_vdd(mmc_dev(mmc), ios->vdd);
+	u32 pwr = 0;
+	unsigned long flags;
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
+		if(host->vcc &&
+		   regulator_is_enabled(host->vcc))
+			regulator_disable(host->vcc);
 		break;
 	case MMC_POWER_UP:
-		pwr |= MCI_PWR_UP;
-		break;
+#ifdef CONFIG_REGULATOR
+		if (host->vcc)
+			/* This implicitly enables the regulator */
+			mmc_regulator_set_ocr(host->vcc, ios->vdd);
+#endif
+		if (host->plat->vdd_handler)
+			pwr |= host->plat->vdd_handler(mmc_dev(mmc), ios->vdd,
+						       ios->power_mode);
+		/* The ST version does not have this, fall through to POWER_ON */
+		if (host->hw_designer != AMBA_VENDOR_ST) {
+			pwr |= MCI_PWR_UP;
+			break;
+		}
 	case MMC_POWER_ON:
 		pwr |= MCI_PWR_ON;
 		break;
 	}
 
-	if (ios->bus_mode == MMC_BUSMODE_OPENDRAIN)
-		pwr |= MCI_ROD;
+	if (ios->bus_mode == MMC_BUSMODE_OPENDRAIN) {
+		if (host->hw_designer != AMBA_VENDOR_ST)
+			pwr |= MCI_ROD;
+		else {
+			/*
+			 * The ST Micro variant use the ROD bit for something
+			 * else and only has OD (Open Drain).
+			 */
+			pwr |= MCI_OD;
+		}
+	}
 
-	writel(clk, host->base + MMCICLOCK);
+	spin_lock_irqsave(&host->lock, flags);
+
+	mmci_set_clkreg(host, ios->clock);
 
 	if (host->pwr != pwr) {
 		host->pwr = pwr;
 		writel(pwr, host->base + MMCIPOWER);
 	}
+
+	spin_unlock_irqrestore(&host->lock, flags);
+}
+
+static int mmci_get_ro(struct mmc_host *mmc)
+{
+	struct mmci_host *host = mmc_priv(mmc);
+
+	if (host->gpio_wp == -ENOSYS)
+		return -ENOSYS;
+
+	return gpio_get_value(host->gpio_wp);
+}
+
+static int mmci_get_cd(struct mmc_host *mmc)
+{
+	struct mmci_host *host = mmc_priv(mmc);
+	unsigned int status;
+
+	if (host->gpio_cd == -ENOSYS)
+		status = host->plat->status(mmc_dev(host->mmc));
+	else
+		status = !gpio_get_value(host->gpio_cd);
+
+	/*
+	 * Use positive logic throughout - status is zero for no card,
+	 * non-zero for card inserted.
+	 */
+	return status;
 }
 
 static const struct mmc_host_ops mmci_ops = {
 	.request	= mmci_request,
 	.set_ios	= mmci_set_ios,
+	.get_ro		= mmci_get_ro,
+	.get_cd		= mmci_get_cd,
 };
 
-static void mmci_check_status(unsigned long data)
+static int __devinit mmci_probe(struct amba_device *dev, struct amba_id *id)
 {
-	struct mmci_host *host = (struct mmci_host *)data;
-	unsigned int status;
-
-	status = host->plat->status(mmc_dev(host->mmc));
-	if (status ^ host->oldstat)
-		mmc_detect_change(host->mmc, 0);
-
-	host->oldstat = status;
-	mod_timer(&host->timer, jiffies + HZ);
-}
-
-static int mmci_probe(struct amba_device *dev, void *id)
-{
-	struct mmc_platform_data *plat = dev->dev.platform_data;
+	struct mmci_platform_data *plat = dev->dev.platform_data;
+	struct variant_data *variant = id->data;
 	struct mmci_host *host;
 	struct mmc_host *mmc;
 	int ret;
@@ -488,7 +616,17 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	}
 
 	host = mmc_priv(mmc);
-	host->clk = clk_get(&dev->dev, "MCLK");
+	host->mmc = mmc;
+
+	host->gpio_wp = -ENOSYS;
+	host->gpio_cd = -ENOSYS;
+
+	host->hw_designer = amba_manf(dev);
+	host->hw_revision = amba_rev(dev);
+	dev_dbg(mmc_dev(mmc), "designer ID = 0x%02x\n", host->hw_designer);
+	dev_dbg(mmc_dev(mmc), "revision = 0x%01x\n", host->hw_revision);
+
+	host->clk = clk_get(&dev->dev, NULL);
 	if (IS_ERR(host->clk)) {
 		ret = PTR_ERR(host->clk);
 		host->clk = NULL;
@@ -500,9 +638,22 @@ static int mmci_probe(struct amba_device *dev, void *id)
 		goto clk_free;
 
 	host->plat = plat;
+	host->variant = variant;
 	host->mclk = clk_get_rate(host->clk);
-	host->mmc = mmc;
-	host->base = ioremap(dev->res.start, SZ_4K);
+	/*
+	 * According to the spec, mclk is max 100 MHz,
+	 * so we try to adjust the clock down to this,
+	 * (if possible).
+	 */
+	if (host->mclk > 100000000) {
+		ret = clk_set_rate(host->clk, 100000000);
+		if (ret < 0)
+			goto clk_disable;
+		host->mclk = clk_get_rate(host->clk);
+		dev_dbg(mmc_dev(mmc), "eventual mclk rate: %u Hz\n",
+			host->mclk);
+	}
+	host->base = ioremap(dev->res.start, resource_size(&dev->res));
 	if (!host->base) {
 		ret = -ENOMEM;
 		goto clk_disable;
@@ -510,9 +661,45 @@ static int mmci_probe(struct amba_device *dev, void *id)
 
 	mmc->ops = &mmci_ops;
 	mmc->f_min = (host->mclk + 511) / 512;
-	mmc->f_max = min(host->mclk, fmax);
-	mmc->ocr_avail = plat->ocr_mask;
-	mmc->caps = MMC_CAP_MULTIWRITE;
+	/*
+	 * If the platform data supplies a maximum operating
+	 * frequency, this takes precedence. Else, we fall back
+	 * to using the module parameter, which has a (low)
+	 * default value in case it is not specified. Either
+	 * value must not exceed the clock rate into the block,
+	 * of course.
+	 */
+	if (plat->f_max)
+		mmc->f_max = min(host->mclk, plat->f_max);
+	else
+		mmc->f_max = min(host->mclk, fmax);
+	dev_dbg(mmc_dev(mmc), "clocking block at %u Hz\n", mmc->f_max);
+
+#ifdef CONFIG_REGULATOR
+	/* If we're using the regulator framework, try to fetch a regulator */
+	host->vcc = regulator_get(&dev->dev, "vmmc");
+	if (IS_ERR(host->vcc))
+		host->vcc = NULL;
+	else {
+		int mask = mmc_regulator_get_ocrmask(host->vcc);
+
+		if (mask < 0)
+			dev_err(&dev->dev, "error getting OCR mask (%d)\n",
+				mask);
+		else {
+			host->mmc->ocr_avail = (u32) mask;
+			if (plat->ocr_mask)
+				dev_warn(&dev->dev,
+				 "Provided ocr_mask/setpower will not be used "
+				 "(using regulator instead)\n");
+		}
+	}
+#endif
+	/* Fall back to platform data if no regulator is found */
+	if (host->vcc == NULL)
+		mmc->ocr_avail = plat->ocr_mask;
+	mmc->caps = plat->capabilities;
+	mmc->caps |= MMC_CAP_NEEDS_POLL;
 
 	/*
 	 * We can do SGIO
@@ -521,10 +708,11 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	mmc->max_phys_segs = NR_SG;
 
 	/*
-	 * Since we only have a 16-bit data length register, we must
-	 * ensure that we don't exceed 2^16-1 bytes in a single request.
+	 * Since only a certain number of bits are valid in the data length
+	 * register, we must ensure that we don't exceed 2^num-1 bytes in a
+	 * single request.
 	 */
-	mmc->max_req_size = 65535;
+	mmc->max_req_size = (1 << variant->datalength_bits) - 1;
 
 	/*
 	 * Set the maximum segment size.  Since we aren't doing DMA
@@ -548,6 +736,25 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	writel(0, host->base + MMCIMASK1);
 	writel(0xfff, host->base + MMCICLEAR);
 
+	if (gpio_is_valid(plat->gpio_cd)) {
+		ret = gpio_request(plat->gpio_cd, DRIVER_NAME " (cd)");
+		if (ret == 0)
+			ret = gpio_direction_input(plat->gpio_cd);
+		if (ret == 0)
+			host->gpio_cd = plat->gpio_cd;
+		else if (ret != -ENOSYS)
+			goto err_gpio_cd;
+	}
+	if (gpio_is_valid(plat->gpio_wp)) {
+		ret = gpio_request(plat->gpio_wp, DRIVER_NAME " (wp)");
+		if (ret == 0)
+			ret = gpio_direction_input(plat->gpio_wp);
+		if (ret == 0)
+			host->gpio_wp = plat->gpio_wp;
+		else if (ret != -ENOSYS)
+			goto err_gpio_wp;
+	}
+
 	ret = request_irq(dev->irq[0], mmci_irq, IRQF_SHARED, DRIVER_NAME " (cmd)", host);
 	if (ret)
 		goto unmap;
@@ -562,21 +769,21 @@ static int mmci_probe(struct amba_device *dev, void *id)
 
 	mmc_add_host(mmc);
 
-	printk(KERN_INFO "%s: MMCI rev %x cfg %02x at 0x%016llx irq %d,%d\n",
+	dev_info(&dev->dev, "%s: MMCI rev %x cfg %02x at 0x%016llx irq %d,%d\n",
 		mmc_hostname(mmc), amba_rev(dev), amba_config(dev),
 		(unsigned long long)dev->res.start, dev->irq[0], dev->irq[1]);
-
-	init_timer(&host->timer);
-	host->timer.data = (unsigned long)host;
-	host->timer.function = mmci_check_status;
-	host->timer.expires = jiffies + HZ;
-	add_timer(&host->timer);
 
 	return 0;
 
  irq0_free:
 	free_irq(dev->irq[0], host);
  unmap:
+	if (host->gpio_wp != -ENOSYS)
+		gpio_free(host->gpio_wp);
+ err_gpio_wp:
+	if (host->gpio_cd != -ENOSYS)
+		gpio_free(host->gpio_cd);
+ err_gpio_cd:
 	iounmap(host->base);
  clk_disable:
 	clk_disable(host->clk);
@@ -590,7 +797,7 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	return ret;
 }
 
-static int mmci_remove(struct amba_device *dev)
+static int __devexit mmci_remove(struct amba_device *dev)
 {
 	struct mmc_host *mmc = amba_get_drvdata(dev);
 
@@ -598,8 +805,6 @@ static int mmci_remove(struct amba_device *dev)
 
 	if (mmc) {
 		struct mmci_host *host = mmc_priv(mmc);
-
-		del_timer_sync(&host->timer);
 
 		mmc_remove_host(mmc);
 
@@ -612,9 +817,18 @@ static int mmci_remove(struct amba_device *dev)
 		free_irq(dev->irq[0], host);
 		free_irq(dev->irq[1], host);
 
+		if (host->gpio_wp != -ENOSYS)
+			gpio_free(host->gpio_wp);
+		if (host->gpio_cd != -ENOSYS)
+			gpio_free(host->gpio_cd);
+
 		iounmap(host->base);
 		clk_disable(host->clk);
 		clk_put(host->clk);
+
+		if (regulator_is_enabled(host->vcc))
+			regulator_disable(host->vcc);
+		regulator_put(host->vcc);
 
 		mmc_free_host(mmc);
 
@@ -633,7 +847,7 @@ static int mmci_suspend(struct amba_device *dev, pm_message_t state)
 	if (mmc) {
 		struct mmci_host *host = mmc_priv(mmc);
 
-		ret = mmc_suspend_host(mmc, state);
+		ret = mmc_suspend_host(mmc);
 		if (ret == 0)
 			writel(0, host->base + MMCIMASK0);
 	}
@@ -665,10 +879,28 @@ static struct amba_id mmci_ids[] = {
 	{
 		.id	= 0x00041180,
 		.mask	= 0x000fffff,
+		.data	= &variant_arm,
 	},
 	{
 		.id	= 0x00041181,
 		.mask	= 0x000fffff,
+		.data	= &variant_arm,
+	},
+	/* ST Micro variants */
+	{
+		.id     = 0x00180180,
+		.mask   = 0x00ffffff,
+		.data	= &variant_u300,
+	},
+	{
+		.id     = 0x00280180,
+		.mask   = 0x00ffffff,
+		.data	= &variant_u300,
+	},
+	{
+		.id     = 0x00480180,
+		.mask   = 0x00ffffff,
+		.data	= &variant_ux500,
 	},
 	{ 0, 0 },
 };
@@ -678,7 +910,7 @@ static struct amba_driver mmci_driver = {
 		.name	= DRIVER_NAME,
 	},
 	.probe		= mmci_probe,
-	.remove		= mmci_remove,
+	.remove		= __devexit_p(mmci_remove),
 	.suspend	= mmci_suspend,
 	.resume		= mmci_resume,
 	.id_table	= mmci_ids,

@@ -19,8 +19,6 @@ struct flowi {
 		struct {
 			__be32			daddr;
 			__be32			saddr;
-			__u32			lsrc;
-			__u32			gw;
 			__u8			tos;
 			__u8			scope;
 		} ip4_u;
@@ -45,14 +43,12 @@ struct flowi {
 #define fl6_flowlabel	nl_u.ip6_u.flowlabel
 #define fl4_dst		nl_u.ip4_u.daddr
 #define fl4_src		nl_u.ip4_u.saddr
-#define fl4_lsrc        nl_u.ip4_u.lsrc
-#define fl4_gw		nl_u.ip4_u.gw
 #define fl4_tos		nl_u.ip4_u.tos
 #define fl4_scope	nl_u.ip4_u.scope
 
 	__u8	proto;
 	__u8	flags;
-#define FLOWI_FLAG_MULTIPATHOLDROUTE 0x01
+#define FLOWI_FLAG_ANYSRC 0x01
 	union {
 		struct {
 			__be16	sport;
@@ -71,20 +67,16 @@ struct flowi {
 
 		__be32		spi;
 
-#ifdef CONFIG_IPV6_MIP6
 		struct {
 			__u8	type;
 		} mht;
-#endif
 	} uli_u;
 #define fl_ip_sport	uli_u.ports.sport
 #define fl_ip_dport	uli_u.ports.dport
 #define fl_icmp_type	uli_u.icmpt.type
 #define fl_icmp_code	uli_u.icmpt.code
 #define fl_ipsec_spi	uli_u.spi
-#ifdef CONFIG_IPV6_MIP6
 #define fl_mh_type	uli_u.mht.type
-#endif
 	__u32           secid;	/* used by xfrm; see secid.txt */
 } __attribute__((__aligned__(BITS_PER_LONG/8)));
 
@@ -92,12 +84,28 @@ struct flowi {
 #define FLOW_DIR_OUT	1
 #define FLOW_DIR_FWD	2
 
+struct net;
 struct sock;
-typedef int (*flow_resolve_t)(struct flowi *key, u16 family, u8 dir,
-			       void **objp, atomic_t **obj_refp);
+struct flow_cache_ops;
 
-extern void *flow_cache_lookup(struct flowi *key, u16 family, u8 dir,
-	 		       flow_resolve_t resolver);
+struct flow_cache_object {
+	const struct flow_cache_ops *ops;
+};
+
+struct flow_cache_ops {
+	struct flow_cache_object *(*get)(struct flow_cache_object *);
+	int (*check)(struct flow_cache_object *);
+	void (*delete)(struct flow_cache_object *);
+};
+
+typedef struct flow_cache_object *(*flow_resolve_t)(
+		struct net *net, struct flowi *key, u16 family,
+		u8 dir, struct flow_cache_object *oldobj, void *ctx);
+
+extern struct flow_cache_object *flow_cache_lookup(
+		struct net *net, struct flowi *key, u16 family,
+		u8 dir, flow_resolve_t resolver, void *ctx);
+
 extern void flow_cache_flush(void);
 extern atomic_t flow_cache_genid;
 

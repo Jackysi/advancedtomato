@@ -1,33 +1,4 @@
-/*
- *
- * Optimized version of the copy_user() routine.
- * It is used to copy date across the kernel/user boundary.
- *
- * The source and destination are always on opposite side of
- * the boundary. When reading from user space we must catch
- * faults on loads. When writing to user space we must catch
- * errors on stores. Note that because of the nature of the copy
- * we don't need to worry about overlapping regions.
- *
- *
- * Inputs:
- *	in0	address of source buffer
- *	in1	address of destination buffer
- *	in2	number of bytes to copy
- *
- * Outputs:
- *	ret0	0 in case of success. The number of bytes NOT copied in
- *		case of error.
- *
- * Copyright (C) 2000-2001 Hewlett-Packard Co
- *	Stephane Eranian <eranian@hpl.hp.com>
- *
- * Fixme:
- *	- handle the case where we have more than 16 bytes and the alignment
- *	  are different.
- *	- more benchmarking
- *	- fix extraneous stop bit introduced by the EX() macro.
- */
+
 
 #include <asm/asmmacro.h>
 

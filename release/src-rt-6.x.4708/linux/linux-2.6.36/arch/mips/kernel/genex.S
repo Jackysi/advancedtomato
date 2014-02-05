@@ -6,7 +6,7 @@
  * Copyright (C) 1994 - 2000, 2001, 2003 Ralf Baechle
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  * Copyright (C) 2001 MIPS Technologies, Inc.
- * Copyright (C) 2002 Maciej W. Rozycki
+ * Copyright (C) 2002, 2007  Maciej W. Rozycki
  */
 #include <linux/init.h>
 
@@ -22,8 +22,10 @@
 #include <asm/page.h>
 #include <asm/thread_info.h>
 
+#ifdef CONFIG_MIPS_MT_SMTC
 #define PANIC_PIC(msg)					\
-		.set push;				\
+		.set	push;				\
+		.set	nomicromips;			\
 		.set	reorder;			\
 		PTR_LA	a0,8f;				\
 		.set	noat;				\
@@ -32,16 +34,9 @@
 9:		b	9b;				\
 		.set	pop;				\
 		TEXT(msg)
+#endif
 
 	__INIT
-
-NESTED(except_vec0_generic, 0, sp)
-	PANIC_PIC("Exception vector 0 called")
-	END(except_vec0_generic)
-
-NESTED(except_vec1_generic, 0, sp)
-	PANIC_PIC("Exception vector 1 called")
-	END(except_vec1_generic)
 
 /*
  * General exception vector for all other CPUs.
@@ -52,17 +47,9 @@ NESTED(except_vec1_generic, 0, sp)
 NESTED(except_vec3_generic, 0, sp)
 	.set	push
 	.set	noat
-#ifdef CONFIG_BCM47XX
-	nop
-	nop
-#endif
 #if R5432_CP0_INTERRUPT_WAR
 	mfc0	k0, CP0_INDEX
 #endif
-#ifdef CONFIG_BCM47XX
-	nop
-	nop
-#endif          
 	mfc0	k1, CP0_CAUSE
 	andi	k1, k1, 0x7c
 #ifdef CONFIG_64BIT
@@ -73,6 +60,7 @@ NESTED(except_vec3_generic, 0, sp)
 	.set	pop
 	END(except_vec3_generic)
 
+#if (cpu_has_vce != 0)
 /*
  * General exception handler for CPUs with virtual coherency exception.
  *
@@ -132,6 +120,7 @@ handle_vcei:
 	eret
 	.set	pop
 	END(except_vec3_r4000)
+#endif /* (cpu_has_vce == 0) */
 
 	__FINIT
 
@@ -147,12 +136,19 @@ LEAF(r4k_wait)
 	 nop
 	nop
 	nop
+#ifdef CONFIG_CPU_MICROMIPS
+	nop
+	nop
+	nop
+	nop
+#endif
 	.set	mips3
 	wait
 	/* end of rollback region (the region size must be power of two) */
-	.set	pop
 1:
 	jr	ra
+	nop
+	.set	pop
 	END(r4k_wait)
 
 	.macro	BUILD_ROLLBACK_PROLOGUE handler
@@ -210,7 +206,11 @@ NESTED(handle_int, PT_SIZE, sp)
 	LONG_L	s0, TI_REGS($28)
 	LONG_S	sp, TI_REGS($28)
 	PTR_LA	ra, ret_from_irq
-	j	plat_irq_dispatch
+	PTR_LA  v0, plat_irq_dispatch
+	jr	v0
+#ifdef CONFIG_CPU_MICROMIPS
+	nop
+#endif
 	END(handle_int)
 
 	__INIT
@@ -231,11 +231,14 @@ NESTED(except_vec4, 0, sp)
 /*
  * EJTAG debug exception handler.
  * The EJTAG debug exception entry point is 0xbfc00480, which
- * normally is in the boot PROM, so the boot PROM must do a
+ * normally is in the boot PROM, so the boot PROM must do an
  * unconditional jump to this vector.
  */
 NESTED(except_vec_ejtag_debug, 0, sp)
 	j	ejtag_debug_handler
+#ifdef CONFIG_CPU_MICROMIPS
+	 nop
+#endif
 	END(except_vec_ejtag_debug)
 
 	__FINIT
@@ -265,6 +268,9 @@ FEXPORT(except_vec_vi_lui)
 	j	except_vec_vi_handler
 FEXPORT(except_vec_vi_ori)
 	 ori	v0, 0		/* Patched */
+#ifdef CONFIG_CPU_MICROMIPS
+	nop
+#endif
 	.set	pop
 	END(except_vec_vi)
 EXPORT(except_vec_vi_end)
@@ -290,8 +296,8 @@ NESTED(except_vec_vi_handler, 0, sp)
 	and	t0, a0, t1
 #ifdef CONFIG_MIPS_MT_SMTC_IM_BACKSTOP
 	mfc0	t2, CP0_TCCONTEXT
-	or	t0, t0, t2
-	mtc0	t0, CP0_TCCONTEXT
+	or	t2, t0, t2
+	mtc0	t2, CP0_TCCONTEXT
 #endif /* CONFIG_MIPS_MT_SMTC_IM_BACKSTOP */
 	xor	t1, t1, t0
 	mtc0	t1, CP0_STATUS
@@ -363,6 +369,9 @@ EXPORT(ejtag_debug_buffer)
  */
 NESTED(except_vec_nmi, 0, sp)
 	j	nmi_handler
+#ifdef CONFIG_CPU_MICROMIPS
+	 nop
+#endif
 	END(except_vec_nmi)
 
 	__FINIT
@@ -371,7 +380,7 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.set	push
 	.set	noat
 	SAVE_ALL
- 	move	a0, sp
+	move	a0, sp
 	jal	nmi_exception_handler
 	RESTORE_ALL
 	.set	mips3
@@ -393,10 +402,14 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.endm
 
 	.macro	__build_clear_fpe
+	.set	push
+	/* gas fails to assemble cfc1 for some archs (octeon).*/ \
+	.set	mips1
 	cfc1	a1, fcr31
 	li	a2, ~(0x3f << 12)
 	and	a2, a1
 	ctc1	a2, fcr31
+	.set	pop
 	TRACE_IRQS_ON
 	STI
 	.endm
@@ -461,7 +474,15 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	BUILD_HANDLER tr tr sti silent			/* #13 */
 	BUILD_HANDLER fpe fpe fpe silent		/* #15 */
 	BUILD_HANDLER mdmx mdmx sti silent		/* #22 */
+#ifdef 	CONFIG_HARDWARE_WATCHPOINTS
+	/*
+	 * For watch, interrupts will be enabled after the watch
+	 * registers are read.
+	 */
+	BUILD_HANDLER watch watch cli silent		/* #23 */
+#else
 	BUILD_HANDLER watch watch sti verbose		/* #23 */
+#endif
 	BUILD_HANDLER mcheck mcheck cli verbose		/* #24 */
 	BUILD_HANDLER mt mt sti silent			/* #25 */
 	BUILD_HANDLER dsp dsp sti silent		/* #26 */
@@ -497,13 +518,37 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.set	push
 	.set	noat
 	.set	noreorder
-	/* 0x7c03e83b: rdhwr v1,$29 */
+	/* MIPS32: 0x7c03e83b: rdhwr v1,$29 */
+	/* uMIPS:  0x007d6b3c: rdhwr v1,$29 -- in MIPS16e it is  */
+	/*         ADDIUSP $16,0x7d; LI $3,0x3c and never RI. LY22 */
 	MFC0	k1, CP0_EPC
-	lui	k0, 0x7c03
-	lw	k1, (k1)
-	ori	k0, 0xe83b
-	.set	reorder
+#if defined(CONFIG_CPU_MICROMIPS) || defined(CONFIG_CPU_MIPS32_R2) || \
+	defined(CONFIG_CPU_MIPS64_R2)
+	and     k0, k1, 1
+	beqz    k0, 1f
+	xor     k1, k0
+	lhu     k0, (k1)
+	lhu     k1, 2(k1)
+	ins     k1, k0, 16, 16
+	lui     k0, 0x007d
+	b       docheck
+	ori     k0, 0x6b3c
+1:
+	lui     k0, 0x7c03
+	lw      k1, (k1)
+	ori     k0, 0xe83b
+#else
+	andi    k0, k1, 1
+	bnez    k0, handle_ri
+	lui     k0, 0x7c03
+	lw      k1, (k1)
+	ori     k0, 0xe83b
+#endif
+	.set    reorder
+docheck:
 	bne	k0, k1, handle_ri	/* if not ours */
+
+isrdhwr:
 	/* The insn is rdhwr.  No need to check CAUSE.BD here. */
 	get_saved_sp	/* k1 := current_thread_info */
 	.set	noreorder
@@ -516,7 +561,13 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	jr	k0
 	 rfe
 #else
+#ifndef CONFIG_CPU_DADDI_WORKAROUNDS
 	LONG_ADDIU	k0, 4		/* stall on $k0 */
+#else
+	.set	at=v1
+	LONG_ADDIU	k0, 4
+	.set	noat
+#endif
 	MTC0	k0, CP0_EPC
 	/* I hope three instructions between MTC0 and ERET are enough... */
 	ori	k1, _THREAD_MASK

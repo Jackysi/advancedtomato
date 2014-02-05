@@ -1,8 +1,8 @@
 /*
  * net/tipc/port.h: Include file for TIPC port code
  *
- * Copyright (c) 1994-2006, Ericsson AB
- * Copyright (c) 2004-2005, Wind River Systems
+ * Copyright (c) 1994-2007, Ericsson AB
+ * Copyright (c) 2004-2007, Wind River Systems
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,13 +75,11 @@ struct user_port {
  * @wakeup: ptr to routine to call when port is no longer congested
  * @user_port: ptr to user port associated with port (if any)
  * @wait_list: adjacent ports in list of ports waiting on link congestion
- * @congested_link: ptr to congested link port is waiting on
  * @waiting_pkts:
  * @sent:
  * @acked:
  * @publications: list of publications for port
  * @pub_count: total # of publications port has made during its lifetime
- * @max_pkt: maximum packet size "hint" used when building messages sent by port
  * @probing_state:
  * @probing_interval:
  * @last_in_seqno:
@@ -96,18 +94,16 @@ struct port {
 	void (*wakeup)(struct tipc_port *);
 	struct user_port *user_port;
 	struct list_head wait_list;
-	struct link *congested_link;
 	u32 waiting_pkts;
 	u32 sent;
 	u32 acked;
 	struct list_head publications;
 	u32 pub_count;
-	u32 max_pkt;
 	u32 probing_state;
 	u32 probing_interval;
 	u32 last_in_seqno;
 	struct timer_list timer;
-	struct node_subscr subscription;
+	struct tipc_node_subscr subscription;
 };
 
 extern spinlock_t tipc_port_list_lock;

@@ -27,6 +27,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <asm/atomic.h>
@@ -39,16 +40,24 @@
 
 #define CEX2A_MIN_MOD_SIZE	  1	/*    8 bits	*/
 #define CEX2A_MAX_MOD_SIZE	256	/* 2048 bits	*/
+#define CEX3A_MIN_MOD_SIZE	CEX2A_MIN_MOD_SIZE
+#define CEX3A_MAX_MOD_SIZE	CEX2A_MAX_MOD_SIZE
 
 #define CEX2A_SPEED_RATING	970
+#define CEX3A_SPEED_RATING	900
 
 #define CEX2A_MAX_MESSAGE_SIZE	0x390	/* sizeof(struct type50_crb2_msg)    */
 #define CEX2A_MAX_RESPONSE_SIZE 0x110	/* max outputdatalength + type80_hdr */
 
+#define CEX3A_MAX_MESSAGE_SIZE	CEX2A_MAX_MESSAGE_SIZE
+#define CEX3A_MAX_RESPONSE_SIZE	CEX2A_MAX_RESPONSE_SIZE
+
 #define CEX2A_CLEANUP_TIME	(15*HZ)
+#define CEX3A_CLEANUP_TIME	CEX2A_CLEANUP_TIME
 
 static struct ap_device_id zcrypt_cex2a_ids[] = {
 	{ AP_DEVICE(AP_DEVICE_TYPE_CEX2A) },
+	{ AP_DEVICE(AP_DEVICE_TYPE_CEX3A) },
 	{ /* end of list */ },
 };
 
@@ -70,6 +79,7 @@ static struct ap_driver zcrypt_cex2a_driver = {
 	.remove = zcrypt_cex2a_remove,
 	.receive = zcrypt_cex2a_receive,
 	.ids = zcrypt_cex2a_ids,
+	.request_timeout = CEX2A_CLEANUP_TIME,
 };
 
 /**
@@ -241,9 +251,6 @@ static int convert_response(struct zcrypt_device *zdev,
 		return convert_type80(zdev, reply,
 				      outputdata, outputdatalength);
 	default: /* Unknown response type, this should NEVER EVER happen */
-		PRINTK("Unrecognized Message Header: %08x%08x\n",
-		       *(unsigned int *) reply->message,
-		       *(unsigned int *) (reply->message+4));
 		zdev->online = 0;
 		return -EAGAIN;	/* repeat the request on a different device. */
 	}
@@ -265,17 +272,21 @@ static void zcrypt_cex2a_receive(struct ap_device *ap_dev,
 		.type = TYPE82_RSP_CODE,
 		.reply_code = REP82_ERROR_MACHINE_FAILURE,
 	};
-	struct type80_hdr *t80h = reply->message;
+	struct type80_hdr *t80h;
 	int length;
 
 	/* Copy the reply message to the request message buffer. */
-	if (IS_ERR(reply))
+	if (IS_ERR(reply)) {
 		memcpy(msg->message, &error_reply, sizeof(error_reply));
-	else if (t80h->type == TYPE80_RSP_CODE) {
+		goto out;
+	}
+	t80h = reply->message;
+	if (t80h->type == TYPE80_RSP_CODE) {
 		length = min(CEX2A_MAX_RESPONSE_SIZE, (int) t80h->len);
 		memcpy(msg->message, reply->message, length);
 	} else
 		memcpy(msg->message, reply->message, sizeof error_reply);
+out:
 	complete((struct completion *) msg->private);
 }
 
@@ -295,6 +306,7 @@ static long zcrypt_cex2a_modexpo(struct zcrypt_device *zdev,
 	struct completion work;
 	int rc;
 
+	ap_init_message(&ap_msg);
 	ap_msg.message = kmalloc(CEX2A_MAX_MESSAGE_SIZE, GFP_KERNEL);
 	if (!ap_msg.message)
 		return -ENOMEM;
@@ -306,18 +318,13 @@ static long zcrypt_cex2a_modexpo(struct zcrypt_device *zdev,
 		goto out_free;
 	init_completion(&work);
 	ap_queue_message(zdev->ap_dev, &ap_msg);
-	rc = wait_for_completion_interruptible_timeout(
-				&work, CEX2A_CLEANUP_TIME);
-	if (rc > 0)
+	rc = wait_for_completion_interruptible(&work);
+	if (rc == 0)
 		rc = convert_response(zdev, &ap_msg, mex->outputdata,
 				      mex->outputdatalength);
-	else {
-		/* Signal pending or message timed out. */
+	else
+		/* Signal pending. */
 		ap_cancel_message(zdev->ap_dev, &ap_msg);
-		if (rc == 0)
-			/* Message timed out. */
-			rc = -ETIME;
-	}
 out_free:
 	kfree(ap_msg.message);
 	return rc;
@@ -337,6 +344,7 @@ static long zcrypt_cex2a_modexpo_crt(struct zcrypt_device *zdev,
 	struct completion work;
 	int rc;
 
+	ap_init_message(&ap_msg);
 	ap_msg.message = kmalloc(CEX2A_MAX_MESSAGE_SIZE, GFP_KERNEL);
 	if (!ap_msg.message)
 		return -ENOMEM;
@@ -348,18 +356,13 @@ static long zcrypt_cex2a_modexpo_crt(struct zcrypt_device *zdev,
 		goto out_free;
 	init_completion(&work);
 	ap_queue_message(zdev->ap_dev, &ap_msg);
-	rc = wait_for_completion_interruptible_timeout(
-				&work, CEX2A_CLEANUP_TIME);
-	if (rc > 0)
+	rc = wait_for_completion_interruptible(&work);
+	if (rc == 0)
 		rc = convert_response(zdev, &ap_msg, crt->outputdata,
 				      crt->outputdatalength);
-	else {
-		/* Signal pending or message timed out. */
+	else
+		/* Signal pending. */
 		ap_cancel_message(zdev->ap_dev, &ap_msg);
-		if (rc == 0)
-			/* Message timed out. */
-			rc = -ETIME;
-	}
 out_free:
 	kfree(ap_msg.message);
 	return rc;
@@ -380,31 +383,45 @@ static struct zcrypt_ops zcrypt_cex2a_ops = {
  */
 static int zcrypt_cex2a_probe(struct ap_device *ap_dev)
 {
-	struct zcrypt_device *zdev;
-	int rc;
+	struct zcrypt_device *zdev = NULL;
+	int rc = 0;
 
-	zdev = zcrypt_device_alloc(CEX2A_MAX_RESPONSE_SIZE);
-	if (!zdev)
-		return -ENOMEM;
-	zdev->ap_dev = ap_dev;
-	zdev->ops = &zcrypt_cex2a_ops;
-	zdev->online = 1;
-	zdev->user_space_type = ZCRYPT_CEX2A;
-	zdev->type_string = "CEX2A";
-	zdev->min_mod_size = CEX2A_MIN_MOD_SIZE;
-	zdev->max_mod_size = CEX2A_MAX_MOD_SIZE;
-	zdev->short_crt = 1;
-	zdev->speed_rating = CEX2A_SPEED_RATING;
-	ap_dev->reply = &zdev->reply;
-	ap_dev->private = zdev;
-	rc = zcrypt_device_register(zdev);
-	if (rc)
-		goto out_free;
-	return 0;
-
-out_free:
-	ap_dev->private = NULL;
-	zcrypt_device_free(zdev);
+	switch (ap_dev->device_type) {
+	case AP_DEVICE_TYPE_CEX2A:
+		zdev = zcrypt_device_alloc(CEX2A_MAX_RESPONSE_SIZE);
+		if (!zdev)
+			return -ENOMEM;
+		zdev->user_space_type = ZCRYPT_CEX2A;
+		zdev->type_string = "CEX2A";
+		zdev->min_mod_size = CEX2A_MIN_MOD_SIZE;
+		zdev->max_mod_size = CEX2A_MAX_MOD_SIZE;
+		zdev->short_crt = 1;
+		zdev->speed_rating = CEX2A_SPEED_RATING;
+		break;
+	case AP_DEVICE_TYPE_CEX3A:
+		zdev = zcrypt_device_alloc(CEX3A_MAX_RESPONSE_SIZE);
+		if (!zdev)
+			return -ENOMEM;
+		zdev->user_space_type = ZCRYPT_CEX3A;
+		zdev->type_string = "CEX3A";
+		zdev->min_mod_size = CEX3A_MIN_MOD_SIZE;
+		zdev->max_mod_size = CEX3A_MAX_MOD_SIZE;
+		zdev->short_crt = 1;
+		zdev->speed_rating = CEX3A_SPEED_RATING;
+		break;
+	}
+	if (zdev != NULL) {
+		zdev->ap_dev = ap_dev;
+		zdev->ops = &zcrypt_cex2a_ops;
+		zdev->online = 1;
+		ap_dev->reply = &zdev->reply;
+		ap_dev->private = zdev;
+		rc = zcrypt_device_register(zdev);
+	}
+	if (rc) {
+		ap_dev->private = NULL;
+		zcrypt_device_free(zdev);
+	}
 	return rc;
 }
 

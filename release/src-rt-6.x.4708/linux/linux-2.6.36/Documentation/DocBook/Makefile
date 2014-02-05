@@ -6,20 +6,23 @@
 # To add a new book the only step required is to add the book to the
 # list of DOCBOOKS.
 
-DOCBOOKS := wanbook.xml z8530book.xml mcabook.xml videobook.xml \
+DOCBOOKS := z8530book.xml mcabook.xml device-drivers.xml \
 	    kernel-hacking.xml kernel-locking.xml deviceiobook.xml \
-	    procfs-guide.xml writing_usb_driver.xml \
-	    kernel-api.xml filesystems.xml lsm.xml usb.xml \
+	    writing_usb_driver.xml networking.xml \
+	    kernel-api.xml filesystems.xml lsm.xml usb.xml kgdb.xml \
 	    gadget.xml libata.xml mtdnand.xml librs.xml rapidio.xml \
-	    genericirq.xml
+	    genericirq.xml s390-drivers.xml uio-howto.xml scsi.xml \
+	    mac80211.xml debugobjects.xml sh.xml regulator.xml \
+	    alsa-driver-api.xml writing-an-alsa-driver.xml \
+	    tracepoint.xml media.xml drm.xml
 
 ###
 # The build process is as follows (targets):
-#              (xmldocs)
-# file.tmpl --> file.xml +--> file.ps   (psdocs)
-#                        +--> file.pdf  (pdfdocs)
-#                        +--> DIR=file  (htmldocs)
-#                        +--> man/      (mandocs)
+#              (xmldocs) [by docproc]
+# file.tmpl --> file.xml +--> file.ps   (psdocs)   [by db2ps or xmlto]
+#                        +--> file.pdf  (pdfdocs)  [by db2pdf or xmlto]
+#                        +--> DIR=file  (htmldocs) [by xmlto]
+#                        +--> man/      (mandocs)  [by xmlto]
 
 
 # for PDF and PS output you can choose between xmlto and docbook-utils tools
@@ -29,7 +32,7 @@ PS_METHOD	= $(prefer-db2x)
 
 ###
 # The targets that may be used.
-PHONY += xmldocs sgmldocs psdocs pdfdocs htmldocs mandocs installmandocs
+PHONY += xmldocs sgmldocs psdocs pdfdocs htmldocs mandocs installmandocs cleandocs xmldoclinks
 
 BOOKS := $(addprefix $(obj)/,$(DOCBOOKS))
 xmldocs: $(BOOKS)
@@ -42,11 +45,24 @@ PDF := $(patsubst %.xml, %.pdf, $(BOOKS))
 pdfdocs: $(PDF)
 
 HTML := $(sort $(patsubst %.xml, %.html, $(BOOKS)))
-htmldocs: $(HTML)
+htmldocs: $(HTML) xmldoclinks
 	$(call build_main_index)
+	$(call build_images)
 
 MAN := $(patsubst %.xml, %.9, $(BOOKS))
 mandocs: $(MAN)
+
+build_images = mkdir -p $(objtree)/Documentation/DocBook/media/ && \
+	       cp $(srctree)/Documentation/DocBook/dvb/*.png $(srctree)/Documentation/DocBook/v4l/*.gif $(objtree)/Documentation/DocBook/media/
+
+xmldoclinks:
+ifneq ($(objtree),$(srctree))
+	for dep in dvb media-entities.tmpl media-indices.tmpl v4l; do \
+		rm -f $(objtree)/Documentation/DocBook/$$dep \
+		&& ln -s $(srctree)/Documentation/DocBook/$$dep $(objtree)/Documentation/DocBook/ \
+		|| exit; \
+	done
+endif
 
 installmandocs: mandocs
 	mkdir -p /usr/local/man/man9/
@@ -58,7 +74,7 @@ KERNELDOC = $(srctree)/scripts/kernel-doc
 DOCPROC   = $(objtree)/scripts/basic/docproc
 
 XMLTOFLAGS = -m $(srctree)/Documentation/DocBook/stylesheet.xsl
-#XMLTOFLAGS += --skip-validation
+XMLTOFLAGS += --skip-validation
 
 ###
 # DOCPROC is used for two purposes:
@@ -79,7 +95,7 @@ define rule_docproc
         ) > $(dir $@).$(notdir $@).cmd
 endef
 
-%.xml: %.tmpl FORCE
+%.xml: %.tmpl xmldoclinks FORCE
 	$(call if_changed_rule,docproc)
 
 ###
@@ -94,12 +110,8 @@ endif
 # Changes in kernel-doc force a rebuild of all documentation
 $(BOOKS): $(KERNELDOC)
 
-###
-# procfs guide uses a .c file as example code.
-# This requires an explicit dependency
-C-procfs-example = procfs_example.xml
-C-procfs-example2 = $(addprefix $(obj)/,$(C-procfs-example))
-$(obj)/procfs-guide.xml: $(C-procfs-example2)
+# Tell kbuild to always build the programs
+always := $(hostprogs-y)
 
 notfoundtemplate = echo "*** You have to install docbook-utils or xmlto ***"; \
 		   exit 1
@@ -128,19 +140,20 @@ quiet_cmd_db2ps = PS      $@
 %.ps : %.xml
 	$(call cmd,db2ps)
 
-quiet_cmd_db2pdf = PDF      $@
+quiet_cmd_db2pdf = PDF     $@
       cmd_db2pdf = $(subst TYPE,pdf, $($(PDF_METHOD)template))
 %.pdf : %.xml
 	$(call cmd,db2pdf)
 
 
-main_idx = Documentation/DocBook/index.html
+index = index.html
+main_idx = Documentation/DocBook/$(index)
 build_main_index = rm -rf $(main_idx) && \
 		   echo '<h1>Linux Kernel HTML Documentation</h1>' >> $(main_idx) && \
 		   echo '<h2>Kernel Version: $(KERNELVERSION)</h2>' >> $(main_idx) && \
 		   cat $(HTML) >> $(main_idx)
 
-quiet_cmd_db2html = HTML   $@
+quiet_cmd_db2html = HTML    $@
       cmd_db2html = xmlto xhtml $(XMLTOFLAGS) -o $(patsubst %.html,%,$@) $< && \
 		echo '<a HREF="$(patsubst %.html,%,$(notdir $@))/index.html"> \
         $(patsubst %.html,%,$(notdir $@))</a><p>' > $@
@@ -165,7 +178,7 @@ quiet_cmd_db2man = MAN     $@
 	@touch $@
 
 ###
-# Rules to generate postscripts and PNG imgages from .fig format files
+# Rules to generate postscripts and PNG images from .fig format files
 quiet_cmd_fig2eps = FIG2EPS $@
       cmd_fig2eps = fig2dev -Leps $< $@
 
@@ -186,8 +199,11 @@ quiet_cmd_fig2png = FIG2PNG $@
 
 ###
 # Rule to convert a .c file to inline XML documentation
+       gen_xml = :
+ quiet_gen_xml = echo '  GEN     $@'
+silent_gen_xml = :
 %.xml: %.c
-	@echo '  GEN     $@'
+	@$($(quiet)gen_xml)
 	@(                            \
 	   echo "<programlisting>";   \
 	   expand --tabs=8 < $< |     \
@@ -201,11 +217,12 @@ quiet_cmd_fig2png = FIG2PNG $@
 dochelp:
 	@echo  ' Linux kernel internal documentation in different formats:'
 	@echo  '  htmldocs        - HTML'
-	@echo  '  installmandocs  - install man pages generated by mandocs'
-	@echo  '  mandocs         - man pages'
 	@echo  '  pdfdocs         - PDF'
 	@echo  '  psdocs          - Postscript'
 	@echo  '  xmldocs         - XML DocBook'
+	@echo  '  mandocs         - man pages'
+	@echo  '  installmandocs  - install man pages generated by mandocs'
+	@echo  '  cleandocs       - clean all generated DocBook files'
 
 ###
 # Temporary files left by various tools
@@ -219,9 +236,13 @@ clean-files := $(DOCBOOKS) \
 	$(patsubst %.xml, %.pdf,  $(DOCBOOKS)) \
 	$(patsubst %.xml, %.html, $(DOCBOOKS)) \
 	$(patsubst %.xml, %.9,    $(DOCBOOKS)) \
-	$(C-procfs-example)
+	$(index)
 
 clean-dirs := $(patsubst %.xml,%,$(DOCBOOKS)) man
+
+cleandocs:
+	$(Q)rm -f $(call objectify, $(clean-files))
+	$(Q)rm -rf $(call objectify, $(clean-dirs))
 
 # Declare the contents of the .PHONY variable as phony.  We keep that
 # information in a variable se we can use it in if_changed and friends.

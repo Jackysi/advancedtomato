@@ -19,11 +19,11 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/fb.h>
+#include <linux/pm.h>
 #include <linux/init.h>
 #include <linux/pci.h>
 #include <linux/console.h>
@@ -299,7 +299,6 @@ static struct fb_fix_screeninfo chipsfb_fix __devinitdata = {
 	.accel =	FB_ACCEL_NONE,
 	.line_length =	800,
 
-// FIXME: Assumes 1MB frame buffer, but 65550 supports 1MB or 2MB.
 // * "3500" PowerBook G3 (the original PB G3) has 2MB.
 // * 2400 has 1MB composed of 2 Mitsubishi M5M4V4265CTP DRAM chips.
 //   Motherboard actually supports 2MB -- there are two blank locations
@@ -413,7 +412,6 @@ chipsfb_pci_init(struct pci_dev *dp, const struct pci_device_id *ent)
 	}
 
 	pci_set_drvdata(dp, p);
-	p->device = &dp->dev;
 
 	init_chips(p, addr);
 
@@ -458,7 +456,7 @@ static int chipsfb_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	if (state.event == pdev->dev.power.power_state.event)
 		return 0;
-	if (state.event != PM_SUSPEND_MEM)
+	if (!(state.event & PM_EVENT_SLEEP))
 		goto done;
 
 	acquire_console_sem();

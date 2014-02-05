@@ -29,8 +29,8 @@
 #include <linux/workqueue.h>
 #include <linux/mii.h>
 #include <linux/usb.h>
-
-#include "usbnet.h"
+#include <linux/usb/usbnet.h>
+#include <linux/gfp.h>
 
 
 /*
@@ -149,7 +149,6 @@ genelink_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
 	__le32	*packet_count;
 	__le32	*packet_len;
 
-	// FIXME:  magic numbers, bleech
 	padlen = ((skb->len + (4 + 4*1)) % 64) ? 0 : 1;
 
 	if ((!skb_cloned(skb))
@@ -242,4 +241,3 @@ module_exit(usbnet_exit);
 MODULE_AUTHOR("Jiun-Jie Huang");
 MODULE_DESCRIPTION("GL620-USB-A Host-to-Host Link cables");
 MODULE_LICENSE("GPL");
-

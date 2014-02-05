@@ -85,9 +85,6 @@ lasi_init_irq(struct gsc_asic *this_lasi)
 	** comatose and muzzled.  Devices will now unmask LASI
 	** interrupts as they are registered as irq's in the LASI range.
 	*/
-	/* XXX: I thought it was `awks that got `it on the `ead with an
-	 * `ammer.  -- willy
-	 */
 }
 
 
@@ -107,7 +104,7 @@ lasi_init_irq(struct gsc_asic *this_lasi)
 
 #else
 
-void __init lasi_led_init(unsigned long lasi_hpa)
+static void __init lasi_led_init(unsigned long lasi_hpa)
 {
 	unsigned long datareg;
 
@@ -163,8 +160,7 @@ static void lasi_power_off(void)
 	gsc_writel(0x02, datareg);
 }
 
-int __init
-lasi_init_chip(struct parisc_device *dev)
+static int __init lasi_init_chip(struct parisc_device *dev)
 {
 	extern void (*chassis_power_off)(void);
 	struct gsc_asic *lasi;
@@ -193,7 +189,7 @@ lasi_init_chip(struct parisc_device *dev)
 	dev->irq = gsc_alloc_irq(&gsc_irq);
 	if (dev->irq < 0) {
 		printk(KERN_ERR "%s(): cannot get GSC irq\n",
-				__FUNCTION__);
+				__func__);
 		kfree(lasi);
 		return -EBUSY;
 	}
@@ -219,9 +215,6 @@ lasi_init_chip(struct parisc_device *dev)
 	gsc_fixup_irqs(dev, lasi, lasi_choose_irq);
 
 	/* initialize the power off function */
-	/* FIXME: Record the LASI HPA for the power off function.  This should
-	 * ensure that only the first LASI (the one controlling the power off)
-	 * should set the HPA here */
 	lasi_power_off_hpa = lasi->hpa;
 	chassis_power_off = lasi_power_off;
 	

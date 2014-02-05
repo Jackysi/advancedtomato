@@ -59,5 +59,3 @@ extern const unsigned int TimonRomTable [16][2][16][8];
 extern const unsigned int Timon_fps_vector[PWC_FPS_MAX_TIMON];
 
 #endif
-
-

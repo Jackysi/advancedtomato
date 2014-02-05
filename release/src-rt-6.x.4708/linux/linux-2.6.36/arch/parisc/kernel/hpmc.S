@@ -55,13 +55,13 @@
 	 * IODC requires 7K byte stack.  That leaves 1K byte for os_hpmc.
 	 */
 
-	.align 4096
+	.align	PAGE_SIZE
 hpmc_stack:
 	.block 16384
 
 #define HPMC_IODC_BUF_SIZE 0x8000
 
-	.align 4096
+	.align	PAGE_SIZE
 hpmc_iodc_buf:
 	.block HPMC_IODC_BUF_SIZE
 
@@ -80,6 +80,7 @@ END(hpmc_pim_data)
 
 	.import intr_save, code
 ENTRY(os_hpmc)
+.os_hpmc:
 
 	/*
 	 * registers modified:
@@ -179,7 +180,6 @@ os_hpmc_2:
 
 os_hpmc_3:
 
-	/* FIXME? Check for errors from PDC_IO (-1 might be OK) */
 
 	/*
 	 * Initialize the IODC console device (HPA,SPA, path etc.
@@ -295,5 +295,10 @@ os_hpmc_6:
 	b .
 	nop
 ENDPROC(os_hpmc)
-ENTRY(os_hpmc_end)	/* this label used to compute os_hpmc checksum */
+.os_hpmc_end:
 	nop
+.data
+.align 4
+	.export os_hpmc_size
+os_hpmc_size:
+	.word .os_hpmc_end-.os_hpmc

@@ -1,8 +1,8 @@
 /*
  * include/net/tipc/tipc_port.h: Include file for privileged access to TIPC ports
  * 
- * Copyright (c) 1994-2006, Ericsson AB
- * Copyright (c) 2005, Wind River Systems
+ * Copyright (c) 1994-2007, Ericsson AB
+ * Copyright (c) 2005-2008, Wind River Systems
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,7 @@
  * @conn_unacked: number of unacknowledged messages received from peer port
  * @published: non-zero if port has one or more associated names
  * @congested: non-zero if cannot send because of link or port congestion
+ * @max_pkt: maximum packet size "hint" used when building messages sent by port
  * @ref: unique reference to port in TIPC object registry
  * @phdr: preformatted message header used when sending messages
  */
@@ -68,28 +69,16 @@ struct tipc_port {
 	u32 conn_unacked;
 	int published;
 	u32 congested;
+	u32 max_pkt;
 	u32 ref;
 	struct tipc_msg phdr;
 };
 
 
-/**
- * tipc_createport_raw - create a native TIPC port and return it's reference
- *
- * Note: 'dispatcher' and 'wakeup' deliver a locked port.
- */
-
-u32 tipc_createport_raw(void *usr_handle,
+struct tipc_port *tipc_createport_raw(void *usr_handle,
 			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
 			void (*wakeup)(struct tipc_port *),
 			const u32 importance);
-
-/*
- * tipc_set_msg_option(): port must be locked.
- */
-int tipc_set_msg_option(struct tipc_port *tp_ptr,
-			const char *opt,
-			const u32 len);
 
 int tipc_reject_msg(struct sk_buff *buf, u32 err);
 
@@ -101,8 +90,13 @@ struct tipc_port *tipc_get_port(const u32 ref);
 
 void *tipc_get_handle(const u32 ref);
 
+/*
+ * The following routines require that the port be locked on entry
+ */
+
+int tipc_disconnect_port(struct tipc_port *tp_ptr);
+
 
 #endif
 
 #endif
-

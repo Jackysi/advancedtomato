@@ -146,4 +146,3 @@ int ircomm_param_request(struct ircomm_tty_cb *self, __u8 pi, int flush);
 extern pi_param_info_t ircomm_param_info;
 
 #endif /* IRCOMM_PARAMS_H */
-

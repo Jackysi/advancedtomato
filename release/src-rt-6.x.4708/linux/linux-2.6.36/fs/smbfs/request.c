@@ -40,7 +40,7 @@ int smb_init_request_cache(void)
 	req_cachep = kmem_cache_create("smb_request",
 				       sizeof(struct smb_request), 0,
 				       SMB_SLAB_DEBUG | SLAB_HWCACHE_ALIGN,
-				       NULL, NULL);
+				       NULL);
 	if (req_cachep == NULL)
 		return -ENOMEM;
 
@@ -97,23 +97,7 @@ struct smb_request *smb_alloc_request(struct smb_sb_info *server, int bufsize)
 				break;
 		}
 
-#if 0
-		/*
-		 * Try to free up at least one request in order to stay
-		 * below the hard limit
-		 */
-                if (nfs_try_to_free_pages(server))
-			continue;
-
-		if (signalled() && (server->flags & NFS_MOUNT_INTR))
-			return ERR_PTR(-ERESTARTSYS);
-		current->policy = SCHED_YIELD;
-		schedule();
-#else
-		/* FIXME: we want something like nfs does above, but that
-		   requires changes to all callers and can wait. */
 		break;
-#endif
 	}
 	return req;
 }
@@ -226,12 +210,6 @@ static int smb_setup_trans2request(struct smb_request *req)
 		mparam = 20;
 	}
 
-#if 0
-	/* NT/win2k has ~4k max_xmit, so with this we request more than it wants
-	   to return as one SMB. Useful for testing the fragmented trans2
-	   handling. */
-	mdata = 8192;
-#endif
 
 	WSET(req->rq_header, smb_tpscnt, req->rq_lparm);
 	WSET(req->rq_header, smb_tdscnt, req->rq_ldata);
@@ -303,9 +281,6 @@ int smb_add_request(struct smb_request *req)
 	 * request and let smbiod send it later.
 	 */
 
-	/* FIXME: each server has a number on the maximum number of parallel
-	   requests. 10, 50 or so. We should not allow more requests to be
-	   active. */
 	if (server->mid > 0xf000)
 		server->mid = 0;
 	req->rq_mid = server->mid++;

@@ -23,7 +23,6 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/module.h>
-#include <linux/a.out.h>
 #include <linux/user.h>
 #include <linux/string.h>
 #include <linux/linkage.h>
@@ -243,7 +242,7 @@ int send_fault_sig(struct pt_regs *regs);
 
 asmlinkage void trap_c(struct frame *fp);
 
-#if defined (CONFIG_M68060)
+#if defined(CONFIG_M68060)
 static inline void access_error060 (struct frame *fp)
 {
 	unsigned long fslw = fp->un.fmt4.pc; /* is really FSLW for access error */
@@ -295,7 +294,7 @@ static inline void access_error060 (struct frame *fp)
 }
 #endif /* CONFIG_M68060 */
 
-#if defined (CONFIG_M68040)
+#if defined(CONFIG_M68040)
 static inline unsigned long probe040(int iswrite, unsigned long addr, int wbs)
 {
 	unsigned long mmusr;
@@ -362,10 +361,6 @@ static inline void fix_xframe040(struct frame *fp, unsigned long wba, unsigned s
 static inline void do_040writebacks(struct frame *fp)
 {
 	int res = 0;
-#if 0
-	if (fp->un.fmt7.wb1s & WBV_040)
-		printk("access_error040: cannot handle 1st writeback. oops.\n");
-#endif
 
 	if ((fp->un.fmt7.wb2s & WBV_040) &&
 	    !(fp->un.fmt7.wb2s & WBTT_040)) {
@@ -402,7 +397,7 @@ static inline void do_040writebacks(struct frame *fp)
  * called from sigreturn(), must ensure userspace code didn't
  * manipulate exception frame to circumvent protection, then complete
  * pending writebacks
- * we just clear TM2 to turn it into an userspace access
+ * we just clear TM2 to turn it into a userspace access
  */
 asmlinkage void berr_040cleanup(struct frame *fp)
 {
@@ -456,7 +451,7 @@ static inline void access_error040(struct frame *fp)
 
 		if (do_page_fault(&fp->ptregs, addr, errorcode)) {
 #ifdef DEBUG
-		        printk("do_page_fault() !=0 \n");
+			printk("do_page_fault() !=0\n");
 #endif
 			if (user_mode(&fp->ptregs)){
 				/* delay writebacks after signal delivery */
@@ -469,15 +464,26 @@ static inline void access_error040(struct frame *fp)
 			 * (if do_page_fault didn't fix the mapping,
                          * the writeback won't do good)
 			 */
+disable_wb:
 #ifdef DEBUG
 			printk(".. disabling wb2\n");
 #endif
 			if (fp->un.fmt7.wb2a == fp->un.fmt7.faddr)
 				fp->un.fmt7.wb2s &= ~WBV_040;
+			if (fp->un.fmt7.wb3a == fp->un.fmt7.faddr)
+				fp->un.fmt7.wb3s &= ~WBV_040;
 		}
-	} else if (send_fault_sig(&fp->ptregs) > 0) {
-		printk("68040 access error, ssw=%x\n", ssw);
-		trap_c(fp);
+	} else {
+		/* In case of a bus error we either kill the process or expect
+		 * the kernel to catch the fault, which then is also responsible
+		 * for cleaning up the mess.
+		 */
+		current->thread.signo = SIGBUS;
+		current->thread.faddr = fp->un.fmt7.faddr;
+		if (send_fault_sig(&fp->ptregs) >= 0)
+			printk("68040 bus error (ssw=%x, faddr=%lx)\n", ssw,
+			       fp->un.fmt7.faddr);
+		goto disable_wb;
 	}
 
 	do_040writebacks(fp);
@@ -700,9 +706,6 @@ static inline void bus_error030 (struct frame *fp)
 			force_sig(SIGSEGV, current);
 			return;
 		} else {
-#if 0
-			static volatile long tlong;
-#endif
 
 			printk("weird %s access at %#lx from pc %#lx (ssw is %#x)\n",
 			       !(ssw & RW) ? "write" : "read", addr,
@@ -714,16 +717,6 @@ static inline void bus_error030 (struct frame *fp)
 			mmusr = temp;
 
 			printk ("level 0 mmusr is %#x\n", mmusr);
-#if 0
-			asm volatile ("pmove %%tt0,%0@"
-				      : /* no outputs */
-				      : "a" (&tlong));
-			printk("tt0 is %#lx, ", tlong);
-			asm volatile ("pmove %%tt1,%0@"
-				      : /* no outputs */
-				      : "a" (&tlong));
-			printk("tt1 is %#lx\n", tlong);
-#endif
 #ifdef DEBUG
 			printk("Unknown SIGSEGV - 1\n");
 #endif
@@ -820,17 +813,17 @@ asmlinkage void buserr_c(struct frame *fp)
 #endif
 
 	switch (fp->ptregs.format) {
-#if defined (CONFIG_M68060)
+#if defined(CONFIG_M68060)
 	case 4:				/* 68060 access error */
 	  access_error060 (fp);
 	  break;
 #endif
-#if defined (CONFIG_M68040)
+#if defined(CONFIG_M68040)
 	case 0x7:			/* 68040 access error */
 	  access_error040 (fp);
 	  break;
 #endif
-#if defined (CPU_M68020_OR_M68030)
+#if defined(CPU_M68020_OR_M68030)
 	case 0xa:
 	case 0xb:
 	  bus_error030 (fp);
@@ -873,8 +866,7 @@ void show_trace(unsigned long *stack)
 			if (i % 5 == 0)
 				printk("\n       ");
 #endif
-			printk(" [<%08lx>]", addr);
-			print_symbol(" %s\n", addr);
+			printk(" [<%08lx>] %pS\n", addr, (void *)addr);
 			i++;
 		}
 	}
@@ -890,17 +882,15 @@ void show_registers(struct pt_regs *regs)
 	int i;
 
 	print_modules();
-	printk("PC: [<%08lx>]",regs->pc);
-	print_symbol(" %s", regs->pc);
-	printk("\nSR: %04x  SP: %p  a2: %08lx\n",
-	       regs->sr, regs, regs->a2);
+	printk("PC: [<%08lx>] %pS\n", regs->pc, (void *)regs->pc);
+	printk("SR: %04x  SP: %p  a2: %08lx\n", regs->sr, regs, regs->a2);
 	printk("d0: %08lx    d1: %08lx    d2: %08lx    d3: %08lx\n",
 	       regs->d0, regs->d1, regs->d2, regs->d3);
 	printk("d4: %08lx    d5: %08lx    a0: %08lx    a1: %08lx\n",
 	       regs->d4, regs->d5, regs->a0, regs->a1);
 
 	printk("Process %s (pid: %d, task=%p)\n",
-		current->comm, current->pid, current);
+		current->comm, task_pid_nr(current), current);
 	addr = (unsigned long)&fp->un;
 	printk("Frame format=%X ", regs->format);
 	switch (regs->format) {
@@ -1038,7 +1028,7 @@ void bad_super_trap (struct frame *fp)
 				fp->un.fmtb.daddr, space_names[ssw & DFC],
 				fp->ptregs.pc);
 	}
-	printk ("Current process id is %d\n", current->pid);
+	printk ("Current process id is %d\n", task_pid_nr(current));
 	die_if_kernel("BAD KERNEL TRAP", &fp->ptregs, 0);
 }
 
@@ -1050,7 +1040,6 @@ asmlinkage void trap_c(struct frame *fp)
 	if (fp->ptregs.sr & PS_S) {
 		if ((fp->ptregs.vector >> 2) == VEC_TRACE) {
 			/* traced a trapping instruction */
-			current->ptrace |= PT_DTRACE;
 		} else
 			bad_super_trap(fp);
 		return;
@@ -1170,6 +1159,7 @@ void die_if_kernel (char *str, struct pt_regs *fp, int nr)
 	console_verbose();
 	printk("%s: %08x\n",str,nr);
 	show_registers(fp);
+	add_taint(TAINT_DIE);
 	do_exit(SIGSEGV);
 }
 

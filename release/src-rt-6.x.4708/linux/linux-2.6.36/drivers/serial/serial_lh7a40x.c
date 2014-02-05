@@ -41,9 +41,10 @@
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/irq.h>
+#include <mach/hardware.h>
 
 #define DEV_MAJOR	204
 #define DEV_MINOR	16
@@ -120,9 +121,6 @@ static void lh7a40xuart_start_tx (struct uart_port* port)
 {
 	BIT_SET (port, UART_R_INTEN, TxInt);
 
-	/* *** FIXME: do I need to check for startup of the
-		      transmitter?  The old driver did, but AMBA
-		      doesn't . */
 }
 
 static void lh7a40xuart_stop_rx (struct uart_port* port)
@@ -137,7 +135,7 @@ static void lh7a40xuart_enable_ms (struct uart_port* port)
 
 static void lh7a40xuart_rx_chars (struct uart_port* port)
 {
-	struct tty_struct* tty = port->info->tty;
+	struct tty_struct* tty = port->state->port.tty;
 	int cbRxMax = 256;	/* (Gross) limit on receive */
 	unsigned int data;	/* Received data and status */
 	unsigned int flag;
@@ -183,7 +181,7 @@ static void lh7a40xuart_rx_chars (struct uart_port* port)
 
 static void lh7a40xuart_tx_chars (struct uart_port* port)
 {
-	struct circ_buf* xmit = &port->info->xmit;
+	struct circ_buf* xmit = &port->state->xmit;
 	int cbTxMax = port->fifosize;
 
 	if (port->x_char) {
@@ -240,7 +238,7 @@ static void lh7a40xuart_modem_status (struct uart_port* port)
 	if (delta & CTS)
 		uart_handle_cts_change (port, status & CTS);
 
-	wake_up_interruptible (&port->info->delta_msr_wait);
+	wake_up_interruptible (&port->state->port.delta_msr_wait);
 }
 
 static irqreturn_t lh7a40xuart_int (int irq, void* dev_id)
@@ -292,18 +290,6 @@ static void lh7a40xuart_set_mctrl (struct uart_port* port, unsigned int mctrl)
 	/* None of the ports supports DTR. UART1 supports RTS through GPIO. */
 	/* Note, kernel appears to be setting DTR and RTS on console. */
 
-	/* *** FIXME: this deserves more work.  There's some work in
-	       tracing all of the IO pins. */
-#if 0
-	if( port->mapbase == UART1_PHYS) {
-		gpioRegs_t *gpio = (gpioRegs_t *)IO_ADDRESS(GPIO_PHYS);
-
-		if (mctrl & TIOCM_RTS)
-			gpio->pbdr &= ~GPIOB_UART1_RTS;
-		else
-			gpio->pbdr |= GPIOB_UART1_RTS;
-	}
-#endif
 }
 
 static void lh7a40xuart_break_ctl (struct uart_port* port, int break_state)
@@ -403,7 +389,6 @@ static void lh7a40xuart_set_termios (struct uart_port* port,
 	if (termios->c_iflag & IGNBRK) {
 		port->ignore_status_mask |= RxBreak;
 		/* Ignore overrun when ignorning parity */
-		/* *** FIXME: is this in the right place? */
 		if (termios->c_iflag & IGNPAR)
 			port->ignore_status_mask |= RxOverrunError;
 	}
@@ -460,9 +445,9 @@ static int lh7a40xuart_verify_port (struct uart_port* port,
 
 	if (ser->type != PORT_UNKNOWN && ser->type != PORT_LH7A40X)
 		ret = -EINVAL;
-	if (ser->irq < 0 || ser->irq >= NR_IRQS)
+	if (ser->irq < 0 || ser->irq >= nr_irqs)
 		ret = -EINVAL;
-	if (ser->baud_base < 9600) /* *** FIXME: is this true? */
+	if (ser->baud_base < 9600)
 		ret = -EINVAL;
 	return ret;
 }

@@ -69,26 +69,25 @@ static int pci_bus_count;
  * but we want to try to avoid allocating at 0x2900-0x2bff
  * which might have be mirrored at 0x0100-0x03ff..
  */
-void
-pcibios_align_resource(void *data, struct resource *res, resource_size_t size,
-    		       resource_size_t align)
+resource_size_t
+pcibios_align_resource(void *data, const struct resource *res,
+		       resource_size_t size, resource_size_t align)
 {
 	struct pci_dev *dev = data;
+	resource_size_t start = res->start;
 
 	if (res->flags & IORESOURCE_IO) {
-		resource_size_t start = res->start;
-
 		if (size > 0x100) {
 			printk(KERN_ERR "PCI: I/O Region %s/%d too large"
 			       " (%ld bytes)\n", pci_name(dev),
 			       dev->resource - res, size);
 		}
 
-		if (start & 0x300) {
+		if (start & 0x300)
 			start = (start + 0x3ff) & ~0x3ff;
-			res->start = start;
-		}
 	}
+
+	return start;
 }
 
 int
@@ -286,17 +285,6 @@ pci_controller_num(struct pci_dev *dev)
  *  -- paulus.
  */
 
-/*
- * Adjust vm_pgoff of VMA such that it is the physical page offset
- * corresponding to the 32-bit pci bus offset for DEV requested by the user.
- *
- * Basically, the user finds the base address for his device which he wishes
- * to mmap.  They read the 32-bit value from the config space base register,
- * add whatever PAGE_SIZE multiple offset they wish, and feed this into the
- * offset parameter of mmap on /proc/bus/pci/XXX for that device.
- *
- * Returns negative error code on failure, zero on success.
- */
 static __inline__ int
 __pci_mmap_make_offset(struct pci_dev *dev, struct vm_area_struct *vma,
 		       enum pci_mmap_state mmap_state)
@@ -360,10 +348,6 @@ __pci_mmap_set_pgprot(struct pci_dev *dev, struct vm_area_struct *vma,
 
 	/* Set to write-through */
 	prot &= ~_PAGE_NO_CACHE;
-#if 0
-	if (!write_combine)
-		prot |= _PAGE_WRITETHRU;
-#endif
 	vma->vm_page_prot = __pgprot(prot);
 }
 
@@ -394,72 +378,3 @@ int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 
 	return ret;
 }
-
-/*
- * This probably belongs here rather than ioport.c because
- * we do not want this crud linked into SBus kernels.
- * Also, think for a moment about likes of floppy.c that
- * include architecture specific parts. They may want to redefine ins/outs.
- *
- * We do not use horrible macros here because we want to
- * advance pointer by sizeof(size).
- */
-void outsb(unsigned long addr, const void *src, unsigned long count) {
-        while (count) {
-                count -= 1;
-                writeb(*(const char *)src, addr);
-                src += 1;
-                addr += 1;
-        }
-}
-
-void outsw(unsigned long addr, const void *src, unsigned long count) {
-        while (count) {
-                count -= 2;
-                writew(*(const short *)src, addr);
-                src += 2;
-                addr += 2;
-        }
-}
-
-void outsl(unsigned long addr, const void *src, unsigned long count) {
-        while (count) {
-                count -= 4;
-                writel(*(const long *)src, addr);
-                src += 4;
-                addr += 4;
-        }
-}
-
-void insb(unsigned long addr, void *dst, unsigned long count) {
-        while (count) {
-                count -= 1;
-                *(unsigned char *)dst = readb(addr);
-                dst += 1;
-                addr += 1;
-        }
-}
-
-void insw(unsigned long addr, void *dst, unsigned long count) {
-        while (count) {
-                count -= 2;
-                *(unsigned short *)dst = readw(addr);
-                dst += 2;
-                addr += 2;
-        }
-}
-
-void insl(unsigned long addr, void *dst, unsigned long count) {
-        while (count) {
-                count -= 4;
-                /*
-                 * XXX I am sure we are in for an unaligned trap here.
-                 */
-                *(unsigned long *)dst = readl(addr);
-                dst += 4;
-                addr += 4;
-        }
-}
-
-
-

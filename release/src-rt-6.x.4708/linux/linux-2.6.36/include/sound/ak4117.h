@@ -3,7 +3,7 @@
 
 /*
  *  Routines for Asahi Kasei AK4117
- *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>,
+ *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>,
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -186,4 +186,3 @@ int snd_ak4117_external_rate(struct ak4117 *ak4117);
 int snd_ak4117_check_rate_and_errors(struct ak4117 *ak4117, unsigned int flags);
 
 #endif /* __SOUND_AK4117_H */
-

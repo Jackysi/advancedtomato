@@ -13,7 +13,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/fb.h>
 #include <linux/ioport.h>
@@ -174,8 +173,17 @@ static int vesafb_setcolreg(unsigned regno, unsigned red, unsigned green,
 	return err;
 }
 
+static void vesafb_destroy(struct fb_info *info)
+{
+	if (info->screen_base)
+		iounmap(info->screen_base);
+	release_mem_region(info->apertures->ranges[0].base, info->apertures->ranges[0].size);
+	framebuffer_release(info);
+}
+
 static struct fb_ops vesafb_ops = {
 	.owner		= THIS_MODULE,
+	.fb_destroy     = vesafb_destroy,
 	.fb_setcolreg	= vesafb_setcolreg,
 	.fb_pan_display	= vesafb_pan_display,
 	.fb_fillrect	= cfb_fillrect,
@@ -286,6 +294,15 @@ static int __init vesafb_probe(struct platform_device *dev)
 	info->pseudo_palette = info->par;
 	info->par = NULL;
 
+	/* set vesafb aperture size for generic probing */
+	info->apertures = alloc_apertures(1);
+	if (!info->apertures) {
+		err = -ENOMEM;
+		goto err;
+	}
+	info->apertures->ranges[0].base = screen_info.lfb_base;
+	info->apertures->ranges[0].size = size_total;
+
 	info->screen_base = ioremap(vesafb_fix.smem_start, vesafb_fix.smem_len);
 	if (!info->screen_base) {
 		printk(KERN_ERR
@@ -390,8 +407,6 @@ static int __init vesafb_probe(struct platform_device *dev)
 	vesafb_fix.ypanstep  = ypan     ? 1 : 0;
 	vesafb_fix.ywrapstep = (ypan>1) ? 1 : 0;
 
-	/* request failure does not faze us, as vgacon probably has this
-	 * region already (FIXME) */
 	request_region(0x3c0, 32, "vesafb");
 
 #ifdef CONFIG_MTRR
@@ -437,8 +452,8 @@ static int __init vesafb_probe(struct platform_device *dev)
 	info->fbops = &vesafb_ops;
 	info->var = vesafb_defined;
 	info->fix = vesafb_fix;
-	info->flags = FBINFO_FLAG_DEFAULT |
-		(ypan) ? FBINFO_HWACCEL_YPAN : 0;
+	info->flags = FBINFO_FLAG_DEFAULT | FBINFO_MISC_FIRMWARE |
+		(ypan ? FBINFO_HWACCEL_YPAN : 0);
 
 	if (!ypan)
 		info->fbops->fb_pan_display = NULL;
@@ -464,7 +479,6 @@ err:
 }
 
 static struct platform_driver vesafb_driver = {
-	.probe	= vesafb_probe,
 	.driver	= {
 		.name	= "vesafb",
 	},
@@ -480,20 +494,21 @@ static int __init vesafb_init(void)
 	/* ignore error return of fb_get_options */
 	fb_get_options("vesafb", &option);
 	vesafb_setup(option);
-	ret = platform_driver_register(&vesafb_driver);
 
+	vesafb_device = platform_device_alloc("vesafb", 0);
+	if (!vesafb_device)
+		return -ENOMEM;
+
+	ret = platform_device_add(vesafb_device);
 	if (!ret) {
-		vesafb_device = platform_device_alloc("vesafb", 0);
+		ret = platform_driver_probe(&vesafb_driver, vesafb_probe);
+		if (ret)
+			platform_device_del(vesafb_device);
+	}
 
-		if (vesafb_device)
-			ret = platform_device_add(vesafb_device);
-		else
-			ret = -ENOMEM;
-
-		if (ret) {
-			platform_device_put(vesafb_device);
-			platform_driver_unregister(&vesafb_driver);
-		}
+	if (ret) {
+		platform_device_put(vesafb_device);
+		vesafb_device = NULL;
 	}
 
 	return ret;

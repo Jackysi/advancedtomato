@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom CTF
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -34,7 +34,7 @@ endif
 
 ifeq (,${KERNELRELEASE})
   # Normal makefile
-  KERNELDIR := ../../../../../linux/linux-2.6
+  KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
 
   .PHONY: all clean
   all clean :
@@ -44,9 +44,9 @@ endif
 PHONY += $(src)/ctf_ksyms.c
 
 quiet_cmd_ksyms = CALL    $<
-      cmd_ksyms = $(CONFIG_SHELL) -e $< $(SYMOBJ) > $@
+      cmd_ksyms = $(CONFIG_SHELL) -e $< $(src)/$(SYMOBJ) > $@
 
 $(src)/ctf_ksyms.c: $(src)/ctf_ksyms.sh $(src)/$(SYMOBJ) FORCE
 	$(call cmd,ksyms)
 
-clean-files += $(src)/$(CTFSRC)/*.o $(src)/$(CTFSRC)/.*.o.cmd
+clean-files += $(CTFSRC)/*.o $(CTFSRC)/.*.o.cmd

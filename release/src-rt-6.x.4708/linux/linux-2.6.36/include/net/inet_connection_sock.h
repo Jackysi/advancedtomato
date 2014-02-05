@@ -29,7 +29,6 @@
 #undef INET_CSK_CLEAR_TIMERS
 
 struct inet_bind_bucket;
-struct inet_hashinfo;
 struct tcp_congestion_ops;
 
 /*
@@ -37,9 +36,8 @@ struct tcp_congestion_ops;
  * (i.e. things that depend on the address family)
  */
 struct inet_connection_sock_af_ops {
-	int	    (*queue_xmit)(struct sk_buff *skb, int ipfragok);
-	void	    (*send_check)(struct sock *sk, int len,
-				  struct sk_buff *skb);
+	int	    (*queue_xmit)(struct sk_buff *skb);
+	void	    (*send_check)(struct sock *sk, struct sk_buff *skb);
 	int	    (*rebuild_header)(struct sock *sk);
 	int	    (*conn_request)(struct sock *sk, struct sk_buff *skb);
 	struct sock *(*syn_recv_sock)(struct sock *sk, struct sk_buff *skb,
@@ -49,16 +47,20 @@ struct inet_connection_sock_af_ops {
 	u16	    net_header_len;
 	u16	    sockaddr_len;
 	int	    (*setsockopt)(struct sock *sk, int level, int optname, 
-				  char __user *optval, int optlen);
+				  char __user *optval, unsigned int optlen);
 	int	    (*getsockopt)(struct sock *sk, int level, int optname, 
 				  char __user *optval, int __user *optlen);
+#ifdef CONFIG_COMPAT
 	int	    (*compat_setsockopt)(struct sock *sk,
 				int level, int optname,
-				char __user *optval, int optlen);
+				char __user *optval, unsigned int optlen);
 	int	    (*compat_getsockopt)(struct sock *sk,
 				int level, int optname,
 				char __user *optval, int __user *optlen);
+#endif
 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
+	int	    (*bind_conflict)(const struct sock *sk,
+				     const struct inet_bind_bucket *tb);
 };
 
 /** inet_connection_sock - INET connection oriented sock
@@ -244,10 +246,7 @@ extern struct request_sock *inet_csk_search_req(const struct sock *sk,
 						const __be32 laddr);
 extern int inet_csk_bind_conflict(const struct sock *sk,
 				  const struct inet_bind_bucket *tb);
-extern int inet_csk_get_port(struct inet_hashinfo *hashinfo,
-			     struct sock *sk, unsigned short snum,
-			     int (*bind_conflict)(const struct sock *sk,
-						  const struct inet_bind_bucket *tb));
+extern int inet_csk_get_port(struct sock *sk, unsigned short snum);
 
 extern struct dst_entry* inet_csk_route_req(struct sock *sk,
 					    const struct request_sock *req);
@@ -329,13 +328,8 @@ extern void inet_csk_listen_stop(struct sock *sk);
 
 extern void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr);
 
-extern int inet_csk_ctl_sock_create(struct socket **sock,
-				    unsigned short family,
-				    unsigned short type,
-				    unsigned char protocol);
-
 extern int inet_csk_compat_getsockopt(struct sock *sk, int level, int optname,
 				      char __user *optval, int __user *optlen);
 extern int inet_csk_compat_setsockopt(struct sock *sk, int level, int optname,
-				      char __user *optval, int optlen);
+				      char __user *optval, unsigned int optlen);
 #endif /* _INET_CONNECTION_SOCK_H */

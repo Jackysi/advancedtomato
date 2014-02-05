@@ -30,6 +30,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/list.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
@@ -65,7 +66,7 @@ struct it_dma_prg {
 	struct dma_cmd begin;
 	quadlet_t data[4];
 	struct dma_cmd end;
-	quadlet_t pad[4]; /* FIXME: quick hack for memory alignment */
+	quadlet_t pad[4];
 };
 
 struct dma_iso_ctx {
@@ -546,10 +547,6 @@ static inline void put_timestamp(struct ti_ohci *ohci, struct dma_iso_ctx * d,
 	    buf[7] = timeStamp & 0xff;
 	}
 
-#if 0
-	printk("curr: %d, next: %d, cycleTimer: %08x timeStamp: %08x\n",
-	       curr, n, cycleTimer, timeStamp);
-#endif
 }
 
 static void wakeup_dma_it_ctx(unsigned long l)
@@ -649,11 +646,6 @@ static void initialize_dma_it_prg_var_packet_queue(
 	struct dma_prog_region *it_reg = &d->prg_reg[n];
 	int i;
 
-#if 0
-	if (n != -1) {
-		put_timestamp(ohci, d, n);
-	}
-#endif
 	d->last_used_cmd[n] = d->nb_cmd - 1;
 
 	for (i = 0; i < d->nb_cmd; i++) {
@@ -719,7 +711,7 @@ static inline unsigned video1394_buffer_state(struct dma_iso_ctx *d,
 static long video1394_ioctl(struct file *file,
 			    unsigned int cmd, unsigned long arg)
 {
-	struct file_ctx *ctx = (struct file_ctx *)file->private_data;
+	struct file_ctx *ctx = file->private_data;
 	struct ti_ohci *ohci = ctx->ohci;
 	unsigned long flags;
 	void __user *argp = (void __user *)arg;
@@ -835,7 +827,6 @@ static long video1394_ioctl(struct file *file,
 		}
 
 		if (copy_to_user(argp, &v, sizeof(v))) {
-			/* FIXME : free allocated dma resources */
 			return -EFAULT;
 		}
 		
@@ -893,7 +884,7 @@ static long video1394_ioctl(struct file *file,
 		if (unlikely(d == NULL))
 			return -EFAULT;
 
-		if (unlikely((v.buffer<0) || (v.buffer>=d->num_desc - 1))) {
+		if (unlikely(v.buffer >= d->num_desc - 1)) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -959,7 +950,7 @@ static long video1394_ioctl(struct file *file,
 		if (unlikely(d == NULL))
 			return -EFAULT;
 
-		if (unlikely((v.buffer<0) || (v.buffer>d->num_desc - 1))) {
+		if (unlikely(v.buffer > d->num_desc - 1)) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -1030,7 +1021,7 @@ static long video1394_ioctl(struct file *file,
 		d = find_ctx(&ctx->context_list, OHCI_ISO_TRANSMIT, v.channel);
 		if (d == NULL) return -EFAULT;
 
-		if ((v.buffer<0) || (v.buffer>=d->num_desc - 1)) {
+		if (v.buffer >= d->num_desc - 1) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -1044,14 +1035,9 @@ static long video1394_ioctl(struct file *file,
 			if (get_user(qv, &p->packet_sizes))
 				return -EFAULT;
 
-			psizes = kmalloc(buf_size, GFP_KERNEL);
-			if (!psizes)
-				return -ENOMEM;
-
-			if (copy_from_user(psizes, qv, buf_size)) {
-				kfree(psizes);
-				return -EFAULT;
-			}
+			psizes = memdup_user(qv, buf_size);
+			if (IS_ERR(psizes))
+				return PTR_ERR(psizes);
 		}
 
 		spin_lock_irqsave(&d->lock,flags);
@@ -1137,7 +1123,7 @@ static long video1394_ioctl(struct file *file,
 		d = find_ctx(&ctx->context_list, OHCI_ISO_TRANSMIT, v.channel);
 		if (d == NULL) return -EFAULT;
 
-		if ((v.buffer<0) || (v.buffer>=d->num_desc-1)) {
+		if (v.buffer >= d->num_desc - 1) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -1165,18 +1151,10 @@ static long video1394_ioctl(struct file *file,
 	}
 }
 
-/*
- *	This maps the vmalloced and reserved buffer to user space.
- *
- *  FIXME:
- *  - PAGE_READONLY should suffice!?
- *  - remap_pfn_range is kind of inefficient for page by page remapping.
- *    But e.g. pte_alloc() does not work in modules ... :-(
- */
 
 static int video1394_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct file_ctx *ctx = (struct file_ctx *)file->private_data;
+	struct file_ctx *ctx = file->private_data;
 
 	if (ctx->current_ctx == NULL) {
 		PRINT(KERN_ERR, ctx->ohci->host->id,
@@ -1238,12 +1216,12 @@ static int video1394_open(struct inode *inode, struct file *file)
 	ctx->current_ctx = NULL;
 	file->private_data = ctx;
 
-	return 0;
+	return nonseekable_open(inode, file);
 }
 
 static int video1394_release(struct inode *inode, struct file *file)
 {
-	struct file_ctx *ctx = (struct file_ctx *)file->private_data;
+	struct file_ctx *ctx = file->private_data;
 	struct ti_ohci *ohci = ctx->ohci;
 	struct list_head *lh, *next;
 	u64 mask;
@@ -1286,14 +1264,16 @@ static const struct file_operations video1394_fops=
 	.poll =		video1394_poll,
 	.mmap =		video1394_mmap,
 	.open =		video1394_open,
-	.release =	video1394_release
+	.release =	video1394_release,
+	.llseek =	no_llseek,
 };
 
 /*** HOTPLUG STUFF **********************************************************/
 /*
  * Export information about protocols/devices supported by this driver.
  */
-static struct ieee1394_device_id video1394_id_table[] = {
+#ifdef MODULE
+static const struct ieee1394_device_id video1394_id_table[] = {
 	{
 		.match_flags	= IEEE1394_MATCH_SPECIFIER_ID | IEEE1394_MATCH_VERSION,
 		.specifier_id	= CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
@@ -1313,10 +1293,10 @@ static struct ieee1394_device_id video1394_id_table[] = {
 };
 
 MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);
+#endif /* MODULE */
 
 static struct hpsb_protocol_driver video1394_driver = {
-	.name		= VIDEO1394_DRIVER_NAME,
-	.id_table	= video1394_id_table,
+	.name = VIDEO1394_DRIVER_NAME,
 };
 
 
@@ -1340,9 +1320,8 @@ static void video1394_add_host (struct hpsb_host *host)
 	hpsb_set_hostinfo_key(&video1394_highlevel, host, ohci->host->id);
 
 	minor = IEEE1394_MINOR_BLOCK_VIDEO1394 * 16 + ohci->host->id;
-	class_device_create(hpsb_protocol_class, NULL, MKDEV(
-		IEEE1394_MAJOR,	minor), 
-		NULL, "%s-%d", VIDEO1394_DRIVER_NAME, ohci->host->id);
+	device_create(hpsb_protocol_class, NULL, MKDEV(IEEE1394_MAJOR, minor),
+		      NULL, "%s-%d", VIDEO1394_DRIVER_NAME, ohci->host->id);
 }
 
 
@@ -1351,8 +1330,8 @@ static void video1394_remove_host (struct hpsb_host *host)
 	struct ti_ohci *ohci = hpsb_get_hostinfo(&video1394_highlevel, host);
 
 	if (ohci)
-		class_device_destroy(hpsb_protocol_class, MKDEV(IEEE1394_MAJOR,
-			IEEE1394_MINOR_BLOCK_VIDEO1394 * 16 + ohci->host->id));
+		device_destroy(hpsb_protocol_class, MKDEV(IEEE1394_MAJOR,
+			       IEEE1394_MINOR_BLOCK_VIDEO1394 * 16 + ohci->host->id));
 	return;
 }
 
@@ -1502,9 +1481,10 @@ static int __init video1394_init_module (void)
 {
 	int ret;
 
+	hpsb_init_highlevel(&video1394_highlevel);
+
 	cdev_init(&video1394_cdev, &video1394_fops);
 	video1394_cdev.owner = THIS_MODULE;
-	kobject_set_name(&video1394_cdev.kobj, VIDEO1394_DRIVER_NAME);
 	ret = cdev_add(&video1394_cdev, IEEE1394_VIDEO1394_DEV, 16);
 	if (ret) {
 		PRINT_G(KERN_ERR, "video1394: unable to get minor device block");

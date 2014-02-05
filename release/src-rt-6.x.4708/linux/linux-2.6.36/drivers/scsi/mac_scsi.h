@@ -80,4 +80,3 @@
 #endif /* ndef HOSTS_C */
 #endif /* ndef ASM */
 #endif /* MAC_NCR5380_H */
-

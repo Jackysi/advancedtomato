@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/mm.h>
+#include <linux/seq_file.h>
 #include <linux/console.h>
 #include <linux/init.h>
 
@@ -22,7 +23,6 @@
 #include "time.h"
 
 volatile char *clock_va;
-extern volatile unsigned char *sun3_intreg;
 
 extern void sun3_get_model(char *model);
 
@@ -31,16 +31,9 @@ void sun3_leds(unsigned int i)
 
 }
 
-static int sun3x_get_hardware_list(char *buffer)
+static void sun3x_get_hardware_list(struct seq_file *m)
 {
-
-	int len = 0;
-
-	len += sprintf(buffer + len, "PROM Revision:\t%s\n",
-		       romvec->pv_monid);
-
-	return len;
-
+	seq_printf(m, "PROM Revision:\t%s\n", romvec->pv_monid);
 }
 
 /*
@@ -66,22 +59,5 @@ void __init config_sun3x(void)
 	sun3_intreg = (unsigned char *)SUN3X_INTREG;
 
 	/* only the serial console is known to work anyway... */
-#if 0
-	switch (*(unsigned char *)SUN3X_EEPROM_CONS) {
-	case 0x10:
-		serial_console = 1;
-		conswitchp = NULL;
-		break;
-	case 0x11:
-		serial_console = 2;
-		conswitchp = NULL;
-		break;
-	default:
-		serial_console = 0;
-		conswitchp = &dummy_con;
-		break;
-	}
-#endif
 
 }
-

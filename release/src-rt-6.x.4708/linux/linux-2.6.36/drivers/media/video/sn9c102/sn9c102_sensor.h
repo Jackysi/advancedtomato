@@ -76,18 +76,8 @@ extern void
 sn9c102_attach_sensor(struct sn9c102_device* cam,
 		      const struct sn9c102_sensor* sensor);
 
-/*
-   Read/write routines: they always return -1 on error, 0 or the read value
-   otherwise. NOTE that a real read operation is not supported by the SN9C1XX
-   chip for some of its registers. To work around this problem, a pseudo-read
-   call is provided instead: it returns the last successfully written value
-   on the register (0 if it has never been written), the usual -1 on error.
-*/
 
 /* The "try" I2C I/O versions are used when probing the sensor */
-extern int sn9c102_i2c_try_write(struct sn9c102_device*,
-				 const struct sn9c102_sensor*, u8 address,
-				 u8 value);
 extern int sn9c102_i2c_try_read(struct sn9c102_device*,
 				const struct sn9c102_sensor*, u8 address);
 
@@ -123,10 +113,10 @@ extern int sn9c102_write_regs(struct sn9c102_device*, const u8 valreg[][2],
 /*
    Write multiple registers with constant values. For example:
    sn9c102_write_const_regs(cam, {0x00, 0x14}, {0x60, 0x17}, {0x0f, 0x18});
-   Register adresses must be < 256.
+   Register addresses must be < 256.
 */
 #define sn9c102_write_const_regs(sn9c102_device, data...)                     \
-	({ const static u8 _valreg[][2] = {data};                             \
+	({ static const u8 _valreg[][2] = {data};                             \
 	sn9c102_write_regs(sn9c102_device, _valreg, ARRAY_SIZE(_valreg)); })
 
 /*****************************************************************************/

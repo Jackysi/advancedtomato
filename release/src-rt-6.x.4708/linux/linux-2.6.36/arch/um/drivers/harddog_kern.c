@@ -66,10 +66,11 @@ static int harddog_open(struct inode *inode, struct file *file)
 	int err = -EBUSY;
 	char *sock = NULL;
 
+	lock_kernel();
 	spin_lock(&lock);
 	if(timer_alive)
 		goto err;
-#ifdef CONFIG_HARDDOG_NOWAYOUT
+#ifdef CONFIG_WATCHDOG_NOWAYOUT
 	__module_get(THIS_MODULE);
 #endif
 
@@ -82,9 +83,11 @@ static int harddog_open(struct inode *inode, struct file *file)
 
 	timer_alive = 1;
 	spin_unlock(&lock);
+	unlock_kernel();
 	return nonseekable_open(inode, file);
 err:
 	spin_unlock(&lock);
+	unlock_kernel();
 	return err;
 }
 
@@ -121,8 +124,8 @@ static ssize_t harddog_write(struct file *file, const char __user *data, size_t 
 	return 0;
 }
 
-static int harddog_ioctl(struct inode *inode, struct file *file,
-			 unsigned int cmd, unsigned long arg)
+static int harddog_ioctl_unlocked(struct file *file,
+				  unsigned int cmd, unsigned long arg)
 {
 	void __user *argp= (void __user *)arg;
 	static struct watchdog_info ident = {
@@ -145,10 +148,22 @@ static int harddog_ioctl(struct inode *inode, struct file *file,
 	}
 }
 
+static long harddog_ioctl(struct file *file,
+			  unsigned int cmd, unsigned long arg)
+{
+	long ret;
+
+	lock_kernel();
+	ret = harddog_ioctl_unlocked(file, cmd, arg);
+	unlock_kernel();
+
+	return ret;
+}
+
 static const struct file_operations harddog_fops = {
 	.owner		= THIS_MODULE,
 	.write		= harddog_write,
-	.ioctl		= harddog_ioctl,
+	.unlocked_ioctl	= harddog_ioctl,
 	.open		= harddog_open,
 	.release	= harddog_release,
 };

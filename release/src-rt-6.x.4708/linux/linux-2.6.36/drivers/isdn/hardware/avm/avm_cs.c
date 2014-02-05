@@ -1,4 +1,4 @@
-/* $Id: avm_cs.c,v 1.4.6.3 2001/09/23 22:24:33 kai Exp $
+/* $Id: avm_cs.c,v 1.4.6.3 2001/09/23 22:24:33 Exp $
  *
  * A PCMCIA client driver for AVM B1/M1/M2
  *
@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/ptrace.h>
-#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/tty.h>
 #include <linux/serial.h>
@@ -21,7 +20,6 @@
 #include <asm/io.h>
 #include <asm/system.h>
 
-#include <pcmcia/cs_types.h>
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>
 #include <pcmcia/ciscode.h>
@@ -61,31 +59,6 @@ static void avmcs_release(struct pcmcia_device *link);
 
 static void avmcs_detach(struct pcmcia_device *p_dev);
 
-/*
-   A linked list of "instances" of the skeleton device.  Each actual
-   PCMCIA card corresponds to one device instance, and is described
-   by one struct pcmcia_device structure (defined in ds.h).
-
-   You may not want to use a linked list for this -- for example, the
-   memory card driver uses an array of struct pcmcia_device pointers, where minor
-   device numbers are used to derive the corresponding array index.
-*/
-
-/*
-   A driver needs to provide a dev_node_t structure for each device
-   on a card.  In some cases, there is only one device per card (for
-   example, ethernet cards, modems).  In other cases, there may be
-   many actual or logical devices (SCSI adapters, memory cards with
-   multiple partitions).  The dev_node_t structures need to be kept
-   in a linked list starting at the 'dev' field of a struct pcmcia_device
-   structure.  We allocate them in the card's private data structure,
-   because they generally can't be allocated dynamically.
-*/
-   
-typedef struct local_info_t {
-    dev_node_t	node;
-} local_info_t;
-
 /*======================================================================
 
     avmcs_attach() creates an "instance" of the driver, allocating
@@ -100,18 +73,10 @@ typedef struct local_info_t {
 
 static int avmcs_probe(struct pcmcia_device *p_dev)
 {
-    local_info_t *local;
 
     /* The io structure describes IO port mapping */
-    p_dev->io.NumPorts1 = 16;
-    p_dev->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
-    p_dev->io.NumPorts2 = 0;
-
-    /* Interrupt setup */
-    p_dev->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
-    p_dev->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING|IRQ_FIRST_SHARED;
-
-    p_dev->irq.IRQInfo1 = IRQ_LEVEL_ID;
+    p_dev->resource[0]->end = 16;
+    p_dev->resource[0]->flags |= IO_DATA_PATH_WIDTH_8;
 
     /* General socket configuration */
     p_dev->conf.Attributes = CONF_ENABLE_IRQ;
@@ -119,16 +84,7 @@ static int avmcs_probe(struct pcmcia_device *p_dev)
     p_dev->conf.ConfigIndex = 1;
     p_dev->conf.Present = PRESENT_OPTION;
 
-    /* Allocate space for private device-specific data */
-    local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
-    if (!local)
-        goto err;
-    p_dev->priv = local;
-
     return avmcs_config(p_dev);
-
- err:
-    return -ENOMEM;
 } /* avmcs_attach */
 
 /*======================================================================
@@ -143,7 +99,6 @@ static int avmcs_probe(struct pcmcia_device *p_dev)
 static void avmcs_detach(struct pcmcia_device *link)
 {
 	avmcs_release(link);
-	kfree(link->priv);
 } /* avmcs_detach */
 
 /*======================================================================
@@ -154,84 +109,39 @@ static void avmcs_detach(struct pcmcia_device *link)
     
 ======================================================================*/
 
-static int get_tuple(struct pcmcia_device *handle, tuple_t *tuple,
-		     cisparse_t *parse)
+static int avmcs_configcheck(struct pcmcia_device *p_dev,
+			     cistpl_cftable_entry_t *cf,
+			     cistpl_cftable_entry_t *dflt,
+			     unsigned int vcc,
+			     void *priv_data)
 {
-    int i = pcmcia_get_tuple_data(handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    return pcmcia_parse_tuple(handle, tuple, parse);
-}
+	if (cf->io.nwin <= 0)
+		return -ENODEV;
 
-static int first_tuple(struct pcmcia_device *handle, tuple_t *tuple,
-		     cisparse_t *parse)
-{
-    int i = pcmcia_get_first_tuple(handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    return get_tuple(handle, tuple, parse);
-}
-
-static int next_tuple(struct pcmcia_device *handle, tuple_t *tuple,
-		     cisparse_t *parse)
-{
-    int i = pcmcia_get_next_tuple(handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    return get_tuple(handle, tuple, parse);
+	p_dev->resource[0]->start = cf->io.win[0].base;
+	p_dev->resource[0]->end = cf->io.win[0].len;
+	return pcmcia_request_io(p_dev);
 }
 
 static int avmcs_config(struct pcmcia_device *link)
 {
-    tuple_t tuple;
-    cisparse_t parse;
-    cistpl_cftable_entry_t *cf = &parse.cftable_entry;
-    local_info_t *dev;
-    int i;
-    u_char buf[64];
+    int i = -1;
     char devname[128];
     int cardtype;
     int (*addcard)(unsigned int port, unsigned irq);
 
-    dev = link->priv;
+    devname[0] = 0;
+    if (link->prod_id[1])
+	    strlcpy(devname, link->prod_id[1], sizeof(devname));
+
+    /*
+     * find IO port
+     */
+    if (pcmcia_loop_config(link, avmcs_configcheck, NULL))
+	    return -ENODEV;
 
     do {
-	devname[0] = 0;
-	if (link->prod_id[1])
-		strlcpy(devname, link->prod_id[1], sizeof(devname));
-
-	/*
-         * find IO port
-         */
-	tuple.TupleData = (cisdata_t *)buf;
-	tuple.TupleOffset = 0; tuple.TupleDataMax = 255;
-	tuple.Attributes = 0;
-	tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
-	i = first_tuple(link, &tuple, &parse);
-	while (i == CS_SUCCESS) {
-	    if (cf->io.nwin > 0) {
-		link->conf.ConfigIndex = cf->index;
-		link->io.BasePort1 = cf->io.win[0].base;
-		link->io.NumPorts1 = cf->io.win[0].len;
-		link->io.NumPorts2 = 0;
-                printk(KERN_INFO "avm_cs: testing i/o %#x-%#x\n",
-			link->io.BasePort1,
-		        link->io.BasePort1+link->io.NumPorts1-1);
-		i = pcmcia_request_io(link, &link->io);
-		if (i == CS_SUCCESS) goto found_port;
-	    }
-	    i = next_tuple(link, &tuple, &parse);
-	}
-
-found_port:
-	if (i != CS_SUCCESS) {
-	    cs_error(link, RequestIO, i);
-	    break;
-	}
-
-	/*
-	 * allocate an interrupt line
-	 */
-	i = pcmcia_request_irq(link, &link->irq);
-	if (i != CS_SUCCESS) {
-	    cs_error(link, RequestIRQ, i);
+	if (!link->irq) {
 	    /* undo */
 	    pcmcia_disable_device(link);
 	    break;
@@ -241,23 +151,18 @@ found_port:
          * configure the PCMCIA socket
 	  */
 	i = pcmcia_request_configuration(link, &link->conf);
-	if (i != CS_SUCCESS) {
-	    cs_error(link, RequestConfiguration, i);
+	if (i != 0) {
 	    pcmcia_disable_device(link);
 	    break;
 	}
 
     } while (0);
 
-    /* At this point, the dev_node_t structure(s) should be
-       initialized and arranged in a linked list at link->dev. */
-
     if (devname[0]) {
 	char *s = strrchr(devname, ' ');
 	if (!s)
 	   s = devname;
 	else s++;
-	strcpy(dev->node.dev_name, s);
         if (strcmp("M1", s) == 0) {
            cardtype = AVM_CARDTYPE_M1;
         } else if (strcmp("M2", s) == 0) {
@@ -265,14 +170,8 @@ found_port:
 	} else {
            cardtype = AVM_CARDTYPE_B1;
 	}
-    } else {
-        strcpy(dev->node.dev_name, "b1");
+    } else
         cardtype = AVM_CARDTYPE_B1;
-    }
-
-    dev->node.major = 64;
-    dev->node.minor = 0;
-    link->dev_node = &dev->node;
 
     /* If any step failed, release any partially configured state */
     if (i != 0) {
@@ -287,13 +186,13 @@ found_port:
 	default:
         case AVM_CARDTYPE_B1: addcard = b1pcmcia_addcard_b1; break;
     }
-    if ((i = (*addcard)(link->io.BasePort1, link->irq.AssignedIRQ)) < 0) {
-        printk(KERN_ERR "avm_cs: failed to add AVM-%s-Controller at i/o %#x, irq %d\n",
-		dev->node.dev_name, link->io.BasePort1, link->irq.AssignedIRQ);
-	avmcs_release(link);
-	return -ENODEV;
+    if ((i = (*addcard)(link->resource[0]->start, link->irq)) < 0) {
+	    dev_err(&link->dev,
+		    "avm_cs: failed to add AVM-Controller at i/o %#x, irq %d\n",
+		    (unsigned int) link->resource[0]->start, link->irq);
+	    avmcs_release(link);
+	    return -ENODEV;
     }
-    dev->node.minor = i;
     return 0;
 
 } /* avmcs_config */
@@ -308,7 +207,7 @@ found_port:
 
 static void avmcs_release(struct pcmcia_device *link)
 {
-	b1pcmcia_delcard(link->io.BasePort1, link->irq.AssignedIRQ);
+	b1pcmcia_delcard(link->resource[0]->start, link->irq);
 	pcmcia_disable_device(link);
 } /* avmcs_release */
 
