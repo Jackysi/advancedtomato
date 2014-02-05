@@ -48,7 +48,11 @@ void LzmaEncProps_Init(CLzmaEncProps *p)
  * The lzma_compression_level is between 1 to 5 and dictionary size is 
  * (1<< (lzma_compression_level*2+14)).
  */
+#if 0
+  p->level = 5;;
+#else
 	p->level = 1;
+#endif
   p->dictSize = p->mc = 0;
   p->lc = p->lp = p->pb = p->algo = p->fb = p->btMode = p->numHashBytes = p->numThreads = -1;
   p->writeEndMark = 0;
