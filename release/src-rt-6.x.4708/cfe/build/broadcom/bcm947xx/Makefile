@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom BCM947XX boards
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -15,8 +15,12 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Makefile 321505 2012-03-15 16:06:17Z $
+# $Id: Makefile 398971 2013-04-26 22:39:49Z $
 #
+
+ARCH ?= arm
+CPU ?= bcmcore
+BOARD := bcm947xx
 
 # Standard options
 CFG_MLONG64 := 0
@@ -26,16 +30,21 @@ CFG_UNCACHED := 0
 CFG_VAPI := 0 
 CFG_BOARDNAME := "BCM947XX"
 CFG_PCI ?= 0
-CFG_ZLIB := 1
+CFG_ZLIB := 0
 CFG_LZMA := 1
 CFG_MINIMAL_SIZE := 1
 CFG_CFLASH := 1
 CFG_XIP := 0
 CFG_ATE := 0
+CFG_LDR_SREC := 0
+CFG_LDR_ELF := 0
+CFG_ROMBOOT ?= 0
+CFG_SHMOO := 1
 
 # BCM947XX options
 CFG_BCMHND74K ?= 0
 CFG_EMBEDDED_NVRAM := 1
+CFG_OTPNVRAM := 0
 CFG_FLASH := 1   # if CFG_XIP is set then CFG_FLASH must be set to 0
 CFG_SFLASH := 1
 CFG_NFLASH := 1
@@ -43,7 +52,7 @@ ifeq ($(strip $(CFG_NFLASH)),1)
 CFG_FLASH_ERASE := 1
 endif
 CFG_ET := 1
-CFG_GMAC ?= 1	# CFG_GMAC requires CFG_ET
+CFG_GMAC ?= 0	# CFG_GMAC requires CFG_ET
 CFG_WL := 0
 CFG_WLU := 0
 CFG_SIM := 0	# build for Quickturn/Simulator
@@ -54,16 +63,16 @@ CFG_ET := 0
 else
 CFG_BCM57XX := 0
 endif
+CFG_FAILSAFE_UPGRADE ?= 1   # Default on, can be turned off with CFG_FAILSAFE_UPGRADE=0
 # CFG_DUAL_IMAGE :=1	# Default to off in compile time
-
-# Additional options
-COMPRESSED_CFE := 1
-RESCUE_MODE := 1	# disable for tmp
-RTN66U := 1
 
 # read sdram params from nvram in internal builds                               
 CFG_SDRAM_PARAM_FROM_EMBEDDED_NVRAM := 1
 
+# Additional options
+COMPRESSED_CFE := 1
+RESCUE_MODE := 1        # disable for tmp
+RTAC68U := 0
 
 # HND source base
 SRCBASE := $(shell cd ../../../.. && pwd)
@@ -81,7 +90,7 @@ ifeq ($(strip ${CFG_UNCACHED}),1)
   endif
 else
   ifeq ($(strip $(CFG_XIP)),0)
-    CFG_TEXT_START := 0x80700000
+    CFG_TEXT_START := 0x80e00000
   else
     CFG_DATA_START := 0x80001000
   endif
@@ -89,18 +98,6 @@ endif
 # To generating ATE traces
 ifeq ($(strip $(CFG_ATE)),1)
 CFLAGS += -DBCM_ATE
-endif
-
-ifeq ($(strip $(RESCUE_MODE)),1)
-CFLAGS += -DRESCUE_MODE
-endif
-
-ifeq ($(strip $(COMPRESSED_CFE)),1)
-CFLAGS += -DCOMPRESSED_CFE
-endif
-
-ifeq ($(strip $(RTN66U)),1)
-CFLAGS += -DRTN66U
 endif
 
 ifeq ($(strip $(CFG_DUAL_IMAGE)),1)
@@ -119,16 +116,29 @@ ifeq ($(strip $(CFG_SDRAM_PARAM_FROM_EMBEDDED_NVRAM)),1)
 CFLAGS +=-DSDRAM_PARAM_FROM_EMBEDDED_NVRAM
 endif
 
+ifeq ($(strip $(CFG_BCM_DEVINFO)),1)
+CFLAGS += -DBCM_DEVINFO
+endif
+
+ifeq ($(strip $(RESCUE_MODE)),1)
+CFLAGS += -DRESCUE_MODE
+endif
+ifeq ($(strip $(RTAC68U)),1)
+CFLAGS += -DRTAC68U
+endif
+ifeq ($(strip $(RTN18U)),1)
+CFLAGS += -DRTN18U
+endif
+ifeq ($(strip $(COMPRESSED_CFE)),1)
+CFLAGS += -DCOMPRESSED_CFE
+endif
 
 # Toolchain prefix 
-ifeq ($(CFG_LITTLE), 1)
-  ifeq ($(LINUX_VERSION),2_6)
+LINUX_VERSION ?= 2_6
+ifeq ($(strip $(LINUX_VERSION)),2_6)
     TOOLPREFIX := mipsel-uclibc-linux26-
-  else
-    TOOLPREFIX := mipsel-linux-
-  endif
 else
-  TOOLPREFIX := mips-wrs-vxworks-
+    TOOLPREFIX := mipsel-linux-
 endif
 
 #PATH := $(PATH):/projects/hnd/tools/linux/bin:/projects/hnd/tools/linux/hndtools-mips-wrs-vxworks-3.2.3/bin
@@ -140,7 +150,9 @@ check_gcc = $(shell if $(GCC) $(1) -c -o /dev/null -xc /dev/null > /dev/null 2>&
 CFLAGS += $(call check_gcc, -m4710a0kern, )
 
 # Disable PIC
-CFLAGS += -G 0 -mno-abicalls -fno-pic
+CFLAGS-mips = -G 0 -mno-abicalls -fno-pic
+CFLAGS-arm = -g -DSTANDALONE -O0 -D__KERNEL__
+CFLAGS += $(CFLAGS-$(ARCH))
 
 # Discard unused sections if supported
 CFLAGS += -ffunction-sections -fdata-sections
@@ -158,10 +170,29 @@ endif
 
 endif
 
-ARCH := mips
-CPU := bcmcore
-BOARD := bcm947xx
+# ARM override
+ifeq ($(ARCH), arm)
+CPU := armv7
+CFG_NVRAM_SPACE := 65536
+CFG_GMAC := 1
+CFG_CFLASH := 0
+CFG_FLASH := 0   # if CFG_XIP is set then CFG_FLASH must be set to 0
+CFG_SFLASH := 1
+CFG_TEXT_START := 0x00f00000
 
+TOOLPREFIX := arm-uclibc-linux-2.6.36-
+
+ASFLAGS := -D_LANGUAGE_ASSEMBLY
+else
+CFG_NVRAM_SPACE := 32768
+endif
+
+CFLAGS += -DMAX_NVRAM_SPACE=$(CFG_NVRAM_SPACE)
+
+# handle "undefined reference to otp_read_word" problem
+ifeq ($CFG_OTPNVRAM), 1)
+CFLAGS +=  -DLOADADDR=$(CFG_TEXT_START)
+endif
 
 # define WL_CONFFILE for arch/mips/board/bcm947xx/src/Makefile
 ifeq ($(strip $(CFG_WL)),1)

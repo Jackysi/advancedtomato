@@ -164,12 +164,6 @@ extern int flash_validate(uint8_t *ptr, int bufsize, int insize, uint8_t **outpt
 extern void ui_get_flash_buf(uint8_t **bufptr, int *bufsize);
 extern unsigned int flash_crc32(const unsigned char *databuf, unsigned int  datalen);
 
-#ifdef _TCP_DEBUG_
-int _tcp_dumpflags = 1;
-#else
-int _tcp_dumpflags = 0;
-#endif	/* _TCP_DEBUG */
-
 /*
  * _tcp_init(ipi,ref)
  *
@@ -623,7 +617,7 @@ httpd_appcall(struct httpd_state *hs)
 		httpd_printf(hs,
 			"<table border=0 cellpadding=0 cellspacing=0 bgcolor=#306498>\r\n"
 			"<tr><td height=57 width=600>\r\n"
-			"<font face=Arial size=6 color=#ffffff>ASUSTeK - CFE miniWeb Server</font>\r\n"
+			"<font face=Arial size=6 color=#ffffff>ASUSTek - CFE miniWeb Server</font>\r\n"
 			"</td></tr>\r\n"
 			"</table><br>\r\n"
 			"<form action=f2.htm method=post encType=multipart/form-data>\r\n"

@@ -88,8 +88,9 @@
 #define TFTP_MAX_RETRIES	8
 #endif
 
-#define TFTP_RRQ_TIMEOUT	CFE_HZ	/* ticks */
-#define TFTP_RECV_TIMEOUT	CFE_HZ	/* ticks */
+#define TFTP_RRQ_TIMEOUT	CFE_HZ*5	/* ticks */
+//#define TFTP_RECV_TIMEOUT	CFE_HZ*5	/* ticks */
+#define TFTP_RECV_TIMEOUT	CFE_HZ*1	/* ticks */
 
 #ifdef RESCUE_MODE
 unsigned char tftpipfrom[4] = { 0xc0, 0xa8, 0x01, 0x01 };
@@ -373,7 +374,7 @@ static int _tftp_readmore(tftp_info_t *info)
 
 #ifdef RESCUE_MODE
     if (info->tftp_lastblock) {
-    	xprintf("- Last block -\n");
+        xprintf("- Last block -\n");
         return 1;
     }
     if (info->tftp_error) {
@@ -414,7 +415,7 @@ static int _tftp_readmore(tftp_info_t *info)
                 continue;
         }
 #else
-	if (buf == NULL) continue;
+        if (buf == NULL) continue;
 #endif
 
 	/*
@@ -497,7 +498,6 @@ static int _tftp_writemore(tftp_info_t *info)
     /*
      * Otherwise, send a block
      */
-
     for (retries = 0; retries < tftp_max_retries; retries++) {
 
 	buf = udp_alloc();
@@ -603,7 +603,8 @@ static int _tftpd_open(tftp_info_t *info,char *hostname,char *filename,int mode)
 
     res = CFE_ERR_TIMEOUT;
 
-    for (retries = 0; retries < tftp_max_retries; retries++) {
+    for (retries = 0; retries < tftp_max_retries; retries++) {	// go load wait
+	printf("..tftp retry wait %d\n", retries);
 	while (console_status()) {
 	    console_read(&ch,1);
 	    if (ch == 3) break;
@@ -1124,3 +1125,4 @@ extern int send_rescueack(unsigned short no, unsigned short lo)
         return 0;
 }
 #endif
+

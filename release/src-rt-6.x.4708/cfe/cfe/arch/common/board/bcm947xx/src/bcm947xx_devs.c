@@ -2,7 +2,7 @@
  * Broadcom Common Firmware Environment (CFE)
  * Board device initialization, File: bcm947xx_devs.c
  *
- * Copyright (C) 2011, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,10 +10,9 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm947xx_devs.c 324903 2012-03-30 19:57:48Z $
+ * $Id: bcm947xx_devs.c 398971 2013-04-26 22:39:49Z $
  */
 
-#include "sbmips.h"
 #include "lib_types.h"
 #include "lib_printf.h"
 #include "lib_physio.h"
@@ -22,6 +21,9 @@
 #include "cfe_iocb.h"
 #include "cfe_device.h"
 #include "cfe_timer.h"
+#ifdef CFG_ROMBOOT
+#include "cfe_console.h"
+#endif
 #include "ui_command.h"
 #include "bsp_config.h"
 #include "dev_newflash.h"
@@ -49,13 +51,16 @@
 #include <hndpmu.h>
 #include <epivers.h>
 #if CFG_NFLASH
-#include <nflash.h>
+#include <hndnand.h>
+#endif
+#if CFG_SFLASH
+#include <hndsflash.h>
 #endif
 #include <cfe_devfuncs.h>
 #include <cfe_ioctl.h>
 
 #define MAX_WAIT_TIME 20	/* seconds to wait for boot image */
-#define MIN_WAIT_TIME 3 	/* seconds to wait for boot image */
+#define MIN_WAIT_TIME 1 	/* seconds to wait for boot image */
 
 #define RESET_DEBOUNCE_TIME	(500*1000)	/* 500 ms */
 
@@ -87,9 +92,16 @@ extern cfe_driver_t bcmwl;
 extern cfe_driver_t bcm5700drv;
 #endif
 
+#ifdef CFG_ROMBOOT
+#define MAX_SCRIPT_FSIZE	10240
+#endif
+
 /* Reset NVRAM */
 static int restore_defaults = 0;
 extern char *flashdrv_nvram;
+
+extern void LEDON(void);
+extern void LEDOFF(void);
 
 static void
 board_console_add(void *regs, uint irq, uint baud_base, uint reg_shift)
@@ -108,6 +120,7 @@ reset_release_wait(void)
 {
 	int gpio;
 	uint32 gpiomask;
+	int i=0;
 
 	if ((gpio = nvram_resetgpio_init ((void *)sih)) < 0)
 		return;
@@ -115,6 +128,18 @@ reset_release_wait(void)
 	/* Reset button is active low */
 	gpiomask = (uint32)1 << gpio;
 	while (1) {
+		if ((i%100000) < 30000) {
+			LEDON();
+		}
+		else {
+			LEDOFF();
+		}
+		i++;
+
+		if (i==0xffffff) {
+			i = 0;
+		}
+
 		if (si_gpioin(sih) & gpiomask) {
 			OSL_DELAY(RESET_DEBOUNCE_TIME);
 
@@ -126,13 +151,54 @@ reset_release_wait(void)
 #endif /* !CFG_SIM */
 #endif /* CFG_FLASH || CFG_SFLASH || CFG_NFLASH */
 
+int
+BCMINITFN(nvram_wsgpio_init)(void *si)
+{
+#ifdef RTAC68U
+	int gpio = 5;
+#else
+	int gpio = 7;
+#endif
+	si_t *sih;
+
+	sih = (si_t *)si;
+
+	if (gpio > 31)
+		return -1;
+
+	/* Setup GPIO input */
+	si_gpioouten(sih, ((uint32) 1 << gpio), 0, GPIO_DRV_PRIORITY);
+
+	return gpio;
+}
+
+int cpu_turbo_mode = 0;
+static void
+detect_turbo_button(void)
+{
+	int gpio;
+	uint32 gpiomask;
+
+	if ((gpio = nvram_wsgpio_init ((void *)sih)) < 0)
+		return;
+
+	/* active low */
+	gpiomask = (uint32)1 << gpio;
+#ifdef RTAC68U	// active high
+	if ((si_gpioin(sih) & gpiomask))
+#else
+	if (!(si_gpioin(sih) & gpiomask))
+#endif
+		cpu_turbo_mode = 1;
+}
+
 /*
  *  board_console_init()
  *
  *  Add the console device and set it to be the primary
  *  console.
  *
- *  Input parameters: 
+ *  Input parameters:
  *     nothing
  *
  *  Return value:
@@ -141,13 +207,6 @@ reset_release_wait(void)
 void
 board_console_init(void)
 {
-#if !CFG_SIM
-	uint32  mipsclock = 0, siclock = 0, pciclock = 0;
-	char	*nvstr;
-	uint	origidx;
-	chipcregs_t *cc;
-#endif
-
 #if !CFG_MINIMAL_SIZE
 	cfe_set_console(CFE_BUFFER_CONSOLE);
 #endif
@@ -156,232 +215,44 @@ board_console_init(void)
 	sih = si_kattach(SI_OSH);
 	ASSERT(sih);
 
+	/* Set this to a default value, since nvram_reset needs to use it in OSL_DELAY */
+	board_cfe_cpu_speed_upd(sih);
+
 #if !CFG_SIM
+	board_pinmux_init(sih);
 	/* Check whether NVRAM reset needs be done */
 	if (nvram_reset((void *)sih) > 0)
 		restore_defaults = 1;
 #endif
 
 	/* Initialize NVRAM access accordingly. In case of invalid NVRAM, load defaults */
-	//if (asus_nvram_init((void *)sih) > 0)
-	//	restore_defaults = 1;
-	restore_defaults = 0;
+	if (nvram_init((void *)sih) > 0)
+		restore_defaults = 1;
 
 #if CFG_SIM
 	restore_defaults = 0;
-
-	/* Figure out current MIPS clock speed */
-	if ((cfe_cpu_speed = si_cpu_clock(sih)) == 0)
-		cfe_cpu_speed = 133000000;
 #else /* !CFG_SIM */
 
-	if (!restore_defaults) {
-		char *end;
+	if (!restore_defaults)
+		board_clock_init(sih);
 
-		/* MIPS clock speed override */
-		if ((nvstr = nvram_get("clkfreq"))) {
-			mipsclock = bcm_strtoul(nvstr, &end, 0) * 1000000;
-			if (*end == ',') {
-				nvstr = ++end;
-				siclock = bcm_strtoul(nvstr, &end, 0) * 1000000;
-				if (*end == ',') {
-					nvstr = ++end;
-					pciclock = bcm_strtoul(nvstr, &end, 0) * 1000000;
-				}
-			}
-		}
-
-		if (mipsclock) {
-			/* Set current MIPS clock speed */
-			si_mips_setclock(sih, mipsclock, siclock, pciclock);
-		}
-	}
-
-	/* Figure out current MIPS clock speed */
-	if ((cfe_cpu_speed = si_cpu_clock(sih)) == 0)
-		cfe_cpu_speed = 133000000;
-
-	/* Next sections all want to talk to chipcommon */
-	origidx = si_coreidx(sih);
-	cc = si_setcoreidx(sih, SI_CC_IDX);
-
-	nvstr = nvram_get("boardpwrctl");
-
-	if ((CHIPID(sih->chip) == BCM4716_CHIP_ID) ||
-	    (CHIPID(sih->chip) == BCM4748_CHIP_ID) ||
-	    (CHIPID(sih->chip) == BCM47162_CHIP_ID)) {
-		uint32 reg, new;
-
-		/* Adjust regulator settings */
-		W_REG(osh, &cc->regcontrol_addr, 2);
-		/* Readback to ensure completion of the write */
-		(void)R_REG(osh, &cc->regcontrol_addr);
-		reg = R_REG(osh, &cc->regcontrol_data);
-		/* Make the regulator frequency to 1.2MHz
-		 *   00 1.2MHz
-		 *   01 200kHz
-		 *   10 600kHz
-		 *   11 2.4MHz
-		 */
-		reg &= ~0x00c00000;
-		/* Take 2.5v regulator output down one notch,
-		 * officially to 2.45, but in reality to be
-		 * closer to 2.5 than the default.
-		 */
-		reg |= 0xf0000000;
-
-		/* Bits corresponding to mask 0x00078000
-		 * controls 1.3v source
-		 *	Value           Voltage
-	         *	========================
-	         *	0xf0000000  1.2 V (default)
-		 * 	0xf0008000  0.975
-		 *	0xf0010000  1
-		 *	0xf0018000  1.025
-		 *	0xf0020000  1.05
-		 *	0xf0028000  1.075
-		 *	0xf0030000  1.1
-		 *	0xf0038000  1.125
-		 *	0xf0040000  1.15
-		 *	0xf0048000  1.175
-		 *	0xf0050000  1.225
-		 *	0xf0058000  1.25
-		 *	0xf0060000  1.275
-		 *	0xf0068000  1.3
-		 *	0xf0070000  1.325
-		 *	0xf0078000  1.35
-		 */
-		if (nvstr) {
-			uint32 pwrctl = bcm_strtoul(nvstr, NULL, 0);
-
-			reg &= ~0xf0c78000;
-			reg |= (pwrctl & 0xf0c78000);
-		}
-		W_REG(osh, &cc->regcontrol_data, reg);
-
-		/* Turn off unused PLLs */
-		W_REG(osh, &cc->pllcontrol_addr, 6);
-		(void)R_REG(osh, &cc->pllcontrol_addr);
-		new = reg = R_REG(osh, &cc->pllcontrol_data);
-		if (sih->chippkg == BCM4716_PKG_ID)
-			new |= 0x68;	/* Channels 3, 5 & 6 off in 4716 */
-		if ((sih->chipst & 0x00000c00) == 0x00000400)
-			new |= 0x10;	/* Channel 4 if MII mode */
-		if (new != reg) {
-			/* apply new value */
-			W_REG(osh, &cc->pllcontrol_data, new);
-			(void)R_REG(osh, &cc->pllcontrol_data);
-			W_REG(osh, &cc->pmucontrol,
-			      PCTL_PLL_PLLCTL_UPD | PCTL_NOILP_ON_WAIT |
-			      PCTL_HT_REQ_EN | PCTL_ALP_REQ_EN | PCTL_LPO_SEL);
-		}
-	}
-
-	if ((CHIPID(sih->chip) == BCM5356_CHIP_ID) ||
-	    (CHIPID(sih->chip) == BCM5357_CHIP_ID) ||
-	    (CHIPID(sih->chip) == BCM53572_CHIP_ID) ||
-	    (CHIPID(sih->chip) == BCM4749_CHIP_ID)) {
-		uint32 reg;
-
-		/* Change regulator if requested */
-		if (nvstr) {
-			uint32 pwrctl = bcm_strtoul(nvstr, NULL, 0);
-
-			W_REG(osh, &cc->regcontrol_addr, 1);
-			/* Readback to ensure completion of the write */
-			(void)R_REG(osh, &cc->regcontrol_addr);
-			reg = R_REG(osh, &cc->regcontrol_data);
-			reg &= ~0x00018f00;
-			reg |= (pwrctl & 0x00018f00);
-
-			W_REG(osh, &cc->regcontrol_data, reg);
-		}
-	}
-
-	/* On AI chips, change sflash divisor if requested. */
-	if (sih->socitype == SOCI_AI) {
-		char *end;
-		uint32 fltype, clkdiv, bpclock, sflmaxclk, sfldiv;
-
-		fltype = sih->cccaps & CC_CAP_FLASH_MASK;
-		if ((fltype != SFLASH_ST) && (fltype != SFLASH_AT))
-			goto nosflch;
-
-		/* sdram_init is really a field in the nvram header */
-		nvstr = nvram_get("sdram_init");
-		sflmaxclk = bcm_strtoul(nvstr, &end, 0);
-		if ((sflmaxclk = 0xffff) || (sflmaxclk == 0x0419))
-			goto nosflch;
-
-		sflmaxclk &= 0xf;
-		if (sflmaxclk == 0)
-			goto nosflch;
-
-		bpclock = si_clock(sih);
-		sflmaxclk *= 10000000;
-		for (sfldiv = 2; sfldiv < 16; sfldiv += 2) {
-			if ((bpclock / sfldiv) < sflmaxclk)
-				break;
-		}
-		if (sfldiv > 14)
-			sfldiv = 14;
-
-		clkdiv = R_REG(osh, &cc->clkdiv);
-		if (((clkdiv & CLKD_SFLASH) >> CLKD_SFLASH_SHIFT) != sfldiv) {
-			clkdiv = (clkdiv & ~CLKD_SFLASH) | (sfldiv << CLKD_SFLASH_SHIFT);
-			W_REG(osh, &cc->clkdiv, clkdiv);
-		}
-	}
-nosflch:
-
-	si_setcoreidx(sih, origidx);
+	board_power_init(sih);
 #endif /* !CFG_SIM */
 
-	/* Initialize clocks and interrupts */
-	si_mips_init(sih, 0);
+	board_cpu_init(sih);
 
 	/* Initialize UARTs */
 	si_serial_init(sih, board_console_add);
 
 	if (cfe_finddev("uart0"))
 		cfe_set_console("uart0");
+
+	printf("Detect CPU turbo button... ");
+	detect_turbo_button();
+	if (cpu_turbo_mode && atoi(nvram_safe_get("btn_led_mode")))
+		board_clock_init(sih);
 }
 
-
-#if (CFG_FLASH || CFG_SFLASH)
-static void
-flash_memory_size_config(newflash_probe_t *fprobe)
-{
-	chipcregs_t *cc = NULL;
-	uint size, reg_sz, val;
-
-	if ((cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX)))
-		return;
-
-	size = fprobe->flash_size;	/* flash total size */
-
-	if (size <= 4*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_4MB;
-	else if (size > 4*1024*1024 && size <= 8*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_8MB;
-	else if (size > 8*1024*1024 && size <= 16*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_16MB;
-	else if (size > 16*1024*1024 && size <= 32*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_32MB;
-	else if (size > 32*1024*1024 && size <= 64*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_64MB;
-	else if (size > 64*1024*1024 && size <= 128*1024*1024)
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_128MB;
-	else
-		reg_sz = FLSTRCF4706_1ST_MADDR_SEG_256MB;
-
-	val = R_REG(NULL, &cc->eci.flashconf.flashstrconfig);
-	val &= ~FLSTRCF4706_1ST_MADDR_SEG_MASK;
-	val |= reg_sz;
-
-	W_REG(NULL, &cc->eci.flashconf.flashstrconfig, val);
-}
-#endif /* (CFG_FLASH || CFG_SFLASH) */
 
 #if (CFG_FLASH || CFG_SFLASH || CFG_NFLASH)
 #if (CFG_NFLASH || defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE))
@@ -395,8 +266,10 @@ get_flash_size(char *device_name)
 	fd = cfe_open(device_name);
 	if ((fd > 0) &&
 	    (cfe_ioctl(fd, IOCTL_FLASH_GETINFO,
-		       (unsigned char *) &flashinfo,
-		       sizeof(flash_info_t), &res, 0) == 0)) {
+		(unsigned char *) &flashinfo,
+		sizeof(flash_info_t), &res, 0) == 0)) {
+
+		cfe_close(fd);
 		return flashinfo.flash_size;
 	}
 
@@ -406,13 +279,17 @@ get_flash_size(char *device_name)
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
 static
-int calculate_max_image_size(char *device_name,int reserved_space_begin,int reserved_space_end,int *need_commit)
+int calculate_max_image_size(
+	char *device_name,
+	int reserved_space_begin,
+	int reserved_space_end,
+	int *need_commit)
 {
 	int image_size = 0;
 	char *nvram_setting;
 	char buf[64];
 
-	*need_commit=0;
+	*need_commit = 0;
 
 #ifdef DUAL_IMAGE
 	if (!nvram_get(IMAGE_BOOT))
@@ -427,7 +304,7 @@ int calculate_max_image_size(char *device_name,int reserved_space_begin,int rese
 		image_size = atoi(nvram_setting)*1024;
 #ifdef CFG_NFLASH
 	} else if (device_name[0] == 'n') {
-		/* use 8 meg for nand flash */
+		/* use 32 meg for nand flash */
 		image_size = (NFL_BOOT_OS_SIZE - reserved_space_begin)/2;
 		image_size = image_size - image_size%(64*1024);
 #endif
@@ -452,14 +329,14 @@ int calculate_max_image_size(char *device_name,int reserved_space_begin,int rese
 	sprintf(buf, "%d", reserved_space_begin);
 	if (!nvram_match(IMAGE_FIRST_OFFSET, buf)) {
 		printf("The 1st image start addr  changed, set to %s[%x] (was %s)\n",
-		       buf,reserved_space_begin,nvram_get(IMAGE_FIRST_OFFSET));
+			buf, reserved_space_begin, nvram_get(IMAGE_FIRST_OFFSET));
 		nvram_set(IMAGE_FIRST_OFFSET, buf);
 		*need_commit = 1;
 	}
 	sprintf(buf, "%d", reserved_space_begin + image_size);
 	if (!nvram_match(IMAGE_SECOND_OFFSET, buf)) {
 		printf("The 2nd image start addr  changed, set to %s[%x] (was %s)\n",
-		       buf,reserved_space_begin + image_size, nvram_get(IMAGE_SECOND_OFFSET));
+			buf, reserved_space_begin + image_size, nvram_get(IMAGE_SECOND_OFFSET));
 		nvram_set(IMAGE_SECOND_OFFSET, buf);
 		*need_commit = 1;
 	}
@@ -469,16 +346,68 @@ int calculate_max_image_size(char *device_name,int reserved_space_begin,int rese
 #endif /* FAILSAFE_UPGRADE|| DUAL_IMAGE */
 
 #ifdef CFG_NFLASH
+
+void
+dump_nflash(int block_no)
+{
+	hndnand_t *nfl_info;
+	uchar buf[2048];
+	uchar oob_buf[64];
+	int page_num = 1;
+	uint64 i, addr = block_no?131072*(block_no-1):0;
+	int block_num = block_no?block_no:1;
+	uint64 img_size = block_no?131072:34700000, dump_size;
+
+	dump_size = ROUNDUP(img_size, 2048);
+
+	printf("ndump:%d\n", (int)dump_size);
+
+	nfl_info = hndnand_init(sih);
+	if (nfl_info == 0) {
+		printf("Can't find nandflash! ccrev = %d, chipst= %d \n", sih->ccrev, sih->chipst);
+		return;
+	}
+
+	while(dump_size){
+		printf("\nBlock[%d] page[%d] data:\n", block_num, page_num);
+
+		/* data */
+		nfl_info->read(nfl_info, addr, sizeof(buf), buf);
+		for(i=0; i<sizeof(buf); ++i){
+			if(i%16==0)
+				printf("\n%8x: ", (unsigned int)(addr+i+((block_num-1)<<12)+((page_num-1)<<6)));
+			printf("%02x ", buf[i]);
+		}	
+	
+		printf("\n");
+
+		/* spare data */
+		nfl_info->read_oob(nfl_info, addr, oob_buf);
+		for(i=0; i<sizeof(oob_buf); ++i){
+			if(i%16==0)
+				printf("\n%8x: ", (unsigned int)(addr+2048+i+((block_num-1)<<12)+((page_num-1)<<6)));
+			printf("%02x ", oob_buf[i]);
+		}
+		
+		addr += sizeof(buf);
+		dump_size -= sizeof(buf);
+		++page_num;
+		if(page_num>64){
+			++block_num;
+			page_num&=63;
+		}
+	}
+
+	printf("\ndone\n");
+}
+
 static void
 flash_nflash_init(void)
 {
 	newflash_probe_t fprobe;
-	chipcregs_t *cc = NULL;
 	cfe_driver_t *drv;
-	struct nflash *nfl_info;
+	hndnand_t *nfl_info;
 	int j;
-	char *val;
-	int bootflags = 0;
 	int max_image_size = 0;
 #if defined(DUAL_IMAGE) || defined(FAILSAFE_UPGRADE)
 	int need_commit = 0;
@@ -486,29 +415,21 @@ flash_nflash_init(void)
 
 	memset(&fprobe, 0, sizeof(fprobe));
 
-	if (CHIPID(sih->chip) == BCM4706_CHIP_ID || sih->ccrev == 38) {
-		drv = &nflashdrv;
-		fprobe.flash_phys = (CHIPID(sih->chip) == BCM4706_CHIP_ID) ? 0 : SI_FLASH1;
-		cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX);
-		fprobe.flash_cmdset = (int)cc;
-	} else {
+	nfl_info = hndnand_init(sih);
+	if (nfl_info == 0) {
 		printf("Can't find nandflash! ccrev = %d, chipst= %d \n", sih->ccrev, sih->chipst);
 		return;
 	}
 
-	nfl_info = nflash_init(sih, cc);
-	if (nfl_info == 0)
-		return;
-
-	/* check bootflags */
-	if ((val = nvram_get("bootflags")))
-		bootflags = atoi(val);
+	drv = &nflashdrv;
+	fprobe.flash_phys = nfl_info->phybase;
 
 	j = 0;
+
 	/* kernel in nand flash */
-	if ((bootflags & FLASH_KERNEL_NFLASH) == FLASH_KERNEL_NFLASH) {
+	if (soc_knl_dev((void *)sih) == SOC_KNLDEV_NANDFLASH) {
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-		max_image_size = calculate_max_image_size("nflash0",0,0,&need_commit);
+		max_image_size = calculate_max_image_size("nflash0", 0, 0, &need_commit);
 #endif
 		/* Because CFE can only boot from the beginning of a partition */
 		fprobe.flash_parts[j].fp_size = sizeof(struct trx_header);
@@ -530,7 +451,7 @@ flash_nflash_init(void)
 
 		/* Because CFE can only boot from the beginning of a partition */
 		j = 0;
-		fprobe.flash_parts[j].fp_size = max_image_size ? 
+		fprobe.flash_parts[j].fp_size = max_image_size ?
 		        max_image_size : NFL_BOOT_OS_SIZE;
 		fprobe.flash_parts[j++].fp_name = "trx";
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
@@ -548,7 +469,8 @@ flash_nflash_init(void)
 	cfe_add_device(drv, 0, 0, &fprobe);
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-	if (need_commit) nvram_commit();
+	if (need_commit)
+		nvram_commit();
 #endif
 }
 #endif /* CFG_NFLASH */
@@ -558,67 +480,71 @@ static void
 flash_init(void)
 {
 	newflash_probe_t fprobe;
-	chipcregs_t *cc = NULL;
-	uint32 fltype, bootsz, *bisz;
-	cfe_driver_t *drv;
+	int bootdev;
+	uint32 bootsz, *bisz;
+	cfe_driver_t *drv = NULL;
 	int j = 0;
 	int max_image_size = 0;
+	int rom_envram_size;
 #if defined(DUAL_IMAGE) || defined(FAILSAFE_UPGRADE)
-	char *val;
-	int bootflags = 0;
 	int need_commit = 0;
+#endif
+#ifdef CFG_NFLASH
+	hndnand_t *nfl_info = NULL;
+#endif
+#if CFG_SFLASH
+	hndsflash_t *sfl_info = NULL;
 #endif
 
 	memset(&fprobe, 0, sizeof(fprobe));
 
-	if ((cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX))) {
+	bootdev = soc_boot_dev((void *)sih);
 #ifdef CFG_NFLASH
-		if ((sih->ccrev == 38) && ((sih->chipst & (1 << 4)) != 0)) {
-			fltype = NFLASH;
-			fprobe.flash_phys = SI_FLASH1;
-		} else
-#endif
-		{
-			fltype = R_REG(NULL, &cc->capabilities) & CC_CAP_FLASH_MASK;
-			fprobe.flash_phys = SI_FLASH2;
-		}
-	} else
-		return;
+	if (bootdev == SOC_BOOTDEV_NANDFLASH) {
+		nfl_info = hndnand_init(sih);
+		if (!nfl_info)
+			return;
 
-	switch (fltype) {
+		fprobe.flash_phys = nfl_info->phybase;
+		drv = &nflashdrv;
+	} else
+#endif	/* CFG_NFLASH */
+#if CFG_SFLASH
+	if (bootdev == SOC_BOOTDEV_SFLASH) {
+		sfl_info = hndsflash_init(sih);
+		if (!sfl_info)
+			return;
+
+		fprobe.flash_phys = sfl_info->phybase;
+		drv = &sflashdrv;
+	}
+	else
+#endif
 #if CFG_FLASH
-	case PFLASH:
-		drv = &newflashdrv;
+	{
+		/* This might be wrong, but set pflash
+		 * as default if nothing configured
+		 */
+		chipcregs_t *cc;
+
+		if ((cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX)) == NULL)
+			return;
+
+		fprobe.flash_phys = SI_FLASH2;
 		fprobe.flash_flags = FLASH_FLG_BUS16 | FLASH_FLG_DEV16;
 		if (!(R_REG(NULL, &cc->flash_config) & CC_CFG_DS))
 			fprobe.flash_flags = FLASH_FLG_BUS8 | FLASH_FLG_DEV16;
-		break;
-#endif
-#if CFG_SFLASH
-	case SFLASH_ST:
-	case SFLASH_AT:
-		ASSERT(cc);
-		drv = &sflashdrv;
-		/* Overload cmdset field */
-		fprobe.flash_cmdset = (int)cc;
-		break;
-#endif
-#if CFG_NFLASH
-	case NFLASH:
-		drv = &nflashdrv;
-		fprobe.flash_cmdset = (int)cc;
-		break;
-#endif
-	default:
-		/* No flash or unsupported flash */
-		return;
+		drv = &newflashdrv;
 	}
+#endif /* CFG_FLASH */
+
+	ASSERT(drv);
 
 	/* Default is 256K boot partition */
 	bootsz = 256 * 1024;
 
 	/* Do we have a self-describing binary image? */
-	bisz = (uint32 *)PHYS_TO_K1(fprobe.flash_phys + BISZ_OFFSET);
+	bisz = (uint32 *)UNCADDR(fprobe.flash_phys + BISZ_OFFSET);
 	if (bisz[BISZ_MAGIC_IDX] == BISZ_MAGIC) {
 		int isz = bisz[BISZ_DATAEND_IDX] - bisz[BISZ_TXTST_IDX];
 
@@ -634,19 +560,15 @@ flash_init(void)
 	printf("Boot partition size = %d(0x%x)\n", bootsz, bootsz);
 
 #if CFG_NFLASH
-	if (fltype == NFLASH) {
-		struct nflash *nfl_info;
+	if (nfl_info) {
 		int flash_size = 0;
 
-		nfl_info = nflash_init(sih, cc);
-		if (nfl_info) {
-			if (bootsz > nfl_info->blocksize) {
-				/* Prepare double space in case of bad blocks */
-				bootsz = (bootsz << 1);
-			} else {
-				/* CFE occupies at least one block */
-				bootsz = nfl_info->blocksize;
-			}
+		if (bootsz > nfl_info->blocksize) {
+			/* Prepare double space in case of bad blocks */
+			bootsz = (bootsz << 1);
+		} else {
+			/* CFE occupies at least one block */
+			bootsz = nfl_info->blocksize;
 		}
 
 		/* Because sometimes we want to program the entire device */
@@ -654,7 +576,8 @@ flash_init(void)
 		cfe_add_device(drv, 0, 0, &fprobe);
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-		max_image_size = calculate_max_image_size("nflash0",NFL_BOOT_SIZE,0,&need_commit);
+		max_image_size =
+			calculate_max_image_size("nflash0", NFL_BOOT_SIZE, 0, &need_commit);
 #endif
 		/* Because sometimes we want to program the entire device */
 		/* Because CFE can only boot from the beginning of a partition */
@@ -691,7 +614,8 @@ flash_init(void)
 		fprobe.flash_parts[j++].fp_name = "trx";
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
 		if (max_image_size) {
-			fprobe.flash_parts[j].fp_size = NFL_BOOT_OS_SIZE - NFL_BOOT_SIZE - max_image_size;
+			fprobe.flash_parts[j].fp_size =
+				NFL_BOOT_OS_SIZE - NFL_BOOT_SIZE - max_image_size;
 			fprobe.flash_parts[j++].fp_name = "trx2";
 		}
 #endif
@@ -713,15 +637,22 @@ flash_init(void)
 		fprobe.flash_nparts = 0;
 		cfe_add_device(drv, 0, 0, &fprobe);
 
+#ifdef CFG_ROMBOOT
+		if (board_bootdev_rom(sih)) {
+			rom_envram_size = ROM_ENVRAM_SPACE;
+		}
+		else
+#endif
+		{
+			rom_envram_size = 0;
+		}
+
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-		/* check bootflags */
-		if ((val = nvram_get("bootflags")))
-			bootflags = atoi(val);
-		
 		/* If the kernel is not in nand flash, split up the sflash */
-		if ((bootflags & FLASH_KERNEL_NFLASH) != FLASH_KERNEL_NFLASH)
-			max_image_size = calculate_max_image_size("flash0",bootsz,NVRAM_SPACE,
-			                                          &need_commit);
+		if (soc_knl_dev((void *)sih) != SOC_KNLDEV_NANDFLASH) {
+			max_image_size = calculate_max_image_size("flash0",
+				bootsz, MAX_NVRAM_SPACE+rom_envram_size, &need_commit);
+		}
 #endif
 
 		/* Because CFE can only boot from the beginning of a partition */
@@ -741,7 +672,22 @@ flash_init(void)
 			fprobe.flash_parts[j++].fp_name = "os2";
 		}
 #endif
-		fprobe.flash_parts[j].fp_size = NVRAM_SPACE;
+#ifdef CFG_ROMBOOT
+		if (rom_envram_size) {
+			fprobe.flash_parts[j].fp_size = rom_envram_size;
+			fprobe.flash_parts[j++].fp_name = "envram";
+		}
+#endif
+
+#ifdef BCM_DEVINFO
+                fprobe.flash_parts[j].fp_size = 0x80000;
+                fprobe.flash_parts[j++].fp_name = "fs_rw";
+
+                fprobe.flash_parts[j].fp_size = 0x10000;
+                fprobe.flash_parts[j++].fp_name = "devinfo";
+#endif  /* BCM_DEVINFO */
+
+		fprobe.flash_parts[j].fp_size = MAX_NVRAM_SPACE;
 		fprobe.flash_parts[j++].fp_name = "nvram";
 		fprobe.flash_nparts = j;
 		cfe_add_device(drv, 0, 0, &fprobe);
@@ -758,27 +704,40 @@ flash_init(void)
 			fprobe.flash_parts[j++].fp_name = "trx2";
 		}
 #endif
-		fprobe.flash_parts[j].fp_size = NVRAM_SPACE;
+#ifdef CFG_ROMBOOT
+		if (rom_envram_size) {
+			fprobe.flash_parts[j].fp_size = rom_envram_size;
+			fprobe.flash_parts[j++].fp_name = "envram";
+		}
+#endif
+
+#ifdef BCM_DEVINFO
+                fprobe.flash_parts[j].fp_size = 0x80000;
+                fprobe.flash_parts[j++].fp_name = "fs_rw";
+
+                fprobe.flash_parts[j].fp_size = 0x10000;
+                fprobe.flash_parts[j++].fp_name = "devinfo";
+#endif  /* BCM_DEVINFO */
+
+		fprobe.flash_parts[j].fp_size = MAX_NVRAM_SPACE;
 		fprobe.flash_parts[j++].fp_name = "nvram";
 		fprobe.flash_nparts = j;
 		cfe_add_device(drv, 0, 0, &fprobe);
 	}
 
 #if (CFG_FLASH || CFG_SFLASH)
-	if (CHIPID(sih->chip) == BCM4706_CHIP_ID)
-		flash_memory_size_config(&fprobe);
+	flash_memory_size_config(sih, (void *)&fprobe);
 #endif /* (CFG_FLASH || CFG_SFLASH) */
 
 #ifdef CFG_NFLASH
-	/* If boot from sflash and nand flash present */
-	if ((fltype != NFLASH) && ((CHIPID(sih->chip) == BCM4706_CHIP_ID) || sih->ccrev == 38) &&
-	    (sih->cccaps & CC_CAP_NFLASH)) {
+	/* If boot from sflash, try to init partition for JFFS2 anyway */
+	if (nfl_info == NULL)
 		flash_nflash_init();
-	}
 #endif /* CFG_NFLASH */
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-	if (need_commit) nvram_commit();
+	if (need_commit)
+		nvram_commit();
 #endif
 }
 #endif	/* CFG_FLASH || CFG_SFLASH || CFG_NFLASH */
@@ -790,7 +749,7 @@ flash_init(void)
  *  for bootstrap here, like disk drives, flash memory, UARTs,
  *  network controllers, etc.
  *
- *  Input parameters: 
+ *  Input parameters:
  *     nothing
  *
  *  Return value:
@@ -812,6 +771,8 @@ board_device_init(void)
 #if CFG_FLASH || CFG_SFLASH || CFG_NFLASH
 	flash_init();
 #endif
+
+	mach_device_init(sih);
 
 	for (unit = 0; unit < SI_MAXCORES; unit++) {
 #if CFG_ET
@@ -842,8 +803,8 @@ board_device_init(void)
  *  "reset" command is applied to the installed devices.   You can
  *  do whatever board-specific things are here to keep the system
  *  stable, like stopping DMA sources, interrupts, etc.
- *  
- *  Input parameters: 
+ *
+ *  Input parameters:
  *     nothing
  *
  *  Return value:
@@ -860,12 +821,12 @@ board_device_reset(void)
  *  Do any final initialization, such as adding commands to the
  *  user interface.
  *
- *  If you don't want a user interface, put the startup code here.  
+ *  If you don't want a user interface, put the startup code here.
  *  This routine is called just before CFE starts its user interface.
  *
- *  Input parameters: 
+ *  Input parameters:
  *     nothing
- *   
+ *
  *  Return value:
  *     nothing
  */
@@ -874,6 +835,9 @@ board_final_init(void)
 {
 	char *addr, *mask, *wait_time;
 	char buf[512], *cur = buf;
+#ifdef CFG_ROMBOOT
+	char *laddr = NULL;
+#endif
 #if !CFG_SIM
 	char *boot_cfg = NULL;
 	char *go_cmd = "go;";
@@ -887,8 +851,7 @@ board_final_init(void)
 	ui_init_bcm947xxcmds();
 
 	/* Force commit of embedded NVRAM */
-	//commit = restore_defaults;
-	commit = 0;
+	commit = restore_defaults;
 
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if ((getintvar(NULL, "sdram_ncdl") == 0) &&
@@ -905,22 +868,35 @@ board_final_init(void)
 		commit = 1;
 	}
 
+	/* Set the size of the nvram area if not already done */
+	sprintf(buf, "%d", MAX_NVRAM_SPACE);
+	if (strcmp(nvram_safe_get("nvram_space"), buf) != 0) {
+		nvram_set("nvram_space", buf);
+		commit = 1;
+	}
+
 #if CFG_FLASH || CFG_SFLASH || CFG_NFLASH
 #if !CFG_SIM
-	/* Commit NVRAM */
-	if (commit) {
+	/* Commit NVRAM only if in FLASH */
+	if (
+#ifdef BCMNVRAMW
+		!nvram_inotp() &&
+#endif
+		commit) {
 		printf("Committing NVRAM...");
 		nvram_commit();
 		printf("done\n");
 		if (restore_defaults) {
-			printf("Waiting for reset button release...");
+#ifdef BCM_DEVINFO
+                        /* devinfo nvram hash table sync */
+                        devinfo_nvram_sync();
+#endif
+			printf("Waiting for wps button release...");
 			reset_release_wait();
 			printf("done\n");
 		}
 	}
-#endif
 
-#if !CFG_SIM
 	/* Reboot after restoring defaults */
 	if (restore_defaults)
 		si_watchdog(sih, 1);
@@ -941,9 +917,16 @@ board_final_init(void)
 		else if (tftp_max_retries < MIN_WAIT_TIME)
 			tftp_max_retries = MIN_WAIT_TIME;
 	}
+#ifdef CFG_ROMBOOT
+	else if (board_bootdev_rom(sih)) {
+		tftp_max_retries = 10;
+	}
+#endif
 
 	/* Configure network */
 	if (cfe_finddev("eth0")) {
+		int res;
+
 		if ((addr = nvram_get("lan_ipaddr")) &&
 		    (mask = nvram_get("lan_netmask")))
 			sprintf(buf, "ifconfig eth0 -addr=%s -mask=%s",
@@ -951,7 +934,91 @@ board_final_init(void)
 		else
 			sprintf(buf, "ifconfig eth0 -auto");
 
-		ui_docommand(buf);
+		res = ui_docommand(buf);
+
+#ifdef CFG_ROMBOOT
+		/* Try indefinite netboot only while booting from ROM
+		 * and we are sure that we dont have valid nvram in FLASH
+		 */
+		while (board_bootdev_rom(sih) && !addr) {
+			char ch;
+
+			cur = buf;
+			/* Check if something typed at console */
+			if (console_status()) {
+				console_read(&ch, 1);
+				/* Check for Ctrl-C */
+				if (ch == 3) {
+					if (laddr)
+						MFREE(osh, laddr, MAX_SCRIPT_FSIZE);
+					xprintf("Stopped auto netboot!!!\n");
+					return;
+				}
+			}
+
+			if (!res) {
+				char *bserver, *bfile, *load_ptr;
+
+				if (!laddr)
+					laddr = MALLOC(osh, MAX_SCRIPT_FSIZE);
+
+				if (!laddr) {
+					load_ptr = (char *) 0x00008000;
+					xprintf("Failed malloc for boot_script, Using :0x%x\n",
+						(unsigned int)laddr);
+				}
+				else {
+					load_ptr = laddr;
+				}
+				bserver = (bserver = env_getenv("BOOT_SERVER"))
+					? bserver:"192.168.1.1";
+
+				if ((bfile = env_getenv("BOOT_FILE"))) {
+					int len;
+
+					if (((len = strlen(bfile)) > 5) &&
+					    !strncmp((bfile + len - 5), "cfesh", 5)) {
+						cur += sprintf(cur,
+						"batch -raw -tftp -addr=0x%x -max=0x%x %s:%s;",
+							(unsigned int)load_ptr,
+							MAX_SCRIPT_FSIZE, bserver, bfile);
+					}
+					if (((len = strlen(bfile)) > 3)) {
+						if (!strncmp((bfile + len - 3), "elf", 3)) {
+							cur += sprintf(cur,
+							"boot -elf -tftp -max=0x5000000 %s:%s;",
+							bserver, bfile);
+						}
+						if (!strncmp((bfile + len - 3), "raw", 3)) {
+							cur += sprintf(cur,
+							"boot -raw -z -tftp -addr=0x00008000"
+							" -max=0x5000000 %s:%s;",
+							bserver, bfile);
+						}
+					}
+				}
+				else {  /* Make last effort */
+					cur += sprintf(cur,
+						"batch -raw -tftp -addr=0x%x -max=0x%x %s:%s;",
+						(unsigned int)load_ptr, MAX_SCRIPT_FSIZE,
+						bserver, "cfe_script.cfesh");
+					cur += sprintf(cur,
+						"boot -elf -tftp -max=0x5000000 %s:%s;",
+						bserver, "boot_file.elf");
+					cur += sprintf(cur,
+						"boot -raw -z -tftp -addr=0x00008000"
+						" -max=0x5000000 %s:%s;",
+						bserver, "boot_file.raw");
+				}
+
+				ui_docommand(buf);
+				cfe_sleep(3*CFE_HZ);
+			}
+
+			sprintf(buf, "ifconfig eth0 -auto");
+			res = ui_docommand(buf);
+		}
+#endif /* CFG_ROMBOOT */
 	}
 #if CFG_WL && CFG_WLU && CFG_SIM
 	if ((ssid = nvram_get("wl0_ssid"))) {

@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom BCM947XX boards
 #
-# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Makefile 315309 2012-02-16 06:57:20Z $
+# $Id: Makefile 382649 2013-02-03 04:37:52Z $
 #
 
 # Max sizes for vanilla external
@@ -35,7 +35,7 @@ endif
 
 # Max sizes for internal
 
-BSPOBJS += bcm947xx_init.o bcm947xx_devs.o ui_bcm947xx.o
+BSPOBJS += bcm947xx_init.o bcm947xx_devs.o ui_bcm947xx.o bcm947xx_machdep.o
 
 ifeq ($(strip $(CFG_MINIMAL_SIZE)), 1)
 ifeq ($(strip $(CFG_GMAC)), 0)
@@ -51,14 +51,14 @@ endif
 
 ALLOBJS += sisdram.o siutils.o \
 	hndmips.o hndpmu.o hndchipc.o sromstubs.o bcmutils.o cfe_osl.o \
-	nvram.o nvram_rw.o bcmstdlib.o
+	nvram.o nvram_rw.o bcmstdlib.o hndsoc.o
 
 CFLAGS += -DBCM4710 -DBCM4704 -DBCMDRIVER
 ifeq ($(CFG_BCMHND74K), 1)
 CFLAGS += -DBCMHND74K
 endif
 
-CFLAGS += -I$(SRCBASE)/include
+CFLAGS += -I$(SRCBASE)/include -I$(SRCBASE)/common/include
 CFLAGS += -I$(SRCBASE)/tools/misc/lzma_src/C
 
 vpath %.c $(SRCBASE)/shared $(SRCBASE)/shared/nvram
@@ -85,18 +85,19 @@ endif
 
 ifeq ($(strip ${CFG_SFLASH}),1)
 CFLAGS += -DCFG_SFLASH=1
-ALLOBJS += dev_sflash.o sflash.o
+ALLOBJS += dev_sflash.o hndsflash.o ccsflash.o
 endif
 
 ifeq ($(strip ${CFG_NFLASH}),1)
 CFLAGS += -DCFG_NFLASH=1 -DNFLASH_SUPPORT -DCFG_HEAP_SIZE=1024
-ALLOBJS += dev_nflash.o nflash.o
+ALLOBJS += dev_nflash.o hndnand.o nflash.o
+ALLOBJS += hamming.o popcount32.o
 endif
 
 ifeq ($(strip $(CFG_ET)),1)
 
 ETOBJS := etc.o et_cfe.o bcmrobo.o
-CFLAGS += -DCFG_ET=1 -I$(SRCBASE)/et/sys -DETROBO -DDMA
+CFLAGS += -DCFG_ET=1 -I$(SRCBASE)/et/sys -I$(SRCBASE)/et/include -DETROBO -DDMA
 
 ifeq ($(strip $(CFG_GMAC)),1)
 ETOBJS += etcgmac.o

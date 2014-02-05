@@ -76,7 +76,6 @@
 #include "initdata.h"
 #include "url.h"
 
-
 /*  *********************************************************************
     *  Constants
     ********************************************************************* */
@@ -150,6 +149,8 @@ int ui_init_flashcmds(void)
                "-offset=*;Begin programming at this offset in the flash device|"
                "-size=*;Size of source device when programming from flash to flash|"
 	       "-noheader;Override header verification, flash binary without checking|"
+	       "-ndump;dump nand flash|"
+	       "-block=*;which block to dump|"
 #if CFE_FLASH_ERASE_FLASH_ENABLED
  	       "-forceflash;Dangerous Command, Don't use if you don't know what you do|"
     	       "-erase;Erase the partition, can set the  offset and length|"
@@ -157,6 +158,7 @@ int ui_init_flashcmds(void)
 #ifdef FLASH_PARTITION_FILL_ENABLED
 	       "-fill;Fill the partition with char|"
 #endif
+	       "-cfe; write to flash and stay at cfe command mode|"
 	       "-mem;Use memory as source instead of a device");
 
 
@@ -475,6 +477,22 @@ static int ui_cmd_flash(ui_cmdline_t *cmd,int argc,char *argv[])
     char *scode = "secret_code";
     uint8_t SCODE[5] = {0x53, 0x43, 0x4F, 0x44, 0x45};
 #endif // RESCUE_MODE
+    int cfe = 0;
+
+#ifdef CFG_NFLASH
+	int ndump = cmd_sw_isset(cmd, "-ndump");
+	int block = 0;
+
+	if(ndump) {
+		if (cmd_sw_value(cmd,"-block",&x)) {
+			block = atoi(x);
+		}
+
+		dump_nflash(block);
+
+		return 0;
+	}
+#endif
 
     /* Get staging buffer */
     memsrc = cmd_sw_isset(cmd,"-mem");
@@ -587,6 +605,8 @@ static int ui_cmd_flash(ui_cmdline_t *cmd,int argc,char *argv[])
     if (cmd_sw_value(cmd,"-size",&x)) {
         size = atoi(x);
         }
+
+    cfe = cmd_sw_isset(cmd, "-cfe");
 
     /* Fix up the ptr and size for reading from memory
      * and skip loading to go directly to programming
@@ -703,7 +723,7 @@ program:
 #ifdef RESCUE_MODE
     if (norescue == 0) {
         if (copysize>0 && copysize<=0x40000) {
-                strcpy(flashdev, "flash1.boot");
+                strcpy(flashdev, "nflash1.boot");
                 for (i=0; i<0x40000; i++)
                         bootbuf[i] = (*(unsigned char *) (0xbfc00000+i));
                 if (
@@ -784,7 +804,6 @@ program:
         }
     } // No-rescue
 #endif // RESCUE_MODE
-
     /*
      * Verify the header and file's CRC.
      */
@@ -888,18 +907,22 @@ program:
         xprintf("copysize=%d, amtcopy=%d \n", copysize, amtcopy);
         if (copysize == amtcopy) {
                 xprintf("done. %d bytes written\n",amtcopy);
-                for (i=0; i<6; i++)
-                       send_rescueack(0x0006, 0x0001);
-                res = 0;
-                printf("\nBCM47XX SYSTEM RESET!!!\n\n");
-    		cfe_close(fh);
-                ui_docommand("reboot");
+		if(!cfe) {
+                	for (i=0; i<6; i++)
+	                       send_rescueack(0x0006, 0x0001);
+        	        res = 0;
+                	printf("\nBCM47XX SYSTEM RESET!!!\n\n");
+	                cfe_close(fh);
+        	        ui_docommand("reboot");
+		}
         }
         else {
                 ui_showerror(amtcopy,"Failed.");
-                for (i=0; i<6; i++)
-                        send_rescueack(0x0006, 0x0000);
-                res = CFE_ERR_IOERR;
+		if(!cfe) {
+	                for (i=0; i<6; i++)
+        	                send_rescueack(0x0006, 0x0000);
+                	res = CFE_ERR_IOERR;
+		}
         }
     }
     else {
@@ -922,7 +945,7 @@ program:
 	res = CFE_ERR_IOERR;
 	}
 #endif // RESCUE_MODE
-
+    
     /* 	
      * done!
      */

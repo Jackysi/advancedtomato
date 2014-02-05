@@ -94,4 +94,5 @@ const char *cfe_errortext(int err);
 void ui_get_boot_flashdev(char *flashdev);
 void ui_get_os_flashdev(char *flashdev);
 void ui_get_trx_flashdev(char *flashdev);
+void dump_nflash(int block_no);
 #endif /* CFG_NFLASH */

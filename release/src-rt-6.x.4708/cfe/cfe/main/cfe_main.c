@@ -191,7 +191,8 @@ static void cfe_init_ui(void)
     ui_init_cmddisp();
 
     OPTIONAL(ui_init_envcmds());
-    OPTIONAL(ui_init_devcmds());
+    //OPTIONAL(ui_init_devcmds());
+    ui_init_devcmds();
 #if CFG_NETWORK
     ui_init_netcmds();
 #endif
