@@ -2,7 +2,7 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: linuxver.h 312774 2012-02-03 22:20:14Z $
+ * $Id: linuxver.h 401759 2013-05-13 16:08:08Z $
  */
 
 #ifndef _linuxver_h_
@@ -32,6 +32,11 @@
 #include <linux/autoconf.h>
 #endif
 #endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)) */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
+#include <linux/kconfig.h>
+#endif
+
 #include <linux/module.h>
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 3, 0))
@@ -91,11 +96,28 @@
 #endif
 #endif	/* LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 41) */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
+#define DAEMONIZE(a) daemonize(a); \
+	allow_signal(SIGKILL); \
+	allow_signal(SIGTERM);
+#else /* Linux 2.4 (w/o preemption patch) */
+#define RAISE_RX_SOFTIRQ() \
+	cpu_raise_softirq(smp_processor_id(), NET_RX_SOFTIRQ)
+#define DAEMONIZE(a) daemonize(); \
+	do { if (a) \
+		strncpy(current->comm, a, MIN(sizeof(current->comm), (strlen(a)))); \
+	} while (0);
+#endif /* LINUX_VERSION_CODE  */
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19)
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func)
 #else
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func, _work)
+#if !(LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18) && defined(RHEL_MAJOR) && \
+	(RHEL_MAJOR == 5))
+/* Exclude RHEL 5 */
 typedef void (*work_func_t)(void *work);
+#endif
 #endif	/* >= 2.6.20 */
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
@@ -173,6 +195,10 @@ typedef	struct pcmcia_device dev_link_t;
 #endif
 
 #endif /* CONFIG_PCMCIA */
+
+#ifdef CUSTOMER_HW4
+#include <linux/kthread.h>
+#endif
 
 #ifndef __exit
 #define __exit
@@ -559,6 +585,19 @@ typedef struct {
 		wait_for_completion(&((tsk_ctl)->completed)); \
 	DBG_THR(("%s thr:%lx started\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
 }
+
+#ifdef USE_KTHREAD_API
+#define PROC_START2(thread_func, owner, tsk_ctl, flags, name) \
+{ \
+	sema_init(&((tsk_ctl)->sema), 0); \
+	init_completion(&((tsk_ctl)->completed)); \
+	(tsk_ctl)->parent = owner; \
+	(tsk_ctl)->terminated = FALSE; \
+	(tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
+	(tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
+	DBG_THR(("%s thr:%lx created\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
+}
+#endif
 
 #define PROC_STOP(tsk_ctl) \
 { \

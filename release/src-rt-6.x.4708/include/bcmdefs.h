@@ -1,7 +1,7 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmdefs.h 346153 2012-07-20 07:39:53Z $
+ * $Id: bcmdefs.h 401759 2013-05-13 16:08:08Z $
  */
 
 #ifndef	_bcmdefs_h_
@@ -31,6 +31,9 @@
  */
 #define BCM_REFERENCE(data)	((void)(data))
 
+#ifdef EFI
+#define STATIC_ASSERT(expr)	ASSERT((expr))
+#else
 /* Compile-time assert can be used in place of ASSERT if the expression evaluates
  * to a constant at compile time.
  */
@@ -40,6 +43,7 @@
 	/* Make sure the expression is true. */ \
 	typedef char STATIC_ASSERT_FAIL[(expr) ? 1 : -1]; \
 }
+#endif
 
 /* Reclaiming text and data :
  * The following macros specify special linker sections that can be reclaimed
@@ -98,8 +102,13 @@ extern bool attach_part_reclaimed;
 #define	BCMNMIATTACHFN(_fn)	_fn
 #define	BCMNMIATTACHDATA(_data)	_data
 #define CONST	const
+#if defined(__ARM_ARCH_7A__)
+#define BCM47XX_CA9
+#else
+#undef BCM47XX_CA9
+#endif
 #ifndef BCMFASTPATH
-#if defined(mips) || defined(__ARM_ARCH_7A__)
+#if defined(mips) || defined(BCM47XX_CA9)
 #define BCMFASTPATH		__attribute__ ((__section__ (".text.fastpath")))
 #define BCMFASTPATH_HOST	__attribute__ ((__section__ (".text.fastpath_host")))
 #else
@@ -235,7 +244,9 @@ typedef struct  {
 /* In NetBSD we also want more segments because the lower level mbuf mapping api might
  * allocate a large number of segments
  */
-#define MAX_DMA_SEGS 16
+#define MAX_DMA_SEGS 32
+#elif defined(linux)
+#define MAX_DMA_SEGS 8
 #else
 #define MAX_DMA_SEGS 4
 #endif
@@ -257,7 +268,7 @@ typedef struct {
 
 #if defined(BCM_RPC_NOCOPY) || defined(BCM_RCP_TXNOCOPY)
 /* add 40 bytes to allow for extra RPC header and info  */
-#define BCMEXTRAHDROOM 220
+#define BCMEXTRAHDROOM 260
 #else /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
 #ifdef CTFMAP
 #define BCMEXTRAHDROOM 208
@@ -322,7 +333,10 @@ typedef struct {
 #endif
 
 /* Max. nvram variable table size */
+#ifndef MAXSZ_NVRAM_VARS
 #define	MAXSZ_NVRAM_VARS	4096
+#endif
+
 
 #ifdef EFI
 #define __attribute__(x)	/* CSTYLED */
