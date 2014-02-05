@@ -1,7 +1,7 @@
 /*
  * Broadcom 802.11abg Networking Device Driver Configuration file
  *
- * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -26,18 +26,20 @@
 					 * 23 (43224b0), 24 (4313), 25 (5357a0), 26 (4331a0),
 					 * 28 (5357b0), 29 (4331B0), 30(43228).
 					 */
-#define D11CONF2	0x100		/* D11 Core Rev > 31, Rev 40(4360a0) */
+#define D11CONF2	0x500		/* D11 Core Rev > 31, Rev 40(4360a0), 42(4360B0) */
 
 #define NRXBUFPOST	56	/* # rx buffers posted */
 #define RXBND		24	/* max # rx frames to process */
 #define PKTCBND		36	/* max # rx frames to chain */
-#define CTFPOOLSZ       64	/* max buffers in ctfpool */
+#define CTFPOOLSZ       192	/* max buffers in ctfpool */
 
 #define WME_PER_AC_TX_PARAMS 1
 #define WME_PER_AC_TUNING 1
 
 #define NTXD_AC3X3		512	/* TX descriptor ring */
 #define NRXD_AC3X3		512	/* RX descriptor ring */
+#define NTXD_LARGE_AC3X3	2048	/* TX descriptor ring */
+#define NRXD_LARGE_AC3X3	2048	/* RX descriptor ring */
 #define NRXBUFPOST_AC3X3	320	/* # rx buffers posted */
 #define RXBND_AC3X3		36	/* max # rx frames to process */
 #define CTFPOOLSZ_AC3X3		512	/* max buffers in ctfpool */
@@ -54,4 +56,7 @@
 
 #define MRRS			512	/* Max read request size */
 
-#define AMPDU_PKTQ_FAVORED_LEN 4096
+#define AMPDU_PKTQ_LEN          1536
+#define AMPDU_PKTQ_FAVORED_LEN  4096
+
+#define WLRXEXTHDROOM -1        /* to reserve extra headroom in DMA Rx buffer */
