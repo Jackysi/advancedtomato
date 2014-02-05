@@ -1,0 +1,161 @@
+#!/bin/sh
+
+###############################
+# Copyright (C) 2012/2013 shibby
+#
+# This script send anonymous or incompleted information about model of router and installed tomato version.
+# Those information will be used ONLY for stats.
+# Any of private information will be NOT sended!
+# Results you can explore on http://tomato.groov.pl/tomatoanon.php page.
+# If you don`t agree to run this script you can disable it in GUI.
+#
+# Sended information:
+# - MD5SUM of WAN+LAN MAC addresses - this will identify a router. Ex: 1c1dbd4202d794251ec1acf1211bb2c8
+# - Model of router. Ex: Asus RT-N66U
+# - Version of installed tomato. Ex: 110 K26 USB
+# - Builtype. Ex: Mega-VPN-64K
+# - Uptime of your router. Ex: 3 days
+# - Number of version for tomato update notification system. Ex: 110
+#
+# That`s all
+###############################
+
+ANON_ENABLED=`nvram get tomatoanon_enable`
+ANON_ANSWER=`nvram get tomatoanon_answer`
+ANON_NOTIFY=`nvram get tomatoanon_notify`
+
+if [ "$ANON_ANSWER" == "1" ]; then
+    if [ "$ANON_ENABLED" == "1" ]; then
+
+############################
+        MOD=Shibby
+############################
+
+        #Detect Version and Buildtype
+        KERNEL=`uname -r | cut -d "." -f1,2`
+        if [ "$KERNEL" == "2.6" ]; then
+            IS_USB=`nvram get os_version | grep USB | wc -l`
+            if [ "$IS_USB" == "0" ]; then #if K26
+                VER=`nvram get os_version | awk '{ print $2" "$3 }' | cut -d "-" -f2`
+                BUILDTYPE=`nvram get os_version | awk '{ print $4 }'`
+            else #if K26USB
+                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }' | cut -d "-" -f2`
+                BUILDTYPE=`nvram get os_version | awk '{ print $5 }'`
+            fi
+        else #K2.4
+            IS_USB=`nvram get os_version | grep USB | wc -l`
+            if [ "$IS_USB" == "0" ]; then #if K24
+                VER=`nvram get os_version | awk '{ print $2" "$3 }'`
+                BUILDTYPE=`nvram get os_version  |  awk '{ print $4 }'`
+            else # if K24USB
+                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }'`
+                BUILDTYPE=`nvram get os_version | awk '{ print $5 }'`
+            fi
+        fi
+
+        if [ "$1" == "checkver" -a "$ANON_NOTIFY" == "1" ]; then
+            # Tomato Update Notification Script
+            # This works only for Shibby`s builds !!!
+            CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
+
+            #Change all spaces to %20
+            echo "http://tomato.groov.pl/tomatoanon.php?v=$CHECK_VER&mod=$MOD&anon=2" > /tmp/AnonLink
+            sed -i "s/ /%20/g" /tmp/AnonLink
+            ANONSEND=`cat /tmp/AnonLink`
+            rm /tmp/AnonLink
+
+            RESULT="/tmp/anon.version"
+            wget -O $RESULT $ANONSEND
+
+            #do we have result? If don`t, then set no update needed
+            if [ ! -f "$RESULT" ]; then
+                echo "have_update=no" > $RESULT
+            fi
+
+            #Thanks. Now add cron job
+
+            ISCRU=`cru l | grep checkver | wc -l`
+            if [ "$ISCRU" == "0" ]; then
+
+                #random minutes 0..59
+                MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+
+                #random hour 0..23
+                HOUR=`awk 'BEGIN {srand(); printf "%d", 23*rand()}'`
+
+                #checkver daily
+                cru a checkver "$MINUTES $HOUR * * * /usr/sbin/tomatoanon checkver"
+            fi
+
+        else #just update anon database
+            #Collect datas
+            MOD=Shibby
+            UPTIME=`uptime | cut -d "," -f1 | cut -d " " -f4,5`
+            WANMAC=`nvram get wan_hwaddr`
+            LANMAC=`nvram get lan_hwaddr`
+            MODEL=`nvram get t_model_name`
+            DRIVER=`wl ver | grep version | awk '{ print $7 }'`
+            WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | awk '{ print $1 }'`
+
+            ROUTERID=`nvram get tomatoanon_id`
+            if [ ! "$ROUTERID" == "$WANMAC_MD5" ]; then
+                nvram set tomatoanon_id="$WANMAC_MD5"
+                nvram commit
+            fi
+
+            #Change all spaces to %20.
+            echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+            sed -i "s/ /%20/g" /tmp/AnonLink
+            ANONSEND=`cat /tmp/AnonLink`
+            rm /tmp/AnonLink
+
+            #We have all we need well we can send datas to Anon database
+            RESULT="/tmp/anon.result"
+            wget -O $RESULT $ANONSEND
+
+            #Thanks. Now add cron job
+
+            ISCRU=`cru l | grep anonupdate | wc -l`
+            if [ "$ISCRU" == "0" ]; then
+
+                #random minutes 0..59
+                MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+
+                #random hour 0..23
+                HOUR=`awk 'BEGIN {srand(); printf "%d", 23*rand()}'`
+
+                #random day of week 0..6
+                DAY=`awk 'BEGIN {srand(); printf "%d", 6*rand()}'`
+
+                #update anon one time per week
+                cru a anonupdate "$MINUTES $HOUR * * $DAY /usr/sbin/tomatoanon"
+            fi
+        fi
+
+    else #if anon is not enabled or was disabled right now
+
+        ISCRU=`cru l | grep anonupdate | wc -l`
+        if [ "$ISCRU" == "0" ]; then
+            cru d anonupdate
+        fi
+
+        ISCRU=`cru l | grep checkver | wc -l`
+        if [ "$ISCRU" == "0" ]; then
+            cru d checkver
+        fi
+
+    fi #end ANON_ENABLE
+
+else #if answer is not enabled or was disabled right now
+
+    ISCRU=`cru l | grep anonupdate | wc -l`
+    if [ "$ISCRU" == "0" ]; then
+        cru d anonupdate
+    fi
+
+    ISCRU=`cru l | grep checkver | wc -l`
+    if [ "$ISCRU" == "0" ]; then
+        cru d checkver
+    fi
+
+fi #end ANON_ANSWER

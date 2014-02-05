@@ -1,0 +1,12 @@
+         Technical notes on my code submission of 17 Oct 00
+                        Kern Sibbald
+
+General:
+- Integrated André's fixes to support the
+  0119A cable used for BackUPS Office.
+- Integrated Solaris xlib fix supplied by Riccardo.
+- Manual updates.
+- Built on Linux OK. Built on Solaris OK.
+
+Changes submitted this submission:
+- See above.

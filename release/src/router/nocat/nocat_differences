@@ -1,0 +1,3344 @@
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/aclocal.m4 /home/vicente/nocat/aclocal.m4
+1c1
+< # generated automatically by aclocal 1.8.3 -*- Autoconf -*-
+---
+> # generated automatically by aclocal 1.9.5 -*- Autoconf -*-
+3,4c3,4
+< # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+< # Free Software Foundation, Inc.
+---
+> # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+> # 2005  Free Software Foundation, Inc.
+21c21
+< AC_DEFUN(AM_PATH_GLIB,
+---
+> AC_DEFUN([AM_PATH_GLIB],
+211,227c211,215
+< #                                                        -*- Autoconf -*-
+< # Copyright (C) 2002, 2003  Free Software Foundation, Inc.
+< # Generated from amversion.in; do not edit by hand.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+---
+> # Copyright (C) 2002, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+233c221
+< AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version="1.8"])
+---
+> AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version="1.9"])
+240,249c228
+< 	 [AM_AUTOMAKE_VERSION([1.8.3])])
+< 
+< # AM_AUX_DIR_EXPAND
+< 
+< # Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+---
+> 	 [AM_AUTOMAKE_VERSION([1.9.5])])
+251,254c230
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # AM_AUX_DIR_EXPAND                                         -*- Autoconf -*-
+256,259c232,236
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+306,318c283
+< # AM_CONDITIONAL                                              -*- Autoconf -*-
+< 
+< # Copyright (C) 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # AM_CONDITIONAL                                            -*- Autoconf -*-
+320,323c285,290
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005
+> # Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+325c292
+< # serial 6
+---
+> # serial 7
+345,346c312,313
+<   AC_MSG_ERROR([conditional "$1" was never defined.
+< Usually this means the macro was only invoked conditionally.])
+---
+>   AC_MSG_ERROR([[conditional "$1" was never defined.
+> Usually this means the macro was only invoked conditionally.]])
+349d315
+< # serial 7						-*- Autoconf -*-
+351c317
+< # Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+---
+> # Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+352a319,322
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+354,368c324
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+< 
+---
+> # serial 8
+377d332
+< 
+466,468c421,428
+<       # (even with -Werror).  So we grep stderr for any message
+<       # that says an option was ignored.
+<       if grep 'ignoring option' conftest.err >/dev/null 2>&1; then :; else
+---
+>       # or remarks (even with -Werror).  So we grep stderr for any message
+>       # that says an option was ignored or not supported.
+>       # When given -MP, icc 7.0 and 7.1 complain thusly:
+>       #   icc: Command line warning: ignoring option '-M'; no argument required
+>       # The diagnosis changed in icc 8.0:
+>       #   icc: Command line remark: option '-MP' not supported
+>       if (grep 'ignoring option' conftest.err ||
+>           grep 'not supported' conftest.err) >/dev/null 2>&1; then :; else
+512,524c472
+< # Generate code to set up dependency tracking.   -*- Autoconf -*-
+< 
+< # Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # Generate code to set up dependency tracking.              -*- Autoconf -*-
+526,529c474,479
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+> # Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+531c481
+< #serial 2
+---
+> #serial 3
+550,552c500,501
+<   grep '^DEP_FILES *= *[[^ @%:@]]' < "$mf" > /dev/null || continue
+<   # Extract the definition of DEP_FILES from the Makefile without
+<   # running `make'.
+---
+>   # Extract the definition of DEPDIR, am__include, and am__quote
+>   # from the Makefile without running `make'.
+554a504,506
+>   am__include=`sed -n 's/^am__include = //p' < "$mf"`
+>   test -z "am__include" && continue
+>   am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
+557,570c509,514
+<   test -d "$dirpart/$DEPDIR" || mkdir "$dirpart/$DEPDIR"
+<   # We invoke sed twice because it is the simplest approach to
+<   # changing $(DEPDIR) to its actual value in the expansion.
+<   for file in `sed -n '
+<     /^DEP_FILES = .*\\\\$/ {
+<       s/^DEP_FILES = //
+<       :loop
+< 	s/\\\\$//
+< 	p
+< 	n
+< 	/\\\\$/ b loop
+<       p
+<     }
+<     /^DEP_FILES = / s/^DEP_FILES = //p' < "$mf" | \
+---
+>   # Find all dependency output files, they are included files with
+>   # $(DEPDIR) in their names.  We invoke sed twice because it is the
+>   # simplest approach to changing $(DEPDIR) to its actual value in the
+>   # expansion.
+>   for file in `sed -n "
+>     s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+596,613c540,545
+< # Like AC_CONFIG_HEADER, but automatically create stamp file. -*- Autoconf -*-
+< 
+< # Copyright (C) 1996, 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 1996, 1997, 2000, 2001, 2003, 2005
+> # Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+615c547
+< # serial 7
+---
+> # serial 8
+620,623c552
+< # Do all the work for Automake.                            -*- Autoconf -*-
+< 
+< # This macro actually does too much some checks are only needed if
+< # your package does certain things.  But this isn't really a big deal.
+---
+> # Do all the work for Automake.                             -*- Autoconf -*-
+625c554
+< # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+---
+> # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+626a556,559
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+628,641c561
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # serial 12
+643c563,564
+< # serial 11
+---
+> # This macro actually does too much.  Some checks are only needed if
+> # your package does certain things.  But this isn't really a big deal.
+701d621
+< AM_MISSING_PROG(AMTAR, tar)
+710c630,632
+< 
+---
+> _AM_IF_OPTION([tar-ustar], [_AM_PROG_TAR([ustar])],
+>               [_AM_IF_OPTION([tar-pax], [_AM_PROG_TAR([pax])],
+> 	      		     [_AM_PROG_TAR([v7])])])
+743a666,671
+> # Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+> 
+747,764d674
+< 
+< # Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+< 
+770,786c680,684
+< #                                                          -*- Autoconf -*-
+< # Copyright (C) 2003  Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+788c686
+< # serial 1
+---
+> # serial 2
+803c701
+< # Add --enable-maintainer-mode option to configure.
+---
+> # Add --enable-maintainer-mode option to configure.         -*- Autoconf -*-
+806c704
+< # Copyright (C) 1996, 1998, 2000, 2001, 2002, 2003, 2004
+---
+> # Copyright (C) 1996, 1998, 2000, 2001, 2002, 2003, 2004, 2005
+807a706,709
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+809,824c711
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+< 
+< # serial 3
+---
+> # serial 4
+843,855c730
+< # Check to see how 'make' treats includes.	-*- Autoconf -*-
+< 
+< # Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # Check to see how 'make' treats includes.	            -*- Autoconf -*-
+857,860c732,736
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 2001, 2002, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+862c738
+< # serial 2
+---
+> # serial 3
+906,919c782
+< #  -*- Autoconf -*-
+< 
+< 
+< # Copyright (C) 1997, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # Fake the existence of programs that GNU maintainers use.  -*- Autoconf -*-
+921,924c784,789
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 1997, 1999, 2000, 2001, 2003, 2005
+> # Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+926c791
+< # serial 3
+---
+> # serial 4
+951a817,822
+> # Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+> 
+955,972c826
+< 
+< # Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+< 
+---
+> #
+993,994c847,848
+<   # Keeping the `.' argument allows $(mkdir_p) to be used without
+<   # argument.  Indeed, we sometimes output rules like
+---
+>   # We used to keeping the `.' as first argument, in order to
+>   # allow $(mkdir_p) to be used without argument.  As in
+996,999c850,861
+<   # where $(somedir) is conditionally defined.
+<   # (`test -n '$(somedir)' && $(mkdir_p) $(somedir)' is a more
+<   # expensive solution, as it forces Make to start a sub-shell.)
+<   mkdir_p='mkdir -p -- .'
+---
+>   # where $(somedir) is conditionally defined.  However this is wrong
+>   # for two reasons:
+>   #  1. if the package is installed by a user who cannot write `.'
+>   #     make install will fail,
+>   #  2. the above comment should most certainly read
+>   #     $(mkdir_p) $(DESTDIR)$(somedir)
+>   #     so it does not work when $(somedir) is undefined and
+>   #     $(DESTDIR) is not.
+>   #  To support the latter case, we have to write
+>   #     test -z "$(somedir)" || $(mkdir_p) $(DESTDIR)$(somedir),
+>   #  so the `.' trick is pointless.
+>   mkdir_p='mkdir -p --'
+1018,1030c880
+< # Helper functions for option handling.                    -*- Autoconf -*-
+< 
+< # Copyright (C) 2001, 2002, 2003  Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # Helper functions for option handling.                     -*- Autoconf -*-
+1032,1035c882,886
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 2001, 2002, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+1037c888
+< # serial 2
+---
+> # serial 3
+1062,1076c913
+< #
+< # Check to make sure that the build environment is sane.
+< #
+< 
+< # Copyright (C) 1996, 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+---
+> # Check to make sure that the build environment is sane.    -*- Autoconf -*-
+1078,1081c915,920
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 1996, 1997, 2000, 2001, 2003, 2005
+> # Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+1083c922
+< # serial 3
+---
+> # serial 4
+1126,1143c965,969
+< # AM_PROG_INSTALL_STRIP
+< 
+< # Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+< 
+< # This program is free software; you can redistribute it and/or modify
+< # it under the terms of the GNU General Public License as published by
+< # the Free Software Foundation; either version 2, or (at your option)
+< # any later version.
+< 
+< # This program is distributed in the hope that it will be useful,
+< # but WITHOUT ANY WARRANTY; without even the implied warranty of
+< # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+< # GNU General Public License for more details.
+< 
+< # You should have received a copy of the GNU General Public License
+< # along with this program; if not, write to the Free Software
+< # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+< # 02111-1307, USA.
+---
+> # Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+1144a971,972
+> # AM_PROG_INSTALL_STRIP
+> # ---------------------
+1163a992,1087
+> 
+> # Check how to create a tarball.                            -*- Autoconf -*-
+> 
+> # Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+> #
+> # This file is free software; the Free Software Foundation
+> # gives unlimited permission to copy and/or distribute it,
+> # with or without modifications, as long as this notice is preserved.
+> 
+> # serial 2
+> 
+> # _AM_PROG_TAR(FORMAT)
+> # --------------------
+> # Check how to create a tarball in format FORMAT.
+> # FORMAT should be one of `v7', `ustar', or `pax'.
+> #
+> # Substitute a variable $(am__tar) that is a command
+> # writing to stdout a FORMAT-tarball containing the directory
+> # $tardir.
+> #     tardir=directory && $(am__tar) > result.tar
+> #
+> # Substitute a variable $(am__untar) that extract such
+> # a tarball read from stdin.
+> #     $(am__untar) < result.tar
+> AC_DEFUN([_AM_PROG_TAR],
+> [# Always define AMTAR for backward compatibility.
+> AM_MISSING_PROG([AMTAR], [tar])
+> m4_if([$1], [v7],
+>      [am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'],
+>      [m4_case([$1], [ustar],, [pax],,
+>               [m4_fatal([Unknown tar format])])
+> AC_MSG_CHECKING([how to create a $1 tar archive])
+> # Loop over all known methods to create a tar archive until one works.
+> _am_tools='gnutar m4_if([$1], [ustar], [plaintar]) pax cpio none'
+> _am_tools=${am_cv_prog_tar_$1-$_am_tools}
+> # Do not fold the above two line into one, because Tru64 sh and
+> # Solaris sh will not grok spaces in the rhs of `-'.
+> for _am_tool in $_am_tools
+> do
+>   case $_am_tool in
+>   gnutar)
+>     for _am_tar in tar gnutar gtar;
+>     do
+>       AM_RUN_LOG([$_am_tar --version]) && break
+>     done
+>     am__tar="$_am_tar --format=m4_if([$1], [pax], [posix], [$1]) -chf - "'"$$tardir"'
+>     am__tar_="$_am_tar --format=m4_if([$1], [pax], [posix], [$1]) -chf - "'"$tardir"'
+>     am__untar="$_am_tar -xf -"
+>     ;;
+>   plaintar)
+>     # Must skip GNU tar: if it does not support --format= it doesn't create
+>     # ustar tarball either.
+>     (tar --version) >/dev/null 2>&1 && continue
+>     am__tar='tar chf - "$$tardir"'
+>     am__tar_='tar chf - "$tardir"'
+>     am__untar='tar xf -'
+>     ;;
+>   pax)
+>     am__tar='pax -L -x $1 -w "$$tardir"'
+>     am__tar_='pax -L -x $1 -w "$tardir"'
+>     am__untar='pax -r'
+>     ;;
+>   cpio)
+>     am__tar='find "$$tardir" -print | cpio -o -H $1 -L'
+>     am__tar_='find "$tardir" -print | cpio -o -H $1 -L'
+>     am__untar='cpio -i -H $1 -d'
+>     ;;
+>   none)
+>     am__tar=false
+>     am__tar_=false
+>     am__untar=false
+>     ;;
+>   esac
+> 
+>   # If the value was cached, stop now.  We just wanted to have am__tar
+>   # and am__untar set.
+>   test -n "${am_cv_prog_tar_$1}" && break
+> 
+>   # tar/untar a dummy directory, and stop if the command works
+>   rm -rf conftest.dir
+>   mkdir conftest.dir
+>   echo GrepMe > conftest.dir/file
+>   AM_RUN_LOG([tardir=conftest.dir && eval $am__tar_ >conftest.tar])
+>   rm -rf conftest.dir
+>   if test -s conftest.tar; then
+>     AM_RUN_LOG([$am__untar <conftest.tar])
+>     grep GrepMe conftest.dir/file >/dev/null 2>&1 && break
+>   fi
+> done
+> rm -rf conftest.dir
+> 
+> AC_CACHE_VAL([am_cv_prog_tar_$1], [am_cv_prog_tar_$1=$_am_tool])
+> AC_MSG_RESULT([$am_cv_prog_tar_$1])])
+> AC_SUBST([am__tar])
+> AC_SUBST([am__untar])
+> ]) # _AM_PROG_TAR
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/AUTHORS /home/vicente/nocat/AUTHORS
+10a11
+>     Jeff Kyllo <jkyllo-nocat@echospiral.com>
+19a21,23
+> 
+> This distribution contains code from libghttp. See libghttp/AUTHORS for a list
+> of authors of that package.
+Only in /home/vicente/nocat: config
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/config.log /home/vicente/nocat/config.log
+4c4
+< It was created by nocat configure 0.93pre2, which was
+---
+> It was created by nocat configure 0.93pre2-ewrt0.4, which was
+7c7
+<   $ ./configure --host=mipsel-linux --build=x86_64-linux-gnu --with-firewall=iptables --with-glib-prefix=/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr
+---
+>   $ ./configure --with-remote-splash --prefix=/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install --localstatedir=/var --sysconfdir=/etc --with-glib-prefix=/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install --disable-glibtest --host=mipsel-linux
+13,15c13,15
+< hostname = pc1
+< uname -m = x86_64
+< uname -r = 2.6.35-28-generic
+---
+> hostname = tomatodevp
+> uname -m = i686
+> uname -r = 2.6.27-gentoo-r8
+17c17
+< uname -v = #50-Ubuntu SMP Fri Mar 18 18:42:20 UTC 2011
+---
+> uname -v = #4 SMP Mon Apr 13 01:25:52 CST 2009
+19c19
+< /usr/bin/uname -p = unknown
+---
+> /usr/bin/uname -p = Intel(R) Core(TM)2 Duo CPU E7200 @ 2.53GHz
+30,33d29
+< PATH: /home/vicente/tomatoraf/release/tools
+< PATH: /home/vicente/tomatoraf/release/tools
+< PATH: /home/vicente/tomatoraf/release/tools
+< PATH: /usr/local/sbin
+35d30
+< PATH: /usr/sbin
+37d31
+< PATH: /sbin
+39,40c33,35
+< PATH: /usr/games
+< PATH: /opt/brcm/hndtools-mipsel-linux/bin
+---
+> PATH: /opt/bin
+> PATH: /usr/i686-pc-linux-gnu/gcc-bin/4.3.1
+> PATH: /home/zd/bin
+43d37
+< PATH: /opt/brcm/hndtools-mipsel-uclibc/bin
+54,70c48,63
+< configure:1535: checking for gawk
+< configure:1564: result: no
+< configure:1535: checking for mawk
+< configure:1551: found /usr/bin/mawk
+< configure:1561: result: mawk
+< configure:1571: checking whether make sets $(MAKE)
+< configure:1591: result: yes
+< configure:1670: checking for mipsel-linux-strip
+< configure:1696: result: mipsel-uclibc-strip -R .note -R .comment
+< configure:1755: checking whether to enable maintainer-specific portions of Makefiles
+< configure:1764: result: no
+< configure:1789: checking for mipsel-linux-gcc
+< configure:1815: result: mipsel-uclibc-gcc
+< configure:2097: checking for C compiler version
+< configure:2100: mipsel-uclibc-gcc --version </dev/null >&5
+< mipsel-uclibc-gcc (GCC) 4.2.4
+< Copyright (C) 2007 Free Software Foundation, Inc.
+---
+> configure:1543: checking for gawk
+> configure:1559: found /usr/bin/gawk
+> configure:1569: result: gawk
+> configure:1579: checking whether make sets $(MAKE)
+> configure:1599: result: yes
+> configure:1675: checking for mipsel-linux-strip
+> configure:1691: found /opt/brcm/hndtools-mipsel-linux/bin/mipsel-linux-strip
+> configure:1701: result: mipsel-linux-strip
+> configure:1767: checking whether to enable maintainer-specific portions of Makefiles
+> configure:1776: result: no
+> configure:1801: checking for mipsel-linux-gcc
+> configure:1827: result: mipsel-uclibc-gcc
+> configure:2109: checking for C compiler version
+> configure:2112: mipsel-uclibc-gcc --version </dev/null >&5
+> mipsel-linux-gcc (GCC) 3.2.3 with Broadcom modifications
+> Copyright (C) 2002 Free Software Foundation, Inc.
+74,78c67,73
+< configure:2103: $? = 0
+< configure:2105: mipsel-uclibc-gcc -v </dev/null >&5
+< Using built-in specs.
+< Target: mipsel-linux-uclibc
+< Configured with: /home/fedork/tomato/toolchain/build_dir/toolchain-mipsel_gcc4.2.4/gcc-4.2.4/configure --prefix=/opt/brcm/hndtools-mipsel-uclibc-4.2.4 --build=i486-linux-gnu --host=i486-linux-gnu --target=mipsel-linux-uclibc --with-gnu-ld --enable-target-optspace --disable-libgomp --disable-libmudflap --disable-multilib --disable-nls --disable-__cxa_atexit --enable-libssp --enable-languages=c,c++ --enable-shared --enable-threads --enable-tls
+---
+> configure:2115: $? = 0
+> configure:2117: mipsel-uclibc-gcc -v </dev/null >&5
+> Invoked as mipsel-uclibc-gcc
+> arg[ 0] = /opt/brcm/hndtools-mipsel-linux/bin/mipsel-linux-gcc
+> arg[ 1] = -v
+> Reading specs from /opt/brcm/hndtools-mipsel-linux/bin/../lib/gcc-lib/mipsel-linux/3.2.3/specs
+> Configured with: /opt/brcm/org/tools-src/gnu/gcc/configure -v --target=mipsel-linux --prefix=/opt/brcm/hndtools-mipsel-linux-3.2.3 --with-bcm4710a0 --with-headers=/opt/brcm/hndtools-mipsel-linux-3.2.3/mipsel-linux/include --enable-languages=c,c++
+80,104c75,102
+< gcc version 4.2.4
+< configure:2108: $? = 0
+< configure:2110: mipsel-uclibc-gcc -V </dev/null >&5
+< mipsel-uclibc-gcc: '-V' option must have argument
+< configure:2113: $? = 1
+< configure:2136: checking for C compiler default output file name
+< configure:2139: mipsel-uclibc-gcc    conftest.c  >&5
+< configure:2142: $? = 0
+< configure:2188: result: a.out
+< configure:2193: checking whether the C compiler works
+< configure:2219: result: yes
+< configure:2226: checking whether we are cross compiling
+< configure:2228: result: yes
+< configure:2231: checking for suffix of executables
+< configure:2233: mipsel-uclibc-gcc -o conftest    conftest.c  >&5
+< configure:2236: $? = 0
+< configure:2261: result: 
+< configure:2267: checking for suffix of object files
+< configure:2288: mipsel-uclibc-gcc -c   conftest.c >&5
+< configure:2291: $? = 0
+< configure:2313: result: o
+< configure:2317: checking whether we are using the GNU C compiler
+< configure:2341: mipsel-uclibc-gcc -c   conftest.c >&5
+< configure:2347: $? = 0
+< configure:2351: test -z 
+---
+> gcc version 3.2.3 with Broadcom modifications
+> configure:2120: $? = 0
+> configure:2122: mipsel-uclibc-gcc -V </dev/null >&5
+> mipsel-linux-gcc: argument to `-V' is missing
+> configure:2125: $? = 1
+> configure:2148: checking for C compiler default output file name
+> configure:2151: mipsel-uclibc-gcc -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:2154: $? = 0
+> configure:2200: result: a.out
+> configure:2205: checking whether the C compiler works
+> configure:2211: ./a.out
+> ./configure: line 2212: ./a.out: cannot execute binary file
+> configure:2214: $? = 126
+> configure:2231: result: yes
+> configure:2238: checking whether we are cross compiling
+> configure:2240: result: yes
+> configure:2243: checking for suffix of executables
+> configure:2245: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:2248: $? = 0
+> configure:2273: result: 
+> configure:2279: checking for suffix of object files
+> configure:2300: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:2303: $? = 0
+> configure:2325: result: o
+> configure:2329: checking whether we are using the GNU C compiler
+> configure:2353: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:2359: $? = 0
+> configure:2363: test -z 
+106,113c104,111
+< configure:2354: $? = 0
+< configure:2357: test -s conftest.o
+< configure:2360: $? = 0
+< configure:2373: result: yes
+< configure:2379: checking whether mipsel-uclibc-gcc accepts -g
+< configure:2400: mipsel-uclibc-gcc -c -g  conftest.c >&5
+< configure:2406: $? = 0
+< configure:2410: test -z 
+---
+> configure:2366: $? = 0
+> configure:2369: test -s conftest.o
+> configure:2372: $? = 0
+> configure:2385: result: yes
+> configure:2391: checking whether mipsel-uclibc-gcc accepts -g
+> configure:2412: mipsel-uclibc-gcc -c -g  conftest.c >&5
+> configure:2418: $? = 0
+> configure:2422: test -z 
+115,122c113,120
+< configure:2413: $? = 0
+< configure:2416: test -s conftest.o
+< configure:2419: $? = 0
+< configure:2430: result: yes
+< configure:2447: checking for mipsel-uclibc-gcc option to accept ANSI C
+< configure:2517: mipsel-uclibc-gcc  -c -g -O2  conftest.c >&5
+< configure:2523: $? = 0
+< configure:2527: test -z 
+---
+> configure:2425: $? = 0
+> configure:2428: test -s conftest.o
+> configure:2431: $? = 0
+> configure:2442: result: yes
+> configure:2459: checking for mipsel-uclibc-gcc option to accept ANSI C
+> configure:2529: mipsel-uclibc-gcc  -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:2535: $? = 0
+> configure:2539: test -z 
+124,130c122,128
+< configure:2530: $? = 0
+< configure:2533: test -s conftest.o
+< configure:2536: $? = 0
+< configure:2554: result: none needed
+< configure:2572: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< conftest.c:2: error: expected '=', ',', ';', 'asm' or '__attribute__' before 'me'
+< configure:2578: $? = 1
+---
+> configure:2542: $? = 0
+> configure:2545: test -s conftest.o
+> configure:2548: $? = 0
+> configure:2566: result: none needed
+> configure:2584: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> conftest.c:2: parse error before "me"
+> configure:2590: $? = 1
+135,152c133,151
+< configure:2722: checking for style of include used by make
+< configure:2750: result: GNU
+< configure:2778: checking dependency style of mipsel-uclibc-gcc
+< configure:2863: result: gcc3
+< configure:2880: checking whether make sets $(MAKE)
+< configure:2900: result: yes
+< configure:2912: checking for mipsel-linux-ranlib
+< configure:2938: result: mipsel-uclibc-ranlib
+< configure:3045: checking for glib-config
+< configure:3076: result: /home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/bin/glib-config
+< configure:3084: checking for GLIB - version >= 1.2.0
+< configure:3214: result: yes
+< configure:3318: checking how to run the C preprocessor
+< configure:3353: mipsel-uclibc-gcc -E  conftest.c
+< configure:3359: $? = 0
+< configure:3391: mipsel-uclibc-gcc -E  conftest.c
+< conftest.c:11:28: error: ac_nonexistent.h: No such file or directory
+< configure:3397: $? = 1
+---
+> configure:2734: checking for style of include used by make
+> configure:2762: result: GNU
+> configure:2790: checking dependency style of mipsel-uclibc-gcc
+> configure:2880: result: gcc3
+> configure:2897: checking whether make sets $(MAKE)
+> configure:2917: result: yes
+> configure:2929: checking for mipsel-linux-ranlib
+> configure:2945: found /opt/brcm/hndtools-mipsel-linux/bin/mipsel-linux-ranlib
+> configure:2955: result: mipsel-linux-ranlib
+> configure:3062: checking for glib-config
+> configure:3093: result: /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/bin/glib-config
+> configure:3101: checking for GLIB - version >= 1.2.0
+> configure:3231: result: yes
+> configure:3335: checking how to run the C preprocessor
+> configure:3370: mipsel-uclibc-gcc -E  conftest.c
+> configure:3376: $? = 0
+> configure:3408: mipsel-uclibc-gcc -E  conftest.c
+> conftest.c:11:28: ac_nonexistent.h: No such file or directory
+> configure:3414: $? = 1
+158,159c157,158
+< | #define PACKAGE_VERSION "0.93pre2"
+< | #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> | #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+> | #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+162c161
+< | #define VERSION "0.93pre2"
+---
+> | #define VERSION "0.93pre2-ewrt0.4"
+165,170c164,169
+< configure:3436: result: mipsel-uclibc-gcc -E
+< configure:3460: mipsel-uclibc-gcc -E  conftest.c
+< configure:3466: $? = 0
+< configure:3498: mipsel-uclibc-gcc -E  conftest.c
+< conftest.c:11:28: error: ac_nonexistent.h: No such file or directory
+< configure:3504: $? = 1
+---
+> configure:3453: result: mipsel-uclibc-gcc -E
+> configure:3477: mipsel-uclibc-gcc -E  conftest.c
+> configure:3483: $? = 0
+> configure:3515: mipsel-uclibc-gcc -E  conftest.c
+> conftest.c:11:28: ac_nonexistent.h: No such file or directory
+> configure:3521: $? = 1
+176,177c175,176
+< | #define PACKAGE_VERSION "0.93pre2"
+< | #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> | #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+> | #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+180c179
+< | #define VERSION "0.93pre2"
+---
+> | #define VERSION "0.93pre2-ewrt0.4"
+183,188c182,187
+< configure:3548: checking for egrep
+< configure:3558: result: grep -E
+< configure:3563: checking for ANSI C header files
+< configure:3588: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3594: $? = 0
+< configure:3598: test -z 
+---
+> configure:3565: checking for egrep
+> configure:3575: result: grep -E
+> configure:3580: checking for ANSI C header files
+> configure:3605: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3611: $? = 0
+> configure:3615: test -z 
+190,197c189,196
+< configure:3601: $? = 0
+< configure:3604: test -s conftest.o
+< configure:3607: $? = 0
+< configure:3719: result: yes
+< configure:3729: checking for sys/wait.h that is POSIX.1 compatible
+< configure:3760: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3766: $? = 0
+< configure:3770: test -z 
+---
+> configure:3618: $? = 0
+> configure:3621: test -s conftest.o
+> configure:3624: $? = 0
+> configure:3736: result: yes
+> configure:3746: checking for sys/wait.h that is POSIX.1 compatible
+> configure:3777: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3783: $? = 0
+> configure:3787: test -z 
+199,206c198,205
+< configure:3773: $? = 0
+< configure:3776: test -s conftest.o
+< configure:3779: $? = 0
+< configure:3790: result: yes
+< configure:3814: checking for sys/types.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3790: $? = 0
+> configure:3793: test -s conftest.o
+> configure:3796: $? = 0
+> configure:3807: result: yes
+> configure:3831: checking for sys/types.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+208,215c207,214
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for sys/stat.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for sys/stat.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+217,224c216,223
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for stdlib.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for stdlib.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+226,233c225,232
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for string.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for string.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+235,242c234,241
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for memory.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for memory.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+244,251c243,250
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for strings.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for strings.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+253,260c252,259
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for inttypes.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for inttypes.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+262,269c261,268
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for stdint.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for stdint.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+271,278c270,277
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3814: checking for unistd.h
+< configure:3830: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3836: $? = 0
+< configure:3840: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3831: checking for unistd.h
+> configure:3847: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3853: $? = 0
+> configure:3857: test -z 
+280,287c279,286
+< configure:3843: $? = 0
+< configure:3846: test -s conftest.o
+< configure:3849: $? = 0
+< configure:3860: result: yes
+< configure:3893: checking arpa/inet.h usability
+< configure:3905: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3911: $? = 0
+< configure:3915: test -z 
+---
+> configure:3860: $? = 0
+> configure:3863: test -s conftest.o
+> configure:3866: $? = 0
+> configure:3877: result: yes
+> configure:3910: checking arpa/inet.h usability
+> configure:3922: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3928: $? = 0
+> configure:3932: test -z 
+289,302c288,301
+< configure:3918: $? = 0
+< configure:3921: test -s conftest.o
+< configure:3924: $? = 0
+< configure:3934: result: yes
+< configure:3938: checking arpa/inet.h presence
+< configure:3948: mipsel-uclibc-gcc -E  conftest.c
+< configure:3954: $? = 0
+< configure:3974: result: yes
+< configure:4009: checking for arpa/inet.h
+< configure:4016: result: yes
+< configure:3893: checking fcntl.h usability
+< configure:3905: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3911: $? = 0
+< configure:3915: test -z 
+---
+> configure:3935: $? = 0
+> configure:3938: test -s conftest.o
+> configure:3941: $? = 0
+> configure:3951: result: yes
+> configure:3955: checking arpa/inet.h presence
+> configure:3965: mipsel-uclibc-gcc -E  conftest.c
+> configure:3971: $? = 0
+> configure:3991: result: yes
+> configure:4026: checking for arpa/inet.h
+> configure:4033: result: yes
+> configure:3910: checking fcntl.h usability
+> configure:3922: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3928: $? = 0
+> configure:3932: test -z 
+304,317c303,316
+< configure:3918: $? = 0
+< configure:3921: test -s conftest.o
+< configure:3924: $? = 0
+< configure:3934: result: yes
+< configure:3938: checking fcntl.h presence
+< configure:3948: mipsel-uclibc-gcc -E  conftest.c
+< configure:3954: $? = 0
+< configure:3974: result: yes
+< configure:4009: checking for fcntl.h
+< configure:4016: result: yes
+< configure:3893: checking netinet/in.h usability
+< configure:3905: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3911: $? = 0
+< configure:3915: test -z 
+---
+> configure:3935: $? = 0
+> configure:3938: test -s conftest.o
+> configure:3941: $? = 0
+> configure:3951: result: yes
+> configure:3955: checking fcntl.h presence
+> configure:3965: mipsel-uclibc-gcc -E  conftest.c
+> configure:3971: $? = 0
+> configure:3991: result: yes
+> configure:4026: checking for fcntl.h
+> configure:4033: result: yes
+> configure:3910: checking netinet/in.h usability
+> configure:3922: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3928: $? = 0
+> configure:3932: test -z 
+319,336c318,335
+< configure:3918: $? = 0
+< configure:3921: test -s conftest.o
+< configure:3924: $? = 0
+< configure:3934: result: yes
+< configure:3938: checking netinet/in.h presence
+< configure:3948: mipsel-uclibc-gcc -E  conftest.c
+< configure:3954: $? = 0
+< configure:3974: result: yes
+< configure:4009: checking for netinet/in.h
+< configure:4016: result: yes
+< configure:3884: checking for stdlib.h
+< configure:3889: result: yes
+< configure:3884: checking for string.h
+< configure:3889: result: yes
+< configure:3893: checking sys/socket.h usability
+< configure:3905: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3911: $? = 0
+< configure:3915: test -z 
+---
+> configure:3935: $? = 0
+> configure:3938: test -s conftest.o
+> configure:3941: $? = 0
+> configure:3951: result: yes
+> configure:3955: checking netinet/in.h presence
+> configure:3965: mipsel-uclibc-gcc -E  conftest.c
+> configure:3971: $? = 0
+> configure:3991: result: yes
+> configure:4026: checking for netinet/in.h
+> configure:4033: result: yes
+> configure:3901: checking for stdlib.h
+> configure:3906: result: yes
+> configure:3901: checking for string.h
+> configure:3906: result: yes
+> configure:3910: checking sys/socket.h usability
+> configure:3922: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3928: $? = 0
+> configure:3932: test -z 
+338,351c337,350
+< configure:3918: $? = 0
+< configure:3921: test -s conftest.o
+< configure:3924: $? = 0
+< configure:3934: result: yes
+< configure:3938: checking sys/socket.h presence
+< configure:3948: mipsel-uclibc-gcc -E  conftest.c
+< configure:3954: $? = 0
+< configure:3974: result: yes
+< configure:4009: checking for sys/socket.h
+< configure:4016: result: yes
+< configure:3893: checking sys/time.h usability
+< configure:3905: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:3911: $? = 0
+< configure:3915: test -z 
+---
+> configure:3935: $? = 0
+> configure:3938: test -s conftest.o
+> configure:3941: $? = 0
+> configure:3951: result: yes
+> configure:3955: checking sys/socket.h presence
+> configure:3965: mipsel-uclibc-gcc -E  conftest.c
+> configure:3971: $? = 0
+> configure:3991: result: yes
+> configure:4026: checking for sys/socket.h
+> configure:4033: result: yes
+> configure:3910: checking sys/time.h usability
+> configure:3922: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:3928: $? = 0
+> configure:3932: test -z 
+353,368c352,367
+< configure:3918: $? = 0
+< configure:3921: test -s conftest.o
+< configure:3924: $? = 0
+< configure:3934: result: yes
+< configure:3938: checking sys/time.h presence
+< configure:3948: mipsel-uclibc-gcc -E  conftest.c
+< configure:3954: $? = 0
+< configure:3974: result: yes
+< configure:4009: checking for sys/time.h
+< configure:4016: result: yes
+< configure:3884: checking for unistd.h
+< configure:3889: result: yes
+< configure:4031: checking for an ANSI C-conforming const
+< configure:4098: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:4104: $? = 0
+< configure:4108: test -z 
+---
+> configure:3935: $? = 0
+> configure:3938: test -s conftest.o
+> configure:3941: $? = 0
+> configure:3951: result: yes
+> configure:3955: checking sys/time.h presence
+> configure:3965: mipsel-uclibc-gcc -E  conftest.c
+> configure:3971: $? = 0
+> configure:3991: result: yes
+> configure:4026: checking for sys/time.h
+> configure:4033: result: yes
+> configure:3901: checking for unistd.h
+> configure:3906: result: yes
+> configure:4048: checking for an ANSI C-conforming const
+> configure:4115: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:4121: $? = 0
+> configure:4125: test -z 
+370,377c369,376
+< configure:4111: $? = 0
+< configure:4114: test -s conftest.o
+< configure:4117: $? = 0
+< configure:4128: result: yes
+< configure:4138: checking for off_t
+< configure:4162: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:4168: $? = 0
+< configure:4172: test -z 
+---
+> configure:4128: $? = 0
+> configure:4131: test -s conftest.o
+> configure:4134: $? = 0
+> configure:4145: result: yes
+> configure:4155: checking for off_t
+> configure:4179: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:4185: $? = 0
+> configure:4189: test -z 
+379,386c378,385
+< configure:4175: $? = 0
+< configure:4178: test -s conftest.o
+< configure:4181: $? = 0
+< configure:4192: result: yes
+< configure:4204: checking for pid_t
+< configure:4228: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:4234: $? = 0
+< configure:4238: test -z 
+---
+> configure:4192: $? = 0
+> configure:4195: test -s conftest.o
+> configure:4198: $? = 0
+> configure:4209: result: yes
+> configure:4221: checking for pid_t
+> configure:4245: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:4251: $? = 0
+> configure:4255: test -z 
+388,397c387,396
+< configure:4241: $? = 0
+< configure:4244: test -s conftest.o
+< configure:4247: $? = 0
+< configure:4258: result: yes
+< configure:4278: checking for unistd.h
+< configure:4283: result: yes
+< configure:4287: checking vfork.h usability
+< configure:4299: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< conftest.c:65:19: error: vfork.h: No such file or directory
+< configure:4305: $? = 1
+---
+> configure:4258: $? = 0
+> configure:4261: test -s conftest.o
+> configure:4264: $? = 0
+> configure:4275: result: yes
+> configure:4295: checking for unistd.h
+> configure:4300: result: yes
+> configure:4304: checking vfork.h usability
+> configure:4316: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> conftest.c:65:19: vfork.h: No such file or directory
+> configure:4322: $? = 1
+403,404c402,403
+< | #define PACKAGE_VERSION "0.93pre2"
+< | #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> | #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+> | #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+407c406
+< | #define VERSION "0.93pre2"
+---
+> | #define VERSION "0.93pre2-ewrt0.4"
+464,468c463,467
+< configure:4328: result: no
+< configure:4332: checking vfork.h presence
+< configure:4342: mipsel-uclibc-gcc -E  conftest.c
+< conftest.c:31:19: error: vfork.h: No such file or directory
+< configure:4348: $? = 1
+---
+> configure:4345: result: no
+> configure:4349: checking vfork.h presence
+> configure:4359: mipsel-uclibc-gcc -E  conftest.c
+> conftest.c:31:19: vfork.h: No such file or directory
+> configure:4365: $? = 1
+474,475c473,474
+< | #define PACKAGE_VERSION "0.93pre2"
+< | #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> | #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+> | #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+478c477
+< | #define VERSION "0.93pre2"
+---
+> | #define VERSION "0.93pre2-ewrt0.4"
+501,508c500,506
+< configure:4368: result: no
+< configure:4403: checking for vfork.h
+< configure:4410: result: no
+< configure:4428: checking for fork
+< configure:4485: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:55: warning: conflicting types for built-in function 'fork'
+< configure:4491: $? = 0
+< configure:4495: test -z 
+---
+> configure:4385: result: no
+> configure:4420: checking for vfork.h
+> configure:4427: result: no
+> configure:4445: checking for fork
+> configure:4502: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:4508: $? = 0
+> configure:4512: test -z 
+510,517c508,515
+< configure:4498: $? = 0
+< configure:4501: test -s conftest
+< configure:4504: $? = 0
+< configure:4516: result: yes
+< configure:4428: checking for vfork
+< configure:4485: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< configure:4491: $? = 0
+< configure:4495: test -z 
+---
+> configure:4515: $? = 0
+> configure:4518: test -s conftest
+> configure:4521: $? = 0
+> configure:4533: result: yes
+> configure:4445: checking for vfork
+> configure:4502: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:4508: $? = 0
+> configure:4512: test -z 
+519,535c517,533
+< configure:4498: $? = 0
+< configure:4501: test -s conftest
+< configure:4504: $? = 0
+< configure:4516: result: yes
+< configure:4527: checking for working fork
+< configure:4572: result: cross
+< configure:4588: WARNING: result yes guessed because of cross compilation
+< configure:4593: checking for working vfork
+< configure:4726: result: yes
+< configure:4763: checking for stdlib.h
+< configure:4768: result: yes
+< configure:4763: checking for unistd.h
+< configure:4768: result: yes
+< configure:4912: checking for getpagesize
+< configure:4969: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< configure:4975: $? = 0
+< configure:4979: test -z 
+---
+> configure:4515: $? = 0
+> configure:4518: test -s conftest
+> configure:4521: $? = 0
+> configure:4533: result: yes
+> configure:4544: checking for working fork
+> configure:4589: result: cross
+> configure:4605: WARNING: result yes guessed because of cross compilation
+> configure:4610: checking for working vfork
+> configure:4743: result: yes
+> configure:4780: checking for stdlib.h
+> configure:4785: result: yes
+> configure:4780: checking for unistd.h
+> configure:4785: result: yes
+> configure:4929: checking for getpagesize
+> configure:4986: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:4992: $? = 0
+> configure:4996: test -z 
+537,546c535,544
+< configure:4982: $? = 0
+< configure:4985: test -s conftest
+< configure:4988: $? = 0
+< configure:5000: result: yes
+< configure:5010: checking for working mmap
+< configure:5174: result: no
+< configure:5185: checking return type of signal handlers
+< configure:5216: mipsel-uclibc-gcc -c -g -O2  conftest.c >&5
+< configure:5222: $? = 0
+< configure:5226: test -z 
+---
+> configure:4999: $? = 0
+> configure:5002: test -s conftest
+> configure:5005: $? = 0
+> configure:5017: result: yes
+> configure:5027: checking for working mmap
+> configure:5191: result: no
+> configure:5202: checking return type of signal handlers
+> configure:5233: mipsel-uclibc-gcc -c -Os -pipe -mips32 -I../libghttp  conftest.c >&5
+> configure:5239: $? = 0
+> configure:5243: test -z 
+548,559c546,556
+< configure:5229: $? = 0
+< configure:5232: test -s conftest.o
+< configure:5235: $? = 0
+< configure:5246: result: void
+< configure:5254: checking for working strtod
+< configure:5319: result: no
+< configure:5330: checking for pow
+< configure:5387: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:63: warning: conflicting types for built-in function 'pow'
+< /tmp/ccUZdbAl.o: In function `main':
+< /home/vicente/tomatoraf/release/src/router/nocat/conftest.c:78: undefined reference to `pow'
+< /tmp/ccUZdbAl.o:(.data.rel+0x0): undefined reference to `pow'
+---
+> configure:5246: $? = 0
+> configure:5249: test -s conftest.o
+> configure:5252: $? = 0
+> configure:5263: result: void
+> configure:5271: checking for working strtod
+> configure:5336: result: no
+> configure:5347: checking for pow
+> configure:5404: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> /tmp/ccOYr9qj.o: In function `main':
+> /tmp/ccOYr9qj.o(.text+0x18): undefined reference to `pow'
+> /tmp/ccOYr9qj.o(.data+0x0): undefined reference to `pow'
+561c558
+< configure:5393: $? = 1
+---
+> configure:5410: $? = 1
+567,568c564,565
+< | #define PACKAGE_VERSION "0.93pre2"
+< | #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> | #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+> | #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+571c568
+< | #define VERSION "0.93pre2"
+---
+> | #define VERSION "0.93pre2-ewrt0.4"
+645,650c642,646
+< configure:5418: result: no
+< configure:5422: checking for pow in -lm
+< configure:5452: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c -lm   >&5
+< conftest.c:46: warning: conflicting types for built-in function 'pow'
+< configure:5458: $? = 0
+< configure:5462: test -z 
+---
+> configure:5435: result: no
+> configure:5439: checking for pow in -lm
+> configure:5469: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c -lm   >&5
+> configure:5475: $? = 0
+> configure:5479: test -z 
+652,659c648,655
+< configure:5465: $? = 0
+< configure:5468: test -s conftest
+< configure:5471: $? = 0
+< configure:5484: result: yes
+< configure:5507: checking for munmap
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5482: $? = 0
+> configure:5485: test -s conftest
+> configure:5488: $? = 0
+> configure:5501: result: yes
+> configure:5524: checking for munmap
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:5587: $? = 0
+> configure:5591: test -z 
+661,668c657,664
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for socket
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for socket
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:5587: $? = 0
+> configure:5591: test -z 
+670,678c666,674
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for strchr
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:65: warning: conflicting types for built-in function 'strchr'
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for strchr
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> conftest.c:65: warning: conflicting types for built-in function `strchr'
+> configure:5587: $? = 0
+> configure:5591: test -z 
+680,688c676,684
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for strcspn
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:66: warning: conflicting types for built-in function 'strcspn'
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for strcspn
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> conftest.c:66: warning: conflicting types for built-in function `strcspn'
+> configure:5587: $? = 0
+> configure:5591: test -z 
+690,698c686,694
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for strrchr
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:67: warning: conflicting types for built-in function 'strrchr'
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for strrchr
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> conftest.c:67: warning: conflicting types for built-in function `strrchr'
+> configure:5587: $? = 0
+> configure:5591: test -z 
+700,708c696,704
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for strstr
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< conftest.c:68: warning: conflicting types for built-in function 'strstr'
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for strstr
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> conftest.c:68: warning: conflicting types for built-in function `strstr'
+> configure:5587: $? = 0
+> configure:5591: test -z 
+710,717c706,713
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:5507: checking for strtol
+< configure:5564: mipsel-uclibc-gcc -o conftest -g -O2   conftest.c  >&5
+< configure:5570: $? = 0
+< configure:5574: test -z 
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5524: checking for strtol
+> configure:5581: mipsel-uclibc-gcc -o conftest -Os -pipe -mips32 -I../libghttp   conftest.c  >&5
+> configure:5587: $? = 0
+> configure:5591: test -z 
+719,723c715,721
+< configure:5577: $? = 0
+< configure:5580: test -s conftest
+< configure:5583: $? = 0
+< configure:5595: result: yes
+< configure:6047: creating ./config.status
+---
+> configure:5594: $? = 0
+> configure:5597: test -s conftest
+> configure:5600: $? = 0
+> configure:5612: result: yes
+> configure:5775: checking for iptables
+> configure:5801: result: iptables
+> configure:6032: creating ./config.status
+729c727
+< This file was extended by nocat config.status 0.93pre2, which was
+---
+> This file was extended by nocat config.status 0.93pre2-ewrt0.4, which was
+738c736
+< on pc1
+---
+> on tomatodevp
+740,744c738,743
+< config.status:705: creating Makefile
+< config.status:705: creating src/Makefile
+< config.status:809: creating src/config.h
+< config.status:993: src/config.h is unchanged
+< config.status:1173: executing depfiles commands
+---
+> config.status:717: creating Makefile
+> config.status:717: creating src/Makefile
+> config.status:717: creating libghttp/Makefile
+> config.status:821: creating src/config.h
+> config.status:1013: src/config.h is unchanged
+> config.status:1193: executing depfiles commands
+754,755c753,754
+< ac_cv_env_CFLAGS_set=
+< ac_cv_env_CFLAGS_value=
+---
+> ac_cv_env_CFLAGS_set=set
+> ac_cv_env_CFLAGS_value='-Os -pipe -mips32 -I../libghttp'
+762,763c761,762
+< ac_cv_env_build_alias_set=set
+< ac_cv_env_build_alias_value=x86_64-linux-gnu
+---
+> ac_cv_env_build_alias_set=
+> ac_cv_env_build_alias_value=
+803c802
+< ac_cv_path_GLIB_CONFIG=/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/bin/glib-config
+---
+> ac_cv_path_GLIB_CONFIG=/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/bin/glib-config
+805c804
+< ac_cv_prog_AWK=mawk
+---
+> ac_cv_prog_AWK=gawk
+808,809c807,808
+< ac_cv_prog_RANLIB=mipsel-uclibc-ranlib
+< ac_cv_prog_STRIP='mipsel-uclibc-strip -R .note -R .comment'
+---
+> ac_cv_prog_RANLIB=mipsel-linux-ranlib
+> ac_cv_prog_STRIP=mipsel-linux-strip
+823c822
+< ACLOCAL='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run aclocal-1.8'
+---
+> ACLOCAL='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run aclocal-1.9'
+827,831c826,830
+< AMTAR='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run tar'
+< AUTOCONF='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoconf'
+< AUTOHEADER='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoheader'
+< AUTOMAKE='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run automake-1.8'
+< AWK='mawk'
+---
+> AMTAR='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run tar'
+> AUTOCONF='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run autoconf'
+> AUTOHEADER='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run autoheader'
+> AUTOMAKE='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run automake-1.9'
+> AWK='gawk'
+834c833
+< CFLAGS='-g -O2'
+---
+> CFLAGS='-Os -pipe -mips32 -I../libghttp'
+846,848c845,855
+< GLIB_CFLAGS='-I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/include/glib-1.2 -I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib/glib/include'
+< GLIB_CONFIG='/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/bin/glib-config'
+< GLIB_LIBS='-L/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib -lglib'
+---
+> GHTTP_INCLUDEDIR='-I${includedir}'
+> GHTTP_LIBDIR='-L${libdir}'
+> GHTTP_LIBS='-lghttp'
+> GHTTP_MAJOR_VERSION='1'
+> GHTTP_MICRO_VERSION='9'
+> GHTTP_MINOR_VERSION='0'
+> GHTTP_VERSION='1.0.9'
+> GLIB_CFLAGS='-I/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/include/glib-1.2 -I/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/lib/glib/include'
+> GLIB_CONFIG='/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/bin/glib-config'
+> GLIB_LIBS='-L/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/lib -lglib'
+> HAVE_LIBGHTTP='1'
+860c867
+< MAKEINFO='${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run makeinfo'
+---
+> MAKEINFO='${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run makeinfo'
+865c872
+< PACKAGE_STRING='nocat 0.93pre2'
+---
+> PACKAGE_STRING='nocat 0.93pre2-ewrt0.4'
+867c874
+< PACKAGE_VERSION='0.93pre2'
+---
+> PACKAGE_VERSION='0.93pre2-ewrt0.4'
+870c877
+< RANLIB='mipsel-uclibc-ranlib'
+---
+> RANLIB='mipsel-linux-ranlib'
+872,875c879,883
+< SHELL='/bin/bash'
+< SPLASHD_MODE='open.c'
+< STRIP='mipsel-uclibc-strip -R .note -R .comment'
+< VERSION='0.93pre2'
+---
+> SHELL='/bin/sh'
+> SPLASHD_MODE='open.c ../libghttp/libghttp.a'
+> SPLASHD_SUBDIRS='libghttp'
+> STRIP='mipsel-linux-strip'
+> VERSION='0.93pre2-ewrt0.4'
+883a892,893
+> am__tar='${AMTAR} chof - "$$tardir"'
+> am__untar='${AMTAR} xf -'
+885c895
+< build_alias='x86_64-linux-gnu'
+---
+> build_alias=''
+887c897
+< exec_prefix='/usr/local'
+---
+> exec_prefix='/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install'
+894c904
+< install_sh='/home/vicente/tomatoraf/release/src/router/nocat/install-sh'
+---
+> install_sh='/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/install-sh'
+897,898c907,908
+< libexecscripts='libexec/iptables/reset.fw libexec/iptables/throttle.fw libexec/iptables/access.fw libexec/iptables/dump.fw libexec/iptables/initialize.fw libexec/iptables/clear.fw '
+< localstatedir='${prefix}/var'
+---
+> libexecscripts='libexec/iptables/call_splashd_check.sh libexec/iptables/uninitialize.fw libexec/iptables/reset.fw libexec/iptables/dump.fw libexec/iptables/access.fw libexec/iptables/check_splashd.sh libexec/iptables/test_arp.sh libexec/iptables/initialize.fw libexec/iptables/remote_settings.sh libexec/iptables/throttle.fw libexec/iptables/traffic_input_count.sh libexec/iptables/clear.fw libexec/iptables/upgrade_check.sh libexec/iptables/traffic_output_count.sh '
+> localstatedir='/var'
+900c910
+< mkdir_p='mkdir -p -- .'
+---
+> mkdir_p='mkdir -p --'
+904c914
+< prefix='/usr/local'
+---
+> prefix='/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install'
+908c918
+< sysconfdir='${prefix}/etc'
+---
+> sysconfdir='/etc'
+914a925,927
+> #define GHTTP_MAJOR_VERSION 1
+> #define GHTTP_MICRO_VERSION 9
+> #define GHTTP_MINOR_VERSION 0
+919a933
+> #define HAVE_LIBGHTTP 1
+948,953c962,967
+< #define NC_CONF_PATH "/usr/local/etc"
+< #define NC_DOCUMENT_ROOT "/usr/local/share/nocat/htdocs"
+< #define NC_FIREWALL_PATH "/usr/local/libexec/nocat"
+< #define NC_PGP_PATH "/usr/local/share/nocat/pgp"
+< #define NC_PID_FILE "/usr/local/var/run/splashd.pid"
+< #define NC_STATE_DIR "/usr/local/var"
+---
+> #define NC_CONF_PATH "/etc"
+> #define NC_DOCUMENT_ROOT "/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install/share/nocat/htdocs"
+> #define NC_FIREWALL_PATH "/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install/libexec/nocat"
+> #define NC_PGP_PATH "/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install/share/nocat/pgp"
+> #define NC_PID_FILE "/var/run/splashd.pid"
+> #define NC_STATE_DIR "/var"
+957c971
+< #define PACKAGE_STRING "nocat 0.93pre2"
+---
+> #define PACKAGE_STRING "nocat 0.93pre2-ewrt0.4"
+959c973
+< #define PACKAGE_VERSION "0.93pre2"
+---
+> #define PACKAGE_VERSION "0.93pre2-ewrt0.4"
+962c976
+< #define VERSION "0.93pre2"
+---
+> #define VERSION "0.93pre2-ewrt0.4"
+Only in /home/vicente/nocat: config.sh
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/config.status /home/vicente/nocat/config.status
+1c1
+< #! /bin/bash
+---
+> #! /bin/sh
+10c10
+< SHELL=${CONFIG_SHELL-/bin/bash}
+---
+> SHELL=${CONFIG_SHELL-/bin/sh}
+262c262
+< This file was extended by nocat $as_me 0.93pre2, which was
+---
+> This file was extended by nocat $as_me 0.93pre2-ewrt0.4, which was
+274c274
+< config_files=" Makefile src/Makefile"
+---
+> config_files=" Makefile src/Makefile libghttp/Makefile"
+305c305
+< nocat config.status 0.93pre2
+---
+> nocat config.status 0.93pre2-ewrt0.4
+307c307
+<   with options \"'--host=mipsel-linux' '--build=x86_64-linux-gnu' '--with-firewall=iptables' '--with-glib-prefix=/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr' 'CC=mipsel-uclibc-gcc' 'build_alias=x86_64-linux-gnu' 'host_alias=mipsel-linux'\"
+---
+>   with options \"'--with-remote-splash' '--prefix=/tomato/release/src/router/nocat/../nocat-install' '--localstatedir=/var' '--sysconfdir=/etc' '--with-glib-prefix=/tomato/release/src/router/nocat/../glib-1.2.10-install' '--disable-glibtest' '--host=mipsel-linux' 'CC=mipsel-uclibc-gcc' 'CFLAGS=-Os -pipe -mips32 -I../libghttp' 'host_alias=mipsel-linux'\"
+386,387c386,387
+<   echo "running /bin/bash ./configure " '--host=mipsel-linux' '--build=x86_64-linux-gnu' '--with-firewall=iptables' '--with-glib-prefix=/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr' 'CC=mipsel-uclibc-gcc' 'build_alias=x86_64-linux-gnu' 'host_alias=mipsel-linux' $ac_configure_extra_args " --no-create --no-recursion" >&6
+<   exec /bin/bash ./configure '--host=mipsel-linux' '--build=x86_64-linux-gnu' '--with-firewall=iptables' '--with-glib-prefix=/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr' 'CC=mipsel-uclibc-gcc' 'build_alias=x86_64-linux-gnu' 'host_alias=mipsel-linux' $ac_configure_extra_args --no-create --no-recursion
+---
+>   echo "running /bin/sh ./configure " '--with-remote-splash' '--prefix=/tomato/release/src/router/nocat/../nocat-install' '--localstatedir=/var' '--sysconfdir=/etc' '--with-glib-prefix=/tomato/release/src/router/nocat/../glib-1.2.10-install' '--disable-glibtest' '--host=mipsel-linux' 'CC=mipsel-uclibc-gcc' 'CFLAGS=-Os -pipe -mips32 -I../libghttp' 'host_alias=mipsel-linux' $ac_configure_extra_args " --no-create --no-recursion" >&6
+>   exec /bin/sh ./configure '--with-remote-splash' '--prefix=/tomato/release/src/router/nocat/../nocat-install' '--localstatedir=/var' '--sysconfdir=/etc' '--with-glib-prefix=/tomato/release/src/router/nocat/../glib-1.2.10-install' '--disable-glibtest' '--host=mipsel-linux' 'CC=mipsel-uclibc-gcc' 'CFLAGS=-Os -pipe -mips32 -I../libghttp' 'host_alias=mipsel-linux' $ac_configure_extra_args --no-create --no-recursion
+401a402
+>   "libghttp/Makefile" ) CONFIG_FILES="$CONFIG_FILES libghttp/Makefile" ;;
+456c457
+< s,@SHELL@,/bin/bash,;t t
+---
+> s,@SHELL@,/bin/sh,;t t
+460,461c461,462
+< s,@PACKAGE_VERSION@,0.93pre2,;t t
+< s,@PACKAGE_STRING@,nocat 0.93pre2,;t t
+---
+> s,@PACKAGE_VERSION@,0.93pre2-ewrt0.4,;t t
+> s,@PACKAGE_STRING@,nocat 0.93pre2-ewrt0.4,;t t
+463,464c464,465
+< s,@exec_prefix@,/usr/local,;t t
+< s,@prefix@,/usr/local,;t t
+---
+> s,@exec_prefix@,/tomato/release/src/router/nocat/../nocat-install,;t t
+> s,@prefix@,/tomato/release/src/router/nocat/../nocat-install,;t t
+470c471
+< s,@sysconfdir@,${prefix}/etc,;t t
+---
+> s,@sysconfdir@,/etc,;t t
+472c473
+< s,@localstatedir@,${prefix}/var,;t t
+---
+> s,@localstatedir@,/var,;t t
+478c479
+< s,@build_alias@,x86_64-linux-gnu,;t t
+---
+> s,@build_alias@,,;t t
+491,499c492,499
+< s,@VERSION@,0.93pre2,;t t
+< s,@ACLOCAL@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run aclocal-1.8,;t t
+< s,@AUTOCONF@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoconf,;t t
+< s,@AUTOMAKE@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run automake-1.8,;t t
+< s,@AUTOHEADER@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoheader,;t t
+< s,@MAKEINFO@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run makeinfo,;t t
+< s,@AMTAR@,${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run tar,;t t
+< s,@install_sh@,/home/vicente/tomatoraf/release/src/router/nocat/install-sh,;t t
+< s,@STRIP@,mipsel-uclibc-strip -R .note -R .comment,;t t
+---
+> s,@VERSION@,0.93pre2-ewrt0.4,;t t
+> s,@ACLOCAL@,${SHELL} /tomato/release/src/router/nocat/missing --run aclocal-1.9,;t t
+> s,@AUTOCONF@,${SHELL} /tomato/release/src/router/nocat/missing --run autoconf,;t t
+> s,@AUTOMAKE@,${SHELL} /tomato/release/src/router/nocat/missing --run automake-1.9,;t t
+> s,@AUTOHEADER@,${SHELL} /tomato/release/src/router/nocat/missing --run autoheader,;t t
+> s,@MAKEINFO@,${SHELL} /tomato/release/src/router/nocat/missing --run makeinfo,;t t
+> s,@install_sh@,/tomato/release/src/router/nocat/install-sh,;t t
+> s,@STRIP@,mipsel-linux-strip,;t t
+502,503c502,503
+< s,@mkdir_p@,mkdir -p -- .,;t t
+< s,@AWK@,mawk,;t t
+---
+> s,@mkdir_p@,mkdir -p --,;t t
+> s,@AWK@,gawk,;t t
+505a506,508
+> s,@AMTAR@,${SHELL} /tomato/release/src/router/nocat/missing --run tar,;t t
+> s,@am__tar@,${AMTAR} chof - "$$tardir",;t t
+> s,@am__untar@,${AMTAR} xf -,;t t
+510c513
+< s,@CFLAGS@,-g -O2,;t t
+---
+> s,@CFLAGS@,-Os -pipe -mips32 -I../libghttp,;t t
+525c528
+< s,@RANLIB@,mipsel-uclibc-ranlib,;t t
+---
+> s,@RANLIB@,mipsel-linux-ranlib,;t t
+527,529c530,532
+< s,@GLIB_CONFIG@,/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/bin/glib-config,;t t
+< s,@GLIB_CFLAGS@,-I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/include/glib-1.2 -I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib/glib/include,;t t
+< s,@GLIB_LIBS@,-L/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib -lglib,;t t
+---
+> s,@GLIB_CONFIG@,/tomato/release/src/router/nocat/../glib-1.2.10-install/bin/glib-config,;t t
+> s,@GLIB_CFLAGS@,-I/tomato/release/src/router/nocat/../glib-1.2.10-install/include/glib-1.2 -I/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/lib/glib/include,;t t
+> s,@GLIB_LIBS@,-L/tomato/release/src/router/nocat/../glib-1.2.10-install/lib -lglib,;t t
+534c537,539
+< s,@SPLASHD_MODE@,open.c,;t t
+---
+> s,@HAVE_LIBGHTTP@,1,;t t
+> s,@SPLASHD_MODE@,open.c ../libghttp/libghttp.a,;t t
+> s,@SPLASHD_SUBDIRS@,libghttp,;t t
+537c542
+< s,@libexecscripts@,libexec/iptables/reset.fw libexec/iptables/throttle.fw libexec/iptables/access.fw libexec/iptables/dump.fw libexec/iptables/initialize.fw libexec/iptables/clear.fw ,;t t
+---
+> s,@libexecscripts@,libexec/iptables/call_splashd_check.sh libexec/iptables/uninitialize.fw libexec/iptables/reset.fw libexec/iptables/dump.fw libexec/iptables/access.fw libexec/iptables/check_splashd.sh libexec/iptables/test_arp.sh libexec/iptables/initialize.fw libexec/iptables/remote_settings.sh libexec/iptables/throttle.fw libexec/iptables/traffic_input_count.sh libexec/iptables/clear.fw libexec/iptables/upgrade_check.sh libexec/iptables/traffic_output_count.sh ,;t t
+541a547,553
+> s,@GHTTP_MAJOR_VERSION@,1,;t t
+> s,@GHTTP_MINOR_VERSION@,0,;t t
+> s,@GHTTP_MICRO_VERSION@,9,;t t
+> s,@GHTTP_VERSION@,1.0.9,;t t
+> s,@GHTTP_LIBDIR@,-L${libdir},;t t
+> s,@GHTTP_LIBS@,-lghttp,;t t
+> s,@GHTTP_INCLUDEDIR@,-I${includedir},;t t
+853,854c865,866
+< ${ac_dA}PACKAGE_VERSION${ac_dB}PACKAGE_VERSION${ac_dC}"0.93pre2"${ac_dD}
+< ${ac_dA}PACKAGE_STRING${ac_dB}PACKAGE_STRING${ac_dC}"nocat 0.93pre2"${ac_dD}
+---
+> ${ac_dA}PACKAGE_VERSION${ac_dB}PACKAGE_VERSION${ac_dC}"0.93pre2-ewrt0.4"${ac_dD}
+> ${ac_dA}PACKAGE_STRING${ac_dB}PACKAGE_STRING${ac_dC}"nocat 0.93pre2-ewrt0.4"${ac_dD}
+857c869
+< ${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"0.93pre2"${ac_dD}
+---
+> ${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"0.93pre2-ewrt0.4"${ac_dD}
+901,906c913,922
+< ${ac_dA}NC_FIREWALL_PATH${ac_dB}NC_FIREWALL_PATH${ac_dC}"/usr/local/libexec/nocat"${ac_dD}
+< ${ac_dA}NC_DOCUMENT_ROOT${ac_dB}NC_DOCUMENT_ROOT${ac_dC}"/usr/local/share/nocat/htdocs"${ac_dD}
+< ${ac_dA}NC_CONF_PATH${ac_dB}NC_CONF_PATH${ac_dC}"/usr/local/etc"${ac_dD}
+< ${ac_dA}NC_STATE_DIR${ac_dB}NC_STATE_DIR${ac_dC}"/usr/local/var"${ac_dD}
+< ${ac_dA}NC_PID_FILE${ac_dB}NC_PID_FILE${ac_dC}"/usr/local/var/run/splashd.pid"${ac_dD}
+< ${ac_dA}NC_PGP_PATH${ac_dB}NC_PGP_PATH${ac_dC}"/usr/local/share/nocat/pgp"${ac_dD}
+---
+> ${ac_dA}HAVE_LIBGHTTP${ac_dB}HAVE_LIBGHTTP${ac_dC}1${ac_dD}
+> ${ac_dA}NC_FIREWALL_PATH${ac_dB}NC_FIREWALL_PATH${ac_dC}"/tomato/release/src/router/nocat/../nocat-install/libexec/nocat"${ac_dD}
+> ${ac_dA}NC_DOCUMENT_ROOT${ac_dB}NC_DOCUMENT_ROOT${ac_dC}"/tomato/release/src/router/nocat/../nocat-install/share/nocat/htdocs"${ac_dD}
+> ${ac_dA}NC_CONF_PATH${ac_dB}NC_CONF_PATH${ac_dC}"/etc"${ac_dD}
+> ${ac_dA}NC_STATE_DIR${ac_dB}NC_STATE_DIR${ac_dC}"/var"${ac_dD}
+> ${ac_dA}NC_PID_FILE${ac_dB}NC_PID_FILE${ac_dC}"/var/run/splashd.pid"${ac_dD}
+> ${ac_dA}NC_PGP_PATH${ac_dB}NC_PGP_PATH${ac_dC}"/tomato/release/src/router/nocat/../nocat-install/share/nocat/pgp"${ac_dD}
+> ${ac_dA}GHTTP_MAJOR_VERSION${ac_dB}GHTTP_MAJOR_VERSION${ac_dC}1${ac_dD}
+> ${ac_dA}GHTTP_MINOR_VERSION${ac_dB}GHTTP_MINOR_VERSION${ac_dC}0${ac_dD}
+> ${ac_dA}GHTTP_MICRO_VERSION${ac_dB}GHTTP_MICRO_VERSION${ac_dC}9${ac_dD}
+921,922c937,938
+< ${ac_uA}PACKAGE_VERSION${ac_uB}PACKAGE_VERSION${ac_uC}"0.93pre2"${ac_uD}
+< ${ac_uA}PACKAGE_STRING${ac_uB}PACKAGE_STRING${ac_uC}"nocat 0.93pre2"${ac_uD}
+---
+> ${ac_uA}PACKAGE_VERSION${ac_uB}PACKAGE_VERSION${ac_uC}"0.93pre2-ewrt0.4"${ac_uD}
+> ${ac_uA}PACKAGE_STRING${ac_uB}PACKAGE_STRING${ac_uC}"nocat 0.93pre2-ewrt0.4"${ac_uD}
+925c941
+< ${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"0.93pre2"${ac_uD}
+---
+> ${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"0.93pre2-ewrt0.4"${ac_uD}
+969,974c985,994
+< ${ac_uA}NC_FIREWALL_PATH${ac_uB}NC_FIREWALL_PATH${ac_uC}"/usr/local/libexec/nocat"${ac_uD}
+< ${ac_uA}NC_DOCUMENT_ROOT${ac_uB}NC_DOCUMENT_ROOT${ac_uC}"/usr/local/share/nocat/htdocs"${ac_uD}
+< ${ac_uA}NC_CONF_PATH${ac_uB}NC_CONF_PATH${ac_uC}"/usr/local/etc"${ac_uD}
+< ${ac_uA}NC_STATE_DIR${ac_uB}NC_STATE_DIR${ac_uC}"/usr/local/var"${ac_uD}
+< ${ac_uA}NC_PID_FILE${ac_uB}NC_PID_FILE${ac_uC}"/usr/local/var/run/splashd.pid"${ac_uD}
+< ${ac_uA}NC_PGP_PATH${ac_uB}NC_PGP_PATH${ac_uC}"/usr/local/share/nocat/pgp"${ac_uD}
+---
+> ${ac_uA}HAVE_LIBGHTTP${ac_uB}HAVE_LIBGHTTP${ac_uC}1${ac_uD}
+> ${ac_uA}NC_FIREWALL_PATH${ac_uB}NC_FIREWALL_PATH${ac_uC}"/tomato/release/src/router/nocat/../nocat-install/libexec/nocat"${ac_uD}
+> ${ac_uA}NC_DOCUMENT_ROOT${ac_uB}NC_DOCUMENT_ROOT${ac_uC}"/tomato/release/src/router/nocat/../nocat-install/share/nocat/htdocs"${ac_uD}
+> ${ac_uA}NC_CONF_PATH${ac_uB}NC_CONF_PATH${ac_uC}"/etc"${ac_uD}
+> ${ac_uA}NC_STATE_DIR${ac_uB}NC_STATE_DIR${ac_uC}"/var"${ac_uD}
+> ${ac_uA}NC_PID_FILE${ac_uB}NC_PID_FILE${ac_uC}"/var/run/splashd.pid"${ac_uD}
+> ${ac_uA}NC_PGP_PATH${ac_uB}NC_PGP_PATH${ac_uC}"/tomato/release/src/router/nocat/../nocat-install/share/nocat/pgp"${ac_uD}
+> ${ac_uA}GHTTP_MAJOR_VERSION${ac_uB}GHTTP_MAJOR_VERSION${ac_uC}1${ac_uD}
+> ${ac_uA}GHTTP_MINOR_VERSION${ac_uB}GHTTP_MINOR_VERSION${ac_uC}0${ac_uD}
+> ${ac_uA}GHTTP_MICRO_VERSION${ac_uB}GHTTP_MICRO_VERSION${ac_uC}9${ac_uD}
+1201,1203c1221,1222
+<   grep '^DEP_FILES *= *[^ #]' < "$mf" > /dev/null || continue
+<   # Extract the definition of DEP_FILES from the Makefile without
+<   # running `make'.
+---
+>   # Extract the definition of DEPDIR, am__include, and am__quote
+>   # from the Makefile without running `make'.
+1205a1225,1227
+>   am__include=`sed -n 's/^am__include = //p' < "$mf"`
+>   test -z "am__include" && continue
+>   am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
+1208,1221c1230,1235
+<   test -d "$dirpart/$DEPDIR" || mkdir "$dirpart/$DEPDIR"
+<   # We invoke sed twice because it is the simplest approach to
+<   # changing $(DEPDIR) to its actual value in the expansion.
+<   for file in `sed -n '
+<     /^DEP_FILES = .*\\\\$/ {
+<       s/^DEP_FILES = //
+<       :loop
+< 	s/\\\\$//
+< 	p
+< 	n
+< 	/\\\\$/ b loop
+<       p
+<     }
+<     /^DEP_FILES = / s/^DEP_FILES = //p' < "$mf" | \
+---
+>   # Find all dependency output files, they are included files with
+>   # $(DEPDIR) in their names.  We invoke sed twice because it is the
+>   # simplest approach to changing $(DEPDIR) to its actual value in the
+>   # expansion.
+>   for file in `sed -n "
+>     s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+Only in /home/vicente/nocat: config.status~
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/configure /home/vicente/nocat/configure
+3c3
+< # Generated by GNU Autoconf 2.59 for nocat 0.93pre2.
+---
+> # Generated by GNU Autoconf 2.59 for nocat 0.93pre2-ewrt0.4.
+272,273c272,273
+< PACKAGE_VERSION='0.93pre2'
+< PACKAGE_STRING='nocat 0.93pre2'
+---
+> PACKAGE_VERSION='0.93pre2-ewrt0.4'
+> PACKAGE_STRING='nocat 0.93pre2-ewrt0.4'
+314c314
+< ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE RANLIB ac_ct_RANLIB GLIB_CONFIG GLIB_CFLAGS GLIB_LIBS CPP EGREP POW_LIB LIBOBJS SPLASHD_MODE GHTTPD_PROGRAM firewall libexecscripts pkglibexecdir htdocsdir imagesdir pgpdir LTLIBOBJS'
+---
+> ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE RANLIB ac_ct_RANLIB GLIB_CONFIG GLIB_CFLAGS GLIB_LIBS CPP EGREP POW_LIB LIBOBJS HAVE_LIBGHTTP SPLASHD_MODE SPLASHD_SUBDIRS GHTTPD_PROGRAM firewall libexecscripts pkglibexecdir htdocsdir imagesdir pgpdir GHTTP_MAJOR_VERSION GHTTP_MINOR_VERSION GHTTP_MICRO_VERSION GHTTP_VERSION GHTTP_LIBDIR GHTTP_LIBS GHTTP_INCLUDEDIR LTLIBOBJS'
+783c783
+< \`configure' configures nocat 0.93pre2 to adapt to many kinds of systems.
+---
+> \`configure' configures nocat 0.93pre2-ewrt0.4 to adapt to many kinds of systems.
+845c845
+<      short | recursive ) echo "Configuration of nocat 0.93pre2:";;
+---
+>      short | recursive ) echo "Configuration of nocat 0.93pre2-ewrt0.4:";;
+864c864
+<   --with-remote-splash   Fetch splash page from elsewhere with libghttp.
+---
+>   --with-remote-splash   Fetch splash page from a configurable service.
+977c977
+< nocat configure 0.93pre2
+---
+> nocat configure 0.93pre2-ewrt0.4
+991c991
+< It was created by nocat $as_me 0.93pre2, which was
+---
+> It was created by nocat $as_me 0.93pre2-ewrt0.4, which was
+1330c1330
+< am__api_version="1.8"
+---
+> am__api_version="1.9"
+1507,1508c1507,1508
+<   # Keeping the `.' argument allows $(mkdir_p) to be used without
+<   # argument.  Indeed, we sometimes output rules like
+---
+>   # We used to keeping the `.' as first argument, in order to
+>   # allow $(mkdir_p) to be used without argument.  As in
+1510,1513c1510,1521
+<   # where $(somedir) is conditionally defined.
+<   # (`test -n '$(somedir)' && $(mkdir_p) $(somedir)' is a more
+<   # expensive solution, as it forces Make to start a sub-shell.)
+<   mkdir_p='mkdir -p -- .'
+---
+>   # where $(somedir) is conditionally defined.  However this is wrong
+>   # for two reasons:
+>   #  1. if the package is installed by a user who cannot write `.'
+>   #     make install will fail,
+>   #  2. the above comment should most certainly read
+>   #     $(mkdir_p) $(DESTDIR)$(somedir)
+>   #     so it does not work when $(somedir) is undefined and
+>   #     $(DESTDIR) is not.
+>   #  To support the latter case, we have to write
+>   #     test -z "$(somedir)" || $(mkdir_p) $(DESTDIR)$(somedir),
+>   #  so the `.' trick is pointless.
+>   mkdir_p='mkdir -p --'
+1629c1637
+<  VERSION='0.93pre2'
+---
+>  VERSION='0.93pre2-ewrt0.4'
+1657,1659d1664
+< 
+< AMTAR=${AMTAR-"${am_missing_run}tar"}
+< 
+1751a1757,1763
+> # Always define AMTAR for backward compatibility.
+> 
+> AMTAR=${AMTAR-"${am_missing_run}tar"}
+> 
+> am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
+> 
+> 
+2847,2849c2859,2866
+<       # (even with -Werror).  So we grep stderr for any message
+<       # that says an option was ignored.
+<       if grep 'ignoring option' conftest.err >/dev/null 2>&1; then :; else
+---
+>       # or remarks (even with -Werror).  So we grep stderr for any message
+>       # that says an option was ignored or not supported.
+>       # When given -MP, icc 7.0 and 7.1 complain thusly:
+>       #   icc: Command line warning: ignoring option '-M'; no argument required
+>       # The diagnosis changed in icc 8.0:
+>       #   icc: Command line remark: option '-MP' not supported
+>       if (grep 'ignoring option' conftest.err ||
+>           grep 'not supported' conftest.err) >/dev/null 2>&1; then :; else
+5623a5641
+>        passive-radius) splashd_mode="passive_radius.c radius.c md5.c" ;;
+5715,5717d5732
+< SPLASHD_MODE="$splashd_mode"
+< 
+< 
+5722,5788c5737,5740
+< 
+< echo "$as_me:$LINENO: checking for ghttp_request_new in -lghttp" >&5
+< echo $ECHO_N "checking for ghttp_request_new in -lghttp... $ECHO_C" >&6
+< if test "${ac_cv_lib_ghttp_ghttp_request_new+set}" = set; then
+<   echo $ECHO_N "(cached) $ECHO_C" >&6
+< else
+<   ac_check_lib_save_LIBS=$LIBS
+< LIBS="-lghttp  $LIBS"
+< cat >conftest.$ac_ext <<_ACEOF
+< /* confdefs.h.  */
+< _ACEOF
+< cat confdefs.h >>conftest.$ac_ext
+< cat >>conftest.$ac_ext <<_ACEOF
+< /* end confdefs.h.  */
+< 
+< /* Override any gcc2 internal prototype to avoid an error.  */
+< #ifdef __cplusplus
+< extern "C"
+< #endif
+< /* We use char because int might match the return type of a gcc2
+<    builtin and then its argument prototype would still apply.  */
+< char ghttp_request_new ();
+< int
+< main ()
+< {
+< ghttp_request_new ();
+<   ;
+<   return 0;
+< }
+< _ACEOF
+< rm -f conftest.$ac_objext conftest$ac_exeext
+< if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+<   (eval $ac_link) 2>conftest.er1
+<   ac_status=$?
+<   grep -v '^ *+' conftest.er1 >conftest.err
+<   rm -f conftest.er1
+<   cat conftest.err >&5
+<   echo "$as_me:$LINENO: \$? = $ac_status" >&5
+<   (exit $ac_status); } &&
+< 	 { ac_try='test -z "$ac_c_werror_flag"
+< 			 || test ! -s conftest.err'
+<   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+<   (eval $ac_try) 2>&5
+<   ac_status=$?
+<   echo "$as_me:$LINENO: \$? = $ac_status" >&5
+<   (exit $ac_status); }; } &&
+< 	 { ac_try='test -s conftest$ac_exeext'
+<   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+<   (eval $ac_try) 2>&5
+<   ac_status=$?
+<   echo "$as_me:$LINENO: \$? = $ac_status" >&5
+<   (exit $ac_status); }; }; then
+<   ac_cv_lib_ghttp_ghttp_request_new=yes
+< else
+<   echo "$as_me: failed program was:" >&5
+< sed 's/^/| /' conftest.$ac_ext >&5
+< 
+< ac_cv_lib_ghttp_ghttp_request_new=no
+< fi
+< rm -f conftest.err conftest.$ac_objext \
+<       conftest$ac_exeext conftest.$ac_ext
+< LIBS=$ac_check_lib_save_LIBS
+< fi
+< echo "$as_me:$LINENO: result: $ac_cv_lib_ghttp_ghttp_request_new" >&5
+< echo "${ECHO_T}$ac_cv_lib_ghttp_ghttp_request_new" >&6
+< if test $ac_cv_lib_ghttp_ghttp_request_new = yes; then
+<   cat >>confdefs.h <<_ACEOF
+---
+>    splashd_mode="$splashd_mode ../libghttp/libghttp.a";
+>       splashd_subdirs="libghttp";
+>       HAVE_LIBGHTTP=1;
+> cat >>confdefs.h <<_ACEOF
+5792c5744
+<   LIBS="-lghttp $LIBS"
+---
+> fi;
+5794c5746
+< fi
+---
+> SPLASHD_MODE="$splashd_mode"
+5795a5748
+> SPLASHD_SUBDIRS="$splashd_subdirs"
+5797d5749
+< fi;
+5847c5799
+< firewall=$ac_cv_prog_firewall
+---
+> firewall="iptables"
+5861a5814
+> 
+5927a5881,5912
+> # libghttp configuration details
+> GHTTP_MAJOR_VERSION=1
+> GHTTP_MINOR_VERSION=0
+> GHTTP_MICRO_VERSION=9
+> GHTTP_VERSION=$GHTTP_MAJOR_VERSION.$GHTTP_MINOR_VERSION.$GHTTP_MICRO_VERSION
+> 
+> 
+> 
+> 
+> 
+> 
+> cat >>confdefs.h <<_ACEOF
+> #define GHTTP_MAJOR_VERSION $GHTTP_MAJOR_VERSION
+> _ACEOF
+> 
+> cat >>confdefs.h <<_ACEOF
+> #define GHTTP_MINOR_VERSION $GHTTP_MINOR_VERSION
+> _ACEOF
+> 
+> cat >>confdefs.h <<_ACEOF
+> #define GHTTP_MICRO_VERSION $GHTTP_MICRO_VERSION
+> _ACEOF
+> 
+> 
+> GHTTP_LIBDIR='-L${libdir}'
+> GHTTP_INCLUDEDIR='-I${includedir}'
+> GHTTP_LIBS="-lghttp"
+> 
+> 
+> 
+> 
+> 
+5929c5914
+<                     ac_config_files="$ac_config_files Makefile src/Makefile"
+---
+>                               ac_config_files="$ac_config_files Makefile src/Makefile libghttp/Makefile"
+6314c6299
+< This file was extended by nocat $as_me 0.93pre2, which was
+---
+> This file was extended by nocat $as_me 0.93pre2-ewrt0.4, which was
+6377c6362
+< nocat config.status 0.93pre2
+---
+> nocat config.status 0.93pre2-ewrt0.4
+6488a6474
+>   "libghttp/Makefile" ) CONFIG_FILES="$CONFIG_FILES libghttp/Makefile" ;;
+6587d6572
+< s,@AMTAR@,$AMTAR,;t t
+6595a6581,6583
+> s,@AMTAR@,$AMTAR,;t t
+> s,@am__tar@,$am__tar,;t t
+> s,@am__untar@,$am__untar,;t t
+6623a6612
+> s,@HAVE_LIBGHTTP@,$HAVE_LIBGHTTP,;t t
+6624a6614
+> s,@SPLASHD_SUBDIRS@,$SPLASHD_SUBDIRS,;t t
+6631a6622,6628
+> s,@GHTTP_MAJOR_VERSION@,$GHTTP_MAJOR_VERSION,;t t
+> s,@GHTTP_MINOR_VERSION@,$GHTTP_MINOR_VERSION,;t t
+> s,@GHTTP_MICRO_VERSION@,$GHTTP_MICRO_VERSION,;t t
+> s,@GHTTP_VERSION@,$GHTTP_VERSION,;t t
+> s,@GHTTP_LIBDIR@,$GHTTP_LIBDIR,;t t
+> s,@GHTTP_LIBS@,$GHTTP_LIBS,;t t
+> s,@GHTTP_INCLUDEDIR@,$GHTTP_INCLUDEDIR,;t t
+7255,7257c7252,7253
+<   grep '^DEP_FILES *= *[^ #]' < "$mf" > /dev/null || continue
+<   # Extract the definition of DEP_FILES from the Makefile without
+<   # running `make'.
+---
+>   # Extract the definition of DEPDIR, am__include, and am__quote
+>   # from the Makefile without running `make'.
+7259a7256,7258
+>   am__include=`sed -n 's/^am__include = //p' < "$mf"`
+>   test -z "am__include" && continue
+>   am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
+7262,7275c7261,7266
+<   test -d "$dirpart/$DEPDIR" || mkdir "$dirpart/$DEPDIR"
+<   # We invoke sed twice because it is the simplest approach to
+<   # changing $(DEPDIR) to its actual value in the expansion.
+<   for file in `sed -n '
+<     /^DEP_FILES = .*\\\\$/ {
+<       s/^DEP_FILES = //
+<       :loop
+< 	s/\\\\$//
+< 	p
+< 	n
+< 	/\\\\$/ b loop
+<       p
+<     }
+<     /^DEP_FILES = / s/^DEP_FILES = //p' < "$mf" | \
+---
+>   # Find all dependency output files, they are included files with
+>   # $(DEPDIR) in their names.  We invoke sed twice because it is the
+>   # simplest approach to changing $(DEPDIR) to its actual value in the
+>   # expansion.
+>   for file in `sed -n "
+>     s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/configure.ac /home/vicente/nocat/configure.ac
+50a51
+>        passive-radius) splashd_mode="passive_radius.c radius.c md5.c" ;;
+62d62
+< AC_SUBST(SPLASHD_MODE, "$splashd_mode")
+65,66c65,69
+<     [  --with-remote-splash   Fetch splash page from elsewhere with libghttp. ],
+<     AC_CHECK_LIB([ghttp], [ghttp_request_new])
+---
+>     [  --with-remote-splash   Fetch splash page from a configurable service. ],
+>     [ splashd_mode="$splashd_mode ../libghttp/libghttp.a"; 
+>       splashd_subdirs="libghttp";
+>       HAVE_LIBGHTTP=1;
+>       AC_SUBST(HAVE_LIBGHTTP) ]
+68a72,74
+> AC_SUBST(SPLASHD_MODE,	    "$splashd_mode")
+> AC_SUBST(SPLASHD_SUBDIRS,   "$splashd_subdirs")
+> 
+120a127,149
+> # libghttp configuration details
+> GHTTP_MAJOR_VERSION=1
+> GHTTP_MINOR_VERSION=0
+> GHTTP_MICRO_VERSION=9
+> GHTTP_VERSION=$GHTTP_MAJOR_VERSION.$GHTTP_MINOR_VERSION.$GHTTP_MICRO_VERSION
+> 
+> AC_SUBST(GHTTP_MAJOR_VERSION)
+> AC_SUBST(GHTTP_MINOR_VERSION)
+> AC_SUBST(GHTTP_MICRO_VERSION)
+> AC_SUBST(GHTTP_VERSION)
+> 
+> AC_DEFINE_UNQUOTED(GHTTP_MAJOR_VERSION, $GHTTP_MAJOR_VERSION)
+> AC_DEFINE_UNQUOTED(GHTTP_MINOR_VERSION, $GHTTP_MINOR_VERSION)
+> AC_DEFINE_UNQUOTED(GHTTP_MICRO_VERSION, $GHTTP_MICRO_VERSION)
+> 
+> GHTTP_LIBDIR='-L${libdir}'
+> GHTTP_INCLUDEDIR='-I${includedir}'
+> GHTTP_LIBS="-lghttp"
+> 
+> AC_SUBST(GHTTP_LIBDIR)
+> AC_SUBST(GHTTP_LIBS)
+> AC_SUBST(GHTTP_INCLUDEDIR)
+> 
+123c152,153
+<                  src/Makefile])
+---
+>                  src/Makefile
+> 		 libghttp/Makefile])
+Common subdirectories: /home/vicente/tomatoraf/release/src-rt/router/nocat/htdocs and /home/vicente/nocat/htdocs
+Only in /home/vicente/nocat: ipkg
+Common subdirectories: /home/vicente/tomatoraf/release/src-rt/router/nocat/libexec and /home/vicente/nocat/libexec
+Only in /home/vicente/nocat: libghttp
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/Makefile /home/vicente/nocat/Makefile
+1c1
+< # Makefile.in generated by automake 1.8.3 from Makefile.am.
+---
+> # Makefile.in generated by automake 1.9.5 from Makefile.am.
+5c5
+< # 2003, 2004  Free Software Foundation, Inc.
+---
+> # 2003, 2004, 2005  Free Software Foundation, Inc.
+52c52,55
+< am__installdirs = "$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(man5dir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(htdocsdir)" "$(DESTDIR)$(imagesdir)" "$(DESTDIR)$(pgpdir)" "$(DESTDIR)$(sysconfdir)"
+---
+> am__installdirs = "$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(man5dir)" \
+> 	"$(DESTDIR)$(man8dir)" "$(DESTDIR)$(htdocsdir)" \
+> 	"$(DESTDIR)$(imagesdir)" "$(DESTDIR)$(pgpdir)" \
+> 	"$(DESTDIR)$(sysconfdir)"
+66a70,78
+> am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+> am__vpath_adj = case $$p in \
+>     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+>     *) f=$$p;; \
+>   esac;
+> am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
+> am_splashtestOBJECTS = splashtest.$(OBJEXT)
+> splashtest_OBJECTS = $(am_splashtest_OBJECTS)
+> splashtest_DEPENDENCIES = libsplash.a
+86c98
+< ACLOCAL = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run aclocal-1.8
+---
+> ACLOCAL = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run aclocal-1.9
+89,93c101,105
+< AMTAR = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run tar
+< AUTOCONF = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoconf
+< AUTOHEADER = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run autoheader
+< AUTOMAKE = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run automake-1.8
+< AWK = mawk
+---
+> AMTAR = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run tar
+> AUTOCONF = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run autoconf
+> AUTOHEADER = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run autoheader
+> AUTOMAKE = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run automake-1.9
+> AWK = gawk
+96c108
+< CFLAGS = -g -O2
+---
+> CFLAGS = -Os -pipe -mips32 -I../libghttp
+108,110c120,130
+< GLIB_CFLAGS = -I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/include/glib-1.2 -I/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib/glib/include
+< GLIB_CONFIG = /home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/bin/glib-config
+< GLIB_LIBS = -L/home/vicente/tomatoraf/release/src-rt/router/mipsel-uclibc/install/glib/usr/lib -lglib
+---
+> GHTTP_INCLUDEDIR = -I${includedir}
+> GHTTP_LIBDIR = -L${libdir}
+> GHTTP_LIBS = -lghttp
+> GHTTP_MAJOR_VERSION = 1
+> GHTTP_MICRO_VERSION = 9
+> GHTTP_MINOR_VERSION = 0
+> GHTTP_VERSION = 1.0.9
+> GLIB_CFLAGS = -I/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/include/glib-1.2 -I/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/lib/glib/include
+> GLIB_CONFIG = /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/bin/glib-config
+> GLIB_LIBS = -L/home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../glib-1.2.10-install/lib -lglib
+> HAVE_LIBGHTTP = 1
+122c142
+< MAKEINFO = ${SHELL} /home/vicente/tomatoraf/release/src/router/nocat/missing --run makeinfo
+---
+> MAKEINFO = ${SHELL} /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/missing --run makeinfo
+127c147
+< PACKAGE_STRING = nocat 0.93pre2
+---
+> PACKAGE_STRING = nocat 0.93pre2-ewrt0.4
+129c149
+< PACKAGE_VERSION = 0.93pre2
+---
+> PACKAGE_VERSION = 0.93pre2-ewrt0.4
+132c152
+< RANLIB = mipsel-uclibc-ranlib
+---
+> RANLIB = mipsel-linux-ranlib
+134,137c154,158
+< SHELL = /bin/bash
+< SPLASHD_MODE = open.c
+< STRIP = mipsel-uclibc-strip -R .note -R .comment
+< VERSION = 0.93pre2
+---
+> SHELL = /bin/sh
+> SPLASHD_MODE = open.c ../libghttp/libghttp.a
+> SPLASHD_SUBDIRS = libghttp
+> STRIP = mipsel-linux-strip
+> VERSION = 0.93pre2-ewrt0.4
+145a167,168
+> am__tar = ${AMTAR} chof - "$$tardir"
+> am__untar = ${AMTAR} xf -
+147c170
+< build_alias = x86_64-linux-gnu
+---
+> build_alias = 
+149c172
+< exec_prefix = /usr/local
+---
+> exec_prefix = /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install
+156c179
+< install_sh = /home/vicente/tomatoraf/release/src/router/nocat/install-sh
+---
+> install_sh = /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/install-sh
+159,160c182,183
+< libexecscripts = libexec/iptables/reset.fw libexec/iptables/throttle.fw libexec/iptables/access.fw libexec/iptables/dump.fw libexec/iptables/initialize.fw libexec/iptables/clear.fw 
+< localstatedir = ${prefix}/var
+---
+> libexecscripts = libexec/iptables/call_splashd_check.sh libexec/iptables/uninitialize.fw libexec/iptables/reset.fw libexec/iptables/dump.fw libexec/iptables/access.fw libexec/iptables/check_splashd.sh libexec/iptables/test_arp.sh libexec/iptables/initialize.fw libexec/iptables/remote_settings.sh libexec/iptables/throttle.fw libexec/iptables/traffic_input_count.sh libexec/iptables/clear.fw libexec/iptables/upgrade_check.sh libexec/iptables/traffic_output_count.sh 
+> localstatedir = /var
+162c185
+< mkdir_p = mkdir -p -- .
+---
+> mkdir_p = mkdir -p --
+166c189
+< prefix = /usr/local
+---
+> prefix = /home/zd/work/tomato/tomato-1.23/release/src/router/nocat/../nocat-install
+170c193
+< sysconfdir = ${prefix}/etc
+---
+> sysconfdir = /etc
+172c195
+< SUBDIRS = src
+---
+> SUBDIRS = libghttp src
+175c198
+< pkglibexec_SCRIPTS = libexec/iptables/reset.fw libexec/iptables/throttle.fw libexec/iptables/access.fw libexec/iptables/dump.fw libexec/iptables/initialize.fw libexec/iptables/clear.fw 
+---
+> pkglibexec_SCRIPTS = libexec/iptables/call_splashd_check.sh libexec/iptables/uninitialize.fw libexec/iptables/reset.fw libexec/iptables/dump.fw libexec/iptables/access.fw libexec/iptables/check_splashd.sh libexec/iptables/test_arp.sh libexec/iptables/initialize.fw libexec/iptables/remote_settings.sh libexec/iptables/throttle.fw libexec/iptables/traffic_input_count.sh libexec/iptables/clear.fw libexec/iptables/upgrade_check.sh libexec/iptables/traffic_output_count.sh 
+180c203
+< EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat
+---
+> EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat ipkg/control ipkg/rules ipkg/patches ipkg/patches/nocat-conf.patch ipkg/patches/openwrt-firewall.patch ipkg/patches/init-d.patch ipkg/Config.in README.uClibc README.OpenWRT
+181a205,208
+> splashtest_SOURCES = splashtest.c
+> EXTRA_splashtest_SOURCES =
+> splashtest_LDADD = libsplash.a
+> 
+229a257,260
+> splashtest$(EXEEXT): $(splashtest_OBJECTS) $(splashtest_DEPENDENCIES)
+> 	@rm -f splashtest$(EXEEXT)
+> 	$(LINK) $(splashtest_LDFLAGS) $(splashtest_OBJECTS) $(splashtest_LDADD) $(LIBS)
+> 
+333c364
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+341c372
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+350c381
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+358c389
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+367c398
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+375c406
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+384c415
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+392c423
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+404c435,441
+< 	@set fnord $$MAKEFLAGS; amf=$$2; \
+---
+> 	@failcom='exit 1'; \
+> 	for f in x $$MAKEFLAGS; do \
+> 	  case $$f in \
+> 	    *=* | --[!k]*);; \
+> 	    *k*) failcom='fail=yes';; \
+> 	  esac; \
+> 	done; \
+416c453
+< 	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+---
+> 	  || eval $$failcom; \
+424c461,467
+< 	@set fnord $$MAKEFLAGS; amf=$$2; \
+---
+> 	@failcom='exit 1'; \
+> 	for f in x $$MAKEFLAGS; do \
+> 	  case $$f in \
+> 	    *=* | --[!k]*);; \
+> 	    *k*) failcom='fail=yes';; \
+> 	  esac; \
+> 	done; \
+445c488
+< 	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+---
+> 	  || eval $$failcom; \
+470c513
+< 	if (etags --etags-include --version) >/dev/null 2>&1; then \
+---
+> 	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
+471a515
+> 	  empty_fix=.; \
+473a518
+> 	  empty_fix=; \
+477c522
+< 	    test -f $$subdir/TAGS && \
+---
+> 	    test ! -f $$subdir/TAGS || \
+487,489c532,536
+< 	test -z "$(ETAGS_ARGS)$$tags$$unique" \
+< 	  || $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+< 	     $$tags $$unique
+---
+> 	if test -z "$(ETAGS_ARGS)$$tags$$unique"; then :; else \
+> 	  test -n "$$unique" || unique=$$empty_fix; \
+> 	  $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+> 	    $$tags $$unique; \
+> 	fi
+516c563
+< 	$(mkdir_p) $(distdir)/htdocs $(distdir)/htdocs/images $(distdir)/libexec/iptables $(distdir)/libexec/loopback $(distdir)/man $(distdir)/pgp
+---
+> 	$(mkdir_p) $(distdir)/htdocs $(distdir)/htdocs/images $(distdir)/ipkg $(distdir)/ipkg/patches $(distdir)/libexec/iptables $(distdir)/libexec/loopback $(distdir)/man $(distdir)/pgp
+543c590
+< 	list='$(SUBDIRS)'; for subdir in $$list; do \
+---
+> 	list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
+546c593
+< 	    || mkdir "$(distdir)/$$subdir" \
+---
+> 	    || $(mkdir_p) "$(distdir)/$$subdir" \
+547a595,596
+> 	    distdir=`$(am__cd) $(distdir) && pwd`; \
+> 	    top_distdir=`$(am__cd) $(top_distdir) && pwd`; \
+550,551c599,600
+< 	        top_distdir="../$(top_distdir)" \
+< 	        distdir="../$(distdir)/$$subdir" \
+---
+> 	        top_distdir="$$top_distdir" \
+> 	        distdir="$$distdir/$$subdir" \
+562c611
+< 	$(AMTAR) chof - $(distdir) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+---
+> 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+566c615
+< 	$(AMTAR) chof - $(distdir) | bzip2 -9 -c >$(distdir).tar.bz2
+---
+> 	tardir=$(distdir) && $(am__tar) | bzip2 -9 -c >$(distdir).tar.bz2
+570c619
+< 	$(AMTAR) chof - $(distdir) | compress -c >$(distdir).tar.Z
+---
+> 	tardir=$(distdir) && $(am__tar) | compress -c >$(distdir).tar.Z
+583c632
+< 	$(AMTAR) chof - $(distdir) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+---
+> 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+592c641
+< 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | $(AMTAR) xf - ;;\
+---
+> 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | $(am__untar) ;;\
+594c643
+< 	  bunzip2 -c $(distdir).tar.bz2 | $(AMTAR) xf - ;;\
+---
+> 	  bunzip2 -c $(distdir).tar.bz2 | $(am__untar) ;;\
+596c645
+< 	  uncompress -c $(distdir).tar.Z | $(AMTAR) xf - ;;\
+---
+> 	  uncompress -c $(distdir).tar.Z | $(am__untar) ;;\
+598c647
+< 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | unshar ;;\
+---
+> 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).shar.gz | unshar ;;\
+681c730
+< 	-rm -f $(CONFIG_CLEAN_FILES)
+---
+> 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/Makefile.am /home/vicente/nocat/Makefile.am
+1c1
+< SUBDIRS = src
+---
+> SUBDIRS = @SPLASHD_SUBDIRS@ src
+7a8,10
+> splashtest_SOURCES = splashtest.c
+> EXTRA_splashtest_SOURCES =
+> splashtest_LDADD = libsplash.a
+9c12
+< EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat
+---
+> EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat ipkg/control ipkg/rules ipkg/patches ipkg/patches/nocat-conf.patch ipkg/patches/openwrt-firewall.patch ipkg/patches/init-d.patch ipkg/Config.in README.uClibc README.OpenWRT
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/Makefile.in /home/vicente/nocat/Makefile.in
+1c1
+< # Makefile.in generated by automake 1.8.3 from Makefile.am.
+---
+> # Makefile.in generated by automake 1.9.5 from Makefile.am.
+5c5
+< # 2003, 2004  Free Software Foundation, Inc.
+---
+> # 2003, 2004, 2005  Free Software Foundation, Inc.
+52c52,55
+< am__installdirs = "$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(man5dir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(htdocsdir)" "$(DESTDIR)$(imagesdir)" "$(DESTDIR)$(pgpdir)" "$(DESTDIR)$(sysconfdir)"
+---
+> am__installdirs = "$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(man5dir)" \
+> 	"$(DESTDIR)$(man8dir)" "$(DESTDIR)$(htdocsdir)" \
+> 	"$(DESTDIR)$(imagesdir)" "$(DESTDIR)$(pgpdir)" \
+> 	"$(DESTDIR)$(sysconfdir)"
+66a70,78
+> am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+> am__vpath_adj = case $$p in \
+>     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+>     *) f=$$p;; \
+>   esac;
+> am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
+> am_splashtestOBJECTS = splashtest.$(OBJEXT)
+> splashtest_OBJECTS = $(am_splashtest_OBJECTS)
+> splashtest_DEPENDENCIES = libsplash.a
+107a120,126
+> GHTTP_INCLUDEDIR = @GHTTP_INCLUDEDIR@
+> GHTTP_LIBDIR = @GHTTP_LIBDIR@
+> GHTTP_LIBS = @GHTTP_LIBS@
+> GHTTP_MAJOR_VERSION = @GHTTP_MAJOR_VERSION@
+> GHTTP_MICRO_VERSION = @GHTTP_MICRO_VERSION@
+> GHTTP_MINOR_VERSION = @GHTTP_MINOR_VERSION@
+> GHTTP_VERSION = @GHTTP_VERSION@
+110a130
+> HAVE_LIBGHTTP = @HAVE_LIBGHTTP@
+135a156
+> SPLASHD_SUBDIRS = @SPLASHD_SUBDIRS@
+145a167,168
+> am__tar = @am__tar@
+> am__untar = @am__untar@
+172c195
+< SUBDIRS = src
+---
+> SUBDIRS = @SPLASHD_SUBDIRS@ src
+180c203
+< EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat
+---
+> EXTRA_DIST = $(EXTRA_SCRIPTS) $(images_DATA) $(htdocs_DATA) $(pgp_DATA) $(man_MANS) nocat.conf.in rc.nocat ipkg/control ipkg/rules ipkg/patches ipkg/patches/nocat-conf.patch ipkg/patches/openwrt-firewall.patch ipkg/patches/init-d.patch ipkg/Config.in README.uClibc README.OpenWRT
+181a205,208
+> splashtest_SOURCES = splashtest.c
+> EXTRA_splashtest_SOURCES =
+> splashtest_LDADD = libsplash.a
+> 
+229a257,260
+> splashtest$(EXEEXT): $(splashtest_OBJECTS) $(splashtest_DEPENDENCIES)
+> 	@rm -f splashtest$(EXEEXT)
+> 	$(LINK) $(splashtest_LDFLAGS) $(splashtest_OBJECTS) $(splashtest_LDADD) $(LIBS)
+> 
+333c364
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+341c372
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+350c381
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+358c389
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+367c398
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+375c406
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+384c415
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+392c423
+< 	  f="`echo $$p | sed -e 's|^.*/||'`"; \
+---
+> 	  f=$(am__strip_dir) \
+404c435,441
+< 	@set fnord $$MAKEFLAGS; amf=$$2; \
+---
+> 	@failcom='exit 1'; \
+> 	for f in x $$MAKEFLAGS; do \
+> 	  case $$f in \
+> 	    *=* | --[!k]*);; \
+> 	    *k*) failcom='fail=yes';; \
+> 	  esac; \
+> 	done; \
+416c453
+< 	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+---
+> 	  || eval $$failcom; \
+424c461,467
+< 	@set fnord $$MAKEFLAGS; amf=$$2; \
+---
+> 	@failcom='exit 1'; \
+> 	for f in x $$MAKEFLAGS; do \
+> 	  case $$f in \
+> 	    *=* | --[!k]*);; \
+> 	    *k*) failcom='fail=yes';; \
+> 	  esac; \
+> 	done; \
+445c488
+< 	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+---
+> 	  || eval $$failcom; \
+470c513
+< 	if (etags --etags-include --version) >/dev/null 2>&1; then \
+---
+> 	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
+471a515
+> 	  empty_fix=.; \
+473a518
+> 	  empty_fix=; \
+477c522
+< 	    test -f $$subdir/TAGS && \
+---
+> 	    test ! -f $$subdir/TAGS || \
+487,489c532,536
+< 	test -z "$(ETAGS_ARGS)$$tags$$unique" \
+< 	  || $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+< 	     $$tags $$unique
+---
+> 	if test -z "$(ETAGS_ARGS)$$tags$$unique"; then :; else \
+> 	  test -n "$$unique" || unique=$$empty_fix; \
+> 	  $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+> 	    $$tags $$unique; \
+> 	fi
+516c563
+< 	$(mkdir_p) $(distdir)/htdocs $(distdir)/htdocs/images $(distdir)/libexec/iptables $(distdir)/libexec/loopback $(distdir)/man $(distdir)/pgp
+---
+> 	$(mkdir_p) $(distdir)/htdocs $(distdir)/htdocs/images $(distdir)/ipkg $(distdir)/ipkg/patches $(distdir)/libexec/iptables $(distdir)/libexec/loopback $(distdir)/man $(distdir)/pgp
+543c590
+< 	list='$(SUBDIRS)'; for subdir in $$list; do \
+---
+> 	list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
+546c593
+< 	    || mkdir "$(distdir)/$$subdir" \
+---
+> 	    || $(mkdir_p) "$(distdir)/$$subdir" \
+547a595,596
+> 	    distdir=`$(am__cd) $(distdir) && pwd`; \
+> 	    top_distdir=`$(am__cd) $(top_distdir) && pwd`; \
+550,551c599,600
+< 	        top_distdir="../$(top_distdir)" \
+< 	        distdir="../$(distdir)/$$subdir" \
+---
+> 	        top_distdir="$$top_distdir" \
+> 	        distdir="$$distdir/$$subdir" \
+562c611
+< 	$(AMTAR) chof - $(distdir) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+---
+> 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+566c615
+< 	$(AMTAR) chof - $(distdir) | bzip2 -9 -c >$(distdir).tar.bz2
+---
+> 	tardir=$(distdir) && $(am__tar) | bzip2 -9 -c >$(distdir).tar.bz2
+570c619
+< 	$(AMTAR) chof - $(distdir) | compress -c >$(distdir).tar.Z
+---
+> 	tardir=$(distdir) && $(am__tar) | compress -c >$(distdir).tar.Z
+583c632
+< 	$(AMTAR) chof - $(distdir) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+---
+> 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
+592c641
+< 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | $(AMTAR) xf - ;;\
+---
+> 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | $(am__untar) ;;\
+594c643
+< 	  bunzip2 -c $(distdir).tar.bz2 | $(AMTAR) xf - ;;\
+---
+> 	  bunzip2 -c $(distdir).tar.bz2 | $(am__untar) ;;\
+596c645
+< 	  uncompress -c $(distdir).tar.Z | $(AMTAR) xf - ;;\
+---
+> 	  uncompress -c $(distdir).tar.Z | $(am__untar) ;;\
+598c647
+< 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).tar.gz | unshar ;;\
+---
+> 	  GZIP=$(GZIP_ENV) gunzip -c $(distdir).shar.gz | unshar ;;\
+681c730
+< 	-rm -f $(CONFIG_CLEAN_FILES)
+---
+> 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+Common subdirectories: /home/vicente/tomatoraf/release/src-rt/router/nocat/man and /home/vicente/nocat/man
+Only in /home/vicente/tomatoraf/release/src-rt/router/nocat: nocat.conf
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/nocat.conf.in /home/vicente/nocat/nocat.conf.in
+9,18d8
+< #
+< # See the bottom of this file for options for logging to syslog.
+< 
+< ##### Gateway application settings.
+< #
+< # GatewayName -- The name of this gateway, to be optionally displayed
+< #   on the splash and status pages. Any short string of text will do.
+< #
+< GatewayName	the NoCat Network
+< 
+20,30c10
+< #
+< # GatewayMode -- Determines the mode of operation of the gateway. Possible
+< #   values are:
+< #   
+< #   Open	- Simply require a user to view a splash page and accept 
+< #		    a use agreement.
+< #
+< # Only Open mode is currently supported.
+< #
+< GatewayMode	Open
+< 
+---
+> ####### Syslog Options
+32,33c12,13
+< # GatewayLog -- Optional.  If unset, messages will go to STDERR.
+< # (currently unused!)
+---
+> # Log Facility - syslog or internal.  "internal" sends log messages
+> #    using GatewayLog or STDERR. "syslog" (the default) sends all messages to the system log.
+34a15
+> # LogFacility	syslog
+38,107c19,20
+< # LoginTimeout - Number of seconds after a client's last
+< #   login/renewal to terminate their connection. Probably
+< #   don't want to set this to less than 60 or a lot of 
+< #   bandwidth is likely to get consumed by the client's
+< #   renewal attempts. 
+< #
+< # For Open Mode portals, you probably want to comment out
+< #   the preceding and set LoginTimeout to 
+< #   something large (like 86400, for one notification
+< #   per day).
+< #
+< LoginTimeout	86400
+< 
+< ###### Open Portal settings.
+< #
+< ##
+< # HomePage -- The authservice's notion of a default
+< #   redirect.
+< #
+< HomePage	http://nocat.net/
+< 
+< # DocumentRoot -- Where all of the application templates (including
+< #   SplashForm) are hiding. Can be different from Apache's DocumentRoot.
+< #   Defaults to @htdocsdir@ via compile-time option.
+< #
+< # DocumentRoot	@htdocsdir@	
+< 
+< # SplashForm -- Form displayed to users on capture.
+< #
+< SplashForm	splash.html
+< 
+< # StatusForm -- Page displaying status of logged in users.
+< #   NOT YET IMPLEMENTED.
+< #
+< StatusForm	status.html
+< 
+< # SplashURL -- URL to fetch remote splash page from. You must compile
+< #   with --with-remote-splash for this to work. SplashTimeout specifies
+< #   the reload period of the remote splash page.
+< #
+< # SplashURL	http://example.com/get_splash_page.cgi?node=$NodeID
+< # 
+< # SplashTimeout	21600
+< 
+< ###### Active/Passive Portal settings. 
+< # None of these settings affect open mode operation.
+< #
+< # TrustedGroups - A list of groups registered with the auth server
+< #   that a user may claim membership in order to gain Member-class
+< #   access through this portal. The default magic value "Any" indicates
+< #   that a member of *any* group is granted member-class access from
+< #   this gateway. NOT YET IMPLEMENTED.
+< #
+< # TrustedGroups	NoCat NYCWireless PersonalTelco
+< #
+< TrustedGroups Any
+< 
+< ##
+< # Owners - Optional.  List all local "owner" class users here, separated 
+< #   by spaces.  Owners typically get full bandwidth, and unrestricted
+< #   access to all network resources. NOT YET IMPLEMENTED.
+< #
+< # Owners rob@nocat.net schuyler@nocat.net
+< 
+< ##
+< # AuthServiceAddr - Required, for captive mode. Must be set to the address of
+< #   your authentication service. You must use an IP address
+< #   if DNS resolution isn't available at gateway startup.
+< #
+< # AuthServiceAddr 208.201.239.21
+---
+> # SyslogIdent - The ident of the program that is calling syslog.  This will
+> #    be prepended to every log entry made by NoCat.  Defaults to NoCat.
+109c22
+< AuthServiceAddr	auth.nocat.net
+---
+> # SyslogIdent NoCat
+112c25,26
+< # AuthServiceURL - HTTPS URL to the login script at the authservice. 
+---
+> # Log verbosity -- 0 is (almost) no logging. 10 is log
+> #   everything. 5 is probably a safe middle road.
+114c28
+< AuthServiceURL  https://auth.nocat.net/cgi-bin/login
+---
+> #Verbosity       5
+115a30
+> ##### Gateway application settings.
+117c32,33
+< # LogoutURL - HTTP URL to redirect user after logout.
+---
+> # GatewayName -- The name of this gateway, to be optionally displayed
+> #   on the splash and status pages. Any short string of text will do.
+119c35
+< LogoutURL	https://auth.nocat.net/logout.html
+---
+> #GatewayName	the NoCat Network
+122,125c38,40
+< # PGPKeyPath -- The directory in which PGP keys are stored.
+< #   NoCat tries to find this in the pgp/ directory above
+< #   the bin/ parent directory. Set this only if you put it
+< #   somewhere that NoCat doesn't expect.
+---
+> # GatewayAddr/GatewayPort - The address & TCP port to bind the gateway 
+> #   service to. 5280 is de-facto standard for NoCatAuth.
+> #   Change this only if you absolutely need to.
+127,128c42,43
+< # PGPKeyPath	@pgpdir@
+< 
+---
+> # GatewayAddr     192.168.1.1
+> # GatewayPort     5280
+129a45
+> #Now these are auto detected.
+132,136d47
+< # FirewallPath - Where to find the firewall scripts.
+< #   Defaults to @pkglibexecdir@ via compile-time option.
+< #
+< # FirewallPath	@pkglibexecdir@
+< 
+161c72,110
+< # LocalNetwork	10.0.1.0/24
+---
+> # LocalNetwork	192.168.1.0/24
+> 
+> ##
+> # RouteOnly - Required only if you DO NOT want your gateway to act as a NAT. 
+> #   Uncomment this only if you're running a strictly routed network, and
+> #   don't need the gateway to enable NAT for you.
+> #
+> # RouteOnly	1
+> 
+> ## On WRT54G --now autodetected!
+> # ExternalDevice	eth1
+> # InternalDevice	br0
+> # InsideIP is depreciated - now defined by GatewayAddr
+> # InsideIP	192.168.1.1
+> # LocalNetwork	192.168.1.0/24
+> 
+> ###### Other Common Gateway Options. (stuff you probably won't have to change)
+> ##
+> #
+> # FirewallPath - Where to find the firewall scripts.
+> #   Defaults to @pkglibexecdir@ via compile-time option.
+> #
+> # FirewallPath	@pkglibexecdir@
+> #
+> ##
+> # ResetCmd, PermitCmd, DenyCmd -- Shell commands to reset,
+> #   open and close the firewall. You probably don't need to
+> #   change these.
+> #
+> # ResetCmd	initialize.fw
+> # PermitCmd	access.fw permit $MAC $IP $Class 
+> # DenyCmd	access.fw deny $MAC $IP $Class 
+> 
+> ##
+> # DocumentRoot -- Where all of the application templates (including
+> #   SplashForm) are hiding. Can be different from Apache's DocumentRoot.
+> #   Defaults to /usr/share/nocat/htdocs via compile-time option.
+> #
+> # DocumentRoot	@htdocsdir@	
+169a119
+> # DNSAddr	198.6.1.4	
+177,191c127
+< 
+< ##
+< # RouteOnly - Required only if you DO NOT want your gateway to act as a NAT. 
+< #   Uncomment this only if you're running a strictly routed network, and
+< #   don't need the gateway to enable NAT for you.
+< #
+< # RouteOnly	1
+< 
+< ##
+< # MembersOnly - Optional.  Uncomment this if you want to disable public
+< #   access (i.e. unauthenticated 'skip' button access).  You'll also want to
+< #   point AuthServiceURL somewhere that doesn't include a skip button (like
+< #   at your own Auth server.)
+< #
+< # MembersOnly	1
+---
+> # AllowedWebHosts           69.59.149.160 //HSZ.de
+220,226d155
+< ####### Syslog Options
+< #
+< # Log Facility - syslog or internal.  "internal" sends log messages
+< #    using STDERR. "syslog" sends all messages to the system log.
+< #
+< # LogFacility	syslog
+< 
+228,237c157,158
+< # SyslogIdent - The ident of the program that is calling syslog.  This will
+< #    be prepended to every log entry made by NoCat.  Defaults to NoCat.
+< #
+< # SyslogIdent NoCat
+< 
+< ###### Other Common Gateway Options. (stuff you probably won't have to change)
+< #
+< # ResetCmd, PermitCmd, DenyCmd -- Shell commands to reset,
+< #   open and close the firewall. You probably don't need to
+< #   change these.
+---
+> # ForcedRedirect -- 2 = check header/POST for redirect, 1 == always redirect after splash, 0 = redirect to original URL
+> # HomePage -- The authservice's notion of a default post-capture redirect.
+239,241c160,161
+< # ResetCmd	initialize.fw
+< # PermitCmd	access.fw permit $MAC $IP $Class 
+< # DenyCmd	access.fw deny $MAC $IP $Class 
+---
+> # ForcedRedirect 0
+> # HomePage	http://portless.net/
+244,246c164,168
+< # GatewayPort - The TCP port to bind the gateway 
+< #   service to. 5280 is de-facto standard for NoCatAuth.
+< #   Change this only if you absolutely need to.
+---
+> # LoginTimeout - Number of seconds after a client's last
+> #   login/renewal to terminate their connection. Probably
+> #   don't want to set this to less than 60 or a lot of 
+> #   bandwidth is likely to get consumed by the client's
+> #   renewal attempts. 
+248c170,175
+< # GatewayPort     5280
+---
+> # For Open mode portals: you probably want to comment out
+> #   the preceding and set LoginTimeout to 
+> #   something large (like 86400, for one notification
+> #   per day).
+> #
+> # LoginTimeout	86400
+251d177
+< #
+262a189,292
+> ##
+> #
+> # GatewayMode -- Determines the mode of operation of the gateway. Possible values are:
+> #   
+> #   Open	- (default) Simply require a user to view a SplashPage and (hopefullly) an Acceptable Use Policy.
+> #   Passive-Radius  - Login to an external server at the LoginPage, with optional ConfirmPage and LogoutPage
+> #
+> # GatewayMode	Open
+> 
+> ###### Open Portal settings.
+> ##
+> # SplashForm -- Form displayed to users on capture.
+> #
+> # SplashForm	splash.html
+> 
+> # StatusForm -- Page displaying status of logged in users.
+> #   NOT YET IMPLEMENTED.
+> #
+> # StatusForm	status.html
+> 
+> # SplashURL -- URL to fetch remote splash page from. You must compile
+> #   with --with-remote-splash for this to work. SplashTimeout specifies
+> #   the reload period of the remote splash page.
+> #
+> # SplashURL	http://example.com/get_splash_page.cgi?node=$NodeID
+> # SplashURLTimeout	21600
+> 
+> 
+> ###### Active/Passive Portal settings. 
+> # None of these settings affect open mode operation.
+> #
+> ##
+> # PGPKeyPath -- The directory in which PGP keys are stored.
+> #   NoCat tries to find this in the pgp/ directory above
+> #   the bin/ parent directory. Set this only if you put it
+> #   somewhere that NoCat doesn't expect.
+> #
+> # PGPKeyPath	@pgpdir@
+> 
+> ##
+> # TrustedGroups - A list of groups registered with the auth server
+> #   that a user may claim membership in order to gain Member-class
+> #   access through this portal. The default magic value "Any" indicates
+> #   that a member of *any* group is granted member-class access from
+> #   this gateway. NOT YET IMPLEMENTED.
+> #
+> # TrustedGroups	NoCat NYCWireless PersonalTelco
+> #
+> TrustedGroups Any
+> 
+> ##
+> # Owners - Optional.  List all local "owner" class users here, separated 
+> #   by spaces.  Owners typically get full bandwidth, and unrestricted
+> #   access to all network resources. NOT YET IMPLEMENTED.
+> #
+> # Owners rob@nocat.net schuyler@nocat.net
+> 
+> ##
+> # MembersOnly - Optional.  Uncomment this if you want to disable public
+> #   access (i.e. unauthenticated 'skip' button access).  You'll also want to
+> #   point AuthServiceURL somewhere that doesn't include a skip button (like
+> #   at your own Auth server.)
+> #
+> # MembersOnly	1
+> 
+> ##
+> # NoCat.net NoCatAuth-service registration
+> #
+> # AuthServiceAddr - Required, for captive mode. Must be set to the address of
+> #   your authentication service. You must use an IP address
+> #   if DNS resolution isn't available at gateway startup.
+> #
+> # AuthServiceAddr 208.201.239.21
+> # AuthServiceAddr	auth.nocat.net
+> #AuthServiceAddr           192.168.1.2
+> ##
+> # AuthServiceURL - HTTPS URL to the login script at the authservice. 
+> #
+> # AuthServiceURL  https://auth.nocat.net/cgi-bin/login
+> ##
+> # LogoutURL - HTTP URL to redirect user after logout.
+> #
+> # LogoutURL	https://auth.nocat.net/logout.html
+> 
+> ##
+> #  HotSpotZone RADIUS community-web backend registration
+> #HomePage	http://hot-spot-zone.de/hsz/modules/hotspotportal/portal.php?hsz_hotspot=puck
+> #LoginPage   http://www.hot-spot-zone.de/hsz/modules/hotspotportal/portal.php?hsz_hotspot=puck&hsz_page=welcome&X=
+> #ConfirmPage http://www.hot-spot-zone.de/hsz/modules/hotspotportal/portal.php?hsz_hotspot=puck&hsz_page=confirm&X=
+> #LogoutPage  http://hot-spot-zone.de/hsz/modules/hotspotportal/portal.php?hsz_hotspot=puck
+> 
+> 
+> #RADIUSAuthServer          192.168.1.2
+> #RADIUSAuthPort            1812
+> #RADIUSAuthSecret          test
+> #RADIUSAuthNASIdentifier   wrt54g
+> #RADIUSAuthWait            50
+> #RADIUSAuthRetries         2
+> #RADIUSAcctServer          192.168.1.2
+> #RADIUSAcctPort            1813
+> #RADIUSAcctSecret          test
+> #RADIUSAcctNASIdentifier   wrt54g
+> #RADIUSAcctWait            50
+> #RADIUSAcctRetries         2
+Only in /home/vicente/tomatoraf/release/src-rt/router/nocat: nocat_differences
+Common subdirectories: /home/vicente/tomatoraf/release/src-rt/router/nocat/pgp and /home/vicente/nocat/pgp
+diff -d /home/vicente/tomatoraf/release/src-rt/router/nocat/README /home/vicente/nocat/README
+17a18,21
+> This distribution contains code from libghttp, which is (c) its original
+> authors and also distributed under the GPL v2. See libghttp/README for more
+> details.
+> 
+32,33d35
+<  * GnuPG (passive mode only)
+<  * libghttp (remote splash only)
+57c59,62
+< iptables must be in your path when you run ./configure! Next, as root:
+---
+> iptables must be in your path when you run ./configure, or you must
+> use the --with-firewall=iptables option to ./configure.
+> 
+> Next, as root:
+Only in /home/vicente/nocat: README.OpenWRT
+Only in /home/vicente/nocat: README.uClibc
+Common subdirectories: /home/vicente/tomatoraf/release/src-rt/router/nocat/src and /home/vicente/nocat/src
+Only in /home/vicente/nocat: t

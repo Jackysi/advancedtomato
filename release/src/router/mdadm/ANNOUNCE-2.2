@@ -1,0 +1,50 @@
+Subject:  ANNOUNCE: mdadm 2.2 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.2
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.2 fixes a few small bugs and add as few small elements of
+functionality.  Possibly the most interesting is the addition of
+'README.initramfs' and 'mkinitramfs'.  Feedback on these would be
+most welcome.
+
+Changelog Entries:
+    -   Assorted bug fixes
+    -   Support write-intent-bitmaps on raid10
+    -   Support little-endian (Rather than hostendian) bitmaps.
+    -   Return correct error code from 'mdadm -S'
+    -   Remove extra blank line from 'mdadm -Eb' output.
+    -   Improve option parsing so that -a and -b do not have
+	optional arguements: the arg is either required or not
+	depending on context.
+    -   Allow scanning of devices listed in /proc/partitions even
+	if they don't appear in /dev.
+    -   Support --assume-clean in --create mode as well as --build
+    -   Add support for --monitor to report to syslog: -y or --syslog.
+	Thanks to Ross Vandegrift
+    -   --monitor now reports which device failed in a 'Fail' message
+	   This broke with 2.6
+    -   Improve chance of array starting properly after a crash.
+	mdadm was insisting the event numbers were identical, but this
+	isn't needed, and is a problem if the crash was while the metadata
+	was being updated.
+    -   Support --update==uuid
+    -   Added README.initramfs and mkinitramfs to help people use an
+	initram for starting md arrays at boot.
+
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  5th December 2005
+
+

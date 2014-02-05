@@ -1,0 +1,11 @@
+             Technical notes on version 3.8.5 
+                      04 January 2002
+                        Kern Sibbald
+
+General:
+
+
+Changes submitted this submission:
+- Fixed Makefiles so that apctest builds on Win32 --
+  required a small patch to apctest.
+- Made apctest build and install by default.

@@ -1,0 +1,29 @@
+             Technical notes on version 3.8.3 
+                        29 July 2001
+                        Kern Sibbald
+
+General:
+- Install apcupsd.conf with 644 permissions
+- Add --disable-install-distdir ./configure option.
+  This allows easier installation of slaves or
+  multiple copies of apcupsd.
+- Used makedepend if not gcc (Solaris fix).
+- Set SO_REUSEADDR in slave machines.
+- Add 940-0020C cable support (same as 20B).
+- UPSNAME now sets upsname if given. Otherwise, apcupsd
+  attempts to get name from UPS, if not found, uses
+  hostname, finally "default".
+- Implement CommLost NIS status.
+- Implement Shutdown NIS status.
+- Implement Slave NIS status.
+- Correct SmartTrim and SmartBoost detection code.
+- ./configure prints name of shutdown program.
+- Add port to hosts.conf.
+- Add new apccontrol arguments to script file.
+- Add UPSNAME to RedHat apccontrol.
+- Manual updates.
+- Eliminated all N/A fields in STATUS report.
+- Always construct STATFLAG in STATUS report.
+
+
+Changes submitted this submission:

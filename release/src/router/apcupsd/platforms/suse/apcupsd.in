@@ -1,0 +1,64 @@
+#! /bin/sh
+#
+# apcupsd      This shell script takes care of starting and stopping
+#	       the apcupsd UPS monitoring daemon.
+#
+# Copyright (C) 2004 D. Scott Barninger <barninger at fairfieldcomputers dot com>
+# Copyright (C) 2004 Kern Sibbald <kern at sibbald dot com>
+#
+# chkconfig: 2345 60 99
+# description: apcupsd monitors power and takes action if necessary
+#
+#  20 Aug 2004 DSB
+#  28 Nov 2004 DSB
+### BEGIN INIT INFO
+# Provides: apcupsd
+# Required-Start: $network $syslog
+# Required-Stop:  $network $syslog
+# Default-Start:  2 3 5
+# Default-Stop:
+# Description:    Start the apcupsd daemon
+### END INIT INFO
+ 
+APCPID=@PIDDIR@/apcupsd.pid
+
+DISTVER=`cat /etc/SuSE-release | grep VERSION | cut -f 3 -d' '`
+
+# Source function libarary
+. /etc/rc.status
+
+RETVAL=0
+
+case "$1" in
+    start)
+       rm -f @PWRFAILDIR@/powerfail
+       rm -f @nologdir@/nologin
+       echo -n "Starting UPS monitoring:" 
+       /sbin/startproc @sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf
+       RETVAL=$?
+	  rc_status -v
+       echo
+       [ $RETVAL -eq 0 ] && touch @LOCKDIR@/subsys/apcupsd
+       ;;
+    stop)
+       echo -n "Shutting down UPS monitoring:"
+       /sbin/killproc apcupsd
+       echo
+       rc_status -v
+       rm -f $APCPID
+       rm -f @LOCKDIR@/subsys/apcupsd
+       ;;
+    restart)
+       $0 stop
+       sleep 15
+       $0 start
+       ;;
+    status)
+       @sbindir@/apcaccess status
+       ;;
+    *)
+       echo "Usage: $0 {start|stop|restart|status}"
+       exit 1
+       ;;
+esac
+exit 0

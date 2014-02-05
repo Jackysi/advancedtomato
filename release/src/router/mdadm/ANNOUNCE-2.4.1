@@ -1,0 +1,31 @@
+Subject:  ANNOUNCE: mdadm 2.4.1 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.4.1
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+2.4.1 primarily fixes an alignment problem in the version-1
+superblock.  This is an incompatible change relating to
+raid5-reshape.  Read the change log below.
+
+Changelog Entries:
+    -   Honour --write-mostly when adding to an array without persistent
+        superblocks.
+    -   Fix alignment problem in version-1 superblocks.
+	NOTE: This is an incompatable change affecting raid5 reshape.
+	If you want to reshape a raid5 using version-1 superblocks,
+	use 2.6.17-rc2 or later, and mdadm-2.4.1 or later.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  7th April 2006
+

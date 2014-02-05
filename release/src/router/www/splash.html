@@ -1,0 +1,44 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>$GatewayName</title>
+	<link href="/style.css" rel="stylesheet" type="text/css" />
+	<script type="text/javascript">
+		function toggle(element) { document.getElementById(element).style.display = (document.getElementById(element).style.display == "none") ? "" : "none"; }
+	</script>
+</head>
+<body>
+	<table id="wrapper">
+		<tr>
+			<td valign="middle">
+				<div id="splash">
+					<div id="splash_header">
+						<h1>$GatewayName</h1>
+					</div>
+					<div id="splash_content">
+<!-- "textarea" is where you put your Text -->
+<center><b>Wifi Network & Internet conditions:</b></center>
+<textarea readonly="readonly">
+You are solely responsible for any illegal activities once you click the "OK, I AGREE" button.
+
+We are not responsible for faulty operation of your computer or equipment. You may be asked to stop using your equipment.
+
+This banner will appear again periodically.
+
+To renew your access time, you must agree once again every $LoginTimeout seconds.
+
+Thank You, and Enjoy!</textarea>
+						<form method="POST" action="$action">
+							<input type="hidden" name="mode_login">
+							<input type="hidden" name="redirect" value="$redirect">
+							<input type="hidden" name="accept_terms" value="yes">
+							<button type="submit" value="Submit">Ok, I Agree!</button>
+						</form>
+					</div>
+				</div>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>

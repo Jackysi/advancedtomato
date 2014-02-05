@@ -1,0 +1,48 @@
+#! /bin/sh
+#
+# chkconfig: 2345 20 99
+# description: apcupsd monitors power and takes action if necessary
+# processname: apcupsd
+# pidfile: @PIDDIR@/apcupsd.pid
+# config: @sysconfdir@/apcupsd.conf
+
+APCPID=@PIDDIR@/apcupsd.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+[ -f @sbindir@/apcupsd ] || exit 0
+[ -f @sysconfdir@/apcupsd.conf ] || exit 0
+
+# See how we were called.
+case "$1" in
+  start)
+       echo -n "               APCUPSD UPS monitor      "
+       rm -f @PWRFAILDIR@/powerfail
+       rm -f @nologdir@/nologin
+       daemon @sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf
+       echo
+       touch @LOCKDIR@/apcupsd
+       ;;
+  stop)
+       echo -n "               APCUPSD UPS monitor      "
+       killproc apcupsd
+       echo
+       rm -f $APCPID
+       rm -f @LOCKDIR@/apcupsd
+       ;;
+  restart)
+       $0 stop
+       sleep 15
+       $0 start
+       ;;
+  status)
+       status apcupsd
+       @sbindir@/apcaccess status
+       ;;
+  *)
+       echo "Usage: apcupsd {start|stop|restart|status}"
+       exit 1
+esac
+
+exit 0

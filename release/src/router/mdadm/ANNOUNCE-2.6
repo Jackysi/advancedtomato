@@ -1,0 +1,76 @@
+Subject:  ANNOUNCE: mdadm 2.6 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.6
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   countrycode=xx.
+   http://www.${countrycode}kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/mdadm
+   http://neil.brown.name/git?p=mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.6 adds assorted fixes and improvements and a new major mode.
+"Incremental Assembly"  via -I or --incremental can be used to
+assemble an array one device at a time.  The idea is that you get
+udev to run  "mdadm -Iq devicename" on each new block device that it
+finds.  Anything that is part of an array gets included in an array as
+appropriate.
+Two special notes:
+ 1/ This is very new code and is probably buggy.  It passes a few basic
+    tests, and helped me find some kernel bugs, but it is still fresh
+    and should not be considered 'stable'.  Please test and provide
+    feedback.
+ 2/ There is a bug in the linux kernel that makes incremental assembly
+    not possible in general (you cannot safely remove a drive from an array
+    that has not yet been started. This is needed if an old device was
+    detected first).  If mdadm detects a kernel which might have the
+    bug, it rejects --incremental requests.
+    The bug will hopefully be fixed in 2.6.20 and this mdadm release
+    contains patches for 2.6.18, 2.6.18.6 and 2.6.19.  Apply the
+    appropriate patch to test --incremental.
+
+Changelog Entries:
+    -   Fixed UUID printing in "--detail --brief" for version1 metadata.
+    -   --update=resync did exactly the wrong thing for version1 metadata.
+	It caused a resync to not happen, rather than to happen.
+    -   Allow --assemble --force to mark a raid6 clean when it has two
+	missing devices (which is needed else if won't assemble.
+	Without this fix it would only assemble if one or zero
+	missing devices.
+    -   Support --update=devicesize for cases where the underlying device
+	can change size.
+    -   Default to --auto=yes so the array devices with 'standard' names
+	get created automatically, as this is almost always what is wanted.
+    -   Give useful message if raid4/5/6 cannot be started because it is
+	not clean and is also degraded.
+    -   Increase raid456 stripe cache size if needed to --grow the array.
+	The setting used unfortunately requires intimate knowledge of the
+	kernel, and it not reset when the reshape finishes.
+    -   Change 'Device Size' to 'Used Dev Size' because it only shows how
+	much of each device is actually used, not how big they are.
+    -   --wait or -W will wait for resync activity to finish on the given
+	devices.
+    -   Fix some problems with --update=uuid and add a test.
+    -   If two drives in a raid5 disappear at the same time, then "-Af"
+        will add them both in rather than just one and forcing the array
+	to 'clean'.  This is slightly safer in some cases.
+    -   Check device is large enough before hot-add: this improves quality
+	of error message.
+    -   Don't hold md device open for so long in --monitor mode - map_dev
+	can be slow and interferes with trying to stop the array.
+    -   Support --uuid= with --create to choose your own UUID.
+    -   New major more "--incremental" for incremental assemble of arrays,
+	intended for use with udev.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  21st December 2006
+Blessed Christmas to all.

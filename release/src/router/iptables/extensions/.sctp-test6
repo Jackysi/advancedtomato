@@ -1,0 +1,3 @@
+#!/bin/sh
+[ -f $KERNEL_DIR/include/linux/netfilter/xt_sctp.h ] && echo sctp
+

@@ -1,0 +1,55 @@
+#! /bin/sh
+#
+# apcupsd      This shell script takes care of starting and stopping
+#	       the apcupsd UPS monitoring daemon.
+#
+# chkconfig: 2345 60 99
+# description: apcupsd monitors power and takes action if necessary
+#
+APCPID=@PIDDIR@/apcupsd.pid
+
+# Source function libarary
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+    start)
+       rm -f @PWRFAILDIR@/powerfail
+       rm -f @nologdir@/nologin
+       echo -n "Starting UPS monitoring:" 
+       daemon @sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf
+       RETVAL=$?
+       echo
+       [ $RETVAL -eq 0 ] && touch @LOCKDIR@/subsys/apcupsd
+       ;;
+    stop)
+       echo -n "Shutting down UPS monitoring:"
+       killproc apcupsd
+       echo
+       rm -f $APCPID
+       rm -f @LOCKDIR@/subsys/apcupsd
+       ;;
+    restart|force-reload)
+       $0 stop
+       sleep 15
+       $0 start
+       ;;
+    reload)
+       echo "$0: reload not implemented"
+       exit 3
+       ;;
+    status)
+       status apcupsd
+       RETVAL=$?
+       if [ $RETVAL -eq 0 ]
+       then
+          @sbindir@/apcaccess status
+       else
+          exit $RETVAL
+       fi
+       ;;
+    *)
+       echo "Usage: $0 {start|stop|restart|status}"
+       exit 1
+       ;;
+esac
+exit 0

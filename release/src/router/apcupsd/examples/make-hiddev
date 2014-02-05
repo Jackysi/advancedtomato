@@ -1,0 +1,18 @@
+#!/bin/sh
+mkdir -p /dev/usb/hid
+mknod /dev/usb/hid/hiddev0 c 180 96
+mknod /dev/usb/hid/hiddev1 c 180 97
+mknod /dev/usb/hid/hiddev2 c 180 98
+mknod /dev/usb/hid/hiddev3 c 180 99
+mknod /dev/usb/hid/hiddev4 c 180 100
+mknod /dev/usb/hid/hiddev5 c 180 101
+mknod /dev/usb/hid/hiddev6 c 180 102
+mknod /dev/usb/hid/hiddev7 c 180 103
+mknod /dev/usb/hid/hiddev8 c 180 104
+mknod /dev/usb/hid/hiddev9 c 180 105
+mknod /dev/usb/hid/hiddev10 c 180 106
+mknod /dev/usb/hid/hiddev11 c 180 107
+mknod /dev/usb/hid/hiddev12 c 180 108
+mknod /dev/usb/hid/hiddev13 c 180 109
+mknod /dev/usb/hid/hiddev14 c 180 110
+mknod /dev/usb/hid/hiddev15 c 180 111

@@ -1,0 +1,54 @@
+UPSCABLE smart
+UPSTYPE newbackupspro
+
+/etc/apcupsd/apcupsd.status reads:
+APC      : 001,049,0937
+DATE     : Sun Sep 17 20:41:37 PDT 2000
+HOSTNAME : broken-machine
+RELEASE  : 3.7.0
+CABLE    : Custom Cable Smart
+MODEL    : BACK-UPS PRO 1000
+UPSMODE  : Stand Alone
+UPSNAME  : N/A
+STATUS   : ONLINE 
+LINEV    : N/A
+LOADPCT  : N/A
+BCHARGE  : N/A
+TIMELEFT : N/A
+MBATTCHG : 15 Percent
+MINTIMEL : 3 Minutes
+MAXTIME  : 180 Seconds
+MAXLINEV : N/A
+MINLINEV : N/A
+OUTPUTV  : N/A
+SENSE    : N/A
+DWAKE    : N/A
+DSHUTD   : N/A
+DLOWBATT : N/A
+LOTRANS  : N/A
+HITRANS  : N/A
+RETPCT   : N/A
+ITEMP    : N/A
+ALARMDEL : N/A
+BATTV    : N/A
+LINEFREQ : N/A
+LASTXFER : Automatic or explicit SelfTest
+SELFTEST : NO
+STESTI   : N/A
+STATFLAG : 0x08 Status Flag
+DIPSW    : N/A
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : N/A
+SERIALNO : QB1234123412
+BATTDATE : N/A
+NOMOUTV  : N/A
+NOMBATTV : N/A
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : N/A
+BADBATTS : N/A
+FIRMWARE : 13.J.D
+APCMODEL : N/A
+END APC  : Sun Sep 17 20:41:37 PDT 2000

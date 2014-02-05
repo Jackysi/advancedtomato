@@ -1,0 +1,164 @@
+#!/bin/sh /etc/rc.common
+#
+# Init script for mmhc/sdhc card mod
+# Script Version: 1.0
+# OpenWRT Version: KAMIKAZE 2.4 or 2.6 kernel 
+
+START=49
+modname="mmc"
+modarg=""
+
+EXTRA_COMMANDS="status test"
+EXTRA_HELP="        status  Show service status and card details
+        test    Test write/read speed of card"
+
+#----------------------------------------------------------------------
+# Configuration - load config file and calculate gpio mask
+#----------------------------------------------------------------------
+if [ ! -r /etc/mmc.conf ]; then
+    echo "mmc - /etc/mmc.conf not found"
+    exit 1
+fi
+. /etc/mmc.conf
+
+# We can compute the GPIO pin values supplied in the config file
+let mask="(1<<$cs)|(1<<$clk)|(1<<$din)|(1<<$dout)"
+
+# Error if gpio values not set.
+if [ "$mask" -eq "1" ]; then
+    echo "mmc - Gpio pins not set - update /etc/mmc.conf"
+    exit 1
+fi
+
+#----------------------------------------------------------------------
+# Function Definitions
+#----------------------------------------------------------------------
+
+# Save state of led's in /proc/diag/led/ as shell variables.
+save_led_state() {
+    for file in /proc/diag/led/*; do
+	local var=`basename ${file}`
+	local val=`cat ${file}`
+	eval "${var}=${val}"
+    done
+}
+
+# Restore saved led state. Default unknown led's to state "0".
+restore_led_state() {
+    for file in /proc/diag/led/*; do
+	local var=`basename ${file}`
+	eval "echo \"\${$var:-0}\" > ${file}"
+    done
+}
+
+# Start the mmc module.
+start() {
+        
+    # Do nothing if the module is already loaded!
+    if [ -d "/proc/mmc" ]; then
+	echo "mmc - Already started..."
+	exit 1;
+    fi
+
+    # Set the diag module gpio mask to disable it from using our GPIO pins
+    # It buggers up the led state, so we save, then restore it afterwards
+    save_led_state
+    echo "$mask" > /proc/diag/gpiomask
+    restore_led_state
+
+    # Provide GPIO register offset arguments if in config file
+    for arg in clk din dout cs major maxsec rahead dbg gpio_input gpio_output gpio_enable gpio_control; do
+	eval "z=\${${arg}:-z}"
+	if [ "$z" != "z" ]; then
+	    modarg="${modarg} ${arg}=${z}"
+	fi
+    done
+
+    # Insert the kernel module passing appropriate arguments
+    insmod $modname $modarg
+    if [ "$?" -gt "0" ] ; then
+	echo "mmc - Card not present or failed to initialize"
+	echo "0x0000" > /proc/diag/gpiomask
+	restore_led_state
+	exit 1;
+    fi
+    echo "mmc - Card detected and initialized"
+	
+    # Mount it if requested.
+    if [ "${partition:-z}" != "z" ] && [ "${mountpoint:-z}" != "z" ] ; then 
+	[ -d ${mountpoint} ] || mkdir ${mountpoint}
+	mount /dev/mmc/disc0/part${partition} ${mountpoint}
+	if [ "$?" -gt "0" ]; then
+	    echo "mmc - Unable to mount /dev/mmc/disc0/part${partition} on ${mountpoint}"
+	    exit 1
+	fi
+	echo "mmc - /dev/mmc/disc0/part${partition} mounted on ${mountpoint}"
+    fi
+}
+
+stop()  {
+
+    # unmount the /mmc filesystem if mounted
+    grep " ${mountpoint} " /proc/mounts > /dev/null 2>&1
+    if [ "$?" -eq "0" ]; then
+	umount ${mountpoint}
+	if [ "$?" -gt "0" ]; then
+	    echo "mmc - Unable to unmount ${mountpoint}"
+	    exit 1;
+	fi
+    fi
+        
+    # Remove the mmc kernel module if loaded
+    if [ -d "/proc/mmc" ]; then
+	rmmod $modname
+	if [ "$?" -gt "0" ]; then
+	    echo "mmc - Unable to unload $modname kernel module"
+	    exit 1;
+	fi
+    fi
+        
+    # Remove the gpio mask
+    save_led_state
+    echo "0x0000" > /proc/diag/gpiomask
+    restore_led_state
+
+    # Success!
+    echo "mmc - Card unmounted - can be safely removed"
+}
+
+status()  {
+
+    # Determine if already loaded
+    if [ -d "/proc/mmc" ]; then
+        echo "mmc - Started"
+        cat /proc/mmc/status
+    else
+    	echo "mmc - Stopped"
+    fi
+}
+
+test()  {
+
+    # Ensure kernel module loaded
+    if [ ! -d "/proc/mmc" ]; then
+        echo "mmc - Stopped - unable to run test"
+	exit 1
+    fi
+
+    # Ensure it is mounted
+    grep " ${mountpoint} " /proc/mounts > /dev/null 2>&1
+    if [ "$?" -ne "0" ]; then
+        echo "mmc - Card not mounted on ${mountpoint} - unable to run test"
+	exit 1
+    fi
+
+    # Perform write and read test
+    echo "Running write test - 32MB file"
+    trap "echo Test aborted; rm -f ${mountpoint}/32MB.bin; exit 1" 2
+    time ash -c "dd if=/dev/zero of=${mountpoint}/32MB.bin bs=1k count=32768 > /dev/null 2>&1; sync"
+    echo "Running read test - 32MB file"
+    time ash -c "dd if=${mountpoint}/32MB.bin of=/dev/null bs=1k > /dev/null 2>&1; sync"
+    trap 2
+    rm -f ${mountpoint}/32MB.bin
+    echo "Divide 32768 by elapsed seconds (real) to get throughput in KB/s"
+}

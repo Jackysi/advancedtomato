@@ -1,0 +1,108 @@
+         Technical notes on my code submission of 30 Nov 99
+                        Kern Sibbald
+
+General:
+- Some enhancements to the cgi programs, documentation,
+  and tweeking of buffer lengths.
+
+Changes submitted this submission:
+- I've added a new man page for apcnetd. This page
+  will be expanded in the coming weeks.
+- I've added several new .man files, but will shortly
+  convert them to sgml format. They are the beginning
+  of the documentation for STATUS output and EVENTS.
+- To ensure that we don't get string buffer overflows
+  (as has happened to me), I've increased the lengths
+  of some strings. In one case (the UPS name), I reduced
+  the length. This is probably a bit overkill, but I 
+  prefer not to have buffer overflows.
+- I added new capability codes to fetch the EPROM capabilities
+  string, which is 254 bytes long.  It provides the valid 
+  EPROM settings for all versions of the model. Although
+  this information is obtained from the UPS, it is currently
+  not used, and I will not develop it further until after
+  the official release.
+- I started adding the code to determine the length of time
+  since the last self test. This code is turned off and
+  will not be developed further until after the offical
+  release.
+- I added additional documentation received from APCC as
+  well as other sources.
+- I added several new status variables to the STATUS output.
+  These were previously overlooked.  
+- I enhanced the CGI programs to have a red bar indicating
+  below what battery percentage that apcupsd will force a
+  system shutdown.
+  I also added a red bar indicating the point at which the remaining runtime
+  becomes too low and apcupsd will force a system shutdown.
+- Updates to the man pages.
+- Fixed the -i option for apcnetd (called by inetd).
+
+                Kern's ToDo List
+
+To do:
+- Update apcupsd.man and apcnetd.man, and create
+  new sgml documentation for EVENTS, DATA, LOGGING,
+  and STATUS output as well as documenting the
+  network "programming" interface.
+- Document the CGI programs and how to write them.
+- Fix the battery voltage display in the cgi to handle
+  battery voltages of 12 and 48 volts as well as 
+  24 volts.
+- Add and test a bunch of events that email a message.
+- Check and double check killpwr changes (one pass made).
+- Expand Last UPS Self Test field in cgi program
+- Document log_event for developers -- especially
+  the LOG_ values.
+  See info in developers/apcupsd.logging
+- Document the new configuration options.   
+- Document installation, particularly the chkconfig:
+
+     However, since one day it will be
+     networked, it might be better to start it after the network is up, so
+     S20/K99 is probably the best.  In the latest development stream, I have
+     redone the RedHat installation and added the following two lines to the
+     top of the apcups script (now renamed to apcupsd) so that the proper
+     links are setup during the install:
+
+          # chkconfig: 2345 20 99
+          # description: apcupsd monitors power and takes action if necessary
+
+     If you add those lines to the top of your existing apcups script
+     (presumably in /etc/rc.d/init.d/apcups) and then delete the old startup
+     links (if any) with: 
+            chkconfig-del apcups 
+     then create the new
+     recommended links with: 
+             chkconfig-add apcups 
+
+     All the necessary links will be setup so that it apcupsd starts and
+     stops automatically in each appropriate runlevel.  If you are not
+     familiar with chkconfig, try: man chkconfig
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Produce a RPM for RedHat
+
+
+Wish list:
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+

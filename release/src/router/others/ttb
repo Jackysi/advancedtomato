@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# Shibby 2013
+
+SCHEME=`nvram get web_css`
+if [ ! "$SCHEME" == "online" ]; then
+    exit 0
+fi
+
+LOCK="/tmp/ttb.lock"
+
+if [ -f $LOCK ]; then #skrypt w działaniu
+    logger TTB: Another process is already working. Exiting...
+    exit 0
+else
+    touch $LOCK
+
+    TTB=`nvram get ttb_css`
+
+    if [ ! -f /www/ext/$TTB.css ]; then #brak skórki
+
+        if [ -f /www/ext/$TTB.zip ]; then #brak skorki ale jest zip ze skorka
+
+            unzip -o /www/ext/$TTB.zip -d /www/ext/
+
+        else #nie ma skorki ani zipa ze skorka
+
+            rm /www/ext/*.css /www/ext/*.zip /www/ext/*.png /www/ext/*.gif /www/ext/*.jpg
+            wget http://www.tomatothemebase.eu/wp-content/uploads/$TTB.zip -O /www/ext/$TTB.zip
+            sleep 5
+
+            if [ -f /www/ext/$TTB.zip ]; then #zip sciagniety
+
+                unzip -o /www/ext/$TTB.zip -d /www/ext/
+
+            else #brak zipa !!
+
+                logger TTB: Cannot download Online themes. Will try again soon...
+                sleep 30
+                rm $LOCK
+                /usr/sbin/ttb
+            fi
+        fi
+    fi
+
+    rm $LOCK
+fi

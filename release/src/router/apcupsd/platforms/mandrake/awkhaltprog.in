@@ -1,0 +1,28 @@
+#
+# Awk program to insert the necessary apcupsd script in
+# to a halt script.
+#
+# Suff left over from a previous apcupsd, remove it
+/^# See if this is a powerfail situation\./ {
+   do {
+      getline 
+   }  while (length($0) != 0) 
+   getline
+}
+# We insert our code just before this line
+/^# Now halt or reboot\./ {
+   print "# See if this is a powerfail situation.				# ***apcupsd***"
+   print "if [ -f @PWRFAILDIR@/powerfail ]; then				# ***apcupsd***"
+   print "   echo								# ***apcupsd***"
+   print "   echo \"APCUPSD will now power off the UPS\"			  # ***apcupsd***"
+   print "   echo								# ***apcupsd***"
+   print "   @sysconfdir@/apccontrol killpower					# ***apcupsd***"
+   print "   echo								# ***apcupsd***"
+   print "   echo \"Please ensure that the UPS has powered off before rebooting\" # ***apcupsd***"
+   print "   echo \"Otherwise, the UPS may cut the power during the reboot!!!\"   # ***apcupsd***"
+   print "   echo								# ***apcupsd***"
+   print "fi									# ***apcupsd***"
+   print ""
+}
+# everything else is duplicated
+{ print }

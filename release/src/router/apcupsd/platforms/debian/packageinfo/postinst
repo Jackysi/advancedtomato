@@ -1,0 +1,17 @@
+#!/bin/sh -e
+
+update-rc.d apcupsd start 20 1 2 3 4 5 . stop 20 0 1 6 . &>/dev/null
+
+# if we have a running copy, restart, else start
+if [ "`pidof apcupsd`" = "" ]
+then
+    /etc/init.d/apcupsd start
+else
+    if [ -f /var/run/apcupsd.pid ]
+    then
+        /etc/init.d/apcupsd restart
+    fi
+fi
+
+echo 
+echo 'Please verify that the settings in /etc/apcupsd.conf are correct.'

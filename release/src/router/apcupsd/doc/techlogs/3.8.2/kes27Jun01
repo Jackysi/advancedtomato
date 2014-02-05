@@ -1,0 +1,55 @@
+             Technical notes on version 3.8.2Beta14
+                        24 June 2001
+                        Kern Sibbald
+
+General:
+- Fixed stall in Network Information Server
+- Fixed possible race condition in pthreads
+  Network Information Server.
+- Fixed a serious shutdown bug for BackUPS UPSes.
+- Tightened security for some scripts (thanks
+  Neil).
+- More cleanups for --with-pwrfail-dir so it
+  is properly configured.
+
+Changes submitted this submission:
+- I've been having Internet outages here due to the
+  heat, and this created a situation where processes
+  accessing the Network Information Server would 
+  become stuck. This turned out to be either related
+  to the KEEPALIVE option being set or the fact that
+  a shutdown() was not done on the connection.
+  The problem occurred only after about 1500 accesses.
+  Fixed by deleting the KEEPALIVE code and by 
+  adding shutdown() before closing the socket.
+- In examining the above problem, I realized that
+  the pthreads code for STATUS uses a global buffer.
+  Since it is a bit difficult to make this buffer local
+  without a lot of coding, I serialized the accesses
+  with a mutex.
+- John McSwain was experiencing a strange problem
+  on his system with a BackUPS Office where apcupsd
+  would issue the commands to shutoff the UPS power,
+  it would then log a failure message, reboot the
+  system, and a minute later during the reboot
+  the power would be cut.
+  This turned out to be very old code, dating back
+  to at least 3.6.2 that assumed that a "dumb" UPS
+  would instantantly cut the power when requested to
+  do so, which was apparently the case. The newer UPSes
+  however, typically wait one or two minutes before
+  cutting the power. Apcupsd had a 10 second wait,
+  after which it assumed the power would not be cut
+  and rebooted the machine.
+  I've removed this code. apcupsd now logs appropriate
+  messages and then exits. 
+  Thanks to John for his perseverence in testing this!
+- Tightened security on mode bits for the daemon
+  start script apcupsd, apccontrol, and 
+  ups-monitor (in Debian). Made the same changes in
+  a number of other distributions.
+- Not all the files in all the distributions correctly
+  accepted the ./configure --with-pwrfail-dir correctly.
+  Quite a number of small distribution script modifications.
+  Also added a few .in files so that they would be corrrectly
+  configured.

@@ -1,0 +1,92 @@
+INSTALLING APCUPSD WINDOWS USB DRIVER
+
+USB connected UPSes on Windows require a special driver. In most cases, 
+this driver is automatically installed when you install Apcupsd. However,
+if you unchecked the USB driver package during installation or if you're
+running Windows 98, 98SE, or ME, you will need to install the driver by
+hand.
+
+Follow the relevant instructions for your OS below to install the driver.
+
+
+WINDOWS NT, 2000, 2003, XP
+
+    a. Plug in your USB UPS and wait for Windows to recognize it.
+
+    b. Open the Windows Device Manager and locate the "Human Interface
+       Devices" section
+
+    c. Locate "American Power Conversion USB UPS" under the HID
+       section.
+
+    d. Right-click "American Power Conversion USB UPS" and select
+       "Update driver..."
+
+    e. (Abbreviated) Do not allow Windows to search for a driver,
+       specify one yourself. Depending on your version of Windows, the exact
+       sequence of dialogs and options is different, but essentially you need
+       to get to the list of devices with the "Have Disk..." button. When you 
+       get there, choose "Have Disk..."
+
+    f. Browse to "C:\apcupsd\driver" and hit Open
+
+    g. Select "American Power Conversion USB UPS (Apcupsd)" and hit
+       Next.
+
+    h. The driver should be installed.
+
+    i. If you examine the Device Manager tree again, you should see a
+       "LibUSB-Win32 Devices" section, under which is listed "American Power
+       Conversion USB UPS (Apcupsd)". You should NOT see "HID UPS Battery" 
+       under the "Batteries" section.
+
+    Future plugging/unplugging of the UPS will be handled automatically.
+    The driver only needs to be installed once.
+
+    To UNINSTALL the driver and return to the Windows standard driver, go into
+    Device Manager and do an "Update Driver..." on "American Power Conversion 
+    USB UPS (Apcupsd)". Select the "American Power Conversion USB UPS 
+    (Microsoft)" driver from the list. After that you should be back where you
+    started. The "Batteries -> HID UPS Battery" entry should be back and the 
+    LibUSB section should be gone.
+
+
+WINDOWS 98, 98SE, ME
+
+    a. Plug in your USB UPS and wait for Windows to recognize it.
+
+    b. Open the Windows Device Manager and locate the "Human Interface
+       Devices" section
+
+    c. Locate "USB Human Interface Device" under the HID section.
+
+    d. Right-click "USB Human Interface Device" and select "Properties"
+
+    e. Select the "Driver" tab and click the "Update Driver..." button.
+
+    f. (Abbreviated) Do not allow Windows to search for a driver,
+       specify one yourself. Depending on your version of Windows, the exact
+       sequence of dialogs and options is different, but essentially you need
+       to get to the list of devices with the "Have Disk..." button. When you
+       get there, choose "Have Disk..."
+
+    g. Browse to "C:\apcupsd\driver" and hit Open
+
+    h. Select "American Power Conversion USB UPS (Apcupsd)" and hit
+       Next.
+
+    i. The driver should be installed.
+
+    j. If you examine the Device Manager tree again, you should see a
+       "LibUSB-Win32 Devices" section, under which is listed "American Power
+       Conversion USB UPS (Apcupsd)".
+
+    Future plugging/unplugging of the UPS will be handled automatically.
+    The driver only needs to be installed once.
+
+    To UNINSTALL the driver and return to the Windows standard driver, go into
+    Device Manager and do an "Update Driver..." on "American Power Conversion 
+    USB UPS (Apcupsd)". Select the "USB Human Interface Device" driver from the
+    list. After that you should be back where you started. The "HID" -> "USB 
+    Human Interface Device" entry should be back and the LibUSB section should
+    be gone.

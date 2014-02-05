@@ -1,0 +1,80 @@
+#!/usr/bin/make -f
+#-*- makefile -*-
+# Made with the aid of dh_make, by Craig Small
+# Sample debian/rules that uses debhelper. GNU copyright 1997 by Joey Hess.
+# Some lines taken from debmake, by Christoph Lameter.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+    
+DESTDIR=`pwd`/debian/tmp
+
+build: build-stamp
+build-stamp:
+       dh_testdir
+
+       
+       # Add here commands to compile the package.
+       -autoconf -l autoconf autoconf/configure.in >configure
+       SHUTDOWN=/sbin/shutdown CFLAGS="-O2 -g -Wall" ./configure --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --enable-powerflute --enable-cgi --sysconfdir=/etc/apcupsd --with-cgi-bin=/usr/lib/cgi-bin/apcupsd --with-catgets --with-pid-dir=/var/run
+       $(MAKE)
+
+       touch build-stamp
+
+clean:
+       dh_testdir
+       dh_testroot
+       rm -f build-stamp install-stamp
+
+       # Add here commands to clean up after the build process.
+       -$(MAKE) realclean
+
+       dh_clean
+
+install: install-stamp
+install-stamp: build-stamp
+       dh_testdir
+       dh_testroot
+       dh_clean -k
+       dh_installdirs
+
+       # Install the package into debian/tmp.
+       make prefix=`pwd`/debian/tmp/usr cgibin=`pwd`/debian/tmp/usr/lib/cgi-bin/apcupsd sysconfdir=`pwd`/debian/tmp/etc/apcupsd sbindir=`pwd`/debian/tmp/sbin mandir=`pwd`/debian/tmp/usr/share/man install
+       install -m 0644 -g root -o root debian/apcupsd.conf `pwd`/debian/tmp/etc/apcupsd
+       install -m 0755 -g root -o root debian/apccontrol `pwd`/debian/tmp/etc/apcupsd
+    
+       touch install-stamp
+
+# Build architecture-independent files here.
+binary-indep: build install
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: build install
+       dh_testdir
+       dh_testroot
+       dh_installdocs
+       dh_installexamples
+       dh_installmenu
+       dh_installlogrotate
+       dh_installinit
+       dh_installinit --init-script=ups-monitor
+       dh_installcron
+       dh_installmanpages
+       dh_undocumented
+       dh_installchangelogs ChangeLog
+       dh_link
+       dh_strip
+       dh_compress
+       dh_fixperms
+       dh_installdeb
+       dh_shlibdeps
+       dh_gencontrol
+       dh_md5sums
+       dh_builddeb
+
+source diff:                                                                  
+       @echo >&2 'source and diff are obsolete - use dpkg-source -b'; false
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary

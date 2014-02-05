@@ -1,0 +1,32 @@
+Subject:  ANNOUNCE: mdadm 2.5.6 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.5.6
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   countrycode=xx.
+   http://www.${countrycode}kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/mdadm
+   http://neil.brown.name/git?p=mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.5.6 is a bugfix release over 2.5.5, which it turns out
+wasn't the last before 2.6.  Maybe this one?
+
+Changelog Entries:
+    -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled
+	properly.
+    -	Documentation updates.
+    -   Fix bug that caused infinite loop when doing auto-assembly,
+	in certain cases where arrays couldn't be assembled.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown 6th November 2006

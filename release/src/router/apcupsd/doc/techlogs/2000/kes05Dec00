@@ -1,0 +1,39 @@
+         Technical notes on my code submission of 05 Dec 00
+                        Kern Sibbald
+
+General:
+- Fixed Win32 to work with simple signalling UPSes.
+- Upgraded Win32 to CGYWIN 1.1.5.
+- Fixed an Alpha Tru64 64/32 bit problem.
+- Fixed the random incorrect on battery timers (I think).
+- Upgraded to latest version of gcc 
+- Do much better argument checking in the .cgi programs. This
+  improves security (at least psychologically).
+
+Changes submitted this submission:
+- The new version of gcc caused a number of problems especially with
+  the #defines and varargs. As a consequence, all the error_aborts()
+  were changed.  You must now explicitly put the number of message
+  substitutions on the Error_abortN() subroutine call.
+- Added a make depend to the main Makefile in case the automatic
+  dependencies fails.
+- Added a Makefile rule to build the apctest program for Windows.
+- Moved the powerfail and logonfail to apcaction.c as Riccardo did
+  in 4.0.  This required adding these subroutines to apctest.
+- Removed the static declarations in apcaction.c in preparation for
+  4.0.
+- Added the ups variable as the first argument to log_event() in
+  preparation for 4.0.
+- Added the ups argument to do_action().
+- Moved a number of static variables to the ups structure.
+- Corrected a problem with the on battery timers where the
+  last time on battery was not set because there was not a full
+  confirmation of on battery (i.e. a power outage of less than
+  5 seconds or a self test).
+- Reindented apcstatus.c a bit so that the code can be more easily
+  read on an 80 character wide screen.
+- Implemented a very crude form of serial port line status ioctl()
+  for Win32 to support simple signalling UPSes.  Despite the limitations
+  of the Win32 API, it seems to work and implements most features for
+  most UPS/cable combinations.
+- Enhancements to the manual.

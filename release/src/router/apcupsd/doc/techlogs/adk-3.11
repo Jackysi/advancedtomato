@@ -1,0 +1,285 @@
+             Technical notes on version 3.11.17
+                        Adam Kropelin
+
+General:
+
+02Jan06:
+- doc: Update version to 3.12.x and remove ChangeLog and ReleaseNotes
+  sections since it is better to fetch them directly from SourceForge
+  or from the source tarball.
+01Jan06:
+- snmp: Remove misuse of NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE. Also use
+  snmp_{session,pdu} instead of netsmp_{session,pdu} to retain 
+  compatibility with the ucd-snmp library.
+- Fix compliation of examples/ files: client.c, megaclient.c, 
+  newslave.c, upsapm.c  
+31Dec05:
+- conf: Update EEPROM section comments.
+19Dec05:
+- win32: Convert Readme.TXT to DOS text format so it will be readble 
+  in Notepad (default *.txt handler on Windows). Remove version number 
+  since I'll never remember to update it. Point users to manual for 
+  detailed install instructions.
+- m/s: Fix sense of onbatt/online, which was reversed.
+16Dec05:
+- doc: Fix latex errors that crept in during SNMP and USB updates.
+- configure: Force NIS to enabled since libnis is required by 
+  apcaccess. Users may still disable NIS at runtime in apcupsd.conf.
+- doc: Remove references to --enable-nis and --disable-nis.
+- doc: Update Win32 section to cover nifty new NSIS installer.
+15Dec05:
+- win32: More installer fixes: Create start/stop links regardless of 
+  service or not. Remove apcupsd.events on uninstall, if user wants to.
+  Fix compile error in installation directory message text.
+- win32: A few last fixes (hopefully): WinNT and 9x need different
+  service start methods. Remove extra double-quotes around Win9x start 
+  handling because they seem to result in a bogus Exec commandline.
+14Dec05:
+- win32: Fix an uninstaller bug where apcupsd.conf was left behind 
+  even if the user chose to remove it.
+- win32: Fix uninstall so it doesn't miss any files. Change destination
+  path instructions to help prevent inoperable installations. Fix 
+  documentation and start link creation.
+24Nov05:
+- Get rid of unsupported -c (configure), -u (update battery date), 
+  and -n (rename) options.
+22Nov05:
+- configure: -mwindows is only needed for the link step, so kill
+  $WCFLAGS and let all compile steps be driven by the .c.o rule.
+- configure: Don't add ncurses libs to $LIBS, only to $POWERLIBS.
+  That prevents libncurses from being linked with every executable.
+- configure: Kill apcnisd. It requires sysv shmem and since we've 
+  eliminated that, so too must apcnisd be eliminated.
+19Nov05:
+- snmp: Initialize nfds to zero before calling snmp_select_info().
+  Fixes crash on Win32 and potential crash on other platforms.
+- win32: Build fixes: apc_defines.h -> defines.h, remove use of 
+  astr* pending future cleanup, C++ casting fixes.
+- win32: Switch to pthreads for the Main_Msg_Loop thread. This
+  seems to fix a bug where Main_Msg_Loop called do_status() which
+  attempted to take the UPS read_lock. Apparently taking pthreads 
+  locks from CreateThread threads is bad. Switching to pthreads
+  seems to fix it.
+12Nov05:
+- No need to specify mode parameter to open() when O_CREAT is not set.
+- configure: Simplify SNMP rules. Prefer net-snmp, but fall back on 
+  ucd-snmp if it is not found. Look for snmp libs in /usr/local. 
+  --enable-snmp and --enable-net-snmp act identically now.
+11Nov05:
+- Remove lingering references to getNextUps() in Cygwin build.
+06Nov05:
+- snmp: Add support for SNMP traps in powernet_snmp_ups_check_state().
+- snmp: Accept "APC_NOTRAP" as a valid DeviceVendor string, providing
+  users a way to disable SNMP trap catching.
+- docs: Document SNMP trap catching.
+- docs: Fix formatting of master/slave network errors section.
+05Nov05:
+- apctest: Remove useless deletion and recreation of lock file.
+- snmp: SNMP strings are not NUL terminated. Treat them accordingly.
+- snmp: Don't claim to support CIs that we don't populate.
+- snmp: Regenerate *-mib-mgr.c and *-mib.h files with smidump-0.4.3.
+- snmp: Fix heap corruption bug in powernet_check_comm_lost().
+- snmp: Generate events during commlost handling.
+29Oct05:
+- m/s: Convert is_ups_foo() to ups->is_foo().
+- m/s: C++ compatibility fixes.
+- Add a few set_foo(bool) methods plus a few missing is_foo() methods.
+26Oct05:
+- docs: Fix page numbers in the index.
+- docs: Fix multimon section and a few other details in the surrounding area.
+18Oct05:
+- bsd-usb: Workaround for compile failure on FreeBSD <= 4.7.
+- bsd-usb: Fix a subtle bug in pusb_ups_check_state() which was pointed out by
+  a compiler warning.
+- usb: Make all pusb_* functions return int and thus match their prototypes in
+  usb.c. Previously some functions were defined to return bool but declared
+  to return int in usb.c. This led to bizarre return value corruption on
+  FreeBSD. Eventually all boolean type returns should be bool, but that
+  change is better done all at once.
+16Oct05:
+- docs: USB updates suggested by Mark Martinec.
+- docs: Fix typo in web target.
+- docs: Fix first round of major LaTeX bugs. There are many more such as 
+  undefined references and overfull hboxes, but this is a step in the right 
+  direction.
+- docs: Second run of latex should be on apcupsd.tex not manual.tex. On its 
+  own, manual.tex is just a massive stream of syntax errors.
+- docs: Add missing \\.
+- docs: Fix undefined and redefined symbols.
+- docs: Kill blank lines after \begin{verbatim}.
+12Oct05:
+- docs: Move common latex2html flags into a variable so html and web targets do
+  not accidentally differ. (Previously -t was not specified for html target).
+  Also run apcupsd.html thru a sed script to remove references to
+  "apcupsd.html" and thus allow the file to be renamed at will. Copy
+  final html output into manual.html to maintain an archived copy of the
+  generated output.
+10Oct05:
+- Rewrite the UPSCABLE description to hopefully eliminate the common mistake
+  of thinking the cable model numbers were listed in columns by type. Also
+  clean up some of the config directive descriptions and add some blank lines
+  to improve readability.
+- docs: Fix up some links to the Win32 section.
+24Sep05:
+- Update examples/snoopdecode.c to latest version and add to Makefile.
+- Add SmartUPS serial protocol simulator 'smartsim' to examples/ directory.
+- Do not clear_onbatt_msg() when shutting down. This just causes a redundant
+  "On Battery" event.
+- apcsmart: Convert do/while loop to a regular while loop in UPSlinkCheck().
+  The do/while form is harder to read and doesn't add any value.
+- apcsmart: Remove pointless check in apcsmart_ups_get_capabilities().
+- apcsmart: Fix commlost deadlock caused when locking was added to NIS code.
+  We have to drop the UPS lock in UPSlinkCheck(), otherwise NIS is blocked 
+  until the link comes back up. Also fix timing bug which caused commlost 
+  events every 20 seconds instead of every 10 minutes. To do that, rewrite
+  the event loop to not depend on the timing behavior of getline().
+- Fix TV_DIFF_MS macro.
+- apcsmart: Fix excessive startup delay: Don't probe for commands where
+  ups->UPS_Cmd[i] == 0.
+18Sep05:
+- Be careful not to close trace_fd while daemonizing.
+- Add example {on,off}battery scripts that scale CPU frequency down to save
+  power when UPS is running on battery. Requires linux-2.6.x kernel with
+  cpufreq support and compatible CPU. Inspired by Paul Devriendt's talk
+  at OLS 2004.
+17Sep05:
+- Use fast polling when battery is disconnected. This minimizes the battery
+  reattach delay.
+- Process actions immediately after volatile poll in addition to after a
+  state check. This allows transitions caught by polling to be acted upon
+  without waiting thru another state check interval.
+- Remove debounce logic. The USB debounce code was vestigial since the big
+  USB changes went in.  The SmartUPS code actually interfered with proper
+  operation of ONBATTERYDELAY, causing powerfail and onbattery messages to be
+  generated ~2 seconds apart instead of whatever the user configured via
+  ONBATTERYDELAY.
+- USB: Fix selftest detection on RS 1500 models. Delay slightly before reading
+  APCLineFailCause because this usage apparently is not valid immediately
+  after power failure. Also disable CI_ACPresent when CI_Discharging is
+  available because the RS 1500 reports (Discharging=1 && ACPresent=1) during
+  self test, which confuses Apcupsd.
+15Sep05:
+- USB: Work around spurious BatteryPresent=1 bug in RS 1500 firmware.
+13Sep05:
+- manpage: Default STATUSPORT is 3551. Manually editing cgi is no 
+  longer required when changing the port.
+7Sep05:
+- Fix set_online(int) modifier to change both UPS_online and UPS_onbatt
+  like the regular set_online(void) does. Eliminate future ocurrences
+  of this bug by writing all set_foo(int) modifiers in terms of 
+  set_foo(void) and clear_foo(void).
+- Reorder device loop contents so do_action() is invoked early to handle
+  preexisting conditions instead of waiting thru a device_check_state()
+  period first. The overall order of operations is unchanged; only the
+  loop entrypoint has shifted.
+- Add BATTDETACH and BATTATTACH events which are triggered by changes in
+  the UPS_battpresent flag.
+- USB: Fix the battlow FIXME by performing status bit updates the way
+  the USB driver used to, namely by clearing the APC part of the status
+  word and then setting bits based on CIs. Note that this technique 
+  requires a locking change in apcstatus.c to solve the NIS race 
+  condition seen with the old USB code.
+- NIS: Lock the UPS structure for reading in output_status(). Otherwise
+  a client can get corrupt NIS data if the driver is in the middle of 
+  updating a field. This is particularly troublesome for the net driver.
+6Sep05:
+- USB: Update APCLineFailCause interpretation in USB driver with info
+  from APC.
+- Add XFER_FREQ to represent transfers due to input frequency out of
+  range.
+- Remove individual UPS_prev_onbatt and UPS_prev_battlow bits in favor
+  of a generic status bit change detection mechanism.
+3Sep05:
+- CGI: Teach multimon about NOBATT and make buffer length tracking in
+  parsefield() less prone to errors in the future.
+- USB: Make volatile data debug output consistent.
+- USB: Set status bits directly from USB data so UPSINFO follows the
+  hw state.
+2Sep05:
+- CGI: Fix a few instances of "sizeof(pointer)" caught by g++ on OpenBSD.
+1Sep05
+- SNMP: UPSINFO::G[] and UPSINFO::X[] to enum conversion.
+- CGI: Fix C++ compilation.
+- Kill unused (or nearly unused) fields from class UPSINFO. Also remove
+  unused structs while we're in the neighborhood.
+31Aug05
+- USB: Make older gcc happy by not introducing a local variable in
+  the middle of a switch statement.
+- USB: My RS 1500 models seem to return APCLineFailCause=8 for
+  transitions due to utility power failure. Update return value
+  decoding to account for this.
+- hid-ups: Name usage 0xFF860052 as APCLineFailCause.
+- Convert UPSINFO::G[] to LastXferCause enumeration and eliminate
+  the need for core code to know about last xfer CIs.
+- Kill off UPSINFO::X[], replacing it with enum SelfTestResult.
+- Add support for tracking battery presence via new NOBATT status
+  flag.
+30Aug05
+- Rephrase comm{ok,failure} messages to not assume a serial port
+  connection.
+- USB: Add CI_APCLineFailStatus support. This allows apcupsd to
+  distinguish battery transitions due to self test from those 
+  due to utility power failure.
+- Increase self test grace period to 20 seconds (from 12) to
+  accomodate lengthy USB event hysteresis imposed by the UPS.
+- USB: Set self test result string.
+- USB: Fix excessive unlocking bug in pusb_ups_check_state().
+- NET: Fix minor copy-n-paste error in net_ups_read_volatile_data.
+23Aug05
+- USB: Use CI_RETPCT instead of CI_APCDelayBeforeStartup which is not
+  only cleaner but also causes RETPCT to be properly reported.
+18Aug05
+- Fix powerflute SIGALRM timer on Solaris by reinstalling signal
+  handler whenever the timer expires.
+15Aug05
+- Increase inter-URB delay to 20 msec as per 3.10.18.
+- Fix powerflute compilation on Solaris by preferring
+  ncurses/*.h headers over include/*.h when both
+  exist.
+- C++ fixes for compilation on Solaris.
+- BSD and Linux USB rework to report events via callback.
+08Jul05
+- Bump version number and date
+- Back-port inter-URB delay lockup fix from Branch-3_10_17
+- Significantly rework USB driver event and poll handling.
+  More cleanup to come, and BSD driver still needs update.
+22Jun05
+- bsd-usb: compile fix
+- linux-usb: Filter duplicate reports in pusb_ups_check_state().
+- linux-usb: Strengthen CI <-> usage association 
+- linux-usb: Only exit event read() loop when an 'important' CI
+  is processed
+- Add a parameterized version of set_battlow() and make use of it.
+- linux-usb: Add some more 'important'-looking events
+08Jun05
+- Retroactively create my own techlog
+07Jun05
+- Rename mainsback.in to offbattery.in so default power loss/return
+  actions are symmetrical.
+- Fix bsd-usb build on FreeBSD-4.11 by allowing Makefiles to add 
+  their own include flags via EXTRAINCS.
+- Exclude HPUX from signal recursion
+31May05
+- Code style normalization.
+19May05
+- C++ cleanliness fixes in libusbhid
+27Apr05
+- Merge hidu_set_report bug fix from Branch-3_10_17.
+24Apr05
+- Make apctest work with empty DEVICE setting for USB driver.
+22Apr05
+- Merge BSD UHCI lockup fixes from Branch-3_10_17.
+04Apr05
+- Remove trailing commas in enum declarations to make AIX 5.1 +
+  VACPP 6.0 happy.
+29Mar05
+- Make SNMP missing SNMP libs cause ./configure fail
+- Remove references to serial port in comms lost/restored messages
+  in apccontrol.in since in UPSes may be connected by other means
+  (USB, net, etc.).
+- More unsafe string conversions. strcpy -> astrncpy and
+  sprintf -> asnprintf.
+22Mar05
+- Convert some potentially unsafe string functions to apcupsd safe
+  versions. None of the usages were actually unsafe, but this change
+  pacifies OpenBSD and prevents future bugs.

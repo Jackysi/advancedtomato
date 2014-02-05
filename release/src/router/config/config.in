@@ -1,0 +1,203 @@
+
+mainmenu "Tomato Configuration"
+
+config TCONFIG_OPTIMIZE_SHARED_LIBS
+	bool "Optimize shared libraries (remove unused symbols)"
+	default y
+
+config TCONFIG_L2TP
+	bool "L2TP"
+	default y
+
+config TCONFIG_PPTP
+	bool "PPTP"
+	default y
+
+config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+
+config TCONFIG_HTTPS
+	bool "HTTPS"
+	default y
+
+config TCONFIG_SSH
+	bool "SSH"
+	default y
+
+config TCONFIG_CIFS
+	bool "CIFS Client"
+	default y
+
+config TCONFIG_JFFS2
+	bool "JFFS Support"
+	default y
+
+config TCONFIG_JFFSV1
+	bool "  Use JFFSv1 (if not selected, JFFS2 is used)"
+	depends on TCONFIG_JFFS2
+	default y
+
+config TCONFIG_ZEBRA
+	bool "Zebra"
+	default y
+
+config TCONFIG_DDNS
+	bool "Dynamic DNS"
+	default y
+
+config TCONFIG_L7
+	bool "Layer 7 Netfilter"
+	default y
+
+config TCONFIG_L7PAT
+	bool "  Standard Layer 7 Patterns"
+	depends on TCONFIG_L7
+	default y
+
+config TCONFIG_LZO
+	bool "LZO Compression"
+	default n
+
+config TCONFIG_OPENVPN
+	bool "OpenVPN"
+	depends on TCONFIG_LZO
+	default n
+
+# !!TB
+config TCONFIG_IPV6
+	bool "IPv6 Support"
+	default n
+
+config TCONFIG_EBTABLES
+	bool "Ebtables"
+	default n
+
+config TCONFIG_EMF
+	bool "Broadcom EMF (Efficient Multicast Forwarding & IGMP Snooping)"
+	default n
+
+config TCONFIG_USB
+	bool "USB Support"
+	default y
+
+config TCONFIG_NOCAT
+	bool "NoCat Splash"
+	default n
+
+config TCONFIG_MEDIA_SERVER
+	bool "Media Server (MiniDLNA)"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_FTP
+	bool "  FTP Server"
+	depends on TCONFIG_USB
+	default y
+
+config TCONFIG_FTP_SSL
+	bool "    FTP SSL Support"
+	depends on TCONFIG_FTP
+	default n
+
+config TCONFIG_SAMBASRV
+	bool "  Samba File Sharing"
+	depends on TCONFIG_USB
+	default y
+
+config TCONFIG_SAMBA3
+       bool "    Compile with Samba 3"
+       depends on TCONFIG_SAMBASRV
+       default n
+
+config TCONFIG_USB_EXTRAS
+	bool "  Additional modules and utilities"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_NTFS
+	bool "  NTFS-3g Support"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_BT
+	bool "  Bittorrent client gui only"
+	default n
+
+config TCONFIG_BBT
+	bool "  Bittorrent client binaries only"
+	default n
+
+config TCONFIG_TR_EXTRAS
+	bool "  Transmission extra tools"
+	default n
+	depends on TCONFIG_BT
+
+config TCONFIG_NFS
+	bool "  NFS Server"
+	default n
+
+config TCONFIG_SNMP
+	bool "  SNMP"
+	default n
+
+config TCONFIG_SDHC
+	bool "  SDHC/MMC mod for WRT54G/GL"
+	default n
+
+config TCONFIG_HFS
+	bool "  HFS/HFS+ filesystem support "
+	default n
+
+config TCONFIG_UPS
+	bool "  UPS Monitor"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_DNSCRYPT
+	bool "  DNScrypt-proxy"
+	default n
+
+config TCONFIG_NVRAM_64K
+	bool "NVRAM_64K"
+	default n
+
+config TCONFIG_TOR
+	bool "  TOR Project"
+	default n
+
+config TCONFIG_IPSEC
+	bool "IPSec Support"
+	default n
+
+config TCONFIG_RAID
+	bool "RAID Support: mdadm plus md modules"
+	default n
+
+config TCONFIG_MICROSD
+	bool "Support SD card (RT-N66u only)"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_USBAP
+	bool "Include wl_high module"
+	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_REMOVE_USBAPP
+	bool "Remove USB Application (samba/ftp/usb support page)"
+	depends on TCONFIG_USBAP
+	default n
+
+config TCONFIG_AC66U
+	bool "Flag to distinguish RT-AC66U from RT-N66U"
+	default n
+
+config TCONFIG_CTF
+	bool "CTF (Cut-Through Forwarding)"
+	default n
+
+config TCONFIG_UFSD
+	bool "Paragon NTFS driver for Asus routers"
+	default n

@@ -1,0 +1,30 @@
+             Technical notes on version 3.10.16
+                        Kern Sibbald
+
+General:
+28Oct04
+- Converted manual from docbook to texinfo format.
+22Oct04
+- Apply patch to fix aastr... supplied by Manfred Schwarb.
+14Oct04
+- Changed Solaris to use mailx by default at the suggestion of
+  Neil Brookins.
+06Oct04
+- Add proper platform code so that configure will create
+  the 4 platform specific apccontrol files (some were missing).
+- Apply fix from user to correct one of the shutdown
+  sequences for the Smart UPS. During the conversion to drivers
+  this was apparently mangled. Thanks to Alexander Naumov for the
+  fix.
+09Sep04
+- Added code to close all file descriptors before becoming
+  daemon unless debug turned on.
+26Aug04
+- Add APCBATTCapBeforeRestore found by Adam to hid-ups.c
+- Update copyright in apc_struct.h
+- Take Adam's new apc_defines.h with minor modification.
+- Correct a bug reported by a user (he also had the fix) to
+  the snmp driver where Sensitivity was incorrectly reported.
+- Add astrncpy() to snmp driver.
+- Fix apcstatus.c to report Unknown for the sensitivity rather than
+  High if the sense word cannot be read or is incorrect.

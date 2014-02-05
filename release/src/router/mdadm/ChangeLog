@@ -1,0 +1,690 @@
+Changes Prior to 2.6 release
+    -   Fixed UUID printing in "--detail --brief" for version1 metadata.
+    -   --update=resync did exactly the wrong thing for version1 metadata.
+	It caused a resync to not happen, rather than to happen.
+    -   Allow --assemble --force to mark a raid6 clean when it has two
+	missing devices (which is needed else if won't assemble.
+	Without this fix it would only assemble if one or zero
+	missing devices.
+    -   Support --update=devicesize for cases where the underlying device
+	can change size.
+    -   Default to --auto=yes so the array devices with 'standard' names
+	get created automatically, as this is almost always what is wanted.
+    -   Give useful message if raid4/5/6 cannot be started because it is
+	not clean and is also degraded.
+    -   Increase raid456 stripe cache size if needed to --grow the array.
+	The setting used unfortunately requires intimate knowledge of the
+	kernel, and it not reset when the reshape finishes.
+    -   Change 'Device Size' to 'Used Dev Size' because it only shows how
+	much of each device is actually used, not how big they are.
+    -   --wait or -W will wait for resync activity to finish on the given
+	devices.
+    -   Fix some problems with --update=uuid and add a test.
+    -   If two drives in a raid5 disappear at the same time, then "-Af"
+        will add them both in rather than just one and forcing the array
+	to 'clean'.  This is slightly safer in some cases.
+    -   Check device is large enough before hot-add: this improves quality
+	of error message.
+    -   Don't hold md device open for so long in --monitor mode - map_dev
+	can be slow and interferes with trying to stop the array.
+    -   Support --uuid= with --create to choose your own UUID.
+    -   New major more "--incremental" for incremental assemble of arrays,
+	intended for use with udev.
+
+Changes Prior to 2.5.6 release
+    -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled
+	properly.
+    -	Documentation updates.
+    -   Fix bug that caused infinite loop when doing auto-assembly,
+	in certain cases where arrays couldn't be assembled.
+
+Changes Prior to 2.5.5 release
+    -   Don't #include linux/blkpg.h as that isn't safe.  Just
+	include the content literally.
+    -   Reduce maximum bitmap usage when working with bitmap files,
+	so that a only single-page allocations are made, even on
+	64bit hosts with 4K pages.
+    -   Close stray fd in mdassemble so that it can assemble stacked
+	devices
+    -   If mdassemble finds an array already assembled, it marks it
+        read-write.
+    -   Remove error in md_open if array is already active.  This isn't
+	needed and gets in the ways if an array was created e.g. in
+	initramfs, but device doesn't yet exist in /dev.
+    -   When --assemble --scan is run, if all arrays that could be found
+	have already been started, don't report an error.
+    -   Fix a couple of bugs related to raid10 and the new 'offset' layout.
+    -   Improve error message when a wrong '--update' option is given.
+
+Changes Prior to 2.5.4 release
+    -   When creating devices in /dev/md/ create matching symlinks
+	from /dev.  e.g. /dev/md0 -> /dev/md/0.
+	Allow this to be disabled in mdadm.conf or on command line.
+    -   Fix some endian-ness issues with version-1 superblocks (affects
+	bigendian only).
+    -   Fix endian problem with 'bitmap' metadata
+    -   Allow a number (of partitions) after the 'yes' option to --auto=
+	This is particularly useful in the 'create' line in mdadm.conf.
+    -   Remove partitions from any whole device that is made part of
+	an md array.  This is a work-around for annoying messages
+	when the first block on some drive accidentally looks like a
+	partition table.
+
+Changes Prior to 2.5.3 release
+    -   Document v0.91 superblocks in md.4
+    -   Make GPL explicit in man pages.
+    -   Fix recent breakage of starting degraded arrays.
+    -   Tidyup automatic name choice for v-1 arrays:
+	  /dev/md_d0 now becomes '0', not '_d0'.
+
+Changes Prior to 2.5.2 release
+    -   Fix problem with compiling with gcc-2 compilers
+    -   Fix compile problem of post-incrmenting a variable in a macro arg.
+    -   Stop map_dev from returning [0:0], as that breaks things.
+    -   Add 'Array Slot' line to --examine for version-1 superblocks
+	to make it a bit easier to see what is happening.
+    -   Work around bug in --add handling for  version-1 superblocks
+	in 2.6.17 (and prior).
+    -   Make -assemble a bit more resilient to finding strange
+	information in superblocks.
+    -   Don't claim newly added spares are InSync!! (don't know why that
+	code was ever in there)
+    -   Work better when no 'ftw' is available, and check to see
+	if current uclibc provides ftw.
+    -   Never use /etc/mdadm.conf if --config file is given (previously
+	some code used one, some used the other).
+
+Changes Prior to 2.5.1 release
+    -   Various fixes for gcc warnings
+    -   uclibc warnings
+    -   Makefile improvements for static linking/intalling
+    -   Makefile uninstall target
+    -   Really fix return status of --examine
+    -   Typos
+    -   Byteorder stuff (again)
+    -   Don't try to create devices with --manage or --grow
+    -   allow default metadata (superblock) type to be specified
+	in mdadm.conf
+    -   Get --stop to list devices stopped but honour --quiet
+    -   remove libssl dependency
+    -   Avoid some misdetection of overlapping partitions
+    -   Fix memory leak in --monitor mode
+
+Changes Prior to 2.5 release
+    -   Support 'mailfrom' line in mdadm.conf so the From: line in alert
+	emails can be explicitly set.
+    -   Arrange that SparesMissing (which is similar in import to
+	DegradedArray) generates an Email.
+    -   Assume "DEVICE partitions" if no DEVICE line is given.
+    -   Support new 'offset' layout for raid10.
+    -   When creating a bitmap file, choose a chunksize to limit number
+	of bitmap chunks to 2 million.  More than this can cause kmalloc
+	failure.
+    -   New 'CREATE' line in mdadm.conf for defaults such as owner, group,
+	mode and auto-flag
+    -   --detail checks if array has been started or not and includes that
+	in report.
+    -   When using --update=uuid on an array with a bitmap, update the
+	bitmap's uuid too.
+    -   Add a copy of /proc/mdstat to the mail message sent by mdadm
+        --monitor.
+    -   New flag --no-degraded to avoid starting arrays if there are
+	fewer devices available than last time the array was started.
+	This is only needed with --scan, as with --scan, that behaviour
+	is the default.
+    -   Support for 'homehost' concept.  This is a fairly major update.
+	It includes a configfile option and a command line option for
+	specifying a homehost, records that host in the superblock,
+	and reports the homehost where possible.
+    -   Support for Auto Assembly.  "mdadm -As" will, if provided with
+	the name of a homehost, try to assemble all arrays it can find
+	that were created for that homehost.  See man pages for more details.
+
+Changes Prior to 2.4.1 release
+    -   Honour --write-mostly when adding to an array without persistent
+        superblocks.
+    -   Fix alignment problem in version-1 superblocks.
+	NOTE: This is an incompatable change affecting raid5 reshape.
+	If you want to reshape a raid5 using version-1 superblocks,
+	use 2.6.17-rc2 or later, and mdadm-2.4.1 or later.
+
+Changes Prior to 2.4 release
+    -   Rewrite 'reshape' support including performing a backup
+	of the critical region for a raid5 growth, and restoring that
+	backup after a crash.
+    -   Put a 'canary' at each end of the backup so a corruption
+	can be more easily detected.
+    -   Remove useless 'ident' arguement from ->getinfo_super method.
+    -   Support --backup-file for backing-up critical section during
+        growth.
+    -   Erase old superblocks (of different versions) when creating new
+        array.
+    -   Allow --monitor to work with arrays with >28 devices
+    -   Report reshape information in --detail
+    -   Handle symlinks in /dev better
+    -   Fix mess in --detail output which a device is missing.
+    -   Manpage tidyup
+    -   Support 'bitmap=' in mdadm.conf for auto-assembling arrays with
+	write-intent bitmaps in separate files.
+    -   Updates to md.4 man page including section on RESTRIPING and SYSFS
+
+Changes Prior to 2.3.1 release
+    -   Fixed -O2 compile so I could make and RPM.
+    -   Type cast number to be printed %llu so it compiles on 64bit
+        machines. (Thanks Luca).
+    -   Stop using asm/byteorder.h - to make Redhat happy :-(
+    -   Require bitmap files to have a '/' in their name.
+    -   Error-check a few syscalls - code from SuSE package.
+
+Changes Prior to 2.3 release
+    -   Try /etc/mdadm/mdadm.conf if /etc/mdadm.conf doesn't exist.
+	This provided compatability for Debian.
+    -   Fixed for version-1 superblock:
+	 report chunksize for raid6 and raid10
+	 make sure device size used is a multiple of chunksize
+    -   Fix "--assemble --scan" crash.
+    -   Fix completely failure to create array on ppc64
+    -   Fix memcmp in place of memcpy
+    -   A few minor improvements to online help
+    -   Clean up usage of 'long long' for used-size of devices, so
+	that it is possible to create a raid1 of 7TB devices!
+    -   Make internal bitmaps work on 7TB raid1 arrays.
+    -   Provide error message if --examine doesn't find any superblock.
+    -   Report 'reshape' status in --examine - this depends on kernel
+	patches that are not yet finalised.
+    -   Report bitmap status in --detail and --examine
+    -   Default to v1 superblocks instead of v0.90 if the array
+	is too big for 0.90 to handle.
+    -   Sort the output of "mdadm --detail --scan" so that it is
+	in a suitable order for assembling arrays. i.e. components come
+	before an array that they are part of.
+    -   Print size of large reiserfs array properly went warning of
+        possible confilcts.
+
+Changes Prior to 2.2 release
+    -   Assorted bug fixes
+    -   Support write-intent-bitmaps on raid10
+    -   Support little-endian (Rather than hostendian) bitmaps.
+    -   Return correct error code from 'mdadm -S'
+    -   Remove extra blank line from 'mdadm -Eb' output.
+    -   Improve option parsing so that -a and -b do not have
+	optional arguements: the arg is either required or not
+	depending on context.
+    -   Allow scanning of devices listed in /proc/partitions even
+	if they don't appear in /dev.
+    -   Support --assume-clean in --create mode as well as --build
+    -   Add support for --monitor to report to syslog: -y or --syslog.
+	Thanks to Ross Vandegrift
+    -   --monitor now reports which device failed in a 'Fail' message
+	   This broke with 2.6
+    -   Improve chance of array starting properly after a crash.
+	mdadm was insisting the event numbers were identical, but this
+	isn't needed, and is a problem if the crash was while the metadata
+	was being updated.
+    -   Support --update==uuid
+    -   Added README.initramfs and mkinitramfs to help people use an
+	initram for starting md arrays at boot.
+
+Changes Prior to 2.1 release
+    -   Fix assembling of raid10 array when devices are missing.
+	  mdadm now correctly detects if a array is workable or not
+	  depending on which devices are present, and so will correctly
+	  handle "--assemble --force"  if multiple devices have failed.
+    -   Report raid10 layout in --examine output.
+    -   Fix assembling of arrays that use the version-1 superblock and
+	  have spares.  Previously the spares would be ignored.
+    -   Fix bug so that multiple drives can be re-added at once.
+    -   Fix problem with hot-adding a bitmap to version-1-superblock
+	  arrays.
+
+Changes Prior to 2.0
+    -   Support assembling from byte-swapped superblocks
+	metadata type "0.swap" and --update=byteorder
+    -   write-mostly and write-behind support for raid1.
+    -   Support --name= and 'name=' config entry for identifying
+	arrays be name.
+    -   RAID10 in man pages.
+    -   Lot of minor manpage updates
+
+Changes Prior to 2.0-devel-3 release
+    -   Assorted fixes for multiple bugs...
+    -   Add test suite
+	
+Changes Prior to 1.12.0 release
+  Several of these are backported from the Debian package
+    -   Don't use 'lstat' to check for blockdevices, use stat.
+    -   Document --size=max option for --grow
+    -   Document SparesMissing event and DeviceDisappeared/WrongLevel
+    -   --stop --scan repeatly cycles until no more progress can be made
+	so that stack devices are stopped properly
+    -   Minor type rationalisation for ident->uuid - now always 'int[]'
+    -   Fix type in online help for --grow (was -F, now -G)
+    -   Allow --auto command line option to set default auto=
+	value when running "--assemble --scan".  Previously
+	--auto was ignored if --scan was given
+    -   Fix a few type casts
+    -   Fix parsing of /dev/md/N in is_standard
+    -   Fix rounding errors in human_size()
+    -   Fix silly example in mdadm.conf-examples
+    -   When finding a /dev name for a device, prefer shorter names
+    -   Suppress listing of devices= in --brief output of -D or -E,
+	unless -v is given (-vv gives the old behaviour with -Dsv).
+	This is because the device list can change and so is not a
+	stable aspect of the array
+    -   Allow --force with --grow so '-Gfn1' works (on raid1)
+    -   Replace sprintf calls with snprintf (to quiet diet-libc)
+    -   Add man page for mdassemble
+    -   Fix compilation with tinyc
+	
+Changes Prior to 1.11.0 release
+    -   Fix embarassing bug which causes --add to always fail.
+
+Changes Prior to 1.10.0 release
+    -   Fix bug with --config=partitions
+    -   Open sub-devices with O_EXCL to detect if already in use
+    -   Make sure superblock updates are flushed directly to disk.
+	
+Changes Prior to 2.0-devel-1 release
+    -   Support for version-1 superblock.  See --metadata option.
+    -   Support for bitmap based intent logging.
+    -   Minor fixes.
+	
+Changes Prior to 1.9.0 release
+    -   Fix rpm build problem (stray %)
+    -   Minor manpage updates
+    -   Change "dirty" status to "active" as it was confusing people.
+    -   --assemble --auto recognises 'standard' name and insists on using
+        the appropriate major/minor number for them.
+    -   Remove underscore from partition names, so partitions of
+	"foo" are "foo1", "foo2" etc (unchanged) and partitions of
+	"f00" are "f00p1", "f00p2" etc rather than "f00_p1"...
+    -   Use "major", "minor", "makedev" macros instead of
+	"MAJOR", "MINOR", "MKDEV" so that large device numbers work
+	on 2.6 (providing you have glibc 2.3.3 or later).
+    -   Add some missing closes of open file descriptors.
+    -   Reread /proc/partition for every array assembled when using
+	it to find devices, rather than only once.
+    -   Make "mdadm -Ss" stop stacked devices properly, by reversing the
+	order in which arrays are stopped.
+    -   Improve some error messages.
+    -   Allow device name to appear before first option, so e.g.
+	mdadm /dev/md0 -A /dev/sd[ab]
+	works.
+    -   Assume '-Q' if just a device is given, rather than being silent.
+    -   Change "dirty" status to "active" as it was confusing people.
+	
+Changes Prior to 1.8.0 release
+    -   Makefile cleanup from  Luca Berra <bluca@comedia.it>
+    -   --pid-file (-i) to set a pid file to use with --monitor --daemonise
+    -   Fix typo in mdadm man page
+    -   Fix coredump when "-s" used with no config file present.
+    -   Support new "faulty" personality which can inject synthetic
+        faults. (Not in kernel.org yet at 1Nov2004)
+    -   Support raid0/linear on devices > 2 Terabytes
+    -   Make sure raid6 resyncs when created with one missing device
+
+Changes Prior to 1.7.0 release
+    -   Support "--grow --add" to add a device to a linear array, if the
+        kernel supports it.  Not documented yet.
+    -   Restore support for uclibc which was broken recently.
+    -   Several improvements to the output of --detail, including
+        reporting "resyncing" or "recovering" in the state.
+    -   Close filedescriptor at end of --detail (exit would have closed it
+	anyway, so this isn't abig deal).
+    -   Report "Sync checkpoint" in --examine output if appropriate.
+    -   Add --update=resync for --assemble mode to for a resync when the
+        array is assembled.
+    -   Add support for "raid10", which is under development in 2.6.
+	Not documented yet.
+    -   --monitor now reads spare-group and spares info from config file
+	even when names of arrays to scan are given on the command line
+	
+Changes Prior to 1.6.0 release
+    -	Device name given in -Eb is determined by examining /dev rather
+	than assuming /dev/md%d
+    -   Fix bug in --monitor where an array could be held open an so
+	could not be stopped without killing mdadm.
+    -   Add --grow mode.  Currently only --size and --raid-disks can be
+	changed. Both require kernel support which, at the time of
+	writing, is not in a release kernel yet.
+    -   Don't print out "errors" or "no-errors" in -D and -E, as the bit
+	is never set or used.
+    -   Use md event notification in 2.6.??? to make --monitor mode
+        respond instantly to events.
+    -   Add --auto= option and auto= configfile entry to tell mdadm to
+	create device files as needed.  This is particularly useful
+	with partitioned arrays where the major device number can change.
+    -   When generating --brief listing, if the standard name doesn't
+        exist, search /dev for one rather than using a temp name.
+    -   Allow --build to build raid1 and multipath arrays.
+    -   Add "--assume-clean" for Create and Build, particularly for raid1
+	Note: this is dangerous. Only use it if you are certain.
+    -   Fix bug so that Rebuild status monitoring works again.
+    -   Add "degraded" and "recovering" options to the "Status:"
+	entry for --detail
+
+Changes Prior to 1.5.0 release
+    -   new commands "mdassemble" which is a stripped-down equivalent of
+	"mdadm -As", that can be compiled with dietlibc.
+	Thanks to Luca Berra <bluca@comedia.it>.
+	It can be using in an initramfs or initrd.
+    -   Fix compiling error with BLKGETSIZE64 and some signed/unsigned
+	comparison warnings.
+    -   Add Rebuild Status (% complete) to --detail output.
+    -   Support "--monitor --test" which will generate a test alert
+	for each array once, to test notification paths.
+    -   Generate RebuildFinished event when rebuild finishes.
+    -   Support for raid6 as found in 2.6.2 - thanks to
+	H. Peter Anvin  <hpa@zytor.com>
+    -   Support partitioned md arrays with a different major number and
+	naming scheme (md_dX in /proc/mdstat, /dev/md/dXpY in /dev).
+	
+Changes Prior to 1.4.0 release
+    -   Document fact that creating a raid5 array really creates a
+        degraded array with a spare.	
+    -   Add "spares=" tag to config file and generate it wit --detail and
+        --examine
+    -   Add "SparesMissing" event when --monitor first sees an array and
+	it doesn't have the enough spare devices.
+    -   Add --update=summaries for --assemble to update summary
+        information in superblock, and correct other inconsistancies in
+	the superblock.
+    -   Add --test option to --detail to set a meaningful exit status.
+	
+Changes Prior to 1.3.0 release
+    -   Make 'size' and unsigned long in Create to allow creation of
+        larger arrays.
+    -   Explicitly flag spare devices as 'spare' in --detail and --examine
+        output.  Previously they simply had no flags lists.
+    -   Make MailCmd (for monitor) configurable in Makefile, and default
+        to "/usr/sbin/sendmail -t". Also split out the warning related
+	flags into CWFLAGS for easier build configurability.
+    -   Minor bugfix in Manage code.
+    -   --monitor now notices and reports degraded arrays at startup using
+        "DegradedArray" event, and also has a --oneshot option to only
+	report DegradedArrays, and then exit.
+    -   Small man-page clarification w.r.t. raid levels and raid4 in
+        particular.
+    -   Disallow creation of arrays with only one device as this is
+        probably a mistake.  --force will override this check.
+    -   Correct some misleading documentation in the "mdadm --create --help"
+	message.
+    -   Ignore chunksize if raid1 or multipath.
+    -   Explicit statement in man page that raid-disks cannot be changed
+        after array is created.
+    -   Improve message when attempting to start an array with
+        insufficient devices.  Instead of required the array to be full,
+	we only require it has as many active devices as last time.
+	
+Changes Prior to 1.2.0 release
+    -   Fix bug where --daemonise required an argument.
+    -   In --assemble --verbose, print appropriate message if device is
+        not in devices= list
+    -   Updated mdadm.conf.5 to reflect fact that device= takes wildcards
+    -   Typos:  componenet -> component
+    -   Reduce size of "--help" message put excess into "--help-options"
+    -   Fix bug introduced when MD_SB_DISKS dependancy removed, and which
+        caused spares not be assembled properly.
+    -   Print appropriate message if --monitor --scan decides not to
+	monitor anything.
+Changes Prior to 1.1.0 release
+    -   add --deamonise flag for --monitor - forks and prints pid to stdout
+    -   Fix bug so we REALLY clear dirty flag with -Af
+    -   -Db now prints a 'devices=' word for each array.
+    -   "mdadm -A /dev/md0" will get info from configfile, even without scan
+    -   When assembling multipath arrays, ignore devices which are flagged
+        as having errors.
+    -   take --super-minor=dev  to mean "use the minor number of the mddev
+	being assembled.
+    -   take --config=none to mean "completely ignore config file"
+    -   Make --monitor require --scan or a device list.
+Changes Prior to 1.0.9 release
+    -   Documentation updates including kernel parameters documented
+	in md.4
+    -   --assemble --force for raid4/5 will mark clean, needed for 2.5
+    -   --detail prints out the events counter as well
+    -   flush device before reading superblock to be sure to get
+	current data
+    -   added mdadm.static target to makefile for static linking
+    -	--monitor was ignoring  /dev/md0 due to off-by-one error
+    -	Fix assorted typos
+    -   Fix printing of Gibibytes - calc was wrong.
+    -   Fix printing of Array Size in --detail when very big.
+    -   --monitor no longer tries to work for raid0 or linear as these
+	have nothing to be monitored.
+    -   The word 'partitions' on a DEVICE line will cause all partitions
+	listed in /proc/partitions to be considered
+    -   If the config file is called 'partitions' then it will be treated
+        as though it contained exactly 'device partitions' so e.g.
+	  mdadm -Ebsc partitions
+	will find all raid partitions easily.	
+    -	successfully assemble multipath devices by ignoring raid_disk
+	value from superblock (it is always the same).
+    -   --assemble not tied to MD_SB_DISKS limit quite so much
+    -   Support compiling with tcc
+    -   Support compiling with uclibc - just skip scan of /dev
+    -   Add --update= option for Assemble mode.  Either sparc2.2
+	or super-minor updates are possible.  See mdadm.8
+	
+Changes Prior to 1.0.1 release
+    -   Round off MB/GiB etc values instead of round down.
+    -   Add --sparc2.2 option to examine to shift superblock around
+	and --sparc2.2update to rewrite the superblock
+    -   Fix assorted typos in online help
+	
+Changes Prior to 1.0.0 release
+    -   Allow --config with Misc mode (for --examine --scan)
+    -   Add $(CXFLAGS) to end of CFLAGS in makefile
+    -   When making an N disk raid5 array, the Nth drive
+	is moved to the end of the array as a spare rather than
+	being shifted up one place.  This means that when the
+	kernel builds onto the last spare and inserts it,
+	the devices will be in the expected order.
+    -   Man page improvements
+Changes Prior to 0.8.2 release
+    -   Correct spelling of persist[ae]nce/persist[ae]nt.
+    -   Change "disk" to "device" in options and config file
+    -   convert array size to "long long" *before* shift-left in -D and -Q
+	
+Changes Prior to 0.8.1 release
+    -   Add "INSTALL" file.
+    -   Fix some "i" variables that were not being set properly
+    -   Initialise minsize and maxsize so that compilers don't complain.
+    -   Tidy up Makefile and mdadm.spec installations
+    -   Add "multipath" to documentation of valid levels
+	
+Changes Prior to 0.8 release
+    -   Fix another bug in Assemble.c due to confusing 'i' with 'j'
+    -   Minimal, untested, support for multipath
+    -   re-write of argument parsing to have more coherent modes,
+    -   add --query,-Q option
+    -   Update mdadm.8 to reflect arg processing change and --query
+    -   Change "long" to "unsigned long" for device sizes
+    -   Handle "mailaddr" and "program" lines in config file for follow/scan mode.
+    -   --follow --scan will exit if no program or mail found
+    -   Add MAILADDR and PROGRAM to mdadm.conf-example
+    -   Spell check man pages
+    -   consistently use "component devices" instead of "subdevices"
+    -   Make -Wall -Werror really work and fix lots of errors.
+    -   --detail and --stop can have --scan which chooses devices from /proc/mdstat
+    -   --monitor detects 20% changes in resync, failed spares,
+        disappearing arrays,
+    -   --monitor --scan will automatically add any devices found in /proc/mdstat
+    -   --monitor will move spares between arrays with same spare-group if necessary
+    -   Documentation for Monitor Mode
+    -   --query notes if the array containing the given device is active or not
+    -   Finished md.4 man page.
+	
+Changes Prior to 0.7.2 release
+    -   mdadm.spec updates and ifdef BLKGETSIZE64 from  Luca Berra -- bluca@comedia.it
+    -   more mdadm.spec updates from  Gregory Leblanc <gleblanc@linuxweasel.com>
+    -   make directory for mdadm.conf configurable in Makefile
+    -   Finished mdadm.conf.5.  Removed details of conf file from
+	mdadm.8 leaving a reference to mdadm.conf.5.
+    -   Fix bug in Assemble.c, thanks to Junaid Rizvi <domdev@sat.net.pk>
+    -   Get --assemble --force to make sure old major/minor numbers are
+        consistant, as md.c worries about this :-(
+	
+	
+Changes Prior to 0.7.1 release
+    -   update mdadm.spec
+    -   use BLKGETSIZE64 if available for array size
+    -   give human readable as GiB/MiB and GB and MB, with 2 decimal point precision
+    -   Only warn about size variation for raid1/4/5.
+    -   Started md.4 man page
+    -   Started mdadm.conf.5 man page
+	
+Changes Prior to 0.7 release	
+
+    -   Fix makefile to install binary at /sbin and not /sbin/sbin
+	Also install man page.
+    -   Add --zero-superblock based on --destroywithextremeprejudice
+	from Dale Stephenson <steph@snapserver.com>
+    -   change name to mdadm.  It is palandromic, and much nicer to pronouce.
+	
+Changes Prior to 0.6 release
+
+    -   Remove the limit on the number of device names that can be
+	given on the command line.
+    -   Fix bug in --assemble --force where it would only update a
+	single superblock.
+    -   Fix bogus printing of big numbers not being block devices
+	when given names of devices that don't exist.
+    -   When --assemble --force, consider superblocks with an event
+	count that is 1 behind as out-of-date.  Normally they are
+	considered up-to-date (as the kernel assumes this too).
+    -   When marking drives as not-failed in the superblock,
+	we also mark them as ACTIVE and SYNC.
+    -   Don't start arrays for which not all drives are available unless:
+	 --scan   which implies that all drives were found automatically
+	 --run    which means the user knows what they want
+	 --force  which means that we are fixing something broken
+    -   Make sure all device numbers passed as 3rd arg of ioctl
+	are passed as unsigned lock, so that it works on SPARC
+    -   If HOT_ADD_DISK failes for -a, then only try ADD_NEW_DISK
+	if we cannot read from the array, i.e. if the array is
+	not started yet.
+    -   man page update
+    -   Taught Examine to handle --scan. It examines all devices listed
+	on DEVICE lines in the config file.
+    -   Added --brief (-b) flag for Examine and Detail to print out
+	and mdctl.conf compatible description with uuid=, level=,
+	disks= and  - for Examine - devices=
+	--examine --brief collects all devices the make the one array and
+	list them as one entry.
+    -   Added level= and disks= options to ARRAY lines in config files
+	so --brief output could be used as-is.
+    -   Make parity style ({left,right}-{,a}symmetric) consistantly use -,
+	never _.
+    -   Add "Array Size" to --detail output
+    -   Change "Size" to "Device Size" and exclude from Detail of arrays
+	that do not have a consistent device size.
+    -   Add Human readable MiB or GiB value on size lines of Detail and Examine
+    -   --assemble --scan  doesn't complain about active drives
+    -   require number of spares given in -x to be listed.
+    -   Made --build actually work.
+Changes Prior to 0.5 release
+
+  --assemble:
+     spare drives are handled properly.
+
+     --force can be used to recover from 2-drive failures on RAID5
+     If you belive that /dev/hda1 /dev/hdb1 /dev/hdc1 /dev/hdd1 should
+     make a raid5 array, but it has experienced multiple failures and
+     wont start, then
+
+       mdctl --assemble --force /dev/md0 /dev/hd[abcd]1
+
+     Should update the superblock on the newest failed drive and
+     restart the array in degraded mode.  You should then remove the
+     remaining failed drive and re-add it (if you are happy that it
+     might work).
+
+     Ofcourse whenever you have a 2-drive failure, you have a risk
+     of corruption in data that hasn't be changed for a long time.  So
+     this doesn't give you your array back all nice and happy, but it
+     does allow you to recover data that might not be corrupt.
+
+     More flexibility in identifying a RAID array in the mdctl.conf
+     e.g.
+         array /dev/md4  super-minor=4
+
+      assembles /dev/md4 from all devices found that have a raid
+      superblock that says the minor number of the array is 4.
+      If the blocks with the right minor number do not all have the
+      same UUID, an error is flags and no assembly happens.
+
+        array /dev/md3  devices=/dev/hd[abc]2
+
+      Assembles /dev/md3 drom /dev/hda2 /dev/hdb2 and/dev/hdc2.  All
+      devices must exist and have raid superblock with the same uuid.
+
+      If two identity specifiers are used, only devices that match all
+      of them are considered, so
+
+        array /dev/md2 devices=/dev/hd?2 super-minor=2
+
+      will assemble /dev/md2 using all /dev/hd?2 devices which have a
+      raid superblock with minor number 2.
+
+  --create:
+      When listing devices for --create, the word "missing" can be
+      used to indicate that the respective slot does not have a
+      working drive currently.  This is similar to the "failed-disk"
+      directive in mkraid/raidtab.
+      e.g.
+         mdctl --create --level=5 -raid-disks=4 --spare-disks=2
+                 /dev/md0 /dev/sda /dev/sdb missing /dev/sdc /dev/sdd  /dev/sde
+
+      will create a raid5 array with the third slot empty, and two
+      spares.
+
+      By default, raid5 arrays are created with the last slot empty
+      and drive listed for the last slot added as a spare.  If a
+      "missing" slot is given, or if --force is given, then --create
+      does exactly what you ask and doesn't try to be clever.
+
+
+   --follow / --monitor:
+
+      This is a new mode.  I couldn't stop my self from picking a name
+      starting with F (as current modes start A,B,C,D,E) but I
+      relented and provided an alternate name that is somewhat more
+      meaningful.
+
+      In this mode, mdctl does not exit, but runs continuously and
+      periodically polls all the md devices to see if they have had
+      any interested state change.
+      The changes that it currently notices are:
+           Fail      -  an active disc fails
+           FailSpare -  a spare, that was presumably being build, fails
+           ActiveSpare - a spare becomes active, presumably after a rebuild.
+
+      Options:
+         --mail mailaddress  - send Email on any Fail* event
+         --program program   - run the program on any event.
+		   Args are: eventname mddevice subdevice(if-known)
+         --delay  seconds    - change from the default 60second pause
+			       between polls.
+
+      I plan to add functionality to this mode to allow sharing of
+      spare drives. If an array is marks "spare-group=fred", and it
+      has a failed drive and no spares, and if some other array is
+      also "spare-group=fred" and it has no failed drives, but does
+      have a spare drive that is big enough, the spare will be moved
+      to the first array.
+
+  I also have the idea of adding a --grow mode which will re-organise
+  the data on an N disk raid0/4/5 array to be on an N+M disk array.
+  I have no concrete plans for this though.
+
+  I got rid of the "v" in the archive file name, and include the
+  version number in the directory created by the archive.
+
+  There is now a man page and mdctl.spec (for rpm) thanks to
+  Danilo Godec <danci@agenda.si>.
+
+  Ofcourse, the man page is now out of date and despite being based on
+  the --help output, is not wholy correct.  After I get --follow
+  working properly, I plan to revise the various documentation and/or
+  the code to make sure the two match.

@@ -1,0 +1,136 @@
+From vsu@altlinux.ru Tue Apr 22 16:39:58 2003
+Return-Path: <vsu@altlinux.ru>
+Received: from mail.mivlgu.ru (mivlgu.ru [81.18.140.87]) by
+	matou.sibbald.com (8.11.6/8.11.6) with ESMTP id h3MEdw615608 for
+	<kern@sibbald.com>; Tue, 22 Apr 2003 16:39:58 +0200
+Received: by mail.mivlgu.ru (Postfix, from userid 112) id 5667E817DD; Tue,
+	22 Apr 2003 18:39:53 +0400 (MSD)
+Received: from vcserver.mivlgu.local (vcserver.mivlgu.local
+	[192.168.1.251]) by mail.mivlgu.ru (Postfix) with SMTP id 0D7B5817DD; Tue,
+	22 Apr 2003 18:39:44 +0400 (MSD)
+Date: Tue, 22 Apr 2003 18:39:39 +0400
+From: Sergey Vlasov <vsu@altlinux.ru>
+To: stewart@wetlogic.net
+Cc: stewart@inverse.wetlogic.net, kern@sibbald.com, vojtech@ucw.cz
+Subject: Re: [Fwd: [Apcupsd-users] Success - APC BackUPS CS 500 shutdown
+	over USB]
+Message-Id: <20030422183939.08cd1c13.vsu@altlinux.ru>
+In-Reply-To: <E194m2k-0005jB-00@inverse.wetlogic.net>
+References: <1050086110.13768.163.camel@rufus>
+	 <E194m2k-0005jB-00@inverse.wetlogic.net>
+X-Mailer: Sylpheed version 0.8.11 (GTK+ 1.2.10; i586-alt-linux-gnu)
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg="pgp-sha1"; boundary="=.rPW3CATQ/UTztX"
+X-Annoyance-Filter-Junk-Probability: 0.5
+X-Annoyance-Filter-Classification: Mail
+
+--=.rPW3CATQ/UTztX
+Content-Type: multipart/mixed;
+ boundary="Multipart_Tue__22_Apr_2003_18:39:39_+0400_083029a8"
+
+
+--Multipart_Tue__22_Apr_2003_18:39:39_+0400_083029a8
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+
+On Sun, 13 Apr 2003 11:17:30 -0700
+Paul Stewart <stewart@inverse.wetlogic.net> wrote:
+
+> I think it is definitely worth putting this in as a quirk.  I know for a
+> fact that the MGE UPSes work fine without this patch, but works only after
+> a long delay (4 seconds or so) with this patch.  I'm guessing that this
+> may be a more substantial problem with other HID devices -- note that
+> this function is used with all sorts of devices.
+> 
+> I agree -- from reading the spec, that the current code is wrong -- there
+> is a hard-coded "report->id | 0x200" there that should really be 0x200 for 
+> Output and 0x300 for feature reports (now that we realize that Feature 
+> reports are settable too).  However, the mode of access in the patch  
+> looks nothing at all like the spec, and more like a mirror image of the 
+> interrupt transfer.  The prepended report ID byte looks to be a 
+> requirement specific to APC UPSes and could easily wreak havoc with other
+> devices.  This is why I suggest the patch be re-submitted as a quirk:
+> 
+>    - Add a new HID_QUIRK_ to hid.h
+>    - Add the vendor and device IDs to hid_blacklist, with this new
+>      quirk.
+>    - Make the changes in the patch conditional on 
+> 	(hid->quirks & HID_QUIRK_WEIRD_SETREPORT) != 0
+> 
+> It would be nice to fix the 0x200 issue while you're in that part of the
+> code.  I'd have written the patch myself, but I don't have the vendor/device 
+> IDs in question.  This patch should appply cleanly on top of the other 
+> changes (I think) I have in the queue WRT HID collections.  Thanks for the
+> good work.
+
+(Sorry for the delay - I was busy with other things)
+
+OK, I did this (added a quirk and fixed the report type problem); it
+works here, but I have only one USB device - the UPS (APC Back-UPS CS
+500).
+
+I have named the device ID USB_DEVICE_ID_APC_UPS_0002, because this
+identifier seems to be used for most of the APC USB UPSes (in fact,
+all hid-ups report files from apcupsd have this ID). Hope they all
+behave the same way (otherwise the code in hid-core.c will need to be
+extended to use more fields for matching).
+
+--Multipart_Tue__22_Apr_2003_18:39:39_+0400_083029a8
+Content-Type: application/octet-stream;
+ name="linux-2.4.20-alt-apc_usb_ups.patch"
+Content-Disposition: attachment;
+ filename="linux-2.4.20-alt-apc_usb_ups.patch"
+Content-Transfer-Encoding: base64
+
+LS0tIGxpbnV4LTIuNC4yMC9kcml2ZXJzL3VzYi9oaWQtY29yZS5jLmFsdC1hcGNfdXNiX3Vwcwky
+MDAzLTA0LTIxIDE5OjM5OjI3ICswNDAwCisrKyBsaW51eC0yLjQuMjAvZHJpdmVycy91c2IvaGlk
+LWNvcmUuYwkyMDAzLTA0LTIxIDE5OjU0OjIxICswNDAwCkBAIC0xMDE2LDEwICsxMDE2LDE4IEBA
+CiAKIHZvaWQgaGlkX3dyaXRlX3JlcG9ydChzdHJ1Y3QgaGlkX2RldmljZSAqaGlkLCBzdHJ1Y3Qg
+aGlkX3JlcG9ydCAqcmVwb3J0KQogewotCWhpZF9vdXRwdXRfcmVwb3J0KHJlcG9ydCwgaGlkLT5v
+dXRbaGlkLT5vdXRoZWFkXS5idWZmZXIpOwotCi0JaGlkLT5vdXRbaGlkLT5vdXRoZWFkXS5kci53
+VmFsdWUgPSBjcHVfdG9fbGUxNigweDIwMCB8IHJlcG9ydC0+aWQpOwotCWhpZC0+b3V0W2hpZC0+
+b3V0aGVhZF0uZHIud0xlbmd0aCA9IGNwdV90b19sZTE2KChyZXBvcnQtPnNpemUgKyA3KSA+PiAz
+KTsKKwlpZiAoKGhpZC0+cXVpcmtzICYgSElEX1FVSVJLX1NFVFJFUE9SVF9ORUVEU19JRCkgJiYg
+cmVwb3J0LT5pZCkgeworCQloaWQtPm91dFtoaWQtPm91dGhlYWRdLmJ1ZmZlclswXSA9IHJlcG9y
+dC0+aWQ7CisJCWhpZF9vdXRwdXRfcmVwb3J0KHJlcG9ydCwgaGlkLT5vdXRbaGlkLT5vdXRoZWFk
+XS5idWZmZXIgKyAxKTsKKwkJaGlkLT5vdXRbaGlkLT5vdXRoZWFkXS5kci53TGVuZ3RoID0KKwkJ
+CWNwdV90b19sZTE2KCgocmVwb3J0LT5zaXplICsgNykgPj4gMykgKyAxKTsKKwl9IGVsc2Ugewor
+CQloaWRfb3V0cHV0X3JlcG9ydChyZXBvcnQsIGhpZC0+b3V0W2hpZC0+b3V0aGVhZF0uYnVmZmVy
+KTsKKwkJaGlkLT5vdXRbaGlkLT5vdXRoZWFkXS5kci53TGVuZ3RoID0KKwkJCWNwdV90b19sZTE2
+KChyZXBvcnQtPnNpemUgKyA3KSA+PiAzKTsKKwl9CisJaGlkLT5vdXRbaGlkLT5vdXRoZWFkXS5k
+ci53VmFsdWUgPQorCQljcHVfdG9fbGUxNigoKHJlcG9ydC0+dHlwZSArIDEpIDw8IDgpIHwgcmVw
+b3J0LT5pZCk7CiAKIAloaWQtPm91dGhlYWQgPSAoaGlkLT5vdXRoZWFkICsgMSkgJiAoSElEX0NP
+TlRST0xfRklGT19TSVpFIC0gMSk7CiAKQEAgLTEwOTAsNiArMTA5OCw5IEBACiAjZGVmaW5lIFVT
+Ql9ERVZJQ0VfSURfUE9XRVJNQVRFCQkweDA0MTAgLyogR3JpZmZpbiBQb3dlck1hdGUgKi8KICNk
+ZWZpbmUgVVNCX0RFVklDRV9JRF9TT1VOREtOT0IJCTB4MDRBQSAvKiBHcmlmZmluIFNvdW5kS25v
+YiAqLwogCisjZGVmaW5lIFVTQl9WRU5ET1JfSURfQVBDCQkweDA1MWQKKyNkZWZpbmUgVVNCX0RF
+VklDRV9JRF9BUENfVVBTXzAwMDIJMHgwMDAyIC8qIEFQQyBVUFMgLSBtYW55IG1vZGVscyAqLwor
+CiBzdHJ1Y3QgaGlkX2JsYWNrbGlzdCB7CiAJX191MTYgaWRWZW5kb3I7CiAJX191MTYgaWRQcm9k
+dWN0OwpAQCAtMTEyMSw2ICsxMTMyLDcgQEAKIAl7IFVTQl9WRU5ET1JfSURfQVRFTiwgVVNCX0RF
+VklDRV9JRF9BVEVOXzRQT1JUS1ZNLCBISURfUVVJUktfTk9HRVQgfSwKIAl7IFVTQl9WRU5ET1Jf
+SURfR1JJRkZJTiwgVVNCX0RFVklDRV9JRF9QT1dFUk1BVEUsIEhJRF9RVUlSS19JR05PUkUgfSwK
+IAl7IFVTQl9WRU5ET1JfSURfR1JJRkZJTiwgVVNCX0RFVklDRV9JRF9TT1VOREtOT0IsIEhJRF9R
+VUlSS19JR05PUkUgfSwKKwl7IFVTQl9WRU5ET1JfSURfQVBDLCBVU0JfREVWSUNFX0lEX0FQQ19V
+UFNfMDAwMiwgSElEX1FVSVJLX1NFVFJFUE9SVF9ORUVEU19JRCB9LAogCXsgMCwgMCB9CiB9Owog
+Ci0tLSBsaW51eC0yLjQuMjAvZHJpdmVycy91c2IvaGlkLmguYWx0LWFwY191c2JfdXBzCTIwMDIt
+MTEtMjkgMDI6NTM6MTQgKzAzMDAKKysrIGxpbnV4LTIuNC4yMC9kcml2ZXJzL3VzYi9oaWQuaAky
+MDAzLTA0LTIxIDE5OjQyOjMyICswNDAwCkBAIC0xODYsNiArMTg2LDcgQEAKICNkZWZpbmUgSElE
+X1FVSVJLX05PVE9VQ0gJMHgwMgogI2RlZmluZSBISURfUVVJUktfSUdOT1JFCTB4MDQKICNkZWZp
+bmUgSElEX1FVSVJLX05PR0VUCQkweDA4CisjZGVmaW5lIEhJRF9RVUlSS19TRVRSRVBPUlRfTkVF
+RFNfSUQJMHgxMAogCiAvKgogICogVGhpcyBpcyB0aGUgZ2xvYmFsIGVudmlyb21lbnQgb2YgdGhl
+IHBhcnNlci4gVGhpcyBpbmZvcm1hdGlvbiBpcwo=
+
+--Multipart_Tue__22_Apr_2003_18:39:39_+0400_083029a8--
+
+--=.rPW3CATQ/UTztX
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQE+pVQvW82GfkQfsqIRAsFoAJ4hQtrQVfe97ZioFF8d7HAvp++ZHwCfUztJ
+lguft7SZDdYYOrN2tfaDTZE=
+=mIxq
+-----END PGP SIGNATURE-----
+
+--=.rPW3CATQ/UTztX--

@@ -1,0 +1,13 @@
+#!/bin/sh
+wmk
+echo "Copying files to site"     
+sftp -b - adk0212,apcupsd@web.sourceforge.net <<-END
+	cd /home/groups/a/ap/apcupsd/htdocs
+	-rm *
+	progress
+	put *.html
+	put *.gif
+	put *.png
+	put *.php
+END
+

@@ -1,0 +1,11 @@
+/etc/apcupsd/apcupsd.conf
+/etc/init.d/apcupsd
+/etc/logrotate.d/apcupsd
+/etc/apcupsd/hosts.conf
+/etc/apcupsd/multimon.conf
+/etc/apcupsd/apccontrol
+/etc/apcupsd/changeme
+/etc/apcupsd/commfailure
+/etc/apcupsd/commok
+/etc/apcupsd/offbattery
+/etc/apcupsd/onbattery

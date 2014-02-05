@@ -1,0 +1,4 @@
+- SCO OpenServer syslog() handling at config time
+- Work around for FILENAME_MAX definition. Now we have an APC_FILENAME_MAX.
+  We check for all the known standard definitions and if we find one
+  suitable for use we use it, if not we use a static value of 256.

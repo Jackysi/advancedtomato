@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# apcupsd	Cron script to rotate apcupsd log files daily.
+#
+# Written by Kevin Foss <kfoss@mint.net>.
+# 5/31/99
+
+cd /var/log
+LOG=apcupsd.log
+
+if [ -f $LOG ]; then
+   savelog -g adm -m 644 -u root -c 7 $LOG >/dev/null
+fi
+
+/etc/init.d/apcupsd restart &>/dev/null

@@ -1,0 +1,57 @@
+#! /bin/sh
+#
+# apcupsd
+#     Start the APC UPS daemon to monitor power status.
+#
+# Modified for Debian GNU/Linux by Leon Breedt <ljb@debian.org>
+# Last update: Wed Jul 14 15:14:50 SAST 1999
+# Further modifications by Gordon Morehouse <spambox@evernex.com>
+# Last update: Sun Apr 08 19:07 PDT 2001 
+
+DAEMONPID=@PIDDIR@/apcupsd.pid
+DAEMON=@sbindir@/apcupsd
+
+test -x $DAEMON || exit 0
+
+set -e
+
+case "$1" in
+  start)
+    echo -n "Starting APC UPS power management: "
+    rm -f @PWRFAILDIR@/powerfail
+    if [ ! -f @nologdir@/nologin.boot -a -f @nologdir@/nologin ]; then
+       rm -f @nologdir@/nologin
+    fi
+    if [ "`pidof apcupsd`" = "" ]
+    then
+        start-stop-daemon --start --quiet --pidfile $DAEMONPID --exec $DAEMON 
+        echo "apcupsd."
+    else
+        echo ""
+        echo "A copy of the daemon is still running.  If you just stopped it,"
+        echo "please wait about 5 seconds for it to shut down."
+        exit 0
+    fi
+  ;;
+  stop)
+    echo -n "Stopping APC UPS power management: "
+    start-stop-daemon --stop --quiet --pidfile $DAEMONPID
+    echo "apcupsd." 
+  ;;
+  restart|force-reload)
+    echo -n "Restarting APC UPS power management: "
+    start-stop-daemon --stop --quiet --pidfile $DAEMONPID
+    sleep 10
+    start-stop-daemon --start --quiet --pidfile $DAEMONPID --exec $DAEMON
+    echo "apcupsd."
+  ;;
+  status)
+    @sbindir@/apcaccess status
+  ;;
+  *)
+    echo "Usage: /etc/init.d/apcupsd {start|stop|restart|force-reload|status}" >&2
+    exit 1
+  ;;
+esac
+
+exit 0

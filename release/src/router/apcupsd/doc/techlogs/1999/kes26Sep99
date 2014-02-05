@@ -1,0 +1,148 @@
+         Technical notes on my code submission of 26 Sep 99
+                        Kern Sibbald
+
+General:
+- I've tried to follow the indenting standards existing for apcupsd,
+  but in reviewing my changes, I've noted several places where I
+  have followed the standards that I have used for many years, being
+  a bit lazy to correct them, I submit them as is, but if someone objects,
+  I'll be glad to fix them.
+
+- I recommend that we discuss indenting standards. I find the current
+  standard of something like 6 of 7 spaces for each level of indentation
+  difficult to enter (it slows me down), difficult to read, and it
+  allows a lot less code per line.  I propose a standard that indents
+  three spaces for each new indention level.  This yields very readable
+  code and preserves space.  Comments?
+
+- I was displeased to discover two things about GNU software in making
+  this submission: 1. diff has no option to ignore tabs on input when
+  making comparisons. 2. make REQUIRES a tab in certain positions -- this
+  "problem" was fixed 10 years ago in all other versions of make with which
+  I have worked.
+
+- In order to produce a minimum diff for this submission, I was forced to
+  remove all tabs from all .c and .h files. Unfortunately, due to the make
+  restrictions, I was not able to remove them from the Makefile.in files.
+  Consequently, for this submission, you will find that all lines in the
+  Makefile.in files that I changed are tabbed.
+
+Changes to code: general
+- This first set of changes attempts to implement two new error termination
+  routines error_abort() and error_exit(). Both are implemented as #defines
+  taking a variable number of arguments. I used defines, because they pass
+  the file and line number of the calling statement. Both ultimately use
+  the subroutine error_out(), which is a new subroutine located in apcupsd.c.
+  Note, for compilers such as the HP which apparently do not permit variable
+  arguments in #defines, I recommend that the HP coder, simply make some
+  HP defines as follows:
+
+  #define error_abort error_out
+  #define error_exit  error_out
+
+  Then use ifdefs to change the definition of error_out to eliminate the
+  first three arguments keeping only the error varargs message passed 
+  to it.
+
+- I then cleaned up a number of files (mostly those called directly from
+  apcupsd.c) to use the new routines. There are still MANY other places
+  where these routines could be used. For example, apcserial.c takes great
+  care to return SUCCESS or FAILURE, but in doing so, the reason for any
+  failure is completely lost. Personally, I would prefer that apcserial.c
+  immediately error if it cannot continue. However, before making any
+  sweeping changes there, I would like to get the reactions of the other
+  developers to this code. The same applies to other files.
+
+- Not implemented, but possible is to log the error messages rather than
+  fprintf them depending on whether or not the system log file is open.
+  I'll be glad to implement this idea depending on the reaction of the
+  developers.
+
+- I modified all the routines called by terminate() to do nothing if they
+  were not initialized. This means that terminate() or error_abort,... can
+  be called from anywhere either before or after the program becomes a
+  daeon and starts the networking ... Again, some future work needs to be
+  done to use the log file rather than fprintf if apcupsd is running as
+  a daemon, but with my changes, it should be centralized in one or two
+  subroutines for the most part.
+
+- I moved the initialization of the myUPS structure to very early in the
+  program. This permits proper checking of the state for early shutdowns.
+
+- I added a sentinel to the beginning of the shared memory structure. This
+  permits distinguishing the old version and the new version when the 
+  memory structure changes. I also added a version number for ensuring that
+  the programs such as apcaccess (and future .cgi programs) are using the
+  proper structure definition. I also added the size of the structure, and
+  the release number of apcupsd. This allows for full sanity checking.
+
+- I updated the .man file. There seems to be a lot more work to do here.
+  Please give me your reactions.
+
+- I cleaned up the apcupsd.config file a bit (removed obsolete configuration
+  statements) and added a bit more documentation.
+
+- I added code to detect that the installation is being done on a RedHat 5.2
+  or 6.0 system (all the hooks were already there -- thanks). I also added
+  all the code necessary to do a correct make install on a RedHat system.
+  Please note that this is not tested yet on RedHat 5.2, so I am sure there
+  will need to be additional changes. In doing this, I moved the code (or
+  the logic) of /sbin/powersc into the apcupsd script -- this makes it
+  much more readable and eliminates the need for /sbin/powersc on RedHat
+  systems. 
+
+  I recommend that the same be done in all other platforms and that we
+  eliminate entirely /etc/powersc. In the mean time, I would like to
+  see powersc moved to the distributions directory. That way it will not
+  be installed on RedHat systems.
+
+- I like the new /usr/lib/apccontrol file.  It is very nice.  However, I
+  am a bit surprised that we eliminated the CONTROL configuration statement.
+  On RedHat systems, I would MUCH prefer to put this file in /etc/apcupsd
+  and to be able to configure its location in /etc/apcupsd.conf.  Eventhough
+  /etc is getting a bit cluttered, most system administrators would prefer
+  that the really critical system stuff (such as apcupsd) be located in
+  etc. Can we resurrect the CONTROL code?  Comments. 
+
+- Instead of erroring when obsolete configuration statements are found,
+  I made it print and error message and continue. This makes upgradding
+  a bit more pleasant.
+
+- I removed the 10 second sleep in terminate() as in my opinion, it is
+  very undesirable. I have not yet had the time to test all the termination
+  cases, so there may be some subtile problems lurking in this change.
+  I'll test all the various shutdown cases in the next few weeks.
+
+Final comments:
+- I would like to get some feedback about what I did. Good/bad/indifferent?  
+
+- Now that I have a bit of experience in the code, I would like to
+  undertake a more "serious" project while at the same time continuing
+  some of the cleanup efforts that I have started.
+
+  Some projects that I consider "serious" are:
+  1. Implement PowerChute event logging.
+  2. Implement some way through a user program to query and
+     change the state of the UPS (e.g. Initiate UPS self test,
+     Initiate UPS runtime calibration, Simulate power failure,
+     test UPS alarm, ...)
+  3. Integrate the apcupscgi-1.0 code with apcupsd.
+  4. Implement .cgi programs that query and change the state
+     of the UPS.
+  5. Implement a general .cgi interface in place of the old
+     HTTP code.
+  6. Implement networking with APC PowerChute programs on other
+     machines (probably a .cgi program to keep the footprint of
+     apcupsd small).
+
+  Other projects already planned that I would like to continue
+  with little by little:
+  - Implementation of error_abort() throughout the code where
+    appropriate.
+  - Implementation of consistent logging as discussed in recent
+    emails.
+  - Adding additional documentation.
+  - Making a source and binary .rpm release for RedHat.
+
+I would like to hear your comments on these and particularily what
+the rest of you consider the priority of items 1 - 6.

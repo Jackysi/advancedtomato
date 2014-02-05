@@ -1,0 +1,41 @@
+         Technical notes on my code submission of 26 Jan 00
+                        Kern Sibbald
+
+General:
+- Reviewed master/slave network problems reported by Marcus
+- Documentation
+
+Changes submitted this submission:
+- I moved the slave_count and slaves[] data out of the
+  shared memory buffer thus reducing its size by about 6K.
+  This was because of a problem reported by Marcus that the
+  master would stall for about 90 seconds after a slave went
+  down. This occurred because the shared memory buffer was
+  being locked while the master contacted the slaves. Thus
+  it prevented the master's serial port code from accessing
+  the shared memory buffer.  
+
+  The solution to the problem was to remove the shared memory
+  locking while contacting the slaves, and move the slave
+  variables out of the shared memory buffer into global memory.
+
+  This required a substantial number of changes to apcnet.c to
+  remove the ups reference infront of all references to slaves[].
+  However, it should be noted that this was purely a mechanical
+  change.  There were also a very small number of similar changes
+  in apcconfig.c and apcupsd.c as well as moving the definition
+  of the variables.
+
+  The only "real" change to the code was to remove the 
+  read_andlock_sharea() and the write_andunlock_shmarea().
+
+- I eliminated slave_bool as it is never referenced.
+
+- I updated the document to correct some spelling errors and to
+  incorporate some of the ideas learned from Marcus' tests.
+  I updated the new features section to contain the ChangeLog
+- Corrected a minor problem in the example slave config file where
+  the UPSTYPE was not the same as in the master config file example.
+  I also set NOLOGIN to disable in each file as this is a more
+  reasonable default.
+

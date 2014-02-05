@@ -1,0 +1,31 @@
+Source: libnfsidmap
+Priority: optional
+Section: libs
+Maintainer: J. Bruce Fields <bfields@citi.umich.edu>
+Build-Depends: debhelper (>= 5.0.0), libldap2-dev, cdbs
+Standards-Version: 3.6.2
+
+Package: libnfsidmap-dev
+Section: libdevel
+Architecture: any
+Depends: libnfsidmap1 (= ${Source-Version})
+Description: header files and docs for libnfsidmap
+ Contains the header files and documentation for libnfsidmap
+ for use in developing applications that use the libnfsidmap library.
+ .
+ libnfsidmap provides functions to map between NFSv4 names (which are
+ of the form user@domain) and local uid's and gid's.
+ .
+  Homepage: http://www.citi.umich.edu/projects/nfsv4/linux/
+
+Package: libnfsidmap1
+Priority: standard
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: An nfs idmapping library
+ libnfsidmap provides functions to map between NFSv4 names (which are
+ of the form user@domain) andlocal uid's and gid's.
+ .
+  Homepage: http://www.citi.umich.edu/projects/nfsv4/linux/
+

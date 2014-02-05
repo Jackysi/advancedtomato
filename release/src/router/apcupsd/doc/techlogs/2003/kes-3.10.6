@@ -1,0 +1,186 @@
+             Technical notes on version 3.10.6a
+                        30 October 2003
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+30Oct03
+- Integrated Alexander Schremmer's stdout fix for Windows --
+  keeps debug printout from being sent to the serial port.
+28Oct03
+- Bob Kuo found a bug that caused a seg fault, which was due
+  to my code that walked off the end of a table in linux-usb.c
+03Oct03 Released here
+- Move the old manual to old_documents and commit the
+  new docbook manual to the CVS. Don't include the web
+  html directory.
+28Sep03
+- Test net slave mode. It works fine. I made it behave more
+  like a slave, so it shows the last time it contacted
+  the master.
+- Add MASTER name to status output if device is a slave.
+- Display last master update if device is a net slave.
+- Add 10 sec delay before calling apcupsd --killpower it is
+  needed for USB killpower to work right. Why????
+- Save old apccontrol when installing a new one.
+- Replace old UPS_SET() with set_ups() in a number of places.
+27Sep03
+- Implement autodetect of USB port if no DEVICE given.
+14Sep03
+- After the upgrade to RH9 with the new autoconf, quite a
+  few things broke. As far as I can tell, it is because autoconf
+  set top_srcdir to ., and since apcupsd exects top_srcdir to be
+  absolute, lots of things broke.  Fixed by editing all the
+  Makefiles and switching to topdir.
+- Had to disable autoheader since it wipes out config.h.in
+10Sep03
+- Made pthreads default -- lots of problems converting to new
+  autoconf -- it deleted my config.h.in file!
+01Sep03
+- Fixed bad file descriptor in SO_KEEPALIVE for slave (reported
+  by Derek Battams.
+- Added informative subject to email onbattery, ... (suggested
+  by a user, thanks -- sorry I forgot who).
+- #ifdef off IP6 code in inet_pton for platforms that do not have it.
+06Aug03
+- Added the -s "$MSG" to each of the script files (mainsback, ...)
+  as suggested by Nicholas Robinson.
+- The dependencies were not being correctly generated, so
+  simplified the code. 
+- Added install: to the include Makefile.in.  Lack of it 
+  caused problems on OpenBSD.
+- Changed LINEVOLT to MAINS in apcstatus.c to fix a problem   
+  reported by David Walser of CGI reporting zero volts.
+- Tried to clarify the difference between the net and
+  the master/slave drivers in the doc.
+05Aug03
+- Because of the complaints about the master/slave code, I finally
+  got around to testing it, and it was seriously broken in more
+  than one way.  It seems to be working now.
+- Started adding new set_ups() instead of UPS_SET().
+- Adding the SIGCHLD broke quite a lot of calls in the master/slave
+  code. This will probably also show up elsewhere.
+04Aug03
+- Tested the net driver, it seems to work perfectly fine. I
+  did add a grace period of 4 seconds with comm loss on batteries
+  before the shutdown is done.
+- A number of changes to the manual.
+- Clean up the net driver to be compatible with C++ for building
+  on Windows.
+- Ensure that we don't get stuck in a waitpid loop after calling
+  apccontrol. Hopefully this will fix the 100% CPU usage on Win32
+  after a power condition.
+18Jul03
+- Reissue accept() immediately if interrupted rather than waiting.
+15Jul03
+- In attempting to build the .cgi files on Windows, I realized that
+  the gd1.2 code was no longer in the distribution.  Although some
+  people were worried about the gif patent (I wasn't) it has now
+  expired, so I see no reason why not to distribute the code as
+  we always have. For the purists, it appears that the version you
+  have on your system (png) will be used in preference to the local
+  gd code.
+- I backed out the 12July SNMP changes since they probably only
+  work for 3 phase and I don't have the libraries to test compile
+  or the card to test.
+12Jul03
+- Modify snmp driver to use upsPhaseOutputPercentPower instead of
+  upsAdvOutputLoad as requested by ivac@gnjilux.srk.fer.hr.
+08Jul03
+- As reported by Brandon Applegate, the net driver was not 
+  clearing old flags after a power failure. In fact, it was
+  really screwed up -- it always or'ed in the new bits thus
+  keeping any old status, and blasting out any local bits.
+  Fixed hopefully.
+- Made a new set of defines for setting/clearing/testing ups
+  Status bits that is much easier to read.
+- Added Sergey Vlasov's second USB kernel patch to the examples
+  directory.  The two patches can be found in:
+    linux-2.4.20-killpower.patch
+    linux-2.4.20-USB-reject.patch
+  The emails are also in that directory.
+- As suggested by Sergey for the 2.5 kernel, I have #ifdefed
+  out the call to HIDIOCGREPORT in the int_write routine used
+  for killpower.
+07Jul03
+- Lots of updates to the document.
+- Fixed a slave crash in master/slave mode. It was a missing setup_device,
+  and was diagnosed and reported by Christian Schacht -- many thanks.
+30May03
+- Made non-existent header files non-fatal and added #ifdef 
+  around sys/socket.h so it will compile on IRIX.
+- Add Scott's latest apcupsd.conf with the hid-ups program code 
+  (actually I had done this some time ago ...).
+- Start a ReleaseNotes file
+20May03
+- Fixed a typo error (mine) that prevented Scott from building
+  rpms. Strange, it worked for me????
+19May03
+- More DESTDIR cleanup for building non-root rpms.
+18May03
+- Add DESTDIR everywhere so we can build rpms non-root
+- Additional documentation
+- Add Scott's new apcupsd.spec
+06May03
+- On Hilary Jones suggestion, I fixed the ./configure message that
+  is printed when no libgd is found to direct the user to the
+  main source.
+01May03
+- Add Sergey Vlasov's kernel patch to the examples directory,
+  and it replaces the previous patch.
+  This patch now solves the killpower problem on Linux USB.
+  <apcupsd-source>/examples/linux-2.4.20-alt-apc_usb_ups.patch
+  notes are in: linux-usb-patch-email.txt
+22Apr03
+- Add TTY mode to apctest to communicated directly with UPS.
+- Apply patch to linux-usb.c in killpower supplied by
+  Sergey Vlasov (thanks!).
+19Apr03
+- Eliminate pow() function in linux-usb.c so that -lm is not needed.
+14Apr03
+- Add automatic detection of socklen_t
+11Apr03
+- I received a kernel patch from Sergey Vlasov that fixes
+  the killpower problem on CS UPSes. apcupsd can now shutdown
+  these devices! I've removed some debug code that was in
+  the killpower routine and is not needed or used.
+  I have put the kernel patch in:
+    <apcupsd-source>/examples/linux-2.4.20-alt-hidups.patch
+05Apr03
+- When the Win32 version starts as a service, delete the
+  NOLOGIN and PWRFAIL files to prevent later confusion.
+  Thanks to Allen Crawford for pointing this out.
+29Mar03
+- Modify all Win32 program so that only windowed programs
+  (apcupsd, popup) have the -mwindows flags. The others do not.
+- Tweak apctest.c a bit -- add EEPROM programming (still a bit
+  kludgy), but at least it can be done.
+21Mar03
+- Lots of clean ups for Cygwin stuff. Events now work, and exit.
+- Clean up a few undefined symbols in building with everything on.
+- Eliminate pid and serial port lock file on Win32 systems.
+10Mar03
+- Modify init script to use daemon so that STDIN/OUT, ... are   
+  detached from the terminal and pointed to the log file. This
+  prevents remotely logged in users who start apcupsd from being
+  unable to log out.
+06Mar03
+- Made some mindor modifications to configure.in and aclocal.m4 to
+  make consistent use of double quotes in test statements in
+  response to problems with make install reported by Andrew Surratt.
+- Thanks to Richard Schwaninger for finding and submitting a patch to
+  the tcp-wrappers code that prevented it from working because of an
+  invalid name. Fixed.
+05Mar03
+- Thanks to Andrew Reid for pointing out that the child reaping code
+  should be clearing the pid slot if a -1 is returned. The pid table
+  was filling up on his system due to killed children. Fixed
+21Feb03
+- A bug report against the Mandrake version of apcupsd indicates that
+  apcupsd is not releasing /dev/console.  I've moved the close() of
+  STDIN so that it is always executed to prevent this possibility.
+12Feb03
+- Implement very crude first cut of EEPROM programming in apctest.
+  Set battery date, set UPS name, and print EEPROM values should
+  work.

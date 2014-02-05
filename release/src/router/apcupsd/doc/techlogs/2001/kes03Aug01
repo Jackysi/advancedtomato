@@ -1,0 +1,28 @@
+                Technical notes on version 3.9.3 
+                        03 August 2001
+                        Kern Sibbald
+
+General:
+- Improvements in master/slave timeout detection and error
+  messages.
+- New master connect/disconnect events (accontrol).
+- Additional master/slave documentation.
+- Document USB.
+
+Changes submitted this submission:
+- Create new events "masterconnect" and "mastertimeout", which
+  are triggered when a slave detects that the master has connected
+  and timedout respectively.
+- Add mastertimeout and masterconnect scripts to etc.
+- Cleanup the POWERFAIL file write as suggested by Neil.
+- Add additional detail to master/slave error messages (in many cases
+  the errno is now printed).
+- Implement select() on accept() and on read() in master and slave
+  to permit timing out master/slave.
+- Implement CommLost status for master/slave communications.
+- Fixed SuSE start/stop symbolic linking.  
+- Implemented a generic apccontrol, which is placed in the 
+  distribution directory. If a platform wants a customized version
+  (openbsd, freebsd, sun), simply place the apccontrol in the 
+  platform subdirectory and ensure that configure.in knows which
+  one to make.

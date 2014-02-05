@@ -1,0 +1,526 @@
+# Platform configuration
+# 
+# Select the platform by setting the define below either by command
+# line arguments,
+#  e.g.  rpmbuild -ba --define "build_suse 1" apcupsd.spec
+# or by manually setting it to 1 in this file,
+#  e.g. %define suse 1
+#
+# If you want the gapcmon package, use:
+#  e.g.  rpmbuild -ba --define "build_gapcmon 1" --define "build_suse 1" apcupsd.spec
+# or by manually setting it to 1 in this file,
+#  e.g. %define gapcmon 1
+#
+# If you want the (obsolete) NET-SNMP driver, use:
+#  e.g.  rpmbuild -ba --define "build_snmp 1" --define "build_suse 1" apcupsd.spec
+# or by manually setting it to 1 in this file,
+#  e.g. %define snmp 1
+# The modern SNMP driver is always enabled since it has no dependencies.
+#
+# Note, to build, you need:
+#   Release_Notes-%{version}-%{release}.tar.gz in your
+#   rpm SOURCES directory, and the tar file must contain
+#   Release_Notes-%{version}-%{release}.txt
+#
+
+# basic defines for every build
+%define _version @VERSION@
+%define _release 1
+
+#--------------------------------------------------------------------------
+# it should not be necessary to change anything below here for a release
+# except for patch macros in the setup section if used
+#--------------------------------------------------------------------------
+
+%define pwrfaildir @PWRFAILDIR@
+%define halpolicydir /usr/share/hal/fdi/policy/20thirdparty
+
+# third party packagers
+%define _packager D. Scott Barninger <barninger@fairfieldcomputers.com>
+%{?contrib_packager:%define _packager %{contrib_packager}}
+
+%define rh7 0
+%{?build_rh7:%define rh7 1}
+
+%define rh8 0
+%{?build_rh8:%define rh8 1}
+
+%define rh9 0
+%{?build_rh9:%define rh9 1}
+
+# all FC releases to date
+%define fedora_core 0
+%{?build_fedora_core:%define fedora_core 1}
+
+# RedHat Enterprise and all clones
+%define rhel3 0
+%{?build_rhel3:%define rhel3 1}
+%define rhel4 0
+%{?build_rhel4:%define rhel4 1}
+%define rhel5 0
+%{?build_rhel5:%define rhel5 1}
+
+# SuSE 9.x and 10.x
+%define suse 0
+%{?build_suse:%define suse 1}
+
+# Mandrake and Mandriva
+%define mdk 0
+%{?build_mdk:%define mdk 1}
+
+%if ! %{suse}
+%define suse_version 0
+%endif
+
+%if %{suse}
+%define initdir /etc/rc.d
+%else
+%define initdir /etc/rc.d/init.d
+%endif
+
+# set destination directories for multimon
+%define cgidir /var/www/cgi-bin
+%if %{suse}
+%define cgidir /srv/www/cgi-bin
+%endif
+
+# set ownership of files
+%define binowner root
+%define bingroup root
+%define dataowner apache
+%define datagroup apache
+%if %{suse}
+%define dataowner wwwrun
+%define datagroup www
+%endif
+
+# should we build gapcmon, requires gtk2 >= 2.4
+%define gapcmon 0
+%{?build_gapcmon:%define gapcmon 1}
+
+# should we build net-snmp driver
+%define snmp 0
+%{?build_snmp:%define snmp 1}
+
+Summary:      APC UPS Power Control Daemon for Linux
+Name:         apcupsd
+Version:      %{_version}
+Release:      %{_release}
+Vendor:       APC UPS Daemon Team
+Distribution: The apcupsd Team
+Packager:     %{_packager}
+URL:          http://www.apcupsd.com
+Source0:      http://www.spcupsd.com/%{name}-%{version}.tar.gz
+Source1:      Release_Notes-%{version}-%{release}.tar.gz
+Group:        System Environment/Daemons
+License:      GPL v2
+BuildRoot:    %{_tmppath}/%{name}-root
+BuildRequires: gd-devel, ncurses-devel, ghostscript, libstdc++-devel
+%if %{rh7}
+BuildRequires: glibc-devel >= 2.2, libjpeg-devel, libpng-devel, zlib-devel, freetype-devel
+%else
+BuildRequires: glibc-devel >= 2.3
+%endif
+%if %{gapcmon}
+BuildRequires: glibc-devel, gtk2-devel >= 2.4, glib2-devel, atk-devel
+BuildRequires: ORBit2, pango-devel, pkgconfig
+%endif
+%if %{suse} && %{gapcmon}
+BuildRequires: bonobo-activation, freetype2-devel, cairo-devel, fontconfig-devel
+BuildRequires: gconf2-devel, gnome-vfs2-devel, libpng-devel, glitz-devel, xorg-x11-libs
+BuildRequires: libbonobo-devel, libbonoboui-devel
+%endif
+%if %{fedora_core} && %{gapcmon}
+BuildRequires: libbonobo-devel, libbonoboui-devel, freetype-devel, GConf2-devel
+%endif
+%if %{mdk} && %{gapcmon}
+BuildRequires: libbonobo2_0-devel, libbonoboui2_0-devel, freetype2-devel, libGConf2_4-devel
+%endif
+%if %{rhel4} && %{gapcmon}
+BuildRequires: libbonobo-devel, libbonoboui-devel, freetype-devel, GConf2-devel
+%endif
+%if %{rhel5} && %{gapcmon}
+BuildRequires: libbonobo-devel, libbonoboui-devel, freetype-devel, GConf2-devel
+%endif
+%if %{snmp}
+BuildRequires: net-snmp-devel
+%endif
+
+Provides: apcupsd
+Obsoletes: apcupsd-std apcupsd-usb
+
+Requires: perl, ncurses
+%if %{rh7}
+Requires: glibc >= 2.2
+%else
+Requires: glibc >= 2.3
+%endif
+%if %{snmp}
+Requires: net-snmp
+%endif
+
+%description
+Apcupsd can be used for controlling most APC UPSes. During a
+power failure, apcupsd will inform the users about the power
+failure and that a shutdown may occur.  If power is not restored,
+a system shutdown will follow when the battery is exausted, a
+timeout (seconds) expires, or the battery runtime expires based
+on internal APC calculations determined by power consumption
+rates.  If the power is restored before one of the above shutdown
+conditions is met, apcupsd will inform users about this fact.
+Some features depend on what UPS model you have (simple or smart).
+This package is configured for USB but can be reconfigured for
+standard serial port UPS models. See the manual.
+
+%package multimon
+Summary:      APC UPS Power Control Daemon for Linux
+Group:        Applications/Internet
+
+Requires: libstdc++
+%if %{fedora_core} || %{suse} || %{mdk} || %{rhel4} || %{rhel5}
+Requires: gd >= 2.0
+%else
+Requires: gd < 2.0
+%endif
+%if %{rh7}
+Requires: glibc >= 2.2, libjpeg, libpng, zlib, freetype
+%else
+Requires: glibc >= 2.3
+%endif
+
+%description multimon
+apcupsd Network Monitoring (CGI) Programs which will give you the 
+status of your UPS or UPSes over the network.
+
+%if %{gapcmon}
+%package gapcmon
+Summary:      APC UPS Power Control Daemon for Linux
+Group:        Applications/System
+
+Requires: glibc, gtk2 >= 2.4, glib2, atk, libbonobo, libbonoboui, ORBit2, pango
+%endif
+
+%if %{suse} && %{gapcmon}
+Requires: bonobo-activation, freetype2, cairo, fontconfig, gconf2, gnome-vfs2, libpng, glitz, xorg-x11-libs
+%endif
+%if %{fedora_core} && %{gapcmon}
+Requires: freetype, GConf2
+%endif
+%if %{mdk} && %{gapcmon}
+Requires: freetype2, GConf2
+%endif
+%if %{rhel4} && %{gapcmon}
+Requires: freetype, GConf2
+%endif
+%if %{rhel5} && %{gapcmon}
+Requires: freetype, GConf2
+%endif
+
+%if %{gapcmon}
+%description gapcmon
+A Gnome application to monitor the status of your UPS.
+%endif
+
+# SuSE turns off stripping of binaries by default. In order to get
+# stripped packages we must generate debug package. RedHat and Mandriva
+# turn debug packages on by default but strip binaries regardless.
+%if %{suse}
+%debug_package
+%endif
+
+%prep
+
+%setup -b 1
+
+%build
+
+%configure \
+        --prefix=%{_prefix} \
+        --sbindir=/sbin \
+        --sysconfdir=%{_sysconfdir}/apcupsd \
+        --with-cgi-bin=%{cgidir} \
+        --enable-cgi \
+        --enable-net \
+        --enable-pcnet \
+        --enable-apcsmart \
+        --enable-dumb \
+        --enable-usb \
+        --enable-snmp \
+	%if %{gapcmon}
+	--enable-gapcmon \
+	%endif
+	%if %{snmp}
+	--enable-net-snmp \
+	%endif
+        --with-serial-dev= \
+        --with-upstype=usb \
+	--with-halpolicydir=%{halpolicydir} \
+        --with-upscable=usb 
+
+make
+
+cd examples
+make hid-ups
+cd ../
+
+%install
+[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
+
+mkdir -p $RPM_BUILD_ROOT%{initdir}
+mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/cgi
+
+make \
+        DESTDIR=$RPM_BUILD_ROOT \
+        install
+
+install -m744 platforms/apccontrol \
+              $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/apccontrol
+	      
+%if ! %{suse} && ! %{mdk}	      
+install -m755 platforms/redhat/apcupsd $RPM_BUILD_ROOT%{initdir}
+%endif
+%if %{suse}
+install -m755 platforms/suse/apcupsd $RPM_BUILD_ROOT%{initdir}
+%endif
+%if %{mdk}
+install -m755 platforms/mandrake/apcupsd $RPM_BUILD_ROOT%{initdir}
+%endif
+
+%if ! %{mdk}
+rm $RPM_BUILD_ROOT%{initdir}/halt
+rm $RPM_BUILD_ROOT%{initdir}/halt.old
+%endif
+
+install -m744 examples/hid-ups \
+              $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/hid-ups
+install -m744 examples/make-hiddev \
+              $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/make-hiddev
+
+%clean
+[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
+rm -f $RPM_BUILD_DIR/Release_Notes-%{version}-%{release}.txt
+
+%files
+%defattr(-,root,root)
+%{_sysconfdir}/apcupsd/make-hiddev
+%{_sysconfdir}/apcupsd/hid-ups
+%{halpolicydir}/80-apcupsd-ups-policy.fdi
+%doc COPYING DISCLAIMER ReleaseNotes ChangeLog ../Release_Notes-%{version}-%{release}.txt doc/manual/manual.html doc/manual/*.png
+%dir %{_sysconfdir}/apcupsd
+%{initdir}/apcupsd
+%config(noreplace) %{_sysconfdir}/apcupsd/apccontrol
+%config(noreplace) %{_sysconfdir}/apcupsd/changeme
+%config(noreplace) %{_sysconfdir}/apcupsd/commfailure
+%config(noreplace) %{_sysconfdir}/apcupsd/commok
+%config(noreplace) %{_sysconfdir}/apcupsd/onbattery
+%config(noreplace) %{_sysconfdir}/apcupsd/offbattery
+%config(noreplace) %{_sysconfdir}/apcupsd/apcupsd.conf
+/sbin/*
+%attr(-,root,man) %{_mandir}/*/*
+
+%files multimon
+%defattr(-,root,root)
+%dir %{_sysconfdir}/apcupsd
+%dir %{cgidir}
+%attr(-,%{dataowner},%{datagroup}) %{_sysconfdir}/apcupsd/apcupsd.css
+%attr(-,%{binowner},%{bingroup}) %{cgidir}/*
+%attr(-,%{dataowner},%{datagroup}) %config(noreplace) %{_sysconfdir}/apcupsd/hosts.conf
+%attr(-,%{dataowner},%{datagroup}) %config(noreplace) %{_sysconfdir}/apcupsd/multimon.conf
+
+%if %{gapcmon}
+%files gapcmon
+%defattr(-,root,root)
+%{_prefix}/bin/gapcmon
+%{_prefix}/share/applications/gapcmon.desktop
+%{_prefix}/share/pixmaps/apcupsd.png
+%{_prefix}/share/pixmaps/charging.png
+%{_prefix}/share/pixmaps/gapc_prefs.png
+%{_prefix}/share/pixmaps/onbatt.png
+%{_prefix}/share/pixmaps/online.png
+%{_prefix}/share/pixmaps/unplugged.png
+%endif
+
+%post
+
+# get rid of any 3.6.2 stuff
+rm -f /etc/rc.d/rc[0-6].d/[KS]20apcups
+rm -f %{initdir}/apcups
+
+# add our links
+if [ "$1" -ge 1 ] ; then
+/sbin/chkconfig --add apcupsd
+fi
+
+# are we Red Hat or SuSE?
+# Mandrake already handles apcupsd
+if [ -s /etc/redhat-release -o -s /etc/SuSE-release -o -s /etc/whitebox-release ]; then
+cp -f %{initdir}/halt %{initdir}/halt.old
+awk '# Stuff left over from a previous apcupsd, remove it
+/^# See if this is a powerfail situation\./ {
+   do {
+      getline
+   }  while (length($0) != 0)
+   getline
+}
+# We insert the new apcupsd code just before the following line
+/^# Now halt or reboot\./ {
+    print "# See if this is a powerfail situation.                               # ***apcupsd***"
+    print "if [ -f %{pwrfaildir}/powerfail ]; then                                # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   echo \"APCUPSD will now power off the UPS\"                          # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   %{pwrfaildir}/apccontrol killpower                                  # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   echo \"Please ensure that the UPS has powered off before rebooting\" # ***apcupsd***"
+    print "   echo \"Otherwise, the UPS may cut the power during the reboot!!!\"   # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "fi                                                                    # ***apcupsd***"
+    print ""
+}
+# Everything else is duplicated 
+{ print } ' %{initdir}/halt.old > %{initdir}/halt
+
+chmod 744 %{initdir}/halt
+fi
+
+# restart the daemon if we are upgrading
+if [ "$1" -ge "2" ] ; then
+	%{initdir}/apcupsd restart
+fi
+
+# Undo things a bit
+
+%preun
+
+if [ "$1" = 0 ] ; then
+
+        # remove startup links
+        /sbin/chkconfig --del apcupsd
+	
+	# are we Red Hat or SuSE?
+	# Mandrake already handles apcupsd
+	if [ -s /etc/redhat-release -o -s /etc/SuSE-release -o -s /etc/whitebox-release ]; then
+
+        cp -f %{initdir}/halt %{initdir}/halt.old
+        awk '# Stuff added by apcupsd, remove it
+        /^# See if this is a powerfail situation\./ {
+           do {
+          getline
+           }  while (length($0) != 0)
+           getline
+        }
+        # Everything else is duplicated 
+        { print } ' %{initdir}/halt.old > %{initdir}/halt
+
+        chmod 744 %{initdir}/halt
+	fi
+fi
+
+%changelog
+* Sun Jan 10 2010 Adam Kropelin <akropel1 at rochester.rr.com>
+- changes for new snmp driver
+* Sat Aug 01 2009 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- fix restart on upgrade using $1 variable. remove previously commented out code
+* Sat May 16 2009 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- comment out latex build
+* Fri May 15 2009 Adam Kropelin <akropel1 at rochester.rr.com>
+- changes for new user manual location and format
+* Sat May 31 2008 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add check for upgrade and restart daemon
+* Sun May 11 2008 Adam Kropelin <akropel1 at rochester.rr.com>
+- remove powerflute
+* Sun Feb 03 2008 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add debug package to strip suse
+* Sat Nov 17 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add hal policy file
+* Sat Nov 10 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- SuSE 10.3 replaces tetex with texlive-latex package
+* Sun May 27 2007 Adam Kropelin <akropel1 at rochester.rr.com>
+- add support for rhel5
+* Sun Jan 28 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- remove /etc/apcupsd/masterconnect and mastertimeout files
+* Sat Jan 27 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add snmp build
+- fix location of Requires for base package
+* Sun Jan 21 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- correct gapcmon dependancies
+* Sat Jan 20 2007 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- restructure for 3.14 release
+- merge std and ups packages
+- remove --enable-pthreads and --enable-master-slave
+- add --enable-pcnet
+- break out multimon into separate package
+- add gapcmon package
+* Sat Aug 19 2006 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add third party packager tag
+* Fri May 05 2006 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- update build requirments to include ghostscript
+- update fedora_core build requirements to include latex2html
+* Sun Apr 23 2006 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add pdf manual to doc package
+- remove redundant code for std and usb packages
+- add powerflute
+* Sat Apr 22 2006 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- clean up build defines, add rhel4
+* Sat Jan 21 2006 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- release 3.12.2 update docs
+* Sun Sep 18 2005 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- Change deprecated Copyright tag to License
+* Tue Jun 07 2005 Adam Kropelin <akropel1@rochester.rr.com>
+- Rename mainsback.in to offbattery.in so default power loss/return actions
+- are symmetrical.
+* Sat Apr 30 2005 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- fix typo in rh7 dependencies
+* Sat Mar 12 2005 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- clean up halt insertion code, add check for whitebox-release
+- remove cruft that has been commented out for a long time
+- add pwrfaildir as variable
+- correct SuSE initdir
+- add libjpeg libpng zlib freetype dependencies for RH7
+* Sun Nov 28 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- correct awk insertion in halt script for SuSE
+* Fri Nov 05 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- change Mandrake logic in preun and post scriptlets to if;then;fi
+* Sun Oct 31 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add Mandrake support
+* Wed Aug 04 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- changed location of apcupsd.css to /etc/apcupsd from /etc/apcupsd/cgi
+- corrected typo introduced in SuSE configuration for initdir definition
+* Sun Apr 25 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- add SuSE configuration
+* Sat Apr 24 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- tidy up doc includes, add release notes
+* Mon Mar 08 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- added additional clean of buildroot to beginning of install section
+- corrected post install routines for nicer chkconfig
+* Sat Jan 17 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- added build of net driver to configure
+- moved usb driver build into both packages
+- set --with-serial-dev= to blank so will find any device and removed rh7 patch
+* Sat Jan 10 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- added build tags for rh8 rh9 fedora_core and wb3
+- cleaned up dependancies and Requires by platform
+* Thu Jan 1 2004 D. Scott Barninger <barninger at fairfieldcomputers.com>
+- removed rh_version from package names
+- added platform build configuration section to beginning of file
+* Sat Nov 08 2003 Scott at fairfieldcomputers dot com
+- expanded usb devices from 0-9 to 0-15
+* Fri Nov 07 2003 Scott at fairfieldcomputers dot com
+- corrected device path for usb devices to /dev/usb and added patch for
+- rh7 builds to make it /dev/usb/hid in /etc/apcupsd/apcupsd.conf
+* Sat Oct 18 2003 Scott at fairfieldcomputers dot com
+- added master-slave, apcsmart and dumb to configure options
+* Sun Sep 14 2003 Scott at fairfieldcomputers dot com
+- added rm commands during install to remove halt scripts created
+- in the build root
+* Mon May 11 2003 Scott at fairfieldcomputers dot com
+- combined layout for usb/serial builds
+* Thu Jan 16 2003 Scott at fairfieldcomputers dot com
+- Update spec to new source layout
+- Added masterconnect and mastertimout to files section
+- Changed make install-apcupsd and make install-cgi to make install
+* Wed Sep 05 2001 kern at sibbald dot com
+- Applied very nice patch to this spec by Giulio Orsero <giulioo@pobox.com>
+* Thu Sep 14 2000 kern at sibbald dot com
+- Many thanks to Fredrik Persson and Neil Darlow for helping me write this spec file.
+- Basic spec by Kern Sibbald

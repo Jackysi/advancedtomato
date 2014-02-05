@@ -1,0 +1,33 @@
+         Technical notes on my code submission of 08 Dec 00
+                        Kern Sibbald
+
+General:
+- Integrated Riccardo's fixes to the automatic dependencies
+  make problem with ./configure.
+- Allow NIS process to run regardless of the configuration.
+  Previously it ran only if the UPS was connected to the
+  serial port.
+
+
+Changes submitted this submission:
+- Created a .in file for apcupsd.spec on the RedHat version
+  that includes @VERSION@ so that it is automatically updated
+  with each version.
+- Changed the version in version.h not to have the apcupsd in
+  front of the numbers, which was redundant.
+- Hopefully this time, I corrected the on battery timers.
+  I now start them when we first detect a power failure.   
+- I've added a new time value, which is the last time the
+  master contacted a slave.  This value is then put in the
+  STATUS output as MASTERUPD.  Thus, in looking at the STATUS
+  output, you can see if the slave is being updated from the
+  master.
+- Allow the Network Information Service process to be created
+  in any configuration.
+- Updated the trouble shooting section of the manual.
+- Updated the Win32 source build instructions.
+- Commented out the popup window calls on the Win32 version
+  in apccontrol for powerfail and mainsback. These tend to be
+  more annoying than helpful since usually you are very aware
+  that the power has gone off, or you aren't there and the  
+  unanswered dialogue boxes remain around a long time.

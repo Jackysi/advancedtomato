@@ -1,0 +1,51 @@
+APC      : 001,050,1145
+DATE     : Tue Aug 29 13:35:43 CEST 2000
+HOSTNAME : net-master
+RELEASE  : 3.7.2
+CABLE    : Custom Cable Smart
+MODEL    : SMART-UPS 5000 RM
+UPSMODE  : Net Master
+SHARE    : NetworkUPS
+UPSNAME  : UPS_IDEN
+STATUS   : ONLINE 
+LINEV    : 230.1 Volts
+LOADPCT  :  31.7 Percent Load Capacity
+BCHARGE  : 100.0 Percent
+TIMELEFT :  40.0 Minutes
+MBATTCHG : 5 Percent
+MINTIMEL : 3 Minutes
+MAXTIME  : 0 Seconds
+MAXLINEV : 230.1 Volts
+MINLINEV : 228.8 Volts
+OUTPUTV  : 230.1 Volts
+SENSE    : High
+DWAKE    : 000 Seconds
+DSHUTD   : 020 Seconds
+DLOWBATT : 02 Minutes
+LOTRANS  : 196.0 Volts
+HITRANS  : 253.0 Volts
+RETPCT   : 000.0 Percent
+ITEMP    : 19.3 C Internal
+ALARMDEL : 5 seconds
+BATTV    : 55.0 Volts
+LINEFREQ : 50.0 Hz
+LASTXFER : Line voltage notch or spike
+SELFTEST : NO
+STESTI   : 336
+STATFLAG : 0x08 Status Flag
+DIPSW    : 0x00 Dip Switch
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : 11/29/99
+SERIALNO : GS9999999999
+BATTDATE : 11/29/99
+NOMOUTV  : 230
+NOMBATTV :  48.0
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : 0
+BADBATTS : N/A
+FIRMWARE : 112.13.I
+APCMODEL : PWI
+END APC  : Tue Aug 29 13:35:44 CEST 2000

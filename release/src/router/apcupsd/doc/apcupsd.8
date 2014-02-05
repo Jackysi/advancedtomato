@@ -1,0 +1,230 @@
+.\" manual page [] for apcupsd version 3.14.6
+.Dd January 10, 2009
+.Dt APCUPSD 8
+.Os apcupsd v3.14.6
+.Sh NAME
+.Nm apcupsd 
+.Nd a daemon for controlling most APC UPSes
+.Sh SYNOPSIS
+.Nm
+.Op Fl b 
+.Op Fl d Ar level | Fl -debug Ar level
+.Op Fl f Ar file | Fl -config-file Ar file
+.Op Fl P Ar file | Fl -pid-file Ar file
+.Op Fl p | -kill-on-powerfail | t | -term-on-powerfail
+.Op Fl R
+.Pp
+.Nm 
+.Op Fl k | -killpower | -hibernate | o | -power-off 
+.Pp
+.Nm
+.Op Fl h | -help
+.Pp
+.Nm
+.Op Fl V | -version
+.Pp
+.Sh DESCRIPTION
+.Pp
+The
+.Nm 
+daemon controls the operation of most American Power Conversion Corp 
+(APC) UPSes.  During a power failure,
+.Nm
+informs users about the loss of utility power and that a shutdown may occur.  
+If utility power is not restored, a system shutdown will follow when the 
+battery is exhausted, a specified timeout expires, a specified battery 
+charge percentage is reached, or a specified battery runtime (based on 
+internal UPS calculations and determined by power consumption rates)
+expires.  If the utility power is restored before one of the these 
+shutdown conditions is met, 
+.Nm
+will inform users of this and the shutdown will generally be cancelled.
+Refer to the Implementation Notes section below for situations in which 
+the shutdown may not be cancelled.
+.Pp
+The meaning of the command line options is as follows:
+.Bl -tag -width Fl
+.It Fl b
+Run in the foreground, do not detach and become a daemon.
+.It Fl d Ar level Fl -debug Ar level
+Set debugging output level where level is a number greater than zero.
+.It Fl f Ar file Fl -config-file Ar file
+Load the specified configuration file. 
+The default configuration file is 
+.Pa /etc/apcupsd/apcupsd.conf .
+It must be changed when running more than one copy of
+.Nm
+on the same computer to control multiple UPSes.
+.It Fl k | Fl -killpower | -hibernate
+Power down the UPS in hibernate mode after a 10 second delay. This 
+option is normally only used by 
+.Nm
+itself to power down the UPS after a system shutdown has almost completed. 
+In hibernate mode, the UPS will again supply power to the system when the 
+utility power returns.
+.It Fl o | -power-off
+Power down UPS completely. The UPS will not supply power to the system
+when the utility power returns.
+.It Fl P Ar file Fl -pid-file Ar file
+Create the specified process ID file. The default is
+.Pa /var/run/apcupsd.pid .
+It must be changed when running more than one copy of
+.Nm
+on the same computer to control multiple UPSes.
+.It Fl p -kill-on-powerfail
+.Nm
+commands the UPS to power down in hibernate mode just before
+.Nm
+starts the system shutdown. This relies on the grace shutdown delay 
+of a Smart-UPS being long enough to allow the system to shutdown 
+completely before the UPS shuts off the power to the system and goes 
+into hibernate mode. This shutdown grace delay is a programmable
+value stored in a Smart-UPS EEPROM which can be changed using
+.Xr apctest 8 .
+In hibernate mode, the UPS will again supply power 
+to the system when the utility power returns. Refer to
+.Xr apcupsd.conf 5
+for an alternative method using the KILLDELAY configuration 
+directive and the only method available when using a Back-UPS or other 
+UPS operating in simple signalling mode.
+.It Fl t -term-on-powerfail
+.Nm
+exits immediately when it issues the system shutdown command. 
+This behaviour is useful for those systems where it is not possible 
+to insert 
+.Nm
+commands in a halt script to issue the killpower command. 
+Without this option, 
+.Nm
+will wait for the SIGTERM signal from the system shutdown process
+before exiting.
+.It Fl R
+Put a UPS which runs in smart signalling mode by default (eg a Smart-UPS)
+into simple signalling mode.
+.It Fl v -version
+Prints the
+.Nm
+version number and the program help.
+.It Fl h  -help
+Prints the program help.
+.Pp
+.El
+The
+.Nm
+daemon supports a networking mode called Network 
+Information Server  (NIS) -- not related  to Sun's NIS/YP -- 
+in which the daemon serves status and event information to 
+clients over a network. See the "Running The Network Information 
+Server" section of the apcupsd manual for more information and 
+configuration details on this mode.
+.Pp
+The 
+.Nm
+daemon also supports a Smart-UPS in SNMP mode provided an APC
+Web/SNMP or APC PowerNet SNMP card is installed in the UPS's SmartSlot. 
+For more information and configuration details on this mode, refer to the 
+"Support for SNMP UPSes" section of the apcupsd manual.
+.Pp
+.Sh IMPLEMENTATION NOTES
+.Pp
+The shutdown is made by calls to the script
+.Pa /etc/apcupsd/apccontrol
+by the
+.Nm
+daemon.  Consequently, no changes to
+.Pa /etc/inittab
+are necessary on Linux as there is no communication between the 
+daemon and the init(1) process.  Installation of the daemon modifies 
+the halt script so that at the end of the shutdown process, the daemon
+will be re-executed to power off the UPS in hibernate mode. 
+.Pp
+On some operating systems (eg FreeBSD) there is no halt script so apccontrol 
+must be modified to cause the daemon to power off the UPS after a delay. 
+Alternatives are to use the --kill-on-powerfail command on the
+.Nm 
+command line or refer to 
+.Xr apcupsd.conf 5
+for details of the KILLDELAY configuration directive. 
+.Pp
+.Sh CONFIGURATION
+It will almost certainly be necessary to customise the configuration 
+information in the
+.Pa /etc/apcupsd/apcupsd.conf
+configuration file to suit your configuration and desired UPS behaviour.
+.Pp
+For information on the configuration directives and the format of 
+the configuration file, refer to 
+.Xr apcupsd.conf 5 .
+.Pp
+.Sh EVENTS
+.Pp
+.Nm
+generates events when certain conditions occur. 
+These events are sent to the system log and, optionally,
+to the temporary events file 
+.Pa ( /var/log/apcupsd.events ) .
+They also generate a call to  the
+.Pa /etc/apcupsd/apccontrol
+script which in turn will call any custom scripts placed in the
+.Pa /etc/apcupsd
+directory which may override apccontrol's default behaviour. For 
+details of the events and customising apccontrol's behaviour, refer to
+.Xr apccontrol 8 .
+.Pp
+.Sh DATA FILE FORMAT
+.Pp
+If the DATATIME configuration directive is set to non-zero, 
+.Nm
+will log a data record at the interval defined
+by the DATATIME directive. This data record is in a format
+similar to the APC PowerChute software data file format.
+.Sh STATUS REPORT FORMAT
+The status report output format is simple ASCII. Generally there
+is a single piece of information on each line of output. The
+content varies based on the model of UPS being used and, in
+some cases, the firmware version. This status report is also
+optionally written the the 
+.Pa /etc/apcupsd/apcupsd.status
+file. Refer to
+.Xr apcaccess 8
+for full details of the status report output.
+.Sh FILES
+.Pa /etc/apcupsd/apcupsd.conf 
+default configuration file
+.Pp
+.Pa /var/run/apcupsd.pid 
+default process ID file
+.Pp
+.Pa /var/log/apcupsd.status 
+optional status file
+.Pp
+.Pa /var/log/apcupsd.events
+default events file
+.Pp
+.Sh SEE ALSO
+.Pp
+.Xr apcupsd.conf 5 ,
+.Xr apcaccess 8 ,
+.Xr apccontrol 8 ,
+.Xr apctest 8 .
+.Pp
+The HTML apcupsd manual installed on your system or available online at
+http://www.apcupsd.org/
+.Pp
+.Sh AUTHORS
+.Pp
+.Ss This page
+.An Trevor Roydhouse (current)
+.An Andre M. Hedrick 
+.An Christopher J. Reimer 
+.Pp
+.Ss Software
+.An Adam Kropelin (current Project Manager and Code Maintainer)
+.An Kern Sibbald (former Project Manager and Code Maintainer)
+.An Riccardo Facchetti (former Project Manager and Code Maintainer)
+.An Andre M. Hedrick (Project Founder and former Code Maintainer)
+.Pp
+.Ss Contributors
+.Pp
+An enormous number of users who have devoted their time and energy to 
+this project -- thanks.

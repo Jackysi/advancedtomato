@@ -1,0 +1,96 @@
+         Technical notes on my code submission of 09 Jan 00
+                        Kern Sibbald
+
+General:
+- I worked on porting apcupsd to Windows under CYGWIN.
+- Redesigned the Network Information Server protocol
+  to allow the server to send back any amount of information.
+  This was accomplished by terminating each server response
+  with a record having a zero length -- much like when
+  read() gets and EOF.
+
+Changes submitted this submission:
+- Modified configure.in and Makefile.in to check and use
+  the executable extension (necessary for apcnetd.
+- Used the new network protocol to pass the EVENTS records
+  one at a time rather than in a big block. This simplified
+  the code on the sending and receiving ends.
+- apcnetd.c and apcserver.c, in general cleaned up the 
+  error handling somewhat and modified to protocol to send
+  a zero length record at the end of every transmission.
+  Also for CYGWIN, I removed the fork() as this seems
+  to cause some problems in inheritance of handles.
+  I also cleaned up the error messages, putting the lengths
+  as compiler defined rather than hard coding them.
+- apcnetlib.c. There was no change in logic, just a lot of
+  little changes to return proper error statuses. None of
+  the core code really takes advantage of all the statuses
+  returned, but it is there if needed.
+- apcstatus.c removed some code that will never be used.
+- upsfetch -- modified the code to use the new protocol.
+  This considerably simplifies the code.
+- In the distributions/win32 directory, I now have a 
+  skeleton Makefile (it doesn't do installation yet),
+  a correct shutdown program, and functioning apccontrol
+  and apcupsd scripts.
+- Made a simple UPS icon for apcupsd.exe on Windows machines.
+- Updated makediff to cope with the win32 directory.
+- Enhanced the examples/client.c program to work with the
+  new network protocol.  You will notice that it too is much
+  simpler than the old protocol.
+- Added function prototypes to apc_winipc.h.
+- Did a lot of cleanup of the manual. All files are now correct
+  HTML (not always easy) except for the upsbible, which still
+  contains a lot of errors from the original author. There were
+  so many that I got tired of correcting them. Most of them
+  are like compiler warning messages, they are harmless, but
+  do not conform to the HTML standard.
+
+
+                Kern's ToDo List
+
+To do:
+- Setuid of network processes to "nobody".
+- Check time delays in shutdown especially for master/slaves.
+- Look at Vladimir's code.
+- Set appropriate permissions on files in /etc/apcupsd during
+  make install.
+- Finish the rpm spec file.
+
+
+Wish list:
+- Make an apcupsd terminating event so that 
+  a script gets control and can notify me.
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Pass second argument to apccontrol indicating if
+  we are master/slave and other info.
+- STATUS file should be opened with open() rather
+  than fopen(). Some small changes required. 
+- Expand Last UPS Self Test field in cgi program
+- Update make clean to remove distributions/*/apccontrol.sh
+
+Done:
+
+Will not do:
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+

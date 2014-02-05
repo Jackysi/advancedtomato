@@ -1,0 +1,13 @@
+             Technical notes on version 3.8.3 
+                      05 September 2001
+                        Kern Sibbald
+
+General:
+- Changed OpenBSD to use -pthread rather than -lpthread on compiles
+  and links as suggested by Adam Kropelin.
+- Made the above change to NetBSD -- hoping it will work.
+- Merged the latest version of the manual (it has a bit of 3.9.x
+  stuff).
+
+
+Changes submitted this submission:

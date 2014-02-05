@@ -1,0 +1,181 @@
+
+This file documents building the native Win32 apcupsd using the
+MinGW cross compiler tools on a Linux (possibly other Unix)
+system.  The Win32 build can co-exist in in the same directory at
+the same time as a normal Linux build since all the binaries for
+Win32 are kept in src/win32.
+   
+
+The basic directory structure you need to have is:
+  apcupsd                    top level directory -- any name 
+    apcupsd-source           top level apcupsd source directory -- any name
+      src
+        win32                main directory where the Win32 FD is built.
+          compat             win32 emulation lib for Unix calls
+
+    dekpgs-win32             
+       pthreads              The POSIX pthreads library (third party)
+       libusb                The multi-platform USB library (third party)
+
+    cross-tools              Cross compliation tools (gcc, g++, mingw, ...)
+
+depkgs-win32 is released in a separate .tar.gz file that contains the
+source for the above mentioned libraries needed to build the
+Win32 apcupsd.  It can be found in the Source Forge apcupsd project
+release section (not yet).  Temporarily, you can find a copy of
+this on:
+
+   www.sibbald.com/download/depkgs-win32-apcupsd.tar.gz
+   www.kroptech.com/~adk0212/apcupsd/depkgs-win32-apcupsd.tar.gz
+
+It will detar into depkgs-win32.  Note, this version is pre-buit, so
+you can skip the ./build-mingw32 described several steps below, unless
+you want to be sure it works on your system.
+
+cross-tools is a directory that you create. There is a script, described
+below, that will download all the necessary files and build them. You need
+only run that script once, unless we move to a new version of the tools.
+
+Now, once you have the directory structure as defined above, you do
+the following once:
+
+  cd apcupsd/apcupsd-source
+  ./configure (any standard set of config options the exact ones   
+               are not important).
+  cd src/win32
+  ./build-win32-cross-tools
+
+The above only needs to be done once unless we change the cross-tools 
+version.  In general, you can run the script multiple times with no
+problem. For it to work, you must have a valid gcc compiler installed on
+your system as well as wget and texinfo.  There may be other dependencies.
+
+After building the cross-tools, you can proceed to build the depkgs-win32 
+packages, which must use the cross-tools compiler.
+ 
+   cd
+   cd apcupsd/depkgs-win32
+   ./build-mingw32
+
+The above only needs to be done once as well as long as the cross-tools or
+depkgs-win32 versions do not change. As noted above, the above step
+can be skipped if you dowload the package from www.sibbald.com...
+
+Finally, to build the Win32 apcupsd, do the following:
+
+   cd apcupsd-source/src/win32
+   make -f Makefile.mingw32
+
+This should compile a lot of files, and finally create apcupsd.exe,
+apcaccess.exe, and pthreadGCE.dll.  You need the dll to run either 
+apcupsd.exe or apcaccess.exe.
+
+If you want to change the Makefile, simply edit Makefile.mingw32.in,
+then in the top level directory, do:
+
+   make Makefiles
+
+or do any ./configure command.
+
+
+Items to be done:
+- Use syslog from apcupsd lib/wincompat.c so that a dialog
+  box is used in place of syslog().
+- Implement additional drivers (snmp)
+- Ensure that calling scripts works -- definitely broken
+- General testing
+
+============== Adam's tips ==============
+Here is the configure I'm using for the 3.12.x releases:
+
+./configure \
+       --prefix=/apcupsd \
+       --sbindir=/apcupsd/bin \
+       --sysconfdir=/apcupsd/etc/apcupsd \
+       --with-pid-dir=/apcupsd/etc/apcupsd \
+       --mandir=/apcupsd \
+       --with-cgi-bin=/apcupsd/etc/apcupsd/cgi \
+       --enable-pthreads \
+       --enable-net \
+       --enable-snmp \
+       --enable-master-slave
+
+For 3.13.x you'll want to remove the master-slave enable. Also, if you
+want to build the SNMP driver as I do, you'll nee to build NET-SNMP
+under cygwin as well. The configure line I use for that is:
+
+./configure \
+         --with-mib-modules="host agentx disman/event-mib examples/example" \
+         --with-out-mib-modules=host/hr_network \
+         --disable-agent --disable-applications
+====
+
+Date: Mon, 13 Mar 2006 19:08:45 -0500
+
+Adam Kropelin wrote:
+> I just committed changes to configure that will build the generic usb
+> driver on win32 under cygwin. There is no real magic to it; include
+> "--enable-usb" in your configure options and everything should Just
+> Work. The include and library paths to libusb are hard-coded to
+> "C:\Program Files\LibUSB-Win32" currently, so be sure to install
+> libusb-win32 in that directory (which I believe is the default).
+
+I just got it working using the libusb-win32 "device driver" instead of 
+the "filter driver". This allows us to provide our own *.inf file, 
+preempting the Windows built-in UPS driver. The missing event problem I 
+mentioned in an earlier mail is now solved and Win32 USB is working very 
+well. (Limited testing...I've only tested WinXP so far.)
+
+The only difference to use the "device driver" method is in how you 
+install libusb-win32. Eventually I believe the installer will be able to 
+install the driver automatically, but at the moment it's a manual 
+process. I've made a zip file containing the required pieces:
+<http://www.kroptech.com/~adk0212/apcupsd/apcupsd-libusb-win32.zip>
+
+The basic procedure is:
+    1. Extract zip file to <C:\Program Files\LibUSB-Win32>
+    2. ./configure apcupsd source with your favorite options 
+plus --enable-usb
+    3. Build & install apcupsd
+    4. Plug in your USB UPS and wait for Windows to recognize it
+    5. Open the Windows Device Manager and locate the "Human Interface 
+Devices" section
+    6. Locate "American Power Conversion USB UPS" under the HID section
+    7. Right-click "American Power Conversion USB UPS" and select 
+"Update driver..."
+    8. (Abbreviated) Do not allow Windows to search for a driver, 
+specify one yourself. Depending on your version of Windows, the exact 
+sequence of dialogs and options is different, but essentially you need 
+to get to the list of devices with the "Have Disk..." button. When you 
+get there, choose "Have Disk..."
+    9. Browse to <C:\Program Files\LibUSB-Win32\driver> and hit Open
+    10. Select "American Power Conversion USB UPS (Apcupsd)" and hit 
+Next
+    11. The driver should be installed.
+    12. If you examine the Device Manager tree again, you should see a 
+"LibUSB-Win32 Devices" section, under which is listed "American Power 
+Conversion USB UPS (Apcupsd)". You should NOT see "HID UPS Battery" 
+under the "Batteries" section.
+    13. Future plugging/unplugging of the UPS will be handled 
+automatically. The driver only needs to be installed once.
+    14. Edit apcupsd.conf to set...
+        UPSCABLE usb
+        UPSTYPE usb
+        DEVICE
+    15. Start apcupsd and watch the magic (or the smoke...)
+
+--Adam
+
+P.S. To get back to the Windows standard driver, go into Device Manager 
+and do an "Update Driver..." on "American Power Conversion USB UPS 
+(Apcupsd)". Select the "American Power Conversion USB UPS (Microsoft)" 
+driver from the list. After that you should be back where you started 
+and the "Batteries -> HID UPS Battery" entry should be back and the
+
+====  to add USB
+You should need to compile...
+
+    src/libusbhid/*.c
+    src/drivers/usb/*.c
+    src/drivers/usb/generic/*.c
+

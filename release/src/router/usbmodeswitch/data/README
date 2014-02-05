@@ -1,0 +1,126 @@
+README for USB_ModeSwitch Data
+
+
+For up-to-date and detailed information (plus a friendly forum) visit
+http://www.draisberghof.de/usb_modeswitch
+
+PLEASE REPORT NEW DEVICES !
+
+
+
+This is a data package to complement the full release package of
+USB_ModeSwitch, a tool to switch multi-mode USB devices.
+It is used since usb-modeswitch version 1.0.3.
+
+Recommended version of usb-modeswitch package is 1.2.5 and above. From
+this version on, the rules file does not check for the class of inter-
+face 0 anymore, the check was moved to the dispatcher.
+The changes were necessary for future MBIM device support.
+
+Just do "make install". To re-generate udev rules file, type "make clean"
+and install again ("tcl" package required).
+
+
+Tasks initiated by the rules file:
+==================================
+
+- call wrapper to initiate switching for known devices when plugged in
+  (starting from version 1.1.4 at boot time too)
+
+- adding symlink "gsmmodem" to appropriate connection port (out of 2-5
+  ports provided by some devices); this is only a convenience feature and
+  NOT needed for switching or later port operation.
+  This action will be triggered for known modems only (at least switched
+  once on this system)
+
+- loading and binding the "option" driver if the device arrives in modem
+  state (not CDC/ACM) and the device ID is not yet known to the driver.
+  This action will be triggered only for modems known to the system (at
+  least switched once).
+  To prevent the default driver binding, add NoDriverLoading=1 to the
+  respective device configuration file
+
+
+Explanation about config file names:
+====================================
+
+Names consist of <VendorID>:<ProductID>, respective to the default device
+mode.
+Should more detailed identification become necessary, one or more attributes
+to test can be attached after further colons:
+<VendorID>:<ProductID>:<Attribute>=<String>[:<Attribute>=<String> ...]
+
+The strings match if they are part of the attribute content. Use "_"
+to match spaces (it will match "_" too!).
+
+Currently recognized attibutes are:
+
+uMa = USB, iManufacturer
+uPr = USB, iProduct
+uSe = USB, iSerial
+sVe = SCSI, Vendor
+sMo = SCSI, Model
+sRe = SCSI, Revision
+
+This list is easily extendable if necessary.
+
+Example:
+<vid>:<pid>:uPr=CDMA_Mo will match iProduct "CDMA Modem" or "MyCDMA_Mordor"
+
+
+
+Parameters used only in config files:
+=====================================
+
+These are not evaluated by the binary but by the wrapper.
+
+WaitBefore=<seconds>		delay the switching process
+
+DriverModule=<module name>	load a specific driver module after switch
+
+DriverIDPath=<path to attribute>
+				if the driver has the ability to add new device IDs
+				on-the-fly, this is the file node to use.
+				Example: "/sys/bus/usb-serial/drivers/option1/new_id"
+
+
+
+Notes about specific devices:
+=============================
+
+- 1004:607f (LG KP500): switching message derived from report but untested
+
+- 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
+
+- Some WiMAX and LTE devices are included since 20101222; for some of these
+  drivers are work in progress or not available yet. Efforts are underway.
+  Stand by or search for "staging drivers".
+
+- 05c6:2000 (unnamed HSDPA modem from "dealextreme"): unusually long switching
+  time reported, even with MS Windoze - 30 to 40 seconds. Don't be alarmed.
+
+- 0471:1210 (Philips chipset): had to be split after variants with different
+  targets and behaviour appeared. This is not fully confirmed yet, please
+  report problems.
+
+
+Legal
+=====
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details:
+
+http://www.gnu.org/licenses/gpl.txt
+
+Or find it as the file COPYING in this folder.
+
+
+
+
+Last revised: 2013-06-02, Josua Dietze

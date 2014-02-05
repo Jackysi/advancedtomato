@@ -1,0 +1,49 @@
+DATE     : Fri Jan 14 17:20:31 MET 2000
+HOSTNAME : diesse
+RELEASE  : 3.7.0-beta3
+CABLE    : Custom Cable Smart
+MODEL    : SMART-UPS 1400
+UPSMODE  : Stand Alone
+UPSNAME  : UPS_IDEN
+STATUS   : ONLINE 
+LINEV    : 235.3 Volts
+LOADPCT  : 33.2 Percent Load Capacity
+BCHARGE  : 096.0 Percent
+TIMELEFT :  39.0 Minutes
+MBATTCHG : 5 Percent
+MINTIMEL : 3 Minutes
+MAXTIME  : 0 Seconds
+MAXLINEV : 236.6 Volts
+MINLINEV : 234.0 Volts
+OUTPUTV  : 235.3 Volts
+SENSE    : High
+DWAKE    : 060 Seconds
+DSHUTD   : 020 Seconds
+DLOWBATT : 05 Minutes
+LOTRANS  : 196.0 Volts
+HITRANS  : 253.0 Volts
+RETPCT   : 015.0 Percent
+ITEMP    : 30.6 C Internal
+ALARMDEL : 30 seconds
+BATTV    : 28.0 Volts
+LINEFREQ : 50.0 Hz
+LASTXFER : Line voltage notch or spike
+SELFTEST : NO
+STESTI   : OFF
+STATFLAG : 0x08 Status Flag
+DIPSW    : 0x00 Dip Switch
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : 05/19/97
+SERIALNO : gs9720551835
+BATTDATE : 05/19/97
+NOMOUTV  : 230
+NOMBATTV :  24.0
+HUMIDITY :  25.6
+AMBTEMP  :  22.1
+EXTBATTS : 0
+BADBATTS : N/A
+FIRMWARE : 70.9.I
+APCMODEL : KWI
+END APC  : Fri Jan 14 17:20:39 MET 2000

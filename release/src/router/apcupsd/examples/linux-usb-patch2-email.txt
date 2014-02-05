@@ -1,0 +1,146 @@
+From apcupsd-users-admin@lists.sourceforge.net Tue Jul 8 11:59:49 2003
+Return-Path: <apcupsd-users-admin@lists.sourceforge.net>
+Received: from sc8-sf-list2.sourceforge.net (lists.sourceforge.net
+	[66.35.250.206]) by matou.sibbald.com (8.11.6/8.11.6) with ESMTP id
+	h689xn812370 for <kern@sibbald.com>; Tue, 8 Jul 2003 11:59:49 +0200
+Received: from sc8-sf-list1-b.sourceforge.net ([10.3.1.13]
+	helo=sc8-sf-list1.sourceforge.net) by sc8-sf-list2.sourceforge.net with
+	esmtp (Exim 3.31-VA-mm2 #1 (Debian)) id 19ZpFI-0007ch-00; Tue, 08 Jul 2003
+	02:58:48 -0700
+Received: from mivlgu.ru ([81.18.140.87] helo=mail.mivlgu.ru) by
+	sc8-sf-list1.sourceforge.net with esmtp (Exim 3.31-VA-mm2 #1 (Debian)) id
+	19ZpES-0008QV-00 for <apcupsd-users@lists.sourceforge.net>; Tue, 08 Jul
+	2003 02:57:57 -0700
+Received: by mail.mivlgu.ru (Postfix, from userid 112) id 8D58581780; Tue, 
+	8 Jul 2003 13:57:47 +0400 (MSD)
+Received: from vcserver.mivlgu.local (vcserver.mivlgu.local
+	[192.168.1.251]) by mail.mivlgu.ru (Postfix) with SMTP id 5B04381771; Tue, 
+	8 Jul 2003 13:57:43 +0400 (MSD)
+From: Sergey Vlasov <vsu@altlinux.ru>
+To: "Ching-Hwa Yu" <cyu@SFIS.com>
+Cc: apcupsd-users <apcupsd-users@lists.sourceforge.net>
+Subject: Re: [Apcupsd-users] Problems using SmartUPS 1500 via USB w/3.10.5
+Message-Id: <20030708135742.1aead379.vsu@altlinux.ru>
+In-Reply-To: <CD8BAE4A2FEEBB4382745451096AA1BB053D4C@rice-a-roni.sfis.com>
+References: <CD8BAE4A2FEEBB4382745451096AA1BB053D4C@rice-a-roni.sfis.com>
+X-Mailer: Sylpheed version 0.9.2 (GTK+ 1.2.10; i586-alt-linux-gnu)
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Sender: apcupsd-users-admin@lists.sourceforge.net
+Errors-To: apcupsd-users-admin@lists.sourceforge.net
+X-BeenThere: apcupsd-users@lists.sourceforge.net
+X-Mailman-Version: 2.0.9-sf.net
+Precedence: bulk
+List-Help: <mailto:apcupsd-users-request@lists.sourceforge.net?subject=help>
+List-Post: <mailto:apcupsd-users@lists.sourceforge.net>
+List-Subscribe:
+	<https://lists.sourceforge.net/lists/listinfo/apcupsd-users>,
+	<mailto:apcupsd-users-request@lists.sourceforge.net?subject=subscribe>
+List-Id: Apcupsd user's email list for support and discussions
+	<apcupsd-users.lists.sourceforge.net>
+List-Unsubscribe:
+	<https://lists.sourceforge.net/lists/listinfo/apcupsd-users>,
+	<mailto:apcupsd-users-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive:
+	<http://sourceforge.net/mailarchive/forum.php?forum=apcupsd-users>
+Date: Tue, 8 Jul 2003 13:57:42 +0400
+Content-Transfer-Encoding: 8bit
+
+On Mon, 7 Jul 2003 18:27:02 -0700
+"Ching-Hwa Yu" <cyu@SFIS.com> wrote:
+
+> T:  Bus=01 Lev=01 Prnt=01 Port=01 Cnt=01 Dev#=  5 Spd=1.5 MxCh= 0
+> D:  Ver= 1.10 Cls=00(>ifc ) Sub=00 Prot=00 MxPS= 8 #Cfgs=  1
+> P:  Vendor=051d ProdID=0002 Rev= 0.06
+> S:  Manufacturer=American Power Conversion
+> S:  Product=Smart-UPS 1500 FW:601.3.D USB FW:1.5
+> S:  SerialNumber=AS0236331657
+> C:* #Ifs= 1 Cfg#= 1 Atr=e0 MxPwr= 30mA
+> I:  If#= 0 Alt= 0 #EPs= 1 Cls=03(HID  ) Sub=00 Prot=00 Driver=(none)
+> E:  Ad=81(I) Atr=03(Int.) MxPS=   6 Ivl=100ms
+
+This looks like a known bug in the HID driver - it does not recognize
+the UPS as a valid HID device. It should be fixed by the following
+kernel patch:
+
+http://marc.theaimsgroup.com/?l=linux-usb-devel&m=105562727703359&w=2
+
+=================================================================
+Some UPSes have logical minimum and maximum value in HID descriptors the
+same. The HID driver rejects such devices. This patch fixes this. Please
+apply for 2.4, I'll take care of a 2.5 patch. 
+
+ChangeSet@1.1202, 2003-06-14 23:38:54+02:00, vojtech@suse.cz
+  Logical minumum and maximum may be the same value per spec.
+  This fixes some UPSes not getting detected properly.
+
+
+ hid-core.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+
+diff -Nru a/drivers/usb/hid-core.c b/drivers/usb/hid-core.c
+--- a/drivers/usb/hid-core.c	Sat Jun 14 23:39:05 2003
++++ b/drivers/usb/hid-core.c	Sat Jun 14 23:39:05 2003
+@@ -202,7 +202,7 @@
+ 		return -1;
+ 	}
+ 
+-	if (parser->global.logical_maximum <= parser->global.logical_minimum) {
++	if (parser->global.logical_maximum < parser->global.logical_minimum) {
+ 		dbg("logical range invalid %d %d", parser->global.logical_minimum, parser->global.logical_maximum);
+ 		return -1;
+ 	}
+
+
+=================================================================
+
+Also you will need to apply another patch to get killpower working:
+
+=================================================================
+ChangeSet 1.1258, 2003/06/18 16:55:46-07:00, vsu@altlinux.ru
+
+[PATCH] USB: HIDDEV / UPS patches
+
+
+ drivers/usb/hid-core.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+
+diff -Nru a/drivers/usb/hid-core.c b/drivers/usb/hid-core.c
+--- a/drivers/usb/hid-core.c	Wed Jun 18 17:34:51 2003
++++ b/drivers/usb/hid-core.c	Wed Jun 18 17:34:51 2003
+@@ -1067,10 +1067,16 @@
+ 
+ void hid_write_report(struct hid_device *hid, struct hid_report *report)
+ {
+-	hid_output_report(report, hid->out[hid->outhead].buffer);
++	if (hid->report_enum[report->type].numbered) {
++		hid->out[hid->outhead].buffer[0] = report->id;
++		hid_output_report(report, hid->out[hid->outhead].buffer + 1);
++		hid->out[hid->outhead].dr.wLength = cpu_to_le16(((report->size + 7) >> 3) + 1);
++	} else {
++		hid_output_report(report, hid->out[hid->outhead].buffer);
++		hid->out[hid->outhead].dr.wLength = cpu_to_le16((report->size + 7) >> 3);
++	}
+ 
+-	hid->out[hid->outhead].dr.wValue = cpu_to_le16(0x200 | report->id);
+-	hid->out[hid->outhead].dr.wLength = cpu_to_le16((report->size + 7) >> 3);
++	hid->out[hid->outhead].dr.wValue = cpu_to_le16(((report->type + 1) << 8) | report->id);
+ 
+ 	hid->outhead = (hid->outhead + 1) & (HID_CONTROL_FIFO_SIZE - 1);
+ 
+
+
+=================================================================
+
+
+-------------------------------------------------------
+This SF.Net email sponsored by: Free pre-built ASP.NET sites including
+Data Reports, E-commerce, Portals, and Forums are available now.
+Download today and enter to win an XBOX or Visual Studio .NET.
+http://aspnet.click-url.com/go/psa00100006ave/direct;at.asp_061203_01/01
+_______________________________________________
+Apcupsd-users mailing list
+Apcupsd-users@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/apcupsd-users

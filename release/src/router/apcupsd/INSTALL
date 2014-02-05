@@ -1,0 +1,309 @@
+Basic Installation
+==================
+
+   These are generic installation instructions.
+
+   The `configure' shell script attempts to guess correct values for
+various system-dependent variables used during compilation.  It uses
+those values to create a `Makefile' in each directory of the package.
+It may also create one or more `.h' files containing system-dependent
+definitions.  Finally, it creates a shell script `config.status' that
+you can run in the future to recreate the current configuration, a file
+`config.cache' that saves the results of its tests to speed up
+reconfiguring, and a file `config.log' containing compiler output
+(useful mainly for debugging `configure').
+
+   If you need to do unusual things to compile the package, please try
+to figure out how `configure' could check whether to do them, and mail
+diffs or instructions to the address given in the `README' so they can
+be considered for the next release.  If at some point `config.cache'
+contains results you don't want to keep, you may remove or edit it.
+
+   The file `configure.in' is used to create `configure' by a program
+called `autoconf'.  You only need `configure.in' if you want to change
+it or regenerate `configure' using a newer version of `autoconf'.
+
+The simplest way to compile this package is:
+
+  1. `cd' to the directory containing the package's source code and type
+     `./configure' to configure the package for your system.  If you're
+     using `csh' on an old version of System V, you might need to type
+     `sh ./configure' instead to prevent `csh' from trying to execute
+     `configure' itself.
+
+     Running `configure' takes a while.  While running, it prints some
+     messages telling which features it is checking for.
+
+  2. Type `make' to compile the package.
+
+  3. Become root if not already with `su'.
+
+  4. Type `make install' to install the programs and any data files and
+     documentation. If you have a previously installed version of this
+         package, it is advisable to issue a `make uninstall' before doing
+         the installation. This will clean the halt.local script for suse
+         and any other old halt script for other distributions. We can not
+         guarantee a good behaviour of the software if you install a new
+         version over an older one without prior uninstall the older one.
+
+  5. You can remove the program binaries and object files from the
+     source code directory by typing `make clean'.  
+
+  6. You can remove the program from where it was installed with
+     `make uninstall.'
+
+Compilers and Options
+=====================
+
+   Some systems require unusual options for compilation or linking that
+the `configure' script does not know about.  You can give `configure'
+initial values for variables by setting them in the environment.  Using
+a Bourne-compatible shell, you can do that on the command line like
+this:
+     CC=c89 CFLAGS=-O2 LIBS=-lposix ./configure
+
+Or on systems that have the `env' program, you can do it like this:
+     env CPPFLAGS=-I/usr/local/include LDFLAGS=-s ./configure
+
+Compiling For Multiple Architectures
+====================================
+
+   You can compile the package for more than one kind of computer at the
+same time, by placing the object files for each architecture in their
+own directory.  To do this, you must use a version of `make' that
+supports the `VPATH' variable, such as GNU `make'.  `cd' to the
+directory where you want the object files and executables to go and run
+the `configure' script.  `configure' automatically checks for the
+source code in the directory that `configure' is in and in `..'.
+
+   If you have to use a `make' that does not supports the `VPATH'
+variable, you have to compile the package for one architecture at a time
+in the source code directory.  After you have installed the package for
+one architecture, use `make distclean' before reconfiguring for another
+architecture.
+
+Installation Names
+==================
+
+   By default, `make install' will install the package's files in
+/usr/local/sbin and /usr/local/man. You can specify an installation
+prefix other than `/usr/local' by giving `configure' the option
+`--prefix=PATH'. Usually good installation paths are `--prefix=/usr'
+and `--sbindir=/sbin'.
+
+   You can specify separate installation prefixes for
+architecture-specific files and architecture-independent files.  If you
+give `configure' the option `--exec-prefix=PATH', the package will use
+PATH as the prefix for installing programs and libraries.
+Documentation and other data files will still use the regular prefix.
+
+   If the package supports it, you can cause programs to be installed
+with an extra prefix or suffix on their names by giving `configure' the
+option `--program-prefix=PREFIX' or `--program-suffix=SUFFIX'.
+
+Optional Features
+=================
+
+   Some packages pay attention to `--enable-FEATURE' options to
+`configure', where FEATURE indicates an optional part of the package.
+They may also pay attention to `--with-PACKAGE' options, where PACKAGE
+is something like `gnu-as' or `x' (for the X Window System).  The
+`README' should mention any `--enable-' and `--with-' options that the
+package recognizes.
+
+   For packages that use the X Window System, `configure' can usually
+find the X include and library files automatically, but if it doesn't,
+you can use the `configure' options `--x-includes=DIR' and
+`--x-libraries=DIR' to specify their locations.
+
+Specifying the System Type
+==========================
+
+   There may be some features `configure' can not figure out
+automatically, but needs to determine by the type of host the package
+will run on.  Usually `configure' can figure that out, but if it prints
+a message saying it can not guess the host type, give it the
+`--host=TYPE' option.  TYPE can either be a short name for the system
+type, such as `sun4', or a canonical name with three fields:
+     CPU-COMPANY-SYSTEM
+
+See the file `config.sub' for the possible values of each field.  If
+`config.sub' isn't included in this package, then this package doesn't
+need to know the host type.
+
+   If you are building compiler tools for cross-compiling, you can also
+use the `--target=TYPE' option to select the type of system they will
+produce code for and the `--build=TYPE' option to select the type of
+system on which you are compiling the package.
+
+Sharing Defaults
+================
+
+   If you want to set default values for `configure' scripts to share,
+you can create a site shell script called `config.site' that gives
+default values for variables like `CC', `cache_file', and `prefix'.
+`configure' looks for `PREFIX/share/config.site' if it exists, then
+`PREFIX/etc/config.site' if it exists.  Or, you can set the
+`CONFIG_SITE' environment variable to the location of the site script.
+A warning: not all `configure' scripts look for a site script.
+
+Operation Controls
+==================
+
+   `configure' recognizes the following options to control how it
+operates.
+
+`--cache-file=FILE'
+     Use and save the results of the tests in FILE instead of
+     `./config.cache'.  Set FILE to `/dev/null' to disable caching, for
+     debugging `configure'.
+
+`--help'
+     Print a summary of the options to `configure', and exit.
+
+`--quiet'
+`--silent'
+`-q'
+     Do not print messages saying which checks are being made.
+
+`--srcdir=DIR'
+     Look for the package's source code in directory DIR.  Usually
+     `configure' can determine that directory automatically.
+
+`--version'
+     Print the version of Autoconf used to generate the `configure'
+     script, and exit.
+
+`configure' also accepts some other, not widely useful, options.
+
+Configure options for APC UPS Daemon
+====================================
+
+The apcupsd have a number of `configure' time options that can be enabled for
+additional features. These options are:
+
+`--enable-powerflute'
+     Enable the compilation of `powerflute' an ncurses based program to
+     monitor the UPS.
+
+`--enable-nls'
+     Enable the support for Native Language Support.
+
+`--with-included-gettext'
+     Enable the compilation of the GNU gettext library that is included in
+     this package. Gettext is part of NLS support so there's no point enabling
+     this option and with NLS support disabled.
+
+`--with-catgets'
+     Enable the use of the `catgets' function if available.
+
+`--with-libwrap=yes or --with-libwrap=[DIR]
+     Enable the use of libwrap. When set to yes enables libwrap
+     system library. When set to [DIR] enables libwrap in DIR.
+
+For RedHat Linux 9 users, some useful configure options are:
+===========================================================
+
+ ./configure --enable-threads --enable-cgi --with-cgi-bin=/var/www/cgi-bin
+
+Adjust --with-cgi-bin argument to reflect the location of your web server
+pages.
+
+Prior to running configure, make sure the following to packages are installed
+on your system.
+
+	gd-1.8.4-11
+	gd-devel-1.8.4-11
+
+These packages are on the RedHat 9 distribution disks. If these packages
+are installed, the cgi code will use these libraries for generation of png
+images. If these are not installed, the version included with apcupsd will
+be used instead.
+
+Configuring Apache HTTP Server for use with cgi support
+=======================================================
+If you configure apcupsd with the --enable-cgi support you may need to make
+configuration changes to the httpd.conf file. The changes you will need to
+make depend on what directory you choose install the cgi files in.
+
+There are five files which are installed in the cgi-bin directory.
+Four of these are .cgi files which are executable images and the fifth file
+is apcupsd.css which is a style sheet used to give a common style to all output.
+
+There are two ways of enabling cgi support for Apache. The first method is
+to add the following line to httpd.conf:
+
+	ScriptAlias /cgi-bin /var/www/cgi-bin
+
+The second method is to add the following lines to httpd.conf:
+
+	Alias /cgi-bin /var/www/cgi-bin
+	<Directory /var/www/cgi-bin>
+		Options +ExecCGI
+	</Directory>
+	AddHandler cgi-script .cgi
+
+The first example tells Apache that all files in the cgi-bin directory are
+executable cgi programs. The second example tells Apache that programs in
+the cgi-bin directory may be executable cgi programs if the file extension
+is .cgi. You can also add extra extensions to the AddHandler directive if
+you have other files in the directory. For example, if you have perl files
+in your cgi-bin directory:
+
+	AddHandler cgi-script .cgi .pl
+
+Using the first example, you will have a problem with trying to serve
+the file apcupsd.css. Since this file is installed in the cgi-bin directory,
+Apache will assume it is an executable program and will produce an error
+when trying to serve it. You must use the second method of enabling cgi
+support.
+
+If you are using the default Apache configuration file, you  will need
+to remove (or comment out) the first example and replace it with the second.
+
+If you install the apcupsd cgi files in another directory, you will need to
+add the second example to your httpd.conf file and adjust the pathname
+accordingly.
+
+Customization of apcupsd events 
+================================
+
+Note, this is somewhat out of date, please check the installed
+apccontrol script for exact details of these events.
+
+When apcupsd detects anomalies from your UPS device, it will make some
+decisions that usually result in one or more calls to the script located
+in `${sysconf}/apcupsd/apccontrol'.  The apcaction file is a shell script
+that acts on the first argument that `apcupsd' passes to it.  These
+actions are set up by default to sane behaviour for all possible
+situations apcupsd is likely to detect from the UPS. Nevertheless you
+can change the apccontrol behaviour for every single action.  To do so
+create a file with the same name as the action, which is passed as the
+first argument (argv[1], or $1 for shell scripts).  Put your script in
+`${sysconf}/apcupsd/' directory.  At present the arguments that apcaction
+can recognize are:
+
+ Keyword       Default Action
+============  ==============================================================
+`powerout'     `wall' a message telling `There are power problems'.
+`onbattery'    `wall' a message telling `System is on battery'.
+`offbattery'   None  
+`mainsback'    Attempt to cancel a running `shutdown' sequence.
+`failing'      `wall' a message telling `Battery power is failing'.
+`timeout'      `wall' a message telling `Timeout on Battery reached'.
+`loadlimit'    `wall' a message telling `Battery load limit reached'.
+`runlimit'     `wall' a message telling `Battery runtime limit reached'.
+`doreboot'     Begins the `shutdown -r' sequence.
+`doshutdown'   Begins the `shutdown -h' sequence.
+`annoyme'      `wall' a message telling `Power problems, logoff now'.
+`emergency'    Begins an emercengy `shutdown' sequence.
+`changeme'     `wall' a message telling `Battery failed, change them now'.
+`remotedown'   Begins the `shutdown' sequence, called from remote.
+
+If for example you want to write your own routine for the `powerout' action,
+you can write your own shell script called `powerout' and put it in the lib
+directory. Doing so will _completely disable_ the `apcaction' default
+behaviour and enable your script. If you want to write your customized scripts
+you are encouraged to edit the `${libdir}/apcupsd/apccontrol' script and at
+least mimic its behaviour into your own script.
+Writing faulty scripts may cause your system to crash due to power failures.

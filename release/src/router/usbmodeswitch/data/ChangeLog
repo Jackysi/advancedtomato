@@ -1,0 +1,150 @@
+20130807:
+    Added devices: Quanta 1K3 LTE (should've been in the last release),
+    TP-Link MA260, Teracom LW272, Huawei E3276s-151 and E3251, Huawei K4305,
+    BlackBerry Q10 and Z10, Pantech LTE Modem; the latter two are requiring
+    the new special modes introduced with usb_modeswitch 1.2.7
+20130610:
+    Fixed rules file and gen-rules script to make the symlink rule append
+    instead of replace (thanks to John Hedges)
+20130607:
+    Fixed wrong message content for Huawei U2800 (thanks to Peter Fedorow)
+20130602:
+    Added devices: Nokia CS-12, Alcatel-Lucent T930S, Axesstel MV241,
+    Pantech UML290, Huawei E3131 (Variant), Huawei U2800 Phone, Huawei GP02
+    (E587 Variant), KDDI (Huawei) HWD12 LTE, Novatel MC996D, Axesstel MU130,
+    ZTE MF656A, MF668A, MF669, Onda MT8205 LTE, ZTE MF680, ZTE MF196,
+    BandRich BandLuxe C508, Alcatel L100V, Explay Slim, Onda TM201 14.4
+    (TIM Italy), Onda WM301, D-Link DWM-156 (several new variants), D-Link
+    DWR-510, Mediatek MT6229, Changhong CH690, WeTelecom WM-D200; several
+    new target IDs for Sierra, Huawei and ZTE; fix for WeTelecom WM-D300;
+    included simple TCL script to regenerate rules file from configs
+20121109:
+    Added devices: Nokia CS-7M-01, LG LUU-2110TI, LG VL600, LG L-03D LTE/3G,
+    Option Beemo/Pantech P4200 LTE, Vodafone/Huawei K3772, Vodafone/Huawei
+    K3773, Huawei E171, Huawei E173s, Huawei E177, Huawei EC156, Huawei
+    E372u-8, Huawei E392u-12, Huawei ET8282, Huawei ET127, ZTE-T A356,
+    ZTE MF192+, ZTE MF190J, Vodafone/ZTE K3770-Z, T-Mobile/ZTE MF591,
+    Aircard 901, ETCOM E300, Archos G9 3G Key, Onda MW833UP, Onda MW836UP-K,
+    Onda MW875UP, Franklin Wireless U600 (Thanks for the contribution of most
+    new devices goes to Nicolas Carrier from the Parrot company);
+    Preparation for future MBIM devices: new "NoMBIMCheck" config parameter,
+    change in modem rules (match devices, not interfaces), best used with
+    usb_modeswitch 1.2.5 and up
+20120815:
+    Small target ID addition for Huawei E352
+20120812:
+    Added devices: ZTE MF60, Vodafone K5006Z, Alcatel OT-X220D,
+    Alcatel OT-X080C, TP-Link MA180, ZTE MF821D, Dymo LabelManager PnP,
+    Onda MDC655, Option GI0643, WeTelecom WM-D300, China TeleCom CBP7.0,
+    Linktop LW272/LW273, Nokia CS-11, ZTE MF190 (yet annother variant),
+    Huawei E535; updated config for C-motech D-50 (16d8:6803); changes
+    in "rules" file (interface number filters) to reflect recent reports;
+    fix config for Novatel MC545 (1410:5059)
+20120531:
+    Small but important fix for ZTE Blade phone
+20120529:
+    Added devices: Telenet 3G dongle (T&W WU160), Nokia CS-21M-02,
+    Telewell TW-3G HSPA+, ZTE MF637, TW-3G HSPA+, Samsung GT-B1110,
+    ZTE MF192 (yet annother variant), MediaTek MT6276M, Tata Photon+,
+    Option Globetrotter (Variant), Option iCon 711, Celot K-300,
+    Hisense E910 EVDO Phone, Yota Router (Quanta 1QDLZZZ0ST2),
+    K5005 Vodafone/Huawei, D-Link DWM-156 (Variant), Huawei E173
+    (Moviestar), Onda MSA 14.4 (TIM Brasil); some target product ID
+    additions; skip driver loading for some devices now supported by
+    dedicated drivers; minor fine tuning and corrections
+20120120:
+    Added devices: Air FlexiNet/StrongRising, BandLuxe C339, Celot CT-680,
+    Huawei E353, Haier CE682, LG L-02C LTE, LG SD711, LG L-08C, LG L-07A,
+    I-O Data WMX2-U, Option GI1515, ZTE A371B, ZTE MF652 (two Variants);
+    reduced redundancies in parameters, resulting in smaller files;
+    ATTENTION !! Needs program version >= 1.2.1 !!
+20111023:
+    Added devices: C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
+    program version >= 1.2.0)
+20111012:
+    Added devices: AnyDATA APE-540H, ZTE MF192 (new variant)
+20111007:
+    Added devices: Alcatel OT X220L, Nokia CS-19, Huawei ET302, 3GO 3GO11
+    HSUPA, Novatel MC545, ZTE AC682, ZTE MF820 4G LTE, Philips PicoPix 1020
+    (LED projector); added some ZTE target IDs; modded udev rules to include
+    "change" as trigger event
+20110805:
+    Added devices: Vodafone/Huawei K4510 & K4511, Vodafone/ZTE K3770-Z,
+    K3772-Z and K4510-Z (thanks to Andrew Bird); five Option HSO modems;
+    Cisco Valet AM10 (use with program version >= 1.1.9)
+20110714:
+    Added device: SpeedUp SU-8000U; corrected garbled configs for latest
+    Huawei devices
+20110705:
+    Added devices: Huawei EC156, Huawei K3770, Huawei K3771, Option iCon 461,
+    Longcheer SU9800, ZTE AX226 (WiMax)
+20110619:
+	Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
+    (Variant), Cricket A605, ZTE K3806-Z, ZTE MF190 (two Variants), ZTE MF192,
+    ZTE MF691, Visiontek 82GH 3G, C-motech CHU-629S (Variant), JOA Telecom
+    LM-700r, HP LaserJet Professional P1102, Mobile Action Cable (migrated from
+    "udev-extras"), Sequans modems (generic chipset); installing now creates
+    an additional directory /etc/usb_modeswitch.d for overriding config files
+20110227:
+    Attention: path for database has changed! Use this data pack version
+    with program version >= 1.1.7
+    added devices: Prolink P2000, D-Link DWM-156 HSUPA, MediaTek WiMAX,
+    Huawei V725, Huawei E352, Huawei ET8282, Huawei BM358 WiMAX, ZTE MF637
+    (variant for Orange France), Vibe 3G, Onda MW836UP-K, Franklin U210
+    (variant), Haier CE 100, Exiss Mobile E-190, unnamed Philips modem,
+    unnamed HSDPA modem from "dealextreme";
+    added target product IDs for ZTE and Huawei; corrected typos in Sierra
+    configuration (thanks to "Cezary")
+20101222:
+    added C-motech CHU-628S; added MediaTek Wimax USB Card; changed
+    BandLuxe configuration (new parameter ReleaseDelay) to make it work on
+    older systems; rules for driver binding and sym-linking changed
+20101202:
+    added Huawei E1553 and E173s; fixed mutilated config of SE MD400G;
+    checked for further errors and omissions, small fixes
+20101128:
+    added Nokia CS-17, Nokia CS-18, Qtronix EVDO 3G, GW D301, LG AD600,
+    UTStarcom UMW190, AirPlus MCD-800, Linktop LW272/LW273;
+    consolidated BandLuxe configuration; changed all recent Huawei configs
+    to different message (request from Huawei engineer, assured to work);
+    slight changes (compatible) to symlink rule; adapt Kyocera config
+    to new success check for configuration changes (usb_modeswitch 1.1.5)
+20100826:
+    added Olivetti Olicard 145, Onda MW833UP, Huawei EC168C; duplicated Option
+    configuration for unusual device
+20100817:
+    added BSNL Capitel; added Samsung GT-B3730; added Vodafone/
+    ZTE K3806-Z; changed Vodafone/Huawei devices (added switching
+    command for cdc_ether mode): K4605, K3765 and K4505;
+    added rule for driver loading after reboot (wrapper 1.1.4)
+    change symlink rule in sync with changes in wrapper 1.1.4
+    final changes for ZTE 19d2:2000 ("...!")
+20100707:
+    added Vodafone/Huawei K4605 and Huawei R201 (from Betavine),
+    added Atheros Wireless / Netgear WNDA3200, added Onda MW833UP,
+    added Huawei U8110, added ZTE device from BSNL, added Nokia CS-10,
+    changed commands for ZTE 19d2:2000 - again ...;
+    remove unneeded definitions from Makefile
+20100623:
+    Huawei E173 was left out in previous release, add it again;
+    added BandLuxe C170 and C270 (now confirmed working)
+20100621 (with release 1.1.3):
+    added ZTE devices (MU351, MF110 variants, MF112, MF627);
+    added Sierra target IDs and Option devices (sync to kernel 2.6.34);
+    added LG L-05A, LG LUU-2100TI, LG KP500, Alcatel OT X220L, Olivetti Olicard
+    series, Huawei MTE WM610, Royaltek Q110, Rogers Rocket Stick;
+    changed most ZTE devices again to "eject" command with known specific
+    commands as second message; changed interface filter in rules file to
+    include "5" and "9" besides "0" (quirky devices)
+20100418 (with release 1.1.2):
+    First version with proper ChangeLog; added Digicom 8E4455 (needs multiple
+    commands, implemented in usb-modeswitch-1.1.2); added all other Pirelli
+    target IDs (from "option" driver) assuming they behave like the Digicom -
+    this is EXPERIMENTAL; added several ZTE devices and S.E. MD300, contributed
+    by Betavine project; new rule to add a symlink to interrupt ports (ignored
+    if wrapper is < 1.1.2)
+20100322:
+    Changed all ZTE devices to the "non-eject" command after annother report
+    of "eject" failure; even older ZTE devices seem to work with the former;
+    a conflict was exposed between two versions of 16d8:6803 (C-motech D50);
+    changed the default to the one which keeps the ID during switching

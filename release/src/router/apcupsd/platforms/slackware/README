@@ -1,0 +1,58 @@
+Distribution:	Linux Slackware
+Maintainer:	Devin Reade <gdr@gno.org>
+
+$Id: README,v 1.1.1.1 2002/05/28 13:34:06 kerns Exp $
+
+The Slackware installation of apcupsd no longer replaces the /etc/rc.d/rc6
+(halt) script, but rather attempts to patch it.  This should be more
+portable across Slackware versions.  It has been tested with Slackware 7.
+
+If the rc6 script appears to have been previously patched for apcupsd,
+it will not be touched.  When it is patched, a copy of the rc6 script
+will be saved in the /etc/rc.d; that copy will have a timestamp as a
+suffix.
+
+Once 'make install' has been run, there are still two steps which must
+be carried out in order to complete the installation:
+
+1.  You must create/edit the file apcupsd.conf file (by default, it
+    belongs in the /etc/apcupsd directory).  Some examples of this file are
+    given in the directories:
+	contrib/apcupsdconf/cfgfiles
+	examples
+    The installation process will install a default one for you if you
+    don't already have one from a previous version of apcupsd.
+
+2.  Test your installation, as described in the apcupsd manual.  The
+    rc.apcupsd script that should be used to start, stop, and obtain the
+    status of the apcupsd daemon is located in /etc/rc.d.
+
+3.  Once you are satisfied that the installation is sane, you need to
+    configure your system to start apcupsd automatically.  The recommended
+    way to do this is by adding the following lines to your /etc/rc.d/rc.local
+    file:
+
+	# Start the APC UPS control daemon.
+	if [ -x /etc/rc.d/rc.apcupsd ]; then
+		/etc/rc.d/rc.apcupsd start
+	fi
+
+If you are running a version of Slackware earlier than v7 bring up X on
+boot, it is *possible* that rc.local is not being executed.  You should
+verify whether or not this is the case and take appropriate remedial
+action.  If there is reference to rc.local in the rc.M script, then you
+are probably safe.
+
+If you are using the network feature (master-slave) of apcupsd and are
+running a DNS server locally, make sure the name server is up and running
+before executing rc.apcupsd.  Since named is normally started out of
+rc.inet2, this should be a non-issue.
+
+
+
+The deinstallation process ('make uninstall') will attempt to unpatch your
+rc6.d script.  If it fails (which may happen if you have since edited that
+file), then you can manually remove references to apcupsd or just leave it
+as is; without apcupsd running, the patch is benign.
+
+The deinstallation process will not modify rc.local.

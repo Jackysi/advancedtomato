@@ -1,0 +1,143 @@
+Found UPS at /dev/usb/hid/hiddev0
+hiddev driver version is 1.0.2
+HID: vendor 0x51d product 0x2 version 0x100 app UPS
+HID: bus: 1 devnum: 2 ifnum: 0
+UPS HID device name: "American Power Conversion Back-UPS ES/CyberFort 
+350 FW: 3.1.I USB FW: d1"
+Battery Chemistry: "PbAc" (4)
+
+InputReport 6
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, Charging = 0
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, Discharging = 0
+  Field 2, app UPS, phys PowerSummary
+    Usage 0, APCStatusFlag = 8  0x8
+
+InputReport 12
+  Field 0, app UPS, phys PowerSummary
+Exponent 0 lost.
+    Usage 0, RemainingCapacity = 100 percent
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, RunTimeToEmpty = 360 Seconds
+
+InputReport 19
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, ACPresent = 1
+
+InputReport 20
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, BelowRemainingCapacityLimit = 0
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, ShutdownImminent = 0
+
+FeatureReport 1
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, iProduct = 1  Back-UPS ES/CyberFort 350 FW: 3.1.I USB FW: d1
+
+FeatureReport 2
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, iSerialNumber = 2  AB0233221824
+
+FeatureReport 3
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, iDeviceChemistry = 4  PbAc
+
+FeatureReport 4
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, iOEMInformation = 3  American Power Conversion
+
+FeatureReport 5
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, Rechargeable = 1
+
+FeatureReport 6
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, Charging = 0
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, Discharging = 0
+  Field 2, app UPS, phys PowerSummary
+    Usage 0, APCStatusFlag = 8  0x8
+
+FeatureReport 7
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, ManufactureDate = 11535  2002-08-15
+
+FeatureReport 8
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, ConfigVoltage = 1200 CentiVolts
+
+FeatureReport 9
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, Voltage = 1327 CentiVolts
+
+FeatureReport 10
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, iManufacturer = 3  American Power Conversion
+
+FeatureReport 11
+  Field 0, app UPS, phys PowerSummary
+Exponent 0 lost.
+    Usage 0, CapacityMode = 2 percent
+
+FeatureReport 12
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, RemainingCapacity = 100 percent
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, RunTimeToEmpty = 360 Seconds
+
+FeatureReport 13
+  Field 0, app UPS, phys PowerSummary
+Exponent 0 lost.
+    Usage 0, DesignCapacity = 100 percent
+
+FeatureReport 14
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, FullChargeCapacity = 100 percent
+
+FeatureReport 15
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, WarningCapacityLimit = 50 percent
+
+FeatureReport 16
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, CapacityGranularity2 = 1 percent
+
+FeatureReport 17
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, RemainingCapacityLimit = 10 percent
+
+FeatureReport 18
+  Field 0, app UPS, phys PowerSummary
+Exponent 2 lost.
+    Usage 0, CapacityGranularity1 = 1 percent
+
+FeatureReport 19
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, ACPresent = 1
+
+FeatureReport 20
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, BelowRemainingCapacityLimit = 0
+  Field 1, app UPS, phys PowerSummary
+    Usage 0, ShutdownImminent = 0
+
+FeatureReport 53
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, APCPanelTest = 0
+
+FeatureReport 28
+  Field 0, app UPS, phys PowerSummary
+    Usage 0, APCBattReplacementDate = 529666  2002-08-15
+
+
+FeatureReport 64
+  Field 0, app UPS, phys APCGeneralCollection
+    Usage 0, APCForceShutdown = 0
+
+Waiting for events ... (interrupt to exit)

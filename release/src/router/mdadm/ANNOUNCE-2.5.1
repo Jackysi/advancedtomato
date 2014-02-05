@@ -1,0 +1,40 @@
+Subject:  ANNOUNCE: mdadm 2.5.1 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.5.1
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/git/mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.5.1 adds multiple minor updates including a couple of bugfixes.
+
+Changelog Entries:
+    -   Various fixes for gcc warnings
+    -   uclibc warnings
+    -   Makefile improvements for static linking/intalling
+    -   Makefile uninstall target
+    -   Really fix return status of --examine
+    -   Typos
+    -   Byteorder stuff (again)
+    -   Don't try to create devices with --manage or --grow
+    -   allow default metadata (superblock) type to be specified
+	in mdadm.conf
+    -   Get --stop to list devices stopped but honour --quiet
+    -   remove libssl dependency
+    -   Avoid some misdetection of overlapping partitions
+    -   Fix memory leak in --monitor mode
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  16th June 2006
+
+

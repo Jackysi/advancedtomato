@@ -1,0 +1,23 @@
+#!/bin/sh
+cat /etc/motd; cat /proc/version; echo
+echo "NVRAM"; nvram show | grep 'bytes used'; echo
+echo "INTERFACES"; ifconfig; echo
+echo "ROUTING TABLE"; route -n; echo; route -n -A inet6 2> /dev/null; echo
+echo "ARP TABLE"; ip neigh show; echo
+echo "IP TABLES"; echo ":filter"; iptables -nvL; echo; echo ":nat"; iptables -t nat -nvL; echo; echo ":mangle"; iptables -t mangle -nvL; echo
+[ -x /usr/sbin/ip6tables ] && ( echo "IP6 TABLES"; echo ":filter"; ip6tables -nvL; echo; echo ":mangle"; ip6tables -t mangle -nvL; echo )
+echo "NET STATS"; netstat -ln; echo
+echo "FILE SYSTEMS"; df; echo
+echo "MOUNTPOINTS"; mount; echo
+[ -f /proc/swaps ] && ( echo "SWAPS" && cat /proc/swaps && echo )
+[ -f /proc/partitions ] && ( echo "PARTITIONS" && cat /proc/partitions && echo )
+[ -f /proc/scsi/scsi ] && ( echo "SCSI DEVICES" && cat /proc/scsi/scsi && echo )
+[ -f /proc/bus/usb/devices ] && ( echo "USB DEVICES" && cat /proc/bus/usb/devices && echo )
+echo "ENVIRONMENT"; env; echo
+echo "CPU INFO"; cat /proc/loadavg; cat /proc/cpuinfo; echo
+echo "INTERRUPTS"; cat /proc/interrupts; echo
+echo "MEMORY"; free; cat /proc/meminfo; echo
+echo "WIRELESS VER"; wl ver; wl country; echo
+echo "LOADED MODULES"; lsmod; echo
+echo "PROCESSES"; top -b -n1; echo
+echo "DMESG"; dmesg; echo

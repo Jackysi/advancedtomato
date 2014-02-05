@@ -1,0 +1,31 @@
+
+#include "template.inc" name=bugs
+
+<h1>Supported Systems</h1>
+<b>apcupsd</b> is designed to be able to run on
+any Posix system.
+
+<h2>Supported Systems</h2>
+<b>apcupsd</b> has been built and tested on:
+<ul>
+ <li>RedHat</li>
+ <li>Solaris</li>
+ <li>FreeBSD</li>
+</ul>
+In addition, apcupsd has been ported to the
+following systems:
+<ul>
+ <li>Alpha</li>
+ <li>Darwin</li>
+ <li>Debian</li>
+ <li>Engard</li>
+ <li>Gentoo</li>
+ <li>HP/UX</li>
+ <li>Mandrake</li>
+ <li>NetBSD</li>
+ <li>OpenBSD</li>
+ <li>Slackware</li>
+ <li>SuSE</li>
+ <li>Unifix</li> 
+ <li>Win95/98/Me/XP/NT/2000</li>
+</ul>

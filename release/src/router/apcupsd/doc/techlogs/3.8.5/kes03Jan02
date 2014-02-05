@@ -1,0 +1,29 @@
+             Technical notes on version 3.8.5 
+                      03 January 2002
+                        Kern Sibbald
+
+General:
+- Added Battery Runtime Calibration to apctest. See the
+  apctest chapter of the manual for details.
+- Added an apctest chapter to the manual.
+
+Changes submitted this submission:
+- apcserial.c check pwdf before attempting to close the file 
+  thus avoiding a segmentation fault if the user tries to do
+  a kill power by hand in a non-power fail condition.
+  A diligent user doing a lot of testing ran into this.
+- Added Battery Runtime Calibration to apctest for Smart UPSes.
+  To do it "right" required a surprising amount of code.
+- A user pointed out that one slackware distribution had a
+  two part name, which caused a DISTVER=@DISTVER@ to fail.
+  So, I added quotes around all the @DISTVER@s in each
+  distribution.  Thanks to a user for point this out.
+- In doing a torture test of the NIS server (requesting
+  hundreds of thousands of connects), I discovered if the
+  connection was broken, apcupsd would get a pipe error
+  causing the process to die, or in the case of a pthreaded
+  apcupsd, all processes to die. This problem has existed since
+  the begining of NIS. In addition, it has existed since
+  the beginning of the master/slave code.
+   
+  Fixed by ignoring SIGPIPE signals.

@@ -1,0 +1,29 @@
+             Technical notes on version 3.10.13
+                        Kern Sibbald
+
+General:
+16Apr04
+- Added code to support net snmp configured with --enable-net-snmp
+  based on patch sent by Sander Siemonsma.
+- Build smtp on Unix systems.
+- Update to most current smtp and make it easier to configure
+  for apcupsd or Bacula
+- Start implementing native Win32 version.
+- Rename cmd -> ups_event and cmd_msg -> event_msg
+- Add user supplied code to make apcaccess read the conf file and
+  self configure to proper port. Thanks to Martin Flack for this
+  patch.
+- Start simplifying the Copyright and making the dates current.
+- Rework the net driver. It was really in poor shape.
+- Replace sprintf with asnprint. Replace strcpy with astrncpy
+06Apr04
+- Apply a fix supplied by Jim Pick where syslog releases the
+  usb port and then re-attaches it to /dev/log.
+30Mar04
+- I finally took a careful look at the old master/slave networking
+  code as well as ran it here, and it was sadly broken. Hopefully
+  this commit fixes the problems.    
+09Mar04
+- Fix a few string functions using the new routines.
+- Added asys.c imported from Bacula, which contains a number of 
+  simple system routines such as astrncpy(), ...

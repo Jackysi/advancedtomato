@@ -1,0 +1,45 @@
+Subject:  ANNOUNCE: mdadm 2.4 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.4
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.4 primarily adds support for increasing the number of
+devices in a RAID5 array, which requires 2.6.17 (or some -rc or -mm
+prerelease).
+It also includes a number of minor functionality enhancements and
+documentation updates.
+
+Changelog Entries:
+    -   Rewrite 'reshape' support including performing a backup
+	of the critical region for a raid5 growth, and restoring that
+	backup after a crash.
+    -   Put a 'canary' at each end of the backup so a corruption
+	can be more easily detected.
+    -   Remove useless 'ident' arguement from ->getinfo_super method.
+    -   Support --backup-file for backing-up critical section during
+        growth.
+    -   Erase old superblocks (of different versions) when creating new
+        array.
+    -   Allow --monitor to work with arrays with >28 devices
+    -   Report reshape information in --detail
+    -   Handle symlinks in /dev better
+    -   Fix mess in --detail output which a device is missing.
+    -   Manpage tidyup
+    -   Support 'bitmap=' in mdadm.conf for auto-assembling arrays with
+	write-intent bitmaps in separate files.
+    -   Updates to md.4 man page including section on RESTRIPING and SYSFS
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  30th March 2006
+

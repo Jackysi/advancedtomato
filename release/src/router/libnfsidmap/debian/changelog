@@ -1,0 +1,90 @@
+libnfsidmap (0.15-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/control:
+    -bump Standards-Version to 3.6.2
+    -Section: libdevel for libnfsidmap-dev
+    -Priority: standard for libnfsidmap1
+    -add cdbs to Build-Depends: 
+    -remove unneeded whitespace from the descriptions
+    -raise Build-Depends on debhelper, now (>=5.0.0)
+    -add an URL to the upstream sources
+  * debian/rules: use cdbs
+  * debian/{*dirs,docs}: removed files that are unnecessary because of
+    cdbs
+  * change compat to 5
+  * debian/watch: create
+
+ -- Timo Aaltonen <tjaalton@cc.hut.fi>  Mon, 27 Mar 2006 17:26:46 +0300
+
+libnfsidmap (0.13-1) unstable; urgency=low
+
+  * new "upstream"
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Fri, 24 Feb 2006 18:29:45 -0500
+
+libnfsidmap (0.12-1) unstable; urgency=low
+
+  * new "upstream"
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Mon, 19 Dec 2005 17:57:44 -0500
+
+libnfsidmap (0.10-1) unstable; urgency=low
+
+  * kwc: Fix supplemental groups code to expect memberUid to contain uid
+    and not uidNumber
+  * kwc: Separate id_to_name lookups between user and group
+    using different search filters and bases
+  * kwc: Use stack space rather than mallocs for filters and base
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Thu, 13 Jan 2005 16:30:17 -0500
+
+libnfsidmap (0.8-1) unstable; urgency=low
+
+  * kwc: separate user lookups from group lookups using different search
+    filters and bases
+  * kwc: Add initial support for supplementary group lookup
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Tue,  4 Jan 2005 12:20:43 -0500
+
+libnfsidmap (0.7-1) unstable; urgency=low
+
+  * From kwc: fix conf_path so conf file is read correctly.
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Thu, 16 Dec 2004 15:41:29 -0500
+
+libnfsidmap (0.6-1) unstable; urgency=low
+
+  * fix debian/copyright
+  * add nfs4_gss_princ_to_grouplist
+  * read config file on demand from other library functions instead of
+    segfaulting if we forget to call nfs4_init_name_mapping() first.
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Wed, 17 Nov 2004 12:26:23 -0500
+
+libnfsidmap (0.5-1) unstable; urgency=low
+
+  * fix nfs4_gss_get_princ_ids
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Thu, 21 Oct 2004 20:44:37 -0400
+
+libnfsidmap (0.4-1) unstable; urgency=low
+
+  * bugfixes
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Thu, 21 Oct 2004 20:43:09 -0400
+
+libnfsidmap (0.3-1) unstable; urgency=low
+
+  * umich ldap schema support
+  * read configuration file for default domain, etc.
+  * add nfs4_get_default_domain()
+
+ -- J. Bruce Fields <bfields@fieldses.org>  Sun, 17 Oct 2004 13:23:34 -0400
+
+libnfsidmap (0.1-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- J. Bruce Fields <bfields@citi.umich.edu>  Fri,  6 Aug 2004 16:10:43 -0400
+

@@ -1,0 +1,24 @@
+
+#
+# create a multipath, and fail and stuff
+
+mdadm -CR $md1 -l multipath -n2 $path0 $path1
+
+testdev $md1 1 $mdsize0 1
+
+mdadm $md1 -f $path0
+rotest $md1
+testdev $md1 1 $mdsize0 1
+
+mdadm $md1 -r $path0
+mdadm $md1 -a $path0
+
+rotest $md1
+testdev $md1 1 $mdsize0 1
+
+mdadm $md1 -f $path1
+mdadm $md1 -r $path1
+rotest $md1
+testdev $md1 1 $mdsize0 1
+
+mdadm -S $md1

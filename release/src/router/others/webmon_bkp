@@ -1,0 +1,65 @@
+#!/bin/sh
+
+#
+# Copyright (C) 2013 shibby
+#
+
+if [ `nvram get log_wm` == "1" -a `nvram get webmon_bkp` == "1" ]; then #only if enabled
+
+	BKP_DIR=`nvram get webmon_dir`
+	DATA=`date +%Y%m%d_%H%M`
+	ACTION=$1
+
+	# remove last character from BKP_DIR if it is "/"
+	if [ `echo $BKP_DIR | sed -e 's/\(^.*\)\(.$\)/\2/'` == "/" ]; then
+		echo $DIR | sed 's/.$//'
+	fi
+
+
+	if [ "$ACTION" == "add" ]; then #create init job after webmon start
+		if [ `cru l | grep webmon | wc -l` == "0" ]; then
+			cru a webmon_bkp "0 0 */1 * * /usr/sbin/webmon_bkp"
+			cru a webmon_tmp "59 * * * * /usr/sbin/webmon_bkp hourly"
+		fi
+
+		if [ -f "$BKP_DIR/webmon_recent_domains" -o -f "$BKP_DIR/webmon_recent_searches" ]; then
+			echo "" > /dev/null 2>&1
+		else
+			/usr/sbin/webmon_bkp hourly #make first copy
+		fi
+
+	elif [ "$ACTION" == "hourly" ]; then #make a copy every hour
+		cp /proc/webmon_recent_domains $BKP_DIR/webmon_recent_domains > /dev/null 2>&1
+		cp /proc/webmon_recent_searches $BKP_DIR/webmon_recent_searches > /dev/null 2>&1
+	else
+		touch $BKP_DIR/$DATA > /dev/null 2>&1 #try create a file (check directory rw permission)
+
+		if [ -f "$BKP_DIR/$DATA" ]; then #directory exists and is writable
+			rm $BKP_DIR/$DATA
+
+			cat $BKP_DIR/webmon_recent_domains | awk '{t=$1; "date -d @\""t"\" \"+%Y-%m-%d %H:%M:%S\"" | getline d;print d"\t"$2"\t"$3 }' >> $BKP_DIR/domain-$DATA.log
+			tar -czf $BKP_DIR/domain-$DATA.log.tar.gz $BKP_DIR/domain-$DATA.log > /dev/null 2>&1
+			rm $BKP_DIR/domain-$DATA.log
+
+			cat $BKP_DIR/webmon_recent_searches | awk '{t=$1; "date -d @\""t"\" \"+%Y-%m-%d %H:%M:%S\"" | getline d;print d"\t"$2"\t"$3 }' >> $BKP_DIR/search-$DATA.log
+			tar -czf $BKP_DIR/search-$DATA.log.tar.gz $BKP_DIR/search-$DATA.log > /dev/null 2>&1
+			rm $BKP_DIR/search-$DATA.log
+
+			if [ -f "$BKP_DIR/domain-$DATA.log.tar.gz" -a -f "$BKP_DIR/search-$DATA.log.tar.gz" ]; then
+				if [ `nvram get webmon_shrink` == "1" ]; then
+					iptables -t filter -A monitor -p tcp -m webmon --clear_search --clear_domain
+					logger Webmon Backup: Backup finished. Log cleared.
+				else
+					logger Webmon Backup: Backup finished.
+				fi
+				/usr/sbin/webmon_bkp hourly #make clean copy
+			else
+				logger Webmon Backup Failed: Something goes wrong. Backup was not created!
+			fi
+		else
+			logger Webmon Backup Failed: Directory does not exist or is not writable!
+		fi
+
+	fi
+
+fi

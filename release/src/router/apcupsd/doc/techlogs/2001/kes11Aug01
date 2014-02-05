@@ -1,0 +1,32 @@
+                Technical notes on version 3.9.4 
+                        11 August 2001
+                        Kern Sibbald
+
+General:
+- Added Makefile to examples directory
+- Modified main Makefile.in to do clean and distclean of examples
+- Additional documentation.
+- Major bug fix to USB driver.
+- Removed the sleep 2d from the RedHat halt script.
+
+Changes submitted this submission:
+- Added Makefile.in to examples directory. Updated
+  configure.in and Makefile.in to handle it.  This
+  does a clean, distclean as well as builds the sample
+  programs.
+- Removed the sleep 2d from the RedHat halt script as
+  well as the exit. This should allow the script to run
+  to completion and properly shutdown any raid devices.
+  
+  Other platforms to be done.
+- Lots of documentation, more to be done.
+- Started adding Dmsg (debug print code) to apclog.c.  Not
+  yet complete.
+- Removed some 4.0 code from apcstatus and apcaction.
+- Fixed a major bug in the USB driver. I had done extensive
+  testing, but always with a slave machine, forgetting that
+  the path was different on the main machine.  Fixed the
+  read_usb_ups() routine to return when the event is read
+  allowing apcaction to do his work. Added a few additional
+  small details.
+- Updated the version.

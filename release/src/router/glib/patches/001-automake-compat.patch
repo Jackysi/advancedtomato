@@ -1,0 +1,7 @@
+libgplugin_b_la_LIBADD = @G_MODULE_LIBS@ # $(libglib)
+
+noinst_PROGRAMS = testgmodule
+testgmodule_LDFLAGS += @G_MODULE_LDFLAGS@
+testgmodule_LDADD = libgmodule.la $(libglib) @G_MODULE_LIBS@
+
+.PHONY: files release

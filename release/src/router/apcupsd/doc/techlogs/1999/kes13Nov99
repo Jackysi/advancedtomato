@@ -1,0 +1,117 @@
+         Technical notes on my code submission of 11 Nov 99
+                        Kern Sibbald
+
+General:
+- I worked mainly on the cgi programs. 
+- For all the files that I changed, you will see that they
+  are fully tabbed now (i.e. where ever a tab could be
+  inserted, it is). This generated a bit more changes
+  than might otherwise be the case since many spaces were
+  replaced by tabs. This is in keeping with the new coding
+  standards.
+- For the new files that I created, I created them in
+  my own indenting style. This needs to be reviewed and
+  possibly I will need to reindent them.
+
+Changes submitted this submission:
+- Added the cgi directory to the Makefile.in.  To build
+  the cgi programs, you must explictly type "make cgi"
+  To install them, you must "make install-cgi". 
+- Temporary kludge to the ./configure script to configure
+  the cgi-bin directory, use:
+
+      ./configure -datadir=/home/httpd/cgi-bin
+
+- Updated apcaccess to print all the new information.
+- apcaccess attaches to the shared memory with read-only
+  access. Consequently, you no longer need to be root
+  to run apcaccess.
+- apcaction.c, updated a couple of messages to be more
+  explicit, and only log "Allowing logins" if logins were
+  actually stopped.
+- I added permissions to the creation of the shared memory area
+  to the create_shmarea() call. The current value is 0644 (as
+  before), but this probably should be put in a header file or
+  as a configuration parameter.
+- I added permissions to the attach_semaphore() call. This allows
+  the user to call it in read_only mode.
+
+How to get the new cgi code running:
+1. Add the datadir option to your ./configure as described
+   above to configure your installation path.  
+   If you want to do this manually, cd to the cgi directory,
+   insure that the three .cgi programs are built, then
+   copy these three programs to your cgi bin. 
+
+2. Do the following:
+   
+   ./configure -datadir=...
+   make
+   make install
+   make cgi
+   make install-cgi
+
+3. Restart your apcupsd daemon                     
+   
+4. Start the apcnetd daemon (not done automatically so
+   for the moment you will have to do it after every
+   reboot).
+
+   ./apcnetd
+
+5. Edit /etc/apcupsd/hosts.conf to add your hosts to be
+   monitored. You must do this.
+
+6. Optionally edit /etc/apcupsd/multimon.conf to change the default
+   multimon display. The list of available keywords can be found
+   in cgi/upsfetch.c and multimon.h.
+
+7. Execute the multimon program from your browser with something like:
+
+   http://127.0.0.1/cgi-bin/multimon.cgi
+
+8. Good luck
+
+   
+Work to complete (this seems to get longer each submission!):
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Eliminate the rest of the printfs().
+- Examine all configuration messages, and eliminate all
+ "Someone will have to explain this to me" messages.
+- Check and double check killpwr changes.
+- Correct problems pointed out by Riccardo in integrating
+  my submission.
+- Complete writing of status logging.
+- Add the full status display to the cgi program (same
+  as currently printed by "apcaccess status"
+- Remove remaining traces of old log file. 
+- Cleanup error_abort/printf inconsistencies in cgi code.
+- Possibly retab new cgi/net server code
+- Make apcnetd capable of being called from inetd
+- Add more commands (individual variables) to apcnetd
+- Make fetch_data() be called automatically from 
+  getvardata().
+- Put in new capabilities code.
+- Start capabilities codes from 0 instead of 1.
+- Add additional STATUS output.
+- Create new line for status bits but in English
+- Fix name of unknown() and change comments in subroutine
+  save_dumb_status() ...
+- Make non-available STATUS information print N/A
+- Update CGI programs to understand N/A
+- Expand Last UPS Self Test field in cgi program
+- Produce a RPM for RedHat
+- The TCP port for apcnetd should be configurable.
+- Probably apcnetd should be started at the same time
+  as apcupsd. Or perhaps a configuration parameter should
+  be added to have apcupsd start it.
+- Change translo and transhi to be use new mnemonics
+  lowxfer and highxfer.
+- Remember date and time when apcupsd started.
+- Accumlate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Save last 5 major events and pass them in STATUS file.
+

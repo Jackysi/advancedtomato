@@ -1,0 +1,160 @@
+
+%define initdir /etc/init.d
+
+Summary:      APC UPS Power Control Daemon for Linux
+Name:         apcupsd
+Version:      @VERSION@
+Release:      1
+Vendor:       APC UPS Daemon Team
+Distribution: The apcupsd Team
+Packager:     Kern Sibbald <kern@sibbald.com>
+URL:          http://www.sibbald.com/apcupsd/
+Source:       http://www.sibbald.com/apcupsd/%{name}-%{version}.tar.gz
+Group:        System Environment/Daemons
+Copyright:    GPL v2
+BuildRoot:    %{_tmppath}/%{name}-root
+
+%description
+Apcupsd can be used for controlling most APC UPSes. During a
+power failure, apcupsd will inform the users about the power
+failure and that a shutdown may occur.  If power is not restored,
+a system shutdown will follow when the battery is exausted, a
+timeout (seconds) expires, or the battery runtime expires based
+on internal APC calculations determined by power consumption
+rates.  If the power is restored before one of the above shutdown
+conditions is met, apcupsd will inform users about this fact.
+Some features depend on what UPS model you have (simple or smart).
+
+
+%prep
+
+%setup
+
+%build
+
+%configure \
+        --prefix=%{_prefix} \
+        --sbindir=/sbin \
+        --sysconfdir=%{_sysconfdir}/apcupsd \
+        --with-cgi-bin=%{_sysconfdir}/apcupsd/cgi \
+        --enable-cgi \
+        --enable-pthreads
+
+make
+
+%install
+
+mkdir -p $RPM_BUILD_ROOT%{initdir}
+mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/cgi
+
+make \
+        prefix=$RPM_BUILD_ROOT%{_prefix} \
+        sbindir=$RPM_BUILD_ROOT/sbin \
+        sysconfdir=$RPM_BUILD_ROOT%{_sysconfdir}/apcupsd \
+        cgibin=$RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/cgi \
+        mandir=$RPM_BUILD_ROOT%{_mandir} \
+        install-apcupsd install-cgi
+
+install -m744 distributions/redhat/apccontrol.sh \
+              $RPM_BUILD_ROOT%{_sysconfdir}/apcupsd/apccontrol
+install -m755 distributions/redhat/apcupsd $RPM_BUILD_ROOT%{initdir}
+
+
+%clean
+[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root)
+%doc COPYING ChangeLog INSTALL TODO doc/* examples
+%dir /etc/apcupsd
+%dir /etc/apcupsd/cgi
+%{initdir}/apcupsd
+%config(noreplace) /etc/apcupsd/apccontrol
+%config(noreplace) /etc/apcupsd/changeme
+%config(noreplace) /etc/apcupsd/commfailure
+%config(noreplace) /etc/apcupsd/commok
+%config(noreplace) /etc/apcupsd/onbattery
+%config(noreplace) /etc/apcupsd/offbattery
+%config(noreplace) /etc/apcupsd/apcupsd.conf
+%config(noreplace) /etc/apcupsd/hosts.conf
+%config(noreplace) /etc/apcupsd/multimon.conf
+/etc/apcupsd/cgi/*
+/sbin/*
+%attr(-,root,man) %{_mandir}/*/*
+
+%pre
+
+%post
+
+# delete then add our links
+/sbin/chkconfig --del apcupsd
+/sbin/chkconfig --add apcupsd
+
+cp -f /etc/init.d/halt /etc/init.d/halt.old
+awk '# Stuff left over from a previous apcupsd, remove it
+/^# See if this is a powerfail situation\./ {
+   do {
+      getline
+   }  while (length($0) != 0)
+   getline
+}
+# We insert the new apcupsd code just before the following line
+/^# Now halt or reboot\./ {
+    print "# See if this is a powerfail situation.                               # ***apcupsd***"
+    print "if [ -f @PWRFAILDIR@/powerfail ]; then                                # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   echo \"APCUPSD will now power off the UPS\"                          # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   /etc/apcupsd/apccontrol killpower                                  # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "   echo \"Please ensure that the UPS has powered off before rebooting\" # ***apcupsd***"
+    print "   echo \"Otherwise, the UPS may cut the power during the reboot!!!\"   # ***apcupsd***"
+    print "   echo                                                               # ***apcupsd***"
+    print "fi                                                                    # ***apcupsd***"
+    print ""
+}
+# Everything else is duplicated 
+{ print } ' /etc/init.d/halt.old > /etc/init.d/halt
+
+chmod 744 /etc/init.d/halt
+
+# Undo things a bit
+
+%preun
+if [ $1 = 0 ] ; then
+        # stop running version (if any)                  
+        # I have removed the following because it sometimes produces
+        # an error message which may confuse someone.
+        #/sbin/service apcupsd stop
+
+        # remove startup links
+        /sbin/chkconfig --del apcupsd
+
+        # restore old halt script (hopefully)
+        #   mv -f /etc/init.d/halt.old /etc/init.d/halt
+
+        cp -f /etc/init.d/halt /etc/init.d/halt.old
+        awk '# Stuff added by apcupsd, remove it
+        /^# See if this is a powerfail situation\./ {
+           do {
+          getline
+           }  while (length($0) != 0)
+           getline
+        }
+        # Everything else is duplicated 
+        { print } ' /etc/init.d/halt.old > /etc/init.d/halt
+
+        chmod 744 /etc/init.d/halt
+fi
+
+%postun
+if [ "$1" -ge "1" ]; then
+        :
+        # /sbin/service apcupsd condrestart >/dev/null 2>&1 || :
+fi
+
+%changelog
+* Wed Sep 05 2001 kern@sibbald.com
+- Applied very nice patch to this spec by Giulio Orsero <giulioo@pobox.com>
+* Thu Sep 14 2000 kern@sibbald.com
+- Many thanks to Fredrik Persson and Neil Darlow for helping me write this spec file.

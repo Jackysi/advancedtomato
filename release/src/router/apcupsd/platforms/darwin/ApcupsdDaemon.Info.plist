@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- packagemaker creates the plist for us; we just override the one setting we need to change -->
+<plist version="1.0">
+<dict>
+	<key>IFPkgFlagRestartAction</key>
+	<string>RecommendedRestart</string>
+</dict>
+</plist>

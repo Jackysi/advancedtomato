@@ -1,0 +1,285 @@
+gapcmon (0.9.0) stable; urgency=normal
+* Mon Sep 15 2008 James Scott, Jr. <skoona@users.sourceforge.net>
+- Housekeeping, applying maintainer patches for FreeBSD & KDE effects
+- eggtrayicon.c transparency patches by Jason Hale (bsdkaffee)
+- gapcmon.c sockaddr_in include patch by Jason Hale (bsdkaffee)
+
+gapcmon (0.8.9-0) stable; urgency=normal
+* Fri Aug 8 2008 James Scott, Jr. <skoona@users.sourceforge.net>
+- Removed GTK_STOCK_CLOSE buttons from all windows in response to a
+  KDE issue, where KDEs window manager has now decided to ignore
+  gtk_window_iconify() api calls.  gtk_widget_hide() is being
+  in place of _iconify() however, the close buttons where stranded
+  because using _hide at that level could and did cause one or more
+  window to be hidden with no tasklist or pager entry to restore
+  it with.
+
+gapcmon (0.8.8-0) stable; urgency=normal
+* Sat Jul 12 2008 James Scott, Jr. <skoona@users.sourceforge.net>
+- Fixed a timing error present on quad cores related to the
+  reuse of sockets.  NIS connections would randomly fail
+  if created while another thread was destroying a connection.
+
+gapcmon (0.8.7-0) stable; urgency=normal
+# Tues May 6 2008 James Scott
+- Fixup tooltip monitor and main monitor to
+  correct the use on NOMPOWER.  It is the
+  max scale value for ups wattage reading.
+
+gapcmon (0.8.6-0) stable; urgency=normal
+# Sat Feb 23 2008 James Scott, Jr. <skoona@users.sourceforge.net>
+- Added ICON_DIR to compiler makefiles to support load_icons
+  ability to find icons at run-time.
+
+gapcmon (0.8.5-1) stable; urgency=normal
+* Tue Sep 25 2007 James Scott, Jr. <skoona@users.sourceforge.net>
+- Add a new data value to details page: NOMPOWER
+- A few code structure cleanups in sknet_ namespace
+
+gapcmon (0.8.5-0) stable; urgency=normal
+* Mon Jan 22 2007 James Scott, Jr. <skoona@users.sourceforge.net>
+- Replace the network routine to use GIOChannels vs gnomeVFS.
+  This was done to improve portability by reducing external
+  packages.
+
+gapcmon (0.8.4-0) stable; urgency=normal
+* Sat Dec 30 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Added gapc_util_manage_events() to replace gtk_widget_hide() 
+  functionality.  Now when use_systray is checked for control
+  window, app will start up in icon mode.
+
+gapcmon (0.8.3-0) stable; urgency=normal
+* Mon Jul 3 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Added graph color properties page to control.panel notebook. This
+* Mon Jul 3 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Added graph color properties page to control.panel notebook. This
+  allow user to set the series color for the history chart in the
+  monitor window.
+
+gapcmon (0.8.2-1) stable; urgency=normal
+* Wed May 24 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Correct the sequence of statement in gapcmon.desktop and removed
+  the [en_US] flag where present.  This re-enables the menu item in
+  most desktop systems.
+
+gapcmon (0.8.2-0) stable; urgency=normal
+* Mon May 8 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Correct the timestamp recording feature of lg_graph_data_add_value()
+  to append the timestamp rather than prepend it.  This corrected the
+  presentation of the timestamp to the user in reverse order.
+- Constrained the tooltip to present only for actual data points.  It
+  was presenting for non-existant data points resulting in time_zero
+  display's ( dec 31, 1970...)
+
+gapcmon (0.8.1-0) stable; urgency=normal
+* Mon May 8 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Rewrite the line_graph code to replace gtkglgraph.c|h.  
+- Added redraw to each draw_tooltip call.
+
+gapcmon (0.7.0-0) stable; urgency=normal
+* Thru Apr 18 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Rewrite to include desktop independant features completed.
+- This module replace all other interations of gapcmon: including
+  gapc, gpanel, gpanel_apcmon, etc.
+
+gapcmon (0.6.2-0) stable; urgency=normal
+* Thru Apr 6 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Implemented the FreeDesktop.org spec for notification_area icons
+  using modified source from gnome.cvs:libegg.
+- Added a paned window to help user manage size of icons and notebooks
+- Attempted to implement true alphabetic sort of icons labels, by adding
+  label text to main.window icons ( not working the why I would like )
+- Reviewed gdk_threads_enter() useage and removed duplicates from
+  gtkglgraph.c in response to a user bug ( no x|y-labels on chart-N+1)  
+- Several routine consolidated or parameter-ized.
+
+gapcmon (0.6.1-0) stable; urgency=normal
+* Sat Apr 1 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Implemented the tooltip in line graph history page.  Now displays
+  the colored point value under the mouse.
+- Updated the gapc_monitor_update() in gapcmon_core.c to handle
+  the 0-100 percent scale for charted data points.  LINEV uses
+  HITRANS as scale and defaults to 120:230, BATTV uses 12:24 unless 
+  NOMBATTV is present, and LOADPCT, TIMELEFT, are inversly related to
+  each other.  BCHARGE values are taken as is.
+- Updated the gapc_util_point_filter_set() in gapcmon_core.c to handle
+  out of range graphing data points by defaulting them to 108 percent
+  or zero percent.
+
+gapcmon (0.6.0-0) stable; urgency=normal
+* Fri Mar 31 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Implemented the sort_icons function to reorder dynamically
+  created monitor icons.
+- Added gtk_glgraph_unrealize() and gtk_glgraph_destroy() to
+  the gapcmon_gtkglgraph subpackage.  To fix multi-threaded
+  operations.
+- Integrated the source files into a shared arrangement.
+  gapcmon_core.[c|h] gapcmon_gtkglgraph.[c|h] and two
+  anchor files gapcmon.h and gpanel_apcmon.c
+- Added gtk_glgraph feature to gapcmon replacing the progress
+  bars on the overview page.
+- Added support for up to eight monitors to gapcmon with the 
+  full functionality of gpanel.  commandline take one value
+  the instance number, which defaults to zero.
+- Reordered preferences columns for better presentation.
+
+gapcmon (0.5.7-3) stable; urgency=normal
+* Fri Mar 17 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Pruned gtkglgraph.c|h of un-used and un-needed routines
+- Implemented the none-enabled and COMMLOST program states
+
+gapcmon (0.5.7-2) stable; urgency=normal
+* Thu Mar 16 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Modified gpanel_apcmon.c to handle an unexpected intial state issue
+  and some stalled Icon updates issue.
+- none-enabled relates to the very first execution without
+  gconf2 schemas installed to supply defaults.  This resulted in
+  no icons or monitor being enabled, and thus no access to the 
+  user interface to request one; or a condition where one icon
+  is present but dis-functional.  Fixed
+- stalled icons relate to a state where the user has selected
+  and repeated deseleted a particular monitor.  The icon for 
+  that monitor will default to OFFLINE and not change until
+  the UPS actually changes state like to charging, or on battery.
+  Fixed.    
+
+gapcmon (0.5.7-0) stable; urgency=normal
+* Mon Mar 14 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Modified gp_mon.c to use the GtkGLGraph package for line graphs.
+  Caused two files containing GtkGLGraph to be added;
+  gapcmon_gtkglgraph.c and .h The X11 libs are also needed
+  by the openGL graphics package.
+- gpanel_apcmon is now the only applet version available
+
+gapcmon (0.5.6-0) stable; urgency=normal
+* Fri Mar 10 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+- Modified gp_mon to be compiled with and without Gtk+Extra-2.1.1
+  installed.  gpanel_apcmon.c collection has been removed from
+  distribution as gp_mon is a more stable codeset.
+- GCONF is newly required for gp_mon to compile period.
+
+gapcmon (0.5.5-0) stable; urgency=normal
+ ** RPM Release to gapcmon-0.5.5-0.i686.rpm to sourceforge
+    Adding gp_mon an advanced panel applet with a histogram
+    chart displaying a view of the last 400 collections.
+
+ -- Mon Mar 6 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.4-7) stable; urgency=normal
+ ** RPM Release to gapcmon-0.5.4-7.i686.rpm to sourceforge
+    The last one for a while thru the sourceforge project gapcmon
+
+ -- Tue Feb 14 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.0.7) stable; urgency=normal
+ ** Created a gpanel_apcmon as a GNOME panel Applet
+ ** Merged the codesets of gapcmon and gpanel_apcmon
+    to produce one distribution: This one.
+
+ -- Mon Feb 13 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.3) stable; urgency=normal
+ ** Added Refresh Interval in the Config page to allow users
+    to specify the number of seconds between data refreshes.
+ ** Tweaked the label alignments in the Information page in 
+    an attempt to reduce the visual jitter during and data refresh
+ ** Reworked the refresh button logic to reuse the intial timer
+    routine.  this garauntees that every button press will be honored
+    even though the network thread may be busy collecting data.  The
+    refresh button now retries until successful.
+ 
+ -- Tue Jan 31 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.2) stable; urgency=normal
+ ** reworked the config file to remove GKeyFile dependancy.  Switched
+    to g_io_channel.. functions for configuration functions.
+ 
+ -- Sun Jan 29 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.1) stable; urgency=urgent
+ ** reworked the chart calc for remaining time to better represent
+ ** tweaked alignment of labels on information page.
+ ** fixed a bug in parse_args that would cause a hard loop if cmdline
+    parms were supplied on program start.
+ ** reworked configuration file routine to use g_key_file...
+
+ -- Sat Jan 28 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.0) stable; urgency=normal
+ ** Reworked configuration file to use g_key_file and g_io_channels
+ ** All fopen and related io routines have been removed.
+ 
+ -- Thur Jan 26 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.4.8) stable; urgency=normal
+ ** Reworked network routines to be more portable.
+ ** Now using the GnomeVFS module to handle socket programming functions
+ ** Changed gtk flags in Makefile to add gnome-vfs-module-2.0 support.
+ 
+ -- Wed Jan 25 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.4.7) stable; urgency=normal
+ ** Reworked error messages from network routines
+ ** pango_layout_set_markup() added to barchart to support pango markup.
+ 
+ -- Fri Jan 20 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+ 
+ gapcmon (0.4.6-0) stable; urgency=normal
+ ** Cleanup thread support in timer routines
+ ** Initial Public Release
+ 
+ -- Thu Jan 19 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+ 
+gapcmon (0.5.3) stable; urgency=normal
+ ** Added Refresh Interval in the Config page to allow users
+    to specify the number of seconds between data refreshes.
+ ** Tweaked the label alignments in the Information page in 
+    an attempt to reduce the visual jitter during and data refresh
+ ** Reworked the refresh button logic to reuse the intial timer
+    routine.  this garauntees that every button press will be honored
+    even though the network thread may be busy collecting data.  The
+    refresh button now retries until successful.
+ 
+ -- Tue Jan 31 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.2) stable; urgency=normal
+ ** reworked the config file to remove GKeyFile dependancy.  Switched
+    to g_io_channel.. functions for configuration functions.
+ 
+ -- Sun Jan 29 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.1) stable; urgency=urgent
+ ** reworked the chart calc for remaining time to better represent
+ ** tweaked alignment of labels on information page.
+ ** fixed a bug in parse_args that would cause a hard loop if cmdline
+    parms were supplied on program start.
+ ** reworked configuration file routine to use g_key_file...
+
+ -- Sat Jan 28 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.5.0) stable; urgency=normal
+ ** Reworked configuration file to use g_key_file and g_io_channels
+ ** All fopen and related io routines have been removed.
+ 
+ -- Thur Jan 26 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.4.8) stable; urgency=normal
+ ** Reworked network routines to be more portable.
+ ** Now using the GnomeVFS module to handle socket programming functions
+ ** Changed gtk flags in Makefile to add gnome-vfs-module-2.0 support.
+ 
+ -- Wed Jan 25 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+gapcmon (0.4.7) stable; urgency=normal
+ ** Reworked error messages from network routines
+ ** pango_layout_set_markup() added to barchart to support pango markup.
+ 
+ -- Fri Jan 20 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+
+ ** pango_layout_set_markup
+ gapcmon (0.4.6-0) stable; urgency=normal
+ ** Cleanup thread support in timer routines
+ ** Initial Public Release
+ 
+ -- Thu Jan 19 2006 James Scott, Jr. <skoona@users.sourceforge.net>
+ 

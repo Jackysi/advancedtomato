@@ -1,0 +1,17 @@
+This is the patch by Adam Kropelin that corrects the control queue
+overflows in the kernel. This patch has been accepted to be applied.
+However, with the current version of apcupsd, we have applied a 
+workaround that does not require this patch.
+
+
+--- linux-2.6.0-test11/drivers/usb/input/hiddev.c	Fri Oct 17 23:23:08 2003
++++ linux-2.6.0-test11-adk/drivers/usb/input/hiddev.c	Wed Dec 17 23:38:24 2003
+@@ -213,6 +213,7 @@
+ 	  ((type == HID_OUTPUT_REPORT) ? HID_REPORT_TYPE_OUTPUT : 
+ 	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE:0));
+ 	uref.report_id = report->id;
++	uref.field_index = HID_FIELD_INDEX_NONE;
+ 
+ 	hiddev_send_event(hid, &uref);
+ }
+

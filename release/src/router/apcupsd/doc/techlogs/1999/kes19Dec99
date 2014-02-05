@@ -1,0 +1,108 @@
+         Technical notes on my code submission of 19 Dec 99
+                        Kern Sibbald
+
+General:
+- Moved the EVENTS file truncation code to the main
+  process.
+- Enhanced apcaccess to print the EPROM values.
+
+Changes submitted this submission:
+- In order to know the current EPROM values and
+  the permitted values, I added a new command line
+  option for apcaccess "eprom" that produces a
+  print out of your EPROM. A sample output is:
+   
+      >apcaccess eprom
+
+      Valid EPROM values for the SMART-UPS 1000
+
+                               Config        Current  Permitted
+      Description              Directive     Value    Values
+      ===================================================================
+      Upper transfer voltage   HITRANSFER    253      253 264 271 280 
+      Lower transfer voltage   LOTRANSFER    204      196 188 208 204 
+      Return threshold         RETURNCHARGE  15       00 15 50 90 
+      Output voltage on batts  OUTPUTVOLTS   230      230 240 220 225 
+      Sensitivity              SENSITIVITY   H        H M L L 
+      Low battery warning      LOWBATT       2        02 05 07 10 
+      Shutdown grace delay     SLEEP         180      020 180 300 600 
+      Alarm delay              BEEPSTATE     T        0 T L N 
+      Wakeup delay             WAKEUP        60       000 060 180 300 
+      Self test interval       SELFTEST      336      336 168 ON  OFF 
+
+- I modified the configuration option of apcupsd so that
+  if no configuration directive is present, that value
+  will not be set. This permits the user to choose which
+  values he wants to change in his EPROM. Previously, the
+  code attempted to change ALL EPROM values.  This was accomplished
+  by setting the default values to -1, and testing for this
+  value in apcsetup.c before attempting the change.
+- I moved the code that truncates the EVENTS file out of the
+  server code into its own subroutine. This new subroutine
+  (truncated_events_file) is called from the reports main loop
+  in apcreports.c at the same way that the other reports are
+  called. This subroutine is called once every 5 hours.  I am
+  much happier with this solution because it permits me to
+  completely close the old file description for writing to
+  the file and reopen it. In addition, the server code now
+  has the file open as read-only. 
+- I merged the write_reports() code into do_reports() and
+  merged several of the if statments into a single if.
+- By the way, the file doc/manual/apcupsd.apf is a control file
+  for the manual project used by my HTML tool. 
+- I updated the default etc/apcupsd.conf to have all the EPROM  
+  configuration directives turned off by default.  That way, the
+  user can turn them on one by one if he wishes.
+- A pile of improvements to the manual. 
+
+
+                Kern's ToDo List
+
+To do:
+- Complete documentation
+- Expand Last UPS Self Test field in cgi program
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Move more control files to /etc/apcupsd
+- Setuid of network processes to "nobody".
+- Add credits to manual. Update testers names, ...
+- Check time delays in shutdown especially for
+  master/slaves.
+- Look at Vladimir's code.
+- Update make clean to remove distributions/*/apccontrol.sh ?????
+- Set appropriate permissions on files in /etc/apcupsd during
+  make install.
+
+
+Wish list:
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+- Pass second argument to apccontrol indicating if
+  we are master/slave and other info.
+- STATUS file should be opened with open() rather
+  than fopen(). Some small changes required. 
+
+Done:
+- Move EVENTS file truncation code to main process.
+- Ask Riccardo to change the name of distributions to 
+  packages or opsys
+

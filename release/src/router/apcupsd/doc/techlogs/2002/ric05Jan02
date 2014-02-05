@@ -1,0 +1,12 @@
+- Merged SCO OpenServer specific changes.
+- Changed gethostname test to check in different libs.
+- Customized syslog test to detect syslog even if it is a macro.
+- ifdef'ed #warning only for HAVE_GCC compiler.
+- In distributions/Makefile changed apccontrol installation so that
+  if <dist>/apccontrol.sh exists it install the customized script
+  instead of the standard one.
+- Added HAVE_OPENSERVER_OS in autoconf/acconfig.h so that it can be
+  used inside C sources too.
+- Corrected a test "else if fi fi" in "elif fi": bad nesting in configure.in
+  due to OpenServer patch.
+- Bumped version date to 5 Jan 2002.

@@ -1,0 +1,30 @@
+DATE     : Wed Dec 29 19:11:16 PST 1999
+HOSTNAME : adsl-63-195-162-81
+RELEASE  : 3.7.0-beta2
+CABLE    : APC Cable 940-0024C
+MODEL    : SMART-UPS 3000
+UPSMODE  : Stand Alone
+UPSNAME  : UPS_IDEN
+LINEV    : 120.9 Volts
+MAXLINEV : 121.5 Volts
+MINLINEV : 120.2 Volts
+LINEFREQ : 60.0 Hz
+OUTPUTV  : 120.9 Volts
+LOADPCT  :  21.8 Percent Load Capacity
+BATTV    : 54.5 Volts
+BCHARGE  : 100.0 Percent
+MBATTCHG : 5 Percent
+TIMELEFT :  31.0 Minutes
+MINTIMEL : 3 Minutes
+MAXTIME  : 0 Seconds
+STATFLAG : 0x08 Status Flag
+STATUS   : ONLINE
+ITEMP    : 37.3 C Internal
+LASTXFER : Line voltage notch or spike
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : 0
+BADBATTS : N/A
+FIRMWARE : 90.11.D
+APCMODEL : OWD
+END APC  : Wed Dec 29 19:11:20 PST 1999

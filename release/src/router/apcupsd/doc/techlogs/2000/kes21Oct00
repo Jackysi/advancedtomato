@@ -1,0 +1,39 @@
+         Technical notes on my code submission of 21 Oct 00
+                        Kern Sibbald
+
+General:
+- Win32 updates
+- Fixed some WinNT problems.
+- Updated the manual for the Win32 version.
+
+Changes submitted this submission:
+- Implemented simple email.exe program to send email
+  messages. This permits notification of important events
+  by email on Win32.
+- Implemented changeme, onbattery, mainsback, commfailure, and commok
+  for Win32.
+- Added make Makefile to Win32 Makefile.in
+- Modified the Win32 syslog() routine to append to the
+  events file if it is not already open. The events filename
+  is hard coded since the configuration file may not have
+  been opened yet.
+- A few enhancements of error messages where I ran into problems
+  and did not get enough information.
+- Fixed win32/Makefile.in and Makefile.in to do a correct
+  win32 installation.
+- Corrected a problem reported by Bostjan Muller that caused
+  the NT version to crash when used as a slave. Once again,
+  NT does not pass open shared memory descriptors to child
+  processes. I had to add explict attach_ipc() calls in the
+  network master/slave child processes.
+- Reworked the code submitted by André as it contained a
+  number of errors. It remains to be tested as soon as this
+  version is out.
+- Updated the manual for installation of the Win32 version.
+- Brought the master/slave example configuration files
+  up to date and removed the EEPROM configuration statements.
+- Updated the safe.apccontrol script in the examples directory
+  to remove the printf statements, which are not necessary.
+  Apparently on some systems, this caused the output to be
+  blank (I observed it here too).
+- Fixed a Solaris link problem in the cgi library.

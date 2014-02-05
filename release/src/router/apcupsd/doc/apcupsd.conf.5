@@ -1,0 +1,476 @@
+.\" manual page [] for apcupsd.conf version 3.14.6
+.Pp
+.Dd January 10, 2009
+.Dt APCUPSD.CONF 5
+.Os apcupsd.conf v3.14.6
+.Sh NAME
+.Nm apcupsd.conf 
+.Nd apcupsd(8) configuration file
+.Sh DESCRIPTION
+.Nm 
+is the configuration file for the
+.Xr apcupsd 8
+program.  The file is a plain ASCII text file which comprises a number 
+of configuration directives which control how the apcupsd program behaves
+when controlling most American Power Conversion Corp (APC) UPSes.
+The configuration file is also used for the 
+.Xr apctest 8
+program when bulk programming the EEPROM in a Smart-UPS model.
+.Pp
+It will almost certainly be necessary to customise the information 
+in the configuration file to suit your particular configuration and 
+operating requirements.
+.Pp
+The configuration file directives are explained in the subsections below.
+.Pp 
+.Ss GENERAL CONFIGURATION DIRECTIVES
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It UPSNAME <string>
+.Pp
+Specify a name for the UPS for log files, status reports etc. 
+.It UPSCABLE [\& simple | smart | ether | usb | 940-0119A | 940-0127A | 940-0128A | 940-0020B | 940-0020C | 940-0023A | 940-0024B | 940-0024C | 940-1524C | 940-0024G | 940-0095A | 940-0095B | 940-0095C | MAM-04-02-2000 \&]
+.Pp
+The type of cable used to connect the UPS to the computer.
+.Pp
+.It UPSTYPE [\& dumb | apcsmart | net | usb | snmp | pcnet | test \&]
+.Pp
+The type of APC UPS that you have.
+.It DEVICE <name>
+.Pp
+The name of the device used for communication between the UPS and
+the computer. For a USB UPS, you should leave the DEVICE 
+directive blank and apcupsd will figure out where the device is 
+located. 
+.Pp
+.Bl -bullet -compact
+.It 
+apcsmart
+: /dev/tty** (serial connection)
+.It 
+usb
+: leave blank! (USB connection)
+.It 
+net
+: hostname:port (NIS connection)
+.It 
+snmp
+: hostname:port:vendor:community (SNMP connection)
+.It 
+dumb
+: /dev/tty** (serial connection)
+.It 
+pcnet
+: ipaddr:username:passphrase (AP9617 SmartSlot card)
+.El
+.Pp
+If you have problems, please see the apcupsd manual for more 
+detailed information and comprehensive troubleshooting advice.
+.Pp
+.It POLLTIME <seconds>
+.Pp
+The rate in seconds that the daemon polls the UPS for status.
+This rate is automatically set to 1 second when the UPS goes on battery
+and reset to the specified value when the utility power returns. This 
+setting applies both to directly-attached UPSes and networked UPSes. 
+A low setting will improve the daemon's responsiveness to certain events
+at the cost of higher CPU utilisation. The default of 60 is appropriate 
+for most situations.
+.Pp
+.It LOCKFILE <path>
+.Pp
+apcupsd creates a lockfile for the serial or USB port in the specified 
+directory.  It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+
+.It SCRIPTDIR <path>
+.Pp
+Directory in which apccontrol and event scripts are located. 
+Defaults to
+.Pa /usr/local/etc/apcupsd .
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.It PWRFAILDIR <path>
+.Pp
+Directory in which apcupsd writes the powerfail flag file
+created when apcupsd initiates a system shutdown. The directory 
+is checked in halt scripts to determine if turning off the 
+UPS output power is required.  Defaults to
+.Pa /var/run .
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.Pp
+.It NOLOGINDIR <path>
+.Pp
+Directory in which apcupsd writes the nologin file which tells 
+the OS to disallow new logins. Defaults to
+.Pa /var/run .
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.El
+.Ss NIS CONFIGURATION DIRECTIVES
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It NETSERVER [\& on | off \&]
+.Pp
+Turns the network information server (NIS) on or off. When on, 
+apcupsd serves status and event information over the network. 
+This information is also used by the web-based CGI monitoring 
+programs. The default is set to on. 
+.Pp
+.It NISIP <IP address>
+.Pp
+Specifies the IP address of the network interface on which
+apcupsd will listen for incoming connections. The default value is 
+0.0.0.0 which means the NIS will listen for connections on all network 
+interfaces. If the computer has more than one interface, you can specify
+the IP of a single interface to limit connections to that interface. 
+Specifying the loopback address (127.0.0.1) will cause the NIS daemon to 
+accept connections only from the local computer. 
+.Pp
+.It NISPORT <port>
+.Pp
+Specifies the port to be used by the NIS daemon. The default is 3551 which
+has been received from IANA as the official apcupsd networking port. 
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.Pp
+.It EVENTSFILE <filename>
+.Pp
+If you want NIS to provide the last 10 events via the network, you must 
+specify a file where apcupsd will save these events. The default is:
+.Pa /var/log/apcupsd.events .
+apcupsd will save at most the last 50 events to this file. When more than 
+50 events are saved and a network request for the events arrives, apcupsd 
+will truncate the file to the most recent 10 events.
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.El
+.Ss LOGGING CONFIGURATION DIRECTIVES
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It STATTIME <seconds>
+.Pp 
+Specifies the time interval between writes to the status file. If set 
+to zero, the status file will not be written. The status file will 
+disappear in a future  apcupsd version as its functionality has been 
+replaced by the Network Information Server and the
+.Xr apcaccess 8
+program.
+.Pp
+.It STATFILE <file>
+.Pp
+Specifies the file to be used when writing the status information. 
+The default is 
+.Pa /etc/apcupsd/apcupsd.status .
+It must be changed when running more than one copy of apcupsd 
+on the same computer to control multiple UPSes.
+.Pp
+.It LOGSTATS [\& on | off \&]
+.Pp
+Activate log file. This generates a lot of output, so if you turn 
+this on, be sure that the file defined in 
+.Xr syslog.conf 5
+for LOG_NOTICE is a named pipe.
+.Pp
+.It DATATIME <seconds>
+.Pp
+Specifies the time interval between writes of the APC PowerChute 
+software-like data information to the log file.
+.Pp
+.It FACILITY <log-facility>
+.Pp
+Change the system logging (syslog) facility. The default is daemon.
+This parameter can be useful if you wish to direct the apcupsd
+system logging information to other than your system default files. 
+See
+.Xr syslog.conf 5
+for details of other possible facilities and general system logging 
+configuration.
+.Pp
+.El
+.Ss POWER FAILURE CONFIGURATION DIRECTIVES
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It ONBATTERYDELAY <seconds>
+.Pp
+The number of seconds from when a power failure is detected until
+apcupsd reacts with an onbattery event.
+.Pp
+.It BATTERYLEVEL <percentage>
+.Pp
+apcupsd will shutdown the system during a power failure when 
+the remaining battery charge falls below the specified percentage. 
+The default is 5.
+.Pp
+.It MINUTES <minutes>
+.Pp
+apcupsd will shutdown the system during a power failure when the 
+remaining runtime on batteries as internally calculated by the UPS 
+falls below the specified minutes. The default is 3.
+.Pp
+.It TIMEOUT <seconds>
+.Pp
+After a power failure occurs, 
+apcupsd will shutdown the system after the specified number of seconds 
+have expired.  For a Smart-UPS, this should normally be set to zero so 
+that the shutdown time will be determined by the battery level or 
+remaining runtime (see above). This command is, however, useful for 
+a Back-UPS or other simple signalling UPS which does not report 
+battery level or the remaining runtime. It is also useful for testing 
+apcupsd because you can force a rapid shutdown by setting a small 
+value (eg 60) and turning off the power to the UPS. 
+.Pp
+TIMEOUT, BATTERYLEVEL, and MINUTES can all be set without problems. 
+apcupsd will initiate a shutdown when the first of these conditions
+becomes valid.
+.Pp
+.It ANNOY <seconds>
+.Pp
+Specifies the time in seconds between broadcast messages requesting
+logged in users to log off from the system. This timer starts only when
+the UPS is running on battery. The default is 300 seconds (5 minutes).
+.Pp
+.It  ANNOYDELAY <seconds>
+.Pp
+Specifies the delay time in seconds before broadcast messages requesting
+logged in users to log off from the system. This timer starts
+only after the UPS is running on battery power. This timer is reset when 
+the power returns. The default is 60 seconds (ie the first request to 
+log off occurs after 60 seconds on battery power).
+.Pp
+.It NOLOGON [\& disable | timeout | percent | minutes | always \&]
+.Pp
+Specifies when apcupsd should create the nologon file to prevent users
+from logging on to the system.
+.Pp
+"disable" prevents apcupsd from creating the nologin file.
+.Pp
+"timeout" specifies a specific wait time before apcupsd
+creates the nologin file.
+.Pp
+"percent" specifies the percentage of battery charge remaining before
+apcupsd creates the nologin file. 
+.Pp
+"minutes" specifies the battery runtime remaining before 
+apcupsd creates the nologin file.
+.Pp
+"always" specifies that
+apcupsd should create the nologin file immediately after 
+a power failure occurs.
+.Pp
+This directive is important for allowing systems with BIG UPSes 
+to run normally until the system administrator determines the 
+need for dumping users.  It also allows the system administrator 
+to hold the "ANNOY" factor until the 
+.Pa /etc/nologin
+file is created.
+.Pp
+.It KILLDELAY <seconds>
+.Pp
+Specifies the number of seconds for which apcupsd
+will continue running after a shutdown has been requested. After 
+the specified time, apcupsd will attempt to put the UPS into 
+hibernate mode and kill the power to the computer. This is for 
+use on operating systems where apcupsd cannot regain control after a 
+shutdown (eg FreeBSD) to issue an apcupsd --killpower command. Setting 
+the delay to 0 disables it.
+.El
+.Ss SHARE-UPS CONFIGURATION DIRECTIVES
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It UPSCLASS [\& standalone | shareslave | sharemaster \&]
+.Pp
+The default is "standalone" and should be used for 
+all computers powered by the UPS,  with a direct connection to 
+the UPS and where there are no other computers dependent on power 
+from the UPS. This is the "normal" case.
+.Pp
+Use "shareslave" if you are using a Share-UPS interface expander 
+and connected to the BASIC port (simple signalling). 
+.Pp
+Use "sharemaster", if you are using a Share-UPS interface
+expander and connected to the ADVANCED port (smart signalling). 
+.Pp
+.It UPSMODE [\& disable | share \&]
+.Pp
+Set to "disable" for normal standalone operation to indicate that 
+you are disabling the Share-UPS interface expander support.
+.Pp
+Set to "share" for two to seven additional simple signalling ports
+on a Share-UPS interface expander. This code may not be fully tested
+in every new release.
+.El
+.Ss APCTEST EEPROM CONFIGURATION DIRECTIVES
+.Pp
+These directives have no effect on the operation of 
+.Xr apcupsd 8
+but are reserved for use by
+.Xr apctest 8
+when bulk programming the values of the UPS EEPROM configuration variables 
+in a Smart-UPS model.
+.Pp
+.Bl -hang -width "xxxxxxx"
+.It UPSNAME <string>
+.Pp
+Name of UPS. Maximum of 8 characters.
+.Pp
+.It BATTDATE [\& mm/dd/yy | dd/mm/yy \&]
+.Pp
+Last battery replacement date. Maximum of 8 characters.
+.Pp
+.It SENSITIVITY [\& H | M | L \&]
+.Pp
+.Bl -item -nested -compact
+.It 
+H : High (most sensitive setting)
+.It 
+M : Medium
+.It 
+L : Low (least sensitive setting)
+.El
+.It WAKEUP [\& 000 | 060 | 180 | 300 \&]    
+.Pp
+The time delay in seconds that the UPS waits after the return of utility 
+power before "waking up" and restoring power to the connected equipment.
+.Pp
+.It SLEEP [\& 020 | 180 | 300 | 600 \&]
+.Pp
+The time delay in seconds for which the UPS waits or "sleeps" after 
+it receives a request to power off the connected system.
+.Pp
+.It LOTRANSFER <voltage>
+.Pp
+Low line voltage causing transfer to battery power or activation of SmartBoost.
+Allowable values depend on the last letter of the firmware or APCMODEL.
+Typical values are:
+.Pp
+  D  106  103  100  097
+  M  177  172  168  182
+  A  092  090  088  086
+  I  208  204  200  196
+.Pp
+where D = domestic (USA), M = Canada, A = Asia and I = International.
+.Pp
+.It HITRANSFER <voltage>
+.Pp
+High line voltage causing transfer to battery power or activation of SmartTrim.
+Allowable values depend on the last letter of the firmware or APCMODEL.
+Typical values are:
+.Pp
+  D  127  130  133  136
+  M  229  234  239  224
+  A  108  110  112  114
+  I  253  257  261  265
+.Pp
+where D = domestic (USA), M = Canada, A = Asia and I = International.
+.Pp
+.It RETURNCHARGE [\& 00 | 15 | 50 | 90 \&]
+.Pp
+Percentage of battery charge needed for the UPS to restore power to the 
+connected equipment.
+.Pp
+.It BEEPSTATE [\& 0 | T | L | N \&]
+.Pp
+Alarm delay.
+.Pp
+.Bl -item -nested -compact
+.It 
+0 : Zero delay after power fails.
+.It
+T : When power fails plus 30 seconds.
+.It
+L : When low battery occurs.
+.It
+N : Never.
+.El
+.It LOWBATT <minutes>
+.Pp
+Low battery warning occurs when the specified number of minutes remains
+before the UPS estimates battery power will be exhausted. There are four 
+user-changeable settings: 2, 5, 7, or 10 minutes
+.Pp
+.It OUTPUTVOLTS <voltage>
+.Pp
+UPS nominal output voltage when running on battery.
+Allowable values depend on the last letter of the firmware or APCMODEL.
+Typical values are:
+.Pp
+  D  115
+  M  208
+  A  100
+  I  230  240  220  225
+.Pp
+where D = domestic (USA), M = Canada, A = Asia and I = International.
+.Pp
+.It SELFTEST [\& 336 | 168 | ON | OFF \&]
+.Pp
+Self test interval in hours (336 = 2 weeks, 168 = 1 week, 
+ON = at power on, OFF = never).
+.Pp
+.El
+.Sh EXAMPLES
+Note that in the following examples, the device names assume that
+you are using Linux. Device names for serial devices in *BSD and
+other operating systems will be different.
+.Pp
+.Ss Minimal USB Configuration for a USB UPS
+     UPSCABLE usb
+     UPSTYPE usb
+     DEVICE
+     LOCKFILE /var/lock
+     UPSCLASS standalone
+     UPSMODE disable
+.Pp
+Notice no device name is specified. 
+.Xr apcupsd 8
+will try all the well known USB ports. Only specify a specific 
+USB device name if you know what you are doing. For detailed
+information on setting up a USB UPS, refer to the "USB Configuration"
+section of the apcupsd manual.
+.Ss Minimal Serial Configuration for a Smart UPS
+     UPSCABLE smart
+     UPSTYPE apcsmart
+     DEVICE /dev/ttyS0
+     LOCKFILE /var/lock
+     UPSCLASS standalone
+     UPSMODE disable
+.Pp
+Normally there would be more configuration directives to 
+completely customise your installation, but this example shows 
+the minimum required.
+.Ss Minimal Serial Configuration for a Dumb UPS
+     UPSCABLE <number of the cable used>
+     UPSTYPE dumb
+     DEVICE /dev/ttyS0
+     LOCKFILE /var/lock
+     UPSCLASS standalone
+     UPSMODE disable
+.Pp
+If your cable does not have low battery detection (eg such 
+cables include the APC 940-0020B and 940-0023A), you will also 
+need to define the TIMEOUT <seconds> configuration directive to set 
+the number of seconds on battery during a power failure after which 
+apcupsd will do a system shutdown.
+.Pp
+Normally there would be more configuration directives to 
+completely customise your installation, but this example shows 
+the minimum required.
+.Pp
+.Sh FILES
+.Pa /etc/apcupsd/apcupsd.conf 
+default configuration file
+.Pp
+.Sh SEE ALSO
+.Pp
+.Xr syslog.conf 5 ,
+.Xr apcupsd 8 ,
+.Xr apctest 8 .
+.Pp
+The HTML apcupsd manual installed on your system or available online at
+http://www.apcupsd.org/
+.Sh AUTHORS
+.Pp
+.An Trevor Roydhouse (current)
+.An Andre M. Hedrick         
+.An Christopher J. Reimer         

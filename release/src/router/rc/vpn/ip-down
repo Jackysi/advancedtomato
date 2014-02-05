@@ -1,0 +1,26 @@
+#!/bin/sh
+DEFAULTROUTE=$(/bin/nvram get pptp_client_dfltroute)
+REMOTESUB=$(/bin/nvram get pptp_client_srvsub)
+REMOTENET=$(/bin/nvram get pptp_client_srvsubmsk)
+case "$6" in
+ kelokepptpd)
+  if [ $DEFAULTROUTE -eq 1 ]; then
+    REMOTESUB="0.0.0.0"
+    REMOTENET="0.0.0.0"
+    /sbin/route del default dev $1
+  else
+    /sbin/route del -net $REMOTESUB netmask $REMOTENET dev $1
+  fi
+  /usr/sbin/iptables -D OUTPUT --source 0.0.0.0/0.0.0.0 --destination $REMOTESUB/$REMOTENET --jump ACCEPT --out-interface $1
+  /usr/sbin/iptables -D INPUT --source $REMOTESUB/$REMOTENET --destination 0.0.0.0/0.0.0.0 --jump ACCEPT --in-interface $1
+  /usr/sbin/iptables -D FORWARD --source 0.0.0.0/0.0.0.0 --destination $REMOTESUB/$REMOTENET --jump ACCEPT --out-interface $1
+  /usr/sbin/iptables -D FORWARD --source $REMOTESUB/$REMOTENET --destination 0.0.0.0/0.0.0.0 --jump ACCEPT --in-interface $1
+  /usr/sbin/iptables -D FORWARD --protocol tcp --tcp-flags SYN,RST SYN --jump TCPMSS --clamp-mss-to-pmtu
+  if [ "$(/bin/nvram get pptp_client_nat)" = "1" ]; then
+      /usr/sbin/iptables --table nat -D POSTROUTING --out-interface $1 --jump MASQUERADE
+  fi
+  /sbin/service dnsmasq restart
+  ;;
+ *)
+esac   
+exit 0 

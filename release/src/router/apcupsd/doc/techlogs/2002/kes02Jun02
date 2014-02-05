@@ -1,0 +1,41 @@
+             Technical notes on version 3.9.10
+                       2 June 2002
+                       Kern Sibbald
+
+General:
+- Made shared memory implementation use shared memory
+  pointer rather than copying.
+- I did not test the master/slave code under the new scheme.
+- The tab characters in a number of files had been removed, so the diffs
+  for some files are larger than really necessary.  Use diff -b if you
+  want to see the real differences.
+- The Makefile dependencies are not correct. E.g. changing apc_extern.h
+  will not cause all the appropriate files to rebuild.  I did not
+  fix this.
+
+Changes submitted this submission:
+- Modified the ./configure process so that the output
+  summary report is saved in config.out. Thus at a 
+  later time, you can see how apcupsd was configured.
+- Corrected a problem with configure.in where the
+  AC_DEFINE(HAVE_CYGWIN) was inside a test rather than
+  at the top level.
+- Removed the install of the examples. This is something important
+  to have in the source, but it should not be loaded into the
+  system files.
+- Removed an inappropriate #ifdef in hid-ups.c. This prevented it
+  from building properly.
+- Major cleanup and reorganization of the shared memory implementation.
+  The shared memory image is no longer copied to local storage but
+  referenced directly by the shared memory pointer. This makes the
+  shared memory scheme much more similar to the pthreads implementation.
+- Added a number of write_lock(ups) that were missing.
+- Eliminated read_shmarea() and write_shmarea(). Use memcpy() if you
+  need to do this.
+- NOTE!!! init_ups_struct() must NOT clear memory as the shared memory
+  structures or the pthreads structures are already setup.
+- The test for no NISIP configuration statement was incorrect causing
+  apcupsd to always report an error. I fixed it.
+- The test for NISIP was placed before the attach to shared memory in
+  apcnis.c, which means it would not have worked on a shared memory
+  configuration. I corrected this.

@@ -1,0 +1,19 @@
+         Technical notes on my code submission of 13 Jan 00
+                        Kern Sibbald
+
+General:
+- A linking problem on some systems occurred in the CGI
+  libraries.
+- I reverified that as best I can tell, except for the drop
+  of priority to nobody in the servers, we have implemented
+  all the ideas given by Vladimir in his patch. However,
+  most have been done slightly differently due to the evolution
+  of our code.
+
+Changes submitted this submission:
+- Modified cgi/Makefile.in to include -lm on all the links.
+  I also parameterized the makefile a bit more.
+- I added the necessary credits to the Apcupsd manual for the
+  use of the gd 1.2 image libraries used to produce the bar
+  graphs in our CGI programs.
+

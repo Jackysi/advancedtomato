@@ -1,0 +1,69 @@
+#! /bin/sh
+#
+# apcupsd      This shell script takes care of starting and stopping
+#	       the apcupsd UPS monitoring daemon.
+#
+# chkconfig: 2345 60 99
+# description: apcupsd monitors power and takes action if necessary
+#
+APCPID=@PIDDIR@/apcupsd.pid
+
+DISTVER=`cat /etc/mandrake-release | grep release | cut -f 5 -d ' '`
+
+# Source function libarary
+. /etc/rc.d/init.d/functions
+
+if [ ! -x @sbindir@/apcupsd -o ! -r @sysconfdir@/apcupsd.conf ]; then
+    exit 0
+fi
+
+case "$1" in
+    start)
+       rm -f @PWRFAILDIR@/powerfail
+       rm -f @nologdir@/nologin
+# check for stale lockfiles
+       LOCKDIR=`grep "^LOCKFILE" @sysconfdir@/apcupsd.conf | awk '{ print $2}'`
+       DEVICE=`grep "^DEVICE" @sysconfdir@/apcupsd.conf | awk '{ print $2 }' | sed -e 's@/dev/@@g'`
+       LOCKFILE="${LOCKDIR}/LCK..${DEVICE}"
+       if [ -f $LOCKFILE ]; then
+	  PID=`cat $LOCKFILE | awk '{ printf("%d",$1) }'`
+       else
+	  PID=""
+       fi
+       PIDREAL=`ps -e | awk '{print $1}' | grep "${PID}"`
+       if [ ! -z "$PID" -a ! "$PID" = "$PIDREAL" ]; then
+	  echo "Stale lockfile, removing $LOCKFILE"
+	  if [ -f $LOCKFILE ]; then
+	     rm -f $LOCKFILE
+	  fi
+       fi
+       echo -n "Starting UPS monitoring:" 
+       if [ "${DISTVER}" = "5.2" ] ; then
+	  @sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf
+       else
+	  @sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf && success || failure
+       fi
+       echo
+       touch @LOCKDIR@/subsys/apcupsd
+       ;;
+    stop)
+       echo -n "Shutting down UPS monitoring:"
+       killproc apcupsd
+       echo
+       rm -f $APCPID
+       rm -f @LOCKDIR@/subsys/apcupsd
+       ;;
+    restart|reload)
+       $0 stop
+       sleep 15
+       $0 start
+       ;;
+    status)
+       @sbindir@/apcaccess status
+       ;;
+    *)
+       echo "Usage: $0 {start|stop|restart|reload|status}"
+       exit 1
+       ;;
+esac
+exit 0

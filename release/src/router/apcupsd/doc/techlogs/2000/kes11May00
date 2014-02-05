@@ -1,0 +1,31 @@
+         Technical notes on my code submission of 11 May 00
+                        Kern Sibbald
+
+General:
+- Some additions to the manual, particularly concerning "dumb"  
+  UPSes. Clarification of cable requirements.
+  Added quick search tags to the configuration manual for
+  use with the new configurator.
+- Added a new option to allow apcupsd to do a powerkill before
+  exiting when a power loss is detected.
+- Joseph Acosta has been working on a nice Browser based configuration
+  utility for creating apcupsd configuration files. I include his
+  contribution in contrib/apcupsdconf  
+
+Changes submitted this submission:
+- Updated Makefile.in version to 3.7.2
+- apcaction.c added code to call kill_power() before the
+  shutdown if the kill_on_powerfail option is set.
+- apcnet.c removed the terminate() from kill_net() it is now
+  done in the main program.
+- apcoptd.c
+  Added the -p and --kill_on_powerfail option which causes apcupsd
+  to issue a powerkill command before the shutdown command.  I
+  have certain misgivings about this command, but it seems to be
+  necessary in some cases.
+- apcupsd.c
+  added terminate() after the kill_power() and kill_net() subrotine
+  calls as it is no longer done in these routines.
+- Added a new directory contrib/apcupsdconf, which contains the submission
+  of a Web browser based configuration utility for apcupsd submitted
+  by Joe Acosta.

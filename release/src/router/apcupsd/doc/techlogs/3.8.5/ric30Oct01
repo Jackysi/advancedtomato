@@ -1,0 +1,52 @@
+- Added Carl's changes and implemented his requests for Sun distribution.
+- Minor cleanups to the core code.
+- Increased d_msg internal buffer size to 4096 to accomodate longer debug
+  messages.
+- Made minor changes so that apctest now works with the new drivers code.
+- Completed the network driver. All the time variables are omitted from
+  transfer as they should be determined by do_action.
+
+  Keywords in front of each entry meaning:
+
+  '*' means transferred to the slave
+  '=' means not transferred but a duplicate (alias) has been transferred
+  '-' means not transferred to the slave
+
+cmdtrans[] = {
+*  {"model",      "MODEL",    0},
+*  {"upsmode",    "UPSMODE",  0},
+-  {"date",       "DATE",     0},
+=  {"battcap",    "BCHARGE",  1},
+*  {"mbattchg",   "MBATTCHG", 1},
+*  {"battvolt",   "BATTV",    1},
+*  {"nombattv",   "NOMBATTV", 1},
+*  {"utility",    "LINEV",    1},
+=  {"upsload",    "LOADPCT",  1},
+=  {"loadpct",    "LOADPCT",  1},
+*  {"outputv",    "OUTPUTV",  1},
+*  {"status",     "STATFLAG", 1},
+*  {"linemin",    "MINLINEV", 1},
+*  {"linemax",    "MAXLINEV", 1},
+*  {"upstemp",    "ITEMP",    1},
+*  {"outputfreq", "LINEFREQ", 1},
+=  {"translo",    "LOTRANS",  1},
+=  {"transhi",    "HITRANS",  1},
+*  {"runtime",    "TIMELEFT", 1},
+*  {"mintimel",   "MINTIMEL", 1},
+*  {"maxtime",    "MAXTIME",  1},
+*  {"retpct",     "RETPCT",   1},
+*  {"sense",      "SENSE",    1},
+*  {"hostname",   "HOSTNAME", 1},
+*  {"battdate",   "BATTDATE", 1},
+*  {"serialno",   "SERIALNO", 1},
+*  {"lastxfer",   "LASTXFER", 0},
+*  {"selftest",   "SELFTEST", 1},
+-  {"laststest",  "LASTSTEST",0},
+*  {"release",    "RELEASE",  1},
+*  {"upsname",    "UPSNAME",  1},
+*  {"lowbatt",    "DLOWBATT", 1},
+=  {"battpct",    "BCHARGE",  1},
+=  {"highxfer",   "HITRANS",  1},
+=  {"lowxfer",    "LOTRANS",  1},
+*  {"cable",      "CABLE",    0},
+*  {"firmware",   "FIRMWARE", 0},

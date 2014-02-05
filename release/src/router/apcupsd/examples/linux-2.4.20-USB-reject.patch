@@ -1,0 +1,25 @@
+Some UPSes have logical minimum and maximum value in HID descriptors the
+same. The HID driver rejects such devices. This patch fixes this. Please
+apply for 2.4, I'll take care of a 2.5 patch. 
+
+ChangeSet@1.1202, 2003-06-14 23:38:54+02:00, vojtech@suse.cz
+  Logical minumum and maximum may be the same value per spec.
+  This fixes some UPSes not getting detected properly.
+
+
+ hid-core.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+
+diff -Nru a/drivers/usb/hid-core.c b/drivers/usb/hid-core.c
+--- a/drivers/usb/hid-core.c    Sat Jun 14 23:39:05 2003
++++ b/drivers/usb/hid-core.c    Sat Jun 14 23:39:05 2003
+@@ -202,7 +202,7 @@
+                return -1;
+        }
+ 
+-       if (parser->global.logical_maximum <= parser->global.logical_minimum) {
++       if (parser->global.logical_maximum < parser->global.logical_minimum) {
+                dbg("logical range invalid %d %d", parser->global.logical_minimum, parser->global.logical_maximum);
+                return -1;
+        }

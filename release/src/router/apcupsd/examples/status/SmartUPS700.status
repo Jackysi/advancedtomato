@@ -1,0 +1,49 @@
+APC      : 001,048,1112
+DATE     : Sun Dec 05 01:24:10 EST 1999
+HOSTNAME : infarc
+RELEASE  : 3.7.0-beta-1
+CABLE    : APC Cable 940-0024C
+MODEL    : SMART-UPS 700
+UPSMODE  : Stand Alone
+UPSNAME  : SU700-1 
+LINEV    : 007.1 Volts
+MAXLINEV : 000.0 Volts
+MINLINEV : 007.8 Volts
+LINEFREQ : 60.0 Hz
+OUTPUTV  : 119.6 Volts
+LOADPCT  :  27.0 Percent Load Capacity
+BATTV    : 24.6 Volts
+BCHARGE  : 074.0 Percent
+MBATTCHG : 15 Percent
+TIMELEFT :  17.0 Minutes
+MINTIMEL : 3 Minutes
+SENSE    : Medium
+DWAKE    : 000 Seconds
+DSHUTD   : 020 Seconds
+LOTRANS  : 103.0 Volts
+HITRANS  : 132.0 Volts
+RETPCT   : 000.0 Percent
+STATFLAG : 0x10 Status Flag
+STATUS   : ONBATT 
+ITEMP    : 45.9 C Internal
+ALARMDEL : 30 seconds
+LASTXFER : Unacceptable Utility Voltage Change
+SELFTEST : NO
+STESTI   : 336
+DLOWBATT : 02 Minutes
+DIPSW    : 0x00 Dip Switch
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : 05/25/98
+SERIALNO : NS9822059313
+BATTDATE : 05/25/98
+NOMOUTV  : 115.0
+NOMBATTV :  24.0
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : 0
+BADBATTS : N/A
+FIRMWARE : 50.9.D
+APCMODEL : GWD
+END APC  : Sun Dec 05 01:24:11 EST 1999

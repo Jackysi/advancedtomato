@@ -1,0 +1,87 @@
+         Technical notes on my code submission of 09 Apr 01
+                        Kern Sibbald
+
+General:
+- I've been generally unhappy about how hard it is to
+  configure apcupsd, especially for the beginner. In addition,
+  the Debian people have been having problems with conflicting
+  port numbers and pointed out that our default location for
+  the EVENTS and STATUS files don't conform to norms (/etc
+  should really be a read-only directory).
+
+  After some thought, I have implemented a much more general
+  configuration of apcupsd.conf via ./configure, which will
+  simplfy greatly the task of configuring and allow a lot
+  more flexibility between diffferent system configurations.
+
+  I have now added the following items to the ./configure
+  process (some existed previously):
+
+    - The process id directory (PIDDIR)
+    - The log directory (for EVENTS and STATUS files) (LOGDIR)
+    - The serial port lock directory (LOCKDIR)
+    - The serial port device name (SERIALDEV)
+    - The Network Information Service port (NISPORT)
+    - The Master/Slave network port (NETPORT)
+    - The nologin directory (nologdir)
+    - The UPS type (UPSTYPE)
+    - The UPS cable (UPSCABLE)
+
+  For each of these items, there is an apcupsd "default" specified
+  in configure.in as follows:
+
+    - PIDDIR /var/run if it exists; else /etc/apcupsd
+    - LOGDIR /var/log if it exists; else /etc/apcupsd
+    - LOCKDIR /var/lock if it exists; else /etc/apcupsd
+    - SERIALDEV /dev/ttyS0
+    - NISPORT 7000
+    - NETPORT 6666
+    - nologdir /etc 
+    - UPSTYPE smartups
+    - UPSCABLE smart
+
+  Then each "distribution" can override these apcupsd default
+  values.  I have made the following overrides:
+
+   Alpha
+     SERIALDEV /dev/tty01
+     LOCKDIR   /var/spool/locks
+     LOGDIR    /etc/apcupsd
+
+   Debian
+     NISPORT 6543
+     NETPORT 6544
+
+   FreeBSD
+     SERIALDEV /dev/cua01
+
+   NetBSD
+     SERIALDEV /dev/cua01
+
+   OpenBSD
+     SERIALDEV /dev/cua01
+     LOCKDIR   /var/spool/lock
+
+   Win32
+     LOCKDIR /apcupsd/etc/apcupsd
+     SERIALDEV /dev/com1
+     LOGDIR  /apcupsd/etc/apcupsd
+     nologdir /apcupsd/etc
+
+  Finally, the user can explicitly override each value by specifying it
+  on the ./configure command line:
+
+    PIDDIR      --with-pid-dir=DIR
+    LOGDIR      --with-log-dir=DIR
+    LOCKDIR     --with-lock-dir=DIR
+    SERIALDEV   --with-serial-dev=DEV
+    NISPORT     --with-nis-port=PORT
+    NETPORT     --with-net-port=PORT
+    UPSTYPE     --with-upstype=TYPE
+    UPSCABLE    --with-upscable=CABLE
+    DISTNAME    --with-distname=DISTNAME
+
+  These values are then put into the appropriate in      
+  <src>/etc/apcupsd.conf  giving a pre-configured configuration
+  file.
+

@@ -1,0 +1,20 @@
+             Technical notes on version 3.10.5
+                       03 February 2003
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+03Feb03
+- Sanitize messages before passing them to syslog() to avoid
+  %n exploit.
+- Added an avsnprinf() routine.          
+- Replaced all vsprintf() calls with avsnprintf() to close a
+  master/slave exploit that was published.
+- Remove awk processing of halt script for Mandrake as suggested by
+  David Walser.
+02Feb03
+- Corrected --enable-oldnet to be --enable-master-slave as I
+  had intended. Thanks to David Walser for pointing this out.
+- Added David Walser's apcupsd.spec.in for Mandrake and his
+  changes to configure.in.

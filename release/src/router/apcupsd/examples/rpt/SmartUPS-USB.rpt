@@ -1,0 +1,424 @@
+Found UPS at /dev/usb/hid/hiddev0
+hiddev driver version is 1.0.2
+HID: vendor 0x51d product 0x2 version 0x6 app UPS
+HID: bus: 2 devnum: 2 ifnum: 0
+UPS HID device name: "American Power Conversion Smart-UPS 1000 FW:600.1.I USB FW:1.2"
+Battery Chemistry: "PbAc" (4)
+
+InputReport 12
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, RemainingCapacity = 100 percent
+
+InputReport 8
+  Field 0, app UPS, phys ---
+    Usage 0, RemainingTimeLimit = 0 Seconds
+
+InputReport 20
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 2 
+
+InputReport 7
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+InputReport 22
+  Field 0, app UPS, phys Battery
+    Usage 0, Test = 1 
+
+InputReport 23
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff860019] = 0 
+
+InputReport 27
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001a] = 3 
+
+InputReport 28
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001b] = 0 
+
+InputReport 21
+  Field 0, app UPS, phys Battery
+    Usage 0, ManufactureDate = 11032  2001-08-24
+
+InputReport 26
+  Field 0, app UPS, phys Battery
+    Usage 0, RemainingTimeLimit = 120 
+
+InputReport 33
+  Field 0, app UPS, phys Input
+    Usage 0, [ff860052] = 5 
+
+InputReport 34
+  Field 0, app UPS, phys Input
+    Usage 0, [ff860061] = 2 
+
+InputReport 45
+  Field 0, app UPS, phys Output
+    Usage 0, ConfigVoltage = 230 Volts
+
+InputReport 35
+  Field 0, app UPS, phys Output
+    Usage 0, HighVoltageTransfer = 253 Volts
+
+InputReport 36
+  Field 0, app UPS, phys Output
+    Usage 0, LowVoltageTransfer = 208 Volts
+
+InputReport 37
+  Field 0, app UPS, phys Output
+    Usage 0, [ff86007e] = 0 
+
+InputReport 38
+  Field 0, app UPS, phys Output
+    Usage 0, APCShutdownAfterDelay = 90 
+
+InputReport 54
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 2 
+
+InputReport 51
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+FeatureReport 1
+  Field 0, app UPS, phys ---
+    Usage 0, iProduct = 1  Smart-UPS 1000 FW:600.1.I USB FW:1.2
+
+FeatureReport 2
+  Field 0, app UPS, phys ---
+    Usage 0, iSerialNumber = 2  AS0134132215
+
+FeatureReport 3
+  Field 0, app UPS, phys ---
+    Usage 0, iManufacturer = 3  American Power Conversion
+
+FeatureReport 4
+  Field 0, app UPS, phys ---
+    Usage 0, iOEMInformation = 3  American Power Conversion
+
+FeatureReport 5
+  Field 0, app UPS, phys ---
+    Usage 0, iDeviceChemistry = 4  PbAc
+
+FeatureReport 6
+  Field 0, app UPS, phys ---
+    Usage 0, Rechargeable = 1 
+  Field 1, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, CapacityMode = 2 percent
+
+FeatureReport 14
+  Field 0, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, DesignCapacity = 100 percent
+  Field 1, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, FullChargeCapacity = 100 percent
+
+FeatureReport 12
+  Field 0, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, RemainingCapacity = 100 percent
+
+FeatureReport 16
+  Field 0, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, CapacityGranularity1 = 1 percent
+  Field 1, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, CapacityGranularity2 = 1 percent
+
+FeatureReport 15
+  Field 0, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, WarningCapacityLimit = 50 percent
+
+FeatureReport 17
+  Field 0, app UPS, phys ---
+Exponent 2 lost.
+    Usage 0, RemainingCapacityLimit = 10 percent
+
+FeatureReport 9
+  Field 0, app UPS, phys ---
+    Usage 0, ManufactureDate = 11032  2001-08-24
+
+FeatureReport 13
+  Field 0, app UPS, phys ---
+    Usage 0, RunTimeToEmpty = 21000 Seconds
+
+FeatureReport 18
+  Field 0, app UPS, phys ---
+    Usage 0, DelayBeforeShutdown = -1 
+
+FeatureReport 19
+  Field 0, app UPS, phys ---
+    Usage 0, DelayBeforeReboot = -1 Seconds
+
+FeatureReport 8
+  Field 0, app UPS, phys ---
+    Usage 0, RemainingTimeLimit = 0 Seconds
+
+FeatureReport 10
+  Field 0, app UPS, phys ---
+    Usage 0, ConfigVoltage = 2400 CentiVolts
+
+FeatureReport 11
+  Field 0, app UPS, phys ---
+    Usage 0, Voltage = 2754 CentiVolts
+
+FeatureReport 20
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 2 
+
+FeatureReport 7
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+FeatureReport 22
+  Field 0, app UPS, phys Battery
+    Usage 0, Test = 1 
+
+FeatureReport 23
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff860019] = 0 
+
+FeatureReport 27
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001a] = 3 
+
+FeatureReport 28
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001b] = 0 
+
+FeatureReport 21
+  Field 0, app UPS, phys Battery
+    Usage 0, ManufactureDate = 11032  2001-08-24
+
+FeatureReport 24
+  Field 0, app UPS, phys Battery
+Exponent 0 lost.
+    Usage 0, RemainingCapacity = 1000 percent
+
+FeatureReport 26
+  Field 0, app UPS, phys Battery
+    Usage 0, RemainingTimeLimit = 120 
+
+FeatureReport 25
+  Field 0, app UPS, phys Battery
+    Usage 0, RunTimeToEmpty = 21000 
+
+FeatureReport 30
+  Field 0, app UPS, phys Battery
+    Usage 0, Temperature = 2996 Degrees K with -1 exponent
+
+FeatureReport 31
+  Field 0, app UPS, phys Battery
+    Usage 0, ConfigVoltage = 2400 CentiVolts
+
+FeatureReport 29
+  Field 0, app UPS, phys Battery
+    Usage 0, Voltage = 2754 CentiVolts
+
+FeatureReport 32
+  Field 0, app UPS, phys Input
+    Usage 0, Voltage = 2347 DeciVolts
+
+FeatureReport 33
+  Field 0, app UPS, phys Input
+    Usage 0, [ff860052] = 5 
+
+FeatureReport 34
+  Field 0, app UPS, phys Input
+    Usage 0, [ff860061] = 2 
+
+FeatureReport 44
+  Field 0, app UPS, phys Output
+    Usage 0, PercentLoad = 0 
+
+FeatureReport 42
+  Field 0, app UPS, phys Output
+    Usage 0, Frequency = 5000 CentiHertz
+
+FeatureReport 43
+  Field 0, app UPS, phys Output
+    Usage 0, Voltage = 2347 DeciVolts
+
+FeatureReport 45
+  Field 0, app UPS, phys Output
+    Usage 0, ConfigVoltage = 230 Volts
+
+FeatureReport 35
+  Field 0, app UPS, phys Output
+    Usage 0, HighVoltageTransfer = 253 Volts
+
+FeatureReport 36
+  Field 0, app UPS, phys Output
+    Usage 0, LowVoltageTransfer = 208 Volts
+
+FeatureReport 37
+  Field 0, app UPS, phys Output
+    Usage 0, [ff86007e] = 0 
+
+FeatureReport 38
+  Field 0, app UPS, phys Output
+    Usage 0, APCShutdownAfterDelay = 90 
+
+FeatureReport 39
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeShutdown = -1 
+
+FeatureReport 40
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeStartup = -1 Seconds
+
+FeatureReport 41
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeReboot = -1 Seconds
+
+FeatureReport 46
+  Field 0, app UPS, phys ---
+    Usage 0, iProduct = 5  Smart-UPS 1000
+
+FeatureReport 47
+  Field 0, app UPS, phys ---
+    Usage 0, iSerialNumber = 2  AS0134132215
+
+FeatureReport 48
+  Field 0, app UPS, phys ---
+    Usage 0, iManufacturer = 3  American Power Conversion
+
+FeatureReport 49
+  Field 0, app UPS, phys ---
+    Usage 0, iName = 6  UPSIDEN
+
+FeatureReport 52
+  Field 0, app UPS, phys ---
+    Usage 0, APC_UPS_FirmwareRevision = 7 
+
+FeatureReport 55
+  Field 0, app UPS, phys ---
+    Usage 0, APC_USB_FirmwareRevision = 8 
+
+FeatureReport 50
+  Field 0, app UPS, phys ---
+    Usage 0, APCPanelTest = 1 
+
+FeatureReport 53
+  Field 0, app UPS, phys ---
+    Usage 0, ManufactureDate = 11032  2001-08-24
+
+FeatureReport 62
+  Field 0, app UPS, phys ---
+    Usage 0, [ff860027] = 0 
+
+FeatureReport 63
+  Field 0, app UPS, phys ---
+    Usage 0, [ff860028] = 0 
+
+FeatureReport 54
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 2 
+
+FeatureReport 51
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+Waiting for events ... (interrupt to exit)

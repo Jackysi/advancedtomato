@@ -1,0 +1,82 @@
+         Technical notes on my code additions of 12 and 17 Feb 00
+                        Kern Sibbald
+
+General:
+- Dumb UPSes were not working in the 3.7.0 release, see below.
+  Both Riccardo and I are surprised that we didn't have any
+  dumb testers :-(.  Fortunately, we now have two volunteers
+  (Al Tuttle and Christian Moeller) -- thanks guys.
+- The TIMEOUT value on the slave could shortened (too quick)
+  by the value of NETTIME.  The TIMEOUT timing now begins
+  from the time the slave (or master) considers it is really
+  on batteries.
+
+Changes submitted this submission:
+- Two users reported that dumb UPSes worked fine in 3.6.2, but not
+  at all in 3.7.0.  The main problem reported was that apcupsd
+  reported loss of serial communications with the UPS.
+- As best I can determine, there were four problems:   
+  1. The code (since a long time) has called smart_poll() even
+     for dumb UPSes. Prevously, this just caused a 5 second wait
+     for a dumb UPS. However, recently I added code that checks
+     for loss of communications.  Solution, prevent dumb UPSes
+     from executing smart_poll().  Note, there were a number of
+     different tests in the code for distinguing SmartUPSes and 
+     dumb UPSes.  I standardized on the following:
+
+        if (ups->mode.type > SHAREBASIC)
+           it is a smart UPS (character signalling)
+        else
+           it is a dumb UPS (ioctl signalling)
+  2. A number of the serial port status flags tests were bitwise
+     tests resulting in a zero or nonzero value, where the nonzero
+     value was not 1. The code in apcactions.c then tested for
+     zero or 1, possibly overlooking a valid status.  I corrected
+     both the code in apcaction.c to check for zero or nonzero, rather
+     than zero or 1.  I also corrected the code in apcserial.c that
+     picks up the flags bits to return a zero or one.  If you are
+     not familar with the following construct:
+
+         variable = !!(flag & bit);
+
+     Note, that this expression sets variable to zero if (flag & bit) is
+     zero and sets it to 1 if (flag & bit) is nonzero.  It could also
+     be written:
+
+        variable = (flag & bit)?1:0;
+
+     which some people prefer.
+  3. Finally, a real show stopper was in the dumb UPS code in 
+     check_serial() in apcserial.c.  The code picked up the serial port
+     line flags, then did a read_andlock_shmarea(), which promptly 
+     erased the value of the serial port flags.  The fix was to do
+     the read_andlock_shmarea() before the ioctl().          
+  4. Under certain circumstances, which seem to depend on whether
+     apcupsd was executed from a command line or from a script,
+     when the serial port was reset to its original state on termination
+     of apcupsd by a tcsetattr() command, the status bits of the
+     serial port would be reset, thus signalling the UPS to drop
+     power. This caused the premature killpowers, and is aparently
+     also the reason why there were previously a number of sleep()
+     calls before the termination -- they simply masked the problem.
+- I added a new -R option to the command line that puts a SmartUPS
+  into dumb mode. I did not document it because it is primarily for
+  testing. In my case, I don't have the correct cable, but at least,
+  I can exercise the dumb mode code.
+- I merged in the changes that Riccardo sent me for 3.7.1
+- I modified the message which is printed if a slave attempts to
+  do a power kill, which is not possible, but happens because the
+  install inserts the call in the halt script. The message now
+  simply says that the killpower was ignored rather than printing
+  FATAL ERROR.  This is a little less concerting to the user.
+- The nologin_file flag was passed from the master to the slave. It
+  prevented the slave from setting a nologin file, so I removed it.
+- I noticed several times that the TIMEOUT for the slave seemed
+  to be incorrect -- that is the slave shutdown rather rapidly.  It
+  turns out that the time variables were reset only when a pass was
+  made through do_action(). One pass is made each time the slave it
+  contacted by the master, which is NETTIME. Consequently if you had
+  a net time of 60, the slave TIMEOUT value could triger up to 60
+  seconds before it should have.  I corrected this by resetting the
+  timeout values when the slave detects that it is REALLY on batteries
+  i.e. the second on battery signal.

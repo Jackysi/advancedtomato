@@ -1,0 +1,35 @@
+             Technical notes on version 3.9.7 
+                       12 November 2001
+                        Kern Sibbald
+
+General:
+- These are my changes to the sychronization
+  code that Riccardo sent me 31 October.
+
+Changes submitted this submission:
+- Eliminated the get_raw_upsinfo() from apcaccess 
+  for the status command because
+  it was byte order and apcupsd version dependent. I
+  replaced it using the network "status"  command.
+  However the get_raw_upsinfo() is still used for
+  the eprom option since it requires an enormous
+  amount of information to work.  With a little more
+  work, I may be able to eliminate the rawupsinfo
+  command.
+- Modified apcacces to assume that the "status" option
+  was given if no option is specified. Thus 
+   
+    apcaccess
+
+  produces the status output.
+- There was a difference of coding convention between
+  what Riccardo and I did for the drivers concerning
+  the return status. I have changed from the old
+  Unix style 0 meaning success to 0 meaning failure
+  and 1 meaning success. This allows for much more
+  readable code. As a consequence, I modified the
+  return values for a number of drivers.
+- I deleted apcupsd.conf from the main source directory.
+- I corrected some minor problems in the distributions/sun
+  apccontrol.sh.in script (new events and new script
+  arguments).

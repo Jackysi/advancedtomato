@@ -1,0 +1,14 @@
+             Technical notes on version 3.9.8 
+                      27 January 2002
+                        Kern Sibbald
+
+General:
+- Corrected a bad net.c file reported by Riccardo.
+
+Changes submitted this submission:
+- Updated the manual from version 3.8.5 to 3.9.8,
+  and added a few changes.
+- Updated apctest to contain latest 3.8.5 Runtime Calibration
+  changes and to recognize USB, but print error message.
+  Not tested.
+- Update ChangeLog

@@ -1,0 +1,8 @@
+LOG
+
+- Merged Kern's patch 21Sep01.
+- Reviewed drivers name-space to avoid function name clashes with standard
+  libraries.
+- Added new slaves code example in examples/
+- Added "no-" prefix for drivers that are disabled in configure.
+- Added the first cut of new network driver code.

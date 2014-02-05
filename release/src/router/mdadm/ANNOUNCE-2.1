@@ -1,0 +1,37 @@
+Subject:  ANNOUNCE: mdadm 2.1 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.1
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.1 fixes a few problems found after the release of 2.0.
+If you are using raid10 or version-1 superblocks and upgrade is
+recommended.
+
+Specifically:
+    -   Fix assembling of raid10 array when devices are missing.
+	  mdadm now correctly detects if a array is workable or not
+	  depending on which devices are present, and so will correctly
+	  handle "--assemble --force"  if multiple devices have failed.
+    -   Report raid10 layout in --examine output.
+    -   Fix assembling of arrays that use the version-1 superblock and
+	  have spares.  Previously the spares would be ignored.
+    -   Fix bug so that multiple drives can be re-added at once.
+    -   Fix problem with hot-adding a bitmap to version-1-superblock
+	  arrays.
+
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  12th September 2005
+
+

@@ -1,0 +1,95 @@
+LOG
+
+- Corrected a mayor bug in test_status_bits(): here we change the values
+  inside UPSINFO but we don't lock/unlock and this caused these values
+  to get lost at the next read_andlock_shmarea (where we do memcpy from the
+  shared area overwriting the local copy). Now do read/write_andlock_shmarea
+  around the function.
+- Selftest may return "NA and get Status may return "SM". These errors
+  were not handled causing apcupsd unpredictable behavior. Now in case
+  it happens, we retry up to 5 times to get the correct values from firmware.
+- Written generic code for attaching the drivers. New config directives for
+  generic UPS types (backward compatibility for old specific types).
+- Now after attempting to cancel a shutdown -h, force a shutdown -r
+- Commented out the SelfTest code into the apcsmart as now we use a driver
+  entry point from apcaction.
+- Added Kern's patch for depend and debug levels.
+- Added entry points to allow for core calls to particular driver functions.
+- Applyed Kern's patch:
+    .removal of unused var in kill_power
+    .compiled driver list on not-present driver
+    .core dump solved, patch modified by me so that ups->driver checks are
+     inserted in all preprocessor macros
+    .apcsmart and dumb drivers enabled by default, usb driver disabled by
+     default (slightly modified form of Kern's patch).
+    .install-symlinks.sh must not exit with exit code 1 if distribution is
+     not handled.
+- Removed the WARNING msg about eeprom programming (kept the compiler warning).
+- Added device entry point for specific device commands called from inside the
+  core apcupsd.
+- Added pre-compiler macros for hiding the internal device calls.
+- Started the drivers/ project
+- Moved ups-specific code in drivers/
+- All the tricky code is commented with the C pre-processor #warning directive
+  so that at compile time the positions where the code needs to be
+  reimplemented differently are well defined and visible. This is dependent on
+  GNU gcc but as we are developing the code it seems to be a minor issue. On
+  the way, these warnings will disappear.
+- Glued everything together, but almost all the code is the old code splitted:
+  it compiles and runs.
+- linux-usb driver does not compile on plain linux kernel (patches are on the
+  road from Alan Cox.
+- Fixed a major bug in drivers/apcsmart/smart.c:getline() (this bug may also
+  be present in previous versions of apcupsd). This bug caused very high
+  delays in UPS state change notifications to the core.
+- I could not test the USB driver as I don't own an USB UPS.
+- smart UPS is working (no changes to the configuration file) at least at the
+  point where it detects power failures.
+- USB driver compiles.
+- Moved test_status_bits() in the core apcupsd.
+- Reorganized the developers documentation inside an HTML manual. Needs
+  editing as this manual was written for the retired 4.x code (but is still
+  current for many of its parts).
+- Removed check_serial() and read_dumb_ups(), substituting the code with
+  drivers code.
+- Removed the tmp trick inside drivers for library build. Now it builds and
+  check dependancies correctly.
+
+NOTES
+
+The drivers project is built on a number of rules:
+
+1. Drivers must be re-entrant
+2. A single driver can drive more than one connected UPS
+3. A single UPSINFO structure must be driven by one single UPS driver
+4. Glue between UPSINFO and DRIVER structures is a pointer inside the UPSINFO
+   structure
+5. Any DRIVER function must return a value or not return at all (bail out).
+   This rule is transitory as with time all the functions will return even
+   on error and bailing out will be done by the core code. Right now what
+   is preferred is a simple move of the code from core code to drivers.
+
+IMPLEMENTATION choices
+
+- Entry points were added: they are needed to keep the old functionality but
+  they will go away as soon as we reduce the coupling between drivers and
+  core.
+- Always, when accessing ups->driver, a NULL ptr check is done.
+- A special entry point in the driver has been implemented for reaching
+  special functions inside the driver from the core apcupsd.
+- oldtio is inside UPSINFO
+- lock files are created after the open() call.
+- signals are set up after the lock file has been created.
+- moved all the apc_chat code from apcaction.c to drivers/apcsmart/*
+- removed the insane use of variables to store TIOCM_* bit values BUT THIS
+  HAS TO BE TESTED. I did everything to make sure it still works.
+- moved ups_connected inside the UPSINFO as this is something specific to the
+  driver.
+- The new DRIVERS layer will add three keywords to the UPSTYPE variable:
+  [ dumb | apcsmart | usb ]
+  Now basing on the UPSTYPE, the correct driver is attached. But in the future
+  the idea is to have only these three driver labels, translating the old ones
+  for backward compatibility to the new keywords.
+- In future we will turn all the library builds into libtool compilation.
+  This will allow better library handling and as a side effect, will allow to
+  compile shared libraries.

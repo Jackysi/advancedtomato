@@ -1,0 +1,136 @@
+Distribution:   OpenBSD
+Maintainer:     Devin Reade <gdr@gno.org>
+
+$Id: README,v 1.2 2004/08/26 09:20:07 kerns Exp $
+
+=======================================================
+MAKE SURE YOU READ THE "IMPORTANT NOTE" SECTION, BELOW!
+=======================================================
+
+Your DEVICE should normally be set to /dev/cuaa0 for the first
+serial port.
+
+Overview
+--------
+
+The OpenBSD distribution of apcupsd operates a bit differently from
+the other distributions; the shutdown sequence (once the UPS can 
+no longer sustain the dependent servers) has been modified.
+
+For most operating systems, the following sequence occurs:
+        1. mains power loss
+        2. warning messages are sent from the master at various intervals
+        3. minimum battery level or max run time is reached
+        4. apcupsd invokes the control script with 'doshutdown' argument,
+           then exits
+        5. the control script initiates a system shutdown
+        6. as part of the system shutdown sequence, apcupsd is called in
+           a "one shot" mode in order to send a message to the UPS telling
+           it to kill the power in a configurable number of seconds
+        7. the system finishes its halt sequence
+        8. the UPS kills power to the system until mains power returns
+
+During the OpenBSD shutdown sequence, however, the second "one shot" call
+to apcupsd will fail because after the shutdown sequence has started, the
+serial port cannot be reopened.  Therefore, the OpenBSD sequence has been
+modified to the following:
+
+        1. mains power loss
+        2. warning messages are sent from the master at various intervals
+        3. minimum battery level or max run time is reached
+        4. apcupsd sends message to UPS to power off after a configurable
+           number of seconds
+        5. apcupsd invokes the control script with 'doshutdown' argument,
+           then exits
+        5. the control script initiates a system shutdown
+        6. the system finishes its halt sequence
+        7. the UPS kills power to the system until mains power returns
+
+    vvvvvvvvvvvvvv
+--> IMPORTANT NOTE <--
+    ^^^^^^^^^^^^^^
+
+        Because of the modified shutdown sequence, the default number
+        of seconds that the UPS will run after being given its "power off"
+        message may not be sufficient to properly halt the system.
+        Therefore, it is critical that this interval be verified and 
+        probably modified.  See the section below on "Modifying the
+        Power Off Interval" for details on how this is done.
+
+As a consequence of the above, another difference is that once the
+shutdown sequence has been initiated, it cannot be cancelled even if
+mains power returns.  This has implications for a hetrogeneous environment:
+If the OpenBSD server is running in apcupsd networked mode with another
+machine such as a Linux server, it is possible for the former to complete
+the shutdown and the latter to cancel it.  Depending on which machine
+is the master and which is the slave, this could either result in one
+machine remaining in a halted state indefinitely, or (worse) the other
+machine losing power while not in a halted state.
+
+Therefore, it is strongly recommended that when running in network
+mode, that shutdown cancellation be disabled on all machines.
+
+To date, the OpenBSD code has only been tested in standalone mode and
+as a net master, with a Slackware Linux machine as the net slave.
+
+Modifying the Power Off Interval
+--------------------------------
+
+[The information in this section is already available in the primary
+ apcupsd documents -- this section merely makes things a bit more 
+ explicit in the context of OpenBSD.]
+
+Once you have run the commands
+
+        configure
+        make 
+        make install
+
+in the apcupsd source tree and verified the values (most notably, the
+"DEVICE" value) in the /etc/apcupsd/apcupsd.conf file, you should be
+able to manually start apcupsd by executing the following:
+
+        /etc/rc.apcupsd start
+
+After the daemon starts, you should be able to get your current configuration
+by issuing the command:
+
+        /etc/rc.apcupsd status
+
+Since the daemon prints status to stderr, you may have to redirect the 
+output to a file in order to view it.  It will also take a few seconds
+before you can get the status.  If you either see a message about
+"UPS not ready to report" or if the BCHARGE value is "000.0 Percent",
+then you have to wait a few seconds a try again.
+
+Once you have good status data, look for the value of the "DSHUTD" 
+parameter.  This is the interval between the time the UPS receives a
+shutdown request and the time the power is killed.  If the value is 20
+(seconds), then you have to modify it.  My OpenBSD machine shuts down
+fairly quickly, so I find a value of 180 seconds to be suitable.  Note
+that there are only a few discrete values which are permissable.  See 
+the apcupsd.conf file for details.
+
+If you need to change this value, edit the "SLEEP" parameter in your
+apcupsd.conf file and set it to the appropriate value.  That parameter
+is grouped, in the configuration file, with a bunch of other parameters
+used for programming the UPS EEPROM.   Make sure all the other parameters
+are commented out (you only want to change one at a time).
+
+Before you can reset the EPROM, shut down the running apcupsd:
+        /etc/rc.apcupsd stop
+Make sure there are no apcupsd processes left running before you continue:
+        ps auxww | grep apc
+Now you can modifiy the EPROM with the new configuration file:
+        /sbin/apcupsd -c
+That will take about 30 or 45 seconds to complete.  You should see messages
+regarding which EPROM values have been changed (and what the old values
+were).  Read them to ensure that you didn't change something that you 
+hadn't intended to change.
+
+You should probably ensure that the "MINUTES" parameter in your configuration
+file makes sense given the value you selected for "SLEEP" -- chances are
+that you want "MINUTES" to be at least as long as "SLEEP".  Remember that one
+is specified in minutes, and the other in seconds.  The "MINUTES" parameter
+is used whenever apcupsd starts up; you don't need to reset the EPROM when
+"MINUTES" is changed.

@@ -1,0 +1,218 @@
+#!/bin/sh
+
+#
+# Copyright (C) 2011 shibby
+#
+
+LOCK="/tmp/switch3g.lock"
+if [ -f $LOCK ]; then #lock exist
+    logger 3G MODEM - previous proces of switch3g still working
+    exit 0
+else
+
+DEVNR=`nvram get modem_dev`
+PIN=`nvram get modem_pin`
+IS_PIN=`nvram get modem_pin | wc -w`
+
+
+# is modem ready?
+DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
+DEV1=`cat /proc/bus/usb/devices | grep Driver | grep option | wc -l`
+DEV2=`cat /proc/bus/usb/devices | grep Driver | grep sierra | wc -l`
+DEV3=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+
+if [ "$DEV0" -gt 0 ]; then
+    logger 3G MODEM already found - using cdc-acm module
+    nvram set 3g_module=cdc-acm
+    if [ "$IS_PIN" == "1" ]; then
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+    fi
+    rm $LOCK
+    break;
+elif [ "$DEV1" -gt 0 ]; then
+    logger 3G MODEM already found - using option module
+    nvram set 3g_module=option
+    if [ "$IS_PIN" == "1" ]; then
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+    fi
+    rm $LOCK
+    break;
+elif [ "$DEV2" -gt 0 ]; then
+    logger 3G MODEM already found - using sierra module
+    nvram set 3g_module=sierra
+    if [ "$IS_PIN" == "1" ]; then
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+    fi
+    rm $LOCK
+    break;
+elif [ "$DEV3" -gt 0 ]; then
+    logger 3G MODEM already found - using usbserial module
+    nvram set 3g_module=usbserial
+    if [ "$IS_PIN" == "1" ]; then
+        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+    fi
+    rm $LOCK
+    break;
+else
+    #modem not found, try detect
+
+    DEVICES=`lsusb | awk '{print $6}'`
+
+    for SWITCH in $DEVICES; do
+        SEARCH=`ls /etc/usb_modeswitch.d/$SWITCH | wc -l`
+
+        # vendor:product
+
+        if [ "$SEARCH" == "1" ]; then
+            logger 3G MODEM FOUND - $SWITCH - Switching ...
+            DV=`echo $SWITCH | cut -d ":" -f1`
+            DP=`echo $SWITCH | cut -d ":" -f2`
+            /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH -v $DV -p $DP
+
+            TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
+            if [ "$TEST1" == "1" ]; then
+                VENDOR=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | cut -d "x" -f2`
+            else
+                VENDOR=`echo $SWITCH | cut -d ":" -f1`
+            fi
+
+            TEST2=`lsusb | awk '{print $6}' | grep $VENDOR | wc -l`
+            if [ "$TEST2" == "1" ]; then
+                PRODUCT=`lsusb | awk '{print $6}' | grep $VENDOR | cut -d ":" -f2`
+                logger 3G MODEM ready - $VENDOR:$PRODUCT
+                echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
+            fi
+        fi
+    done
+
+    #trying option and sierra module first
+    modprobe cdc-acm
+    modprobe option
+    modprobe sierra
+    sleep 2
+    DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
+    DEV1=`cat /proc/bus/usb/devices | grep Driver | grep option | wc -l`
+    DEV2=`cat /proc/bus/usb/devices | grep Driver | grep sierra | wc -l`
+    if [ "$DEV0" -gt 0 ]; then
+        logger 3G MODEM ready - using cdc-acm module
+        nvram set 3g_module=cdc-acm
+        if [ "$IS_PIN" == "1" ]; then
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+        fi
+        rm $LOCK
+        break;
+    elif [ "$DEV1" -gt 0 ]; then
+        logger 3G MODEM ready - using option module
+        nvram set 3g_module=option
+        if [ "$IS_PIN" == "1" ]; then
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+        fi
+        rm $LOCK
+        break;
+    elif [ "$DEV2" -gt 0 ]; then
+        logger 3G MODEM ready - using sierra module
+        nvram set 3g_module=sierra
+        if [ "$IS_PIN" == "1" ]; then
+            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+        fi
+        rm $LOCK
+        break;
+    else
+        logger 3G MODEM not found by cdc-acm, option or sierra module. Trying usbserial ...
+
+        #rmmod cdc_acm //we can`t do that. I don`t know why...
+        modprobe -r sierra
+        modprobe -r option
+        modprobe -r cdc-acm
+
+        IS_VENDOR=`echo $VENDOR | wc -w`
+        if [ "$IS_VENDOR" -gt 0 ]; then
+            IS_PRODUCT=`echo $PRODUCT | wc -w`
+            if [ "$IS_PRODUCT" -gt 0 ]; then
+                logger 3G MODEM - loading module usbserial
+                rmmod usbserial
+                insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+                echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
+            fi
+        fi
+
+        DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+        if [ "$DEV" -gt 0 ]; then
+            logger 3G MODEM ready - using usbserial module
+            nvram set 3g_module=usbserial
+            if [ "$IS_PIN" == "1" ]; then
+                PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+            fi
+            rm $LOCK
+            break;
+        elif [ -f /tmp/3g.detect ]; then
+            VENDOR=`cat /tmp/3g.detect | cut -d ":" -f1`
+            PRODUCT=`cat /tmp/3g.detect | cut -d ":" -f2`
+            TEST3=`lsusb | grep $VENDOR | grep $PRODUCT | wc -l`
+            if [ "$TEST3" == "1" ]; then
+                logger 3G MODEM FOUND - already switched - Last know $VENDOR:$PRODUCT
+
+                DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+                if [ "$DEV" -gt 0 ]; then
+                    logger 3G MODEM ready - using usbserial module
+                    nvram set 3g_module=usbserial
+                    if [ "$IS_PIN" == "1" ]; then
+                        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+                    fi
+                    rm $LOCK
+                    break;
+                else
+                    logger 3G MODEM - loading module
+                    rmmod usbserial
+                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+                    echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
+                    nvram set 3g_module=usbserial
+                    if [ "$IS_PIN" == "1" ]; then
+                        PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+                    fi
+                    rm $LOCK
+                    break;
+                fi
+            fi
+        else
+            #last change. try load usbserial for each usb devices
+            DEVICES=`lsusb | awk '{print $6}'`
+            for SWITCH in $DEVICES; do
+                VENDOR=`echo $SWITCH | cut -d ":" -f1`
+                PRODUCT=`echo $SWITCH | cut -d ":" -f2`
+                    rmmod usbserial
+                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+
+                    DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+                    if [ "$DEV" -gt 0 ]; then
+                        logger 3G MODEM ready - using usbserial module
+                        nvram set 3g_module=usbserial
+                        echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
+                        NO=0
+                        if [ "$IS_PIN" == "1" ]; then
+                            PINCODE="$PIN" gcom -d /dev/$DEVNR -s /etc/gcom/setpin.gcom
+                        fi
+                        rm $LOCK
+                        break;
+                    else
+                        NO=1
+                    fi
+            done
+        fi
+    fi
+fi
+
+if [ "$NO" == "1" ]; then
+    logger 3G MODEM not found ... sorry
+fi
+
+#check signal strength
+CSQ=`gcom -d /dev/$DEVNR -s /etc/gcom/getstrength.gcom | grep "CSQ:" | cut -d " " -f2 | cut -d "," -f1`
+DBM=$((-113+CSQ*2))
+logger "3G MODEM Signal Strength: $DBM dBm"
+
+#end script
+fi
+
+#remove lock
+rm $LOCK

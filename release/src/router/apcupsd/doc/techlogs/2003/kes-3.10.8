@@ -1,0 +1,81 @@
+             Technical notes on version 3.10.8
+                      28 December 2003
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+28Dec03
+- Added upsBaiscOntrolConverveBattery change to smtp requested by
+  Kastus Shchuka (kastus@list.sourceforge.net) 
+- Move wall in killpower of apccontrol to after killpower to avoid 
+  errors stopping script.
+- Install apctest along with apcupsd.
+- Fix DISTVER for RH Enterprise
+19Dec03
+- Added patch by Adam Kropelin that ignores invalid samples. This 
+  eliminates the need for the wait, and seems to calm the system. Apparently, 
+  even though apcupsd did not use the bad samples, it would break from the
+  wait loop, and request an update, which gave even more bad samples. With
+  Adam's patch the samples are simply dropped and we continue waiting (if 
+  appropriate).  Thanks Adam.
+18Dec03
+- Add Slackware updated patch submitted by Andrei Mamontov
+- Corrected the missing library dependencies in src/Makefile.in
+  Thanks to Reg. Clemens for pushing me a bit on this.
+06Dec03
+- Added usleep(10000) provided by Reg. Clemens, which resolves the
+  apcuspd USB problems on 2.6 kernels. Now removed by 19Dec03 patch.
+24Nov03
+- Added a ONBATTERYDELAY to the conf file. This is the time in
+  seconds that apcupsd will wait after detecting a power failure
+  until it sets the onbattery state.  If you do not want to be
+  annoyed by short power outages (usually less than 10 seconds),
+  set the ONBATTRYDELAY appropriately and comment out the
+  powerout) "echo ...|wall" statement.
+- I finally got the no driver configured error. It turns out that the
+  Makefile detection of changes is all botched up. Since I don't understand
+  how the author expected it to work, I used the sledgehammer approach and
+  do a "make clean" on every ./configure.
+- Replaced apcnet.c with Howard Wilkinson's new master/slave code. If 
+  anyone *really* needs the old driver, it is in src/apcnet.c.old
+- Upgraded to Cygwin 1.5.5
+
+Everything below this was done in 3.10.7
+08Nov03
+- Do automatic UPS detection in the USB code if no device is specified
+  or if the specified device cannot be opened.
+- Include patch provided by Howard Wilkinson, but put the new apcnet.c
+  in apcnet.c.new until I have a chance to examine it in detail.
+
+  His notes:
+  I attach a complete rewrite of the Master side of the mast/slave code
+  to support asynchronous connections to slaves.  I needed to do this as
+  our network has a number of machines that tend to be powered off for
+  long periods and the connect() calls were hanging around for more than
+  nettime.
+  I also, added a small patch for a new command line flag
+  '-P|--pid-file' so that I can easily run multiple daemons on one
+   machine.  I needed this as I have a machine that acts as a multiple
+   master while getting its power from another UPS managed by another
+   machine.
+
+07Nov03
+- Lib wrappers was not building correctly on FreeBSD due to the 
+  library -lnls, so I copied over the Bacula code for configure.
+  Thanks to Lars Köller for reporting this and for his patches.
+- Attempt to get mkinstalldirs called by an absolute path rather
+  than relative.
+- Apply Lars' fixes to platforms/Makefile.in and platforms/etc/Makefile.in
+  Install scripts with $(INSTALL_SCRIPT) instead of $(INSTALL_PROGRAM)
+- Close all file descriptors except stdin/out/err.
+- If there are no stdin/out/err (Windows), then create them and point them
+  to /dev/null.  This prevents the serial port from suddenly getting
+  debug output sent to it -- chaos.
+- It seems that since the beginning of 3.10.x, the APCSMART_UPS never
+  reported the proper status. This is because it was not in the case
+  statement. Incredible since it is now the "standard" driver! Thanks
+  to the user that brought this to my attention.
+- Fix a segfault in linux-usb.c due to reference one beyond the command
+  table. This happens only on newer USB UPSes. Thanks to the user who
+  pointed this out.

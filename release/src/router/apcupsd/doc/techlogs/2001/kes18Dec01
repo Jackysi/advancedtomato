@@ -1,0 +1,20 @@
+             Technical notes on version 3.9.8 
+                       18 December 2001
+                        Kern Sibbald
+
+General:
+- Hopefully, I merged in to 3.9.8 all the fixes that I made
+  to 3.8.4. I'm not 100% sure because a general diff is not
+  possible due to the new directory structure.
+
+Changes submitted this submission:
+- Copied the latest version of the 3.8.4 manual.
+- Included all the fixes that I made to the distributions directory
+  for 3.8.4 (lock file directory fixes and the exec in apcccontrol)
+- Included the lock file search fix for version 3.8.4 made to 
+  configure.in
+- Included the fixes to the cgi directory made in 3.8.4
+- Included all the last 3.8.4 techlogs 
+- Moved 3.8.4 techlogs into a 3.8.4 subdirectory.
+
+

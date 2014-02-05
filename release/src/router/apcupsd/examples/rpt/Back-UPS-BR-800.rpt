@@ -1,0 +1,759 @@
+FROM: Jorge Fábregas <jfabregas@onelinkpr.net>
+
+Found UPS at /dev/hiddev0
+hiddev driver version is 1.0.4
+HID: vendor 0x51d product 0x2 version 0x106 app UPS
+HID: bus: 4 devnum: 2 ifnum: 0
+UPS HID device name: "American Power Conversion Back-UPS BR  800 FW:9.o2 .D USB FW:o2"
+Battery Chemistry: "" (0)
+
+InputReport 12
+  Field 0, app UPS, phys ---
+Exponent -1075460892 lost.
+    Usage 0, RemainingCapacity = 100 maH
+
+InputReport 13
+  Field 0, app UPS, phys ---
+    Usage 0, RunTimeToEmpty = 1807 Seconds
+
+InputReport 7
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+InputReport 22
+  Field 0, app UPS, phys Battery
+    Usage 0, Test = 6 
+
+InputReport 51
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 0 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 0 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+FeatureReport 1
+  Field 0, app UPS, phys ---
+    Usage 0, iProduct = 1  Back-UPS BR  800 FW:9.o2 .D USB FW:o2 
+
+FeatureReport 2
+  Field 0, app UPS, phys ---
+    Usage 0, iSerialNumber = 2  QB0645337724  
+
+FeatureReport 3
+  Field 0, app UPS, phys ---
+    Usage 0, iManufacturer = 3  American Power Conversion
+
+FeatureReport 4
+  Field 0, app UPS, phys ---
+    Usage 0, iOEMInformation = 0  
+
+FeatureReport 5
+  Field 0, app UPS, phys ---
+    Usage 0, iDeviceChemistry = 0  
+
+FeatureReport 6
+  Field 0, app UPS, phys ---
+    Usage 0, Rechargeable = 0 
+  Field 1, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, CapacityMode = 0 maH
+
+FeatureReport 14
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, DesignCapacity = 0 maH
+  Field 1, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, FullChargeCapacity = 0 maH
+
+FeatureReport 12
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, RemainingCapacity = 100 maH
+
+FeatureReport 16
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, CapacityGranularity1 = 0 maH
+  Field 1, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, CapacityGranularity2 = 0 maH
+
+FeatureReport 15
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, WarningCapacityLimit = 50 maH
+
+FeatureReport 17
+  Field 0, app UPS, phys ---
+Exponent 0 lost.
+    Usage 0, RemainingCapacityLimit = 10 maH
+
+FeatureReport 9
+  Field 0, app UPS, phys ---
+    Usage 0, ManufactureDate = 0  1980-00-00
+
+FeatureReport 13
+  Field 0, app UPS, phys ---
+    Usage 0, RunTimeToEmpty = 1807 Seconds
+
+FeatureReport 18
+  Field 0, app UPS, phys ---
+    Usage 0, DelayBeforeShutdown = -1 
+
+FeatureReport 19
+  Field 0, app UPS, phys ---
+    Usage 0, DelayBeforeReboot = 0 Seconds
+
+FeatureReport 8
+  Field 0, app UPS, phys ---
+    Usage 0, RemainingTimeLimit = 120 Seconds
+
+FeatureReport 10
+  Field 0, app UPS, phys ---
+    Usage 0, ConfigVoltage = 2400 CentiVolts
+
+FeatureReport 11
+  Field 0, app UPS, phys ---
+    Usage 0, Voltage = 0 CentiVolts
+
+FeatureReport 20
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 1 
+
+FeatureReport 7
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 1 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 1 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+FeatureReport 22
+  Field 0, app UPS, phys Battery
+    Usage 0, Test = 6 
+
+FeatureReport 23
+  Field 0, app UPS, phys Battery
+    Usage 0, APCBattCapBeforeStartup = 0 
+
+FeatureReport 27
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001a] = 0 
+
+FeatureReport 28
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff86001b] = 0 
+
+FeatureReport 69
+  Field 0, app UPS, phys Battery
+    Usage 0, APCBattReplacementDate = 599297  2001-09-25
+
+
+FeatureReport 21
+  Field 0, app UPS, phys Battery
+    Usage 0, ManufactureDate = 13671  2006-11-07
+
+FeatureReport 24
+  Field 0, app UPS, phys Battery
+Exponent 0 lost.
+    Usage 0, RemainingCapacity = 0 maH
+
+FeatureReport 26
+  Field 0, app UPS, phys Battery
+    Usage 0, RemainingTimeLimit = 0 Seconds
+
+FeatureReport 25
+  Field 0, app UPS, phys Battery
+    Usage 0, RunTimeToEmpty = 0 Seconds
+
+FeatureReport 30
+  Field 0, app UPS, phys Battery
+    Usage 0, Temperature = 3023 Degrees K with -1 exponent
+
+FeatureReport 31
+  Field 0, app UPS, phys Battery
+    Usage 0, ConfigVoltage = 0 CentiVolts
+
+FeatureReport 29
+  Field 0, app UPS, phys Battery
+    Usage 0, Voltage = 2710 CentiVolts
+
+FeatureReport 71
+  Field 0, app UPS, phys Battery
+    Usage 0, APC860024_?????? = 0 
+
+FeatureReport 72
+  Field 0, app UPS, phys Battery
+    Usage 0, [ff860018] = 0 
+
+FeatureReport 32
+  Field 0, app UPS, phys Input
+    Usage 0, Voltage = 591084 DeciVolts
+
+FeatureReport 70
+  Field 0, app UPS, phys Input
+    Usage 0, ConfigVoltage = 0 Volts
+
+FeatureReport 33
+  Field 0, app UPS, phys Input
+    Usage 0, APCLineFailCause = 1 
+
+FeatureReport 34
+  Field 0, app UPS, phys Input
+    Usage 0, APC860061_?????? = 0 
+
+FeatureReport 66
+  Field 0, app UPS, phys Input
+    Usage 0, APC860024_?????? = 0 
+
+FeatureReport 44
+  Field 0, app UPS, phys Output
+    Usage 0, PercentLoad = 270 
+
+FeatureReport 82
+  Field 0, app UPS, phys Output
+    Usage 0, ConfigActivePower = 0 Watts
+
+FeatureReport 42
+  Field 0, app UPS, phys Output
+    Usage 0, Frequency = 6000 CentiHertz
+
+FeatureReport 43
+  Field 0, app UPS, phys Output
+    Usage 0, Voltage = 1200 DeciVolts
+
+FeatureReport 45
+  Field 0, app UPS, phys Output
+    Usage 0, ConfigVoltage = 0 Volts
+
+FeatureReport 35
+  Field 0, app UPS, phys Output
+    Usage 0, HighVoltageTransfer = 138 Volts
+
+FeatureReport 36
+  Field 0, app UPS, phys Output
+    Usage 0, LowVoltageTransfer = 97 Volts
+
+FeatureReport 37
+  Field 0, app UPS, phys Output
+    Usage 0, APCDelayBeforeStartup = 0 Seconds
+
+FeatureReport 38
+  Field 0, app UPS, phys Output
+    Usage 0, APCShutdownAfterDelay = 0 Seconds
+
+FeatureReport 39
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeShutdown = 0 
+
+FeatureReport 40
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeStartup = 0 Seconds
+
+FeatureReport 41
+  Field 0, app UPS, phys Output
+    Usage 0, DelayBeforeReboot = 0 Seconds
+
+FeatureReport 64
+  Field 0, app UPS, phys Output
+    Usage 0, APCForceShutdown = 0 
+
+FeatureReport 65
+  Field 0, app UPS, phys Output
+    Usage 0, APCDelayBeforeShutdown = -1 Seconds
+
+FeatureReport 46
+  Field 0, app UPS, phys ---
+    Usage 0, iProduct = 0  
+
+FeatureReport 47
+  Field 0, app UPS, phys ---
+    Usage 0, iSerialNumber = 0  
+
+FeatureReport 48
+  Field 0, app UPS, phys ---
+    Usage 0, iManufacturer = 0  
+
+FeatureReport 49
+  Field 0, app UPS, phys ---
+    Usage 0, iName = 0  
+
+FeatureReport 52
+  Field 0, app UPS, phys ---
+    Usage 0, APC_UPS_FirmwareRevision = 0 
+
+FeatureReport 55
+  Field 0, app UPS, phys ---
+    Usage 0, APC_USB_FirmwareRevision = 0 
+
+FeatureReport 50
+  Field 0, app UPS, phys ---
+    Usage 0, APCPanelTest = 0 
+
+FeatureReport 53
+  Field 0, app UPS, phys ---
+    Usage 0, ManufactureDate = 0  1980-00-00
+
+FeatureReport 62
+  Field 0, app UPS, phys ---
+    Usage 0, [ff860027] = 0 
+
+FeatureReport 63
+  Field 0, app UPS, phys ---
+    Usage 0, [ff860028] = 0 
+
+FeatureReport 54
+  Field 0, app UPS, phys ---
+    Usage 0, AudibleAlarmControl = 0 
+
+FeatureReport 51
+  Field 0, app UPS, phys ---
+    Usage 0, Charging = 0 
+  Field 1, app UPS, phys ---
+    Usage 0, Discharging = 0 
+  Field 2, app UPS, phys ---
+    Usage 0, ACPresent = 0 
+  Field 3, app UPS, phys ---
+    Usage 0, BatteryPresent = 0 
+  Field 4, app UPS, phys ---
+    Usage 0, BelowRemainingCapacityLimit = 0 
+  Field 5, app UPS, phys ---
+    Usage 0, ShutdownRequested = 0 
+  Field 6, app UPS, phys ---
+    Usage 0, ShutdownImminent = 0 
+  Field 7, app UPS, phys ---
+    Usage 0, RemainingTimeLimitExpired = 0 
+  Field 8, app UPS, phys ---
+    Usage 0, CommunicationLost = 0 
+  Field 9, app UPS, phys ---
+    Usage 0, NeedReplacement = 0 
+  Field 10, app UPS, phys ---
+    Usage 0, Overload = 0 
+  Field 11, app UPS, phys ---
+    Usage 0, VoltageNotRegulated = 0 
+  Field 12, app UPS, phys ---
+    Usage 0, [ff860080] = 0 
+
+FeatureReport 96
+  Field 0, app UPS, phys [ff860001]
+    Usage 0, APC860023_?????? = 0 
+
+FeatureReport 97
+  Field 0, app UPS, phys [ff860001]
+    Usage 0, APC860026_?????? = 0 
+
+FeatureReport 98
+  Field 0, app UPS, phys [ff860001]
+    Usage 0, APC860025_?????? = 0 
+
+FeatureReport 81
+  Field 0, app UPS, phys PowerConverter
+    Usage 0, APC860024_?????? = 0 
+
+Waiting for events ... (interrupt to exit)
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1845
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6
+Event: RunTimeToEmpty = 1807
+Event: RemainingCapacity = 100
+Event: Charging = 0
+Event: Discharging = 0
+Event: ACPresent = 1
+Event: BatteryPresent = 1
+Event: BelowRemainingCapacityLimit = 0
+Event: ShutdownRequested = 0
+Event: ShutdownImminent = 0
+Event: RemainingTimeLimitExpired = 0
+Event: CommunicationLost = 0
+Event: NeedReplacement = 0
+Event: Overload = 0
+Event: VoltageNotRegulated = 0
+Event: [ff860080] = 0
+Event: Test = 6

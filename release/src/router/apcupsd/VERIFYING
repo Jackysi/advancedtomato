@@ -1,0 +1,38 @@
+
+All apcupsd packages released on Source Forge after 24 July 2003
+will be signed with the apcupsd Distribution Verification Key.  By
+obtaining a copy of the apcupsd Distribution Verification Public
+key from either the home site (www.apcupsd.com) or from the Source
+Forge project page, (www.sourceforge.net/projects/apcupsd).  you
+can verify that the code you have is complete, unaltered, and
+packaged by myself (Kern Sibbald) or D. Scott Barninger.
+
+Putting the apcupsd Key in your Keyring:
+
+Once you download the apcupsd public key, you must insert it in
+your keyring.  The procedure will differ depending on whether you
+are using PGP or GPG.  For GPG, assuming you have put the key
+in apcupsd.k, the procedure is:
+
+  gpg --import apcupsd.key
+
+Verifying an RPM:
+
+The procedure for verification differs slightly if you are using
+rpms or tar.gz files. For rpms, the signature becomes part of the
+rpm package, and once the apcupsd public key is in your keyring
+you check the package with:
+
+  rpm --checksig apcupsd-3.10.xx.rpm
+
+Verifying tar files:
+
+Tar files are distributed as they always have been in the past,
+unchanged. However, for each xxxx.tar.gz file that is released there
+will be a second file released with the same name but with .sig
+appended, for example xxxx.tar.gz.sig.  To verify the apcupsd distribution,
+you download both the files and put them in the same directory, then
+for GPG, you use the following command to do the verification:
+
+  gpg --verify xxxx.tar.gz.sig
+

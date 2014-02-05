@@ -1,0 +1,56 @@
+#!/bin/sh
+##
+#
+# initialize.fw: setup the default firewall rules
+#
+# *** NOTE ***
+# Copy from dualwan code to erase all rules
+# If you want to have local firewall rules in addition to what NoCat
+# provides, add them at the bottom of this file.  They will be recreated
+# each time gateway is restarted.
+#
+##
+# The current service classes by fwmark are:
+#
+#  1: Owner
+#  2: Co-op
+#  3: Public
+#  4: Free
+#
+#NOTE: all NoCat Configuration items should be set in the environment before calling.
+
+
+export PATH=$FirewallPath:/tmp/sbin:/tmp/bin:/bin:/usr/bin:/sbin:/usr/sbin
+
+# match rule numbers in the $1 table, chain $2
+rule_num() {
+    NUM=`iptables -t $1 -L $2 -n | sed -e '1,2d' | grep -n $3 | head -n 1 | cut -d : -f 1`
+    if [ -z "$NUM" ]; then echo "0"; else echo "$NUM"; fi
+}
+
+#Test for RE-initialization:
+NOCAT_RULE_NR=`rule_num filter FORWARD 'NoCat '`
+if [ $NOCAT_RULE_NR -gt 0 ]; then
+    #yes, now check if this a linksys specific re-initialization
+    iptables -t filter -D FORWARD -j NoCat
+    iptables -t filter -F NoCat
+    iptables -t filter -X NoCat
+    iptables -t filter -F NoCat_Download
+    iptables -t filter -X NoCat_Download
+    iptables -t filter -F NoCat_Upload
+    iptables -t filter -X NoCat_Upload
+    iptables -t filter -F NoCat_Ports
+    iptables -t filter -X NoCat_Ports
+    iptables -t filter -F NoCat_Inbound
+    iptables -t filter -X NoCat_Inbound
+    iptables -t nat -D PREROUTING -j NoCat_Capture
+    iptables -t nat -F NoCat_Capture
+    iptables -t nat -X NoCat_Capture
+    iptables -t nat -D POSTROUTING -j NoCat_NAT
+    iptables -t nat -F NoCat_NAT
+    iptables -t nat -X NoCat_NAT
+    iptables -t mangle -D PREROUTING -j NoCat
+    iptables -t mangle -F NoCat
+    iptables -t mangle -X NoCat
+fi
+

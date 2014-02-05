@@ -1,0 +1,28 @@
+         Technical notes on my code submission of 27 Oct 00
+                        Kern Sibbald
+
+General:
+- Win32 updates
+- Updated the manual for the Win32 version.
+
+Changes submitted this submission:
+- Additional work on the Windows email.exe program.
+- Added binary_tar_file as object of make in win32
+  directory, which makes a win32 binary tar file.
+- Updated the apctest program some more to add
+  time/date stamps for almost all operations, implemented
+  kill_power option.
+- Added VERSION, DATE, and LSMDATE to values updated by
+  ./configure. This permits automatically building a tar file with the
+  correct name.
+- Updated the Win32 distribution README.txt file. Added documentation
+  for Riccardo's setup.exe, updated the email script files to include
+  the correct path for the shell. Moved a lot of the stuff into
+  new directories win32/bin win32/etc and win32/examples.
+- A lot of updates to the document for Win32 and support for
+  the Back-UPS Office UPSes.
+- Added proper support to apcserial.c for the 940-0119A cable
+  used by the Back-UPS Office. This was based on the tests done
+  by Jason A. Smith (many thanks Jason).
+- Moderately improved the readability and enhanced the 
+  version line printed by apcupsd by adding the build date.

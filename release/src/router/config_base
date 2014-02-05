@@ -1,0 +1,47 @@
+#
+# The baseline configuration for Tomato USB.
+# All other build configurations are derived from this.
+#
+TCONFIG_OPTIMIZE_SHARED_LIBS=y
+TCONFIG_L2TP=y
+TCONFIG_PPTP=y
+# TCONFIG_PPTPD is not set
+TCONFIG_HTTPS=y
+TCONFIG_SSH=y
+TCONFIG_CIFS=y
+TCONFIG_JFFS2=y
+TCONFIG_JFFSV1=y
+TCONFIG_ZEBRA=y
+TCONFIG_DDNS=y
+TCONFIG_L7=y
+TCONFIG_L7PAT=y
+# TCONFIG_IPV6 is not set
+# TCONFIG_EBTABLES is not set
+# TCONFIG_EMF is not set
+TCONFIG_USB=y
+# TCONFIG_MEDIA_SERVER is not set
+TCONFIG_FTP=y
+# TCONFIG_FTP_SSL is not set
+TCONFIG_SAMBASRV=y
+# TCONFIG_SAMBA3 is not set
+# TCONFIG_USB_EXTRAS is not set
+# TCONFIG_NTFS is not set
+# TCONFIG_LZO is not set
+# TCONFIG_OPENVPN is not set
+# TCONFIG_BT is not set
+# TCONFIG_BBT is not set
+# TCONFIG_TR_EXTRAS is not set
+# TCONFIG_NFS is not set
+# TCONFIG_NOCAT is not set
+# TCONFIG_SNMP is not set
+# TCONFIG_SDHC is not set
+# TCONFIG_HFS is not set
+# TCONFIG_UPS is not set
+# TCONFIG_DNSCRYPT is not set
+# TCONFIG_NVRAM_64K is not set
+# TCONFIG_TOR is not set
+# TCONFIG_MICROSD is not set
+# TCONFIG_USBAP is not set
+# TCONFIG_REMOVE_USBAPP is not set
+# TCONFIG_CTF is not set
+# TCONFIG_UFSD is not set

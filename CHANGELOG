@@ -1,0 +1,1551 @@
+Tomato USB Mod (ND version)
+===========================
+
+build 01 - 12/17/2008
+---------------------
+
+Based on the official Tomato 1.23 ND.
+
+Added support for USB 1.1 (OHCI and UHCI) and USB 2.0.
+
+USB support is configurable via Tomato GUI.
+
+USB storage (Ext2, Ext3 and FAT file systems) and USB printing support.
+
+Non-spooling printer server (p910nd 0.92) is included and started
+automatically if you enable printing support. Bidirectional copying can
+be disabled via GUI if it causes problems with your printer.
+
+Fixed slow running clock problem on Asus WL-520GU. After flashing this
+firmware you have to reboot the router at least once for clock to get
+fixed.
+
+UPnP is disabled by default.
+
+Added CGI support to HTTP daemon - you can place your cgi scripts into
+"/www/ext/cgi-bin" folder, and they will be executed when you access them
+via http://<router_ip>/ext/cgi-bin/my_script_name.
+
+
+build 02 - 12/20/2008
+---------------------
+
+Allowed changing USB settings without rebooting a router.
+
+Fixed non-working AIR (WLAN) LED on Asus WL-520GU.
+
+USB support code clean-up.
+
+
+build 03 - 12/22/2008
+---------------------
+
+Cosmetic changes only.
+
+
+build 04 - 12/26/2008
+---------------------
+
+Added FTP server daemon (vsftpd 2.0.7) configurable via GUI.
+
+Updated kernel printer driver to version 0.13 and included some fixes
+to the printer driver made by Asus.
+
+
+build 05 - 12/31/2008 and 07 - 01/03/2009 (UNSTABLE)
+------------------------------------------------------
+
+Attempt to update Broadcom Wireless and Ethernet Controller driver to the
+version 4.150.10.X (original Tomato included driver is version 4.130.19.0).
+
+Added new setting to "QoS -> Basic Settings" page to select Qdisc
+Scheduler (sfq | pfifo).
+
+Auto-mounting for USB storage drives. When this feature is activated, and
+USB drive is plugged in, all mountable partitions will be automatically
+mounted to a new directories under /mnt. If you want to override default
+mount points, mount your partition manually in the satrtup script, i.e.:
+"mount -o noatime /dev/discs/disc0/part1 /opt".
+If you mount your partition manually, it will not be re-mounted to a
+default mount point.
+
+This build, as well as builds 06 and 07 had several issues: using Wireless
+Survey and/or changing some settings could crash the router or cause it
+to hang.
+
+
+build 08 - 01/07/2009
+---------------------
+
+Since both previous versions with updated WL driver were unstable, rolled
+back Broadcom Wireless Controller driver to the old version 4.130.19.0
+(original Tomato ND version).
+
+Fixed several bugs introduced in the previous releases.
+
+
+build 09 - 01/09/2009
+---------------------
+
+Added Network File Sharing - Samba 2.0.10.
+
+Added USB Hotplug script - useful for configuring attached USB devices,
+i.e. loading firmware into HP1018/1020 or similar printer.
+
+Updated USB drivers to the newer version from kernel 2.4.35/37, applied
+some patches to stabilize USB.
+
+Applied patch to allow using routers with up to 128 MB RAM.
+
+
+build 11 - 01/16/2009
+---------------------
+
+Upgraded Broadcom Wireless driver to version 4.150.10.5.
+
+Included SpeedMod by Rodney Chua.
+
+Added functionality to the GUI to unmount (safely remove) USB drives,
+reworked the display of attached usb devices.
+
+Fixed "Kernel BUG" error when transfering files to shared USB drives
+using Samba.
+
+Added "Regulatory Mode" setting (off|g|h) to "Advanced -> Wireless"
+page. This solves long-standing Tomato connectivity problems for Intel
+Centrino (2200bg etc) wireless cards.
+
+Allowed up to 100 applications in UPnP.
+
+
+build 12 - 01/25/2009
+---------------------
+
+Bug fixes: cosmetic fixes for GUI, using "Measure Noise Floor" function
+on the Device List page should no longer disable wireless.
+
+Improved support for Ext2/Ext3 filesystems (allow expanded inodes,
+forward compatibility).
+
+Replaced UPnP daemon with MiniUPnPd.
+
+Restored the gpio utility temporarily removed from previous build.
+
+
+build 14 - 01/27/2009
+---------------------
+
+Minor improvements for FAT filesystem support.
+
+Improved SpeedMod implementation.
+
+
+build 15 - 01/29/2009
+---------------------
+
+Bug fix: corrected firewall rules when WAN access is enabled for FTP.
+
+
+build 16 - 01/31/2009
+---------------------
+
+Fixed error connecting to the FTP server when directory listings are
+disabled.
+
+Added support for mounting loopback devices. The loop device module loop.o
+is not included but available separately, and can be loaded with insmod
+command.
+
+Added option to automatically share all mounted USB partitions.
+
+
+build 17 - 02/04/2009
+---------------------
+
+Patch to resolve read errors on spin-up with some auto spin-down USB
+drives (not tested).
+
+Miniupnpd daemon updated to the latest version 20090129. Fixed UPnP
+presentation URL when non-standard http port is used.
+
+Fixed LEDs/buttons/GPIO bug introduced with WL driver update (only
+affected some router models).
+
+Code clean up, cosmetics.
+
+
+build 18 - 02/05/2009
+---------------------
+
+Removed excessive stripping of shared libraries (fixes problem introduced
+in build 17 when using IPP2P in QoS rules).
+
+Added limited kernel-level support for national codepages needed by Samba.
+
+
+build 19 - 02/10/2009
+---------------------
+
+Restored original Tomato setting to show/hide UPnP server in "My Network
+Places".
+
+Added scsi-stop command to spin down some USB drives (find a description
+at http://wl500g.info/showpost.php?p=47135&postcount=10).
+
+Added GUI settings to require authentication to access Samba shares.
+
+Upgraded Broadcom Wireless driver to version 4.158.4.0.
+
+p910nd printer server is updated to the latest ver. 0.93.
+
+
+build 20 - 02/24/2009
+---------------------
+
+Updated MiniUPnPd to the latest ver. 20090214 and recompiled it with
+support for GENA UPnP events enabled.
+
+Updated FTP Server vsftpd to the latest ver. 2.1.0.
+
+Removed non-working ipkg.
+
+Fixed "Unknown Host" Samba error when router is working in Wireless
+Bridge or Wireless Client mode.
+
+Fixed SES button and WLAN LED on Asus WL-500gPv1 and Buffalo WBR2-G54
+routers.
+
+Mounted USB drives no longer unmount when changing network settings
+causes router to restart all services.
+
+Added support for mounting USB partitions by label, i.e.
+"mount LABEL=optware /opt -o noatime,nodiratime"
+Changed the default mount point for labeled disks from
+"/mnt/disk#_part#" to "/mnt/LABEL".
+
+Added support for automounting using /etc/fstab file if it exists
+(see http://en.wikipedia.org/wiki/Fstab). Support for labels and UUIDs
+in fstab is included. If automounting is disabled, you can still mount
+your drives using fstab information by issuing "mount -a" command.
+You can create and populate /etc/fstab file in Init script.
+
+Added "nvram setfile2nvram <filename>" command to save small files in
+nvram. They will be automatically restored on startup. This is another
+way to create, for example, /etc/fstab file, and to make it "permanent".
+
+Changed the on-flash filesystem from JFFS2 to JFFS 1.1 with special
+modifications to the JFFS driver so that it would work on a very small
+filesystem. Now JFFS partition can be mounted with as little as 192KB
+available.
+
+Updated SCSI Disk Driver to the newer version from kernel 2.4.37.
+This fixes a memory leak, improves compatibility with certain devices,
+and eliminates some error messages from the log (i.e. when connecting
+Kingston flash drives).
+
+Added support for multi-LUN USB storage devices (like card readers).
+
+Applied SCSI subsystem patch from kernel 2.4.37 to improve USB
+hotplugging.
+
+Multiple improvements for USB hotplugging to make it more robust.
+
+Starting from this build, the mod comes in 4 different flavours:
+- Standard: all standard USB and NAS features included; 120KB
+  JFFS space (2 blocks) available on 4MB flash routers;
+- Lite: all features of Standard but no Samba; some very minor features
+  are stripped out of Busybox, about 420KB JFFS space (7 blocks)
+  available on 4MB flash routers;
+- No CIFS: all features of Standard but no CIFS Network filesystem
+  support, about 180KB JFFS space (3 blocks) available on 4MB flash
+  routers;
+- Extras: all features of Standard plus Linux Ext2/Ext3 filesystem
+  utilities (fdisk, e2fsck, mke2fs, mkswap), and built-in loop device
+  support, no JFFS space available on 4MB flash. This version is for
+  people who don't need JFFS space or have 8MB flash routers, and would
+  like to be able to partition/format drives in Linux native Ext2/Ext3
+  format directly on the router without installing any additional tools.
+
+
+build 21 - 03/03/2009
+---------------------
+
+Fixed problem introduced in build 20 with some USB 1.1 printers not
+working when connected via USB 2.0 hub.
+
+Added support for Kyocera Mita FS 820, Brother HL-1440 and Epson M-129C
+printers.
+
+Fixed DDNS updates scheduling.
+
+Added Hostname validation to the Web UI.
+
+Fixed writing the hosts file when Hostname is changed in the Web UI.
+
+Fixed potential infinite lock in USB hotplugging.
+
+Included additional "USB Red" (from Absolon) and "USB Blue" Color Schemes
+into the "Extras" build.
+
+
+build 22 - 03/13/2009
+---------------------
+
+More improvments to USB hotplugging code.
+
+Cosmetic syslog fix to avoid splitting log messages.
+
+Increased amount of available JFFS space by ~60KB in Standard, Lite and
+No-CIFS builds.
+
+
+build 23 - 03/24/2009
+---------------------
+
+Display additional info in the GUI for attached USB devices: always show
+filesystem even for unmounted drives, show size for mounted partitions,
+fix for displaying multiple printers.
+
+Allowed using domain name in admin access restriction.
+
+Fixed DST rules for some Russian timezones.
+
+Added Country/Region setting to "Advanced Wireless" page.
+
+Bug fixes, code optimization and cleanup.
+
+
+build 24 - 04/05/2009
+---------------------
+
+Internal improvements and minor bug fixes.
+
+Support for newer optional NTFS filesystem driver (available separately).
+
+Added mkdosfs to "Extras" build to format FAT32 partitions.
+
+Fix for Samba shares mounted by other Linux systems using CIFS.
+
+Updated USB kernel driver.
+
+Added ntpc modifications by ringer004.
+
+
+build 25 - 05/01/2009
+---------------------
+
+New version 1.3 of the JFFS filesystem (by ray123) that reserves only
+1 block of flash memory for overhead. JFFS bug fixes. Now even "Extras"
+build has 64KB of JFFS space available on 4MB flash.
+
+Updated MiniUPnPd to the latest version 1.3 (20090417).
+
+Added wireless auto channel selection.
+
+Changed to use passive mode for wireless scan (generally should pick up
+more APs).
+
+USB kernel driver fixes.
+
+Cosmetics.
+
+
+build 27 - 05/25/2009
+---------------------
+
+Merged with official Tomato 1.24 update.
+
+Updated MiniUPnPd to the latest version 20090516.
+
+
+build 28 - 05/28/2009
+---------------------
+
+Merged with official Tomato 1.25 update.
+
+Busybox updated to ver. 1.14.1.
+
+FTP Server vsftpd updated to ver. 2.1.1.
+
+
+build 31 - 06/05/2009
+---------------------
+
+MiniUPnPd updated to the latest ver. 20090605.
+
+FTP Server vsftpd updated to ver. 2.1.2.
+
+Layer-7 filter patterns updated to the latest 2009-05-28.
+
+Busybox "insmod" bug fix.
+
+Minor bug fixes and cosmetics.
+
+
+build 32 - 06/13/2009
+---------------------
+
+Updated dnsmasq to the latest ver. 2.49.
+
+Replaced ramfs by tmpfs.
+
+Added optional access restrictions for FTP WAN access - source IP filter,
+and limiting connection attempts.
+
+Cosmetics.
+
+
+build 33 - 06/29/2009
+---------------------
+
+Added support for QUERY_STRING env variable to httpd.
+
+Busybox updated to ver. 1.14.2.
+
+Minor fix for printing support broken in build 31 for some printer models.
+
+
+build 34 - 08/12/2009
+---------------------
+
+Fixed USB automount not working on startup when WAN mode is set to Static or
+Disabled.
+
+Minor fixes backported from kernel 2.4.37.5.
+
+USB driver patched to make hdparm work properly with USB drives.
+
+FTP Server vsftpd updated to ver. 2.2.0.
+
+Allow multiple MAC addresses per device for static leases (copied over
+from Tomato VPN mod).
+
+Use more precise pattern for L7 FTP match.
+
+Added new Web GUI page to execute system shell commands.
+
+Added "Bluetooth Coexistence" mode to the Advanced Wireless settings (might
+be useful with UMA enabled phones).
+
+Automatically create empty /etc/fstab file on startup.
+
+Busybox updated to ver. 1.14.3.
+
+Fixed CSS for Absolon USB themes ("USB Red" and "USB Blue").
+
+
+build 35 - 10/07/2009
+---------------------
+
+Linux Kernel is updated to the latest in 2.4.x series version 2.4.37.6.
+
+Updated Toolchain: binutils 2.19.1, gcc 3.4.6, uClibc 0.9.29.
+
+Automount/unmount improvements: support for .autorun and autostop scripts,
+deactivate swap on unmount, unmount all mountpoints when requested from the
+web GUI.
+
+Added "Unmount all USB Drives" button action to "Administation -> Buttons".
+
+Included FUSE 2.5.3 kernel driver.
+This allows installing and using Optware ntfs-3g package to mount writable
+NTFS partitions. If Optware ntfs-3g is installed, automount and autoshare
+features will work for NTFS-formatted partitions.
+
+MiniUPnPd updated to the latest ver. 20090921, and compiled with enabled
+GENA UPnP events support (was disabled in build 27).
+
+SpeedMod patches updated to the latest version 118 (replaced Jenkins'
+lookup3 hash with MurmurHash 2.0).
+
+CIFS is updated to version 1.49 backported from kernel 2.6: many bug fixes,
+performance improvements, and security options to allow mounting NTLMv2
+and LANMAN (might be required to mount some NAS disks) shares.
+
+Proper detection of D-Link DIR-320 router.
+
+Updated IMQ driver to set netfilter hooking behaviour from module
+parameter (http://wiki.nix.hu/cgi-bin/twiki/view/IMQ/ImqDevelImqBehaviour).
+
+Busybox updated to ver. 1.14.4, with additional patches from 1.15 trunk,
+compiled with dirname applet, and with support for tainted module checking
+(required to insmod some extra kernel modules).
+
+Dnsmasq is updated to ver. 2.50, enabled TFTP server in Dnsmasq (activate
+via "Dnsmasq Custom Configuration").
+
+Added /proc/sys/net/ipv4/ip_conntrack_count.
+
+Solved potential concurrency issues starting samba/ftp introduced in the
+previous build.
+
+Iptables updated to ver. 1.3.8: added "random" option to DNAT, SNAT,
+MASQUERADE and REDIRECT; UDPLITE multiport support; bug fixes and cosmetics.
+
+Various fixes: OpenSSL security patch (CVE-2008-5077), fixes for Broadcom
+wireless driver, a few USB driver fixes backported from 2.6.x kernel tree,
+other minor fixes.
+
+Fixed incorrect subnet mask written to MiniUPnPd configuration file.
+
+Broadcom wireless driver downgraded to version 4.150.10.29 to solve issues
+with some Asus wl500gPv2 routers.
+
+Display swap partitions status in the GUI, show labels for NTFS partitions.
+
+Optware perl, if installed, should now be able to execute perl scripts
+without any changes.
+
+Old Linksys igmprt binary replaced by open source igmpproxy application.
+
+Cosmetics and code clean-up.
+
+
+build 36 - 10/18/2009
+---------------------
+
+Fixed setting TCP and UDP timeout values on "Advanced -> Conntrack/Netfilter"
+page, removed obsolete timeouts, added Generic and ICMP timeouts.
+
+Fixed incorrect detection of JFFS partition size.
+
+Do not start igmpproxy when WAN is disabled, allow alternative config file
+for igmpproxy.
+
+Full NTFS support via ntfs-3g is included in "Extras" build.
+
+SpeedMod rolled back to using lookup3 hash which seems to be actually faster
+than MurmurHash2.
+
+Minor USB driver fixes from 2.6 kernel tree.
+
+MiniUPnPd updated to ver. 20091010.
+
+Dnsmasq updated to ver. 2.51.
+
+Other minor fixes, cosmetics, code optimization and clean-up.
+
+Created non-USB build.
+
+
+build 37 - 10/25/2009
+---------------------
+
+Fixed DDNS updates not working since build 35 when using secure SSL
+connection.
+
+Fixed some wirelesss connectivity issues for "Wireless Client" and
+"Wireless Bridge" modes.
+
+FTP Server vsftpd updated to ver. 2.2.1.
+
+
+build 38 - 11/07/2009
+---------------------
+
+Fixed execution of .autostart and after-mount scripts.
+
+Fixes for wireless configuration utility (should resolve some of the
+wireless connectivity issues).
+
+Fixed "service net restart" to bring up wireless.
+
+Fixed remounting of all USB partitions upon services restarts (i.e. when
+some settings are saved in the GUI).
+
+Samba compatibility fix (disable sanity check).
+
+Busybox: added blkid applet, added "label" option to mkswap, replaced
+mkdosfs by Busybox applet.
+
+Added "Master Browser" and "WINS Server" configuration settings (both are
+turned on by default).
+
+Linux kernel 2.4.37.7.
+
+MiniUPnPd updated to version 1.4 (20091106).
+
+Optimization to reduce size, minor bug fixes, cosmetics.
+
+
+build 39 - 11/19/2009
+---------------------
+
+Fixed incompatibility problem with BCM4704 chipset (WL-500W, WL-500gPv1,
+WRTSL54GS etc) introduced in previous build by kernel 2.4.37.7 update.
+
+Resolved wireless connectivity issues with iPhone/iPodTouch devices.
+
+p910nd printer server: reduced logging in case of disconnected printer.
+
+Busybox: minor fixes from trunk.
+
+Fixed: Samba could start with incorrect configuration upon services
+restarts (i.e. when some settings are saved in the GUI).
+
+Remount busy partitions as read-only on system shutdown if unmount is not
+possible.
+
+Security fix (MatrixSSL patched to disable re-negotiation for server side
+SSL) for Tomato web server running in HTTPS mode.
+
+FTP Server vsftpd updated to ver. 2.2.2.
+
+ntfs-3g in Extras build is updated to ver. 2009.11.14.
+
+Optimization to reduce size (compressed kernel to free up to 120-180K of
+additional space available for JFFS), cosmetics.
+
+
+build 40 - 11/29/2009
+---------------------
+
+Merged with official Tomato 1.27 update.
+
+Added ID for Asus WL-500W.
+
+Cosmetics and minor fixes.
+
+
+build 41 - 12/01/2009
+---------------------
+
+Fixed some USB printers not being recognized.
+
+Added "wl_disable_wpa_supp" nvram variable to resolve some issues with
+Wireless Ethernet Bridge mode.
+
+
+build 42 - 01/07/2010
+---------------------
+
+USB kernel fixes, USB hotplug code clean-up and optimization, got rid of
+the USB hotplug locks (patches by ray123).
+
+Basic Wireless N mode support: single band only (2.4GHz), the only currently
+supported models witn N capability are WL-500W, and RT-N16 (with a special
+build).
+
+Improved support for wireless client modes (wireless ethernet bridge and
+wireless client) to automatically restore lost connection.
+
+Do not restart Samba/vsftpd on USB drives disconnect if disconnected
+drive doesn't have any mounted partitions.
+
+Proper support for buttons and leds on D-Link DIR-320 and Asus WL-500GPv2.
+
+Busybox fixes from trunk: ash, tar, awk, crond, grep, mount, wget.
+
+MiniUPnPd updated to version 1.4 (20091222).
+
+Minor fixes and code clean-up.
+
+Separate (EXPERIMENTAL) version (beta 02) for Asus RT-N16 based on kernel
+2.6.22 (N-mode support, included SIP conntrack module, added extra Samba
+Asian codepages).
+
+
+build 43 - 02/15/2010
+---------------------
+
+Fixed: restoring files on start-up previously saved to nvram using
+setfile2nvram command (broken in build 42).
+
+Fixed: copying large files to FAT-formatted disks via Samba.
+
+Fixed: display file names containing national characters in Samba FAT
+shares (broken in build 42).
+
+Fixed: auto-reconnect for wireless client modes (wet, sta).
+
+Enabled WPA2 security for all modes, including WDS, wireless client and
+wireless ethernet bridge.
+
+Replace spaces and special characters by underscores in mountpoint names
+when auto-mounting by label.
+
+Allow enough time during shutdown to properly unmount (or remount as
+read-only) usb drives.
+
+Added an extra route in case the default gateway is over the bridge.
+
+Increased limits for number of entries allowed for wireless filter, static
+DHCP and access restrictions.
+
+WME is set to "Auto" by default. For N-mode support, make sure it's set
+to "On" or "Auto".
+
+Applied kernel patches from linux-mips.org (up to 2009-12-05).
+
+Software updates: Linux kernel 2.4.37.9, ntfs-3g (in Extras builds)
+2010.1.16, Dnsmasq 2.52, bridge-utils 1.0.6, pptp-client 1.7.1.
+
+Busybox: minor fixes from trunk.
+
+Upgraded toolchain to use gcc 4.1.2 for userspace applications (gcc 3.4.6
+is still used to compile kernel).
+
+VPN build is merged with the latest VPN mod vpn3.6 (based on OpenVPN 2.1.1).
+
+Cosmetics.
+
+
+build 44 - 02/17/2010
+---------------------
+
+Hotfix: missing kernel symbol preventing ext2/ext3 modules from being loaded.
+
+
+* Kernel 2.6-based builds (beta 05):
+
+Support for Asus RT-N12, Netgear WNR3500L. Added MIPS R1 CPU builds
+compatible with other routers capable of running Tomato ND (tested only
+on Linksys WRT54G-TM, Asus WL-520GU, Asus WL-500GPv2).
+
+Samba upgraded to version 3 (3.0.24 with patches from newer versions).
+
+Fixed: bug in Access Restrictions and QoS rules preventing using rules
+based on MAC addresses.
+
+Fixed: bug in triggered port forward.
+
+Fixed: setting max connections on "Conntrack/Netfilter" GUI page.
+
+Configurable conntrack hashtable size.
+
+Preliminary Jumbo frame support for routers with gigabit switch (not
+working yet, only GUI setting is present).
+
+Backported many fixes and improvements from newer kernel 2.6.x versions.
+
+The USB kernel driver is updated to the version from kernel 2.6.24 with
+additional fixes backported from newer versions.
+
+
+
+build 45 - 04/03/2010
+---------------------
+
+Improved stability of wireless link when using router in wireless client
+or wireless ethernet bridge modes.
+
+Automatically load network routing table supplied via DHCP from ISP with
+GUI setting to disable it if desired (enabled by default).
+
+Replaced vconfig application with Busybox applet.
+
+Fixed WLAN led for Asus WL500GPv2.
+
+Use kernel driver (in both - 2.4 and 2.6 - based builds) for PPTP and L2TP
+connections to improve speed and reduce CPU load, replaced pptp-client
+with accel-pptp pppd plugin ver. 0.8.4.
+
+Allowed to specify server for PPTP and L2TP connections as either IP address
+(as before), or domain name.
+
+Allowed PPTP connections with dynamic IP addresses ("Use DHCP" GUI setting).
+
+Fixed regression introduced in build 44 causing constant reconnects for some
+PPPoE connections.
+
+Added display of current wireless link rates to the "Status->Overview" and
+"Status->Device List" pages.
+
+Display N-capability of AP in Wireless Survey results.
+
+Country selection on Advanced->Wireless page changed to obtain the list of
+available countries from the wireless driver.
+
+Fixed USB auto-share to only share actually mounted partitions, and not any
+other directory under /mnt.
+
+Bind HTTP daemon to LAN interface only instead of 0.0.0.0 to simplify
+binding of other applications (like pixelserv) to an alternate LAN IP.
+
+Force hard reset if reboot hangs for longer then 10 secs.
+
+Execute .autorun scripts located in /jffs when mounting JFFS partition.
+
+Fixed Bandwidth history loading when it's trying to load a corrupted remote
+file.
+
+Busybox: patches from trunk for awk, unzip, wget, modprobe, syslog, fdisk,
+ping, top, wc, ash, tail, vi. Added flock applet to the Extras build.
+
+Software updates: ntfs-3g (in Extras build) 2010.3.6, MiniUPnPd 1.4 20100308,
+pppd (used by PPTP and L2TP connection) 2.4.5, GNU Zebra 0.95.
+
+Minor fixes and cosmetics.
+
+
+* Kernel 2.4-based builds only:
+
+Fixed memory leak in "recent" iptables match.
+
+Fixed flood of zombie cifsd processes in case of CIFS connection problems.
+
+
+* Kernel 2.6-based builds (changes from beta05 to beta07):
+
+Various fixes backported from kernel 2.6 tree to improve stability and
+reduce memory allocation errors.
+
+Fixed bug writing random values into Ethernet controller registers at
+startup.
+
+Fixed USB support for BCM5354 chipset (Asus WL500GPv2, WL520GU,
+D-Link DIR-320).
+
+Fixed USB support for Netgear WNR3500L.
+
+Fixed SSL certificates being rewritten on every reboot.
+
+Added support for additional devices to USB option driver.
+
+Fixed memory leak in USB hotplugging code.
+
+Fixed bug preventing Scheduled Access restriction to be turned off.
+
+Fixed setting conntrack hash table size via GUI.
+
+
+* Kernel 2.6-based builds (changes from beta07 to beta10):
+
+Added support for Linksys WRT160Nv3 router.
+
+Adjustments to correct LEDs behavior on Netgear WNR3500L.
+
+Fixed support for large files (4GB+) in Samba 3.
+
+Tune up the default Samba 3 configuration (can be overriden by specifying
+"socket options" settings in the "Samba Custom Configuration" box).
+
+Fixed support for non-standard block sizes (!= 4KB), and the max file
+size calculation for Ext2 and Ext3 file systems (backports from kernel
+2.6 tree).
+
+Optimized OpenVPN build to utilize kernel epoll support (VPN builds).
+
+Fixed VPN server/client "Stop Now"/"Start Now" button not working, and/or
+zombie vpnserver/vpnclient processes left when using this button (VPN
+builds).
+
+Backports from kernel 2.6 tree to optimize and speed up memory allocator
+and network routing, and to improve overall stability. Enabled page
+allocation fallback.
+
+Fixed IMQ driver causing network slow-downs and freezes when loaded,
+allowed to specify IMQ hooking behavior via module parameters.
+
+Support for additional USB modems and bug fixes in USB option driver.
+
+Fixed GRE/PPTP conntrack helper being broken preventing clients to
+connect to remote PPTP servers.
+
+Fixed USB Setup GUI page being inaccessible when some USB storage devices
+are connected to the router.
+
+Bug fixes in kernel Netfilter modules: connlimit, recent, u32 and time
+matches, TCPMSS target, added hashlimit match.
+
+Software updates: usb_modeswitch ver. 1.1.1.
+
+
+build 45-beta11 (kernel 2.6-based only) - 04/27/2010
+----------------------------------------------------
+
+Fixed inbound QoS limits not working.
+
+Fixed (once again) PPTP conntrack helper, disabled RTSP conntrack by default
+since it seems to cause problems with other conntrack helpers.
+
+Fixes for LEDs behavior on Netgear WNR3500L.
+
+Fixed build process that could produce a non-bootable image in some rare
+cases (1:127 probability).
+
+Another set of backports from kernel 2.6 mainstream tree (network layer and
+memory allocator) to fix various kernel bugs and improve the overall
+performance.
+
+Applied Samba 3 security patches from samba.org.
+
+Minor Ethernet driver updates from Broadcom SDK 5.10.140.x.
+
+Software updates: Busybox updated to the latest ver. 1.16.1,
+usb_modeswitch (in Extras build) is updated to ver. 1.1.2 (with included
+new-style configuration files).
+
+Tuned up some kernel parameters to improve stability of memory- and
+bandwidth- hungry applications, like torrent clients.
+
+Allowed to flash back Netgear .chk firmware images (via mtd-write command).
+
+Added option to erase NVRAM after flashing the new firmware image - useful
+when flashing to other firmwares.
+
+Included NFQUEUE Netfilter target.
+
+Included fsync command (Busybox applet) into USB Extras builds.
+
+Non-USB Std kernel 2.6-based build now includes JFFS support, with ~192KB of
+usable JFFS space available on 4MB flash.
+
+Fixed display of some password fields (FTP users and Samba passwords) in GUI
+to use dots when editor doesn't have focus.
+
+Included some changes from official Tomato 1.28 beta (GUI option to select
+which menus are expanded, increased PPPoE username/password length, warn
+if saving an empty Access Restriction).
+
+Cosmetics.
+
+
+build 46 - 05/29/2010
+---------------------
+
+Fixed upnp bug when NAT-PMP redirections were expired prematurely.
+
+D-Link DIR-320 support: the router should retain its original MAC address
+after flashing with Tomato.
+
+Software updates: Busybox updated to the latest ver. 1.16.1 with additional
+patches from trunk, miniupnpd 1.4 (20100511), ntfs-3g (in Extras builds)
+2010-05-16, usb_modeswitch (in Extras builds) is updated to ver. 1.1.2
+(with included new-style configuration files), libusb 1.0.8 (some of these
+updates were already present in K26 beta11 builds).
+
+Fixed bug in Samba configuration allowing Linux clients to bypass
+authentication even when authentication is set to "required" in the GUI.
+
+Slightly improved Samba compatibility with Windows clients (do not use
+"share" mode).
+
+Fixed obtaining label/uuid from swap partitions.
+
+Added Wireless Interference Level to Status -> Overview GUI page (for APs
+in 40Mhz wireless-N mode).
+
+Do not restart FTP/Samba on every USB partition unmount - do it only if the
+partition can't be unmounted otherwise.
+
+Modified USB after-mount and before-unmount scripts. Now they are called
+for every partition getting mounted or unmounted, and they get one parameter
+- the mountpoint (can be examined in addition to the environment variables).
+
+Added minimalistic tune2fs Busybox applet to the Extras build - only
+supports the "label" (-L <lbl>) option.
+
+Improve automatic reconnect for PPTP/L2TP WAN connections.
+
+Fixed DHCP lease renewal with some broken ISPs.
+
+Fixed minor memory leak in iptables2.
+
+Fixed domain name corruption in Dnsmasq.
+
+Added mime handler to Tomato http server for proxy autodiscovery files.
+
+Removed "Reduce packet size" option from the GUI DHCP settings - this is
+always enabled now.
+
+Added option to erase NVRAM after flashing the new firmware image - useful
+when flashing to other firmwares. This was already in K26 beta11 builds.
+
+Fixed display of some password fields (FTP users and Samba passwords) in GUI
+to use dots when editor doesn't have focus. This was already in K26 beta11
+builds.
+
+Modified the build system to allow more flexible firmware configurations.
+
+Cosmetics and code cleanup.
+
+* Kernel 2.4-based builds only:
+
+Additional USB 2.0 driver updates/fixes backported from kernel 2.6.
+
+Some fixes and updates backported from kernel 2.6 tree in network support
+modules.
+
+Allow mounting of USB discs with no partitions.
+
+Extra utilities (e2fsck, mke2fs) are removed from VPN build to reduce the
+size and to make it fit into 4MB flash.
+
+* Kernel 2.6-based builds only (changes from beta11 to beta14):
+
+Updated Broadcom wireless driver and SDK to version 5.10.147.0
+(experimental).
+
+Added Media Server (MiniDLNA 1.0.17, http://minidlna.sourceforge.net) to
+Extras and VPN builds.
+
+Fixed bug causing error in the GUI trying to save negative numeric values
+(i.e. the default "-1" value for "TLS Renegotiation Time" in VPN builds).
+
+Updates for USB kernel drivers backported from newer kernel 2.6 tree.
+
+Various kernel fixes and updates backported from kernel 2.6 tree in
+networking support modules, MIPS CPU support, ext3/fat fs support.
+
+Fixed regression in beta11 that decreased USB transfer speed for some
+devices.
+
+Included ebtables 2.0.9-2 into Extras and VPN builds.
+
+Added maxSize parameter for usb_serial module to specify USB endpoint
+size.
+
+ftdi_sio.ko and pl2301.ko modules are now included into Extras builds.
+
+CIFS module updated to ver 1.52: backported from kernel 2.6.24.
+
+In Extras and USB builds the standard uClibc libraries are not getting
+stripped out of unused symbols to make it easier to use additional custom
+compiled software.
+
+Added preliminary support for Linksys WRT320N (thanks to Dominique) and
+Netgear WNR2000v2 (untested).
+
+Fixed flashing with Netgear .chk images from Web GUI (untested).
+
+
+build 47 - 06/03/2010
+---------------------
+
+Added Busybox sendmail applet to Extras and no-USB Std builds.
+
+Added basename command to all builds except Lite.
+
+Fixed proxy autodiscovery mime handler to not require authorization.
+
+Software updates: ntfs-3g release 2010.5.22 (in Extras builds),
+Dnsmasq 2.55, MiniDLNA 1.0.18 (cvs 2010-06-09).
+
+Added "nvram erase" command.
+
+Fixed issue with overriding vlan ports configuration on every reboot.
+
+Fixed error saving settings on "Advanced->Wireless" page for Buffalo
+routers.
+
+Allowed to append custom content to /etc/[passwd|group|shadow|gshadow]
+files.
+
+Changed dropbear config to simplify using Optware openssh-sftp-server.
+
+Cosmetics.
+
+* Kernel 2.4-based builds only:
+
+Fixed regression introduced in build 46 when empty USB cardreaders cause
+the USB GUI page to hang for a long time.
+
+* Kernel 2.6-based builds only (changes from beta14 to beta15):
+
+Fixed flashing power led on Linksys routers: WRT320N and WRT54G-TM.
+
+Fixed kernel warning messages (introduced in beta 14) in the system log
+when using VPN.
+
+* Kernel 2.6-based builds only (changes from beta15 to beta16):
+
+Reverted Broadcom wireless driver binaries back to version 5.10.56.46
+since the new driver caused intermittent problems with port forwarding
+and UPnP. Included some updates extracted from the new Broadcom SDK
+("fast NAT" module, wifi security binaries (nas/eapd), minor patches
+for wlconf utility).
+
+Removed JFFSv1 support from Non-USB Std build since JFFSv1 for kernel
+2.6 seems to be buggy and causes various problems, while JFFS2 is too
+big to be useful on 4MB flash.
+
+Fixed detection of some non-standard or invalid partition table entries.
+
+Fixed VLAN initialization for Asus RT-N10.
+
+Fixed support for Netgear WNR2000v2.
+
+
+build 48 - 07/23/2010
+---------------------
+
+Merged with official Tomato 1.28 update.
+
+Software updates: Busybox 1.16.2, usb-modeswitch 1.1.3 with data
+package 2010-07-07.
+
+Added NETMAP iptables target.
+
+Wireless N-mode support: added GUI option to configure Control Sideband,
+fixed issue causing 40MHz bandwidth to be disabled in N-only mode.
+
+Added GUI options to configure Vendor Class and Requested IP for DHCP
+client.
+
+JFFSv1 is updated to ver. 1.4 (updates by ray123): fixed system crash
+in kernel 2.6, removed BKL, a few bug fixes, clean-up.
+
+Remstored "Reduce packet size" GUI option for DHCP settings - apparently
+some ISPs don't like truncated packets.
+
+DNS vunerability fix: turned on rebinding protection in dnsmasq (see
+http://blogs.forbes.com/firewall/2010/07/13/
+millions-of-home-routers-vulnerable-to-web-hack).
+
+Samba: do not explicitly disable dns proxy.
+
+Backported various fixes and optimization patches from upstream kernel 2.6.
+
+Minor bug fixes and cosmetics.
+
+* Kernel 2.4-based builds only:
+
+CIFS updated to version 1.50 backported from kernel 2.6.
+
+* Kernel 2.6-based builds only (beta18):
+
+Disabled Broadcom "fast NAT" module - this should fix various problems with
+Access Restrictions, QOS, VPN and iptables rules.
+
+Software update: MiniDLNA 1.0.18 (cvs 2010-07-21).
+
+
+build 49 - 08/02/2010
+---------------------
+
+This is a hot-fix release fixing a problem with OpenVPN not working in
+build 48. This build (including K26 beta19 builds) only exists for VPN
+editions.
+
+
+build 50 - 09/04/2010
+---------------------
+
+Added Web Monitoring (domains and searches) with GUI using kernel and
+iptables modules by Eric Bishop from Gargoyle Project
+(http://www.gargoyle-router.com).
+
+DNS rebinding protection in dnsmasq is now optional (can be turned off
+in GUI). Fixed connectivity issues with some applications (i.e. Netflix
+iPad app) related to this protection being active.
+
+Support for Asus WL-500g Deluxe (untested), fixed support for Linksys
+WRT-300Nv1 in both - K26 and K24 - builds.
+
+Added Hurricane Electric IPv6 Tunnel Broker IPv4 endpoint address updater
+to Dynamic DNS services.
+
+Added Unicode support to httpd server - used for Web Usage display, and to
+show commands output on the Tools->System screen.
+
+Fixed error displaying USB Support GUI page when attached drive's label or
+model name contains quotes.
+
+Fixed timing bugs with restarting dnsmasq and other services - thanks to Ray
+<ray123> for finding and analyzing these problems.
+
+Allowed auto-mount of file systems not supported by the firmware as long as
+corresponding kernel module for this file system is loaded.
+
+Allowed to set radio power up to 400mW (26dBm) - this will only work for
+some router models and some countries.
+
+Removed some Busybox applets (ftpput, clear, setconsole) from Lite builds
+to reduce size.
+
+Minor CIFS kernel driver fixes from upstream.
+
+Software updates: PPTP kernel drivers and accell-pptp client 0.8.5-rc1,
+Busybox 1.17.2, FTP Server (vsftpd) 2.3.2, ntfs-3g 2010.8.8 (in Extras
+builds), usb_modeswitch 1.1.4 with data package 2010-08-26.
+
+Toolchain: updated binutils to ver. 2.20.1.
+
+Simplified custom builds by allowing to specify nvram size at compile time
+(can be used to make special builds for Linksys E-series routers with 60KB
+nvram).
+
+Cosmetics and code clean up.
+
+* Kernel 2.6-based builds only (beta20):
+
+Support for dual-band (2.4 and 5 GHz) wireless-N radios. Only single radio
+interface is currently supported and can be configured via GUI (so no
+simultaneous dual-band just yet). Tested on Linksys WRT-320N. Experimental
+(not tested) support for Linksys WRT-610Nv2 (single radio only). Many thanks
+to Dominique <dbt78> for pilot implementation and lots of testing!
+
+Fixed very bad misconfiguration issue witn MiniDLNA media server causing it
+to erase all files in the media directory if the same directory is specified
+as the media database location.
+
+Fixed board data partition size for Netgear routers to prevent flashing a
+firmware image that's too big.
+
+Fixed occasional wireless disconnects during data transfers for some
+routers (namely Asus RT-N12, other models might be affected too).
+
+Disabled DFS server in Samba 3 to prevent errors when using with certain
+Linux clients (thanks to yatu for finding the issue and suggesting a fix).
+
+Fixed /dev/null, /dev/zero, /dev/gpio nodes permissions for non-priveledged
+users (needed for some additional software).
+
+Preliminary support for IPv6 in Extras and USB+VPN editions: all required
+kernel modules are included, iptables and other user space applications are
+compiled with IPv6 support activated, included radvd daemon. Firewall is not
+configured, no GUI configuration exists yet, and by default IPv6 is disabled
+on all interfaces!
+
+Various kernel bug fixes and optimization patches backported from upstream
+2.6 kernel (mostly network/conntrack and USB related): about 20 to 30%
+better WAN-LAN throughput than in build 48 (beta18).
+
+Added support for GUID (EFI) partition tables.
+
+Removed unused decoders from building FFMpeg library used by MiniDLNA -
+significant size reduction.
+
+Software updates: MiniDLNA 1.0.18 (cvs 2010-08-31), libraries used by
+MiniDLNA (sqlite 3.7.2, zlib 1.2.5, FFMpeg 0.6).
+
+
+build 51 - 10/04/2010
+---------------------
+
+Access Restrictions criteria: allow to specify Src/Dst Address, expand list
+of available protocols.
+
+Allow to specify hostnames in addition to IP addresses for iptables rules
+(port forwarding, access restrictions, QoS).
+
+Allow to specify hostname in addition to IP address for remote logging.
+
+Replaced old Tomato's bcount match by standard connbytes match.
+
+Added "Interference Mitigation" setting to Advanced->Wireless.
+
+L2TP client daemon replaced with xl2tpd 1.2.7 (should provide better
+performance).
+
+Execute *.autorun scripts loaded from nvram.
+
+Web Usage: added GUI option to clear web usage logs.
+
+Added additional timing options for syslog marker output.
+
+Display nvram usage on Administration->Configuration page.
+
+PPTP/L2TP WAN connections: fixed routing and firewall rules for internal
+ISP network (MAN), allow to specify static routes for MAN interface, added
+support for MPPE/MPPC encryption/compression, added custom options to GUI.
+
+Added support for ZTE ZXV10 H618B, Linksys WRT310N v1 and v2 routers.
+
+Fixed support for D-Link DIR-320, Asus WL-500G Deluxe.
+
+Fixed bugs in signal processing and restarting service applications.
+
+Fixed support for DHCP classless static routes broken in build 50.
+
+Fixed wireless channel selection in GUI when switching between B/G/N modes.
+
+Disabled loading USB 1.1 module (ohci or uhci) for non-existing controllers
+on Asus routers.
+
+Include additional iptables matches: quota, hl (K26 only).
+
+Software updates: Linux kernel 2.4.37.10, MiniUPnPd 1.4 20100921, pppd (fixes
+from upstream), ntfs-3g (in Extras builds) 2010.10.2.
+
+Code clean-up, minor bug fixes, cosmetics.
+
+* Kernel 2.4-based builds only:
+
+Toolchain: switch kernel 2.4 builds to use gcc 4.2.4 for userspace apps,
+binutils 2.20.1, updated binary 32-bit toolchain.
+
+* Kernel 2.6-based builds only (beta22):
+
+Fixed bugs in conntrack modules forward-ported from kernel 2.4.
+
+GUI cosmetics: display a message on "Media Server" page when directory scan
+is in progress.
+
+Restored JFFS in K26 Std builds (was disabled in build 50).
+
+Write checksum to the end of mtd block during firmware flash on Netgear
+routers: this should fix flashing back to the OEM firmware.
+
+Various kernel bug fixes and performance-related patches backported from
+upstream 2.6 kernel.
+
+Expanded set of available extra kernel modules - included modules for HID,
+sound and webcam (UVC) support.
+
+Software updates: MiniDLNA 1.0.18.2 (cvs 2010-09-28), radvd 1.6, Samba
+3.0.37 (latest in 3.0 series) with security fixes from samba.org
+(CVE 2010-2063, CVE 2010-3069).
+
+
+build 52 - 10/15/2010
+---------------------
+
+Fixed WAN Up script not being executed.
+
+Fixed obtaining DHCP lease from Corbina Beeline and possibly other ISPs
+(was broken in build 51).
+
+Fixed DHCP renewal processing to not replace the default gateway and DNS
+servers for PPTP/L2TP connections.
+
+Added "Use Default Gateway on Remote Network" option for PPTP/L2TP
+connection types (turned on by default). Turn it off to use gateway obtained
+via DHCP for internet routing, and only use PPTP/L2TP gateway for VPN
+subnet (custom routing may be required in case if VPN network contains
+multiple subnets).
+
+Resolve sporadic PPPoE disconnect issues with some ISPs.
+
+Allow to configure custom TTL values in the Web GUI.
+
+Make sure PPTP/L2TP is gracefully disconnected after firmware upgrades and
+after restoring configuration to prevent connection problems after reboot.
+
+Size optimization of some large applications.
+
+Software updates: PPTP kernel driver 0.8.5, Busybox 1.17.3.
+
+Cosmetics.
+
+* Kernel 2.6-based builds only (beta23):
+
+Fixed Mini build for Netgear routers with 4MB flash (WNR2000v2, WNR3500v2),
+removed RIPv1/v2 routing from Mini build due to Netgear size restrictions,
+added JFFS to Mini build to make use of some otherwise wasted flash space.
+
+Fixed flashing all supported Netgear routers back to OEM firmware.
+
+Media server: removed some rare and obsolete demuxers to reduce size,
+reduced MiniDLNA memory usage.
+
+Minor backports from upstream 2.6 kernel.
+
+
+build 53 - 11/26/2010
+---------------------
+
+Support for simultaneous dual-band (dual-radio models) wireless. Currently
+only 2 dual-radio models are supported, and only by K26 builds: Linksys
+WRT610Nv2 and Linksys E3000.
+
+GUI cosmetics: display size of unmounted JFFS partitions, display free
+space on mounted USB partitions.
+
+Fixed LAN ports numbering for WRT310Nv2.
+
+Support for Linksys WRT160Nv1, Ovislink WL1600GL routers.
+
+Fixed syslog losing log messages at system startup.
+
+PPTP/L2TP WAN connection types: allowed to specify separate gateway for
+physical WAN connection when not using DHCP.
+
+More fixes for dnsmasq startup race conditions.
+
+Improved timing in executed scripts, misc enhancements to simplify scripts.
+
+Changed some file permissions for the benefit of non-root users.
+
+OpenVPN: wait for time synchronization on startup up to a few seconds to
+prevent potential VPN server errors.
+
+Get rid of MatrixSSL: use OpenSSL in VPN editions and CyaSSL in non-VPN
+editions to provide SSL support for httpd and ddns, use TLS v 1.0 protocol
+instead of SSL v. 2/3.
+
+Dnsmasq: restored TFTP support in all editions, added support for scripts to
+Extras editions.
+
+Allow syslog to read options from /etc/syslogd.cfg (to support saving of log
+files on external storage).
+
+Web GUI: minor css fix for USB Red and USB Blue themes, removed TCP Vegas
+settings.
+
+Software updates: OpenSSL 1.0.0b, Layer-7 filter patterns 2010-10-25,
+Busybox 1.17.4.
+
+Cosmetics and code clean-up.
+
+* Kernel 2.4-based builds only:
+
+Fixed regression with scsi-start/scsi-stop commands not working in K24
+builds.
+
+* Kernel 2.6-based builds only:
+
+Full support for Linksys E2000/E3000 routers.
+
+Ebtables: fixed targets/matches not working at all, added /etc/ethertypes.
+
+Updated Broadcom wireless driver and SDK to version 5.10.147.0
+(experimental, 2nd attempt).
+
+Added Broadcom implementation of "Efficient Multicast Forwarding" (enable on
+Advanced->Routing page). Description from Broadcom: "this module does the
+efficient layer 2 forwarding of multicast streams, i.e., forward the streams
+only on to the ports that have corresponding group members there by reducing
+the bandwidth utilization and latency".
+
+Do not use "passive" mode for wireless scans - with 5.x.x.x wireless driver
+it doesn't work in client modes.
+
+Included WIDE-DHCPv6 client (no GUI support yet) and IPv6 connbytes match
+into IPv6-enabled builds.
+
+Applied latest kernel patches from linux-mips.org (up to 2010-11-10).
+
+Minor backports from upstream 2.6 kernel.
+
+Rebuilt binary toolchain (32-bit) with additional uClibc patches.
+
+Software updates: MiniDLNA 1.0.18.2 (cvs 2010-11-24).
+
+Removed separate numbering for "beta" builds.
+
+
+build 54 - 11/29/2010
+---------------------
+
+Hotfix release for regressions introduced in previous build 53.
+
+Fixed: router is unable to obtain WAN IP from DHCP after nvram erase.
+
+Fixed: Web GUI validation rules on Basic->Network page.
+
+Fixed: unable to access the router Web GUI via https after upgrade if SSL
+certificate has been previously saved to NVRAM.
+
+Fixed: firmware upgrades via HTTPS not working.
+
+* Kernel 2.4-based builds only:
+
+Fixed: "multiport" match not working with port ranges.
+
+
+build 56 - TBA
+---------------------
+
+PPPoE: replaced outdated pppoecd client daemon from old Linksys GPL with
+rp-pppoe 3.10.
+
+GUI: enhancements for QoS -> Detailed page, added QoS -> Transfer Rates page.
+
+Added DSCP matching criteria for QoS Classification.
+
+Fixed: made MAC address set for the LAN bridge to stick.
+
+Fixed: "EU" country code was missing from the list on "Advanced -> Wireless"
+GUI page on some routers, causing it to display "Afghanistan" instead.
+
+Fixed: display of wireless link quality for WDS connections on "Status ->
+Device List" page.
+
+Fixed: timing issue when starting OpenVPN server or client with WAN.
+
+Fixed: GUI validation for fields allowing mixed IP addresses and hostnames.
+
+Fixed: corrected some timezones (Guyana, Argentina, Puerto Rico) in the GUI.
+
+Fixed: DHCP release not working when using "Release" button in the GUI.
+
+Changed some nvram defaults to more sane values.
+
+Clear conntrack entries on WAN-Up - this should fix some SIP devices not
+being able to register after restart of the router.
+
+Hostnames specified for firewall rules (port forwarding, QoS, source IP
+restrictions, access restrictions, web monitor, etc) are now validated upon
+firewall start, skipping creation of rules with non-resolvable names, and
+logging this to the system log (instead of completely aborting the firewall
+startup).
+
+Changed httpd so only one instance is needed to support http and https on
+all interfaces.
+
+Changed httpd and ssh (dropbear) to actually listen on WAN interface (when
+remote access is enabled) instead of using port forwarding. This also fixes
+some of the redirections in Web GUI not working properly if remote and local
+listening http(s) ports are not the same.
+
+FTP server in VPN builds now includes SSL support (manual configuration
+only via "Vsftpd Custom Configuration" field in the GUI).
+
+DDNS: added support for miniDNS, and for ZoneEdit DDNS updates via HTTPS,
+modified HE.net IPv6 Tunnel Broker IPv4 endpoint address updater to conform
+to the new HE.net interface.
+
+Enabled support for scripts in Dnsmasq in all builds.
+
+Allowed pre-defined "wan-ip" hostname to be used as an alias for router
+WAN IPv4 address in iptables rules.
+
+GUI: restored ability to enter multiple hostnames (space separated) per
+device on "Static DHCP" page.
+
+Software updates: OpenSSL 1.0.0d, Busybox 1.18.5, CyaSSL 1.9.0, p910nd 0.95,
+MiniUPnPd 1.5 (20110623), usb_modeswitch 1.1.8 with data package 2011-06-19,
+Dnsmasq 2.57, Dropbear 0.53.1, ntfs-3g 2011.4.12, vsftpd 2.3.4, xl2tpd 1.2.8.
+
+Lots of cosmetics and optimization, some code clean-up.
+
+* Kernel 2.6-based builds only:
+
+IPv6 support with GUI, including configuration options for native IPv6
+(static or via DHCPv6-PD), 6to4 tunnel, static 6in4 tunnel, or manual.
+Enabled most of the internal services for IPv6.
+
+Stateful IPv6 firewall, with GUI configuration page for opening ports in the
+IPv6 firewall, added ip6tables matches and targets.
+
+QoS settings apply to both IPv4 and IPv6 traffic, and classification
+settings apply to both where applicable.
+
+Fixed: random crashes and reboots during USB file transfers with some USB
+drives.
+
+Fixed: router crashes after enabling IPv6 support.
+
+Fixed: SIP helper module corrupting SIP message headers. Backported
+improved SIP conntrack and NAT helper from upstream 2.6 kernel.
+
+Fixed: ping6 doesn't get responses from Apple OS X and iOS systems.
+
+Support for Belkin F7D3301/F7D3302/F7D4301/F7D4302/F5D8235v3 routers.
+
+Added support for USB LED.
+
+Various optimizations backports and fixes from upstream 2.6 kernel.
+
+Replaced Broadcom wireless driver by version 5.10.142.0 (used 5.10.147.0 in
+previous builds 53 and 54). This version seems to have better support for
+certain radio chips (used in Belkin routers), and fixes 5GHz wireless
+survey.
+
+Re-enabled Broadcom "fast NAT" module. It is automatically disabled when
+either QoS, web monitor, or access restrictions are activated. Additionaly
+can be disabled via nvram variable ("fastnat_disable").
+
+Expanded set of available extra kernel modules - included modules for
+Philips (pwc) and GSPCA-compatible USB webcam support.
+
+Software updates: MiniDLNA 1.0.20.2 cvs 2011-07-01, SQLite 3.7.5,
+radvd 1.8.
+
+Samba 3 CVE-2011-0719 security fix.
+
+* Kernel 2.4-based builds only:
+
+Linux kernel 2.4.37.11.

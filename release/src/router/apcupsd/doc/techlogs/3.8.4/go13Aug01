@@ -1,0 +1,32 @@
+I (Kern) received the following code submission and applied it.
+Giulio is really very good with RPMs -- thanks.
+
+==========
+Subject: apcupsd redhat rpm
+Date:    Mon, 13 Aug 2001 21:00:04 +0200
+From:    Giulio Orsero <giulioo@pobox.com>
+To:      kern@sibbald.com
+
+Hi,
+
+I've made some modification to the spec file to make it more general and able to
+produce the right rpm both on rh6x and rh7x: 1 spec file for all rpms.
+It produces rpms with the same name, it would be easy to change it to query the
+system where it's running and produce rpms with different names.
+
+I attach the diff in case you want to check it (just one spec for rh6 and rh7
+saves time..).
+
+Differences with the official rpm (8.2-1):
+- the "release" (in the way it's used in the original spec) is something for rpm
+only, the tar.gz should be just 8.2.tar.gz
+- does not own /etc/rc.d/init.d /sbin /usr/man/man8
+- uses rpm FHS macros (%{_mandir}, ...)
+- owns /etc/apcupsd /etc/apcupsd/cgi
+- uses "make install" to install all the stuff (note: "make install" does not
+install multimonnocss.cgi)
+- removes old stuff using less commands
+- preun only if uninstall and not for upgrade
+- all /etc/apcupsd/* scripts  are marked config(noreplace) so that if someone
+customizes them, they are preserverd after an rpm upgrade.
+

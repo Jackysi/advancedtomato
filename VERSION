@@ -1,0 +1,21 @@
+
+tomato-<VER>-<ND|K26>[USB]-<NNNN>[MIPSR2|MIPSR1][-subver]-[EDITION].[trx|bin]
+
+<VER> - Tomato base version (i.e. 1.27)
+
+<ND|K26> - indicates the platform:
+  ND  - Tomato ND ("new driver") builds based on kernel 2.4
+  K26 - Tomato builds based on kernel 2.6 (assumes ND)
+
+[USB] - optional indicator of built-in USB support
+
+<NNNN> - build number, i.e. 9043
+
+<MIPSR2|MIPSR1> - architecture:
+	MIPSR2 is for MIPS32 Release 2 CPUs
+	MIPSR1 is for all other MIPS CPUs (MIPS32 Release 1)
+Kernel 2.4-based builds are always MIPSR1.
+
+[-subver] - optional subversion number, e.g. -beta02
+
+[EDITION] - the build edition, e.g. Ext (Extras), VPN (OpenVPN) etc.

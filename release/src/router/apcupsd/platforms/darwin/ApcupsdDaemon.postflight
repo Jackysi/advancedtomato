@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Ensure kext cache is rebuilt
+touch /System/Library/Extensions
+
+if [ -f /etc/apcupsd/apcupsd.conf.SAVE ] ; then
+	# Appears to be an upgrade, so move user's original apcupsd.conf
+	# back into place and save new one as apcupsd.conf.new.
+	mv /etc/apcupsd/apcupsd.conf /etc/apcupsd/apcupsd.conf.new
+	mv /etc/apcupsd/apcupsd.conf.SAVE /etc/apcupsd/apcupsd.conf
+else
+	# Looks like a new install, so open apcupsd.conf in an editor
+	# along with a message describing what to do.
+	open -t /etc/apcupsd/apcupsd.conf
+	echo "Please edit apcupsd.conf as appropriate for your UPS and save it before rebooting." > /tmp/inst.txt
+	open -t /tmp/inst.txt
+fi
+

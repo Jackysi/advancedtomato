@@ -1,0 +1,11 @@
+
+#include "template.inc" name=license
+
+<h1>Apcupsd Copyright and License</h1>
+All the <b>apcupsd</b> is released under the
+The vast bulk of the code is released under the
+GNU General Public License version 2.
+Most of this code is copyrighted by various different people.
+For details, please see the individual source files.
+<p>Portions may be copyrighted by other people (ATT, the
+Free Software Foundation, ...).

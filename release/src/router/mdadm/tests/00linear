@@ -1,0 +1,20 @@
+
+# create a simple linear
+
+mdadm -CR $md0 -l linear -n3 $dev0 $dev1 $dev2
+check linear
+testdev $md0 3 $mdsize0 64 
+mdadm -S $md0
+
+# now with version-1 superblock
+mdadm -CR $md0 -e1 --level=linear -n4 $dev0 $dev1 $dev2 $dev3
+check linear
+testdev $md0 4 $mdsize1 64 
+mdadm -S $md0
+
+# now with no superblock
+mdadm -B $md0 -l linear -n5 $dev0 $dev1 $dev2 $dev3 $dev4 
+check linear
+testdev $md0 5 $size 64
+mdadm -S $md0
+

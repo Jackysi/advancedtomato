@@ -1,0 +1,43 @@
+Subject:  ANNOUNCE: mdadm 2.5.5 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.5.5
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   countrycode=xx.
+   http://www.${countrycode}kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/mdadm
+   http://neil.brown.name/git?p=mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.5.5 is a bugfix release over 2.5.4.
+Hopefully the last before 2.6.
+
+Changelog Entries:
+    -   Don't #include linux/blkpg.h as that isn't safe.  Just
+	include the content literally.
+    -   Reduce maximum bitmap usage when working with bitmap files,
+	so that a only single-page allocations are made, even on
+	64bit hosts with 4K pages.
+    -   Close stray fd in mdassemble so that it can assemble stacked
+	devices
+    -   If mdassemble finds an array already assembled, it marks it
+        read-write.
+    -   Remove error in md_open if array is already active.  This isn't
+	needed and gets in the ways if an array was created e.g. in
+	initramfs, but device doesn't yet exist in /dev.
+    -   When --assemble --scan is run, if all arrays that could be found
+	have already been started, don't report an error.
+    -   Fix a couple of bugs related to raid10 and the new 'offset' layout.
+    -   Improve error message when a wrong '--update' option is given.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown 23rd October 2006

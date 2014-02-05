@@ -1,0 +1,142 @@
+%define name apcupsd
+%define version @VERSION@
+%define release 1mdk
+%define _cgibin /var/www/cgi-bin
+%define _sysconfdir /etc/apcupsd
+%define _sbindir /sbin
+
+Summary: Power management software for APC UPS hardware
+Name: %{name}
+Version: %{version}
+Release: %{release}
+Source0: http://prdownloads.sourceforge.net/apcupsd/%{name}-%{version}.tar.gz
+License: GPL
+URL: http://sourceforge.net/projects/apcupsd/
+Group: System/Servers
+Requires: initscripts >= 6.27-5mdk
+BuildRoot: %{_tmppath}/%{name}-buildroot
+Prefix: %{_prefix}
+BuildRequires: ncurses-devel gpm-devel libgd-devel
+
+%description
+UPS power management under Linux for APCC Products.
+It allows your computer/server to run during power problems
+for a specified length of time or the life of the batteries
+in your BackUPS, BackUPS Pro, SmartUPS v/s, or SmartUPS, and
+then properly executes a controlled shutdown during an
+extended power failure.
+
+%prep
+%setup -q
+
+%build
+
+%serverbuild
+
+%configure --enable-usb --enable-net --enable-master-slave --enable-powerflute --enable-pthreads --enable-cgi --with-cgi-bin=%{_cgibin} --enable-nls --with-serial-dev= --with-upstype=usb --with-upscable=usb --with-nisip=127.0.0.1
+# %%make doesn't work
+make
+
+
+%install
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/etc/rc.d/init.d
+mkdir -p $RPM_BUILD_ROOT%{_cgibin}
+
+perl -pi -e 's|/etc|\$\$RPM_BUILD_ROOT/etc|g' platforms/mandrake/Makefile.in
+perl -pi -e 's|\@/sbin/chkconfig|\#\@/sbin/chkconfig|' platforms/mandrake/Makefile.in
+
+%makeinstall cgibin=$RPM_BUILD_ROOT%{_cgibin}
+
+%find_lang %{name}
+
+%clean
+[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
+
+%post
+
+%_post_service apcupsd
+
+%preun
+
+%_preun_service apcupsd
+
+%files -f %{name}.lang
+%defattr(-,root,root)
+%config(noreplace) /etc/apcupsd/*
+%config(noreplace) /etc/rc.d/init.d/apcupsd
+%{_sbindir}/*
+%{_mandir}/man8/*
+%{_cgibin}/*
+%doc COPYING ChangeLog INSTALL doc/ examples/
+
+%changelog
+* Mon Jan 19 2004 David Walser <luigiwalser@yahoo.com> 3.10.10-1mdk
+- 3.10.10
+- use USB by default
+
+* Thu Jan 01 2004 David Walser <luigiwalser@yahoo.com> 3.10.9-1mdk
+- 3.10.9
+
+* Fri Nov 21 2003 Erwan Velu <erwan@mandrakesoft.com> 3.10.7-1mdk
+- New release
+
+* Tue Feb 04 2003 David Walser <luigiwalser@yahoo.com> 3.10.5-1mdk
+- 3.10.5
+- only listen on localhost by default (Network Information Server)
+- use gz instead of bz2 for apcupsd project version of spec file
+
+* Sun Feb 01 2003 David Walser <luigiwalser@yahoo.com> 3.10.4-1mdk
+- 3.10.4
+- updated URLs
+- remove explicit libgd1 dependency, let rpm figure it out
+- Remove patches (integrated upstream)
+
+* Tue Jun 11 2002 Frederic Lepied <flepied@mandrakesoft.com> 3.9.8-2mdk
+- fix for gcc3
+- rebuild for libintl2
+
+* Tue Apr 16 2002 Ben Reser <ben@reser.org> 3.9.8-1mdk
+- 3.9.8
+- updated URLs
+- moved cgi scripts to /var/www/cgi-bin
+- Split the documentation from the examples in /usr/share/doc/
+- Switched to using the system gd library and generating PNG's instead
+  of the patent encumbered GIF.
+- Added the mandrake distribution setting so it stops saying it's running
+  redhat.
+- Enabled USB support.
+
+* Thu Nov 22 2001 Frederic Lepied <flepied@mandrakesoft.com> 3.8.2-2mdk
+- rebuild for new spec-helper
+
+* Fri Oct 19 2001 Frederic Lepied <flepied@mandrakesoft.com> 3.8.2-1mdk
+- 3.8.2
+
+* Thu Oct 18 2001 David MacKenzie <djm@pix.net> 3.8.1-3mdk
+- Move programs from /usr/sbin to /sbin so they'll work after /usr is
+  unmounted when shutting down.
+
+* Mon Sep 17 2001 Frederic Lepied <flepied@mandrakesoft.com> 3.8.1-2mdk
+- remove %%post modifications of halt and put the right dependency on
+initscripts instead (Juergen Holm).
+
+* Fri Jun  1 2001 Frederic Lepied <flepied@mandrakesoft.com> 3.8.1-1mdk
+- 3.8.1
+
+* Thu Mar 29 2001 Frederic Lepied <flepied@mandrakesoft.com> 3.8.0-2mdk
+- use the new rpm macros for servers.
+
+* Mon Dec  4 2000 Frederic Lepied <flepied@mandrakesoft.com> 3.8.0-1mdk
+- new version
+
+* Wed Aug 30 2000 Frederic Lepied <flepied@mandrakesoft.com> 3.7.0-3mdk
+- %%postun => %%preun
+
+* Mon Aug 07 2000 Frederic Lepied <flepied@mandrakesoft.com> 3.7.0-2mdk
+- automatically added BuildRequires
+
+* Fri Jul 28 2000 Frederic Lepied <flepied@mandrakesoft.com> 3.7.0-1mdk
+- first mandrake version
+
+# end of file

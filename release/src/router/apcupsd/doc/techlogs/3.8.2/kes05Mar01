@@ -1,0 +1,33 @@
+         Technical notes on version 3.8.1-3 (5 Mar 01)
+                   Kern Sibbald
+
+General:
+- This version has a few bug fixes, and is for
+  limited distribution to test bug fixes.
+- Some files have large diff files because they
+  have been reformatted to apcupsd 4.0 standards.
+- I am in the process of integrating version 4.0
+  code into this stream, so many of the changes are
+  related to this activity.
+- Modified code for handling 940-0095B cable. Hopefully,
+  it will work now.
+
+Changes submitted this submission:
+- Added the Caldera code that was submitted by John Pinner.
+- Added more of Riccardo's 4.0 fixes to this version (apclist)
+  renamed apcserver.c as apcnis.c, etc.
+- Added the KILLDELAY configuration directive, but the code
+  to implement it will have to wait for the state machine
+  apcaction.c code.
+- Merged apcexec.c up to version 4.0 code.
+- Added apclist.c from version 4.0.
+- Reindented apcnet.c
+- Changed calling sequence of detach_ipc() to agree with 4.0
+- Removed unused code from apcnetlib.c
+- Reindented apcserial.c
+- Changed calling sequence to execute_command() to agree with
+  version 4.0.
+- Implemented core_ups in limited way -- points to the only UPS.
+  This allows much of 4.0 code to be integrated unchanged.
+- Changed calling sequence to start_thread() to agree with 4.0
+- Integrated NetBSD patches that I received from Devin Reade -- thanks.

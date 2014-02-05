@@ -1,0 +1,165 @@
+         Technical notes on my code submission of 15 Nov 99
+                        Kern Sibbald
+
+General:
+- Riccardo, again, you will notice some differences due solely
+  to the addition of a tab that replaces spaces.
+- I've completed my first pass at making the cgi programs
+  robust. In most error conditions they now behave reasonably.
+  More testing needed by other developers.
+- I put the cgi build in the configuration on --enable-cgi
+  as suggested by Riccardo.
+- There were previously four copies of the STATUS output
+  command code, and with my new code, it increased to
+  six copies. I have reduced it to one by creating a 
+  new file -- apcstatus.c
+- I've integrated the apcnetd code into apcupsd.  The
+  new code resides in apcserver.c
+- I've modified the apcnetd to be capable of being started
+  either on a command line or directly from inetd.
+- I added more documentation to the internal variable
+  names, and changed LinUp to be OnBatt to be more
+  readable.
+- I still seem to be getting a number of "Cannot increment
+  read count" errors that are being logged, but I cannot
+  figure out what is doing it. Help.
+
+Changes submitted this submission:
+- Completed the integration of the cgi program with
+  configure.in and Makefile.in
+- To get the cgi directory to build, you add the
+  new configure option --enable-cgi as in:
+
+      ./configure --enable-cgi
+
+  You will probably also want to specify an installation
+  directory as in:
+
+      ./configure --enable-cgi -datadir=<your cgi bin>
+
+  So to do a cgi build:
+
+   ./configure --enable-cgi -datadir=...
+   make
+   make install
+
+   Restart your apcupsd daemon by default with                    
+   the new apcupsd.config file, the networking
+   will be turned on. There is no extra daemon
+   to start.
+   
+
+   Edit /etc/apcupsd/hosts.conf to add your hosts to be
+   monitored. You must do this.
+
+   Optionally edit /etc/apcupsd/multimon.conf to change the default
+   multimon display. The list of available keywords can be found
+   in cgi/upsfetch.c and multimon.h.
+
+   Execute the multimon program from your browser with something like:
+
+   http://127.0.0.1/cgi-bin/multimon.cgi
+
+- There were 6 copies of the STATUS output code, so I reduced
+  it to one copy. In order to give the flexibility that we
+  need, the new output_status() routine is called with 
+  function pointers to its open, write, and close routines.
+  This permits processing the data differently, and either
+  writing it to a file, logging it, printing it, printing
+  it to stderr, or sending it over the network. I'll document
+  the code more later.
+- I removed the check for superuser from apcaccess.  If the
+  user attempts to do something that requires root, the 
+  program will tell him (i.e. error). If you don't want the
+  average Joe Blow to execute it, I recommend using file 
+  permissions.
+- I changed the name LineUp to OnBatt because to me LineUp
+  implies that the Line Voltage is up, when in fact, it means
+  the opposite. The name came from the old UPSes where serial
+  port lines were either up or down to indicate the state of
+  the UPS. 
+- I deleted the logging of the change of facility because it
+  was more annoying than useful.
+- I deleted the httpport variable as it is no longer used.
+- I moved a number of variables around in the shared memory
+  area in an attempt to bring a bit of order.  More work needed
+  here. 
+- I moved the test for sanity in the shared memory area versions
+  to the attach routine, so it is only done once rather than
+  on every read.
+- Cleaned up apcnetlib.c so that it never error_aborts() but always
+  returns a status and leaves a pointer to an error message.
+  Added more documentation to the subroutines.
+- I modified how the apcupsd.conf file is installed. Instead of
+  going in apcupsd.conf.new if the file already exists, I 
+  rename the old file to apcupsd.conf.old and then install the
+  new one. The reason is that I believe that most times, the user
+  will have an old config file that MUST be replaced. For us
+  developers, it is a bit of an annoyance to have our config
+  file replaced by the default one -- tant pis. 
+- I did a lot of cleanup of the cgi directory to ensure that
+  it is robust and can handle the fact that machines are down
+  or that certain data may not be available. In general
+  all of the lower level routines now return a status rather
+  than calling error_abort(). They also leave a pointer to
+  an error message, permitting the higher level routines to
+  print a reasonable error message. To do this right, we
+  should add our own errno codes.   
+- I changed the location of where the apccontrol script goes.
+  It now goes in the @sysconfdir@/apcupsd.  I've also modified
+  apccontrol so that the script files that it calls are expected
+  to be in the same directory (normally /etc/apcupsd).
+   
+
+To do:
+- Fix error_aborts in apcnetd
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Eliminate the rest of the printfs().
+- Examine all configuration messages, and eliminate all
+ "Someone will have to explain this to me" messages.
+- Check and double check killpwr changes.
+- Correct problems pointed out by Riccardo in integrating
+  my submission.
+- Complete writing of status logging.
+- Add the full status display to the cgi program (same
+  as currently printed by "apcaccess status"
+- Possibly retab new cgi/net server code
+- Put in new capabilities code.
+- Start capabilities codes from 0 instead of 1.
+- Add additional STATUS output.
+- Create new line for status bits but in English
+- Fix name of unknown() and change comments in subroutine
+  save_dumb_status() ...
+- Make non-available STATUS information print N/A
+- Expand Last UPS Self Test field in cgi program
+- Produce a RPM for RedHat
+- Remember date and time when apcupsd started.
+- Accumlate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Save last 5 major events and pass them in STATUS file.
+- Eliminate duplicate copies of apcnetlib.c and apcnetlib.h
+- Fix "celsius" flag in cgi routines.
+
+To do MUCH later:
+- Add more commands (individual variables) to apcnetd
+
+Done:
+- Change translo and transhi to be use new mnemonics
+  lowxfer and highxfer.
+- Make fetch_data() be called automatically from 
+  getvardata().
+- Cleanup error_abort/printf inconsistencies in cgi code.
+- Put date/time in shared memory buffer in UPSfill()
+- Probably apcnetd should be started at the same time
+  as apcupsd. Or perhaps a configuration parameter should
+  be added to have apcupsd start it.
+- The TCP port for apcnetd should be configurable.
+- Update CGI programs to understand N/A
+- Remove remaining traces of old log file. 
+- Delete apcnetd on make clean
+- Make apcnetd capable of being called from inetd
+- Fix STATUS code so that there is only ONE copy.
+- Fix configure.in to add AC_ARG_ENABLE() for cgi directory.

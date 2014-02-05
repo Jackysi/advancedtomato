@@ -1,0 +1,18 @@
+         Technical notes on my second code submission of 13 Nov 99
+                        Kern Sibbald
+
+General:
+- Fixes to make install work on RedHat 5.2
+
+Changes submitted this submission:
+- Fixed the cgi/Makefile.in to include the -lm
+  option so that floor() is included on RH5.2
+  Also the tabs were missing (my fault).
+- Modified the apcupsd.in file in the RedHat
+  distributions directory to detect whether or
+  not it is running on RedHat 5.2. If so, it does
+  not call the success or fail routines that were
+  added in RedHat 6.0
+- Use the correct directory for apccontrol
+- Modified all the halt files to call apccontrol
+  instead of /sbin/powersc

@@ -1,0 +1,9 @@
+Recorded packets for testing PCNET driver.
+
+Authentication info:
+	username="apc"
+	password="0123456789ABCDEF0123456789"
+
+Packets can be send to apcupsd using netcat:
+	cat packet0.dat | nc -u localhost 3052
+
