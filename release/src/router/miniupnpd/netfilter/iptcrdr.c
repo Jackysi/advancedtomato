@@ -14,7 +14,11 @@
 #include <arpa/inet.h>
 #include <dlfcn.h>
 #include <iptables.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#include <linux/netfilter_ipv4/ipt_DSCP.h>
+#else
 #include <linux/netfilter/xt_DSCP.h>
+#endif
 #include <libiptc/libiptc.h>
 
 #include <linux/version.h>
@@ -30,14 +34,18 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 #define LIST_POISON2  ((void *) 0x00200200 )
 
-#if 1
-#include "../../iptables-1.4.x/include/net/netfilter/nf_nat.h"
-#else
-#include "tiny_nf_nat.h"
-#endif
+#include <net/netfilter/nf_nat.h>
 #define ip_nat_multi_range	nf_nat_multi_range
 #define ip_nat_range		nf_nat_range
 #define IPTC_HANDLE		struct iptc_handle *
+#else
+/* IPTABLES API version < 1.4.3 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#include <linux/netfilter_ipv4/ip_nat.h>
+#else
+#include <linux/netfilter/nf_nat.h>
+#endif
+#define IPTC_HANDLE		iptc_handle_t
 #endif
 
 /* IPT_ALIGN was renamed XT_ALIGN in iptables-1.4.11 */
@@ -961,16 +969,28 @@ static struct ipt_entry_target *
 get_dscp_target(unsigned char dscp)
 {
 	struct ipt_entry_target * target;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+	struct ipt_DSCP_info * di;
+	size_t size;
+
+	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
+	       + IPT_ALIGN(sizeof(struct ipt_DSCP_info));
+#else
 	struct xt_DSCP_info * di;
 	size_t size;
 
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct xt_DSCP_info));
+#endif
 	target = calloc(1, size);
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "DSCP", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+	di = (struct ipt_DSCP_info *)&target->data[0];
+#else
 	di = (struct xt_DSCP_info *)&target->data[0];
+#endif
 	di->dscp=dscp;
 	return target;
 }

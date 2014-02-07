@@ -1,1 +1,0 @@
-version.o: version.c
