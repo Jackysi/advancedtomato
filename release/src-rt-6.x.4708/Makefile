@@ -423,6 +423,17 @@ define RouterOptions
 	if [ "$(ARM)" = "y" ]; then \
 		sed -i "/TCONFIG_BCMARM/d" $(1); \
 		echo "TCONFIG_BCMARM=y" >>$(1); \
+		sed -i "/TCONFIG_BCMWL6/d" $(1); \
+		echo "TCONFIG_BCMWL6=y" >>$(1); \
+		echo "TCONFIG_BCMWL6A=y" >>$(1); \
+	fi; \
+	if [ "$(BCMSMP)" = "y" ]; then \
+		sed -i "/TCONFIG_BCMSMP/d" $(1); \
+		echo "TCONFIG_BCMSMP=y" >>$(1); \
+	fi; \
+	if [ "$(BCMFA)" = "y" ]; then \
+		sed -i "/TCONFIG_BCMFA/d" $(1); \
+		echo "TCONFIG_BCMFA=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -734,13 +745,13 @@ endif
 
 ## VPN
 e:
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" PPTPD=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" PPTPD=y OPENVPN=y
 
 z:
 	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y IPSEC=y RAID=y
 
 ac68e:
-	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y ASUS_TRX="RT-AC68U" NO_JFFS=y OPENVPN=y
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y BCMFA=y ASUS_TRX="RT-AC68U" UFSD=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y CTF=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

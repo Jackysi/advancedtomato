@@ -13,7 +13,7 @@ $fname = $ARGV[0];
 $dname = ($ARGV[1] || $fname) . ".size";
 
 print "\nSize history for $fname\n\n";
-@size = `mipsel-linux-size $fname`;
+@size = `arm-linux-size $fname`;
 foreach (@size) {
 	if (($text, $data, $bss, $total) = $_ =~ /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+/) {
 		$line = "$text\t$data\t$bss\t$total\t" . scalar localtime((stat($fname))[10]);

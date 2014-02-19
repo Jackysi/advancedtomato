@@ -58,8 +58,8 @@ sub load
 	$base = basename($fname);
 	print LOG "\n\nreadelf $base:\n";
 	
-	open($f, "mipsel-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
-	
+	open($f, "arm-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
+
 	while (<$f>) {
 		print LOG;
 
@@ -166,7 +166,7 @@ sub fixDyn
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
 	fixDynDep("dnscrypt-proxy", "libsodium.so.4.5.0");
-	fixDynDep("wlconf", "libshared.so");
+#	fixDynDep("wlconf", "libshared.so");
 
 
 #minidlna module, bwq518
@@ -402,7 +402,8 @@ sub genSO
 	print LOG "\n\n${base}\n";
 	
 #	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
-	$cmd = "mipsel-uclibc-gcc -shared -nostdlib -Wl,-s,-z,combreloc -Wl,--warn-common -Wl,--fatal-warnings -Wl,--gc-sections ${opt} -Wl,-soname=${name} -o ${so}";
+#	$cmd = "mipsel-uclibc-gcc -shared -nostdlib -Wl,-s,-z,combreloc -Wl,--warn-common -Wl,--fatal-warnings -Wl,--gc-sections ${opt} -Wl,-soname=${name} -o ${so}";
+	$cmd = "arm-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
