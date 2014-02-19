@@ -142,7 +142,7 @@ TCONFIG_RAID :=
 endif
 
 obj-$(NEED_SAMBA2) += samba
-ifeq ($(RTCONFIG_BCMARM),y)
+ifeq ($(TCONFIG_BCMARM),y)
 obj-$(NEED_SAMBA3) += samba-3.0.25b
 else
 obj-$(NEED_SAMBA3) += samba3
@@ -1192,7 +1192,7 @@ accel-pptp: pppd accel-pptp/Makefile
 	@$(MAKE) -C accel-pptp
 
 accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
-	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(RTCONFIG_VPNC), -DRTCONFIG_VPNC,)" \
+	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(TCONFIG_VPNC), -DTCONFIG_VPNC,)" \
 	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
 
 accel-pptp-clean:
