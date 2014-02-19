@@ -86,7 +86,7 @@ _install_package()
 }
 
 _check_config
-_install_package uclibc-opt_0.9.28-1_arm.ipk.
+_install_package uclibc-opt_0.9.28-1_arm.ipk
 _install_package ipkg-opt_0.99.163-10_arm.ipk
 
 ##ipkg.conf
