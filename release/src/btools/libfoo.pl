@@ -10,6 +10,7 @@
 $root = $ENV{"TARGETDIR"};
 $uclibc = $ENV{"TOOLCHAIN"};
 $router = $ENV{"SRCBASE"} . "/router";
+$arch = $ENV{"ARCH"};
 
 sub error
 {
@@ -58,7 +59,7 @@ sub load
 	$base = basename($fname);
 	print LOG "\n\nreadelf $base:\n";
 	
-	open($f, "arm-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
+	open($f, $arch . "-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
 
 	while (<$f>) {
 		print LOG;
@@ -403,7 +404,7 @@ sub genSO
 	
 #	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 #	$cmd = "mipsel-uclibc-gcc -shared -nostdlib -Wl,-s,-z,combreloc -Wl,--warn-common -Wl,--fatal-warnings -Wl,--gc-sections ${opt} -Wl,-soname=${name} -o ${so}";
-	$cmd = "arm-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
+	$cmd = $arch . "-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
