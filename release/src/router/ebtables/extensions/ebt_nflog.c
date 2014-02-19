@@ -80,6 +80,8 @@ static int nflog_parse(int c, char **argv, int argc,
 		i = strtoul(optarg, &end, 10);
 		if (*end != '\0')
 			ebt_print_error2("--nflog-group must be a number!");
+		if (i < 0)
+			ebt_print_error2("--nflog-group can not be negative");
 		info->group = i;
 		break;
 
@@ -90,6 +92,8 @@ static int nflog_parse(int c, char **argv, int argc,
 		i = strtoul(optarg, &end, 10);
 		if (*end != '\0')
 			ebt_print_error2("--nflog-range must be a number!");
+		if (i < 0)
+			ebt_print_error2("--nflog-range can not be negative");
 		info->len = i;
 		break;
 
@@ -100,6 +104,9 @@ static int nflog_parse(int c, char **argv, int argc,
 		i = strtoul(optarg, &end, 10);
 		if (*end != '\0')
 			ebt_print_error2("--nflog-threshold must be a number!");
+		if (i < 0)
+			ebt_print_error2
+			    ("--nflog-threshold can not be negative");
 		info->threshold = i;
 		break;
 	case NFLOG_NFLOG:

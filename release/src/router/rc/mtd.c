@@ -100,23 +100,16 @@ static int _unlock_erase(const char *mtdname, int erase)
 	int mf;
 	mtd_info_t mi;
 	erase_info_t ei;
-#ifdef CONFIG_BCMWL6
 	int r, ret, skipbb;
-#else
-	int r;
-#endif
 
 	if (!wait_action_idle(5)) return 0;
 	set_action(ACT_ERASE_NVRAM);
-	if (erase) led(LED_DIAG, 1);
 
 	r = 0;
-#ifdef CONFIG_BCMWL6
 	skipbb = 0;
-#endif
 
 #ifdef TCONFIG_BCMARM
-	if ((mf = mtd_open_old(mtdname, &mi)) >= 0) {
+ 	if ((mf = mtd_open_old(mtdname, &mi)) >= 0) {
 #else
 	if ((mf = mtd_open(mtdname, &mi)) >= 0) {
 #endif
@@ -127,6 +120,22 @@ static int _unlock_erase(const char *mtdname, int erase)
 				printf("%sing 0x%x - 0x%x\n", erase ? "Eras" : "Unlock", ei.start, (ei.start + ei.length) - 1);
 				fflush(stdout);
 
+				if (!skipbb) {
+					loff_t offset = ei.start;
+
+					if ((ret = ioctl(mf, MEMGETBADBLOCK, &offset)) > 0) {
+						printf("Skipping bad block at 0x%08x\n", ei.start);
+						continue;
+					} else if (ret < 0) {
+						if (errno == EOPNOTSUPP) {
+							skipbb = 1;	// Not supported by this device
+						} else {
+							perror("MEMGETBADBLOCK");
+							r = 0;
+							break;
+						}
+					}
+				}
 				if (ioctl(mf, MEMUNLOCK, &ei) != 0) {
 //					perror("MEMUNLOCK");
 //					r = 0;
@@ -165,7 +174,6 @@ static int _unlock_erase(const char *mtdname, int erase)
 			close(mf);
 	}
 
-	if (erase) led(LED_DIAG, 0);
 	set_action(ACT_IDLE);
 
 	if (r) printf("\"%s\" successfully %s.\n", mtdname, erase ? "erased" : "unlocked");
@@ -656,7 +664,7 @@ mtd_write(const char *path, const char *mtd)
         long count, len, off;
         int ret = -1;
 
-        /* Examine TRX header */
+
         if ((fp = fopen(path, "r")))
                 count = safe_fread(&trx, 1, sizeof(struct trx_header), fp);
         else

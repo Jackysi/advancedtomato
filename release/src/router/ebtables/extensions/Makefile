@@ -2,12 +2,15 @@
 
 #EXT_FUNC+=802_3 nat arp arpreply ip ip6 standard log redirect vlan mark_m mark \
 #          pkttype stp among limit ulog nflog
+#EXT_TABLES+=filter nat broute
+
 EXT_FUNC+=nat arp arpreply ip standard log redirect vlan mark \
           pkttype stp limit
 ifeq ($(DO_IPV6), 1)
-EXT_FUNC+=ip6
+#EXT_FUNC+=ip6
 endif
 EXT_TABLES+=filter nat broute
+
 EXT_OBJS+=$(foreach T,$(EXT_FUNC), extensions/ebt_$(T).o)
 EXT_OBJS+=$(foreach T,$(EXT_TABLES), extensions/ebtable_$(T).o)
 EXT_LIBS+=$(foreach T,$(EXT_FUNC), extensions/libebt_$(T).so)
@@ -16,7 +19,7 @@ EXT_LIBSI+=$(foreach T,$(EXT_FUNC), -lebt_$(T))
 EXT_LIBSI+=$(foreach T,$(EXT_TABLES), -lebtable_$(T))
 
 extensions/ebt_%.so: extensions/ebt_%.o
-	$(CC) $(LDFLAGS) -shared -o $@ -lc $< -nostartfiles
+	$(CC) -shared -o $@ -lc $< -nostartfiles
 
 extensions/libebt_%.so: extensions/ebt_%.so
 	mv $< $@

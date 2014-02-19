@@ -44,8 +44,8 @@ all: libnvram.so nvram
 install: all
 	install -D libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
 	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
-	install -D nvram $(INSTALLDIR)/usr/sbin/nvram
-	$(STRIP) $(INSTALLDIR)/usr/sbin/nvram
+	install -D nvram $(INSTALLDIR)/bin/nvram
+	$(STRIP) $(INSTALLDIR)/bin/nvram
 
 clean:
 	rm -f *.o *.a *.so nvram

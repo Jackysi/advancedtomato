@@ -3,11 +3,11 @@ include ../common.mak
 CFLAGS = -Os -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
-#ifeq ($(TCONFIG_BCMARM),y)
-#CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include
-#CFLAGS += -I$(SRCBASE)/common/include
-#LIBS += -lgcc_s
-#endif
+ifeq ($(TCONFIG_BCMARM),y)
+CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include
+CFLAGS += -I$(SRCBASE)/common/include
+LIBS += -lgcc_s
+endif
 
 OBJS = httpd.o cgi.o tomato.o version.o 
 OBJS += misc.o dhcp.o upgrade.o traceping.o parser.o upnp.o ctnf.o

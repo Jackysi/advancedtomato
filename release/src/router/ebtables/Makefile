@@ -2,11 +2,9 @@
 
 PROGNAME:=ebtables
 PROGRELEASE:=2
-PROGVERSION_:=2.0.10
+PROGVERSION_:=2.0.9
 PROGVERSION:=$(PROGVERSION_)-$(PROGRELEASE)
-PROGDATE:=July\ 2011
-LOCKFILE?=/var/lib/ebtables/lock
-LOCKDIR:=$(shell echo $(LOCKFILE) | sed 's/\(.*\)\/.*/\1/')/
+PROGDATE:=June\ 2009
 
 # default paths
 LIBDIR:=/usr/lib
@@ -17,8 +15,8 @@ INITDIR:=/etc/rc.d/init.d
 SYSCONFIGDIR:=/etc/sysconfig
 DESTDIR:=
 
-CFLAGS:=-Wall -Wunused -Werror
-CFLAGS_SH_LIB:=-fPIC -O3
+CFLAGS:=-Wall -Wunused
+CFLAGS_SH_LIB:=-fPIC
 CC:=gcc
 
 ifeq ($(shell uname -m),sparc64)
@@ -47,9 +45,7 @@ PROGSPECS:=-DPROGVERSION=\"$(PROGVERSION)\" \
 	-DPROGDATE=\"$(PROGDATE)\" \
 	-D_PATH_ETHERTYPES=\"$(ETHERTYPESFILE)\" \
 	-DEBTD_ARGC_MAX=$(EBTD_ARGC_MAX) \
-	-DEBTD_CMDLINE_MAXLN=$(EBTD_CMDLINE_MAXLN) \
-	-DLOCKFILE=\"$(LOCKFILE)\" \
-	-DLOCKDIR=\"$(LOCKDIR)\"
+	-DEBTD_CMDLINE_MAXLN=$(EBTD_CMDLINE_MAXLN)
 
 # You can probably ignore this, ebtables{u,d} are normally not used
 PROGSPECSD:=-DPROGVERSION=\"$(PROGVERSION)\" \
@@ -86,10 +82,11 @@ ebtables.o: ebtables.c include/ebtables_u.h
 ebtables-standalone.o: ebtables-standalone.c include/ebtables_u.h
 	$(CC) $(CFLAGS) $(CFLAGS_SH_LIB) $(PROGSPECS) -c $< -o $@ -I$(KERNEL_INCLUDES)
 
-libebtc.so: $(OBJECTS2)
+.PHONY: libebtc
+libebtc: $(OBJECTS2)
 	$(CC) -shared $(LDFLAGS) -Wl,-soname,libebtc.so -o libebtc.so -lc $(OBJECTS2)
 
-ebtables: $(OBJECTS) ebtables-standalone.o libebtc.so
+ebtables: $(OBJECTS) ebtables-standalone.o libebtc
 	$(CC) $(CFLAGS) $(CFLAGS_SH_LIB) $(LDFLAGS) -o $@ ebtables-standalone.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
 	-Wl,-rpath,$(LIBDIR)
 
@@ -99,14 +96,14 @@ ebtablesu: ebtablesu.c
 ebtablesd.o: ebtablesd.c include/ebtables_u.h
 	$(CC) $(CFLAGS) $(PROGSPECSD) -c $< -o $@  -I$(KERNEL_INCLUDES)
 
-ebtablesd: $(OBJECTS) ebtablesd.o libebtc.so
+ebtablesd: $(OBJECTS) ebtablesd.o libebtc
 	$(CC) $(CFLAGS) -o $@ ebtablesd.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
 	-Wl,-rpath,$(LIBDIR)
 
 ebtables-restore.o: ebtables-restore.c include/ebtables_u.h
 	$(CC) $(CFLAGS) $(PROGSPECS) -c $< -o $@  -I$(KERNEL_INCLUDES)
 
-ebtables-restore: $(OBJECTS) ebtables-restore.o libebtc.so
+ebtables-restore: $(OBJECTS) ebtables-restore.o libebtc
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ebtables-restore.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
 	-Wl,-rpath,$(LIBDIR)
 
@@ -136,7 +133,7 @@ static: extensions/ebt_*.c extensions/ebtable_*.c ebtables.c communication.c ebt
 	printf "extern void %s();\n" _t_$${arg}_init >> include/ebtables_u.h ; \
 	done ; \
 	printf "\n\tpseudomain(argc, argv);\n\treturn 0;\n}\n" >> ebtables-standalone.c ;\
-	$(CC) $(CFLAGS) $(LDFLAGS) $(PROGSPECS) -o $@ $^ -I$(KERNEL_INCLUDES) -Iinclude ; \
+	$(CC) $(CFLAGS) $(PROGSPECS) -o $@ $^ -I$(KERNEL_INCLUDES) -Iinclude ; \
 	for arg in $(EXT_FUNC) \
 	; do \
 	sed "s/ .*_init/ _init/" extensions/ebt_$${arg}.c > extensions/ebt_$${arg}.c_ ; \
@@ -156,26 +153,22 @@ tmp3:=$(shell printf $(PIPE) | sed 's/\//\\\//g')
 .PHONY: scripts
 scripts: ebtables-save ebtables.sysv ebtables-config
 	cat ebtables-save | sed 's/__EXEC_PATH__/$(tmp1)/g' > ebtables-save_
-	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 0755 -o root -g root ebtables-save_ $(DESTDIR)$(BINDIR)/ebtables-save
 	cat ebtables.sysv | sed 's/__EXEC_PATH__/$(tmp1)/g' | sed 's/__SYSCONFIG__/$(tmp2)/g' > ebtables.sysv_
-	if [ "$(DESTDIR)" != "" ]; then mkdir -p $(DESTDIR)$(INITDIR); fi
-	if test -d $(DESTDIR)$(INITDIR); then install -m 0755 -o root -g root ebtables.sysv_ $(DESTDIR)$(INITDIR)/ebtables; fi
+	install -m 0755 -o root -g root ebtables.sysv_ $(DESTDIR)$(INITDIR)/ebtables
 	cat ebtables-config | sed 's/__SYSCONFIG__/$(tmp2)/g' > ebtables-config_
-	if [ "$(DESTDIR)" != "" ]; then mkdir -p $(DESTDIR)$(SYSCONFIGDIR); fi
-	if test -d $(DESTDIR)$(SYSCONFIGDIR); then install -m 0600 -o root -g root ebtables-config_ $(DESTDIR)$(SYSCONFIGDIR)/ebtables-config; fi
+	install -m 0600 -o root -g root ebtables-config_ $(DESTDIR)$(SYSCONFIGDIR)/ebtables-config
 	rm -f ebtables-save_ ebtables.sysv_ ebtables-config_
 
-tmp4:=$(shell printf $(LOCKFILE) | sed 's/\//\\\//g')
 $(MANDIR)/man8/ebtables.8: ebtables.8
 	mkdir -p $(DESTDIR)$(@D)
-	sed -e 's/$$(VERSION)/$(PROGVERSION)/' -e 's/$$(DATE)/$(PROGDATE)/' -e 's/$$(LOCKFILE)/$(tmp4)/' ebtables.8 > ebtables.8_
+	sed 's/$$(VERSION)/$(PROGVERSION)/' ebtables.8 | sed 's/$$(DATE)/$(PROGDATE)/' > ebtables.8_
 	install -m 0644 -o root -g root ebtables.8_ $(DESTDIR)$@
 	rm -f ebtables.8_
 
-$(DESTDIR)$(ETHERTYPESFILE): ethertypes
-	mkdir -p $(@D)
-	install -m 0644 -o root -g root $< $@
+$(ETHERTYPESFILE): ethertypes
+	mkdir -p $(DESTDIR)$(@D)
+	install -m 0644 -o root -g root $< $(DESTDIR)$@
 
 .PHONY: exec
 exec: ebtables ebtables-restore
@@ -184,7 +177,7 @@ exec: ebtables ebtables-restore
 	install -m 0755 -o root -g root ebtables-restore $(DESTDIR)$(BINDIR)/ebtables-restore
 
 .PHONY: install
-install: $(MANDIR)/man8/ebtables.8 $(DESTDIR)$(ETHERTYPESFILE) exec scripts
+install: $(MANDIR)/man8/ebtables.8 $(ETHERTYPESFILE) exec scripts
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	install -m 0755 extensions/*.so $(DESTDIR)$(LIBDIR)
 	install -m 0755 *.so $(DESTDIR)$(LIBDIR)
@@ -224,8 +217,10 @@ release:
 	touch include/*
 	touch include/linux/*
 	touch include/linux/netfilter_bridge/*
-	sed -i -e 's/$$(VERSION)/$(PROGVERSION)/' -e 's/$$(DATE)/$(PROGDATE)/' -e 's/$$(LOCKFILE)/$(tmp4)/' ebtables.8
-	sed -i -e 's/$$(VERSION)/$(PROGVERSION_)/' -e 's/$$(RELEASE)/$(PROGRELEASE)/' ebtables.spec
+	sed -i 's/$$(VERSION)/$(PROGVERSION)/' ebtables.8
+	sed -i 's/$$(DATE)/$(PROGDATE)/' ebtables.8
+	sed -i 's/$$(VERSION)/$(PROGVERSION_)/' ebtables.spec
+	sed -i 's/$$(RELEASE)/$(PROGRELEASE)/' ebtables.spec
 	cd ..;tar -c $(DIR) | gzip >$(DIR).tar.gz; cd -
 	rm -rf include/linux
 

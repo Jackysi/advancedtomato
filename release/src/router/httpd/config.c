@@ -48,7 +48,7 @@ void wo_defaults(char *url)
 				nvram_commit();
 			}
 			else {
-				eval("mtd-erase", "-d", "nvram");
+				eval("mtd-erase2", "nvram");
 			}
 
 			set_action(ACT_REBOOT);

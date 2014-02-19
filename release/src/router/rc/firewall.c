@@ -636,6 +636,53 @@ static void mangle_table(void)
 	#endif
 #endif
 		}
+
+//shibby-arm
+	char lanaddr[32];
+	char lanmask[32];
+	char lan1addr[32];
+	char lan1mask[32];
+	char lan2addr[32];
+	char lan2mask[32];
+	char lan3addr[32];
+	char lan3mask[32];
+	int i;
+
+		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
+		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
+		strlcpy(lan1addr, nvram_safe_get("lan1_ipaddr"), sizeof(lan1addr));
+		strlcpy(lan1mask, nvram_safe_get("lan1_netmask"), sizeof(lan1mask));
+		strlcpy(lan2addr, nvram_safe_get("lan2_ipaddr"), sizeof(lan2addr));
+		strlcpy(lan2mask, nvram_safe_get("lan2_netmask"), sizeof(lan2mask));
+		strlcpy(lan3addr, nvram_safe_get("lan3_ipaddr"), sizeof(lan3addr));
+		strlcpy(lan3mask, nvram_safe_get("lan3_netmask"), sizeof(lan3mask));
+
+
+		for (i = 0; i < wanfaces.count; ++i) {
+			if (*(wanfaces.iface[i].name)) {
+				// chain_wan_prerouting
+				if (wanup) {
+
+				// Drop incoming packets which destination IP address is to our LAN side directly
+				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+					wanfaces.iface[i].name,
+					lanaddr, lanmask);	// note: ipt will correct lanaddr
+				if(strcmp(lan1addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan1addr, lan1mask);
+				if(strcmp(lan2addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan2addr, lan2mask);
+				if(strcmp(lan3addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan3addr, lan3mask);
+				}
+			}
+		}
+//
 	}
 
 	ip46t_write("COMMIT\n");
@@ -689,23 +736,7 @@ static void nat_table(void)
 					ipt_write("-A PREROUTING -d %s -j %s\n",
 						wanfaces.iface[i].ip, chain_wan_prerouting);
 				}
-
-				// Drop incoming packets which destination IP address is to our LAN side directly
-				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
-					wanfaces.iface[i].name,
-					lanaddr, lanmask);	// note: ipt will correct lanaddr
-				if(strcmp(lan1addr,"")!=0)
-					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
-						wanfaces.iface[i].name,
-						lan1addr, lan1mask);
-				if(strcmp(lan2addr,"")!=0)
-					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
-						wanfaces.iface[i].name,
-						lan2addr, lan2mask);
-				if(strcmp(lan3addr,"")!=0)
-					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
-						wanfaces.iface[i].name,
-						lan3addr, lan3mask);
+//shibby-arm
 			}
 		}
 

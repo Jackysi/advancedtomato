@@ -1,0 +1,12 @@
+*.mod.[co]
+*.o
+*.ko
+package/config.log
+package/config.status
+package/ifslinux/config.h
+package/ifslinux/libufsd.bin
+package/Makefile
+package/modules.order
+package/Module.symvers
+package/.tmp_versions/
+package/ufsd.ko

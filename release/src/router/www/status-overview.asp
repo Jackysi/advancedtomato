@@ -364,7 +364,7 @@ createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
-	{ title: 'CPU Freq', text: stats.cpumhz },
+	{ title: 'CPU Freq', text: stats.cpumhz, suffix: ' <small>(dual-core)</small>' },
 	{ title: 'Flash Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },

@@ -32,6 +32,7 @@
 * Created at: Mon Nov 11 12:20:11 EET 2002
 ********************************************************************/
 
+
 #include <ctype.h>
 #include <features.h>
 #include <sys/types.h>

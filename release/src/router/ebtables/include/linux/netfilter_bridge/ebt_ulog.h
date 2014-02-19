@@ -1,8 +1,6 @@
 #ifndef _EBT_ULOG_H
 #define _EBT_ULOG_H
 
-#include <linux/types.h>
-
 #define EBT_ULOG_DEFAULT_NLGROUP 0
 #define EBT_ULOG_DEFAULT_QTHRESHOLD 1
 #define EBT_ULOG_MAXNLGROUPS 32 /* hardcoded netlink max */
@@ -12,7 +10,7 @@
 #define EBT_ULOG_VERSION 1
 
 struct ebt_ulog_info {
-	__u32 nlgroup;
+	uint32_t nlgroup;
 	unsigned int cprange;
 	unsigned int qthreshold;
 	char prefix[EBT_ULOG_PREFIX_LEN];

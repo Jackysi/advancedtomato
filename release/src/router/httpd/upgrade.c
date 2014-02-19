@@ -16,7 +16,7 @@
 #include <sys/reboot.h>
 
 #if 1
-#define MTD_WRITE_CMD	"mtd-write"
+#define MTD_WRITE_CMD	"mtd-write2"
 #else
 #define DEBUG_TEST
 #define MTD_WRITE_CMD	"/tmp/mtd-write"
@@ -90,7 +90,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 		goto ERROR2;
 	}
 
-	char *wargv[] = { MTD_WRITE_CMD, "-w", "-i", fifo, "-d", "linux", NULL };
+	char *wargv[] = { MTD_WRITE_CMD, fifo, "linux", NULL };
 	if (_eval(wargv, ">/tmp/.mtd-write", 0, &pid) != 0) {
 		error = "Unable to start flash program";
 		goto ERROR2;
@@ -126,7 +126,7 @@ ERROR2:
 
 	if (error == NULL && reset) {
 		set_action(ACT_IDLE);
-		eval("mtd-erase", "-d", "nvram");
+		eval("mtd-erase2", "nvram");
 	}
 	set_action(ACT_REBOOT);
 

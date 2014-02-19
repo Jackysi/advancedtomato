@@ -30,6 +30,9 @@
 /* Maximum  number of Traffic Management rules */
 #define MAX_NUM_TRF_MGMT_RULES 10
 
+/* 20 DSCP + 0x0 default */
+#define MAX_NUM_TRF_MGMT_DWM_RULES 21
+
 #if !defined(AUTOFW_PORT_DEPRECATED)
 /*
  * Automatic (application specific) port forwards are described by a

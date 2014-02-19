@@ -8,6 +8,8 @@ CFLAGS += -ffunction-sections -fdata-sections
 ifeq ($(TCONFIG_BCMARM),y)
 LDFLAGS = -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared -lcrypt -L$(TOP)/libbcmcrypto -lbcmcrypto
 CFLAGS += -DHAVE_TYPE_FLOAT
+CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include -DHAVE_TYPE_FLOAT
+CFLAGS += -I$(SRCBASE)/common/include
 LDFLAGS += -L$(TOP)/libbcm -lbcm
 LDFLAGS += -lgcc_s
 else
@@ -17,6 +19,10 @@ endif
 LDFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
 ifeq ($(STATIC),1)
 LDFLAGS += -static
+endif
+
+ifeq ($(TCONFIG_BCMSMP),y)
+CFLAGS += -DSMP
 endif
 
 OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o

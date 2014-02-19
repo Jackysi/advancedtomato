@@ -49,6 +49,7 @@ void tune_bdflush(void)
 #ifdef LINUX26
 #define USBOHCI_MOD	"ohci-hcd"
 #define USBUHCI_MOD	"uhci-hcd"
+#define USBXHCI_MOD	"xhci-hcd"
 #define USBPRINTER_MOD	"usblp"
 #define SCSI_WAIT_MOD	"scsi_wait_scan"
 #define USBFS		"usbfs"
@@ -140,6 +141,15 @@ void start_usb(void)
 			modprobe(SD_MOD);
 			modprobe(USBSTORAGE_MOD);
 
+			if (nvram_get_int("usb_fs_ext4")) {
+#ifdef LINUX26
+				modprobe("mbcache");	// used by ext4
+#endif
+				modprobe("jbd2");
+				modprobe("crc16");
+				modprobe("ext4");
+			}
+
 			if (nvram_get_int("usb_fs_ext3")) {
 #ifdef LINUX26
 				modprobe("mbcache");	// used by ext2/ext3
@@ -178,6 +188,10 @@ void start_usb(void)
 #endif
 		}
 
+		if (nvram_get_int("usb_usb3") == 1) {
+			modprobe(USBXHCI_MOD);
+		}
+
 		/* if enabled, force USB2 before USB1.1 */
 		if (nvram_get_int("usb_usb2") == 1) {
 			i = nvram_get_int("usb_irq_thresh");
@@ -186,6 +200,7 @@ void start_usb(void)
 			sprintf(param, "log2_irq_thresh=%d", i);
 			modprobe(USB20_MOD, param);
 		}
+
 
 		if (nvram_get_int("usb_uhci") == 1) {
 			modprobe(USBUHCI_MOD);
@@ -251,6 +266,9 @@ void stop_usb(void)
 		modprobe_r("ext2");
 		modprobe_r("ext3");
 		modprobe_r("jbd");
+		modprobe_r("ext4");
+		modprobe_r("jbd2");
+		modprobe_r("crc16");
 #ifdef LINUX26
 		modprobe_r("mbcache");
 #endif
@@ -296,6 +314,7 @@ void stop_usb(void)
 
 	if (disabled || nvram_get_int("usb_ohci") != 1) modprobe_r(USBOHCI_MOD);
 	if (disabled || nvram_get_int("usb_uhci") != 1) modprobe_r(USBUHCI_MOD);
+	if (disabled || nvram_get_int("usb_xhci") != 1) modprobe_r(USBXHCI_MOD);
 	if (disabled || nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
 
 #ifdef LINUX26
@@ -309,6 +328,7 @@ void stop_usb(void)
 		umount("/proc/bus/usb"); // unmount usb device filesystem
 		modprobe_r(USBOHCI_MOD);
 		modprobe_r(USBUHCI_MOD);
+		modprobe_r(USBXHCI_MOD);
 		modprobe_r(USB20_MOD);
 		modprobe_r(USBCORE_MOD);
 	}

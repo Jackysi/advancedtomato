@@ -47,7 +47,7 @@ static void get_occupy(struct occupy *);
 
 
 /*
-system type             : Broadcom BCM5354 chip rev 2 pkg 0
+Processor               : ARMv7 Processor rev 0 (v7l
 processor               : 0
 cpu model               : BCM3302 V2.9
 BogoMIPS                : 238.38
@@ -73,15 +73,10 @@ int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk
 		if (next == NULL) continue;
 		strcpy(value, next);
 		trim(value);
-		if (strncmp_ex(title, "system type")==0) {
+		if (strncmp_ex(title, "Processor")==0) {
 			okcount++;
-			//printf("system type: %s\n", value);
-			if (strncmp_ex(value, "Broadcom BCM5354")==0) {
-				strcpy(system_type, "Broadcom BCM5354");
-			}
-			else {
-				strcpy(system_type, value);
-			}
+			//printf("Processor: %s\n", value);
+			strcpy(system_type, value);
 		}
 		if (strncmp_ex(title, "cpu model")==0) {
 			okcount++;

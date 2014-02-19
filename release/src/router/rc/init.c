@@ -67,6 +67,23 @@ restore_defaults(void)
 			nvram_set(t->name, t->value);
 		}
 	}
+
+	nvram_set("os_name", "linux");
+	nvram_set("os_version", tomato_version);
+	nvram_set("os_date", tomato_buildtime);
+
+#ifdef TCONFIG_BCMARM
+	if (!nvram_match("extendno_org", nvram_safe_get("extendno")))
+	{
+		dbg("Reset TxBF settings...\n");
+		nvram_set("extendno_org", nvram_safe_get("extendno"));
+		nvram_set("wl0_txbf", "1");
+		nvram_set("wl1_txbf", "1");
+		nvram_set("wl0_itxbf", "0");
+		nvram_set("wl1_itxbf", "1");
+		nvram_commit();
+	}
+#endif
 }
 
 
@@ -560,8 +577,8 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "4 5");
 		break;
 	case MODEL_RTAC68U:
-		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
-		dirty |= check_nv("vlan2ports", "4 5");
+		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
+		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 #endif
 	
@@ -1369,6 +1386,7 @@ static int init_nvram(void)
 		nvram_set("wl_ifnames", "eth1 eth2");
 		nvram_set("wl0_vifnames", "wl0.1 wl0.2 wl0.3");
 		nvram_set("wl1_vifnames", "wl1.1 wl1.2 wl1.3");
+/*
 		nvram_set_int("pwr_usb_gpio", 9|GPIO_ACTIVE_LOW);
 		nvram_set_int("pwr_usb_gpio2", 10|GPIO_ACTIVE_LOW);	// Use at the first shipment of RT-AC56U.
 		nvram_set_int("led_usb_gpio", 14|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
@@ -1381,7 +1399,6 @@ static int init_nvram(void)
 		nvram_set_int("led_usb3_gpio", 0|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
 		nvram_set_int("btn_wps_gpio", 15|GPIO_ACTIVE_LOW);
 		nvram_set_int("btn_rst_gpio", 11|GPIO_ACTIVE_LOW);
-/*
 #ifdef TCONFIG_WIFI_TOG_BTN
 		nvram_set_int("btn_wltog_gpio", 7|GPIO_ACTIVE_LOW);
 #endif
@@ -1405,7 +1422,7 @@ static int init_nvram(void)
 			nvram_set("ohci_ports", "2-1 2-2");
 		}
 #endif
-*/
+
 		if(!nvram_get("ct_max"))
 			nvram_set("ct_max", "300000");
 		add_rc_support("mssid 2.4G 5G update usbX2");
@@ -1414,10 +1431,52 @@ static int init_nvram(void)
 		add_rc_support("pwrctrl");
 		add_rc_support("WIFI_LOGO");
 		add_rc_support("nandflash");
+*/
+		break;
+	case MODEL_RTAC68U:
+		mfr = "Asus";
+		name = "RT-AC68U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
+
+			// fix WL mac`s
+			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
+			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
+
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+			if(!nvram_get("ct_max"))
+				nvram_set("ct_max", "300000");
+			if (nvram_match("wl1_bw", "0"))
+			{
+				nvram_set("wl1_bw", "3");
+
+				if (nvram_match("wl1_country_code", "EU"))
+					nvram_set("wl1_chanspec", "36/80");
+				else
+					nvram_set("wl1_chanspec", "149/80");
+			}
+			if ((nvram_get_int("wlopmode") == 7) || nvram_match("ATEMODE", "1"))
+				nvram_set("usb_usb3", "1");
+		}
 		break;
 #endif
-
-
 	case MODEL_RTN66U:
 		mfr = "Asus";
 #ifdef TCONFIG_AC66U
@@ -1708,39 +1767,6 @@ static int init_nvram(void)
 			//force US country for 5G eth1, modified by bwq518
 			nvram_set("pci/1/1/ccode", nvram_safe_get("ccode"));
 			nvram_set("regulation_domain_5G", nvram_safe_get("ccode"));
-		}
-		break;
-	case MODEL_RTAC68U:
-		mfr = "Asus";
-		name = "RT-AC68U";
-		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
-#ifdef TCONFIG_USB
-		nvram_set("usb_uhci", "-1");
-#endif
-		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("vlan2hwname", "et0");
-			nvram_set("lan_ifname", "br0");
-			nvram_set("landevs", "vlan1 wl0 wl1");
-			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
-			nvram_set("wan_ifnames", "eth0");
-			nvram_set("wl_ifnames", "eth1 eth2");
-			nvram_set("xhci_ports", "1-1");
-			nvram_set("ehci_ports", "2-1 2-2");
-			nvram_set("ohci_ports", "3-1 3-2");
-			if(!nvram_get("ct_max"))
-				nvram_set("ct_max", "300000");
-			if (nvram_match("wl1_bw", "0"))
-			{
-				nvram_set("wl1_bw", "3");
-
-				if (nvram_match("wl1_country_code", "EU"))
-					nvram_set("wl1_chanspec", "36/80");
-				else
-					nvram_set("wl1_chanspec", "149/80");
-			}
-			if ((nvram_get_int("wlopmode") == 7) || nvram_match("ATEMODE", "1"))
-				nvram_set("usb_usb3", "1");
 		}
 		break;
 #endif // CONFIG_BCMWL6

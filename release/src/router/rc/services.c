@@ -1372,18 +1372,21 @@ void set_tz(void)
 
 void start_ntpc(void)
 {
+	static char servers[32];
+
 	set_tz();
 
 	stop_ntpc();
 
 	if (nvram_get_int("ntp_updates") >= 0) {
-		xstart("ntpsync", "--init");
+		strcpy(servers, nvram_safe_get("ntp_server"));
+		xstart("ntpclient", "-h", servers, "-i", "3", "-l", "-s");
 	}
 }
 
 void stop_ntpc(void)
 {
-	killall("ntpsync", SIGTERM);
+	killall("ntpclient", SIGTERM);
 }
 
 // -----------------------------------------------------------------------------

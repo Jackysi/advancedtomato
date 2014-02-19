@@ -47,7 +47,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_usb3,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_ext4,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
 //	<% usbdevices(); %>
 
 list = [];
@@ -261,6 +261,7 @@ function verifyFields(focused, quiet)
 	E('_f_uhci').disabled = b || nvram.usb_uhci == -1;
 	E('_f_ohci').disabled = b || nvram.usb_ohci == -1;
 	E('_f_usb2').disabled = b;
+	E('_f_usb3').disabled = b;
 	E('_f_print').disabled = b;
 	E('_f_storage').disabled = b;
 
@@ -272,6 +273,7 @@ function verifyFields(focused, quiet)
 /* LINUX26-END */
 
 	E('_f_ext3').disabled = b || a;
+	E('_f_ext4').disabled = b || a;
 	E('_f_fat').disabled = b || a;
 /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
@@ -308,6 +310,7 @@ function save()
 	fom.usb_uhci.value = nvram.usb_uhci == -1 ? -1 : (E('_f_uhci').checked ? 1 : 0);
 	fom.usb_ohci.value = nvram.usb_ohci == -1 ? -1 : (E('_f_ohci').checked ? 1 : 0);
 	fom.usb_usb2.value = E('_f_usb2').checked ? 1 : 0;
+	fom.usb_usb3.value = E('_f_usb3').checked ? 1 : 0;
 	fom.usb_storage.value = E('_f_storage').checked ? 1 : 0;
 	fom.usb_printer.value = E('_f_print').checked ? 1 : 0;
 	fom.usb_printer_bidirect.value = E('_f_bprint').checked ? 1 : 0;
@@ -319,6 +322,7 @@ function save()
 /* LINUX26-END */
 
 	fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
+	fom.usb_fs_ext4.value = E('_f_ext4').checked ? 1 : 0;
 	fom.usb_fs_fat.value = E('_f_fat').checked ? 1 : 0;
 /* NTFS-BEGIN */
 	fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
@@ -362,11 +366,13 @@ function submit_complete()
 <input type='hidden' name='usb_uhci'>
 <input type='hidden' name='usb_ohci'>
 <input type='hidden' name='usb_usb2'>
+<input type='hidden' name='usb_usb3'>
 <input type='hidden' name='usb_mmc'>
 <input type='hidden' name='usb_storage'>
 <input type='hidden' name='usb_printer'>
 <input type='hidden' name='usb_printer_bidirect'>
 <input type='hidden' name='usb_fs_ext3'>
+<input type='hidden' name='usb_fs_ext4'>
 <input type='hidden' name='usb_fs_fat'>
 <!-- NTFS-BEGIN
 <input type='hidden' name='usb_fs_ntfs'>
@@ -386,6 +392,7 @@ HFS-END -->
 
 createFieldTable('', [
 	{ title: 'Core USB Support', name: 'f_usb', type: 'checkbox', value: nvram.usb_enable == 1 },
+	{ title: 'USB 3.0 Support', indent: 2, name: 'f_usb3', type: 'checkbox', value: nvram.usb_usb3 == 1 },
 	{ title: 'USB 2.0 Support', indent: 2, name: 'f_usb2', type: 'checkbox', value: nvram.usb_usb2 == 1 },
 	{ title: 'USB 1.1 Support', indent: 2, multi: [
 		{ suffix: '&nbsp; OHCI &nbsp;&nbsp;&nbsp;', name: 'f_ohci', type: 'checkbox', value: nvram.usb_ohci == 1 },
@@ -398,6 +405,7 @@ createFieldTable('', [
 	{ title: 'USB Storage Support', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
 		{ title: 'File Systems Support', indent: 2, multi: [
 			{ suffix: '&nbsp; Ext2 / Ext3 &nbsp;&nbsp;&nbsp;', name: 'f_ext3', type: 'checkbox', value: nvram.usb_fs_ext3 == 1 },
+			{ suffix: '&nbsp; Ext4 &nbsp;&nbsp;&nbsp;', name: 'f_ext4', type: 'checkbox', value: nvram.usb_fs_ext4 == 1 },
 /* NTFS-BEGIN */
 			{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 /* NTFS-END */

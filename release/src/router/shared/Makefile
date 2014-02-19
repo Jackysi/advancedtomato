@@ -1,9 +1,21 @@
 include ../common.mak
 
 CFLAGS = -Os -Wall $(EXTRACFLAGS) -fPIC
-CFLAGS += -I. -I$(SRCBASE)/include -I$(SRCBASE)/
+CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include
+CFLAGS += -I$(LINUXDIR)/include
 
-LDFLAGS =
+ifeq ($(TCONFIG_BCMWL6),y)
+CFLAGS += -I$(SRCBASE)/shared/bcmwifi/include
+CFLAGS += -I$(SRCBASE)/common/include
+else
+CFLAGS += -I$(SRCBASE)/shared
+endif
+
+CFLAGS += -DTRAFFIC_MGMT
+
+ifeq ($(TCONFIG_BCMSMP),y)
+CFLAGS += -DSMP
+endif
 
 OBJS = shutils.o wl.o wl_linux.o linux_timer.o defaults.o id.o
 OBJS += misc.o led.o version.o base64.o files.o strings.o process.o
@@ -17,15 +29,18 @@ OBJS += $(TOP)/busybox/util-linux/volume_id/ntfs.o
 OBJS += $(TOP)/busybox/util-linux/volume_id/linux_swap.o
 endif
 
+ifeq ($(CONFIG_BCMWL5),y)
+OBJS += wlif_utils.o UdpLib.o
+endif
+
 ifeq ($(TCONFIG_BCMARM),y)
 OBJS += ifaddrs.o
 endif
 
+vpath %.c $(SRCBASE)/shared/ $(SRCBASE)/shared/bcmwifi/src $(WLAN_ComponentSrcDirs)
+
 all: libshared.so libshared.a
 
-ifeq ($(CONFIG_BCMWL5),y)
-OBJS += wlif_utils.o UdpLib.o
-endif
 
 libshared.so: $(OBJS)
 	@echo " [shared] LD $@"

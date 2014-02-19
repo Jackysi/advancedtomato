@@ -286,9 +286,15 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_ampdu_rr_rtylimit_tid",	"2 2 2 2 2 2 2 2"		, 0 },	// Default AMPDU regular rate retry limit per-tid setting
 	{ "wl_amsdu",			"auto"				, 0 },	// Default AMSDU setting
 	// power save
+#ifdef TCONFIG_BCMWL6
+	{ "wl_bss_opmode_cap_reqd",	"0"				, 0 },
+#endif
+#ifndef TCONFIG_BCMARM
 	{ "wl_rxchain_pwrsave_enable",	"1"				, 0 },	// Rxchain powersave enable
 	{ "wl_rxchain_pwrsave_quiet_time","1800"			, 0 },	// Quiet time for power save
 	{ "wl_rxchain_pwrsave_pps",	"10"				, 0 },	// Packets per second threshold for power save
+	{ "wl_rxchain_pwrsave_stas_assoc_check", "0"			, 0 },	/* STAs associated before powersave */
+#endif
 	{ "wl_radio_pwrsave_enable",	"0"				, 0 },	// Radio powersave enable
 	{ "wl_radio_pwrsave_quiet_time","1800"				, 0 },	// Quiet time for power save
 	{ "wl_radio_pwrsave_pps",	"10"				, 0 },	// Packets per second threshold for power save
@@ -298,6 +304,16 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_rifs_advert",		"auto"				, 0 },	// RIFS mode advertisement
 	{ "wl_stbc_tx",			"auto"				, 0 },	// Default STBC TX setting
 	{ "wl_mcast_regen_bss_enable",	"1"				, 0 },	// MCAST REGEN Enable/Disable
+#endif
+#ifdef TCONFIG_BCMWL6
+	{ "wl_ack_ratio",		"0"},
+	{ "wl_ampdu_mpdu",		"0"},
+	{ "wl_ampdu_rts",		"1"},
+#ifdef TCONFIG_BCMARM
+	{ "wl_turbo_qam",		"1"},
+	{ "wl_itxbf",			"1"},
+	{ "wl0_itxbf",			"0"},
+#endif
 #endif
 
 	{ "pptp_server_ip",		""				, 0 },	// as same as WAN gateway
@@ -382,6 +398,9 @@ struct nvram_tuple router_defaults[] = {
 	{ "jumbo_frame_size",		"2000"				, 0 },
 #ifdef CONFIG_BCMWL5
 	{ "ctf_disable",		"1"				, 0 },
+#endif
+#ifdef TCONFIG_BCMFA
+	{ "ctf_fa_mode",		"0"				, 0 },
 #endif
 
 // advanced-dhcpdns
@@ -654,6 +673,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "usb_uhci",			"0"				, 0 },
 	{ "usb_ohci",			"0"				, 0 },
 	{ "usb_usb2",			"1"				, 0 },
+	{ "usb_usb3",			"1"				, 0 },
 #if defined(LINUX26) && defined(TCONFIG_MICROSD)
 	{ "usb_mmc",			"-1"				, 0 },
 #endif
@@ -665,6 +685,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "usb_fat_opt",		""				, 0 },
 	{ "usb_ntfs_opt",		""				, 0 },
 	{ "usb_fs_ext3",		"1"				, 0 },
+	{ "usb_fs_ext4",		"1"				, 0 },
 	{ "usb_fs_fat",			"1"				, 0 },
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				, 0 },

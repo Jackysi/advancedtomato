@@ -70,7 +70,7 @@ obj-$(TCONFIG_SDHC) += mmc
 # !!TB - updated Broadcom Wireless driver
 #obj-y += et
 obj-y += libbcmcrypto
-obj-y += wlconf
+obj-y += wlconf$(BCMEX)
 
 #obj-y += cyassl
 obj-y += mssl
@@ -142,7 +142,7 @@ TCONFIG_RAID :=
 endif
 
 obj-$(NEED_SAMBA2) += samba
-ifeq ($(TCONFIG_BCMARM),y)
+ifeq ($(RTCONFIG_BCMARM),y)
 obj-$(NEED_SAMBA3) += samba-3.0.25b
 else
 obj-$(NEED_SAMBA3) += samba3
@@ -238,16 +238,31 @@ TCONFIG_IPV6 :=
 IPTABLES_IPV6_OPT := --disable-ipv6
 endif
 
+ifeq ($(TCONFIG_BCMWL6),y)
+export CFLAGS += -DBCMQOS
+export CFLAGS += -DBCM_DCS
+export CFLAGS += -DEXT_ACS
+export CFLAGS += -DD11AC_IOTYPES
+#export CFLAGS += -DNAS_GTK_PER_STA
+export CFLAGS += -DPHYMON
+#export CFLAGS += -DPROXYARP
+export CFLAGS += -DTRAFFIC_MGMT
+export CFLAGS += -DTRAFFIC_MGMT_RSSI_POLICY
+endif
+
 # Specify iptables path and target for miniupnpd
 ifeq ($(TCONFIG_BCMARM),y)
 IPTABLESPATH=$(TOP)/iptables-1.4.x
 IPTABLES_TARGET = iptables-1.4.x
+IPROUTE_TARGET = iproute2-3.x
 else
 IPTABLESPATH=$(TOP)/iptables
 IPTABLES_TARGET = iptables
+IPROUTE_TARGET = iproute2
 endif
 export IPTABLESPATH
 export IPTABLES_TARGET
+export IPROUTE_TARGET
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -278,7 +293,7 @@ WLCFGDIR=$(SRCBASE)/wl/config
 ROOT_IMG := target.squashfs
 CRAMFSDIR := cramfs
 
-export MKSYM := $(shell which $(TOP)/misc/mksym.pl)
+#export MKSYM := $(shell which $(TOP)/misc/mksym.pl)
 endif
 
 ifeq ($(TCONFIG_BCMARM),y)
@@ -286,11 +301,10 @@ obj-prelibs =$(filter nvram$(BCMEX) libbcmcrypto shared netconf libupnp libz lib
 obj-postlibs := $(filter-out $(obj-prelibs), $(obj-y))
 endif
 
-#ifeq ($(TCONFIG_BCMWL6), y)
-#WLAN_ComponentsInUse := bcmwifi clm ppr
-# else
-# include ../../$(SRCBASE)/makefiles/WLAN_Common.mk
-#endif
+ifeq ($(TCONFIG_BCMWL6), y)
+WLAN_ComponentsInUse := bcmwifi clm ppr
+include ../../$(SRCBASE)/makefiles/WLAN_Common.mk
+endif
 
 #
 # Basic rules
@@ -730,7 +744,7 @@ menuconfig mconf: rmconf kmconf
 
 .ipv6-y .ipv6-n:
 	@rm -f .ipv6-y .ipv6-n
-	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean dnsmasq-clean iproute2-clean
+	@$(MAKE) $(IPTABLES_TARGET)-clean ebtables-clean pppd-clean zebra-clean dnsmasq-clean $(IPROUTE_TARGET)-clean
 	@touch $@
 
 .fullssl-y .fullssl-n:
@@ -1156,7 +1170,7 @@ p910nd:
 samba:
 samba3:
 
-nvram: shared
+nvram_arm: shared
 
 prebuilt: shared libbcmcrypto
 
@@ -1178,7 +1192,7 @@ accel-pptp: pppd accel-pptp/Makefile
 	@$(MAKE) -C accel-pptp
 
 accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
-	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(TCONFIG_VPNC), -DTCONFIG_VPNC,)" \
+	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS) $(if $(RTCONFIG_VPNC), -DRTCONFIG_VPNC,)" \
 	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
 
 accel-pptp-clean:
@@ -1888,7 +1902,7 @@ libiconv-clean:
 libiconv-install: libiconv
 	install -d $(INSTALLDIR)/libiconv/usr/lib
 	install libiconv/lib/.libs/libiconv.so.2.4.0 $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2.4.0
-	$(STRIP)-s $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2.4.0
+	$(STRIP) -s $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2.4.0
 	cd $(INSTALLDIR)/libiconv/usr/lib/ && \
 		ln -sf libiconv.so.2.4.0 libiconv.so.2 && \
 		ln -sf libiconv.so.2.4.0 libiconv.so
