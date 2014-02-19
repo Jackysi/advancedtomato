@@ -663,7 +663,6 @@ struct nvram_tuple router_defaults[] = {
 // admin-tomatoanon
 	{ "tomatoanon_enable",		"-1"				, 0 },
 	{ "tomatoanon_answer",		"0"				, 0 },
-	{ "tomatoanon_cru",		"6"				, 0 },
 	{ "tomatoanon_id",		""				, 0 },
 	{ "tomatoanon_notify",		"1"				, 0 },
 

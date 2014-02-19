@@ -22,24 +22,14 @@
 
 ANON_ENABLED=`nvram get tomatoanon_enable`
 ANON_ANSWER=`nvram get tomatoanon_answer`
+ANON_NOTIFY=`nvram get tomatoanon_notify`
 
 if [ "$ANON_ANSWER" == "1" ]; then
     if [ "$ANON_ENABLED" == "1" ]; then
 
-        #Collect datas
+############################
         MOD=Shibby
-        UPTIME=`uptime | cut -d "," -f1 | cut -d " " -f4,5`
-        WANMAC=`nvram get wan_hwaddr`
-        LANMAC=`nvram get lan_hwaddr`
-        MODEL=`nvram get t_model_name`
-        DRIVER=`wl ver | grep version | awk '{ print $7 }'`
-        WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | awk '{ print $1 }'`
-
-        ROUTERID=`nvram get tomatoanon_id`
-        if [ ! "$ROUTERID" == "$WANMAC_MD5" ]; then
-            nvram set tomatoanon_id="$WANMAC_MD5"
-            nvram commit
-        fi
+############################
 
         #Detect Version and Buildtype
         KERNEL=`uname -r | cut -d "." -f1,2`
@@ -63,42 +53,109 @@ if [ "$ANON_ANSWER" == "1" ]; then
             fi
         fi
 
-        # Tomato Update Notification Script
-        CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
+        if [ "$1" == "checkver" -a "$ANON_NOTIFY" == "1" ]; then
+            # Tomato Update Notification Script
+            # This works only for Shibby`s builds !!!
+            CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
 
-        #Change all spaces to %20.
-        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&v=$CHECK_VER&anon=1" > /tmp/AnonLink
-        sed -i "s/ /%20/g" /tmp/AnonLink
-        ANONSEND=`cat /tmp/AnonLink`
-        rm /tmp/AnonLink
+            #Change all spaces to %20
+            echo "http://tomato.groov.pl/tomatoanon.php?v=$CHECK_VER&mod=$MOD&anon=2" > /tmp/AnonLink
+            sed -i "s/ /%20/g" /tmp/AnonLink
+            ANONSEND=`cat /tmp/AnonLink`
+            rm /tmp/AnonLink
 
-        #We have all we need well we can send datas to Anon database
-        wget -O /tmp/anon.result $ANONSEND
+            RESULT="/tmp/anon.version"
+            wget -O $RESULT $ANONSEND
 
-        #Thanks
+            #do we have result? If don`t, then set no update needed
+            if [ ! -f "$RESULT" ]; then
+                echo "have_update=no" > $RESULT
+            fi
 
-        INTERVAL=`nvram get tomatoanon_cru`
+            #Thanks. Now add cron job
 
-        #random minutes 0..59
-        MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+            ISCRU=`cru l | grep checkver | wc -l`
+            if [ "$ISCRU" == "0" ]; then
 
-        cru d tomatoanon
-        cru a tomatoanon "$MINUTES */$INTERVAL * * * /usr/sbin/tomatoanon"
+                #random minutes 0..59
+                MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+
+                #random hour 0..23
+                HOUR=`awk 'BEGIN {srand(); printf "%d", 23*rand()}'`
+
+                #checkver daily
+                cru a checkver "$MINUTES $HOUR * * * /usr/sbin/tomatoanon checkver"
+            fi
+
+        else #just update anon database
+            #Collect datas
+            MOD=Shibby
+            UPTIME=`uptime | cut -d "," -f1 | cut -d " " -f4,5`
+            WANMAC=`nvram get wan_hwaddr`
+            LANMAC=`nvram get lan_hwaddr`
+            MODEL=`nvram get t_model_name`
+            DRIVER=`wl ver | grep version | awk '{ print $7 }'`
+            WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | awk '{ print $1 }'`
+
+            ROUTERID=`nvram get tomatoanon_id`
+            if [ ! "$ROUTERID" == "$WANMAC_MD5" ]; then
+                nvram set tomatoanon_id="$WANMAC_MD5"
+                nvram commit
+            fi
+
+            #Change all spaces to %20.
+            echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+            sed -i "s/ /%20/g" /tmp/AnonLink
+            ANONSEND=`cat /tmp/AnonLink`
+            rm /tmp/AnonLink
+
+            #We have all we need well we can send datas to Anon database
+            RESULT="/tmp/anon.result"
+            wget -O $RESULT $ANONSEND
+
+            #Thanks. Now add cron job
+
+            ISCRU=`cru l | grep anonupdate | wc -l`
+            if [ "$ISCRU" == "0" ]; then
+
+                #random minutes 0..59
+                MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+
+                #random hour 0..23
+                HOUR=`awk 'BEGIN {srand(); printf "%d", 23*rand()}'`
+
+                #random day of week 0..6
+                DAY=`awk 'BEGIN {srand(); printf "%d", 6*rand()}'`
+
+                #update anon one time per week
+                cru a anonupdate "$MINUTES $HOUR * * $DAY /usr/sbin/tomatoanon"
+            fi
+        fi
 
     else #if anon is not enabled or was disabled right now
 
-        ISCRU=`cru l | grep tomatoanon | wc -l`
+        ISCRU=`cru l | grep anonupdate | wc -l`
         if [ "$ISCRU" == "0" ]; then
-            cru d tomatoanon
+            cru d anonupdate
+        fi
+
+        ISCRU=`cru l | grep checkver | wc -l`
+        if [ "$ISCRU" == "0" ]; then
+            cru d checkver
         fi
 
     fi #end ANON_ENABLE
 
 else #if answer is not enabled or was disabled right now
 
-    ISCRU=`cru l | grep tomatoanon | wc -l`
+    ISCRU=`cru l | grep anonupdate | wc -l`
     if [ "$ISCRU" == "0" ]; then
-        cru d tomatoanon
+        cru d anonupdate
+    fi
+
+    ISCRU=`cru l | grep checkver | wc -l`
+    if [ "$ISCRU" == "0" ]; then
+        cru d checkver
     fi
 
 fi #end ANON_ANSWER
