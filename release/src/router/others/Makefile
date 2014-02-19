@@ -40,8 +40,10 @@ endif
 #Web Monitor Backup Script
 	install -m 0700 webmon_bkp $(INSTALLDIR)/usr/sbin
 
+ifeq ($(TCONFIG_USB),y)
 #optware install script
 	install -m 0700 optware-install.sh $(INSTALLDIR)/usr/sbin
+endif
 
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin

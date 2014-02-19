@@ -1,7 +1,8 @@
 #!/bin/sh
 # Optware pre-installation script, Leon Kos 2006-2008
+# Broadcom ARM support - Shibby 2014
 
-REPOSITORY=http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable
+REPOSITORY=http://ipkg.nslu2-linux.org/feeds/optware/mbwe-bluering/cross/stable
 TMP=/tmp
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/opt/bin:/opt/sbin
@@ -85,14 +86,13 @@ _install_package()
 }
 
 _check_config
-_install_package uclibc-opt_0.9.28-13_mipsel.ipk
-_install_package ipkg-opt_0.99.163-10_mipsel.ipk
-/opt/sbin/ldconfig
+_install_package uclibc-opt_0.9.28-1_arm.ipk.
+_install_package ipkg-opt_0.99.163-10_arm.ipk
+
+##ipkg.conf
+echo "src/gz nslu2 http://ipkg.nslu2-linux.org/feeds/optware/mbwe-bluering/cross/stable" > /opt/etc/ipkg.conf
+echo "dest /opt/ /" >> /opt/etc/ipkg.conf
+
 /opt/bin/ipkg update
 /opt/bin/ipkg install -force-reinstall uclibc-opt
 /opt/bin/ipkg install -force-reinstall ipkg-opt
-
-## shibby`s repository ##
-echo "src shibby http://tomato.groov.pl/repo" >> /opt/etc/ipkg.conf
-/opt/bin/ipkg update
-##
