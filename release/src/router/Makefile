@@ -1342,9 +1342,6 @@ iproute2-3.x-clean:
 	-@$(MAKE) -C iproute2-3.x clean
 	-rm -f iproute2-3.x/Config
 
-
-ntpc: nvram$(BCMEX) shared
-
 ntpclient: nvram$(BCMEX) shared
 
 dropbear: dropbear/config.h
