@@ -921,6 +921,8 @@ static int c_show(struct seq_file *m, void *v)
 		   loops_per_jiffy / (500000/HZ),
 		   (loops_per_jiffy / (5000/HZ)) % 100);
 #endif
+	//Sysinfo
+	seq_printf(m, "cpu MHz   \t\t: %d\n", loops_per_jiffy / (500000/HZ));
 
 	/* dump out the processor features */
 	seq_puts(m, "Features\t: ");

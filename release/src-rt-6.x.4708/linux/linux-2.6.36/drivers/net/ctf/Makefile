@@ -24,9 +24,13 @@ CTFSRC := ../../../../../ctf
 CTFOBJ := $(CTFSRC)/hndctf.o $(CTFSRC)/hndctf_linux.o
 SYMOBJ := $(CTFSRC)/hndctf.o
 
+ifeq ($(CONFIG_BUZZZ_FUNC),y)
+subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
+endif # CONFIG_BUZZZ_FUNC
+
 # Search for sources under src/router/ctf
 ifneq (,$(wildcard $(src)/$(CTFSRC)/*.c))
-  EXTRA_CFLAGS += -I$(src)/$(CTFSRC)/../../ctf
+  EXTRA_CFLAGS += -I$(src)/$(CTFSRC)/../../ctf -DHNDCTF
   ctf-objs := $(CTFOBJ) ctf_ksyms.o
 else
   ctf-objs := $(CTFSRC)/linux/ctf.o

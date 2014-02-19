@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2011 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
+/* Copyright (c) 2004-2012 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
