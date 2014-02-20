@@ -11,9 +11,11 @@ if (($#ARGV < 0) || ($#ARGV > 1)) {
 
 $fname = $ARGV[0];
 $dname = ($ARGV[1] || $fname) . ".size";
+$arch = $ENV{"ARCH"};
+$sizecmd = $arch . "-linux-size $fname";
 
 print "\nSize history for $fname\n\n";
-@size = `arm-linux-size $fname`;
+@size = `$sizecmd`;
 foreach (@size) {
 	if (($text, $data, $bss, $total) = $_ =~ /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+/) {
 		$line = "$text\t$data\t$bss\t$total\t" . scalar localtime((stat($fname))[10]);
