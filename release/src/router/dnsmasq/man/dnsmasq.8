@@ -415,6 +415,14 @@ source address specified but the port may be specified directly as
 part of the source address. Forcing queries to an interface is not
 implemented on all platforms supported by dnsmasq.
 .TP
+.B --rev-server=<ip-address>/<prefix-len>,<ipaddr>[#<port>][@<source-ip>|<interface>[#<port>]]
+This is functionally the same as 
+.B --server, 
+but provides some syntactic sugar to make specifying address-to-name queries easier. For example
+.B --rev-server=1.2.3.0/24,192.168.0.1
+is exactly equivalent to 
+.B --server=/3.2.1.in-addr.arpa/192.168.0.1
+.TP
 .B \-A, --address=/<domain>/[domain/]<ipaddr>
 Specify an IP address to return for any host in the given domains.
 Queries in the domains are never forwarded and always replied to
@@ -1670,6 +1678,13 @@ files. If extension(s) are given, any files which end in those
 extensions are skipped. Any files whose names end in ~ or start with . or start and end
 with # are always skipped. This flag may be given on the command
 line or in a configuration file.
+.TP
+.B --servers-file=<file>
+A special case of 
+.B --conf-file
+which differs in two respects. Firstly, only --server and --rev-server are allowed 
+in the configuration file included. Secondly, the file is re-read and the configuration
+therein is updated when dnsmasq recieves SIGHUP.
 .SH CONFIG FILE
 At startup, dnsmasq reads
 .I /etc/dnsmasq.conf,
