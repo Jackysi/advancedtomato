@@ -180,10 +180,18 @@ int main (int argc, char **argv)
     }
 #endif
   
+  if (option_bool(OPT_DNSSEC_VALID))
+    {
 #ifdef HAVE_DNSSEC
-  if (daemon->cachesize <CACHESIZ && option_bool(OPT_DNSSEC_VALID))
-    die(_("Cannot reduce cache size from default when DNSSEC enabled"), NULL, EC_BADCONF);
+      if (!daemon->ds)
+	die(_("No trust anchors provided for DNSSEC"), NULL, EC_BADCONF);
+      
+      if (daemon->cachesize < CACHESIZ)
+	die(_("Cannot reduce cache size from default when DNSSEC enabled"), NULL, EC_BADCONF);
+#else 
+      die(_("DNSSEC not available: set HAVE_DNSSEC in src/config.h"), NULL, EC_BADCONF);
 #endif
+    }
 
 #ifndef HAVE_TFTP
   if (option_bool(OPT_TFTP))
@@ -335,7 +343,12 @@ int main (int argc, char **argv)
 #endif
   
   if (daemon->port != 0)
-    cache_init();
+    {
+      cache_init();
+#ifdef HAVE_DNSSEC
+      blockdata_init();
+#endif
+    }
     
   if (option_bool(OPT_DBUS))
 #ifdef HAVE_DBUS
@@ -684,11 +697,16 @@ int main (int argc, char **argv)
 	my_syslog(LOG_INFO, _("DBus support enabled: bus connection pending"));
     }
 #endif
+  
+#ifdef HAVE_DNSSEC
+  if (option_bool(OPT_DNSSEC_VALID))
+    my_syslog(LOG_INFO, _("DNSSEC validation enabled"));
+#endif
 
   if (log_err != 0)
     my_syslog(LOG_WARNING, _("warning: failed to change owner of %s: %s"), 
 	      daemon->log_file, strerror(log_err));
-
+  
   if (bind_fallback)
     my_syslog(LOG_WARNING, _("setting --bind-interfaces option because of OS limitations"));
 
@@ -1135,7 +1153,7 @@ static void async_event(int pipe, time_t now)
 {
   pid_t p;
   struct event_desc ev;
-  int i;
+  int i, check = 0;
   char *msg;
   
   /* NOTE: the memory used to return msg is leaked: use msgs in events only
@@ -1146,11 +1164,25 @@ static void async_event(int pipe, time_t now)
       {
       case EVENT_RELOAD:
 	clear_cache_and_reload(now);
-	if (daemon->port != 0 && daemon->resolv_files && option_bool(OPT_NO_POLL))
+
+	if (daemon->port != 0)
 	  {
-	    reload_servers(daemon->resolv_files->name);
-	    check_servers();
+	    if (daemon->resolv_files && option_bool(OPT_NO_POLL))
+	      {
+		reload_servers(daemon->resolv_files->name);
+		check = 1;
+	      }
+
+	    if (daemon->servers_file)
+	      {
+		read_servers_file();
+		check = 1;
+	      }
+
+	    if (check)
+	      check_servers();
 	  }
+
 #ifdef HAVE_DHCP
 	rerun_scripts();
 #endif

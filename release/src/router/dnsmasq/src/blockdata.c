@@ -18,13 +18,42 @@
 
 #ifdef HAVE_DNSSEC
 
-static struct blockdata *keyblock_free = NULL;
-static unsigned int blockdata_count = 0, blockdata_hwm = 0;
+static struct blockdata *keyblock_free;
+static unsigned int blockdata_count, blockdata_hwm, blockdata_alloced;
+
+static void blockdata_expand(int n)
+{
+  struct blockdata *new = whine_malloc(n * sizeof(struct blockdata));
+  
+  if (new)
+    {
+      int i;
+      
+      new[n-1].next = keyblock_free;
+      keyblock_free = new;
+
+      for (i = 0; i < n - 1; i++)
+	new[i].next = &new[i+1];
+
+      blockdata_alloced += n;
+    }
+}
+
+/* Preallocate some blocks, proportional to cachesize, to reduce heap fragmentation. */
+void blockdata_init(void)
+{
+  keyblock_free = NULL;
+  blockdata_alloced = 0;
+  blockdata_count = 0;
+  blockdata_hwm = 0;
+  
+  blockdata_expand((daemon->cachesize * 100) / sizeof(struct blockdata));
+}
 
 void blockdata_report(void)
 {
-  my_syslog(LOG_INFO, _("DNSSEC memory in use %u, max %u"), 
-	    blockdata_count * sizeof(struct blockdata),  blockdata_hwm * sizeof(struct blockdata));
+  my_syslog(LOG_INFO, _("DNSSEC memory in use %u, max %u, allocated %u"), 
+	    blockdata_count * sizeof(struct blockdata),  blockdata_hwm * sizeof(struct blockdata),  blockdata_alloced * sizeof(struct blockdata));
 } 
 
 struct blockdata *blockdata_alloc(char *data, size_t len)
@@ -35,25 +64,24 @@ struct blockdata *blockdata_alloc(char *data, size_t len)
 
   while (len > 0)
     {
+      if (!keyblock_free)
+	blockdata_expand(50);
+      
       if (keyblock_free)
 	{
 	  block = keyblock_free;
 	  keyblock_free = block->next;
 	  blockdata_count++; 
 	}
-      else if ((block = whine_malloc(sizeof(struct blockdata))))
-	{
-	  blockdata_count++;
-	  if (blockdata_hwm < blockdata_count)
-	    blockdata_hwm = blockdata_count;
-	}
-	  
-      if (!block)
+      else
 	{
 	  /* failed to alloc, free partial chain */
 	  blockdata_free(ret);
 	  return NULL;
 	}
+       
+      if (blockdata_hwm < blockdata_count)
+	blockdata_hwm = blockdata_count; 
       
       blen = len > KEYBLOCK_LEN ? KEYBLOCK_LEN : len;
       memcpy(block->key, data, blen);
@@ -70,7 +98,7 @@ struct blockdata *blockdata_alloc(char *data, size_t len)
 void blockdata_free(struct blockdata *blocks)
 {
   struct blockdata *tmp;
-
+  
   if (blocks)
     {
       for (tmp = blocks; tmp->next; tmp = tmp->next)
