@@ -37,7 +37,7 @@ LDFLAGS += -lgcc_s
 endif
 
 
-vpath %.c $(SRCBASE)/shared/nvram 
+vpath %.c $(SRCBASE)/shared/nvram
 
 all: libnvram.so nvram
 

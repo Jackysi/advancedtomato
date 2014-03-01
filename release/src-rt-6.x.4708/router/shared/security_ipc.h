@@ -1,7 +1,7 @@
 /*
  * Broadcom security module ipc ports file
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: security_ipc.h 241398 2011-02-18 03:46:33Z stakita $
+ * $Id: security_ipc.h 407896 2013-06-14 23:31:52Z $
  */
 
 #ifndef __SECURITY_IPC_H__
@@ -66,6 +66,16 @@
 #define EAPD_WKSP_DCS_UDP_RPORT 	EAPD_WKSP_DCS_UDP_PORT
 #define EAPD_WKSP_DCS_UDP_SPORT 	EAPD_WKSP_DCS_UDP_PORT + EAPD_WKSP_SPORT_OFFSET
 
+#define EAPD_WKSP_DIF_UDP_PORT		43000
+
+#define EAPD_WKSP_MEVENT_UDP_PORT       44000
+#define EAPD_WKSP_MEVENT_UDP_RPORT      EAPD_WKSP_MEVENT_UDP_PORT
+#define EAPD_WKSP_MEVENT_UDP_SPORT      EAPD_WKSP_MEVENT_UDP_PORT + EAPD_WKSP_SPORT_OFFSET
+
+#define EAPD_WKSP_BSD_UDP_PORT          45000
+#define EAPD_WKSP_BSD_UDP_RPORT         EAPD_WKSP_BSD_UDP_PORT
+#define EAPD_WKSP_BSD_UDP_SPORT         EAPD_WKSP_BSD_UDP_PORT + EAPD_WKSP_SPORT_OFFSET
+
 /*
  * UPNP module
  */
@@ -99,28 +109,7 @@ typedef struct {
  */
 #define WPS_EAP_ADDR			"127.0.0.1"
 #define WPS_UPNPDEV_ADDR		"127.0.0.1"
-#define WPS_UI_ADDR			"127.0.0.1"
 
 #define WPS_UPNPDEV_PORT		40000
-#define WPS_UI_PORT			40500
-
-/* WPS_UI definitions */
-#define WPS_UI_CMD_NONE			0
-#define WPS_UI_CMD_START		1
-#define WPS_UI_CMD_STOP			2
-
-#define WPS_UI_METHOD_NONE		0
-#define WPS_UI_METHOD_PIN		1
-#define WPS_UI_METHOD_PBC		2
-
-#define WPS_UI_ACT_NONE			0
-#define WPS_UI_ACT_ENROLL		1
-#define WPS_UI_ACT_CONFIGAP		2
-#define WPS_UI_ACT_ADDENROLLEE		3
-
-#define WPS_UI_PBC_NONE			0
-#define WPS_UI_PBC_HW			1
-#define WPS_UI_PBC_SW			2
-
 
 #endif	/* __SECURITY_IPC_H__ */

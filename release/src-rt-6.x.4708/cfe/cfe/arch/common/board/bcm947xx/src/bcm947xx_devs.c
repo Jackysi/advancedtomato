@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm947xx_devs.c 398971 2013-04-26 22:39:49Z $
+ * $Id: bcm947xx_devs.c 428035 2013-10-07 14:23:40Z $
  */
 
 #include "lib_types.h"
@@ -102,6 +102,8 @@ extern char *flashdrv_nvram;
 
 extern void LEDON(void);
 extern void LEDOFF(void);
+
+int nospare;
 
 static void
 board_console_add(void *regs, uint irq, uint baud_base, uint reg_shift)
@@ -256,7 +258,7 @@ board_console_init(void)
 
 #if (CFG_FLASH || CFG_SFLASH || CFG_NFLASH)
 #if (CFG_NFLASH || defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE))
-static int
+static fl_size_t
 get_flash_size(char *device_name)
 {
 	int fd;
@@ -278,14 +280,15 @@ get_flash_size(char *device_name)
 #endif /* CFG_NFLASH */
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-static
-int calculate_max_image_size(
+static fl_size_t
+calculate_max_image_size(
 	char *device_name,
 	int reserved_space_begin,
 	int reserved_space_end,
-	int *need_commit)
+	int *need_commit,
+	int nand_os_size)
 {
-	int image_size = 0;
+	fl_size_t image_size = 0, flash_size = 0, available_size = 0;
 	char *nvram_setting;
 	char buf[64];
 
@@ -305,16 +308,14 @@ int calculate_max_image_size(
 #ifdef CFG_NFLASH
 	} else if (device_name[0] == 'n') {
 		/* use 32 meg for nand flash */
-		image_size = (NFL_BOOT_OS_SIZE - reserved_space_begin)/2;
+		image_size = (nand_os_size - reserved_space_begin)/2;
 		image_size = image_size - image_size%(64*1024);
 #endif
 	} else {
-		int flash_size;
 
 		flash_size = get_flash_size(device_name);
 		if (flash_size > 0) {
-			int available_size =
-			        flash_size - (reserved_space_begin + reserved_space_end);
+			available_size = flash_size - (reserved_space_begin + reserved_space_end);
 
 			/* Calculate the 2nd offset with divide the
 			 * availabe space by 2
@@ -333,10 +334,13 @@ int calculate_max_image_size(
 		nvram_set(IMAGE_FIRST_OFFSET, buf);
 		*need_commit = 1;
 	}
-	sprintf(buf, "%d", reserved_space_begin + image_size);
+
+	sprintf(buf, "%"FL_FMT"d", reserved_space_begin + image_size);
+
 	if (!nvram_match(IMAGE_SECOND_OFFSET, buf)) {
-		printf("The 2nd image start addr  changed, set to %s[%x] (was %s)\n",
+		printf("The 2nd image start addr  changed, set to %s[%"FL_FMT"x] (was %s)\n",
 			buf, reserved_space_begin + image_size, nvram_get(IMAGE_SECOND_OFFSET));
+
 		nvram_set(IMAGE_SECOND_OFFSET, buf);
 		*need_commit = 1;
 	}
@@ -401,6 +405,7 @@ dump_nflash(int block_no)
 	printf("\ndone\n");
 }
 
+
 static void
 flash_nflash_init(void)
 {
@@ -408,7 +413,7 @@ flash_nflash_init(void)
 	cfe_driver_t *drv;
 	hndnand_t *nfl_info;
 	int j;
-	int max_image_size = 0;
+	fl_size_t max_image_size = 0;
 #if defined(DUAL_IMAGE) || defined(FAILSAFE_UPGRADE)
 	int need_commit = 0;
 #endif
@@ -429,7 +434,8 @@ flash_nflash_init(void)
 	/* kernel in nand flash */
 	if (soc_knl_dev((void *)sih) == SOC_KNLDEV_NANDFLASH) {
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-		max_image_size = calculate_max_image_size("nflash0", 0, 0, &need_commit);
+		max_image_size = calculate_max_image_size("nflash0", 0, 0, &need_commit,
+			nfl_boot_os_size(nfl_info));
 #endif
 		/* Because CFE can only boot from the beginning of a partition */
 		fprobe.flash_parts[j].fp_size = sizeof(struct trx_header);
@@ -452,11 +458,12 @@ flash_nflash_init(void)
 		/* Because CFE can only boot from the beginning of a partition */
 		j = 0;
 		fprobe.flash_parts[j].fp_size = max_image_size ?
-		        max_image_size : NFL_BOOT_OS_SIZE;
+		max_image_size : nfl_boot_os_size(nfl_info);
 		fprobe.flash_parts[j++].fp_name = "trx";
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
 		if (max_image_size) {
-			fprobe.flash_parts[j].fp_size = NFL_BOOT_OS_SIZE - max_image_size;
+			fprobe.flash_parts[j].fp_size = nfl_boot_os_size(nfl_info)
+				- max_image_size;
 			fprobe.flash_parts[j++].fp_name = "trx2";
 		}
 #endif
@@ -484,7 +491,7 @@ flash_init(void)
 	uint32 bootsz, *bisz;
 	cfe_driver_t *drv = NULL;
 	int j = 0;
-	int max_image_size = 0;
+	fl_size_t max_image_size = 0;
 	int rom_envram_size;
 #if defined(DUAL_IMAGE) || defined(FAILSAFE_UPGRADE)
 	int need_commit = 0;
@@ -499,6 +506,12 @@ flash_init(void)
 	memset(&fprobe, 0, sizeof(fprobe));
 
 	bootdev = soc_boot_dev((void *)sih);
+
+        if(nvram_match("nospare", "1"))
+                nospare = 1;
+        else
+                nospare = 0;
+
 #ifdef CFG_NFLASH
 	if (bootdev == SOC_BOOTDEV_NANDFLASH) {
 		nfl_info = hndnand_init(sih);
@@ -561,7 +574,7 @@ flash_init(void)
 
 #if CFG_NFLASH
 	if (nfl_info) {
-		int flash_size = 0;
+		fl_size_t flash_size = 0;
 
 		if (bootsz > nfl_info->blocksize) {
 			/* Prepare double space in case of bad blocks */
@@ -576,15 +589,15 @@ flash_init(void)
 		cfe_add_device(drv, 0, 0, &fprobe);
 
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
-		max_image_size =
-			calculate_max_image_size("nflash0", NFL_BOOT_SIZE, 0, &need_commit);
+		max_image_size = calculate_max_image_size("nflash0", nfl_boot_size(nfl_info), 0,
+			&need_commit, nfl_boot_os_size(nfl_info));
 #endif
 		/* Because sometimes we want to program the entire device */
 		/* Because CFE can only boot from the beginning of a partition */
 		j = 0;
 		fprobe.flash_parts[j].fp_size = bootsz;
 		fprobe.flash_parts[j++].fp_name = "boot";
-		fprobe.flash_parts[j].fp_size = (NFL_BOOT_SIZE - bootsz);
+		fprobe.flash_parts[j].fp_size = (nfl_boot_size(nfl_info) - bootsz);
 		fprobe.flash_parts[j++].fp_name = "nvram";
 
 		fprobe.flash_parts[j].fp_size = sizeof(struct trx_header);
@@ -608,18 +621,19 @@ flash_init(void)
 		j = 0;
 		fprobe.flash_parts[j].fp_size = bootsz;
 		fprobe.flash_parts[j++].fp_name = "boot";
-		fprobe.flash_parts[j].fp_size = (NFL_BOOT_SIZE - bootsz);
+		fprobe.flash_parts[j].fp_size = (nfl_boot_size(nfl_info) - bootsz);
 		fprobe.flash_parts[j++].fp_name = "nvram";
 		fprobe.flash_parts[j].fp_size = max_image_size;
 		fprobe.flash_parts[j++].fp_name = "trx";
 #if defined(FAILSAFE_UPGRADE) || defined(DUAL_IMAGE)
 		if (max_image_size) {
 			fprobe.flash_parts[j].fp_size =
-				NFL_BOOT_OS_SIZE - NFL_BOOT_SIZE - max_image_size;
+				nfl_boot_os_size(nfl_info) - nfl_boot_size(nfl_info)
+				- max_image_size;
 			fprobe.flash_parts[j++].fp_name = "trx2";
 		}
 #endif
-		flash_size = get_flash_size("nflash0") - NFL_BOOT_OS_SIZE;
+		flash_size = get_flash_size("nflash0") - nfl_boot_os_size(nfl_info);
 		if (flash_size > 0) {
 			fprobe.flash_parts[j].fp_size = flash_size;
 			fprobe.flash_parts[j++].fp_name = "brcmnand";
@@ -651,7 +665,7 @@ flash_init(void)
 		/* If the kernel is not in nand flash, split up the sflash */
 		if (soc_knl_dev((void *)sih) != SOC_KNLDEV_NANDFLASH) {
 			max_image_size = calculate_max_image_size("flash0",
-				bootsz, MAX_NVRAM_SPACE+rom_envram_size, &need_commit);
+				bootsz, MAX_NVRAM_SPACE+rom_envram_size, &need_commit, 0);
 		}
 #endif
 

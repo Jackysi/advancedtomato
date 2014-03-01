@@ -15,10 +15,10 @@
 include $(TOP)/.config
 
 
-CFLAGS	+= -I. -I$(SRCBASE)/include -Wall
+CFLAGS	+= -I. -I$(SRCBASE)/include -I$(SRCBASE)/common/include -I$(SRCBASE)/router/shared -Wall
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -s
-ifeq ($(CONFIG_RTR_OPTIMIZE_SIZE),y)
+ifeq ($(CONFIG_TR_OPTIMIZE_SIZE),y)
 CFLAGS  += -Os
 else
 CFLAGS  += -O2
@@ -27,14 +27,9 @@ LDFLAGS += -L.
 
 OBJS := bcmgpio.o
 
-
 ifeq ($(wildcard ./*.c),)
 all:
-ifeq ($(TCONFIG_BCMARM),y)
-	cp -f ./prebuild_arm/libbcm.so .
-else
-	cp -f ./prebuild/libbcm.so .
-endif
+	cp -f ./prebuilt/libbcm.so .
 else
 all: libbcm.so
 endif

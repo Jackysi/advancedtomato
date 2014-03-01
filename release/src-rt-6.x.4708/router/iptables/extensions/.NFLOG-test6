@@ -1,2 +1,0 @@
-#! /bin/sh
-[ -f $KERNEL_DIR/include/linux/netfilter/xt_NFLOG.h ] && echo NFLOG

@@ -757,7 +757,7 @@ mtd_write(const char *path, const char *mtd)
   nvram_commit();
 #endif
 
-        printf("%s: CRC OK\n", mtd);
+        printf("%s: CRC OK - Image successfully flashed\n", mtd);
         ret = 0;
 
 fail:

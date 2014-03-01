@@ -25,14 +25,8 @@
 #include <typedefs.h>
 #include <bcmnvram.h>
 
-//#include <rtconfig.h>
-
 #define PROFILE_HEADER		"HDR1"
-#ifdef RTCONFIG_DSL
-#define PROFILE_HEADER_NEW	"N55U"
-#else
 #define PROFILE_HEADER_NEW	"HDR2"
-#endif
 
 unsigned char get_rand()
 {

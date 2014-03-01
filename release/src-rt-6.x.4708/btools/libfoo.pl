@@ -10,7 +10,6 @@
 $root = $ENV{"TARGETDIR"};
 $uclibc = $ENV{"TOOLCHAIN"};
 $router = $ENV{"SRCBASE"} . "/router";
-$arch = $ENV{"ARCH"};
 
 sub error
 {
@@ -59,7 +58,7 @@ sub load
 	$base = basename($fname);
 	print LOG "\n\nreadelf $base:\n";
 	
-	open($f, $arch . "-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
+	open($f, "arm-linux-readelf -WhsdD ${fname} 2>&1 |") || error("readelf - $!\n");
 
 	while (<$f>) {
 		print LOG;
@@ -164,7 +163,7 @@ sub fixDyn
 	fixDynDep("transmission-remote", "libevent-2.0.so.5");
 	fixDynDep("transmission-remote", "libcurl.so.4.3.0");
 #	fixDynDep("transmission-remote", "libiconv.so.2.4.0");
-	fixDynDep("radvd", "libdaemon.so.0.5.0");
+#	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
 	fixDynDep("dnscrypt-proxy", "libsodium.so.4.5.0");
 #	fixDynDep("wlconf", "libshared.so");
@@ -203,9 +202,9 @@ sub fixDyn
 	fixDynDep("apcupsd", "libgcc_s.so.1");
 	fixDynDep("apcaccess", "libc.so.0");
 	fixDynDep("smtp", "libc.so.0");
-
-#	fixDynDep("libbcm.so", "libshared.so");
-#	fixDynDep("libbcm.so", "libc.so.0");
+#shibby
+	fixDynDep("libbcm.so", "libshared.so");
+	fixDynDep("libbcm.so", "libc.so.0");
 
 #!!TB - Updated Broadcom WL driver
 	fixDynDep("libbcmcrypto.so", "libc.so.0");
@@ -404,7 +403,7 @@ sub genSO
 	
 #	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 #	$cmd = "mipsel-uclibc-gcc -shared -nostdlib -Wl,-s,-z,combreloc -Wl,--warn-common -Wl,--fatal-warnings -Wl,--gc-sections ${opt} -Wl,-soname=${name} -o ${so}";
-	$cmd = $arch . "-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
+	$cmd = "arm-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
@@ -457,8 +456,8 @@ if ((!-d $root) || (!-d $uclibc) || (!-d $router)) {
 	exit(1);
 }
 
-open(LOG, ">libfoo.debug");
-#open(LOG, ">/dev/null");
+#open(LOG, ">libfoo.debug");
+open(LOG, ">/dev/null");
 
 print "Loading...\r";
 load($root);
@@ -474,7 +473,7 @@ if ($ARGV[0] eq "--noopt") {
 	$stripshared = "no";
 }
 
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "", "-Wl,-init=__uClibc_init ${uclibc}/lib/optinfo/interp.os");
+#genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "", "-Wl,-init=__uClibc_init ${uclibc}/lib/optinfo/interp.os");
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a");

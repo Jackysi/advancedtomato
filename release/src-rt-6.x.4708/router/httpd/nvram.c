@@ -103,20 +103,19 @@ void asp_nvstat(int argc, char **argv)
 		sprintf(s, MTD_DEV(%dro), part);
 
 		if ((fp = fopen(s, "r"))) {
-			if (nvram_match("boardtype", "0x052b") && nvram_match("boardrev", "02")) {  //krisan-to-Shibby: Netgear 3500L v2
+#ifdef TCONFIG_NAND
+			if ((fread(&header, sizeof(header), 1, fp) == 1) &&
+			    (header.magic == NVRAM_MAGIC)) {
+				used = header.len;
+			}
+#else
+			if (fseek(fp, size >= NVRAM_SPACE ? size - NVRAM_SPACE : 0, SEEK_SET) == 0) {
 				if ((fread(&header, sizeof(header), 1, fp) == 1) &&
 				    (header.magic == NVRAM_MAGIC)) {
 					used = header.len;
 				}
-			
-			} else {
-				if (fseek(fp, size >= NVRAM_SPACE ? size - NVRAM_SPACE : 0, SEEK_SET) == 0) {
-					if ((fread(&header, sizeof(header), 1, fp) == 1) &&
-					    (header.magic == NVRAM_MAGIC)) {
-						used = header.len;
-					}
-				}
 			}
+#endif
 			fclose(fp);
 		}
 	}

@@ -564,11 +564,11 @@ static void ipt_webmon()
 		xstart( "/usr/sbin/webmon_bkp", "hourly" ); // make a copy immediately
 
 
-#ifdef LINUX26
-	modprobe("xt_webmon");
-#else
+//#ifdef LINUX26
+//	modprobe("xt_webmon");
+//#else
 	modprobe("ipt_webmon");
-#endif
+//#endif
 
 }
 
@@ -636,6 +636,7 @@ static void mangle_table(void)
 	#endif
 #endif
 		}
+
 
 //shibby-arm
 	char lanaddr[32];
@@ -1637,7 +1638,11 @@ int start_firewall(void)
 	f_write_string("/proc/sys/net/ipv4/tcp_retries2", "5", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_syn_retries", "3", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_synack_retries", "3", 0, 0);
+#if defined(TCONFIG_BCMARM)
+	f_write_string("/proc/sys/net/ipv4/tcp_tw_recycle", "0", 0, 0);
+#else
 	f_write_string("/proc/sys/net/ipv4/tcp_tw_recycle", "1", 0, 0);
+#endif
 	f_write_string("/proc/sys/net/ipv4/tcp_tw_reuse", "1", 0, 0);
 
 	/* DoS-related tweaks */
@@ -1868,7 +1873,8 @@ int start_firewall(void)
 	modprobe_r("xt_HL");
 	modprobe_r("xt_length");
 	modprobe_r("xt_web");
-	modprobe_r("xt_webmon");
+//	modprobe_r("xt_webmon");
+	modprobe_r("ipt_webmon");
 	modprobe_r("xt_dscp");
 #else
 	modprobe_r("ipt_layer7");

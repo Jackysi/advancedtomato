@@ -23,6 +23,20 @@ export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
 #
 SEP=echo "\033[41;1m   $@   \033[0m"
 
+export CFLAGS += -DBCMWPA2
+ifeq ($(TCONFIG_BCMWL6),y)
+export CFLAGS += -DBCMQOS
+export CFLAGS += -DBCM_DCS
+export CFLAGS += -DEXT_ACS
+export CFLAGS += -DD11AC_IOTYPES
+export CFLAGS += -DNAS_GTK_PER_STA
+export CFLAGS += -DPHYMON
+export CFLAGS += -DPROXYARP
+export CFLAGS += -DTRAFFIC_MGMT
+export CFLAGS += -DTRAFFIC_MGMT_RSSI_POLICY
+endif
+export CFLAGS += $(EXTRACFLAGS)
+
 #
 # standard packages
 #
@@ -33,6 +47,10 @@ obj-y += lzma-loader
 endif
 obj-y += shared
 obj-y += nvram$(BCMEX)
+obj-y += eapd$(BCMEX)/linux
+obj-y += libbcmcrypto
+obj-y += wlconf$(BCMEX)
+obj-y += nas$(BCMEX)
 obj-y += prebuilt
 obj-y += igmpproxy
 obj-y += rc
@@ -66,11 +84,6 @@ obj-$(TCONFIG_DNSCRYPT) += libsodium
 obj-$(TCONFIG_DNSCRYPT) += dnscrypt
 obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc
-
-# !!TB - updated Broadcom Wireless driver
-#obj-y += et
-obj-y += libbcmcrypto
-obj-y += wlconf$(BCMEX)
 
 #obj-y += cyassl
 obj-y += mssl
@@ -144,6 +157,7 @@ endif
 obj-$(NEED_SAMBA2) += samba
 ifeq ($(TCONFIG_BCMARM),y)
 obj-$(NEED_SAMBA3) += samba-3.5.8
+obj-y += taskset
 else
 obj-$(NEED_SAMBA3) += samba3
 endif
@@ -238,17 +252,6 @@ TCONFIG_IPV6 :=
 IPTABLES_IPV6_OPT := --disable-ipv6
 endif
 
-ifeq ($(TCONFIG_BCMWL6),y)
-export CFLAGS += -DBCMQOS
-export CFLAGS += -DBCM_DCS
-export CFLAGS += -DEXT_ACS
-export CFLAGS += -DD11AC_IOTYPES
-#export CFLAGS += -DNAS_GTK_PER_STA
-export CFLAGS += -DPHYMON
-#export CFLAGS += -DPROXYARP
-export CFLAGS += -DTRAFFIC_MGMT
-export CFLAGS += -DTRAFFIC_MGMT_RSSI_POLICY
-endif
 
 # Specify iptables path and target for miniupnpd
 ifeq ($(TCONFIG_BCMARM),y)
@@ -290,10 +293,12 @@ export CFLAGS += -O2
 export OPTCFLAGS = -O2
 WLCFGDIR=$(SRCBASE)/wl/config
 
+export CFLAGS += -D__CONFIG_EMF__
+
 ROOT_IMG := target.squashfs
 CRAMFSDIR := cramfs
 
-#export MKSYM := $(shell which $(TOP)/misc/mksym.pl)
+export MKSYM :=
 endif
 
 ifeq ($(TCONFIG_BCMARM),y)
@@ -302,7 +307,6 @@ obj-postlibs := $(filter-out $(obj-prelibs), $(obj-y))
 endif
 
 ifeq ($(TCONFIG_BCMWL6), y)
-WLAN_ComponentsInUse := bcmwifi clm ppr
 include ../../$(SRCBASE)/makefiles/WLAN_Common.mk
 endif
 
@@ -477,7 +481,7 @@ ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 endif
 ifeq ($(TCONFIG_BBT),y)
-	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
+	install $(LIBDIR)/librt.so.0 $(TARGETDIR)/lib/librt.so.0
 endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
@@ -864,6 +868,11 @@ mdu:	shared mssl
 
 rc: nvram$(BCMEX) shared
 
+
+eapd$(BCMEX)-clean:
+	-@cd eapd$(BCMEX)/linux && make clean
+
+
 bridge/Makefile:
 	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
@@ -1170,6 +1179,9 @@ p910nd:
 samba:
 samba3:
 
+samba-3.5.8:
+	@$(MAKE) -C samba-3.5.8 $(PARALLEL_BUILD)
+
 nvram_arm: shared
 
 prebuilt: shared libbcmcrypto
@@ -1341,6 +1353,7 @@ iproute2-3.x-install: iproute2-3.x
 iproute2-3.x-clean:
 	-@$(MAKE) -C iproute2-3.x clean
 	-rm -f iproute2-3.x/Config
+
 
 ntpclient: nvram$(BCMEX) shared
 
@@ -1686,17 +1699,29 @@ hotplug2-install: hotplug2
 	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
 	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/rom KERNELVER=$(LINUX_KERNEL)
 
-emf:
-	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+emf$(BCMEX):
+	$(MAKE) -C emf$(BCMEX)/emfconf CROSS=$(CROSS_COMPILE)
 
-emf-install: emf
-	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
+emf$(BCMEX)-install:
+ifeq ($(TCONFIG_EMF),y)
+	install -d $(TARGETDIR)
+	$(MAKE) -C emf$(BCMEX)/emfconf CROSS=$(CROSS_COMPILE) INSTALLDIR=$(INSTALLDIR) install
+endif
+
+emf$(BCMEX)-clean:
+	-@$(MAKE) -C emf$(BCMEX)/emfconf clean
 
 igs:
-	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C emf$(BCMEX)/igsconf CROSS=$(CROSS_COMPILE)
 
-igs-install: igs
-	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
+igs-install:
+ifeq ($(TCONFIG_EMF),y)
+	install -d $(TARGETDIR)
+	$(MAKE) -C emf$(BCMEX)/igsconf CROSS=$(CROSS_COMPILE) INSTALLDIR=$(INSTALLDIR) install
+endif
+
+igs-clean:
+	-@$(MAKE) -C emf$(BCMEX)/igsconf clean
 
 wanuptime: nvram$(BCMEX) shared
 	@$(SEP)

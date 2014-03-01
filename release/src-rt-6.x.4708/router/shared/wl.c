@@ -1,36 +1,42 @@
 /*
  * Wireless network adapter utilities
  *
- * Copyright 2005, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: wl.c,v 1.1.1.9 2005/03/07 07:31:20 kanki Exp $
+ * $Id: wl.c 241182 2011-02-17 21:50:03Z $
  */
+#include <typedefs.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#if	defined(__ECOS)
+#include <sys/socket.h>
+#endif
 #include <net/if.h>
 
-#include <typedefs.h>
 #include <bcmutils.h>
 #include <wlutils.h>
-#include <wlioctl.h>
 
-#include "shared.h"
-
-// xref: nas,wlconf
-int wl_probe(char *name)
+int
+wl_probe(char *name)
 {
 	int ret, val;
-	
-#if defined(linux)
+
+#if defined(linux) || defined(__ECOS)
 	char buf[DEV_TYPE_LEN];
 	if ((ret = wl_get_dev_type(name, buf, DEV_TYPE_LEN)) < 0)
 		return ret;
@@ -50,64 +56,7 @@ int wl_probe(char *name)
 	return ret;
 }
 
-// xref: nas,wlconf,
-int wl_set_val(char *name, char *var, void *val, int len)
-{
-	char buf[WLC_IOCTL_SMLEN];
-	int buf_len;
-
-	/* check for overflow */
-	if ((buf_len = strlen(var)) + 1 + len > sizeof(buf))
-		return -1;
-	
-	strcpy(buf, var);
-	buf_len += 1;
-
-	/* append int value onto the end of the name string */
-	memcpy(&buf[buf_len], val, len);
-	buf_len += len;
-
-	return wl_ioctl(name, WLC_SET_VAR, buf, buf_len);
-}
-
-// xref: nas,wlconf,
-int wl_get_val(char *name, char *var, void *val, int len)
-{
-	char buf[WLC_IOCTL_SMLEN];
-	int ret;
-
-	/* check for overflow */
-	if (strlen(var) + 1 > sizeof(buf) || len > sizeof(buf))
-		return -1;
-	
-	strcpy(buf, var);
-	if ((ret = wl_ioctl(name, WLC_GET_VAR, buf, sizeof(buf))))
-		return ret;
-
-	memcpy(val, buf, len);
-	return 0;
-}
-
-// xref: wlconf,
-int wl_set_int(char *name, char *var, int val)
-{
-	return wl_set_val(name, var, &val, sizeof(val));
-}
-
-#if 0	// not used
-int wl_get_int(char *name, char *var, int *val)
-{
-	return wl_get_val(name, var, val, sizeof(*val));
-}
-#endif
-
-
-#ifndef WL_BSS_INFO_VERSION
-#error WL_BSS_INFO_VERSION
-#endif
-
-#if WL_BSS_INFO_VERSION >= 108
-int 
+int
 wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
 {
 	int err;
@@ -118,18 +67,18 @@ wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufp
 	iolen = namelen + paramlen;
 
 	/* check for overflow */
-	if (iolen > buflen) 
+	if (iolen > buflen)
 		return (BCME_BUFTOOSHORT);
 
 	memcpy(bufptr, iovar, namelen);	/* copy iovar name including null */
 	memcpy((int8*)bufptr + namelen, param, paramlen);
 
 	err = wl_ioctl(ifname, WLC_GET_VAR, bufptr, buflen);
-	
+
 	return (err);
 }
 
-int 
+int
 wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
 {
 	uint namelen;
@@ -139,7 +88,7 @@ wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufp
 	iolen = namelen + paramlen;
 
 	/* check for overflow */
-	if (iolen > buflen) 
+	if (iolen > buflen)
 		return (BCME_BUFTOOSHORT);
 
 	memcpy(bufptr, iovar, namelen);	/* copy iovar name including null */
@@ -174,9 +123,9 @@ wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen)
 	return ret;
 }
 
-/* 
+/*
  * set named driver variable to int value
- * calling example: wl_iovar_setint(ifname, "arate", rate) 
+ * calling example: wl_iovar_setint(ifname, "arate", rate)
 */
 int
 wl_iovar_setint(char *ifname, char *iovar, int val)
@@ -184,9 +133,9 @@ wl_iovar_setint(char *ifname, char *iovar, int val)
 	return wl_iovar_set(ifname, iovar, &val, sizeof(val));
 }
 
-/* 
- * get named driver variable to int value and return error indication 
- * calling example: wl_iovar_getint(ifname, "arate", &rate) 
+/*
+ * get named driver variable to int value and return error indication
+ * calling example: wl_iovar_getint(ifname, "arate", &rate)
  */
 int
 wl_iovar_getint(char *ifname, char *iovar, int *val)
@@ -194,11 +143,12 @@ wl_iovar_getint(char *ifname, char *iovar, int *val)
 	return wl_iovar_get(ifname, iovar, val, sizeof(int));
 }
 
-/* 
+/*
  * format a bsscfg indexed iovar buffer
  */
 static int
-wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen, int *plen)
+wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen,
+                  int *plen)
 {
 	char *prefix = "bsscfg:";
 	int8* p;
@@ -219,61 +169,60 @@ wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufp
 	p = (int8*)bufptr;
 
 	/* copy prefix, no null */
-	memcpy(p, prefix, prefixlen);	
+	memcpy(p, prefix, prefixlen);
 	p += prefixlen;
 
 	/* copy iovar name including null */
-	memcpy(p, iovar, namelen);	
+	memcpy(p, iovar, namelen);
 	p += namelen;
 
 	/* bss config index as first param */
 	memcpy(p, &bssidx, sizeof(int32));
 	p += sizeof(int32);
-	
+
 	/* parameter buffer follows */
 	if (paramlen)
 		memcpy(p, param, paramlen);
 
 	*plen = iolen;
-	
-	// bufptr = bsscfg:<iovar>0<bssidx><param>
 	return 0;
 }
 
-/* 
+/*
  * set named & bss indexed driver variable to buffer value
  */
 int
-wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
+wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr,
+                   int buflen)
 {
 	int err;
-	uint iolen;
+	int iolen;
 
 	err = wl_bssiovar_mkbuf(iovar, bssidx, param, paramlen, bufptr, buflen, &iolen);
 	if (err)
 		return err;
-	
+
 	return wl_ioctl(ifname, WLC_SET_VAR, bufptr, iolen);
 }
 
-/* 
+/*
  * get named & bss indexed driver variable buffer value
  */
 int
-wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
+wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr,
+                   int buflen)
 {
 	int err;
-	uint iolen;
+	int iolen;
 
 	err = wl_bssiovar_mkbuf(iovar, bssidx, param, paramlen, bufptr, buflen, &iolen);
 	if (err)
 		return err;
-	
+
 	return wl_ioctl(ifname, WLC_GET_VAR, bufptr, buflen);
 }
 
-
-/* 
+/*
  * set named & bss indexed driver variable to buffer value
  */
 int
@@ -284,7 +233,7 @@ wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen
 	return wl_bssiovar_setbuf(ifname, iovar, bssidx, param, paramlen, smbuf, sizeof(smbuf));
 }
 
-/* 
+/*
  * get named & bss indexed driver variable buffer value
  */
 int
@@ -306,7 +255,7 @@ wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len)
 	return err;
 }
 
-/* 
+/*
  * set named & bss indexed driver variable to int value
  */
 int
@@ -314,4 +263,18 @@ wl_bssiovar_setint(char *ifname, char *iovar, int bssidx, int val)
 {
 	return wl_bssiovar_set(ifname, iovar, bssidx, &val, sizeof(int));
 }
-#endif	// WL_BSS_INFO_VERSION >= 108
+
+/*
+void
+wl_printlasterror(char *name)
+{
+	char err_buf[WLC_IOCTL_SMLEN];
+	strcpy(err_buf, "bcmerrstr");
+
+	fprintf(stderr, "Error: ");
+	if ( wl_ioctl(name, WLC_GET_VAR, err_buf, sizeof (err_buf)) != 0)
+		fprintf(stderr, "Error getting the Errorstring from driver\n");
+	else
+		fprintf(stderr, err_buf);
+}
+*/

@@ -176,6 +176,8 @@ int main(int argc, char **argv)
 	}
 #endif
 
+
+
 #if defined(DEBUG_NOISY)
 	if (nvram_match("debug_logrc", "1")) {
 		int i;
@@ -209,8 +211,16 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	const applets_t *a;
+	for (a = applets; a->name; ++a) {
+		if (strcmp(base, a->name) == 0) {
+			openlog(base, LOG_PID, LOG_USER);
+			return a->main(argc, argv);
+		}
+	}
+
 #ifdef TCONFIG_BCMARM
-	else if (!strcmp(base, "nvram_erase")){
+	if (!strcmp(base, "nvram_erase")){
 		erase_nvram();
 		return 0;
 	}
@@ -239,14 +249,6 @@ int main(int argc, char **argv)
 		}
 	}
 #endif
-
-	const applets_t *a;
-	for (a = applets; a->name; ++a) {
-		if (strcmp(base, a->name) == 0) {
-			openlog(base, LOG_PID, LOG_USER);
-			return a->main(argc, argv);
-		}
-	}
 
 	printf("Unknown applet: %s\n", base);
 	return 0;

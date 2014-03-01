@@ -1084,13 +1084,6 @@ nvifname_to_osifname(const char *nvifname, char *osifname_buf,
 		return 0;
 	}
 
-#ifdef RTCONFIG_RALINK
-	if (strstr(nvifname, "ra") || strstr(nvifname, ".")) {
-		strncpy(osifname_buf, nvifname, osifname_buf_len);
-		return 0;
-	}
-#endif
-
 	snprintf(varname, sizeof(varname), "%s_ifname", nvifname);
 	ptr = nvram_get(varname);
 	if (ptr) {

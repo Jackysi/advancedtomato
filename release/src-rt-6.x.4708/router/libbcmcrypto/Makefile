@@ -14,7 +14,7 @@
 
 include $(TOP)/.config
 
-CFLAGS	+= -Wsign-compare -I. -I$(SRCBASE)/common/include -I../httpd -I$(SRCBASE)/include -Wall -fPIC
+CFLAGS	+= -Wsign-compare -I. -I$(SRCBASE)/common/include -I$(SRCBASE)/httpd -I$(SRCBASE)/include -Wall -fPIC
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -s
 LDFLAGS += -L.

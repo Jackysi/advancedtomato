@@ -37,6 +37,9 @@ include ./target.mak
 
 export LD_LIBRARY_PATH := /opt/hndtools-arm-linux-2.6.36-uclibc-4.5.3/lib
 
+CTAGS_EXCLUDE_OPT := --exclude=kernel_header --exclude=$(PLATFORM)
+CTAGS_DEFAULT_DIRS := $(SRCBASE)/router/rc $(SRCBASE)/router/httpd $(SRCBASE)/src/router/shared $(SRCBASE)/src/router/www
+
 # Normally you'd do something like "make V1=8516 V2=-sub-ver a b c d"
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
@@ -420,6 +423,10 @@ define RouterOptions
 		sed -i "/TCONFIG_CTF/d" $(1); \
 		echo "TCONFIG_CTF=y" >>$(1); \
 	fi; \
+	if [ "$(NAND)" = "y" ]; then \
+		sed -i "/TCONFIG_NAND/d" $(1); \
+		echo "TCONFIG_NAND=y" >>$(1); \
+	fi; \
 	if [ "$(ARM)" = "y" ]; then \
 		sed -i "/TCONFIG_BCMARM/d" $(1); \
 		echo "TCONFIG_BCMARM=y" >>$(1); \
@@ -569,6 +576,18 @@ define BusyboxOptions
 		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
 		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 	fi; \
+	if [ "$(BCMSMP)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_TOP_SMP_CPU/d" $(1); \
+		echo "CONFIG_FEATURE_TOP_SMP_CPU=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_TOP_DECIMALS/d" $(1); \
+		echo "CONFIG_FEATURE_TOP_DECIMALS=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_TOP_SMP_PROCESS/d" $(1); \
+		echo "CONFIG_FEATURE_TOP_SMP_PROCESS=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_TOPMEM/d" $(1); \
+		echo "CONFIG_FEATURE_TOPMEM=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_SHOW_THREADS/d" $(1); \
+		echo "CONFIG_FEATURE_SHOW_THREADS=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -588,6 +607,8 @@ define KernelConfig
 		sed -i "/CONFIG_MTD_NAND/d" $(1); \
 		echo "CONFIG_MTD_NAND=y" >>$(1); \
 		echo "CONFIG_MTD_NAND_IDS=y" >>$(1); \
+		echo "# CONFIG_MTD_NAND_DENALI is not set" >>$(1); \
+		echo "# CONFIG_MTD_NAND_RICOH is not set" >>$(1); \
 		echo "# CONFIG_MTD_NAND_VERIFY_WRITE is not set" >>$(1); \
 		echo "# CONFIG_MTD_NAND_ECC_SMC is not set" >>$(1); \
 		echo "# CONFIG_MTD_NAND_MUSEUM_IDS is not set" >>$(1); \
@@ -612,6 +633,10 @@ define KernelConfig
 		echo "CONFIG_USB_HIDDEV=y" >>$(1); \
 		sed -i "/CONFIG_USB_DEVICEFS=m/d" $(1); \
 		echo "CONFIG_USB_DEVICEFS=y" >>$(1); \
+		sed -i "/CONFIG_HID_SUPPORT/d" $(1); \
+		echo "# CONFIG_HID_SUPPORT is not set" >>$(1); \
+		sed -i "/CONFIG_USB_STORAGE_ONETOUCH/d" $(1); \
+		echo "# CONFIG_USB_STORAGE_ONETOUCH is not set" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "" ]; then \
 		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
@@ -651,6 +676,7 @@ define KernelConfig
 			echo "CONFIG_IPV6_OPTIMISTIC_DAD=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
 			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
+			echo "# CONFIG_IPV6_MROUTE_MULTIPLE_TABLES is not set" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 			sed -i "/CONFIG_INET6_XFRM_TUNNEL/d" $(1); \
@@ -702,6 +728,12 @@ define KernelConfig
 	else \
 		echo "# CONFIG_BCM57XX is not set" >>$(1); \
 	fi; \
+		sed -i "/CONFIG_LINUX_MTD/d" $(1); \
+	if [ "$(LINUX_MTD)" = "" ]; then \
+		echo "CONFIG_LINUX_MTD=32" >>$(1); \
+	else \
+		echo "CONFIG_LINUX_MTD=$(LINUX_MTD)" >>$(1); \
+	fi; \
 	if [ "$(USBAP)" = "y" ]; then \
 		echo "CONFIG_WL_USBAP=y" >>$(1); \
 		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_high"' >>$(1); \
@@ -745,13 +777,16 @@ endif
 
 ## VPN
 e:
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" PPTPD=y OPENVPN=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=yMEDIASRV=y  B=E BUILD_DESC="$(VPN)" USB="USB" PPTPD=y OPENVPN=y
 
 z:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y IPSEC=y RAID=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y
 
 ac68e:
-	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y BCMFA=y ASUS_TRX="RT-AC68U" UFSD=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y CTF=y
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y
+
+ac68z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -779,7 +814,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
 
-	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -DBCMARM -fno-strict-aliasing -marm $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)) $(EXTRA_64KCFLAG)' >> tomato_profile.mak
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -DBCMARM -marm $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)) $(EXTRA_64KCFLAG)' >> tomato_profile.mak
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!

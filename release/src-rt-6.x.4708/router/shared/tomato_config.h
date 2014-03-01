@@ -58,9 +58,9 @@
 #define TCONFIG_USB 1
   #define IF_TCONFIG_USB(...) __VA_ARGS__
   #define IF_NOT_TCONFIG_USB(...)
-#undef TCONFIG_NOCAT
-  #define IF_TCONFIG_NOCAT(...)
-  #define IF_NOT_TCONFIG_NOCAT(...) __VA_ARGS__
+#define TCONFIG_NOCAT 1
+  #define IF_TCONFIG_NOCAT(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_NOCAT(...)
 #define TCONFIG_MEDIA_SERVER 1
   #define IF_TCONFIG_MEDIA_SERVER(...) __VA_ARGS__
   #define IF_NOT_TCONFIG_MEDIA_SERVER(...)
@@ -82,12 +82,15 @@
 #define TCONFIG_NTFS 1
   #define IF_TCONFIG_NTFS(...) __VA_ARGS__
   #define IF_NOT_TCONFIG_NTFS(...)
-#undef TCONFIG_BT
-  #define IF_TCONFIG_BT(...)
-  #define IF_NOT_TCONFIG_BT(...) __VA_ARGS__
-#undef TCONFIG_BBT
-  #define IF_TCONFIG_BBT(...)
-  #define IF_NOT_TCONFIG_BBT(...) __VA_ARGS__
+#define TCONFIG_BT 1
+  #define IF_TCONFIG_BT(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_BT(...)
+#define TCONFIG_BBT 1
+  #define IF_TCONFIG_BBT(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_BBT(...)
+#define TCONFIG_TR_EXTRAS 1
+  #define IF_TCONFIG_TR_EXTRAS(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_TR_EXTRAS(...)
 #undef TCONFIG_NFS
   #define IF_TCONFIG_NFS(...)
   #define IF_NOT_TCONFIG_NFS(...) __VA_ARGS__
@@ -100,18 +103,18 @@
 #undef TCONFIG_HFS
   #define IF_TCONFIG_HFS(...)
   #define IF_NOT_TCONFIG_HFS(...) __VA_ARGS__
-#undef TCONFIG_UPS
-  #define IF_TCONFIG_UPS(...)
-  #define IF_NOT_TCONFIG_UPS(...) __VA_ARGS__
-#undef TCONFIG_DNSCRYPT
-  #define IF_TCONFIG_DNSCRYPT(...)
-  #define IF_NOT_TCONFIG_DNSCRYPT(...) __VA_ARGS__
+#define TCONFIG_UPS 1
+  #define IF_TCONFIG_UPS(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_UPS(...)
+#define TCONFIG_DNSCRYPT 1
+  #define IF_TCONFIG_DNSCRYPT(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_DNSCRYPT(...)
 #define TCONFIG_NVRAM_64K 1
   #define IF_TCONFIG_NVRAM_64K(...) __VA_ARGS__
   #define IF_NOT_TCONFIG_NVRAM_64K(...)
-#undef TCONFIG_TOR
-  #define IF_TCONFIG_TOR(...)
-  #define IF_NOT_TCONFIG_TOR(...) __VA_ARGS__
+#define TCONFIG_TOR 1
+  #define IF_TCONFIG_TOR(...) __VA_ARGS__
+  #define IF_NOT_TCONFIG_TOR(...)
 #undef TCONFIG_IPSEC
   #define IF_TCONFIG_IPSEC(...)
   #define IF_NOT_TCONFIG_IPSEC(...) __VA_ARGS__
@@ -145,6 +148,6 @@
 #define TCONFIG_BCMSMP 1
   #define IF_TCONFIG_BCMSMP(...) __VA_ARGS__
   #define IF_NOT_TCONFIG_BCMSMP(...)
-#define TCONFIG_BCMFA 1
-  #define IF_TCONFIG_BCMFA(...) __VA_ARGS__
-  #define IF_NOT_TCONFIG_BCMFA(...)
+#undef TCONFIG_BCMFA
+  #define IF_TCONFIG_BCMFA(...)
+  #define IF_NOT_TCONFIG_BCMFA(...) __VA_ARGS__

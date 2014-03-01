@@ -13,6 +13,10 @@ endif
 
 CFLAGS += -DTRAFFIC_MGMT
 
+ifeq (2_6_36,$(LINUX_VERSION))
+CFLAGS += -DAUTOFW_PORT_DEPRECATED
+endif
+
 ifeq ($(TCONFIG_BCMSMP),y)
 CFLAGS += -DSMP
 endif
@@ -30,7 +34,8 @@ OBJS += $(TOP)/busybox/util-linux/volume_id/linux_swap.o
 endif
 
 ifeq ($(CONFIG_BCMWL5),y)
-OBJS += wlif_utils.o UdpLib.o
+OBJS += wlif_utils.o UdpLib.o bcmutils.o
+OBJS += bcmwifi_channels.o
 endif
 
 ifeq ($(TCONFIG_BCMARM),y)

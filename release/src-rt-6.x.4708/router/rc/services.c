@@ -1726,6 +1726,13 @@ static void kill_samba(int sig)
 	}
 }
 
+#if 0
+#ifdef TCONFIG_BCMARM
+extern void del_samba_rules(void);
+extern void add_samba_rules(void);
+#endif
+#endif
+
 static void start_samba(void)
 {
 	FILE *fp;
@@ -1734,6 +1741,10 @@ static void start_samba(void)
 	char nlsmod[15];
 	int mode;
 	char *nv;
+#ifdef TCONFIG_BCMARM
+	int cpu_num = sysconf(_SC_NPROCESSORS_CONF);
+	int taskset_ret = -1;
+#endif
 
 	if (getpid() != 1) {
 		start_service("smbd");
@@ -1913,8 +1924,19 @@ static void start_samba(void)
 	/* start samba if it's not already running */
 	if (pidof("nmbd") <= 0)
 		ret1 = xstart("nmbd", "-D");
-	if (pidof("smbd") <= 0)
+	if (pidof("smbd") <= 0) {
+#ifdef TCONFIG_BCMARM
+#ifdef TCONFIG_BCMSMP
+	if (cpu_num > 1)
+		taskset_ret = cpu_eval(NULL, "1", "ionice", "-c1", "-n0", "smbd", "-D");
+	else
+		taskset_ret = eval("ionice", "-c1", "-n0", "smbd", "-D");
+
+        if (taskset_ret != 0)
+#endif
+#endif
 		ret2 = xstart("smbd", "-D");
+	}
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
 }

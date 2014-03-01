@@ -1,16 +1,11 @@
 ifeq ($(SRCBASE),)
 	# ..../src/router/
 	# (directory of the last (this) makefile)
-	# src or src-rt, regardless of symlink for router directory.
-	export TOP := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd -P)
-	export TOP := $(PWD)/$(notdir $(TOP))
+	export TOP := $(shell cd $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))) && pwd)
 
 	# ..../src/
-	export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
-
-	ifneq ("" , "$(filter-out src_ src-rt_ , $(notdir $(SRCBASE))_)")
-		$(error ERROR: Build must be done from release/src or release/src-rt directory)
-	endif
+	export SRCBASE := $(shell (cd $(TOP)/.. && pwd))
+	export SRCBASEDIR := $(shell (cd $(TOP)/.. && pwd | sed 's/.*release\///g'))
 else
 	export TOP := $(SRCBASE)/router
 endif
@@ -41,6 +36,7 @@ export ARCH := mips
 export HOST := mipsel-linux
 endif
 
+export PLT := $(ARCH)
 export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/.. && pwd -P)
 
 export CC := $(CROSS_COMPILE)gcc
@@ -48,6 +44,7 @@ export AR := $(CROSS_COMPILE)ar
 export AS := $(CROSS_COMPILE)as
 export LD := $(CROSS_COMPILE)ld
 export NM := $(CROSS_COMPILE)nm
+export OBJCOPY := $(CROSS_COMPILE)objcopy
 export RANLIB := $(CROSS_COMPILE)ranlib
 ifeq ($(TCONFIG_BCMARM),y)
 export STRIP := $(CROSS_COMPILE)strip
@@ -59,12 +56,17 @@ export SIZE := $(CROSS_COMPILE)size
 include $(SRCBASE)/target.mak
 
 # Determine kernel version
-kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
-
-LINUX_KERNEL=$(call kver,version.h)
+SCMD=sed -e 's,[^=]*=[        ]*\([^  ]*\).*,\1,'
+KVERSION:=	$(shell grep '^VERSION[ 	]*=' $(LINUXDIR)/Makefile|$(SCMD))
+KPATCHLEVEL:=	$(shell grep '^PATCHLEVEL[ 	]*=' $(LINUXDIR)/Makefile|$(SCMD))
+KSUBLEVEL:=	$(shell grep '^SUBLEVEL[ 	]*=' $(LINUXDIR)/Makefile|$(SCMD))
+KEXTRAVERSION:=	$(shell grep '^EXTRAVERSION[ 	]*=' $(LINUXDIR)/Makefile|$(SCMD))
+LINUX_KERNEL=$(KVERSION).$(KPATCHLEVEL).$(KSUBLEVEL)$(KEXTRAVERSION)
+LINUX_KERNEL_VERSION=$(shell expr $(KVERSION) \* 65536 + $(KPATCHLEVEL) \* 256 + $(KSUBLEVEL))
 ifeq ($(LINUX_KERNEL),)
-LINUX_KERNEL=$(call kver,utsrelease.h)
+$(error Empty LINUX_KERNEL variable)
 endif
+
 
 export LIBDIR := $(TOOLCHAIN)/lib
 export USRLIBDIR := $(TOOLCHAIN)/usr/lib
@@ -72,6 +74,7 @@ export USRLIBDIR := $(TOOLCHAIN)/usr/lib
 export PLATFORMDIR := $(TOP)/$(PLATFORM)
 export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
+export STAGEDIR := $(PLATFORMDIR)/stage
 
 ifeq ($(EXTRACFLAGS),)
 ifeq ($(TCONFIG_BCMARM),y)
@@ -80,11 +83,13 @@ else
 export EXTRACFLAGS := -DBCMWPA2 -fno-delete-null-pointer-checks -mips32 -mtune=mips32
 endif
 endif
+export EXTRACFLAGS += -DLINUX_KERNEL_VERSION=$(LINUX_KERNEL_VERSION)
 
 CPTMP = @[ -d $(TOP)/dbgshare ] && cp $@ $(TOP)/dbgshare/ || true
 
 ifeq ($(CONFIG_LINUX26),y)
 export KERNELCC := $(CC)
+export KERNELLD := $(LD)
 else
 export KERNELCC := $(CC)-3.4.6
 endif

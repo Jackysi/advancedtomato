@@ -16,15 +16,11 @@ void start_tomatoanon(void)
 
     xstart( "tomatoanon" );
 
-    if (nvram_match("tomatoanon_notify", "1"))
-            xstart( "tomatoanon", "checkver" );
-
     return;
 }
 
 void stop_tomatoanon(void)
 {
-    xstart( "cru", "d", "anonupdate" );
-    xstart( "cru", "d", "checkver" );
+    xstart( "cru", "d", "tomatoanon" );
     return;
 }

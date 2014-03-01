@@ -89,10 +89,11 @@ _check_config
 _install_package uclibc-opt_0.9.28-1_arm.ipk
 _install_package ipkg-opt_0.99.163-10_arm.ipk
 
-##ipkg.conf
-echo "src/gz nslu2 http://ipkg.nslu2-linux.org/feeds/optware/mbwe-bluering/cross/stable" > /opt/etc/ipkg.conf
-echo "dest /opt/ /" >> /opt/etc/ipkg.conf
-
 /opt/bin/ipkg update
 /opt/bin/ipkg install -force-reinstall uclibc-opt
 /opt/bin/ipkg install -force-reinstall ipkg-opt
+
+##ipkg.conf
+echo "src/gz nslu2 http://ipkg.nslu2-linux.org/feeds/optware/mbwe-bluering/cross/stable" > /opt/etc/ipkg.conf
+echo "dest /opt/ /" >> /opt/etc/ipkg.conf
+/opt/bin/ipkg update
