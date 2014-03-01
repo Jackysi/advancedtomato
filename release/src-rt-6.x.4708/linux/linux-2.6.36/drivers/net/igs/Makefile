@@ -18,17 +18,17 @@
 # $Id: Makefile,v 1.3 2008-08-13 20:20:16 $
 #
 
-IGSSRCDIR := ../../../../../emf/igs
-IGSCSRCDIR := ../../../../../../$(SRCBASEDIR)/emf/igs
-EMFDIR := ../../../../../emf
+IGSSRCDIR := ../../../../../../src-rt-6.x.4708/router/emf${BCMEX}/igs
+IGSCSRCDIR := ../../../../../../src-rt-6.x.4708/emf/igs
+EMFDIR := ../../../../../../src-rt-6.x.4708/router/emf${BCMEX}
 
 IGS_OBJS := $(IGSCSRCDIR)/igsc.o $(IGSCSRCDIR)/igsc_sdb.o $(IGSSRCDIR)/igs_linux.o \
 	    $(IGSCSRCDIR)/osl_linux.o
 
-# Search for sources under src/emf/igs
+# Search for sources under src/router/emf/igs
 ifneq ($(wildcard $(src)/$(IGSSRCDIR)),)
-	EXTRA_CFLAGS += -I../../emf/igs -I../../emf/emf
-	EXTRA_CFLAGS += -I../../../$(SRCBASEDIR)/include/emf/igs -I../../../$(SRCBASEDIR)/include/emf/emf
+	EXTRA_CFLAGS += -I$(SRCBASE)/router/emf${BCMEX}/igs -I$(SRCBASE)/router/emf${BCMEX}/emf
+	EXTRA_CFLAGS += -I$(SRCBASE)/include/emf/igs -I$(SRCBASE)/include/emf/emf
 	igs-objs := $(IGS_OBJS)
 else
 	igs-objs := $(EMFDIR)/igs.o
