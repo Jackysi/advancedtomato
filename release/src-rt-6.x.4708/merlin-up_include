@@ -1,0 +1,2420 @@
+diff -Nuar merlin-bkp/include/bcmcrypto/aes.h merlin-new/include/bcmcrypto/aes.h
+--- merlin-bkp/include/bcmcrypto/aes.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/aes.h	2014-02-24 14:15:11.000000000 +0100
+@@ -3,7 +3,7 @@
+  * AES encrypt/decrypt wrapper functions used around Rijndael reference
+  * implementation
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/aeskeywrap.h merlin-new/include/bcmcrypto/aeskeywrap.h
+--- merlin-bkp/include/bcmcrypto/aeskeywrap.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/aeskeywrap.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * aeskeywrap.h
+  * Perform RFC3394 AES-based key wrap and unwrap functions.
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/bcmtomcrypt.h merlin-new/include/bcmcrypto/bcmtomcrypt.h
+--- merlin-bkp/include/bcmcrypto/bcmtomcrypt.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/bcmtomcrypt.h	2014-02-24 14:15:11.000000000 +0100
+@@ -1,7 +1,7 @@
+ /*
+  *  bcmtomcrypt.h  - Prototypes for API's interfacing tomcrypt library
+  *
+- * Copyright (C) 2013, Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+diff -Nuar merlin-bkp/include/bcmcrypto/bn.h merlin-new/include/bcmcrypto/bn.h
+--- merlin-bkp/include/bcmcrypto/bn.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/bn.h	2014-02-24 14:15:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * Code copied from openssl distribution and
+  * Modified just enough so that compiles and runs standalone
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/des.h merlin-new/include/bcmcrypto/des.h
+--- merlin-bkp/include/bcmcrypto/des.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/des.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * Interface definitions for DES.
+  * Copied from des-ka9q-1.0-portable. a public domain DES implementation.
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/dh.h merlin-new/include/bcmcrypto/dh.h
+--- merlin-bkp/include/bcmcrypto/dh.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/dh.h	2014-02-24 14:15:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * Code copied from openssl distribution and
+  * Modified just enough so that compiles and runs standalone
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/hmac_sha256.h merlin-new/include/bcmcrypto/hmac_sha256.h
+--- merlin-bkp/include/bcmcrypto/hmac_sha256.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/hmac_sha256.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * Code copied from openssl distribution and
+  * Modified just enough so that compiles and runs standalone
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/md4.h merlin-new/include/bcmcrypto/md4.h
+--- merlin-bkp/include/bcmcrypto/md4.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/md4.h	2014-02-24 14:15:11.000000000 +0100
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/passhash.h merlin-new/include/bcmcrypto/passhash.h
+--- merlin-bkp/include/bcmcrypto/passhash.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/passhash.h	2014-02-24 14:15:11.000000000 +0100
+@@ -3,7 +3,7 @@
+  * Perform password to key hash algorithm as defined in WPA and 802.11i
+  * specifications.
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/prf.h merlin-new/include/bcmcrypto/prf.h
+--- merlin-bkp/include/bcmcrypto/prf.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/prf.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * prf.h
+  * PRF function used in WPA and TGi
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/rc4.h merlin-new/include/bcmcrypto/rc4.h
+--- merlin-bkp/include/bcmcrypto/rc4.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/rc4.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * rc4.h
+  * RC4 stream cipher
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/rijndael-alg-fst.h merlin-new/include/bcmcrypto/rijndael-alg-fst.h
+--- merlin-bkp/include/bcmcrypto/rijndael-alg-fst.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/rijndael-alg-fst.h	2014-02-24 14:15:11.000000000 +0100
+@@ -25,7 +25,7 @@
+  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/sha256.h merlin-new/include/bcmcrypto/sha256.h
+--- merlin-bkp/include/bcmcrypto/sha256.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/sha256.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * Code copied from openssl distribution and
+  * Modified just enough so that compiles and runs standalone
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/sms4_vectors.h merlin-new/include/bcmcrypto/sms4_vectors.h
+--- merlin-bkp/include/bcmcrypto/sms4_vectors.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/sms4_vectors.h	2014-02-24 14:15:11.000000000 +0100
+@@ -3,7 +3,7 @@
+  * sms4_vectors.h
+  * SMS4 block cipher test vectors
+  *
+- * Copyright (C) 2013, Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+diff -Nuar merlin-bkp/include/bcmcrypto/tkhash.h merlin-new/include/bcmcrypto/tkhash.h
+--- merlin-bkp/include/bcmcrypto/tkhash.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/tkhash.h	2014-02-24 14:15:11.000000000 +0100
+@@ -7,7 +7,7 @@
+  * duplicated in any form, in whole or in part, without the prior written
+  * permission of Broadcom Corporation.
+  *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+diff -Nuar merlin-bkp/include/bcmcrypto/tkmic.h merlin-new/include/bcmcrypto/tkmic.h
+--- merlin-bkp/include/bcmcrypto/tkmic.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/tkmic.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * tkmic.h
+  * Prototypes for TKIP Message Integrity Check (MIC) functions.
+  *
+- * Copyright (C) 2013, Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+diff -Nuar merlin-bkp/include/bcmcrypto/wep.h merlin-new/include/bcmcrypto/wep.h
+--- merlin-bkp/include/bcmcrypto/wep.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/bcmcrypto/wep.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * wep.h
+  * Prototypes for WEP functions.
+  *
+- * Copyright (C) 2013, Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+diff -Nuar merlin-bkp/include/bcm_rpc.h merlin-new/include/bcm_rpc.h
+--- merlin-bkp/include/bcm_rpc.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/bcm_rpc.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,97 +0,0 @@
+-/*
+- * RPC module header file
+- *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+- * 
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- * 
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- *
+- * $Id: bcm_rpc.h 419467 2013-08-21 09:19:48Z $
+- */
+-
+-#ifndef _BCM_RPC_H_
+-#define _BCM_RPC_H_
+-
+-#include <typedefs.h>
+-#include <rpc_osl.h>
+-
+-typedef struct rpc_info rpc_info_t;
+-typedef struct rpc_buf rpc_buf_t;
+-struct rpc_transport_info;
+-typedef void (*rpc_dispatch_cb_t)(void *ctx, struct rpc_buf* buf);
+-typedef void (*rpc_resync_cb_t)(void *ctx);
+-typedef void (*rpc_down_cb_t)(void *ctx);
+-typedef void (*rpc_txdone_cb_t)(void *ctx, struct rpc_buf* buf);
+-extern struct rpc_info *bcm_rpc_attach(void *pdev, osl_t *osh, struct rpc_transport_info *rpc_th,
+-	uint16 *devid);
+-
+-#ifdef NDIS
+-extern int bcm_rpc_shutdown(struct rpc_info *rpc);
+-#endif
+-extern bool bcm_rpc_sleep(struct rpc_info *rpc);
+-extern bool bcm_rpc_resume(struct rpc_info *rpc, int *fw_reload);
+-extern void bcm_rpc_detach(struct rpc_info *rpc);
+-extern void bcm_rpc_down(struct rpc_info *rpc);
+-extern void bcm_rpc_watchdog(struct rpc_info *rpc);
+-extern int bcm_rpc_is_asleep(struct rpc_info *rpc);
+-extern void bcm_rpc_dngl_suspend_enable_set(rpc_info_t *rpc, uint32 val);
+-extern void bcm_rpc_dngl_suspend_enable_get(rpc_info_t *rpc, uint32 *pval);
+-
+-extern struct rpc_buf *bcm_rpc_buf_alloc(struct rpc_info *rpc, int len);
+-extern void bcm_rpc_buf_free(struct rpc_info *rpc, struct rpc_buf *b);
+-/* get rpc transport handle */
+-extern struct rpc_transport_info *bcm_rpc_tp_get(struct rpc_info *rpc);
+-
+-/* get original os handle */
+-extern osl_t* bcm_rpc_osh_get(struct rpc_info *rpci);
+-
+-/* callback for: data_rx, down, resync */
+-extern void bcm_rpc_rxcb_init(struct rpc_info *rpc, void *ctx, rpc_dispatch_cb_t cb,
+-                              void *dnctx, rpc_down_cb_t dncb, rpc_resync_cb_t resync_cb,
+-                              rpc_txdone_cb_t);
+-extern void bcm_rpc_rxcb_deinit(struct rpc_info *rpci);
+-
+-/* HOST or CLIENT rpc call, requiring no return value */
+-extern int bcm_rpc_call(struct rpc_info *rpc, struct rpc_buf *b);
+-
+-/* HOST rpc call, demanding return.
+- *   The thread may be suspended and control returns back to OS
+- *   The thread will resume(waked up) on either the return signal received or timeout
+- *     The implementation details depend on OS
+- */
+-extern struct rpc_buf *bcm_rpc_call_with_return(struct rpc_info *rpc, struct rpc_buf *b);
+-
+-/* CLIENT rpc call to respond to bcm_rpc_call_with_return, requiring no return value */
+-extern int bcm_rpc_call_return(struct rpc_info *rpc, struct rpc_buf *retb);
+-
+-extern uint bcm_rpc_buf_header_len(struct rpc_info *rpci);
+-
+-#define RPC_PKTLOG_SIZE		50 /* Depth of the history */
+-#define RPC_PKTLOG_RD_LEN	3
+-#define RPC_PKTLOG_DUMP_SIZE	150 /* dump size should be more than the product of above two */
+-#ifdef WLC_HIGH
+-extern int bcm_rpc_pktlog_get(struct rpc_info *rpci, uint32 *buf, uint buf_size, bool send);
+-extern int bcm_rpc_dump(rpc_info_t *rpci, struct bcmstrbuf *b);
+-#endif
+-
+-/* HIGH/BMAC: bit 15-8: RPC module, bit 7-0: TP module */
+-#define RPC_ERROR_VAL	0x0001
+-#define RPC_TRACE_VAL	0x0002
+-#define RPC_PKTTRACE_VAL 0x0004
+-#define RPC_PKTLOG_VAL	0x0008
+-extern void bcm_rpc_msglevel_set(struct rpc_info *rpci, uint16 msglevel, bool high_low);
+-
+-/* USB device BULK IN endpoint index */
+-#define USBDEV_BULK_IN_EP1		0
+-#define USBDEV_BULK_IN_EP2		1
+-
+-#endif /* _BCM_RPC_H_ */
+diff -Nuar merlin-bkp/include/bcm_rpc_tp.h merlin-new/include/bcm_rpc_tp.h
+--- merlin-bkp/include/bcm_rpc_tp.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/bcm_rpc_tp.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,199 +0,0 @@
+-/*
+- * RPC - Transport layer
+- *   HOST may glue it to DBUS layer
+- *   CLIENT may glue it to its bus driver
+- *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+- * 
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- * 
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- *
+- * $Id: bcm_rpc_tp.h 422800 2013-09-10 01:12:42Z $
+- */
+-
+-#ifndef _bcm_rpc_tp_h_
+-#define _bcm_rpc_tp_h_
+-#include <bcm_rpc.h>
+-
+-#define BCM_RPC_TP_ENCAP_LEN	4	/* TP header is 4 bytes */
+-#if defined(BCMSDIODEV_ENABLED)
+-#define BCM_RPC_BUS_HDR_LEN	(BCMDONGLEHDRSZ + SDALIGN)
+-#else
+-#define BCM_RPC_BUS_HDR_LEN	0
+-#endif
+-
+-#define BCM_RPC_TP_HOST_AGG_MASK	0xffff0000
+-#define BCM_RPC_TP_HOST_AGG_SHIFT	16
+-#define BCM_RPC_TP_HOST_AGG_AMPDU	0x00010000	/* HOST->DNGL ampdu aggregation */
+-#define BCM_RPC_TP_HOST_AGG_TEST	0x00100000	/* HOST->DNGL test aggregation */
+-#define BCM_RPC_TP_DNGL_AGG_MASK	0x0000ffff
+-#define BCM_RPC_TP_DNGL_AGG_DPC		0x00000001	/* DNGL->HOST data aggregation */
+-#define BCM_RPC_TP_DNGL_AGG_FLOWCTL	0x00000002	/* DNGL->HOST tx flowcontrol agg */
+-#define BCM_RPC_TP_DNGL_AGG_TEST	0x00000010	/* DNGL->HOST test agg */
+-
+-
+-#define BCM_RPC_TP_HOST_AGG_MAX_SFRAME  3	/* max agg subframes, AMPDU only, 3 is enough */
+-#define BCM_RPC_TP_HOST_AGG_MAX_BYTE    3400    /* max agg bytes; to fit 2+ tcp/udp pkts. Each one:
+-						 * 802.3pkt + 802.11 hdr + rpc hdr + tp hdr < 1700B
+-						 * Need to be in sync with dongle usb rx dma
+-						 *  rxbufsize(USBBULK_RXBUF_GIANT in usbdev_sb.c)
+-						 */
+-#define BCM_RPC_TP_DNGL_AGG_MAX_SFRAME	3       /* max agg subframes, must be <= USB_NTXD */
+-#if defined(BCM_RPC_NOCOPY) || defined(BCM_RPC_RXNOCOPY)
+-#define BCM_RPC_TP_DNGL_AGG_MAX_BYTE	2100    /* max agg bytes, we only do either agg or nocopy */
+-#else
+-#define BCM_RPC_TP_DNGL_AGG_MAX_BYTE	4000    /* max agg bytes */
+-#endif /* BCM_RPC_NOCOPY || BCM_RPC_RXNOCOPY */
+-
+-#define BCM_RPC_TP_DNGL_AGG_MAX_BYTE_4360	16000
+-
+-/* chip specific AMPDU_MPDU should be defined in chipid makefile.
+- * if not defined in chipid makefile defaults defined below will be used
+- */
+-#ifndef BCM_AMPDU_MPDU
+-#define BCM_AMPDU_MPDU			16
+-#endif
+-/* chip specific HOST/DNGL_DEFAULT_SFRAME/BYTE constants should be defined in chipid makefile
+- * if not defined in chipid makefile defaults defined below will be used
+- */
+-#ifndef BCM_RPC_TP_HOST_AGG_DEFAULT_SFRAME
+-#define BCM_RPC_TP_HOST_AGG_DEFAULT_SFRAME	3
+-#endif
+-#ifndef BCM_RPC_TP_HOST_AGG_DEFAULT_BYTE
+-#define BCM_RPC_TP_HOST_AGG_DEFAULT_BYTE	3400
+-#endif
+-#ifndef BCM_RPC_TP_DNGL_AGG_DEFAULT_SFRAME
+-#define BCM_RPC_TP_DNGL_AGG_DEFAULT_SFRAME	3
+-#endif
+-#ifndef BCM_RPC_TP_DNGL_AGG_DEFAULT_BYTE
+-#define BCM_RPC_TP_DNGL_AGG_DEFAULT_BYTE	3400
+-#endif
+-#define BCM_RPC_TP_HOST_AGG_DEFAULT	(((BCM_RPC_TP_HOST_AGG_DEFAULT_SFRAME)\
+-	 << BCM_RPC_TP_HOST_AGG_SHIFT) | BCM_RPC_TP_HOST_AGG_DEFAULT_BYTE)
+-#define BCM_RPC_TP_DNGL_AGG_DEFAULT	(((BCM_RPC_TP_DNGL_AGG_DEFAULT_SFRAME)\
+-	 << BCM_RPC_TP_HOST_AGG_SHIFT) | BCM_RPC_TP_DNGL_AGG_DEFAULT_BYTE)
+-
+-/* rxbufsize for dbus_attach, linux only for now */
+-#define DBUS_RX_BUFFER_SIZE_RPC    (BCM_RPC_TP_DNGL_AGG_MAX_BYTE)
+-
+-#if (defined(NDIS) && (NDISVER >= 0x0600) && 0)
+-/* TP-DBUS pkts flowcontrol */
+-#ifndef BCM_RPC_TP_DBUS_NTXQ
+-#define BCM_RPC_TP_DBUS_NTXQ	512	/* queue size for TX on bulk OUT, aggregation possible */
+-#endif
+-#ifndef BCM_RPC_TP_DBUS_NRXQ
+-#define BCM_RPC_TP_DBUS_NRXQ	512	/* queue size for RX on bulk IN, aggregation possible */
+-#endif
+-#else
+-#ifndef BCM_RPC_TP_DBUS_NTXQ
+-#define BCM_RPC_TP_DBUS_NTXQ	50	/* queue size for TX on bulk OUT, aggregation possible */
+-#endif
+-#ifndef BCM_RPC_TP_DBUS_NRXQ
+-#define BCM_RPC_TP_DBUS_NRXQ	50	/* queue size for RX on bulk IN, aggregation possible */
+-#endif
+-#endif 
+-#define BCM_RPC_TP_DBUS_NRXQ_CTRL	1	/* queue size for RX on ctl EP0 */
+-
+-#define BCM_RPC_TP_DBUS_NRXQ_PKT	(BCM_RPC_TP_DBUS_NRXQ * BCM_RPC_TP_DNGL_AGG_MAX_SFRAME)
+-#define BCM_RPC_TP_DBUS_NTXQ_PKT	(BCM_RPC_TP_DBUS_NTXQ * BCM_RPC_TP_HOST_AGG_MAX_SFRAME)
+-
+-typedef struct rpc_transport_info rpc_tp_info_t;
+-
+-typedef void (*rpc_tx_complete_fn_t)(void*, rpc_buf_t *, int status);
+-typedef void (*rpc_rx_fn_t)(void*, rpc_buf_t*);
+-
+-#ifdef WLC_LOW
+-typedef void (*rpc_txflowctl_cb_t)(void *ctx, bool on);
+-#endif
+-
+-extern void bcm_rpc_tp_sleep(rpc_tp_info_t * rpcb);
+-extern int  bcm_rpc_tp_resume(rpc_tp_info_t * rpcb, int *fw_reload);
+-extern int bcm_rpc_tp_shutdown(rpc_tp_info_t * rpcb);
+-#if defined(NDIS)
+-extern void bcm_rpc_tp_surp_remove(rpc_tp_info_t * rpcb);
+-extern rpc_tp_info_t *bcm_rpc_tp_attach(osl_t * osh, shared_info_t *shared, void *bus);
+-#else
+-extern rpc_tp_info_t *bcm_rpc_tp_attach(osl_t * osh, void *bus);
+-#endif
+-extern void bcm_rpc_tp_detach(rpc_tp_info_t * rpcb);
+-extern void bcm_rpc_tp_down(rpc_tp_info_t *rpcb);
+-extern void bcm_rpc_tp_watchdog(rpc_tp_info_t *rpcb);
+-
+-extern int bcm_rpc_tp_buf_send(rpc_tp_info_t * rpcb, rpc_buf_t *buf);
+-
+-/* callback for tx_complete, rx_pkt */
+-extern void bcm_rpc_tp_register_cb(rpc_tp_info_t * rpcb, rpc_tx_complete_fn_t txcmplt,
+-	void* tx_context, rpc_rx_fn_t rxpkt, void* rx_context, rpc_osl_t *rpc_osh);
+-extern void bcm_rpc_tp_deregister_cb(rpc_tp_info_t * rpcb);
+-
+-/* Buffer manipulation */
+-extern uint bcm_rpc_buf_tp_header_len(rpc_tp_info_t * rpcb);
+-extern rpc_buf_t *bcm_rpc_tp_buf_alloc(rpc_tp_info_t * rpcb, int len);
+-extern void bcm_rpc_tp_buf_free(rpc_tp_info_t * rpcb, rpc_buf_t *buf);
+-extern int bcm_rpc_buf_len_get(rpc_tp_info_t * rpcb, rpc_buf_t* b);
+-extern int bcm_rpc_buf_totlen_get(rpc_tp_info_t * rpcb, rpc_buf_t* b);
+-extern int bcm_rpc_buf_len_set(rpc_tp_info_t * rpcb, rpc_buf_t* b, uint len);
+-extern rpc_buf_t *bcm_rpc_buf_next_get(rpc_tp_info_t * rpcb, rpc_buf_t* b);
+-extern void bcm_rpc_buf_next_set(rpc_tp_info_t * rpcb, rpc_buf_t* b, rpc_buf_t *nextb);
+-extern unsigned char* bcm_rpc_buf_data(rpc_tp_info_t * rpcb, rpc_buf_t* b);
+-extern unsigned char* bcm_rpc_buf_push(rpc_tp_info_t * rpcb, rpc_buf_t* b, uint delta);
+-extern unsigned char* bcm_rpc_buf_pull(rpc_tp_info_t * rpcb, rpc_buf_t* b, uint delta);
+-extern void bcm_rpc_tp_buf_release(rpc_tp_info_t * rpcb, rpc_buf_t *buf);
+-extern void bcm_rpc_tp_buf_cnt_adjust(rpc_tp_info_t * rpcb, int adjust);
+-#ifdef WLC_HIGH
+-/* RPC call_with_return */
+-extern int bcm_rpc_tp_recv_rtn(rpc_tp_info_t *rpcb);
+-extern int bcm_rpc_tp_get_device_speed(rpc_tp_info_t *rpc_th);
+-extern void bcm_rpc_tp_get_vidpid(rpc_tp_info_t *rpc_th, uint16 *dnglvid, uint16 *dnglpid);
+-extern void* bcm_rpc_tp_get_devinfo(rpc_tp_info_t *rpc_th);
+-extern int bcm_rpc_tp_set_config(rpc_tp_info_t *rpc_th, void *config);
+-#ifdef BCMDBG
+-extern int bcm_rpc_tp_dump(rpc_tp_info_t *rpcb, struct bcmstrbuf *b);
+-#endif
+-#endif	/* WLC_HIGH */
+-
+-#ifdef WLC_LOW
+-/* intercept USB pkt to parse RPC header: USB driver rx-> wl_send -> this -> wl driver */
+-extern void bcm_rpc_tp_rx_from_dnglbus(rpc_tp_info_t *rpc_th, struct lbuf *lb);
+-
+-/* RPC callreturn pkt, go to USB driver tx */
+-extern int bcm_rpc_tp_send_callreturn(rpc_tp_info_t * rpc_th, rpc_buf_t *b);
+-
+-extern void bcm_rpc_tp_dump(rpc_tp_info_t *rpcb);
+-extern void bcm_rpc_tp_txflowctl(rpc_tp_info_t *rpcb, bool state, int prio);
+-extern void bcm_rpc_tp_txflowctlcb_init(rpc_tp_info_t *rpc_th, void *ctx, rpc_txflowctl_cb_t cb);
+-extern void bcm_rpc_tp_txflowctlcb_deinit(rpc_tp_info_t *rpc_th);
+-extern void bcm_rpc_tp_txq_wm_set(rpc_tp_info_t *rpc_th, uint8 hiwm, uint8 lowm);
+-extern void bcm_rpc_tp_txq_wm_get(rpc_tp_info_t *rpc_th, uint8 *hiwm, uint8 *lowm);
+-#endif /* WLC_LOW */
+-
+-extern void bcm_rpc_tp_agg_set(rpc_tp_info_t *rpcb, uint32 reason, bool set);
+-extern void bcm_rpc_tp_agg_limit_set(rpc_tp_info_t *rpc_th, uint8 sf, uint16 bytes);
+-extern void bcm_rpc_tp_agg_limit_get(rpc_tp_info_t *rpc_th, uint8 *sf, uint16 *bytes);
+-
+-
+-#define BCM_RPC_TP_MSG_LEVEL_MASK	0x00ff
+-/* dongle msg level */
+-#define RPC_TP_MSG_DNGL_ERR_VAL		0x0001	/* DNGL TP error msg */
+-#define RPC_TP_MSG_DNGL_DBG_VAL		0x0002	/* DNGL TP dbg msg */
+-#define RPC_TP_MSG_DNGL_AGG_VAL		0x0004	/* DNGL TP agg msg */
+-#define RPC_TP_MSG_DNGL_DEA_VAL		0x0008	/* DNGL TP deag msg */
+-
+-/* host msg level */
+-#define RPC_TP_MSG_HOST_ERR_VAL		0x0001	/* DNGL TP error msg */
+-#define RPC_TP_MSG_HOST_DBG_VAL		0x0002	/* DNGL TP dbg msg */
+-#define RPC_TP_MSG_HOST_AGG_VAL		0x0004	/* DNGL TP agg msg */
+-#define RPC_TP_MSG_HOST_DEA_VAL		0x0008	/* DNGL TP deag msg */
+-
+-extern void bcm_rpc_tp_msglevel_set(rpc_tp_info_t *rpc_th, uint8 msglevel, bool high_low);
+-
+-#endif /* _bcm_rpc_tp_h_ */
+diff -Nuar merlin-bkp/include/d11.h merlin-new/include/d11.h
+--- merlin-bkp/include/d11.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/d11.h	2014-02-24 14:15:11.000000000 +0100
+@@ -2,7 +2,7 @@
+  * Chip-specific hardware definitions for
+  * Broadcom 802.11abg Networking Device Driver
+  *
+- * Copyright (C) 2013, Broadcom Corporation
++ * Copyright (C) 2014, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+@@ -10,7 +10,7 @@
+  * or duplicated in any form, in whole or in part, without the prior
+  * written permission of Broadcom Corporation.
+  *
+- * $Id: d11.h 427773 2013-10-04 19:53:12Z $
++ * $Id: d11.h 442776 2013-12-12 21:02:55Z $
+  */
+ 
+ #ifndef	_D11_H
+@@ -439,7 +439,8 @@
+ 	uint16	ifs_slot;		/* 0x684 */
+ 	uint16	PAD;			/* 0x686 */
+ 	uint16	ifs_ctl;		/* 0x688 */
+-	uint16	PAD[0x3];		/* 0x68a - 0x68F */
++	uint16	ifs_boff;		/* 0x68a */
++	uint16	PAD[0x2];		/* 0x68c - 0x68F */
+ 	uint16	ifsstat;		/* 0x690 */
+ 	uint16	ifsmedbusyctl;		/* 0x692 */
+ 	uint16	iftxdur;		/* 0x694 */
+@@ -2634,6 +2635,8 @@
+ #define M_CCA_NOPKT_H	(M_CCA_STATS_BLK + 0x12)
+ #define M_MAC_DOZE_L	(M_CCA_STATS_BLK + 0x14)
+ #define M_MAC_DOZE_H	(M_CCA_STATS_BLK + 0x16)
++#define M_CCA_TXOP_L	(M_CCA_STATS_BLK + 0x18)
++#define M_CCA_TXOP_H	(M_CCA_STATS_BLK + 0x1a)
+ 
+ #define M_CCA_FLAGS	(0x9b7 * 2)
+ 
+diff -Nuar merlin-bkp/include/dbus.h merlin-new/include/dbus.h
+--- merlin-bkp/include/dbus.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/dbus.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,561 +0,0 @@
+-/*
+- * Dongle BUS interface Abstraction layer
+- *   target serial buses like USB, SDIO, SPI, etc.
+- *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+- * 
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- * 
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- *
+- * $Id: dbus.h 422800 2013-09-10 01:12:42Z $
+- */
+-
+-#ifndef __DBUS_H__
+-#define __DBUS_H__
+-
+-#include "typedefs.h"
+-
+-#ifdef BCMDBG
+-#define DBUSERR(args)         printf args
+-#define DBUSINFO(args)
+-#define DBUSTRACE(args)
+-#define DBUSDBGLOCK(args)
+-#else
+-#define DBUSTRACE(args)
+-#define DBUSERR(args)
+-#define DBUSINFO(args)
+-#define DBUSTRACE(args)
+-#define DBUSDBGLOCK(args)
+-#endif
+-
+-#define BCM_OTP_SIZE_43236      84     /* number of 16 bit values */
+-#define BCM_OTP_SW_RGN_43236    24     /* start offset of SW config region */
+-#define BCM_OTP_ADDR_43236      0x18000800 /* address of otp base */
+-
+-#define ERR_CBMASK_TXFAIL       0x00000001
+-#define ERR_CBMASK_RXFAIL       0x00000002
+-#define ERR_CBMASK_ALL          0xFFFFFFFF
+-
+-#define DBUS_CBCTL_WRITE        0
+-#define DBUS_CBCTL_READ         1
+-
+-#define DBUS_TX_RETRY_LIMIT       3     /* retries for failed txirb */
+-#define DBUS_TX_TIMEOUT_INTERVAL  250   /* timeout for txirb complete, in ms */
+-
+-#define DBUS_BUFFER_SIZE_TX         32000
+-#define DBUS_BUFFER_SIZE_RX         24000
+-
+-#define DBUS_BUFFER_SIZE_TX_NOAGG   2048
+-#define DBUS_BUFFER_SIZE_RX_NOAGG   2048
+-
+-enum {
+-	DBUS_OK = 0,
+-	DBUS_ERR = -200,
+-	DBUS_ERR_TIMEOUT,
+-	DBUS_ERR_DISCONNECT,
+-	DBUS_ERR_NODEVICE,
+-	DBUS_ERR_UNSUPPORTED,
+-	DBUS_ERR_PENDING,
+-	DBUS_ERR_NOMEM,
+-	DBUS_ERR_TXFAIL,
+-	DBUS_ERR_TXTIMEOUT,
+-	DBUS_ERR_TXDROP,
+-	DBUS_ERR_RXFAIL,
+-	DBUS_ERR_RXDROP,
+-	DBUS_ERR_TXCTLFAIL,
+-	DBUS_ERR_RXCTLFAIL,
+-	DBUS_ERR_REG_PARAM,
+-	DBUS_STATUS_CANCELLED,
+-	DBUS_ERR_NVRAM,
+-	DBUS_JUMBO_NOMATCH,
+-	DBUS_JUMBO_BAD_FORMAT,
+-	DBUS_NVRAM_NONTXT
+-};
+-
+-/* DBUS types */
+-enum {
+-	DBUS_USB,
+-	DBUS_SDIO,
+-	DBUS_SPI,
+-	DBUS_UNKNOWN
+-};
+-
+-enum dbus_state {
+-	DBUS_STATE_DL_PENDING,
+-	DBUS_STATE_DL_DONE,
+-	DBUS_STATE_UP,
+-	DBUS_STATE_DOWN,
+-	DBUS_STATE_PNP_FWDL,
+-	DBUS_STATE_DISCONNECT,
+-	DBUS_STATE_SLEEP
+-};
+-
+-enum dbus_pnp_state {
+-	DBUS_PNP_DISCONNECT,
+-	DBUS_PNP_SLEEP,
+-	DBUS_PNP_RESUME
+-};
+-
+-enum dbus_file {
+-    DBUS_FIRMWARE,
+-    DBUS_NVFILE
+-};
+-
+-typedef enum _DEVICE_SPEED {
+-	INVALID_SPEED = -1,
+-	LOW_SPEED     =  1, /* USB 1.1: 1.5 Mbps */
+-	FULL_SPEED,         /* USB 1.1: 12  Mbps */
+-	HIGH_SPEED,         /* USB 2.0: 480 Mbps */
+-	SUPER_SPEED,        /* USB 3.0: 4.8 Gbps */
+-} DEVICE_SPEED;
+-
+-typedef struct {
+-	int bustype;
+-	int vid;
+-	int pid;
+-	int devid;
+-	int chiprev;     /* chip revsion number */
+-	int mtu;
+-	int nchan;       /* Data Channels */
+-	int has_2nd_bulk_in_ep;
+-} dbus_attrib_t;
+-
+-/* FIX: Account for errors related to DBUS;
+- * Let upper layer account for packets/bytes
+- */
+-typedef struct {
+-	uint32 rx_errors;
+-	uint32 tx_errors;
+-	uint32 rx_dropped;
+-	uint32 tx_dropped;
+-} dbus_stats_t;
+-
+-/*
+- * Configurable BUS parameters
+- */
+-enum {
+-	DBUS_CONFIG_ID_RXCTL_DEFERRES = 1,
+-	DBUS_CONFIG_ID_TXRXQUEUE
+-};
+-typedef struct {
+-	uint32 config_id;
+-	union {
+-		bool rxctl_deferrespok;
+-		struct {
+-			int maxrxq;
+-			int rxbufsize;
+-			int maxtxq;
+-			int txbufsize;
+-		} txrxqueue;
+-	};
+-} dbus_config_t;
+-
+-/*
+- * External Download Info
+- */
+-typedef struct dbus_extdl {
+-	uint8 *fw;
+-	int fwlen;
+-	uint8 *vars;
+-	int varslen;
+-} dbus_extdl_t;
+-
+-struct dbus_callbacks;
+-struct exec_parms;
+-
+-typedef void *(*probe_cb_t)(void *arg, const char *desc, uint32 bustype, uint32 hdrlen);
+-typedef void (*disconnect_cb_t)(void *arg);
+-typedef void *(*exec_cb_t)(struct exec_parms *args);
+-
+-/* Client callbacks registered during dbus_attach() */
+-typedef struct dbus_callbacks {
+-	void (*send_complete)(void *cbarg, void *info, int status);
+-	void (*recv_buf)(void *cbarg, uint8 *buf, int len);
+-	void (*recv_pkt)(void *cbarg, void *pkt);
+-	void (*txflowcontrol)(void *cbarg, bool onoff);
+-	void (*errhandler)(void *cbarg, int err);
+-	void (*ctl_complete)(void *cbarg, int type, int status);
+-	void (*state_change)(void *cbarg, int state);
+-	void *(*pktget)(void *cbarg, uint len, bool send);
+-	void (*pktfree)(void *cbarg, void *p, bool send);
+-} dbus_callbacks_t;
+-
+-struct dbus_pub;
+-struct bcmstrbuf;
+-struct dbus_irb;
+-struct dbus_irb_rx;
+-struct dbus_irb_tx;
+-struct dbus_intf_callbacks;
+-
+-typedef struct {
+-	void* (*attach)(struct dbus_pub *pub, void *cbarg, struct dbus_intf_callbacks *cbs);
+-	void (*detach)(struct dbus_pub *pub, void *bus);
+-
+-	int (*up)(void *bus);
+-	int (*down)(void *bus);
+-	int (*send_irb)(void *bus, struct dbus_irb_tx *txirb);
+-	int (*recv_irb)(void *bus, struct dbus_irb_rx *rxirb);
+-	int (*cancel_irb)(void *bus, struct dbus_irb_tx *txirb);
+-	int (*send_ctl)(void *bus, uint8 *buf, int len);
+-	int (*recv_ctl)(void *bus, uint8 *buf, int len);
+-	int (*get_stats)(void *bus, dbus_stats_t *stats);
+-	int (*get_attrib)(void *bus, dbus_attrib_t *attrib);
+-
+-	int (*pnp)(void *bus, int evnt);
+-	int (*remove)(void *bus);
+-	int (*resume)(void *bus);
+-	int (*suspend)(void *bus);
+-	int (*stop)(void *bus);
+-	int (*reset)(void *bus);
+-
+-	/* Access to bus buffers directly */
+-	void *(*pktget)(void *bus, int len);
+-	void (*pktfree)(void *bus, void *pkt);
+-
+-	int  (*iovar_op)(void *bus, const char *name, void *params, int plen, void *arg, int len,
+-		bool set);
+-	void (*dump)(void *bus, struct bcmstrbuf *strbuf);
+-	int  (*set_config)(void *bus, dbus_config_t *config);
+-	int  (*get_config)(void *bus, dbus_config_t *config);
+-
+-	bool (*device_exists)(void *bus);
+-	bool (*dlneeded)(void *bus);
+-	int  (*dlstart)(void *bus, uint8 *fw, int len);
+-	int  (*dlrun)(void *bus);
+-	bool (*recv_needed)(void *bus);
+-
+-	void *(*exec_rxlock)(void *bus, exec_cb_t func, struct exec_parms *args);
+-	void *(*exec_txlock)(void *bus, exec_cb_t func, struct exec_parms *args);
+-
+-	int (*tx_timer_init)(void *bus);
+-	int (*tx_timer_start)(void *bus, uint timeout);
+-	int (*tx_timer_stop)(void *bus);
+-
+-	int (*sched_dpc)(void *bus);
+-	int (*lock)(void *bus);
+-	int (*unlock)(void *bus);
+-	int (*sched_probe_cb)(void *bus);
+-
+-	int (*shutdown)(void *bus);
+-
+-	int (*recv_stop)(void *bus);
+-	int (*recv_resume)(void *bus);
+-
+-	int (*recv_irb_from_ep)(void *bus, struct dbus_irb_rx *rxirb, uint ep_idx);
+-
+-	int (*readreg)(void *bus, uint32 regaddr, int datalen, uint32 *value);
+-
+-	/* Add from the bottom */
+-} dbus_intf_t;
+-
+-typedef struct dbus_pub {
+-	struct osl_info *osh;
+-	dbus_stats_t    stats;
+-	dbus_attrib_t   attrib;
+-	enum dbus_state busstate;
+-	DEVICE_SPEED    device_speed;
+-	int   ntxq, nrxq, rxsize;
+-	void  *bus;
+-	struct shared_info *sh;
+-    void *dev_info;
+-} dbus_pub_t;
+-
+-#define BUS_INFO(bus, type) (((type *) bus)->pub->bus)
+-
+-#define	ALIGNED_LOCAL_VARIABLE(var, align) \
+-	uint8  buffer[SDALIGN+64]; \
+-	uint8  *var = (uint8 *)(((uintptr)&buffer[0]) & ~(align-1)) + align;
+-
+-/* IO Request Block (IRB) */
+-typedef struct dbus_irb {
+-	struct dbus_irb *next;  /* it's casted from dbus_irb_tx or dbus_irb_rx struct */
+-} dbus_irb_t;
+-
+-/* General info for all BUS */
+-typedef struct dbus_irbq {
+-	dbus_irb_t *head;
+-	dbus_irb_t *tail;
+-	int cnt;
+-} dbus_irbq_t;
+-
+-typedef struct dbus_irb_rx {
+-	struct dbus_irb irb;  /* Must be first */
+-	uint8 *buf;
+-	int buf_len;
+-	int actual_len;
+-	void *pkt;
+-	void *info;
+-	void *arg;
+-} dbus_irb_rx_t;
+-
+-typedef struct dbus_irb_tx {
+-	struct dbus_irb irb;  /* Must be first */
+-	uint8 *buf;
+-	int len;
+-	void *pkt;
+-	int retry_count;
+-	void *info;
+-	void *arg;
+-	void *send_buf; /* linear  bufffer for LINUX when aggreagtion is enabled */
+-} dbus_irb_tx_t;
+-
+-
+-/* DBUS interface callbacks are different from user callbacks
+- * so, internally, different info can be passed to upper layer
+- */
+-typedef struct dbus_intf_callbacks {
+-	void (*send_irb_timeout)(void *cbarg, dbus_irb_tx_t *txirb);
+-	void (*send_irb_complete)(void *cbarg, dbus_irb_tx_t *txirb, int status);
+-	void (*recv_irb_complete)(void *cbarg, dbus_irb_rx_t *rxirb, int status);
+-	void (*errhandler)(void *cbarg, int err);
+-	void (*ctl_complete)(void *cbarg, int type, int status);
+-	void (*state_change)(void *cbarg, int state);
+-	bool (*isr)(void *cbarg, bool *wantdpc);
+-	bool (*dpc)(void *cbarg, bool bounded);
+-	void (*watchdog)(void *cbarg);
+-	void *(*pktget)(void *cbarg, uint len, bool send);
+-	void (*pktfree)(void *cbarg, void *p, bool send);
+-	struct dbus_irb* (*getirb)(void *cbarg, bool send);
+-	void (*rxerr_indicate)(void *cbarg, bool on);
+-} dbus_intf_callbacks_t;
+-
+-
+-#if defined(EHCI_FASTPATH_TX) || defined(EHCI_FASTPATH_RX)
+-
+-#if !defined(linux)
+-#error "EHCI fastpath is for Linux only."
+-#endif
+-
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
+-/* Backward compatibility */
+-typedef unsigned int gfp_t;
+-
+-#define dma_pool   pci_pool
+-#define dma_pool_create(name, dev, size, align, alloc) \
+-				pci_pool_create(name, dev, size, align, alloc, GFP_DMA | GFP_ATOMIC)
+-#define dma_pool_destroy(pool) pci_pool_destroy(pool)
+-#define dma_pool_alloc(pool, flags, handle)    pci_pool_alloc(pool, flags, handle)
+-#define dma_pool_free(pool, vaddr, addr)       pci_pool_free(pool, vaddr, addr)
+-#define dma_map_single(dev, addr, size, dir)   pci_map_single(dev, addr, size, dir)
+-#define dma_unmap_single(dev, hnd, size, dir)  pci_unmap_single(dev, hnd, size, dir)
+-#define DMA_FROM_DEVICE    PCI_DMA_FROMDEVICE
+-#define DMA_TO_DEVICE      PCI_DMA_TODEVICE
+-#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)) */
+-
+-/* Availability of these functions varies (when present, they have two arguments) */
+-#ifndef hc32_to_cpu
+-#define hc32_to_cpu(x)	le32_to_cpu(x)
+-#define cpu_to_hc32(x)	cpu_to_le32(x)
+-typedef unsigned int __hc32;
+-#else
+-#error Two-argument functions needed
+-#endif
+-
+-/* Private USB opcode base */
+-#define EHCI_FASTPATH         0x31
+-#define EHCI_SET_EP_BYPASS    EHCI_FASTPATH
+-#define EHCI_SET_BYPASS_CB    (EHCI_FASTPATH + 1)
+-#define EHCI_SET_BYPASS_DEV   (EHCI_FASTPATH + 2)
+-#define EHCI_DUMP_STATE       (EHCI_FASTPATH + 3)
+-#define EHCI_SET_BYPASS_POOL  (EHCI_FASTPATH + 4)
+-#define EHCI_CLR_EP_BYPASS    (EHCI_FASTPATH + 5)
+-
+-/*
+- * EHCI QTD structure (hardware and extension)
+- * NOTE that is does not need to (and does not) match its kernel counterpart
+- */
+-#define EHCI_QTD_NBUFFERS      5
+-#define EHCI_QTD_ALIGN         32
+-#define EHCI_BULK_PACKET_SIZE  512
+-#define EHCI_QTD_XACTERR_MAX   32
+-
+-struct ehci_qtd {
+-	/* Hardware map */
+-	volatile uint32_t   qtd_next;
+-	volatile uint32_t   qtd_altnext;
+-	volatile uint32_t   qtd_status;
+-#define	EHCI_QTD_GET_BYTES(x)   (((x)>>16) & 0x7fff)
+-#define	EHCI_QTD_IOC            0x00008000
+-#define	EHCI_QTD_GET_CERR(x)    (((x)>>10) & 0x3)
+-#define EHCI_QTD_SET_CERR(x)    ((x) << 10)
+-#define	EHCI_QTD_GET_PID(x)     (((x)>>8) & 0x3)
+-#define EHCI_QTD_SET_PID(x)     ((x) <<  8)
+-#define EHCI_QTD_ACTIVE         0x80
+-#define EHCI_QTD_HALTED         0x40
+-#define EHCI_QTD_BUFERR         0x20
+-#define EHCI_QTD_BABBLE         0x10
+-#define EHCI_QTD_XACTERR        0x08
+-#define EHCI_QTD_MISSEDMICRO    0x04
+-	volatile uint32_t   qtd_buffer[EHCI_QTD_NBUFFERS];
+-	volatile uint32_t   qtd_buffer_hi[EHCI_QTD_NBUFFERS];
+-
+-	/* Implementation extension */
+-	dma_addr_t          qtd_self;   /* own hardware address */
+-	struct ehci_qtd     *obj_next;  /* software link to the next QTD */
+-	void                *rpc;       /* pointer to the rpc buffer */
+-	size_t              length;     /* length of the data in the buffer */
+-	void                *buff;      /* pointer to the reassembly buffer */
+-	int                 xacterrs;   /* retry counter for qtd xact error */
+-} __attribute__ ((aligned(EHCI_QTD_ALIGN)));
+-
+-#define EHCI_NULL     __constant_cpu_to_le32(1) /* HW null pointer shall be odd */
+-
+-#define SHORT_READ_Q(token) (EHCI_QTD_GET_BYTES(token) != 0 && EHCI_QTD_GET_PID(token) == 1)
+-
+-/* Queue Head */
+-/* NOTE This structure is slightly different from the one in the kernel; but needs to stay
+- * compatible
+- */
+-struct ehci_qh {
+-	/* Hardware map */
+-	volatile uint32_t  qh_link;
+-	volatile uint32_t  qh_endp;
+-	volatile uint32_t  qh_endphub;
+-	volatile uint32_t  qh_curqtd;
+-
+-	/* QTD overlay */
+-	volatile uint32_t  ow_next;
+-	volatile uint32_t  ow_altnext;
+-	volatile uint32_t  ow_status;
+-	volatile uint32_t  ow_buffer [EHCI_QTD_NBUFFERS];
+-	volatile uint32_t  ow_buffer_hi [EHCI_QTD_NBUFFERS];
+-
+-	/* Extension (should match the kernel layout) */
+-	dma_addr_t         unused0;
+-	void               *unused1;
+-	struct list_head   unused2;
+-	struct ehci_qtd    *dummy;
+-	struct ehci_qh     *unused3;
+-
+-	struct ehci_hcd    *unused4;
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
+-	struct kref     unused5;
+-	unsigned        unused6;
+-
+-	uint8_t         unused7;
+-
+-	/* periodic schedule info */
+-	uint8_t         unused8;
+-	uint8_t         unused9;
+-	uint8_t         unused10;
+-	uint16_t        unused11;
+-	uint16_t        unused12;
+-	uint16_t        unused13;
+-	struct usb_device  *unused14;
+-#else
+-	unsigned    unused5;
+-	u8          unused6;
+-
+-	/* periodic schedule info */
+-	u8          unused7;
+-	u8          unused8;
+-	u8          unused9;
+-	unsigned short  unused10;
+-	unsigned short  unused11;
+-#define NO_FRAME ((unsigned short)~0)
+-#ifdef EHCI_QUIRK_FIX
+-	struct usb_device  *unused12;
+-#endif /* EHCI_QUIRK_FIX */
+-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)) */
+-	struct ehci_qtd    *first_qtd;
+-	/* Link to the first QTD; this is an optimized equivalent of the qtd_list field */
+-	/* NOTE that ehci_qh in ehci.h shall reserve this word */
+-} __attribute__ ((aligned(EHCI_QTD_ALIGN)));
+-
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
+-/* The corresponding structure in the kernel is used to get the QH */
+-struct hcd_dev { /* usb_device.hcpriv points to this */
+-	struct list_head  unused0;
+-	struct list_head  unused1;
+-
+-	/* array of QH pointers */
+-	void             *ep[32];
+-};
+-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)) */
+-#endif /* EHCI_FASTPATH_TX || EHCI_FASTPATH_RX */
+-
+-/*
+- * Public Bus Function Interface
+- */
+-extern int dbus_register(int vid, int pid, probe_cb_t prcb, disconnect_cb_t discb, void *prarg,
+-	void *param1, void *param2);
+-extern int dbus_deregister(void);
+-extern dbus_pub_t *dbus_attach(struct osl_info *osh, int rxsize, int nrxq, int ntxq,
+-	void *cbarg, dbus_callbacks_t *cbs, dbus_extdl_t *extdl, struct shared_info *sh);
+-extern void dbus_detach(dbus_pub_t *pub);
+-extern int dbus_up(dbus_pub_t *pub);
+-extern int dbus_down(dbus_pub_t *pub);
+-extern int dbus_stop(dbus_pub_t *pub);
+-extern int dbus_shutdown(dbus_pub_t *pub);
+-extern void dbus_flowctrl_rx(dbus_pub_t *pub, bool on);
+-extern int dbus_send_buf(dbus_pub_t *pub, uint8 *buf, int len, void *info);
+-extern int dbus_send_pkt(dbus_pub_t *pub, void *pkt, void *info);
+-extern int dbus_send_ctl(dbus_pub_t *pub, uint8 *buf, int len);
+-extern int dbus_recv_ctl(dbus_pub_t *pub, uint8 *buf, int len);
+-extern int dbus_recv_bulk(dbus_pub_t *pub, uint32 ep_idx);
+-extern int dbus_get_stats(dbus_pub_t *pub, dbus_stats_t *stats);
+-extern int dbus_get_attrib(dbus_pub_t *pub, dbus_attrib_t *attrib);
+-extern int dbus_get_device_speed(dbus_pub_t *pub);
+-extern int dbus_set_config(dbus_pub_t *pub, dbus_config_t *config);
+-extern int dbus_get_config(dbus_pub_t *pub, dbus_config_t *config);
+-extern void * dbus_get_devinfo(dbus_pub_t *pub);
+-extern void *dbus_pktget(dbus_pub_t *pub, int len);
+-extern void dbus_pktfree(dbus_pub_t *pub, void* pkt);
+-extern int dbus_set_errmask(dbus_pub_t *pub, uint32 mask);
+-extern int dbus_pnp_sleep(dbus_pub_t *pub);
+-extern int dbus_pnp_resume(dbus_pub_t *pub, int *fw_reload);
+-extern int dbus_pnp_disconnect(dbus_pub_t *pub);
+-extern int dbus_iovar_op(dbus_pub_t *pub, const char *name,
+-	void *params, int plen, void *arg, int len, bool set);
+-#ifdef BCMDBG
+-extern void dbus_hist_dump(dbus_pub_t *pub, struct bcmstrbuf *b);
+-#endif /* BCMDBG */
+-extern void *dhd_dbus_txq(const dbus_pub_t *pub);
+-extern uint dhd_dbus_hdrlen(const dbus_pub_t *pub);
+-extern void  dbus_flowctrl_tx(void *dbi, bool on);
+-#if defined(BCM_REQUEST_FW)
+-extern void *dbus_get_fw_nvfile(int devid, uint8 **fw, int *fwlen, int type,
+-	uint16 boardtype, uint16 boardrev);
+-extern void dbus_release_fw_nvfile(void *firmware);
+-#endif  /* #if defined(BCM_REQUEST_FW) */
+-
+-/*
+- * Bus specific Interface
+- * Implemented by dbus_usb.c/dbus_sdio.c
+- */
+-extern int dbus_bus_register(int vid, int pid, probe_cb_t prcb, disconnect_cb_t discb, void *prarg,
+-	dbus_intf_t **intf, void *param1, void *param2);
+-extern int dbus_bus_deregister(void);
+-extern void dbus_bus_fw_get(void *bus, uint8 **fw, int *fwlen, int *decomp);
+-
+-/*
+- * Bus-specific and OS-specific Interface
+- * Implemented by dbus_usb_[linux/ndis].c/dbus_sdio_[linux/ndis].c
+- */
+-extern int dbus_bus_osl_register(int vid, int pid, probe_cb_t prcb, disconnect_cb_t discb,
+-	void *prarg, dbus_intf_t **intf, void *param1, void *param2);
+-extern int dbus_bus_osl_deregister(void);
+-extern int dbus_bus_osl_hw_register(int vid, int pid, probe_cb_t prcb, disconnect_cb_t discb,
+-	void *prarg, dbus_intf_t **intf);
+-extern int dbus_bus_osl_hw_deregister(void);
+-extern uint usbdev_bulkin_eps(void);
+-
+-#if defined(EHCI_FASTPATH_TX) || defined(EHCI_FASTPATH_RX)
+-extern int optimize_qtd_fill_with_rpc(const dbus_pub_t *pub,  int epn, struct ehci_qtd *qtd,
+-	void *rpc, int token, int len);
+-extern int optimize_submit_async(struct ehci_qtd *qtd, int epn);
+-extern struct ehci_qtd *optimize_ehci_qtd_alloc(gfp_t flags);
+-extern void optimize_ehci_qtd_free(struct ehci_qtd *qtd);
+-extern void optimize_submit_rx_request(const dbus_pub_t *pub, int epn, struct ehci_qtd *qtd_in,
+-	void *buf);
+-#endif /* EHCI_FASTPATH_TX || EHCI_FASTPATH_RX */
+-#endif /* __DBUS_H__ */
+diff -Nuar merlin-bkp/include/emf/emf/clist.h merlin-new/include/emf/emf/clist.h
+--- merlin-bkp/include/emf/emf/clist.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/emf/clist.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,81 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: clist.h 241182 2011-02-17 21:50:03Z $
+- */
+-
+-#ifndef _CLIST_H_
+-#define _CLIST_H_
+-
+-typedef struct clist_head
+-{
+-	struct clist_head *next, *prev;
+-} clist_head_t;
+-
+-#define CLIST_DECL_INIT(head) clist_head_t head = { &(head), &(head) }
+-
+-static inline void
+-clist_init_head(clist_head_t *head)
+-{
+-	head->next = head->prev = head;
+-}
+-
+-static inline void
+-clist_add_head(clist_head_t *head, clist_head_t *item)
+-{
+-	head->next->prev = item;
+-	item->next = head->next;
+-	item->prev = head;
+-	head->next = item;
+-
+-	return;
+-}
+-
+-static inline void
+-clist_add_tail(clist_head_t *head, clist_head_t *item)
+-{
+-	item->next = head;
+-	item->prev = head->prev;
+-	head->prev->next = item;
+-	head->prev = item;
+-
+-	return;
+-}
+-
+-static inline void
+-clist_delete(clist_head_t *item)
+-{
+-	item->prev->next = item->next;
+-	item->next->prev = item->prev;
+-
+-	return;
+-}
+-
+-static inline void
+-clist_walk(clist_head_t *head, void (*fn)(clist_head_t *, void *), void *arg)
+-{
+-	clist_head_t *ptr;
+-
+-	ptr = head;
+-
+-	while (ptr->next != head)
+-	{
+-		fn(ptr, arg);
+-		ptr = ptr->next;
+-	}
+-
+-	return;
+-}
+-
+-#define clist_empty(h) ((h)->next == (h))
+-
+-#define clist_entry(p, type, member) \
+-	    ((type *)((char *)(p)-(unsigned long)(&((type *)0)->member)))
+-
+-#endif /* _CLIST_H_ */
+diff -Nuar merlin-bkp/include/emf/emf/emfc_export.h merlin-new/include/emf/emf/emfc_export.h
+--- merlin-bkp/include/emf/emf/emfc_export.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/emf/emfc_export.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,305 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: emfc_export.h 246051 2011-03-12 03:30:44Z $
+- */
+-
+-#ifndef _EMFC_EXPORT_H_
+-#define _EMFC_EXPORT_H_
+-
+-#include <emf/emf/emf_cfg.h>
+-
+-#define SUCCESS                     0
+-#define FAILURE                     -1
+-
+-#define EMF_DROP                    0
+-#define EMF_FORWARD                 1
+-#define EMF_NOP                     1
+-#define EMF_TAKEN                   2
+-#define EMF_FLOOD                   10
+-#define EMF_SENDUP                  11
+-#define EMF_CONVERT_QUERY           12
+-
+-#ifdef EMFDBG
+-
+-#define        EMF_LOG_DEBUG        (1 << 0)
+-#define        EMF_LOG_ERROR        (1 << 1)
+-#define        EMF_LOG_WARN         (1 << 2)
+-#define        EMF_LOG_INFO         (1 << 3)
+-#define        EMF_LOG_MFDB         (1 << 4)
+-
+-#define        EMF_LOG_LVL          (EMF_LOG_ERROR | \
+-	                             EMF_LOG_WARN  | \
+-	                             EMF_LOG_DEBUG | \
+-	                             EMF_LOG_INFO  | \
+-	                             EMF_LOG_MFDB)
+-
+-#if (EMF_LOG_LVL & EMF_LOG_DEBUG)
+-#define EMF_DEBUG(fmt, args...)      printf("EMF_DEBUG: " fmt, ##args)
+-#else /* EMF_LOG_LVL & EMF_LOG_DEBUG */
+-#define EMF_DEBUG(fmt, args...)
+-#endif /* EMF_LOG_LVL & EMF_LOG_DEBUG */
+-
+-#if (EMF_LOG_LVL & EMF_LOG_ERROR)
+-#define EMF_ERROR(fmt, args...)      printf("EMF_ERROR: " fmt, ##args)
+-#else /* EMF_LOG_LVL & EMF_LOG_ERROR */
+-#define EMF_ERROR(fmt, args...)
+-#endif /* EMF_LOG_LVL & EMF_LOG_ERROR */
+-
+-#if (EMF_LOG_LVL & EMF_LOG_WARN)
+-#define EMF_WARN(fmt, args...)      printf("EMF_WARN.: " fmt, ##args)
+-#else /* EMF_LOG_LVL & EMF_LOG_WARN */
+-#define EMF_WARN(fmt, args...)
+-#endif /* EMF_LOG_LVL & EMF_LOG_WARN */
+-
+-#if (EMF_LOG_LVL & EMF_LOG_INFO)
+-#define EMF_INFO(fmt, args...)      printf("EMF_INFO.: " fmt, ##args)
+-#else /* EMF_LOG_LVL & EMF_LOG_INFO */
+-#define EMF_INFO(fmt, args...)
+-#endif /* EMF_LOG_LVL & EMF_LOG_INFO */
+-
+-#if (EMF_LOG_LVL & EMF_LOG_MFDB)
+-#define EMF_MFDB(fmt, args...)      printf("EMF_MFDB.: " fmt, ##args)
+-#else /* EMF_LOG_LVL & EMF_LOG_MFDB */
+-#define EMF_MFDB(fmt, args...)
+-#endif /* EMF_LOG_LVL & EMF_LOG_MFDB */
+-
+-#else /* EMFDBG */
+-
+-#define EMF_DEBUG(fmt, args...)
+-#define EMF_ERROR(fmt, args...)     printf(fmt, ##args)
+-#define EMF_WARN(fmt, args...)
+-#define EMF_INFO(fmt, args...)
+-#define EMF_MFDB(fmt, args...)
+-
+-#endif /* EMFDBG */
+-
+-/* Function pointer declarations */
+-typedef int32   (*forward_fn_ptr)(void *, void *, uint32, void *, bool);
+-typedef void (*sendup_fn_ptr)(void *, void *);
+-typedef int32   (*hooks_register_fn_ptr)(void *);
+-typedef int32   (*hooks_unregister_fn_ptr)(void *);
+-
+-/*
+- * Snooper
+- */
+-typedef struct emfc_snooper
+-{
+-	/* Input function called when an IGMP packet is received by
+-	 * EMFL.
+-	 */
+-	int32   (*input_fn)(struct emfc_snooper *snooper, void *ifp,
+-	                    uint8 *iph, uint8 *igmph, bool rt_port);
+-
+-	/* Function called when EMF is enabled */
+-	int32   (*emf_enable_fn)(struct emfc_snooper *snooper);
+-
+-	/* Function called when EMF is disabled */
+-	int32   (*emf_disable_fn)(struct emfc_snooper *snooper);
+-} emfc_snooper_t;
+-
+-/*
+- * Wrapper specific functions
+- */
+-typedef struct emfc_wrapper
+-{
+-	/* Function called to forward frames on a specific interface */
+-	int32   (*forward_fn)(void *wrapper, void *p, uint32 mgrp_ip,
+-	                    void *txif, bool rt_port);
+-
+-	/* Function called to send packet up the stack */
+-	void (*sendup_fn)(void *wrapper, void *p);
+-
+-	/* Function called to register hooks into the bridge */
+-	int32   (*hooks_register_fn)(void *wrapper);
+-
+-	/* Function called to unregister hooks into the bridge */
+-	int32   (*hooks_unregister_fn)(void *wrapper);
+-} emfc_wrapper_t;
+-
+-struct emfc_info;
+-
+-/*
+- * Description: This function is called from the OS specific module init
+- *              routine to initialize the EMFL. This function primarily
+- *              initializes the EMFL global data and MFDB.
+- *
+- * Input:       inst_id - Instance identier used to associate EMF and
+- *                        IGMP snooper instances.
+- *              emfi    - EMFL OS Specific global data handle
+- *              osh     - OS abstraction layer handle
+- *              wrapper - Wrapper specific info
+- *
+- * Return:      emfc    - EMFL Common code global instance handle
+- */
+-extern struct emfc_info * emfc_init(int8 *inst_id, void *emfi, osl_t *osh, emfc_wrapper_t *wrapper);
+-
+-/*
+- * Description: This function is called from OS specific module exit
+- *              routine. This routine primarily clears the MFDB and
+- *              frees the EMF instance data.
+- *
+- * Input:       emfc - EMFL Common code global instance handle
+- */
+-extern void emfc_exit(struct emfc_info *emfc);
+-
+-/*
+- * Description: This function is called by the OS specific EMFL code
+- *              for every frame seen at the bridge pre and ip post hook
+- *              points. It calls the registered snooper input function
+- *              if the received frame type is an IGMP frame. For multicast
+- *              data frames it handles the frame forwarding. The frame
+- *              forwarding is done based on the information stored in
+- *              the MFDB. MFDB is updated by IGMP snooper module.
+- *
+- * Input:       emfc    - EMFL Common code Global instance handle
+- *              sdu     - Pointer to packet buffer.
+- *              ifp     - Interface on which the packet arrived.
+- *              iph     - Pointer to start of IP header. When IGMP
+- *                        frame is input, it is assumed that the IP
+- *                        header and IGMP header are contiguos.
+- *              rt_port - TRUE when the packet is received from IP
+- *                        Stack, FALSE otherwise.
+- *
+- * Return:      EMF_NOP   - No processing needed by EMF, just return
+- *                          the packet back.
+- *              EMF_TAKEN - EMF has taken the ownership of the packet.
+- *              EMF_DROP  - Indicates the packet should be dropped.
+- */
+-extern uint32 emfc_input(struct emfc_info *emfc, void *sdu, void *ifp,
+-                         uint8 *iph, bool rt_port);
+-
+-/*
+- * Description: This function is called to add MFDB entry. Each MFDB entry
+- *              contains the multicast group address and list of interfaces
+- *              that has participating group members. The caller of the
+- *              function needs to make sure to delete the entry as many
+- *              times as add is done.
+- *
+- * Input:       emfc    - EMFL Common code global instance handle
+- *              mgrp_ip - Multicast group IP address of the entry.
+- *              ifp     - Pointer to the interface on which the member
+- *                        is present.
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_mfdb_membership_add(struct emfc_info *emfc, uint32 mgrp_ip, void *ifp);
+-
+-/*
+- * Description: This function is called by the IGMP snooper layer to delete
+- *              the MFDB entry. It deletes the group entry also if the
+- *              interface entry is last in the group.
+- *
+- * Input:       Same as above function.
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_mfdb_membership_del(struct emfc_info *emfc, uint32 mgrp_ip, void *ifp);
+-
+-/*
+- * Description: This function is called by the IGMP snooper layer to
+- *              register snooper instance with EMFL.
+- *
+- * Input:       inst_id - Instance identier used to associate EMF
+- *                        and IGMP snooper instances.
+- *              emfc    - EMFL Common code global instance handle
+- *              snooper - Contains snooper specific parameters and
+- *                        event callback functions. These functions
+- *                        are called by EMFL on events like IGMP
+- *                        packet receive, EMF enable and disable.
+- *                        The snooper parameter needs to global.
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_igmp_snooper_register(int8 *inst_id, struct emfc_info **emfc,
+-                                        emfc_snooper_t *snooper);
+-
+-/*
+- * Description: This function is called by the IGMP snooper layer to
+- *              unregister snooper instance.
+- *
+- * Input:       handle  - Handle returned during registration.
+- *              snooper - Same as above.
+- */
+-extern void emfc_igmp_snooper_unregister(struct emfc_info *emfc);
+-
+-/*
+- * Description: This function is called from the OS Specific layer when
+- *              user issues a configuration command.
+- *
+- * Input:        emfc - EMFL Common code global instance handle
+- *
+- * Input/Output: cfg  - Pointer to configuration request data. It
+- *                      contains the command id, operation type,
+- *                      corresponding arguments and output status.
+- */
+-extern void emfc_cfg_request_process(struct emfc_info *emfc, emf_cfg_request_t *cfg);
+-
+-/*
+- * Description: This function is called from OS specific module init
+- *              routine. It allocates global resources required by the
+- *              common code.
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_module_init(void);
+-
+-/*
+- * Description: This function is called from OS specific module cleanup
+- *              routine. It frees all the global resources.
+- */
+-extern void emfc_module_exit(void);
+-
+-/*
+- * Description: This function is called by the IGMP Snooper to add a Router
+- *              Port. Router Port is the interface on which the IGMP Snooper
+- *              determines that a multicast router is present. We set a bit
+- *              in the flag field of the interface list entry to mark it as
+- *              router port.
+- *
+- * Input:       emfc - EMFC Global Instance handle
+- *              ifp  - Interface pointer
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_rtport_add(struct emfc_info *emfc, void *ifp);
+-
+-/*
+- * Description: This function is called by the IGMP Snooper to delete a
+- *              Router Port. We clear the corresponding bit in the flags
+- *              field to mark the port as non-router port.
+- *
+- * Input:       emfc - EMFC Global Instance handle
+- *              ifp  - Interface pointer
+- *
+- * Return:      SUCCESS or FAILURE
+- */
+-extern int32 emfc_rtport_del(struct emfc_info *emfc, void *ifp);
+-
+-/*
+- * Description: This function is called by OS Specific layer when user issues
+- *              configuration command to add an interface. It adds an entry to
+- *              the global interface list maintained by EMFC.
+- *
+- * Input:       emfc - EMFC Global Instance handle
+- *              ifp  - Interface pointer
+- */
+-extern int32 emfc_iflist_add(struct emfc_info *emfc, void *ifp);
+-
+-/*
+- * Description: This function is called by OS Specific layer when user issues
+- *              configuration command to delete an interface. It removes an
+- *              entry from the global interface list maintained by EMFC.
+- *
+- * Input:       emfc - EMFC Global Instance handle
+- *              ifp  - Interface pointer
+- */
+-extern int32 emfc_iflist_del(struct emfc_info *emfc, void *ifp);
+-
+-#endif /* _EMFC_EXPORT_H_ */
+diff -Nuar merlin-bkp/include/emf/emf/emf_cfg.h merlin-new/include/emf/emf/emf_cfg.h
+--- merlin-bkp/include/emf/emf/emf_cfg.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/emf/emf_cfg.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,135 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: emf_cfg.h 390729 2013-03-13 11:22:14Z $
+- */
+-
+-#ifndef _EMF_CFG_H_
+-#define _EMF_CFG_H_
+-
+-#define SUCCESS                     0
+-#define FAILURE                     -1
+-
+-#define EMFCFG_MAX_ARG_SIZE         1024
+-
+-#define EMFCFG_CMD_EMF_ENABLE       1
+-#define EMFCFG_CMD_MFDB_ADD         2
+-#define EMFCFG_CMD_MFDB_DEL         3
+-#define EMFCFG_CMD_MFDB_CLEAR       4
+-#define EMFCFG_CMD_MFDB_LIST        5
+-#define EMFCFG_CMD_BR_ADD           6
+-#define EMFCFG_CMD_BR_DEL           7
+-#define EMFCFG_CMD_BR_LIST          8
+-#define EMFCFG_CMD_IF_ADD           9
+-#define EMFCFG_CMD_IF_DEL           10
+-#define EMFCFG_CMD_IF_LIST          11
+-#define EMFCFG_CMD_UFFP_ADD         12
+-#define EMFCFG_CMD_UFFP_DEL         13
+-#define EMFCFG_CMD_UFFP_LIST        14
+-#define EMFCFG_CMD_RTPORT_ADD       15
+-#define EMFCFG_CMD_RTPORT_DEL       16
+-#define EMFCFG_CMD_RTPORT_LIST      17
+-#define EMFCFG_CMD_EMF_STATS        18
+-#define EMFCFG_CMD_MC_DATA_IND      19
+-
+-#define EMFCFG_OPER_TYPE_GET        1
+-#define EMFCFG_OPER_TYPE_SET        2
+-
+-#define EMFCFG_STATUS_SUCCESS       1
+-#define EMFCFG_STATUS_FAILURE       2
+-#define EMFCFG_STATUS_CMD_UNKNOWN   3
+-#define EMFCFG_STATUS_OPER_UNKNOWN  4
+-#define EMFCFG_STATUS_INVALID_IF    5
+-
+-typedef struct emf_cfg_request
+-{
+-	uint8   inst_id[16];            /* Bridge name as instance identifier */
+-	uint32  command_id;             /* Command identifier */
+-	uint32  oper_type;              /* Operation type: GET, SET */
+-	uint32  status;                 /* Command status */
+-	uint32  size;                   /* Size of the argument */
+-	                                /* Command arguments */
+-	uint8   arg[EMFCFG_MAX_ARG_SIZE];
+-} emf_cfg_request_t;
+-
+-typedef struct emf_cfg_mfdb
+-{
+-	uint32  mgrp_ip;                /* Multicast Group address */
+-	uint8   if_name[16];            /* Interface on which members are present */
+-	void    *if_ptr;                /* Interface pointer (kernel only) */
+-} emf_cfg_mfdb_t;
+-
+-typedef struct emf_cfg_mfdb_list
+-{
+-	uint32  num_entries;            /* Number of entries in MFDB */
+-	struct mfdb_entry
+-	{
+-		uint32  mgrp_ip;        /* Multicast Group address */
+-		uint8   if_name[16];    /* Interface name */
+-		uint32  pkts_fwd;       /* Number of packets forwarded */
+-		void    *if_ptr;        /* Interface pointer (kernel only) */
+-	} mfdb_entry[0];
+-} emf_cfg_mfdb_list_t;
+-
+-typedef struct emf_cfg_if
+-{
+-	uint8   if_name[16];            /* Name of the interface */
+-} emf_cfg_if_t;
+-
+-typedef struct emf_cfg_if_list
+-{
+-	uint32        num_entries;      /* Number of entries in EMF if list */
+-	emf_cfg_if_t  if_entry[0];      /* Interface entry data */
+-} emf_cfg_if_list_t;
+-
+-typedef struct emf_cfg_uffp
+-{
+-	uint8   if_name[16];            /* Name of the interface */
+-	void    *if_ptr;                /* Interface pointer (kernel only) */
+-} emf_cfg_uffp_t;
+-
+-typedef struct emf_cfg_uffp_list
+-{
+-	uint32          num_entries;    /* Number of entries in UFFP list */
+-	emf_cfg_uffp_t  uffp_entry[0];  /* Interface entry data */
+-} emf_cfg_uffp_list_t;
+-
+-typedef struct emf_cfg_rtport
+-{
+-	uint8   if_name[16];            /* Name of the interface */
+-	void    *if_ptr;                /* Interface pointer (kernel only) */
+-} emf_cfg_rtport_t;
+-
+-typedef struct emf_cfg_rtport_list
+-{
+-	uint32           num_entries;     /* Number of entries in UFFP list */
+-	emf_cfg_rtport_t rtport_entry[0]; /* Interface entry data */
+-} emf_cfg_rtport_list_t;
+-
+-/*
+- * Multicast Forwarding Layer Statistics
+- */
+-typedef struct emf_stats
+-{
+-	uint32	igmp_frames;            /* IGMP frames received */
+-	uint32	igmp_frames_fwd;        /* IGMP membership quries received */
+-	uint32	igmp_frames_sentup;     /* IGMP membership reports seen */
+-	uint32	igmp_frames_dropped;    /* IGMP frames dropped */
+-	uint32	mcast_data_frames;      /* Multicast data frames received */
+-	uint32	mcast_data_fwd;         /* Multicast data frames forwarded */
+-	uint32	mcast_data_flooded;     /* Multicast data frames flooded */
+-	uint32	mcast_data_sentup;      /* Multicast data frames sent up */
+-	uint32	mcast_data_dropped;     /* Multicast data frames dropped */
+-	uint32	mfdb_cache_hits;        /* MFDB cache hits */
+-	uint32	mfdb_cache_misses;      /* MFDB cache misses */
+-} emf_stats_t;
+-
+-extern void emf_cfg_request_process(emf_cfg_request_t *cfg);
+-
+-#endif /* _EMF_CFG_H_ */
+diff -Nuar merlin-bkp/include/emf/emf/emfc.h merlin-new/include/emf/emf/emfc.h
+--- merlin-bkp/include/emf/emf/emfc.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/emf/emfc.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,100 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: emfc.h 406828 2013-06-10 22:52:43Z $
+- */
+-
+-#ifndef _EMFC_H_
+-#define _EMFC_H_
+-
+-#define MFDB_HASHT_SIZE         8
+-#define MFDB_MGRP_HASH(m)       ((((m) >> 24) + ((m) >> 16) + \
+-				  ((m) >> 8) + ((m) & 0xff)) & 7)
+-
+-#define IP_ISMULTI(a)           (((a) & 0xf0000000) == 0xe0000000)
+-#define MCAST_ADDR_LINKLOCAL(a) (((a) & 0xffffff00) == 0xe0000000)
+-#define MCAST_ADDR_UPNP_SSDP(a) ((a) == 0xeffffffa)
+-
+-#define EMFC_STATS_INCR(emfc, member) (((emfc)->stats.member)++)
+-
+-#define EMFC_PROT_STATS_INCR(emfc, proto, mem1, mem2) (((proto) == IP_PROT_IGMP) ? \
+-	                                               (((emfc)->stats.mem1)++) : \
+-	                                               (((emfc)->stats.mem2)++))
+-
+-/*
+- * Multicast Group entry of MFDB
+- */
+-typedef struct emfc_mgrp
+-{
+-	clist_head_t     mgrp_hlist;    /* Multicast Groups hash list */
+-	uint32           mgrp_ip;       /* Multicast Group IP Address */
+-	clist_head_t     mi_head;       /* List head of interfaces */
+-} emfc_mgrp_t;
+-
+-/*
+- * Multicast Interface entry of MFDB
+- */
+-typedef struct emfc_mhif
+-{
+-	struct emfc_mhif *next;         /* Multicast host i/f prev and next */
+-	void             *mhif_ifp;     /* Interface pointer */
+-	uint32           mhif_data_fwd; /* Number of MCASTs sent on the i/f */
+-} emfc_mhif_t;
+-
+-typedef struct emfc_mi
+-{
+-	clist_head_t     mi_list;       /* Multicast i/f list prev and next */
+-	emfc_mhif_t      *mi_mhif;      /* MH interface data */
+-	uint32           mi_ref;        /* Ref count of updates */
+-	uint32           mi_data_fwd;   /* Number of MCASTs of group fwd */
+-} emfc_mi_t;
+-
+-/*
+- * Interface list managed by EMF instance. Instead of having separate lists
+- * for router ports and unregistered frames forwarding ports (uffp) we use
+- * one interface list. Each interface list entry has flags (infact ref count)
+- * indicating the entry type. An interface can be of type rtport, uffp or
+- * both. As a general rule IGMP frames are forwarded on rtport type interfaces.
+- * Unregistered data frames are forwarded on to rtport and uffp interfaces.
+- */
+-typedef struct emfc_iflist
+-{
+-	struct emfc_iflist *next;       /* Interface list next */
+-	void               *ifp;        /* Interface pointer */
+-	uint32             uffp_ref;    /* Ref count for UFFP type */
+-	uint32             rtport_ref;  /* Ref count for rtport type */
+-} emfc_iflist_t;
+-
+-/*
+- * Multicast Forwarding Layer Information
+- */
+-typedef struct emfc_info
+-{
+-	clist_head_t     emfc_list;     /* EMFC instance list prev and next */
+-	int8             inst_id[16];   /* EMFC instance identifier */
+-	                                /* Multicast forwarding database */
+-	clist_head_t     mgrp_fdb[MFDB_HASHT_SIZE];
+-	emfc_mhif_t      *mhif_head;    /* Multicast Host interface list */
+-	uint32           mgrp_cache_ip; /* Multicast Group IP Addr in cache */
+-	emfc_mgrp_t      *mgrp_cache;   /* Multicast Group cached entry */
+-	osl_lock_t       fdb_lock;      /* Lock for FDB access */
+-	void             *osh;          /* OS Layer handle */
+-	void             *emfi;         /* OS Specific MFL data */
+-	emf_stats_t      stats;         /* Multicast frames statistics */
+-	emfc_snooper_t	 *snooper;	/* IGMP Snooper data */
+-	emfc_wrapper_t   wrapper;       /* EMFC wrapper info  */
+-	bool		 emf_enable;	/* Enable/Disable EMF */
+-	bool		 mc_data_ind;	/* Indicate mcast data frames */
+-	osl_lock_t       iflist_lock;   /* Lock for UFFP list access */
+-	emfc_iflist_t    *iflist_head;  /* UFFP list head */
+-} emfc_info_t;
+-
+-static emfc_mgrp_t *emfc_mfdb_group_find(emfc_info_t *emfc, uint32 mgrp_ip);
+-
+-#endif /* _EMFC_H_ */
+diff -Nuar merlin-bkp/include/emf/igs/igsc_export.h merlin-new/include/emf/igs/igsc_export.h
+--- merlin-bkp/include/emf/igs/igsc_export.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/igs/igsc_export.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,169 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: igsc_export.h 241182 2011-02-17 21:50:03Z $
+- */
+-
+-#ifndef _IGSC_EXPORT_H_
+-#define _IGSC_EXPORT_H_
+-
+-#ifdef IGSDBG
+-
+-#define	IGS_LOG_DEBUG                   (1 << 0)
+-#define	IGS_LOG_ERROR                   (1 << 1)
+-#define	IGS_LOG_WARN                    (1 << 2)
+-#define	IGS_LOG_INFO                    (1 << 3)
+-#define	IGS_LOG_IGSDB                   (1 << 4)
+-
+-#define	IGS_LOG_LVL                     (IGS_LOG_ERROR | \
+-					 IGS_LOG_WARN  | \
+-					 IGS_LOG_DEBUG | \
+-					 IGS_LOG_INFO  | \
+-					 IGS_LOG_IGSDB)
+-
+-#if (IGS_LOG_LVL & IGS_LOG_DEBUG)
+-#define IGS_DEBUG(fmt, args...)         printf("IGS_DEBUG: " fmt, ##args)
+-#else /* IGS_LOG_LVL & IGS_LOG_DEBUG */
+-#define IGS_DEBUG(fmt, args...)
+-#endif /* IGS_LOG_LVL & IGS_LOG_DEBUG */
+-
+-#if (IGS_LOG_LVL & IGS_LOG_ERROR)
+-#define IGS_ERROR(fmt, args...)         printf("IGS_ERROR: " fmt, ##args)
+-#else /* IGS_LOG_LVL & IGS_LOG_ERROR */
+-#define IGS_ERROR(fmt, args...)
+-#endif /* IGS_LOG_LVL & IGS_LOG_ERROR */
+-
+-#if (IGS_LOG_LVL & IGS_LOG_WARN)
+-#define IGS_WARN(fmt, args...)          printf("IGS_WARN.: " fmt, ##args)
+-#else /* IGS_LOG_LVL & IGS_LOG_WARN */
+-#define IGS_WARN(fmt, args...)
+-#endif /* IGS_LOG_LVL & IGS_LOG_WARN */
+-
+-#if (IGS_LOG_LVL & IGS_LOG_INFO)
+-#define IGS_INFO(fmt, args...)          printf("IGS_INFO.: " fmt, ##args)
+-#else /* IGS_LOG_LVL & IGS_LOG_INFO */
+-#define IGS_INFO(fmt, args...)
+-#endif /* IGS_LOG_LVL & IGS_LOG_INFO */
+-
+-#if (IGS_LOG_LVL & IGS_LOG_IGSDB)
+-#define IGS_IGSDB(fmt, args...)         printf("IGS_IGSDB: " fmt, ##args)
+-#else /* IGS_LOG_LVL & IGS_LOG_IGSDB */
+-#define IGS_IGSDB(fmt, args...)
+-#endif /* IGS_LOG_LVL & IGS_LOG_IGSDB */
+-
+-#else /* IGSDBG */
+-
+-#define IGS_DEBUG(fmt, args...)
+-#define IGS_ERROR(fmt, args...)         printf(fmt, ##args)
+-#define IGS_WARN(fmt, args...)
+-#define IGS_INFO(fmt, args...)
+-#define IGS_IGSDB(fmt, args...)
+-
+-#endif /* IGSDBG */
+-
+-typedef int32 (*igs_broadcast_fn_ptr)(void *wrapper, uint8 *ip, uint32 length, uint32 mgrp_ip);
+-
+-/*
+- * Wrapper specific functions 
+- */
+-typedef struct igsc_wrapper
+-{
+-
+-	/* Function called to broadcast IGMP query*/
+-	int32 (*igs_broadcast)(void *wrapper, uint8 *ip, uint32 length, uint32 mgrp_ip);
+-
+-}igsc_wrapper_t;
+-
+-struct igsc_info;
+-
+-/*
+- * Description: This function is called from the OS specific module init
+- *              routine to initialize the IGSL. This function primarily
+- *              initializes the IGMP Snooping Layer global (IGSL) data and
+- *              IGSDB. It also associates the snooper instance with EMF
+- *              instance.
+- *
+- * Input:       inst_id    - IGS instance identifier.
+- *              igs_info   - IGSL OS Specific global data handle
+- *              osh        - OS abstraction layer handle
+- *              emf_handle - Handle to use when interfacing with EMF.
+- *              wrapper    - Wrapper spcific info.
+- *
+- * Return:      igsc_info - IGSL Common code global data handle
+- */
+-extern void * igsc_init(int8 *inst_id, void *igs_info, osl_t *osh, igsc_wrapper_t *wrapper);
+-
+-/*
+- * Description: This function is called from OS specific module exit routine
+- *              This routine primarily stops the group interval timers,
+- *              deletes and frees up the IGSDB entries.
+- *
+- * Input:       igs_info - IGSL OS Specific global data handle
+- */
+-extern void igsc_exit(struct igsc_info *igsc_info);
+-
+-/*
+- * Description: This function returns various packet counters and global
+- *              stats of IGSL. It is called from the IGSL OS specific
+- *              command handler.
+- *
+- * Input:       igsc_info - IGSL Common code global instance handle
+- *              size      - Size of the input buffer.
+- *
+- * Output:      stats - Pointer to structure of type igs_stats_t
+- *
+- * Return:      SUCCESS or FAILURE.
+- */
+-extern int32 igsc_stats_get(struct igsc_info *igsc_info, igs_stats_t *stats, uint32 size);
+-
+-/*
+- * Description: This function clears the group interval timers and
+- *              deletes the group, host and interface entries of the
+- *              IGSDB.
+- *
+- * Input:       igs_info - IGSL OS Specific global data handle
+- */
+-extern void igsc_sdb_clear(struct igsc_info *igsc_info);
+-
+-/*
+- * Description: This function is called to obtain the IGSDB entry list.
+- */
+-extern int32 igsc_sdb_list(struct igsc_info *igsc_info, igs_cfg_sdb_list_t *list, uint32 size);
+-
+-/*
+- * Description: This function is called from the OS Specific layer when
+- *              user issues a configuration command.
+- *
+- * Input:        igs_info - IGSC global instance handle
+- *
+- * Input/Output: cfg  - Pointer to configuration request data. It
+- *                      contains the command id, operation type,
+- *                      corresponding arguments and output status.
+- */
+-extern void igsc_cfg_request_process(struct igsc_info *igsc_info, igs_cfg_request_t *cfg);
+-
+-/*
+- * Description: This function is called to delete igsc sdb entries
+- *		specific to an interface
+- *
+- * Input:        igs_info - IGSC global instance handle
+- *		 ifp      - Interface pointer
+- */
+-extern int32 igsc_sdb_interface_del(struct igsc_info *igsc_info, void *ifp);
+-
+-/*
+- * Description: This function is called to delete igsc sdb rtport entries
+- *		specific to an interface
+- *
+- * Input:        igs_info - IGSC global instance handle
+- *		 ifp      - Interface pointer
+- */
+-extern int32 igsc_interface_rtport_del(struct igsc_info *igsc_info, void *ifp);
+-
+-#endif /* _IGSC_EXPORT_H_ */
+diff -Nuar merlin-bkp/include/emf/igs/igs_cfg.h merlin-new/include/emf/igs/igs_cfg.h
+--- merlin-bkp/include/emf/igs/igs_cfg.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/igs/igs_cfg.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,89 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- */
+-
+-#ifndef _IGS_CFG_H_
+-#define _IGS_CFG_H_
+-
+-#define SUCCESS                     0
+-#define FAILURE                     -1
+-
+-#define IGSCFG_MAX_ARG_SIZE         1024
+-
+-#define IGSCFG_CMD_BR_ADD           1
+-#define IGSCFG_CMD_BR_DEL           2
+-#define IGSCFG_CMD_BR_LIST          3
+-#define IGSCFG_CMD_IGSDB_LIST       4
+-#define IGSCFG_CMD_RTPORT_LIST      5
+-#define IGSCFG_CMD_IGS_STATS        6
+-
+-#define IGSCFG_OPER_TYPE_GET        1
+-#define IGSCFG_OPER_TYPE_SET        2
+-
+-#define IGSCFG_STATUS_SUCCESS       1
+-#define IGSCFG_STATUS_FAILURE       2
+-#define IGSCFG_STATUS_CMD_UNKNOWN   3
+-#define IGSCFG_STATUS_OPER_UNKNOWN  4
+-#define IGSCFG_STATUS_INVALID_IF    5
+-
+-typedef struct igs_cfg_request
+-{
+-	uint8   inst_id[16];              /* Bridge name as instance id */
+-	uint32  command_id;               /* Command identifier */
+-	uint32  oper_type;                /* Operation type: GET, SET */
+-	uint32  status;                   /* Command status */
+-	uint32  size;                     /* Size of the argument */
+-	uint8   arg[IGSCFG_MAX_ARG_SIZE]; /* Command arguments */
+-} igs_cfg_request_t;
+-
+-typedef struct igs_cfg_sdb_list
+-{
+-	uint32  num_entries;              /* Num of entries in IGSDB */
+-	struct sdb_entry
+-	{
+-		uint32 mgrp_ip;           /* Multicast group address */
+-		uint32 mh_ip;             /* Member IP address */
+-		uint8  if_name[16];       /* Interface member is present */
+-	} sdb_entry[0];
+-} igs_cfg_sdb_list_t;
+-
+-typedef struct igs_cfg_rtport
+-{
+-	uint32  mr_ip;                  /* IP address of mcast router */
+-	uint8   if_name[16];            /* Name of the interface */
+-} igs_cfg_rtport_t;
+-
+-typedef struct igs_cfg_rtport_list
+-{
+-	uint32           num_entries;     /* Number of entries in RTPORT list */
+-	igs_cfg_rtport_t rtport_entry[0]; /* Interface entry data */
+-} igs_cfg_rtport_list_t;
+-
+-/*
+- * IGMP Snooping Layer Statistics
+- */
+-typedef struct igs_stats
+-{
+-	uint32  igmp_packets;             /* IGMP packets received */
+-	uint32  igmp_queries;             /* IGMP membership quries received */
+-	uint32  igmp_reports;             /* IGMP membership reports */
+-	uint32  igmp_v2reports;           /* IGMP v2 membership reports */
+-	uint32  igmp_leaves;              /* IGMP membership leaves */
+-	uint32  igmp_not_handled;         /* IGMP frames not handled */
+-	uint32  igmp_mem_timeouts;        /* IGMP membership timeouts */
+-	uint32  igmp_frames_fwd;          /* IGMP membership quries received */
+-	uint32  igmp_frames_sentup;       /* IGMP membership reports seen */
+-	uint32  igmp_mcast_groups;        /* Current total of mcast groups */
+-	uint32  igmp_mcast_members;       /* Current total of mcast members */
+-} igs_stats_t;
+-
+-extern void igs_cfg_request_process(igs_cfg_request_t *cfg);
+-
+-#endif /* _IGS_CFG_H_ */
+diff -Nuar merlin-bkp/include/emf/igs/igsc.h merlin-new/include/emf/igs/igsc.h
+--- merlin-bkp/include/emf/igs/igsc.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/igs/igsc.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,116 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: igsc.h 387389 2013-02-25 21:05:20Z $
+- */
+-
+-#ifndef _IGSC_H_
+-#define _IGSC_H_
+-
+-#define IGSDB_HASHT_SIZE                        8
+-
+-#define IGMPV2_TYPE_OFFSET                      0
+-#define IGMPV2_MAXRSP_TIME_OFFSET               1
+-#define IGMPV2_CHECKSUM_OFFSET                  2
+-#define IGMPV2_GRP_ADDR_OFFSET                  4
+-
+-#define IGMPV2_HOST_MEMBERSHIP_QUERY            0x11
+-#define IGMPV2_HOST_MEMBERSHIP_REPORT           0x12
+-#define IGMPV2_HOST_NEW_MEMBERSHIP_REPORT       0x16
+-#define IGMPV2_LEAVE_GROUP_MESSAGE              0x17
+-
+-#define IGMPV2_QUERY_INTV                       130000
+-#define IGMPV2_MAXRSP_TIME                      10000
+-#define IGMPV2_ROBUSTNESS_VAR                   2
+-#define IGMPV2_GRP_MEM_INTV                     ((IGMPV2_ROBUSTNESS_VAR * \
+-	                                         IGMPV2_QUERY_INTV) + IGMPV2_MAXRSP_TIME)
+-
+-#define IPV4_MIN_HLEN                           20
+-#define IGMP_HLEN                               8
+-#define IPV4_LEN_OFFSET                         2
+-#define IPV4_ID_OFFSET                          4
+-#define IPV4_FRAG_OFFSET                        6
+-#define IPV4_TTL_OFFSET                         8
+-#define IPV4_MCADDR_ALLHOSTS                    (0xe0000001U)
+-#define IP_ISMULTI(addr)                        (((addr) & 0xf0000000) == 0xe0000000)
+-
+-#define IGSC_STATS_INCR(igsc, member)           (((igsc)->stats.member)++)
+-#define IGSC_STATS_DECR(igsc, member)           (((igsc)->stats.member)--)
+-
+-/*
+- * IGMP Snooping Layer data
+- */
+-typedef struct igsc_info
+-{
+-	                                        /* IGMP Snooping database */
+-	clist_head_t     mgrp_sdb[IGSDB_HASHT_SIZE];
+-	osl_lock_t       sdb_lock;              /* Lock for IGSDB access */
+-	struct emfc_info *emf_handle;           /* Handle for EMF interfaces */
+-	uint32           grp_mem_intv;          /* Group Membership interval */
+-	uint32           query_intv;            /* Query interval */
+-	void             *osh;                  /* OS Layer handle */
+-	void             *igs_info;             /* OS Specific IGS data */
+-	emfc_snooper_t   snooper;               /* Snooper data */
+-	igsc_wrapper_t   wrapper;               /* Wrapper data */
+-	clist_head_t     rtlist_head;           /* Router port list head */
+-	osl_lock_t       rtlist_lock;           /* Lock for router port list */
+-	igs_stats_t      stats;                 /* Multicast frames statistics */
+-} igsc_info_t;
+-
+-#define IGSC_INFO(s) ((igsc_info_t *)((char *)(s)-(unsigned long)(&((igsc_info_t *)0)->snooper)))
+-
+-/*
+- * Router port list entry
+- */
+-typedef struct igsc_rtlist
+-{
+-	clist_head_t     list;                  /* Router port list prev and next */
+-	void             *ifp;                  /* Interface on which mcast router
+-	                                         * is seen.
+-	                                         */
+-	uint32           mr_ip;                 /* IP address of mcast router */
+-	osl_timer_t      *rtlist_timer;         /* Timer for router entry */
+-	igsc_info_t      *igsc_info;            /* IGSC Instance data */
+-} igsc_rtlist_t;
+-
+-typedef struct mc_grp_spl
+-{
+-	uint32	addr;
+-	uint32	mask;
+-} mc_grp_spl_t;
+-
+-#define IGMPV3_HOST_MEMBERSHIP_REPORT	0x22	/* V3 version of 0x11 */
+-
+-#define IGMPV3_MODE_IS_INCLUDE		1
+-#define IGMPV3_MODE_IS_EXCLUDE		2
+-#define IGMPV3_CHANGE_TO_INCLUDE	3
+-#define IGMPV3_CHANGE_TO_EXCLUDE	4
+-#define IGMPV3_ALLOW_NEW_SOURCES	5
+-#define IGMPV3_BLOCK_OLD_SOURCES	6
+-
+-typedef struct igmpv3_report {
+-	uint8 type;
+-	uint8 reserved1;
+-	uint16 checksum;
+-	uint16 reserved2;
+-	uint16 group_num;
+-} igmpv3_report_t;
+-
+-
+-typedef struct igmpv3_group {
+-	uint8 type;
+-	uint8 aux_len;
+-	uint16 src_num;
+-	uint32 mcast_addr;
+-} igmpv3_group_t;
+-
+-#define IGMPV3_SRC_ADDR_LEN	4
+-
+-
+-#endif /* _IGSC_H_ */
+diff -Nuar merlin-bkp/include/emf/igs/igsc_sdb.h merlin-new/include/emf/igs/igsc_sdb.h
+--- merlin-bkp/include/emf/igs/igsc_sdb.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/igs/igsc_sdb.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,64 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: igsc_sdb.h 241182 2011-02-17 21:50:03Z $
+- */
+-
+-#ifndef _IGSC_SDB_H_
+-#define _IGSC_SDB_H_
+-
+-#define IGSDB_MGRP_HASH(m)     ((((m) >> 24) + ((m) >> 16) + \
+-				 ((m) >> 8) + ((m) & 0xff)) & 7)
+-
+-/*
+- * Group entry of IGSDB
+- */
+-typedef struct igsc_mgrp
+-{
+-	clist_head_t   mgrp_hlist;   /* Multicast Groups hash list */
+-	uint32         mgrp_ip;      /* Multicast Group IP Address */
+-	clist_head_t   mh_head;      /* List head of group members */
+-	clist_head_t   mi_head;      /* List head of interfaces */
+-	igsc_info_t    *igsc_info;   /* IGSC instance data */
+-} igsc_mgrp_t;
+-
+-/*
+- * Interface entry of IGSDB
+- */
+-typedef struct igsc_mi
+-{
+-	clist_head_t   mi_list;      /* Multicast i/f list prev and next */
+-	void           *mi_ifp;      /* Interface pointer */
+-	int32          mi_ref;       /* Ref count of hosts on the i/f */
+-} igsc_mi_t;
+-
+-/*
+- * Host entry of IGSDB
+- */
+-typedef struct igsc_mh
+-{
+-	clist_head_t   mh_list;      /* Group members list prev and next */
+-	uint32         mh_ip;        /* Unicast IP address of host */
+-	igsc_mgrp_t    *mh_mgrp;     /* Multicast forwarding entry for the
+-	                              * group
+-	                              */
+-	osl_timer_t    *mgrp_timer;  /* Group Membership Interval timer */
+-	igsc_mi_t      *mh_mi;       /* Interface connected to host */
+-} igsc_mh_t;
+-
+-/*
+- * Prototypes
+- */
+-int32 igsc_sdb_member_add(igsc_info_t *igsc_info, void *ifp, uint32 mgrp_ip,
+-                          uint32 mh_ip);
+-int32 igsc_sdb_member_del(igsc_info_t *igsc_info, void *ifp, uint32 mgrp_ip,
+-                          uint32 mh_ip);
+-void igsc_sdb_init(igsc_info_t *igsc_info);
+-
+-#endif /* _IGSC_SDB_H_ */
+diff -Nuar merlin-bkp/include/emf/igs/osl_linux.h merlin-new/include/emf/igs/osl_linux.h
+--- merlin-bkp/include/emf/igs/osl_linux.h	2013-11-30 08:31:20.000000000 +0100
++++ merlin-new/include/emf/igs/osl_linux.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,80 +0,0 @@
+-/*
+- * Copyright (C) 2013, Broadcom Corporation
+- * All Rights Reserved.
+- * 
+- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+- * the contents of this file may not be disclosed to third parties, copied
+- * or duplicated in any form, in whole or in part, without the prior
+- * written permission of Broadcom Corporation.
+- *
+- * $Id: osl_linux.h 347400 2012-07-26 17:29:23Z $
+- */
+-
+-#ifndef _OSL_LINUX_H_
+-#define _OSL_LINUX_H_
+-
+-#include <linux/types.h>
+-#include <linux/timer.h>
+-#include <linux/kernel.h>
+-#include <linux/spinlock.h>
+-
+-struct osl_lock
+-{
+-	spinlock_t slock;       /* Spin lock */
+-	uint8      name[16];    /* Name of the lock */
+-};
+-
+-typedef struct osl_lock *osl_lock_t;
+-
+-static inline osl_lock_t
+-OSL_LOCK_CREATE(uint8 *name)
+-{
+-	osl_lock_t lock;
+-
+-	lock = MALLOC(NULL, sizeof(struct osl_lock));
+-
+-	if (lock == NULL)
+-	{
+-		printf("Memory alloc for lock object failed\n");
+-		return (NULL);
+-	}
+-
+-	strncpy(lock->name, name, sizeof(lock->name)-1);
+-	lock->name[ sizeof(lock->name)-1 ] = '\0';
+-	spin_lock_init(&lock->slock);
+-
+-	return (lock);
+-}
+-
+-static inline void
+-OSL_LOCK_DESTROY(osl_lock_t lock)
+-{
+-	MFREE(NULL, lock, sizeof(struct osl_lock));
+-	return;
+-}
+-
+-#define OSL_LOCK(lock)          spin_lock_bh(&((lock)->slock))
+-#define OSL_UNLOCK(lock)        spin_unlock_bh(&((lock)->slock))
+-
+-#define DEV_IFNAME(dev)         (((struct net_device *)dev)->name)
+-
+-typedef struct osl_timer {
+-	struct timer_list timer;
+-	void   (*fn)(void *);
+-	void   *arg;
+-	uint   ms;
+-	bool   periodic;
+-	bool   set;
+-#ifdef BCMDBG
+-	char    *name;          /* Desription of the timer */
+-#endif
+-} osl_timer_t;
+-
+-extern osl_timer_t *osl_timer_init(const char *name, void (*fn)(void *arg), void *arg);
+-extern void osl_timer_add(osl_timer_t *t, uint32 ms, bool periodic);
+-extern void osl_timer_update(osl_timer_t *t, uint32 ms, bool periodic);
+-extern bool osl_timer_del(osl_timer_t *t);
+-extern osl_lock_t OSL_LOCK_CREATE(uint8 *name);
+-extern void OSL_LOCK_DESTROY(osl_lock_t lock);
+-
+-#endif /* _OSL_LINUX_H_ */
+diff -Nuar merlin-bkp/include/epivers.h merlin-new/include/epivers.h
+--- merlin-bkp/include/epivers.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/epivers.h	2014-02-24 14:15:11.000000000 +0100
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
++ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+  * 
+  * Permission to use, copy, modify, and/or distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+@@ -26,21 +26,21 @@
+ 
+ #define	EPI_RC_NUMBER		14
+ 
+-#define	EPI_INCREMENTAL_NUMBER	62
++#define	EPI_INCREMENTAL_NUMBER	73
+ 
+ #define	EPI_BUILD_NUMBER	0
+ 
+-#define	EPI_VERSION		6, 37, 14, 62
++#define	EPI_VERSION		6, 37, 14, 73
+ 
+-#define	EPI_VERSION_NUM		0x06250e3e
++#define	EPI_VERSION_NUM		0x06250e49
+ 
+ #define EPI_VERSION_DEV		6.37.14
+ 
+ /* Driver Version String, ASCII, 32 chars max */
+ #ifdef WLTEST
+-#define	EPI_VERSION_STR		"6.37.14.62 (r437318 WLTEST)"
++#define	EPI_VERSION_STR		"6.37.14.73 (r448163 WLTEST)"
+ #else
+-#define	EPI_VERSION_STR		"6.37.14.62 (r437318)"
++#define	EPI_VERSION_STR		"6.37.14.73 (r448163)"
+ #endif
+ 
+ #endif /* _epivers_h_ */
+diff -Nuar merlin-bkp/include/hndnand.h merlin-new/include/hndnand.h
+--- merlin-bkp/include/hndnand.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/hndnand.h	2014-02-24 14:15:11.000000000 +0100
+@@ -35,7 +35,16 @@
+ #define NFL_TABLE_END			0xffffffff
+ 
+ #define NFL_BOOT_SIZE			0x200000
++/* ASUS LINUX MTD SIZE */
++#if CONFIG_LINUX_MTD == 32
+ #define NFL_BOOT_OS_SIZE		0x2000000
++#elif CONFIG_LINUX_MTD == 64
++#define NFL_BOOT_OS_SIZE		0x4000000
++#elif CONFIG_LINUX_MTD == 128
++#define NFL_BOOT_OS_SIZE		0x8000000
++#else
++#define NFL_BOOT_OS_SIZE		0x2000000
++#endif
+ #define NFL_BBT_SIZE			0x100000
+ 
+ #ifdef __ARM_ARCH_7A__
+diff -Nuar merlin-bkp/include/rpc_osl.h merlin-new/include/rpc_osl.h
+--- merlin-bkp/include/rpc_osl.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/rpc_osl.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,49 +0,0 @@
+-/*
+- * RPC OSL
+- *
+- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+- * 
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- * 
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- *
+- * $Id: rpc_osl.h 419467 2013-08-21 09:19:48Z $
+- */
+-
+-#ifndef _rpcosl_h_
+-#define _rpcosl_h_
+-
+-#ifdef WLC_HIGH
+-typedef struct rpc_osl rpc_osl_t;
+-extern rpc_osl_t *rpc_osl_attach(osl_t *osh);
+-extern void rpc_osl_detach(rpc_osl_t *rpc_osh);
+-
+-#define RPC_OSL_LOCK(rpc_osh) rpc_osl_lock((rpc_osh))
+-#define RPC_OSL_UNLOCK(rpc_osh) rpc_osl_unlock((rpc_osh))
+-#define RPC_OSL_WAIT(rpc_osh, to, ptimedout)	rpc_osl_wait((rpc_osh), (to), (ptimedout))
+-#define RPC_OSL_WAKE(rpc_osh)			rpc_osl_wake((rpc_osh))
+-extern void rpc_osl_lock(rpc_osl_t *rpc_osh);
+-extern void rpc_osl_unlock(rpc_osl_t *rpc_osh);
+-extern int rpc_osl_wait(rpc_osl_t *rpc_osh, uint ms, bool *ptimedout);
+-extern void rpc_osl_wake(rpc_osl_t *rpc_osh);
+-
+-#else
+-typedef void rpc_osl_t;
+-#define rpc_osl_attach(a)	(rpc_osl_t *)0x0dadbeef
+-#define rpc_osl_detach(a)	do { }	while (0)
+-
+-#define RPC_OSL_LOCK(a)		do { }	while (0)
+-#define RPC_OSL_UNLOCK(a)	do { }	while (0)
+-#define RPC_OSL_WAIT(a, b, c)	(TRUE)
+-#define RPC_OSL_WAKE(a, b)	do { }	while (0)
+-
+-#endif /* WLC_HIGH */
+-#endif	/* _rpcosl_h_ */
+diff -Nuar merlin-bkp/include/wlioctl.h merlin-new/include/wlioctl.h
+--- merlin-bkp/include/wlioctl.h	2014-01-09 20:07:05.000000000 +0100
++++ merlin-new/include/wlioctl.h	2014-02-24 14:15:11.000000000 +0100
+@@ -6037,6 +6037,20 @@
+ 	uint16 reps;
+ } statreq_t;
+ 
++#define WL_RRM_RPT_VER  0
++#define WL_RRM_RPT_MAX_PAYLOAD  64
++#define WL_RRM_RPT_MIN_PAYLOAD  7
++#define WL_RRM_RPT_FALG_ERR     0
++#define WL_RRM_RPT_FALG_OK      1
++typedef struct {
++	uint16 ver;		/* version */
++	struct ether_addr addr;	/* STA MAC addr */
++	uint32 timestamp;	/* timestamp of the report */
++	uint16 flag;		/* flag */
++	uint16 len;		/* length of payload data */
++	unsigned char data[WL_RRM_RPT_MAX_PAYLOAD];
++} statrpt_t;
++
+ typedef struct wlc_l2keepalive_ol_params {
+ 	uint8 	flags;
+ 	uint8	prio;
