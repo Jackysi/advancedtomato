@@ -1,6 +1,0 @@
-*.o
-lxdialog
-conf
-mconf
-mconf_check
-*.*.c

@@ -1,1 +1,0 @@
-#define MODEL_NAME "WRT54G"
