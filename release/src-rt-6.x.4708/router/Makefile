@@ -143,7 +143,7 @@ endif
 
 obj-$(NEED_SAMBA2) += samba
 ifeq ($(TCONFIG_BCMARM),y)
-obj-$(NEED_SAMBA3) += samba-3.0.25b
+obj-$(NEED_SAMBA3) += samba-3.5.8
 else
 obj-$(NEED_SAMBA3) += samba3
 endif
