@@ -863,7 +863,7 @@ static void nat_table(void)
 		switch (get_ipv6_service()) {
 		case IPV6_6IN4:
 			// avoid NATing proto-41 packets when using 6in4 tunnel
-			p = "-p ! 41";
+			p = "! -p 41";
 			break;
 		}
 #endif
