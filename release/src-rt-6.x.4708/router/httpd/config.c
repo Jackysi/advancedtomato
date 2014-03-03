@@ -66,7 +66,7 @@ void wo_backup(char *url)
 	char tmp[64];
 	char msg[64];
 	static char *args[] = {
-		NVRAMCMD, "backup", NULL, NULL
+		NVRAMCMD, "save", NULL, NULL
 	};
 
 	strcpy(tmp, "/tmp/backupXXXXXX");
