@@ -419,6 +419,30 @@ mtd1: 007d0000 00010000 "linux"
 	}
 }
 
+void asp_jiffies(int argc, char **argv)
+{
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+
+	const char procstat[] = "/proc/stat";
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+
+		e = sa;
+
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+
+		web_printf("\njiffies = [ '");
+		web_printf("%s", e);
+		web_puts("' ];\n");
+		fclose(a);
+    }
+}
+
 void asp_etherstates(int argc, char **argv)
 {
 	FILE *f;
@@ -484,6 +508,12 @@ void asp_sysinfo(int argc, char **argv)
 	char s[64];
 	meminfo_t mem;
 
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+	const char procstat[] = "/proc/stat";
+
 	char system_type[64];
 	char cpu_model[64];
 	char bogomips[8];
@@ -529,6 +559,19 @@ void asp_sysinfo(int argc, char **argv)
 			cpu_model,
 			bogomips,
 			cpuclk);
+
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+		e = sa;
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+		web_printf(",\n\tjiffies: '");
+		web_printf("%s", e);
+		web_puts("'\n");
+		fclose(a);
+	} else {
+		web_puts("\n");
+	}
 
 	web_puts("};\n");
 }

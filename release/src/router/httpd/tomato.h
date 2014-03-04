@@ -74,6 +74,7 @@ extern void asp_psup(int argc, char **argv);
 extern void wo_vpn_status(char *url);
 #endif
 extern void asp_sysinfo(int argc, char **argv);
+extern void asp_jiffies(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
 #ifdef TCONFIG_SDHC
