@@ -90,27 +90,31 @@ function init()
 </div>
 <div class='about'>
 <b>Tomato Firmware <% version(1); %></b><br>
+<br>
+Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br>
+<i>Copyright (C) 2013-2014 Tomato-ARM Team</i><br>
+<br>
+<b>Tomato-ARM Team:</b><br>
+- Micha≥ Rupental (Shibby)<br>
+- Ofer Chen (roadkill)<br>
+- Vicente Soriano (Victek)<br>
+<br>
+<hr>
+<!-- / / / -->
 
+<br>
+<b>TomatoUSB Team features:</b><br>
 <!-- USB-BEGIN -->
-<br>USB support integration and GUI,<br>
+- USB support integration and GUI<br>
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
-IPv6 support,
+- IPv6 support<br>
 <!-- IPV6-END -->
-<br>
-Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates,<br>
-support for additional router models, dual-band and Wireless-N mode.<br>
-Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
+- Dual-band and Wireless-N mode<br>
+<i>Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne</i><br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
-<!-- / / / -->
 <br>
 
-<!-- OPENVPN-BEGIN -->
-<b>OpenVPN integration and GUI,</b><br>
-Copyright (C) 2010 Keith Moyer,<br>
-<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br>
-<!-- OPENVPN-END -->
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
@@ -146,30 +150,11 @@ Copyright (C) 2010 Keith Moyer,<br>
 - Ethernet Ports State<br>
 - Extended MOTD (written by @Monter, modified by @Shibby)<br>
 - Webmon Backup Script<br>
-Copyright (C) 2011-2013 Micha≈Ç Rupental<br>
+<i>Copyright (C) 2011-2014 Micha≥ Rupental</i><br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
-<!-- VPN-BEGIN -->
-<b>"JYAvenard" features:</b><br>
-<!-- OPENVPN-BEGIN -->
-- OpenVPN enhancements &amp; username/password only authentication<br>
-<!-- OPENVPN-END -->
-<!-- PPTPD-BEGIN -->
-- PPTP VPN Client integration and GUI<br>
-<!-- PPTPD-END -->
-Copyright (C) 2010-2012 Jean-Yves Avenard<br>
-<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
-<br>
-
-<!-- OPENVPN-BEGIN -->
-<b>"TomatoEgg" feature:</b><br>
-- Openvpn username/password verify feature and configure GUI.<br>
-<br>
-<!-- OPENVPN-END -->
-<!-- VPN-END -->
-
-<b>"Victek" features:</b><br>
+<b>Tomato-RAF features:</b><br>
 - Extended Sysinfo<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
@@ -177,7 +162,7 @@ Copyright (C) 2010-2012 Jean-Yves Avenard<br>
 <!-- HFS-BEGIN -->
 - HFS / HFS+ filesystem integration<br>
 <!-- HFS-END -->
-Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
+<i>Copyright (C) 2007-2014 Ofer Chen & Vicente Soriano</i><br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 
@@ -192,41 +177,56 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <!-- PPTPD-BEGIN -->
 - PPTP Server integration and GUI<br>
 <!-- PPTPD-END -->
-Copyright (C) 2011 Augusto Bott<br>
+<i>Copyright (C) 2011 Augusto Bott</i><br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
 <b>"Toastman" features:</b><br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
-- TC-ATM overhead calculation - patch by tvlz<br>
 - GPT support for HDD by Yaniv Hamo<br>
 - Tools-System refresh timer<br>
-Copyright (C) 2011 Toastman<br>
+<i>Copyright (C) 2011 Toastman</i><br>
 <a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
 <br>
 
-<b>"Tiomo" Features:</b><br>
-- IMQ based QOS Ingress<br>
-- Incoming Class Bandwidth pie chart<br>
-Copyright (C) 2012 Tiomo<br>
+<!-- VPN-BEGIN -->
+<b>"JYAvenard" features:</b><br>
+<!-- OPENVPN-BEGIN -->
+- OpenVPN enhancements &amp; username/password only authentication<br>
+<!-- OPENVPN-END -->
+<!-- PPTPD-BEGIN -->
+- PPTP VPN Client integration and GUI<br>
+<!-- PPTPD-END -->
+<i>Copyright (C) 2010-2012 Jean-Yves Avenard</i><br>
+<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
 
-<!-- SDHC-BEGIN -->
-<b>"Slodki" feature:</b><br>
-- SDHC integration and GUI<br>
-Copyright (C) 2009 Tomasz S≈Çodkowicz<br>
-<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>tomato-sdhc</a><br>
+<!-- OPENVPN-BEGIN -->
+<b>TomatoVPN feature:</b>
+- OpenVPN integration and GUI<br>
+<i>Copyright (C) 2010 Keith Moyer</i><br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
-<!-- SDHC-END -->
+
+<b>"TomatoEgg" feature:</b><br>
+- Openvpn username/password verify feature and configure GUI.<br>
+<br>
+<!-- OPENVPN-END -->
+<!-- VPN-END -->
 
 <b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC Bandwidth Limiter<br>
 <br>
 
+<b>Special thanks:</b><br>
+We want to express our gratitude to all people not mentioned here but contributed with patches, new models additions, bug solving and updates to Tomato firmware.<br>
 <br>
-Based on Tomato Firmware v<% version(); %><br>
-Copyright (C) 2006-2010 Jonathan Zarate<br>
+
+<hr>
+<br>
+<b>Based on Tomato Firmware v<% version(); %></b><br>
+<i>Copyright (C) 2006-2010 Jonathan Zarate</i><br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %> by Shibby, <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br><br>
