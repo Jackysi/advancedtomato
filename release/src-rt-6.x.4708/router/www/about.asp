@@ -95,7 +95,7 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <i>Copyright (C) 2013-2014 Tomato-ARM Team</i><br>
 <br>
 <b>Tomato-ARM Team:</b><br>
-- Micha≥ Rupental (Shibby)<br>
+- Micha≈Ç Rupental (Shibby)<br>
 - Ofer Chen (roadkill)<br>
 - Vicente Soriano (Victek)<br>
 <br>
@@ -150,7 +150,7 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 - Ethernet Ports State<br>
 - Extended MOTD (written by @Monter, modified by @Shibby)<br>
 - Webmon Backup Script<br>
-<i>Copyright (C) 2011-2014 Micha≥ Rupental</i><br>
+<i>Copyright (C) 2011-2014 Micha≈Ç Rupental</i><br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
