@@ -35,7 +35,22 @@ do {
 	stats.cpuload = ((sysinfo.loads[0] / 65536.0).toFixed(2) + '<small> / </small> ' +
 		(sysinfo.loads[1] / 65536.0).toFixed(2) + '<small> / </small>' +
 		(sysinfo.loads[2] / 65536.0).toFixed(2));
+	stats.freqcpu = nvram.clkfreq;
 	stats.uptime = sysinfo.uptime_s;
+
+	var total_jiffies = 0;
+	var jiffylist = sysinfo.jiffies.split(' ');
+	for (i=0; i < jiffylist.length; ++i) {
+		total_jiffies += parseInt(jiffylist[i]);
+	}
+	var diff_idle = jiffylist[3] - lastjiffiesidle;
+	var diff_total = total_jiffies - lastjiffiestotal;
+	lastjiffiesusage = (1000*(diff_total-diff_idle)/diff_total)/10;
+
+	lastjiffiestotal = total_jiffies;
+	lastjiffiesidle = jiffylist[3];
+
+	stats.cpupercent = lastjiffiesusage.toFixed(2) + '%';
 
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
@@ -49,7 +64,7 @@ do {
 
 	stats.time = '<% time(); %>';
 	stats.wanup = '<% wanup(); %>' == '1';
-	stats.wanprebuf = nvram.wan_ipaddr_buf;
+	stats.wanprebuf = nvram.wan_ipaddr_buf; //Victek
 	stats.wanuptime = '<% link_uptime(); %>';
 	stats.wanlease = '<% dhcpc_time(); %>';
 
@@ -91,7 +106,7 @@ do {
 
 /* IPV6-BEGIN */
 	stats.ip6_wan = ((typeof(sysinfo.ip6_wan) != 'undefined') ? sysinfo.ip6_wan : '') + '';
-	stats.ip6_lan = ((typeof(sysinfo.ip6_lan) != 'undefined') ? sysinfo.ip6_lan : '') + ''
+	stats.ip6_lan = ((typeof(sysinfo.ip6_lan) != 'undefined') ? sysinfo.ip6_lan : '') + '';
 	stats.ip6_lan_ll = ((typeof(sysinfo.ip6_lan_ll) != 'undefined') ? sysinfo.ip6_lan_ll : '') + ''
 /* IPV6-END */
 

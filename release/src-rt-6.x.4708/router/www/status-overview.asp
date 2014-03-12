@@ -43,6 +43,10 @@ wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Brid
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
 bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
+
+lastjiffiestotal = 0;
+lastjiffiesidle = 0;
+lastjiffiesusage = 100;
 </script>
 
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
@@ -232,6 +236,7 @@ function anon_update()
 function show()
 {
 	c('cpu', stats.cpuload);
+	c('cpupercent', stats.cpupercent);
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -369,6 +374,7 @@ createFieldTable('', [
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
+	{ title: 'CPU Usage', rid: 'cpupercent', text: stats.cpupercent },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
