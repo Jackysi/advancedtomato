@@ -388,6 +388,7 @@ const aspapi_t aspapi[] = {
 	{ "rrule",				asp_rrule			},
 	{ "statfs",				asp_statfs			},
 	{ "sysinfo",			asp_sysinfo			},
+	{ "jiffies",			asp_jiffies			},
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
@@ -986,6 +987,7 @@ static const nvset_t nvset_list[] = {
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
+	{ "btn_led_mode",		V_01			},	// Asus RT-AC68 Turbo Mode
 	{ "sesx_b0",			V_RANGE(0, 5)		},	// 0-5: toggle wireless, reboot, shutdown, script, usb unmount
 	{ "sesx_b1",			V_RANGE(0, 5)		},	// "
 	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
