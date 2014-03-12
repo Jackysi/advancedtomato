@@ -18,7 +18,7 @@
 #include "shared.h"
 
 
-const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "usb", "5g"};
+const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "usb", "usb3", "5g"};
 
 #ifdef LINUX26
 #define GPIO_IOCTL
@@ -218,7 +218,7 @@ int do_led(int which, int mode)
 	static int tdn6[]       = { 255,  -6,     8,  255,  255,  255,  255,   255, 255,  255};
 #endif
 #ifdef CONFIG_BCMWL6A
-	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14, 255};
+	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14,  255};
 #endif
 //                                 WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG   USB2 USB3   5G
 
