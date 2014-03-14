@@ -230,6 +230,7 @@ void start_usb(void)
 #endif
 
 #ifdef TCONFIG_UPS
+		modprobe("usbhid");
 		start_ups();
 #endif
 
@@ -252,6 +253,11 @@ void start_usb(void)
 void stop_usb(void)
 {
 	int disabled = !nvram_get_int("usb_enable");
+
+#ifdef TCONFIG_UPS
+		stop_ups();
+		modprobe_r("usbhid");
+#endif
 
 	// only find and kill the printer server we started (port 0)
 	p9100d_sig(SIGTERM);

@@ -623,18 +623,8 @@ define KernelConfig
 	if [ "$(UPS)" = "y" ]; then \
 		sed -i "/CONFIG_INPUT=m/d" $(1); \
 		echo "CONFIG_INPUT=y" >>$(1); \
-		sed -i "/CONFIG_USB=m/d" $(1); \
-		echo "CONFIG_USB=y" >>$(1); \
 		sed -i "/CONFIG_HID=m/d" $(1); \
 		echo "CONFIG_HID=y" >>$(1); \
-		sed -i "/CONFIG_USB_HID=m/d" $(1); \
-		echo "CONFIG_USB_HID=y" >>$(1); \
-		sed -i "/CONFIG_USB_HIDDEV=m/d" $(1); \
-		echo "CONFIG_USB_HIDDEV=y" >>$(1); \
-		sed -i "/CONFIG_USB_DEVICEFS=m/d" $(1); \
-		echo "CONFIG_USB_DEVICEFS=y" >>$(1); \
-		sed -i "/CONFIG_HID_SUPPORT/d" $(1); \
-		echo "# CONFIG_HID_SUPPORT is not set" >>$(1); \
 		sed -i "/CONFIG_USB_STORAGE_ONETOUCH/d" $(1); \
 		echo "# CONFIG_USB_STORAGE_ONETOUCH is not set" >>$(1); \
 	fi; \
