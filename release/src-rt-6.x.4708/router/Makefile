@@ -155,12 +155,12 @@ TCONFIG_RAID :=
 endif
 
 obj-$(NEED_SAMBA2) += samba
-ifeq ($(TCONFIG_BCMARM),y)
-obj-$(NEED_SAMBA3) += samba-3.5.8
+#ifeq ($(TCONFIG_BCMARM),y)
+#obj-$(NEED_SAMBA3) += samba-3.5.8
 obj-y += taskset
-else
+#else
 obj-$(NEED_SAMBA3) += samba3
-endif
+#endif
 
 ifeq ($(CONFIG_BCMWL6),y)
 ifeq ($(TCONFIG_UFSD),y)
