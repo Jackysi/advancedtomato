@@ -1020,7 +1020,11 @@ rp-pppoe-install: rp-pppoe
 
 upnp: nvram$(BCMEX) shared iptables
 
+
 libnfnetlink/stamp-h1:
+# tomatoraf.com, Victek
+# last sources is dated March 22,2014 from netfilter.org git
+# ./genconfig.sh and make with automake 1.13
 	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP=$(STRIP) \
 		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
@@ -1050,8 +1054,8 @@ miniupnpd-config:
 miniupnpd: $(IPTABLES_TARGET) miniupnpd-config libnfnetlink
 	@$(SEP)
 	$(MAKE) -C miniupnpd -f Makefile.linux CC=$(CC) \
-		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(IPTABLESPATH)/include -I$(TOP)/libnfnetlink/include" \
-		LDFLAGS="-L$(IPTABLESPATH) -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(IPTABLESPATH)/include -I$(TOP)/libnfnetlink/include" \
+	LDFLAGS="-L$(IPTABLESPATH) -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
