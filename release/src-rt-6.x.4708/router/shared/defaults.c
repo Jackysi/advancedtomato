@@ -299,6 +299,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_radio_pwrsave_quiet_time","1800"				, 0 },	// Quiet time for power save
 	{ "wl_radio_pwrsave_pps",	"10"				, 0 },	// Packets per second threshold for power save
 	{ "wl_radio_pwrsave_on_time",	"50"				, 0 },	// Radio on time for power save
+	{ "acs_mode", 			"legacy"			, 0 },	/* Legacy mode if ACS is enabled */
 	// misc
 	{ "wl_wmf_bss_enable",		"0"				, 0 },	// Wireless Multicast Forwarding Enable/Disable
 	{ "wl_rifs_advert",		"auto"				, 0 },	// RIFS mode advertisement
@@ -1181,7 +1182,6 @@ struct nvram_tuple router_defaults_override_type1[] = {
 	{ "wl_frameburst", "on", 0 },		/* BRCM Frambursting mode (off|on) */
 	{ "wl_amsdu", "off", 0 },		/* Default IPTV AMSDU setting */
 	{ "wl_rx_amsdu_in_ampdu", "off", 0 },	/* Media RX AMSDU In AMPDU setting */
-	{ "acs_mode", "legacy", 0 }, 		/* ACS Mode */
 	{ 0, 0, 0 }
 };
 
