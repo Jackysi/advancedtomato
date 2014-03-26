@@ -1181,6 +1181,7 @@ struct nvram_tuple router_defaults_override_type1[] = {
 	{ "wl_frameburst", "on", 0 },		/* BRCM Frambursting mode (off|on) */
 	{ "wl_amsdu", "off", 0 },		/* Default IPTV AMSDU setting */
 	{ "wl_rx_amsdu_in_ampdu", "off", 0 },	/* Media RX AMSDU In AMPDU setting */
+	{ "acs_mode", "legacy", 0 }, 		/* ACS Mode */
 	{ 0, 0, 0 }
 };
 
