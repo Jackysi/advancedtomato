@@ -1377,65 +1377,49 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "RT-AC56U";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
-		nvram_set("vlan1hwname", "et0");
-		nvram_set("vlan2hwname", "et0");
-		nvram_set("lan_ifname", "br0");
-		nvram_set("0:ledbh3", "0x87");	  // since 163.42 //
-		nvram_set("1:ledbh10", "0x87");
-		nvram_set("landevs", "vlan1 wl0 wl1");
-		nvram_set("wl_ifnames", "eth1 eth2");
-		nvram_set("wl0_vifnames", "wl0.1 wl0.2 wl0.3");
-		nvram_set("wl1_vifnames", "wl1.1 wl1.2 wl1.3");
-/*
-		nvram_set_int("pwr_usb_gpio", 9|GPIO_ACTIVE_LOW);
-		nvram_set_int("pwr_usb_gpio2", 10|GPIO_ACTIVE_LOW);	// Use at the first shipment of RT-AC56U.
-		nvram_set_int("led_usb_gpio", 14|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
-		nvram_set_int("led_wan_gpio", 1|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_lan_gpio", 2|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_pwr_gpio", 3|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_wps_gpio", 3|GPIO_ACTIVE_LOW);
-		nvram_set_int("led_all_gpio", 4|GPIO_ACTIVE_LOW);	// actually, this is high active, and will power off all led when active; to fake LOW_ACTIVE to sync boardapi
-		nvram_set_int("led_5g_gpio", 6|GPIO_ACTIVE_LOW);	// 4352's fake led 5g
-		nvram_set_int("led_usb3_gpio", 0|GPIO_ACTIVE_LOW);	// change led gpio(usb2/usb3) to sync the outer case
-		nvram_set_int("btn_wps_gpio", 15|GPIO_ACTIVE_LOW);
-		nvram_set_int("btn_rst_gpio", 11|GPIO_ACTIVE_LOW);
-#ifdef TCONFIG_WIFI_TOG_BTN
-		nvram_set_int("btn_wltog_gpio", 7|GPIO_ACTIVE_LOW);
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
 #endif
-#ifdef TCONFIG_TURBO
-		nvram_set_int("btn_turbo_gpio", 5);
-#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
 
-#ifdef TCONFIG_XHCIMODE
-		nvram_set("xhci_ports", "1-1");
-		nvram_set("ehci_ports", "2-1 2-2");
-		nvram_set("ohci_ports", "3-1 3-2");
-#else
-		if(nvram_get_int("usb_usb3") == 1){
+			// fix WL mac`s
+			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
+			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
+
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
-		}
-		else{
-			nvram_unset("xhci_ports");
-			nvram_set("ehci_ports", "1-1 1-2");
-			nvram_set("ohci_ports", "2-1 2-2");
-		}
-#endif
+			if(!nvram_get("ct_max"))
+				nvram_set("ct_max", "300000");
+			if (nvram_match("wl1_bw", "0"))
+			{
+				nvram_set("wl1_bw", "3");
 
-		if(!nvram_get("ct_max"))
-			nvram_set("ct_max", "300000");
-		add_rc_support("mssid 2.4G 5G update usbX2");
-		add_rc_support("switchctrl"); // broadcom: for jumbo frame only
-		add_rc_support("manual_stb");
-		add_rc_support("pwrctrl");
-		add_rc_support("WIFI_LOGO");
-		add_rc_support("nandflash");
-*/
+				if (nvram_match("wl1_country_code", "SG"))
+					nvram_set("wl1_chanspec", "36/80");
+				else
+					nvram_set("wl1_chanspec", "149/80");
+			}
+			if ((nvram_get_int("wlopmode") == 7) || nvram_match("ATEMODE", "1"))
+				nvram_set("usb_usb3", "1");
+		}
 		break;
 	case MODEL_RTAC68U:
+	case MODEL_RTAC68R:
 		mfr = "Asus";
-		name = "RT-AC68U";
+		name = "RT-AC68R/U";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
