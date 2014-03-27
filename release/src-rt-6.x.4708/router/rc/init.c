@@ -1417,7 +1417,6 @@ static int init_nvram(void)
 		}
 		break;
 	case MODEL_RTAC68U:
-	case MODEL_RTAC68R:
 		mfr = "Asus";
 		name = "RT-AC68R/U";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
