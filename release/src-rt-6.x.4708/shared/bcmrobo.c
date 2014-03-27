@@ -1691,7 +1691,7 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 	uint32 val32;
 	pdesc_t *pdesc;
 	int pdescsz;
-	uint16 vid;
+	uint16 vid, vid_map;
 	uint8 arl_entry[8] = { 0 }, arl_entry1[8] = { 0 };
 
 	/* Enable management interface access */
@@ -1763,7 +1763,8 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 	/* force vlan id to be equal to vlan number */
 	for (vid = 0; vid < VLAN_NUMVLANS; vid ++) {
 		char vlanports[] = "vlanXXXXports";
-		char port[] = "XXXX", *next;
+		char vlanvid[] = "vlanXXXXvid";
+		char port[] = "XXXX", *next, *nvvid;
 		const char *ports, *cur;
 		uint32 untag = 0;
 		uint32 member = 0;
@@ -1773,6 +1774,17 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 		/* no members if VLAN id is out of limitation */
 		if (vid > VLAN_MAXVID)
 			goto vlan_setup;
+
+		/* vlan ID mapping */
+		vid_map = vid;
+		sprintf(vlanvid, "vlan%dvid", vid);
+		nvvid = getvar(robo->vars, vlanvid);
+
+		if (nvvid != NULL) {
+			vid_map = bcm_atoi(nvvid);
+			if ((vid_map < 1) || (vid_map > 4094)) vid_map = vid;
+		}
+
 
 		/* get vlan member ports from nvram */
 		sprintf(vlanports, "vlan%dports", vid);
@@ -1835,7 +1847,7 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 #endif /* _CFE_ */
 			if (!pdesc[pid].cpu || strchr(port, FL)) {
 				val16 = ((0 << 13) |		/* priority - always 0 */
-				         vid);			/* vlan id */
+				         vid_map);			/* vlan id */
 				robo->ops->write_reg(robo, PAGE_VLAN, pdesc[pid].ptagr,
 				                     &val16, sizeof(val16));
 			}
@@ -1869,8 +1881,8 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 			/* Set the MAC addr and VLAN Id in ARL Table MAC/VID Entry 0
 			 * Register.
 			 */
-			arl_entry[6] = vid;
-			arl_entry[7] = 0x0;
+			arl_entry[6] = (vid_map & 0xff);
+			arl_entry[7] = (vid_map >> 8);
 			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_ARL_E0,
 			                     arl_entry, sizeof(arl_entry));
 
@@ -1904,7 +1916,7 @@ vlan_setup:
 				          ((vid >> 4) << 12));	/* vlan id bit[11:4] */
 			} else {
 				val32 |= ((1 << 24) |		/* valid write */
-				          (vid << 12));	/* vlan id bit[11:4] */
+				          (vid_map << 12));	/* vlan id bit[11:4] */
 			}
 			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
 
@@ -1914,7 +1926,7 @@ vlan_setup:
 			/* VLAN Table Access Register (Page 0x34, Address 0x06-0x07) */
 			val16 = ((1 << 13) |	/* start command */
 			         (1 << 12) |	/* write state */
-			         vid);		/* vlan id */
+			         vid_map);		/* vlan id */
 			robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_ACCESS, &val16,
 			                     sizeof(val16));
 		} else {
@@ -1937,7 +1949,7 @@ vlan_setup:
 			robo->ops->write_reg(robo, PAGE_VTBL, vtble, &val32,
 			                     sizeof(val32));
 			/* VLAN Table Address Index Reg (Page 0x05, Address 0x61-0x62/0x81-0x82) */
-			val16 = vid;        /* vlan id */
+			val16 = vid_map;        /* vlan id */
 			robo->ops->write_reg(robo, PAGE_VTBL, vtbli, &val16,
 			                     sizeof(val16));
 
