@@ -192,7 +192,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 MEDIA_SERVER_STATIC :=
 
 obj-y += libnfnetlink
-#obj-y += miniupnpd
+obj-y += miniupnpd
 #	obj-y += upnp
 obj-$(CONFIG_LINUX26) += ipset
 
@@ -1045,17 +1045,9 @@ libnfnetlink-install:
 miniupnpd-config:
 	@cd miniupnpd && ./genconfig.sh --leasefile
 
-#miniupnpd: iptables miniupnpd-config libnfnetlink
-#	@$(SEP)
-#	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
-#		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
-#		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
-
-miniupnpd: $(IPTABLES_TARGET) miniupnpd-config libnfnetlink
+miniupnpd: $(IPTABLES_TARGET) miniupnpd-config
 	@$(SEP)
-	$(MAKE) -C miniupnpd -f Makefile.linux CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(IPTABLESPATH)/include -I$(TOP)/libnfnetlink/include" \
-	LDFLAGS="-L$(IPTABLESPATH) -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
+	$(MAKE) -C miniupnpd -f Makefile.linux
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean

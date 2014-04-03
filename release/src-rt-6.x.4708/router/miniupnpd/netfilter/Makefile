@@ -1,5 +1,5 @@
-# $Id: Makefile,v 1.7 2013/12/13 13:10:48 nanard Exp $
-CFLAGS?=-Wall -g -D_GNU_SOURCE -DDEBUG -Wstrict-prototypes -Wdeclaration-after-statement
+# $Id: Makefile,v 1.6 2012/04/26 13:50:48 nanard Exp $
+CFLAGS?=-Wall -g -D_GNU_SOURCE -DDEBUG -Wstrict-prototypes -Wdeclaration-after-statement -ansi
 CC = gcc
 
 #LIBS = -liptc
@@ -38,31 +38,14 @@ endif
 endif
 endif
 
-LIBS +=  /lib/libip4tc.so /lib/libip6tc.so
-
-all:	iptcrdr.o testiptcrdr iptpinhole.o \
-        testiptcrdr_peer testiptcrdr_dscp test_nfct_get
-#        testiptpinhole
+all:	iptcrdr.o testiptcrdr iptpinhole.o testiptpinhole
 
 clean:
-	$(RM) *.o testiptcrdr testiptpinhole testiptcrdr_peer test_nfct_get \
-        testiptcrdr_dscp
+	$(RM) *.o testiptcrdr testiptpinhole
 
-testiptcrdr:	testiptcrdr.o upnpglobalvars.o $(LIBS)
-
-testiptcrdr_peer:	testiptcrdr_peer.o upnpglobalvars.o $(LIBS)
-
-testiptcrdr_dscp:	testiptcrdr_dscp.o upnpglobalvars.o $(LIBS)
+testiptcrdr:	testiptcrdr.o iptcrdr.o upnpglobalvars.o $(LIBS)
 
 testiptpinhole:	testiptpinhole.o iptpinhole.o upnpglobalvars.o $(LIBS)
-
-test_nfct_get:	test_nfct_get.o test_nfct_get.o -lmnl -lnetfilter_conntrack
-
-test_nfct_get.o:	test_nfct_get.c
-
-testiptcrdr_peer.o:	testiptcrdr_peer.c
-
-testiptcrdr_dscp.o:	testiptcrdr_dscp.c
 
 iptcrdr.o:	iptcrdr.c iptcrdr.h
 

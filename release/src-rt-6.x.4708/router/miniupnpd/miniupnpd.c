@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.178 2013/12/13 14:10:02 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.176 2013/06/13 13:21:29 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2013 Thomas Bernard
@@ -65,11 +65,6 @@
 #include "upnpevents.h"
 #ifdef ENABLE_NATPMP
 #include "natpmp.h"
-#ifdef ENABLE_PCP
-#include "pcpserver.h"
-#else
-#define PCP_MAX_LEN 32
-#endif
 #endif
 #include "commonrdr.h"
 #include "upnputils.h"
@@ -926,32 +921,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 			case UPNPPRESENTATIONURL:
 				presurl = ary_options[i].value;
 				break;
-#ifdef ENABLE_MANUFACTURER_INFO_CONFIGURATION
-			case UPNPFRIENDLY_NAME:
-				strncpy(friendly_name, ary_options[i].value, FRIENDLY_NAME_MAX_LEN);
-				friendly_name[FRIENDLY_NAME_MAX_LEN-1] = '\0';
-				break;
-			case UPNPMANUFACTURER_NAME:
-				strncpy(manufacturer_name, ary_options[i].value, MANUFACTURER_NAME_MAX_LEN);
-				manufacturer_name[MANUFACTURER_NAME_MAX_LEN-1] = '\0';
-				break;
-			case UPNPMANUFACTURER_URL:
-				strncpy(manufacturer_url, ary_options[i].value, MANUFACTURER_URL_MAX_LEN);
-				manufacturer_url[MANUFACTURER_URL_MAX_LEN-1] = '\0';
-				break;
-			case UPNPMODEL_NAME:
-				strncpy(model_name, ary_options[i].value, MODEL_NAME_MAX_LEN);
-				model_name[MODEL_NAME_MAX_LEN-1] = '\0';
-				break;
-			case UPNPMODEL_DESCRIPTION:
-				strncpy(model_description, ary_options[i].value, MODEL_DESCRIPTION_MAX_LEN);
-				model_description[MODEL_DESCRIPTION_MAX_LEN-1] = '\0';
-				break;
-			case UPNPMODEL_URL:
-				strncpy(model_url, ary_options[i].value, MODEL_URL_MAX_LEN);
-				model_url[MODEL_URL_MAX_LEN-1] = '\0';
-				break;
-#endif
 #ifdef USE_NETFILTER
 			case UPNPFORWARDCHAIN:
 				miniupnpd_forward_chain = ary_options[i].value;
@@ -1013,20 +982,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 					/*enablenatpmp = atoi(ary_options[i].value);*/
 				break;
 #endif
-#ifdef ENABLE_PCP
-			case UPNPPCPMINLIFETIME:
-					min_lifetime = atoi(ary_options[i].value);
-					if (min_lifetime > 120 ) {
-						min_lifetime = 120;
-					}
-				break;
-			case UPNPPCPMAXLIFETIME:
-					max_lifetime = atoi(ary_options[i].value);
-					if (max_lifetime > 86400 ) {
-						max_lifetime = 86400;
-					}
-				break;
-#endif
 #ifdef PF_ENABLE_FILTER_RULES
 			case UPNPQUICKRULES:
 				if(strcmp(ary_options[i].value, "no") == 0)
@@ -1053,12 +1008,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 				fprintf(stderr, "Unknown option in file %s\n",
 				        optionsfile);
 			}
-		}
-		/* if lifetimes ae inverse*/
-		if (min_lifetime >= max_lifetime) {
-			fprintf(stderr, "Minimum lifetime (%lu) is greater than or equal to maximum lifetime (%lu).\n", min_lifetime, max_lifetime);
-			fprintf(stderr, "Check your configuration file.\n");
-			return 1;
 		}
 	}
 #endif /* DISABLE_CONFIG_FILE */
@@ -1097,15 +1046,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 			} else
 				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
 			break;
-#ifdef ENABLE_MANUFACTURER_INFO_CONFIGURATION
-		case 'z':
-			if(i+1 < argc)
-				strncpy(friendly_name, argv[++i], FRIENDLY_NAME_MAX_LEN);
-			else
-				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
-			friendly_name[FRIENDLY_NAME_MAX_LEN-1] = '\0';
-			break;
-#endif
 		case 's':
 			if(i+1 < argc)
 				strncpy(serialnumber, argv[++i], SERIALNUMBER_MAX_LEN);
@@ -1352,6 +1292,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	syslog(LOG_NOTICE, "version " MINIUPNPD_VERSION " started");
 
 	set_startup_time(GETFLAG(SYSUPTIMEMASK));
+	syslog(LOG_INFO, "version " MINIUPNPD_VERSION " started");
 
 	/* presentation url */
 	if(presurl)
@@ -1381,7 +1322,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		return 1;
 	}
 
-	// zzz
 	sa.sa_handler = sigusr2;
 	sigaction(SIGUSR2, &sa, NULL);
 
@@ -1389,7 +1329,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	{
 		syslog(LOG_ERR, "Failed to ignore SIGPIPE signals");
 	}
-
 	sa.sa_handler = sigusr1;
 	if(sigaction(SIGUSR1, &sa, NULL) < 0)
 	{
@@ -1441,10 +1380,7 @@ print_usage:
 			"\n"
 			/*"[-l logfile] " not functionnal */
 			"\t\t[-u uuid] [-s serial] [-m model_number] \n"
-			"\t\t[-t notify_interval] [-P pid_filename] "
-#ifdef ENABLE_MANUFACTURER_INFO_CONFIGURATION
-			"[-z fiendly_name]\n"
-#endif
+			"\t\t[-t notify_interval] [-P pid_filename] [-z fiendly_name]\n"
 			"\t\t[-B down up] [-w url] [-r clean_ruleset_interval]\n"
 #ifdef USE_PF
                         "\t\t[-q queue] [-T tag]\n"
@@ -1570,11 +1506,7 @@ main(int argc, char * * argv)
 
 	syslog(LOG_INFO, "Starting%s%swith external interface %s",
 #ifdef ENABLE_NATPMP
-#ifdef ENABLE_PCP
-	       GETFLAG(ENABLENATPMPMASK) ? " NAT-PMP/PCP " : " ",
-#else
 	       GETFLAG(ENABLENATPMPMASK) ? " NAT-PMP " : " ",
-#endif
 #else
 	       " ",
 #endif
@@ -1655,21 +1587,12 @@ main(int argc, char * * argv)
 	if(GETFLAG(ENABLENATPMPMASK))
 	{
 		if(OpenAndConfNATPMPSockets(snatpmp) < 0)
-#ifdef ENABLE_PCP
-		{
-			syslog(LOG_ERR, "Failed to open sockets for NAT-PMP/PCP.");
-		} else {
-			syslog(LOG_NOTICE, "Listening for NAT-PMP/PCP traffic on port %u",
-			       NATPMP_PORT);
-		}
-#else
 		{
 			syslog(LOG_ERR, "Failed to open sockets for NAT PMP.");
 		} else {
 			syslog(LOG_NOTICE, "Listening for NAT-PMP traffic on port %u",
 			       NATPMP_PORT);
 		}
-#endif
 #if 0
 		ScanNATPMPforExpiration();
 #endif
@@ -1718,6 +1641,9 @@ main(int argc, char * * argv)
 			}
 #endif
 			should_send_public_address_change_notif = 0;
+#ifdef ENABLE_LEASEFILE
+			reload_from_lease_file();
+#endif
 		}
 		/* Check if we need to send SSDP NOTIFY messages and do it if
 		 * needed */
@@ -1991,26 +1917,7 @@ main(int argc, char * * argv)
 		{
 			if((snatpmp[i] >= 0) && FD_ISSET(snatpmp[i], &readset))
 			{
-				unsigned char msg_buff[PCP_MAX_LEN];
-				struct sockaddr_in senderaddr;
-				int len;
-				memset(msg_buff, 0, PCP_MAX_LEN);
-				len = ReceiveNATPMPOrPCPPacket(snatpmp[i], &senderaddr,
-				       msg_buff, sizeof(msg_buff));
-				if (len < 1)
-					continue;
-#ifdef ENABLE_PCP
-				if (msg_buff[0]==0) {  /* version equals to 0 -> means NAT-PMP */
-					ProcessIncomingNATPMPPacket(snatpmp[i], msg_buff, len,
-							&senderaddr);
-				} else { /* everything else can be PCP */
-					ProcessIncomingPCPPacket(snatpmp[i], msg_buff, len,
-							&senderaddr);
-				}
-
-#else
-				ProcessIncomingNATPMPPacket(snatpmp[i], msg_buff, len, &senderaddr);
-#endif
+				ProcessIncomingNATPMPPacket(snatpmp[i]);
 			}
 		}
 #endif
