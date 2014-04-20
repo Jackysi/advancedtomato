@@ -208,6 +208,14 @@ resolve in the global DNS to a A and/or AAAA record which points to
 the address dnsmasq is listening on. When an interface is specified,
 it may be qualified with "/4" or "/6" to specify only the IPv4 or IPv6
 addresses associated with the interface.
+.TP
+.B --local-service
+Accept DNS queries only from hosts whose address is on a local subnet,
+ie a subnet for which an interface exists on the server. This option
+only has effect is there are no --interface --except-interface,
+--listen-address or --auth-server options. It is intended to be set as
+a default on installation, to allow unconfigured installations to be
+useful but also safe from being used for DNS amplification attacks.
 .TP 
 .B \-2, --no-dhcp-interface=<interface name>
 Do not provide DHCP or TFTP on the specified interface, but do provide DNS service.
@@ -599,7 +607,15 @@ clients unable to do validation, use of the AD bit set by dnsmasq is useful, pro
 the dnsmasq server and the client is trusted. Dnsmasq must be compiled with HAVE_DNSSEC enabled, and DNSSEC
 trust anchors provided, see 
 .B --trust-anchor.
-Because the DNSSEC validation process uses the cache, it is not permitted to reduce the cache size below the default when DNSSEC is enabled.
+Because the DNSSEC validation process uses the cache, it is not
+permitted to reduce the cache size below the default when DNSSEC is
+enabled. The nameservers upstream of dnsmasq must be DNSSEC-capable,
+ie capable of returning DNSSEC records with data. If they are not,
+then dnsmasq will not be able to determine the trusted status of
+answers. In the default mode, this menas that all replies will be
+marked as untrusted. If 
+.B --dnssec-check-unsigned
+is set and the upstream servers don't support DNSSEC, then DNS service will be entirely broken.
 .TP
 .B --trust-anchor=[<class>],<domain>,<key-tag>,<algorithm>,<digest-type>,<digest>
 Provide DS records to act a trust anchors for DNSSEC
@@ -607,6 +623,27 @@ validation. Typically these will be the DS record(s) for Zone Signing
 key(s) of the root zone,
 but trust anchors for limited domains are also possible. The current
 root-zone trust anchors may be donwloaded from https://data.iana.org/root-anchors/root-anchors.xml 
+.TP
+.B --dnssec-check-unsigned
+As a default, dnsmasq does not check that unsigned DNS replies are
+legitimate: they are assumed to be valid and passed on (without the
+"authentic data" bit set, of course). This does not protect against an
+attacker forging unsigned replies for signed DNS zones, but it is
+fast. If this flag is set, dnsmasq will check the zones of unsigned
+replies, to ensure that unsigned replies are allowed in those
+zones. The cost of this is more upstream queries and slower
+performance. See also the warning about upstream servers in the
+section on 
+.B --dnssec
+.TP
+.B --dnssec-no-timecheck
+DNSSEC signatures are only valid for specified time windows, and should be rejected outside those windows. This generates an
+interesting chicken-and-egg problem for machines which don't have a hardware real time clock. For these machines to determine the correct 
+time typically requires use of NTP and therefore DNS, but validating DNS requires that the correct time is already known. Setting this flag
+removes the time-window checks (but not other DNSSEC validation.) only until the dnsmasq process receives SIGHUP. The intention is
+that dnsmasq should be started with this flag when the platform determines that reliable time is not currently available. As soon as 
+reliable time is established, a SIGHUP should be sent to dnsmasq, which enables time checking, and purges the cache of DNS records
+which have not been throughly checked.
 .TP
 .B --proxy-dnssec
 Copy the DNSSEC Authenticated Data bit from upstream servers to downstream clients and cache it.  This is an 
@@ -638,7 +675,7 @@ Interface-name and address-literal subnet specifications may be used
 freely in the same --auth-zone declaration.
 
 The subnet(s) are also used to define in-addr.arpa and
-ipv6.arpa domains which are served for reverse-DNS queries. If not
+ip6.arpa domains which are served for reverse-DNS queries. If not
 specified, the prefix length defaults to 24 for IPv4 and 64 for IPv6.
 For IPv4 subnets, the prefix length should be have the value 8, 16 or 24
 unless you are familiar with RFC 2317 and have arranged the
@@ -745,7 +782,7 @@ or from /etc/ethers will be served. A static-only subnet with address
 all zeros may be used as a "catch-all" address to enable replies to all
 Information-request packets on a subnet which is provided with
 stateless DHCPv6, ie
-.B --dhcp=range=::,static
+.B --dhcp-range=::,static
 
 For IPv4, the <mode> may be 
 .B proxy
@@ -1725,12 +1762,22 @@ When it receives a SIGUSR1,
 writes statistics to the system log. It writes the cache size,
 the number of names which have had to removed from the cache before
 they expired in order to make room for new names and the total number
-of names that have been inserted into the cache. For each upstream
+of names that have been inserted into the cache. The number of cache hits and 
+misses and the number of authoritative queries answered are also given. For each upstream
 server it gives the number of queries sent, and the number which
 resulted in an error. In 
 .B --no-daemon
 mode or when full logging is enabled (-q), a complete dump of the
-contents of the cache is made.
+contents of the cache is made. 
+
+The cache statistics are also available in the DNS as answers to 
+queries of class CHAOS and type TXT in domain bind. The domain names are cachesize.bind, insertions.bind, evictions.bind, 
+misses.bind, hits.bind, auth.bind and servers.bind. An example command to query this, using the 
+.B dig
+utility would be
+
+dig +short chaos txt cachesize.bind
+
 .PP 
 When it receives SIGUSR2 and it is logging direct to a file (see
 .B --log-facility
@@ -1834,7 +1881,7 @@ which has tags will be used in preference  to an untagged
 .B dhcp-option,
 provided that _all_ the tags match somewhere in the
 set collected as described above. The prefix '!' on a tag means 'not'
-so --dhcp=option=tag:!purple,3,1.2.3.4 sends the option when the
+so --dhcp-option=tag:!purple,3,1.2.3.4 sends the option when the
 tag purple is not in the set of valid tags. (If using this in a
 command line rather than a configuration file, be sure to escape !,
 which is a shell metacharacter)
@@ -1986,7 +2033,7 @@ to particular hosts then
 will do so.
 
 Dnsmasq acts as an authoritative server for  in-addr.arpa and
-ipv6.arpa domains associated with the subnets given in auth-zone
+ip6.arpa domains associated with the subnets given in auth-zone
 declarations, so reverse (address to name) lookups can be simply
 configured with a suitable NS record, for instance in this example,
 where we allow 1.2.3.0/24 addresses.
@@ -2147,5 +2194,3 @@ assume that it is the system default.
 .BR resolver (5)
 .SH AUTHOR
 This manual page was written by Simon Kelley <simon@thekelleys.org.uk>.
-
-

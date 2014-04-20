@@ -191,8 +191,7 @@ Copyright (C) 2012 Tiomo<br>
 - Comprehensive QOS rule examples set by default<br>
 - TC-ATM overhead calculation - patch by tvlz<br>
 - GPT support for HDD by Yaniv Hamo<br>
-- Continuing IPv6 development by Kevin Darbyshire-Bryant<br>
-Copyright (C) 2010-2013 Toastman<br>
+Copyright (C) 2010-2014 Toastman<br>
 <a href='http://www.toastmanfirmware.yolasite.com'>http://www.toastmanfirmware.yolasite.com</a><br>
 <br>
 Built on <% build_time(); %><br>

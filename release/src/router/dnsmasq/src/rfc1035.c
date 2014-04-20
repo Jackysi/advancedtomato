@@ -337,7 +337,7 @@ unsigned char *skip_questions(struct dns_header *header, size_t plen)
   return ansp;
 }
 
-static unsigned char *skip_section(unsigned char *ansp, int count, struct dns_header *header, size_t plen)
+unsigned char *skip_section(unsigned char *ansp, int count, struct dns_header *header, size_t plen)
 {
   int i, rdlen;
   
@@ -601,11 +601,11 @@ static int filter_mac(int family, char *addrp, char *mac, size_t maclen, void *p
     
   if (family == parm->l3->sa.sa_family)
     {
-      if (family == AF_INET && memcmp (&parm->l3->in.sin_addr, addrp, INADDRSZ) == 0)
+      if (family == AF_INET && memcmp(&parm->l3->in.sin_addr, addrp, INADDRSZ) == 0)
 	match = 1;
 #ifdef HAVE_IPV6
       else
-	if (family == AF_INET6 && memcmp (&parm->l3->in6.sin6_addr, addrp, IN6ADDRSZ) == 0)
+	if (family == AF_INET6 && memcmp(&parm->l3->in6.sin6_addr, addrp, IN6ADDRSZ) == 0)
 	  match = 1;
 #endif
     }
@@ -917,8 +917,8 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
       searched_soa = 1;
       ttl = find_soa(header, qlen, name, doctored);
 #ifdef HAVE_DNSSEC
-      if (*doctored)
-	secure = 0;
+      if (*doctored && secure)
+	return 0;
 #endif
     }
   
@@ -927,7 +927,7 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
   
   for (i = ntohs(header->qdcount); i != 0; i--)
     {
-      int found = 0, cname_count = 5;
+      int found = 0, cname_count = CNAME_CHAIN;
       struct crec *cpp = NULL;
       int flags = RCODE(header) == NXDOMAIN ? F_NXDOMAIN : 0;
       int secflag = secure ?  F_DNSSECOK : 0;
@@ -988,9 +988,8 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 		      
 		      if (aqtype == T_CNAME)
 			{
-			  if (!cname_count--)
-			    return 0; /* looped CNAMES */
-			  secflag = 0; /* no longer DNSSEC */
+			  if (!cname_count-- || secure)
+			    return 0; /* looped CNAMES, or DNSSEC, which we can't cache. */
 			  goto cname_loop;
 			}
 		      
@@ -1066,6 +1065,8 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 		      if (newc)
 			{
 			  newc->addr.cname.target.cache = NULL;
+			  /* anything other than zero, to avoid being mistaken for CNAME to interface-name */ 
+			  newc->addr.cname.uid = 1; 
 			  if (cpp)
 			    {
 			      cpp->addr.cname.target.cache = newc;
@@ -1101,7 +1102,10 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 			{
 			  ipsets_cur = ipsets;
 			  while (*ipsets_cur)
-			    add_to_ipset(*ipsets_cur++, &addr, flags, 0);
+			    {
+			      log_query((flags & (F_IPV4 | F_IPV6)) | F_IPSET, name, &addr, *ipsets_cur);
+			      add_to_ipset(*ipsets_cur++, &addr, flags, 0);
+			    }
 			}
 #endif
 		      
@@ -1242,7 +1246,7 @@ int check_for_local_domain(char *name, time_t now)
   struct ptr_record *ptr;
   struct naptr *naptr;
 
-  if ((crecp = cache_find_by_name(NULL, name, now, F_IPV4 | F_IPV6 | F_CNAME | F_NO_RR)) &&
+  if ((crecp = cache_find_by_name(NULL, name, now, F_IPV4 | F_IPV6 | F_CNAME | F_DS | F_NO_RR)) &&
       (crecp->flags & (F_HOSTS | F_DHCP | F_CONFIG)))
     return 1;
   
@@ -1453,11 +1457,11 @@ static unsigned long crec_ttl(struct crec *crecp, time_t now)
 /* return zero if we can't answer from cache, or packet size if we can */
 size_t answer_request(struct dns_header *header, char *limit, size_t qlen,  
 		      struct in_addr local_addr, struct in_addr local_netmask, 
-		      time_t now, int *ad_reqd) 
+		      time_t now, int *ad_reqd, int *do_bit) 
 {
   char *name = daemon->namebuff;
   unsigned char *p, *ansp, *pheader;
-  int qtype, qclass;
+  unsigned int qtype, qclass;
   struct all_addr addr;
   int nameoffset;
   unsigned short flag;
@@ -1475,7 +1479,8 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
   
   /* RFC 6840 5.7 */
   *ad_reqd = header->hb4 & HB4_AD;
-  
+  *do_bit = 0;
+
   /* If there is an RFC2671 pseudoheader then it will be overwritten by
      partial replies, so we have to do a dry run to see if we can answer
      the query. We check to see if the do bit is set, if so we always
@@ -1493,7 +1498,8 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
       pheader += 2; /* ext_rcode */
       GETSHORT(flags, pheader);
       
-      sec_reqd = flags & 0x8000; /* do bit */ 
+      if ((sec_reqd = flags & 0x8000))
+	*do_bit = 1;/* do bit */ 
       *ad_reqd = 1;
 
       /* If our client is advertising a larger UDP packet size
@@ -1544,10 +1550,20 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 		  ans = 1;
 		  if (!dryrun)
 		    {
+		      unsigned long ttl = daemon->local_ttl;
+		      int ok = 1;
 		      log_query(F_CONFIG | F_RRNAME, name, NULL, "<TXT>");
-		      if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
-					      daemon->local_ttl, NULL,
-					      T_TXT, t->class, "t", t->len, t->txt))
+		      /* Dynamically generate stat record */
+		      if (t->stat != 0)
+			{
+			  ttl = 0;
+			  if (!cache_make_stat(t))
+			    ok = 0;
+			}
+		      
+		      if (ok && add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+						    ttl, NULL,
+						    T_TXT, t->class, "t", t->len, t->txt))
 			anscount++;
 
 		    }
@@ -1578,19 +1594,29 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 		  while ((crecp = cache_find_by_name(crecp, name, now, F_DS)))
 		    if (crecp->uid == qclass)
 		      {
-			gotone = 1;
-			if (!dryrun && (keydata = blockdata_retrieve(crecp->addr.ds.keydata, crecp->addr.ds.keylen, NULL)))
-			  {			     			      
-			    struct all_addr a;
-			    a.addr.keytag =  crecp->addr.ds.keytag;
-			    log_query(F_KEYTAG | (crecp->flags & F_CONFIG), name, &a, "DS keytag %u");
-			    if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
-						    crec_ttl(crecp, now), &nameoffset,
-						    T_DS, qclass, "sbbt", 
-						    crecp->addr.ds.keytag, crecp->addr.ds.algo, crecp->addr.ds.digest, crecp->addr.ds.keylen, keydata))
-			      anscount++;
-			    
-			  } 
+			gotone = 1; 
+			if (!dryrun)
+			  {
+			    if (crecp->flags & F_NEG)
+			      {
+				if (crecp->flags & F_NXDOMAIN)
+				  nxdomain = 1;
+				log_query(F_UPSTREAM, name, NULL, "secure no DS");	
+			      }
+			    else if ((keydata = blockdata_retrieve(crecp->addr.ds.keydata, crecp->addr.ds.keylen, NULL)))
+			      {			     			      
+				struct all_addr a;
+				a.addr.keytag =  crecp->addr.ds.keytag;
+				log_query(F_KEYTAG | (crecp->flags & F_CONFIG), name, &a, "DS keytag %u");
+				if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+							crec_ttl(crecp, now), &nameoffset,
+							T_DS, qclass, "sbbt", 
+							crecp->addr.ds.keytag, crecp->addr.ds.algo, 
+							crecp->addr.ds.digest, crecp->addr.ds.keylen, keydata))
+				  anscount++;
+				
+			      } 
+			  }
 		      }
 		}
 	      else /* DNSKEY */
@@ -2005,7 +2031,7 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 			    
 			    strcpy(name, cname_target);
 			    /* check if target interface_name */
-			    if (crecp->addr.cname.uid == -1)
+			    if (crecp->addr.cname.uid == SRC_INTERFACE)
 			      goto intname_restart;
 			    else
 			      goto cname_restart;

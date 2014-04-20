@@ -64,85 +64,88 @@ struct myoption {
 #define OPTSTRING "951yZDNLERKzowefnbvhdkqr:m:p:c:l:s:i:t:u:g:a:x:S:C:A:T:H:Q:I:B:F:G:O:M:X:V:U:j:P:J:W:Y:2:4:6:7:8:0:3:"
 
 /* options which don't have a one-char version */
-#define LOPT_RELOAD       256
-#define LOPT_NO_NAMES     257
-#define LOPT_TFTP         258
-#define LOPT_SECURE       259
-#define LOPT_PREFIX       260
-#define LOPT_PTR          261
-#define LOPT_BRIDGE       262
-#define LOPT_TFTP_MAX     263
-#define LOPT_FORCE        264
-#define LOPT_NOBLOCK      265
-#define LOPT_LOG_OPTS     266
-#define LOPT_MAX_LOGS     267
-#define LOPT_CIRCUIT      268
-#define LOPT_REMOTE       269
-#define LOPT_SUBSCR       270
-#define LOPT_INTNAME      271
-#define LOPT_BANK         272
-#define LOPT_DHCP_HOST    273
-#define LOPT_APREF        274
-#define LOPT_OVERRIDE     275
-#define LOPT_TFTPPORTS    276
-#define LOPT_REBIND       277
-#define LOPT_NOLAST       278
-#define LOPT_OPTS         279
-#define LOPT_DHCP_OPTS    280
-#define LOPT_MATCH        281
-#define LOPT_BROADCAST    282
-#define LOPT_NEGTTL       283
-#define LOPT_ALTPORT      284
-#define LOPT_SCRIPTUSR    285
-#define LOPT_LOCAL        286
-#define LOPT_NAPTR        287
-#define LOPT_MINPORT      288
-#define LOPT_DHCP_FQDN    289
-#define LOPT_CNAME        290
-#define LOPT_PXE_PROMT    291
-#define LOPT_PXE_SERV     292
-#define LOPT_TEST         293
-#define LOPT_TAG_IF       294
-#define LOPT_PROXY        295
-#define LOPT_GEN_NAMES    296
-#define LOPT_MAXTTL       297
-#define LOPT_NO_REBIND    298
-#define LOPT_LOC_REBND    299
-#define LOPT_ADD_MAC      300
-#define LOPT_DNSSEC       301
-#define LOPT_INCR_ADDR    302
-#define LOPT_CONNTRACK    303
-#define LOPT_FQDN         304
-#define LOPT_LUASCRIPT    305
-#define LOPT_RA           306
-#define LOPT_DUID         307
-#define LOPT_HOST_REC     308
-#define LOPT_TFTP_LC      309
-#define LOPT_RR           310
-#define LOPT_CLVERBIND    311
-#define LOPT_MAXCTTL      312
-#define LOPT_AUTHZONE     313
-#define LOPT_AUTHSERV     314
-#define LOPT_AUTHTTL      315
-#define LOPT_AUTHSOA      316
-#define LOPT_AUTHSFS      317
-#define LOPT_AUTHPEER     318
-#define LOPT_IPSET        319
-#define LOPT_SYNTH        320
+#define LOPT_RELOAD        256
+#define LOPT_NO_NAMES      257
+#define LOPT_TFTP          258
+#define LOPT_SECURE        259
+#define LOPT_PREFIX        260
+#define LOPT_PTR           261
+#define LOPT_BRIDGE        262
+#define LOPT_TFTP_MAX      263
+#define LOPT_FORCE         264
+#define LOPT_NOBLOCK       265
+#define LOPT_LOG_OPTS      266
+#define LOPT_MAX_LOGS      267
+#define LOPT_CIRCUIT       268
+#define LOPT_REMOTE        269
+#define LOPT_SUBSCR        270
+#define LOPT_INTNAME       271
+#define LOPT_BANK          272
+#define LOPT_DHCP_HOST     273
+#define LOPT_APREF         274
+#define LOPT_OVERRIDE      275
+#define LOPT_TFTPPORTS     276
+#define LOPT_REBIND        277
+#define LOPT_NOLAST        278
+#define LOPT_OPTS          279
+#define LOPT_DHCP_OPTS     280
+#define LOPT_MATCH         281
+#define LOPT_BROADCAST     282
+#define LOPT_NEGTTL        283
+#define LOPT_ALTPORT       284
+#define LOPT_SCRIPTUSR     285
+#define LOPT_LOCAL         286
+#define LOPT_NAPTR         287
+#define LOPT_MINPORT       288
+#define LOPT_DHCP_FQDN     289
+#define LOPT_CNAME         290
+#define LOPT_PXE_PROMT     291
+#define LOPT_PXE_SERV      292
+#define LOPT_TEST          293
+#define LOPT_TAG_IF        294
+#define LOPT_PROXY         295
+#define LOPT_GEN_NAMES     296
+#define LOPT_MAXTTL        297
+#define LOPT_NO_REBIND     298
+#define LOPT_LOC_REBND     299
+#define LOPT_ADD_MAC       300
+#define LOPT_DNSSEC        301
+#define LOPT_INCR_ADDR     302
+#define LOPT_CONNTRACK     303
+#define LOPT_FQDN          304
+#define LOPT_LUASCRIPT     305
+#define LOPT_RA            306
+#define LOPT_DUID          307
+#define LOPT_HOST_REC      308
+#define LOPT_TFTP_LC       309
+#define LOPT_RR            310
+#define LOPT_CLVERBIND     311
+#define LOPT_MAXCTTL       312
+#define LOPT_AUTHZONE      313
+#define LOPT_AUTHSERV      314
+#define LOPT_AUTHTTL       315
+#define LOPT_AUTHSOA       316
+#define LOPT_AUTHSFS       317
+#define LOPT_AUTHPEER      318
+#define LOPT_IPSET         319
+#define LOPT_SYNTH         320
 #ifdef OPTION6_PREFIX_CLASS 
-#define LOPT_PREF_CLSS    321
+#define LOPT_PREF_CLSS     321
 #endif
-#define LOPT_RELAY        323
-#define LOPT_RA_PARAM     324
-#define LOPT_ADD_SBNET    325
-#define LOPT_QUIET_DHCP   326
-#define LOPT_QUIET_DHCP6  327
-#define LOPT_QUIET_RA     328
-#define LOPT_SEC_VALID    329
-#define LOPT_TRUST_ANCHOR 330
-#define LOPT_DNSSEC_DEBUG 331
-#define LOPT_REV_SERV     332
-#define LOPT_SERVERS_FILE 333
+#define LOPT_RELAY         323
+#define LOPT_RA_PARAM      324
+#define LOPT_ADD_SBNET     325
+#define LOPT_QUIET_DHCP    326
+#define LOPT_QUIET_DHCP6   327
+#define LOPT_QUIET_RA      328
+#define LOPT_SEC_VALID     329
+#define LOPT_TRUST_ANCHOR  330
+#define LOPT_DNSSEC_DEBUG  331
+#define LOPT_REV_SERV      332
+#define LOPT_SERVERS_FILE  333
+#define LOPT_DNSSEC_CHECK  334
+#define LOPT_LOCAL_SERVICE 335
+#define LOPT_DNSSEC_TIME   336
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -174,6 +177,7 @@ static const struct myoption opts[] =
     { "domain-suffix", 1, 0, 's' },
     { "interface", 1, 0, 'i' },
     { "listen-address", 1, 0, 'a' },
+    { "local-service", 0, 0, LOPT_LOCAL_SERVICE },
     { "bogus-priv", 0, 0, 'b' },
     { "bogus-nxdomain", 1, 0, 'B' },
     { "selfmx", 0, 0, 'e' },
@@ -283,6 +287,8 @@ static const struct myoption opts[] =
     { "dnssec", 0, 0, LOPT_SEC_VALID },
     { "trust-anchor", 1, 0, LOPT_TRUST_ANCHOR },
     { "dnssec-debug", 0, 0, LOPT_DNSSEC_DEBUG },
+    { "dnssec-check-unsigned", 0, 0, LOPT_DNSSEC_CHECK },
+    { "dnssec-no-timecheck", 0, 0, LOPT_DNSSEC_TIME },
 #ifdef OPTION6_PREFIX_CLASS 
     { "dhcp-prefix-class", 1, 0, LOPT_PREF_CLSS },
 #endif
@@ -438,6 +444,8 @@ static struct {
   { LOPT_SEC_VALID, OPT_DNSSEC_VALID, NULL, gettext_noop("Activate DNSSEC validation"), NULL },
   { LOPT_TRUST_ANCHOR, ARG_DUP, "<domain>,[<class>],...", gettext_noop("Specify trust anchor key digest."), NULL },
   { LOPT_DNSSEC_DEBUG, OPT_DNSSEC_DEBUG, NULL, gettext_noop("Disable upstream checking for DNSSEC debugging."), NULL },
+  { LOPT_DNSSEC_CHECK, OPT_DNSSEC_NO_SIGN, NULL, gettext_noop("Ensure answers without DNSSEC are in unsigned zones."), NULL },
+  { LOPT_DNSSEC_TIME, OPT_DNSSEC_TIME, NULL, gettext_noop("Don't check DNSSEC signature timestamps until first cache-reload"), NULL },
 #ifdef OPTION6_PREFIX_CLASS 
   { LOPT_PREF_CLSS, ARG_DUP, "set:tag,<class>", gettext_noop("Specify DHCPv6 prefix class"), NULL },
 #endif
@@ -445,6 +453,7 @@ static struct {
   { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log routine DHCP."), NULL },
   { LOPT_QUIET_DHCP6, OPT_QUIET_DHCP6, NULL, gettext_noop("Do not log routine DHCPv6."), NULL },
   { LOPT_QUIET_RA, OPT_QUIET_RA, NULL, gettext_noop("Do not log RA."), NULL },
+  { LOPT_LOCAL_SERVICE, OPT_LOCAL_SERVICE, NULL, gettext_noop("Accept queries only from directly-connected networks"), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -609,19 +618,24 @@ static int atoi_check8(char *a, int *res)
 }
 #endif
 	
-static void add_txt(char *name, char *txt)
+static void add_txt(char *name, char *txt, int stat)
 {
-  size_t len = strlen(txt);
   struct txt_record *r = opt_malloc(sizeof(struct txt_record));
+
+  if (txt)
+    {
+      size_t len = strlen(txt);
+      r->txt = opt_malloc(len+1);
+      r->len = len+1;
+      *(r->txt) = len;
+      memcpy((r->txt)+1, txt, len);
+    }
   
+  r->stat = stat;
   r->name = opt_string_alloc(name);
   r->next = daemon->txt;
   daemon->txt = r;
   r->class = C_CHAOS;
-  r->txt = opt_malloc(len+1);
-  r->len = len+1;
-  *(r->txt) = len;
-  memcpy((r->txt)+1, txt, len);
 }
 
 static void do_usage(void)
@@ -1658,7 +1672,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     case 'H': /* --addn-hosts */
       {
 	struct hostsfile *new = opt_malloc(sizeof(struct hostsfile));
-	static int hosts_index = 1;
+	static unsigned int hosts_index = SRC_AH;
 	new->fname = opt_string_alloc(arg);
 	new->index = hosts_index++;
 	new->flags = 0;
@@ -3603,7 +3617,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	new->next = daemon->txt;
 	daemon->txt = new;
 	new->class = C_IN;
-	
+	new->stat = 0;
+
 	if (!(new->name = canonicalise_opt(arg)))
 	  ret_err(_("bad TXT record"));
 	
@@ -4014,10 +4029,11 @@ static int one_file(char *file, int hard_opt)
 /* expand any name which is a directory */
 struct hostsfile *expand_filelist(struct hostsfile *list)
 {
-  int i;
+  unsigned int i;
   struct hostsfile *ah;
 
-  for (i = 0, ah = list; ah; ah = ah->next)
+  /* find largest used index */
+  for (i = SRC_AH, ah = list; ah; ah = ah->next)
     {
       if (i <= ah->index)
 	i = ah->index + 1;
@@ -4251,9 +4267,18 @@ void read_opts(int argc, char **argv, char *compile_opts)
   daemon->soa_refresh = SOA_REFRESH;
   daemon->soa_retry = SOA_RETRY;
   daemon->soa_expiry = SOA_EXPIRY;
-  add_txt("version.bind", "dnsmasq-" VERSION );
-  add_txt("authors.bind", "Simon Kelley");
-  add_txt("copyright.bind", COPYRIGHT);
+  add_txt("version.bind", "dnsmasq-" VERSION, 0 );
+  add_txt("authors.bind", "Simon Kelley", 0);
+  add_txt("copyright.bind", COPYRIGHT, 0);
+  add_txt("cachesize.bind", NULL, TXT_STAT_CACHESIZE);
+  add_txt("insertions.bind", NULL, TXT_STAT_INSERTS);
+  add_txt("evictions.bind", NULL, TXT_STAT_EVICTIONS);
+  add_txt("misses.bind", NULL, TXT_STAT_MISSES);
+  add_txt("hits.bind", NULL, TXT_STAT_HITS);
+#ifdef HAVE_AUTH
+  add_txt("auth.bind", NULL, TXT_STAT_AUTH);
+#endif
+  add_txt("servers.bind", NULL, TXT_STAT_SERVERS);
 
   while (1) 
     {
@@ -4453,6 +4478,11 @@ void read_opts(int argc, char **argv, char *compile_opts)
     }
   else if (option_bool(OPT_DHCP_FQDN))
     die(_("there must be a default domain when --dhcp-fqdn is set"), NULL, EC_BADCONF);
+
+  /* If there's access-control config, then ignore --local-service, it's intended
+     as a system default to keep otherwise unconfigured installations safe. */
+  if (daemon->if_names || daemon->if_except || daemon->if_addrs || daemon->authserver)
+    reset_option_bool(OPT_LOCAL_SERVICE); 
 
   if (testmode)
     {

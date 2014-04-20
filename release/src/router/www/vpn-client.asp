@@ -240,7 +240,7 @@ function init()
 
  	for (i = 0; i < tabs.length; ++i)
 	{
-		sectSelect(i, cookie.get('vpn_client'+i+'_section') || sections[i][0]);
+		sectSelect(i, cookie.get('vpn_client'+i+'_section') || sections[0][0]);
 
 		t = tabs[i][0];
 

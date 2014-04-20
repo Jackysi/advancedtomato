@@ -24,7 +24,6 @@ static struct crec *new_chain = NULL;
 static int cache_inserted = 0, cache_live_freed = 0, insert_error;
 static union bigname *big_free = NULL;
 static int bignames_left, hash_size;
-static int uid = 1;
 
 /* type->string mapping: this is also used by the name-hash function as a mixing table. */
 static const struct {
@@ -73,6 +72,19 @@ static void cache_link(struct crec *crecp);
 static void rehash(int size);
 static void cache_hash(struct crec *crecp);
 
+static unsigned int next_uid(void)
+{
+  static unsigned int uid = 0;
+
+  uid++;
+  
+  /* uid == 0 used to indicate CNAME to interface name. */
+  if (uid == SRC_INTERFACE)
+    uid++;
+  
+  return uid;
+}
+
 void cache_init(void)
 {
   struct crec *crecp;
@@ -88,7 +100,7 @@ void cache_init(void)
 	{
 	  cache_link(crecp);
 	  crecp->flags = 0;
-	  crecp->uid = uid++;
+	  crecp->uid = next_uid();
 	}
     }
   
@@ -183,7 +195,7 @@ static void cache_blockdata_free(struct crec *crecp)
       else
 	blockdata_free(crecp->addr.key.keydata);
     }
-  else if (crecp->flags & F_DS)
+  else if ((crecp->flags & F_DS) && !(crecp->flags & F_NEG))
     blockdata_free(crecp->addr.ds.keydata);
 }
 #endif
@@ -192,10 +204,7 @@ static void cache_free(struct crec *crecp)
 {
   crecp->flags &= ~F_FORWARD;
   crecp->flags &= ~F_REVERSE;
-  crecp->uid = uid++; /* invalidate CNAMES pointing to this. */
-
-  if (uid == -1)
-    uid++;
+  crecp->uid = next_uid(); /* invalidate CNAMES pointing to this. */
 
   if (cache_tail)
     cache_tail->next = crecp;
@@ -256,7 +265,7 @@ char *cache_get_name(struct crec *crecp)
 
 char *cache_get_cname_target(struct crec *crecp)
 {
-  if (crecp->addr.cname.uid != -1)
+  if (crecp->addr.cname.uid != SRC_INTERFACE)
     return cache_get_name(crecp->addr.cname.target.cache);
 
   return crecp->addr.cname.target.int_name->name;
@@ -289,7 +298,7 @@ struct crec *cache_enumerate(int init)
 
 static int is_outdated_cname_pointer(struct crec *crecp)
 {
-  if (!(crecp->flags & F_CNAME) || crecp->addr.cname.uid == -1)
+  if (!(crecp->flags & F_CNAME) || crecp->addr.cname.uid == SRC_INTERFACE)
     return 0;
   
   /* NB. record may be reused as DS or DNSKEY, where uid is 
@@ -564,7 +573,14 @@ struct crec *cache_insert(char *name, struct all_addr *addr,
     *cache_get_name(new) = 0;
 
   if (addr)
-    new->addr.addr = *addr;
+    {
+#ifdef HAVE_DNSSEC
+      if (flags & (F_DS | F_DNSKEY))
+	new->uid = addr->addr.dnssec.class;
+      else
+#endif
+	new->addr.addr = *addr;	
+    }
 
   new->ttd = now + (time_t)ttl;
   new->next = new_chain;
@@ -767,13 +783,14 @@ static void add_hosts_cname(struct crec *target)
 	crec->name.namep = a->alias;
 	crec->addr.cname.target.cache = target;
 	crec->addr.cname.uid = target->uid;
+	crec->uid = next_uid();
 	cache_hash(crec);
 	add_hosts_cname(crec); /* handle chains */
       }
 }
   
 static void add_hosts_entry(struct crec *cache, struct all_addr *addr, int addrlen, 
-			    int index, struct crec **rhash, int hashsz)
+			    unsigned int index, struct crec **rhash, int hashsz)
 {
   struct crec *lookup = cache_find_by_name(NULL, cache_get_name(cache), 0, cache->flags & (F_IPV4 | F_IPV6));
   int i, nameexists = 0;
@@ -877,7 +894,7 @@ static int gettok(FILE *f, char *token)
     }
 }
 
-static int read_hostsfile(char *filename, int index, int cache_size, struct crec **rhash, int hashsz)
+static int read_hostsfile(char *filename, unsigned int index, int cache_size, struct crec **rhash, int hashsz)
 {  
   FILE *f = fopen(filename, "r");
   char *token = daemon->namebuff, *domain_suffix = NULL;
@@ -1027,7 +1044,8 @@ void cache_reload(void)
 	  cache->flags = F_FORWARD | F_NAMEP | F_CNAME | F_IMMORTAL | F_CONFIG;
 	  cache->name.namep = a->alias;
 	  cache->addr.cname.target.int_name = intr;
-	  cache->addr.cname.uid = -1;
+	  cache->addr.cname.uid = SRC_INTERFACE;
+	  cache->uid = next_uid();
 	  cache_hash(cache);
 	  add_hosts_cname(cache); /* handle chains */
 	}
@@ -1063,7 +1081,7 @@ void cache_reload(void)
 	  {
 	    cache->name.namep = nl->name;
 	    cache->flags = F_HOSTS | F_IMMORTAL | F_FORWARD | F_REVERSE | F_IPV4 | F_NAMEP | F_CONFIG;
-	    add_hosts_entry(cache, (struct all_addr *)&hr->addr, INADDRSZ, 0, (struct crec **)daemon->packet, revhashsz);
+	    add_hosts_entry(cache, (struct all_addr *)&hr->addr, INADDRSZ, SRC_CONFIG, (struct crec **)daemon->packet, revhashsz);
 	  }
 #ifdef HAVE_IPV6
 	if (!IN6_IS_ADDR_UNSPECIFIED(&hr->addr6) &&
@@ -1071,7 +1089,7 @@ void cache_reload(void)
 	  {
 	    cache->name.namep = nl->name;
 	    cache->flags = F_HOSTS | F_IMMORTAL | F_FORWARD | F_REVERSE | F_IPV6 | F_NAMEP | F_CONFIG;
-	    add_hosts_entry(cache, (struct all_addr *)&hr->addr6, IN6ADDRSZ, 0, (struct crec **)daemon->packet, revhashsz);
+	    add_hosts_entry(cache, (struct all_addr *)&hr->addr6, IN6ADDRSZ, SRC_CONFIG, (struct crec **)daemon->packet, revhashsz);
 	  }
 #endif
       }
@@ -1084,7 +1102,7 @@ void cache_reload(void)
     }
     
   if (!option_bool(OPT_NO_HOSTS))
-    total_size = read_hostsfile(HOSTSFILE, 0, total_size, (struct crec **)daemon->packet, revhashsz);
+    total_size = read_hostsfile(HOSTSFILE, SRC_HOSTS, total_size, (struct crec **)daemon->packet, revhashsz);
   	   
   daemon->addn_hosts = expand_filelist(daemon->addn_hosts);
   for (ah = daemon->addn_hosts; ah; ah = ah->next)
@@ -1148,6 +1166,7 @@ static void add_dhcp_cname(struct crec *target, time_t ttd)
 	    aliasc->name.namep = a->alias;
 	    aliasc->addr.cname.target.cache = target;
 	    aliasc->addr.cname.uid = target->uid;
+	    aliasc->uid = next_uid();
 	    cache_hash(aliasc);
 	    add_dhcp_cname(aliasc, ttd);
 	  }
@@ -1235,7 +1254,7 @@ void cache_add_dhcp_entry(char *host_name, int prot,
 	crec->ttd = ttd;
       crec->addr.addr = *host_address;
       crec->name.namep = host_name;
-      crec->uid = uid++;
+      crec->uid = next_uid();
       cache_hash(crec);
 
       add_dhcp_cname(crec, ttd);
@@ -1243,6 +1262,101 @@ void cache_add_dhcp_entry(char *host_name, int prot,
 }
 #endif
 
+int cache_make_stat(struct txt_record *t)
+{ 
+  static char *buff = NULL;
+  static int bufflen = 60;
+  int len;
+  struct server *serv, *serv1;
+  char *p;
+
+  if (!buff && !(buff = whine_malloc(60)))
+    return 0;
+
+  p = buff;
+  
+  switch (t->stat)
+    {
+    case TXT_STAT_CACHESIZE:
+      sprintf(buff+1, "%d", daemon->cachesize);
+      break;
+
+    case TXT_STAT_INSERTS:
+      sprintf(buff+1, "%d", cache_inserted);
+      break;
+
+    case TXT_STAT_EVICTIONS:
+      sprintf(buff+1, "%d", cache_live_freed);
+      break;
+
+    case TXT_STAT_MISSES:
+      sprintf(buff+1, "%u", daemon->queries_forwarded);
+      break;
+
+    case TXT_STAT_HITS:
+      sprintf(buff+1, "%u", daemon->local_answer);
+      break;
+
+#ifdef HAVE_AUTH
+    case TXT_STAT_AUTH:
+      sprintf(buff+1, "%u", daemon->auth_answer);
+      break;
+#endif
+
+    case TXT_STAT_SERVERS:
+      /* sum counts from different records for same server */
+      for (serv = daemon->servers; serv; serv = serv->next)
+	serv->flags &= ~SERV_COUNTED;
+      
+      for (serv = daemon->servers; serv; serv = serv->next)
+	if (!(serv->flags & 
+	      (SERV_NO_ADDR | SERV_LITERAL_ADDRESS | SERV_COUNTED | SERV_USE_RESOLV | SERV_NO_REBIND)))
+	  {
+	    char *new, *lenp;
+	    int port, newlen, bytes_avail, bytes_needed;
+	    unsigned int queries = 0, failed_queries = 0;
+	    for (serv1 = serv; serv1; serv1 = serv1->next)
+	      if (!(serv1->flags & 
+		    (SERV_NO_ADDR | SERV_LITERAL_ADDRESS | SERV_COUNTED | SERV_USE_RESOLV | SERV_NO_REBIND)) && 
+		  sockaddr_isequal(&serv->addr, &serv1->addr))
+		{
+		  serv1->flags |= SERV_COUNTED;
+		  queries += serv1->queries;
+		  failed_queries += serv1->failed_queries;
+		}
+	    port = prettyprint_addr(&serv->addr, daemon->addrbuff);
+	    lenp = p++; /* length */
+	    bytes_avail = (p - buff) + bufflen;
+	    bytes_needed = snprintf(p, bytes_avail, "%s#%d %u %u", daemon->addrbuff, port, queries, failed_queries);
+	    if (bytes_needed >= bytes_avail)
+	      {
+		/* expand buffer if necessary */
+		newlen = bytes_needed + 1 + bufflen - bytes_avail;
+		if (!(new = whine_malloc(newlen)))
+		  return 0;
+		memcpy(new, buff, bufflen);
+		free(buff);
+		p = new + (p - buff);
+		lenp = p - 1;
+		buff = new;
+		bufflen = newlen;
+		bytes_avail = (p - buff) + bufflen;
+		bytes_needed = snprintf(p, bytes_avail, "%s#%d %u %u", daemon->addrbuff, port, queries, failed_queries);
+	      }
+	    *lenp = bytes_needed;
+	    p += bytes_needed;
+	  }
+      t->txt = (unsigned char *)buff;
+      t->len = p - buff;
+      return 1;
+    }
+  
+  len = strlen(buff+1);
+  t->txt = (unsigned char *)buff;
+  t->len = len + 1;
+  *buff = len;
+  return 1;
+}
 
 void dump_cache(time_t now)
 {
@@ -1304,25 +1418,16 @@ void dump_cache(time_t now)
 	    else if (cache->flags & F_DS)
 	      {
 		if (cache->flags & F_DNSKEY)
-		  {
-		    /* RRSIG */
-		    a = daemon->addrbuff;
-		    sprintf(a, "%5u %3u %s", cache->addr.sig.keytag,
-			    cache->addr.sig.algo, querystr("", cache->addr.sig.type_covered));
-		  }
-		else
-		  {
-		    a = daemon->addrbuff;
-		    sprintf(a, "%5u %3u %3u", cache->addr.ds.keytag,
-			    cache->addr.ds.algo, cache->addr.ds.digest);
-		  }
+		  /* RRSIG */
+		  sprintf(a, "%5u %3u %s", cache->addr.sig.keytag,
+			  cache->addr.sig.algo, querystr("", cache->addr.sig.type_covered));
+		else if (!(cache->flags & F_NEG))
+		  sprintf(a, "%5u %3u %3u", cache->addr.ds.keytag,
+			  cache->addr.ds.algo, cache->addr.ds.digest);
 	      }
 	    else if (cache->flags & F_DNSKEY)
-	      {
-		a = daemon->addrbuff;
-		sprintf(a, "%5u %3u %3u", cache->addr.key.keytag,
-			cache->addr.key.algo, cache->addr.key.flags);
-	      }
+	      sprintf(a, "%5u %3u %3u", cache->addr.key.keytag,
+		      cache->addr.key.algo, cache->addr.key.flags);
 #endif
 	    else if (!(cache->flags & F_NEG) || !(cache->flags & F_FORWARD))
 	      { 
@@ -1370,11 +1475,13 @@ void dump_cache(time_t now)
     }
 }
 
-char *record_source(int index)
+char *record_source(unsigned int index)
 {
   struct hostsfile *ah;
 
-  if (index == 0)
+  if (index == SRC_CONFIG)
+    return "config";
+  else if (index == SRC_HOSTS)
     return HOSTSFILE;
 
   for (ah = daemon->addn_hosts; ah; ah = ah->next)
@@ -1501,6 +1608,13 @@ void log_query(unsigned int flags, char *name, struct all_addr *addr, char *arg)
     {
       source = arg;
       verb = "to";
+    }
+  else if (flags & F_IPSET)
+    {
+      source = "ipset add";
+      dest = name;
+      name = arg;
+      verb = daemon->addrbuff;
     }
   else
     source = "cached";

@@ -137,7 +137,10 @@ int main (int argc, char **argv)
   
 #ifdef HAVE_DNSSEC
   if (option_bool(OPT_DNSSEC_VALID))
-    daemon->keyname = safe_malloc(MAXDNAME);
+    {
+      daemon->keyname = safe_malloc(MAXDNAME);
+      daemon->workspacename = safe_malloc(MAXDNAME);
+    }
 #endif
 
 #ifdef HAVE_DHCP
@@ -433,7 +436,7 @@ int main (int argc, char **argv)
   piperead = pipefd[0];
   pipewrite = pipefd[1];
   /* prime the pipe to load stuff first time. */
-  send_event(pipewrite, EVENT_RELOAD, 0, NULL); 
+  send_event(pipewrite, EVENT_INIT, 0, NULL); 
 
   err_pipe[1] = -1;
   
@@ -697,10 +700,17 @@ int main (int argc, char **argv)
 	my_syslog(LOG_INFO, _("DBus support enabled: bus connection pending"));
     }
 #endif
+
+  if (option_bool(OPT_LOCAL_SERVICE))
+    my_syslog(LOG_INFO, _("DNS service limited to local subnets"));
   
 #ifdef HAVE_DNSSEC
   if (option_bool(OPT_DNSSEC_VALID))
-    my_syslog(LOG_INFO, _("DNSSEC validation enabled"));
+    {
+      my_syslog(LOG_INFO, _("DNSSEC validation enabled"));
+      if (option_bool(OPT_DNSSEC_TIME))
+	my_syslog(LOG_INFO, _("DNSSEC signature timestamps not checked until first cache reload"));
+    }
 #endif
 
   if (log_err != 0)
@@ -1163,8 +1173,18 @@ static void async_event(int pipe, time_t now)
     switch (ev.event)
       {
       case EVENT_RELOAD:
+#ifdef HAVE_DNSSEC
+	if (option_bool(OPT_DNSSEC_VALID) && option_bool(OPT_DNSSEC_TIME))
+	  {
+	    my_syslog(LOG_INFO, _("now checking DNSSEC signature timestamps"));
+	    reset_option_bool(OPT_DNSSEC_TIME);
+	  } 
+#endif
+	/* fall through */
+	
+      case EVENT_INIT:
 	clear_cache_and_reload(now);
-
+	
 	if (daemon->port != 0)
 	  {
 	    if (daemon->resolv_files && option_bool(OPT_NO_POLL))
