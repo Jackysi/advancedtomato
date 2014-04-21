@@ -213,6 +213,23 @@ obj-$(TCONFIG_OPENVPN) += openvpn_plugin_auth_nvram
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
+# Tomato RAF
+# additional modules for nginx
+ifeq (obj-$(TCONFIG_NGINX),y)
+ifndef ($(ADDITIONAL_MODULES))
+ADDITIONAL_MODULES:=
+else
+ifeq ($(TCONFIG_IPV6),y)
+ADDITIONAL_MODULES += --with-ipv6
+endif
+endif
+endif
+obj-$(TCONFIG_NGINX) += openssl
+obj-$(TCONFIG_NGINX) += spawn-fcgi
+obj-$(TCONFIG_NGINX) += pcre
+obj-$(TCONFIG_NGINX) += php
+obj-$(TCONFIG_NGINX) += nginx
+
 obj-$(TCONFIG_BBT) += openssl
 obj-$(TCONFIG_BBT) += libevent
 obj-$(TCONFIG_BBT) += libcurl
@@ -1545,16 +1562,17 @@ endif
 
 zlib/stamp-h1:
 	cd zlib && \
-	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	./configure --shared --prefix=''
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all $(PARALLEL_BUILD)
+	@$(MAKE) -C zlib all
+	@$(MAKE) -C zlib DESTDIR=$(TOP)/zlib/staged install
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
 	@rm -f zlib/stamp-h1 zlib/Makefile zlib/zconf.h zlib/zlib.pc
+	@rm -rf zlib/staged
 
 zlib-install: zlib
 	@$(SEP)
@@ -1756,6 +1774,27 @@ ebtables-clean:
 	-@$(MAKE) -C ebtables clean
 
 #Roadkill
+spawn-fcgi/stamp-h1:
+	cd spawn-fcgi && CC=$(CC) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	ac_cv_func_malloc_0_nonnull=yes \
+	$(CONFIGURE) --prefix=/usr
+	touch spawn-fcgi/stamp-h1
+
+spawn-fcgi: spawn-fcgi/stamp-h1
+	@$(MAKE) -C spawn-fcgi $(PARALLEL_BUILD)
+
+spawn-fcgi-clean:
+	-@$(MAKE) -C spawn-fcgi clean
+	rm -f spawn-fcgi/stamp-h1
+
+spawn-fcgi-install: spawn-fcgi
+	install -d $(INSTALLDIR)/spawn-fcgi/usr/bin
+	install spawn-fcgi/src/spawn-fcgi $(INSTALLDIR)/spawn-fcgi/usr/bin/spawn-fcgi
+	$(STRIP) -s $(INSTALLDIR)/spawn-fcgi/usr/bin/spawn-fcgi
+
+#Roadkill
 glib/stamp-h1:
 	@$(SEP)
 	@cd glib && $(CONFIGURE) --prefix=/usr glib_cv_prog_cc_ansi_proto=no glib_cv_has__inline=yes glib_cv_has__inline__=yes glib_cv_hasinline=yes \
@@ -1776,7 +1815,6 @@ glib-clean:
 glib-install: glib
 	@$(MAKE) -C glib DESTDIR=$(INSTALLDIR)/glib install
 
-#Roadkill
 nocat/stamp-h1: glib-install
 	@$(SEP)
 	@cd nocat && \
@@ -1803,6 +1841,149 @@ nocat-install:
 	$(STRIP) $(INSTALLDIR)/nocat/usr/sbin/splashd
 	mkdir -p $(INSTALLDIR)/nocat/usr/libexec/nocat
 	install -D nocat/libexec/iptables/* $(INSTALLDIR)/nocat/usr/libexec/nocat
+
+#Tomato RAF
+pcre/stamp-h1:
+	$(SEP)
+	cd pcre && \
+	CC=$(CC) CXX=$(HOST)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --disable-dependency-tracking --enable-utf8 --enable-unicode-properties --disable-cpp
+	@touch pcre/stamp-h1
+	[ -d pcre/m4 ] || mkdir pcre/m4
+
+pcre: pcre/stamp-h1
+
+pcre-install: pcre
+	@$(SEP)
+	install -D pcre/.libs/libpcre.so.1 $(INSTALLDIR)/pcre/usr/lib/libpcre.so.1.2.3
+	$(STRIP) -s $(INSTALLDIR)/pcre/usr/lib/libpcre.so.1.2.3
+	install -D pcre/.libs/libpcreposix.so.0.0.2 $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.2
+	$(STRIP) -s $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.2
+	cd $(INSTALLDIR)/pcre/usr/lib/ && \
+		ln -sf libpcre.so.1.2.3 libpcre.so.1 && \
+		ln -sf libpcreposix.so.0.0.2 libpcreposix.so.0
+
+pcre-clean:
+	( if [ -f pcre/Makefile ]; then \
+		$(MAKE) -C pcre clean; \
+		rm -rf pcre/stamp-h1; \
+	fi )
+
+php/stamp-h1: pcre zlib
+	@$(SEP)
+	cd php && CC=$(CC) CXX=$(ARCH)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
+	CFLAGS="-Os -Wall -I $(TOP)/zlib -I $(TOP)/pcre -L $(TOP)/pcre/.libs/libpcre.so.1.2.3 -L $(TOP)/pcre/.libs/libpcreposix.so.0.0.2 $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr \
+	--enable-shared \
+	--disable-static \
+	--disable-rpath \
+	--disable-debug \
+	--without-pear \
+	--with-config-file-path=/etc \
+	--with-config-file-scan-dir=/etc/php5 \
+	--disable-short-tags \
+	--with-zlib="$(TOP)/zlib/staged" \
+	--with-zlib-dir="$(TOP)/zlib/staged" \
+	--disable-phar \
+	--enable-cli \
+	--enable-cgi \
+	--disable-calendar \
+	--disable-ctype \
+	--without-curl \
+	--disable-fileinfo \
+	--without-gettext \
+	--disable-dom \
+	--disable-exif \
+	--disable-ftp \
+	--without-gmp \
+	--disable-hash \
+	--without-iconv \
+	--enable-json \
+	--without-ldap \
+	--disable-mbstring \
+	--without-mcrypt \
+	--without-mysqli \
+	--without-openssl \
+	--disable-pcntl \
+	--without-pdo-mysql \
+	--without-pdo-pgsql \
+	--without-pdo-sqlite \
+	--disable-pdo \
+	--without-pgsql \
+	--enable-session \
+	--disable-shmop \
+	--disable-simplexml \
+	--disable-soap \
+	--disable-sockets \
+	--without-sqlite \
+	--without-sqlite3 \
+	--disable-sysvmsg \
+	--disable-sysvsem \
+	--disable-sysvshm \
+	--disable-tokenizer \
+	--disable-xml \
+	--disable-xmlreader \
+	--disable-xmlwriter \
+	--enable-zip \
+	--disable-filter \
+	--disable-libxml \
+	ac_cv_c_bigendian_php="no" \
+	php_cv_cc_rpath="no" \
+	iconv_impl_name="gnu_libiconv"
+	@touch php/stamp-h1
+
+php: php/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C php
+
+php-clean:
+	-@$(MAKE) -C php clean
+	-@rm php/stamp-h1
+
+php-install: php
+	@$(SEP)
+	install -d $(INSTALLDIR)/php/usr/sbin
+	install -D php/sapi/cli/php $(INSTALLDIR)/php/usr/sbin/php-cli && chmod 0755 $(INSTALLDIR)/php/usr/sbin/php-cli
+	$(STRIP) $(INSTALLDIR)/php/usr/sbin/php-cli
+	install -D php/sapi/cgi/php-cgi $(INSTALLDIR)/php/usr/sbin/php-cgi && chmod 0755 $(INSTALLDIR)/php/usr/sbin/php-cgi
+	cd $(INSTALLDIR)/php/usr/sbin && ln -sf php-cgi php-fcgi
+	$(STRIP) $(INSTALLDIR)/php/usr/sbin/php-cgi
+
+nginx/stamp-h1: openssl zlib pcre
+	@$(SEP)
+	cd $(TOP)/nginx && ./configure --crossbuild=Linux::$(ARCH) \
+		--prefix=/usr \
+		--sbin-path=/usr/sbin \
+		--conf-path=/etc/nginx/nginx.conf \
+		--error-log-path=/tmp/var/log/nginx/error.log \
+		--http-log-path=/tmp/var/log/nginx/access.log \
+		--pid-path=/tmp/var/run/nginx.pid \
+		--lock-path=/tmp/var/run/nginx.lock.accept \
+		--http-client-body-temp-path=/tmp/var/lib/nginx/client \
+		--http-fastcgi-temp-path=/tmp/var/lib/nginx/fastcgi \
+		--with-http_flv_module \
+		--with-http_ssl_module \
+		--with-http_gzip_static_module \
+		--http-uwsgi-temp-path=/tmp/var/lib/nginx/uwsgi \
+		--http-scgi-temp-path=/tmp/var/lib/nginx/scgi \
+		--http-proxy-temp-path=/tmp/var/lib/nginx/proxy \
+		--with-cc="$(CC)" \
+		--with-ld-opt="$(LDFLAGS) -L $(TOP)/pcre/.libs -L $(TOP)/zlib -L $(TOP)/openssl" \
+		--with-cc-opt="$(EXTRACFLAGS) $(CPPFLAGS) $(CFLAGS) -I $(TOP)/openssl/include -I $(TOP)/openssl/include/openssl -I $(TOP)/pcre -I $(TOP)/zlib" \
+		$(ADDITIONAL_MODULES)
+
+nginx: nginx/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C nginx
+
+nginx-clean:
+	-@$(MAKE) -C nginx clean
+	-@rm -f nginx/stamp-h1
+
+nginx-install: nginx
+	install -d $(INSTALLDIR)/nginx/usr/sbin
+	install -D nginx/objs/nginx $(INSTALLDIR)/nginx/usr/sbin/nginx && chmod 755 $(INSTALLDIR)/nginx/usr/sbin/nginx
+	$(STRIP) $(INSTALLDIR)/nginx/usr/sbin/nginx
 
 lzo/stamp-h1:
 	cd lzo && \
@@ -1915,7 +2096,7 @@ libiconv: libiconv/stamp-h1
 
 libiconv-clean:
 	-@$(MAKE) -C libiconv clean
-	@rm -f libiconv/stamp-h1 libiconv/Makefile
+	@rm -rf libiconv/stamp-h1 libiconv/Makefile
 
 libiconv-install: libiconv
 	install -d $(INSTALLDIR)/libiconv/usr/lib

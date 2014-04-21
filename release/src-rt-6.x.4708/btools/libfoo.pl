@@ -215,6 +215,13 @@ sub fixDyn
 
 #Roadkill for NocatSplash
 	fixDynDep("splashd","libglib-1.2.so.0.0.10");
+
+#Tomato RAF - php
+	fixDynDep("php-cli","libz.so.1.2.5");
+	fixDynDep("php-cgi","libz.so.1.2.5");
+	fixDynDep("php-cli","libz.so.1");
+	fixDynDep("php-cgi","libz.so.1");
+
 }
 
 sub usersOf

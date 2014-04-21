@@ -179,7 +179,7 @@ int buttons_main(int argc, char *argv[])
 		break;
 	case MODEL_RTAC56U:
 		reset_mask = 1 << 11;
-		ses_mask = 1 << 7;
+		ses_mask = 1 << 15;
 		ses_led = LED_AOSS;
 		break;
 	case MODEL_RTAC68U:

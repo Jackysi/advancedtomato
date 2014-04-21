@@ -133,6 +133,10 @@ ifneq ($(ASUS_TRX),0)
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
 	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/linux-lzma.trx
+ifeq ($(ASUS_TRX),RT-AC68U)
+	@cp image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx image/tomato-RT-AC56U_$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@cp image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx image/tomato-RT-AC68R_$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 	@echo ""
 endif
 
@@ -224,7 +228,7 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
-# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, UFSD, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT CTF
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, UFSD, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT, NGINX, CTF
 # NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD USBAP NO_USBAPP
 
 define RouterOptions
@@ -333,6 +337,10 @@ define RouterOptions
 	if [ "$(NOCAT)" = "y" ]; then \
 		sed -i "/TCONFIG_NOCAT/d" $(1); \
 		echo "TCONFIG_NOCAT=y" >>$(1); \
+	fi; \
+	if [ "$(NGINX)" = "y" ]; then \
+		sed -i "/TCONFIG_NGINX/d" $(1); \
+		echo "TCONFIG_NGINX=y" >>$(1); \
 	fi; \
 	if [ "$(OPENVPN)" = "y" ]; then \
 		sed -i "/TCONFIG_LZO/d" $(1); \
@@ -776,7 +784,10 @@ ac68e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y
 
 ac68z:
-	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y NGINX=y
+
+812dru:
+	@$(MAKE) e ARM=y NVRAM_64K=y BCMSMP=y ASUS_TRX="812DRUV2" NO_JFFS=y NO_CIFS=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

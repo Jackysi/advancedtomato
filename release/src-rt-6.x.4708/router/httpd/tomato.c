@@ -1294,6 +1294,18 @@ static const nvset_t nvset_list[] = {
 	{ "NC_BridgeLAN",		V_LENGTH(0, 50)			},
 #endif
 
+// NGinX Roadkill-Victek
+#ifdef TCONFIG_NGINX
+	{"nginx_enable",		V_01			}, // NGinX enabled
+	{"nginx_php",			V_01			}, // PHP enabled
+	{"nginx_keepconf",		V_01			}, // NGinX configuration files overwrite flag
+	{"nginx_docroot",		V_LENGTH(0, 255)	}, // root files path
+	{"nginx_port",			V_PORT			}, // listening port
+	{"nginx_fqdn",			V_LENGTH(0, 255)	}, // server name
+	{"nginx_priority",		V_LENGTH(0, 255)	}, // server priority
+	{"nginx_custom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+#endif
+
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },

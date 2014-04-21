@@ -1398,22 +1398,21 @@ static int init_nvram(void)
 			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
 			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
 
+			// usb3.0 settings
+			nvram_set("usb_usb3", "1");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
-			if(!nvram_get("ct_max"))
-				nvram_set("ct_max", "300000");
-			if (nvram_match("wl1_bw", "0"))
-			{
-				nvram_set("wl1_bw", "3");
 
-				if (nvram_match("wl1_country_code", "SG"))
-					nvram_set("wl1_chanspec", "36/80");
-				else
-					nvram_set("wl1_chanspec", "149/80");
-			}
-			if ((nvram_get_int("wlopmode") == 7) || nvram_match("ATEMODE", "1"))
-				nvram_set("usb_usb3", "1");
+			// force wl1 settings
+			nvram_set("wl1_bw", "3");
+			nvram_set("wl1_bw_cap", "7");
+			nvram_set("wl1_chanspec", "149/80");
+			nvram_set("wl1_nctrlsb", "lower");
+			nvram_set("0:ccode", "SG");
+			nvram_set("1:ccode", "SG");
+			nvram_set("wl_country", "SG");
+			nvram_set("wl_country_code", "SG");
 		}
 		break;
 	case MODEL_RTAC68U:

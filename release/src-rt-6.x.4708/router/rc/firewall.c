@@ -1074,6 +1074,11 @@ static void filter_input(void)
 		p = c + 1;
 	} while (*p);
 
+#ifdef TCONFIG_NGINX //Tomato RAF - Web Server
+		if (nvram_match("nginx_enable", "1"))
+			ipt_write("-A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "nginx_port" ));
+#endif
+
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
 	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
 		strlcpy(t, nvram_safe_get("ftp_sip"), sizeof(t));

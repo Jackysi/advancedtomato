@@ -159,6 +159,9 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
 <!-- NOCAT-END -->
+<!-- NGINX-BEGIN -->
+- Web Server. (NGinX)<br>
+<!-- NGINX-END -->
 <!-- HFS-BEGIN -->
 - HFS / HFS+ filesystem integration<br>
 <!-- HFS-END -->

@@ -219,7 +219,7 @@ int do_led(int which, int mode)
 #endif
 #ifdef CONFIG_BCMWL6A
 	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14,  255};
-	static int ac56u[]      = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14,  255};
+	static int ac56u[]      = { 255, 255,   255,  255,  255,   -3,  255,   -0,  -14,  255};
 
 #endif
 //                                 WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG   USB2 USB3   5G
