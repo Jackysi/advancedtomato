@@ -1,0 +1,297 @@
+#!/bin/sh
+# Written By KAD
+# Dynamic Link Aggregation Setup
+# Version 1.5
+
+Help()
+{
+	echo -e "\n----  Link Aggregation Version 1.5 Help  ----"
+	echo -e "\nDynamically enable Link Aggregation using 802.3ad"
+	echo "802.3ad requires a Switch/PC/NAS which..."
+	echo "also supports 802.3ad to function correctly"
+	echo -e "\nUsage: /path/to/LinkAgg <port> <port>"
+	echo "Example: /path/to/LinkAgg 3 4"
+	echo -e "Only 2 ports are currently supported\n"
+	echo -e "\n--- Special Flags ---"
+	echo -e "\nHelp: -h or --help"
+	echo "Status: -s or --status"
+	echo -e "Delete: -d or --delete"
+	echo -e "Version: -v or --version\n"
+	exit
+}
+
+#Set all needed bonding parameters
+Create_Bond()
+{
+	# Insert bonding module and set parameters (802.3ad, 100ms MII link monitoring)
+	modprobe bonding
+	# 802.3ad mode
+	echo 802.3ad > /sys/class/net/${1}/bonding/mode
+	# LACPDUs every 1 sec
+	echo fast > /sys/class/net/${1}/bonding/lacp_rate
+	# Bring up bond
+	ip link set ${1} up
+	# 100msec MII link monitoring
+	echo 100 > /sys/class/net/${1}/bonding/miimon
+	# enslave vlans to bond
+	echo +${2} > /sys/class/net/${1}/bonding/slaves
+	echo +${3} > /sys/class/net/${1}/bonding/slaves
+	# Bridge the bond allowing AP access
+	brctl addif br0 ${1}
+	# We allow these VLANs to access the AP
+	iptables -I INPUT 1 -i ${2} -j ACCEPT
+	iptables -I INPUT 1 -i ${3} -j ACCEPT
+	iptables -I INPUT 1 -i ${1} -j ACCEPT
+	#Check Bond Status
+	sleep 10
+	Check_Bond_Status BondCreated
+	echo -e "\nBond Created Successfully\n"
+}
+
+# Delete Bond Function
+Delete_Bond()
+{
+	# Get vlan's used in current bond
+	DELETEVLAN1=$(cat /sys/class/net/bond0/bonding/slaves | cut -d ' ' -f 1)
+	DELETEVLAN2=$(cat /sys/class/net/bond0/bonding/slaves | cut -d ' ' -f 2)
+	# Remove bonding module, this also deletes bond0
+	modprobe -r bonding
+	# Remove dead vlan's
+	if [[ $DELETEVLAN1 != "" -o $DELETEVLAN1 != NULL ]]; then
+		vconfig rem $DELETEVLAN1
+		DeadVLAN1="Removed Dead $DELETEVLAN1"
+	fi
+	if [[ $DELETEVLAN2 != "" -o $DELETEVLAN2 != NULL ]]; then
+		vconfig rem $DELETEVLAN2
+		DeadVLAN2="Removed Dead $DELETEVLAN2"
+	fi
+	#Second check for -d flag allows delete function to be used in new bond creation as well as old bond removal
+	if [[ "$1" = "-d" -o "$1" = "--delete" ]]; then
+		# Set vlan1 back to default
+		robocfg vlan 1 ports "1 2 3 4 8t"
+		ReturnDefaultPorts="vlan1 default ports restored to - 1 2 3 4 8t"
+		echo -e "\nbond0 Deleted\n"
+		echo "$ReturnDefaultPorts"
+		echo "$DeadVLAN1"
+		echo -e "$DeadVLAN2\n"
+		exit
+	else
+		return
+	fi
+}
+
+# Status Checker
+Check_Bond_Status()
+{
+	Check1=$(ip link show | grep bond0: | cut -d '<' -f 2 | cut -d ',' -f 4)
+	if [ "$Check1" != "UP" ]; then
+		Check1=NONE
+		Error1="Status : bond0 not UP"
+	fi
+	CHECKVLAN1=$(cat /sys/class/net/bond0/bonding/slaves | cut -d ' ' -f 1)
+	CHECKVLAN2=$(cat /sys/class/net/bond0/bonding/slaves | cut -d ' ' -f 2)
+	if [[ "$CHECKVLAN1" = "" -o "$CHECKVLAN1" = NULL ]]; then
+		CHECKVLAN1=NONE
+		PORT1=NONE
+		Check2=NONE
+		Error2="Status : Slave 1 does not exist"
+	else
+		Check2=$(ip link show | grep "$CHECKVLAN1" | cut -d '<' -f 2 | grep -o ,UP, | grep -o UP)
+		if [ "$Check2" != "UP" ]; then
+			PORT1=NONE
+			Check2=Down
+			Error3="Status : Slave 1 not UP"
+		elif [ "$Check2" = "UP" ]; then
+			PORT1=$(robocfg show | grep "$CHECKVLAN1" | cut -d ':' -f 3 | sed -e "s/^ //" | cut -d ' ' -f 1)
+		fi
+	fi
+	if [[ "$CHECKVLAN2" = "" -o "$CHECKVLAN2" = NULL ]]; then
+		CHECKVLAN2=NONE
+		PORT2=NONE
+		Check3=NONE
+		Error4="Status : Slave 2 does not exist"
+	else
+		Check3=$(ip link show | grep "$CHECKVLAN2" | cut -d '<' -f 2 | grep -o ,UP, | grep -o UP)
+		if [ "$Check3" != "UP" ]; then
+			PORT2=NONE
+			Check3=Down
+			Error5="Status : Slave 2 not UP"
+		elif [ "$Check3" = "UP" ]; then
+			PORT2=$(robocfg show | grep "$CHECKVLAN2" | cut -d ':' -f 3 | sed -e "s/^ //" | cut -d ' ' -f 1)
+		fi
+	fi
+	WANACCESS=$(brctl show | grep bond0 | awk '{$1=$1}{ print }')
+	if [ "$WANACCESS" != "bond0" ]; then
+		WANACCESS=NONE
+		Error6="Status : bond0 not part of br0 - no WAN Access"
+	fi
+	# check if status call was done by Create bond function
+	if [ "$1" = "BondCreated" ]; then
+		# if -d flag is set and any of these status checks fail, delete bond0, this is part of error recovery after new bond creation
+		if [[ "$WANACCESS" = "NONE" -o "$Check1" = "NONE" -o "$CHECKVLAN1" = "NONE" -o "$PORT1" = "NONE" -o "$Check2" = "NONE" -o "$Check2" = "Down" -o "$CHECKVLAN2" = "NONE" -o "$PORT2" = "NONE" -o "$Check3" = "NONE" -o "$Check3" = "Down" ]]; then
+			Delete_Bond -d
+		else
+			return
+		fi
+	fi
+	echo -e "\n--- Bond Errors ---"
+	echo "$Error1"
+	echo "$Error2"
+	echo "$Error3"
+	echo "$Error4"
+	echo "$Error5"
+	echo "$Error6"
+	echo -e "\n--- Bond Status ---\n"
+	echo -e "Bond Status: bond0 $Check1"
+	echo -e "Bridge to WAN Status: Member of br0=$WANACCESS"
+	echo -e "Slave 1 Status: vlan=$CHECKVLAN1 Link=$Check2 Port=$PORT1"
+	echo -e "Slave 2 Status: vlan=$CHECKVLAN2 Link=$Check3 Port=$PORT2\n"
+	exit
+}
+
+#Version Flag
+if [[ "$1" = "-v" -o "$1" = "--version" ]]; then
+	Help
+fi
+
+# Status Check Flag
+if [[ "$1" = "-s" -o "$1" = "--status" ]]; then
+	Check_Bond_Status
+fi
+
+# Delete Bond Flag
+if [[ "$1" = "-d" -o "$1" = "--delete" ]]; then
+	Delete_Bond $1
+fi
+
+# Enable Help Menu
+if [[ "$1" = "-h" -o "$1" = "--help" ]]; then
+	Help
+fi
+
+# Number of ports must equal 2
+if [[ "$#" -lt "2" -o "$#" -gt "2" ]]; then
+	echo -e "\nError : Incorrect Number of Ports\n"
+	Help
+fi
+
+# The Ports Must not be the same
+if [ "$1" = "$2" ]; then
+	echo -e "\nError : Port Entries Must Be Unique\n"
+	Help
+fi
+
+# Valid port1 entries are 1,2,3,4
+if [[ "$1" != "1" && "$1" != "2" && "$1" != "3" && "$1" != "4" ]]; then
+	echo -e "\nError : Port1 : Not A Valid Port\n"
+	Help
+fi
+
+# Valid port2 entries are 1,2,3,4
+if [[ "$2" != "1" && "$2" != "2" && "$2" != "3" && "$2" != "4" ]]; then
+	echo -e "\nError : Port2 : Not A Valid Port\n"
+	Help
+fi
+
+#Find how many vlans exist
+VLANS=$(ip link show | grep vlan* | cut -d ' ' -f 2 | cut -d '@' -f 1)
+#If only 1 vlan exist
+if [ ${#VLANS} = "5" ]; then
+	#Check if only 1 vlan exist it should be vlan1
+	if [ "$VLANS" = "vlan1" ]; then
+		VLAN1="1 2 3 4 8t"
+		TMP=$(echo $VLAN1 | sed -e "s/$1 //g")
+		TMP1=$(echo $TMP | sed -e "s/$2 //g")
+		robocfg vlan 1 ports "$TMP1"
+		robocfg vlan 3 ports "$1 8t"
+		robocfg vlan 4 ports "$2 8t"
+		# Create the interfaces
+		vconfig add eth0 $1
+		vconfig add eth0 $2
+		BONDS=$(ip link show | grep bond0: | cut -d ' ' -f 2 | cut -d ':' -f 1)
+		#Check that bond0 does not exist
+		if [ ${#BONDS} = "0" ]; then
+			Create_Bond bond0 vlan3 vlan4
+		#If bond0 already exist remove it
+		else
+			Delete_Bond
+			Create_Bond bond0 vlan3 vlan4
+		fi
+	#Only 1 vlan exist but it's not vlan1
+	else
+		echo -e "\nBonding Failed WTF!!\n"
+		Help
+	fi
+# if more than 1 vlan exist
+else 
+	#Find first available vlan
+	VLAN2=vlan$1
+	tmp=$(echo "$VLANS" | grep "$VLAN2")
+	a=$1
+	# vlan2 is used by system internals and does not show up in ip link, useage of vlan2 is not allowed
+	if [ $VLAN2 = "vlan2" ]; then
+		a=`expr $a + 1`
+		VLAN2=vlan$a
+		tmp=$(echo "$VLANS" | grep "$VLAN2")
+	fi
+	while [[ "$tmp" = "$VLAN2" ]];
+	do
+		a=`expr $a + 1`
+		VLAN2=vlan$a
+		tmp=$(echo "$VLANS" | grep "$VLAN2")
+		# vlan2 is used by system internals and does not show up in ip link, useage of vlan2 is not allowed
+		if [ $VLAN2 = "vlan2" ]; then
+			a=`expr $a + 1`
+			VLAN2=vlan$a
+			tmp=$(echo "$VLANS" | grep "$VLAN2")
+		fi
+	done
+	# Create First vlan for bond
+	# Remove port from vlan1 so we can use it in bond
+	VLAN2=$( echo -e "$VLAN2" | sed -e "s/vlan//g" )
+	VLAN1="1 2 3 4 8t"
+	TMP=$(echo "$VLAN1" | sed -e "s/$1 //g")
+	robocfg vlan 1 ports "$TMP"
+	robocfg vlan $VLAN2 ports "$1 8t"
+	vconfig add eth0 $VLAN2
+	#Find second available vlan
+	VLAN3=vlan$2
+	VLANS=$(ip link show | grep vlan* | cut -d ' ' -f 2 | cut -d '@' -f 1)
+	tmp1=$(echo "$VLANS" | grep "$VLAN3")
+	b=$2
+	# vlan2 is used by system internals and does not show up in ip link, useage of vlan2 is not allowed
+	if [ $VLAN3 = "vlan2" ]; then
+		b=`expr $b + 1`
+		VLAN3=vlan$b
+		tmp1=$(echo "$VLANS" | grep "$VLAN3")
+	fi
+	while [[ "$tmp1" = "$VLAN3" ]];
+	do
+		b=`expr $b + 1`
+		VLAN3=vlan$b
+		tmp1=$(echo "$VLANS" | grep "$VLAN3")
+		# vlan2 is used by system internals and does not show up in ip link, useage of vlan2 is not allowed
+		if [ $VLAN3 = "vlan2" ]; then
+			b=`expr $b + 1`
+			VLAN3=vlan$b
+			tmp1=$(echo "$VLANS" | grep "$VLAN3")
+		fi
+	done
+	# Create Second vlan for bond
+	# Remove port from vlan1 so we can use it in bond
+	VLAN3=$( echo "$VLAN3" | sed -e "s/vlan//g" )
+	TMP1=$(echo "$TMP" | sed -e "s/$2 //g")
+	robocfg vlan 1 ports "$TMP1"
+	robocfg vlan $VLAN3 ports "$2 8t"
+	vconfig add eth0 $VLAN3
+	BONDS=$(ip link show | grep bond0: | cut -d ' ' -f 2 | cut -d ':' -f 1)
+	#Check that bond0 does not exist
+	if [ ${#BONDS} = "0" ]; then
+		Create_Bond bond0 vlan$VLAN2 vlan$VLAN3
+	else
+	#If bond0 already exist remove it
+		Delete_Bond
+		Create_Bond bond0 vlan$VLAN2 vlan$VLAN3
+	fi
+fi
+

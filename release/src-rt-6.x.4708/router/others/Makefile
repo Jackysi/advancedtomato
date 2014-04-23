@@ -37,6 +37,9 @@ endif
 #MOTD
 	install -m 0700 mymotd $(INSTALLDIR)/usr/sbin
 
+#Link Aggregation
+	install -m 0700 LinkAgg $(INSTALLDIR)/usr/sbin
+
 #Web Monitor Backup Script
 	install -m 0700 webmon_bkp $(INSTALLDIR)/usr/sbin
 
