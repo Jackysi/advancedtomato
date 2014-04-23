@@ -265,6 +265,12 @@
 /* Define to 1 if you have the `strtoul' function. */
 #undef HAVE_STRTOUL
 
+/* Support for struct ip_mreq */
+#undef HAVE_STRUCT_IP_MREQ
+
+/* Support for struct ip_mreqn */
+#undef HAVE_STRUCT_IP_MREQN
+
 /* Define to 1 if `st_blocks' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLOCKS
 

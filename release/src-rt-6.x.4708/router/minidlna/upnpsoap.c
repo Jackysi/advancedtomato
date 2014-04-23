@@ -155,6 +155,24 @@ IsAuthorizedValidated(struct upnphttp * h, const char * action)
 }
 
 static void
+RegisterDevice(struct upnphttp * h, const char * action)
+{
+	static const char resp[] =
+		"<u:%sResponse "
+		"xmlns:u=\"%s\">"
+		"<RegistrationRespMsg>%s</RegistrationRespMsg>"
+		"</u:%sResponse>";
+
+	char body[512];
+	int bodylen;
+
+	bodylen = snprintf(body, sizeof(body), resp,
+		action, "urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1",
+		uuidvalue, action);
+	BuildSendAndCloseSoapResp(h, body, bodylen);
+}
+
+static void
 GetProtocolInfo(struct upnphttp * h, const char * action)
 {
 	static const char resp[] =
@@ -214,6 +232,8 @@ GetSearchCapabilities(struct upnphttp * h, const char * action)
 		  "upnp:artist,"
 		  "upnp:class,"
 		  "upnp:genre,"
+		  "@id,"
+		  "@parentID,"
 		  "@refID"
 		"</SearchCaps>"
 		"</u:%sResponse>";
@@ -330,9 +350,15 @@ set_filter_flags(char *filter, struct upnphttp *h)
 	uint32_t flags = 0;
 	int samsung = client_types[h->req_client].flags & FLAG_SAMSUNG;
 
-	if( !filter || (strlen(filter) <= 1) )
-		/* Not the full 32 bits.  Skip vendor-specific stuff by default. */
-		return 0xFFFFFF;
+	if( !filter || (strlen(filter) <= 1) ) {
+		if (strcmp(filter, "*") == 0 && samsung) {
+			return 0xFFFFFFFF;  /* We want FILTER_SEC_DCM_INFO */
+		} else {
+			/* Not the full 32 bits.  Skip vendor-specific stuff by default. */
+			return 0xFFFFFF;
+		}
+	}
+
 	if( samsung )
 		flags |= FILTER_DLNA_NAMESPACE;
 	item = strtok_r(filter, ",", &saveptr);
@@ -490,7 +516,9 @@ parse_sort_criteria(char *sortCriteria, int *error)
 	struct string_s str;
 	*error = 0;
 
-	if( !sortCriteria )
+	if( force_sort_criteria )
+		sortCriteria = strdup(force_sort_criteria);
+	else if( !sortCriteria )
 		return NULL;
 
 	if( (item = strtok_r(sortCriteria, ",", &saveptr)) )
@@ -499,7 +527,7 @@ parse_sort_criteria(char *sortCriteria, int *error)
 		str.data = order;
 		str.size = 4096;
 		str.off = 0;
-		strcatf(&str, "order by  ");
+		strcatf(&str, "order by ");
 	}
 	for( i=0; item != NULL; i++ )
 	{
@@ -563,11 +591,16 @@ parse_sort_criteria(char *sortCriteria, int *error)
 	if( i <= 0 )
 	{
 		free(order);
+		if( force_sort_criteria )
+			free(sortCriteria);
 		return NULL;
 	}
 	/* Add a "tiebreaker" sort order */
 	if( !title_sorted )
 		strcatf(&str, ", TITLE ASC");
+
+	if( force_sort_criteria )
+		free(sortCriteria);
 
 	return order;
 }
@@ -837,40 +870,6 @@ callback(void *args, int argc, char **argv, char **azColName)
 		if( track && atoi(track) && (passed_args->filter & FILTER_UPNP_ORIGINALTRACKNUMBER) ) {
 			ret = strcatf(str, "&lt;upnp:originalTrackNumber&gt;%s&lt;/upnp:originalTrackNumber&gt;", track);
 		}
-		if( album_art && atoi(album_art) )
-		{
-			/* Video and audio album art is handled differently */
-			if( *mime == 'v' && (passed_args->filter & FILTER_RES) && !(passed_args->flags & FLAG_MS_PFS) ) {
-				ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN\"&gt;"
-				                   "http://%s:%d/AlbumArt/%s-%s.jpg"
-				                   "&lt;/res&gt;",
-				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
-			} else if( passed_args->filter & FILTER_UPNP_ALBUMARTURI ) {
-				ret = strcatf(str, "&lt;upnp:albumArtURI");
-				if( passed_args->filter & FILTER_UPNP_ALBUMARTURI_DLNA_PROFILEID ) {
-					ret = strcatf(str, " dlna:profileID=\"JPEG_TN\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"");
-				}
-				ret = strcatf(str, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
-				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
-			}
-		}
-		if( (passed_args->flags & FLAG_MS_PFS) && *mime == 'i' ) {
-			if( passed_args->client == EMediaRoom && !album )
-				ret = strcatf(str, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", "[No Keywords]");
-
-			/* EVA2000 doesn't seem to handle embedded thumbnails */
-			if( !(passed_args->flags & FLAG_RESIZE_THUMBS) && tn && atoi(tn) ) {
-				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
-				                   "http://%s:%d/Thumbnails/%s.jpg"
-			        	           "&lt;/upnp:albumArtURI&gt;",
-			                	   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
-			} else {
-				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
-				                   "http://%s:%d/Resized/%s.jpg?width=160,height=160"
-			        	           "&lt;/upnp:albumArtURI&gt;",
-			                	   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
-			}
-		}
 		if( passed_args->filter & FILTER_RES ) {
 			ext = mime_to_ext(mime);
 			add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
@@ -973,7 +972,7 @@ callback(void *args, int argc, char **argv, char **azColName)
 						free(alt_title);
 					}
 					break;
-				case ESamsungSeriesC:
+				case ESamsungSeriesCDE:
 				default:
 					if( passed_args->filter & FILTER_SEC_CAPTION_INFO_EX )
 					{
@@ -987,6 +986,40 @@ callback(void *args, int argc, char **argv, char **azColName)
 					}
 					break;
 				}
+			}
+		}
+		if( album_art && atoi(album_art) )
+		{
+			/* Video and audio album art is handled differently */
+			if( *mime == 'v' && (passed_args->filter & FILTER_RES) && !(passed_args->flags & FLAG_MS_PFS) ) {
+				ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN\"&gt;"
+				                   "http://%s:%d/AlbumArt/%s-%s.jpg"
+				                   "&lt;/res&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
+			} else if( passed_args->filter & FILTER_UPNP_ALBUMARTURI ) {
+				ret = strcatf(str, "&lt;upnp:albumArtURI");
+				if( passed_args->filter & FILTER_UPNP_ALBUMARTURI_DLNA_PROFILEID ) {
+					ret = strcatf(str, " dlna:profileID=\"JPEG_TN\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"");
+				}
+				ret = strcatf(str, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
+			}
+		}
+		if( (passed_args->flags & FLAG_MS_PFS) && *mime == 'i' ) {
+			if( passed_args->client == EMediaRoom && !album )
+				ret = strcatf(str, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", "[No Keywords]");
+
+			/* EVA2000 doesn't seem to handle embedded thumbnails */
+			if( !(passed_args->flags & FLAG_RESIZE_THUMBS) && tn && atoi(tn) ) {
+				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
+				                   "http://%s:%d/Thumbnails/%s.jpg"
+				                   "&lt;/upnp:albumArtURI&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
+			} else {
+				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
+				                   "http://%s:%d/Resized/%s.jpg?width=160,height=160"
+				                   "&lt;/upnp:albumArtURI&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
 			}
 		}
 		ret = strcatf(str, "&lt;/item&gt;");
@@ -1211,6 +1244,8 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 #endif
 				ret = asprintf(&orderBy, "order by o.CLASS, d.DISC, d.TRACK, d.TITLE");
 			}
+			else
+				orderBy = parse_sort_criteria(SortCriteria, &ret);
 			if( ret == -1 )
 			{
 				orderBy = NULL;
@@ -1277,7 +1312,7 @@ charcat(struct string_s *str, char c)
 }
 
 static inline char *
-parse_search_criteria(const char *str)
+parse_search_criteria(const char *str, char *sep)
 {
 	struct string_s criteria;
 	int len;
@@ -1407,6 +1442,13 @@ parse_search_criteria(const char *str)
 				{
 					strcatf(&criteria, "OBJECT_ID");
 					s += 3;
+					continue;
+				}
+				else if (strncmp(s, "@parentID", 9) == 0)
+				{
+					strcatf(&criteria, "PARENT_ID");
+					s += 9;
+					strcpy(sep, "*");
 					continue;
 				}
 				else
@@ -1544,7 +1586,7 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	int totalMatches;
 	int ret;
 	char *ContainerID, *Filter, *SearchCriteria, *SortCriteria;
-	char *orderBy = NULL, *where = NULL;
+	char *orderBy = NULL, *where = NULL, sep[] = "$*";
 	char groupBy[] = "group by DETAIL_ID";
 	struct NameValueParserData data;
 	int RequestedCount = 0;
@@ -1618,23 +1660,22 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	                        SearchCriteria, Filter, SortCriteria);
 
 	if( strcmp(ContainerID, "0") == 0 )
-		*ContainerID = '*';
-	else if( strcmp(ContainerID, MUSIC_ALL_ID) == 0 )
+		ContainerID[0] = '*';
+
+	if( strcmp(ContainerID, MUSIC_ALL_ID) == 0 ||
+	    GETFLAG(DLNA_STRICT_MASK) )
 		groupBy[0] = '\0';
 
-	if( GETFLAG(DLNA_STRICT_MASK) )
-		groupBy[0] = '\0';
-
-	where = parse_search_criteria(SearchCriteria);
+	where = parse_search_criteria(SearchCriteria, sep);
 	DPRINTF(E_DEBUG, L_HTTP, "Translated SearchCriteria: %s\n", where);
 
 	totalMatches = sql_get_int_field(db, "SELECT (select count(distinct DETAIL_ID)"
 	                                     " from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                                     " where (OBJECT_ID glob '%q$*') and (%s))"
+	                                     " where (OBJECT_ID glob '%q%s') and (%s))"
 	                                     " + "
 	                                     "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
 	                                     " where (OBJECT_ID = '%q') and (%s))",
-	                                     ContainerID, where, ContainerID, where);
+	                                     ContainerID, sep, where, ContainerID, where);
 	if( totalMatches < 0 )
 	{
 		/* Must be invalid SQL, so most likely bad or unhandled search criteria. */
@@ -1666,10 +1707,10 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 
 	sql = sqlite3_mprintf( SELECT_COLUMNS
 	                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-	                      " where OBJECT_ID glob '%q$*' and (%s) %s "
+	                      " where OBJECT_ID glob '%q%s' and (%s) %s "
 	                      "%z %s"
 	                      " limit %d, %d",
-	                      ContainerID, where, groupBy,
+	                      ContainerID, sep, where, groupBy,
 	                      (*ContainerID == '*') ? NULL :
 	                      sqlite3_mprintf("UNION ALL " SELECT_COLUMNS
 	                                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
@@ -1763,6 +1804,7 @@ SamsungGetFeatureList(struct upnphttp * h, const char * action)
 		 "&lt;container id=\"2\" type=\"object.item.videoItem\"/&gt;"
 		 "&lt;container id=\"3\" type=\"object.item.imageItem\"/&gt;"
 		"&lt;/Feature&gt;"
+		"&lt;/Features&gt;"
 		"</FeatureList></u:X_GetFeatureListResponse>";
 
 	BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
@@ -1816,6 +1858,7 @@ soapMethods[] =
 	{ "GetCurrentConnectionInfo", GetCurrentConnectionInfo},
 	{ "IsAuthorized", IsAuthorizedValidated},
 	{ "IsValidated", IsAuthorizedValidated},
+	{ "RegisterDevice", RegisterDevice},
 	{ "X_GetFeatureList", SamsungGetFeatureList},
 	{ "X_SetBookmark", SamsungSetBookmark},
 	{ 0, 0 }

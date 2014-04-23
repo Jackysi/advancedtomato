@@ -188,8 +188,8 @@ obj-$(TCONFIG_MEDIA_SERVER) += libexif
 obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
 obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
-#MEDIA_SERVER_STATIC=y
-MEDIA_SERVER_STATIC :=
+MEDIA_SERVER_STATIC=y
+#MEDIA_SERVER_STATIC :=
 
 obj-y += libnfnetlink
 obj-y += miniupnpd
@@ -1638,38 +1638,9 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 	$(STRIP) $(INSTALLDIR)/libvorbis/usr/lib/libvorbis.so.0
 endif
 
-minidlna/stamp-h1: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis libiconv
-	cd minidlna && CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB) STRIP=$(STRIP) HOST=$(HOST) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
-		-ffunction-sections -fdata-sections \
-		-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
-		-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
-		-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
-		-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
-		-I$(TOP)/libvorbis/include \
-		-I$(TOP)/libiconv/include \
-		-I$(TOP)/sqlite" \
-	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC \
-		-L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/lib/.libs \
-		-L$(TOP)/libogg/src/.libs -L$(TOP)/libexif/libexif/.libs -L$(TOP)/flac/src/libFLAC/.libs \
-		-L$(TOP)/ffmpeg/libavutil -L$(TOP)/ffmpeg/libavcodec -L$(TOP)/ffmpeg/libavformat \
-		-L$(TOP)/libid3tag/.libs -L$(TOP)/libiconv/lib/.libs" \
-	CPPFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
-		-ffunction-sections -fdata-sections \
-		-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
-		-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
-		-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
-		-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
-		-I$(TOP)/libvorbis/include \
-		-I$(TOP)/libiconv/include \
-		-I$(TOP)/sqlite" \
-	LIBS="-lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag -lFLAC -logg -lvorbis -lm -ldl -lz" \
-	$(CONFIGURE) --host=$(HOST) --build=x86_64-linux-gnu
-	touch minidlna/stamp-h1
-
-minidlna: minidlna/stamp-h1
+minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
 	@$(SEP)
-	@$(MAKE) -C minidlna all $(PARALLEL_BUILD)
+	@$(MAKE) -C minidlna CC=$(CC) $(if $(MEDIA_SERVER_STATIC),STATIC=1,) minidlna $(PARALLEL_BUILD)
 
 minidlna-clean:
 	-@$(MAKE) -C minidlna clean
@@ -1677,7 +1648,7 @@ minidlna-clean:
 
 minidlna-install: minidlan
 	@$(SEP)
-	install -D minidlna/minidlnad $(INSTALLDIR)/minidlna/usr/sbin/minidlna
+	install -D minidlna/minidlna $(INSTALLDIR)/minidlna/usr/sbin/minidlna
 	$(STRIP) $(INSTALLDIR)/minidlna/usr/sbin/minidlna
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in

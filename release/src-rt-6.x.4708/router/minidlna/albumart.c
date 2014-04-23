@@ -78,18 +78,17 @@ save_resized_album_art(image_s *imsrc, const char *path)
 		dstw = (imsrc->width<<8) / ((imsrc->height<<8)/160);
 		dsth = 160;
 	}
-        imdst = image_resize(imsrc, dstw, dsth);
+	imdst = image_resize(imsrc, dstw, dsth);
 	if( !imdst )
-		goto error;
-
-	if( image_save_to_jpeg_file(imdst, cache_file) == 0 )
 	{
-		image_free(imdst);
-		return cache_file;
+		free(cache_file);
+		return NULL;
 	}
-error:
-	free(cache_file);
-	return NULL;
+
+	cache_file = image_save_to_jpeg_file(imdst, cache_file);
+	image_free(imdst);
+	
+	return cache_file;
 }
 
 /* And our main album art functions */

@@ -69,6 +69,34 @@ AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_CHECK_FUNCS([gethostname getifaddrs gettimeofday inet_ntoa memmove memset mkdir realpath select sendfile setlocale socket strcasecmp strchr strdup strerror strncasecmp strpbrk strrchr strstr strtol strtoul])
 
+#
+# Check for struct ip_mreqn
+#
+AC_MSG_CHECKING(for struct ip_mreqn)
+AC_TRY_COMPILE([#include <netinet/in.h>], [
+    struct ip_mreqn mreq;
+    mreq.imr_address.s_addr = 0;
+], [
+    # Yes, we have it...
+    AC_MSG_RESULT(yes)
+    AC_DEFINE([HAVE_STRUCT_IP_MREQN],[],[Support for struct ip_mreqn])
+], [
+    # We'll just have to try and use struct ip_mreq
+    AC_MSG_RESULT(no)
+    AC_MSG_CHECKING(for struct ip_mreq)
+    AC_TRY_COMPILE([#include <netinet/in.h>], [
+        struct ip_mreq mreq;
+        mreq.imr_interface.s_addr = 0;
+    ], [
+        # Yes, we have it...
+        AC_MSG_RESULT(yes)
+        AC_DEFINE([HAVE_STRUCT_IP_MREQ],[],[Support for struct ip_mreq])
+    ], [
+        # No multicast support
+        AC_MSG_ERROR([No multicast support])
+    ])
+])
+
 ################################################################################################################
 # Special include directories
 case $host in
@@ -119,7 +147,7 @@ AC_COMPILE_IFELSE(
     ])
 
 AC_CHECK_HEADER(linux/netlink.h,
-    [AC_DEFINE([HAVE_NETLINK],[1],[Support for Linux netlink])])
+    [AC_DEFINE([HAVE_NETLINK],[1],[Support for Linux netlink])], [], [#include <sys/socket.h>])
 
 ################################################################################################################
 ### Library checks
