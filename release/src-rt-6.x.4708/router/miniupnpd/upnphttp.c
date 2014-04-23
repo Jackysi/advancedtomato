@@ -1,8 +1,8 @@
-/* $Id: upnphttp.c,v 1.86 2013/02/07 10:26:07 nanard Exp $ */
+/* $Id: upnphttp.c,v 1.92 2014/04/11 08:15:43 nanard Exp $ */
 /* Project :  miniupnp
  * Website :  http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author :   Thomas Bernard
- * Copyright (c) 2005-2012 Thomas Bernard
+ * Copyright (c) 2005-2014 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file included in this distribution.
  * */
@@ -29,6 +29,93 @@
 #include "upnpevents.h"
 #include "upnputils.h"
 
+#ifdef ENABLE_HTTPS
+#include <openssl/err.h>
+#include <openssl/engine.h>
+#include <openssl/conf.h>
+static SSL_CTX *ssl_ctx = NULL;
+
+#ifndef HTTPS_CERTFILE
+#define HTTPS_CERTFILE "/etc/ssl/certs/ssl-cert-snakeoil.pem"
+#endif
+#ifndef HTTPS_KEYFILE
+#define HTTPS_KEYFILE "/etc/ssl/private/ssl-cert-snakeoil.key"
+#endif
+
+static void
+syslogsslerr(void)
+{
+	unsigned long err;
+	char buffer[256];
+	while((err = ERR_get_error()) != 0) {
+		syslog(LOG_ERR, "%s", ERR_error_string(err, buffer));
+	}
+}
+
+static int verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
+{
+	syslog(LOG_DEBUG, "verify_callback(%d, %p)", preverify_ok, ctx);
+	return preverify_ok;
+}
+
+int init_ssl(void)
+{
+	SSL_METHOD *method;
+	SSL_library_init();
+	SSL_load_error_strings();
+	method = TLSv1_server_method();
+	if(method == NULL) {
+		syslog(LOG_ERR, "TLSv1_server_method() failed");
+		syslogsslerr();
+		return -1;
+	}
+	ssl_ctx = SSL_CTX_new(method);
+	if(ssl_ctx == NULL) {
+		syslog(LOG_ERR, "SSL_CTX_new() failed");
+		syslogsslerr();
+		return -1;
+	}
+	/* set the local certificate */
+	if(!SSL_CTX_use_certificate_file(ssl_ctx, HTTPS_CERTFILE, SSL_FILETYPE_PEM)) {
+		syslog(LOG_ERR, "SSL_CTX_use_certificate_file(%s) failed", HTTPS_CERTFILE);
+		syslogsslerr();
+		return -1;
+	}
+	/* set the private key */
+	if(!SSL_CTX_use_PrivateKey_file(ssl_ctx, HTTPS_KEYFILE, SSL_FILETYPE_PEM)) {
+		syslog(LOG_ERR, "SSL_CTX_use_PrivateKey_file(%s) failed", HTTPS_KEYFILE);
+		syslogsslerr();
+		return -1;
+	}
+	/* verify private key */
+	if(!SSL_CTX_check_private_key(ssl_ctx)) {
+		syslog(LOG_ERR, "SSL_CTX_check_private_key() failed");
+		syslogsslerr();
+		return -1;
+	}
+	/*SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER|SSL_VERIFY_CLIENT_ONCE, verify_callback);*/
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_NONE, verify_callback);
+	/*SSL_CTX_set_verify_depth(depth);*/
+	syslog(LOG_INFO, "using %s", SSLeay_version(SSLEAY_VERSION));
+	return 0;
+}
+
+void free_ssl(void)
+{
+	/* free context */
+	if(ssl_ctx != NULL) {
+		SSL_CTX_free(ssl_ctx);
+		ssl_ctx = NULL;
+	}
+	ERR_remove_state(0);
+	ENGINE_cleanup();
+	CONF_modules_unload(1);
+	ERR_free_strings();
+	EVP_cleanup();
+	CRYPTO_cleanup_all_ex_data();
+}
+#endif /* ENABLE_HTTPS */
+
 struct upnphttp *
 New_upnphttp(int s)
 {
@@ -45,9 +132,40 @@ New_upnphttp(int s)
 	return ret;
 }
 
+#ifdef ENABLE_HTTPS
+void
+InitSSL_upnphttp(struct upnphttp * h)
+{
+	int r;
+	h->ssl = SSL_new(ssl_ctx);
+	if(h->ssl == NULL) {
+		syslog(LOG_ERR, "SSL_new() failed");
+		syslogsslerr();
+		abort();
+	}
+	if(!SSL_set_fd(h->ssl, h->socket)) {
+		syslog(LOG_ERR, "SSL_set_fd() failed");
+		syslogsslerr();
+		abort();
+	}
+	r = SSL_accept(h->ssl); /* start the handshaking */
+	if(r < 0) {
+		int err;
+		err = SSL_get_error(h->ssl, r);
+		syslog(LOG_DEBUG, "SSL_accept() returned %d, SSL_get_error() %d", r, err);
+		if(err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
+			syslog(LOG_ERR, "SSL_accept() failed");
+			syslogsslerr();
+			abort();
+		}
+	}
+}
+#endif /* ENABLE_HTTPS */
+
 void
 CloseSocket_upnphttp(struct upnphttp * h)
 {
+	/* SSL_shutdown() ? */
 	if(close(h->socket) < 0)
 	{
 		syslog(LOG_ERR, "CloseSocket_upnphttp: close(%d): %m", h->socket);
@@ -61,6 +179,10 @@ Delete_upnphttp(struct upnphttp * h)
 {
 	if(h)
 	{
+#ifdef ENABLE_HTTPS
+		if(h->ssl)
+			SSL_free(h->ssl);
+#endif
 		if(h->socket >= 0)
 			CloseSocket_upnphttp(h);
 		if(h->req_buf)
@@ -162,14 +284,22 @@ ParseHttpHeaders(struct upnphttp * h)
 #ifdef ENABLE_EVENTS
 			else if(strncasecmp(line, "Callback", 8)==0)
 			{
+				/* The Callback can contain several urls :
+				 * If there is more than one URL, when the service sends
+				 * events, it will try these URLs in order until one
+				 * succeeds. One or more URLs each enclosed by angle
+				 * brackets ("<" and ">") */
 				p = colon;
 				while(*p != '<' && *p != '\r' )
 					p++;
 				n = 0;
-				while(p[n] != '>' && p[n] != '\r' )
+				while(p[n] != '\r')
 					n++;
-				h->req_CallbackOff = p + 1 - h->req_buf;
-				h->req_CallbackLen = MAX(0, n - 1);
+				while(n > 0 && p[n] != '>')
+					n--;
+				/* found last > character */
+				h->req_CallbackOff = p - h->req_buf;
+				h->req_CallbackLen = MAX(0, n + 1);
 			}
 			else if(strncasecmp(line, "SID", 3)==0)
 			{
@@ -374,6 +504,9 @@ ProcessHTTPPOST_upnphttp(struct upnphttp * h)
 
 #ifdef ENABLE_EVENTS
 /**
+ * checkCallbackURL()
+ * check that url is on originating IP
+ * extract first correct URL
  * returns 0 if the callback header value is not valid
  * 1 if it is valid.
  */
@@ -385,56 +518,76 @@ checkCallbackURL(struct upnphttp * h)
 	const char * p;
 	unsigned int i;
 
-	if(h->req_CallbackOff <= 0 || h->req_CallbackLen < 8)
+start_again:
+	if(h->req_CallbackOff <= 0 || h->req_CallbackLen < 10)
 		return 0;
-	if(memcmp(h->req_buf + h->req_CallbackOff, "http://", 7) != 0)
-		return 0;
-	ipv6 = 0;
+	if(memcmp(h->req_buf + h->req_CallbackOff, "<http://", 8) != 0) {
+		p = h->req_buf + h->req_CallbackOff + 1;
+		goto invalid;
+	}
+	/* extract host from url to addrstr[] */
 	i = 0;
-	p = h->req_buf + h->req_CallbackOff + 7;
+	p = h->req_buf + h->req_CallbackOff + 8;
 	if(*p == '[') {
 		p++;
 		ipv6 = 1;
-		while(*p != ']' && i < (sizeof(addrstr)-1)
+		while(*p != ']' && *p != '>' && i < (sizeof(addrstr)-1)
 		      && p < (h->req_buf + h->req_CallbackOff + h->req_CallbackLen))
 			addrstr[i++] = *(p++);
 	} else {
-		while(*p != '/' && *p != ':' && i < (sizeof(addrstr)-1)
+		ipv6 = 0;
+		while(*p != '/' && *p != ':' && *p != '>' && i < (sizeof(addrstr)-1)
 		      && p < (h->req_buf + h->req_CallbackOff + h->req_CallbackLen))
 			addrstr[i++] = *(p++);
 	}
 	addrstr[i] = '\0';
+	/* check addrstr */
 	if(ipv6) {
+#ifdef ENABLE_IPV6
 		struct in6_addr addr;
 		if(inet_pton(AF_INET6, addrstr, &addr) <= 0)
-			return 0;
-#ifdef ENABLE_IPV6
+			goto invalid;
 		if(!h->ipv6
 		  || (0!=memcmp(&addr, &(h->clientaddr_v6), sizeof(struct in6_addr))))
-			return 0;
+			goto invalid;
 #else
-		return 0;
+		goto invalid;
 #endif
 	} else {
 		struct in_addr addr;
 		if(inet_pton(AF_INET, addrstr, &addr) <= 0)
-			return 0;
+			goto invalid;
 #ifdef ENABLE_IPV6
 		if(h->ipv6) {
 			if(!IN6_IS_ADDR_V4MAPPED(&(h->clientaddr_v6)))
-				return 0;
+				goto invalid;
 			if(0!=memcmp(&addr, ((const char *)&(h->clientaddr_v6) + 12), 4))
-				return 0;
+				goto invalid;
 		} else {
 			if(0!=memcmp(&addr, &(h->clientaddr), sizeof(struct in_addr)))
-				return 0;
+				goto invalid;
 		}
 #else
 		if(0!=memcmp(&addr, &(h->clientaddr), sizeof(struct in_addr)))
-			return 0;
+			goto invalid;
 #endif
 	}
+	/* select only the good callback url */
+	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '>')
+		p++;
+	h->req_CallbackOff++;	/* skip initial '<' */
+	h->req_CallbackLen = (int)(p - h->req_buf - h->req_CallbackOff);
 	return 1;
+invalid:
+	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '>')
+		p++;
+	if(*p != '>') return 0;
+	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '<')
+		p++;
+	if(*p != '<') return 0;
+	h->req_CallbackLen -= (int)(p - h->req_buf - h->req_CallbackOff);
+	h->req_CallbackOff = (int)(p - h->req_buf);
+	goto start_again;
 }
 
 static void
@@ -670,9 +823,29 @@ Process_upnphttp(struct upnphttp * h)
 	switch(h->state)
 	{
 	case EWaitingForHttpRequest:
+#ifdef ENABLE_HTTPS
+		if(h->ssl) {
+			n = SSL_read(h->ssl, buf, sizeof(buf));
+		} else {
+			n = recv(h->socket, buf, sizeof(buf), 0);
+		}
+#else
 		n = recv(h->socket, buf, sizeof(buf), 0);
+#endif
 		if(n<0)
 		{
+#ifdef ENABLE_HTTPS
+			if(h->ssl) {
+				int err;
+				err = SSL_get_error(h->ssl, n);
+				if(err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
+				{
+					syslog(LOG_ERR, "SSL_read() failed");
+					syslogsslerr();
+					h->state = EToDelete;
+				}
+			} else {
+#endif
 			if(errno != EAGAIN &&
 			   errno != EWOULDBLOCK &&
 			   errno != EINTR)
@@ -681,6 +854,9 @@ Process_upnphttp(struct upnphttp * h)
 				h->state = EToDelete;
 			}
 			/* if errno is EAGAIN, EWOULDBLOCK or EINTR, try again later */
+#ifdef ENABLE_HTTPS
+			}
+#endif
 		}
 		else if(n==0)
 		{
@@ -718,9 +894,29 @@ Process_upnphttp(struct upnphttp * h)
 		}
 		break;
 	case EWaitingForHttpContent:
+#ifdef ENABLE_HTTPS
+		if(h->ssl) {
+			n = SSL_read(h->ssl, buf, sizeof(buf));
+		} else {
+			n = recv(h->socket, buf, sizeof(buf), 0);
+		}
+#else
 		n = recv(h->socket, buf, sizeof(buf), 0);
+#endif
 		if(n<0)
 		{
+#ifdef ENABLE_HTTPS
+			if(h->ssl) {
+				int err;
+				err = SSL_get_error(h->ssl, n);
+				if(err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
+				{
+					syslog(LOG_ERR, "SSL_read() failed");
+					syslogsslerr();
+					h->state = EToDelete;
+				}
+			} else {
+#endif
 			if(errno != EAGAIN &&
 			   errno != EWOULDBLOCK &&
 			   errno != EINTR)
@@ -729,6 +925,9 @@ Process_upnphttp(struct upnphttp * h)
 				h->state = EToDelete;
 			}
 			/* if errno is EAGAIN, EWOULDBLOCK or EINTR, try again later */
+#ifdef ENABLE_HTTPS
+			}
+#endif
 		}
 		else if(n==0)
 		{
@@ -911,10 +1110,33 @@ SendResp_upnphttp(struct upnphttp * h)
 
 	while (h->res_sent < h->res_buflen)
 	{
+#ifdef ENABLE_HTTPS
+		if(h->ssl) {
+			n = SSL_write(h->ssl, h->res_buf + h->res_sent,
+			         h->res_buflen - h->res_sent);
+		} else {
+			n = send(h->socket, h->res_buf + h->res_sent,
+			         h->res_buflen - h->res_sent, 0);
+		}
+#else
 		n = send(h->socket, h->res_buf + h->res_sent,
 		         h->res_buflen - h->res_sent, 0);
+#endif
 		if(n<0)
 		{
+#ifdef ENABLE_HTTPS
+			if(h->ssl) {
+				int err;
+				err = SSL_get_error(h->ssl, n);
+				if(err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+					/* try again later */
+					return 0;
+				}
+				syslog(LOG_ERR, "SSL_write() failed");
+				syslogsslerr();
+				break;
+			} else {
+#endif
 			if(errno == EINTR)
 				continue;	/* try again immediatly */
 			if(errno == EAGAIN || errno == EWOULDBLOCK)
@@ -924,6 +1146,9 @@ SendResp_upnphttp(struct upnphttp * h)
 			}
 			syslog(LOG_ERR, "send(res_buf): %m");
 			break; /* avoid infinite loop */
+#ifdef ENABLE_HTTPS
+			}
+#endif
 		}
 		else if(n == 0)
 		{
@@ -946,10 +1171,34 @@ SendRespAndClose_upnphttp(struct upnphttp * h)
 
 	while (h->res_sent < h->res_buflen)
 	{
+#ifdef ENABLE_HTTPS
+		if(h->ssl) {
+			n = SSL_write(h->ssl, h->res_buf + h->res_sent,
+			         h->res_buflen - h->res_sent);
+		} else {
+			n = send(h->socket, h->res_buf + h->res_sent,
+			         h->res_buflen - h->res_sent, 0);
+		}
+#else
 		n = send(h->socket, h->res_buf + h->res_sent,
 		         h->res_buflen - h->res_sent, 0);
+#endif
 		if(n<0)
 		{
+#ifdef ENABLE_HTTPS
+			if(h->ssl) {
+				int err;
+				err = SSL_get_error(h->ssl, n);
+				if(err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+					/* try again later */
+					h->state = ESendingAndClosing;
+					return;
+				}
+				syslog(LOG_ERR, "SSL_write() failed");
+				syslogsslerr();
+				break; /* avoid infinite loop */
+			} else {
+#endif
 			if(errno == EINTR)
 				continue;	/* try again immediatly */
 			if(errno == EAGAIN || errno == EWOULDBLOCK)
@@ -960,6 +1209,9 @@ SendRespAndClose_upnphttp(struct upnphttp * h)
 			}
 			syslog(LOG_ERR, "send(res_buf): %m");
 			break; /* avoid infinite loop */
+#ifdef ENABLE_HTTPS
+			}
+#endif
 		}
 		else if(n == 0)
 		{

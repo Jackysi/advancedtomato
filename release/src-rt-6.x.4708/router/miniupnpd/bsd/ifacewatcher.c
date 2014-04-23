@@ -1,4 +1,4 @@
-/* $Id: ifacewatcher.c,v 1.5 2012/05/21 08:55:10 nanard Exp $ */
+/* $Id: ifacewatcher.c,v 1.8 2014/04/18 08:23:51 nanard Exp $ */
 /* Project MiniUPnP
  * web : http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2011 Thomas BERNARD
@@ -15,12 +15,8 @@
 #include <syslog.h>
 #include <signal.h>
 
-#if !defined(SA_LEN)
-#define	SA_LEN(sa)	(sa)->sa_len
-#endif
-
 #define	SALIGN	(sizeof(long) - 1)
-#define	SA_RLEN(sa)	((sa)->sa_len ? (((sa)->sa_len + SALIGN) & ~SALIGN) : (SALIGN + 1))
+#define	SA_RLEN(sa)	(SA_LEN(sa) ? ((SA_LEN(sa) + SALIGN) & ~SALIGN) : (SALIGN + 1))
 
 #include "../upnputils.h"
 #include "../upnpglobalvars.h"
@@ -76,6 +72,18 @@ ProcessInterfaceWatchNotify(int s)
 		ifm = (struct if_msghdr *)buf;
 		syslog(LOG_DEBUG, " RTM_IFINFO: addrs=%x flags=%x index=%hu",
 		       ifm->ifm_addrs, ifm->ifm_flags, ifm->ifm_index);
+		break;
+	case RTM_ADD:	/* Add Route */
+		syslog(LOG_DEBUG, " RTM_ADD");
+		break;
+	case RTM_DELETE:	/* Delete Route */
+		syslog(LOG_DEBUG, " RTM_DELETE");
+		break;
+	case RTM_CHANGE:	/* Change Metrics or flags */
+		syslog(LOG_DEBUG, " RTM_CHANGE");
+		break;
+	case RTM_GET:	/* Report Metrics */
+		syslog(LOG_DEBUG, " RTM_GET");
 		break;
 #ifdef RTM_IFANNOUNCE
 	case RTM_IFANNOUNCE:	/* iface arrival/departure */

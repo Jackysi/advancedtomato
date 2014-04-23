@@ -1,8 +1,30 @@
-$Id: Changelog.txt,v 1.362 2014/03/13 10:20:57 nanard Exp $
+$Id: Changelog.txt,v 1.369 2014/04/22 08:48:02 nanard Exp $
+
+2014/04/21:
+  Fix PCP when request contain 0 IPv4 external address
+  Remove pointer casting in natpmp.c
+
+2014/04/15:
+  rewrite iptables_*.sh scripts
+
+2014/04/12:
+  Add FreeBSD support for CHECK_PORTINUSE
+  Add PCP support for CHECK_PORTINUSE
+
+2014/04/09:
+  Add HTTPS support and skeleton of DeviceProtection implementation
+
+2014/03/24:
+  start work to enable IPv6 PCP operations
+
+2014/03/14:
+  reject renewal of subscribtion that already timeouted
+  Support for multiple URL in Callback: header (SUBSCRIBE)
 
 2014/03/13:
   fix getifaddr_in6() (used for PCP)
   implement permissions with PCP Map
+  fix upnp_event_notify_connect() when ENABLE_IPV6 is set
 
 2014/03/10:
   Enable PCP by default.
@@ -176,6 +198,9 @@ VERSION 1.8 : released on 2013/02/06
 
 2012/07/14:
   Add -z command line option to change friendly name (thanks to Shawn Fisher)
+
+2012/07/10:
+  Detect port in use - patch by David Kerr
 
 2012/06/29:
   added DISABLE_CONFIG_FILE in options.h to disable miniupnpd.conf parsing

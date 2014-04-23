@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.72 2014/03/10 10:17:17 nanard Exp $
+# $Id: genconfig.sh,v 1.75 2014/04/11 08:16:07 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2014 Thomas Bernard
@@ -14,6 +14,7 @@ case "$argv" in
 	--leasefile) LEASEFILE=1 ;;
 	--vendorcfg) VENDORCFG=1 ;;
 	--pcp-peer) PCP_PEER=1 ;;
+	--portinuse) PORTINUSE=1 ;;
 	--help|-h)
 		echo "Usage : $0 [options]"
 		echo " --ipv6      enable IPv6"
@@ -22,6 +23,7 @@ case "$argv" in
 		echo " --leasefile enable lease file"
 		echo " --vendorcfg enable configuration of manufacturer info"
 		echo " --pcp-peer  enable PCP PEER operation"
+		echo " --portinuse enable port in use check"
 		exit 1
 		;;
 	*)
@@ -394,6 +396,14 @@ else
 fi
 echo "" >> ${CONFIGFILE}
 
+echo "/* Uncomment the following line to enable port in use check */" >> ${CONFIGFILE}
+if [ -n "$PORTINUSE" ]; then
+	echo "#define CHECK_PORTINUSE" >> ${CONFIGFILE}
+else
+	echo "/*#define CHECK_PORTINUSE*/" >> ${CONFIGFILE}
+fi
+echo "" >> ${CONFIGFILE}
+
 echo "/* Define one or none of the two following macros in order to make some" >> ${CONFIGFILE}
 echo " * clients happy. It will change the XML Root Description of the IGD." >> ${CONFIGFILE}
 echo " * Enabling the Layer3Forwarding Service seems to be the more compatible" >> ${CONFIGFILE}
@@ -432,6 +442,9 @@ echo "" >> ${CONFIGFILE}
 echo "#ifdef IGD_V2" >> ${CONFIGFILE}
 echo "/* Enable DeviceProtection service (IGDv2) */" >> ${CONFIGFILE}
 echo "#define ENABLE_DP_SERVICE" >> ${CONFIGFILE}
+echo "/*#define ENABLE_HTTPS*/" >> ${CONFIGFILE}
+echo "/*#define HTTPS_CERTFILE \"/path/to/certificate.pem\"*/" >> ${CONFIGFILE}
+echo "/*#define HTTPS_KEYFILE \"/path/to/private.key\"*/" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 echo "/* Enable WANIPv6FirewallControl service (IGDv2). needs IPv6 */" >> ${CONFIGFILE}
 echo "#ifdef ENABLE_IPV6" >> ${CONFIGFILE}
@@ -496,7 +509,7 @@ else
 fi
 echo "" >> ${CONFIGFILE}
 
-echo "#endif" >> ${CONFIGFILE}
+echo "#endif /* ${CONFIGMACRO} */" >> ${CONFIGFILE}
 
 ${MV} ${CONFIGFILE} ${CONFIGFILE_FINAL}
 
