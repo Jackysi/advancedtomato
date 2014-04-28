@@ -580,6 +580,10 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
 		break;
+	case MODEL_R7000:
+		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
+		dirty |= check_nv("vlan2ports", "0 5");
+		break;		
 #endif
 	
 	}
@@ -1418,6 +1422,48 @@ static int init_nvram(void)
 	case MODEL_RTAC68U:
 		mfr = "Asus";
 		name = "RT-AC68R/U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
+
+			// fix WL mac`s
+			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
+			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));
+
+			// usb3.0 settings
+			nvram_set("usb_usb3", "1");
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+
+			// force wl1 settings
+			nvram_set("wl1_bw", "3");
+			nvram_set("wl1_bw_cap", "7");
+			nvram_set("wl1_chanspec", "149/80");
+			nvram_set("wl1_nctrlsb", "lower");
+			nvram_set("0:ccode", "SG");
+			nvram_set("1:ccode", "SG");
+			nvram_set("wl_country", "SG");
+			nvram_set("wl_country_code", "SG");
+		}
+		break;
+	case MODEL_R7000:
+		mfr = "Netgear";
+		name = "R7000";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");

@@ -63,18 +63,17 @@ WR850G v3			BCM4712               0x0101       44        0x10      0x0188      C
 WL-500G Deluxe		BCM5365               bcm95365r    45        0x10                  hardware_version=WL500gd-01-04-01-50 regulation_domain=0x30DE sdram_init=0x2008
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gp-01-02-00-00 regulation_domain=0X10US sdram_init=0x0009
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gH-01-00-00-00 regulation_domain=0X30DE sdram_init=0x000b
-WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
+WL-500W				BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
 
-WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x0750
+WL-500G Premium v2	HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-330GE			HW_BCM5354G           0x048e       45        0x10      0x0650      hardware_version=WL330GE-02-06-00-05 //MIPSR1, 4MB flash w/o USB
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
-Tenda N60                      BCM47186              0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
-Tenda N6                       BCM5357               0x0550       6         0x1444    0x710 //8MB/64MB/2.4/5G/USB
-TENDA W1800R                   HW_BCM4706            0x05d8       18/21(EU)/60(CN)   0x1200  0x00000110
-Buffalo WZR-D1800H             HW_BCM4706            0xf52e       00        0x1204    0x110 //NAND/128M/128M/2.4-5G/USB
-
-Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
+Tenda N60			BCM47186              0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
+Tenda N6			BCM5357               0x0550       6         0x1444    0x710 //8MB/64MB/2.4/5G/USB
+TENDA W1800R		HW_BCM4706            0x05d8       18/21(EU)/60(CN)   0x1200  0x00000110
+Buffalo WZR-D1800H	HW_BCM4706            0xf52e       00        0x1204    0x110 //NAND/128M/128M/2.4-5G/USB
+Ovislink WL1600GL	HW_BCM5354G           0x048E        8        0x11
 
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N15U				BCM5357               0x052b       45        0x1204    0x80001710|0x1000
@@ -92,6 +91,7 @@ RT-AC68U			BCM4708               0x0646       <MAC>     0x1100    0x00001000
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
 WNR3500Lv2			BCM47186              0x052b       3500(L)   02        0x710|0x1000
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
+R7000				BCM4708		          0x0665	   32	     0x1301    0x00000110
 
 F7D4301 v1			BCM4718               0xd4cf       12345     0x1204
 F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
@@ -210,6 +210,7 @@ int check_hw_type(void)
 #endif
 #ifdef CONFIG_BCMWL6
 	case 0x0646:
+	case 0x0665:
 		return HW_BCM4708;
 #endif
 	}
@@ -341,6 +342,7 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC56U"))) return MODEL_RTAC56U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68R"))) return MODEL_RTAC68U;
+		if (nvram_match("boardrev", "0x1301")) return MODEL_R7000;
 	}
 #endif
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {

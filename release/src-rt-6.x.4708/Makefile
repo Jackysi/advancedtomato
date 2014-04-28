@@ -789,6 +789,9 @@ ac68z:
 812dru:
 	@$(MAKE) e ARM=y NVRAM_64K=y BCMSMP=y ASUS_TRX="812DRUV2" NO_JFFS=y NO_CIFS=y
 
+r7000:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="R7000" UFSD=y CTF=y
+
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
 	echo '#define TOMATO_$(N) 1' >> router/shared/tomato_profile.h
