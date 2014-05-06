@@ -165,7 +165,7 @@ void start_usb(void)
 				modprobe("vfat");
 			}
 
-#ifdef TCONFIG_UFSD
+#if defined(TCONFIG_UFSDA) || defined(TCONFIG_UFSDN)
 			if (nvram_get_int("usb_fs_ntfs")) {
 				modprobe("ufsd");
 			}
@@ -281,7 +281,7 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
-#ifdef TCONFIG_UFSD
+#if defined(TCONFIG_UFSDA) || defined(TCONFIG_UFSDN)
 		modprobe_r("ufsd");
 #endif
 #ifdef TCONFIG_HFS
@@ -457,7 +457,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			if (ret != 0 && strncmp(type, "ntfs", 4) == 0) {
 				sprintf(options + strlen(options), ",noatime,nodev" + (options[0] ? 0 : 1));
 				if (nvram_get_int("usb_fs_ntfs"))
-#ifdef TCONFIG_UFSD
+#if defined(TCONFIG_UFSDA) || defined(TCONFIG_UFSDN)
 					ret = eval("mount", "-t", "ufsd", "-o", options, "-o", "force", mnt_dev, mnt_dir);
 #else
 					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);

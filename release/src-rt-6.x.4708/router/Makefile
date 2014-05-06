@@ -163,10 +163,14 @@ obj-$(NEED_SAMBA3) += samba3
 #endif
 
 ifeq ($(CONFIG_BCMWL6),y)
-ifeq ($(TCONFIG_UFSD),y)
-obj-$(TCONFIG_NTFS) += ufsd
+ifeq ($(TCONFIG_UFSDA),y)
+    obj-$(TCONFIG_NTFS) += ufsd-asus
 else
-obj-$(TCONFIG_NTFS) += ntfs-3g
+    ifeq ($(TCONFIG_UFSDN),y)
+        obj-$(TCONFIG_NTFS) += ufsd-netgear
+    else
+        obj-$(TCONFIG_NTFS) += ntfs-3g
+    endif
 endif
 else
 obj-$(TCONFIG_NTFS) += ntfs-3g
@@ -695,7 +699,7 @@ ifneq ($(TCONFIG_BCMARM),y)
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
 	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image -all-root -noappend -no-duplicates | tee target.info
 else
-	+$(MAKE) -C squashfs-4.2 mksquashfs
+	$(MAKE) -C squashfs-4.2 mksquashfs
 	squashfs-4.2/mksquashfs $(TARGETDIR) $(PLATFORMDIR)/$(ROOT_IMG) -noappend -all-root
 endif
 
@@ -1085,11 +1089,14 @@ vsftpd-install: vsftpd
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 
-ufsd: kernel_header kernel
-	@$(MAKE) -C ufsd all
+ufsd-asus: kernel_header kernel
+	@$(MAKE) -C ufsd-asus all
 
-ufsd-install: ufsd
-	@$(MAKE) -C ufsd install INSTALLDIR=$(INSTALLDIR)/ufsd
+ufsd-asus-install: ufsd-asus
+	@$(MAKE) -C ufsd-asus install INSTALLDIR=$(INSTALLDIR)/ufsd-asus
+
+ufsd-netgear-install:
+	@$(MAKE) -C ufsd-netgear install INSTALLDIR=$(INSTALLDIR)/ufsd-netgear
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \

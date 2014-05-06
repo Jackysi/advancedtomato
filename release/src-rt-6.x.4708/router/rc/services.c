@@ -2022,7 +2022,6 @@ static void start_media_server(void)
 		else {
 			if ((f = fopen(argv[2], "w")) != NULL) {
 				port = nvram_get_int("ms_port");
-				https = nvram_get_int("https_enable");
 				dbdir = nvram_safe_get("ms_dbdir");
 				if (!(*dbdir)) dbdir = NULL;
 				mkdir_if_none(dbdir ? : "/var/run/"MEDIA_SERVER_APP);
@@ -2034,7 +2033,7 @@ static void start_media_server(void)
 					"db_dir=%s/.db\n"
 					"enable_tivo=%s\n"
 					"strict_dlna=%s\n"
-					"presentation_url=http%s://%s:%s/nas-media.asp\n"
+					"presentation_url=http://%s:%s\n"
 					"inotify=yes\n"
 					"notify_interval=600\n"
 					"album_art_names=Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg\n"
@@ -2047,7 +2046,7 @@ static void start_media_server(void)
 					dbdir ? : "/var/run/"MEDIA_SERVER_APP,
 					nvram_get_int("ms_tivo") ? "yes" : "no",
 					nvram_get_int("ms_stdlna") ? "yes" : "no",
-					https ? "s" : "", nvram_safe_get("lan_ipaddr"), nvram_safe_get(https ? "https_lanport" : "http_lanport")
+					nvram_safe_get("lan_ipaddr"), nvram_safe_get("http_lanport")
 				);
 
 				// media directories
@@ -2246,6 +2245,14 @@ void start_services(void)
 #ifdef TCONFIG_NFS
 	start_nfs();
 #endif
+
+	if (get_model() == MODEL_R7000) {
+		//enable WAN port led
+		system("/usr/sbin/et robowr 0x0 0x10 0x3000");
+		system("/usr/sbin/et robowr 0x0 0x12 0x78");
+		system("/usr/sbin/et robowr 0x0 0x14 0x01");
+		system("gpio disable 9");
+	}
 }
 
 void stop_services(void)

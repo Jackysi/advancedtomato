@@ -86,6 +86,10 @@ config TCONFIG_NOCAT
 	bool "NoCat Splash"
 	default n
 
+config TCONFIG_NGINX
+	bool "NGinX Web Server"
+	default n
+
 config TCONFIG_MEDIA_SERVER
 	bool "Media Server (MiniDLNA)"
 	depends on TCONFIG_USB
@@ -202,8 +206,12 @@ config TCONFIG_NAND
 	bool "NAND flash support"
 	default n
 
-config TCONFIG_UFSD
+config TCONFIG_UFSDA
 	bool "Paragon NTFS driver for Asus routers"
+	default n
+
+config TCONFIG_UFSDN
+	bool "Paragon NTFS driver for Netgear routers"
 	default n
 
 config TCONFIG_BCMARM

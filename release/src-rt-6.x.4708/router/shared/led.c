@@ -218,12 +218,11 @@ int do_led(int which, int mode)
 	static int tdn6[]       = { 255,  -6,     8,  255,  255,  255,  255,   255, 255,  255};
 #endif
 #ifdef CONFIG_BCMWL6A
-	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14,  255};
-	static int ac56u[]      = { 255, 255,   255,  255,  255,   -3,  255,   -0,  -14,  255};
-	static int r7000[]	    = { 255, 255,   255,  255,  255,   -4,  255,   -0,  -14,  255};
-
+	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,    -0, -14,  255};
+	static int ac56u[]      = { 255, 255,   255,  255,  255,   -3,  255,    -0, -14,  255};
+	static int r7000[]      = { 255, 255,   255,  255,  255,  -15,  255,   -17, -18,  255};
 #endif
-//                                 WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG   USB2 USB3   5G
+//                                 WLAN  DIAG  WHITE AMBER  DMZ   AOSS BRIDG   USB2 USB3   5G
 
 
 	char s[16];
@@ -430,6 +429,14 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_RTAC56U:
 		b = ac56u[which];
+		break;
+	case MODEL_R7000:
+		if (which == LED_DIAG) {
+			// power led gpio: -3 - orange, -2 - white
+			b = (mode) ? 2 : 3;
+			c = (mode) ? 3 : 2;
+		} else
+			b = r7000[which];
 		break;
 #endif
 /*

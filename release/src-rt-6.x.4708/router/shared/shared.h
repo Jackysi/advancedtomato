@@ -246,8 +246,7 @@ enum {
 	MODEL_WL330GE,
 	MODEL_W1800R,
 	MODEL_D1800H,
-	MODEL_EA6500V1,
-	MODEL_R7000
+	MODEL_EA6500V1
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,

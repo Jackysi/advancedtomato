@@ -101,7 +101,7 @@ switch(nvram['boardtype']) {
 	COL_P3N = '3';
 	COL_P4N = '4';
 		break;
-    	}
+	}
 		if (nvram['boardrev'] == '0x1301') { //Netgear R7000
 	COL_P0N = '4';
 	COL_P1N = '3';
