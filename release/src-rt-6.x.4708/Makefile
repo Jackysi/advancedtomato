@@ -56,6 +56,14 @@ ifeq ($(ASUS_TRX),)
 ASUS_TRX = 0
 endif
 
+ifeq ($(NETGEAR_CHK),)
+NETGEAR_CHK = 0
+else
+WNRTOOL=$(SRCBASE)/wnrtool
+BOARD_FILE=$(WNRTOOL)/$(BOARDID_FILE)
+FW_FILE=$(WNRTOOL)/$(FW_CFG_FILE)
+endif
+
 ifeq ($(NVRAM_64K),y)
 EXTRA_64KDESC = ' -64K'
 EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_64K'
@@ -131,13 +139,32 @@ ifneq ($(ASUS_TRX),0)
 	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
 	ctools/mksquashfs router/arm-uclibc/target ctools/target.squashfs -noappend -all-root
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
-	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx
-	@rm -f image/linux-lzma.trx
-ifeq ($(ASUS_TRX),RT-AC68U)
-	@cp image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx image/tomato-RT-AC56U_$(V1)$(V2)-$(current_BUILD_DESC).trx
-	@cp image/tomato-$(ASUS_TRX)_$(V1)$(V2)-$(current_BUILD_DESC).trx image/tomato-RT-AC68R_$(V1)$(V2)-$(current_BUILD_DESC).trx
+# for asus RT-AC56U, RT-AC68U, RT-AC68R
+ifeq ($(ASUS_TRX),ASUS)
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC56U,3.0.0.4,image/tomato-RT-AC56U-$(V1)$(V2)-$(current_BUILD_DESC).trx
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68U-$(V1)$(V2)-$(current_BUILD_DESC).trx
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68R,3.0.0.4,image/tomato-RT-AC68R-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
+# for R7000
+ifeq ($(ASUS_TRX),NETGEAR)
+	ctools/trx_asus -i image/linux-lzma.trx -r R7000,3.0.0.4,image/tomato-R7000-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
+	@rm -f image/linux-lzma.trx
 	@echo ""
+endif
+
+ifneq ($(NETGEAR_CHK),0)
+	@echo "Creating Firmware for Netgear ARM devices .... "
+	ctools/objcopy -O binary -R .note -R .note.gnu.build-id -R .comment -S $(LINUXDIR)/vmlinux ctools/piggy
+	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
+	ctools/mksquashfs router/arm-uclibc/target ctools/target.squashfs -noappend -all-root
+	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
+	cd image && touch rootfs
+	cd image && $(WNRTOOL)/packet -k linux-lzma.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image \
+		-oall kernel_rootfs_image -or rootfs_image -i $(FW_FILE) && rm -f rootfs && \
+		cp kernel_rootfs_image.chk tomato-R7000-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
+	@echo "Cleanup ...."
+	@rm -rf image/linux-lzma.trx image/*image.chk
 endif
 
 	@echo ""
@@ -278,9 +305,13 @@ define RouterOptions
 			sed -i "/TCONFIG_NTFS/d" $(1); \
 			echo "TCONFIG_NTFS=y" >>$(1); \
 		fi; \
-		if [ "$(UFSD)" = "y" ]; then \
-			sed -i "/TCONFIG_UFSD/d" $(1); \
-			echo "TCONFIG_UFSD=y" >>$(1); \
+		if [ "$(UFSD)" = "ASUS" ]; then \
+			sed -i "/TCONFIG_UFSDA/d" $(1); \
+			echo "TCONFIG_UFSDA=y" >>$(1); \
+		fi; \
+		if [ "$(UFSD)" = "NETGEAR" ]; then \
+			sed -i "/TCONFIG_UFSDN/d" $(1); \
+			echo "TCONFIG_UFSDN=y" >>$(1); \
 		fi; \
 		if [ "$(MEDIASRV)" = "y" ]; then \
 			sed -i "/TCONFIG_MEDIA_SERVER/d" $(1); \
@@ -773,7 +804,7 @@ endif
 	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
 	@$(MAKE) all
 
-## VPN
+## targets
 e:
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y  B=E BUILD_DESC="$(VPN)" USB="USB" PPTPD=y OPENVPN=y
 
@@ -781,16 +812,19 @@ z:
 	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y
 
 ac68e:
-	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" UFSD="ASUS" CTF=y
 
 ac68z:
-	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="RT-AC68U" UFSD=y CTF=y NGINX=y
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" UFSD="ASUS" CTF=y NGINX=y
 
-812dru:
-	@$(MAKE) e ARM=y NVRAM_64K=y BCMSMP=y ASUS_TRX="812DRUV2" NO_JFFS=y NO_CIFS=y
+r7000e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" CTF=y
 
-r7000:
-	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="R7000" UFSD=y CTF=y
+r7000z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" CTF=y NGINX=y
+
+r7000init:
+	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R7000" CTF=y BOARDID_FILE="compatible_r7000.txt" FW_CFG_FILE="ambitCfg-r7000.h"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
