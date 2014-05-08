@@ -5,27 +5,29 @@ SRCFILE = broadcom_arm
 DSTDIR = $(INSTALLDIR)/lib/modules/2.6.36.4brcmarm/kernel/fs
 endif
 
-ifeq ($(TCONFIG_UFSD_DEBUG),y)
-DEBUG=y
-endif
-
 export DSTDIR
 export DEBUG
 
 all:
-	@[ ! -f $(SRCFILE)/Makefile ] || $(MAKE) -C $(SRCFILE) $@
 
 clean:
-	@[ ! -f $(SRCFILE)/Makefile ] || $(MAKE) -C $(SRCFILE) $@
 
 install:
 	@echo "[ufsd] Installing..."
 	@install -d $(INSTALLDIR)/usr/sbin
 	@install -d $(DSTDIR)
-	@cp -f $(SRCFILE)/package/ufsd.ko $(DSTDIR)
-	@cp -f $(SRCFILE)/chkntfs $(INSTALLDIR)/usr/sbin
+	@cp $(SRCFILE)/ufsd.ko $(DSTDIR)
+	@cp $(SRCFILE)/jnl.ko $(DSTDIR)
+	@chmod 664 $(DSTDIR)/ufsd.ko
+	@chmod 664 $(DSTDIR)/jnl.ko
+	@cp $(SRCFILE)/mkntfs $(INSTALLDIR)/usr/sbin
+	@cp $(SRCFILE)/chkntfs $(INSTALLDIR)/usr/sbin
+	@cp $(SRCFILE)/mkhfs $(INSTALLDIR)/usr/sbin
+	@cp $(SRCFILE)/chkhfs $(INSTALLDIR)/usr/sbin/
+	@chmod 775 $(INSTALLDIR)/usr/sbin/mkntfs
 	@chmod 775 $(INSTALLDIR)/usr/sbin/chkntfs
-	@[ ! -f $(SRCFILE)/Makefile ] || $(MAKE) -C $(SRCFILE) $@
+	@chmod 775 $(INSTALLDIR)/usr/sbin/mkhfs
+	@chmod 775 $(INSTALLDIR)/usr/sbin/chkhfs
 
 .phony: all clean install
 
