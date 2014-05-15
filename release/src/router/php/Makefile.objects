@@ -1,0 +1,442 @@
+sapi/cli/php_cli.lo: /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cli/ -I/home/vicente/tomato/release/src/router/php/sapi/cli/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli.c -o sapi/cli/php_cli.lo 
+sapi/cli/php_http_parser.lo: /home/vicente/tomato/release/src/router/php/sapi/cli/php_http_parser.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cli/ -I/home/vicente/tomato/release/src/router/php/sapi/cli/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cli/php_http_parser.c -o sapi/cli/php_http_parser.lo 
+sapi/cli/php_cli_server.lo: /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli_server.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cli/ -I/home/vicente/tomato/release/src/router/php/sapi/cli/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli_server.c -o sapi/cli/php_cli_server.lo 
+sapi/cli/ps_title.lo: /home/vicente/tomato/release/src/router/php/sapi/cli/ps_title.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cli/ -I/home/vicente/tomato/release/src/router/php/sapi/cli/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cli/ps_title.c -o sapi/cli/ps_title.lo 
+sapi/cli/php_cli_process_title.lo: /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli_process_title.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cli/ -I/home/vicente/tomato/release/src/router/php/sapi/cli/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cli/php_cli_process_title.c -o sapi/cli/php_cli_process_title.lo 
+sapi/cgi/cgi_main.lo: /home/vicente/tomato/release/src/router/php/sapi/cgi/cgi_main.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cgi/ -I/home/vicente/tomato/release/src/router/php/sapi/cgi/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cgi/cgi_main.c -o sapi/cgi/cgi_main.lo 
+sapi/cgi/fastcgi.lo: /home/vicente/tomato/release/src/router/php/sapi/cgi/fastcgi.c
+	$(LIBTOOL) --mode=compile $(CC)  -Isapi/cgi/ -I/home/vicente/tomato/release/src/router/php/sapi/cgi/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/sapi/cgi/fastcgi.c -o sapi/cgi/fastcgi.lo 
+ext/date/php_date.lo: /home/vicente/tomato/release/src/router/php/ext/date/php_date.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/php_date.c -o ext/date/php_date.lo 
+ext/date/lib/astro.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/astro.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/astro.c -o ext/date/lib/astro.lo 
+ext/date/lib/dow.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/dow.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/dow.c -o ext/date/lib/dow.lo 
+ext/date/lib/parse_date.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_date.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_date.c -o ext/date/lib/parse_date.lo 
+ext/date/lib/parse_tz.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_tz.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_tz.c -o ext/date/lib/parse_tz.lo 
+ext/date/lib/timelib.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/timelib.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/timelib.c -o ext/date/lib/timelib.lo 
+ext/date/lib/tm2unixtime.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/tm2unixtime.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/tm2unixtime.c -o ext/date/lib/tm2unixtime.lo 
+ext/date/lib/unixtime2tm.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/unixtime2tm.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/unixtime2tm.c -o ext/date/lib/unixtime2tm.lo 
+ext/date/lib/parse_iso_intervals.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_iso_intervals.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/parse_iso_intervals.c -o ext/date/lib/parse_iso_intervals.lo 
+ext/date/lib/interval.lo: /home/vicente/tomato/release/src/router/php/ext/date/lib/interval.c
+	$(LIBTOOL) --mode=compile $(CC) -Iext/date/lib -Iext/date/ -I/home/vicente/tomato/release/src/router/php/ext/date/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/date/lib/interval.c -o ext/date/lib/interval.lo 
+ext/ereg/ereg.lo: /home/vicente/tomato/release/src/router/php/ext/ereg/ereg.c
+	$(LIBTOOL) --mode=compile $(CC) -Dregexec=php_regexec -Dregerror=php_regerror -Dregfree=php_regfree -Dregcomp=php_regcomp -Iext/ereg/ -I/home/vicente/tomato/release/src/router/php/ext/ereg/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/ereg/ereg.c -o ext/ereg/ereg.lo 
+ext/ereg/regex/regcomp.lo: /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regcomp.c
+	$(LIBTOOL) --mode=compile $(CC) -Dregexec=php_regexec -Dregerror=php_regerror -Dregfree=php_regfree -Dregcomp=php_regcomp -Iext/ereg/ -I/home/vicente/tomato/release/src/router/php/ext/ereg/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regcomp.c -o ext/ereg/regex/regcomp.lo 
+ext/ereg/regex/regexec.lo: /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regexec.c
+	$(LIBTOOL) --mode=compile $(CC) -Dregexec=php_regexec -Dregerror=php_regerror -Dregfree=php_regfree -Dregcomp=php_regcomp -Iext/ereg/ -I/home/vicente/tomato/release/src/router/php/ext/ereg/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regexec.c -o ext/ereg/regex/regexec.lo 
+ext/ereg/regex/regerror.lo: /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regerror.c
+	$(LIBTOOL) --mode=compile $(CC) -Dregexec=php_regexec -Dregerror=php_regerror -Dregfree=php_regfree -Dregcomp=php_regcomp -Iext/ereg/ -I/home/vicente/tomato/release/src/router/php/ext/ereg/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regerror.c -o ext/ereg/regex/regerror.lo 
+ext/ereg/regex/regfree.lo: /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regfree.c
+	$(LIBTOOL) --mode=compile $(CC) -Dregexec=php_regexec -Dregerror=php_regerror -Dregfree=php_regfree -Dregcomp=php_regcomp -Iext/ereg/ -I/home/vicente/tomato/release/src/router/php/ext/ereg/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/ereg/regex/regfree.c -o ext/ereg/regex/regfree.lo 
+ext/pcre/pcrelib/pcre_chartables.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_chartables.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_chartables.c -o ext/pcre/pcrelib/pcre_chartables.lo 
+ext/pcre/pcrelib/pcre_ucd.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_ucd.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_ucd.c -o ext/pcre/pcrelib/pcre_ucd.lo 
+ext/pcre/pcrelib/pcre_compile.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_compile.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_compile.c -o ext/pcre/pcrelib/pcre_compile.lo 
+ext/pcre/pcrelib/pcre_config.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_config.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_config.c -o ext/pcre/pcrelib/pcre_config.lo 
+ext/pcre/pcrelib/pcre_exec.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_exec.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_exec.c -o ext/pcre/pcrelib/pcre_exec.lo 
+ext/pcre/pcrelib/pcre_fullinfo.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_fullinfo.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_fullinfo.c -o ext/pcre/pcrelib/pcre_fullinfo.lo 
+ext/pcre/pcrelib/pcre_get.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_get.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_get.c -o ext/pcre/pcrelib/pcre_get.lo 
+ext/pcre/pcrelib/pcre_globals.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_globals.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_globals.c -o ext/pcre/pcrelib/pcre_globals.lo 
+ext/pcre/pcrelib/pcre_maketables.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_maketables.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_maketables.c -o ext/pcre/pcrelib/pcre_maketables.lo 
+ext/pcre/pcrelib/pcre_newline.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_newline.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_newline.c -o ext/pcre/pcrelib/pcre_newline.lo 
+ext/pcre/pcrelib/pcre_ord2utf8.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_ord2utf8.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_ord2utf8.c -o ext/pcre/pcrelib/pcre_ord2utf8.lo 
+ext/pcre/pcrelib/pcre_refcount.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_refcount.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_refcount.c -o ext/pcre/pcrelib/pcre_refcount.lo 
+ext/pcre/pcrelib/pcre_study.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_study.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_study.c -o ext/pcre/pcrelib/pcre_study.lo 
+ext/pcre/pcrelib/pcre_tables.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_tables.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_tables.c -o ext/pcre/pcrelib/pcre_tables.lo 
+ext/pcre/pcrelib/pcre_valid_utf8.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_valid_utf8.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_valid_utf8.c -o ext/pcre/pcrelib/pcre_valid_utf8.lo 
+ext/pcre/pcrelib/pcre_version.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_version.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_version.c -o ext/pcre/pcrelib/pcre_version.lo 
+ext/pcre/pcrelib/pcre_xclass.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_xclass.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib/pcre_xclass.c -o ext/pcre/pcrelib/pcre_xclass.lo 
+ext/pcre/php_pcre.lo: /home/vicente/tomato/release/src/router/php/ext/pcre/php_pcre.c
+	$(LIBTOOL) --mode=compile $(CC) -DHAVE_CONFIG_H -I/home/vicente/tomato/release/src/router/php/ext/pcre/pcrelib -Iext/pcre/ -I/home/vicente/tomato/release/src/router/php/ext/pcre/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/pcre/php_pcre.c -o ext/pcre/php_pcre.lo 
+ext/zlib/zlib.lo: /home/vicente/tomato/release/src/router/php/ext/zlib/zlib.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/zlib/ -I/home/vicente/tomato/release/src/router/php/ext/zlib/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/zlib/zlib.c -o ext/zlib/zlib.lo 
+ext/zlib/zlib_fopen_wrapper.lo: /home/vicente/tomato/release/src/router/php/ext/zlib/zlib_fopen_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/zlib/ -I/home/vicente/tomato/release/src/router/php/ext/zlib/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/zlib/zlib_fopen_wrapper.c -o ext/zlib/zlib_fopen_wrapper.lo 
+ext/zlib/zlib_filter.lo: /home/vicente/tomato/release/src/router/php/ext/zlib/zlib_filter.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/zlib/ -I/home/vicente/tomato/release/src/router/php/ext/zlib/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/zlib/zlib_filter.c -o ext/zlib/zlib_filter.lo 
+ext/opcache/ZendAccelerator.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/ZendAccelerator.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/ZendAccelerator.c -o ext/opcache/ZendAccelerator.lo 
+ext/opcache/zend_accelerator_blacklist.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_blacklist.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_blacklist.c -o ext/opcache/zend_accelerator_blacklist.lo 
+ext/opcache/zend_accelerator_debug.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_debug.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_debug.c -o ext/opcache/zend_accelerator_debug.lo 
+ext/opcache/zend_accelerator_hash.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_hash.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_hash.c -o ext/opcache/zend_accelerator_hash.lo 
+ext/opcache/zend_accelerator_module.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_module.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_module.c -o ext/opcache/zend_accelerator_module.lo 
+ext/opcache/zend_persist.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_persist.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_persist.c -o ext/opcache/zend_persist.lo 
+ext/opcache/zend_persist_calc.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_persist_calc.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_persist_calc.c -o ext/opcache/zend_persist_calc.lo 
+ext/opcache/zend_shared_alloc.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_shared_alloc.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_shared_alloc.c -o ext/opcache/zend_shared_alloc.lo 
+ext/opcache/zend_accelerator_util_funcs.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_util_funcs.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/zend_accelerator_util_funcs.c -o ext/opcache/zend_accelerator_util_funcs.lo 
+ext/opcache/shared_alloc_shm.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_shm.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_shm.c -o ext/opcache/shared_alloc_shm.lo 
+ext/opcache/shared_alloc_mmap.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_mmap.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_mmap.c -o ext/opcache/shared_alloc_mmap.lo 
+ext/opcache/shared_alloc_posix.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_posix.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/shared_alloc_posix.c -o ext/opcache/shared_alloc_posix.lo 
+ext/opcache/Optimizer/zend_optimizer.lo: /home/vicente/tomato/release/src/router/php/ext/opcache/Optimizer/zend_optimizer.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/opcache/ -I/home/vicente/tomato/release/src/router/php/ext/opcache/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /home/vicente/tomato/release/src/router/php/ext/opcache/Optimizer/zend_optimizer.c -o ext/opcache/Optimizer/zend_optimizer.lo 
+$(phplibdir)/opcache.la: ext/opcache/opcache.la
+	$(LIBTOOL) --mode=install cp ext/opcache/opcache.la $(phplibdir)
+
+ext/opcache/opcache.la: $(shared_objects_opcache) $(OPCACHE_SHARED_DEPENDENCIES)
+	$(LIBTOOL) --mode=link $(CC) $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o $@ -export-dynamic -avoid-version -prefer-pic -module -rpath $(phplibdir) $(EXTRA_LDFLAGS) $(shared_objects_opcache) $(OPCACHE_SHARED_LIBADD)
+
+ext/posix/posix.lo: /home/vicente/tomato/release/src/router/php/ext/posix/posix.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/posix/ -I/home/vicente/tomato/release/src/router/php/ext/posix/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/posix/posix.c -o ext/posix/posix.lo 
+ext/reflection/php_reflection.lo: /home/vicente/tomato/release/src/router/php/ext/reflection/php_reflection.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/reflection/ -I/home/vicente/tomato/release/src/router/php/ext/reflection/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/reflection/php_reflection.c -o ext/reflection/php_reflection.lo 
+ext/spl/php_spl.lo: /home/vicente/tomato/release/src/router/php/ext/spl/php_spl.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/php_spl.c -o ext/spl/php_spl.lo 
+ext/spl/spl_functions.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_functions.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_functions.c -o ext/spl/spl_functions.lo 
+ext/spl/spl_engine.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_engine.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_engine.c -o ext/spl/spl_engine.lo 
+ext/spl/spl_iterators.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_iterators.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_iterators.c -o ext/spl/spl_iterators.lo 
+ext/spl/spl_array.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_array.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_array.c -o ext/spl/spl_array.lo 
+ext/spl/spl_directory.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_directory.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_directory.c -o ext/spl/spl_directory.lo 
+ext/spl/spl_exceptions.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_exceptions.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_exceptions.c -o ext/spl/spl_exceptions.lo 
+ext/spl/spl_observer.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_observer.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_observer.c -o ext/spl/spl_observer.lo 
+ext/spl/spl_dllist.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_dllist.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_dllist.c -o ext/spl/spl_dllist.lo 
+ext/spl/spl_heap.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_heap.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_heap.c -o ext/spl/spl_heap.lo 
+ext/spl/spl_fixedarray.lo: /home/vicente/tomato/release/src/router/php/ext/spl/spl_fixedarray.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/spl/ -I/home/vicente/tomato/release/src/router/php/ext/spl/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/spl/spl_fixedarray.c -o ext/spl/spl_fixedarray.lo 
+ext/standard/crypt_freesec.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crypt_freesec.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crypt_freesec.c -o ext/standard/crypt_freesec.lo 
+ext/standard/crypt_blowfish.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crypt_blowfish.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crypt_blowfish.c -o ext/standard/crypt_blowfish.lo 
+ext/standard/crypt_sha512.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crypt_sha512.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crypt_sha512.c -o ext/standard/crypt_sha512.lo 
+ext/standard/crypt_sha256.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crypt_sha256.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crypt_sha256.c -o ext/standard/crypt_sha256.lo 
+ext/standard/php_crypt_r.lo: /home/vicente/tomato/release/src/router/php/ext/standard/php_crypt_r.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/php_crypt_r.c -o ext/standard/php_crypt_r.lo 
+ext/standard/array.lo: /home/vicente/tomato/release/src/router/php/ext/standard/array.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/array.c -o ext/standard/array.lo 
+ext/standard/base64.lo: /home/vicente/tomato/release/src/router/php/ext/standard/base64.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/base64.c -o ext/standard/base64.lo 
+ext/standard/basic_functions.lo: /home/vicente/tomato/release/src/router/php/ext/standard/basic_functions.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/basic_functions.c -o ext/standard/basic_functions.lo 
+ext/standard/browscap.lo: /home/vicente/tomato/release/src/router/php/ext/standard/browscap.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/browscap.c -o ext/standard/browscap.lo 
+ext/standard/crc32.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crc32.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crc32.c -o ext/standard/crc32.lo 
+ext/standard/crypt.lo: /home/vicente/tomato/release/src/router/php/ext/standard/crypt.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/crypt.c -o ext/standard/crypt.lo 
+ext/standard/cyr_convert.lo: /home/vicente/tomato/release/src/router/php/ext/standard/cyr_convert.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/cyr_convert.c -o ext/standard/cyr_convert.lo 
+ext/standard/datetime.lo: /home/vicente/tomato/release/src/router/php/ext/standard/datetime.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/datetime.c -o ext/standard/datetime.lo 
+ext/standard/dir.lo: /home/vicente/tomato/release/src/router/php/ext/standard/dir.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/dir.c -o ext/standard/dir.lo 
+ext/standard/dl.lo: /home/vicente/tomato/release/src/router/php/ext/standard/dl.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/dl.c -o ext/standard/dl.lo 
+ext/standard/dns.lo: /home/vicente/tomato/release/src/router/php/ext/standard/dns.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/dns.c -o ext/standard/dns.lo 
+ext/standard/exec.lo: /home/vicente/tomato/release/src/router/php/ext/standard/exec.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/exec.c -o ext/standard/exec.lo 
+ext/standard/file.lo: /home/vicente/tomato/release/src/router/php/ext/standard/file.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/file.c -o ext/standard/file.lo 
+ext/standard/filestat.lo: /home/vicente/tomato/release/src/router/php/ext/standard/filestat.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/filestat.c -o ext/standard/filestat.lo 
+ext/standard/flock_compat.lo: /home/vicente/tomato/release/src/router/php/ext/standard/flock_compat.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/flock_compat.c -o ext/standard/flock_compat.lo 
+ext/standard/formatted_print.lo: /home/vicente/tomato/release/src/router/php/ext/standard/formatted_print.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/formatted_print.c -o ext/standard/formatted_print.lo 
+ext/standard/fsock.lo: /home/vicente/tomato/release/src/router/php/ext/standard/fsock.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/fsock.c -o ext/standard/fsock.lo 
+ext/standard/head.lo: /home/vicente/tomato/release/src/router/php/ext/standard/head.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/head.c -o ext/standard/head.lo 
+ext/standard/html.lo: /home/vicente/tomato/release/src/router/php/ext/standard/html.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/html.c -o ext/standard/html.lo 
+ext/standard/image.lo: /home/vicente/tomato/release/src/router/php/ext/standard/image.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/image.c -o ext/standard/image.lo 
+ext/standard/info.lo: /home/vicente/tomato/release/src/router/php/ext/standard/info.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/info.c -o ext/standard/info.lo 
+ext/standard/iptc.lo: /home/vicente/tomato/release/src/router/php/ext/standard/iptc.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/iptc.c -o ext/standard/iptc.lo 
+ext/standard/lcg.lo: /home/vicente/tomato/release/src/router/php/ext/standard/lcg.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/lcg.c -o ext/standard/lcg.lo 
+ext/standard/link.lo: /home/vicente/tomato/release/src/router/php/ext/standard/link.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/link.c -o ext/standard/link.lo 
+ext/standard/mail.lo: /home/vicente/tomato/release/src/router/php/ext/standard/mail.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/mail.c -o ext/standard/mail.lo 
+ext/standard/math.lo: /home/vicente/tomato/release/src/router/php/ext/standard/math.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/math.c -o ext/standard/math.lo 
+ext/standard/md5.lo: /home/vicente/tomato/release/src/router/php/ext/standard/md5.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/md5.c -o ext/standard/md5.lo 
+ext/standard/metaphone.lo: /home/vicente/tomato/release/src/router/php/ext/standard/metaphone.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/metaphone.c -o ext/standard/metaphone.lo 
+ext/standard/microtime.lo: /home/vicente/tomato/release/src/router/php/ext/standard/microtime.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/microtime.c -o ext/standard/microtime.lo 
+ext/standard/pack.lo: /home/vicente/tomato/release/src/router/php/ext/standard/pack.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/pack.c -o ext/standard/pack.lo 
+ext/standard/pageinfo.lo: /home/vicente/tomato/release/src/router/php/ext/standard/pageinfo.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/pageinfo.c -o ext/standard/pageinfo.lo 
+ext/standard/quot_print.lo: /home/vicente/tomato/release/src/router/php/ext/standard/quot_print.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/quot_print.c -o ext/standard/quot_print.lo 
+ext/standard/rand.lo: /home/vicente/tomato/release/src/router/php/ext/standard/rand.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/rand.c -o ext/standard/rand.lo 
+ext/standard/soundex.lo: /home/vicente/tomato/release/src/router/php/ext/standard/soundex.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/soundex.c -o ext/standard/soundex.lo 
+ext/standard/string.lo: /home/vicente/tomato/release/src/router/php/ext/standard/string.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/string.c -o ext/standard/string.lo 
+ext/standard/scanf.lo: /home/vicente/tomato/release/src/router/php/ext/standard/scanf.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/scanf.c -o ext/standard/scanf.lo 
+ext/standard/syslog.lo: /home/vicente/tomato/release/src/router/php/ext/standard/syslog.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/syslog.c -o ext/standard/syslog.lo 
+ext/standard/type.lo: /home/vicente/tomato/release/src/router/php/ext/standard/type.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/type.c -o ext/standard/type.lo 
+ext/standard/uniqid.lo: /home/vicente/tomato/release/src/router/php/ext/standard/uniqid.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/uniqid.c -o ext/standard/uniqid.lo 
+ext/standard/url.lo: /home/vicente/tomato/release/src/router/php/ext/standard/url.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/url.c -o ext/standard/url.lo 
+ext/standard/var.lo: /home/vicente/tomato/release/src/router/php/ext/standard/var.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/var.c -o ext/standard/var.lo 
+ext/standard/versioning.lo: /home/vicente/tomato/release/src/router/php/ext/standard/versioning.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/versioning.c -o ext/standard/versioning.lo 
+ext/standard/assert.lo: /home/vicente/tomato/release/src/router/php/ext/standard/assert.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/assert.c -o ext/standard/assert.lo 
+ext/standard/strnatcmp.lo: /home/vicente/tomato/release/src/router/php/ext/standard/strnatcmp.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/strnatcmp.c -o ext/standard/strnatcmp.lo 
+ext/standard/levenshtein.lo: /home/vicente/tomato/release/src/router/php/ext/standard/levenshtein.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/levenshtein.c -o ext/standard/levenshtein.lo 
+ext/standard/incomplete_class.lo: /home/vicente/tomato/release/src/router/php/ext/standard/incomplete_class.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/incomplete_class.c -o ext/standard/incomplete_class.lo 
+ext/standard/url_scanner_ex.lo: /home/vicente/tomato/release/src/router/php/ext/standard/url_scanner_ex.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/url_scanner_ex.c -o ext/standard/url_scanner_ex.lo 
+ext/standard/ftp_fopen_wrapper.lo: /home/vicente/tomato/release/src/router/php/ext/standard/ftp_fopen_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/ftp_fopen_wrapper.c -o ext/standard/ftp_fopen_wrapper.lo 
+ext/standard/http_fopen_wrapper.lo: /home/vicente/tomato/release/src/router/php/ext/standard/http_fopen_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/http_fopen_wrapper.c -o ext/standard/http_fopen_wrapper.lo 
+ext/standard/php_fopen_wrapper.lo: /home/vicente/tomato/release/src/router/php/ext/standard/php_fopen_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/php_fopen_wrapper.c -o ext/standard/php_fopen_wrapper.lo 
+ext/standard/credits.lo: /home/vicente/tomato/release/src/router/php/ext/standard/credits.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/credits.c -o ext/standard/credits.lo 
+ext/standard/css.lo: /home/vicente/tomato/release/src/router/php/ext/standard/css.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/css.c -o ext/standard/css.lo 
+ext/standard/var_unserializer.lo: /home/vicente/tomato/release/src/router/php/ext/standard/var_unserializer.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/var_unserializer.c -o ext/standard/var_unserializer.lo 
+ext/standard/ftok.lo: /home/vicente/tomato/release/src/router/php/ext/standard/ftok.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/ftok.c -o ext/standard/ftok.lo 
+ext/standard/sha1.lo: /home/vicente/tomato/release/src/router/php/ext/standard/sha1.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/sha1.c -o ext/standard/sha1.lo 
+ext/standard/user_filters.lo: /home/vicente/tomato/release/src/router/php/ext/standard/user_filters.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/user_filters.c -o ext/standard/user_filters.lo 
+ext/standard/uuencode.lo: /home/vicente/tomato/release/src/router/php/ext/standard/uuencode.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/uuencode.c -o ext/standard/uuencode.lo 
+ext/standard/filters.lo: /home/vicente/tomato/release/src/router/php/ext/standard/filters.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/filters.c -o ext/standard/filters.lo 
+ext/standard/proc_open.lo: /home/vicente/tomato/release/src/router/php/ext/standard/proc_open.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/proc_open.c -o ext/standard/proc_open.lo 
+ext/standard/streamsfuncs.lo: /home/vicente/tomato/release/src/router/php/ext/standard/streamsfuncs.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/streamsfuncs.c -o ext/standard/streamsfuncs.lo 
+ext/standard/http.lo: /home/vicente/tomato/release/src/router/php/ext/standard/http.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/http.c -o ext/standard/http.lo 
+ext/standard/password.lo: /home/vicente/tomato/release/src/router/php/ext/standard/password.c
+	$(LIBTOOL) --mode=compile $(CC)  -Iext/standard/ -I/home/vicente/tomato/release/src/router/php/ext/standard/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/ext/standard/password.c -o ext/standard/password.lo 
+TSRM/TSRM.lo: /home/vicente/tomato/release/src/router/php/TSRM/TSRM.c
+	$(LIBTOOL) --mode=compile $(CC)  -ITSRM/ -I/home/vicente/tomato/release/src/router/php/TSRM/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/TSRM/TSRM.c -o TSRM/TSRM.lo 
+TSRM/tsrm_strtok_r.lo: /home/vicente/tomato/release/src/router/php/TSRM/tsrm_strtok_r.c
+	$(LIBTOOL) --mode=compile $(CC)  -ITSRM/ -I/home/vicente/tomato/release/src/router/php/TSRM/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/TSRM/tsrm_strtok_r.c -o TSRM/tsrm_strtok_r.lo 
+TSRM/tsrm_virtual_cwd.lo: /home/vicente/tomato/release/src/router/php/TSRM/tsrm_virtual_cwd.c
+	$(LIBTOOL) --mode=compile $(CC)  -ITSRM/ -I/home/vicente/tomato/release/src/router/php/TSRM/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/TSRM/tsrm_virtual_cwd.c -o TSRM/tsrm_virtual_cwd.lo 
+main/main.lo: /home/vicente/tomato/release/src/router/php/main/main.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/main.c -o main/main.lo 
+main/snprintf.lo: /home/vicente/tomato/release/src/router/php/main/snprintf.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/snprintf.c -o main/snprintf.lo 
+main/spprintf.lo: /home/vicente/tomato/release/src/router/php/main/spprintf.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/spprintf.c -o main/spprintf.lo 
+main/php_sprintf.lo: /home/vicente/tomato/release/src/router/php/main/php_sprintf.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_sprintf.c -o main/php_sprintf.lo 
+main/fopen_wrappers.lo: /home/vicente/tomato/release/src/router/php/main/fopen_wrappers.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/fopen_wrappers.c -o main/fopen_wrappers.lo 
+main/alloca.lo: /home/vicente/tomato/release/src/router/php/main/alloca.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/alloca.c -o main/alloca.lo 
+main/php_scandir.lo: /home/vicente/tomato/release/src/router/php/main/php_scandir.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_scandir.c -o main/php_scandir.lo 
+main/php_ini.lo: /home/vicente/tomato/release/src/router/php/main/php_ini.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_ini.c -o main/php_ini.lo 
+main/SAPI.lo: /home/vicente/tomato/release/src/router/php/main/SAPI.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/SAPI.c -o main/SAPI.lo 
+main/rfc1867.lo: /home/vicente/tomato/release/src/router/php/main/rfc1867.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/rfc1867.c -o main/rfc1867.lo 
+main/php_content_types.lo: /home/vicente/tomato/release/src/router/php/main/php_content_types.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_content_types.c -o main/php_content_types.lo 
+main/strlcpy.lo: /home/vicente/tomato/release/src/router/php/main/strlcpy.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/strlcpy.c -o main/strlcpy.lo 
+main/strlcat.lo: /home/vicente/tomato/release/src/router/php/main/strlcat.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/strlcat.c -o main/strlcat.lo 
+main/mergesort.lo: /home/vicente/tomato/release/src/router/php/main/mergesort.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/mergesort.c -o main/mergesort.lo 
+main/reentrancy.lo: /home/vicente/tomato/release/src/router/php/main/reentrancy.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/reentrancy.c -o main/reentrancy.lo 
+main/php_variables.lo: /home/vicente/tomato/release/src/router/php/main/php_variables.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_variables.c -o main/php_variables.lo 
+main/php_ticks.lo: /home/vicente/tomato/release/src/router/php/main/php_ticks.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_ticks.c -o main/php_ticks.lo 
+main/network.lo: /home/vicente/tomato/release/src/router/php/main/network.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/network.c -o main/network.lo 
+main/php_open_temporary_file.lo: /home/vicente/tomato/release/src/router/php/main/php_open_temporary_file.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/php_open_temporary_file.c -o main/php_open_temporary_file.lo 
+main/output.lo: /home/vicente/tomato/release/src/router/php/main/output.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/output.c -o main/output.lo 
+main/getopt.lo: /home/vicente/tomato/release/src/router/php/main/getopt.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/getopt.c -o main/getopt.lo 
+main/streams/streams.lo: /home/vicente/tomato/release/src/router/php/main/streams/streams.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/streams.c -o main/streams/streams.lo 
+main/streams/cast.lo: /home/vicente/tomato/release/src/router/php/main/streams/cast.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/cast.c -o main/streams/cast.lo 
+main/streams/memory.lo: /home/vicente/tomato/release/src/router/php/main/streams/memory.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/memory.c -o main/streams/memory.lo 
+main/streams/filter.lo: /home/vicente/tomato/release/src/router/php/main/streams/filter.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/filter.c -o main/streams/filter.lo 
+main/streams/plain_wrapper.lo: /home/vicente/tomato/release/src/router/php/main/streams/plain_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/plain_wrapper.c -o main/streams/plain_wrapper.lo 
+main/streams/userspace.lo: /home/vicente/tomato/release/src/router/php/main/streams/userspace.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/userspace.c -o main/streams/userspace.lo 
+main/streams/transports.lo: /home/vicente/tomato/release/src/router/php/main/streams/transports.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/transports.c -o main/streams/transports.lo 
+main/streams/xp_socket.lo: /home/vicente/tomato/release/src/router/php/main/streams/xp_socket.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/xp_socket.c -o main/streams/xp_socket.lo 
+main/streams/mmap.lo: /home/vicente/tomato/release/src/router/php/main/streams/mmap.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/mmap.c -o main/streams/mmap.lo 
+main/streams/glob_wrapper.lo: /home/vicente/tomato/release/src/router/php/main/streams/glob_wrapper.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/streams/ -I/home/vicente/tomato/release/src/router/php/main/streams/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/main/streams/glob_wrapper.c -o main/streams/glob_wrapper.lo 
+main/internal_functions.lo: main/internal_functions.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c main/internal_functions.c -o main/internal_functions.lo 
+main/internal_functions_cli.lo: main/internal_functions_cli.c
+	$(LIBTOOL) --mode=compile $(CC)  -Imain/ -I/home/vicente/tomato/release/src/router/php/main/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c main/internal_functions_cli.c -o main/internal_functions_cli.lo 
+Zend/zend_language_parser.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.c -o Zend/zend_language_parser.lo 
+Zend/zend_language_scanner.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_language_scanner.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_language_scanner.c -o Zend/zend_language_scanner.lo 
+Zend/zend_ini_parser.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.c -o Zend/zend_ini_parser.lo 
+Zend/zend_ini_scanner.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_scanner.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_ini_scanner.c -o Zend/zend_ini_scanner.lo 
+Zend/zend_alloc.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_alloc.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_alloc.c -o Zend/zend_alloc.lo 
+Zend/zend_compile.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_compile.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_compile.c -o Zend/zend_compile.lo 
+Zend/zend_constants.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_constants.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_constants.c -o Zend/zend_constants.lo 
+Zend/zend_dynamic_array.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_dynamic_array.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_dynamic_array.c -o Zend/zend_dynamic_array.lo 
+Zend/zend_dtrace.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_dtrace.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_dtrace.c -o Zend/zend_dtrace.lo 
+Zend/zend_execute_API.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_execute_API.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_execute_API.c -o Zend/zend_execute_API.lo 
+Zend/zend_highlight.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_highlight.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_highlight.c -o Zend/zend_highlight.lo 
+Zend/zend_llist.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_llist.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_llist.c -o Zend/zend_llist.lo 
+Zend/zend_vm_opcodes.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_vm_opcodes.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_vm_opcodes.c -o Zend/zend_vm_opcodes.lo 
+Zend/zend_opcode.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_opcode.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_opcode.c -o Zend/zend_opcode.lo 
+Zend/zend_operators.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_operators.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_operators.c -o Zend/zend_operators.lo 
+Zend/zend_ptr_stack.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ptr_stack.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_ptr_stack.c -o Zend/zend_ptr_stack.lo 
+Zend/zend_stack.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_stack.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_stack.c -o Zend/zend_stack.lo 
+Zend/zend_variables.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_variables.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_variables.c -o Zend/zend_variables.lo 
+Zend/zend.lo: /home/vicente/tomato/release/src/router/php/Zend/zend.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend.c -o Zend/zend.lo 
+Zend/zend_API.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_API.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_API.c -o Zend/zend_API.lo 
+Zend/zend_extensions.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_extensions.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_extensions.c -o Zend/zend_extensions.lo 
+Zend/zend_hash.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_hash.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_hash.c -o Zend/zend_hash.lo 
+Zend/zend_list.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_list.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_list.c -o Zend/zend_list.lo 
+Zend/zend_indent.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_indent.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_indent.c -o Zend/zend_indent.lo 
+Zend/zend_builtin_functions.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_builtin_functions.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_builtin_functions.c -o Zend/zend_builtin_functions.lo 
+Zend/zend_sprintf.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_sprintf.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_sprintf.c -o Zend/zend_sprintf.lo 
+Zend/zend_ini.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ini.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_ini.c -o Zend/zend_ini.lo 
+Zend/zend_qsort.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_qsort.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_qsort.c -o Zend/zend_qsort.lo 
+Zend/zend_multibyte.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_multibyte.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_multibyte.c -o Zend/zend_multibyte.lo 
+Zend/zend_ts_hash.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ts_hash.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_ts_hash.c -o Zend/zend_ts_hash.lo 
+Zend/zend_stream.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_stream.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_stream.c -o Zend/zend_stream.lo 
+Zend/zend_iterators.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_iterators.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_iterators.c -o Zend/zend_iterators.lo 
+Zend/zend_interfaces.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_interfaces.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_interfaces.c -o Zend/zend_interfaces.lo 
+Zend/zend_exceptions.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_exceptions.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_exceptions.c -o Zend/zend_exceptions.lo 
+Zend/zend_strtod.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_strtod.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_strtod.c -o Zend/zend_strtod.lo 
+Zend/zend_gc.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_gc.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_gc.c -o Zend/zend_gc.lo 
+Zend/zend_closures.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_closures.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_closures.c -o Zend/zend_closures.lo 
+Zend/zend_float.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_float.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_float.c -o Zend/zend_float.lo 
+Zend/zend_string.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_string.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_string.c -o Zend/zend_string.lo 
+Zend/zend_signal.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_signal.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_signal.c -o Zend/zend_signal.lo 
+Zend/zend_generators.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_generators.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_generators.c -o Zend/zend_generators.lo 
+Zend/zend_objects.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_objects.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_objects.c -o Zend/zend_objects.lo 
+Zend/zend_object_handlers.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_object_handlers.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_object_handlers.c -o Zend/zend_object_handlers.lo 
+Zend/zend_objects_API.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_objects_API.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_objects_API.c -o Zend/zend_objects_API.lo 
+Zend/zend_default_classes.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_default_classes.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_default_classes.c -o Zend/zend_default_classes.lo 
+Zend/zend_execute.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_execute.c
+	$(LIBTOOL) --mode=compile $(CC)  -IZend/ -I/home/vicente/tomato/release/src/router/php/Zend/ $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -c /home/vicente/tomato/release/src/router/php/Zend/zend_execute.c -o Zend/zend_execute.lo 

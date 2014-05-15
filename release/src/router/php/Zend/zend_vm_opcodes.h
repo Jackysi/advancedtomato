@@ -171,3 +171,4 @@ ZEND_API const char *zend_get_opcode_name(zend_uchar opcode);
 #define ZEND_FAST_RET                        163
 
 #endif
+
