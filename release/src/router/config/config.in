@@ -178,3 +178,7 @@ config TCONFIG_RAID
 config TCONFIG_CTF
 	bool "CTF (Cut-Through Forwarding)"
 	default n
+
+config TCONFIG_DNSSEC
+	bool "DNSSEC"
+	default n

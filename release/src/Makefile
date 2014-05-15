@@ -392,6 +392,10 @@ define RouterOptions
 		sed -i "/TCONFIG_SDHC/d" $(1); \
 		echo "TCONFIG_SDHC=y" >>$(1); \
 	fi; \
+	if [ "$(DNSSEC)" = "y" ]; then \
+		sed -i "/TCONFIG_DNSSEC/d" $(1); \
+		echo "TCONFIG_DNSSEC=y" >>$(1); \
+	fi; \
 	if [ "$(HFS)" = "y" ]; then \
 		sed -i "/TCONFIG_HFS/d" $(1); \
 		echo "TCONFIG_HFS=y" >>$(1); \

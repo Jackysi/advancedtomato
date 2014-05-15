@@ -199,6 +199,15 @@ Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
+<b>"Lancethepants" Features:</b><br>
+<!-- DNSSEC-BEGIN -->
+- DNSSEC integration and GUI<br>
+<!-- DNSSEC-END -->
+- Comcast DSCP Fix GUI<br>
+Copyright (C) 2014 Lance Fredrickson<br>
+<a href='mailto:lancethepants@gmail.com'>lancethepants@gmail.com</a><br>
+<br>
+
 <b>"Toastman" features:</b><br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>

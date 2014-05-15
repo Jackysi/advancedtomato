@@ -782,15 +782,52 @@ bridge-install:
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
-dnsmasq:
+dnsmasq: $(if $(TCONFIG_DNSSEC),nettle,)
 	@$(SEP)
 	@$(MAKE) -C dnsmasq $(PARALLEL_BUILD) \
-	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) $(if $(CONFIG_LINUX26),-DUSE_IPSET,-DNO_IPSET) -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC"
+	COPTS="$(if $(TCONFIG_DNSSEC),-I$(TOP)/nettle/include -I$(TOP)/gmp -DHAVE_DNSSEC -DHAVE_DNSSEC_STATIC,) \
+		$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) \
+		$(if $(CONFIG_LINUX26),-DUSE_IPSET,-DNO_IPSET) \
+		-DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="$(if $(TCONFIG_DNSSEC),-L$(TOP)/nettle/lib -L$(TOP)/gmp/.libs,) -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	$(if $(TCONFIG_DNSSEC),PKG_CONFIG_PATH="$(TOP)/nettle/lib/pkgconfig",)
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
+
+nettle/stamp-h1: gmp
+	@cd nettle && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
+	CPPFLAGS="-I$(TOP)/gmp" \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/gmp/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	$(CONFIGURE) prefix=$(TOP)/nettle
+	@touch nettle/stamp-h1
+
+nettle: nettle/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C nettle
+	@$(MAKE) -C nettle install
+
+nettle-clean:
+	-@$(MAKE) -C nettle clean
+	@rm -f nettle/stamp-h1
+	@rm -rf nettle/include nettle/lib nettle/bin nettle/share
+
+gmp/stamp-h1:
+	@cd gmp && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	$(CONFIGURE)
+	@touch gmp/stamp-h1
+
+gmp: gmp/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C gmp
+
+gmp-clean:
+	@$(MAKE) -C gmp clean
+	@rm -f gmp/stamp-h1
 
 iptables:
 ifeq ($(CONFIG_LINUX26),y)
