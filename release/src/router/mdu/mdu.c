@@ -484,9 +484,21 @@ const char *get_address(int required)
 						error(M_ERROR_GET_IP);
 					}
 				}
+				else if (strcmp(c, "ovh") == 0) {
+					if (wget(0, 1, "www.ovh.com", "/", NULL, 0, &body) != 200) {
+						// Current IP Address: 1.2.3.4
+						error(M_ERROR_GET_IP);
+					}
+				}
+				else if (strcmp(c, "changeip") == 0) {
+					if (wget(0, 1, "nic.changeip.com", "/", NULL, 0, &body) != 200) {
+						// Current IP Address: 1.2.3.4
+						error(M_ERROR_GET_IP);
+					}
+				}
 
 				if ((p = strstr(body, "Address:")) != NULL) {
-					// dyndns, zoneedit, tzo, pairnic
+					// dyndns, zoneedit, tzo, pairnic, ovh, changeip
 					p += 8;	// note: tzo doesn't have a space
 				}
 				else {
@@ -1831,6 +1843,18 @@ int main(int argc, char *argv[])
 	else if (strcmp(p, "spairnic") == 0) {
 		// pairNIC uses the same API as DynDNS
 		update_dua("pairnic", 1, "dynamic.pairnic.com", "/nic/update", 1);
+	}
+	else if (strcmp(p, "ovh") == 0) {
+		// OVH uses the same API as DynDNS
+		update_dua("dyndns", 0, "www.ovh.com", "/nic/update", 1);
+	}
+	else if (strcmp(p, "sovh") == 0) {
+		// OVH uses the same API as DynDNS
+		update_dua("dyndns", 1, "www.ovh.com", "/nic/update", 1);
+	}
+	else if (strcmp(p, "schangeip") == 0) {
+		// ChangeIP uses the same API as DynDNS
+		update_dua("dyndns", 1, "nic.changeip.com", "/nic/update", 1);
 	}
 	else if ((strcmp(p, "wget") == 0) || (strcmp(p, "custom") == 0)) {
 		// test ok 9/15 -- zzz
