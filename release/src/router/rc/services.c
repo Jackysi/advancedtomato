@@ -1364,6 +1364,40 @@ void stop_splashd(void)
 #endif
 
 // -----------------------------------------------------------------------------
+#ifdef TCONFIG_NGINX
+
+static pid_t pid_nginx = -1;
+void start_enginex(void)
+{
+	pid_nginx =-1;
+	start_nginx();
+	if (!nvram_contains_word("debug_norestart","enginex")) {
+		pid_nginx = -2;
+	}
+}
+
+void stop_enginex(void)
+{
+	pid_nginx = -1;
+	stop_nginx();
+}
+
+void start_nginxfastpath(void)
+{
+	pid_nginx =-1;
+	start_nginxfp();
+	if (!nvram_contains_word("debug_norestart","nginxfp")) {
+		pid_nginx = -2;
+	}
+}
+void stop_nginxfastpath(void)
+{
+	pid_nginx = -1;
+	stop_nginxfp();
+}
+#endif
+
+// -----------------------------------------------------------------------------
 
 void set_tz(void)
 {
@@ -2153,6 +2187,9 @@ void start_services(void)
 	start_dnsmasq();
 	start_cifs();
 	start_httpd();
+#ifdef TCONFIG_NGINX
+	start_enginex();
+#endif
 	start_cron();
 //	start_upnp();
 	start_rstats(0);
@@ -2221,6 +2258,9 @@ void stop_services(void)
 //	stop_upnp();
 	stop_cron();
 	stop_httpd();
+#ifdef TCONFIG_NGINX
+	stop_enginex();
+#endif
 #ifdef TCONFIG_SDHC
 	stop_mmc();
 #endif
@@ -2798,6 +2838,19 @@ TOP:
 	if (strcmp(service, "splashd") == 0) {
 		if (action & A_STOP) stop_splashd();
 		if (action & A_START) start_splashd();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_NGINX
+	if (strcmp(service, "enginex") == 0) {
+		if (action & A_STOP) stop_enginex();
+		if (action & A_START) start_enginex();
+		goto CLEAR;
+	}
+	if (strcmp(service, "nginxfp") == 0) {
+		if (action & A_STOP) stop_nginxfastpath();
+		if (action & A_START) start_nginxfastpath();
 		goto CLEAR;
 	}
 #endif

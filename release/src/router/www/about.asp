@@ -174,6 +174,9 @@ Copyright (C) 2010-2012 Jean-Yves Avenard<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
 <!-- NOCAT-END -->
+<!-- NGINX-BEGIN -->
+- Web Server. (NGinX)<br>
+<!-- NGINX-END -->
 <!-- HFS-BEGIN -->
 - HFS / HFS+ filesystem integration<br>
 <!-- HFS-END -->

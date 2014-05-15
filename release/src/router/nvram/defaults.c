@@ -1160,6 +1160,18 @@ const defaults_t defaults[] = {
 	{ "NC_BridgeLAN",			"br0"			},
 #endif
 
+//Tomato RAF - NGINX
+#ifdef TCONFIG_NGINX
+	{"nginx_enable",		"0"				}, // NGinX enabled
+	{"nginx_php",			"0"				}, // PHP enabled
+	{"nginx_keepconf",		"0"				}, // Enable/disable keep configuration files unmodified in /etc/nginx
+	{"nginx_docroot",		"/www"				}, // path for server files
+	{"nginx_port",			"85"				}, // port to listen
+	{"nginx_fqdn",			"Tomato"			}, // server name
+	{"nginx_priority",		"10"				}, // server priority = worker_priority
+	{"nginx_custom",		"# NGINX Custom Parameters."	}, // additional lines for nginx.conf
+#endif
+
 #ifdef TCONFIG_TOR
 	{ "tor_enable",				"0"			},
 	{ "tor_socksport",			"9050"			},

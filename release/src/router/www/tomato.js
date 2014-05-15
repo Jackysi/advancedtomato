@@ -2418,6 +2418,9 @@ function navi()
 /* NOCAT-BEGIN */
 		['Captive Portal',		'splashd.asp'],
 /* NOCAT-END */
+/* NGINX-BEGIN */
+		['Web Server',			'nginx.asp'],
+/* NGINX-END */
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',		'startup.asp'],

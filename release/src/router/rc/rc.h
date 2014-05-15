@@ -521,6 +521,15 @@ extern void stop_nocat();
 extern void reset_nocat(); 
 #endif
 
+// nginx.c
+#ifdef TCONFIG_NGINX
+extern void nginx_write(const char *format, ...);
+extern void start_nginx();
+extern void stop_nginx();
+extern void start_nginxfp();
+extern void stop_nginxfp();
+#endif
+
 // tomatoanon.c
 extern void start_tomatoanon(); 
 extern void stop_tomatoanon(); 
