@@ -175,7 +175,7 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_f_vpn_'+t+'_nat'), fw != "custom" && (iface == "tun" || !bridge));
 		elem.display(E(t+'_nat_warn_text'), fw != "custom" && (!nat || (auth == "secret" && iface == "tun")));
 		elem.display(PR('_vpn_'+t+'_local'), iface == "tun" && auth == "secret");
-		elem.display(PR('_f_vpn_'+t+'_local'), iface == "tap" && !bridge && auth == "secret");
+		elem.display(PR('_f_vpn_'+t+'_local'), iface == "tap" && !bridge && auth != "custom");
 
 		// Page Advanced
 		elem.display(PR('_vpn_'+t+'_adns'), PR('_vpn_'+t+'_reneg'), auth == "tls");
