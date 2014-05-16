@@ -147,8 +147,8 @@ obj-$(TCONFIG_MEDIA_SERVER) += libexif
 obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
 obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
-#MEDIA_SERVER_STATIC=y
-MEDIA_SERVER_STATIC :=
+MEDIA_SERVER_STATIC=y
+#MEDIA_SERVER_STATIC :=
 
 #obj-y += libnfnetlink
 obj-y += miniupnpd
