@@ -139,7 +139,7 @@ obj-$(TCONFIG_IPV6) += dhcpv6
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
 obj-$(TCONFIG_MEDIA_SERVER) += sqlite
 obj-$(TCONFIG_MEDIA_SERVER) += ffmpeg
-obj-$(TCONFIG_MEDIA_SERVER) += libiconv
+#obj-$(TCONFIG_MEDIA_SERVER) += libiconv
 obj-$(TCONFIG_MEDIA_SERVER) += libogg
 obj-$(TCONFIG_MEDIA_SERVER) += flac
 obj-$(TCONFIG_MEDIA_SERVER) += jpeg
@@ -150,7 +150,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 #MEDIA_SERVER_STATIC=y
 MEDIA_SERVER_STATIC :=
 
-obj-y += libnfnetlink
+#obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
 obj-$(CONFIG_LINUX26) += ipset
@@ -883,11 +883,11 @@ miniupnpd-config:
 	@cd miniupnpd && ./genconfig.sh --leasefile
 #endif
 
-miniupnpd: iptables miniupnpd-config libnfnetlink
+miniupnpd: iptables miniupnpd-config
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
-		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
-		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
+		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include" \
+		LDFLAGS="-L$(TOP)/iptables -liptc" LIBS="" $(PARALLEL_BUILD)
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
