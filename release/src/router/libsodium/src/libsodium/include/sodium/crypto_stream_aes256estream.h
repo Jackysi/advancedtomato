@@ -13,49 +13,50 @@
 #include <stddef.h>
 #include "export.h"
 
-#define crypto_stream_aes256estream_KEYBYTES 32U
-#define crypto_stream_aes256estream_NONCEBYTES 16U
-#define crypto_stream_aes256estream_BEFORENMBYTES 276U
-
 #ifdef __cplusplus
+# if __GNUC__
+#  pragma GCC diagnostic ignored "-Wlong-long"
+# endif
 extern "C" {
 #endif
 
+#define crypto_stream_aes256estream_KEYBYTES 32U
 SODIUM_EXPORT
 size_t crypto_stream_aes256estream_keybytes(void);
 
+#define crypto_stream_aes256estream_NONCEBYTES 16U
 SODIUM_EXPORT
 size_t crypto_stream_aes256estream_noncebytes(void);
 
+#define crypto_stream_aes256estream_BEFORENMBYTES 276U
 SODIUM_EXPORT
 size_t crypto_stream_aes256estream_beforenmbytes(void);
 
 SODIUM_EXPORT
-const char * crypto_stream_aes256estream_primitive(void);
+int crypto_stream_aes256estream(unsigned char *out, unsigned long long len,
+                                const unsigned char *nonce, const unsigned char *c);
 
 SODIUM_EXPORT
-int crypto_stream_aes256estream(unsigned char *,unsigned long long,const unsigned char *,const unsigned char *);
+int crypto_stream_aes256estream_xor(unsigned char *out, const unsigned char *in,
+                                    unsigned long long inlen, const unsigned char *n,
+                                    const unsigned char *k);
 
 SODIUM_EXPORT
-int crypto_stream_aes256estream_xor(unsigned char *,const unsigned char *,unsigned long long,const unsigned char *,const unsigned char *);
+int crypto_stream_aes256estream_beforenm(unsigned char *c, const unsigned char *k);
 
 SODIUM_EXPORT
-int crypto_stream_aes256estream_beforenm(unsigned char *,const unsigned char *);
+int crypto_stream_aes256estream_afternm(unsigned char *out, unsigned long long len,
+                                        const unsigned char *nonce,
+                                        const unsigned char *c);
 
 SODIUM_EXPORT
-int crypto_stream_aes256estream_afternm(unsigned char *,unsigned long long,const unsigned char *,const unsigned char *);
-
-SODIUM_EXPORT
-int crypto_stream_aes256estream_xor_afternm(unsigned char *,const unsigned char *,unsigned long long,const unsigned char *,const unsigned char *);
+int crypto_stream_aes256estream_xor_afternm(unsigned char *out, const unsigned char *in,
+                                            unsigned long long len,
+                                            const unsigned char *nonce,
+                                            const unsigned char *c);
 
 #ifdef __cplusplus
 }
 #endif
-
-#define crypto_stream_aes256estream_hongjun crypto_stream_aes256estream
-#define crypto_stream_aes256estream_hongjun_xor crypto_stream_aes256estream_xor
-#define crypto_stream_aes256estream_hongjun_beforenm crypto_stream_aes256estream_beforenm
-#define crypto_stream_aes256estream_hongjun_afternm crypto_stream_aes256estream_afternm
-#define crypto_stream_aes256estream_hongjun_xor_afternm crypto_stream_aes256estream_xor_afternm
 
 #endif

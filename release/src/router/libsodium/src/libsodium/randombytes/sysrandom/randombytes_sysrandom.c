@@ -1,6 +1,7 @@
 
 #include <sys/types.h>
 #ifndef _WIN32
+# include <sys/stat.h>
 # include <sys/time.h>
 #endif
 
@@ -12,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
-# include <poll.h>
 # include <unistd.h>
 #endif
 
@@ -24,6 +24,39 @@
 # include <windows.h>
 # include <wincrypt.h>
 #endif
+
+#ifdef __OpenBSD__
+
+uint32_t
+randombytes_sysrandom(void)
+{
+    return arc4random();
+}
+
+void
+randombytes_sysrandom_stir(void)
+{
+}
+
+uint32_t
+randombytes_sysrandom_uniform(const uint32_t upper_bound)
+{
+    return arc4random_uniform(upper_bound);
+}
+
+void
+randombytes_sysrandom_buf(void * const buf, const size_t size)
+{
+    return arc4random_buf(buf, size);
+}
+
+int
+randombytes_sysrandom_close(void)
+{
+    return 0;
+}
+
+#else /* __OpenBSD__ */
 
 typedef struct SysRandom_ {
 #ifdef _WIN32
@@ -45,6 +78,7 @@ safe_read(const int fd, void * const buf_, size_t count)
     unsigned char *buf = (unsigned char *) buf_;
     ssize_t        readnb;
 
+    assert(count > (size_t) 0U);
     do {
         while ((readnb = read(fd, buf, count)) < (ssize_t) 0 &&
                errno == EINTR);
@@ -66,17 +100,23 @@ safe_read(const int fd, void * const buf_, size_t count)
 static int
 randombytes_sysrandom_random_dev_open(void)
 {
-    static const char * const devices[] = {
+    struct stat        st;
+    static const char *devices[] = {
 # ifndef USE_BLOCKING_RANDOM
-        "/dev/arandom", "/dev/urandom",
+        "/dev/urandom",
 # endif
         "/dev/random", NULL
     };
-    const char * const *device = devices;
+    const char **      device = devices;
+    int                fd;
 
     do {
-        if (access(*device, F_OK | R_OK) == 0) {
-            return open(*device, O_RDONLY);
+        if (access(*device, F_OK | R_OK) == 0 &&
+            (fd = open(*device, O_RDONLY)) != -1) {
+            if (fstat(fd, &st) == 0 && S_ISCHR(st.st_mode)) {
+                return fd;
+            }
+            (void) close(fd);
         }
         device++;
     } while (*device != NULL);
@@ -87,10 +127,13 @@ randombytes_sysrandom_random_dev_open(void)
 static void
 randombytes_sysrandom_init(void)
 {
+    const int errno_save = errno;
+
     if ((stream.random_data_source_fd =
          randombytes_sysrandom_random_dev_open()) == -1) {
         abort();
     }
+    errno = errno_save;
 }
 
 #else /* _WIN32 */
@@ -98,8 +141,8 @@ randombytes_sysrandom_init(void)
 static void
 randombytes_sysrandom_init(void)
 {
-    if (! CryptAcquireContext(&stream.hcrypt_prov, NULL, NULL,
-                              PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+    if (! CryptAcquireContextW(&stream.hcrypt_prov, NULL, NULL,
+                               PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
         abort();
     }
 }
@@ -166,7 +209,10 @@ randombytes_sysrandom_buf(void * const buf, const size_t size)
         abort();
     }
 #else
-    if (! CryptGenRandom(stream.hcrypt_prov, size, (BYTE *) buf)) {
+    if (size > 0xffffffff) {
+        abort();
+    }
+    if (! CryptGenRandom(stream.hcrypt_prov, (DWORD) size, (BYTE *) buf)) {
         abort();
     }
 #endif
@@ -195,6 +241,8 @@ randombytes_sysrandom_uniform(const uint32_t upper_bound)
     }
     return r % upper_bound;
 }
+
+#endif
 
 const char *
 randombytes_sysrandom_implementation_name(void)

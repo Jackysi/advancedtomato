@@ -4,14 +4,19 @@ lib_LTLIBRARIES = \
 libsodium_la_SOURCES = \
 	crypto_auth/crypto_auth.c \
 	crypto_auth/hmacsha256/auth_hmacsha256_api.c \
-	crypto_auth/hmacsha256/ref/api.h \
-	crypto_auth/hmacsha256/ref/hmac_hmacsha256.c \
-	crypto_auth/hmacsha256/ref/verify_hmacsha256.c \
+	crypto_auth/hmacsha256/cp/api.h \
+	crypto_auth/hmacsha256/cp/hmac_hmacsha256.c \
+	crypto_auth/hmacsha256/cp/verify_hmacsha256.c \
+	crypto_auth/hmacsha512/auth_hmacsha512_api.c \
+	crypto_auth/hmacsha512/cp/api.h \
+	crypto_auth/hmacsha512/cp/hmac_hmacsha512.c \
+	crypto_auth/hmacsha512/cp/verify_hmacsha512.c \
 	crypto_auth/hmacsha512256/auth_hmacsha512256_api.c \
-	crypto_auth/hmacsha512256/ref/api.h \
-	crypto_auth/hmacsha512256/ref/hmac_hmacsha512256.c \
-	crypto_auth/hmacsha512256/ref/verify_hmacsha512256.c \
+	crypto_auth/hmacsha512256/cp/api.h \
+	crypto_auth/hmacsha512256/cp/hmac_hmacsha512256.c \
+	crypto_auth/hmacsha512256/cp/verify_hmacsha512256.c \
 	crypto_box/crypto_box.c \
+	crypto_box/crypto_box_easy.c \
 	crypto_box/curve25519xsalsa20poly1305/box_curve25519xsalsa20poly1305_api.c \
 	crypto_box/curve25519xsalsa20poly1305/ref/api.h \
 	crypto_box/curve25519xsalsa20poly1305/ref/after_curve25519xsalsa20poly1305.c \
@@ -39,31 +44,34 @@ libsodium_la_SOURCES = \
 	crypto_generichash/blake2/ref/generichash_blake2b.c \
 	crypto_hash/crypto_hash.c \
 	crypto_hash/sha256/hash_sha256_api.c \
-	crypto_hash/sha256/ref/api.h \
-	crypto_hash/sha256/ref/hash_sha256.c \
+	crypto_hash/sha256/cp/api.h \
+	crypto_hash/sha256/cp/hash_sha256.c \
 	crypto_hash/sha512/hash_sha512_api.c \
-	crypto_hash/sha512/ref/api.h \
-	crypto_hash/sha512/ref/hash_sha512.c \
-	crypto_hashblocks/sha256/ref/blocks_sha256.c \
-	crypto_hashblocks/sha256/hashblocks_sha256_api.c \
-	crypto_hashblocks/sha256/ref/api.h \
-	crypto_hashblocks/sha512/ref/blocks_sha512.c \
-	crypto_hashblocks/sha512/hashblocks_sha512_api.c \
-	crypto_hashblocks/sha512/ref/api.h \
+	crypto_hash/sha512/cp/api.h \
+	crypto_hash/sha512/cp/hash_sha512.c \
 	crypto_onetimeauth/crypto_onetimeauth.c \
 	crypto_onetimeauth/poly1305/onetimeauth_poly1305.c \
 	crypto_onetimeauth/poly1305/onetimeauth_poly1305_api.c \
 	crypto_onetimeauth/poly1305/onetimeauth_poly1305_try.c \
-	crypto_onetimeauth/poly1305/53/api.h \
-	crypto_onetimeauth/poly1305/53/auth_poly1305_53.c \
-	crypto_onetimeauth/poly1305/53/verify_poly1305_53.c \
 	crypto_onetimeauth/poly1305/donna/api.h \
-	crypto_onetimeauth/poly1305/donna/portable-jane.h \
+	crypto_onetimeauth/poly1305/donna/poly1305_donna.h \
+	crypto_onetimeauth/poly1305/donna/poly1305_donna32.h \
+	crypto_onetimeauth/poly1305/donna/poly1305_donna64.h \
 	crypto_onetimeauth/poly1305/donna/auth_poly1305_donna.c \
 	crypto_onetimeauth/poly1305/donna/verify_poly1305_donna.c \
+	crypto_pwhash/scryptxsalsa208sha256/crypto_scrypt-common.c \
+	crypto_pwhash/scryptxsalsa208sha256/crypto_scrypt.h \
+	crypto_pwhash/scryptxsalsa208sha256/scrypt_platform.c \
+	crypto_pwhash/scryptxsalsa208sha256/pbkdf2-sha256.c \
+	crypto_pwhash/scryptxsalsa208sha256/pbkdf2-sha256.h \
+	crypto_pwhash/scryptxsalsa208sha256/pwhash_scryptxsalsa208sha256.c \
+	crypto_pwhash/scryptxsalsa208sha256/sysendian.h \
+	crypto_pwhash/scryptxsalsa208sha256/nosse/pwhash_scryptxsalsa208sha256_nosse.c \
+	crypto_pwhash/scryptxsalsa208sha256/sse/pwhash_scryptxsalsa208sha256_sse.c \
 	crypto_scalarmult/crypto_scalarmult.c \
 	crypto_scalarmult/curve25519/scalarmult_curve25519_api.c \
 	crypto_secretbox/crypto_secretbox.c \
+	crypto_secretbox/crypto_secretbox_easy.c \
 	crypto_secretbox/xsalsa20poly1305/secretbox_xsalsa20poly1305_api.c \
 	crypto_secretbox/xsalsa20poly1305/ref/api.h \
 	crypto_secretbox/xsalsa20poly1305/ref/box_xsalsa20poly1305.c \
@@ -178,11 +186,15 @@ libsodium_la_SOURCES = \
 	crypto_verify/32/verify_32_api.c \
 	crypto_verify/32/ref/api.h \
 	crypto_verify/32/ref/verify_32.c \
+	crypto_verify/64/verify_64_api.c \
+	crypto_verify/64/ref/api.h \
+	crypto_verify/64/ref/verify_64.c \
 	randombytes/randombytes.c \
 	randombytes/salsa20/randombytes_salsa20_random.c \
 	randombytes/sysrandom/randombytes_sysrandom.c \
 	sodium/compat.c \
 	sodium/core.c \
+	sodium/runtime.c \
 	sodium/utils.c \
 	sodium/version.c
 

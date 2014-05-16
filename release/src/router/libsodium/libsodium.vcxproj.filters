@@ -24,6 +24,9 @@
     <ClInclude Include="src\libsodium\include\sodium\crypto_auth_hmacsha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_auth_hmacsha512.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\crypto_auth_hmacsha512256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -58,12 +61,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\crypto_hash_sha512.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\libsodium\include\sodium\crypto_hashblocks_sha256.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\libsodium\include\sodium\crypto_hashblocks_sha512.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\crypto_int32.h">
@@ -147,6 +144,9 @@
     <ClInclude Include="src\libsodium\include\sodium\crypto_verify_32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_verify_64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\export.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -163,6 +163,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_pwhash_scryptxsalsa208sha256.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\runtime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -193,22 +199,28 @@
     <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\auth_hmacsha256_api.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512\auth_hmacsha512_api.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\libsodium\crypto_auth\hmacsha512256\auth_hmacsha512256_api.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_auth\crypto_auth.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\ref\hmac_hmacsha256.c">
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\cp\hmac_hmacsha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512256\ref\hmac_hmacsha512256.c">
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512\cp\hmac_hmacsha512.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\ref\verify_hmacsha256.c">
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512256\cp\hmac_hmacsha512256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512256\ref\verify_hmacsha512256.c">
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512\cp\verify_hmacsha512.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha512256\cp\verify_hmacsha512256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_box\curve25519xsalsa20poly1305\ref\after_curve25519xsalsa20poly1305.c">
@@ -253,28 +265,16 @@
     <ClCompile Include="src\libsodium\crypto_hash\crypto_hash.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hash\sha256\ref\hash_sha256.c">
+    <ClCompile Include="src\libsodium\crypto_hash\sha256\cp\hash_sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_hash\sha256\hash_sha256_api.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hash\sha512\ref\hash_sha512.c">
+    <ClCompile Include="src\libsodium\crypto_hash\sha512\cp\hash_sha512.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_hash\sha512\hash_sha512_api.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hashblocks\sha256\ref\blocks_sha256.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hashblocks\sha512\ref\blocks_sha512.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hashblocks\sha256\hashblocks_sha256_api.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_hashblocks\sha512\hashblocks_sha512_api.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_onetimeauth\poly1305\donna\auth_poly1305_donna.c">
@@ -544,6 +544,12 @@
     <ClCompile Include="src\libsodium\crypto_verify\32\verify_32_api.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_verify\64\ref\verify_64.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_verify\64\verify_64_api.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\libsodium\sodium\compat.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -563,6 +569,36 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\randombytes\sysrandom\randombytes_sysrandom.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\cp\verify_hmacsha256.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\crypto_scrypt-common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\pbkdf2-sha256.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\pwhash_scryptxsalsa208sha256.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\scrypt_platform.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\sodium\runtime.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_box\crypto_box_easy.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_secretbox\crypto_secretbox_easy.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\nosse\pwhash_scryptxsalsa208sha256_nosse.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\sse\pwhash_scryptxsalsa208sha256_sse.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

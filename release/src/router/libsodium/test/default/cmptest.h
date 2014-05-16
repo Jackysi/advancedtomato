@@ -6,6 +6,10 @@
 
 #include "sodium.h"
 
+#ifndef TEST_SRCDIR
+# define TEST_SRCDIR "."
+#endif
+
 #define TEST_NAME_RES TEST_NAME ".res"
 #define TEST_NAME_OUT TEST_SRCDIR "/" TEST_NAME ".exp"
 
@@ -29,7 +33,9 @@ int main(void)
     if (sodium_init() != 0) {
         return 99;
     }
-    xmain();
+    if (xmain() != 0) {
+        return 99;
+    }
     rewind(fp_res);
     if ((fp_out = fopen(TEST_NAME_OUT, "r")) == NULL) {
         perror("fopen(" TEST_NAME_OUT ")");
