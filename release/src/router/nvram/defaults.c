@@ -94,6 +94,7 @@ const defaults_t defaults[] = {
 #endif
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		""				},
+	{ "dnscrypt_priority",		"1"			}, // 0=none, 1=preferred, 2=exclusive
 	{ "dnscrypt_port",		"40"			}, // local port
 	{ "dnscrypt_cmd",		"-m 99"			}, // optional arguments
 #endif
