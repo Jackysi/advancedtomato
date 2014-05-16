@@ -204,6 +204,9 @@ sub fixDyn
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
+	fixDynDep("nginx", "libpcre.so.1.2.3");
+	fixDynDep("nginx", "libpcreposix.so.0.0.2");
+
 #!!TB - Updated Broadcom WL driver
 	fixDynDep("libbcmcrypto.so", "libc.so.0");
 	fixDynDep("nas", "libbcmcrypto.so");
