@@ -84,7 +84,7 @@ msgstr "Immagini"
 
 #: scanner.c:541
 msgid "All Pictures"
-msgstr "Tutte le immagni"
+msgstr "Tutte le immagini"
 
 #: scanner.c:542
 msgid "Date Taken"

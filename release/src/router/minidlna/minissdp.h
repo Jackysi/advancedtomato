@@ -31,13 +31,13 @@
 
 int OpenAndConfSSDPReceiveSocket(void);
 
-int OpenAndConfSSDPNotifySocket(in_addr_t addr);
+int OpenAndConfSSDPNotifySocket(struct lan_addr_s *iface);
 
 void SendSSDPNotifies(int s, const char *host, unsigned short port, unsigned int lifetime);
 
 void ProcessSSDPRequest(int s, unsigned short port);
 
-int SendSSDPGoodbyes(void);
+int SendSSDPGoodbyes(int s);
 
 int SubmitServicesToMiniSSDPD(const char *host, unsigned short port);
 

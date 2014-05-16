@@ -156,6 +156,15 @@ sigterm(int sig)
 }
 
 static void
+sigusr1(int sig)
+{
+	signal(sig, sigusr1);
+	DPRINTF(E_WARN, L_GENERAL, "received signal %d, clear cache\n", sig);
+
+	memset(&clients, '\0', sizeof(clients));
+}
+
+static void
 sighup(int sig)
 {
 	signal(sig, sighup);
@@ -402,7 +411,7 @@ writepidfile(const char *fname, int pid, uid_t uid)
 		if (!S_ISDIR(st.st_mode))
 		{
 			DPRINTF(E_ERROR, L_GENERAL, "Pidfile path is not a directory: %s\n",
-			        fname);
+				fname);
 			return -1;
 		}
 	}
@@ -411,14 +420,14 @@ writepidfile(const char *fname, int pid, uid_t uid)
 		if (make_dir(dir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
 		{
 			DPRINTF(E_ERROR, L_GENERAL, "Unable to create pidfile directory: %s\n",
-			        fname);
+				fname);
 			return -1;
 		}
 		if (uid >= 0)
 		{
 			if (chown(dir, uid, -1) != 0)
 				DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile ownership: %s\n",
-				        dir, strerror(errno));
+					dir, strerror(errno));
 		}
 	}
 	
@@ -426,7 +435,7 @@ writepidfile(const char *fname, int pid, uid_t uid)
 	if (!pidfile)
 	{
 		DPRINTF(E_ERROR, L_GENERAL, "Unable to open pidfile for writing %s: %s\n",
-		        fname, strerror(errno));
+			fname, strerror(errno));
 		return -1;
 	}
 
@@ -440,7 +449,7 @@ writepidfile(const char *fname, int pid, uid_t uid)
 	{
 		if (fchown(fileno(pidfile), uid, -1) != 0)
 			DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile ownership: %s\n",
-			        pidfile, strerror(errno));
+				pidfile, strerror(errno));
 	}
 
 	fclose(pidfile);
@@ -502,6 +511,7 @@ init(int argc, char **argv)
 	
 	runtime_vars.port = 8200;
 	runtime_vars.notify_interval = 895;	/* seconds between SSDP announces */
+	runtime_vars.max_connections = 50;
 	runtime_vars.root_container = NULL;
 	runtime_vars.ifaces[0] = NULL;
 
@@ -524,7 +534,7 @@ init(int argc, char **argv)
 				if (ifaces >= MAX_LAN_ADDR)
 				{
 					DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
-			    			MAX_LAN_ADDR, word);
+						MAX_LAN_ADDR, word);
 					break;
 				}
 				runtime_vars.ifaces[ifaces++] = word;
@@ -696,9 +706,15 @@ init(int argc, char **argv)
 				uid = entry->pw_uid;
 			}
 			break;
+		case FORCE_SORT_CRITERIA:
+			force_sort_criteria = ary_options[i].value;
+			break;
+		case MAX_CONNECTIONS:
+			runtime_vars.max_connections = atoi(ary_options[i].value);
+			break;
 		default:
 			DPRINTF(E_ERROR, L_GENERAL, "Unknown option in file %s\n",
-			        optionsfile);
+				optionsfile);
 		}
 	}
 	if (log_path[0] == '\0')
@@ -781,7 +797,7 @@ init(int argc, char **argv)
 				if (ifaces >= MAX_LAN_ADDR)
 				{
 					DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
-			    			MAX_LAN_ADDR, argv[i]);
+						MAX_LAN_ADDR, argv[i]);
 					break;
 				}
 				runtime_vars.ifaces[ifaces++] = argv[i];
@@ -829,13 +845,14 @@ init(int argc, char **argv)
 			break;
 		default:
 			DPRINTF(E_ERROR, L_GENERAL, "Unknown option: %s\n", argv[i]);
+			runtime_vars.port = -1; // triggers help display
 		}
 	}
 
 	if (runtime_vars.port < 0)
 	{
 		printf("Usage:\n\t"
-		        "%s [-d] [-v] [-f config_file] [-p port]\n"
+			"%s [-d] [-v] [-f config_file] [-p port]\n"
 			"\t\t[-i network_interface] [-u uid_to_run_as]\n"
 			"\t\t[-t notify_interval] [-P pid_filename]\n"
 			"\t\t[-s serial] [-m model_number]\n"
@@ -844,7 +861,7 @@ init(int argc, char **argv)
 #else
 			"\t\t[-w url] [-R] [-L] [-V] [-h]\n"
 #endif
-		        "\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
+			"\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
 			"\tDefault pid file is %s.\n"
 			"\tWith -d minidlna will run in debug mode (not daemonize).\n"
 			"\t-w sets the presentation url. Default is http address on port 80\n"
@@ -856,7 +873,7 @@ init(int argc, char **argv)
 			"\t-S changes behaviour for systemd\n"
 #endif
 			"\t-V print the version number\n",
-		        argv[0], pidfilename);
+			argv[0], pidfilename);
 		return 1;
 	}
 
@@ -903,7 +920,6 @@ init(int argc, char **argv)
 	}	
 
 	set_startup_time();
-	reload_ifaces(0);
 
 	/* presentation url */
 	if (presurl)
@@ -922,6 +938,7 @@ init(int argc, char **argv)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to set %s handler. EXITING.\n", "SIGPIPE");
 	if (signal(SIGHUP, &sighup) == SIG_ERR)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to set %s handler. EXITING.\n", "SIGHUP");
+	signal(SIGUSR1, &sigusr1);
 	sa.sa_handler = process_handle_child_termination;
 	if (sigaction(SIGCHLD, &sa, NULL))
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to set %s handler. EXITING.\n", "SIGCHLD");
@@ -929,9 +946,17 @@ init(int argc, char **argv)
 	if (writepidfile(pidfilename, pid, uid) != 0)
 		pidfilename = NULL;
 
+	if (uid >= 0)
+	{
+		struct stat st;
+		if (stat(db_path, &st) == 0 && st.st_uid != uid && chown(db_path, uid, -1) != 0)
+			DPRINTF(E_ERROR, L_GENERAL, "Unable to set db_path [%s] ownership to %d: %s\n",
+				db_path, uid, strerror(errno));
+	}
+
 	if (uid != -1 && setuid(uid) == -1)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to switch to uid '%d'. [%s] EXITING.\n",
-		        uid, strerror(errno));
+			uid, strerror(errno));
 
 	return 0;
 }
@@ -942,7 +967,7 @@ int
 main(int argc, char **argv)
 {
 	int ret, i;
-	int sudp = -1, shttpl = -1;
+	int shttpl = -1;
 	int smonitor = -1;
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
 	struct upnphttp * e = 0;
@@ -1003,8 +1028,8 @@ main(int argc, char **argv)
 #endif
 	smonitor = OpenAndConfMonitorSocket();
 
-	sudp = OpenAndConfSSDPReceiveSocket();
-	if (sudp < 0)
+	sssdp = OpenAndConfSSDPReceiveSocket();
+	if (sssdp < 0)
 	{
 		DPRINTF(E_INFO, L_GENERAL, "Failed to open socket for receiving SSDP. Trying to use MiniSSDPd\n");
 		if (SubmitServicesToMiniSSDPD(lan_addr[0].str, runtime_vars.port) < 0)
@@ -1014,6 +1039,7 @@ main(int argc, char **argv)
 	shttpl = OpenAndConfHTTPSocket((runtime_vars.port > 0) ? runtime_vars.port : 0);
 	if (shttpl < 0)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to open socket for HTTP. EXITING\n");
+
 	if(runtime_vars.port <= 0)
 	{
 		struct sockaddr_in sockinfo;
@@ -1024,6 +1050,7 @@ main(int argc, char **argv)
 		}
 		runtime_vars.port = ntohs(sockinfo.sin_port);
 	}
+
 	DPRINTF(E_WARN, L_GENERAL, "HTTP listening on port %d\n", runtime_vars.port);
 
 #ifdef TIVO_SUPPORT
@@ -1038,7 +1065,7 @@ main(int argc, char **argv)
 		sbeacon = OpenAndConfTivoBeaconSocket();
 		if(sbeacon < 0)
 			DPRINTF(E_FATAL, L_GENERAL, "Failed to open sockets for sending Tivo beacon notify "
-		                "messages. EXITING\n");
+				"messages. EXITING\n");
 		tivo_bcast.sin_family = AF_INET;
 		tivo_bcast.sin_addr.s_addr = htonl(getBcastAddress());
 		tivo_bcast.sin_port = htons(2190);
@@ -1047,7 +1074,8 @@ main(int argc, char **argv)
 		sbeacon = -1;
 #endif
 
-	SendSSDPGoodbyes();
+	reload_ifaces(0);
+	lastnotifytime.tv_sec = time(NULL) + runtime_vars.notify_interval;
 
 	/* main loop */
 	while (!quitting)
@@ -1093,7 +1121,7 @@ main(int argc, char **argv)
 			{
 				if (timeofday.tv_sec >= (lastbeacontime.tv_sec + beacon_interval))
 				{
-   					sendBeaconMessage(sbeacon, &tivo_bcast, sizeof(struct sockaddr_in), 1);
+					sendBeaconMessage(sbeacon, &tivo_bcast, sizeof(struct sockaddr_in), 1);
 					memcpy(&lastbeacontime, &timeofday, sizeof(struct timeval));
 					if (timeout.tv_sec > beacon_interval)
 					{
@@ -1123,10 +1151,10 @@ main(int argc, char **argv)
 		/* select open sockets (SSDP, HTTP listen, and all HTTP soap sockets) */
 		FD_ZERO(&readset);
 
-		if (sudp >= 0) 
+		if (sssdp >= 0) 
 		{
-			FD_SET(sudp, &readset);
-			max_fd = MAX(max_fd, sudp);
+			FD_SET(sssdp, &readset);
+			max_fd = MAX(max_fd, sssdp);
 		}
 		
 		if (shttpl >= 0) 
@@ -1175,10 +1203,10 @@ main(int argc, char **argv)
 		}
 		upnpevents_processfds(&readset, &writeset);
 		/* process SSDP packets */
-		if (sudp >= 0 && FD_ISSET(sudp, &readset))
+		if (sssdp >= 0 && FD_ISSET(sssdp, &readset))
 		{
-			/*DPRINTF(E_DEBUG, L_GENERAL, "Received UDP Packet\n");*/
-			ProcessSSDPRequest(sudp, (unsigned short)runtime_vars.port);
+			/*DPRINTF(E_DEBUG, L_GENERAL, "Received SSDP Packet\n");*/
+			ProcessSSDPRequest(sssdp, (unsigned short)runtime_vars.port);
 		}
 #ifdef TIVO_SUPPORT
 		if (sbeacon >= 0 && FD_ISSET(sbeacon, &readset))
@@ -1269,8 +1297,8 @@ shutdown:
 		LIST_REMOVE(e, entries);
 		Delete_upnphttp(e);
 	}
-	if (sudp >= 0)
-		close(sudp);
+	if (sssdp >= 0)
+		close(sssdp);
 	if (shttpl >= 0)
 		close(shttpl);
 	#ifdef TIVO_SUPPORT
@@ -1278,11 +1306,9 @@ shutdown:
 		close(sbeacon);
 	#endif
 	
-	if (SendSSDPGoodbyes() < 0)
-		DPRINTF(E_ERROR, L_GENERAL, "Failed to broadcast good-bye notifications\n");
-
 	for (i = 0; i < n_lan_addr; i++)
 	{
+		SendSSDPGoodbyes(lan_addr[i].snotify);
 		close(lan_addr[i].snotify);
 	}
 
