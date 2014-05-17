@@ -27,7 +27,7 @@ ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
         w[i] =  key[(i << 2)];
         w[i] |= key[(i << 2)+1] << 8;
         w[i] |= key[(i << 2)+2] << 16;
-        w[i] |= key[(i << 2)+3] << 24;
+        w[i] |= (unsigned int) key[(i << 2)+3] << 24;
     }
 
     i = Nk;
@@ -35,7 +35,7 @@ ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
     while( i < Nb*(Nr+1) ) {
         temp = w[i-1];
 
-        temp = Sbox[ temp & 0xFF] <<  24 ^
+        temp = (unsigned int) Sbox[temp & 0xFF] << 24 ^
             Sbox[(temp >> 8) & 0xFF]  ^
             (Sbox[(temp >> 16) & 0xFF] << 8 ) ^
             (Sbox[(temp >> 24) & 0xFF] << 16) ^
@@ -56,10 +56,10 @@ ECRYPT_keysetup(ECRYPT_ctx* ctx, const u8* key, u32 keysize, u32 ivsize)
         i++;
 
         temp = w[i-1];
-        temp = Sbox[ temp & 0xFF] ^
+        temp = Sbox[temp & 0xFF] ^
             Sbox[(temp >> 8) & 0xFF] << 8 ^
-            (Sbox[(temp >> 16) & 0xFF] << 16 ) ^
-            (Sbox[(temp >> 24) & 0xFF] << 24);
+            (Sbox[(temp >> 16) & 0xFF] << 16) ^
+            ((unsigned int) Sbox[(temp >> 24) & 0xFF] << 24);
         w[i] = w[i-Nk] ^ temp;
         i++;
 
@@ -186,30 +186,30 @@ crypto_stream_beforenm(unsigned char *c, const unsigned char *k)
 }
 
 int
-crypto_stream_afternm(unsigned char *outp, unsigned long long len,
-                      const unsigned char *noncep, const unsigned char *c)
+crypto_stream_afternm(unsigned char *out, unsigned long long len,
+                      const unsigned char *nonce, const unsigned char *c)
 {
     ECRYPT_ctx * const ctx = (ECRYPT_ctx *) c;
     unsigned long long i;
 
-    ECRYPT_ivsetup(ctx, noncep);
+    ECRYPT_ivsetup(ctx, nonce);
     for (i = 0U; i < len; ++i) {
-        outp[i] = 0U;
+        out[i] = 0U;
     }
-    ECRYPT_encrypt_bytes(ctx, (u8 *) outp, (u8 *) outp, len);
+    ECRYPT_encrypt_bytes(ctx, (u8 *) out, (u8 *) out, len);
 
     return 0;
 }
 
 int
-crypto_stream_xor_afternm(unsigned char *outp, const unsigned char *inp,
-                          unsigned long long len, const unsigned char *noncep,
+crypto_stream_xor_afternm(unsigned char *out, const unsigned char *in,
+                          unsigned long long len, const unsigned char *nonce,
                           const unsigned char *c)
 {
     ECRYPT_ctx * const ctx = (ECRYPT_ctx *) c;
 
-    ECRYPT_ivsetup(ctx, noncep);
-    ECRYPT_encrypt_bytes(ctx, (const u8 *) inp, (u8 *) outp, len);
+    ECRYPT_ivsetup(ctx, nonce);
+    ECRYPT_encrypt_bytes(ctx, (const u8 *) in, (u8 *) out, len);
 
     return 0;
 }
@@ -219,6 +219,7 @@ crypto_stream(unsigned char *out, unsigned long long outlen,
               const unsigned char *n, const unsigned char *k)
 {
     unsigned char d[crypto_stream_BEFORENMBYTES];
+
     crypto_stream_beforenm(d, k);
     crypto_stream_afternm(out, outlen, n, d);
 

@@ -1,6 +1,7 @@
 
 #include <sys/types.h>
 #ifndef _WIN32
+# include <sys/stat.h>
 # include <sys/time.h>
 #endif
 
@@ -85,6 +86,7 @@ safe_read(const int fd, void * const buf_, size_t count)
     unsigned char *buf = (unsigned char *) buf_;
     ssize_t        readnb;
 
+    assert(count > (size_t) 0U);
     do {
         while ((readnb = read(fd, buf, count)) < (ssize_t) 0 &&
                errno == EINTR);
@@ -106,17 +108,23 @@ safe_read(const int fd, void * const buf_, size_t count)
 static int
 randombytes_salsa20_random_random_dev_open(void)
 {
-    static const char * const devices[] = {
+    struct stat       st;
+    static const char *devices[] = {
 # ifndef USE_BLOCKING_RANDOM
-        "/dev/arandom", "/dev/urandom",
+        "/dev/urandom",
 # endif
         "/dev/random", NULL
     };
-    const char * const *device = devices;
+    const char **     device = devices;
+    int               fd;
 
     do {
-        if (access(*device, F_OK | R_OK) == 0) {
-            return open(*device, O_RDONLY);
+        if (access(*device, F_OK | R_OK) == 0 &&
+            (fd = open(*device, O_RDONLY)) != -1) {
+            if (fstat(fd, &st) == 0 && S_ISCHR(st.st_mode)) {
+                return fd;
+            }
+            (void) close(fd);
         }
         device++;
     } while (*device != NULL);
@@ -127,6 +135,8 @@ randombytes_salsa20_random_random_dev_open(void)
 static void
 randombytes_salsa20_random_init(void)
 {
+    const int errno_save = errno;
+
     stream.nonce = sodium_hrtime();
     assert(stream.nonce != (uint64_t) 0U);
 
@@ -134,6 +144,7 @@ randombytes_salsa20_random_init(void)
          randombytes_salsa20_random_random_dev_open()) == -1) {
         abort();
     }
+    errno = errno_save;
 }
 
 #else /* _WIN32 */
@@ -144,8 +155,8 @@ randombytes_salsa20_random_init(void)
     stream.nonce = sodium_hrtime();
     assert(stream.nonce != (uint64_t) 0U);
 
-    if (! CryptAcquireContext(&stream.hcrypt_prov, NULL, NULL,
-                              PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+    if (! CryptAcquireContextW(&stream.hcrypt_prov, NULL, NULL,
+                               PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
         abort();
     }
 }
