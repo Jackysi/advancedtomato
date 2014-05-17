@@ -760,6 +760,7 @@ static const nvset_t nvset_list[] = {
 	{ "udpxy_port",			V_RANGE(0, 65535)		},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "DSCP_fix_enable",		V_01				},
 	{ "ne_snat",			V_01				},
 	{ "dhcp_pass",			V_01				},
 #ifdef TCONFIG_EMF
