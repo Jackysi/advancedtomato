@@ -69,6 +69,7 @@ struct nvram_tuple router_defaults[] = {
 #endif
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		""				, 0 },
+	{ "dnscrypt_priority",		"1"				, 0 }, // 0=none, 1=preferred, 2=exclusive
 	{ "dnscrypt_port",		"40"				, 0 }, // local port
 	{ "dnscrypt_cmd",		"-m 99"				, 0 }, // optional arguments
 #endif

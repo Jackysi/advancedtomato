@@ -585,6 +585,7 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		V_01				},
+	{ "dnscrypt_priority",		V_RANGE(0, 2)			}, // 0=none, 1=preferred, 2=exclusive
 	{ "dnscrypt_port",		V_PORT				},
 	{ "dnscrypt_cmd",		V_LENGTH(0, 256)		},
 #endif

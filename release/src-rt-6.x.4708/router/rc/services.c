@@ -383,7 +383,11 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_DNSCRYPT
 	if (nvram_match("dnscrypt_proxy", "1")) {
+		if (nvram_match("dnscrypt_priority", "1"))
 			fprintf(f, "strict-order\n");
+
+		if (nvram_match("dnscrypt_priority", "2"))
+			fprintf(f, "no-resolv\n");
 	}
 #endif
 
