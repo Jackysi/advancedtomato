@@ -46,6 +46,10 @@ ifeq ($(TCONFIG_NOCAT),y)
 OBJS += nocat.o
 endif
 
+ifeq ($(TCONFIG_NGINX),y)
+OBJS += nginx.o
+endif
+
 ifeq ($(TOMATO_SL),1)
 #OBJS += usb.o
 OBJS += samba.o

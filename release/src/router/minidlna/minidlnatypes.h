@@ -42,11 +42,13 @@ struct lan_addr_s {
 	struct in_addr addr;	/* ip */
 	struct in_addr mask;	/* netmask */
 	int snotify;	/* notify socket */
+	unsigned int ifindex;	/* interface index */
 };
 
 struct runtime_vars_s {
 	int port;	/* HTTP Port */
 	int notify_interval;	/* seconds between SSDP announces */
+	int max_connections;	/* max number of simultaneous conenctions */
 	char *root_container;	/* root ObjectID (instead of "0") */
 	char *ifaces[MAX_LAN_ADDR];	/* list of configured network interfaces */
 };

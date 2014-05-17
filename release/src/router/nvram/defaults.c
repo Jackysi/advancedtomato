@@ -89,8 +89,12 @@ const defaults_t defaults[] = {
 	{ "wan_gateway",		"0.0.0.0"		},	// WAN gateway
 	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
+#ifdef TCONFIG_DNSSEC
+	{ "dnssec_enable",		"0"		},
+#endif
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		""				},
+	{ "dnscrypt_priority",		"1"			}, // 0=none, 1=preferred, 2=exclusive
 	{ "dnscrypt_port",		"40"			}, // local port
 	{ "dnscrypt_cmd",		"-m 99"			}, // optional arguments
 #endif
@@ -455,6 +459,7 @@ const defaults_t defaults[] = {
 	{ "udpxy_clients",		"3"				},
 	{ "udpxy_port",			"4022"				},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "DSCP_fix_enable",		"1"				},	// Comacst DSCP fix
 	{ "ne_snat",			"0"				},	// use SNAT instead of MASQUERADE
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"1,3,60"			},	//shibby - enable limit connection attempts for sshd
@@ -1161,6 +1166,18 @@ const defaults_t defaults[] = {
 	{ "NC_RenewTimeout",			"0"			},
 	{ "NC_AllowedWebHosts",			""			},
 	{ "NC_BridgeLAN",			"br0"			},
+#endif
+
+//Tomato RAF - NGINX
+#ifdef TCONFIG_NGINX
+	{"nginx_enable",		"0"				}, // NGinX enabled
+	{"nginx_php",			"0"				}, // PHP enabled
+	{"nginx_keepconf",		"0"				}, // Enable/disable keep configuration files unmodified in /etc/nginx
+	{"nginx_docroot",		"/www"				}, // path for server files
+	{"nginx_port",			"85"				}, // port to listen
+	{"nginx_fqdn",			"Tomato"			}, // server name
+	{"nginx_priority",		"10"				}, // server priority = worker_priority
+	{"nginx_custom",		"# NGINX Custom Parameters."	}, // additional lines for nginx.conf
 #endif
 
 #ifdef TCONFIG_TOR

@@ -636,6 +636,15 @@ static void mangle_table(void)
 	#endif
 #endif
 		}
+// Reset Incoming DSCP to 0x00
+		if (nvram_match("DSCP_fix_enable", "1")) {
+#ifdef LINUX26
+			modprobe("xt_DSCP");
+#else
+			modprobe("ipt_DSCP");
+#endif
+			ipt_write("-I PREROUTING -i %s -j DSCP --set-dscp 0\n", wanface);
+		}
 	}
 
 	ip46t_write("COMMIT\n");
@@ -1041,6 +1050,11 @@ static void filter_input(void)
 		if (!c) break;
 		p = c + 1;
 	} while (*p);
+
+#ifdef TCONFIG_NGINX //Tomato RAF - Web Server
+		if (nvram_match("nginx_enable", "1"))
+			ipt_write("-A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "nginx_port" ));
+#endif
 
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
 	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled

@@ -6,10 +6,14 @@ EXTRA_DIST = \
 	auth2.exp \
 	auth3.exp \
 	auth5.exp \
+	auth6.exp \
+	auth7.exp \
 	box.exp \
 	box2.exp \
 	box7.exp \
 	box8.exp \
+	box_easy.exp \
+	box_easy2.exp \
 	core1.exp \
 	core2.exp \
 	core3.exp \
@@ -18,12 +22,14 @@ EXTRA_DIST = \
 	core6.exp \
 	generichash.exp \
 	generichash2.exp \
+	generichash3.exp \
 	hash.exp \
 	hash2.exp \
 	hash3.exp \
 	onetimeauth.exp \
 	onetimeauth2.exp \
 	onetimeauth7.exp \
+	pwhash.exp \
 	scalarmult.exp \
 	scalarmult2.exp \
 	scalarmult5.exp \
@@ -34,7 +40,10 @@ EXTRA_DIST = \
 	secretbox2.exp \
 	secretbox7.exp \
 	secretbox8.exp \
+	secretbox_easy.exp \
+	secretbox_easy2.exp \
 	shorthash.exp \
+	sign.exp \
 	sodium_core.exp \
 	sodium_utils.exp \
 	sodium_version.exp \
@@ -43,17 +52,22 @@ EXTRA_DIST = \
 	stream3.exp \
 	stream4.exp \
 	stream5.exp \
-	stream6.exp
+	stream6.exp \
+	verify1.exp
 
 DISTCLEANFILES = \
 	auth.res \
 	auth2.res \
 	auth3.res \
 	auth5.res \
+	auth6.res \
+	auth7.res \
 	box.res \
 	box2.res \
 	box7.res \
 	box8.res \
+	box_easy.res \
+	box_easy2.res \
 	core1.res \
 	core2.res \
 	core3.res \
@@ -62,12 +76,14 @@ DISTCLEANFILES = \
 	core6.res \
 	generichash.res \
 	generichash2.res \
+	generichash3.res \
 	hash.res \
 	hash2.res \
 	hash3.res \
 	onetimeauth.res \
 	onetimeauth2.res \
 	onetimeauth7.res \
+	pwhash.res \
 	scalarmult.res \
 	scalarmult2.res \
 	scalarmult5.res \
@@ -78,7 +94,10 @@ DISTCLEANFILES = \
 	secretbox2.res \
 	secretbox7.res \
 	secretbox8.res \
+	secretbox_easy.res \
+	secretbox_easy2.res \
 	shorthash.res \
+	sign.res \
 	sodium_core.res \
 	sodium_utils.res \
 	sodium_version.res \
@@ -87,7 +106,8 @@ DISTCLEANFILES = \
 	stream3.res \
 	stream4.res \
 	stream5.res \
-	stream6.res
+	stream6.res \
+	verify1.res
 
 AM_CPPFLAGS = \
 	-DTEST_SRCDIR=\"@srcdir@\" \
@@ -102,10 +122,14 @@ TESTS_TARGETS = \
 	auth2 \
 	auth3 \
 	auth5 \
+	auth6 \
+	auth7 \
 	box \
 	box2 \
 	box7 \
 	box8 \
+	box_easy \
+	box_easy2 \
 	core1 \
 	core2 \
 	core3 \
@@ -114,11 +138,13 @@ TESTS_TARGETS = \
 	core6 \
 	generichash \
 	generichash2 \
+	generichash3 \
 	hash \
 	hash3 \
 	onetimeauth \
 	onetimeauth2 \
 	onetimeauth7 \
+	pwhash \
 	randombytes \
 	scalarmult \
 	scalarmult2 \
@@ -130,7 +156,10 @@ TESTS_TARGETS = \
 	secretbox2 \
 	secretbox7 \
 	secretbox8 \
+	secretbox_easy \
+	secretbox_easy2 \
 	shorthash \
+	sign \
 	sodium_core \
 	sodium_utils \
 	sodium_version \
@@ -139,7 +168,8 @@ TESTS_TARGETS = \
 	stream3 \
 	stream4 \
 	stream5 \
-	stream6
+	stream6 \
+	verify1
 
 check_PROGRAMS = $(TESTS_TARGETS)
 
@@ -160,6 +190,12 @@ auth3_LDADD               = $(TESTS_LDADD)
 auth5_SOURCE              = cmptest.h auth5.c windows/windows-quirks.h
 auth5_LDADD               = $(TESTS_LDADD)
 
+auth6_SOURCE              = cmptest.h auth6.c windows/windows-quirks.h
+auth6_LDADD               = $(TESTS_LDADD)
+
+auth7_SOURCE              = cmptest.h auth7.c windows/windows-quirks.h
+auth7_LDADD               = $(TESTS_LDADD)
+
 box_SOURCE                = cmptest.h box.c
 box_LDADD                 = $(TESTS_LDADD)
 
@@ -171,6 +207,12 @@ box7_LDADD                = $(TESTS_LDADD)
 
 box8_SOURCE               = cmptest.h box8.c
 box8_LDADD                = $(TESTS_LDADD)
+
+box_easy_SOURCE           = cmptest.h box_easy.c
+box_easy_LDADD            = $(TESTS_LDADD)
+
+box_easy2_SOURCE          = cmptest.h box_easy2.c
+box_easy2_LDADD           = $(TESTS_LDADD)
 
 core1_SOURCE              = cmptest.h core1.c
 core1_LDADD               = $(TESTS_LDADD)
@@ -196,6 +238,9 @@ generichash_LDADD         = $(TESTS_LDADD)
 generichash2_SOURCE       = cmptest.h generichash2.c
 generichash2_LDADD        = $(TESTS_LDADD)
 
+generichash3_SOURCE       = cmptest.h generichash3.c
+generichash3_LDADD        = $(TESTS_LDADD)
+
 hash_SOURCE               = cmptest.h hash.c
 hash_LDADD                = $(TESTS_LDADD)
 
@@ -210,6 +255,9 @@ onetimeauth2_LDADD        = $(TESTS_LDADD)
 
 onetimeauth7_SOURCE       = cmptest.h onetimeauth7.c
 onetimeauth7_LDADD        = $(TESTS_LDADD)
+
+pwhash_SOURCE             = cmptest.h pwhash.c
+pwhash_LDADD              = $(TESTS_LDADD)
 
 randombytes_SOURCE        = randombytes.c
 randombytes_LDADD         = $(TESTS_LDADD)
@@ -244,8 +292,17 @@ secretbox7_LDADD          = $(TESTS_LDADD)
 secretbox8_SOURCE         = cmptest.h secretbox8.c
 secretbox8_LDADD          = $(TESTS_LDADD)
 
+secretbox_easy_SOURCE     = cmptest.h secretbox_easy.c
+secretbox_easy_LDADD      = $(TESTS_LDADD)
+
+secretbox_easy2_SOURCE    = cmptest.h secretbox_easy2.c
+secretbox_easy2_LDADD     = $(TESTS_LDADD)
+
 shorthash_SOURCE          = cmptest.h shorthash.c
 shorthash_LDADD           = $(TESTS_LDADD)
+
+sign_SOURCE               = cmptest.h sign.c
+sign_LDADD                = $(TESTS_LDADD)
 
 sodium_core_SOURCE        = cmptest.h sodium_core.c
 sodium_core_LDADD         = $(TESTS_LDADD)
@@ -273,5 +330,8 @@ stream5_LDADD             = $(TESTS_LDADD)
 
 stream6_SOURCE            = cmptest.h stream6.c
 stream6_LDADD             = $(TESTS_LDADD)
+
+verify1_SOURCE            = cmptest.h verify1.c
+verify1_LDADD             = $(TESTS_LDADD)
 
 verify: check

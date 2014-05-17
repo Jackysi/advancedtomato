@@ -73,6 +73,9 @@ var services = [
 	['szoneedit', 'ZoneEdit (https)', 'http://www.zoneedit.com/', 'uh'],
         ['pairnic', 'pairNIC', 'http://www.pairnic.com/', 'uh'],
         ['spairnic', 'pairNIC (https)', 'http://www.pairnic.com/', 'uh'],
+        ['ovh', 'OVH', 'http://www.ovh.com/', 'uh'],
+        ['sovh', 'OVH (https)', 'https://www.ovh.com/', 'uh'],
+        ['schangeip', 'ChangeIP (https)', 'https://www.changeip.com/', 'uh'],
 	['custom', 'Custom URL', '', 'c']];
 
 var opendns = ['208.67.222.222', '208.67.220.220'];

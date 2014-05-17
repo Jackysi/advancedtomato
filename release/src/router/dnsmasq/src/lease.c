@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2014 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -143,8 +143,8 @@ void lease_init(time_t now)
 	lease->length = ei;
 #endif
 #else
-	/* strictly time_t is opaque, but this hack should work on all sane systems,
-	   even when sizeof(time_t) == 8 */
+	/* strictly time_t is opaque, but this hack should work on all sane
+           systems, even when sizeof(time_t) == 8 */
 	lease->expires = (time_t)ei;
 #endif
 	
@@ -327,7 +327,7 @@ else
 	file_dirty = 0;
     }
   
-  /* Set alarm for when the first lease expires + slop. */
+  /* Set alarm for when the first lease expires. */
   next_event = 0;
 
 #ifdef HAVE_DHCP6
@@ -352,8 +352,8 @@ else
 
   for (lease = leases; lease; lease = lease->next)
     if (lease->expires != 0 &&
-	(next_event == 0 || difftime(next_event, lease->expires + 10) > 0.0))
-      next_event = lease->expires + 10;
+	(next_event == 0 || difftime(next_event, lease->expires) > 0.0))
+      next_event = lease->expires;
    
   if (err)
     {
@@ -766,14 +766,23 @@ struct dhcp_lease *lease6_allocate(struct in6_addr *addrp, int lease_type)
 
 void lease_set_expires(struct dhcp_lease *lease, unsigned int len, time_t now)
 {
-  time_t exp = now + (time_t)len;
-  
+  time_t exp;
+
   if (len == 0xffffffff)
     {
       exp = 0;
       len = 0;
     }
-  
+  else
+    {
+      exp = now + (time_t)len;
+      /* Check for 2038 overflow. Make the lease
+	 inifinite in that case, as the least disruptive
+	 thing we can do. */
+      if (difftime(exp, now) <= 0.0)
+	exp = 0;
+    }
+
   if (exp != lease->expires)
     {
       dns_dirty = 1;

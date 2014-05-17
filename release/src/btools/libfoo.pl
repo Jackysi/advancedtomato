@@ -165,7 +165,7 @@ sub fixDyn
 #	fixDynDep("transmission-remote", "libiconv.so.2.4.0");
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
-	fixDynDep("dnscrypt-proxy", "libsodium.so.4.5.0");
+	fixDynDep("dnscrypt-proxy", "libsodium.so.10.0.0");
 
 #minidlna module, bwq518
 	fixDynDep("minidlna", "libz.so.1");
@@ -203,6 +203,9 @@ sub fixDyn
 
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
+
+	fixDynDep("nginx", "libpcre.so.1.2.3");
+	fixDynDep("nginx", "libpcreposix.so.0.0.2");
 
 #!!TB - Updated Broadcom WL driver
 	fixDynDep("libbcmcrypto.so", "libc.so.0");
@@ -513,7 +516,7 @@ genSO("${root}/usr/lib/libevent-2.0.so.5", "${router}/libevent/.libs/libevent.a"
 genSO("${root}/usr/lib/libdaemon.so.0.5.0", "${router}/libdaemon/libdaemon/.libs/libdaemon.a");
 genSO("${root}/usr/lib/libiconv.so.2.4.0", "${router}/libiconv/lib/.libs/libiconv.a");
 genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs/libnfnetlink.a");
-genSO("${root}/usr/lib/libsodium.so.4.5.0", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
+genSO("${root}/usr/lib/libsodium.so.10.0.0", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
 
 print "\n";
 

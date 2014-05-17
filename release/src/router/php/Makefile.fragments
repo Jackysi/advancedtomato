@@ -1,0 +1,112 @@
+cli: $(SAPI_CLI_PATH)
+
+$(SAPI_CLI_PATH): $(PHP_GLOBAL_OBJS) $(PHP_BINARY_OBJS) $(PHP_CLI_OBJS)
+	$(BUILD_CLI)
+
+install-cli: $(SAPI_CLI_PATH)
+	@echo "Installing PHP CLI binary:        $(INSTALL_ROOT)$(bindir)/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(bindir)
+	@$(INSTALL) -m 0755 $(SAPI_CLI_PATH) $(INSTALL_ROOT)$(bindir)/$(program_prefix)php$(program_suffix)$(EXEEXT)
+	@echo "Installing PHP CLI man page:      $(INSTALL_ROOT)$(mandir)/man1/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(mandir)/man1
+	@$(INSTALL_DATA) sapi/cli/php.1 $(INSTALL_ROOT)$(mandir)/man1/$(program_prefix)php$(program_suffix).1
+
+cgi: $(SAPI_CGI_PATH)
+
+$(SAPI_CGI_PATH): $(PHP_GLOBAL_OBJS) $(PHP_BINARY_OBJS) $(PHP_CGI_OBJS)
+	$(BUILD_CGI)
+
+install-cgi: $(SAPI_CGI_PATH)
+	@echo "Installing PHP CGI binary:        $(INSTALL_ROOT)$(bindir)/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(bindir)
+	@$(INSTALL) -m 0755 $(SAPI_CGI_PATH) $(INSTALL_ROOT)$(bindir)/$(program_prefix)php-cgi$(program_suffix)$(EXEEXT)
+	@echo "Installing PHP CGI man page:      $(INSTALL_ROOT)$(mandir)/man1/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(mandir)/man1
+	@$(INSTALL_DATA) sapi/cgi/php-cgi.1 $(INSTALL_ROOT)$(mandir)/man1/$(program_prefix)php-cgi$(program_suffix).1
+
+
+/home/vicente/tomato/release/src/router/php/ext/standard/var_unserializer.c: /home/vicente/tomato/release/src/router/php/ext/standard/var_unserializer.re
+	@(cd $(top_srcdir); $(RE2C) --no-generation-date -b -o ext/standard/var_unserializer.c ext/standard/var_unserializer.re)
+
+/home/vicente/tomato/release/src/router/php/ext/standard/url_scanner_ex.c: /home/vicente/tomato/release/src/router/php/ext/standard/url_scanner_ex.re
+	@(cd $(top_srcdir); $(RE2C) --no-generation-date -b -o ext/standard/url_scanner_ex.c	ext/standard/url_scanner_ex.re)
+
+ext/standard/info.lo: ext/standard/../../main/build-defs.h
+
+ext/standard/basic_functions.lo: $(top_srcdir)/Zend/zend_language_parser.h
+
+#
+# Build environment install
+#
+
+phpincludedir = $(includedir)/php
+phpbuilddir = $(libdir)/build
+
+BUILD_FILES = \
+	scripts/phpize.m4 \
+	build/mkdep.awk \
+	build/scan_makefile_in.awk \
+	build/libtool.m4 \
+	Makefile.global \
+	acinclude.m4 \
+	ltmain.sh \
+	run-tests.php
+
+BUILD_FILES_EXEC = \
+	build/shtool \
+	config.guess \
+	config.sub
+
+bin_SCRIPTS = phpize php-config
+man_PAGES = phpize php-config
+
+install-build:
+	@echo "Installing build environment:     $(INSTALL_ROOT)$(phpbuilddir)/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(phpbuilddir) $(INSTALL_ROOT)$(bindir) && \
+	(cd $(top_srcdir) && \
+	$(INSTALL) $(BUILD_FILES_EXEC) $(INSTALL_ROOT)$(phpbuilddir) && \
+	$(INSTALL_DATA) $(BUILD_FILES) $(INSTALL_ROOT)$(phpbuilddir))
+
+install-programs: scripts/phpize scripts/php-config
+	@echo "Installing helper programs:       $(INSTALL_ROOT)$(bindir)/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(bindir)
+	@for prog in $(bin_SCRIPTS); do \
+		echo "  program: $(program_prefix)$${prog}$(program_suffix)"; \
+		$(INSTALL) -m 755 scripts/$${prog} $(INSTALL_ROOT)$(bindir)/$(program_prefix)$${prog}$(program_suffix); \
+	done
+	@echo "Installing man pages:             $(INSTALL_ROOT)$(mandir)/man1/"
+	@$(mkinstalldirs) $(INSTALL_ROOT)$(mandir)/man1
+	@for page in $(man_PAGES); do \
+		echo "  page: $(program_prefix)$${page}$(program_suffix).1"; \
+		$(INSTALL_DATA) scripts/man1/$${page}.1 $(INSTALL_ROOT)$(mandir)/man1/$(program_prefix)$${page}$(program_suffix).1; \
+	done
+
+scripts/phpize: /home/vicente/tomato/release/src/router/php/scripts/phpize.in $(top_builddir)/config.status
+	(CONFIG_FILES=$@ CONFIG_HEADERS= $(top_builddir)/config.status)
+
+scripts/php-config: /home/vicente/tomato/release/src/router/php/scripts/php-config.in $(top_builddir)/config.status
+	(CONFIG_FILES=$@ CONFIG_HEADERS= $(top_builddir)/config.status)
+
+#
+# Zend
+#
+
+Zend/zend_language_scanner.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.h
+Zend/zend_ini_scanner.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.h
+
+/home/vicente/tomato/release/src/router/php/Zend/zend_language_scanner.c: /home/vicente/tomato/release/src/router/php/Zend/zend_language_scanner.l
+	@(cd $(top_srcdir); $(RE2C) $(RE2C_FLAGS) --no-generation-date --case-inverted -cbdFt Zend/zend_language_scanner_defs.h -oZend/zend_language_scanner.c Zend/zend_language_scanner.l)
+
+/home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.h: /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.c
+/home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.c: /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.y
+	@$(YACC) -p zend -v -d /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.y -o $@
+
+/home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.h: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.c
+/home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.c: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.y
+	@$(YACC) -p ini_ -v -d /home/vicente/tomato/release/src/router/php/Zend/zend_ini_parser.y -o $@
+
+/home/vicente/tomato/release/src/router/php/Zend/zend_ini_scanner.c: /home/vicente/tomato/release/src/router/php/Zend/zend_ini_scanner.l
+	@(cd $(top_srcdir); $(RE2C) $(RE2C_FLAGS) --no-generation-date --case-inverted -cbdFt Zend/zend_ini_scanner_defs.h -oZend/zend_ini_scanner.c Zend/zend_ini_scanner.l)
+
+Zend/zend_indent.lo Zend/zend_highlight.lo Zend/zend_compile.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_language_parser.h
+Zend/zend_execute.lo: /home/vicente/tomato/release/src/router/php/Zend/zend_vm_execute.h /home/vicente/tomato/release/src/router/php/Zend/zend_vm_opcodes.h

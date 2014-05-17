@@ -222,33 +222,48 @@ parse_nfo(const char *path, metadata_t *m)
 	val = GetValueFromNameValueList(&xml, "title");
 	if( val )
 	{
+		char *esc_tag = unescape_tag(val, 1);
 		val2 = GetValueFromNameValueList(&xml, "episodetitle");
-		if( val2 )
-			xasprintf(&m->title, "%s - %s", val, val2);
-		else
-			m->title = strdup(val);
+		if( val2 ) {
+			char *esc_tag2 = unescape_tag(val2, 1);
+			xasprintf(&m->title, "%s - %s", esc_tag, esc_tag2);
+			free(esc_tag2);
+		} else {
+			m->title = escape_tag(esc_tag, 1);
+		}
+		free(esc_tag);
 	}
 
 	val = GetValueFromNameValueList(&xml, "plot");
-	if( val )
-		m->comment = strdup(val);
+	if( val ) {
+		char *esc_tag = unescape_tag(val, 1);
+		m->comment = escape_tag(esc_tag, 1);
+		free(esc_tag);
+	}
 
 	val = GetValueFromNameValueList(&xml, "capturedate");
-	if( val )
-		m->date = strdup(val);
+	if( val ) {
+		char *esc_tag = unescape_tag(val, 1);
+		m->date = escape_tag(esc_tag, 1);
+		free(esc_tag);
+	}
 
 	val = GetValueFromNameValueList(&xml, "genre");
 	if( val )
 	{
 		free(m->genre);
-		m->genre = strdup(val);
+		char *esc_tag = unescape_tag(val, 1);
+		m->genre = escape_tag(esc_tag, 1);
+		free(esc_tag);
 	}
 
 	val = GetValueFromNameValueList(&xml, "mime");
 	if( val )
 	{
 		free(m->mime);
-		m->mime = strdup(val);
+		char *esc_tag = unescape_tag(val, 1);
+		m->mime = escape_tag(esc_tag, 1);
+		free(esc_tag);
 	}
 
 	ClearNameValueList(&xml);

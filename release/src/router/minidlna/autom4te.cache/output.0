@@ -8402,6 +8402,75 @@ fi
 done
 
 
+#
+# Check for struct ip_mreqn
+#
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for struct ip_mreqn" >&5
+$as_echo_n "checking for struct ip_mreqn... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <netinet/in.h>
+int
+main ()
+{
+
+    struct ip_mreqn mreq;
+    mreq.imr_address.s_addr = 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  
+    # Yes, we have it...
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+    
+$as_echo "@%:@define HAVE_STRUCT_IP_MREQN /**/" >>confdefs.h
+
+
+else
+  
+    # We'll just have to try and use struct ip_mreq
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for struct ip_mreq" >&5
+$as_echo_n "checking for struct ip_mreq... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <netinet/in.h>
+int
+main ()
+{
+
+        struct ip_mreq mreq;
+        mreq.imr_interface.s_addr = 0;
+    
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  
+        # Yes, we have it...
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        
+$as_echo "@%:@define HAVE_STRUCT_IP_MREQ /**/" >>confdefs.h
+
+    
+else
+  
+        # No multicast support
+        as_fn_error $? "No multicast support" "$LINENO" 5
+    
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
 ################################################################################################################
 # Special include directories
 case $host in
@@ -8538,7 +8607,8 @@ fi
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
-ac_fn_c_check_header_mongrel "$LINENO" "linux/netlink.h" "ac_cv_header_linux_netlink_h" "$ac_includes_default"
+ac_fn_c_check_header_compile "$LINENO" "linux/netlink.h" "ac_cv_header_linux_netlink_h" "#include <sys/socket.h>
+"
 if test "x$ac_cv_header_linux_netlink_h" = xyes; then :
   
 $as_echo "@%:@define HAVE_NETLINK 1" >>confdefs.h

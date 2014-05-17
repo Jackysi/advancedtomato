@@ -5,12 +5,14 @@
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
+#ifdef UPNP_STRICT
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
-#include <linux/types.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 /*#include <linux/in_route.h>*/
@@ -170,3 +172,4 @@ error:
 	return -1;
 }
 
+#endif /* UPNP_STRICT */

@@ -174,6 +174,9 @@ Copyright (C) 2010-2012 Jean-Yves Avenard<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
 <!-- NOCAT-END -->
+<!-- NGINX-BEGIN -->
+- Web Server. (NGinX)<br>
+<!-- NGINX-END -->
 <!-- HFS-BEGIN -->
 - HFS / HFS+ filesystem integration<br>
 <!-- HFS-END -->
@@ -194,6 +197,15 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <!-- PPTPD-END -->
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
+<br>
+
+<b>"Lancethepants" Features:</b><br>
+<!-- DNSSEC-BEGIN -->
+- DNSSEC integration and GUI<br>
+<!-- DNSSEC-END -->
+- Comcast DSCP Fix GUI<br>
+Copyright (C) 2014 Lance Fredrickson<br>
+<a href='mailto:lancethepants@gmail.com'>lancethepants@gmail.com</a><br>
 <br>
 
 <b>"Toastman" features:</b><br>

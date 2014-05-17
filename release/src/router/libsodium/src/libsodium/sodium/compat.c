@@ -8,10 +8,13 @@
 #include "crypto_scalarmult_curve25519.h"
 #include "crypto_secretbox_xsalsa20poly1305.h"
 #include "crypto_sign_ed25519.h"
+#include "crypto_stream_salsa20.h"
 #include "crypto_stream_xsalsa20.h"
 #include "crypto_verify_16.h"
 #include "crypto_verify_32.h"
 #include "export.h"
+
+#ifdef EXPORT_ORIGINAL_IMPLEMENTATIONS
 
 #ifdef __cplusplus
 extern "C" {
@@ -147,6 +150,21 @@ crypto_scalarmult_curve25519_ref(unsigned char *q, const unsigned char *n,
     return crypto_scalarmult_curve25519(q, n, p);
 }
 
+#undef crypto_scalarmult_curve25519_donna_c64_base
+SODIUM_EXPORT int
+crypto_scalarmult_curve25519_donna_c64_base(unsigned char *q, const unsigned char *n)
+{
+    return crypto_scalarmult_curve25519_base(q, n);
+}
+
+#undef crypto_scalarmult_curve25519_donna_c64
+SODIUM_EXPORT int
+crypto_scalarmult_curve25519_donna_c64(unsigned char *q, const unsigned char *n,
+                                       const unsigned char *p)
+{
+    return crypto_scalarmult_curve25519(q, n, p);
+}
+
 #undef crypto_secretbox_xsalsa20poly1305_ref
 SODIUM_EXPORT int
 crypto_secretbox_xsalsa20poly1305_ref(unsigned char *c,
@@ -243,6 +261,50 @@ crypto_onetimeauth_poly1305_ref(unsigned char *out,
     return crypto_onetimeauth_poly1305(out, in, inlen, k);
 }
 
+#undef crypto_stream_salsa20_amd64_xmm6
+SODIUM_EXPORT int
+crypto_stream_salsa20_amd64_xmm6(unsigned char *c,
+                                 unsigned long long clen,
+                                 const unsigned char *n,
+                                 const unsigned char *k)
+{
+    return crypto_stream_salsa20(c, clen, n, k);
+}
+
+#undef crypto_stream_salsa20_ref
+SODIUM_EXPORT int
+crypto_stream_salsa20_ref(unsigned char *c,
+                          unsigned long long clen,
+                          const unsigned char *n,
+                          const unsigned char *k)
+{
+    return crypto_stream_salsa20(c, clen, n, k);
+}
+
+#undef crypto_stream_salsa20_amd64_xmm6_xor
+SODIUM_EXPORT int
+crypto_stream_salsa20_amd64_xmm6_xor(unsigned char *c,
+                                     const unsigned char *m,
+                                     unsigned long long mlen,
+                                     const unsigned char *n,
+                                     const unsigned char *k)
+{
+    return crypto_stream_salsa20_xor(c, m, mlen, n, k);
+}
+
+#undef crypto_stream_salsa20_ref_xor
+SODIUM_EXPORT int
+crypto_stream_salsa20_ref_xor(unsigned char *c,
+                              const unsigned char *m,
+                              unsigned long long mlen,
+                              const unsigned char *n,
+                              const unsigned char *k)
+{
+    return crypto_stream_salsa20_xor(c, m, mlen, n, k);
+}
+
 #ifdef __cplusplus
 }
+#endif
+
 #endif

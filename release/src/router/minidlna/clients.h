@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
-#define CLIENT_CACHE_SLOTS 20
+#define CLIENT_CACHE_SLOTS 25
 
 #define FLAG_DLNA               0x00000001
 #define FLAG_MIME_AVI_DIVX      0x00000002
@@ -61,13 +61,13 @@ enum client_types {
 	ERokuSoundBridge,
 	ESamsungSeriesA,
 	ESamsungSeriesB,
-	ESamsungSeriesC,
-	ESamsungSeriesCTV,
+	ESamsungSeriesCDE,
 	ESonyBDP,
 	ESonyBravia,
 	ESonyInternetTV,
 	EToshibaTV,
-	EStandardDLNA150
+	EStandardDLNA150,
+	EStandardUPnP
 };
 
 struct client_type_s {
