@@ -11,7 +11,7 @@ if [ -f /tmp/ethernet.state3 ]; then
 fi
 
 WANMAC=`nvram get wan_hwaddr`
-VWAN=`ifconfig | grep vlan | grep "$WANMAC" | awk '{print $1}'`
+VWAN=`ifconfig | grep vlan | grep "$WANMAC" | awk '{print $1}' | grep -v ":"`
 VPORT=`nvram get $VWAN'ports' | awk '{print $1}' | sed 's/[^0-9]*//g'`
 if [ -z "$VPORT" ]; then
     VPORT="0"
