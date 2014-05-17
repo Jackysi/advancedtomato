@@ -471,6 +471,13 @@ static void ipt_account(void) {
 			//ipv4 only
 			ipt_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
 		}
+// Reset Incoming DSCP to 0x00
+#ifdef LINUX26
+		modprobe("xt_DSCP");
+#else
+		modprobe("ipt_DSCP");
+#endif
+		ipt_write("-I PREROUTING -i %s -j DSCP --set-dscp 0\n", wanface);
 	}
 }
 
