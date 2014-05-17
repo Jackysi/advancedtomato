@@ -1635,7 +1635,7 @@ createFieldTable('', [
 /* DNSSEC-END */
 /* DNSCRYPT-BEGIN */
 	{ title: 'Use dnscrypt-proxy', name: 'f_dnscrypt_proxy', type: 'checkbox', value: (nvram.dnscrypt_proxy == 1) },
-	{ title: 'Priority', indent: 2, name: 'dnscrypt_priority', type: 'select', options: [['1','Preferred'],['2','Exclusive'],['0','None']], value: nvram.dnscrypt_priority },
+	{ title: 'Priority', indent: 2, name: 'dnscrypt_priority', type: 'select', options: [['1','Strict-Order'],['2','No-Resolv'],['0','None']], value: nvram.dnscrypt_priority },
 	{ title: 'Local Port', indent: 2, name: 'dnscrypt_port', type: 'text', maxlen: 5, size: 7, value: nvram.dnscrypt_port },
 	{ title: 'Startup Parameters', indent: 2, name: 'dnscrypt_cmd', type: 'text', maxlen: 256, size: 64, value: nvram.dnscrypt_cmd, suffix: ' <i>(optional)</i>' },
 /* DNSCRYPT-END */
