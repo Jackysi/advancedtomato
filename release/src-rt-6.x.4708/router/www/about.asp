@@ -184,6 +184,15 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
+<b>"Lancethepants" features:</b><br>
+<!-- DNSSEC-BEGIN -->
+- DNSSEC integration and GUI<br>
+<!-- DNSSEC-END -->
+- Comcast DSCP Fix GUI<br>
+<i>Copyright (C) 2014 Lance Fredrickson</i><br>
+<a href='mailto:lancethepants@gmail.com'>lancethepants@gmail.com</a><br>
+<br>
+
 <b>"Toastman" features:</b><br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>

@@ -234,3 +234,7 @@ config TCONFIG_BCMSMP
 config TCONFIG_BCMFA
 	bool "BCM FA"
 	default n
+
+config TCONFIG_DNSSEC
+	bool "DNSSEC"
+	default n

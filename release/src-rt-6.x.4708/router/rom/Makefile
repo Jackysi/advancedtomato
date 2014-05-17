@@ -21,3 +21,7 @@ ifeq ($(TCONFIG_HTTPS),y)
 else
 	rm -f $(INSTALLDIR)/rom/etc/openssl.cnf
 endif
+
+ifneq ($(TCONFIG_DNSSEC),y)
+	rm -f $(INSTALLDIR)/rom/etc/trust-anchors.conf
+endif

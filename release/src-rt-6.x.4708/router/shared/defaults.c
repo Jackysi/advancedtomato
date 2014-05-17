@@ -64,6 +64,9 @@ struct nvram_tuple router_defaults[] = {
 	{ "wan_gateway",		"0.0.0.0"			, 0 },	// WAN gateway
 	{ "wan_gateway_get",		"0.0.0.0"			, 0 },	// default gateway for PPP
 	{ "wan_dns",			""				, 0 },	// x.x.x.x x.x.x.x ...
+#ifdef TCONFIG_DNSSEC
+	{ "dnssec_enable",		"0"				, 0 },
+#endif
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		""				, 0 },
 	{ "dnscrypt_port",		"40"				, 0 }, // local port

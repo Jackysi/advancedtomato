@@ -578,6 +578,11 @@ static const nvset_t nvset_list[] = {
 	{ "lan_netmask",		V_IP				},
 	{ "lan_gateway",		V_IP				},
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+
+#ifdef TCONFIG_DNSSEC
+	{ "dnssec_enable",		V_01			},
+#endif
+
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		V_01				},
 	{ "dnscrypt_port",		V_PORT				},

@@ -257,6 +257,12 @@ ifneq ($(TCONFIG_SDHC),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
 endif
 
+# Only include the dnssec option if is compiled in
+ifneq ($(TCONFIG_DNSSEC),y)
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
+endif
+
 # Only include the dnscrypt option if is compiled in
 ifneq ($(TCONFIG_DNSCRYPT),y)
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
@@ -294,6 +300,7 @@ endif
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
+		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
 		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
