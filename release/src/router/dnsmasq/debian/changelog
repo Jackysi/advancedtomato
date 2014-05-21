@@ -1,3 +1,31 @@
+dnsmasq (2.71-1) unstable; urgency=low
+
+   * New upstream.
+   * Fix 100% CPU-usage bug when dnsmasq started with cachesize
+     set to zero. (LP: #1314697)
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Fri, 16 May 2014 20:17:10 +0000
+
+dnsmasq (2.70-3) unstable; urgency=medium
+
+   * Write a pid-file, even when being started using systemd, since
+     other components may wish to signal dnsmasq.
+   * Enable dnsmasq systemd unit on install. Otherwise dnsmasq does not run on
+     fresh installations (without administrator handholding) and even worse it
+     is disabled on systems switching from sysv to systemd. Modify
+     postinst/postrm exactly as dh_systemd would, add dependency on
+     init-system-helpers. Closes: #724602
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Sun, 11 May 2014 17:45:21 +0000
+
+dnsmasq (2.70-2) unstable; urgency=low
+
+   * Ensure daemon not stared if dnsmasq package has been removed,
+     even if dnsmasq-base is still installed. (closes: #746941)
+   * Tidy cruft in initscript. (closes: #746940)
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Sun, 04 May 2014 21:34:11 +0000
+
 dnsmasq (2.70-1) unstable; urgency=low
 
    * New upstream.
@@ -1135,12 +1163,3 @@ dnsmasq (0.95-1) unstable; urgency=low
 
  -- Simon Kelley <simon@thkelleys.org.uk>  Sat, 29 Aug 1998 20:27:27 -0400
 
-
-  
-  
-  
-  
-  
-  
-  
-  
