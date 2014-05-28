@@ -1,11 +1,47 @@
+dnsmasq (2.71-1) unstable; urgency=low
+
+   * New upstream.
+   * Fix 100% CPU-usage bug when dnsmasq started with cachesize 
+     set to zero. (LP: #1314697)
+	
+ -- Simon Kelley <simon@thekelleys.org.uk>  Fri, 16 May 2014 20:17:10 +0000
+
+dnsmasq (2.70-3) unstable; urgency=medium
+
+   * Write a pid-file, even when being started using systemd, since
+     other components may wish to signal dnsmasq.
+   * Enable dnsmasq systemd unit on install. Otherwise dnsmasq does not run on
+     fresh installations (without administrator handholding) and even worse it
+     is disabled on systems switching from sysv to systemd. Modify
+     postinst/postrm exactly as dh_systemd would, add dependency on
+     init-system-helpers. Closes: #724602
+
+ -- Simon Kelley <simon@thekelleys.org.uk> Sun, 11 May 2014 17:45:21 +0000
+
+dnsmasq (2.70-2) unstable; urgency=low
+
+   * Ensure daemon not stared if dnsmasq package has been removed,
+     even if dnsmasq-base is still installed. (closes: #746941)
+   * Tidy cruft in initscript. (closes: #746940)
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Sun, 04 May 2014 21:34:11 +0000
+
+dnsmasq (2.70-1) unstable; urgency=low
+
+   * New upstream.
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Wed, 23 Apr 2014 15:14:42 +0000
+
 dnsmasq (2.69-1) unstable; urgency=low
 
    * New upstream.
    * Set --local-service. (closes: #732610)
-     This tells dnsmasq to ignore DNS requests that don't come from a local network.
-     It's automatically ignored if  --interface --except-interface, --listen-address
-     or --auth-server exist in the configuration, so for most installations, it will
-     have no effect, but for otherwise-unconfigured installations, it stops dnsmasq
+     This tells dnsmasq to ignore DNS requests that don't come
+     from a local network. It's automatically ignored if
+     --interface --except-interface, --listen-address or
+     --auth-server exist in the configuration, so for most
+     installations, it will have no effect, but for
+     otherwise-unconfigured installations, it stops dnsmasq
      from being vulnerable to DNS-reflection attacks.
 
  -- Simon Kelley <simon@thekelleys.org.uk>  Tue, 4 Feb 2014 16:28:12 +0000
