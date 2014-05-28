@@ -45,7 +45,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,lan_state,lan_desc,lan_invert,mtu_enable,ppp_demand,ppp_idletime,pppoe_lei,pppoe_lef,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,dnscrypt_proxy,dnscrypt_priority,dnscrypt_port,dnscrypt_cmd,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp,modem_ipaddr,modem_pin,modem_dev,modem_init,modem_apn,cstats_enable,dnssec_enable"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,lan_state,lan_desc,lan_invert,mtu_enable,ppp_demand,ppp_idletime,pppoe_lei,pppoe_lef,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,dnscrypt_proxy,dnscrypt_priority,dnscrypt_port,dnscrypt_resolver,dnscrypt_log,dnscrypt_manual,dnscrypt_provider_name,dnscrypt_provider_key,dnscrypt_resolver_address,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp,modem_ipaddr,modem_pin,modem_dev,modem_init,modem_apn,cstats_enable,dnssec_enable"); %>
 
 var lg = new TomatoGrid();
 lg.setup = function() {
@@ -375,7 +375,6 @@ W('</style>');
 var xob = null;
 var refresher = [];
 var nphy = features('11n');
-var acphy = features('11ac');
 
 var ghz = [];
 var bands = [];
@@ -449,33 +448,6 @@ function refreshNetModes(uidx)
 	nm_loaded[uidx] = 1;
 }
 
-function refreshBandWidth(uidx)
-{
-	var e, i, buf, val;
-
-	if (uidx >= wl_ifaces.length) return;
-	var u = wl_unit(uidx);
-
-	var m = [['0','20 MHz']];
-	if(nphy || acphy){
-		m.push(['1','40 MHz']);
-	}
-	if(acphy && selectedBand(uidx) == '1') {
-		m.push(['3','80 MHz']);
-	}
-
-	e = E('_wl'+u+'_nbw_cap');
-	buf = '';
-	val = (!nm_loaded[uidx] || (e.value + '' == '')) ? eval('nvram.wl'+u+'_nbw_cap') : e.value;
-	for (i = 0; i < m.length; ++i)
-		buf += '<option value="' + m[i][0] + '"' + ((m[i][0] == val) ? ' selected' : '') + '>' + m[i][1] + '</option>';
-
-	e = E('__wl'+u+'_nbw_cap');
-	buf = '<select name="wl'+u+'_nbw_cap" onchange="verifyFields(this, 1)" id = "_wl'+u+'_nbw_cap">' + buf + '</select>';
-	elem.setInnerHTML(e, buf);
-	nm_loaded[uidx] = 1;
-}
-
 function refreshChannels(uidx)
 {
 	if (refresher[uidx] != null) return;
@@ -522,22 +494,10 @@ function refreshChannels(uidx)
 	e = E('_f_wl'+u+'_nctrlsb');
 	sb = (e.value + '' == '' ? eval('nvram.wl'+u+'_nctrlsb') : e.value);
 	e = E('_wl'+u+'_nbw_cap');
-	switch(e.value + '' == '' ? eval('nvram.wl'+u+'_nbw_cap') : e.value) {
-		case '0':
-			bw = '20';
-			break;
-		case '1':
-			bw = '40';
-			break;
-		case '3':
-			bw = '80';
-			break;
-		default:
-			alert("Wrong nbw_cap.");
-	}
+	bw = (e.value + '' == '' ? eval('nvram.wl'+u+'_nbw_cap') : e.value) == '0' ? '20' : '40';
 
 	refresher[uidx].onError = function(ex) { alert(ex); refresher[uidx] = null; reloadPage(); }
-	refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy || acphy ? '1' : '0') +
+	refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy ? '1' : '0') +
 		'&arg2=' + bw + '&arg3=' + selectedBand(uidx) + '&arg4=' + sb);
 }
 
@@ -721,13 +681,6 @@ function verifyFields(focused, quiet)
 	E('_f_lan_desc').disabled = !n;
 	E('_f_lan_invert').disabled = !n;
 
-/* DNSCRYPT-BEGIN */
-	var p = E('_f_dnscrypt_proxy').checked;
-	E('_dnscrypt_priority').disabled = !p;
-	E('_dnscrypt_port').disabled = !p;
-	E('_dnscrypt_cmd').disabled = !p;
-/* DNSCRYPT-END */
-
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 //		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
 		if (wl_sunit(uidx)<0) {
@@ -735,7 +688,6 @@ function verifyFields(focused, quiet)
 			if (focused == E('_f_wl'+u+'_nband')) {
 				refreshNetModes(uidx);
 				refreshChannels(uidx);
-				refreshBandWidth(uidx);
 			}
 			else if (focused == E('_f_wl'+u+'_nctrlsb') || focused == E('_wl'+u+'_nbw_cap')) {
 				refreshChannels(uidx);
@@ -794,8 +746,8 @@ function verifyFields(focused, quiet)
 			_wl_ssid: 1,
 			_f_wl_bcast: 1,
 			_wl_channel: 1,
-			_wl_nbw_cap: nphy || acphy ? 1 : 0,
-			_f_wl_nctrlsb: nphy || acphy ? 1 : 0,
+			_wl_nbw_cap: nphy ? 1 : 0,
+			_f_wl_nctrlsb: nphy ? 1 : 0,
 			_f_wl_scan: 1,
 
 			_wl_security_mode: 1,
@@ -988,6 +940,20 @@ function verifyFields(focused, quiet)
 		}
 	}
 
+/* DNSCRYPT-BEGIN */
+	var p = E('_f_dnscrypt_proxy').checked;
+	vis._dnscrypt_priority = p;
+	vis._dnscrypt_port = p;
+	vis._dnscrypt_log = p;
+	vis._f_dnscrypt_manual = p;
+	var q = E('_f_dnscrypt_proxy').checked && E('_f_dnscrypt_manual').checked;
+	vis._dnscrypt_provider_name = q;
+	vis._dnscrypt_provider_key = q;
+	vis._dnscrypt_resolver_address = q;
+	var r = E('_f_dnscrypt_proxy').checked && !E('_f_dnscrypt_manual').checked;
+	vis._dnscrypt_resolver = r;
+/* DNSCRYPT-END */
+
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 //		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
 		if (wl_sunit(uidx)<0) {
@@ -999,7 +965,7 @@ function verifyFields(focused, quiet)
 					wl_vis[uidx][a] = 2;
 				}
 				wl_vis[uidx]._f_wl_radio = 1;
-				wl_vis[uidx]._wl_nbw_cap = nphy || acphy ? 2 : 0;
+				wl_vis[uidx]._wl_nbw_cap = nphy ? 2 : 0;
 				wl_vis[uidx]._f_wl_nband = (bands[uidx].length > 1) ? 2 : 0;
 			}
 
@@ -1170,8 +1136,8 @@ REMOVE-END */
 			switch (E('_wl'+u+'_net_mode').value) {
 			case 'mixed':
 			case 'n-only':
-				if ((nphy || acphy) && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
-					ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N and AC mode.', quiet || !ok);
+				if (nphy && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
+					ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N mode.', quiet || !ok);
 					ok = 0;
 				}
 				else ferror.clear(a);
@@ -1429,7 +1395,7 @@ function save()
 			E('_wl'+u+'_nctrlsb').value = eval('nvram.wl'+u+'_nctrlsb');
 			if (E('_wl'+u+'_nmode').value != 0) {
 				E('_wl'+u+'_nctrlsb').value = E('_f_wl'+u+'_nctrlsb').value;
-				E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : ((E('_wl'+u+'_nbw_cap').value== 3) ? 80:40);
+				E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : 40;
 			}
 
 			E('_wl'+u+'_closed').value = E('_f_wl'+u+'_bcast').checked ? 0 : 1;
@@ -1450,6 +1416,7 @@ function save()
 
 /* DNSCRYPT-BEGIN */
 	fom.dnscrypt_proxy.value = fom.f_dnscrypt_proxy.checked ? 1 : 0;
+	fom.dnscrypt_manual.value = fom.f_dnscrypt_manual.checked ? 1 : 0;
 /* DNSCRYPT-END */
 
 	fom.lan_state.value = fom.f_lan_state.checked ? 1 : 0;
@@ -1550,7 +1517,6 @@ function init()
 		if (wl_sunit(uidx)<0) {
 			refreshNetModes(uidx);
 			refreshChannels(uidx);
-			refreshBandWidth(uidx);
 		}
 	}
 }
@@ -1585,6 +1551,7 @@ function init()
 <!-- DNSSEC-END -->
 /* DNSCRYPT-BEGIN */
 <input type='hidden' name='dnscrypt_proxy'>
+<input type='hidden' name='dnscrypt_manual'>
 /* DNSCRYPT-END */
 <input type='hidden' name='lan_state'>
 <input type='hidden' name='lan_desc'>
@@ -1677,9 +1644,14 @@ createFieldTable('', [
 /* DNSSEC-END */
 /* DNSCRYPT-BEGIN */
 	{ title: 'Use dnscrypt-proxy', name: 'f_dnscrypt_proxy', type: 'checkbox', value: (nvram.dnscrypt_proxy == 1) },
+	{ title: 'Manual Entry', indent: 2, name: 'f_dnscrypt_manual', type: 'checkbox', value: (nvram.dnscrypt_manual == 1) },
+	{ title: 'Resolver', indent: 2, name: 'dnscrypt_resolver', type: 'select', options: _dnscrypt_resolvers_, value: nvram.dnscrypt_resolver, suffix: ' <a href=\'https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv\' target=\'_new\'>Resolver Details</a>' },
+	{ title: 'Resolver Address', indent: 2, name: 'dnscrypt_resolver_address', type: 'text', maxlen: 50, size: 25, value: nvram.dnscrypt_resolver_address, suffix: ' <a href=\'https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv\' target=\'_new\'>Resolver Details</a>' },
+	{ title: 'Provider Name', indent: 2, name: 'dnscrypt_provider_name', type: 'text', maxlen: 60, size: 25, value: nvram.dnscrypt_provider_name },
+	{ title: 'Provider Public Key', indent: 2, name: 'dnscrypt_provider_key', type: 'text', maxlen: 80, size: 25, value: nvram.dnscrypt_provider_key },
 	{ title: 'Priority', indent: 2, name: 'dnscrypt_priority', type: 'select', options: [['1','Strict-Order'],['2','No-Resolv'],['0','None']], value: nvram.dnscrypt_priority },
 	{ title: 'Local Port', indent: 2, name: 'dnscrypt_port', type: 'text', maxlen: 5, size: 7, value: nvram.dnscrypt_port },
-	{ title: 'Startup Parameters', indent: 2, name: 'dnscrypt_cmd', type: 'text', maxlen: 256, size: 64, value: nvram.dnscrypt_cmd, suffix: ' <i>(optional)</i>' },
+	{ title: 'Log Level', indent: 2, name: 'dnscrypt_log', type: 'text', maxlen: 2, size: 5, value: nvram.dnscrypt_log },
 /* DNSCRYPT-END */
 	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 ]);
@@ -1746,8 +1718,8 @@ if (wl_sunit(uidx)<0) {
 		{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
 		{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
 			value: eval('nvram.wl'+u+'_channel') },
-		{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [],
-			value: eval('nvram.wl'+u+'_nbw_cap'), prefix: '<span id="__wl'+u+'_nbw_cap">', suffix: '</span>' },
+		{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
+			value: eval('nvram.wl'+u+'_nbw_cap') },
 		{ title: 'Control Sideband', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
 			value: eval('nvram.wl'+u+'_nctrlsb') == 'none' ? 'lower' : eval('nvram.wl'+u+'_nctrlsb') },
 		null,
