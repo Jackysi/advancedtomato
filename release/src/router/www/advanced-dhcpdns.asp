@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dnsmasq_q,ipv6_radvd,dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_strict_order,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only"); %>
+//	<% nvram("dnsmasq_q,ipv6_radvd,dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -60,7 +60,6 @@ function save()
 	a = E('_f_dhcpd_sltsel').value;
 	fom.dhcpd_slt.value = (a != 1) ? a : E('_f_dhcpd_slt').value;
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
-	fom.dnsmasq_strict_order.value = E('_f_dns_strict_order').checked ? '1' : '0';
 	fom.dns_norebind.value = E('_f_dns_norebind').checked ? 1 : 0;
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
@@ -139,7 +138,6 @@ function init() {
 <input type='hidden' name='dhcpd_dmdns'>
 <input type='hidden' name='dhcpd_slt'>
 <input type='hidden' name='dns_addget'>
-<input type='hidden' name='dnsmasq_strict_order'>
 <input type='hidden' name='dns_norebind'>
 <input type='hidden' name='dhcpd_gwmode'>
 <input type='hidden' name='dns_intcpt'>
@@ -154,7 +152,6 @@ function init() {
 createFieldTable('', [
 	{ title: 'Use internal DNS', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
 	{ title: 'Use received DNS with user-entered DNS', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
-	{ title: 'Resolve in Strict Order OR Non Resolve', name: '_f_dns_strict_order', type: 'checkbox', value: nvram.dnsmasq_strict_order == '1' },
 	{ title: 'Prevent DNS-rebind attacks', name: 'f_dns_norebind', type: 'checkbox', value: nvram.dns_norebind == '1' },
 	{ title: 'Intercept DNS port<br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },
 	{ title: 'Use user-entered gateway if WAN is disabled', name: 'f_dhcpd_gwmode', type: 'checkbox', value: nvram.dhcpd_gwmode == '1' },
@@ -194,7 +191,6 @@ createFieldTable('', [
 <ul>
 <li><b>Use internal DNS</b> - Allow dnsmasq to be your DNS server on LAN.</li>
 <li><b>Use received DNS with user-entered DNS</b> - Add DNS servers received from your WAN connection to the static DNS server list (see <a href='basic-network.asp'>Network</a> configuration).</li>
-<li><b>Resolve in Strict Order OR Non Resolve</b> - Dnsmasq will send queries to any of the upstream servers it knows about and tries to favour servers that are known to be up. Setting this checkbox; Forces dnsmasq to try each query with each server strictly in the order they appear in /etc/resolv.conf. Unchecking this checkbox; Don't read /etc/resolv.conf. Get upstream servers only from the command line or the dnsmasq configuration file.</li>
 <li><b>Prevent DNS-rebind attacks</b> - Enable DNS rebinding protection on Dnsmasq.</li>
 <li><b>Intercept DNS port</b> - Any DNS requests/packets sent out to UDP port 53 are redirected to the internal DNS server.</li>
 <li><b>Use user-entered gateway if WAN is disabled</b> - DHCP will use the IP address of the router as the default gateway on each LAN.</li>
