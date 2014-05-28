@@ -462,14 +462,42 @@ void start_dnsmasq()
 		sprintf(dnscrypt_local, "127.0.0.1:%s", nvram_safe_get("dnscrypt_port") );
 
 		eval("ntp2ip");
-		eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local, nvram_safe_get("dnscrypt_cmd") );
+
+		if (nvram_match("dnscrypt_manual", "1")) {
+			eval("dnscrypt-proxy", "-d",
+			     "-a", dnscrypt_local,
+			     "-m", nvram_safe_get("dnscrypt_log"),
+			     "-N", nvram_safe_get("dnscrypt_provider_name"),
+			     "-k", nvram_safe_get("dnscrypt_provider_key"),
+			     "-r", nvram_safe_get("dnscrypt_resolver_address") );
+		} else {
+			eval("dnscrypt-proxy", "-d",
+			     "-a", dnscrypt_local,
+			     "-m", nvram_safe_get("dnscrypt_log"),
+			     "-R", nvram_safe_get("dnscrypt_resolver"),
+			     "-L", "/etc/dnscrypt-resolvers.csv" );
+		}
 
 #ifdef TCONFIG_IPV6
 		char dnscrypt_local_ipv6[30];
 		sprintf(dnscrypt_local_ipv6, "::1:%s", nvram_safe_get("dnscrypt_port") );
 
-		if (get_ipv6_service() != NULL) //if ipv6 enabled
-			eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local_ipv6, nvram_safe_get("dnscrypt_cmd") );
+		if (get_ipv6_service() != *("NULL")) { // when ipv6 enabled
+			if (nvram_match("dnscrypt_manual", "1")) {
+				eval("dnscrypt-proxy", "-d",
+				     "-a", dnscrypt_local,
+				     "-m", nvram_safe_get("dnscrypt_log"),
+				     "-N", nvram_safe_get("dnscrypt_provider_name"),
+				     "-k", nvram_safe_get("dnscrypt_provider_key"),
+				     "-r", nvram_safe_get("dnscrypt_resolver_address") );
+			} else {
+				eval("dnscrypt-proxy", "-d",
+				     "-a", dnscrypt_local,
+				     "-m", nvram_safe_get("dnscrypt_log"),
+				     "-R", nvram_safe_get("dnscrypt_resolver"),
+				     "-L", "/etc/dnscrypt-resolvers.csv" );
+			}
+		}
 #endif
 	}
 #endif

@@ -93,10 +93,15 @@ const defaults_t defaults[] = {
 	{ "dnssec_enable",		"0"		},
 #endif
 #ifdef TCONFIG_DNSCRYPT
-	{ "dnscrypt_proxy",		""				},
-	{ "dnscrypt_priority",		"1"			}, // 0=none, 1=preferred, 2=exclusive
+	{ "dnscrypt_proxy",		"0"			},
+	{ "dnscrypt_priority",		"1"			}, // 0=none, 1=strict-order, 2=no-resolv
 	{ "dnscrypt_port",		"40"			}, // local port
-	{ "dnscrypt_cmd",		"-m 99"			}, // optional arguments
+	{ "dnscrypt_resolver",		"opendns"		}, // default resolver
+	{ "dnscrypt_log",		"99"			}, // log level
+	{ "dnscrypt_manual",		"0"			}, // Set manual resolver
+	{ "dnscrypt_provider_name",	""			}, // Set manual provider name
+	{ "dnscrypt_provider_key",	""			}, // Set manual provider key
+	{ "dnscrypt_resolver_address",	""			}, // Set manual resolver address
 #endif
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
