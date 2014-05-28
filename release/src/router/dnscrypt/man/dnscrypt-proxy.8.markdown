@@ -49,6 +49,9 @@ ports.
 
   * `-k`, `--provider-key=<key>`: specify the provider public key (see below).
 
+  * `-L`, `--resolvers-list=<file>`: path to the CSV file containing
+    the list of available resolvers, and the parameters to use them.
+
   * `-l`, `--logfile=<file>`: log events to this file instead of the
     standard output.
 
@@ -60,6 +63,9 @@ ports.
     simultaneous active requests. The default value is 250.
 
   * `-p`, `--pidfile=<file>`: write the PID number to a file.
+
+  * `-R`, `--resolver-name=<name>`: name of the resolver to use, from
+    the list of available resolvers (see `-L`).
 
   * `-r`, `--resolver-address=<ip>[:port]`: a DNSCrypt-capable resolver IP
     address with an optional port. The default port is 443.
@@ -89,7 +95,7 @@ string, with optional columns.
 
 ## SIMPLE USAGE EXAMPLE
 
-    $ dnscrypt-proxy --daemonize
+    $ dnscrypt-proxy --daemonize --resolver-name=...
 
 ## ADVANCED USAGE EXAMPLE
 

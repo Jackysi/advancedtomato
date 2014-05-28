@@ -22,3 +22,6 @@ endif
 SUBDIRS += \
 	src \
 	test
+
+dist_pkgdata_DATA = \
+	dnscrypt-resolvers.csv

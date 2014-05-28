@@ -30,7 +30,7 @@ dnscrypt-proxy(8) is started.
 
 ## ADVANCED USAGE EXAMPLE
 
-    $ hostip -6 -r 213.154.224.3 www.google.com
+    $ hostip -6 -r 4.2.2.2 www.google.com
 
 ## EXIT STATUS
 

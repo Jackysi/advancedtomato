@@ -5,17 +5,17 @@ Maintainer: Sergey "Shnatsel" Davidoff <shnatsel@gmail.com>
 Build-Depends: debhelper (>= 8.0.0), autotools-dev, dh-apparmor, libsodium-dev
 Standards-Version: 3.9.4
 Homepage: http://dnscrypt.org
-Vcs-Git: git://github.com/opendns/dnscrypt-proxy.git
-Vcs-Browser: https://github.com/opendns/dnscrypt-proxy
+Vcs-Git: git://github.com/jedisct1/dnscrypt-proxy.git
+Vcs-Browser: https://github.com/jedisct1/dnscrypt-proxy
 
 Package: dnscrypt-proxy
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
-Description: A tool for securing communications between a client and a DNS resolver
+Suggests: resolvconf
+Description: Tool for securing communications between a client and a DNS resolver
  dnscrypt-proxy provides local service which can be used directly as your local
  resolver or as a DNS forwarder, encrypting and authenticating requests using
- the DNSCrypt protocol and passing them to an upstream server, by default
- OpenDNS who run this on their resolvers.
+ the DNSCrypt protocol and passing them to an upstream server.
  .
  The DNSCrypt protocol uses high-speed high-security elliptic-curve
  cryptography and is very similar to DNSCurve, but focuses on securing

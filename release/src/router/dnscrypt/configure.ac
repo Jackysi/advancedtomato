@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.3.4],[http://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.4.0],[http://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -68,7 +68,7 @@ AC_ARG_ENABLE(debug,
 
 plugins=disabled
 AC_ARG_ENABLE(plugins,
-[AS_HELP_STRING(--enable-plugins,Enable support for plugins - experimental)],
+[AS_HELP_STRING(--enable-plugins,Enable support for plugins)],
 [
 	AS_IF([test "x$enableval" != "xno"], [
 		CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
@@ -411,6 +411,7 @@ AC_CHECK_HEADER([CoreServices/CoreServices.h],
   [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
 
 AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
+AC_CHECK_FUNCS([sodium_mlock])
 
 dnl Libtool.
 

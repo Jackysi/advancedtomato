@@ -17,10 +17,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <event2/util.h>
+
 #include "dnscrypt_proxy.h"
 #include "getpwnam.h"
 #include "options.h"
 #include "logger.h"
+#include "minicsv.h"
 #include "pid_file.h"
 #include "utils.h"
 #include "windows_service.h"
@@ -35,7 +38,8 @@ static struct option getopt_long_options[] = {
 #endif
     { "edns-payload-size", 1, NULL, 'e' },
     { "help", 0, NULL, 'h' },
-    { "provider-key", 1, NULL, 'k' },
+    { "resolvers-list", 1, NULL, 'L' },
+    { "resolver-name", 1, NULL, 'R' },
 #ifndef _WIN32
     { "logfile", 1, NULL, 'l' },
 #endif
@@ -45,9 +49,10 @@ static struct option getopt_long_options[] = {
     { "pidfile", 1, NULL, 'p' },
 #endif
     { "plugin", 1, NULL, 'X' },
+    { "provider-name", 1, NULL, 'N' },
+    { "provider-key", 1, NULL, 'k' },
     { "resolver-address", 1, NULL, 'r' },
     { "user", 1, NULL, 'u' },
-    { "provider-name", 1, NULL, 'N' },
     { "test", 1, NULL, 't' },
     { "tcp-only", 0, NULL, 'T' },
     { "version", 0, NULL, 'V' },
@@ -59,26 +64,13 @@ static struct option getopt_long_options[] = {
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char *getopt_options = "a:de:hk:l:m:n:p:r:t:u:N:TVX";
+static const char *getopt_options = "a:de:hk:L:l:m:n:p:r:R:t:u:N:TVX";
 #else
-static const char *getopt_options = "a:e:hk:m:n:r:t:u:N:TVX";
+static const char *getopt_options = "a:e:hk:L:m:n:r:R:t:u:N:TVX";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
 # define DEFAULT_CONNECTIONS_COUNT_MAX 250U
-#endif
-
-#ifndef DEFAULT_PROVIDER_PUBLICKEY
-# define DEFAULT_PROVIDER_PUBLICKEY \
-    "B735:1140:206F:225D:3E2B:D822:D7FD:691E:" \
-    "A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79"
-#endif
-#ifndef DEFAULT_PROVIDER_NAME
-# define DEFAULT_PROVIDER_NAME \
-    DNSCRYPT_PROTOCOL_VERSIONS ".dnscrypt-cert.opendns.com."
-#endif
-#ifndef DEFAULT_RESOLVER_IP
-# define DEFAULT_RESOLVER_IP "208.67.220.220:443"
 #endif
 
 static void
@@ -120,9 +112,11 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->log_fd = -1;
     proxy_context->log_file = NULL;
     proxy_context->pid_file = NULL;
-    proxy_context->provider_name = DEFAULT_PROVIDER_NAME;
-    proxy_context->provider_publickey_s = DEFAULT_PROVIDER_PUBLICKEY;
-    proxy_context->resolver_ip = DEFAULT_RESOLVER_IP;
+    proxy_context->resolvers_list = DEFAULT_RESOLVERS_LIST;
+    proxy_context->resolver_name = DEFAULT_RESOLVER_NAME;
+    proxy_context->provider_name = NULL;
+    proxy_context->provider_publickey_s = NULL;
+    proxy_context->resolver_ip = NULL;
 #ifndef _WIN32
     proxy_context->user_id = (uid_t) 0;
     proxy_context->user_group = (uid_t) 0;
@@ -148,11 +142,210 @@ options_check_protocol_versions(const char * const provider_name)
     return 0;
 }
 
+static char *
+options_read_file(const char * const file_name)
+{
+    FILE   *fp;
+    char   *file_buf;
+    size_t  file_size = (size_t) 0U;
+
+    assert(file_name != NULL);
+    if ((fp = fopen(file_name, "rb")) == NULL) {
+        return NULL;
+    }
+    while (fgetc(fp) != EOF && file_size < SIZE_MAX) {
+        file_size++;
+    }
+    if (feof(fp) == 0) {
+        fclose(fp);
+        return NULL;
+    }
+    rewind(fp);
+    if ((file_buf = malloc(file_size)) == NULL) {
+        fclose(fp);
+        return NULL;
+    }
+    if (fread(file_buf, file_size, (size_t) 1U, fp) != 1U) {
+        fclose(fp);
+        free(file_buf);
+        return NULL;
+    }
+    (void) fclose(fp);
+
+    return file_buf;
+}
+
+static const char *
+options_get_col(char * const * const headers, const size_t headers_count,
+                char * const * const cols, const size_t cols_count,
+                const char * const header)
+{
+    size_t i = (size_t) 0U;
+
+    while (i < headers_count) {
+        if (strcmp(header, headers[i]) == 0) {
+            if (i < cols_count) {
+                return cols[i];
+            }
+            break;
+        }
+        i++;
+    }
+    return NULL;
+}
+
+static int
+options_parse_resolver(ProxyContext * const proxy_context,
+                       char * const * const headers, const size_t headers_count,
+                       char * const * const cols, const size_t cols_count)
+{
+    const char *provider_name;
+    const char *provider_publickey_s;
+    const char *resolver_ip;
+    const char *resolver_name;
+
+    resolver_name = options_get_col(headers, headers_count,
+                                    cols, cols_count, "Name");
+    if (evutil_ascii_strcasecmp(resolver_name,
+                                proxy_context->resolver_name) != 0) {
+        return 0;
+    }
+    provider_name = options_get_col(headers, headers_count,
+                                    cols, cols_count, "Provider name");
+    provider_publickey_s = options_get_col(headers, headers_count,
+                                           cols, cols_count,
+                                           "Provider public key");
+    resolver_ip = options_get_col(headers, headers_count,
+                                  cols, cols_count, "Resolver address");
+    if (provider_name == NULL || *provider_name == 0) {
+        logger(proxy_context, LOG_ERR,
+               "Resolvers list is missing a provider name for [%s]",
+               resolver_name);
+        return -1;
+    }
+    if (provider_publickey_s == NULL || *provider_publickey_s == 0) {
+        logger(proxy_context, LOG_ERR,
+               "Resolvers list is missing a public key for [%s]",
+               resolver_name);
+        return -1;
+    }
+    if (resolver_ip == NULL || *resolver_ip == 0) {
+        logger(proxy_context, LOG_ERR,
+               "Resolvers list is missing a resolver address for [%s]",
+               resolver_name);
+        return -1;
+    }
+    proxy_context->provider_name = strdup(provider_name);
+    proxy_context->provider_publickey_s = strdup(provider_publickey_s);
+    proxy_context->resolver_ip = strdup(resolver_ip);
+    if (proxy_context->provider_name == NULL ||
+        proxy_context->provider_publickey_s == NULL ||
+        proxy_context->resolver_ip == NULL) {
+        logger_noformat(proxy_context, LOG_EMERG, "Out of memory");
+        exit(1);
+    }
+    return 1;
+}
+
+static int
+options_parse_resolvers_list(ProxyContext * const proxy_context, char *buf)
+{
+    char   *cols[OPTIONS_RESOLVERS_LIST_MAX_COLS];
+    char   *headers[OPTIONS_RESOLVERS_LIST_MAX_COLS];
+    size_t  cols_count;
+    size_t  headers_count;
+
+    assert(proxy_context->resolver_name != NULL);
+    buf = minicsv_parse_line(buf, headers, &headers_count,
+                             sizeof headers / sizeof headers[0]);
+    if (headers_count < 4U) {
+        return -1;
+    }
+    do {
+        buf = minicsv_parse_line(buf, cols, &cols_count,
+                                 sizeof cols / sizeof cols[0]);
+        minicsv_trim_cols(cols, cols_count);
+        if (cols_count < 4U || *cols[0] == 0 || *cols[0] == '#') {
+            continue;
+        }
+        if (options_parse_resolver(proxy_context, headers, headers_count,
+                                   cols, cols_count) > 0) {
+            return 0;
+        }
+    } while (*buf != 0);
+
+    return -1;
+}
+
+static int
+options_use_resolver_name(ProxyContext * const proxy_context)
+{
+    char *file_buf;
+
+    file_buf = options_read_file(proxy_context->resolvers_list);
+    if (file_buf == NULL) {
+        logger(proxy_context, LOG_ERR, "Unable to read [%s]",
+               proxy_context->resolvers_list);
+        exit(1);
+    }
+    assert(proxy_context->resolver_name != NULL);
+    if (options_parse_resolvers_list(proxy_context, file_buf) < 0) {
+        logger(proxy_context, LOG_ERR,
+               "No resolver named [%s] found in the [%s] list",
+               proxy_context->resolver_name, proxy_context->resolvers_list);
+    }
+    free(file_buf);
+
+    return 0;
+}
+
 static int
 options_apply(ProxyContext * const proxy_context)
 {
-    if (proxy_context->resolver_ip == NULL) {
-        options_usage();
+    if (proxy_context->resolver_name != NULL) {
+        if (proxy_context->resolvers_list == NULL) {
+            logger_noformat(proxy_context, LOG_ERR,
+                            "Resolvers list (-L command-line switch) required");
+            exit(1);
+        }
+        if (options_use_resolver_name(proxy_context) != 0) {
+            logger(proxy_context, LOG_ERR,
+                   "Resolver name (-R command-line switch) required. "
+                   "See [%s] for a list of public resolvers.",
+                   proxy_context->resolvers_list);
+            exit(1);
+        }
+    }
+    if (proxy_context->resolver_ip == NULL ||
+        *proxy_context->resolver_ip == 0 ||
+        proxy_context->provider_name == NULL ||
+        *proxy_context->provider_name == 0 ||
+        proxy_context->provider_publickey_s == NULL ||
+        *proxy_context->provider_publickey_s == 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Resolver information required.");
+        logger_noformat(proxy_context, LOG_ERR,
+                        "The easiest way to do so is to provide a resolver name.");
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Example: dnscrypt-proxy -R mydnsprovider");
+        logger(proxy_context, LOG_ERR,
+               "See the file [%s] for a list of compatible public resolvers",
+               proxy_context->resolvers_list);
+        logger_noformat(proxy_context, LOG_ERR,
+                        "The name is the first column in this table.");
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Alternatively, an IP address, a provider name "
+                        "and a provider key can be supplied.");
+#ifdef _WIN32
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Consult http://dnscrypt.org "
+                        "and https://github.com/jedisct1/dnscrypt-proxy/blob/master/README-WINDOWS.markdown "
+                        "for details.");
+#else
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Please consult http://dnscrypt.org "
+                        "and the dnscrypt-proxy(8) man page for details.");
+#endif
         exit(1);
     }
     if (proxy_context->provider_name == NULL ||
@@ -201,8 +394,11 @@ int
 options_parse(AppContext * const app_context,
               ProxyContext * const proxy_context, int argc, char *argv[])
 {
-    int opt_flag;
-    int option_index = 0;
+    int   opt_flag;
+    int   option_index = 0;
+#ifdef _WIN32
+    _Bool option_install = 0;
+#endif
 
     options_init_with_default(app_context, proxy_context);
     while ((opt_flag = getopt_long(argc, argv,
@@ -246,6 +442,12 @@ options_parse(AppContext * const app_context,
             break;
         case 'l':
             proxy_context->log_file = optarg;
+            break;
+        case 'L':
+            proxy_context->resolvers_list = optarg;
+            break;
+        case 'R':
+            proxy_context->resolver_name = optarg;
             break;
         case 'm': {
             char *endptr;
@@ -334,11 +536,17 @@ options_parse(AppContext * const app_context,
             break;
 #ifdef _WIN32
         case WIN_OPTION_INSTALL:
+        case WIN_OPTION_REINSTALL:
+            option_install = 1;
+            break;
         case WIN_OPTION_UNINSTALL:
-            if (windows_service_option(opt_flag, argc,
-                                       (const char **) argv) != 0) {
-                options_usage();
+            if (windows_service_uninstall() != 0) {
+                logger_noformat(NULL, LOG_ERR, "Unable to uninstall the service");
                 exit(1);
+            } else {
+                logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
+                                " service has been removed from this system");
+                exit(0);
             }
             break;
 #endif
@@ -350,6 +558,24 @@ options_parse(AppContext * const app_context,
     if (options_apply(proxy_context) != 0) {
         return -1;
     }
+#ifdef _WIN32
+    if (option_install != 0) {
+        if (windows_service_install(proxy_context) != 0) {
+            logger_noformat(NULL, LOG_ERR, "Unable to install the service");
+            logger_noformat(NULL, LOG_ERR,
+                            "Make sure that you are using an elevated command prompt "
+                            "and that the service hasn't been already installed");
+            exit(1);
+        }
+        logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
+                        " service has been installed and started");
+        logger_noformat(NULL, LOG_INFO, "The registry key used for this "
+                        "service is " WINDOWS_SERVICE_REGISTRY_PARAMETERS_KEY);
+        logger(NULL, LOG_INFO, "Now, change your resolver settings to %s",
+               proxy_context->local_ip);
+        exit(0);
+    }
+#endif
     return 0;
 }
 

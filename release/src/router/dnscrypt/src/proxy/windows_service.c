@@ -2,6 +2,8 @@
 #include <config.h>
 
 #include "app.h"
+#include "dnscrypt_proxy.h"
+#include "logger.h"
 #include "windows_service.h"
 
 #ifndef _WIN32
@@ -25,15 +27,6 @@ main(int argc, char *argv[])
 
 #include "logger.h"
 #include "utils.h"
-
-#ifndef WINDOWS_SERVICE_NAME
-# define WINDOWS_SERVICE_NAME "dnscrypt-proxy"
-#endif
-#ifndef WINDOWS_SERVICE_REGISTRY_PARAMETERS_KEY
-# define  WINDOWS_SERVICE_REGISTRY_PARAMETERS_KEY \
-    "SYSTEM\\CurrentControlSet\\Services\\" \
-    WINDOWS_SERVICE_NAME "\\Parameters"
-#endif
 
 static SERVICE_STATUS        service_status;
 static SERVICE_STATUS_HANDLE service_status_handle;
@@ -232,6 +225,33 @@ windows_service_registry_read_dword(const char * const key,
 }
 
 static int
+windows_service_registry_write_string(const char * const key,
+                                      const char * const value)
+{
+    HKEY   hk = NULL;
+    size_t value_len;
+    int    ret = 0;
+
+    value_len = strlen(value);
+    if (value_len > 0x7fffffff) {
+        return -1;
+    }
+    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,
+                       WINDOWS_SERVICE_REGISTRY_PARAMETERS_KEY,
+                       (DWORD) 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE,
+                       NULL, &hk, NULL) != ERROR_SUCCESS) {
+        return -1;
+    }
+    if (RegSetValueEx(hk, key, NULL, REG_SZ, (const BYTE *) value,
+                      (DWORD) value_len) != ERROR_SUCCESS) {
+        ret = -1;
+    }
+    RegCloseKey(hk);
+
+    return ret;
+}
+
+static int
 windows_build_command_line_from_registry(int * const argc_p,
                                          char *** const argv_p)
 {
@@ -242,6 +262,18 @@ windows_build_command_line_from_registry(int * const argc_p,
 
     if ((*argv_p = cmdline_clone_options(*argc_p, *argv_p)) == NULL) {
         exit(1);
+    }
+    if (windows_service_registry_read_string
+        ("ResolversList", &string_value) == 0) {
+        err += cmdline_add_option(argc_p, argv_p, "--resolvers-list");
+        err += cmdline_add_option(argc_p, argv_p, string_value);
+        free(string_value);
+    }
+    if (windows_service_registry_read_string
+        ("ResolverName", &string_value) == 0) {
+        err += cmdline_add_option(argc_p, argv_p, "--resolver-name");
+        err += cmdline_add_option(argc_p, argv_p, string_value);
+        free(string_value);
     }
     if (windows_service_registry_read_string
         ("LocalAddress", &string_value) == 0) {
@@ -346,22 +378,25 @@ windows_main(int argc, char *argv[])
     return 0;
 }
 
-static int
+int
 windows_service_uninstall(void)
 {
-    SC_HANDLE scm_handle;
-    SC_HANDLE service_handle;
-    int       ret = 0;
+    SC_HANDLE      scm_handle;
+    SC_HANDLE      service_handle;
+    SERVICE_STATUS service_status;
+    int            ret = 0;
 
     scm_handle = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (scm_handle == NULL) {
         return -1;
     }
-    service_handle = OpenService(scm_handle, WINDOWS_SERVICE_NAME, DELETE);
+    service_handle = OpenService(scm_handle, WINDOWS_SERVICE_NAME,
+                                 DELETE | SERVICE_STOP);
     if (service_handle == NULL) {
         CloseServiceHandle(scm_handle);
         return 0;
     }
+    ControlService(service_handle, SERVICE_CONTROL_STOP, &service_status);
     if (DeleteService(service_handle) == 0) {
         ret = -1;
     }
@@ -372,14 +407,35 @@ windows_service_uninstall(void)
 }
 
 static int
-windows_service_install(const int argc, const char * const argv[])
+windows_registry_install(ProxyContext * const proxy_context)
+{
+    if (proxy_context->resolvers_list != NULL) {
+        windows_service_registry_write_string("ResolversList",
+                                             proxy_context->resolvers_list);
+    }
+    if (proxy_context->resolver_name != NULL) {
+        windows_service_registry_write_string("ResolverName",
+                                             proxy_context->resolver_name);
+    }
+    if (proxy_context->local_ip != NULL) {
+        windows_service_registry_write_string("LocalAddress",
+                                             proxy_context->local_ip);
+    }
+    return 0;
+}
+
+int
+windows_service_install(ProxyContext * const proxy_context)
 {
     char      self_path[MAX_PATH];
     SC_HANDLE scm_handle;
     SC_HANDLE service_handle;
 
-    (void) argc;
-    (void) argv;
+    if (windows_registry_install(proxy_context) != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Unable to set up registry keys");
+        return -1;
+    }
     if (GetModuleFileName(NULL, self_path, MAX_PATH) <= (DWORD) 0) {
         return -1;
     }
@@ -400,42 +456,6 @@ windows_service_install(const int argc, const char * const argv[])
     CloseServiceHandle(service_handle);
     CloseServiceHandle(scm_handle);
 
-    return 0;
-}
-
-int
-windows_service_option(const int opt_flag, const int argc,
-                       const char *argv[])
-{
-    if (app_is_running_as_a_service != 0) {
-        return 0;
-    }
-    switch (opt_flag) {
-    case WIN_OPTION_INSTALL:
-    case WIN_OPTION_REINSTALL:
-        windows_service_uninstall();
-        if (windows_service_install(argc, argv) != 0) {
-            logger_noformat(NULL, LOG_ERR, "Unable to install the service");
-            exit(1);
-        } else {
-            logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
-                            " service has been installed and started");
-            exit(0);
-        }
-        break;
-    case WIN_OPTION_UNINSTALL:
-        if (windows_service_uninstall() != 0) {
-            logger_noformat(NULL, LOG_ERR, "Unable to uninstall the service");
-            exit(1);
-        } else {
-            logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
-                            " service has been removed from this system");
-            exit(0);
-        }
-        break;
-    default:
-        return -1;
-    }
     return 0;
 }
 
