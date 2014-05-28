@@ -8,10 +8,9 @@ A tool for securing communications between a client and a DNS resolver.
 Description
 -----------
 
-dnscrypt-proxy provides local service which can be used directly as
+`dnscrypt-proxy` provides local service which can be used directly as
 your local resolver or as a DNS forwarder, authenticating requests
-using the DNSCrypt protocol and passing them to an upstream server, by
-default OpenDNS.
+using the DNSCrypt protocol and passing them to an upstream server.
 
 The DNSCrypt protocol uses high-speed high-security elliptic-curve
 cryptography and is very similar to [DNSCurve](http://dnscurve.org/),
@@ -23,56 +22,6 @@ network, which is often the weakest point of the chain, against
 man-in-the-middle attacks. It also provides some confidentiality to
 DNS queries.
 
-Current list of free, DNSCrypt-enabled resolvers
-------------------------------------------------
-
-* [OpenDNS](http://www.opendns.com)
-  - Server address: 208.67.220.220:443
-  - Provider name: 2.dnscrypt-cert.opendns.com
-  - Public key: B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79
-
-* [CloudNS](https://cloudns.com.au/) - No logs, DNSSEC
-  * Canberra, Australia
-    - Server address: 113.20.6.2:443 or gc2tzw6lbmeagrp3.onion:443
-    - Provider name: 2.dnscrypt-cert.cloudns.com.au
-    - Public key: 1971:7C1A:C550:6C09:F09B:ACB1:1AF7:C349:6425:2676:247F:B738:1C5A:243A:C1CC:89F4
-  * Sydney, Australia
-    - Server address: 113.20.8.17:443 or l65q62lf7wnfme7m.onion:443
-    - Provider name: 2.dnscrypt-cert-2.cloudns.com.au
-    - Public key: 67A4:323E:581F:79B9:BC54:825F:54FE:1025:8B4F:37EB:0D07:0BCE:4010:6195:D94F:E330
-
-* [OpenNIC](http://www.opennicproject.org/) - No logs
-  * Japan
-    - Server address: 106.186.17.181:2053
-    - Provider name: 2.dnscrypt-cert.ns2.jp.dns.opennic.glue
-    - Public key: 8768:C3DB:F70A:FBC6:3B64:8630:8167:2FD4:EE6F:E175:ECFD:46C9:22FC:7674:A1AC:2E2A
-  * UK
-    * NovaKing (ns8)
-      - Server address: 185.19.104.45:443
-      - Provider name: 2.dnscrypt-cert.ns8.uk.dns.opennic.glue
-      - Public key: A17C:06FC:BA21:F2AC:F4CD:9374:016A:684F:4F56:564A:EB30:A422:3D9D:1580:A461:B6A6
-    * NovaKing (ns9)
-      - Server address: 185.19.105.6:443
-      - Provider name: 2.dnscrypt-cert.ns9.uk.dns.opennic.glue
-      - Public key: E864:80D9:DFBD:9DB4:58EA:8063:292F:EC41:9126:8394:BC44:FAB8:4B6E:B104:8C3B:E0B4
-    * NovaKing (ns10)
-      - Server address: 185.19.105.14:443
-      - Provider name: 2.dnscrypt-cert.ns10.uk.dns.opennic.glue
-      - Public key: B1AB:7025:1119:9AEE:E42E:1B12:F2EF:12D4:53D9:CD92:E07B:9AF4:4794:F6EB:E5A4:F725
-
-* [DNSCrypt.eu](http://dnscrypt.eu/) - No logs, DNSSEC
-  * Holland
-    - Server address: 176.56.237.171:443
-    - Provider name: 2.dnscrypt-cert.dnscrypt.eu
-    - Public key: 67C0:0F2C:21C5:5481:45DD:7CB4:6A27:1AF2:EB96:9931:40A3:09B6:2B8D:1653:1185:9C66
-
-* [Soltysiak.com](http://dc1.soltysiak.com/) - No logs, DNSSEC
-  * Poznan, Poland
-    - Server address: 178.216.201.222:2053
-    - Provider name: 2.dnscrypt-cert.soltysiak.com
-    - Public key: 25C4:E188:2915:4697:8F9C:2BBD:B6A7:AFA4:01ED:A051:0508:5D53:03E7:1928:C066:8F21
-
-
 Download and integrity check
 ----------------------------
 
@@ -80,16 +29,16 @@ DNSCrypt can be downloaded here: [dnscrypt download](http://dnscrypt.org)
 
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.3.3.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.4.0.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -D TXT dnscrypt-proxy-1.3.3.tar.bz2.download.dnscrypt.org
+    $ drill -D TXT dnscrypt-proxy-1.4.0.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.3.3.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.4.0.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -113,7 +62,7 @@ the paths the dynamic linker is going to look at. Before issuing
 
     # echo /usr/local/lib > /etc/ld.so.conf.d/usr_local_lib.conf
 
-Now, download the latest dnscrypt-proxy version and extract it:
+Now, download the latest `dnscrypt-proxy` version and extract it:
 
     $ bunzip2 -cd dnscrypt-proxy-*.tar.bz2 | tar xvf -
     $ cd dnscrypt-proxy-*
@@ -142,16 +91,33 @@ If you need a simple graphical user interface in order to start/stop
 the proxy and change your DNS settings, check out the following
 project:
 
-- [DNSCrypt WinClient](https://github.com/FivfBx2dOQTC3gc8YS4yMNo0el/dnscrypt-winclient):
+- [DNSCrypt WinClient](https://github.com/Noxwizard/dnscrypt-winclient):
 Easily enable/disable DNSCrypt on multiple adapters. Supports
 different ports and protocols, IPv6, parental controls and the proxy
-can act as a gateway service. Windows only, written in .NET. Designed
-for OpenDNS and CloudNS.
+can act as a gateway service. Windows only, written in .NET.
 
-Server-side proxy
------------------
+- [DNSCrypt Windows Service Manager](http://simonclausen.dk/projects/dnscrypt-winservicemgr/):
+Assists in setting up DNSCrypt as a service, configure it and change network adapter DNS
+settings to use DNSCrypt. It includes the option to use TCP/UDP protocol, IPV4/IPV6
+connectivity, choice of network adapter to configure, as well as configurations for currently
+available DNSCrypt providers.
 
-[DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper) is a
+- [DNSCrypt OSXClient](https://github.com/alterstep/dnscrypt-osxclient):
+Mac OSX application to control the DNSCrypt Proxy.
+
+- [DNSCrypt Tools for Linux](http://opendesktop.org/content/show.php/DNScrypt+Tools?content=164488):
+A set of tools for `dnscrypt-proxy`. Features a start and stop button as well as options to enable
+or disable from startup. Developed for Porteus Linux.
+
+DNSCrypt-enabled resolvers
+--------------------------
+
+To get started, you can use any of the
+[public DNS resolvers supporting DNSCrypt](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv).
+
+If you want to add DNSCrypt support to your own public or private
+resolver, check out
+[DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper), a
 server-side dnscrypt proxy that works with any name resolver.
 
 Usage
@@ -164,11 +130,14 @@ for this user's uid as soon as possible.
 
 The easiest way to start the daemon is:
 
-    # dnscrypt-proxy --daemonize
+    # dnscrypt-proxy --daemonize --resolver-name=<resolver name>
+
+Replace `<resolver name>` with the name of the resolver you want to
+use (the first column in the list of public resolvers).
 
 The proxy will accept incoming requests on 127.0.0.1, tag them with an
-authentication code, forward them to OpenDNS resolvers, and validate
-each answer before passing it to the client.
+authentication code, forward them to the resolver, and validate each
+answer before passing it to the client.
 
 Given such a setup, in order to actually start using DNSCrypt, you
 need to update your `/etc/resolv.conf` file and replace your current
@@ -182,41 +151,35 @@ Other common command-line switches include:
 * `--local-address=<ip>[:port]` in order to locally bind a different IP
 address than 127.0.0.1
 * `--logfile=<file>` in order to write log data to a dedicated file. By
-  default, logs are sent to stdout if the server is running in foreground,
-  and to syslog if it is running in background.
+default, logs are sent to stdout if the server is running in foreground,
+and to syslog if it is running in background.
 * `--loglevel=<level>` if you need less verbosity in log files.
 * `--max-active-requests=<count>` to set the maximum number of active
-  requests. The default value is 250.
-* `--pid-file=<file>` in order to store the PID number to a file.
+requests. The default value is 250.
+* `--pidfile=<file>` in order to store the PID number to a file.
 * `--user=<user name>` in order to chroot()/drop privileges.
+* `--resolvers-list=<file>`: to specity the path to the CSV file containing
+the list of available resolvers, and the parameters to use them.
 * `--test` in order to check that the server-side proxy is properly
 configured and that a valid certificate can be used. This is useful
 for monitoring your own dnscrypt proxy. See the man page for more
 information.
 
-DNSCrypt comes pre-configured for OpenDNS, although the
+The
 `--resolver-address=<ip>[:port]`,
 `--provider-name=<certificate provider FQDN>`
-and `--provider-key=<provider public key>` can be specified in
-order to change the default settings.
+and `--provider-key=<provider public key>` switches can be specified in
+order to use a DNSCrypt-enabled recursive DNS service not listed in
+the configuration file.
 
 Installation as a service (Windows only)
 ----------------------------------------
 
 The proxy can be installed as a Windows service.
 
-Copy the `dnscrypt-proxy.exe` file to any location, as well as the
-`libsodium-4.dll` file. Both should be in the same location. If you
-are using plugins depending on ldns, copy the ldns DLL as well. Then open a
-terminal and type (eventually with the full path to `dnscrypt-proxy.exe`):
-
-    dnscrypt-proxy.exe --install
-
-It will install a new service named `dnscrypt-proxy`.
-
-After being stopped, the service can be removed with:
-
-    dnscrypt-proxy.exe --uninstall
+See
+[README-WINDOWS.markdown](https://github.com/jedisct1/dnscrypt-proxy/blob/master/README-WINDOWS.markdown)
+for more information on DNSCrypt on Windows.
 
 Using DNSCrypt in combination with a DNS cache
 ----------------------------------------------
@@ -269,7 +232,7 @@ As a workaround, the port number can be changed using
 the `--resolver-port=<port>` option. For example, OpenDNS servers
 reply to queries sent to ports 53, 443 and 5353.
 
-By default, dnscrypt-proxy sends outgoing queries to UDP port 443.
+By default, `dnscrypt-proxy` sends outgoing queries to UDP port 443.
 
 In addition, the DNSCrypt proxy can force outgoing queries to be
 sent over TCP. For example, TCP port 443, which is commonly used for
@@ -322,3 +285,63 @@ This tool can be useful for starting some services before
 `dnscrypt-proxy`.
 
 Queries made by `hostip` are not authenticated.
+
+Plugins
+-------
+
+`dnscrypt-proxy` can be extended with plugins. A plugin acts as a
+filter that can locally inspect and modify queries and responses.
+
+The plugin API is documented in the `README-PLUGINS.markdown` file.
+
+Any number of plugins can be combined (chained) by repeating the
+`--plugin` command-line switch.
+
+The default distribution ships with some example plugins:
+
+* `libdcplugin_example_ldns_aaaa_blocking`: Directly return an empty
+response to AAAA queries
+
+Example usage:
+
+    # dnscrypt-proxy ... \
+    --plugin libdcplugin_example_ldns_aaaa_blocking.la
+
+If IPv6 connectivity is not available on your network, this plugin
+avoids waiting for responses about IPv6 addresses from upstream
+resolvers. This can improve your web browsing experience.
+
+* `libdcplugin_example_ldns_blocking`: Block specific domains and IP
+addresses.
+
+This plugin returns a REFUSED response if the query name is in a
+llist of blacklisted names, or if at least one of the returned
+IP addresses happens to be in a list of blacklisted IPs.
+
+Recognized switches are:
+
+    --domains=<file>
+    --ips=<file>
+
+A file should list one entry per line.
+
+IPv4 and IPv6 addresses are supported.
+For names, leading and trailing wildcards (`*`) are also supported
+(e.g. `*xxx*`, `*.example.com`, `ads.*`)
+
+    # dnscrypt-proxy ... \
+    --plugin libdcplugin_example,--ips=/etc/blk-ips,--domains=/etc/blk-names
+
+* `libdcplugin_example-logging`: Log client queries
+
+This plugin logs the client queries to the standard output (default)
+or to a file.
+
+    # dnscrypt-proxy ... \
+    --plugin libdcplugin_example_logging,/var/log/dns.log
+
+* Extra plugins
+
+Additional plugins can be found on Github:
+[Masquerade plugin](https://github.com/gchehab/dnscrypt-plugin-masquerade),
+[GeoIP plugin](https://github.com/jedisct1/dnscrypt-plugin-geoip-block).

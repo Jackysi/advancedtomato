@@ -4,8 +4,7 @@ DNSCrypt Plugins
 Overview
 --------
 
-Starting with version 1.1.0, `dnscrypt-proxy` can be extended with
-plugins.
+`dnscrypt-proxy` can be extended with plugins.
 
 A plugin can implement *pre-filters* and *post-filters*.
 

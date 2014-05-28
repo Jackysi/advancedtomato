@@ -4,40 +4,23 @@
 # What local IP the daemon will listen to, with an optional port. The default port is 53.
 local-address=127.0.0.2:53
 
+# instructs resolvconf (if installed) to update the machine dns servers
+resolvconf=no
+
 # Write PID to a file.
 pidfile=/run/dnscrypt-proxy.pid
 
+# runs dnscrypt-proxy as a dedicated user with restrict privileges
+# This is a security feature and should never be disabled.
+user=dnscrypt
+
 # Remote DNS(Crypt) provider settings
-#
-# OpenDNS:
+# You can find a list of resolvers at https://github.com/jedisct1/dnscrypt-proxy/
+# or locally in file /usr/share/doc/dnscrypt-proxy/README.markdown.gz
+# Specifying multiple resolvers is not yet supported!
 #resolver-address=208.67.220.220:443
 #provider-name=2.dnscrypt-cert.opendns.com
 #provider-key=B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79 
-#
-# DNSCrypt.eu:
-#resolver-address=176.56.237.171:443
-#provider-name=2.dnscrypt-cert.dnscrypt.eu
-#provider-key=67C0:0F2C:21C5:5481:45DD:7CB4:6A27:1AF2:EB96:9931:40A3:09B6:2B8D:1653:1185:9C66
-#
-# OpenNIC (Japan):
-#resolver-address=106.186.17.181:2053
-#provider-name=2.dnscrypt-cert.ns2.jp.dns.opennic.glue
-#provider-key=8768:C3DB:F70A:FBC6:3B64:8630:8167:2FD4:EE6F:E175:ECFD:46C9:22FC:7674:A1AC:2E2A
-#
-# OpenNIC (UK) - NovaKing (ns8):
-#resolver-address=185.19.104.45:443
-#provider-name=2.dnscrypt-cert.ns8.uk.dns.opennic.glue
-#provider-key=A17C:06FC:BA21:F2AC:F4CD:9374:016A:684F:4F56:564A:EB30:A422:3D9D:1580:A461:B6A6
-#
-# OpenNIC (UK) - NovaKing (ns9):
-#resolver-address=185.19.105.6:443
-#provider-name=2.dnscrypt-cert.ns9.uk.dns.opennic.glue
-#provider-key=E864:80D9:DFBD:9DB4:58EA:8063:292F:EC41:9126:8394:BC44:FAB8:4B6E:B104:8C3B:E0B4
-#
-# OpenNIC (UK) - NovaKing (ns10):
-#resolver-address=185.19.105.14:443
-#provider-name=2.dnscrypt-cert.ns10.uk.dns.opennic.glue
-#provider-key=B1AB:7025:1119:9AEE:E42E:1B12:F2EF:12D4:53D9:CD92:E07B:9AF4:4794:F6EB:E5A4:F725
 
 # Transparently add an OPT pseudo-RR to outgoing queries in order to enable the EDNS0 extension mechanism.
 # This feature is enabled by default, with a payload size of 1252 bytes. Any value below 512 disables it.

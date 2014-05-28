@@ -154,6 +154,9 @@ dnscrypt_client_init_nmkey(DNSCryptClient * const client,
 #if crypto_box_BEFORENMBYTES != crypto_box_PUBLICKEYBYTES
 # error crypto_box_BEFORENMBYTES != crypto_box_PUBLICKEYBYTES
 #endif
+#ifdef HAVE_SODIUM_MLOCK
+    sodium_mlock(client->nmkey, crypto_box_BEFORENMBYTES);
+#endif
     memcpy(client->nmkey, server_publickey, crypto_box_PUBLICKEYBYTES);
     crypto_box_beforenm(client->nmkey, client->nmkey, client->secretkey);
 
@@ -197,10 +200,17 @@ dnscrypt_client_init_with_new_key_pair(DNSCryptClient * const client)
     uint8_t client_publickey[crypto_box_PUBLICKEYBYTES];
     uint8_t client_secretkey[crypto_box_SECRETKEYBYTES];
 
+#ifdef HAVE_SODIUM_MLOCK
+    sodium_mlock(client_secretkey, crypto_box_SECRETKEYBYTES);
+#endif
     dnscrypt_client_create_key_pair(client,
                                     client_publickey, client_secretkey);
     dnscrypt_client_init_with_key_pair(client,
                                        client_publickey, client_secretkey);
+    sodium_memzero(client_secretkey, crypto_box_SECRETKEYBYTES);
+#ifdef HAVE_SODIUM_MLOCK
+    sodium_munlock(client_secretkey, crypto_box_SECRETKEYBYTES);
+#endif
 
     return 0;
 }

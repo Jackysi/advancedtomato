@@ -12,6 +12,7 @@
     <array>
       <string>/usr/local/sbin/dnscrypt-proxy</string>
       <string>--user=nobody</string>
+      <string>--resolver-name=***CHANGETHIS***</string>      
     </array>
     <key>StandardErrorPath</key>
     <string>/dev/null</string>

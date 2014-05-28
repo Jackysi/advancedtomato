@@ -7,4 +7,6 @@ int options_parse(AppContext * const app_context,
 
 void options_free(ProxyContext * const proxy_context);
 
+#define OPTIONS_RESOLVERS_LIST_MAX_COLS 50
+
 #endif

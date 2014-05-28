@@ -26,8 +26,7 @@ static const char   *getopt_options = "6hr:V";
 static void
 options_version(void)
 {
-    puts("hostip v" PACKAGE_VERSION "\n"
-         "Copyright (C) 2012 OpenDNS, Inc.");
+    puts("hostip v" PACKAGE_VERSION);
 }
 
 static void
@@ -39,7 +38,7 @@ options_usage(void)
          "  -r, --resolver-address=<ip>: the resolver IP address\n"
          "  -V, --version: show version number\n"
          "\n"
-         "Example: hostip -r 208.67.222.222 www.example.com\n");
+         "Example: hostip www.example.com\n");
 }
 
 static

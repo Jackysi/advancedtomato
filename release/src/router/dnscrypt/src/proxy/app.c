@@ -224,7 +224,7 @@ dnscrypt_proxy_start_listeners(ProxyContext * const proxy_context)
     evutil_format_sockaddr_port((const struct sockaddr *)
                                 &proxy_context->resolver_sockaddr,
                                 resolver_addr_s, sizeof resolver_addr_s);
-    logger(proxy_context, LOG_INFO, "Proxying from %s to %s",
+    logger(proxy_context, LOG_NOTICE, "Proxying from %s to %s",
            local_addr_s, resolver_addr_s);
 
     proxy_context->listeners_started = 1;
@@ -261,6 +261,7 @@ dnscrypt_proxy_main(int argc, char *argv[])
         logger_noformat(NULL, LOG_ERR, "Unable to start the proxy");
         exit(1);
     }
+    logger_noformat(&proxy_context, LOG_NOTICE, "Starting " PACKAGE_STRING);
 #ifdef USE_ONLY_PORTABLE_IMPLEMENTATIONS
     randombytes_stir();
 #else
@@ -301,7 +302,7 @@ dnscrypt_proxy_main(int argc, char *argv[])
     if (skip_dispatch == 0) {
         event_base_dispatch(proxy_context.event_loop);
     }
-    logger_noformat(&proxy_context, LOG_INFO, "Stopping proxy");
+    logger_noformat(&proxy_context, LOG_NOTICE, "Stopping proxy");
     cert_updater_free(&proxy_context);
     udp_listener_stop(&proxy_context);
     tcp_listener_stop(&proxy_context);
