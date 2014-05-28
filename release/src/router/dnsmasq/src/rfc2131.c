@@ -1547,7 +1547,6 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
 		       int mac_len, char *interface, char *string, char *err, u32 xid)
 {
   struct in_addr a;
-
  
   if (!err && !option_bool(OPT_LOG_OPTS) && option_bool(OPT_QUIET_DHCP))
     return;
