@@ -188,6 +188,9 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <!-- DNSSEC-BEGIN -->
 - DNSSEC integration and GUI<br>
 <!-- DNSSEC-END -->
+<!-- DNSCRYPT-BEGIN -->
+- DNSCrypt-Proxy selectable/manual resolver<br>
+<!-- DNSCRYPT-END -->
 - Comcast DSCP Fix GUI<br>
 <i>Copyright (C) 2014 Lance Fredrickson</i><br>
 <a href='mailto:lancethepants@gmail.com'>lancethepants@gmail.com</a><br>
