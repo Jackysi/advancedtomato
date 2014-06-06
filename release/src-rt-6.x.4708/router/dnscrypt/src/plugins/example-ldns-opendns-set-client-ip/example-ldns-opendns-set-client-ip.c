@@ -7,6 +7,7 @@
 #endif
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -56,6 +57,33 @@ dcplugin_long_description(DCPlugin * const dcplugin)
 }
 
 static int
+_inet_pton(const int af, const char * const src, void * const dst)
+{
+    unsigned char  *dstc;
+    unsigned int    a, b, c, d;
+    char            more;
+
+    if (af != AF_INET) {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+    if (sscanf(src, "%u.%u.%u.%u%c", &a, &b, &c, &d, &more) != 4) {
+        return 0;
+    }
+    if (a > 0xff || b > 0xff || c > 0xff || d > 0xff) {
+        return 0;
+    }
+    dstc = (unsigned char *) dst;
+    assert(sizeof(struct in_addr) >= 4U);
+    dstc[0] = (unsigned char) a;
+    dstc[1] = (unsigned char) b;
+    dstc[2] = (unsigned char) c;
+    dstc[3] = (unsigned char) d;
+
+    return 1;
+}
+
+static int
 parse_client_ip(const char *ip_s, char * const edns_hex)
 {
     char            ip_hex[8U + 1U];
@@ -64,7 +92,7 @@ parse_client_ip(const char *ip_s, char * const edns_hex)
     const size_t    ip_s_len = strlen(ip_s);
 
     if (ip_s_len <= INET_ADDRSTRLEN && strchr(ip_s, '.') != NULL &&
-        inet_aton(ip_s, &ip_in_addr) > 0) {
+        _inet_pton(AF_INET, ip_s, &ip_in_addr) > 0) {
         sa = (unsigned char *) &ip_in_addr.s_addr;
         snprintf(ip_hex, sizeof ip_hex, "%02X%02X%02X%02X",
                  sa[0], sa[1], sa[2], sa[3]);

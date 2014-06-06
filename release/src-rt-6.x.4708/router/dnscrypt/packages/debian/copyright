@@ -1,9 +1,9 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: dnscrypt-proxy
-Source: https://github.com/opendns/dnscrypt-proxy/
+Source: https://github.com/jedisct1/dnscrypt-proxy/
 
 Files: *
-Copyright: 2011-2013 Frank Denis <j at pureftpd dot org>
+Copyright: 2011-2014 Frank Denis <j at pureftpd dot org>
 License: ISC
  Permission to use, copy, modify, and distribute this software for any
  purpose with or without fee is hereby granted, provided that the above

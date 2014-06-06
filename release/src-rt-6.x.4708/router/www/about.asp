@@ -140,7 +140,7 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 - APCUPSD integration and GUI (implemented by @arrmo)<br>
 <!-- UPS-END -->
 <!-- DNSCRYPT-BEGIN -->
-- DNScrypt-proxy 1.3.4 integration and GUI<br>
+- DNScrypt-proxy 1.4.0 integration and GUI<br>
 <!-- DNSCRYPT-END -->
 <!-- TOR-BEGIN -->
 - TOR Project integration and GUI<br>

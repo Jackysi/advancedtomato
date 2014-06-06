@@ -1,3 +1,635 @@
+* Thu Apr 24 22:25:06 2014 -0700
+
+    Do not document --reinstall
+
+* Thu Apr 24 22:24:41 2014 -0700
+
+    Document how to open an elevated command prompt
+
+* Thu Apr 24 17:44:37 2014 -0700
+
+    Make dnscrypt-proxy half-decent on Windows
+
+* Thu Apr 24 23:23:49 2014 +0000
+
+    Add windows_service_registry_write_string(()
+
+* Wed Apr 23 23:10:14 2014 -0700
+
+    Quote dnscrypt-proxy
+
+* Wed Apr 23 21:38:21 2014 -0700
+
+    No need to check for inet_pton after all
+
+* Wed Apr 23 21:37:49 2014 -0700
+
+    Fu fu fu Windows, fu fu fuuuuu
+
+* Wed Apr 23 21:24:49 2014 -0700
+
+    Define a replacement inet_pton() function for Windows
+
+* Wed Apr 23 21:10:17 2014 -0700
+
+    Use inet_pton() instead of inet_aton()
+
+* Wed Apr 23 12:56:00 2014 -0700
+
+    Revert cf5a85b255f86db8b2c5ec4fe45aa383903a69bb
+
+* Wed Apr 23 08:20:26 2014 -0700
+
+    Update d0wn entries, requested by d0wn
+
+* Tue Apr 22 22:17:05 2014 -0700
+
+    Update dnscrypt-resolvers.csv signature
+
+* Tue Apr 22 22:12:54 2014 -0700
+
+    Update ns4.ca.dns.opennic.glue signature, via Nova King
+
+* Tue Apr 22 20:08:48 2014 -0700
+
+    Sign .csv file
+
+* Tue Apr 22 20:06:13 2014 -0700
+
+    Add CloudNS Tor addresses
+
+* Tue Apr 22 08:12:15 2014 -0700
+
+    Mention DNSCrypt-OSXClient, a new universal client for OSX.
+
+* Mon Apr 21 21:12:31 2014 -0700
+
+    Do not skip the last row of the CSV file.
+
+* Mon Apr 21 14:04:08 2014 -0700
+
+    Mention extra plugins
+
+* Mon Apr 21 14:00:26 2014 -0700
+
+    Markdown fixups
+
+* Mon Apr 21 13:58:36 2014 -0700
+
+    Update documentation
+
+* Mon Apr 21 13:58:17 2014 -0700
+
+    Do not recommend logging to /tmp
+
+* Mon Apr 21 13:01:01 2014 -0700
+
+    opennic-ca-ns17 is actually in Fremont, CA, US.
+
+* Mon Apr 21 12:53:23 2014 -0700
+
+    Full country names
+
+* Mon Apr 21 12:50:16 2014 -0700
+
+    for d0wn and OpenNIC servers, place the country code first to improve sorting
+
+* Mon Apr 21 12:46:06 2014 -0700
+
+    OK Turtles is okTurtles
+
+* Mon Apr 21 12:44:53 2014 -0700
+
+    opendns-ipv6 description should be unique
+
+* Mon Apr 21 12:44:03 2014 -0700
+
+    Sort, and add OpenDNS IPv6 and OpenDNS Familyshield
+
+* Mon Apr 21 12:35:00 2014 -0700
+
+    Complete d0wn servers
+
+* Mon Apr 21 12:33:18 2014 -0700
+
+    CSV is hard
+
+* Mon Apr 21 12:32:21 2014 -0700
+
+    Add missing version #
+
+* Mon Apr 21 12:31:13 2014 -0700
+
+    Missing ,
+
+* Mon Apr 21 12:30:18 2014 -0700
+
+    Fix CSV
+
+* Mon Apr 21 12:28:38 2014 -0700
+
+    More d0wn servers
+
+* Mon Apr 21 12:17:31 2014 -0700
+
+    Phew, NovaKing has so many resolvers...
+
+* Mon Apr 21 12:10:01 2014 -0700
+
+    Slowly complete the list of resolvers...
+
+* Mon Apr 21 11:48:13 2014 -0700
+
+    Add dnscrypt.eu IPv6 addresses
+
+* Mon Apr 21 11:24:47 2014 -0700
+
+    Remove unneeded quotes from CSV file
+
+* Mon Apr 21 11:23:24 2014 -0700
+
+    Remove empty records from CSV file
+
+* Mon Apr 21 11:23:01 2014 -0700
+
+    Cleanup CSV file
+
+* Fri Apr 18 04:56:18 2014 -0700
+
+    Plugins shouldn't be considered experimental any more
+
+Merge: cadf94b d005fa4
+* Thu Apr 17 08:18:14 2014 -0700
+
+    Merge pull request #91 from pysiak/master
+    
+    Update GEO coordinates and pubkey for Soltysiak
+
+* Thu Apr 17 13:31:21 2014 +0200
+
+    Update GEO coordinates and pubkey for Soltysiak
+
+* Thu Apr 17 00:21:22 2014 -0700
+
+    Better usage()
+
+* Thu Apr 17 00:06:43 2014 -0700
+
+    Add ResolverName and ResolversList to the Windows registry keys
+
+* Wed Apr 16 23:58:19 2014 -0700
+
+    Install dnscrypt-resolvers.csv
+
+* Wed Apr 16 23:48:43 2014 -0700
+
+    Move the list of resolvers to $pkgdatadir
+
+* Wed Apr 16 23:22:11 2014 -0700
+
+    New option -R <resolver name> to automatically pick resolver config from a name
+
+* Wed Apr 16 23:21:41 2014 -0700
+
+    Initialize the default resolver name to NULL
+
+* Wed Apr 16 21:30:20 2014 -0700
+
+    Open the CSV file in binary mode.
+
+* Wed Apr 16 21:27:50 2014 -0700
+
+    Portably computing the size of a file in C is not a solved problem.
+    https://www.securecoding.cert.org/confluence/display/seccode/FIO19-C.+Do+not+use+fseek()+and+ftell()+to+compute+the+size+of+a+regular+file
+
+* Wed Apr 16 20:45:09 2014 -0700
+
+    Define the path to dnscrypt-resolvers.csv
+
+* Wed Apr 16 20:12:59 2014 -0700
+
+    Use sodium_mlock() if available.
+
+* Wed Apr 16 19:51:22 2014 -0700
+
+    Check for sodium_mlock existence
+
+* Wed Apr 16 00:28:33 2014 -0700
+
+    MiniCSV: move macros to minicsv.h
+
+* Wed Apr 16 00:23:27 2014 -0700
+
+    Import MiniCSV
+
+* Wed Apr 16 06:08:11 2014 -0700
+
+    Downgrade "Received a resolver reply from a different resolver" to LOG_DEBUG
+
+* Wed Apr 16 06:02:07 2014 -0700
+
+    Next release will be 1.4.0
+
+* Wed Apr 16 06:02:07 2014 -0700
+
+    Fix buggy retry code. Issue #71
+
+* Sat Apr 12 13:33:20 2014 -0700
+
+    Fragmentation is allowed only if the packet size > the outgoing interface MTU.
+
+* Wed Apr 9 19:44:42 2014 -0700
+
+    Require provider information.
+
+* Wed Apr 9 12:15:28 2014 -0700
+
+    libevent: disable regress by default, as it requires network communications.
+
+* Tue Apr 8 14:43:27 2014 -0700
+
+    + DNSCrypt Tools
+
+Merge: 72a9e48 4fac7f8
+* Tue Apr 8 11:01:21 2014 -0700
+
+    Merge pull request #81 from aureq/master
+    
+    package compliance with debian distribution
+
+Merge: 6e646ad 9ee793f
+* Mon Apr 7 09:37:11 2014 -0700
+
+    Merge pull request #87 from Teknocrat/master
+    
+    New initd File for Gentoo allows configuration of different DNS servers
+
+* Mon Apr 7 12:29:21 2014 -0400
+
+    New initd File for Gentoo allows configuration of different DNS
+    resolvers vid conf.d config file variables
+
+* Sat Mar 29 21:34:48 2014 -0700
+
+    Fix a crash in evdns related to shutting down evdns
+    (Improved version to deal correctly with probe requests)
+    Patch from YASUOKA Masahiko; fix for libevent github issue #113.
+
+* Tue Mar 25 15:23:56 2014 -0700
+
+    Fix documentation: --resolver-address not --server-address
+
+* Tue Mar 25 08:06:03 2014 -0700
+
+    Fix a crash in evdns related to shutting down evdns
+    Patch from YASUOKA Masahiko; fix for libevent github issue #113.
+
+* Sun Mar 23 19:15:19 2014 +1100
+
+    return a fail if stop is request and the process wasn't running
+
+* Sun Mar 23 19:10:47 2014 +1100
+
+    pass the configuration to the argument parser
+    added --brackground to start-stop-daemon so the process is started correctly in the background
+    only retrieve the most recent pid for the daemon
+    cosmetic changes with "echo"
+    if process can't be killed, then return a fail (log_end_msg 1)
+
+* Sun Mar 23 18:34:24 2014 +1100
+
+    exclude 'resolvconf' from the upstart script when processing options
+
+* Sun Mar 23 18:03:45 2014 +1100
+
+    fixed syntax error in init script
+
+* Sun Mar 23 17:56:12 2014 +1100
+
+    debian init script as debian doesn't use upstart
+
+* Sun Mar 23 17:28:01 2014 +1100
+
+    removed --user=dnscrypt as moved to dnscrypt-proxy.default instead
+
+* Sun Mar 23 17:27:24 2014 +1100
+
+    added 'user=' to the default configuration file
+
+* Sun Mar 23 16:59:05 2014 +1100
+
+    added 'resolvconf' package dependency (Suggests only) for the init script to update /etc/resolv.connf
+
+* Sun Mar 23 16:52:09 2014 +1100
+
+    added 'resolvconf' variablee for the init script
+
+* Sun Mar 23 11:56:48 2014 +1100
+
+    (lintian) description-synopsis-starts-with-article
+
+* Sun Mar 23 11:54:49 2014 +1100
+
+    (lintian) dnscrypt-proxy: debian-revision-should-not-be-zero
+
+* Fri Mar 21 13:43:45 2014 -0700
+
+    OKTurtles does not support DNSSEC
+
+* Fri Mar 21 13:28:21 2014 -0700
+
+    Add OkTurtles to the list of providers.
+
+* Fri Mar 21 13:20:43 2014 -0700
+
+    DNSCrypt Winclient does more than OpenDNS and CloudNS now.
+
+* Fri Mar 21 13:16:34 2014 -0700
+
+    Prepare for removal of default settings.
+
+* Wed Mar 5 17:14:11 2014 -0800
+
+    libevent sync
+    * Wed Feb 19 06:49:31 2014 +0100
+    
+        Add -Qunused-arguments for clang on macos
+    
+        The clang compiler provided with macosx emits warnings like:
+    
+          CC       bufferevent.lo
+        clang: warning: argument unused during compilation: '-I .'
+        clang: warning: argument unused during compilation: '-I ./compat'
+        clang: warning: argument unused during compilation: '-I ./include'
+        clang: warning: argument unused during compilation: '-I ./include'
+    
+        for each file being compiled. This generates a lot of noise during
+        compilation making it hard to see "real" errors. This patch mute
+        those warnings.
+
+* Sun Feb 9 12:10:05 2014 -0800
+
+    Simplify hostip example
+
+* Sun Feb 9 12:04:33 2014 -0800
+
+    dnscrypt-proxy has been available in Homebrew for a while
+
+* Sun Feb 9 12:04:04 2014 -0800
+
+    Update repository.
+
+* Sun Feb 9 11:58:32 2014 -0800
+
+    Display something as LOG_NOTICE when the service starts
+
+* Sun Feb 9 11:58:22 2014 -0800
+
+    Regen hostip
+
+* Sun Feb 9 11:45:14 2014 -0800
+
+    213.154.224.3 now only accepts connections over TLS.
+
+* Sun Feb 9 11:36:26 2014 -0800
+
+    One line for the version is enough.
+
+* Sun Feb 9 11:33:51 2014 -0800
+
+    Use LOG_NOTICE level for startup/shutdown messages
+
+* Sun Feb 9 11:26:08 2014 -0800
+
+    bufferevent_pair: don't call downcast(NULL)
+
+* Thu Jan 30 13:06:04 2014 -0800
+
+    Add dnscrypt.eu IPv6 address for resolver #2
+
+* Thu Jan 30 10:07:50 2014 -0800
+
+    Refer to Noxwizard's repository again.
+
+Merge: e47ef88 627e26a
+* Fri Jan 24 08:33:56 2014 -0800
+
+    Merge pull request #62 from Shnatsel/master
+    
+    Fix applying AppArmor profile on startupp
+
+Merge: f4c73e9 e3085a8
+* Fri Jan 24 08:33:16 2014 -0800
+
+    Merge pull request #63 from Shnatsel/fix-etc-defaults
+    
+    Fix /etc/default in Ubuntu package
+
+* Fri Jan 24 19:34:02 2014 +0400
+
+    Link to resolver lists in /etc/default and note that specifying multiple resolvers is not yet supported
+
+* Fri Jan 24 19:29:33 2014 +0400
+
+    Revert "Add OpenNIC alternative root servers to /etc/default/dnscrypt-proxy."
+    
+
+* Fri Jan 24 14:44:33 2014 +0400
+
+    don't fail if loading of AppArmor profile from Upstart script failed for whatever reason
+
+* Fri Jan 24 14:21:15 2014 +0400
+
+    Fix a common bug with DNSCrypt having the AppArmor profile defined but not being confined by it
+
+* Wed Jan 22 16:17:03 2014 -0800
+
+    libevent: Check if arch has the epoll_create and __NR_epoll_wait syscalls.
+    Some architectures (like AArch64) do not have deprecated syscalls.
+
+* Wed Jan 15 11:34:02 2014 -0800
+
+    New OpenNIC servers in Fremont, CA
+
+* Mon Jan 13 14:53:54 2014 -0800
+
+    Typo
+
+* Mon Jan 13 14:52:13 2014 -0800
+
+    Link DNSCrypt Windows Service Manager
+
+* Mon Jan 13 14:47:29 2014 -0800
+
+    Update dnscrypt.eu resolvers
+
+Merge: 99ca5c8 57520bc
+* Mon Jan 13 14:08:55 2014 -0800
+
+    Merge pull request #56 from Kami/fix_readme_typo
+    
+    Fix typo in the README
+
+* Mon Jan 13 22:50:53 2014 +0100
+
+    Fix a typo, argument is called pidfile and not pid-file.
+
+* Wed Jan 1 17:09:12 2014 +0100
+
+    Year++
+
+* Tue Dec 31 16:36:16 2013 +0100
+
+    Remove the need for droid-gcc to compile for android
+
+* Fri Dec 27 20:00:58 2013 +0100
+
+    libevent typo fixes
+
+Merge: a4cd640 5cdf433
+* Wed Dec 18 13:14:44 2013 -0800
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Add OpenNIC alternative root servers to /etc/default/dnscrypt-proxy.
+
+* Wed Dec 18 13:13:15 2013 -0800
+
+    Remove references to encryption.
+    Make it clear that dnscrypt is about authentication, not privacy.
+
+Merge: d243c7a 52d2c7c
+* Fri Dec 13 09:20:46 2013 -0800
+
+    Merge pull request #48 from pataquets/master
+    
+    Add OpenNIC alternative root servers to /etc/default/dnscrypt-proxy.
+
+* Fri Dec 13 10:54:42 2013 +0100
+
+    Add OpenNIC alternative root servers to /etc/default/dnscrypt-proxy.
+
+Merge: c3942f2 e607279
+* Thu Dec 12 20:58:13 2013 -0800
+
+    Merge pull request #47 from pataquets/patch-2
+    
+    Add OpenNIC alternative DNS servers
+
+* Fri Dec 13 03:12:40 2013 +0100
+
+    Add OpenNIC alternative DNS servers
+
+* Wed Dec 11 22:45:32 2013 -0800
+
+    Fix hostip default -r arg
+
+* Sat Dec 7 21:56:29 2013 -0800
+
+    Update libevent ChangeLog
+
+* Mon Nov 18 15:00:10 2013 -0800
+
+    Target iOS 7.1
+
+* Sun Nov 17 21:10:31 2013 -0800
+
+    Remove unmaintained packages
+
+Merge: 2b48929 f0a155d
+* Tue Nov 5 23:24:36 2013 -0800
+
+    Merge pull request #39 from Shnatsel/master
+    
+    Add Debian/Ubuntu packaging
+
+Merge: 5535ff7 567c700
+* Mon Nov 4 22:15:23 2013 -0800
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Gentoo ebuild: Backport patch to fix always compiling plugins
+      Bump libsodium Gentoo ebuild to version 0.4.5
+      Update Gentoo ebuilds to use autotools-utils
+      Add masters attribute to Gentoo overlay layout.conf
+
+* Mon Nov 4 22:15:06 2013 -0800
+
+    libevent: Avoid redundant invocations of init_extension_functions for IOCP
+
+* Sun Nov 3 19:14:58 2013 +0400
+
+    Added Debian/Ubuntu packaging
+
+Merge: 34034ca c71e1e4
+* Fri Nov 1 09:16:05 2013 -0700
+
+    Merge pull request #38 from Strayer/gentoo-ebuild-fixes
+    
+    Gentoo ebuild fixes
+
+* Thu Oct 31 21:31:04 2013 +0100
+
+    Gentoo ebuild: Backport patch to fix always compiling plugins
+
+* Wed Oct 30 21:26:01 2013 +0100
+
+    Bump libsodium Gentoo ebuild to version 0.4.5
+
+* Tue Oct 29 23:24:56 2013 +0100
+
+    Update Gentoo ebuilds to use autotools-utils
+
+* Tue Oct 29 23:20:59 2013 +0100
+
+    Add masters attribute to Gentoo overlay layout.conf
+
+Merge: 659f6cf 3bc5106
+* Fri Nov 1 00:57:34 2013 -0700
+
+    Merge pull request #37 from Strayer/fix-autotools-configure-arguments
+    
+    Handle --disable-plugins* correctly in configure.ac
+
+* Thu Oct 31 21:06:11 2013 +0100
+
+    Handle --disable-plugins* correctly in configure.ac
+
+* Sun Oct 27 12:56:52 2013 -0700
+
+    port 2053 for the new Polish server
+
+* Sun Oct 27 12:50:16 2013 -0700
+
+    Add the new DNSCrypt service in Poland
+
+Merge: cfd5184 13e171f
+* Fri Oct 25 19:35:00 2013 -0700
+
+    Merge remote-tracking branch 'Shnatsel/master'
+    
+    * Shnatsel/master:
+      bump AppArmor profile modification date
+      Improve AppArmor profile:  - Use @{multiarch} tunable instead of *-linux-gnu* - they are the same on my system, but using the global tunable is more robust/portable  - Drop block_suspend capability because it requires Linux >= 3.5 and does not seem to be needed (as of my testing)  - Allow access to libpthread and librt, extensive testing indicates it is sometimes needed (libsodium multithreading?)  - Allow access to libsodium if it's installed in the system default path with multiarch support instead of just /usr/lib/ and /usr/local/lib
+
+* Fri Oct 25 19:34:14 2013 +0400
+
+    bump AppArmor profile modification date
+
+* Fri Oct 25 19:30:18 2013 +0400
+
+    Improve AppArmor profile:
+     - Use @{multiarch} tunable instead of *-linux-gnu* - they are the same on my system, but using the global tunable is more robust/portable
+     - Drop block_suspend capability because it requires Linux >= 3.5 and does not seem to be needed (as of my testing)
+     - Allow access to libpthread and librt, extensive testing indicates it is sometimes needed (libsodium multithreading?)
+     - Allow access to libsodium if it's installed in the system default path with multiarch support instead of just /usr/lib/ and /usr/local/lib
+
+* Tue Oct 22 13:06:06 2013 -0700
+
+    Update ChangeLog
+
 * Tue Oct 22 13:05:32 2013 -0700
 
     Check for arc4random_addrandom() presence - Needed for OpenBSD-current.

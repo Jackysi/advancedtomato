@@ -115,11 +115,11 @@ PROGRAMS = $(sbin_PROGRAMS)
 am__dnscrypt_proxy_SOURCES_DIST = app.c app.h cert.c cert.h cert_p.h \
 	dnscrypt.c dnscrypt.h dnscrypt_client.c dnscrypt_client.h \
 	dnscrypt_proxy.h edns.c edns.h getpwnam.h logger.c logger.h \
-	options.c options.h pathnames.h pid_file.c pid_file.h \
-	probes_dnscrypt_proxy.d probes_no_dtrace.h safe_rw.c safe_rw.h \
-	sandboxes.c sandboxes.h stack_trace.c stack_trace.h \
-	tcp_request.c tcp_request.h tcp_request_p.h udp_request.c \
-	udp_request.h udp_request_p.h utils.c utils.h \
+	minicsv.c minicsv.h options.c options.h pathnames.h pid_file.c \
+	pid_file.h probes_dnscrypt_proxy.d probes_no_dtrace.h \
+	safe_rw.c safe_rw.h sandboxes.c sandboxes.h stack_trace.c \
+	stack_trace.h tcp_request.c tcp_request.h tcp_request_p.h \
+	udp_request.c udp_request.h udp_request_p.h utils.c utils.h \
 	windows_service.c windows_service.h plugin_options.c \
 	plugin_options.h plugin_support.c plugin_support.h \
 	plugin_support_p.h
@@ -127,9 +127,10 @@ am__dnscrypt_proxy_SOURCES_DIST = app.c app.h cert.c cert.h cert_p.h \
 @PLUGINS_TRUE@	plugin_support.$(OBJEXT)
 am_dnscrypt_proxy_OBJECTS = app.$(OBJEXT) cert.$(OBJEXT) \
 	dnscrypt.$(OBJEXT) dnscrypt_client.$(OBJEXT) edns.$(OBJEXT) \
-	logger.$(OBJEXT) options.$(OBJEXT) pid_file.$(OBJEXT) \
-	safe_rw.$(OBJEXT) sandboxes.$(OBJEXT) stack_trace.$(OBJEXT) \
-	tcp_request.$(OBJEXT) udp_request.$(OBJEXT) utils.$(OBJEXT) \
+	logger.$(OBJEXT) minicsv.$(OBJEXT) options.$(OBJEXT) \
+	pid_file.$(OBJEXT) safe_rw.$(OBJEXT) sandboxes.$(OBJEXT) \
+	stack_trace.$(OBJEXT) tcp_request.$(OBJEXT) \
+	udp_request.$(OBJEXT) utils.$(OBJEXT) \
 	windows_service.$(OBJEXT) $(am__objects_1)
 dnscrypt_proxy_OBJECTS = $(am_dnscrypt_proxy_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -343,14 +344,15 @@ top_srcdir = @top_srcdir@
 dnscrypt_proxy_SOURCES = app.c app.h cert.c cert.h cert_p.h dnscrypt.c \
 	dnscrypt.h dnscrypt_client.c dnscrypt_client.h \
 	dnscrypt_proxy.h edns.c edns.h getpwnam.h logger.c logger.h \
-	options.c options.h pathnames.h pid_file.c pid_file.h \
-	probes_dnscrypt_proxy.d probes_no_dtrace.h safe_rw.c safe_rw.h \
-	sandboxes.c sandboxes.h stack_trace.c stack_trace.h \
-	tcp_request.c tcp_request.h tcp_request_p.h udp_request.c \
-	udp_request.h udp_request_p.h utils.c utils.h \
+	minicsv.c minicsv.h options.c options.h pathnames.h pid_file.c \
+	pid_file.h probes_dnscrypt_proxy.d probes_no_dtrace.h \
+	safe_rw.c safe_rw.h sandboxes.c sandboxes.h stack_trace.c \
+	stack_trace.h tcp_request.c tcp_request.h tcp_request_p.h \
+	udp_request.c udp_request.h udp_request_p.h utils.c utils.h \
 	windows_service.c windows_service.h $(am__append_4)
 AM_CFLAGS = @CWFLAGS@
-AM_CPPFLAGS = -I../ext -I../libevent-modified/include $(am__append_1)
+AM_CPPFLAGS = -I../ext -I../libevent-modified/include \
+	-DPKGDATADIR='"${pkgdatadir}"' $(am__append_1)
 dnscrypt_proxy_LDADD = ../libevent-modified/libevent_extra.la \
 	../libevent-modified/libevent_core.la $(am__append_2)
 dnscrypt_proxy_DEPENDENCIES = ../libevent-modified/libevent_extra.la \
@@ -463,6 +465,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/edns.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logger.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minicsv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_options.Po@am__quote@

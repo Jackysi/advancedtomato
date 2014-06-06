@@ -1,0 +1,133 @@
+#!/bin/sh -e
+
+### BEGIN INIT INFO
+# Provides:          dnscrypt-proxy
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Should-Start:      $network $syslog
+# Should-Stop:       $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start and stop dnscrypt-proxy
+# Description:       dnscrypt-proxy is Domain Name resolver with extra security
+#        features and enhanced privacy.
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# for a chrooted server: "user=dnscrypt"
+# Don't modify this line, change or create /etc/default/dnscrypt-proxy.
+OPTIONS=""
+CONF="/etc/default/dnscrypt-proxy"
+
+. /lib/lsb/init-functions
+PIDFILE="$(grep '^pidfile' $CONF | head -n 1 | cut -d '=' -f 2)"
+test -n "$PIDFILE" || PIDFILE=/run/dnscrypt-proxy.pid
+
+check_network() {
+    if [ -x /usr/bin/uname ] && [ "X$(/usr/bin/uname -o)" = XSolaris ]; then
+	IFCONFIG_OPTS="-au"
+    else
+	IFCONFIG_OPTS=""
+    fi
+    if [ -z "$(/sbin/ifconfig $IFCONFIG_OPTS)" ]; then
+       #log_action_msg "No networks configured."
+       return 1
+    fi
+    return 0
+}
+
+case "$1" in
+    start)
+	log_daemon_msg "Starting domain name proxy service..." "dnscrypt-proxy"
+
+	if [ ! -x /usr/sbin/dnscrypt-proxy ]; then
+	    log_action_msg "dnscrypt-proxy binary missing - not starting"
+	    log_end_msg 1
+	fi
+
+	if ! check_network; then
+	    log_action_msg "no networks configured"
+	    log_end_msg 1
+	fi
+
+	params="$(grep -v '^#' $CONF | cut -d '#' -f 1 | grep -v 'resolvconf')"
+	for parameter in $params; do
+	    test -n "$parameter" && OPTIONS="$OPTIONS --$parameter"
+	done
+
+	if start-stop-daemon --start --background --oknodo --quiet --exec /usr/sbin/dnscrypt-proxy \
+		--pidfile ${PIDFILE} -- $OPTIONS; then
+	    if [ "X$resolvconf" != "Xno" ] && [ -x /sbin/resolvconf ] ; then
+		    echo "nameserver $(grep '^local-address' $CONF | head -n 1 \
+			| cut -d '=' -f 2 | cut -d ':' -f 1)" \
+			| /sbin/resolvconf -a lo.dnscrypt
+	    fi
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+    ;;
+
+    stop)
+	log_daemon_msg "Stopping domain name proxy service..." "dnscrypt-proxy"
+	if ! check_network; then
+	    log_action_msg "no networks configured"
+	    log_end_msg 1
+	fi
+
+	if [ "X$resolvconf" != "Xno" ] && [ -x /sbin/resolvconf ] ; then
+	    /sbin/resolvconf -d lo.dnscrypt
+	fi
+	pid=$(pgrep --newest -f ^/usr/sbin/dnscrypt-proxy) || true
+	start-stop-daemon --stop --oknodo --quiet --exec /usr/sbin/dnscrypt-proxy \
+	    --pidfile ${PIDFILE} -- $OPTIONS
+	n=0
+	if [ -n "$pid" ]; then
+	    sig=0
+	    while kill -$sig $pid 2>/dev/null; do
+		if [ $n -eq 1 ]; then
+		    echo -n " waiting for pid $pid to die"
+		fi
+		if [ $n -eq 11 ]; then
+		    echo -n ". giving up on pid $pid with kill -0; trying -9"
+		    sig=9
+		fi
+		if [ $n -gt 20 ]; then
+		    echo -n ". giving up on pid $pid."
+		    break
+		fi
+		n=$(($n+1))
+		sleep 1
+	    done
+	fi
+	if [ $n -gt 20 ] || [ $n -lt 1 ]; then
+	    log_end_msg 1
+	else
+	    log_end_msg 0
+	fi
+    ;;
+
+    restart|reload|force-reload)
+	if ! check_network; then
+	    log_action_msg "no networks configured"
+	    exit 1
+	fi
+
+	$0 stop
+	$0 start
+    ;;
+    
+    status)
+    	ret=0
+	status_of_proc -p ${PIDFILE} /usr/sbin/dnscrypt-proxy dnscrypt-proxy 2>/dev/null || ret=$?
+	exit $ret
+	;;
+
+    *)
+	log_action_msg "Usage: /etc/init.d/dnscrypt-proxy {start|stop|reload|restart|force-reload|status}"
+	exit 1
+    ;;
+esac
+
+exit 0

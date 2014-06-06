@@ -1,10 +1,10 @@
 #! /bin/sh
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 MAINTAINER="Frank Denis <dnscrypt@pureftpd.org>"
 CATEGORY="net"
 URL="http://dnscrypt.org"
-VENDOR="OpenDNS"
+VENDOR="Frank Denis"
 DESCRIPTION="A tool for securing communications between a client and a DNS resolver
 The DNSCrypt protocol is very similar to DNSCurve, but focuses on
 securing communications between a client and its first-level resolver.
@@ -15,7 +15,7 @@ DNS queries.
 
 The DNSCrypt daemon acts as a DNS proxy between a regular client, like
 a DNS cache or an operating system stub resolver, and a DNSCrypt-aware
-resolver, like OpenDNS."
+resolver."
 TMPDIR=${TMPDIR:-/tmp}
 BASE_DIR=$(mktemp -d "$TMPDIR"/dnscrypt.XXXXXX)
 INSTALL_DIR="${BASE_DIR}/usr"

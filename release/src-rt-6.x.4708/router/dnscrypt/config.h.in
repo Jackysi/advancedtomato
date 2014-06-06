@@ -133,6 +133,9 @@
 /* define if you have sin_len */
 #undef HAVE_SIN_LEN
 
+/* Define to 1 if you have the `sodium_mlock' function. */
+#undef HAVE_SODIUM_MLOCK
+
 /* define if you have ss_len */
 #undef HAVE_SS_LEN
 

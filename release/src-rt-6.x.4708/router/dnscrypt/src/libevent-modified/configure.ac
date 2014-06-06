@@ -92,8 +92,8 @@ AC_ARG_ENABLE([libevent-install],
      AS_HELP_STRING([--disable-libevent-install, disable installation of libevent]),
 	[], [enable_libevent_install=yes])
 AC_ARG_ENABLE([libevent-regress],
-     AS_HELP_STRING([--disable-libevent-regress, skip regress in make check]),
-	[], [enable_libevent_regress=yes])
+     AS_HELP_STRING([--enable-libevent-regress, enable regress in make check]),
+	[enable_libevent_regress=yes], [])
 AC_ARG_ENABLE([function-sections],
      AS_HELP_STRING([--enable-function-sections, make static library allow smaller binaries with --gc-sections]),
 	[], [enable_function_sections=no])
@@ -726,6 +726,15 @@ if test x$enable_gcc_warnings = xyes && test "$GCC" = "yes"; then
     # Disable the unused-function warnings, because these trigger
     # for minheap-internal.h related code.
     CFLAGS="$CFLAGS -Wno-unused-function"
+
+    # clang on macosx emits warnigns for each directory specified which
+    # isn't "used" generating a lot of build noise (typically 3 warnings
+    # per file
+    case "$host_os" in
+        darwin*)
+            CFLAGS="$CFLAGS -Qunused-arguments"
+        ;;
+    esac
   fi
 
 ##This will break the world on some 64-bit architectures

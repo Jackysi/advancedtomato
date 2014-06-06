@@ -25,7 +25,7 @@ dcplugin_long_description(DCPlugin * const dcplugin)
         "This plugin logs the client queries to the standard output (default)\n"
         "or to a file.\n"
         "\n"
-        "  # dnscrypt-proxy --plugin libdcplugin_example_logging,/tmp/dns.log";
+        "  # dnscrypt-proxy --plugin libdcplugin_example_logging,/var/log/dns.log";
 }
 
 int
