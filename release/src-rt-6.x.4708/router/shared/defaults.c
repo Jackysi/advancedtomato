@@ -68,10 +68,15 @@ struct nvram_tuple router_defaults[] = {
 	{ "dnssec_enable",		"0"				, 0 },
 #endif
 #ifdef TCONFIG_DNSCRYPT
-	{ "dnscrypt_proxy",		""				, 0 },
-	{ "dnscrypt_priority",		"1"				, 0 }, // 0=none, 1=preferred, 2=exclusive
+	{ "dnscrypt_proxy",		"0"				, 0 },
+	{ "dnscrypt_priority",		"1"				, 0 }, // 0=none, 1=strict-order, 2=no-resolv
 	{ "dnscrypt_port",		"40"				, 0 }, // local port
-	{ "dnscrypt_cmd",		"-m 99"				, 0 }, // optional arguments
+	{ "dnscrypt_resolver",		"opendns"			, 0 }, // default resolver
+	{ "dnscrypt_log",		"99"				, 0 }, // log level
+	{ "dnscrypt_manual",		"0"				, 0 }, // Set manual resolver
+	{ "dnscrypt_provider_name",	""				, 0 }, // Set manual provider name
+	{ "dnscrypt_provider_key",	""				, 0 }, // Set manual provider key
+	{ "dnscrypt_resolver_address",	""				, 0 }, // Set manual resolver address
 #endif
 	{ "wan_wins",			""				, 0 },	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"				, 0 },	// WAN lease time in seconds
