@@ -53,4 +53,5 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_BCMWL6A is not set
 # TCONFIG_BCMWL6 is not set
 # TCONFIG_BCMSMP is not set
+# TCONFIG_GROCTRL is not set
 # TCONFIG_BCMFA is not set

@@ -231,6 +231,10 @@ config TCONFIG_BCMSMP
 	bool "BCM SMP"
 	default n
 
+config TCONFIG_GROCTRL
+	bool "GRO Control"
+	default n
+
 config TCONFIG_BCMFA
 	bool "BCM FA"
 	default n
