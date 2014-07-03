@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -46,7 +46,7 @@
 #include <curl/mprintf.h>
 
 #if defined(USE_NSS)
-#include "nssg.h"
+#include "vtls/nssg.h"
 #elif defined(USE_WINDOWS_SSPI)
 #include "curl_sspi.h"
 #endif
@@ -234,6 +234,14 @@ void Curl_http_ntlm_cleanup(struct connectdata *conn)
   Curl_ntlm_wb_cleanup(conn);
 #else
   (void)conn;
+#endif
+
+#ifndef USE_WINDOWS_SSPI
+  Curl_safefree(conn->ntlm.target_info);
+  conn->ntlm.target_info_len = 0;
+
+  Curl_safefree(conn->proxyntlm.target_info);
+  conn->proxyntlm.target_info_len = 0;
 #endif
 }
 

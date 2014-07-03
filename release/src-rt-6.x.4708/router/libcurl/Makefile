@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -136,11 +136,35 @@ vc-zlib: $(VC)
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-zlib
 
+vc-x64-zlib: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-zlib
+
 vc-ssl: $(VC)
 	cd lib
 	nmake /f Makefile.$(VC) cfg=release-ssl
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-ssl
+
+vc-winssl: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) cfg=release-winssl WINDOWS_SSPI=1
+
+vc-x64-ssl: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl
+
+vc-x64-winssl: $(VC)
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-winssl WINDOWS_SSPI=1
 
 vc-ssl-zlib: $(VC)
 	cd lib
@@ -266,6 +290,18 @@ linux-ssl: ssl
 # We don't need to do anything for vc6.
 vc6:
 
+# VC7 makefiles are for use with VS.NET and VS.NET 2003
+vc7: lib/Makefile.vc7 src/Makefile.vc7
+
+lib/Makefile.vc7: lib/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s/VC6/VC7/g" lib/Makefile.vc6 > lib/Makefile.vc7
+
+src/Makefile.vc7: src/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s/VC6/VC7/g" src/Makefile.vc6 > src/Makefile.vc7
+
+# VC8 makefiles are for use with VS2005
 vc8: lib/Makefile.vc8 src/Makefile.vc8
 
 lib/Makefile.vc8: lib/Makefile.vc6
@@ -297,6 +333,28 @@ lib/Makefile.vc10: lib/Makefile.vc6
 src/Makefile.vc10: src/Makefile.vc6
 	@echo "generate $@"
 	@sed -e "s#/GX /DWIN32 /YX#/EHsc /DWIN32#" -e "s#/GZ#/RTC1#" -e "s/ws2_32.lib/ws2_32.lib/g" -e "s/vc6/vc10/g" -e "s/VC6/VC10/g" src/Makefile.vc6 > src/Makefile.vc10
+
+# VC11 makefiles are for use with VS2012
+vc11: lib/Makefile.vc11 src/Makefile.vc11
+
+lib/Makefile.vc11: lib/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s#/GX /DWIN32 /YX#/EHsc /DWIN32#" -e "s#/GZ#/RTC1#" -e "s/ws2_32.lib/ws2_32.lib/g" -e "s/vc6/vc11/g" -e "s/VC6/VC11/g" lib/Makefile.vc6 > lib/Makefile.vc11
+
+src/Makefile.vc11: src/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s#/GX /DWIN32 /YX#/EHsc /DWIN32#" -e "s#/GZ#/RTC1#" -e "s/ws2_32.lib/ws2_32.lib/g" -e "s/vc6/vc11/g" -e "s/VC6/VC11/g" src/Makefile.vc6 > src/Makefile.vc11
+
+# VC12 makefiles are for use with VS2013
+vc12: lib/Makefile.vc12 src/Makefile.vc12
+
+lib/Makefile.vc12: lib/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s#/GX /DWIN32 /YX#/EHsc /DWIN32#" -e "s#/GZ#/RTC1#" -e "s/ws2_32.lib/ws2_32.lib/g" -e "s/vc6/vc12/g" -e "s/VC6/VC12/g" lib/Makefile.vc6 > lib/Makefile.vc12
+
+src/Makefile.vc12: src/Makefile.vc6
+	@echo "generate $@"
+	@sed -e "s#/GX /DWIN32 /YX#/EHsc /DWIN32#" -e "s#/GZ#/RTC1#" -e "s/ws2_32.lib/ws2_32.lib/g" -e "s/vc6/vc12/g" -e "s/VC6/VC12/g" src/Makefile.vc6 > src/Makefile.vc12
 
 ca-bundle: lib/mk-ca-bundle.pl
 	@echo "generate a fresh ca-bundle.crt"

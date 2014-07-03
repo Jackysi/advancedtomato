@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -347,6 +347,8 @@ Pass a pointer to a function that matches the following prototype:
 \fBint function(void *clientp, double dltotal, double dlnow, double ultotal,
 double ulnow);\fP
 
+We encourage users to use \fICURLOPT_XFERINFOFUNCTION\fP instead, if you can.
+
 This function gets called by libcurl instead of its internal equivalent with a
 frequent interval. While data is being transferred it will be called very
 frequently, and during slow periods like when nothing is being transferred it
@@ -493,6 +495,10 @@ The data is header (or header-like) data sent to the peer.
 The data is protocol data received from the peer.
 .IP CURLINFO_DATA_OUT
 The data is protocol data sent to the peer.
+.IP CURLINFO_SSL_DATA_OUT
+The data is SSL/TLS (binary) data sent to the peer.
+.IP CURLINFO_SSL_DATA_IN
+The data is SSL/TLS (binary) data received from the peer.
 .RE
 .IP CURLOPT_DEBUGDATA
 Pass a pointer to whatever you want passed in to your
@@ -817,8 +823,9 @@ the user
 
 The path part of an IMAP request not only specifies the mailbox to list (Added
 in 7.30.0) or select, but can also be used to check the UIDVALIDITY of the
-mailbox and to specify the UID and SECTION of the message to fetch (Added in
-7.30.0).
+mailbox, to specify the UID, SECTION (Added in 7.30.0) and PARTIAL octets
+(Added in 7.37.0) of the message to fetch and to specify what nessages to
+search for (Added in 7.37.0).
 
 imap://user:password@mail.example.com - Performs a top level folder list
 
@@ -833,7 +840,17 @@ the user's inbox, checks the UIDVALIDITY of the mailbox is 50 and fetches
 message 2 if it is
 
 imap://user:password@mail.example.com/INBOX/;UID=3/;SECTION=TEXT - Selects the
-user's inbox and fetches message 3 with only the text portion of the message
+user's inbox and fetches the text portial of message 3
+
+imap://user:password@mail.example.com/INBOX/;UID=4/;PARTIAL=0.1024 - Selects
+the user's inbox and fetches the first 1024 octets of message 4
+
+imap://user:password@mail.example.com/INBOX?NEW - Selects the user's inbox and
+checks for NEW messages
+
+imap://user:password@mail.example.com/INBOX?SUBJECT%20shadows - Selects the
+user's inbox and searches for messages containing "shadows" in the subject
+line
 
 For more information about the individual components of an IMAP URL please
 see RFC5092.
@@ -936,9 +953,9 @@ Set HTTP proxy to use. The parameter should be a char * to a zero terminated
 string holding the host name or dotted IP address. To specify port number in
 this string, append :[port] to the end of the host name. The proxy string may
 be prefixed with [protocol]:// since any such prefix will be ignored. The
-proxy's port number may optionally be specified with the separate option. If
-not specified, libcurl will default to using port 1080 for proxies.
-\fICURLOPT_PROXYPORT\fP.
+proxy's port number may optionally be specified with the separate option
+\fICURLOPT_PROXYPORT\fP. If not specified, libcurl will default to using port
+1080 for proxies.
 
 When you tell the library to use a HTTP proxy, libcurl will transparently
 convert operations to HTTP even if you specify an FTP URL etc. This may have
@@ -985,8 +1002,8 @@ if one is specified.  The only wildcard available is a single * character,
 which matches all hosts, and effectively disables the proxy. Each name in this
 list is matched as either a domain which contains the hostname, or the
 hostname itself. For example, example.com would match example.com,
-example.com:80, and www.example.com, but not www.notanexample.com.  (Added in
-7.19.4)
+example.com:80, and www.example.com, but not www.notanexample.com or
+example.com.othertld.  (Added in 7.19.4)
 .IP CURLOPT_HTTPPROXYTUNNEL
 Set the parameter to 1 to make the library tunnel all operations through a
 given HTTP proxy. There is a big difference between using a proxy and to
@@ -1150,7 +1167,7 @@ connections or \fICURLOPT_LOGIN_OPTIONS\fP to control IMAP, POP3 and SMTP
 options.
 
 The user and password strings are not URL decoded, so there's no way to send
-in a user name containing a colon using this option. Use \fCURLOPT_USERNAME\fP
+in a user name containing a colon using this option. Use \fICURLOPT_USERNAME\fP
 for that, or include it in the URL.
 .IP CURLOPT_PROXYUSERPWD
 Pass a char * as parameter, which should be [user name]:[password] to use for
@@ -1184,7 +1201,7 @@ At present only IMAP, POP3 and SMTP support login options. For more
 information about the login options please see RFC2384, RFC5092 and IETF draft
 draft-earhart-url-smtp-00.txt
 
-\CURLOPT_LOGIN_OPTIONS\fP can be used to set protocol specific login options,
+\fBCURLOPT_LOGIN_OPTIONS\fP can be used to set protocol specific login options,
 such as the preferred authentication mechanism via "AUTH=NTLM" or "AUTH=*",
 and should be used in conjunction with the \fICURLOPT_USERNAME\fP option.
 .IP CURLOPT_PROXYUSERNAME
@@ -1306,8 +1323,7 @@ authentication methods it supports and then pick the best one you allow it to
 use. For some methods, this will induce an extra network round-trip. Set the
 actual name and password with the \fICURLOPT_PROXYUSERPWD\fP option. The
 bitmask can be constructed by or'ing together the bits listed above for the
-\fICURLOPT_HTTPAUTH\fP option. As of this writing, only Basic, Digest and NTLM
-work. (Added in 7.10.7)
+\fICURLOPT_HTTPAUTH\fP option. \fICURLOPT_PROXYAUTH\fP was added in 7.10.7
 .IP CURLOPT_SASL_IR
 Pass a long. If the value is 1, curl will send the initial response to the
 server in the first authentication packet in order to reduce the number of
@@ -1317,10 +1333,10 @@ mechanisms and to the IMAP, POP3 and SMTP protocols. (Added in 7.31.0)
 Note: Whilst IMAP supports this option there is no need to explicitly set it,
 as libcurl can determine the feature itself when the server supports the
 SASL-IR CAPABILITY.
-.IP CURLOPT_BEARER
-Pass a char * as parameter, which should point to the zero terminated OAUTH
-2.0 Bearer Access Token for use with IMAP. POP3 and SMTP servers that support
-the OAUTH 2.0 Authorization Framework. (Added in 7.33.0)
+.IP CURLOPT_XOAUTH2_BEARER
+Pass a char * as parameter, which should point to the zero terminated OAuth
+2.0 Bearer Access Token for use with IMAP, POP3 and SMTP servers that support
+the OAuth 2.0 Authorization Framework. (Added in 7.33.0)
 
 Note: The user name used to generate the Bearer Token should be supplied via
 the \fICURLOPT_USERNAME\fP option.
@@ -1512,17 +1528,20 @@ set the User-Agent: header in the http request sent to the remote server. This
 can be used to fool servers or scripts. You can also set any custom header
 with \fICURLOPT_HTTPHEADER\fP.
 .IP CURLOPT_HTTPHEADER
-Pass a pointer to a linked list of HTTP headers to pass to the server in your
-HTTP request. The linked list should be a fully valid list of \fBstruct
-curl_slist\fP structs properly filled in. Use \fIcurl_slist_append(3)\fP to
-create the list and \fIcurl_slist_free_all(3)\fP to clean up an entire
-list. If you add a header that is otherwise generated and used by libcurl
-internally, your added one will be used instead. If you add a header with no
-content as in 'Accept:' (no data on the right side of the colon), the
-internally used header will get disabled. Thus, using this option you can add
-new headers, replace internal headers and remove internal headers. To add a
-header with no content (nothing to the right side of the colon), use the
-form 'MyHeader;' (note the ending semicolon).
+Pass a pointer to a linked list of HTTP headers to pass to the server and/or
+proxy in your HTTP request. The same list is used for both host and proxy
+requests!
+
+The linked list should be a fully valid list of \fBstruct curl_slist\fP
+structs properly filled in. Use \fIcurl_slist_append(3)\fP to create the list
+and \fIcurl_slist_free_all(3)\fP to clean up an entire list. If you add a
+header that is otherwise generated and used by libcurl internally, your added
+one will be used instead. If you add a header with no content as in 'Accept:'
+(no data on the right side of the colon), the internally used header will get
+disabled. With this option you can add new headers, replace internal headers
+and remove internal headers. To add a header with no content (nothing to the
+right side of the colon), use the form 'MyHeader;' (note the ending
+semicolon).
 
 The headers included in the linked list must not be CRLF-terminated, because
 curl adds CRLF after each header item. Failure to comply with this will result
@@ -1538,6 +1557,42 @@ Pass a NULL to this to reset back to no custom headers.
 
 The most commonly replaced headers have "shortcuts" in the options
 \fICURLOPT_COOKIE\fP, \fICURLOPT_USERAGENT\fP and \fICURLOPT_REFERER\fP.
+
+There's an alternative option that sets or replaces headers only for requests
+that are sent with CONNECT to a proxy: \fICURLOPT_PROXYHEADER\fP. Use
+\fICURLOPT_HEADEROPT\fP to control the behavior.
+.IP CURLOPT_HEADEROPT
+Pass a long that is a bitmask of options of how to deal with headers. The two
+mutually exclusive options are:
+
+CURLHEADER_UNIFIED - keep working as before. This means CURLOPT_HTTPHEADER
+headers will be used in requests both to servers and proxies. With this option
+enabled, \fICURLOPT_PROXYHEADER\fP will not have any effect.
+
+CURLHEADER_SEPARATE - makes \fICURLOPT_HTTPHEADER\fP headers only get sent to
+a server and not to a proxy. Proxy headers must be set with
+\fICURLOPT_PROXYHEADER\fP to get used. Note that if a non-CONNECT request is
+sent to a proxy, libcurl will send both server headers and proxy headers. When
+doing CONNECT, libcurl will send \fICURLOPT_PROXYHEADER\fP headers only do the
+proxy and then \fICURLOPT_HTTPHEADER\fP headers only to the server.
+
+(Added in 7.37.0)
+.IP CURLOPT_PROXYHEADER
+Pass a pointer to a linked list of HTTP headers to pass in your HTTP request
+sent to a proxy. The rules for this list is identical to the
+\fICURLOPT_HTTPHEADER\fP option's.
+
+The headers set with this option is only ever used in requests sent to a proxy
+- when there's also a request sent to a host.
+
+The first line in a request (containing the method, usually a GET or POST) is
+NOT a header and cannot be replaced using this option. Only the lines
+following the request-line are headers. Adding this method line in this list
+of headers will only cause your request to send an invalid header.
+
+Pass a NULL to this to reset back to no custom headers.
+
+This option was added in libcurl 7.37.0.
 .IP CURLOPT_HTTP200ALIASES
 Pass a pointer to a linked list of aliases to be treated as valid HTTP 200
 responses.  Some servers respond with a custom header response line.  For
@@ -1620,7 +1675,8 @@ When setting \fICURLOPT_HTTPGET\fP to 1, it will automatically set
 .IP CURLOPT_HTTP_VERSION
 Pass a long, set to one of the values described below. They force libcurl to
 use the specific HTTP versions. This is not sensible to do unless you have a
-good reason.
+good reason. You have to set this option if you want to use libcurl's HTTP 2.0
+support.
 .RS
 .IP CURL_HTTP_VERSION_NONE
 We don't care about what version the library uses. libcurl will use whatever
@@ -1629,6 +1685,9 @@ it thinks fit.
 Enforce HTTP 1.0 requests.
 .IP CURL_HTTP_VERSION_1_1
 Enforce HTTP 1.1 requests.
+.IP CURL_HTTP_VERSION_2_0
+Attempt HTTP 2.0 requests. libcurl will fall back to HTTP 1.x if HTTP 2.0
+can't be negotiated with the server.
 .RE
 .IP CURLOPT_IGNORE_CONTENT_LENGTH
 Ignore the Content-Length header. This is useful for Apache 1.x (and similar
@@ -1646,6 +1705,12 @@ Pass a long to tell libcurl how to act on transfer decoding. If set to zero,
 transfer decoding will be disabled, if set to 1 it is enabled
 (default). libcurl does chunked transfer decoding by default unless this
 option is set to zero. (added in 7.16.2)
+.IP CURLOPT_EXPECT_100_TIMEOUT_MS
+Pass a long to tell libcurl the number of milliseconds to wait for a server
+response with the HTTP status 100 (Continue), 417 (Expectation Failed) or
+similar after sending a HTTP request containing an Expect: 100-continue
+header. If this times out before a response is received, the request body is
+sent anyway. By default, libcurl waits 1000 milliseconds. (Added in 7.36.0)
 .SH SMTP OPTIONS
 .IP CURLOPT_MAIL_FROM
 Pass a pointer to a zero terminated string as parameter. This should be used
@@ -2134,6 +2199,8 @@ as a long. See also \fICURLOPT_INFILESIZE_LARGE\fP.
 For uploading using SCP, this option or \fICURLOPT_INFILESIZE_LARGE\fP is
 mandatory.
 
+To "unset" this value again, set it to -1.
+
 When sending emails using SMTP, this command can be used to specify the
 optional SIZE parameter for the MAIL FROM command. (Added in 7.23.0)
 
@@ -2145,6 +2212,11 @@ libcurl what the expected size of the infile is.  This value should be passed
 as a curl_off_t. (Added in 7.11.0)
 
 For uploading using SCP, this option or \fICURLOPT_INFILESIZE\fP is mandatory.
+
+To "unset" this value again, set it to -1.
+
+When sending emails using SMTP, this command can be used to specify the
+optional SIZE parameter for the MAIL FROM command. (Added in 7.23.0)
 
 This option does not limit how much data libcurl will actually send, as that
 is controlled entirely by what the read callback returns.
@@ -2229,12 +2301,18 @@ it too slow and abort.
 Pass a curl_off_t as parameter.  If an upload exceeds this speed (counted in
 bytes per second) on cumulative average during the transfer, the transfer will
 pause to keep the average rate less than or equal to the parameter value.
-Defaults to unlimited speed. (Added in 7.15.5)
+Defaults to unlimited speed.
+
+This option doesn't affect transfer speeds done with FILE:// URLs. (Added in
+ 7.15.5)
 .IP CURLOPT_MAX_RECV_SPEED_LARGE
 Pass a curl_off_t as parameter.  If a download exceeds this speed (counted in
 bytes per second) on cumulative average during the transfer, the transfer will
 pause to keep the average rate less than or equal to the parameter
-value. Defaults to unlimited speed. (Added in 7.15.5)
+value. Defaults to unlimited speed.
+
+This option doesn't affect transfer speeds done with FILE:// URLs. (Added in
+7.15.5)
 .IP CURLOPT_MAXCONNECTS
 Pass a long. The set number will be the persistent connection cache size. The
 set amount will be the maximum amount of simultaneously open connections that
@@ -2439,6 +2517,20 @@ load your private key.
 
 (This option was known as CURLOPT_SSLKEYPASSWD up to 7.16.4 and
 CURLOPT_SSLCERTPASSWD up to 7.9.2)
+.IP CURLOPT_SSL_ENABLE_ALPN
+Pass a long as parameter, 0 or 1 where 1 is for enable and 0 for disable. By
+default, libcurl assumes a value of 1. This option enables/disables ALPN in
+the SSL handshake (if the SSL backend libcurl is built to use supports it),
+which can be used to negotiate http2.
+
+(Added in 7.36.0)
+.IP CURLOPT_SSL_ENABLE_NPN
+Pass a long as parameter, 0 or 1 where 1 is for enable and 0 for disable. By
+default, libcurl assumes a value of 1. This option enables/disables NPN in the
+SSL handshake (if the SSL backend libcurl is built to use supports it), which
+can be used to negotiate http2.
+
+(Added in 7.36.0)
 .IP CURLOPT_SSLENGINE
 Pass a pointer to a zero terminated string as parameter. It will be used as
 the identifier for the crypto engine you want to use for your private
@@ -2702,6 +2794,14 @@ Pass a pointer to a curl_sshkeycallback function. It gets called when the
 known_host matching has been done, to allow the application to act and decide
 for libcurl how to proceed. The callback will only be called if
 \fICURLOPT_SSH_KNOWNHOSTS\fP is also set.
+
+.nf
+int curl_sshkeycallback (CURL *easy,     /* easy handle */
+                         const struct curl_khkey *knownkey, /* known */
+                         const struct curl_khkey *foundkey, /* found */
+                         enum curl_khmatch, /* libcurl's view on the keys */
+                         void *clientp);
+.fi
 
 The curl_sshkeycallback function gets passed the CURL handle, the key from the
 known_hosts file, the key from the remote site, info from libcurl on the

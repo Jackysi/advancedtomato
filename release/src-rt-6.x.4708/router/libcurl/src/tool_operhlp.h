@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -23,11 +23,9 @@
  ***************************************************************************/
 #include "tool_setup.h"
 
-char *my_useragent(void);
+struct OperationConfig;
 
-void list_engines(const struct curl_slist *engines);
-
-void clean_getout(struct Configurable *config);
+void clean_getout(struct OperationConfig *config);
 
 bool output_expected(const char *url, const char *uploadfile);
 
@@ -36,16 +34,6 @@ bool stdin_upload(const char *uploadfile);
 char *add_file_name_to_url(CURL *curl, char *url, const char *filename);
 
 CURLcode get_url_file_name(char **filename, const char *url);
-
-CURLcode main_init(void);
-
-void main_free(void);
-
-#ifdef CURLDEBUG
-void memory_tracking_init(void);
-#else
-#  define memory_tracking_init() Curl_nop_stmt
-#endif
 
 #endif /* HEADER_CURL_TOOL_OPERHLP_H */
 

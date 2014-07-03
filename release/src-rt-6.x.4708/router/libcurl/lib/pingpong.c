@@ -33,7 +33,7 @@
 #include "pingpong.h"
 #include "multiif.h"
 #include "non-ascii.h"
-#include "sslgen.h"
+#include "vtls/vtls.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -376,11 +376,9 @@ CURLcode Curl_pp_readresp(curl_socket_t sockfd,
           if(pp->endofresp(conn, pp->linestart_resp, perline, code)) {
             /* This is the end of the last line, copy the last line to the
                start of the buffer and zero terminate, for old times sake */
-            char *meow;
-            int n;
-            for(meow=pp->linestart_resp, n=0; meow<ptr; meow++, n++)
-              buf[n] = *meow;
-            *meow=0; /* zero terminate */
+            size_t n = ptr - pp->linestart_resp;
+            memmove(buf, pp->linestart_resp, n);
+            buf[n]=0; /* zero terminate */
             keepon=FALSE;
             pp->linestart_resp = ptr+1; /* advance pointer */
             i++; /* skip this before getting out */

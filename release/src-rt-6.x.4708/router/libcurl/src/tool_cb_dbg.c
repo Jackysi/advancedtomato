@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -44,7 +44,8 @@ int tool_debug_cb(CURL *handle, curl_infotype type,
                   unsigned char *data, size_t size,
                   void *userdata)
 {
-  struct Configurable *config = userdata;
+  struct OperationConfig *operation = userdata;
+  struct GlobalConfig *config = operation->global;
   FILE *output = config->errors;
   const char *text;
   struct timeval tv;
@@ -87,7 +88,7 @@ int tool_debug_cb(CURL *handle, curl_infotype type,
     output = config->trace_stream;
 
   if(!output) {
-    warnf(config, "Failed to create/open output");
+    warnf(operation, "Failed to create/open output");
     return 0;
   }
 
@@ -141,8 +142,7 @@ int tool_debug_cb(CURL *handle, curl_infotype type,
            to stderr or stdout, we don't display the alert about the data not
            being shown as the data _is_ shown then just not via this
            function */
-        if(!config->isatty ||
-           ((output != stderr) && (output != stdout))) {
+        if(!config->isatty || ((output != stderr) && (output != stdout))) {
           if(!newl)
             fprintf(output, "%s%s ", timebuf, s_infotype[type]);
           fprintf(output, "[data not shown]\n");
