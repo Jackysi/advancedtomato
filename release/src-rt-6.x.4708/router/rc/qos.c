@@ -194,6 +194,12 @@ void ipt_qos(void)
 								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
 								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-return 0x00000/0xFF\n",
 									(sizegroup << 12), (max * 1024));
+#ifdef BCMARM
+							ip46t_flagged_write(v4v6_ok,
+								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
+								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j RETURN\n",
+									(sizegroup << 12), (max * 1024));
+#endif
 						}
 						else {
 							class_flag = sizegroup << 12;
@@ -229,15 +235,31 @@ void ipt_qos(void)
 				else {
 					sport[0] = 0;
 				}
-				if (proto_num != 6) ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
-				if (proto_num != 17) ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
+				if (proto_num != 6) {
+					ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
+#ifdef BCMARM
+					ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s -j RETURN\n", chain, "udp", sport, saddr);
+#endif
+				}
+				if (proto_num != 17) {
+					ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
+#ifdef BCMARM
+					ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s -j RETURN\n", chain, "tcp", sport, saddr);
+#endif
+				}
 			}
 			else {
 				ip46t_flagged_write(v4v6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
+#ifdef BCMARM
+				ip46t_flagged_write(v4v6_ok, "-A %s -p %d %s -j RETURN\n", chain, proto_num, saddr);
+#endif
 			}
 		}
 		else {	// any protocol
 			ip46t_flagged_write(v4v6_ok, "-A %s %s %s", chain, saddr, end);
+#ifdef BCMARM
+			ip46t_flagged_write(v4v6_ok, "-A %s %s -j RETURN\n", chain, saddr);
+#endif
 		}
 
 	}
@@ -250,6 +272,9 @@ void ipt_qos(void)
 	class_num = i + 1;
 	class_num |= 0xFF00000; // use rule_num=255 for default
 	ip46t_write("-A QOSO -j CONNMARK --set-return 0x%x\n", class_num);
+#ifdef BCMARM
+	ip46t_write("-A QOSO -j RETURN\n");
+#endif
 	
 	ipt_write(
 		"-A FORWARD -o %s -j QOSO\n"
@@ -276,9 +301,16 @@ void ipt_qos(void)
 		if ((inuse & (1 << i)) == 0) continue;
 		if (atoi(p) > 0) {
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
+#ifdef BCMARM
+			ipt_write("-A PREROUTING -i %s -j RETURN\n", qface);
+#endif
 #ifdef TCONFIG_IPV6
-			if (*wan6face)
+			if (*wan6face) {
 				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
+#ifdef BCMARM
+				ip6t_write("-A PREROUTING -i %s -j RETURN\n", wan6face);
+#endif
+			}
 #endif
 			break;
 		}
