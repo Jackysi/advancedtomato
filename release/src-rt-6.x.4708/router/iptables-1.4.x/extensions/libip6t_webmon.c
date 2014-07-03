@@ -38,12 +38,10 @@
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <linux/netfilter_ipv4/ipt_webmon.h>
 
-#ifdef _XTABLES_H
-	#define iptables_rule_match	xtables_rule_match
-	#define iptables_match		xtables_match
-	#define iptables_target		xtables_target
-	#define ipt_tryload		xt_tryload
-#endif
+#define iptables_rule_match	xtables_rule_match
+#define iptables_match		xtables_match
+#define iptables_target		xtables_target
+#define ipt_tryload		xt_tryload
 
 /* 
  * XTABLES_VERSION_CODE is only defined in versions 1.4.1 and later, which
@@ -51,9 +49,7 @@
  * 
  * Version 1.4.0 uses register_match like previous versions
  */
-#ifdef XTABLES_VERSION_CODE 
-	#define register_match          xtables_register_match
-#endif
+#define register_match          xtables_register_match
 
 
 #define STRIP "%d.%d.%d.%d"
@@ -108,11 +104,7 @@ static struct option opts[] =
 };
 
 static void webmon_init(
-#ifdef _XTABLES_H
 	struct xt_entry_match *match
-#else
-	struct ipt_entry_match *match, unsigned int *nfcache
-#endif
 	)
 {
 	struct ipt_webmon_info *info = (struct ipt_webmon_info *)match->data;
@@ -130,14 +122,8 @@ static int parse(	int c,
 			char **argv,
 			int invert,
 			unsigned int *flags,
-#ifdef XTABLES_VERSION
 			const void *entry,
 			struct xt_entry_match **match
-#else
-			const struct ipt_entry *entry,
-			unsigned int *nfcache,
-			struct ipt_entry_match **match
-#endif
 			)
 {
 	struct ipt_webmon_info *info = (struct ipt_webmon_info *)(*match)->data;
@@ -278,11 +264,7 @@ static void final_check(unsigned int flags)
 }
 
 /* Prints out the matchinfo. */
-#ifdef _XTABLES_H
 static void print(const void *ip, const struct xt_entry_match *match, int numeric)
-#else	
-static void print(const struct ipt_ip *ip, const struct ipt_entry_match *match, int numeric)
-#endif
 {
 	printf("WEBMON ");
 	struct ipt_webmon_info *info = (struct ipt_webmon_info *)match->data;
@@ -291,60 +273,31 @@ static void print(const struct ipt_ip *ip, const struct ipt_entry_match *match, 
 }
 
 /* Saves the union ipt_matchinfo in parsable form to stdout. */
-#ifdef _XTABLES_H
 static void save(const void *ip, const struct xt_entry_match *match)
-#else
-static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
-#endif
 {
 	struct ipt_webmon_info *info = (struct ipt_webmon_info *)match->data;
 	print_webmon_args(info);
 }
 
-
-
-
-#ifdef XTABLES_VERSION
 static struct xtables_match webmon = 
 {
-  .name = "webmon",
-  .version = XTABLES_VERSION,
-  .family = PF_INET,
-  .size = XT_ALIGN(sizeof(struct ipt_webmon_info)),
-  .userspacesize = XT_ALIGN(sizeof(struct ipt_webmon_info)),
-  .help = help,
-  .init = webmon_init,
-  .parse = parse,
-  .final_check = final_check,
-  .print = print,
-  .save = save,
-  .extra_opts = opts
+	.name = 	"webmon",
+	.version = 	XTABLES_VERSION,
+	.family = 	NFPROTO_IPV6,
+	.size = 	XT_ALIGN(sizeof(struct ipt_webmon_info)),
+	.userspacesize = XT_ALIGN(sizeof(struct ipt_webmon_info)),
+	.help = 	help,
+	.init = 	webmon_init,
+	.parse = 	parse,
+	.final_check = 	final_check,
+	.print = 	print,
+	.save = 	save,
+	.extra_opts = 	opts
 };
-#else
-static struct iptables_match webmon = 
-{ 
-	.next		= NULL,
- 	.name		= "webmon",
-	.version = IPTABLES_VERSION,
-	.size		= IPT_ALIGN(sizeof(struct ipt_webmon_info)),
-	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_webmon_info)),
-	.help		= &help,
-	.init           = &webmon_init,
-	.parse		= &parse,
-	.final_check	= &final_check,
-	.print		= &print,
-	.save		= &save,
-	.extra_opts	= opts
-};
-#endif
 
 void _init(void)
 {
-#ifdef XTABLES_VERSION
   xtables_register_match(&webmon);
-#else
-  register_match(&webmon);
-#endif
 }
 
 
@@ -356,18 +309,9 @@ void _init(void)
 #endif
 
 
-
-
-
-
-
 static void param_problem_exit_error(char* msg)
 {
-	#ifdef xtables_error
-		xtables_error(PARAMETER_PROBLEM, msg);
-	#else
-		exit_error(PARAMETER_PROBLEM, msg);
-	#endif
+	xtables_error(PARAMETER_PROBLEM, msg);
 }
 
 
