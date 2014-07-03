@@ -498,7 +498,8 @@ static void ipt_webmon()
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
-	ip46t_write(":monitor - [0:0]\n");
+//	ip46t_write(":monitor - [0:0]\n"); shibby-arm
+	ipt_write(":monitor - [0:0]\n");
 
 	// include IPs
 	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
@@ -507,10 +508,12 @@ static void ipt_webmon()
 		if ((c = strchr(p, ',')) != NULL) *c = 0;
 
 		if ((ok = ipt_addr(src, sizeof(src), p, "src", IPT_V4|IPT_V6, 0, "webmon", NULL))) {
+/* shibby-arm
 #ifdef TCONFIG_IPV6
 			if (*wan6face && (ok & IPT_V6))
 				ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
 #endif
+*/
 			if (ok & IPT_V4) {
 				for (i = 0; i < wanfaces.count; ++i) {
 					if (*(wanfaces.iface[i].name)) {
@@ -533,7 +536,8 @@ static void ipt_webmon()
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
 			if ((ok = ipt_addr(src, sizeof(src), p, "src", IPT_V4|IPT_V6, 0, "webmon", NULL))) {
 				if (*src)
-					ip46t_flagged_write(ok, "-A monitor %s -j RETURN\n", src);
+//					ip46t_flagged_write(ok, "-A monitor %s -j RETURN\n", src); shibby-arm
+					ipt_flagged_write(ok, "-A monitor %s -j RETURN\n", src);
 			}
 			if (!c) break;
 			p = c + 1;
@@ -553,7 +557,8 @@ static void ipt_webmon()
 		sprintf(websearch, "--search_load_file /var/webmon/search");
 	}
 
-	ip46t_write(
+//	ip46t_write( shibby-arm
+	ipt_write(
 		"-A monitor -p tcp -m webmon "
 		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
