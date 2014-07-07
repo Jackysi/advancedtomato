@@ -140,7 +140,7 @@ static char *get_param_word(char **str, char **end_pos)
  *
  ***************************************************************************/
 
-int formparse(struct Configurable *config,
+int formparse(struct OperationConfig *config,
               const char *input,
               struct curl_httppost **httppost,
               struct curl_httppost **last_post,
@@ -150,8 +150,8 @@ int formparse(struct Configurable *config,
      build a linked list with the info */
   char name[256];
   char *contents = NULL;
-  char type_major[128];
-  char type_minor[128];
+  char type_major[128] = "";
+  char type_minor[128] = "";
   char *contp;
   const char *type = NULL;
   char *sep;
@@ -163,7 +163,7 @@ int formparse(struct Configurable *config,
     /* Allocate the contents */
     contents = strdup(contp+1);
     if(!contents) {
-      fprintf(config->errors, "out of memory\n");
+      fprintf(config->global->errors, "out of memory\n");
       return 1;
     }
     contp = contents;
@@ -277,7 +277,7 @@ int formparse(struct Configurable *config,
         }
         forms = malloc((count+1)*sizeof(struct curl_forms));
         if(!forms) {
-          fprintf(config->errors, "Error building form post!\n");
+          fprintf(config->global->errors, "Error building form post!\n");
           Curl_safefree(contents);
           FreeMultiInfo(&multi_start, &multi_current);
           return 4;

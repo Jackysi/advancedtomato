@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -91,9 +91,6 @@
 #endif
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
-#endif
-#ifdef USE_WINSOCK
-#include <conio.h>  /* for _kbhit() used in select_ws() */
 #endif
 
 #define ENABLE_CURLX_PRINTF
@@ -300,6 +297,7 @@ static ssize_t read_wincon(int fd, void *buf, size_t count)
   errno = GetLastError();
   return -1;
 }
+#undef  read
 #define read(a,b,c) read_wincon(a,b,c)
 
 /*
@@ -334,6 +332,7 @@ static ssize_t write_wincon(int fd, const void *buf, size_t count)
   errno = GetLastError();
   return -1;
 }
+#undef  write
 #define write(a,b,c) write_wincon(a,b,c)
 #endif
 
@@ -507,25 +506,170 @@ static void lograw(unsigned char *buffer, ssize_t len)
  * to re-create a select() function with support for other handle types.
  *
  * select() function with support for WINSOCK2 sockets and all
- * other handle types supported by WaitForMultipleObjectsEx().
- *
- * TODO: Differentiate between read/write/except for non-SOCKET handles.
+ * other handle types supported by WaitForMultipleObjectsEx() as
+ * well as disk files, anonymous and names pipes, and character input.
  *
  * http://msdn.microsoft.com/en-us/library/windows/desktop/ms687028.aspx
  * http://msdn.microsoft.com/en-us/library/windows/desktop/ms741572.aspx
  */
+struct select_ws_wait_data {
+  HANDLE handle; /* actual handle to wait for during select */
+  HANDLE event;  /* internal event to abort waiting thread */
+};
+static DWORD WINAPI select_ws_wait_thread(LPVOID lpParameter)
+{
+  struct select_ws_wait_data *data;
+  HANDLE handle, handles[2];
+  INPUT_RECORD inputrecord;
+  LARGE_INTEGER size, pos;
+  DWORD type, length;
+
+  /* retrieve handles from internal structure */
+  data = (struct select_ws_wait_data *) lpParameter;
+  if(data) {
+    handle = data->handle;
+    handles[0] = data->event;
+    handles[1] = handle;
+    free(data);
+  }
+  else
+    return -1;
+
+  /* retrieve the type of file to wait on */
+  type = GetFileType(handle);
+  switch(type) {
+    case FILE_TYPE_DISK:
+       /* The handle represents a file on disk, this means:
+        * - WaitForMultipleObjectsEx will always be signalled for it.
+        * - comparison of current position in file and total size of
+        *   the file can be used to check if we reached the end yet.
+        *
+        * Approach: Loop till either the internal event is signalled
+        *           or if the end of the file has already been reached.
+        */
+      while(WaitForMultipleObjectsEx(2, handles, FALSE, INFINITE, FALSE)
+            == WAIT_OBJECT_0 + 1) {
+        /* get total size of file */
+        size.QuadPart = 0;
+        if(GetFileSizeEx(handle, &size)) {
+          /* get the current position within the file */
+          pos.QuadPart = 0;
+          if(SetFilePointerEx(handle, pos, &pos, FILE_CURRENT)) {
+            /* compare position with size, abort if not equal */
+            if(size.QuadPart == pos.QuadPart) {
+              /* sleep and continue waiting */
+              SleepEx(100, FALSE);
+              continue;
+            }
+          }
+        }
+        /* there is some data available, stop waiting */
+        break;
+      }
+      break;
+
+    case FILE_TYPE_CHAR:
+       /* The handle represents a character input, this means:
+        * - WaitForMultipleObjectsEx will be signalled on any kind of input,
+        *   including mouse and window size events we do not care about.
+        *
+        * Approach: Loop till either the internal event is signalled
+        *           or we get signalled for an actual key-event.
+        */
+      while(WaitForMultipleObjectsEx(2, handles, FALSE, INFINITE, FALSE)
+            == WAIT_OBJECT_0 + 1) {
+        /* check if this is an actual console handle */
+        if(GetConsoleMode(handle, &length)) {
+          /* retrieve an event from the console buffer */
+          length = 0;
+          if(PeekConsoleInput(handle, &inputrecord, 1, &length)) {
+            /* check if the event is not an actual key-event */
+            if(length == 1 && inputrecord.EventType != KEY_EVENT) {
+              /* purge the non-key-event and continue waiting */
+              ReadConsoleInput(handle, &inputrecord, 1, &length);
+              continue;
+            }
+          }
+        }
+        /* there is some data available, stop waiting */
+        break;
+      }
+      break;
+
+    case FILE_TYPE_PIPE:
+       /* The handle represents an anonymous or named pipe, this means:
+        * - WaitForMultipleObjectsEx will always be signalled for it.
+        * - peek into the pipe and retrieve the amount of data available.
+        *
+        * Approach: Loop till either the internal event is signalled
+        *           or there is data in the pipe available for reading.
+        */
+      while(WaitForMultipleObjectsEx(2, handles, FALSE, INFINITE, FALSE)
+            == WAIT_OBJECT_0 + 1) {
+        /* peek into the pipe and retrieve the amount of data available */
+        if(PeekNamedPipe(handle, NULL, 0, NULL, &length, NULL)) {
+          /* if there is no data available, sleep and continue waiting */
+          if(length == 0) {
+            SleepEx(100, FALSE);
+            continue;
+          }
+        }
+        else {
+          /* if the pipe has been closed, sleep and continue waiting */
+          if(GetLastError() == ERROR_BROKEN_PIPE) {
+            SleepEx(100, FALSE);
+            continue;
+          }
+        }
+        /* there is some data available, stop waiting */
+        break;
+      }
+      break;
+
+    default:
+      /* The handle has an unknown type, try to wait on it */
+      WaitForMultipleObjectsEx(2, handles, FALSE, INFINITE, FALSE);
+      break;
+  }
+
+  return 0;
+}
+static HANDLE select_ws_wait(HANDLE handle, HANDLE event)
+{
+  struct select_ws_wait_data *data;
+  HANDLE thread = NULL;
+
+  /* allocate internal waiting data structure */
+  data = malloc(sizeof(struct select_ws_wait_data));
+  if(data) {
+    data->handle = handle;
+    data->event = event;
+
+    /* launch waiting thread */
+    thread = CreateThread(NULL, 0,
+                          &select_ws_wait_thread,
+                          data, 0, NULL);
+
+    /* free data if thread failed to launch */
+    if(!thread) {
+      free(data);
+    }
+  }
+
+  return thread;
+}
 static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
                      fd_set *exceptfds, struct timeval *timeout)
 {
-  long networkevents;
-  DWORD milliseconds, wait, idx, mode, avail, events, inputs;
+  DWORD milliseconds, wait, idx;
   WSAEVENT wsaevent, *wsaevents;
   WSANETWORKEVENTS wsanetevents;
-  INPUT_RECORD *inputrecords;
-  HANDLE handle, *handles;
+  HANDLE handle, *handles, *threads;
   curl_socket_t sock, *fdarr, *wsasocks;
+  long networkevents;
   int error, fds;
-  DWORD nfd = 0, wsa = 0;
+  HANDLE waitevent = NULL;
+  DWORD nfd = 0, thd = 0, wsa = 0;
   int ret = 0;
 
   /* check if the input value is valid */
@@ -540,6 +684,13 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
     return 0;
   }
 
+  /* create internal event to signal waiting threads */
+  waitevent = CreateEvent(NULL, TRUE, FALSE, NULL);
+  if(!waitevent) {
+    errno = ENOMEM;
+    return -1;
+  }
+
   /* allocate internal array for the original input handles */
   fdarr = malloc(nfds * sizeof(curl_socket_t));
   if(fdarr == NULL) {
@@ -550,6 +701,16 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
   /* allocate internal array for the internal event handles */
   handles = malloc(nfds * sizeof(HANDLE));
   if(handles == NULL) {
+    free(fdarr);
+    errno = ENOMEM;
+    return -1;
+  }
+
+  /* allocate internal array for the internal threads handles */
+  threads = malloc(nfds * sizeof(HANDLE));
+  if(threads == NULL) {
+    free(handles);
+    free(fdarr);
     errno = ENOMEM;
     return -1;
   }
@@ -557,6 +718,9 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
   /* allocate internal array for the internal socket handles */
   wsasocks = malloc(nfds * sizeof(curl_socket_t));
   if(wsasocks == NULL) {
+    free(threads);
+    free(handles);
+    free(fdarr);
     errno = ENOMEM;
     return -1;
   }
@@ -564,6 +728,10 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
   /* allocate internal array for the internal WINSOCK2 events */
   wsaevents = malloc(nfds * sizeof(WSAEVENT));
   if(wsaevents == NULL) {
+    free(threads);
+    free(wsasocks);
+    free(handles);
+    free(fdarr);
     errno = ENOMEM;
     return -1;
   }
@@ -586,7 +754,11 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
     if(networkevents) {
       fdarr[nfd] = curlx_sitosk(fds);
       if(fds == fileno(stdin)) {
-        handles[nfd] = GetStdHandle(STD_INPUT_HANDLE);
+        handle = GetStdHandle(STD_INPUT_HANDLE);
+        handle = select_ws_wait(handle, waitevent);
+        handles[nfd] = handle;
+        threads[thd] = handle;
+        thd++;
       }
       else if(fds == fileno(stdout)) {
         handles[nfd] = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -599,14 +771,19 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
         if(wsaevent != WSA_INVALID_EVENT) {
           error = WSAEventSelect(fds, wsaevent, networkevents);
           if(error != SOCKET_ERROR) {
-            handles[nfd] = wsaevent;
+            handle = (HANDLE) wsaevent;
+            handles[nfd] = handle;
             wsasocks[wsa] = curlx_sitosk(fds);
             wsaevents[wsa] = wsaevent;
             wsa++;
           }
           else {
-            handles[nfd] = (HANDLE) curlx_sitosk(fds);
             WSACloseEvent(wsaevent);
+            handle = (HANDLE) curlx_sitosk(fds);
+            handle = select_ws_wait(handle, waitevent);
+            handles[nfd] = handle;
+            threads[thd] = handle;
+            thd++;
           }
         }
       }
@@ -625,6 +802,9 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
   /* wait for one of the internal handles to trigger */
   wait = WaitForMultipleObjectsEx(nfd, handles, FALSE, milliseconds, FALSE);
 
+  /* signal the event handle for the waiting threads */
+  SetEvent(waitevent);
+
   /* loop over the internal handles returned in the descriptors */
   for(idx = 0; idx < nfd; idx++) {
     handle = handles[idx];
@@ -634,46 +814,8 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
     /* check if the current internal handle was triggered */
     if(wait != WAIT_FAILED && (wait - WAIT_OBJECT_0) <= idx &&
        WaitForSingleObjectEx(handle, 0, FALSE) == WAIT_OBJECT_0) {
-      /* try to handle the event with STD* handle functions */
+      /* first handle stdin, stdout and stderr */
       if(fds == fileno(stdin)) {
-        /* check if there is no data in the input buffer */
-        if(!stdin->_cnt) {
-          /* check if we are getting data from a PIPE */
-          if(!GetConsoleMode(handle, &mode)) {
-            /* check if there is no data from PIPE input */
-            if(!PeekNamedPipe(handle, NULL, 0, NULL, &avail, NULL))
-              avail = 0;
-            if(!avail) {
-              FD_CLR(sock, readfds);
-              /* reduce CPU load */
-              Sleep(10);
-            }
-          } /* check if there is no data from keyboard input */
-          else if (!_kbhit()) {
-            /* check if there are INPUT_RECORDs in the input buffer */
-            if(GetNumberOfConsoleInputEvents(handle, &events)) {
-              if(events > 0) {
-                /* remove INPUT_RECORDs from the input buffer */
-                inputrecords = (INPUT_RECORD*)malloc(events *
-                                                     sizeof(INPUT_RECORD));
-                if(inputrecords) {
-                  if(!ReadConsoleInput(handle, inputrecords,
-                                       events, &inputs))
-                    inputs = 0;
-                  free(inputrecords);
-                }
-
-                /* check if we got all inputs, otherwise clear buffer */
-                if(events != inputs)
-                  FlushConsoleInputBuffer(handle);
-              }
-            }
-
-            /* remove from descriptor set since there is no real data */
-            FD_CLR(sock, readfds);
-          }
-        }
-
         /* stdin is never ready for write or exceptional */
         FD_CLR(sock, writefds);
         FD_CLR(sock, exceptfds);
@@ -685,6 +827,7 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
       }
       else {
         /* try to handle the event with the WINSOCK2 functions */
+        wsanetevents.lNetworkEvents = 0;
         error = WSAEnumNetworkEvents(fds, handle, &wsanetevents);
         if(error != SOCKET_ERROR) {
           /* remove from descriptor set if not ready for read/accept/close */
@@ -729,8 +872,16 @@ static int select_ws(int nfds, fd_set *readfds, fd_set *writefds,
     WSACloseEvent(wsaevents[idx]);
   }
 
+  for(idx = 0; idx < thd; idx++) {
+    WaitForSingleObject(threads[thd], INFINITE);
+    CloseHandle(threads[thd]);
+  }
+
+  CloseHandle(waitevent);
+
   free(wsaevents);
   free(wsasocks);
+  free(threads);
   free(handles);
   free(fdarr);
 

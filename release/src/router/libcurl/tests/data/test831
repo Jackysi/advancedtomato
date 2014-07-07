@@ -2,7 +2,9 @@
 <info>
 <keywords>
 IMAP
-IMAP AUTH NTLM
+SASL
+SASL AUTH NTLM
+SASL CANCELLATION
 </keywords>
 </info>
 
@@ -11,6 +13,7 @@ IMAP AUTH NTLM
 <reply>
 <servercmd>
 AUTH NTLM
+CAPA LOGINDISABLED
 REPLY AUTHENTICATE +
 REPLY TlRMTVNTUAABAAAABoIIAAAAAAAAAAAAAAAAAAAAAAA= + Rubbish
 REPLY * A002 NO AUTH exchange cancelled by client
@@ -25,6 +28,7 @@ imap
 </server>
 <features>
 NTLM
+!SSPI
 </features>
  <name>
 IMAP NTLM graceful cancellation

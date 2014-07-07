@@ -2,7 +2,9 @@
 <info>
 <keywords>
 IMAP
-IMAP AUTH CRAM-MD5
+SASL
+SASL AUTH CRAM-MD5
+SASL CANCELLATION
 RFC2195
 </keywords>
 </info>
@@ -12,6 +14,7 @@ RFC2195
 <reply>
 <servercmd>
 AUTH CRAM-MD5
+CAPA LOGINDISABLED
 REPLY AUTHENTICATE + Rubbish
 REPLY * A002 NO AUTH exchange cancelled by client
 </servercmd>

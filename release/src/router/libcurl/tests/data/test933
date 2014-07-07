@@ -2,7 +2,9 @@
 <info>
 <keywords>
 SMTP
-SMTP AUTH NTLM
+SASL
+SASL AUTH NTLM
+SASL CANCELLATION
 RFC4954
 </keywords>
 </info>
@@ -26,6 +28,7 @@ smtp
 </server>
 <features>
 NTLM
+!SSPI
 </features>
  <name>
 SMTP NTLM graceful cancellation

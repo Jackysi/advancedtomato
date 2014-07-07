@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1999 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1999 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -70,6 +70,19 @@
 #    undef LONG_LONG_TYPE
 #    undef HAVE_LONG_LONG_TYPE
 #  endif
+#endif
+
+/*
+ * Non-ANSI integer extensions
+ */
+
+#if (defined(__BORLANDC__) && (__BORLANDC__ >= 0x520)) || \
+    (defined(__WATCOMC__) && defined(__386__)) || \
+    (defined(__POCC__) && defined(_MSC_VER)) || \
+    (defined(_WIN32_WCE)) || \
+    (defined(__MINGW32__)) || \
+    (defined(_MSC_VER) && (_MSC_VER >= 900) && (_INTEGRAL_MAX_BITS >= 64))
+#  define MP_HAVE_INT_EXTENSIONS
 #endif
 
 /*
@@ -189,17 +202,27 @@ static long dprintf_DollarString(char *input, char **end)
   return 0;
 }
 
-static int dprintf_IsQualifierNoDollar(char c)
+static bool dprintf_IsQualifierNoDollar(const char *fmt)
 {
-  switch (c) {
+#if defined(MP_HAVE_INT_EXTENSIONS)
+  if(!strncmp(fmt, "I32", 3) || !strncmp(fmt, "I64", 3)) {
+    return TRUE;
+  }
+#endif
+
+  switch(*fmt) {
   case '-': case '+': case ' ': case '#': case '.':
   case '0': case '1': case '2': case '3': case '4':
   case '5': case '6': case '7': case '8': case '9':
   case 'h': case 'l': case 'L': case 'z': case 'q':
   case '*': case 'O':
-    return 1; /* true */
+#if defined(MP_HAVE_INT_EXTENSIONS)
+  case 'I':
+#endif
+    return TRUE;
+
   default:
-    return 0; /* false */
+    return FALSE;
   }
 }
 
@@ -255,8 +278,20 @@ static long dprintf_Pass1(const char *format, va_stack_t *vto, char **endpos,
 
       /* Handle the flags */
 
-      while(dprintf_IsQualifierNoDollar(*fmt)) {
-        switch (*fmt++) {
+      while(dprintf_IsQualifierNoDollar(fmt)) {
+#if defined(MP_HAVE_INT_EXTENSIONS)
+        if(!strncmp(fmt, "I32", 3)) {
+          flags |= FLAGS_LONG;
+          fmt += 3;
+        }
+        else if(!strncmp(fmt, "I64", 3)) {
+          flags |= FLAGS_LONGLONG;
+          fmt += 3;
+        }
+        else
+#endif
+
+        switch(*fmt++) {
         case ' ':
           flags |= FLAGS_SPACE;
           break;
@@ -296,6 +331,15 @@ static long dprintf_Pass1(const char *format, va_stack_t *vto, char **endpos,
         case 'h':
           flags |= FLAGS_SHORT;
           break;
+#if defined(MP_HAVE_INT_EXTENSIONS)
+        case 'I':
+#if (CURL_SIZEOF_CURL_OFF_T > CURL_SIZEOF_LONG)
+          flags |= FLAGS_LONGLONG;
+#else
+          flags |= FLAGS_LONG;
+#endif
+          break;
+#endif
         case 'l':
           if(flags & FLAGS_LONG)
             flags |= FLAGS_LONGLONG;
@@ -760,11 +804,11 @@ static int dprintf_formatf(
             len = 0;
           }
         }
+        else if(prec != -1)
+          len = (size_t)prec;
         else
           len = strlen(str);
 
-        if(prec != -1 && (size_t) prec < len)
-          len = (size_t)prec;
         width -= (long)len;
 
         if(p->flags & FLAGS_ALT)
@@ -774,7 +818,7 @@ static int dprintf_formatf(
           while(width-- > 0)
             OUTCHAR(' ');
 
-        while(len-- > 0)
+        while((len-- > 0) && *str)
           OUTCHAR(*str++);
         if(p->flags&FLAGS_LEFT)
           while(width-- > 0)

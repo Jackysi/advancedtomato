@@ -6,13 +6,13 @@ may have been fixed since this was written!
 87. -J/--remote-header-name doesn't decode %-encoded file names. RFC6266
   details how it should be done. The can of worm is basically that we have no
   charset handling in curl and ascii >=128 is a challenge for us. Not to
-  mention that decoding also means that we need to check for nastyness that is
+  mention that decoding also means that we need to check for nastiness that is
   attempted, like "../" sequences and the like. Probably everything to the left
   of any embedded slashes should be cut off.
   http://curl.haxx.se/bug/view.cgi?id=1294
 
 86. The disconnect commands (LOGOUT and QUIT) may not be sent by IMAP, POP3
-  and SMTP if a failure occures during the authentication phase of a
+  and SMTP if a failure occurs during the authentication phase of a
   connection.
 
 85. Wrong STARTTRANSFER timer accounting for POST requests
@@ -38,9 +38,9 @@ may have been fixed since this was written!
   such in the build.
   http://curl.haxx.se/bug/view.cgi?id=1222
 
-81. When using -J (with -O), automaticly resumed downloading together with "-C
-  -" fails. Without -J the same command line works! This happens because the
-  resume logic is worked out before the target file name (and thus its
+81. When using -J (with -O), automatically resumed downloading together with
+  "-C -" fails. Without -J the same command line works! This happens because
+  the resume logic is worked out before the target file name (and thus its
   pre-transfer size) has been figured out!
   http://curl.haxx.se/bug/view.cgi?id=1169
 
@@ -69,12 +69,12 @@ may have been fixed since this was written!
   option as for all other operating systems.
 
 75. NTLM authentication involving unicode user name or password only works
-  properly if built with UNICODE defined together with the schannel/winssl
+  properly if built with UNICODE defined together with the WinSSL/schannel
   backend. The original problem was mentioned in:
   http://curl.haxx.se/mail/lib-2009-10/0024.html
   http://curl.haxx.se/bug/view.cgi?id=896
 
-  The schannel version verified to work as mentioned in
+  The WinSSL/schannel version verified to work as mentioned in
   http://curl.haxx.se/mail/lib-2012-07/0073.html
 
 73. if a connection is made to a FTP server but the server then just never
@@ -180,16 +180,7 @@ may have been fixed since this was written!
   --cflags suffers from the same effects with CFLAGS/CPPFLAGS.
 
 30. You need to use -g to the command line tool in order to use RFC2732-style
-  IPv6 numerical addresses in URLs.
-
-29. IPv6 URLs with zone ID is not nicely supported.
-  http://www.ietf.org/internet-drafts/draft-fenner-literal-zone-02.txt (expired)
-  specifies the use of a plus sign instead of a percent when specifying zone
-  IDs in URLs to get around the problem of percent signs being
-  special. According to the reporter, Firefox deals with the URL _with_ a
-  percent letter (which seems like a blatant URL spec violation).
-  libcurl supports zone IDs where the percent sign is URL-escaped (i.e. %25):
-  http://curl.haxx.se/bug/view.cgi?id=555
+  or RFC6874-style IPv6 numerical addresses in URLs.
 
 26. NTLM authentication using SSPI (on Windows) when (lib)curl is running in
   "system context" will make it use wrong(?) user name - at least when compared

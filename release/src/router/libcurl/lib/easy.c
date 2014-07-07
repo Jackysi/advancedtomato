@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -54,7 +54,7 @@
 #include "urldata.h"
 #include <curl/curl.h>
 #include "transfer.h"
-#include "sslgen.h"
+#include "vtls/vtls.h"
 #include "url.h"
 #include "getinfo.h"
 #include "hostip.h"
@@ -299,9 +299,13 @@ CURLcode curl_global_init_mem(long flags, curl_malloc_callback m,
   if(!m || !f || !r || !s || !c)
     return CURLE_FAILED_INIT;
 
-  /* Already initialized, don't do it again */
-  if(initialized)
+  if(initialized) {
+    /* Already initialized, don't do it again, but bump the variable anyway to
+       work like curl_global_init() and require the same amount of cleanup
+       calls. */
+    initialized++;
     return CURLE_OK;
+  }
 
   /* Call the actual init function first */
   code = curl_global_init(flags);
@@ -715,6 +719,15 @@ static CURLcode easy_transfer(CURLM *multi)
       }
     }
   }
+
+  /* Make sure to return some kind of error if there was a multi problem */
+  if(mcode) {
+    return (mcode == CURLM_OUT_OF_MEMORY) ? CURLE_OUT_OF_MEMORY :
+            /* The other multi errors should never happen, so return
+               something suitably generic */
+            CURLE_BAD_FUNCTION_ARGUMENT;
+  }
+
   return code;
 }
 
@@ -747,7 +760,7 @@ static CURLcode easy_perform(struct SessionHandle *data, bool events)
     return CURLE_BAD_FUNCTION_ARGUMENT;
 
   if(data->multi) {
-    failf(data, "easy handled already used in multi handle");
+    failf(data, "easy handle already used in multi handle");
     return CURLE_FAILED_INIT;
   }
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -822,8 +822,8 @@ static CURLcode check_telnet_options(struct connectdata *conn)
 {
   struct curl_slist *head;
   struct curl_slist *beg;
-  char option_keyword[128];
-  char option_arg[256];
+  char option_keyword[128] = "";
+  char option_arg[256] = "";
   struct SessionHandle *data = conn->data;
   struct TELNET *tn = (struct TELNET *)conn->data->req.protop;
   CURLcode result = CURLE_OK;
@@ -932,8 +932,8 @@ static void suboption(struct connectdata *conn)
   size_t len;
   size_t tmplen;
   int err;
-  char varname[128];
-  char varval[128];
+  char varname[128] = "";
+  char varval[128] = "";
   struct SessionHandle *data = conn->data;
   struct TELNET *tn = (struct TELNET *)data->req.protop;
 
@@ -973,11 +973,12 @@ static void suboption(struct connectdata *conn)
         tmplen = (strlen(v->data) + 1);
         /* Add the variable only if it fits */
         if(len + tmplen < (int)sizeof(temp)-6) {
-          sscanf(v->data, "%127[^,],%127s", varname, varval);
-          snprintf((char *)&temp[len], sizeof(temp) - len,
-                   "%c%s%c%s", CURL_NEW_ENV_VAR, varname,
-                   CURL_NEW_ENV_VALUE, varval);
-          len += tmplen;
+          if(sscanf(v->data, "%127[^,],%127s", varname, varval)) {
+            snprintf((char *)&temp[len], sizeof(temp) - len,
+                     "%c%s%c%s", CURL_NEW_ENV_VAR, varname,
+                     CURL_NEW_ENV_VALUE, varval);
+            len += tmplen;
+          }
         }
       }
       snprintf((char *)&temp[len], sizeof(temp) - len,
@@ -1491,6 +1492,7 @@ static CURLcode telnet_do(struct connectdata *conn, bool *done)
 
     case WAIT_OBJECT_0:
 
+      events.lNetworkEvents = 0;
       if(SOCKET_ERROR == enum_netevents_func(sockfd, event_handle, &events)) {
         if((err = SOCKERRNO) != EINPROGRESS) {
           infof(data,"WSAEnumNetworkEvents failed (%d)", err);
