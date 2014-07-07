@@ -282,6 +282,8 @@ extern void ip6t_write(const char *format, ...);
 //#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
 #define ip46t_flagged_write(do_ip46t, args...) do { if (do_ip46t & IPT_V4) ipt_write(args); if (do_ip46t & IPT_V6) ip6t_write(args); } while(0)
 #define ip46t_cond_write(do_ip6t, args...) do { if (do_ip6t) ip6t_write(args); else ipt_write(args); } while(0)
+#define ipt_flagged_write(do_ip46t, args...) do { if (do_ip46t & IPT_V4) ipt_write(args); if (do_ip46t & IPT_V6) ip6t_write(args); } while(0)
+#define ipt_cond_write(do_ip6t, args...) do { if (do_ip6t) ip6t_write(args); else ipt_write(args); } while(0)
 #else
 #define ip46t_write ipt_write
 //#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); } while(0)
