@@ -131,7 +131,15 @@ switch(nvram['boardtype']) {
     break;
   case '0x04ef':  // WRT320N/E2000
   case '0x04cf':  // WRT610Nv2/E3000, RT-N16, WNR3500L
-  case '0xf5b2':  // RT-N66
+  case '0xf5b2':  // RT-AC66 and RT-N66U
+    if (nvram['t_model_name'] == 'Asus RT-N66U') {
+      COL_P0N = '1';
+      COL_P1N = '2';
+      COL_P2N = '3';
+      COL_P3N = '4';
+      COL_P4N = '0';
+      break;
+    }
     COL_P0N = '4';
     COL_P1N = '3';
     COL_P2N = '2';
