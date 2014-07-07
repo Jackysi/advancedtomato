@@ -495,8 +495,8 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "4 8");
 		break;
 	case MODEL_TDN60:
-		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-		dirty |= check_nv("vlan2ports", "4 8");
+		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
 		dirty |= check_nv("boot_wait", "on");
 		dirty |= check_nv("wait_time", "5");
 		break;

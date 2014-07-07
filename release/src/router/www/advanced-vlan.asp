@@ -183,7 +183,7 @@ switch(nvram['boardtype']) {
     COL_P4N = '4';
     break;
   case '0x052b':
-   if (nvram['boardrev'] == '02') { //WNR3500Lv2
+   if (nvram['boardrev'] == '02'){ //WNR3500Lv2
     COL_P0N = '4';
     COL_P1N = '3';
     COL_P2N = '2';
@@ -197,6 +197,14 @@ switch(nvram['boardtype']) {
     COL_P2N = '1';
     COL_P3N = '0';
     COL_P4N = '4';
+    break;
+   }
+   if (nvram['boardrev'] == '60'){ //Tenda N60
+    COL_P0N = '1';
+    COL_P1N = '2';
+    COL_P2N = '3';
+    COL_P3N = '4';
+    COL_P4N = '0';
     break;
    }
 // should work on WRT54G v2/v3, WRT54GS v1/v2 and others
