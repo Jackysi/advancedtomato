@@ -89,6 +89,7 @@ RT-N10P				BCM53572              0x058e       45        0x1153    0x710
 RT-N53				BCM5357               0x0550       45        0x1442    0x710
 RT-N53A1			BCM5358U              0x0550       45        0x1446    0x710
 RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
+RT-N18U				BCM4708               0x0646       00        0x1100    0x00000110
 RT-AC56U			BCM4708               0x0646	   00	     0x1100    0x00000110
 RT-AC68U			BCM4708               0x0646       <MAC>     0x1100    0x00001000
 
@@ -344,6 +345,7 @@ int get_model(void)
 #endif //CONFIG_BCMWL5
 #ifdef CONFIG_BCMWL6
 	if (hw == HW_BCM4708) {
+		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-N18U"))) return MODEL_RTN18U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC56U"))) return MODEL_RTAC56U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68R"))) return MODEL_RTAC68U;

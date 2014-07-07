@@ -577,6 +577,7 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "4 5");
 		break;
 	case MODEL_R7000:
+	case MODEL_RTN18U:
 	case MODEL_RTAC68U:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
@@ -1374,6 +1375,36 @@ static int init_nvram(void)
 		}
 		break;
 #ifdef CONFIG_BCMWL6A
+	case MODEL_RTN18U:
+		mfr = "Asus";
+		name = "RT-N18U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wl_ifnames", "eth1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+
+			// fix WL mac`s
+			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));
+
+			// usb3.0 settings
+			nvram_set("usb_usb3", "1");
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+		}
+		break;
 	case MODEL_RTAC56U:
 		mfr = "Asus";
 		name = "RT-AC56U";

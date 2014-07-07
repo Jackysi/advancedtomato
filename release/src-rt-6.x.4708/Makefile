@@ -139,8 +139,9 @@ ifneq ($(ASUS_TRX),0)
 	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
 	ctools/mksquashfs router/arm-uclibc/target ctools/target.squashfs -noappend -all-root
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
-# for asus RT-AC56U, RT-AC68U, RT-AC68R
+# for asus RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R
 ifeq ($(ASUS_TRX),ASUS)
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC56U,3.0.0.4,image/tomato-RT-AC56U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68R,3.0.0.4,image/tomato-RT-AC68R-$(V1)$(V2)-$(current_BUILD_DESC).trx
