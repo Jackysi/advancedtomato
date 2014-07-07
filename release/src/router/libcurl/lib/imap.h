@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2009 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2009 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -53,6 +53,7 @@ typedef enum {
   IMAP_FETCH_FINAL,
   IMAP_APPEND,
   IMAP_APPEND_FINAL,
+  IMAP_SEARCH,
   IMAP_LOGOUT,
   IMAP_LAST          /* never used */
 } imapstate;
@@ -67,6 +68,8 @@ struct IMAP {
   char *uidvalidity;      /* UIDVALIDITY to check in select */
   char *uid;              /* Message UID to fetch */
   char *section;          /* Message SECTION to fetch */
+  char *partial;          /* Message PARTIAL to fetch */
+  char *query;            /* Query to search for */
   char *custom;           /* Custom request */
   char *custom_params;    /* Parameters for the custom request */
 };

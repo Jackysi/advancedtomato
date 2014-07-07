@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -50,6 +50,7 @@ my $stuncert;
 
 my $ver_major;
 my $ver_minor;
+my $fips_support;
 my $stunnel_version;
 my $socketopt;
 my $cmd;
@@ -112,7 +113,12 @@ while(@ARGV) {
     }
     elsif($ARGV[0] eq '--stunnel') {
         if($ARGV[1]) {
-            $stunnel = $ARGV[1];
+            if($ARGV[1] =~ /^([\w\/]+)$/) {
+                $stunnel = $ARGV[1];
+            }
+            else {
+                $stunnel = "\"". $ARGV[1] ."\"";
+            }
             shift @ARGV;
         }
     }
@@ -184,7 +190,11 @@ foreach my $veropt (('-version', '-V')) {
         if($verstr =~ /^stunnel (\d+)\.(\d+) on /) {
             $ver_major = $1;
             $ver_minor = $2;
-            last;
+        }
+        elsif($verstr =~ /^sslVersion.*fips *= *yes/) {
+            # the fips option causes an error if stunnel doesn't support it
+            $fips_support = 1;
+            last
         }
     }
     last if($ver_major);
@@ -201,7 +211,7 @@ if((!$ver_major) || (!$ver_minor)) {
 $stunnel_version = (100*$ver_major) + $ver_minor;
 
 #***************************************************************************
-# Verify minimmum stunnel required version
+# Verify minimum stunnel required version
 #
 if($stunnel_version < 310) {
     print "$ssltext Unsupported stunnel version $ver_major.$ver_minor\n";
@@ -243,19 +253,26 @@ if($stunnel_version >= 400) {
     $SIG{TERM} = \&exit_signal_handler;
     # stunnel configuration file
     if(open(STUNCONF, ">$conffile")) {
-	print STUNCONF "
-	CApath = $path
-	cert = $certfile
-	pid = $pidfile
-	debug = $loglevel
-	output = $logfile
-	socket = $socketopt
-	foreground = yes
-	
-	[curltest]
-	accept = $accept_port
-	connect = $target_port
-	";
+        print STUNCONF "
+            CApath = $path
+            cert = $certfile
+            debug = $loglevel
+            socket = $socketopt";
+        if($fips_support) {
+            # disable fips in case OpenSSL doesn't support it
+            print STUNCONF "
+            fips = no";
+        }
+        if($stunnel !~ /tstunnel(\.exe)?"?$/) {
+            print STUNCONF "
+            output = $logfile
+            pid = $pidfile
+            foreground = yes";
+        }
+        print STUNCONF "
+            [curltest]
+            accept = $accept_port
+            connect = $target_port";
         if(!close(STUNCONF)) {
             print "$ssltext Error closing file $conffile\n";
             exit 1;
@@ -272,8 +289,8 @@ if($stunnel_version >= 400) {
         print "cert = $certfile\n";
         print "pid = $pidfile\n";
         print "debug = $loglevel\n";
-        print "output = $logfile\n";
         print "socket = $socketopt\n";
+        print "output = $logfile\n";
         print "foreground = yes\n";
         print "\n";
         print "[curltest]\n";
@@ -286,6 +303,25 @@ if($stunnel_version >= 400) {
 # Set file permissions on certificate pem file.
 #
 chmod(0600, $certfile) if(-f $certfile);
+
+#***************************************************************************
+# Run tstunnel on Windows.
+#
+if($stunnel =~ /tstunnel(\.exe)?"?$/) {
+    # Fake pidfile for tstunnel on Windows.
+    if(open(OUT, ">$pidfile")) {
+        print OUT $$ . "\n";
+        close(OUT);
+    }
+
+    # Put an "exec" in front of the command so that the child process
+    # keeps this child's process ID.
+    exec("exec $cmd") || die "Can't exec() $cmd: $!";
+
+    # exec() should never return back here to this process. We protect
+    # ourselves by calling die() just in case something goes really bad.
+    die "error: exec() has returned";
+}
 
 #***************************************************************************
 # Run stunnel.

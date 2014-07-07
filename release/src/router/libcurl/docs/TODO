@@ -17,27 +17,28 @@
  1.4 signal-based resolver timeouts
  1.5 get rid of PATH_MAX
  1.6 Modified buffer size approach
+ 1.7 Detect when called from within callbacks
+ 1.8 Allow SSL (HTTPS) to proxy
 
  2. libcurl - multi interface
  2.1 More non-blocking
  2.2 Fix HTTP Pipelining for PUT
 
  3. Documentation
- 3.1  More and better
+ 3.1 Update date and version in man pages
 
  4. FTP
  4.1 HOST
  4.2 Alter passive/active on failure and retry
  4.3 Earlier bad letter detection
  4.4 REST for large files
- 4.5 FTP proxy support
- 4.6 ASCII support
+ 4.5 ASCII support
 
  5. HTTP
  5.1 Better persistency for HTTP 1.0
  5.2 support FF3 sqlite cookie files
  5.3 Rearrange request header order
- 5.4 HTTP2/SPDY
+ 5.4 SPDY
  5.5 auth= in URLs
 
  6. TELNET
@@ -70,9 +71,8 @@
  12.4 Cache OpenSSL contexts
  12.5 Export session ids
  12.6 Provide callback for cert verification
- 12.7 Support other SSL libraries
- 12.8 improve configure --with-ssl
- 12.9 Support DANE
+ 12.7 improve configure --with-ssl
+ 12.8 Support DANE
 
  13. GnuTLS
  13.1 SSL engine stuff
@@ -87,9 +87,7 @@
  15.3 prevent file overwriting
  15.4 simultaneous parallel transfers
  15.5 provide formpost headers
- 15.6 url-specific options
- 15.7 warning when setting an option
- 15.8 IPv6 addresses with globbing
+ 15.6 warning when setting an option
 
  16. Build
  16.1 roffit
@@ -99,9 +97,10 @@
  17.2 nicer lacking perl message
  17.3 more protocols supported
  17.4 more platforms supported
+ 17.5 Add support for concurrent connections
 
  18. Next SONAME bump
- 18.1 http-style HEAD output for ftp
+ 18.1 http-style HEAD output for FTP
  18.2 combine error codes
  18.3 extend CURLOPT_SOCKOPTFUNCTION prototype
 
@@ -175,6 +174,20 @@
  Dynamically allocate buffer size depending on protocol in use in combination
  with freeing it after each individual transfer? Other suggestions?
 
+1.7 Detect when called from within callbacks
+
+ We should set a state variable before calling callbacks, so that we
+ subsequently can add code within libcurl that returns error if called within
+ callbacks for when that's not supported.
+
+1.8 Allow SSL (HTTPS) to proxy
+
+ To prevent local users from snooping on your traffic to the proxy. Supported
+ by Chrome already:
+ http://www.chromium.org/developers/design-documents/secure-web-proxy
+
+ ...and by Firefox soon:
+ https://bugzilla.mozilla.org/show_bug.cgi?id=378637
 
 2. libcurl - multi interface
 
@@ -200,18 +213,20 @@
 
 3. Documentation
 
-3.1  More and better
+3.1 Update date and version in man pages
 
- Exactly
+ 'maketgz' or another suitable script could update the .TH sections of the man
+ pages at release time to use the current date and curl/libcurl version
+ number.
 
 4. FTP
 
 4.1 HOST
 
- HOST is a suggested command in the works for a client to tell which host name
- to use, to offer FTP servers named-based virtual hosting:
+ HOST is a command for a client to tell which host name to use, to offer FTP
+ servers named-based virtual hosting:
 
- http://tools.ietf.org/html/draft-hethmon-mcmurray-ftp-hosts-11
+ http://tools.ietf.org/html/rfc7151
 
 4.2 Alter passive/active on failure and retry
 
@@ -222,7 +237,7 @@
 
 4.3 Earlier bad letter detection
 
- Make the detection of (bad) %0d and %0a codes in FTP url parts earlier in the
+ Make the detection of (bad) %0d and %0a codes in FTP URL parts earlier in the
  process to avoid doing a resolve and connect in vain.
 
 4.4 REST for large files
@@ -231,13 +246,7 @@
  the server doesn't set the pointer to the requested index. The tricky
  (impossible?) part is to figure out if the server did the right thing or not.
 
-4.5 FTP proxy support
-
- Support the most common FTP proxies, Philip Newton provided a list allegedly
- from ncftp. This is not a subject without debate, and is probably not really
- suitable for libcurl.  http://curl.haxx.se/mail/archive-2003-04/0126.html
-
-4.6 ASCII support
+4.5 ASCII support
 
  FTP ASCII transfers do not follow RFC959. They don't convert the data
  accordingly.
@@ -267,23 +276,13 @@
  headers use a default value so only headers that need to be moved have to be
  specified.
 
-5.4 HTTP2/SPDY
+5.4 SPDY
 
- The first drafts for HTTP2 have been published
- (http://tools.ietf.org/html/draft-ietf-httpbis-http2-03) and is so far based
- on SPDY (http://www.chromium.org/spdy) designs and experiences. Chances are
- it will end up in that style. Chrome and Firefox already support SPDY and
- lots of web services do.
+ Chrome and Firefox already support SPDY and lots of web services do. There's
+ a library for us to use for this (spdylay) that has a similar API and the
+ same author as nghttp2.
 
- It would make sense to implement SPDY support now and later transition into
- or add HTTP2 support as well.
-
- We should base or HTTP2/SPDY work on a 3rd party library for the protocol
- fiddling. The Spindy library (http://spindly.haxx.se/) was an attempt to make
- such a library with an API suitable for use by libcurl but that effort has
- more or less stalled.  spdylay (https://github.com/tatsuhiro-t/spdylay) may
- be a better option, either used directly or wrapped with a more spindly-like
- API.
+ spdylay: https://github.com/tatsuhiro-t/spdylay
 
 5.5 auth= in URLs
 
@@ -292,7 +291,7 @@
 
  For example:
 
- http://test:pass;auth=NTLM@example.com would be equivalent to specifing --user
+ http://test:pass;auth=NTLM@example.com would be equivalent to specifying --user
  test:pass;auth=NTLM or --user test:pass --ntlm from the command line. 
 
  Additionally this should be implemented for proxy base URLs as well.
@@ -357,7 +356,7 @@ to provide the data to send.
  Currently the LDAP module only supports ldap_simple_bind_s() in order to bind
  to an LDAP server. However, this function sends username and password details
  using the simple authentication mechanism (as clear text). However, it should
- be possible to use ldap_bind_s() instead specifing the security context
+ be possible to use ldap_bind_s() instead specifying the security context
  information ourselves.
 
 11. New protocols
@@ -388,7 +387,7 @@ to provide the data to send.
 12.4 Cache OpenSSL contexts
 
  "Look at SSL cafile - quick traces look to me like these are done on every
- request as well, when they should only be necessary once per ssl context (or
+ request as well, when they should only be necessary once per SSL context (or
  once per handle)". The major improvement we can rather easily do is to make
  sure we don't create and kill a new SSL "context" for every request, but
  instead make one for every connection and re-use that SSL context in the same
@@ -409,17 +408,12 @@ to provide the data to send.
  certificate, but this doesn't seem to be exposed in the libcurl APIs. Could
  it be? There's so much that could be done if it were!
 
-12.7 Support other SSL libraries
-
- Make curl's SSL layer capable of using other free SSL libraries.  Such as
- MatrixSSL (http://www.matrixssl.org/).
-
-12.8 improve configure --with-ssl
+12.7 improve configure --with-ssl
 
  make the configure --with-ssl option first check for OpenSSL, then GnuTLS,
  then NSS...
 
-12.9 Support DANE
+12.8 Support DANE
 
  DNS-Based Authentication of Named Entities (DANE) is a way to provide SSL
  keys and certs over DNS using DNSSEC as an alternative to the CA model.
@@ -493,32 +487,11 @@ to provide the data to send.
  which should overwrite the program reasonable defaults (plain/text,
  8bit...)
 
-15.6 url-specific options
-
- Provide a way to make options bound to a specific URL among several on the
- command line. Possibly by letting ':' separate options between URLs,
- similar to this:
-
-    curl --data foo --url url.com : \
-        --url url2.com : \
-        --url url3.com --data foo3
-
- (More details: http://curl.haxx.se/mail/archive-2004-07/0133.html)
-
- The example would do a POST-GET-POST combination on a single command line.
-
-15.7 warning when setting an option
+15.6 warning when setting an option
 
   Display a warning when libcurl returns an error when setting an option.
   This can be useful to tell when support for a particular feature hasn't been
   compiled into the library.
-
-15.8 IPv6 addresses with globbing
-
-  Currently the command line client needs to get url globbing disabled (with
-  -g) for it to support IPv6 numerical addresses. This is a rather silly flaw
-  that should be corrected. It probably involves a smarter detection of the
-  '[' and ']' letters.
 
 16. Build
 
@@ -542,7 +515,7 @@ to provide the data to send.
 
 17.3 more protocols supported
 
- Extend the test suite to include more protocols. The telnet could just do ftp
+ Extend the test suite to include more protocols. The telnet could just do FTP
  or http operations (for which we have test servers).
 
 17.4 more platforms supported
@@ -550,12 +523,26 @@ to provide the data to send.
  Make the test suite work on more platforms. OpenBSD and Mac OS. Remove
  fork()s and it should become even more portable.
 
+17.5 Add support for concurrent connections
+
+ Tests 836, 882 and 938 were designed to verify that separate connections aren't
+ used when using different login credentials in protocols that shouldn't re-use
+ a connection under such circumstances.
+
+ Unfortunately, ftpserver.pl doesn't appear to support multiple concurrent
+ connections. The read while() loop seems to loop until it receives a disconnect
+ from the client, where it then enters the waiting for connections loop. When
+ the client opens a second connection to the server, the first connection hasn't
+ been dropped (unless it has been forced - which we shouldn't do in these tests)
+ and thus the wait for connections loop is never entered to receive the second
+ connection.
+
 18. Next SONAME bump
 
-18.1 http-style HEAD output for ftp
+18.1 http-style HEAD output for FTP
 
  #undef CURL_FTP_HTTPSTYLE_HEAD in lib/ftp.c to remove the HTTP-style headers
- from being output in NOBODY requests over ftp
+ from being output in NOBODY requests over FTP
 
 18.2 combine error codes
 
@@ -589,7 +576,7 @@ to provide the data to send.
  for applications to differentiate on TCP vs UDP and even HTTP vs FTP and
  similar.
 
-10. Next major release
+19. Next major release
 
 19.1 cleanup return codes
 
@@ -653,7 +640,7 @@ to provide the data to send.
  but instead often restricts how the form functions can or can't be modified.
 
  Changing them to return a private handle will benefit the implementation and
- allow us much greater freedoms while still maintining a solid API and ABI.
+ allow us much greater freedoms while still maintaining a solid API and ABI.
 
 19.9 have form functions use CURL handle argument
 
@@ -667,7 +654,7 @@ to provide the data to send.
 
  Rather than use the URL to specify the mail client string to present in the
  HELO and EHLO commands, libcurl should support a new CURLOPT specifically for
- specifing this data as the URL is non-standard and to be honest a bit of a
+ specifying this data as the URL is non-standard and to be honest a bit of a
  hack ;-)
 
  Please see the following thread for more information:

@@ -151,6 +151,7 @@ p.roffit {
 <p class="level0"><a name="CURLOPTPROGRESSFUNCTION"></a><span class="nroffip">CURLOPT_PROGRESSFUNCTION</span> 
 <p class="level1">Pass a pointer to a function that matches the following prototype: 
 <p class="level1"><span class="bold">int function(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow);</span> 
+<p class="level1">We encourage users to use <a class="emphasis" href="#CURLOPTXFERINFOFUNCTION">CURLOPT_XFERINFOFUNCTION</a> instead, if you can. 
 <p class="level1">This function gets called by libcurl instead of its internal equivalent with a frequent interval. While data is being transferred it will be called very frequently, and during slow periods like when nothing is being transferred it can slow down to about one call per second. 
 <p class="level1"><span Class="emphasis">clientp</span> is the pointer set with <a class="emphasis" href="#CURLOPTPROGRESSDATA">CURLOPT_PROGRESSDATA</a>, it is not actually used by libcurl but is only passed along from the application to the callback. 
 <p class="level1">The callback gets told how much data libcurl will transfer and has transferred, in number of bytes. <span Class="emphasis">dltotal</span> is the total number of bytes libcurl expects to download in this transfer. <span Class="emphasis">dlnow</span> is the number of bytes downloaded so far. <span Class="emphasis">ultotal</span> is the total number of bytes libcurl expects to upload in this transfer. <span Class="emphasis">ulnow</span> is the number of bytes uploaded so far. 
@@ -201,6 +202,10 @@ p.roffit {
 <p class="level2">The data is protocol data received from the peer. 
 <p class="level1"><a name="CURLINFODATAOUT"></a><span class="nroffip">CURLINFO_DATA_OUT</span> 
 <p class="level2">The data is protocol data sent to the peer. 
+<p class="level1"><a name="CURLINFOSSLDATAOUT"></a><span class="nroffip">CURLINFO_SSL_DATA_OUT</span> 
+<p class="level2">The data is SSL/TLS (binary) data sent to the peer. 
+<p class="level1"><a name="CURLINFOSSLDATAIN"></a><span class="nroffip">CURLINFO_SSL_DATA_IN</span> 
+<p class="level2">The data is SSL/TLS (binary) data received from the peer. 
 <p class="level1">
 <p class="level0"><a name="CURLOPTDEBUGDATA"></a><span class="nroffip">CURLOPT_DEBUGDATA</span> 
 <p class="level1">Pass a pointer to whatever you want passed in to your <a class="emphasis" href="#CURLOPTDEBUGFUNCTION">CURLOPT_DEBUGFUNCTION</a> in the last void * argument. This pointer is not used by libcurl, it is only passed to the callback. 
@@ -306,12 +311,15 @@ p.roffit {
 <p class="level1">pop3://user:password@mail.example.com - This lists the available messages for the user 
 <p class="level1">pop3://user:password@mail.example.com/1 - This retrieves the first message for the user 
 <p class="level1"><span Class="bold">IMAP</span> 
-<p class="level1">The path part of an IMAP request not only specifies the mailbox to list (Added in 7.30.0) or select, but can also be used to check the UIDVALIDITY of the mailbox and to specify the UID and SECTION of the message to fetch (Added in 7.30.0). 
+<p class="level1">The path part of an IMAP request not only specifies the mailbox to list (Added in 7.30.0) or select, but can also be used to check the UIDVALIDITY of the mailbox, to specify the UID, SECTION (Added in 7.30.0) and PARTIAL octets (Added in 7.37.0) of the message to fetch and to specify what nessages to search for (Added in 7.37.0). 
 <p class="level1">imap://user:password@mail.example.com - Performs a top level folder list 
 <p class="level1">imap://user:password@mail.example.com/INBOX - Performs a folder list on the user's inbox 
 <p class="level1">imap://user:password@mail.example.com/INBOX/;UID=1 - Selects the user's inbox and fetches message 1 
 <p class="level1">imap://user:password@mail.example.com/INBOX;UIDVALIDITY=50/;UID=2 - Selects the user's inbox, checks the UIDVALIDITY of the mailbox is 50 and fetches message 2 if it is 
-<p class="level1">imap://user:password@mail.example.com/INBOX/;UID=3/;SECTION=TEXT - Selects the user's inbox and fetches message 3 with only the text portion of the message 
+<p class="level1">imap://user:password@mail.example.com/INBOX/;UID=3/;SECTION=TEXT - Selects the user's inbox and fetches the text portial of message 3 
+<p class="level1">imap://user:password@mail.example.com/INBOX/;UID=4/;PARTIAL=0.1024 - Selects the user's inbox and fetches the first 1024 octets of message 4 
+<p class="level1">imap://user:password@mail.example.com/INBOX?NEW - Selects the user's inbox and checks for NEW messages 
+<p class="level1">imap://user:password@mail.example.com/INBOX?SUBJECT%20shadows - Selects the user's inbox and searches for messages containing "shadows" in the subject line 
 <p class="level1">For more information about the individual components of an IMAP URL please see <a href="http://www.ietf.org/rfc/rfc5092.txt">RFC 5092</a>. 
 <p class="level1"><span Class="bold">SCP</span> 
 <p class="level1">The path part of a SCP request specifies the file to retrieve and from what directory. The file part may not be omitted. The file is taken as an absolute path from the root directory on the server. To specify a path relative to the user's home directory on the server, prepend ~/ to the path portion. If the user name is not embedded in the URL, it can be set with the <a class="emphasis" href="#CURLOPTUSERPWD">CURLOPT_USERPWD</a> or <a class="bold" href="#CURLOPTUSERNAME">CURLOPT_USERNAME</a> option. 
@@ -340,7 +348,7 @@ p.roffit {
 <p class="level0"><a name="CURLOPTREDIRPROTOCOLS"></a><span class="nroffip">CURLOPT_REDIR_PROTOCOLS</span> 
 <p class="level1">Pass a long that holds a bitmask of CURLPROTO_* defines. If used, this bitmask limits what protocols libcurl may use in a transfer that it follows to in a redirect when <a class="emphasis" href="#CURLOPTFOLLOWLOCATION">CURLOPT_FOLLOWLOCATION</a> is enabled. This allows you to limit specific transfers to only be allowed to use a subset of protocols in redirections. By default libcurl will allow all protocols except for FILE and SCP. This is a difference compared to pre-7.19.4 versions which unconditionally would follow to all protocols supported. (Added in 7.19.4) 
 <p class="level0"><a name="CURLOPTPROXY"></a><span class="nroffip">CURLOPT_PROXY</span> 
-<p class="level1">Set HTTP proxy to use. The parameter should be a char * to a zero terminated string holding the host name or dotted IP address. To specify port number in this string, append :[port] to the end of the host name. The proxy string may be prefixed with [protocol]:// since any such prefix will be ignored. The proxy's port number may optionally be specified with the separate option. If not specified, libcurl will default to using port 1080 for proxies. <a class="emphasis" href="#CURLOPTPROXYPORT">CURLOPT_PROXYPORT</a>. 
+<p class="level1">Set HTTP proxy to use. The parameter should be a char * to a zero terminated string holding the host name or dotted IP address. To specify port number in this string, append :[port] to the end of the host name. The proxy string may be prefixed with [protocol]:// since any such prefix will be ignored. The proxy's port number may optionally be specified with the separate option <a class="emphasis" href="#CURLOPTPROXYPORT">CURLOPT_PROXYPORT</a>. If not specified, libcurl will default to using port 1080 for proxies. 
 <p class="level1">When you tell the library to use a HTTP proxy, libcurl will transparently convert operations to HTTP even if you specify an FTP URL etc. This may have an impact on what other features of the library you can use, such as <a class="emphasis" href="#CURLOPTQUOTE">CURLOPT_QUOTE</a> and similar FTP specifics that don't work unless you tunnel through the HTTP proxy. Such tunneling is activated with <a class="emphasis" href="#CURLOPTHTTPPROXYTUNNEL">CURLOPT_HTTPPROXYTUNNEL</a>. 
 <p class="level1">libcurl respects the environment variables <span Class="bold">http_proxy</span>, <span Class="bold">ftp_proxy</span>, <span Class="bold">all_proxy</span> etc, if any of those are set. The <a class="emphasis" href="#CURLOPTPROXY">CURLOPT_PROXY</a> option does however override any possibly set environment variables. 
 <p class="level1">Setting the proxy string to "" (an empty string) will explicitly disable the use of a proxy, even if there is an environment variable set for it. 
@@ -352,7 +360,7 @@ p.roffit {
 <p class="level1">Pass a long with this option to set type of the proxy. Available options for this are <span Class="emphasis">CURLPROXY_HTTP</span>, <span Class="emphasis">CURLPROXY_HTTP_1_0</span> (added in 7.19.4), <span Class="emphasis">CURLPROXY_SOCKS4</span> (added in 7.10), <span Class="emphasis">CURLPROXY_SOCKS5</span>, <span Class="emphasis">CURLPROXY_SOCKS4A</span> (added in 7.18.0) and <span Class="emphasis">CURLPROXY_SOCKS5_HOSTNAME</span> (added in 7.18.0). The HTTP type is default. (Added in 7.10) 
 <p class="level1">If you set <a class="bold" href="#CURLOPTPROXYTYPE">CURLOPT_PROXYTYPE</a> to <span Class="emphasis">CURLPROXY_HTTP_1_0</span>, it will only affect how libcurl speaks to a proxy when CONNECT is used. The HTTP version used for "regular" HTTP requests is instead controlled with <a class="emphasis" href="#CURLOPTHTTPVERSION">CURLOPT_HTTP_VERSION</a>. 
 <p class="level0"><a name="CURLOPTNOPROXY"></a><span class="nroffip">CURLOPT_NOPROXY</span> 
-<p class="level1">Pass a pointer to a zero terminated string. The string consists of a comma separated list of host names that do not require a proxy to get reached, even if one is specified.  The only wildcard available is a single * character, which matches all hosts, and effectively disables the proxy. Each name in this list is matched as either a domain which contains the hostname, or the hostname itself. For example, example.com would match example.com, example.com:80, and www.example.com, but not www.notanexample.com.  (Added in 7.19.4) 
+<p class="level1">Pass a pointer to a zero terminated string. The string consists of a comma separated list of host names that do not require a proxy to get reached, even if one is specified.  The only wildcard available is a single * character, which matches all hosts, and effectively disables the proxy. Each name in this list is matched as either a domain which contains the hostname, or the hostname itself. For example, example.com would match example.com, example.com:80, and www.example.com, but not www.notanexample.com or example.com.othertld.  (Added in 7.19.4) 
 <p class="level0"><a name="CURLOPTHTTPPROXYTUNNEL"></a><span class="nroffip">CURLOPT_HTTPPROXYTUNNEL</span> 
 <p class="level1">Set the parameter to 1 to make the library tunnel all operations through a given HTTP proxy. There is a big difference between using a proxy and to tunnel through it. If you don't know what this means, you probably don't want this tunneling option. 
 <p class="level0"><a name="CURLOPTSOCKS5GSSAPISERVICE"></a><span class="nroffip">CURLOPT_SOCKS5_GSSAPI_SERVICE</span> 
@@ -412,7 +420,7 @@ p.roffit {
 <p class="level1">When using NTLM, you can set the domain by prepending it to the user name and separating the domain and name with a forward (/) or backward slash (\). Like this: "domain/user:password" or "domain\user:password". Some HTTP servers (on Windows) support this style even for Basic authentication. 
 <p class="level1">When using HTTP and <a class="emphasis" href="#CURLOPTFOLLOWLOCATION">CURLOPT_FOLLOWLOCATION</a>, libcurl might perform several requests to possibly different hosts. libcurl will only send this user and password information to hosts using the initial host name (unless <a class="emphasis" href="#CURLOPTUNRESTRICTEDAUTH">CURLOPT_UNRESTRICTED_AUTH</a> is set), so if libcurl follows locations to other hosts it will not send the user and password to those. This is enforced to prevent accidental information leakage. 
 <p class="level1">Use <a class="emphasis" href="#CURLOPTHTTPAUTH">CURLOPT_HTTPAUTH</a> to specify the authentication method for HTTP based connections or <a class="emphasis" href="#CURLOPTLOGINOPTIONS">CURLOPT_LOGIN_OPTIONS</a> to control IMAP, POP3 and SMTP options. 
-<p class="level1">The user and password strings are not URL decoded, so there's no way to send in a user name containing a colon using this option. Use fCURLOPT_USERNAME</span> for that, or include it in the URL. 
+<p class="level1">The user and password strings are not URL decoded, so there's no way to send in a user name containing a colon using this option. Use <a class="emphasis" href="#CURLOPTUSERNAME">CURLOPT_USERNAME</a> for that, or include it in the URL. 
 <p class="level0"><a name="CURLOPTPROXYUSERPWD"></a><span class="nroffip">CURLOPT_PROXYUSERPWD</span> 
 <p class="level1">Pass a char * as parameter, which should be [user name]:[password] to use for the connection to the HTTP proxy. Both the name and the password will be URL decoded before use, so to include for example a colon in the user name you should encode it as %3A. 
 <p class="level1">Use <a class="emphasis" href="#CURLOPTPROXYAUTH">CURLOPT_PROXYAUTH</a> to specify the authentication method. 
@@ -426,7 +434,7 @@ p.roffit {
 <p class="level0"><a name="CURLOPTLOGINOPTIONS"></a><span class="nroffip">CURLOPT_LOGIN_OPTIONS</span> 
 <p class="level1">(Added in 7.34.0) Pass a char * as parameter, which should be pointing to the zero terminated options string to use for the transfer. 
 <p class="level1">At present only IMAP, POP3 and SMTP support login options. For more information about the login options please see <a href="http://www.ietf.org/rfc/rfc2384.txt">RFC 2384</a>, RFC5092 and IETF draft draft-earhart-url-smtp-00.txt 
-<p class="level1">CURLOPT_LOGIN_OPTIONS</span> can be used to set protocol specific login options, such as the preferred authentication mechanism via "AUTH=NTLM" or "AUTH=*", and should be used in conjunction with the <a class="emphasis" href="#CURLOPTUSERNAME">CURLOPT_USERNAME</a> option. 
+<p class="level1"><a class="bold" href="#CURLOPTLOGINOPTIONS">CURLOPT_LOGIN_OPTIONS</a> can be used to set protocol specific login options, such as the preferred authentication mechanism via "AUTH=NTLM" or "AUTH=*", and should be used in conjunction with the <a class="emphasis" href="#CURLOPTUSERNAME">CURLOPT_USERNAME</a> option. 
 <p class="level0"><a name="CURLOPTPROXYUSERNAME"></a><span class="nroffip">CURLOPT_PROXYUSERNAME</span> 
 <p class="level1">Pass a char * as parameter, which should be pointing to the zero terminated user name to use for the transfer while connecting to Proxy. 
 <p class="level1">The CURLOPT_PROXYUSERNAME option should be used in same way as the <a class="emphasis" href="#CURLOPTPROXYUSERPWD">CURLOPT_PROXYUSERPWD</a> is used.  In comparison to <a class="emphasis" href="#CURLOPTPROXYUSERPWD">CURLOPT_PROXYUSERPWD</a> the CURLOPT_PROXYUSERNAME allows the username to contain a colon, like in the following example: "sip:user@example.com". The CURLOPT_PROXYUSERNAME option is an alternative way to set the user name while connecting to Proxy.  There is no meaning to use it together with the <a class="emphasis" href="#CURLOPTPROXYUSERPWD">CURLOPT_PROXYUSERPWD</a> option. 
@@ -471,12 +479,12 @@ p.roffit {
 <p class="level0"><a name="CURLOPTTLSAUTHPASSWORD"></a><span class="nroffip">CURLOPT_TLSAUTH_PASSWORD</span> 
 <p class="level1">Pass a char * as parameter, which should point to the zero terminated password to use for the TLS authentication method specified with the <a class="emphasis" href="#CURLOPTTLSAUTHTYPE">CURLOPT_TLSAUTH_TYPE</a> option. Requires that the <span Class="emphasis">CURLOPT_TLS_USERNAME</span> option also be set. (Added in 7.21.4) 
 <p class="level0"><a name="CURLOPTPROXYAUTH"></a><span class="nroffip">CURLOPT_PROXYAUTH</span> 
-<p class="level1">Pass a long as parameter, which is set to a bitmask, to tell libcurl which authentication method(s) you want it to use for your proxy authentication.  If more than one bit is set, libcurl will first query the site to see what authentication methods it supports and then pick the best one you allow it to use. For some methods, this will induce an extra network round-trip. Set the actual name and password with the <a class="emphasis" href="#CURLOPTPROXYUSERPWD">CURLOPT_PROXYUSERPWD</a> option. The bitmask can be constructed by or'ing together the bits listed above for the <a class="emphasis" href="#CURLOPTHTTPAUTH">CURLOPT_HTTPAUTH</a> option. As of this writing, only Basic, Digest and NTLM work. (Added in 7.10.7) 
+<p class="level1">Pass a long as parameter, which is set to a bitmask, to tell libcurl which authentication method(s) you want it to use for your proxy authentication.  If more than one bit is set, libcurl will first query the site to see what authentication methods it supports and then pick the best one you allow it to use. For some methods, this will induce an extra network round-trip. Set the actual name and password with the <a class="emphasis" href="#CURLOPTPROXYUSERPWD">CURLOPT_PROXYUSERPWD</a> option. The bitmask can be constructed by or'ing together the bits listed above for the <a class="emphasis" href="#CURLOPTHTTPAUTH">CURLOPT_HTTPAUTH</a> option. <a class="emphasis" href="#CURLOPTPROXYAUTH">CURLOPT_PROXYAUTH</a> was added in 7.10.7 
 <p class="level0"><a name="CURLOPTSASLIR"></a><span class="nroffip">CURLOPT_SASL_IR</span> 
 <p class="level1">Pass a long. If the value is 1, curl will send the initial response to the server in the first authentication packet in order to reduce the number of ping pong requests. Only applicable to supporting SASL authentication mechanisms and to the IMAP, POP3 and SMTP protocols. (Added in 7.31.0) 
 <p class="level1">Note: Whilst IMAP supports this option there is no need to explicitly set it, as libcurl can determine the feature itself when the server supports the SASL-IR CAPABILITY. 
-<p class="level0"><a name="CURLOPTBEARER"></a><span class="nroffip">CURLOPT_BEARER</span> 
-<p class="level1">Pass a char * as parameter, which should point to the zero terminated OAUTH 2.0 Bearer Access Token for use with IMAP. POP3 and SMTP servers that support the OAUTH 2.0 Authorization Framework. (Added in 7.33.0) 
+<p class="level0"><a name="CURLOPTXOAUTH2BEARER"></a><span class="nroffip">CURLOPT_XOAUTH2_BEARER</span> 
+<p class="level1">Pass a char * as parameter, which should point to the zero terminated OAuth 2.0 Bearer Access Token for use with IMAP, POP3 and SMTP servers that support the OAuth 2.0 Authorization Framework. (Added in 7.33.0) 
 <p class="level1">Note: The user name used to generate the Bearer Token should be supplied via the <a class="emphasis" href="#CURLOPTUSERNAME">CURLOPT_USERNAME</a> option. <a name="HTTP"></a><h2 class="nroffsh">HTTP OPTIONS</h2>
 <p class="level0">
 <p class="level0"><a name="CURLOPTAUTOREFERER"></a><span class="nroffip">CURLOPT_AUTOREFERER</span> 
@@ -535,11 +543,24 @@ p.roffit {
 <p class="level0"><a name="CURLOPTUSERAGENT"></a><span class="nroffip">CURLOPT_USERAGENT</span> 
 <p class="level1">Pass a pointer to a zero terminated string as parameter. It will be used to set the User-Agent: header in the http request sent to the remote server. This can be used to fool servers or scripts. You can also set any custom header with <a class="emphasis" href="#CURLOPTHTTPHEADER">CURLOPT_HTTPHEADER</a>. 
 <p class="level0"><a name="CURLOPTHTTPHEADER"></a><span class="nroffip">CURLOPT_HTTPHEADER</span> 
-<p class="level1">Pass a pointer to a linked list of HTTP headers to pass to the server in your HTTP request. The linked list should be a fully valid list of <span class="bold">struct curl_slist</span> structs properly filled in. Use <a class="emphasis" href="./curl_slist_append.html">curl_slist_append(3)</a> to create the list and <a class="emphasis" href="./curl_slist_free_all.html">curl_slist_free_all(3)</a> to clean up an entire list. If you add a header that is otherwise generated and used by libcurl internally, your added one will be used instead. If you add a header with no content as in 'Accept:' (no data on the right side of the colon), the internally used header will get disabled. Thus, using this option you can add new headers, replace internal headers and remove internal headers. To add a header with no content (nothing to the right side of the colon), use the form 'MyHeader;' (note the ending semicolon). 
+<p class="level1">Pass a pointer to a linked list of HTTP headers to pass to the server and/or proxy in your HTTP request. The same list is used for both host and proxy requests! 
+<p class="level1">The linked list should be a fully valid list of <span Class="bold">struct curl_slist</span> structs properly filled in. Use <a class="emphasis" href="./curl_slist_append.html">curl_slist_append(3)</a> to create the list and <a class="emphasis" href="./curl_slist_free_all.html">curl_slist_free_all(3)</a> to clean up an entire list. If you add a header that is otherwise generated and used by libcurl internally, your added one will be used instead. If you add a header with no content as in 'Accept:' (no data on the right side of the colon), the internally used header will get disabled. With this option you can add new headers, replace internal headers and remove internal headers. To add a header with no content (nothing to the right side of the colon), use the form 'MyHeader;' (note the ending semicolon). 
 <p class="level1">The headers included in the linked list must not be CRLF-terminated, because curl adds CRLF after each header item. Failure to comply with this will result in strange bugs because the server will most likely ignore part of the headers you specified. 
 <p class="level1">The first line in a request (containing the method, usually a GET or POST) is not a header and cannot be replaced using this option. Only the lines following the request-line are headers. Adding this method line in this list of headers will only cause your request to send an invalid header. 
 <p class="level1">Pass a NULL to this to reset back to no custom headers. 
 <p class="level1">The most commonly replaced headers have "shortcuts" in the options <a class="emphasis" href="#CURLOPTCOOKIE">CURLOPT_COOKIE</a>, <a class="emphasis" href="#CURLOPTUSERAGENT">CURLOPT_USERAGENT</a> and <a class="emphasis" href="#CURLOPTREFERER">CURLOPT_REFERER</a>. 
+<p class="level1">There's an alternative option that sets or replaces headers only for requests that are sent with CONNECT to a proxy: <a class="emphasis" href="#CURLOPTPROXYHEADER">CURLOPT_PROXYHEADER</a>. Use <a class="emphasis" href="#CURLOPTHEADEROPT">CURLOPT_HEADEROPT</a> to control the behavior. 
+<p class="level0"><a name="CURLOPTHEADEROPT"></a><span class="nroffip">CURLOPT_HEADEROPT</span> 
+<p class="level1">Pass a long that is a bitmask of options of how to deal with headers. The two mutually exclusive options are: 
+<p class="level1">CURLHEADER_UNIFIED - keep working as before. This means CURLOPT_HTTPHEADER headers will be used in requests both to servers and proxies. With this option enabled, <a class="emphasis" href="#CURLOPTPROXYHEADER">CURLOPT_PROXYHEADER</a> will not have any effect. 
+<p class="level1">CURLHEADER_SEPARATE - makes <a class="emphasis" href="#CURLOPTHTTPHEADER">CURLOPT_HTTPHEADER</a> headers only get sent to a server and not to a proxy. Proxy headers must be set with <a class="emphasis" href="#CURLOPTPROXYHEADER">CURLOPT_PROXYHEADER</a> to get used. Note that if a non-CONNECT request is sent to a proxy, libcurl will send both server headers and proxy headers. When doing CONNECT, libcurl will send <a class="emphasis" href="#CURLOPTPROXYHEADER">CURLOPT_PROXYHEADER</a> headers only do the proxy and then <a class="emphasis" href="#CURLOPTHTTPHEADER">CURLOPT_HTTPHEADER</a> headers only to the server. 
+<p class="level1">(Added in 7.37.0) 
+<p class="level0"><a name="CURLOPTPROXYHEADER"></a><span class="nroffip">CURLOPT_PROXYHEADER</span> 
+<p class="level1">Pass a pointer to a linked list of HTTP headers to pass in your HTTP request sent to a proxy. The rules for this list is identical to the <a class="emphasis" href="#CURLOPTHTTPHEADER">CURLOPT_HTTPHEADER</a> option's. 
+<p class="level1">The headers set with this option is only ever used in requests sent to a proxy - when there's also a request sent to a host. 
+<p class="level1">The first line in a request (containing the method, usually a GET or POST) is NOT a header and cannot be replaced using this option. Only the lines following the request-line are headers. Adding this method line in this list of headers will only cause your request to send an invalid header. 
+<p class="level1">Pass a NULL to this to reset back to no custom headers. 
+<p class="level1">This option was added in libcurl 7.37.0. 
 <p class="level0"><a name="CURLOPTHTTP200ALIASES"></a><span class="nroffip">CURLOPT_HTTP200ALIASES</span> 
 <p class="level1">Pass a pointer to a linked list of aliases to be treated as valid HTTP 200 responses.  Some servers respond with a custom header response line.  For example, IceCast servers respond with "ICY 200 OK".  By including this string in your list of aliases, the response will be treated as a valid HTTP header line such as "HTTP/1.0 200 OK". (Added in 7.10.3) 
 <p class="level1">The linked list should be a fully valid list of struct curl_slist structs, and be properly filled in.  Use <a class="emphasis" href="./curl_slist_append.html">curl_slist_append(3)</a> to create the list and <a class="emphasis" href="./curl_slist_free_all.html">curl_slist_free_all(3)</a> to clean up an entire list. 
@@ -564,7 +585,7 @@ p.roffit {
 <p class="level1">Pass a long. If the long is 1, this forces the HTTP request to get back to GET. Usable if a POST, HEAD, PUT, or a custom request has been used previously using the same curl handle. 
 <p class="level1">When setting <a class="emphasis" href="#CURLOPTHTTPGET">CURLOPT_HTTPGET</a> to 1, it will automatically set <a class="emphasis" href="#CURLOPTNOBODY">CURLOPT_NOBODY</a> to 0 and <a class="emphasis" href="#CURLOPTUPLOAD">CURLOPT_UPLOAD</a> to 0. 
 <p class="level0"><a name="CURLOPTHTTPVERSION"></a><span class="nroffip">CURLOPT_HTTP_VERSION</span> 
-<p class="level1">Pass a long, set to one of the values described below. They force libcurl to use the specific HTTP versions. This is not sensible to do unless you have a good reason. 
+<p class="level1">Pass a long, set to one of the values described below. They force libcurl to use the specific HTTP versions. This is not sensible to do unless you have a good reason. You have to set this option if you want to use libcurl's HTTP 2.0 support. 
 <p class="level2">
 <p class="level1"><a name="CURLHTTPVERSIONNONE"></a><span class="nroffip">CURL_HTTP_VERSION_NONE</span> 
 <p class="level2">We don't care about what version the library uses. libcurl will use whatever it thinks fit. 
@@ -572,13 +593,17 @@ p.roffit {
 <p class="level2">Enforce HTTP 1.0 requests. 
 <p class="level1"><a name="CURLHTTPVERSION11"></a><span class="nroffip">CURL_HTTP_VERSION_1_1</span> 
 <p class="level2">Enforce HTTP 1.1 requests. 
+<p class="level1"><a name="CURLHTTPVERSION20"></a><span class="nroffip">CURL_HTTP_VERSION_2_0</span> 
+<p class="level2">Attempt HTTP 2.0 requests. libcurl will fall back to HTTP 1.x if HTTP 2.0 can't be negotiated with the server. 
 <p class="level1">
 <p class="level0"><a name="CURLOPTIGNORECONTENTLENGTH"></a><span class="nroffip">CURLOPT_IGNORE_CONTENT_LENGTH</span> 
 <p class="level1">Ignore the Content-Length header. This is useful for Apache 1.x (and similar servers) which will report incorrect content length for files over 2 gigabytes. If this option is used, curl will not be able to accurately report progress, and will simply stop the download when the server ends the connection. (added in 7.14.1) 
 <p class="level0"><a name="CURLOPTHTTPCONTENTDECODING"></a><span class="nroffip">CURLOPT_HTTP_CONTENT_DECODING</span> 
 <p class="level1">Pass a long to tell libcurl how to act on content decoding. If set to zero, content decoding will be disabled. If set to 1 it is enabled. Libcurl has no default content decoding but requires you to use <a class="emphasis" href="#CURLOPTACCEPTENCODING">CURLOPT_ACCEPT_ENCODING</a> for that. (added in 7.16.2) 
 <p class="level0"><a name="CURLOPTHTTPTRANSFERDECODING"></a><span class="nroffip">CURLOPT_HTTP_TRANSFER_DECODING</span> 
-<p class="level1">Pass a long to tell libcurl how to act on transfer decoding. If set to zero, transfer decoding will be disabled, if set to 1 it is enabled (default). libcurl does chunked transfer decoding by default unless this option is set to zero. (added in 7.16.2) <a name="SMTP"></a><h2 class="nroffsh">SMTP OPTIONS</h2>
+<p class="level1">Pass a long to tell libcurl how to act on transfer decoding. If set to zero, transfer decoding will be disabled, if set to 1 it is enabled (default). libcurl does chunked transfer decoding by default unless this option is set to zero. (added in 7.16.2) 
+<p class="level0"><a name="CURLOPTEXPECT100TIMEOUTMS"></a><span class="nroffip">CURLOPT_EXPECT_100_TIMEOUT_MS</span> 
+<p class="level1">Pass a long to tell libcurl the number of milliseconds to wait for a server response with the HTTP status 100 (Continue), 417 (Expectation Failed) or similar after sending a HTTP request containing an Expect: 100-continue header. If this times out before a response is received, the request body is sent anyway. By default, libcurl waits 1000 milliseconds. (Added in 7.36.0) <a name="SMTP"></a><h2 class="nroffsh">SMTP OPTIONS</h2>
 <p class="level0">
 <p class="level0"><a name="CURLOPTMAILFROM"></a><span class="nroffip">CURLOPT_MAIL_FROM</span> 
 <p class="level1">Pass a pointer to a zero terminated string as parameter. This should be used to specify the sender's email address when sending SMTP mail with libcurl. 
@@ -768,11 +793,14 @@ p.roffit {
 <p class="level0"><a name="CURLOPTINFILESIZE"></a><span class="nroffip">CURLOPT_INFILESIZE</span> 
 <p class="level1">When uploading a file to a remote site, this option should be used to tell libcurl what the expected size of the infile is. This value should be passed as a long. See also <a class="emphasis" href="#CURLOPTINFILESIZELARGE">CURLOPT_INFILESIZE_LARGE</a>. 
 <p class="level1">For uploading using SCP, this option or <a class="emphasis" href="#CURLOPTINFILESIZELARGE">CURLOPT_INFILESIZE_LARGE</a> is mandatory. 
+<p class="level1">To "unset" this value again, set it to -1. 
 <p class="level1">When sending emails using SMTP, this command can be used to specify the optional SIZE parameter for the MAIL FROM command. (Added in 7.23.0) 
 <p class="level1">This option does not limit how much data libcurl will actually send, as that is controlled entirely by what the read callback returns. 
 <p class="level0"><a name="CURLOPTINFILESIZELARGE"></a><span class="nroffip">CURLOPT_INFILESIZE_LARGE</span> 
 <p class="level1">When uploading a file to a remote site, this option should be used to tell libcurl what the expected size of the infile is.  This value should be passed as a curl_off_t. (Added in 7.11.0) 
 <p class="level1">For uploading using SCP, this option or <a class="emphasis" href="#CURLOPTINFILESIZE">CURLOPT_INFILESIZE</a> is mandatory. 
+<p class="level1">To "unset" this value again, set it to -1. 
+<p class="level1">When sending emails using SMTP, this command can be used to specify the optional SIZE parameter for the MAIL FROM command. (Added in 7.23.0) 
 <p class="level1">This option does not limit how much data libcurl will actually send, as that is controlled entirely by what the read callback returns. 
 <p class="level0"><a name="CURLOPTUPLOAD"></a><span class="nroffip">CURLOPT_UPLOAD</span> 
 <p class="level1">A parameter set to 1 tells the library to prepare for an upload. The <a class="emphasis" href="#CURLOPTREADDATA">CURLOPT_READDATA</a> and <a class="emphasis" href="#CURLOPTINFILESIZE">CURLOPT_INFILESIZE</a> or <a class="emphasis" href="#CURLOPTINFILESIZELARGE">CURLOPT_INFILESIZE_LARGE</a> options are also interesting for uploads. If the protocol is HTTP, uploading means using the PUT request unless you tell libcurl otherwise. 
@@ -803,9 +831,11 @@ p.roffit {
 <p class="level0"><a name="CURLOPTLOWSPEEDTIME"></a><span class="nroffip">CURLOPT_LOW_SPEED_TIME</span> 
 <p class="level1">Pass a long as parameter. It contains the time in seconds that the transfer should be below the <a class="emphasis" href="#CURLOPTLOWSPEEDLIMIT">CURLOPT_LOW_SPEED_LIMIT</a> for the library to consider it too slow and abort. 
 <p class="level0"><a name="CURLOPTMAXSENDSPEEDLARGE"></a><span class="nroffip">CURLOPT_MAX_SEND_SPEED_LARGE</span> 
-<p class="level1">Pass a curl_off_t as parameter.  If an upload exceeds this speed (counted in bytes per second) on cumulative average during the transfer, the transfer will pause to keep the average rate less than or equal to the parameter value. Defaults to unlimited speed. (Added in 7.15.5) 
+<p class="level1">Pass a curl_off_t as parameter.  If an upload exceeds this speed (counted in bytes per second) on cumulative average during the transfer, the transfer will pause to keep the average rate less than or equal to the parameter value. Defaults to unlimited speed. 
+<p class="level1">This option doesn't affect transfer speeds done with FILE:// URLs. (Added in &nbsp;7.15.5) 
 <p class="level0"><a name="CURLOPTMAXRECVSPEEDLARGE"></a><span class="nroffip">CURLOPT_MAX_RECV_SPEED_LARGE</span> 
-<p class="level1">Pass a curl_off_t as parameter.  If a download exceeds this speed (counted in bytes per second) on cumulative average during the transfer, the transfer will pause to keep the average rate less than or equal to the parameter value. Defaults to unlimited speed. (Added in 7.15.5) 
+<p class="level1">Pass a curl_off_t as parameter.  If a download exceeds this speed (counted in bytes per second) on cumulative average during the transfer, the transfer will pause to keep the average rate less than or equal to the parameter value. Defaults to unlimited speed. 
+<p class="level1">This option doesn't affect transfer speeds done with FILE:// URLs. (Added in 7.15.5) 
 <p class="level0"><a name="CURLOPTMAXCONNECTS"></a><span class="nroffip">CURLOPT_MAXCONNECTS</span> 
 <p class="level1">Pass a long. The set number will be the persistent connection cache size. The set amount will be the maximum amount of simultaneously open connections that libcurl may cache in this easy handle. Default is 5, and there isn't much point in changing this value unless you are perfectly aware of how this works and changes libcurl's behaviour. This concerns connections using any of the protocols that support persistent connections. 
 <p class="level1">When reaching the maximum limit, curl closes the oldest one in the cache to prevent increasing the number of open connections. 
@@ -891,6 +921,12 @@ p.roffit {
 <p class="level0"><a name="CURLOPTKEYPASSWD"></a><span class="nroffip">CURLOPT_KEYPASSWD</span> 
 <p class="level1">Pass a pointer to a zero terminated string as parameter. It will be used as the password required to use the <a class="emphasis" href="#CURLOPTSSLKEY">CURLOPT_SSLKEY</a> or <a class="emphasis" href="#CURLOPTSSHPRIVATEKEYFILE">CURLOPT_SSH_PRIVATE_KEYFILE</a> private key. You never needed a pass phrase to load a certificate but you need one to load your private key. 
 <p class="level1">(This option was known as CURLOPT_SSLKEYPASSWD up to 7.16.4 and CURLOPT_SSLCERTPASSWD up to 7.9.2) 
+<p class="level0"><a name="CURLOPTSSLENABLEALPN"></a><span class="nroffip">CURLOPT_SSL_ENABLE_ALPN</span> 
+<p class="level1">Pass a long as parameter, 0 or 1 where 1 is for enable and 0 for disable. By default, libcurl assumes a value of 1. This option enables/disables ALPN in the SSL handshake (if the SSL backend libcurl is built to use supports it), which can be used to negotiate http2. 
+<p class="level1">(Added in 7.36.0) 
+<p class="level0"><a name="CURLOPTSSLENABLENPN"></a><span class="nroffip">CURLOPT_SSL_ENABLE_NPN</span> 
+<p class="level1">Pass a long as parameter, 0 or 1 where 1 is for enable and 0 for disable. By default, libcurl assumes a value of 1. This option enables/disables NPN in the SSL handshake (if the SSL backend libcurl is built to use supports it), which can be used to negotiate http2. 
+<p class="level1">(Added in 7.36.0) 
 <p class="level0"><a name="CURLOPTSSLENGINE"></a><span class="nroffip">CURLOPT_SSLENGINE</span> 
 <p class="level1">Pass a pointer to a zero terminated string as parameter. It will be used as the identifier for the crypto engine you want to use for your private key. 
 <p class="level1">If the crypto device cannot be loaded, <span Class="emphasis">CURLE_SSL_ENGINE_NOTFOUND</span> is returned. 
@@ -984,6 +1020,15 @@ p.roffit {
 <p class="level1">Pass a pointer to a zero terminated string holding the file name of the known_host file to use.  The known_hosts file should use the OpenSSH file format as supported by libssh2. If this file is specified, libcurl will only accept connections with hosts that are known and present in that file, with a matching public key. Use <a class="emphasis" href="#CURLOPTSSHKEYFUNCTION">CURLOPT_SSH_KEYFUNCTION</a> to alter the default behavior on host and key (mis)matching. (Added in 7.19.6) 
 <p class="level0"><a name="CURLOPTSSHKEYFUNCTION"></a><span class="nroffip">CURLOPT_SSH_KEYFUNCTION</span> 
 <p class="level1">Pass a pointer to a curl_sshkeycallback function. It gets called when the known_host matching has been done, to allow the application to act and decide for libcurl how to proceed. The callback will only be called if <a class="emphasis" href="#CURLOPTSSHKNOWNHOSTS">CURLOPT_SSH_KNOWNHOSTS</a> is also set. 
+<p class="level1"><pre>
+<p class="level1">int curl_sshkeycallback (CURL *easy,     /* easy handle */
+ &nbsp;                        const struct curl_khkey *knownkey, /* known */
+ &nbsp;                        const struct curl_khkey *foundkey, /* found */
+ &nbsp;                        enum curl_khmatch, /* libcurl's view on the keys */
+ &nbsp;                        void *clientp);
+ </pre>
+
+<p class="level1">
 <p class="level1">The curl_sshkeycallback function gets passed the CURL handle, the key from the known_hosts file, the key from the remote site, info from libcurl on the matching status and a custom pointer (set with <a class="emphasis" href="#CURLOPTSSHKEYDATA">CURLOPT_SSH_KEYDATA</a>). It MUST return one of the following return codes to tell libcurl how to act: 
 <p class="level2">
 <p class="level1"><a name="CURLKHSTATFINEADDTOFILE"></a><span class="nroffip">CURLKHSTAT_FINE_ADD_TO_FILE</span> 

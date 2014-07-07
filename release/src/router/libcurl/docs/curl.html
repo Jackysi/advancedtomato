@@ -75,14 +75,22 @@ p.roffit {
 <p class="level0">In general, all boolean options are enabled with --<span Class="bold">option</span> and yet again disabled with --<span Class="bold">no-</span>option. That is, you use the exact same option name but prefix it with "no-". However, in this list we mostly only list and show the --option version of them. (This concept with --no options was added in 7.19.0. Previously most options were toggled on/off on repeated use of the same command line option.) 
 <p class="level0"><a name="-"></a><span class="nroffip">-#, --progress-bar</span> 
 <p class="level1">Make curl display progress as a simple progress bar instead of the standard, more informational, meter. 
+<p class="level0"><a name="-"></a><span class="nroffip">-:, --next</span> 
+<p class="level1">Tells curl to use a separate operation for the following URL and associated options. This allows you to send several URL requests, each with their own specific options, for example, such as different user names or custom requests for each. (Added in 7.36.0) 
 <p class="level0"><a name="-0"></a><span class="nroffip">-0, --http1.0</span> 
 <p class="level1">(HTTP) Tells curl to use HTTP version 1.0 instead of using its internally preferred: HTTP 1.1. 
 <p class="level0"><a name="--http11"></a><span class="nroffip">--http1.1</span> 
 <p class="level1">(HTTP) Tells curl to use HTTP version 1.1. This is the internal default version. (Added in 7.33.0) 
-<p class="level0"><a name="--http20"></a><span class="nroffip">--http2.0</span> 
-<p class="level1">(HTTP) Tells curl to issue its requests using HTTP 2.0. This requires that the underlying libcurl was built to support it. (Added in 7.33.0) 
+<p class="level0"><a name="--http2"></a><span class="nroffip">--http2</span> 
+<p class="level1">(HTTP) Tells curl to issue its requests using HTTP 2. This requires that the underlying libcurl was built to support it. (Added in 7.33.0) 
+<p class="level0"><a name="--no-npn"></a><span class="nroffip">--no-npn</span> 
+<p class="level1">Disable the NPN TLS extension. NPN is enabled by default if libcurl was built with an SSL library that supports NPN. NPN is used by a libcurl that supports HTTP 2 to negotiate HTTP 2 support with the server during https sessions. 
+<p class="level1">(Added in 7.36.0) 
+<p class="level0"><a name="--no-alpn"></a><span class="nroffip">--no-alpn</span> 
+<p class="level1">Disable the ALPN TLS extension. ALPN is enabled by default if libcurl was built with an SSL library that supports ALPN. ALPN is used by a libcurl that supports HTTP 2 to negotiate HTTP 2 support with the server during https sessions. 
+<p class="level1">(Added in 7.36.0) 
 <p class="level0"><a name="-1"></a><span class="nroffip">-1, --tlsv1</span> 
-<p class="level1">(SSL) Forces curl to use TLS version 1 when negotiating with a remote TLS server. 
+<p class="level1">(SSL) Forces curl to use TLS version 1.x when negotiating with a remote TLS server. You can use options <a class="emphasis" href="#--tlsv10">--tlsv1.0</a>, <a class="emphasis" href="#--tlsv11">--tlsv1.1</a>, and <a class="emphasis" href="#--tlsv12">--tlsv1.2</a> to control the TLS version more precisely (if the SSL backend in use supports such a level of control). 
 <p class="level0"><a name="-2"></a><span class="nroffip">-2, --sslv2</span> 
 <p class="level1">(SSL) Forces curl to use SSL version 2 when negotiating with a remote SSL server. 
 <p class="level0"><a name="-3"></a><span class="nroffip">-3, --sslv3</span> 
@@ -139,7 +147,7 @@ p.roffit {
 <p class="level1">(HTTP) Sends the specified data in a POST request to the HTTP server, in the same way that a browser does when a user has filled in an HTML form and presses the submit button. This will cause curl to pass the data to the server using the content-type application/x-www-form-urlencoded.  Compare to <a class="emphasis" href="#-F">-F, --form</a>. 
 <p class="level1"><a class="emphasis" href="#-d">-d, --data</a> is the same as <a class="emphasis" href="#--data-ascii">--data-ascii</a>. To post data purely binary, you should instead use the <a class="emphasis" href="#--data-binary">--data-binary</a> option. To URL-encode the value of a form field you may use <a class="emphasis" href="#--data-urlencode">--data-urlencode</a>. 
 <p class="level1">If any of these options is used more than once on the same command line, the data pieces specified will be merged together with a separating &-symbol. Thus, using '-d name=daniel -d skill=lousy' would generate a post chunk that looks like 'name=daniel&skill=lousy'. 
-<p class="level1">If you start the data with the letter @, the rest should be a file name to read the data from, or - if you want curl to read the data from stdin.  The contents of the file must already be URL-encoded. Multiple files can also be specified. Posting data from a file named 'foobar' would thus be done with <span Class="emphasis">--data</span> @foobar. When --data is told to read from a file like that, carriage returns and newlines will be stripped out. 
+<p class="level1">If you start the data with the letter @, the rest should be a file name to read the data from, or - if you want curl to read the data from stdin. Multiple files can also be specified. Posting data from a file named 'foobar' would thus be done with <span Class="emphasis">--data</span> @foobar. When --data is told to read from a file like that, carriage returns and newlines will be stripped out. 
 <p class="level0"><a name="-D"></a><span class="nroffip">-D, --dump-header &lt;file&gt;</span> 
 <p class="level1">Write the protocol headers to the specified file. 
 <p class="level1">This option is handy to use when you want to store the headers that an HTTP site sends to you. Cookies from the headers could then be read in a second curl invocation by using the <a class="emphasis" href="#-b">-b, --cookie</a> option! The <a class="emphasis" href="#-c">-c, --cookie-jar</a> option is however a better way to store cookies. 
@@ -201,7 +209,7 @@ p.roffit {
 <p class="level1">Set the list of DNS servers to be used instead of the system default. The list of IP addresses should be separated with commas. Port numbers may also optionally be given as <span Class="emphasis">:&lt;port-number&gt;</span> after each IP address. 
 <p class="level1">This option requires that libcurl was built with a resolver backend that supports this operation. The c-ares backend is the only such one.  (Added in 7.33.0) 
 <p class="level0"><a name="-e"></a><span class="nroffip">-e, --referer &lt;URL&gt;</span> 
-<p class="level1">(HTTP) Sends the "Referer Page" information to the HTTP server. This can also be set with the <a class="emphasis" href="#-H">-H, --header</a> flag of course.  When used with <a class="emphasis" href="#-L">-L, --location</a> you can append ";auto" to the --referer URL to make curl automatically set the previous URL when it follows a Location: header. The ";auto" string can be used alone, even if you don't set an initial --referer. 
+<p class="level1">(HTTP) Sends the "Referrer Page" information to the HTTP server. This can also be set with the <a class="emphasis" href="#-H">-H, --header</a> flag of course.  When used with <a class="emphasis" href="#-L">-L, --location</a> you can append ";auto" to the --referer URL to make curl automatically set the previous URL when it follows a Location: header. The ";auto" string can be used alone, even if you don't set an initial --referer. 
 <p class="level1">If this option is used several times, the last one will be used. 
 <p class="level0"><a name="-E"></a><span class="nroffip">-E, --cert &lt;certificate[:password]&gt;</span> 
 <p class="level1">(SSL) Tells curl to use the specified client certificate file when getting a file with HTTPS, FTPS or another SSL-based protocol. The certificate must be in PKCS#12 format if using Secure Transport, or PEM format if using any other engine.  If the optional password isn't specified, it will be queried for on the terminal. Note that this option assumes a "certificate" file that is the private key and the private certificate concatenated! See <span Class="emphasis">--cert</span> and <a class="emphasis" href="#--key">--key</a> to specify them independently. 
@@ -288,9 +296,10 @@ p.roffit {
 <p class="level1">If used in combination with -I, the POST data will instead be appended to the URL with a HEAD request. 
 <p class="level1">If this option is used several times, only the first one is used. This is because undoing a GET doesn't make sense, but you should then instead enforce the alternative method you prefer. 
 <p class="level0"><a name="-H"></a><span class="nroffip">-H, --header &lt;header&gt;</span> 
-<p class="level1">(HTTP) Extra header to use when getting a web page. You may specify any number of extra headers. Note that if you should add a custom header that has the same name as one of the internal ones curl would use, your externally set header will be used instead of the internal one. This allows you to make even trickier stuff than curl would normally do. You should not replace internally set headers without knowing perfectly well what you're doing. Remove an internal header by giving a replacement without content on the right side of the colon, as in: -H "Host:". If you send the custom header with no-value then its header must be terminated with a semicolon, such as -H "X-Custom-Header;" to send "X-Custom-Header:". 
+<p class="level1">(HTTP) Extra header to include in the request when sending HTTP to a server. You may specify any number of extra headers. Note that if you should add a custom header that has the same name as one of the internal ones curl would use, your externally set header will be used instead of the internal one. This allows you to make even trickier stuff than curl would normally do. You should not replace internally set headers without knowing perfectly well what you're doing. Remove an internal header by giving a replacement without content on the right side of the colon, as in: -H "Host:". If you send the custom header with no-value then its header must be terminated with a semicolon, such as -H "X-Custom-Header;" to send "X-Custom-Header:". 
 <p class="level1">curl will make sure that each header you add/replace is sent with the proper end-of-line marker, you should thus <span Class="bold">not</span> add that as a part of the header content: do not add newlines or carriage returns, they will only mess things up for you. 
 <p class="level1">See also the <a class="emphasis" href="#-A">-A, --user-agent</a> and <a class="emphasis" href="#-e">-e, --referer</a> options. 
+<p class="level1">Starting in 7.37.0, you need <a class="emphasis" href="#--proxy-header">--proxy-header</a> to send custom headers intended for a proxy. 
 <p class="level1">This option can be used multiple times to add/replace/remove multiple headers. 
 <p class="level0"><a name="--hostpubmd5"></a><span class="nroffip">--hostpubmd5 &lt;md5&gt;</span> 
 <p class="level1">(SCP/SFTP) Pass a string containing 32 hexadecimal digits. The string should be the 128 bit MD5 checksum of the remote host's public key, curl will refuse the connection with the host unless the md5sums match. (Added in 7.17.1) 
@@ -374,6 +383,10 @@ p.roffit {
 <p class="level0"><a name="-m"></a><span class="nroffip">-m, --max-time &lt;seconds&gt;</span> 
 <p class="level1">Maximum time in seconds that you allow the whole operation to take.  This is useful for preventing your batch jobs from hanging for hours due to slow networks or links going down.  Since 7.32.0, this option accepts decimal values, but the actual timeout will decrease in accuracy as the specified timeout increases in decimal precision.  See also the <a class="emphasis" href="#--connect-timeout">--connect-timeout</a> option. 
 <p class="level1">If this option is used several times, the last one will be used. 
+<p class="level0"><a name="--login-options"></a><span class="nroffip">--login-options &lt;options&gt;</span> 
+<p class="level1">Specify the login options to use during server authentication. 
+<p class="level1">You can use the login options to specify protocol specific options that may be used during authentication. At present only IMAP, POP3 and SMTP support login options. For more information about the login options please see <a href="http://www.ietf.org/rfc/rfc2384.txt">RFC 2384</a>, RFC 5092 and IETF draft draft-earhart-url-smtp-00.txt (Added in 7.34.0). 
+<p class="level1">If this option is used several times, the last one will be used. 
 <p class="level0"><a name="--mail-auth"></a><span class="nroffip">--mail-auth &lt;address&gt;</span> 
 <p class="level1">(SMTP) Specify a single address. This will be used to specify the authentication address (identity) of a submitted message that is being relayed to another server. 
 <p class="level1">(Added in 7.25.0) 
@@ -449,6 +462,12 @@ p.roffit {
 <p class="level1">(IMAP, POP3, SMTP) Specify the Bearer Token for OAUTH 2.0 server authentication. The Bearer Token is used in conjunction with the user name which can be specified as part of the <a class="emphasis" href="#--url">--url</a> or <a class="emphasis" href="#-u">-u, --user</a> options. 
 <p class="level1">The Bearer Token and user name are formatted according to <a href="http://www.ietf.org/rfc/rfc6750.txt">RFC 6750</a>. 
 <p class="level1">If this option is used several times, the last one will be used. 
+<p class="level0"><a name="--proxy-header"></a><span class="nroffip">--proxy-header &lt;header&gt;</span> 
+<p class="level1">(HTTP) Extra header to include in the request when sending HTTP to a proxy. You may specify any number of extra headers. This is the equivalent option to <a class="emphasis" href="#-H">-H, --header</a> but is for proxy communication only like in CONNECT requests when you want a separate header sent to the proxy to what is sent to the actual remote host. 
+<p class="level1">curl will make sure that each header you add/replace is sent with the proper end-of-line marker, you should thus <span Class="bold">not</span> add that as a part of the header content: do not add newlines or carriage returns, they will only mess things up for you. 
+<p class="level1">Headers specified with this option will not be included in requests that curl knows will not be sent to a proxy. 
+<p class="level1">This option can be used multiple times to add/replace/remove multiple headers. 
+<p class="level1">(Added in 7.37.0) 
 <p class="level0"><a name="-p"></a><span class="nroffip">-p, --proxytunnel</span> 
 <p class="level1">When an HTTP proxy is used (<a class="emphasis" href="#-x">-x, --proxy</a>), this option will cause non-HTTP protocols to attempt to tunnel through the proxy instead of merely using it to do HTTP-like operations. The tunnel approach is made with the HTTP proxy CONNECT request and requires that the proxy allows direct connect to the remote port number curl wants to tunnel through to. 
 <p class="level0"><a name="-P"></a><span class="nroffip">-P, --ftp-port &lt;address&gt;</span> 
@@ -589,7 +608,7 @@ p.roffit {
 <p class="level1">(FTP, POP3, IMAP, SMTP) Require SSL/TLS for the connection.  Terminates the connection if the server doesn't support SSL/TLS. (Added in 7.20.0) 
 <p class="level1">This option was formerly known as <span Class="emphasis">--ftp-ssl-reqd</span> (added in 7.15.5). That option name can still be used but will be removed in a future version. 
 <p class="level0"><a name="--ssl-allow-beast"></a><span class="nroffip">--ssl-allow-beast</span> 
-<p class="level1">(SSL) This option tells curl to not work around a security flaw in the SSL3 and TLS1.0 protocols known as BEAST.  If this option isn't used, the SSL layer may use work-arounds known to cause interoperability problems with some older SSL implementations. WARNING: this option loosens the SSL security, and by using this flag you ask for exactly that.  (Added in 7.25.0) 
+<p class="level1">(SSL) This option tells curl to not work around a security flaw in the SSL3 and TLS1.0 protocols known as BEAST.  If this option isn't used, the SSL layer may use workarounds known to cause interoperability problems with some older SSL implementations. WARNING: this option loosens the SSL security, and by using this flag you ask for exactly that.  (Added in 7.25.0) 
 <p class="level0"><a name="--socks4"></a><span class="nroffip">--socks4 &lt;host[:port]&gt;</span> 
 <p class="level1">Use the specified SOCKS4 proxy. If the port number is not specified, it is assumed at port 1080. (Added in 7.15.2) 
 <p class="level1">This option overrides any previous use of <a class="emphasis" href="#-x">-x, --proxy</a>, as they are mutually exclusive. 
@@ -663,11 +682,10 @@ p.roffit {
 <p class="level1">If this option is used several times, the last one will be used. 
 <p class="level0"><a name="--trace-time"></a><span class="nroffip">--trace-time</span> 
 <p class="level1">Prepends a time stamp to each trace or verbose line that curl displays. (Added in 7.14.0) 
-<p class="level0"><a name="-u"></a><span class="nroffip">-u, --user &lt;user:password;options&gt;</span> 
-<p class="level1">Specify the user name, password and optional login options to use for server authentication. Overrides <a class="emphasis" href="#-n">-n, --netrc</a> and <a class="emphasis" href="#--netrc-optional">--netrc-optional</a>. 
-<p class="level1">If you simply specify the user name, with or without the login options, curl will prompt for a password. 
-<p class="level1">If you use an SSPI-enabled curl binary and perform NTLM authentication, you can force curl to select the user name and password from your environment by simply specifying a single colon with this option: "-u :" or by specfying the login options on their own, for example "-u ;auth=NTLM". 
-<p class="level1">You can use the optional login options part to specify protocol specific options that may be used during authentication. At present only IMAP, POP3 and SMTP support login options as part of the user login information. For more information about the login options please see <a href="http://www.ietf.org/rfc/rfc2384.txt">RFC 2384</a>, RFC 5092 and IETF draft draft-earhart-url-smtp-00.txt (Added in 7.31.0).  
+<p class="level0"><a name="-u"></a><span class="nroffip">-u, --user &lt;user:password&gt;</span> 
+<p class="level1">Specify the user name and password to use for server authentication. Overrides <a class="emphasis" href="#-n">-n, --netrc</a> and <a class="emphasis" href="#--netrc-optional">--netrc-optional</a>. 
+<p class="level1">If you simply specify the user name, curl will prompt for a password. 
+<p class="level1">If you use an SSPI-enabled curl binary and perform NTLM authentication, you can force curl to select the user name and password from your environment by specifying a single colon with this option: "-u :". 
 <p class="level1">If this option is used several times, the last one will be used. 
 <p class="level0"><a name="-U"></a><span class="nroffip">-U, --proxy-user &lt;user:password&gt;</span> 
 <p class="level1">Specify the user name and password to use for proxy authentication. 
@@ -732,7 +750,7 @@ p.roffit {
 <p class="level1">This option only changes the actual word used in the HTTP request, it does not alter the way curl behaves. So for example if you want to make a proper HEAD request, using -X HEAD will not suffice. You need to use the <a class="emphasis" href="#-I">-I, --head</a> option. 
 <p class="level1">(FTP) Specifies a custom FTP command to use instead of LIST when doing file lists with FTP. 
 <p class="level1">(POP3) Specifies a custom POP3 command to use instead of LIST or RETR. (Added in 7.26.0) 
-<p class="level1">(IMAP) Specifies a custom IMAP command to use insead of LIST. (Added in 7.30.0) 
+<p class="level1">(IMAP) Specifies a custom IMAP command to use instead of LIST. (Added in 7.30.0) 
 <p class="level1">(SMTP) Specifies a custom SMTP command to use instead of HELP or VRFY. (Added in 7.34.0) 
 <p class="level1">If this option is used several times, the last one will be used. 
 <p class="level0"><a name="--xattr"></a><span class="nroffip">--xattr</span> 

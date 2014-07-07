@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -477,8 +477,8 @@ static CURLcode tftp_send_first(tftp_state_data_t *state, tftp_event_t event)
       setpacketevent(&state->spacket, TFTP_EVENT_WRQ);
       state->conn->data->req.upload_fromhere =
         (char *)state->spacket.data+4;
-      if(data->set.infilesize != -1)
-        Curl_pgrsSetUploadSize(data, data->set.infilesize);
+      if(data->state.infilesize != -1)
+        Curl_pgrsSetUploadSize(data, data->state.infilesize);
     }
     else {
       /* If we are downloading, send an RRQ */
@@ -498,8 +498,9 @@ static CURLcode tftp_send_first(tftp_state_data_t *state, tftp_event_t event)
     sbytes = 4 + strlen(filename) + strlen(mode);
 
     /* add tsize option */
-    if(data->set.upload && (data->set.infilesize != -1))
-      snprintf( buf, sizeof(buf), "%" FORMAT_OFF_T, data->set.infilesize );
+    if(data->set.upload && (data->state.infilesize != -1))
+      snprintf(buf, sizeof(buf), "%" CURL_FORMAT_CURL_OFF_T,
+               data->state.infilesize);
     else
       strcpy(buf, "0"); /* the destination is large enough */
 
@@ -1040,7 +1041,8 @@ static CURLcode tftp_done(struct connectdata *conn, CURLcode status,
     return CURLE_ABORTED_BY_CALLBACK;
 
   /* If we have encountered an error */
-  code = tftp_translate_code(state->error);
+  if(state)
+    code = tftp_translate_code(state->error);
 
   return code;
 }
@@ -1318,7 +1320,10 @@ static CURLcode tftp_do(struct connectdata *conn, bool *done)
     if(code)
       return code;
   }
+
   state = (tftp_state_data_t *)conn->proto.tftpc;
+  if(!state)
+    return CURLE_BAD_CALLING_ORDER;
 
   code = tftp_perform(conn, done);
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -71,7 +71,7 @@
 #include "sockaddr.h" /* required for Curl_sockaddr_storage */
 #include "inet_ntop.h"
 #include "inet_pton.h"
-#include "sslgen.h" /* for Curl_ssl_check_cxn() */
+#include "vtls/vtls.h" /* for Curl_ssl_check_cxn() */
 #include "progress.h"
 #include "warnless.h"
 #include "conncache.h"
@@ -224,7 +224,12 @@ long Curl_timeleft(struct SessionHandle *data,
   }
 
   /* subtract elapsed time */
-  timeout_ms -= Curl_tvdiff(*nowp, data->progress.t_startsingle);
+  if(duringconnect)
+    /* since this most recent connect started */
+    timeout_ms -= Curl_tvdiff(*nowp, data->progress.t_startsingle);
+  else
+    /* since the entire operation started */
+    timeout_ms -= Curl_tvdiff(*nowp, data->progress.t_startop);
   if(!timeout_ms)
     /* avoid returning 0 as that means no timeout! */
     return -1;
@@ -545,7 +550,7 @@ static CURLcode trynextip(struct connectdata *conn,
   conn->tempsock[tempindex] = CURL_SOCKET_BAD;
 
   if(sockindex == FIRSTSOCKET) {
-    Curl_addrinfo *ai;
+    Curl_addrinfo *ai = NULL;
     int family;
 
     if(conn->tempaddr[tempindex]) {
@@ -553,10 +558,14 @@ static CURLcode trynextip(struct connectdata *conn,
       family = conn->tempaddr[tempindex]->ai_family;
       ai = conn->tempaddr[tempindex]->ai_next;
     }
-    else {
+    else if(conn->tempaddr[0]) {
       /* happy eyeballs - try the other protocol family */
       int firstfamily = conn->tempaddr[0]->ai_family;
+#ifdef ENABLE_IPV6
       family = (firstfamily == AF_INET) ? AF_INET6 : AF_INET;
+#else
+      family = firstfamily;
+#endif
       ai = conn->tempaddr[0]->ai_next;
     }
 
@@ -566,11 +575,11 @@ static CURLcode trynextip(struct connectdata *conn,
 
       if(ai) {
         rc = singleipconnect(conn, ai, &conn->tempsock[tempindex]);
-        conn->tempaddr[tempindex] = ai;
         if(rc == CURLE_COULDNT_CONNECT) {
           ai = ai->ai_next;
           continue;
         }
+        conn->tempaddr[tempindex] = ai;
       }
       break;
     }
@@ -652,6 +661,10 @@ void Curl_updateconninfo(struct connectdata *conn, curl_socket_t sockfd)
   struct Curl_sockaddr_storage ssrem;
   struct Curl_sockaddr_storage ssloc;
   struct SessionHandle *data = conn->data;
+
+  if(conn->socktype == SOCK_DGRAM)
+    /* there's no connection! */
+    return;
 
   if(!conn->bits.reuse) {
 
@@ -803,14 +816,16 @@ CURLcode Curl_is_connected(struct connectdata *conn,
       char ipaddress[MAX_IPADR_LEN];
       data->state.os_errno = error;
       SET_SOCKERRNO(error);
-      Curl_printable_address(conn->tempaddr[i], ipaddress, MAX_IPADR_LEN);
-      infof(data, "connect to %s port %ld failed: %s\n",
-            ipaddress, conn->port, Curl_strerror(conn, error));
+      if(conn->tempaddr[i]) {
+        Curl_printable_address(conn->tempaddr[i], ipaddress, MAX_IPADR_LEN);
+        infof(data, "connect to %s port %ld failed: %s\n",
+              ipaddress, conn->port, Curl_strerror(conn, error));
 
-      conn->timeoutms_per_addr = conn->tempaddr[i]->ai_next == NULL ?
-                                 allow : allow / 2;
+        conn->timeoutms_per_addr = conn->tempaddr[i]->ai_next == NULL ?
+                                   allow : allow / 2;
 
-      code = trynextip(conn, sockindex, i);
+        code = trynextip(conn, sockindex, i);
+      }
     }
   }
 
@@ -908,19 +923,40 @@ void Curl_sndbufset(curl_socket_t sockfd)
   int val = CURL_MAX_WRITE_SIZE + 32;
   int curval = 0;
   int curlen = sizeof(curval);
+  DWORD majorVersion = 6;
 
-  OSVERSIONINFO osver;
   static int detectOsState = DETECT_OS_NONE;
 
   if(detectOsState == DETECT_OS_NONE) {
+#if !defined(_WIN32_WINNT) || !defined(_WIN32_WINNT_WIN2K) || \
+    (_WIN32_WINNT < _WIN32_WINNT_WIN2K)
+    OSVERSIONINFO osver;
+
     memset(&osver, 0, sizeof(osver));
     osver.dwOSVersionInfoSize = sizeof(osver);
+
     detectOsState = DETECT_OS_PREVISTA;
     if(GetVersionEx(&osver)) {
-      if(osver.dwMajorVersion >= 6)
+      if(osver.dwMajorVersion >= majorVersion)
         detectOsState = DETECT_OS_VISTA_OR_LATER;
     }
+#else
+    ULONGLONG majorVersionMask;
+    OSVERSIONINFOEX osver;
+
+    memset(&osver, 0, sizeof(osver));
+    osver.dwOSVersionInfoSize = sizeof(osver);
+    osver.dwMajorVersion = majorVersion;
+    majorVersionMask = VerSetConditionMask(0, VER_MAJORVERSION,
+                                           VER_GREATER_EQUAL);
+
+    if(VerifyVersionInfo(&osver, VER_MAJORVERSION, majorVersionMask))
+      detectOsState = DETECT_OS_VISTA_OR_LATER;
+    else
+      detectOsState = DETECT_OS_PREVISTA;
+#endif
   }
+
   if(detectOsState == DETECT_OS_VISTA_OR_LATER)
     return;
 
@@ -931,7 +967,6 @@ void Curl_sndbufset(curl_socket_t sockfd)
   setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char *)&val, sizeof(val));
 }
 #endif
-
 
 /*
  * singleipconnect()
@@ -1081,7 +1116,7 @@ CURLcode Curl_connecthost(struct connectdata *conn,  /* context */
 {
   struct SessionHandle *data = conn->data;
   struct timeval before = Curl_tvnow();
-  CURLcode res;
+  CURLcode res = CURLE_COULDNT_CONNECT;
 
   long timeout_ms = Curl_timeleft(data, &before, TRUE);
 
@@ -1096,20 +1131,19 @@ CURLcode Curl_connecthost(struct connectdata *conn,  /* context */
   conn->tempaddr[1] = NULL;
   conn->tempsock[0] = CURL_SOCKET_BAD;
   conn->tempsock[1] = CURL_SOCKET_BAD;
-  Curl_expire(conn->data,
-              HAPPY_EYEBALLS_TIMEOUT + (MULTI_TIMEOUT_INACCURACY/1000));
+  Curl_expire(conn->data, HAPPY_EYEBALLS_TIMEOUT);
 
   /* Max time for the next connection attempt */
   conn->timeoutms_per_addr =
     conn->tempaddr[0]->ai_next == NULL ? timeout_ms : timeout_ms / 2;
 
   /* start connecting to first IP */
-  res = singleipconnect(conn, conn->tempaddr[0], &(conn->tempsock[0]));
-  while(res != CURLE_OK &&
-        conn->tempaddr[0] &&
-        conn->tempaddr[0]->ai_next &&
-        conn->tempsock[0] == CURL_SOCKET_BAD)
-    res = trynextip(conn, FIRSTSOCKET, 0);
+  while(conn->tempaddr[0]) {
+    res = singleipconnect(conn, conn->tempaddr[0], &(conn->tempsock[0]));
+    if(res == CURLE_OK)
+        break;
+    conn->tempaddr[0] = conn->tempaddr[0]->ai_next;
+  }
 
   if(conn->tempsock[0] == CURL_SOCKET_BAD)
     return res;

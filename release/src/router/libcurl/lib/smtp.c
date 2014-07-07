@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -72,7 +72,7 @@
 
 #include "strtoofft.h"
 #include "strequal.h"
-#include "sslgen.h"
+#include "vtls/vtls.h"
 #include "connect.h"
 #include "strerror.h"
 #include "select.h"
@@ -105,6 +105,10 @@ static CURLcode smtp_setup_connection(struct connectdata *conn);
 static CURLcode smtp_parse_url_options(struct connectdata *conn);
 static CURLcode smtp_parse_url_path(struct connectdata *conn);
 static CURLcode smtp_parse_custom_request(struct connectdata *conn);
+static CURLcode smtp_calc_sasl_details(struct connectdata *conn,
+                                       const char **mech,
+                                       char **initresp, size_t *len,
+                                       smtpstate *state1, smtpstate *state2);
 
 /*
  * SMTP protocol handler.
@@ -151,7 +155,7 @@ const struct Curl_handler Curl_handler_smtps = {
   smtp_disconnect,                  /* disconnect */
   ZERO_NULL,                        /* readwrite */
   PORT_SMTPS,                       /* defport */
-  CURLPROTO_SMTP | CURLPROTO_SMTPS, /* protocol */
+  CURLPROTO_SMTPS,                  /* protocol */
   PROTOPT_CLOSEACTION | PROTOPT_SSL
   | PROTOPT_NOURLQUERY              /* flags */
 };
@@ -345,10 +349,11 @@ static CURLcode smtp_perform_ehlo(struct connectdata *conn)
   CURLcode result = CURLE_OK;
   struct smtp_conn *smtpc = &conn->proto.smtpc;
 
-  smtpc->authmechs = 0;         /* No known authentication mechanisms yet */
-  smtpc->authused = 0;          /* Clear the authentication mechanism used
-                                   for esmtp connections */
-  smtpc->tls_supported = FALSE; /* Clear the TLS capability */
+  smtpc->authmechs = 0;           /* No known authentication mechanisms yet */
+  smtpc->authused = 0;            /* Clear the authentication mechanism used
+                                     for esmtp connections */
+  smtpc->tls_supported = FALSE;   /* Clear the TLS capability */
+  smtpc->auth_supported = FALSE;  /* Clear the AUTH capability */
 
   /* Send the EHLO command */
   result = Curl_pp_sendf(&smtpc->pp, "EHLO %s", smtpc->domain);
@@ -430,15 +435,47 @@ static CURLcode smtp_perform_upgrade_tls(struct connectdata *conn)
 
 /***********************************************************************
  *
- * smtp_perform_authenticate()
+ * smtp_perform_auth()
  *
- * Sends an AUTH command allowing the client to login with the appropriate
- * SASL authentication mechanism.
+ * Sends an AUTH command allowing the client to login with the given SASL
+ * authentication mechanism.
  */
-static CURLcode smtp_perform_authenticate(struct connectdata *conn)
+static CURLcode smtp_perform_auth(struct connectdata *conn,
+                                  const char *mech,
+                                  const char *initresp, size_t len,
+                                  smtpstate state1, smtpstate state2)
 {
   CURLcode result = CURLE_OK;
-  struct SessionHandle *data = conn->data;
+  struct smtp_conn *smtpc = &conn->proto.smtpc;
+
+  if(initresp && 8 + strlen(mech) + len <= 512) { /* AUTH <mech> ...<crlf> */
+    /* Send the AUTH command with the initial response */
+    result = Curl_pp_sendf(&smtpc->pp, "AUTH %s %s", mech, initresp);
+
+    if(!result)
+      state(conn, state2);
+  }
+  else {
+    /* Send the AUTH command */
+    result = Curl_pp_sendf(&smtpc->pp, "AUTH %s", mech);
+
+    if(!result)
+      state(conn, state1);
+  }
+
+  return result;
+}
+
+/***********************************************************************
+ *
+ * smtp_perform_authentication()
+ *
+ * Initiates the authentication sequence, with the appropriate SASL
+ * authentication mechanism.
+ */
+static CURLcode smtp_perform_authentication(struct connectdata *conn)
+{
+  CURLcode result = CURLE_OK;
   struct smtp_conn *smtpc = &conn->proto.smtpc;
   const char *mech = NULL;
   char *initresp = NULL;
@@ -446,98 +483,22 @@ static CURLcode smtp_perform_authenticate(struct connectdata *conn)
   smtpstate state1 = SMTP_STOP;
   smtpstate state2 = SMTP_STOP;
 
-  /* Check we have a username and password to authenticate with and end the
-     connect phase if we don't */
-  if(!conn->bits.user_passwd) {
+  /* Check we have a username and password to authenticate with, and the
+     server supports authentiation, and end the connect phase if not */
+  if(!conn->bits.user_passwd || !smtpc->auth_supported) {
     state(conn, SMTP_STOP);
 
     return result;
   }
 
-  /* Calculate the supported authentication mechanism, by decreasing order of
-     security, as well as the initial response where appropriate */
-#ifndef CURL_DISABLE_CRYPTO_AUTH
-  if((smtpc->authmechs & SASL_MECH_DIGEST_MD5) &&
-     (smtpc->prefmech & SASL_MECH_DIGEST_MD5)) {
-    mech = SASL_MECH_STRING_DIGEST_MD5;
-    state1 = SMTP_AUTH_DIGESTMD5;
-    smtpc->authused = SASL_MECH_DIGEST_MD5;
-  }
-  else if((smtpc->authmechs & SASL_MECH_CRAM_MD5) &&
-          (smtpc->prefmech & SASL_MECH_CRAM_MD5)) {
-    mech = SASL_MECH_STRING_CRAM_MD5;
-    state1 = SMTP_AUTH_CRAMMD5;
-    smtpc->authused = SASL_MECH_CRAM_MD5;
-  }
-  else
-#endif
-#ifdef USE_NTLM
-  if((smtpc->authmechs & SASL_MECH_NTLM) &&
-     (smtpc->prefmech & SASL_MECH_NTLM)) {
-    mech = SASL_MECH_STRING_NTLM;
-    state1 = SMTP_AUTH_NTLM;
-    state2 = SMTP_AUTH_NTLM_TYPE2MSG;
-    smtpc->authused = SASL_MECH_NTLM;
-
-    if(data->set.sasl_ir)
-      result = Curl_sasl_create_ntlm_type1_message(conn->user, conn->passwd,
-                                                   &conn->ntlm,
-                                                   &initresp, &len);
-    }
-  else
-#endif
-  if(((smtpc->authmechs & SASL_MECH_XOAUTH2) &&
-      (smtpc->prefmech & SASL_MECH_XOAUTH2) &&
-      (smtpc->prefmech != SASL_AUTH_ANY)) || conn->xoauth2_bearer) {
-    mech = SASL_MECH_STRING_XOAUTH2;
-    state1 = SMTP_AUTH_XOAUTH2;
-    state2 = SMTP_AUTH_FINAL;
-    smtpc->authused = SASL_MECH_XOAUTH2;
-
-    if(data->set.sasl_ir)
-      result = Curl_sasl_create_xoauth2_message(conn->data, conn->user,
-                                                conn->xoauth2_bearer,
-                                                &initresp, &len);
-  }
-  else if((smtpc->authmechs & SASL_MECH_LOGIN) &&
-     (smtpc->prefmech & SASL_MECH_LOGIN)) {
-    mech = SASL_MECH_STRING_LOGIN;
-    state1 = SMTP_AUTH_LOGIN;
-    state2 = SMTP_AUTH_LOGIN_PASSWD;
-    smtpc->authused = SASL_MECH_LOGIN;
-
-    if(data->set.sasl_ir)
-      result = Curl_sasl_create_login_message(conn->data, conn->user,
-                                              &initresp, &len);
-  }
-  else if((smtpc->authmechs & SASL_MECH_PLAIN) &&
-          (smtpc->prefmech & SASL_MECH_PLAIN)) {
-    mech = SASL_MECH_STRING_PLAIN;
-    state1 = SMTP_AUTH_PLAIN;
-    state2 = SMTP_AUTH_FINAL;
-    smtpc->authused = SASL_MECH_PLAIN;
-
-    if(data->set.sasl_ir)
-      result = Curl_sasl_create_plain_message(conn->data, conn->user,
-                                              conn->passwd, &initresp, &len);
-  }
+  /* Calculate the SASL login details */
+  result = smtp_calc_sasl_details(conn, &mech, &initresp, &len, &state1,
+                                  &state2);
 
   if(!result) {
     if(mech) {
       /* Perform SASL based authentication */
-      if(initresp &&
-         8 + strlen(mech) + len <= 512) { /* AUTH <mech> ...<crlf> */
-        result = Curl_pp_sendf(&smtpc->pp, "AUTH %s %s", mech, initresp);
-
-        if(!result)
-          state(conn, state2);
-      }
-      else {
-        result = Curl_pp_sendf(&smtpc->pp, "AUTH %s", mech);
-
-        if(!result)
-          state(conn, state1);
-      }
+      result = smtp_perform_auth(conn, mech, initresp, len, state1, state2);
 
       Curl_safefree(initresp);
     }
@@ -622,8 +583,8 @@ static CURLcode smtp_perform_mail(struct connectdata *conn)
   }
 
   /* Calculate the optional SIZE parameter */
-  if(conn->proto.smtpc.size_supported && conn->data->set.infilesize > 0) {
-    size = aprintf("%" FORMAT_OFF_T, data->set.infilesize);
+  if(conn->proto.smtpc.size_supported && conn->data->state.infilesize > 0) {
+    size = aprintf("%" CURL_FORMAT_CURL_OFF_T, data->state.infilesize);
 
     if(!size) {
       Curl_safefree(from);
@@ -738,7 +699,7 @@ static CURLcode smtp_state_starttls_resp(struct connectdata *conn,
       result = CURLE_USE_SSL_FAILED;
     }
     else
-      result = smtp_perform_authenticate(conn);
+      result = smtp_perform_authentication(conn);
   }
   else
     result = smtp_perform_upgrade_tls(conn);
@@ -760,8 +721,7 @@ static CURLcode smtp_state_ehlo_resp(struct connectdata *conn, int smtpcode,
   (void)instate; /* no use for this yet */
 
   if(smtpcode/100 != 2 && smtpcode != 1) {
-    if((data->set.use_ssl <= CURLUSESSL_TRY || conn->ssl[FIRSTSOCKET].use) &&
-     !conn->bits.user_passwd)
+    if(data->set.use_ssl <= CURLUSESSL_TRY || conn->ssl[FIRSTSOCKET].use)
       result = smtp_perform_helo(conn);
     else {
       failf(data, "Remote access denied: %d", smtpcode);
@@ -780,8 +740,11 @@ static CURLcode smtp_state_ehlo_resp(struct connectdata *conn, int smtpcode,
     else if(len >= 4 && !memcmp(line, "SIZE", 4))
       smtpc->size_supported = TRUE;
 
-    /* Do we have the authentication mechanism list? */
+    /* Does the server support authentication? */
     else if(len >= 5 && !memcmp(line, "AUTH ", 5)) {
+      smtpc->auth_supported = TRUE;
+
+      /* Advance past the AUTH keyword */
       line += 5;
       len -= 5;
 
@@ -835,14 +798,14 @@ static CURLcode smtp_state_ehlo_resp(struct connectdata *conn, int smtpcode,
           result = smtp_perform_starttls(conn);
         else if(data->set.use_ssl == CURLUSESSL_TRY)
           /* Fallback and carry on with authentication */
-          result = smtp_perform_authenticate(conn);
+          result = smtp_perform_authentication(conn);
         else {
           failf(data, "STARTTLS not supported.");
           result = CURLE_USE_SSL_FAILED;
         }
       }
       else
-        result = smtp_perform_authenticate(conn);
+        result = smtp_perform_authentication(conn);
     }
   }
 
@@ -1033,10 +996,6 @@ static CURLcode smtp_state_auth_digest_resp(struct connectdata *conn,
   char *rplyb64 = NULL;
   size_t len = 0;
 
-  char nonce[64];
-  char realm[128];
-  char algorithm[64];
-
   (void)instate; /* no use for this yet */
 
   if(smtpcode != 334) {
@@ -1047,29 +1006,25 @@ static CURLcode smtp_state_auth_digest_resp(struct connectdata *conn,
   /* Get the challenge message */
   smtp_get_message(data->state.buffer, &chlg64);
 
-  /* Decode the challange message */
-  result = Curl_sasl_decode_digest_md5_message(chlg64, nonce, sizeof(nonce),
-                                               realm, sizeof(realm),
-                                               algorithm, sizeof(algorithm));
-  if(result || strcmp(algorithm, "md5-sess") != 0) {
-    /* Send the cancellation */
-    result = Curl_pp_sendf(&conn->proto.smtpc.pp, "%s", "*");
-
-    if(!result)
-      state(conn, SMTP_AUTH_CANCEL);
-  }
-  else {
-    /* Create the response message */
-    result = Curl_sasl_create_digest_md5_message(data, nonce, realm,
-                                                 conn->user, conn->passwd,
-                                                 "smtp", &rplyb64, &len);
-    if(!result && rplyb64) {
-      /* Send the response */
-      result = Curl_pp_sendf(&conn->proto.smtpc.pp, "%s", rplyb64);
+  /* Create the response message */
+  result = Curl_sasl_create_digest_md5_message(data, chlg64,
+                                               conn->user, conn->passwd,
+                                               "smtp", &rplyb64, &len);
+  if(result) {
+    if(result == CURLE_BAD_CONTENT_ENCODING) {
+      /* Send the cancellation */
+      result = Curl_pp_sendf(&conn->proto.smtpc.pp, "%s", "*");
 
       if(!result)
-        state(conn, SMTP_AUTH_DIGESTMD5_RESP);
+        state(conn, SMTP_AUTH_CANCEL);
     }
+  }
+  else {
+    /* Send the response */
+    result = Curl_pp_sendf(&conn->proto.smtpc.pp, "%s", rplyb64);
+
+    if(!result)
+      state(conn, SMTP_AUTH_DIGESTMD5_RESP);
   }
 
   Curl_safefree(rplyb64);
@@ -1230,14 +1185,41 @@ static CURLcode smtp_state_auth_cancel_resp(struct connectdata *conn,
                                             int smtpcode,
                                             smtpstate instate)
 {
+  CURLcode result = CURLE_OK;
   struct SessionHandle *data = conn->data;
+  struct smtp_conn *smtpc = &conn->proto.smtpc;
+  const char *mech = NULL;
+  char *initresp = NULL;
+  size_t len = 0;
+  smtpstate state1 = SMTP_STOP;
+  smtpstate state2 = SMTP_STOP;
 
   (void)smtpcode;
   (void)instate; /* no use for this yet */
 
-  failf(data, "Authentication cancelled");
+  /* Remove the offending mechanism from the supported list */
+  smtpc->authmechs ^= smtpc->authused;
 
-  return CURLE_LOGIN_DENIED;
+  /* Calculate alternative SASL login details */
+  result = smtp_calc_sasl_details(conn, &mech, &initresp, &len, &state1,
+                                  &state2);
+
+  if(!result) {
+    /* Do we have any mechanisms left? */
+    if(mech) {
+      /* Retry SASL based authentication */
+      result = smtp_perform_auth(conn, mech, initresp, len, state1, state2);
+
+      Curl_safefree(initresp);
+    }
+    else {
+      failf(data, "Authentication cancelled");
+
+      result = CURLE_LOGIN_DENIED;
+    }
+  }
+
+  return result;
 }
 
 /* For final responses in the AUTH sequence */
@@ -1374,7 +1356,7 @@ static CURLcode smtp_state_data_resp(struct connectdata *conn, int smtpcode,
   }
   else {
     /* Set the progress upload size */
-    Curl_pgrsSetUploadSize(data, data->set.infilesize);
+    Curl_pgrsSetUploadSize(data, data->state.infilesize);
 
     /* SMTP upload */
     Curl_setup_transfer(conn, -1, -1, FALSE, NULL, FIRSTSOCKET, NULL);
@@ -1677,7 +1659,7 @@ static CURLcode smtp_done(struct connectdata *conn, CURLcode status,
        is "no mail data". RFC-5321, sect. 4.1.1.4. */
     eob = SMTP_EOB;
     len = SMTP_EOB_LEN;
-    if(smtp->trailing_crlf || !conn->data->set.infilesize) {
+    if(smtp->trailing_crlf || !conn->data->state.infilesize) {
       eob += 2;
       len -= 2;
     }
@@ -1941,34 +1923,47 @@ static CURLcode smtp_parse_url_options(struct connectdata *conn)
   struct smtp_conn *smtpc = &conn->proto.smtpc;
   const char *options = conn->options;
   const char *ptr = options;
+  bool reset = TRUE;
 
-  if(options) {
+  while(ptr && *ptr) {
     const char *key = ptr;
 
     while(*ptr && *ptr != '=')
         ptr++;
 
     if(strnequal(key, "AUTH", 4)) {
-      const char *value = ptr + 1;
+      size_t len = 0;
+      const char *value = ++ptr;
 
-      if(strequal(value, "*"))
-        smtpc->prefmech = SASL_AUTH_ANY;
-      else if(strequal(value, SASL_MECH_STRING_LOGIN))
-        smtpc->prefmech = SASL_MECH_LOGIN;
-      else if(strequal(value, SASL_MECH_STRING_PLAIN))
-        smtpc->prefmech = SASL_MECH_PLAIN;
-      else if(strequal(value, SASL_MECH_STRING_CRAM_MD5))
-        smtpc->prefmech = SASL_MECH_CRAM_MD5;
-      else if(strequal(value, SASL_MECH_STRING_DIGEST_MD5))
-        smtpc->prefmech = SASL_MECH_DIGEST_MD5;
-      else if(strequal(value, SASL_MECH_STRING_GSSAPI))
-        smtpc->prefmech = SASL_MECH_GSSAPI;
-      else if(strequal(value, SASL_MECH_STRING_NTLM))
-        smtpc->prefmech = SASL_MECH_NTLM;
-      else if(strequal(value, SASL_MECH_STRING_XOAUTH2))
-        smtpc->prefmech = SASL_MECH_XOAUTH2;
-      else
+      if(reset) {
+        reset = FALSE;
         smtpc->prefmech = SASL_AUTH_NONE;
+      }
+
+      while(*ptr && *ptr != ';') {
+        ptr++;
+        len++;
+      }
+
+      if(strnequal(value, "*", len))
+        smtpc->prefmech = SASL_AUTH_ANY;
+      else if(strnequal(value, SASL_MECH_STRING_LOGIN, len))
+        smtpc->prefmech |= SASL_MECH_LOGIN;
+      else if(strnequal(value, SASL_MECH_STRING_PLAIN, len))
+        smtpc->prefmech |= SASL_MECH_PLAIN;
+      else if(strnequal(value, SASL_MECH_STRING_CRAM_MD5, len))
+        smtpc->prefmech |= SASL_MECH_CRAM_MD5;
+      else if(strnequal(value, SASL_MECH_STRING_DIGEST_MD5, len))
+        smtpc->prefmech |= SASL_MECH_DIGEST_MD5;
+      else if(strnequal(value, SASL_MECH_STRING_GSSAPI, len))
+        smtpc->prefmech |= SASL_MECH_GSSAPI;
+      else if(strnequal(value, SASL_MECH_STRING_NTLM, len))
+        smtpc->prefmech |= SASL_MECH_NTLM;
+      else if(strnequal(value, SASL_MECH_STRING_XOAUTH2, len))
+        smtpc->prefmech |= SASL_MECH_XOAUTH2;
+
+      if(*ptr == ';')
+        ptr++;
     }
     else
       result = CURLE_URL_MALFORMAT;
@@ -2019,6 +2014,91 @@ static CURLcode smtp_parse_custom_request(struct connectdata *conn)
   /* URL decode the custom request */
   if(custom)
     result = Curl_urldecode(data, custom, 0, &smtp->custom, NULL, TRUE);
+
+  return result;
+}
+
+/***********************************************************************
+ *
+ * smtp_calc_sasl_details()
+ *
+ * Calculate the required login details for SASL authentication.
+ */
+static CURLcode smtp_calc_sasl_details(struct connectdata *conn,
+                                       const char **mech,
+                                       char **initresp, size_t *len,
+                                       smtpstate *state1, smtpstate *state2)
+{
+  CURLcode result = CURLE_OK;
+  struct SessionHandle *data = conn->data;
+  struct smtp_conn *smtpc = &conn->proto.smtpc;
+
+  /* Calculate the supported authentication mechanism, by decreasing order of
+     security, as well as the initial response where appropriate */
+#ifndef CURL_DISABLE_CRYPTO_AUTH
+  if((smtpc->authmechs & SASL_MECH_DIGEST_MD5) &&
+     (smtpc->prefmech & SASL_MECH_DIGEST_MD5)) {
+    *mech = SASL_MECH_STRING_DIGEST_MD5;
+    *state1 = SMTP_AUTH_DIGESTMD5;
+    smtpc->authused = SASL_MECH_DIGEST_MD5;
+  }
+  else if((smtpc->authmechs & SASL_MECH_CRAM_MD5) &&
+          (smtpc->prefmech & SASL_MECH_CRAM_MD5)) {
+    *mech = SASL_MECH_STRING_CRAM_MD5;
+    *state1 = SMTP_AUTH_CRAMMD5;
+    smtpc->authused = SASL_MECH_CRAM_MD5;
+  }
+  else
+#endif
+#ifdef USE_NTLM
+  if((smtpc->authmechs & SASL_MECH_NTLM) &&
+     (smtpc->prefmech & SASL_MECH_NTLM)) {
+    *mech = SASL_MECH_STRING_NTLM;
+    *state1 = SMTP_AUTH_NTLM;
+    *state2 = SMTP_AUTH_NTLM_TYPE2MSG;
+    smtpc->authused = SASL_MECH_NTLM;
+
+    if(data->set.sasl_ir)
+      result = Curl_sasl_create_ntlm_type1_message(conn->user, conn->passwd,
+                                                   &conn->ntlm,
+                                                   initresp, len);
+    }
+  else
+#endif
+  if(((smtpc->authmechs & SASL_MECH_XOAUTH2) &&
+      (smtpc->prefmech & SASL_MECH_XOAUTH2) &&
+      (smtpc->prefmech != SASL_AUTH_ANY)) || conn->xoauth2_bearer) {
+    *mech = SASL_MECH_STRING_XOAUTH2;
+    *state1 = SMTP_AUTH_XOAUTH2;
+    *state2 = SMTP_AUTH_FINAL;
+    smtpc->authused = SASL_MECH_XOAUTH2;
+
+    if(data->set.sasl_ir)
+      result = Curl_sasl_create_xoauth2_message(data, conn->user,
+                                                conn->xoauth2_bearer,
+                                                initresp, len);
+  }
+  else if((smtpc->authmechs & SASL_MECH_LOGIN) &&
+          (smtpc->prefmech & SASL_MECH_LOGIN)) {
+    *mech = SASL_MECH_STRING_LOGIN;
+    *state1 = SMTP_AUTH_LOGIN;
+    *state2 = SMTP_AUTH_LOGIN_PASSWD;
+    smtpc->authused = SASL_MECH_LOGIN;
+
+    if(data->set.sasl_ir)
+      result = Curl_sasl_create_login_message(data, conn->user, initresp, len);
+  }
+  else if((smtpc->authmechs & SASL_MECH_PLAIN) &&
+          (smtpc->prefmech & SASL_MECH_PLAIN)) {
+    *mech = SASL_MECH_STRING_PLAIN;
+    *state1 = SMTP_AUTH_PLAIN;
+    *state2 = SMTP_AUTH_FINAL;
+    smtpc->authused = SASL_MECH_PLAIN;
+
+    if(data->set.sasl_ir)
+      result = Curl_sasl_create_plain_message(data, conn->user, conn->passwd,
+                                              initresp, len);
+  }
 
   return result;
 }

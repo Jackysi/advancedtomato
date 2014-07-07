@@ -3,11 +3,13 @@
 <keywords>
 HTTP
 HTTP GET
+HTTP proxy
 cookies
 cookiejar
 delete expired cookie
 </keywords>
 </info>
+
 # Server-side
 <reply>
 <data>
@@ -44,6 +46,7 @@ TZ=GMT
 <command>
 http://example.com/we/want/1415 -b none -c log/jar1415.txt -x %HOSTIP:%HTTPPORT
 </command>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>

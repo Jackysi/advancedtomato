@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -32,7 +32,7 @@
 
 #include "urldata.h" /* for struct SessionHandle */
 #include "formdata.h"
-#include "sslgen.h"
+#include "vtls/vtls.h"
 #include "strequal.h"
 #include "curl_memory.h"
 #include "sendf.h"
@@ -1110,8 +1110,10 @@ static CURLcode formdata_add_filename(const struct curl_httppost *file,
 
     /* filename need be escaped */
     filename_escaped = malloc(strlen(filename)*2+1);
-    if(!filename_escaped)
+    if(!filename_escaped) {
+      Curl_safefree(filebasename);
       return CURLE_OUT_OF_MEMORY;
+    }
     p0 = filename_escaped;
     p1 = filename;
     while(*p1) {
@@ -1227,7 +1229,7 @@ CURLcode Curl_getformdata(struct SessionHandle *data,
       }
 
       result = AddFormDataf(&form, &size,
-                            "\r\nContent-Type: multipart/mixed,"
+                            "\r\nContent-Type: multipart/mixed;"
                             " boundary=%s\r\n",
                             fileboundary);
       if(result)

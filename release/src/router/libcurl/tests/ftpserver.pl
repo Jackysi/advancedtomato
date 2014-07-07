@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -78,7 +78,7 @@ my $ipvnum = 4;     # server IPv number (4 or 6)
 my $proto = 'ftp';  # default server protocol
 my $srcdir;         # directory where ftpserver.pl is located
 my $srvrname;       # server name for presentation purposes
-
+my $cwd_testno;     # test case numbers extracted from CWD command
 my $path   = '.';
 my $logdir = $path .'/log';
 
@@ -123,8 +123,8 @@ my $sockfilt_timeout = 5;  # default timeout for sockfilter eXsysreads
 #**********************************************************************
 # global vars which depend on server protocol selection
 #
-my %commandfunc;  # protocol command specific function callbacks
-my %displaytext;  # text returned to client before callback runs
+my %commandfunc;   # protocol command specific function callbacks
+my %displaytext;   # text returned to client before callback runs
 
 #**********************************************************************
 # global vars customized for each test from the server commands file
@@ -141,7 +141,8 @@ my $nodataconn421; # set if ftp srvr doesn't establish data ch and replies 421
 my $nodataconn150; # set if ftp srvr doesn't establish data ch and replies 150
 my @capabilities;  # set if server supports capability commands
 my @auth_mechs;    # set if server supports authentication commands
-my %customreply;   #
+my %fulltextreply; #
+my %commandreply;  #
 my %customcount;   #
 my %delayreply;    #
 
@@ -151,7 +152,7 @@ my %delayreply;    #
 # $ftptargetdir is keeping the fake "name" of LIST directory.
 #
 my $ftplistparserstate;
-my $ftptargetdir;
+my $ftptargetdir="";
 
 #**********************************************************************
 # global variables used when running a ftp server to keep state info
@@ -435,6 +436,28 @@ sub startsf {
     }
 }
 
+#**********************************************************************
+# Returns the given test's reply data
+#
+sub getreplydata {
+    my ($testno) = @_;
+    my $testpart = "";
+
+    $testno =~ s/^([^0-9]*)//;
+    if($testno > 10000) {
+       $testpart = $testno % 10000;
+       $testno = int($testno / 10000);
+    }
+
+    loadtest("$srcdir/data/test$testno");
+
+    my @data = getpart("reply", "data$testpart");
+    if((!@data) && ($testpart ne "")) {
+        @data = getpart("reply", "data");
+    }
+
+    return @data;
+}
 
 sub sockfilt {
     my $l;
@@ -444,7 +467,6 @@ sub sockfilt {
     }
 }
 
-
 sub sockfiltsecondary {
     my $l;
     foreach $l (@_) {
@@ -453,10 +475,10 @@ sub sockfiltsecondary {
     }
 }
 
-
+#**********************************************************************
 # Send data to the client on the control stream, which happens to be plain
 # stdout.
-
+#
 sub sendcontrol {
     if(!$ctrldelay) {
         # spit it all out at once
@@ -495,18 +517,19 @@ sub senddata {
         }
         return;
     }
+
     foreach $l (@_) {
-      if(!$datadelay) {
-        # spit it all out at once
-        sockfiltsecondary $l;
-      }
-      else {
-          # pause between each byte
-          for (split(//,$l)) {
-              sockfiltsecondary $_;
-              select(undef, undef, undef, 0.01);
-          }
-      }
+        if(!$datadelay) {
+            # spit it all out at once
+            sockfiltsecondary $l;
+        }
+        else {
+            # pause between each byte
+            for (split(//,$l)) {
+                sockfiltsecondary $_;
+                select(undef, undef, undef, 0.01);
+            }
+        }
     }
 }
 
@@ -558,7 +581,7 @@ sub protocolsetup {
             '220-        _   _ ____  _     '."\r\n",
             '220-    ___| | | |  _ \| |    '."\r\n",
             '220-   / __| | | | |_) | |    '."\r\n",
-            '220-  | (__| |_| |  _ <| |___ '."\r\n",
+            '220-  | (__| |_| |  _ {| |___ '."\r\n",
             '220    \___|\___/|_| \_\_____|'."\r\n")
         );
     }
@@ -584,9 +607,9 @@ sub protocolsetup {
             '        _   _ ____  _     '."\r\n",
             '    ___| | | |  _ \| |    '."\r\n",
             '   / __| | | | |_) | |    '."\r\n",
-            '  | (__| |_| |  _ <| |___ '."\r\n",
+            '  | (__| |_| |  _ {| |___ '."\r\n",
             '   \___|\___/|_| \_\_____|'."\r\n",
-            '+OK cURL POP3 server ready to serve '.$POP3_TIMESTAMP."\r\n")
+            '+OK cURL POP3 server ready to serve '."\r\n")
         );
     }
     elsif($proto eq 'imap') {
@@ -618,7 +641,7 @@ sub protocolsetup {
             '        _   _ ____  _     '."\r\n",
             '    ___| | | |  _ \| |    '."\r\n",
             '   / __| | | | |_) | |    '."\r\n",
-            '  | (__| |_| |  _ <| |___ '."\r\n",
+            '  | (__| |_| |  _ {| |___ '."\r\n",
             '   \___|\___/|_| \_\_____|'."\r\n",
             '* OK cURL IMAP server ready to serve'."\r\n")
         );
@@ -642,7 +665,7 @@ sub protocolsetup {
             '220-        _   _ ____  _     '."\r\n",
             '220-    ___| | | |  _ \| |    '."\r\n",
             '220-   / __| | | | |_) | |    '."\r\n",
-            '220-  | (__| |_| |  _ <| |___ '."\r\n",
+            '220-  | (__| |_| |  _ {| |___ '."\r\n",
             '220    \___|\___/|_| \_\_____|'."\r\n")
         );
     }
@@ -701,70 +724,56 @@ my $smtp_client;
 
 sub EHLO_smtp {
     my ($client) = @_;
+    my @data;
 
-    if($client eq "verifiedserver") {
-        # This is the secret command that verifies that this actually is
-        # the curl test server
-        sendcontrol "554 WE ROOLZ: $$\r\n";
-
-        if($verbose) {
-            print STDERR "FTPD: We returned proof we are the test server\n";
-        }
-
-        logmsg "return proof we are we\n";
+    # TODO: Get the IP address of the client connection to use in the
+    # EHLO response when the client doesn't specify one but for now use
+    # 127.0.0.1
+    if(!$client) {
+        $client = "[127.0.0.1]";
     }
-    else {
-        my @data;
 
-        # TODO: Get the IP address of the client connection to use in the
-        # EHLO response when the client doesn't specify one but for now use
-        # 127.0.0.1
-        if (!$client) {
-            $client = "[127.0.0.1]";
+    # Set the server type to ESMTP
+    $smtp_type = "ESMTP";
+
+    # Calculate the EHLO response
+    push @data, "$smtp_type pingpong test server Hello $client";
+
+    if((@capabilities) || (@auth_mechs)) {
+        my $mechs;
+
+        for my $c (@capabilities) {
+            push @data, $c;
         }
 
-        # Set the server type to ESMTP
-        $smtp_type = "ESMTP";
-
-        # Calculate the EHLO response
-        push @data, "$smtp_type pingpong test server Hello $client";
-
-        if((@capabilities) || (@auth_mechs)) {
-            my $mechs;
-
-            for my $c (@capabilities) {
-                push @data, $c;
-            }
-
-            for my $am (@auth_mechs) {
-                if(!$mechs) {
-                    $mechs = "$am";
-                }
-                else {
-                    $mechs .= " $am";
-                }
-            }
-
-            if($mechs) {
-                push @data, "AUTH $mechs";
-            }
-        }
-
-        # Send the EHLO response
-        for (my $i = 0; $i < @data; $i++) {
-            my $d = $data[$i];
-
-            if($i < @data - 1) {
-                sendcontrol "250-$d\r\n";
+        for my $am (@auth_mechs) {
+            if(!$mechs) {
+                $mechs = "$am";
             }
             else {
-                sendcontrol "250 $d\r\n";
+                $mechs .= " $am";
             }
         }
 
-        # Store the client (as it may contain the test number)
-        $smtp_client = $client;
+        if($mechs) {
+            push @data, "AUTH $mechs";
+        }
     }
+
+    # Send the EHLO response
+    for(my $i = 0; $i < @data; $i++) {
+        my $d = $data[$i];
+
+        if($i < @data - 1) {
+            sendcontrol "250-$d\r\n";
+        }
+        else {
+            sendcontrol "250 $d\r\n";
+        }
+    }
+
+    # Store the client (as it may contain the test number)
+    $smtp_client = $client;
 
     return 0;
 }
@@ -772,33 +781,20 @@ sub EHLO_smtp {
 sub HELO_smtp {
     my ($client) = @_;
 
-    if($client eq "verifiedserver") {
-        # This is the secret command that verifies that this actually is
-        # the curl test server
-        sendcontrol "554 WE ROOLZ: $$\r\n";
-
-        if($verbose) {
-            print STDERR "FTPD: We returned proof we are the test server\n";
-        }
-
-        logmsg "return proof we are we\n";
+    # TODO: Get the IP address of the client connection to use in the HELO
+    # response when the client doesn't specify one but for now use 127.0.0.1
+    if(!$client) {
+        $client = "[127.0.0.1]";
     }
-    else {
-        # TODO: Get the IP address of the client connection to use in the HELO
-        # response when the client doesn't specify one but for now use 127.0.0.1
-        if (!$client) {
-            $client = "[127.0.0.1]";
-        }
 
-        # Set the server type to SMTP
-        $smtp_type = "SMTP";
+    # Set the server type to SMTP
+    $smtp_type = "SMTP";
 
-        # Send the HELO response
-        sendcontrol "250 $smtp_type pingpong test server Hello $client\r\n";
+    # Send the HELO response
+    sendcontrol "250 $smtp_type pingpong test server Hello $client\r\n";
 
-        # Store the client (as it may contain the test number)
-        $smtp_client = $client;
-    }
+    # Store the client (as it may contain the test number)
+    $smtp_client = $client;
 
     return 0;
 }
@@ -996,13 +992,26 @@ sub HELP_smtp {
         logmsg "HELP_smtp got $args\n";
     }
 
-    sendcontrol "214-This server supports the following commands:\r\n";
+    if($smtp_client eq "verifiedserver") {
+        # This is the secret command that verifies that this actually is
+        # the curl test server
+        sendcontrol "214 WE ROOLZ: $$\r\n";
 
-    if(@auth_mechs) {
-        sendcontrol "214 HELO EHLO RCPT DATA RSET MAIL VRFY EXPN QUIT HELP AUTH\r\n";
+        if($verbose) {
+            print STDERR "FTPD: We returned proof we are the test server\n";
+        }
+
+        logmsg "return proof we are we\n";
     }
     else {
-        sendcontrol "214 HELO EHLO RCPT DATA RSET MAIL VRFY EXPN QUIT HELP\r\n";
+        sendcontrol "214-This server supports the following commands:\r\n";
+
+        if(@auth_mechs) {
+            sendcontrol "214 HELO EHLO RCPT DATA RSET MAIL VRFY EXPN QUIT HELP AUTH\r\n";
+        }
+        else {
+            sendcontrol "214 HELO EHLO RCPT DATA RSET MAIL VRFY EXPN QUIT HELP\r\n";
+        }
     }
 
     return 0;
@@ -1018,18 +1027,7 @@ sub VRFY_smtp {
         sendcontrol "501 Unrecognized parameter\r\n";
     }
     else {
-        my $testno = $smtp_client;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($smtp_client);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1048,18 +1046,7 @@ sub EXPN_smtp {
         sendcontrol "501 Unrecognized parameter\r\n";
     }
     else {
-        my $testno = $smtp_client;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($smtp_client);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1097,8 +1084,6 @@ sub fix_imap_params {
 }
 
 sub CAPABILITY_imap {
-    my ($testno) = @_;
-
     if((!@capabilities) && (!@auth_mechs)) {
         sendcontrol "$cmdid BAD Command\r\n";
     }
@@ -1197,20 +1182,10 @@ sub FETCH_imap {
             logmsg "return proof we are we\n";
         }
         else {
+            # send mail content
             logmsg "retrieve a mail\n";
 
-            my $testno = $selected;
-            $testno =~ s/^([^0-9]*)//;
-            my $testpart = "";
-            if ($testno > 10000) {
-                $testpart = $testno % 10000;
-                $testno = int($testno / 10000);
-            }
-
-            # send mail content
-            loadtest("$srcdir/data/test$testno");
-
-            @data = getpart("reply", "data$testpart");
+            @data = getreplydata($selected);
         }
 
         for (@data) {
@@ -1356,18 +1331,7 @@ sub LIST_imap {
         logmsg "return proof we are we\n";
     }
     else {
-        my $testno = $reference;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($reference);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1390,18 +1354,7 @@ sub LSUB_imap {
         sendcontrol "$cmdid BAD Command Argument\r\n";
     }
     else {
-        my $testno = $reference;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($reference);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1414,25 +1367,16 @@ sub LSUB_imap {
 }
 
 sub EXAMINE_imap {
-    my ($testno) = @_;
-    fix_imap_params($testno);
+    my ($mailbox) = @_;
+    fix_imap_params($mailbox);
 
-    logmsg "EXAMINE_imap got $testno\n";
+    logmsg "EXAMINE_imap got $mailbox\n";
 
-    if ($testno eq "") {
+    if ($mailbox eq "") {
         sendcontrol "$cmdid BAD Command Argument\r\n";
     }
     else {
-        $testno =~ s/[^0-9]//g;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($mailbox);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1445,25 +1389,17 @@ sub EXAMINE_imap {
 }
 
 sub STATUS_imap {
-    my ($testno) = @_;
-    fix_imap_params($testno);
+    my ($args) = @_;
+    my ($mailbox, $what) = split(/ /, $args, 2);
+    fix_imap_params($mailbox);
 
-    logmsg "STATUS_imap got $testno\n";
+    logmsg "STATUS_imap got $args\n";
 
-    if ($testno eq "") {
+    if ($mailbox eq "") {
         sendcontrol "$cmdid BAD Command Argument\r\n";
     }
     else {
-        $testno =~ s/[^0-9]//g;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($mailbox);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1488,18 +1424,7 @@ sub SEARCH_imap {
         sendcontrol "$cmdid BAD Command Argument\r\n";
     }
     else {
-        my $testno = $selected;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($selected);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1644,18 +1569,7 @@ sub UID_imap {
         sendcontrol "$cmdid BAD Command Argument\r\n";
     }
     else {
-        my $testno = $selected;
-
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        my @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($selected);
 
         for my $d (@data) {
             sendcontrol $d;
@@ -1705,33 +1619,39 @@ sub LOGOUT_imap {
 my $username;
 
 sub CAPA_pop3 {
-    my ($testno) = @_;
+    my @list = ();
+    my $mechs;
 
-    if((!@capabilities) && (!@auth_mechs)) {
+    # Calculate the capability list based on the specified capabilities
+    # (except APOP) and any authentication mechanisms
+    for my $c (@capabilities) {
+        push @list, "$c\r\n" unless $c eq "APOP";
+    }
+
+    for my $am (@auth_mechs) {
+        if(!$mechs) {
+            $mechs = "$am";
+        }
+        else {
+            $mechs .= " $am";
+        }
+    }
+
+    if($mechs) {
+        push @list, "SASL $mechs\r\n";
+    }
+
+    if(!@list) {
         sendcontrol "-ERR Unrecognized command\r\n";
     }
     else {
         my @data = ();
-        my $mechs;
 
         # Calculate the CAPA response
         push @data, "+OK List of capabilities follows\r\n";
 
-        for my $c (@capabilities) {
-            push @data, "$c\r\n";
-        }
-
-        for my $am (@auth_mechs) {
-            if(!$mechs) {
-                $mechs = "$am";
-            }
-            else {
-                $mechs .= " $am";
-            }
-        }
-
-        if($mechs) {
-            push @data, "SASL $mechs\r\n";
+        for my $l (@list) {
+            push @data, "$l\r\n";
         }
 
         push @data, "IMPLEMENTATION POP3 pingpong test server\r\n";
@@ -1773,8 +1693,6 @@ sub APOP_pop3 {
 }
 
 sub AUTH_pop3 {
-    my ($testno) = @_;
-
     if(!@auth_mechs) {
         sendcontrol "-ERR Unrecognized command\r\n";
     }
@@ -1833,10 +1751,10 @@ sub PASS_pop3 {
 }
 
 sub RETR_pop3 {
-    my ($testno) = @_;
+    my ($msgid) = @_;
     my @data;
 
-    if($testno =~ /^verifiedserver$/) {
+    if($msgid =~ /^verifiedserver$/) {
         # this is the secret command that verifies that this actually is
         # the curl test server
         my $response = "WE ROOLZ: $$\r\n";
@@ -1847,19 +1765,10 @@ sub RETR_pop3 {
         logmsg "return proof we are we\n";
     }
     else {
+        # send mail content
         logmsg "retrieve a mail\n";
 
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        # send mail content
-        loadtest("$srcdir/data/test$testno");
-
-        @data = getpart("reply", "data$testpart");
+        @data = getreplydata($msgid);
     }
 
     sendcontrol "+OK Mail transfer starts\r\n";
@@ -1898,15 +1807,15 @@ sub LIST_pop3 {
 }
 
 sub DELE_pop3 {
-    my ($msg) = @_;
+    my ($msgid) = @_;
 
-    logmsg "DELE_pop3 got $msg\n";
+    logmsg "DELE_pop3 got $msgid\n";
 
-    if (!$msg) {
+    if (!$msgid) {
         sendcontrol "-ERR Protocol error\r\n";
     }
     else {
-        push (@deleted, $msg);
+        push (@deleted, $msgid);
 
         sendcontrol "+OK\r\n";
     }
@@ -1971,19 +1880,17 @@ sub UIDL_pop3 {
 
 sub TOP_pop3 {
     my ($args) = @_;
-    my ($msg, $lines) = split(/ /, $args, 2);
+    my ($msgid, $lines) = split(/ /, $args, 2);
 
     logmsg "TOP_pop3 got $args\n";
 
     if (!grep /^TOP$/, @capabilities) {
         sendcontrol "-ERR Unrecognized command\r\n";
     }
-    elsif (($msg eq "") || ($lines eq "")) {
+    elsif (($msgid eq "") || ($lines eq "")) {
         sendcontrol "-ERR Protocol error\r\n";
     }
     else {
-        my @data;
-
         if ($lines == "0") {
             logmsg "retrieve header of mail\n";
         }
@@ -1991,17 +1898,7 @@ sub TOP_pop3 {
             logmsg "retrieve top $lines lines of mail\n";
         }
 
-        my $testno = $msg;
-        $testno =~ s/^([^0-9]*)//;
-        my $testpart = "";
-        if ($testno > 10000) {
-            $testpart = $testno % 10000;
-            $testno = int($testno / 10000);
-        }
-
-        loadtest("$srcdir/data/test$testno");
-
-        @data = getpart("reply", "data$testpart");
+        my @data = getreplydata($msgid);
 
         sendcontrol "+OK Mail transfer starts\r\n";
 
@@ -2084,7 +1981,10 @@ sub switch_directory_goto {
 sub switch_directory {
     my $target_dir = $_[0];
 
-    if($target_dir eq "/") {
+    if($target_dir =~ /^test-(\d+)/) {
+        $cwd_testno = $1;
+    }
+    elsif($target_dir eq "/") {
         $ftptargetdir = "/";
     }
     else {
@@ -2117,7 +2017,7 @@ sub PWD_ftp {
 }
 
 sub LIST_ftp {
-  #  print "150 ASCII data connection for /bin/ls (193.15.23.1,59196) (0 bytes)\r\n";
+    #  print "150 ASCII data connection for /bin/ls (193.15.23.1,59196) (0 bytes)\r\n";
 
 # this is a built-in fake-dir ;-)
 my @ftpdir=("total 20\r\n",
@@ -2156,8 +2056,26 @@ my @ftpdir=("total 20\r\n",
     }
 
     logmsg "pass LIST data on data connection\n";
-    for(@ftpdir) {
-        senddata $_;
+
+    if($cwd_testno) {
+        loadtest("$srcdir/data/test$cwd_testno");
+
+        my @data = getpart("reply", "data");
+        for(@data) {
+            my $send = $_;
+            # convert all \n to \r\n for ASCII transfer
+            $send =~ s/\r\n/\n/g;
+            $send =~ s/\n/\r\n/g;
+            logmsg "send $send as data\n";
+            senddata $send;
+        }
+        $cwd_testno = 0; # forget it again
+    }
+    else {
+        # old hard-coded style
+        for(@ftpdir) {
+            senddata $_;
+        }
     }
     close_dataconn(0);
     sendcontrol "226 ASCII transfer complete\r\n";
@@ -2831,7 +2749,8 @@ sub customize {
     $nodataconn150 = 0; # default is to not send 150 without data channel
     @capabilities = (); # default is to not support capability commands
     @auth_mechs = ();   # default is to not support authentication commands
-    %customreply = ();  #
+    %fulltextreply = ();#
+    %commandreply = (); #
     %customcount = ();  #
     %delayreply = ();   #
 
@@ -2841,20 +2760,24 @@ sub customize {
     logmsg "FTPD: Getting commands from log/ftpserver.cmd\n";
 
     while(<CUSTOM>) {
-        if($_ =~ /REPLY ([A-Za-z0-9+\/=\*]*) (.*)/) {
-            $customreply{$1}=eval "qq{$2}";
+        if($_ =~ /REPLY \"([A-Z]+ [A-Za-z0-9+-\/=\*. ]+)\" (.*)/) {
+            $fulltextreply{$1}=eval "qq{$2}";
+            logmsg "FTPD: set custom reply for $1\n";
+        }
+        elsif($_ =~ /REPLY ([A-Za-z0-9+\/=\*]*) (.*)/) {
+            $commandreply{$1}=eval "qq{$2}";
             if($1 eq "") {
-                logmsg "FTPD: set custom reply for empty response\n";
+                logmsg "FTPD: set custom reply for empty command\n";
             }
             else {
-                logmsg "FTPD: set custom reply for $1\n";
+                logmsg "FTPD: set custom reply for $1 command\n";
             }
         }
         elsif($_ =~ /COUNT ([A-Z]+) (.*)/) {
-            # we blank the customreply for this command when having
+            # we blank the custom reply for this command when having
             # been used this number of times
             $customcount{$1}=$2;
-            logmsg "FTPD: blank custom reply for $1 after $2 uses\n";
+            logmsg "FTPD: blank custom reply for $1 command after $2 uses\n";
         }
         elsif($_ =~ /DELAY ([A-Z]+) (\d*)/) {
             $delayreply{$1}=$2;
@@ -3091,13 +3014,13 @@ while(1) {
 
     &customize(); # read test control instructions
 
-    my $welcome = $customreply{"welcome"};
+    my $welcome = $commandreply{"welcome"};
     if(!$welcome) {
         $welcome = $displaytext{"welcome"};
     }
     else {
         # clear it after use
-        $customreply{"welcome"}="";
+        $commandreply{"welcome"}="";
         if($welcome !~ /\r\n\z/) {
             $welcome .= "\r\n";
         }
@@ -3245,36 +3168,45 @@ while(1) {
 
         my $check = 1; # no response yet
 
-        # See if there is a custom reply for our command
-        my $text = $customreply{$FTPCMD};
+        # See if there is a custom reply for the full text
+        my $fulltext = $FTPARG ? $FTPCMD . " " . $FTPARG : $FTPCMD;
+        my $text = $fulltextreply{$fulltext};
         if($text && ($text ne "")) {
-            if($customcount{$FTPCMD} && (!--$customcount{$FTPCMD})) {
-                # used enough number of times, now blank the customreply
-                $customreply{$FTPCMD}="";
-            }
-
             sendcontrol "$text\r\n";
             $check = 0;
         }
         else {
-            # See if there is any display text for our command
-            $text = $displaytext{$FTPCMD};
+            # See if there is a custom reply for the command
+            $text = $commandreply{$FTPCMD};
             if($text && ($text ne "")) {
-                if($proto eq 'imap') {
-                    sendcontrol "$cmdid $text\r\n";
-                }
-                else {
-                    sendcontrol "$text\r\n";
+                if($customcount{$FTPCMD} && (!--$customcount{$FTPCMD})) {
+                    # used enough times so blank the custom command reply
+                    $commandreply{$FTPCMD}="";
                 }
 
+                sendcontrol "$text\r\n";
                 $check = 0;
             }
+            else {
+                # See if there is any display text for the command
+                $text = $displaytext{$FTPCMD};
+                if($text && ($text ne "")) {
+                    if($proto eq 'imap') {
+                        sendcontrol "$cmdid $text\r\n";
+                    }
+                    else {
+                        sendcontrol "$text\r\n";
+                    }
 
-            # only perform this if we're not faking a reply
-            my $func = $commandfunc{$FTPCMD};
-            if($func) {
-                &$func($FTPARG, $FTPCMD);
-                $check=0; # taken care of
+                    $check = 0;
+                }
+
+                # only perform this if we're not faking a reply
+                my $func = $commandfunc{$FTPCMD};
+                if($func) {
+                    &$func($FTPARG, $FTPCMD);
+                    $check = 0;
+                }
             }
         }
 
