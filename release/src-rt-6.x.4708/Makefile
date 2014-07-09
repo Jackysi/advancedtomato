@@ -675,6 +675,9 @@ define KernelConfig
 		echo "CONFIG_HID=y" >>$(1); \
 		sed -i "/CONFIG_USB_STORAGE_ONETOUCH/d" $(1); \
 		echo "# CONFIG_USB_STORAGE_ONETOUCH is not set" >>$(1); \
+	else \
+		sed -i "/CONFIG_USB_STORAGE_ONETOUCH/d" $(1); \
+		echo "# CONFIG_USB_STORAGE_ONETOUCH is not set" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "" ]; then \
 		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
