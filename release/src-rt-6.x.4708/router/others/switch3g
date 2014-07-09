@@ -131,7 +131,7 @@ else
             if [ "$IS_PRODUCT" -gt 0 ]; then
                 logger 3G MODEM - loading module usbserial
                 rmmod usbserial
-                insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+                insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
                 echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
             fi
         fi
@@ -164,7 +164,7 @@ else
                 else
                     logger 3G MODEM - loading module
                     rmmod usbserial
-                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
                     echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
                     nvram set 3g_module=usbserial
                     if [ "$IS_PIN" == "1" ]; then
@@ -181,7 +181,7 @@ else
                 VENDOR=`echo $SWITCH | cut -d ":" -f1`
                 PRODUCT=`echo $SWITCH | cut -d ":" -f2`
                     rmmod usbserial
-                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT maxSize=4096
+                    insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
 
                     DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
                     if [ "$DEV" -gt 0 ]; then
