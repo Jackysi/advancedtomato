@@ -179,12 +179,6 @@ ifeq ($(LINKSYS_E1000v2),y)
 endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
-	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-endif
-endif
-ifeq ($(BELKIN),y)
-ifneq ($(NVRAM_SIZE),60)
 	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 endif
