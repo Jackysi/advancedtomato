@@ -83,7 +83,7 @@ No part of this file may be used without permission.
 			var a, b, v;
 			var eLoc, eUser;
 
-			// elem.display('_restart_button', nvram.ms_enable == '1');
+			elem.display('_restart_button', nvram.ms_enable == '1');
 
 			a = E('_f_ms_enable').checked ? 1 : 0;
 
@@ -92,6 +92,7 @@ No part of this file may be used without permission.
 
 			eLoc.disabled = (a == 0);
 			eUser.disabled = (a == 0);
+			E('_ms_port').disabled = (a == 0);
 			E('_f_ms_sas').disabled = (a == 0);
 			E('_f_ms_rescan').disabled = (a == 0);
 			E('_f_ms_tivo').disabled = (a == 0);
@@ -247,6 +248,7 @@ No part of this file may be used without permission.
 
 				$('.content.mediadlna').forms([
 					{ title: 'Enable', name: 'f_ms_enable', type: 'checkbox', value: nvram.ms_enable == '1' },
+					{ title: 'Port', name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65535; default (random) set 0)</small>' },
 					{ title: 'Database Location', multi: [
 						{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],
 							/* JFFS2-BEGIN */
