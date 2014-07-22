@@ -9,7 +9,7 @@ install:
 	rm -rf $(INSTALLDIR)/www
 	mkdir -p $(INSTALLDIR)/www
 
-	cp *.gif *.png *.ico *.html *.php robots.txt $(INSTALLDIR)/www
+	cp *.ico *.html *.php robots.txt $(INSTALLDIR)/www
 
 # squish some of the files by trimming whitespace...
 
@@ -77,6 +77,11 @@ ifneq ($(TCONFIG_EMF),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/EMF-BEGIN/,/EMF-END/d"
 endif
 
+# Only include sd/mmc card support if MICROSD is configured in.
+ifneq ($(TCONFIG_MICROSD),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/MICROSD-BEGIN/,/MICROSD-END/d"
+endif
+
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"
@@ -100,7 +105,7 @@ endif
 # Victek for RAF verion
 # Only include Captive Portal menu option and pages when configured.
 ifneq ($(TCONFIG_NOCAT),y)
-	rm -f $(INSTALLDIR)/www/splashd.asp
+	rm -f $(INSTALLDIR)/www/advanced-splashd.asp
 	rm -f $(INSTALLDIR)/www/splash.html
 	rm -f $(INSTALLDIR)/www/style.css
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOCAT-BEGIN/,/NOCAT-END/d"
@@ -115,7 +120,6 @@ ifneq ($(TCONFIG_NGINX),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/NGINX-BEGIN/,/NGINX-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/NGINX-BEGIN/,/NGINX-END/d"
 endif
-
 
 # Only include HFS/HFS+ option and pages when configured.
 ifneq ($(TCONFIG_HFS),y)
@@ -172,6 +176,14 @@ ifneq ($(TCONFIG_USB),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
 
+# Only include the USB and NAS pages if REMOVE_USBAPP is NOT configured in.
+ifeq ($(TCONFIG_REMOVE_USBAPP),y)
+	rm -f $(INSTALLDIR)/www/nas-*.*
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/admin-buttons.asp -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/USB-BEGIN/,/USB-END/d"
+endif
+
 ## Only include CTF option if CTF module exists
 #	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
@@ -205,7 +217,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 else
 	rm -f $(INSTALLDIR)/www/vpn-server.asp
 	rm -f $(INSTALLDIR)/www/vpn-client.asp
-	rm -f $(INSTALLDIR)/www/vpn.js
+	rm -f $(INSTALLDIR)/www/js/vpn.js
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ OPENVPN-BEGIN/,/ OPENVPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ OPENVPN-BEGIN/,/ OPENVPN-END/d"
 endif
@@ -244,19 +256,13 @@ ifneq ($(TCONFIG_SDHC),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
 endif
 
-# Only include the dnssec option if is compiled in
-ifneq ($(TCONFIG_DNSSEC),y)
-	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
-endif
-
 # Only include the dnscrypt option if is compiled in
 ifeq ($(TCONFIG_DNSCRYPT),y)
 	$(TOP)/www/dnscrypt-helper.sh $(INSTALLDIR)/../rom/rom/etc/dnscrypt-resolvers.csv $(INSTALLDIR)/www/basic-network.asp
 else
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
-endif
+ endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -265,6 +271,7 @@ endif
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/LINUX24-BEGIN/d"	-e "/LINUX24-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \
@@ -283,13 +290,13 @@ endif
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT-END/d"\
-		-e "/NGINX-BEGIN/d"	-e "/NGINX-END/d"\
+        -e "/NGINX-BEGIN/d"	-e "/NGINX-END/d"\
 		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
-		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
+		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done
 
@@ -305,3 +312,11 @@ endif
 	for F in $(wildcard *.js *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
 	done
+
+	# Copy over the directories needed for the new AdvancedTomato stuff (img, css and js)
+	mkdir -p $(INSTALLDIR)/www/img
+	cp -r img/* $(INSTALLDIR)/www/img/.
+	mkdir -p $(INSTALLDIR)/www/css
+	cp -r css/* $(INSTALLDIR)/www/css/.
+	mkdir -p $(INSTALLDIR)/www/js
+	cp -r js/* $(INSTALLDIR)/www/js/.

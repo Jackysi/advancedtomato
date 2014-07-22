@@ -175,7 +175,7 @@ ERROR:
 void wo_bwmrestore(char *url)
 {
 	if (rboot) {
-		redirect("/bwm-daily.asp");
+		redirect("/#bwm-daily.asp");
 	}
 	else {
 		parse_asp("error.asp");
@@ -185,7 +185,7 @@ void wo_bwmrestore(char *url)
 void wo_iptrestore(char *url)
 {
 	if (rboot) {
-		redirect("/ipt-daily.asp");
+		redirect("/#ipt-daily.asp");
 	}
 	else {
 		parse_asp("error.asp");

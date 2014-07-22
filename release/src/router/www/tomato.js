@@ -1,17 +1,16 @@
 /*
-	Tomato GUI
-	Copyright (C) 2006-2010 Jonathan Zarate
-	http://www.polarcloud.com/tomato/
+Tomato GUI
+Copyright (C) 2006-2010 Jonathan Zarate
+http://www.polarcloud.com/tomato/
 
-	For use with Tomato Firmware only.
-	No part of this file may be used without permission.
+For use with Tomato Firmware only.
+No part of this file may be used without permission.
 */
 
 // -----------------------------------------------------------------------------
-
-Array.prototype.find = function(v) {
+Array.prototype.find = function (v) {
 	for (var i = 0; i < this.length; ++i)
-		if (this[i] == v) return i;
+	if (this[i] == v) return i;
 	return -1;
 }
 
@@ -26,13 +25,11 @@ Array.prototype.remove = function(v) {
 }
 
 // -----------------------------------------------------------------------------
-
 String.prototype.trim = function() {
 	return this.replace(/^\s+/, '').replace(/\s+$/, '');
 }
 
 // -----------------------------------------------------------------------------
-
 Number.prototype.pad = function(min) {
 	var s = this.toString();
 	while (s.length < min) s = '0' + s;
@@ -90,10 +87,10 @@ var elem = {
 	},
 
 	remove: function(e) {
-		 if ((e = E(e)) != null) e.parentNode.removeChild(e);
+		if ((e = E(e)) != null) e.parentNode.removeChild(e);
 	},
 
-    parentElem: function(e, tagName) {
+	parentElem: function(e, tagName) {
 		e = E(e);
 		tagName = tagName.toUpperCase();
 		while (e.parentNode) {
@@ -120,8 +117,8 @@ var elem = {
 	},
 
 	setInnerHTML: function(e, html) {
-		 e = E(e);
-		 if (e.innerHTML != html) e.innerHTML = html;	// reduce flickering
+		e = E(e);
+		if (e.innerHTML != html) e.innerHTML = html;	// reduce flickering
 	}
 };
 
@@ -156,21 +153,24 @@ var fields = {
 	getAll: function(e) {
 		var a = [];
 		switch (e.tagName) {
-		case 'INPUT':
-		case 'SELECT':
-			a.push(e);
-			break;
-		default:
-			if (e.childNodes) {
-				for (var i = 0; i < e.childNodes.length; ++i) {
-					a = a.concat(fields.getAll(e.childNodes[i]));
+			case 'INPUT':
+			case 'SELECT':
+				a.push(e);
+				break;
+			default:
+				if (e.childNodes) {
+					for (var i = 0; i < e.childNodes.length; ++i) {
+						a = a.concat(fields.getAll(e.childNodes[i]));
+					}
 				}
-			}
 		}
 		return a;
 	},
 	disableAll: function(e, d) {
+
 		var i;
+
+		if (e == null) { return false; }
 
 		if ((typeof(e.tagName) == 'undefined') && (typeof(e) != 'string')) {
 			for (i = e.length - 1; i >= 0; --i) {
@@ -247,13 +247,18 @@ var form = {
 		v = ['_ajax=1'];
 		wait = 5;
 		for (var i = 0; i < fom.elements.length; ++i) {
+
 			f = fom.elements[i];
+
+			/* IE Bugfix */
+			if (typeof(f) == 'undefined' || (typeof(f.name) == 'undefined')) { continue; }
+
 			if ((f.disabled) || (f.name == '') || (f.name.substr(0, 2) == 'f_')) continue;
 			if ((f.tagName == 'INPUT') && ((f.type == 'CHECKBOX') || (f.type == 'RADIO')) && (!f.checked)) continue;
 			if (f.name == '_nextwait') {
 				wait = f.value * 1;
 				if (isNaN(wait)) wait = 5;
-					else wait = Math.abs(wait);
+				else wait = Math.abs(wait);
 			}
 			v.push(escapeCGI(f.name) + '=' + escapeCGI(f.value));
 		}
@@ -267,7 +272,7 @@ var form = {
 		this.xhttp.onCompleted = function(text, xml) {
 			if (msg) {
 				if (text.match(/@msg:(.+)/)) msg.innerHTML = escapeHTML(RegExp.$1);
-					else msg.innerHTML = 'Saved';
+				else msg.innerHTML = 'Saved';
 			}
 			setTimeout(
 				function() {
@@ -303,7 +308,7 @@ var form = {
 
 	addIdAction: function(fom) {
 		if (fom.action.indexOf('?') != -1) fom.action += '&_http_id=' + nvram.http_id;
-			else fom.action += '?_http_id=' + nvram.http_id;
+		else fom.action += '?_http_id=' + nvram.http_id;
 	},
 
 	dump: function(fom, async, url) {
@@ -346,7 +351,7 @@ var ferror = {
 
 	ok: function(e) {
 		if ((e = E(e)) == null) return 0;
-        return !e._error_msg;
+		return !e._error_msg;
 	}
 };
 
@@ -396,7 +401,7 @@ function v_mins(e, quiet, min, max)
 	if (e.value.match(/^\s*(.+?)([mhd])?\s*$/)) {
 		m = 1;
 		if (RegExp.$2 == 'h') m = 60;
-			else if (RegExp.$2 == 'd') m = 60 * 24;
+		else if (RegExp.$2 == 'd') m = 60 * 24;
 		v = Math.round(RegExp.$1 * m);
 		if (!isNaN(v)) {
 			e.value = v;
@@ -434,12 +439,12 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 	}
 
 	a = s.split('-');
-    
+
 	if (a.length > 2) {
 		ferror.set(e, 'Invalid IP address range', quiet);
 		return false;
 	}
-	
+
 	if (a[0].match(/^\d+$/)){
 		a[0]=ipp+a[0];
 		if ((a.length == 2) && (a[1].match(/^\d+$/)))
@@ -452,7 +457,7 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 		}
 	}
 	for (i = 0; i < a.length; ++i) {
-		b = a[i];    
+		b = a[i];
 		b = fixIP(b);
 		if (!b) {
 			ferror.set(e, 'Invalid IP address', quiet);
@@ -479,12 +484,12 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 function fixIP(ip, x)
 {
 	var a, n, i;
-        a = ip;
-        i = a.indexOf("<br>");
-        if (i > 0)
-                a = a.slice(0,i);
+	a = ip;
+	i = a.indexOf("<br>");
+	if (i > 0)
+		a = a.slice(0,i);
 
-        a = a.split('.');
+	a = a.split('.');
 	if (a.length != 4) return null;
 	for (i = 0; i < 4; ++i) {
 		n = a[i] * 1;
@@ -519,7 +524,7 @@ function v_ipz(e, quiet)
 
 function v_dns(e, quiet)
 {
-	if ((e = E(e)) == null) return 0;	
+	if ((e = E(e)) == null) return 0;
 	if (e.value == '') {
 		e.value = '0.0.0.0';
 	}
@@ -532,7 +537,7 @@ function v_dns(e, quiet)
 			ferror.set(e, 'Invalid IP address or port', quiet);
 			return false;
 		}
-		
+
 		if ((s[0] = fixIP(s[0])) == null) {
 			ferror.set(e, 'Invalid IP address', quiet);
 			return false;
@@ -542,7 +547,7 @@ function v_dns(e, quiet)
 			ferror.set(e, 'Invalid port', quiet);
 			return false;
 		}
-	
+
 		if (s[1] == 53) {
 			e.value = s[0];
 		}
@@ -690,29 +695,29 @@ function ExpandIPv6Address(ip)
 
 	a = ip.split('::');
 	switch (a.length) {
-	case 1:
-		if (a[0] == '') return null;
-		pre = a[0].split(':');
-		if (pre.length != 8) return null;
-		ip = pre.join(':');
-		break;
-	case 2:
-		pre = a[0].split(':');
-		post = a[1].split(':');
-		n = 8 - pre.length - post.length;
-		for (i=0; i<2; i++) {
-			if (a[i]=='') n++;
-		}
-		if (n < 0) return null;
-		fill = '';
-		while (n-- > 0) fill += ':0';
-		ip = pre.join(':') + fill + ':' + post.join(':');
-		ip = ip.replace(/^:/, '').replace(/:$/, '');
-		break;
-	default:
-		return null;
+		case 1:
+			if (a[0] == '') return null;
+			pre = a[0].split(':');
+			if (pre.length != 8) return null;
+			ip = pre.join(':');
+			break;
+		case 2:
+			pre = a[0].split(':');
+			post = a[1].split(':');
+			n = 8 - pre.length - post.length;
+			for (i=0; i<2; i++) {
+				if (a[i]=='') n++;
+			}
+			if (n < 0) return null;
+			fill = '';
+			while (n-- > 0) fill += ':0';
+			ip = pre.join(':') + fill + ':' + post.join(':');
+			ip = ip.replace(/^:/, '').replace(/:$/, '');
+			break;
+		default:
+			return null;
 	}
-	
+
 	ip = ip.replace(/([a-f0-9]{1,4})/ig, '000$1');
 	ip = ip.replace(/0{0,3}([a-f0-9]{4})/ig, '$1');
 	return ip;
@@ -721,10 +726,10 @@ function ExpandIPv6Address(ip)
 function CompressIPv6Address(ip)
 {
 	var a, segments;
-	
+
 	ip = ExpandIPv6Address(ip);
 	if (!ip) return null;
-	
+
 	// if (ip.match(/(?:^00)|(?:^fe[8-9a-b])|(?:^ff)/)) return null; // not valid routable unicast address
 
 	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
@@ -741,11 +746,11 @@ function ZeroIPv6PrefixBits(ip, prefix_length)
 	n = Math.floor(prefix_length/4);
 	m = 32 - Math.ceil(prefix_length/4);
 	b = prefix_length % 4;
-	if (b != 0) 
+	if (b != 0)
 		c = (parseInt(ip.charAt(n), 16) & (0xf << 4-b)).toString(16);
 	else
 		c = '';
-	
+
 	ip = ip.substring(0, n) + c + Array((m%4)+1).join('0') + (m>=4 ? '::' : '');
 	ip = ip.replace(/([a-f0-9]{4})(?=[a-f0-9])/g,'$1:');
 	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
@@ -768,6 +773,7 @@ function ipv6ton(ip)
 function _v_ipv6_addr(e, ip, ipt, quiet)
 {
 	var oip;
+
 	var a, b;
 
 	oip = ip;
@@ -787,7 +793,7 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 		if (ipv6ton(a) > ipv6ton(b)) return b + '-' + a;
 		return a + '-' + b;
 	}
-	
+
 	if ((ipt) && ip.match(/^([A-Fa-f0-9:]+)\/(\d+)$/)) {
 		a = RegExp.$1;
 		b = parseInt(RegExp.$2, 10);
@@ -930,7 +936,7 @@ function v_netmask(e, quiet)
 		b = RegExp.$1 * 1;
 		if ((b >= 1) && (b <= 32)) {
 			if (b == 32) n = 0xFFFFFFFF;	// js quirk
-				else n = (0xFFFFFFFF >>> b) ^ 0xFFFFFFFF;
+			else n = (0xFFFFFFFF >>> b) ^ 0xFFFFFFFF;
 			e.value = (n >>> 24) + '.' + ((n >>> 16) & 0xFF) + '.' + ((n >>> 8) & 0xFF) + '.' + (n & 0xFF);
 			ferror.clear(e);
 			return 1;
@@ -1037,13 +1043,13 @@ function _v_iptaddr(e, quiet, multi, ipv4, ipv6)
 
 	for (i = 0; i < v.length; ++i) {
 		if ((t = _v_domain(e, v[i], 1)) == null) {
-/* IPV6-BEGIN */
+			/* IPV6-BEGIN */
 			if ((!ipv6) && (!ipv4)) {
 				if (!quiet) ferror.show(e);
 				return 0;
 			}
 			if ((!ipv6) || ((t = _v_ipv6_addr(e, v[i], 1, 1)) == null)) {
-/* IPV6-END */
+				/* IPV6-END */
 				if (!ipv4) {
 					if (!quiet) ferror.show(e);
 					return 0;
@@ -1052,9 +1058,9 @@ function _v_iptaddr(e, quiet, multi, ipv4, ipv6)
 					ferror.set(e, e._error_msg + ', or invalid domain name', quiet);
 					return 0;
 				}
-/* IPV6-BEGIN */
+				/* IPV6-BEGIN */
 			}
-/* IPV6-END */
+			/* IPV6-END */
 		}
 		v[i] = t;
 	}
@@ -1132,7 +1138,7 @@ function v_nodelim(e, quiet, name, checklist)
 
 	e.value = e.value.trim();
 	if (e.value.indexOf('<') != -1 ||
-	   (checklist && e.value.indexOf('>') != -1)) {
+		(checklist && e.value.indexOf('>') != -1)) {
 		ferror.set(e, 'Invalid ' + name + ': \"<\" ' + (checklist ? 'or \">\" are' : 'is') + ' not allowed.', quiet);
 		return 0;
 	}
@@ -1242,7 +1248,7 @@ TomatoGrid.prototype = {
 		this.sortAscending = true;
 	},
 
-	_insert: function(at, cells, escCells) {
+	_insert: function(at, cells, escCells, header) {
 		var tr, td, c;
 		var i, t;
 
@@ -1253,7 +1259,7 @@ TomatoGrid.prototype = {
 				td = tr.insertCell(i);
 				td.className = 'co' + (i + 1);
 				if (escCells) td.appendChild(document.createTextNode(c));
-					else td.innerHTML = c;
+				else td.innerHTML = (header === true) ? '<b>' + c + '</b>' : c;
 			}
 			else {
 				tr.appendChild(c);
@@ -1274,8 +1280,8 @@ TomatoGrid.prototype = {
 		var e, i;
 
 		elem.remove(this.header);
-		this.header = e = this._insert(0, cells, escCells);
-		e.className = 'header';
+		this.header = e = this._insert(0, cells, escCells, true);
+
 
 		for (i = 0; i < e.cells.length; ++i) {
 			e.cells[i].cellN = i;	// cellIndex broken in Safari
@@ -1294,7 +1300,7 @@ TomatoGrid.prototype = {
 
 		elem.remove(this.footer);
 		this.footer = e = this._insert(-1, cells, escCells);
-		e.className = 'footer';
+		e.className = 'bold';
 		for (i = 0; i < e.cells.length; ++i) {
 			e.cells[i].cellN = i;
 			e.cells[i].onclick = function() { TGO(this).footerClick(this) };
@@ -1315,7 +1321,7 @@ TomatoGrid.prototype = {
 		i.parentNode.insertBefore(e, i);
 
 		this.recolor();
-		this.rpHide();
+		//this.rpHide();
 	},
 
 	rpDn: function(e) {
@@ -1329,7 +1335,7 @@ TomatoGrid.prototype = {
 		i.parentNode.insertBefore(e, i.nextSibling);
 
 		this.recolor();
-		this.rpHide();
+		//this.rpHide();
 	},
 
 	rpMo: function(img, e) {
@@ -1339,7 +1345,7 @@ TomatoGrid.prototype = {
 		me = TGO(e);
 		if (me.moving == e) {
 			me.moving = null;
-			this.rpHide();
+			//this.rpHide();
 			return;
 		}
 		me.moving = e;
@@ -1351,20 +1357,22 @@ TomatoGrid.prototype = {
 		TGO(e).moving = null;
 		e.parentNode.removeChild(e);
 		this.recolor();
-		this.rpHide();
+		//this.rpHide();
 	},
 
 	rpMouIn: function(evt) {
 		var e, x, ofs, me, s, n;
-
+		/*
 		if ((evt = checkEvent(evt)) == null) return;
 
 		me = TGO(evt.target);
 		if (me.isEditing()) return;
 		if (me.moving) return;
 
+		if(evt.target.id != 'tg-row-panel')
 		me.rpHide();
-		e = document.createElement('div');
+
+		e = document.createElement('td');
 		e.tgo = me;
 		e.ref = evt.target;
 		e.setAttribute('id', 'tg-row-panel');
@@ -1372,23 +1380,21 @@ TomatoGrid.prototype = {
 		n = 0;
 		s = '';
 		if (me.canMove) {
-			s = '<img src="rpu.gif" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref)" title="Move Up"><img src="rpd.gif" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref)" title="Move Down"><img src="rpm.gif" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref)" title="Move">';
-			n += 3;
+		s = '<img src="rpu.gif" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref)" title="Move Up"><img src="rpd.gif" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref)" title="Move Down"><img src="rpm.gif" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref)" title="Move">';
+		n += 3;
 		}
 		if (me.canDelete) {
-			s += '<img src="rpx.gif" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref)" title="Delete">';
-			++n;
+		s += '<img src="rpx.gif" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref)" title="Delete">';
+		++n;
 		}
 		x = PR(evt.target);
 		x = x.cells[x.cells.length - 1];
 		ofs = elem.getOffset(x);
 		n *= 18;
-		e.style.left = (ofs.x + x.offsetWidth - n) + 'px';
-		e.style.top = ofs.y + 'px';
-		e.style.width = n + 'px';
+
 		e.innerHTML = s;
 
-		document.body.appendChild(e);
+		this.appendChild(e);*/
 	},
 
 	rpHide: tgHideIcons,
@@ -1404,7 +1410,7 @@ TomatoGrid.prototype = {
 					var v = this.moving.rowIndex > q.rowIndex;
 					p.removeChild(this.moving);
 					if (v) p.insertBefore(this.moving, q);
-						else p.insertBefore(this.moving, q.nextSibling);
+					else p.insertBefore(this.moving, q.nextSibling);
 					this.recolor();
 				}
 				this.moving = null;
@@ -1431,9 +1437,9 @@ TomatoGrid.prototype = {
 		e.setRowData = function(data) { this._data = data; }
 
 		if ((this.canMove) || (this.canEdit) || (this.canDelete)) {
-			e.onmouseover = this.rpMouIn;
-// ----			e.onmouseout = this.rpMouOut;
-			if (this.canEdit) e.title = 'Click to edit';
+			//e.onmouseover = this.rpMouIn;
+			// ----			e.onmouseout = this.rpMouOut;
+			if (this.canEdit) e.title = 'Click to edit'; $(e).css('cursor', 'text');
 		}
 
 		return e;
@@ -1529,51 +1535,49 @@ TomatoGrid.prototype = {
 				var f = ef[j];
 
 				if (f.prefix) s += f.prefix;
-				var attrib = ' class="fi' + (vi + 1) + '" ' + (f.attrib || '');
+				var attrib = ' class="fi' + (vi + 1) + ' ' + (f.class ? f.class : '') + '" ' + (f.attrib || '');
 				var id = (this.tb ? ('_' + this.tb + '_' + (vi + 1)) : null);
 				if (id) attrib += ' id="' + id + '"';
 				switch (f.type) {
-				case 'password':
-					if (f.peekaboo) {
-						switch (get_config('web_pb', '1')) {
-						case '0':
-							f.type = 'text';
-						case '2':
-							f.peekaboo = 0;
-							break;
+					case 'password':
+						if (f.peekaboo) {
+							switch (get_config('web_pb', '1')) {
+								case '0':
+									f.type = 'text';
+								case '2':
+									f.peekaboo = 0;
+									break;
+							}
 						}
-					}
-					attrib += ' autocomplete="off"';
-					if (f.peekaboo && id) attrib += ' onfocus=\'peekaboo("' + id + '",1)\'';
+						attrib += ' autocomplete="off"';
+						if (f.peekaboo && id) attrib += ' onfocus=\'peekaboo("' + id + '",1)\'';
 					// drop
-				case 'text':
-					s += '<input type="' + f.type + '" maxlength=' + f.maxlen + common + attrib;
-					if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
+					case 'text':
+						s += '<input type="' + f.type + '" maxlength=' + f.maxlen + common + attrib;
+						if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
-					break;
-				case 'clear':
-					s += '';
-					break;
-				case 'select':
-					s += '<select' + common + attrib + '>';
-					for (var k = 0; k < f.options.length; ++k) {
-						a = f.options[k];
-						if (which == 'edit') {
-							s += '<option value="' + a[0] + '"' + ((a[0] == values[vi]) ? ' selected>' : '>') + a[1] + '</option>';
+						break;
+					case 'select':
+						s += '<select' + common + attrib + '>';
+						for (var k = 0; k < f.options.length; ++k) {
+							a = f.options[k];
+							if (which == 'edit') {
+								s += '<option value="' + a[0] + '"' + ((a[0] == values[vi]) ? ' selected>' : '>') + a[1] + '</option>';
+							}
+							else {
+								s += '<option value="' + a[0] + '">' + a[1] + '</option>';
+							}
 						}
-						else {
-							s += '<option value="' + a[0] + '">' + a[1] + '</option>';
-						}
-					}
-					s += '</select>';
-					break;
-				case 'checkbox':
-					s += '<input type="checkbox"' + common + attrib;
-					if ((which == 'edit') && (values[vi])) s += ' checked';
-					s += '>';
-					break;
-				default:
-					s += f.custom.replace(/\$which\$/g, which);
+						s += '</select>';
+						break;
+					case 'checkbox':
+
+						s += '<div class="checkbox c-checkbox"><label><input type="checkbox"' + common + attrib;
+						if ((which == 'edit') && (values[vi])) s += ' checked';
+						s += '><span class="icon-check"></span> </label></div>';
+						break;
+					default:
+						s += f.custom.replace(/\$which\$/g, which);
 				}
 				if (f.suffix) s += f.suffix;
 
@@ -1596,14 +1600,13 @@ TomatoGrid.prototype = {
 		c = r.insertCell(0);
 		c.colSpan = this.header.cells.length;
 		if (which == 'edit') {
-			c.innerHTML =
-				'<input type=button value="Delete" onclick="TGO(this).onDelete()"> &nbsp; ' +
-				'<input type=button value="OK" onclick="TGO(this).onOK()"> ' +
-				'<input type=button value="Cancel" onclick="TGO(this).onCancel()">';
+			c.innerHTML = '<button type="button" class="btn btn-danger" value="Delete" onclick="TGO(this).onDelete()">Delete <i class="icon-cancel"></i></button> ' +
+			'<button type="button" class="btn" value="Cancel" onclick="TGO(this).onCancel()">Cancel <i class="icon-disable"></i></button> ' +
+			'<button type="button" class="btn btn-primary" value="OK" onclick="TGO(this).onOK()">OK <i class="icon-check"></i></button>';
 		}
 		else {
 			c.innerHTML =
-				'<input type=button value="Add" onclick="TGO(this).onAdd()">';
+			'<button type="button" class="btn btn-danger" value="Add" onclick="TGO(this).onAdd()">Add <i class="icon-plus"></i></button>';
 		}
 		return r;
 	},
@@ -1633,15 +1636,15 @@ TomatoGrid.prototype = {
 
 	onKey: function(which, ev) {
 		switch (ev.keyCode) {
-		case 27:
-			if (which == 'edit') this.onCancel();
-			return false;
-		case 13:
-			if (((ev.srcElement) && (ev.srcElement.tagName == 'SELECT')) ||
-				((ev.target) && (ev.target.tagName == 'SELECT'))) return true;
-			if (which == 'edit') this.onOK();
+			case 27:
+				if (which == 'edit') this.onCancel();
+				return false;
+			case 13:
+				if (((ev.srcElement) && (ev.srcElement.tagName == 'SELECT')) ||
+					((ev.target) && (ev.target.tagName == 'SELECT'))) return true;
+				if (which == 'edit') this.onOK();
 				else this.onAdd();
-			return false;
+				return false;
 		}
 		return true;
 	},
@@ -1722,7 +1725,7 @@ TomatoGrid.prototype = {
 		for (i = 0; i < e.length; ++i) {
 			var f = e[i];
 			if (f.selectedIndex) f.selectedIndex = 0;
-				else f.value = '';
+			else f.value = '';
 		}
 		try { if (e.length) e[0].focus(); } catch (er) { }
 	},
@@ -1746,7 +1749,7 @@ TomatoGrid.prototype = {
 		if (this.editor) return;
 
 		if (this.sortColumn >= 0) {
-			elem.removeClass(this.header.cells[this.sortColumn], 'sortasc', 'sortdes');
+			$(this.header.cells[this.sortColumn]).find('i').remove();;
 		}
 		if (column == this.sortColumn) {
 			this.sortAscending = !this.sortAscending;
@@ -1755,7 +1758,7 @@ TomatoGrid.prototype = {
 			this.sortAscending = true;
 			this.sortColumn = column;
 		}
-		elem.addClass(this.header.cells[column], this.sortAscending ? 'sortasc' : 'sortdes');
+		$(this.header.cells[column]).append(this.sortAscending ? '<i class="icon-chevron-up icon-sort"></i>' : '<i class="icon-chevron-down icon-sort"></i>');
 
 		this.resort();
 	},
@@ -1784,14 +1787,14 @@ TomatoGrid.prototype = {
 	},
 
 	recolor: function() {
-		 var i, e, o;
+		var i, e, o;
 
-		 i = this.header ? this.header.rowIndex + 1 : 0;
-		 e = this.footer ? this.footer.rowIndex : this.tb.rows.length;
-		 for (; i < e; ++i) {
-			 o = this.tb.rows[i];
-			 o.className = (o.rowIndex & 1) ? 'even' : 'odd';
-		 }
+		i = this.header ? this.header.rowIndex + 1 : 0;
+		e = this.footer ? this.footer.rowIndex : this.tb.rows.length;
+		for (; i < e; ++i) {
+			o = this.tb.rows[i];
+			o.className = (o.rowIndex & 1) ? 'even' : 'odd';
+		}
 	},
 
 	removeAllData: function() {
@@ -1857,7 +1860,7 @@ function XmlHttp()
 XmlHttp.prototype = {
 	addId: function(vars) {
 		if (vars) vars += '&';
-			else vars = '';
+		else vars = '';
 		vars += '_http_id=' + escapeCGI(nvram.http_id);
 		return vars;
 	},
@@ -2035,7 +2038,7 @@ TomatoRefresh.prototype = {
 			if (p.cookieTag) {
 				var e = cookie.get(p.cookieTag + '-error') * 1;
 				if (isNaN(e)) e = 0;
-					else ++e;
+				else ++e;
 				cookie.unset(p.cookieTag);
 				cookie.set(p.cookieTag + '-error', e, 1);
 				if (e >= 3) {
@@ -2062,7 +2065,7 @@ TomatoRefresh.prototype = {
 
 	toggle: function(delay) {
 		if (this.running) this.stop();
-			else this.start(delay);
+		else this.start(delay);
 	},
 
 	updateUI: function(mode) {
@@ -2072,7 +2075,7 @@ TomatoRefresh.prototype = {
 
 		b = (mode != 'stop') && (this.refreshTime > 0);
 		if ((e = E('refresh-button')) != null) {
-			e.value = b ? 'Stop' : 'Refresh';
+			e.innerHTML = b ? 'Stop' : 'Refresh';
 			e.disabled = ((mode == 'start') && (!b));
 		}
 		if ((e = E('refresh-time')) != null) e.disabled = b;
@@ -2105,6 +2108,14 @@ TomatoRefresh.prototype = {
 			this.timer.start(v);
 			this.updateUI('wait');
 		}
+	},
+
+	destroy: function() {
+
+		this.timer.stop();
+		this.running = 0;
+		this.http = null;
+
 	}
 }
 
@@ -2121,39 +2132,40 @@ function genStdTimeList(id, zero, min)
 			if (v < min) continue;
 			b.push('<option value=' + v + '>');
 			if (v == 60) b.push('1 minute');
-				else if (v > 60) b.push((v / 60) + ' minutes');
-				else b.push(v + ' seconds');
+			else if (v > 60) b.push((v / 60) + ' minutes');
+				else if (v == 1) b.push('1 second');
+					else b.push(v + ' seconds');
 		}
 		b.push('</select> ');
 	}
-	document.write(b.join(''));
+	return b.join('');
 }
 
 function genStdRefresh(spin, min, exec)
 {
-	W('<div style="text-align:right">');
-	if (spin) W('<img src="spin.gif" id="refresh-spinner"> ');
-	genStdTimeList('refresh-time', 'Auto Refresh', min);
-	W('<input type="button" value="Refresh" onclick="' + (exec ? exec : 'refreshClick()') + '" id="refresh-button"></div>');
+	var html = '<div class="tomato-refresh form-inline input-append">';
+	if (spin) html += '<div class="spinner spinner-small"></div>';
+	html += genStdTimeList('refresh-time', 'Auto Refresh', min);
+	html += '<button value="Refresh" onclick="' + (exec ? exec : 'refreshClick()') + '; return false;" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button></div>';
+	return html;
 }
 
 
 // -----------------------------------------------------------------------------
 
 
-function _tabCreate(tabs)
-{
+function _tabCreate(tabs) {
 	var buf = [];
-	buf.push('<ul id="tabs">');
+
+	buf.push('<div id="tabs" class="btn-group">');
 	for (var i = 0; i < arguments.length; ++i)
-		buf.push('<li><a href="javascript:tabSelect(\'' + arguments[i][0] + '\')" id="' + arguments[i][0] + '">' + arguments[i][1] + '</a>');
-	buf.push('</ul><div id="tabs-bottom"></div>');
+		buf.push('<a class="btn" style="border-radius: 0;" href="javascript:tabSelect(\'' + arguments[i][0] + '\')" id="' + arguments[i][0] + '">' + arguments[i][1] + '</a>');
+	buf.push('</div>');
 	return buf.join('');
 }
 
-function tabCreate(tabs)
-{
-	document.write(_tabCreate.apply(this, arguments));
+function tabCreate(tabs) {
+	return (_tabCreate.apply(this, arguments));
 }
 
 function tabHigh(id)
@@ -2173,13 +2185,17 @@ var cookie = {
 	// rollover. This effectively makes the cookie never expire.
 
 	set: function(key, value, days) {
+
 		document.cookie = 'tomato_' + encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; expires=' +
 		new Date(2147483647000).toUTCString() + '; path=/';
 	},
+
 	get: function(key) {
+
 		var r = ('; ' + document.cookie + ';').match('; tomato_' + encodeURIComponent(key) + '=(.*?);');
 		return r ? decodeURIComponent(r[1]) : null;
 	},
+
 	unset: function(key) {
 		document.cookie = 'tomato_' + encodeURIComponent(key) + '=; expires=' +
 		(new Date(1)).toUTCString() + '; path=/';
@@ -2188,8 +2204,7 @@ var cookie = {
 
 // -----------------------------------------------------------------------------
 
-function checkEvent(evt)
-{
+function checkEvent(evt) {
 	if (typeof(evt) == 'undefined') {
 		// ---- IE
 		evt = event;
@@ -2199,9 +2214,8 @@ function checkEvent(evt)
 	return evt;
 }
 
-function W(s)
-{
-	document.write(s);
+function W(s) {
+	// $('.content .ajaxwrap').append(s);
 }
 
 function E(e)
@@ -2211,7 +2225,7 @@ function E(e)
 
 function PR(e)
 {
-	return elem.parentElem(e, 'TR');
+	return elem.parentElem(e, 'TR') || elem.parentElem(e, 'FIELDSET');
 }
 
 function THIS(obj, func)
@@ -2251,12 +2265,12 @@ function ellipsis(s, max) {
 
 function MIN(a, b)
 {
-	return (a < b) ? a : b;
+	return a < b ? a : b;
 }
 
 function MAX(a, b)
 {
-	return (a > b) ? a : b;
+	return a > b ? a : b;
 }
 
 function fixInt(n, min, max, def)
@@ -2313,8 +2327,7 @@ function features(s)
 	return 0;
 }
 
-function get_config(name, def)
-{
+function get_config(name, def) {
 	return ((typeof(nvram) != 'undefined') && (typeof(nvram[name]) != 'undefined')) ? nvram[name] : def;
 }
 
@@ -2324,19 +2337,18 @@ function nothing()
 
 // -----------------------------------------------------------------------------
 
-function show_notice1(s)
+function show_notice1(s, type)
 {
-// ---- !!TB - USB Support: multi-line notices
-	if (s.length) document.write('<div id="notice1">' + s.replace(/\n/g, '<br>') + '</div><br style="clear:both">');
+	// ---- !!TB - USB Support: multi-line notices
+	if (s.length) $('#ajaxwrap').prepend('<div class="alert ' + ((type == null) ? 'alert-warning' : type) + '"><a href="#" class="close"><i class="icon-cancel"></i></a>' + s.replace(/\n/g, '<br>') + '</div>');
 }
 
 // -----------------------------------------------------------------------------
 
-function myName()
-{
+function myName() {
 	var name, i;
 
-	name = document.location.pathname;
+	name = window.location.hash.replace('#', '');
 	name = name.replace(/\\/g, '/');	// IE local testing
 	if ((i = name.lastIndexOf('/')) != -1) name = name.substring(i + 1, name.length);
 	if (name == '') name = 'status-overview.asp';
@@ -2345,220 +2357,147 @@ function myName()
 
 function navi()
 {
-	var menu = [
-		['Status', 			'status', 0, [
-			['Overview',			'overview.asp'],
-			['Device List',			'devices.asp'],
-			['Web Usage',			'webmon.asp'],
-			['Logs',			'log.asp'] ] ],
-		['Bandwidth', 			'bwm', 0, [
-			['Real-Time',			'realtime.asp'],
-			['Last 24 Hours',		'24.asp'],
-			['Daily',			'daily.asp'],
-			['Weekly',			'weekly.asp'],
-			['Monthly',			'monthly.asp']
-			] ],
-		['IP Traffic',			'ipt', 0, [
-			['Real-Time',			'realtime.asp'],
-			['Last 24 Hours',		'24.asp'],
-			['View Graphs',			'graphs.asp'],
-			['Transfer Rates',		'details.asp'],
-			['Daily',			'daily.asp'],
-			['Monthly',			'monthly.asp']
-			] ],
-		['Tools', 			'tools', 0, [
-			['Ping',			'ping.asp'],
-			['Trace',			'trace.asp'],
-			['System Commands',		'shell.asp'],
-			['Wireless Survey',		'survey.asp'],
-			['WOL',				'wol.asp'] ] ],
-		null,
-		['Basic', 			'basic', 0, [
-			['Network',			'network.asp'],
-/* IPV6-BEGIN */
-			['IPv6',			'ipv6.asp'],
-/* IPV6-END */
-			['Identification',		'ident.asp'],
-			['Time',			'time.asp'],
-			['DDNS',			'ddns.asp'],
-			['Static DHCP/ARP/IPT',		'static.asp'],
-			['Wireless Filter',		'wfilter.asp'] ] ],
-		['Advanced', 			'advanced', 0, [
-			['Conntrack/Netfilter',		'ctnf.asp'],
-			['DHCP/DNS',			'dhcpdns.asp'],
-			['Firewall',			'firewall.asp'],
-			['MAC Address',			'mac.asp'],
-			['Miscellaneous',		'misc.asp'],
-			['Routing',			'routing.asp'],
-/* TOR-BEGIN */
-			['TOR Project',			'tor.asp'],
-/* TOR-END */
-			['VLAN',			'vlan.asp'],
-			['LAN Access',			'access.asp'],
-			['Virtual Wireless',		'wlanvifs.asp'],
-			['Wireless',			'wireless.asp'] ] ],
-		['Port Forwarding', 		'forward', 0, [
-			['Basic',			'basic.asp'],
-/* IPV6-BEGIN */
-			['Basic IPv6',			'basic-ipv6.asp'],
-/* IPV6-END */
-			['DMZ',				'dmz.asp'],
-			['Triggered',			'triggered.asp'],
-			['UPnP/NAT-PMP',		'upnp.asp'] ] ],
-		['Access Restriction',		'restrict.asp'],
-		['QoS',				'qos', 0, [
-			['Basic Settings',		'settings.asp'],
-			['Classification',		'classify.asp'],
-			['View Graphs',			'graphs.asp'],
-			['View Details',		'detailed.asp'],
-			['Transfer Rates',		'ctrate.asp']
-			] ],
-		['Bandwidth Limiter',		'bwlimit.asp'],
-		null,
-/* NOCAT-BEGIN */
-		['Captive Portal',		'splashd.asp'],
-/* NOCAT-END */
-/* NGINX-BEGIN */
-		['Web Server',			'nginx.asp'],
-/* NGINX-END */
-/* REMOVE-BEGIN
-		['Scripts',				'sc', 0, [
-			['Startup',		'startup.asp'],
-			['Shutdown',		'shutdown.asp'],
-			['Firewall',		'firewall.asp'],
-			['WAN Up',		'wanup.asp']
-			] ],
-REMOVE-END */
-/* USB-BEGIN */
-// ---- !!TB - USB, FTP, Samba, Media Server
-		['USB and NAS',			'nas', 0, [
-			['USB Support',			'usb.asp']
-/* FTP-BEGIN */
-			,['FTP Server',			'ftp.asp']
-/* FTP-END */
-/* SAMBA-BEGIN */
-			,['File Sharing',		'samba.asp']
-/* SAMBA-END */
-/* MEDIA-SRV-BEGIN */
-			,['Media Server',		'media.asp']
-/* MEDIA-SRV-END */
-/* UPS-BEGIN */
-			,['UPS Monitor',		'ups.asp']
-/* UPS-END */
-/* BT-BEGIN */
-			,['BitTorrent Client',		'bittorrent.asp']
-/* BT-END */
-			] ],
-/* USB-END */
-/* VPN-BEGIN */
-		['VPN Tunneling',			'vpn', 0, [
-/* OPENVPN-BEGIN */
-			['OpenVPN Server',		'server.asp'],
-			['OpenVPN Client',		'client.asp'],
-/* OPENVPN-END */
-/* PPTPD-BEGIN */
-			['PPTP Server',			'pptp-server.asp'],
-			['PPTP Online',			'pptp-online.asp'],
-			['PPTP Client',			'pptp.asp']
-/* PPTPD-END */
-		] ],
-/* VPN-END */
-		null,
-		['Administration',		'admin', 0, [
-			['Admin Access',		'access.asp'],
-			['TomatoAnon',			'tomatoanon.asp'],
-			['Bandwidth Monitoring',	'bwm.asp'],
-			['IP Traffic Monitoring',	'iptraffic.asp'],
-			['Buttons/LED',			'buttons.asp'],
-/* CIFS-BEGIN */
-			['CIFS Client',			'cifs.asp'],
-/* CIFS-END */
-/* SDHC-BEGIN */
-			['SDHC/MMC',			'sdhc.asp'],
-/* SDHC-END */
-			['Configuration',		'config.asp'],
-			['Debugging',			'debug.asp'],
-/* JFFS2-BEGIN */
-			['JFFS',			'jffs2.asp'],
-/* JFFS2-END */
-/* NFS-BEGIN */
-			['NFS Server',			'nfs.asp'],
-/* NFS-END */
-/* SNMP-BEGIN */
-			['SNMP',			'snmp.asp'],
-/* SNMP-END */
-			['Logging',			'log.asp'],
-			['Scheduler',			'sched.asp'],
-			['Scripts',			'scripts.asp'],
-			['Upgrade',			'upgrade.asp'] ] ],
-		null,
-		['About',			'about.asp'],
-		['Reboot...',			'javascript:reboot()'],
-		['Shutdown...',			'javascript:shutdown()'],
-		['Logout',			'javascript:logout()']
-	];
-	var name, base;
-	var i, j;
-	var buf = [];
-	var sm;
-	var a, b, c;
-	var on1;
-	var cexp = get_config('web_mx', '').toLowerCase();
-
-	name = myName();
-	if (name == 'restrict-edit.asp') name = 'restrict.asp';
-	if ((i = name.indexOf('-')) != -1) {
-		base = name.substring(0, i);
-		name = name.substring(i + 1, name.length);
-	}
-	else base = '';
-
-	for (i = 0; i < menu.length; ++i) {
-		var m = menu[i];
-		if (!m) {
-			buf.push("<br>");
-			continue;
+	var htmlmenu = '', activeURL = myName();
+	var menu = {
+		'<i class="icon-home"></i> <span class="icons-desc">Status</span>': {
+			'Overview':            'status-home.asp',
+			'Device List':         'status-devices.asp',
+			'Web Usage':           'status-webmon.asp',
+			'Logs':                'status-log.asp'
+		},
+		'<i class="icon-tools"></i> <span class="icons-desc">Basic Settings</span>': {
+			'Network':             'basic-network.asp',
+			/* IPV6-BEGIN */
+			'IPv6':                'basic-ipv6.asp',
+			/* IPV6-END */
+			'Identification':      'basic-ident.asp',
+			'Time':                'basic-time.asp',
+			'DDNS':                'basic-ddns.asp',
+			'DHCP/ARP/BW':         'basic-static.asp',
+			'Wireless Filter':     'basic-wfilter.asp'
+		},
+		'<i class="icon-shield"></i> <span class="icons-desc">Advanced Settings</span>': {
+			'Access Restriction':   'advanced-restrict.asp',
+			'Conntrack/Netfilter':  'advanced-ctnf.asp',
+			'DHCP/DNS':             'advanced-dhcpdns.asp',
+			'Firewall':             'advanced-firewall.asp',
+			/* NOCAT-BEGIN */
+			'Captive Portal':       'advanced-splashd.asp',
+			/* NOCAT-END */
+			'MAC Address':          'advanced-mac.asp',
+			'Miscellaneous':        'advanced-misc.asp',
+			'Routing':              'advanced-routing.asp',
+			/* TOR-BEGIN */
+			'Tor Project':          'advanced-tor.asp',
+			/* TOR-END */
+			'Wireless':             'advanced-wireless.asp',
+			'VLAN':                 'advanced-vlan.asp',
+			'LAN Access':           'advanced-access.asp',
+			'Virtual Wireless':     'advanced-wlanvifs.asp'
+		},
+		'<i class="icon-forward"></i> <span class="icons-desc">Port Forwarding</span>': {
+			'Basic':                'forward-basic.asp',
+			/* IPV6-BEGIN */
+			'Basic IPv6':           'forward-basic-ipv6.asp',
+			/* IPV6-END */
+			'DMZ':                  'forward-dmz.asp',
+			'Triggered':            'forward-triggered.asp',
+			'UPnP/NAT-PMP':         'forward-upnp.asp'
+		},
+		'<i class="icon-gauge"></i> <span class="icons-desc">Quality of Service</span>': {
+			'Basic Settings':       'qos-settings.asp',
+			'Classification':       'qos-classify.asp',
+			'View Graphs':          'qos-graphs.asp',
+			'View Details':         'qos-detailed.asp',
+			'Transfer Rates':       'qos-ctrate.asp',
+			'B/W Limiter':          'qos-qoslimit.asp'
+		},
+		/* USB-BEGIN */
+		// ---- !!TB - USB, FTP, Samba, Media Server
+		'<i class="icon-drive"></i> <span class="icons-desc">USB & NAS</span>': {
+			'USB Support':          'nas-usb.asp'
+			/* FTP-BEGIN */
+			,'FTP Server':          'nas-ftp.asp'
+			/* FTP-END */
+			/* SAMBA-BEGIN */
+			,'File Sharing':        'nas-samba.asp'
+			/* SAMBA-END */
+			/* MEDIA-SRV-BEGIN */
+			,'Media Server':        'nas-media.asp'
+			/* MEDIA-SRV-END */
+			/* UPS-BEGIN */
+			,'UPS Monitor':         'nas-ups.asp'
+			/* UPS-END */
+			/* BT-BEGIN */
+			,'BitTorrent Client':   'nas-bittorrent.asp'
+			/* BT-END */
+			/* NGINX-BEGIN */
+			,'Web Server (NGINX)':	'nas-nginx.asp'
+			/* NGINX-END */
+		},
+		/* USB-END */
+		/* VPN-BEGIN */
+		'<i class="icon-globe"></i> <span class="icons-desc">VPN</span>': {
+			/* OPENVPN-BEGIN */
+			'OpenVPN Server':       'vpn-server.asp',
+			'OpenVPN Client':       'vpn-client.asp'
+			/* OPENVPN-END */
+			/* PPTPD-BEGIN */
+			,'PPTP Server':         'vpn-pptp-server.asp',
+			'PPTP Online':          'vpn-pptp-online.asp',
+			'PPTP Client':          'vpn-pptp.asp'
+			/* PPTPD-END */
+		},
+		/* VPN-END */
+		'<i class="icon-wrench"></i> <span class="icons-desc">Administration</span>': {
+			'Admin Access':         'admin-access.asp',
+			'TomatoAnon': 			'admin-tomatoanon.asp',
+			'Bandwidth Monitoring': 'admin-bwm.asp',
+			'IP Traffic Monitoring':'admin-iptraffic.asp',
+			'Buttons/LED':          'admin-buttons.asp',
+			/* CIFS-BEGIN */
+			'CIFS Client':          'admin-cifs.asp',
+			/* CIFS-END */
+			'Configuration':        'admin-config.asp',
+			'Debugging':            'admin-debug.asp',
+			/* JFFS2-BEGIN */
+			'JFFS':                 'admin-jffs2.asp',
+			/* JFFS2-END */
+			/* NFS-BEGIN */
+			'NFS Server':           'admin-nfs.asp',
+			/* NFS-END */
+			'Logging':              'admin-log.asp',
+			'Scheduler':            'admin-sched.asp',
+			'Scripts':              'admin-scripts.asp',
+			/* SNMP-BEGIN */
+			'SNMP':                 'admin-snmp.asp',
+			/* SNMP-END */
+			'Upgrade':              'admin-upgrade.asp'
 		}
-		if (m.length == 2) {
-			buf.push('<a href="' + m[1] + '" class="indent1' + (((base == '') && (name == m[1])) ? ' active' : '') + '">' + m[0] + '</a>');
-		}
-		else {
-			if (base == m[1]) {
-				b = name;
-			}
-			else {
-				a = cookie.get('menu_' + m[1]);
-				b = m[3][0][1];
-				for (j = 0; j < m[3].length; ++j) {
-					if (m[3][j][1] == a) {
-						b = a;
-						break;
-					}
-				}
-			}
-			a = m[1] + '-' + b;
-			if (a == 'status-overview.asp') a = '/';
-			on1 = (base == m[1]);
-			buf.push('<a href="' + a + '" class="indent1' + (on1 ? ' active' : '') + '">' + m[0] + '</a>');
-			if ((!on1) && (m[2] == 0) && (cexp.indexOf(m[1]) == -1)) continue;
+	};
 
-			for (j = 0; j < m[3].length; ++j) {
-				sm = m[3][j];
-				a = m[1] + '-' + sm[1];
-				if (a == 'status-overview.asp') a = '/';
-				buf.push('<a href="' + a + '" class="indent2' + (((on1) && (name == sm[1])) ? ' active' : '') + '">' + sm[0] + '</a>');
-			}
-		}
-	}
-	document.write(buf.join(''));
+	// Add custom menu
+	try { $.extend(menu, $.parseJSON(nvram.web_nav)); } catch (e) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
 
-	if (base.length) {
-		if ((base == 'qos') && (name == 'detailed.asp')) name = 'view.asp';
-		cookie.set('menu_' + base, name);
-	}
+	// Loop Through MENU
+	$.each(menu, function (key, linksobj) {
+
+		var category = '';
+
+		// Loop Through subcats
+		$.each(linksobj, function(name, link) {
+			category += '<li  class="' + ((activeURL == link) ? 'active' : '') + '"><a href="#' + link + '">' + name + '</a></li>';
+		});
+
+		htmlmenu += '<li' + (($(category).filter('.active')[0] == null) ? '' : ' class="active"') + '><a href="#">' + key + '</a><ul>' + category + '</ul></li>';
+
+	});
+
+	$('.navigation > ul').prepend(htmlmenu);
+
 }
 
-function createFieldTable(flags, desc)
+function createFieldTable(flags, desc, writeTo, extraClass)
 {
 	var common;
 	var i, n;
@@ -2572,12 +2511,12 @@ function createFieldTable(flags, desc)
 	var id1;
 	var tr;
 
-	if ((flags.indexOf('noopen') == -1)) buf.push('<table class="fields">');
+	if ((flags.indexOf('noopen') == -1)) buf.push('<table class="' + ((typeof extraClass != 'undefined') ? extraClass : 'data-table') + '">');
 	for (desci = 0; desci < desc.length; ++desci) {
 		var v = desc[desci];
 
 		if (!v) {
-			buf.push('<tr><td colspan=2 class="spacer">&nbsp;</td></tr>');
+			buf.push('<tr><td colspan=2>&nbsp;</td></tr>');
 			continue;
 		}
 
@@ -2588,9 +2527,10 @@ function createFieldTable(flags, desc)
 		if (v.hidden) buf.push(' style="display:none"');
 		buf.push('>');
 
+		if (v.help) { v.title += ' (<i class="icon-info icon-normal tooltip" data-info="' + v.help + '"></i>)'; }
 		if (v.text) {
 			if (v.title) {
-				buf.push('<td class="title indent' + (v.indent || 1) + '">' + v.title + '</td><td class="content">' + v.text + '</td></tr>');
+				buf.push('<td>' + v.title + '</td><td>' + v.text + '</td></tr>');
 			}
 			else {
 				buf.push('<td colspan=2>' + v.text + '</td></tr>');
@@ -2600,17 +2540,17 @@ function createFieldTable(flags, desc)
 
 		id1 = '';
 		buf2 = [];
-		buf2.push('<td class="content">');
+		buf2.push('<td>');
 
 		if (v.multi) fields = v.multi;
-			else fields = [v];
+		else fields = [v];
 
 		for (n = 0; n < fields.length; ++n) {
 			f = fields[n];
 			if (f.prefix) buf2.push(f.prefix);
 
 			if ((f.type == 'radio') && (!f.id)) id = '_' + f.name + '_' + i;
-				else id = (f.id ? f.id : ('_' + f.name));
+			else id = (f.id ? f.id : ('_' + f.name));
 
 			if (id1 == '') id1 = id;
 
@@ -2619,62 +2559,59 @@ function createFieldTable(flags, desc)
 			name = f.name ? (' name="' + f.name + '"') : '';
 
 			switch (f.type) {
-			case 'checkbox':
-				buf2.push('<input type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
-				break;
-			case 'radio':
-				buf2.push('<input type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
-				break;
-			case 'password':
-				if (f.peekaboo) {
-					switch (get_config('web_pb', '1')) {
-					case '0':
-						f.type = 'text';
-					case '2':
-						f.peekaboo = 0;
-						break;
+				case 'checkbox':
+					buf2.push('<input class="custom" type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
+					break;
+				case 'radio':
+					buf2.push('<input class="custom" type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
+					break;
+				case 'password':
+					if (f.peekaboo) {
+						switch (get_config('web_pb', '1')) {
+							case '0':
+								f.type = 'text';
+							case '2':
+								f.peekaboo = 0;
+								break;
+						}
 					}
-				}
-				if (f.type == 'password') {
-					common += ' autocomplete="off"';
-					if (f.peekaboo) common += ' onfocus=\'peekaboo("' + id + '",1)\'';
-				}
+					if (f.type == 'password') {
+						common += ' autocomplete="off"';
+						if (f.peekaboo) common += ' onfocus=\'peekaboo("' + id + '",1)\'';
+					}
 				// drop
-			case 'text':
-				buf2.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
-				break;
-			case 'clear':
-				s += '';
-				break;
-			case 'select':
-				buf2.push('<select' + name + common + '>');
-				for (i = 0; i < f.options.length; ++i) {
-					a = f.options[i];
-					if (a.length == 1) a.push(a[0]);
-					buf2.push('<option value="' + a[0] + '"' + ((a[0] == f.value) ? ' selected' : '') + '>' + a[1] + '</option>');
-				}
-				buf2.push('</select>');
-				break;
-			case 'textarea':
-				buf2.push('<textarea' + name + common + (f.wrap ? (' wrap=' + f.wrap) : '') + '>' + escapeHTML(UT(f.value)) + '</textarea>');
-				break;
-			default:
-				if (f.custom) buf2.push(f.custom);
-				break;
+				case 'text':
+					buf2.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
+					break;
+				case 'select':
+					buf2.push('<select' + name + common + '>');
+					for (i = 0; i < f.options.length; ++i) {
+						a = f.options[i];
+						if (a.length == 1) a.push(a[0]);
+						buf2.push('<option value="' + a[0] + '"' + ((a[0] == f.value) ? ' selected' : '') + '>' + a[1] + '</option>');
+					}
+					buf2.push('</select>');
+					break;
+				case 'textarea':
+					buf2.push('<textarea ' + (f.style ? (' style="' + f.style + '" ') : '') + name + common + (f.wrap ? (' wrap=' + f.wrap) : '') + '>' + escapeHTML(UT(f.value)) + '</textarea>');
+					break;
+				default:
+					if (f.custom) buf2.push(f.custom);
+					break;
 			}
 			if (f.suffix) buf2.push(f.suffix);
 		}
 		buf2.push('</td>');
 
-		buf.push('<td class="title indent' + (v.indent ? v.indent : 1) + '">');
+		buf.push('<td>');
 		if (id1 != '') buf.push('<label for="' + id + '">' + v.title + '</label></td>');
-			else buf.push(+ v.title + '</td>');
+		else buf.push(+ v.title + '</td>');
 
 		buf.push(buf2.join(''));
 		buf.push('</tr>');
 	}
 	if ((!flags) || (flags.indexOf('noclose') == -1)) buf.push('</table>');
-	document.write(buf.join(''));
+	if (writeTo != null) { $(writeTo).append(buf.join('')); } else { return buf.join(''); }
 }
 
 function peekaboo(id, show)
@@ -2705,53 +2642,161 @@ function peekaboo(id, show)
 		}
 	}
 	catch (ex) {
-//		alert(ex);
+		//		alert(ex);
 	}
 
-/* REMOVE-BEGIN
-notes:
- - e.type= doesn't work in IE, ok in FF
- - may mess keyboard tabing (bad: IE; ok: FF, Opera)... setTimeout() delay seems to help a little.
-REMOVE-END */
+	/* REMOVE-BEGIN
+	notes:
+	- e.type= doesn't work in IE, ok in FF
+	- may mess keyboard tabing (bad: IE; ok: FF, Opera)... setTimeout() delay seems to help a little.
+	REMOVE-END */
 }
 
 // -----------------------------------------------------------------------------
 
-function reloadPage()
-{
-	document.location.reload(1);
+function reloadPage() {
+	if (document.location.hash.match(/#/)) { loadPage(document.location.hash); } else { loadPage('#status-home.asp'); }
 }
 
-function reboot()
-{
-	if (confirm("Reboot?")) form.submitHidden('tomato.cgi', { _reboot: 1, _commit: 0, _nvset: 0 });
+function reboot() {
+	if (confirm("Reboot?")) { form.submitHidden('tomato.cgi', { _reboot: 1, _commit: 0, _nvset: 0 }); } else { return false; }
 }
 
-function shutdown()
-{
-	if (confirm("Shutdown?")) form.submitHidden('shutdown.cgi', { });
+function shutdown() {
+	if (confirm("Shutdown?")) { form.submitHidden('shutdown.cgi', { }); } else { return false; }
 }
 
-function logout()
-{
+function logout(){
 	form.submitHidden('logout.asp', { });
 }
 
 // -----------------------------------------------------------------------------
+// jQuery function to create forms on the fly
+(function ($) { $.fn.forms = function(data, settings) { $(this).append(createFormFields(data, settings)); } })(jQuery);
+function createFormFields (data, settings) {
 
+	var id, id1, common, output, form = '';
+	var s = $.extend({
+
+		// Defaults
+		'align': 'left',
+		'grid': ['col-sm-3', 'col-sm-9']
+
+
+		}, settings);
+
+
+	// Loop through array
+	$.each(data, function(key, v) {
+
+		if (!v) {
+			form += '<br />';
+			return;
+		}
+
+		if (v.ignore) return;
+
+		form += '<fieldset' + ((v.rid) ? ' id="' + v.rid + '"' : '') + ((v.hidden) ? ' style="display: none;"' : '') + '>';
+
+		if (v.help) { v.title += ' (<i data-toggle="tooltip" class="icon-info icon-normal" title="' + v.help + '"></i>)'; }
+		if (v.text) {
+			if (v.title) {
+				form += '<label class="' + s.grid[0] + ' ' + ((s.align == 'center') ? 'control-label' : 'control-left-label') + '">' + v.title + '</label><div class="' + s.grid[1] + ' text-block">' + v.text + '</div></fieldset>';
+			}
+			else {
+				form += '<label class="' + s.grid[0] + ' ' + ((s.align == 'center') ? 'control-label' : 'control-left-label') + '">' + v.text + '</label></fieldset>';
+			}
+			return;
+		}
+
+
+
+		if (v.multi) multiornot = v.multi; else multiornot = [v];
+
+		output = '';
+		$.each(multiornot, function(key, f) {
+
+			if ((f.type == 'radio') && (!f.id)) id = '_' + f.name + '_' + i;
+			else id = (f.id ? f.id : ('_' + f.name));
+
+			if (id1 == '') id1 = id;
+
+			common = ' onchange="verifyFields(this, 1)" id="' + id + '"';
+			if (f.size > 60) common += ' style="width: 100%; display: block;"';
+
+			if (f.attrib) common += ' ' + f.attrib;
+			name = f.name ? (' name="' + f.name + '"') : '';
+
+			// Prefix
+			if (f.prefix) output += f.prefix;
+
+			switch (f.type) {
+
+				case 'checkbox':
+					output += '<div class="checkbox c-checkbox"><label><input class="custom" type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>\
+					<span class="icon-check"></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
+					break;
+
+				case 'radio':
+					output += '<div class="radio c-radio"><label><input class="custom" type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>\
+					<span class="icon-check"></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
+					break;
+
+				case 'password':
+					if (f.peekaboo) {
+						switch (get_config('web_pb', '1')) {
+							case '0':
+								f.type = 'text';
+							case '2':
+								f.peekaboo = 0;
+								break;
+						}
+					}
+					if (f.type == 'password') {
+						common += ' autocomplete="off"';
+						if (f.peekaboo) common += ' onfocus=\'peekaboo("' + id + '",1)\'';
+					}
+
+				// drop
+				case 'text':
+
+					output += '<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>';
+					break;
+
+				case 'select':
+					output += '<select' + name + common + '>';
+					for (optsCount = 0; optsCount < f.options.length; ++optsCount) {
+						a = f.options[optsCount];
+						if (a.length == 1) a.push(a[0]);
+						output += '<option value="' + a[0] + '"' + ((a[0] == f.value) ? ' selected' : '') + '>' + a[1] + '</option>';
+					}
+					output +='</select>';
+					break;
+
+				case 'textarea':
+					output += '<textarea ' + (f.style ? (' style="' + f.style + '" ') : '') + name + common + (f.wrap ? (' wrap=' + f.wrap) : '') + '>' + escapeHTML(UT(f.value)) + '</textarea>';
+					break;
+
+				default:
+					if (f.custom) output += f.custom;
+					break;
+			}
+
+			if (f.suffix && (f.type != 'checkbox' && f.type != 'radio')) output += '<span class="help-block">' + f.suffix + '</span>';
+
+		});
+
+		if (id1 != '') form += '<label class="' + s.grid[0] + ' ' + ((s.align == 'center') ? 'control-label' : 'control-left-label') + '" for="' + id + '">' + v.title + '</label><div class="' + s.grid[1] + '">' + output;
+		else form += '<label>' + v.title + '</label>';
+		form += '</div></fieldset>';
+
+	});
+
+	return form;
+}
 
 
 // ---- debug
-
-function isLocal()
-{
+function isLocal() {
 	return location.href.search('file://') == 0;
 }
-
-function console(s)
-{
-}
-
-
-
-

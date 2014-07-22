@@ -97,7 +97,6 @@ const defaults_t defaults[] = {
 	{ "dnscrypt_priority",		"1"			}, // 0=none, 1=strict-order, 2=no-resolv
 	{ "dnscrypt_port",		"40"			}, // local port
 	{ "dnscrypt_resolver",		"opendns"		}, // default resolver
-	{ "dnscrypt_log",		"99"			}, // log level
 	{ "dnscrypt_manual",		"0"			}, // Set manual resolver
 	{ "dnscrypt_provider_name",	""			}, // Set manual provider name
 	{ "dnscrypt_provider_key",	""			}, // Set manual provider key
@@ -699,6 +698,10 @@ const defaults_t defaults[] = {
 	{ "tomatoanon_answer",		"0"				},
 	{ "tomatoanon_id",		""				},
 	{ "tomatoanon_notify",		"1"				},
+    
+// AdvancedTomato
+    { "at_update",    ""    },
+    { "at_navi",      "default"    },
 
 #ifdef TCONFIG_USB
 // nas-usb - !!TB

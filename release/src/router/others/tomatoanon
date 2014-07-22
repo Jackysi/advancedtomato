@@ -28,7 +28,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
     if [ "$ANON_ENABLED" == "1" ]; then
 
 ############################
-        MOD=Shibby
+        MOD=AdvancedTomato
 ############################
 
         #Detect Version and Buildtype
@@ -55,11 +55,8 @@ if [ "$ANON_ANSWER" == "1" ]; then
 
         if [ "$1" == "checkver" -a "$ANON_NOTIFY" == "1" ]; then
             # Tomato Update Notification Script
-            # This works only for Shibby`s builds !!!
-            CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
-
             #Change all spaces to %20
-            echo "http://tomato.groov.pl/tomatoanon.php?v=$CHECK_VER&mod=$MOD&anon=2" > /tmp/AnonLink
+            echo "http://at.prahec.com/update.php?v=$VER&mod=$MOD" > /tmp/AnonLink
             sed -i "s/ /%20/g" /tmp/AnonLink
             ANONSEND=`cat /tmp/AnonLink`
             rm /tmp/AnonLink
@@ -67,10 +64,8 @@ if [ "$ANON_ANSWER" == "1" ]; then
             RESULT="/tmp/anon.version"
             wget -O $RESULT $ANONSEND
 
-            #do we have result? If don`t, then set no update needed
-            if [ ! -f "$RESULT" ]; then
-                echo "have_update=no" > $RESULT
-            fi
+            # save result into nvram
+            nvram set at_update=`cat /tmp/anon.version`
 
             #Thanks. Now add cron job
 
@@ -89,7 +84,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
 
         else #just update anon database
             #Collect datas
-            MOD=Shibby
+            MOD=AdvancedTomato
             UPTIME=`uptime | cut -d "," -f1 | cut -d " " -f4,5`
             WANMAC=`nvram get wan_hwaddr`
             LANMAC=`nvram get lan_hwaddr`

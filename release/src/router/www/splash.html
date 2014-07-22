@@ -1,44 +1,77 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<title>$GatewayName</title>
-	<link href="/style.css" rel="stylesheet" type="text/css" />
-	<script type="text/javascript">
-		function toggle(element) { document.getElementById(element).style.display = (document.getElementById(element).style.display == "none") ? "" : "none"; }
-	</script>
-</head>
-<body>
-	<table id="wrapper">
-		<tr>
-			<td valign="middle">
-				<div id="splash">
-					<div id="splash_header">
-						<h1>$GatewayName</h1>
-					</div>
-					<div id="splash_content">
-<!-- "textarea" is where you put your Text -->
-<center><b>Wifi Network & Internet conditions:</b></center>
-<textarea readonly="readonly">
-You are solely responsible for any illegal activities once you click the "OK, I AGREE" button.
-
-We are not responsible for faulty operation of your computer or equipment. You may be asked to stop using your equipment.
-
-This banner will appear again periodically.
-
-To renew your access time, you must agree once again every $LoginTimeout seconds.
-
-Thank You, and Enjoy!</textarea>
-						<form method="POST" action="$action">
-							<input type="hidden" name="mode_login">
-							<input type="hidden" name="redirect" value="$redirect">
-							<input type="hidden" name="accept_terms" value="yes">
-							<button type="submit" value="Submit">Ok, I Agree!</button>
-						</form>
-					</div>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta name="viewport" content="width=device-width">
+		<title>$GatewayName</title>
+		<link href="/css/bootstrap.min.css" rel="stylesheet">
+		<link href="/css/bootstrap-responsive.min.css" rel="stylesheet">
+		<link href="/css/tomato.css" rel="stylesheet">
+		<link href="/css/elenor.css" rel="stylesheet">
+		<style>
+			.terms {
+				padding: 0 20px;
+				text-align: center;
+			}
+			
+			h2 { text-align: center; font-size: 24px; }
+			form { text-align: center; }
+			.center { display: block; text-align: center; margin: 0 auto; }
+			.container {
+				margin: 10px auto;
+				min-width: 250px;
+				max-width: 768px;
+			}
+			
+			/* Animations */
+			.anim { animation: OpenPage 0.5s ease-out forwards; transform: scale(0); }
+			.delay1 { animation-delay: 0s; }
+			.delay2 { animation-delay: 0.3s; }
+			.delay3 { animation-delay: 0.6s; }
+			.delay4 { animation-delay: 1s; }
+			
+			@keyframes OpenPage {
+				0% {
+					opacity: 0;
+					transform: scale(0, -1);
+					margin-top: -150px;
+				}
+				65% {
+					opacity: 0.2;
+				}
+				100% {
+					opacity: 1;
+					margin-top: 0;
+					transform: scale(1);
+				}
+			}
+			
+		</style>
+		<script type="text/javascript">
+			function toggle(element) { document.getElementById(element).style.display = (document.getElementById(element).style.display == "none") ? "" : "none"; }
+		</script>
+	</head>
+	<body>
+		<div id="main" class="container">
+			<div id="splash">
+				<h2 class="anim delay1">$GatewayName</h2>
+				<div class="center anim delay2"><b>Wifi Network & Internet conditions:</b></div>
+				<div class="terms anim delay3">
+					<!-- "div" is where you put your Text -->
+					You are solely responsible for any illegal activities once you click the "OK, I AGREE" button. <br />
+					We are not responsible for faulty operation of your computer or equipment. You may be asked to stop using your equipment.
+					This banner will appear again periodically.
+					To renew your access time, you must agree once again every $LoginTimeout seconds. <br /><br />
+					Thank You, and Enjoy!
+					<br /><br />
 				</div>
-			</td>
-		</tr>
-	</table>
-</body>
+				<form method="POST" action="$action" class="anim delay4">
+					<input type="hidden" name="mode_login">
+					<input type="hidden" name="redirect" value="$redirect">
+					<input type="hidden" name="accept_terms" value="yes">
+					<button class="btn btn-primary" type="submit" value="Submit">Ok, I Agree!</button>
+				</form>
+			</div>
+		</div>
+	</body>
 </html>

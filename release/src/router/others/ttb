@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Shibby 2013
+# Modified script to get themes from ATTD directory (AdvancedTomato Themes Directory)
 
 SCHEME=`nvram get web_css`
 if [ ! "$SCHEME" == "online" ]; then
@@ -10,7 +11,7 @@ fi
 LOCK="/tmp/ttb.lock"
 
 if [ -f $LOCK ]; then #skrypt w działaniu
-    logger TTB: Another process is already working. Exiting...
+    logger ATTD: Another process is already working. Exiting...
     exit 0
 else
     touch $LOCK
@@ -26,7 +27,7 @@ else
         else #nie ma skorki ani zipa ze skorka
 
             rm /www/ext/*.css /www/ext/*.zip /www/ext/*.png /www/ext/*.gif /www/ext/*.jpg
-            wget http://www.tomatothemebase.eu/wp-content/uploads/$TTB.zip -O /www/ext/$TTB.zip
+            wget http://at.prahec.com/theme/$TTB.zip -O /www/ext/$TTB.zip
             sleep 5
 
             if [ -f /www/ext/$TTB.zip ]; then #zip sciagniety
@@ -35,7 +36,7 @@ else
 
             else #brak zipa !!
 
-                logger TTB: Cannot download Online themes. Will try again soon...
+                logger ATTD: Cannot download Online themes. Will try again soon...
                 sleep 30
                 rm $LOCK
                 /usr/sbin/ttb
