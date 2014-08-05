@@ -170,7 +170,7 @@ No part of this file may be used without permission.
 					<li><b> Login Timeout</b> - The client can use the internet until this time expires. Default=3600sec.<br>
 					<li><b> Idle Timeout</b> - How often the ARP cache will be checked (seconds). Default=0.<br>
 					<li><b> Max Missed ARP</b> - Number of lost ARP before considering the client has leaved the connection. Default = 5<br>
-					<li><b> Log Info Level</b> - Verbosity level for log messages from this module, Level 0=Silent, 10=Verbose, (Default=0).<br>
+					<li><b> Log Info Level</b> - Verbosity level for log messages from this module, Level 0=Silent, 10=Verbose, (Default=2).<br>
 
 					<li><b> Included ports</b> - TCP ports to allow access to after login, all others will be denied.<br>
 					<li><b> Excluded ports</b> - TCP ports to denied access to after login, all others will be allowed.<br>

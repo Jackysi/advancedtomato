@@ -70,7 +70,6 @@ No part of this file may be used without permission.
 			// Some cool things
 			$('#wrapper > .content').css('position', 'static');
 			$('#afu-progress').clone().prependTo('#wrapper').show().addClass('active');
-
 			startTime = (new Date()).getTime();
 			setInterval('clock()', 800);
 			fom.action += '?_reset=' + (E('f_reset').checked ? "1" : "0");
@@ -125,7 +124,7 @@ No part of this file may be used without permission.
 
 			<div id="afu-progress" style="display:none;">
 				<div class="text-container">
-					<img width="64" height="64" src="img/preloader.svg"><br /><br />
+					<div class="spinner spinner-large"></div><br /><br />
 					<b id="afu-time">0:00</b><br />
 					Please wait while new firmware is being uploaded and flashed...<br />
 					<b>WARNING:</b> Do not interrupt browser or the router!

@@ -95,6 +95,7 @@ No part of this file may be used without permission.
 			f = E('_fom').elements;
 			b = !E('_f_qos_enable').checked;
 			for (i = 0; i < f.length; ++i) {
+				if (typeof(f[i]) == 'undefined' || (typeof(f[i].name) == 'undefined')) { continue; } /* IE Bugfix */
 				if ((f[i].name.substr(0, 1) != '_') && (f[i].type != 'button' && f[i].type != 'fieldset') && (f[i].name.indexOf('enable') == -1) &&
 					(f[i].name.indexOf('ne_v') == -1)) f[i].disabled = b;
 			}

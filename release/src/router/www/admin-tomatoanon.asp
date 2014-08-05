@@ -78,7 +78,7 @@ No part of this file may be used without permission.
 				</p><br />
 
 				<h4>How does it work?</h4>
-				<p>AdvancedTomato retrieves your router's current Tomato version and creates a small link on the page which looks like this: <b><a target="_blank" href="http://at.prahec.com/update.php?v=1.06.08">http://at.prahec.com/update.php?v=1.06.08</a></b>.
+				<p>AdvancedTomato retrieves your router's current Tomato version and creates a small link on the page which looks like this: <b><a target="_blank" href="http://advancedtomato.com/update.php?v=1.06.08">http://advancedtomato.com/update.php?v=1.06.08</a></b>.
 					Your web browser will follow the link and the AdvancedTomato server sends a response indicating whether or not a newer version is available.<br>
 					That's it!
 				</p>

@@ -1215,7 +1215,7 @@ function TGO(e)
 function tgHideIcons()
 {
 	var e;
-	while ((e = document.getElementById('tg-row-panel')) != null) e.parentNode.removeChild(e);
+	while ((e = document.getElementById('table-row-panel')) != null) e.parentNode.removeChild(e);
 }
 
 // ---- options = sort, move, delete
@@ -1321,7 +1321,7 @@ TomatoGrid.prototype = {
 		i.parentNode.insertBefore(e, i);
 
 		this.recolor();
-		//this.rpHide();
+		this.rpHide();
 	},
 
 	rpDn: function(e) {
@@ -1335,7 +1335,7 @@ TomatoGrid.prototype = {
 		i.parentNode.insertBefore(e, i.nextSibling);
 
 		this.recolor();
-		//this.rpHide();
+		this.rpHide();
 	},
 
 	rpMo: function(img, e) {
@@ -1345,7 +1345,7 @@ TomatoGrid.prototype = {
 		me = TGO(e);
 		if (me.moving == e) {
 			me.moving = null;
-			//this.rpHide();
+			this.rpHide();
 			return;
 		}
 		me.moving = e;
@@ -1357,35 +1357,38 @@ TomatoGrid.prototype = {
 		TGO(e).moving = null;
 		e.parentNode.removeChild(e);
 		this.recolor();
-		//this.rpHide();
+		this.rpHide();
 	},
 
 	rpMouIn: function(evt) {
 		var e, x, ofs, me, s, n;
-		/*
-		if ((evt = checkEvent(evt)) == null) return;
+
+		if ((evt = checkEvent(evt)) == null || evt.target.nodeName == 'A' || evt.target.nodeName == 'I') return;
 
 		me = TGO(evt.target);
 		if (me.isEditing()) return;
 		if (me.moving) return;
 
-		if(evt.target.id != 'tg-row-panel')
-		me.rpHide();
+		if(evt.target.id != 'table-row-panel') {
+			me.rpHide();
+		}
 
-		e = document.createElement('td');
+		e = document.createElement('div');
 		e.tgo = me;
 		e.ref = evt.target;
-		e.setAttribute('id', 'tg-row-panel');
+		e.setAttribute('id', 'table-row-panel');
 
 		n = 0;
 		s = '';
 		if (me.canMove) {
-		s = '<img src="rpu.gif" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref)" title="Move Up"><img src="rpd.gif" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref)" title="Move Down"><img src="rpm.gif" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref)" title="Move">';
-		n += 3;
+			s = '<a class="move-up-row" href="#" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref); return false;" title="Move Up"><i class="icon-chevron-up"></i></a> \
+			<a class="move-down-row" href="#" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref); return false;" title="Move Down"><i class="icon-chevron-down"></i></a> \
+			<a class="move-row" href="#" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref); return false;" title="Move"><i class="icon-move"></i></a> ';
+			n += 3;
 		}
 		if (me.canDelete) {
-		s += '<img src="rpx.gif" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref)" title="Delete">';
-		++n;
+			s += '<a class="delete-row" href="#" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref); return false;" title="Delete"><i class="icon-cancel"></i></a>';
+			++n;
 		}
 		x = PR(evt.target);
 		x = x.cells[x.cells.length - 1];
@@ -1394,7 +1397,7 @@ TomatoGrid.prototype = {
 
 		e.innerHTML = s;
 
-		this.appendChild(e);*/
+		this.appendChild(e);
 	},
 
 	rpHide: tgHideIcons,
@@ -1437,8 +1440,8 @@ TomatoGrid.prototype = {
 		e.setRowData = function(data) { this._data = data; }
 
 		if ((this.canMove) || (this.canEdit) || (this.canDelete)) {
-			//e.onmouseover = this.rpMouIn;
-			// ----			e.onmouseout = this.rpMouOut;
+			e.onmouseover = this.rpMouIn;
+			e.onmouseout = this.rpMouOut;
 			if (this.canEdit) e.title = 'Click to edit'; $(e).css('cursor', 'text');
 		}
 
@@ -2722,7 +2725,7 @@ function createFormFields (data, settings) {
 			if (id1 == '') id1 = id;
 
 			common = ' onchange="verifyFields(this, 1)" id="' + id + '"';
-			if (f.size > 60) common += ' style="width: 100%; display: block;"';
+			if (f.size > 65) common += ' style="width: 100%; display: block;"';
 
 			if (f.attrib) common += ' ' + f.attrib;
 			name = f.name ? (' name="' + f.name + '"') : '';

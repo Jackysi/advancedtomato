@@ -75,8 +75,10 @@
 		{
 			var status, speed, code = '';
 
-			if (etherstates.port0 == "disable" || typeof (etherstates.port0) == 'undefined' || typeof (etherstates.port1) == 'undefined'
-				|| typeof (etherstates.port2) == 'undefined' || typeof (etherstates.port3) == 'undefined' || typeof (etherstates.port4) == 'undefined') { return false; }
+			if (etherstates.port0 == "disable" || typeof (etherstates.port0) == 'undefined' || typeof (etherstates.port1) == 'undefined' || typeof (etherstates.port2) == 'undefined' || typeof (etherstates.port3) == 'undefined' || typeof (etherstates.port4) == 'undefined') {
+				$('#ethernetPorts').remove();
+				return false;
+			}
 
 			// Above code checks if ETH ports are Disabled/Enabled
 			code += '<div id="ethPorts">';
@@ -247,6 +249,7 @@
 						{ title: 'Remaining Lease Time', rid: 'wanlease', text: stats.wanlease, ignore: !show_dhcpc }
 						], '.WANField', 'data-table dataonly');
 				</script>
+
 				<div id="b_dhcpc" style="display: none; margin-bottom: 8px;">
 					<div class="btn-group">
 						<button type="button" class="btn" onclick="dhcpc('renew')" value="Renew">Renew</button>

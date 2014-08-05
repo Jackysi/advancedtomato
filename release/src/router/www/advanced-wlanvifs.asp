@@ -33,7 +33,7 @@ LAN Access admin module by Augusto Bott
 	<script type="text/javascript" src="js/interfaces.js"></script>
 	<script type="text/javascript" src="js/wireless.js"></script>
 	<script type="text/javascript">
-		// <% nvram("at_update,tomatoanon_answer,nas_alternate,wl_auth,wl_auth_mode,wl_bss_enabled,wl_channel,wl_closed,wl_corerev,wl_crypto,wl_hwaddr,wl_ifname,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_nband,wl_nbw_cap,wl_nctrlsb,wl_net_mode,wl_passphrase,wl_phytype,wl_radio,wl_radius_ipaddr,wl_radius_key,wl_radius_port,wl_security_mode,wl_ssid,wl_vifs,wl_wds,wl_wds_enable,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_bss_maxassoc,wl_wme,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,t_features");%>
+		// <% nvram("nas_alternate,wl_auth,wl_auth_mode,wl_bss_enabled,wl_channel,wl_closed,wl_corerev,wl_crypto,wl_hwaddr,wl_ifname,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_nband,wl_nbw_cap,wl_nctrlsb,wl_net_mode,wl_passphrase,wl_phytype,wl_radio,wl_radius_ipaddr,wl_radius_key,wl_radius_port,wl_security_mode,wl_ssid,wl_vifs,wl_wds,wl_wds_enable,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_bss_maxassoc,wl_wme,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,t_features");%>
 
 		var vifs_possible = [];
 		var vifs_defined = [];
@@ -89,11 +89,11 @@ LAN Access admin module by Augusto Bott
 
 		wlg.setup = function() {
 			this.init('wlif-grid', '', max_no_vifs, [
-				{ type: 'select', options: vifs_possible, class: 'input-medium' },
+				{ type: 'select', options: vifs_possible },
 				{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
-				{ type: 'text', maxlen: 32, size: 34, prefix: '<div class="centered">', suffix: '</div>', class: 'input-medium' },
+				{ type: 'text', maxlen: 32, size: 34, prefix: '<div class="centered">', suffix: '</div>' },
 				{ type: 'select', options: wl_modes_available , prefix: '<div class="centered">', suffix: '</div>' },
-				{ type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']], class: 'input-medium' }
+				{ type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
 			]);
 
 			this.headerSet(['Interface', 'Enabled', 'SSID', 'Mode', 'Bridge']);
@@ -838,6 +838,7 @@ LAN Access admin module by Augusto Bott
 					i = 3;
 					if (a.substr(0, 6) == '_f_wl_') i = 5;
 					b = E(a.substr(0, i) + u + a.substr(i, a.length));
+					if (b == null) { continue; }
 					c = wl_vis[vidx][a];
 					b.disabled = (c != 1);
 					PR(b).style.display = c ? '' : 'none';
@@ -1397,53 +1398,53 @@ LAN Access admin module by Augusto Bott
 					var uidx = wl_ifidxx(t);
 					var u = t;
 
-					htmlOut += ('<div id=\''+t+'-tab-disabled\'>');
+					htmlOut += ('<div id="'+t+'-tab-disabled">');
 					htmlOut += ('<br>');
 					htmlOut += ('VIF ' + tabs[i][1] + ' is not defined. <br /><br />');
 					htmlOut += ('</div>');
 
-					htmlOut += ('<div id=\''+t+'-tab\'>');
+					htmlOut += ('<div id="'+t+'-tab">');
 					htmlOut += ('<br>');
 
 					// common to all VIFs
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_radio\'       name=\'wl'+u+'_radio\'       >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_mode\'        name=\'wl'+u+'_mode\'        >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_closed\'      name=\'wl'+u+'_closed\'      >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_key\'         name=\'wl'+u+'_key\'         >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_akm\'         name=\'wl'+u+'_akm\'         >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_auth_mode\'   name=\'wl'+u+'_auth_mode\'   >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_wep\'         name=\'wl'+u+'_wep\'         >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_auth\'        name=\'wl'+u+'_auth\'        >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_bss_enabled\' name=\'wl'+u+'_bss_enabled\' >');
-					htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_ifname\'      name=\'wl'+u+'_ifname\'      >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_radio"       name="wl'+u+'_radio"       >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_mode"        name="wl'+u+'_mode"        >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_closed"      name="wl'+u+'_closed"      >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_key"         name="wl'+u+'_key"         >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_akm"         name="wl'+u+'_akm"         >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_auth_mode"   name="wl'+u+'_auth_mode"   >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_wep"         name="wl'+u+'_wep"         >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_auth"        name="wl'+u+'_auth"        >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_bss_enabled" name="wl'+u+'_bss_enabled" >');
+					htmlOut += ('<input type="hidden" id="_wl'+u+'_ifname"      name="wl'+u+'_ifname"      >');
 
 					// only if primary VIF
 					if (u.toString().indexOf('.') < 0) {
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nband\'      name=\'wl'+u+'_nband\'      >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_wds_enable\' name=\'wl'+u+'_wds_enable\' >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_wds\'        name=\'wl'+u+'_wds\'        >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_lazywds\'    name=\'wl'+u+'_lazywds\'    >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_gmode\'      name=\'wl'+u+'_gmode\'      >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nband"      name="wl'+u+'_nband"      >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_wds_enable" name="wl'+u+'_wds_enable" >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_wds"        name="wl'+u+'_wds"        >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_lazywds"    name="wl'+u+'_lazywds"    >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_gmode"      name="wl'+u+'_gmode"      >');
 
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nmode\'      name=\'wl'+u+'_nmode\'      >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nmcsidx\'    name=\'wl'+u+'_nmcsidx\'    >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nreqd\'      name=\'wl'+u+'_nreqd\'      >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nctrlsb\'    name=\'wl'+u+'_nctrlsb\'    >');
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_nbw\'        name=\'wl'+u+'_nbw\'        >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nmode"      name="wl'+u+'_nmode"      >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nmcsidx"    name="wl'+u+'_nmcsidx"    >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nreqd"      name="wl'+u+'_nreqd"      >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nctrlsb"    name="wl'+u+'_nctrlsb"    >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_nbw"        name="wl'+u+'_nbw"        >');
 
-						htmlOut += ('<input type=\'hidden\' id=\'_wl'+u+'_vifs\'       name=\'wl'+u+'_vifs\'       >');
+						htmlOut += ('<input type="hidden" id="_wl'+u+'_vifs"       name="wl'+u+'_vifs"       >');
 					}
 
 					var f = [];
 					f.push (
 						{ title: 'Enable Interface', name: 'f_wl'+u+'_radio', type: 'checkbox',
 							value: (eval('nvram["wl'+u+'_radio"]') == '1') && (eval('nvram["wl'+u+'_net_mode"]') != 'disabled') },
-						{ title: 'MAC Address', text: '<a href="/#advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
+						{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
 							' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href=advanced-mac.asp>' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
 						{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
 							options: wl_modes_available,
 							value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
-							suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href="/#basic-network.asp">Basic/Network</a>)</small></b>' }
+							suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href=basic-network.asp>Basic/Network</a>)</small></b>' }
 					);
 
 					// only if primary VIF
@@ -1468,8 +1469,7 @@ LAN Access admin module by Augusto Bott
 					// only if primary VIF
 					if (u.toString().indexOf('.') < 0) {
 						f.push (
-							{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span>\
-								<button type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')" class="btn">Scan <i class="icon-search"></i></button> <div class="spinner" id="spin'+u+'" style="visibility: hidden;"></div>',
+							{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
 								value: eval('nvram["wl'+u+'_channel"]') },
 							{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
 								value: eval('nvram["wl'+u+'_nbw_cap"]') },
@@ -1488,11 +1488,11 @@ LAN Access admin module by Augusto Bott
 							value: eval('nvram["wl'+u+'_security_mode"]') },
 						{ title: 'Encryption', indent: 2, name: 'wl'+u+'_crypto', type: 'select',
 							options: [['tkip','TKIP'],['aes','AES'],['tkip+aes','TKIP / AES']], value: eval('nvram["wl'+u+'_crypto"]') },
-						{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 80, size: 59, peekaboo: 1,
-							suffix: ' <button type="button" id="_f_wl'+u+'_psk_random1" value="Random" onclick="random_psk(\'_wl'+u+'_wpa_psk\')" class="btn">Random</button>',
+						{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 64, size: 64, peekaboo: 1,
+							suffix: ' <button class="btn" type="button" id="_f_wl'+u+'_psk_random1" value="Random" onclick="random_psk(\'_wl'+u+'_wpa_psk\')">Random</button>',
 							value: eval('nvram["wl'+u+'_wpa_psk"]') },
-						{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 60, size: 32, peekaboo: 1,
-							suffix: ' <button type="button" id="_f_wl'+u+'_psk_random2" value="Random" onclick="random_psk(\'_wl'+u+'_radius_key\')" class="btn">Random</button>',
+						{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
+							suffix: ' <button class="btn" type="button" id="_f_wl'+u+'_psk_random2" value="Random" onclick="random_psk(\'_wl'+u+'_radius_key\')">Random</button>',
 							value: eval('nvram["wl'+u+'_radius_key"]') },
 						{ title: 'Group Key Renewal', indent: 2, name: 'wl'+u+'_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(seconds)</i>',
 							value: eval('nvram["wl'+u+'_wpa_gtk_rekey"]') || '3600' },
@@ -1502,8 +1502,7 @@ LAN Access admin module by Augusto Bott
 						{ title: 'Encryption', indent: 2, name: 'wl'+u+'_wep_bit', type: 'select', options: [['128','128-bits'],['64','64-bits']],
 							value: eval('nvram["wl'+u+'_wep_bit"]') },
 						{ title: 'Passphrase', indent: 2, name: 'wl'+u+'_passphrase', type: 'text', maxlen: 16, size: 20,
-							suffix: ' <button type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')" class="btn">Generate</button>\
-							<button type="button" id="_f_wl'+u+'_wep_random" value="Random" onclick="random_wep('+u+')" class="btn">Random</button>',
+							suffix: ' <input type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')"> <button class="btn" type="button" id="_f_wl'+u+'_wep_random" value="Random" onclick="random_wep('+u+')">Random</button>',
 							value: eval('nvram["wl'+u+'_passphrase"]') }
 					);
 

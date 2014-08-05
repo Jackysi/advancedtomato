@@ -234,7 +234,7 @@ No part of this file may be used without permission.
 							options: [['tomato','Default'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from ATTD']], value: nvram.web_css },
 						{ title: 'Default Navigation State', name: 'at_navi', type: 'select', help: 'You can always toggle navigation style by clicking an icon right to logo, but doing so won\'t change default state.',
 							options: [['default', 'Default'], ['collapsed', 'Collapsed']], value: nvram.at_navi },
-						{ title: 'ATTD ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: 'Theme ID# from <a href="http://at.prahec.com/themes/" target="_blank"><u><i>ATTD themes gallery</i></u></a>' },
+						{ title: 'ATTD ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: 'Theme ID# from <a href="http://advancedtomato.com/themes/" target="_blank"><u><i>ATTD themes gallery</i></u></a>' },
 						{ title: 'Interface Navigation', help: "This option allows you to add custom navigation links or rewrite existing ones. Only JSON format accepted!",
 							name: 'web_nav', type: 'textarea', style: 'width: 100%; height: 100px;', value: nvram.web_nav }
 					];

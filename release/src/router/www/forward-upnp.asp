@@ -226,9 +226,9 @@ No part of this file may be used without permission.
 			</div>
 		</div>
 
-		<div class="box">
-			<div class="heading">Settings <a class="pull-right" data-toggle="tooltip" title="Hide / Show Settings" href="#" onclick="$('#upnpsettings').slideToggle(); return false;"><i class="icon-chevron-down"></i></a></div>
-			<div class="content" id="upnpsettings" style="display:none;"></div>
+		<div class="box" data-box="forward-upnp-settings">
+			<div class="heading">Settings</div>
+			<div class="content" id="upnpsettings"></div>
 			<script type="text/javascript">
 				$('#upnpsettings').forms([
 					{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: (nvram.upnp_enable & 1) },
