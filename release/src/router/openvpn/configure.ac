@@ -32,7 +32,7 @@ m4_include(compat.m4)
 AC_DEFINE([OPENVPN_VERSION_RESOURCE], [PRODUCT_VERSION_RESOURCE], [Version in windows resource format])
 
 AC_CONFIG_AUX_DIR([.])
-AM_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([src/openvpn/syshead.h])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -93,13 +93,6 @@ AC_ARG_ENABLE(
 	[AS_HELP_STRING([--disable-plugins], [disable plug-in support @<:@default=yes@:>@])],
 	,
 	[enable_plugins="yes"]
-)
-
-AC_ARG_ENABLE(
-	[eurephia],
-	[AS_HELP_STRING([--disable-eurephia], [disable support for the eurephia plug-in @<:@default=yes@:>@])],
-	,
-	[enable_eurephia="yes"]
 )
 
 AC_ARG_ENABLE(
@@ -454,7 +447,7 @@ SOCKET_INCLUDES="
 "
 
 AC_CHECK_HEADERS(
-	[net/if.h netinet/ip.h netinet/if_ether.h resolv.h sys/un.h],
+	[net/if.h netinet/ip.h netinet/if_ether.h resolv.h sys/un.h net/if_utun.h sys/kern_control.h],
 	,
 	,
 	[[${SOCKET_INCLUDES}]]
@@ -726,6 +719,13 @@ case "${with_mem_check}" in
 esac
 
 PKG_CHECK_MODULES(
+	[PKCS11_HELPER],
+	[libpkcs11-helper-1 >= 1.11],
+	[have_pkcs11_helper="yes"],
+	[]
+)
+
+PKG_CHECK_MODULES(
 	[OPENSSL_CRYPTO],
 	[libcrypto >= 0.9.6],
 	[have_openssl_crypto="yes"],
@@ -749,7 +749,9 @@ PKG_CHECK_MODULES(
 		[
 			have_openssl_ssl="yes"
 			OPENSSL_SSL_LIBS="-lssl"
-		]
+		],
+		[],
+		[-lcrypto]
 	)]
 )
 
@@ -789,9 +791,11 @@ if test -z "${POLARSSL_LIBS}"; then
 				[polarssl],
 				[aes_crypt_cbc],
 				,
-				[have_polarssl_crypto="no"]
+				[have_polarssl_crypto="no"],
+				[${PKCS11_HELPER_LIBS}]
 			)
-		]
+		],
+		[${PKCS11_HELPER_LIBS}]
 	)
 fi
 
@@ -805,15 +809,45 @@ if test "${with_crypto_library}" = "polarssl" ; then
 #include <polarssl/version.h>
 			]],
 			[[
-#if POLARSSL_VERSION_NUMBER < 0x01010000
+#if POLARSSL_VERSION_NUMBER < 0x01020A00 || POLARSSL_VERSION_NUMBER >= 0x01030000
 #error invalid version
 #endif
 			]]
 		)],
 		[AC_MSG_RESULT([ok])],
-		[AC_MSG_ERROR([invalid polarssl version])]
+		[AC_MSG_ERROR([PolarSSL 1.2.x required and must be 1.2.10 or later])]
 	)
+
+	polarssl_with_pkcs11="no"
+	AC_COMPILE_IFELSE(
+		[AC_LANG_PROGRAM(
+			[[
+#include <polarssl/config.h>
+			]],
+			[[
+#ifndef POLARSSL_PKCS11_C
+#error pkcs11 wrapper missing
+#endif
+			]]
+		)],
+		polarssl_with_pkcs11="yes")
 	CFLAGS="${old_CFLAGS}"
+
+	AC_MSG_CHECKING([polarssl pkcs11 support])
+	if test "${enable_pkcs11}" = "yes"; then
+		if test "${polarssl_with_pkcs11}" = "yes"; then
+			AC_MSG_RESULT([ok])
+		else
+			AC_MSG_ERROR([polarssl has no pkcs11 wrapper compiled in])
+		fi
+	else
+		if test "${polarssl_with_pkcs11}" != "yes"; then
+			AC_MSG_RESULT([ok])
+		else
+			AC_MSG_ERROR([PolarSSL compiled with PKCS11, while OpenVPN is not])
+		fi
+	fi
+
 fi
 
 AC_ARG_VAR([LZO_CFLAGS], [C compiler flags for lzo])
@@ -855,13 +889,6 @@ if test "${have_lzo}" = "yes"; then
 	)
 	CFLAGS="${saved_CFLAGS}"
 fi
-
-PKG_CHECK_MODULES(
-	[PKCS11_HELPER],
-	[libpkcs11-helper-1 >= 1.02],
-	[have_pkcs11_helper="yes"],
-	[]
-)
 
 AC_MSG_CHECKING([git checkout])
 GIT_CHECKOUT="no"
@@ -942,8 +969,7 @@ fi
 
 if test "${enable_plugins}" = "yes"; then
 	OPTIONAL_DL_LIBS="${DL_LIBS}"
-	AC_DEFINE([ENABLE_PLUGIN], [1], [Enable systemd support])
-	test "${enable_eurephia}" = "yes" && AC_DEFINE([ENABLE_EUREPHIA], [1], [Enable support for the eurephia plug-in])
+	AC_DEFINE([ENABLE_PLUGIN], [1], [Enable plug-in support])
 else
 	enable_plugin_auth_pam="no"
 	enable_plugin_down_root="no"

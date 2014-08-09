@@ -30,6 +30,8 @@
 #ifndef SSL_POLARSSL_H_
 #define SSL_POLARSSL_H_
 
+#include "syshead.h"
+
 #include <polarssl/ssl.h>
 
 #if defined(ENABLE_PKCS11)
@@ -68,12 +70,14 @@ struct tls_root_ctx {
 #if defined(ENABLE_PKCS11)
     pkcs11_context *priv_key_pkcs11;	/**< PKCS11 private key */
 #endif
+#ifdef MANAGMENT_EXTERNAL_KEY
+    struct external_context *external_key; /**< Management external key */
+#endif
     int * allowed_ciphers;	/**< List of allowed ciphers for this connection */
 };
 
 struct key_state_ssl {
         ssl_context *ctx;
-        ssl_session *ssn;
         endless_buffer *ct_in;
         endless_buffer *ct_out;
 };

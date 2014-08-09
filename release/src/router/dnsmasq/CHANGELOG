@@ -1,3 +1,26 @@
+version 2.72
+            Add ra-advrouter mode, for RFC-3775 mobile IPv6 support.
+
+	    Add support for "ipsets" in *BSD, using pf. Thanks to 
+	    Sven Falempim for the patch.
+
+	    Fix race condition which could lock up dnsmasq when an 
+	    interface goes down and up rapidly. Thanks to Conrad 
+	    Kostecki for helping to chase this down.
+
+	    Add DBus methods SetFilterWin2KOption and SetBogusPrivOption
+	    Thanks to the Smoothwall project for the patch.
+
+	    Fix failure to build against Nettle-3.0. Thanks to Steven 
+	    Barth for spotting this and finding the fix. 
+	    
+	    When assigning existing DHCP leases to intefaces by comparing 
+	    networks, handle the case that two or more interfaces have the
+	    same network part, but different prefix lengths (favour the
+	    longer prefix length.) Thanks to Lung-Pin Chang for the 
+	    patch.
+	    
+
 version 2.71
             Subtle change to error handling to help DNSSEC validation 
 	    when servers fail to provide NODATA answers for 

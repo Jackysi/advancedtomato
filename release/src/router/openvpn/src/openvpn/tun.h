@@ -181,6 +181,9 @@ struct tuntap
   int ip_fd;
 #endif
 
+#ifdef HAVE_NET_IF_UTUN_H
+  bool is_utun;
+#endif
   /* used for printing status info only */
   unsigned int rwflags_debug;
 
@@ -202,8 +205,6 @@ tuntap_defined (const struct tuntap *tt)
 /*
  * Function prototypes
  */
-
-static void clear_tuntap (struct tuntap *tuntap);
 
 void open_tun (const char *dev, const char *dev_type, const char *dev_node,
 	       struct tuntap *tt);
