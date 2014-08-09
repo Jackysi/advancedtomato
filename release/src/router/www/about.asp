@@ -186,7 +186,6 @@ Copyright (C) 2012 Tiomo<br>
 - 500 entry limit in Access Restriction rules*<br>
 - Up to 128 Port Forward rules*<br>
 - Up to 80 QOS rules* (*all dependent on nvram space)<br>
-- IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - TC-ATM overhead calculation - patch by tvlz<br>
