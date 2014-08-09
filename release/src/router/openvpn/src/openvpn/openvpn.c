@@ -171,7 +171,7 @@ openvpn_main (int argc, char *argv[])
 	  gc_init (&c.gc);
 
 	  /* initialize environmental variable store */
-	  c.es = env_set_create (&c.gc);
+	  c.es = env_set_create (NULL);
 #ifdef WIN32
 	  set_win_sys_path_via_env (c.es);
 #endif
@@ -220,6 +220,7 @@ openvpn_main (int argc, char *argv[])
 
 	  /* print version number */
 	  msg (M_INFO, "%s", title_string);
+	  show_library_versions(M_INFO);
 
 	  /* misc stuff */
 	  pre_setup (&c.options);

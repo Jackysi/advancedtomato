@@ -186,6 +186,8 @@ struct options
 
   /* enable forward compatibility for post-2.1 features */
   bool forward_compatible;
+  /* list of options that should be ignored even if unkown */
+  const char **  ignore_unknown_option;
 
   /* persist parms */
   bool persist_config;
@@ -285,6 +287,7 @@ struct options
   const char *writepid;
   const char *up_script;
   const char *down_script;
+  bool user_script_used;
   bool down_pre;
   bool up_delay;
   bool up_restart;
@@ -457,6 +460,7 @@ struct options
   bool client;
   bool pull; /* client pull of config options from server */
   int push_continuation;
+  unsigned int push_option_types_found;
   const char *auth_user_pass_file;
   struct options_pre_pull *pre_pull;
 
@@ -506,8 +510,9 @@ struct options
   const char *pkcs12_file;
   const char *cipher_list;
   const char *tls_verify;
+  int verify_x509_type;
+  const char *verify_x509_name;
   const char *tls_export_cert;
-  const char *tls_remote;
   const char *crl_file;
 
   const char *ca_file_inline;

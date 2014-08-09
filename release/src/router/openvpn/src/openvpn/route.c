@@ -49,7 +49,7 @@
 #define METRIC_NOT_USED ((DWORD)-1)
 #endif
 
-static void delete_route (struct route *r, const struct tuntap *tt, unsigned int flags, const struct route_gateway_info *rgi, const struct env_set *es);
+static void delete_route (struct route_ipv4 *r, const struct tuntap *tt, unsigned int flags, const struct route_gateway_info *rgi, const struct env_set *es);
 
 static void get_bypass_addresses (struct route_bypass *rb, const unsigned int flags);
 
@@ -150,7 +150,7 @@ struct route_list *
 new_route_list (const int max_routes, struct gc_arena *a)
 {
   struct route_list *ret;
-  ALLOC_VAR_ARRAY_CLEAR_GC (ret, struct route_list, struct route, max_routes, a);
+  ALLOC_VAR_ARRAY_CLEAR_GC (ret, struct route_list, struct route_ipv4, max_routes, a);
   ret->capacity = max_routes;
   return ret;
 }
@@ -165,7 +165,7 @@ new_route_ipv6_list (const int max_routes, struct gc_arena *a)
 }
 
 static const char *
-route_string (const struct route *r, struct gc_arena *gc)
+route_string (const struct route_ipv4 *r, struct gc_arena *gc)
 {
   struct buffer out = alloc_buf_gc (256, gc);
   buf_printf (&out, "ROUTE network %s netmask %s gateway %s",
@@ -267,7 +267,7 @@ is_special_addr (const char *addr_str)
 }
 
 static bool
-init_route (struct route *r,
+init_route (struct route_ipv4 *r,
 	    struct addrinfo **network_list,
 	    const struct route_option *ro,
 	    const struct route_list *rl)
@@ -484,7 +484,7 @@ void
 clear_route_list (struct route_list *rl)
 {
   const int capacity = rl->capacity;
-  const size_t rl_size = array_mult_safe (sizeof(struct route), capacity, sizeof(struct route_list));
+  const size_t rl_size = array_mult_safe (sizeof(struct route_ipv4), capacity, sizeof(struct route_list));
   memset(rl, 0, rl_size);
   rl->capacity = capacity;
 }
@@ -503,6 +503,7 @@ route_list_add_vpn_gateway (struct route_list *rl,
 			    struct env_set *es,
 			    const in_addr_t addr)
 {
+  ASSERT(rl);
   rl->spec.remote_endpoint = addr;
   rl->spec.flags |= RTSA_REMOTE_ENDPOINT;
   setenv_route_addr (es, "vpn_gateway", rl->spec.remote_endpoint, -1);
@@ -518,7 +519,7 @@ add_block_local_item (struct route_list *rl,
       && rl->rgi.gateway.netmask < 0xFFFFFFFF
       && (rl->n)+2 <= rl->capacity)
     {
-      struct route r;
+      struct route_ipv4 r;
       unsigned int l2;
 
       /* split a route into two smaller blocking routes, and direct them to target */
@@ -594,7 +595,7 @@ init_route_list (struct route_list *rl,
   if (rl->rgi.flags & RGI_ADDR_DEFINED)
     {
       setenv_route_addr (es, "net_gateway", rl->rgi.gateway.addr, -1);
-#ifdef ENABLE_DEBUG
+#if defined(ENABLE_DEBUG) && !defined(ENABLE_SMALL)
       print_default_gateway (D_ROUTE, &rl->rgi);
 #endif
     }
@@ -648,7 +649,7 @@ init_route_list (struct route_list *rl,
     for (i = 0; i < opt->n; ++i)
       {
         struct addrinfo* netlist;
-	struct route r;
+	struct route_ipv4 r;
 
 	if (!init_route (&r,
 			 &netlist,
@@ -759,7 +760,7 @@ add_route3 (in_addr_t network,
 	    const struct route_gateway_info *rgi,
 	    const struct env_set *es)
 {
-  struct route r;
+  struct route_ipv4 r;
   CLEAR (r);
   r.flags = RT_DEFINED;
   r.network = network;
@@ -777,7 +778,7 @@ del_route3 (in_addr_t network,
 	    const struct route_gateway_info *rgi,
 	    const struct env_set *es)
 {
-  struct route r;
+  struct route_ipv4 r;
   CLEAR (r);
   r.flags = RT_DEFINED|RT_ADDED;
   r.network = network;
@@ -1027,7 +1028,7 @@ add_routes (struct route_list *rl, struct route_ipv6_list *rl6, const struct tun
       
       for (i = 0; i < rl->n; ++i)
 	{
-	  struct route *r = &rl->routes[i];
+	  struct route_ipv4 *r = &rl->routes[i];
 	  check_subnet_conflict (r->network, r->netmask, "route");
 	  if (flags & ROUTE_DELETE_FIRST)
 	    delete_route (r, tt, flags, &rl->rgi, es);
@@ -1059,7 +1060,7 @@ delete_routes (struct route_list *rl, struct route_ipv6_list *rl6,
       int i;
       for (i = rl->n - 1; i >= 0; --i)
 	{
-	  struct route * r = &rl->routes[i];
+	  struct route_ipv4 * r = &rl->routes[i];
 	  delete_route (r, tt, flags, &rl->rgi, es);
 	}
       rl->iflags &= ~RL_ROUTES_ADDED;
@@ -1089,7 +1090,7 @@ delete_routes (struct route_list *rl, struct route_ipv6_list *rl6,
     }
 }
 
-#ifdef ENABLE_DEBUG
+#ifndef ENABLE_SMALL
 
 static const char *
 show_opt (const char *option)
@@ -1153,7 +1154,7 @@ print_default_gateway(const int msglevel, const struct route_gateway_info *rgi)
 #endif
 
 static void
-print_route (const struct route *r, int level)
+print_route (const struct route_ipv4 *r, int level)
 {
   struct gc_arena gc = gc_new ();
   if (r->flags & RT_DEFINED)
@@ -1170,7 +1171,7 @@ print_routes (const struct route_list *rl, int level)
 }
 
 static void
-setenv_route (struct env_set *es, const struct route *r, int i)
+setenv_route (struct env_set *es, const struct route_ipv4 *r, int i)
 {
   struct gc_arena gc = gc_new ();
   if (r->flags & RT_DEFINED)
@@ -1287,7 +1288,7 @@ is_on_link (const int is_local_route, const unsigned int flags, const struct rou
 }
 
 void
-add_route (struct route *r,
+add_route (struct route_ipv4 *r,
 	   const struct tuntap *tt,
 	   unsigned int flags,
 	   const struct route_gateway_info *rgi, /* may be NULL */
@@ -1397,17 +1398,20 @@ add_route (struct route *r,
   argv_printf (&argv, "%s add",
 		ROUTE_PATH);
 
-#if 0
-  if (r->flags & RT_METRIC_DEFINED)
-    argv_printf_cat (&argv, "-rtt %d", r->metric);
-#endif
-
   argv_printf_cat (&argv, "%s -netmask %s %s",
 	      network,
 	      netmask,
 	      gateway);
 
-  /* FIXME -- add on-link support for Solaris */
+  /* Solaris can only distinguish between "metric 0" == "on-link on the
+   * interface where the IP address given is configured" and "metric > 0"
+   * == "use gateway specified" (no finer-grained route metrics available)
+   *
+   * More recent versions of Solaris can also do "-interface", but that
+   * would break backwards compatibility with older versions for no gain.
+   */
+  if (r->flags & RT_METRIC_DEFINED )
+    argv_printf_cat (&argv, "%d", r->metric);
 
   argv_msg (D_ROUTE, &argv);
   status = openvpn_execve_check (&argv, es, 0, "ERROR: Solaris route add command failed");
@@ -1724,7 +1728,7 @@ add_route_ipv6 (struct route_ipv6 *r6, const struct tuntap *tt, unsigned int fla
 }
 
 static void
-delete_route (struct route *r,
+delete_route (struct route_ipv4 *r,
 	      const struct tuntap *tt,
 	      unsigned int flags,
 	      const struct route_gateway_info *rgi,
@@ -1970,10 +1974,16 @@ delete_route_ipv6 (const struct route_ipv6 *r6, const struct tuntap *tt, unsigne
     argv_printf_cat (&argv, "METRIC %d", r->metric);
 #endif
 
+  /* Windows XP to 7 "just delete" routes, wherever they came from, but
+   * in Windows 8(.1?), if you create them with "store=active", this is
+   * how you should delete them as well (pointed out by Cedric Tabary)
+   */
+  argv_printf_cat( &argv, " store=active" );
+
   argv_msg (D_ROUTE, &argv);
 
   netcmd_semaphore_lock ();
-  openvpn_execve_check (&argv, es, 0, "ERROR: Windows route add ipv6 command failed");
+  openvpn_execve_check (&argv, es, 0, "ERROR: Windows route delete ipv6 command failed");
   netcmd_semaphore_release ();
 
 #elif defined (TARGET_SOLARIS)
@@ -2228,7 +2238,7 @@ get_default_gateway (struct route_gateway_info *rgi)
 }
 
 static DWORD
-windows_route_find_if_index (const struct route *r, const struct tuntap *tt)
+windows_route_find_if_index (const struct route_ipv4 *r, const struct tuntap *tt)
 {
   struct gc_arena gc = gc_new ();
   DWORD ret = TUN_ADAPTER_INDEX_INVALID;
@@ -2273,7 +2283,7 @@ windows_route_find_if_index (const struct route *r, const struct tuntap *tt)
 }
 
 bool
-add_route_ipapi (const struct route *r, const struct tuntap *tt, DWORD adapter_index)
+add_route_ipapi (const struct route_ipv4 *r, const struct tuntap *tt, DWORD adapter_index)
 {
   struct gc_arena gc = gc_new ();
   bool ret = false;
@@ -2347,7 +2357,7 @@ add_route_ipapi (const struct route *r, const struct tuntap *tt, DWORD adapter_i
 }
 
 bool
-del_route_ipapi (const struct route *r, const struct tuntap *tt)
+del_route_ipapi (const struct route_ipv4 *r, const struct tuntap *tt)
 {
   struct gc_arena gc = gc_new ();
   bool ret = false;
@@ -2593,53 +2603,7 @@ get_default_gateway (struct route_gateway_info *rgi)
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
-/* all of this is taken from <net/route.h> in FreeBSD */
-#define RTA_DST     0x1
-#define RTA_GATEWAY 0x2
-#define RTA_NETMASK 0x4
-
-#define RTM_GET     0x4
-#define RTM_VERSION 5
-
-#define RTF_UP      0x1
-#define RTF_GATEWAY 0x2
-
-/*
- * These numbers are used by reliable protocols for determining
- * retransmission behavior and are included in the routing structure.
- */
-struct rt_metrics {
-        u_long  rmx_locks;      /* Kernel must leave these values alone */
-        u_long  rmx_mtu;        /* MTU for this path */
-        u_long  rmx_hopcount;   /* max hops expected */
-        u_long  rmx_expire;     /* lifetime for route, e.g. redirect */
-        u_long  rmx_recvpipe;   /* inbound delay-bandwidth product */
-        u_long  rmx_sendpipe;   /* outbound delay-bandwidth product */
-        u_long  rmx_ssthresh;   /* outbound gateway buffer limit */
-        u_long  rmx_rtt;        /* estimated round trip time */
-        u_long  rmx_rttvar;     /* estimated rtt variance */
-        u_long  rmx_pksent;     /* packets sent using this route */
-        u_long  rmx_filler[4];  /* will be used for T/TCP later */
-};
-
-/*
- * Structures for routing messages.
- */
-struct rt_msghdr {
-        u_short rtm_msglen;     /* to skip over non-understood messages */
-        u_char  rtm_version;    /* future binary compatibility */
-        u_char  rtm_type;       /* message type */
-        u_short rtm_index;      /* index for associated ifp */
-        int     rtm_flags;      /* flags, incl. kern & message, e.g. DONE */
-        int     rtm_addrs;      /* bitmask identifying sockaddrs in msg */
-        pid_t   rtm_pid;        /* identify sender */
-        int     rtm_seq;        /* for sender to identify action */
-        int     rtm_errno;      /* why failed */
-        int     rtm_use;        /* from rtentry */
-        u_long  rtm_inits;      /* which metrics we are initializing */
-        struct  rt_metrics rtm_rmx; /* metrics themselves */
-};
+#include <net/route.h>
 
 struct {
   struct rt_msghdr m_rtm;
@@ -2959,52 +2923,7 @@ get_default_gateway (struct route_gateway_info *rgi)
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
-/* all of this is taken from <net/route.h> in OpenBSD 3.6 */
-#define RTA_DST		0x1	/* destination sockaddr present */
-#define RTA_GATEWAY	0x2	/* gateway sockaddr present */
-#define RTA_NETMASK	0x4	/* netmask sockaddr present */
-
-#define RTM_GET		0x4	/* Report Metrics */
-
-#define RTM_VERSION	3	/* Up the ante and ignore older versions */
-
-#define	RTF_UP		0x1		/* route usable */
-#define	RTF_GATEWAY	0x2		/* destination is a gateway */
-
-/*
- * Huge version for userland compatibility.
- */
-struct rt_metrics {
-	u_long	rmx_locks;	/* Kernel must leave these values alone */
-	u_long	rmx_mtu;	/* MTU for this path */
-	u_long	rmx_hopcount;	/* max hops expected */
-	u_long	rmx_expire;	/* lifetime for route, e.g. redirect */
-	u_long	rmx_recvpipe;	/* inbound delay-bandwidth product */
-	u_long	rmx_sendpipe;	/* outbound delay-bandwidth product */
-	u_long	rmx_ssthresh;	/* outbound gateway buffer limit */
-	u_long	rmx_rtt;	/* estimated round trip time */
-	u_long	rmx_rttvar;	/* estimated rtt variance */
-	u_long	rmx_pksent;	/* packets sent using this route */
-};
-
-/*
- * Structures for routing messages.
- */
-struct rt_msghdr {
-	u_short	rtm_msglen;	/* to skip over non-understood messages */
-	u_char	rtm_version;	/* future binary compatibility */
-	u_char	rtm_type;	/* message type */
-	u_short	rtm_index;	/* index for associated ifp */
-	int	rtm_flags;	/* flags, incl. kern & message, e.g. DONE */
-	int	rtm_addrs;	/* bitmask identifying sockaddrs in msg */
-	pid_t	rtm_pid;	/* identify sender */
-	int	rtm_seq;	/* for sender to identify action */
-	int	rtm_errno;	/* why failed */
-	int	rtm_use;	/* from rtentry */
-	u_long	rtm_inits;	/* which metrics we are initializing */
-	struct	rt_metrics rtm_rmx; /* metrics themselves */
-};
+#include <net/route.h>
 
 struct {
   struct rt_msghdr m_rtm;

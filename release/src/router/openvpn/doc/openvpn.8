@@ -271,7 +271,7 @@ failover capability.
 .\"*********************************************************
 .TP
 .B \-\-remote-random-hostname
-Add a random string (6 characters) to first DNS label of hostname to prevent
+Prepend a random string (6 bytes, 12 hex characters) to hostname to prevent
 DNS caching.  For example, "foo.bar.gov" would be modified to
 "<random-chars>.foo.bar.gov".
 .\"*********************************************************
@@ -346,20 +346,27 @@ block:
 .B connect-retry,
 .B connect-retry-max,
 .B connect-timeout,
+.B explicit-exit-notify,
 .B float,
+.B fragment,
 .B http-proxy,
 .B http-proxy-option,
 .B http-proxy-retry,
 .B http-proxy-timeout,
+.B link-mtu,
 .B local,
 .B lport,
+.B mssfix,
+.B mtu-disc,
 .B nobind,
 .B port,
 .B proto,
 .B remote,
 .B rport,
-.B socks-proxy, and
-.B socks-proxy-retry.
+.B socks-proxy,
+.B socks-proxy-retry,
+.B tun-mtu and
+.B tun-mtu-extra.
 
 A defaulting mechanism exists for specifying options to apply to
 all
@@ -547,12 +554,15 @@ Set HTTP "User-Agent" string to
 .B user-agent.
 .\"*********************************************************
 .TP
-.B \-\-socks-proxy server [port]
+.B \-\-socks-proxy server [port] [authfile]
 Connect to remote host through a Socks5 proxy at address
 .B server
 and port
 .B port
 (default=1080).
+.B authfile
+(optional) is a file containing a username and password on 2 lines, or
+"stdin" to prompt from console.
 .\"*********************************************************
 .TP
 .B \-\-socks-proxy-retry
@@ -797,6 +807,17 @@ also specify
 .B \-\-dev-type tun
 or
 .B \-\-dev-type tap.
+
+Under Mac OS X this option can be used to specify the default tun
+implementation. Using
+.B \-\-dev\-node utun
+forces usage of the native Darwin tun kernel support. Use
+.B \-\-dev\-node utunN
+to select a specific utun instance. To force using the tun.kext (/dev/tunX) use
+.B \-\-dev\-node tun\fR.
+When not specifying a
+.B \-\-dev\-node
+option openvpn will first try to open utun, and fall back to tun.kext.
 
 On Windows systems, select the TAP-Win32 adapter which
 is named
@@ -1873,6 +1894,18 @@ reasons for having OpenVPN fail if it detects problems in a
 config file.  Having said that, there are valid reasons for wanting
 new software features to gracefully degrade when encountered by
 older software versions.
+
+It is also possible to tag a single directive so as not to trigger
+a fatal error if the directive isn't recognized.  To do this,
+prepend the following before the directive:
+.B setenv opt
+
+Versions prior to OpenVPN 2.3.3 will always ignore options set with the
+.B setenv opt
+directive.
+
+See also
+.B \-\-ignore-unknown-option
 .\"*********************************************************
 .TP
 .B \-\-setenv-safe name value
@@ -1884,6 +1917,25 @@ This directive is designed to be pushed by the server to clients,
 and the prepending of "OPENVPN_" to the environmental variable
 is a safety precaution to prevent a LD_PRELOAD style attack
 from a malicious or compromised server.
+.\"*********************************************************
+.TP
+.B \-\-ignore-unknown-option opt1 opt2 opt3 ... optN
+When one of options
+.B opt1 ... optN
+is encountered in the configuration file the configuration
+file parsing does not fail if this OpenVPN version does not
+support the option. Multiple
+.B \-\-ignore-unknown-option
+options can be given to support a larger number of options to ignore.
+
+This option should be used with caution, as there are good security
+reasons for having OpenVPN fail if it detects problems in a
+config file. Having said that, there are valid reasons for wanting
+new software features to gracefully degrade when encountered by
+older software versions.
+
+.B \-\-ignore-unknown-option
+is available since OpenVPN 2.3.3.
 .\"*********************************************************
 .TP
 .B \-\-script-security level
@@ -2030,6 +2082,16 @@ In many cases, the
 parameter can point to an empty directory, however
 complications can result when scripts or restarts
 are executed after the chroot operation.
+
+Note: if OpenVPN is built using the PolarSSL SSL
+library,
+.B \-\-chroot
+will only work if a /dev/urandom device node is available
+inside the chroot directory
+.B dir.
+This is due to the way PolarSSL works (it wants to open
+/dev/urandom every time randomness is needed, not just once
+at startup) and nothing OpenVPN can influence.
 .\"*********************************************************
 .TP
 .B \-\-setcon context
@@ -2260,18 +2322,23 @@ is NOT specified.
 .\"*********************************************************
 .TP
 .B \-\-multihome
-Configure a multi-homed UDP server.  This option can be used when
-OpenVPN has been configured to listen on all interfaces, and will
-attempt to bind client sessions to the interface on which packets
-are being received, so that outgoing packets will be sent out
-of the same interface.  Note that this option is only relevant for
-UDP servers and currently is only implemented on Linux.
+Configure a multi-homed UDP server.  This option needs to be used when
+a server has more than one IP address (e.g. multiple interfaces, or
+secondary IP addresses), and is not using
+.B \-\-local
+to force binding to one specific address only.  This option will
+add some extra lookups to the packet path to ensure that the UDP reply
+packets are always sent from the address that the client is
+talking to. This is not supported on all platforms, and it adds more
+processing, so it's not enabled by default.
 
-Note: clients connecting to a
-.B \-\-multihome
-server should always use the
-.B \-\-nobind
-option.
+Note: this option is only relevant for UDP servers.
+
+Note 2: if you do an IPv6+IPv4 dual-stack bind on a Linux machine with
+multiple IPv4 address, connections to IPv4 addresses will not work
+right on kernels before 3.15, due to missing kernel support for the
+IPv4-mapped case (some distributions have ported this to earlier kernel
+versions, though).
 .\"*********************************************************
 .TP
 .B \-\-echo [parms...]
@@ -3424,7 +3491,7 @@ the authenticated username as the common name,
 rather than the common name from the client cert.
 .\"*********************************************************
 .TP
-.B \-\-compat\-names [no\-remapping]
+.B \-\-compat\-names [no\-remapping] (DEPRECATED)
 Until OpenVPN v2.3 the format of the X.509 Subject fields was formatted
 like this:
 .IP
@@ -3455,25 +3522,42 @@ characters in the usernames, X.509 Subject fields and Common Name variables and
 it complies to the RFC 2253, UTF\-8 String Representation of Distinguished
 Names.
 
-As a backwards compatibility for the removed \-\-no\-name\-remapping feature in
-older OpenVPN versions, the
+The
 .B no\-remapping
 mode flag can be used with the
 .B
 \-\-compat\-names
-option.
-When this mode flag is used, the Common Name, Subject, and username strings are
-allowed to include any printable character including space, but excluding
-control characters such as tab, newline, and carriage-return. It ensures
-compatibility with the
-.B \-\-no\-name\-remapping
-option of OpenVPN versions before v2.3.
+option to be compatible with the now deprecated \-\-no\-name\-remapping option.
+It is only available at the server. When this mode flag is used, the Common Name,
+Subject, and username strings are allowed to include any printable character
+including space, but excluding control characters such as tab, newline, and
+carriage-return. no-remapping is only available on the server side.
 
 .B Please note:
-This option will not be around for a long time.  It is only implemented
+This option is immediately deprecated.  It is only implemented
 to make the transition to the new formatting less intrusive.  It will be
-removed either in OpenVPN v2.4 or v2.5.  So please make sure you start
-the process to support the new formatting as soon as possible.
+removed either in OpenVPN v2.4 or v2.5.  So please make sure you use the
+.B \-\-verify-x509-name
+option instead of
+.B \-\-tls-remote
+as soon as possible and update your scripts where necessary.
+.\"*********************************************************
+.TP
+.B \-\-no\-name\-remapping (DEPRECATED)
+The
+.B \-\-no\-name\-remapping
+option is an alias for
+.B \-\-compat\-names\ no\-remapping.
+It ensures compatibility with server configurations using the
+.B \-\-no\-name\-remapping
+option.
+
+.B Please note:
+This option is now deprecated.  It will be removed either in OpenVPN v2.4
+or v2.5.  So please make sure you support the new X.509 name formatting
+described with the
+.B \-\-compat\-names
+option as soon as possible.
 .\"*********************************************************
 .TP
 .B \-\-port-share host port [dir]
@@ -4190,6 +4274,21 @@ when you built your peer's certificate (see
 above).
 .\"*********************************************************
 .TP
+.B \-\-tls-version-min version ['or-highest']
+Enable TLS version negotiation, and set the minimum
+TLS version we will accept from the peer (default is "1.0").
+Examples for version
+include "1.0", "1.1", or "1.2".  If 'or-highest' is specified
+and version is not recognized, we will only accept the highest TLS
+version supported by the local SSL implementation.
+
+If this options is not set, the code in OpenVPN 2.3.4 will default
+to using TLS 1.0 only, without any version negotiation.  This reverts
+the beaviour to what OpenVPN versions up to 2.3.2 did, as it turned
+out that TLS version negotiation can lead to handshake problems due
+to new signature algorithms in TLS 1.2.
+.\"*********************************************************
+.TP
 .B \-\-pkcs12 file
 Specify a PKCS #12 file containing local private key,
 local certificate, and root CA certificate.
@@ -4650,11 +4749,11 @@ is available via the peer_cert environment variable.
 Field in x509 certificate subject to be used as username (default=CN).
 .B Fieldname
 will be uppercased before matching. When this option is used, the
---tls-remote option will match against the chosen fieldname instead
-of the CN.
+.B \-\-verify-x509-username
+option will match against the chosen fieldname instead of the CN.
 .\"*********************************************************
 .TP
-.B \-\-tls-remote name
+.B \-\-tls-remote name (DEPRECATED)
 Accept connections only from a host with X509 name
 or common name equal to
 .B name.
@@ -4686,6 +4785,59 @@ option to verify the remote host, because
 works in a
 .B \-\-chroot
 environment too.
+
+.B Please also note:
+This option is now deprecated.  It will be removed either in OpenVPN v2.4
+or v2.5.  So please make sure you support the new X.509 name formatting
+described with the
+.B \-\-compat-names
+option as soon as possible by updating your configurations to use
+.B \-\-verify-x509-name
+instead.
+.\"*********************************************************
+.TP
+.B \-\-verify-x509-name name type
+Accept connections only if a host's X.509 name is equal to
+.B name.
+The remote host must also pass all other tests of verification.
+
+Which X.509 name is compared to
+.B name
+depends on the setting of type.
+.B type
+can be "subject" to match the complete subject DN (default),
+"name" to match a subject RDN or "name-prefix" to match a subject RDN prefix.
+Which RDN is verified as name depends on the
+.B \-\-x509-username-field
+option. But it defaults to the common name (CN), e.g. a certificate with a
+subject DN "C=KG, ST=NA, L=Bishkek, CN=Server-1" would be matched by:
+
+.B \-\-verify-x509-name 'C=KG, ST=NA, L=Bishkek, CN=Server-1'
+and
+.B \-\-verify-x509-name Server-1 name
+or you could use
+.B \-\-verify-x509-name Server- name-prefix
+if you want a client to only accept connections to "Server-1", "Server-2", etc.
+
+.B \-\-verify-x509-name
+is a useful replacement for the
+.B \-\-tls-verify
+option to verify the remote host, because
+.B \-\-verify-x509-name
+works in a
+.B \-\-chroot
+environment without any dependencies.
+
+Using a name prefix is a useful alternative to managing
+a CRL (Certificate Revocation List) on the client, since it allows the client
+to refuse all certificates except for those associated
+with designated servers.
+
+.B NOTE:
+Test against a name prefix only when you are using OpenVPN with
+a custom CA certificate that is under your control.
+Never use this option with type "name-prefix" when your client certificates
+are signed by a third party, such as a commercial web CA.
 .\"*********************************************************
 .TP
 .B \-\-x509-track attribute
@@ -4723,7 +4875,7 @@ a man-in-the-middle attack where an authorized client
 attempts to connect to another client by impersonating the server.
 The attack is easily prevented by having clients verify
 the server certificate using any one of
-.B \-\-ns-cert-type, \-\-tls-remote,
+.B \-\-ns-cert-type, \-\-verify-x509-name,
 or
 .B \-\-tls-verify.
 .\"*********************************************************
@@ -4781,7 +4933,7 @@ a man-in-the-middle attack where an authorized client
 attempts to connect to another client by impersonating the server.
 The attack is easily prevented by having clients verify
 the server certificate using any one of
-.B \-\-remote-cert-tls, \-\-tls-remote,
+.B \-\-remote-cert-tls, \-\-verify-x509-name,
 or
 .B \-\-tls-verify.
 .\"*********************************************************
@@ -5268,9 +5420,11 @@ option can be used BEFORE this option to produce debugging information.
 .SS IPv6 Related Options
 .\"*********************************************************
 The following options exist to support IPv6 tunneling in peer-to-peer
-and client-server mode.  As of now, this is just very basic
-documentation of the IPv6-related options. More documentation can be
-found on http://www.greenie.net/ipv6/openvpn.html.
+and client-server mode.  All options are modeled after their IPv4
+counterparts, so more detailed explanations given there apply here
+as well (except for
+.B \-\-topology
+, which has no effect on IPv6).
 .TP
 .B --ifconfig-ipv6 ipv6addr/bits ipv6remote
 configure IPv6 address
@@ -5297,7 +5451,8 @@ pool starts at
 .B ipv6addr
 and increments by +1 for every new client (linear mode).  The
 .B /bits
-setting controls the size of the pool.
+setting controls the size of the pool.  Due to implementation details,
+the pool size must be between /64 and /112.
 .TP
 .B --ifconfig-ipv6-push ipv6addr/bits ipv6remote
 for ccd/ per-client static IPv6 interface configuration, see
@@ -5864,6 +6019,16 @@ Set prior to execution of the
 script.
 .\"*********************************************************
 .TP
+.B tls_digest_{n}
+Contains the certificate SHA1 fingerprint/digest hash value,
+where
+.B n
+is the verification level.  Only set for TLS connections.  Set prior
+to execution of
+.B \-\-tls-verify
+script.
+.\"*********************************************************
+.TP
 .B tls_id_{n}
 A series of certificate fields from the remote peer,
 where
@@ -5881,12 +6046,18 @@ where
 is the verification level.  Only set for TLS connections.  Set prior
 to execution of
 .B \-\-tls-verify
-script. This is in the form of a hex string like "37AB46E0", which is
-suitable for doing serial-based OCSP queries (with OpenSSL, you have
-to prepend "0x" to the string). If something goes wrong while reading
+script. This is in the form of a decimal string like "933971680", which is
+suitable for doing serial-based OCSP queries (with OpenSSL, do not
+prepend "0x" to the string) If something goes wrong while reading
 the value from the certificate it will be an empty string, so your
 code should check that.
 See the contrib/OCSP_check/OCSP_check.sh script for an example.
+.\"*********************************************************
+.TP
+.B tls_serial_hex_{n}
+Like
+.B tls_serial_{n}\fR,
+but in hex form (e.g. "12:34:56:78:9A").
 .\"*********************************************************
 .TP
 .B tun_mtu

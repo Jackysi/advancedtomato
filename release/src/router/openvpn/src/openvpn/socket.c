@@ -208,18 +208,20 @@ openvpn_getaddrinfo (unsigned int flags,
               get_signal (signal_received);
               if (*signal_received) /* were we interrupted by a signal? */
                 {
-                  if (0 == status) {
-                    ASSERT(res);
-                    freeaddrinfo(*res);
-                    res = NULL;
-                  }
                   if (*signal_received == SIGUSR1) /* ignore SIGUSR1 */
                     {
                       msg (level, "RESOLVE: Ignored SIGUSR1 signal received during DNS resolution attempt");
                       *signal_received = 0;
                     }
                   else
-                    goto done;
+                    {
+                      if (0 == status) {
+                          ASSERT(res);
+                          freeaddrinfo(*res);
+                          res = NULL;
+                      }
+                      goto done;
+                    }
                 }
             }
 
@@ -2786,6 +2788,7 @@ link_socket_write_udp_posix_sendmsg (struct link_socket *sock,
   struct iovec iov;
   struct msghdr mesg;
   struct cmsghdr *cmsg;
+  union openvpn_pktinfo opi;
 
   iov.iov_base = BPTR (buf);
   iov.iov_len = BLEN (buf);
@@ -2795,15 +2798,14 @@ link_socket_write_udp_posix_sendmsg (struct link_socket *sock,
     {
     case AF_INET:
       {
-        struct openvpn_in4_pktinfo msgpi4;
         mesg.msg_name = &to->dest.addr.sa;
         mesg.msg_namelen = sizeof (struct sockaddr_in);
-        mesg.msg_control = &msgpi4;
-        mesg.msg_controllen = sizeof msgpi4;
+        mesg.msg_control = &opi;
         mesg.msg_flags = 0;
+#ifdef HAVE_IN_PKTINFO
+        mesg.msg_controllen = sizeof (struct openvpn_in4_pktinfo);
         cmsg = CMSG_FIRSTHDR (&mesg);
         cmsg->cmsg_len = sizeof (struct openvpn_in4_pktinfo);
-#ifdef HAVE_IN_PKTINFO
         cmsg->cmsg_level = SOL_IP;
         cmsg->cmsg_type = IP_PKTINFO;
 	{
@@ -2814,6 +2816,10 @@ link_socket_write_udp_posix_sendmsg (struct link_socket *sock,
         pkti->ipi_addr.s_addr = 0;
 	}
 #elif defined(IP_RECVDSTADDR)
+	ASSERT( CMSG_SPACE(sizeof (struct in_addr)) <= sizeof(opi) );
+        mesg.msg_controllen = CMSG_SPACE(sizeof (struct in_addr));
+        cmsg = CMSG_FIRSTHDR (&mesg);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_addr));
         cmsg->cmsg_level = IPPROTO_IP;
         cmsg->cmsg_type = IP_RECVDSTADDR;
         *(struct in_addr *) CMSG_DATA (cmsg) = to->pi.in4;
@@ -2824,12 +2830,11 @@ link_socket_write_udp_posix_sendmsg (struct link_socket *sock,
       }
     case AF_INET6:
       {
-        struct openvpn_in6_pktinfo msgpi6;
         struct in6_pktinfo *pkti6;
         mesg.msg_name = &to->dest.addr.sa;
         mesg.msg_namelen = sizeof (struct sockaddr_in6);
-        mesg.msg_control = &msgpi6;
-        mesg.msg_controllen = sizeof msgpi6;
+        mesg.msg_control = &opi;
+        mesg.msg_controllen = sizeof (struct openvpn_in6_pktinfo);
         mesg.msg_flags = 0;
         cmsg = CMSG_FIRSTHDR (&mesg);
         cmsg->cmsg_len = sizeof (struct openvpn_in6_pktinfo);
