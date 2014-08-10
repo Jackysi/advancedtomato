@@ -382,7 +382,7 @@ void start_dnsmasq()
 #endif
 
 #ifdef TCONFIG_IPV6
-        if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+        if (ipv6_enabled()) {
 /*
                 service = get_ipv6_service();
                 do_6to4 = (service == IPV6_ANYCAST_6TO4);
@@ -404,7 +404,21 @@ void start_dnsmasq()
                 ipv6 = (char *)ipv6_router_address(NULL);
                 fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names, 64\n", prefix);
 */
-                fprintf(f,"enable-ra\ndhcp-range=::1, ::FFFF:FFFF, constructor:br*, ra-names, 64, 12h\n");
+		// enable-ra should be enabled in both cases
+		if (nvram_get_int("ipv6_radvd") || nvram_get_int("ipv6_dhcpd"))
+			fprintf(f,"enable-ra\n");
+
+		// Only SLAAC and NO DHCPv6
+		if (nvram_get_int("ipv6_radvd") && !nvram_get_int("ipv6_dhcpd"))
+	                fprintf(f,"dhcp-range=::, constructor:br*, ra-names, ra-stateless, 64, 12h\n");
+
+		// Only DHCPv6 and NO SLAAC
+		if (nvram_get_int("ipv6_dhcpd") && !nvram_get_int("ipv6_radvd"))
+	                fprintf(f,"dhcp-range=::1, ::FFFF:FFFF, constructor:br*, 64, 12h\n");
+
+		// SLAAC and DHCPv6 (2 IPv6 IPs)
+		if (nvram_get_int("ipv6_radvd") && nvram_get_int("ipv6_dhcpd"))
+			fprintf(f,"dhcp-range=::1, ::FFFF:FFFF, constructor:br*, ra-names, 64, 12h\n");
         }
 #endif
 
