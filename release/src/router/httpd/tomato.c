@@ -1497,6 +1497,22 @@ static int save_variables(int write)
 
 	// special cases
 
+    char *tu;
+    if (((tu = webcgi_get("set_username")) != NULL) && (strcmp(tu, "") != 0)) {
+        if (((tu = webcgi_get("set_username")) != NULL) && (strcmp(tu, tu) == 0)) {
+            if((write) && (!nvram_match("http_username", tu))) {
+                dirty = 1;
+                nvram_set("http_username", tu);
+            }
+        }
+        else {
+            sprintf(s, msgf, "username");
+            resmsg_set(s);
+            return 0;
+        }
+
+    }
+
 	char *p1, *p2;
 	if (((p1 = webcgi_get("set_password_1")) != NULL) && (strcmp(p1, "**********") != 0)) {
 		if (((p2 = webcgi_get("set_password_2")) != NULL) && (strcmp(p1, p2) == 0)) {
@@ -1509,8 +1525,8 @@ static int save_variables(int write)
 			sprintf(s, msgf, "password");
 			resmsg_set(s);
 			return 0;
-  		}
-	}
+ 	 		}
+		}
 
 	for (n = 0; n < 50; ++n) {
 		sprintf(s, "rrule%d", n);

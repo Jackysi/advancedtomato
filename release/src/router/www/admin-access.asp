@@ -123,6 +123,16 @@ function verifyFields(focused, quiet)
 		}
 	}
 
+    a = E('_set_username');
+    a.value = a.value.trim();
+    if (a.value == 'root') {
+        ferror.set(a,'Username \"root\" is already set.', quiet || !ok);
+        ok = 0;
+    }
+    else {
+        ferror.clear(a);
+    }
+
 	a = E('_f_rmgt_sip');
 	if ((a.value.length) && (!_v_iptaddr(a, quiet || !ok, 15, 1, 1))) return 0;
 	ferror.clear(a);
@@ -345,6 +355,17 @@ createFieldTable('', [
 		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; every &nbsp;', value: shlimit[1] },
 		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; seconds', value: shlimit[2] }
 	] }	
+]);
+</script>
+</div>
+
+<div class='section-title'>Authentication</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+    { title: 'Username', name: 'set_username', type: 'text', maxlen: 16, size: 20, value: '' },
+    { title: 'Password', name: 'set_password_1', type: 'password', value: '**********' },
+    { title: '<i>(re-enter to confirm)</i>', indent: 2, name: 'set_password_2', type: 'password', value: '**********' }
 ]);
 </script>
 </div>
