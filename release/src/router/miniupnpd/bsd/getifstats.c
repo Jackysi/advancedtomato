@@ -9,9 +9,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #if defined(__FreeBSD__) || defined(__DragonFly__)
+#ifdef __DragonFly__
+#define _KERNEL_STRUCTURES
+#endif
 #include <net/if_var.h>
 #endif
 #if defined(__DragonFly__)
@@ -30,12 +33,12 @@
 #include "../getifstats.h"
 #include "../config.h"
 
-struct nlist list[] = {
-	{"_ifnet"},
-	{NULL}
+static struct nlist list[] = {
+	{"_ifnet", 0, 0, 0, 0},
+	{NULL,0, 0, 0, 0}
 };
 
-int 
+int
 getifstats(const char * ifname, struct ifdata * data)
 {
 #if defined(__FreeBSD__) || defined(__DragonFly__)

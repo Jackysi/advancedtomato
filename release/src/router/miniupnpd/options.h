@@ -1,26 +1,38 @@
-/* $Id: options.h,v 1.15 2008/10/06 13:22:02 nanard Exp $ */
+/* $Id: options.h,v 1.24 2014/04/20 16:44:46 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2014 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
-#ifndef __OPTIONS_H__
-#define __OPTIONS_H__
+#ifndef OPTIONS_H_INCLUDED
+#define OPTIONS_H_INCLUDED
 
 #include "config.h"
 
+#ifndef DISABLE_CONFIG_FILE
 /* enum of option available in the miniupnpd.conf */
 enum upnpconfigoptions {
 	UPNP_INVALID = 0,
 	UPNPEXT_IFNAME = 1,		/* ext_ifname */
 	UPNPEXT_IP,				/* ext_ip */
 	UPNPLISTENING_IP,		/* listening_ip */
-	UPNPPORT,				/* "port" */
+	UPNPPORT,				/* "port" / "http_port" */
+#ifdef ENABLE_HTTPS
+	UPNPHTTPSPORT,			/* "https_port" */
+#endif
 	UPNPBITRATE_UP,			/* "bitrate_up" */
 	UPNPBITRATE_DOWN,		/* "bitrate_down" */
 	UPNPPRESENTATIONURL,	/* presentation_url */
+#ifdef ENABLE_MANUFACTURER_INFO_CONFIGURATION
+	UPNPFRIENDLY_NAME,		/* "friendly_name" */
+	UPNPMANUFACTURER_NAME,	/* "manufacturer_name" */
+	UPNPMANUFACTURER_URL,	/* "manufacturer_url" */
+	UPNPMODEL_NAME,	/* "model_name" */
+	UPNPMODEL_DESCRIPTION,	/* "model_description" */
+	UPNPMODEL_URL,	/* "model_url" */
+#endif
 	UPNPNOTIFY_INTERVAL,	/* notify_interval */
 	UPNPSYSTEM_UPTIME,		/* "system_uptime" */
 	UPNPPACKET_LOG,			/* "packet_log" */
@@ -30,11 +42,14 @@ enum upnpconfigoptions {
 	UPNPCLEANTHRESHOLD,		/* clean_ruleset_threshold */
 	UPNPCLEANINTERVAL,		/* clean_ruleset_interval */
 	UPNPENABLENATPMP,		/* enable_natpmp */
+	UPNPPCPMINLIFETIME,		/* minimum lifetime for PCP mapping */
+	UPNPPCPMAXLIFETIME,		/* maximum lifetime for PCP mapping */
 #ifdef USE_NETFILTER
 	UPNPFORWARDCHAIN,
 	UPNPNATCHAIN,
 #endif
 #ifdef USE_PF
+	UPNPANCHOR,				/* anchor */
 	UPNPQUEUE,				/* queue */
 	UPNPTAG,				/* tag */
 #endif
@@ -55,20 +70,21 @@ enum upnpconfigoptions {
 int
 readoptionsfile(const char * fname);
 
-/* freeoptions() 
+/* freeoptions()
  * frees memory allocated to option values */
 void
 freeoptions(void);
 
-#define MAX_OPTION_VALUE_LEN (80)
 struct option
 {
 	enum upnpconfigoptions id;
-	char value[MAX_OPTION_VALUE_LEN];
+	const char * value;
 };
 
 extern struct option * ary_options;
-extern int num_options;
+extern unsigned int num_options;
 
-#endif
+#endif /* DISABLE_CONFIG_FILE */
+
+#endif /* OPTIONS_H_INCLUDED */
 

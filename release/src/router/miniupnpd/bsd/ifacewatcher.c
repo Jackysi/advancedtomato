@@ -1,4 +1,4 @@
-/* $Id: ifacewatcher.c,v 1.3 2011/06/04 16:19:51 nanard Exp $ */
+/* $Id: ifacewatcher.c,v 1.8 2014/04/18 08:23:51 nanard Exp $ */
 /* Project MiniUPnP
  * web : http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2011 Thomas BERNARD
@@ -13,18 +13,15 @@
 #include <net/if.h>
 #include <net/route.h>
 #include <syslog.h>
-
-#if !defined(SA_LEN)
-#define	SA_LEN(sa)	(sa)->sa_len
-#endif
+#include <signal.h>
 
 #define	SALIGN	(sizeof(long) - 1)
-#define	SA_RLEN(sa)	((sa)->sa_len ? (((sa)->sa_len + SALIGN) & ~SALIGN) : (SALIGN + 1))
+#define	SA_RLEN(sa)	(SA_LEN(sa) ? ((SA_LEN(sa) + SALIGN) & ~SALIGN) : (SALIGN + 1))
 
 #include "../upnputils.h"
 #include "../upnpglobalvars.h"
 
-extern volatile int should_send_public_address_change_notif;
+extern volatile sig_atomic_t should_send_public_address_change_notif;
 
 int
 OpenAndConfInterfaceWatchSocket(void)
@@ -69,12 +66,24 @@ ProcessInterfaceWatchNotify(int s)
 	}
 	rtm = (struct rt_msghdr *)buf;
 	syslog(LOG_DEBUG, "%u rt_msg : msglen=%d version=%d type=%d", (unsigned)len,
-	       rtm->rtm_msglen, rtm->rtm_version, rtm->rtm_type);	
+	       rtm->rtm_msglen, rtm->rtm_version, rtm->rtm_type);
 	switch(rtm->rtm_type) {
 	case RTM_IFINFO:	/* iface going up/down etc. */
 		ifm = (struct if_msghdr *)buf;
 		syslog(LOG_DEBUG, " RTM_IFINFO: addrs=%x flags=%x index=%hu",
 		       ifm->ifm_addrs, ifm->ifm_flags, ifm->ifm_index);
+		break;
+	case RTM_ADD:	/* Add Route */
+		syslog(LOG_DEBUG, " RTM_ADD");
+		break;
+	case RTM_DELETE:	/* Delete Route */
+		syslog(LOG_DEBUG, " RTM_DELETE");
+		break;
+	case RTM_CHANGE:	/* Change Metrics or flags */
+		syslog(LOG_DEBUG, " RTM_CHANGE");
+		break;
+	case RTM_GET:	/* Report Metrics */
+		syslog(LOG_DEBUG, " RTM_GET");
 		break;
 #ifdef RTM_IFANNOUNCE
 	case RTM_IFANNOUNCE:	/* iface arrival/departure */

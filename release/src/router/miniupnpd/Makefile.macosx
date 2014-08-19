@@ -3,6 +3,10 @@
 # Author: Thomas Bernard
 # This Makefile should work for MacOSX
 #
+# To compile with pf with OS X 10.7+, you need to specify
+# path to XNU bsd sources :
+# INCLUDES="-I.../xnu/bsd -I.../xnu/libkern" make -f Makefile.macosx
+#
 # To install use :
 # $ PREFIX=/dummyinstalldir make -f Makefile.macosx install
 # or :
@@ -10,36 +14,50 @@
 #
 CFLAGS = -Wall -O -g3 -DDEBUG
 #CFLAGS = -Wall -Os
-CC = gcc
+#CC = gcc  #better use clang !
 RM = rm -f
 MV = mv
 INSTALL = install
 STRIP = strip
 
+CFLAGS += -DMACOSX
+
 # OSNAME and FWNAME are used for building OS or FW dependent code.
 OSNAME = $(shell uname)
 ARCH = $(shell uname -p)
-FWNAME = ipfw
+# Firewall is ipfw up to OS X 10.6 Snow Leopard
+# and pf since OS X 10.7 Lion (Darwin 11.0)
+FWNAME = $(shell [ `uname -r | cut -d. -f1` -ge 11  ] && echo "pf" || echo "ipfw" )
 
 STD_OBJS = miniupnpd.o upnphttp.o upnpdescgen.o upnpsoap.o \
           upnpredirect.o getifaddr.o daemonize.o upnpglobalvars.o \
           options.o upnppermissions.o minissdp.o natpmp.o \
-	  upnpevents.o getconnstatus.o upnputils.o
+          upnpevents.o getconnstatus.o upnputils.o \
+          asyncsendto.o portinuse.o pcpserver.o
 MAC_OBJS = mac/getifstats.o bsd/ifacewatcher.o
-IPFW_OBJS = ipfw/ipfwrdr.o
+IPFW_OBJS = ipfw/ipfwrdr.o ipfw/ipfwaux.o
+PF_OBJS = pf/obsdrdr.o pf/pfpinhole.o
 MISC_OBJS = upnpreplyparse.o minixml.o
 
-ALL_OBJS = $(STD_OBJS) $(MISC_OBJS) $(MAC_OBJS) $(IPFW_OBJS)
+ALL_OBJS = $(STD_OBJS) $(MISC_OBJS) $(MAC_OBJS)
+ifeq ($(FWNAME), ipfw)
+  ALL_OBJS += $(IPFW_OBJS)
+else
+  ALL_OBJS += $(PF_OBJS)
+  CFLAGS += -DPF
+endif
 
 TEST_UPNPDESCGEN_OBJS = testupnpdescgen.o upnpdescgen.o
 TEST_GETIFSTATS_OBJS = testgetifstats.o mac/getifstats.o
 TEST_UPNPPERMISSIONS_OBJS = testupnppermissions.o upnppermissions.o
 TEST_GETIFADDR_OBJS = testgetifaddr.o getifaddr.o
+TEST_PORTINUSE_OBJS = testportinuse.o portinuse.o getifaddr.o
+TEST_ASYNCSENDTO_OBJS = testasyncsendto.o asyncsendto.o upnputils.o
 MINIUPNPDCTL_OBJS = miniupnpdctl.o
 
 EXECUTABLES = miniupnpd testupnpdescgen testgetifstats \
               testupnppermissions miniupnpdctl \
-              testgetifaddr
+              testgetifaddr testportinuse testasyncsendto
 
 LIBS =
 
@@ -47,42 +65,36 @@ LIBS =
 
 INSTALL_BINDIR = $(PREFIX)/sbin
 INSTALL_ETCDIR = $(PREFIX)/etc/miniupnpd
-# INSTALL_MANDIR = $(PREFIX)/man
-INSTALL_MANDIR = /usr/share/man/man1
+INSTALL_MANDIR = $(PREFIX)/share/man/man8
 
 all: $(EXECUTABLES)
 
 clean:
 	$(RM) $(ALL_OBJS) $(EXECUTABLES) \
 	testupnpdescgen.o testgetifstats.o testupnppermissions.o \
-	miniupnpdctl.o testgetifaddr.o config.h
+	miniupnpdctl.o testgetifaddr.o config.h \
+	mac/org.tuxfamily.miniupnpd.plist
 
-install: miniupnpd genuuid
+install: miniupnpd genuuid genlaunchd
 	$(STRIP) miniupnpd
 	$(INSTALL) -d $(INSTALL_BINDIR)
 	$(INSTALL) miniupnpd $(INSTALL_BINDIR)
 	$(INSTALL) -d $(INSTALL_ETCDIR)
-	$(INSTALL) ipfw/ipfw_init.sh $(INSTALL_ETCDIR)
-	$(INSTALL) ipfw/ipfw_removeall.sh $(INSTALL_ETCDIR)
-	$(INSTALL) --mode=0644 -b miniupnpd.conf $(INSTALL_ETCDIR)
+	$(INSTALL) -m 0644 -b miniupnpd.conf $(INSTALL_ETCDIR)
 	$(INSTALL) -d $(INSTALL_MANDIR)
-	$(INSTALL) miniupnpd.1 $(INSTALL_MANDIR)
-	# TODO Fix these paths and those within the plist
+	$(INSTALL) miniupnpd.8 $(INSTALL_MANDIR)
 	$(INSTALL) -d $(PREFIX)/Library/LaunchDaemons
 	$(INSTALL) mac/org.tuxfamily.miniupnpd.plist $(PREFIX)/Library/LaunchDaemons
-
-# genuuid is using the uuid cli tool available under MacOSX
-UUID != if which uuidgen 2>&1 > /dev/null; then \
-        	echo `uuidgen` ; \
-        elif which uuid 2>&1 > /dev/null; then \
-        	echo `uuid` ; \
-        	else echo "00000000-0000-0000-0000-000000000000"; \
-        fi
+	#$(INSTALL) ipfw/ipfw_init.sh $(INSTALL_ETCDIR)
+	#$(INSTALL) ipfw/ipfw_removeall.sh $(INSTALL_ETCDIR)
 
 genuuid:
 	$(MV) miniupnpd.conf miniupnpd.conf.before
-	sed -e "s/^uuid=[-0-9a-f]*/uuid=$(UUID)/" miniupnpd.conf.before > miniupnpd.conf
+	sed -e "s/^uuid=[-0-9a-fA-F]*/uuid=`uuidgen 2>/dev/null`/" miniupnpd.conf.before > miniupnpd.conf
 	$(RM) miniupnpd.conf.before
+
+genlaunchd:
+	sed -e "s|INSTALLPREFIX|$(PREFIX)|g" mac/org.tuxfamily.miniupnpd.plist.before > mac/org.tuxfamily.miniupnpd.plist
 
 depend: config.h
 	mkdep $(ALL_OBJS:.o=.c) testupnpdescgen.c testgetifstats.c \
@@ -106,11 +118,16 @@ testgetifaddr: config.h $(TEST_GETIFADDR_OBJS)
 testupnppermissions: config.h $(TEST_UPNPPERMISSIONS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TEST_UPNPPERMISSIONS_OBJS)
 
+testasyncsendto: config.h $(TEST_ASYNCSENDTO_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(TEST_ASYNCSENDTO_OBJS)
+
+testportinuse: config.h $(TEST_PORTINUSE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(TEST_PORTINUSE_OBJS)
 
 config.h: genconfig.sh
 	./genconfig.sh
 
 .SUFFIXES: .o .c
 .c.o:
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
 #	$(CC) $(CFLAGS) -c -o $(.TARGET) $(.IMPSRC)

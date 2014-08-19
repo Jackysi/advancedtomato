@@ -1,12 +1,12 @@
-/* $Id: obsdrdr.h,v 1.19 2011/06/04 15:47:18 nanard Exp $ */
+/* $Id: obsdrdr.h,v 1.23 2014/03/06 12:24:33 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2014 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
-#ifndef __OBSDRDR_H__
-#define __OBSDRDR_H__
+#ifndef OBSDRDR_H_INCLUDED
+#define OBSDRDR_H_INCLUDED
 
 #include "../commonrdr.h"
 
@@ -27,7 +27,7 @@ add_filter_rule2(const char * ifname,
                  const char * rhost, const char * iaddr,
                  unsigned short eport, unsigned short iport,
                  int proto, const char * desc);
- 
+
 
 /* get_redirect_rule() gets internal IP and port from
  * interface, external port and protocl
@@ -52,13 +52,18 @@ get_redirect_rule_by_index(int index,
 int
 delete_redirect_rule(const char * ifname, unsigned short eport, int proto);
 
-/* delete_filter_rule()
+/* delete_redirect_and_filter_rules()
  */
 int
-delete_filter_rule(const char * ifname, unsigned short eport, int proto);
+delete_redirect_and_filter_rules(const char * ifname, unsigned short eport,
+                                 int proto);
 
+#ifdef TEST
 int
 clear_redirect_rules(void);
+int
+clear_filter_rules(void);
+#endif
 
 #endif
 

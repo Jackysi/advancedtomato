@@ -1,8 +1,8 @@
-/* $Id: options.c,v 1.20 2008/10/06 13:22:02 nanard Exp $ */
+/* $Id: options.c,v 1.29 2014/04/20 16:44:46 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2014 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -11,12 +11,18 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <syslog.h>
+#include "config.h"
 #include "options.h"
 #include "upnppermissions.h"
+#ifdef PCP_SADSCP
+#include "pcplearndscp.h"
+#endif /* PCP_SADSPC */
 #include "upnpglobalvars.h"
 
+#ifndef DISABLE_CONFIG_FILE
 struct option * ary_options = NULL;
-int num_options = 0;
+static char * string_repo = NULL;
+unsigned int num_options = 0;
 
 static const struct {
 	enum upnpconfigoptions id;
@@ -26,9 +32,21 @@ static const struct {
 	{ UPNPEXT_IP,	"ext_ip" },
 	{ UPNPLISTENING_IP, "listening_ip" },
 	{ UPNPPORT, "port" },
+	{ UPNPPORT, "http_port" },	/* "port" and "http_port" are synonims */
+#ifdef ENABLE_HTTPS
+	{ UPNPHTTPSPORT, "https_port" },
+#endif /* ENABLE_HTTPS */
 	{ UPNPBITRATE_UP, "bitrate_up" },
 	{ UPNPBITRATE_DOWN, "bitrate_down" },
 	{ UPNPPRESENTATIONURL, "presentation_url" },
+#ifdef ENABLE_MANUFACTURER_INFO_CONFIGURATION
+	{ UPNPFRIENDLY_NAME, "friendly_name" },
+	{ UPNPMANUFACTURER_NAME, "manufacturer_name" },
+	{ UPNPMANUFACTURER_URL, "manufacturer_url" },
+	{ UPNPMODEL_NAME, "model_name" },
+	{ UPNPMODEL_DESCRIPTION, "model_description" },
+	{ UPNPMODEL_URL, "model_url" },
+#endif
 	{ UPNPNOTIFY_INTERVAL, "notify_interval" },
 	{ UPNPSYSTEM_UPTIME, "system_uptime" },
 	{ UPNPPACKET_LOG, "packet_log" },
@@ -44,8 +62,13 @@ static const struct {
 #ifdef ENABLE_NATPMP
 	{ UPNPENABLENATPMP, "enable_natpmp"},
 #endif
+#ifdef ENABLE_PCP
+	{ UPNPPCPMINLIFETIME, "min_lifetime"},
+	{ UPNPPCPMAXLIFETIME, "max_lifetime"},
+#endif
 	{ UPNPENABLE, "enable_upnp"},
 #ifdef USE_PF
+	{ UPNPANCHOR, "anchor"},
 	{ UPNPQUEUE, "queue"},
 	{ UPNPTAG, "tag"},
 #endif
@@ -69,8 +92,11 @@ readoptionsfile(const char * fname)
 	char *value;
 	char *t;
 	int linenum = 0;
-	int i;
+	unsigned int i;
 	enum upnpconfigoptions id;
+	size_t string_repo_len = 0;
+	size_t len;
+	void *tmp;
 
 	if(!fname || (strlen(fname) == 0))
 		return -1;
@@ -93,18 +119,19 @@ readoptionsfile(const char * fname)
 	while(fgets(buffer, sizeof(buffer), hfile))
 	{
 		linenum++;
-		t = strchr(buffer, '\n'); 
+		t = strchr(buffer, '\n');
 		if(t)
 		{
 			*t = '\0';
 			t--;
+			/* remove spaces at the end of the line */
 			while((t >= buffer) && isspace(*t))
 			{
 				*t = '\0';
 				t--;
 			}
 		}
-       
+
 		/* skip leading whitespaces */
 		name = buffer;
 		while(isspace(*name))
@@ -113,23 +140,60 @@ readoptionsfile(const char * fname)
 		/* check for comments or empty lines */
 		if(name[0] == '#' || name[0] == '\0') continue;
 
+		len = strlen(name); /* length of the whole line excluding leading
+		                     * and ending white spaces */
 		/* check for UPnP permissions rule */
-		if(0 == memcmp(name, "allow", 5) || 0 == memcmp(name, "deny", 4))
+		if((len > 6) && (0 == memcmp(name, "allow", 5) || 0 == memcmp(name, "deny", 4)))
 		{
-			upnppermlist = realloc(upnppermlist,
-			                       sizeof(struct upnpperm) * (num_upnpperm+1));
-			/* parse the rule */
-			if(read_permission_line(upnppermlist + num_upnpperm, name) >= 0)
+			tmp = realloc(upnppermlist, sizeof(struct upnpperm) * (num_upnpperm+1));
+			if(tmp == NULL)
 			{
-				num_upnpperm++;
+				fprintf(stderr, "memory allocation error. Permission line in file %s line %d\n",
+				        fname, linenum);
 			}
 			else
 			{
-				fprintf(stderr, "parsing error file %s line %d : %s\n",
-				        fname, linenum, name);
+				upnppermlist = tmp;
+				/* parse the rule */
+				if(read_permission_line(upnppermlist + num_upnpperm, name) >= 0)
+				{
+					num_upnpperm++;
+				}
+				else
+				{
+					fprintf(stderr, "parsing error file %s line %d : %s\n",
+					        fname, linenum, name);
+				}
 			}
 			continue;
 		}
+#ifdef PCP_SADSCP
+		/* check for DSCP values configuration */
+		if((len > 15) && 0 == memcmp(name, "set_learn_dscp", sizeof("set_learn_dscp")-1) )
+		{
+			tmp = realloc(dscp_values_list, sizeof(struct dscp_values) * (num_dscp_values+1));
+			if(tmp == NULL)
+			{
+				fprintf(stderr, "memory allocation error. DSCP line in file %s line %d\n",
+				        fname, linenum);
+			}
+			else
+			{
+				dscp_values_list = tmp;
+				/* parse the rule */
+				if(read_learn_dscp_line(dscp_values_list + num_dscp_values, name) >= 0)
+				{
+					num_dscp_values++;
+				}
+				else
+				{
+					fprintf(stderr, "parsing error file %s line %d : %s\n",
+					        fname, linenum, name);
+				}
+			}
+			continue;
+		}
+#endif /* PCP_SADSCP */
 		if(!(equals = strchr(name, '=')))
 		{
 			fprintf(stderr, "parsing error file %s line %d : %s\n",
@@ -163,22 +227,51 @@ readoptionsfile(const char * fname)
 
 		if(id == UPNP_INVALID)
 		{
-			fprintf(stderr, "parsing error file %s line %d : %s=%s\n",
+			fprintf(stderr, "invalid option in file %s line %d : %s=%s\n",
 			        fname, linenum, name, value);
 		}
 		else
 		{
-			num_options += 1;
-			ary_options = (struct option *) realloc(ary_options, num_options * sizeof(struct option));
-
-			ary_options[num_options-1].id = id;
-			strncpy(ary_options[num_options-1].value, value, MAX_OPTION_VALUE_LEN);
+			tmp = realloc(ary_options, (num_options + 1) * sizeof(struct option));
+			if(tmp == NULL)
+			{
+				fprintf(stderr, "memory allocation error. Option in file %s line %d.\n",
+				        fname, linenum);
+			}
+			else
+			{
+				ary_options = tmp;
+				len = strlen(value) + 1;	/* +1 for terminating '\0' */
+				tmp = realloc(string_repo, string_repo_len + len);
+				if(tmp == NULL)
+				{
+					fprintf(stderr, "memory allocation error, Option value in file %s line %d : %s=%s\n",
+					        fname, linenum, name, value);
+				}
+				else
+				{
+					string_repo = tmp;
+					memcpy(string_repo + string_repo_len, value, len);
+					ary_options[num_options].id = id;
+					/* save the offset instead of the absolute address because realloc() could
+					 * change it */
+					ary_options[num_options].value = (const char *)string_repo_len;
+					num_options += 1;
+					string_repo_len += len;
+				}
+			}
 		}
 
 	}
-	
+
 	fclose(hfile);
-	
+
+	for(i = 0; i < num_options; i++)
+	{
+		/* add start address of string_repo to get right pointer */
+		ary_options[i].value = string_repo + (size_t)ary_options[i].value;
+	}
+
 	return 0;
 }
 
@@ -191,5 +284,32 @@ freeoptions(void)
 		ary_options = NULL;
 		num_options = 0;
 	}
+	if(string_repo)
+	{
+		free(string_repo);
+		string_repo = NULL;
+	}
+	if(upnppermlist)
+	{
+		free(upnppermlist);
+		upnppermlist = NULL;
+		num_upnpperm = 0;
+	}
+#ifdef PCP_SADSCP
+	if(dscp_values_list)
+	{
+	    unsigned int i;
+		for (i = 0; i < num_dscp_values; i++) {
+			if (dscp_values_list[i].app_name) {
+				free(dscp_values_list[i].app_name);
+				dscp_values_list[i].app_name = NULL;
+			}
+		}
+		free(dscp_values_list);
+		dscp_values_list = NULL;
+		num_dscp_values = 0;
+	}
+#endif /* PCP_SADSCP */
 }
 
+#endif /* DISABLE_CONFIG_FILE */

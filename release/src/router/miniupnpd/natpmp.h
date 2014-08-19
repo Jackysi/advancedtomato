@@ -1,10 +1,10 @@
-/* $Id: natpmp.h,v 1.8 2011/05/27 21:36:22 nanard Exp $ */
+/* $Id: natpmp.h,v 1.12 2014/03/24 10:49:46 nanard Exp $ */
 /* MiniUPnP project
  * author : Thomas Bernard
  * website : http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  */
-#ifndef __NATPMP_H__
-#define __NATPMP_H__
+#ifndef NATPMP_H_INCLUDED
+#define NATPMP_H_INCLUDED
 
 /* The NAT-PMP specification which can be found at the url :
  * http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
@@ -20,13 +20,12 @@
 
 int OpenAndConfNATPMPSockets(int * sockets);
 
-void ProcessIncomingNATPMPPacket(int s);
+int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
+                             socklen_t * senderaddrlen,
+                             unsigned char * msg_buff, size_t msg_buff_size);
 
-#if 0
-int ScanNATPMPforExpiration(void);
-
-int CleanExpiredNATPMP(void);
-#endif
+void ProcessIncomingNATPMPPacket(int s, unsigned char * msg_buff, int len,
+                                 struct sockaddr_in * senderaddr);
 
 void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets);
 
