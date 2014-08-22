@@ -1471,6 +1471,27 @@ static const nvset_t nvset_list[] = {
 	{ "pptpd_custom",		V_TEXT(0, 2048)		},
 #endif
 
+#ifdef TCONFIG_TINC
+	{"tinc_wanup",			V_RANGE(0, 1)		},
+	{"tinc_name",			V_LENGTH(0, 30)		},
+	{"tinc_devicetype",		V_TEXT(3, 3)		}, // tun, tap
+	{"tinc_mode",			V_TEXT(3, 6)		}, // switch, hub
+	{"tinc_vpn_netmask",		V_IP			},
+	{"tinc_private_rsa",		V_LENGTH(0, 1700)	},
+	{"tinc_private_ecdsa",		V_LENGTH(0, 280)	},
+	{"tinc_custom",			V_NONE			},
+	{"tinc_hosts",			V_NONE			},
+	{"tinc_manual_firewall",	V_RANGE(0, 1)		},
+	{"tinc_manual_tinc_up",		V_RANGE(0, 1)		},
+	// scripts
+	{"tinc_tinc_up",		V_NONE			},
+	{"tinc_tinc_down",		V_NONE			},
+	{"tinc_host_up",		V_NONE			},
+	{"tinc_host_down",		V_NONE			},
+	{"tinc_subnet_up",		V_NONE			},
+	{"tinc_subnet_down",		V_NONE			},
+#endif
+
 #ifdef TCONFIG_TOR
 	{ "tor_enable",			V_01			},
 	{ "tor_socksport",		V_RANGE(1,65535)	},

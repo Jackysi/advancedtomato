@@ -1045,6 +1045,11 @@ void start_wan_done(char *wan_ifname)
 	if (wanup)
 		start_vpn_eas();
 
+#ifdef TCONFIG_TINC
+	if(wanup)
+		start_tinc_wanup();
+#endif
+
 #ifdef TCONFIG_PPTPD
 	if (wanup && nvram_get_int("pptp_client_enable"))
 		start_pptp_client();
@@ -1063,6 +1068,10 @@ void stop_wan(void)
 	char *next;
 	
 	TRACE_PT("begin\n");
+
+#ifdef TCONFIG_TINC
+	stop_tinc();
+#endif
 
 #ifdef TCONFIG_PPTPD
 	stop_pptp_client();

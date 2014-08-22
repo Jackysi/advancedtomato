@@ -242,3 +242,7 @@ config TCONFIG_BCMFA
 config TCONFIG_DNSSEC
 	bool "DNSSEC"
 	default n
+
+config TCONFIG_TINC
+	bool "TINC"
+	default n

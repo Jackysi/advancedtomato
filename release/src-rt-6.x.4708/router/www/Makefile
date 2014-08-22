@@ -263,6 +263,13 @@ ifneq ($(TCONFIG_DNSSEC),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
 endif
 
+# Only include the Tinc page if it is compiled in
+ifneq ($(TCONFIG_TINC),y)
+	rm -f $(INSTALLDIR)/www/vpn-tinc.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/TINC-BEGIN/,/TINC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/TINC-BEGIN/,/TINC-END/d"
+endif
+
 # Only include the dnscrypt option if is compiled in
 ifeq ($(TCONFIG_DNSCRYPT),y)
 	$(TOP)/www/dnscrypt-helper.sh $(INSTALLDIR)/../rom/rom/etc/dnscrypt-resolvers.csv $(INSTALLDIR)/www/basic-network.asp
@@ -304,6 +311,7 @@ endif
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
 		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
+		-e "/TINC-BEGIN/d"	-e "/TINC-END/d"\
 		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done

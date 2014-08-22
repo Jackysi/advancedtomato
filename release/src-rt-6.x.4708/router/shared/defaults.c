@@ -950,6 +950,27 @@ struct nvram_tuple router_defaults[] = {
 	{ "pptp_client_dfltroute","0"             , 0 },
 #endif
 
+#ifdef TCONFIG_TINC
+	{"tinc_wanup",			"0"		, 0 },
+	{"tinc_name",			""		, 0 },
+	{"tinc_devicetype",		"tun"		, 0 }, // tun, tap
+	{"tinc_mode",			"switch"	, 0 }, // switch, hub
+	{"tinc_vpn_netmask",		"255.255.0.0"	, 0 },
+	{"tinc_private_rsa",		""		, 0 },
+	{"tinc_private_ecdsa",		""		, 0 },
+	{"tinc_custom",			""		, 0 },
+	{"tinc_hosts",			""		, 0 },
+	{"tinc_manual_firewall",	""		, 0 },
+	{"tinc_manual_tinc_up",		""		, 0 },
+	// scripts
+	{"tinc_tinc_up",		""		, 0 },
+	{"tinc_tinc_down",		""		, 0 },
+	{"tinc_host_up",		""		, 0 },
+	{"tinc_host_down",		""		, 0 },
+	{"tinc_subnet_up",		""		, 0 },
+	{"tinc_subnet_down",		""		, 0 },
+#endif
+
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",			"0"				, 0 },
