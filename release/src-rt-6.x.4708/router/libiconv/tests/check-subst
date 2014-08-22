@@ -2,6 +2,9 @@
 # Check of --unicode-subst, --byte-subst, --widechar-subst options.
 set -e
 iconv=../src/iconv_no_i18n
+# Make sure the charset.alias file is found.
+CHARSETALIASDIR=../lib
+export CHARSETALIASDIR
 
 options_ascii='--unicode-subst=<U+%04X> --byte-subst=<0x%02x> --widechar-subst=<%08x>'
 options_utf8='--unicode-subst=«U+%04X» --byte-subst=«0x%02x» --widechar-subst=«%08x»'
@@ -48,8 +51,12 @@ cat > tmp-in <<\EOF
 Böse Bübchen
 EOF
 $iconv --byte-subst='<0x%010000x>' -f ASCII -t ASCII < tmp-in > tmp-out
-printf 'B<0x%010000x><0x%010000x>se B<0x%010000x><0x%010000x>bchen\n' 0xC3 0xB6 0xC3 0xBC > tmp-ok
-cmp tmp-out tmp-ok
+# This printf command crashes on Solaris 10.
+# See <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6550204>.
+# Likewise on OSF/1 5.1.
+if printf 'B<0x%010000x><0x%010000x>se B<0x%010000x><0x%010000x>bchen\n' 0xC3 0xB6 0xC3 0xBC > tmp-ok 2>/dev/null; then
+  cmp tmp-out tmp-ok
+fi
 
 # Test of --unicode-subst with an ASCII substitution.
 
@@ -91,15 +98,22 @@ cat > tmp-in <<\EOF
 Böse Bübchen
 EOF
 $iconv --unicode-subst='<U+%010000X>' -f UTF-8 -t ASCII < tmp-in > tmp-out
-printf 'B<U+%010000X>se B<U+%010000X>bchen\n' 0x00F6 0x00FC > tmp-ok
-cmp tmp-out tmp-ok
+# This printf command crashes on Solaris 10.
+# See <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6550204>.
+if printf 'B<U+%010000X>se B<U+%010000X>bchen\n' 0x00F6 0x00FC > tmp-ok 2>/dev/null; then
+  cmp tmp-out tmp-ok
+fi
 
 cat > tmp-in <<\EOF
 Böse Bübchen
 EOF
 $iconv --byte-subst='<0x%010000x>' -f ASCII -t ASCII < tmp-in > tmp-out
-printf 'B<0x%010000x><0x%010000x>se B<0x%010000x><0x%010000x>bchen\n' 0xC3 0xB6 0xC3 0xBC > tmp-ok
-cmp tmp-out tmp-ok
+# This printf command crashes on Solaris 10.
+# See <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6550204>.
+# Likewise on OSF/1 5.1.
+if printf 'B<0x%010000x><0x%010000x>se B<0x%010000x><0x%010000x>bchen\n' 0xC3 0xB6 0xC3 0xBC > tmp-ok 2>/dev/null; then
+  cmp tmp-out tmp-ok
+fi
 
 # Test of --widechar-subst:
 # wcrtomb() doesn't exist on FreeBSD 4.0 and is broken on MacOS X 10.3.

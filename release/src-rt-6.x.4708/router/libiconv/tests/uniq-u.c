@@ -1,10 +1,10 @@
 /* uniq -- remove duplicate lines from a sorted file
    Copyright (C) 86, 91, 1995-1998, 1999 Free Software Foundation, Inc.
 
-   This program is free software; you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,8 +12,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Written by Richard Stallman and David MacKenzie. */
 /* 2000-03-22  Trimmed down to the case of "uniq -u" by Bruno Haible. */
@@ -63,8 +62,8 @@ xrealloc (void *p, size_t n)
 
 struct linebuffer
 {
-  size_t size;			/* Allocated. */
-  size_t length;		/* Used. */
+  size_t size;                  /* Allocated. */
+  size_t length;                /* Used. */
   char *buffer;
 };
 
@@ -98,21 +97,21 @@ readline (struct linebuffer *linebuffer, FILE *stream)
     {
       c = getc (stream);
       if (c == EOF)
-	{
-	  if (p == buffer)
-	    return 0;
-	  if (p[-1] == '\n')
-	    break;
-	  c = '\n';
-	}
+        {
+          if (p == buffer)
+            return 0;
+          if (p[-1] == '\n')
+            break;
+          c = '\n';
+        }
       if (p == end)
-	{
-	  linebuffer->size *= 2;
-	  buffer = (char *) xrealloc (buffer, linebuffer->size);
-	  p = p - linebuffer->buffer + buffer;
-	  linebuffer->buffer = buffer;
-	  end = buffer + linebuffer->size - 1;
-	}
+        {
+          linebuffer->size *= 2;
+          buffer = (char *) xrealloc (buffer, linebuffer->size);
+          p = p - linebuffer->buffer + buffer;
+          linebuffer->buffer = buffer;
+          end = buffer + linebuffer->size - 1;
+        }
       *p++ = c;
     }
   while (c != '\n');
@@ -211,25 +210,25 @@ check_file (const char *infile, const char *outfile)
     {
       int match;
       if (readline (thisline, istream) == 0)
-	break;
+        break;
       thisfield = thisline->buffer;
       thislen = thisline->length;
       match = !different (thisfield, prevfield, thislen, prevlen);
 
       if (match)
-	++match_count;
+        ++match_count;
 
       if (!match)
-	{
-	  writeline (prevline, ostream, match_count);
-	  exch = prevline;
-	  prevline = thisline;
-	  thisline = exch;
-	  prevfield = thisfield;
-	  prevlen = thislen;
-	  if (!match)
-	    match_count = 0;
-	}
+        {
+          writeline (prevline, ostream, match_count);
+          exch = prevline;
+          prevline = thisline;
+          thisline = exch;
+          prevfield = thisfield;
+          prevlen = thislen;
+          if (!match)
+            match_count = 0;
+        }
     }
 
   writeline (prevline, ostream, match_count);

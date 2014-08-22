@@ -148,30 +148,30 @@ Rem Find out where the sources are
 if "%XSRC%" == "." goto InPlace
 
 :NotInPlace
-redir -e /dev/null update %XSRC%/configure.orig ./configure
+redir -e /dev/null update %XSRC%/configure.org ./configure
 test -f ./configure
 if errorlevel 1 update %XSRC%/configure ./configure
 test -d ./libcharset
 if errorlevel 1 md libcharset
-redir -e /dev/null update %XSRC%/libcharset/configure.orig ./libcharset/configure
+redir -e /dev/null update %XSRC%/libcharset/configure.org ./libcharset/configure
 test -f ./libcharset/configure
 if errorlevel 1 update %XSRC%/libcharset/configure ./libcharset/configure
 
 :InPlace
 Rem Update configuration files
 echo Updating configuration scripts...
-test -f ./configure.orig
-if errorlevel 1 update ./configure ./configure.orig
-sed -f %XSRC%/djgpp/config.sed ./configure.orig > configure
+test -f ./configure.org
+if errorlevel 1 update ./configure ./configure.org
+sed -f %XSRC%/djgpp/config.sed ./configure.org > configure
 if errorlevel 1 goto SedError
-test -f ./libcharset/configure.orig
-if errorlevel 1 update ./libcharset/configure ./libcharset/configure.orig
-sed -f %XSRC%/djgpp/config.sed ./libcharset/configure.orig > configure.tmp
+test -f ./libcharset/configure.org
+if errorlevel 1 update ./libcharset/configure ./libcharset/configure.org
+sed -f %XSRC%/djgpp/config.sed ./libcharset/configure.org > configure.tmp
 if errorlevel 1 goto SedError
 Rem The following is needed because the toplevel configure script calls the
 Rem %XSRC%/libcharset/configure script instead of ./libcharset/configure.
-test -f %XSRC%/libcharset/configure.orig
-if errorlevel 1 update %XSRC%/libcharset/configure %XSRC%/libcharset/configure.orig
+test -f %XSRC%/libcharset/configure.org
+if errorlevel 1 update %XSRC%/libcharset/configure %XSRC%/libcharset/configure.org
 update configure.tmp %XSRC%/libcharset/configure
 rm ./configure.tmp
 
@@ -188,6 +188,14 @@ test -f %XSRC%/config.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/configh.in %XSRC%/config.h-in
 test -f %XSRC%/config.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/config_h.in %XSRC%/config.h-in
+test -f %XSRC%/lib/config.h.in
+if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/lib/config.h.in %XSRC%/lib/config.h-in
+test -f %XSRC%/lib/config.h-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/lib/config.h %XSRC%/lib/config.h-in
+test -f %XSRC%/lib/config.h-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/lib/configh.in %XSRC%/lib/config.h-in
+test -f %XSRC%/lib/config.h-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/lib/config_h.in %XSRC%/lib/config.h-in
 test -f %XSRC%/include/iconv.h.in
 if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconv.h.in %XSRC%/include/iconv.h-in
 test -f %XSRC%/include/iconv.h-in
@@ -196,6 +204,14 @@ test -f %XSRC%/include/iconv.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconvh.in %XSRC%/include/iconv.h-in
 test -f %XSRC%/include/iconv.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconv_h.in %XSRC%/include/iconv.h-in
+test -f %XSRC%/include/iconv.h.build.in
+if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconv.h.build.in %XSRC%/include/iconv.h-build-in
+test -f %XSRC%/include/iconv.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconv.h %XSRC%/include/iconv.h-build-in
+test -f %XSRC%/include/iconv.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconvh.build %XSRC%/include/iconv.h-build-in
+test -f %XSRC%/include/iconv.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/iconv_h.build %XSRC%/include/iconv.h-build-in
 test -f %XSRC%/libcharset/config.h.in
 if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/config.h.in %XSRC%/libcharset/config.h-in
 test -f %XSRC%/libcharset/config.h-in
@@ -220,6 +236,14 @@ test -f %XSRC%/libcharset/include/localcharset.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharseth.in %XSRC%/libcharset/include/localcharset.h-in
 test -f %XSRC%/libcharset/include/localcharset.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharset_h.in %XSRC%/libcharset/include/localcharset.h-in
+test -f %XSRC%/libcharset/include/localcharset.h.build.in
+if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharset.h.build.in %XSRC%/libcharset/include/localcharset.h-build-in
+test -f %XSRC%/libcharset/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharset.h %XSRC%/libcharset/include/localcharset.h-build-in
+test -f %XSRC%/libcharset/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharseth.build %XSRC%/libcharset/include/localcharset.h-build-in
+test -f %XSRC%/libcharset/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/libcharset/include/localcharset_h.build %XSRC%/libcharset/include/localcharset.h-build-in
 
 Rem DJGPP needs ICONV_CONST set to const.
 sed "s/^#undef ICONV_CONST/#define ICONV_CONST const/" %XSRC%/config.h-in > config.tmp
@@ -231,59 +255,77 @@ Rem     new filenames.
 Rem 2:  Ditto for Makefile.in
 Rem 3:  Ditto for source files.
 
-test -f %XSRC%/stamp-djgppfixes
-if not errorlevel 1 goto TestsuitFixed
+:test -f %XSRC%/stamp-djgppfixes
+:if not errorlevel 1 goto TestsuitFixed
 Rem Fix the Makefile.ins.
-test -f %XSRC%/lib/Makefile.orig
-if errorlevel 1 update %XSRC%/lib/Makefile.in %XSRC%/lib/Makefile.orig
-sed -f %XSRC%/djgpp/makefile.sed %XSRC%/lib/Makefile.in > Makefile.tmp
+test -f %XSRC%/lib/Makefile.org
+if errorlevel 1 update %XSRC%/lib/Makefile.in %XSRC%/lib/Makefile.org
+sed -f %XSRC%/djgpp/makefile.sed %XSRC%/lib/Makefile.org > Makefile.tmp
 if errorlevel 1 goto SedError
 update Makefile.tmp %XSRC%/lib/Makefile.in
 rm Makefile.tmp
-test -f %XSRC%/tests/Makefile.orig
-if errorlevel 1 update %XSRC%/tests/Makefile.in %XSRC%/tests/Makefile.orig
-sed -f %XSRC%/djgpp/makefile.sed %XSRC%/tests/Makefile.in > Makefile.tmp
+test -f %XSRC%/tests/Makefile.org
+if errorlevel 1 update %XSRC%/tests/Makefile.in %XSRC%/tests/Makefile.org
+sed -f %XSRC%/djgpp/makefile.sed %XSRC%/tests/Makefile.org > Makefile.tmp
 if errorlevel 1 goto SedError
 update Makefile.tmp %XSRC%/tests/Makefile.in
 rm Makefile.tmp
 
 Rem Fix the source files.
-test -f %XSRC%/lib/aliases/aliases2.orig
-if errorlevel 1 update %XSRC%/lib/aliases/aliases2.h %XSRC%/lib/aliases/aliases2.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/aliases/aliases2.h > aliases2.tmp
+test -f %XSRC%/lib/aliases/aliases2.org
+if errorlevel 1 update %XSRC%/lib/aliases/aliases2.h %XSRC%/lib/aliases/aliases2.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/aliases/aliases2.org > aliases2.tmp
 if errorlevel 1 goto SedError
 update aliases2.tmp %XSRC%/lib/aliases/aliases2.h
 rm aliases2.tmp
-test -f %XSRC%/lib/iconv.orig
-if errorlevel 1 update %XSRC%/lib/iconv.c %XSRC%/lib/iconv.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/iconv.c > iconv.tmp
+test -f %XSRC%/lib/iconv.org
+if errorlevel 1 update %XSRC%/lib/iconv.c %XSRC%/lib/iconv.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/iconv.org > iconv.tmp
 if errorlevel 1 goto SedError
 update iconv.tmp %XSRC%/lib/iconv.c
 rm iconv.tmp
-test -f %XSRC%/lib/converters.orig
-if errorlevel 1 update %XSRC%/lib/converters.h %XSRC%/lib/converters.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/converters.h > converters.tmp
+test -f %XSRC%/lib/converters.org
+if errorlevel 1 update %XSRC%/lib/converters.h %XSRC%/lib/converters.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/converters.org > converters.tmp
 if errorlevel 1 goto SedError
 update converters.tmp %XSRC%/lib/converters.h
 rm converters.tmp
-test -f %XSRC%/lib/cns/11643.orig
-if errorlevel 1 update %XSRC%/lib/cns/11643.h %XSRC%/lib/cns/11643.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/cns/11643.h > 11643.tmp
+test -f %XSRC%/lib/cns/11643.org
+if errorlevel 1 update %XSRC%/lib/cns/11643.h %XSRC%/lib/cns/11643.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/cns/11643.org > 11643.tmp
 if errorlevel 1 goto SedError
 update 11643.tmp %XSRC%/lib/cns/11643.h
 rm 11643.tmp
-test -f %XSRC%/lib/cns/11643_4.orig
-if errorlevel 1 update %XSRC%/lib/cns/11643_4.h %XSRC%/lib/cns/11643_4.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/cns/11643_4.h > 11643_4.tmp
+test -f %XSRC%/lib/cns/11643_4.org
+if errorlevel 1 update %XSRC%/lib/cns/11643_4.h %XSRC%/lib/cns/11643_4.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/cns/11643_4.org > 11643_4.tmp
 if errorlevel 1 goto SedError
 update 11643_4.tmp %XSRC%/lib/cns/11643_4.h
 rm 11643_4.tmp
-test -f %XSRC%/lib/iso/ir165.orig
-if errorlevel 1 update %XSRC%/lib/iso/ir165.h %XSRC%/lib/iso/ir165.orig
-sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/iso/ir165.h > ir165.tmp
+test -f %XSRC%/lib/iso/ir165.org
+if errorlevel 1 update %XSRC%/lib/iso/ir165.h %XSRC%/lib/iso/ir165.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/iso/ir165.org > ir165.tmp
 if errorlevel 1 goto SedError
 update ir165.tmp %XSRC%/lib/iso/ir165.h
 rm ir165.tmp
+test -f %XSRC%/lib/big5hkscs/1999.org
+if errorlevel 1 update %XSRC%/lib/big5hkscs/1999.h %XSRC%/lib/big5hkscs/1999.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/big5hkscs/1999.org > 1999.tmp
+if errorlevel 1 goto SedError
+update 1999.tmp %XSRC%/lib/big5hkscs/1999.h
+rm 1999.tmp
+test -f %XSRC%/lib/big5hkscs/2001.org
+if errorlevel 1 update %XSRC%/lib/big5hkscs/2001.h %XSRC%/lib/big5hkscs/2001.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/big5hkscs/2001.org > 2001.tmp
+if errorlevel 1 goto SedError
+update 2001.tmp %XSRC%/lib/big5hkscs/2001.h
+rm 2001.tmp
+test -f %XSRC%/lib/big5hkscs/2004.org
+if errorlevel 1 update %XSRC%/lib/big5hkscs/2004.h %XSRC%/lib/big5hkscs/2004.org
+sed -f %XSRC%/djgpp/sources.sed %XSRC%/lib/big5hkscs/2004.org > 2004.tmp
+if errorlevel 1 goto SedError
+update 2004.tmp %XSRC%/lib/big5hkscs/2004.h
+rm 2004.tmp
 
 Rem Fix the test scripts.
 if "%XSRC%" == "." goto NoDirChange
@@ -299,8 +341,13 @@ rm -f cd_SrcDir.bat cd_BuildDir.bat %XSRC%/cd_BuildDir.bat
 goto TestsuitFixed
 :NoDirChange
 call djgpp\edtest.bat
-:TestsuitFixed
-touch %XSRC%/stamp-djgppfixes
+::TestsuitFixed
+:touch %XSRC%/stamp-djgppfixes
+
+Rem /include/wchar.h from DJGPP 2.03 does not work.
+Rem Replace it with the one of DJGPP 2.04.
+test -f %XSRC%/srclib/wchar.h
+if errorlevel 1 update %XSRC%/djgpp/wchar.h %XSRC%/srclib/wchar.h
 
 Rem This is required because DOS/Windows are case-insensitive
 Rem to file names, and "make install" will do nothing if Make

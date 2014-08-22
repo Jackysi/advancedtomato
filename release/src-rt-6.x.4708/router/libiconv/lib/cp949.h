@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2005, 2007 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -55,8 +55,8 @@ cp949_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
       if (c2 < 0xa1)
         /* UHC part 2 */
         return uhc_2_mbtowc(conv,pwc,s,n);
-      else if (c2 < 0xff) {
-        /* Code set 1 (KS C 5601-1992) */
+      else if (c2 < 0xff && !(c == 0xa2 && c2 == 0xe8)) {
+        /* Code set 1 (KS C 5601-1992, now KS X 1001:1998) */
         unsigned char buf[2];
         int ret;
         buf[0] = c-0x80; buf[1] = c2-0x80;
@@ -89,15 +89,17 @@ cp949_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
   if (ret != RET_ILUNI)
     return ret;
 
-  /* Code set 1 (KS C 5601-1992) */
-  ret = ksc5601_wctomb(conv,buf,wc,2);
-  if (ret != RET_ILUNI) {
-    if (ret != 2) abort();
-    if (n < 2)
-      return RET_TOOSMALL;
-    r[0] = buf[0]+0x80;
-    r[1] = buf[1]+0x80;
-    return 2;
+  /* Code set 1 (KS C 5601-1992, now KS X 1001:1998) */
+  if (wc != 0x327e) {
+    ret = ksc5601_wctomb(conv,buf,wc,2);
+    if (ret != RET_ILUNI) {
+      if (ret != 2) abort();
+      if (n < 2)
+        return RET_TOOSMALL;
+      r[0] = buf[0]+0x80;
+      r[1] = buf[1]+0x80;
+      return 2;
+    }
   }
 
   /* UHC */
