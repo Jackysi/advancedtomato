@@ -45,7 +45,7 @@ U32TO8(unsigned char *p, unsigned long v) {
 
 static void
 poly1305_init(poly1305_context *ctx, const unsigned char key[32]) {
-        poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
+        poly1305_state_internal_t *st = (poly1305_state_internal_t *)(void *)ctx;
 
         /* r &= 0xffffffc0ffffffc0ffffffc0fffffff */
         st->r[0] = (U8TO32(&key[ 0])     ) & 0x3ffffff;
@@ -134,7 +134,7 @@ poly1305_blocks(poly1305_state_internal_t *st, const unsigned char *m, unsigned 
 
 static POLY1305_NOINLINE void
 poly1305_finish(poly1305_context *ctx, unsigned char mac[16]) {
-        poly1305_state_internal_t *st = (poly1305_state_internal_t *)ctx;
+        poly1305_state_internal_t *st = (poly1305_state_internal_t *)(void *)ctx;
         unsigned long h0,h1,h2,h3,h4,c;
         unsigned long g0,g1,g2,g3,g4;
         unsigned long long f;
@@ -203,19 +203,6 @@ poly1305_finish(poly1305_context *ctx, unsigned char mac[16]) {
         U32TO8(mac + 12, h3);
 
         /* zero out the state */
-        st->h[0] = 0;
-        st->h[1] = 0;
-        st->h[2] = 0;
-        st->h[3] = 0;
-        st->h[4] = 0;
-        st->r[0] = 0;
-        st->r[1] = 0;
-        st->r[2] = 0;
-        st->r[3] = 0;
-        st->r[4] = 0;
-        st->pad[0] = 0;
-        st->pad[1] = 0;
-        st->pad[2] = 0;
-        st->pad[3] = 0;
+        sodium_memzero((void *)st, sizeof *st);
 }
 

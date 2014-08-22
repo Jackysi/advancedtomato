@@ -87,7 +87,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ld-output-def.m4 $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
 	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/m4/pkg.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -195,7 +195,6 @@ FGREP = @FGREP@
 GREP = @GREP@
 HAVE_AMD64_ASM_V = @HAVE_AMD64_ASM_V@
 HAVE_CPUID_V = @HAVE_CPUID_V@
-HAVE_PKG_CONFIG = @HAVE_PKG_CONFIG@
 HAVE_TI_MODE_V = @HAVE_TI_MODE_V@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -231,9 +230,6 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 RANLIB = @RANLIB@
 SAFECODE_HOME = @SAFECODE_HOME@
 SED = @SED@
@@ -299,6 +295,7 @@ top_srcdir = @top_srcdir@
 SODIUM_EXPORT = \
 	sodium.h \
 	sodium/core.h \
+	sodium/crypto_aead_chacha20poly1305.h \
 	sodium/crypto_auth.h \
 	sodium/crypto_auth_hmacsha256.h \
 	sodium/crypto_auth_hmacsha512.h \
@@ -316,8 +313,7 @@ SODIUM_EXPORT = \
 	sodium/crypto_hash_sha512.h \
 	sodium/crypto_onetimeauth.h \
 	sodium/crypto_onetimeauth_poly1305.h \
-	sodium/crypto_onetimeauth_poly1305_donna.h \
-	sodium/crypto_pwhash_scryptxsalsa208sha256.h \
+	sodium/crypto_pwhash_scryptsalsa208sha256.h \
 	sodium/crypto_scalarmult.h \
 	sodium/crypto_scalarmult_curve25519.h \
 	sodium/crypto_secretbox.h \
@@ -330,6 +326,7 @@ SODIUM_EXPORT = \
 	sodium/crypto_stream.h \
 	sodium/crypto_stream_aes128ctr.h \
 	sodium/crypto_stream_aes256estream.h \
+	sodium/crypto_stream_chacha20.h \
 	sodium/crypto_stream_salsa20.h \
 	sodium/crypto_stream_salsa2012.h \
 	sodium/crypto_stream_salsa208.h \

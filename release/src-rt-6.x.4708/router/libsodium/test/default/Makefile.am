@@ -2,6 +2,7 @@
 EXTRA_DIST = \
 	cmptest.h \
 	wintest.bat \
+	aead_chacha20poly1305.exp \
 	auth.exp \
 	auth2.exp \
 	auth3.exp \
@@ -14,6 +15,8 @@ EXTRA_DIST = \
 	box8.exp \
 	box_easy.exp \
 	box_easy2.exp \
+	box_seed.exp \
+	chacha20.exp \
 	core1.exp \
 	core2.exp \
 	core3.exp \
@@ -30,12 +33,11 @@ EXTRA_DIST = \
 	onetimeauth2.exp \
 	onetimeauth7.exp \
 	pwhash.exp \
+	pwhash_scrypt_ll.exp \
 	scalarmult.exp \
 	scalarmult2.exp \
 	scalarmult5.exp \
 	scalarmult6.exp \
-	scalarmult7.exp \
-	scalarmult8.exp \
 	secretbox.exp \
 	secretbox2.exp \
 	secretbox7.exp \
@@ -56,6 +58,7 @@ EXTRA_DIST = \
 	verify1.exp
 
 DISTCLEANFILES = \
+	aead_chacha20poly1305.res \
 	auth.res \
 	auth2.res \
 	auth3.res \
@@ -68,6 +71,8 @@ DISTCLEANFILES = \
 	box8.res \
 	box_easy.res \
 	box_easy2.res \
+	box_seed.res \
+	chacha20.res \
 	core1.res \
 	core2.res \
 	core3.res \
@@ -84,12 +89,11 @@ DISTCLEANFILES = \
 	onetimeauth2.res \
 	onetimeauth7.res \
 	pwhash.res \
+	pwhash_scrypt_ll.res \
 	scalarmult.res \
 	scalarmult2.res \
 	scalarmult5.res \
 	scalarmult6.res \
-	scalarmult7.res \
-	scalarmult8.res \
 	secretbox.res \
 	secretbox2.res \
 	secretbox7.res \
@@ -118,6 +122,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/test/quirks
 
 TESTS_TARGETS = \
+	aead_chacha20poly1305 \
 	auth \
 	auth2 \
 	auth3 \
@@ -130,6 +135,8 @@ TESTS_TARGETS = \
 	box8 \
 	box_easy \
 	box_easy2 \
+	box_seed \
+	chacha20 \
 	core1 \
 	core2 \
 	core3 \
@@ -145,13 +152,12 @@ TESTS_TARGETS = \
 	onetimeauth2 \
 	onetimeauth7 \
 	pwhash \
+	pwhash_scrypt_ll \
 	randombytes \
 	scalarmult \
 	scalarmult2 \
 	scalarmult5 \
 	scalarmult6 \
-	scalarmult7 \
-	scalarmult8 \
 	secretbox \
 	secretbox2 \
 	secretbox7 \
@@ -167,9 +173,13 @@ TESTS_TARGETS = \
 	stream2 \
 	stream3 \
 	stream4 \
-	stream5 \
-	stream6 \
 	verify1
+
+if !MINIMAL
+TESTS_TARGETS += \
+	stream5 \
+	stream6
+endif
 
 check_PROGRAMS = $(TESTS_TARGETS)
 
@@ -177,6 +187,9 @@ TESTS = $(TESTS_TARGETS)
 
 TESTS_LDADD = \
 	${top_builddir}/src/libsodium/libsodium.la
+
+aead_chacha20poly1305_SOURCE          = cmptest.h aead_chacha20poly1305.c
+aead_chacha20poly1305_LDADD           = $(TESTS_LDADD)
 
 auth_SOURCE               = cmptest.h auth.c
 auth_LDADD                = $(TESTS_LDADD)
@@ -213,6 +226,12 @@ box_easy_LDADD            = $(TESTS_LDADD)
 
 box_easy2_SOURCE          = cmptest.h box_easy2.c
 box_easy2_LDADD           = $(TESTS_LDADD)
+
+box_seed_SOURCE           = cmptest.h box_seed.c
+box_seed_LDADD            = $(TESTS_LDADD)
+
+chacha20_SOURCE           = cmptest.h chacha20.c
+chacha20_LDADD            = $(TESTS_LDADD)
 
 core1_SOURCE              = cmptest.h core1.c
 core1_LDADD               = $(TESTS_LDADD)
@@ -259,6 +278,9 @@ onetimeauth7_LDADD        = $(TESTS_LDADD)
 pwhash_SOURCE             = cmptest.h pwhash.c
 pwhash_LDADD              = $(TESTS_LDADD)
 
+pwhash_scrypt_ll_SOURCE   = cmptest.h pwhash_scrypt_ll.c
+pwhash_scrypt_ll_LDADD    = $(TESTS_LDADD)
+
 randombytes_SOURCE        = randombytes.c
 randombytes_LDADD         = $(TESTS_LDADD)
 
@@ -273,12 +295,6 @@ scalarmult5_LDADD         = $(TESTS_LDADD)
 
 scalarmult6_SOURCE        = cmptest.h scalarmult6.c
 scalarmult6_LDADD         = $(TESTS_LDADD)
-
-scalarmult7_SOURCE        = cmptest.h scalarmult7.c
-scalarmult7_LDADD         = $(TESTS_LDADD)
-
-scalarmult8_SOURCE        = cmptest.h scalarmult8.c
-scalarmult8_LDADD         = $(TESTS_LDADD)
 
 secretbox_SOURCE          = cmptest.h secretbox.c
 secretbox_LDADD           = $(TESTS_LDADD)

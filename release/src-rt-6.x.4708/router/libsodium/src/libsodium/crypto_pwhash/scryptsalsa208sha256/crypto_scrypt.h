@@ -32,28 +32,14 @@
 
 #include <stdint.h>
 
-#define crypto_pwhash_scryptxsalsa208sha256_STRPREFIXBYTES 14
-#define crypto_pwhash_scryptxsalsa208sha256_STRSETTINGBYTES 57
-#define crypto_pwhash_scryptxsalsa208sha256_STRSALTBYTES 32
-#define crypto_pwhash_scryptxsalsa208sha256_STRSALTBYTES_ENCODED 43
-#define crypto_pwhash_scryptxsalsa208sha256_STRHASHBYTES 32
-#define crypto_pwhash_scryptxsalsa208sha256_STRHASHBYTES_ENCODED 43
+#define crypto_pwhash_scryptsalsa208sha256_STRPREFIXBYTES 14
+#define crypto_pwhash_scryptsalsa208sha256_STRSETTINGBYTES 57
+#define crypto_pwhash_scryptsalsa208sha256_STRSALTBYTES 32
+#define crypto_pwhash_scryptsalsa208sha256_STRSALTBYTES_ENCODED 43
+#define crypto_pwhash_scryptsalsa208sha256_STRHASHBYTES 32
+#define crypto_pwhash_scryptsalsa208sha256_STRHASHBYTES_ENCODED 43
 
 #define BYTES2CHARS(bytes) ((((bytes) * 8) + 5) / 6)
-
-/**
- * crypto_scrypt_compat(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
- * Compute scrypt(passwd[0 .. passwdlen - 1], salt[0 .. saltlen - 1], N, r,
- * p, buflen) and write the result into buf.  The parameters r, p, and buflen
- * must satisfy r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter N
- * must be a power of 2 greater than 1.
- *
- * Return 0 on success; or -1 on error.
- */
-extern int crypto_scrypt_compat(const uint8_t * __passwd, size_t __passwdlen,
-    const uint8_t * __salt, size_t __saltlen,
-    uint64_t __N, uint32_t __r, uint32_t __p,
-    uint8_t * __buf, size_t __buflen);
 
 typedef struct {
 	void * base, * aligned;

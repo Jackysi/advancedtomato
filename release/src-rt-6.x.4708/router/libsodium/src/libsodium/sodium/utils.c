@@ -19,6 +19,15 @@
 # include <wincrypt.h>
 #endif
 
+#ifdef HAVE_WEAK_SYMBOLS
+__attribute__((weak)) void
+__sodium_dummy_symbol_to_prevent_lto(void * const pnt, const size_t len)
+{
+    (void) pnt;
+    (void) len;
+}
+#endif
+
 void
 sodium_memzero(void * const pnt, const size_t len)
 {
@@ -30,6 +39,9 @@ sodium_memzero(void * const pnt, const size_t len)
     }
 #elif defined(HAVE_EXPLICIT_BZERO)
     explicit_bzero(pnt, len);
+#elif HAVE_WEAK_SYMBOLS
+    memset(pnt, 0, len);
+    __sodium_dummy_symbol_to_prevent_lto(pnt, len);
 #else
     volatile unsigned char *pnt_ = (volatile unsigned char *) pnt;
     size_t                     i = (size_t) 0U;
@@ -161,6 +173,9 @@ sodium_hex2bin(unsigned char * const bin, const size_t bin_maxlen,
 int
 sodium_mlock(void * const addr, const size_t len)
 {
+#ifdef MADV_DONTDUMP
+    (void) madvise(addr, len, MADV_DONTDUMP);
+#endif
 #ifdef HAVE_MLOCK
     return mlock(addr, len);
 #elif defined(HAVE_VIRTUALLOCK)
@@ -175,6 +190,9 @@ int
 sodium_munlock(void * const addr, const size_t len)
 {
     sodium_memzero(addr, len);
+#ifdef MADV_DODUMP
+    (void) madvise(addr, len, MADV_DODUMP);
+#endif
 #ifdef HAVE_MLOCK
     return munlock(addr, len);
 #elif defined(HAVE_VIRTUALLOCK)

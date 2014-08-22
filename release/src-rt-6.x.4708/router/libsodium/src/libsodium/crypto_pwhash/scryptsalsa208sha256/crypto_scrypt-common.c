@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "crypto_pwhash_scryptxsalsa208sha256.h"
+#include "crypto_pwhash_scryptsalsa208sha256.h"
 #include "crypto_scrypt.h"
 #include "runtime.h"
 #include "utils.h"
@@ -107,7 +107,7 @@ uint8_t *
 escrypt_r(escrypt_local_t * local, const uint8_t * passwd, size_t passwdlen,
           const uint8_t * setting, uint8_t * buf, size_t buflen)
 {
-    uint8_t        hash[crypto_pwhash_scryptxsalsa208sha256_STRHASHBYTES];
+    uint8_t        hash[crypto_pwhash_scryptsalsa208sha256_STRHASHBYTES];
     escrypt_kdf_t  escrypt_kdf;
     const uint8_t *src;
     const uint8_t *salt;
@@ -149,7 +149,7 @@ escrypt_r(escrypt_local_t * local, const uint8_t * passwd, size_t passwdlen,
         saltlen = strlen((char *)salt);
     }
     need = prefixlen + saltlen + 1 +
-        crypto_pwhash_scryptxsalsa208sha256_STRHASHBYTES_ENCODED + 1;
+        crypto_pwhash_scryptsalsa208sha256_STRHASHBYTES_ENCODED + 1;
     if (need > buflen || need < saltlen) {
         return NULL;
     }
@@ -222,10 +222,10 @@ escrypt_gensalt_r(uint32_t N_log2, uint32_t r, uint32_t p,
 }
 
 int
-crypto_scrypt_compat(const uint8_t * passwd, size_t passwdlen,
-                     const uint8_t * salt, size_t saltlen,
-                     uint64_t N, uint32_t r, uint32_t p,
-                     uint8_t * buf, size_t buflen)
+crypto_pwhash_scryptsalsa208sha256_ll(const uint8_t * passwd, size_t passwdlen,
+                                      const uint8_t * salt, size_t saltlen,
+                                      uint64_t N, uint32_t r, uint32_t p,
+                                      uint8_t * buf, size_t buflen)
 {
     escrypt_kdf_t   escrypt_kdf;
     escrypt_local_t local;
