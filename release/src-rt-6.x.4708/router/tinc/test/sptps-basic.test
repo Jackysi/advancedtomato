@@ -1,0 +1,32 @@
+#!/bin/sh
+
+. ./testlib.sh
+
+# Generate keys
+
+mkdir -p $d1
+
+openssl ecparam -genkey -name secp521r1 -noout -out $d1/server.priv
+openssl ecparam -genkey -name secp521r1 -noout -out $d1/client.priv
+yes '' | openssl req -new -pubkey -key $d1/server.priv -noout -out $d1/server.pub
+echo
+yes '' | openssl req -new -pubkey -key $d1/client.priv -noout -out $d1/client.pub
+echo
+
+# Test transfer of a simple file.
+
+(sleep 1; $sptps_test -q $d1/client.priv $d1/server.pub localhost 32750 <../README) &
+$sptps_test $d1/server.priv $d1/client.pub 32750 >$d1/out1
+cmp $d1/out1 ../README
+
+$sptps_test -q $d1/server.priv $d1/client.pub 32750 <../NEWS &
+sleep 1
+$sptps_test $d1/client.priv $d1/server.pub localhost 32750 > $d1/out2
+cmp $d1/out2 ../NEWS
+
+# Datagram mode
+
+$sptps_test -dq $d1/server.priv $d1/client.pub 32750 <../COPYING &
+sleep 1
+sleep 1 | $sptps_test -dq $d1/client.priv $d1/server.pub localhost 32750 >$d1/out3
+cmp $d1/out3 ../COPYING
