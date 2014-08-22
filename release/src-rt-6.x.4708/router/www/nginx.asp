@@ -32,7 +32,7 @@
 </style>
 <script type='text/javascript'>
 
-//	<% nvram("nginx_enable,nginx_php,nginx_keepconf,nginx_port,nginx_fqdn,nginx_docroot,nginx_priority,nginx_custom"); %>
+//	<% nvram("nginx_enable,nginx_php,nginx_keepconf,nginx_port,nginx_fqdn,nginx_docroot,nginx_priority,nginx_custom,nginx_user"); %>
 
 changed = 0;
 nginxup = parseInt ('<% psup("nginx"); %>');
@@ -58,6 +58,7 @@ function verifyFields(focused, quiet)
 	var vis = {
 			_f_nginx_php : 1,
 			_f_nginx_port : 1,
+			_f_nginx_user : 1,
 			_f_nginx_keepconf : 1,
 			_f_nginx_fqdn : 1,
 			_f_nginx_docroot : 1,
@@ -156,6 +157,8 @@ function init()
 createFieldTable('', [
 	{ title: 'Enable Server on Start', name: 'f_nginx_enable', type: 'checkbox', value: nvram.nginx_enable == '1'},
 	{ title: 'Enable PHP support', name: 'f_nginx_php', type: 'checkbox', value: (nvram.nginx_php != '0') },
+	{ title: 'Run As', name: 'nginx_user', type: 'select',
+		options: [['root','Root'],['nobody','Nobody']], value: nvram.nginx_user },
 	{ title: 'Keep Config Files', name: 'f_nginx_keepconf', type: 'checkbox', value: (nvram.nginx_keepconf != '0') },
 	{ title: 'Web Server Port', name: 'f_nginx_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.nginx_port, 85), suffix: '<small> default: 85</small>' },
 	{ title: 'Web Server Name', name: 'f_nginx_fqdn', type: 'text', maxlen: 255, size: 20, value: nvram.nginx_fqdn },
@@ -175,6 +178,8 @@ createFieldTable('', [
 <br>
 <li><b> Status Button:</b> Quick Start-Stop Service. Enable Web Server must be checked to modify settings.<br>
 <li><b> Enable Server on Start:</b> To activate the Web Server tick and save this screen.<br>
+<li><b> Enable PHP support:</b> To activate the PHP support (php-cgi) tick and save this screen.<br>
+<li><b> Run As:</b> Select user used to start nginx and php-cgi daemon.<br>
 <li><b> Keep Config Files:</b> Have you modified the configuration file manually? Tick this box and changes will be maintained.<br> 
 <li><b> Web Server Port:</b> The Port used by the Web Server to be accessed. Check conflict when the port is used by other services.<br>
 <li><b> Web Server Name:</b> Name that will appear on top of your Internet Browser.<br>
