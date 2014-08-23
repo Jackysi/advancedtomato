@@ -33,7 +33,11 @@ ifneq (,$(wildcard $(src)/$(CTFSRC)/*.c))
   EXTRA_CFLAGS += -I$(src)/$(CTFSRC)/../../ctf -DHNDCTF
   ctf-objs := $(CTFOBJ) ctf_ksyms.o
 else
+ifneq ($(CONFIG_SMP),y)
+  ctf-objs := $(CTFSRC)/up/linux/ctf.o
+else
   ctf-objs := $(CTFSRC)/linux/ctf.o
+endif
 endif
 
 ifeq (,${KERNELRELEASE})

@@ -141,10 +141,13 @@ ifneq ($(ASUS_TRX),0)
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
 # for asus RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R
 ifeq ($(ASUS_TRX),ASUS)
-	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
+ifeq ($(BCMSMP),y)
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC56U,3.0.0.4,image/tomato-RT-AC56U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68R,3.0.0.4,image/tomato-RT-AC68R-$(V1)$(V2)-$(current_BUILD_DESC).trx
+else
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 endif
 # for R7000
 ifeq ($(ASUS_TRX),NETGEAR)
@@ -779,6 +782,27 @@ define KernelConfig
 	else \
 		echo "CONFIG_LINUX_MTD=$(LINUX_MTD)" >>$(1); \
 	fi; \
+	if [ "$(ARMCPUSMP)" = "up" ]; then \
+		sed -i "/CONFIG_GENERIC_CLOCKEVENTS_BROADCAST/d" $(1); \
+		echo "CONFIG_HAVE_LATENCYTOP_SUPPORT=y" >>$(1); \
+		sed -i "/CONFIG_GENERIC_LOCKBREAK/d" $(1); \
+		echo "CONFIG_BROKEN_ON_SMP=y" >>$(1); \
+		sed -i "/CONFIG_TREE_RCU=y/# CONFIG_TREE_RCU is not set/g" >>$(1); \
+		echo "CONFIG_TREE_PREEMPT_RCU=y" >>$(1); \
+		echo "# CONFIG_TINY_RCU is not set" >>$(1); \
+		sed -i "/CONFIG_USE_GENERIC_SMP_HELPERS/d" $(1); \
+		sed -i "/CONFIG_STOP_MACHINE/d" $(1); \
+		sed -i "/CONFIG_MUTEX_SPIN_ON_OWNER/d" $(1); \
+		echo "# CONFIG_MUTEX_SPIN_ON_OWNER is not set" >>$(1); \
+		sed -i "/# CONFIG_ARM_ERRATA_742230 is not set/d" $(1); \
+		sed -i "/# CONFIG_ARM_ERRATA_742231 is not set/d" $(1); \
+		sed -i "/# CONFIG_ARM_ERRATA_720789 is not set/d" $(1); \
+		sed -i "/CONFIG_SMP=y/d" $(1); \
+		echo "# CONFIG_SMP is not set" >>$(1); \
+		sed -i "/CONFIG_NR_CPUS=2/d" $(1); \
+		sed -i "/# CONFIG_HOTPLUG_CPU is not set/d" $(1); \
+		sed -i "/CONFIG_RPS=y/d" $(1); \
+	fi; \
 	if [ "$(USBAP)" = "y" ]; then \
 		echo "CONFIG_WL_USBAP=y" >>$(1); \
 		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_high"' >>$(1); \
@@ -832,6 +856,12 @@ ac68e:
 
 ac68z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" UFSD="ASUS" CTF=y GRO=y NGINX=y
+
+n18e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS" CTF=y GRO=y
+
+n18z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS" CTF=y GRO=y NGINX=y
 
 r7000e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" CTF=y GRO=y
