@@ -95,5 +95,6 @@ _install_package ipkg-opt_0.99.163-10_arm.ipk
 
 ##ipkg.conf
 echo "src/gz nslu2 http://ipkg.nslu2-linux.org/feeds/optware/mbwe-bluering/cross/stable" > /opt/etc/ipkg.conf
+echo "src shibby http://tomato.groov.pl/repo-arm" > /opt/etc/ipkg.conf
 echo "dest /opt/ /" >> /opt/etc/ipkg.conf
 /opt/bin/ipkg update
