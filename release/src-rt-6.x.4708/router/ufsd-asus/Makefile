@@ -16,10 +16,14 @@ install:
 	@echo "[ufsd] Installing..."
 	@install -d $(INSTALLDIR)/usr/sbin
 	@install -d $(DSTDIR)
+ifneq ($(TCONFIG_BCMSMP),y)
+	@cp $(SRCFILE)_up/ufsd.ko $(DSTDIR)
+else
 	@cp $(SRCFILE)/ufsd.ko $(DSTDIR)
 	@cp $(SRCFILE)/jnl.ko $(DSTDIR)
-	@chmod 664 $(DSTDIR)/ufsd.ko
 	@chmod 664 $(DSTDIR)/jnl.ko
+endif
+	@chmod 664 $(DSTDIR)/ufsd.ko
 	@cp $(SRCFILE)/mkntfs $(INSTALLDIR)/usr/sbin
 	@cp $(SRCFILE)/chkntfs $(INSTALLDIR)/usr/sbin
 	@cp $(SRCFILE)/mkhfs $(INSTALLDIR)/usr/sbin
