@@ -97,7 +97,7 @@ th.dataToView = function(data) {
 
 th.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
-	return [f[0].checked ? 1 : 0, f[1].value, f[2].value, f[3].value, f[4].value, f[5].value, _host_rsa_key.value, _host_ecdsa_key.value, _host_custom.value ];
+	return [f[0].checked ? 1 : 0, f[1].value, f[2].value, f[3].value, f[4].value, f[5].value, E('_host_rsa_key').value, E('_host_ecdsa_key').value, E('_host_custom').value ];
 }
 
 
@@ -109,33 +109,48 @@ th.resetNewEditor = function() {
 	f[3].value = '';
 	f[4].selectedIndex = 0;
 	f[5].value = '';
-	_host_rsa_key.value = '';
-	_host_ecdsa_key.value = '';
-	_host_custom.value = '';
+	E('_host_rsa_key').value = '';
+	E('_host_ecdsa_key').value = '';
+	E('_host_custom').value = '';
 	ferror.clearAll(fields.getAll(this.newEditor));
-	ferror.clear(_host_rsa_key);
-	ferror.clear(_host_ecdsa_key);
+	ferror.clear(E('_host_rsa_key'));
+	ferror.clear(E('_host_ecdsa_key'));
 }
 
 th.verifyFields = function(row, quiet) {
 
 	var f = fields.getAll(row);
 
-	if (f[1].value == "") {  ferror.set(f[1], "Host Name is required.", quiet); return 0 ; }
-	if (f[0].checked && f[2].value == "") {  ferror.set(f[2], "Address must be supplied when ConnectTo is checked.", quiet); return 0 ; }
+	if (f[1].value == "") {
+		ferror.set(f[1], "Host Name is required.", quiet); return 0 ; }
+	else {  ferror.clear(f[1]) }
+
+	if (f[0].checked && f[2].value == "") {
+		ferror.set(f[2], "Address must be supplied when ConnectTo is checked.", quiet); return 0 ; }
+	else {  ferror.clear(f[2]) }
+
 	if (!f[3].value == "" ) {
 		if (!v_port(f[3], quiet)) return 0 ;
 	}
 
-	if(_tinc_devicetype.value == 'tun'){
-		if ((!v_subnet(f[5], 1)) && (!v_ip(f[5], 1))) { ferror.set(f[5], "Invalid Subnet or IP address.", quiet); return 0 ; }
+	if(E('_tinc_devicetype').value == 'tun'){
+		if ((!v_subnet(f[5], 1)) && (!v_ip(f[5], 1))) {
+			ferror.set(f[5], "Invalid Subnet or IP address.", quiet); return 0 ; }
+		else {  ferror.clear(f[5]) }
 	}
-	else if (_tinc_devicetype.value == 'tap'){
-		if (f[5].value != '') { ferror.set(f[5], "Subnet is left blank when using the TAP Interface Type.", quiet); return 0 ; }
+	else if (E('_tinc_devicetype').value == 'tap'){
+		if (f[5].value != '') {
+			ferror.set(f[5], "Subnet is left blank when using the TAP Interface Type.", quiet); return 0 ; }
+		else {  ferror.clear(f[5]) }
 	}
 
-	if (_host_rsa_key.value == "") {  ferror.set(_host_rsa_key, "RSA Public Key is required.", quiet); return 0 ; }
-	if (_host_ecdsa_key.value == "") {  ferror.set(_host_ecdsa_key, "ECDSA Public Key is required.", quiet); return 0 ; }
+	if (E('_host_rsa_key').value == "") {
+		ferror.set(E('_host_rsa_key'), "RSA Public Key is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_host_rsa_key')) }
+
+	if (E('_host_ecdsa_key').value == "") {
+		ferror.set(E('_host_ecdsa_key'), "ECDSA Public Key is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_host_ecdsa_key')) }
 
 	return 1;
 }
@@ -166,10 +181,10 @@ function verifyFields(focused, quiet)
 
 	switch(E('_tinc_manual_tinc_up').value) {
 		case '0' :
-			_tinc_tinc_up.disabled = 1 ;
+			E('_tinc_tinc_up').disabled = 1 ;
 		break;
 		case '1' :
-			_tinc_tinc_up.disabled = 0 ;
+			E('_tinc_tinc_up').disabled = 0 ;
 		break;
 	}
 
@@ -180,28 +195,46 @@ function verifyFields(focused, quiet)
 		PR(b).style.display = c ? '' : 'none';
 	}
 
-	edges.disabled = !tincup;
-	connections.disabled = !tincup;
-	subnets.disabled = !tincup;
-	nodes.disabled = !tincup;
-	info.disabled = !tincup;
-	hostselect.disabled = !tincup;
+	E('edges').disabled = !tincup;
+	E('connections').disabled = !tincup;
+	E('subnets').disabled = !tincup;
+	E('nodes').disabled = !tincup;
+	E('info').disabled = !tincup;
+	E('hostselect').disabled = !tincup;
 
 	// Element Verification
-	if (_tinc_name.value == "") {  ferror.set(_tinc_name, "Host Name is required.", quiet); return 0 ; }
-	if (_tinc_private_rsa.value == "") {  ferror.set(_tinc_private_rsa, "RSA Private Key is required.", quiet); return 0 ; }
-	if (_tinc_private_ecdsa.value == "") {  ferror.set(_tinc_private_ecdsa, "ECDSA Private Key is required.", quiet); return 0 ; }
+	if (E('_tinc_name').value == "") {
+		ferror.set(E('_tinc_name'), "Host Name is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_tinc_name')) }
+
+	if (E('_tinc_private_rsa').value == "") {
+		ferror.set(E('_tinc_private_rsa'), "RSA Private Key is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_tinc_private_rsa')) }
+
+	if (E('_tinc_private_ecdsa').value == "") {
+		ferror.set(E('_tinc_private_ecdsa'), "ECDSA Private Key is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_tinc_private_ecdsa')) }
+
 	if (!v_netmask('_tinc_vpn_netmask', quiet)) return 0;
+
+	if (!E('_host_rsa_key').value == "") {
+		ferror.clear(E('_host_rsa_key')) }
+
+	if (!E('_host_ecdsa_key').value == "") {
+		ferror.clear(E('_host_ecdsa_key')) }
 
 	var hostdefined = false;
 	var hosts = th.getAllData();
 	for (var i = 0; i < hosts.length; ++i) {
-		if(hosts[i][1] == _tinc_name.value){
+		if(hosts[i][1] == E('_tinc_name').value){
 			hostdefined = true;
 			break;
 		}
 	}
-	if (!hostdefined) {  ferror.set(_tinc_name, "Host Name \"" + _tinc_name.value + "\" is not defined in hosts area.", quiet); return 0 ; }
+
+	if (!hostdefined) {
+		ferror.set(E('_tinc_name'), "Host Name \"" + E('_tinc_name').value + "\" is not defined in hosts area.", quiet); return 0 ; }
+	else {  ferror.clear(E('_tinc_name')) };
 
 	return 1;
 }
@@ -244,10 +277,10 @@ String.prototype.between = function(prefix, suffix) {
 
 function displayKeys()
 {
-	_rsa_private_key.value = "-----BEGIN RSA PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN RSA PRIVATE KEY-----\n','\n-----END RSA PRIVATE KEY-----') + "\n-----END RSA PRIVATE KEY-----";
-	_rsa_public_key.value = "-----BEGIN RSA PUBLIC KEY-----\n" + cmdresult. between('-----BEGIN RSA PUBLIC KEY-----\n','\n-----END RSA PUBLIC KEY-----') + "\n-----END RSA PUBLIC KEY-----";
-	_ecdsa_private_key.value = "-----BEGIN EC PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN EC PRIVATE KEY-----\n','\n-----END EC PRIVATE KEY-----') + "\n-----END EC PRIVATE KEY-----";
-	_ecdsa_public_key.value = cmdresult. between('-----END EC PRIVATE KEY-----\n','\n');
+	E('_rsa_private_key').value = "-----BEGIN RSA PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN RSA PRIVATE KEY-----\n','\n-----END RSA PRIVATE KEY-----') + "\n-----END RSA PRIVATE KEY-----";
+	E('_rsa_public_key').value = "-----BEGIN RSA PUBLIC KEY-----\n" + cmdresult. between('-----BEGIN RSA PUBLIC KEY-----\n','\n-----END RSA PUBLIC KEY-----') + "\n-----END RSA PUBLIC KEY-----";
+	E('_ecdsa_private_key').value = "-----BEGIN EC PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN EC PRIVATE KEY-----\n','\n-----END EC PRIVATE KEY-----') + "\n-----END EC PRIVATE KEY-----";
+	E('_ecdsa_public_key').value = cmdresult. between('-----END EC PRIVATE KEY-----\n','\n');
 
 	cmdresult = '';
 	spin(0,'generateWait');
@@ -259,10 +292,10 @@ function generateKeys()
 	E('execb').disabled = 1;
 	spin(1,'generateWait');
 
-	_rsa_private_key.value = "";
-	_rsa_public_key.value = "";
-	_ecdsa_private_key.value = "";
-	_ecdsa_public_key.value = "";
+	E('_rsa_private_key').value = "";
+	E('_rsa_public_key').value = "";
+	E('_ecdsa_private_key').value = "";
+	E('_ecdsa_public_key').value = "";
 
 	cmd = new XmlHttp();
 	cmd.onCompleted = function(text, xml) {
@@ -337,9 +370,9 @@ function displayNodes()
 	{
 		if (hosts[i] != ''){
 			hostselect.options[hostselect.options.length]=new Option(hosts[i],hosts[i]);
-				if(hosts[i] == selected){
-					hostselect.value = selected;
-				}
+			if(hosts[i] == selected){
+				hostselect.value = selected;
+			}
 		}
 	}
 
