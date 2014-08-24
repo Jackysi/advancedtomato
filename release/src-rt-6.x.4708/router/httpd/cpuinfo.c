@@ -91,15 +91,31 @@ int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk
 			//printf("bogomips: %s\n", value);
 			strcpy(bogomips, value);
 		}
-		if (strncmp_ex(title, "cpu MHz")==0) {
-			okcount++;
-			//printf("cpuclk: %s\n", value);
-			strcpy(cpuclk, value);
-		}
+//		if (strncmp_ex(title, "cpu MHz")==0) {
+//			okcount++;
+//			//printf("cpuclk: %s\n", value);
+//			strcpy(cpuclk, value);
+//		}
 
 		//fprintf (stderr, "%s - %s", title, value);
 	}
 	fclose(fd);
+
+	system("/usr/sbin/sysinfo-helper");
+	fd = fopen ("/tmp/sysinfo-helper", "r");
+	while (fgets(buff, sizeof(buff), fd)) {
+		next = buff;
+		strcpy(title, strsep(&next, ":"));
+		if (next == NULL) continue;
+		strcpy(value, next);
+		trim(value);
+		if (strncmp_ex(title, "cpu MHz")==0) {
+			okcount++;
+			strcpy(cpuclk, value);
+		}
+	}
+	fclose(fd);
+
 	return (okcount==3);
 }
 

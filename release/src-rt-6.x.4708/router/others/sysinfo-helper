@@ -1,0 +1,13 @@
+#!/bin/sh
+
+a=`cat /proc/cpuinfo | grep BogoMIPS | head -1 | awk {' print $3'} | awk '{printf "%0.1f %s\n", $1/100}' | awk '{printf "%s\n", $1*50}'`
+
+b=`cat /proc/cpuinfo | grep processor | wc -l`
+
+if [ $b == "1" ]; then
+c="single"
+else
+c="dual"
+fi
+
+echo "cpu MHz : $a MHz ($c" > /tmp/sysinfo-helper

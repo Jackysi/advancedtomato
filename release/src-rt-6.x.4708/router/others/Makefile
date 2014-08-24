@@ -37,6 +37,9 @@ endif
 #MOTD
 	install -m 0700 mymotd $(INSTALLDIR)/usr/sbin
 
+#sysinfo-helper
+	install -m 0700 sysinfo-helper $(INSTALLDIR)/usr/sbin
+
 #Link Aggregation
 	install -m 0700 LinkAgg $(INSTALLDIR)/usr/sbin
 
