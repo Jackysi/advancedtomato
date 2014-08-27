@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([libsodium],[0.6.1],
+AC_INIT([libsodium],[0.7.0],
   [https://github.com/jedisct1/libsodium/issues],
   [libsodium],
   [https://github.com/jedisct1/libsodium])
@@ -15,10 +15,10 @@ AC_SUBST(VERSION)
 ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
-SODIUM_LIBRARY_VERSION_MAJOR=6
-SODIUM_LIBRARY_VERSION_MINOR=1
-DLL_VERSION=5
-SODIUM_LIBRARY_VERSION=12:0:2
+SODIUM_LIBRARY_VERSION_MAJOR=7
+SODIUM_LIBRARY_VERSION_MINOR=0
+DLL_VERSION=6
+SODIUM_LIBRARY_VERSION=13:0:0
 #                       | | |
 #                +------+ | +---+
 #                |        |     |
@@ -70,13 +70,11 @@ AS_IF([test "x$EMSCRIPTEN" != "x"],[
   AC_MSG_WARN([compiling to javascript - asm implementations disabled])
 ])
 
-AS_CASE([$host], [x86_64-*-mingw* | x86_64-*-cygwin*], [enable_asm="no"])
-
 AC_ARG_ENABLE(pie,
 [AS_HELP_STRING(--disable-pie,Do not produce position independent executables)],
  enable_pie=$enableval, enable_pie="maybe")
 
-AS_CASE([$host_os], [mingw*], [enable_pie="no"])
+AS_CASE([$host_os], [mingw*|cygwin*|msys], [enable_pie="no"])
 
 AC_ARG_ENABLE(blocking-random,
 [AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
@@ -142,10 +140,12 @@ CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
 AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
   [CFLAGS="$CFLAGS -fvisibility=hidden"])
 
-AX_CHECK_COMPILE_FLAG([-fPIC], [
-  AX_CHECK_LINK_FLAG([-fPIC],
-    [CFLAGS="$CFLAGS -fPIC"]
-  )
+AS_CASE([$host_os], [cygwin*|mingw*|msys|pw32*|cegcc*], [ ], [
+  AX_CHECK_COMPILE_FLAG([-fPIC], [
+    AX_CHECK_LINK_FLAG([-fPIC],
+      [CFLAGS="$CFLAGS -fPIC"]
+    )
+  ])
 ])
 
 AS_IF([test "$enable_pie" != "no"],[
@@ -174,7 +174,7 @@ AC_ARG_ENABLE(soname-versions,
 )
 
 AS_CASE([$host_os],
-  [cygwin* | mingw* | pw32* | cegcc*], [
+  [cygwin*|mingw*|msys|pw32*|cegcc*], [
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
   ])
@@ -182,7 +182,7 @@ AS_CASE([$host_os],
 AS_IF([test "x$enable_ssp" != "xno"],[
 
 AS_CASE([$host_os],
-  [cygwin* | mingw* | pw32* | cegcc*], [ ],
+  [cygwin*|mingw*|msys|pw32*|cegcc*], [ ],
   [dragonfly*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector], [
       AX_CHECK_LINK_FLAG([-fstack-protector],
@@ -320,18 +320,21 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 HAVE_AMD64_ASM_V=0
 AS_IF([test "$enable_asm" != "no"],[
-  AC_MSG_CHECKING(whether we can assemble basic amd64 code)
+  AC_MSG_CHECKING(whether we should use x86_64 asm code)
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   ]], [[
 #if defined(__amd64) || defined(__amd64__) || defined(__x86_64__)
+# if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__) || defined(_WIN32) || defined(_WIN64)
+#  error Windows x86_64 calling conventions are not supported yet
+# endif
 /* neat */
 #else
-# error !amd64
+# error !x86_64
 #endif
 __asm__("pxor %xmm12,%xmm6");
 ]])],
   [AC_MSG_RESULT(yes)
-   AC_DEFINE([HAVE_AMD64_ASM], [1], [basic amd64 code can be assembled])
+   AC_DEFINE([HAVE_AMD64_ASM], [1], [x86_64 asm code should be used])
    HAVE_AMD64_ASM_V=1],
   [AC_MSG_RESULT(no)])
 ])
@@ -406,14 +409,10 @@ AS_CASE([$host_cpu],
 
 dnl Checks for functions and headers
 
-AC_CHECK_FUNC(clock_gettime, , [AC_CHECK_LIB(rt, clock_gettime)])
-AC_CHECK_FUNC(fegetenv, , [AC_CHECK_LIB(m, fegetenv)])
-
 AS_IF([test "x$EMSCRIPTEN" = "x"],[
   AC_CHECK_FUNCS([arc4random arc4random_buf])
 ])
-AC_CHECK_FUNCS([mlock VirtualLock])
-AC_CHECK_FUNCS([SecureZeroMemory explicit_bzero posix_memalign])
+AC_CHECK_FUNCS([mlock mprotect explicit_bzero posix_memalign])
 
 AC_SUBST([LIBTOOL_EXTRA_FLAGS])
 
@@ -425,7 +424,7 @@ gl_LD_OUTPUT_DEF
 
 dnl Output.
 
-AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
+AH_VERBATIM([NDEBUG], [/* Always evaluate assert() calls */
 #ifdef NDEBUG
 #/**/undef/**/ NDEBUG
 #endif])

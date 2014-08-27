@@ -224,14 +224,6 @@ libsodium_la_SOURCES += \
 	crypto_stream/aes128ctr/portable/stream_aes128ctr.c \
 	crypto_stream/aes128ctr/portable/types.h \
 	crypto_stream/aes128ctr/portable/xor_afternm_aes128ctr.c \
-	crypto_stream/aes256estream/hongjun/aes-table.h \
-	crypto_stream/aes256estream/hongjun/aes-table-be.h \
-	crypto_stream/aes256estream/hongjun/aes-table-le.h \
-	crypto_stream/aes256estream/hongjun/aes256-ctr.c \
-	crypto_stream/aes256estream/hongjun/aes256.h \
-	crypto_stream/aes256estream/stream_aes256estream_api.c \
-	crypto_stream/aes256estream/hongjun/api.h \
-	crypto_stream/aes256estream/hongjun/ecrypt-sync.h \
 	crypto_stream/salsa2012/stream_salsa2012_api.c \
 	crypto_stream/salsa2012/ref/api.h \
 	crypto_stream/salsa2012/ref/stream_salsa2012.c \
@@ -239,8 +231,7 @@ libsodium_la_SOURCES += \
 	crypto_stream/salsa208/stream_salsa208_api.c \
 	crypto_stream/salsa208/ref/api.h \
 	crypto_stream/salsa208/ref/stream_salsa208.c \
-	crypto_stream/salsa208/ref/xor_salsa208.c \
-	sodium/compat.c
+	crypto_stream/salsa208/ref/xor_salsa208.c
 endif
 
 libsodium_la_LDFLAGS = \

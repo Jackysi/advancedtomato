@@ -23,6 +23,7 @@ EXTRA_DIST = \
 	core4.exp \
 	core5.exp \
 	core6.exp \
+	ed25519_convert.exp \
 	generichash.exp \
 	generichash2.exp \
 	generichash3.exp \
@@ -48,13 +49,13 @@ EXTRA_DIST = \
 	sign.exp \
 	sodium_core.exp \
 	sodium_utils.exp \
+	sodium_utils2.exp \
+	sodium_utils3.exp \
 	sodium_version.exp \
 	stream.exp \
 	stream2.exp \
 	stream3.exp \
 	stream4.exp \
-	stream5.exp \
-	stream6.exp \
 	verify1.exp
 
 DISTCLEANFILES = \
@@ -79,6 +80,7 @@ DISTCLEANFILES = \
 	core4.res \
 	core5.res \
 	core6.res \
+	ed25519_convert.res \
 	generichash.res \
 	generichash2.res \
 	generichash3.res \
@@ -104,13 +106,13 @@ DISTCLEANFILES = \
 	sign.res \
 	sodium_core.res \
 	sodium_utils.res \
+	sodium_utils2.res \
+	sodium_utils3.res \
 	sodium_version.res \
 	stream.res \
 	stream2.res \
 	stream3.res \
 	stream4.res \
-	stream5.res \
-	stream6.res \
 	verify1.res
 
 AM_CPPFLAGS = \
@@ -143,6 +145,7 @@ TESTS_TARGETS = \
 	core4 \
 	core5 \
 	core6 \
+	ed25519_convert \
 	generichash \
 	generichash2 \
 	generichash3 \
@@ -168,18 +171,14 @@ TESTS_TARGETS = \
 	sign \
 	sodium_core \
 	sodium_utils \
+	sodium_utils2 \
+	sodium_utils3 \
 	sodium_version \
 	stream \
 	stream2 \
 	stream3 \
 	stream4 \
 	verify1
-
-if !MINIMAL
-TESTS_TARGETS += \
-	stream5 \
-	stream6
-endif
 
 check_PROGRAMS = $(TESTS_TARGETS)
 
@@ -250,6 +249,9 @@ core5_LDADD               = $(TESTS_LDADD)
 
 core6_SOURCE              = cmptest.h core6.c
 core6_LDADD               = $(TESTS_LDADD)
+
+ed25519_convert_SOURCE    = cmptest.h ed25519_convert.c
+ed25519_convert_LDADD     = $(TESTS_LDADD)
 
 generichash_SOURCE        = cmptest.h generichash.c
 generichash_LDADD         = $(TESTS_LDADD)
@@ -326,6 +328,12 @@ sodium_core_LDADD         = $(TESTS_LDADD)
 sodium_utils_SOURCE       = cmptest.h sodium_utils.c
 sodium_utils_LDADD        = $(TESTS_LDADD)
 
+sodium_utils2_SOURCE      = cmptest.h sodium_utils2.c
+sodium_utils2_LDADD       = $(TESTS_LDADD)
+
+sodium_utils3_SOURCE      = cmptest.h sodium_utils3.c
+sodium_utils3_LDADD       = $(TESTS_LDADD)
+
 sodium_version_SOURCE     = cmptest.h sodium_version.c
 sodium_version_LDADD      = $(TESTS_LDADD)
 
@@ -340,12 +348,6 @@ stream3_LDADD             = $(TESTS_LDADD)
 
 stream4_SOURCE            = cmptest.h stream4.c
 stream4_LDADD             = $(TESTS_LDADD)
-
-stream5_SOURCE            = cmptest.h stream5.c
-stream5_LDADD             = $(TESTS_LDADD)
-
-stream6_SOURCE            = cmptest.h stream6.c
-stream6_LDADD             = $(TESTS_LDADD)
 
 verify1_SOURCE            = cmptest.h verify1.c
 verify1_LDADD             = $(TESTS_LDADD)
