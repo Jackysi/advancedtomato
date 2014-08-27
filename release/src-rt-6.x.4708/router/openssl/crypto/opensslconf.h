@@ -104,6 +104,12 @@
 #ifndef OPENSSL_NO_TS
 # define OPENSSL_NO_TS
 #endif
+#ifndef OPENSSL_NO_UNIT_TEST
+# define OPENSSL_NO_UNIT_TEST
+#endif
+#ifndef OPENSSL_NO_UNIT_TEST
+# define OPENSSL_NO_UNIT_TEST
+#endif
 
 #endif /* OPENSSL_DOING_MAKEDEPEND */
 
@@ -220,6 +226,12 @@
 # endif
 # if defined(OPENSSL_NO_TS) && !defined(NO_TS)
 #  define NO_TS
+# endif
+# if defined(OPENSSL_NO_UNIT_TEST) && !defined(NO_UNIT_TEST)
+#  define NO_UNIT_TEST
+# endif
+# if defined(OPENSSL_NO_UNIT_TEST) && !defined(NO_UNIT_TEST)
+#  define NO_UNIT_TEST
 # endif
 #endif
 
