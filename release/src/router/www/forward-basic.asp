@@ -109,7 +109,7 @@ No part of this file may be used without permission.
 				{ type: 'text', maxlen: 5,  class : 'input-mini' },
 				{ type: 'text', maxlen: 15, class : 'input-medium' },
 				{ type: 'text', maxlen: 32, class : 'input-medium' }]);
-			this.headerSet(['<b>On</b>', '<b>Proto</b>', '<b>Src Address</b>', '<b>Ext Ports</b>', '<b>Int Port</b>', '<b>Int Address</b>', '<b>Description</b>']);
+			this.headerSet(['On', 'Proto', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
 			var nv = nvram.portforward.split('>');
 			for (var i = 0; i < nv.length; ++i) {
 				var r;
@@ -190,7 +190,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">fog.setup(); init();</script>

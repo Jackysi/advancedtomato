@@ -6,33 +6,46 @@
 		<title>[<% ident(); %>] Error</title>
 		<style>
 			body {
-				font-family: 'Segoe UI', 'Verdana';
+				font-family: 'Verdana';
+				font-size: 13px;
 			}
 			.container {
 				width: 700px;
-				margin: 0 auto;
+				margin: 50px auto;
+			}
+
+			h2 {
+				font-size: 20px;
 			}
 
 			.btn {
+				font-family: Verdana;
 				display: inline-block;
-				padding: 10px 14px;
-				margin: 0;
-				line-height: 14px;
-				font-size: 12px;
-				color: #fff;
-				background: #505050;
+				text-align: center;
 				cursor: pointer;
+				background-image: none;
+				padding: 8px 20px;
+				margin: 0;
+				font-size: 11px;
+				font-weight: bold !important;
+				line-height: 1.42857143;
+				color: #fff !important;
+				background: #69baf2;
 				transition: 0.1s ease-out;
-				-webkit-transition: 0.1s ease-out;
-				border-radius: 3px;
-				-webkit-border-radius: 3px;
+				border-radius: 4px;
+				-webkit-border-radius: 4px;
 				border: 0;
+				border-bottom: 2px solid #4297d0;
 			}
 
-			.btn:hover,
-			.btn:focus {
-				background: #646464;
-				color: #fff;
+			.btn:hover {
+				background: #77c1f6;
+			}
+
+			.btn:active, .btn:focus {
+				transition: none;
+				margin-top: 2px;
+				border-width: 0;
 			}
 		</style>
 

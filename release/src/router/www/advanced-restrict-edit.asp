@@ -447,7 +447,7 @@ No part of this file may be used without permission.
 				<button type="button" value="Delete..." id="delete-button" onclick="delRULE();" class="btn btn-danger"><i class="icon-cancel"></i> Delete</button> &nbsp;
 				<button type="button" value="Save" id="save-button" onclick="save();" class="btn btn-primary">Save <i class="icon-check"></i></button>
 				<button type="button" value="Cancel" id="cancel-button" onclick="cancel();" class="btn">Cancel <i class="icon-disable"></i></button>
-				&nbsp; <span id="footer-msg"></span>
+				<span id="footer-msg"></span>
 			</div>
 		</div>
 	</form>

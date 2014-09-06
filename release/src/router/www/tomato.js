@@ -658,6 +658,31 @@ function v_iptip(e, quiet, multi)
 	return 1;
 }
 
+function _v_subnet(e, ip, quiet) {
+	var ma, oip;
+	oip = ip;
+	// x.x.x.x/nn
+	if (ip.match(/^(.*)\/(.*)$/)) {
+		ip = RegExp.$1;
+		ma = RegExp.$2;
+		if ((ma < 0) || (ma > 32)) {
+			ferror.set(e, oip + ' - invalid subnet', quiet);
+			return null;
+		}
+	}
+	else {
+		ferror.set(e, oip + ' - invalid subnet', quiet);
+		return null;
+	}
+	ferror.clear(e);
+	return ip + ((ma != '') ? ('/' + ma) : '');
+}
+
+function v_subnet(e, quiet) {
+	if ((_v_subnet(e, e.value, quiet)) == null) return 0;
+	return 1;
+}
+
 function _v_domain(e, dom, quiet)
 {
 	var s;
@@ -1257,9 +1282,9 @@ TomatoGrid.prototype = {
 			c = cells[i];
 			if (typeof(c) == 'string') {
 				td = tr.insertCell(i);
-				td.className = 'co' + (i + 1);
+				td.className = ((header === true) ? 'header ' : '') + 'co' + (i + 1);
 				if (escCells) td.appendChild(document.createTextNode(c));
-				else td.innerHTML = (header === true) ? '<b>' + c + '</b>' : c;
+				else td.innerHTML = c;
 			}
 			else {
 				tr.appendChild(c);
@@ -1578,6 +1603,11 @@ TomatoGrid.prototype = {
 						s += '<div class="checkbox c-checkbox"><label><input type="checkbox"' + common + attrib;
 						if ((which == 'edit') && (values[vi])) s += ' checked';
 						s += '><span class="icon-check"></span> </label></div>';
+						break;
+					case 'textarea':
+						if (which == 'edit'){
+							document.getElementById(f.proxy).value = values[vi];
+						}
 						break;
 					default:
 						s += f.custom.replace(/\$which\$/g, which);
@@ -2358,17 +2388,31 @@ function myName() {
 	return name;
 }
 
+function navi_icons ($name) {
+	switch ($name) {
+		case 'Status': 				return 'home'; break;
+        case 'Basic Settings': 		return 'tools'; break;
+        case 'Advanced Settings': 	return 'shield'; break;
+        case 'Port Forwarding': 	return 'forward'; break;
+        case 'Quality of Service': 	return 'gauge'; break;
+        case 'USB & NAS': 			return 'drive'; break;
+        case 'VPN': 				return 'globe'; break;
+        case 'Administration': 		return 'wrench'; break;
+     	default: 					return 'plus'; break;
+	}
+}
+
 function navi()
 {
 	var htmlmenu = '', activeURL = myName();
 	var menu = {
-		'<i class="icon-home"></i> <span class="icons-desc">Status</span>': {
+		'Status': {
 			'Overview':            'status-home.asp',
 			'Device List':         'status-devices.asp',
 			'Web Usage':           'status-webmon.asp',
 			'Logs':                'status-log.asp'
 		},
-		'<i class="icon-tools"></i> <span class="icons-desc">Basic Settings</span>': {
+		'Basic Settings': {
 			'Network':             'basic-network.asp',
 			/* IPV6-BEGIN */
 			'IPv6':                'basic-ipv6.asp',
@@ -2379,7 +2423,7 @@ function navi()
 			'DHCP/ARP/BW':         'basic-static.asp',
 			'Wireless Filter':     'basic-wfilter.asp'
 		},
-		'<i class="icon-shield"></i> <span class="icons-desc">Advanced Settings</span>': {
+		'Advanced Settings': {
 			'Access Restriction':   'advanced-restrict.asp',
 			'Conntrack/Netfilter':  'advanced-ctnf.asp',
 			'DHCP/DNS':             'advanced-dhcpdns.asp',
@@ -2398,7 +2442,7 @@ function navi()
 			'LAN Access':           'advanced-access.asp',
 			'Virtual Wireless':     'advanced-wlanvifs.asp'
 		},
-		'<i class="icon-forward"></i> <span class="icons-desc">Port Forwarding</span>': {
+		'Port Forwarding': {
 			'Basic':                'forward-basic.asp',
 			/* IPV6-BEGIN */
 			'Basic IPv6':           'forward-basic-ipv6.asp',
@@ -2407,7 +2451,7 @@ function navi()
 			'Triggered':            'forward-triggered.asp',
 			'UPnP/NAT-PMP':         'forward-upnp.asp'
 		},
-		'<i class="icon-gauge"></i> <span class="icons-desc">Quality of Service</span>': {
+		'Quality of Service': {
 			'Basic Settings':       'qos-settings.asp',
 			'Classification':       'qos-classify.asp',
 			'View Graphs':          'qos-graphs.asp',
@@ -2417,7 +2461,7 @@ function navi()
 		},
 		/* USB-BEGIN */
 		// ---- !!TB - USB, FTP, Samba, Media Server
-		'<i class="icon-drive"></i> <span class="icons-desc">USB & NAS</span>': {
+		'USB & NAS': {
 			'USB Support':          'nas-usb.asp'
 			/* FTP-BEGIN */
 			,'FTP Server':          'nas-ftp.asp'
@@ -2440,7 +2484,7 @@ function navi()
 		},
 		/* USB-END */
 		/* VPN-BEGIN */
-		'<i class="icon-globe"></i> <span class="icons-desc">VPN</span>': {
+		'VPN': {
 			/* OPENVPN-BEGIN */
 			'OpenVPN Server':       'vpn-server.asp',
 			'OpenVPN Client':       'vpn-client.asp'
@@ -2452,7 +2496,7 @@ function navi()
 			/* PPTPD-END */
 		},
 		/* VPN-END */
-		'<i class="icon-wrench"></i> <span class="icons-desc">Administration</span>': {
+		'Administration': {
 			'Admin Access':         'admin-access.asp',
 			'TomatoAnon': 			'admin-tomatoanon.asp',
 			'Bandwidth Monitoring': 'admin-bwm.asp',
@@ -2480,19 +2524,20 @@ function navi()
 	};
 
 	// Add custom menu
-	try { $.extend(menu, $.parseJSON(nvram.web_nav)); } catch (e) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
+	try { $.extend(true, menu, $.parseJSON(nvram.web_nav)); } catch (e) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
 
 	// Loop Through MENU
 	$.each(menu, function (key, linksobj) {
 
 		var category = '';
+		var groupname = '<i class="icon-' + navi_icons(key) + '"></i> <span class="icons-desc">' + key + '</span>';
 
 		// Loop Through subcats
 		$.each(linksobj, function(name, link) {
 			category += '<li  class="' + ((activeURL == link) ? 'active' : '') + '"><a href="#' + link + '">' + name + '</a></li>';
 		});
 
-		htmlmenu += '<li' + (($(category).filter('.active')[0] == null) ? '' : ' class="active"') + '><a href="#">' + key + '</a><ul>' + category + '</ul></li>';
+		htmlmenu += '<li' + (($(category).filter('.active')[0] == null) ? '' : ' class="active"') + '><a href="#">' + groupname + '</a><ul>' + category + '</ul></li>';
 
 	});
 

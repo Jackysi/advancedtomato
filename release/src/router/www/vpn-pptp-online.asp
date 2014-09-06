@@ -225,7 +225,7 @@ No part of this file may be used without permission.
 		</div>
 	</div>
 
-	<a href="vpn-pptp-server.asp" class="btn btn-danger ajaxload"><i class="icon-tools"></i>&nbsp; Configure</a>
+	<a href="vpn-pptp-server.asp" class="btn btn-danger ajaxload">Configure <i class="icon-tools"></i></a>
 	<script type="text/javascript">$('.btn-danger.ajaxload').after(genStdRefresh(1,1,"ref.toggle()"));</script>
 
 	<script type="text/javascript">earlyInit();</script>

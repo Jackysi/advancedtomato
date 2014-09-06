@@ -14,7 +14,7 @@ No part of this file may be used without permission.
 	<script type="text/javascript">
 		//	<% nvram("at_update,tomatoanon_answer,vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client1_userauth,vpn_client1_username,vpn_client1_password,vpn_client1_useronly,vpn_client1_tlsremote,vpn_client1_cn,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key,vpn_client2_userauth,vpn_client2_username,vpn_client2_password,vpn_client2_useronly,vpn_client2_tlsremote,vpn_client2_cn"); %>
 
-		tabs = [['client1', '<i class="icon-tools"></i>&nbsp; VPN Client 1'],['client2', '<i class="icon-tools"></i>&nbsp; VPN Client 2']];
+		tabs = [['client1', 'VPN Client 1 <i class="icon-tools"></i>'],['client2', 'VPN Client 2 <i class="icon-tools"></i>']];
 		sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
 		statusUpdaters = [];
 		for (i = 0; i < tabs.length; ++i) statusUpdaters.push(new StatusUpdater());
@@ -359,7 +359,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 
 	</form>
 

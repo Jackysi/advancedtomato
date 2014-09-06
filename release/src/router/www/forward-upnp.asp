@@ -59,7 +59,7 @@ No part of this file may be used without permission.
 
 		ug.setup = function() {
 			this.init('upnp-grid', 'sort delete');
-			this.headerSet(['<b>External</b>', '<b>Internal</b>', '<b>Internal Address</b>', '<b>Protocol</b>', '<b>Description</b>']);
+			this.headerSet(['External', '<b>Internal', '<b>Internal Address', '<b>Protocol', '<b>Description']);
 			ug.populate();
 		}
 
@@ -258,7 +258,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 
 	</form>
 	<script type="text/javascript">ug.setup(); init(); verifyFields(null, 1);</script>

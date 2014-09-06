@@ -45,6 +45,7 @@ No part of this file may be used without permission.
 			}
 			w.document.writeln('</pre>');
 			w.document.close();
+
 		}
 
 		function getYMD(n)
@@ -150,7 +151,7 @@ No part of this file may be used without permission.
 		</div>
 	</div>
 
-	<a class="btn btn-primary" href="javascript:genData(); return false;">Data <i class="icon-drive"></i></a>
+	<a class="btn btn-primary" href="javascript:genData();">Data <i class="icon-drive"></i></a>
 	<a class="btn btn-danger ajaxload" href="admin-bwm.asp">Configure <i class="icon-tools"></i></a>
 	<script type="text/javascript">init();</script>
 </content>

@@ -50,7 +50,7 @@ No part of this file may be used without permission.
 				{ type: 'select', options: subtree },
 				{ type: 'text', maxlen: 50 }
 			]);
-			this.headerSet(['<b>Directory</b>', '<b>IP Address/Subnet</b>', '<b>Access</b>', '<b>Sync</b>', '<b>Subtree Check</b>', '<b>Other Options</b>']);
+			this.headerSet(['Directory', 'IP Address/Subnet', 'Access', 'Sync', 'Subtree Check', 'Other Options']);
 			var s = nvram.nfs_exports.split('>');
 			for (var i = 0; i < s.length; ++i) {
 				var t = s[i].split('<');
@@ -108,7 +108,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 
 	</form>
 

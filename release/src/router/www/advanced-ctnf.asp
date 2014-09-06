@@ -181,7 +181,7 @@ No part of this file may be used without permission.
 					/* LINUX26-END */
 				], { grid: ['col-sm-2', 'col-sm-10'] });
 			</script>
-			<button type="button" value="Drop Idle" onclick="expireClicked()" id="expire" class="btn"><i class="icon-disable"></i> Drop Idle</button>
+			<button type="button" value="Drop Idle" onclick="expireClicked()" id="expire" class="btn">Drop Idle <i class="icon-disable"></i></button>
 		</div>
 	</div>
 
@@ -275,7 +275,7 @@ No part of this file may be used without permission.
 
 	<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 	<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-	&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+	<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 
 	<script type="text/javascript">verifyFields(null, 1);</script>
 </content>

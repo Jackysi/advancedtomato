@@ -711,7 +711,7 @@ p { display: block; margin: 0 0 10px; }
 
 .tooltip {
   position: absolute;
-  z-index: 1070;
+  z-index: 99;
   display: block;
   visibility: visible;
   font-size: 11px;

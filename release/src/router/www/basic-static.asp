@@ -224,7 +224,7 @@ No part of this file may be used without permission.
 				{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 				{ type: 'text', maxlen: 50 } ] );
 
-			this.headerSet(['<b>MAC Address</b>', '<b>Bound to</b>', '<b>IP Address</b>', '<b>IPTraffic</b>', '<b>Hostname</b>']);
+			this.headerSet(['MAC Address', 'Bound to', 'IP Address', 'IPTraffic', 'Hostname']);
 
 			var ipt = nvram.cstats_include.split(',');
 			var s = nvram.dhcpd_static.split('>');
@@ -360,7 +360,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">init();</script>

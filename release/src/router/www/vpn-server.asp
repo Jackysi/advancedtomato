@@ -18,7 +18,7 @@ No part of this file may be used without permission.
 		function UsersGrid() {return this;}
 		UsersGrid.prototype = new TomatoGrid;
 
-		tabs = [['server1', '<i class="icon-tools"></i>&nbsp; VPN Server 1'],['server2', '<i class="icon-tools"></i>&nbsp; VPN Server 2']];
+		tabs = [['server1', 'VPN Server 1 <i class="icon-tools"></i>'],['server2', 'VPN Server 2 <i class="icon-tools"></i>']];
 		sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
 		ccdTables = [];
 		usersTables = [];
@@ -550,7 +550,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
 
 	</form>
 

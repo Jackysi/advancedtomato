@@ -28,7 +28,6 @@
 struct usbnet {
 	/* housekeeping */
 	struct usb_device	*udev;
-	struct usb_interface	*intf;
 	struct driver_info	*driver_info;
 	const char		*driver_name;
 	wait_queue_head_t	*wait;
@@ -87,15 +86,6 @@ struct driver_info {
 #define FLAG_ETHER	0x0020		/* maybe use "eth%d" names */
 
 #define FLAG_FRAMING_AX 0x0040          /* AX88772/178 packets */
-#define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
-
-/*
- * Indicates to usbnet, that USB driver accumulates multiple IP packets.
- * Affects statistic (counters) and short packet handling.
- */
-#define FLAG_MULTI_PACKET	0x2000
-//#define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
-#define FLAG_NOARP		0x8000	/* device can't do ARP */
 
 	/* init device ... can sleep, or cause probe() failure */
 	int	(*bind)(struct usbnet *, struct usb_interface *);
@@ -165,8 +155,7 @@ extern void usbnet_cdc_unbind (struct usbnet *, struct usb_interface *);
 enum skb_state {
 	illegal = 0,
 	tx_start, tx_done,
-	rx_start, rx_done, rx_cleanup,
-	unlink_start
+	rx_start, rx_done, rx_cleanup
 };
 
 struct skb_data {	/* skb->cb is one of these */
@@ -176,14 +165,8 @@ struct skb_data {	/* skb->cb is one of these */
 	size_t			length;
 };
 
-extern int usbnet_open (struct net_device *net);
-extern int usbnet_stop (struct net_device *net);
-extern int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net);
-extern void usbnet_tx_timeout (struct net_device *net);
-extern int usbnet_change_mtu (struct net_device *net, int new_mtu);
 
 extern int usbnet_get_endpoints(struct usbnet *, struct usb_interface *);
-extern int usbnet_get_ethernet_addr(struct usbnet *, int);
 extern void usbnet_defer_kevent (struct usbnet *, int);
 extern void usbnet_skb_return (struct usbnet *, struct sk_buff *);
 extern void usbnet_unlink_rx_urbs(struct usbnet *);

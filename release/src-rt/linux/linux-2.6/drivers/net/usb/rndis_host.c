@@ -16,6 +16,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+// #define	DEBUG			// error path messages, extra info
+// #define	VERBOSE			// more; success messages
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/netdevice.h>
@@ -252,27 +256,6 @@ struct rndis_keepalive_c {	/* IN (optionally OUT) */
 #define OID_GEN_MAXIMUM_FRAME_SIZE	ccpu2(0x00010106)
 #define OID_GEN_CURRENT_PACKET_FILTER	ccpu2(0x0001010e)
 
-/* packet filter bits used by OID_GEN_CURRENT_PACKET_FILTER */
-#define RNDIS_PACKET_TYPE_DIRECTED		ccpu2(0x00000001)
-#define RNDIS_PACKET_TYPE_MULTICAST		ccpu2(0x00000002)
-#define RNDIS_PACKET_TYPE_ALL_MULTICAST		ccpu2(0x00000004)
-#define RNDIS_PACKET_TYPE_BROADCAST		ccpu2(0x00000008)
-#define RNDIS_PACKET_TYPE_SOURCE_ROUTING	ccpu2(0x00000010)
-#define RNDIS_PACKET_TYPE_PROMISCUOUS		ccpu2(0x00000020)
-#define RNDIS_PACKET_TYPE_SMT			ccpu2(0x00000040)
-#define RNDIS_PACKET_TYPE_ALL_LOCAL		ccpu2(0x00000080)
-#define RNDIS_PACKET_TYPE_GROUP			ccpu2(0x00001000)
-#define RNDIS_PACKET_TYPE_ALL_FUNCTIONAL	ccpu2(0x00002000)
-#define RNDIS_PACKET_TYPE_FUNCTIONAL		ccpu2(0x00004000)
-#define RNDIS_PACKET_TYPE_MAC_FRAME		ccpu2(0x00008000)
-
-/* default filter used with RNDIS devices */
-#define RNDIS_DEFAULT_FILTER ( \
-	RNDIS_PACKET_TYPE_DIRECTED | \
-	RNDIS_PACKET_TYPE_BROADCAST | \
-	RNDIS_PACKET_TYPE_ALL_MULTICAST | \
-	RNDIS_PACKET_TYPE_PROMISCUOUS)
-
 /*
  * RNDIS notifications from device: command completion; "reverse"
  * keepalives; etc
@@ -295,7 +278,7 @@ static void rndis_status(struct usbnet *dev, struct urb *urb)
  * Call context is likely probe(), before interface name is known,
  * which is why we won't try to use it in the diagnostics.
  */
-static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
+static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf)
 {
 	struct cdc_state	*info = (void *) &dev->data;
 	int			master_ifnum;
@@ -342,7 +325,7 @@ static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int bufl
 			USB_CDC_GET_ENCAPSULATED_RESPONSE,
 			USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
 			0, master_ifnum,
-			buf, buflen,
+			buf, CONTROL_BUFFER_SIZE,
 			RNDIS_CONTROL_TIMEOUT_MS);
 		if (likely(retval >= 8)) {
 			msg_len = le32_to_cpu(buf->msg_len);
@@ -399,7 +382,7 @@ static int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int bufl
 			dev_dbg(&info->control->dev,
 				"rndis response error, code %d\n", retval);
 		}
-		msleep(20);
+		msleep(2);
 	}
 	dev_dbg(&info->control->dev, "rndis response timeout\n");
 	return -ETIMEDOUT;
@@ -443,7 +426,7 @@ static int rndis_query(struct usbnet *dev, struct usb_interface *intf,
 	u.get->len = cpu_to_le32(in_len);
 	u.get->offset = ccpu2(20);
 
-	retval = rndis_command(dev, u.header, CONTROL_BUFFER_SIZE);
+	retval = rndis_command(dev, u.header);
 	if (unlikely(retval < 0)) {
 		dev_err(&intf->dev, "RNDIS_MSG_QUERY(0x%08x) failed, %d\n",
 				oid, retval);
@@ -484,7 +467,6 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 		struct rndis_query_c	*get_c;
 		struct rndis_set	*set;
 		struct rndis_set_c	*set_c;
-		struct rndis_halt	*halt;
 	} u;
 	u32			tmp;
 	int			reply_len;
@@ -517,20 +499,12 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 	net->hard_header_len += sizeof (struct rndis_data_hdr);
 	dev->hard_mtu = net->mtu + net->hard_header_len;
 
-	dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
-	if (dev->maxpacket == 0) {
-		if (netif_msg_probe(dev))
-			dev_dbg(&intf->dev, "dev->maxpacket can't be 0\n");
-		retval = -EINVAL;
-		goto fail_and_release;
-	}
-
 	dev->rx_urb_size = dev->hard_mtu + (dev->maxpacket + 1);
 	dev->rx_urb_size &= ~(dev->maxpacket - 1);
 	u.init->max_transfer_size = cpu_to_le32(dev->rx_urb_size);
 
 	net->change_mtu = NULL;
-	retval = rndis_command(dev, u.header, CONTROL_BUFFER_SIZE);
+	retval = rndis_command(dev, u.header);
 	if (unlikely(retval < 0)) {
 		/* it might not even be an RNDIS device!! */
 		dev_err(&intf->dev, "RNDIS init failed, %d\n", retval);
@@ -538,19 +512,11 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 	}
 	tmp = le32_to_cpu(u.init_c->max_transfer_size);
 	if (tmp < dev->hard_mtu) {
-		if (tmp <= net->hard_header_len) {
-			dev_err(&intf->dev,
-				"dev can't take %u byte packets (max %u)\n",
-				dev->hard_mtu, tmp);
-			retval = -EINVAL;
-			goto halt_fail_and_release;
-		}
-		dev_warn(&intf->dev,
-			 "dev can't take %u byte packets (max %u), "
-			 "adjusting MTU to %u\n",
-			 dev->hard_mtu, tmp, tmp - net->hard_header_len);
-		dev->hard_mtu = tmp;
-		net->mtu = dev->hard_mtu - net->hard_header_len;
+		dev_err(&intf->dev,
+			"dev can't take %u byte packets (max %u)\n",
+			dev->hard_mtu, tmp);
+		retval = -EINVAL;
+		goto fail_and_release;
 	}
 
 	/* REVISIT:  peripheral "alignment" request is ignored ... */
@@ -565,7 +531,7 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 			48, (void **) &bp, &reply_len);
 	if (unlikely(retval< 0)) {
 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
-		goto halt_fail_and_release;
+		goto fail_and_release;
 	}
 	memcpy(net->dev_addr, bp, ETH_ALEN);
 
@@ -576,12 +542,12 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 	u.set->oid = OID_GEN_CURRENT_PACKET_FILTER;
 	u.set->len = ccpu2(4);
 	u.set->offset = ccpu2((sizeof *u.set) - 8);
-	*(__le32 *)(u.buf + sizeof *u.set) = RNDIS_DEFAULT_FILTER;
+	*(__le32 *)(u.buf + sizeof *u.set) = ccpu2(DEFAULT_FILTER);
 
-	retval = rndis_command(dev, u.header, CONTROL_BUFFER_SIZE);
+	retval = rndis_command(dev, u.header);
 	if (unlikely(retval < 0)) {
 		dev_err(&intf->dev, "rndis set packet filter, %d\n", retval);
-		goto halt_fail_and_release;
+		goto fail_and_release;
 	}
 
 	retval = 0;
@@ -589,11 +555,6 @@ static int rndis_bind(struct usbnet *dev, struct usb_interface *intf)
 	kfree(u.buf);
 	return retval;
 
-halt_fail_and_release:
-	memset(u.halt, 0, sizeof *u.halt);
-	u.halt->msg_type = RNDIS_MSG_HALT;
-	u.halt->msg_len = ccpu2(sizeof *u.halt);
-	(void) rndis_command(dev, (void *)u.halt, CONTROL_BUFFER_SIZE);
 fail_and_release:
 	usb_set_intfdata(info->data, NULL);
 	usb_driver_release_interface(driver_of(intf), info->data);
@@ -608,11 +569,11 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
 	struct rndis_halt	*halt;
 
 	/* try to clear any rndis state/activity (no i/o from stack!) */
-	halt = kzalloc(CONTROL_BUFFER_SIZE, GFP_KERNEL);
+	halt = kzalloc(sizeof *halt, GFP_KERNEL);
 	if (halt) {
 		halt->msg_type = RNDIS_MSG_HALT;
 		halt->msg_len = ccpu2(sizeof *halt);
-		(void) rndis_command(dev, (void *)halt, CONTROL_BUFFER_SIZE);
+		(void) rndis_command(dev, (void *)halt);
 		kfree(halt);
 	}
 
@@ -735,10 +696,6 @@ static const struct usb_device_id	products [] = {
 }, {
 	/* "ActiveSync" is an undocumented variant of RNDIS, used in WM5 */
 	USB_INTERFACE_INFO(USB_CLASS_MISC, 1, 1),
-	.driver_info = (unsigned long) &rndis_info,
-}, {
-	/* RNDIS for tethering */
-	USB_INTERFACE_INFO(USB_CLASS_WIRELESS_CONTROLLER, 1, 3),
 	.driver_info = (unsigned long) &rndis_info,
 },
 	{ },		// END

@@ -15,7 +15,7 @@ No part of this file may be used without permission.
 		var wg = new TomatoGrid();
 		wg.setup = function() {
 			this.init('wol-grid', 'sort');
-			this.headerSet(['<b>MAC Address</b>', '<b>IP Address</b>', '<b>Status</b>', '<b>Name</b>']);
+			this.headerSet(['MAC Address', 'IP Address', 'Status', 'Name']);
 			this.sort(3);
 		}
 		wg.sortCompare = function(a, b) {
@@ -171,12 +171,12 @@ No part of this file may be used without permission.
 				<table id="wol-grid" class="line-table"></table><br />
 				<div class="sectionmacs"></div>
 
-				<div class="input-append pull-right">
+				<div class="pull-right">
 					<div id="spin" class="spinner" style="vertical-align:middle;visibility:hidden"></div> &nbsp;
-					<button type="button" value="Refresh" onclick="refreshClick()" id="refreshb" class="btn"><i class="icon-reboot"></i> Refresh</button>
+					<button type="button" value="Refresh" onclick="refreshClick()" id="refreshb" class="btn">Refresh <i class="icon-reboot"></i></button>
 				</div>
 
-				<button type="button" value="Wake Up" onclick="wake(null)" id="save-button" class="btn"><i class="icon-forward"></i> Wake Up</button>
+				<button type="button" value="Wake Up" onclick="wake(null)" id="save-button" class="btn">Wake Up <i class="icon-forward"></i></button>
 			</div>
 		</div>
 
@@ -188,5 +188,5 @@ No part of this file may be used without permission.
 
 	</form>
 
-	<script type="text/javascript">wg.setup();wg.populate(); init();</script>
+	<script type="text/javascript">wg.setup(); wg.populate(); init();</script>
 </content>

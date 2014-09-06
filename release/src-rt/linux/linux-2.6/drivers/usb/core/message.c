@@ -1447,7 +1447,7 @@ static int usb_if_uevent(struct device *dev, char **envp, int num_envp,
 	if (add_uevent_var(envp, num_envp, &i,
 		   buffer, buffer_size, &length,
 		   "MODALIAS=usb:"
-		   "v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02Xin%02X",
+		   "v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02X",
 		   le16_to_cpu(usb_dev->descriptor.idVendor),
 		   le16_to_cpu(usb_dev->descriptor.idProduct),
 		   le16_to_cpu(usb_dev->descriptor.bcdDevice),
@@ -1456,8 +1456,7 @@ static int usb_if_uevent(struct device *dev, char **envp, int num_envp,
 		   usb_dev->descriptor.bDeviceProtocol,
 		   alt->desc.bInterfaceClass,
 		   alt->desc.bInterfaceSubClass,
-		   alt->desc.bInterfaceProtocol,
-		   alt->desc.bInterfaceNumber))
+		   alt->desc.bInterfaceProtocol))
 		return -ENOMEM;
 
 	envp[i] = NULL;

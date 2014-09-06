@@ -287,7 +287,7 @@ No part of this file may be used without permission.
 			if (!useAjax()) E('expire-time').style.visibility = 'hidden';
 			sg.setup();
 			sg.recolor();
-			$('.input-append .spinner').after('&nbsp; ' + genStdTimeList('expire-time', 'Auto Expire', 1) + genStdTimeList('refresh-time', 'Auto Refresh', 1));
+			$('#survey-controls .spinner').after('&nbsp; ' + genStdTimeList('expire-time', 'Auto Expire', 1) + genStdTimeList('refresh-time', 'Auto Refresh', 1));
 			ref.initPage();
 		}
 
@@ -313,9 +313,8 @@ No part of this file may be used without permission.
 	</div>
 
 	<div id="survey-controls">
-		<div class="input-append"><div class="spinner"></div>
-			<button type="button" value="Refresh" onclick="ref.toggle()" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button>
-		</div>
+		<div class="spinner"></div>
+		<button type="button" value="Refresh" onclick="ref.toggle()" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button>
 	</div>
 
 	<script type="text/javascript">

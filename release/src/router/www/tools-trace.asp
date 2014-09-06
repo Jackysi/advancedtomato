@@ -31,7 +31,7 @@ No part of this file may be used without permission.
 		var tg = new TomatoGrid();
 		tg.setup = function() {
 			this.init('ttr-grid');
-			this.headerSet(['<b>Hop</b>', '<b>Address</b>', '<b>Min (ms)</b>', '<b>Max (ms)</b>', '<b>Avg (ms)</b>', '<b>+/- (ms)</b>']);
+			this.headerSet(['Hop', 'Address', 'Min (ms)', 'Max (ms)', 'Avg (ms)', '+/- (ms)']);
 		}
 		tg.populate = function() {
 			var seq = 1;

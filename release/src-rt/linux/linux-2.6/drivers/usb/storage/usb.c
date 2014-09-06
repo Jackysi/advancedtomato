@@ -140,20 +140,12 @@ MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
 { USB_INTERFACE_INFO(USB_CLASS_MASS_STORAGE, useProto, useTrans), \
   .driver_info = (USB_US_TYPE_STOR<<24) }
 
-/* Define the device is matched with Vendor ID and interface descriptors */
-#define UNUSUAL_VENDOR_INTF(id_vendor, cl, sc, pr, \
-			vendorName, productName, useProtocol, useTransport, \
-			initFunction, flags) \
-{ USB_VENDOR_AND_INTERFACE_INFO(id_vendor, cl, sc, pr), \
-	.driver_info = (flags)|(USB_US_TYPE_STOR<<24) }
-
 static struct usb_device_id storage_usb_ids [] = {
 
 #	include "unusual_devs.h"
 #undef UNUSUAL_DEV
 #undef COMPLIANT_DEV
 #undef USUAL_DEV
-#undef UNUSUAL_VENDOR_INTF
 	/* Terminating entry */
 	{ }
 };
@@ -183,17 +175,6 @@ MODULE_DEVICE_TABLE (usb, storage_usb_ids);
 	.initFunction = init_function,	\
 }
 
-#define UNUSUAL_VENDOR_INTF(idVendor, cl, sc, pr, \
-		vendor_name, product_name, use_protocol, use_transport, \
-		init_function, Flags) \
-{ \
-	.vendorName = vendor_name,	\
-	.productName = product_name,	\
-	.useProtocol = use_protocol,	\
-	.useTransport = use_transport,	\
-	.initFunction = init_function,	\
-}
-
 #define COMPLIANT_DEV	UNUSUAL_DEV
 
 #define USUAL_DEV(use_protocol, use_transport, use_type) \
@@ -207,7 +188,6 @@ static struct us_unusual_dev us_unusual_dev_list[] = {
 #	undef UNUSUAL_DEV
 #	undef COMPLIANT_DEV
 #	undef USUAL_DEV
-#	undef UNUSUAL_VENDOR_INTF
 
 	/* Terminating entry */
 	{ NULL }

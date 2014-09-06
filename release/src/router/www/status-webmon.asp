@@ -279,7 +279,7 @@ No part of this file may be used without permission.
 
 		dg.setup = function() {
 			this.init('dom-grid', 'sort');
-			this.headerSet(['<b>Last Access Time</b>', '<b>IP Address</b>', '<b>Domain Name</b>']);
+			this.headerSet(['Last Access Time', 'IP Address', 'Domain Name']);
 			this.sort(0);
 		}
 
@@ -291,7 +291,7 @@ No part of this file may be used without permission.
 
 		sg.setup = function() {
 			this.init('srh-grid', 'sort');
-			this.headerSet(['<b>Search Time</b>', '<b>IP Address</b>', '<b>Search Criteria</b>']);
+			this.headerSet(['Search Time', 'IP Address', 'Search Criteria']);
 			this.sort(0);
 		}
 

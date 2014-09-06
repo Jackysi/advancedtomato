@@ -69,7 +69,7 @@ No part of this file may be used without permission.
 
 		dg.setup = function() {
 			this.init('daily-grid', 'sort');
-			this.headerSet(['<b>Date</b>', '<b>Host</b>', '<b>Download</b>', '<b>Upload</b>', '<b>Total</b>']);
+			this.headerSet(['Date', 'Host', 'Download', 'Upload', 'Total']);
 		}
 
 		function redraw() {

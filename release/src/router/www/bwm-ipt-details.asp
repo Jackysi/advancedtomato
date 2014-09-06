@@ -296,7 +296,7 @@ No part of this file may be used without permission.
 
 		grid.setup = function() {
 			this.init('grid', 'sort');
-			this.headerSet(['<b>Host</b>', '<b>Download (bytes/s)</b>', '<b>Upload (bytes/s)</b>', '<b>TCP IN/OUT (pkt/s)</b>', '<b>UDP IN/OUT (pkt/s)</b>', '<b>ICMP IN/OUT (pkt/s)</b>', '<b>TCP Connections</b>', '<b>UDP Connections</b>']);
+			this.headerSet(['Host', 'Download (bytes/s)', 'Upload (bytes/s)', 'TCP IN/OUT (pkt/s)', 'UDP IN/OUT (pkt/s)', 'ICMP IN/OUT (pkt/s)', 'TCP Connections', 'UDP Connections']);
 		}
 
 		function init() {

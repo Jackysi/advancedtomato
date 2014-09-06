@@ -33,7 +33,7 @@ No part of this file may be used without permission.
 		var pg = new TomatoGrid();
 		pg.setup = function() {
 			this.init('tp-grid');
-			this.headerSet(['<b>Seq</b>', '<b>Address</b>', '<b>RX Bytes</b>', '<b>TTL</b>', '<b>RTT (ms)</b>', '<b>+/- (ms)</b>']);
+			this.headerSet(['Seq', 'Address', 'RX Bytes', 'TTL', 'RTT (ms)', '+/- (ms)']);
 		}
 		pg.populate = function()
 		{

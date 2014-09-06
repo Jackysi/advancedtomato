@@ -151,7 +151,7 @@ No part of this file may be used without permission.
 					<fieldset><label class="col-sm-3 control-left-label" for="upload-name">Custom splash file</label>
 						<div class="col-sm-9">
 							<input class="uploadfile" type="file" size="40" id="upload-name" name="upload_name">
-							<button type="button" name="f_upload_button" id="upload-button" value="Upload" onclick="uploadButton()" class="btn btn-danger"><i class="icon-upload"></i> Upload</button>
+							<button type="button" name="f_upload_button" id="upload-button" value="Upload" onclick="uploadButton()" class="btn btn-danger">Upload <i class="icon-upload"></i></button>
 						</div>
 					</fieldset>
 				</form>
@@ -190,7 +190,7 @@ No part of this file may be used without permission.
 
 	<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 	<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-	&nbsp; <span id="footer-msg" class="alert warning" style="visibility: hidden;"></span>
+	<span id="footer-msg" class="alert info" style="visibility: hidden;"></span><br /><br />
 	<script type="text/javascript">verifyFields(null, 1);</script>
 
 </content>
