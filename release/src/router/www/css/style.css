@@ -1491,7 +1491,7 @@ input[type=radio]:disabled + span:before {
     content: "\e007";
 }
 .icon-paypal:before {
-  content: "\e01d";
+    content: "\e01d";
 }
 
 /* Responsive stuff */
