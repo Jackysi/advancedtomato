@@ -56,7 +56,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
         if [ "$1" == "checkver" -a "$ANON_NOTIFY" == "1" ]; then
             # Tomato Update Notification Script
             #Change all spaces to %20
-            echo "http://at.prahec.com/update.php?v=$VER&mod=$MOD" > /tmp/AnonLink
+            echo "http://advancedtomato.com/update.php?v=$VER&mod=$MOD" > /tmp/AnonLink
             sed -i "s/ /%20/g" /tmp/AnonLink
             ANONSEND=`cat /tmp/AnonLink`
             rm /tmp/AnonLink
