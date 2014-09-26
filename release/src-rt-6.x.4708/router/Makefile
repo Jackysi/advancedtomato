@@ -237,6 +237,7 @@ obj-$(TCONFIG_NGINX) += sqlite
 obj-$(TCONFIG_NGINX) += libiconv
 obj-$(TCONFIG_NGINX) += libxml2
 obj-$(TCONFIG_NGINX) += libpng
+obj-$(TCONFIG_NGINX) += libjpeg
 obj-$(TCONFIG_NGINX) += php
 obj-$(TCONFIG_NGINX) += nginx
 
@@ -1951,7 +1952,35 @@ libpng-clean:
 	@rm -f libpng/stamp-h1
 	@rm -rf libpng/staged
 
-php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng
+libjpeg/stamp-h1:
+	cd libjpeg && \
+	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --enable-static --enable-shared
+	touch $@
+
+libjpeg: libjpeg/stamp-h1
+	@$(MAKE) -C libjpeg $(PARALLEL_BUILD)
+	install -d $(TOP)/libjpeg/staged/include
+	install -d $(TOP)/libjpeg/staged/lib
+	install -d $(TOP)/libjpeg/staged/bin
+	install -d $(TOP)/libjpeg/staged/man/man1
+	@$(MAKE) -C libjpeg prefix=$(TOP)/libjpeg/staged install
+	rm -f $(TOP)/libjpeg/staged/lib/libjpeg.la
+
+libjpeg-install: libjpeg
+	@$(SEP)
+	install -D libjpeg/.libs/libjpeg.so.62.0.0 $(INSTALLDIR)/libjpeg/usr/lib/libjpeg.so.62.0.0
+	$(STRIP) $(INSTALLDIR)/libjpeg/usr/lib/libjpeg.so.62.0.0
+	cd $(INSTALLDIR)/libjpeg/usr/lib && \
+		ln -sf libjpeg.so.62.0.0 libjpeg.so.62 && \
+		ln -sf libjpeg.so.62.0.0 libjpeg.so
+
+libjpeg-clean:
+	-@$(MAKE) -C libjpeg clean
+	@rm -f libjpeg/stamp-h1
+	@rm -rf libjpeg/staged
+
+php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng libjpeg
 	@$(SEP)
 	cd php && CC=$(CC) CXX=$(ARCH)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
 	CFLAGS="-Os -Wall -I$(TOP)/zlib -I$(TOP)/libxml2/include/libxml -I$(TOP)/libxml2/include -I$(TOP)/pcre -I$(TOP)/libiconv/include -I$(TOP)/libpng/staged/usr/include" \
@@ -1986,6 +2015,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng
 	--without-gmp \
 	--with-gd \
 	--with-png-dir="$(TOP)/libpng/staged/usr" \
+	--with-jpeg-dir="$(TOP)/libjpeg/staged" \
 	--disable-hash \
 	--with-iconv="$(TOP)/libiconv/staged/usr" \
 	--with-iconv-dir="$(TOP)/libiconv/staged/usr" \
