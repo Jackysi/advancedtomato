@@ -53,6 +53,7 @@
 FILE * nginx_conf_file;
 FILE * fastcgi_conf_file;
 FILE * mimetypes_file;
+FILE * phpini_file;
 unsigned int fastpath=0;
 
 void nginx_write(const char *format, ...) {
@@ -236,6 +237,13 @@ int build_nginx_conf(void) {
 		nginx_write("'\"$http_user_agent\" \"$http_x_forwarded_for\"';\n");
 		nginx_write("sendfile\t%s;\n", nginssendfile);
 
+//shibby - add custom config to http section
+		nginx_write("client_max_body_size\t%sM;\n", nvram_safe_get("nginx_upload"));
+
+	if ((buf = nvram_safe_get("nginx_httpcustom")) == NULL) buf = nginxcustom;
+		nginx_write(buf);
+		nginx_write("\n");
+
 //		nginx_write("keepalive_timeout\t%s;\n", nginx_keepalive_timeout);
 //		nginx_write("tcp_nopush\t%s;\n", nginxtcp_nopush);
 //		nginx_write("server_names_hash_bucket_size\t%s;\n", nginxserver_names_hash_bucket_size);
@@ -276,6 +284,12 @@ int build_nginx_conf(void) {
     		nginx_write("expires 10d;\n");
     		nginx_write("\t\t\t}\n");
 		nginx_write("\t\t}\n");
+
+//shibby - add custom config to server section
+	if ((buf = nvram_safe_get("nginx_servercustom")) == NULL) buf = nginxcustom;
+		nginx_write(buf);
+		nginx_write("\n");
+
 		nginx_write("\t}\n");
 		nginx_write("}\n");
 // Process to close and write config file
@@ -285,7 +299,20 @@ int build_nginx_conf(void) {
 		fclose(nginx_conf_file);
 		syslog(LOG_INFO,"NGinX - config file built succesfully\n");
 		fprintf(stderr, "Wrote: %s\n", nginxconf);
-		return 0;
+
+//shibby - create php.ini
+	if( nvram_match( "nginx_php", "1" ) ) {
+		if( !(phpini_file = fopen("/tmp/etc/php.ini", "w")) ) {
+			perror( "/tmp/etc/php.ini" );
+			return;
+		}
+		fprintf( phpini_file, "post_max_size = %sM\n", nvram_safe_get("nginx_upload"));
+		fprintf( phpini_file, "upload_max_filesize = %sM\n", nvram_safe_get("nginx_upload"));
+		fprintf( phpini_file, "%s\n", nvram_safe_get("nginx_phpconf"));
+		fclose(phpini_file);
+		syslog(LOG_INFO,"NGinX - php.ini file built succesfully\n");
+	}
+	return 0;
 }
 
 // Start the NGINX module according environment directives.
@@ -333,7 +360,11 @@ void start_nginx(void)
 	if(mkdir_if_none(scgi_temp_path));
 //		syslog(LOG_INFO,"NGinX - directory created %s\n", scgi_temp_path);
 		syslog(LOG_INFO,"NGinX - running daemon\n");
+		if( nvram_match( "nginx_override", "1" ) ) {
+			xstart(nginxbin, "-c", nvram_safe_get("nginx_overridefile"));
+		} else {
 			xstart(nginxbin, "-c", nginxconf);
+		}
 }
 // Start NGinx using fastpath method no checks
 void start_nginxfp(void)

@@ -1091,7 +1091,7 @@ static void filter_input(void)
 	} while (*p);
 
 #ifdef TCONFIG_NGINX //Tomato RAF - Web Server
-		if (nvram_match("nginx_enable", "1"))
+		if (nvram_match("nginx_enable", "1") && nvram_match("nginx_remote", "1"))
 			ipt_write("-A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "nginx_port" ));
 #endif
 
