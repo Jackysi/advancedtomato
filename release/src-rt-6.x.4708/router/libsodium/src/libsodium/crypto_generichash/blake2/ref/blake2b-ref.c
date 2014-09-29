@@ -43,11 +43,13 @@ static const uint8_t blake2b_sigma[12][16] =
 };
 
 
+/* LCOV_EXCL_START */
 static inline int blake2b_set_lastnode( blake2b_state *S )
 {
   S->f[1] = ~0ULL;
   return 0;
 }
+/* LCOV_EXCL_STOP */
 #if 0
 static inline int blake2b_clear_lastnode( blake2b_state *S )
 {
@@ -387,12 +389,15 @@ int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen )
   uint8_t buffer[BLAKE2B_OUTBYTES];
   int     i;
 
+  if( outlen > BLAKE2B_OUTBYTES ) {
+    return -1;
+  }
   if( S->buflen > BLAKE2B_BLOCKBYTES )
   {
     blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
     blake2b_compress( S, S->buf );
     S->buflen -= BLAKE2B_BLOCKBYTES;
-    memcpy( S->buf, S->buf + BLAKE2B_BLOCKBYTES, S->buflen );
+    memmove( S->buf, S->buf + BLAKE2B_BLOCKBYTES, S->buflen );
   }
 
   blake2b_increment_counter( S, S->buflen );

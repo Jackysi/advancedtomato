@@ -3,15 +3,11 @@
 
 #include <limits.h>
 #include <signal.h>
-#include <string.h>
-#include <stdio.h>
-#include <string.h>
 
 #define TEST_NAME "sodium_utils2"
 #include "cmptest.h"
 
-static void
-segv_handler(int sig)
+static void segv_handler(int sig)
 {
     printf("Intentional segfault / bus error caught\n");
     printf("OK\n");
@@ -27,16 +23,22 @@ segv_handler(int sig)
     exit(0);
 }
 
-int
-main(void)
+int main(void)
 {
-    void         *buf;
-    size_t        size;
-    unsigned int  i;
+    void *buf;
+    size_t size;
+    unsigned int i;
 
+    if (sodium_malloc(SIZE_MAX - 1U) != NULL) {
+        return 1;
+    }
     if (sodium_allocarray(SIZE_MAX / 2U + 1U, SIZE_MAX / 2U) != NULL) {
         return 1;
     }
+    buf = sodium_allocarray(1000U, 50U);
+    memset(buf, 0, 50000U);
+    sodium_free(buf);
+
     sodium_free(sodium_malloc(0U));
     sodium_free(NULL);
     for (i = 0U; i < 10000U; i++) {
@@ -61,7 +63,7 @@ main(void)
     buf = sodium_malloc(size);
     sodium_mprotect_readonly(buf);
     sodium_mprotect_readwrite(buf);
-    sodium_memzero(((unsigned char *) buf) + size, 1U);
+    sodium_memzero(((unsigned char *)buf) + size, 1U);
     sodium_mprotect_noaccess(buf);
     sodium_free(buf);
     printf("Overflow not caught\n");
