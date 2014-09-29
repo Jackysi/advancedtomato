@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include "sodium.h"
+#include <sodium.h>
 
 #define CERT_MAGIC_CERT "DNSC"
 

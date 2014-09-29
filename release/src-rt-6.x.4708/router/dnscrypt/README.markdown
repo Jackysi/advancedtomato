@@ -27,18 +27,23 @@ Download and integrity check
 
 DNSCrypt can be downloaded here: [dnscrypt download](http://dnscrypt.org)
 
+Note: dnscrypt.org is now blocked by the Great Firewall of China.
+But the site can be accessed at dnscrypt.bit instead. Or if your
+current DNS resolver doesn't support Namecoin yet, the source code can
+also be downloaded on Github, in the "releases" section.
+
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.4.0.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.4.1.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -D TXT dnscrypt-proxy-1.4.0.tar.bz2.download.dnscrypt.org
+    $ drill -D TXT dnscrypt-proxy-1.4.1.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.4.0.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.4.1.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -84,8 +89,8 @@ produce broken code on Mips targets with the -Os optimization level.
 Use a different level (-O and -O2 are fine) or upgrade the compiler.
 Thanks to Adrian Kotelba for reporting this.
 
-GUI for dnscrypt-proxy
-----------------------
+GUIs for dnscrypt-proxy
+-----------------------
 
 If you need a simple graphical user interface in order to start/stop
 the proxy and change your DNS settings, check out the following
@@ -108,6 +113,12 @@ Mac OSX application to control the DNSCrypt Proxy.
 - [DNSCrypt Tools for Linux](http://opendesktop.org/content/show.php/DNScrypt+Tools?content=164488):
 A set of tools for `dnscrypt-proxy`. Features a start and stop button as well as options to enable
 or disable from startup. Developed for Porteus Linux.
+
+Docker images
+-------------
+
+@mengbo maintains a [dnscrypt-proxy Docker image](https://github.com/mengbo/docker-dnscrypt)
+as well as a [dnscrypt-wrapper Docker image](https://github.com/mengbo/docker-dnscrypt-wrapper).
 
 DNSCrypt-enabled resolvers
 --------------------------
@@ -219,7 +230,7 @@ IPv6 support
 IPv6 is fully supported. IPv6 addresses with a port number should be
 specified as [ip]:port
 
-    # dnscrypt-proxy --local-address='[::1]:40' --daemonize
+    # dnscrypt-proxy --local-address='[::1]:40' ...
 
 Queries using nonstandard ports / over TCP
 ------------------------------------------

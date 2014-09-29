@@ -60,6 +60,7 @@ static void
 stack_trace_signal_handler(int sig, siginfo_t *info, void *f) {
     (void) info;
     (void) f;
+    fprintf(stderr, "\nSignal [%d] received.\n\n", sig);
     stack_trace();
     kill(getpid(), sig);
     abort();

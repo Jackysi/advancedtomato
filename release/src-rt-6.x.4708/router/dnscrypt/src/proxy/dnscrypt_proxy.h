@@ -9,12 +9,12 @@
 
 #include <event2/event.h>
 #include <event2/listener.h>
+#include <sodium.h>
 
 #include "app.h"
 #include "cert.h"
 #include "dnscrypt_client.h"
 #include "queue.h"
-#include "sodium.h"
 
 #ifndef DNS_QUERY_TIMEOUT
 # define DNS_QUERY_TIMEOUT 10
