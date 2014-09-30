@@ -583,6 +583,7 @@ const defaults_t defaults[] = {
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
 	{ "web_css",			"openlinksys"			},
+	{ "web_dir",			"default"			},  // jffs, opt, tmp or default (/www)
 	{ "ttb_css",			"example"			},	//Tomato Themes Base
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
