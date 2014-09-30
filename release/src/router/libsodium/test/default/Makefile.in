@@ -77,12 +77,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@MINIMAL_FALSE@am__append_1 = \
-@MINIMAL_FALSE@	stream5 \
-@MINIMAL_FALSE@	stream6
-
-check_PROGRAMS = $(am__EXEEXT_2)
-TESTS = $(am__EXEEXT_2)
+check_PROGRAMS = $(am__EXEEXT_1)
+TESTS = $(am__EXEEXT_1)
 subdir = test/default
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp $(top_srcdir)/test-driver
@@ -98,16 +94,15 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-@MINIMAL_FALSE@am__EXEEXT_1 = stream5$(EXEEXT) stream6$(EXEEXT)
-am__EXEEXT_2 = aead_chacha20poly1305$(EXEEXT) auth$(EXEEXT) \
+am__EXEEXT_1 = aead_chacha20poly1305$(EXEEXT) auth$(EXEEXT) \
 	auth2$(EXEEXT) auth3$(EXEEXT) auth5$(EXEEXT) auth6$(EXEEXT) \
 	auth7$(EXEEXT) box$(EXEEXT) box2$(EXEEXT) box7$(EXEEXT) \
 	box8$(EXEEXT) box_easy$(EXEEXT) box_easy2$(EXEEXT) \
 	box_seed$(EXEEXT) chacha20$(EXEEXT) core1$(EXEEXT) \
 	core2$(EXEEXT) core3$(EXEEXT) core4$(EXEEXT) core5$(EXEEXT) \
-	core6$(EXEEXT) generichash$(EXEEXT) generichash2$(EXEEXT) \
-	generichash3$(EXEEXT) hash$(EXEEXT) hash3$(EXEEXT) \
-	onetimeauth$(EXEEXT) onetimeauth2$(EXEEXT) \
+	core6$(EXEEXT) ed25519_convert$(EXEEXT) generichash$(EXEEXT) \
+	generichash2$(EXEEXT) generichash3$(EXEEXT) hash$(EXEEXT) \
+	hash3$(EXEEXT) onetimeauth$(EXEEXT) onetimeauth2$(EXEEXT) \
 	onetimeauth7$(EXEEXT) pwhash$(EXEEXT) \
 	pwhash_scrypt_ll$(EXEEXT) randombytes$(EXEEXT) \
 	scalarmult$(EXEEXT) scalarmult2$(EXEEXT) scalarmult5$(EXEEXT) \
@@ -115,9 +110,10 @@ am__EXEEXT_2 = aead_chacha20poly1305$(EXEEXT) auth$(EXEEXT) \
 	secretbox7$(EXEEXT) secretbox8$(EXEEXT) \
 	secretbox_easy$(EXEEXT) secretbox_easy2$(EXEEXT) \
 	shorthash$(EXEEXT) sign$(EXEEXT) sodium_core$(EXEEXT) \
-	sodium_utils$(EXEEXT) sodium_version$(EXEEXT) stream$(EXEEXT) \
+	sodium_utils$(EXEEXT) sodium_utils2$(EXEEXT) \
+	sodium_utils3$(EXEEXT) sodium_version$(EXEEXT) stream$(EXEEXT) \
 	stream2$(EXEEXT) stream3$(EXEEXT) stream4$(EXEEXT) \
-	verify1$(EXEEXT) $(am__EXEEXT_1)
+	verify1$(EXEEXT)
 aead_chacha20poly1305_SOURCES = aead_chacha20poly1305.c
 aead_chacha20poly1305_OBJECTS = aead_chacha20poly1305.$(OBJEXT)
 aead_chacha20poly1305_DEPENDENCIES = $(TESTS_LDADD)
@@ -185,6 +181,9 @@ core5_DEPENDENCIES = $(TESTS_LDADD)
 core6_SOURCES = core6.c
 core6_OBJECTS = core6.$(OBJEXT)
 core6_DEPENDENCIES = $(TESTS_LDADD)
+ed25519_convert_SOURCES = ed25519_convert.c
+ed25519_convert_OBJECTS = ed25519_convert.$(OBJEXT)
+ed25519_convert_DEPENDENCIES = $(TESTS_LDADD)
 generichash_SOURCES = generichash.c
 generichash_OBJECTS = generichash.$(OBJEXT)
 generichash_DEPENDENCIES = $(TESTS_LDADD)
@@ -260,6 +259,12 @@ sodium_core_DEPENDENCIES = $(TESTS_LDADD)
 sodium_utils_SOURCES = sodium_utils.c
 sodium_utils_OBJECTS = sodium_utils.$(OBJEXT)
 sodium_utils_DEPENDENCIES = $(TESTS_LDADD)
+sodium_utils2_SOURCES = sodium_utils2.c
+sodium_utils2_OBJECTS = sodium_utils2.$(OBJEXT)
+sodium_utils2_DEPENDENCIES = $(TESTS_LDADD)
+sodium_utils3_SOURCES = sodium_utils3.c
+sodium_utils3_OBJECTS = sodium_utils3.$(OBJEXT)
+sodium_utils3_DEPENDENCIES = $(TESTS_LDADD)
 sodium_version_SOURCES = sodium_version.c
 sodium_version_OBJECTS = sodium_version.$(OBJEXT)
 sodium_version_DEPENDENCIES = $(TESTS_LDADD)
@@ -275,12 +280,6 @@ stream3_DEPENDENCIES = $(TESTS_LDADD)
 stream4_SOURCES = stream4.c
 stream4_OBJECTS = stream4.$(OBJEXT)
 stream4_DEPENDENCIES = $(TESTS_LDADD)
-stream5_SOURCES = stream5.c
-stream5_OBJECTS = stream5.$(OBJEXT)
-stream5_DEPENDENCIES = $(TESTS_LDADD)
-stream6_SOURCES = stream6.c
-stream6_OBJECTS = stream6.$(OBJEXT)
-stream6_DEPENDENCIES = $(TESTS_LDADD)
 verify1_SOURCES = verify1.c
 verify1_OBJECTS = verify1.$(OBJEXT)
 verify1_DEPENDENCIES = $(TESTS_LDADD)
@@ -321,25 +320,27 @@ am__v_CCLD_1 =
 SOURCES = aead_chacha20poly1305.c auth.c auth2.c auth3.c auth5.c \
 	auth6.c auth7.c box.c box2.c box7.c box8.c box_easy.c \
 	box_easy2.c box_seed.c chacha20.c core1.c core2.c core3.c \
-	core4.c core5.c core6.c generichash.c generichash2.c \
-	generichash3.c hash.c hash3.c onetimeauth.c onetimeauth2.c \
-	onetimeauth7.c pwhash.c pwhash_scrypt_ll.c randombytes.c \
-	scalarmult.c scalarmult2.c scalarmult5.c scalarmult6.c \
-	secretbox.c secretbox2.c secretbox7.c secretbox8.c \
-	secretbox_easy.c secretbox_easy2.c shorthash.c sign.c \
-	sodium_core.c sodium_utils.c sodium_version.c stream.c \
-	stream2.c stream3.c stream4.c stream5.c stream6.c verify1.c
+	core4.c core5.c core6.c ed25519_convert.c generichash.c \
+	generichash2.c generichash3.c hash.c hash3.c onetimeauth.c \
+	onetimeauth2.c onetimeauth7.c pwhash.c pwhash_scrypt_ll.c \
+	randombytes.c scalarmult.c scalarmult2.c scalarmult5.c \
+	scalarmult6.c secretbox.c secretbox2.c secretbox7.c \
+	secretbox8.c secretbox_easy.c secretbox_easy2.c shorthash.c \
+	sign.c sodium_core.c sodium_utils.c sodium_utils2.c \
+	sodium_utils3.c sodium_version.c stream.c stream2.c stream3.c \
+	stream4.c verify1.c
 DIST_SOURCES = aead_chacha20poly1305.c auth.c auth2.c auth3.c auth5.c \
 	auth6.c auth7.c box.c box2.c box7.c box8.c box_easy.c \
 	box_easy2.c box_seed.c chacha20.c core1.c core2.c core3.c \
-	core4.c core5.c core6.c generichash.c generichash2.c \
-	generichash3.c hash.c hash3.c onetimeauth.c onetimeauth2.c \
-	onetimeauth7.c pwhash.c pwhash_scrypt_ll.c randombytes.c \
-	scalarmult.c scalarmult2.c scalarmult5.c scalarmult6.c \
-	secretbox.c secretbox2.c secretbox7.c secretbox8.c \
-	secretbox_easy.c secretbox_easy2.c shorthash.c sign.c \
-	sodium_core.c sodium_utils.c sodium_version.c stream.c \
-	stream2.c stream3.c stream4.c stream5.c stream6.c verify1.c
+	core4.c core5.c core6.c ed25519_convert.c generichash.c \
+	generichash2.c generichash3.c hash.c hash3.c onetimeauth.c \
+	onetimeauth2.c onetimeauth7.c pwhash.c pwhash_scrypt_ll.c \
+	randombytes.c scalarmult.c scalarmult2.c scalarmult5.c \
+	scalarmult6.c secretbox.c secretbox2.c secretbox7.c \
+	secretbox8.c secretbox_easy.c secretbox_easy2.c shorthash.c \
+	sign.c sodium_core.c sodium_utils.c sodium_utils2.c \
+	sodium_utils3.c sodium_version.c stream.c stream2.c stream3.c \
+	stream4.c verify1.c
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -724,6 +725,7 @@ EXTRA_DIST = \
 	core4.exp \
 	core5.exp \
 	core6.exp \
+	ed25519_convert.exp \
 	generichash.exp \
 	generichash2.exp \
 	generichash3.exp \
@@ -749,13 +751,13 @@ EXTRA_DIST = \
 	sign.exp \
 	sodium_core.exp \
 	sodium_utils.exp \
+	sodium_utils2.exp \
+	sodium_utils3.exp \
 	sodium_version.exp \
 	stream.exp \
 	stream2.exp \
 	stream3.exp \
 	stream4.exp \
-	stream5.exp \
-	stream6.exp \
 	verify1.exp
 
 DISTCLEANFILES = \
@@ -780,6 +782,7 @@ DISTCLEANFILES = \
 	core4.res \
 	core5.res \
 	core6.res \
+	ed25519_convert.res \
 	generichash.res \
 	generichash2.res \
 	generichash3.res \
@@ -805,13 +808,13 @@ DISTCLEANFILES = \
 	sign.res \
 	sodium_core.res \
 	sodium_utils.res \
+	sodium_utils2.res \
+	sodium_utils3.res \
 	sodium_version.res \
 	stream.res \
 	stream2.res \
 	stream3.res \
 	stream4.res \
-	stream5.res \
-	stream6.res \
 	verify1.res
 
 AM_CPPFLAGS = \
@@ -822,15 +825,63 @@ AM_CPPFLAGS = \
 	-I$(top_builddir)/src/libsodium/include/sodium \
 	-I$(top_srcdir)/test/quirks
 
-TESTS_TARGETS = aead_chacha20poly1305 auth auth2 auth3 auth5 auth6 \
-	auth7 box box2 box7 box8 box_easy box_easy2 box_seed chacha20 \
-	core1 core2 core3 core4 core5 core6 generichash generichash2 \
-	generichash3 hash hash3 onetimeauth onetimeauth2 onetimeauth7 \
-	pwhash pwhash_scrypt_ll randombytes scalarmult scalarmult2 \
-	scalarmult5 scalarmult6 secretbox secretbox2 secretbox7 \
-	secretbox8 secretbox_easy secretbox_easy2 shorthash sign \
-	sodium_core sodium_utils sodium_version stream stream2 stream3 \
-	stream4 verify1 $(am__append_1)
+TESTS_TARGETS = \
+	aead_chacha20poly1305 \
+	auth \
+	auth2 \
+	auth3 \
+	auth5 \
+	auth6 \
+	auth7 \
+	box \
+	box2 \
+	box7 \
+	box8 \
+	box_easy \
+	box_easy2 \
+	box_seed \
+	chacha20 \
+	core1 \
+	core2 \
+	core3 \
+	core4 \
+	core5 \
+	core6 \
+	ed25519_convert \
+	generichash \
+	generichash2 \
+	generichash3 \
+	hash \
+	hash3 \
+	onetimeauth \
+	onetimeauth2 \
+	onetimeauth7 \
+	pwhash \
+	pwhash_scrypt_ll \
+	randombytes \
+	scalarmult \
+	scalarmult2 \
+	scalarmult5 \
+	scalarmult6 \
+	secretbox \
+	secretbox2 \
+	secretbox7 \
+	secretbox8 \
+	secretbox_easy \
+	secretbox_easy2 \
+	shorthash \
+	sign \
+	sodium_core \
+	sodium_utils \
+	sodium_utils2 \
+	sodium_utils3 \
+	sodium_version \
+	stream \
+	stream2 \
+	stream3 \
+	stream4 \
+	verify1
+
 TESTS_LDADD = \
 	${top_builddir}/src/libsodium/libsodium.la
 
@@ -876,6 +927,8 @@ core5_SOURCE = cmptest.h core5.c
 core5_LDADD = $(TESTS_LDADD)
 core6_SOURCE = cmptest.h core6.c
 core6_LDADD = $(TESTS_LDADD)
+ed25519_convert_SOURCE = cmptest.h ed25519_convert.c
+ed25519_convert_LDADD = $(TESTS_LDADD)
 generichash_SOURCE = cmptest.h generichash.c
 generichash_LDADD = $(TESTS_LDADD)
 generichash2_SOURCE = cmptest.h generichash2.c
@@ -926,6 +979,10 @@ sodium_core_SOURCE = cmptest.h sodium_core.c
 sodium_core_LDADD = $(TESTS_LDADD)
 sodium_utils_SOURCE = cmptest.h sodium_utils.c
 sodium_utils_LDADD = $(TESTS_LDADD)
+sodium_utils2_SOURCE = cmptest.h sodium_utils2.c
+sodium_utils2_LDADD = $(TESTS_LDADD)
+sodium_utils3_SOURCE = cmptest.h sodium_utils3.c
+sodium_utils3_LDADD = $(TESTS_LDADD)
 sodium_version_SOURCE = cmptest.h sodium_version.c
 sodium_version_LDADD = $(TESTS_LDADD)
 stream_SOURCE = cmptest.h stream.c
@@ -936,10 +993,6 @@ stream3_SOURCE = cmptest.h stream3.c
 stream3_LDADD = $(TESTS_LDADD)
 stream4_SOURCE = cmptest.h stream4.c
 stream4_LDADD = $(TESTS_LDADD)
-stream5_SOURCE = cmptest.h stream5.c
-stream5_LDADD = $(TESTS_LDADD)
-stream6_SOURCE = cmptest.h stream6.c
-stream6_LDADD = $(TESTS_LDADD)
 verify1_SOURCE = cmptest.h verify1.c
 verify1_LDADD = $(TESTS_LDADD)
 all: all-am
@@ -1070,6 +1123,10 @@ core6$(EXEEXT): $(core6_OBJECTS) $(core6_DEPENDENCIES) $(EXTRA_core6_DEPENDENCIE
 	@rm -f core6$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(core6_OBJECTS) $(core6_LDADD) $(LIBS)
 
+ed25519_convert$(EXEEXT): $(ed25519_convert_OBJECTS) $(ed25519_convert_DEPENDENCIES) $(EXTRA_ed25519_convert_DEPENDENCIES) 
+	@rm -f ed25519_convert$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ed25519_convert_OBJECTS) $(ed25519_convert_LDADD) $(LIBS)
+
 generichash$(EXEEXT): $(generichash_OBJECTS) $(generichash_DEPENDENCIES) $(EXTRA_generichash_DEPENDENCIES) 
 	@rm -f generichash$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(generichash_OBJECTS) $(generichash_LDADD) $(LIBS)
@@ -1170,6 +1227,14 @@ sodium_utils$(EXEEXT): $(sodium_utils_OBJECTS) $(sodium_utils_DEPENDENCIES) $(EX
 	@rm -f sodium_utils$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(sodium_utils_OBJECTS) $(sodium_utils_LDADD) $(LIBS)
 
+sodium_utils2$(EXEEXT): $(sodium_utils2_OBJECTS) $(sodium_utils2_DEPENDENCIES) $(EXTRA_sodium_utils2_DEPENDENCIES) 
+	@rm -f sodium_utils2$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(sodium_utils2_OBJECTS) $(sodium_utils2_LDADD) $(LIBS)
+
+sodium_utils3$(EXEEXT): $(sodium_utils3_OBJECTS) $(sodium_utils3_DEPENDENCIES) $(EXTRA_sodium_utils3_DEPENDENCIES) 
+	@rm -f sodium_utils3$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(sodium_utils3_OBJECTS) $(sodium_utils3_LDADD) $(LIBS)
+
 sodium_version$(EXEEXT): $(sodium_version_OBJECTS) $(sodium_version_DEPENDENCIES) $(EXTRA_sodium_version_DEPENDENCIES) 
 	@rm -f sodium_version$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(sodium_version_OBJECTS) $(sodium_version_LDADD) $(LIBS)
@@ -1189,14 +1254,6 @@ stream3$(EXEEXT): $(stream3_OBJECTS) $(stream3_DEPENDENCIES) $(EXTRA_stream3_DEP
 stream4$(EXEEXT): $(stream4_OBJECTS) $(stream4_DEPENDENCIES) $(EXTRA_stream4_DEPENDENCIES) 
 	@rm -f stream4$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(stream4_OBJECTS) $(stream4_LDADD) $(LIBS)
-
-stream5$(EXEEXT): $(stream5_OBJECTS) $(stream5_DEPENDENCIES) $(EXTRA_stream5_DEPENDENCIES) 
-	@rm -f stream5$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(stream5_OBJECTS) $(stream5_LDADD) $(LIBS)
-
-stream6$(EXEEXT): $(stream6_OBJECTS) $(stream6_DEPENDENCIES) $(EXTRA_stream6_DEPENDENCIES) 
-	@rm -f stream6$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(stream6_OBJECTS) $(stream6_LDADD) $(LIBS)
 
 verify1$(EXEEXT): $(verify1_OBJECTS) $(verify1_DEPENDENCIES) $(EXTRA_verify1_DEPENDENCIES) 
 	@rm -f verify1$(EXEEXT)
@@ -1229,6 +1286,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/core4.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/core5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/core6.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ed25519_convert.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/generichash.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/generichash2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/generichash3.Po@am__quote@
@@ -1254,13 +1312,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sign.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sodium_core.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sodium_utils.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sodium_utils2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sodium_utils3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sodium_version.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream4.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream5.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stream6.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify1.Po@am__quote@
 
 .c.o:
@@ -1633,6 +1691,13 @@ core6.log: core6$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+ed25519_convert.log: ed25519_convert$(EXEEXT)
+	@p='ed25519_convert$(EXEEXT)'; \
+	b='ed25519_convert'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 generichash.log: generichash$(EXEEXT)
 	@p='generichash$(EXEEXT)'; \
 	b='generichash'; \
@@ -1808,6 +1873,20 @@ sodium_utils.log: sodium_utils$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+sodium_utils2.log: sodium_utils2$(EXEEXT)
+	@p='sodium_utils2$(EXEEXT)'; \
+	b='sodium_utils2'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+sodium_utils3.log: sodium_utils3$(EXEEXT)
+	@p='sodium_utils3$(EXEEXT)'; \
+	b='sodium_utils3'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 sodium_version.log: sodium_version$(EXEEXT)
 	@p='sodium_version$(EXEEXT)'; \
 	b='sodium_version'; \
@@ -1846,20 +1925,6 @@ stream4.log: stream4$(EXEEXT)
 verify1.log: verify1$(EXEEXT)
 	@p='verify1$(EXEEXT)'; \
 	b='verify1'; \
-	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
-	--log-file $$b.log --trs-file $$b.trs \
-	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
-	"$$tst" $(AM_TESTS_FD_REDIRECT)
-stream5.log: stream5$(EXEEXT)
-	@p='stream5$(EXEEXT)'; \
-	b='stream5'; \
-	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
-	--log-file $$b.log --trs-file $$b.trs \
-	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
-	"$$tst" $(AM_TESTS_FD_REDIRECT)
-stream6.log: stream6$(EXEEXT)
-	@p='stream6$(EXEEXT)'; \
-	b='stream6'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

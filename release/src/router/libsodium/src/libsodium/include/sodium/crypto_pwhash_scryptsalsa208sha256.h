@@ -2,6 +2,7 @@
 #define crypto_pwhash_scryptsalsa208sha256_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "export.h"
 
@@ -19,6 +20,10 @@ size_t crypto_pwhash_scryptsalsa208sha256_saltbytes(void);
 #define crypto_pwhash_scryptsalsa208sha256_STRBYTES 102U
 SODIUM_EXPORT
 size_t crypto_pwhash_scryptsalsa208sha256_strbytes(void);
+
+#define crypto_pwhash_scryptsalsa208sha256_STRPREFIX "$7$"
+SODIUM_EXPORT
+const char *crypto_pwhash_scryptsalsa208sha256_strprefix(void);
 
 #define crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_INTERACTIVE 524288ULL
 SODIUM_EXPORT
