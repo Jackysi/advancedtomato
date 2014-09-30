@@ -171,7 +171,7 @@ $(EXE): progs.h $(E_OBJ) $(PROGRAM).o $(DLIBCRYPTO) $(DLIBSSL)
 #	@(cd ..; $(MAKE) rehash)
 
 progs.h: progs.pl
-	$(PERL) progs.pl $(E_EXE) >progs.h
+#	$(PERL) progs.pl $(E_EXE) >progs.h
 	$(RM) $(PROGRAM).o
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
