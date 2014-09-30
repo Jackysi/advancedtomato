@@ -1872,6 +1872,11 @@ int start_firewall(void)
 #ifdef TCONFIG_OPENVPN
 	run_vpn_firewall_scripts();
 #endif
+
+#ifdef TCONFIG_TINC
+	run_tinc_firewall_script();
+#endif
+
 	run_nvscript("script_fire", NULL, 1);
 
 #ifdef LINUX26

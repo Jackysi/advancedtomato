@@ -42,3 +42,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_TOR is not set
 # TCONFIG_CTF is not set
 # TCONFIG_DNSSEC is not set
+# TCONFIG_TINC is not set

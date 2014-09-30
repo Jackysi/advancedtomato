@@ -2880,6 +2880,14 @@ TOP:
 	}
 #endif
 
+#ifdef TCONFIG_TINC
+	if (strcmp(service, "tinc") == 0) {
+		if (action & A_STOP) stop_tinc();
+		if (action & A_START) start_tinc();
+		goto CLEAR;
+	}
+#endif
+
 #ifdef TCONFIG_NOCAT
 	if (strcmp(service, "splashd") == 0) {
 		if (action & A_STOP) stop_splashd();

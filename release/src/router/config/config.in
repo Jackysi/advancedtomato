@@ -182,3 +182,7 @@ config TCONFIG_CTF
 config TCONFIG_DNSSEC
 	bool "DNSSEC"
 	default n
+
+config TCONFIG_TINC
+	bool "TINC"
+	default n

@@ -653,6 +653,37 @@ function v_iptip(e, quiet, multi)
 	return 1;
 }
 
+function _v_subnet(e, ip, quiet)
+{
+	var ma, oip;
+	oip = ip;
+
+	// x.x.x.x/nn
+	if (ip.match(/^(.*)\/(.*)$/)) {
+		ip = RegExp.$1;
+		ma = RegExp.$2;
+
+		if ((ma < 0) || (ma > 32)) {
+			ferror.set(e, oip + ' - invalid subnet', quiet);
+			return null;
+		}
+	}
+	else {
+		ferror.set(e, oip + ' - invalid subnet', quiet);
+		return null;
+	}
+
+	ferror.clear(e);
+	return ip + ((ma != '') ? ('/' + ma) : '');
+}
+
+function v_subnet(e, quiet)
+{
+	if ((_v_subnet(e, e.value, quiet)) == null) return 0;
+
+	return 1;
+}
+
 function _v_domain(e, dom, quiet)
 {
 	var s;
@@ -1572,6 +1603,11 @@ TomatoGrid.prototype = {
 					if ((which == 'edit') && (values[vi])) s += ' checked';
 					s += '>';
 					break;
+				case 'textarea':
+					if (which == 'edit'){
+						document.getElementById(f.proxy).value = values[vi];
+					}
+					break;
 				default:
 					s += f.custom.replace(/\$which\$/g, which);
 				}
@@ -1579,9 +1615,11 @@ TomatoGrid.prototype = {
 
 				++vi;
 			}
-			var c = row.insertCell(i);
-			c.innerHTML = s;
-			if (this.editorFields[i].vtop) c.vAlign = 'top';
+			if(this.editorFields[i].type != 'textarea'){
+				var c = row.insertCell(i);
+				c.innerHTML = s;
+				if (this.editorFields[i].vtop) c.vAlign = 'top';
+			}
 		}
 
 		return row;
@@ -1651,12 +1689,14 @@ TomatoGrid.prototype = {
 		elem.remove(this.source);
 		this.source = null;
 		this.disableNewEditor(false);
+		this.clearTextarea();
 	},
 
 	onCancel: function() {
 		this.removeEditor();
 		this.showSource();
 		this.disableNewEditor(false);
+		this.clearTextarea();
 	},
 
 	onOK: function() {
@@ -1675,6 +1715,7 @@ TomatoGrid.prototype = {
 		this.removeEditor();
 		this.showSource();
 		this.disableNewEditor(false);
+		this.clearTextarea();
 	},
 
 	onAdd: function() {
@@ -1690,6 +1731,15 @@ TomatoGrid.prototype = {
 
 		this.disableNewEditor(false);
 		this.resetNewEditor();
+	},
+
+	clearTextarea: function() {
+		for (var i = 0; i < this.editorFields.length; ++i){
+			if(this.editorFields[i].type == 'textarea'){
+				document.getElementById(this.editorFields[i].proxy).value = '';
+				ferror.clear(document.getElementById(this.editorFields[i].proxy));
+			}
+		}
 	},
 
 	verifyFields: function(row, quiet) {
@@ -2461,6 +2511,9 @@ REMOVE-END */
 			['PPTP Online',			'pptp-online.asp'],
 			['PPTP Client',			'pptp.asp']
 /* PPTPD-END */
+/* TINC-BEGIN */
+			,['Tinc Daemon',		'tinc.asp']
+/* TINC-END */
 		] ],
 /* VPN-END */
 		null,

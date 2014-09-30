@@ -971,6 +971,27 @@ const defaults_t defaults[] = {
 	{ "pptp_client_dfltroute","0"             },
 #endif
 
+#ifdef TCONFIG_TINC
+	{"tinc_wanup",			"0"		},
+	{"tinc_name",			""		},
+	{"tinc_devicetype",		"tun"		}, // tun, tap
+	{"tinc_mode",			"switch"	}, // switch, hub
+	{"tinc_vpn_netmask",		"255.255.0.0"	},
+	{"tinc_private_rsa",		""		},
+	{"tinc_private_ecdsa",		""		},
+	{"tinc_custom",			""		},
+	{"tinc_hosts",			""		},
+	{"tinc_manual_firewall",	""		},
+	{"tinc_manual_tinc_up",		""		},
+	// scripts
+	{"tinc_tinc_up",		""		},
+	{"tinc_tinc_down",		""		},
+	{"tinc_host_up",		""		},
+	{"tinc_host_down",		""		},
+	{"tinc_subnet_up",		""		},
+	{"tinc_subnet_down",		""		},
+#endif
+
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",				"0"			},

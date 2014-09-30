@@ -548,6 +548,10 @@ define BusyboxOptions
 		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
 		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 	fi; \
+	if [ "$(TINC)" = "y" ]; then \
+		sed -i "/TCONFIG_TINC/d" $(1); \
+		echo "TCONFIG_TINC=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -769,7 +773,7 @@ ifeq ($(CONFIG_LINUX26),y)
 
 ## All-In-One (AIO) MIPS1 - only for router with more than 8MB flash!! ZTE H618B
 z:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y IPSEC=y RAID=y NGINX=y DNSSEC=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y IPSEC=y RAID=y NGINX=y DNSSEC=y TINC=y
 endif
 
 #################################
