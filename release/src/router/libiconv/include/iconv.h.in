@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2003, 2005-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2003, 2005-2006, 2008-2011 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -21,7 +21,7 @@
 #ifndef _LIBICONV_H
 #define _LIBICONV_H
 
-#define _LIBICONV_VERSION 0x010B    /* version number: (major<<8) + minor */
+#define _LIBICONV_VERSION 0x010E    /* version number: (major<<8) + minor */
 extern @DLL_VARIABLE@ int _libiconv_version; /* Likewise */
 
 /* We would like to #include any system header file which could define
@@ -65,33 +65,71 @@ extern "C" {
 #endif
 
 
-/* Allocates descriptor for code conversion from encoding `fromcode' to
-   encoding `tocode'. */
+/* Allocates descriptor for code conversion from encoding ‘fromcode’ to
+   encoding ‘tocode’. */
 #ifndef LIBICONV_PLUG
 #define iconv_open libiconv_open
 #endif
 extern iconv_t iconv_open (const char* tocode, const char* fromcode);
 
-/* Converts, using conversion descriptor `cd', at most `*inbytesleft' bytes
-   starting at `*inbuf', writing at most `*outbytesleft' bytes starting at
-   `*outbuf'.
-   Decrements `*inbytesleft' and increments `*inbuf' by the same amount.
-   Decrements `*outbytesleft' and increments `*outbuf' by the same amount. */
+/* Converts, using conversion descriptor ‘cd’, at most ‘*inbytesleft’ bytes
+   starting at ‘*inbuf’, writing at most ‘*outbytesleft’ bytes starting at
+   ‘*outbuf’.
+   Decrements ‘*inbytesleft’ and increments ‘*inbuf’ by the same amount.
+   Decrements ‘*outbytesleft’ and increments ‘*outbuf’ by the same amount. */
 #ifndef LIBICONV_PLUG
 #define iconv libiconv
 #endif
 extern size_t iconv (iconv_t cd, @ICONV_CONST@ char* * inbuf, size_t *inbytesleft, char* * outbuf, size_t *outbytesleft);
 
-/* Frees resources allocated for conversion descriptor `cd'. */
+/* Frees resources allocated for conversion descriptor ‘cd’. */
 #ifndef LIBICONV_PLUG
 #define iconv_close libiconv_close
 #endif
 extern int iconv_close (iconv_t cd);
 
 
+#ifdef __cplusplus
+}
+#endif
+
+
 #ifndef LIBICONV_PLUG
 
 /* Nonstandard extensions. */
+
+#if @USE_MBSTATE_T@
+#if @BROKEN_WCHAR_H@
+/* Tru64 with Desktop Toolkit C has a bug: <stdio.h> must be included before
+   <wchar.h>.
+   BSD/OS 4.0.1 has a bug: <stddef.h>, <stdio.h> and <time.h> must be
+   included before <wchar.h>.  */
+#include <stddef.h>
+#include <stdio.h>
+#include <time.h>
+#endif
+#include <wchar.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* A type that holds all memory needed by a conversion descriptor.
+   A pointer to such an object can be used as an iconv_t. */
+typedef struct {
+  void* dummy1[28];
+#if @USE_MBSTATE_T@
+  mbstate_t dummy2;
+#endif
+} iconv_allocation_t;
+
+/* Allocates descriptor for code conversion from encoding ‘fromcode’ to
+   encoding ‘tocode’ into preallocated memory. Returns an error indicator
+   (0 or -1 with errno set). */
+#define iconv_open_into libiconv_open_into
+extern int iconv_open_into (const char* tocode, const char* fromcode,
+                            iconv_allocation_t* resultp);
 
 /* Control of attributes. */
 #define iconvctl libiconvctl
@@ -192,13 +230,12 @@ extern const char * iconv_canonicalize (const char * name);
    prefixes should be directory names without trailing slash (i.e. use ""
    instead of "/").  */
 extern void libiconv_set_relocation_prefix (const char *orig_prefix,
-					    const char *curr_prefix);
-
-#endif
-
+                                            const char *curr_prefix);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 

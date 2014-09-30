@@ -4,6 +4,7 @@
 @V@/build-aux/install-sh                          @V@/build-aux/install.sh
 @V@/m4/strerror_r.m4                              @V@/m4/strerr_r.m4
 @V@/include/iconv.h.in                            @V@/include/iconv.h-in
+@V@/include/iconv.h.build.in                      @V@/include/iconv.h-build-in
 @V@/include/iconv.h.msvc-static                   @V@/include/iconv_h.static-msvc
 @V@/include/iconv.h.msvc-shared                   @V@/include/iconv_h.shared-msvc
 @V@/man/iconv.1.html                              @V@/man/iconv_1.html
@@ -15,6 +16,7 @@
 @V@/libcharset/include/libcharset.h.in            @V@/libcharset/include/libcharset.h-in
 @V@/libcharset/include/libcharset.h.msvc-shared   @V@/libcharset/include/libcharset.h-msvc-shared
 @V@/libcharset/include/localcharset.h.in          @V@/libcharset/include/localcharset.h-in
+@V@/libcharset/include/localcharset.h.build.in    @V@/libcharset/include/localcharset.h-build-in
 @V@/libcharset/include/localcharset.h.msvc-shared @V@/libcharset/include/localcharset.h-msvc-shared
 @V@/libcharset/tools/aix-3.2.5                    @V@/libcharset/tools/aix-3.2-5
 @V@/libcharset/tools/aix-4.1.5                    @V@/libcharset/tools/aix-4.1-5
@@ -38,6 +40,9 @@
 @V@/lib/aliases_dos.h                             @V@/lib/aliases/dos.h
 @V@/lib/aliases_extra.h                           @V@/lib/aliases/extra.h
 @V@/lib/aliases_osf1.h                            @V@/lib/aliases/osf1.h
+@V@/lib/big5hkscs1999.h                           @V@/lib/big5hkscs/1999.h
+@V@/lib/big5hkscs2001.h                           @V@/lib/big5hkscs/2001.h
+@V@/lib/big5hkscs2004.h                           @V@/lib/big5hkscs/2004.h
 @V@/lib/cns11643.h                                @V@/lib/cns/11643.h
 @V@/lib/cns11643_1.h                              @V@/lib/cns/11643_1.h
 @V@/lib/cns11643_2.h                              @V@/lib/cns/11643_2.h
@@ -70,6 +75,9 @@
 @V@/lib/genaliases2.c                             @V@/lib/2genaliases.c
 @V@/lib/georgian_academy.h                        @V@/lib/georgian/academy.h
 @V@/lib/georgian_ps.h                             @V@/lib/georgian/ps.h
+@V@/lib/hkscs1999.h                               @V@/lib/hkscs/1999.h
+@V@/lib/hkscs2001.h                               @V@/lib/hkscs/2001.h
+@V@/lib/hkscs2004.h                               @V@/lib/hkscs/2004.h
 @V@/lib/iso2022_cn.h                              @V@/lib/iso/2022_cn.h
 @V@/lib/iso2022_cnext.h                           @V@/lib/iso/2022_cnext.h
 @V@/lib/iso2022_jp.h                              @V@/lib/iso/2022_jp.h
@@ -182,3 +190,15 @@
 @V@/tests/Translit1.ASCII                         @V@/tests/_Translit/1.ASCII
 @V@/tests/SHIFT_JIS.TXT                           @V@/tests/SHIFT/JIS.TXT
 @V@/tests/SHIFT_JISX0213.TXT                      @V@/tests/SHIFT/JISX0213.TXT
+@V@/tests/BIG5-HKSCS-1999.IRREVERSIBLE.TXT        @V@/tests/BIG5-HKSCS/1999.IRREVERSIBLE-TXT
+@V@/tests/BIG5-HKSCS-1999.TXT                     @V@/tests/BIG5-HKSCS/1999.TXT
+@V@/tests/BIG5-HKSCS-2001.IRREVERSIBLE.TXT        @V@/tests/BIG5-HKSCS/2001.IRREVERSIBLE-TXT
+@V@/tests/BIG5-HKSCS-2001.TXT                     @V@/tests/BIG5-HKSCS/2001.TXT
+@V@/tests/BIG5-HKSCS-2004.IRREVERSIBLE.TXT        @V@/tests/BIG5-HKSCS/2004.IRREVERSIBLE-TXT
+@V@/tests/BIG5-HKSCS-2004.TXT                     @V@/tests/BIG5-HKSCS/2004.TXT
+@V@/tests/BIG5-HKSCS-1999-snippet                 @V@/tests/BIG5-HKSCS/1999-snippet
+@V@/tests/BIG5-HKSCS-1999-snippet.UTF-8           @V@/tests/BIG5-HKSCS/1999-snippet.UTF-8
+@V@/tests/BIG5-HKSCS-2001-snippet                 @V@/tests/BIG5-HKSCS/2001-snippet
+@V@/tests/BIG5-HKSCS-2001-snippet.UTF-8           @V@/tests/BIG5-HKSCS/2001-snippet.UTF-8
+@V@/tests/BIG5-HKSCS-2004-snippet                 @V@/tests/BIG5-HKSCS/2004-snippet
+@V@/tests/BIG5-HKSCS-2004-snippet.UTF-8           @V@/tests/BIG5-HKSCS/2004-snippet.UTF-8

@@ -1,10 +1,10 @@
-/* Copyright (C) 1999-2004, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2004, 2006-2007, 2010 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Tools.
 
-   This program is free software; you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,7 +13,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+   Inc., along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
  * Generates a CJK character set table from a .TXT table as found on
@@ -76,7 +76,7 @@ typedef struct {
 static void output_title (const char *charsetname)
 {
   printf("/*\n");
-  printf(" * Copyright (C) 1999-2006 Free Software Foundation, Inc.\n");
+  printf(" * Copyright (C) 1999-2010 Free Software Foundation, Inc.\n");
   printf(" * This file is part of the GNU LIBICONV Library.\n");
   printf(" *\n");
   printf(" * The GNU LIBICONV Library is free software; you can redistribute it\n");
@@ -1821,7 +1821,7 @@ static void do_jisx0213 (const char* name)
         if ((count % 8) == 0) printf(" ");
         printf(" ");
         sprintf(buf,"0x%04x",pagestart[i]);
-        if (strlen(buf) < 7) printf("%*s",7-strlen(buf),"");
+        if (strlen(buf) < 7) printf("%*s",(int)(7-strlen(buf)),"");
         printf("%s,",buf);
         count++;
         if ((count % 8) == 0) printf("\n");
@@ -2131,7 +2131,7 @@ int main (int argc, char *argv[])
   else if (!strcmp(name,"big5") || !strcmp(name,"cp950ext"))
     do_big5(name);
   else if (!strcmp(name,"hkscs1999") || !strcmp(name,"hkscs2001")
-           || !strcmp(name,"hkscs2004"))
+           || !strcmp(name,"hkscs2004") || !strcmp(name,"hkscs2008"))
     do_hkscs(name);
   else if (!strcmp(name,"johab_hangul"))
     do_johab_hangul(name);

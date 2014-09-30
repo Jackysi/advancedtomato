@@ -1,11 +1,11 @@
 /* Relocating wrapper program.
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005-2007, 2009-2011 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2003.
 
-   This program is free software; you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,21 +13,23 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Dependencies:
    relocwrapper
     -> progname
     -> progreloc
-        -> xreadlink
+        -> areadlink
+           -> careadlinkat
+             -> allocator
+             -> readlink
+        -> canonicalize-lgpl
+           -> malloca
            -> readlink
-        -> canonicalize
-           -> allocsa
     -> relocatable
     -> setenv
-       -> allocsa
-    -> strerror
+       -> malloca
+    -> c-ctype
 
    Macros that need to be set while compiling this file:
      - ENABLE_RELOCATABLE 1
@@ -42,21 +44,22 @@
    libc functions, no gettext(), no error(), no xmalloc(), no xsetenv().
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
+#define _GL_USE_STDLIB_ALLOC 1
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if HAVE_UNISTD_H
-# include <unistd.h>
-#endif
+#include <unistd.h>
 #include <errno.h>
 
 #include "progname.h"
 #include "relocatable.h"
-#include "setenv.h"
+#include "c-ctype.h"
+#include "verify.h"
+
+/* Use the system functions, not the gnulib overrides in this file.  */
+#undef fprintf
 
 /* Return a copy of the filename, with an extra ".bin" at the end.
    More generally, it replaces "${EXEEXT}" at the end with ".bin${EXEEXT}".  */
@@ -69,35 +72,34 @@ add_dotbin (const char *filename)
   if (result != NULL)
     {
       if (sizeof (EXEEXT) > sizeof (""))
-	{
-	  /* EXEEXT handling.  */
-	  const size_t exeext_len = sizeof (EXEEXT) - sizeof ("");
-	  static const char exeext[] = EXEEXT;
-	  if (filename_len > exeext_len)
-	    {
-	      /* Compare using an inlined copy of c_strncasecmp(), because
-		 the filenames may have undergone a case conversion since
-		 they were packaged.  In other words, EXEEXT may be ".exe"
-		 on one system and ".EXE" on another.  */
-	      const char *s1 = filename + filename_len - exeext_len;
-	      const char *s2 = exeext;
-	      for (; *s1 != '\0'; s1++, s2++)
-		{
-		  unsigned char c1 = *s1;
-		  unsigned char c2 = *s2;
-		  if ((c1 >= 'A' && c1 <= 'Z' ? c1 - 'A' + 'a' : c1)
-		      != (c2 >= 'A' && c2 <= 'Z' ? c2 - 'A' + 'a' : c2))
-		    goto simple_append;
-		}
-	      /* Insert ".bin" before EXEEXT or its equivalent.  */
-	      memcpy (result, filename, filename_len - exeext_len);
-	      memcpy (result + filename_len - exeext_len, ".bin", 4);
-	      memcpy (result + filename_len - exeext_len + 4,
-		      filename + filename_len - exeext_len,
-		      exeext_len + 1);
-	      return result;
-	    }
-	}
+        {
+          /* EXEEXT handling.  */
+          const size_t exeext_len = sizeof (EXEEXT) - sizeof ("");
+          static const char exeext[] = EXEEXT;
+          if (filename_len > exeext_len)
+            {
+              /* Compare using an inlined copy of c_strncasecmp(), because
+                 the filenames may have undergone a case conversion since
+                 they were packaged.  In other words, EXEEXT may be ".exe"
+                 on one system and ".EXE" on another.  */
+              const char *s1 = filename + filename_len - exeext_len;
+              const char *s2 = exeext;
+              for (; *s1 != '\0'; s1++, s2++)
+                {
+                  unsigned char c1 = *s1;
+                  unsigned char c2 = *s2;
+                  if (c_tolower (c1) != c_tolower (c2))
+                    goto simple_append;
+                }
+              /* Insert ".bin" before EXEEXT or its equivalent.  */
+              memcpy (result, filename, filename_len - exeext_len);
+              memcpy (result + filename_len - exeext_len, ".bin", 4);
+              memcpy (result + filename_len - exeext_len + 4,
+                      filename + filename_len - exeext_len,
+                      exeext_len + 1);
+              return result;
+            }
+        }
      simple_append:
       /* Simply append ".bin".  */
       memcpy (result, filename, filename_len);
@@ -114,7 +116,7 @@ add_dotbin (const char *filename)
 /* List of directories that contain the libraries.  */
 static const char *libdirs[] = { LIBDIRS NULL };
 /* Verify that at least one directory is given.  */
-typedef int verify1[2 * (sizeof (libdirs) / sizeof (libdirs[0]) > 1) - 1];
+verify (sizeof (libdirs) / sizeof (libdirs[0]) > 1);
 
 /* Relocate the list of directories that contain the libraries.  */
 static void
@@ -191,6 +193,6 @@ main (int argc, char *argv[])
   activate_libdirs ();
   execv (argv[0], argv);
   fprintf (stderr, "%s: could not execute %s: %s\n",
-	   program_name, argv[0], strerror (errno));
+           program_name, argv[0], strerror (errno));
   exit (127);
 }
