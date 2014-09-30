@@ -519,6 +519,7 @@ genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs
 genSO("${root}/usr/lib/libsodium.so.13.0.0", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
 genSO("${root}/usr/lib/libpng.so.3.51.0", "${router}/libpng/.libs/libpng.a");
 genSO("${root}/usr/lib/libpng12.so.0.51.0", "${router}/libpng/.libs/libpng12.a");
+genSO("${root}/usr/lib/libjpeg.so.62.0.0", "${router}/libjpeg/.libs/libjpeg.a");
 genSO("${root}/usr/lib/libxml2.so.2.9.1", "${router}/libxml2/.libs/libxml2.a");
 
 print "\n";
