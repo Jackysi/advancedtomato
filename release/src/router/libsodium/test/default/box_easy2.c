@@ -12,10 +12,12 @@ unsigned char alicepk[crypto_box_PUBLICKEYBYTES];
 unsigned char alicesk[crypto_box_SECRETKEYBYTES];
 unsigned char bobpk[crypto_box_PUBLICKEYBYTES];
 unsigned char bobsk[crypto_box_SECRETKEYBYTES];
+unsigned char mac[crypto_box_MACBYTES];
 
 int main(void)
 {
     unsigned long long mlen;
+    unsigned long long i;
 
     crypto_box_keypair(alicepk, alicesk);
     crypto_box_keypair(bobpk, bobsk);
@@ -23,8 +25,21 @@ int main(void)
     randombytes_buf(m, mlen);
     randombytes_buf(nonce, sizeof nonce);
     crypto_box_easy(c, m, mlen, nonce, bobpk, alicesk);
-    crypto_box_open_easy(m2, c, mlen + crypto_box_MACBYTES,
-                         nonce, alicepk, bobsk);
+    if (crypto_box_open_easy(m2, c, mlen + crypto_box_MACBYTES,
+                             nonce, alicepk, bobsk) != 0) {
+        printf("open() failed");
+        return 1;
+    }
+    printf("%d\n", memcmp(m, m2, mlen));
+
+    for (i = 0; i < mlen + crypto_box_MACBYTES - 1; i++) {
+        if (crypto_box_open_easy(m2, c, i, nonce, alicepk, bobsk) == 0) {
+            printf("short open() should have failed");
+            return 1;
+        }
+    }
+    crypto_box_detached(c, mac, m, mlen, nonce, bobsk, alicepk);
+    crypto_box_open_detached(m2, c, mac, mlen, nonce, alicepk, bobsk);
     printf("%d\n", memcmp(m, m2, mlen));
 
     return 0;

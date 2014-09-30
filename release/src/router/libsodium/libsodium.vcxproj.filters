@@ -72,12 +72,6 @@
     <ClInclude Include="src\libsodium\include\sodium\crypto_onetimeauth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\libsodium\include\sodium\crypto_onetimeauth_poly1305.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\libsodium\include\sodium\crypto_onetimeauth_poly1305_donna.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\crypto_scalarmult.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -165,20 +159,24 @@
     <ClInclude Include="src\libsodium\include\sodium\version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\libsodium\include\sodium\crypto_pwhash_scryptxsalsa208sha256.h">
+    <ClInclude Include="src\libsodium\include\sodium\crypto_pwhash_scryptsalsa208sha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\libsodium\include\sodium\runtime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="src\libsodium\include\sodium\crypto_scalarmult_curve25519.h.in">
+    <ClInclude Include="src\libsodium\include\sodium.h">
       <Filter>Header Files</Filter>
-    </None>
-    <None Include="src\libsodium\include\sodium\crypto_stream_salsa20.h.in">
+    </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_stream_chacha20.h">
       <Filter>Header Files</Filter>
-    </None>
+    </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_aead_chacha20poly1305.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libsodium\include\sodium\crypto_onetimeauth_poly1305.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\libsodium\crypto_core\hsalsa20\ref2\core_hsalsa20.c">
@@ -224,9 +222,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_box\curve25519xsalsa20poly1305\ref\after_curve25519xsalsa20poly1305.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_box\curve25519xsalsa20poly1305\ref\before_curve25519xsalsa20poly1305.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_box\curve25519xsalsa20poly1305\ref\box_curve25519xsalsa20poly1305.c">
@@ -299,12 +294,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\scalarmult_curve25519_api.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref\base_curve25519_ref.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref\smult_curve25519_ref.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\crypto_secretbox\xsalsa20poly1305\ref\box_xsalsa20poly1305.c">
@@ -574,16 +563,16 @@
     <ClCompile Include="src\libsodium\crypto_auth\hmacsha256\cp\verify_hmacsha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\crypto_scrypt-common.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\crypto_scrypt-common.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\pbkdf2-sha256.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\pbkdf2-sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\pwhash_scryptxsalsa208sha256.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\pwhash_scryptsalsa208sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\scrypt_platform.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\scrypt_platform.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\libsodium\sodium\runtime.c">
@@ -595,10 +584,70 @@
     <ClCompile Include="src\libsodium\crypto_secretbox\crypto_secretbox_easy.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\nosse\pwhash_scryptxsalsa208sha256_nosse.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\nosse\pwhash_scryptsalsa208sha256_nosse.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\libsodium\crypto_pwhash\scryptxsalsa208sha256\sse\pwhash_scryptxsalsa208sha256_sse.c">
+    <ClCompile Include="src\libsodium\crypto_pwhash\scryptsalsa208sha256\sse\pwhash_scryptsalsa208sha256_sse.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_stream\chacha20\stream_chacha20_api.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_stream\chacha20\ref\stream_chacha20_ref.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\donna_c64\base_curve25519_donna_c64.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\donna_c64\smult_curve25519_donna_c64.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\base_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_0_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_1_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_add_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_copy_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_cswap_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_frombytes_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_invert_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_mul_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_mul121666_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_sq_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_sub_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\fe_tobytes_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_scalarmult\curve25519\ref10\scalarmult_curve25519_ref10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_box\curve25519xsalsa20poly1305\ref\before_curve25519xsalsa20poly1305.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libsodium\crypto_aead\chacha20poly1305\sodium\aead_chacha20poly1305.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

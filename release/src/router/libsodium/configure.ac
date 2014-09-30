@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([libsodium],[0.5.0],
+AC_INIT([libsodium],[0.6.1],
   [https://github.com/jedisct1/libsodium/issues],
   [libsodium],
   [https://github.com/jedisct1/libsodium])
@@ -15,10 +15,10 @@ AC_SUBST(VERSION)
 ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
-SODIUM_LIBRARY_VERSION_MAJOR=5
-SODIUM_LIBRARY_VERSION_MINOR=0
+SODIUM_LIBRARY_VERSION_MAJOR=6
+SODIUM_LIBRARY_VERSION_MINOR=1
 DLL_VERSION=5
-SODIUM_LIBRARY_VERSION=10:0:0
+SODIUM_LIBRARY_VERSION=12:0:2
 #                       | | |
 #                +------+ | +---+
 #                |        |     |
@@ -86,6 +86,21 @@ AC_ARG_ENABLE(blocking-random,
   ])
 ])
 
+AC_ARG_ENABLE(minimal,
+[AS_HELP_STRING(--enable-minimal,
+  [Only compile the minimum set of functions required for the high-level API])],
+[
+  AS_IF([test "x$enableval" = "xyes"], [
+    enable_minimal="yes"
+  ], [
+    enable_minimal="no"
+  ])
+],
+[
+  enable_minimal="no"
+])
+AM_CONDITIONAL([MINIMAL], [test x$enable_minimal = xyes])
+
 AC_ARG_WITH(safecode,
 [AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
 [AS_IF([test "x$withval" = "xyes"], [
@@ -118,10 +133,6 @@ AC_ARG_ENABLE(debug,
 AC_SUBST([MAINT])
 
 dnl Checks
-
-PKG_PROG_PKG_CONFIG([0.23])
-AM_CONDITIONAL([HAVE_PKG_CONFIG], [test "x$PKG_CONFIG" != "x"])
-AC_SUBST(HAVE_PKG_CONFIG)
 
 AC_PROG_CC_C99
 AM_PROG_AS
@@ -272,6 +283,14 @@ AS_IF([test "x$EMSCRIPTEN" = "x"],[
      AC_DEFINE([HAVE_PMMINTRIN_H], [1], [sse3 is available])],
     [AC_MSG_RESULT(no)])
 
+  AC_MSG_CHECKING(for SSSE3 instructions set)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#pragma GCC target("ssse3")
+#include <tmmintrin.h>
+]], [[ __m64 x = _mm_abs_pi32(_m_from_int(0)); ]])],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE([HAVE_TMMINTRIN_H], [1], [ssse3 is available])],
+    [AC_MSG_RESULT(no)])
 ])
 
 AC_CHECK_HEADERS([sys/mman.h])
@@ -331,6 +350,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #ifndef NATIVE_LITTLE_ENDIAN
 # error donna_c64 currently requires a little endian CPU
 #endif
+#ifdef EMSCRIPTEN
+# error emscripten currently supports only shift operations on integers \
+#       larger than 64 bits
+#endif
 #include <stdint.h>
 typedef unsigned uint128_t __attribute__((mode(TI)));
 void fcontract(uint128_t *t) {
@@ -363,6 +386,16 @@ __asm__ __volatile__ ("xchgl %%ebx, %k1; cpuid; xchgl %%ebx, %k1" :
   ])
 AC_SUBST(HAVE_CPUID_V)
 
+AC_MSG_CHECKING(if weak symbols are supported)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+__attribute__((weak)) void __dummy(void *x) { }
+void f(void *x) { __dummy(x); }
+]], [[ ]]
+)],
+[AC_MSG_RESULT(yes)
+ AC_DEFINE([HAVE_WEAK_SYMBOLS], [1], [weak symbols are supported])],
+[AC_MSG_RESULT(no)])
+
 AS_CASE([$host_cpu],
   [i*86 | x86_64 | powerpc* | s390*],
     [AC_MSG_NOTICE([data alignment is not required on this target])],
@@ -370,17 +403,6 @@ AS_CASE([$host_cpu],
     [AC_MSG_NOTICE([data alignment is required on this target])
      AC_DEFINE([CPU_ALIGNED_ACCESS_REQUIRED], [1], [data alignment is required])]
 )
-
-AC_MSG_CHECKING(for memset_s)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <string.h>
-]], [[
-char dummy[42];
-(void) memset_s(dummy, (rsize_t) sizeof dummy, 0, (rsize_t) sizeof dummy);
-]])],
-[AC_MSG_RESULT(yes)
- AC_DEFINE([HAVE_MEMSET_S], [1], [memset_s is available])],
-[AC_MSG_RESULT(no)])
 
 dnl Checks for functions and headers
 
