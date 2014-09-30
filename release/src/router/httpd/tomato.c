@@ -1309,6 +1309,7 @@ static const nvset_t nvset_list[] = {
 	{"nginx_fqdn",			V_LENGTH(0, 255)	}, // server name
 	{"nginx_priority",		V_LENGTH(0, 255)	}, // server priority
 	{"nginx_custom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_user",			V_LENGTH(0, 255)	}, // user used to start nginx and spawn-fcgi
 #endif
 
 #ifdef TCONFIG_OPENVPN

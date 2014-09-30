@@ -30,7 +30,7 @@
 #define uwsgi_temp_path		"/tmp/var/lib/nginx/uwsgi"		// temp path needed to execute nginx
 #define scgi_temp_path		"/tmp/var/lib/nginx/scgi"		// temp path needed to execute nginx
 #define proxy_temp_path		"/tmp/var/lib/nginx/proxy"		// temp path needed to execute reverse proxy
-#define nginxuser		"root"					// user. Beta test, root can't be exposed.
+//#define nginxuser		"root"					// user. Beta test, root can't be exposed.
 #define nginx_worker_proc	"1"					// worker processes. CPU, cores.
 #define nginx_cpu_affinity	"0101"					// Can bind the worker process to a CPU, it calls sched_setaffinity().
 //define nginx_worker_priority	"5"					// priority ((-20)=High Priority (19)=Lowest Priority) Info: kernel have -5.
@@ -209,7 +209,7 @@ int build_nginx_conf(void) {
 //		syslog(LOG_INFO,"NGinX","started writing config file %s\n", nginxconf);
 
 //Global process
-		nginx_write("user\t%s;\n", nginxuser);
+		nginx_write("user\t%s;\n", nvram_safe_get("nginx_user"));
 		nginx_write("worker_processes\t%s;\n", nginx_worker_proc);
 		nginx_write("worker_cpu_affinity\t%s;\n", nginx_cpu_affinity);
 		nginx_write("master_process\t%s;\n", nginx_master_process);
@@ -319,7 +319,7 @@ void start_nginx(void)
 
 	if( nvram_match( "nginx_php", "1" ) ) {
 //shibby - run spawn-fcgi
-		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", "root", "-g", "root", "-f", "php-cgi");
+		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", nvram_safe_get("nginx_user"), "-g", nvram_safe_get("nginx_user"), "-f", "php-cgi");
 	} else {
 		killall_tk("php-cgi");
 	}

@@ -1180,6 +1180,7 @@ const defaults_t defaults[] = {
 	{"nginx_fqdn",			"Tomato"			}, // server name
 	{"nginx_priority",		"10"				}, // server priority = worker_priority
 	{"nginx_custom",		"# NGINX Custom Parameters."	}, // additional lines for nginx.conf
+	{"nginx_user",			"root"				}, // user/group
 #endif
 
 #ifdef TCONFIG_TOR
