@@ -262,12 +262,14 @@ int build_nginx_conf(void) {
 		nginx_write("}\n");
 // PHP to FastCGI Server
 	if( nvram_match( "nginx_php", "1" ) ) {
-		nginx_write("location ~ \\.php$ {\n");
-		nginx_write("root\t%s;\n", buf);
+		nginx_write("location ~ ^(?<script_name>.+?\\.php)(?<path_info>/.*)?$ {\n");
+		nginx_write("try_files \t$script_name = 404;\n");
+		nginx_write("include\t%s;\n", fastcgiconf);
+		nginx_write("fastcgi_param PATH_INFO $path_info;\n");
 		nginx_write("fastcgi_pass\t127.0.0.1:9000;\n");
-		nginx_write("fastcgi_index\tindex.php;\n");
 		nginx_write("\t}\n");
 	}
+
 // Server for static files
     		nginx_write("location ~ ^/(images|javascript|js|css|flash|media|static)/  {\n");
     		nginx_write("root\t%s;\n", buf);
@@ -317,7 +319,7 @@ void start_nginx(void)
 
 	if( nvram_match( "nginx_php", "1" ) ) {
 //shibby - run spawn-fcgi
-		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", "nobody", "-g", "nobody", "-f", "php-cgi");
+		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", "root", "-g", "root", "-f", "php-cgi");
 	} else {
 		killall_tk("php-cgi");
 	}
