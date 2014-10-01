@@ -21,7 +21,6 @@ typedef struct UDPRequest_ {
     TAILQ_ENTRY(UDPRequest_) queue;
     struct sockaddr_storage  client_sockaddr;
     ProxyContext            *proxy_context;
-    struct event            *sendto_retry_timer;
     struct event            *timeout_timer;
     evutil_socket_t          client_proxy_handle;
     ev_socklen_t             client_sockaddr_len;

@@ -1,4 +1,10 @@
 
+* Version 1.4.1:
+ - Alternative ports to dnscrypt.eu servers have been added
+ - Android build scripts are now part of the package
+ - UDP queries timing out are not retried any more. This caused some issues
+and was already better handled by stub resolvers and caching name servers.
+
 * Version 1.4.0:
  - Security: versions 0.11 to 1.3.3 were vulnerable to a denial of
 service when running out of output buffer space. Reported by @iamultra.

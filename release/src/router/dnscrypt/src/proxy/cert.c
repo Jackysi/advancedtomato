@@ -18,12 +18,13 @@
 #include <event2/dns.h>
 #include <event2/event.h>
 
+#include <sodium.h>
+
 #include "cert.h"
 #include "cert_p.h"
 #include "dnscrypt_proxy.h"
 #include "logger.h"
 #include "probes.h"
-#include "sodium.h"
 #include "utils.h"
 
 static int cert_updater_update(ProxyContext * const proxy_context);

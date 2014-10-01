@@ -15,10 +15,10 @@
 #include <string.h>
 
 #include <event2/event.h>
+#include <sodium.h>
 
 #include "dnscrypt.h"
 #include "dnscrypt_client.h"
-#include "sodium.h"
 #include "utils.h"
 
 static void
@@ -159,14 +159,6 @@ dnscrypt_client_init_nmkey(DNSCryptClient * const client,
 #endif
     memcpy(client->nmkey, server_publickey, crypto_box_PUBLICKEYBYTES);
     crypto_box_beforenm(client->nmkey, client->nmkey, client->secretkey);
-
-    return 0;
-}
-
-int
-dnscrypt_client_wipe_secretkey(DNSCryptClient * const client)
-{
-    randombytes_buf(client->secretkey, crypto_box_SECRETKEYBYTES);
 
     return 0;
 }
