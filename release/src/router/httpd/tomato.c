@@ -1308,9 +1308,16 @@ static const nvset_t nvset_list[] = {
 	{"nginx_docroot",		V_LENGTH(0, 255)	}, // root files path
 	{"nginx_port",			V_PORT			}, // listening port
 	{"nginx_fqdn",			V_LENGTH(0, 255)	}, // server name
+	{"nginx_upload",		V_LENGTH(1, 1000)	}, // upload file size limit
+	{"nginx_remote",		V_01			},
 	{"nginx_priority",		V_LENGTH(0, 255)	}, // server priority
 	{"nginx_custom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_httpcustom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_servercustom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_phpconf",		V_TEXT(0, 4096)		}, // user window to add parameters to php.ini
 	{"nginx_user",			V_LENGTH(0, 255)	}, // user used to start nginx and spawn-fcgi
+	{"nginx_override",		V_01			},
+	{"nginx_overridefile",		V_TEXT(0, 4096)		},
 #endif
 
 #ifdef TCONFIG_OPENVPN

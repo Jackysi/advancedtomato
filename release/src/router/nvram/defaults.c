@@ -1199,10 +1199,17 @@ const defaults_t defaults[] = {
 	{"nginx_keepconf",		"0"				}, // Enable/disable keep configuration files unmodified in /etc/nginx
 	{"nginx_docroot",		"/www"				}, // path for server files
 	{"nginx_port",			"85"				}, // port to listen
+	{"nginx_remote",		"0"				}, // open port from WAN site
 	{"nginx_fqdn",			"Tomato"			}, // server name
+	{"nginx_upload",		"100"				}, // upload file size limit
 	{"nginx_priority",		"10"				}, // server priority = worker_priority
-	{"nginx_custom",		"# NGINX Custom Parameters."	}, // additional lines for nginx.conf
+	{"nginx_custom",		""				}, // additional lines for nginx.conf
+	{"nginx_httpcustom",		""				}, // additional lines for nginx.conf
+	{"nginx_servercustom",		""				}, // additional lines for nginx.conf
+	{"nginx_phpconf",		""				}, // additional lines for php.ini
 	{"nginx_user",			"root"				}, // user/group
+	{"nginx_override",		"0"				}, // additional lines for php.ini
+	{"nginx_overridefile",		"/path/to/nginx.conf"		}, // user/group
 #endif
 
 #ifdef TCONFIG_TOR

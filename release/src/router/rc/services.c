@@ -2905,11 +2905,13 @@ TOP:
 #ifdef TCONFIG_NGINX
 	if (strcmp(service, "enginex") == 0) {
 		if (action & A_STOP) stop_enginex();
+		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_enginex();
 		goto CLEAR;
 	}
 	if (strcmp(service, "nginxfp") == 0) {
 		if (action & A_STOP) stop_nginxfastpath();
+		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_nginxfastpath();
 		goto CLEAR;
 	}
