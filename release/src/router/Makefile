@@ -192,7 +192,7 @@ obj-$(TCONFIG_NGINX) += sqlite
 obj-$(TCONFIG_NGINX) += libiconv
 obj-$(TCONFIG_NGINX) += libxml2
 obj-$(TCONFIG_NGINX) += libpng
-obj-$(TCONFIG_NGINX) += libjpeg
+obj-$(TCONFIG_NGINX) += jpeg
 obj-$(TCONFIG_NGINX) += php
 obj-$(TCONFIG_NGINX) += nginx
 
@@ -1412,14 +1412,26 @@ jpeg/stamp-h1:
 
 jpeg: jpeg/stamp-h1
 	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) AR2="touch" libjpeg.a libjpeg.so $(PARALLEL_BUILD)
+	install -d $(TOP)/jpeg/staged/include
+	install -d $(TOP)/jpeg/staged/lib
+	install -d $(TOP)/jpeg/staged/bin
+	install -d $(TOP)/jpeg/staged/man/man1
+	@$(MAKE) -C jpeg LIBTOOL="" prefix=$(TOP)/jpeg/staged install
+	install -D jpeg/libjpeg.so $(TOP)/jpeg/staged/lib/libjpeg.so
+	rm -f $(TOP)/jpeg/staged/lib/libjpeg.la
 
 jpeg-clean:
 	-@$(MAKE) -C jpeg clean
 	@rm -f jpeg/stamp-h1 jpeg/Makefile
+	@rm -rf jpeg/staged
 
 jpeg-install: jpeg
 	@$(SEP)
 ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D jpeg/libjpeg.so $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+	$(STRIP) $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+endif
+ifeq ($(TCONFIG_NGINX),y)
 	install -D jpeg/libjpeg.so $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
 	$(STRIP) $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
 endif
@@ -1764,35 +1776,7 @@ libpng-clean:
 	@rm -f libpng/stamp-h1
 	@rm -rf libpng/staged
 
-libjpeg/stamp-h1:
-	cd libjpeg && \
-	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr --enable-static --enable-shared
-	touch $@
-
-libjpeg: libjpeg/stamp-h1
-	@$(MAKE) -C libjpeg $(PARALLEL_BUILD)
-	install -d $(TOP)/libjpeg/staged/include
-	install -d $(TOP)/libjpeg/staged/lib
-	install -d $(TOP)/libjpeg/staged/bin
-	install -d $(TOP)/libjpeg/staged/man/man1
-	@$(MAKE) -C libjpeg prefix=$(TOP)/libjpeg/staged install
-	rm -f $(TOP)/libjpeg/staged/lib/libjpeg.la
-
-libjpeg-install: libjpeg
-	@$(SEP)
-	install -D libjpeg/.libs/libjpeg.so.62.0.0 $(INSTALLDIR)/libjpeg/usr/lib/libjpeg.so.62.0.0
-	$(STRIP) $(INSTALLDIR)/libjpeg/usr/lib/libjpeg.so.62.0.0
-	cd $(INSTALLDIR)/libjpeg/usr/lib && \
-		ln -sf libjpeg.so.62.0.0 libjpeg.so.62 && \
-		ln -sf libjpeg.so.62.0.0 libjpeg.so
-
-libjpeg-clean:
-	-@$(MAKE) -C libjpeg clean
-	@rm -f libjpeg/stamp-h1
-	@rm -rf libjpeg/staged
-
-php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng libjpeg
+php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	@$(SEP)
 	cd php && CC=$(CC) CXX=$(ARCH)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
 	CFLAGS="-Os -Wall -I$(TOP)/zlib -I$(TOP)/libxml2/include/libxml -I$(TOP)/libxml2/include -I$(TOP)/pcre -I$(TOP)/libiconv/include -I$(TOP)/libpng/staged/usr/include" \
@@ -1827,7 +1811,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng libjpeg
 	--without-gmp \
 	--with-gd \
 	--with-png-dir="$(TOP)/libpng/staged/usr" \
-	--with-jpeg-dir="$(TOP)/libjpeg/staged" \
+	--with-jpeg-dir="$(TOP)/jpeg/staged" \
 	--disable-hash \
 	--with-iconv="$(TOP)/libiconv/staged/usr" \
 	--with-iconv-dir="$(TOP)/libiconv/staged/usr" \
