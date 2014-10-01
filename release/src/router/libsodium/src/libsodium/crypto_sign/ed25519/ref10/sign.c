@@ -61,15 +61,19 @@ crypto_sign(unsigned char *sm, unsigned long long *smlen,
 {
     unsigned long long siglen;
 
-    if (crypto_sign_detached(sm, &siglen, m, mlen, sk) != 0 ||
-        siglen > crypto_sign_ed25519_BYTES) {
+    memmove(sm + crypto_sign_ed25519_BYTES, m, mlen);
+/* LCOV_EXCL_START */
+    if (crypto_sign_detached(sm, &siglen, sm + crypto_sign_ed25519_BYTES,
+                             mlen, sk) != 0 ||
+        siglen != crypto_sign_ed25519_BYTES) {
         if (smlen != NULL) {
             *smlen = 0;
         }
         memset(sm, 0, mlen + crypto_sign_ed25519_BYTES);
         return -1;
     }
-    memmove(sm + siglen, m, mlen);
+/* LCOV_EXCL_STOP */
+
     if (smlen != NULL) {
         *smlen = mlen + siglen;
     }
