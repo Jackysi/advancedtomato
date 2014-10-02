@@ -206,6 +206,16 @@ sub fixDyn
 
 	fixDynDep("nginx", "libpcre.so.1.2.3");
 	fixDynDep("nginx", "libpcreposix.so.0.0.2");
+	fixDynDep("php-cgi", "libxml2.so.2.9.1");
+	fixDynDep("php-cgi", "libpng12.so.0.51.0");
+	fixDynDep("php-cgi", "libpng.so.3.51.0");
+	fixDynDep("php-cgi", "libiconv.so.2.5.1");
+	fixDynDep("php-cgi", "libsqlite3.so.0.8.6");
+	fixDynDep("php-cli", "libxml2.so.2.9.1");
+	fixDynDep("php-cli", "libpng12.so.0.51.0");
+	fixDynDep("php-cli", "libpng.so.3.51.0");
+	fixDynDep("php-cli", "libiconv.so.2.5.1");
+	fixDynDep("php-cli", "libsqlite3.so.0.8.6");
 
 #!!TB - Updated Broadcom WL driver
 	fixDynDep("libbcmcrypto.so", "libc.so.0");
@@ -488,7 +498,7 @@ genSO("${root}/usr/lib/libssl.so.1.0.0", "${router}/openssl/libssl.a", "${strips
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 genSO("${root}/usr/lib/libz.so.1", "${router}/zlib/libz.a");
 genSO("${root}/usr/lib/libjpeg.so", "${router}/jpeg/libjpeg.a");
-genSO("${root}/usr/lib/libsqlite3.so.0.8.6", "${router}/sqlite/.libs/libsqlite3.a");
+#genSO("${root}/usr/lib/libsqlite3.so.0.8.6", "${router}/sqlite/.libs/libsqlite3.a");
 genSO("${root}/usr/lib/libogg.so.0", "${router}/libogg/src/.libs/libogg.a");
 genSO("${root}/usr/lib/libvorbis.so.0", "${router}/libvorbis/lib/.libs/libvorbis.a", "", "-L${router}/libogg/src/.libs");
 genSO("${root}/usr/lib/libid3tag.so.0", "${router}/libid3tag/.libs/libid3tag.a", "", "-L${router}/zlib");
@@ -517,9 +527,8 @@ genSO("${root}/usr/lib/libdaemon.so.0.5.0", "${router}/libdaemon/libdaemon/.libs
 genSO("${root}/usr/lib/libiconv.so.2.5.1", "${router}/libiconv/lib/.libs/libiconv.a");
 genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs/libnfnetlink.a");
 genSO("${root}/usr/lib/libsodium.so.13.0.2", "${router}/libsodium/src/libsodium/.libs/libsodium.a");
-genSO("${root}/usr/lib/libpng.so.3.51.0", "${router}/libpng/.libs/libpng.a");
-genSO("${root}/usr/lib/libpng12.so.0.51.0", "${router}/libpng/.libs/libpng12.a");
-genSO("${root}/usr/lib/libjpeg.so", "${router}/libjpeg/.libs/libjpeg.a");
+genSO("${root}/usr/lib/libpng.so.3.51.0", "${router}/libpng/.libs/libpng.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libpng12.so.0.51.0", "${router}/libpng/.libs/libpng12.a", "", "-L${router}/zlib");
 genSO("${root}/usr/lib/libxml2.so.2.9.1", "${router}/libxml2/.libs/libxml2.a");
 
 print "\n";
