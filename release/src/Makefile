@@ -177,6 +177,13 @@ ifeq ($(LINKSYS_E1000v2),y)
 	@rm -f image/tomato-E1000v2-v21$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 	@rm -f image/tomato-Cisco-M10v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 endif
+ifeq ($(LINKSYS_E2500),y)
+	@rm -f image/tomato-E2500$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(LINKSYS_E3200),y)
+	@rm -f image/tomato-E3200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-E2500v3$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
 	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
@@ -215,8 +222,9 @@ ifeq ($(LINKSYS_E2500),y)
 		| tee -a fpkg.log
 endif
 ifeq ($(LINKSYS_E3200),y)
-	# Linksys E3200(60k Nvram) image
+	# Linksys E3200/E2500v3(60k Nvram) image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l 25V3,image/tomato-E2500v3$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 3200,image/tomato-E3200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
@@ -1307,7 +1315,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "       Routers with wl_high module"
 	@echo "rtn53        Asus RT-N53 with wl_high module (dualband support)"
 	@echo "e2500        Linksys E2500 with wl_high module (dualband support)"
-	@echo "e3200        Linksys E3200 with wl_high module (dualband support)"
+	@echo "e3200        Linksys E3200/E2500v3 with wl_high module (dualband support)"
 	@echo "n6           Tenda N6 with wl_high module (dualband support)"
 	@echo "n60          Tenda N60 with wl_high module (dualband support)"
 #	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"
