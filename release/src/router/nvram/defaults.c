@@ -245,7 +245,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
