@@ -932,7 +932,7 @@ miniupnpd-config:
 #ifeq ($(TCONFIG_IPV6),y)
 #	@cd miniupnpd && ./genconfig.sh --leasefile --ipv6
 #else
-	@cd miniupnpd && ./genconfig.sh --leasefile
+	@cd miniupnpd && ./genconfig.sh --leasefile --vendorcfg
 #endif
 
 miniupnpd: iptables miniupnpd-config

@@ -900,6 +900,11 @@ void start_upnp(void)
 					"upnp_nat_chain=upnp\n"
 					"notify_interval=%d\n"
 					"system_uptime=yes\n"
+					"friendly_name=%s"" Router\n"
+					"model_name=%s\n"
+					"model_url=http://linksysinfo.org/index.php?forums/tomato-firmware.33/\n"
+					"manufacturer_name=Tomato Firmware\n"
+					"manufacturer_url=http://linksysinfo.org/index.php?forums/tomato-firmware.33/\n"
 					"\n"
 					,
 					get_wanface(),
@@ -907,7 +912,9 @@ void start_upnp(void)
 					(enable & 1) ? "yes" : "no",						// upnp enable
 					(enable & 2) ? "yes" : "no",						// natpmp enable
 					nvram_get_int("upnp_secure") ? "yes" : "no",			// secure_mode (only forward to self)
-					nvram_get_int("upnp_ssdp_interval")
+					nvram_get_int("upnp_ssdp_interval"),
+					nvram_safe_get("router_name"),
+					nvram_safe_get("t_model_name")
 				);
 
 				if (nvram_get_int("upnp_clean")) {
