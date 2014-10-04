@@ -1,5 +1,8 @@
 # Last Modified: Fri Oct 25 15:33:29 2013
 
+# WARNING: this profile is known to block system shutdown in Ubuntu 14.04!
+# See https://github.com/jedisct1/dnscrypt-proxy/issues/104 for more info
+
 #include <tunables/global>
 
 /usr/sbin/dnscrypt-proxy {

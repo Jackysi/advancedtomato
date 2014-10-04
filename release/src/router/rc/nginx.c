@@ -30,7 +30,7 @@
 #define uwsgi_temp_path		"/tmp/var/lib/nginx/uwsgi"		// temp path needed to execute nginx
 #define scgi_temp_path		"/tmp/var/lib/nginx/scgi"		// temp path needed to execute nginx
 #define proxy_temp_path		"/tmp/var/lib/nginx/proxy"		// temp path needed to execute reverse proxy
-#define nginxuser		"root"					// user. Beta test, root can't be exposed.
+//#define nginxuser		"root"					// user. Beta test, root can't be exposed.
 #define nginx_worker_proc	"1"					// worker processes. CPU, cores.
 #define nginx_cpu_affinity	"0101"					// Can bind the worker process to a CPU, it calls sched_setaffinity().
 //define nginx_worker_priority	"5"					// priority ((-20)=High Priority (19)=Lowest Priority) Info: kernel have -5.
@@ -53,6 +53,7 @@
 FILE * nginx_conf_file;
 FILE * fastcgi_conf_file;
 FILE * mimetypes_file;
+FILE * phpini_file;
 unsigned int fastpath=0;
 
 void nginx_write(const char *format, ...) {
@@ -209,7 +210,7 @@ int build_nginx_conf(void) {
 //		syslog(LOG_INFO,"NGinX","started writing config file %s\n", nginxconf);
 
 //Global process
-		nginx_write("user\t%s;\n", nginxuser);
+		nginx_write("user\t%s;\n", nvram_safe_get("nginx_user"));
 		nginx_write("worker_processes\t%s;\n", nginx_worker_proc);
 		nginx_write("worker_cpu_affinity\t%s;\n", nginx_cpu_affinity);
 		nginx_write("master_process\t%s;\n", nginx_master_process);
@@ -235,6 +236,13 @@ int build_nginx_conf(void) {
 		nginx_write("'\"$request\" $body_bytes_sent \"$http_referer\" '\n");
 		nginx_write("'\"$http_user_agent\" \"$http_x_forwarded_for\"';\n");
 		nginx_write("sendfile\t%s;\n", nginssendfile);
+
+//shibby - add custom config to http section
+		nginx_write("client_max_body_size\t%sM;\n", nvram_safe_get("nginx_upload"));
+
+	if ((buf = nvram_safe_get("nginx_httpcustom")) == NULL) buf = nginxcustom;
+		nginx_write(buf);
+		nginx_write("\n");
 
 //		nginx_write("keepalive_timeout\t%s;\n", nginx_keepalive_timeout);
 //		nginx_write("tcp_nopush\t%s;\n", nginxtcp_nopush);
@@ -262,18 +270,26 @@ int build_nginx_conf(void) {
 		nginx_write("}\n");
 // PHP to FastCGI Server
 	if( nvram_match( "nginx_php", "1" ) ) {
-		nginx_write("location ~ \\.php$ {\n");
-		nginx_write("root\t%s;\n", buf);
+		nginx_write("location ~ ^(?<script_name>.+?\\.php)(?<path_info>/.*)?$ {\n");
+		nginx_write("try_files \t$script_name = 404;\n");
+		nginx_write("include\t%s;\n", fastcgiconf);
+		nginx_write("fastcgi_param PATH_INFO $path_info;\n");
 		nginx_write("fastcgi_pass\t127.0.0.1:9000;\n");
-		nginx_write("fastcgi_index\tindex.php;\n");
 		nginx_write("\t}\n");
 	}
+
 // Server for static files
     		nginx_write("location ~ ^/(images|javascript|js|css|flash|media|static)/  {\n");
     		nginx_write("root\t%s;\n", buf);
     		nginx_write("expires 10d;\n");
     		nginx_write("\t\t\t}\n");
 		nginx_write("\t\t}\n");
+
+//shibby - add custom config to server section
+	if ((buf = nvram_safe_get("nginx_servercustom")) == NULL) buf = nginxcustom;
+		nginx_write(buf);
+		nginx_write("\n");
+
 		nginx_write("\t}\n");
 		nginx_write("}\n");
 // Process to close and write config file
@@ -283,7 +299,20 @@ int build_nginx_conf(void) {
 		fclose(nginx_conf_file);
 		syslog(LOG_INFO,"NGinX - config file built succesfully\n");
 		fprintf(stderr, "Wrote: %s\n", nginxconf);
-		return 0;
+
+//shibby - create php.ini
+	if( nvram_match( "nginx_php", "1" ) ) {
+		if( !(phpini_file = fopen("/tmp/etc/php.ini", "w")) ) {
+			perror( "/tmp/etc/php.ini" );
+			return;
+		}
+		fprintf( phpini_file, "post_max_size = %sM\n", nvram_safe_get("nginx_upload"));
+		fprintf( phpini_file, "upload_max_filesize = %sM\n", nvram_safe_get("nginx_upload"));
+		fprintf( phpini_file, "%s\n", nvram_safe_get("nginx_phpconf"));
+		fclose(phpini_file);
+		syslog(LOG_INFO,"NGinX - php.ini file built succesfully\n");
+	}
+	return 0;
 }
 
 // Start the NGINX module according environment directives.
@@ -317,7 +346,7 @@ void start_nginx(void)
 
 	if( nvram_match( "nginx_php", "1" ) ) {
 //shibby - run spawn-fcgi
-		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", "nobody", "-g", "nobody", "-f", "php-cgi");
+		xstart("spawn-fcgi", "-a", "127.0.0.1", "-p", "9000", "-P", "/var/run/php-fastcgi.pid", "-C", "2", "-u", nvram_safe_get("nginx_user"), "-g", nvram_safe_get("nginx_user"), "-f", "php-cgi");
 	} else {
 		killall_tk("php-cgi");
 	}
@@ -331,7 +360,11 @@ void start_nginx(void)
 	if(mkdir_if_none(scgi_temp_path));
 //		syslog(LOG_INFO,"NGinX - directory created %s\n", scgi_temp_path);
 		syslog(LOG_INFO,"NGinX - running daemon\n");
+		if( nvram_match( "nginx_override", "1" ) ) {
+			xstart(nginxbin, "-c", nvram_safe_get("nginx_overridefile"));
+		} else {
 			xstart(nginxbin, "-c", nginxconf);
+		}
 }
 // Start NGinx using fastpath method no checks
 void start_nginxfp(void)

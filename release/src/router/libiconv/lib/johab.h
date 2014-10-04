@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2007 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -67,9 +67,10 @@ johab_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
         return RET_TOOFEW(0);
       s2 = s[1];
       if ((s2 >= 0x31 && s2 <= 0x7e) || (s2 >= 0x91 && s2 <= 0xfe)) {
-        /* In KSC 5601, the region s1 = 0xDA, 0xA1 <= s2 <= 0xD3 contains
-           the 51 Jamo (Hangul letters). But in the Johab encoding, they
-           have been moved to the Hangul section, see johab_hangul_page31. */
+        /* In KSC 5601, now KS X 1001, the region s1 = 0xDA, 0xA1 <= s2 <= 0xD3
+           contains the 51 Jamo (Hangul letters). But in the Johab encoding,
+           they have been moved to the Hangul section, see
+           johab_hangul_page31. */
         if (!(s1 == 0xda && (s2 >= 0xa1 && s2 <= 0xd3))) {
           unsigned char t1 = (s1 < 0xe0 ? 2*(s1-0xd9) : 2*s1-0x197);
           unsigned char t2 = (s2 < 0x91 ? s2-0x31 : s2-0x43);
@@ -115,7 +116,7 @@ johab_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
     return 2;
   }
 
-  /* Try KSC5601. */
+  /* Try KSC5601, now KS X 1001. */
   ret = ksc5601_wctomb(conv,buf,wc,2);
   if (ret != RET_ILUNI) {
     unsigned char c1, c2;

@@ -959,6 +959,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
+	{ "web_dir",			V_LENGTH(1, 32)		},
 	{ "ttb_css",			V_LENGTH(0, 128)		},
 	{ "web_mx",				V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
@@ -1307,8 +1308,16 @@ static const nvset_t nvset_list[] = {
 	{"nginx_docroot",		V_LENGTH(0, 255)	}, // root files path
 	{"nginx_port",			V_PORT			}, // listening port
 	{"nginx_fqdn",			V_LENGTH(0, 255)	}, // server name
+	{"nginx_upload",		V_LENGTH(1, 1000)	}, // upload file size limit
+	{"nginx_remote",		V_01			},
 	{"nginx_priority",		V_LENGTH(0, 255)	}, // server priority
 	{"nginx_custom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_httpcustom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_servercustom",		V_TEXT(0, 4096)		}, // user window to add parameters to nginx.conf
+	{"nginx_phpconf",		V_TEXT(0, 4096)		}, // user window to add parameters to php.ini
+	{"nginx_user",			V_LENGTH(0, 255)	}, // user used to start nginx and spawn-fcgi
+	{"nginx_override",		V_01			},
+	{"nginx_overridefile",		V_TEXT(0, 4096)		},
 #endif
 
 #ifdef TCONFIG_OPENVPN
@@ -1461,6 +1470,27 @@ static const nvset_t nvset_list[] = {
 	{ "pptpd_mtu",			V_RANGE(576, 1500)	},
 	{ "pptpd_mru",			V_RANGE(576, 1500)	},
 	{ "pptpd_custom",		V_TEXT(0, 2048)		},
+#endif
+
+#ifdef TCONFIG_TINC
+	{"tinc_wanup",			V_RANGE(0, 1)		},
+	{"tinc_name",			V_LENGTH(0, 30)		},
+	{"tinc_devicetype",		V_TEXT(3, 3)		}, // tun, tap
+	{"tinc_mode",			V_TEXT(3, 6)		}, // switch, hub
+	{"tinc_vpn_netmask",		V_IP			},
+	{"tinc_private_rsa",		V_LENGTH(0, 1700)	},
+	{"tinc_private_ecdsa",		V_LENGTH(0, 280)	},
+	{"tinc_custom",			V_NONE			},
+	{"tinc_hosts",			V_NONE			},
+	{"tinc_manual_firewall",	V_RANGE(0, 1)		},
+	{"tinc_manual_tinc_up",		V_RANGE(0, 1)		},
+	// scripts
+	{"tinc_tinc_up",		V_NONE			},
+	{"tinc_tinc_down",		V_NONE			},
+	{"tinc_host_up",		V_NONE			},
+	{"tinc_host_down",		V_NONE			},
+	{"tinc_subnet_up",		V_NONE			},
+	{"tinc_subnet_down",		V_NONE			},
 #endif
 
 #ifdef TCONFIG_TOR

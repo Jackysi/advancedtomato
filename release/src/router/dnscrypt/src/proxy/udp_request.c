@@ -38,11 +38,6 @@ udp_request_free(UDPRequest * const udp_request)
 {
     ProxyContext *proxy_context;
 
-    if (udp_request->sendto_retry_timer != NULL) {
-        free(event_get_callback_arg(udp_request->sendto_retry_timer));
-        event_free(udp_request->sendto_retry_timer);
-        udp_request->sendto_retry_timer = NULL;
-    }
     if (udp_request->timeout_timer != NULL) {
         event_free(udp_request->timeout_timer);
         udp_request->timeout_timer = NULL;
@@ -71,100 +66,21 @@ udp_request_kill(UDPRequest * const udp_request)
     udp_request_free(udp_request);
 }
 
-static int sendto_with_retry(SendtoWithRetryCtx * const ctx);
-
-static void
-sendto_with_retry_timer_cb(evutil_socket_t retry_timer_handle, short ev_flags,
-                           void * const ctx_)
-{
-    SendtoWithRetryCtx * const ctx = ctx_;
-
-    (void) ev_flags;
-    assert(retry_timer_handle ==
-           event_get_fd(ctx->udp_request->sendto_retry_timer));
-
-    DNSCRYPT_PROXY_REQUEST_UDP_RETRY(ctx->udp_request,
-                                     ctx->udp_request->retries);
-    sendto_with_retry(ctx);
-}
+static int udp_send(SendtoWithRetryCtx * const ctx);
 
 static int
-sendto_with_retry(SendtoWithRetryCtx * const ctx)
+udp_send(SendtoWithRetryCtx * const ctx)
 {
     void              (*cb)(UDPRequest *udp_request);
-    SendtoWithRetryCtx *ctx_cb;
     UDPRequest         *udp_request = ctx->udp_request;
-    int                 err;
-    _Bool               retriable;
 
-    if (sendto(ctx->handle, ctx->buffer, ctx->length, ctx->flags,
-               ctx->dest_addr, ctx->dest_len) == (ssize_t) ctx->length) {
-        cb = ctx->cb;
-        if (udp_request->sendto_retry_timer != NULL) {
-            ctx_cb = event_get_callback_arg(udp_request->sendto_retry_timer);
-            assert(ctx_cb != NULL);
-            assert(ctx_cb->udp_request == ctx->udp_request);
-            assert(ctx_cb->buffer == ctx->buffer);
-            free(ctx_cb);
-            event_free(udp_request->sendto_retry_timer);
-            udp_request->sendto_retry_timer = NULL;
-        }
-        if (cb) {
-            cb(udp_request);
-        }
-        return 0;
+    (void) sendto(ctx->handle, ctx->buffer, ctx->length, ctx->flags,
+                  ctx->dest_addr, ctx->dest_len);
+    cb = ctx->cb;
+    if (cb) {
+        cb(udp_request);
     }
-
-    err = evutil_socket_geterror(udp_request->client_proxy_handle);
-    logger(udp_request->proxy_context, LOG_WARNING,
-           "sendto: [%s]", evutil_socket_error_to_string(err));
-    DNSCRYPT_PROXY_REQUEST_UDP_NETWORK_ERROR(udp_request);
-
-#ifdef _WIN32
-    retriable = (err == WSAENOBUFS ||
-                 err == WSAEWOULDBLOCK || err == WSAEINTR);
-#else
-    retriable = (err == ENOBUFS || err == ENOMEM ||
-                 err == EAGAIN || err == EINTR);
-#endif
-    if (retriable == 0) {
-        udp_request_kill(udp_request);
-        return -1;
-    }
-    COMPILER_ASSERT(DNS_QUERY_TIMEOUT < UCHAR_MAX);
-    if (++(udp_request->retries) > DNS_QUERY_TIMEOUT) {
-        udp_request_kill(udp_request);
-        return -1;
-    }
-    if (udp_request->sendto_retry_timer != NULL) {
-        ctx_cb = event_get_callback_arg(udp_request->sendto_retry_timer);
-        assert(ctx_cb != NULL);
-        assert(ctx_cb->udp_request == ctx->udp_request);
-        assert(ctx_cb->buffer == ctx->buffer);
-    } else {
-        if ((ctx_cb = malloc(sizeof *ctx_cb)) == NULL) {
-            logger_error(udp_request->proxy_context, "malloc");
-            udp_request_kill(udp_request);
-            return -1;
-        }
-        assert(ctx_cb ==
-               event_get_callback_arg(udp_request->sendto_retry_timer));
-        *ctx_cb = *ctx;
-        if ((udp_request->sendto_retry_timer =
-             evtimer_new(udp_request->proxy_context->event_loop,
-                         sendto_with_retry_timer_cb, ctx_cb)) == NULL) {
-            free(ctx_cb);
-            udp_request_kill(udp_request);
-            return -1;
-        }
-    }
-    const struct timeval tv = {
-        .tv_sec = (time_t) UDP_DELAY_BETWEEN_RETRIES, .tv_usec = 0
-    };
-    evtimer_add(udp_request->sendto_retry_timer, &tv);
-    DNSCRYPT_PROXY_REQUEST_UDP_RETRY_SCHEDULED(udp_request,
-                                               udp_request->retries);
-    return -1;
+    return 0;
 }
 
 static void
@@ -283,7 +199,7 @@ resolver_to_proxy_cb(evutil_socket_t proxy_resolver_handle, short ev_flags,
     DNSCRYPT_PROXY_REQUEST_PLUGINS_POST_DONE(udp_request, dns_reply_len,
                                              max_reply_size_for_filter);
 #endif
-    sendto_with_retry(& (SendtoWithRetryCtx) {
+    udp_send(& (SendtoWithRetryCtx) {
        .udp_request = udp_request,
        .handle = udp_request->client_proxy_handle,
        .buffer = dns_reply,
@@ -305,7 +221,7 @@ proxy_client_send_truncated(UDPRequest * const udp_request,
     assert(dns_reply_len > DNS_OFFSET_FLAGS2);
     dns_reply[DNS_OFFSET_FLAGS] |= DNS_FLAGS_TC | DNS_FLAGS_QR;
     dns_reply[DNS_OFFSET_FLAGS2] |= DNS_FLAGS2_RA;
-    sendto_with_retry(& (SendtoWithRetryCtx) {
+    udp_send(& (SendtoWithRetryCtx) {
         .udp_request = udp_request,
         .handle = udp_request->client_proxy_handle,
         .buffer = dns_reply,
@@ -373,7 +289,7 @@ proxy_to_client_direct(UDPRequest * const udp_request,
                        const uint8_t * const dns_reply,
                        const size_t dns_reply_len)
 {
-    sendto_with_retry(& (SendtoWithRetryCtx) {
+    udp_send(& (SendtoWithRetryCtx) {
        .udp_request = udp_request,
        .handle = udp_request->client_proxy_handle,
        .buffer = dns_reply,
@@ -405,7 +321,6 @@ client_to_proxy_cb(evutil_socket_t client_proxy_handle, short ev_flags,
         return;
     }
     udp_request->proxy_context = proxy_context;
-    udp_request->sendto_retry_timer = NULL;
     udp_request->timeout_timer = NULL;
     udp_request->client_proxy_handle = client_proxy_handle;
     udp_request->client_sockaddr_len = sizeof udp_request->client_sockaddr;
@@ -536,7 +451,7 @@ client_to_proxy_cb(evutil_socket_t client_proxy_handle, short ev_flags,
         };
         evtimer_add(udp_request->timeout_timer, &tv);
     }
-    sendto_with_retry(& (SendtoWithRetryCtx) {
+    udp_send(& (SendtoWithRetryCtx) {
         .udp_request = udp_request,
         .handle = proxy_context->udp_proxy_resolver_handle,
         .buffer = dns_query,

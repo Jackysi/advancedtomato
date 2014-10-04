@@ -44,7 +44,7 @@ static void
 _cpuid(unsigned int cpu_info[4U], const unsigned int cpu_info_type)
 {
 #ifdef _MSC_VER
-    __cpuidex((int *) cpu_info, cpu_info_type, 0);
+    __cpuid((int *) cpu_info, cpu_info_type);
 #elif defined(HAVE_CPUID)
     cpu_info[0] = cpu_info[1] = cpu_info[2] = cpu_info[3] = 0;
 # ifdef __i386__
@@ -56,7 +56,7 @@ _cpuid(unsigned int cpu_info[4U], const unsigned int cpu_info_type)
                           "=&r" (cpu_info[0]), "=&r" (cpu_info[1]) :
                           "i" (0x200000));
     if (((cpu_info[0] ^ cpu_info[1]) & 0x200000) == 0x0) {
-        return;
+        return; /* LCOV_EXCL_LINE */
     }
 # endif
 # ifdef __i386__
@@ -88,7 +88,7 @@ _sodium_runtime_intel_cpu_features(CPUFeatures * const cpu_features)
 
     _cpuid(cpu_info, 0x0);
     if ((id = cpu_info[0]) == 0U) {
-        return -1;
+        return -1; /* LCOV_EXCL_LINE */
     }
     _cpuid(cpu_info, 0x00000001);
 #ifndef HAVE_EMMINTRIN_H

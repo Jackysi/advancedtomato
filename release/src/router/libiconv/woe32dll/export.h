@@ -2,10 +2,10 @@
    Copyright (C) 2006 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2006.
 
-   This program is free software; you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +13,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* There are four ways to build shared libraries on Cygwin:
 
@@ -24,7 +23,7 @@
      dictate the code style on all platforms.  This is unacceptable.
 
    - Use the GNU ld --enable-auto-import option.  It is the default on Cygwin
-     since July 2005. But it three fatal drawbacks:
+     since July 2005. But it has three fatal drawbacks:
        - It produces executables and shared libraries with relocations in the
          .text segment, defeating the principles of virtual memory.
        - For some constructs such as
@@ -96,12 +95,12 @@
  /* Ensure that the variable x is exported from the library, and that a
     pseudo-variable IMP(x) is available.  */
 #define VARIABLE(x) \
- /* Export x without redefining x.  This code was found by compiling a	\
-    snippet:								\
-      extern __declspec(dllexport) int x; int x = 42;  */		\
- asm (".section .drectve\n");						\
- asm (".ascii \" -export:" #x ",data\"\n");				\
- asm (".data\n");							\
- /* Allocate a pseudo-variable IMP(x).  */				\
- extern int x;								\
+ /* Export x without redefining x.  This code was found by compiling a  \
+    snippet:                                                            \
+      extern __declspec(dllexport) int x; int x = 42;  */               \
+ asm (".section .drectve\n");                                           \
+ asm (".ascii \" -export:" #x ",data\"\n");                             \
+ asm (".data\n");                                                       \
+ /* Allocate a pseudo-variable IMP(x).  */                              \
+ extern int x;                                                          \
  void * IMP(x) = &x;

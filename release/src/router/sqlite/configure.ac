@@ -8,7 +8,7 @@
 #
 
 AC_PREREQ(2.61)
-AC_INIT(sqlite, 3.7.5, http://www.sqlite.org)
+AC_INIT(sqlite, 3.8.6, http://www.sqlite.org)
 AC_CONFIG_SRCDIR([sqlite3.c])
 
 # Use automake.
@@ -20,9 +20,11 @@ AC_SYS_LARGEFILE
 AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_LIBTOOL
+AC_PROG_MKDIR_P
 
 # Check for library functions that SQLite can optionally use.
 AC_CHECK_FUNCS([fdatasync usleep fullfsync localtime_r gmtime_r])
+AC_FUNC_STRERROR_R
 
 AC_CONFIG_FILES([Makefile sqlite3.pc])
 AC_SUBST(BUILD_CFLAGS)
@@ -54,7 +56,7 @@ AC_ARG_ENABLE(threadsafe, [AS_HELP_STRING(
   [], [enable_threadsafe=yes])
 THREADSAFE_FLAGS=-DSQLITE_THREADSAFE=0
 if test x"$enable_threadsafe" != "xno"; then
-  THREADSAFE_FLAGS=-DSQLITE_THREADSAFE=1
+  THREADSAFE_FLAGS="-D_REENTRANT=1 -DSQLITE_THREADSAFE=1"
   AC_SEARCH_LIBS(pthread_create, pthread)
 fi
 AC_SUBST(THREADSAFE_FLAGS)
@@ -75,6 +77,8 @@ AC_MSG_CHECKING([for whether to support dynamic extensions])
 AC_MSG_RESULT($enable_dynamic_extensions)
 AC_SUBST(DYNAMIC_EXTENSION_FLAGS)
 #-----------------------------------------------------------------------
+
+AC_CHECK_FUNCS(posix_fallocate)
 
 #-----------------------------------------------------------------------
 # UPDATE: Maybe it's better if users just set CFLAGS before invoking

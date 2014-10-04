@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-#include "sodium.h"
+#include <sodium.h>
 
 #define DNSCRYPT_MAGIC_QUERY_LEN 8U
 #define DNSCRYPT_MAGIC_RESPONSE  "r6fnvWj8"

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2003, 2005-2006 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2003, 2005-2006, 2008 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -24,15 +24,14 @@
 static int unicode_transliterate (conv_t cd, ucs4_t wc,
                                   unsigned char* outptr, size_t outleft)
 {
-/*
   if (cd->oflags & HAVE_HANGUL_JAMO) {
-    /-* Decompose Hangul into Jamo. Use double-width Jamo (contained
+    /* Decompose Hangul into Jamo. Use double-width Jamo (contained
        in all Korean encodings and ISO-2022-JP-2), not half-width Jamo
-       (contained in Unicode only). *-/
+       (contained in Unicode only). */
     ucs4_t buf[3];
     int ret = johab_hangul_decompose(cd,buf,wc);
     if (ret != RET_ILUNI) {
-      /-* we know 1 <= ret <= 3 *-/
+      /* we know 1 <= ret <= 3 */
       state_t backup_state = cd->ostate;
       unsigned char* backup_outptr = outptr;
       size_t backup_outleft = outleft;
@@ -58,9 +57,9 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
     }
   }
   {
-    /-* Try to use a variant, but postfix it with
+    /* Try to use a variant, but postfix it with
        U+303E IDEOGRAPHIC VARIATION INDICATOR
-       (cf. Ken Lunde's "CJKV information processing", p. 188). *-/
+       (cf. Ken Lunde's "CJKV information processing", p. 188). */
     int indx = -1;
     if (wc == 0x3006)
       indx = 0;
@@ -106,20 +105,20 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
     }
   }
   if (wc >= 0x2018 && wc <= 0x201a) {
-    /-* Special case for quotation marks 0x2018, 0x2019, 0x201a *-/
+    /* Special case for quotation marks 0x2018, 0x2019, 0x201a */
     ucs4_t substitute =
       (cd->oflags & HAVE_QUOTATION_MARKS
        ? (wc == 0x201a ? 0x2018 : wc)
        : (cd->oflags & HAVE_ACCENTS
-          ? (wc==0x2019 ? 0x00b4 : 0x0060) /-* use accents *-/
-          : 0x0027 /-* use apostrophe *-/
+          ? (wc==0x2019 ? 0x00b4 : 0x0060) /* use accents */
+          : 0x0027 /* use apostrophe */
       )  );
     int outcount = cd->ofuncs.xxx_wctomb(cd,outptr,substitute,outleft);
     if (outcount != RET_ILUNI)
       return outcount;
   }
   {
-    /-* Use the transliteration table. *-/
+    /* Use the transliteration table. */
     int indx = translit_index(wc);
     if (indx >= 0) {
       const unsigned int * cp = &translit_data[indx];
@@ -136,7 +135,7 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
         }
         sub_outcount = cd->ofuncs.xxx_wctomb(cd,outptr,cp[i],outleft);
         if (sub_outcount == RET_ILUNI)
-          /-* Recursive transliteration. *-/
+          /* Recursive transliteration. */
           sub_outcount = unicode_transliterate(cd,cp[i],outptr,outleft);
         if (sub_outcount <= RET_ILUNI)
           goto translit_failed;
@@ -152,7 +151,6 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
         return RET_TOOSMALL;
     }
   }
-*/
   return RET_ILUNI;
 }
 
@@ -285,57 +283,62 @@ static size_t unicode_loop_convert (iconv_t icd,
     int outcount;
     incount = cd->ifuncs.xxx_mbtowc(cd,&wc,inptr,inleft);
     if (incount < 0) {
-      if (incount == RET_ILSEQ) {
-        /* Case 1: invalid input */
+      if ((unsigned int)(-1-incount) % 2 == (unsigned int)(-1-RET_ILSEQ) % 2) {
+        /* Case 1: invalid input, possibly after a shift sequence */
+        incount = DECODE_SHIFT_ILSEQ(incount);
         if (cd->discard_ilseq) {
           switch (cd->iindex) {
             case ei_ucs4: case ei_ucs4be: case ei_ucs4le:
             case ei_utf32: case ei_utf32be: case ei_utf32le:
             case ei_ucs4internal: case ei_ucs4swapped:
-              incount = 4; break;
+              incount += 4; break;
             case ei_ucs2: case ei_ucs2be: case ei_ucs2le:
             case ei_utf16: case ei_utf16be: case ei_utf16le:
             case ei_ucs2internal: case ei_ucs2swapped:
-              incount = 2; break;
+              incount += 2; break;
             default:
-              incount = 1; break;
+              incount += 1; break;
           }
           goto outcount_zero;
         }
         #ifndef LIBICONV_PLUG
         else if (cd->fallbacks.mb_to_uc_fallback != NULL) {
+          unsigned int incount2;
           struct mb_to_uc_fallback_locals locals;
           switch (cd->iindex) {
             case ei_ucs4: case ei_ucs4be: case ei_ucs4le:
             case ei_utf32: case ei_utf32be: case ei_utf32le:
             case ei_ucs4internal: case ei_ucs4swapped:
-              incount = 4; break;
+              incount2 = 4; break;
             case ei_ucs2: case ei_ucs2be: case ei_ucs2le:
             case ei_utf16: case ei_utf16be: case ei_utf16le:
             case ei_ucs2internal: case ei_ucs2swapped:
-              incount = 2; break;
+              incount2 = 2; break;
             default:
-              incount = 1; break;
+              incount2 = 1; break;
           }
           locals.l_cd = cd;
           locals.l_outbuf = outptr;
           locals.l_outbytesleft = outleft;
           locals.l_errno = 0;
-          cd->fallbacks.mb_to_uc_fallback(inptr, incount,
+          cd->fallbacks.mb_to_uc_fallback((const char*)inptr+incount, incount2,
                                           mb_to_uc_write_replacement,
                                           &locals,
                                           cd->fallbacks.data);
           if (locals.l_errno != 0) {
+            inptr += incount; inleft -= incount;
             errno = locals.l_errno;
             result = -1;
             break;
           }
+          incount += incount2;
           outptr = locals.l_outbuf;
           outleft = locals.l_outbytesleft;
           result += 1;
           goto outcount_zero;
         }
         #endif
+        inptr += incount; inleft -= incount;
         errno = EILSEQ;
         result = -1;
         break;
@@ -347,7 +350,7 @@ static size_t unicode_loop_convert (iconv_t icd,
         break;
       }
       /* Case 3: k bytes read, but only a shift sequence */
-      incount = -2-incount;
+      incount = DECODE_TOOFEW(incount);
     } else {
       /* Case 4: k bytes read, making up a wide character */
       if (outleft == 0) {

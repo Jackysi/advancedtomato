@@ -8,7 +8,7 @@ It provides support for the encodings:
     European languages
         ASCII, ISO-8859-{1,2,3,4,5,7,9,10,13,14,15,16},
         KOI8-R, KOI8-U, KOI8-RU,
-        CP{1250,1251,1252,1253,1254,1257}, CP{850,866},
+        CP{1250,1251,1252,1253,1254,1257}, CP{850,866,1131},
         Mac{Roman,CentralEurope,Iceland,Croatian,Romania},
         Mac{Cyrillic,Ukraine,Greek,Turkish},
         Macintosh
@@ -18,7 +18,8 @@ It provides support for the encodings:
         EUC-JP, SHIFT_JIS, CP932, ISO-2022-JP, ISO-2022-JP-2, ISO-2022-JP-1
     Chinese
         EUC-CN, HZ, GBK, CP936, GB18030, EUC-TW, BIG5, CP950, BIG5-HKSCS,
-        BIG5-HKSCS:2001, BIG5-HKSCS:1999, ISO-2022-CN, ISO-2022-CN-EXT
+        BIG5-HKSCS:2004, BIG5-HKSCS:2001, BIG5-HKSCS:1999, ISO-2022-CN,
+        ISO-2022-CN-EXT
     Korean
         EUC-KR, CP949, ISO-2022-KR, JOHAB
     Armenian
@@ -28,7 +29,7 @@ It provides support for the encodings:
     Tajik
         KOI8-T
     Kazakh
-        PT154
+        PT154, RK1048
     Thai
         ISO-8859-11, TIS-620, CP874, MacThai
     Laotian
@@ -82,7 +83,9 @@ activated when "//TRANSLIT" is appended to the target encoding name.
 libiconv is for you if your application needs to support multiple character
 encodings, but that support lacks from your system.
 
-Installation:
+
+Installation
+------------
 
 As usual for GNU packages:
 
@@ -140,13 +143,28 @@ This library can be built and installed in two variants:
     recompiled. Just set the LD_PRELOAD environment variable, that's it!
 
 
-Download:
-    ftp://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.11.1.tar.gz
+Copyright
+---------
 
-Homepage:
+The libiconv and libcharset _libraries_ and their header files are under LGPL,
+see file COPYING.LIB.
+
+The iconv _program_ and the documentation are under GPL, see file COPYING.
+
+
+Download
+--------
+
+    http://ftp.gnu.org/gnu/libiconv/libiconv-1.14.tar.gz
+
+Homepage
+--------
+
     http://www.gnu.org/software/libiconv/
 
-Bug reports to:
+Bug reports to
+--------------
+
     <bug-gnu-libiconv@gnu.org>
 
 

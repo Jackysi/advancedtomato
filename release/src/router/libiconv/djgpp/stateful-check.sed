@@ -1,11 +1,12 @@
 # Sed script for tests/stateful-check editing.
 
-/set -e/ a\
+/charsetf=/ a\
+\
 # For systems with severe filename restrictions allow for\
 # an alternate filename.\
 UNAME=${UNAME-`uname 2>/dev/null`}\
 case X$UNAME in\
-  *-DOS) filename=`echo "$charset" | sed "s|ISO-|ISO/|;s|2022-|2022|"` ;;\
-  *)     filename="$charset" ;;\
+  *-DOS) filename=`echo "$charsetf" | sed "s|ISO-|ISO/|;s|2022-|2022|;s|BIG5-HKSCS-|BIG5-HKSCS/|"` ;;\
+  *)     filename="$charsetf" ;;\
 esac
-s/\$charset"-snippet/$filename"-snippet/g
+s/\$charsetf"-snippet/$filename"-snippet/g

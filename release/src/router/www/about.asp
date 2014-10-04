@@ -206,6 +206,9 @@ Copyright (C) 2011 Augusto Bott<br>
 <!-- DNSCRYPT-BEGIN -->
 - DNSCrypt-Proxy selectable/manual resolver<br>
 <!-- DNSCRYPT-END -->
+<!-- TINC-BEGIN -->
+- Tinc Daemon integration and GUI<br>
+<!-- TINC-END -->
 - Comcast DSCP Fix GUI<br>
 Copyright (C) 2014 Lance Fredrickson<br>
 <a href='mailto:lancethepants@gmail.com'>lancethepants@gmail.com</a><br>

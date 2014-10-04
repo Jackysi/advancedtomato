@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([libsodium],[0.5.0],
+AC_INIT([libsodium],[1.0.0],
   [https://github.com/jedisct1/libsodium/issues],
   [libsodium],
   [https://github.com/jedisct1/libsodium])
@@ -15,10 +15,10 @@ AC_SUBST(VERSION)
 ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
-SODIUM_LIBRARY_VERSION_MAJOR=5
-SODIUM_LIBRARY_VERSION_MINOR=0
-DLL_VERSION=5
-SODIUM_LIBRARY_VERSION=10:0:0
+SODIUM_LIBRARY_VERSION_MAJOR=7
+SODIUM_LIBRARY_VERSION_MINOR=2
+DLL_VERSION=6
+SODIUM_LIBRARY_VERSION=13:2:0
 #                       | | |
 #                +------+ | +---+
 #                |        |     |
@@ -70,13 +70,11 @@ AS_IF([test "x$EMSCRIPTEN" != "x"],[
   AC_MSG_WARN([compiling to javascript - asm implementations disabled])
 ])
 
-AS_CASE([$host], [x86_64-*-mingw* | x86_64-*-cygwin*], [enable_asm="no"])
-
 AC_ARG_ENABLE(pie,
 [AS_HELP_STRING(--disable-pie,Do not produce position independent executables)],
  enable_pie=$enableval, enable_pie="maybe")
 
-AS_CASE([$host_os], [mingw*], [enable_pie="no"])
+AS_CASE([$host_os], [mingw*|cygwin*|msys], [enable_pie="no"])
 
 AC_ARG_ENABLE(blocking-random,
 [AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
@@ -85,6 +83,21 @@ AC_ARG_ENABLE(blocking-random,
     AC_DEFINE([USE_BLOCKING_RANDOM], [1], [Use blocking random])
   ])
 ])
+
+AC_ARG_ENABLE(minimal,
+[AS_HELP_STRING(--enable-minimal,
+  [Only compile the minimum set of functions required for the high-level API])],
+[
+  AS_IF([test "x$enableval" = "xyes"], [
+    enable_minimal="yes"
+  ], [
+    enable_minimal="no"
+  ])
+],
+[
+  enable_minimal="no"
+])
+AM_CONDITIONAL([MINIMAL], [test x$enable_minimal = xyes])
 
 AC_ARG_WITH(safecode,
 [AS_HELP_STRING(--with-safecode,For maintainers only - please do not use)],
@@ -119,10 +132,6 @@ AC_SUBST([MAINT])
 
 dnl Checks
 
-PKG_PROG_PKG_CONFIG([0.23])
-AM_CONDITIONAL([HAVE_PKG_CONFIG], [test "x$PKG_CONFIG" != "x"])
-AC_SUBST(HAVE_PKG_CONFIG)
-
 AC_PROG_CC_C99
 AM_PROG_AS
 AC_USE_SYSTEM_EXTENSIONS
@@ -131,10 +140,12 @@ CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
 AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
   [CFLAGS="$CFLAGS -fvisibility=hidden"])
 
-AX_CHECK_COMPILE_FLAG([-fPIC], [
-  AX_CHECK_LINK_FLAG([-fPIC],
-    [CFLAGS="$CFLAGS -fPIC"]
-  )
+AS_CASE([$host_os], [cygwin*|mingw*|msys|pw32*|cegcc*], [ ], [
+  AX_CHECK_COMPILE_FLAG([-fPIC], [
+    AX_CHECK_LINK_FLAG([-fPIC],
+      [CFLAGS="$CFLAGS -fPIC"]
+    )
+  ])
 ])
 
 AS_IF([test "$enable_pie" != "no"],[
@@ -154,7 +165,7 @@ AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overf
 LIBTOOL_OLD_FLAGS="$LIBTOOL_EXTRA_FLAGS"
 LIBTOOL_EXTRA_FLAGS="$LIBTOOL_EXTRA_FLAGS -version-info $SODIUM_LIBRARY_VERSION"
 AC_ARG_ENABLE(soname-versions,
-  [AC_HELP_STRING([--enable-soname-versions], [enable soname versions (must be disabled for android) (default: enabled)])],
+  [AC_HELP_STRING([--enable-soname-versions], [enable soname versions (must be disabled for Android) (default: enabled)])],
     [
 	AS_IF([test "x$enableval" = "xno"], [
           LIBTOOL_EXTRA_FLAGS="$LIBTOOL_OLD_FLAGS -avoid-version"
@@ -163,7 +174,7 @@ AC_ARG_ENABLE(soname-versions,
 )
 
 AS_CASE([$host_os],
-  [cygwin* | mingw* | pw32* | cegcc*], [
+  [cygwin*|mingw*|msys|pw32*|cegcc*], [
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
   ])
@@ -171,18 +182,11 @@ AS_CASE([$host_os],
 AS_IF([test "x$enable_ssp" != "xno"],[
 
 AS_CASE([$host_os],
-  [cygwin* | mingw* | pw32* | cegcc*], [ ],
-  [dragonfly*], [
+  [cygwin*|mingw*|msys|pw32*|cegcc*], [ ],
+  [*], [
     AX_CHECK_COMPILE_FLAG([-fstack-protector], [
       AX_CHECK_LINK_FLAG([-fstack-protector],
         [CFLAGS="$CFLAGS -fstack-protector"]
-      )
-    ])
-  ],
-  [*], [
-    AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [
-      AX_CHECK_LINK_FLAG([-fstack-protector-all],
-        [CFLAGS="$CFLAGS -fstack-protector-all"]
       )
     ])
   ])
@@ -272,6 +276,14 @@ AS_IF([test "x$EMSCRIPTEN" = "x"],[
      AC_DEFINE([HAVE_PMMINTRIN_H], [1], [sse3 is available])],
     [AC_MSG_RESULT(no)])
 
+  AC_MSG_CHECKING(for SSSE3 instructions set)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#pragma GCC target("ssse3")
+#include <tmmintrin.h>
+]], [[ __m64 x = _mm_abs_pi32(_m_from_int(0)); ]])],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE([HAVE_TMMINTRIN_H], [1], [ssse3 is available])],
+    [AC_MSG_RESULT(no)])
 ])
 
 AC_CHECK_HEADERS([sys/mman.h])
@@ -301,18 +313,21 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 HAVE_AMD64_ASM_V=0
 AS_IF([test "$enable_asm" != "no"],[
-  AC_MSG_CHECKING(whether we can assemble basic amd64 code)
+  AC_MSG_CHECKING(whether we should use x86_64 asm code)
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   ]], [[
 #if defined(__amd64) || defined(__amd64__) || defined(__x86_64__)
+# if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__) || defined(_WIN32) || defined(_WIN64)
+#  error Windows x86_64 calling conventions are not supported yet
+# endif
 /* neat */
 #else
-# error !amd64
+# error !x86_64
 #endif
 __asm__("pxor %xmm12,%xmm6");
 ]])],
   [AC_MSG_RESULT(yes)
-   AC_DEFINE([HAVE_AMD64_ASM], [1], [basic amd64 code can be assembled])
+   AC_DEFINE([HAVE_AMD64_ASM], [1], [x86_64 asm code should be used])
    HAVE_AMD64_ASM_V=1],
   [AC_MSG_RESULT(no)])
 ])
@@ -330,6 +345,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #endif
 #ifndef NATIVE_LITTLE_ENDIAN
 # error donna_c64 currently requires a little endian CPU
+#endif
+#ifdef EMSCRIPTEN
+# error emscripten currently supports only shift operations on integers \
+#       larger than 64 bits
 #endif
 #include <stdint.h>
 typedef unsigned uint128_t __attribute__((mode(TI)));
@@ -363,6 +382,16 @@ __asm__ __volatile__ ("xchgl %%ebx, %k1; cpuid; xchgl %%ebx, %k1" :
   ])
 AC_SUBST(HAVE_CPUID_V)
 
+AC_MSG_CHECKING(if weak symbols are supported)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+__attribute__((weak)) void __dummy(void *x) { }
+void f(void *x) { __dummy(x); }
+]], [[ ]]
+)],
+[AC_MSG_RESULT(yes)
+ AC_DEFINE([HAVE_WEAK_SYMBOLS], [1], [weak symbols are supported])],
+[AC_MSG_RESULT(no)])
+
 AS_CASE([$host_cpu],
   [i*86 | x86_64 | powerpc* | s390*],
     [AC_MSG_NOTICE([data alignment is not required on this target])],
@@ -371,27 +400,12 @@ AS_CASE([$host_cpu],
      AC_DEFINE([CPU_ALIGNED_ACCESS_REQUIRED], [1], [data alignment is required])]
 )
 
-AC_MSG_CHECKING(for memset_s)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <string.h>
-]], [[
-char dummy[42];
-(void) memset_s(dummy, (rsize_t) sizeof dummy, 0, (rsize_t) sizeof dummy);
-]])],
-[AC_MSG_RESULT(yes)
- AC_DEFINE([HAVE_MEMSET_S], [1], [memset_s is available])],
-[AC_MSG_RESULT(no)])
-
 dnl Checks for functions and headers
-
-AC_CHECK_FUNC(clock_gettime, , [AC_CHECK_LIB(rt, clock_gettime)])
-AC_CHECK_FUNC(fegetenv, , [AC_CHECK_LIB(m, fegetenv)])
 
 AS_IF([test "x$EMSCRIPTEN" = "x"],[
   AC_CHECK_FUNCS([arc4random arc4random_buf])
 ])
-AC_CHECK_FUNCS([mlock VirtualLock])
-AC_CHECK_FUNCS([SecureZeroMemory explicit_bzero posix_memalign])
+AC_CHECK_FUNCS([mlock mprotect explicit_bzero posix_memalign])
 
 AC_SUBST([LIBTOOL_EXTRA_FLAGS])
 
@@ -403,7 +417,7 @@ gl_LD_OUTPUT_DEF
 
 dnl Output.
 
-AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
+AH_VERBATIM([NDEBUG], [/* Always evaluate assert() calls */
 #ifdef NDEBUG
 #/**/undef/**/ NDEBUG
 #endif])

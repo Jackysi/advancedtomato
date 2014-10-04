@@ -611,7 +611,13 @@ void start_httpd(void)
 		xstart( "/usr/sbin/ttb" );
 
 	stop_httpd();
-	chdir("/www");
+
+// set www dir
+	if ( nvram_match( "web_dir", "jffs" ) ) { chdir("/jffs/www"); }
+	else if ( nvram_match( "web_dir", "opt" ) ) { chdir("/opt/www"); }
+	else if ( nvram_match( "web_dir", "tmp" ) ) { chdir("/tmp/www");}
+	else { chdir("/www"); }
+
 	eval("httpd");
 	chdir("/");
 }
@@ -2880,6 +2886,14 @@ TOP:
 	}
 #endif
 
+#ifdef TCONFIG_TINC
+	if (strcmp(service, "tinc") == 0) {
+		if (action & A_STOP) stop_tinc();
+		if (action & A_START) start_tinc();
+		goto CLEAR;
+	}
+#endif
+
 #ifdef TCONFIG_NOCAT
 	if (strcmp(service, "splashd") == 0) {
 		if (action & A_STOP) stop_splashd();
@@ -2891,11 +2905,13 @@ TOP:
 #ifdef TCONFIG_NGINX
 	if (strcmp(service, "enginex") == 0) {
 		if (action & A_STOP) stop_enginex();
+		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_enginex();
 		goto CLEAR;
 	}
 	if (strcmp(service, "nginxfp") == 0) {
 		if (action & A_STOP) stop_nginxfastpath();
+		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_nginxfastpath();
 		goto CLEAR;
 	}
