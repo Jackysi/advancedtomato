@@ -1119,14 +1119,19 @@ n64m:
 	@$(MAKE) r2m NVRAM_SIZE=64 LINKSYS_E_64k=y
 
 
-#Linksys E-Series with 4MB Flash
+#Linksys E-Series with 4MB Flash (Max Flashsize=3866624)
 
 e1000v2f:
-	@$(MAKE) r2f NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y
+	@$(MAKE) bin MIPS32=r2 NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB="" NO_HTTPS=y KERN_SIZE_OPT=y
+
+e1000v2i:
+	@$(MAKE) bin MIPS32=r2 NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I USB="" NO_HTTPS=y KERN_SIZE_OPT=y BUILD_DESC="MiniIPv6"
 
 e1200v1f:
-	@$(MAKE) r2f NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y
+	@$(MAKE) bin MIPS32=r2 NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB="" NO_HTTPS=y KERN_SIZE_OPT=y
 
+e1200v1i:
+	@$(MAKE) bin MIPS32=r2 NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I USB="" NO_HTTPS=y KERN_SIZE_OPT=y BUILD_DESC="MiniIPv6"
 
 #Builds for WNR3500L v2
 v2z:
@@ -1287,7 +1292,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2f          MIPS Release 2 Mini (for netgear)"
 	@echo "       Linksys E-Series with 4MB Flash(E1000v2/v2.1/E1200v1)"
 	@echo "e1000v2f     Linksys E1000v2-v2.1/Cisco M10v2 Mini"
+	@echo "e1000v2i     Linksys E1000v2-v2.1/Cisco M10v2 MiniIPv6"
 	@echo "e1200v1f     Linksys E1200v1 Mini"
+	@echo "e1200v1i     Linksys E1200v1 MiniIPv6"
 	@echo "       Linksys E-Series with 60k Nvram"
 	@echo "n60e         Linksys E-series build VPN"
 	@echo "n60c         Linksys E-series build BTGui-VPN"
