@@ -791,6 +791,7 @@ table .header {
     padding: 8px 16px;
     margin: 0;
     font-size: 9pt;
+	font-weight: 500;
     line-height: normal;
     -webkit-user-select: none;
     -moz-user-select: none;

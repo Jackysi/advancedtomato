@@ -25,6 +25,7 @@
 					- Complete interface re-design<br />
 					- GUI related improvements, optimizations and changes<br />
 					- Various themes and color schemes<br />
+					- AdvancedTomato logo by Jacky, re-vectored by <a href="http://www.linksysinfo.org/index.php?members/wally3k.52990/">WaLLy3K</a><br />
 					- Based on Tomato by Shibby
 				</p>
 				Copyright (C) 2014 <a href="http://prahec.com/">Jacky Prahec</a>

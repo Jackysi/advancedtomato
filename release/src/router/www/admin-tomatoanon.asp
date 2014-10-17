@@ -85,11 +85,11 @@ No part of this file may be used without permission.
 			</div>
 		</div>
 
-		<div class="box">
+		<div class="box anon">
 			<div class="heading anonlink">TomatoAnon Settings</div>
 			<div class="content"></div>
 			<script type="text/javascript">
-				$('.box .content').forms([
+				$('.box.anon .content').forms([
 					{ title: 'Do you understand what TomatoAnon does?', name: 'tomatoanon_answer', type: 'select', options: [ ['0','No, I don\'t. I will need to read the above information and make an informed decision.'], ['1','Yes, I have and would like to make a decision.'] ], value: nvram.tomatoanon_answer, suffix: ' '},
 					{ title: 'Do you want to enable TomatoAnon?', name: 'tomatoanon_enable', type: 'select', options: [ ['-1','I`m not sure right now.'], ['1','Yes, I\'m sure I would like to enable it'], ['0','No, I would not like to enable it'] ], value: nvram.tomatoanon_enable, suffix: ' '}
 				]);

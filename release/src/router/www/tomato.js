@@ -2088,7 +2088,7 @@ TomatoRefresh.prototype = {
 	},
 
 	stop: function() {
-		if (this.cookieTag) cookie.set(this.cookieTag, -(this.refreshTime / 1000));
+		if (this.cookieTag) cookie.set(this.cookieTag, '0');
 		this.running = 0;
 		this.updateUI('stop');
 		this.timer.stop();
@@ -2144,11 +2144,11 @@ TomatoRefresh.prototype = {
 	},
 
 	destroy: function() {
-
-		this.timer.stop();
 		this.running = 0;
+		this.updateUI('stop');
+		this.timer.stop();
 		this.http = null;
-
+		this.once = undefined;
 	}
 }
 

@@ -13,7 +13,7 @@ No part of this file may be used without permission.
 <content>
 	<script type='text/javascript'>
 
-		//	<% nvram("nginx_enable,nginx_php,nginx_keepconf,nginx_port,nginx_fqdn,nginx_docroot,nginx_priority,nginx_custom"); %>
+		//	<% nvram("nginx_enable,nginx_php,nginx_user,nginx_keepconf,nginx_port,nginx_fqdn,nginx_docroot,nginx_priority,nginx_custom"); %>
 
 		changed = 0;
 		nginxup = parseInt ('<% psup("nginx"); %>');
