@@ -2494,6 +2494,9 @@ function navi()
 			'PPTP Online':          'vpn-pptp-online.asp',
 			'PPTP Client':          'vpn-pptp.asp'
 			/* PPTPD-END */
+			/* TINC-BEGIN */
+			,'Tinc Daemon':			'vpn-tinc.asp'
+			/* TINC-END */
 		},
 		/* VPN-END */
 		'Administration': {
