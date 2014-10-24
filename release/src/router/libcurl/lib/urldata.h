@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -57,6 +57,14 @@
 
 #define CURL_DEFAULT_USER "anonymous"
 #define CURL_DEFAULT_PASSWORD "ftp@example.com"
+
+/* Convenience defines for checking protocols or their SSL based version. Each
+   protocol handler should only ever have a single CURLPROTO_ in its protocol
+   field. */
+#define PROTO_FAMILY_HTTP (CURLPROTO_HTTP|CURLPROTO_HTTPS)
+#define PROTO_FAMILY_FTP  (CURLPROTO_FTP|CURLPROTO_FTPS)
+#define PROTO_FAMILY_POP3 (CURLPROTO_POP3|CURLPROTO_POP3S)
+#define PROTO_FAMILY_SMTP (CURLPROTO_SMTP|CURLPROTO_SMTPS)
 
 #define DEFAULT_CONNCACHE_SIZE 5
 
@@ -296,18 +304,13 @@ struct ssl_connect_data {
   ssl_connect_state connecting_state;
 #endif /* USE_GNUTLS */
 #ifdef USE_POLARSSL
-#if POLARSSL_VERSION_NUMBER<0x01010000
-  havege_state hs;
-#else
-  /* from v1.1.0, use ctr_drbg and entropy */
   ctr_drbg_context ctr_drbg;
   entropy_context entropy;
-#endif /* POLARSSL_VERSION_NUMBER<0x01010000 */
   ssl_context ssl;
   ssl_session ssn;
   int server_fd;
-  x509_cert cacert;
-  x509_cert clicert;
+  x509_crt cacert;
+  x509_crt clicert;
   x509_crl crl;
   rsa_context rsa;
   ssl_connect_state connecting_state;
@@ -323,6 +326,7 @@ struct ssl_connect_data {
   struct SessionHandle *data;
   struct curl_llist *obj_list;
   PK11GenericObject *obj_clicert;
+  ssl_connect_state connecting_state;
 #endif /* USE_NSS */
 #ifdef USE_QSOSSL
   SSLHandle *handle;
@@ -388,7 +392,7 @@ struct curl_ssl_session {
   void *sessionid;  /* as returned from the SSL layer */
   size_t idsize;    /* if known, otherwise 0 */
   long age;         /* just a number, the higher the more recent */
-  unsigned short remote_port; /* remote port to connect to */
+  int remote_port;  /* remote port to connect to */
   struct ssl_config_data ssl_config; /* setup for this session */
 };
 
@@ -435,6 +439,8 @@ struct ntlmdata {
 #else
   unsigned int flags;
   unsigned char nonce[8];
+  void* target_info; /* TargetInfo received in the ntlm type-2 message */
+  unsigned int target_info_len;
 #endif
 };
 
@@ -580,13 +586,25 @@ struct Curl_async {
 typedef CURLcode (*Curl_do_more_func)(struct connectdata *, int *);
 typedef CURLcode (*Curl_done_func)(struct connectdata *, CURLcode, bool);
 
-
 enum expect100 {
   EXP100_SEND_DATA,           /* enough waiting, just send the body now */
   EXP100_AWAITING_CONTINUE,   /* waiting for the 100 Continue header */
   EXP100_SENDING_REQUEST,     /* still sending the request but will wait for
                                  the 100 header once done with the request */
   EXP100_FAILED               /* used on 417 Expectation Failed */
+};
+
+enum upgrade101 {
+  UPGR101_INIT,               /* default state */
+  UPGR101_REQUESTED,          /* upgrade requested */
+  UPGR101_RECEIVED,           /* response received */
+  UPGR101_WORKING             /* talking upgraded protocol */
+};
+
+enum negotiatenpn {
+  NPN_INIT,                   /* default state */
+  NPN_HTTP1_1,                /* HTTP/1.1 negotiated */
+  NPN_HTTP2                   /* HTTP2 (draft-xx) negotiated */
 };
 
 /*
@@ -639,6 +657,7 @@ struct SingleRequest {
                                    'RTSP/1.? XXX' line */
   struct timeval start100;      /* time stamp to wait for the 100 code from */
   enum expect100 exp100;        /* expect 100 continue state */
+  enum upgrade101 upgr101;      /* 101 upgrade state */
 
   int auto_decoding;            /* What content encoding. sec 3.5, RFC2616. */
 
@@ -767,7 +786,8 @@ struct Curl_handler {
                         ssize_t *nread, bool *readmore);
 
   long defport;           /* Default port. */
-  unsigned int protocol;  /* See CURLPROTO_*  */
+  unsigned int protocol;  /* See CURLPROTO_* - this needs to be the single
+                             specific protocol bit */
   unsigned int flags;     /* Extra particular characteristics, see PROTOPT_* */
 };
 
@@ -785,6 +805,8 @@ struct Curl_handler {
                                       gets a default */
 #define PROTOPT_NOURLQUERY (1<<6)   /* protocol can't handle
                                         url query strings (?foo=bar) ! */
+#define PROTOPT_CREDSPERREQUEST (1<<7) /* requires login credentials per
+                                          request instead of per connection */
 
 
 /* return the count of bytes sent, or -1 on error */
@@ -853,8 +875,7 @@ struct connectdata {
   struct hostname proxy;
 
   long port;       /* which port to use locally */
-  unsigned short remote_port; /* what remote port to connect to,
-                                 not the proxy port! */
+  int remote_port; /* what remote port to connect to, not the proxy port! */
 
   /* 'primary_ip' and 'primary_port' get filled with peer's numerical
      ip address and port number whenever an outgoing connection is
@@ -1039,6 +1060,8 @@ struct connectdata {
     TUNNEL_COMPLETE /* CONNECT response received completely */
   } tunnel_state[2]; /* two separate ones to allow FTP */
   struct connectbundle *bundle; /* The bundle we are member of */
+
+  enum negotiatenpn negnpn;
 };
 
 /* The end of connectdata. */
@@ -1112,6 +1135,7 @@ struct Progress {
 
   struct timeval start;
   struct timeval t_startsingle;
+  struct timeval t_startop;
   struct timeval t_acceptdata;
 #define CURR_TIME (5+1) /* 6 entries for 5 seconds */
 
@@ -1283,6 +1307,8 @@ struct UrlState {
 
   /* if true, force SSL connection retry (workaround for certain servers) */
   bool ssl_connect_retry;
+  curl_off_t infilesize; /* size of file to upload, -1 means unknown.
+                            Copied from set.filesize at start of operation */
 };
 
 
@@ -1444,7 +1470,7 @@ struct UserDefined {
   long accepttimeout;   /* in milliseconds, 0 means no timeout */
   long server_response_timeout; /* in milliseconds, 0 means no timeout */
   long tftp_blksize ; /* in bytes, 0 means use default */
-  curl_off_t infilesize;      /* size of file to upload, -1 means unknown */
+  curl_off_t filesize;  /* size of file to upload, -1 means unknown */
   long low_speed_limit; /* bytes/second */
   long low_speed_time;  /* number of seconds */
   curl_off_t max_send_speed; /* high speed limit in bytes/second for upload */
@@ -1452,7 +1478,9 @@ struct UserDefined {
                                 download */
   curl_off_t set_resume_from;  /* continue [ftp] transfer from here */
   struct curl_slist *headers; /* linked list of extra headers */
+  struct curl_slist *proxyheaders; /* linked list of extra CONNECT headers */
   struct curl_httppost *httppost;  /* linked list of POST data */
+  bool sep_headers;     /* handle host and proxy headers separately */
   bool cookiesession;   /* new cookie session? */
   bool crlf;            /* convert crlf on ftp upload(?) */
   struct curl_slist *quote;     /* after connection is established */
@@ -1576,6 +1604,11 @@ struct UserDefined {
   long tcp_keepintvl;    /* seconds between TCP keepalive probes */
 
   size_t maxconnects;  /* Max idle connections in the connection cache */
+
+  bool ssl_enable_npn;  /* TLS NPN extension? */
+  bool ssl_enable_alpn; /* TLS ALPN extension? */
+
+  long expect_100_timeout; /* in milliseconds */
 };
 
 struct Names {

@@ -2,6 +2,7 @@
 <info>
 <keywords>
 IMAP
+Clear Text
 STORE
 EXPUNGE
 CUSTOMREQUEST
@@ -26,10 +27,10 @@ CUSTOMREQUEST
 imap
 </server>
  <name>
-IMAP delete message with confirmation (CUSTOMREQUEST)
+IMAP STORE - delete message with confirmation (CUSTOMREQUEST)
  </name>
  <command>
-imap://%HOSTIP:%IMAPPORT/816 -X 'STORE 123 +Flags \Deleted' -Q -EXPUNGE -u user:secret 
+imap://%HOSTIP:%IMAPPORT/816 -X 'STORE 123 +Flags \Deleted' -u user:secret -: imap://%HOSTIP:%IMAPPORT/816 -X EXPUNGE -u user:secret
 </command>
 </client>
 

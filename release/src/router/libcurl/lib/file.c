@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -152,14 +152,14 @@ static CURLcode file_range(struct connectdata *conn)
     if((-1 == to) && (from>=0)) {
       /* X - */
       data->state.resume_from = from;
-      DEBUGF(infof(data, "RANGE %" FORMAT_OFF_T " to end of file\n",
+      DEBUGF(infof(data, "RANGE %" CURL_FORMAT_CURL_OFF_T " to end of file\n",
                    from));
     }
     else if(from < 0) {
       /* -Y */
       data->req.maxdownload = -from;
       data->state.resume_from = from;
-      DEBUGF(infof(data, "RANGE the last %" FORMAT_OFF_T " bytes\n",
+      DEBUGF(infof(data, "RANGE the last %" CURL_FORMAT_CURL_OFF_T " bytes\n",
                    -from));
     }
     else {
@@ -167,12 +167,13 @@ static CURLcode file_range(struct connectdata *conn)
       totalsize = to-from;
       data->req.maxdownload = totalsize+1; /* include last byte */
       data->state.resume_from = from;
-      DEBUGF(infof(data, "RANGE from %" FORMAT_OFF_T
-                   " getting %" FORMAT_OFF_T " bytes\n",
+      DEBUGF(infof(data, "RANGE from %" CURL_FORMAT_CURL_OFF_T
+                   " getting %" CURL_FORMAT_CURL_OFF_T " bytes\n",
                    from, data->req.maxdownload));
     }
-    DEBUGF(infof(data, "range-download from %" FORMAT_OFF_T
-                 " to %" FORMAT_OFF_T ", totally %" FORMAT_OFF_T " bytes\n",
+    DEBUGF(infof(data, "range-download from %" CURL_FORMAT_CURL_OFF_T
+                 " to %" CURL_FORMAT_CURL_OFF_T ", totally %"
+                 CURL_FORMAT_CURL_OFF_T " bytes\n",
                  from, to, data->req.maxdownload));
   }
   else
@@ -335,9 +336,9 @@ static CURLcode file_upload(struct connectdata *conn)
     return CURLE_WRITE_ERROR;
   }
 
-  if(-1 != data->set.infilesize)
+  if(-1 != data->state.infilesize)
     /* known size of data to "upload" */
-    Curl_pgrsSetUploadSize(data, data->set.infilesize);
+    Curl_pgrsSetUploadSize(data, data->state.infilesize);
 
   /* treat the negative resume offset value as the case of "-" */
   if(data->state.resume_from < 0) {
@@ -465,7 +466,7 @@ static CURLcode file_do(struct connectdata *conn, bool *done)
   if(data->set.opt_no_body && data->set.include_header && fstated) {
     CURLcode result;
     snprintf(buf, sizeof(data->state.buffer),
-             "Content-Length: %" FORMAT_OFF_T "\r\n", expected_size);
+             "Content-Length: %" CURL_FORMAT_CURL_OFF_T "\r\n", expected_size);
     result = Curl_client_write(conn, CLIENTWRITE_BOTH, buf, 0);
     if(result)
       return result;

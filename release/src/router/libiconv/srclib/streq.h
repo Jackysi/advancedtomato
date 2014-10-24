@@ -1,24 +1,31 @@
 /* Optimized string comparison.
-   Copyright (C) 2001-2002 Free Software Foundation, Inc.
+   Copyright (C) 2001-2002, 2007, 2009-2011 Free Software Foundation, Inc.
 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms of the GNU Library General Public License as published
-   by the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   General Public License for more details.
 
-   You should have received a copy of the GNU Library General Public
-   License along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-   USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Written by Bruno Haible <bruno@clisp.org>.  */
 
+#ifndef _GL_STREQ_H
+#define _GL_STREQ_H
+
 #include <string.h>
+
+/* STREQ allows to optimize string comparison with a small literal string.
+     STREQ (s, "EUC-KR", 'E', 'U', 'C', '-', 'K', 'R', 0, 0, 0)
+   is semantically equivalent to
+     strcmp (s, "EUC-KR") == 0
+   just faster.  */
 
 /* Help GCC to generate good code for string comparisons with
    immediate strings. */
@@ -165,3 +172,5 @@ streq0 (const char *s1, const char *s2, char s20, char s21, char s22, char s23, 
   (strcmp (s1, s2) == 0)
 
 #endif
+
+#endif /* _GL_STREQ_H */

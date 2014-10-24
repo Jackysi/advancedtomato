@@ -1,4 +1,3 @@
-#include <stdio.h>
 
 #define TEST_NAME "auth6"
 #include "cmptest.h"
@@ -11,11 +10,13 @@ unsigned char a[64];
 
 int main(void)
 {
-  int i;
-  crypto_auth_hmacsha512(a,c,sizeof c - 1U,key);
-  for (i = 0;i < 64;++i) {
-    printf(",0x%02x",(unsigned int) a[i]);
-    if (i % 8 == 7) printf("\n");
-  }
-  return 0;
+    int i;
+
+    crypto_auth_hmacsha512(a, c, sizeof c - 1U, key);
+    for (i = 0; i < 64; ++i) {
+        printf(",0x%02x", (unsigned int)a[i]);
+        if (i % 8 == 7)
+            printf("\n");
+    }
+    return 0;
 }

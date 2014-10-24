@@ -16,6 +16,7 @@
 @V@/include/libcharset.h.in            @V@/include/libcharset.h-in
 @V@/include/libcharset.h.msvc-shared   @V@/include/libcharset.h-msvc-shared
 @V@/include/localcharset.h.in          @V@/include/localcharset.h-in
+@V@/include/localcharset.h.build.in    @V@/include/localcharset.h-build-in
 @V@/include/localcharset.h.msvc-shared @V@/include/localcharset.h-msvc-shared
 @V@/config.h.in                        @V@/config.h-in
 @V@/config.h.msvc                      @V@/config.h-msvc

@@ -143,16 +143,16 @@ Rem Find out where the sources are
 if "%XSRC%" == "." goto InPlace
 
 :NotInPlace
-redir -e /dev/null update %XSRC%/configure.orig ./configure
+redir -e /dev/null update %XSRC%/configure.org ./configure
 test -f ./configure
 if errorlevel 1 update %XSRC%/configure ./configure
 
 :InPlace
 Rem Update configuration files
 echo Updating configuration scripts...
-test -f ./configure.orig
-if errorlevel 1 update ./configure ./configure.orig
-sed -f %XSRC%/djgpp/config.sed ./configure.orig > configure
+test -f ./configure.org
+if errorlevel 1 update ./configure ./configure.org
+sed -f %XSRC%/djgpp/config.sed ./configure.org > configure
 if errorlevel 1 goto SedError
 
 Rem Make sure they have a config.site file
@@ -184,6 +184,14 @@ test -f %XSRC%/include/localcharset.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharseth.in %XSRC%/include/localcharset.h-in
 test -f %XSRC%/include/localcharset.h-in
 if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharset_h.in %XSRC%/include/localcharset.h-in
+test -f %XSRC%/include/localcharset.h.build.in
+if not errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharset.h.build.in %XSRC%/include/localcharset.h-build-in
+test -f %XSRC%/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharset.h %XSRC%/include/localcharset.h-build-in
+test -f %XSRC%/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharseth.build %XSRC%/include/localcharset.h-build-in
+test -f %XSRC%/include/localcharset.h-build-in
+if errorlevel 1 redir -e /dev/null mv -f %XSRC%/include/localcharset_h.build %XSRC%/include/localcharset.h-build-in
 
 Rem This is required because DOS/Windows are case-insensitive
 Rem to file names, and "make install" will do nothing if Make
@@ -271,7 +279,7 @@ if not errorlevel 0 goto MissingNLSTools
 
 Rem Recreate the files in the %XSRC%/po subdir with our ported tools.
 redir -e /dev/null rm %XSRC%/po/*.gmo
-redir -e /dev/null rm %XSRC%/po/sed.pot
+redir -e /dev/null rm %XSRC%/po/libcharset.pot
 redir -e /dev/null rm %XSRC%/po/cat-id-tbl.c
 redir -e /dev/null rm %XSRC%/po/stamp-cat-id
 

@@ -156,7 +156,7 @@ options_read_file(const char * const file_name)
     while (fgetc(fp) != EOF && file_size < SIZE_MAX) {
         file_size++;
     }
-    if (feof(fp) == 0) {
+    if (feof(fp) == 0 || file_size <= (size_t) 0U) {
         fclose(fp);
         return NULL;
     }

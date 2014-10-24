@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "DNSCRYPT\-PROXY" "8" "April 2014" "" ""
+.TH "DNSCRYPT\-PROXY" "8" "August 2014" "" ""
 .
 .SH "NAME"
 \fBdnscrypt\-proxy\fR \- A DNSCrypt forwarder
@@ -13,7 +13,7 @@
 \fBdnscrypt\-proxy\fR accepts DNS requests, authenticates and encrypts them using dnscrypt and forwards them to a remote dnscrypt\-enabled resolver\.
 .
 .P
-Replies from the resolver are expected to be authenticated and encrypted or else they will be discarded\.
+Replies from the resolver are expected to be authenticated or else they will be discarded\.
 .
 .P
 The proxy verifies the replies, decrypts them, and transparently forwards them to the local stub resolver\.
@@ -85,7 +85,7 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 .P
 A public key is 256\-bit long, and it has to be specified as a hexadecimal string, with optional columns\.
 .
-.SH "SIMPLE USAGE EXAMPLE"
+.SH "COMMON USAGE EXAMPLE"
 .
 .nf
 
@@ -93,13 +93,19 @@ $ dnscrypt\-proxy \-\-daemonize \-\-resolver\-name=\.\.\.
 .
 .fi
 .
-.SH "ADVANCED USAGE EXAMPLE"
+.P
+The resolver name is the first column (Name) in the CSV file\.
+.
+.SH "USAGE EXAMPLE WITH A PRIVATE SERVER"
 .
 .nf
 
-$ dnscrypt\-proxy \-\-provider\-key=B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79 \-\-provider\-name=2\.dnscrypt\-cert\.dnscrypt\.org\. \-\-resolver\-address=208\.67\.220\.220:53 \-\-daemonize
+$ dnscrypt\-proxy \-\-daemonize \-\-provider\-key=\.\.\. \-\-provider\-name=\.\.\. \-\-resolver\-address=\.\.\.
 .
 .fi
+.
+.SH "BUGS AND SUPPORT"
+Please report issues with DNSCrypt itself to http://dnscrypt\.org/issues
 .
 .SH "SEE ALSO"
 hostip(8)

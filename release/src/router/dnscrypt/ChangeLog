@@ -1,3 +1,461 @@
+Merge: 3c960ad 1e2eb46
+* Thu Sep 18 23:23:45 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Do not use the same description for 2 different configurations
+      Update ChangeLog
+      libevent - [Bugfix] fix bufferevent setwatermark suspend_read
+      libevent - regress_buffer: fix 'memcmp' compare size
+
+* Thu Sep 18 23:18:23 2014 -0700
+
+    1.4.0 -> 1.4.1
+
+* Thu Sep 18 22:55:23 2014 -0700
+
+    timing -> timing out
+
+* Thu Sep 18 18:56:25 2014 -0700
+
+    Do not use the same description for 2 different configurations
+
+* Thu Sep 18 17:25:37 2014 -0700
+
+    Update ChangeLog
+
+* Thu Sep 18 17:24:03 2014 -0700
+
+    libevent - [Bugfix] fix bufferevent setwatermark suspend_read
+
+* Thu Sep 18 17:23:22 2014 -0700
+
+    libevent - regress_buffer: fix 'memcmp' compare size
+
+Merge: 5d55fee 4a3a23c
+* Thu Sep 11 20:22:14 2014 -0700
+
+    Merge remote-tracking branch 'Shnatsel/master'
+    
+    * Shnatsel/master:
+      Bump compat to 9, standards version to 3.9.5
+      Drop AppArmor installation from Debian/Ubuntu package
+      Since we could not resolve the AppArmor shutdown issue so far, at least add a warning about it
+
+* Sun Sep 7 17:49:19 2014 -0700
+
+    Target iOS 7.1 since iOS 8 hasn't been jailbroken yet
+
+* Sat Sep 6 13:58:09 2014 -0700
+
+    Use Sodium 0.7.0
+
+* Thu Sep 4 15:05:58 2014 -0700
+
+    ChangeLog update
+
+* Thu Sep 4 15:00:35 2014 -0700
+
+    Add a few comments to the .plist file
+
+* Thu Sep 4 14:57:28 2014 -0700
+
+    Mention that the path to the CSV file is also required
+
+* Tue Sep 2 20:09:22 2014 -0700
+
+    ChangeLog update
+
+* Tue Sep 2 14:53:24 2014 -0700
+
+    libevent: Consistently check for failure from evbuffer_pullup()
+
+* Wed Aug 27 22:50:37 2014 -0700
+
+    Ship libgcc_s_dw2-1.dll in the Windows package
+
+* Tue Aug 26 19:14:37 2014 -0700
+
+    Bump libsodium DLL version
+
+* Tue Aug 26 11:45:14 2014 -0700
+
+    Mention Docker images
+
+* Sun Aug 24 19:03:35 2014 +0400
+
+    Bump compat to 9, standards version to 3.9.5
+
+* Sun Aug 24 18:48:36 2014 +0400
+
+    Drop AppArmor installation from Debian/Ubuntu package
+
+* Sun Aug 24 18:40:29 2014 +0400
+
+    Since we could not resolve the AppArmor shutdown issue so far, at least add a warning about it
+
+* Fri Aug 22 11:48:53 2014 -0700
+
+    libevent2
+
+* Fri Aug 22 11:48:19 2014 -0700
+
+    DTrace -> dtrace
+
+* Fri Aug 22 11:47:32 2014 -0700
+
+    Update documentation
+
+* Fri Aug 22 11:43:17 2014 -0700
+
+    I am not running Mountain Lion any more.
+
+* Fri Aug 22 11:43:02 2014 -0700
+
+    Doc update
+
+* Thu Aug 21 23:05:59 2014 -0700
+
+    More permanent issues URL
+
+* Thu Aug 21 22:58:04 2014 -0700
+
+    -encrypted
+
+* Thu Aug 21 22:55:33 2014 -0700
+
+    Clarify what the Resolver Name is
+
+* Thu Aug 21 22:54:05 2014 -0700
+
+    Regen documentation
+
+* Thu Aug 21 22:47:22 2014 -0700
+
+    Make it clear that most people just need to run dnscrypt-proxy -R <provider name>
+
+* Tue Aug 19 10:18:04 2014 -0700
+
+    Add a few files created by "make verify" to .gitignore.
+
+* Tue Aug 19 08:28:49 2014 -0700
+
+    Note about dnscrypt.org being blocked
+
+* Sat Aug 16 22:31:53 2014 -0700
+
+    Revert "No more resolvers in Japan :("
+    
+
+* Thu Aug 14 12:13:23 2014 -0700
+
+    Remove unused function.
+
+* Tue Aug 12 22:43:43 2014 -0700
+
+    Revert "Bring back clang on Travis"
+    
+
+Merge: ef06bdb 1eb7a00
+* Tue Aug 12 22:43:32 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Bring back clang on Travis
+
+* Tue Aug 12 22:41:55 2014 -0700
+
+    No more resolvers in Japan :(
+
+* Mon Aug 11 16:47:26 2014 -0700
+
+    Bring back clang on Travis
+
+* Thu Aug 7 20:14:01 2014 -0700
+
+    clang seems to be broken on Travis
+
+* Thu Aug 7 19:45:22 2014 -0700
+
+    Document that some plugins need additional DLLs on Windows
+
+* Mon Jul 28 13:02:56 2014 -0700
+
+    Don't even try to parse an empty file.
+
+* Sat Jul 26 12:12:17 2014 -0700
+
+    Bump version to 1.4.1
+
+* Sat Jul 26 12:07:19 2014 -0700
+
+    mlock() the proxy context
+
+* Sat Jul 26 11:59:43 2014 -0700
+
+    Replace the custom fingerprint parse with sodium_hextobin()
+
+Merge: 5ddc648 3f85a31
+* Sat Jul 26 11:21:41 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Add alternative port to dnscrypt.eu servers
+
+* Sat Jul 26 11:21:26 2014 -0700
+
+    "sodium.h" -> <sodium.h>
+
+Merge: aab1871 025ac7f
+* Fri Jul 18 13:15:52 2014 -0700
+
+    Merge pull request #125 from trrbl/master
+    
+    Add alternative port to dnscrypt.eu servers
+
+* Fri Jul 18 23:38:25 2014 +0400
+
+    Add alternative port to dnscrypt.eu servers
+    
+    Some ISP are filtering outgoing port 443.
+
+Merge: 3592248 ad407a0
+* Sat Jul 5 10:23:26 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Package new Android build scripts
+
+* Sat Jul 5 10:22:42 2014 -0700
+
+    Do not retry to send UDP packets, let the stub resolver do it.
+
+* Wed Jul 2 16:47:15 2014 -0700
+
+    Package new Android build scripts
+
+Merge: b8e8055 8a5cd0f
+* Mon Jun 30 10:40:06 2014 -0700
+
+    Merge pull request #122 from Teknocrat/patch-1
+    
+    Update dnscrypt-proxy-1.3.3-r1.ebuild
+
+* Mon Jun 30 10:33:08 2014 -0700
+
+    Update dnscrypt-proxy-1.3.3-r1.ebuild
+    
+    You need this additional line or else Gentoo will not actually create the local user and group accounts..
+
+* Sun Jun 29 10:54:52 2014 -0700
+
+    Target iOS 8.0
+
+* Mon Jun 16 21:19:32 2014 -0700
+
+    Add OpenDNS on port 53 for some unusual setups
+
+* Mon Jun 2 20:36:59 2014 -0700
+
+    Tweak OSX compile flags
+
+* Sun Jun 1 22:49:41 2014 -0700
+
+    Travis: install libldns-dev
+
+* Sun Jun 1 23:00:44 2014 -0700
+
+    Use libsodium 0.5.0
+
+* Mon Jun 2 20:29:04 2014 -0700
+
+    On OSX, compile for Mountain Lion.
+
+Merge: 5bd6577 1cbcb8f
+* Fri May 23 09:09:36 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Default to OpenDNS resolvers explicitly in the old-style config file because DNSCrypt no longer defaults to them internally
+
+* Fri May 23 09:09:22 2014 -0700
+
+    Log the signal number in the signal handler
+
+Merge: c4d8ffc 66a97df
+* Fri May 16 09:03:58 2014 -0700
+
+    Merge pull request #107 from Shnatsel/fix-config
+    
+    Default to OpenDNS resolvers explicitly in the old-style config file...
+
+* Fri May 16 13:39:56 2014 +0400
+
+    Default to OpenDNS resolvers explicitly in the old-style config file because DNSCrypt no longer defaults to them internally
+
+* Tue May 13 11:05:41 2014 -0700
+
+    Revert ""[debian revision] should be zero, because this package is not in Debian yet and thus has no Debian revisions""
+    
+
+* Tue May 13 06:28:28 2014 -0700
+
+    "[debian revision] should be zero, because this package is not in Debian yet and thus has no Debian revisions"
+
+Merge: 786180e 8782c8e
+* Mon May 12 07:20:21 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Link http://dominustemporis.com/2014/05/dnscrypt-on-windows-update/
+
+* Mon May 12 07:19:54 2014 -0700
+
+    OpenDNS FamilyShield IP address is 208.67.220.123
+
+* Mon May 12 07:19:26 2014 -0700
+
+    <argument> is confusing to Windows users, so use quotes.
+
+Merge: c0fb5fe 536abb6
+* Sat May 10 22:33:53 2014 -0700
+
+    Merge branch 'master' of github.com:jedisct1/dnscrypt-proxy
+    
+    * 'master' of github.com:jedisct1/dnscrypt-proxy:
+      Ship libwinpthread-1.dll on Windows
+      Tell Windows users to open the 'bin' directory.
+      Windows: copy the CSV file to $bindir
+      Update signature
+      Make sure that 'plugins' and 'bin' are directories.
+      Add CPPFLAGS/LDFLAGS for libsodium
+      Update Win32 build scripts
+      Add two new d0wn servers. Via Martin A.
+      Just discovered Windows + X ...
+
+* Sat May 10 22:33:44 2014 -0700
+
+    Link http://dominustemporis.com/2014/05/dnscrypt-on-windows-update/
+
+* Mon May 5 17:00:20 2014 -0700
+
+    Ship libwinpthread-1.dll on Windows
+
+* Mon May 5 16:48:10 2014 -0700
+
+    Tell Windows users to open the 'bin' directory.
+
+* Mon May 5 16:47:03 2014 -0700
+
+    Windows: copy the CSV file to $bindir
+
+* Mon May 5 16:28:31 2014 -0700
+
+    Update signature
+
+* Mon May 5 16:26:45 2014 -0700
+
+    Make sure that 'plugins' and 'bin' are directories.
+
+* Mon May 5 16:13:11 2014 -0700
+
+    Add CPPFLAGS/LDFLAGS for libsodium
+
+* Mon May 5 16:08:37 2014 -0700
+
+    Update Win32 build scripts
+
+* Mon May 5 15:44:29 2014 -0700
+
+    Add two new d0wn servers. Via Martin A.
+
+* Sun May 4 22:59:09 2014 -0700
+
+    Just discovered Windows + X ...
+
+* Wed Apr 30 18:03:35 2014 -0700
+
+    Sync the Android build scripts with libsodium's
+
+* Mon Apr 28 10:01:17 2014 -0700
+
+    Remove opennic-proxy.sh-dns2 until what is wrong with it gets sorted out
+
+* Sat Apr 26 10:14:32 2014 -0700
+
+    Update .csv sig
+
+* Sat Apr 26 10:14:10 2014 -0700
+
+    Nits
+
+* Sat Apr 26 10:12:16 2014 -0700
+
+    proxy.sh: use names closer to the convention used by other entries
+
+* Sat Apr 26 10:06:32 2014 -0700
+
+    Update .csv signature
+
+Merge: 5bb89b5 6630fd1
+* Sat Apr 26 10:05:22 2014 -0700
+
+    Merge pull request #94 from boianmihailov/patch-1
+    
+    Add couple of servers to dnscrypt-resolvers.csv
+
+* Sat Apr 26 16:39:40 2014 +0300
+
+    Add couple of servers to dnscrypt-resolvers.csv
+    
+    Append two DNS server provided by proxy.sh
+
+* Fri Apr 25 00:12:48 2014 -0700
+
+    --daemonize is not the only option one may want to use
+
+* Thu Apr 24 23:31:23 2014 -0700
+
+    Regen dnscrypt-resolvers.csv.sig
+
+* Thu Apr 24 23:20:35 2014 -0700
+
+    Add final stop
+
+* Thu Apr 24 23:19:56 2014 -0700
+
+    Update documentation example
+
+* Thu Apr 24 23:18:34 2014 -0700
+
+    Link README-WINDOWS.markdown instead of out-of-date instructions.
+
+* Thu Apr 24 23:15:49 2014 -0700
+
+    Quote args, remove spaces
+
+* Thu Apr 24 22:57:01 2014 -0700
+
+    Version 1.1.0 is dead old, no need to mention it.
+
+* Thu Apr 24 22:56:17 2014 -0700
+
+    Update .plist
+
+* Thu Apr 24 22:49:18 2014 -0700
+
+    Update NEWS
+
+* Thu Apr 24 22:26:30 2014 -0700
+
+    Update ChangeLog
+
 * Thu Apr 24 22:25:06 2014 -0700
 
     Do not document --reinstall

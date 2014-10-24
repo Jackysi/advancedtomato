@@ -245,7 +245,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -583,6 +583,7 @@ const defaults_t defaults[] = {
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
 	{ "web_css",			"openlinksys"			},
+	{ "web_dir",			"default"			},  // jffs, opt, tmp or default (/www)
 	{ "ttb_css",			"example"			},	//Tomato Themes Base
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
@@ -978,6 +979,27 @@ const defaults_t defaults[] = {
 	{ "pptp_client_dfltroute","0"             },
 #endif
 
+#ifdef TCONFIG_TINC
+	{"tinc_wanup",			"0"		},
+	{"tinc_name",			""		},
+	{"tinc_devicetype",		"tun"		}, // tun, tap
+	{"tinc_mode",			"switch"	}, // switch, hub
+	{"tinc_vpn_netmask",		"255.255.0.0"	},
+	{"tinc_private_rsa",		""		},
+	{"tinc_private_ecdsa",		""		},
+	{"tinc_custom",			""		},
+	{"tinc_hosts",			""		},
+	{"tinc_manual_firewall",	""		},
+	{"tinc_manual_tinc_up",		""		},
+	// scripts
+	{"tinc_tinc_up",		""		},
+	{"tinc_tinc_down",		""		},
+	{"tinc_host_up",		""		},
+	{"tinc_host_down",		""		},
+	{"tinc_subnet_up",		""		},
+	{"tinc_subnet_down",		""		},
+#endif
+
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",				"0"			},
@@ -1184,9 +1206,17 @@ const defaults_t defaults[] = {
 	{"nginx_keepconf",		"0"				}, // Enable/disable keep configuration files unmodified in /etc/nginx
 	{"nginx_docroot",		"/www"				}, // path for server files
 	{"nginx_port",			"85"				}, // port to listen
+	{"nginx_remote",		"0"				}, // open port from WAN site
 	{"nginx_fqdn",			"Tomato"			}, // server name
+	{"nginx_upload",		"100"				}, // upload file size limit
 	{"nginx_priority",		"10"				}, // server priority = worker_priority
-	{"nginx_custom",		"# NGINX Custom Parameters."	}, // additional lines for nginx.conf
+	{"nginx_custom",		""				}, // additional lines for nginx.conf
+	{"nginx_httpcustom",		""				}, // additional lines for nginx.conf
+	{"nginx_servercustom",		""				}, // additional lines for nginx.conf
+	{"nginx_phpconf",		""				}, // additional lines for php.ini
+	{"nginx_user",			"root"				}, // user/group
+	{"nginx_override",		"0"				}, // additional lines for php.ini
+	{"nginx_overridefile",		"/path/to/nginx.conf"		}, // user/group
 #endif
 
 #ifdef TCONFIG_TOR

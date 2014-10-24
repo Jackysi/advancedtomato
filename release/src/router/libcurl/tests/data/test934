@@ -2,7 +2,9 @@
 <info>
 <keywords>
 SMTP
-SMTP AUTH DIGEST-MD5
+SASL
+SASL AUTH DIGEST-MD5
+SASL CANCELLATION
 RFC2831
 RFC4954
 </keywords>
@@ -25,6 +27,7 @@ REPLY * 501 AUTH exchange cancelled by client
 smtp
 </server>
 <features>
+!SSPI
 debug
 crypto
 </features>

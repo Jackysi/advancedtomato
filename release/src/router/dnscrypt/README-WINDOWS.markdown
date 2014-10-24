@@ -6,11 +6,15 @@ as on other operating systems.
 
 Alternatively, it can run as a Windows Service.
 
+Note: Also check out Dominus Temporis' excellent tutorial on
+[DNSCrypt on Windows](http://dominustemporis.com/2014/05/dnscrypt-on-windows-update/)
+
 Quickstart
 ----------
 
 1) Download and extract the latest
-[Windows package for dnscrypt](http://dnscrypt.org)
+[Windows package for dnscrypt](http://dnscrypt.org) and open the `bin`
+directory.
 
 2) Copy the `dnscrypt-proxy.exe` file to any location, as well as the
 dnscrypt-resolvers.csv file and the DLL files.
@@ -19,7 +23,7 @@ All the files should be in the same location.
 3) Open an elevated command prompt and type (you may need to specify
 the full path to the file):
 
-    dnscrypt-proxy.exe --resolver-name=<name> --resolvers-list=<full path to the dnscrypt-resolvers.csv file> --test=0
+    dnscrypt-proxy.exe -R "name" -L "<full path to the dnscrypt-resolvers.csv file>" --test=0
 
 Replace `name` with one of the resolvers from CSV file. The (possibly
 updated) file can also be viewed online:
@@ -29,7 +33,7 @@ This command should display the server key fingerprint and exit. If
 this is not the case, try a different server. If this is the case,
 install the service:
 
-    dnscrypt-proxy.exe --resolver-name=<name> --resolvers-list=<full path to the dnscrypt-resolvers.csv file> --install
+    dnscrypt-proxy.exe -R "name" -L "<full path to the dnscrypt-resolvers.csv file>" --install
 
 4) Change your DNS settings to `127.0.0.1`
 
@@ -38,8 +42,8 @@ Congratulations, you're now using DNSCrypt.
 How to open an elevated command prompt
 --------------------------------------
 
-On Windows 8, go to the apps screen, type CMD, and hold the Shift and
-Control keys while clicking "Command Prompt".
+On Windows 8.1, press the Windows key + the X key and select "Windows
+Command Prompt (Admin)" or "Windows PowerShell (Admin)".
 
 Advanced usage
 --------------

@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1999 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1999 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -162,6 +162,18 @@ DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
 LNK      = $(LNKLIB) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
 CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSLIB)
+CFGSET   = TRUE
+!ENDIF
+
+######################
+# release-winssl
+
+!IF "$(CFG)" == "release-winssl"
+TARGET   = $(LIBCURL_STA_LIB_REL)
+DIROBJ   = $(CFG)
+LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
+LNK      = $(LNKLIB) /out:$(DIROBJ)\$(TARGET)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSWINSSL) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -530,6 +542,7 @@ X_OBJS= \
 	$(DIROBJ)\curl_ntlm_wb.obj \
 	$(DIROBJ)\curl_rtmp.obj \
 	$(DIROBJ)\curl_sasl.obj \
+	$(DIROBJ)\curl_sasl_sspi.obj \
 	$(DIROBJ)\curl_schannel.obj \
 	$(DIROBJ)\curl_sspi.obj \
 	$(DIROBJ)\curl_threads.obj \
@@ -601,8 +614,8 @@ X_OBJS= \
 	$(DIROBJ)\speedcheck.obj \
 	$(DIROBJ)\splay.obj \
 	$(DIROBJ)\ssh.obj \
-	$(DIROBJ)\sslgen.obj \
-	$(DIROBJ)\ssluse.obj \
+	$(DIROBJ)\vtls.obj \
+	$(DIROBJ)\openssl.obj \
 	$(DIROBJ)\strdup.obj \
 	$(DIROBJ)\strequal.obj \
 	$(DIROBJ)\strerror.obj \
@@ -639,6 +652,9 @@ $(DIROBJ):
 .SUFFIXES: .c .obj .res
 
 {.\}.c{$(DIROBJ)\}.obj:
+	$(CC) $(CFLAGS) /Fo"$@"  $<
+
+{.\vtls\}.c{$(DIROBJ)\}.obj:
 	$(CC) $(CFLAGS) /Fo"$@"  $<
 
 debug-dll\libcurl.res \

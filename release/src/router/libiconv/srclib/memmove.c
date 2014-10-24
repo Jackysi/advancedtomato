@@ -3,9 +3,7 @@
    In the public domain.
    By David MacKenzie <djm@gnu.ai.mit.edu>.  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include <config.h>
 
 #include <stddef.h>
 
@@ -22,7 +20,7 @@ memmove (void *dest0, void const *source0, size_t length)
     {
       /* Moving from hi mem to low mem; start at beginning.  */
       for (; length; --length)
-	*dest++ = *source++;
+        *dest++ = *source++;
     }
   return dest0;
 }

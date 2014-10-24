@@ -164,6 +164,8 @@ A: libiconv, as an internationalization library, supports those character
      * PT154
        We implement this because it is the locale encoding in glibc's Kazakh
        locale.
+     * RK1048
+       We implement this because it's a standard in Kazakhstan.
      * CP{1250,1251,1252,1253,1254,1255,1256,1257}
        We implement these because they are the predominant Windows encodings
        in Europe.
@@ -175,6 +177,9 @@ A: libiconv, as an internationalization library, supports those character
        pages and emails.
      * CP866
        We implement this because Netscape Communicator does.
+     * CP1131
+       We implement this because it is the locale encoding of a Belorusian
+       locale in FreeBSD and MacOS X.
      * Mac{Roman,CentralEurope,Croatian,Romania,Cyrillic,Greek,Turkish} and
        Mac{Hebrew,Arabic}
        We implement these because the Sun JDK does, and because Mac users
@@ -344,9 +349,8 @@ A: 1. Explain the "why" in this file, above.
    directive to converters.h, and add an entry to the encodings.def file.
    5. Compile the package, and test your new encoding using a program like
    iconv(1) or clisp(1).
-   6. Augment the testsuite: Add a line to each of tests/Makefile.in,
-   tests/Makefile.msvc and tests/Makefile.os2. For a stateless encoding,
-   create the complete table as a TXT file. For a stateful encoding,
+   6. Augment the testsuite: Add a line to tests/Makefile.in. For a stateless
+   encoding, create the complete table as a TXT file. For a stateful encoding,
    provide a text snippet encoded using your new encoding and its UTF-8
    equivalent.
    7. Update the README and man/iconv_open.3, to mention the new encoding.

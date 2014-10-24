@@ -1,0 +1,11 @@
+#!/bin/sh
+# This file sets up the tap device.
+# It gives you the freedom to do anything you want with it.
+# Use the correct name for the tap device:
+# The environment variable $INTERFACE is set to the right name
+# on most platforms, but if it doesn't work try to set it manually.
+
+# Give it the right ip and netmask. Remember, the subnet of the
+# tap device must be larger than that of the individual Subnets
+# as defined in the host configuration file!
+ifconfig $INTERFACE 192.168.1.1 netmask 255.255.0.0

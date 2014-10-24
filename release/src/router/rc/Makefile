@@ -36,7 +36,9 @@ endif
 ifeq ($(TCONFIG_OPENVPN),y)
 OBJS += vpn.o
 endif
-
+ifeq ($(TCONFIG_TINC),y)
+OBJS += tinc.o
+endif
 ifeq ($(TCONFIG_PPTPD),y)
 OBJS += pptpd.o
 OBJS += pptp_client.o

@@ -12,9 +12,9 @@
 #include <string.h>
 
 #include <event2/util.h>
+#include <sodium.h>
 
 #include "dnscrypt.h"
-#include "sodium.h"
 #include "utils.h"
 
 size_t
@@ -97,68 +97,18 @@ dnscrypt_key_to_fingerprint(char fingerprint[80U], const uint8_t * const key)
     }
 }
 
-static int
-_dnscrypt_parse_char(uint8_t key[crypto_box_PUBLICKEYBYTES],
-                     size_t * const key_pos_p, int * const state_p,
-                     const int c, uint8_t * const val_p)
-{
-    uint8_t c_val;
-
-    switch (*state_p) {
-    case 0:
-    case 1:
-        if (isspace(c) || (c == ':' && *state_p == 0)) {
-            break;
-        }
-        if (c == '#') {
-            *state_p = 2;
-            break;
-        }
-        if (!isxdigit(c)) {
-            return -1;
-        }
-        c_val = (uint8_t) ((c >= '0' && c <= '9') ? c - '0' : c - 'a' + 10);
-        assert(c_val < 16U);
-        if (*state_p == 0) {
-            *val_p = c_val * 16U;
-            *state_p = 1;
-        } else {
-            *val_p |= c_val;
-            key[(*key_pos_p)++] = *val_p;
-            if (*key_pos_p >= crypto_box_PUBLICKEYBYTES) {
-                return 0;
-            }
-            *state_p = 0;
-        }
-        break;
-    case 2:
-        if (c == '\n') {
-            *state_p = 0;
-        }
-    }
-    return 1;
-}
-
 int
 dnscrypt_fingerprint_to_key(const char * const fingerprint,
                             uint8_t key[crypto_box_PUBLICKEYBYTES])
 {
-    const char *p = fingerprint;
-    size_t      key_pos = (size_t) 0U;
-    int         c;
-    int         ret;
-    int         state = 0;
-    uint8_t     val = 0U;
+    size_t key_len;
 
-    if (fingerprint == NULL) {
-        return -1;
-    }
-    while ((c = tolower((int) (unsigned char) *p)) != 0) {
-        ret = _dnscrypt_parse_char(key, &key_pos, &state, c, &val);
-        if (ret <= 0) {
-            return ret;
-        }
-        p++;
+    if (fingerprint != NULL &&
+        sodium_hex2bin(key, crypto_box_PUBLICKEYBYTES,
+                       fingerprint, strlen(fingerprint),
+                       ": \t\r\n", &key_len, NULL) == 0 &&
+        key_len == crypto_box_PUBLICKEYBYTES) {
+        return 0;
     }
     return -1;
 }

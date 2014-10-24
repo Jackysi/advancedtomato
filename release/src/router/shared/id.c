@@ -69,7 +69,7 @@ WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x075
 WL-330GE			HW_BCM5354G           0x048e       45        0x10      0x0650      hardware_version=WL330GE-02-06-00-05 //MIPSR1, 4MB flash w/o USB
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
-Tenda N60                      BCM47186              0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
+Tenda N60                      BCM5357               0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
 Tenda N6                       BCM5357               0x0550       6         0x1444    0x710 //8MB/64MB/2.4/5G/USB
 TENDA W1800R                   HW_BCM4706            0x05d8       18/21(EU)/60(CN)   0x1200  0x00000110
 Buffalo WZR-D1800H             HW_BCM4706            0xf52e       00        0x1204    0x110 //NAND/128M/128M/2.4-5G/USB
@@ -186,6 +186,7 @@ int check_hw_type(void)
 		return HW_BCM4706;
 	case 0x052b:
 		if (nvram_match("boardrev", "0x1204")) return HW_BCM5357; //rt-n15u
+		if (nvram_match("boardrev", "0x1400")) return HW_BCM5357; //Tenda N60
 		if (nvram_match("boardrev", "02")) return HW_BCM47186; //WNR3500Lv2
 	case 0xf53a:
 	case 0xf53b:
@@ -415,7 +416,7 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 	case 60:
 		switch (hw) {
-		case HW_BCM47186:
+		case HW_BCM5357:
 			return MODEL_TDN60;
 		case HW_BCM4706:
 			if (nvram_match("boardrev", "0x1200")) return MODEL_W1800R;

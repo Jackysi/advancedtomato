@@ -15,13 +15,14 @@
 #include <event2/event.h>
 #include <event2/util.h>
 
+#include <sodium.h>
+
 #include "app.h"
 #include "dnscrypt_client.h"
 #include "dnscrypt_proxy.h"
 #include "logger.h"
 #include "options.h"
 #include "sandboxes.h"
-#include "sodium.h"
 #include "stack_trace.h"
 #include "tcp_request.h"
 #include "udp_request.h"
@@ -271,6 +272,9 @@ dnscrypt_proxy_main(int argc, char *argv[])
         exit(1);
     }
 #endif
+#ifdef HAVE_SODIUM_MLOCK
+    sodium_mlock(&proxy_context, sizeof proxy_context);
+#endif
     randombytes_set_implementation(&randombytes_salsa20_implementation);
 #ifdef PLUGINS
     if (plugin_support_context_load(app_context.dcps_context) != 0) {
@@ -311,6 +315,9 @@ dnscrypt_proxy_main(int argc, char *argv[])
     plugin_support_context_free(app_context.dcps_context);
 #endif
     proxy_context_free(&proxy_context);
+#ifdef HAVE_SODIUM_MLOCK
+    sodium_munlock(&proxy_context, sizeof proxy_context);
+#endif
     app_context.proxy_context = NULL;
     randombytes_close();
 
