@@ -1089,7 +1089,7 @@ static const nvset_t nvset_list[] = {
 	{ "tomatoanon_answer",		V_RANGE(0, 1)			},
 	{ "tomatoanon_enable",		V_RANGE(-1, 1)			},
 	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
-	{ "tomatoanon_notify",		V_01				
+	{ "tomatoanon_notify",		V_01					},
 		
 // AdvancedTomato
 	{ "at_update",      V_LENGTH(0,32)    },
