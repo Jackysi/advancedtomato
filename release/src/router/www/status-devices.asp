@@ -163,7 +163,7 @@
 			for (i = dhcpd_lease.length - 1; i >= 0; --i) {
 				a = dhcpd_lease[i];
 				e = get(a[2], a[1]);
-				e.lease = '<a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="Delete Lease" id="L' + i + '">' + a[3] + '</a>';
+				e.lease = '<a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="Delete Lease" id="L' + i + '">' + a[3] + ' <i class="icon-cancel icon-red"></i></a>';
 				e.name = a[0];
 				/* NOVLAN-BEGIN */
 				e.ifname = nvram.lan_ifname;
@@ -293,6 +293,7 @@
 		{
 			dg.recolor();
 			ref.initPage(3000, 3);
+			$('span.help-block').remove();
 		}
 	</script>
 	<style>
@@ -314,12 +315,12 @@
 						if (wl_sunit(uidx)<0) {
 							var a = '';
 							if ((nvram['wl'+u+'_mode'] == 'ap') || (nvram['wl'+u+'_mode'] == 'wds'))
-								a = '&nbsp; &nbsp; <button type="button" class="btn" value="Measure" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '&_wl_unit=' + u +'\'">\
+								a = '&nbsp; &nbsp; <button type="button" class="btn btn-primary" value="Measure" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '&_wl_unit=' + u +'\'">\
 								Measure <i class="icon-signal"></i></button>';
-							f.push( { title: '<b>Noise Floor (' + wl_ifaces[uidx][0] + ')&nbsp;:</b>',
+							f.push( { title: '<b>Noise Floor (' + wl_ifaces[uidx][0] + ')</b>',
 								prefix: '<span id="noise'+uidx+'">',
 								custom: wlnoise[uidx],
-								suffix: '</span></span>&nbsp;<small>dBm</small>' + a } );
+								suffix: '</span></span> <small>dBm</small>' + a } );
 						}
 					}
 				}

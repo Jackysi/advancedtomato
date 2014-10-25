@@ -155,6 +155,9 @@
 					- DNSCrypt-Proxy selectable/manual resolver<br>
 					<!-- DNSCRYPT-END -->
 					- Comcast DSCP Fix GUI
+					<!-- TINC-BEGIN -->
+					- Tinc Daemon integration and GUI<br>
+					<!-- TINC-END -->
 				</p>
 
 				Copyright (C) 2014 Lance Fredrickson<br>

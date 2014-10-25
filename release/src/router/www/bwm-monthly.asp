@@ -103,10 +103,10 @@ No part of this file may be used without permission.
 	</div>
 
 	<a href="javascript:genData()" class="btn btn-primary">Data <i class="icon-drive"></i></a>
-	<a href="admin-bwm.asp" class="btn btn-danger ajaxload">Configure <i class="icon-tools"></i></a> &nbsp;
-
-	<b>Date</b> <select onchange="changeDate(this, 'ym')" id="dafm"><option value=0>yyyy-mm</option><option value=1>mm-yyyy</option><option value=2>mmm yyyy</option><option value=3>mm.yyyy</option></select> &nbsp;
-	<b>Scale</b> <select onchange="changeScale(this)" id="scale"><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select>
-
+	<a href="admin-bwm.asp" class="btn btn-danger ajaxload">Configure <i class="icon-tools"></i></a>
+	<span class="pull-right">
+		<b>Date</b> <select onchange="changeDate(this, 'ym')" id="dafm"><option value="0">yyyy-mm</option><option value="1">mm-yyyy</option><option value="2">mmm yyyy</option><option value="3">mm.yyyy</option></select> &nbsp;
+		<b>Scale</b> <select onchange="changeScale(this)" id="scale"><option value="0">KB</option><option value="1">MB</option><option value="2" selected>GB</option></select>
+	</span>
 	<script type="text/javascript">init();</script>
 </content>

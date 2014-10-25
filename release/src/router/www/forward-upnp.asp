@@ -7,20 +7,6 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>UPnP / NAT-PMP Forwarding</title>
 <content>
-	<style type="text/css">
-		#upnp-grid .co1, #upnp-grid .co2 {
-			width: 12%;
-		}
-		#upnp-grid .co3 {
-			width: 15%;
-		}
-		#upnp-grid .co4 {
-			width: 8%;
-		}
-		#upnp-grid .co5 {
-			width: 53%;
-		}
-	</style>
 	<script type="text/javascript">
 
 		/* REMOVE-BEGIN
@@ -258,7 +244,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 
 	</form>
 	<script type="text/javascript">ug.setup(); init(); verifyFields(null, 1);</script>

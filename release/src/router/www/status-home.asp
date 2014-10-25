@@ -122,8 +122,8 @@
 			$("#ethernetPorts .content").html(code);
 		}
 
-		function show()
-		{
+		function show() {
+
 			c('cpu', stats.cpuload);
 			c('uptime', stats.uptime);
 			c('time', stats.time);
@@ -189,15 +189,16 @@
 					$('#b_wl'+wl_fface(uidx)+'_enable').closest('.btn-group').show();
 			}
 
-			show();
 			ethstates();
 			init();
 		}
 
 		function init() {
 
+			$('.refresher').after(genStdRefresh(1,1,'ref.toggle()'));
 			ref.initPage(3000, 3);
-
+			show();
+			
 		}
 
 	</script>
@@ -392,7 +393,5 @@
 	</div>
 
 	<div class="clearfix refresher"></div>
-
-	<script type="text/javascript">$('.refresher').after(genStdRefresh(1,1,'ref.toggle()'));</script>
 	<script type="text/javascript">earlyInit();</script>
 </content>

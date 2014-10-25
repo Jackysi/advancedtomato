@@ -95,15 +95,19 @@ No part of this file may be used without permission.
 		<input type="hidden" name="nginx_remote">
 		<input type="hidden" name="nginx_override">
 
-		<div class="box">
+		<div class="box" data-box="nginx-webserver">
 			<div class="heading">NGINX Web Server <span class="nginx-status"></span></div>
+			<div class="content config-section"></div>
+		</div>
+
+		<div class="box" data-box="nginx-advset">
+			<div class="heading">Advanced Settings</div>
+			<div class="content config-adv"></div>
+		</div>
+
+		<div class="box" data-box="nginx-usermanual">
+			<div class="heading">User Manual</div>
 			<div class="content">
-
-				<div id="config-section-div"></div>
-				<h3>Advanced Settings</h3><br /><hr>
-				<div id="config-section-adv"></div><hr>
-
-				<h4>User Manual</h4>
 				<ul>
 					<li><b> Status Button:</b> Quick Start-Stop Service. Enable Web Server must be checked to modify settings.<br>
 					<li><b> Enable Server on Start:</b> To activate the Web Server tick and save this screen.<br>
@@ -127,11 +131,11 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">
-		$('#config-section-div').forms([
+		$('.content.config-section').forms([
 			{ title: 'Enable Server on Start', name: 'f_nginx_enable', type: 'checkbox', value: nvram.nginx_enable == '1'},
 			{ title: 'Enable PHP support', name: 'f_nginx_php', type: 'checkbox', value: nvram.nginx_php == '1' },
 			{ title: 'Run As', name: 'nginx_user', type: 'select',
@@ -145,7 +149,7 @@ No part of this file may be used without permission.
 			{ title: 'Server Priority', name: 'nginx_priority', type: 'text', maxlen: 8, size:3, value: nvram.nginx_priority, suffix:'<small> Max. Perfor: -20, Min.Perfor: 19, default: 10</small>' }
 		]);
 
-		$('#config-section-adv').forms([
+		$('.content.config-adv').forms([
 			{ title: 'HTTP Section - Custom configuration (<a href="http://wiki.nginx.org/Configuration" target="_new">NGINX<i class="icon-info"></i></a>)', name: 'nginx_httpcustom', type: 'textarea', value: nvram.nginx_httpcustom, style: 'width: 100%; height: 140px;' },
 			{ title: 'SERVER Section - Custom configuration (<a href="http://wiki.nginx.org/Configuration" target="_new">NGINX<i class="icon-info"></i></a>)', name: 'nginx_servercustom', type: 'textarea', value: nvram.nginx_servercustom, style: 'width: 100%; height: 140px;'},
 			{ title: 'Custom configuration (<a href="http://wiki.nginx.org/Configuration" target="_new">NGINX<i class="icon-info"></i></a>)', name: 'nginx_custom', type: 'textarea', value: nvram.nginx_custom, style: 'width: 100%; height: 140px;' },

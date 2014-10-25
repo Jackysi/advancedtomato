@@ -58,7 +58,7 @@ No part of this file may be used without permission.
 							nvram['dhcpd' + j + '_endip'] = getAddress(('0.0.0.' + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] *1) - 1)), n);
 						}
 					}
-					lg.insertData(-1, [
+					lg.insertData(-1, [ 
 						i.toString(),
 						nvram['lan' + j + '_stp'],
 						nvram['lan' + j + '_ipaddr'],
@@ -231,8 +231,8 @@ No part of this file may be used without permission.
 			} else {
 				ferror.clear(f[0]);
 			}
-			// valid IP address?
-			if(!v_ip(f[2], quiet || !ok))
+			// valid IP address? 
+			if(!v_ip(f[2], quiet || !ok)) 
 				ok = 0;
 			// if we have a properly defined IP address - 0.0.0.0 is NOT a valid IP address for our intents/purposes!
 			if ((f[2].value != '') && (f[2].value != '0.0.0.0')) {
@@ -254,7 +254,7 @@ No part of this file may be used without permission.
 					ferror.set(f[2], s, quiet);
 					ferror.set(f[3], s, quiet);
 					return 0;
-				} else
+				} else 
 					if(f[2].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) {
 						var s = 'Invalid IP address or subnet mask (the broadcast address cannot be used)';
 						ferror.set(f[2], s, quiet);
@@ -337,7 +337,7 @@ No part of this file may be used without permission.
 				// lease time
 				if (parseInt(f[7].value*1) == 0)
 					f[7].value = 1440; // from nvram/defaults.c
-				if(!v_mins(f[7], quiet || !ok, 1, 10080))
+				if(!v_mins(f[7], quiet || !ok, 1, 10080)) 
 					ok = 0;
 			} else {
 				f[5].disabled = 1;
@@ -363,6 +363,7 @@ No part of this file may be used without permission.
 		var xob = null;
 		var refresher = [];
 		var nphy = features('11n');
+		var acphy = features('11ac');
 
 		var ghz = [];
 		var bands = [];
@@ -436,6 +437,33 @@ No part of this file may be used without permission.
 			nm_loaded[uidx] = 1;
 		}
 
+		function refreshBandWidth(uidx)
+		{
+			var e, i, buf, val;
+
+			if (uidx >= wl_ifaces.length) return;
+			var u = wl_unit(uidx);
+
+			var m = [['0','20 MHz']];
+			if(nphy || acphy){
+				m.push(['1','40 MHz']);
+			}
+			if(acphy && selectedBand(uidx) == '1') {
+				m.push(['3','80 MHz']);
+			}
+
+			e = E('_wl'+u+'_nbw_cap');
+			buf = '';
+			val = (!nm_loaded[uidx] || (e.value + '' == '')) ? eval('nvram.wl'+u+'_nbw_cap') : e.value;
+			for (i = 0; i < m.length; ++i)
+				buf += '<option value="' + m[i][0] + '"' + ((m[i][0] == val) ? ' selected' : '') + '>' + m[i][1] + '</option>';
+
+			e = E('__wl'+u+'_nbw_cap');
+			buf = '<select name="wl'+u+'_nbw_cap" onchange="verifyFields(this, 1)" id = "_wl'+u+'_nbw_cap">' + buf + '</select>';
+			elem.setInnerHTML(e, buf);
+			nm_loaded[uidx] = 1;
+		}
+
 		function refreshChannels(uidx)
 		{
 			if (refresher[uidx] != null) return;
@@ -482,10 +510,22 @@ No part of this file may be used without permission.
 			e = E('_f_wl'+u+'_nctrlsb');
 			sb = (e.value + '' == '' ? eval('nvram.wl'+u+'_nctrlsb') : e.value);
 			e = E('_wl'+u+'_nbw_cap');
-			bw = (e.value + '' == '' ? eval('nvram.wl'+u+'_nbw_cap') : e.value) == '0' ? '20' : '40';
+			switch(e.value + '' == '' ? eval('nvram.wl'+u+'_nbw_cap') : e.value) {
+				case '0':
+					bw = '20';
+					break;
+				case '1':
+					bw = '40';
+					break;
+				case '3':
+					bw = '80';
+					break;
+				default:
+					alert("Wrong nbw_cap.");
+			}
 
 			refresher[uidx].onError = function(ex) { alert(ex); refresher[uidx] = null; reloadPage(); }
-			refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy ? '1' : '0') +
+			refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy || acphy ? '1' : '0') +
 				'&arg2=' + bw + '&arg3=' + selectedBand(uidx) + '&arg4=' + sb);
 		}
 
@@ -676,6 +716,7 @@ No part of this file may be used without permission.
 					if (focused == E('_f_wl'+u+'_nband')) {
 						refreshNetModes(uidx);
 						refreshChannels(uidx);
+						refreshBandWidth(uidx);
 					}
 					else if (focused == E('_f_wl'+u+'_nctrlsb') || focused == E('_wl'+u+'_nbw_cap')) {
 						refreshChannels(uidx);
@@ -734,8 +775,8 @@ No part of this file may be used without permission.
 						_wl_ssid: 1,
 						_f_wl_bcast: 1,
 						_wl_channel: 1,
-						_wl_nbw_cap: nphy ? 1 : 0,
-						_f_wl_nctrlsb: nphy ? 1 : 0,
+						_wl_nbw_cap: nphy || acphy ? 1 : 0,
+						_f_wl_nctrlsb: nphy || acphy ? 1 : 0,
 						_f_wl_scan: 1,
 
 						_wl_security_mode: 1,
@@ -953,7 +994,7 @@ No part of this file may be used without permission.
 							wl_vis[uidx][a] = 2;
 						}
 						wl_vis[uidx]._f_wl_radio = 1;
-						wl_vis[uidx]._wl_nbw_cap = nphy ? 2 : 0;
+						wl_vis[uidx]._wl_nbw_cap = nphy || acphy ? 2 : 0;
 						wl_vis[uidx]._f_wl_nband = (bands[uidx].length > 1) ? 2 : 0;
 					}
 
@@ -1086,7 +1127,6 @@ No part of this file may be used without permission.
 				PR(b).style.display = c ? '' : 'none';
 			}
 
-
 			for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 				if(wl_ifaces[uidx][0].indexOf('.') < 0) {
 					for (a in wl_vis[uidx]) {
@@ -1125,8 +1165,8 @@ No part of this file may be used without permission.
 					switch (E('_wl'+u+'_net_mode').value) {
 						case 'mixed':
 						case 'n-only':
-							if (nphy && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
-								ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N mode.', quiet || !ok);
+							if ((nphy || acphy) && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
+								ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N and AC mode.', quiet || !ok);
 								ok = 0;
 							}
 							else ferror.clear(a);
@@ -1384,7 +1424,7 @@ No part of this file may be used without permission.
 					E('_wl'+u+'_nctrlsb').value = eval('nvram.wl'+u+'_nctrlsb');
 					if (E('_wl'+u+'_nmode').value != 0) {
 						E('_wl'+u+'_nctrlsb').value = E('_f_wl'+u+'_nctrlsb').value;
-						E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : 40;
+						E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : ((E('_wl'+u+'_nbw_cap').value== 3) ? 80:40);
 					}
 
 					E('_wl'+u+'_closed').value = E('_f_wl'+u+'_bcast').checked ? 0 : 1;
@@ -1506,10 +1546,10 @@ No part of this file may be used without permission.
 				if (wl_sunit(uidx)<0) {
 					refreshNetModes(uidx);
 					refreshChannels(uidx);
+					refreshBandWidth(uidx);
 				}
 			}
 		}
-
 	</script>
 
 	<form id="_fom" method="post" action="tomato.cgi">
@@ -1701,8 +1741,8 @@ No part of this file may be used without permission.
 						{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
 						{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<div class="pull-left" id="__wl'+u+'_channel">', suffix: '</div> &nbsp; <button class="btn btn-primary" type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')">Scan <i class="icon-search"></i></button> &nbsp; <div class="spinner" style="visibility: hidden;" id="spin'+u+'"></div>',
 							value: eval('nvram.wl'+u+'_channel') },
-						{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
-							value: eval('nvram.wl'+u+'_nbw_cap') },
+						{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [],
+							value: eval('nvram.wl'+u+'_nbw_cap'), prefix: '<span id="__wl'+u+'_nbw_cap">', suffix: '</span>' },
 						{ title: 'Control Sideband', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
 							value: eval('nvram.wl'+u+'_nctrlsb') == 'none' ? 'lower' : eval('nvram.wl'+u+'_nctrlsb') },
 						{ title: 'Security', name: 'wl'+u+'_security_mode', type: 'select',
@@ -1757,7 +1797,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 
 	</form>
 

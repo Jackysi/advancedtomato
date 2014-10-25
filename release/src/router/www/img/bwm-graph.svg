@@ -14,8 +14,8 @@ No part of this file may be used without permission.
 			cursor: pointer;
 		}
 		line {
-			stroke: #d0d0d0;
-			stroke-width: 0.2;
+			stroke: #e5e5e5;
+			stroke-width: 0.35;
 		}
 		line.a {
 			stroke: #f0f0f0;
@@ -25,8 +25,8 @@ No part of this file may be used without permission.
 			stroke-width: 1;
 		}
 		text {
-			font: 11px Verdana;
-			fill: #000;
+			font: 11px 'Open Sans', Verdana;
+			fill: #696969;
 		}
 		.tickH {
 			text-anchor: middle;
@@ -37,7 +37,11 @@ No part of this file may be used without permission.
 		}
 		.back {
 			fill: none;
-			opacity: 0.8;
+			opacity: 1;
+		}
+
+		polyline {
+			transition: all 400ms ease-out;
 		}
 	</style>
 	<script type='text/ecmascript'><![CDATA[
@@ -128,7 +132,7 @@ No part of this file may be used without permission.
 			if (data.length == 0) return;
 			x = 0;
 			if (mode == 0) {
-				poly.setAttribute('fill-opacity', '0.5');
+				poly.setAttribute('fill-opacity', '0.55');
 				pt = '0,' + vHeight;
 			}
 			else {
@@ -378,9 +382,9 @@ No part of this file may be used without permission.
 	<text x="0" y="98%" class="tickH" id="h12" />
 
 	<g id="xpst">
-		<text x="18" y="26%" id="xpst0" />
-		<text x="18" y="51%" id="xpst1" />
-		<text x="18" y="76%" id="xpst2" />
+		<text x="40" y="26%" id="xpst0" />
+		<text x="40" y="51%" id="xpst1" />
+		<text x="40" y="76%" id="xpst2" />
 	</g>
 
 	<polyline id="polyTx" style="stroke-width:1" points="" />
@@ -391,8 +395,8 @@ No part of this file may be used without permission.
 		<text x="99%" y="12" id="pointText" />
 	</g>
 
-	<rect x="0" y="0" width="15" height="100%" id="maxTextBack" class="back" onclick="toggleXpst()"/>
-	<text x="-2%" y="12" transform="rotate(-90)" text-anchor="end" id="maxText" onclick="toggleXpst()"/>
+	<rect x="0" y="0" width="40" height="100%" id="maxTextBack" class="back" onclick="toggleXpst()"/>
+	<text x="-5%" y="20" transform="rotate(-90)" text-anchor="end" id="maxText" onclick="toggleXpst()"/>
 
 	<g id="cross" visibility="hidden">
 		<line x1="0" y1="0" x2="0" y2="0" id="crossX" />

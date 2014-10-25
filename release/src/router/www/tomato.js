@@ -2192,7 +2192,7 @@ function _tabCreate(tabs) {
 
 	buf.push('<div id="tabs" class="btn-group">');
 	for (var i = 0; i < arguments.length; ++i)
-		buf.push('<a class="btn" style="border-radius: 0;" href="javascript:tabSelect(\'' + arguments[i][0] + '\')" id="' + arguments[i][0] + '">' + arguments[i][1] + '</a>');
+		buf.push('<a class="btn btn-tab" style="border-radius: 0;" href="javascript:tabSelect(\'' + arguments[i][0] + '\')" id="' + arguments[i][0] + '">' + arguments[i][1] + '</a>');
 	buf.push('</div>');
 	return buf.join('');
 }
@@ -2508,6 +2508,9 @@ function navi()
 			/* CIFS-BEGIN */
 			'CIFS Client':          'admin-cifs.asp',
 			/* CIFS-END */
+			/* SDHC-BEGIN */
+			'SDHC/MMC':				'admin-sdhc.asp',
+			/* SDHC-END */
 			'Configuration':        'admin-config.asp',
 			'Debugging':            'admin-debug.asp',
 			/* JFFS2-BEGIN */

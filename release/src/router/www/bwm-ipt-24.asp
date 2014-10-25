@@ -14,10 +14,7 @@ No part of this file may be used without permission.
 	<style type="text/css">
 		table tr td:nth-child(even) { width: 25%; }
 		table tr td:nth-child(odd) { width: 5%; }
-		#bwm-controls {
-			margin-right: 5px;
-			margin-top: 5px;
-		}
+		hr { margin: 0 5px 8px; }
 	</style>
 	<script type="text/javascript" src="js/wireless.jsx?_http_id=<% nv(http_id); %>"></script>
 	<script type="text/javascript" src="js/bwm-common.js"></script>
@@ -305,10 +302,9 @@ No part of this file may be used without permission.
 				<a class="ajaxload" href="admin-bwm.asp"><b>Configure</b></a>
 			</div>
 
-			<br /><table id="txt" class="data-table">
+			<table id="txt" class="data-table bwm-info">
 				<tr>
-					<td><b style="border-bottom:blue 1px solid" id="rx-name">RX</b>
-						<i class="icon-arrow-down"></i></td>
+					<td><b style="border-bottom:blue 1px solid" id="rx-name">RX</b> <i class="icon-arrow-down"></i></td>
 					<td><span id="rx-current"></span></td>
 					<td><b>Avg</b></td>
 					<td id="rx-avg"></td>
@@ -319,8 +315,7 @@ No part of this file may be used without permission.
 					<td>&nbsp;</td>
 				</tr>
 				<tr>
-					<td><b style="border-bottom:blue 1px solid" id="tx-name">TX</b>
-						<i class="icon-arrow-up"></i></td>
+					<td><b style="border-bottom:blue 1px solid" id="tx-name">TX</b> <i class="icon-arrow-up"></i></td>
 					<td><span id="tx-current"></span></td>
 					<td><b>Avg</b></td>
 					<td id="tx-avg"></td>
@@ -330,9 +325,9 @@ No part of this file may be used without permission.
 					<td id="tx-total"></td>
 					<td>&nbsp;</td>
 				</tr>
-			</table><br />
+			</table>
 
-			<div id="settings"></div>
+			<hr><div id="settings"></div>
 			<script type="text/javascript">
 				$('#settings').forms([
 					{ title: 'IPs currently on graphic', name: 'f_ipt_addr_shown', type: 'select', options: [[0,'Select']], suffix: '&nbsp; <small>(Click/select a device from this list to hide it)</small>' },

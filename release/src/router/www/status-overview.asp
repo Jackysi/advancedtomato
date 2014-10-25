@@ -41,8 +41,6 @@
 				<div class="logo">
 					<a href="/">
 						<h1 class="nav-collapse-hide">AdvancedTomato</h1>
-						<?xml version="1.0" encoding="utf-8"?>
-						<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 						<svg version="1.1" id="logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 							width="26px" height="26px" viewBox="0 0 32 32" enable-background="new 0 0 32 32" xml:space="preserve">
 							<path fill-rule="evenodd" clip-rule="evenodd" fill="#fff" d="M19.4,10.5C19.4,10.5,19.4,10.5,19.4,10.5c0-0.1,0-0.1,0-0.2

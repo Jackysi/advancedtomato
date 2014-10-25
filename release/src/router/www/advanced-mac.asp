@@ -7,6 +7,9 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>MAC Address</title>
 <content>
+	<style>
+		.line-table tr:last-child { border: 0; }
+	</style>
 	<script type="text/javascript" src="js/wireless.jsx?_http_id=<% nv(http_id); %>"></script>
 	<script type="text/javascript">
 		//	<% nvram("at_update,tomatoanon_answer,et0macaddr,mac_wan,wl_macaddr,wl_hwaddr"); %>
@@ -162,7 +165,7 @@ No part of this file may be used without permission.
 
 				</script>
 
-				<table class="line-table">
+				<table class="line-table static">
 					<tr><td>Router"s LAN MAC Address:</td><td id="routermac"><b></b></td></tr>
 					<tr><td>Computer"s MAC Address:</td><td id="compmac"><b></b></td></tr>
 				</table><br />
@@ -172,7 +175,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">

@@ -167,10 +167,9 @@ No part of this file may be used without permission.
 				<a class="ajaxload" href="admin-bwm.asp"><b>Configure</b></a>
 			</div>
 
-			<br /><table id="txt" class="data-table">
+			<table id="txt" class="data-table bwm-info">
 				<tr>
-					<td><b style="border-bottom:blue 1px solid" id="rx-name">RX</b>
-						<i class="icon-arrow-down"></i></td>
+					<td><b style="border-bottom:blue 1px solid" id="rx-name">RX</b> <i class="icon-arrow-down"></i></td>
 					<td><span id="rx-current"></span></td>
 					<td><b>Avg</b></td>
 					<td id="rx-avg"></td>
@@ -192,7 +191,7 @@ No part of this file may be used without permission.
 					<td id="tx-total"></td>
 					<td>&nbsp;</td>
 				</tr>
-			</table><br />
+			</table>
 
 			<div id="rbusy" class="alert warning" style="display:none">Warning: 10 second session timeout, restarting...&nbsp;</div>
 

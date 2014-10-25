@@ -256,6 +256,19 @@ ifneq ($(TCONFIG_SDHC),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
 endif
 
+# Only include the dnssec option if is compiled in
+ifneq ($(TCONFIG_DNSSEC),y)
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSSEC-BEGIN/,/DNSSEC-END/d"
+endif
+
+# Only include the Tinc page if it is compiled in
+ifneq ($(TCONFIG_TINC),y)
+	rm -f $(INSTALLDIR)/www/vpn-tinc.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/TINC-BEGIN/,/TINC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/TINC-BEGIN/,/TINC-END/d"
+endif
+
 # Only include the dnscrypt option if is compiled in
 ifeq ($(TCONFIG_DNSCRYPT),y)
 	$(TOP)/www/dnscrypt-helper.sh $(INSTALLDIR)/../rom/rom/etc/dnscrypt-resolvers.csv $(INSTALLDIR)/www/basic-network.asp
@@ -290,12 +303,14 @@ else
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT-END/d"\
-        -e "/NGINX-BEGIN/d"	-e "/NGINX-END/d"\
+		-e "/NGINX-BEGIN/d"	-e "/NGINX-END/d"\
 		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
+		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
+		-e "/TINC-BEGIN/d"	-e "/TINC-END/d"\
 		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done

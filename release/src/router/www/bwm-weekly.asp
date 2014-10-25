@@ -235,12 +235,13 @@ No part of this file may be used without permission.
 		</div>
 	</div>
 
-	<a href="admin-bwm.asp" class="btn btn-danger ajaxload">Configure <i class="icon-tools"></i></a> &nbsp;
-	<b>Show</b> <select onchange="changeMode(this)" id="shmode"><option value=1 selected>Summary<option value=0>Full</select> &nbsp;
-	<b>Date</b> <select onchange="changeDate(this, 'ymd')" id="dafm"><option value=0>yyyy-mm-dd</option><option value=1>mm-dd-yyyy</option><option value=2>mmm dd, yyyy</option><option value=3>dd.mm.yyyy</option></select>  &nbsp;
-	<b>Start</b> <select onchange="changeStart(this)" id="startwk"><option value=0 selected>Sun<option value=1>Mon<option value=2>Tue<option value=3>Wed<option value=4>Thu<option value=5>Fri<option value=6>Sat</select>  &nbsp;
-	<b>Scale</b> <select onchange="changeScale(this)" id="scale"><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select> &nbsp;
-
+	<a href="admin-bwm.asp" class="btn btn-danger ajaxload">Configure <i class="icon-tools"></i></a>
+	<span class="pull-right">
+		<b>Show</b> <select onchange="changeMode(this)" id="shmode"><option value="1" selected>Summary<option value="0">Full</select> &nbsp;
+		<b>Date</b> <select onchange="changeDate(this, 'ymd')" id="dafm"><option value="0">yyyy-mm-dd</option><option value="1">mm-dd-yyyy</option><option value="2">mmm dd, yyyy</option><option value="3">dd.mm.yyyy</option></select>  &nbsp;
+		<b>Start</b> <select onchange="changeStart(this)" id="startwk"><option value="0" selected>Sun<option value="1">Mon<option value="2">Tue<option value="3">Wed<option value="4">Thu<option value="5">Fri<option value="6">Sat</select>  &nbsp;
+		<b>Scale</b> <select onchange="changeScale(this)" id="scale"><option value="0">KB</option><option value="1">MB</option><option value="2" selected>GB</option></select> &nbsp;
+	</span>
 
 	<script type="text/javascript">init()</script>
 </content>

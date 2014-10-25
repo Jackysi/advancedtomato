@@ -289,6 +289,7 @@ No part of this file may be used without permission.
 			sg.recolor();
 			$('#survey-controls .spinner').after('&nbsp; ' + genStdTimeList('expire-time', 'Auto Expire', 1) + genStdTimeList('refresh-time', 'Auto Refresh', 1));
 			ref.initPage();
+			ref.toggle();
 		}
 
 	</script>
@@ -314,15 +315,16 @@ No part of this file may be used without permission.
 
 	<div id="survey-controls">
 		<div class="spinner"></div>
-		<button type="button" value="Refresh" onclick="ref.toggle()" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button>
+		<button type="button" value="Refresh" onclick="ref.toggle();" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button>
 	</div>
+
+	<div class="clearfix"></div><br />
 
 	<script type="text/javascript">
 		if ('<% wlclient(); %>' == '0') {
 			$('#tabs').after('<div class="alert warning"><h5>Warning!</h5> Wireless connections to this router may be disrupted while using this tool. <a class="close"><i class="icon-cancel"></i></a></div>');
 		}
-	</script>
-	</div>
 
-	<script type="text/javascript">earlyInit();</script>
+		earlyInit();
+	</script>
 </content>

@@ -9,7 +9,7 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript" src="js/interfaces.js"></script>
 	<script type="text/javascript">
-		// <% nvram("at_navi,at_update,web_nav,tomatoanon_answer,http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
+		// <% nvram("at_navi,at_update,web_nav,tomatoanon_answer,http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,web_dir"); %>
 		changed = 0;
 		tdup = parseInt("<% psup('telnetd'); %>");
 		sdup = parseInt("<% psup('dropbear'); %>");
@@ -235,7 +235,9 @@ No part of this file may be used without permission.
 						{ title: 'Default Navigation State', name: 'at_navi', type: 'select', help: 'You can always toggle navigation style by clicking an icon right to logo, but doing so won\'t change default state.',
 							options: [['default', 'Default'], ['collapsed', 'Collapsed']], value: nvram.at_navi },
 						{ title: 'ATTD ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: 'Theme ID# from <a href="http://advancedtomato.com/themes/" target="_blank"><u><i>ATTD themes gallery</i></u></a>' },
-						{ title: 'Interface Navigation', help: "This option allows you to add custom navigation links or rewrite existing ones. Only JSON format accepted!",
+						{ title: 'Web GUI directory', name: 'web_dir', type: 'select', help: 'Experts only! This will change directory from which Tomato Web handler is reading the interface files from. You should only change this if you have another interface in specific directory',
+							options: [['default','Default: /www'], ['jffs', 'Custom: /jffs/www (Experts Only!)'], ['opt', 'Custom: /opt/www (Experts Only!)'], ['tmp', 'Custom: /tmp/www (Experts Only!)']], value: nvram.web_dir, suffix: ' <small>Please be sure of your decision before change this settings!</small>' },
+						{ title: 'Navigation Menu', help: "This option allows you to add custom navigation links or rewrite existing ones. Only JSON format accepted!",
 							name: 'web_nav', type: 'textarea', style: 'width: 100%; height: 100px;', value: nvram.web_nav }
 					];
 
@@ -304,7 +306,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save();" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">init(); verifyFields(null, 1);</script>

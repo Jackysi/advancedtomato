@@ -66,8 +66,23 @@ No part of this file may be used without permission.
 			break;
 		}
 
+		// TESTED ONLY ON WRT54G v2 (boardtype 0x0101) and WRT54GL v1.1 (boardtype 0x0467)
+		// attempt of cross-referencing boardtypes/routers mentioned on id.c and the wiki page above
+		switch(nvram['boardtype']) {
+			case '0x0467':  // WRT54GL 1.x, WRT54GS 3.x/4.x
+			case '0x048e':  // WL-520GU, WL-500G Premium v2
+			case '0x04ef':  // WRT320N/E2000
+			case '0x04cf':  // WRT610Nv2/E3000, RT-N16
+			case '0xf52c':  // E4200v1
+			case '0xf5b2':  // RT-N66
+				trunk_vlan_supported = 1;
+				break;
+			default:
+			break;
+		}
+
 		// TESTED ONLY ON WRT54G v2 (boardtype 0x0101),WRT54GL v1.1 (boardtype 0x0467) and WNR3500L (boardtype 0x04cf)
-		// info on some of these boardtypes/routers obtained from
+		// info on some of these boardtypes/routers obtained from 
 		// http://wiki.openwrt.org/toh/asus/start
 		// http://wiki.openwrt.org/toh/linksys/start
 		// http://wiki.openwrt.org/toh/start
@@ -81,7 +96,34 @@ No part of this file may be used without permission.
 					COL_P4N = '0';
 					break;
 				}
+			case '0xa4cf':  // Belkin F7D3301
+				if (nvram['boardrev'] == '0x1100'){ //Belkin F5D8235-4 v3
+					COL_P0N = '1';
+					COL_P1N = '2';
+					COL_P2N = '3';
+					COL_P3N = '4';
+					COL_P4N = '0';
+					break;
+				}
+			case '0xd4cf':  // Belkin F7D4301
 			case '0x048e':  // WL-520GU, WL-500G Premium v2
+			case '0x0550':  // RT-N53 (boardrev = 0x1442), RT-N10U ( boardrev = 0x1102)
+				if (((nvram['boardrev'] == '0x1102') || (nvram['boardrev'] == '0x1100')) ||(nvram['boardrev'] == '0x1400')) { //RT-N10U, CW-5358U, L600N
+					COL_P0N = '1';
+					COL_P1N = '2';
+					COL_P2N = '3';
+					COL_P3N = '4';
+					COL_P4N = '0';
+					break;
+				}
+				if ((nvram['boardrev'] == '0x1446') && (nvram['boardnum'] == '0015')) { //Dir-620 C1
+					COL_P0N = '0';
+					COL_P1N = '1';
+					COL_P2N = '2';
+					COL_P3N = '3';
+					COL_P4N = '4';
+					break;
+				}
 				COL_P0N = '3';
 				COL_P1N = '2';
 				COL_P2N = '1';
@@ -90,7 +132,15 @@ No part of this file may be used without permission.
 				break;
 			case '0x04ef':  // WRT320N/E2000
 			case '0x04cf':  // WRT610Nv2/E3000, RT-N16, WNR3500L
-			case '0xf5b2':  // RT-N66
+			case '0xf5b2':  // RT-AC66 and RT-N66U
+				if (nvram['t_model_name'] == 'Asus RT-N66U') {
+					COL_P0N = '1';
+					COL_P1N = '2';
+					COL_P2N = '3';
+					COL_P3N = '4';
+					COL_P4N = '0';
+					break;
+				}
 				COL_P0N = '4';
 				COL_P1N = '3';
 				COL_P2N = '2';
@@ -118,6 +168,23 @@ No part of this file may be used without permission.
 			case '0x058e':  // E900
 			case '0xf52a':  // E3200
 			case '0xf52c':  // E4200v1
+			case '0x1202':  // HG320 - not sure, need test
+				if ((nvram['boardrev'] == '0x1153') && (nvram['boardnum'] == '45')) { //RT-N10P
+					COL_P0N = '3';
+					COL_P1N = '2';
+					COL_P2N = '1';
+					COL_P3N = '0';
+					COL_P4N = '4';
+					break;
+				}
+				if (nvram['boardrev'] == '0x1153') { //RG200E-CA type 0x058e same as E900
+					COL_P0N = '4';
+					COL_P1N = '3';
+					COL_P2N = '2';
+					COL_P3N = '1';
+					COL_P4N = '0';
+					break;
+				}
 				COL_P0N = '0';
 				COL_P1N = '1';
 				COL_P2N = '2';
@@ -125,7 +192,7 @@ No part of this file may be used without permission.
 				COL_P4N = '4';
 				break;
 			case '0x052b':
-				if (nvram['boardrev'] == '02') { //WNR3500Lv2
+				if (nvram['boardrev'] == '02'){ //WNR3500Lv2
 					COL_P0N = '4';
 					COL_P1N = '3';
 					COL_P2N = '2';
@@ -139,6 +206,14 @@ No part of this file may be used without permission.
 					COL_P2N = '1';
 					COL_P3N = '0';
 					COL_P4N = '4';
+					break;
+				}
+				if (nvram['boardrev'] == '60'){ //Tenda N60
+					COL_P0N = '1';
+					COL_P1N = '2';
+					COL_P2N = '3';
+					COL_P3N = '4';
+					COL_P4N = '0';
 					break;
 				}
 			// should work on WRT54G v2/v3, WRT54GS v1/v2 and others
@@ -979,7 +1054,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 
 	</form>
 

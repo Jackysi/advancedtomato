@@ -98,7 +98,7 @@ No part of this file may be used without permission.
 				</script>
 				<hr>
 
-				&raquo; <a href="clearcookies.asp?_http_id=<% nv(http_id); %>">Clear Cookies</a><br>
+				&raquo; <a href="#clearcookies.asp">Clear Cookies</a><br>
 				&raquo; <a href="javascript:nvramCommit()">NVRAM Commit</a><br>
 				<br>
 
@@ -114,6 +114,6 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert info" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
 	</form>
 </content>

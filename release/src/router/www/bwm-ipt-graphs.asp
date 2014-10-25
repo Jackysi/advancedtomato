@@ -9,6 +9,7 @@ LAN Access admin module by Augusto Bott
 <title>IP Traffic Graphs</title>
 <content>
 	<style type="text/css">
+		table { margin: 8px 0 0; }
 		.color {
 			width: 12px;
 			height: 25px;
@@ -18,6 +19,7 @@ LAN Access admin module by Augusto Bott
 		}
 		.count {
 			text-align: right;
+			padding-bottom: 2px;
 		}
 		.pct {
 			width:55px;
@@ -26,12 +28,12 @@ LAN Access admin module by Augusto Bott
 		}
 		.thead {
 			font-size: 90%;
-			font-weight: bold;
+			font-weight: 500;
 		}
 		.total {
 			border-top: 1px dashed #bbb;
-			font-weight: bold;
-			margin-top: 5px;
+			font-weight: 500;
+			padding-top: 4px;
 		}
 
 	</style>

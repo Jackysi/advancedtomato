@@ -94,14 +94,19 @@ function AdvancedTomato () {
 
 			$('#system-ui').removeClass('active');
 			$('.system-ui').fadeOut(250);
+			clearInterval(window.refTimer);
 
 		} else {
 
 			$(this).addClass('active');
 			$('.system-ui').fadeIn(250);
+			
+			// On open
+			$('.system-ui .datasystem').html('<br /><br /><div class="spinner"></div><br /><br />').addClass('align center');
 			systemUI();
+			window.refTimer = setInterval(systemUI, 1600);
 
-			$(document).click(function() {$('#system-ui').removeClass('active'); $('.system-ui').fadeOut(250); $(document).unbind('click'); });
+			$(document).click(function() {$('#system-ui').removeClass('active'); $('.system-ui').fadeOut(250); clearInterval(window.refTimer); $(document).unbind('click'); });
 		}
 
 		return false;
@@ -163,8 +168,6 @@ function AdvancedTomato () {
 
 // Get status of router and fill system-ui with it
 function systemUI () {
-
-	$('.system-ui .datasystem').html('<img width="32" height="32" src="img/preloader.svg"><br /><br />').addClass('align center');
 
 	systemAJAX = new XmlHttp();
 	systemAJAX.onCompleted = function (data, xml) {
@@ -232,7 +235,7 @@ function loadPage(page) {
 
 			var id 		= $(this).attr('data-box');
 			var parent	= $(this);
-			var status	= (((c = cookie.get(id + '_visibility')) != null) && (c != '1') || !$(this).is(':visible')) ? false : true;
+			var status	= (((hs_cook = cookie.get(id + '_visibility')) != null) && (hs_cook != '1') || !$(this).is(':visible')) ? false : true;
 			var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
 
 			// Hide if hidden
@@ -277,11 +280,13 @@ function loadPage(page) {
 	TomatoAJAX.onError = function (x) {
 
 		console.log(x);
-
-		$('h2.currentpage').text('Interface Error');
-		$('.container .ajaxwrap').hide().html('<h2>ERROR occured!<i class="icon-cancel" style="font-size: 20px; color: red; vertical-align: top;"></i></h2>\
-			<span style="font-size: 14px;">There has been error while loading a page, please review debug data bellow if this is isolated issue.<br />\
-			Otherwise please leave a message at <a target="_blank" href="http://advancedtomato.com/contact/">http://advancedtomato.com</a>. <br /><br /><pre class="debug">' + x + '</pre><br /><a href="/">Refreshing</a> browser window might help.</span>').fadeIn(200);
+		
+		$('h2.currentpage').text('ERROR');
+		$('.container .ajaxwrap').hide().html('<div class="box"><div class="heading">ERROR occured!</div><div class="content" style="font-size: 13px;">\
+			There has been error while loading a page, please review debug data bellow if this is isolated issue.<br />\
+			If this is not an isolated issue, please create issue with details bellow and how to reproduce the error at\
+			<a target="_blank" href="https://github.com/Jackysi/advancedtomato2/issues">https://github.com/Jackysi/advancedtomato2/issues</a>. <br /><br />\
+			<b>Detailed information:</b><br /><pre class="debug">' + x.stack + x.message + '</pre><br /><a href="/">Refreshing</a> browser window might help.</div></div>').fadeIn(200);
 
 		preloader('stop');
 		// Loaded, clear state

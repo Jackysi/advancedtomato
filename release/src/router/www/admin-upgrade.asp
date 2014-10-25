@@ -43,6 +43,9 @@ No part of this file may be used without permission.
 			transform: scale(1);
 			top: 35%;
 		}
+		
+		.line-table tr { background: transparent !important; }
+		.line-table tr:last-child { border: 0; }
 	</style>
 	<script type="text/javascript">
 		// <% nvram("jffs2_on"); %>
