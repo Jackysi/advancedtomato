@@ -290,6 +290,8 @@ input[type=radio]:disabled + span:before{color:#dddddd;}
 .spinner{display:inline-block;width:15px;height:15px;vertical-align:middle;border:solid 1px #3498DB;border-color:#3498DB #3498DB transparent transparent;border-width:0 1px 1px;border-radius:50%;-webkit-border-radius:50%;-webkit-animation:tomato-spinner 600ms linear infinite;animation:tomato-spinner 600ms linear infinite;}
 .spinner.spinner-small{width:12px;height:12px;}
 .spinner.spinner-large{width:36px;height:36px;border-width:0 3px 3px;-webkit-animation:tomato-spinner 1s linear infinite;animation:tomato-spinner 1s linear infinite;}
+#nprogress{pointer-events:none;}
+#nprogress .bar{background:#3498DB;position:absolute;z-index:99;top:58px;left:0;width:100%;height:2px;}
 @media (max-width:960px){#wrapper > .container{padding:5px 10px;}
 .links ul li a{font-size:0;}
 .links ul li a i{font-size:16px;}
