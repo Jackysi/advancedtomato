@@ -59,7 +59,6 @@ configuration-parser.c
 configuration-parser.h
 configuration-parser.output
 configuration-scanner.c
-configure
 configure.bat
 configure.js
 conftest
