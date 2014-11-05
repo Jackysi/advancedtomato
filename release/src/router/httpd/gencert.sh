@@ -5,7 +5,7 @@ cd /etc
 
 NVCN=`nvram get https_crt_cn`
 if [ "$NVCN" == "" ]; then
-	NVCN=`nvram get lan_ipaddr`
+	NVCN=`nvram get router_name`
 fi
 
 cp -L openssl.cnf openssl.config
@@ -17,8 +17,12 @@ for CN in $NVCN; do
         I=$(($I + 1))
 done
 
+# KDB 2013/05/12 http://support.microsoft.com/kb/2661254 - Windows now requires RSA keys 1024+ length
+# Previous fixes have included increasing Tomato key to 2048 bits, but this takes 1512 bytes more NVRAM
+# if key saved between router reboots.
+
 # create the key and certificate request
-openssl req -new -out /tmp/cert.csr -config openssl.config -keyout /tmp/privkey.pem -newkey rsa:512 -passout pass:password
+openssl req -new -out /tmp/cert.csr -config openssl.config -keyout /tmp/privkey.pem -newkey rsa:1024 -passout pass:password
 # remove the passphrase from the key
 openssl rsa -in /tmp/privkey.pem -out key.pem -passin pass:password
 # convert the certificate request into a signed certificate
