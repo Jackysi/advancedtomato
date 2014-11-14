@@ -3,7 +3,6 @@
 .#*
 *.
 *.slo
-*.mk
 *.mem
 *.gcda
 *.gcno
@@ -53,7 +52,6 @@ config.log
 config.nice
 config.nice.bat
 config.status
-config.sub
 config_vars.mk
 configuration-parser.c
 configuration-parser.h
@@ -67,7 +65,6 @@ debug.log
 diff
 generated_lists
 include
-install-sh
 internal_functions.c
 lcov_data
 lcov_html
@@ -106,8 +103,6 @@ Zend/zend_language_parser.output
 ext/date/lib/timelib_config.h
 ext/iconv/php_iconv_aliased_libiconv.h
 ext/phar/phar.php
-main/php_config.h
-main/php_config.h.in
 
 # Test specific Ignores
 tests/*/*.diff
