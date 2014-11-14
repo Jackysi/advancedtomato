@@ -347,7 +347,7 @@ get_ifname_by_wlmac(unsigned char *mac, char *name)
 
 	/* find for wan  */
 	ifnames = nvram_get("wan_ifnames");
-	ifname = nvram_get("wan0_ifname");
+	ifname = nvram_get("wan_ifname");
 	/* the name in ifnames may nvifname or osifname */
 	if (find_in_list(ifnames, nv_name) ||
 	    find_in_list(ifnames, os_name))
