@@ -149,6 +149,10 @@ else
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
 endif
+# for dlink
+ifeq ($(ASUS_TRX),DLINK)
+	ctools/trx_asus -i image/linux-lzma.trx -r DIR868L,3.0.0.4,image/tomato-DIR868L-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 # for R7000
 ifeq ($(ASUS_TRX),NETGEAR)
 	ctools/trx_asus -i image/linux-lzma.trx -r R7000,3.0.0.4,image/tomato-R7000-$(V1)$(V2)-$(current_BUILD_DESC).trx
@@ -862,6 +866,9 @@ n18e:
 
 n18z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS" CTF=y GRO=y NGINX=y
+
+dir868l:
+	@$(MAKE) bin ARM=y NVRAM_SIZE=32 NAND=y BCMSMP=y ASUS_TRX="DLINK" UFSD="ASUS" CTF=y GRO=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y B=E BUILD_DESC="special" USB="USB" PPTPD=y DNSSEC=y DNSCRYPT=y UPS=y NO_SSH=y
 
 r7000e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" CTF=y GRO=y

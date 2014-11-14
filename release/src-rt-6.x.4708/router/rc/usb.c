@@ -89,6 +89,10 @@ void start_usb(void)
 		xstart("gpio", "enable", "20");
 	}
 
+	if (get_model() == MODEL_DIR868L) {
+		xstart("gpio", "enable", "10");
+	}
+
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
 
@@ -370,6 +374,10 @@ void stop_usb(void)
 
 	if (nvram_match("boardtype", "0x052b")) { // Netgear WNR3500L v2 - disable USB port
 		xstart("gpio", "disable", "20");
+	}
+
+	if (get_model() == MODEL_DIR868L) {
+		xstart("gpio", "disable", "10");
 	}
 
 	}
