@@ -304,6 +304,10 @@ extern char *find_in_list(const char *haystack, const char *needle);
 
 extern char *remove_dups(char *inlist, int inlist_size);
 
+extern char *find_smallest_in_list(char *haystack);
+
+extern char *sort_list(char *inlist, int inlist_size);
+
 extern int nvifname_to_osifname(const char *nvifname, char *osifname_buf,
                                 int osifname_buf_len);
 extern int osifname_to_nvifname(const char *osifname, char *nvifname_buf,

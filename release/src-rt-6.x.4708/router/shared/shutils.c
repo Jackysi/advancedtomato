@@ -1032,6 +1032,59 @@ remove_dups(char *inlist, int inlist_size)
 
 }
 
+char *find_smallest_in_list(char *haystack) {
+	char *ptr = haystack;
+	char *smallest = ptr;
+	int haystack_len = strlen(haystack);
+	int len = 0;
+
+	if (!haystack || !*haystack || !haystack_len)
+		return NULL;
+
+	while (*ptr != 0 && ptr < &haystack[haystack_len]) {
+		/* consume leading spaces */
+		ptr += strspn(ptr, " ");
+
+		/* what's the length of the next word */
+		len = strcspn(ptr, " ");
+
+		/* if this item/word is 'smaller', update our pointer */
+		if ((strncmp(smallest, ptr, len) > 0)) {
+			smallest = ptr;
+		}
+
+		ptr += len;
+	}
+	return (char*) smallest;
+}
+
+char *sort_list(char *inlist, int inlist_size) {
+	char *tmplist;
+	char tmp[IFNAMSIZ];
+
+	if (!inlist_size) return NULL;
+	if (!inlist) return NULL;
+
+	tmplist = (char *) malloc(inlist_size);
+	if (!tmplist) return NULL;
+	memset(tmplist, 0, inlist_size);
+
+	char *b;
+	int len;
+	while ((b = find_smallest_in_list(inlist)) != NULL) {
+		len = strcspn(b, " ");
+		snprintf(tmp, len + 1, "%s", b);
+
+		add_to_list(tmp, tmplist, inlist_size);
+		remove_from_list(tmp, inlist, inlist_size);
+
+	}
+	strncpy(inlist, tmplist, inlist_size);
+
+	free(tmplist);
+	return inlist;
+}
+
 /*
 	 return true/false if any wireless interface has URE enabled.
 */
