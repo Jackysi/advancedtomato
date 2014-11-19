@@ -14,7 +14,7 @@ all: cstats
 
 cstats: $(OBJS)
 	@echo " [cstats] CC -o $@"
-	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L../nvram${BCMEX} -lnvram -L../shared -lshared
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L../nvram${BCMEX} -lnvram -L../shared -lshared $(LIBS)
 
 	$(SIZECHECK)
 	$(CPTMP)

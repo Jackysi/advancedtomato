@@ -19,16 +19,9 @@
 
 */
 
-//#define DEBUG_CSTATS
-//#define DEBUG_NOISY
-//#define DEBUG_STIME
-
-//#ifdef DEBUG_NOISY
-//#define _dprintf(args...)	cprintf(args)
-//#define _dprintf(args...)	printf(args)
-//#else
-//#define _dprintf(args...)	do { } while (0)
-//#endif
+#define DEBUG_CSTATS
+#define DEBUG_NOISY
+#define DEBUG_STIME
 
 #define K 1024
 #define M (1024 * 1024)
@@ -89,7 +82,7 @@ typedef struct _Node {
 	uint64_t speed[MAX_NSPEED][MAX_COUNTER];
 	uint64_t last[MAX_COUNTER];
 	int tail;
-	char sync;
+	int sync;
 
 	TREE_ENTRY(_Node)	linkage;
 } Node;

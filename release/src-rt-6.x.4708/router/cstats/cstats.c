@@ -47,6 +47,23 @@ volatile int gothup = 0;
 volatile int gotuser = 0;
 volatile int gotterm = 0;
 
+Node *Node_new(char *ipaddr) {
+	Node *self;
+	if ((self = malloc(sizeof(Node))) != NULL) {
+		memset(self, 0, sizeof(Node));
+		self->id = CURRENT_ID;
+		strncpy(self->ipaddr, ipaddr, INET_ADDRSTRLEN);
+		_dprintf("%s: new node ip=%s, version=%d, sizeof(Node)=%d (bytes)\n", __FUNCTION__, self->ipaddr, self->id, sizeof(Node));
+	}
+	return self;
+}
+
+int Node_compare(Node *lhs, Node *rhs) {
+	return strncmp(lhs->ipaddr, rhs->ipaddr, INET_ADDRSTRLEN);
+}
+
+Tree tree = TREE_INITIALIZER(Node_compare);
+
 #ifdef DEBUG_CSTATS
 void Node_print(Node *self, FILE *stream) {
 	fprintf(stream, "%s", self->ipaddr);
@@ -64,23 +81,6 @@ void Tree_info(void) {
 	_dprintf("Tree depth = %d\n", TREE_DEPTH(&tree, linkage));
 }
 #endif
-
-Node *Node_new(char *ipaddr) {
-	Node *self;
-	if ((self = malloc(sizeof(Node))) != NULL) {
-		memset(self, 0, sizeof(Node));
-		self->id = CURRENT_ID;
-		strncpy(self->ipaddr, ipaddr, INET_ADDRSTRLEN);
-		_dprintf("%s: new node ip=%s, version=%d, sizeof(Node)=%d (bytes)\n", __FUNCTION__, self->ipaddr, self->id, sizeof(Node));
-	}
-	return self;
-}
-
-int Node_compare(Node *lhs, Node *rhs) {
-	return strncmp(lhs->ipaddr, rhs->ipaddr, INET_ADDRSTRLEN);
-}
-
-Tree tree = TREE_INITIALIZER(Node_compare);
 
 static int get_stime(void) {
 #ifdef DEBUG_STIME
@@ -551,15 +551,15 @@ static void calc(void) {
 
 	for(br=0 ; br<=3 ; br++) {
 
-		char bridge[2] = "0";
-		if (br!=0)
-			bridge[0]+=br;
-		else
-			strcpy(bridge, "");
+	    char bridge[2] = "0";
+	    if (br!=0)
+	    	bridge[0]+=br;
+	    else
+	    	strcpy(bridge, "");
 
-		sprintf(name, "/proc/net/ipt_account/lan%s", bridge);
+	    sprintf(name, "/proc/net/ipt_account/lan%s", bridge);
 
-		if ((f = fopen(name, "r")) == NULL) continue;
+	    if ((f = fopen(name, "r"))) {
 
 		while (fgets(buf, sizeof(buf), f)) {
 			if(sscanf(buf, 
@@ -673,6 +673,7 @@ static void calc(void) {
 			}
 		}
 		fclose(f);
+	    }
 	}
 
 	// remove/exclude history (if we still have any data previously stored)
