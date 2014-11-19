@@ -849,6 +849,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_server1_crt",      ""              , 0 },
 	{ "vpn_server1_key",      ""              , 0 },
 	{ "vpn_server1_dh",       ""              , 0 },
+	{ "vpn_server1_br",       "br0"           , 0 },
 	{ "vpn_server2_poll",     "0"             , 0 },
 	{ "vpn_server2_if",       "tun"           , 0 },
 	{ "vpn_server2_proto",    "udp"           , 0 },
@@ -879,6 +880,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_server2_crt",      ""              , 0 },
 	{ "vpn_server2_key",      ""              , 0 },
 	{ "vpn_server2_dh",       ""              , 0 },
+	{ "vpn_server2_br",       "br0"           , 0 },
 	{ "vpn_client_eas",       ""              , 0 },
 	{ "vpn_client1_poll",     "0"             , 0 },
 	{ "vpn_client1_if",       "tun"           , 0 },
@@ -906,6 +908,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_client1_ca",       ""              , 0 },
 	{ "vpn_client1_crt",      ""              , 0 },
 	{ "vpn_client1_key",      ""              , 0 },
+	{ "vpn_client1_br",       "br0"           , 0 },
 	{ "vpn_client2_poll",     "0"             , 0 },
 	{ "vpn_client2_if",       "tun"           , 0 },
 	{ "vpn_client2_bridge",   "1"             , 0 },
@@ -932,6 +935,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_client2_ca",       ""              , 0 },
 	{ "vpn_client2_crt",      ""              , 0 },
 	{ "vpn_client2_key",      ""              , 0 },
+	{ "vpn_client2_br",       "br0"           , 0 },
 #endif	// vpn
 #ifdef TCONFIG_PPTPD
 	{ "pptp_client_enable",   "0"             , 0 },
