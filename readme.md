@@ -21,8 +21,8 @@ sudo ln -s /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4 /opt/brcm/hndtools-mipsel-
 <pre>echo "export PATH=$PATH:/opt/brcm/hndtools-mipsel-linux/bin:/opt/brcm/hndtools-mipsel-uclibc/bin:/sbin/" >> ~/.profile && source ~/.profile</pre>
 
 - 7.) READY! Too see the options for builds (routers and packages) do:
-<pre>cd advancedtomato2/release/src-rt && make help 			  # For Tomato RT-N builds
-cd advancedtomato2/release/src-rt-6.x/ && make help		# For Tomato RT-AC builds<pre>
+<pre>cd advancedtomato2/release/src-rt && make help   # For Tomato RT-N builds
+cd advancedtomato2/release/src-rt-6.x/ && make help		# For Tomato RT-AC builds</pre>
 
 - 8.) To compile specific firmware (E.g. RT-AC66U) run this:
 <pre>cd advancedtomato/release/src-rt-6.x/make ac66z V1=AT-RT-AC6x V2=2.4-124</pre>
