@@ -1811,7 +1811,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--enable-fileinfo \
 	--without-gettext \
 	--enable-dom \
-	--disable-exif \
+	--enable-exif \
 	--disable-ftp \
 	--without-gmp \
 	--with-gd \
