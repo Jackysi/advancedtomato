@@ -870,6 +870,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server1_crt",      ""              },
 	{ "vpn_server1_key",      ""              },
 	{ "vpn_server1_dh",       ""              },
+	{ "vpn_server1_br",       "br0"           },
 	{ "vpn_server2_poll",     "0"             },
 	{ "vpn_server2_if",       "tun"           },
 	{ "vpn_server2_proto",    "udp"           },
@@ -900,6 +901,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server2_crt",      ""              },
 	{ "vpn_server2_key",      ""              },
 	{ "vpn_server2_dh",       ""              },
+	{ "vpn_server2_br",       "br0"           },
 	{ "vpn_client_eas",       ""              },
 	{ "vpn_client1_poll",     "0"             },
 	{ "vpn_client1_if",       "tun"           },
@@ -927,6 +929,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client1_ca",       ""              },
 	{ "vpn_client1_crt",      ""              },
 	{ "vpn_client1_key",      ""              },
+	{ "vpn_client1_br",       "br0"           },
 	{ "vpn_client2_poll",     "0"             },
 	{ "vpn_client2_if",       "tun"           },
 	{ "vpn_client2_bridge",   "1"             },
@@ -953,6 +956,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_ca",       ""              },
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
+	{ "vpn_client2_br",       "br0"           },
 #endif	// vpn
 #ifdef TCONFIG_PPTPD
 	{ "pptp_client_enable",   "0"             },
