@@ -171,7 +171,7 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_vpn_'+t+'_hmac'), auth == "tls");
 		elem.display(E(t+'_custom_crypto_text'), auth == "custom");
 		elem.display(PR('_f_vpn_'+t+'_bridge'), iface == "tap");
-		elem.display(PR('_vpn_'+t+'_br'), iface == "tap");
+		elem.display(PR('_vpn_'+t+'_br'), iface == "tap" && bridge > 0);
 		elem.display(E(t+'_bridge_warn_text'), !bridge);
 		elem.display(PR('_f_vpn_'+t+'_nat'), fw != "custom" && (iface == "tun" || !bridge));
 		elem.display(E(t+'_nat_warn_text'), fw != "custom" && (!nat || (auth == "secret" && iface == "tun")));
