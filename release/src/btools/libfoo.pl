@@ -166,6 +166,8 @@ sub fixDyn
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
 	fixDynDep("dnscrypt-proxy", "libsodium.so.13.0.2");
+	fixDynDep("tincd", "liblzo2.so.2.0.0");
+	fixDynDep("openvpn", "liblzo2.so.2.0.0");
 
 #minidlna module, bwq518
 	fixDynDep("minidlna", "libz.so.1");
