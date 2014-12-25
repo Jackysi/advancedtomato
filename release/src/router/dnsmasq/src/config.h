@@ -47,6 +47,8 @@
 #define SOA_REFRESH 1200 /* SOA refresh default */
 #define SOA_RETRY 180 /* SOA retry default */
 #define SOA_EXPIRY 1209600 /* SOA expiry default */
+#define LOOP_TEST_DOMAIN "test" /* domain for loop testing, "test" is reserved by RFC 2606 and won't therefore clash */
+#define LOOP_TEST_TYPE T_TXT
  
 /* compile-time options: uncomment below to enable or do eg.
    make COPTS=-DHAVE_BROKEN_RTC
@@ -112,6 +114,10 @@ HAVE_AUTH
 HAVE_DNSSEC
    include DNSSEC validator.
 
+HAVE_LOOP
+   include functionality to probe for and remove DNS forwarding loops.
+
+
 NO_IPV6
 NO_TFTP
 NO_DHCP
@@ -152,6 +158,7 @@ RESOLVFILE
 #define HAVE_SCRIPT
 #define HAVE_AUTH
 #define HAVE_IPSET 
+#define HAVE_LOOP
 
 /* Build options which require external libraries.
    
@@ -346,6 +353,10 @@ HAVE_SOCKADDR_SA_LEN
 #undef HAVE_IPSET
 #endif
 
+#ifdef NO_LOOP
+#undef HAVE_LOOP
+#endif
+
 #ifdef HAVE_TOMATO
 #define HAVE_LEASEFILE_EXPIRE
 #endif
@@ -422,8 +433,11 @@ static char *compile_opts =
 #ifndef HAVE_DNSSEC
 "no-"
 #endif
-"DNSSEC";
-
+"DNSSEC "
+#ifndef HAVE_LOOP
+"no-"
+#endif
+"loop-detect";
 
 #endif
 
