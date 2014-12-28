@@ -209,7 +209,7 @@
 				elem.display('wan-title', 'sesdiv_wan', 0);
 			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 				if (wl_sunit(uidx)<0)
-					$('#b_wl'+wl_fface(uidx)+'_enable').closest('.btn-group').show();
+					$('#b_wl'+wl_fface(uidx)+'_enable').closest('.btn-control-group').show();
 			}
 
 			ethstates();

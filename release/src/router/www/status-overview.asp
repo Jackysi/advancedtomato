@@ -40,7 +40,6 @@
 
 				<div class="logo">
 					<a href="/">
-						<h1 class="nav-collapse-hide">AdvancedTomato</h1>
 						<svg version="1.1" id="logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 							width="26px" height="26px" viewBox="0 0 32 32" enable-background="new 0 0 32 32" xml:space="preserve">
 							<path fill-rule="evenodd" clip-rule="evenodd" fill="#fff" d="M19.4,10.5C19.4,10.5,19.4,10.5,19.4,10.5c0-0.1,0-0.1,0-0.2
@@ -53,6 +52,7 @@
 								c0-2.5,1.1-3.9,1.6-4.2c0.6-0.3,0.2-0.5-0.4-0.4c-1.4,0.3-3.3,3.7-3.3,4.7c-0.2-1.4-2.9-2.1-4-2.1c-1.6,0-2.1-0.7-2.6-1.2
 								C8.6,1.6,7.9,5,14.1,5.4z"/>
 						</svg>
+						<h1 class="nav-collapse-hide">Advanced<span>Tomato</span></h1>
 					</a>
 					<h2 class="currentpage nav-collapse-hide"></h2>
 				</div>
