@@ -12,7 +12,7 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript" src="js/vpn.js"></script>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client1_userauth,vpn_client1_username,vpn_client1_password,vpn_client1_useronly,vpn_client1_tlsremote,vpn_client1_cn,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key,vpn_client2_userauth,vpn_client2_username,vpn_client2_password,vpn_client2_useronly,vpn_client2_tlsremote,vpn_client2_cn"); %>
+		//	<% nvram("vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client1_userauth,vpn_client1_username,vpn_client1_password,vpn_client1_useronly,vpn_client1_tlsremote,vpn_client1_cn,vpn_client1_br,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key,vpn_client2_userauth,vpn_client2_username,vpn_client2_password,vpn_client2_useronly,vpn_client2_tlsremote,vpn_client2_cn,vpn_client2_br,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 
 		tabs = [['client1', 'VPN Client 1 <i class="icon-tools"></i>'],['client2', 'VPN Client 2 <i class="icon-tools"></i>']];
 		sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
@@ -168,6 +168,7 @@ No part of this file may be used without permission.
 				elem.display(PR('_vpn_'+t+'_hmac'), auth == "tls");
 				elem.display(E(t+'_custom_crypto_text'), auth == "custom");
 				elem.display(PR('_f_vpn_'+t+'_bridge'), iface == "tap");
+				elem.display(PR('_vpn_'+t+'_br'), iface == "tap");
 				elem.display(E(t+'_bridge_warn_text'), !bridge);
 				elem.display(PR('_f_vpn_'+t+'_nat'), fw != "custom" && (iface == "tun" || !bridge));
 				elem.display(E(t+'_nat_warn_text'), fw != "custom" && (!nat || (auth == "secret" && iface == "tun")));
@@ -199,6 +200,26 @@ No part of this file may be used without permission.
 						break;
 				}
 			}
+
+			var bridge1 = E('_vpn_client1_br');
+			if(nvram.lan_ifname.length < 1)
+				bridge1.options[0].disabled=true;
+			if(nvram.lan1_ifname.length < 1)
+				bridge1.options[1].disabled=true;
+			if(nvram.lan2_ifname.length < 1)
+				bridge1.options[2].disabled=true;
+			if(nvram.lan3_ifname.length < 1)
+				bridge1.options[3].disabled=true;
+
+			var bridge2 = E('_vpn_client2_br');
+			if(nvram.lan_ifname.length < 1)
+				bridge2.options[0].disabled=true;
+			if(nvram.lan1_ifname.length < 1)
+				bridge2.options[1].disabled=true;
+			if(nvram.lan2_ifname.length < 1)
+				bridge2.options[2].disabled=true;
+			if(nvram.lan3_ifname.length < 1)
+				bridge2.options[3].disabled=true;
 
 			return ret;
 		}
@@ -287,6 +308,12 @@ No part of this file may be used without permission.
 				htmlOut += createFormFields([
 					{ title: 'Start with WAN', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_client_eas.indexOf(''+(i+1)) >= 0 },
 					{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
+					{ title: 'Bridge TAP with', indent: 2, name: 'vpn_'+t+'_br', type: 'select', options: [
+						['br0','LAN (br0)*'],
+						['br1','LAN1 (br1)'],
+						['br2','LAN2 (br2)'],
+						['br3','LAN3 (br3)']
+						], value: eval ( 'nvram.vpn_'+t+'_br' ), suffix: ' <small>* default</small> ' },
 					{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-client','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 					{ title: 'Server Address/Port', multi: [
 						{ name: 'vpn_'+t+'_addr', type: 'text', size: 17, value: eval( 'nvram.vpn_'+t+'_addr' ) },

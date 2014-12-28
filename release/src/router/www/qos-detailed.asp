@@ -390,7 +390,7 @@ No part of this file may be used without permission.
 				toggleVisibility("filters");
 			}
 
-			if (viewClass != -1) E('stitle').innerHTML = 'Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
+			if (viewClass != -1) $('#qos-details .heading').html('QOS Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>');
 
 			E('_f_shortcuts').checked = (((c = cookie.get('qos_detailed_shortcuts')) != null) && (c == '1'));
 

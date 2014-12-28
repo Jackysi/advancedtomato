@@ -11,7 +11,8 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript" src="js/vpn.js"></script>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,vpn_server_eas,vpn_server_dns,vpn_server1_poll,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_reneg,vpn_server1_hmac,vpn_server1_plan,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_pdns,vpn_server1_rgw,vpn_server1_userpass,vpn_server1_nocert,vpn_server1_users_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_poll,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_reneg,vpn_server2_hmac,vpn_server2_plan,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_pdns,vpn_server2_rgw,vpn_server2_userpass,vpn_server2_nocert,vpn_server2_users_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+		//	<% nvram("vpn_server_eas,vpn_server_dns,vpn_server1_poll,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_reneg,vpn_server1_hmac,vpn_server1_plan,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_pdns,vpn_server1_rgw,vpn_server1_userpass,vpn_server1_nocert,vpn_server1_users_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server1_br,vpn_server2_poll,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_reneg,vpn_server2_hmac,vpn_server2_plan,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_pdns,vpn_server2_rgw,vpn_server2_userpass,vpn_server2_nocert,vpn_server2_users_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh,vpn_server2_br,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+
 		function CCDGrid() { return this; }
 		CCDGrid.prototype = new TomatoGrid;
 
@@ -176,6 +177,7 @@ No part of this file may be used without permission.
 				elem.display(E(t+'_custom_crypto_text'), auth.value == "custom");
 				elem.display(PR('_vpn_'+t+'_sn'), PR('_f_vpn_'+t+'_plan'), auth.value == "tls" && iface.value == "tun");
 				elem.display(PR('_f_vpn_'+t+'_dhcp'), auth.value == "tls" && iface.value == "tap");
+				elem.display(PR('_vpn_'+t+'_br'), iface.value == "tap");
 				elem.display(E(t+'_range'), !dhcp.checked);
 				elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
 				elem.display(PR('_f_vpn_'+t+'_ccd'), auth.value == "tls");
@@ -198,6 +200,26 @@ No part of this file may be used without permission.
 						break;
 				}
 			}
+
+			var bridge1 = E('_vpn_server1_br');
+			if(nvram.lan_ifname.length < 1)
+				bridge1.options[0].disabled=true;
+			if(nvram.lan1_ifname.length < 1)
+				bridge1.options[1].disabled=true;
+			if(nvram.lan2_ifname.length < 1)
+				bridge1.options[2].disabled=true;
+			if(nvram.lan3_ifname.length < 1)
+				bridge1.options[3].disabled=true;
+
+			var bridge2 = E('_vpn_server2_br');
+			if(nvram.lan_ifname.length < 1)
+				bridge2.options[0].disabled=true;
+			if(nvram.lan1_ifname.length < 1)
+				bridge2.options[1].disabled=true;
+			if(nvram.lan2_ifname.length < 1)
+				bridge2.options[2].disabled=true;
+			if(nvram.lan3_ifname.length < 1)
+				bridge2.options[3].disabled=true;
 
 			return ret;
 		}
@@ -479,6 +501,12 @@ No part of this file may be used without permission.
 					htmlOut += createFormFields([
 						{ title: 'Start with WAN', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_server_eas.indexOf(''+(i+1)) >= 0 },
 						{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
+						{ title: 'Bridge TAP with', indent: 2, name: 'vpn_'+t+'_br', type: 'select', options: [
+							['br0','LAN (br0)*'],
+							['br1','LAN1 (br1)'],
+							['br2','LAN2 (br2)'],
+							['br3','LAN3 (br3)']
+							], value: eval ( 'nvram.vpn_'+t+'_br' ), suffix: ' <small>* default</small> ' },
 						{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-server','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 						{ title: 'Port', name: 'vpn_'+t+'_port', type: 'text', value: eval( 'nvram.vpn_'+t+'_port' ) },
 						{ title: 'Firewall', name: 'vpn_'+t+'_firewall', type: 'select', options: [ ['auto', 'Automatic'], ['external', 'External Only'], ['custom', 'Custom'] ], value: eval( 'nvram.vpn_'+t+'_firewall' ) },
@@ -495,7 +523,7 @@ No part of this file may be used without permission.
 						{ title: 'Local/remote endpoint addresses', multi: [
 							{ name: 'vpn_'+t+'_local', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_local' ) },
 							{ name: 'vpn_'+t+'_remote', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_remote' ) } ] }
-						]);
+					]);
 					htmlOut += '</div>';
 					htmlOut += '<div id=\''+t+'-advanced\'>';
 					htmlOut += createFormFields([
@@ -516,7 +544,7 @@ No part of this file may be used without permission.
 						{ title: 'Allow Only User/Pass(Without cert) Auth', name: 'f_vpn_'+t+'_nocert', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_nocert' ) != 0 },
 						{ title: '', suffix: '<table class=\'line-table\' id=\'table_'+t+'_users\'></table>' },
 						{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ), style: 'width: 100%; height: 80px;' }
-						]);
+					]);
 					htmlOut += '</div>';
 					htmlOut += '<div id=\''+t+'-keys\' class="langrid">';
 					htmlOut += '<p class=\'keyhelp\'>For help generating keys, refer to the OpenVPN <a id=\''+t+'-keyhelp\'>HOWTO</a>.</p>';
@@ -526,7 +554,7 @@ No part of this file may be used without permission.
 						{ title: 'Server Certificate', name: 'vpn_'+t+'_crt', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_crt' ), style: 'width: 100%; height: 80px;' },
 						{ title: 'Server Key', name: 'vpn_'+t+'_key', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_key' ), style: 'width: 100%; height: 80px;' },
 						{ title: 'Diffie Hellman parameters', name: 'vpn_'+t+'_dh', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_dh' ), style: 'width: 100%; height: 80px;' }
-						]);
+					]);
 					htmlOut += '</div>';
 					htmlOut += '<div id=\''+t+'-status\'>';
 					htmlOut += '<div id=\''+t+'-no-status\'><p>Server is not running or status could not be read.</p></div>';

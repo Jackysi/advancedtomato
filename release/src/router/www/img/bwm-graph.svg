@@ -8,7 +8,7 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 -->
 <svg width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"
-	onmousemove="mMove(evt)" onclick="mClick(evt)">
+	onmousemove="mMove(evt)">
 	<style type='text/css'>
 		* {
 			cursor: pointer;
@@ -20,13 +20,12 @@ No part of this file may be used without permission.
 		line.a {
 			stroke: #f0f0f0;
 		}
-		#crossX, #crossY {
-			stroke: #f77;
-			stroke-width: 1;
-		}
 		text {
 			font: 11px 'Open Sans', Verdana;
 			fill: #696969;
+		}
+		#xpst {
+			transition: all 150ms ease-out;
 		}
 		.tickH {
 			text-anchor: middle;
@@ -43,6 +42,7 @@ No part of this file may be used without permission.
 		polyline {
 			transition: all 400ms ease-out;
 		}
+
 	</style>
 	<script type='text/ecmascript'><![CDATA[
 		/*
@@ -53,8 +53,6 @@ No part of this file may be used without permission.
 		var pointLoc = 0;
 		var vWidth = 1024;
 		var vHeight = 300;
-		var crossH = 0;
-		var crossV = 0;
 		var maxV = 0;
 		var maxL = 0;
 		var time24 = 0;
@@ -96,16 +94,11 @@ No part of this file may be used without permission.
 		{
 			var n;
 			if (typeof(svgDocument) == 'undefined') svgDocument = evt.target.ownerDocument;
-			crossX = E('crossX');
-			crossY = E('crossY');
 			polyRx = E('polyRx');
 			polyTx = E('polyTx');
 			pointTextBack = E('pointTextBack');
 			pointText = E('pointText');
 			pointG = E('pointGroup');
-			crossTextBack = E('crossTextBack');
-			crossText = E('crossText');
-			crossTime = E('crossTime');
 			maxText = E('maxText');
 			tickLines = [];
 			for (n = 0; n < 24; ++n) {
@@ -188,6 +181,12 @@ No part of this file may be used without permission.
 					tickLines[i].setAttribute('x2', Math.round(x));
 					x += z;
 				}
+
+				// Hide other lines in the BW Mode
+				for (i = 4; i < 24; i++) {
+					tickLines[i].setAttribute('visibility', 'hidden');
+				}
+
 			}
 			else {
 				advM = (60 / interval) * advX;
@@ -225,7 +224,7 @@ No part of this file may be used without permission.
 				polyTx.setAttribute('points', '');
 				return;
 			}
-			if (crossV > 0) drawCross(crossH, vHeight - Math.floor((crossV / maxV) * vHeight));
+
 			drawData(polyRx, rxData, mode, rxColor);
 			drawData(polyTx, txData, mode, txColor);
 			setText(maxText, xps(maxV) + ' >');
@@ -287,52 +286,10 @@ No part of this file may be used without permission.
 			e.setAttribute('x', x);
 			e.setAttribute('y', y);
 		}
-		function drawCross(x, y)
-		{
-			var n;
-			crossX.setAttribute('x1', x - 10);
-			crossX.setAttribute('x2', x + 10);
-			crossX.setAttribute('y1', y);
-			crossX.setAttribute('y2', y);
-			crossY.setAttribute('x1', x);
-			crossY.setAttribute('x2', x);
-			crossY.setAttribute('y1', y - 10);
-			crossY.setAttribute('y2', y + 10);
-			n = Math.max(crossText.getComputedTextLength(), crossTime.getComputedTextLength()) + 20;
-			crossTextBack.setAttribute('width', n);
-			if (x > (vWidth - n - 10)) {
-				crossText.setAttribute('style', 'text-anchor:end');
-				crossTime.setAttribute('style', 'text-anchor:end');
-				crossTextBack.setAttribute('x', (x - n) - 10);
-				x -= 20;
-			}
-			else {
-				crossText.setAttribute('style', '');
-				crossTime.setAttribute('style', '');
-				crossTextBack.setAttribute('x', x + 10);
-				x += 20;
-			}
-			crossTextBack.setAttribute('y', y - 17);
-			setXY(crossTime, x, y - 5);
-			setXY(crossText, x, y + 10);
-		}
-		function mClick(evt)
-		{
-			if (ignoreNext) {
-				ignoreNext = 0;
-				return;
-			}
-			if (maxV <= 0) return;
-			crossH = evt.clientX;
-			crossV = vY(evt.clientY);
-			setText(crossText, xps(crossV));
-			setText(crossTime, pointTime(crossH));
-			drawCross(evt.clientX, evt.clientY);
-			E('cross').setAttribute('visibility', (evt.clientY > (vHeight - 20)) ? 'hidden' : 'visible');
-		}
 		function toggleXpst()
 		{
 			E('xpst').setAttribute('visibility', (xpstVis ^= 1) ? 'visible' : 'hidden');
+			E('xpst').setAttribute('opacity', (xpstVis == 1) ? '1' : '0');
 			ignoreNext = 1;
 		}
 	]]></script>
@@ -397,13 +354,5 @@ No part of this file may be used without permission.
 
 	<rect x="0" y="0" width="40" height="100%" id="maxTextBack" class="back" onclick="toggleXpst()"/>
 	<text x="-5%" y="20" transform="rotate(-90)" text-anchor="end" id="maxText" onclick="toggleXpst()"/>
-
-	<g id="cross" visibility="hidden">
-		<line x1="0" y1="0" x2="0" y2="0" id="crossX" />
-		<line x1="0" y1="0" x2="0" y2="0" id="crossY" />
-		<rect x="0" y="-100" width="10" height="35" id="crossTextBack" class="back" />
-		<text x="0" y="-50" id="crossTime" />
-		<text x="0" y="0" id="crossText" />
-	</g>
 
 </svg>

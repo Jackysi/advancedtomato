@@ -57,8 +57,10 @@ function AdvancedTomato () {
 
 	// Handle ajax loading
 	$('.navigation li ul a, .header .links a[href!="#system"]').on('click', function(e) {
-		loadPage($(this).attr('href'));
-		return false;
+		if ($(this).attr('target') != '_blank') {
+			loadPage($(this).attr('href'));
+			return false;
+		}
 	});
 
 	// Toggle Navigation
@@ -188,7 +190,7 @@ function systemUI () {
 }
 
 // Ajax Function to load pages
-function loadPage(page) {
+function loadPage(page, variables) {
 	
 	// Fix refreshers when switching pages
 	if (typeof (ref) != 'undefined') {
@@ -198,7 +200,7 @@ function loadPage(page) {
 
 	// Some things that need to be done here =)
 	page = page.replace('#', '');
-	if (page == 'status-home.asp' || page == '/') { page = 'status-home.asp'; }
+	if (page == 'status-home.asp' || page == '/' || page == null) { page = 'status-home.asp'; }
 	if (window.ajaxLoadingState) { return false; } else { window.ajaxLoadingState = true; }
 
 	NProgress.start();
@@ -210,6 +212,13 @@ function loadPage(page) {
 		var dom = $(resp);
 		var title = dom.filter('title').text();
 		var html = dom.filter('content').html();
+
+		// Handle pages without title or content as normal (NO AJAX)
+		if (title == null || html == null) {
+			window.parent.location.href = page;
+			return false;
+		}
+		
 		$('title').text(window.routerName + title);
 		$('h2.currentpage').text(title);
 		$('.container .ajaxwrap').hide().html(html).fadeIn(400);
@@ -294,7 +303,7 @@ function loadPage(page) {
 	}
 
 	// Execute Prototype
-	TomatoAJAX.get(page);
+	TomatoAJAX.get(page, variables);
 
 }
 

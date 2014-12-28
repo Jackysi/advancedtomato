@@ -145,22 +145,45 @@
 			elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
 			/* IPV6-END */
 
-			c('wanstatus', ((stats.wanstatus == 'Connected') ? 'Connected <i class="icon-globe icon-green"></i>' : stats.wanstatus + ' <i class="icon-cancel icon-red"></i>'));
+			c('wanstatus', ((stats.wanstatus == 'Connected') ? '<span class="text-green">Connected</span> <i class="icon-globe"></i>' : '<span class="text-red">' + stats.wanstatus + '</span> <i class="icon-cancel"></i>'));
 			c('wanuptime', stats.wanuptime);
 			if (show_dhcpc) c('wanlease', stats.wanlease);
 			if (show_codi) {
-				E('b_connect').disabled = stats.wanup;
-				E('b_disconnect').disabled = !stats.wanup;
+
+				if (stats.wanup) {
+
+					$('#b_connect').hide();
+					$('#b_disconnect').show();
+
+				} else {
+
+					$('#b_connect').show();
+					$('#b_disconnect').hide();	
+
+				}
 			}
 
 			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 				if (wl_sunit(uidx)<0) {
-					c('radio'+uidx, wlstats[uidx].radio ? 'Enabled <i class="icon-check icon-green"></i>' : 'Disabled <i class="icon-cancel icon-red"></i>');
+					c('radio'+uidx, wlstats[uidx].radio ? 'Enabled <i class="icon-check"></i>' : 'Disabled <i class="icon-cancel"></i>');
 					c('rate'+uidx, wlstats[uidx].rate);
+
 					if (show_radio[uidx]) {
-						E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
-						E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
+
+						if (wlstats[uidx].radio) {
+
+							$('#b_wl'+uidx+'_enable').hide();
+							$('#b_wl'+uidx+'_disable').show();
+
+						} else {
+
+							$('#b_wl'+uidx+'_enable').show();
+							$('#b_wl'+uidx+'_disable').hide();
+
+						}
+
 					}
+
 					c('channel'+uidx, stats.channel[uidx]);
 					if (nphy) {
 						c('nbw'+uidx, wlstats[uidx].nbw);
@@ -198,7 +221,7 @@
 			$('.refresher').after(genStdRefresh(1,1,'ref.toggle()'));
 			ref.initPage(3000, 3);
 			show();
-			
+
 		}
 
 	</script>
@@ -251,17 +274,16 @@
 						], '.WANField', 'data-table dataonly');
 				</script>
 
-				<div id="b_dhcpc" style="display: none; margin-bottom: 8px;">
-					<div class="btn-group">
-						<button type="button" class="btn" onclick="dhcpc('renew')" value="Renew">Renew</button>
-						<button type="button" class="btn" onclick="dhcpc('release')" value="Release">Release</button>
-					</div>
+				<button type="button" class="btn btn-primary pull-left" onclick="wan_connect()" value="Connect" id="b_connect" style="display:none">Connect <i class="icon-check"></i></button>
+				<button type="button" class="btn btn-danger pull-left" onclick="wan_disconnect()" value="Disconnect" id="b_disconnect" style="display:none">Disconnect <i class="icon-cancel"></i></button>
+
+				<div id="b_dhcpc" class="btn-group pull-left" style="margin-left: 5px; display:none;">
+					<button type="button" class="btn" onclick="dhcpc('renew')" value="Renew">Renew</button>
+					<button type="button" class="btn" onclick="dhcpc('release')" value="Release">Release</button>
 				</div>
 
-				<div class="btn-group">
-					<button type="button" class="btn" onclick="wan_connect()" value="Connect" id="b_connect" style="display:none">Connect <i class="icon-check"></i></button>
-					<button type="button" class="btn" onclick="wan_disconnect()" value="Disconnect" id="b_disconnect" style="display:none">Disconnect <i class="icon-cancel"></i></button>
-				</div>
+				<div class="clearfix"></div>
+
 			</div>
 		</div>
 
@@ -367,12 +389,12 @@
 					{ title: 'Wireless Mode', text: wmode },
 					{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
 					{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
-					{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? 'Disabled <i class="icon-cancel icon-red"></i>' : 'Enabled <i class="icon-check icon-green"></i>', ignore: (wl_sunit(uidx)>=0) },
+					{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? 'Disabled <i class="icon-cancel"></i>' : 'Enabled <i class="icon-check"></i>', ignore: (wl_sunit(uidx)>=0) },
 					/* REMOVE-BEGIN */
 					//	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
 					/* REMOVE-END */
 					{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
-					{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled <i class="icon-check icon-green"></i>' : 'Disabled <i class="icon-cancel icon-red"></i>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
+					{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? '<span class="text-green">Enabled <i class="icon-check"></i></span>' : '<span class="text-red">Disabled <i class="icon-cancel"></i></span>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
 					{ title: 'Security', text: sec },
 					{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx], ignore: (wl_sunit(uidx)>=0) },
 					{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: ((!nphy) || (wl_sunit(uidx)>=0)) },
@@ -383,9 +405,9 @@
 					{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) }
 					], null, 'data-table dataonly');
 
-				data += '<div class="btn-group" style="display: none;">';
-				data += '<button type="button" class="btn" onclick="wlenable('+uidx+', 1)" id="b_wl'+uidx+'_enable" value="Enable">Enable <i class="icon-check icon-green"></i></button>';
-				data += '<button type="button" class="btn" onclick="wlenable('+uidx+', 0)" id="b_wl'+uidx+'_disable" value="Disable">Disable <i class="icon-disable icon-red"></i></button>';
+				data += '<div class="btn-control-group" style="display: none;">';
+				data += '<button type="button" class="btn btn-primary" onclick="wlenable('+uidx+', 1)" id="b_wl'+uidx+'_enable" value="Enable">Enable <i class="icon-check"></i></button>';
+				data += '<button type="button" class="btn btn-danger" onclick="wlenable('+uidx+', 0)" id="b_wl'+uidx+'_disable" value="Disable">Disable <i class="icon-disable"></i></button>';
 				data += '</div></div></div>';
 				$('#LAN-settings').after(data);
 			}

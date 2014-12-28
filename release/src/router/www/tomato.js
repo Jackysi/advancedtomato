@@ -2391,20 +2391,20 @@ function myName() {
 function navi_icons ($name) {
 	switch ($name) {
 		case 'Status': 				return 'home'; break;
-        case 'Basic Settings': 		return 'tools'; break;
-        case 'Advanced Settings': 	return 'shield'; break;
-        case 'Port Forwarding': 	return 'forward'; break;
-        case 'Quality of Service': 	return 'gauge'; break;
-        case 'USB & NAS': 			return 'drive'; break;
-        case 'VPN': 				return 'globe'; break;
-        case 'Administration': 		return 'wrench'; break;
-     	default: 					return 'plus'; break;
+		case 'Basic Settings': 		return 'tools'; break;
+		case 'Advanced Settings': 	return 'shield'; break;
+		case 'Port Forwarding': 	return 'forward'; break;
+		case 'Quality of Service': 	return 'gauge'; break;
+		case 'USB & NAS': 			return 'drive'; break;
+		case 'VPN': 				return 'globe'; break;
+		case 'Administration': 		return 'wrench'; break;
+		default: 					return 'plus'; break;
 	}
 }
 
 function navi()
 {
-	var htmlmenu = '', activeURL = myName();
+	var htmlmenu = '', activeURL = window.location.hash;
 	var menu = {
 		'Status': {
 			'Overview':            'status-home.asp',
@@ -2531,6 +2531,11 @@ function navi()
 
 	// Add custom menu
 	try { $.extend(true, menu, $.parseJSON(nvram.web_nav)); } catch (e) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
+	
+	// Fix for first UI load
+	if (activeURL == null || activeURL == '') {
+		activeURL = '#status-home.asp';
+	}
 
 	// Loop Through MENU
 	$.each(menu, function (key, linksobj) {
@@ -2540,7 +2545,11 @@ function navi()
 
 		// Loop Through subcats
 		$.each(linksobj, function(name, link) {
-			category += '<li  class="' + ((activeURL == link) ? 'active' : '') + '"><a href="#' + link + '">' + name + '</a></li>';
+
+			if (/\//i.test(link) === false) { link = '#' + link; } 						// Add location hash for non-root links
+			if (/http(s)?:\/\//i.test(link)) { link = link + '" target="_blank'; }	// If link includes http or https, create new tab/window		
+			category += '<li class="' + ((activeURL == link) ? 'active' : '') + '"><a href="' + link + '">' + name + '</a></li>';
+
 		});
 
 		htmlmenu += '<li' + (($(category).filter('.active')[0] == null) ? '' : ' class="active"') + '><a href="#">' + groupname + '</a><ul>' + category + '</ul></li>';
