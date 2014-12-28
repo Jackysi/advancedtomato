@@ -1148,7 +1148,7 @@ e2500:
 	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y NO_USBAPP=y NVRAM_SIZE=60 LINKSYS_E2500=y
 
 e3200:
-	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
+	@$(MAKE) r2o USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
 n6:
 	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="TendaN6" USB="USB" TOR=y NOCAT=y DNSCRYPT=y PPTPD=y USBAP=y NO_USBAPP=y
@@ -1322,7 +1322,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "       Routers with wl_high module"
 	@echo "rtn53        Asus RT-N53 with wl_high module (dualband support)"
 	@echo "e2500        Linksys E2500 with wl_high module (dualband support)"
-	@echo "e3200        Linksys E3200/E2500v3 with wl_high module (dualband support)"
+	@echo "e3200        Linksys E3200/E2500v3 with wl_high module (dualband support) / max 16MB"
 	@echo "n6           Tenda N6 with wl_high module (dualband support)"
 	@echo "n60          Tenda N60 with wl_high module (dualband support)"
 #	@echo "l600n        Rosewill L600N Build with wl_high module (dualband support)"

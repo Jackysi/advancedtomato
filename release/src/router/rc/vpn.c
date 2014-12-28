@@ -50,6 +50,7 @@ void start_vpnclient(int clientNum)
 	FILE *fp;
 	char iface[IF_SIZE];
 	char buffer[BUF_SIZE];
+	char buffer2[BUF_SIZE];
 	char *argv[6];
 	int argc = 0;
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
@@ -148,7 +149,8 @@ void start_vpnclient(int clientNum)
 	{
 		if ( routeMode == BRIDGE )
 		{
-			snprintf(&buffer[0], BUF_SIZE, "brctl addif %s %s", nvram_safe_get("lan_ifname"), &iface[0]);
+			sprintf(&buffer2[0], "vpn_client%d_br", clientNum);
+			snprintf(&buffer[0], BUF_SIZE, "brctl addif %s %s", nvram_safe_get(&buffer2[0]), &iface[0]);
 			for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 			if ( _eval(argv, NULL, 0, NULL) )
 			{
@@ -511,6 +513,7 @@ void start_vpnserver(int serverNum)
 	FILE *fp, *ccd;
 	char iface[IF_SIZE];
 	char buffer[BUF_SIZE];
+	char buffer2[BUF_SIZE];
 	char *argv[6], *chp, *route;
 	int argc = 0;
 	int c2c = 0;
@@ -597,7 +600,8 @@ void start_vpnserver(int serverNum)
 	// Add interface to LAN bridge (TAP only)
 	if( ifType == TAP )
 	{
-		snprintf(&buffer[0], BUF_SIZE, "brctl addif %s %s", nvram_safe_get("lan_ifname"), &iface[0]);
+		sprintf(&buffer2[0], "vpn_server%d_br", serverNum);
+		snprintf(&buffer[0], BUF_SIZE, "brctl addif %s %s", nvram_safe_get(&buffer2[0]), &iface[0]);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		if ( _eval(argv, NULL, 0, NULL) )
 		{

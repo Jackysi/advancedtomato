@@ -1831,7 +1831,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--enable-fileinfo \
 	--without-gettext \
 	--enable-dom \
-	--disable-exif \
+	--enable-exif \
 	--disable-ftp \
 	--without-gmp \
 	--with-gd \
@@ -1936,9 +1936,11 @@ lzo-clean:
 	@rm -f lzo/stamp-h1
 
 lzo-install: lzo
-	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
-	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
-	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
+	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2.0.0
+	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2.0.0
+	cd $(INSTALLDIR)/lzo/usr/lib && \
+		ln -sf liblzo2.so.2.0.0 liblzo2.so.2 && \
+		ln -sf liblzo2.so.2.0.0 liblzo2.so
 
 openvpn/.conf: openssl lzo
 	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
