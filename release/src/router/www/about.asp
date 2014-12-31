@@ -185,7 +185,7 @@ Copyright (C) 2012 Tiomo<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules*<br>
 - Up to 128 Port Forward rules*<br>
-- Up to 80 QOS rules* (*all dependent on nvram space)<br>
+- Up to 128 QOS rules* (*all dependent on nvram space)<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - TC-ATM overhead calculation - patch by tvlz<br>
