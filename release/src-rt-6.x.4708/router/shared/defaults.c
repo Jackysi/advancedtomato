@@ -675,13 +675,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "jffs2_on",			"0"				, 0 },
 	{ "jffs2_exec",			""				, 0 },
 
-// admin-tomatoanon
-	{ "tomatoanon_enable",		"-1"				, 0 },
-	{ "tomatoanon_answer",		"0"				, 0 },
-	{ "tomatoanon_cru",		"6"				, 0 },
-	{ "tomatoanon_id",		""				, 0 },
-	{ "tomatoanon_notify",		"1"				, 0 },
-
 #ifdef TCONFIG_USB
 // nas-usb - !!TB
 	{ "usb_enable",			"1"				, 0 },

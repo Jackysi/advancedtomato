@@ -149,7 +149,6 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <!-- OPENVPN-BEGIN -->
 - OpenVPN: Routing Policy
 <!-- OPENVPN-END -->
-- TomatoAnon project integration and GUI<br>
 - TomatoThemeBase project integration and GUI<br>
 - Ethernet Ports State<br>
 - Extended MOTD (written by @Monter, modified by @Shibby)<br>

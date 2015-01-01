@@ -2538,7 +2538,6 @@ REMOVE-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',		'access.asp'],
-			['TomatoAnon',			'tomatoanon.asp'],
 			['Bandwidth Monitoring',	'bwm.asp'],
 			['IP Traffic Monitoring',	'iptraffic.asp'],
 			['Buttons/LED',			'buttons.asp'],

@@ -7,7 +7,7 @@
 	No part of this file may be used without permission.
 */
 
-//<% nvram("ppp_get_ip,pptp_server_ip,router_name,wan_ipaddr_buf,wan_domain,wan_gateway,wan_gateway_get,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,wl_closed,t_model_name,t_features,pptp_dhcp,dhcp1_start,dhcp1_num,dhcpd1_startip,dhcpd1_endip,dhcp2_start,dhcp2_num,dhcpd2_startip,dhcpd2_endip,dhcp3_start,dhcp3_num,dhcpd3_startip,dhcpd3_endip,lan1_proto,lan1_ipaddr,lan1_netmask,lan2_proto,lan2_ipaddr,lan2_netmask,lan3_proto,lan3_ipaddr,lan3_netmask,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,lan_ifnames,lan1_ifnames,lan2_ifnames,lan3_ifnames,wan_ifnames,tomatoanon_enable,tomatoanon_answer,lan_desc"); %>
+//<% nvram("ppp_get_ip,pptp_server_ip,router_name,wan_ipaddr_buf,wan_domain,wan_gateway,wan_gateway_get,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,wl_closed,t_model_name,t_features,pptp_dhcp,dhcp1_start,dhcp1_num,dhcpd1_startip,dhcpd1_endip,dhcp2_start,dhcp2_num,dhcpd2_startip,dhcpd2_endip,dhcp3_start,dhcp3_num,dhcpd3_startip,dhcpd3_endip,lan1_proto,lan1_ipaddr,lan1_netmask,lan2_proto,lan2_ipaddr,lan2_netmask,lan3_proto,lan3_ipaddr,lan3_netmask,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,lan_ifnames,lan1_ifnames,lan2_ifnames,lan3_ifnames,wan_ifnames,lan_desc"); %>
 //<% uptime(); %>
 //<% sysinfo(); %>
 //<% wlstats(1); %>
@@ -17,9 +17,6 @@ stats = { };
 do {
 	var a, b, i;
 	var xifs = ['wan', 'lan', 'lan1', 'lan2', 'lan3'];
-
-	stats.anon_enable = nvram.tomatoanon_enable;
-	stats.anon_answer = nvram.tomatoanon_answer;
 
 	stats.lan_desc = nvram.lan_desc;
 
