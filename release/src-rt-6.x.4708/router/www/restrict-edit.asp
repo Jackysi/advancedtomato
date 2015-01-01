@@ -110,7 +110,7 @@ cg.verifyFields = function(row, quiet) {
 cg.setup = function() {
 	var a, i, count, ex;
 
-	this.init('res-comp-grid', 'sort', 140, [ { type: 'text', maxlen: 32 } ] );
+	this.init('res-comp-grid', 'sort', 500, [ { type: 'text', maxlen: 32 } ] );
 	this.headerSet(['MAC / IP Address']);
 	this.showNewEditor();
 	this.resetNewEditor();
@@ -248,7 +248,7 @@ bpg.setup = function() {
 		if ((i != 6) && (i != 17)) protos.push([i, protocols[i] || i]);
 	}
 
-	this.init('res-bp-grid', 'sort', 140, [ { multi: [
+	this.init('res-bp-grid', 'sort', 500, [ { multi: [
 		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>', options: protos },
 		{ type: 'select', prefix: '<div class="box2">', suffix: '</div>',
 			options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
@@ -407,7 +407,7 @@ function saveRule()
 	data.push(E('_f_desc').value);
 	data = data.join('|');
 
-	if (data.length >= 2048) {
+	if (data.length >= 8192) {
 		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
 		return;
 	}
