@@ -1,0 +1,28 @@
+/*
+	Tomato GUI
+	Copyright (C) 2006-2007 Jonathan Zarate
+	http://www.polarcloud.com/tomato/
+
+	For use with Tomato Firmware only.
+	No part of this file may be used without permission.
+*/
+#header {
+background-color: #ffffff;
+padding: 0px 0px 20px 0px;
+border-bottom: 0px solid #ddd;
+}
+#header .title {
+	background-image: url("linksys.gif");
+	font: 0px sans-serif;
+	height: 104px;
+	width: 898px;
+}
+#header .version {
+	font: 16px sans-serif;
+	font-weight: bold;
+	margin-top: -20px;
+	padding-right: 5px;
+	text-align: right;
+#navi a {
+color: #366596;
+}
