@@ -336,7 +336,7 @@ qosg.setup = function() {
 	}
 
 	// what a mess...
-	this.init('qg', 'move', 80, [
+	this.init('qg', 'move', 128, [
 		{ multi: [
 			{ type: 'select', options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP'],[3,'Src MAC']],
 				prefix: '<div class="x1a">', suffix: '</div>' },
