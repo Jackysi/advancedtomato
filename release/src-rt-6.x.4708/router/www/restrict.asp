@@ -91,7 +91,7 @@ og.onClick = function(cell) {
 	form.submit('_fom');
 }
 og.addEntry = function() {
-	for (var i = 0; i < 140; ++i) {
+	for (var i = 0; i < 500; ++i) {
 		if ((rrules[i] == null) || (rrules[i] == '')) {
 			E('_rruleN').value = i;
 			form.submit('_fom');

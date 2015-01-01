@@ -950,7 +950,7 @@ static const nvset_t nvset_list[] = {
 
 // access restriction
 	{ "rruleN",				V_RANGE(0, 99)		},
-//	{ "rrule##",			V_LENGTH(0, 2048)	},	// in save_variables()
+//	{ "rrule##",			V_LENGTH(0, 16384)	},	// in save_variables()
 
 // admin-access
 	{ "http_enable",		V_01				},
@@ -1805,7 +1805,7 @@ static int save_variables(int write)
 	for (n = 0; n < 50; ++n) {
 		sprintf(s, "rrule%d", n);
 		if ((p = webcgi_get(s)) != NULL) {
-	        	if (strlen(p) > 2048) {
+	        	if (strlen(p) > 8192) {
 				sprintf(s, msgf, s);
 				resmsg_set(s);
 				return 0;
