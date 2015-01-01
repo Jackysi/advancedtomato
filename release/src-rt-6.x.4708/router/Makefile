@@ -1126,6 +1126,10 @@ libnfnetlink-install:
 		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so.0 && \
 		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so
 
+libnfnetlink-clean:
+	-@$(MAKE) -C libnfnetlink clean
+	@rm -f libnfnetlink/Makefile libnfnetlink/stamp-h1
+
 miniupnpd-config:
 	@cd miniupnpd && ./genconfig.sh --leasefile --vendorcfg
 
@@ -1913,6 +1917,8 @@ pcre/stamp-h1:
 	[ -d pcre/m4 ] || mkdir pcre/m4
 
 pcre: pcre/stamp-h1
+	@$(MAKE) -C pcre $(PARALLEL_BUILD)
+	cd pcre/.libs && [ ! -s include ] && ln -s .. include || true
 
 pcre-install: pcre
 	@$(SEP)
@@ -2000,6 +2006,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--with-config-file-path=/etc \
 	--with-config-file-scan-dir=/etc/php5 \
 	--disable-short-tags \
+	--with-pcre-regex="$(TOP)/pcre/.libs" \
 	--with-zlib \
 	--with-zlib-dir="$(TOP)/zlib/staged/usr" \
 	--disable-phar \
