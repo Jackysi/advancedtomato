@@ -26,7 +26,7 @@ struct nvram_tuple router_defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				, 0 },	// DHCP client [static|dhcp]
-	{ "lan_proto",			"dhcp"				, 0 },	// DHCP server [static|dhcp]  //Barry add 2004 09 16
+	{ "lan_proto",			"static"				, 0 },	// DHCP server [static|dhcp] // no dhcp if router reboots with corrupted nvram
 	{ "lan_ipaddr",			"192.168.1.1"			, 0 },	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"			, 0 },	// LAN netmask
 	{ "lan_wins",			""				, 0 },	// x.x.x.x x.x.x.x ...
@@ -87,7 +87,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wan_unit",			"0"				, 0 },	// Last configured connection
 
 	// DHCP server parameters
-	{ "dhcp_start",			"2"				, 0 },	//
+	{ "dhcp_start",			"100"				, 0 },	//
 	{ "dhcp_num",			"50"				, 0 },	//
 	{ "dhcpd_startip",		"" 				, 0 },	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				, 0 },	// "
