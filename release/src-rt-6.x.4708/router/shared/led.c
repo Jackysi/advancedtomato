@@ -223,6 +223,7 @@ int do_led(int which, int mode)
 	static int n18u[]       = { 255, 255,     6,  255,  255,  255,  255,     3,  14,  255};
 	static int r7000[]      = { 255, 255,   255,  255,  255,  -15,  255,   -17, -18,  255};
 	static int dir868[]     = { 255, 255,     3,  255,  255,   -0,  255,   255, 255,  255};
+	static int ws880[]      = { 255, 255,   -12,  255,  255,    6,  255,    14,  14,  255};
 #endif
 //                                 WLAN  DIAG  WHITE AMBER  DMZ   AOSS BRIDG   USB2 USB3   5G
 
@@ -450,6 +451,9 @@ int do_led(int which, int mode)
 			c = (mode) ? 0 : 2;
 		} else
 			b = dir868[which];
+		break;
+	case MODEL_WS880:
+		b = ws880[which];
 		break;
 
 #endif
