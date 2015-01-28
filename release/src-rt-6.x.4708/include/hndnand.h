@@ -30,6 +30,7 @@
 #define NFL_VENDOR_ESMT			0x92
 #define NFL_VENDOR_MXIC			0xC2
 #define NFL_VENDOR_ZENTEL		0xC8
+#define NFL_VENDOR_WINBOND		0xF1
 
 #define NFL_SECTOR_SIZE			512
 #define NFL_TABLE_END			0xffffffff
@@ -38,6 +39,8 @@
 /* ASUS LINUX MTD SIZE */
 #if CONFIG_LINUX_MTD == 32
 #define NFL_BOOT_OS_SIZE		0x2000000
+#elif CONFIG_LINUX_MTD == 48
+#define NFL_BOOT_OS_SIZE                0x3000000
 #elif CONFIG_LINUX_MTD == 64
 #define NFL_BOOT_OS_SIZE		0x4000000
 #elif CONFIG_LINUX_MTD == 128

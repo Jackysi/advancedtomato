@@ -907,57 +907,6 @@ int xhci_setup_addressable_virt_dev(struct xhci_hcd *xhci, struct usb_device *ud
 	return 0;
 }
 
-/*
- * Convert interval expressed as 2^(bInterval - 1) == interval into
- * straight exponent value 2^n == interval.
- *
- */
-static unsigned int xhci_parse_exponent_interval(struct usb_device *udev,
-                struct usb_host_endpoint *ep)
-{
-        unsigned int interval;
-
-        interval = clamp_val(ep->desc.bInterval, 1, 16) - 1;
-        if (interval != ep->desc.bInterval - 1)
-                dev_warn(&udev->dev,
-                         "ep %#x - rounding interval to %d %sframes\n",
-                         ep->desc.bEndpointAddress,
-                         1 << interval,
-                         udev->speed == USB_SPEED_FULL ? "" : "micro");
-
-        if (udev->speed == USB_SPEED_FULL) {
-                /*
-                 * Full speed isoc endpoints specify interval in frames,
-                 * not microframes. We are using microframes everywhere,
-                 * so adjust accordingly.
-                 */
-                interval += 3;  /* 1 frame = 2^3 uframes */
-        }
-
-        return interval;
-}
-
-/*
- * Convert bInterval expressed in frames (in 1-255 range) to exponent of
- * microframes, rounded down to nearest power of 2.
- */
-static unsigned int xhci_parse_frame_interval(struct usb_device *udev,
-                struct usb_host_endpoint *ep)
-{
-        unsigned int interval;
-
-        interval = fls(8 * ep->desc.bInterval) - 1;
-        interval = clamp_val(interval, 3, 10);
-        if ((1 << interval) != 8 * ep->desc.bInterval)
-                dev_warn(&udev->dev,
-                         "ep %#x - rounding interval to %d microframes, ep desc says %d microframes\n",
-                         ep->desc.bEndpointAddress,
-                         1 << interval,
-                         8 * ep->desc.bInterval);
-
-        return interval;
-}
-
 /* Return the polling or NAK interval.
  *
  * The polling interval is expressed in "microframes".  If xHCI's Interval field
@@ -969,48 +918,55 @@ static unsigned int xhci_parse_frame_interval(struct usb_device *udev,
 static inline unsigned int xhci_get_endpoint_interval(struct usb_device *udev,
 		struct usb_host_endpoint *ep)
 {
-        unsigned int interval = 0;
+	unsigned int interval = 0;
 
-        switch (udev->speed) {
-        case USB_SPEED_HIGH:
-                /* Max NAK rate */
-                if (usb_endpoint_xfer_control(&ep->desc) ||
-                    usb_endpoint_xfer_bulk(&ep->desc)) {
-                        interval = ep->desc.bInterval;
-                        break;
-                }
-                /* Fall through - SS and HS isoc/int have same decoding */
-
-        case USB_SPEED_SUPER:
-                if (usb_endpoint_xfer_int(&ep->desc) ||
-                    usb_endpoint_xfer_isoc(&ep->desc)) {
-                        interval = xhci_parse_exponent_interval(udev, ep);
-                }
-                break;
-
-        case USB_SPEED_FULL:
-                if (usb_endpoint_xfer_isoc(&ep->desc)) {
-                        interval = xhci_parse_exponent_interval(udev, ep);
-                        break;
-                }
-                /*
-                 * Fall through for interrupt endpoint interval decoding
-                 * since it uses the same rules as low speed interrupt
-                 * endpoints.
-                 */
-
-        case USB_SPEED_LOW:
-                if (usb_endpoint_xfer_int(&ep->desc) ||
-                    usb_endpoint_xfer_isoc(&ep->desc)) {
-
-                        interval = xhci_parse_frame_interval(udev, ep);
-                }
-                break;
-
-        default:
-                BUG();
-        }
-        return EP_INTERVAL(interval);
+	switch (udev->speed) {
+	case USB_SPEED_HIGH:
+		/* Max NAK rate */
+		if (usb_endpoint_xfer_control(&ep->desc) ||
+				usb_endpoint_xfer_bulk(&ep->desc))
+			interval = ep->desc.bInterval;
+		/* Fall through - SS and HS isoc/int have same decoding */
+	case USB_SPEED_SUPER:
+		if (usb_endpoint_xfer_int(&ep->desc) ||
+				usb_endpoint_xfer_isoc(&ep->desc)) {
+			if (ep->desc.bInterval == 0)
+				interval = 0;
+			else
+				interval = ep->desc.bInterval - 1;
+			if (interval > 15)
+				interval = 15;
+			if (interval != ep->desc.bInterval + 1)
+				dev_warn(&udev->dev, "ep %#x - rounding interval to %d microframes\n",
+						ep->desc.bEndpointAddress, 1 << interval);
+		}
+		break;
+	/* Convert bInterval (in 1-255 frames) to microframes and round down to
+	 * nearest power of 2.
+	 */
+	case USB_SPEED_FULL:
+	case USB_SPEED_LOW:
+		if (usb_endpoint_xfer_int(&ep->desc) ||
+				usb_endpoint_xfer_isoc(&ep->desc)) {
+			interval = fls(8*ep->desc.bInterval) - 1;
+			if (interval > 10)
+				interval = 10;
+			if (interval < 3)
+				interval = 3;
+			if ((1 << interval) != 8*ep->desc.bInterval)
+				dev_warn(&udev->dev,
+						"ep %#x - rounding interval"
+						" to %d microframes, "
+						"ep desc says %d microframes\n",
+						ep->desc.bEndpointAddress,
+						1 << interval,
+						8*ep->desc.bInterval);
+		}
+		break;
+	default:
+		BUG();
+	}
+	return EP_INTERVAL(interval);
 }
 
 /* The "Mult" field in the endpoint context is only set for SuperSpeed isoc eps.
@@ -1150,11 +1106,30 @@ int xhci_endpoint_init(struct xhci_hcd *xhci,
 		/* dig out max burst from ep companion desc */
 		max_packet = ep->ss_ep_comp.bMaxBurst;
 #ifdef CONFIG_BCM47XX
-		if(EP_TYPE(BULK_OUT_EP) == xhci_get_endpoint_type(udev, ep)){
-			printk("force burst = 0.\n");
-			max_packet = 0;
-		}
-#endif
+		do {
+			const int ext_cap_rbv_id = 255;
+			int ext_cap_rbv_offset;
+			void __iomem *echrbv;
+			u16 version;
+
+			/* find out offset of RBV extended capability header with cid 255 */
+			ext_cap_rbv_offset = xhci_find_ext_cap_by_id((void *)xhci->cap_regs,
+				XHCI_HCC_PARAMS_OFFSET, ext_cap_rbv_id);
+			/* skip if RBV extended capability is not found */
+			if (ext_cap_rbv_offset == 0)
+				break;
+			echrbv = (void *)xhci->cap_regs + ext_cap_rbv_offset;
+			xhci_dbg(xhci, "ECHRBV: 0x%x\n", xhci_readl(xhci, echrbv));
+			/* override max_packet to disable burst on BULK OUT if version is v1.0.0 (BCM4708 xHC) */
+			version = xhci_readl(xhci, echrbv) >> 16;
+			if ((version == 0x1000) &&
+				((xhci_get_endpoint_type(udev, ep) == EP_TYPE(BULK_OUT_EP)) ||
+				(xhci_get_endpoint_type(udev, ep) == EP_TYPE(BULK_IN_EP)))) {
+				max_packet = 0;
+				xhci_warn(xhci, "disable burst on ep %d\n", usb_endpoint_num(&ep->desc));
+			}
+		} while (0);
+#endif /* CONFIG_BCM47XX */
 		if (!max_packet)
 			xhci_warn(xhci, "WARN no SS endpoint bMaxBurst\n");
 		ep_ctx->ep_info2 |= MAX_BURST(max_packet);

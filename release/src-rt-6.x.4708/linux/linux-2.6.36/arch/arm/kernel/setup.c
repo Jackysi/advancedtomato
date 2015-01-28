@@ -822,6 +822,12 @@ void __init setup_arch(char **cmdline_p)
 	arm_memblock_init(&meminfo, mdesc);
 
 	paging_init(mdesc);
+
+#ifdef CONFIG_DUMP_PREV_OOPS_MSG
+        if( reserve_bootmem(0x0, 0x2000, BOOTMEM_EXCLUSIVE) < 0 )
+                printk("**** reserve bootmem fail ****\n");
+#endif
+
 	request_standard_resources(&meminfo, mdesc);
 
 #ifdef CONFIG_SMP
@@ -921,8 +927,6 @@ static int c_show(struct seq_file *m, void *v)
 		   loops_per_jiffy / (500000/HZ),
 		   (loops_per_jiffy / (5000/HZ)) % 100);
 #endif
-	//Sysinfo
-	seq_printf(m, "cpu MHz   \t\t: %d\n", loops_per_jiffy / (500000/HZ));
 
 	/* dump out the processor features */
 	seq_puts(m, "Features\t: ");

@@ -760,7 +760,7 @@ struct mtd_partition brcmnand_parts[] = {
 	},
 	{
 		.name = "jffs2",
-		.size = (32 * 0x100000UL),
+		.size = (64 * 0x100000UL),
 		.offset = (64 * 0x100000UL),
 	},
 	{
@@ -782,6 +782,9 @@ init_brcmnand_mtd_partitions(struct mtd_info *mtd, uint64_t size)
 	if (knldev == SOC_KNLDEV_NANDFLASH)
 		offset = nfl_boot_os_size(brcmnand->nfl);
 
+#ifdef CONFIG_DUAL_TRX
+		offset = offset*2; //Dual Trx
+#endif
 	/* Since JFFS2 still uses uint32 for size, hence we have to force the size < 4GB */
 	if (size >= ((uint64_t)4 << 30))
 		size = ((uint64_t)4 << 30) - mtd->erasesize;
