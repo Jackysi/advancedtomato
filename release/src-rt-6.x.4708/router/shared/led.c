@@ -221,6 +221,7 @@ int do_led(int which, int mode)
 	static int ac68u[]      = { 255, 255,   255,  255,  255,   -4,  255,    -0, -14,  255};
 	static int ac56u[]      = { 255, 255,   255,  255,  255,   -3,  255,    -0, -14,  255};
 	static int n18u[]       = { 255, 255,     6,  255,  255,  255,  255,     3,  14,  255};
+	static int r6300v2[]    = { -11, 255,   255,  255,  255,    1,  255,    -8,  -8,  255};
 	static int r7000[]      = { 255, 255,   255,  255,  255,  -15,  255,   -17, -18,  255};
 	static int dir868[]     = { 255, 255,     3,  255,  255,   -0,  255,   255, 255,  255};
 #endif
@@ -434,6 +435,14 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_RTN18U:
 		b = n18u[which];
+		break;
+	case MODEL_R6300v2:
+		if (which == LED_DIAG) {
+			// power led gpio: -3 - orange, -2 - green
+			b = (mode) ? 2 : 3;
+			c = (mode) ? 3 : 2;
+		} else
+			b = r6300v2[which];
 		break;
 	case MODEL_R7000:
 		if (which == LED_DIAG) {

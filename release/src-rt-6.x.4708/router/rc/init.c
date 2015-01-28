@@ -572,6 +572,10 @@ static int init_vlan_ports(void)
 		break;
 #endif
 #ifdef CONFIG_BCMWL6A
+	case MODEL_R6300v2:
+		dirty |= check_nv("vlan1ports", "3 2 1 0 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
+		break;
 	case MODEL_RTAC56U:
 	case MODEL_DIR868L:
 		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
@@ -1490,9 +1494,10 @@ static int init_nvram(void)
 			nvram_set("wl_country_code", "SG");
 		}
 		break;
+	case MODEL_R6300v2:
 	case MODEL_R7000:
 		mfr = "Netgear";
-		name = "R7000";
+		name = nvram_match("boardnum", "32") ? "R7000" : "R6250/R6300v2";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");

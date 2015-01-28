@@ -46,14 +46,14 @@
 #define FW_REGION            WW_VERSION   /* true f/w region */
 
 /*formal version control*/
-#define AMBIT_HARDWARE_VERSION     "U12H270T00"
-#define AMBIT_SOFTWARE_VERSION     "V1.0.3.24"
-#define AMBIT_UI_VERSION           "1.1.20"
-#define STRING_TBL_VERSION         "1.0.3.24_2.1.36.1"
+#define AMBIT_HARDWARE_VERSION     "U12H245T00"
+#define AMBIT_SOFTWARE_VERSION     "V1.0.0.47"
+#define AMBIT_UI_VERSION           "1.0.47"
+#define STRING_TBL_VERSION         "1.0.0.44_2.1.17.1"
 
-#define AMBIT_PRODUCT_NAME          "R7000"
-#define AMBIT_PRODUCT_DESCRIPTION   "802.11ac Dual Band Gigabit Wireless Router R7000"
-#define UPnP_MODEL_URL              "R7000.aspx"
+#define AMBIT_PRODUCT_NAME          "R6250"
+#define AMBIT_PRODUCT_DESCRIPTION   "802.11ac Dual Band Gigabit Wireless Router R6250"
+#define UPnP_MODEL_URL              "R6250.aspx"
 #define UPnP_MODEL_DESCRIPTION      "802.11ac"
 
 #define AMBIT_NVRAM_VERSION  "1" /* digital only */
@@ -73,22 +73,22 @@
 #define WLAN_N_IF_NAME_NUM          "eth2"
 #define WDS_IF_NAME_NUM             "wds0.1"    /* WDS interface */
 
-/* Foxconn add start by aspen Bai, 11/13/2008 */
+/* Fiji add start by aspen Bai, 11/13/2008 */
 #ifdef MULTIPLE_SSID
 #define WLAN_BSS1_NAME_NUM          "wl0.1"     /* Multiple BSSID #2 */
 #define WLAN_BSS2_NAME_NUM          "wl0.2"     /* Multiple BSSID #3 */
 #define WLAN_BSS3_NAME_NUM          "wl0.3"     /* Multiple BSSID #4 */
 
-/* Foxconn add start, Tony W.Y. Wang, 03/22/2010 @For 5G*/
+/* Fiji add start, Tony W.Y. Wang, 03/22/2010 @For 5G*/
 #define WLAN_5G_BSS1_NAME_NUM       "wl1.1"     /* Multiple BSSID #2 */
 #define WLAN_5G_BSS2_NAME_NUM       "wl1.2"     /* Multiple BSSID #3 */
 #define WLAN_5G_BSS3_NAME_NUM       "wl1.3"     /* Multiple BSSID #4 */
-/* Foxconn add end, Tony W.Y. Wang, 03/22/2010 @For 5G*/
+/* Fiji add end, Tony W.Y. Wang, 03/22/2010 @For 5G*/
 #endif /* MULTIPLE_SSID */
-/* Foxconn add end by aspen Bai, 11/13/2008 */
+/* Fiji add end by aspen Bai, 11/13/2008 */
 
 /* GPIO definitions */
-/* Foxconn modified start, Wins, 04/11/2011 */
+/* Fiji modified start, Wins, 04/11/2011 */
 
 #define GPIO_POWER_LED_GREEN        2
 #define GPIO_POWER_LED_GREEN_STR    "2"
@@ -100,14 +100,16 @@
 #define GPIO_LOGO_LED_2             9
 #define GPIO_LOGO_LED_2_STR         "9"
 
-#define GPIO_WAN_LED                8
-#define GPIO_WAN_LED_2              9
+#define GPIO_WAN_LED                15
+#define GPIO_WAN_LED_2              12
 
 
-#define GPIO_WIFI_2G_LED            13
-#define GPIO_WIFI_5G_LED            12
-#define GPIO_WIFI_SUMMARY_LED       15
-
+#if (defined R6300v2) || (defined R6250)
+#define GPIO_WIFI_5G_LED            11
+#else
+#define GPIO_WIFI_2G_LED            9
+#define GPIO_WIFI_5G_LED            11
+#endif
 
 #define LANG_TBL_MTD_RD             "/dev/mtdblock"
 #define LANG_TBL_MTD_WR             "/dev/mtd"
@@ -188,12 +190,11 @@
 #define BACKUP_FILE_KEY         "NtgrBak"
 /* wklin added end, 11/22/2006 */
 
-/* Foxconn Perry added start, 2011/04/13, for document URL */
+/* Fiji Perry added start, 2011/04/13, for document URL */
 #define DOCUMENT_URL		"http://documentation.netgear.com/wndr4500/enu/202-10581-01/index.htm"
-/* Foxconn Perry added end, 2011/04/13, for document URL */
+/* Fiji Perry added end, 2011/04/13, for document URL */
 
-/* Foxconn Perry added start, 2011/08/17, for USB Support level */
-#define USB_support_level        "13"       /* pling modified 5->13, add bit 4 for Readyshare Vault */
-/* Foxconn Perry added end, 2011/08/17, for USB Support level */
-
+/* Fiji Perry added start, 2011/08/17, for USB Support level */
+#define USB_support_level        "5"
+/* Fiji Perry added end, 2011/08/17, for USB Support level */
 #endif /*_AMBITCFG_H*/

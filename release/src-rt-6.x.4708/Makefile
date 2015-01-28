@@ -153,9 +153,11 @@ endif
 ifeq ($(ASUS_TRX),DLINK)
 	ctools/trx_asus -i image/linux-lzma.trx -r DIR868L,3.0.0.4,image/tomato-DIR868L-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
-# for R7000
+# for R7000, R6300v2, R6250
 ifeq ($(ASUS_TRX),NETGEAR)
 	ctools/trx_asus -i image/linux-lzma.trx -r R7000,3.0.0.4,image/tomato-R7000-$(V1)$(V2)-$(current_BUILD_DESC).trx
+#	ctools/trx_asus -i image/linux-lzma.trx -r R6300v2,3.0.0.4,image/tomato-R6300v2-$(V1)$(V2)-$(current_BUILD_DESC).trx
+#	ctools/trx_asus -i image/linux-lzma.trx -r R6250,3.0.0.4,image/tomato-R6250-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
 	@rm -f image/linux-lzma.trx
 	@echo ""
@@ -170,7 +172,7 @@ ifneq ($(NETGEAR_CHK),0)
 	cd image && touch rootfs
 	cd image && $(WNRTOOL)/packet -k linux-lzma.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image \
 		-oall kernel_rootfs_image -or rootfs_image -i $(FW_FILE) && rm -f rootfs && \
-		cp kernel_rootfs_image.chk tomato-R7000-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
+		cp kernel_rootfs_image.chk tomato-$(NETGEAR_CHK)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
 	@echo "Cleanup ...."
 	@rm -rf image/linux-lzma.trx image/*image.chk
 endif
@@ -878,6 +880,12 @@ r7000z:
 
 r7000init:
 	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R7000" CTF=y BOARDID_FILE="compatible_r7000.txt" FW_CFG_FILE="ambitCfg-r7000.h"
+
+#r6250init:
+#	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R6250" CTF=y BOARDID_FILE="compatible_r6250.txt" FW_CFG_FILE="ambitCfg-r6250.h"
+
+#r6300v2init:
+#	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R6300v2" CTF=y BOARDID_FILE="compatible_r6300v2.txt" FW_CFG_FILE="ambitCfg-r6300v2.h"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
