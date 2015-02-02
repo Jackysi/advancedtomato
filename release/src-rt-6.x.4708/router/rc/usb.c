@@ -92,6 +92,9 @@ void start_usb(void)
 	if (get_model() == MODEL_DIR868L) {
 		xstart("gpio", "enable", "10");
 	}
+	if (get_model() == MODEL_WS880) {
+		xstart("gpio", "enable", "7");
+	}
 
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
@@ -378,6 +381,9 @@ void stop_usb(void)
 
 	if (get_model() == MODEL_DIR868L) {
 		xstart("gpio", "disable", "10");
+	}
+	if (get_model() == MODEL_WS880) {
+		xstart("gpio", "disable", "7");
 	}
 
 	}

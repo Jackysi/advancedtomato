@@ -101,7 +101,7 @@ R6250				BCM4708               0x0646       679       0x1110 //same as R6300v2 w
 R6300v2				BCM4708               0x0646       679       0x1110
 
 DIR-868L			BCM4708               0x0646       24        0x1110
-
+WS880				BCM4708               0x0646       1234      0x1101
 F7D4301 v1			BCM4718               0xd4cf       12345     0x1204
 F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
 F5D8235-4 v3			BCM4718               0xa4cf       12345     0x1100
@@ -355,6 +355,7 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679"))) return MODEL_R6300v2;
 		if ((nvram_match("boardrev", "0x1301")) && (nvram_match("boardnum", "32"))) return MODEL_R7000;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "24"))) return MODEL_DIR868L;
+		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("boardnum", "1234"))) return MODEL_WS880;
 	}
 #endif
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {

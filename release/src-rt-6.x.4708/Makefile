@@ -159,6 +159,10 @@ ifeq ($(ASUS_TRX),NETGEAR)
 #	ctools/trx_asus -i image/linux-lzma.trx -r R6300v2,3.0.0.4,image/tomato-R6300v2-$(V1)$(V2)-$(current_BUILD_DESC).trx
 #	ctools/trx_asus -i image/linux-lzma.trx -r R6250,3.0.0.4,image/tomato-R6250-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
+# for WS880
+ifeq ($(ASUS_TRX),HUAWEI)
+	ctools/trx_asus -i image/linux-lzma.trx -r WS880,3.0.0.4,image/tomato-WS880-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 	@rm -f image/linux-lzma.trx
 	@echo ""
 endif
@@ -886,6 +890,12 @@ r7000init:
 
 #r6300v2init:
 #	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R6300v2" CTF=y BOARDID_FILE="compatible_r6300v2.txt" FW_CFG_FILE="ambitCfg-r6300v2.h"
+
+ws880e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="HUAWEI" UFSD="ASUS" CTF=y GRO=y SNMP=y
+
+ws880z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="HUAWEI" UFSD="ASUS" CTF=y GRO=y NGINX=y SNMP=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
