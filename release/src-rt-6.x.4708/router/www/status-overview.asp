@@ -53,7 +53,7 @@ lastjiffiesusage = 100;
 <script type='text/javascript' src='status-data.jsx?_http_id=<% nv(http_id); %>'></script>
 
 <script type='text/javascript'>
-show_dhcpc = ((nvram.wan_proto == 'dhcp') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
+show_dhcpc = ((nvram.wan_proto == 'dhcp') || (nvram.wan_proto == 'lte') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
 show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'ppp3g'));
 
 show_radio = [];
@@ -391,7 +391,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wan_hwaddr },
-	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'3G Modem' }[nvram.wan_proto] || '-' },
+	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'3G Modem', 'lte':'4G/LTE' }[nvram.wan_proto] || '-' },
 	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
 	{ title: 'Previous WAN IP', rid: 'wanprebuf', text: stats.wanprebuf, hidden: ((nvram.wan_proto != 'pppoe') && (nvram.wan_proto != 'pptp') && (nvram.wan_proto != 'l2tp') && (nvram.wan_proto != 'ppp3g')) }, //Victek
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },

@@ -13,7 +13,11 @@ else
 DEVNR=`nvram get modem_dev`
 PIN=`nvram get modem_pin`
 IS_PIN=`nvram get modem_pin | wc -w`
+MODE=`nvram get wan_proto`
 
+if [ "$MODE" == "lte" ]; then
+    exit 0
+fi
 
 # is modem ready?
 DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
