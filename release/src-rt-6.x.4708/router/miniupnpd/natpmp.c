@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.45 2014/04/22 08:48:36 nanard Exp $ */
+/* $Id: natpmp.c,v 1.50 2014/10/27 16:11:31 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2014 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/uio.h>
 
 #include "macros.h"
 #include "config.h"
@@ -53,7 +54,7 @@ INLINE void writenu32(uint8_t * p, uint32_t n)
 #define WRITENU32(p, n) writenu32(p, n)
 INLINE void writenu16(uint8_t * p, uint16_t n)
 {
-	p[0] = (n < 0xff00) >> 8;
+	p[0] = (n & 0xff00) >> 8;
 	p[1] = n & 0xff;
 }
 #define WRITENU16(p, n) writenu16(p, n)
@@ -161,9 +162,63 @@ static void FillPublicAddressResponse(unsigned char * resp, in_addr_t senderaddr
  */
 int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
                              socklen_t * senderaddrlen,
+                             struct sockaddr_in6 * receiveraddr,
                              unsigned char * msg_buff, size_t msg_buff_size)
 {
+#if IPV6_PKTINFO
+	struct iovec iov;
+	uint8_t c[1000];
+	struct msghdr msg;
+	int n;
+	struct cmsghdr *h;
 
+	iov.iov_base = msg_buff;
+	iov.iov_len = msg_buff_size;
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_name = senderaddr;
+	msg.msg_namelen = *senderaddrlen;
+	msg.msg_control = c;
+	msg.msg_controllen = sizeof(c);
+
+	n = recvmsg(s, &msg, 0);
+	if(n < 0) {
+		/* EAGAIN, EWOULDBLOCK and EINTR : silently ignore (retry next time)
+		 * other errors : log to LOG_ERR */
+		if(errno != EAGAIN &&
+		   errno != EWOULDBLOCK &&
+		   errno != EINTR) {
+			syslog(LOG_ERR, "recvmsg(natpmp): %m");
+		}
+		return n;
+	}
+
+	if(receiveraddr) {
+		memset(receiveraddr, 0, sizeof(struct sockaddr_in6));
+	}
+	if ((msg.msg_flags & MSG_TRUNC) || (msg.msg_flags & MSG_CTRUNC)) {
+		syslog(LOG_WARNING, "%s: truncated message",
+		       "ReceiveNATPMPOrPCPPacket");
+	}
+	for(h = CMSG_FIRSTHDR(&msg); h;
+	    h = CMSG_NXTHDR(&msg, h)) {
+		if(h->cmsg_level == IPPROTO_IPV6 && h->cmsg_type == IPV6_PKTINFO) {
+			char tmp[INET6_ADDRSTRLEN];
+			struct in6_pktinfo *ipi6 = (struct in6_pktinfo *)CMSG_DATA(h);
+			syslog(LOG_DEBUG, "%s: packet destination: %s scope_id=%u",
+			       "ReceiveNATPMPOrPCPPacket",
+			       inet_ntop(AF_INET6, &ipi6->ipi6_addr, tmp, sizeof(tmp)),
+			       ipi6->ipi6_ifindex);
+			if(receiveraddr) {
+				receiveraddr->sin6_addr = ipi6->ipi6_addr;
+				receiveraddr->sin6_scope_id = ipi6->ipi6_ifindex;
+				receiveraddr->sin6_family = AF_INET6;
+				receiveraddr->sin6_port = htons(NATPMP_PORT);
+			}
+		}
+	}
+#else
 	int n;
 
 	n = recvfrom(s, msg_buff, msg_buff_size, 0,
@@ -179,6 +234,7 @@ int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
 		}
 		return n;
 	}
+#endif
 
 	return n;
 }
@@ -250,60 +306,57 @@ void ProcessIncomingNATPMPPacket(int s, unsigned char *msg_buff, int len,
 			                 "%hu->%s:%hu %s lifetime=%us",
 			                 eport, senderaddrstr, iport,
 			                 (req[1]==1)?"udp":"tcp", lifetime);
-			if(eport==0)
-				eport = iport;
 			/* TODO: accept port mapping if iport ok but eport not ok
 			 * (and set eport correctly) */
 			if(lifetime == 0) {
 				/* remove the mapping */
-				if(iport == 0) {
-					/* remove all the mappings for this client */
-					int index = 0;
-					unsigned short eport2, iport2;
-					char iaddr2[16];
-					int proto2;
-					char desc[64];
-					while(get_redirect_rule_by_index(index, 0,
-					          &eport2, iaddr2, sizeof(iaddr2),
-							  &iport2, &proto2,
-							  desc, sizeof(desc),
-					          0, 0, &timestamp, 0, 0) >= 0) {
-						syslog(LOG_DEBUG, "%d %d %hu->'%s':%hu '%s'",
-						       index, proto2, eport2, iaddr2, iport2, desc);
-						if(0 == strcmp(iaddr2, senderaddrstr)
-						  && 0 == memcmp(desc, "NAT-PMP", 7)) {
+				/* RFC6886 :
+				 * A client MAY also send an explicit packet to request deletion of a
+				 * mapping that is no longer needed. A client requests explicit
+				 * deletion of a mapping by sending a message to the NAT gateway
+				 * requesting the mapping, with the Requested Lifetime in Seconds set to
+				 * zero. The Suggested External Port MUST be set to zero by the client
+				 * on sending, and MUST be ignored by the gateway on reception. */
+				int index = 0;
+				unsigned short eport2, iport2;
+				char iaddr2[16];
+				int proto2;
+				char desc[64];
+				eport = 0; /* to indicate correct removing of port mapping */
+				while(get_redirect_rule_by_index(index, 0,
+				          &eport2, iaddr2, sizeof(iaddr2),
+						  &iport2, &proto2,
+						  desc, sizeof(desc),
+				          0, 0, &timestamp, 0, 0) >= 0) {
+					syslog(LOG_DEBUG, "%d %d %hu->'%s':%hu '%s'",
+					       index, proto2, eport2, iaddr2, iport2, desc);
+					if(0 == strcmp(iaddr2, senderaddrstr)
+					  && 0 == memcmp(desc, "NAT-PMP", 7)) {
+						/* (iport == 0) => remove all the mappings for this client */
+						if((iport == 0) || ((iport == iport2) && (proto == proto2))) {
 							r = _upnp_delete_redir(eport2, proto2);
-							/* TODO : check return value */
-							if(r<0) {
-								syslog(LOG_ERR, "failed to remove port mapping");
-								index++;
+							if(r < 0) {
+								syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
+								       eport2, (proto2==IPPROTO_TCP)?"TCP":"UDP");
+								resp[3] = 2;	/* Not Authorized/Refused */
+								break;
 							} else {
 								syslog(LOG_INFO, "NAT-PMP %s port %hu mapping removed",
 								       proto2==IPPROTO_TCP?"TCP":"UDP", eport2);
+								index--;
 							}
-						} else {
-							index++;
 						}
 					}
-				} else {
-					/* To improve the interworking between nat-pmp and
-					 * UPnP, we should check that we remove only NAT-PMP
-					 * mappings */
-					r = _upnp_delete_redir(eport, proto);
-					/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
-					if(r<0) {
-						syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
-						       eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
-						resp[3] = 2;	/* Not Authorized/Refused */
-					}
+					index++;
 				}
-				eport = 0; /* to indicate correct removing of port mapping */
 			} else if(iport==0) {
 				resp[3] = 2;	/* Not Authorized/Refused */
 			} else { /* iport > 0 && lifetime > 0 */
 				unsigned short eport_first = 0;
 				int any_eport_allowed = 0;
 				char desc[64];
+				if(eport==0)	/* if no suggested external port, use same a internal port */
+					eport = iport;
 				while(resp[3] == 0) {
 					if(eport_first == 0) { /* first time in loop */
 						eport_first = eport;
