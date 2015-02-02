@@ -23,6 +23,7 @@
 
 #define CLIENT_CACHE_SLOTS 25
 
+/* Client capability/quirk flags */
 #define FLAG_DLNA               0x00000001
 #define FLAG_MIME_AVI_DIVX      0x00000002
 #define FLAG_MIME_AVI_AVI       0x00000004
@@ -30,11 +31,14 @@
 #define FLAG_MIME_WAV_WAV       0x00000010
 #define FLAG_RESIZE_THUMBS      0x00000020
 #define FLAG_NO_RESIZE          0x00000040
-#define FLAG_MS_PFS             0x00000080 // Microsoft PlaysForSure client
+#define FLAG_MS_PFS             0x00000080 /* Microsoft PlaysForSure client */
 #define FLAG_SAMSUNG            0x00000100
-#define FLAG_SAMSUNG_TV         0x00000200
+#define FLAG_SAMSUNG_DCM10      0x00000200
 #define FLAG_AUDIO_ONLY         0x00000400
 #define FLAG_FORCE_SORT         0x00000800
+#define FLAG_CAPTION_RES        0x00001000
+/* Response-related flags */
+#define FLAG_HAS_CAPTIONS       0x80000000
 
 enum match_types {
 	EMatchNone,
@@ -61,11 +65,15 @@ enum client_types {
 	ERokuSoundBridge,
 	ESamsungSeriesA,
 	ESamsungSeriesB,
+	ESamsungSeriesCDEBDP,
 	ESamsungSeriesCDE,
 	ESonyBDP,
 	ESonyBravia,
 	ESonyInternetTV,
 	EToshibaTV,
+	EAsusOPlay,
+	EBubbleUPnP,
+	ENetFrontLivingConnect,
 	EStandardDLNA150,
 	EStandardUPnP
 };
@@ -81,14 +89,15 @@ struct client_type_s {
 struct client_cache_s {
 	struct in_addr addr;
 	unsigned char mac[6];
-	enum client_types type;
+	struct client_type_s *type;
 	time_t age;
+	int connections;
 };
 
 extern struct client_type_s client_types[];
 extern struct client_cache_s clients[CLIENT_CACHE_SLOTS];
 
-int SearchClientCache(struct in_addr addr, int quiet);
-int AddClientCache(struct in_addr addr, int type);
+struct client_cache_s *SearchClientCache(struct in_addr addr, int quiet);
+struct client_cache_s *AddClientCache(struct in_addr addr, int type);
 
 #endif

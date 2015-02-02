@@ -63,11 +63,13 @@ AddMulticastMembership(int s, struct lan_addr_s *iface)
 #ifdef HAVE_STRUCT_IP_MREQN
 	struct ip_mreqn imr;	/* Ip multicast membership */
 	/* setting up imr structure */
+	memset(&imr, '\0', sizeof(imr));
 	imr.imr_multiaddr.s_addr = inet_addr(SSDP_MCAST_ADDR);
 	imr.imr_ifindex = iface->ifindex;
 #else
 	struct ip_mreq imr;	/* Ip multicast membership */
 	/* setting up imr structure */
+	memset(&imr, '\0', sizeof(imr));
 	imr.imr_multiaddr.s_addr = inet_addr(SSDP_MCAST_ADDR);
 	imr.imr_interface.s_addr = iface->addr.s_addr;
 #endif
@@ -234,7 +236,7 @@ SendSSDPResponse(int s, struct sockaddr_in sockname, int st_no,
 		(runtime_vars.notify_interval<<1)+10,
 		tmstr,
 		known_service_types[st_no],
-		(st_no>1?"1":""),
+		(st_no > 1 ? "1" : ""),
 		uuidvalue,
 		(st_no > 0 ? "::" : ""),
 		(st_no > 0 ? known_service_types[st_no] : ""),
@@ -317,7 +319,7 @@ ParseUPnPClient(char *location)
 	char *off = NULL, *p;
 	int content_len = sizeof(buf);
 	struct NameValueParserData xml;
-	int client;
+	struct client_cache_s *client;
 	int type = 0;
 	char *model, *serial, *name;
 
@@ -364,7 +366,7 @@ ParseUPnPClient(char *location)
 	{
 		nread += n;
 		buf[nread] = '\0';
-		n = nread;
+		n = nread - 4;
 		p = buf;
 
 		while (!off && (n-- > 0))
@@ -456,14 +458,14 @@ close:
 		return;
 	/* Add this client to the cache if it's not there already. */
 	client = SearchClientCache(dest.sin_addr, 1);
-	if (client < 0)
+	if (!client)
 	{
 		AddClientCache(dest.sin_addr, type);
 	}
 	else
 	{
-		clients[client].type = type;
-		clients[client].age = time(NULL);
+		client->type = &client_types[type];
+		client->age = time(NULL);
 	}
 }
 
@@ -544,13 +546,13 @@ ProcessSSDPRequest(int s, unsigned short port)
 		    (strstrc(srv, "DigiOn DiXiM", '\r') != NULL)) /* Marantz Receiver */
 		{
 			/* Check if the client is already in cache */
-			i = SearchClientCache(sendername.sin_addr, 1);
-			if (i >= 0)
+			struct client_cache_s *client = SearchClientCache(sendername.sin_addr, 1);
+			if (client)
 			{
-				if (clients[i].type < EStandardDLNA150 &&
-				    clients[i].type != ESamsungSeriesA)
+				if (client->type->type < EStandardDLNA150 &&
+				    client->type->type != ESamsungSeriesA)
 				{
-					clients[i].age = time(NULL);
+					client->age = time(NULL);
 					return;
 				}
 			}
@@ -772,7 +774,7 @@ SubmitServicesToMiniSSDPD(const char *host, unsigned short port)
 		return -1;
 	}
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, minissdpdsocketpath, sizeof(addr.sun_path));
+	strncpyt(addr.sun_path, minissdpdsocketpath, sizeof(addr.sun_path));
 	if (connect(s, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0)
 	{
 		DPRINTF(E_ERROR, L_SSDP, "connect(\"%s\"): %s",

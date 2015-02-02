@@ -1,11 +1,5 @@
-/* Album art extraction, caching, and scaling
- *
- * Project : minidlna
- * Website : http://sourceforge.net/projects/minidlna/
- * Author  : Justin Maggard
- *
- * MiniDLNA media server
- * Copyright (C) 2008  Justin Maggard
+/* MiniDLNA media server
+ * Copyright (C) 2014  NETGEAR
  *
  * This file is part of MiniDLNA.
  *
@@ -21,10 +15,22 @@
  * You should have received a copy of the GNU General Public License
  * along with MiniDLNA. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __ALBUMART_H__
-#define __ALBUMART_H__
 
-void update_if_album_art(const char *path);
-int64_t find_album_art(const char *path, uint8_t *image_data, int image_size);
+struct magic_container_s {
+	const char *name;
+	const char *objectid_match;
+	const char **objectid;
+	const char *objectid_sql;
+	const char *parentid_sql;
+	const char *refid_sql;
+	const char *child_count;
+	const char *where;
+	const char *orderby;
+	int max_count;
+	int required_flags;
+};
 
-#endif
+extern struct magic_container_s magic_containers[];
+
+struct magic_container_s *in_magic_container(const char *id, int flags, const char **real_id);
+struct magic_container_s *check_magic_container(const char *id, int flags);
