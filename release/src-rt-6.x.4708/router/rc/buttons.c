@@ -192,6 +192,11 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 7;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_WS880:
+		reset_mask = 1 << 2;
+		ses_mask = 1 << 3;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_EA6500V1:
 		reset_mask = 1 << 3;
 		ses_mask = 1 << 4;

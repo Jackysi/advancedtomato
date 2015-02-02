@@ -245,6 +245,9 @@ int check_wanup(void)
 		if (get_model() == MODEL_DIR868L) {
 			led(LED_WHITE,LED_OFF);
 		}
+		if (get_model() == MODEL_WS880) {
+			led(LED_WHITE,LED_OFF);
+		}
 		 return 0;
 	}
 
@@ -297,6 +300,9 @@ int check_wanup(void)
 		led(LED_WHITE,up);
 	}
 	if (get_model() == MODEL_DIR868L) {
+		led(LED_WHITE,up);
+	}
+	if (get_model() == MODEL_WS880) {
 		led(LED_WHITE,up);
 	}
 
