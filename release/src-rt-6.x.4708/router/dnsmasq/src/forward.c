@@ -22,7 +22,6 @@ static struct frec *lookup_frec_by_sender(unsigned short id,
 					  void *hash);
 static unsigned short get_id(void);
 static void free_frec(struct frec *f);
-static struct randfd *allocate_rfd(int family);
 
 #ifdef HAVE_DNSSEC
 static int tcp_key_recurse(time_t now, int status, struct dns_header *header, size_t n, 
@@ -427,7 +426,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	  
 	  if (type == (start->flags & SERV_TYPE) &&
 	      (type != SERV_HAS_DOMAIN || hostname_isequal(domain, start->domain)) &&
-	      !(start->flags & SERV_LITERAL_ADDRESS))
+             !(start->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
 	    {
 	      int fd;
 
@@ -541,13 +540,13 @@ static size_t process_reply(struct dns_header *header, time_t now, struct server
       struct ipsets *ipset_pos;
       unsigned int namelen = strlen(daemon->namebuff);
       unsigned int matchlen = 0;
-      for (ipset_pos = daemon->ipsets; ipset_pos; ipset_pos = ipset_pos->next) 
+      for (ipset_pos = daemon->ipsets; ipset_pos; ipset_pos = ipset_pos->next)
 	{
 	  unsigned int domainlen = strlen(ipset_pos->domain);
 	  char *matchstart = daemon->namebuff + namelen - domainlen;
 	  if (namelen >= domainlen && hostname_isequal(matchstart, ipset_pos->domain) &&
 	      (domainlen == 0 || namelen == domainlen || *(matchstart - 1) == '.' ) &&
-	      domainlen >= matchlen) 
+	      domainlen >= matchlen)
 	    {
 	      matchlen = domainlen;
 	      sets = ipset_pos->sets;
@@ -1049,7 +1048,7 @@ void receive_query(struct listener *listen, time_t now)
   /* packet buffer overwritten */
   daemon->srv_save = NULL;
   
-  dst_addr_4.s_addr = 0;
+  dst_addr_4.s_addr = dst_addr.addr.addr4.s_addr = 0;
   netmask.s_addr = 0;
   
   if (option_bool(OPT_NOWILD) && listen->iface)
@@ -1058,7 +1057,7 @@ void receive_query(struct listener *listen, time_t now)
      
       if (listen->family == AF_INET)
 	{
-	  dst_addr_4 = listen->iface->addr.in.sin_addr;
+	  dst_addr_4 = dst_addr.addr.addr4 = listen->iface->addr.in.sin_addr;
 	  netmask = listen->iface->netmask;
 	}
     }
@@ -1119,7 +1118,7 @@ void receive_query(struct listener *listen, time_t now)
 	  struct in_addr netmask;
 	  for (addr = daemon->interface_addrs; addr; addr = addr->next)
 	    {
-	      netmask.s_addr = 0xffffffff << (32 - addr->prefixlen);
+	      netmask.s_addr = htonl(~(in_addr_t)0 << (32 - addr->prefixlen));
 	      if (!(addr->flags & ADDRLIST_IPV6) &&
 		  is_same_net(addr->addr.addr.addr4, source_addr.in.sin_addr, netmask))
 		break;
@@ -1271,6 +1270,12 @@ void receive_query(struct listener *listen, time_t now)
 	      break;
 	    }
 #endif
+      
+#ifdef HAVE_LOOP
+      /* Check for forwarding loop */
+      if (detect_loop(daemon->namebuff, type))
+       return;
+#endif
     }
   
 #ifdef HAVE_AUTH
@@ -1349,12 +1354,12 @@ static int do_check_sign(time_t now, struct dns_header *header, size_t plen, cha
   unsigned char *p;
   int status;
 
-  /* In this case only, a SERVFAIL reply allows us to continue up the tree, looking for a 
+  /* In this case only, a SERVFAIL reply allows us to continue up the tree, looking for a
      suitable NSEC reply to DS queries. */
   if (RCODE(header) != SERVFAIL)
-    { 
+    {
       status = dnssec_validate_ds(now, header, plen, name, keyname, class);
-      
+
       if (status != STAT_INSECURE)
 	{
 	  if (status == STAT_NO_DS)
@@ -1453,7 +1458,7 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
 	      newhash = hash_questions(header, (unsigned int)m, name);
 	      if (newhash && memcmp(hash, newhash, HASH_SIZE) == 0)
 		{
-		   /* In this case only, a SERVFAIL reply allows us to continue up the tree, looking for a 
+		   /* In this case only, a SERVFAIL reply allows us to continue up the tree, looking for a
 		      suitable NSEC reply to DS queries. */
 		  if (RCODE(header) == SERVFAIL)
 		    status = STAT_INSECURE;
@@ -1647,7 +1652,7 @@ unsigned char *tcp_request(int confd, time_t now,
 	  struct in_addr netmask;
 	  for (addr = daemon->interface_addrs; addr; addr = addr->next)
 	    {
-	      netmask.s_addr = 0xffffffff << (32 - addr->prefixlen);
+	      netmask.s_addr = htonl(~(in_addr_t)0 << (32 - addr->prefixlen));
 	      if (!(addr->flags & ADDRLIST_IPV6) && 
 		  is_same_net(addr->addr.addr.addr4, peer_addr.in.sin_addr, netmask))
 		break;
@@ -1782,7 +1787,8 @@ unsigned char *tcp_request(int confd, time_t now,
 		      
 		      /* server for wrong domain */
 		      if (type != (last_server->flags & SERV_TYPE) ||
-			  (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)))
+                         (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)) ||
+                         (last_server->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
 			continue;
 		      
 		      if (last_server->tcpfd == -1)
@@ -1790,6 +1796,24 @@ unsigned char *tcp_request(int confd, time_t now,
 			  if ((last_server->tcpfd = socket(last_server->addr.sa.sa_family, SOCK_STREAM, 0)) == -1)
 			    continue;
 			  
+#ifdef HAVE_CONNTRACK
+			  /* Copy connection mark of incoming query to outgoing connection. */
+			  if (option_bool(OPT_CONNTRACK))
+			    {
+			      unsigned int mark;
+			      struct all_addr local;
+#ifdef HAVE_IPV6		      
+			      if (local_addr->sa.sa_family == AF_INET6)
+				local.addr.addr6 = local_addr->in6.sin6_addr;
+			      else
+#endif
+				local.addr.addr4 = local_addr->in.sin_addr;
+			      
+			      if (get_incoming_mark(&peer_addr, &local, 1, &mark))
+				setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+			    }
+#endif	
+		      
 			  if ((!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
 			       connect(last_server->tcpfd, &last_server->addr.sa, sa_len(&last_server->addr)) == -1))
 			    {
@@ -1814,24 +1838,6 @@ unsigned char *tcp_request(int confd, time_t now,
 			      size = new_size;
 			    }
 #endif
-			  
-#ifdef HAVE_CONNTRACK
-			  /* Copy connection mark of incoming query to outgoing connection. */
-			  if (option_bool(OPT_CONNTRACK))
-			    {
-			      unsigned int mark;
-			      struct all_addr local;
-#ifdef HAVE_IPV6		      
-			      if (local_addr->sa.sa_family == AF_INET6)
-				local.addr.addr6 = local_addr->in6.sin6_addr;
-			      else
-#endif
-				local.addr.addr4 = local_addr->in.sin_addr;
-			      
-			      if (get_incoming_mark(&peer_addr, &local, 1, &mark))
-				setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
-			    }
-#endif	
 			}
 		      
 		      *length = htons(size);
@@ -1958,7 +1964,7 @@ static struct frec *allocate_frec(time_t now)
   return f;
 }
 
-static struct randfd *allocate_rfd(int family)
+struct randfd *allocate_rfd(int family)
 {
   static int finger = 0;
   int i;
@@ -1993,19 +1999,22 @@ static struct randfd *allocate_rfd(int family)
 
   return NULL; /* doom */
 }
+
+void free_rfd(struct randfd *rfd)
+{
+  if (rfd && --(rfd->refcount) == 0)
+    close(rfd->fd);
+}
+
 static void free_frec(struct frec *f)
 {
-  if (f->rfd4 && --(f->rfd4->refcount) == 0)
-    close(f->rfd4->fd);
-    
+  free_rfd(f->rfd4);
   f->rfd4 = NULL;
   f->sentto = NULL;
   f->flags = 0;
   
 #ifdef HAVE_IPV6
-  if (f->rfd6 && --(f->rfd6->refcount) == 0)
-    close(f->rfd6->fd);
-    
+  free_rfd(f->rfd6);
   f->rfd6 = NULL;
 #endif
 
@@ -2129,6 +2138,25 @@ static struct frec *lookup_frec_by_sender(unsigned short id,
       return f;
    
   return NULL;
+}
+ 
+/* Send query packet again, if we can. */
+void resend_query()
+{
+  if (daemon->srv_save)
+    {
+      int fd;
+      
+      if (daemon->srv_save->sfd)
+	fd = daemon->srv_save->sfd->fd;
+      else if (daemon->rfd_save && daemon->rfd_save->refcount != 0)
+	fd = daemon->rfd_save->fd;
+      else
+	return;
+      
+      while(sendto(fd, daemon->packet, daemon->packet_len, 0,
+		   &daemon->srv_save->addr.sa, sa_len(&daemon->srv_save->addr)) == -1 && retry_send()); 
+    }
 }
 
 /* A server record is going away, remove references to it */

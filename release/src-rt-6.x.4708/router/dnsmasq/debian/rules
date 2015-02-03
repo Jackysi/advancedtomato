@@ -11,21 +11,19 @@
 
 package=dnsmasq-base
 
-CFLAGS = $(shell export DEB_BUILD_OPTIONS=$(DEB_BUILD_OPTIONS); dpkg-buildflags --get CFLAGS)
-CFLAGS += $(shell dpkg-buildflags --get CPPFLAGS)
+dpkg_buildflags := DEB_BUILD_MAINT_OPTIONS="hardening=+all" dpkg-buildflags
+
+CFLAGS = $(shell $(dpkg_buildflags) --get CFLAGS)
+CFLAGS += $(shell $(dpkg_buildflags) --get CPPFLAGS)
 CFLAGS += -Wall -W
 
-LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS)
+LDFLAGS = $(shell $(dpkg_buildflags) --get LDFLAGS)
 
 DEB_COPTS = $(COPTS)
 
-# The nettle library in Debian is too old to include
-# ECC support.
-DEB_COPTS += -DNO_NETTLE_ECC
-
 TARGET = install-i18n
 
-DEB_BUILD_ARCH_OS := $(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
+DEB_HOST_ARCH_OS := $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
 # Force package version based on git tags.
 ifneq (,$(filter gitversion,$(DEB_BUILD_OPTIONS)))
@@ -37,7 +35,7 @@ ifeq (,$(filter nodbus,$(DEB_BUILD_OPTIONS)))
 endif
 
 ifeq (,$(filter noconntrack,$(DEB_BUILD_OPTIONS)))
-ifeq ($(DEB_BUILD_ARCH_OS),linux)
+ifeq ($(DEB_HOST_ARCH_OS),linux)
      DEB_COPTS += -DHAVE_CONNTRACK
 endif
 endif
@@ -83,6 +81,11 @@ endif
 
 ifeq (,$(filter nodnssec,$(DEB_BUILD_OPTIONS)))
      DEB_COPTS += -DHAVE_DNSSEC
+endif
+
+ifneq ($(DEB_HOST_ARCH_OS),linux)
+     # For strlcpy in FreeBSD
+     LDFLAGS += -lbsd
 endif
 
 clean:
@@ -134,7 +137,9 @@ binary-arch:	checkroot
 	        -d debian/base/var/lib/misc
 	make $(TARGET) PREFIX=/usr DESTDIR=`pwd`/debian/base CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" COPTS="$(DEB_COPTS)" CC=gcc
 ifeq (,$(findstring nodocs,$(DEB_BUILD_OPTIONS)))
-	install -m 644 doc.html debian/base/usr/share/doc/$(package)/.
+# Need to remove paypal links in Debian Package for policy reasons.
+	sed -e /\<H2\>Donations/Q -e /icon.png/d doc.html -e /favicon.ico/d >debian/base/usr/share/doc/$(package)/doc.html
+	echo "</BODY>" >>debian/base/usr/share/doc/$(package)/doc.html 
 	install -m 644 setup.html debian/base/usr/share/doc/$(package)/.
 	install -m 644 dnsmasq.conf.example debian/base/usr/share/doc/$(package)/examples/.
 	install -m 644 trust-anchors.conf debian/base/usr/share/$(package)/.
@@ -171,7 +176,7 @@ endif
 	chmod -R g-ws debian/base 
 	dpkg --build debian/base ..
 
-ifeq ($(DEB_BUILD_ARCH_OS),linux)
+ifeq ($(DEB_HOST_ARCH_OS),linux)
 	rm -rf debian/utils
 	install -m 755 -d debian/utils/DEBIAN \
                        -d debian/utils/usr/share/man/man1 \

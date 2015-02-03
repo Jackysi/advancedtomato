@@ -26,7 +26,14 @@
 #  include <nettle/ecc-curve.h>
 #endif
 #include <nettle/nettle-meta.h>
-#include <gmp.h>
+#include <nettle/bignum.h>
+
+/* Nettle-3.0 moved to a new API for DSA. We use a name that's defined in the new API
+   to detect Nettle-3, and invoke the backwards compatibility mode. */
+#ifdef dsa_params_init
+#include <nettle/dsa-compat.h>
+#endif
+
 
 #define SERIAL_UNDEF  -100
 #define SERIAL_EQ        0
@@ -120,8 +127,8 @@ static int hash_init(const struct nettle_hash *hash, void **ctxp, unsigned char 
   return 1;
 }
   
-static int rsa_verify(struct blockdata *key_data, unsigned int key_len, unsigned char *sig, size_t sig_len,
-		      unsigned char *digest, int algo)
+static int dnsmasq_rsa_verify(struct blockdata *key_data, unsigned int key_len, unsigned char *sig, size_t sig_len,
+			      unsigned char *digest, int algo)
 {
   unsigned char *p;
   size_t exp_len;
@@ -172,8 +179,8 @@ static int rsa_verify(struct blockdata *key_data, unsigned int key_len, unsigned
   return 0;
 }  
 
-static int dsa_verify(struct blockdata *key_data, unsigned int key_len, unsigned char *sig, size_t sig_len,
-		      unsigned char *digest, int algo)
+static int dnsmasq_dsa_verify(struct blockdata *key_data, unsigned int key_len, unsigned char *sig, size_t sig_len,
+			      unsigned char *digest, int algo)
 {
   unsigned char *p;
   unsigned int t;
@@ -292,10 +299,10 @@ static int verify(struct blockdata *key_data, unsigned int key_len, unsigned cha
   switch (algo)
     {
     case 1: case 5: case 7: case 8: case 10:
-      return rsa_verify(key_data, key_len, sig, sig_len, digest, algo);
+      return dnsmasq_rsa_verify(key_data, key_len, sig, sig_len, digest, algo);
       
     case 3: case 6: 
-      return dsa_verify(key_data, key_len, sig, sig_len, digest, algo);
+      return dnsmasq_dsa_verify(key_data, key_len, sig, sig_len, digest, algo);
  
 #ifndef NO_NETTLE_ECC   
     case 13: case 14:
@@ -2192,7 +2199,7 @@ size_t filter_rrsigs(struct dns_header *header, size_t plen)
 
   /* First pass, find pointers to start and end of all the records we wish to elide:
      records added for DNSSEC, unless explicity queried for */
-  for (rr_found = 0, chop_ns = 0, chop_an = 0, chop_ar = 0, i = 0; 
+  for (rr_found = 0, chop_ns = 0, chop_an = 0, chop_ar = 0, i = 0;
        i < ntohs(header->ancount) + ntohs(header->nscount) + ntohs(header->arcount);
        i++)
     {
