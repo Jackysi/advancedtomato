@@ -148,7 +148,7 @@ REMOVE-END */
 		E('_f_upnp_lan3').checked = false;
 	if ((enable) && (!E('_f_upnp_lan').checked) && (!E('_f_upnp_lan1').checked) && (!E('_f_upnp_lan2').checked) && (!E('_f_upnp_lan3').checked)) {
 		if ((E('_f_enable_natpmp').checked) || (E('_f_enable_upnp').checked)) {
-			var m = 'NAT-PMP or UPnP should be enabled in least one LAN bridge. You may continue but remember to configure an access to UPnP service by Custom Configuration'';
+			var m = 'NAT-PMP or UPnP should be enabled in least one LAN bridge. You may continue but remember to configure an access to UPnP service by Custom Configuration';
 			ferror.set('_f_enable_natpmp', m, quiet);
 			ferror.set('_f_enable_upnp', m, 1);
 			ferror.set('_f_upnp_lan', m, 1);
