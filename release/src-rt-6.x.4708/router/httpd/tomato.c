@@ -1490,11 +1490,11 @@ static const nvset_t nvset_list[] = {
 	{"tinc_devicetype",		V_TEXT(3, 3)		}, // tun, tap
 	{"tinc_mode",			V_TEXT(3, 6)		}, // switch, hub
 	{"tinc_vpn_netmask",		V_IP			},
-	{"tinc_private_rsa",		V_LENGTH(0, 1700)	},
-	{"tinc_private_ecdsa",		V_LENGTH(0, 280)	},
+	{"tinc_private_rsa",		V_NONE			},
+	{"tinc_private_ed25519",	V_NONE			},
 	{"tinc_custom",			V_NONE			},
 	{"tinc_hosts",			V_NONE			},
-	{"tinc_manual_firewall",	V_RANGE(0, 1)		},
+	{"tinc_manual_firewall",	V_RANGE(0, 2)		},
 	{"tinc_manual_tinc_up",		V_RANGE(0, 1)		},
 	// scripts
 	{"tinc_tinc_up",		V_NONE			},
@@ -1503,6 +1503,7 @@ static const nvset_t nvset_list[] = {
 	{"tinc_host_down",		V_NONE			},
 	{"tinc_subnet_up",		V_NONE			},
 	{"tinc_subnet_down",		V_NONE			},
+	{"tinc_firewall",		V_NONE			},
 #endif
 
 #ifdef TCONFIG_TOR

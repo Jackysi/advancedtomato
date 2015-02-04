@@ -962,11 +962,11 @@ struct nvram_tuple router_defaults[] = {
 	{"tinc_mode",			"switch"	, 0 }, // switch, hub
 	{"tinc_vpn_netmask",		"255.255.0.0"	, 0 },
 	{"tinc_private_rsa",		""		, 0 },
-	{"tinc_private_ecdsa",		""		, 0 },
+	{"tinc_private_ed25519",	""		, 0 },
 	{"tinc_custom",			""		, 0 },
 	{"tinc_hosts",			""		, 0 },
 	{"tinc_manual_firewall",	""		, 0 },
-	{"tinc_manual_tinc_up",		""		, 0 },
+	{"tinc_manual_tinc_up",		"0"		, 0 },
 	// scripts
 	{"tinc_tinc_up",		""		, 0 },
 	{"tinc_tinc_down",		""		, 0 },
@@ -974,6 +974,7 @@ struct nvram_tuple router_defaults[] = {
 	{"tinc_host_down",		""		, 0 },
 	{"tinc_subnet_up",		""		, 0 },
 	{"tinc_subnet_down",		""		, 0 },
+	{"tinc_firewall",		""		, 0 },
 #endif
 
 #ifdef TCONFIG_BT
