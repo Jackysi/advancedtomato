@@ -148,7 +148,7 @@ REMOVE-END */
 		E('_f_upnp_lan3').checked = false;
 	if ((enable) && (!E('_f_upnp_lan').checked) && (!E('_f_upnp_lan1').checked) && (!E('_f_upnp_lan2').checked) && (!E('_f_upnp_lan3').checked)) {
 		if ((E('_f_enable_natpmp').checked) || (E('_f_enable_upnp').checked)) {
-			var m = 'NAT-PMP or UPnP must be enabled in least one LAN bridge';
+			var m = 'NAT-PMP or UPnP should be enabled in least one LAN bridge. You may continue but remember to configure an access to UPnP service by Custom Configuration'';
 			ferror.set('_f_enable_natpmp', m, quiet);
 			ferror.set('_f_enable_upnp', m, 1);
 			ferror.set('_f_upnp_lan', m, 1);
@@ -156,7 +156,7 @@ REMOVE-END */
 			ferror.set('_f_upnp_lan2', m, 1);
 			ferror.set('_f_upnp_lan3', m, 1);
 		}
-		return 0;
+		return 1;
 	} else {
 		ferror.clear('_f_enable_natpmp');
 		ferror.clear('_f_enable_upnp');
@@ -260,7 +260,7 @@ REMOVE-END */
 	{ title: 'Secure Mode', name: 'f_upnp_secure', type: 'checkbox',
 		suffix: ' <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
 		value: (nvram.upnp_secure == '1') },
-	{ title: 'Listen on' },
+	{ title: 'Enabled on' },
 	{ title: 'LAN', indent: 2, name: 'f_upnp_lan', type: 'checkbox', value: (nvram.upnp_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_upnp_lan1', type: 'checkbox', value: (nvram.upnp_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
