@@ -1,7 +1,7 @@
 /*
     device.c -- Interaction with Linux ethertap and tun/tap device
     Copyright (C) 2001-2005 Ivo Timmermans,
-                  2001-2013 Guus Sliepen <guus@tinc-vpn.org>
+                  2001-2014 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -105,15 +105,25 @@ static bool setup_device(void) {
 
 	logger(DEBUG_ALWAYS, LOG_INFO, "%s is a %s", device, device_info);
 
+	if(ifr.ifr_flags & IFF_TAP) {
+		struct ifreq ifr_mac = {};
+		if(!ioctl(device_fd, SIOCGIFHWADDR, &ifr_mac))
+			memcpy(mymac.x, ifr_mac.ifr_hwaddr.sa_data, ETH_ALEN);
+		else
+			logger(DEBUG_ALWAYS, LOG_WARNING, "Could not get MAC address of %s: %s", device, strerror(errno));
+	}
+
 	return true;
 }
 
 static void close_device(void) {
 	close(device_fd);
+	device_fd = -1;
 
-	free(type);
-	free(device);
-	free(iface);
+	free(type); type = NULL;
+	free(device); device = NULL;
+	free(iface); iface = NULL;
+	device_info = NULL;
 }
 
 static bool read_packet(vpn_packet_t *packet) {
@@ -121,7 +131,7 @@ static bool read_packet(vpn_packet_t *packet) {
 
 	switch(device_type) {
 		case DEVICE_TYPE_TUN:
-			inlen = read(device_fd, packet->data + 10, MTU - 10);
+			inlen = read(device_fd, DATA(packet) + 10, MTU - 10);
 
 			if(inlen <= 0) {
 				logger(DEBUG_ALWAYS, LOG_ERR, "Error while reading from %s %s: %s",
@@ -129,11 +139,11 @@ static bool read_packet(vpn_packet_t *packet) {
 				return false;
 			}
 
-			memset(packet->data, 0, 12);
+			memset(DATA(packet), 0, 12);
 			packet->len = inlen + 10;
 			break;
 		case DEVICE_TYPE_TAP:
-			inlen = read(device_fd, packet->data, MTU);
+			inlen = read(device_fd, DATA(packet), MTU);
 
 			if(inlen <= 0) {
 				logger(DEBUG_ALWAYS, LOG_ERR, "Error while reading from %s %s: %s",
@@ -159,15 +169,15 @@ static bool write_packet(vpn_packet_t *packet) {
 
 	switch(device_type) {
 		case DEVICE_TYPE_TUN:
-			packet->data[10] = packet->data[11] = 0;
-			if(write(device_fd, packet->data + 10, packet->len - 10) < 0) {
+			DATA(packet)[10] = DATA(packet)[11] = 0;
+			if(write(device_fd, DATA(packet) + 10, packet->len - 10) < 0) {
 				logger(DEBUG_ALWAYS, LOG_ERR, "Can't write to %s %s: %s", device_info, device,
 					   strerror(errno));
 				return false;
 			}
 			break;
 		case DEVICE_TYPE_TAP:
-			if(write(device_fd, packet->data, packet->len) < 0) {
+			if(write(device_fd, DATA(packet), packet->len) < 0) {
 				logger(DEBUG_ALWAYS, LOG_ERR, "Can't write to %s %s: %s", device_info, device,
 					   strerror(errno));
 				return false;

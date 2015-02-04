@@ -37,12 +37,13 @@ typedef struct node_status_t {
 	unsigned int indirect:1;                /* 1 if this node is not directly reachable by us */
 	unsigned int sptps:1;                   /* 1 if this node supports SPTPS */
 	unsigned int udp_confirmed:1;           /* 1 if the address is one that we received UDP traffic on */
-	unsigned int broadcast:1;		/* 1 if the next UDP packet should be broadcast to the local network */
+	unsigned int send_locally:1;		/* 1 if the next UDP packet should be sent on the local network */
 	unsigned int unused:23;
 } node_status_t;
 
 typedef struct node_t {
 	char *name;                             /* name of this node */
+	node_id_t id;                           /* unique node ID (name hash) */
 	uint32_t options;                       /* options turned on for this node */
 
 	int sock;                               /* Socket to use for outgoing UDP packets */
@@ -111,6 +112,7 @@ extern void free_node(node_t *);
 extern void node_add(node_t *);
 extern void node_del(node_t *);
 extern node_t *lookup_node(char *);
+extern node_t *lookup_node_id(const node_id_t *);
 extern node_t *lookup_node_udp(const sockaddr_t *);
 extern bool dump_nodes(struct connection_t *);
 extern bool dump_traffic(struct connection_t *);

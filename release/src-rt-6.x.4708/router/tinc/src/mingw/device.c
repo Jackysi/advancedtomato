@@ -1,7 +1,7 @@
 /*
     device.c -- Interaction with Windows tap driver in a MinGW environment
     Copyright (C) 2002-2005 Ivo Timmermans,
-                  2002-2013 Guus Sliepen <guus@tinc-vpn.org>
+                  2002-2014 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,53 +36,50 @@
 
 int device_fd = -1;
 static HANDLE device_handle = INVALID_HANDLE_VALUE;
+static io_t device_read_io;
+static OVERLAPPED device_read_overlapped;
+static vpn_packet_t device_read_packet;
 char *device = NULL;
 char *iface = NULL;
 static char *device_info = NULL;
 
-static uint64_t device_total_in = 0;
-static uint64_t device_total_out = 0;
-
 extern char *myport;
 
-static DWORD WINAPI tapreader(void *bla) {
+static void device_issue_read() {
+	device_read_overlapped.Offset = 0;
+	device_read_overlapped.OffsetHigh = 0;
+
 	int status;
-	DWORD len;
-	OVERLAPPED overlapped;
-	vpn_packet_t packet;
-
-	logger(DEBUG_ALWAYS, LOG_DEBUG, "Tap reader running");
-
-	/* Read from tap device and send to parent */
-
-	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-
-	for(;;) {
-		overlapped.Offset = 0;
-		overlapped.OffsetHigh = 0;
-		ResetEvent(overlapped.hEvent);
-
-		status = ReadFile(device_handle, (void *)packet.data, MTU, &len, &overlapped);
-
-		if(!status) {
-			if(GetLastError() == ERROR_IO_PENDING) {
-				WaitForSingleObject(overlapped.hEvent, INFINITE);
-				if(!GetOverlappedResult(device_handle, &overlapped, &len, FALSE))
-					continue;
-			} else {
+	for (;;) {
+		DWORD len;
+		status = ReadFile(device_handle, (void *)device_read_packet.data, MTU, &len, &device_read_overlapped);
+		if (!status) {
+			if (GetLastError() != ERROR_IO_PENDING)
 				logger(DEBUG_ALWAYS, LOG_ERR, "Error while reading from %s %s: %s", device_info,
 					   device, strerror(errno));
-				return -1;
-			}
+			break;
 		}
 
-		EnterCriticalSection(&mutex);
-		packet.len = len;
-		packet.priority = 0;
-		route(myself, &packet);
-		event_flush_output();
-		LeaveCriticalSection(&mutex);
+		device_read_packet.len = len;
+		device_read_packet.priority = 0;
+		route(myself, &device_read_packet);
 	}
+}
+
+static void device_handle_read(void *data, int flags) {
+	ResetEvent(device_read_overlapped.hEvent);
+
+	DWORD len;
+	if (!GetOverlappedResult(device_handle, &device_read_overlapped, &len, FALSE)) {
+		logger(DEBUG_ALWAYS, LOG_ERR, "Error getting read result from %s %s: %s", device_info,
+			   device, strerror(errno));
+		return;
+	}
+
+	device_read_packet.len = len;
+	device_read_packet.priority = 0;
+	route(myself, &device_read_packet);
+	device_issue_read();
 }
 
 static bool setup_device(void) {
@@ -94,12 +91,10 @@ static bool setup_device(void) {
 	char adaptername[1024];
 	char tapname[1024];
 	DWORD len;
-	unsigned long status;
 
 	bool found = false;
 
 	int err;
-	HANDLE thread;
 
 	get_config_string(lookup_config(config_tree, "Device"), &device);
 	get_config_string(lookup_config(config_tree, "Interface"), &iface);
@@ -191,20 +186,6 @@ static bool setup_device(void) {
 		overwrite_mac = 1;
 	}
 
-	/* Start the tap reader */
-
-	thread = CreateThread(NULL, 0, tapreader, NULL, 0, NULL);
-
-	if(!thread) {
-		logger(DEBUG_ALWAYS, LOG_ERR, "System call `%s' failed: %s", "CreateThread", winerror(GetLastError()));
-		return false;
-	}
-
-	/* Set media status for newer TAP-Win32 devices */
-
-	status = true;
-	DeviceIoControl(device_handle, TAP_IOCTL_SET_MEDIA_STATUS, &status, sizeof status, &status, sizeof status, &len, NULL);
-
 	device_info = "Windows tap device";
 
 	logger(DEBUG_ALWAYS, LOG_INFO, "%s (%s) is a %s", device, iface, device_info);
@@ -212,11 +193,36 @@ static bool setup_device(void) {
 	return true;
 }
 
-static void close_device(void) {
-	CloseHandle(device_handle);
+static void enable_device(void) {
+	logger(DEBUG_ALWAYS, LOG_INFO, "Enabling %s", device_info);
 
-	free(device);
-	free(iface);
+	ULONG status = 1;
+	DWORD len;
+	DeviceIoControl(device_handle, TAP_IOCTL_SET_MEDIA_STATUS, &status, sizeof status, &status, sizeof status, &len, NULL);
+
+	io_add_event(&device_read_io, device_handle_read, NULL, CreateEvent(NULL, TRUE, FALSE, NULL));
+	device_read_overlapped.hEvent = device_read_io.event;
+	device_issue_read();
+}
+
+static void disable_device(void) {
+	logger(DEBUG_ALWAYS, LOG_INFO, "Disabling %s", device_info);
+
+	io_del(&device_read_io);
+	CancelIo(device_handle);
+	CloseHandle(device_read_overlapped.hEvent);
+
+	ULONG status = 0;
+	DWORD len;
+	DeviceIoControl(device_handle, TAP_IOCTL_SET_MEDIA_STATUS, &status, sizeof status, &status, sizeof status, &len, NULL);
+}
+
+static void close_device(void) {
+	CloseHandle(device_handle); device_handle = INVALID_HANDLE_VALUE;
+
+	free(device); device = NULL;
+	free(iface); iface = NULL;
+	device_info = NULL;
 }
 
 static bool read_packet(vpn_packet_t *packet) {
@@ -230,20 +236,12 @@ static bool write_packet(vpn_packet_t *packet) {
 	logger(DEBUG_TRAFFIC, LOG_DEBUG, "Writing packet of %d bytes to %s",
 			   packet->len, device_info);
 
-	if(!WriteFile(device_handle, packet->data, packet->len, &outlen, &overlapped)) {
+	if(!WriteFile(device_handle, DATA(packet), packet->len, &outlen, &overlapped)) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Error while writing to %s %s: %s", device_info, device, winerror(GetLastError()));
 		return false;
 	}
 
-	device_total_out += packet->len;
-
 	return true;
-}
-
-static void dump_device_stats(void) {
-	logger(DEBUG_ALWAYS, LOG_DEBUG, "Statistics for %s %s:", device_info, device);
-	logger(DEBUG_ALWAYS, LOG_DEBUG, " total bytes in:  %10"PRIu64, device_total_in);
-	logger(DEBUG_ALWAYS, LOG_DEBUG, " total bytes out: %10"PRIu64, device_total_out);
 }
 
 const devops_t os_devops = {
@@ -251,5 +249,6 @@ const devops_t os_devops = {
 	.close = close_device,
 	.read = read_packet,
 	.write = write_packet,
-	.dump_stats = dump_device_stats,
+	.enable = enable_device,
+	.disable = disable_device,
 };

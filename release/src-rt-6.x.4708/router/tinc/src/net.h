@@ -32,8 +32,8 @@
 #define MTU 1518        /* 1500 bytes payload + 14 bytes ethernet header + 4 bytes VLAN tag */
 #endif
 
-/* MAXSIZE is the maximum size of an encapsulated packet: MTU + seqno + padding + HMAC + compressor overhead */
-#define MAXSIZE (MTU + 4 + CIPHER_MAX_BLOCK_SIZE + DIGEST_MAX_SIZE + MTU/64 + 20)
+/* MAXSIZE is the maximum size of an encapsulated packet: MTU + seqno + srcid + dstid + padding + HMAC + compressor overhead */
+#define MAXSIZE (MTU + 4 + sizeof(node_id_t) + sizeof(node_id_t) + CIPHER_MAX_BLOCK_SIZE + DIGEST_MAX_SIZE + MTU/64 + 20)
 
 /* MAXBUFSIZE is the maximum size of a request: enough for a MAXSIZEd packet or a 8192 bits RSA key */
 #define MAXBUFSIZE ((MAXSIZE > 2048 ? MAXSIZE : 2048) + 128)
@@ -52,7 +52,12 @@ typedef struct ipv6_t {
 	uint16_t x[8];
 } ipv6_t;
 
+typedef struct node_id_t {
+	uint8_t x[6];
+} node_id_t;
+
 typedef short length_t;
+typedef uint32_t seqno_t;
 
 #define AF_UNKNOWN 255
 
@@ -80,10 +85,16 @@ typedef union sockaddr_t {
 #define SALEN(s) (s.sa_family==AF_INET?sizeof(struct sockaddr_in):sizeof(struct sockaddr_in6))
 #endif
 
+#define SEQNO(x) ((x)->data + (x)->offset - 4)
+#define SRCID(x) ((node_id_t *)((x)->data + (x)->offset - 6))
+#define DSTID(x) ((node_id_t *)((x)->data + (x)->offset - 12))
+#define DATA(x) ((x)->data + (x)->offset)
+#define DEFAULT_PACKET_OFFSET 12
+
 typedef struct vpn_packet_t {
-	length_t len;           /* the actual number of bytes in the `data' field */
+	length_t len;           /* The actual number of valid bytes in the `data' field (including seqno or dstid/srcid) */
+	length_t offset;        /* Offset in the buffer where the packet data starts (righter after seqno or dstid/srcid) */
 	int priority;           /* priority or TOS */
-	uint32_t seqno;         /* 32 bits sequence number (network byte order of course) */
 	uint8_t data[MAXSIZE];
 } vpn_packet_t;
 
@@ -126,7 +137,6 @@ extern int seconds_till_retry;
 extern int addressfamily;
 extern unsigned replaywin;
 extern bool localdiscovery;
-extern sockaddr_t localdiscovery_address;
 
 extern listen_socket_t listen_socket[MAXSOCKETS];
 extern int listen_sockets;
@@ -137,7 +147,8 @@ extern int udp_sndbuf;
 extern int max_connection_burst;
 extern bool do_prune;
 extern char *myport;
-extern int autoconnect;
+extern bool device_standby;
+extern bool autoconnect;
 extern bool disablebuggypeers;
 extern int contradicting_add_edge;
 extern int contradicting_del_edge;
@@ -172,12 +183,14 @@ extern void handle_new_meta_connection(void *, int);
 extern void handle_new_unix_connection(void *, int);
 extern int setup_listen_socket(const sockaddr_t *);
 extern int setup_vpn_in_socket(const sockaddr_t *);
-extern bool send_sptps_data(void *handle, uint8_t type, const char *data, size_t len);
-extern bool receive_sptps_record(void *handle, uint8_t type, const char *data, uint16_t len);
+extern bool send_sptps_data(void *handle, uint8_t type, const void *data, size_t len);
+extern bool receive_sptps_record(void *handle, uint8_t type, const void *data, uint16_t len);
 extern void send_packet(struct node_t *, vpn_packet_t *);
 extern void receive_tcppacket(struct connection_t *, const char *, int);
 extern void broadcast_packet(const struct node_t *, vpn_packet_t *);
 extern char *get_name(void);
+extern void device_enable(void);
+extern void device_disable(void);
 extern bool setup_myself_reloadable(void);
 extern bool setup_network(void);
 extern void setup_outgoing_connection(struct outgoing_t *);
@@ -200,8 +213,6 @@ extern void load_all_nodes(void);
 
 #ifndef HAVE_MINGW
 #define closesocket(s) close(s)
-#else
-extern CRITICAL_SECTION mutex;
 #endif
 
 #endif /* __TINC_NET_H__ */
