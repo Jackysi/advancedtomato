@@ -222,7 +222,7 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <br>
 
 <!-- OPENVPN-BEGIN -->
-<b>TomatoVPN feature:</b>
+<b>TomatoVPN feature:</b><br>
 - OpenVPN integration and GUI<br>
 <i>Copyright (C) 2010 Keith Moyer</i><br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
