@@ -78,6 +78,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
  * and there is no standard conversion function so... */
 /* And dietlibc doesn't think byteswap is ok, so.. */
 /*  #include <byteswap.h> */
+
+/*
 #define bswap_16(x) (((x) & 0x00ffU) << 8 | \
 		     ((x) & 0xff00U) >> 8)
 #define bswap_32(x) (((x) & 0x000000ffU) << 24 | \
@@ -92,7 +94,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 		     ((x) & 0x0000ff0000000000ULL) >> 24 | \
 		     ((x) & 0x00000000ff000000ULL) << 8 | \
 		     ((x) & 0x000000ff00000000ULL) >> 8)
-
+*/
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define	__cpu_to_le16(_x) (_x)
 #define __cpu_to_le32(_x) (_x)
