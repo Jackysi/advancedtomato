@@ -1038,6 +1038,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "qosl_ulc",			""				, 0 },
 	{ "qosl_dlr",			""				, 0 },
 	{ "qosl_ulr",			""				, 0 },
+	{ "limit_br0_prio",		"3"				, 0 },
 	{ "limit_br1_enable",		"0"				, 0 },
 	{ "limit_br1_dlc",		""				, 0 },
 	{ "limit_br1_ulc",		""				, 0 },

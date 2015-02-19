@@ -321,6 +321,7 @@ void new_qoslimit_start(void)
 	dlc = nvram_safe_get("qosl_dlc"); //download ceiling
 	ulr = nvram_safe_get("qosl_ulr"); //upload rate
 	ulc = nvram_safe_get("qosl_ulc"); //upload ceiling
+	prio_0 = nvram_safe_get("limit_br0_prio"); //priority
 	
 	if ((tc = fopen(qoslimitfn, "w")) == NULL) return;
 
@@ -358,16 +359,16 @@ void new_qoslimit_start(void)
 		if (!strcmp(dlc,"")) strcpy(dlc, dlr);
 		if (!strcmp(ulc,"")) strcpy(ulc, ulr);
 		fprintf(tc,
-		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
+		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQA parent 1:100 handle 100: $SFQ\n"
 		"$TFA parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
 		"\n"
-		"$TCAU parent 2:1 classid 2:100 htb rate %skbit ceil %skbit prio 3\n"
+		"$TCAU parent 2:1 classid 2:100 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQAU parent 2:100 handle 100: $SFQ\n"
 		"$TFAU parent 2:0 prio 3 protocol ip handle 100 fw flowid 2:100\n"
 		"\n"
-		,dlr,dlc
-		,ulr,ulc);
+		,dlr,dlc,prio_0
+		,ulr,ulc,prio_0);
 	}
 		
 	while (g) {
