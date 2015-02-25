@@ -480,6 +480,7 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 	int knldev;
 	int nparts = 0;
 	uint32 offset = 0;
+	uint32 maxsize = 0;
 	uint rfs_off = 0;
 	uint vmlz_off, knl_size;
 	uint32 top = 0;
@@ -510,6 +511,20 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 	}
 #endif	/* CONFIG_FAILSAFE_UPGRADE */
 
+	/* limit size for R7000 R6300V2 */
+	       
+	 if (nvram_match("boardnum", "679") && nvram_match("boardtype", "0x0646")
+	            && nvram_match("boardrev", "0x1110")) {
+	        maxsize = 0x200000;
+	        size = maxsize;
+	 }
+	
+	if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665")
+	        && nvram_match("boardrev", "0x1301")) {
+	        maxsize = 0x200000;
+	        size = maxsize;
+	}
+	
 	bootdev = soc_boot_dev((void *)sih);
 	knldev = soc_knl_dev((void *)sih);
 
@@ -646,6 +661,8 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 		bootsz = boot_partition_size(sfl_info->base);
 		printk("Boot partition size = %d(0x%x)\n", bootsz, bootsz);
 		/* Size pmon */
+		if (maxsize)
+			bootsz = maxsize;
 		bcm947xx_flash_parts[nparts].name = "boot";
 		bcm947xx_flash_parts[nparts].size = bootsz;
 		bcm947xx_flash_parts[nparts].offset = top;
@@ -675,7 +692,10 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 	/* Setup nvram MTD partition */
 	bcm947xx_flash_parts[nparts].name = "nvram";
 	bcm947xx_flash_parts[nparts].size = ROUNDUP(nvram_space, mtd->erasesize);
-	bcm947xx_flash_parts[nparts].offset = size - bcm947xx_flash_parts[nparts].size;
+	if (maxsize)
+		bcm947xx_flash_parts[nparts].offset = (size - 0x10000) - bcm947xx_flash_parts[nparts].size;
+	else
+		bcm947xx_flash_parts[nparts].offset = size - bcm947xx_flash_parts[nparts].size;
 	nparts++;
 
 	return bcm947xx_flash_parts;
@@ -851,9 +871,19 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 				nfl_boot_os_size(nfl);
 		}
 		/* prevent overwriting board_data Netgear R6300V2*/
-		if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && (nvram_match("boardrev", "0x1110"))) {
-			offset += 0x20000;
+		//if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && (nvram_match("boardrev", "0x1110"))) {
+		//	offset += 0x20000;
+		//}
+		/* fix linux offset for the R7000 R6300V2 units */
+		if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && nvram_match("boardrev", "0x1110")) {
+			offset += 0x180000;
+			bcm947xx_nflash_parts[nparts].size -= 0x180000;
 		}
+		
+		if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665") && nvram_match("boardrev", "0x1301")) {
+			bcm947xx_nflash_parts[nparts].size += 0x200000;
+		}
+		
 		bcm947xx_nflash_parts[nparts].offset = offset;
 
 		shift = lookup_nflash_rootfs_offset(nfl, mtd, offset,
@@ -894,6 +924,22 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
                 nparts++;
 #endif /* End of ASUS 2nd FW partition*/
 
+		/* again, to fix R6300V2 and R7000 */
+		if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665") && nvram_match("boardrev", "0x1301")) {
+			
+			bcm947xx_nflash_parts[nparts].name = "board_data";
+			bcm947xx_nflash_parts[nparts].size = 0x40000;
+			bcm947xx_nflash_parts[nparts].offset = 0x2200000;
+			nparts++;
+		}
+		
+		if ( nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") 
+		    && (nvram_match("boardrev", "0x1110")) ) {
+			bcm947xx_nflash_parts[nparts].name = "board_data";
+			bcm947xx_nflash_parts[nparts].size = 0x20000;
+			bcm947xx_nflash_parts[nparts].offset = 0x200000;
+			nparts++;
+		}
 #ifdef CONFIG_FAILSAFE_UPGRADE
 		/* Setup 2nd kernel MTD partition */
 		if (dual_image_on) {
