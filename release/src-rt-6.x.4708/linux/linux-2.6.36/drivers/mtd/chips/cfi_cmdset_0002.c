@@ -47,6 +47,7 @@
 #define SST49LF040B	        0x0050
 #define SST49LF008A		0x005a
 #define AT49BV6416		0x00d6
+#define MANUFACTURER_SAMSUNG    0x00ec
 
 static int cfi_amdstd_read (struct mtd_info *, loff_t, size_t, size_t *, u_char *);
 static int cfi_amdstd_write_words(struct mtd_info *, loff_t, size_t, size_t *, const u_char *);
@@ -423,18 +424,21 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 			 *      http://www.spansion.com/Support/Datasheets/s29ws-p_00_a12_e.pdf
 			 */
 			if (extp->MajorVersion != '1' ||
-			    (extp->MajorVersion == '1' && (extp->MinorVersion < '0' || extp->MinorVersion > '4'))) {
-				printk(KERN_ERR "  Unknown Amd/Fujitsu Extended Query "
-				       "version %c.%c (%#02x/%#02x).\n",
-				       extp->MajorVersion, extp->MinorVersion,
-				       extp->MajorVersion, extp->MinorVersion);
-				kfree(extp);
-				kfree(mtd);
-				return NULL;
+			    (extp->MinorVersion < '0' || extp->MinorVersion > '4')) {
+				if (cfi->mfr == MANUFACTURER_SAMSUNG &&
+	                            (extp->MajorVersion == '3' && extp->MinorVersion == '3')) {
+	                            printk(KERN_NOTICE "  Newer Samsung flash detected, "
+	                                   "should be compatibile with Amd/Fujitsu.\n");
+	                        }
+	                        else {
+	                            printk(KERN_ERR "  Unknown Amd/Fujitsu Extended Query "
+	                                   "version %c.%c.\n",  extp->MajorVersion,
+	                                   extp->MinorVersion);
+	                            kfree(extp);
+	                            kfree(mtd);
+	                            return NULL;
+	                        }
 			}
-
-			printk(KERN_INFO "  Amd/Fujitsu Extended Query version %c.%c.\n",
-			       extp->MajorVersion, extp->MinorVersion);
 
 			/* Install our own private info structure */
 			cfi->cmdset_priv = extp;
