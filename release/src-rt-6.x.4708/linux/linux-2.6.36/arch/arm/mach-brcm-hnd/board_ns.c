@@ -850,6 +850,10 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 				(nfl_boot_os_size(nfl) - nfl_boot_size(nfl)) :
 				nfl_boot_os_size(nfl);
 		}
+		/* prevent overwriting board_data Netgear R6300V2*/
+		if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && (nvram_match("boardrev", "0x1110"))) {
+			offset += 0x20000;
+		}
 		bcm947xx_nflash_parts[nparts].offset = offset;
 
 		shift = lookup_nflash_rootfs_offset(nfl, mtd, offset,
