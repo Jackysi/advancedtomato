@@ -95,6 +95,9 @@ void start_usb(void)
 	if (get_model() == MODEL_WS880) {
 		xstart("gpio", "enable", "7");
 	}
+	if (get_model() == MODEL_R6300v2) {
+		xstart("gpio", "enable", "0");
+	}
 
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
@@ -384,6 +387,9 @@ void stop_usb(void)
 	}
 	if (get_model() == MODEL_WS880) {
 		xstart("gpio", "disable", "7");
+	}
+	if (get_model() == MODEL_R6300v2) {
+		xstart("gpio", "disable", "0");
 	}
 
 	}
