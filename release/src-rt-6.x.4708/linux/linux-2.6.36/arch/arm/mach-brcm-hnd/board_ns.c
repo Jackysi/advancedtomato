@@ -511,14 +511,13 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 	}
 #endif	/* CONFIG_FAILSAFE_UPGRADE */
 
-	/* limit size for R7000 R6300V2 */
-	       
+	/* limit size for R6300V2/R6250 */
 	 if (nvram_match("boardnum", "679") && nvram_match("boardtype", "0x0646")
 	            && nvram_match("boardrev", "0x1110")) {
 	        maxsize = 0x200000;
 	        size = maxsize;
 	 }
-	
+	/* R7000 */
 	if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665")
 	        && nvram_match("boardrev", "0x1301")) {
 	        maxsize = 0x200000;
@@ -870,16 +869,12 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 				(nfl_boot_os_size(nfl) - nfl_boot_size(nfl)) :
 				nfl_boot_os_size(nfl);
 		}
-		/* prevent overwriting board_data Netgear R6300V2*/
-		//if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && (nvram_match("boardrev", "0x1110"))) {
-		//	offset += 0x20000;
-		//}
-		/* fix linux offset for the R7000 R6300V2 units */
+		/* fix linux offset for the R6300V2/R6250 units */
 		if (nvram_match("boardnum","679") && nvram_match("boardtype", "0x0646") && nvram_match("boardrev", "0x1110")) {
 			offset += 0x180000;
 			bcm947xx_nflash_parts[nparts].size -= 0x180000;
 		}
-		
+		/* R7000 */
 		if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665") && nvram_match("boardrev", "0x1301")) {
 			bcm947xx_nflash_parts[nparts].size += 0x200000;
 		}

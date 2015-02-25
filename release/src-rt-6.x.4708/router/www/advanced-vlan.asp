@@ -110,6 +110,14 @@ switch(nvram['boardtype']) {
 	COL_P4N = '0';
 		break;
 	}
+		if (nvram['boardrev'] == '0x1110' && nvram['boardnum'] == '679'){ //R6300V2
+	COL_P0N = '0';
+	COL_P1N = '1';
+	COL_P2N = '2';
+	COL_P3N = '3';
+	COL_P4N = '4';
+		break;
+	}
 		if (((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC68U')) || (nvram['model'] == 'RT-AC68R'))  { //RT-AC68U or RT-AC68R
 	COL_P0N = '4';
 	COL_P1N = '3';

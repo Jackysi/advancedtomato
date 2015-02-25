@@ -1498,7 +1498,11 @@ static int init_nvram(void)
 	case MODEL_R6300v2:
 	case MODEL_R7000:
 		mfr = "Netgear";
-		name = nvram_match("boardnum", "32") ? "R7000" : "R6250/R6300v2";
+		if(nvram_match("board_id", "U12H245T00_NETGEAR")) //R6250
+			name = "R6250";
+		else
+			name = model == MODEL_R7000 ? "R7000" : "R6300v2"; //R7000 or R6300v2
+
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
