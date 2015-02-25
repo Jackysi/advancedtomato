@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,web_dir,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd"); %>
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,web_dir,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd,http_username"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
@@ -360,10 +360,12 @@ createFieldTable('', [
 </script>
 </div>
 
-<div class='section-title'>Password</div>
+<div class='section-title'>Username / Password</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
+	{ title: 'Username', name: 'http_username', type: 'text', value: nvram.http_username },
+	null,
 	{ title: 'Password', name: 'set_password_1', type: 'password', value: '**********' },
 	{ title: '<i>(re-enter to confirm)</i>', indent: 2, name: 'set_password_2', type: 'password', value: '**********' }
 ]);
