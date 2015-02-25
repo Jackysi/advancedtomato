@@ -299,7 +299,7 @@ void new_qoslimit_start(void)
 	char *lanmask; //lan netmask
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
-	char *dlr,*dlc,*ulr,*ulc; //download / upload - rate / ceiling
+	char *dlr,*dlc,*ulr,*ulc, *prio_0; //download / upload - rate / ceiling / prio
 	int i, address_type;
 	int s[6];
 	char *waniface; //shibby
