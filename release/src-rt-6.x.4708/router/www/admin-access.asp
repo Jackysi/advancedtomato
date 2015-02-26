@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,web_dir,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd,http_username"); %>
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,web_dir,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd,http_username,http_root"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
@@ -211,6 +211,7 @@ function save()
 */
 	fom.https_crt_gen.value = E('_f_https_crt_gen').checked ? 1 : 0;
 	fom.https_crt_save.value = E('_f_https_crt_save').checked ? 1 : 0;
+	fom.http_root.value = E('_f_http_root').checked ? 1 : 0;
 
 	fom.web_wl_filter.value = E('_f_http_wireless').checked ? 0 : 1;
 
@@ -264,6 +265,7 @@ function init()
 <input type='hidden' name='https_enable'>
 <input type='hidden' name='https_crt_save'>
 <input type='hidden' name='https_crt_gen'>
+<input type='hidden' name='http_root'>
 <input type='hidden' name='remote_management'>
 <input type='hidden' name='remote_mgt_https'>
 <input type='hidden' name='web_wl_filter'>
@@ -294,6 +296,7 @@ var m = [
 		value:  (nvram.remote_management == 1) ? ((nvram.remote_mgt_https == 1) ? 2 : 1) : 0 },
 	{ title: 'Port', indent: 2, name: 'http_wanport', type: 'text', maxlen: 5, size: 7, value:  fixPort(nvram.http_wanport, 8080) },
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
+	{ title: 'Allow login as "root"', name: 'f_http_root', type: 'checkbox', value: nvram.http_root == 1 },
 	null,
 	{ title: 'Directory with GUI files', name: 'web_dir', type: 'select',
 		options: [['default','Default: /www'], ['jffs', 'Custom: /jffs/www (Experts Only!)'], ['opt', 'Custom: /opt/www (Experts Only!)'], ['tmp', 'Custom: /tmp/www (Experts Only!)']], value: nvram.web_dir, suffix: ' <small>Please be sure of your decision before change this settings!</small>' },
@@ -364,7 +367,7 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Username', name: 'http_username', type: 'text', value: nvram.http_username },
+	{ title: 'Username', name: 'http_username', type: 'text', value: nvram.http_username, suffix: '&nbsp;<small>(empty field means "admin")</small>' },
 	null,
 	{ title: 'Password', name: 'set_password_1', type: 'password', value: '**********' },
 	{ title: '<i>(re-enter to confirm)</i>', indent: 2, name: 'set_password_2', type: 'password', value: '**********' }
