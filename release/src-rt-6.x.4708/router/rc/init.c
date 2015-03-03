@@ -572,6 +572,7 @@ static int init_vlan_ports(void)
 		break;
 #endif
 #ifdef CONFIG_BCMWL6A
+	case MODEL_R6250:
 	case MODEL_R6300v2:
 		dirty |= check_nv("vlan1ports", "3 2 1 0 5*");
 		dirty |= check_nv("vlan2ports", "4 5");
@@ -1495,6 +1496,7 @@ static int init_nvram(void)
 			nvram_set("wl_country_code", "SG");
 		}
 		break;
+	case MODEL_R6250:
 	case MODEL_R6300v2:
 	case MODEL_R7000:
 		mfr = "Netgear";
