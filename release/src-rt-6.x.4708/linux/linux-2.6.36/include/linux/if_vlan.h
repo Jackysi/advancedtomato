@@ -69,6 +69,7 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
 #define VLAN_CFI_MASK		0x1000 /* Canonical Format Indicator */
 #define VLAN_TAG_PRESENT	VLAN_CFI_MASK
 #define VLAN_VID_MASK		0x0fff /* VLAN Identifier */
+#define VLAN_N_VID		4096
 
 /* found in socket.c */
 extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
@@ -79,7 +80,7 @@ extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
  */
 #define VLAN_GROUP_ARRAY_LEN          4096
 #define VLAN_GROUP_ARRAY_SPLIT_PARTS  8
-#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_GROUP_ARRAY_LEN/VLAN_GROUP_ARRAY_SPLIT_PARTS)
+#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_N_VID/VLAN_GROUP_ARRAY_SPLIT_PARTS)
 
 struct vlan_group {
 	struct net_device	*real_dev; /* The ethernet(like) device
