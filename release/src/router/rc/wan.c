@@ -996,6 +996,8 @@ void start_wan_done(char *wan_ifname)
 	start_httpd();
 
 	if (wanup) {
+        notice_set("wan", "");
+
 		SET_LED(GOT_IP);
 		run_nvscript("script_wanup", NULL, 0);
 	}
