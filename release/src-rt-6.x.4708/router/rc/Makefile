@@ -32,6 +32,7 @@ OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += new_qoslimit.o arpbind.o
 OBJS += tomatoanon.o
+OBJS += blink.o
 
 ifeq ($(TCONFIG_BCMARM),y)
 OBJS += bcmutils.o
@@ -129,6 +130,7 @@ endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	@cd $(INSTALLDIR)/sbin && ln -sf rc service
 	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons
+	@cd $(INSTALLDIR)/sbin && ln -sf rc blink
 	@cd $(INSTALLDIR)/sbin && ln -sf rc blink_5g
 	@cd $(INSTALLDIR)/sbin && ln -sf rc rcheck
 	@cd $(INSTALLDIR)/sbin && ln -sf rc radio

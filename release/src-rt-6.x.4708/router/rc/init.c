@@ -1540,6 +1540,7 @@ static int init_nvram(void)
 			nvram_set("wl1_nctrlsb", "lower");
 			nvram_set("wl_country", "SG");
 			nvram_set("wl_country_code", "SG");
+			nvram_set("blink_wl", "1");
 
 			// bcm4360ac_defaults - fix problem of loading driver failed with code 21
 			nvram_set("pci/1/1/aa2g", "7");

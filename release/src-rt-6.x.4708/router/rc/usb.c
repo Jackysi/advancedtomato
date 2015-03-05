@@ -108,10 +108,11 @@ void start_usb(void)
 #ifdef LINUX26
 		i = do_led(LED_USB, LED_PROBE);
 		if (i != 255) {
-			modprobe("ledtrig-usbdev");
+			/*modprobe("ledtrig-usbdev");
 			modprobe("leds-usb");
 			sprintf(param, "%d", i);
-			f_write_string("/proc/leds-usb/gpio_pin", param, 0, 0);
+			f_write_string("/proc/leds-usb/gpio_pin", param, 0, 0);*/
+			do_led(LED_USB, LED_OFF);
 		}
 #endif
 #ifdef TCONFIG_USBAP
@@ -331,8 +332,8 @@ void stop_usb(void)
 	if (disabled || nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
 
 #ifdef LINUX26
-	modprobe_r("leds-usb");
-	modprobe_r("ledtrig-usbdev");
+	//modprobe_r("leds-usb");
+	//modprobe_r("ledtrig-usbdev");
 	led(LED_USB, LED_OFF);
 #endif
 
@@ -911,7 +912,13 @@ static inline void usbled_proc(char *device, int add)
 		if (strcmp(p, param) == 0)
 			return;
 
-		f_write_string(add ? "/proc/leds-usb/add" : "/proc/leds-usb/remove", param, 0, 0);
+		// Remove legacy approach in the code here - rather, use do_led() function, which is designed to do this
+		// The reason for changing this ... some HW (like Netgear WNDR4000) don't work with direct GPIO write -> use do_led()!
+		//f_write_string(add ? "/proc/leds-usb/add" : "/proc/leds-usb/remove", param, 0, 0);
+		if (add)
+			do_led(LED_USB, LED_ON);
+		else
+			do_led(LED_USB, LED_OFF);    
 	}
 }
 #endif
