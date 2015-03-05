@@ -2,7 +2,7 @@
 DESTDIR=
 KERNEL_HEADERS=-I@KERNEL_HEADERS@
 
-INSTALL=install -s
+INSTALL=@INSTALL@
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -18,4 +18,4 @@ clean:
 
 install:
 	mkdir -p $(DESTDIR)$(mandir)/man8
-	install -m 644 brctl.8 $(DESTDIR)$(mandir)/man8
+	$(INSTALL) -m 644 brctl.8 $(DESTDIR)$(mandir)/man8

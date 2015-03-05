@@ -4,18 +4,11 @@ It is possible to use bridging in combination with firewalling.  This is
 a blatant violation of the OSI model, but it's very useful, so we don't
 care.
 
-How do bridging and firewalling go together?  First of all, you need a
-kernel patch against the 2.4 kernel to actually make firewalling bridged
-packets possible.  You need to apply this patch to your kernel and recompile
-it, or alternatively, download a pre-patched Red Hat 7.2 kernel RPM and use
-that.  The patch and kernel RPM are located at:
-
-	http://bridge.sourceforge.net/devel/bridge-nf/
-
-Now if you boot with this kernel, you can use the regular iptables
-firewalling as if you were doing routing.  So, rules for forwarding are
-added to the FORWARD chain, rules for input to the local machine are
-added to the INPUT chain, etc.  Things will work like you expect them to.
+Assuming you are on a non-stone age kernel (less than 5 years old).
+You can use the regular iptables firewalling as if you were doing
+routing.  So, rules for forwarding are added to the FORWARD chain,
+rules for input to the local machine are added to the INPUT chain,
+etc.  Things will work like you expect them to.
 So a rule like
 
 	# iptables -A INPUT -i eth0 -j DROP
