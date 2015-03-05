@@ -1514,18 +1514,21 @@ static int init_nvram(void)
 			nvram_set("vlan2hwname", "et0");
 			nvram_set("lan_ifname", "br0");
 			nvram_set("landevs", "vlan1 wl0 wl1");
-			nvram_set("lan_ifnames", "vlan1 eth2 eth3");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnames", "vlan2");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wandevs", "vlan2");
-			nvram_set("wl_ifnames", "eth2 eth3");
-			nvram_set("wl_ifname", "eth2");
-			nvram_set("wl0_ifname", "eth2");
-			nvram_set("wl1_ifname", "eth3");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
 
 			// fix WL mac`s
 			nvram_set("pci/1/1/macaddr", nvram_safe_get("et0macaddr"));
 			nvram_set("pci/2/1/macaddr", nvram_safe_get("et1macaddr"));
+
+			//disable second *fake* LAN interface
+			nvram_unset("et1macaddr");
 
 			// usb3.0 settings
 			nvram_set("usb_usb3", "1");
