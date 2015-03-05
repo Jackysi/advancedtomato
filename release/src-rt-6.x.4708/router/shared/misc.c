@@ -253,6 +253,9 @@ int check_wanup(void)
 		if (get_model() == MODEL_R6250) {
 			led(LED_WHITE,LED_OFF);
 		}
+		if (get_model() == MODEL_R6300v2) {
+			led(LED_WHITE,LED_OFF);
+		}
 		 return 0;
 	}
 
@@ -311,6 +314,9 @@ int check_wanup(void)
 		led(LED_WHITE,up);
 	}
 	if (get_model() == MODEL_R6250) {
+		led(LED_WHITE,up);
+	}
+	if (get_model() == MODEL_R6300v2) {
 		led(LED_WHITE,up);
 	}
 	return up;
