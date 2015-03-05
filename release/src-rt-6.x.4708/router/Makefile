@@ -1799,9 +1799,10 @@ wanuptime-install:
 
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
-	CFLAGS="-Os $(EXTRACFLAGS) -DEBT_MIN_ALIGN=4 -Wall -Wunused" \
+	CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	LOCKFILE="/var/lock/ebtables" LOCKDIR="/var/lock" \
-	BINDIR="/usr/sbin" LIBDIR="/usr/lib/ebtables" KERNEL_INCLUDES=$(LINUXDIR)/include $(if $(TCONFIG_IPV6),DO_IPV6=1,)
+	BINDIR="/usr/sbin" LIBDIR="/usr/lib/ebtables" KERNEL_DIR=$(LINUXDIR) KERNEL_INCLUDES=$(LINUXDIR)/include $(if $(TCONFIG_IPV6),DO_IPV6=1,)
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
