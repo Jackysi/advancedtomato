@@ -1187,14 +1187,6 @@ static void filter_forward(void)
 	}
 #endif
 
-#ifdef TCONFIG_PPTPD
-	//Add for pptp server
-	if (nvram_match("pptpd_enable", "1")) {
-		ipt_write("-A INPUT -p tcp --dport 1723 -j ACCEPT\n");
-		ipt_write("-A INPUT -p 47 -j ACCEPT\n");
-	}
-#endif
-
 #ifdef TCONFIG_IPV6
 	// Filter out invalid WAN->WAN connections
 	if (*wan6face)
@@ -1495,6 +1487,14 @@ static void filter6_input(void)
 			if (!c) break;
 			p = c + 1;
 		} while (*p);
+	}
+#endif
+
+#ifdef TCONFIG_PPTPD
+	//Add for pptp server
+	if (nvram_match("pptpd_enable", "1")) {
+		ipt_write("-A INPUT -p tcp --dport 1723 -j ACCEPT\n");
+		ipt_write("-A INPUT -p 47 -j ACCEPT\n");
 	}
 #endif
 
