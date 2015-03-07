@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-	{ "lan_proto",			"static"				},	// DHCP server [static|dhcp]  //start with ENABLED dhcp if nvram corrupted
+	{ "lan_proto",			"static"				},	// DHCP server [static|dhcp]  // no dhcp if router reboots with corrupted nvram - Toastman
 	{ "lan_ipaddr",			"192.168.1.1"			},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"			},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -110,7 +110,7 @@ const defaults_t defaults[] = {
 	{ "dhcp_num",			"50"				},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
-	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
+	{ "dhcp_lease",			"1440"				},	// LAN lease time in minutes
 	{ "dhcp_domain",		"wan"				},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
 	{ "wan_routes",			""				},
