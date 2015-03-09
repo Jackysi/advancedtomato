@@ -703,7 +703,7 @@ static void calc(void)
 	// cleanup stale entries
 	for (i = 0; i < speed_count; ++i) {
 		sp = &speed[i];
-		if (sp->sync == -1) {
+		if (sp->sync == (char) -1) {
 			sp->sync = 0;
 			continue;
 		}
