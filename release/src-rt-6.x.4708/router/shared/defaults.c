@@ -1026,6 +1026,8 @@ struct nvram_tuple router_defaults[] = {
 	{ "bt_ul_queue_enable",		"0"				, 0 },
 	{ "bt_ul_queue_size",		"5"				, 0 },
 	{ "bt_message",			"2"				, 0 },
+	{ "bt_log",			"0"				, 0 },
+	{ "bt_log_path",		"/var/log"			, 0 },
 #endif
 
 // new_qoslimit
