@@ -760,6 +760,15 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan2hwname", "et0");
 		break;
 #endif
+#ifdef CONFIG_BCMWL6
+	case MODEL_R7000:
+	case MODEL_R6250:
+	case MODEL_R6300v2:
+		nvram_unset("et1macaddr");
+		dirty |= check_nv("wl0_ifname", "eth1");
+		dirty |= check_nv("wl1_ifname", "eth2");
+		break;
+#endif
 
 	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
@@ -1523,12 +1532,16 @@ static int init_nvram(void)
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
 
-			// fix WL mac`s
-			nvram_set("pci/1/1/macaddr", nvram_safe_get("et0macaddr"));
-			nvram_set("pci/2/1/macaddr", nvram_safe_get("et1macaddr"));
-
 			//disable second *fake* LAN interface
 			nvram_unset("et1macaddr");
+
+			// fix WL mac for 2,4G
+			nvram_set("pci/1/1/macaddr", nvram_safe_get("et0macaddr"));
+
+			// fix WL mac for 5G
+			strcpy(s, nvram_safe_get("pci/1/1/macaddr"));
+			inc_mac(s, +1);
+			nvram_set("pci/2/1/macaddr", s);
 
 			// usb3.0 settings
 			nvram_set("usb_usb3", "1");
