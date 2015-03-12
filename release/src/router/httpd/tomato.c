@@ -1277,6 +1277,9 @@ static const nvset_t nvset_list[] = {
 	{ "bt_ul_queue_enable",         V_01                            },
 	{ "bt_ul_queue_size",           V_RANGE(1, 30)                  },
 	{ "bt_message",                 V_RANGE(0, 3)                   },
+	{ "bt_log",                     V_01                            },
+	{ "bt_log_path",                V_LENGTH(0, 50)                 },
+
 #endif
 
 #ifdef TCONFIG_NFS

@@ -1048,6 +1048,8 @@ const defaults_t defaults[] = {
 	{ "bt_ul_queue_enable",			"0"			},
 	{ "bt_ul_queue_size",			"5"			},
 	{ "bt_message",				"2"			},
+	{ "bt_log",				"0"			},
+	{ "bt_log_path",			"/var/log"		},
 #endif
 
 #if 0
