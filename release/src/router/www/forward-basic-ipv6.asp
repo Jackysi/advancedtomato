@@ -107,7 +107,7 @@ fog.resetNewEditor = function() {
 }
 
 fog.setup = function() {
-	this.init('fo-grid6', 'sort', 50, [
+	this.init('fo-grid6', 'sort', 100, [
 		{ type: 'checkbox' },
 		{ type: 'select', options: [[1, 'TCP'],[2, 'UDP'],[3,'Both']] },
 		{ type: 'text', maxlen: 140 },
