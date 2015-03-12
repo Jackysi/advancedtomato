@@ -978,6 +978,7 @@ static const nvset_t nvset_list[] = {
 	{ "rmgt_sip",			V_LENGTH(0, 512)	},
 	{ "ne_shlimit",			V_TEXT(1, 50)		},
 	{ "http_username",		V_LENGTH(0, 32)		},
+	{ "http_root",			V_01				},
 
 // admin-bwm
 	{ "rstats_enable",		V_01				},

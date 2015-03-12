@@ -583,6 +583,7 @@ const defaults_t defaults[] = {
 	{ "https_crt_cn",		""				},
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
+	{ "http_root",			"1"				},	// 0 - deny, 1 - Allow
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
 	{ "web_css",			"openlinksys"			},
 	{ "web_dir",			"default"			},  // jffs, opt, tmp or default (/www)
