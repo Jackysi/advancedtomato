@@ -1159,6 +1159,7 @@ const defaults_t defaults[] = {
 	{ "qosl_ulc",				""			},
 	{ "qosl_dlr",				""			},
 	{ "qosl_ulr",				""			},
+	{ "limit_br0_prio",			"0"			},
 	{ "limit_br1_enable",			"0"			},
 	{ "limit_br1_dlc",			""			},
 	{ "limit_br1_ulc",			""			},
