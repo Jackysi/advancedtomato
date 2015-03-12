@@ -716,8 +716,8 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_prefix",		V_IPV6(0)			},
 	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)			},
 	{ "ipv6_6rd_borderrelay",	V_IP				},
-	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 30)			},
-	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
+	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 32)			},
+	{ "ipv6_vlan",			V_RANGE(0, 7)			},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3 
 #endif
 
 // basic-wfilter
@@ -977,6 +977,7 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},
 	{ "rmgt_sip",			V_LENGTH(0, 512)	},
 	{ "ne_shlimit",			V_TEXT(1, 50)		},
+	{ "http_username",		V_LENGTH(0, 32)		},
 
 // admin-bwm
 	{ "rstats_enable",		V_01				},
