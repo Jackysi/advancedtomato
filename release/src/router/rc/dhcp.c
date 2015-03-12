@@ -118,7 +118,7 @@ static int deconfig(char *ifname)
 	nvram_set("wan_routes2", "");
 	expires(0);
 
-	if (get_wan_proto() == WP_DHCP) {
+	if (get_wan_proto() == WP_DHCP || get_wan_proto() == WP_LTE) {
 		nvram_set("wan_netmask", "0.0.0.0");
 		nvram_set("wan_gateway_get", "0.0.0.0");
 		nvram_set("wan_get_dns", "");
@@ -148,13 +148,14 @@ static int renew(char *ifname)
 
 	if (env2nv("ip", "wan_ipaddr") ||
 	    env2nv_gateway("wan_gateway") ||
+	    (wan_proto == WP_LTE && env2nv("subnet", "wan_netmask")) ||
 	    (wan_proto == WP_DHCP && env2nv("subnet", "wan_netmask"))) {
 		/* WAN IP or gateway changed, restart/reconfigure everything */
 		TRACE_PT("end\n");
 		return bound(ifname, 1);
 	}
 
-	if (wan_proto == WP_DHCP) {
+	if (wan_proto == WP_DHCP || wan_proto == WP_LTE) {
 		changed |= env2nv("domain", "wan_get_domain");
 		changed |= env2nv("dns", "wan_get_dns");
 	}
@@ -221,7 +222,7 @@ static int bound(char *ifname, int renew)
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
 	netmask = getenv("subnet") ? : "255.255.255.255";
-	if (wan_proto == WP_DHCP) {
+	if (wan_proto == WP_DHCP || wan_proto == WP_LTE) {
 		nvram_set("wan_netmask", netmask);
 		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 	}
@@ -261,7 +262,7 @@ static int bound(char *ifname, int renew)
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
-	if (wan_proto != WP_DHCP) {
+	if (wan_proto != WP_DHCP && wan_proto != WP_LTE) {
 		char *gw = nvram_safe_get("wan_gateway");
 
 		preset_wan(ifname, gw, netmask);
@@ -361,9 +362,14 @@ void start_dhcpc(void)
 	nvram_set("wan_get_dns", "");
 	f_write(renewing, NULL, 0, 0, 0);
 
-	ifname = nvram_safe_get("wan_ifname");
 	proto = get_wan_proto();
-	if (proto == WP_DHCP) {
+
+	if (proto == WP_LTE) {
+		ifname = nvram_safe_get("wan_4g");
+	} else {
+		ifname = nvram_safe_get("wan_ifname");
+	}
+	if (proto == WP_DHCP || proto == WP_LTE) {
 		nvram_set("wan_iface", ifname);
 	}
 

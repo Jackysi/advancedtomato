@@ -15,6 +15,8 @@ ifeq ($(TCONFIG_USB),y)
 ifeq ($(CONFIG_LINUX26),y)
 #3G modem switch script
 	install -m 0700 switch3g $(INSTALLDIR)/usr/sbin
+#4G modem switch script
+	install -m 0700 switch4g $(INSTALLDIR)/usr/sbin
 endif
 endif
 

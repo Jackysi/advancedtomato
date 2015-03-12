@@ -43,11 +43,12 @@ extern const char *tomato_shortver;
 // misc.c
 #define	WP_DISABLED		0		// order must be synced with def in misc.c
 #define	WP_STATIC		1
-#define WP_DHCP			2
+#define	WP_DHCP			2
 #define	WP_L2TP			3
 #define	WP_PPPOE		4
 #define	WP_PPTP			5
 #define	WP_PPP3G		6
+#define	WP_LTE			7
 
 #ifdef TCONFIG_IPV6
 #define	IPV6_DISABLED		0

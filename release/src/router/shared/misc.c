@@ -39,6 +39,7 @@ int get_wan_proto(void)
 		"pppoe",
 		"pptp",
 		"ppp3g",
+		"lte",
 		NULL
 	};
 	int i;
@@ -138,6 +139,7 @@ int using_dhcpc(void)
 {
 	switch (get_wan_proto()) {
 	case WP_DHCP:
+	case WP_LTE:
 		return 1;
 	case WP_L2TP:
 	case WP_PPTP:
@@ -400,7 +402,9 @@ const wanface_list_t *get_wanfaces(void)
 				iface = nvram_safe_get("wan_iface");
 				if (!(*iface)) iface = "ppp+";
 			}
-			else {
+			else if (proto == WP_LTE) {
+				iface = nvram_safe_get("wan_4g");
+			} else {
 				iface = nvram_safe_get("wan_ifname");
 			}
 			strlcpy(wanfaces.iface[wanfaces.count].ip, ip, sizeof(wanfaces.iface[0].ip));

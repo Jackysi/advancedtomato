@@ -244,7 +244,7 @@ static int config_pppd(int wan_proto, int num)
 		fclose(cfp);
 
 
-		if (nvram_match("usb_3g", "1")) {
+		if (nvram_match("usb_3g", "1") && nvram_match("wan_proto", "ppp3g")) {
 			// clear old gateway
 			if (strlen(nvram_get("wan_gateway")) >0 ) {
 				nvram_set("wan_gateway", "");
@@ -782,13 +782,18 @@ void start_wan(int mode)
 		start_pppoe(PPPOE0);
 		break;
 	case WP_DHCP:
+	case WP_LTE:
 	case WP_L2TP:
 	case WP_PPTP:
+		if (wan_proto == WP_LTE) {
+			// prepare LTE modem
+			xstart("switch4g");
+		}
 		if (using_dhcpc()) {
 			stop_dhcpc();
 			start_dhcpc();
 		}
-		else if (wan_proto != WP_DHCP) {
+		else if (wan_proto != WP_DHCP && wan_proto != WP_LTE) {
 			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 			ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
@@ -893,7 +898,7 @@ void start_wan6_done(const char *wan_ifname)
 
 //	ppp_demand: 0=keep alive, 1=connect on demand (run 'listen')
 //	wan_ifname: vlan1
-//	wan_iface:	ppp# (PPPOE, PPP3G, PPTP, L2TP), vlan1 (DHCP, HB, Static)
+//	wan_iface:	ppp# (PPPOE, PPP3G, PPTP, L2TP), vlan1 (DHCP, HB, Static, LTE)
 
 void start_wan_done(char *wan_ifname)
 {
@@ -923,7 +928,7 @@ void start_wan_done(char *wan_ifname)
 		}
 #endif
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
-			if (proto == WP_DHCP || proto == WP_STATIC) {
+			if (proto == WP_DHCP || proto == WP_STATIC || proto == WP_LTE) {
 				// possibly gateway is over the bridge, try adding a route to gateway first
 				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
 			}
@@ -1063,6 +1068,7 @@ void stop_wan(void)
 {
 	char name[80];
 	char *next;
+	int wan_proto;
 	
 	TRACE_PT("begin\n");
 
@@ -1076,6 +1082,12 @@ void stop_wan(void)
 	dns_to_resolv();
 	start_dnsmasq();
 #endif
+
+	wan_proto = get_wan_proto();
+
+	if (wan_proto == WP_LTE) {
+		xstart("switch4g", "disconnect");
+	}
 
 	new_qoslimit_stop(); //!! RAF
 
