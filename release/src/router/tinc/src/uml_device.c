@@ -156,22 +156,29 @@ static bool setup_device(void) {
 }
 
 void close_device(void) {
-	if(listen_fd >= 0)
-		close(listen_fd);
+	if(listen_fd >= 0) {
+		close(listen_fd); listen_fd = -1;
+	}
 
-	if(request_fd >= 0)
-		close(request_fd);
+	if(request_fd >= 0) {
+		close(request_fd); request_fd = -1;
+	}
 
-	if(data_fd >= 0)
-		close(data_fd);
+	if(data_fd >= 0) {
+		close(data_fd); data_fd = -1;
+	}
 
-	if(write_fd >= 0)
-		close(write_fd);
+	if(write_fd >= 0) {
+		close(write_fd); write_fd = -1;
+	}
 
 	unlink(device);
 
-	free(device);
-	if(iface) free(iface);
+	free(device); device = NULL;
+	if(iface) {
+		free(iface); iface = NULL;
+	}
+	device_info = NULL;
 }
 
 static bool read_packet(vpn_packet_t *packet) {
@@ -237,7 +244,7 @@ static bool read_packet(vpn_packet_t *packet) {
 		}
 
 		case 2: {
-			if((inlen = read(data_fd, packet->data, MTU)) <= 0) {
+			if((inlen = read(data_fd, DATA(packet), MTU)) <= 0) {
 				logger(DEBUG_ALWAYS, LOG_ERR, "Error while reading from %s %s: %s", device_info,
 					   device, strerror(errno));
 				event_exit();
@@ -268,7 +275,7 @@ static bool write_packet(vpn_packet_t *packet) {
 	logger(DEBUG_TRAFFIC, LOG_DEBUG, "Writing packet of %d bytes to %s",
 			   packet->len, device_info);
 
-	if(write(write_fd, packet->data, packet->len) < 0) {
+	if(write(write_fd, DATA(packet), packet->len) < 0) {
 		if(errno != EINTR && errno != EAGAIN) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "Can't write to %s %s: %s", device_info, device, strerror(errno));
 			event_exit();

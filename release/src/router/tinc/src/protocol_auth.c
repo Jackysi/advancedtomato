@@ -172,7 +172,7 @@ static bool finalize_invitation(connection_t *c, const char *data, uint16_t len)
 		return false;
 	}
 
-	fprintf(f, "ECDSAPublicKey = %s\n", data);
+	fprintf(f, "Ed25519PublicKey = %s\n", data);
 	fclose(f);
 
 	logger(DEBUG_CONNECTIONS, LOG_INFO, "Key succesfully received from %s (%s)", c->name, c->hostname);
@@ -198,7 +198,7 @@ static bool finalize_invitation(connection_t *c, const char *data, uint16_t len)
 	return true;
 }
 
-static bool receive_invitation_sptps(void *handle, uint8_t type, const char *data, uint16_t len) {
+static bool receive_invitation_sptps(void *handle, uint8_t type, const void *data, uint16_t len) {
 	connection_t *c = handle;
 
 	if(type == 128)
@@ -380,12 +380,13 @@ bool id_h(connection_t *c, const char *request) {
 
 		if(experimental)
 			read_ecdsa_public_key(c);
-	} else {
-		if(c->protocol_minor && !ecdsa_active(c->ecdsa))
-			c->protocol_minor = 1;
+			/* Ignore failures if no key known yet */
 	}
 
-	/* Forbid version rollback for nodes whose ECDSA key we know */
+	if(c->protocol_minor && !ecdsa_active(c->ecdsa))
+		c->protocol_minor = 1;
+
+	/* Forbid version rollback for nodes whose Ed25519 key we know */
 
 	if(ecdsa_active(c->ecdsa) && c->protocol_minor < 2) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Peer %s (%s) tries to roll back protocol version to %d.%d",
@@ -411,6 +412,11 @@ bool id_h(connection_t *c, const char *request) {
 }
 
 bool send_metakey(connection_t *c) {
+	if(!myself->connection->rsa) {
+		logger(DEBUG_CONNECTIONS, LOG_ERR, "Peer %s (%s) uses legacy protocol which we don't support", c->name, c->hostname);
+		return false;
+	}
+
 	if(!read_rsa_public_key(c))
 		return false;
 
@@ -420,7 +426,7 @@ bool send_metakey(connection_t *c) {
 	if(!(c->outdigest = digest_open_sha1(-1)))
 		return false;
 
-	size_t len = rsa_size(c->rsa);
+	const size_t len = rsa_size(c->rsa);
 	char key[len];
 	char enckey[len];
 	char hexkey[2 * len + 1];
@@ -477,9 +483,12 @@ bool send_metakey(connection_t *c) {
 }
 
 bool metakey_h(connection_t *c, const char *request) {
+	if(!myself->connection->rsa)
+		return false;
+
 	char hexkey[MAX_STRING_SIZE];
 	int cipher, digest, maclength, compression;
-	size_t len = rsa_size(myself->connection->rsa);
+	const size_t len = rsa_size(myself->connection->rsa);
 	char enckey[len];
 	char key[len];
 
@@ -513,14 +522,22 @@ bool metakey_h(connection_t *c, const char *request) {
 
 	/* Check and lookup cipher and digest algorithms */
 
-	if(!(c->incipher = cipher_open_by_nid(cipher)) || !cipher_set_key_from_rsa(c->incipher, key, len, false)) {
-		logger(DEBUG_ALWAYS, LOG_ERR, "Error during initialisation of cipher from %s (%s)", c->name, c->hostname);
-		return false;
+	if(cipher) {
+		if(!(c->incipher = cipher_open_by_nid(cipher)) || !cipher_set_key_from_rsa(c->incipher, key, len, false)) {
+			logger(DEBUG_ALWAYS, LOG_ERR, "Error during initialisation of cipher from %s (%s)", c->name, c->hostname);
+			return false;
+		}
+	} else {
+		c->incipher = NULL;
 	}
 
-	if(!(c->indigest = digest_open_by_nid(digest, -1))) {
-		logger(DEBUG_ALWAYS, LOG_ERR, "Error during initialisation of digest from %s (%s)", c->name, c->hostname);
-		return false;
+	if(digest) {
+		if(!(c->indigest = digest_open_by_nid(digest, -1))) {
+			logger(DEBUG_ALWAYS, LOG_ERR, "Error during initialisation of digest from %s (%s)", c->name, c->hostname);
+			return false;
+		}
+	} else {
+		c->indigest = NULL;
 	}
 
 	c->status.decryptin = true;
@@ -531,7 +548,7 @@ bool metakey_h(connection_t *c, const char *request) {
 }
 
 bool send_challenge(connection_t *c) {
-	size_t len = rsa_size(c->rsa);
+	const size_t len = rsa_size(c->rsa);
 	char buffer[len * 2 + 1];
 
 	if(!c->hischallenge)
@@ -551,8 +568,11 @@ bool send_challenge(connection_t *c) {
 }
 
 bool challenge_h(connection_t *c, const char *request) {
+	if(!myself->connection->rsa)
+		return false;
+
 	char buffer[MAX_STRING_SIZE];
-	size_t len = rsa_size(myself->connection->rsa);
+	const size_t len = rsa_size(myself->connection->rsa);
 	size_t digestlen = digest_length(c->indigest);
 	char digest[digestlen];
 
@@ -628,7 +648,7 @@ bool chal_reply_h(connection_t *c, const char *request) {
 }
 
 static bool send_upgrade(connection_t *c) {
-	/* Special case when protocol_minor is 1: the other end is ECDSA capable,
+	/* Special case when protocol_minor is 1: the other end is Ed25519 capable,
 	 * but doesn't know our key yet. So send it now. */
 
 	char *pubkey = ecdsa_get_base64_public_key(myself->connection->ecdsa);
@@ -717,12 +737,26 @@ static bool upgrade_h(connection_t *c, const char *request) {
 	}
 
 	if(ecdsa_active(c->ecdsa) || read_ecdsa_public_key(c)) {
-		logger(DEBUG_ALWAYS, LOG_INFO, "Already have ECDSA public key from %s (%s), not upgrading.", c->name, c->hostname);
+		char *knownkey = ecdsa_get_base64_public_key(c->ecdsa);
+		bool different = strcmp(knownkey, pubkey);
+		free(knownkey);
+		if(different) {
+			logger(DEBUG_ALWAYS, LOG_ERR, "Already have an Ed25519 public key from %s (%s) which is different from the one presented now!", c->name, c->hostname);
+			return false;
+		}
+		logger(DEBUG_ALWAYS, LOG_INFO, "Already have Ed25519 public key from %s (%s), ignoring.", c->name, c->hostname);
+		c->allow_request = TERMREQ;
+		return send_termreq(c);
+	}
+
+	c->ecdsa = ecdsa_set_base64_public_key(pubkey);
+	if(!c->ecdsa) {
+		logger(DEBUG_ALWAYS, LOG_INFO, "Got bad Ed25519 public key from %s (%s), not upgrading.", c->name, c->hostname);
 		return false;
 	}
 
-	logger(DEBUG_ALWAYS, LOG_INFO, "Got ECDSA public key from %s (%s), upgrading!", c->name, c->hostname);
-	append_config_file(c->name, "ECDSAPublicKey", pubkey);
+	logger(DEBUG_ALWAYS, LOG_INFO, "Got Ed25519 public key from %s (%s), upgrading!", c->name, c->hostname);
+	append_config_file(c->name, "Ed25519PublicKey", pubkey);
 	c->allow_request = TERMREQ;
 	return send_termreq(c);
 }
@@ -796,7 +830,6 @@ bool ack_h(connection_t *c, const char *request) {
 	/* Activate this connection */
 
 	c->allow_request = ALL;
-	c->status.active = true;
 
 	logger(DEBUG_CONNECTIONS, LOG_NOTICE, "Connection with %s (%s) activated", c->name,
 			   c->hostname);
@@ -813,6 +846,16 @@ bool ack_h(connection_t *c, const char *request) {
 	sockaddr2str(&c->address, &hisaddress, NULL);
 	c->edge->address = str2sockaddr(hisaddress, hisport);
 	free(hisaddress);
+	sockaddr_t local_sa;
+	socklen_t local_salen = sizeof local_sa;
+	if (getsockname(c->socket, &local_sa.sa, &local_salen) < 0)
+		logger(DEBUG_ALWAYS, LOG_WARNING, "Could not get local socket address for connection with %s", c->name);
+	else {
+		char *local_address;
+		sockaddr2str(&local_sa, &local_address, NULL);
+		c->edge->local_address = str2sockaddr(local_address, myport);
+		free(local_address);
+	}
 	c->edge->weight = (weight + c->estimated_weight) / 2;
 	c->edge->connection = c;
 	c->edge->options = c->options;

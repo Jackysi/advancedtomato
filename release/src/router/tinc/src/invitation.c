@@ -197,8 +197,10 @@ done:
 		else
 			xasprintf(&hostport, "%s:%s", hostname, port);
 	} else {
-		hostport = hostname;
-		hostname = NULL;
+		if(strchr(hostname, ':'))
+			xasprintf(&hostport, "[%s]", hostname);
+		else
+			hostport = xstrdup(hostname);
 	}
 
 	free(hostname);
@@ -248,7 +250,7 @@ int cmd_invite(int argc, char *argv[]) {
 	}
 	free(filename);
 
-	// If a daemon is running, ensure no other nodes now about this name
+	// If a daemon is running, ensure no other nodes know about this name
 	bool found = false;
 	if(connect_tincd(false)) {
 		sendline(fd, "%d %d", CONTROL, REQ_DUMP_NODES);
@@ -319,7 +321,7 @@ int cmd_invite(int argc, char *argv[]) {
 	free(filename);
 
 	ecdsa_t *key;
-	xasprintf(&filename, "%s" SLASH "invitations" SLASH "ecdsa_key.priv", confbase);
+	xasprintf(&filename, "%s" SLASH "invitations" SLASH "ed25519_key.priv", confbase);
 
 	// Remove the key if there are no outstanding invitations.
 	if(!count)
@@ -611,6 +613,7 @@ make_names:
 	FILE *fh = fopen(filename, "w");
 	if(!fh) {
 		fprintf(stderr, "Could not create file %s: %s\n", filename, strerror(errno));
+		fclose(f);
 		return false;
 	}
 
@@ -720,7 +723,7 @@ make_names:
 	if(!b64key)
 		return false;
 
-	xasprintf(&filename, "%s" SLASH "ecdsa_key.priv", confbase);
+	xasprintf(&filename, "%s" SLASH "ed25519_key.priv", confbase);
 	f = fopenmask(filename, "w", 0600);
 
 	if(!ecdsa_write_pem_private_key(key, f)) {
@@ -732,7 +735,7 @@ make_names:
 
 	fclose(f);
 
-	fprintf(fh, "ECDSAPublicKey = %s\n", b64key);
+	fprintf(fh, "Ed25519PublicKey = %s\n", b64key);
 
 	sptps_send_record(&sptps, 1, b64key, strlen(b64key));
 	free(b64key);
@@ -784,7 +787,7 @@ ask_netname:
 }
 
 
-static bool invitation_send(void *handle, uint8_t type, const char *data, size_t len) {
+static bool invitation_send(void *handle, uint8_t type, const void *data, size_t len) {
 	while(len) {
 		int result = send(sock, data, len, 0);
 		if(result == -1 && errno == EINTR)
@@ -797,7 +800,7 @@ static bool invitation_send(void *handle, uint8_t type, const char *data, size_t
 	return true;
 }
 
-static bool invitation_receive(void *handle, uint8_t type, const char *msg, uint16_t len) {
+static bool invitation_receive(void *handle, uint8_t type, const void *msg, uint16_t len) {
 	switch(type) {
 		case SPTPS_HANDSHAKE:
 			return sptps_send_record(&sptps, 0, cookie, sizeof cookie);
@@ -904,7 +907,7 @@ int cmd_join(int argc, char *argv[]) {
 	if(!port || !*port)
 		port = "655";
 
-	if(!b64decode(slash, hash, 18) || !b64decode(slash + 24, cookie, 18))
+	if(!b64decode(slash, hash, 24) || !b64decode(slash + 24, cookie, 24))
 		goto invalid;
 
 	// Generate a throw-away key for the invitation.

@@ -82,19 +82,22 @@ static bool setup_device(void) {
 }
 
 static void close_device(void) {
-	if(conn)
-		plug.vde_close(conn);
+	if(conn) {
+		plug.vde_close(conn); conn = NULL;
+	}
 
 	if(plug.dl_handle)
 		libvdeplug_dynclose(plug);
 
-	free(device);
+	free(device); device = NULL;
 
-	free(iface);
+	free(iface); iface = NULL;
+
+	device_info = NULL;
 }
 
 static bool read_packet(vpn_packet_t *packet) {
-	int lenin = (ssize_t)plug.vde_recv(conn, packet->data, MTU, 0);
+	int lenin = (ssize_t)plug.vde_recv(conn, DATA(packet), MTU, 0);
 	if(lenin <= 0) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Error while reading from %s %s: %s", device_info, device, strerror(errno));
 		event_exit();
@@ -109,7 +112,7 @@ static bool read_packet(vpn_packet_t *packet) {
 }
 
 static bool write_packet(vpn_packet_t *packet) {
-	if((ssize_t)plug.vde_send(conn, packet->data, packet->len, 0) < 0) {
+	if((ssize_t)plug.vde_send(conn, DATA(packet), packet->len, 0) < 0) {
 		if(errno != EINTR && errno != EAGAIN) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "Can't write to %s %s: %s", device_info, device, strerror(errno));
 			event_exit();
