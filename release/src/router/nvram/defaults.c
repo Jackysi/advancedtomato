@@ -198,6 +198,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_6rd_prefix_length",	"32"				},	// 6RD prefix length (32-62) checkme
 	{ "ipv6_6rd_borderrelay",	"68.113.165.1"			},	// 6RD border relay address
 	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length (0-30) checkme
+	{ "ipv6_isp_opt",		"0"				},	// wan.c add eval option for dhcpd
 #endif
 
 	// Wireless parameters

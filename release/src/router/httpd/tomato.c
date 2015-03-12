@@ -717,6 +717,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)			},
 	{ "ipv6_6rd_borderrelay",	V_IP				},
 	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 30)			},
+	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
 #endif
 
 // basic-wfilter
