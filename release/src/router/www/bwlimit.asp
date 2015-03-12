@@ -219,9 +219,10 @@ function verifyFields(focused, quiet)
 	E('_qosl_ulc').disabled = b || a;
 	E('_qosl_tcp').disabled = b || a;
 	E('_qosl_udp').disabled = b || a;
+	E('_limit_br0_prio').disabled = b || a;
 
 	elem.display(PR('_qos_ibw'), PR('_qos_obw'), !a);
-	elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), !a && !b);
+	elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), PR('_limit_br0_prio'), !a && !b);
 
 	E('_limit_br1_dlr').disabled = b1 || a;
 	E('_limit_br1_dlc').disabled = b1 || a;
@@ -338,7 +339,7 @@ function init()
 				{ title: 'Upload rate', indent: 2, name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
 				{ title: 'Upload ceil', indent: 2, name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
 				{ title: 'Priority', indent: 2, name: 'limit_br0_prio', type: 'select', options:
-					[['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']], value: nvram.limit_br0_prio }
+					[['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']], value: nvram.limit_br0_prio },
 				{ title: 'TCP Limit', indent: 2, name: 'qosl_tcp', type: 'select', options:
 					[['0', 'no limit'],
 					['1', '1'],
