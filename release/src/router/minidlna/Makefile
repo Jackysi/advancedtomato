@@ -53,7 +53,7 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 	   options.o minissdp.o uuid.o upnpevents.o \
 	   sql.o utils.o metadata.o scanner.o inotify.o \
 	   tivo_utils.o tivo_beacon.o tivo_commands.o \
-	   tagutils/textutils.o tagutils/misc.o tagutils/tagutils.o \
+	   containers.o tagutils/tagutils.o \
 	   playlist.o image_utils.o albumart.o log.o clients.o
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
@@ -127,7 +127,8 @@ upnphttp.o: config.h upnphttp.h upnpdescgen.h minidlnapath.h upnpsoap.h
 upnphttp.o: upnpevents.h image_utils.h sql.h log.h sendfile.h icons.c
 upnpdescgen.o: config.h upnpdescgen.h minidlnapath.h upnpglobalvars.h upnpdescstrings.h
 upnpdescgen.o: minidlnatypes.h upnpdescstrings.h log.h
-upnpsoap.o: config.h upnpglobalvars.h minidlnatypes.h log.h utils.h sql.h
+containers.o: containers.h
+upnpsoap.o: containers.h config.h upnpglobalvars.h minidlnatypes.h log.h utils.h sql.h
 upnpsoap.o: upnphttp.h upnpsoap.h upnpreplyparse.h getifaddr.h log.h
 upnpreplyparse.o: upnpreplyparse.h minixml.h log.h
 minixml.o: minixml.h
@@ -146,8 +147,6 @@ testupnpdescgen.o: config.h upnpdescgen.h
 scanner.o: upnpglobalvars.h metadata.h utils.h sql.h scanner.h log.h playlist.h scanner_sqlite.h
 metadata.o: upnpglobalvars.h metadata.h albumart.h utils.h sql.h log.h
 albumart.o: upnpglobalvars.h albumart.h utils.h image_utils.h sql.h log.h
-tagutils/misc.o: tagutils/misc.h
-tagutils/textutils.o: tagutils/misc.h tagutils/textutils.h log.h
 tagutils/tagutils.o: tagutils/tagutils-asf.c tagutils/tagutils-flc.c tagutils/tagutils-plist.c tagutils/tagutils-misc.c
 tagutils/tagutils.o: tagutils/tagutils-aac.c tagutils/tagutils-asf.h tagutils/tagutils-flc.h tagutils/tagutils-mp3.c tagutils/tagutils-wav.c
 tagutils/tagutils.o: tagutils/tagutils-ogg.c tagutils/tagutils-aac.h tagutils/tagutils.h tagutils/tagutils-mp3.h tagutils/tagutils-ogg.h log.h
