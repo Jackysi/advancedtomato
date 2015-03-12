@@ -44,7 +44,6 @@ bsd_converted
 buildconf.stamp
 buildmk.stamp
 confdefs.h
-config.h
 config.guess
 config.cache
 config.h.in
