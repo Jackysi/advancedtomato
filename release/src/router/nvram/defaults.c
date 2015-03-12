@@ -984,11 +984,11 @@ const defaults_t defaults[] = {
 	{"tinc_mode",			"switch"	}, // switch, hub
 	{"tinc_vpn_netmask",		"255.255.0.0"	},
 	{"tinc_private_rsa",		""		},
-	{"tinc_private_ecdsa",		""		},
+	{"tinc_private_ed25519",	""		},
 	{"tinc_custom",			""		},
 	{"tinc_hosts",			""		},
 	{"tinc_manual_firewall",	""		},
-	{"tinc_manual_tinc_up",		""		},
+	{"tinc_manual_tinc_up",		"0"		},
 	// scripts
 	{"tinc_tinc_up",		""		},
 	{"tinc_tinc_down",		""		},
@@ -996,6 +996,7 @@ const defaults_t defaults[] = {
 	{"tinc_host_down",		""		},
 	{"tinc_subnet_up",		""		},
 	{"tinc_subnet_down",		""		},
+	{"tinc_firewall",		""		},
 #endif
 
 #ifdef TCONFIG_BT

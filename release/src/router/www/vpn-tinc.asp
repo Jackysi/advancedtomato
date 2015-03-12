@@ -56,7 +56,7 @@ textarea
 
 <script type='text/javascript'>
 
-//	<% nvram("tinc_wanup,tinc_name,tinc_devicetype,tinc_mode,tinc_vpn_netmask,tinc_private_rsa,tinc_private_ecdsa,tinc_custom,tinc_hosts,tinc_manual_firewall,tinc_manual_tinc_up,tinc_tinc_up,tinc_tinc_down,tinc_host_up,tinc_host_down,tinc_subnet_up,tinc_subnet_down"); %>
+//	<% nvram("tinc_wanup,tinc_name,tinc_devicetype,tinc_mode,tinc_vpn_netmask,tinc_private_rsa,tinc_private_ed25519,tinc_custom,tinc_hosts,tinc_firewall,tinc_manual_firewall,tinc_manual_tinc_up,tinc_tinc_up,tinc_tinc_down,tinc_host_up,tinc_host_down,tinc_subnet_up,tinc_subnet_down"); %>
 
 var tinc_compression = [['0','0 - None'],['1','1 - Fast zlib'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8'],['9','9 - Best zlib'],['10','10 - Fast lzo'],['11','11 - Best lzo']];
 var th = new TomatoGrid();
@@ -76,7 +76,7 @@ th.setup = function() {
 		{ type: 'select', options: tinc_compression },
 		{ type: 'text', maxlen: 20 },
 		{ type: 'textarea', proxy: "_host_rsa_key" },
-		{ type: 'textarea', proxy: "_host_ecdsa_key" },
+		{ type: 'textarea', proxy: "_host_ed25519_key" },
 		{ type: 'textarea', proxy: "_host_custom" }
 		]);
 	this.headerSet(['ConnectTo', 'Name', 'Address', 'Port', 'Compression', 'Subnet']);
@@ -97,7 +97,7 @@ th.dataToView = function(data) {
 
 th.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
-	return [f[0].checked ? 1 : 0, f[1].value, f[2].value, f[3].value, f[4].value, f[5].value, E('_host_rsa_key').value, E('_host_ecdsa_key').value, E('_host_custom').value ];
+	return [f[0].checked ? 1 : 0, f[1].value, f[2].value, f[3].value, f[4].value, f[5].value, E('_host_rsa_key').value, E('_host_ed25519_key').value, E('_host_custom').value ];
 }
 
 
@@ -110,11 +110,10 @@ th.resetNewEditor = function() {
 	f[4].selectedIndex = 0;
 	f[5].value = '';
 	E('_host_rsa_key').value = '';
-	E('_host_ecdsa_key').value = '';
+	E('_host_ed25519_key').value = '';
 	E('_host_custom').value = '';
 	ferror.clearAll(fields.getAll(this.newEditor));
-	ferror.clear(E('_host_rsa_key'));
-	ferror.clear(E('_host_ecdsa_key'));
+	ferror.clear(E('_host_ed25519_key'));
 }
 
 th.verifyFields = function(row, quiet) {
@@ -144,13 +143,9 @@ th.verifyFields = function(row, quiet) {
 		else {  ferror.clear(f[5]) }
 	}
 
-	if (E('_host_rsa_key').value == "") {
-		ferror.set(E('_host_rsa_key'), "RSA Public Key is required.", quiet); return 0 ; }
-	else {  ferror.clear(E('_host_rsa_key')) }
-
-	if (E('_host_ecdsa_key').value == "") {
-		ferror.set(E('_host_ecdsa_key'), "ECDSA Public Key is required.", quiet); return 0 ; }
-	else {  ferror.clear(E('_host_ecdsa_key')) }
+	if (E('_host_ed25519_key').value == "") {
+		ferror.set(E('_host_ed25519_key'), "Ed25519 Public Key is required.", quiet); return 0 ; }
+	else {  ferror.clear(E('_host_ed25519_key')) }
 
 	return 1;
 }
@@ -188,6 +183,15 @@ function verifyFields(focused, quiet)
 		break;
 	}
 
+	switch(E('_tinc_manual_firewall').value) {
+		case '0' :
+			E('_tinc_firewall').disabled = 1 ;
+		break;
+		default :
+			E('_tinc_firewall').disabled = 0 ;
+		break;
+        }
+
 	for (a in vis) {
 		b = E(a);
 		c = vis[a];
@@ -203,25 +207,18 @@ function verifyFields(focused, quiet)
 	E('hostselect').disabled = !tincup;
 
 	// Element Verification
-	if (E('_tinc_name').value == "") {
-		ferror.set(E('_tinc_name'), "Host Name is required.", quiet); return 0 ; }
+	if (E('_tinc_name').value == "" && E('_f_tinc_wanup').checked) {
+		ferror.set(E('_tinc_name'), "Host Name is required when 'Start With WAN' is checked.", quiet); return 0 ; }
 	else {  ferror.clear(E('_tinc_name')) }
 
-	if (E('_tinc_private_rsa').value == "") {
-		ferror.set(E('_tinc_private_rsa'), "RSA Private Key is required.", quiet); return 0 ; }
-	else {  ferror.clear(E('_tinc_private_rsa')) }
-
-	if (E('_tinc_private_ecdsa').value == "") {
-		ferror.set(E('_tinc_private_ecdsa'), "ECDSA Private Key is required.", quiet); return 0 ; }
-	else {  ferror.clear(E('_tinc_private_ecdsa')) }
+	if (E('_tinc_private_ed25519').value == "" && E('_tinc_custom').value == "" && E('_f_tinc_wanup').checked) {
+		ferror.set(E('_tinc_private_ed25519'), "Ed25519 Private Key is required when 'Start With WAN' is checked.", quiet); return 0 ; }
+	else {  ferror.clear(E('_tinc_private_ed25519')) }
 
 	if (!v_netmask('_tinc_vpn_netmask', quiet)) return 0;
 
-	if (!E('_host_rsa_key').value == "") {
-		ferror.clear(E('_host_rsa_key')) }
-
-	if (!E('_host_ecdsa_key').value == "") {
-		ferror.clear(E('_host_ecdsa_key')) }
+	if (!E('_host_ed25519_key').value == "") {
+		ferror.clear(E('_host_ed25519_key')) }
 
 	var hostdefined = false;
 	var hosts = th.getAllData();
@@ -232,8 +229,8 @@ function verifyFields(focused, quiet)
 		}
 	}
 
-	if (!hostdefined) {
-		ferror.set(E('_tinc_name'), "Host Name \"" + E('_tinc_name').value + "\" is not defined in hosts area.", quiet); return 0 ; }
+	if (!hostdefined && E('_f_tinc_wanup').checked) {
+		ferror.set(E('_tinc_name'), "Host Name \"" + E('_tinc_name').value + "\" must be defined in the hosts area when 'Start With WAN' is checked.", quiet); return 0 ; }
 	else {  ferror.clear(E('_tinc_name')) };
 
 	return 1;
@@ -279,8 +276,8 @@ function displayKeys()
 {
 	E('_rsa_private_key').value = "-----BEGIN RSA PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN RSA PRIVATE KEY-----\n','\n-----END RSA PRIVATE KEY-----') + "\n-----END RSA PRIVATE KEY-----";
 	E('_rsa_public_key').value = "-----BEGIN RSA PUBLIC KEY-----\n" + cmdresult. between('-----BEGIN RSA PUBLIC KEY-----\n','\n-----END RSA PUBLIC KEY-----') + "\n-----END RSA PUBLIC KEY-----";
-	E('_ecdsa_private_key').value = "-----BEGIN EC PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN EC PRIVATE KEY-----\n','\n-----END EC PRIVATE KEY-----') + "\n-----END EC PRIVATE KEY-----";
-	E('_ecdsa_public_key').value = cmdresult. between('-----END EC PRIVATE KEY-----\n','\n');
+	E('_ed25519_private_key').value = "-----BEGIN ED25519 PRIVATE KEY-----\n" + cmdresult. between('-----BEGIN ED25519 PRIVATE KEY-----\n','\n-----END ED25519 PRIVATE KEY-----') + "\n-----END ED25519 PRIVATE KEY-----";
+	E('_ed25519_public_key').value = cmdresult. between('-----END ED25519 PRIVATE KEY-----\n','\n');
 
 	cmdresult = '';
 	spin(0,'generateWait');
@@ -294,8 +291,8 @@ function generateKeys()
 
 	E('_rsa_private_key').value = "";
 	E('_rsa_public_key').value = "";
-	E('_ecdsa_private_key').value = "";
-	E('_ecdsa_public_key').value = "";
+	E('_ed25519_private_key').value = "";
+	E('_ed25519_public_key').value = "";
 
 	cmd = new XmlHttp();
 	cmd.onCompleted = function(text, xml) {
@@ -312,8 +309,8 @@ function generateKeys()
 		/bin/echo -e '\n\n\n\n' | /usr/sbin/tinc -c /etc/keys generate-keys \n\
 		/bin/cat /etc/keys/rsa_key.priv \n\
 		/bin/cat /etc/keys/rsa_key.pub \n\
-		/bin/cat /etc/keys/ecdsa_key.priv \n\
-		/bin/cat /etc/keys/ecdsa_key.pub";
+		/bin/cat /etc/keys/ed25519_key.priv \n\
+		/bin/cat /etc/keys/ed25519_key.pub";
 
 	cmd.post('shell.cgi', 'action=execute&command=' + escapeCGI(commands.replace(/\r/g, '')));
 
@@ -555,12 +552,12 @@ function toggleVisibility(whichone) {
 		{ title: 'Mode', name: 'tinc_mode', type: 'select', options: [['switch','Switch'],['hub','Hub']], value: nvram.tinc_mode },
 		{ title: 'VPN Netmask', name: 'tinc_vpn_netmask', type: 'text', maxlen: 15, size: 25, value: nvram.tinc_vpn_netmask,  suffix: ' <small>The netmask for the entire VPN network.</small>' },
 		{ title: 'Host Name', name: 'tinc_name', type: 'text', maxlen: 30, size: 25, value: nvram.tinc_name, suffix: ' <small>Must also be defined in the \'Hosts\' area.</small>' },
-		{ title: 'Firewall', name: 'tinc_manual_firewall', type: 'select', options: [['0','Automatic'],['1','Manual']], value: nvram.tinc_manual_firewall },
-		{ title: 'RSA Private Key', name: 'tinc_private_rsa', type: 'textarea', value: nvram.tinc_private_rsa },
-		{ title: 'ECDSA Private Key', name: 'tinc_private_ecdsa', type: 'textarea', value: nvram.tinc_private_ecdsa },
+		{ title: 'Ed25519 Private Key', name: 'tinc_private_ed25519', type: 'textarea', value: nvram.tinc_private_ed25519 },
+		{ title: 'RSA Private Key *', name: 'tinc_private_rsa', type: 'textarea', value: nvram.tinc_private_rsa },
 		{ title: 'Custom', name: 'tinc_custom', type: 'textarea', value: nvram.tinc_custom }
 	]);
 
+	W('<small><b style=\'font-size: 1.5em\'>*</b> Only required to create legacy connections with tinc1.0 nodes.</small>');
 	W('</div>');
 	W('<input type="button" value="' + (tincup ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'tinc\', tincup)" id="_tinc_button1">');
 	W('</div>');
@@ -578,11 +575,12 @@ function toggleVisibility(whichone) {
 	th.setup();
 
 	createFieldTable('', [
-		{ title: 'RSA Public Key', name: 'host_rsa_key', type: 'textarea' },
-		{ title: 'ECDSA Public Key', name: 'host_ecdsa_key', type: 'textarea' },
+		{ title: 'Ed25519 Public Key', name: 'host_ed25519_key', type: 'textarea' },
+		{ title: 'RSA Public Key *', name: 'host_rsa_key', type: 'textarea' },
 		{ title: 'Custom', name: 'host_custom', type: 'textarea' }
 	]);
 
+	W('<small><b style=\'font-size: 1.5em\'>*</b> Only required to create legacy connections with tinc1.0 nodes.</small>');
 	W('</div>');
 	W('<input type="button" value="' + (tincup ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'tinc\', tincup)" id="_tinc_button2">');
 
@@ -614,6 +612,8 @@ function toggleVisibility(whichone) {
 	W('<div class=\'section\'>');
 
 	createFieldTable('', [
+		{ title: 'Firewall Rules', name: 'tinc_manual_firewall', type: 'select', options: [['0','Automatic'],['1','Additional'],['2','Manual']], value: nvram.tinc_manual_firewall },
+		{ title: 'Firewall', name: 'tinc_firewall', type: 'textarea', value: nvram.tinc_firewall },
 		{ title: 'tinc-up creation', name: 'tinc_manual_tinc_up', type: 'select', options: [['0','Automatic'],['1','Manual']], value: nvram.tinc_manual_tinc_up },
 		{ title: 'tinc-up', name: 'tinc_tinc_up', type: 'textarea', value: nvram.tinc_tinc_up },
 		{ title: 'tinc-down', name: 'tinc_tinc_down', type: 'textarea', value: nvram.tinc_tinc_down },
@@ -635,10 +635,10 @@ function toggleVisibility(whichone) {
 	W('<div class=\'section\'>');
 
 	createFieldTable('', [
+		{ title: 'Ed25519 Private Key', name: 'ed25519_private_key', type: 'textarea', value: "" },
+		{ title: 'Ed25519 Public Key', name: 'ed25519_public_key', type: 'textarea', value: "" },
 		{ title: 'RSA Private Key', name: 'rsa_private_key', type: 'textarea', value: "" },
-		{ title: 'RSA Public Key', name: 'rsa_public_key', type: 'textarea', value: "" },
-		{ title: 'ECDSA Private Key', name: 'ecdsa_private_key', type: 'textarea', value: "" },
-		{ title: 'ECDSA Public Key', name: 'ecdsa_public_key', type: 'textarea', value: "" }
+		{ title: 'RSA Public Key', name: 'rsa_public_key', type: 'textarea', value: "" }
         ]);
 
 	W('</div>');
