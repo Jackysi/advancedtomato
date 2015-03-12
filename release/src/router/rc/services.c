@@ -959,6 +959,11 @@ void start_upnp(void)
 				f_read_string("/proc/sys/kernel/random/uuid", uuid, sizeof(uuid));
 				fprintf(f, "uuid=%s\n", uuid);
 
+				// shibby - move custom configuration before "allow" statements
+				// discussion: http://www.linksysinfo.org/index.php?threads/miniupnpd-custom-config-syntax.70863/#post-256291
+				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
+
 				char lanN_ipaddr[] = "lanXX_ipaddr";
 				char lanN_netmask[] = "lanXX_netmask";
 				char upnp_lanN[] = "upnp_lanXX";
@@ -1001,11 +1006,7 @@ void start_upnp(void)
 						}
 					}
 				}
-
-				fappend(f, "/etc/upnp/config.custom");
-				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
-				
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
