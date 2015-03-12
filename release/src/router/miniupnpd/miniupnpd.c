@@ -49,6 +49,7 @@
 #include <sys/un.h>
 #endif
 
+#include <sys/stat.h>
 #include "macros.h"
 #include "upnpglobalvars.h"
 #include "upnphttp.h"
