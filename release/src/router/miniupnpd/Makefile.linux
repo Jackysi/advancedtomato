@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.86 2014/04/09 07:22:28 nanard Exp $
+# $Id: Makefile.linux,v 1.88 2014/10/21 14:04:15 nanard Exp $
 # MiniUPnP project
 # (c) 2006-2014 Thomas Bernard
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -25,7 +25,7 @@
 CFLAGS ?= -Os
 CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-common
-CFLAGS += -D_GNU_SOURCE
+CPPFLAGS += -D_GNU_SOURCE
 CFLAGS += -Wall
 CFLAGS += -Wextra -Wstrict-prototypes -Wdeclaration-after-statement
 CFLAGS += $(EXTRACFLAGS)
@@ -35,6 +35,7 @@ CC ?= gcc
 RM = rm -f
 INSTALL = install
 STRIP ?= strip
+PKG_CONFIG ?= pkg-config
 CP = cp
 
 
@@ -68,15 +69,15 @@ IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
 # test if iptables version >= 1.4.3
 TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
 ifeq ($(TEST), 1)
-CFLAGS := $(CFLAGS) -DIPTABLES_143
+CPPFLAGS := $(CFLAGS) -DIPTABLES_143
 # the following sucks, but works
-LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+LDLIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
 else	# ifeq ($(TEST), 1)
-LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
+LDLIBS = $(IPTABLESPATH)/libiptc/libiptc.a
 endif	# ifeq ($(TEST), 1)
 else	#ifdef IPTABLESPATH
 
-CFLAGS += -I../iptables/include
+CPPFLAGS += -I../iptables/include
 LDFLAGS = -L../iptables -liptc
 
 endif	#ifdef IPTABLESPATH
@@ -117,7 +118,7 @@ install:	miniupnpd miniupnpd.8 miniupnpd.conf genuuid \
 	$(INSTALL) linux/miniupnpd.init.d.script $(DESTDIR)$(PREFIX)/etc/init.d/miniupnpd
 	$(INSTALL) -d $(DESTDIR)$(MANINSTALLDIR)
 	$(INSTALL) --mode=0644 miniupnpd.8 $(DESTDIR)$(MANINSTALLDIR)
-	gzip $(DESTDIR)$(MANINSTALLDIR)/miniupnpd.8
+	gzip -f $(DESTDIR)$(MANINSTALLDIR)/miniupnpd.8
 
 # genuuid is using the uuidgen CLI tool which is part of libuuid
 # from the e2fsprogs
@@ -129,7 +130,7 @@ else
 	sed -i -e "s/^uuid=[-0-9a-f]*/uuid=`($(STAGING_DIR_HOST)/bin/genuuid||$(STAGING_DIR_HOST)/bin/uuidgen||$(STAGING_DIR_HOST)/bin/uuid) 2>/dev/null`/" miniupnpd.conf
 endif
 
-miniupnpd:	$(BASEOBJS) $(LNXOBJS) $(NETFILTEROBJS) $(LIBS)
+miniupnpd:	$(BASEOBJS) $(LNXOBJS) $(NETFILTEROBJS)
 
 testupnpdescgen:	$(TESTUPNPDESCGENOBJS)
 
@@ -139,13 +140,13 @@ testupnppermissions:	testupnppermissions.o upnppermissions.o
 
 testgetifaddr:	testgetifaddr.o getifaddr.o
 
-testgetroute:	testgetroute.o linux/getroute.o upnputils.o -lnfnetlink
+testgetroute:	testgetroute.o linux/getroute.o upnputils.o
 
 testasyncsendto:	testasyncsendto.o asyncsendto.o upnputils.o \
-	linux/getroute.o -lnfnetlink
+	linux/getroute.o
 
 testportinuse:	testportinuse.o portinuse.o getifaddr.o \
-	netfilter/iptcrdr.o $(LIBS)
+	netfilter/iptcrdr.o
 
 miniupnpdctl:	miniupnpdctl.o
 
