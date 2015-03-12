@@ -1817,7 +1817,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--with-gd \
 	--with-png-dir="$(TOP)/libpng/staged/usr" \
 	--with-jpeg-dir="$(TOP)/jpeg/staged" \
-	--disable-hash \
+	--enable-hash \
 	--with-iconv="$(TOP)/libiconv/staged/usr" \
 	--with-iconv-dir="$(TOP)/libiconv/staged/usr" \
 	--enable-json \
