@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_6rd_prefix_length,ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_isp_opt,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl,ipv6_6rd_ipv4masklen,ipv6_6rd_prefix,ipv6_6rd_borderrelay"); %>
+//	<% nvram("ipv6_6rd_prefix_length,ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_isp_opt,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl,ipv6_6rd_ipv4masklen,ipv6_6rd_prefix,ipv6_6rd_borderrelay,lan1_ifname,lan2_ifname,lan3_ifname,ipv6_vlan"); %>
 
 nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
@@ -55,7 +55,10 @@ function verifyFields(focused, quiet)
 		_ipv6_6rd_ipv4masklen: 1,
 		_ipv6_6rd_prefix_length: 1,
 		_ipv6_6rd_prefix: 1,
-		_ipv6_6rd_borderrelay: 1
+		_ipv6_6rd_borderrelay: 1,
+		_f_lan1_ipv6: 0,
+		_f_lan2_ipv6: 0,
+		_f_lan3_ipv6: 0
 	};
 
 	c = E('_ipv6_service').value;
@@ -129,6 +132,14 @@ function verifyFields(focused, quiet)
 			vis._ipv6_6rd_prefix_length = 0;
 			vis._ipv6_6rd_prefix = 0;
 			vis._ipv6_6rd_borderrelay = 0;
+			if (c != '6rd-pd') {
+				if (nvram.lan1_ifname == 'br1' && E('_f_ipv6_prefix_length').value <= 63){  //2 ipv6 /64 networks
+					vis._f_lan1_ipv6 = 1;}
+				if (nvram.lan2_ifname == 'br2' && E('_f_ipv6_prefix_length').value <= 62){  //4 ipv6 /64 networks
+					vis._f_lan2_ipv6 = 1;}
+				if (nvram.lan3_ifname == 'br3' && E('_f_ipv6_prefix_length').value <= 62){
+					vis._f_lan3_ipv6 = 1;}
+			}
 			break;
 		case '6to4':
 			vis._ipv6_ifname = 0;
@@ -275,6 +286,7 @@ function save()
 
 	fom.ipv6_prefix_length.value = fom.f_ipv6_prefix_length.value;
 	fom.ipv6_prefix.value = fom.f_ipv6_prefix.value;
+	fom.ipv6_vlan.value = 0;
 
 	switch(E('_ipv6_service').value) {
 		case 'other':
@@ -285,9 +297,18 @@ function save()
 		case '6rd':
 			break; //KDB todo
 		case '6to4':
+			fom.ipv6_prefix.value = '';
+			fom.ipv6_rtr_addr.value = '';
+			break;
 		case 'native-pd':
 			fom.ipv6_prefix.value = '';
 			fom.ipv6_rtr_addr.value = '';
+			if (fom.f_lan1_ipv6.checked)
+				fom.ipv6_vlan.value |= 1;
+			if (fom.f_lan2_ipv6.checked)
+				fom.ipv6_vlan.value |= 2;
+			if (fom.f_lan3_ipv6.checked)
+				fom.ipv6_vlan.value |= 4;
 			break;
 		default:
 			fom.ipv6_rtr_addr.disabled = fom.f_ipv6_rtr_addr_auto.disabled;
@@ -326,6 +347,7 @@ function save()
 <input type='hidden' name='ipv6_prefix_length'>
 <input type='hidden' name='ipv6_rtr_addr'>
 <input type='hidden' name='ipv6_accept_ra'>
+<input type='hidden' name='ipv6_vlan'>
 <input type='hidden' name='ipv6_isp_opt'>
 
 <div class='section-title'>IPv6 Configuration</div>
@@ -365,7 +387,11 @@ createFieldTable('', [
 		{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_tun_addrlen }
 	] },
 	{ title: 'Tunnel MTU', name: 'ipv6_tun_mtu', type: 'text', maxlen: 4, size: 8, value: nvram.ipv6_tun_mtu, suffix: ' <small>(0 for default)</small>' },
-	{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl }
+	{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl },
+	null,
+	{ title: 'Request /64 subnet for',  name: 'f_lan1_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 1), suffix: '&nbsp; LAN1(br1) &nbsp;&nbsp;&nbsp;' },
+	{ title: '',			name: 'f_lan2_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 2), suffix: '&nbsp; LAN2(br2) &nbsp;&nbsp;&nbsp;' },
+	{ title: '',			name: 'f_lan3_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 4), suffix: '&nbsp; LAN3(br3) &nbsp;&nbsp;&nbsp;' }
 ]);
 </script>
 </div>

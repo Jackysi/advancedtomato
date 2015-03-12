@@ -479,6 +479,7 @@ void start_dhcp6c(void)
 	char *wan6face;
 	char *argv[] = { "dhcp6c", "-T", "LL", NULL, NULL, NULL };
 	int argc;
+	int ipv6_vlan;
 
 	TRACE_PT("begin\n");
 
@@ -489,30 +490,57 @@ void start_dhcp6c(void)
 	if (prefix_len < 0)
 		prefix_len = 0;
 	wan6face = nvram_safe_get("wan_iface");
+	ipv6_vlan = nvram_get_int("ipv6_vlan");
 
 	nvram_set("ipv6_get_dns", "");
 	nvram_set("ipv6_rtr_addr", "");
 	nvram_set("ipv6_prefix", "");
 
 	// Create dhcp6c.conf
+	unlink("/var/dhcp6c_duid");
 	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
 		fprintf(f,
 			"interface %s {\n"
+			" send ia-na 0;\n" //Required to get correct WAN IP
 			" send ia-pd 0;\n"
 			" send rapid-commit;\n"
 			" request domain-name-servers;\n"
 			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
 			"id-assoc pd 0 {\n"
+			" prefix ::/%d infinity;\n"			
 			" prefix-interface %s {\n"
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
-			" };\n"
-			"};\n"
-			"id-assoc na 0 { };\n",
+			" 	};\n",
 			wan6face,
+			nvram_get_int("ipv6_prefix_length"),
 			nvram_safe_get("lan_ifname"),
 			prefix_len);
+		if ((ipv6_vlan & 1) && (prefix_len >= 1)) { //2 ipv6 /64 networks
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 1;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan1_ifname"), prefix_len);
+		};
+		if ((ipv6_vlan & 2) && (prefix_len >= 2)) { //4 ipv6 /64 networks
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 2;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan2_ifname"), prefix_len);
+		};
+		if ((ipv6_vlan & 4) && (prefix_len >= 2)) {
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 3;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan3_ifname"), prefix_len);
+		};		
+		fprintf(f,
+			"};\n"
+			"id-assoc na 0 { };\n");
 		fclose(f);
 	}
 
