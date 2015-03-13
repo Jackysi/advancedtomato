@@ -1,6 +1,6 @@
 /*
     meta.c -- handle the meta communication
-    Copyright (C) 2000-2013 Guus Sliepen <guus@tinc-vpn.org>,
+    Copyright (C) 2000-2014 Guus Sliepen <guus@tinc-vpn.org>,
                   2000-2005 Ivo Timmermans
                   2006      Scott Lamb <slamb@slamb.org>
 
@@ -30,7 +30,7 @@
 #include "utils.h"
 #include "xalloc.h"
 
-bool send_meta_sptps(void *handle, uint8_t type, const char *buffer, size_t length) {
+bool send_meta_sptps(void *handle, uint8_t type, const void *buffer, size_t length) {
 	connection_t *c = handle;
 
 	if(!c) {
@@ -76,11 +76,12 @@ bool send_meta(connection_t *c, const char *buffer, int length) {
 
 void broadcast_meta(connection_t *from, const char *buffer, int length) {
 	for list_each(connection_t, c, connection_list)
-		if(c != from && c->status.active)
+		if(c != from && c->edge)
 			send_meta(c, buffer, length);
 }
 
-bool receive_meta_sptps(void *handle, uint8_t type, const char *data, uint16_t length) {
+bool receive_meta_sptps(void *handle, uint8_t type, const void *vdata, uint16_t length) {
+	const char *data = vdata;
 	connection_t *c = handle;
 
 	if(!c) {
@@ -142,7 +143,7 @@ bool receive_meta(connection_t *c) {
 	inlen = recv(c->socket, inbuf, sizeof inbuf - c->inbuf.len, 0);
 
 	if(inlen <= 0) {
-		if(!inlen || !errno) {
+		if(!inlen || !sockerrno) {
 			logger(DEBUG_CONNECTIONS, LOG_NOTICE, "Connection closed by %s (%s)",
 					   c->name, c->hostname);
 		} else if(sockwouldblock(sockerrno))

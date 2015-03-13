@@ -176,9 +176,13 @@ static void sssp_bfs(void) {
 			   && (e->to->distance != n->distance + 1 || e->weight >= e->to->prevedge->weight))
 				continue;
 
+			// Only update nexthop if it doesn't increase the path length
+
+			if(!e->to->status.visited || (e->to->distance == n->distance + 1 && e->weight >= e->to->prevedge->weight))
+				e->to->nexthop = (n->nexthop == myself) ? e->to : n->nexthop;
+
 			e->to->status.visited = true;
 			e->to->status.indirect = indirect;
-			e->to->nexthop = (n->nexthop == myself) ? e->to : n->nexthop;
 			e->to->prevedge = e;
 			e->to->via = indirect ? n->via : e->to;
 			e->to->options = e->options;
@@ -200,6 +204,9 @@ static void sssp_bfs(void) {
 static void check_reachability(void) {
 	/* Check reachability status. */
 
+	int reachable_count = 0;
+	int became_reachable_count = 0;
+	int became_unreachable_count = 0;
 	for splay_each(node_t, n, node_tree) {
 		if(n->status.visited != n->status.reachable) {
 			n->status.reachable = !n->status.reachable;
@@ -208,9 +215,13 @@ static void check_reachability(void) {
 			if(n->status.reachable) {
 				logger(DEBUG_TRAFFIC, LOG_DEBUG, "Node %s (%s) became reachable",
 					   n->name, n->hostname);
+				if (n != myself)
+					became_reachable_count++;
 			} else {
 				logger(DEBUG_TRAFFIC, LOG_DEBUG, "Node %s (%s) became unreachable",
 					   n->name, n->hostname);
+				if (n != myself)
+					became_unreachable_count++;
 			}
 
 			if(experimental && OPTION_VERSION(n->options) >= 2)
@@ -264,15 +275,18 @@ static void check_reachability(void) {
 				update_node_udp(n, NULL);
 				memset(&n->status, 0, sizeof n->status);
 				n->options = 0;
-			} else if(n->connection) {
-				if(n->status.sptps) {
-					if(n->connection->outgoing)
-						send_req_key(n);
-				} else {
-					send_ans_key(n);
-				}
 			}
 		}
+
+		if(n->status.reachable && n != myself)
+			reachable_count++;
+	}
+
+	if (device_standby) {
+		if (reachable_count == 0 && became_unreachable_count > 0)
+			device_disable();
+		else if (reachable_count > 0 && reachable_count == became_reachable_count)
+			device_enable();
 	}
 }
 

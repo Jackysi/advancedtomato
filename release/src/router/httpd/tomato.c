@@ -703,6 +703,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_prefix_length",		V_RANGE(3, 127)			},
 	{ "ipv6_rtr_addr",		V_IPV6(0)			},
 	{ "ipv6_radvd",			V_01				},
+	{ "ipv6_dhcpd",			V_01				},
 	{ "ipv6_accept_ra",		V_NUM				},
 	{ "ipv6_tun_addr",		V_IPV6(1)			},
 	{ "ipv6_tun_addrlen",		V_RANGE(3, 127)			},
@@ -715,7 +716,9 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_prefix",		V_IPV6(0)			},
 	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)			},
 	{ "ipv6_6rd_borderrelay",	V_IP				},
-	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 30)			},
+	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 32)			},
+	{ "ipv6_vlan",			V_RANGE(0, 7)			},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
+	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
 #endif
 
 // basic-wfilter
@@ -975,6 +978,8 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},
 	{ "rmgt_sip",			V_LENGTH(0, 512)	},
 	{ "ne_shlimit",			V_TEXT(1, 50)		},
+	{ "http_username",		V_LENGTH(0, 32)		},
+	{ "http_root",			V_01				},
 
 // admin-bwm
 	{ "rstats_enable",		V_01				},
@@ -1209,6 +1214,7 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_dlc",                    V_RANGE(0, 999999)     },
 	{ "qosl_tcp",                    V_RANGE(0, 1000)       },
 	{ "qosl_udp",                    V_RANGE(0, 100)        },
+	{ "limit_br0_prio",              V_RANGE(0, 5)          },
 	{ "limit_br1_enable",            V_01                   },
 	{ "limit_br1_ulr",               V_RANGE(0, 999999)     },
 	{ "limit_br1_ulc",               V_RANGE(0, 999999)     },
@@ -1271,6 +1277,9 @@ static const nvset_t nvset_list[] = {
 	{ "bt_ul_queue_enable",         V_01                            },
 	{ "bt_ul_queue_size",           V_RANGE(1, 30)                  },
 	{ "bt_message",                 V_RANGE(0, 3)                   },
+	{ "bt_log",                     V_01                            },
+	{ "bt_log_path",                V_LENGTH(0, 50)                 },
+
 #endif
 
 #ifdef TCONFIG_NFS
@@ -1482,11 +1491,11 @@ static const nvset_t nvset_list[] = {
 	{"tinc_devicetype",		V_TEXT(3, 3)		}, // tun, tap
 	{"tinc_mode",			V_TEXT(3, 6)		}, // switch, hub
 	{"tinc_vpn_netmask",		V_IP			},
-	{"tinc_private_rsa",		V_LENGTH(0, 1700)	},
-	{"tinc_private_ecdsa",		V_LENGTH(0, 280)	},
+	{"tinc_private_rsa",		V_NONE			},
+	{"tinc_private_ed25519",	V_NONE			},
 	{"tinc_custom",			V_NONE			},
 	{"tinc_hosts",			V_NONE			},
-	{"tinc_manual_firewall",	V_RANGE(0, 1)		},
+	{"tinc_manual_firewall",	V_RANGE(0, 2)		},
 	{"tinc_manual_tinc_up",		V_RANGE(0, 1)		},
 	// scripts
 	{"tinc_tinc_up",		V_NONE			},
@@ -1495,6 +1504,7 @@ static const nvset_t nvset_list[] = {
 	{"tinc_host_down",		V_NONE			},
 	{"tinc_subnet_up",		V_NONE			},
 	{"tinc_subnet_down",		V_NONE			},
+	{"tinc_firewall",		V_NONE			},
 #endif
 
 #ifdef TCONFIG_TOR

@@ -757,10 +757,10 @@ openssl/stamp-h1:
 	cd openssl && \
 	./Configure linux-mipsel --openssldir=/etc --cross-compile-prefix=' ' \
 	-ffunction-sections -fdata-sections -Wl,--gc-sections \
-	shared $(OPENSSL_CIPHERS) \
+	shared $(OPENSSL_CIPHERS) no-ssl2 no-ssl3 \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
-	$(if $(TCONFIG_TINC),,no-ec no-ecdh no-ecdsa) no-err no-hw no-jpake no-threads \
+	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
 	no-zlib no-engines no-sse2 \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
@@ -1842,7 +1842,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--with-gd \
 	--with-png-dir="$(TOP)/libpng/staged/usr" \
 	--with-jpeg-dir="$(TOP)/jpeg/staged" \
-	--disable-hash \
+	--enable-hash \
 	--with-iconv="$(TOP)/libiconv/staged/usr" \
 	--with-iconv-dir="$(TOP)/libiconv/staged/usr" \
 	--enable-json \
@@ -1948,7 +1948,8 @@ lzo-install: lzo
 		ln -sf liblzo2.so.2.0.0 liblzo2.so
 
 openvpn/.conf: openssl lzo
-	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	cd openvpn && ./autogen.sh && \
+	CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \

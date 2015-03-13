@@ -48,6 +48,10 @@ if [ `nvram get log_wm` == "1" -a `nvram get webmon_bkp` == "1" ]; then #only if
 			if [ -f "$BKP_DIR/domain-$DATA.log.tar.gz" -a -f "$BKP_DIR/search-$DATA.log.tar.gz" ]; then
 				if [ `nvram get webmon_shrink` == "1" ]; then
 					iptables -t filter -A monitor -p tcp -m webmon --clear_search --clear_domain
+
+					#restart firewall to reload monitor rules
+					service firewall restart
+
 					logger Webmon Backup: Backup finished. Log cleared.
 				else
 					logger Webmon Backup: Backup finished.

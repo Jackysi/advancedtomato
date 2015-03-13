@@ -18,10 +18,10 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include "logger.h"
 #include "system.h"
-
-#include "../src/logger.h"
 #include "utils.h"
+#include "xalloc.h"
 
 static const char hexadecimals[] = "0123456789ABCDEF";
 static const char base64_original[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -52,14 +52,16 @@ static int charhex2bin(char c) {
 		return toupper(c) - 'A' + 10;
 }
 
-int hex2bin(const char *src, char *dst, int length) {
+int hex2bin(const char *src, void *vdst, int length) {
+	char *dst = vdst;
 	int i;
 	for(i = 0; i < length && isxdigit(src[i * 2]) && isxdigit(src[i * 2 + 1]); i++)
 		dst[i] = charhex2bin(src[i * 2]) * 16 + charhex2bin(src[i * 2 + 1]);
 	return i;
 }
 
-int bin2hex(const char *src, char *dst, int length) {
+int bin2hex(const void *vsrc, char *dst, int length) {
+	const char *src = vsrc;
 	for(int i = length - 1; i >= 0; i--) {
 		dst[i * 2 + 1] = hexadecimals[(unsigned char) src[i] & 15];
 		dst[i * 2] = hexadecimals[(unsigned char) src[i] >> 4];
@@ -68,12 +70,12 @@ int bin2hex(const char *src, char *dst, int length) {
 	return length * 2;
 }
 
-int b64decode(const char *src, char *dst, int length) {
+int b64decode(const char *src, void *dst, int length) {
 	int i;
 	uint32_t triplet = 0;
 	unsigned char *udst = (unsigned char *)dst;
 
-	for(i = 0; i < length / 3 * 4 && src[i]; i++) {
+	for(i = 0; i < length && src[i]; i++) {
 		triplet |= base64_decode[src[i] & 0xff] << (6 * (i & 3));
 		if((i & 3) == 3) {
 			if(triplet & 0xff000000U)
@@ -99,7 +101,7 @@ int b64decode(const char *src, char *dst, int length) {
 	}
 }
 
-static int b64encode_internal(const char *src, char *dst, int length, const char *alphabet) {
+static int b64encode_internal(const void *src, char *dst, int length, const char *alphabet) {
 	uint32_t triplet;
 	const unsigned char *usrc = (unsigned char *)src;
 	int si = length / 3 * 3;
@@ -112,14 +114,14 @@ static int b64encode_internal(const char *src, char *dst, int length, const char
 			dst[di + 1] = alphabet[triplet & 63]; triplet >>= 6;
 			dst[di + 2] = alphabet[triplet];
 			dst[di + 3] = 0;
-			length = di + 2;
+			length = di + 3;
 			break;
 		case 1:
 			triplet = usrc[si];
 			dst[di] = alphabet[triplet & 63]; triplet >>= 6;
 			dst[di + 1] = alphabet[triplet];
 			dst[di + 2] = 0;
-			length = di + 1;
+			length = di + 2;
 			break;
 		default:
 			dst[di] = 0;
@@ -140,11 +142,11 @@ static int b64encode_internal(const char *src, char *dst, int length, const char
 	return length;
 }
 
-int b64encode(const char *src, char *dst, int length) {
+int b64encode(const void *src, char *dst, int length) {
 	return b64encode_internal(src, dst, length, base64_original);
 }
 
-int b64encode_urlsafe(const char *src, char *dst, int length) {
+int b64encode_urlsafe(const void *src, char *dst, int length) {
 	return b64encode_internal(src, dst, length, base64_urlsafe);
 }
 
@@ -176,4 +178,55 @@ unsigned int bitfield_to_int(const void *bitfield, size_t size) {
 		size = sizeof value;
 	memcpy(&value, bitfield, size);
 	return value;
+}
+
+bool check_id(const char *id) {
+	if(!id || !*id)
+		return false;
+
+	for(; *id; id++)
+		if(!isalnum(*id) && *id != '_')
+			return false;
+
+	return true;
+}
+
+/* Windows doesn't define HOST_NAME_MAX. */
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 255
+#endif
+
+char *replace_name(const char *name) {
+	char *ret_name;
+
+	if (name[0] == '$') {
+		char *envname = getenv(name + 1);
+		char hostname[HOST_NAME_MAX+1];
+		if (!envname) {
+			if (strcmp(name + 1, "HOST")) {
+				logger(DEBUG_ALWAYS, LOG_ERR, "Invalid Name: environment variable %s does not exist\n", name + 1);
+				return NULL;
+			}
+			if (gethostname(hostname, sizeof hostname) || !*hostname) {
+				logger(DEBUG_ALWAYS, LOG_ERR, "Could not get hostname: %s\n", sockstrerror(sockerrno));
+				return NULL;
+			}
+			hostname[HOST_NAME_MAX] = 0;
+			envname = hostname;
+		}
+		ret_name = xstrdup(envname);
+		for (char *c = ret_name; *c; c++)
+			if (!isalnum(*c))
+				*c = '_';
+	} else {
+		ret_name = xstrdup(name);
+	}
+
+	if (!check_id(ret_name)) {
+		logger(DEBUG_ALWAYS, LOG_ERR, "Invalid name for myself!");
+		free(ret_name);
+		return NULL;
+	}
+
+	return ret_name;
 }

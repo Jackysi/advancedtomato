@@ -21,6 +21,7 @@
 
 #ifdef HAVE_CURSES
 
+#undef KEY_EVENT  /* There are conflicting declarations for KEY_EVENT in Windows wincon.h and curses.h. */
 #include <curses.h>
 
 #include "control_common.h"
@@ -66,8 +67,10 @@ static float bscale = 1;
 static const char *punit = "pkts";
 static float pscale = 1;
 
-static void update(int fd) {
-	sendline(fd, "%d %d", CONTROL, REQ_DUMP_TRAFFIC);
+static bool update(int fd) {
+	if(!sendline(fd, "%d %d", CONTROL, REQ_DUMP_TRAFFIC))
+		return false;
+
 	gettimeofday(&cur, NULL);
 
 	timersub(&cur, &prev, &diff);
@@ -90,13 +93,10 @@ static void update(int fd) {
 		int n = sscanf(line, "%d %d %s %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64, &code, &req, name, &in_packets, &in_bytes, &out_packets, &out_bytes);
 
 		if(n == 2)
-			break;
+			return true;
 
-		if(n != 7) {
-			endwin();
-			fprintf(stderr, "Error receiving traffic information\n");
-			exit(1);
-		}
+		if(n != 7)
+			return false;
 
 		nodestats_t *found = NULL;
 
@@ -133,6 +133,8 @@ static void update(int fd) {
 		found->out_packets = out_packets;
 		found->out_bytes = out_bytes;
 	}
+
+	return false;
 }
 
 static int cmpfloat(float a, float b) {
@@ -246,7 +248,9 @@ void top(int fd) {
 	bool running = true;
 
 	while(running) {
-		update(fd);
+		if(!update(fd))
+			break;
+
 		redraw();
 
 		switch(getch()) {

@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_ratio_idle_enable,bt_ratio_idle,bt_dht,bt_pex,bt_lpd,bt_utp,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_dl_queue_enable,bt_dl_queue_size,bt_ul_queue_enable,bt_ul_queue_size,bt_message"); %>
+//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_ratio_idle_enable,bt_ratio_idle,bt_dht,bt_pex,bt_lpd,bt_utp,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_dl_queue_enable,bt_dl_queue_size,bt_ul_queue_enable,bt_ul_queue_size,bt_message,bt_log,bt_log_path"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -40,6 +40,7 @@ function verifyFields(focused, quiet)
 	var l = E('_f_bt_ul_queue_enable').checked;
 	var m = E('_f_bt_check').checked;
 	var n = E('_f_bt_ratio_idle_enable').checked;
+	var r = E('_f_bt_log').checked;
 
 	E('_bt_custom').disabled = !a;
 	E('_bt_binary').disabled = !a;
@@ -78,6 +79,8 @@ function verifyFields(focused, quiet)
 	E('_f_bt_ul_queue_enable').disabled = !a;
 	E('_bt_ul_queue_size').disabled = !a || !l;
 	E('_bt_message').disabled = !a;
+	E('_f_bt_log').disabled = !a;
+	E('_bt_log_path').disabled = !a || !r;
 
 	var o = (E('_bt_settings').value == 'custom');
 	elem.display('_bt_settings_custom', o && a);
@@ -238,6 +241,7 @@ function save()
   fom.bt_lpd.value = E('_f_bt_lpd').checked ? 1 : 0;
   fom.bt_utp.value = E('_f_bt_utp').checked ? 1 : 0;
   fom.bt_blocklist.value = E('_f_bt_blocklist').checked ? 1 : 0;
+  fom.bt_log.value = E('_f_bt_log').checked ? 1 : 0;
   fom.bt_dl_queue_enable.value = E('_f_bt_dl_queue_enable').checked ? 1 : 0;
   fom.bt_ul_queue_enable.value = E('_f_bt_ul_queue_enable').checked ? 1 : 0;
 
@@ -279,6 +283,7 @@ function init()
 <input type='hidden' name='bt_dl_enable'>
 <input type='hidden' name='bt_ul_enable'>
 <input type='hidden' name='bt_blocklist'>
+<input type='hidden' name='bt_log'>
 <input type='hidden' name='bt_ratio_enable'>
 <input type='hidden' name='bt_ratio_idle_enable'>
 <input type='hidden' name='bt_dht'>
@@ -399,7 +404,11 @@ createFieldTable('', [
 		] },
 	{ title: 'Blocklist', multi: [
 		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
-		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url }
+		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 60, value: nvram.bt_blocklist_url }
+		] },
+	{ title: 'Custom Log File Path', multi: [
+		{ name: 'f_bt_log', type: 'checkbox', value: nvram.bt_log == '1', suffix: '  ' },
+		{ name: 'bt_log_path', type: 'text', maxlen: 80, size: 60, value: nvram.bt_log_path, suffix: ' /transmission.log' }
 		] },
 	null,
 	{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }

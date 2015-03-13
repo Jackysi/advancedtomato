@@ -85,7 +85,7 @@ fog.verifyFields = function(row, quiet) {
 
 	f[3].value = f[3].value.trim();	
 	if ((f[3].value.length) && !v_hostname(f[3], 1)) {
-		if (!v_ipv6_addr(f[3], quiet)) return 0;
+		if (!_v_iptaddr(f[3], quiet, 0, 0, 1)) return 0;
 	}
 
 	if (!v_iptport(f[4], quiet)) return 0;
@@ -107,7 +107,7 @@ fog.resetNewEditor = function() {
 }
 
 fog.setup = function() {
-	this.init('fo-grid6', 'sort', 50, [
+	this.init('fo-grid6', 'sort', 100, [
 		{ type: 'checkbox' },
 		{ type: 'select', options: [[1, 'TCP'],[2, 'UDP'],[3,'Both']] },
 		{ type: 'text', maxlen: 140 },

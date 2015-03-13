@@ -1,7 +1,7 @@
 /*
     protocol_key.c -- handle the meta-protocol, key exchange
     Copyright (C) 1999-2005 Ivo Timmermans,
-                  2000-2013 Guus Sliepen <guus@tinc-vpn.org>
+                  2000-2014 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ void send_key_changed(void) {
 	/* Immediately send new keys to directly connected nodes to keep UDP mappings alive */
 
 	for list_each(connection_t, c, connection_list)
-		if(c->status.active && c->node && c->node->status.reachable && !c->node->status.sptps)
+		if(c->edge && c->node && c->node->status.reachable && !c->node->status.sptps)
 			send_ans_key(c->node);
 
 	/* Force key exchange for connections using SPTPS */
@@ -87,7 +87,7 @@ bool key_changed_h(connection_t *c, const char *request) {
 	return true;
 }
 
-static bool send_initial_sptps_data(void *handle, uint8_t type, const char *data, size_t len) {
+static bool send_initial_sptps_data(void *handle, uint8_t type, const void *data, size_t len) {
 	node_t *to = handle;
 	to->sptps.send_data = send_sptps_data;
 	char buf[len * 4 / 3 + 5];
@@ -98,7 +98,7 @@ static bool send_initial_sptps_data(void *handle, uint8_t type, const char *data
 bool send_req_key(node_t *to) {
 	if(to->status.sptps) {
 		if(!node_read_ecdsa_public_key(to)) {
-			logger(DEBUG_PROTOCOL, LOG_DEBUG, "No ECDSA key known for %s (%s)", to->name, to->hostname);
+			logger(DEBUG_PROTOCOL, LOG_DEBUG, "No Ed25519 key known for %s (%s)", to->name, to->hostname);
 			send_request(to->nexthop->connection, "%d %s %s %d", REQ_KEY, myself->name, to->name, REQ_PUBKEY);
 			return true;
 		}
@@ -124,6 +124,11 @@ bool send_req_key(node_t *to) {
 static bool req_key_ext_h(connection_t *c, const char *request, node_t *from, int reqno) {
 	switch(reqno) {
 		case REQ_PUBKEY: {
+			if(!node_read_ecdsa_public_key(from)) {
+				/* Request their key *before* we send our key back. Otherwise the first SPTPS packet from them will get dropped. */
+				logger(DEBUG_PROTOCOL, LOG_DEBUG, "Preemptively requesting Ed25519 key for %s (%s)", from->name, from->hostname);
+				send_request(from->nexthop->connection, "%d %s %s %d", REQ_KEY, myself->name, from->name, REQ_PUBKEY);
+			}
 			char *pubkey = ecdsa_get_base64_public_key(myself->connection->ecdsa);
 			send_request(from->nexthop->connection, "%d %s %s %d %s", REQ_KEY, myself->name, from->name, ANS_PUBKEY, pubkey);
 			free(pubkey);
@@ -142,14 +147,14 @@ static bool req_key_ext_h(connection_t *c, const char *request, node_t *from, in
 				return true;
 			}
 
-			logger(DEBUG_PROTOCOL, LOG_INFO, "Learned ECDSA public key from %s (%s)", from->name, from->hostname);
-			append_config_file(from->name, "ECDSAPublicKey", pubkey);
+			logger(DEBUG_PROTOCOL, LOG_INFO, "Learned Ed25519 public key from %s (%s)", from->name, from->hostname);
+			append_config_file(from->name, "Ed25519PublicKey", pubkey);
 			return true;
 		}
 
 		case REQ_KEY: {
 			if(!node_read_ecdsa_public_key(from)) {
-				logger(DEBUG_PROTOCOL, LOG_DEBUG, "No ECDSA key known for %s (%s)", from->name, from->hostname);
+				logger(DEBUG_PROTOCOL, LOG_DEBUG, "No Ed25519 key known for %s (%s)", from->name, from->hostname);
 				send_request(from->nexthop->connection, "%d %s %s %d", REQ_KEY, myself->name, from->name, REQ_PUBKEY);
 				return true;
 			}
@@ -250,6 +255,7 @@ bool req_key_h(connection_t *c, const char *request) {
 			return true;
 		}
 
+		/* TODO: forwarding SPTPS packets in this way is inefficient because we send them over TCP without checking for UDP connectivity */
 		send_request(to->nexthop->connection, "%s", request);
 	}
 
@@ -260,24 +266,31 @@ bool send_ans_key(node_t *to) {
 	if(to->status.sptps)
 		abort();
 
-	size_t keylen = cipher_keylength(myself->incipher);
+	size_t keylen = myself->incipher ? cipher_keylength(myself->incipher) : 1;
 	char key[keylen * 2 + 1];
+
+	randomize(key, keylen);
 
 	cipher_close(to->incipher);
 	digest_close(to->indigest);
 
-	to->incipher = cipher_open_by_nid(cipher_get_nid(myself->incipher));
-	to->indigest = digest_open_by_nid(digest_get_nid(myself->indigest), digest_length(myself->indigest));
+	if(myself->incipher) {
+		to->incipher = cipher_open_by_nid(cipher_get_nid(myself->incipher));
+		if(!to->incipher)
+			abort();
+		if(!cipher_set_key(to->incipher, key, false))
+			abort();
+	}
+
+	if(myself->indigest) {
+		to->indigest = digest_open_by_nid(digest_get_nid(myself->indigest), digest_length(myself->indigest));
+		if(!to->indigest)
+			abort();
+		if(!digest_set_key(to->indigest, key, keylen))
+			abort();
+	}
+
 	to->incompression = myself->incompression;
-
-	if(!to->incipher || !to->indigest)
-		abort();
-
-	randomize(key, keylen);
-	if(!cipher_set_key(to->incipher, key, false))
-		abort();
-	if(!digest_set_key(to->indigest, key, keylen))
-		abort();
 
 	bin2hex(key, key, keylen);
 
@@ -386,7 +399,9 @@ bool ans_key_h(connection_t *c, const char *request) {
 				update_node_udp(from, &sa);
 			}
 
-			if(from->options & OPTION_PMTU_DISCOVERY && !(from->options & OPTION_TCPONLY))
+			/* Don't send probes if we can't send UDP packets directly to that node.
+			   TODO: the indirect (via) condition can change at any time as edges are added and removed, so this should probably be moved to graph.c. */
+			if((from->via == myself || from->via == from) && from->options & OPTION_PMTU_DISCOVERY && !(from->options & OPTION_TCPONLY))
 				send_mtu_probe(from);
 		}
 
@@ -422,16 +437,16 @@ bool ans_key_h(connection_t *c, const char *request) {
 
 	keylen = hex2bin(key, key, sizeof key);
 
-	if(keylen != cipher_keylength(from->outcipher)) {
+	if(keylen != (from->outcipher ? cipher_keylength(from->outcipher) : 1)) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Node %s (%s) uses wrong keylength!", from->name, from->hostname);
 		return true;
 	}
 
 	/* Update our copy of the origin's packet key */
 
-	if(!cipher_set_key(from->outcipher, key, true))
+	if(from->outcipher && !cipher_set_key(from->outcipher, key, true))
 		return false;
-	if(!digest_set_key(from->outdigest, key, keylen))
+	if(from->outdigest && !digest_set_key(from->outdigest, key, keylen))
 		return false;
 
 	from->status.validkey = true;

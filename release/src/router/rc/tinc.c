@@ -13,7 +13,7 @@ void start_tinc(void)
 {
 
 	char *nv, *nvp, *b;
-	const char *connecto, *name, *address, *port, *compression, *subnet, *rsa, *ecdsa, *custom, *tinc_tmp_value;
+	const char *connecto, *name, *address, *port, *compression, *subnet, *rsa, *ed25519, *custom, *tinc_tmp_value;
 	char buffer[BUF_SIZE];
 	FILE *fp, *hp;
 
@@ -35,15 +35,15 @@ void start_tinc(void)
 	}
 
 
-	// write private ecdsa key
-	if ( strcmp( tinc_tmp_value = nvram_safe_get("tinc_private_ecdsa"), "") != 0 ){
-		if ( !( fp = fopen( "/etc/tinc/ecdsa_key.priv", "w" ))){
-			perror( "/etc/tinc/ecdsa_key.priv" );
+	// write private ed25519 key
+	if ( strcmp( tinc_tmp_value = nvram_safe_get("tinc_private_ed25519"), "") != 0 ){
+		if ( !( fp = fopen( "/etc/tinc/ed25519_key.priv", "w" ))){
+			perror( "/etc/tinc/ed25519_key.priv" );
 			return;
 		}
 		fprintf(fp, "%s\n", tinc_tmp_value );
 		fclose(fp);
-		chmod("/etc/tinc/ecdsa_key.priv", 0600);
+		chmod("/etc/tinc/ed25519_key.priv", 0600);
 	}
 
 
@@ -74,7 +74,7 @@ void start_tinc(void)
 	if (!nv) return;
 	while ((b = strsep(&nvp, ">")) != NULL) {
 
-		if (vstrsep(b, "<", &connecto, &name, &address, &port, &compression, &subnet, &rsa, &ecdsa, &custom) != 9) continue;
+		if (vstrsep(b, "<", &connecto, &name, &address, &port, &compression, &subnet, &rsa, &ed25519, &custom) != 9) continue;
 
 		sprintf(&buffer[0], "/etc/tinc/hosts/%s", name);
 		if ( !( hp = fopen( &buffer[0], "w" ))){
@@ -90,8 +90,8 @@ void start_tinc(void)
 		if ( strcmp( rsa, "" ) != 0 )
 			fprintf(hp, "%s\n", rsa );
 
-		if ( strcmp( ecdsa, "" ) != 0 )
-			fprintf(hp, "%s\n", ecdsa );
+		if ( strcmp( ed25519, "" ) != 0 )
+			fprintf(hp, "%s\n", ed25519 );
 
 		if ( strcmp( address, "" ) != 0 )
 			fprintf(hp, "Address = %s\n", address );
@@ -140,22 +140,18 @@ void start_tinc(void)
 			fclose(hp);
 			chmod("/etc/tinc/tinc-up", 0744);
 
-			// Create firewall script if manual firewall is not enabled.
-			if ( !nvram_match("tinc_manual_firewall", "1") ){
+			// Create firewall script.
+			if ( !( hp = fopen( "/etc/tinc/tinc-fw.sh", "w" ))){
+				perror( "/etc/tinc/tinc-fw.sh" );
+				return;
+			}
 
-				if ( !( hp = fopen( "/etc/tinc/tinc-fw.sh", "w" ))){
-					perror( "/etc/tinc/tinc-fw.sh" );
-					return;
-				}
+			fprintf(hp, "#!/bin/sh\n" );
+
+			if ( !nvram_match("tinc_manual_firewall", "2") ){
 
 				if ( strcmp( port, "") == 0 )
 					port = "655";
-
-				fprintf(hp, "#!/bin/sh\n" );
-
-				fprintf(hp, "iptables -t nat -I PREROUTING -p udp --dport %s -j ACCEPT\n", port );
-				fprintf(hp, "iptables -t nat -I PREROUTING -p tcp --dport %s -j ACCEPT\n", port );
-
 
 				fprintf(hp, "iptables -I INPUT -p udp --dport %s -j ACCEPT\n", port );
 				fprintf(hp, "iptables -I INPUT -p tcp --dport %s -j ACCEPT\n", port );
@@ -175,10 +171,17 @@ void start_tinc(void)
 					fprintf(hp, "ip6tables -I FORWARD -i tinc -j ACCEPT\n" );
 				}
 #endif
-
-				fclose(hp);
-				chmod("/etc/tinc/tinc-fw.sh", 0744);
 			}
+
+			if ( !nvram_match("tinc_manual_firewall", "0") ){
+
+				fprintf(hp, "\n" );
+				fprintf(hp, "%s\n", nvram_safe_get("tinc_firewall") );
+
+			}
+
+			fclose(hp);
+			chmod("/etc/tinc/tinc-fw.sh", 0744);
 		}
 	}
 
