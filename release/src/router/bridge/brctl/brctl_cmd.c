@@ -338,8 +338,15 @@ static int show_bridge(const char *name, void *arg)
 
 static int br_cmd_show(int argc, char *const* argv)
 {
+	int i;
+
 	printf("bridge name\tbridge id\t\tSTP enabled\tinterfaces\n");
-	br_foreach_bridge(show_bridge, NULL);
+	if (argc == 1)
+		br_foreach_bridge(show_bridge, NULL);
+	else
+		for(i = 2; i <= argc; i++)
+			show_bridge(argv[i - 1], NULL);
+
 	return 0;
 }
 
@@ -395,6 +402,42 @@ static int br_cmd_showmacs(int argc, char *const* argv)
 	return 0;
 }
 
+static int br_cmd_hairpin(int argc, char *const* argv)
+{
+	int hairpin, err;
+	const char *brname = *++argv;
+	const char *ifname = *++argv;
+	const char *hpmode = *++argv;
+
+	if (!strcmp(hpmode, "on") || !strcmp(hpmode, "yes")
+	    || !strcmp(hpmode, "1"))
+		hairpin = 1;
+	else if (!strcmp(hpmode, "off") || !strcmp(hpmode, "no")
+		 || !strcmp(hpmode, "0"))
+		hairpin = 0;
+	else {
+		fprintf(stderr, "expect on/off for argument\n");
+		return 1;
+	}
+	if (if_nametoindex(ifname) == 0) {
+		fprintf(stderr, "interface %s does not exist!\n",
+			ifname);
+		return 1;
+	} else if (if_nametoindex(brname) == 0) {
+		fprintf(stderr, "bridge %s does not exist!\n",
+			brname);
+		return 1;
+	}
+
+	err = br_set_hairpin_mode(brname, ifname, hairpin);
+
+	if (err) {
+		fprintf(stderr, "can't set %s to hairpin on bridge %s: %s\n",
+			ifname, brname, strerror(err));
+	}
+	return err != 0;
+}
+
 static const struct command commands[] = {
 	{ 1, "addbr", br_cmd_addbr, "<bridge>\t\tadd bridge" },
 	{ 1, "delbr", br_cmd_delbr, "<bridge>\t\tdelete bridge" },
@@ -402,6 +445,8 @@ static const struct command commands[] = {
 	  "<bridge> <device>\tadd interface to bridge" },
 	{ 2, "delif", br_cmd_delif,
 	  "<bridge> <device>\tdelete interface from bridge" },
+	{ 3, "hairpin", br_cmd_hairpin,
+	  "<bridge> <port> {on|off}\tturn hairpin on/off" },
 	{ 2, "setageing", br_cmd_setageing,
 	  "<bridge> <time>\t\tset ageing time" },
 	{ 2, "setbridgeprio", br_cmd_setbridgeprio,
@@ -416,7 +461,8 @@ static const struct command commands[] = {
 	  "<bridge> <port> <cost>\tset path cost" },
 	{ 3, "setportprio", br_cmd_setportprio,
 	  "<bridge> <port> <prio>\tset port priority" },
-	{ 0, "show", br_cmd_show, "\t\t\tshow a list of bridges" },
+	{ 0, "show", br_cmd_show,
+	  "[ <bridge> ]\t\tshow a list of bridges" },
 	{ 1, "showmacs", br_cmd_showmacs, 
 	  "<bridge>\t\tshow a list of mac addrs"},
 	{ 1, "showstp", br_cmd_showstp, 
