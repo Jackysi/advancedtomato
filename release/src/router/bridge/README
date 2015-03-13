@@ -1,15 +1,8 @@
 This version of the bridge utilities is for Linux 2.4 and 2.6,
-it uses the sysfs interface if possible on Linux 2.6
+it uses the sysfs interface if possible on Linux 2.6.
 
-
----------------------------
-Lennert Buytenhek rewrote the linux bridging code
-because the old code was a big mess and nonextensible.
-
-The new code is published at:
-	http://bridge.sourceforge.net/
-
-
+The code repository is:
+    git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/bridge-utils.git
 
 Advantages of the new code are:
 - Support for multiple bridge port groups (i.e. multiple independent
@@ -26,7 +19,7 @@ Advantages of the new code are:
 
 
 If you have any comments, questions or suggestions, please send email to
-the mailing list bridge@osdl.org
+the mailing list bridge@linux-foundation.org
 --------------------------
 
 Files in this package:
