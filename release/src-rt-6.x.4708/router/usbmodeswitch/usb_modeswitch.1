@@ -1,9 +1,9 @@
 .TH "USB_MODESWITCH" "1"
 .SH "NAME"
-usb_modeswitch - switch mode of "multi-state" USB devices
+usb_modeswitch - control the mode of 'multi-state' USB devices
 .SH "SYNOPSIS"
 .PP
-\fBusb_modeswitch\fR [\fB\-heWQDIvpVPmM23rwdHSOBGTNALnsRiuagft\fP] [\fB\-c \fIfilename\fP]
+\fBusb_modeswitch\fR [\fB\-heWQDIvpVPmM23rwKdHSOBGTNALnsRiuagft\fP] [\fB\-c \fIfilename\fP]
 .SH "DESCRIPTION"
 .PP
 Several new USB devices have their proprietary Windows drivers onboard,
@@ -86,6 +86,10 @@ with \fB\-2\fR and \fB\-3\fR, this may need to be set to avoid transfer errors
 Try to read the response to a storage command from there
 if option \-n is active. Only for testing purposes; usually
 endpoints are determined from the device attributes
+.IP "\fB-K\fP \fB\-\-std-eject\fP         " 10
+Apply the standard SCSI sequence of "Allow Medium Removal" and
+"Eject". Implies \fB-n\fP. One 'Message' can be added with \fB-M\fP
+that will be transmitted after the eject sequence
 .IP "\fB-d\fP \fB\-\-detach-only\fP         " 10
 Just detach the current driver. This is sufficient for some early
 devices to switch successfully. Otherwise this feature can
@@ -93,6 +97,8 @@ be used as a 'scalpel' for special cases, like separating the
 driver from individual interfaces
 .IP "\fB-H\fP \fB\-\-huawei-mode\fP         " 10
 Send a special control message used by older Huawei devices
+.IP "\fB-J\fP \fB\-\-huawei-new-mode\fP         " 10
+Send a specific bulk message used by all newer Huawei devices
 .IP "\fB-S\fP \fB\-\-sierra-mode\fP         " 10
 Send a special control message used by Sierra devices
 .IP "\fB-G\fP \fB\-\-gct-mode\fP         " 10
@@ -167,4 +173,4 @@ later version published by the Free Software Foundation.
 The complete text of the current GNU General Public
 License can be found in http://www.gnu.org/licenses/gpl.txt
 
-.\" last edited 2013-09-01 for version 2.0.0
+.\" last edited 2014-05-29 for version 2.2.0
