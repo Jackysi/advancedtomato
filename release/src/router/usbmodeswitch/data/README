@@ -68,6 +68,23 @@ Example:
 <vid>:<pid>:uPr=CDMA_Mo will match iProduct "CDMA Modem" or "MyCDMA_Mordor"
 
 
+Generic config files (per vendor ID):
+=====================================
+
+Introduced in program package 2.2.0, this feature allows config files with a
+name in the form <idVendor>:#<system flavour>. The default flavour is "linux".
+
+The system parameter is taken from "/proc/version". The main use currently is
+a sort of OS switch to treat all Huawei devices differently on Android.
+There is no guarantee though that the /proc/version information will always
+point to Android, so this method may change in future versions.
+
+Annother form of usage is a fallback if the device ID is yet unknown. For
+Huawei devices, the switching method is uniform and not likely to change,
+so it is possible to provide a generic configuration.
+
+Example files: see "12d1:#android" and "12d1:#linux"
+
 
 Parameters used only in config files:
 =====================================
@@ -88,7 +105,10 @@ DriverIDPath=<path to attribute>
 Notes about specific devices:
 =============================
 
-- 1004:607f (LG KP500): switching message derived from report but untested
+- Huawei devices have a generic entry in the rules file; also there are
+  generic config files for these devices (Linux/Android) as fall-back or
+  as OS-specific mode control. This was suggested and approved by the
+  manufacturer
 
 - 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
 
@@ -123,4 +143,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2013-06-02, Josua Dietze
+Last revised: 2015-01-15, Josua Dietze

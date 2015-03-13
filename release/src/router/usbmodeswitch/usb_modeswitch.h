@@ -1,9 +1,9 @@
 /*
   This file is part of usb_modeswitch, a mode switching tool for controlling
-  flip flop (multiple device) USB gear
+  the mode of 'multi-state' USB devices
 
-  Version 2.0.1, 2013/09/03
-  Copyright (C) 2007 - 2013  Josua Dietze
+  Version 2.2.1, 2015/05/15
+  Copyright (C) 2007 - 2015  Josua Dietze
 
   Config file parsing stuff borrowed from Guillaume Dargaud
   (http://www.gdargaud.net/Hack/SourceCode.html)
@@ -51,10 +51,9 @@ int read_bulk(int endpoint, char *buffer, int length);
 void release_usb_device(int dummy);
 struct libusb_device* search_devices( int *numFound, int vendor, char* productList,
 		int targetClass, int configuration, int mode);
-int find_first_bulk_output_endpoint(struct libusb_device *dev);
-int find_first_bulk_input_endpoint(struct libusb_device *dev);
-int get_current_configuration(struct libusb_device_handle* devh);
-int get_interface_class(struct libusb_config_descriptor *cfg, int ifcNumber);
+int find_first_bulk_endpoint(int direction);
+int get_current_configuration();
+int get_interface_class();
 char* ReadParseParam(const char* FileName, char *VariableName);
 int hex2num(char c);
 int hex2byte(const char *hex);
