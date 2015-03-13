@@ -194,8 +194,8 @@ else
         done
 
         #search WAN interface (usbX or ethX)
-        HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1`
-        NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1`
+        HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d " " -f1 | cut -d ":" -f1`
+        NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d " " -f1 | cut -d ":" -f1`
 
         IS_HWAN=`echo $HWAN | wc -w`
         IS_NHWAN=`echo NHWAN | wc -w`
