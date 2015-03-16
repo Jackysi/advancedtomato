@@ -1,0 +1,10 @@
+*.o
+*.a
+*.so
+.*.depend
+version
+rtconfig.h
+tomato_config.h
+tomato_profile.h
+tomato_version
+

@@ -72,7 +72,8 @@ switch(nvram['boardtype']) {
   case '0x048e':  // WL-520GU, WL-500G Premium v2
   case '0x04ef':  // WRT320N/E2000
   case '0x04cf':  // WRT610Nv2/E3000, RT-N16
-  case '0xf52c':  // E4200v1
+  case '0xf52c':  // E4200v1, WNDR4000, WNDR3700v3
+  case '0xf52e':  // R6300V1, WNDR4500, WNDR4500V2
   case '0xf5b2':  // RT-N66
     trunk_vlan_supported = 1;
     break;
@@ -166,9 +167,18 @@ switch(nvram['boardtype']) {
   case '0xf550':  // E2500
   case '0x058e':  // E900
   case '0xf52a':  // E3200
-  case '0xf52c':  // E4200v1
+  case '0xf52c':  // E4200v1, WNDR4000, WNDR3700v3
+  case '0xf52e':  // R6300V1, WNDR4500, WNDR4500V2
   case '0x1202':  // HG320 - not sure, need test
     if ((nvram['boardrev'] == '0x1153') && (nvram['boardnum'] == '45')) { //RT-N10P
+     COL_P0N = '3';
+     COL_P1N = '2';
+     COL_P2N = '1';
+     COL_P3N = '0';
+     COL_P4N = '4';
+     break;
+    }
+    if ((nvram['boardrev'] == '0x1102') && (nvram['boardnum'] == '4536')) { //R6300V1, WNDR4500, WNDR4500V2
      COL_P0N = '3';
      COL_P1N = '2';
      COL_P2N = '1';
@@ -191,7 +201,7 @@ switch(nvram['boardtype']) {
     COL_P4N = '4';
     break;
   case '0x052b':
-   if (nvram['boardrev'] == '02'){ //WNR3500Lv2
+   if (nvram['boardrev'] == '02') { //WNR3500Lv2
     COL_P0N = '4';
     COL_P1N = '3';
     COL_P2N = '2';

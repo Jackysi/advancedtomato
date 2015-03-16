@@ -48,3 +48,6 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_UFSD is not set
 # TCONFIG_DNSSEC is not set
 # TCONFIG_TINC is not set
+# TCONFIG_R6300V1 is not set
+# TCONFIG_WNDR4500V1 is not set
+# TCONFIG_WNDR4500V2 is not set

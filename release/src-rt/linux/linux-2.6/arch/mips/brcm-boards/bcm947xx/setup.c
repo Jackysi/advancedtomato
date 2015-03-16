@@ -280,6 +280,7 @@ enum {
 	RT_DIR320,	// D-Link DIR-320
 	RT_WNR3500L,	// Netgear WNR3500v2/U/L
 	RT_WNR2000V2,	// Netgear WNR2000v2
+	RT_WNDR,	// Netgear WNDR4000, WNDR3700v3, WNDR3400, WNDR3400v2
 	RT_BELKIN_F7D   // Belkin F7D3301, F7D3302, F7D4302, F7D8235V3
 };
 
@@ -294,6 +295,18 @@ static int get_router(void)
 	}
 	else if (boardnum == 1 && boardtype == 0xE4CD && boardrev == 0x1700) {
 		return RT_WNR2000V2;
+	}
+	else if (boardtype == 0xF52C && boardrev == 0x1101 && boardnum == 01) {
+		// Netgear WNDR4000m WNDR3700v3
+		return RT_WNDR;
+	}
+	else if (boardtype == 0xB4CF && boardrev == 0x1100 && boardnum == 01) {
+		// Netgear WNDR3400
+		return RT_WNDR;
+	}
+	else if (boardtype == 0x0550 && boardrev == 0x1400 && boardnum == 01) {
+		// Netgear WNDR3400v2
+		return RT_WNDR;
 	}
 #ifdef DIR320_BOARD
 	else if (boardnum == 0 && boardtype == 0x48E && boardrev == 0x35) {
@@ -405,6 +418,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 #endif
 	case RT_WNR3500L:
 	case RT_WNR2000V2:
+	case RT_WNDR:
 		bcm947xx_parts[PART_BOARD].size = mtd->erasesize;
 		boardoff -= bcm947xx_parts[PART_BOARD].size;
 		bcm947xx_parts[PART_BOARD].offset = boardoff;

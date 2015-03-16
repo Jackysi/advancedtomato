@@ -9,6 +9,7 @@
 #include <sys/reboot.h>
 #include <wlutils.h>
 #include <wlioctl.h>
+#include <syslog.h>
 
 //	#define DEBUG_TEST
 
@@ -177,9 +178,18 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 9;
 		ses_mask = 1 << 4;
 		break;
+	case MODEL_R6300V1:
+	case MODEL_WNDR4500:
+	case MODEL_WNDR4500V2:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 5; // gpio 5, inversed
+		break;
 	case MODEL_EA6500V1:
 		reset_mask = 1 << 3;
 		ses_mask = 1 << 4;
+		break;
+	case MODEL_TDN80:
+		reset_mask = 1 << 14;
 		break;
 	case MODEL_W1800R:
 		reset_mask = 1 << 14;
@@ -196,6 +206,18 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WNR2000v2:
 		reset_mask = 1 << 1;
 		ses_mask = 1 << 0;
+		ses_led = LED_AOSS;
+		break;
+	case MODEL_WNDR4000:
+	case MODEL_WNDR3700v3:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 2;
+		ses_led = LED_AOSS;
+		break;
+	case MODEL_WNDR3400:
+	case MODEL_WNDR3400v2:
+		reset_mask = 1 << 4;
+		ses_mask = 1 << 8;
 		ses_led = LED_AOSS;
 		break;
 	case MODEL_F7D3301:
@@ -315,6 +337,7 @@ int buttons_main(int argc, char *argv[])
 			cprintf("reset down\n");
 #endif
 
+			//syslog(LOG_INFO, "reset down\n");
 			led(LED_DIAG, 0);
 
 			count = 0;
@@ -355,6 +378,12 @@ int buttons_main(int argc, char *argv[])
 			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & ses_mask) == ses_pushed));
 			gpio &= mask;
 
+			//for WNDR3400/3400v2/3700v3/4000, bwq518
+			int model;
+			model = nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model();
+			if (model == MODEL_WNDR3400 || model == MODEL_WNDR3400v2 || model == MODEL_WNDR3700v3 || model == MODEL_WNDR4000)
+				led(ses_led, LED_ON);
+
 			if ((ses_led == LED_DMZ) && (nvram_get_int("dmz_enable") > 0)) led(LED_DMZ, 1);
 
 			//	syslog(LOG_DEBUG, "ses-released: gpio=x%X, pushed=x%X, mask=x%X, count=%d", gpio, ses_pushed, ses_mask, count);
@@ -375,6 +404,7 @@ int buttons_main(int argc, char *argv[])
 #else
 				sprintf(s, "sesx_b%d", n);
 				//	syslog(LOG_DEBUG, "ses-func: count=%d %s='%s'", count, s, nvram_safe_get(s));
+				syslog(LOG_DEBUG, "ses-func: count=%d %s='%s'", count, s, nvram_safe_get(s));
 				if ((p = nvram_get(s)) != NULL) {
 					switch (*p) {
 					case '1':	// toggle wl

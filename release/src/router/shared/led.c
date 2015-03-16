@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -19,6 +20,7 @@
 
 
 const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "usb", "5g"};
+const char *led_modes[] = { "Off", "On", "Blink", "Probe"};
 
 #ifdef LINUX26
 #define GPIO_IOCTL
@@ -175,8 +177,97 @@ int nvget_gpio(const char *name, int *gpio, int *inv)
 	return 0;
 }
 // --- move end ---
+// Routine to write to shift register
+// Note that the controls are active low, but input as high = on
+void gpio_write_shiftregister(unsigned int led_status, int clk, int data, int max_shifts)
+{
+	int i;
 
+	gpio_write(1 << data, 1);       /* set data to 1 to start (disable) */
+	gpio_write(1 << clk, 0);        /* and clear clock ... */
 
+	for (i = max_shifts; i >= 0; i--) {
+		if (led_status & (1 << i))
+			gpio_write(1 << data, 0);       /* on, pull low (active low) */
+		else
+			gpio_write(1 << data, 1);       /* off, pull high (active low) */
+
+		gpio_write(1 << clk, 1);        /* pull high to trigger */
+		gpio_write(1 << clk, 0);        /* reset to low -> finish clock cycle*/
+	}
+}
+
+/* strBits:  convert binary value to string (binary file representation) */
+char strConvert[33];
+char * strBits(int input, int binarySize)
+{
+
+	int i;
+
+	if (binarySize > 0) {
+
+		if (binarySize > 32)
+			binarySize = 32;
+
+		for(i = 0; i < binarySize ; i++) {
+			if (input & (1 << ((binarySize-1)-i)))
+				strConvert[i] = '1';
+			else
+				strConvert[i] = '0';
+		}
+
+		strConvert[binarySize] = '\0';
+		return (char *)strConvert;
+
+	} else
+		return (char *)NULL;
+}
+
+/* bwq518 */
+/* return 0 success, 1 fail */
+/* debug == 1, output to syslog */
+int led_bit(int b, int mode, int debug)
+{
+	FILE *fileExtGPIOstatus;		// For WNDR4000, keep track of extended bit status (shift register), as cannot read from HW!
+	unsigned int intExtendedLEDStatus;	// Status of Extended LED's (shift register on WNDR4000) ... and WNDR3700v3, it's the same!
+
+	if ((mode == LED_ON) || (mode == LED_OFF)) {
+		if (b < 16) {
+			// Read bit-mask from file, for tracking / updates (as this process is called clean each LED update, so cannot use static variable!)
+			if (!(fileExtGPIOstatus = fopen("/tmp/.ext_led_value", "rb"))) {
+				fscanf(fileExtGPIOstatus, "Shift Register Status: 0x%x\n", &intExtendedLEDStatus);
+				fclose(fileExtGPIOstatus);
+				return 1;
+				if (debug) syslog(LOG_INFO, "Netgear Shift Register (do_led): Read Shift Register status from file, intExtendedLEDStatus = %s\n", strBits(intExtendedLEDStatus, 8));
+			} else {
+				// Read Error (tracking file) - set all LED's to off
+				syslog(LOG_INFO, "Netgear Shift Register (do_led): Error Reading /tmp/.ext_led_value, set state to all OFF\n");
+				intExtendedLEDStatus = 0x00;
+			}
+
+			if (mode == LED_ON) {
+				// Bitwise OR, turn corresponding bit on
+				intExtendedLEDStatus |= (1 << b);
+				if (debug) syslog(LOG_INFO, "Netgear Shift Register (do_led): Mode = LED_ON (%d), Bitwise OR = %s\n", mode, strBits((1 << b), 8));
+			} else {
+				// Bitwise AND, with bitwise inverted shift ... so turn bit off
+				intExtendedLEDStatus &= (~(1 << b));
+				if(debug) syslog(LOG_INFO, "Netgear Shift Register (do_led): Mode = LED_OFF (%d), Bitwise AND = %s\n", mode, strBits((~(1 << b)), 8));
+			}
+
+			// And write to LEDs (Shift Register)
+			if(debug) syslog(LOG_INFO, "Netgear Shift Register (do_led): Writing to Shift Register, intExtendedLEDStatus = %s\n", strBits(intExtendedLEDStatus, 8));
+			gpio_write_shiftregister(intExtendedLEDStatus, 7, 6, 7);
+			// Write bit-mask to file, for tracking / updates (as this process is called clean each LED update, so cannot use static variable!)
+			if (!(fileExtGPIOstatus = fopen("/tmp/.ext_led_value", "wb"))) {
+				fprintf(fileExtGPIOstatus, "Shift Register Status: 0x%x\n", intExtendedLEDStatus);
+				fprintf(fileExtGPIOstatus, "Shift Register Status: 0b%s\n", strBits(intExtendedLEDStatus, 8));
+				fclose(fileExtGPIOstatus);
+			}
+		}
+	}
+	return 0;
+}
 int do_led(int which, int mode)
 {
 //				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB 5G
@@ -197,6 +288,8 @@ int do_led(int which, int mode)
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255,    255};
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255,    255};
+	static int wndr4000[]   = {   3,   1,     0,    1,  255,    6,  255,    5,      4};
+	static int wndr3400[]   = {  -9,  -7,    -3,   -7,  255,   255, 255,    2,    -99}; // Note: 5 = Switch, 4 = Reset button, 8 = SES button
 	static int f7d[]	= { 255, 255,   255,  255,   12,   13,  255,   14,    255};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255,    255};
 	static int e900[]	= { 255,  -6,     8,  255,  255,  255,  255,  255,    255};
@@ -217,7 +310,10 @@ int do_led(int which, int mode)
 	static int d1800h[]     = { -12, -13,     8,  255,  255,  -10,  255,   15,     11};
 	static int tdn6[]       = { 255,  -6,     8,  255,  255,  255,  255,  255,    255};
 	static int tdn60[]      = { 255,  -6,     8,  255,  255,  255,  255,    9,    255};
-//                                 WLAN  DIAG  WHITE AMBER  DMZ  AOSS  BRIDG MYST/USB 5G
+	static int r6300v1[]    = {  11,   3,   255,  255,  255,  255,  255,    8,     11};
+	static int wndr4500[]   = {   9,   3,     2,    3,  255,  255,  255,   14,     11};
+//                                 WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB 5G
+
 #endif
 
 	char s[16];
@@ -336,6 +432,7 @@ int do_led(int which, int mode)
 		b = rtn66u[which];
 		break;
 	case MODEL_W1800R:
+	case MODEL_TDN80:
 		b = w1800r[which];
 		break;
 	case MODEL_D1800H:
@@ -355,6 +452,19 @@ int do_led(int which, int mode)
 		} else
 			b = wnr3500[which];
 		break;
+	case MODEL_WNDR4500:
+	case MODEL_WNDR4500V2:
+		if (which == LED_DIAG) {
+			// power led gpio: 0x102 - green, 0x103 - amber
+			b = (mode) ? 3 : -2;
+			c = (mode) ? -2 : 3;
+		} else {
+			b = wndr4500[which];
+		}
+		break;
+	case MODEL_R6300V1:
+		b = r6300v1[which];
+		break;
 	case MODEL_WNR2000v2:
 		if (which == LED_DIAG) {
 			// power led gpio: 0x01 - green, 0x02 - amber
@@ -362,6 +472,18 @@ int do_led(int which, int mode)
 			c = (mode) ? 1 : 2;
 		} else
 			b = wnr2000v2[which];
+		break;
+	case MODEL_WNDR4000:
+	case MODEL_WNDR3700v3:
+		// Special Case, shift register control ... so write accordingly. Syslog below for debugging, turn back on if needed.
+		b = wndr4000[which];
+		//syslog(LOG_INFO, "WNDR4000 Shift Register (do_led): Bit Name = %s, which = %d, b = %d, Mode = %s\n", led_names[which], which, b, led_modes[mode]);
+		led_bit(b, mode, 0);
+		return b;
+		break;
+	case MODEL_WNDR3400:
+	case MODEL_WNDR3400v2:
+		b = wndr3400[which];
 		break;
 	case MODEL_F7D3301:
 	case MODEL_F7D3302:

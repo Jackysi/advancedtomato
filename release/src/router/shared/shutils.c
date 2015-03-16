@@ -183,6 +183,53 @@ EXIT:
 }
 
 /*
+ * Input commmand string and executes it
+ * @param	run_script	A completed string of command
+ * @return	return value of executed command, pointer of a string which length is < 255.
+ *
+ * bwq518, 2014.1.1
+ */
+static char return_val[256];
+char * eval_return(char * run_script)
+{
+	FILE *f;
+	int i;
+	char cmdfile[TMP_MAX], resultfile[TMP_MAX];
+
+	tmpnam(cmdfile);
+	tmpnam(resultfile);
+	bzero(return_val, 256);
+	if ((f = fopen(cmdfile,"wt")) == NULL)
+	{
+                fprintf(stderr, "error obtaining data\n");
+                return NULL;
+	}
+	fprintf(f, "#!/bin/sh\n");
+	fprintf(f, "%s > %s\n",run_script, resultfile);
+	fclose(f);
+	chmod (cmdfile, 0755);
+	eval(cmdfile);
+	unlink(cmdfile);
+		
+        if ((f = fopen(resultfile, "r")) == NULL) {
+                fprintf(stderr, "error obtaining data\n");
+                return NULL;
+        }
+        fgets(return_val, sizeof(return_val), f);
+        fclose(f);
+	unlink(resultfile);
+	trimstr(return_val);
+	for (i = strlen(return_val) - 1; i >= 0; i --)
+	{
+		if(return_val[i] == '\n' || return_val[i] == '\r')
+			return_val[i] = '\0';
+		else
+			break;
+	}
+	return return_val;
+}
+
+/*
  * fread() with automatic retry on syscall interrupt
  * @param	ptr	location to store to
  * @param	size	size of each element of data
