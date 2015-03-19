@@ -210,7 +210,7 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_R6250:
 	case MODEL_R6300v2:
 	case MODEL_R7000:
-//		reset_mask = 1 << 6; // this make a reboot loop - shibby
+		reset_mask = 1 << 6;
 		ses_mask = 1 << 5;
 		ses_led = LED_AOSS;
 		break;
