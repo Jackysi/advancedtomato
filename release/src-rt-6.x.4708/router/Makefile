@@ -230,6 +230,8 @@ ADDITIONAL_MODULES += --with-ipv6
 endif
 endif
 endif
+obj-$(TCONFIG_NGINX) += libncurses
+obj-$(TCONFIG_NGINX) += mysql
 obj-$(TCONFIG_NGINX) += openssl
 obj-$(TCONFIG_NGINX) += spawn-fcgi
 obj-$(TCONFIG_NGINX) += pcre
@@ -518,6 +520,11 @@ ifeq ($(TCONFIG_SSH),y)
 endif
 ifeq ($(TCONFIG_BBT),y)
 	install $(LIBDIR)/librt.so.0 $(TARGETDIR)/lib/librt.so.0
+endif
+ifeq ($(TCONFIG_NGINX),y)
+	install $(LIBDIR)/../arm-linux/lib/libstdc++.so.6 $(TARGETDIR)/lib/libstdc++.so.6
+	cd $(TARGETDIR)/lib && ln -sf libstdc++.so.6 libstdc++.so
+	$(STRIP) $(TARGETDIR)/lib/libstdc++.so.6
 endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
@@ -1976,7 +1983,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	CFLAGS="-Os -Wall -I$(TOP)/zlib -I$(TOP)/libxml2/include/libxml -I$(TOP)/libxml2/include -I$(TOP)/pcre -I$(TOP)/libiconv/include -I$(TOP)/libpng/staged/usr/include" \
 	LDFLAGS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs" \
 	CPPFLAGS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs" \
-	LIBS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs -lz -lsqlite3 -ldl -lpthread -liconv -lxml2" \
+	LIBS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs -lz -lsqlite3 -ldl -lpthread -liconv -lxml2 -lstdc++" \
 	PHP_FCGI_LIBXML_DIR="$(TOP)/libxml2/staged/usr" \
 	ac_cv_func_memcmp_working=yes \
 	cv_php_mbstring_stdarg=yes \
@@ -2013,10 +2020,12 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--without-ldap \
 	--enable-mbstring \
 	--without-mcrypt \
-	--without-mysqli \
 	--without-openssl \
 	--disable-pcntl \
-	--without-pdo-mysql \
+	--without-mysqli \
+	--with-mysql \
+	--with-mysql-sock="/var/run/mysqld.sock" \
+	--with-pdo-mysql \
 	--without-pdo-pgsql \
 	--with-pdo-sqlite \
 	--enable-pdo \
@@ -2091,6 +2100,134 @@ nginx-install: nginx
 	install -d $(INSTALLDIR)/nginx/usr/sbin
 	install -D nginx/objs/nginx $(INSTALLDIR)/nginx/usr/sbin/nginx && chmod 755 $(INSTALLDIR)/nginx/usr/sbin/nginx
 	$(STRIP) $(INSTALLDIR)/nginx/usr/sbin/nginx
+
+libncurses/stamp-h1:
+	cd libncurses && CC=$(CC) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -fPIC" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	LIBS="-lstdc++" \
+	$(CONFIGURE) --prefix=/usr --with-shared --with-normal --disable-debug --without-ada --without-manpages --without-progs --without-tests
+	touch libncurses/stamp-h1
+
+libncurses: libncurses/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libncurses $(PARALLEL_BUILD)
+	$(MAKE) -C libncurses DESTDIR=$(TOP)/libncurses/staged install
+
+libncurses-clean:
+	-@$(MAKE) -C libncurses clean
+	@rm -f libncurses/stamp-h1 libncurses/Makefile
+	@rm -rf libncurses/staged
+
+libncurses-install: libncurses
+	install -d $(INSTALLDIR)/libncurses/usr/lib
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/l
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/l/linux $(INSTALLDIR)/libncurses/usr/share/terminfo/l
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt100 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt220 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	cd $(INSTALLDIR)/libncurses/usr/lib && ln -sf ../share/terminfo terminfo
+	install libncurses/lib/libncurses.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
+	install libncurses/lib/libpanel.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libpanel.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libpanel.so.5
+	install libncurses/lib/libform.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libform.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libform.so.5
+	install libncurses/lib/libmenu.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libmenu.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libmenu.so.5
+	cd $(INSTALLDIR)/libncurses/usr/lib/ && \
+		ln -sf libncurses.so.5 libncurses.so && \
+		ln -sf libpanel.so.5 libpanel.so && \
+		ln -sf libform.so.5 libform.so && \
+		ln -sf libmenu.so.5 libmenu.so
+
+mysql/stamp-h1: openssl zlib libncurses
+	@$(SEP)
+	cd mysql && \
+	CFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 \
+		--param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$(TOP)/zlib \
+		-I$(TOP)/openssl/include -I$(TOP)/libncurses/include" \
+	CPPFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 \
+		--param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$(TOP)/zlib \
+		-I$(TOP)/openssl/include -I$(TOP)/libncurses/include" \
+	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/zlib/staged/usr/lib -L$(TOP)/libncurses/lib -fPIC -EL" \
+	LIBS="-lcrypt -lz -lstdc++ -lssl -lcrypto -lncurses" \
+	$(CONFIGURE) --host=$(HOST) --build=x86_64-linux-gnu  --prefix=/usr \
+		--without-debug --without-docs --without-man --with-charset=utf8 --with-extra-charsets=ascii,latin1,gb2312,gbk \
+		--enable-shared --disable-static \
+		--without-mysqlmanager \
+		--with-pthread \
+		--with-ssl \
+		--without-docs \
+		--with-geometry \
+		--with-low-memory \
+		--enable-assembler \
+		--with-zlib-dir="$(TOP)/zlib/staged/usr" \
+	ac_cv_c_stack_direction=-1
+	cd mysql && tar xvfz .host.tgz
+	-sed -i mysql/sql/Makefile -e 's/.\/gen_lex_hash$$(EXEEXT) > $$@-t/..\/host\/gen_lex_hash$$(EXEEXT) > $$@-t/g'
+	-sed -i mysql/scripts/Makefile -e 's/$$(top_builddir)\/scripts\/comp_sql$$(EXEEXT)/$$(top_builddir)\/host\/comp_sql$$(EXEEXT)/g'
+	-sed -i mysql/extra/Makefile -e 's/$$(top_builddir)\/extra\/comp_err$$(EXEEXT)/$$(top_builddir)\/host\/comp_err$$(EXEEXT)/g'
+	# Update time of config.status to avoid run 'config.status --recheck'
+	touch mysql/config.status
+	# Update time of Makefile to avoid regenerate it when do make
+	sleep 5
+	-find mysql -name Makefile -print | xargs -i touch {}
+	touch mysql/stamp-h1
+
+mysql: mysql/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C mysql
+	@$(MAKE) -C mysql DESTDIR=$(TOP)/mysql/staged install
+
+mysql-clean:
+	-@$(MAKE) -C mysql clean
+	-@rm -f mysql/stamp-h1
+	-@rm -rf mysql/staged mysql/host
+
+mysql-install:
+	install -d $(INSTALLDIR)/mysql/usr/bin
+	install -d $(INSTALLDIR)/mysql/usr/lib
+	install -d $(INSTALLDIR)/mysql/usr/libexec
+	install -d $(INSTALLDIR)/mysql/usr/lib/mysql
+	install -d $(INSTALLDIR)/mysql/usr/lib/mysql/plugin
+	install -d $(INSTALLDIR)/mysql/usr/share
+	install -d $(INSTALLDIR)/mysql/usr/share/mysql
+	install -D -m 755 mysql/mycheck $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/bin/my_print_defaults $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/my_print_defaults
+	install -D -m 755 mysql/staged/usr/bin/myisamchk $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/myisamchk
+	install -D -m 755 mysql/staged/usr/bin/mysql $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysql
+	install -D -m 755 mysql/staged/usr/bin/mysql_install_db $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/bin/mysqladmin $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysqladmin
+	install -D -m 755 mysql/staged/usr/bin/mysqldump $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysqldump
+	install -D -m 755 mysql/staged/usr/libexec/mysqld $(INSTALLDIR)/mysql/usr/libexec
+	$(STRIP) $(INSTALLDIR)/mysql/usr/libexec/mysqld
+	cd $(INSTALLDIR)/mysql/usr/bin && ln -sf ../libexec/mysqld mysqld
+#	install -D -m 755 mysql/staged/usr/bin/mysqld_safe $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/lib/mysql/libmysqlclient.so.16.0.0 $(INSTALLDIR)/mysql/usr/lib/mysql
+	$(STRIP) $(INSTALLDIR)/mysql/usr/lib/mysql/libmysqlclient.so.16.0.0
+	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql && \
+		ln -sf libmysqlclient.so.16.0.0 libmysqlclient.so.16 && \
+		ln -sf libmysqlclient.so.16.0.0 libmysqlclient.so
+	install -D -m 755 mysql/staged/usr/lib/mysql/libmysqlclient_r.so.16.0.0 $(INSTALLDIR)/mysql/usr/lib/mysql
+	$(STRIP) $(INSTALLDIR)/mysql/usr/lib/mysql/libmysqlclient_r.so.16.0.0
+	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql && \
+		ln -sf libmysqlclient_r.so.16.0.0 libmysqlclient_r.so.16 && \
+		ln -sf libmysqlclient_r.so.16.0.0 libmysqlclient_r.so
+#	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql/plugin && cp -arfpu $(TOP)/mysql/staged/usr/lib/mysql/plugin/* . && \
+#	rm -f *.la *.a && \
+#	$(STRIP) *.so.*
+	-@cd $(INSTALLDIR)/mysql/usr/share/mysql && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/english . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/fill_help_tables.sql . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/mysql_system_tables.sql . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/mysql_system_tables_data.sql .
 
 lzo/stamp-h1:
 	cd lzo && \
@@ -2507,11 +2644,10 @@ dnscrypt-clean:
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP=$(STRIP) \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
 		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib \
-		--disable-asciidoc --disable-threads
+		--disable-asciidoc --disable-threads --disable-gcc-hardening
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
