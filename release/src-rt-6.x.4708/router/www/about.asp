@@ -237,10 +237,10 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %><br
 <!-- NGINX-BEGIN -->
 <b>Tomato-hyzoom feature:</b><br>
 - MySQL Server integration and GUI<br>
-<!-- NGINX-END -->
 <i>Copyright (C) 2014 Bao Weiquan, Hyzoom</i><br>
 <a href='mailto:bwq518@gmail.com'>bwq518@gmail.com</a><br>
 <br>
+<!-- NGINX-END -->
 
 <b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC Bandwidth Limiter<br>
