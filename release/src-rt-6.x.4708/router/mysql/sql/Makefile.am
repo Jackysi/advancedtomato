@@ -177,7 +177,7 @@ link_sources:
 # this avoid the rebuild of the built files in a source dist
 lex_hash.h:	gen_lex_hash.cc lex.h
 		$(MAKE) $(AM_MAKEFLAGS) gen_lex_hash$(EXEEXT)
-		./gen_lex_hash$(EXEEXT) > $@-t
+		../host/gen_lex_hash$(EXEEXT) > $@-t
 		$(MV) $@-t $@
 
 # For testing of udf_example.so

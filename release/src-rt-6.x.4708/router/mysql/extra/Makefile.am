@@ -32,7 +32,7 @@ DIST_SUBDIRS =		yassl
 $(top_builddir)/include/mysqld_error.h: comp_err.c \
 			$(top_srcdir)/sql/share/errmsg.txt
 	$(MAKE) $(AM_MAKEFLAGS) comp_err$(EXEEXT)
-	$(top_builddir)/extra/comp_err$(EXEEXT) \
+	$(top_builddir)/host/comp_err$(EXEEXT) \
 	--charset=$(top_srcdir)/sql/share/charsets \
 	--out-dir=$(top_builddir)/sql/share/ \
 	--header_file=$(top_builddir)/include/mysqld_error.h \
