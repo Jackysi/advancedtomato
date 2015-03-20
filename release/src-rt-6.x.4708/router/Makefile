@@ -2127,9 +2127,11 @@ libncurses-install: libncurses
 	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo
 	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/l
 	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/x
 	install -D -m 0644 libncurses/staged/usr/share/terminfo/l/linux $(INSTALLDIR)/libncurses/usr/share/terminfo/l
 	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt100 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
 	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt220 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/x/xterm $(INSTALLDIR)/libncurses/usr/share/terminfo/x
 	cd $(INSTALLDIR)/libncurses/usr/lib && ln -sf ../share/terminfo terminfo
 	install libncurses/lib/libncurses.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
 	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
@@ -2167,7 +2169,7 @@ mysql/stamp-h1: openssl zlib libncurses
 		--with-low-memory \
 		--enable-assembler \
 		--with-zlib-dir="$(TOP)/zlib/staged/usr" \
-	ac_cv_c_stack_direction=-1
+		ac_cv_c_stack_direction=-1
 	cd mysql && tar xvfz .host.tgz
 	# Update time of config.status to avoid run 'config.status --recheck'
 	touch mysql/config.status
