@@ -111,10 +111,10 @@ switch(nvram['boardtype']) {
 		break;
 	}
 		if (nvram['boardrev'] == '0x1110' && nvram['boardnum'] == '679'){ //R6300V2
-	COL_P0N = '0';
-	COL_P1N = '1';
-	COL_P2N = '2';
-	COL_P3N = '3';
+	COL_P0N = '3';
+	COL_P1N = '2';
+	COL_P2N = '1';
+	COL_P3N = '0';
 	COL_P4N = '4';
 		break;
 	}
