@@ -1980,9 +1980,6 @@ mysql/stamp-h1: openssl zlib libncurses
 		--with-zlib-dir="$(TOP)/zlib/staged/usr" \
 	ac_cv_c_stack_direction=-1
 	cd mysql && tar xvfz .host.tgz
-	-sed -i mysql/sql/Makefile -e 's/.\/gen_lex_hash$$(EXEEXT) > $$@-t/..\/host\/gen_lex_hash$$(EXEEXT) > $$@-t/g'
-	-sed -i mysql/scripts/Makefile -e 's/$$(top_builddir)\/scripts\/comp_sql$$(EXEEXT)/$$(top_builddir)\/host\/comp_sql$$(EXEEXT)/g'
-	-sed -i mysql/extra/Makefile -e 's/$$(top_builddir)\/extra\/comp_err$$(EXEEXT)/$$(top_builddir)\/host\/comp_err$$(EXEEXT)/g'
 	# Update time of config.status to avoid run 'config.status --recheck'
 	touch mysql/config.status
 	# Update time of Makefile to avoid regenerate it when do make
