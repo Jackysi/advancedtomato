@@ -1,0 +1,34 @@
+#!/bin/sh
+#TOP=/raid1/tomato/tomato.git.120AC/release.ar.wp.chs/src-rt/router
+TOP=/root/test.ac/release/src-rt/router
+CONFIGURE="./configure"
+CC=mipsel-linux-cc
+CXX=mipsel-linux-g++
+AR=mipsel-linux-ar
+RANLIB=mipsel-linux-ranlib
+STRIP=mipsel-linux-STRIP
+LD=mipsel-linux-ld
+PREFIX=`pwd -P`/staged
+
+CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB STRIP=$STRIP LD=$LD \
+	CFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 --param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$TOP/zlib -I$TOP/openssl/include -I$TOP/libncurses/include" \
+	CPPFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 --param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$TOP/zlib -I$TOP/openssl/include -I$TOP/libncurses/include" \
+	LDFLAGS="-L$TOP/openssl -L$TOP/zlib/staged/lib -L$TOP/libncurses/lib -fPIC -EL" \
+	LIBS="-lcrypt -lz -lstdc++ -lssl -lcrypto -lncurses" \
+	$CONFIGURE --host=mipsel-linux --build=x86_64-linux-gnu  --prefix=/usr \
+	--without-debug --without-docs --without-man --with-charset=utf8 --with-extra-charsets=ascii,latin1,gb2312,gbk \
+	--enable-shared --disable-static \
+	--without-mysqlmanager \
+	--with-pthread \
+	--with-ssl \
+	--with-zlib-dir="$TOP/zlib/staged" \
+	ac_cv_c_stack_direction=-1
+
+tar xvfz .host.tgz
+sed -i sql/Makefile -e 's/.\/gen_lex_hash$(EXEEXT) > $@-t/..\/host\/gen_lex_hash$(EXEEXT) > $@-t/g'
+sed -i scripts/Makefile -e 's/$(top_builddir)\/scripts\/comp_sql$(EXEEXT)/$(top_builddir)\/host\/comp_sql$(EXEEXT)/g'
+sed -i extra/Makefile -e 's/$(top_builddir)\/extra\/comp_err$(EXEEXT)/$(top_builddir)\/host\/comp_err$(EXEEXT)/g'
+#sed -i include/my_config.h -e 's/\(#define STACK_DIRECTION\).*/#define STACK_DIRECTION -1/g'
+
+make
+make DESTDIR=$PREFIX install
