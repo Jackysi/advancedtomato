@@ -44,7 +44,7 @@ function toggle(service, isup)
 	}
 	E('_' + service + '_button').disabled = true;
 	form.submitHidden('/service.cgi', {
-		_redirect: 'nginx.asp',
+		_redirect: 'web-nginx.asp',
 		_sleep: ((service == 'nginxfp') && (!isup)) ? '10' : '5',
 		_service: service + (isup ? '-stop' : '-start')
 	});
