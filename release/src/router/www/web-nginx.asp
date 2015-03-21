@@ -123,7 +123,7 @@ function init()
 <div class='section-title'>Basic Settings</div>
 <div class='section' id='config-section'>
 <form id='_fom' method='post' action='tomato.cgi'>
-<input type='hidden' name='_nextpage' value='nginx.asp'>
+<input type='hidden' name='_nextpage' value='web-nginx.asp'>
 <input type='hidden' name='_service' value='enginex-restart'>
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_reboot' value='0'>
