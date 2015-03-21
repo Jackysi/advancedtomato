@@ -397,7 +397,7 @@ ifeq ($(TCONFIG_BBT),y)
 	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
 endif
 ifeq ($(TCONFIG_NGINX),y)
-	install $(LIBDIR)/../arm-linux/lib/libstdc++.so.6 $(TARGETDIR)/lib/libstdc++.so.6
+	install $(LIBDIR)/libstdc++.so.6 $(TARGETDIR)/lib/libstdc++.so.6
 	cd $(TARGETDIR)/lib && ln -sf libstdc++.so.6 libstdc++.so
 	$(STRIP) $(TARGETDIR)/lib/libstdc++.so.6
 endif
@@ -1969,7 +1969,7 @@ mysql/stamp-h1: openssl zlib libncurses
 		-I$(TOP)/openssl/include -I$(TOP)/libncurses/include" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/zlib/staged/usr/lib -L$(TOP)/libncurses/lib -fPIC -EL" \
 	LIBS="-lcrypt -lz -lstdc++ -lssl -lcrypto -lncurses" \
-	$(CONFIGURE) --host=$(HOST) --build=x86_64-linux-gnu  --prefix=/usr \
+	$(CONFIGURE) --prefix=/usr \
 		--without-debug --without-docs --without-man --with-charset=utf8 --with-extra-charsets=ascii,latin1,gb2312,gbk \
 		--enable-shared --disable-static \
 		--without-mysqlmanager \
@@ -2091,7 +2091,7 @@ openvpn_plugin_auth_nvram:nvram
 
 #shibby
 nano/stamp-h1: libncurses
-	cd nano && CC=$(CC) STRIP=$(STRIP) \
+	cd nano && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-O3 -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libncurses/staged/usr/lib -fPIC" \
