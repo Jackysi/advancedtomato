@@ -198,6 +198,9 @@ obj-$(TCONFIG_NGINX) += jpeg
 obj-$(TCONFIG_NGINX) += php
 obj-$(TCONFIG_NGINX) += nginx
 
+obj-$(TCONFIG_NANO) += libncurses
+obj-$(TCONFIG_NANO) += nano
+
 obj-$(TCONFIG_BBT) += openssl
 obj-$(TCONFIG_BBT) += libevent
 obj-$(TCONFIG_BBT) += libcurl
@@ -2088,6 +2091,27 @@ openvpn-install: openvpn
 openvpn_plugin_auth_nvram:nvram
 
 #shibby
+nano/stamp-h1: libncurses
+	cd nano && CC=$(CC) STRIP=$(STRIP) \
+		CFLAGS="-O3 -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
+		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libncurses/staged/usr/lib -fPIC" \
+		ac_cv_lib_ncursesw_get_wch=no \
+		$(CONFIGURE) --prefix=/usr --disable-nls --enable-all --without-libiconv-prefix --disable-utf8
+	touch nano/stamp-h1
+
+nano: nano/stamp-h1
+	@$(MAKE) -C nano $(PARALLEL_BUILD)
+
+nano-clean:
+	-@$(MAKE) -C nano clean
+	@rm -f nano/stamp-h1 nano/Makefile nano/src/Makefile
+
+nano-install: nano
+	install -d $(INSTALLDIR)/nano/usr/sbin
+	install -D nano/src/nano $(INSTALLDIR)/nano/usr/sbin/nano
+	$(STRIP) -s $(INSTALLDIR)/nano/usr/sbin/nano
+
 libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -I$(TOP)/zlib" \
