@@ -51,6 +51,7 @@ endif
 
 ifeq ($(TCONFIG_NGINX),y)
 OBJS += nginx.o
+OBJS += mysql.o
 endif
 
 ifeq ($(TOMATO_SL),1)

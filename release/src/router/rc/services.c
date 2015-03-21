@@ -2263,6 +2263,7 @@ void start_services(void)
 	start_httpd();
 #ifdef TCONFIG_NGINX
 	start_enginex();
+	start_mysql();
 #endif
 	start_cron();
 //	start_upnp();
@@ -2333,6 +2334,7 @@ void stop_services(void)
 	stop_cron();
 	stop_httpd();
 #ifdef TCONFIG_NGINX
+	stop_mysql();
 	stop_enginex();
 #endif
 #ifdef TCONFIG_SDHC
@@ -2935,6 +2937,12 @@ TOP:
 		if (action & A_STOP) stop_nginxfastpath();
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_nginxfastpath();
+		goto CLEAR;
+	}
+	if (strcmp(service, "mysql") == 0) {
+		if (action & A_STOP) stop_mysql();
+		stop_firewall(); start_firewall();		// always restarted
+		if (action & A_START) start_mysql();
 		goto CLEAR;
 	}
 #endif

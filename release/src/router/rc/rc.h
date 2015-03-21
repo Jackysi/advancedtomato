@@ -544,6 +544,8 @@ extern void start_nginx();
 extern void stop_nginx();
 extern void start_nginxfp();
 extern void stop_nginxfp();
+extern void start_mysql();
+extern void stop_mysql();
 #endif
 
 // tomatoanon.c

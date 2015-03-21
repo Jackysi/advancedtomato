@@ -159,6 +159,10 @@ config TCONFIG_UPS
 	depends on TCONFIG_USB
 	default n
 
+config TCONFIG_NANO
+	bool "  NANO - user-friendly file editor"
+	default n
+
 config TCONFIG_DNSCRYPT
 	bool "  DNScrypt-proxy"
 	default n

@@ -198,6 +198,8 @@ ADDITIONAL_MODULES += --with-ipv6
 endif
 endif
 endif
+obj-$(TCONFIG_NGINX) += libncurses
+obj-$(TCONFIG_NGINX) += mysql
 obj-$(TCONFIG_NGINX) += openssl
 obj-$(TCONFIG_NGINX) += spawn-fcgi
 obj-$(TCONFIG_NGINX) += pcre
@@ -208,6 +210,9 @@ obj-$(TCONFIG_NGINX) += libpng
 obj-$(TCONFIG_NGINX) += jpeg
 obj-$(TCONFIG_NGINX) += php
 obj-$(TCONFIG_NGINX) += nginx
+
+obj-$(TCONFIG_NANO) += libncurses
+obj-$(TCONFIG_NANO) += nano
 
 obj-$(TCONFIG_BBT) += openssl
 obj-$(TCONFIG_BBT) += libevent
@@ -406,6 +411,11 @@ ifeq ($(TCONFIG_SSH),y)
 endif
 ifeq ($(TCONFIG_BBT),y)
 	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
+endif
+ifeq ($(TCONFIG_NGINX),y)
+	install $(LIBDIR)/libstdc++.so.6 $(TARGETDIR)/lib/libstdc++.so.6
+	cd $(TARGETDIR)/lib && ln -sf libstdc++.so.6 libstdc++.so
+	$(STRIP) $(TARGETDIR)/lib/libstdc++.so.6
 endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
@@ -1849,10 +1859,12 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--without-ldap \
 	--enable-mbstring \
 	--without-mcrypt \
-	--without-mysqli \
 	--without-openssl \
 	--disable-pcntl \
-	--without-pdo-mysql \
+	--without-mysqli \
+	--with-mysql \
+	--with-mysql-sock="/var/run/mysqld.sock" \
+	--with-pdo-mysql \
 	--without-pdo-pgsql \
 	--with-pdo-sqlite \
 	--enable-pdo \
@@ -1928,6 +1940,133 @@ nginx-install: nginx
 	install -D nginx/objs/nginx $(INSTALLDIR)/nginx/usr/sbin/nginx && chmod 755 $(INSTALLDIR)/nginx/usr/sbin/nginx
 	$(STRIP) $(INSTALLDIR)/nginx/usr/sbin/nginx
 
+libncurses/stamp-h1:
+	cd libncurses && CC=$(CC) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -fPIC" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	LIBS="-lstdc++" \
+	$(CONFIGURE) --prefix=/usr --with-shared --with-normal --disable-debug --without-ada --without-manpages --without-progs --without-tests
+	touch libncurses/stamp-h1
+
+libncurses: libncurses/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libncurses $(PARALLEL_BUILD)
+	$(MAKE) -C libncurses DESTDIR=$(TOP)/libncurses/staged install
+
+libncurses-clean:
+	-@$(MAKE) -C libncurses clean
+	@rm -f libncurses/stamp-h1 libncurses/Makefile
+	@rm -rf libncurses/staged
+
+libncurses-install: libncurses
+	install -d $(INSTALLDIR)/libncurses/usr/lib
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/l
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -d $(INSTALLDIR)/libncurses/usr/share/terminfo/x
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/l/linux $(INSTALLDIR)/libncurses/usr/share/terminfo/l
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt100 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/v/vt220 $(INSTALLDIR)/libncurses/usr/share/terminfo/v
+	install -D -m 0644 libncurses/staged/usr/share/terminfo/x/xterm $(INSTALLDIR)/libncurses/usr/share/terminfo/x
+	cd $(INSTALLDIR)/libncurses/usr/lib && ln -sf ../share/terminfo terminfo
+	install libncurses/lib/libncurses.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libncurses.so.5
+	install libncurses/lib/libpanel.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libpanel.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libpanel.so.5
+	install libncurses/lib/libform.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libform.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libform.so.5
+	install libncurses/lib/libmenu.so.5.9 $(INSTALLDIR)/libncurses/usr/lib/libmenu.so.5
+	$(STRIP) $(INSTALLDIR)/libncurses/usr/lib/libmenu.so.5
+	cd $(INSTALLDIR)/libncurses/usr/lib/ && \
+		ln -sf libncurses.so.5 libncurses.so && \
+		ln -sf libpanel.so.5 libpanel.so && \
+		ln -sf libform.so.5 libform.so && \
+		ln -sf libmenu.so.5 libmenu.so
+
+mysql/stamp-h1: openssl zlib libncurses
+	@$(SEP)
+	cd mysql && \
+	CFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 \
+		--param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$(TOP)/zlib \
+		-I$(TOP)/openssl/include -I$(TOP)/libncurses/include" \
+	CPPFLAGS="-O2 -Wall -fno-delete-null-pointer-checks -funit-at-a-time --param large-function-growth=800 \
+		--param max-inline-insns-single=3000 -ffunction-sections -fdata-sections -I$(TOP)/zlib \
+		-I$(TOP)/openssl/include -I$(TOP)/libncurses/include" \
+	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/zlib/staged/usr/lib -L$(TOP)/libncurses/lib -fPIC -EL" \
+	LIBS="-lcrypt -lz -lstdc++ -lssl -lcrypto -lncurses" \
+	$(CONFIGURE) --prefix=/usr \
+		--without-debug --without-docs --without-man --with-charset=utf8 --with-extra-charsets=ascii,latin1,gb2312,gbk \
+		--enable-shared --disable-static \
+		--without-mysqlmanager \
+		--with-pthread \
+		--with-ssl \
+		--without-docs \
+		--with-geometry \
+		--with-low-memory \
+		--enable-assembler \
+		--with-zlib-dir="$(TOP)/zlib/staged/usr" \
+		ac_cv_c_stack_direction=-1
+	cd mysql && tar xvfz .host.tgz
+	# Update time of config.status to avoid run 'config.status --recheck'
+	touch mysql/config.status
+	# Update time of Makefile to avoid regenerate it when do make
+	sleep 5
+	-find mysql -name Makefile -print | xargs -i touch {}
+	touch mysql/stamp-h1
+
+mysql: mysql/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C mysql
+	@$(MAKE) -C mysql DESTDIR=$(TOP)/mysql/staged install
+
+mysql-clean:
+	-@$(MAKE) -C mysql clean
+	-@rm -f mysql/stamp-h1
+	-@rm -rf mysql/staged mysql/host
+
+mysql-install:
+	install -d $(INSTALLDIR)/mysql/usr/bin
+	install -d $(INSTALLDIR)/mysql/usr/lib
+	install -d $(INSTALLDIR)/mysql/usr/libexec
+	install -d $(INSTALLDIR)/mysql/usr/lib/mysql
+	install -d $(INSTALLDIR)/mysql/usr/lib/mysql/plugin
+	install -d $(INSTALLDIR)/mysql/usr/share
+	install -d $(INSTALLDIR)/mysql/usr/share/mysql
+	install -D -m 755 mysql/mycheck $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/bin/my_print_defaults $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/my_print_defaults
+	install -D -m 755 mysql/staged/usr/bin/myisamchk $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/myisamchk
+	install -D -m 755 mysql/staged/usr/bin/mysql $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysql
+	install -D -m 755 mysql/staged/usr/bin/mysql_install_db $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/bin/mysqladmin $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysqladmin
+	install -D -m 755 mysql/staged/usr/bin/mysqldump $(INSTALLDIR)/mysql/usr/bin
+	$(STRIP) $(INSTALLDIR)/mysql/usr/bin/mysqldump
+	install -D -m 755 mysql/staged/usr/libexec/mysqld $(INSTALLDIR)/mysql/usr/libexec
+	$(STRIP) $(INSTALLDIR)/mysql/usr/libexec/mysqld
+	cd $(INSTALLDIR)/mysql/usr/bin && ln -sf ../libexec/mysqld mysqld
+#	install -D -m 755 mysql/staged/usr/bin/mysqld_safe $(INSTALLDIR)/mysql/usr/bin
+	install -D -m 755 mysql/staged/usr/lib/mysql/libmysqlclient.so.16.0.0 $(INSTALLDIR)/mysql/usr/lib/mysql
+	$(STRIP) $(INSTALLDIR)/mysql/usr/lib/mysql/libmysqlclient.so.16.0.0
+	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql && \
+		ln -sf libmysqlclient.so.16.0.0 libmysqlclient.so.16 && \
+		ln -sf libmysqlclient.so.16.0.0 libmysqlclient.so
+	install -D -m 755 mysql/staged/usr/lib/mysql/libmysqlclient_r.so.16.0.0 $(INSTALLDIR)/mysql/usr/lib/mysql
+	$(STRIP) $(INSTALLDIR)/mysql/usr/lib/mysql/libmysqlclient_r.so.16.0.0
+	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql && \
+		ln -sf libmysqlclient_r.so.16.0.0 libmysqlclient_r.so.16 && \
+		ln -sf libmysqlclient_r.so.16.0.0 libmysqlclient_r.so
+#	-@cd $(INSTALLDIR)/mysql/usr/lib/mysql/plugin && cp -arfpu $(TOP)/mysql/staged/usr/lib/mysql/plugin/* . && \
+#	rm -f *.la *.a && \
+#	$(STRIP) *.so.*
+	-@cd $(INSTALLDIR)/mysql/usr/share/mysql && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/english . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/fill_help_tables.sql . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/mysql_system_tables.sql . && \
+	cp -arfpu $(TOP)/mysql/staged/usr/share/mysql/mysql_system_tables_data.sql .
+
 lzo/stamp-h1:
 	cd lzo && \
 	CFLAGS="-O3 -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
@@ -1976,6 +2115,27 @@ openvpn-install: openvpn
 openvpn_plugin_auth_nvram:nvram
 
 #shibby
+nano/stamp-h1: libncurses
+	cd nano && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-O3 -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
+		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -I$(TOP)/libncurses/staged/usr/include -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libncurses/staged/usr/lib -fPIC" \
+		ac_cv_lib_ncursesw_get_wch=no \
+		$(CONFIGURE) --prefix=/usr --disable-nls --enable-all --without-libiconv-prefix --disable-utf8
+	touch nano/stamp-h1
+
+nano: nano/stamp-h1
+	@$(MAKE) -C nano $(PARALLEL_BUILD)
+
+nano-clean:
+	-@$(MAKE) -C nano clean
+	@rm -f nano/stamp-h1 nano/Makefile nano/src/Makefile
+
+nano-install: nano
+	install -d $(INSTALLDIR)/nano/usr/sbin
+	install -D nano/src/nano $(INSTALLDIR)/nano/usr/sbin/nano
+	$(STRIP) -s $(INSTALLDIR)/nano/usr/sbin/nano
+
 libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -I$(TOP)/zlib" \
