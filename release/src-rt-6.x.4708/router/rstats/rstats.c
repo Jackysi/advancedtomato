@@ -100,7 +100,7 @@ typedef struct {
 	unsigned long speed[MAX_NSPEED][MAX_COUNTER];
 	unsigned long last[MAX_COUNTER];
 	int tail;
-	char sync;
+	signed char sync;
 } speed_t;
 
 history_t history;
@@ -703,7 +703,7 @@ static void calc(void)
 	// cleanup stale entries
 	for (i = 0; i < speed_count; ++i) {
 		sp = &speed[i];
-		if (sp->sync == (char) -1) {
+		if (sp->sync == -1) {
 			sp->sync = 0;
 			continue;
 		}
