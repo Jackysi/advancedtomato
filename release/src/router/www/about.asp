@@ -239,6 +239,14 @@ Copyright (C) 2009 Tomasz Słodkowicz<br>
 <br>
 <!-- SDHC-END -->
 
+<!-- NGINX-BEGIN -->
+<b>Tomato-hyzoom feature:</b><br>
+- MySQL Server integration and GUI<br>
+<!-- NGINX-END -->
+<i>Copyright (C) 2014 Bao Weiquan, Hyzoom</i><br>
+<a href='mailto:bwq518@gmail.com'>bwq518@gmail.com</a><br>
+<br>
+
 <b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC Bandwidth Limiter<br>
 <br>

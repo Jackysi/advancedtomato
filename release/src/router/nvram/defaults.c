@@ -1222,6 +1222,36 @@ const defaults_t defaults[] = {
 	{"nginx_user",			"root"				}, // user/group
 	{"nginx_override",		"0"				}, // additional lines for php.ini
 	{"nginx_overridefile",		"/path/to/nginx.conf"		}, // user/group
+
+// bwq518 - MySQL
+        { "mysql_enable",                               "0"                     },
+        { "mysql_sleep",                                "2"                     },
+        { "mysql_check",                                "1"                     },
+        { "mysql_check_time",                           "1"                     },
+        { "mysql_binary",                               "internal"              },
+        { "mysql_binary_custom",                        "/mnt/sda1/mysql/bin"   },
+        { "mysql_usb_enable",                           "1"                     },
+        { "mysql_dlroot",                               ""                      },
+        { "mysql_datadir",                              "data"                  },
+        { "mysql_tmpdir",                               "tmp"                   },
+        { "mysql_server_custom",                        ""                      },
+        { "mysql_port",                                 "3306"                  },
+        { "mysql_allow_anyhost",                        "0"                     },
+        { "mysql_init_rootpass",                        "0"                     },
+        { "mysql_username",                             "root"                  },      // mysqladmin username
+        { "mysql_passwd",                               "admin"                 },      // mysqladmin password
+        { "mysql_key_buffer",                           "16"                    }, //KB
+        { "mysql_max_allowed_packet",                   "4"                     }, //MB
+        { "mysql_thread_stack",                         "128"                   }, //KB
+        { "mysql_thread_cache_size",                    "8"                     },
+        { "mysql_init_priv",                            "0"                     },
+        { "mysql_table_open_cache",                     "4"                     },
+        { "mysql_sort_buffer_size",                     "128"                   }, //KB
+        { "mysql_read_buffer_size",                     "128"                   }, //KB
+        { "mysql_query_cache_size",                     "16"                    }, //MB
+        { "mysql_read_rnd_buffer_size",                 "256"                   }, //KB
+        { "mysql_net_buffer_length",                    "2"                     }, //K
+        { "mysql_max_connections",                      "1000"                  },
 #endif
 
 #ifdef TCONFIG_TOR

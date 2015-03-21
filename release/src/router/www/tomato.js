@@ -2485,7 +2485,10 @@ function navi()
 		['Captive Portal',		'splashd.asp'],
 /* NOCAT-END */
 /* NGINX-BEGIN */
-		['Web Server',			'nginx.asp'],
+		['Web Server',			'web', 0, [
+			['Nginx & PHP',		'nginx.asp'],
+			['MySQL Server',	'mysql.asp']
+			] ],
 /* NGINX-END */
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
