@@ -42,6 +42,31 @@ static unsigned long get_5g_count()
 	return counter1;
 }
 
+int get_lanports_status(void)
+{
+	int r = 0;
+	FILE *f;
+	char s[32], a[16];
+
+	system("/usr/sbin/robocfg showports > /tmp/ethernet.state.log");
+
+	if ((f = fopen("/tmp/ethernet.state.log", "r")) != NULL) {
+		while (fgets(s, sizeof(s), f)) {
+			if ((sscanf(s, "Port 1: %s", a) == 1) ||
+			    (sscanf(s, "Port 2: %s", a) == 1) ||
+			    (sscanf(s, "Port 3: %s", a) == 1) ||
+			    (sscanf(s, "Port 4: %s", a) == 1)) {
+				if (strncmp(a, "DOWN", 4)) {
+					r++;
+				}
+			}
+		}
+		fclose(f);
+	}
+
+	return r;
+}
+
 int blink_5g_main(int argc, char *argv[])
 {
 	static unsigned int blink_5g = 0;
@@ -61,6 +86,16 @@ int blink_5g_main(int argc, char *argv[])
 		strncpy(interface,tmp_interface, INTERFACE_MAXLEN);
 	// check data per 10 count
 	while(1){
+		if (get_model() == MODEL_WS880) {
+			sleep(5);
+			if (get_lanports_status()) {
+				led(LED_BRIDGE, LED_ON);
+			}
+			else {
+				led(LED_BRIDGE, LED_OFF);
+			}
+			continue;
+		}
 		if(!tmp_interface){
 			sleep(5);
 			tmp_interface = nvram_get("blink_5g_interface");
