@@ -1081,7 +1081,7 @@ f:
 
 ## MiniIPv6 - for 4MB routers
 i:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" NO_HTTPS=y
 
 ## MiniVPN - for 4MB routers
 j:
