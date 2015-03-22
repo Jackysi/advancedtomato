@@ -139,12 +139,14 @@ ifneq ($(ASUS_TRX),0)
 	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
 	ctools/mksquashfs router/arm-uclibc/target ctools/target.squashfs -noappend -all-root
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
-# for asus RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R
+# for asus RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P
 ifeq ($(ASUS_TRX),ASUS)
 ifeq ($(BCMSMP),y)
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC56U,3.0.0.4,image/tomato-RT-AC56U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68U-$(V1)$(V2)-$(current_BUILD_DESC).trx
-	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68R,3.0.0.4,image/tomato-RT-AC68R-$(V1)$(V2)-$(current_BUILD_DESC).trx
+# RT-AC68R & RT-AC68P use exact same firmware as RT-AC68U(ASUS stock firmware checksums match) - no need for seperate files
+#	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68R-$(V1)$(V2)-$(current_BUILD_DESC).trx
+#	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68P-$(V1)$(V2)-$(current_BUILD_DESC).trx
 else
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
@@ -950,8 +952,22 @@ setprofile:
 
 help:
 ifeq ($(CONFIG_LINUX26),y)
-	@echo "ac68e         RT-AC68u build VPN"
-	@echo "ac68z         RT-AC68u build AIO"
+	@echo "ASUS ARM Builds - RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P
+	@echo "ac68e         RT-AC56/68U/R/P build VPN"
+	@echo "ac68z         RT-AC56/68U/R/P build AIO"
+	@echo "n18e          RT-N18U build VPN"
+	@echo "n18z          RT-N18U build AIO"
+	@echo "DLINK ARM Builds"
+	@echo "dir868l       DLINK DIR868L"
+	@echo "NETGEAR ARM Builds"
+	@echo "r7000e        R7000/R6300v2/R6250 build VPN"
+	@echo "r7000z        R7000/R6300v2/R6250 build AIO"
+	@echo "r7000init     R7000 init build"
+	@echo "r6250init     R6250 init build"
+	@echo "r6300v2init   R6300v2 init build"
+	@echo "HUAWEI ARM Builds"
+	@echo "ws880e        WS880 build VPN"
+	@echo "ws880z        WS880 build AIO"
 endif
 	@echo ""
 	@echo "..etc..      other build configs"
