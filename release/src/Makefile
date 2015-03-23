@@ -321,25 +321,25 @@ ifeq ($(WNDR),y)
 	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR4000-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
 	-k image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 	-b U12H181T00_NETGEAR -r 2 2>&1 | tee -a fpkg.log
-	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-Netgear-WNDR4000-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
+	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-WNDR4000-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
 
 	# Make WNDR3700v3, Checksum starts at 0x6FFFF8 => Max size (to not touch the last 64kB block) = 7274496
 	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR3700v3-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
 	-k image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 	-b U12H194T00_NETGEAR -r 2 2>&1 | tee -a fpkg.log
-	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-Netgear-WNDR3700v3-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
+	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-WNDR3700v3-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
 
 	# Make WNDR3400, Checksum starts at 0x6CFFF8 => Max size (to not touch the last 64kB block) = 7077888
 	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR3400-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
 	-k image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 	-b U12H155T00_NETGEAR -r 2 2>&1 | tee -a fpkg.log
-	@$(MAKE) netgear-check MAXFSIZE=7077888 NG_FNAME=image/tomato-Netgear-WNDR3400-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
+	@$(MAKE) netgear-check MAXFSIZE=7077888 NG_FNAME=image/tomato-WNDR3400-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
 	
 	# Make WNDR3400v2, Checksum starts at 0x6FFFF8 => Max size (to not touch the last 64kB block) = 7274496
 	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR3400v2-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
 	-k image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 	-b U12H187T00_NETGEAR -r 2 2>&1 | tee -a fpkg.log
-	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-Netgear-WNDR3400v2-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
+	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-WNDR3400v2-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
 
 	@echo "Cleanup ...."
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
@@ -1016,7 +1016,7 @@ endif
 ## BTgui-VPN
 c:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y OPENVPN=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BTgui-VPN" USB="USB" BTGUI=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin NTFS=y OPENVPN=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BTgui-VPN" USB="USB" BTGUI=y NO_JFFS=y PPTPD=y
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="BTgui" USB="USB" BTGUI=y DNSCRYPT=y PPTPD=y
 endif
@@ -1262,8 +1262,8 @@ e2500:
 e3200:
 	@$(MAKE) r2o USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
 
-wndr64c:
-	@$(MAKE) r2c BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="BTgui-VPN" USB="USB" NO_JFFS=y NTFS=y MEDIASRV=y USBAP=y NVRAM_SIZE=64
+wndr64:
+	@$(MAKE) bin MIPS32=r2 BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="MiniIPv6" USB="USB" NTFS=y MEDIASRV=y USBAP=y NVRAM_SIZE=64 WNDR=y NO_XXTP=y NO_JFFS=y NO_HTTPS=y NO_ZEBRA=y NO_CIFS=y KERN_SIZE_OPT=y
 
 n6:
 	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="TendaN6" USB="USB" TOR=y NOCAT=y DNSCRYPT=y PPTPD=y USBAP=y NO_USBAPP=y
