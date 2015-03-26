@@ -1085,22 +1085,52 @@ struct nvram_tuple router_defaults[] = {
 
 //Tomato RAF - NGINX
 #ifdef TCONFIG_NGINX
-	{"nginx_enable",		"0"				}, // NGinX enabled
-	{"nginx_php",			"0"				}, // PHP enabled
-	{"nginx_keepconf",		"0"				}, // Enable/disable keep configuration files unmodified in /etc/nginx
-	{"nginx_docroot",		"/www"				}, // path for server files
-	{"nginx_port",			"85"				}, // port to listen
-	{"nginx_remote",		"0"				}, // open port from WAN site
-	{"nginx_fqdn",			"Tomato"			}, // server name
-	{"nginx_upload",		"100"				}, // upload file size limit
-	{"nginx_priority",		"10"				}, // server priority = worker_priority
-	{"nginx_custom",		""				}, // additional lines for nginx.conf
-	{"nginx_httpcustom",		""				}, // additional lines for nginx.conf
-	{"nginx_servercustom",		""				}, // additional lines for nginx.conf
-	{"nginx_phpconf",		""				}, // additional lines for php.ini
-	{"nginx_user",			"root"				}, // user/group
-	{"nginx_override",		"0"				}, // additional lines for php.ini
-	{"nginx_overridefile",		"/path/to/nginx.conf"		}, // user/group
+	{"nginx_enable",		"0"				, 0 }, // NGinX enabled
+	{"nginx_php",			"0"				, 0 }, // PHP enabled
+	{"nginx_keepconf",		"0"				, 0 }, // Enable/disable keep configuration files unmodified in /etc/nginx
+	{"nginx_docroot",		"/www"				, 0 }, // path for server files
+	{"nginx_port",			"85"				, 0 }, // port to listen
+	{"nginx_remote",		"0"				, 0 }, // open port from WAN site
+	{"nginx_fqdn",			"Tomato"			, 0 }, // server name
+	{"nginx_upload",		"100"				, 0 }, // upload file size limit
+	{"nginx_priority",		"10"				, 0 }, // server priority = worker_priority
+	{"nginx_custom",		""				, 0 }, // additional lines for nginx.conf
+	{"nginx_httpcustom",		""				, 0 }, // additional lines for nginx.conf
+	{"nginx_servercustom",		""				, 0 }, // additional lines for nginx.conf
+	{"nginx_phpconf",		""				, 0 }, // additional lines for php.ini
+	{"nginx_user",			"root"				, 0 }, // user/group
+	{"nginx_override",		"0"				, 0 }, // additional lines for php.ini
+	{"nginx_overridefile",		"/path/to/nginx.conf"		, 0 }, // user/group
+
+// bwq518 - MySQL
+        { "mysql_enable",                               "0"                     , 0 },
+        { "mysql_sleep",                                "2"                     , 0 },
+        { "mysql_check",                                "1"                     , 0 },
+        { "mysql_check_time",                           "1"                     , 0 },
+        { "mysql_binary",                               "internal"              , 0 },
+        { "mysql_binary_custom",                        "/mnt/sda1/mysql/bin"   , 0 },
+        { "mysql_usb_enable",                           "1"                     , 0 },
+        { "mysql_dlroot",                               ""                      , 0 },
+        { "mysql_datadir",                              "data"                  , 0 },
+        { "mysql_tmpdir",                               "tmp"                   , 0 },
+        { "mysql_server_custom",                        ""                      , 0 },
+        { "mysql_port",                                 "3306"                  , 0 },
+        { "mysql_allow_anyhost",                        "0"                     , 0 },
+        { "mysql_init_rootpass",                        "0"                     , 0 },
+        { "mysql_username",                             "root"                  , 0 },      // mysqladmin username
+        { "mysql_passwd",                               "admin"                 , 0 },      // mysqladmin password
+        { "mysql_key_buffer",                           "16"                    , 0 }, //KB
+        { "mysql_max_allowed_packet",                   "4"                     , 0 }, //MB
+        { "mysql_thread_stack",                         "128"                   , 0 }, //KB
+        { "mysql_thread_cache_size",                    "8"                     , 0 },
+        { "mysql_init_priv",                            "0"                     , 0 },
+        { "mysql_table_open_cache",                     "4"                     , 0 },
+        { "mysql_sort_buffer_size",                     "128"                   , 0 }, //KB
+        { "mysql_read_buffer_size",                     "128"                   , 0 }, //KB
+        { "mysql_query_cache_size",                     "16"                    , 0 }, //MB
+        { "mysql_read_rnd_buffer_size",                 "256"                   , 0 }, //KB
+        { "mysql_net_buffer_length",                    "2"                     , 0 }, //K
+        { "mysql_max_connections",                      "1000"                  , 0 },
 #endif
 
 #ifdef TCONFIG_TOR

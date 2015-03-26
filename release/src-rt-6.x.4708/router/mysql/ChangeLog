@@ -1,0 +1,242 @@
+------------------------------------------------------------
+revno: 4061
+tags: clone-5.1.73-build
+committer: Tor Didriksen <tor.didriksen@oracle.com>
+branch nick: 5.1
+timestamp: Fri 2013-11-01 16:39:19 +0100
+message:
+  Bug#17617945 BUFFER OVERFLOW IN GET_MERGE_MANY_BUFFS_COST WITH SMALL SORT_BUFFER_SIZE
+  
+  get_cost_calc_buff_size() could return wrong value for the size of imerge_cost_buff.
+------------------------------------------------------------
+revno: 4060
+committer: Nuno Carvalho <nuno.carvalho@oracle.com>
+branch nick: mysql-5.1
+timestamp: Thu 2013-10-31 22:53:56 +0000
+message:
+  BUG#17662398: REMOVE DUPLICATE TEST CASES
+  
+  Remove duplicate test cases.
+------------------------------------------------------------
+revno: 4059
+committer: Venkata Sidagam <venkata.sidagam@oracle.com>
+branch nick: 5.1
+timestamp: Thu 2013-10-31 23:02:44 +0530
+message:
+  Bug #12917164 DROP USER CAN'T DROP USERS WITH LEGACY 
+      UPPER CASE HOST NAME ANYMORE
+  
+  Description:
+  It is not possible to drop users with host names with upper case
+  letters in them. i.e DROP USER 'root'@'Tmp_Host_Name'; is failing
+  with error.
+  
+  Analysis: Since the fix 11748570 we came up with lower case hostnames
+  as standard. But in the current bug the hostname is created by
+  mysql_install_db script is still having upper case hostnames. 
+  So, if we have the hostname with upper case letters like(Tmp_Host_Name)
+  then we will have as it is stored in the mysql.user table. 
+  In this case if use "'DROP USER 'root'@'Tmp_Host_Name';" it gives 
+  error because we do compare with the lower case of hostname since the 
+  11748570 fix.
+  
+  Fix: We need to convert the hostname to lower case before storing into 
+  the mysql.user table when we run the mysql_install_db script.
+------------------------------------------------------------
+revno: 4058
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.1
+timestamp: Wed 2013-10-30 04:07:07 +0100
+message:
+  Removed non gpl file docs/mysql.info from community packages
+------------------------------------------------------------
+revno: 4057
+committer: Tor Didriksen <tor.didriksen@oracle.com>
+branch nick: 5.1
+timestamp: Tue 2013-10-29 17:26:20 +0100
+message:
+  Bug#17326567 MYSQL SERVER FILESORT IMPLEMENTATION HAS A VERY SERIOUS BUG
+  
+  The filesort implementation needs space for at least 15 records
+  (plus some internal overhead) in its main sort buffer.
+------------------------------------------------------------
+revno: 4056
+committer: Aditya A <aditya.a@oracle.com>
+branch nick: mysql-5.1
+timestamp: Fri 2013-10-18 12:26:28 +0530
+message:
+  Bug#17559867 AFTER REBUILDING,A MYISAM PARTITION ENDS UP 
+               AS A INNODB PARTITTION.
+  
+  PROBLEM
+  -------
+  The correct engine_type was not being set during 
+  rebuild of the partition due to which the handler
+  was always created with the default engine,
+  which is innodb for 5.5+ ,therefore even if the
+  table was myisam, after rebuilding the partitions
+  ended up as innodb partitions.
+  
+  FIX
+  ---
+  Set the correct engine type during rebuild.  
+  
+  [Approved by mattiasj #rb3599]
+------------------------------------------------------------
+revno: 4055
+committer: Venkatesh Duggirala<venkatesh.duggirala@oracle.com>
+branch nick: mysql-5.1
+timestamp: Wed 2013-10-16 22:12:23 +0530
+message:
+  Bug#17234370 LAST_INSERT_ID IS REPLICATED INCORRECTLY IF
+  REPLICATION FILTERS ARE USED.
+  
+  Problem:
+  When Filtered-slave applies Int_var_log_event and when it
+  tries to write the event to its own binlog, LAST_INSERT_ID
+  value is written wrongly.
+  
+  Analysis:
+  THD::stmt_depends_on_first_successful_insert_id_in_prev_stmt
+  is a variable which is set when LAST_INSERT_ID() is used by
+  a statement. If it is set, first_successful_insert_id_in_
+  prev_stmt_for_binlog will be stored in the statement-based
+  binlog. This variable is CUMULATIVE along the execution of
+  a stored function or trigger: if one substatement sets it
+  to 1 it will stay 1 until the function/trigger ends,
+  thus making sure that first_successful_insert_id_in_
+  prev_stmt_for_binlog does not change anymore and is
+  propagated to the caller for binlogging. This is achieved
+  using the following code
+  if(!stmt_depends_on_first_successful_insert_id_in_prev_stmt)               
+  {                                                                           
+    /* It's the first time we read it */                                      
+    first_successful_insert_id_in_prev_stmt_for_binlog=                       
+    first_successful_insert_id_in_prev_stmt;                                
+    stmt_depends_on_first_successful_insert_id_in_prev_stmt= 1;               
+  }
+  
+  Slave server, after receiving Int_var_log_event event from
+  master, it is setting
+  stmt_depends_on_first_successful_insert_id_in_prev_stmt
+  to true(*which is wrong*) and not setting
+  first_successful_insert_id_in_prev_stmt_for_binlog. Because
+  of this problem, when the actual DML statement with
+  LAST_INSERT_ID() is parsed by slave SQL thread,
+  first_successful_insert_id_in_prev_stmt_for_binlog is not
+  set. Hence the value zero (default value) is written to
+  slave's binlog.
+  
+  Why only *Filtered slave* is effected when the code is
+  in common place:
+  -------------------------------------------------------
+  In Query_log_event::do_apply_event,
+  THD::stmt_depends_on_first_successful_insert_id_in_prev_stmt
+  is reset to zero at the end of the function. In case of
+  normal slave (No Filters), this variable will be reset. 
+  In Filtered slave, Slave SQL thread defers all IRU events's
+  execution until IRU's Query_log event is received. Once it
+  receives Query_log_event it executes all pending IRU events
+  and then it executes Query_log_event. Hence the variable is
+  not getting reset to 0, causing this bug.
+  
+  Fix: As described above, the root cause was setting 
+  THD::stmt_depends_on_first_successful_insert_id_in_prev_stmt
+  when Int_var_log_event was executed by a SQL thread. Hence
+  removing the problematic line from the code.
+------------------------------------------------------------
+revno: 4054
+committer: Venkata Sidagam <venkata.sidagam@oracle.com>
+branch nick: 5.1
+timestamp: Wed 2013-10-16 14:14:44 +0530
+message:
+  Bug#16900358 FIX FOR CVE-2012-5611 IS INCOMPLETE
+  
+  Description: Fix for bug CVE-2012-5611 (bug 67685) is 
+  incomplete. The ACL_KEY_LENGTH-sized buffers in acl_get() and 
+  check_grant_db() can be overflown by up to two bytes. That's 
+  probably not enough to do anything more serious than crashing 
+  mysqld.
+  Analysis: In acl_get() when "copy_length" is calculated it 
+  just adding the variable lengths. But when we are using them 
+  with strmov() we are adding +1 to each. This will lead to a 
+  three byte buffer overflow (i.e two +1's at strmov() and one 
+  byte for the null added by strmov() function). Similarly it 
+  happens for check_grant_db() function as well.
+  Fix: We need to add "+2" to "copy_length" in acl_get() 
+  and "+1" to "copy_length" in check_grant_db(). 
+------------------------------------------------------------
+revno: 4053
+committer: Nuno Carvalho <nuno.carvalho@oracle.com>
+branch nick: mysql-5.1
+timestamp: Mon 2013-10-14 15:45:12 +0100
+message:
+  WL#7266: Dump-thread additional concurrency tests                                                                                                                           
+  
+  This worklog aims at testing the two following scenarios:
+  
+  1) Whenever the mysql_binlog_send method (dump thread)
+  reaches the end of file when reading events from the binlog, before
+  checking if it should wait for more events, there was a test to
+  check if the file being read was still active, i.e, it was the last
+  known binlog. However, it was possible that something was written to
+  the binary log and then a rotation would happen, after EOF was
+  detected and before the check for active was performed. In this
+  case, the end of the binary log would not be read by the dump
+  thread, and this would cause the slave to lose updates.
+  This test verifies that the problem has been fixed. It waits during
+  this window while forcing a rotation in the binlog.
+  
+  2) Verify dump thread can send events in active file, correctly after
+  encountering an IO error.
+------------------------------------------------------------
+revno: 4052 [merge]
+committer: Kent Boortz <kent.boortz@oracle.com>
+branch nick: mysql-5.1
+timestamp: Mon 2013-10-07 12:44:38 +0200
+message:
+  Corrections of copyright headers (RE-request 45781)
+    ------------------------------------------------------------
+    revno: 4050.1.1
+    committer: Kent Boortz <kent.boortz@oracle.com>
+    branch nick: mysql-5.1
+    timestamp: Fri 2013-10-04 13:51:13 +0200
+    message:
+      Corretions of copyright headers (RE-request 45781)
+------------------------------------------------------------
+revno: 4051
+committer: Yasufumi Kinoshita <yasufumi.kinoshita@oracle.com>
+branch nick: mysql-5.1
+timestamp: Mon 2013-10-07 15:16:31 +0900
+message:
+  Bug#17431533 : FAILING ASSERTION: INDEX->PAGE != 0XFFFFFFFF AFTER DISCARDING TABLESPACE
+  
+  ha_innobase::records_in_range() should return HA_POS_ERROR for the table during discarded without requesting pages.
+  The later other handler method should treat the error correctly.
+  
+  Approved by Sunny in rb#3433
+------------------------------------------------------------
+revno: 4050
+committer: Satya Bodapati <satya.bodapati@oracle.com>
+branch nick: mysql-5.1
+timestamp: Fri 2013-09-27 18:30:46 +0530
+message:
+  BUG#17446090 - TESTCASE INNODB_BUG16752251.TEST FAILS RANDOMLY ON PB2
+  
+  Enable disabled testcases.
+------------------------------------------------------------
+revno: 4049 [merge]
+author: hery.ramilison@oracle.com
+committer: Hery Ramilison <hery.ramilison@oracle.com>
+branch nick: mysql-5.1
+timestamp: Fri 2013-09-20 21:08:08 +0200
+message:
+  Merge from mysql-5.1.72-release
+    ------------------------------------------------------------
+    revno: 4039.1.5
+    tags: mysql-5.1.72
+    committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+    branch nick: mysql-5.1.72-release
+    timestamp: Mon 2013-09-09 20:07:12 +0200
+    message:
+       Reverted the changes to spec file to ignore mysqld_safe.pid file, updated the logic to get the correct count of PID files
