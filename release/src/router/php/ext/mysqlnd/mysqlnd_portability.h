@@ -37,7 +37,7 @@ This file is public domain and comes with NO WARRANTY of any kind */
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__) || defined(WIN32)
 #  include "ext/mysqlnd/config-win.h"
 #else 
-#  include <ext/mysqlnd/php_mysqlnd_config.h>
+#  include <config.h>
 #endif /* _WIN32... */
 
 #if __STDC_VERSION__ < 199901L && !defined(atoll)

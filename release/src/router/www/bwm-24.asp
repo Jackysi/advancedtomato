@@ -94,7 +94,7 @@ No part of this file may be used without permission.
 
 		function init()
 		{
-			if (nvram.rstats_enable != '1') { $('#rstats').before('<div class="alert">Bandwidth monitoring disabled.</b> <a href="/#admin-bwm.asp">Enable &raquo;</a></div>'); return; }
+			if (nvram.rstats_enable != '1') { $('#rstats').before('<div class="alert alert-warning">Bandwidth monitoring disabled.</b> <a href="/#admin-bwm.asp">Enable &raquo;</a></div>'); return; }
 
 			try {
 				//<% bandwidth("speed"); %>
@@ -193,7 +193,7 @@ No part of this file may be used without permission.
 				</tr>
 			</table>
 
-			<div id="rbusy" class="alert warning" style="display:none">Warning: 10 second session timeout, restarting...&nbsp;</div>
+			<div id="rbusy" class="alert alert-warning" style="display:none">Warning: 10 second session timeout, restarting...&nbsp;</div>
 
 		</div>
 	</div>

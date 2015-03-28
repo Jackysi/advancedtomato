@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([tinc], [1.1pre10])
+AC_INIT([tinc], [1.1pre11])
 AC_CONFIG_SRCDIR([src/tincd.c])
 AC_GNU_SOURCE
 AM_INIT_AUTOMAKE([check-news std-options subdir-objects -Wall])
@@ -137,7 +137,7 @@ dnl No -fstack-protector-all because it doesn't work on all platforms or archite
 
 AC_ARG_ENABLE([hardening], AS_HELP_STRING([--disable-hardening], [disable compiler and linker hardening flags]))
 AS_IF([test "x$enable_hardening" != "xno"],
-  [AX_CHECK_COMPILE_FLAG([-DFORTIFY_SOURCE=2], [CPPFLAGS="$CPPFLAGS -DFORITFY_SOURCE=2"])
+  [AX_CHECK_COMPILE_FLAG([-DFORTIFY_SOURCE=2], [CPPFLAGS="$CPPFLAGS -DFORTIFY_SOURCE=2"])
    AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CPPFLAGS="$CPPFLAGS -fno-strict-overflow"])
    AX_CHECK_COMPILE_FLAG([-fwrapv], [CPPFLAGS="$CPPFLAGS -fwrapv"])
    case $host_os in
@@ -163,7 +163,7 @@ AC_CHECK_HEADERS([stdbool.h syslog.h sys/file.h sys/ioctl.h sys/mman.h sys/param
 AC_CHECK_HEADERS([net/if.h net/if_types.h linux/if_tun.h net/if_tun.h net/tun/if_tun.h net/if_tap.h net/tap/if_tap.h net/ethernet.h net/if_arp.h netinet/in_systm.h netinet/in.h netinet/in6.h time.h netpacket/packet.h],
   [], [], [#include "src/have.h"]
 )
-AC_CHECK_HEADERS([netinet/if_ether.h netinet/ip.h netinet/ip6.h],
+AC_CHECK_HEADERS([netinet/if_ether.h netinet/ip.h netinet/ip6.h resolv.h],
   [], [], [#include "src/have.h"]
 )
 AC_CHECK_HEADERS([netinet/tcp.h netinet/ip_icmp.h netinet/icmp6.h],
@@ -203,6 +203,11 @@ AC_CHECK_FUNC(gethostbyname, [], [
 AC_CHECK_DECLS([freeaddrinfo, gai_strerror, getaddrinfo, getnameinfo],
   [], [], [#include "src/have.h"]
 )
+
+AC_CHECK_DECLS([res_init], [AC_CHECK_LIB(resolv, res_init)], [], [
+  #include <netinet/in.h>
+  #include <resolv.h>
+])
 
 AC_CACHE_SAVE
 

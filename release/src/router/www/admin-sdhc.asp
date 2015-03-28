@@ -170,7 +170,7 @@
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
 		<script type="text/javascript">show_notice1('<% notice("mmc"); %>');</script>
 

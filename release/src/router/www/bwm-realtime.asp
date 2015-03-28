@@ -180,7 +180,7 @@ No part of this file may be used without permission.
 			</div>
 
 			<span id="dtime" style="display:none;"></span>
-			<div id="warnwd" class="alert warning" style="display:none">Warning: 10 second session timeout, restarting...&nbsp;</div>
+			<div id="warnwd" class="alert alert-warning" style="display:none">Warning: 10 second session timeout, restarting...&nbsp;</div>
 		</div>
 	</div>
 	<script type="text/javascript">init();</script>

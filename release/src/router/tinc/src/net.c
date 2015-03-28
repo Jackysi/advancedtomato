@@ -36,6 +36,10 @@
 #include "subnet.h"
 #include "xalloc.h"
 
+#ifdef HAVE_RESOLV_H
+#include <resolv.h>
+#endif
+
 int contradicting_add_edge = 0;
 int contradicting_del_edge = 0;
 static int sleeptime = 10;
@@ -93,8 +97,6 @@ void purge(void) {
 void terminate_connection(connection_t *c, bool report) {
 	logger(DEBUG_CONNECTIONS, LOG_NOTICE, "Closing connection with %s (%s)", c->name, c->hostname);
 
-	c->status.active = false;
-
 	if(c->node && c->node->connection == c)
 		c->node->connection = NULL;
 
@@ -151,7 +153,7 @@ static void timeout_handler(void *data) {
 			continue;
 
 		if(c->last_ping_time + pingtimeout <= now.tv_sec) {
-			if(c->status.active) {
+			if(c->edge) {
 				if(c->status.pinged) {
 					logger(DEBUG_CONNECTIONS, LOG_INFO, "%s (%s) didn't respond to PING in %ld seconds", c->name, c->hostname, (long)now.tv_sec - c->last_ping_time);
 				} else if(c->last_ping_time + pinginterval <= now.tv_sec) {
@@ -166,7 +168,7 @@ static void timeout_handler(void *data) {
 				else
 					logger(DEBUG_CONNECTIONS, LOG_WARNING, "Timeout from %s (%s) during authentication", c->name, c->hostname);
 			}
-			terminate_connection(c, c->status.active);
+			terminate_connection(c, c->edge);
 		}
 	}
 
@@ -200,11 +202,11 @@ static void periodic_handler(void *data) {
 		/* Count number of active connections */
 		int nc = 0;
 		for list_each(connection_t, c, connection_list) {
-			if(c->status.active && !c->status.control)
+			if(c->edge)
 				nc++;
 		}
 
-		if(nc < autoconnect) {
+		if(nc < 3) {
 			/* Not enough active connections, try to add one.
 			   Choose a random node, if we don't have a connection to it,
 			   and we are not already trying to make one, create an
@@ -238,7 +240,7 @@ static void periodic_handler(void *data) {
 				}
 				break;
 			}
-		} else if(nc > autoconnect) {
+		} else if(nc > 3) {
 			/* Too many active connections, try to remove one.
 			   Choose a random outgoing connection to a node
 			   that has at least one other connection.
@@ -247,7 +249,7 @@ static void periodic_handler(void *data) {
 			int i = 0;
 
 			for list_each(connection_t, c, connection_list) {
-				if(!c->status.active || c->status.control)
+				if(!c->edge)
 					continue;
 
 				if(i++ != r)
@@ -259,12 +261,12 @@ static void periodic_handler(void *data) {
 				logger(DEBUG_CONNECTIONS, LOG_INFO, "Autodisconnecting from %s", c->name);
 				list_delete(outgoing_list, c->outgoing);
 				c->outgoing = NULL;
-				terminate_connection(c, c->status.active);
+				terminate_connection(c, c->edge);
 				break;
 			}
 		}
 
-		if(nc >= autoconnect) {
+		if(nc >= 3) {
 			/* If we have enough active connections,
 			   remove any pending outgoing connections.
 			*/
@@ -289,7 +291,7 @@ static void periodic_handler(void *data) {
 
 void handle_meta_connection_data(connection_t *c) {
 	if (!receive_meta(c)) {
-		terminate_connection(c, c->status.active);
+		terminate_connection(c, c->edge);
 		return;
 	}
 }
@@ -309,6 +311,9 @@ static void sighup_handler(void *data) {
 
 static void sigalrm_handler(void *data) {
 	logger(DEBUG_ALWAYS, LOG_NOTICE, "Got %s signal", strsignal(((signal_t *)data)->signum));
+#ifdef HAVE_DECL_RES_INIT
+	res_init();
+#endif
 	retry();
 }
 #endif
@@ -340,11 +345,14 @@ int reload_configuration(void) {
 
 	if(strictsubnets) {
 		for splay_each(subnet_t, subnet, subnet_tree)
-			subnet->expires = 1;
+			if (subnet->owner)
+				subnet->expires = 1;
 
 		load_all_subnets();
 
 		for splay_each(subnet_t, subnet, subnet_tree) {
+			if (!subnet->owner)
+				continue;
 			if(subnet->expires == 1) {
 				send_del_subnet(everyone, subnet);
 				if(subnet->owner->status.reachable)
@@ -408,7 +416,7 @@ int reload_configuration(void) {
 		struct stat s;
 		if(stat(fname, &s) || s.st_mtime > last_config_check) {
 			logger(DEBUG_CONNECTIONS, LOG_INFO, "Host config file of %s has been changed", c->name);
-			terminate_connection(c, c->status.active);
+			terminate_connection(c, c->edge);
 		}
 		free(fname);
 	}
@@ -458,7 +466,7 @@ int main_loop(void) {
 #endif
 
 	if(!event_loop()) {
-		logger(DEBUG_ALWAYS, LOG_ERR, "Error while waiting for input: %s", strerror(errno));
+		logger(DEBUG_ALWAYS, LOG_ERR, "Error while waiting for input: %s", sockstrerror(sockerrno));
 		return 1;
 	}
 

@@ -402,7 +402,7 @@ void start_dnsmasq()
 #endif
 
 #ifdef TCONFIG_IPV6
-	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+	if (ipv6_enabled()) {
 /*
                 service = get_ipv6_service();
                 do_6to4 = (service == IPV6_ANYCAST_6TO4);
@@ -426,8 +426,22 @@ void start_dnsmasq()
 
 		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names, 64\n", prefix);
 */
-		fprintf(f,"enable-ra\ndhcp-range=::1, ::FFFF:FFFF, constructor:br*, ra-names, 64, 12h\n");
 
+		// enable-ra should be enabled in both cases
+		if (nvram_get_int("ipv6_radvd") || nvram_get_int("ipv6_dhcpd"))
+			fprintf(f,"enable-ra\n");
+
+		// Only SLAAC and NO DHCPv6
+		if (nvram_get_int("ipv6_radvd") && !nvram_get_int("ipv6_dhcpd"))
+			fprintf(f,"dhcp-range=::, constructor:br*, ra-names, ra-stateless, 64, 12h\n");
+
+		// Only DHCPv6 and NO SLAAC
+		if (nvram_get_int("ipv6_dhcpd") && !nvram_get_int("ipv6_radvd"))
+			fprintf(f,"dhcp-range=::1, ::FFFF:FFFF, constructor:br*, 64, 12h\n");
+
+		// SLAAC and DHCPv6 (2 IPv6 IPs)
+		if (nvram_get_int("ipv6_radvd") && nvram_get_int("ipv6_dhcpd"))
+			fprintf(f,"dhcp-range=::1, ::FFFF:FFFF, constructor:br*, ra-names, 64, 12h\n");
 	}
 #endif
 
@@ -945,6 +959,11 @@ void start_upnp(void)
 				f_read_string("/proc/sys/kernel/random/uuid", uuid, sizeof(uuid));
 				fprintf(f, "uuid=%s\n", uuid);
 
+				// shibby - move custom configuration before "allow" statements
+				// discussion: http://www.linksysinfo.org/index.php?threads/miniupnpd-custom-config-syntax.70863/#post-256291
+				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
+
 				char lanN_ipaddr[] = "lanXX_ipaddr";
 				char lanN_netmask[] = "lanXX_netmask";
 				char upnp_lanN[] = "upnp_lanXX";
@@ -987,11 +1006,7 @@ void start_upnp(void)
 						}
 					}
 				}
-
-				fappend(f, "/etc/upnp/config.custom");
-				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
-				
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
@@ -2248,6 +2263,7 @@ void start_services(void)
 	start_httpd();
 #ifdef TCONFIG_NGINX
 	start_enginex();
+	start_mysql();
 #endif
 	start_cron();
 //	start_upnp();
@@ -2318,6 +2334,7 @@ void stop_services(void)
 	stop_cron();
 	stop_httpd();
 #ifdef TCONFIG_NGINX
+	stop_mysql();
 	stop_enginex();
 #endif
 #ifdef TCONFIG_SDHC
@@ -2920,6 +2937,12 @@ TOP:
 		if (action & A_STOP) stop_nginxfastpath();
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) start_nginxfastpath();
+		goto CLEAR;
+	}
+	if (strcmp(service, "mysql") == 0) {
+		if (action & A_STOP) stop_mysql();
+		stop_firewall(); start_firewall();		// always restarted
+		if (action & A_START) start_mysql();
 		goto CLEAR;
 	}
 #endif

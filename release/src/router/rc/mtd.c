@@ -45,6 +45,7 @@
 #include <error.h>
 #include <sys/ioctl.h>
 #include <sys/sysinfo.h>
+#include <bcmendian.h>
 #ifdef LINUX26
 #include <linux/compiler.h>
 #include <mtd/mtd-user.h>
@@ -59,7 +60,6 @@
 
 //	#define DEBUG_SIMULATE
 
-
 struct code_header {
 	char magic[4];
 	char res1[4];
@@ -71,6 +71,22 @@ struct code_header {
 	unsigned short flags;
 	unsigned char res3[10];
 } ;
+
+// Netgear CHK Header -> contains needed checksum information (for Netgear)
+// Information here is stored big endian (vs. later information in TRX header and linux / rootfs, which is little endian)
+// First two entries are commented out, as they are read manually to determine the file format and header length (and rewind is not working?)
+struct chk_header {
+	//uint32_t magic;
+	//uint32_t header_len;
+	uint8_t  reserved[8];
+	uint32_t kernel_chksum;
+	uint32_t rootfs_chksum;
+	uint32_t kernel_len;
+	uint32_t rootfs_len;
+	uint32_t image_chksum;
+	uint32_t header_chksum;
+	/* char board_id[] - upto MAX_BOARD_ID_LEN, not NULL terminated! */
+};
 
 // -----------------------------------------------------------------------------
 
@@ -263,6 +279,8 @@ int mtd_write_main(int argc, char *argv[])
 	uint32 sig;
 	struct trx_header trx;
 	struct code_header cth;
+	struct chk_header netgear_hdr;
+	uint32 netgear_chk_len;
 	uint32 crc;
 	FILE *f;
 	char *buf = NULL;
@@ -311,6 +329,7 @@ int mtd_write_main(int argc, char *argv[])
 	if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
 		goto ERROR;
 	}
+
 	switch (sig) {
 	case 0x47343557: // W54G	G, GL
 	case 0x53343557: // W54S	GS
@@ -352,25 +371,27 @@ int mtd_write_main(int argc, char *argv[])
 		}
 		break;
 	case 0x5E24232A: // Netgear
-		// header length is next
+		// Get the Netgear header length
 		if (safe_fread(&n, 1, sizeof(n), f) != sizeof(n)) {
 			goto ERROR;
+		} else {
+			// And Byte Swap, Netgear header is big endian, machine is little endian
+			n = BCMSWAP32(n);
+			_dprintf("Read Netgear Header Length: 0x%x\n", n);
 		}
-		// skip the header - we can't use seek() for fifo, so read the rest of the header
-		n = ntohl(n) - sizeof(sig) - sizeof(n);
-		if ((buf = malloc(n + 1)) == NULL) {
-			error = "Not enough memory";
+		
+		// Read (formatted) Netgear CHK header (now that we know how long it is)
+		//rewind(f); ... disabled, not working for some reason? Adjust structure above to account for this.
+		if (safe_fread(&netgear_hdr, 1, n-sizeof(sig)-sizeof(n), f) != n-sizeof(sig)-sizeof(n)) {
 			goto ERROR;
-		}
-		if (safe_fread(buf, 1, n, f) != n) {
-			goto ERROR;
-		}
-		free(buf);
-		buf = NULL;
-		// trx should be next...
+		} else
+			_dprintf("Read Netgear Header, Magic=0x%x, Length=0x%x\n", sig, n);
+		
+		// TRX (MAGIC) should be next...
 		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
 			goto ERROR;
-		}
+		} else
+			_dprintf("Read TRX Header, Magic=0x%x\n", sig);
 		break;
 	case TRX_MAGIC:
 		break;
@@ -496,7 +517,8 @@ int mtd_write_main(int argc, char *argv[])
 		ofs = sizeof(trx);
 	}
 	_dprintf("trx.len=%ub 0x%x ofs=%ub 0x%x\n", trx.len, trx.len, ofs, ofs);
-
+	netgear_chk_len = trx.len;
+	
 	error = NULL;
 
 	for (ei.start = 0; ei.start < total; ei.start += ei.length) {
@@ -550,14 +572,18 @@ int mtd_write_main(int argc, char *argv[])
 	}
 
 	// Netgear WNR3500L: write fake len and checksum at the end of mtd
-
+	// Add Netgear WNDR4000, WNDR3700v3, WNDR3400, WNDR3400v2 - write real len and checksum (arrmo, Dec 21/13)
 	char *tmp;
 	char imageInfo[8];
 
 	switch (model) {
 	case MODEL_WNR3500L:
 	case MODEL_WNR2000v2:
-		error = "Error writing fake Netgear crc";
+	case MODEL_WNDR4000:
+	case MODEL_WNDR3700v3:
+	case MODEL_WNDR3400:
+	case MODEL_WNDR3400v2:
+		error = "Error writing Netgear CRC";
 
 		// Netgear CFE has the offset of the checksum hardcoded as
 		// 0x78FFF8 on 8MB flash, and 0x38FFF8 on 4MB flash - in both
@@ -565,26 +591,47 @@ int mtd_write_main(int argc, char *argv[])
 		// We rely on linux partition to be sized correctly by the kernel,
 		// so the checksum area doesn't fall outside of the linux partition,
 		// and doesn't override the rootfs.
-		ofs = (mi.size > (4 *1024 * 1024) ? 0x78FFF8 : 0x38FFF8) - 0x040000;
-
-		n   = 0x00000004;	// fake length - little endian
-		crc = 0x02C0010E;	// fake crc - little endian
+		// Note: For WNDR4000/WNDR3700v3/WNDR3400v2, the target address (offset) inside Linux is 0x6FFFF8 (displayed by CFE when programmed via tftp)
+		// Note: For WNDR3400, the target address (offset) inside Linux is 0x6CFFF8 (displayed by CFE when programmed via tftp)
+		if ((model == MODEL_WNDR4000) || (model == MODEL_WNDR3700v3) || (model == MODEL_WNDR3400) || (model == MODEL_WNDR3400v2)) {
+			if (model == MODEL_WNDR3400)
+				ofs = 0x6CFFF8;
+			else 
+				ofs = 0x6FFFF8;
+			// Endian "convert" - machine is little endian, but header is big endian
+			crc = BCMSWAP32(netgear_hdr.kernel_chksum);
+			n = netgear_chk_len;
+		} else {
+			ofs = (mi.size > (4 *1024 * 1024) ? 0x78FFF8 : 0x38FFF8) - 0x040000;
+			n   = 0x00000004;	// fake length - little endian
+			crc = 0x02C0010E;	// fake crc - little endian
+		}
+		_dprintf("Netgear CRC, Data to Write: CRC=0x%x, Len=0x%x, Offset=0x%x\n", crc, n, ofs);
 		memcpy(&imageInfo[0], (char *)&n,   4);
 		memcpy(&imageInfo[4], (char *)&crc, 4);
 
 		ei.start = (ofs / mi.erasesize) * mi.erasesize;
 		ei.length = mi.erasesize;
+		_dprintf("Netgear CRC: Erase Start=0x%x, Length=0x%x\n", ei.start, ei.length);
 
-		if (lseek(mf, ei.start, SEEK_SET) < 0)
+		if (lseek(mf, ei.start, SEEK_SET) < 0) {
+			_dprintf("Netgear CRC: lseek() error\n");
 			goto ERROR2;
+		}
 		if (buf) free(buf);
-		if (!(buf = malloc(mi.erasesize)))
+		if (!(buf = malloc(mi.erasesize))) {
+			_dprintf("Netgear CRC: malloc() error\n");
 			goto ERROR2;
-		if (read(mf, buf, mi.erasesize) != mi.erasesize)
+		}
+		if (read(mf, buf, mi.erasesize) != mi.erasesize) {
+			_dprintf("Netgear CRC: read() error\n");
 			goto ERROR2;
-		if (lseek(mf, ei.start, SEEK_SET) < 0)
+		}
+		if (lseek(mf, ei.start, SEEK_SET) < 0) {
+			_dprintf("Netgear CRC: lseed() error\n");
 			goto ERROR2;
-
+		}
+		
 		tmp = buf + (ofs % mi.erasesize);
 		memcpy(tmp, imageInfo, sizeof(imageInfo));
 
@@ -593,17 +640,22 @@ int mtd_write_main(int argc, char *argv[])
 			goto ERROR2;
 		if (fwrite(buf, 1, mi.erasesize, of) != n)
 			goto ERROR2;
+		error = NULL;
 #else
 		ioctl(mf, MEMUNLOCK, &ei);
-		if (ioctl(mf, MEMERASE, &ei) != 0)
+		if (ioctl(mf, MEMERASE, &ei) != 0) {
+			_dprintf("Netgear CRC: ioctl() error\n");
 			goto ERROR2;
-
-		if (write(mf, buf, mi.erasesize) != mi.erasesize)
+		}
+		if (write(mf, buf, mi.erasesize) != mi.erasesize) {
+			_dprintf("Netgear CRC: write() error\n");
 			goto ERROR2;
+		}
+		error = NULL;
 #endif
 
 ERROR2:
-		_dprintf("%s.\n",  error ? : "Write Netgear fake len/crc completed");
+		_dprintf("%s.\n",  error ? : "Write Netgear Length/CRC Completed.");
 		// ignore crc write errors
 		error = NULL;
 		break;

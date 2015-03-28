@@ -42,7 +42,7 @@ No part of this file may be used without permission.
 			if (!verifyFields(null, 0)) return;
 
 			E('format').disabled = 1;
-			if (format) $('.ajaxwrap').prepend('<div class="alert danger">Formating JFFS partition, please wait <span class="fclock">about 60 seconds</span>...</div>');
+			if (format) $('.ajaxwrap').prepend('<div class="alert alert-warning icon"><h5>Warning!</h5>Formating JFFS partition, please wait <span class="fclock">about 60 seconds</span>...</div>');
 
 			var fom = E('_fom');
 			var on = E('_f_jffs2_on').checked ? 1 : 0;
@@ -110,7 +110,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">verifyFields(null, 1);</script>

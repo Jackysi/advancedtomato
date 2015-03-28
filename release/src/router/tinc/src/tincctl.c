@@ -38,6 +38,11 @@
 #include "utils.h"
 #include "tincctl.h"
 #include "top.h"
+#include "version.h"
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 
 static char **orig_argv;
 static int orig_argc;
@@ -67,8 +72,10 @@ bool confbasegiven = false;
 bool netnamegiven = false;
 char *scriptinterpreter = NULL;
 char *scriptextension = "";
+static char *prompt;
 
 static struct option const long_options[] = {
+	{"batch", no_argument, NULL, 'b'},
 	{"config", required_argument, NULL, 'c'},
 	{"net", required_argument, NULL, 'n'},
 	{"help", no_argument, NULL, 1},
@@ -80,8 +87,8 @@ static struct option const long_options[] = {
 
 static void version(void) {
 	printf("%s version %s (built %s %s, protocol %d.%d)\n", PACKAGE,
-		   VERSION, __DATE__, __TIME__, PROT_MAJOR, PROT_MINOR);
-	printf("Copyright (C) 1998-2012 Ivo Timmermans, Guus Sliepen and others.\n"
+		   VERSION, BUILD_DATE, BUILD_TIME, PROT_MAJOR, PROT_MINOR);
+	printf("Copyright (C) 1998-2014 Ivo Timmermans, Guus Sliepen and others.\n"
 			"See the AUTHORS file for a complete list.\n\n"
 			"tinc comes with ABSOLUTELY NO WARRANTY.  This is free software,\n"
 			"and you are welcome to redistribute it under certain conditions;\n"
@@ -94,6 +101,7 @@ static void usage(bool status) {
 	} else {
 		printf("Usage: %s [options] command\n\n", program_name);
 		printf("Valid options are:\n"
+				"  -b, --batch             Don't ask for anything (non-interactive mode).\n"
 				"  -c, --config=DIR        Read configuration options from DIR.\n"
 				"  -n, --net=NETNAME       Connect to net NETNAME.\n"
 				"      --pidfile=FILENAME  Read control cookie from FILENAME.\n"
@@ -111,9 +119,9 @@ static void usage(bool status) {
 				"  restart [tincd options]    Restart tincd.\n"
 				"  reload                     Partially reload configuration of running tincd.\n"
 				"  pid                        Show PID of currently running tincd.\n"
-				"  generate-keys [bits]       Generate new RSA and ECDSA public/private keypairs.\n"
+				"  generate-keys [bits]       Generate new RSA and Ed25519 public/private keypairs.\n"
 				"  generate-rsa-keys [bits]   Generate a new RSA public/private keypair.\n"
-				"  generate-ecdsa-keys        Generate a new ECDSA public/private keypair.\n"
+				"  generate-ed25519-keys      Generate a new Ed25519 public/private keypair.\n"
 				"  dump                       Dump a list of one of the following things:\n"
 				"    [reachable] nodes        - all known nodes in the VPN\n"
 				"    edges                    - all known connections in the VPN\n"
@@ -137,6 +145,7 @@ static void usage(bool status) {
 				"  exchange-all [--force]     Same as export-all followed by import\n"
 				"  invite NODE [...]          Generate an invitation for NODE\n"
 				"  join INVITATION            Join a VPN using an INVITIATION\n"
+				"  network [NETNAME]          List all known networks, or switch to the one named NETNAME.\n"
 				"\n");
 		printf("Report bugs to tinc@tinc-vpn.org.\n");
 	}
@@ -149,6 +158,10 @@ static bool parse_options(int argc, char **argv) {
 	while((r = getopt_long(argc, argv, "+c:n:", long_options, &option_index)) != EOF) {
 		switch (r) {
 			case 0:   /* long option */
+				break;
+
+			case 'b':
+				tty = false;
 				break;
 
 			case 'c': /* config file */
@@ -240,19 +253,19 @@ static void disable_old_keys(const char *filename, const char *what) {
 
 	while(fgets(buf, sizeof buf, r)) {
 		if(!block && !strncmp(buf, "-----BEGIN ", 11)) {
-			if((strstr(buf, " EC ") && strstr(what, "ECDSA")) || (strstr(buf, " RSA ") && strstr(what, "RSA"))) {
+			if((strstr(buf, " ED25519 ") && strstr(what, "Ed25519")) || (strstr(buf, " RSA ") && strstr(what, "RSA"))) {
 				disabled = true;
 				block = true;
 			}
 		}
 
-		bool ecdsapubkey = !strncasecmp(buf, "ECDSAPublicKey", 14) && strchr(" \t=", buf[14]) && strstr(what, "ECDSA");
+		bool ed25519pubkey = !strncasecmp(buf, "Ed25519PublicKey", 16) && strchr(" \t=", buf[16]) && strstr(what, "Ed25519");
 
-		if(ecdsapubkey)
+		if(ed25519pubkey)
 			disabled = true;
 
 		if(w) {
-			if(block || ecdsapubkey)
+			if(block || ed25519pubkey)
 				fputc('#', w);
 			if(fputs(buf, w) < 0) {
 				error = true;
@@ -349,15 +362,15 @@ static FILE *ask_and_open(const char *filename, const char *what, const char *mo
 }
 
 /*
-  Generate a public/private ECDSA keypair, and ask for a file to store
+  Generate a public/private Ed25519 keypair, and ask for a file to store
   them in.
 */
-static bool ecdsa_keygen(bool ask) {
+static bool ed25519_keygen(bool ask) {
 	ecdsa_t *key;
 	FILE *f;
 	char *pubname, *privname;
 
-	fprintf(stderr, "Generating ECDSA keypair:\n");
+	fprintf(stderr, "Generating Ed25519 keypair:\n");
 
 	if(!(key = ecdsa_generate())) {
 		fprintf(stderr, "Error during key generation!\n");
@@ -365,8 +378,8 @@ static bool ecdsa_keygen(bool ask) {
 	} else
 		fprintf(stderr, "Done.\n");
 
-	xasprintf(&privname, "%s" SLASH "ecdsa_key.priv", confbase);
-	f = ask_and_open(privname, "private ECDSA key", "a", ask, 0600);
+	xasprintf(&privname, "%s" SLASH "ed25519_key.priv", confbase);
+	f = ask_and_open(privname, "private Ed25519 key", "a", ask, 0600);
 	free(privname);
 
 	if(!f)
@@ -384,16 +397,16 @@ static bool ecdsa_keygen(bool ask) {
 	if(name)
 		xasprintf(&pubname, "%s" SLASH "hosts" SLASH "%s", confbase, name);
 	else
-		xasprintf(&pubname, "%s" SLASH "ecdsa_key.pub", confbase);
+		xasprintf(&pubname, "%s" SLASH "ed25519_key.pub", confbase);
 
-	f = ask_and_open(pubname, "public ECDSA key", "a", ask, 0666);
+	f = ask_and_open(pubname, "public Ed25519 key", "a", ask, 0666);
 	free(pubname);
 
 	if(!f)
 		return false;
 
 	char *pubkey = ecdsa_get_base64_public_key(key);
-	fprintf(f, "ECDSAPublicKey = %s\n", pubkey);
+	fprintf(f, "Ed25519PublicKey = %s\n", pubkey);
 	free(pubkey);
 
 	fclose(f);
@@ -410,6 +423,15 @@ static bool rsa_keygen(int bits, bool ask) {
 	rsa_t *key;
 	FILE *f;
 	char *pubname, *privname;
+
+	// Make sure the key size is a multiple of 8 bits.
+	bits &= ~0x7;
+
+	// Force them to be between 1024 and 8192 bits long.
+	if(bits < 1024)
+		bits = 1024;
+	if(bits > 8192)
+		bits = 8192;
 
 	fprintf(stderr, "Generating %d bits keys:\n", bits);
 
@@ -470,7 +492,7 @@ bool recvline(int fd, char *line, size_t len) {
 
 	while(!(newline = memchr(buffer, '\n', blen))) {
 		int result = recv(fd, buffer + blen, sizeof buffer - blen, 0);
-		if(result == -1 && errno == EINTR)
+		if(result == -1 && sockerrno == EINTR)
 			continue;
 		else if(result <= 0)
 			return false;
@@ -496,7 +518,7 @@ bool recvdata(int fd, char *data, size_t len) {
 
 	while(blen < len) {
 		int result = recv(fd, buffer + blen, sizeof buffer - blen, 0);
-		if(result == -1 && errno == EINTR)
+		if(result == -1 && sockerrno == EINTR)
 			continue;
 		else if(result <= 0)
 			return false;
@@ -527,8 +549,8 @@ bool sendline(int fd, char *format, ...) {
 	blen++;
 
 	while(blen) {
-		int result = send(fd, p, blen, 0);
-		if(result == -1 && errno == EINTR)
+		int result = send(fd, p, blen, MSG_NOSIGNAL);
+		if(result == -1 && sockerrno == EINTR)
 			continue;
 		else if(result <= 0)
 			return false;
@@ -708,7 +730,7 @@ bool connect_tincd(bool verbose) {
 
 	if(getaddrinfo(host, port, &hints, &res) || !res) {
 		if(verbose)
-			fprintf(stderr, "Cannot resolve %s port %s: %s", host, port, strerror(errno));
+			fprintf(stderr, "Cannot resolve %s port %s: %s", host, port, sockstrerror(sockerrno));
 		return false;
 	}
 
@@ -737,6 +759,11 @@ bool connect_tincd(bool verbose) {
 	}
 
 	freeaddrinfo(res);
+#endif
+
+#ifdef SO_NOSIGPIPE
+	static const int one = 1;
+	setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, (void *)&one, sizeof one);
 #endif
 
 	char data[4096];
@@ -789,16 +816,31 @@ static int cmd_start(int argc, char *argv[]) {
 	int nargc = 0;
 	char **nargv = xzalloc((optind + argc) * sizeof *nargv);
 
-	nargv[nargc++] = c;
+	char *arg0 = c;
+#ifdef HAVE_MINGW
+	/*
+	   Windows has no real concept of an "argv array". A command line is just one string.
+	   The CRT of the new process will decode the command line string to generate argv before calling main(), and (by convention)
+	   it uses quotes to handle spaces in arguments.
+	   Therefore we need to quote all arguments that might contain spaces. No, execvp() won't do that for us (see MSDN).
+	   If we don't do that, then execvp() will run fine but any spaces in the filename contained in arg0 will bleed
+	   into the next arguments when the spawned process' CRT parses its command line, resulting in chaos.
+	*/
+	xasprintf(&arg0, "\"%s\"", arg0);
+#endif
+	nargv[nargc++] = arg0;
 	for(int i = 1; i < optind; i++)
 		nargv[nargc++] = orig_argv[i];
 	for(int i = 1; i < argc; i++)
 		nargv[nargc++] = argv[i];
 
 #ifdef HAVE_MINGW
-	execvp(c, nargv);
-	fprintf(stderr, "Error starting %s: %s\n", c, strerror(errno));
-	return 1;
+	int status = spawnvp(_P_WAIT, c, nargv);
+	if (status == -1) {
+		fprintf(stderr, "Error starting %s: %s\n", c, strerror(errno));
+		return 1;
+	}
+	return status;
 #else
 	pid_t pid = fork();
 	if(pid == -1) {
@@ -960,11 +1002,14 @@ static int cmd_dump(int argc, char *argv[]) {
 			break;
 
 		char node[4096];
+		char id[4096];
 		char from[4096];
 		char to[4096];
 		char subnet[4096];
 		char host[4096];
 		char port[4096];
+		char local_host[4096];
+		char local_port[4096];
 		char via[4096];
 		char nexthop[4096];
 		int cipher, digest, maclength, compression, distance, socket, weight;
@@ -975,8 +1020,8 @@ static int cmd_dump(int argc, char *argv[]) {
 
 		switch(req) {
 			case REQ_DUMP_NODES: {
-				int n = sscanf(line, "%*d %*d %s %s port %s %d %d %d %d %x %x %s %s %d %hd %hd %hd %ld", node, host, port, &cipher, &digest, &maclength, &compression, &options, &status_int, nexthop, via, &distance, &pmtu, &minmtu, &maxmtu, &last_state_change);
-				if(n != 16) {
+				int n = sscanf(line, "%*d %*d %s %s %s port %s %d %d %d %d %x %x %s %s %d %hd %hd %hd %ld", node, id, host, port, &cipher, &digest, &maclength, &compression, &options, &status_int, nexthop, via, &distance, &pmtu, &minmtu, &maxmtu, &last_state_change);
+				if(n != 17) {
 					fprintf(stderr, "Unable to parse node dump from tincd: %s\n", line);
 					return 1;
 				}
@@ -999,14 +1044,14 @@ static int cmd_dump(int argc, char *argv[]) {
 				} else {
 					if(only_reachable && !status.reachable)
 						continue;
-					printf("%s at %s port %s cipher %d digest %d maclength %d compression %d options %x status %04x nexthop %s via %s distance %d pmtu %hd (min %hd max %hd)\n",
-							node, host, port, cipher, digest, maclength, compression, options, status_int, nexthop, via, distance, pmtu, minmtu, maxmtu);
+					printf("%s id %s at %s port %s cipher %d digest %d maclength %d compression %d options %x status %04x nexthop %s via %s distance %d pmtu %hd (min %hd max %hd)\n",
+							node, id, host, port, cipher, digest, maclength, compression, options, status_int, nexthop, via, distance, pmtu, minmtu, maxmtu);
 				}
 			} break;
 
 			case REQ_DUMP_EDGES: {
-				int n = sscanf(line, "%*d %*d %s %s %s port %s %x %d", from, to, host, port, &options, &weight);
-				if(n != 6) {
+				int n = sscanf(line, "%*d %*d %s %s %s port %s %s port %s %x %d", from, to, host, port, local_host, local_port, &options, &weight);
+				if(n != 8) {
 					fprintf(stderr, "Unable to parse edge dump from tincd.\n");
 					return 1;
 				}
@@ -1018,7 +1063,7 @@ static int cmd_dump(int argc, char *argv[]) {
 					else if(do_graph == 2)
 						printf(" %s -> %s [w = %f, weight = %f];\n", node1, node2, w, w);
 				} else {
-					printf("%s to %s at %s port %s options %x weight %d\n", from, to, host, port, options, weight);
+					printf("%s to %s at %s port %s local %s port %s options %x weight %d\n", from, to, host, port, local_host, local_port, options, weight);
 				}
 			} break;
 
@@ -1261,7 +1306,7 @@ char *get_my_name(bool verbose) {
 			continue;
 		if(*value) {
 			fclose(f);
-			return strdup(value);
+			return replace_name(value);
 		}
 	}
 
@@ -1278,12 +1323,14 @@ const var_t variables[] = {
 	{"BindToAddress", VAR_SERVER | VAR_MULTIPLE},
 	{"BindToInterface", VAR_SERVER},
 	{"Broadcast", VAR_SERVER | VAR_SAFE},
+	{"BroadcastSubnet", VAR_SERVER | VAR_MULTIPLE | VAR_SAFE},
 	{"ConnectTo", VAR_SERVER | VAR_MULTIPLE | VAR_SAFE},
 	{"DecrementTTL", VAR_SERVER},
 	{"Device", VAR_SERVER},
+	{"DeviceStandby", VAR_SERVER},
 	{"DeviceType", VAR_SERVER},
 	{"DirectOnly", VAR_SERVER},
-	{"ECDSAPrivateKeyFile", VAR_SERVER},
+	{"Ed25519PrivateKeyFile", VAR_SERVER},
 	{"ExperimentalProtocol", VAR_SERVER},
 	{"Forwarding", VAR_SERVER},
 	{"GraphDumpFile", VAR_SERVER | VAR_OBSOLETE},
@@ -1321,8 +1368,8 @@ const var_t variables[] = {
 	{"ClampMSS", VAR_SERVER | VAR_HOST},
 	{"Compression", VAR_SERVER | VAR_HOST},
 	{"Digest", VAR_SERVER | VAR_HOST},
-	{"ECDSAPublicKey", VAR_HOST},
-	{"ECDSAPublicKeyFile", VAR_SERVER | VAR_HOST},
+	{"Ed25519PublicKey", VAR_HOST},
+	{"Ed25519PublicKeyFile", VAR_SERVER | VAR_HOST},
 	{"IndirectData", VAR_SERVER | VAR_HOST},
 	{"MACLength", VAR_SERVER | VAR_HOST},
 	{"PMTU", VAR_SERVER | VAR_HOST},
@@ -1591,9 +1638,12 @@ static int cmd_config(int argc, char *argv[]) {
 	}
 
 	if(action < -1) {
-		if(!found)
+		if(found) {
+			return 0;
+		} else {
 			fprintf(stderr, "No matching configuration variables found.\n");
-		return 0;
+			return 1;
+		}
 	}
 
 	// Make sure we wrote everything...
@@ -1606,7 +1656,7 @@ static int cmd_config(int argc, char *argv[]) {
 	if(action < 0 && !removed) {
 		remove(tmpfile);
 		fprintf(stderr, "No configuration variables deleted.\n");
-		return *value != 0;
+		return 1;
 	}
 
 	// Replace the configuration file with the new one
@@ -1626,18 +1676,6 @@ static int cmd_config(int argc, char *argv[]) {
 		sendline(fd, "%d %d", CONTROL, REQ_RELOAD);
 
 	return 0;
-}
-
-bool check_id(const char *name) {
-	if(!name || !*name)
-		return false;
-
-	for(int i = 0; i < strlen(name); i++) {
-		if(!isalnum(name[i]) && name[i] != '_')
-			return false;
-	}
-
-	return true;
 }
 
 static bool try_bind(int port) {
@@ -1762,7 +1800,7 @@ static int cmd_init(int argc, char *argv[]) {
 	fprintf(f, "Name = %s\n", name);
 	fclose(f);
 
-	if(!rsa_keygen(2048, false) || !ecdsa_keygen(false))
+	if(!rsa_keygen(2048, false) || !ed25519_keygen(false))
 		return 1;
 
 	check_port(name);
@@ -1794,7 +1832,7 @@ static int cmd_generate_keys(int argc, char *argv[]) {
 	if(!name)
 		name = get_my_name(false);
 
-	return !(rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true) && ecdsa_keygen(true));
+	return !(rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true) && ed25519_keygen(true));
 }
 
 static int cmd_generate_rsa_keys(int argc, char *argv[]) {
@@ -1809,7 +1847,7 @@ static int cmd_generate_rsa_keys(int argc, char *argv[]) {
 	return !rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true);
 }
 
-static int cmd_generate_ecdsa_keys(int argc, char *argv[]) {
+static int cmd_generate_ed25519_keys(int argc, char *argv[]) {
 	if(argc > 1) {
 		fprintf(stderr, "Too many arguments!\n");
 		return 1;
@@ -1818,7 +1856,7 @@ static int cmd_generate_ecdsa_keys(int argc, char *argv[]) {
 	if(!name)
 		name = get_my_name(false);
 
-	return !ecdsa_keygen(true);
+	return !ed25519_keygen(true);
 }
 
 static int cmd_help(int argc, char *argv[]) {
@@ -2066,6 +2104,72 @@ static int cmd_exchange_all(int argc, char *argv[]) {
 	return cmd_export_all(argc, argv) ?: cmd_import(argc, argv);
 }
 
+static int switch_network(char *name) {
+	if(fd >= 0) {
+		close(fd);
+		fd = -1;
+	}
+
+	free(confbase);
+	confbase = NULL;
+	free(pidfilename);
+	pidfilename = NULL;
+	free(logfilename);
+	logfilename = NULL;
+	free(unixsocketname);
+	unixsocketname = NULL;
+	free(tinc_conf);
+	free(hosts_dir);
+	free(prompt);
+
+	free(netname);
+	netname = strcmp(name, ".") ? xstrdup(name) : NULL;
+
+	make_names();
+        xasprintf(&tinc_conf, "%s" SLASH "tinc.conf", confbase);
+        xasprintf(&hosts_dir, "%s" SLASH "hosts", confbase);
+	xasprintf(&prompt, "%s> ", identname);
+
+	return 0;
+}
+
+static int cmd_network(int argc, char *argv[]) {
+	if(argc > 2) {
+		fprintf(stderr, "Too many arguments!\n");
+		return 1;
+	}
+
+	if(argc == 2)
+		return switch_network(argv[1]);
+
+	DIR *dir = opendir(confdir);
+	if(!dir) {
+		fprintf(stderr, "Could not read directory %s: %s\n", confdir, strerror(errno));
+                return 1;
+        }
+
+	struct dirent *ent;
+	while((ent = readdir(dir))) {
+		if(*ent->d_name == '.')
+			continue;
+
+		if(!strcmp(ent->d_name, "tinc.conf")) {
+			printf(".\n");
+			continue;
+		}
+
+		char *fname;
+		xasprintf(&fname, "%s/%s/tinc.conf", confdir, ent->d_name);
+		if(!access(fname, R_OK))
+			printf("%s\n", ent->d_name);
+		free(fname);
+	}
+
+	closedir(dir);
+
+	return 0;
+}
+
 static const struct {
 	const char *command;
 	int (*function)(int argc, char *argv[]);
@@ -2093,7 +2197,7 @@ static const struct {
 	{"init", cmd_init},
 	{"generate-keys", cmd_generate_keys},
 	{"generate-rsa-keys", cmd_generate_rsa_keys},
-	{"generate-ecdsa-keys", cmd_generate_ecdsa_keys},
+	{"generate-ed25519-keys", cmd_generate_ed25519_keys},
 	{"help", cmd_help},
 	{"version", cmd_version},
 	{"info", cmd_info},
@@ -2105,6 +2209,7 @@ static const struct {
 	{"exchange-all", cmd_exchange_all},
 	{"invite", cmd_invite},
 	{"join", cmd_join},
+	{"network", cmd_network},
 	{NULL, NULL},
 };
 
@@ -2231,7 +2336,6 @@ static char **completion (const char *text, int start, int end) {
 #endif
 
 static int cmd_shell(int argc, char *argv[]) {
-	char *prompt;
 	xasprintf(&prompt, "%s> ", identname);
 	int result = 0;
 	char buf[4096];
@@ -2335,6 +2439,7 @@ int main(int argc, char *argv[]) {
 	program_name = argv[0];
 	orig_argv = argv;
 	orig_argc = argc;
+	tty = isatty(0) && isatty(1);
 
 	if(!parse_options(argc, argv))
 		return 1;
@@ -2364,8 +2469,6 @@ int main(int argc, char *argv[]) {
 
 	srand(time(NULL));
 	crypto_init();
-
-	tty = isatty(0) && isatty(1);
 
 	if(optind >= argc)
 		return cmd_shell(argc, argv);

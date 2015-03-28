@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include <bcmnvram.h>
 #include <bcmdevs.h>
@@ -40,10 +41,14 @@ E3200               BCM47186              0xf52a       42        0x1100         
 WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0x1307  boardflags: 0x0040F10 / 0x00000602 (??)
 WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
 E4200               BCM4718               0xf52c       42        0x1101                boot_hw_model=E4200
+WNDR4000            BCM4718               0xf52c       01        0x1101    0x00001301 
+WNDR3700v3          BCM4718               0xf52c       01        0x1101    0x00001301 
+WNDR3400            BCM4718               0xb4cf       01        0x1100    0x0310 
+WNDR3400v2          BCM5358U              0x0550       01        0x1400    0x0710
 EA6500v1            BCM4706               0xC617       ${serno}  0x1103    0x00000110  modelNumber=EA6500, serial_number=12N10C69224778
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
-WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
+WHR-HP-G            BCM5354               0x048e       00        0x11      0x3750      melco_id=32064
 WZR-G300N           BCM4704_BCM5325F_EWC  0x0472       ?         0x10      0x10        melco_id=31120
 WZR-G54             BCM4704_BCM5325F      0x042f       42        0x10      0x10        melco_id=29115  melco_id=30061 (source: piggy)
 WBR-G54                                   bcm94710ap   42                              melco_id=ca020906
@@ -69,7 +74,8 @@ WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x075
 WL-330GE			HW_BCM5354G           0x048e       45        0x10      0x0650      hardware_version=WL330GE-02-06-00-05 //MIPSR1, 4MB flash w/o USB
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
-Tenda N60                      BCM5357               0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
+Tenda N60                      BCM47186              0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
+Tenda N80                      BCM4706               0x05D8       80        0x1104    0x00000110 //16MB/128MB/2.4/5G/USB
 Tenda N6                       BCM5357               0x0550       6         0x1444    0x710 //8MB/64MB/2.4/5G/USB
 TENDA W1800R                   HW_BCM4706            0x05d8       18/21(EU)/60(CN)   0x1200  0x00000110
 Buffalo WZR-D1800H             HW_BCM4706            0xf52e       00        0x1204    0x110 //NAND/128M/128M/2.4-5G/USB
@@ -176,22 +182,23 @@ int check_hw_type(void)
 		return HW_BCM4717;
 	case 0x04cf:
 	case 0xa4cf:
+	case 0xb4cf:
 	case 0xd4cf:
 	case 0xf52c:
 		return HW_BCM4718;
 	case 0x05d8:
 	case 0xf5b2:
-	case 0xf52e: //WZR-D1800H,D1100H
+	case 0xf52e: //WZR-D1800H,D1100H,Netgear R6300V1,WNDR4500,WNDR4500V2
 	case 0xc617: //Linksys EA6500v1
 		return HW_BCM4706;
 	case 0x052b:
 		if (nvram_match("boardrev", "0x1204")) return HW_BCM5357; //rt-n15u
-		if (nvram_match("boardrev", "0x1400")) return HW_BCM5357; //Tenda N60
 		if (nvram_match("boardrev", "02")) return HW_BCM47186; //WNR3500Lv2
+		if (nvram_match("boardrev", "0x1400")) return HW_BCM47186; //Tenda N60
 	case 0xf53a:
 	case 0xf53b:
 	case 0x0550: //RT-N10U and RT-N53 and CW-5358U
-		if (nvram_match("boardrev", "0x1400")) return HW_BCM5358U; //L600N
+		if (nvram_match("boardrev", "0x1400")) return HW_BCM5358U; //L600N, WNDR3400v2
 		if (nvram_match("boardrev", "0x1446")) return HW_BCM5358U; //DIR-620C1
 		if (nvram_match("boardrev", "0x1444")) return HW_BCM5357; //Tenda N6
 	case 0x054d:
@@ -204,7 +211,6 @@ int check_hw_type(void)
 	case 0xc550:
 		return HW_BCM5358U;
 	case 0x058e:
-		if (nvram_match("boardrev", "0x1153")) return HW_BCM5357; //RG100E-CA
 		if (nvram_match("boardrev", "0x1155")) return HW_BCM53572; //E900
 
 #endif
@@ -220,6 +226,21 @@ int check_hw_type(void)
 	}
 
 	return HW_UNKNOWN;
+}
+
+// Find partition with defined name (and return partition number as an integer). Borrorwed from DD-WRT, credit is due there!
+int getMTD(char *name)
+{
+	char buf[128];
+	int device;
+
+	sprintf(buf, "cat /proc/mtd|grep \"%s\"", name);
+	FILE *fp = popen(buf, "rb");
+
+	fscanf(fp, "%s", &buf[0]);
+	device = buf[3] - '0';
+	pclose(fp);
+	return device;
 }
 
 int get_model(void)
@@ -293,7 +314,38 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 	//added by bwq518
 	if (hw == HW_BCM4706) {
-		if (nvram_match("modelNumber", "EA6500")) return MODEL_EA6500V1;
+		if (nvram_match("modelNumber", "EA6500") && 
+			nvram_match("boardnum", "${serno}") && 
+			nvram_match("boardrev", "0x1103")) return MODEL_EA6500V1;
+		if (nvram_match("boardnum", "4536")
+		    && nvram_match("boardtype", "0xf52e")
+		    && nvram_match("boardrev", "0x1102")) {
+			#define R6300 "U12H218T00_NETGEAR"
+			#define WNDR4500 "U12H189T00_NETGEAR"
+			#define WNDR4500V2 "U12H224T00_NETGEAR"
+#ifdef TCONFIG_R6300V1
+			nvram_set("board_id", R6300);
+			nvram_set("netgear_model", "r6300");
+			return MODEL_R6300V1;
+#else
+ #ifdef TCONFIG_WNDR4500V1
+			nvram_set("board_id", WNDR4500);
+			nvram_set("netgear_model", "wndr4500");
+			return MODEL_WNDR4500;
+ #else
+  #ifdef TCONFIG_WNDR4500V2
+			nvram_set("board_id", WNDR4500V2);
+			nvram_set("netgear_model", "wndr4500v2");
+			return MODEL_WNDR4500V2;
+  #else
+			syslog(LOG_INFO, "NETGEAR: Do NOT define board_id, defaulting to R6300 ... but this may not be correct!\n");
+			nvram_set("board_id", R6300);
+			nvram_set("netgear_model", "r6300");
+			return MODEL_R6300V1;
+  #endif
+ #endif
+#endif
+		}
 	} //bwq518 end
 
 	if (hw == HW_BCM4718) {
@@ -302,6 +354,44 @@ int get_model(void)
 			return MODEL_WRT610Nv2;
 		if (nvram_match("boot_hw_model", "E4200"))
 			return MODEL_E4200;
+		if (nvram_match("boardmfg", "NETGEAR")) {
+			// Netgear Router ... so check board_data partition information (as at least WNDR4000 and WNDR3700v3 need this to identify)
+			// Note that boardmfg is stored in CFE - so always present!
+			int mtd = getMTD("board_data");
+			char devname[32];
+			sprintf(devname, "/dev/mtd%dro", mtd);
+			FILE *model = fopen(devname, "rb");
+			if (model) {
+				#define	WNDR4000		"U12H181T00_NETGEAR"
+				#define WNDR3700v3		"U12H194T00_NETGEAR"
+				#define WNDR3400		"U12H155T00_NETGEAR"
+				char modelstr[32];
+				// Get Model string from board_data partition, null terminated in NVRAM already (checked using dd dump)
+				fread(modelstr, 1, 32, model);
+				nvram_set("board_id", modelstr);
+				fclose(model);
+				// Determine / return router model (based on Model string)
+				if (!strcmp(modelstr, WNDR3700v3)) {
+					//syslog(LOG_INFO, "NETGEAR: Model detected based on board_data model string, result = wndr3700v3\n");
+					nvram_set("netgear_model", "wndr3700v3");
+					return MODEL_WNDR3700v3;
+				}
+				if (!strcmp(modelstr, WNDR3400)) {
+					//syslog(LOG_INFO, "NETGEAR: Model detected based on board_data model string, result = wndr3400\n");
+					nvram_set("netgear_model", "wndr3400");
+					return MODEL_WNDR3400;
+				} 
+				//syslog(LOG_INFO, "NETGEAR: Model detected based on board_data model string, result = wndr4000\n");
+				nvram_set("netgear_model", "wndr4000");
+				return MODEL_WNDR4000;
+			} else {
+				// Can't open board_data partition, so default to WNDR4000 ... but log to syslog
+				syslog(LOG_INFO, "NETGEAR: Cannot open board_data partition to check model string, defaulting to WNDR4000 ... but this may not be correct!\n");
+				nvram_set("netgear_model", "wndr4000");
+				return MODEL_WNDR4000;
+			}
+		}
+		
 		switch (strtoul(nvram_safe_get("boardtype"), NULL, 0)) {
 		case 0xd4cf:
 			if (nvram_match("boardrev", "0x1204")) return MODEL_F7D4301;
@@ -416,7 +506,7 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 	case 60:
 		switch (hw) {
-		case HW_BCM5357:
+		case HW_BCM47186:
 			return MODEL_TDN60;
 		case HW_BCM4706:
 			if (nvram_match("boardrev", "0x1200")) return MODEL_W1800R;
@@ -467,11 +557,23 @@ int get_model(void)
 			return MODEL_RG200E_CA;
 		}
 		break;
+	case 80: // BWQ
+		switch (hw) {
+		case HW_BCM4706:
+			if (nvram_match("boardrev", "0x1104")) return MODEL_TDN80;
+		}
+		break;
 	case 1:
 		switch (hw) {
 		case HW_BCM4716:
 			//if (nvram_match("boardrev", "0x1700"))
 			return MODEL_WNR2000v2;
+			break;
+		case HW_BCM5358U:
+			if (nvram_match("boardrev", "0x1400")) {
+				nvram_set("netgear_model", "wndr3400v2");
+				return MODEL_WNDR3400v2;
+			}
 			break;
 		}
 		/* fall through */

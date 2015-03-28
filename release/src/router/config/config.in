@@ -159,6 +159,10 @@ config TCONFIG_UPS
 	depends on TCONFIG_USB
 	default n
 
+config TCONFIG_NANO
+	bool "  NANO - user-friendly file editor"
+	default n
+
 config TCONFIG_DNSCRYPT
 	bool "  DNScrypt-proxy"
 	default n
@@ -196,6 +200,18 @@ config TCONFIG_REMOVE_USBAPP
 
 config TCONFIG_AC66U
 	bool "Flag to distinguish RT-AC66U from RT-N66U"
+	default n
+
+config TCONFIG_R6300V1
+	bool "Flag to distinguish Netgear R6300 v1 from WNDR4500 v1 and WNDR4500 v2"
+	default n
+
+config TCONFIG_WNDR4500V1
+	bool "Flag to distinguish Netgear WNDR4500 v1 from R6300 v1 and WNDR4500 v2"
+	default n
+
+config TCONFIG_WNDR4500V2
+	bool "Flag to distinguish Netgear WNDR4500 v2 from R6300 v1 and WNDR4500 v1"
 	default n
 
 config TCONFIG_CTF

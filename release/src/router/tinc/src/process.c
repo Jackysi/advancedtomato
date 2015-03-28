@@ -34,6 +34,7 @@
 #include "subnet.h"
 #include "utils.h"
 #include "xalloc.h"
+#include "version.h"
 
 /* If zero, don't detach from the terminal. */
 bool do_detach = true;
@@ -108,6 +109,8 @@ static bool install_service(void) {
 	return true;
 }
 
+io_t stop_io;
+
 DWORD WINAPI controlhandler(DWORD request, DWORD type, LPVOID boe, LPVOID bah) {
 	switch(request) {
 		case SERVICE_CONTROL_INTERROGATE:
@@ -124,10 +127,11 @@ DWORD WINAPI controlhandler(DWORD request, DWORD type, LPVOID boe, LPVOID bah) {
 			return ERROR_CALL_NOT_IMPLEMENTED;
 	}
 
-	event_exit();
-	status.dwWaitHint = 30000;
+	status.dwWaitHint = 1000;
 	status.dwCurrentState = SERVICE_STOP_PENDING;
 	SetServiceStatus(statushandle, &status);
+	if (WSASetEvent(stop_io.event) == FALSE)
+		abort();
 	return NO_ERROR;
 }
 
@@ -209,7 +213,7 @@ bool detach(void) {
 	openlogger(identname, use_logfile?LOGMODE_FILE:(do_detach?LOGMODE_SYSLOG:LOGMODE_STDERR));
 
 	logger(DEBUG_ALWAYS, LOG_NOTICE, "tincd %s (%s %s) starting, debug level %d",
-			   VERSION, __DATE__, __TIME__, debug_level);
+			   VERSION, BUILD_DATE, BUILD_TIME, debug_level);
 
 	return true;
 }

@@ -47,7 +47,7 @@ void blockdata_init(void)
   blockdata_count = 0;
   blockdata_hwm = 0;
 
-  /* Note that daemon->cachesize is enforced to have non-zero size if OPT_DNSSEC_VALID is set */  
+  /* Note that daemon->cachesize is enforced to have non-zero size if OPT_DNSSEC_VALID is set */
   if (option_bool(OPT_DNSSEC_VALID))
     blockdata_expand((daemon->cachesize * 100) / sizeof(struct blockdata));
 }
@@ -55,9 +55,9 @@ void blockdata_init(void)
 void blockdata_report(void)
 {
   if (option_bool(OPT_DNSSEC_VALID))
-    my_syslog(LOG_INFO, _("DNSSEC memory in use %u, max %u, allocated %u"), 
-	      blockdata_count * sizeof(struct blockdata),  
-	      blockdata_hwm * sizeof(struct blockdata),  
+    my_syslog(LOG_INFO, _("DNSSEC memory in use %u, max %u, allocated %u"),
+	      blockdata_count * sizeof(struct blockdata),
+	      blockdata_hwm * sizeof(struct blockdata),
 	      blockdata_alloced * sizeof(struct blockdata));
 } 
 

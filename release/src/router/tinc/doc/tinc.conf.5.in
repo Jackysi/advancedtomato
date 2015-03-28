@@ -64,20 +64,20 @@ or by using
 .Sh PUBLIC/PRIVATE KEYS
 The
 .Nm tinc Li init
-command will have generated both RSA and ECDSA public/private keypairs.
+command will have generated both RSA and Ed25519 public/private keypairs.
 The private keys should be stored in files named
 .Pa rsa_key.priv
 and
-.Pa ecdsa_key.priv
+.Pa ed25519_key.priv
 in the directory
 .Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /
 The public keys should be stored in the host configuration file
 .Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /hosts/ Ns Va NAME .
 The RSA keys are used for backwards compatibility with tinc version 1.0.
 If you are upgrading from version 1.0 to 1.1, you can keep the old configuration files,
-but you will need to create ECDSA keys using the following command:
+but you will need to create Ed25519 keys using the following command:
 .Bd -literal -offset indent
-.Nm tinc Fl n Ar NETNAME Li generate-ecdsa-keys
+.Nm tinc Fl n Ar NETNAME Li generate-ed25519-keys
 .Ed
 .Sh SERVER CONFIGURATION
 The server configuration of the daemon is done in the file
@@ -114,15 +114,15 @@ If
 .Qq any
 is selected, then depending on the operating system both IPv4 and IPv6 or just
 IPv6 listening sockets will be created.
-.It Va AutoConnect Li = Ar count Po 0 Pc Bq experimental
-If set to a non-zero value,
-.Nm
-will try to only have
-.Ar count
-meta connections to other nodes,
-by automatically making or breaking connections to known nodes.
-Higher values increase redundancy but also increase meta data overhead.
-When using this option, a good value is 3.
+.It Va AutoConnect Li = yes | no Po no Pc Bq experimental
+If set to yes,
+.Nm tinc
+will automatically set up meta connections to other nodes,
+without requiring
+.Va ConnectTo
+variables.
+.Pp
+Note: it is not possible to connect to nodes using zero (system-assigned) ports in this way.
 .It Va BindToAddress Li = Ar address Op Ar port
 This is the same as
 .Va ListenAddress ,
@@ -157,6 +157,13 @@ Broadcast packets are sent directly to all nodes that can be reached directly.
 Broadcast packets received from other nodes are never forwarded.
 If the IndirectData option is also set, broadcast packets will only be sent to nodes which we have a meta connection to.
 .El
+.It Va BroadcastSubnet Li = Ar address Ns Op Li / Ns Ar prefixlength
+Declares a broadcast subnet. Any packet with a destination address falling into such a subnet will be routed as a broadcast (provided all nodes have it declared).
+This is most useful to declare subnet broadcast addresses (e.g. 10.42.255.255), otherwise
+.Nm tinc
+won't know what to do with them.
+.Pp
+Note that global broadcast addresses (MAC ff:ff:ff:ff:ff:ff, IPv4 255.255.255.255), as well as multicast space (IPv4 224.0.0.0/4, IPv6 ff00::/8) are always considered broadcast addresses and don't need to be declared.
 .It Va ConnectTo Li = Ar name
 Specifies which other tinc daemon to connect to on startup.
 Multiple
@@ -169,7 +176,9 @@ The names should be known to this tinc daemon
 line).
 .Pp
 If you don't specify a host with
-.Va ConnectTo ,
+.Va ConnectTo
+and don't enable
+.Va AutoConnect ,
 .Nm tinc
 won't try to connect to other daemons at all,
 and will instead just listen for incoming connections.
@@ -193,6 +202,13 @@ instead of
 .Va Device .
 The info pages of the tinc package contain more information
 about configuring the virtual network device.
+.It Va DeviceStandby Li = yes | no Po no Pc
+When disabled,
+.Nm tinc
+calls tinc-up on startup, and tinc-down on shutdown. When enabled,
+.Nm tinc
+will only call tinc-up when at least one node is reachable, and will call tinc-down as soon as no nodes are reachable.
+On Windows, this also determines when the virtual network interface "cable" is "plugged".
 .It Va DeviceType Li = Ar type Pq platform dependent
 The type of the virtual network device.
 Tinc will normally automatically select the right type of tun/tap interface, and this option should not be used.
@@ -260,17 +276,17 @@ When this option is enabled, packets that cannot be sent directly to the destina
 but which would have to be forwarded by an intermediate node, are dropped instead.
 When combined with the IndirectData option,
 packets for nodes for which we do not have a meta connection with are also dropped.
-.It Va ECDSAPrivateKeyFile Li = Ar filename Po Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /ecdsa_key.priv Pc
-The file in which the private ECDSA key of this tinc daemon resides.
+.It Va Ed25519PrivateKeyFile Li = Ar filename Po Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /ed25519_key.priv Pc
+The file in which the private Ed25519 key of this tinc daemon resides.
 This is only used if
 .Va ExperimentalProtocol
 is enabled.
 .It Va ExperimentalProtocol Li = yes | no Pq yes
 When this option is enabled, the SPTPS protocol will be used when connecting to nodes that also support it.
 Ephemeral ECDH will be used for key exchanges,
-and ECDSA will be used instead of RSA for authentication.
-When enabled, an ECDSA key must have been generated before with
-.Nm tinc generate-ecdsa-keys .
+and Ed25519 will be used instead of RSA for authentication.
+When enabled, an Ed25519 key must have been generated before with
+.Nm tinc generate-ed25519-keys .
 .It Va Forwarding Li = off | internal | kernel Po internal Pc Bq experimental
 This option selects the way indirect packets are forwarded.
 .Bl -tag -width indent
@@ -326,7 +342,15 @@ To only listen on a specific port but not on a specific address, use
 .Li *
 for the
 .Ar address .
-.It Va LocalDiscovery Li = yes | no Pq no
+.Pp
+If
+.Ar port
+is set to zero, it will be randomly assigned by the system. This is useful to randomize source ports of UDP packets, which can improve UDP hole punching reliability. In this case it is recommended to set
+.Va AddressFamily
+as well, otherwise
+.Nm tinc
+will assign different ports to different address families but other nodes can only know of one.
+.It Va LocalDiscovery Li = yes | no Pq yes
 When enabled,
 .Nm tinc
 will try to detect peers that are on the same local network.
@@ -334,11 +358,7 @@ This will allow direct communication using LAN addresses, even if both peers are
 and they only ConnectTo a third node outside the NAT,
 which normally would prevent the peers from learning each other's LAN address.
 .Pp
-Currently, local discovery is implemented by sending broadcast packets to the LAN during path MTU discovery.
-This feature may not work in all possible situations.
-.It Va LocalDiscoveryAddress Li = Ar address
-If this variable is specified, local discovery packets are sent to the given
-.Ar address .
+Currently, local discovery is implemented by sending some packets to the local address of the node during path MTU discovery. This will not work with old nodes that don't transmit their local address.
 .It Va MACExpire Li = Ar seconds Pq 600
 This option controls the amount of time MAC addresses are kept before they are removed.
 This only has effect when
@@ -377,7 +397,8 @@ while no routing table is managed.
 .It Va Name Li = Ar name Bq required
 This is the name which identifies this tinc daemon.
 It must be unique for the virtual private network this daemon will connect to.
-The Name may only consist of alphanumeric and underscore characters (a-z, A-Z, 0-9 and _), and is case sensitive.
+.Va Name
+may only consist of alphanumeric and underscore characters (a-z, A-Z, 0-9 and _), and is case sensitive.
 If 
 .Va Name
 starts with a
@@ -518,8 +539,8 @@ will turn off packet authentication.
 This option has no effect for connections between nodes using
 .Va ExperimentalProtocol .
 .It Va IndirectData Li = yes | no Pq no
-When set to yes, other nodes which do not already have a meta connection to you
-will not try to establish direct communication with you.
+When set to yes, only nodes which already have a meta connection to you
+will try to establish direct communication with you.
 It is best to leave this option out or set it to no.
 .It Va MACLength Li = Ar length Pq 4
 The length of the message authentication code used to authenticate UDP packets.
@@ -538,6 +559,14 @@ The port number on which this tinc daemon is listening for incoming connections,
 which is used if no port number is specified in an
 .Va Address
 statement.
+.Pp
+If this is set to zero, the port will be randomly assigned by the system. This is useful to randomize source ports of UDP packets, which can improve UDP hole punching reliability. When setting
+.Va Port
+to zero it is recommended to set
+.Va AddressFamily
+as well, otherwise
+.Nm tinc
+will assign different ports to different address families but other nodes can only know of one.
 .It Va PublicKey Li = Ar key Bq obsolete
 The public RSA key of this tinc daemon.
 It will be used to cryptographically verify it's identity and to set up a secure connection.
@@ -603,12 +632,16 @@ or
 .Bl -tag -width indent
 .It Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /tinc-up
 This is the most important script.
-If it is present it will be executed right after the tinc daemon has been started and has connected to the virtual network device.
+If it is present it will be executed right after the tinc daemon has been started and has connected to the virtual network device (or when the first node becomes reachable if
+.Va DeviceStandby
+is used).
 It should be used to set up the corresponding network interface,
 but can also be used to start other things.
 Under Windows you can use the Network Connections control panel instead of creating this script.
 .It Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /tinc-down
-This script is started right before the tinc daemon quits.
+This script is started right before the tinc daemon quits (or when the last node becomes unreachable if
+.Va DeviceStandby
+is used).
 .It Pa @sysconfdir@/tinc/ Ns Ar NETNAME Ns Pa /hosts/ Ns Ar HOST Ns Pa -up
 This script is started when the tinc daemon with name
 .Ar HOST

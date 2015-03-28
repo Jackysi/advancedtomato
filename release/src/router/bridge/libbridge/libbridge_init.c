@@ -21,48 +21,40 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "libbridge.h"
 #include "libbridge_private.h"
 
 int br_socket_fd = -1;
-struct sysfs_class *br_class_net;
 
 int br_init(void)
 {
-	if ((br_socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	if ((br_socket_fd = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0)
 		return errno;
-
-	br_class_net = sysfs_open_class("net");
-	return 0;
-}
-
-int br_refresh(void)
-{
-	if (br_class_net) {
-		sysfs_close_class(br_class_net);
-		br_class_net = sysfs_open_class("net");
-	}
-	
 	return 0;
 }
 
 void br_shutdown(void)
 {
-	sysfs_close_class(br_class_net);
-	br_class_net = NULL;
 	close(br_socket_fd);
 	br_socket_fd = -1;
 }
 
-#ifdef HAVE_LIBSYSFS
 /* If /sys/class/net/XXX/bridge exists then it must be a bridge */
-static int isbridge(const struct sysfs_class_device *dev) 
+static int isbridge(const struct dirent *entry)
 {
 	char path[SYSFS_PATH_MAX];
+	struct stat st;
 
-	snprintf(path, sizeof(path), "%s/bridge", dev->path);
-	return !sysfs_path_is_dir(path);
+	if (entry->d_name[0] == '.')
+		return 0;
+	
+	snprintf(path, SYSFS_PATH_MAX, 
+		 SYSFS_CLASS_NET "%s/bridge", entry->d_name);
+	return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 /*
@@ -71,32 +63,24 @@ static int isbridge(const struct sysfs_class_device *dev)
 static int new_foreach_bridge(int (*iterator)(const char *name, void *),
 			      void *arg)
 {
-	struct sysfs_class_device *dev;
-	struct dlist *devlist;
-	int count = 0;
+	struct dirent **namelist;
+	int i, count = 0;
 
-	if (!br_class_net) {
-		dprintf("no class /sys/class/net\n");
-		return -EOPNOTSUPP;
+	count = scandir(SYSFS_CLASS_NET, &namelist, isbridge, alphasort);
+	if (count < 0)
+		return -1;
+
+	for (i = 0; i < count; i++) {
+		if (iterator(namelist[i]->d_name, arg))
+			break;
 	}
 
-	devlist = sysfs_get_class_devices(br_class_net);
-	if (!devlist) {
-		dprintf("Can't read devices from sysfs\n");
-		return -errno;
-	}
-
-	dlist_for_each_data(devlist, dev, struct sysfs_class_device) {
-		if (isbridge(dev)) {
-			++count;
-			if (iterator(dev->name, arg))
-				break;
-		}
-	}
+	for (i = 0; i < count; i++)
+		free(namelist[i]);
+	free(namelist);
 
 	return count;
 }
-#endif
 
 /*
  * Old interface uses ioctl
@@ -142,11 +126,9 @@ int br_foreach_bridge(int (*iterator)(const char *, void *),
 		     void *arg)
 {
 	int ret;
-#ifdef HAVE_LIBSYSFS
 
 	ret = new_foreach_bridge(iterator, arg);
 	if (ret <= 0)
-#endif
 		ret = old_foreach_bridge(iterator, arg);
 
 	return ret;
@@ -204,48 +186,28 @@ int br_foreach_port(const char *brname,
 		    int (*iterator)(const char *br, const char *port, void *arg),
 		    void *arg)
 {
-#ifdef HAVE_LIBSYSFS
-	struct sysfs_class_device *dev;
-	struct sysfs_directory *dir;
-	struct sysfs_link *plink;
-	struct dlist *links;
-	int err = 0;
+	int i, count;
+	struct dirent **namelist;
 	char path[SYSFS_PATH_MAX];
 
-	if (!br_class_net ||
-	    !(dev = sysfs_get_class_device(br_class_net, (char *) brname)))
-		goto old;
+	snprintf(path, SYSFS_PATH_MAX, SYSFS_CLASS_NET "%s/brif", brname);
+	count = scandir(path, &namelist, 0, alphasort);
+	if (count < 0)
+		return old_foreach_port(brname, iterator, arg);
 
-	snprintf(path, sizeof(path), "%s/%s", 
-		 dev->path, SYSFS_BRIDGE_PORT_SUBDIR);
+	for (i = 0; i < count; i++) {
+		if (namelist[i]->d_name[0] == '.'
+		    && (namelist[i]->d_name[1] == '\0'
+			|| (namelist[i]->d_name[1] == '.'
+			    && namelist[i]->d_name[2] == '\0')))
+			continue;
 
-	dprintf("path=%s\n", path);
-	dir = sysfs_open_directory(path);
-	if (!dir) {
-		/* no /sys/class/net/ethX/brif subdirectory
-		 * either: old kernel, or not really a bridge
-		 */
-		goto old;
-	}
-
-	links = sysfs_get_dir_links(dir);
-	if (!links) {
-		err = -ENOSYS;
-		goto out;
-	}
-
-	err = 0;
-	dlist_for_each_data(links, plink, struct sysfs_link) {
-		++err;
-		if (iterator(brname, plink->name, arg))
+		if (iterator(brname, namelist[i]->d_name, arg))
 			break;
 	}
- out:
-	sysfs_close_directory(dir);
-	return err;
+	for (i = 0; i < count; i++)
+		free(namelist[i]);
+	free(namelist);
 
- old:
-#endif
-	return old_foreach_port(brname, iterator, arg);
-	
+	return count;
 }

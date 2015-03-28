@@ -9,7 +9,7 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript" src="js/interfaces.js"></script>
 	<script type="text/javascript">
-		// <% nvram("at_navi,at_update,web_nav,tomatoanon_answer,http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,web_dir"); %>
+		// <% nvram("at_navi,at_update,web_nav,http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,web_dir,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd,http_username,http_root"); %>
 		changed = 0;
 		tdup = parseInt("<% psup('telnetd'); %>");
 		sdup = parseInt("<% psup('dropbear'); %>");
@@ -169,11 +169,13 @@ No part of this file may be used without permission.
 			*/
 			fom.https_crt_gen.value = E("_f_https_crt_gen").checked ? 1 : 0;
 			fom.https_crt_save.value = E("_f_https_crt_save").checked ? 1 : 0;
+			fom.http_root.value = E('_f_http_root').checked ? 1 : 0;
 			fom.web_wl_filter.value = E("_f_http_wireless").checked ? 0 : 1;
 			fom.telnetd_eas.value = E("_f_telnetd_eas").checked ? 1 : 0;
 			fom.sshd_eas.value = E("_f_sshd_eas").checked ? 1 : 0;
 			fom.sshd_pass.value = E("_f_sshd_pass").checked ? 1 : 0;
 			fom.sshd_remote.value = E("_f_sshd_remote").checked ? 1 : 0;
+			fom.sshd_motd.value = E('_f_sshd_motd').checked ? 1 : 0;
 			fom.sshd_forwarding.value = E("_f_sshd_forwarding").checked ? 1 : 0;
 			fom.rmgt_sip.value = fom.f_rmgt_sip.value.split(/\s*,\s*/).join(",");
 			fom.ne_shlimit.value = ((E("_f_limit_ssh").checked ? 1 : 0) | (E("_f_limit_telnet").checked ? 2 : 0)) +
@@ -198,6 +200,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="https_enable">
 		<input type="hidden" name="https_crt_save">
 		<input type="hidden" name="https_crt_gen">
+		<input type="hidden" name="http_root">
 		<input type="hidden" name="remote_management">
 		<input type="hidden" name="remote_mgt_https">
 		<input type="hidden" name="web_wl_filter">
@@ -205,6 +208,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="sshd_eas">
 		<input type="hidden" name="sshd_pass">
 		<input type="hidden" name="sshd_remote">
+		<input type="hidden" name="sshd_motd">
 		<input type="hidden" name="ne_shlimit">
 		<input type="hidden" name="rmgt_sip">
 		<input type="hidden" name="sshd_forwarding">
@@ -247,18 +251,34 @@ No part of this file may be used without permission.
 			</div>
 		</div>
 
+		<div class="box" data-box="admin-weblogin">
+			<div class="heading">Authorization Settings</div>
+			<div class="content" id="section-weblogin">
+				<script type="text/javascript">
+					$('#section-weblogin').forms([
+						{ title: 'Username', name: 'http_username', type: 'text', value: nvram.http_username, suffix: '&nbsp;<small>(empty field means "admin")</small>' },
+						{ title: 'Allow web login as "root"', name: 'f_http_root', type: 'checkbox', value: nvram.http_root == 1 },
+						{ title: 'Password', name: 'set_password_1', type: 'password', value: '**********' },
+						{ title: 'Repeat Password', indent: 2, name: 'set_password_2', type: 'password', value: '**********' }
+					]);
+				</script>
+			</div>
+		</div>
+
+
 		<div class="box" id="section-ssh" data-box="access-ssh">
 			<div class="heading">SSH Daemon <span class="ssh-status"></span></div>
 			<div class="content">
 				<script type="text/javascript">
 					$('#section-ssh .content').forms([
 						{ title: 'Enable at Startup', name: 'f_sshd_eas', type: 'checkbox', value: nvram.sshd_eas == 1 },
+						{ title: 'Extended MOTD', name: 'f_sshd_motd', type: 'checkbox', value: nvram.sshd_motd == 1 },
 						{ title: 'Remote Access', name: 'f_sshd_remote', type: 'checkbox', value: nvram.sshd_remote == 1 },
 						{ title: 'Remote Port', indent: 2, name: 'sshd_rport', type: 'text', maxlen: 5, size: 7, value: nvram.sshd_rport },
 						{ title: 'Remote Forwarding', name: 'f_sshd_forwarding', type: 'checkbox', value: nvram.sshd_forwarding == 1 },
 						{ title: 'Port', name: 'sshd_port', type: 'text', maxlen: 5, size: 7, value: nvram.sshd_port },
 						{ title: 'Allow Password Login', name: 'f_sshd_pass', type: 'checkbox', value: nvram.sshd_pass == 1 },
-						{ title: 'Authorized Keys', name: 'sshd_authkeys', type: 'textarea', style: 'width: 100%; height: 100px;', value: nvram.sshd_authkeys }
+						{ title: 'Authorized Keys', name: 'sshd_authkeys', type: 'textarea', value: nvram.sshd_authkeys }
 					]);
 					$('#section-ssh .heading').append('<a href="#" data-toggle="tooltip" class="pull-right" title="' + (sdup ? 'Stop' : 'Start') + ' SSH Daemon" onclick="toggle(\'sshd\', sdup)" id="_sshd_button">'
 						+ (sdup ? '<i class="icon-stop"></i>' : '<i class="icon-play"></i>') + '</a>');
@@ -296,9 +316,7 @@ No part of this file may be used without permission.
 						{ title: '', indent: 2, multi: [
 							{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: 'every ', value: shlimit[1] },
 							{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: 'seconds', value: shlimit[2] }
-						] },
-						{ title: "Password", name: "set_password_1", type: "password", value: "**********" },
-						{ title: "<i>(re-enter to confirm)</i>", indent: 2, name: "set_password_2", type: "password", value: "**********" }
+						] }
 					]);
 				</script>
 			</div>
@@ -306,7 +324,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save();" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">init(); verifyFields(null, 1);</script>

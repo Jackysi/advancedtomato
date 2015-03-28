@@ -4,16 +4,14 @@
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 		<meta name="viewport" content="width=device-width">
 		<title>$GatewayName</title>
-		<link href="/css/bootstrap.min.css" rel="stylesheet">
-		<link href="/css/bootstrap-responsive.min.css" rel="stylesheet">
-		<link href="/css/tomato.css" rel="stylesheet">
-		<link href="/css/elenor.css" rel="stylesheet">
+		<link href="css/reset.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
 		<style>
 			.terms {
 				padding: 0 20px;
 				text-align: center;
 			}
-			
+
 			h2 { text-align: center; font-size: 24px; }
 			form { text-align: center; }
 			.center { display: block; text-align: center; margin: 0 auto; }
@@ -22,30 +20,47 @@
 				min-width: 250px;
 				max-width: 768px;
 			}
-			
+
 			/* Animations */
-			.anim { animation: OpenPage 0.5s ease-out forwards; transform: scale(0); }
-			.delay1 { animation-delay: 0s; }
-			.delay2 { animation-delay: 0.3s; }
-			.delay3 { animation-delay: 0.6s; }
-			.delay4 { animation-delay: 1s; }
-			
+			.anim { animation: OpenPage 0.5s ease-out forwards; -webkit-animation: OpenPage 0.5s ease-out forwards; transform: scale(0); }
+			.delay1 { animation-delay: 0s; -webkit-animation-delay: 0s; }
+			.delay2 { animation-delay: 0.3s; -webkit-animation-delay: 0.3s; }
+			.delay3 { animation-delay: 0.6s; -webkit-animation-delay: 0.6s; }
+			.delay4 { animation-delay: 1s; -webkit-animation-delay: 1s; }
+
 			@keyframes OpenPage {
-				0% {
-					opacity: 0;
-					transform: scale(0, -1);
-					margin-top: -150px;
-				}
-				65% {
-					opacity: 0.2;
-				}
-				100% {
-					opacity: 1;
-					margin-top: 0;
-					transform: scale(1);
-				}
+			0% {
+				opacity: 0;
+				transform: scale(0, -1);
+				margin-top: -150px;
 			}
-			
+			65% {
+				opacity: 0.2;
+			}
+			100% {
+				opacity: 1;
+				margin-top: 0;
+				transform: scale(1);
+			}
+			}
+
+			@-webkit-keyframes OpenPage {
+			0% {
+				opacity: 0;
+				transform: scale(0, -1);
+				margin-top: -150px;
+			}
+			65% {
+				opacity: 0.2;
+			}
+			100% {
+				opacity: 1;
+				margin-top: 0;
+				transform: scale(1);
+			}
+			}
+
+
 		</style>
 		<script type="text/javascript">
 			function toggle(element) { document.getElementById(element).style.display = (document.getElementById(element).style.display == "none") ? "" : "none"; }
@@ -69,7 +84,7 @@
 					<input type="hidden" name="mode_login">
 					<input type="hidden" name="redirect" value="$redirect">
 					<input type="hidden" name="accept_terms" value="yes">
-					<button class="btn btn-primary" type="submit" value="Submit">Ok, I Agree!</button>
+					<button class="btn btn-primary" type="submit" value="Submit"><i class="icon-check"></i> Ok, I Agree!</button>
 				</form>
 			</div>
 		</div>

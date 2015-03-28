@@ -60,8 +60,8 @@ No part of this file may be used without permission.
 		<input type="hidden" name="t_cafree">
 		<input type="hidden" name="t_hidelr">
 
-		<div class="alert">
-			<b>Warning</b> The NVRAM Dump text file may contain information like wireless
+		<div class="alert alert-warning icon">
+			<h5>Warning!</h5> The NVRAM Dump text file may contain information like wireless
 			encryption keys and usernames/passwords for the router, ISP and DDNS. Please
 			review &amp; edit this file before sharing it with
 			anyone.
@@ -114,6 +114,6 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 	</form>
 </content>

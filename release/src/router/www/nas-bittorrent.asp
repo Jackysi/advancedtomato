@@ -7,12 +7,14 @@ No part of this file may be used without permission.
 --><title>BitTorrent Client</title>
 <content>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_ratio_idle_enable,bt_ratio_idle,bt_dht,bt_pex,bt_lpd,bt_utp,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_dl_queue_enable,bt_dl_queue_size,bt_ul_queue_enable,bt_ul_queue_size,bt_message"); %>
+		//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_ratio_idle_enable,bt_ratio_idle,bt_dht,bt_pex,bt_lpd,bt_utp,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_dl_queue_enable,bt_dl_queue_size,bt_ul_queue_enable,bt_ul_queue_size,bt_message,bt_log,bt_log_path"); %>
 
-		var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><small>[Click here to open Transmission GUI]</small></a>';
+		var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
+
 		function verifyFields(focused, quiet)
 		{
 			var ok = 1;
+
 			var a = E('_f_bt_enable').checked;
 			var c = E('_f_bt_rpc_enable').checked;
 			var d = E('_f_bt_dl_enable').checked;
@@ -24,6 +26,8 @@ No part of this file may be used without permission.
 			var l = E('_f_bt_ul_queue_enable').checked;
 			var m = E('_f_bt_check').checked;
 			var n = E('_f_bt_ratio_idle_enable').checked;
+			var r = E('_f_bt_log').checked;
+
 			E('_bt_custom').disabled = !a;
 			E('_bt_binary').disabled = !a;
 			E('_bt_dir').disabled = !a;
@@ -61,110 +65,149 @@ No part of this file may be used without permission.
 			E('_f_bt_ul_queue_enable').disabled = !a;
 			E('_bt_ul_queue_size').disabled = !a || !l;
 			E('_bt_message').disabled = !a;
+			E('_f_bt_log').disabled = !a;
+			E('_bt_log_path').disabled = !a || !r;
+
 			var o = (E('_bt_settings').value == 'custom');
 			elem.display('_bt_settings_custom', o && a);
+
 			var p = (E('_bt_binary').value == 'custom');
 			elem.display('_bt_binary_custom', p && a);
+
 			if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
+
 			var s = E('_bt_custom');
 			if (s.value.search(/"rpc-enable":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-enable" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"peer-port":/) == 0)  {
 				ferror.set(s, 'Cannot set "peer-port" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"speed-limit-down-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "speed-limit-down-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"speed-limit-up-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "speed-limit-up-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"speed-limit-down":/) == 0)  {
 				ferror.set(s, 'Cannot set "speed-limit-down" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"speed-limit-up":/) == 0)  {
 				ferror.set(s, 'Cannot set "speed-limit-up" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"rpc-port":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-port" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"rpc-whitelist-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-whitelist-enabled" option here. Whitelist is always disabled', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"rpc-username":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-username" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"rpc-password":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-password" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"download-dir":/) == 0)  {
 				ferror.set(s, 'Cannot set "download-dir" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"incomplete-dir-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "incomplete-dir-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"incomplete-dir":/) == 0)  {
 				ferror.set(s, 'Cannot set "incomplete-dir" option here. If incomplete dir is enabled, all incomplete files will be downloaded to "/download_dir/.incomplete" directory.', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"peer-limit-global":/) == 0)  {
 				ferror.set(s, 'Cannot set "peer-limit-global" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"peer-limit-per-torrent":/) == 0)  {
 				ferror.set(s, 'Cannot set "peer-limit-per-torrent" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"upload-slots-per-torrent":/) == 0)  {
 				ferror.set(s, 'Cannot set "upload-slots-per-torrent" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"dht-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "dht-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"pex-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "pex-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"lpd-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "lpd-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"utp-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "utp-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"ratio-limit-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "ratio-limit-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"ratio-limit":/) == 0)  {
 				ferror.set(s, 'Cannot set "ratio-limit" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"rpc-authentication-required":/) == 0)  {
 				ferror.set(s, 'Cannot set "rpc-authentication-required" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"blocklist-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "blocklist-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"blocklist-url":/) == 0)  {
 				ferror.set(s, 'Cannot set "blocklist-url" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"download-queue-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "download-queue-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"download-queue-size":/) == 0)  {
 				ferror.set(s, 'Cannot set "download-queue-size" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"seed-queue-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "seed-queue-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"seed-queue-size":/) == 0)  {
 				ferror.set(s, 'Cannot set "seed-queue-size" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"idle-seeding-limit-enabled":/) == 0)  {
 				ferror.set(s, 'Cannot set "idle-seeding-limit-enabled" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"idle-seeding-limit":/) == 0)  {
 				ferror.set(s, 'Cannot set "idle-seeding-limit" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			if (s.value.search(/"message-level":/) == 0)  {
 				ferror.set(s, 'Cannot set "message-level" option here. You can set it in Tomato GUI', quiet);
 				ok = 0; }
+
 			return ok;
 		}
+
 		function save()
 		{
 			if (verifyFields(null, 0)==0) return;
@@ -184,16 +227,19 @@ No part of this file may be used without permission.
 			fom.bt_lpd.value = E('_f_bt_lpd').checked ? 1 : 0;
 			fom.bt_utp.value = E('_f_bt_utp').checked ? 1 : 0;
 			fom.bt_blocklist.value = E('_f_bt_blocklist').checked ? 1 : 0;
+			fom.bt_log.value = E('_f_bt_log').checked ? 1 : 0;
 			fom.bt_dl_queue_enable.value = E('_f_bt_dl_queue_enable').checked ? 1 : 0;
 			fom.bt_ul_queue_enable.value = E('_f_bt_ul_queue_enable').checked ? 1 : 0;
+
 			if (fom.bt_enable.value == 0) {
 				fom._service.value = 'bittorrent-stop';
 			}
 			else {
-				fom._service.value = 'bittorrent-restart';
+				fom._service.value = 'bittorrent-restart'; 
 			}
 			form.submit('_fom', 1);
 		}
+
 		function init()
 		{
 		}
@@ -211,6 +257,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="bt_dl_enable">
 		<input type="hidden" name="bt_ul_enable">
 		<input type="hidden" name="bt_blocklist">
+		<input type='hidden' name="bt_log">
 		<input type="hidden" name="bt_ratio_enable">
 		<input type="hidden" name="bt_ratio_idle_enable">
 		<input type="hidden" name="bt_dht">
@@ -344,24 +391,32 @@ No part of this file may be used without permission.
 					{ title: 'Save settings location', multi: [
 						{ name: 'bt_settings', type: 'select', options: [
 							['down_dir','In the Download directory (Recommended)'],
+							/* JFFS2-BEGIN */
 							['/jffs','JFFS2'],
+							/* JFFS2-END */
+							/* CIFS-BEGIN */
 							['/cifs1','CIFS 1'],['/cifs2','CIFS 2'],
+							/* CIFS-END */
 							['/tmp','RAM (Temporary)'], ['custom','Custom'] ], value: nvram.bt_settings, suffix: ' ' },
 						{ name: 'bt_settings_custom', type: 'text', maxlen: 60, size: 40, value: nvram.bt_settings_custom }
 					] },
 					{ title: 'Blocklist', multi: [
 						{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
-						{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url }
+						{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 60, value: nvram.bt_blocklist_url }
+					] },
+					{ title: 'Custom Log File Path', multi: [
+						{ name: 'f_bt_log', type: 'checkbox', value: nvram.bt_log == '1', suffix: '  ' },
+						{ name: 'bt_log_path', type: 'text', maxlen: 80, size: 60, value: nvram.bt_log_path, suffix: ' /transmission.log' }
 					] },
 					null,
-					{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom, style: 'width: 100%; height: 80px' }
+					{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }
 				]);
 			</script>
 		</div>
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">init(); verifyFields(null, 1);</script>

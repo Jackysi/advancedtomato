@@ -1,0 +1,203 @@
+Configuration File Reference for USB_ModeSwitch
+-----------------------------------------------
+
+Last modified: 2014-05-29
+
+
+
+General Rules:
+
+Numbers can be decimal or hexadecimal, Bulk message strings must be
+hexadecimal without prepended "0x". Digits 9-16 (command tag) in
+mass storage messages (starting with "55534243") are random; I set
+them to "12345678". Mind that you should make them unique if more
+than one MessageContent is used.
+
+-> ALL MISTYPED PARAMETERS AND OTHER ENTRIES ARE SILENTLY IGNORED <-
+
+
+
+Parameter Reference:
+
+Note: if there is a short command line flag for a parameter, then it
+is appended to the line. For the full command line parameter reference
+see the usb_modeswitch(1) man page.
+
+
+* DefaultVendor            -v <hex number>
+* DefaultProduct           -p <hex number>
+
+This is the ID the USB device shows after having been plugged in.
+The program needs this, either on the command line or in the config
+file; if not found -> no action.
+
+Note: newer config files do not contain these parameters because of
+the redundancy with regard to the config file name.
+
+
+* TargetVendor             -V <hex number>
+* TargetProduct            -P <hex number>
+
+These are the IDs of the USB device after successful mode switching.
+They are optional, but required for a proper success check
+
+
+* TargetProductList        <comma separated hex strings without "0x">
+
+Like TargetProduct, but multiple targets
+
+
+* TargetClass              -C <hex number>
+
+Some devices don't change their ID, only their layout. To check for a 
+successfull mode switch, the class of the first interface is checked
+
+
+* MessageEndpoint          -m <hex number>
+* ResponseEndpoint         -r <hex number>
+
+A kind of address inside the interface to which the "message"
+(the sequence that does the actual switching) is directed or
+from which the reply is read if NeedResponse is active.
+OBSOLETE since version 0.9.7 due to autodetection, only useful for
+testing
+
+
+* MessageContent           -M <hex string>
+
+A hex string containing the "message" sequence; it will be
+sent as a USB bulk transfer
+
+
+* MessageContent2, ...3    -2/-3 <hex string>
+
+Additional "messages". Use with "NeedResponse"!
+
+
+* ReleaseDelay             -w <milliseconds>
+
+Waiting time after message transfers. Helps with some sensitive devices
+that don't want any traffic after the mode switch initialisation
+
+
+* NeedResponse <0/1>       -n
+
+Some devices were reported to require receiving the response of the
+bulk transfer to do the switching properly. Usually not needed.
+
+
+* DetachStorageOnly <0/1>  -d
+
+Some early devices just needed to be detached from the usb-storage
+driver to initiate the mode switching. Now practically obsolete for
+switching, but still comes handy sometimes
+
+
+* StandardEject <0/1>      -K
+
+Sends a specific bulk message sequence representing the SCSI commands
+"ALLOW MEDIUM REMOVAL" and "START STOP UNIT", basically an eject
+action. Many modems are using this for mode switching
+
+
+* HuaweiMode <0/1>         -H
+
+Some early Huawei devices can be switched by a special control
+message. Don't use with recent devices
+
+
+* HuaweiNewMode <0/1>      -J
+
+The standard for all newer Huawei devices. Sends a specific bulk message,
+but different target layouts may be reached with variants of that
+message; use MessageContent for these
+
+
+* SonyMode <0/1>           -O
+
+Some Sony-Ericsson devices can be switched by a special control
+message. May take a long time (20+ seconds).
+
+
+* SierraMode <0/1>         -S
+* KobilMode <0/1>          -T
+* GCTMode <0/1>            -G
+* SequansMode <0/1>        -N
+* MobileActionMode <0/1>   -A
+* QisdaMode <0/1>          -B
+* QuantaMode <0/1>         -E
+* PantechMode <0/1>        -F
+* BlackberryMode <0/1>     -Z
+* CiscoMode <0/1>          -L
+
+
+Flags to support devices that need special control messages.
+The names are referring to the respective manufacturers.
+
+
+* ResetUSB <0/1>           -R
+
+Few devices or systems need a rougher treatment. If the switching seems
+to do something but your system does not reflect it, try this somewhat
+brutal method to do a reset after switching. May also be useful for
+all kinds of experiments
+
+
+* Configuration            -u <hex number>
+
+Some devices are doing the "right" thing and provide different layouts
+in the standard-compliant way. They don't "restart", so don't have to be
+rediscovered by the system after the change. Strictly speaking, they are
+not doing a mode switch
+
+
+* Interface                -i <hex number>
+* AltSetting               -a <hex number>
+
+More USB parameter to help with tricky devices and for doing lots
+of cruel experiments; usually not needed ...
+
+
+Note:
+AltSetting/Configuration changes and ResetUSB are executed after all
+other steps and can be combined or used on their own (e.g. a reset
+might have the same effect as a manual replug)
+
+
+* InquireDevice <0|1>      -I (enables inquiry)
+
+Prints out SCSI device attributes in addition to USB device attributes.
+These may be used later to tell apart ambiguous device IDs. Only needed
+for creating new configurations
+
+
+* CheckSuccess             -s <number>
+
+Check continuously if the switch succeeded for max <number> seconds.
+If the target ID is given, the check waits for it to appear.
+Otherwise, the check waits for the device to "go away"; most devices
+vanish after switching and can't be accessed anymore. It also checks
+the bus/device count, trying to determine if the device "came back"
+
+Note: this feature is not used in the full-featured Linux package of
+usb_modeswitch where the success check is done by the wrapper script
+
+
+* NoDriverLoading <0|1>    (no command line parameter)
+
+The binary tells the wrapper script NOT to check for and initiate
+binding of the serial driver after switching.
+Mostly useful for non-modem devices and newer modems which do not use
+the serial driver.
+
+
+* WaitBefore <seconds>     (no command line parameter)
+
+Waiting time before taking any action. Helps with some sensitive setups.
+
+
+* NoMBIMCheck <0|1>        (no command line parameter)
+
+Disable the check for new MBIM standard devices, which is always done
+by default.
+

@@ -1,9 +1,30 @@
+dnsmasq (2.73-1) unstable; urgency=low
+
+   * New upstream.
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Fri, 03 Oct 2014 08:49:42 +0000
+
+dnsmasq (2.72-2) unstable; urgency=low
+
+   * Fix build in Debian-kFreeBSD. (closes: #763693)
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Thu, 02 Oct 2014 22:34:12 +0000
+
+dnsmasq (2.72-1) unstable; urgency=low
+
+   * New upstream.
+   * If dns-root-data package is installed, use it to set the DNSSEC
+     trust anchor(s). Recommend dns-root-data. (closes: #760460)
+   * Handle AD bit correctly in replies from cache. (closes: #761654)
+
+ -- Simon Kelley <simon@thekelleys.org.uk>  Tue, 20 May 2014 21:01:11 +0000
+
 dnsmasq (2.71-1) unstable; urgency=low
 
    * New upstream.
-   * Fix 100% CPU-usage bug when dnsmasq started with cachesize 
+   * Fix 100% CPU-usage bug when dnsmasq started with cachesize
      set to zero. (LP: #1314697)
-	
+
  -- Simon Kelley <simon@thekelleys.org.uk>  Fri, 16 May 2014 20:17:10 +0000
 
 dnsmasq (2.70-3) unstable; urgency=medium
@@ -16,7 +37,7 @@ dnsmasq (2.70-3) unstable; urgency=medium
      postinst/postrm exactly as dh_systemd would, add dependency on
      init-system-helpers. Closes: #724602
 
- -- Simon Kelley <simon@thekelleys.org.uk> Sun, 11 May 2014 17:45:21 +0000
+ -- Simon Kelley <simon@thekelleys.org.uk>  Sun, 11 May 2014 17:45:21 +0000
 
 dnsmasq (2.70-2) unstable; urgency=low
 
@@ -1163,12 +1184,3 @@ dnsmasq (0.95-1) unstable; urgency=low
 
  -- Simon Kelley <simon@thkelleys.org.uk>  Sat, 29 Aug 1998 20:27:27 -0400
 
-
-  
-  
-  
-  
-  
-  
-  
-  

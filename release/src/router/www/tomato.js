@@ -2022,11 +2022,12 @@ TomatoRefresh.prototype = {
 			if (this.cookieTag) cookie.set(this.cookieTag, e.value);
 			this.refreshTime = e.value * 1000;
 		}
+
 		e = undefined;
 
 		this.updateUI('start');
-
 		this.running = 1;
+
 		if ((this.http = new XmlHttp()) == null) {
 			reloadPage();
 			return;
@@ -2048,8 +2049,7 @@ TomatoRefresh.prototype = {
 			if ((p.refreshTime > 0) && (!p.once)) {
 				p.updateUI('wait');
 				p.timer.start(Math.round(p.refreshTime));
-			}
-			else {
+			} else {
 				p.stop();
 			}
 
@@ -2145,10 +2145,11 @@ TomatoRefresh.prototype = {
 
 	destroy: function() {
 		this.running = 0;
-		this.updateUI('stop');
+		this.updateUI('wait');
 		this.timer.stop();
 		this.http = null;
 		this.once = undefined;
+		this.refresh = null;
 	}
 }
 
@@ -2221,6 +2222,7 @@ var cookie = {
 
 		document.cookie = 'tomato_' + encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; expires=' +
 		new Date(2147483647000).toUTCString() + '; path=/';
+
 	},
 
 	get: function(key) {
@@ -2396,6 +2398,7 @@ function navi_icons ($name) {
 		case 'Port Forwarding': 	return 'forward'; break;
 		case 'Quality of Service': 	return 'gauge'; break;
 		case 'USB & NAS': 			return 'drive'; break;
+		case 'Web Services': 		return 'download'; break;
 		case 'VPN': 				return 'globe'; break;
 		case 'Administration': 		return 'wrench'; break;
 		default: 					return 'plus'; break;
@@ -2463,9 +2466,6 @@ function navi()
 		// ---- !!TB - USB, FTP, Samba, Media Server
 		'USB & NAS': {
 			'USB Support':          'nas-usb.asp'
-			/* FTP-BEGIN */
-			,'FTP Server':          'nas-ftp.asp'
-			/* FTP-END */
 			/* SAMBA-BEGIN */
 			,'File Sharing':        'nas-samba.asp'
 			/* SAMBA-END */
@@ -2478,10 +2478,17 @@ function navi()
 			/* BT-BEGIN */
 			,'BitTorrent Client':   'nas-bittorrent.asp'
 			/* BT-END */
-			/* NGINX-BEGIN */
-			,'Web Server (NGINX)':	'nas-nginx.asp'
-			/* NGINX-END */
 		},
+
+		/* NGINX-BEGIN */
+		'Web Services': {	
+			/* FTP-BEGIN */
+			'FTP Server':          	'web-ftp.asp',
+			/* FTP-END */
+			'Web Server': 			'web-nginx.asp',
+			'MySQL Server': 		'web-mysql.asp'
+		},
+		/* NGINX-END */
 		/* USB-END */
 		/* VPN-BEGIN */
 		'VPN': {
@@ -2531,7 +2538,7 @@ function navi()
 
 	// Add custom menu
 	try { $.extend(true, menu, $.parseJSON(nvram.web_nav)); } catch (e) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
-	
+
 	// Fix for first UI load
 	if (activeURL == null || activeURL == '') {
 		activeURL = '#status-home.asp';

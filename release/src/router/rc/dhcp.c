@@ -118,7 +118,7 @@ static int deconfig(char *ifname)
 	nvram_set("wan_routes2", "");
 	expires(0);
 
-	if (get_wan_proto() == WP_DHCP) {
+	if (get_wan_proto() == WP_DHCP || get_wan_proto() == WP_LTE) {
 		nvram_set("wan_netmask", "0.0.0.0");
 		nvram_set("wan_gateway_get", "0.0.0.0");
 		nvram_set("wan_get_dns", "");
@@ -148,13 +148,14 @@ static int renew(char *ifname)
 
 	if (env2nv("ip", "wan_ipaddr") ||
 	    env2nv_gateway("wan_gateway") ||
+	    (wan_proto == WP_LTE && env2nv("subnet", "wan_netmask")) ||
 	    (wan_proto == WP_DHCP && env2nv("subnet", "wan_netmask"))) {
 		/* WAN IP or gateway changed, restart/reconfigure everything */
 		TRACE_PT("end\n");
 		return bound(ifname, 1);
 	}
 
-	if (wan_proto == WP_DHCP) {
+	if (wan_proto == WP_DHCP || wan_proto == WP_LTE) {
 		changed |= env2nv("domain", "wan_get_domain");
 		changed |= env2nv("dns", "wan_get_dns");
 	}
@@ -221,7 +222,7 @@ static int bound(char *ifname, int renew)
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
 	netmask = getenv("subnet") ? : "255.255.255.255";
-	if (wan_proto == WP_DHCP) {
+	if (wan_proto == WP_DHCP || wan_proto == WP_LTE) {
 		nvram_set("wan_netmask", netmask);
 		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 	}
@@ -261,7 +262,7 @@ static int bound(char *ifname, int renew)
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
-	if (wan_proto != WP_DHCP) {
+	if (wan_proto != WP_DHCP && wan_proto != WP_LTE) {
 		char *gw = nvram_safe_get("wan_gateway");
 
 		preset_wan(ifname, gw, netmask);
@@ -361,9 +362,14 @@ void start_dhcpc(void)
 	nvram_set("wan_get_dns", "");
 	f_write(renewing, NULL, 0, 0, 0);
 
-	ifname = nvram_safe_get("wan_ifname");
 	proto = get_wan_proto();
-	if (proto == WP_DHCP) {
+
+	if (proto == WP_LTE) {
+		ifname = nvram_safe_get("wan_4g");
+	} else {
+		ifname = nvram_safe_get("wan_ifname");
+	}
+	if (proto == WP_DHCP || proto == WP_LTE) {
 		nvram_set("wan_iface", ifname);
 	}
 
@@ -473,6 +479,7 @@ void start_dhcp6c(void)
 	char *wan6face;
 	char *argv[] = { "dhcp6c", "-T", "LL", NULL, NULL, NULL };
 	int argc;
+	int ipv6_vlan;
 
 	TRACE_PT("begin\n");
 
@@ -483,30 +490,57 @@ void start_dhcp6c(void)
 	if (prefix_len < 0)
 		prefix_len = 0;
 	wan6face = nvram_safe_get("wan_iface");
+	ipv6_vlan = nvram_get_int("ipv6_vlan");
 
 	nvram_set("ipv6_get_dns", "");
 	nvram_set("ipv6_rtr_addr", "");
 	nvram_set("ipv6_prefix", "");
 
 	// Create dhcp6c.conf
+	unlink("/var/dhcp6c_duid");
 	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
 		fprintf(f,
 			"interface %s {\n"
+			" send ia-na 0;\n" //Required to get correct WAN IP
 			" send ia-pd 0;\n"
 			" send rapid-commit;\n"
 			" request domain-name-servers;\n"
 			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
 			"id-assoc pd 0 {\n"
+			" prefix ::/%d infinity;\n"			
 			" prefix-interface %s {\n"
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
-			" };\n"
-			"};\n"
-			"id-assoc na 0 { };\n",
+			" 	};\n",
 			wan6face,
+			nvram_get_int("ipv6_prefix_length"),
 			nvram_safe_get("lan_ifname"),
 			prefix_len);
+		if ((ipv6_vlan & 1) && (prefix_len >= 1)) { //2 ipv6 /64 networks
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 1;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan1_ifname"), prefix_len);
+		};
+		if ((ipv6_vlan & 2) && (prefix_len >= 2)) { //4 ipv6 /64 networks
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 2;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan2_ifname"), prefix_len);
+		};
+		if ((ipv6_vlan & 4) && (prefix_len >= 2)) {
+		fprintf(f,
+			"	prefix-interface %s {\n"
+			"		sla-id 3;\n"
+			"		sla-len %d;\n"
+			"	};\n", nvram_safe_get("lan3_ifname"), prefix_len);
+		};		
+		fprintf(f,
+			"};\n"
+			"id-assoc na 0 { };\n");
 		fclose(f);
 	}
 

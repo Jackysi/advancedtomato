@@ -12,7 +12,7 @@ No part of this file may be used without permission.
 --><title>Bandwidth Limiter</title>
 <content>
 	<script type="text/javascript">
-		// <% nvram("qos_enable,at_update,tomatoanon_answer,new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp,limit_br1_enable,limit_br1_dlc,limit_br1_dlr,limit_br1_ulc,limit_br1_ulr,limit_br1_prio,limit_br2_enable,limit_br2_dlc,limit_br2_dlr,limit_br2_ulc,limit_br2_ulr,limit_br2_prio,limit_br3_enable,limit_br3_dlc,limit_br3_dlr,limit_br3_ulc,limit_br3_ulr,limit_br3_prio"); %>
+		// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp,limit_br0_prio,limit_br1_enable,limit_br1_dlc,limit_br1_dlr,limit_br1_ulc,limit_br1_ulr,limit_br1_prio,limit_br2_enable,limit_br2_dlc,limit_br2_dlr,limit_br2_ulc,limit_br2_ulr,limit_br2_prio,limit_br3_enable,limit_br3_dlc,limit_br3_dlr,limit_br3_ulc,limit_br3_ulr,limit_br3_prio"); %>
 
 		var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 		var class_tcp = [['0','nolimit']];
@@ -189,9 +189,10 @@ No part of this file may be used without permission.
 			E('_qosl_ulc').disabled = b || a;
 			E('_qosl_tcp').disabled = b || a;
 			E('_qosl_udp').disabled = b || a;
+			E('_limit_br0_prio').disabled = b || a;
 
 			elem.display(PR('_qos_ibw'), PR('_qos_obw'), !a);
-			elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), !a && !b);
+			elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), PR('_limit_br0_prio'), !a && !b);
 
 			E('_limit_br1_dlr').disabled = b1 || a;
 			E('_limit_br1_dlc').disabled = b1 || a;
@@ -225,7 +226,7 @@ No part of this file may be used without permission.
 			var qoslimitrules = '';
 			var i;
 
-			if (data.length != 0) qoslimitrules += data[0].join('<');
+			if (data.length != 0) qoslimitrules += data[0].join('<'); 	
 			for (i = 1; i < data.length; ++i) {
 				qoslimitrules += '>' + data[i].join('<');
 			}
@@ -244,12 +245,11 @@ No part of this file may be used without permission.
 		{
 			qosg.recolor();
 		}
-
 	</script>
 
 	<script type="text/javascript">
 		if (nvram.qos_enable != '1') {
-			$('.container .ajaxwrap').prepend('<div class="alert alert-warning"><b>QoS is disabled.</b>&nbsp; <a class="ajaxload" href="#qos-settings.asp">Enable &raquo;</a> <a class="close"><i class="icon-cancel"></i></a></div>');
+			$('.container .ajaxwrap').prepend('<div class="alert alert-info"><b>QoS is disabled.</b>&nbsp; <a class="ajaxload" href="#qos-settings.asp">Enable &raquo;</a> <a class="close"><i class="icon-cancel"></i></a></div>');
 		}
 	</script>
 
@@ -302,6 +302,8 @@ No part of this file may be used without permission.
 						{ title: 'Download ceil', indent: 2, name: 'qosl_dlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlc },
 						{ title: 'Upload rate', indent: 2, name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
 						{ title: 'Upload ceil', indent: 2, name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
+						{ title: 'Priority', indent: 2, name: 'limit_br0_prio', type: 'select', options:
+							[['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']], value: nvram.limit_br0_prio },
 						{ title: 'TCP Limit', indent: 2, name: 'qosl_tcp', type: 'select', options:
 							[['0', 'no limit'],
 								['1', '1'],
@@ -401,7 +403,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
 	</form>
 

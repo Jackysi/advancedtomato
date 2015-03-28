@@ -190,7 +190,7 @@ No part of this file may be used without permission.
 		function setNoticeText(s)
 		{
 			if (s.length)
-				s = '<div class="alert info" id="notice1">' + s.replace(/\n/g, '<br>') + '</div>';
+				s = '<div class="alert alert-info" id="notice1">' + s.replace(/\n/g, '<br>') + '</div>';
 			elem.setInnerHTML('notice-msg', s);
 		}
 
@@ -284,7 +284,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
 	</form>
 

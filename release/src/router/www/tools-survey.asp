@@ -289,7 +289,6 @@ No part of this file may be used without permission.
 			sg.recolor();
 			$('#survey-controls .spinner').after('&nbsp; ' + genStdTimeList('expire-time', 'Auto Expire', 1) + genStdTimeList('refresh-time', 'Auto Refresh', 1));
 			ref.initPage();
-			ref.toggle();
 		}
 
 	</script>
@@ -322,7 +321,7 @@ No part of this file may be used without permission.
 
 	<script type="text/javascript">
 		if ('<% wlclient(); %>' == '0') {
-			$('#tabs').after('<div class="alert warning"><h5>Warning!</h5> Wireless connections to this router may be disrupted while using this tool. <a class="close"><i class="icon-cancel"></i></a></div>');
+			$('#tabs').after('<div class="alert alert-warning icon"><h5>Warning!</h5> Wireless connections to this router may be disrupted while using this tool. <a class="close"><i class="icon-cancel"></i></a></div>');
 		}
 
 		earlyInit();

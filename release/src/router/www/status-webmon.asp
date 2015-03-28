@@ -19,6 +19,11 @@ No part of this file may be used without permission.
 			text-decoration: underline;
 		}
 
+		.tomato-refresh {
+			float: left;
+			margin: 0 0 0 -7px;
+		}
+		
 	</style>
 	<script type="text/javascript">
 		// <% nvram("at_update,tomatoanon_answer,log_wm,log_wmdmax,log_wmsmax"); %>
@@ -81,8 +86,7 @@ No part of this file may be used without permission.
 			xob.post('/resolve.cgi', 'ip=' + queue.splice(0, 20).join(','));
 		}
 
-		var ref = new TomatoRefresh('/update.cgi', '', 0, 'status_webmon');
-
+		var ref = new TomatoRefresh('/update.cgi', '', 0, 'status_webmon_refresh');
 		ref.refresh = function(text)
 		{
 			++lock;
@@ -299,16 +303,11 @@ No part of this file may be used without permission.
 			this.populateData(wm_searches, 0);
 		}
 
-		function init()
-		{
-			ref.initPage();
+		function earlyInit() {
 
-			if (!ref.running) ref.once = 1;
-			ref.start();
-		}
+			$('#webmon-controls').before(genStdRefresh(1,1,'ref.toggle()'));
+			ref.initPage(3000,3);
 
-		function earlyInit()
-		{
 			if (nvram.log_wm == '1' && (nvram.log_wmdmax != '0' || nvram.log_wmsmax != '0')) {
 				E('webmon').style.display = '';
 				E('wm-disabled').style.display = 'none';
@@ -336,11 +335,14 @@ No part of this file may be used without permission.
 
 			maxCount = fixInt(cookie.get('webmon-maxcount'), 0, maxLimit, 50);
 			showMaxCount();
-			init();
+			
+			if (!ref.running) ref.once = 1;
+			ref.start();
+
 		}
 	</script>
 	<div class="row" id="webmon" style="display:none">
-		<div class="col-sm-6">
+		<div class="col-lg-12">
 			<div id="webmon-domains" class="box">
 				<div class="heading">Recently Visited Web Sites</div>
 				<div class="content">
@@ -353,7 +355,7 @@ No part of this file may be used without permission.
 			</div>
 		</div>
 
-		<div class="col-sm-6">
+		<div class="col-lg-12">
 			<div id="webmon-searches" class="box">
 				<div class="heading">Recent Web Searches</div>
 				<div class="content">
@@ -383,11 +385,10 @@ No part of this file may be used without permission.
 			</div>
 			&raquo; <a class="ajaxload" href="admin-log.asp">Web Monitor Configuration</a>
 			<br><br>
-			<script type="text/javascript">genStdRefresh(1,1,"ref.toggle()");</script>
 		</div>
 	</div>
 
-	<div id="wm-disabled" class="alert alert-info">
+	<div id="wm-disabled" class="alert alert-info icon">
 		<h5>Web Monitoring disabled</h5>
 		Please <a class="ajaxload" href="/#admin-log.asp">enable</a> web monitoring in order to view information on this page.
 	</div>

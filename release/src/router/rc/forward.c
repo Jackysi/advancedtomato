@@ -169,6 +169,7 @@ void ip6t_forward(void)
 	const char *mdport;
 	int i;
 	char src[128];
+	char dst[128];
 
 	nvp = nv = strdup(nvram_safe_get("ipv6_portforward"));
 	if (!nv) return;
@@ -180,7 +181,7 @@ void ip6t_forward(void)
 			1 = enabled
 			3 = tcp & udp
 			2001:23:45:67::/64 = src addr
-			2600:abc:def:123::1 = dst addr (optional)
+			2600:abc:def:123::1 or 2001:10:11:12::/112 = dst addr (optional)
 			30,40-45 = dst port
 			desc = desc
 		*/
@@ -189,10 +190,8 @@ void ip6t_forward(void)
 		if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V6, 1, "IPv6 port forwarding", desc))
 			continue;
 
-		if ((*daddr) && (host_addrtypes(daddr, IPT_V6) != IPT_V6)) {
-			ipt_log_unresolved(daddr, "IPv6", "IPv6 port forwarding", desc);
+		if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V6, 1, "IPv6 port forwarding", desc))
 			continue;
-		}
 
 		mdport = (strchr(dports, ',') != NULL) ? "-m multiport --dports" : "--dport";
 		for (i = 0; i < 2; ++i) {

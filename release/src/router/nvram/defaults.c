@@ -183,6 +183,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
 	{ "ipv6_radvd",			"1"				},	// Enable Router Advertisement (radvd)
+	{ "ipv6_dhcpd",			"1"				},	// Enable DHCPv6
 	{ "ipv6_accept_ra",		"1"				},	// Accept RA on bit 0WAN and/or bit1LAN interfaces
 	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
 	{ "ipv6_tun_v4end",		"0.0.0.0"			},	// Foreign IPv4 endpoint of SIT tunnel
@@ -197,6 +198,8 @@ const defaults_t defaults[] = {
 	{ "ipv6_6rd_prefix_length",	"32"				},	// 6RD prefix length (32-62) checkme
 	{ "ipv6_6rd_borderrelay",	"68.113.165.1"			},	// 6RD border relay address
 	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length (0-30) checkme
+	{ "ipv6_vlan",			"0"				},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
+	{ "ipv6_isp_opt",		"0"				},	// wan.c add eval option for dhcpd
 #endif
 
 	// Wireless parameters
@@ -581,6 +584,7 @@ const defaults_t defaults[] = {
 	{ "https_crt_cn",		""				},
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
+	{ "http_root",			"1"				},	// 0 - deny, 1 - Allow
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
 	{ "web_css",			"openlinksys"			},
 	{ "web_dir",			"default"			},  // jffs, opt, tmp or default (/www)
@@ -990,11 +994,11 @@ const defaults_t defaults[] = {
 	{"tinc_mode",			"switch"	}, // switch, hub
 	{"tinc_vpn_netmask",		"255.255.0.0"	},
 	{"tinc_private_rsa",		""		},
-	{"tinc_private_ecdsa",		""		},
+	{"tinc_private_ed25519",	""		},
 	{"tinc_custom",			""		},
 	{"tinc_hosts",			""		},
 	{"tinc_manual_firewall",	""		},
-	{"tinc_manual_tinc_up",		""		},
+	{"tinc_manual_tinc_up",		"0"		},
 	// scripts
 	{"tinc_tinc_up",		""		},
 	{"tinc_tinc_down",		""		},
@@ -1002,6 +1006,7 @@ const defaults_t defaults[] = {
 	{"tinc_host_down",		""		},
 	{"tinc_subnet_up",		""		},
 	{"tinc_subnet_down",		""		},
+	{"tinc_firewall",		""		},
 #endif
 
 #ifdef TCONFIG_BT
@@ -1050,6 +1055,8 @@ const defaults_t defaults[] = {
 	{ "bt_ul_queue_enable",			"0"			},
 	{ "bt_ul_queue_size",			"5"			},
 	{ "bt_message",				"2"			},
+	{ "bt_log",				"0"			},
+	{ "bt_log_path",			"/var/log"		},
 #endif
 
 #if 0
@@ -1163,6 +1170,7 @@ const defaults_t defaults[] = {
 	{ "qosl_ulc",				""			},
 	{ "qosl_dlr",				""			},
 	{ "qosl_ulr",				""			},
+	{ "limit_br0_prio",			"0"			},
 	{ "limit_br1_enable",			"0"			},
 	{ "limit_br1_dlc",			""			},
 	{ "limit_br1_ulc",			""			},
@@ -1221,6 +1229,36 @@ const defaults_t defaults[] = {
 	{"nginx_user",			"root"				}, // user/group
 	{"nginx_override",		"0"				}, // additional lines for php.ini
 	{"nginx_overridefile",		"/path/to/nginx.conf"		}, // user/group
+
+// bwq518 - MySQL
+        { "mysql_enable",                               "0"                     },
+        { "mysql_sleep",                                "2"                     },
+        { "mysql_check",                                "1"                     },
+        { "mysql_check_time",                           "1"                     },
+        { "mysql_binary",                               "internal"              },
+        { "mysql_binary_custom",                        "/mnt/sda1/mysql/bin"   },
+        { "mysql_usb_enable",                           "1"                     },
+        { "mysql_dlroot",                               ""                      },
+        { "mysql_datadir",                              "data"                  },
+        { "mysql_tmpdir",                               "tmp"                   },
+        { "mysql_server_custom",                        ""                      },
+        { "mysql_port",                                 "3306"                  },
+        { "mysql_allow_anyhost",                        "0"                     },
+        { "mysql_init_rootpass",                        "0"                     },
+        { "mysql_username",                             "root"                  },      // mysqladmin username
+        { "mysql_passwd",                               "admin"                 },      // mysqladmin password
+        { "mysql_key_buffer",                           "16"                    }, //KB
+        { "mysql_max_allowed_packet",                   "4"                     }, //MB
+        { "mysql_thread_stack",                         "128"                   }, //KB
+        { "mysql_thread_cache_size",                    "8"                     },
+        { "mysql_init_priv",                            "0"                     },
+        { "mysql_table_open_cache",                     "4"                     },
+        { "mysql_sort_buffer_size",                     "128"                   }, //KB
+        { "mysql_read_buffer_size",                     "128"                   }, //KB
+        { "mysql_query_cache_size",                     "16"                    }, //MB
+        { "mysql_read_rnd_buffer_size",                 "256"                   }, //KB
+        { "mysql_net_buffer_length",                    "2"                     }, //K
+        { "mysql_max_connections",                      "1000"                  },
 #endif
 
 #ifdef TCONFIG_TOR

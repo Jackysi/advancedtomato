@@ -283,7 +283,7 @@ No part of this file may be used without permission.
 		function init() {
 
 			if (nvram.cstats_enable != '1') {
-				$('.cstats').before('<div class="alert info">IP Traffic monitoring disabled.</b> <a href="/#admin-iptraffic.asp">Enable &raquo;</a>');
+				$('.cstats').before('<div class="alert alert-info">IP Traffic monitoring disabled.</b> <a href="/#admin-iptraffic.asp">Enable &raquo;</a>');
 				return;
 			}
 

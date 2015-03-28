@@ -3,7 +3,7 @@ Version: @VERSION@
 Release: 1
 Copyright: GPL
 Group: System Environment/Base
-Url: http://bridge.sourceforge.net
+Url: git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/bridge-utils.git
 Summary: Utilities for configuring the linux ethernet bridge.
 Buildroot: %{_tmppath}/%{name}-%{version}
 Source: %{name}-%{version}.tar.gz

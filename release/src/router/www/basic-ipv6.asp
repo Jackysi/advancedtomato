@@ -8,7 +8,7 @@ No part of this file may be used without permission.
 --><title>IPv6 Configuration</title>
 <content>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+		//	<% nvram("ipv6_6rd_prefix_length,ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_isp_opt,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl,ipv6_6rd_ipv4masklen,ipv6_6rd_prefix,ipv6_6rd_borderrelay,lan1_ifname,lan2_ifname,lan3_ifname,ipv6_vlan"); %>
 
 		nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
@@ -29,16 +29,23 @@ No part of this file may be used without permission.
 				_f_ipv6_dns_1: 1,
 				_f_ipv6_dns_2: 1,
 				_f_ipv6_dns_3: 1,
-				_f_ipv6_radvd: 1,
 				_f_ipv6_accept_ra_wan: 1,
 				_f_ipv6_accept_ra_lan: 1,
+				_f_ipv6_isp_opt: 1,
 				_ipv6_tun_v4end: 1,
 				_ipv6_relay: 1,
 				_ipv6_ifname: 1,
 				_ipv6_tun_addr: 1,
 				_ipv6_tun_addrlen: 1,
 				_ipv6_tun_ttl: 1,
-				_ipv6_tun_mtu: 1
+				_ipv6_tun_mtu: 1,
+				_ipv6_6rd_ipv4masklen: 1,
+				_ipv6_6rd_prefix_length: 1,
+				_ipv6_6rd_prefix: 1,
+				_ipv6_6rd_borderrelay: 1,
+				_f_lan1_ipv6: 0,
+				_f_lan2_ipv6: 0,
+				_f_lan3_ipv6: 0
 			};
 
 			c = E('_ipv6_service').value;
@@ -50,11 +57,15 @@ No part of this file may be used without permission.
 					vis._f_ipv6_dns_1 = 0;
 					vis._f_ipv6_dns_2 = 0;
 					vis._f_ipv6_dns_3 = 0;
-					vis._f_ipv6_radvd = 0;
 					vis._f_ipv6_accept_ra_wan = 0;
 					vis._f_ipv6_accept_ra_lan = 0;
+					vis._f_ipv6_isp_opt = 0;
 				// fall through
 				case 'other':
+					vis._ipv6_6rd_ipv4masklen = 0;
+					vis._ipv6_6rd_prefix_length = 0;
+					vis._ipv6_6rd_prefix = 0;
+					vis._ipv6_6rd_borderrelay = 0;
 					vis._f_ipv6_prefix = 0;
 					vis._f_ipv6_prefix_length = 0;
 					vis._ipv6_tun_v4end = 0;
@@ -63,15 +74,38 @@ No part of this file may be used without permission.
 					vis._ipv6_tun_addrlen = 0;
 					vis._ipv6_tun_ttl = 0;
 					vis._ipv6_tun_mtu = 0;
+					vis._f_ipv6_isp_opt = 0;
 					if (c == 'other') {
 						E('_f_ipv6_rtr_addr_auto').value = 1;
 						vis._f_ipv6_rtr_addr_auto = 2;
 					}
 					break;
+				case '6rd':
+					vis._f_ipv6_prefix = 0;
+					vis._ipv6_tun_v4end = 0;
+					vis._ipv6_relay = 0;
+					vis._ipv6_tun_addr = 0;
+					vis._ipv6_tun_addrlen = 0;
+					vis._ipv6_ifname = 0;
+					vis._ipv6_relay = 0;
+					vis._f_ipv6_accept_ra_wan = 0;
+					vis._f_ipv6_accept_ra_lan = 0;
+					vis._f_ipv6_rtr_addr_auto = 0;
+					vis._f_ipv6_rtr_addr = 0;
+					vis._f_ipv6_prefix_length = 0;
+					break;
 				case 'native-pd':
+					_fom.f_ipv6_accept_ra_wan.checked = true;
+				case '6rd-pd':
 					vis._f_ipv6_prefix = 0;
 					vis._f_ipv6_rtr_addr_auto = 0;
 					vis._f_ipv6_rtr_addr = 0;
+					if (c == '6rd-pd') {
+						vis._f_ipv6_prefix_length = 0;
+						vis._f_ipv6_accept_ra_lan = 0;
+						vis._f_ipv6_accept_ra_wan = 0;
+						vis._f_ipv6_isp_opt = 0;
+					}
 				// fall through
 				case 'native':
 					vis._ipv6_ifname = 0;
@@ -81,6 +115,18 @@ No part of this file may be used without permission.
 					vis._ipv6_tun_addrlen = 0;
 					vis._ipv6_tun_ttl = 0;
 					vis._ipv6_tun_mtu = 0;
+					vis._ipv6_6rd_ipv4masklen = 0;
+					vis._ipv6_6rd_prefix_length = 0;
+					vis._ipv6_6rd_prefix = 0;
+					vis._ipv6_6rd_borderrelay = 0;
+					if (c != '6rd-pd') {
+						if (nvram.lan1_ifname == 'br1' && E('_f_ipv6_prefix_length').value <= 63){  //2 ipv6 /64 networks
+							vis._f_lan1_ipv6 = 1;}
+						if (nvram.lan2_ifname == 'br2' && E('_f_ipv6_prefix_length').value <= 62){  //4 ipv6 /64 networks
+							vis._f_lan2_ipv6 = 1;}
+						if (nvram.lan3_ifname == 'br3' && E('_f_ipv6_prefix_length').value <= 62){
+							vis._f_lan3_ipv6 = 1;}
+					}
 					break;
 				case '6to4':
 					vis._ipv6_ifname = 0;
@@ -92,12 +138,22 @@ No part of this file may be used without permission.
 					vis._ipv6_tun_addrlen = 0;
 					vis._f_ipv6_accept_ra_wan = 0;
 					vis._f_ipv6_accept_ra_lan = 0;
+					vis._f_ipv6_isp_opt = 0;
+					vis._ipv6_6rd_ipv4masklen = 0;
+					vis._ipv6_6rd_prefix_length = 0;
+					vis._ipv6_6rd_prefix = 0;
+					vis._ipv6_6rd_borderrelay = 0;
 					break;
 				case 'sit':
 					vis._ipv6_ifname = 0;
 					vis._ipv6_relay = 0;
 					vis._f_ipv6_accept_ra_wan = 0;
 					vis._f_ipv6_accept_ra_lan = 0;
+					vis._f_ipv6_isp_opt = 0;
+					vis._ipv6_6rd_ipv4masklen = 0;
+					vis._ipv6_6rd_prefix_length = 0;
+					vis._ipv6_6rd_prefix = 0;
+					vis._ipv6_6rd_borderrelay = 0;
 					break;
 			}
 
@@ -105,10 +161,6 @@ No part of this file may be used without permission.
 				vis._f_ipv6_rtr_addr = 2;
 			}
 
-			if (E('_f_ipv6_radvd').checked) {
-				if (vis._f_ipv6_accept_ra_lan) vis._f_ipv6_accept_ra_lan = 2;
-				E('_f_ipv6_accept_ra_lan').checked = false;
-			}
 
 			for (a in vis) {
 				b = E(a);
@@ -137,6 +189,10 @@ No part of this file may be used without permission.
 
 			// IP address
 			a = ['_ipv6_tun_v4end'];
+			for (i = a.length - 1; i >= 0; --i)
+			if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
+
+			a = ['_ipv6_6rd_borderrelay'];
 			for (i = a.length - 1; i >= 0; --i)
 			if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
 
@@ -208,8 +264,7 @@ No part of this file may be used without permission.
 			var fom = E('_fom');
 
 			fom.ipv6_dns.value = joinIPv6Addr([fom.f_ipv6_dns_1.value, fom.f_ipv6_dns_2.value, fom.f_ipv6_dns_3.value]);
-			fom.ipv6_radvd.value = fom.f_ipv6_radvd.checked ? 1 : 0;
-
+			fom.ipv6_isp_opt.value = fom.f_ipv6_isp_opt.checked ? 1 : 0;
 			fom.ipv6_accept_ra.value = 0;
 			if (fom.f_ipv6_accept_ra_wan.checked && !fom.f_ipv6_accept_ra_wan.disabled)
 				fom.ipv6_accept_ra.value |= 1;
@@ -218,6 +273,7 @@ No part of this file may be used without permission.
 
 			fom.ipv6_prefix_length.value = fom.f_ipv6_prefix_length.value;
 			fom.ipv6_prefix.value = fom.f_ipv6_prefix.value;
+			fom.ipv6_vlan.value = 0;
 
 			switch(E('_ipv6_service').value) {
 				case 'other':
@@ -225,10 +281,21 @@ No part of this file may be used without permission.
 					fom.ipv6_prefix.value = '';
 					fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
 					break;
+				case '6rd':
+					break; //KDB todo
 				case '6to4':
+					fom.ipv6_prefix.value = '';
+					fom.ipv6_rtr_addr.value = '';
+					break;
 				case 'native-pd':
 					fom.ipv6_prefix.value = '';
 					fom.ipv6_rtr_addr.value = '';
+					if (fom.f_lan1_ipv6.checked)
+						fom.ipv6_vlan.value |= 1;
+					if (fom.f_lan2_ipv6.checked)
+						fom.ipv6_vlan.value |= 2;
+					if (fom.f_lan3_ipv6.checked)
+						fom.ipv6_vlan.value |= 4;
 					break;
 				default:
 					fom.ipv6_rtr_addr.disabled = fom.f_ipv6_rtr_addr_auto.disabled;
@@ -267,11 +334,14 @@ No part of this file may be used without permission.
 					dns = nvram.ipv6_dns.split(/\s+/);
 
 					$('#section-ipv6 .formfields').forms([
-						{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select',
-							options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['6to4','6to4 Anycast Relay'],['sit','6in4 Static Tunnel'],['other','Other (Manual Configuration)']],
+						{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
+							options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['6to4','6to4 Anycast Relay'],['sit','6in4 Static Tunnel'],['6rd','6rd Relay'],['6rd-pd','6rd from DHCPv4 (Option 212)'],['other','Other (Manual Configuration)']],
 							value: nvram.ipv6_service },
 						{ title: 'IPv6 WAN Interface', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
+						null,
 						{ title: 'Assigned / Routed Prefix', name: 'f_ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix },
+						{ title: '6rd Routed Prefix', name: 'ipv6_6rd_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_6rd_prefix },
+						{ title: '6rd Prefix Length', name: 'ipv6_6rd_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_6rd_prefix_length, suffix: ' <small>(Usually 32)</small>' },
 						{ title: 'Prefix Length', name: 'f_ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
 						{ title: 'Router IPv6 Address', multi: [
 							{ name: 'f_ipv6_rtr_addr_auto', type: 'select', options: [['0', 'Default'],['1','Manual']], value: (nvram.ipv6_rtr_addr == '' ? '0' : '1') },
@@ -280,19 +350,26 @@ No part of this file may be used without permission.
 						{ title: 'Static DNS', name: 'f_ipv6_dns_1', type: 'text', maxlen: 46, size: 48, value: dns[0] || '' },
 						{ title: '',           name: 'f_ipv6_dns_2', type: 'text', maxlen: 46, size: 48, value: dns[1] || '' },
 						{ title: '',           name: 'f_ipv6_dns_3', type: 'text', maxlen: 46, size: 48, value: dns[2] || '' },
-						{ title: 'Enable Router Advertisements', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd == '1' },
 						{ title: 'Accept RA from', multi: [
 							{ suffix: '&nbsp; WAN &nbsp;&nbsp;&nbsp;', name: 'f_ipv6_accept_ra_wan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 1) },
 							{ suffix: '&nbsp; LAN &nbsp;',	name: 'f_ipv6_accept_ra_lan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 2) }
 						] },
+						{ title: 'Other ISP Config.', name: 'f_ipv6_isp_opt', type: 'checkbox', value: (nvram.ipv6_isp_opt != '0') },
+						null,
 						{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
+						{ title: '6RD Tunnel Border Relay (IPv4 Address)', name: 'ipv6_6rd_borderrelay', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_6rd_borderrelay },
+						{ title: '6RD IPv4 Mask Length', name: 'ipv6_6rd_ipv4masklen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_6rd_ipv4masklen, suffix: ' <small>(usually 0)</small>' },
 						{ title: 'Relay Anycast Address', name: 'ipv6_relay', type: 'text', maxlen: 3, size: 5, prefix: '192.88.99.&nbsp&nbsp', value: nvram.ipv6_relay },
 						{ title: 'Tunnel Client IPv6 Address', multi: [
 							{ name: 'ipv6_tun_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_tun_addr, suffix: ' / ' },
 							{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_tun_addrlen }
 						] },
 						{ title: 'Tunnel MTU', name: 'ipv6_tun_mtu', type: 'text', maxlen: 4, size: 8, value: nvram.ipv6_tun_mtu, suffix: ' <small>(0 for default)</small>' },
-						{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl }
+						{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl },
+						null,
+						{ title: 'Request /64 subnet for',  name: 'f_lan1_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 1), suffix: '&nbsp; LAN1(br1) &nbsp;&nbsp;&nbsp;' },
+						{ title: '',			name: 'f_lan2_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 2), suffix: '&nbsp; LAN2(br2) &nbsp;&nbsp;&nbsp;' },
+						{ title: '',			name: 'f_lan3_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 4), suffix: '&nbsp; LAN3(br3) &nbsp;&nbsp;&nbsp;' }
 					]);
 				</script>
 			</div>
@@ -300,7 +377,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 	</form>
 
 	<script type="text/javascript">earlyInit()</script>

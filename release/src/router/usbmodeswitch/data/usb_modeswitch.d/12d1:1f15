@@ -1,7 +1,4 @@
-# Huawei K4305
-
-TargetVendor=  0x12d1
-TargetProduct= 0x1400
-
-MessageContent="55534243123456780000000000000011062000000000000100000000000000"
-CheckMBIM=1
+# Vodafone K4305
+TargetVendor=0x12d1
+TargetProductList="1400,14f7"
+HuaweiNewMode=1

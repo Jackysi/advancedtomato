@@ -1,6 +1,6 @@
 /*
     sptps_speed.c -- SPTPS benchmark
-    Copyright (C) 2013 Guus Sliepen <guus@tinc-vpn.org>,
+    Copyright (C) 2013-2014 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 */
 
 #include "system.h"
+#include "utils.h"
 
 #include <poll.h>
 
@@ -34,13 +35,13 @@ bool send_meta(void *c, const char *msg , int len) { return false; }
 char *logfilename = NULL;
 struct timeval now;
 
-static bool send_data(void *handle, uint8_t type, const char *data, size_t len) {
+static bool send_data(void *handle, uint8_t type, const void *data, size_t len) {
 	int fd = *(int *)handle;
 	send(fd, data, len, 0);
 	return true;
 }
 
-static bool receive_record(void *handle, uint8_t type, const char *data, uint16_t len) {
+static bool receive_record(void *handle, uint8_t type, const void *data, uint16_t len) {
 	return true;
 }
 
@@ -82,6 +83,10 @@ int main(int argc, char *argv[]) {
 
 	crypto_init();
 
+	randomize(buf1, sizeof buf1);
+	randomize(buf2, sizeof buf2);
+	randomize(buf3, sizeof buf3);
+
 	// Key generation
 
 	fprintf(stderr, "Generating keys for %lg seconds: ", duration);
@@ -92,14 +97,14 @@ int main(int argc, char *argv[]) {
 	key1 = ecdsa_generate();
 	key2 = ecdsa_generate();
 
-	// ECDSA signatures
+	// Ed25519 signatures
 
-	fprintf(stderr, "ECDSA sign for %lg seconds: ", duration);
+	fprintf(stderr, "Ed25519 sign for %lg seconds: ", duration);
 	for(clock_start(); clock_countto(duration);)
 		ecdsa_sign(key1, buf1, 256, buf2);
 	fprintf(stderr, "%22.2lf op/s\n", rate);
 
-	fprintf(stderr, "ECDSA verify for %lg seconds: ", duration);
+	fprintf(stderr, "Ed25519 verify for %lg seconds: ", duration);
 	for(clock_start(); clock_countto(duration);)
 		ecdsa_verify(key1, buf1, 256, buf2);
 	fprintf(stderr, "%20.2lf op/s\n", rate);
@@ -117,7 +122,7 @@ int main(int argc, char *argv[]) {
 
 	int fd[2];
 	if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd)) {
-		fprintf(stderr, "Could not create a UNIX socket pair: %s\n", strerror(errno));
+		fprintf(stderr, "Could not create a UNIX socket pair: %s\n", sockstrerror(sockerrno));
 		return 1;
 	}
 
@@ -170,7 +175,7 @@ int main(int argc, char *argv[]) {
 	close(fd[1]);
 
 	if(socketpair(AF_UNIX, SOCK_DGRAM, 0, fd)) {
-		fprintf(stderr, "Could not create a UNIX socket pair: %s\n", strerror(errno));
+		fprintf(stderr, "Could not create a UNIX socket pair: %s\n", sockstrerror(sockerrno));
 		return 1;
 	}
 

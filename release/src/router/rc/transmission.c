@@ -141,8 +141,12 @@ void start_bittorrent(void)
 //crash fix?
     fprintf( fp, "EVENT_NOEPOLL=1; export EVENT_NOEPOLL\n" );
 //
-
+    if ( nvram_match( "bt_log", "1") )
+    {
+    fprintf( fp, "%s/transmission-daemon -g %s/.settings -e %s/transmission.log\n", pn, pk, nvram_safe_get( "bt_log_path" ) );
+    } else {
     fprintf( fp, "%s/transmission-daemon -g %s/.settings\n", pn, pk );
+    }
     fprintf( fp, "logger \"Transmission daemon successfully started\" \n");
     fprintf( fp, "sleep 2\n" );
 

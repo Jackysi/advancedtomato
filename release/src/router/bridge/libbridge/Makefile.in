@@ -1,11 +1,11 @@
 
 KERNEL_HEADERS=-I@KERNEL_HEADERS@
 
-#AR=ar
+AR=ar
 RANLIB=@RANLIB@
 
 CC=@CC@
-CFLAGS = -Wall @CFLAGS@ $(KERNEL_HEADERS)
+CFLAGS = -Wall -g $(KERNEL_HEADERS)
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -22,11 +22,8 @@ libbridge_OBJECTS=$(libbridge_SOURCES:.c=.o)
 
 all:	libbridge.a
 
-install: libbridge.a
-	mkdir -p $(DESTDIR)$(includedir)
-	install -m 644 libbridge.h $(DESTDIR)$(includedir)
-	mkdir -p $(DESTDIR)$(libdir)
-	install -m 644 libbridge.a $(DESTDIR)$(libdir)
+# At present there is no need for a bridge-utils-devel package
+install:
 
 
 clean:

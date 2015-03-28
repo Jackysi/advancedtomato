@@ -24,6 +24,12 @@ int f_exists(const char *path)	// note: anything but a directory
 	return (stat(path, &st) == 0) && (!S_ISDIR(st.st_mode));
 }
 
+int d_exists(const char *path)	// note: is directory exist ?, bwq518
+{
+	struct stat st;
+	return (stat(path, &st) == 0) && (S_ISDIR(st.st_mode));
+}
+
 unsigned long f_size(const char *path)	// 4GB-1	-1 = error
 {
 	struct stat st;

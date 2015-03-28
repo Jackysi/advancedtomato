@@ -203,7 +203,7 @@ No part of this file may be used without permission.
 		{
 			var s;
 
-			if (nvram.rstats_enable != '1') { $('#rstats').before('<div class="alert">Bandwidth monitoring disabled.</b> <a href="/#admin-bwm.asp">Enable &raquo;</a></div>'); return; }
+			if (nvram.rstats_enable != '1') { $('#rstats').before('<div class="alert alert-warning">Bandwidth monitoring disabled.</b> <a href="/#admin-bwm.asp">Enable &raquo;</a></div>'); return; }
 
 			if ((s = cookie.get('weekly')) != null) {
 				if (s.match(/^([0-2]),([0-6]),([0-1])$/)) {

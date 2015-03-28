@@ -1,0 +1,13 @@
+# set wwan mode from environment
+opengt
+ set com 115200n81
+ set senddelay 0.02
+ waitquiet 1 0.2
+ flash 0.1
+
+:start
+ print "Trying to set mode\n"
+ send $env("MODE")
+ send "^m"
+ get 1 "" $s
+ print $s

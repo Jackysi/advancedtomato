@@ -109,7 +109,7 @@ No part of this file may be used without permission.
 					], '#nvram', 'line-table');
 
 				if (a <= 5) {
-					$('#nvram').append('<br><br><div class="alert">' +
+					$('#nvram').append('<div class="alert alert-warning">' +
 						'The NVRAM free space is very low. It is strongly recommended to ' +
 						'erase all data in NVRAM memory, and reconfigure the router manually ' +
 						'in order to clean up all unused and obsolete entries.' +

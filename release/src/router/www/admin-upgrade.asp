@@ -82,7 +82,7 @@ No part of this file may be used without permission.
 	</script>
 	<div id="afu-input">
 
-		<div class="alert warning">
+		<div class="alert alert-warning icon">
 			<h5>Attention!</h5>There has been many reports how AdvancedTomato did not flash well or it came with many bugs. Reason for that is bad image files which can sometimes get corupted at the download process.
 			This message is here to warn you to check MD5 checksum ( <a target="_blank" href="http://en.wikipedia.org/wiki/Checksum">HELP</a> ) before flashing any images to your router.
 			By using this process and learning if image is corupted or not, you will eliminate many issues with the upgrade process.
@@ -137,7 +137,7 @@ No part of this file may be used without permission.
 	</div>
 
 	/* JFFS2-BEGIN */
-	<div class="alert error" style="display:none;" id="jwarn">
+	<div class="alert alert-error" style="display:none;" id="jwarn">
 		<h5>Upgrade forbidden!</h5>
 		An upgrade may overwrite the JFFS partition currently in use. Before upgrading,
 		please backup the contents of the JFFS partition, disable it, then reboot the router.

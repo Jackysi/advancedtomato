@@ -655,6 +655,23 @@ void start_wl(void)
 
 #ifdef CONFIG_BCMWL5
 					eval("wlconf", ifname, "start"); /* start wl iface */
+					// Enable LED if wireless interface is enabled, and turn on blink (traffic "control" of LED) if enabled
+					if (nvram_get_int(wl_nvname("radio", unit, 0))) {
+						if (unit == 0) {
+							led(LED_WLAN, LED_ON);
+							if (nvram_get_int("blink_wl")) {
+								eval("killall", "blink"); //be sure to run only one process,bwq518
+								eval("blink", ifname, "wlan", "20", "8192");
+							}
+						} else {
+							led(LED_5G, LED_ON);
+							if (nvram_get_int("blink_wl")) {
+								eval("killall", "blink"); //be sure to run only one process,bwq518
+								eval("blink", ifname, "5g", "20", "8192");
+							}
+						}
+						// 
+					}
 #endif	// CONFIG_BCMWL5
 				}
 				free(lan_ifnames);

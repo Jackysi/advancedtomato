@@ -1,0 +1,1 @@
+libmysqlclient_16 { global: *; };

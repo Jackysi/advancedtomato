@@ -53,6 +53,7 @@ extern int waitfor(int fd, int timeout);
  * @return	return value of executed command or errno
  */
 extern int _eval(char *const argv[], const char *path, int timeout, pid_t *ppid);
+extern char* eval_return(char *run_script);
 
 /*
  * Evaluate cmds using taskset while SMP.

@@ -125,7 +125,7 @@ No part of this file may be used without permission.
 				E('_f_upnp_lan3').checked = false;
 			if ((enable) && (!E('_f_upnp_lan').checked) && (!E('_f_upnp_lan1').checked) && (!E('_f_upnp_lan2').checked) && (!E('_f_upnp_lan3').checked)) {
 				if ((E('_f_enable_natpmp').checked) || (E('_f_enable_upnp').checked)) {
-					var m = 'NAT-PMP or UPnP must be enabled in least one LAN bridge';
+					var m = 'NAT-PMP or UPnP must be enabled in least one LAN bridge. You may continue but remember to configure an access to UPnP service by Custom Configuration';
 					ferror.set('_f_enable_natpmp', m, quiet);
 					ferror.set('_f_enable_upnp', m, 1);
 					ferror.set('_f_upnp_lan', m, 1);
@@ -133,7 +133,7 @@ No part of this file may be used without permission.
 					ferror.set('_f_upnp_lan2', m, 1);
 					ferror.set('_f_upnp_lan3', m, 1);
 				}
-				return 0;
+				return 1;
 			} else {
 				ferror.clear('_f_enable_natpmp');
 				ferror.clear('_f_enable_upnp');
@@ -231,7 +231,7 @@ No part of this file may be used without permission.
 						suffix: ' &nbsp; <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
 						value: (nvram.upnp_secure == '1') },
 					/* VLAN-BEGIN */
-					{ title: 'Listen on' },
+					{ title: 'Enabled on' },
 					{ title: 'LAN', indent: 2, name: 'f_upnp_lan', type: 'checkbox', value: (nvram.upnp_lan == '1') },
 					{ title: 'LAN1', indent: 2, name: 'f_upnp_lan1', type: 'checkbox', value: (nvram.upnp_lan1 == '1') },
 					{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
@@ -244,7 +244,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
 	</form>
 	<script type="text/javascript">ug.setup(); init(); verifyFields(null, 1);</script>

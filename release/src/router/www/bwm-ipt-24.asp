@@ -127,7 +127,7 @@ No part of this file may be used without permission.
 		function init() {
 
 			if (nvram.cstats_enable != '1') {
-				$('.cstats').before('<div class="alert info">IP Traffic monitoring disabled.</b> <a href="/#admin-iptraffic.asp">Enable &raquo;</a>');
+				$('.cstats').before('<div class="alert alert-info">IP Traffic monitoring disabled.</b> <a href="/#admin-iptraffic.asp">Enable &raquo;</a>');
 				return;
 			}
 
@@ -336,7 +336,7 @@ No part of this file may be used without permission.
 			</script>
 
 			<span id="dtime"></span>
-			<div class="alert" style="display:none" id="rbusy">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>
+			<div class="alert alert-warning" style="display:none" id="rbusy">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>
 		</div>
 	</div>
 

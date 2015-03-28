@@ -1,6 +1,6 @@
 /*
     sptps.c -- Simple Peer-to-Peer Security
-    Copyright (C) 2011-2013 Guus Sliepen <guus@tinc-vpn.org>,
+    Copyright (C) 2011-2014 Guus Sliepen <guus@tinc-vpn.org>,
                   2010      Brandon L. Black <blblack@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 
 #include "system.h"
 
-#include "cipher.h"
+#include "chacha-poly1305/chacha-poly1305.h"
 #include "crypto.h"
 #include "ecdh.h"
 #include "ecdsa.h"
@@ -39,7 +39,7 @@ unsigned int sptps_replaywin = 16;
 
    Sign all handshake messages up to ECDHE kex with long-term public keys. (done)
 
-   HMACed KEX finished message to prevent downgrade attacks and prove you have the right key material (done by virtue of ECDSA over the whole ECDHE exchange?)
+   HMACed KEX finished message to prevent downgrade attacks and prove you have the right key material (done by virtue of Ed25519 over the whole ECDHE exchange?)
 
    Explicit close message needs to be added.
 
@@ -81,68 +81,53 @@ static void warning(sptps_t *s, const char *format, ...) {
 }
 
 // Send a record (datagram version, accepts all record types, handles encryption and authentication).
-static bool send_record_priv_datagram(sptps_t *s, uint8_t type, const char *data, uint16_t len) {
+static bool send_record_priv_datagram(sptps_t *s, uint8_t type, const void *data, uint16_t len) {
 	char buffer[len + 21UL];
 
 	// Create header with sequence number, length and record type
-	uint32_t seqno = htonl(s->outseqno++);
+	uint32_t seqno = s->outseqno++;
+	uint32_t netseqno = ntohl(seqno);
 
-	memcpy(buffer, &seqno, 4);
+	memcpy(buffer, &netseqno, 4);
 	buffer[4] = type;
+	memcpy(buffer + 5, data, len);
 
 	if(s->outstate) {
 		// If first handshake has finished, encrypt and HMAC
-		if(!cipher_set_counter(s->outcipher, &seqno, sizeof seqno))
-			return error(s, EINVAL, "Failed to set counter");
-
-		if(!cipher_gcm_encrypt_start(s->outcipher, buffer + 4, 1, buffer + 4, NULL))
-			return error(s, EINVAL, "Error encrypting record");
-
-		if(!cipher_gcm_encrypt_finish(s->outcipher, data, len, buffer + 5, NULL))
-			return error(s, EINVAL, "Error encrypting record");
-
+		chacha_poly1305_encrypt(s->outcipher, seqno, buffer + 4, len + 1, buffer + 4, NULL);
 		return s->send_data(s->handle, type, buffer, len + 21UL);
 	} else {
 		// Otherwise send as plaintext
-		memcpy(buffer + 5, data, len);
 		return s->send_data(s->handle, type, buffer, len + 5UL);
 	}
 }
 // Send a record (private version, accepts all record types, handles encryption and authentication).
-static bool send_record_priv(sptps_t *s, uint8_t type, const char *data, uint16_t len) {
+static bool send_record_priv(sptps_t *s, uint8_t type, const void *data, uint16_t len) {
 	if(s->datagram)
 		return send_record_priv_datagram(s, type, data, len);
 
 	char buffer[len + 19UL];
 
 	// Create header with sequence number, length and record type
-	uint32_t seqno = htonl(s->outseqno++);
+	uint32_t seqno = s->outseqno++;
 	uint16_t netlen = htons(len);
 
 	memcpy(buffer, &netlen, 2);
 	buffer[2] = type;
+	memcpy(buffer + 3, data, len);
 
 	if(s->outstate) {
 		// If first handshake has finished, encrypt and HMAC
-		if(!cipher_set_counter(s->outcipher, &seqno, 4))
-			return error(s, EINVAL, "Failed to set counter");
-
-		if(!cipher_gcm_encrypt_start(s->outcipher, buffer, 3, buffer, NULL))
-			return error(s, EINVAL, "Error encrypting record");
-
-		if(!cipher_gcm_encrypt_finish(s->outcipher, data, len, buffer + 3, NULL))
-			return error(s, EINVAL, "Error encrypting record");
-
+		chacha_poly1305_encrypt(s->outcipher, seqno, buffer + 2, len + 1, buffer + 2, NULL);
 		return s->send_data(s->handle, type, buffer, len + 19UL);
 	} else {
 		// Otherwise send as plaintext
-		memcpy(buffer + 3, data, len);
 		return s->send_data(s->handle, type, buffer, len + 3UL);
 	}
 }
 
 // Send an application record.
-bool sptps_send_record(sptps_t *s, uint8_t type, const char *data, uint16_t len) {
+bool sptps_send_record(sptps_t *s, uint8_t type, const void *data, uint16_t len) {
 	// Sanity checks: application cannot send data before handshake is finished,
 	// and only record types 0..127 are allowed.
 	if(!s->outstate)
@@ -178,7 +163,7 @@ static bool send_kex(sptps_t *s) {
 	return send_record_priv(s, SPTPS_HANDSHAKE, s->mykex, 1 + 32 + keylen);
 }
 
-// Send a SIGnature record, containing an ECDSA signature over both KEX records.
+// Send a SIGnature record, containing an Ed25519 signature over both KEX records.
 static bool send_sig(sptps_t *s) {
 	size_t keylen = ECDH_SIZE;
 	size_t siglen = ecdsa_size(s->mykey);
@@ -204,14 +189,14 @@ static bool send_sig(sptps_t *s) {
 static bool generate_key_material(sptps_t *s, const char *shared, size_t len) {
 	// Initialise cipher and digest structures if necessary
 	if(!s->outstate) {
-		s->incipher = cipher_open_by_name("aes-256-gcm");
-		s->outcipher = cipher_open_by_name("aes-256-gcm");
+		s->incipher = chacha_poly1305_init();
+		s->outcipher = chacha_poly1305_init();
 		if(!s->incipher || !s->outcipher)
 			return error(s, EINVAL, "Failed to open cipher");
 	}
 
 	// Allocate memory for key material
-	size_t keylen = cipher_keylength(s->incipher) + cipher_keylength(s->outcipher);
+	size_t keylen = 2 * CHACHA_POLY1305_KEYLEN;
 
 	s->key = realloc(s->key, keylen);
 	if(!s->key)
@@ -247,10 +232,10 @@ static bool receive_ack(sptps_t *s, const char *data, uint16_t len) {
 		return error(s, EIO, "Invalid ACK record length");
 
 	if(s->initiator) {
-		if(!cipher_set_counter_key(s->incipher, s->key))
+		if(!chacha_poly1305_set_key(s->incipher, s->key))
 			return error(s, EINVAL, "Failed to set counter");
 	} else {
-		if(!cipher_set_counter_key(s->incipher, s->key + cipher_keylength(s->outcipher)))
+		if(!chacha_poly1305_set_key(s->incipher, s->key + CHACHA_POLY1305_KEYLEN))
 			return error(s, EINVAL, "Failed to set counter");
 	}
 
@@ -324,11 +309,11 @@ static bool receive_sig(sptps_t *s, const char *data, uint16_t len) {
 
 	// TODO: only set new keys after ACK has been set/received
 	if(s->initiator) {
-		if(!cipher_set_counter_key(s->outcipher, s->key + cipher_keylength(s->incipher)))
-			return error(s, EINVAL, "Failed to set counter");
+		if(!chacha_poly1305_set_key(s->outcipher, s->key + CHACHA_POLY1305_KEYLEN))
+			return error(s, EINVAL, "Failed to set key");
 	} else {
-		if(!cipher_set_counter_key(s->outcipher, s->key))
-			return error(s, EINVAL, "Failed to set counter");
+		if(!chacha_poly1305_set_key(s->outcipher, s->key))
+			return error(s, EINVAL, "Failed to set key");
 	}
 
 	return true;
@@ -385,14 +370,73 @@ static bool receive_handshake(sptps_t *s, const char *data, uint16_t len) {
 	}
 }
 
+static bool sptps_check_seqno(sptps_t *s, uint32_t seqno, bool update_state) {
+	// Replay protection using a sliding window of configurable size.
+	// s->inseqno is expected sequence number
+	// seqno is received sequence number
+	// s->late[] is a circular buffer, a 1 bit means a packet has not been received yet
+	// The circular buffer contains bits for sequence numbers from s->inseqno - s->replaywin * 8 to (but excluding) s->inseqno.
+	if(s->replaywin) {
+		if(seqno != s->inseqno) {
+			if(seqno >= s->inseqno + s->replaywin * 8) {
+				// Prevent packets that jump far ahead of the queue from causing many others to be dropped.
+				bool farfuture = s->farfuture < s->replaywin >> 2;
+				if (update_state)
+					s->farfuture++;
+				if(farfuture)
+					return error(s, EIO, "Packet is %d seqs in the future, dropped (%u)\n", seqno - s->inseqno, s->farfuture);
+
+				// Unless we have seen lots of them, in which case we consider the others lost.
+				warning(s, "Lost %d packets\n", seqno - s->inseqno);
+				if (update_state) {
+					// Mark all packets in the replay window as being late.
+					memset(s->late, 255, s->replaywin);
+				}
+			} else if (seqno < s->inseqno) {
+				// If the sequence number is farther in the past than the bitmap goes, or if the packet was already received, drop it.
+				if((s->inseqno >= s->replaywin * 8 && seqno < s->inseqno - s->replaywin * 8) || !(s->late[(seqno / 8) % s->replaywin] & (1 << seqno % 8)))
+					return error(s, EIO, "Received late or replayed packet, seqno %d, last received %d\n", seqno, s->inseqno);
+			} else if (update_state) {
+				// We missed some packets. Mark them in the bitmap as being late.
+				for(int i = s->inseqno; i < seqno; i++)
+					s->late[(i / 8) % s->replaywin] |= 1 << i % 8;
+			}
+		}
+
+		if (update_state) {
+			// Mark the current packet as not being late.
+			s->late[(seqno / 8) % s->replaywin] &= ~(1 << seqno % 8);
+			s->farfuture = 0;
+		}
+	}
+
+	if (update_state) {
+		if(seqno >= s->inseqno)
+			s->inseqno = seqno + 1;
+
+		if(!s->inseqno)
+			s->received = 0;
+		else
+			s->received++;
+	}
+
+	return true;
+}
+
 // Check datagram for valid HMAC
-bool sptps_verify_datagram(sptps_t *s, const char *data, size_t len) {
+bool sptps_verify_datagram(sptps_t *s, const void *data, size_t len) {
 	if(!s->instate || len < 21)
 		return error(s, EIO, "Received short packet");
 
-	// TODO: just decrypt without updating the replay window
+	uint32_t seqno;
+	memcpy(&seqno, data, 4);
+	seqno = ntohl(seqno);
+	if (!sptps_check_seqno(s, seqno, false))
+		return false;
 
-	return true;
+	char buffer[len];
+	size_t outlen;
+	return chacha_poly1305_decrypt(s->incipher, seqno, data + 4, len - 4, buffer, &outlen);
 }
 
 // Receive incoming data, datagram version.
@@ -422,52 +466,13 @@ static bool sptps_receive_data_datagram(sptps_t *s, const char *data, size_t len
 
 	char buffer[len];
 
-	if(!cipher_set_counter(s->incipher, data, sizeof seqno))
-		return error(s, EINVAL, "Failed to set counter");
 	size_t outlen;
 
-	if(!cipher_gcm_decrypt(s->incipher, data + 4, len - 4, buffer, &outlen))
+	if(!chacha_poly1305_decrypt(s->incipher, seqno, data + 4, len - 4, buffer, &outlen))
 		return error(s, EIO, "Failed to decrypt and verify packet");
 
-	// Replay protection using a sliding window of configurable size.
-	// s->inseqno is expected sequence number
-	// seqno is received sequence number
-	// s->late[] is a circular buffer, a 1 bit means a packet has not been received yet
-	// The circular buffer contains bits for sequence numbers from s->inseqno - s->replaywin * 8 to (but excluding) s->inseqno.
-	if(s->replaywin) {
-		if(seqno != s->inseqno) {
-			if(seqno >= s->inseqno + s->replaywin * 8) {
-				// Prevent packets that jump far ahead of the queue from causing many others to be dropped.
-				if(s->farfuture++ < s->replaywin >> 2)
-					return error(s, EIO, "Packet is %d seqs in the future, dropped (%u)\n", seqno - s->inseqno, s->farfuture);
-
-				// Unless we have seen lots of them, in which case we consider the others lost.
-				warning(s, "Lost %d packets\n", seqno - s->inseqno);
-				// Mark all packets in the replay window as being late.
-				memset(s->late, 255, s->replaywin);
-			} else if (seqno < s->inseqno) {
-				// If the sequence number is farther in the past than the bitmap goes, or if the packet was already received, drop it.
-				if((s->inseqno >= s->replaywin * 8 && seqno < s->inseqno - s->replaywin * 8) || !(s->late[(seqno / 8) % s->replaywin] & (1 << seqno % 8)))
-					return error(s, EIO, "Received late or replayed packet, seqno %d, last received %d\n", seqno, s->inseqno);
-			} else {
-				// We missed some packets. Mark them in the bitmap as being late.
-				for(int i = s->inseqno; i < seqno; i++)
-					s->late[(i / 8) % s->replaywin] |= 1 << i % 8;
-			}
-		}
-
-		// Mark the current packet as not being late.
-		s->late[(seqno / 8) % s->replaywin] &= ~(1 << seqno % 8);
-		s->farfuture = 0;
-	}
-
-	if(seqno >= s->inseqno)
-		s->inseqno = seqno + 1;
-
-	if(!s->inseqno)
-		s->received = 0;
-	else
-		s->received++;
+	if(!sptps_check_seqno(s, seqno, true))
+		return false;
 
 	// Append a NULL byte for safety.
 	buffer[len - 20] = 0;
@@ -490,7 +495,7 @@ static bool sptps_receive_data_datagram(sptps_t *s, const char *data, size_t len
 }
 
 // Receive incoming data. Check if it contains a complete record, if so, handle it.
-bool sptps_receive_data(sptps_t *s, const char *data, size_t len) {
+bool sptps_receive_data(sptps_t *s, const void *data, size_t len) {
 	if(!s->state)
 		return error(s, EIO, "Invalid session state zero");
 
@@ -514,22 +519,9 @@ bool sptps_receive_data(sptps_t *s, const char *data, size_t len) {
 			if(s->buflen < 2)
 				return true;
 
-			// Update sequence number.
+			// Get the length bytes
 
-			uint32_t seqno = htonl(s->inseqno++);
-
-			// Decrypt the length bytes
-
-			if(s->instate) {
-				if(!cipher_set_counter(s->incipher, &seqno, 4))
-					return error(s, EINVAL, "Failed to set counter");
-
-				if(!cipher_gcm_decrypt_start(s->incipher, s->inbuf, 2, &s->reclen, NULL))
-					return error(s, EINVAL, "Failed to decrypt record");
-			} else {
-				memcpy(&s->reclen, s->inbuf, 2);
-			}
-
+			memcpy(&s->reclen, s->inbuf, 2);
 			s->reclen = ntohs(s->reclen);
 
 			// If we have the length bytes, ensure our buffer can hold the whole request.
@@ -556,9 +548,13 @@ bool sptps_receive_data(sptps_t *s, const char *data, size_t len) {
 		if(s->buflen < s->reclen + (s->instate ? 19UL : 3UL))
 			return true;
 
+		// Update sequence number.
+
+		uint32_t seqno = s->inseqno++;
+
 		// Check HMAC and decrypt.
 		if(s->instate) {
-			if(!cipher_gcm_decrypt_finish(s->incipher, s->inbuf + 2UL, s->reclen + 17UL, s->inbuf + 2UL, NULL))
+			if(!chacha_poly1305_decrypt(s->incipher, seqno, s->inbuf + 2UL, s->reclen + 17UL, s->inbuf + 2UL, NULL))
 				return error(s, EINVAL, "Failed to decrypt and verify record");
 		}
 
@@ -586,7 +582,7 @@ bool sptps_receive_data(sptps_t *s, const char *data, size_t len) {
 }
 
 // Start a SPTPS session.
-bool sptps_start(sptps_t *s, void *handle, bool initiator, bool datagram, ecdsa_t *mykey, ecdsa_t *hiskey, const char *label, size_t labellen, send_data_t send_data, receive_record_t receive_record) {
+bool sptps_start(sptps_t *s, void *handle, bool initiator, bool datagram, ecdsa_t *mykey, ecdsa_t *hiskey, const void *label, size_t labellen, send_data_t send_data, receive_record_t receive_record) {
 	// Initialise struct sptps
 	memset(s, 0, sizeof *s);
 
@@ -628,10 +624,8 @@ bool sptps_start(sptps_t *s, void *handle, bool initiator, bool datagram, ecdsa_
 // Stop a SPTPS session.
 bool sptps_stop(sptps_t *s) {
 	// Clean up any resources.
-	cipher_close(s->incipher);
-	cipher_close(s->outcipher);
-	digest_close(s->indigest);
-	digest_close(s->outdigest);
+	chacha_poly1305_exit(s->incipher);
+	chacha_poly1305_exit(s->outcipher);
 	ecdh_free(s->ecdh);
 	free(s->inbuf);
 	free(s->mykex);

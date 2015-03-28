@@ -1,0 +1,44 @@
+#!/bin/sh
+
+case "$1" in
+  addcru)
+   ISCRU=`cru l | grep mysql_inside | wc -l`
+
+   INTERVAL=`nvram get mysql_check_time`
+
+   BTON=`nvram get mysql_enable`
+   if [ "$BTON" == "1" ]; then
+    BTCH=`nvram get mysql_check`
+    if [ "$BTCH" == "1" ]; then
+     if [ "$ISCRU" == "0" ]; then
+      cru a mysql_inside "*/$INTERVAL * * * * /usr/bin/mycheck check"
+     else
+      cru d mysql_inside
+      cru a mysql_inside "*/$INTERVAL * * * * /usr/bin/mycheck check"
+     fi
+    else
+     if [ "$ISCRU" == "1" ]; then
+      cru d mysql_inside
+     fi
+    fi
+   else
+    if [ "$ISCRU" == "1" ]; then
+      cru d mysql_inside
+    fi
+   fi
+  ;;
+  check)
+   BTON=`nvram get mysql_enable`
+   if [ "$BTON" == "1" ]; then
+    BTCH=`nvram get mysql_check`
+    if [ "$BTCH" == "1" ]; then
+     ON=`ps w | grep mysqld | grep -v grep | wc -l`
+     if [ "$ON" == "0" ]; then
+      logger MySQL stopped? Starting...
+      service mysql restart
+     fi
+    fi
+   fi
+  ;;
+esac
+exit 0

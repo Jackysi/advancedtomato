@@ -8,33 +8,42 @@ No part of this file may be used without permission.
 <content>
 	<style>textarea { width: 100%; }</style>
 	<script type="text/javascript">
-		//    <% nvram("at_update,tomatoanon_answer,usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
-		//    <% usbdevices(); %>
+
+		//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_usb3,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_ext4,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
+		//	<% usbdevices(); %>
 
 		list = [];
+
 		var xob = null;
+
 		function _umountHost(host)
 		{
 			form.submitHidden('usbcmd.cgi', { remove: host });
 		}
+
 		function _mountHost(host)
 		{
 			form.submitHidden('usbcmd.cgi', { mount: host });
 		}
+
 		function _forceRefresh()
 		{
 			if (!ref.running) ref.once = 1;
 			ref.start();
 		}
+
 		function umountHost(a, host)
 		{
 			if (xob) return;
+
 			if ((xob = new XmlHttp()) == null) {
 				_umountHost(host);
 				return;
 			}
+
 			a = E(a);
 			a.innerHTML = 'Please wait...';
+
 			xob.onCompleted = function(text, xml) {
 				eval(text);
 				if (usb.length == 1) {
@@ -44,21 +53,27 @@ No part of this file may be used without permission.
 				xob = null;
 				_forceRefresh();
 			}
+
 			xob.onError = function() {
 				xob = null;
 				_forceRefresh();
 			}
+
 			xob.post('usbcmd.cgi', 'remove=' + host);
 		}
+
 		function mountHost(a, host)
 		{
 			if (xob) return;
+
 			if ((xob = new XmlHttp()) == null) {
 				_mountHost(host);
 				return;
 			}
+
 			a = E(a);
 			a.innerHTML = 'Please wait...';
+
 			xob.onCompleted = function(text, xml) {
 				eval(text);
 				if (usb.length == 1) {
@@ -68,13 +83,17 @@ No part of this file may be used without permission.
 				xob = null;
 				_forceRefresh();
 			}
+
 			xob.onError = function() {
 				xob = null;
 				_forceRefresh();
 			}
+
 			xob.post('usbcmd.cgi', 'mount=' + host);
 		}
+
 		var ref = new TomatoRefresh('update.cgi', 'exec=usbdevices', 0, 'nas_usb_refresh');
+
 		ref.refresh = function(text)
 		{
 			try {
@@ -87,12 +106,15 @@ No part of this file may be used without permission.
 			dg.populate();
 			dg.resort();
 		}
+
 		var dg = new TomatoGrid();
+
 		dg.sortCompare = function(a, b) {
 			var col = this.sortColumn;
 			var ra = a.getRowData();
 			var rb = b.getRowData();
 			var r;
+
 			switch (col) {
 				case 1:
 					if (ra.type == 'Storage' && ra.type == rb.type)
@@ -105,10 +127,13 @@ No part of this file may be used without permission.
 			}
 			return this.sortAscending ? r : -r;
 		}
+
 		dg.populate = function()
 		{
 			var i, j, k, a, b, c, e, s, desc, d, parts, p;
+
 			list = [];
+
 			for (i = 0; i < list.length; ++i) {
 				list[i].type = '';
 				list[i].host = '';
@@ -118,6 +143,7 @@ No part of this file may be used without permission.
 				list[i].discs = [];
 				list[i].is_mounted = 0;
 			}
+
 			for (i = usbdev.length - 1; i >= 0; --i) {
 				a = usbdev[i];
 				e = {
@@ -131,8 +157,10 @@ No part of this file may be used without permission.
 				};
 				list.push(e);
 			}
+
 			for (i = list.length - 1; i >= 0; --i) {
 				e = list[i];
+
 				if (e.type != 'Storage')
 					s = '&nbsp<br><small>&nbsp</small>';
 				else {
@@ -152,7 +180,7 @@ No part of this file may be used without permission.
 							p = parts[k];
 							if (p) {
 								desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
-								((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) +
+								((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
 									((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' free' : '') +
 									')' : '') + ' is ' +
 								((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? 'active' : 'mounted') +
@@ -164,21 +192,25 @@ No part of this file may be used without permission.
 				desc = desc + '</small>';
 				this.insert(-1, e, ['<i class="icon-drive icon-medium icon-middle"></i> ' + e.type, e.host, desc, s], false);
 			}
+
 			list = [];
 		}
-		dg.setup = function() {
+
+		dg.setup = function()
+		{
 			this.init('dev-grid', 'sort');
 			this.headerSet(['Type', 'Host', 'Description', 'Mounted?']);
 			this.populate();
 			this.sort(1);
 		}
+
 		function earlyInit() {
+			$('#last-box').after(genStdRefresh(1,0,'ref.toggle()'));
 			dg.setup();
 			init();
-			$('#last-box').after(genStdRefresh(1,0,'ref.toggle()'));
 		}
-		function init()
-		{
+
+		function init() {
 			dg.recolor();
 			ref.initPage();
 		}
@@ -191,10 +223,19 @@ No part of this file may be used without permission.
 			E('_f_uhci').disabled = b || nvram.usb_uhci == -1;
 			E('_f_ohci').disabled = b || nvram.usb_ohci == -1;
 			E('_f_usb2').disabled = b;
+			E('_f_usb3').disabled = b;
 			E('_f_print').disabled = b;
 			E('_f_storage').disabled = b;
 
+			/* LINUX26-BEGIN */
+			/* MICROSD-BEGIN */
+			E('_f_mmc').disabled = a || b || nvram.usb_mmc == -1;
+			elem.display(PR('_f_mmc'), nvram.usb_mmc != -1);
+			/* MICROSD-END */
+			/* LINUX26-END */
+
 			E('_f_ext3').disabled = b || a;
+			E('_f_ext4').disabled = b || a;
 			E('_f_fat').disabled = b || a;
 			/* LINUX26-BEGIN */
 			E('_f_idle_enable').disabled = b || a;
@@ -219,6 +260,7 @@ No part of this file may be used without permission.
 
 			return 1;
 		}
+
 		function save()
 		{
 			var fom;
@@ -230,10 +272,19 @@ No part of this file may be used without permission.
 			fom.usb_uhci.value = nvram.usb_uhci == -1 ? -1 : (E('_f_uhci').checked ? 1 : 0);
 			fom.usb_ohci.value = nvram.usb_ohci == -1 ? -1 : (E('_f_ohci').checked ? 1 : 0);
 			fom.usb_usb2.value = E('_f_usb2').checked ? 1 : 0;
+			fom.usb_usb3.value = E('_f_usb3').checked ? 1 : 0;
 			fom.usb_storage.value = E('_f_storage').checked ? 1 : 0;
 			fom.usb_printer.value = E('_f_print').checked ? 1 : 0;
 			fom.usb_printer_bidirect.value = E('_f_bprint').checked ? 1 : 0;
+
+			/* LINUX26-BEGIN */
+			/* MICROSD-BEGIN */
+			fom.usb_mmc.value = nvram.usb_mmc == -1 ? -1 : (E('_f_mmc').checked ? 1 : 0);
+			/* MICROSD-END */
+			/* LINUX26-END */
+
 			fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
+			fom.usb_fs_ext4.value = E('_f_ext4').checked ? 1 : 0;
 			fom.usb_fs_fat.value = E('_f_fat').checked ? 1 : 0;
 			/* NTFS-BEGIN */
 			fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
@@ -264,10 +315,13 @@ No part of this file may be used without permission.
 		<input type="hidden" name="usb_uhci">
 		<input type="hidden" name="usb_ohci">
 		<input type="hidden" name="usb_usb2">
+		<input type="hidden" name="usb_usb3">
+		<input type="hidden" name="usb_mmc">
 		<input type="hidden" name="usb_storage">
 		<input type="hidden" name="usb_printer">
 		<input type="hidden" name="usb_printer_bidirect">
 		<input type="hidden" name="usb_fs_ext3">
+		<input type="hidden" name="usb_fs_ext4">
 		<input type="hidden" name="usb_fs_fat">
 		/* NTFS-BEGIN */
 		<input type="hidden" name="usb_fs_ntfs">
@@ -289,6 +343,7 @@ No part of this file may be used without permission.
 
 					$('#usbfields').forms([
 						{ title: 'Core USB Support', name: 'f_usb', type: 'checkbox', value: nvram.usb_enable == 1 },
+						{ title: 'USB 3.0 Support', indent: 2, name: 'f_usb3', type: 'checkbox', value: nvram.usb_usb3 == 1 },
 						{ title: 'USB 2.0 Support', indent: 2, name: 'f_usb2', type: 'checkbox', value: nvram.usb_usb2 == 1 },
 						{ title: 'USB 1.1 Support', indent: 2, multi: [
 							{ suffix: '&nbsp; OHCI &nbsp;&nbsp;&nbsp;', name: 'f_ohci', type: 'checkbox', value: nvram.usb_ohci == 1 },
@@ -301,6 +356,7 @@ No part of this file may be used without permission.
 						{ title: 'USB Storage Support', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
 						{ title: 'File Systems Support', indent: 2, multi: [
 							{ suffix: '&nbsp; Ext2 / Ext3 &nbsp;&nbsp;&nbsp;', name: 'f_ext3', type: 'checkbox', value: nvram.usb_fs_ext3 == 1 },
+							{ suffix: '&nbsp; Ext4 &nbsp;&nbsp;&nbsp;', name: 'f_ext4', type: 'checkbox', value: nvram.usb_fs_ext4 == 1 },
 							/* NTFS-BEGIN */
 							{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 							/* NTFS-END */
@@ -328,6 +384,7 @@ No part of this file may be used without permission.
 						null,
 						/* LINUX26-END */
 						{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
+						null,
 						{ text: '<small>Some of the changes will take effect only after a restart.</small>' }
 					]);
 				</script>
@@ -343,7 +400,7 @@ No part of this file may be used without permission.
 
 		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
 		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert success" style="visibility: hidden;"></span>
+		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
 	</form>
 
