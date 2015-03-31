@@ -802,6 +802,13 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 	uint shift = 0;
 	uint32 top = 0;
 	uint32 bootsz;
+	uint32 nvsz = 0;
+	uint32 bootossz = nfl_boot_os_size(nfl);
+	uint boardnum = bcm_strtoul(nvram_safe_get("boardnum"), NULL, 0);
+	if (((boardnum == 1) || (nvram_get("boardnum") == NULL)) && nvram_match("boardtype", "0xF646") && nvram_match("boardrev", "0x1100")) 		{
+		bootossz = 0x4000000;
+		nvsz = 0x100000;
+	}
 #ifdef CONFIG_FAILSAFE_UPGRADE
 	char *img_boot = nvram_get(BOOTPARTITION);
 	char *imag_1st_offset = nvram_get(IMAGE_FIRST_OFFSET);
@@ -848,7 +855,10 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 
 		/* Setup NVRAM MTD partition */
 		bcm947xx_nflash_parts[nparts].name = "nvram";
-		bcm947xx_nflash_parts[nparts].size = nfl_boot_size(nfl) - offset;
+		if (nvsz)
+			bcm947xx_nflash_parts[nparts].size = nvsz;
+		else
+			bcm947xx_nflash_parts[nparts].size = nfl_boot_size(nfl) - offset;
 		bcm947xx_nflash_parts[nparts].offset = offset;
 
 		offset = nfl_boot_size(nfl);
@@ -865,8 +875,8 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 		} else
 #endif
 		{
-			bcm947xx_nflash_parts[nparts].size = nparts ?
-				(nfl_boot_os_size(nfl) - nfl_boot_size(nfl)) :
+			bcm947xx_nflash_parts[nparts].size = nparts ? 
+				(bootossz - nfl_boot_size(nfl)) :
 				nfl_boot_os_size(nfl);
 		}
 		/* fix linux offset for the R6300V2/R6250 units */
@@ -889,7 +899,7 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 			offset = image_second_offset;
 		else
 #endif
-		offset = nfl_boot_os_size(nfl);
+		offset = bootossz;
 		nparts++;
 
 		/* Setup rootfs MTD partition */
@@ -899,7 +909,7 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 			bcm947xx_nflash_parts[nparts].size = image_second_offset - shift;
 		else
 #endif
-		bcm947xx_nflash_parts[nparts].size = nfl_boot_os_size(nfl) - shift;
+			bcm947xx_nflash_parts[nparts].size = bootossz - shift;
 		bcm947xx_nflash_parts[nparts].offset = shift;
 		bcm947xx_nflash_parts[nparts].mask_flags = MTD_WRITEABLE;
 		offset = nfl_boot_os_size(nfl);
@@ -939,14 +949,14 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 		/* Setup 2nd kernel MTD partition */
 		if (dual_image_on) {
 			bcm947xx_nflash_parts[nparts].name = "linux2";
-			bcm947xx_nflash_parts[nparts].size = nfl_boot_os_size(nfl) - image_second_offset;
+			bcm947xx_nflash_parts[nparts].size = bootossz - image_second_offset;
 			bcm947xx_nflash_parts[nparts].offset = image_second_offset;
 			shift = lookup_nflash_rootfs_offset(nfl, mtd, image_second_offset,
 			                                    bcm947xx_nflash_parts[nparts].size);
 			nparts++;
 			/* Setup rootfs MTD partition */
 			bcm947xx_nflash_parts[nparts].name = "rootfs2";
-			bcm947xx_nflash_parts[nparts].size = nfl_boot_os_size(nfl) - shift;
+			bcm947xx_nflash_parts[nparts].size = bootossz - shift;
 			bcm947xx_nflash_parts[nparts].offset = shift;
 			bcm947xx_nflash_parts[nparts].mask_flags = MTD_WRITEABLE;
 			nparts++;

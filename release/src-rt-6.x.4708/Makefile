@@ -163,6 +163,10 @@ endif
 ifeq ($(ASUS_TRX),HUAWEI)
 	ctools/trx_asus -i image/linux-lzma.trx -r WS880,3.0.0.4,image/tomato-WS880-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
+#for linksys EA series -- EA6700 EA6500v2 EA6900
+ifeq ($(ASUS_TRX), LINKSYS)
+	ctools/trx_asus -i image/linux-lzma.trx -r EA6700,3.0.0.4,image/tomato-EA6700-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 	@rm -f image/linux-lzma.trx
 	@echo ""
 endif
@@ -837,6 +841,12 @@ define KernelConfig
                 echo "CONFIG_NVRAM_64K=y" >>$(1); \
         else \
                 echo "# CONFIG_NVRAM_64K is not set" >>$(1); \
+	fi; \
+	sed -i "/CONFIG_FAILSAFE_UPGRADE/d" $(1); \
+	if [ "$(FAILSAFE_UPGRADE)" = "y" ]; then \
+		echo "CONFIG_FAILSAFE_UPGRADE=y" >>$(1); \
+	else \
+		echo "# CONFIG_FAILSAFE_UPGRADE is not set" >> $(1); \
 	fi \
 	)
 endef
@@ -900,6 +910,12 @@ ws880e:
 
 ws880z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="HUAWEI" UFSD="ASUS" CTF=y GRO=y NGINX=y SNMP=y
+
+ea6700e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="LINKSYS" UFSD="ASUS" FAILSAFE_UPGRADE=n CTF=y GRO=y
+
+ea6700z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="LINKSYS" UFSD="ASUS" FAILSAFE_UPGRADE=n CTF=y GRO=y NGINX=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

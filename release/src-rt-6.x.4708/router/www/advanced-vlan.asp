@@ -80,6 +80,7 @@ switch(nvram['boardtype']) {
   case '0x058e':  // E900, E800
   case '0x0646':  // RT-AC56U and RT-AC68U/RT-AC68R
   case '0x0665':  // R7000
+  case '0xf646':  // EA6700
     trunk_vlan_supported = 1;
     break;
   default:
@@ -92,6 +93,15 @@ switch(nvram['boardtype']) {
 // http://wiki.openwrt.org/toh/linksys/start
 // http://wiki.openwrt.org/toh/start
 switch(nvram['boardtype']) {
+	case '0xf646':
+		if( nvram['boardrev'] == '0x1100'){ //EA6700
+	COL_P0N = '0';
+	COL_P1N = '1';
+	COL_P2N = '2';
+	COL_P3N = '3';
+	COL_P4N = '4';
+		break;
+	}
 	case '0x0646':  // RT-AC56 && RT-AC68
 	case '0x0665':  //R7000
 		if ((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC56U')) { //RT-AC56U
