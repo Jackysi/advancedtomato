@@ -1,0 +1,143 @@
+-- source include/have_innodb.inc
+
+#
+# Check and select innodb lock type
+#
+
+set global innodb_table_locks=1;
+
+select @@innodb_table_locks;
+
+#
+# Testing of explicit table locks with enforced table locks
+#
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+#
+# Testing of explicit table locks with enforced table locks
+#
+
+set @@innodb_table_locks=1;
+
+connection con1;
+create table t1 (id integer, x integer) engine=INNODB;
+insert into t1 values(0, 0);
+set autocommit=0;
+SELECT * from t1 where id = 0 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+# The following statement should hang because con1 is locking the page
+--send
+lock table t1 write;
+--sleep 2
+
+connection con1;
+update t1 set x=1 where id = 0;
+select * from t1;
+commit;
+
+connection con2;
+reap;
+update t1 set x=2 where id = 0;
+commit;
+unlock tables;
+
+connection con1;
+select * from t1;
+commit;
+
+drop table t1;
+
+#
+# Try with old lock method (where LOCK TABLE is ignored by InnoDB)
+#
+
+set @@innodb_table_locks=0;
+
+create table t1 (id integer primary key, x integer) engine=INNODB;
+insert into t1 values(0, 0),(1,1),(2,2);
+commit;
+SELECT * from t1 where id = 0 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+set @@innodb_table_locks=0;
+
+# The following statement should work becase innodb doesn't check table locks
+lock table t1 write;
+
+connection con1;
+
+# This will be locked by MySQL
+--send
+update t1 set x=10 where id = 2;
+--sleep 2
+
+connection con2;
+
+# Note that we will get a deadlock if we try to select any rows marked
+# for update by con1 !
+
+SELECT * from t1 where id = 2;
+UPDATE t1 set x=3 where id = 2;
+commit;
+SELECT * from t1;
+commit;
+unlock tables;
+
+connection con1;
+reap;
+commit;
+select * from t1;
+drop table t1;
+
+# End of 4.1 tests
+
+--echo #
+--echo #Bug#12842206 INNODB LOCKING REGRESSION FOR INSERT IGNORE
+--echo #fixed by re-fixing Bug#7975
+--echo #aka Bug#11759688 52020: InnoDB can still deadlock on just INSERT...
+--echo #
+
+connection default;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT NOT NULL) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES(3,1);
+
+BEGIN;
+# this used to wrongly acquire an X lock; now it takes an S lock
+INSERT IGNORE INTO t1 VALUES(3,14);
+
+connection con1;
+BEGIN;
+# this used to wrongly acquire an X lock; now it takes an S lock
+INSERT IGNORE INTO t1 VALUES(3,23);
+--send
+SELECT * FROM t1 FOR UPDATE;
+
+connection con2;
+# Check that the above SELECT is blocked
+let $wait_condition=
+  select count(*) = 1 from information_schema.processlist
+  where state = 'Sending data' and
+        info = 'SELECT * FROM t1 FOR UPDATE';
+--source include/wait_condition.inc
+
+connection default;
+COMMIT;
+connection con1;
+reap;
+COMMIT;
+disconnect con1;
+disconnect con2;
+
+connection default;
+DROP TABLE t1;

@@ -1333,6 +1333,36 @@ static const nvset_t nvset_list[] = {
 	{"nginx_user",			V_LENGTH(0, 255)	}, // user used to start nginx and spawn-fcgi
 	{"nginx_override",		V_01			},
 	{"nginx_overridefile",		V_TEXT(0, 4096)		},
+
+// bwq518 - MySQL
+        { "mysql_enable",                               V_01                    },
+        { "mysql_sleep",                                V_RANGE(1,60)           },
+        { "mysql_check",                                V_01                    },
+        { "mysql_check_time",                           V_RANGE(1,55)           },
+        { "mysql_binary",                               V_LENGTH(0, 50)         },
+        { "mysql_binary_custom",                        V_LENGTH(0, 50)         },
+        { "mysql_usb_enable",                           V_01                    },
+        { "mysql_dlroot",                               V_LENGTH(0,50)          },
+        { "mysql_datadir",                              V_LENGTH(0,64)          },
+        { "mysql_tmpdir",                               V_LENGTH(0,64)          },
+        { "mysql_server_custom",                        V_TEXT(0,1024)          },
+        { "mysql_port",                                 V_PORT                  },
+        { "mysql_allow_anyhost",                        V_01                    },
+        { "mysql_init_rootpass",                        V_01                    },
+        { "mysql_username",                             V_TEXT(0,50)            }, // mysqladmin username
+        { "mysql_passwd",                               V_TEXT(0,50)            }, // mysqladmin password
+        { "mysql_key_buffer",                           V_RANGE(0,1024)         }, // MB
+        { "mysql_max_allowed_packet",                   V_RANGE(0,1024)         }, // MB
+        { "mysql_thread_stack",                         V_RANGE(0,1024000)      }, // KB
+        { "mysql_thread_cache_size",                    V_RANGE(0,999999)       },
+        { "mysql_init_priv",                            V_01                    },
+        { "mysql_table_open_cache",                     V_RANGE(1,999999)       },
+        { "mysql_sort_buffer_size",                     V_RANGE(0,1024000)      }, //KB
+        { "mysql_read_buffer_size",                     V_RANGE(0,1024000)      }, //KB
+        { "mysql_query_cache_size",                     V_RANGE(0,1024)         }, //MB
+        { "mysql_read_rnd_buffer_size",                 V_RANGE(0,1024000)      }, //KB
+        { "mysql_net_buffer_length",                    V_RANGE(0,1024)         }, //K
+        { "mysql_max_connections",                      V_RANGE(0,999999)       },
 #endif
 
 #ifdef TCONFIG_OPENVPN

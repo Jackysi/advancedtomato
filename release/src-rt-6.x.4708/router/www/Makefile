@@ -114,9 +114,11 @@ endif
 
 # Clean up NGinX files if not needed
 ifneq ($(TCONFIG_NGINX),y)
-	rm -f $(INSTALLDIR)/www/nginx.asp
+	rm -f $(INSTALLDIR)/www/web-nginx.asp
+	rm -f $(INSTALLDIR)/www/web-mysql.asp
 	rm -f $(INSTALLDIR)/www/index.html
-	rm -f $(INSTALLDIR)/www/index.php
+	rm -f $(INSTALLDIR)/www/phpinfo.php
+	rm -f $(INSTALLDIR)/www/adminer.php
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/NGINX-BEGIN/,/NGINX-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/NGINX-BEGIN/,/NGINX-END/d"
 endif

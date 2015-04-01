@@ -1,0 +1,491 @@
+--- apps/openssl.c	2015-01-15 15:43:49.000000000 +0100
++++ apps/openssl.c	2015-03-19 14:19:00.000000000 +0100
+@@ -451,270 +441,246 @@
+ #define LIST_CIPHER_ALGORITHMS "list-cipher-algorithms"
+ #define LIST_PUBLIC_KEY_ALGORITHMS "list-public-key-algorithms"
+ 
+-
+ static int do_cmd(LHASH_OF(FUNCTION) *prog, int argc, char *argv[])
+-	{
+-	FUNCTION f,*fp;
+-	int i,ret=1,tp,nl;
+-
+-	if ((argc <= 0) || (argv[0] == NULL))
+-		{ ret=0; goto end; }
+-	f.name=argv[0];
+-	fp=lh_FUNCTION_retrieve(prog,&f);
+-	if (fp == NULL)
+-		{
+-		if (EVP_get_digestbyname(argv[0]))
+-			{
+-			f.type = FUNC_TYPE_MD;
+-			f.func = dgst_main;
+-			fp = &f;
+-			}
+-		else if (EVP_get_cipherbyname(argv[0]))
+-			{
+-			f.type = FUNC_TYPE_CIPHER;
+-			f.func = enc_main;
+-			fp = &f;
+-			}
+-		}
+-	if (fp != NULL)
+-		{
+-		ret=fp->func(argc,argv);
+-		}
+-	else if ((strncmp(argv[0],"no-",3)) == 0)
+-		{
+-		BIO *bio_stdout = BIO_new_fp(stdout,BIO_NOCLOSE);
++{
++    FUNCTION f, *fp;
++    int i, ret = 1, tp, nl;
++
++    if ((argc <= 0) || (argv[0] == NULL)) {
++        ret = 0;
++        goto end;
++    }
++    f.name = argv[0];
++    fp = lh_FUNCTION_retrieve(prog, &f);
++    if (fp == NULL) {
++        if (EVP_get_digestbyname(argv[0])) {
++            f.type = FUNC_TYPE_MD;
++            f.func = dgst_main;
++            fp = &f;
++        } else if (EVP_get_cipherbyname(argv[0])) {
++            f.type = FUNC_TYPE_CIPHER;
++            f.func = enc_main;
++            fp = &f;
++        }
++    }
++    if (fp != NULL) {
++        ret = fp->func(argc, argv);
++    } else if ((strncmp(argv[0], "no-", 3)) == 0) {
++        BIO *bio_stdout = BIO_new_fp(stdout, BIO_NOCLOSE);
+ #ifdef OPENSSL_SYS_VMS
+-		{
+-		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
+-		bio_stdout = BIO_push(tmpbio, bio_stdout);
+-		}
+-#endif
+-		f.name=argv[0]+3;
+-		ret = (lh_FUNCTION_retrieve(prog,&f) != NULL);
+-		if (!ret)
+-			BIO_printf(bio_stdout, "%s\n", argv[0]);
+-		else
+-			BIO_printf(bio_stdout, "%s\n", argv[0]+3);
+-		BIO_free_all(bio_stdout);
+-		goto end;
+-		}
+-	else if ((strcmp(argv[0],"quit") == 0) ||
+-		(strcmp(argv[0],"q") == 0) ||
+-		(strcmp(argv[0],"exit") == 0) ||
+-		(strcmp(argv[0],"bye") == 0))
+-		{
+-		ret= -1;
+-		goto end;
+-		}
+-	else if ((strcmp(argv[0],LIST_STANDARD_COMMANDS) == 0) ||
+-		(strcmp(argv[0],LIST_MESSAGE_DIGEST_COMMANDS) == 0) ||
+-		(strcmp(argv[0],LIST_MESSAGE_DIGEST_ALGORITHMS) == 0) ||
+-		(strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0) ||
+-		(strcmp(argv[0],LIST_CIPHER_ALGORITHMS) == 0) ||
+-		(strcmp(argv[0],LIST_PUBLIC_KEY_ALGORITHMS) == 0))
+-		{
+-		int list_type;
+-		BIO *bio_stdout;
+-
+-		if (strcmp(argv[0],LIST_STANDARD_COMMANDS) == 0)
+-			list_type = FUNC_TYPE_GENERAL;
+-		else if (strcmp(argv[0],LIST_MESSAGE_DIGEST_COMMANDS) == 0)
+-			list_type = FUNC_TYPE_MD;
+-		else if (strcmp(argv[0],LIST_MESSAGE_DIGEST_ALGORITHMS) == 0)
+-			list_type = FUNC_TYPE_MD_ALG;
+-		else if (strcmp(argv[0],LIST_PUBLIC_KEY_ALGORITHMS) == 0)
+-			list_type = FUNC_TYPE_PKEY;
+-		else if (strcmp(argv[0],LIST_CIPHER_ALGORITHMS) == 0)
+-			list_type = FUNC_TYPE_CIPHER_ALG;
+-		else /* strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0 */
+-			list_type = FUNC_TYPE_CIPHER;
+-		bio_stdout = BIO_new_fp(stdout,BIO_NOCLOSE);
++        {
++            BIO *tmpbio = BIO_new(BIO_f_linebuffer());
++            bio_stdout = BIO_push(tmpbio, bio_stdout);
++        }
++#endif
++        f.name = argv[0] + 3;
++        ret = (lh_FUNCTION_retrieve(prog, &f) != NULL);
++        if (!ret)
++            BIO_printf(bio_stdout, "%s\n", argv[0]);
++        else
++            BIO_printf(bio_stdout, "%s\n", argv[0] + 3);
++        BIO_free_all(bio_stdout);
++        goto end;
++    } else if ((strcmp(argv[0], "quit") == 0) ||
++               (strcmp(argv[0], "q") == 0) ||
++               (strcmp(argv[0], "exit") == 0) ||
++               (strcmp(argv[0], "bye") == 0)) {
++        ret = -1;
++        goto end;
++    } else if ((strcmp(argv[0], LIST_STANDARD_COMMANDS) == 0) ||
++               (strcmp(argv[0], LIST_MESSAGE_DIGEST_COMMANDS) == 0) ||
++               (strcmp(argv[0], LIST_MESSAGE_DIGEST_ALGORITHMS) == 0) ||
++               (strcmp(argv[0], LIST_CIPHER_COMMANDS) == 0) ||
++               (strcmp(argv[0], LIST_CIPHER_ALGORITHMS) == 0) ||
++               (strcmp(argv[0], LIST_PUBLIC_KEY_ALGORITHMS) == 0)) {
++        int list_type;
++        BIO *bio_stdout;
++
++        if (strcmp(argv[0], LIST_STANDARD_COMMANDS) == 0)
++            list_type = FUNC_TYPE_GENERAL;
++        else if (strcmp(argv[0], LIST_MESSAGE_DIGEST_COMMANDS) == 0)
++            list_type = FUNC_TYPE_MD;
++        else if (strcmp(argv[0], LIST_MESSAGE_DIGEST_ALGORITHMS) == 0)
++            list_type = FUNC_TYPE_MD_ALG;
++        else if (strcmp(argv[0], LIST_PUBLIC_KEY_ALGORITHMS) == 0)
++            list_type = FUNC_TYPE_PKEY;
++        else if (strcmp(argv[0], LIST_CIPHER_ALGORITHMS) == 0)
++            list_type = FUNC_TYPE_CIPHER_ALG;
++        else                    /* strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0 */
++            list_type = FUNC_TYPE_CIPHER;
++        bio_stdout = BIO_new_fp(stdout, BIO_NOCLOSE);
+ #ifdef OPENSSL_SYS_VMS
+-		{
+-		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
+-		bio_stdout = BIO_push(tmpbio, bio_stdout);
+-		}
+-#endif
+-
+-		if (!load_config(bio_err, NULL))
+-			goto end;
+-
+-		if (list_type == FUNC_TYPE_PKEY)
+-			list_pkey(bio_stdout);	
+-		if (list_type == FUNC_TYPE_MD_ALG)
+-			list_md(bio_stdout);	
+-		if (list_type == FUNC_TYPE_CIPHER_ALG)
+-			list_cipher(bio_stdout);	
+-		else
+-			{
+-			for (fp=functions; fp->name != NULL; fp++)
+-				if (fp->type == list_type)
+-					BIO_printf(bio_stdout, "%s\n",
+-								fp->name);
+-			}
+-		BIO_free_all(bio_stdout);
+-		ret=0;
+-		goto end;
+-		}
+-	else
+-		{
+-		BIO_printf(bio_err,"openssl:Error: '%s' is an invalid command.\n",
+-			argv[0]);
+-		BIO_printf(bio_err, "\nStandard commands");
+-		i=0;
+-		tp=0;
+-		for (fp=functions; fp->name != NULL; fp++)
+-			{
+-			nl=0;
++        {
++            BIO *tmpbio = BIO_new(BIO_f_linebuffer());
++            bio_stdout = BIO_push(tmpbio, bio_stdout);
++        }
++#endif
++
++        if (!load_config(bio_err, NULL))
++            goto end;
++
++        if (list_type == FUNC_TYPE_PKEY)
++            list_pkey(bio_stdout);
++        if (list_type == FUNC_TYPE_MD_ALG)
++            list_md(bio_stdout);
++        if (list_type == FUNC_TYPE_CIPHER_ALG)
++            list_cipher(bio_stdout);
++        else {
++            for (fp = functions; fp->name != NULL; fp++)
++                if (fp->type == list_type)
++                    BIO_printf(bio_stdout, "%s\n", fp->name);
++        }
++        BIO_free_all(bio_stdout);
++        ret = 0;
++        goto end;
++    } else {
++        BIO_printf(bio_err, "openssl:Error: '%s' is an invalid command.\n",
++                   argv[0]);
++        BIO_printf(bio_err, "\nStandard commands");
++        i = 0;
++        tp = 0;
++        for (fp = functions; fp->name != NULL; fp++) {
++            nl = 0;
+ #ifdef OPENSSL_NO_CAMELLIA
+-			if (((i++) % 5) == 0)
++            if (((i++) % 5) == 0)
+ #else
+-			if (((i++) % 4) == 0)
++            if (((i++) % 4) == 0)
+ #endif
+-				{
+-				BIO_printf(bio_err,"\n");
+-				nl=1;
+-				}
+-			if (fp->type != tp)
+-				{
+-				tp=fp->type;
+-				if (!nl) BIO_printf(bio_err,"\n");
+-				if (tp == FUNC_TYPE_MD)
+-					{
+-					i=1;
+-					BIO_printf(bio_err,
+-						"\nMessage Digest commands (see the `dgst' command for more details)\n");
+-					}
+-				else if (tp == FUNC_TYPE_CIPHER)
+-					{
+-					i=1;
+-					BIO_printf(bio_err,"\nCipher commands (see the `enc' command for more details)\n");
+-					}
+-				}
++            {
++                BIO_printf(bio_err, "\n");
++                nl = 1;
++            }
++            if (fp->type != tp) {
++                tp = fp->type;
++                if (!nl)
++                    BIO_printf(bio_err, "\n");
++                if (tp == FUNC_TYPE_MD) {
++                    i = 1;
++                    BIO_printf(bio_err,
++                               "\nMessage Digest commands (see the `dgst' command for more details)\n");
++                } else if (tp == FUNC_TYPE_CIPHER) {
++                    i = 1;
++                    BIO_printf(bio_err,
++                               "\nCipher commands (see the `enc' command for more details)\n");
++                }
++            }
+ #ifdef OPENSSL_NO_CAMELLIA
+-			BIO_printf(bio_err,"%-15s",fp->name);
++            BIO_printf(bio_err, "%-15s", fp->name);
+ #else
+-			BIO_printf(bio_err,"%-18s",fp->name);
++            BIO_printf(bio_err, "%-18s", fp->name);
+ #endif
+-			}
+-		BIO_printf(bio_err,"\n\n");
+-		ret=0;
+-		}
+-end:
+-	return(ret);
+-	}
+-
+-static int SortFnByName(const void *_f1,const void *_f2)
+-    {
+-    const FUNCTION *f1=_f1;
+-    const FUNCTION *f2=_f2;
+-
+-    if(f1->type != f2->type)
+-	return f1->type-f2->type;
+-    return strcmp(f1->name,f2->name);
++        }
++        BIO_printf(bio_err, "\n\n");
++        ret = 0;
+     }
++ end:
++    return (ret);
++}
++
++static int SortFnByName(const void *_f1, const void *_f2)
++{
++    const FUNCTION *f1 = _f1;
++    const FUNCTION *f2 = _f2;
++
++    if (f1->type != f2->type)
++        return f1->type - f2->type;
++    return strcmp(f1->name, f2->name);
++}
+ 
+ static void list_pkey(BIO *out)
+-	{
+-	int i;
+-	for (i = 0; i < EVP_PKEY_asn1_get_count(); i++)
+-		{
+-		const EVP_PKEY_ASN1_METHOD *ameth;
+-		int pkey_id, pkey_base_id, pkey_flags;
+-		const char *pinfo, *pem_str;
+-		ameth = EVP_PKEY_asn1_get0(i);
+-		EVP_PKEY_asn1_get0_info(&pkey_id, &pkey_base_id, &pkey_flags,
+-						&pinfo, &pem_str, ameth);
+-		if (pkey_flags & ASN1_PKEY_ALIAS)
+-			{
+-			BIO_printf(out, "Name: %s\n", 
+-					OBJ_nid2ln(pkey_id));
+-			BIO_printf(out, "\tType: Alias to %s\n",
+-					OBJ_nid2ln(pkey_base_id));
+-			}
+-		else
+-			{
+-			BIO_printf(out, "Name: %s\n", pinfo);
+-			BIO_printf(out, "\tType: %s Algorithm\n", 
+-				pkey_flags & ASN1_PKEY_DYNAMIC ?
+-					"External" : "Builtin");
+-			BIO_printf(out, "\tOID: %s\n", OBJ_nid2ln(pkey_id));
+-			if (pem_str == NULL)
+-				pem_str = "(none)";
+-			BIO_printf(out, "\tPEM string: %s\n", pem_str);
+-			}
+-					
+-		}
+-	}
++{
++    int i;
++    for (i = 0; i < EVP_PKEY_asn1_get_count(); i++) {
++        const EVP_PKEY_ASN1_METHOD *ameth;
++        int pkey_id, pkey_base_id, pkey_flags;
++        const char *pinfo, *pem_str;
++        ameth = EVP_PKEY_asn1_get0(i);
++        EVP_PKEY_asn1_get0_info(&pkey_id, &pkey_base_id, &pkey_flags,
++                                &pinfo, &pem_str, ameth);
++        if (pkey_flags & ASN1_PKEY_ALIAS) {
++            BIO_printf(out, "Name: %s\n", OBJ_nid2ln(pkey_id));
++            BIO_printf(out, "\tType: Alias to %s\n",
++                       OBJ_nid2ln(pkey_base_id));
++        } else {
++            BIO_printf(out, "Name: %s\n", pinfo);
++            BIO_printf(out, "\tType: %s Algorithm\n",
++                       pkey_flags & ASN1_PKEY_DYNAMIC ?
++                       "External" : "Builtin");
++            BIO_printf(out, "\tOID: %s\n", OBJ_nid2ln(pkey_id));
++            if (pem_str == NULL)
++                pem_str = "(none)";
++            BIO_printf(out, "\tPEM string: %s\n", pem_str);
++        }
++
++    }
++}
+ 
+ static void list_cipher_fn(const EVP_CIPHER *c,
+-			const char *from, const char *to, void *arg)
+-	{
+-	if (c)
+-		BIO_printf(arg, "%s\n", EVP_CIPHER_name(c));
+-	else
+-		{
+-		if (!from)
+-			from = "<undefined>";
+-		if (!to)
+-			to = "<undefined>";
+-		BIO_printf(arg, "%s => %s\n", from, to);
+-		}
+-	}
++                           const char *from, const char *to, void *arg)
++{
++    if (c)
++        BIO_printf(arg, "%s\n", EVP_CIPHER_name(c));
++    else {
++        if (!from)
++            from = "<undefined>";
++        if (!to)
++            to = "<undefined>";
++        BIO_printf(arg, "%s => %s\n", from, to);
++    }
++}
+ 
+ static void list_cipher(BIO *out)
+-	{
+-	EVP_CIPHER_do_all_sorted(list_cipher_fn, out);
+-	}
++{
++    EVP_CIPHER_do_all_sorted(list_cipher_fn, out);
++}
+ 
+ static void list_md_fn(const EVP_MD *m,
+-			const char *from, const char *to, void *arg)
+-	{
+-	if (m)
+-		BIO_printf(arg, "%s\n", EVP_MD_name(m));
+-	else
+-		{
+-		if (!from)
+-			from = "<undefined>";
+-		if (!to)
+-			to = "<undefined>";
+-		BIO_printf(arg, "%s => %s\n", from, to);
+-		}
+-	}
++                       const char *from, const char *to, void *arg)
++{
++    if (m)
++        BIO_printf(arg, "%s\n", EVP_MD_name(m));
++    else {
++        if (!from)
++            from = "<undefined>";
++        if (!to)
++            to = "<undefined>";
++        BIO_printf(arg, "%s => %s\n", from, to);
++    }
++}
+ 
+ static void list_md(BIO *out)
+-	{
+-	EVP_MD_do_all_sorted(list_md_fn, out);
+-	}
+-
+-static int MS_CALLBACK function_cmp(const FUNCTION *a, const FUNCTION *b)
+-	{
+-	return strncmp(a->name,b->name,8);
+-	}
++{
++    EVP_MD_do_all_sorted(list_md_fn, out);
++}
++
++static int MS_CALLBACK function_cmp(const FUNCTION * a, const FUNCTION * b)
++{
++    return strncmp(a->name, b->name, 8);
++}
++
+ static IMPLEMENT_LHASH_COMP_FN(function, FUNCTION)
+ 
+-static unsigned long MS_CALLBACK function_hash(const FUNCTION *a)
+-	{
+-	return lh_strhash(a->name);
+-	}	
++static unsigned long MS_CALLBACK function_hash(const FUNCTION * a)
++{
++    return lh_strhash(a->name);
++}
++
+ static IMPLEMENT_LHASH_HASH_FN(function, FUNCTION)
+ 
+ static LHASH_OF(FUNCTION) *prog_init(void)
+-	{
+-	LHASH_OF(FUNCTION) *ret;
+-	FUNCTION *f;
+-	size_t i;
+-
+-	/* Purely so it looks nice when the user hits ? */
+-	for(i=0,f=functions ; f->name != NULL ; ++f,++i)
+-	    ;
+-	qsort(functions,i,sizeof *functions,SortFnByName);
+-
+-	if ((ret=lh_FUNCTION_new()) == NULL)
+-		return(NULL);
+-
+-	for (f=functions; f->name != NULL; f++)
+-		(void)lh_FUNCTION_insert(ret,f);
+-	return(ret);
+-	}
+-
++{
++    LHASH_OF(FUNCTION) *ret;
++    FUNCTION *f;
++    size_t i;
++
++    /* Purely so it looks nice when the user hits ? */
++    for (i = 0, f = functions; f->name != NULL; ++f, ++i) ;
++    qsort(functions, i, sizeof *functions, SortFnByName);
++
++    if ((ret = lh_FUNCTION_new()) == NULL)
++        return (NULL);
++
++    for (f = functions; f->name != NULL; f++)
++        (void)lh_FUNCTION_insert(ret, f);
++    return (ret);
++}

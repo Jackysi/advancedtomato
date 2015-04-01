@@ -1,3 +1,46 @@
+20150115:
+    Added devices: Aiko 81D, Alcatel-Lucent ABS-T920, Alcatel X602D,
+    Amoi H-01, Amoi H-02, D-Link DWM-157 B1, D-Link DWM-221, D-Link
+    DWM-156 A8, D-Link DWM-167 A1, Huawei ETS1201, Intex 3.5G, Intex Speed
+    3G v7.2, Linktop LW272/LW273 (BSNL Teracom), Onda MV815U, Onda MO835UP,
+    Onda MDC655, Onda MDC655 Variant, Quanta MU-Q101, StrongRising STD808,
+    Telewell TW-LTE 4G, TechFaith Venus VT-18, TechFaith BSNL Capitel,
+    TechFaith FlyingLARK46, Tlaytech TEU800, TU930, IVIO IV-2010u, Viettel
+    VT100, Wisue W340, Zoom 3G, ZTE / Vodafone K4607-Z, ZTE / Vodafone K4201,
+    ZTE MF730, ZTE MF710M Variants, several modems with unknown names (vendor
+    ID 0x257a); many minor corrections and additions to existing
+    configurations. Thanks to Lars Melin once more for extended research and
+    collecting!
+20140529:
+    ATTENTION: requires usb-modeswitch version >= 2.2.0 due to new para-
+    meter HuaweiNewMode (further reducing config file size);
+    Added devices: Nexperia TM TD-SCDMA, Sunplus SU-3200U, Olivetti
+    Olicard 160 and Olicard 500, Ericsson F5521gw, Sony Ericsson EC400,
+    Huawei EC168, Huawei/Vod. W5101 Router, Huawei E3531, Huawei E3131
+    (Variant), Novatel MiFi 4082, Emobile D12LC, Emobile D21LC, Prolink
+    PCM100, Titan 3.5G, several nameless ZTE modems, several minor device
+    configuration corrections (thanks once again to Lars Melin for the
+    tedious device research and compilation!);
+    Substantial change in handling of Huawei devices - generic udev rule and
+    additional generic configuration files (as fallback for unknown models
+    or as OS-specific catch-all); see README for details
+20140327:
+    Plenty of Huawei and ZTE devices added, several target IDs added (thanks
+    to Lars Melin for the compilation); fix for Option GI1515 (0af0:d001) to
+    be used with usb-modeswitch >= 2.1.1
+20140129:
+    Minor bug fix in configs 19d2:0149 and 19d2:2000 (Lars Melin reported)
+20140128:
+    ATTENTION: requires usb-modeswitch version >= 2.1.0 due to new para-
+    meter StandardEject (further reducing config file size);
+    Added devices: ZTE MF823/K5008-z, ZE-3G HSPA modem, four new Huawei/
+    Vodafone devices (yet unnamed Kxxxx); thanks to Lars Melin for compiling
+20131113:
+    Added devices: Quanta 1KR / USB-lte 7410, Quanta MobileGenie 4G lte,
+    AVM Fritz!Wlan USB N v2, Alcatel-sbell ASB TL131 TD-LTE, Vodafone K4305,
+    K5150, K4201, K4202 and K4606; ZTE MF821D (Variant), ZTE MF70, ZTE MF60,
+    Haier EVDO Rev. A; several cleanups and fixes. Special thanks to Lars
+    Melin for many device contributions and corrections!
 20130807:
     Added devices: Quanta 1K3 LTE (should've been in the last release),
     TP-Link MA260, Teracom LW272, Huawei E3276s-151 and E3251, Huawei K4305,

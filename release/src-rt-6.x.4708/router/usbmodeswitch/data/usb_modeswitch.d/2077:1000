@@ -1,7 +1,4 @@
-# Changhong CH690
-
-TargetVendor=  0x2077
-TargetProduct= 0x7001
-
-MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-
+# Changhong CH690, D-Link DWM-163 + DWM-168
+TargetVendor=0x2077
+TargetProductList="7001,7010,7011"
+StandardEject=1
