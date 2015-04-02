@@ -2337,7 +2337,10 @@ static int init_nvram(void)
 
 	case MODEL_EA6700:
 		mfr = "Cisco Linksys";
-		name = "EA6700";
+		if(nvram_match("modelNumber", "EA6500"))
+			name = "EA6500v2";
+		else
+			name = "EA6700";
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 
 #ifdef TCONFIG_USB
@@ -2356,10 +2359,21 @@ static int init_nvram(void)
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
-			nvram_set("wl0_country_code", "Q2");
-			nvram_set("wl1_country_code", "Q2");
-			nvram_set("wl0_country_rev", "30");
-			nvram_set("wl1_country_rev", "30");
+			//nvram_set("wl0_country_code", "Q2");
+			//nvram_set("wl1_country_code", "Q2");
+			//nvram_set("wl0_country_rev", "33");
+			//nvram_set("wl1_country_rev", "33");
+			//fix wifi channels
+			nvram_set("0:ccode", "#a");
+			nvram_set("1:ccode", "#a");
+			nvram_set("0:regrev", "0");
+			nvram_set("1:regrev", "0");
+			nvram_set("wl0_country_code", "#a");
+			nvram_set("wl0_country_rev", "0");
+			nvram_set("wl0_reg_mode", "off");
+			nvram_set("wl1_country_code", "#a");
+			nvram_set("wl1_country_rev", "0");
+			nvram_set("wl1_reg_mode", "off");
 			
 			// fix WL mac`s
 			strcpy(s, nvram_safe_get("et0macaddr"));
@@ -2390,7 +2404,7 @@ static int init_nvram(void)
 			nvram_set("0:boardflags", "0x80001200");
 			nvram_set("0:cckbw202gpo", "0x4444");
 			nvram_set("0:cckbw20ul2gpo", "0x4444");
-			nvram_set("0:ccode", "Q2");
+			//nvram_set("0:ccode", "Q2");
 			nvram_set("0:devid", "0x4332");
 			nvram_set("0:elna2g", "2");
 			nvram_set("0:extpagain2g", "3");
@@ -2422,7 +2436,7 @@ static int init_nvram(void)
 			nvram_set("0:parefldovoltage", "60");
 			nvram_set("0:pdetrange2g", "3");
 			nvram_set("0:phycal_tempdelta", "0");
-			nvram_set("0:regrev", "33");
+			//nvram_set("0:regrev", "33");
 			nvram_set("0:rxchain", "7");
 			nvram_set("0:sromrev", "9");
 			nvram_set("0:temps_hysteresis", "5");
@@ -2443,7 +2457,7 @@ static int init_nvram(void)
 			nvram_set("1:boardflags2", "0x00200002");
 			nvram_set("1:boardflags3", "0x0");
 			nvram_set("1:boardflags", "0x30000000");
-			nvram_set("1:ccode", "Q2");
+			//nvram_set("1:ccode", "Q2");
 			nvram_set("1:devid", "0x43A2");
 			nvram_set("1:dot11agduphrpo", "0");
 			nvram_set("1:dot11agduplrpo", "0");
@@ -2486,7 +2500,7 @@ static int init_nvram(void)
 			nvram_set("1:pdoffset80ma1", "0");
 			nvram_set("1:pdoffset80ma2", "0");
 			nvram_set("1:phycal_tempdelta", "0");
-			nvram_set("1:regrev", "33");
+			//nvram_set("1:regrev", "33");
 			nvram_set("1:rxchain", "7");
 			nvram_set("1:rxgains5gelnagaina0", "1");
 			nvram_set("1:rxgains5gelnagaina1", "1");
@@ -2545,8 +2559,6 @@ static int init_nvram(void)
 		}
 		nvram_set("acs_2g_ch_no_ovlp", "1");
 		nvram_set("acs_2g_ch_no_restrict", "1");
-		//nvram_set("acs_5g_ch_no_ovlp", "1");
-		//nvram_set("acs_5g_ch_no_restrict", "1");
 		
 		nvram_set("devpath0", "pci/1/1/");
 		nvram_set("devpath1", "pci/2/1/");
