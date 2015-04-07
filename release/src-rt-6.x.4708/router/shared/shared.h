@@ -254,7 +254,8 @@ enum {
 	MODEL_R7000,
 	MODEL_DIR868L,
 	MODEL_WS880,
-	MODEL_EA6700
+	MODEL_EA6700,
+	MODEL_EA6900
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,

@@ -41,6 +41,7 @@ WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0
 WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
 E4200               BCM4718               0xf52c       42        0x1101                boot_hw_model=E4200
 EA6500v1            BCM4706               0xC617       ${serno}  0x1103    0x00000110  modelNumber=EA6500, serial_number=12N10C69224778
+EA6500v2	    BCM4708		  0xF646	01	 0x1100	   0x0110	0:devid=0x4332
 EA6700		    BCM4708		  0xF646	01	 0x1100	   0x0110	0:devid=0x4332
 EA6900		    BCM4708		  0xD646	01	 0x1100	   0x0110	
 
@@ -223,6 +224,7 @@ int check_hw_type(void)
 	case 0x0646:
 	case 0x0665: //R7000
 	case 0xf646: //EA6700
+	case 0xd646: //EA6900
 		return HW_BCM4708;
 #endif
 	}
@@ -361,6 +363,7 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "24"))) return MODEL_DIR868L;
 		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("boardnum", "1234"))) return MODEL_WS880;
 		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6700;
+		if ((nvram_match("boardtype","0xD646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6900;
 	}
 #endif
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {

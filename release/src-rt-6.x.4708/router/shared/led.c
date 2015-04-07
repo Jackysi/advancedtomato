@@ -475,6 +475,7 @@ int do_led(int which, int mode)
 		b = ws880[which];
 		break;
 	case MODEL_EA6700:
+	case MODEL_EA6900: //need to be verified
 		b = ea6700[which];
 		break;
 

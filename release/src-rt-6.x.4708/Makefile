@@ -165,6 +165,7 @@ ifeq ($(ASUS_TRX),HUAWEI)
 endif
 #for linksys EA series -- EA6700 EA6500v2 EA6900
 ifeq ($(ASUS_TRX), LINKSYS)
+	ctools/trx_asus -i image/linux-lzma.trx -r EA6900,3.0.0.4,image/tomato-EA6900-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r EA6700,3.0.0.4,image/tomato-EA6700-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r EA6500v2,3.0.0.4,image/tomato-EA6500v2-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
