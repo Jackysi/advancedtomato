@@ -1519,6 +1519,9 @@ static int init_nvram(void)
 		nvram_set("usb_uhci", "-1");
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
+			if (get_model() == MODEL_R6300v2) {
+				nvram_set("lan_invert", "1");
+			}
 			nvram_set("vlan1hwname", "et0");
 			nvram_set("vlan2hwname", "et0");
 			nvram_set("lan_ifname", "br0");
