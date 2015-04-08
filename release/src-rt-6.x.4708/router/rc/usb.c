@@ -908,6 +908,11 @@ static inline void usbled_proc(char *device, int add)
 	char *p;
 	char param[32];
 
+	if (get_model() == MODEL_WS880) {
+		do_led(LED_USB3, (add) ? LED_ON : LED_OFF);
+		return;
+	}
+
 	if (do_led(LED_USB, LED_PROBE) != 255) {
 		strncpy(param, device, sizeof(param));
 		if ((p = strchr(param, ':')) != NULL)
