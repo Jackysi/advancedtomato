@@ -659,6 +659,20 @@ mtd_write(const char *path, const char *mtd)
         struct trx_header trx;
         unsigned long crc;
 
+#ifdef CONFIG_FAILSAFE_UPGRADE
+	if (get_model() == MODEL_EA6700)
+	{
+		if (nvram_match("bootpartition", "1")) {
+			mtd = "linux";
+			nvram_set("bootpartition", "0");
+			nvram_commit();
+		} else {
+			mtd = "linux2";
+			nvram_set("bootpartition", "1");
+			nvram_commit();
+		}
+	}
+#endif
         FILE *fp;
         char *buf = NULL;
         long count, len, off;
