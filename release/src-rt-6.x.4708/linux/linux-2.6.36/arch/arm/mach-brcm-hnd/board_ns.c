@@ -805,8 +805,13 @@ init_nflash_mtd_partitions(hndnand_t *nfl, struct mtd_info *mtd, size_t size)
 	uint32 nvsz = 0;
 	uint32 bootossz = nfl_boot_os_size(nfl);
 	uint boardnum = bcm_strtoul(nvram_safe_get("boardnum"), NULL, 0);
+	//EA6700 EA6900
 	if (((boardnum == 1) || (nvram_get("boardnum") == NULL)) && nvram_match("boardtype", "0xF646") && nvram_match("boardrev", "0x1100")) 		{
 		bootossz = 0x4000000;
+		nvsz = 0x100000;
+	}
+	else if (((boardnum == 1) || (nvram_get("boardnum") == NULL)) && nvram_match("boardtype","0xD646") && nvram_match("boardrev","0x1100")) {
+		bootossz = 0x4000000;	
 		nvsz = 0x100000;
 	}
 #ifdef CONFIG_FAILSAFE_UPGRADE
