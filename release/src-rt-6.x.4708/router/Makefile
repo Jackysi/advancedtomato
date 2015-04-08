@@ -875,7 +875,7 @@ openssl/stamp-h1:
 	shared $(OPENSSL_CIPHERS) no-ssl2 no-ssl3 \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
-	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
+	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake \
 	no-zlib no-engines no-sse2 \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
@@ -2667,10 +2667,10 @@ dnscrypt-clean:
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP=$(STRIP) \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
 		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib \
-		--disable-asciidoc --disable-threads --disable-gcc-hardening
+		--disable-asciidoc
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
