@@ -274,11 +274,13 @@ void set_et_qos_mode(int sfd)
 			ifr.ifr_data = (caddr_t)&info;
 			if (ioctl(sfd, SIOCETHTOOL, &ifr) >= 0) {
 				/* Set QoS for et & bcm57xx devices */
+#ifndef BCMARM
 				if (!strncmp(info.driver, "et", 2) ||
 				    !strncmp(info.driver, "bcm57", 5)) {
 					ifr.ifr_data = (caddr_t)&qos;
 					ioctl(sfd, SIOCSETCQOS, &ifr);
 				}
+#endif
 			}
 			ifr.ifr_data = ifrdata;
 		}
