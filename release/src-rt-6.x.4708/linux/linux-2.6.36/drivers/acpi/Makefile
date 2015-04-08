@@ -2,7 +2,7 @@
 # Makefile for the Linux ACPI interpreter
 #
 
-ccflags-y			:= -Os
+ccflags-y			:= -Os -fno-delete-null-pointer-checks
 ccflags-$(CONFIG_ACPI_DEBUG)	+= -DACPI_DEBUG_OUTPUT
 
 #
