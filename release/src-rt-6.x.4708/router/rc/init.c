@@ -1465,7 +1465,7 @@ static int init_nvram(void)
 		break;
 	case MODEL_RTAC68U:
 		mfr = "Asus";
-		name = "RT-AC68R/U";
+		name = nvram_match("boardrev", "0x1103") ? "RT-AC68P" : "RT-AC68R/U";		
 		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
