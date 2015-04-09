@@ -515,6 +515,7 @@ void start_vpnserver(int serverNum)
 	char buffer[BUF_SIZE];
 	char buffer2[BUF_SIZE];
 	char *argv[6], *chp, *route;
+	char *br_ipaddr, *br_netmask;
 	int argc = 0;
 	int c2c = 0;
 	enum { TAP, TUN } ifType = TUN;
@@ -643,8 +644,23 @@ void start_vpnserver(int serverNum)
 			sprintf(&buffer[0], "vpn_server%d_dhcp", serverNum);
 			if ( nvram_get_int(&buffer[0]) == 0 )
 			{
-				fprintf(fp, " %s ", nvram_safe_get("lan_ipaddr"));
-				fprintf(fp, "%s ", nvram_safe_get("lan_netmask"));
+				sprintf(&buffer2[0], "vpn_server%d_br", serverNum);
+				if (nvram_contains_word(&buffer2[0], "br1") ) {
+					br_ipaddr = nvram_get( "lan1_ipaddr" );
+					br_netmask = nvram_get( "lan1_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br2") ) {
+					br_ipaddr = nvram_get( "lan2_ipaddr" );
+					br_netmask = nvram_get( "lan2_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br3") ) {
+					br_ipaddr = nvram_get( "lan3_ipaddr" );
+					br_netmask = nvram_get( "lan3_netmask" );
+				} else {
+					br_ipaddr = nvram_get( "lan_ipaddr" );
+					br_netmask = nvram_get( "lan_netmask" );
+				}
+
+				fprintf(fp, " %s ", br_ipaddr);
+				fprintf(fp, "%s ", br_netmask);
 				sprintf(&buffer[0], "vpn_server%d_r1", serverNum);
 				fprintf(fp, "%s ", nvram_safe_get(&buffer[0]));
 				sprintf(&buffer[0], "vpn_server%d_r2", serverNum);
