@@ -704,7 +704,14 @@ struct nvram_tuple router_defaults[] = {
 	{ "usb_fs_fat",			"1"				, 0 },
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				, 0 },
+#ifdef TCONFIG_TUXERA
+	{ "usb_ntfs_driver",		"tuxera"			, 0 },
+#elif TCONFIG_UFSD
+	{ "usb_ntfs_driver",		"paragon"			, 0 },
+#else
+	{ "usb_ntfs_driver",		"ntfs3g"			, 0 },
 #endif
+#endif //TCONFIG_NTFS
 #ifdef TCONFIG_HFS
 	{ "usb_fs_hfs",			"0"				, 0 }, //!Victek
 #endif

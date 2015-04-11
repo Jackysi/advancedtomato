@@ -164,18 +164,19 @@ obj-$(NEED_SAMBA3) += samba3
 #endif
 
 ifeq ($(CONFIG_BCMWL6),y)
-ifeq ($(TCONFIG_UFSDA),y)
-    obj-$(TCONFIG_NTFS) += ufsd-asus
+ifeq ($(TCONFIG_TUXERA),y)
+    obj-y += tuxera
 else
-    ifeq ($(TCONFIG_UFSDN),y)
-        obj-$(TCONFIG_NTFS) += ufsd-netgear
+    ifeq ($(TCONFIG_UFSDA),y)
+        obj-$(TCONFIG_NTFS) += ufsd-asus
     else
-        obj-$(TCONFIG_NTFS) += ntfs-3g
+        ifeq ($(TCONFIG_UFSDN),y)
+            obj-$(TCONFIG_NTFS) += ufsd-netgear
+        endif
     endif
 endif
-else
-obj-$(TCONFIG_NTFS) += ntfs-3g
 endif
+obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-$(TCONFIG_EBTABLES) += ebtables
 #obj-$(TCONFIG_IPV6) += libdaemon

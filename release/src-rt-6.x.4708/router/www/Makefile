@@ -86,6 +86,17 @@ endif
 ifneq ($(TCONFIG_NTFS),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"
 endif
+
+# Only include Paragon NTFS settings if Paragon is configured in.
+ifneq ($(TCONFIG_PARAGON),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/PARAGON-BEGIN/,/PARAGON-END/d"
+endif
+
+# Only include Tuxera NTFS settings if Tuxera is configured in.
+ifneq ($(TCONFIG_TUXERA),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/TUXERA-BEGIN/,/TUXERA-END/d"
+endif
+
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp
