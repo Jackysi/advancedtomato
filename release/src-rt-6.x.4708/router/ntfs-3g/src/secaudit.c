@@ -1,7 +1,7 @@
 /*
  *		 Display and audit security attributes in an NTFS volume
  *
- * Copyright (c) 2007-2012 Jean-Pierre Andre
+ * Copyright (c) 2007-2014 Jean-Pierre Andre
  * 
  *	Options :
  *		-a auditing security data
@@ -203,6 +203,15 @@
  *
  *  Aug 2012, version 1.4.0
  *     - added an option for user mapping proposal
+ *
+ *  Sep 2013, version 1.4.1
+ *     - silenced an aliasing warning by gcc >= 4.8
+ *
+ *  May 2014, version 1.4.2
+ *     - decoded GENERIC_ALL permissions
+ *     - decoded more "well-known" and generic SIDs
+ *     - showed Windows ownership in verbose situations
+ *     - fixed apparent const violations
  */
 
 /*
@@ -226,7 +235,7 @@
  *		General parameters which may have to be adapted to needs
  */
 
-#define AUDT_VERSION "1.4.0"
+#define AUDT_VERSION "1.4.2"
 
 #define GET_FILE_SECURITY "ntfs_get_file_security"
 #define SET_FILE_SECURITY "ntfs_set_file_security"
@@ -419,6 +428,8 @@ type_leave_file_security ntfs_leave_file_security;
 #endif /* USESTUBS | defined(STSC) */
 #endif /* WIN32 */
 
+#define ACCOUNTSIZE 256  /* maximum size of an account name */
+
 /*
  *		Prototypes for local functions
  */
@@ -449,6 +460,7 @@ BOOL guess_dir(const char*);
 void showsid(const char*, int, const char*, int);
 void showusid(const char*, int);
 void showgsid(const char*, int);
+void showownership(const char*);
 void showheader(const char*, int);
 void showace(const char*, int, int, int);
 void showacl(const char*, int, int, int);
@@ -1444,6 +1456,26 @@ void showsid(const char *attr, int off, const char *prefix, int level)
 				break;
 			case 5 :
 				switch (first) {
+				case 1 :
+					known = TRUE;
+					printf("%*cDialup SID\n",-level,marker);
+					break;
+				case 2 :
+					known = TRUE;
+					printf("%*cNetwork SID\n",-level,marker);
+					break;
+				case 3 :
+					known = TRUE;
+					printf("%*cBatch SID\n",-level,marker);
+					break;
+				case 4 :
+					known = TRUE;
+					printf("%*cInteractive SID\n",-level,marker);
+					break;
+				case 6 :
+					known = TRUE;
+					printf("%*cService SID\n",-level,marker);
+					break;
 				case 7 :
 					known = TRUE;
 					printf("%*cAnonymous logon SID\n",-level,marker);
@@ -1498,8 +1530,13 @@ void showsid(const char *attr, int off, const char *prefix, int level)
 			case 5 :
 				if (first == 21) {
 					known = TRUE;
-					switch (last)
-						{
+					switch (last) {
+						case 500 :
+							printf("%*cSystem admin SID\n",-level,marker);
+							break;
+						case 501 :
+							printf("%*cGuest SID\n",-level,marker);
+							break;
 						case 512 :
 							printf("%*cLocal admins SID\n",-level,marker);
 							break;
@@ -1561,6 +1598,74 @@ void showgsid(const char *attr, int level)
 	printf("Group SID\n");
 	off = get4l(attr,8);
 	showsid(attr,off,"G:",level+4);
+}
+
+void showownership(const char *attr)
+{
+#ifdef WIN32
+	char account[ACCOUNTSIZE];
+	BIGSID sidcopy;
+	SID_NAME_USE use;
+	unsigned long accountsz;
+	unsigned long domainsz;
+#endif
+	enum { SHOWOWN, SHOWGRP, SHOWINT } shown;
+	const char *sid;
+	const char *prefix;
+	u64 auth;
+	int cnt;
+	int off;
+	int i;
+
+	for (shown=SHOWOWN; shown<=SHOWINT; shown++) {
+		switch (shown) {
+		case SHOWOWN :
+			off = get4l(attr,4);
+			sid = &attr[off];
+			prefix = "Windows owner";
+			break;
+		case SHOWGRP :
+			off = get4l(attr,8);
+			sid = &attr[off];
+			prefix = "Windows group";
+			break;
+#if OWNERFROMACL
+		case SHOWINT :
+			off = get4l(attr,4);
+			prefix = "Interpreted owner";
+			sid = (const char*)ntfs_acl_owner((const char*)attr);
+			if (ntfs_same_sid((const SID*)sid,
+						(const SID*)&attr[off]))
+				sid = (const char*)NULL;
+			break;
+#endif
+		default :
+			sid = (const char*)NULL;
+			prefix = (const char*)NULL;
+			break;
+		}
+		if (sid) {
+			cnt = sid[1] & 255;
+			auth = get6h(sid,2);
+			if (opt_b)
+				printf("# %s S-%d-",prefix,sid[0] & 255);
+			else
+				printf("%s S-%d-",prefix,sid[0] & 255);
+			printf("%llu",auth);
+			for (i=0; i<cnt; i++)
+				printf("-%lu",get4l(sid,8+4*i));
+#ifdef WIN32
+			memcpy(sidcopy,sid,ntfs_sid_size((const SID*)sid));
+			accountsz = ACCOUNTSIZE;
+			domainsz = ACCOUNTSIZE;
+			if (LookupAccountSidA((const char*)NULL, sidcopy,
+					account, &accountsz,
+					(char*)NULL, &domainsz, &use))
+				printf(" (%s)", account);
+#endif
+			printf("\n");
+		}
+	}
 }
 
 void showheader(const char *attr, int level)
@@ -2294,7 +2399,7 @@ int local_build_mapping(struct MAPPING *mapping[], const char *usermap_path)
 #ifdef WIN32
 /* TODO : check whether the device can store acls */
 		strcpy(mapfile,"x:\\" MAPDIR "\\" MAPFILE);
-		if (((le16*)usermap_path)[1] == ':')
+		if (((const le16*)usermap_path)[1] == ':')
   			mapfile[0] = usermap_path[0];
 		else {
 			GetModuleFileName(NULL, currpath, 261);
@@ -2480,6 +2585,7 @@ void showhex(FILE *fd)
 	int mode;
 	unsigned int off;
 	int i;
+	le32 *pattr;
 	BOOL isdump;
 	BOOL done;
 
@@ -2516,6 +2622,7 @@ void showhex(FILE *fd)
 			showgsid(attr,4);
 			showdacl(attr,isdir,4);
 			showsacl(attr,isdir,4);
+			showownership(attr);
 			mode = linux_permissions(attr,isdir);
 			printf("Interpreted Unix mode 0%03o\n",mode);
 #if POSIXACLS
@@ -2539,8 +2646,9 @@ void showhex(FILE *fd)
 			/* decode it into attribute */
 		if (isdump && (off == pos)) {
 			for (i=first+8; i<lth; i+=9) {
+				pattr = (le32*)&attr[pos];
 				v = getlsbhex(&line[i]);
-				*(le32*)&attr[pos] = cpu_to_le32(v);
+				*pattr = cpu_to_le32(v);
 				pos += 4;
 			}
 		}
@@ -2639,8 +2747,9 @@ BOOL applyattr(const char *fullname, const char *attr,
 				}
 			}
 		}
+		/* const missing from stupid prototype */
 		bad = !SetFileSecurityW((LPCWSTR)fullname,
-			selection, (char*)curattr);
+			selection, (PSECURITY_DESCRIPTOR)(LONG_PTR)curattr);
 		if (bad)
 			switch (GetLastError()) {
 			case 1307 :
@@ -2649,9 +2758,12 @@ BOOL applyattr(const char *fullname, const char *attr,
 				printname(stdout,fullname);
 				printf(", retrying with no owner or SACL setting\n");
 				warnings++;
+				/* const missing from stupid prototype */
 				bad = !SetFileSecurityW((LPCWSTR)fullname,
 					selection & ~OWNER_SECURITY_INFORMATION
-					& ~SACL_SECURITY_INFORMATION, (char*)curattr);
+					& ~SACL_SECURITY_INFORMATION,
+					(PSECURITY_DESCRIPTOR)
+							(LONG_PTR)curattr);
 				break;
 			default :
 				break;
@@ -2718,6 +2830,7 @@ BOOL restore(FILE *fd)
 	int i;
 	int count;
 	int attrib;
+	le32 *pattr;
 	BOOL withattr;
 	BOOL done;
 
@@ -2764,6 +2877,7 @@ BOOL restore(FILE *fd)
 				showdacl(attr,isdir,4);
 				showsacl(attr,isdir,4);
 				mode = linux_permissions(attr,isdir);
+				showownership(attr);
 				printf("Interpreted Unix mode 0%03o\n",mode);
 			}
 			pos = 0;
@@ -2774,8 +2888,9 @@ BOOL restore(FILE *fd)
 			/* decode it into attribute */
 		if (isdump && (off == pos)) {
 			for (i=first+8; i<lth; i+=9) {
+				pattr = (le32*)&attr[pos];
 				v = getlsbhex(&line[i]);
-				*(le32*)&attr[pos] = cpu_to_le32(v);
+				*pattr = cpu_to_le32(v);
 				pos += 4;
 			}
 		}
@@ -4659,12 +4774,19 @@ BOOL setfull(const char *fullname, int mode, BOOL isdir)
 
 BOOL proposal(const char *name, const char *attr)
 {
+	char fullname[MAXFILENAME];
 	int uoff, goff;
 	int i;
 	u64 uauth, gauth;
 	int ucnt, gcnt;
 	int uid, gid;
 	BOOL err;
+#ifdef WIN32
+	char driveletter;
+#else
+	struct stat st;
+	char *p,*q;
+#endif
 
 	err = FALSE;
 #ifdef WIN32
@@ -4683,7 +4805,8 @@ BOOL proposal(const char *name, const char *attr)
 	if ((ucnt == 5) && (gcnt == 5)
 	    && (uauth == 5) && (gauth == 5)
 	    && (get4l(attr,uoff+8) == 21) && (get4l(attr,goff+8) == 21)) {
-		printf("# User mapping proposal\n");
+		printf("# User mapping proposal :\n");
+		printf("# -------------------- cut here -------------------\n");
 		if (uid)
 			printf("%d::",uid);
 		else
@@ -4705,12 +4828,62 @@ BOOL proposal(const char *name, const char *attr)
 		for (i=0; i<gcnt-1; i++)
 			printf("-%lu",get4l(attr,goff+8+4*i));
 		printf("-10000\n");
+		printf("# -------------------- cut here -------------------\n");
 		if (!uid || !gid) {
-			printf("# Please replace \"user\" and \"group\" by the uid and gid\n");
-			printf("# of the Linux owner and group of ");
+			printf("# Please replace \"user\" and \"group\" above by the uid\n");
+			printf("# and gid of the Linux owner and group of ");
 			printname(stdout,name);
-			printf("\n");
+			printf(", then\n");
+			printf("# insert the modified lines into .NTFS-3G/Usermapping, with .NTFS-3G\n");
+		} else
+			printf("# Insert the above lines into .NTFS-3G/Usermapping, with .NTFS-3G\n");
+#ifdef WIN32
+		printf("# being a directory of the root of the NTFS file system.\n");
+
+		/* Get the drive letter to the file system */
+		driveletter = 0;
+		if ((((name[0] >= 'a') && (name[0] <= 'z'))
+			|| ((name[0] >= 'A') && (name[0] <= 'Z')))
+		    && (name[1] == ':'))
+			driveletter = name[0];
+		else {
+			if (GetCurrentDirectoryA(MAXFILENAME, fullname)
+					&& (fullname[1] == ':'))
+				driveletter = fullname[0];
 		}
+		if (driveletter) {
+			printf("# Example : %c:\\.NTFS-3G\\UserMapping\n",
+				driveletter);
+		}
+#else
+		printf("# being a hidden subdirectory of the root of the NTFS file system.\n");
+
+		/* Get the path to the root of the file system */
+		if (name[0] != '/') {
+			p = getcwd(fullname,MAXFILENAME);
+			if (p) {
+				strcat(fullname,"/");
+				strcat(fullname,name);
+			}
+		} else {
+			strcpy(fullname,name);
+			p = fullname;
+		}
+		if (p) {
+			/* go down the path to inode 5 (fails on symlinks) */
+			do {
+				lstat(fullname,&st);
+				q = strrchr(p,'/');
+				if (q && (st.st_ino != 5))
+					*q = 0;
+			} while (strchr(p,'/') && (st.st_ino != 5));
+		}
+		if (p && (st.st_ino == 5)) {
+			printf("# Example : ");
+			printname(stdout,p);
+			printf("/.NTFS-3G/UserMapping\n");
+		}
+#endif
 	} else {
 		printf("** Not possible : ");
 		printname(stdout,name);
@@ -4877,9 +5050,11 @@ void showfull(const char *fullname, BOOL isdir)
 				uid = linux_owner(attr);
 				gid = linux_group(attr);
 				if (opt_b) {
+				        showownership(attr);
 					printf("# Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				} else {
+				        showownership(attr);
 					printf("Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				}
@@ -5223,9 +5398,11 @@ void showfull(const char *fullname, BOOL isdir)
 				uid = linux_owner(attr);
 				gid = linux_group(attr);
 				if (opt_b) {
+				        showownership(attr);
 					printf("# Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				} else {
+				        showownership(attr);
 					printf("Interpreted Unix owner %d, group %d, mode 0%03o\n",
 						(int)uid,(int)gid,mode);
 				}
@@ -5433,6 +5610,7 @@ BOOL showmounted(const char *fullname)
 					showdacl(attr,isdir,level);
 					showsacl(attr,isdir,level);
 				}
+			        showownership(attr);
 				if (mapped) {
 					uid = linux_owner(attr);
 					gid = linux_group(attr);
@@ -6099,6 +6277,7 @@ int audit_sds(BOOL second)
 						showgsid(&attr[20],0);
 						showdacl(&attr[20],isdir,0);
 						showsacl(&attr[20],isdir,0);
+						showownership(&attr[20]);
 						mode = linux_permissions(
 						    &attr[20],isdir);
 						printf("Interpreted Unix mode 0%03o\n",mode);

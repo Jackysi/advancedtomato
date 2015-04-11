@@ -3,7 +3,7 @@
  *
  *	This module is part of ntfs-3g library
  *
- * Copyright (c) 2008-2012 Jean-Pierre Andre
+ * Copyright (c) 2008-2014 Jean-Pierre Andre
  *
  * This program/include file is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as published
@@ -313,14 +313,14 @@ static char *search_relative(ntfs_inode *ni, ntfschar *path, int count)
 		if ((count >= (pos + 2))
 		    && (path[pos] == const_cpu_to_le16('.'))
 		    && (path[pos+1] == const_cpu_to_le16('\\'))) {
-			path[1] = const_cpu_to_le16('/');
+			path[pos+1] = const_cpu_to_le16('/');
 			pos += 2;
 		} else {
 			if ((count >= (pos + 3))
 			    && (path[pos] == const_cpu_to_le16('.'))
 			    &&(path[pos+1] == const_cpu_to_le16('.'))
 			    && (path[pos+2] == const_cpu_to_le16('\\'))) {
-				path[2] = const_cpu_to_le16('/');
+				path[pos+2] = const_cpu_to_le16('/');
 				pos += 3;
 				newni = ntfs_dir_parent_inode(curni);
 				if (curni != ni)
@@ -1117,7 +1117,11 @@ int ntfs_set_ntfs_reparse_data(ntfs_inode *ni,
 	ntfs_index_context *xr;
 
 	res = 0;
-	if (ni && valid_reparse_data(ni, (const REPARSE_POINT*)value, size)) {
+			/* reparse data is not compatible with EA */
+	if (ni
+	    && !ntfs_attr_exist(ni, AT_EA_INFORMATION, AT_UNNAMED, 0)
+	    && !ntfs_attr_exist(ni, AT_EA, AT_UNNAMED, 0)
+	    && valid_reparse_data(ni, (const REPARSE_POINT*)value, size)) {
 		xr = open_reparse_index(ni->vol);
 		if (xr) {
 			if (!ntfs_attr_exist(ni,AT_REPARSE_POINT,
