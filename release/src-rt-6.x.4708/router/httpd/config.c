@@ -14,7 +14,7 @@
 #include <typedefs.h>
 #include <sys/reboot.h>
 
-//	#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define NVRAMCMD	"/tmp/nvram"
@@ -65,9 +65,13 @@ void wo_backup(char *url)
 {
 	char tmp[64];
 	char msg[64];
-	static char *args[] = {
-		NVRAMCMD, "save", NULL, NULL
-	};
+//	static char *args[] = {
+//		NVRAMCMD, "save"
+//	};
+
+	char *args[3];
+	args[0] = NVRAMCMD;
+	args[1] = "save";
 
 	strcpy(tmp, "/tmp/backupXXXXXX");
 	mktemp(tmp);
@@ -76,6 +80,7 @@ void wo_backup(char *url)
 	sprintf(msg, ">%s.msg", tmp);
 
 	if (_eval(args, msg, 0, NULL) == 0) {
+		eval(args, msg);
 		send_header(200, NULL, mime_binary, 0);
 		do_file(tmp);
 		unlink(tmp);
@@ -132,10 +137,10 @@ void wi_restore(char *url, int len, char *boundary)
 	prepare_upgrade();
 
 	char msg[64];
-	static char *args[] = {
-		NVRAMCMD, "restore", NULL, NULL
-	};
 
+	char *args[3];
+	args[0] = NVRAMCMD;
+	args[1] = "restore";
 	args[2] = tmp;
 
 	sprintf(msg, ">%s.msg", tmp);
@@ -143,6 +148,7 @@ void wi_restore(char *url, int len, char *boundary)
 	if (_eval(args, msg, 0, NULL) != 0) {
 		resmsg_fread(msg + 1);
 	}
+	nvram_commit();
 #ifndef DEBUG
 	unlink(msg + 1);
 #endif
