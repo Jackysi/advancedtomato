@@ -27,7 +27,7 @@ endif
 #
 
 CFLAGS += -gdwarf-2 -c -ffreestanding 
-CFLAGS += -Os -Wall -Werror -Wstrict-prototypes -Wmissing-prototypes 
+CFLAGS += -Os -fno-delete-null-pointer-checks -Wall -Werror -Wstrict-prototypes -Wmissing-prototypes 
 
 #
 # Tools locations
