@@ -1,7 +1,8 @@
 Name: test
-Type: iphash
+Type: hash:ip
+Header: family inet hashsize 128 maxelem 65536
+Size in memory: 1184
 References: 0
-Header: hashsize: 128 probes: 8 resize: 50
 Members:
 192.168.68.69
 2.0.0.1

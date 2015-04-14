@@ -1,0 +1,7 @@
+Name: test
+Type: hash:mac
+Header: hashsize 128 maxelem 65536 timeout 5
+Size in memory: 2488
+References: 0
+Members:
+00:0A:00:00:00:00 timeout 0
