@@ -2469,6 +2469,9 @@ function navi()
 			/* SAMBA-BEGIN */
 			,'File Sharing':        'nas-samba.asp'
 			/* SAMBA-END */
+			/* FTP-BEGIN */
+			,'FTP Server':          	'web-ftp.asp'
+			/* FTP-END */
 			/* MEDIA-SRV-BEGIN */
 			,'Media Server':        'nas-media.asp'
 			/* MEDIA-SRV-END */
@@ -2482,9 +2485,6 @@ function navi()
 
 		/* NGINX-BEGIN */
 		'Web Services': {	
-			/* FTP-BEGIN */
-			'FTP Server':          	'web-ftp.asp',
-			/* FTP-END */
 			'Web Server': 			'web-nginx.asp',
 			'MySQL Server': 		'web-mysql.asp'
 		},

@@ -144,9 +144,9 @@ No part of this file may be used without permission.
 
 					f = [
 						{ title: 'WAN Port', indent: 1, name: 'f_wan_hwaddr', type: 'text', maxlen: 17, size: 20,
-							suffix: ' <button type="button" value="Default" onclick="bdefault(\'wan\')" class="btn btn-small">Default</button> \
-							<button type="button" value="Random" onclick="brand(\'wan\')" class="btn btn-small">Random</button> \
-							<button type="button" value="Clone PC" onclick="bclone(\'wan\')" class="btn btn-small">Clone PC</button>',
+							suffix: ' <button type="button" value="Default" onclick="bdefault(\'wan\')" class="btn">Default</button> \
+							<button type="button" value="Random" onclick="brand(\'wan\')" class="btn">Random</button> \
+							<button type="button" value="Clone PC" onclick="bclone(\'wan\')" class="btn">Clone PC</button>',
 							value: nvram.mac_wan || defmac('wan') }
 					];
 
@@ -154,9 +154,9 @@ No part of this file may be used without permission.
 						var u = wl_fface(uidx);
 						f.push(
 							{ title: 'Wireless Interface ' + ((wl_ifaces.length > 1) ? wl_ifaces[uidx][0] : ''), indent: 1, name: 'f_wl'+u+'_hwaddr', type: 'text', maxlen: 17, size: 20,
-								suffix:' <button type="button" value="Default" onclick="bdefault(\'wl'+u+'\')" class="btn btn-small">Default</button> \
-								<button type="button" value="Random" onclick="brand(\'wl'+u+'\')" class="btn btn-small">Random</button> \
-								<button type="button" value="Clone PC" onclick="bclone(\'wl'+u+'\')" class="btn btn-small">Clone PC</button>',
+								suffix:' <button type="button" value="Default" onclick="bdefault(\'wl'+u+'\')" class="btn">Default</button> \
+								<button type="button" value="Random" onclick="brand(\'wl'+u+'\')" class="btn">Random</button> \
+								<button type="button" value="Clone PC" onclick="bclone(\'wl'+u+'\')" class="btn">Clone PC</button>',
 								value: nvram['wl'+u+'_hwaddr'] || defmac('wl' + u) }
 						);
 					}

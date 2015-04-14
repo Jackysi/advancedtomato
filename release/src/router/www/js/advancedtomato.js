@@ -128,8 +128,8 @@ function AdvancedTomato () {
 
 		if (n < lastUpdate || n == null) {
 
-			$updateNotification = $('<div class="alert info"><a href="#" class="close" data-update="' + nvram.at_update.replace('.','') + '"><i class="icon-cancel"></i></a>\
-				AdvancedTomato <b>v' + nvram.at_update + '</b> is already available. <a target="_blank" href="http://advancedtomato.com/changelog/">Click here to find out more</a>.</div>');
+			$updateNotification = $('<div class="alert alert-info icon"><a href="#" class="close" data-update="' + nvram.at_update.replace('.','') + '"><i class="icon-cancel"></i></a>\
+				<h5>Update Available!</h5>AdvancedTomato update <b>v' + nvram.at_update + '</b> has been released. <a target="_blank" href="http://advancedtomato.com/changelog/">Click here to find out more</a>.</div>');
 
 			$($updateNotification).find('.close').on('click', function() {
 				if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }
@@ -147,7 +147,7 @@ function AdvancedTomato () {
 
 		if (nvram.tomatoanon_answer != '1') {
 
-			$('.container').prepend('<div class="alert warning"><h5>Attention</h5> You did not configure <b>TomatoAnon project</b> setting.\
+			$('.container').prepend('<div class="alert alert-warning icon"><h5>Attention</h5> You did not configure <b>TomatoAnon project</b> setting.\
 				Please go to <a onclick="loadPage(\'admin-tomatoanon.asp\')" href="#">TomatoAnon configuration page</a> and make a choice.</div>');
 
 		}
@@ -192,10 +192,11 @@ function systemUI () {
 // Ajax Function to load pages
 function loadPage(page, variables) {
 	
-	// Fix refreshers when switching pages
-	if (typeof (ref) != 'undefined') {
+	// Since we use ajax, functions and timers stay in memory. Here we undefine & stop them to prevent issues with other pages.
+	if (typeof(ref) != 'undefined') {
 		ref.destroy();
-		window.ref=undefined; delete window.ref;
+		ref=undefined; delete ref;
+		if ( typeof(wdog) != 'undefined' ) clearTimeout(wdog); // Stupid function that kills our refreshers!
 	}
 
 	// Some things that need to be done here =)
@@ -245,11 +246,19 @@ function loadPage(page, variables) {
 
 			var id 		= $(this).attr('data-box');
 			var parent	= $(this);
-			var status	= (((hs_cook = cookie.get(id + '_visibility')) != null) && (hs_cook != '1') || !$(this).is(':visible')) ? false : true;
+			var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
 			var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
 
 			// Hide if hidden
-			if (!status) { $(this).find('.content').hide(); }
+			if (status) { 
+				
+				$(this).find('.content').show();
+				
+			} else { // Set display property no matter the preference (fixes defaults)
+			
+				$(this).find('.content').hide();
+				
+			}
 
 			// Now click handler
 			$(html).on('click', function() {

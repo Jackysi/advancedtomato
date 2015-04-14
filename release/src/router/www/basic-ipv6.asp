@@ -316,12 +316,13 @@ No part of this file may be used without permission.
 		<input type="hidden" name="_nextwait" value="10">
 		<input type="hidden" name="_service" value="*">
 
-		<input type="hidden" name="ipv6_radvd">
 		<input type="hidden" name="ipv6_dns">
 		<input type="hidden" name="ipv6_prefix">
 		<input type="hidden" name="ipv6_prefix_length">
 		<input type="hidden" name="ipv6_rtr_addr">
 		<input type="hidden" name="ipv6_accept_ra">
+		<input type="hidden" name="ipv6_vlan">
+		<input type="hidden" name="ipv6_isp_opt">
 
 		<div class="box" id="section-ipv6">
 			<div class="heading">Basic IPv6 Configuration</div>

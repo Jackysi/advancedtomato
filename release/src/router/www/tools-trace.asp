@@ -170,11 +170,11 @@ No part of this file may be used without permission.
 	</script>
 
 	<ul class="nav-tabs">
-		<li><a class="ajaxload" href="tools-ping.asp">Ping</a></li>
-		<li><a class="active">Trace</a></li>
-		<li><a class="ajaxload" href="tools-shell.asp">System Commands</a></li>
-		<li><a class="ajaxload" href="tools-survey.asp">Wireless Survey</a></li>
-		<li><a class="ajaxload" href="tools-wol.asp">WOL</a></li>
+		<li><a class="ajaxload" href="tools-ping.asp"><i class="icon-ping"></i> Ping</a></li>
+		<li><a class="active"><i class="icon-gauge"></i> Trace</a></li>
+		<li><a class="ajaxload" href="tools-shell.asp"><i class="icon-cmd"></i> System Commands</a></li>
+		<li><a class="ajaxload" href="tools-survey.asp"><i class="icon-signal"></i> Wireless Survey</a></li>
+		<li><a class="ajaxload" href="tools-wol.asp"><i class="icon-forward"></i> WOL</a></li>
 	</ul>
 
 	<div class="box">

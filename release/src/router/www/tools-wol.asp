@@ -151,11 +151,11 @@ No part of this file may be used without permission.
 	</style>
 
 	<ul class="nav-tabs">
-		<li><a class="ajaxload" href="tools-ping.asp">Ping</a></li>
-		<li><a class="ajaxload" href="tools-trace.asp">Trace</a></li>
-		<li><a class="ajaxload" href="tools-shell.asp">System Commands</a></li>
-		<li><a class="ajaxload" href="tools-survey.asp">Wireless Survey</a></li>
-		<li><a class="active">WOL</a></li>
+		<li><a class="ajaxload" href="tools-ping.asp"><i class="icon-ping"></i> Ping</a></li>
+		<li><a class="ajaxload" href="tools-trace.asp"><i class="icon-gauge"></i> Trace</a></li>
+		<li><a class="ajaxload" href="tools-shell.asp"><i class="icon-cmd"></i> System Commands</a></li>
+		<li><a class="ajaxload" href="tools-survey.asp"><i class="icon-signal"></i> Wireless Survey</a></li>
+		<li><a class="active"><i class="icon-forward"></i> WOL</a></li>
 	</ul>
 
 	<form id="_fom" action="wakeup.cgi" method="post">
