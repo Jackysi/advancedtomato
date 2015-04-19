@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS = -O3 -Wall
+CFLAGS = -O3 -Wall -fno-delete-null-pointer-checks
 
 all: fpkg
 

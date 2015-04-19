@@ -79,7 +79,9 @@ switch(nvram['boardtype']) {
   case '0x05d8':  // Tenda W1800R
   case '0x058e':  // E900, E800
   case '0x0646':  // RT-AC56U and RT-AC68U/RT-AC68R
-  case '0x0665':  // R7000
+  case '0x0665':  // R7000, RT-AC68P
+  case '0xf646':  // EA6700
+  case '0xd646':  // EA6900
     trunk_vlan_supported = 1;
     break;
   default:
@@ -92,6 +94,25 @@ switch(nvram['boardtype']) {
 // http://wiki.openwrt.org/toh/linksys/start
 // http://wiki.openwrt.org/toh/start
 switch(nvram['boardtype']) {
+	case '0xd646':
+		if( nvram['boardrev'] == '0x1100'){ //EA6900
+	COL_P0N = '1';
+	COL_P1N = '2';
+	COL_P2N = '3';
+	COL_P3N = '4';
+	COL_P4N = '0';
+		break;
+	}
+		break;
+	case '0xf646':
+		if( nvram['boardrev'] == '0x1100'){ //EA6700
+	COL_P0N = '0';
+	COL_P1N = '1';
+	COL_P2N = '2';
+	COL_P3N = '3';
+	COL_P4N = '4';
+		break;
+	}
 	case '0x0646':  // RT-AC56 && RT-AC68
 	case '0x0665':  //R7000
 		if ((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC56U')) { //RT-AC56U
@@ -118,7 +139,7 @@ switch(nvram['boardtype']) {
 	COL_P4N = '4';
 		break;
 	}
-		if (((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC68U')) || (nvram['model'] == 'RT-AC68R'))  { //RT-AC68U or RT-AC68R
+		if (nvram['model'] == 'RT-AC68U') { //RT-AC68U/R(boardrev=0x1100), RT-AC68P(boardrev=0x1103) 
 	COL_P0N = '4';
 	COL_P1N = '3';
 	COL_P2N = '2';

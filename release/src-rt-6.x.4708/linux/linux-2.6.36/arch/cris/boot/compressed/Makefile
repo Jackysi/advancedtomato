@@ -3,7 +3,7 @@
 #
 
 asflags-y += $(LINUXINCLUDE)
-ccflags-y += -O2 $(LINUXINCLUDE)
+ccflags-y += -O2 -fno-delete-null-pointer-checks $(LINUXINCLUDE)
 
 # asflags-$(CONFIG_ETRAX_ARCH_V32) += -I$(srctree)/include/asm/mach \
 # 				    -I$(srctree)/include/asm/arch

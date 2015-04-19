@@ -61,7 +61,7 @@ EOF
 
 test -z "$CC" && echo Checking for gcc...
 cc=${CC-gcc}
-cflags=${CFLAGS-"-O3"}
+cflags=${CFLAGS-"-O3 -fno-delete-null-pointer-checks"}
 # to force the asm version use: CFLAGS="-O3 -DASMV" ./configure
 case "$cc" in
   *gcc*) gcc=1;;
@@ -69,7 +69,7 @@ esac
 
 if test "$gcc" -eq 1 && ($cc -c $cflags $test.c) 2>/dev/null; then
   CC="$cc"
-  SFLAGS=${CFLAGS-"-fPIC -O3"}
+  SFLAGS=${CFLAGS-"-fPIC -O3 -fno-delete-null-pointer-checks"}
   CFLAGS="$cflags"
   case `(uname -s || echo unknown) 2>/dev/null` in
   Linux | linux) LDSHARED=${LDSHARED-"gcc -shared -Wl,-soname,libz.so.1"};;
@@ -85,8 +85,8 @@ else
 	     LDSHARED=${LDSHARED-"ld -b"}
 	     shared_ext='.sl'
 	     SHAREDLIB='libz.sl';;
-  IRIX*)     SFLAGS=${CFLAGS-"-ansi -O2 -rpath ."}
-	     CFLAGS=${CFLAGS-"-ansi -O2"}
+  IRIX*)     SFLAGS=${CFLAGS-"-ansi -O2 -fno-delete-null-pointer-checks -rpath ."}
+	     CFLAGS=${CFLAGS-"-ansi -O2 -fno-delete-null-pointer-checks"}
 	     LDSHARED=${LDSHARED-"cc -shared"};;
   OSF1\ V4*) SFLAGS=${CFLAGS-"-O -std1"}
 	     CFLAGS=${CFLAGS-"-O -std1"}
@@ -99,14 +99,14 @@ else
 	     LDSHARED=${LDSHARED-"cc"}
              RANLIB=${RANLIB-"true"}
              AR="cc -A";;
-  SCO_SV\ 3.2*) SFLAGS=${CFLAGS-"-O3 -dy -KPIC "}
-	     CFLAGS=${CFLAGS-"-O3"}
+  SCO_SV\ 3.2*) SFLAGS=${CFLAGS-"-O3 -fno-delete-null-pointer-checks -dy -KPIC "}
+	     CFLAGS=${CFLAGS-"-O3 -fno-delete-null-pointer-checks"}
 	     LDSHARED=${LDSHARED-"cc -dy -KPIC -G"};;
   SunOS\ 5*) SFLAGS=${CFLAGS-"-fast -xcg89 -KPIC -R."}
              CFLAGS=${CFLAGS-"-fast -xcg89"}
 	     LDSHARED=${LDSHARED-"cc -G"};;
-  SunOS\ 4*) SFLAGS=${CFLAGS-"-O2 -PIC"}
-	     CFLAGS=${CFLAGS-"-O2"}
+  SunOS\ 4*) SFLAGS=${CFLAGS-"-O2 -fno-delete-null-pointer-checks -PIC"}
+	     CFLAGS=${CFLAGS-"-O2 -fno-delete-null-pointer-checks"}
 	     LDSHARED=${LDSHARED-"ld"};;
   UNIX_System_V\ 4.2.0) 
 	     SFLAGS=${CFLAGS-"-KPIC -O"}

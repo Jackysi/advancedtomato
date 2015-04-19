@@ -225,7 +225,8 @@ int do_led(int which, int mode)
 	static int r6300v2[]    = {  11, 255,    10,  255,  255,    1,  255,     8,   8,  255};
 	static int r7000[]      = {  13, 255,   255,  255,  255,  -15,  255,   -17, -18,   12};
 	static int dir868[]     = { 255, 255,     3,  255,  255,   -0,  255,   255, 255,  255};
-	static int ws880[]      = { 255, 255,   -12,  255,  255,    6,  255,    14,  14,  255};
+	static int ea6700[]     = {  255, 255,   -6,  -6,  255,  255,  255,   255, 255,   255};
+	static int ws880[]      = {   0, 255,   -12,  255,  255,    6,    1,   255,  14,  255};
 #endif
 //                                 WLAN  DIAG  WHITE AMBER  DMZ   AOSS BRIDG   USB2 USB3   5G
 
@@ -472,6 +473,10 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_WS880:
 		b = ws880[which];
+		break;
+	case MODEL_EA6700:
+	case MODEL_EA6900: //need to be verified
+		b = ea6700[which];
 		break;
 
 #endif

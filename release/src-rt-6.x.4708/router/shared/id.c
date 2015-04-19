@@ -41,6 +41,9 @@ WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0
 WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
 E4200               BCM4718               0xf52c       42        0x1101                boot_hw_model=E4200
 EA6500v1            BCM4706               0xC617       ${serno}  0x1103    0x00000110  modelNumber=EA6500, serial_number=12N10C69224778
+EA6500v2	    BCM4708		  0xF646	01	 0x1100	   0x0110	0:devid=0x4332
+EA6700		    BCM4708		  0xF646	01	 0x1100	   0x0110	0:devid=0x4332
+EA6900		    BCM4708		  0xD646	01	 0x1100	   0x0110	
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -92,11 +95,13 @@ RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
 RT-N18U				BCM4708               0x0646       00        0x1100    0x00000110
 RT-AC56U			BCM4708               0x0646	   00	     0x1100    0x00000110
 RT-AC68U			BCM4708               0x0646       <MAC>     0x1100    0x00001000
+RT-AC68P			BCM4709               0x0665       <MAC>     0x1103    0x00001000
+
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
 WNR3500Lv2			BCM47186              0x052b       3500(L)   02        0x710|0x1000
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
-R7000				BCM4708               0x0665       32        0x1301    0x1000
+R7000				BCM4709               0x0665       32        0x1301    0x1000
 R6250				BCM4708               0x0646       679       0x1110 //same as R6300v2 well we use the same MODEL definition
 R6300v2				BCM4708               0x0646       679       0x1110
 
@@ -220,6 +225,8 @@ int check_hw_type(void)
 #ifdef CONFIG_BCMWL6
 	case 0x0646:
 	case 0x0665: //R7000
+	case 0xf646: //EA6700
+	case 0xd646: //EA6900
 		return HW_BCM4708;
 #endif
 	}
@@ -351,12 +358,16 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-N18U"))) return MODEL_RTN18U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC56U"))) return MODEL_RTAC56U;
 		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
-		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68R"))) return MODEL_RTAC68U;
+//REMOVE: Same as RT-AC68U, no nvram "model=RT-AC68R" according to CFE for RT-AC68R
+//		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68R"))) return MODEL_RTAC68U;
+		if ((nvram_match("boardrev", "0x1103")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H245T00_NETGEAR"))) return MODEL_R6250;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H240T00_NETGEAR"))) return MODEL_R6300v2;
 		if ((nvram_match("boardrev", "0x1301")) && (nvram_match("boardnum", "32"))) return MODEL_R7000;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "24"))) return MODEL_DIR868L;
 		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("boardnum", "1234"))) return MODEL_WS880;
+		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6700;
+		if ((nvram_match("boardtype","0xD646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6900;
 	}
 #endif
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {

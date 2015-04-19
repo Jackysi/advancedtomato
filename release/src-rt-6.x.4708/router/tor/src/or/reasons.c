@@ -174,11 +174,12 @@ errno_to_stream_end_reason(int e)
     S_CASE(ENOTSOCK):
     S_CASE(EPROTONOSUPPORT):
     S_CASE(EAFNOSUPPORT):
-    E_CASE(EACCES):
     S_CASE(ENOTCONN):
-    S_CASE(ENETUNREACH):
       return END_STREAM_REASON_INTERNAL;
+    S_CASE(ENETUNREACH):
     S_CASE(EHOSTUNREACH):
+    E_CASE(EACCES):
+    case EPERM:
       return END_STREAM_REASON_NOROUTE;
     S_CASE(ECONNREFUSED):
       return END_STREAM_REASON_CONNECTREFUSED;
@@ -230,6 +231,8 @@ orconn_end_reason_to_control_string(int r)
       return "RESOURCELIMIT";
     case END_OR_CONN_REASON_MISC:
       return "MISC";
+    case END_OR_CONN_REASON_PT_MISSING:
+      return "PT_MISSING";
     case 0:
       return "";
     default:

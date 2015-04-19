@@ -92,8 +92,11 @@ void start_usb(void)
 	if (get_model() == MODEL_DIR868L) {
 		xstart("gpio", "enable", "10");
 	}
-	if (get_model() == MODEL_WS880) {
+	else if (get_model() == MODEL_WS880) {
 		xstart("gpio", "enable", "7");
+	}
+	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900) {
+		xstart("gpio", "enable", "9");
 	}
 
 	_dprintf("%s\n", __FUNCTION__);
@@ -383,8 +386,11 @@ void stop_usb(void)
 	if (get_model() == MODEL_DIR868L) {
 		xstart("gpio", "disable", "10");
 	}
-	if (get_model() == MODEL_WS880) {
+	else if (get_model() == MODEL_WS880) {
 		xstart("gpio", "disable", "7");
+	}
+	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900) {
+		xstart("gpio", "disable", "9");
 	}
 
 	}
@@ -901,6 +907,11 @@ static inline void usbled_proc(char *device, int add)
 {
 	char *p;
 	char param[32];
+
+	if (get_model() == MODEL_WS880) {
+		do_led(LED_USB3, (add) ? LED_ON : LED_OFF);
+		return;
+	}
 
 	if (do_led(LED_USB, LED_PROBE) != 255) {
 		strncpy(param, device, sizeof(param));

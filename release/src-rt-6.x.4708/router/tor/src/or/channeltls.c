@@ -53,8 +53,11 @@ static void channel_tls_common_init(channel_tls_t *tlschan);
 
 static void channel_tls_close_method(channel_t *chan);
 static const char * channel_tls_describe_transport_method(channel_t *chan);
+static void channel_tls_free_method(channel_t *chan);
 static int
 channel_tls_get_remote_addr_method(channel_t *chan, tor_addr_t *addr_out);
+static int
+channel_tls_get_transport_name_method(channel_t *chan, char **transport_out);
 static const char *
 channel_tls_get_remote_descr_method(channel_t *chan, int flags);
 static int channel_tls_has_queued_writes_method(channel_t *chan);
@@ -112,8 +115,10 @@ channel_tls_common_init(channel_tls_t *tlschan)
   chan->state = CHANNEL_STATE_OPENING;
   chan->close = channel_tls_close_method;
   chan->describe_transport = channel_tls_describe_transport_method;
+  chan->free = channel_tls_free_method;
   chan->get_remote_addr = channel_tls_get_remote_addr_method;
   chan->get_remote_descr = channel_tls_get_remote_descr_method;
+  chan->get_transport_name = channel_tls_get_transport_name_method;
   chan->has_queued_writes = channel_tls_has_queued_writes_method;
   chan->is_canonical = channel_tls_is_canonical_method;
   chan->matches_extend_info = channel_tls_matches_extend_info_method;
@@ -151,7 +156,18 @@ channel_tls_connect(const tor_addr_t *addr, uint16_t port,
             tlschan,
             U64_PRINTF_ARG(chan->global_identifier));
 
-  if (is_local_addr(addr)) channel_mark_local(chan);
+  if (is_local_addr(addr)) {
+    log_debug(LD_CHANNEL,
+              "Marking new outgoing channel " U64_FORMAT " at %p as local",
+              U64_PRINTF_ARG(chan->global_identifier), chan);
+    channel_mark_local(chan);
+  } else {
+    log_debug(LD_CHANNEL,
+              "Marking new outgoing channel " U64_FORMAT " at %p as remote",
+              U64_PRINTF_ARG(chan->global_identifier), chan);
+    channel_mark_remote(chan);
+  }
+
   channel_mark_outgoing(chan);
 
   /* Set up or_connection stuff */
@@ -281,11 +297,22 @@ channel_tls_handle_incoming(or_connection_t *orconn)
   tlschan->conn = orconn;
   orconn->chan = tlschan;
 
-  if (is_local_addr(&(TO_CONN(orconn)->addr))) channel_mark_local(chan);
+  if (is_local_addr(&(TO_CONN(orconn)->addr))) {
+    log_debug(LD_CHANNEL,
+              "Marking new incoming channel " U64_FORMAT " at %p as local",
+              U64_PRINTF_ARG(chan->global_identifier), chan);
+    channel_mark_local(chan);
+  } else {
+    log_debug(LD_CHANNEL,
+              "Marking new incoming channel " U64_FORMAT " at %p as remote",
+              U64_PRINTF_ARG(chan->global_identifier), chan);
+    channel_mark_remote(chan);
+  }
+
   channel_mark_incoming(chan);
 
-  /* If we got one, we should register it */
-  if (chan) channel_register(chan);
+  /* Register it */
+  channel_register(chan);
 
   return chan;
 }
@@ -365,7 +392,7 @@ channel_tls_describe_transport_method(channel_t *chan)
 
   tor_assert(chan);
 
-   tlschan = BASE_CHAN_TO_TLS(chan);
+  tlschan = BASE_CHAN_TO_TLS(chan);
 
   if (tlschan->conn) {
     id = TO_CONN(tlschan->conn)->global_identifier;
@@ -384,6 +411,30 @@ channel_tls_describe_transport_method(channel_t *chan)
 }
 
 /**
+ * Free a channel_tls_t
+ *
+ * This is called by the generic channel layer when freeing a channel_tls_t;
+ * this happens either on a channel which has already reached
+ * CHANNEL_STATE_CLOSED or CHANNEL_STATE_ERROR from channel_run_cleanup() or
+ * on shutdown from channel_free_all().  In the latter case we might still
+ * have an orconn active (which connection_free_all() will get to later),
+ * so we should null out its channel pointer now.
+ */
+
+static void
+channel_tls_free_method(channel_t *chan)
+{
+  channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
+
+  tor_assert(tlschan);
+
+  if (tlschan->conn) {
+    tlschan->conn->chan = NULL;
+    tlschan->conn = NULL;
+  }
+}
+
+/**
  * Get the remote address of a channel_tls_t
  *
  * This implements the get_remote_addr method for channel_tls_t; copy the
@@ -394,15 +445,42 @@ channel_tls_describe_transport_method(channel_t *chan)
 static int
 channel_tls_get_remote_addr_method(channel_t *chan, tor_addr_t *addr_out)
 {
+  int rv = 0;
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
 
   tor_assert(tlschan);
   tor_assert(addr_out);
+
+  if (tlschan->conn) {
+    tor_addr_copy(addr_out, &(TO_CONN(tlschan->conn)->addr));
+    rv = 1;
+  } else tor_addr_make_unspec(addr_out);
+
+  return rv;
+}
+
+/**
+ * Get the name of the pluggable transport used by a channel_tls_t.
+ *
+ * This implements the get_transport_name for channel_tls_t. If the
+ * channel uses a pluggable transport, copy its name to
+ * <b>transport_out</b> and return 0. If the channel did not use a
+ * pluggable transport, return -1. */
+
+static int
+channel_tls_get_transport_name_method(channel_t *chan, char **transport_out)
+{
+  channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
+
+  tor_assert(tlschan);
+  tor_assert(transport_out);
   tor_assert(tlschan->conn);
 
-  tor_addr_copy(addr_out, &(TO_CONN(tlschan->conn)->addr));
+  if (!tlschan->conn->ext_or_transport)
+    return -1;
 
-  return 1;
+  *transport_out = tor_strdup(tlschan->conn->ext_or_transport);
+  return 0;
 }
 
 /**
@@ -426,41 +504,43 @@ channel_tls_get_remote_descr_method(channel_t *chan, int flags)
   char *addr_str;
 
   tor_assert(tlschan);
-  tor_assert(tlschan->conn);
 
-  conn = TO_CONN(tlschan->conn);
-
-  switch (flags) {
-    case 0:
-      /* Canonical address with port*/
-      tor_snprintf(buf, MAX_DESCR_LEN + 1,
-                   "%s:%u", conn->address, conn->port);
-      answer = buf;
-      break;
-    case GRD_FLAG_ORIGINAL:
-      /* Actual address with port */
-      addr_str = tor_dup_addr(&(tlschan->conn->real_addr));
-      tor_snprintf(buf, MAX_DESCR_LEN + 1,
-                   "%s:%u", addr_str, conn->port);
-      tor_free(addr_str);
-      answer = buf;
-      break;
-    case GRD_FLAG_ADDR_ONLY:
-      /* Canonical address, no port */
-      strlcpy(buf, conn->address, sizeof(buf));
-      answer = buf;
-      break;
-    case GRD_FLAG_ORIGINAL|GRD_FLAG_ADDR_ONLY:
-      /* Actual address, no port */
-      addr_str = tor_dup_addr(&(tlschan->conn->real_addr));
-      strlcpy(buf, addr_str, sizeof(buf));
-      tor_free(addr_str);
-      answer = buf;
-      break;
-
-    default:
-      /* Something's broken in channel.c */
-      tor_assert(1);
+  if (tlschan->conn) {
+    conn = TO_CONN(tlschan->conn);
+    switch (flags) {
+      case 0:
+        /* Canonical address with port*/
+        tor_snprintf(buf, MAX_DESCR_LEN + 1,
+                     "%s:%u", conn->address, conn->port);
+        answer = buf;
+        break;
+      case GRD_FLAG_ORIGINAL:
+        /* Actual address with port */
+        addr_str = tor_dup_addr(&(tlschan->conn->real_addr));
+        tor_snprintf(buf, MAX_DESCR_LEN + 1,
+                     "%s:%u", addr_str, conn->port);
+        tor_free(addr_str);
+        answer = buf;
+        break;
+      case GRD_FLAG_ADDR_ONLY:
+        /* Canonical address, no port */
+        strlcpy(buf, conn->address, sizeof(buf));
+        answer = buf;
+        break;
+      case GRD_FLAG_ORIGINAL|GRD_FLAG_ADDR_ONLY:
+        /* Actual address, no port */
+        addr_str = tor_dup_addr(&(tlschan->conn->real_addr));
+        strlcpy(buf, addr_str, sizeof(buf));
+        tor_free(addr_str);
+        answer = buf;
+        break;
+      default:
+        /* Something's broken in channel.c */
+        tor_assert(1);
+    }
+  } else {
+    strlcpy(buf, "(No connection)", sizeof(buf));
+    answer = buf;
   }
 
   return answer;
@@ -480,9 +560,16 @@ channel_tls_has_queued_writes_method(channel_t *chan)
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
 
   tor_assert(tlschan);
-  tor_assert(tlschan->conn);
+  if (!(tlschan->conn)) {
+    log_info(LD_CHANNEL,
+             "something called has_queued_writes on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+  }
 
-  outbuf_len = connection_get_outbuf_len(TO_CONN(tlschan->conn));
+  outbuf_len = (tlschan->conn != NULL) ?
+    connection_get_outbuf_len(TO_CONN(tlschan->conn)) :
+    0;
 
   return (outbuf_len > 0);
 }
@@ -502,24 +589,26 @@ channel_tls_is_canonical_method(channel_t *chan, int req)
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
 
   tor_assert(tlschan);
-  tor_assert(tlschan->conn);
 
-  switch (req) {
-    case 0:
-      answer = tlschan->conn->is_canonical;
-      break;
-    case 1:
-      /*
-       * Is the is_canonical bit reliable?  In protocols version 2 and up
-       * we get the canonical address from a NETINFO cell, but in older
-       * versions it might be based on an obsolete descriptor.
-       */
-      answer = (tlschan->conn->link_proto >= 2);
-      break;
-    default:
-      /* This shouldn't happen; channel.c is broken if it does */
-      tor_assert(1);
+  if (tlschan->conn) {
+    switch (req) {
+      case 0:
+        answer = tlschan->conn->is_canonical;
+        break;
+      case 1:
+        /*
+         * Is the is_canonical bit reliable?  In protocols version 2 and up
+         * we get the canonical address from a NETINFO cell, but in older
+         * versions it might be based on an obsolete descriptor.
+         */
+        answer = (tlschan->conn->link_proto >= 2);
+        break;
+      default:
+        /* This shouldn't happen; channel.c is broken if it does */
+        tor_assert(1);
+    }
   }
+  /* else return 0 for tlschan->conn == NULL */
 
   return answer;
 }
@@ -539,6 +628,15 @@ channel_tls_matches_extend_info_method(channel_t *chan,
 
   tor_assert(tlschan);
   tor_assert(extend_info);
+
+  /* Never match if we have no conn */
+  if (!(tlschan->conn)) {
+    log_info(LD_CHANNEL,
+             "something called matches_extend_info on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+    return 0;
+  }
 
   return (tor_addr_eq(&(extend_info->addr),
                       &(TO_CONN(tlschan->conn)->addr)) &&
@@ -561,7 +659,15 @@ channel_tls_matches_target_method(channel_t *chan,
 
   tor_assert(tlschan);
   tor_assert(target);
-  tor_assert(tlschan->conn);
+
+  /* Never match if we have no conn */
+  if (!(tlschan->conn)) {
+    log_info(LD_CHANNEL,
+             "something called matches_target on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+    return 0;
+  }
 
   return tor_addr_eq(&(tlschan->conn->real_addr), target);
 }
@@ -577,14 +683,22 @@ static int
 channel_tls_write_cell_method(channel_t *chan, cell_t *cell)
 {
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
+  int written = 0;
 
   tor_assert(tlschan);
   tor_assert(cell);
-  tor_assert(tlschan->conn);
 
-  connection_or_write_cell_to_buf(cell, tlschan->conn);
+  if (tlschan->conn) {
+    connection_or_write_cell_to_buf(cell, tlschan->conn);
+    ++written;
+  } else {
+    log_info(LD_CHANNEL,
+             "something called write_cell on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+  }
 
-  return 1;
+  return written;
 }
 
 /**
@@ -600,18 +714,26 @@ channel_tls_write_packed_cell_method(channel_t *chan,
 {
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
   size_t cell_network_size = get_cell_network_size(chan->wide_circ_ids);
+  int written = 0;
 
   tor_assert(tlschan);
   tor_assert(packed_cell);
-  tor_assert(tlschan->conn);
 
-  connection_write_to_buf(packed_cell->body, cell_network_size,
-                          TO_CONN(tlschan->conn));
+  if (tlschan->conn) {
+    connection_write_to_buf(packed_cell->body, cell_network_size,
+                            TO_CONN(tlschan->conn));
 
-  /* This is where the cell is finished; used to be done from relay.c */
-  packed_cell_free(packed_cell);
+    /* This is where the cell is finished; used to be done from relay.c */
+    packed_cell_free(packed_cell);
+    ++written;
+  } else {
+    log_info(LD_CHANNEL,
+             "something called write_packed_cell on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+  }
 
-  return 1;
+  return written;
 }
 
 /**
@@ -625,14 +747,22 @@ static int
 channel_tls_write_var_cell_method(channel_t *chan, var_cell_t *var_cell)
 {
   channel_tls_t *tlschan = BASE_CHAN_TO_TLS(chan);
+  int written = 0;
 
   tor_assert(tlschan);
   tor_assert(var_cell);
-  tor_assert(tlschan->conn);
 
-  connection_or_write_var_cell_to_buf(var_cell, tlschan->conn);
+  if (tlschan->conn) {
+    connection_or_write_var_cell_to_buf(var_cell, tlschan->conn);
+    ++written;
+  } else {
+    log_info(LD_CHANNEL,
+             "something called write_var_cell on a tlschan "
+             "(%p with ID " U64_FORMAT " but no conn",
+             chan, U64_PRINTF_ARG(chan->global_identifier));
+  }
 
-  return 1;
+  return written;
 }
 
 /*************************************************
@@ -1101,6 +1231,44 @@ channel_tls_handle_var_cell(var_cell_t *var_cell, or_connection_t *conn)
 }
 
 /**
+ * Update channel marks after connection_or.c has changed an address
+ *
+ * This is called from connection_or_init_conn_from_address() after the
+ * connection's _base.addr or real_addr fields have potentially been changed
+ * so we can recalculate the local mark.  Notably, this happens when incoming
+ * connections are reverse-proxied and we only learn the real address of the
+ * remote router by looking it up in the consensus after we finish the
+ * handshake and know an authenticated identity digest.
+ */
+
+void
+channel_tls_update_marks(or_connection_t *conn)
+{
+  channel_t *chan = NULL;
+
+  tor_assert(conn);
+  tor_assert(conn->chan);
+
+  chan = TLS_CHAN_TO_BASE(conn->chan);
+
+  if (is_local_addr(&(TO_CONN(conn)->addr))) {
+    if (!channel_is_local(chan)) {
+      log_debug(LD_CHANNEL,
+                "Marking channel " U64_FORMAT " at %p as local",
+                U64_PRINTF_ARG(chan->global_identifier), chan);
+      channel_mark_local(chan);
+    }
+  } else {
+    if (channel_is_local(chan)) {
+      log_debug(LD_CHANNEL,
+                "Marking channel " U64_FORMAT " at %p as remote",
+                U64_PRINTF_ARG(chan->global_identifier), chan);
+      channel_mark_remote(chan);
+    }
+  }
+}
+
+/**
  * Check if this cell type is allowed before the handshake is finished
  *
  * Return true if <b>command</b> is a cell command that's allowed to start a
@@ -1174,12 +1342,19 @@ static void
 channel_tls_process_versions_cell(var_cell_t *cell, channel_tls_t *chan)
 {
   int highest_supported_version = 0;
-  const uint8_t *cp, *end;
   int started_here = 0;
 
   tor_assert(cell);
   tor_assert(chan);
   tor_assert(chan->conn);
+
+  if ((cell->payload_len % 2) == 1) {
+    log_fn(LOG_PROTOCOL_WARN, LD_OR,
+           "Received a VERSION cell with odd payload length %d; "
+           "closing connection.",cell->payload_len);
+    connection_or_close_for_error(chan->conn, 0);
+    return;
+  }
 
   started_here = connection_or_nonopen_was_started_here(chan->conn);
 
@@ -1206,11 +1381,15 @@ channel_tls_process_versions_cell(var_cell_t *cell, channel_tls_t *chan)
   }
 
   tor_assert(chan->conn->handshake_state);
-  end = cell->payload + cell->payload_len;
-  for (cp = cell->payload; cp+1 < end; cp += 2) {
-    uint16_t v = ntohs(get_uint16(cp));
-    if (is_or_protocol_version_known(v) && v > highest_supported_version)
-      highest_supported_version = v;
+
+  {
+    int i;
+    const uint8_t *cp = cell->payload;
+    for (i = 0; i < cell->payload_len / 2; ++i, cp += 2) {
+      uint16_t v = ntohs(get_uint16(cp));
+      if (is_or_protocol_version_known(v) && v > highest_supported_version)
+        highest_supported_version = v;
+    }
   }
   if (!highest_supported_version) {
     log_fn(LOG_PROTOCOL_WARN, LD_OR,
@@ -1408,12 +1587,14 @@ channel_tls_process_netinfo_cell(cell_t *cell, channel_tls_t *chan)
   my_addr_ptr = (uint8_t*) cell->payload + 6;
   end = cell->payload + CELL_PAYLOAD_SIZE;
   cp = cell->payload + 6 + my_addr_len;
-  if (cp >= end) {
-    log_fn(LOG_PROTOCOL_WARN, LD_OR,
-           "Addresses too long in netinfo cell; closing connection.");
-    connection_or_close_for_error(chan->conn, 0);
-    return;
-  } else if (my_addr_type == RESOLVED_TYPE_IPV4 && my_addr_len == 4) {
+
+  /* We used to check:
+   *    if (my_addr_len >= CELL_PAYLOAD_SIZE - 6) {
+   *
+   * This is actually never going to happen, since my_addr_len is at most 255,
+   * and CELL_PAYLOAD_LEN - 6 is 503.  So we know that cp is < end. */
+
+  if (my_addr_type == RESOLVED_TYPE_IPV4 && my_addr_len == 4) {
     tor_addr_from_ipv4n(&my_apparent_addr, get_uint32(my_addr_ptr));
   } else if (my_addr_type == RESOLVED_TYPE_IPV6 && my_addr_len == 16) {
     tor_addr_from_ipv6_bytes(&my_apparent_addr, (const char *) my_addr_ptr);
@@ -1433,7 +1614,7 @@ channel_tls_process_netinfo_cell(cell_t *cell, channel_tls_t *chan)
       return;
     }
     if (tor_addr_eq(&addr, &(chan->conn->real_addr))) {
-      chan->conn->is_canonical = 1;
+      connection_or_set_canonical(chan->conn, 1);
       break;
     }
     cp = next;
@@ -1567,12 +1748,16 @@ channel_tls_process_certs_cell(var_cell_t *cell, channel_tls_t *chan)
   for (i = 0; i < n_certs; ++i) {
     uint8_t cert_type;
     uint16_t cert_len;
-    if (ptr + 3 > cell->payload + cell->payload_len) {
+    if (cell->payload_len < 3)
+      goto truncated;
+    if (ptr > cell->payload + cell->payload_len - 3) {
       goto truncated;
     }
     cert_type = *ptr;
     cert_len = ntohs(get_uint16(ptr+1));
-    if (ptr + 3 + cert_len > cell->payload + cell->payload_len) {
+    if (cell->payload_len < 3 + cert_len)
+      goto truncated;
+    if (ptr > cell->payload + cell->payload_len - cert_len - 3) {
       goto truncated;
     }
     if (cert_type == OR_CERT_TYPE_TLS_LINK ||
