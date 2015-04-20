@@ -52,7 +52,7 @@ case "$ACTION" in
     while [ $CONNECTED == "0" ]; do
         VPN_GW=`ifconfig $IFACE | awk '/inet addr/ {split ($2,A,":"); print A[2]}'`
         if [ -n "$VPN_GW" ]; then
-            logger vpnrouting: got gateway for $IFACE - $VPN_GW
+            logger vpnrouting: got gateway for $IFACE - IP $VPN_GW - ID $ID
             CONNECTED="1"
         else
             logger vpnrouting: searching gateway for $IFACE
@@ -60,12 +60,10 @@ case "$ACTION" in
         fi
     done
 
-#    logger vpnrouting: Applying routing on VPN $SERVICE - Interface $IFACE - Table $ID - GW $VPN_GW
+    #logger vpnrouting: Applying routing on VPN $SERVICE - Interface $IFACE - Table $ID - GW $VPN_GW
 
     ip route add table $ID default via $VPN_GW dev $IFACE
     ip rule add fwmark $ID table $ID priority 1000
-    echo 0 > /proc/sys/net/ipv4/conf/$IFACE/rp_filter
-    echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
 
     modprobe xt_set
     modprobe ip_set
@@ -73,6 +71,8 @@ case "$ACTION" in
     ipset create vpnrouting$ID hash:ip
 
     echo "#!/bin/sh" > $FIREWALL
+    echo "echo 0 > /proc/sys/net/ipv4/conf/$IFACE/rp_filter" >> $FIREWALL
+    echo "echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter" >> $FIREWALL
     echo "iptables -t mangle -A PREROUTING -m set --match-set vpnrouting$ID dst,src -j MARK --set-mark $ID" >> $FIREWALL
 
     #example of routing_val: 1<2<8.8.8.8>1<1<1.2.3.4>1<3<domain.com>
@@ -101,6 +101,10 @@ case "$ACTION" in
                 3) #to domain
                     logger vpnrouting: Type: $VAL2 - add $VAL3
                     echo "ipset=/$VAL3/vpnrouting$ID" >> /etc/dnsmasq.ipset
+
+                    #try to add ipset rule using forced query to DNS server
+                    nslookup $VAL3 127.0.0.1 > /dev/null
+
                     DNSMASQ="1"
                     ;;
                 *) continue ;;
