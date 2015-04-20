@@ -759,3 +759,100 @@ void asp_wlcountries(int argc, char **argv)
 	}
 	web_puts("];\n");
 }
+
+/*
+    Get temperature of wireless chip
+    bwq518. Copyright 2013
+*/
+char* get_wl_tempsense(char *buf)
+{
+	char *lan_ifnames;
+	char *p;
+	char *ifname;
+	char tmpfile[32], s[WLC_IOCTL_SMLEN],temp[128], band[WLC_IOCTL_SMLEN];
+	int b5G, b2G;
+	unsigned *cur_temp;
+	int  ret = 0, len, i, n;
+	
+	strcpy(buf,"");
+	if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
+		p = lan_ifnames;
+		while ((ifname = strsep(&p, " ")) != NULL) {
+			while (*ifname == ' ') ++ifname;
+			trimstr(ifname);
+			if ((*ifname == 0) || (strncasecmp(ifname, "eth",3) != 0)) continue;
+
+			bzero(s, sizeof(s));
+			bzero(temp, sizeof(temp));
+			strcpy(s, "phy_tempsense");
+			if ((ret = wl_ioctl(ifname, WLC_GET_VAR, s, sizeof(s))) == 0)
+			{
+				cur_temp = (unsigned int*) s;
+				sprintf(temp, "%d",*cur_temp / 2 + 20);
+				if ((atoi(temp) <=0) || (atoi(temp)>= 120))
+					strcpy(temp, "--");
+                        }
+			else strcpy(temp, "--");
+			//syslog(LOG_INFO, "wl tempsense:|%s|", temp);
+
+			//get band of ifname
+			bzero(s, sizeof(s));
+			bzero(band, sizeof(band));
+			int bandlist[WLC_BAND_ALL];
+			if (wl_ioctl(ifname, WLC_GET_BANDLIST, bandlist, sizeof(bandlist)) == 0)
+			{
+				//syslog(LOG_INFO, "wl ifname:|%s|, bandlist[0]:|%d|", ifname, bandlist[0]);
+				if (bandlist[0] == 0) strcpy(band, "--");
+				else
+				{
+					b5G = 0;
+					b2G = 0;
+					for (i = 1; i <= bandlist[0]; i++)
+					{
+						switch (bandlist[i])
+						{
+							case WLC_BAND_5G:
+								b5G = 1;
+								break;
+							case WLC_BAND_2G:
+								b2G = 1;
+								break;
+							default:
+								break;
+						}
+					}
+					if (b5G == 1 && b2G == 1)
+						strcpy(band,"2.4G/5G");
+					else if ( b5G == 0 && b2G == 1)
+						strcpy(band,"2.4G");
+					else if ( b5G == 1 && b2G == 0)
+						strcpy(band,"5G");
+					else // b5G == 0 && b2G == 0
+						strcpy(band,"--");
+				} // for
+			}
+			else strcpy(band,"--");
+			//syslog(LOG_INFO, "wl ifname:|%s|, band:|%s|", ifname, band);
+			if ((strlen(temp) > 0) && (strlen(band) > 0))
+			{
+				if((strcmp(temp,"--") != 0) || (strcmp(band,"--") != 0))
+				{
+					strcat(buf, ifname);
+					strcat(buf, ": ");
+					strcat(buf, band);
+					strcat(buf, " - ");
+					strcat(buf, temp);
+					strcat(buf, "&#176;C&nbsp;&nbsp;&nbsp;&nbsp;");
+				}
+			}
+                }
+		free(lan_ifnames);
+	}
+	// remove spaces from end
+	len = strlen(buf);
+	if(len >= 24) buf[len - 24] = '\0';
+	if(len == 0) strcpy(buf,"--");
+	else trimstr(buf);
+	//syslog(LOG_INFO, "wl full info:|%s|", buf);
+	return buf;
+}

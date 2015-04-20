@@ -237,6 +237,7 @@ function show()
 {
 	c('cpu', stats.cpuload);
 	c('cpupercent', stats.cpupercent);
+	c('wlsense', stats.wlsense);
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -378,7 +379,8 @@ createFieldTable('', [
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
-	{ title: 'Total / Free NVRAM', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
+	{ title: 'Total / Free NVRAM', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' },
+	{ title: 'Wireless Temperature', rid: 'wlsense', text: stats.wlsense }
 ]);
 </script>
 </div>

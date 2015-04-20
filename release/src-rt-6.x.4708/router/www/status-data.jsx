@@ -51,6 +51,7 @@ do {
 	lastjiffiesidle = jiffylist[3];
 
 	stats.cpupercent = lastjiffiesusage.toFixed(2) + '%';
+	stats.wlsense = sysinfo.wlsense;
 
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
