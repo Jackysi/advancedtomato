@@ -775,7 +775,7 @@ char* get_wl_tempsense(char *buf)
 	int  ret = 0, len, i, n;
 	
 	strcpy(buf,"");
-	if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
+	if ((lan_ifnames = strdup(nvram_safe_get("wl_ifnames"))) != NULL) {
 		p = lan_ifnames;
 		while ((ifname = strsep(&p, " ")) != NULL) {
 			while (*ifname == ' ') ++ifname;
