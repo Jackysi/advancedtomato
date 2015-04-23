@@ -127,8 +127,8 @@ void start_dnsmasq()
 		dmresolv, dmhosts, dmdhcp, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 	
-	//Set the size of dnsmasq's cache, increasing it from the default of 150 names to 2048 names.
-	fprintf(f,"cache-size=2048\n");
+	//Set the size of dnsmasq's cache, increasing it from the default of 150 names to 1024 names.
+	fprintf(f,"cache-size=1024\n");
 	
 	//Allow for asynchronous logging, removing risk of syslog-dnsmasq deadlocking
 	fprintf(f,"log-async=5\n");
