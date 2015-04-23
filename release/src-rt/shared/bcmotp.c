@@ -441,6 +441,10 @@ BCMNMIATTACHFN(_ipxotp_init)(otpinfo_t *oi, chipcregs_t *cc)
 			// skip this code on Belkin f7d4302 - crashes 2nd radio, reason unknown
 			printk(KERN_EMERG "Belkin f7d4302\n");
 		}
+		else if (nvram_match("boardtype", "0xb4cf") && nvram_match("boardrev", "0x1100")) {
+			// skip this on Netgear wndr3400 - crashes 2nd radio, reason unknown
+			printk (KERN_EMERG "wndr3400 temp 2nd radio crash fix - dirty!\n");
+		}
 		else {
 			uint32 p_bits;
 			p_bits = (ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_P_OFF) & OTPGU_P_MSK)
