@@ -88,8 +88,10 @@ ifneq ($(TCONFIG_NTFS),y)
 endif
 
 # Only include Paragon NTFS settings if Paragon is configured in.
-ifneq ($(TCONFIG_PARAGON),y)
+ifneq ($(TCONFIG_UFSDA),y)
+ifneq ($(TCONFIG_UFSDN),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/PARAGON-BEGIN/,/PARAGON-END/d"
+endif
 endif
 
 # Only include Tuxera NTFS settings if Tuxera is configured in.
@@ -325,6 +327,8 @@ endif
 		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
 		-e "/TINC-BEGIN/d"	-e "/TINC-END/d"\
+		-e "/PARAGON-BEGIN/d"	-e "/PARAGON-END/d"\
+		-e "/TUXERA-BEGIN/d"	-e "/TUXERA-END/d"\
 		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done
