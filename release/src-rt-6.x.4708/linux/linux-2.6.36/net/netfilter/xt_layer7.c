@@ -377,6 +377,7 @@ static int layer7_write_proc(struct file* file, const char* buffer,
 	}
 
 	if(copy_from_user(foo, buffer, count)) {
+		kfree (foo);
 		return -EFAULT;
 	}
 
