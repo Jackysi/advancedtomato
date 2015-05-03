@@ -1,10 +1,7 @@
 Name: test
-Type: hash:ip,port
-Header: family inet hashsize 1024 maxelem 65536
-Size in memory: 8464
+Type: ipporthash
 References: 0
+Header: from: 2.0.0.0 to: 2.0.255.255 hashsize: 1024 probes: 8 resize: 50
 Members:
-1.255.255.255,tcp:5
-2.0.0.0,tcp:5
-2.0.255.255,tcp:128
-2.1.0.0,tcp:128
+2.0.0.0,5
+2.0.255.255,128

@@ -28,8 +28,6 @@
 1 ipset -T test 3.0.0.1
 # Test the range: third
 0 ipset -T test 3.0.0.2
-# Delete second random IP entry
-0 ipset -D test 192.168.68.69
 # Add a network block
 0 ipset -A test 192.168.68.69/27
 # Test the lower bound of the network
@@ -49,9 +47,9 @@
 # Test element after upper bound of deleted network
 0 ipset -T test 192.168.68.72
 # List set
-0 ipset -L test | grep -v Revision: > .foo0 && ./sort.sh .foo0
+0 ipset -L test > .foo
 # Check listing
-0 diff -u -I 'Size in memory.*' .foo iptreemap.t.list0
+0 diff .foo iptreemap.t.list0 && rm .foo
 # Flush test set
 0 ipset -F test
 # Delete test set

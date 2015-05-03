@@ -1,89 +1,55 @@
-This is the ipset source tree. Follow the next steps to install ipset.
-If you upgrade from an earlier 5.x release, please read the UPGRADE
-instructions too.
+This is the ipset source tree. Follow these steps to install ipset:
 
-0. You need the source tree of your kernel (version >= 2.6.32)
-   and it have to be configured with ip6tables support enabled,
-   modules compiled. For kernel versions < 2.6.39 please apply
-   the netlink.patch against your kernel tree, which adds the
-   new subsystem identifier for ipset.
+0. You need the source tree of your kernel (version >= 2.6.16 or 2.4.36.x)
+   and it have to be configured, modules compiled.
 
-   Recompile and install the patched kernel and its modules. Please note,
-   you have to run the patched kernel for ipset to work.
+1. Compile ipset and it's kernel modules
 
-   The ipset source code depends on the libmnl library so the library
-   must be installed. You can download the libmnl library from
+   # make KERNEL_DIR=<<where-you-built-your-kernel>>
 
-	git://git.netfilter.org/libmnl.git
+   You can specify the maximum number of sets (default 256)
+   and/or the hash size for bindings (default 1024) if you want:
 
-1. Initialize the compiling environment for ipset. The packages automake,
-   autoconf, pkg-config and libtool are required.
+   # make KERNEL_DIR=<<where-you-built-your-kernel>> \
+	IP_NF_SET_MAX=<<your setsize number>> \
+	IP_NF_SET_HASHSIZE=<<your hashsize number>>
 
-   % ./autogen.sh
+   If your compiler does not support all of the extra warning
+   flags, you can disable those too:
 
-2. Run `./configure` and then compile the ipset binary and the kernel
-   modules.
+   # make KERNEL_DIR=<<where-you-built-your-kernel>> \
+	IP_NF_SET_MAX=<<your setsize number>> \
+	IP_NF_SET_HASHSIZE=<<your hashsize number>> \
+	NO_EXTRA_WARN_FLAGS=yes
 
-   Configure parameters can be used to to override the default path
-   to the kernel source tree (/lib/modules/`uname -r`/build),
-   the maximum number of sets (256), the default hash sizes (1024).
-   See `./configure --help`.
+2. Install the binary and the modules
 
-   % ./configure
-   % make
-   % make modules
+   # make KERNEL_DIR=<<where-you-built-your-kernel>> install
 
-3. Install the binary and the kernel modules
+3. Cleanup the source tree
 
-   # make install
-   # make modules_install
-
-   After installing the modules, you can run the testsuite as well.
-   Please note, several assumptions must be met for the testsuite:
-
-	- no sets defined
-	- iptables/ip6tables rules are not set up
-	- the destination for kernel logs is /var/log/kern.log
-	- the networks 10.255.255.0/24 and 1002:1002:1002:1002::/64
-	  are not in use
-	- sendip utility is installed
-
-   # make tests
-
-4. Cleanup the source tree
-
-   % make clean
-   % make modules_clean
+   # make KERNEL_DIR=<<where-you-built-your-kernel>> clean
 
 That's it! 
 
-Read the ipset(8) and iptables(8), ip6tables(8) manpages on how to use
-ipset and its match and target from iptables.
+Read the ipset(8) and iptables(8) manpages on how to use ipset 
+and its match and target from iptables.
 
-Compatibilities and incompatibilities:
+If you want to build a non-modular >= 2.6.16 kernel or has got a 2.4.36.x
+kernel tree, then proceed with the following steps:
 
-- The ipset 6.x userspace utility contains a backward compatibility
-  interface to support the commandline syntax of ipset 4.x.
-  The commandline syntax of ipset 6.x is fully compatible with 5.x.
-- The ipset 6.x userspace utility can't talk to the kernel part of ipset 5.x
-  or 4.x.
-- The ipset 6.x kernel part can't talk to the userspace utility from
-  ipset 5.x or 4.x.
-- The ipset 6.x kernel part can work together with the set match and SET
-  target from iptables 1.4.7 and below, however if you need the IPv6 support
-  from ipset 6.x, then you have to use iptables 1.4.9 or above.
+1. Compile the ipset binaries
 
-The ipset 6.x can interpret the commandline syntax of ipset 4.x, however
-some internal changes mean different behaviour:
+  # make KERNEL_DIR=<<where-you-built-your-kernel>> binaries
 
-- The "--matchunset" flag for the macipmap type is ignored and not used
-  anymore.
-- The "--probes" and "--resize" parameters of the hash types are ignored
-  and not used anymore.
-- The "--from", "--to" and "--network" parameters of the ipporthash,
-  ipportiphash and ipportnethash types are ignored and not used anymore.
-- The hash types are not resized when new entries are added by the SET
-  target. If you use a set together with the SET target, create it with
-  the proper size because it won't be resized automatically.
-- The iptree, iptreemap types are not implemented in ipset 6.x. The types
-  are automatically substituted with the hash:ip type.
+2. Install the ipset binaries
+
+  # make KERNEL_DIR=<<where-you-built-your-kernel>> binaries_install
+
+3. Patch your kernel source
+
+  # make KERNEL_DIR=<<where-you-built-your-kernel>> patch_kernel
+
+4. Go to the kernel source and run 'make oldconfig', enable the ipset
+   functionality and compile, install your kernel.
+

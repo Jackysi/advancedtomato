@@ -1,10 +1,7 @@
 Name: test
-Type: hash:net
-Header: family inet hashsize 128 maxelem 65536
-Size in memory: 1544
+Type: nethash
 References: 0
+Header: hashsize: 128 probes: 4 resize: 50
 Members:
-1.1.1.1
 192.168.68.64/27
 2.0.0.0/24
-2.0.0.1

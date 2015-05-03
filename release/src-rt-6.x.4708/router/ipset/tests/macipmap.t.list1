@@ -1,9 +1,8 @@
 Name: test
-Type: bitmap:ip,mac
-Header: range 2.0.0.0-2.0.255.255
-Size in memory: 458864
+Type: macipmap
 References: 0
+Header: from: 2.0.0.0 to: 2.0.255.255
 Members:
-2.0.0.0
-2.0.0.2,00:11:22:33:44:55
-2.0.255.255,00:11:22:33:44:56
+2.0.0.0,00:00:00:00:00:00
+2.0.255.255,00:00:00:00:00:00
+
