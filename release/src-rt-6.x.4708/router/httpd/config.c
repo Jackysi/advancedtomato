@@ -14,13 +14,7 @@
 #include <typedefs.h>
 #include <sys/reboot.h>
 
-//#define DEBUG
-
-#ifdef DEBUG
-#define NVRAMCMD	"/tmp/nvram"
-#else
 #define NVRAMCMD	"nvram"
-#endif
 
 void wo_defaults(char *url)
 {
@@ -149,18 +143,14 @@ void wi_restore(char *url, int len, char *boundary)
 		resmsg_fread(msg + 1);
 	}
 	nvram_commit();
-#ifndef DEBUG
 	unlink(msg + 1);
-#endif
 	error = NULL;
 
 ERROR:
 	free(buf);
 	if (error != NULL) resmsg_set(error);
 	web_eat(len);
-#ifndef DEBUG
 	if (tmp[0]) unlink(tmp);
-#endif
 }
 
 
@@ -175,14 +165,11 @@ void wo_restore(char *url)
 		killall("pppd", SIGTERM);
 		sleep(2);
 
-#ifdef DEBUG
 		cprintf("---reboot=%d\n", rboot);
-#else
 		set_action(ACT_REBOOT);
 		//	kill(1, SIGTERM);
 		sync();
 		reboot(RB_AUTOBOOT);
-#endif
 		exit(0);
 	}
 

@@ -14,13 +14,7 @@
 #include <typedefs.h>
 #include <sys/reboot.h>
 
-//	#define DEBUG
-
-#ifdef DEBUG
-#define NVRAMCMD	"/tmp/nvram"
-#else
 #define NVRAMCMD	"nvram"
-#endif
 
 void wi_uploadsplash(char *url, int len, char *boundary)
 {
@@ -67,11 +61,9 @@ void wi_uploadsplash(char *url, int len, char *boundary)
 	nvram_set_file("NC_SplashFile", tmp, 8192);
 	nvram_commit();
 	rboot = 1;
-	
-#ifndef DEBUG
-#endif
+
 	error = NULL;
-	
+
 ERROR:
 	free(buf);
 	if (error != NULL) resmsg_set(error);

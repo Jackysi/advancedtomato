@@ -8,8 +8,6 @@
 #include "tomato.h"
 
 
-//#define DEBUG 1
-
 /*
 	<% ident(arg, "arg", 'arg'); %>
 
@@ -74,17 +72,13 @@ int parse_asp(const char *path)
 			++a;
 		}
 		if (ident == a) {
-#ifdef DEBUG
 			syslog(LOG_WARNING, "Identifier not found in %s @%u", path, a - buffer);
-#endif
 			continue;
 		}
 		b = a;
 		while (*a == ' ') ++a;
 		if (*a++ != '(') {
-#ifdef DEBUG
 			syslog(LOG_WARNING, "Expecting ( in %s @%u", path, a - buffer);
-#endif
 			continue;
 		}
 		*b = 0;
@@ -121,9 +115,7 @@ FINAL:
 			}
 
 			if (argc >= 32) {
-#ifdef DEBUG
 				syslog(LOG_WARNING, "Error while parsing arguments in %s @%u", path, a - buffer);
-#endif
 				break;
 			}
 
@@ -152,9 +144,7 @@ FINAL:
 			*a++ = 0;
 		}
 
-#ifdef DEBUG
 		if (a != NULL) syslog(LOG_WARNING, "Error while parsing arguments in %s @%u", path, a - buffer);
-#endif
 
 //		printf("argc=%d]]]\n", argc);
 	}
