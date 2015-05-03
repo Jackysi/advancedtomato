@@ -3,7 +3,7 @@
 
   http://l7-filter.sf.net
 
-  (C) 2003, 2004, 2005, 2006, 2007 Matthew Strait and Ethan Sommer.
+  (C) 2003-2009 Matthew Strait and Ethan Sommer.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -17,6 +17,7 @@
 */
 
 #include <linux/spinlock.h>
+#include <linux/version.h>
 #include <net/ip.h>
 #include <net/tcp.h>
 #include <linux/module.h>
@@ -24,6 +25,9 @@
 #include <linux/netfilter.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
+#include <net/netfilter/nf_conntrack_extend.h>
+#endif
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_layer7.h>
 #include <linux/ctype.h>
@@ -37,7 +41,7 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Matthew Strait <quadong@users.sf.net>, Ethan Sommer <sommere@users.sf.net>");
 MODULE_DESCRIPTION("iptables application layer match module");
 MODULE_ALIAS("ipt_layer7");
-MODULE_VERSION("2.0");
+MODULE_VERSION("2.23");
 
 static int maxdatalen = 2048; // this is the default
 module_param(maxdatalen, int, 0444);
@@ -59,6 +63,22 @@ static struct pattern_cache {
 } * first_pattern_cache = NULL;
 
 DEFINE_SPINLOCK(l7_lock);
+
+static int total_acct_packets(struct nf_conn *ct)
+{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 26)
+	BUG_ON(ct == NULL);
+	return (ct->counters[IP_CT_DIR_ORIGINAL].packets + ct->counters[IP_CT_DIR_REPLY].packets);
+#else
+	struct nf_conn_counter *acct;
+
+	BUG_ON(ct == NULL);
+	acct = nf_conn_acct_find(ct);
+	if (!acct)
+		return 0;
+	return (acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets);
+#endif
+}
 
 #ifdef CONFIG_IP_NF_MATCH_LAYER7_DEBUG
 /* Converts an unfriendly string into a friendly one by
@@ -88,14 +108,14 @@ static char dec2hex(int i)
 {
 	switch (i) {
 		case 0 ... 9:
-			return (char)(i + '0');
+			return (i + '0');
 			break;
 		case 10 ... 15:
-			return (char)(i - 10 + 'a');
+			return (i - 10 + 'a');
 			break;
 		default:
 			if (net_ratelimit())
-				printk("Problem in dec2hex\n");
+				printk("layer7: Problem in dec2hex\n");
 			return '\0';
 	}
 }
@@ -125,7 +145,7 @@ static char * hex_print(unsigned char * s)
 
 /* Use instead of regcomp.  As we expect to be seeing the same regexps over and
 over again, it make sense to cache the results. */
-static regexp * compile_and_cache(char * regex_string, char * protocol)
+static regexp * compile_and_cache(const char * regex_string, const char * protocol)
 {
 	struct pattern_cache * node               = first_pattern_cache;
 	struct pattern_cache * last_pattern_cache = first_pattern_cache;
@@ -177,7 +197,7 @@ static regexp * compile_and_cache(char * regex_string, char * protocol)
 	/* copy the string and compile the regex */
 	len = strlen(regex_string);
 	DPRINTK("About to compile this: \"%s\"\n", regex_string);
-	node->pattern = regcomp(regex_string, &len);
+	node->pattern = regcomp((char *)regex_string, &len);
 	if ( !node->pattern ) {
 		if (net_ratelimit())
 			printk(KERN_ERR "layer7: Error compiling regexp "
@@ -192,7 +212,7 @@ static regexp * compile_and_cache(char * regex_string, char * protocol)
 
 static int can_handle(const struct sk_buff *skb)
 {
-	if(skb->protocol != htons(ETH_P_IP))	/* not IP */
+	if(!ip_hdr(skb))	/* not IP */
 		return 0;
 	if(ip_hdr(skb)->protocol != IPPROTO_TCP &&
 	   ip_hdr(skb)->protocol != IPPROTO_UDP &&
@@ -204,7 +224,7 @@ static int can_handle(const struct sk_buff *skb)
 /* Returns offset the into the skb->data that the application data starts */
 static int app_data_offset(const struct sk_buff *skb)
 {
-	/* In case we are ported somewhere (ebtables?) where skb->nh.iph
+	/* In case we are ported somewhere (ebtables?) where ip_hdr(skb)
 	isn't set, this can be gotten from 4*(skb->data[0] & 0x0f) as well. */
 	int ip_hl = 4*ip_hdr(skb)->ihl;
 
@@ -233,7 +253,7 @@ static int match_no_append(struct nf_conn * conntrack,
                            struct nf_conn * master_conntrack, 
                            enum ip_conntrack_info ctinfo,
                            enum ip_conntrack_info master_ctinfo,
-                           struct xt_layer7_info * info)
+                           const struct xt_layer7_info * info)
 {
 	/* If we're in here, throw the app data away */
 	if(master_conntrack->layer7.app_data != NULL) {
@@ -244,14 +264,10 @@ static int match_no_append(struct nf_conn * conntrack,
 			  friendly_print(master_conntrack->layer7.app_data);
 			char * g = 
 			  hex_print(master_conntrack->layer7.app_data);
-			struct nf_conn_counter *acct;
-			u_int32_t packets = 0;
 
-			if ((acct = nf_conn_acct_find(master_conntrack)))
-				packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
 			DPRINTK("\nl7-filter gave up after %d bytes "
 				"(%d packets):\n%s\n",
-				strlen(f), packets, f);
+				strlen(f), total_acct_packets(master_conntrack), f);
 			kfree(f);
 			DPRINTK("In hex: %s\n", g);
 			kfree(g);
@@ -347,8 +363,8 @@ static int my_atoi(const char *s)
 }
 
 /* write out num_packets to userland. */
-static int layer7_read_proc(char* page, char ** start, off_t off, int count,
-                            int* eof, void * data)
+static ssize_t layer7_read_proc(struct file *filp, char __user *page,
+                            size_t count, loff_t *data)
 {
 	if(num_packets > 99 && net_ratelimit())
 		printk(KERN_ERR "layer7: NOT REACHED. num_packets too big\n");
@@ -358,14 +374,13 @@ static int layer7_read_proc(char* page, char ** start, off_t off, int count,
 	page[2] = '\n';
 	page[3] = '\0';
 
-	*eof=1;
 
 	return 3;
 }
 
 /* Read in num_packets from userland */
-static int layer7_write_proc(struct file* file, const char* buffer,
-                             unsigned long count, void *data)
+static ssize_t layer7_write_proc(struct file *file, const char __user *buffer,
+                             size_t count, loff_t *data)
 {
 	char * foo = kmalloc(count, GFP_ATOMIC);
 
@@ -398,19 +413,37 @@ static int layer7_write_proc(struct file* file, const char* buffer,
 	return count;
 }
 
-static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
+static bool
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+match(const struct sk_buff *skbin, struct xt_action_param *par)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
+match(const struct sk_buff *skbin, const struct xt_match_param *par)
+#else
+match(const struct sk_buff *skbin,
+      const struct net_device *in,
+      const struct net_device *out,
+      const struct xt_match *match,
+      const void *matchinfo,
+      int offset,
+      unsigned int protoff,
+      bool *hotdrop)
+#endif
 {
 	/* sidestep const without getting a compiler warning... */
 	struct sk_buff * skb = (struct sk_buff *)skbin; 
 
-	struct xt_layer7_info * info = (struct xt_layer7_info *)par->matchinfo;
+	const struct xt_layer7_info * info =
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
+		par->matchinfo;
+	#else
+		matchinfo;
+	#endif
+
 	enum ip_conntrack_info master_ctinfo, ctinfo;
 	struct nf_conn *master_conntrack, *conntrack;
 	unsigned char * app_data;
 	unsigned int pattern_result, appdatalen;
 	regexp * comppattern;
-	struct nf_conn_counter *acct;
-	u_int32_t packets = 0;
 
 	/* Be paranoid/incompetent - lock the entire match function. */
 	spin_lock_bh(&l7_lock);
@@ -424,8 +457,8 @@ static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 	/* Treat parent & all its children together as one connection, except
 	for the purpose of setting conntrack->layer7.app_proto in the actual
 	connection. This makes /proc/net/ip_conntrack more satisfying. */
-	if(!(conntrack = nf_ct_get((struct sk_buff *)skb, &ctinfo)) ||
-	   !(master_conntrack=nf_ct_get((struct sk_buff *)skb,&master_ctinfo))){
+	if(!(conntrack = nf_ct_get(skb, &ctinfo)) ||
+	   !(master_conntrack=nf_ct_get(skb,&master_ctinfo))){
 		DPRINTK("layer7: couldn't get conntrack.\n");
 		spin_unlock_bh(&l7_lock);
 		return info->invert;
@@ -436,9 +469,7 @@ static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 		master_conntrack = master_ct(master_conntrack);
 
 	/* if we've classified it or seen too many packets */
-	if ((acct = nf_conn_acct_find(master_conntrack)))
-		packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
-	if(packets > num_packets ||
+	if(total_acct_packets(master_conntrack) > num_packets ||
 	   master_conntrack->layer7.app_proto) {
 
 		pattern_result = match_no_append(conntrack, master_conntrack, 
@@ -467,13 +498,13 @@ static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 
 	/* now that the skb is linearized, it's safe to set these. */
 	app_data = skb->data + app_data_offset(skb);
-	appdatalen = skb->tail - app_data;
+	appdatalen = skb_tail_pointer(skb) - app_data;
 
 	/* the return value gets checked later, when we're ready to use it */
 	comppattern = compile_and_cache(info->pattern, info->protocol);
 
 	/* On the first packet of a connection, allocate space for app data */
-	if(packets == 1 && !skb->cb[0] && 
+	if(total_acct_packets(master_conntrack) == 1 && !skb->cb[0] && 
 	   !master_conntrack->layer7.app_data){
 		master_conntrack->layer7.app_data = 
 			kmalloc(maxdatalen, GFP_ATOMIC);
@@ -514,14 +545,9 @@ static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 	/* If looking for "unset", then always match. "Unset" means that we
 	haven't yet classified the connection. */
 	} else if(!strcmp(info->protocol, "unset")) {
-		struct nf_conn_counter *acct;
-		u_int32_t packets = 0;
-
-		if ((acct = nf_conn_acct_find(master_conntrack)))
-			packets = acct[IP_CT_DIR_ORIGINAL].packets + acct[IP_CT_DIR_REPLY].packets;
 		pattern_result = 2;
 		DPRINTK("layer7: matched unset: not yet classified "
-			"(%d/%d packets)\n", packets, num_packets);
+			"(%d/%d packets)\n", total_acct_packets(master_conntrack), num_packets);
 	/* If the regexp failed to compile, don't bother running it */
 	} else if(comppattern && 
 		  regexec(comppattern, master_conntrack->layer7.app_data)){
@@ -551,24 +577,51 @@ static bool match(const struct sk_buff *skbin, struct xt_action_param *par)
 	return (pattern_result ^ info->invert);
 }
 
-static int check(const struct xt_mtchk_param *par)
+// load nf_conntrack_ipv4
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+static int
+#else
+static bool
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
+check(const struct xt_mtchk_param *par)
 {
-	// load nf_conntrack_ipv4
         if (nf_ct_l3proto_try_module_get(par->match->family) < 0) {
                 printk(KERN_WARNING "can't load conntrack support for "
                                     "proto=%d\n", par->match->family);
-                return -EINVAL;
-        }
-	return 0;
-}
-
-static void
-destroy(const struct xt_mtdtor_param *par)
+#else
+check(const char *tablename, const void *inf,
+		 const struct xt_match *match, void *matchinfo,
+		 unsigned int hook_mask)
 {
-	nf_ct_l3proto_module_put(par->match->family);
+        if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+                printk(KERN_WARNING "can't load conntrack support for "
+                                    "proto=%d\n", match->family);
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+		return -EINVAL;
+	}
+	return 0;
+#else
+                return 0;
+        }
+	return 1;
+#endif
 }
 
-static struct xt_match xt_layer7_match[] = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
+	static void destroy(const struct xt_mtdtor_param *par)
+	{
+		nf_ct_l3proto_module_put(par->match->family);
+	}
+#else
+	static void destroy(const struct xt_match *match, void *matchinfo)
+	{
+		nf_ct_l3proto_module_put(match->family);
+	}
+#endif
+
+static struct xt_match xt_layer7_match[] __read_mostly = {
 {
 	.name		= "layer7",
 	.family		= AF_INET,
@@ -586,12 +639,20 @@ static void layer7_cleanup_proc(void)
 }
 
 /* register the proc file */
-static void layer7_init_proc(void)
+static const struct file_operations layer7_fops = {
+       .owner  = THIS_MODULE,
+       .read   = layer7_read_proc,
+       .write  = layer7_write_proc,
+};
+
+static int layer7_init_proc(void)
 {
 	struct proc_dir_entry* entry;
-	entry = create_proc_entry("layer7_numpackets", 0644, init_net.proc_net);
-	entry->read_proc = layer7_read_proc;
-	entry->write_proc = layer7_write_proc;
+	entry = proc_create("layer7_numpackets", 0644, init_net.proc_net, &layer7_fops);
+	if (entry == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
 static int __init xt_layer7_init(void)
