@@ -180,7 +180,7 @@ qosg.dataToView = function(data) {
 
 	}
 	else if (data[6] != '') {
-		b.push('L7: ' + data[6])
+		b.push('L7: ' + data[6]);
 	}
 
 	if (data[9] != '') {
