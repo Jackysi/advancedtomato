@@ -300,7 +300,7 @@ var m = [
 	{ title: 'Directory with GUI files', name: 'web_dir', type: 'select',
 		options: [['default','Default: /www'], ['jffs', 'Custom: /jffs/www (Experts Only!)'], ['opt', 'Custom: /opt/www (Experts Only!)'], ['tmp', 'Custom: /tmp/www (Experts Only!)']], value: nvram.web_dir, suffix: ' <small>Please be sure of your decision before change this settings!</small>' },
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['asus','Asustek'],['black','Black'],['blue','Blue'],['bluedream','Bluedream'],['brownlight','Brownlight'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['olive','Olive'],['tijuana','Tijuana'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from TTB']], value: nvram.web_css },
+		options: [['red','Tomato'],['asus','Asustek'],['black','Black'],['blue','Blue'],['bluedream','Bluedream'],['brownlight','Brownlight'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['netgear','Netgear'],['olive','Olive'],['tijuana','Tijuana'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from TTB']], value: nvram.web_css },
 	{ title: 'TTB ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: ' Theme name from <a href="http://www.tomatothemebase.eu" target="_blanc"><u><i>TTB themes gallery</i></u></a>' },
 	null,
 	{ title: 'Open Menus' }
