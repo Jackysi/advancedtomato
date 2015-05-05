@@ -91,7 +91,7 @@ input[type='button']:hover {
 }
 
 #tabs li a,
-ul.tabs li a, {
+ul.tabs li a {
 	font-family: Tahoma, Arial, Sans-serif;
 }
 
