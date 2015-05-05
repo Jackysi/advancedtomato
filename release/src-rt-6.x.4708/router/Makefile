@@ -164,18 +164,19 @@ obj-$(NEED_SAMBA3) += samba3
 #endif
 
 ifeq ($(CONFIG_BCMWL6),y)
-ifeq ($(TCONFIG_UFSDA),y)
-    obj-$(TCONFIG_NTFS) += ufsd-asus
+ifeq ($(TCONFIG_TUXERA),y)
+    obj-y += tuxera
 else
-    ifeq ($(TCONFIG_UFSDN),y)
-        obj-$(TCONFIG_NTFS) += ufsd-netgear
+    ifeq ($(TCONFIG_UFSDA),y)
+        obj-$(TCONFIG_NTFS) += ufsd-asus
     else
-        obj-$(TCONFIG_NTFS) += ntfs-3g
+        ifeq ($(TCONFIG_UFSDN),y)
+            obj-$(TCONFIG_NTFS) += ufsd-netgear
+        endif
     endif
 endif
-else
-obj-$(TCONFIG_NTFS) += ntfs-3g
 endif
+obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-$(TCONFIG_EBTABLES) += ebtables
 #obj-$(TCONFIG_IPV6) += libdaemon
@@ -199,6 +200,7 @@ MEDIA_SERVER_STATIC=y
 obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
+obj-$(CONFIG_LINUX26) += libmnl
 obj-$(CONFIG_LINUX26) += ipset
 
 
@@ -875,7 +877,7 @@ openssl/stamp-h1:
 	shared $(OPENSSL_CIPHERS) no-ssl2 no-ssl3 \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
-	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
+	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake \
 	no-zlib no-engines no-sse2 \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
@@ -2257,7 +2259,7 @@ openvpn/.conf: openssl lzo
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
 	--with-crypto-library=openssl \
-	--disable-debug --disable-plugin-auth-pam --disable-plugin-down-root --with-plugindir=/lib --enable-management --enable-small \
+	--disable-debug --disable-plugin-auth-pam --disable-plugin-down-root --with-plugindir=/lib --enable-management --disable-small \
 	--disable-selinux --disable-socks --enable-password-save \
 	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
 	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
@@ -2667,10 +2669,10 @@ dnscrypt-clean:
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP=$(STRIP) \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
 		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib \
-		--disable-asciidoc --disable-threads --disable-gcc-hardening
+		--disable-asciidoc
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
@@ -2709,18 +2711,54 @@ mdadm-install: mdadm
 mdadm-clean:
 	-@$(MAKE) -C mdadm clean
 
-ipset:
-	$(MAKE) -C ipset binaries
+libmnl/stamp-h1:
+	cd $(TOP)/libmnl && CC=$(CC) STRIP=$(STRIP) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	$(CONFIGURE) --prefix=/usr
+	touch libmnl/stamp-h1
+
+libmnl: libmnl/stamp-h1
+	$(MAKE) -C libmnl
+	$(MAKE) -C libmnl DESTDIR=$(TOP)/libmnl/staged install
+
+libmnl-install: libmnl
+	install -d $(INSTALLDIR)/libmnl/usr/lib/
+	install libmnl/src/.libs/libmnl.so.0.1.0 $(INSTALLDIR)/libmnl/usr/lib/libmnl.so.0.1.0
+	$(STRIP) $(INSTALLDIR)/libmnl/usr/lib/libmnl.so.0.1.0
+	cd $(INSTALLDIR)/libmnl/usr/lib/ && \
+		ln -sf libmnl.so.0.1.0 libmnl.so.0 && \
+		ln -sf libmnl.so.0.1.0 libmnl.so
+
+libmnl-clean:
+	-@$(MAKE) -C libmnl clean
+	-@rm -rf libmnl/staged
+
+ipset/stamp-h1: libmnl
+	cd $(TOP)/ipset && CC=$(CC) STRIP=$(STRIP) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	libmnl_CFLAGS="-I$(TOP)/libmnl/staged/usr/include" \
+	libmnl_LIBS="-L$(TOP)/libmnl/staged/usr/lib -lmnl" \
+	$(CONFIGURE) --prefix=/usr --with-kmod=no
+	touch ipset/stamp-h1
+
+ipset: ipset/stamp-h1
+	$(MAKE) -C ipset
 
 ipset-install: ipset
-	install -D ipset/ipset $(INSTALLDIR)/ipset/usr/sbin/ipset
+	install -D ipset/src/ipset $(INSTALLDIR)/ipset/usr/sbin/ipset
 	install -d $(INSTALLDIR)/ipset/usr/lib/
-	install ipset/*.so $(INSTALLDIR)/ipset/usr/lib/
-	$(STRIP) $(INSTALLDIR)/ipset/usr/lib/*.so
+	install ipset/lib/.libs/libipset.so.3.6.0 $(INSTALLDIR)/ipset/usr/lib/libipset.so.3.6.0
+	$(STRIP) $(INSTALLDIR)/ipset/usr/lib/libipset.so.3.6.0
 	$(STRIP) $(INSTALLDIR)/ipset/usr/sbin/ipset
+	cd $(INSTALLDIR)/ipset/usr/lib/ && \
+		ln -sf libipset.so.3.6.0 libipset.so.3 && \
+		ln -sf libipset.so.3.6.0 libipset.so
 
 ipset-clean:
 	-@$(MAKE) -C ipset clean
+	-@rm -rf ipset/Makefile ipset/stamp-h1
 
 comgt:
 	@$(MAKE) -C comgt CC=$(CC) CFLAGS="$(EXTRACFLAGS)" LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" comgt

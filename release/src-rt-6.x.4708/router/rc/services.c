@@ -448,6 +448,7 @@ void start_dnsmasq()
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
+	fappend(f, "/etc/dnsmasq.ipset");
 
 	//
 

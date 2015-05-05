@@ -51,6 +51,14 @@ endif
 ifeq ($(TCONFIG_USB),y)
 #optware install script
 	install -m 0700 optware-install.sh $(INSTALLDIR)/usr/sbin
+
+#entware install script
+	install -m 0700 entware-install.sh $(INSTALLDIR)/usr/sbin
+endif
+
+ifeq ($(TCONFIG_OPENVPN),y)
+#openvpn selectable routing
+	install -m 0700 vpnrouting $(INSTALLDIR)/usr/sbin
 endif
 
 # cron helper

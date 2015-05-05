@@ -1,8 +1,8 @@
 Name: test
-Type: portmap
+Type: bitmap:port
+Header: range 0-65535
+Size in memory: 8216
 References: 0
-Header: from: 0 to: 65535
 Members:
 0
 65535
-

@@ -1,8 +1,8 @@
 Name: test
-Type: ipmap
+Type: bitmap:ip
+Header: range 2.0.0.0-2.0.255.255
+Size in memory: 8232
 References: 0
-Header: from: 10.0.0.0 to: 10.255.255.255 netmask: 24
 Members:
-10.0.0.0
-10.255.255.0
-
+2.0.0.0
+2.0.255.255

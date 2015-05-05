@@ -1,16 +1,355 @@
-4.5
-  - The iptreemap type used wrong gfp flags when deleting entries
-    (bug reported by Dash Four)
+6.24
+  - netfilter: ipset: small potential read beyond the end of buffer
+    (Dan Carpenter)
+  - Fix parallel resizing and listing of the same set
+  - styles warned by checkpatch.pl fixed
+  - Introduce RCU in all set types instead of rwlock per set
+    (performance tested by Jesper Dangaard Brouer)
+  - Remove rbtree from hash:net,iface in order to run under RCU
+  - Explicitly add padding elements to hash:net,net and hash:net,port,net
+  - Allocate the proper size of memory when /0 networks are supported
+  - Simplify cidr handling for hash:*net* types
+  - Indicate when /0 networks are supported
+  - Kernel API changes in em_ipset.c, support both old and new ones
+  - netfilter: Convert uses of __constant_<foo> to <foo> (Joe Perches)
+  - net: use the new API kvfree() (WANG Cong)
+  - treewide: fix errors in print (Masanari Iida)
+  - netfilter: use IS_ENABLED(CONFIG_BRIDGE_NETFILTER) (Pablo Neira Ayuso)
+  - Use IS_ENABLED macro and define it if required
+  - Alignment problem between 64bit kernel 32bit userspace fixed
+    (reported by Sven-Haegar Koch)
+  - netfilter: ipset: off by one in ip_set_nfnl_get_byindex()
+    (Dan Carpenter)
 
-4.4
-  - The ipporthash, ipportiphash and ipportnethash set types did not
-    work with mixed "src" and "dst" destination parameters of the
-    "set" and "SET" iptables match and target (reported by Dash Four)
-  - Errorneous semaphore handling in error path fixed
-    (reported by Jan Engelhardt, bugzilla id 668)
+6.23
+  - Support updating extensions when the set is full
+    (fixes bugzilla id #880)
 
-4.3
-  - Kernel 2.6.35 support added
+6.22
+  - hash:mac type added to ipset
+  - skbinfo extension: send nonzero extension elements only to userspace
+  - netfilter: Convert pr_warning to pr_warn (Joe Perches)
+  - netfilter: ipset: Add skbinfo extension support to SET target.
+    (Anton Danilov)
+  - netfilter: ipset: Add skbinfo extension kernel support for the list
+    set type. (Anton Danilov)
+  - netfilter: ipset: Add skbinfo extension kernel support for the hash
+    set types. (Anton Danilov)
+  - netfilter: ipset: Add skbinfo extension kernel support for the
+    bitmap set types. (Anton Danilov)
+  - netfilter: ipset: Add skbinfo extension kernel support in the ipset
+    core. (Anton Danilov)
+  - Fix static checker warning in ip_set_core.c (reported by Dan Carpenter)
+  - Fix warn: integer overflows 'sizeof(*map) + size * set->dsize'
+    (reported by Dan Carpenter)
+  - net/netfilter/ipset: Resolve missing-field-initializer warnings
+    (Mark Rustad)
+  - netnet,netportnet: Fix value range support for IPv4 (Sergey Popovich)
+  - Removed invalid IPSET_ATTR_MARKMASK validation (Vytas Dauksa) 
+
+6.21.1
+  - netfilter: ip_set: rename nfnl_dereference()/nfnl_set()
+    (Patrick McHardy)
+
+6.21
+  - ipset: add forceadd kernel support for hash set types (Josh Hunt)
+  - netfilter: ipset: move registration message to init from net_init
+    (Ilia Mirkin)
+  - kernel: uapi: fix MARKMASK attr ABI breakage (Florian Westphal)
+  - Prepare the kernel for create option flags when no extension is needed
+  - add markmask for hash:ip,mark data type (Vytas Dauksa)
+  - add hash:ip,mark data type to ipset (Vytas Dauksa)
+  - ipset: remove unused code (Stephen Hemminger)
+  - netfilter: ipset: Add hash: fix coccinelle warnings (Fengguang Wu)
+  - Typo in ip_set_hash_netnet.c fixed (David Binderman)
+  - net ipset: use rbtree postorder iteration instead of opencoding
+    (Cody P Schafer)
+  - ipset: Follow manual page behavior for SET target on list:set
+    (Sergey Popovich)
+
+6.20.1
+  - netfilter: ipset: remove duplicate define (Michael Opdenacker)
+  - net->user_ns is available starting from 3.8, add compatibility
+    checking (reported by Jan Engelhardt)
+  - Fix memory allocation for bitmap:port (reported by Quentin Armitage)
+  - Avoid clashing with configured kernel in [CONFIG_]IP_SET_MAX
+  - The unnamed union initialization may lead to compilation error
+    (reported by Husnu Demir)
+  - Use dev_net() instead of the direct access to ->nd_net (reported by
+    the kbuild test robot)
+
+6.20
+  - Compatibility code is modified not to rely on kernel version numbers
+  - Use netlink callback dump args only
+  - Add hash:net,port,net module to kernel (Oliver Smith)
+  - Add net namespace for ipset (Vitaly Lavrov)
+  - Use a common function at listing the extensions of the elements
+  - For set:list types, replaced elements must be zeroed out
+  - Fix hash resizing with comments
+  - Support comments in the list-type ipset (Oliver Smith)
+  - Support comments in bitmap-type ipsets (Oliver Smith)
+  - Support comments in hash-type ipsets (Oliver Smith)
+  - Support comments for ipset entries in the core (Oliver Smith)
+  - Add hash:net,net module to kernel (Oliver Smith)
+  - Fix serious failure in CIDR tracking (Oliver Smith)
+  - list:set: make sure all elements are checked by the gc
+  - Support extensions which need a per data destroy function
+  - Generalize extensions support
+  - Move extension data to set structure
+  - Rename extension offset ids to extension ids
+  - Prepare ipset to support multiple networks for hash types
+  - Introduce new operation to get both setname and family
+  - Validate the set family and not the set type family at swapping
+    (Bug reported by Quentin Armitage, netfilter bugzilla id #843)
+  - Consistent userspace testing with nomatch flag
+  - Skip really non-first fragments for IPv6 when getting port/protocol
+  - ipset standalone package needs to ship em_ipset.c (reported by Jan
+    Engelhardt)
+
+6.19
+  - Compatibility fixes to keep the support of kernels back to 2.6.32
+  - Backport nla_put_net64
+  - Support package fragments for IPv4 protos without ports
+    (Anders K. Pedersen)
+  - Use fix sized type for timeout in the extension part
+  - Make sure kernel configured properly for sparse checkings
+  - Fix "may be used uninitialized" warnings (reported by Pablo Neira
+    Ayuso)
+  - Rename simple macro names to avoid namespace issues. (reported by
+    David Laight)
+  - Fix sparse warnings due to missing rcu annotations (reported by
+    Pablo Neira Ayuso)
+  - Sparse warning about shadowed variable fixed
+  - Don't call ip_nest_end needlessly in the error path (suggested by
+    Pablo Neira Ayuso)
+  - set match: add support to match the counters
+  - The list:set type with counter support
+  - The hash types with counter support
+  - The bitmap types with counter support
+  - Introduce the counter extension in the core
+  - list:set type using the extension interface
+  - Hash types using the unified code base
+  - Unified hash type generation
+  - Bitmap types using the unified code base
+  - Unified bitmap type generation
+  - Introduce extensions to elements in the core
+  - Move often used IPv6 address masking function to header file
+  - Make possible to test elements marked with nomatch, from userspace
+  - netfilter ipset: Use ipv6_addr_equal() where appropriate.
+    (YOSHIFUJI Hideaki)
+  - Add a compatibility header file for easier maintenance
+  - The uapi include split in the package itself
+  - Reorder modules a little bit in Kbuild
+
+6.18
+  - list:set: update reference counter when last element pushed off
+  - hash:*net*: nomatch flag not excluded on set resize
+
+6.17
+  - Make sure ip_set_max isn't set to IPSET_INVALID_ID
+  - netfilter: ipset: timeout values corrupted on set resize (Josh Hunt)
+  - "Directory not empty" error message (reported by John Brendler)
+
+6.16.1
+ - Add ipset package version to external module description
+ - Backport RCU handling up to 2.6.32.x
+
+6.16
+ - Netlink pid is renamed to portid in kernel 3.7.0
+ - Fix RCU handling when the number of maximal sets are increased
+ - netfilter: ipset: fix netiface set name overflow (Florian Westphal)
+
+6.15
+ - Increase the number of maximal sets automatically as needed
+ - Restore the support of kernel versions between 2.6.32 and 2.6.35
+ - Fix range bug in hash:ip,port,net
+ - Revert, then reapply cidr book keeping patch to handle /0
+
+6.14
+ - Support to match elements marked with "nomatch" in hash:*net* sets
+ - Coding style fixes
+ - Include supported revisions in module description
+ - Add /0 network support to hash:net,iface type
+ - Fix cidr book keeping for hash:*net* types
+ - Check and reject crazy /0 input parameters
+ - Backport ether_addr_equal
+ - Coding style fix, backport from kernel
+ - net: cleanup unsigned to unsigned int (Eric Dumazet)
+
+6.13
+ - ipset: Handle properly an IPSET_CMD_NONE (Tomasz Bursztyka)
+ - netfilter: ipset: hash:net,iface: fix interface comparison (Florian
+   Westphal)
+ - Timeout fixing bug broke SET target special timeout value, fixed
+ - Use MSEC_PER_SEC instead of harcoded value
+
+6.12
+ - Backport nla_put_net* functions as NLA_PUT* were removed
+ - netlink: add netlink_dump_control structure for netlink_dump_start()
+ - ipset: Stop using NLA_PUT*().
+ - Fix hash size checking in kernel (bug reported by Seblu)
+ - Correct README file about minimal required iptables version
+   (Oskar Berggren)
+ - Sparse warnings "incorrect type in assignment" fixed
+ - Fix timeout value overflow bug at large timeout parameters
+   (bug reported by Andreas Herz)
+ - ipv6: Add fragment reporting to ipv6_skip_exthdr().
+ - net: remove ipv6_addr_copy()
+ - Fix the inclusion of linux/export.h (Henry Culver)
+
+6.11
+ - hash:net,iface timeout bug fixed
+ - Exceptions support added to hash:*net* types
+ - net: Add export.h for EXPORT_SYMBOL/THIS_MODULE to non-modules
+ - Log warning when a hash type of set gets ful
+
+6.10
+ - Invert the logic to include version.h in ip_set_core.c
+ - Suppress false compile-time warnings about uninitialized variable ip_to
+
+6.9.1
+ - Fix compiling ipset as external kernel modules
+
+6.9
+ - Complete Kconfig with hash:net,iface type (standalone package)
+ - rtnetlink: Compute and store minimum ifinfo dump size (Greg Rose)
+ - Remove redundant linux/version.h includes from net/ (Jesper Juhl)
+ - ipset: use NFPROTO_ constants (Jan Engelhardt)
+ - netfilter: ipset: expose userspace-relevant parts in ip_set.h
+   (Jan Engelhardt)
+ - netfilter: ipset: avoid use of kernel-only types (Jan Engelhardt)
+ - netfilter: Remove unnecessary OOM logging messages (Joe Perches)
+ - Dumping error triggered removing references twice and lead to kernel BUG
+ - Autoload set type modules safely
+
+6.8
+ - Fix compiler warnings "'hash_ip4_data_next' declared inline after being
+   called" (Chris Friesen)
+ - hash:net,iface fixed to handle overlapping nets behind different
+   interfaces
+ - Make possible to hash some part of the data element only.
+
+6.7
+ - Whitespace and coding fixes, detected by checkpatch.pl
+ - hash:net,iface type introduced
+ - Use the stored first cidr value instead of '1'
+ - Fix return code for destroy when sets are in use
+ - Add xt_action_param to the variant level kadt functions, ipset API change
+ - Drop supporting kernel versions below 2.6.35
+
+6.6
+ - Use unified from/to address masking and check the usage
+ - ip_set_flush returned -EPROTO instead of -IPSET_ERR_PROTOCOL, fixed
+ - Take into account cidr value for the from address when creating the set
+ - Adding ranges to hash types with timeout could still fail, fixed
+ - Removed old, not used hashing method ip_set_chash
+ - Remove variable 'ret' in type_pf_tdel(), which is set but not used
+ - Use proper timeout parameter to jiffies conversion
+
+6.5
+ - Support range for IPv4 at adding/deleting elements for hash:*net* types
+ - Set type support with multiple revisions added
+ - Fix adding ranges to hash types
+ 
+6.4
+ - Support listing setnames and headers too
+ - Fix the order of listing of sets
+ - Options and flags support added to the kernel API
+
+6.3
+ - ipset/Kconfig was a mixed up kernel config file, fixed (Michael Tokarev)
+ - bitmap:ip,mac type requires "src" for MAC, enforce it
+ - whitespace fixes: some space before tab slipped in
+ - set match and SET target fixes (bugs reported by Lennert Buytenhek)
+
+6.2
+ - list:set timeout variant fixes
+ - References are protected by rwlock instead of mutex
+ - Add explicit text message to detect patched kernel (netlink.patch)
+ - Timeout can be modified for already added elements
+
+6.1
+ - The hash:*port* types ignored the address range with non TCP/UDP, fixed
+ - Fix checking the revision number of the set type at create command
+ - SCTP, UDPLITE support to hash:*port* types added
+ - Fix revision reporting got broken by the revision checking patch
+
+6.0
+ - Reorganized kernel/ subdir
+ - netfilter: ipset: fix linking with CONFIG_IPV6=n (Patrick McHardy)
+ - netfilter: ipset: send error message manually
+ - netfilter: ipset: add missing break statemtns in 
+   ip_set_get_ip_port() (Patrick McHardy)
+ - netfilter: ipset: add missing include to xt_set.h (Patrick McHardy)
+ - netfilter: ipset: remove unnecessary includes (Patrick McHardy)
+ - netfilter: ipset: use nla_parse_nested() (Patrick McHardy)
+ - Separate ipset errnos completely from system ones and bump protocol
+   version
+ - Use better error codes in xt_set.c
+ - Fix sparse warning about shadowed definition
+ - bitmap:ip type: flavour specific adt functions (Patrick McHardy's review)
+ - bitmap:port type: flavour specific adt functions (Patrick McHardy's
+   review)
+ - Move the type specifici attribute validation to the core
+   (suggested by Patrick McHardy)
+ - Use vzalloc() instead of __vmalloc() (Eric Dumazet, Patrick McHardy)
+ - Use meaningful error messages in xt_set.c (Patrick McHardy's review)
+ - Constified attribute cannot be written (Patrick McHardy's review)
+ - Send (N)ACK at dumping only when NLM_F_ACK is set
+   (Patrick McHardy's review)
+ - Correct the error codes: use ENOENT and EMSGSIZE (Patrick McHardy's
+   review)
+
+5.4
+ - Fixed broken ICMP and ICMPv6 handling
+ - Fix trailing whitespaces and pr_* messages
+ - Un-inline functions which are not small enough (suggested by Patrick McHardy)
+ - Fix module loading at create/header command (reported by Patrick McHardy)
+ - Fix wrong kzalloc flag in type_pf_expire
+ - The get_ip*_port functions are too large to be inlined, move into the core
+ - Add missing __GFP_HIGHMEM flag to __vmalloc (suggested by Eric Dumazet)
+ - Enforce network-order data in the netlink protocol
+ - Use annotated types and fix sparse warnings (suggested by Patrick McHardy)
+ - Move ip_set_alloc, ip_set_free and ip_set_get_ipaddr* into core
+   (suggested by Patrick McHardy)
+ - NETMASK*, HOSTMASK* macros are too generic, use small inline functions
+   (suggested by Patrick McHardy)
+ - Use static LIST_HEAD() for ip_set_type_list (suggested by Patrick McHardy)
+ - Move NLA_PUT_NET* macros to include/net/netlink.h (suggested by Patrick
+   McHardy)
+ - The module parameter max_sets should be unsigned int (reported by Patrick
+   McHardy)
+ - Get rid of ip_set_kernel.h (suggested by Patrick McHardy)
+ - Fix the placement style of boolean operators at continued lines
+   (suggested by Patrick McHardy)
+
+5.3
+ - There is no need to call synchronize_net() at swapping
+ - Replace strncpy with strlcpy at creating a set
+ - Update copyright date and some style changes
+ - Use jhash.h accepted in kernel, with backward compatibility
+ - Separate prefixlens from ip_set core
+ - Remove unused ctnl parameter from call_ad (Jan Engelhardt)
+ - Comment the possible return values of the add/del/test type-functions
+
+5.2
+ - Kernel version check at minimal supported version was mistyped, now fixed.
+
+5.1
+ - Kernel version compatibility: support bumped starting from 2.6.34
+   (Supporting older kernel releases would mean too much burden for me,
+   sorry.)
+ - kernel: use EXPORT_SYMBOL_GPL (Jan Engelhardt)
+ - kernel: const annotations (Jan Engelhardt)
+ - kernel: use __read_mostly for registration-type structures
+   (Jan Engelhardt)
+ - kernel: do not mix const and __read_mostly (Jan Engelhardt)
+ - xt_set: avoid user types in exported kernel headers (Jan Engelhardt)
+ - build: enable parallel building (Jan Engelhardt)
+ - Fix Kbuild for me to delete backup files
+
+5.0
+ - New main branch - ipset completely rewritten
 
 4.2
   - nethash and ipportnethash types counted every entry twice

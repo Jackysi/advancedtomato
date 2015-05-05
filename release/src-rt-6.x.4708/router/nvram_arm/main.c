@@ -58,9 +58,9 @@ int nvram_save_new(char *file, char *buf)
 	count = 0;
 	for (name = buf; *name; name += strlen(name) + 1)
 	{
-#ifdef ASUS_DEBUG
+//#ifdef ASUS_DEBUG
 		puts(name);
-#endif
+//#endif
 		count = count + strlen(name) + 1;
 	}
 
@@ -278,8 +278,8 @@ main(int argc, char **argv)
 			if (**argv != 'd')
 				fprintf(stderr, "size: %d bytes (%d left)\n",
 				        size, MAX_NVRAM_SPACE - size);
-		} else
-			usage();
+		} //else
+		//	usage();
 	}
 
 	return 0;

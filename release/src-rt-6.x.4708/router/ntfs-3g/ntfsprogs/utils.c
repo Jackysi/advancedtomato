@@ -5,6 +5,7 @@
  * Copyright (c) 2003-2006 Anton Altaparmakov
  * Copyright (c) 2003 Lode Leroy
  * Copyright (c) 2005-2007 Yura Pakhuchiy
+ * Copyright (c) 2014      Jean-Pierre Andre
  *
  * A set of shared functions for ntfs utilities
  *
@@ -208,7 +209,7 @@ int utils_valid_device(const char *name, int force)
 	unsigned long mnt_flags = 0;
 	struct stat st;
 
-#ifdef __CYGWIN32__
+#if defined(HAVE_WINDOWS_H) | defined(__CYGWIN32__) 
 	/* FIXME: This doesn't work for Cygwin, so just return success. */
 	return 1;
 #endif
@@ -676,7 +677,8 @@ int utils_attr_get_name(ntfs_volume *vol, ATTR_RECORD *attr, char *buffer, int b
 
 	name    = NULL;
 	namelen = attr->name_length;
-	if (ntfs_ucstombs((ntfschar *)((char *)attr + attr->name_offset),
+	if (ntfs_ucstombs((ntfschar *)((char *)attr
+					+ le16_to_cpu(attr->name_offset)),
 				namelen, &name, 0) < 0) {
 		ntfs_log_error("Couldn't translate attribute name to current "
 				"locale.\n");
@@ -1024,8 +1026,26 @@ int mft_next_record(struct mft_search_ctx *ctx)
 
 			ctx->inode = ntfs_inode_open(ctx->vol, (MFT_REF) ctx->mft_num);
 			if (ctx->inode == NULL) {
-				ntfs_log_error("Error reading inode %llu.\n", (unsigned
-						long long) ctx->mft_num);
+				MFT_RECORD *mrec;
+				int r;
+				MFT_REF base_inode;
+
+				mrec = (MFT_RECORD*)NULL;
+				r = ntfs_file_record_read(ctx->vol,
+					(MFT_REF) ctx->mft_num, &mrec, NULL);
+				if (r || !mrec || !mrec->base_mft_record)
+					ntfs_log_error(
+						"Error reading inode %lld.\n",
+						(long long)ctx->mft_num);
+				else {
+					base_inode = le64_to_cpu(
+						mrec->base_mft_record);
+					ntfs_log_error("Inode %lld is an "
+						"extent of inode %lld.\n",
+						(long long)ctx->mft_num,
+						(long long)MREF(base_inode));
+				}
+				free (mrec);
 				continue;
 			}
 
@@ -1120,4 +1140,65 @@ int mft_next_record(struct mft_search_ctx *ctx)
 	return (ctx->inode == NULL);
 }
 
+#ifdef HAVE_WINDOWS_H
 
+/*
+ *		Translate formats for older Windows
+ *
+ *	Up to Windows XP, msvcrt.dll does not support long long format
+ *	specifications (%lld, %llx, etc). We have to translate them
+ *	to %I64.
+ */
+
+char *ntfs_utils_reformat(char *out, int sz, const char *fmt)
+{
+	const char *f;
+	char *p;
+	int i;
+	enum { F_INIT, F_PERCENT, F_FIRST } state;
+
+	i = 0;
+	f = fmt;
+	p = out;
+	state = F_INIT;
+	while (*f && ((i + 3) < sz)) {
+		switch (state) {
+		case F_INIT :
+			if (*f == '%')
+				state = F_PERCENT;
+			*p++ = *f++;
+			i++;
+			break;
+		case F_PERCENT :
+			if (*f == 'l') {
+				state = F_FIRST;
+				f++;
+			} else {
+				if (((*f < '0') || (*f > '9'))
+				    && (*f != '*') && (*f != '-'))
+					state = F_INIT;
+				*p++ = *f++;
+				i++;
+			}
+			break;
+		case F_FIRST :
+			if (*f == 'l') {
+				*p++ = 'I';
+				*p++ = '6';
+				*p++ = '4';
+				f++;
+				i += 3;
+			} else {
+				*p++ = 'l';
+				*p++ = *f++;
+				i += 2;
+			}
+			state = F_INIT;
+			break;
+		}
+	}
+	*p++ = 0;
+	return (out);
+}
+
+#endif

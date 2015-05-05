@@ -182,6 +182,12 @@ void start_usb(void)
 			}
 #endif
 
+#if defined(TCONFIG_TUXERA)
+			if (nvram_get_int("usb_fs_ntfs")) {
+				modprobe("tntfs");
+			}
+#endif
+
 #ifdef TCONFIG_HFS
 			if (nvram_get_int("usb_fs_hfs")) {
 				modprobe("hfs");
@@ -294,6 +300,9 @@ void stop_usb(void)
 		modprobe_r("fuse");
 #if defined(TCONFIG_UFSDA) || defined(TCONFIG_UFSDN)
 		modprobe_r("ufsd");
+#endif
+#if defined(TCONFIG_TUXERA)
+		modprobe_r("tntfs");
 #endif
 #ifdef TCONFIG_HFS
 		modprobe_r("hfs");
@@ -477,12 +486,21 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			/* try ntfs-3g in case it's installed */
 			if (ret != 0 && strncmp(type, "ntfs", 4) == 0) {
 				sprintf(options + strlen(options), ",noatime,nodev" + (options[0] ? 0 : 1));
-				if (nvram_get_int("usb_fs_ntfs"))
+				if (nvram_get_int("usb_fs_ntfs")) {
+					if( nvram_match( "usb_ntfs_driver", "ntfs3g" )) {
+						ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
+					}
 #if defined(TCONFIG_UFSDA) || defined(TCONFIG_UFSDN)
-					ret = eval("mount", "-t", "ufsd", "-o", options, "-o", "force", mnt_dev, mnt_dir);
-#else
-					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
+					else if( nvram_match( "usb_ntfs_driver", "paragon" )) {
+						ret = eval("mount", "-t", "ufsd", "-o", options, "-o", "force", mnt_dev, mnt_dir);
+					}
 #endif
+#ifdef TCONFIG_TUXERA
+					else if( nvram_match( "usb_ntfs_driver", "tuxera" )) {
+						ret = eval("mount", "-t", "tntfs", "-o", options, mnt_dev, mnt_dir);
+					}
+#endif
+				}
 			}
 #endif
 

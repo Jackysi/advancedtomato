@@ -37,6 +37,7 @@ extern int rboot;
 extern void exec_service(const char *action);
 extern void wi_generic(char *url, int len, char *boundary);
 extern void common_redirect(void);
+extern char* get_wl_tempsense(char *);
 
 extern const char *resmsg_get(void);
 extern void resmsg_set(const char *msg);

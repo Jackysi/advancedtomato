@@ -1,8 +1,8 @@
 Name: test
-Type: setlist
+Type: list:set
+Header: size 8
+Size in memory: 112
 References: 0
-Header: size: 8
 Members:
 foo
 bar
-

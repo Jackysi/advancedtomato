@@ -226,12 +226,16 @@ void start_vpnclient(int clientNum)
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_client%d_rgw", clientNum);
+	sprintf(&buffer2[0], "vpn_client%d_nopull", clientNum);
 	if ( nvram_get_int(&buffer[0]) )
 	{
 		sprintf(&buffer[0], "vpn_client%d_gw", clientNum);
 		if ( ifType == TAP && nvram_safe_get(&buffer[0])[0] != '\0' )
 			fprintf(fp, "route-gateway %s\n", nvram_safe_get(&buffer[0]));
 		fprintf(fp, "redirect-gateway def1\n");
+	} else if ( nvram_get_int(&buffer2[0]) > 0 )
+	{
+		fprintf(fp, "route-nopull\n");
 	}
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
@@ -419,6 +423,15 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
 	}
 
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "1" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "start");
+	} else {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
+	}
+
 #ifdef LINUX26
 	sprintf(&buffer[0], "vpn_client%d", clientNum);
 	allow_fastnat(buffer, 0);
@@ -500,6 +513,12 @@ void stop_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "0" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
+	}
+
 #ifdef LINUX26
 	sprintf(&buffer[0], "vpn_client%d", clientNum);
 	allow_fastnat(buffer, 1);
@@ -515,6 +534,7 @@ void start_vpnserver(int serverNum)
 	char buffer[BUF_SIZE];
 	char buffer2[BUF_SIZE];
 	char *argv[6], *chp, *route;
+	char *br_ipaddr, *br_netmask;
 	int argc = 0;
 	int c2c = 0;
 	enum { TAP, TUN } ifType = TUN;
@@ -643,8 +663,23 @@ void start_vpnserver(int serverNum)
 			sprintf(&buffer[0], "vpn_server%d_dhcp", serverNum);
 			if ( nvram_get_int(&buffer[0]) == 0 )
 			{
-				fprintf(fp, " %s ", nvram_safe_get("lan_ipaddr"));
-				fprintf(fp, "%s ", nvram_safe_get("lan_netmask"));
+				sprintf(&buffer2[0], "vpn_server%d_br", serverNum);
+				if (nvram_contains_word(&buffer2[0], "br1") ) {
+					br_ipaddr = nvram_get( "lan1_ipaddr" );
+					br_netmask = nvram_get( "lan1_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br2") ) {
+					br_ipaddr = nvram_get( "lan2_ipaddr" );
+					br_netmask = nvram_get( "lan2_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br3") ) {
+					br_ipaddr = nvram_get( "lan3_ipaddr" );
+					br_netmask = nvram_get( "lan3_netmask" );
+				} else {
+					br_ipaddr = nvram_get( "lan_ipaddr" );
+					br_netmask = nvram_get( "lan_netmask" );
+				}
+
+				fprintf(fp, " %s ", br_ipaddr);
+				fprintf(fp, "%s ", br_netmask);
 				sprintf(&buffer[0], "vpn_server%d_r1", serverNum);
 				fprintf(fp, "%s ", nvram_safe_get(&buffer[0]));
 				sprintf(&buffer[0], "vpn_server%d_r2", serverNum);
