@@ -70,7 +70,7 @@ The information submitted is 100% anonymous and will ONLY be used for statistica
 <b>This script does NOT send any private or personal information whatsoever (like MAC`s, IP`s etc)!</b><br>
 Script is fully open, and written in bash. Anyone is free to look at the content that is submitted to the database.<br>
 <br>
-The submitted results can be viewed on the <a href=http://tomato.groov.pl/tomatoanon.php target=_blanc><b>http://tomato.groov.pl/tomatoanon.php</b></a> page.<br>
+The submitted results can be viewed on the <a href=http://tomato.groov.pl/tomatoanon.php target=_blank><b>http://tomato.groov.pl/tomatoanon.php</b></a> page.<br>
 This information may help you when choosing the best and most popular router available in your country.<br>
 You can check which version of Tomato is most commonly used and which one is the most stable.<br>
 <br>
@@ -87,7 +87,7 @@ That`s it !!<br>
 <br>
 Thank you for reading and please make the right choice to help this project.<br>
 <br>
-<b>Best Regards!</b></font>
+<b>Best Regards!</b>
 </div></div>
 <br>
 <br>
@@ -113,7 +113,7 @@ createFieldTable('', [
 </ul>
 </div>
 </form>
-</div>
+<div></div>
 </td></tr>
 <tr><td id='footer' colspan=2>
  <form>
@@ -121,7 +121,7 @@ createFieldTable('', [
  <input type='button' value='Save' id='save-button' onclick='save()'>
  <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
  </form>
-</div>
+<div></div>
 </td></tr>
 </table>
 <script type='text/javascript'>verifyFields(null, 1);</script>
