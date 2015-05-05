@@ -93,7 +93,7 @@ createFieldTable('', [
 	{ title: 'RO Community', indent: 2, name: 'snmp_ro', type: 'text', maxlen: 40, size: 64, value: nvram.snmp_ro }
 ]);
 </script>
-</div>
+<div></div>
 </form>
 </div>
 </td></tr>
@@ -103,7 +103,7 @@ createFieldTable('', [
  <input type='button' value='Save' id='save-button' onclick='save()'>
  <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
  </form>
-</div>
+</div><div>
 </td></tr>
 </table>
 <script type='text/javascript'>verifyFields(null, 1);</script>
