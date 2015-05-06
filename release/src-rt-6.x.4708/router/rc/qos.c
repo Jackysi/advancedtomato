@@ -397,6 +397,8 @@ void start_qos(void)
 		qos = "pfifo limit 256";
 	} else if (x == 2) {
 		qos = "codel";
+	} else if (x == 3) {
+		qos = "fq_codel";
 	} else {
 		qos = "sfq perturb 10";
 	}
