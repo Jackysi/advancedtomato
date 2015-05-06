@@ -454,6 +454,22 @@ static inline void qdisc_qstats_backlog_dec(struct Qdisc *sch,
 	sch->qstats.backlog -= qdisc_pkt_len(skb);
 }
 
+static inline void qdisc_qstats_backlog_inc(struct Qdisc *sch,
+					    const struct sk_buff *skb)
+{
+	sch->qstats.backlog += qdisc_pkt_len(skb);
+}
+
+static inline void __qdisc_qstats_drop(struct Qdisc *sch, int count)
+{
+	sch->qstats.drops += count;
+}
+
+static inline void qdisc_qstats_drop(struct Qdisc *sch)
+{
+	sch->qstats.drops++;
+}
+
 static inline void __qdisc_update_bstats(struct Qdisc *sch, unsigned int len)
 {
 	sch->bstats.bytes += len;
