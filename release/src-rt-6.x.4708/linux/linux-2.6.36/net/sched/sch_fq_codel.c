@@ -23,7 +23,6 @@
 #include <linux/vmalloc.h>
 #include <net/netlink.h>
 #include <net/pkt_sched.h>
-#include <net/flow_keys.h>
 #include <net/codel.h>
 
 /*	Fair Queue CoDel.
@@ -70,13 +69,9 @@ struct fq_codel_sched_data {
 static unsigned int fq_codel_hash(const struct fq_codel_sched_data *q,
 				  const struct sk_buff *skb)
 {
-	struct flow_keys keys;
 	unsigned int hash;
 
-	skb_flow_dissect(skb, &keys);
-	hash = jhash_3words((__force u32)keys.dst,
-			    (__force u32)keys.src ^ keys.ip_proto,
-			    (__force u32)keys.ports, q->perturbation);
+	hash = (__force u32)skb_dst(skb);
 
 	return reciprocal_scale(hash, q->flows_cnt);
 }
@@ -550,7 +545,7 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 		qs.backlog = q->backlogs[idx];
 		qs.drops = flow->dropped;
 	}
-	if (gnet_stats_copy_queue(d, NULL, &qs, 0) < 0)
+	if (gnet_stats_copy_queue(d, &qs) < 0)
 		return -1;
 	if (idx < q->flows_cnt)
 		return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
