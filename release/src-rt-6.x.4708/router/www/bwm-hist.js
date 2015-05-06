@@ -127,6 +127,6 @@ function changeDate(e, c)
 
 function initDate(c)
 {
-	dateFormat = fixInt(cookie.get(c), 0, 3, 0)
+	dateFormat = fixInt(cookie.get(c), 0, 3, 0);
 	E('dafm').value = dateFormat;
 }
