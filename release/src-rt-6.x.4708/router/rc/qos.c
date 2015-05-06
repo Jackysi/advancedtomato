@@ -331,7 +331,7 @@ static unsigned calc(unsigned bw, unsigned pct)
 void start_qos(void)
 {
 	int i;
-	char *buf, *g, *p;
+	char *buf, *g, *p, *qos;
 	unsigned int rate;
 	unsigned int ceil;
 	unsigned int bw;
@@ -392,6 +392,15 @@ void start_qos(void)
 		r2q = (bw * 1000) / (8 * 60000) + 1;
 	}
 
+	x = nvram_get_int("qos_pfifo");
+	if (x == 1) {
+		qos = "pfifo limit 256";
+	} else if (x == 2) {
+		qos = "codel";
+	} else {
+		qos = "sfq perturb 10";
+	}
+
 	fprintf(f,
 		"#!/bin/sh\n"
 		"I=%s\n"
@@ -405,8 +414,7 @@ void start_qos(void)
 		"\ttc qdisc del dev $I root 2>/dev/null\n"
 		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
-			get_wanface(),
-			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
+			get_wanface(), qos,
 			(nvram_get_int("qos_default") + 1) * 10, r2q,
 			bw, bw, burst_root);
 
