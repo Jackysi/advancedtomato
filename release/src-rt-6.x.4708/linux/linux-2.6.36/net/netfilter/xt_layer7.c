@@ -584,34 +584,36 @@ static int
 static bool
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
-check(const struct xt_mtchk_param *par)
+	check(const struct xt_mtchk_param *par)
 {
-        if (nf_ct_l3proto_try_module_get(par->match->family) < 0) {
-                printk(KERN_WARNING "can't load conntrack support for "
-                                    "proto=%d\n", par->match->family);
+	if (nf_ct_l3proto_try_module_get(par->match->family) < 0) {
+		printk(KERN_WARNING "can't load conntrack support for "
+			"proto=%d\n", par->match->family);
 #else
-check(const char *tablename, const void *inf,
-		 const struct xt_match *match, void *matchinfo,
-		 unsigned int hook_mask)
+	check(const char *tablename, const void *inf,
+	const struct xt_match *match, void *matchinfo,
+	unsigned int hook_mask)
 {
-        if (nf_ct_l3proto_try_module_get(match->family) < 0) {
-                printk(KERN_WARNING "can't load conntrack support for "
-                                    "proto=%d\n", match->family);
+	if (nf_ct_l3proto_try_module_get(match->family) < 0) {
+		printk(KERN_WARNING "can't load conntrack support for "
+			"proto=%d\n", match->family);
 #endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 		return -EINVAL;
 	}
+
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
 	if (!nf_ct_acct_enabled(par->net)) {
 		printk(KERN_WARNING "Forcing CT accounting to enabled\n");
 		nf_ct_set_acct(par->net,  true);
-		}
+	}
 #endif
-	
 	return 0;
 #else
-                return 0;
-        }
+		return 0;
+	}
 	return 1;
 #endif
 }
