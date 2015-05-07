@@ -601,6 +601,13 @@ check(const char *tablename, const void *inf,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 		return -EINVAL;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+	if (!nf_ct_acct_enabled(par->net)) {
+		printk(KERN_WARNING "Forcing CT accounting to enabled\n");
+		nf_ct_set_acct(par->net,  true);
+		}
+#endif
+	
 	return 0;
 #else
                 return 0;
