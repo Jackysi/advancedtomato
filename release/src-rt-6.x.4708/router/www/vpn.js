@@ -74,11 +74,11 @@ StatusUpdater.prototype =
 				break;
 			case "CLIENT_LIST":
 				if(this.clientTable) this.clientTable.tb.parentNode.style.display = '';
-				if(this.clientTable) this.clientTable.insertData(-1, fields.slice(1,fields.length-1))
+				if(this.clientTable) this.clientTable.insertData(-1, fields.slice(1,fields.length-1));
 				break;
 			case "ROUTING_TABLE":
 				if(this.routeTable) this.routeTable.tb.parentNode.style.display = '';
-				if(this.routeTable) this.routeTable.insertData(-1, fields.slice(1,fields.length-1))
+				if(this.routeTable) this.routeTable.insertData(-1, fields.slice(1,fields.length-1));
 				break;
 			case "GLOBAL_STATS":
 				if(this.statTable) this.statTable.tb.parentNode.style.display = '';
