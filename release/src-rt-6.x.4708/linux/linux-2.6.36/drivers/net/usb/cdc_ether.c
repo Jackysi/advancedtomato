@@ -30,30 +30,30 @@
 #include <linux/mii.h>
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
-#include <linux/usb/usbnet.h>
 
+#include <linux/usb/usbnet.h>
 
 #if defined(CONFIG_USB_NET_RNDIS_HOST) || defined(CONFIG_USB_NET_RNDIS_HOST_MODULE)
 
 static int is_rndis(struct usb_interface_descriptor *desc)
 {
-	return (desc->bInterfaceClass == USB_CLASS_COMM &&
-		desc->bInterfaceSubClass == 2 &&
-		desc->bInterfaceProtocol == 0xff);
+	return desc->bInterfaceClass == USB_CLASS_COMM
+		&& desc->bInterfaceSubClass == 2
+		&& desc->bInterfaceProtocol == 0xff;
 }
 
 static int is_activesync(struct usb_interface_descriptor *desc)
 {
-	return (desc->bInterfaceClass == USB_CLASS_MISC &&
-		desc->bInterfaceSubClass == 1 &&
-		desc->bInterfaceProtocol == 1);
+	return desc->bInterfaceClass == USB_CLASS_MISC
+		&& desc->bInterfaceSubClass == 1
+		&& desc->bInterfaceProtocol == 1;
 }
 
 static int is_wireless_rndis(struct usb_interface_descriptor *desc)
 {
-	return (desc->bInterfaceClass == USB_CLASS_WIRELESS_CONTROLLER &&
-		desc->bInterfaceSubClass == 1 &&
-		desc->bInterfaceProtocol == 3);
+	return desc->bInterfaceClass == USB_CLASS_WIRELESS_CONTROLLER
+		&& desc->bInterfaceSubClass == 1
+		&& desc->bInterfaceProtocol == 3;
 }
 
 #else
@@ -83,6 +83,7 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 	struct cdc_state		*info = (void *) &dev->data;
 	int				status;
 	int				rndis;
+	bool				android_rndis_quirk = false;
 	struct usb_driver		*driver = driver_of(intf);
 	struct usb_cdc_mdlm_desc	*desc = NULL;
 	struct usb_cdc_mdlm_detail_desc *detail = NULL;
@@ -123,9 +124,9 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 	/* this assumes that if there's a non-RNDIS vendor variant
 	 * of cdc-acm, it'll fail RNDIS requests cleanly.
 	 */
-	rndis = (is_rndis(&intf->cur_altsetting->desc) ||
-		 is_activesync(&intf->cur_altsetting->desc) ||
-		 is_wireless_rndis(&intf->cur_altsetting->desc));
+	rndis = is_rndis(&intf->cur_altsetting->desc)
+		|| is_activesync(&intf->cur_altsetting->desc)
+		|| is_wireless_rndis(&intf->cur_altsetting->desc);
 
 	memset(info, 0, sizeof *info);
 	info->control = intf;
@@ -197,6 +198,11 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 					info->control,
 					info->u->bSlaveInterface0,
 					info->data);
+				/* fall back to hard-wiring for RNDIS */
+				if (rndis) {
+					android_rndis_quirk = true;
+					goto next_desc;
+				}
 				goto bad_desc;
 			}
 			if (info->control != intf) {
@@ -277,11 +283,15 @@ next_desc:
 	/* Microsoft ActiveSync based and some regular RNDIS devices lack the
 	 * CDC descriptors, so we'll hard-wire the interfaces and not check
 	 * for descriptors.
+	 *
+	 * Some Android RNDIS devices have a CDC Union descriptor pointing
+	 * to non-existing interfaces.  Ignore that and attempt the same
+	 * hard-wired 0 and 1 interfaces.
 	 */
-	if (rndis && !info->u) {
+	if (rndis && (!info->u || android_rndis_quirk)) {
 		info->control = usb_ifnum_to_if(dev->udev, 0);
 		info->data = usb_ifnum_to_if(dev->udev, 1);
-		if (!info->control || !info->data) {
+		if (!info->control || !info->data || info->control != intf) {
 			dev_dbg(&intf->dev,
 				"rndis: master #0/%p slave #1/%p\n",
 				info->control,
@@ -322,10 +332,10 @@ next_desc:
 
 		dev->status = &info->control->cur_altsetting->endpoint [0];
 		desc = &dev->status->desc;
-		if (!usb_endpoint_is_int_in(desc) ||
-		    (le16_to_cpu(desc->wMaxPacketSize)
-		     < sizeof(struct usb_cdc_notification)) ||
-		    !desc->bInterval) {
+		if (!usb_endpoint_is_int_in(desc)
+				|| (le16_to_cpu(desc->wMaxPacketSize)
+					< sizeof(struct usb_cdc_notification))
+				|| !desc->bInterval) {
 			dev_dbg(&intf->dev, "bad notification endpoint\n");
 			dev->status = NULL;
 		}
@@ -336,6 +346,22 @@ next_desc:
 		usb_driver_release_interface(driver, info->data);
 		return -ENODEV;
 	}
+
+	/* Some devices don't initialise properly. In particular
+	 * the packet filter is not reset. There are devices that
+	 * don't do reset all the way. So the packet filter should
+	 * be set to a sane initial value.
+	 */
+	usb_control_msg(dev->udev,
+			usb_sndctrlpipe(dev->udev, 0),
+			USB_CDC_SET_ETHERNET_PACKET_FILTER,
+			USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTED | USB_CDC_PACKET_TYPE_BROADCAST,
+			intf->cur_altsetting->desc.bInterfaceNumber,
+			NULL,
+			0,
+			USB_CTRL_SET_TIMEOUT
+		);
 	return 0;
 
 bad_desc:
@@ -386,10 +412,10 @@ EXPORT_SYMBOL_GPL(usbnet_cdc_unbind);
 
 static void dumpspeed(struct usbnet *dev, __le32 *speeds)
 {
-	netif_info(dev, timer, dev->net,
-		   "link speeds: %u kbps up, %u kbps down\n",
-		   __le32_to_cpu(speeds[0]) / 1000,
-		   __le32_to_cpu(speeds[1]) / 1000);
+	if (netif_msg_timer(dev))
+		devinfo(dev, "link speeds: %u kbps up, %u kbps down",
+			__le32_to_cpu(speeds[0]) / 1000,
+		__le32_to_cpu(speeds[1]) / 1000);
 }
 
 static void cdc_status(struct usbnet *dev, struct urb *urb)
@@ -408,16 +434,18 @@ static void cdc_status(struct usbnet *dev, struct urb *urb)
 	event = urb->transfer_buffer;
 	switch (event->bNotificationType) {
 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
-		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
-			  event->wValue ? "on" : "off");
+		if (netif_msg_timer(dev))
+			devdbg(dev, "CDC: carrier %s",
+					event->wValue ? "on" : "off");
 		if (event->wValue)
 			netif_carrier_on(dev->net);
 		else
 			netif_carrier_off(dev->net);
 		break;
 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
-		netif_dbg(dev, timer, dev->net, "CDC: speed change (len %d)\n",
-			  urb->actual_length);
+		if (netif_msg_timer(dev))
+			devdbg(dev, "CDC: speed change (len %d)",
+					urb->actual_length);
 		if (urb->actual_length != (sizeof *event + 8))
 			set_bit(EVENT_STS_SPLIT, &dev->flags);
 		else
@@ -427,8 +455,8 @@ static void cdc_status(struct usbnet *dev, struct urb *urb)
 	 * but there are no standard formats for the response data.
 	 */
 	default:
-		netdev_err(dev->net, "CDC: unexpected notification %02x!\n",
-			   event->bNotificationType);
+		deverr(dev, "CDC: unexpected notification %02x!",
+				 event->bNotificationType);
 		break;
 	}
 }
@@ -449,12 +477,10 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 		return status;
 	}
 
-	return 0;
-}
-
-static int cdc_manage_power(struct usbnet *dev, int on)
-{
-	dev->intf->needs_remote_wakeup = on;
+	/* FIXME cdc-ether has some multicast code too, though it complains
+	 * in routine cases.  info->ether describes the multicast support.
+	 * Implement that here, manipulating the cdc filter as needed.
+	 */
 	return 0;
 }
 
@@ -465,23 +491,13 @@ static const struct driver_info	cdc_info = {
 	.bind =		cdc_bind,
 	.unbind =	usbnet_cdc_unbind,
 	.status =	cdc_status,
-	.manage_power =	cdc_manage_power,
-};
-
-static const struct driver_info mbm_info = {
-	.description =	"Mobile Broadband Network Device",
-	.flags =	FLAG_WWAN,
-	.bind = 	cdc_bind,
-	.unbind =	usbnet_cdc_unbind,
-	.status =	cdc_status,
-	.manage_power =	cdc_manage_power,
 };
 
 /*-------------------------------------------------------------------------*/
 
-#define HUAWEI_VENDOR_ID       0x12D1
-#define NOVATEL_VENDOR_ID      0x1410
-#define DELL_VENDOR_ID         0x413C
+#define HUAWEI_VENDOR_ID	0x12D1
+#define NOVATEL_VENDOR_ID	0x1410
+#define DELL_VENDOR_ID		0x413C
 
 static const struct usb_device_id	products [] = {
 /*
@@ -619,11 +635,11 @@ static const struct usb_device_id	products [] = {
 }, {
 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MDLM,
 			USB_CDC_PROTO_NONE),
-	.driver_info = (unsigned long)&mbm_info,
+	.driver_info = (unsigned long) &cdc_info,
 }, {
 	/* Various Huawei modems with a network port like the UMG1831 */
 	USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_COMM,
-			USB_CDC_SUBCLASS_ETHERNET, 255),
+				USB_CDC_SUBCLASS_ETHERNET, 255),
 	.driver_info = (unsigned long) &cdc_info,
 },
 	{ },		// END
@@ -638,7 +654,6 @@ static struct usb_driver cdc_driver = {
 	.suspend =	usbnet_suspend,
 	.resume =	usbnet_resume,
 	.reset_resume =	usbnet_resume,
-	.supports_autosuspend = 1,
 };
 
 
