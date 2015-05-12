@@ -17,7 +17,7 @@
 
 <!-- / / / -->
 
-<style tyle='text/css'>
+<style type='text/css'>
 #ms-grid {
 	width: 81%;
 }
