@@ -168,7 +168,7 @@ function verifyFields(focused, quiet)
 					e.value = 'http://';
 				}
 				if (e.value.search(/http(s?):\/\/./) != 0)  {
-					ferror.set(e, 'Expecting a URL -- http://... or https://...', quiet)
+					ferror.set(e, 'Expecting a URL -- http://... or https://...', quiet);
 					r = 0;
 				}
 				else {
@@ -183,7 +183,7 @@ function verifyFields(focused, quiet)
 					e.value = RegExp.$1;
 				}
 				if (e.value.search(/^[A-Za-z0-9]+/) == -1) {
-					ferror.set(e, 'Invalid hash or URL', quiet)
+					ferror.set(e, 'Invalid hash or URL', quiet);
 					r = 0;
 				}
 				else {
@@ -223,7 +223,7 @@ function save()
 
 	if (!verifyFields(null, 0)) return;
 
-	fom = E('_fom')
+	fom = E('_fom');
 	fom.ddnsx_save.value = (nvram.ddnsx_save == 1) ? 1 : 0;
 
 	fom.ddnsx_ip.value = (E('_f_ddnsx_ip').value == 'custom') ? E('_f_custom_ip').value : E('_f_ddnsx_ip').value;
@@ -263,7 +263,7 @@ REMOVE-END */
 			op = mop(data[3]);
 
 			if ((op.u) || (op.p)) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
-				else s.push('');
+			else s.push('');
 
 			if (op.t) {
 				s.push(E('_f_hosttop' + i).value);

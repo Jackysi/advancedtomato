@@ -353,9 +353,10 @@ createFieldTable('', [
 
 <small>
 <ul>
-<li><b>Other relevant notes/hints:</b>
+<li><b>Other relevant notes/hints:</b></li>
 <ul>
 <li>Try to avoid any conflicts and/or overlaps between the address ranges configured/available for DHCP and VPN clients on your local networks.</li>
+</ul>
 </ul>
 </small>
 </div>
