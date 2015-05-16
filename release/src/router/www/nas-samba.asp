@@ -16,7 +16,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
-<style tyle='text/css'>
+<style type='text/css'>
 #ss-grid {
 	width: 99%;
 }
