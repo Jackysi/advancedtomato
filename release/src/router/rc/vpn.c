@@ -419,6 +419,15 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
 	}
 
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "1" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "start");
+	} else {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
+	}
+
 #ifdef LINUX26
 	sprintf(&buffer[0], "vpn_client%d", clientNum);
 	allow_fastnat(buffer, 0);
@@ -498,6 +507,12 @@ void stop_vpnclient(int clientNum)
 		rmdir("/etc/openvpn/fw");
 		rmdir("/etc/openvpn");
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
+	}
+
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "0" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
 	}
 
 #ifdef LINUX26

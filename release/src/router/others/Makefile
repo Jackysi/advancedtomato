@@ -48,6 +48,11 @@ ifeq ($(TCONFIG_USB),y)
 	install -m 0700 entware-install.sh $(INSTALLDIR)/usr/sbin
 endif
 
+ifeq ($(TCONFIG_OPENVPN),y)
+#openvpn selectable routing
+	install -m 0700 vpnrouting $(INSTALLDIR)/usr/sbin
+endif
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 
