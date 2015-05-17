@@ -144,14 +144,7 @@ void ipt_qos(void)
 		}
 		strcpy(end, app);
 
-		// dscp
-		if (ipt_dscp(dscp, s)) {
-#ifndef LINUX26
-			v4v6_ok &= ~IPT_V6; // dscp ipv6 match is not present in K2.4
-#endif
-			strcat(end, s);
-		}
-
+		saddr[0] = '\0';
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
 			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
@@ -161,10 +154,14 @@ void ipt_qos(void)
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
 		}
-		else {
-			saddr[0] = 0;
-		}
 
+		// dscp
+		if (ipt_dscp(dscp, s)) {
+#ifndef LINUX26
+			v4v6_ok &= ~IPT_V6; // dscp ipv6 match is not present in K2.4
+#endif
+			strcat(saddr, s);
+		}
 
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
