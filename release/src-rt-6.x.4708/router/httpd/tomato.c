@@ -1197,6 +1197,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_fin",			V_01				},
 	{ "qos_rst",			V_01				},
 	{ "qos_icmp",			V_01				},
+	{ "qos_udp",			V_01				},
 	{ "qos_reset",			V_01				},
 	{ "qos_pfifo",			V_NUM				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
