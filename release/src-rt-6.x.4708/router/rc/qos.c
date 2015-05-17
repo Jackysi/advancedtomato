@@ -343,10 +343,6 @@ void ipt_qos(void)
 	free(buf);
 }
 
-
-
-static const char *qosfn = "/etc/qos";
-
 static unsigned calc(unsigned bw, unsigned pct)
 {
 	unsigned n = ((unsigned long)bw * pct) / 100;
