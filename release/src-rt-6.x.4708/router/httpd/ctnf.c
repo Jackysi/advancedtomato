@@ -605,7 +605,7 @@ void asp_qrate(int argc, char **argv)
 	web_puts("];");
 	
 	memset(rates, 0, sizeof(rates));
-	retrieveRatesFromTc("imq0", rates);
+	retrieveRatesFromTc("ifb0", rates);
 
 	comma = ' ';
 	web_puts("\nqrates_in = [0,");
