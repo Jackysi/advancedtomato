@@ -27,7 +27,7 @@ QOS rules on incoming data.
 
 static const char *qosfn = "/etc/qos";
 static const char *qosImqDeviceNumberString = "0";
-static const char *qosImqDeviceString = "imq0";
+static const char *qosImqDeviceString = "ifb0";
 
 // in mangle table
 void ipt_qos(void)
@@ -449,7 +449,7 @@ void start_qos(void)
 			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
 				get_wanface(),
 				qosImqDeviceString,
-				nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
+				qos,
 				qosDefaultClassId, r2q,
 				bw, bw, burst_root);
 	} else {
@@ -472,7 +472,7 @@ void start_qos(void)
 			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u atm\n",
 				get_wanface(),
 				qosImqDeviceString,
-				nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
+				qos,
 				qosDefaultClassId, r2q,
 				bw, bw, burst_root, overhead);
 		}
@@ -777,6 +777,13 @@ void start_qos(void)
 		fprintf(
 			f,
 			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
+			classid, priority, classid);
+
+		fprintf(
+			f,
+			"\t$TFA parent 1: prio %u protocol ip handle %d fw flowid 1:%u \
+			 action xt -j connmark --restore-mark \
+			 action mirred egress redirect dev $IMQ_DEV\n",
 			classid, priority, classid);
 	}
 
