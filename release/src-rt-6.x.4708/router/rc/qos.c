@@ -728,6 +728,10 @@ void start_qos(void)
 		if (first)
 		{
 			first = 0;
+			fprintf(f,
+				"\n"
+				"\ttc qdisc del dev $I ingress 2>/dev/null\n"
+				"\t$TQA handle ffff: ingress\n");
 			if (overhead == 0) {
 				fprintf(f,
 				"\n"
@@ -749,6 +753,10 @@ void start_qos(void)
 					incomingBandwidthInKilobitsPerSecond,
 					incomingBandwidthInKilobitsPerSecond, overhead);
 				}
+
+			fprintf(f,
+			"\n"
+			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect $IMQ_DEV");
 		}
 		
 		fprintf(
