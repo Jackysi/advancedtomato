@@ -1786,12 +1786,12 @@ int start_firewall(void)
 //	sprintf(numdevs, "numdevs=%d", nvram_get_int("imq_numdevs"));
 //	modprobe("imq", numdevs );
 
-//	modprobe("imq");
-//#ifdef LINUX26
-//	modprobe("xt_IMQ");
-//#else
-//	modprobe("ipt_IMQ");
-//#endif
+	modprobe("imq");
+#ifdef LINUX26
+	modprobe("xt_IMQ");
+#else
+	modprobe("ipt_IMQ");
+#endif
 //	}
 
 
