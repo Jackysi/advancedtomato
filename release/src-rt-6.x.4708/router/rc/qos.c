@@ -756,7 +756,7 @@ void start_qos(void)
 
 			fprintf(f,
 			"\n"
-			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect $IMQ_DEV");
+			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect dev $IMQ_DEV\n");
 		}
 		
 		fprintf(
@@ -785,13 +785,6 @@ void start_qos(void)
 		fprintf(
 			f,
 			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
-			classid, priority, classid);
-
-		fprintf(
-			f,
-			"\t$TFA parent 1: prio %u protocol ip handle %d fw flowid 1:%u \
-			 action xt -j connmark --restore-mark \
-			 action mirred egress redirect dev $IMQ_DEV\n",
 			classid, priority, classid);
 	}
 
