@@ -217,8 +217,8 @@ else
                 FOUND=1
             else
                 if [ "$COUNT" == "5" ]; then
-                    logger 4G MODEM WAN not found - exiting
-                    break;
+                    logger 4G MODEM WAN not found - connection process terminated!
+                    exit 0;
                 else
                     logger 4G MODEM WAN not found - count: $COUNT
                     COUNT=`expr $COUNT + 1`
