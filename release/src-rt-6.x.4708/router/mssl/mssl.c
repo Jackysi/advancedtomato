@@ -30,6 +30,8 @@
 
 #define _dprintf(args...)	while (0) {}
 
+const char *allowedCiphers = "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA";
+
 typedef struct {
 	SSL* ssl;
 	int sd;
@@ -178,6 +180,26 @@ static FILE *_ssl_fopen(int sd, int client)
 	// kuki->ssl : SSL structure
 	// kuki->sd  : socket_fd
 
+	// Setup EC support
+#ifdef NID_X9_62_prime256v1
+	EC_KEY *ecdh = NULL;
+	if (ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1)) {
+		SSL_CTX_set_tmp_ecdh(ctx, ecdh);
+		EC_KEY_free(ecdh);
+	}
+#endif
+
+	// Setup available ciphers
+	if (SSL_CTX_set_cipher_list(ctx, allowedCiphers) != 1) {
+		goto ERROR;
+	}
+
+	// Enforce our desired cipher order, disable obsolete protocols
+	SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 |
+		SSL_OP_NO_SSLv3 |
+		SSL_OP_CIPHER_SERVER_PREFERENCE |
+		SSL_OP_SAFARI_ECDHE_ECDSA_BUG);
+
 	r = SSL_set_fd(kuki->ssl, kuki->sd);
 	//fprintf(stderr,"[ssl_fopen] set_fd=%d\n", r); // tmp test
 
@@ -243,7 +265,7 @@ int mssl_init(char *cert, char *priv)
 	// Create the new CTX with the method 
 	// If server=1, use TLSv1_server_method() or SSLv23_server_method()
 	// else 	use TLSv1_client_method() or SSLv23_client_method()
-	ctx = SSL_CTX_new(server ? SSLv23_server_method() : SSLv23_client_method()); // SSLv23 for IE
+	ctx = SSL_CTX_new(server ? SSLv23_server_method() : SSLv23_client_method());
 
 	if (!ctx) {
 		fprintf(stderr,"[ssl_init] SSL_CTX_new() failed\n"); // tmp test
@@ -256,9 +278,9 @@ int mssl_init(char *cert, char *priv)
 
 	if (server) {
 		// Set the certificate to be used
-		_dprintf("SSL_CTX_use_certificate_file(%s)\n", cert);
-		if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0) {
-			_dprintf("SSL_CTX_use_certificate_file() failed\n");
+		_dprintf("SSL_CTX_use_certificate_chain_file(%s)\n", cert);
+		if (SSL_CTX_use_certificate_chain_file(ctx, cert) <= 0) {
+			_dprintf("SSL_CTX_use_certificate_chain_file() failed\n");
 			mssl_cleanup(1);
 			return 0;
 		}
