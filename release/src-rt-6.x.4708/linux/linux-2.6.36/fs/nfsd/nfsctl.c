@@ -1399,8 +1399,10 @@ static int create_proc_exports_entry(void)
 	if (!entry)
 		return -ENOMEM;
 	entry = proc_create("exports", 0, entry, &exports_operations);
-	if (!entry)
+	if (!entry) {
+		remove_proc_entry("fs/nfs", NULL);
 		return -ENOMEM;
+	}
 	return 0;
 }
 #else /* CONFIG_PROC_FS */
