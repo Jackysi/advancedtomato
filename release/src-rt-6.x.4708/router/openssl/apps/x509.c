@@ -715,10 +715,12 @@ bad:
 
 		if (fkey)
 			X509_set_pubkey(x, fkey);
-		else {
+		else
+			{
 			pkey = X509_REQ_get_pubkey(req);
 			X509_set_pubkey(x, pkey);
 			EVP_PKEY_free(pkey);
+			}
 		}
 	else
 		x=load_cert(bio_err,infile,informat,NULL,e,"Certificate");
