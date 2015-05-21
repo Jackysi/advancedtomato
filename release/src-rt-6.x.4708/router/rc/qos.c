@@ -292,18 +292,22 @@ void ipt_qos(void)
 #ifdef BCMARM
 	ip46t_write("-A QOSO -j RETURN\n");
 #endif
-	
+
 	ipt_write(
 		"-A FORWARD -o %s -j QOSO\n"
-		"-A OUTPUT -o %s -j QOSO\n",
-			qface, qface);
+		"-A OUTPUT -o %s -j QOSO\n"
+		"-A FORWARD -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n"
+		"-A OUTPUT -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n",
+		qface, qface, qface, qface);
 
 #ifdef TCONFIG_IPV6
 	if (*wan6face) {
 		ip6t_write(
 			"-A FORWARD -o %s -j QOSO\n"
-			"-A OUTPUT -o %s -j QOSO\n",
-			wan6face, wan6face);
+			"-A OUTPUT -o %s -j QOSO\n"
+			"-A FORWARD -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n"
+			"-A OUTPUT -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n",
+			wan6face, wan6face, wan6face, wan6face);
 	}
 #endif
 
