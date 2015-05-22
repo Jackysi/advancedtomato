@@ -58,6 +58,7 @@ struct codel_sched_data {
 	struct codel_vars	vars;
 	struct codel_stats	stats;
 	u32			drop_overlimit;
+	u16			limit;
 };
 
 /* This is the specific function called from codel_dequeue()
@@ -95,11 +96,11 @@ static int codel_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 {
 	struct codel_sched_data *q;
 
-	if (likely(qdisc_qlen(sch) < sch->limit)) {
+	q = qdisc_priv(sch);
+	if (likely(qdisc_qlen(sch) < q->limit)) {
 		codel_set_enqueue_time(skb);
 		return qdisc_enqueue_tail(skb, sch);
 	}
-	q = qdisc_priv(sch);
 	q->drop_overlimit++;
 	return qdisc_drop(skb, sch);
 }
@@ -140,13 +141,13 @@ static int codel_change(struct Qdisc *sch, struct nlattr *opt)
 	}
 
 	if (tb[TCA_CODEL_LIMIT])
-		sch->limit = nla_get_u32(tb[TCA_CODEL_LIMIT]);
+		q->limit = nla_get_u32(tb[TCA_CODEL_LIMIT]);
 
 	if (tb[TCA_CODEL_ECN])
 		q->params.ecn = !!nla_get_u32(tb[TCA_CODEL_ECN]);
 
 	qlen = sch->q.qlen;
-	while (sch->q.qlen > sch->limit) {
+	while (sch->q.qlen > q->limit) {
 		struct sk_buff *skb = __skb_dequeue(&sch->q);
 
 		qdisc_qstats_backlog_dec(sch, skb);
@@ -162,7 +163,7 @@ static int codel_init(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct codel_sched_data *q = qdisc_priv(sch);
 
-	sch->limit = DEFAULT_CODEL_LIMIT;
+	q->limit = DEFAULT_CODEL_LIMIT;
 
 	codel_params_init(&q->params);
 	codel_vars_init(&q->vars);
@@ -175,7 +176,7 @@ static int codel_init(struct Qdisc *sch, struct nlattr *opt)
 			return err;
 	}
 
-	if (sch->limit >= 1)
+	if (q->limit >= 1)
 		sch->flags |= TCQ_F_CAN_BYPASS;
 	else
 		sch->flags &= ~TCQ_F_CAN_BYPASS;
@@ -195,7 +196,7 @@ static int codel_dump(struct Qdisc *sch, struct sk_buff *skb)
 	if (nla_put_u32(skb, TCA_CODEL_TARGET,
 			codel_time_to_us(q->params.target)) ||
 	    nla_put_u32(skb, TCA_CODEL_LIMIT,
-			sch->limit) ||
+			q->limit) ||
 	    nla_put_u32(skb, TCA_CODEL_INTERVAL,
 			codel_time_to_us(q->params.interval)) ||
 	    nla_put_u32(skb, TCA_CODEL_ECN,
