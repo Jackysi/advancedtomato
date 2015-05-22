@@ -61,6 +61,7 @@ struct fq_codel_sched_data {
 	struct codel_stats cstats;
 	u32		drop_overlimit;
 	u32		new_flow_count;
+	u16		limit;
 
 	struct list_head new_flows;	/* list of new flows */
 	struct list_head old_flows;	/* list of old flows */
@@ -193,7 +194,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		flow->deficit = q->quantum;
 		flow->dropped = 0;
 	}
-	if (++sch->q.qlen <= sch->limit)
+	if (++sch->q.qlen <= q->limit)
 		return NET_XMIT_SUCCESS;
 
 	q->drop_overlimit++;
@@ -331,7 +332,7 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
 	}
 
 	if (tb[TCA_FQ_CODEL_LIMIT])
-		sch->limit = nla_get_u32(tb[TCA_FQ_CODEL_LIMIT]);
+		q->limit = nla_get_u32(tb[TCA_FQ_CODEL_LIMIT]);
 
 	if (tb[TCA_FQ_CODEL_ECN])
 		q->cparams.ecn = !!nla_get_u32(tb[TCA_FQ_CODEL_ECN]);
@@ -339,7 +340,7 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
 	if (tb[TCA_FQ_CODEL_QUANTUM])
 		q->quantum = max(256U, nla_get_u32(tb[TCA_FQ_CODEL_QUANTUM]));
 
-	while (sch->q.qlen > sch->limit) {
+	while (sch->q.qlen > q->limit) {
 		struct sk_buff *skb = fq_codel_dequeue(sch);
 
 		kfree_skb(skb);
@@ -380,7 +381,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
 	struct fq_codel_sched_data *q = qdisc_priv(sch);
 	int i;
 
-	sch->limit = 10*1024;
+	q->limit = 10*1024;
 	q->flows_cnt = 1024;
 	q->quantum = psched_mtu(qdisc_dev(sch));
 	q->perturbation = prandom_u32();
@@ -413,7 +414,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
 			codel_vars_init(&flow->cvars);
 		}
 	}
-	if (sch->limit >= 1)
+	if (q->limit >= 1)
 		sch->flags |= TCQ_F_CAN_BYPASS;
 	else
 		sch->flags &= ~TCQ_F_CAN_BYPASS;
@@ -432,7 +433,7 @@ static int fq_codel_dump(struct Qdisc *sch, struct sk_buff *skb)
 	if (nla_put_u32(skb, TCA_FQ_CODEL_TARGET,
 			codel_time_to_us(q->cparams.target)) ||
 	    nla_put_u32(skb, TCA_FQ_CODEL_LIMIT,
-			sch->limit) ||
+			q->limit) ||
 	    nla_put_u32(skb, TCA_FQ_CODEL_INTERVAL,
 			codel_time_to_us(q->cparams.interval)) ||
 	    nla_put_u32(skb, TCA_FQ_CODEL_ECN,
