@@ -807,6 +807,7 @@ void start_qos(void)
 		"\tip link set $IMQ_DEV down\n"
 		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 		"\ttc qdisc del dev $IMQ_DEV root 2>/dev/null\n"
+		"\ttc filter del dev $WAN_DEV parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
 		"\t;;\n"
 		"*)\n"
 		"\techo \"...\"\n"
