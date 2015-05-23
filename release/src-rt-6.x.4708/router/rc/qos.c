@@ -760,7 +760,7 @@ void start_qos(void)
 
 			fprintf(f,
 			"\n"
-			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect dev $IMQ_DEV\n");
+			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV\n", (nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
 		}
 		
 		fprintf(
@@ -801,13 +801,13 @@ void start_qos(void)
 		"\tip link set $IMQ_DEV up\n",
 		f);
 
-	fputs(
+	fprintf(f,
 		"\t;;\n"
 		"stop)\n"
 		"\tip link set $IMQ_DEV down\n"
 		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 		"\ttc qdisc del dev $IMQ_DEV root 2>/dev/null\n"
-		"\ttc filter del dev $WAN_DEV parent ffff: protocol ip prio 10 u32 match ip dst 0.0.0.0/0 action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
+		"\ttc filter del dev $WAN_DEV parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
 		"\t;;\n"
 		"*)\n"
 		"\techo \"...\"\n"
@@ -825,7 +825,7 @@ void start_qos(void)
 		"\ttc -s -d class ls dev $IMQ_DEV\n"
 		"\techo\n"
 		"esac\n",
-		f);
+		(nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
 
 	fclose(f);
 	chmod(qosfn, 0700);
