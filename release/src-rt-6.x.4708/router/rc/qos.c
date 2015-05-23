@@ -389,7 +389,7 @@ void start_qos(void)
 	}
 	else {
 		modprobe_r("tcp_vegas");
-		f_write_string("/proc/sys/net/ipv4/tcp_congestion_control", "", FW_NEWLINE, 0);
+		f_write_string("/proc/sys/net/ipv4/tcp_congestion_control", "cubic", FW_NEWLINE, 0);
 	}
 #else
 	f_write_string("/proc/sys/net/ipv4/tcp_vegas_cong_avoid", x ? "1" : "0", 0, 0);
