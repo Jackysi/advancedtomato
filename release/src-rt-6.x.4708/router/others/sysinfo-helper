@@ -10,4 +10,8 @@ else
 c="dual"
 fi
 
+d=`cat /proc/dmu/temperature | head -1 | awk '{ print substr($4,1,length($4)-2)}'`
+if [ ! $d ]; then d="--"; fi
+
 echo "cpu MHz : $a MHz ($c" > /tmp/sysinfo-helper
+echo "cpu Temp : $d" >> /tmp/sysinfo-helper

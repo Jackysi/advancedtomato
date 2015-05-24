@@ -60,7 +60,7 @@ int strncmp_ex(char *str1, char *str2)
 	return strncmp(str1, str2, strlen(str2));
 }
 
-int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk)
+int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk, char *cputemp)
 
 {
 	FILE *fd;
@@ -68,7 +68,7 @@ int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk
 	char buff[1024];
 	char title[128], value[512];
 	int okcount=0;
-                                                                                                              
+
 	fd = fopen ("/proc/cpuinfo", "r");
 	while (fgets(buff, sizeof(buff), fd)) {
 		next = buff;
@@ -113,10 +113,14 @@ int get_cpuinfo(char *system_type, char *cpu_model, char *bogomips, char *cpuclk
 			okcount++;
 			strcpy(cpuclk, value);
 		}
+		if (strncmp_ex(title, "cpu Temp")==0) {
+			okcount++;
+			strcpy(cputemp, value);
+		}
 	}
 	fclose(fd);
 
-	return (okcount==3);
+	return (okcount==4);
 }
 
 /*
