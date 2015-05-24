@@ -517,10 +517,11 @@ void asp_sysinfo(int argc, char **argv)
 	char cpu_model[64];
 	char bogomips[8];
 	char cpuclk[8];
+	char cputemp[8];
 	char wl_tempsense[128];
 
 	get_wl_tempsense(wl_tempsense);
-	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
+	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk, cputemp);
 
 	web_puts("\nsysinfo = {\n");
 
@@ -547,6 +548,7 @@ void asp_sysinfo(int argc, char **argv)
 		"\tcpumodel: '%s',\n"
 		"\tbogomips: '%s',\n"
 		"\tcpuclk: '%s',\n"
+		"\tcputemp: '%s',\n"
 		"\twlsense: '%s'",
 			si.uptime,
 			reltime(s, si.uptime),
@@ -561,6 +563,7 @@ void asp_sysinfo(int argc, char **argv)
 			cpu_model,
 			bogomips,
 			cpuclk,
+			cputemp,
 			wl_tempsense);
 
 	if ((a = fopen(procstat, "r")) != NULL) {
