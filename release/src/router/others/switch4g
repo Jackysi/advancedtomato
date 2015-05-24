@@ -71,6 +71,8 @@ else
         modprobe cdc_ether
         modprobe cdc_ncm
 
+        sleep 5
+
         # is modem ready?
         NH=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ncm | wc -l`
         H=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ether | wc -l`
@@ -194,24 +196,36 @@ else
         done
 
         #search WAN interface (usbX or ethX)
-        HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d " " -f1 | cut -d ":" -f1`
-        NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d " " -f1 | cut -d ":" -f1`
+        FOUND=0
+        COUNT=0
 
-        IS_HWAN=`echo $HWAN | wc -w`
-        IS_NHWAN=`echo NHWAN | wc -w`
+        while [ $FOUND == "0" ]; do
+            HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d ":" -f1 | head -n 1`
+            NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d ":" -f1 | head -n 1`
+            IS_HWAN=`echo $HWAN | wc -w`
+            IS_NHWAN=`echo $NHWAN | wc -w`
 
-        if [ "$IS_HWAN" -gt 0 ]; then
-            logger 4G MODEM WAN found - Hilink - using $HWAN as WAN
-            nvram set wan_4g="$HWAN"
-            nvram set modem_type=hilink
-        elif [ "$IS_NHWAN" -gt 0 ]; then
-            logger 4G MODEM WAN found - Non-Hilink - using $NHWAN as WAN
-            nvram set wan_4g="$NHWAN"
-            nvram set modem_type=nonhilink
-        else
-            logger 4G MODEM WAN not found - exit
-            break;
-        fi
+            if [ "$IS_HWAN" -gt 0 ]; then
+                logger 4G MODEM WAN found - Hilink - using $HWAN as WAN
+                nvram set wan_4g="$HWAN"
+                nvram set modem_type=hilink
+                FOUND=1
+            elif [ "$IS_NHWAN" -gt 0 ]; then
+                logger 4G MODEM WAN found - Non-Hilink - using $NHWAN as WAN
+                nvram set wan_4g="$NHWAN"
+                nvram set modem_type=nonhilink
+                FOUND=1
+            else
+                if [ "$COUNT" == "5" ]; then
+                    logger 4G MODEM WAN not found - connection process terminated!
+                    exit 0;
+                else
+                    logger 4G MODEM WAN not found - count: $COUNT
+                    COUNT=`expr $COUNT + 1`
+                    sleep 5
+                fi
+            fi
+        done
 
         #set pin
         if [ "$IS_PIN" == "1" -a "$NH" -gt 0 ]; then #only for non-hilink
