@@ -1791,13 +1791,16 @@ libpng-clean:
 	@rm -f libpng/stamp-h1
 	@rm -rf libpng/staged
 
-php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
+php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg libcurl
 	@$(SEP)
 	cd php && CC=$(CC) CXX=$(ARCH)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
-	CFLAGS="-Os -Wall -I$(TOP)/zlib -I$(TOP)/libxml2/include/libxml -I$(TOP)/libxml2/include -I$(TOP)/pcre -I$(TOP)/libiconv/include -I$(TOP)/libpng/staged/usr/include" \
-	LDFLAGS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs" \
+	CFLAGS="-Os -Wall -I$(TOP)/zlib -I$(TOP)/libxml2/include/libxml -I$(TOP)/libxml2/include -I$(TOP)/pcre -I$(TOP)/libiconv/include \
+		-I$(TOP)/libpng/staged/usr/include -I$(TOP)/libcurl/staged/include" \
+	LDFLAGS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs \
+		-L$(TOP)/libpng/.libs -L$(TOP)/libcurl/staged/lib" \
 	CPPFLAGS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs" \
-	LIBS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs -lsqlite3 -ldl -lpthread -liconv -lxml2" \
+	LIBS="-L$(TOP)/pcre/.libs -L$(TOP)/sqlite/.libs -L$(TOP)/zlib -L$(TOP)/libxml2/.libs -L$(TOP)/libiconv/lib/.libs -L$(TOP)/libpng/.libs -lz \
+		-lsqlite3 -ldl -lpthread -liconv -lxml2 -lstdc++ -lcurl" \
 	PHP_FCGI_LIBXML_DIR="$(TOP)/libxml2/staged/usr" \
 	ac_cv_func_memcmp_working=yes \
 	cv_php_mbstring_stdarg=yes \
@@ -1817,7 +1820,7 @@ php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg
 	--enable-cgi \
 	--disable-calendar \
 	--enable-ctype \
-	--without-curl \
+	--with-curl="$(TOP)/libcurl/staged" \
 	--enable-fileinfo \
 	--without-gettext \
 	--enable-dom \
@@ -2115,7 +2118,7 @@ libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -I$(TOP)/zlib" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
+		$(CONFIGURE) --prefix=$(TOP)/libcurl/staged --disable-thread --enable-shared --enable-static \
 		--enable-ares --enable-cookies --enable-crypto-auth --enable-nonblocking \
 		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
 		--disable-nls --disable-ares --disable-dict --disable-debug --disable-gopher \
@@ -2129,12 +2132,17 @@ libcurl/stamp-h1: zlib openssl
 
 libcurl: libcurl/stamp-h1
 	@$(MAKE) -C libcurl $(PARALLEL_BUILD)
+	@$(MAKE) -C libcurl install
 
 libcurl-clean:
 	-@$(MAKE) -C libcurl clean
 	@rm -f libcurl/stamp-h1 libcurl/Makefile
+	@rm -rf libcurl/staged
 
 libcurl-install: libcurl
+	install -d $(INSTALLDIR)/libcurl/usr/sbin
+	install -D libcurl/src/.libs/curl $(INSTALLDIR)/libcurl/usr/sbin/curl
+	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/sbin/curl
 	install -d $(INSTALLDIR)/libcurl/usr/lib
 	install -D libcurl/lib/.libs/libcurl.so.4.3.0 $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.3.0
 	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.3.0
