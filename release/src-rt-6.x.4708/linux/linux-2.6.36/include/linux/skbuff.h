@@ -134,6 +134,12 @@ struct skb_frag_struct {
 	__u32 size;
 };
 
+static inline unsigned int skb_frag_size(const skb_frag_t *frag)
+{
+	return frag->size;
+}
+
+
 #define HAVE_HW_TIME_STAMP
 
 /**

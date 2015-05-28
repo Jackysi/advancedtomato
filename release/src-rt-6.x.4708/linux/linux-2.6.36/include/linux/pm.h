@@ -210,7 +210,7 @@ extern struct dev_pm_ops generic_subsys_pm_ops;
 					{ .event = PM_EVENT_AUTO_SUSPEND, })
 #define PMSG_AUTO_RESUME	((struct pm_message) \
 					{ .event = PM_EVENT_AUTO_RESUME, })
-
+#define PMSG_IS_AUTO(msg)	(((msg).event & PM_EVENT_AUTO) != 0)
 /**
  * Device power management states
  *

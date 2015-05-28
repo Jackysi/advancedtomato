@@ -17,6 +17,7 @@
 #include <linux/errno.h>
 #include <linux/ethtool.h>
 #include <linux/netdevice.h>
+#include <linux/net_tstamp.h>
 #include <linux/bitops.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
@@ -32,6 +33,17 @@ u32 ethtool_op_get_link(struct net_device *dev)
 	return netif_carrier_ok(dev) ? 1 : 0;
 }
 EXPORT_SYMBOL(ethtool_op_get_link);
+
+int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+{
+	info->so_timestamping =
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE;
+	info->phc_index = -1;
+	return 0;
+}
+EXPORT_SYMBOL(ethtool_op_get_ts_info);
 
 u32 ethtool_op_get_rx_csum(struct net_device *dev)
 {
