@@ -4,7 +4,7 @@ a=`cat /proc/cpuinfo | grep BogoMIPS | head -1 | awk {' print $3'} | awk '{print
 
 b=`cat /proc/cpuinfo | grep processor | wc -l`
 
-if [ $b == "0" ]; then
+if [ $b -le "1" ]; then
 c="single"
 else
 c="dual"
