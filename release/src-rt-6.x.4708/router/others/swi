@@ -200,8 +200,8 @@ else
         COUNT=0
 
         while [ $FOUND == "0" ]; do
-            HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1 | tail -1`
-            NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1 | tail -1`
+            HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1 | head -n 1`
+            NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d ":" -f1 | head -n 1`
             IS_HWAN=`echo $HWAN | wc -w`
             IS_NHWAN=`echo $NHWAN | wc -w`
 
