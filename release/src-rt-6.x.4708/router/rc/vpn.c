@@ -60,6 +60,7 @@ void start_vpnclient(int clientNum)
 	long int nvl;
 	int pid;
 	int userauth, useronly;
+	int i;
 
 	sprintf(&buffer[0], "vpnclient%d", clientNum);
 	if (getpid() != 1) {
@@ -390,10 +391,25 @@ void start_vpnclient(int clientNum)
 		fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		if ( routeMode == NAT )
 		{
+			// Add the nat for the main lan addresses
 			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
 			fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
-			        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+				ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+
+			// Add the nat for other bridges, too
+			for(i=1; i < 4; i++) {
+				int ret1, ret2;
+
+				sprintf(&buffer[0],"lan%d_ipaddr",i);
+				ret1 = sscanf(nvram_safe_get(&buffer[0]), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+				sprintf(&buffer[0],"lan%d_netmask",i);
+				ret2 = sscanf(nvram_safe_get(&buffer[0]), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
+				if (ret1 == 4 && ret2 == 4) {
+					fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
+			        		ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+				}
+			}
 		}
 		fclose(fp);
 		vpnlog(VPN_LOG_EXTRA,"Done creating firewall rules");
