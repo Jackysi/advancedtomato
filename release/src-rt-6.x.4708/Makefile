@@ -978,7 +978,7 @@ setprofile:
 
 help:
 ifeq ($(CONFIG_LINUX26),y)
-	@echo "ASUS ARM Builds - RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P
+	@echo "ASUS ARM Builds - RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P"
 	@echo "ac68e         RT-AC56/68U/R/P build VPN"
 	@echo "ac68z         RT-AC56/68U/R/P build AIO"
 	@echo "n18e          RT-N18U build VPN"
