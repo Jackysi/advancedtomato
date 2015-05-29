@@ -2069,7 +2069,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
 	if (cmd != IP_VS_SO_SET_ADD
 	    && (svc == NULL || svc->protocol != usvc.protocol)) {
 		ret = -ESRCH;
-		out_drop_service;
+		goto out_drop_service;
 	}
 
 	switch (cmd) {
