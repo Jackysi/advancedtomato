@@ -367,6 +367,9 @@ struct nvram_tuple router_defaults[] = {
 	{ "ntp_updates",		"4"				, 0 },
 	{ "ntp_tdod",			"0"				, 0 },
 	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" , 0 },
+#ifdef TCONFIG_DNSCRYPT
+	{ "ntp_server_ip",		"209.114.111.1 184.105.192.247 205.233.73.201", 0 },       // shibby - if dnscrypt-proxy is enabled we have to use ip addresses
+#endif
 	{ "ntp_kiss",			""				, 0 },
 	{ "ntp_kiss_ignore",		""				, 0 },
 
