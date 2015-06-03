@@ -16,17 +16,25 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] OpenVPN: Client</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript' src='vpn.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client1_userauth,vpn_client1_username,vpn_client1_password,vpn_client1_useronly,vpn_client1_tlsremote,vpn_client1_cn,vpn_client1_br,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key,vpn_client2_userauth,vpn_client2_username,vpn_client2_password,vpn_client2_useronly,vpn_client2_tlsremote,vpn_client2_cn,vpn_client2_br,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+//	<% nvram("vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client1_userauth,vpn_client1_username,vpn_client1_password,vpn_client1_useronly,vpn_client1_tlsremote,vpn_client1_cn,vpn_client1_br,vpn_client1_route,vpn_client1_routing_val,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key,vpn_client2_userauth,vpn_client2_username,vpn_client2_password,vpn_client2_useronly,vpn_client2_tlsremote,vpn_client2_cn,vpn_client2_br,vpn_client2_route,vpn_client2_routing_val,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+
+function RouteGrid() {return this;}
+RouteGrid.prototype = new TomatoGrid;
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
-sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
+sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['policy','Routing Policy'],['status','Status']];
+routingTables = [];
 statusUpdaters = [];
-for (i = 0; i < tabs.length; ++i) statusUpdaters.push(new StatusUpdater());
+for (i = 0; i < tabs.length; ++i)
+{
+	statusUpdaters.push(new StatusUpdater());
+	routingTables.push(new RouteGrid());
+}
 ciphers = [['default','Use Default'],['none','None']];
 for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
@@ -159,6 +167,7 @@ function verifyFields(focused, quiet)
 		nat = E('_f_vpn_'+t+'_nat').checked;
 		hmac = E('_vpn_'+t+'_hmac').value;
 		rgw = E('_f_vpn_'+t+'_rgw').checked;
+		route = E('_f_vpn_'+t+'_route');
 
 		userauth =  E('_f_vpn_'+t+'_userauth').checked && auth == "tls";
 		useronly = userauth && E('_f_vpn_'+t+'_useronly').checked;
@@ -181,6 +190,10 @@ function verifyFields(focused, quiet)
 		// Page Advanced
 		elem.display(PR('_vpn_'+t+'_adns'), PR('_vpn_'+t+'_reneg'), auth == "tls");
 		elem.display(E(t+'_gateway'), iface == "tap" && rgw > 0);
+
+		// Page Routing Policy
+		elem.display(PR('_f_vpn_'+t+'_route'), iface == "tun");
+		elem.display(PR('table_'+t+'_routing'), route.checked);
 
 		// Page Key
 		elem.display(PR('_vpn_'+t+'_static'), auth == "secret" || (auth == "tls" && hmac >= 0));
@@ -227,6 +240,54 @@ function verifyFields(focused, quiet)
 	return ret;
 }
 
+RouteGrid.prototype.verifyFields = function(row, quiet)
+{
+	var ret = 1;
+	var fom = E('_fom');
+	var clientnum = 1;
+	for (i = 0; i < tabs.length; ++i)
+	{
+		if (routingTables[i] == this)
+		{
+			clientnum = i+1;
+			if (eval('vpn'+(i+1)+'up') && fom._service.value.indexOf('client'+(i+1)) < 0)
+			{
+				if ( fom._service.value != "" )
+					fom._service.value += ",";
+				fom._service.value += 'vpnclient'+(i+1)+'-restart';
+			}
+		}
+	}
+	var f = fields.getAll(row);
+
+	// Verify fields in this row of the table
+	if (f[2].value == "" ) { ferror.set(f[2], "Value is mandatory.", quiet); ret = 0; }
+	if (f[2].value.indexOf('>') >= 0 || f[2].value.indexOf('<') >= 0) { ferror.set(f[2], "Value cannot contain '<' or '>' characters.", quiet); ret = 0; }
+	if (f[2].value.indexOf(' ') >= 0 || f[2].value.indexOf(',') >= 0) { ferror.set(f[2], "Value cannot contain 'space' or ',' characters. Only one IP or Domain per entry.", quiet); ret = 0; }
+	if (f[2].value.indexOf(' ') >= 0) { ferror.set(f[2], "Value cannot contain '-' character. IP range is not supported.", quiet); ret = 0; }
+	return ret;
+}
+RouteGrid.prototype.fieldValuesToData = function(row)
+{
+	var f = fields.getAll(row);
+	return [f[0].checked?1:0, f[1].value, f[2].value];
+}
+RouteGrid.prototype.dataToView = function(data){
+	var temp = ['<input type=\'checkbox\' style="opacity:1" disabled'+(data[0]!=0?' checked':'')+'>',
+	            ['From Source IP', 'To Destination IP', 'To Domain'][data[1] - 1],
+	            data[2]
+                ];
+	var v = [];
+	for (var i = 0; i < temp.length; ++i){
+		v.push(i==0?temp[i]:escapeHTML('' + temp[i]));
+	}
+	return v;
+}
+RouteGrid.prototype.dataToFieldValues = function(data)
+{
+	return [data[0] == 1, data[1], data[2]];
+}
+
 function save()
 {
 	if (!verifyFields(null, false)) return;
@@ -237,10 +298,17 @@ function save()
 
 	for (i = 0; i < tabs.length; ++i)
 	{
+		if (routingTables[i].isEditing()) return;
+
 		t = tabs[i][0];
 
 		if ( E('_f_vpn_'+t+'_eas').checked )
 			E('vpn_client_eas').value += ''+(i+1)+',';
+
+		var routedata = routingTables[i].getAllData();
+		var routing = '';
+		for (j = 0; j < routedata.length; ++j)
+			routing += routedata[j].join('<') + '>';
 
 		E('vpn_'+t+'_bridge').value = E('_f_vpn_'+t+'_bridge').checked ? 1 : 0;
 		E('vpn_'+t+'_nat').value = E('_f_vpn_'+t+'_nat').checked ? 1 : 0;
@@ -248,6 +316,8 @@ function save()
 		E('vpn_'+t+'_userauth').value = E('_f_vpn_'+t+'_userauth').checked ? 1 : 0;
 		E('vpn_'+t+'_useronly').value = E('_f_vpn_'+t+'_useronly').checked ? 1 : 0;
 		E('vpn_'+t+'_tlsremote').value = E('_f_vpn_'+t+'_tlsremote').checked ? 1 : 0;
+		E('vpn_'+t+'_route').value = E('_f_vpn_'+t+'_route').checked ? 1 : 0;
+		E('vpn_'+t+'_routing_val').value = routing;
 	}
 
 	form.submit(fom, 1);
@@ -264,6 +334,25 @@ function init()
 		sectSelect(i, cookie.get('vpn_client'+i+'_section') || sections[i][0]);
 
 		t = tabs[i][0];
+
+		routingTables[i].init('table_' + t + '_routing','sort', 0,[
+			{ type: 'checkbox' },
+			{ type: 'select', options: [[1, 'From Source IP'],[2, 'To Destination IP'],[3,'To Domain']] },
+			{ type: 'text' }]);
+		routingTables[i].headerSet(['Enable', 'Type', 'Value']);
+		var routingVal = eval('nvram.vpn_' + t + '_routing_val');
+		if(routingVal.length) {
+			var s = routingVal.split('>');
+			for (var j = 0; j < s.length; ++j)
+			{
+				if (!s[j].length) continue;
+				var row = s[j].split('<');
+				if (row.length == 3)
+					routingTables[i].insertData(-1, row);
+			}
+		}
+		routingTables[i].showNewEditor();
+		routingTables[i].resetNewEditor();
 
 		statusUpdaters[i].init(null,null,t+'-status-stats-table',t+'-status-time',t+'-status-content',t+'-no-status',t+'-status-errors');
 		updateStatus(i);
@@ -329,6 +418,8 @@ for (i = 0; i < tabs.length; ++i)
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_userauth\' name=\'vpn_'+t+'_userauth\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_useronly\' name=\'vpn_'+t+'_useronly\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_tlsremote\' name=\'vpn_'+t+'_tlsremote\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_route\' name=\'vpn_'+t+'_route\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_routing_val\' name=\'vpn_'+t+'_routing_val\'>');
 
 	W('<ul class="tabs">');
 	for (j = 0; j < sections.length; j++)
@@ -391,6 +482,19 @@ for (i = 0; i < tabs.length; ++i)
 				value: eval( 'nvram.vpn_'+t+'_cn' ), prefix: '<span id=\''+t+'_cn\'> Common Name:&nbsp', suffix: '</span>'} ] },
 		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) }
 	]);
+	W('</div>');
+	W('<div id=\''+t+'-policy\'>');
+	createFieldTable('', [
+		{ title: 'Redirect through VPN', name: 'f_vpn_'+t+'_route', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_route' ) != 0 },
+		{ title: '', suffix: '<table class=\'tomato-grid\' id=\'table_'+t+'_routing\'></table>' }
+	]);
+	    W('<div>');
+		W('<ul>');
+			W('<li><b>Type -> From Source IP</b> - Ex: "1.2.3.4" or "1.2.3.0/24".');
+			W('<li><b>Type -> To Destination IP</b> - Ex: "1.2.3.4" or "1.2.3.0/24".');
+			W('<li><b>Type -> To Domain</b> - Ex: "domain.com". Please enter one domain per line');
+		W('</ul>');
+	    W('</div>');
 	W('</div>');
 	W('<div id=\''+t+'-keys\'>');
 	W('<p class=\'keyhelp\'>For help generating keys, refer to the OpenVPN <a id=\''+t+'-keyhelp\'>HOWTO</a>.</p>');

@@ -76,6 +76,9 @@
 # define UNUSED_PARAM_RESULT
 #endif
 
+/* used by unit test machinery to run registration functions before calling main() */
+#define INIT_FUNC __attribute__ ((constructor))
+
 /* -fwhole-program makes all symbols local. The attribute externally_visible
  * forces a symbol global.  */
 #if __GNUC_PREREQ(4,1)
@@ -208,6 +211,7 @@ typedef int      bb__aliased_int      FIX_ALIASING;
 typedef long     bb__aliased_long     FIX_ALIASING;
 typedef uint16_t bb__aliased_uint16_t FIX_ALIASING;
 typedef uint32_t bb__aliased_uint32_t FIX_ALIASING;
+typedef uint64_t bb__aliased_uint64_t FIX_ALIASING;
 
 /* NB: unaligned parameter should be a pointer, aligned one -
  * a lvalue. This makes it more likely to not swap them by mistake
@@ -263,6 +267,12 @@ typedef unsigned smalluint;
 
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 
+#ifdef __UCLIBC__
+# define UCLIBC_VERSION KERNEL_VERSION(__UCLIBC_MAJOR__, __UCLIBC_MINOR__, __UCLIBC_SUBLEVEL__)
+#else
+# define UCLIBC_VERSION 0
+#endif
+
 
 /* ---- Miscellaneous --------------------------------------- */
 
@@ -305,8 +315,9 @@ typedef unsigned smalluint;
  * for a mmu-less system.
  */
 #if ENABLE_NOMMU || \
-    (defined __UCLIBC__ && __UCLIBC_MAJOR__ >= 0 && __UCLIBC_MINOR__ >= 9 && \
-    __UCLIBC_SUBLEVEL__ > 28 && !defined __ARCH_USE_MMU__)
+    (defined __UCLIBC__ && \
+     UCLIBC_VERSION > KERNEL_VERSION(0, 9, 28) && \
+     !defined __ARCH_USE_MMU__)
 # define BB_MMU 0
 # define USE_FOR_NOMMU(...) __VA_ARGS__
 # define USE_FOR_MMU(...)
@@ -365,6 +376,7 @@ typedef unsigned smalluint;
 #define HAVE_STRSIGNAL 1
 #define HAVE_STRVERSCMP 1
 #define HAVE_VASPRINTF 1
+#define HAVE_USLEEP 1
 #define HAVE_UNLOCKED_STDIO 1
 #define HAVE_UNLOCKED_LINE_OPS 1
 #define HAVE_GETLINE 1
@@ -373,17 +385,15 @@ typedef unsigned smalluint;
 #define HAVE_NET_ETHERNET_H 1
 #define HAVE_SYS_STATFS_H 1
 
-#if defined(__UCLIBC_MAJOR__)
-# if __UCLIBC_MAJOR__ == 0 \
-  && (   __UCLIBC_MINOR__ < 9 \
-     || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ < 32) \
-     )
+#if defined(__UCLIBC__)
+# if UCLIBC_VERSION < KERNEL_VERSION(0, 9, 32)
 #  undef HAVE_STRVERSCMP
 # endif
-#endif
-
-#if defined(__dietlibc__)
-# undef HAVE_STRCHRNUL
+# if UCLIBC_VERSION >= KERNEL_VERSION(0, 9, 30)
+#  ifndef __UCLIBC_SUSV3_LEGACY__
+#   undef HAVE_USLEEP
+#  endif
+# endif
 #endif
 
 #if defined(__WATCOMC__)
@@ -416,7 +426,7 @@ typedef unsigned smalluint;
 /* These BSD-derived OSes share many similarities */
 #if (defined __digital__ && defined __unix__) \
  || defined __APPLE__ \
- || defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
+ || defined __OpenBSD__ || defined __NetBSD__
 # undef HAVE_CLEARENV
 # undef HAVE_FDATASYNC
 # undef HAVE_GETLINE
@@ -431,8 +441,28 @@ typedef unsigned smalluint;
 # undef HAVE_UNLOCKED_LINE_OPS
 #endif
 
-#if defined(__FreeBSD__)
+#if defined(__dietlibc__)
 # undef HAVE_STRCHRNUL
+#endif
+
+#if defined(__APPLE__)
+# undef HAVE_STRCHRNUL
+#endif
+
+#if defined(__FreeBSD__)
+# undef HAVE_CLEARENV
+# undef HAVE_FDATASYNC
+# undef HAVE_MNTENT_H
+# undef HAVE_PTSNAME_R
+# undef HAVE_SYS_STATFS_H
+# undef HAVE_SIGHANDLER_T
+# undef HAVE_STRVERSCMP
+# undef HAVE_XTABS
+# undef HAVE_UNLOCKED_LINE_OPS
+# include <osreldate.h>
+# if __FreeBSD_version < 1000029
+#  undef HAVE_STRCHRNUL /* FreeBSD added strchrnul() between 1000028 and 1000029 */
+# endif
 #endif
 
 #if defined(__NetBSD__)
@@ -498,6 +528,10 @@ extern char *strsep(char **stringp, const char *delim) FAST_FUNC;
 #ifndef HAVE_STRSIGNAL
 /* Not exactly the same: instead of "Stopped" it shows "STOP" etc */
 # define strsignal(sig) get_signame(sig)
+#endif
+
+#ifndef HAVE_USLEEP
+extern int usleep(unsigned) FAST_FUNC;
 #endif
 
 #ifndef HAVE_VASPRINTF

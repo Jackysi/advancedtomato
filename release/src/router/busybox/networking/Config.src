@@ -134,6 +134,13 @@ config FEATURE_FTPD_ACCEPT_BROKEN_LIST
 	  it increases the code size by ~40 bytes.
 	  Most other ftp servers seem to behave similar to this.
 
+config FEATURE_FTP_AUTHENTICATION
+	bool "Enable authentication"
+	default y
+	depends on FTPD
+	help
+	  Enable basic system login as seen in telnet etc.
+
 config FTPGET
 	bool "ftpget"
 	default y
@@ -173,14 +180,6 @@ config FEATURE_HTTPD_RANGES
 	  Makes httpd emit "Accept-Ranges: bytes" header and understand
 	  "Range: bytes=NNN-[MMM]" header. Allows for resuming interrupted
 	  downloads, seeking in multimedia players etc.
-
-config FEATURE_HTTPD_USE_SENDFILE
-	bool "Use sendfile system call"
-	default y
-	depends on HTTPD
-	help
-	  When enabled, httpd will use the kernel sendfile() function
-	  instead of read/write loop.
 
 config FEATURE_HTTPD_SETUID
 	bool "Enable -u <user> option"
@@ -664,6 +663,14 @@ config FEATURE_NTPD_SERVER
 	  Make ntpd usable as a NTP server. If you disable this option
 	  ntpd will be usable only as a NTP client.
 
+config FEATURE_NTPD_CONF
+	bool "Make ntpd understand /etc/ntp.conf"
+	default y
+	depends on NTPD
+	help
+	  Make ntpd look in /etc/ntp.conf for peers. Only "server address"
+	  is supported.
+
 config PSCAN
 	bool "pscan"
 	default y
@@ -970,16 +977,18 @@ config FEATURE_WGET_LONG_OPTIONS
 	  Support long options for the wget applet.
 
 config FEATURE_WGET_TIMEOUT
-	bool "Enable read timeout option -T SEC"
+	bool "Enable timeout option -T SEC"
 	default y
 	depends on WGET
 	help
-	  Supports network read timeout for wget, so that wget will give
-	  up and timeout when reading network data, through the -T command
-	  line option.  Currently only network data read timeout is
-	  supported (i.e., timeout is not applied to the DNS nor TCP
-	  connection initialization).  When FEATURE_WGET_LONG_OPTIONS is
-	  also enabled, the --timeout option will work in addition to -T.
+	  Supports network read and connect timeouts for wget,
+	  so that wget will give up and timeout, through the -T
+	  command line option.
+
+	  Currently only connect and network data read timeout are
+	  supported (i.e., timeout is not applied to the DNS query). When
+	  FEATURE_WGET_LONG_OPTIONS is also enabled, the --timeout option
+	  will work in addition to -T.
 
 config ZCIP
 	bool "zcip"

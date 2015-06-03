@@ -1,0 +1,130 @@
+#!/bin/sh
+
+#
+# Copyright (C) 2015 shibby
+#
+
+SERVICE=$1
+ACTION=$2
+
+
+find_iface(){
+    if [ "$SERVICE" == "client1" ]; then
+        IFACE="tun11"
+        ID="111"
+    elif [ "$SERVICE" == "client2" ]; then
+        IFACE="tun12"
+        ID="112"
+    else
+        echo "vpnrouting: Interface not found"
+        exit 0
+    fi
+
+    FIREWALL="/etc/openvpn/fw/vpnrouting$ID.sh"
+}
+
+cleanup(){
+    ip route flush table $ID
+    ip route flush cache
+    RULE=`ip rule | grep "lookup $ID" | wc -l`
+    if [ "$RULE" -gt 0 ]; then
+        ip rule del fwmark $ID table $ID
+    fi
+
+    rm $FIREWALL
+    service firewall restart
+
+    ipset --destroy vpnrouting$ID
+    sed -i /etc/dnsmasq.ipset -e "/vpnrouting$ID/d"
+
+    logger vpnrouting: clean-up
+}
+
+case "$ACTION" in
+"start")
+    find_iface
+    cleanup
+
+    CONNECTED="0"
+    VPN_GW=""
+
+    #wait for gateway
+    while [ $CONNECTED == "0" ]; do
+        VPN_GW=`ifconfig $IFACE | awk '/inet addr/ {split ($2,A,":"); print A[2]}'`
+        if [ -n "$VPN_GW" ]; then
+            logger vpnrouting: got gateway for $IFACE - IP $VPN_GW - ID $ID
+            CONNECTED="1"
+        else
+            logger vpnrouting: searching gateway for $IFACE
+            sleep 3
+        fi
+    done
+
+    #logger vpnrouting: Applying routing on VPN $SERVICE - Interface $IFACE - Table $ID - GW $VPN_GW
+
+    ip route add table $ID default via $VPN_GW dev $IFACE
+    ip rule add fwmark $ID table $ID priority 1000
+
+    modprobe ipt_set
+    modprobe ip_set
+    modprobe ip_set_hash_ip
+    ipset --create vpnrouting$ID iphash
+
+    echo "#!/bin/sh" > $FIREWALL
+    echo "echo 0 > /proc/sys/net/ipv4/conf/$IFACE/rp_filter" >> $FIREWALL
+    echo "echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter" >> $FIREWALL
+    echo "iptables -t mangle -A PREROUTING -m set --set vpnrouting$ID dst,src -j MARK --set-mark $ID" >> $FIREWALL
+
+    #example of routing_val: 1<2<8.8.8.8>1<1<1.2.3.4>1<3<domain.com>
+    VALUE=`nvram get vpn_"$SERVICE"_routing_val`
+
+    DNSMASQ="0"
+
+    for i in $(echo $VALUE | tr ">" "\n")
+    do
+        VAL1=`echo $i | cut -d "<" -f1`
+        VAL2=`echo $i | cut -d "<" -f2`
+        VAL3=`echo $i | cut -d "<" -f3`
+
+        #only if rule is enabled
+        if [ "$VAL1" == "1" ]; then
+
+            case "$VAL2" in
+                1) #from source
+                    logger vpnrouting: Type: $VAL2 - add $VAL3
+                    echo "iptables -t mangle -A PREROUTING -s $VAL3 -j MARK --set-mark $ID" >> $FIREWALL
+                    ;;
+                2) #to destination
+                    logger vpnrouting: Type: $VAL2 - add $VAL3
+                    echo "iptables -t mangle -A PREROUTING -d $VAL3 -j MARK --set-mark $ID" >> $FIREWALL
+                    ;;
+                3) #to domain
+                    logger vpnrouting: Type: $VAL2 - add $VAL3
+                    echo "ipset=/$VAL3/vpnrouting$ID" >> /etc/dnsmasq.ipset
+
+                    #try to add ipset rule using forced query to DNS server
+                    nslookup $VAL3 127.0.0.1 > /dev/null
+
+                    DNSMASQ="1"
+                    ;;
+                *) continue ;;
+            esac
+        fi
+    done
+
+    chmod +x $FIREWALL
+    service firewall restart
+
+    if [ "$DNSMASQ" == "1" ]; then
+        service dnsmasq restart
+    fi
+    ;;
+"stop")
+    find_iface
+    cleanup
+    ;;
+*)
+    echo "vpnrouting: unsupported command"
+    exit 0
+    ;;
+esac
