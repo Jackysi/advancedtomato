@@ -5,12 +5,13 @@
 #
 
 MODE=`nvram get wan_proto`
+LOCK="/tmp/switch4g.lock"
 
 if [ ! "$MODE" == "lte" ]; then
     exit 0
 fi
 
-if [ "$1" == "connect" ]; then
+connect() {
     APN=`nvram get modem_apn`
     DEV=`nvram get modem_dev4g`
     TYP=`nvram get modem_type`
@@ -18,7 +19,7 @@ if [ "$1" == "connect" ]; then
 
     logger 4G MODEM - connecting ...
 
-    if [ "$TYP" == "nonhilink" ]; then
+    if [ "$TYP" == "non-hilink" ]; then
         CONNECTED=0
 
         while [ $CONNECTED == "0" ]; do
@@ -50,79 +51,185 @@ if [ "$1" == "connect" ]; then
             logger 4G MODEM - WAN configured ...
         fi
     done
+}
 
-elif [ "$1" == "disconnect" ]; then
+disconnect() {
     DEV=`nvram get modem_dev4g`
+    TYP=`nvram get modem_type`
 
     logger 4G MODEM - disconnecting ...
+    dhcpc-release
 
-    MODE="AT^NDISDUP=1,0" gcom -d $DEV -s /etc/gcom/setmode.gcom
-else
+    if [ "$TYP" == "non-hilink" ]; then
+        MODE="AT^NDISDUP=1,0" gcom -d $DEV -s /etc/gcom/setmode.gcom
+    fi
+}
 
-    LOCK="/tmp/switch4g.lock"
+checkLock() {
     if [ -f $LOCK ]; then #lock exist
         logger 4G MODEM - previous proces of switch4g still working
         exit 0
-    else
+    fi
 
-        PIN=`nvram get modem_pin`
-        IS_PIN=`nvram get modem_pin | wc -w`
+    touch $LOCK
+}
 
-        modprobe cdc_ether
-        modprobe cdc_ncm
+setPIN() {
+    PIN=`nvram get modem_pin`
+    IS_PIN=`nvram get modem_pin | wc -w`
 
-        sleep 5
+    #set pin
+    if [ "$IS_PIN" == "1" -a "$TYPE" == "non-hilink" ]; then #only for non-hilink
+        PINCODE="$PIN" gcom -d $DEVNR -s /etc/gcom/setpin.gcom
+    fi
+}
+
+switchMode() {
+    MODULES="cdc_ether cdc_ncm"
+
+    for MODULE in $MODULES; do
+        modprobe $MODULE
+    done
+
+    sleep 5
+
+    COUNT=0
+    FOUND=0
+
+    while [ $FOUND == "0" ]; do
+        #modem not found, try detect
+        DEVICES=`lsusb | awk '{print $6}'`
+
+        for SWITCH in $DEVICES; do
+            SEARCH=`ls /etc/usb_modeswitch.d/$SWITCH | wc -l`
+
+            # vendor:product
+
+            if [ "$SEARCH" == "1" ]; then
+                logger 4G MODEM FOUND - $SWITCH - Switching ...
+                DV=`echo $SWITCH | cut -d ":" -f1`
+                DP=`echo $SWITCH | cut -d ":" -f2`
+                /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH -v $DV -p $DP
+
+                TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
+                if [ "$TEST1" == "1" ]; then
+                    VENDOR=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | cut -d "x" -f2`
+                else
+                    VENDOR=`echo $SWITCH | cut -d ":" -f1`
+                fi
+
+                TEST2=`lsusb | awk '{print $6}' | grep $VENDOR | wc -l`
+                if [ "$TEST2" == "1" ]; then
+                    PRODUCT=`lsusb | awk '{print $6}' | grep $VENDOR | cut -d ":" -f2`
+                    logger 4G MODEM ready - $VENDOR:$PRODUCT
+                    echo "$VENDOR:$PRODUCT" > /tmp/4g.detect
+                fi
+            fi
+        done
 
         # is modem ready?
-        NH=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ncm | wc -l`
-        H=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ether | wc -l`
-        US=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+        HL=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ether | wc -l`
+        NHL=`cat /proc/bus/usb/devices | grep Driver | grep cdc_ncm | wc -l`
 
-        if [ "$H" -gt 0 ]; then
-            logger 4G MODEM already found - Hilink - using cdc_ether module
-            nvram set 4g_module=cdc_ether
-            rm $LOCK
-        elif [ "$NH" -gt 0 ]; then
-            logger 4G MODEM already found - Non-Hilink - using cdc_ncm module
-            nvram set 4g_module=cdc_ncm
-            rm $LOCK
+        if [ "$HL" -gt 0 ]; then
+            logger 4G MODEM found - Hilink - using cdc_ether module
+            FOUND=1
+            break;
+        elif [ "$NHL" -gt 0 ]; then
+            logger 4G MODEM found - non-Hilink - using cdc_ncm module
+            FOUND=1
         fi
 
-        if [ "$US" -gt 0 ]; then
-            logger 4G MODEM already found - Diagnostic interface - using usbserial module
-            rm $LOCK
+
+        if [ "$COUNT" == "5" ]; then
+            logger 4G MODEM not found - process terminated!
+            break;
         else
-            #modem not found, try detect
+            logger 4G MODEM not found - count: $COUNT
+            COUNT=`expr $COUNT + 1`
+            sleep 5
+        fi
+    done
+}
 
-            DEVICES=`lsusb | awk '{print $6}'`
+searchWAN() {
+    FOUND=0
+    COUNT=0
 
-            for SWITCH in $DEVICES; do
-                SEARCH=`ls /etc/usb_modeswitch.d/$SWITCH | wc -l`
+    while [ $FOUND == "0" ]; do
+        for MODULE in $MODULES; do
+            SEARCH=`cat /proc/bus/usb/devices | grep Driver | grep $MODULE | wc -l`
 
-                # vendor:product
-
-                if [ "$SEARCH" == "1" ]; then
-                    logger 4G MODEM FOUND - $SWITCH - Switching ...
-                    DV=`echo $SWITCH | cut -d ":" -f1`
-                    DP=`echo $SWITCH | cut -d ":" -f2`
-                    /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH -v $DV -p $DP
-
-                    TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
-                    if [ "$TEST1" == "1" ]; then
-                        VENDOR=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | cut -d "x" -f2`
-                    else
-                        VENDOR=`echo $SWITCH | cut -d ":" -f1`
-                    fi
-
-                    TEST2=`lsusb | awk '{print $6}' | grep $VENDOR | wc -l`
-                    if [ "$TEST2" == "1" ]; then
-                        PRODUCT=`lsusb | awk '{print $6}' | grep $VENDOR | cut -d ":" -f2`
-                        logger 4G MODEM ready - $VENDOR:$PRODUCT
-                        echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
-                    fi
+            if [ "$SEARCH" -gt 0 ]; then
+                if [ "$MODULE" == "cdc_ether" ]; then
+                    TYPE="hilink"
+                elif [ "$MODULE" == "cdc_ncm" ]; then
+                    TYPE="non-hilink"
+                else
+                    TYPE="unknown"
                 fi
-            done
 
+                logger 4G MODEM NDIS found - $TYPE - using $MODULE module
+                nvram set 4g_module=$MODULE
+                FOUND=1
+                break;
+            else
+                if [ "$COUNT" == "5" ]; then
+                    logger 4G MODEM NDIS not found - process terminated!
+                    rm $LOCK
+                    exit 0;
+                else
+                    logger 4G MODEM NDIS not found - $MODULE - count: $COUNT
+                    COUNT=`expr $COUNT + 1`
+                    sleep 5
+                fi
+            fi
+        done
+    done
+
+    #search WAN interface (usbX or ethX)
+    FOUND=0
+    COUNT=0
+
+    KERNEL=`uname -r | cut -d "." -f1,2,3`
+
+    while [ $FOUND == "0" ]; do
+        if [ "$KERNEL" == "2.6.36" ]; then #ARM
+            WAN=`dmesg | grep $MODULE | grep register | grep "'" | cut -d " " -f3 | cut -d ":" -f1 | tail -1`
+        else #MIPSEL
+            WAN=`dmesg | grep $MODULE | grep register | grep "'" | cut -d ":" -f1 | tail -1`
+        fi
+
+        IS_WAN=`echo $WAN | wc -w`
+
+        if [ "$IS_WAN" -gt 0 ]; then
+            logger 4G MODEM WAN found - $TYPE - using $WAN as WAN
+                nvram set wan_4g="$WAN"
+            nvram set modem_type=$TYPE
+            FOUND=1
+        else
+            if [ "$COUNT" == "5" ]; then
+                logger 4G MODEM WAN not found - connection process terminated!
+                rm $LOCK
+                exit 0;
+            else
+                logger 4G MODEM WAN not found - count: $COUNT
+                COUNT=`expr $COUNT + 1`
+                sleep 5
+            fi
+        fi
+    done
+}
+
+searchDiag() {
+    if [ "$TYPE" == "non-hilink" ]; then #only for non-hilink
+
+        US=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
+
+        if [ "$US" -gt 0 ]; then
+            logger 4G MODEM found - Diagnostic interface - using usbserial module
+            break;
+        else
             IS_VENDOR=`echo $VENDOR | wc -w`
             if [ "$IS_VENDOR" -gt 0 ]; then
                 IS_PRODUCT=`echo $PRODUCT | wc -w`
@@ -137,32 +244,8 @@ else
             DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
             if [ "$DEV" -gt 0 ]; then
                 logger 4G MODEM ready - using usbserial module
+                FOUND=1
                 nvram set 4g_module=usbserial
-                rm $LOCK
-                break;
-            elif [ -f /tmp/4g.detect ]; then
-                VENDOR=`cat /tmp/4g.detect | cut -d ":" -f1`
-                PRODUCT=`cat /tmp/4g.detect | cut -d ":" -f2`
-                TEST3=`lsusb | grep $VENDOR | grep $PRODUCT | wc -l`
-                if [ "$TEST3" == "1" ]; then
-                    logger 4G MODEM FOUND - already switched - Last know $VENDOR:$PRODUCT
-
-                    DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
-                    if [ "$DEV" -gt 0 ]; then
-                        logger 4G MODEM ready - using usbserial module
-                        nvram set 4g_module=usbserial
-                        rm $LOCK
-                        break;
-                    else
-                        logger 4G MODEM - loading module
-                        rmmod usbserial
-                        insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
-                        echo "$VENDOR:$PRODUCT" > /tmp/4g.detect
-                        nvram set 4g_module=usbserial
-                        rm $LOCK
-                        break;
-                    fi
-                fi
             else
                 #last change. try load usbserial for each usb devices
                 DEVICES=`lsusb | awk '{print $6}'`
@@ -177,8 +260,7 @@ else
                         logger 4G MODEM ready - using usbserial module
                         nvram set 4g_module=usbserial
                         echo "$VENDOR:$PRODUCT" > /tmp/4g.detect
-                        rm $LOCK
-                        break;
+                        FOUND=1
                     fi
                 done
             fi
@@ -190,61 +272,48 @@ else
         for i in $TTY; do
             CHECKTTY=`gcom -d $i -e info | grep OK | wc -l`
             if [ "$CHECKTTY" == "1" ]; then #found working interface
+                logger 4G MODEM DIAG found - $i
                 nvram set modem_dev4g=$i
                 DEVNR=$i
-            fi
-        done
-
-        #search WAN interface (usbX or ethX)
-        FOUND=0
-        COUNT=0
-
-        while [ $FOUND == "0" ]; do
-            HWAN=`dmesg | grep cdc_ether | grep register | grep "'" | cut -d ":" -f1 | head -n 1`
-            NHWAN=`dmesg | grep cdc_ncm | grep register | grep "'" | cut -d ":" -f1 | head -n 1`
-            IS_HWAN=`echo $HWAN | wc -w`
-            IS_NHWAN=`echo $NHWAN | wc -w`
-
-            if [ "$IS_HWAN" -gt 0 ]; then
-                logger 4G MODEM WAN found - Hilink - using $HWAN as WAN
-                nvram set wan_4g="$HWAN"
-                nvram set modem_type=hilink
-                FOUND=1
-            elif [ "$IS_NHWAN" -gt 0 ]; then
-                logger 4G MODEM WAN found - Non-Hilink - using $NHWAN as WAN
-                nvram set wan_4g="$NHWAN"
-                nvram set modem_type=nonhilink
-                FOUND=1
             else
-                if [ "$COUNT" == "5" ]; then
-                    logger 4G MODEM WAN not found - connection process terminated!
-                    exit 0;
-                else
-                    logger 4G MODEM WAN not found - count: $COUNT
-                    COUNT=`expr $COUNT + 1`
-                    sleep 5
-                fi
+                logger 4G MODEM DIAG not found
             fi
         done
+    fi
+}
 
-        #set pin
-        if [ "$IS_PIN" == "1" -a "$NH" -gt 0 ]; then #only for non-hilink
-            PINCODE="$PIN" gcom -d $DEVNR -s /etc/gcom/setpin.gcom
-        fi
-
-        if [ "$NH" -gt 0 ]; then #only for non-hilink
+signal() {
+        if [ "$TYPE" == "non-hilink" ]; then #only for non-hilink
             #check signal strength
             CSQ=`gcom -d $DEVNR -s /etc/gcom/getstrength.gcom | grep "CSQ:" | cut -d " " -f2 | cut -d "," -f1`
             DBM=$((-113+CSQ*2))
             logger "4G MODEM Signal Strength: $DBM dBm"
         fi
+}
 
-        #force connection after detect 4G modem
-        switch4g connect
 
-    fi
+###################################################
 
-#remove lock
-rm $LOCK
+if [ "$1" == "connect" ]; then
+    connect
+elif [ "$1" == "disconnect" ]; then
+    disconnect
+else
+    checkLock
 
+    switchMode
+
+    searchWAN
+
+    searchDiag
+
+    setPIN
+
+    signal
+
+    #force connection after detect 4G modem
+    connect
+
+    #remove lock
+    rm $LOCK
 fi
