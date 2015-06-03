@@ -752,7 +752,7 @@ openssl/stamp-h1:
 	shared $(OPENSSL_CIPHERS) no-ssl2 no-ssl3 \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-gms no-gmp no-rfc3779 \
-	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake \
+	no-err no-hw no-jpake \
 	no-zlib no-engines no-sse2 no-libunbound no-ssl-trace \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
