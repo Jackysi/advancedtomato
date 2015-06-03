@@ -41,6 +41,7 @@
 #include <setjmp.h>
 #include <fnmatch.h>
 #include <sys/times.h>
+#include <sys/utsname.h> /* for setting $HOSTNAME */
 
 #include "busybox.h" /* for applet_names */
 #include "unicode.h"
@@ -141,6 +142,13 @@
 //config:	depends on ASH
 //config:	help
 //config:	  Enable support for test builtin in ash.
+//config:
+//config:config ASH_HELP
+//config:	bool "help builtin"
+//config:	default y
+//config:	depends on ASH
+//config:	help
+//config:	  Enable help builtin in ash.
 //config:
 //config:config ASH_CMDCMD
 //config:	bool "'command' command to override shell builtins"
@@ -384,6 +392,9 @@ static void trace_vprintf(const char *fmt, va_list va);
 
 /* ============ Utility functions */
 #define xbarrier() do { __asm__ __volatile__ ("": : :"memory"); } while (0)
+
+#define is_name(c)      ((c) == '_' || isalpha((unsigned char)(c)))
+#define is_in_name(c)   ((c) == '_' || isalnum((unsigned char)(c)))
 
 static int isdigit_str9(const char *str)
 {
@@ -2008,27 +2019,6 @@ getoptsreset(const char *value)
 }
 #endif
 
-/* math.h has these, otherwise define our private copies */
-#if !ENABLE_SH_MATH_SUPPORT
-#define is_name(c)      ((c) == '_' || isalpha((unsigned char)(c)))
-#define is_in_name(c)   ((c) == '_' || isalnum((unsigned char)(c)))
-/*
- * Return the pointer to the first char which is not part of a legal variable name
- * (a letter or underscore followed by letters, underscores, and digits).
- */
-static const char*
-endofname(const char *name)
-{
-	if (!is_name(*name))
-		return name;
-	while (*++name) {
-		if (!is_in_name(*name))
-			break;
-	}
-	return name;
-}
-#endif
-
 /*
  * Compares two strings up to the first = or '\0'.  The first
  * string must be terminated by '='; the second may be terminated by
@@ -2136,6 +2126,22 @@ lookupvar(const char *name)
 			return var_end(v->var_text);
 	}
 	return NULL;
+}
+
+static void reinit_unicode_for_ash(void)
+{
+	/* Unicode support should be activated even if LANG is set
+	 * _during_ shell execution, not only if it was set when
+	 * shell was started. Therefore, re-check LANG every time:
+	 */
+	if (ENABLE_FEATURE_CHECK_UNICODE_IN_ENV
+	 || ENABLE_UNICODE_USING_LOCALE
+	) {
+		const char *s = lookupvar("LC_ALL");
+		if (!s) s = lookupvar("LC_CTYPE");
+		if (!s) s = lookupvar("LANG");
+		reinit_unicode(s);
+	}
 }
 
 /*
@@ -2304,7 +2310,7 @@ unsetvar(const char *s)
 			free(vp);
 			INT_ON;
 		} else {
-			setvar(s, 0, 0);
+			setvar2(s, 0);
 			vp->flags &= ~VEXPORT;
 		}
  ok:
@@ -3641,7 +3647,7 @@ getjob(const char *name, int getctl)
 
 	if (is_number(p)) {
 		num = atoi(p);
-		if (num < njobs) {
+		if (num <= njobs) {
 			jp = jobtab + num - 1;
 			if (jp->used)
 				goto gotit;
@@ -6357,7 +6363,7 @@ subevalvar(char *p, char *varname, int strloc, int subtype,
 
 	switch (subtype) {
 	case VSASSIGN:
-		setvar(varname, startp, 0);
+		setvar2(varname, startp);
 		amount = startp - expdest;
 		STADJUST(amount, expdest);
 		return startp;
@@ -6405,7 +6411,15 @@ subevalvar(char *p, char *varname, int strloc, int subtype,
 				len = number(loc);
 			}
 		}
-		if (pos >= orig_len) {
+		if (pos < 0) {
+			/* ${VAR:$((-n)):l} starts n chars from the end */
+			pos = orig_len + pos;
+		}
+		if ((unsigned)pos >= orig_len) {
+			/* apart from obvious ${VAR:999999:l},
+			 * covers ${VAR:$((-9999999)):l} - result is ""
+			 * (bash-compat)
+			 */
 			pos = 0;
 			len = 0;
 		}
@@ -6732,6 +6746,14 @@ varvalue(char *name, int varflags, int flags, struct strlist *var_str_list)
 		len = strlen(p);
 		if (!(subtype == VSPLUS || subtype == VSLENGTH))
 			memtodest(p, len, syntax, quotes);
+#if ENABLE_UNICODE_SUPPORT
+		if (subtype == VSLENGTH && len > 0) {
+			reinit_unicode_for_ash();
+			if (unicode_status == UNICODE_ON) {
+				len = unicode_strlen(p);
+			}
+		}
+#endif
 		return len;
 	}
 
@@ -8572,7 +8594,7 @@ evalfor(union node *n, int flags)
 	loopnest++;
 	flags &= EV_TESTED;
 	for (sp = arglist.list; sp; sp = sp->next) {
-		setvar(n->nfor.var, sp->text, 0);
+		setvar2(n->nfor.var, sp->text);
 		evaltree(n->nfor.body, flags);
 		if (evalskip) {
 			if (evalskip == SKIPCONT && --skipcount <= 0) {
@@ -8797,8 +8819,8 @@ setinteractive(int on)
 		if (!did_banner) {
 			/* note: ash and hush share this string */
 			out1fmt("\n\n%s %s\n"
-				"Enter 'help' for a list of built-in commands."
-				"\n\n",
+				IF_ASH_HELP("Enter 'help' for a list of built-in commands.\n")
+				"\n",
 				bb_banner,
 				"built-in shell (ash)"
 			);
@@ -8978,6 +9000,9 @@ mklocal(char *name)
 			vp->flags |= VSTRFIXED|VTEXTFIXED;
 			if (eq)
 				setvareq(name, 0);
+			else
+				/* "local VAR" unsets VAR: */
+				setvar(name, NULL, 0);
 		}
 	}
 	lvp->vp = vp;
@@ -9048,8 +9073,11 @@ static int exportcmd(int, char **) FAST_FUNC;
 #if ENABLE_ASH_GETOPTS
 static int getoptscmd(int, char **) FAST_FUNC;
 #endif
-#if !ENABLE_FEATURE_SH_EXTRA_QUIET
+#if ENABLE_ASH_HELP
 static int helpcmd(int, char **) FAST_FUNC;
+#endif
+#if MAX_HISTORY
+static int historycmd(int, char **) FAST_FUNC;
 #endif
 #if ENABLE_SH_MATH_SUPPORT
 static int letcmd(int, char **) FAST_FUNC;
@@ -9121,8 +9149,11 @@ static const struct builtincmd builtintab[] = {
 	{ BUILTIN_REGULAR       "getopts" , getoptscmd },
 #endif
 	{ BUILTIN_NOSPEC        "hash"    , hashcmd    },
-#if !ENABLE_FEATURE_SH_EXTRA_QUIET
+#if ENABLE_ASH_HELP
 	{ BUILTIN_NOSPEC        "help"    , helpcmd    },
+#endif
+#if MAX_HISTORY
+	{ BUILTIN_NOSPEC        "history" , historycmd },
 #endif
 #if JOBS
 	{ BUILTIN_REGULAR       "jobs"    , jobscmd    },
@@ -9463,7 +9494,7 @@ evalcommand(union node *cmd, int flags)
 		 * '_' in 'vi' command mode during line editing...
 		 * However I implemented that within libedit itself.
 		 */
-		setvar("_", lastarg, 0);
+		setvar2("_", lastarg);
 	}
 	popstackmark(&smark);
 }
@@ -9665,11 +9696,7 @@ preadfd(void)
 # if ENABLE_FEATURE_TAB_COMPLETION
 		line_input_state->path_lookup = pathval();
 # endif
-		/* Unicode support should be activated even if LANG is set
-		 * _during_ shell execution, not only if it was set when
-		 * shell was started. Therefore, re-check LANG every time:
-		 */
-		reinit_unicode(lookupvar("LANG"));
+		reinit_unicode_for_ash();
 		nr = read_line_input(line_input_state, cmdedit_prompt, buf, IBUFSIZ, timeout);
 		if (nr == 0) {
 			/* Ctrl+C pressed */
@@ -12276,8 +12303,10 @@ dotcmd(int argc, char **argv)
 	/* "false; . empty_file; echo $?" should print 0, not 1: */
 	exitstatus = 0;
 
+	/* This aborts if file isn't found, which is POSIXly correct.
+	 * bash returns exitcode 1 instead.
+	 */
 	fullname = find_dot_file(argv[1]);
-
 	argv += 2;
 	argc -= 2;
 	if (argc) { /* argc > 0, argv[0] != NULL */
@@ -12287,6 +12316,9 @@ dotcmd(int argc, char **argv)
 		shellparam.p = argv;
 	};
 
+	/* This aborts if file can't be opened, which is POSIXly correct.
+	 * bash returns exitcode 1 instead.
+	 */
 	setinputfile(fullname, INPUT_PUSH_FILE);
 	commandname = fullname;
 	cmdloop(0);
@@ -12594,10 +12626,7 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 
 /* ============ Builtins */
 
-#if !ENABLE_FEATURE_SH_EXTRA_QUIET
-/*
- * Lists available builtins
- */
+#if ENABLE_ASH_HELP
 static int FAST_FUNC
 helpcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
@@ -12615,7 +12644,7 @@ helpcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 			col = 0;
 		}
 	}
-#if ENABLE_FEATURE_SH_STANDALONE
+# if ENABLE_FEATURE_SH_STANDALONE
 	{
 		const char *a = applet_names;
 		while (*a) {
@@ -12627,11 +12656,20 @@ helpcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 			a += strlen(a) + 1;
 		}
 	}
-#endif
+# endif
 	out1fmt("\n\n");
 	return EXIT_SUCCESS;
 }
-#endif /* FEATURE_SH_EXTRA_QUIET */
+#endif
+
+#if MAX_HISTORY
+static int FAST_FUNC
+historycmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
+{
+	show_history(line_input_state);
+	return EXIT_SUCCESS;
+}
+#endif
 
 /*
  * The export and readonly commands.
@@ -12748,7 +12786,7 @@ timescmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	const unsigned char *p;
 	struct tms buf;
 
-	clk_tck = sysconf(_SC_CLK_TCK);
+	clk_tck = bb_clk_tck();
 	times(&buf);
 
 	p = timescmd_str;
@@ -13004,8 +13042,16 @@ init(void)
 			}
 		}
 
-		setvar("PPID", utoa(getppid()), 0);
-
+		setvar2("PPID", utoa(getppid()));
+#if ENABLE_ASH_BASH_COMPAT
+		p = lookupvar("SHLVL");
+		setvar("SHLVL", utoa((p ? atoi(p) : 0) + 1), VEXPORT);
+		if (!lookupvar("HOSTNAME")) {
+			struct utsname uts;
+			uname(&uts);
+			setvar2("HOSTNAME", uts.nodename);
+		}
+#endif
 		p = lookupvar("PWD");
 		if (p) {
 			if (*p != '/' || stat(p, &st1) || stat(".", &st2)
@@ -13209,27 +13255,21 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	setstackmark(&smark);
 	procargs(argv);
 
-#if ENABLE_FEATURE_EDITING_SAVEHISTORY
-	if (iflag) {
-		const char *hp = lookupvar("HISTFILE");
-		if (!hp) {
-			hp = lookupvar("HOME");
-			if (hp) {
-				char *defhp = concat_path_file(hp, ".ash_history");
-				setvar("HISTFILE", defhp, 0);
-				free(defhp);
-			}
-		}
-	}
-#endif
 	if (argv[0] && argv[0][0] == '-')
 		isloginsh = 1;
 	if (isloginsh) {
+		const char *hp;
+
 		state = 1;
 		read_profile("/etc/profile");
  state1:
 		state = 2;
-		read_profile(".profile");
+		hp = lookupvar("HOME");
+		if (hp) {
+			hp = concat_path_file(hp, ".profile");
+			read_profile(hp);
+			free((char*)hp);
+		}
 	}
  state2:
 	state = 3;
@@ -13261,6 +13301,15 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 #if MAX_HISTORY > 0 && ENABLE_FEATURE_EDITING_SAVEHISTORY
 		if (iflag) {
 			const char *hp = lookupvar("HISTFILE");
+			if (!hp) {
+				hp = lookupvar("HOME");
+				if (hp) {
+					hp = concat_path_file(hp, ".ash_history");
+					setvar2("HISTFILE", hp);
+					free((char*)hp);
+					hp = lookupvar("HISTFILE");
+				}
+			}
 			if (hp)
 				line_input_state->hist_file = hp;
 # if ENABLE_FEATURE_SH_HISTFILESIZE
