@@ -390,6 +390,9 @@ const defaults_t defaults[] = {
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
 	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" },
+#ifdef TCONFIG_DNSCRYPT
+	{ "ntp_server_ip",		"209.114.111.1 184.105.192.247 205.233.73.201"			},       // shibby - if dnscrypt-proxy is enabled we have to use ip addresses
+#endif
 	{ "ntp_kiss",			""								},
 	{ "ntp_kiss_ignore",	""								},
 
