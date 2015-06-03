@@ -93,7 +93,7 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 
 	pw = xgetpwnam(opt_username);
 
-	if (cur_uid == 0 || correct_password(pw)) {
+	if (cur_uid == 0 || ask_and_check_password(pw) > 0) {
 		if (ENABLE_FEATURE_SU_SYSLOG)
 			syslog(LOG_NOTICE, "%c %s %s:%s",
 				'+', tty, old_user, opt_username);
@@ -101,6 +101,7 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 		if (ENABLE_FEATURE_SU_SYSLOG)
 			syslog(LOG_NOTICE, "%c %s %s:%s",
 				'-', tty, old_user, opt_username);
+		bb_do_delay(LOGIN_FAIL_DELAY);
 		bb_error_msg_and_die("incorrect password");
 	}
 

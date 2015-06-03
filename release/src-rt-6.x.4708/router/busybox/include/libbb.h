@@ -32,12 +32,12 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
-/* There are two incompatible basename's, let not use them! */
+/* There are two incompatible basename's, let's not use them! */
 /* See the dirname/basename man page for details */
 #include <libgen.h> /* dirname,basename */
 #undef basename
 #define basename dont_use_basename
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
@@ -334,6 +334,8 @@ enum {	/* DO NOT CHANGE THESE VALUES!  cp.c, mv.c, install.c depend on them. */
 	FILEUTILS_SET_SECURITY_CONTEXT = 1 << 10,
 #endif
 	FILEUTILS_IGNORE_CHMOD_ERR = 1 << 11,
+	/* -v */
+	FILEUTILS_VERBOSE         = (1 << 12) * ENABLE_FEATURE_VERBOSE,
 };
 #define FILEUTILS_CP_OPTSTR "pdRfilsLH" IF_SELINUX("c")
 extern int remove_file(const char *path, int flags) FAST_FUNC;
@@ -386,9 +388,10 @@ char *bb_get_last_path_component_nostrip(const char *path) FAST_FUNC;
 const char *bb_basename(const char *name) FAST_FUNC;
 /* NB: can violate const-ness (similarly to strchr) */
 char *last_char_is(const char *s, int c) FAST_FUNC;
+const char* endofname(const char *name) FAST_FUNC;
 
-void ndelay_on(int fd) FAST_FUNC;
-void ndelay_off(int fd) FAST_FUNC;
+int ndelay_on(int fd) FAST_FUNC;
+int ndelay_off(int fd) FAST_FUNC;
 void close_on_exec_on(int fd) FAST_FUNC;
 void xdup2(int, int) FAST_FUNC;
 void xmove_fd(int, int) FAST_FUNC;
@@ -460,6 +463,8 @@ void record_signo(int signo); /* not FAST_FUNC! */
 
 void xsetgid(gid_t gid) FAST_FUNC;
 void xsetuid(uid_t uid) FAST_FUNC;
+void xsetegid(gid_t egid) FAST_FUNC;
+void xseteuid(uid_t euid) FAST_FUNC;
 void xchdir(const char *path) FAST_FUNC;
 void xchroot(const char *path) FAST_FUNC;
 void xsetenv(const char *key, const char *value) FAST_FUNC;
@@ -468,11 +473,12 @@ void bb_unsetenv_and_free(char *key) FAST_FUNC;
 void xunlink(const char *pathname) FAST_FUNC;
 void xstat(const char *pathname, struct stat *buf) FAST_FUNC;
 void xfstat(int fd, struct stat *buf, const char *errmsg) FAST_FUNC;
+int open3_or_warn(const char *pathname, int flags, int mode) FAST_FUNC;
+int open_or_warn(const char *pathname, int flags) FAST_FUNC;
+int xopen3(const char *pathname, int flags, int mode) FAST_FUNC;
 int xopen(const char *pathname, int flags) FAST_FUNC;
 int xopen_nonblocking(const char *pathname) FAST_FUNC;
-int xopen3(const char *pathname, int flags, int mode) FAST_FUNC;
-int open_or_warn(const char *pathname, int flags) FAST_FUNC;
-int open3_or_warn(const char *pathname, int flags, int mode) FAST_FUNC;
+int xopen_as_uid_gid(const char *pathname, int flags, uid_t u, gid_t g) FAST_FUNC;
 int open_or_warn_stdin(const char *pathname) FAST_FUNC;
 int xopen_stdin(const char *pathname) FAST_FUNC;
 void xrename(const char *oldpath, const char *newpath) FAST_FUNC;
@@ -482,9 +488,9 @@ int xmkstemp(char *template) FAST_FUNC;
 off_t fdlength(int fd) FAST_FUNC;
 
 uoff_t FAST_FUNC get_volume_size_in_bytes(int fd,
-                const char *override,
-                unsigned override_units,
-                int extend);
+		const char *override,
+		unsigned override_units,
+		int extend);
 
 void xpipe(int filedes[2]) FAST_FUNC;
 /* In this form code with pipes is much more readable */
@@ -522,7 +528,8 @@ struct BUG_too_small {
 
 void parse_datestr(const char *date_str, struct tm *ptm) FAST_FUNC;
 time_t validate_tm_time(const char *date_str, struct tm *ptm) FAST_FUNC;
-
+char *strftime_HHMMSS(char *buf, unsigned len, time_t *tp) FAST_FUNC;
+char *strftime_YYYYMMDDHHMMSS(char *buf, unsigned len, time_t *tp) FAST_FUNC;
 
 int xsocket(int domain, int type, int protocol) FAST_FUNC;
 void xbind(int sockfd, struct sockaddr *my_addr, socklen_t addrlen) FAST_FUNC;
@@ -645,6 +652,8 @@ char *xstrndup(const char *s, int n) FAST_FUNC RETURNS_MALLOC;
 void overlapping_strcpy(char *dst, const char *src) FAST_FUNC;
 char *safe_strncpy(char *dst, const char *src, size_t size) FAST_FUNC;
 char *strncpy_IFNAMSIZ(char *dst, const char *src) FAST_FUNC;
+unsigned count_strstr(const char *str, const char *sub) FAST_FUNC;
+char *xmalloc_substitute_string(const char *src, int count, const char *sub, const char *repl) FAST_FUNC;
 /* Guaranteed to NOT be a macro (smallest code). Saves nearly 2k on uclibc.
  * But potentially slow, don't use in one-billion-times loops */
 int bb_putchar(int ch) FAST_FUNC;
@@ -676,6 +685,13 @@ const char* FAST_FUNC printable_string(uni_stat_t *stats, const char *str);
  * else it is printed as-is (except for ch = 0x9b) */
 enum { PRINTABLE_META = 0x100 };
 void fputc_printable(int ch, FILE *file) FAST_FUNC;
+/* Return a string that is the printable representation of character ch.
+ * Buffer must hold at least four characters. */
+enum {
+	VISIBLE_ENDLINE   = 1 << 0,
+	VISIBLE_SHOW_TABS = 1 << 1,
+};
+void visible(unsigned ch, char *buf, int flags) FAST_FUNC;
 
 /* dmalloc will redefine these to it's own implementation. It is safe
  * to have the prototypes here unconditionally.  */
@@ -715,6 +731,18 @@ extern void *xmalloc_open_read_close(const char *filename, size_t *maxsz_p) FAST
 /* Never returns NULL */
 extern void *xmalloc_xopen_read_close(const char *filename, size_t *maxsz_p) FAST_FUNC RETURNS_MALLOC;
 
+#if defined(ARG_MAX) && (ARG_MAX >= 60*1024 || !defined(_SC_ARG_MAX))
+/* Use _constant_ maximum if: defined && (big enough || no variable one exists) */
+# define bb_arg_max() ((unsigned)ARG_MAX)
+#elif defined(_SC_ARG_MAX)
+/* Else use variable one (a bit more expensive) */
+unsigned bb_arg_max(void) FAST_FUNC;
+#else
+/* If all else fails */
+# define bb_arg_max() ((unsigned)(32 * 1024))
+#endif
+unsigned bb_clk_tck(void) FAST_FUNC;
+
 #define SEAMLESS_COMPRESSION (0 \
  || ENABLE_FEATURE_SEAMLESS_XZ \
  || ENABLE_FEATURE_SEAMLESS_LZMA \
@@ -724,14 +752,15 @@ extern void *xmalloc_xopen_read_close(const char *filename, size_t *maxsz_p) FAS
 
 #if SEAMLESS_COMPRESSION
 /* Autodetects gzip/bzip2 formats. fd may be in the middle of the file! */
-extern int setup_unzip_on_fd(int fd, int fail_if_not_detected) FAST_FUNC;
+extern int setup_unzip_on_fd(int fd, int fail_if_not_compressed) FAST_FUNC;
 /* Autodetects .gz etc */
-extern int open_zipped(const char *fname) FAST_FUNC;
+extern int open_zipped(const char *fname, int fail_if_not_compressed) FAST_FUNC;
+extern void *xmalloc_open_zipped_read_close(const char *fname, size_t *maxsz_p) FAST_FUNC RETURNS_MALLOC;
 #else
 # define setup_unzip_on_fd(...) (0)
-# define open_zipped(fname)     open((fname), O_RDONLY);
+# define open_zipped(fname, fail_if_not_compressed)  open((fname), O_RDONLY);
+# define xmalloc_open_zipped_read_close(fname, maxsz_p) xmalloc_open_read_close((fname), (maxsz_p))
 #endif
-extern void *xmalloc_open_zipped_read_close(const char *fname, size_t *maxsz_p) FAST_FUNC RETURNS_MALLOC;
 
 extern ssize_t safe_write(int fd, const void *buf, size_t count) FAST_FUNC;
 // NB: will return short write on error, not -1,
@@ -806,8 +835,8 @@ char *itoa(int n) FAST_FUNC;
 char *utoa_to_buf(unsigned n, char *buf, unsigned buflen) FAST_FUNC;
 char *itoa_to_buf(int n, char *buf, unsigned buflen) FAST_FUNC;
 /* Intelligent formatters of bignums */
-void smart_ulltoa4(unsigned long long ul, char buf[4], const char *scale) FAST_FUNC;
-void smart_ulltoa5(unsigned long long ul, char buf[5], const char *scale) FAST_FUNC;
+char *smart_ulltoa4(unsigned long long ul, char buf[4], const char *scale) FAST_FUNC;
+char *smart_ulltoa5(unsigned long long ul, char buf[5], const char *scale) FAST_FUNC;
 /* If block_size == 0, display size without fractional part,
  * else display (size * block_size) with one decimal digit.
  * If display_unit == 0, show value no bigger than 1024 with suffix (K,M,G...),
@@ -834,6 +863,9 @@ struct suffix_mult {
 	char suffix[4];
 	unsigned mult;
 };
+extern const struct suffix_mult bkm_suffixes[];
+#define km_suffixes (bkm_suffixes + 1)
+
 #include "xatonum.h"
 /* Specialized: */
 
@@ -899,9 +931,9 @@ void FAST_FUNC update_utmp(pid_t pid, int new_type, const char *tty_name, const 
 #endif
 
 
-int execable_file(const char *name) FAST_FUNC;
-char *find_execable(const char *filename, char **PATHp) FAST_FUNC;
-int exists_execable(const char *filename) FAST_FUNC;
+int file_is_executable(const char *name) FAST_FUNC;
+char *find_executable(const char *filename, char **PATHp) FAST_FUNC;
+int executable_exists(const char *filename) FAST_FUNC;
 
 /* BB_EXECxx always execs (it's not doing NOFORK/NOEXEC stuff),
  * but it may exec busybox and call applet instead of searching PATH.
@@ -1061,6 +1093,7 @@ enum {
 	LOGMODE_BOTH = LOGMODE_SYSLOG + LOGMODE_STDIO,
 };
 extern const char *msg_eol;
+extern smallint syslog_level;
 extern smallint logmode;
 extern int die_sleep;
 extern uint8_t xfunc_error_retval;
@@ -1079,6 +1112,7 @@ extern void bb_perror_nomsg_and_die(void) NORETURN FAST_FUNC;
 extern void bb_perror_nomsg(void) FAST_FUNC;
 extern void bb_info_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
 extern void bb_verror_msg(const char *s, va_list p, const char *strerr) FAST_FUNC;
+extern void bb_logenv_override(void) FAST_FUNC;
 
 /* We need to export XXX_main from libbusybox
  * only if we build "individual" binaries
@@ -1111,9 +1145,6 @@ void bb_displayroutes(int noresolve, int netstatfmt) FAST_FUNC;
 
 
 /* Networking */
-int create_icmp_socket(void) FAST_FUNC;
-int create_icmp6_socket(void) FAST_FUNC;
-/* interface.c */
 /* This structure defines protocol families and their handlers. */
 struct aftype {
 	const char *name;
@@ -1142,6 +1173,7 @@ struct hwtype {
 };
 extern smallint interface_opt_a;
 int display_interfaces(char *ifname) FAST_FUNC;
+int in_ether(const char *bufp, struct sockaddr *sap) FAST_FUNC;
 #if ENABLE_FEATURE_HWIB
 int in_ib(const char *bufp, struct sockaddr *sap) FAST_FUNC;
 #else
@@ -1243,7 +1275,9 @@ char *bb_simplify_path(const char *path) FAST_FUNC;
 /* Returns ptr to NUL */
 char *bb_simplify_abs_path_inplace(char *path) FAST_FUNC;
 
+#ifndef LOGIN_FAIL_DELAY
 #define LOGIN_FAIL_DELAY 3
+#endif
 extern void bb_do_delay(int seconds) FAST_FUNC;
 extern void change_identity(const struct passwd *pw) FAST_FUNC;
 extern void run_shell(const char *shell, int loginshell, const char *command, const char **additional_args) NORETURN FAST_FUNC;
@@ -1291,8 +1325,11 @@ int sd_listen_fds(void);
 #define SETUP_ENV_CLEARENV  (1 << 1)
 #define SETUP_ENV_TO_TMP    (1 << 2)
 #define SETUP_ENV_NO_CHDIR  (1 << 4)
-extern void setup_environment(const char *shell, int flags, const struct passwd *pw) FAST_FUNC;
-extern int correct_password(const struct passwd *pw) FAST_FUNC;
+void setup_environment(const char *shell, int flags, const struct passwd *pw) FAST_FUNC;
+void nuke_str(char *str) FAST_FUNC;
+int check_password(const struct passwd *pw, const char *plaintext) FAST_FUNC;
+int ask_and_check_password_extended(const struct passwd *pw, int timeout, const char *prompt) FAST_FUNC;
+int ask_and_check_password(const struct passwd *pw) FAST_FUNC;
 /* Returns a malloced string */
 #if !ENABLE_USE_BB_CRYPT
 #define pw_encrypt(clear, salt, cleanup) pw_encrypt(clear, salt)
@@ -1438,7 +1475,7 @@ void read_key_ungets(char *buffer, const char *str, unsigned len) FAST_FUNC;
 /* It's NOT just ENABLEd or disabled. It's a number: */
 # if defined CONFIG_FEATURE_EDITING_HISTORY && CONFIG_FEATURE_EDITING_HISTORY > 0
 #  define MAX_HISTORY (CONFIG_FEATURE_EDITING_HISTORY + 0)
-unsigned size_from_HISTFILESIZE(const char *hp);
+unsigned size_from_HISTFILESIZE(const char *hp) FAST_FUNC;
 # else
 #  define MAX_HISTORY 0
 # endif
@@ -1480,6 +1517,7 @@ line_input_t *new_line_input_t(int flags) FAST_FUNC;
  * >0 length of input string, including terminating '\n'
  */
 int read_line_input(line_input_t *st, const char *prompt, char *command, int maxsize, int timeout) FAST_FUNC;
+void show_history(const line_input_t *st) FAST_FUNC;
 # if ENABLE_FEATURE_EDITING_SAVE_ON_EXIT
 void save_history(line_input_t *st);
 # endif
@@ -1763,6 +1801,11 @@ extern struct globals *const ptr_to_globals;
 	(*(struct globals**)&ptr_to_globals) = (void*)(x); \
 	barrier(); \
 } while (0)
+#define FREE_PTR_TO_GLOBALS() do { \
+	if (ENABLE_FEATURE_CLEAN_UP) { \
+		free(ptr_to_globals); \
+	} \
+} while (0)
 
 /* You can change LIBBB_DEFAULT_LOGIN_SHELL, but don't use it,
  * use bb_default_login_shell and following defines.
@@ -1804,7 +1847,7 @@ extern const char bb_default_login_shell[] ALIGN1;
 # define VC_4 "/dev/vc/4"
 # define VC_5 "/dev/vc/5"
 # define VC_FORMAT "/dev/vc/%d"
-# define LOOP_FORMAT "/dev/loop/%d"
+# define LOOP_FORMAT "/dev/loop/%u"
 # define LOOP_NAMESIZE (sizeof("/dev/loop/") + sizeof(int)*3 + 1)
 # define LOOP_NAME "/dev/loop/"
 # define FB_0 "/dev/fb/0"
@@ -1817,7 +1860,7 @@ extern const char bb_default_login_shell[] ALIGN1;
 # define VC_4 "/dev/tty4"
 # define VC_5 "/dev/tty5"
 # define VC_FORMAT "/dev/tty%d"
-# define LOOP_FORMAT "/dev/loop%d"
+# define LOOP_FORMAT "/dev/loop%u"
 # define LOOP_NAMESIZE (sizeof("/dev/loop") + sizeof(int)*3 + 1)
 # define LOOP_NAME "/dev/loop"
 # define FB_0 "/dev/fb0"
@@ -1908,6 +1951,141 @@ static ALWAYS_INLINE unsigned char bb_ascii_tolower(unsigned char a)
 /* NB: must not treat EOF as isgraph or isprint */
 #define isgraph_asciionly(a) ((unsigned)((a) - 0x21) <= 0x7e - 0x21)
 #define isprint_asciionly(a) ((unsigned)((a) - 0x20) <= 0x7e - 0x20)
+
+
+/* Simple unit-testing framework */
+
+typedef void (*bbunit_testfunc)(void);
+
+struct bbunit_listelem {
+	struct bbunit_listelem* next;
+	const char* name;
+	bbunit_testfunc testfunc;
+};
+
+void bbunit_registertest(struct bbunit_listelem* test);
+void bbunit_settestfailed(void);
+
+#define BBUNIT_DEFINE_TEST(NAME) \
+	static void bbunit_##NAME##_test(void); \
+	static struct bbunit_listelem bbunit_##NAME##_elem = { \
+		.name = #NAME, \
+		.testfunc = bbunit_##NAME##_test, \
+	}; \
+	static void INIT_FUNC bbunit_##NAME##_register(void) \
+	{ \
+		bbunit_registertest(&bbunit_##NAME##_elem); \
+	} \
+	static void bbunit_##NAME##_test(void)
+
+/*
+ * Both 'goto bbunit_end' and 'break' are here only to get rid
+ * of compiler warnings.
+ */
+#define BBUNIT_ENDTEST \
+	do { \
+		goto bbunit_end; \
+	bbunit_end: \
+		break; \
+	} while (0)
+
+#define BBUNIT_PRINTASSERTFAIL \
+	do { \
+		bb_error_msg( \
+			"[ERROR] Assertion failed in file %s, line %d", \
+			__FILE__, __LINE__); \
+	} while (0)
+
+#define BBUNIT_ASSERTION_FAILED \
+	do { \
+		bbunit_settestfailed(); \
+		goto bbunit_end; \
+	} while (0)
+
+/*
+ * Assertions.
+ * For now we only offer assertions which cause tests to fail
+ * immediately. In the future 'expects' might be added too -
+ * similar to those offered by the gtest framework.
+ */
+#define BBUNIT_ASSERT_EQ(EXPECTED, ACTUAL) \
+	do { \
+		if ((EXPECTED) != (ACTUAL)) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] '%s' isn't equal to '%s'", \
+						#EXPECTED, #ACTUAL); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_NOTEQ(EXPECTED, ACTUAL) \
+	do { \
+		if ((EXPECTED) == (ACTUAL)) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] '%s' is equal to '%s'", \
+						#EXPECTED, #ACTUAL); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_NOTNULL(PTR) \
+	do { \
+		if ((PTR) == NULL) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] '%s' is NULL!", #PTR); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_NULL(PTR) \
+	do { \
+		if ((PTR) != NULL) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] '%s' is not NULL!", #PTR); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_FALSE(STATEMENT) \
+	do { \
+		if ((STATEMENT)) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] Statement '%s' evaluated to true!", \
+								#STATEMENT); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_TRUE(STATEMENT) \
+	do { \
+		if (!(STATEMENT)) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] Statement '%s' evaluated to false!", \
+					#STATEMENT); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_STREQ(STR1, STR2) \
+	do { \
+		if (strcmp(STR1, STR2) != 0) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] Strings '%s' and '%s' " \
+					"are not the same", STR1, STR2); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
+
+#define BBUNIT_ASSERT_STRNOTEQ(STR1, STR2) \
+	do { \
+		if (strcmp(STR1, STR2) == 0) { \
+			BBUNIT_PRINTASSERTFAIL; \
+			bb_error_msg("[ERROR] Strings '%s' and '%s' " \
+					"are the same, but were " \
+					"expected to differ", STR1, STR2); \
+			BBUNIT_ASSERTION_FAILED; \
+		} \
+	} while (0)
 
 
 POP_SAVED_FUNCTION_VISIBILITY

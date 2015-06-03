@@ -34,14 +34,14 @@ struct modinfo_env {
 	int tags;
 };
 
-static int display(const char *data, const char *pattern, int flag)
+static void display(const char *data, const char *pattern, int flag)
 {
 	if (flag) {
 		int n = printf("%s:", pattern);
 		while (n++ < 16)
 			bb_putchar(' ');
 	}
-	return printf("%s%c", data, (option_mask32 & OPT_0) ? '\0' : '\n');
+	printf("%s%c", data, (option_mask32 & OPT_0) ? '\0' : '\n');
 }
 
 static void modinfo(const char *path, const char *version,
@@ -104,7 +104,8 @@ static void modinfo(const char *path, const char *version,
 				/* field prefixes are 0x80 or 0x00 */
 				if ((ptr[-1] & 0x7F) == '\0') {
 					ptr += length + 1;
-					ptr += display(ptr, pattern, (1<<j) != tags);
+					display(ptr, pattern, (1<<j) != tags);
+					ptr += strlen(ptr);
 				}
 			}
 			++ptr;
@@ -153,7 +154,7 @@ int modinfo_main(int argc UNUSED_PARAM, char **argv)
 		if (colon == NULL)
 			continue;
 		*colon = '\0';
-		filename2modname(tokens[0], name);
+		filename2modname(bb_basename(tokens[0]), name);
 		for (i = 0; argv[i]; i++) {
 			if (fnmatch(argv[i], name, 0) == 0) {
 				modinfo(tokens[0], uts.release, &env);
