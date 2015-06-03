@@ -145,8 +145,17 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
 	 *
 	 * In order to work with those buggy servers,
 	 * we truncate packets after end option byte.
+	 *
+	 * However, RFC 1542 says "The IP Total Length and UDP Length
+	 * must be large enough to contain the minimal BOOTP header of 300 octets".
+	 * Thus, we retain enough padding to not go below 300 BOOTP bytes.
+	 * Some devices have filters which drop DHCP packets shorter than that.
 	 */
+
 	padding = minpkt ? DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options) : 0;
+
+	if (padding > DHCP_SIZE - 300)
+		padding = DHCP_SIZE - 300;
 
 	packet.ip.protocol = IPPROTO_UDP;
 	packet.ip.saddr = source_nip;
@@ -163,7 +172,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
 	packet.ip.tot_len = htons(IP_UDP_DHCP_SIZE - padding);
 	packet.ip.ihl = sizeof(packet.ip) >> 2;
 	packet.ip.version = IPVERSION;
-	packet.ip.ttl = IPDEFTTL * 2;
+	packet.ip.ttl = IPDEFTTL;
 	packet.ip.check = inet_cksum((uint16_t *)&packet.ip, sizeof(packet.ip));
 
 	udhcp_dump_packet(dhcp_pkt);
@@ -216,8 +225,9 @@ int FAST_FUNC udhcp_send_kernel_packet(struct dhcp_packet *dhcp_pkt,
 	}
 
 	udhcp_dump_packet(dhcp_pkt);
-
 	padding = minpkt ? DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(dhcp_pkt->options) : 0;
+	if (padding > DHCP_SIZE - 300)
+		padding = DHCP_SIZE - 300;
 	result = safe_write(fd, dhcp_pkt, DHCP_SIZE - padding);
 	msg = "write";
  ret_close:
