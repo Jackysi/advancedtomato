@@ -127,6 +127,12 @@ void start_dnsmasq()
 		dmresolv, dmhosts, dmdhcp, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
+	//Set the size of dnsmasq's cache, increasing it from the default of 150 names to 2048 names.
+	fprintf(f,"cache-size=2048\n");
+
+	//Allow for asynchronous logging, removing risk of syslog-dnsmasq deadlocking
+	fprintf(f,"log-async=5\n");
+
 	// DNS rebinding protection, will discard upstream RFC1918 responses
 	if (nvram_get_int("dns_norebind")) {
 		fprintf(f,
@@ -462,8 +468,7 @@ void start_dnsmasq()
 	TRACE_PT("run dnsmasq\n");
 
 	// Default to some values we like, but allow the user to override them.
-	eval("dnsmasq", "-c", "25", "--log-async");	
-	eval("dnsmasq", "-c", "2048", "--cache-size");
+	//eval("dnsmasq", "-c", "1500", "--log-async");	
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
 		pid_dnsmasq = -2;
