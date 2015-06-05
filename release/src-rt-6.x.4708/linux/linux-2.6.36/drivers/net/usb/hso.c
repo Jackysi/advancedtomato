@@ -2320,6 +2320,7 @@ static void hso_serial_common_free(struct hso_serial *serial)
 
 	/* unlink and free TX URB */
 	usb_free_urb(serial->tx_urb);
+	kfree(serial->tx_buffer);
 	kfree(serial->tx_data);
 }
 
