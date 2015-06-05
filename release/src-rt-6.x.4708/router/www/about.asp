@@ -240,14 +240,6 @@ Based on TomatoUSB by Fedor Kozhevnikov<br>
 <br>
 <!-- NGINX-END -->
 
-<b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
-- Revised IP/MAC Bandwidth Limiter<br>
-<br>
-<b>"Tiomo" Features:</b><br>
-- IMQ based QOS Ingress<br>
-- Incoming Class Bandwidth pie chart<br>
-Copyright (C) 2012 Tiomo<br>
-<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules*<br>
@@ -255,8 +247,6 @@ Copyright (C) 2012 Tiomo<br>
 - Up to 128 QOS rules* (*all dependent on nvram space)<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
-- TC-ATM overhead calculation - patch by tvlz<br>
-- GPT support for HDD by Yaniv Hamo<br>
 Copyright (C) 2010-2015 Toastman<br>
 <a href='http://www.toastmanfirmware.yolasite.com'>http://www.toastmanfirmware.yolasite.com</a><br>
 <br>
