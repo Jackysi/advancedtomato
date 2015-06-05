@@ -271,11 +271,15 @@ sub fixDyn
 	fixDynDep("php-cgi", "libpng.so.3.51.0");
 	fixDynDep("php-cgi", "libiconv.so.2.5.1");
 	fixDynDep("php-cgi", "libsqlite3.so.0.8.6");
+	fixDynDep("php-cgi", "libcurl.so.4.3.0");
 	fixDynDep("php-cli", "libxml2.so.2.9.1");
 	fixDynDep("php-cli", "libpng12.so.0.51.0");
 	fixDynDep("php-cli", "libpng.so.3.51.0");
 	fixDynDep("php-cli", "libiconv.so.2.5.1");
 	fixDynDep("php-cli", "libsqlite3.so.0.8.6");
+	fixDynDep("php-cli", "libcurl.so.4.3.0");
+
+	fixDynDep("curl", "libcurl.so.4.3.0");
 
 #!!TB - Updated Broadcom WL driver
 	fixDynDep("libbcmcrypto.so", "libc.so.0");
