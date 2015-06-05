@@ -2677,10 +2677,11 @@ dnscrypt-clean:
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP=$(STRIP) \
+	autoreconf && \
 	CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
 		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib \
-		--disable-asciidoc
+		--disable-asciidoc --disable-tool-name-check
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
