@@ -64,12 +64,6 @@ if [ -f ./os.openwrt ]; then
 	OS_VERSION=$(cat ./os.openwrt)
 fi
 
-# Tomato USB special case
-if [ -f ../shared/tomato_version ]; then
-	OS_NAME=Tomato
-	OS_VERSION="Tomato $(cat ../shared/tomato_version)"
-fi
-
 # AstLinux special case
 if [ -f ./os.astlinux ]; then
 	OS_NAME=AstLinux
@@ -259,6 +253,11 @@ case $OS_NAME in
 		;;
 	OpenWRT)
 		OS_URL=http://www.openwrt.org/
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
+	AstLinux)
+		OS_URL=http://www.astlinux.org/
 		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
