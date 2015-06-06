@@ -1488,6 +1488,9 @@ void start_ntpc(void)
 
 	stop_ntpc();
 
+	if (nvram_match("dnscrypt_proxy", "1"))
+		eval("ntp2ip");
+
 	if (nvram_get_int("ntp_updates") >= 0) {
 		xstart("ntpsync", "--init");
 	}
