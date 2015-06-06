@@ -35,11 +35,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE. */
 
-
-#include "../config.h"
-
-#ifdef USE_IFACEWATCHER
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -52,6 +47,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
+
+#include "../config.h"
+
+#ifdef USE_IFACEWATCHER
 
 #include "../ifacewatcher.h"
 #include "../minissdp.h"
