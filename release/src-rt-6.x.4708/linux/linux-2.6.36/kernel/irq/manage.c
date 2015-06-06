@@ -653,7 +653,6 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	unsigned long flags;
 	int nested, shared = 0;
 	int ret;
-	cpumask_var_t mask;
 
 	if (!desc)
 		return -EINVAL;
@@ -829,7 +828,6 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	register_irq_proc(irq, desc);
 	new->dir = NULL;
 	register_handler_proc(irq, new);
-	free_cpumask_var(mask);
 
 	return 0;
 
