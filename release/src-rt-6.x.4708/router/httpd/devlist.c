@@ -12,9 +12,20 @@
 #include <net/if.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <string.h>
 
 #include <wlutils.h>
 
+char *strupr(char *str)
+{
+	size_t i;
+	size_t len = strlen(str);
+
+	for(i=0; i<len; i++)
+	str[i]=toupper((unsigned char)str[i]);
+
+	return str;
+}
 
 void asp_arplist(int argc, char **argv)
 {
@@ -40,6 +51,7 @@ void asp_arplist(int argc, char **argv)
 			if ((strlen(mac) != 17) || (strcmp(mac, "00:00:00:00:00:00") == 0)) continue;
 			if (flags == 0) continue;
 //			if ((nvram_match("wan_ifname", dev)) && (!nvram_match("wan_ipaddr", ip))) continue; // half
+			strupr(mac);
 			web_printf("%c['%s','%s','%s']", comma, ip, mac, dev);
 			comma = ',';
 		}
