@@ -1,6 +1,6 @@
-/* $Id: natpmp.c,v 1.50 2014/10/27 16:11:31 nanard Exp $ */
+/* $Id: natpmp.c,v 1.51 2015/02/08 09:18:15 nanard Exp $ */
 /* MiniUPnP project
- * (c) 2007-2014 Thomas Bernard
+ * (c) 2007-2015 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
@@ -165,7 +165,7 @@ int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
                              struct sockaddr_in6 * receiveraddr,
                              unsigned char * msg_buff, size_t msg_buff_size)
 {
-#if IPV6_PKTINFO
+#ifdef IPV6_PKTINFO
 	struct iovec iov;
 	uint8_t c[1000];
 	struct msghdr msg;
@@ -218,7 +218,7 @@ int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
 			}
 		}
 	}
-#else
+#else /* IPV6_PKTINFO */
 	int n;
 
 	n = recvfrom(s, msg_buff, msg_buff_size, 0,
@@ -234,7 +234,7 @@ int ReceiveNATPMPOrPCPPacket(int s, struct sockaddr * senderaddr,
 		}
 		return n;
 	}
-#endif
+#endif /* IPV6_PKTINFO */
 
 	return n;
 }
@@ -394,7 +394,7 @@ void ProcessIncomingNATPMPPacket(int s, unsigned char *msg_buff, int len,
 					if(r==0) {
 						if(strcmp(senderaddrstr, iaddr_old)==0
 						    && iport==iport_old) {
-							/* redirection allready existing */
+							/* redirection already existing */
 							syslog(LOG_INFO, "port %hu %s already redirected to %s:%hu, replacing",
 							       eport, (proto==IPPROTO_TCP)?"tcp":"udp", iaddr_old, iport_old);
 							/* remove and then add again */

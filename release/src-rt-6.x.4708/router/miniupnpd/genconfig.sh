@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.77 2014/12/04 10:21:33 nanard Exp $
+# $Id: genconfig.sh,v 1.78 2014/12/10 09:34:42 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2014 Thomas Bernard
@@ -62,12 +62,6 @@ fi
 if [ -f ./os.openwrt ]; then
 	OS_NAME=OpenWRT
 	OS_VERSION=$(cat ./os.openwrt)
-fi
-
-# Tomato USB special case
-if [ -f ../shared/tomato_version ]; then
-	OS_NAME=Tomato
-	OS_VERSION="Tomato $(cat ../shared/tomato_version)"
 fi
 
 # AstLinux special case
@@ -259,6 +253,11 @@ case $OS_NAME in
 		;;
 	OpenWRT)
 		OS_URL=http://www.openwrt.org/
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
+	AstLinux)
+		OS_URL=http://www.astlinux.org/
 		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
@@ -515,6 +514,12 @@ cat >> ${CONFIGFILE} <<EOF
 #define ENABLE_UPNPPINHOLE
 #endif
 
+EOF
+
+cat >> ${CONFIGFILE} <<EOF
+/* Uncomment the following line if your device does not have a proper clock
+ * BOOTID.UPNP.ORG can be set with command line */
+#define USE_TIME_AS_BOOTID
 EOF
 
 echo "#endif /* ${CONFIGMACRO} */" >> ${CONFIGFILE}

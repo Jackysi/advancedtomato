@@ -29,7 +29,7 @@
 #include "busybox.h"
 
 #if !(defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) \
-        || defined(__APPLE__) \
+    || defined(__APPLE__) \
     )
 # include <malloc.h> /* for mallopt */
 #endif
@@ -184,8 +184,7 @@ void lbb_prepare(const char *applet
 #endif
 	applet_name = applet;
 
-	/* Set locale for everybody except 'init' */
-	if (ENABLE_LOCALE_SUPPORT && getpid() != 1)
+	if (ENABLE_LOCALE_SUPPORT)
 		setlocale(LC_ALL, "");
 
 #if ENABLE_FEATURE_INDIVIDUAL
@@ -606,7 +605,11 @@ static void install_links(const char *busybox, int use_symbolic_links,
 	}
 }
 # else
-#  define install_links(x,y,z) ((void)0)
+static void install_links(const char *busybox UNUSED_PARAM,
+		int use_symbolic_links UNUSED_PARAM,
+		char *custom_install_dir UNUSED_PARAM)
+{
+}
 # endif
 
 /* If we were called as "busybox..." */
@@ -730,7 +733,8 @@ static int busybox_main(char **argv)
 	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
 	full_write2_str(applet_name);
 	full_write2_str(": applet not found\n");
-	xfunc_die();
+	/* POSIX: "If a command is not found, the exit status shall be 127" */
+	exit(127);
 }
 
 void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
@@ -742,15 +746,25 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
 
 	/* Reinit some shared global data */
 	xfunc_error_retval = EXIT_FAILURE;
-
 	applet_name = APPLET_NAME(applet_no);
-	if (argc == 2 && strcmp(argv[1], "--help") == 0) {
-		/* Special case. POSIX says "test --help"
-		 * should be no different from e.g. "test --foo".  */
-//TODO: just compare applet_no with APPLET_NO_test
-		if (!ENABLE_TEST || strcmp(applet_name, "test") != 0) {
-			/* If you want "foo --help" to return 0: */
-			/*xfunc_error_retval = 0;*/
+
+#if defined APPLET_NO_test
+	/* Special case. POSIX says "test --help"
+	 * should be no different from e.g. "test --foo".
+	 * Thus for "test", we skip --help check.
+	 */
+	if (applet_no != APPLET_NO_test)
+#endif
+	{
+		if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+#if defined APPLET_NO_false
+			/* Someone insisted that "false --help" must exit 1. Sigh */
+			if (applet_no != APPLET_NO_false)
+#endif
+			{
+				/* Make "foo --help" exit with 0: */
+				xfunc_error_retval = 0;
+			}
 			bb_show_usage();
 		}
 	}
@@ -825,6 +839,7 @@ int main(int argc UNUSED_PARAM, char **argv)
 	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
 	full_write2_str(applet_name);
 	full_write2_str(": applet not found\n");
-	xfunc_die();
+	/* POSIX: "If a command is not found, the exit status shall be 127" */
+	exit(127);
 #endif
 }

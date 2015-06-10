@@ -161,6 +161,7 @@ struct hso_net {
 	struct hso_device *parent;
 	struct net_device *net;
 	struct rfkill *rfkill;
+	char name[8];
 
 	struct usb_endpoint_descriptor *in_endp;
 	struct usb_endpoint_descriptor *out_endp;
@@ -2320,6 +2321,7 @@ static void hso_serial_common_free(struct hso_serial *serial)
 
 	/* unlink and free TX URB */
 	usb_free_urb(serial->tx_urb);
+	kfree(serial->tx_buffer);
 	kfree(serial->tx_data);
 }
 
@@ -2534,27 +2536,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
 {
 	struct hso_net *hso_net = dev2net(hso_dev);
 	struct device *dev = &hso_net->net->dev;
-	char *rfkn;
 
-	rfkn = kzalloc(20, GFP_KERNEL);
-	if (!rfkn)
-		dev_err(dev, "%s - Out of memory\n", __func__);
-
-	snprintf(rfkn, 20, "hso-%d",
+	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
 		 interface->altsetting->desc.bInterfaceNumber);
 
-	hso_net->rfkill = rfkill_alloc(rfkn,
+	hso_net->rfkill = rfkill_alloc(hso_net->name,
 				       &interface_to_usbdev(interface)->dev,
 				       RFKILL_TYPE_WWAN,
 				       &hso_rfkill_ops, hso_dev);
 	if (!hso_net->rfkill) {
 		dev_err(dev, "%s - Out of memory\n", __func__);
-		kfree(rfkn);
 		return;
 	}
 	if (rfkill_register(hso_net->rfkill) < 0) {
 		rfkill_destroy(hso_net->rfkill);
-		kfree(rfkn);
 		hso_net->rfkill = NULL;
 		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
 		return;
