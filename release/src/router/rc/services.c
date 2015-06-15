@@ -448,6 +448,7 @@ void start_dnsmasq()
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
+	fappend(f, "/etc/dnsmasq.ipset");
 
 	//
 
@@ -1483,6 +1484,9 @@ void start_ntpc(void)
 	set_tz();
 
 	stop_ntpc();
+
+	if (nvram_match("dnscrypt_proxy", "1"))
+		eval("ntp2ip");
 
 	if (nvram_get_int("ntp_updates") >= 0) {
 		xstart("ntpsync", "--init");

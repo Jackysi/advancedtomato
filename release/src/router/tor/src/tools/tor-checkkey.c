@@ -1,7 +1,5 @@
-/* Copyright (c) 2008-2013, The Tor Project, Inc. */
+/* Copyright (c) 2008-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
-
-#define CRYPTO_PRIVATE
 
 #include "orconfig.h"
 
@@ -23,7 +21,7 @@ main(int c, char **v)
   int wantdigest=0;
   int fname_idx;
   char *fname=NULL;
-  init_logging();
+  init_logging(1);
 
   if (c < 2) {
     fprintf(stderr, "Hi. I'm tor-checkkey.  Tell me a filename that "

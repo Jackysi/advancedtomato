@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Tor Project, Inc. */
+/* Copyright (c) 2009-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -12,6 +12,8 @@
 #include "orconfig.h"
 #include "compat.h"
 #include "compat_libevent.h"
+
+#include "crypto.h"
 
 #include "util.h"
 #include "torlog.h"
@@ -144,12 +146,24 @@ tor_evsignal_new(struct event_base * base, int sig,
 {
   return tor_event_new(base, sig, EV_SIGNAL|EV_PERSIST, cb, arg);
 }
-/** Work-alike replacement for event_free() on pre-Libevent-2.0 systems. */
+/** Work-alike replacement for event_free() on pre-Libevent-2.0 systems,
+ * except tolerate tor_event_free(NULL). */
 void
 tor_event_free(struct event *ev)
 {
+  if (ev == NULL)
+    return;
   event_del(ev);
   tor_free(ev);
+}
+#else
+/* Wrapper for event_free() that tolerates tor_event_free(NULL) */
+void
+tor_event_free(struct event *ev)
+{
+  if (ev == NULL)
+    return;
+  event_free(ev);
 }
 #endif
 
@@ -208,6 +222,9 @@ tor_libevent_initialize(tor_libevent_cfg *torcfg)
     } else {
       using_iocp_bufferevents = 0;
     }
+#elif defined(__COVERITY__)
+    /* Avoid a 'dead code' warning below. */
+    using_threads = ! torcfg->disable_iocp;
 #endif
 
     if (!using_threads) {
@@ -278,8 +295,8 @@ tor_libevent_initialize(tor_libevent_cfg *torcfg)
 }
 
 /** Return the current Libevent event base that we're set up to use. */
-struct event_base *
-tor_libevent_get_base(void)
+MOCK_IMPL(struct event_base *,
+tor_libevent_get_base, (void))
 {
   return the_event_base;
 }
@@ -414,6 +431,14 @@ tor_check_libevent_version(const char *m, int server,
 #elif defined(_EVENT_VERSION)
 #define HEADER_VERSION _EVENT_VERSION
 #endif
+
+/** Return a string representation of the version of Libevent that was used
+* at compilation time. */
+const char *
+tor_libevent_get_header_version_str(void)
+{
+  return HEADER_VERSION;
+}
 
 /** See whether the headers we were built against differ from the library we
  * linked against so much that we're likely to crash.  If so, warn the
@@ -618,7 +643,25 @@ tor_add_bufferevent_to_rate_limit_group(struct bufferevent *bev,
 }
 #endif
 
-#if defined(LIBEVENT_VERSION_NUMBER) && LIBEVENT_VERSION_NUMBER >= V(2,1,1)
+int
+tor_init_libevent_rng(void)
+{
+  int rv = 0;
+#ifdef HAVE_EVUTIL_SECURE_RNG_INIT
+  char buf[256];
+  if (evutil_secure_rng_init() < 0) {
+    rv = -1;
+  }
+  /* Older libevent -- manually initialize the RNG */
+  crypto_rand(buf, 32);
+  evutil_secure_rng_add_bytes(buf, 32);
+  evutil_secure_rng_get_bytes(buf, sizeof(buf));
+#endif
+  return rv;
+}
+
+#if defined(LIBEVENT_VERSION_NUMBER) && LIBEVENT_VERSION_NUMBER >= V(2,1,1) \
+  && !defined(TOR_UNIT_TESTS)
 void
 tor_gettimeofday_cached(struct timeval *tv)
 {
@@ -651,5 +694,45 @@ tor_gettimeofday_cache_clear(void)
 {
   cached_time_hires.tv_sec = 0;
 }
+
+#ifdef TOR_UNIT_TESTS
+/** For testing: force-update the cached time to a given value. */
+void
+tor_gettimeofday_cache_set(const struct timeval *tv)
+{
+  tor_assert(tv);
+  memcpy(&cached_time_hires, tv, sizeof(*tv));
+}
 #endif
+#endif
+
+/**
+ * As tor_gettimeofday_cached, but can never move backwards in time.
+ *
+ * The returned value may diverge from wall-clock time, since wall-clock time
+ * can trivially be adjusted backwards, and this can't.  Don't mix wall-clock
+ * time with these values in the same calculation.
+ *
+ * Depending on implementation, this function may or may not "smooth out" huge
+ * jumps forward in wall-clock time.  It may or may not keep its results
+ * advancing forward (as opposed to stalling) if the wall-clock time goes
+ * backwards.  The current implementation does neither of of these.
+ *
+ * This function is not thread-safe; do not call it outside the main thread.
+ *
+ * In future versions of Tor, this may return a time does not have its
+ * origin at the Unix epoch.
+ */
+void
+tor_gettimeofday_cached_monotonic(struct timeval *tv)
+{
+  struct timeval last_tv = { 0, 0 };
+
+  tor_gettimeofday_cached(tv);
+  if (timercmp(tv, &last_tv, OP_LT)) {
+    memcpy(tv, &last_tv, sizeof(struct timeval));
+  } else {
+    memcpy(&last_tv, tv, sizeof(struct timeval));
+  }
+}
 

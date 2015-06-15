@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -37,6 +37,8 @@
 #include "rephist.h"
 #include "router.h"
 #include "routerlist.h"
+#include "ext_orport.h"
+#include "scheduler.h"
 
 #ifdef USE_BUFFEREVENTS
 #include <event2/bufferevent_ssl.h>
@@ -74,6 +76,10 @@ static void connection_or_handle_event_cb(struct bufferevent *bufev,
  * with that identity digest.  If there is more than one such connection_t,
  * they form a linked list, with next_with_same_id as the next pointer. */
 static digestmap_t *orconn_identity_map = NULL;
+
+/** Global map between Extended ORPort identifiers and OR
+ *  connections. */
+static digestmap_t *orconn_ext_or_id_map = NULL;
 
 /** If conn is listed in orconn_identity_map, remove it, and clear
  * conn->identity_digest.  Otherwise do nothing. */
@@ -174,6 +180,71 @@ connection_or_set_identity_digest(or_connection_t *conn, const char *digest)
 #endif
 }
 
+/** Remove the Extended ORPort identifier of <b>conn</b> from the
+ *  global identifier list. Also, clear the identifier from the
+ *  connection itself. */
+void
+connection_or_remove_from_ext_or_id_map(or_connection_t *conn)
+{
+  or_connection_t *tmp;
+  if (!orconn_ext_or_id_map)
+    return;
+  if (!conn->ext_or_conn_id)
+    return;
+
+  tmp = digestmap_remove(orconn_ext_or_id_map, conn->ext_or_conn_id);
+  if (!tor_digest_is_zero(conn->ext_or_conn_id))
+    tor_assert(tmp == conn);
+
+  memset(conn->ext_or_conn_id, 0, EXT_OR_CONN_ID_LEN);
+}
+
+/** Return the connection whose ext_or_id is <b>id</b>. Return NULL if no such
+ * connection is found. */
+or_connection_t *
+connection_or_get_by_ext_or_id(const char *id)
+{
+  if (!orconn_ext_or_id_map)
+    return NULL;
+  return digestmap_get(orconn_ext_or_id_map, id);
+}
+
+/** Deallocate the global Extended ORPort identifier list */
+void
+connection_or_clear_ext_or_id_map(void)
+{
+  digestmap_free(orconn_ext_or_id_map, NULL);
+  orconn_ext_or_id_map = NULL;
+}
+
+/** Creates an Extended ORPort identifier for <b>conn</b> and deposits
+ *  it into the global list of identifiers. */
+void
+connection_or_set_ext_or_identifier(or_connection_t *conn)
+{
+  char random_id[EXT_OR_CONN_ID_LEN];
+  or_connection_t *tmp;
+
+  if (!orconn_ext_or_id_map)
+    orconn_ext_or_id_map = digestmap_new();
+
+  /* Remove any previous identifiers: */
+  if (conn->ext_or_conn_id && !tor_digest_is_zero(conn->ext_or_conn_id))
+      connection_or_remove_from_ext_or_id_map(conn);
+
+  do {
+    crypto_rand(random_id, sizeof(random_id));
+  } while (digestmap_get(orconn_ext_or_id_map, random_id));
+
+  if (!conn->ext_or_conn_id)
+    conn->ext_or_conn_id = tor_malloc_zero(EXT_OR_CONN_ID_LEN);
+
+  memcpy(conn->ext_or_conn_id, random_id, EXT_OR_CONN_ID_LEN);
+
+  tmp = digestmap_set(orconn_ext_or_id_map, random_id, conn);
+  tor_assert(!tmp);
+}
+
 /**************************************************************/
 
 /** Map from a string describing what a non-open OR connection was doing when
@@ -228,7 +299,7 @@ connection_or_get_state_description(or_connection_t *orconn,
   const char *conn_state;
   char tls_state[256];
 
-  tor_assert(conn->type == CONN_TYPE_OR);
+  tor_assert(conn->type == CONN_TYPE_OR || conn->type == CONN_TYPE_EXT_OR);
 
   conn_state = conn_state_to_string(conn->type, conn->state);
   tor_tls_get_state_description(orconn->tls, tls_state, sizeof(tls_state));
@@ -505,46 +576,49 @@ connection_or_process_inbuf(or_connection_t *conn)
   return ret;
 }
 
-/** When adding cells to an OR connection's outbuf, keep adding until the
- * outbuf is at least this long, or we run out of cells. */
-#define OR_CONN_HIGHWATER (32*1024)
-
-/** Add cells to an OR connection's outbuf whenever the outbuf's data length
- * drops below this size. */
-#define OR_CONN_LOWWATER (16*1024)
-
 /** Called whenever we have flushed some data on an or_conn: add more data
  * from active circuits. */
 int
 connection_or_flushed_some(or_connection_t *conn)
 {
-  size_t datalen, temp;
-  ssize_t n, flushed;
-  size_t cell_network_size = get_cell_network_size(conn->wide_circ_ids);
+  size_t datalen;
+
+  /* The channel will want to update its estimated queue size */
+  channel_update_xmit_queue_size(TLS_CHAN_TO_BASE(conn->chan));
 
   /* If we're under the low water mark, add cells until we're just over the
    * high water mark. */
   datalen = connection_get_outbuf_len(TO_CONN(conn));
   if (datalen < OR_CONN_LOWWATER) {
-    while ((conn->chan) && channel_tls_more_to_flush(conn->chan)) {
-      /* Compute how many more cells we want at most */
-      n = CEIL_DIV(OR_CONN_HIGHWATER - datalen, cell_network_size);
-      /* Bail out if we don't want any more */
-      if (n <= 0) break;
-      /* We're still here; try to flush some more cells */
-      flushed = channel_tls_flush_some_cells(conn->chan, n);
-      /* Bail out if it says it didn't flush anything */
-      if (flushed <= 0) break;
-      /* How much in the outbuf now? */
-      temp = connection_get_outbuf_len(TO_CONN(conn));
-      /* Bail out if we didn't actually increase the outbuf size */
-      if (temp <= datalen) break;
-      /* Update datalen for the next iteration */
-      datalen = temp;
-    }
+    /* Let the scheduler know */
+    scheduler_channel_wants_writes(TLS_CHAN_TO_BASE(conn->chan));
   }
 
   return 0;
+}
+
+/** This is for channeltls.c to ask how many cells we could accept if
+ * they were available. */
+ssize_t
+connection_or_num_cells_writeable(or_connection_t *conn)
+{
+  size_t datalen, cell_network_size;
+  ssize_t n = 0;
+
+  tor_assert(conn);
+
+  /*
+   * If we're under the high water mark, we're potentially
+   * writeable; note this is different from the calculation above
+   * used to trigger when to start writing after we've stopped.
+   */
+  datalen = connection_get_outbuf_len(TO_CONN(conn));
+  if (datalen < OR_CONN_HIGHWATER) {
+    cell_network_size = get_cell_network_size(conn->wide_circ_ids);
+    n = CEIL_DIV(OR_CONN_HIGHWATER - datalen, cell_network_size);
+  }
+
+  return n;
 }
 
 /** Connection <b>conn</b> has finished writing and has no bytes left on
@@ -622,6 +696,11 @@ connection_or_about_to_close(or_connection_t *or_conn)
   /* Tell the controlling channel we're closed */
   if (or_conn->chan) {
     channel_closed(TLS_CHAN_TO_BASE(or_conn->chan));
+    /*
+     * NULL this out because the channel might hang around a little
+     * longer before channel_run_cleanup() gets it.
+     */
+    or_conn->chan->conn = NULL;
     or_conn->chan = NULL;
   }
 
@@ -640,7 +719,8 @@ connection_or_about_to_close(or_connection_t *or_conn)
                                      reason);
         if (!authdir_mode_tests_reachability(options))
           control_event_bootstrap_problem(
-                orconn_end_reason_to_control_string(reason), reason);
+                orconn_end_reason_to_control_string(reason),
+                reason, or_conn);
       }
     }
   } else if (conn->hold_open_until_flushed) {
@@ -751,6 +831,45 @@ connection_or_update_token_buckets(smartlist_t *conns,
   });
 }
 
+/** How long do we wait before killing non-canonical OR connections with no
+ * circuits?  In Tor versions up to 0.2.1.25 and 0.2.2.12-alpha, we waited 15
+ * minutes before cancelling these connections, which caused fast relays to
+ * accrue many many idle connections. Hopefully 3-4.5 minutes is low enough
+ * that it kills most idle connections, without being so low that we cause
+ * clients to bounce on and off.
+ *
+ * For canonical connections, the limit is higher, at 15-22.5 minutes.
+ *
+ * For each OR connection, we randomly add up to 50% extra to its idle_timeout
+ * field, to avoid exposing when exactly the last circuit closed.  Since we're
+ * storing idle_timeout in a uint16_t, don't let these values get higher than
+ * 12 hours or so without revising connection_or_set_canonical and/or expanding
+ * idle_timeout.
+ */
+#define IDLE_OR_CONN_TIMEOUT_NONCANONICAL 180
+#define IDLE_OR_CONN_TIMEOUT_CANONICAL 900
+
+/* Mark <b>or_conn</b> as canonical if <b>is_canonical</b> is set, and
+ * non-canonical otherwise. Adjust idle_timeout accordingly.
+ */
+void
+connection_or_set_canonical(or_connection_t *or_conn,
+                            int is_canonical)
+{
+  const unsigned int timeout_base = is_canonical ?
+    IDLE_OR_CONN_TIMEOUT_CANONICAL : IDLE_OR_CONN_TIMEOUT_NONCANONICAL;
+
+  if (bool_eq(is_canonical, or_conn->is_canonical) &&
+      or_conn->idle_timeout != 0) {
+    /* Don't recalculate an existing idle_timeout unless the canonical
+     * status changed. */
+    return;
+  }
+
+  or_conn->is_canonical = !! is_canonical; /* force to a 1-bit boolean */
+  or_conn->idle_timeout = timeout_base + crypto_rand_int(timeout_base / 2);
+}
+
 /** If we don't necessarily know the router we're connecting to, but we
  * have an addr/port/id_digest, then fill in as much as we can. Start
  * by checking to see if this describes a router we know.
@@ -775,7 +894,7 @@ connection_or_init_conn_from_address(or_connection_t *conn,
     /* XXXX proposal 186 is making this more complex.  For now, a conn
        is canonical when it uses the _preferred_ address. */
     if (tor_addr_eq(&conn->base_.addr, &node_ap.addr))
-      conn->is_canonical = 1;
+      connection_or_set_canonical(conn, 1);
     if (!started_here) {
       /* Override the addr/port, so our log messages will make sense.
        * This is dangerous, since if we ever try looking up a conn by
@@ -794,20 +913,22 @@ connection_or_init_conn_from_address(or_connection_t *conn,
     tor_free(conn->base_.address);
     conn->base_.address = tor_dup_addr(&node_ap.addr);
   } else {
-    const char *n;
-    /* If we're an authoritative directory server, we may know a
-     * nickname for this router. */
-    n = dirserv_get_nickname_by_digest(id_digest);
-    if (n) {
-      conn->nickname = tor_strdup(n);
-    } else {
-      conn->nickname = tor_malloc(HEX_DIGEST_LEN+2);
-      conn->nickname[0] = '$';
-      base16_encode(conn->nickname+1, HEX_DIGEST_LEN+1,
-                    conn->identity_digest, DIGEST_LEN);
-    }
+    conn->nickname = tor_malloc(HEX_DIGEST_LEN+2);
+    conn->nickname[0] = '$';
+    base16_encode(conn->nickname+1, HEX_DIGEST_LEN+1,
+                  conn->identity_digest, DIGEST_LEN);
+
     tor_free(conn->base_.address);
     conn->base_.address = tor_dup_addr(addr);
+  }
+
+  /*
+   * We have to tell channeltls.c to update the channel marks (local, in
+   * particular), since we may have changed the address.
+   */
+
+  if (conn->chan) {
+    channel_tls_update_marks(conn);
   }
 }
 
@@ -1003,7 +1124,7 @@ connection_or_connect_failed(or_connection_t *conn,
 {
   control_event_or_conn_status(conn, OR_CONN_EVENT_FAILED, reason);
   if (!authdir_mode_tests_reachability(get_options()))
-    control_event_bootstrap_problem(msg, reason);
+    control_event_bootstrap_problem(msg, reason, conn);
 }
 
 /** <b>conn</b> got an error in connection_handle_read_impl() or
@@ -1028,9 +1149,7 @@ connection_or_notify_error(or_connection_t *conn,
   if (conn->chan) {
     chan = TLS_CHAN_TO_BASE(conn->chan);
     /* Don't transition if we're already in closing, closed or error */
-    if (!(chan->state == CHANNEL_STATE_CLOSING ||
-          chan->state == CHANNEL_STATE_CLOSED ||
-          chan->state == CHANNEL_STATE_ERROR)) {
+    if (!CHANNEL_CONDEMNED(chan)) {
       channel_close_for_error(chan);
     }
   }
@@ -1053,10 +1172,10 @@ connection_or_notify_error(or_connection_t *conn,
  *
  * Return the launched conn, or NULL if it failed.
  */
-or_connection_t *
-connection_or_connect(const tor_addr_t *_addr, uint16_t port,
-                      const char *id_digest,
-                      channel_tls_t *chan)
+
+MOCK_IMPL(or_connection_t *,
+connection_or_connect, (const tor_addr_t *_addr, uint16_t port,
+                        const char *id_digest, channel_tls_t *chan))
 {
   or_connection_t *conn;
   const or_options_t *options = get_options();
@@ -1077,7 +1196,7 @@ connection_or_connect(const tor_addr_t *_addr, uint16_t port,
     return NULL;
   }
 
-  conn = or_connection_new(tor_addr_family(&addr));
+  conn = or_connection_new(CONN_TYPE_OR, tor_addr_family(&addr));
 
   /*
    * Set up conn so it's got all the data we need to remember for channels
@@ -1120,6 +1239,12 @@ connection_or_connect(const tor_addr_t *_addr, uint16_t port,
                "your pluggable transport proxy stopped running.",
                fmt_addrport(&TO_CONN(conn)->addr, TO_CONN(conn)->port),
                transport_name, transport_name);
+
+      control_event_bootstrap_problem(
+                                "Can't connect to bridge",
+                                END_OR_CONN_REASON_PT_MISSING,
+                                conn);
+
     } else {
       log_warn(LD_GENERAL, "Tried to connect to '%s' through a proxy, but "
                "the proxy address could not be found.",
@@ -1183,9 +1308,7 @@ connection_or_close_normally(or_connection_t *orconn, int flush)
   if (orconn->chan) {
     chan = TLS_CHAN_TO_BASE(orconn->chan);
     /* Don't transition if we're already in closing, closed or error */
-    if (!(chan->state == CHANNEL_STATE_CLOSING ||
-          chan->state == CHANNEL_STATE_CLOSED ||
-          chan->state == CHANNEL_STATE_ERROR)) {
+    if (!CHANNEL_CONDEMNED(chan)) {
       channel_close_from_lower_layer(chan);
     }
   }
@@ -1206,9 +1329,7 @@ connection_or_close_for_error(or_connection_t *orconn, int flush)
   if (orconn->chan) {
     chan = TLS_CHAN_TO_BASE(orconn->chan);
     /* Don't transition if we're already in closing, closed or error */
-    if (!(chan->state == CHANNEL_STATE_CLOSING ||
-          chan->state == CHANNEL_STATE_CLOSED ||
-          chan->state == CHANNEL_STATE_ERROR)) {
+    if (!CHANNEL_CONDEMNED(chan)) {
       channel_close_for_error(chan);
     }
   }
@@ -1222,8 +1343,8 @@ connection_or_close_for_error(or_connection_t *orconn, int flush)
  *
  * Return -1 if <b>conn</b> is broken, else return 0.
  */
-int
-connection_tls_start_handshake(or_connection_t *conn, int receiving)
+MOCK_IMPL(int,
+connection_tls_start_handshake,(or_connection_t *conn, int receiving))
 {
   channel_listener_t *chan_listener;
   channel_t *chan;
@@ -1480,7 +1601,8 @@ connection_or_handle_event_cb(struct bufferevent *bufev, short event,
 int
 connection_or_nonopen_was_started_here(or_connection_t *conn)
 {
-  tor_assert(conn->base_.type == CONN_TYPE_OR);
+  tor_assert(conn->base_.type == CONN_TYPE_OR ||
+             conn->base_.type == CONN_TYPE_EXT_OR);
   if (!conn->tls)
     return 1; /* it's still in proxy states or something */
   if (conn->handshake_state)
@@ -1633,7 +1755,8 @@ connection_or_client_learned_peer_id(or_connection_t *conn,
     if (!authdir_mode_tests_reachability(options))
       control_event_bootstrap_problem(
                                 "Unexpected identity in router certificate",
-                                END_OR_CONN_REASON_OR_IDENTITY);
+                                END_OR_CONN_REASON_OR_IDENTITY,
+                                conn);
     return -1;
   }
   if (authdir_mode_tests_reachability(options)) {
@@ -1683,13 +1806,11 @@ connection_tls_finish_handshake(or_connection_t *conn)
             safe_str_client(conn->base_.address),
             tor_tls_get_ciphersuite_name(conn->tls));
 
-  directory_set_dirty();
-
   if (connection_or_check_valid_tls_handshake(conn, started_here,
                                               digest_rcvd) < 0)
     return -1;
 
-  circuit_build_times_network_is_live(&circ_times);
+  circuit_build_times_network_is_live(get_circuit_build_times_mutable());
 
   if (tor_tls_used_v1_handshake(conn->tls)) {
     conn->link_proto = 1;
@@ -1698,6 +1819,7 @@ connection_tls_finish_handshake(or_connection_t *conn)
                                            conn->base_.port, digest_rcvd, 0);
     }
     tor_tls_block_renegotiation(conn->tls);
+    rep_hist_note_negotiated_link_proto(1, started_here);
     return connection_or_set_state_open(conn);
   } else {
     connection_or_change_state(conn, OR_CONN_STATE_OR_HANDSHAKING_V2);
@@ -1723,7 +1845,7 @@ connection_or_launch_v3_or_handshake(or_connection_t *conn)
   tor_assert(connection_or_nonopen_was_started_here(conn));
   tor_assert(tor_tls_received_v3_certificate(conn->tls));
 
-  circuit_build_times_network_is_live(&circ_times);
+  circuit_build_times_network_is_live(get_circuit_build_times_mutable());
 
   connection_or_change_state(conn, OR_CONN_STATE_OR_HANDSHAKING_V3);
   if (connection_init_or_handshake_state(conn, 1) < 0)
@@ -1885,9 +2007,6 @@ connection_or_write_cell_to_buf(const cell_t *cell, or_connection_t *conn)
 
   if (conn->base_.state == OR_CONN_STATE_OR_HANDSHAKING_V3)
     or_handshake_state_record_cell(conn, conn->handshake_state, cell, 0);
-
-  if (cell->command != CELL_PADDING)
-    conn->timestamp_last_added_nonpadding = approx_time();
 }
 
 /** Pack a variable-length <b>cell</b> into wire-format, and write it onto
@@ -1908,8 +2027,6 @@ connection_or_write_var_cell_to_buf(const var_cell_t *cell,
                           cell->payload_len, TO_CONN(conn));
   if (conn->base_.state == OR_CONN_STATE_OR_HANDSHAKING_V3)
     or_handshake_state_record_var_cell(conn, conn->handshake_state, cell, 0);
-  if (cell->command != CELL_PADDING)
-    conn->timestamp_last_added_nonpadding = approx_time();
 
   /* Touch the channel's active timestamp if there is one */
   if (conn->chan)
@@ -1956,7 +2073,7 @@ connection_or_process_cells_from_inbuf(or_connection_t *conn)
       if (conn->chan)
         channel_timestamp_active(TLS_CHAN_TO_BASE(conn->chan));
 
-      circuit_build_times_network_is_live(&circ_times);
+      circuit_build_times_network_is_live(get_circuit_build_times_mutable());
       channel_tls_handle_var_cell(var_cell, conn);
       var_cell_free(var_cell);
     } else {
@@ -1972,7 +2089,7 @@ connection_or_process_cells_from_inbuf(or_connection_t *conn)
       if (conn->chan)
         channel_timestamp_active(TLS_CHAN_TO_BASE(conn->chan));
 
-      circuit_build_times_network_is_live(&circ_times);
+      circuit_build_times_network_is_live(get_circuit_build_times_mutable());
       connection_fetch_from_buf(buf, cell_network_size, TO_CONN(conn));
 
       /* retrieve cell info from buf (create the host-order struct from the

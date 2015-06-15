@@ -1265,8 +1265,8 @@ static const nvset_t nvset_list[] = {
 	{ "bt_port_gui",                V_PORT                          },
 	{ "bt_dl_enable",               V_01                            },
 	{ "bt_ul_enable",               V_01                            },
-	{ "bt_dl",                      V_RANGE(1, 999999)              },
-	{ "bt_ul",                      V_RANGE(1, 999999)              },
+	{ "bt_dl",                      V_RANGE(0, 999999)              },
+	{ "bt_ul",                      V_RANGE(0, 999999)              },
 	{ "bt_peer_limit_global",       V_RANGE(10, 1000)               },
 	{ "bt_peer_limit_per_torrent",  V_RANGE(1, 200)                 },
 	{ "bt_ul_slot_per_torrent",     V_RANGE(1, 50)                  },
@@ -1409,6 +1409,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_key",      V_NONE              },
 	{ "vpn_server1_dh",       V_NONE              },
 	{ "vpn_server1_br",       V_LENGTH(0, 50)     },
+	{ "vpn_server1_route",    V_01                },
+	{ "vpn_server1_routing_val", V_NONE           },
 	{ "vpn_server2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_server2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server2_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
@@ -1443,6 +1445,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_key",      V_NONE              },
 	{ "vpn_server2_dh",       V_NONE              },
 	{ "vpn_server2_br",       V_LENGTH(0, 50)     },
+	{ "vpn_server2_route",    V_01                },
+	{ "vpn_server2_routing_val", V_NONE           },
 	{ "vpn_client_eas",       V_NONE              },
 	{ "vpn_client1_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client1_if",       V_TEXT(3, 3)        },  // tap, tun
@@ -1476,6 +1480,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_tlsremote",V_01                },
 	{ "vpn_client1_cn",       V_NONE              },
 	{ "vpn_client1_br",       V_LENGTH(0, 50)     },
+	{ "vpn_client1_route",    V_01                },
+	{ "vpn_client1_routing_val", V_NONE           },
 	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
@@ -1508,6 +1514,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_tlsremote",V_01                },
 	{ "vpn_client2_cn",       V_NONE              },
 	{ "vpn_client2_br",       V_LENGTH(0, 50)     },
+	{ "vpn_client2_route",    V_01                },
+	{ "vpn_client2_routing_val", V_NONE           },
 #endif // vpn
 
 #ifdef TCONFIG_PPTPD

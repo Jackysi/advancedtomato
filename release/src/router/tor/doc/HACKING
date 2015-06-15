@@ -93,7 +93,7 @@ down bugs.
 Jenkins
 ~~~~~~~
 
-http://jenkins.torproject.org
+https://jenkins.torproject.org
 
 Dmalloc
 ~~~~~~~
@@ -114,29 +114,88 @@ valgrind --leak-check=yes --error-limit=no --show-reachable=yes src/or/tor
 pass --undef-value-errors=no to valgrind, or rebuild your openssl
 with -DPURIFY.)
 
+Running lcov for unit test coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Lcov is a utility that generates pretty HTML reports of test code coverage.
+To generate such a report:
+
+-----
+   ./configure --enable-coverage
+   make
+   make coverage-html
+   $BROWSER ./coverage_html/index.html
+-----
+
+This will run the tor unit test suite `./src/test/test` and generate the HTML
+coverage code report under the directory ./coverage_html/. To change the
+output directory, use `make coverage-html HTML_COVER_DIR=./funky_new_cov_dir`.
+
+Coverage diffs using lcov are not currently implemented, but are being
+investigated (as of July 2014).
+
+Running the unit tests
+~~~~~~~~~~~~~~~~~~~~~~
+
+To quickly run all tests:
+-----
+   make check
+-----
+
+To run unit tests only:
+-----
+   make test
+-----
+
+To selectively run just some tests (the following can be combined
+arbitrarily):
+-----
+   ./src/test/test <name_of_test> [<name of test 2>] ...
+   ./src/test/test <prefix_of_name_of_test>.. [<prefix_of_name_of_test2>..] ...
+   ./src/test/test :<name_of_excluded_test> [:<name_of_excluded_test2]...
+-----
+
 Running gcov for unit test coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -----
-  make clean
-  make CFLAGS='-g -fprofile-arcs -ftest-coverage'
-  ./src/test/test
-  gcov -o src/common src/common/*.[ch]
-  gcov -o src/or src/or/*.[ch]
-  cd ../or; gcov *.[ch]
+   ./configure --enable-coverage
+   make
+   make check
+   mkdir coverage-output
+   ./scripts/test/coverage coverage-output
 -----
 
-Then, look at the .gcov files.  '-' before a line means that the
-compiler generated  no code for that line.  '######' means that the
-line was never reached.  Lines with numbers were called that number
-of times.
+(On OSX, you'll need to start with "--enable-coverage CC=clang".)
+
+Then, look at the .gcov files in coverage-output.  '-' before a line means
+that the compiler generated no code for that line.  '######' means that the
+line was never reached.  Lines with numbers were called that number of times.
 
 If that doesn't work:
    * Try configuring Tor with --disable-gcc-hardening
-   * On recent OSX versions, you might need to add CC=clang to your
-     build line, as in:
-        make CFLAGS='-g -fprofile-arcs -ftest-coverage' CC=clang
-     Their llvm-gcc doesn't work so great for me.
+   * You might need to run 'make clean' after you run './configure'.
+
+If you make changes to Tor and want to get another set of coverage results,
+you can run "make reset-gcov" to clear the intermediary gcov output.
+
+If you have two different "coverage-output" directories, and you want to see
+a meaningful diff between them, you can run:
+
+-----
+   ./scripts/test/cov-diff coverage-output1 coverage-output2 | less
+-----
+
+In this diff, any lines that were visited at least once will have coverage
+"1".  This lets you inspect what you (probably) really want to know: which
+untested lines were changed?  Are there any new untested lines?
+
+Running integration tests
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We have the beginnings of a set of scripts to run integration tests using
+Chutney. To try them, set CHUTNEY_PATH to your chutney source directory, and
+run "make test-network".
 
 Profiling Tor with oprofile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -431,17 +490,18 @@ of them and reordering to focus on what users and funders would find
 interesting and understandable.
 
    2.1) Make sure that everything that wants a bug number has one.
+        Make sure that everything which is a bugfix says what version
+        it was a bugfix on.
    2.2) Concatenate them.
-   2.3) Sort them by section.  Within each section, try to make the
-      first entry or two and the last entry most interesting: they're
-      the ones that skimmers tend to read.
+   2.3) Sort them by section. Within each section, sort by "version it's
+        a bugfix on", else by numerical ticket order.
 
    2.4) Clean them up:
 
    Standard idioms:
      "Fixes bug 9999; bugfix on 0.3.3.3-alpha."
 
-   One period after a space.
+   One space after a period.
 
    Make stuff very terse
 
@@ -456,6 +516,10 @@ interesting and understandable.
 
    Present and imperative tense: not past.
 
+   'Relays', not 'servers' or 'nodes' or 'Tor relays'.
+
+   "Stop FOOing", not "Fix a bug where we would FOO".
+
    Try not to let any given section be longer than about a page. Break up
    long sections into subsections by some sort of common subtopic. This
    guideline is especially important when organizing Release Notes for
@@ -469,7 +533,7 @@ interesting and understandable.
 
    2.6) Clean everything one last time.
 
-   2.7) Run it through fmt to make it pretty.
+   2.7) Run ./scripts/maint/format_changelog.py to make it prettier.
 
 3) Compose a short release blurb to highlight the user-facing
 changes. Insert said release blurb into the ChangeLog stanza. If it's
@@ -491,17 +555,14 @@ in their approved versions list.
   git tag -u <keyid> tor-0.2.x.y-status
   git push origin tag tor-0.2.x.y-status
 
-8) scp the tarball and its sig to the website in the dist/ directory
-(i.e. /srv/www-master.torproject.org/htdocs/dist/ on vescum). Edit
-include/versions.wmi to note the new version. From your website checkout,
-run ./publish to build and publish the website.
+8a) scp the tarball and its sig to the dist website, i.e.
+/srv/dist-master.torproject.org/htdocs/ on dist-master. When you want
+it to go live, you run "static-update-component dist.torproject.org"
+on dist-master.
 
-Try not to delay too much between scp'ing the tarball and running
-./publish -- the website has multiple A records and your scp only sent
-it to one of them.
+8b) Edit "include/versions.wmi" and "Makefile" to note the new version.
 
-9) Email Erinn and weasel (cc'ing tor-assistants) that a new tarball
-is up. This step should probably change to mailing more packagers.
+9) Email the packagers (cc'ing tor-assistants) that a new tarball is up.
 
 10) Add the version number to Trac.  To do this, go to Trac, log in,
 select "Admin" near the top of the screen, then select "Versions" from
@@ -512,12 +573,16 @@ the date in the ChangeLog.
 
 11) Forward-port the ChangeLog.
 
-12) Update the topic in #tor to reflect the new version.
-
 12) Wait up to a day or two (for a development release), or until most
 packages are up (for a stable release), and mail the release blurb and
 changelog to tor-talk or tor-announce.
 
   (We might be moving to faster announcements, but don't announce until
   the website is at least updated.)
+
+13) If it's a stable release, bump the version number in the maint-x.y.z
+    branch to "newversion-dev", and do a "merge -s ours" merge to avoid
+    taking that change into master.  Do a similar 'merge -s theirs'
+    merge to get the change (and only that change) into release.  (Some
+    of the build scripts require that maint merge cleanly into release.)
 

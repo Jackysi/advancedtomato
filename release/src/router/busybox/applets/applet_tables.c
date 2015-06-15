@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #undef ARRAY_SIZE
 #define ARRAY_SIZE(x) ((unsigned)(sizeof(x) / sizeof((x)[0])))
@@ -49,11 +50,21 @@ static int cmp_name(const void *a, const void *b)
 	return strcmp(aa->name, bb->name);
 }
 
+static int str_isalnum_(const char *s)
+{
+	while (*s) {
+		if (!isalnum(*s) && *s != '_')
+			return 0;
+		s++;
+	}
+	return 1;
+}
+
 int main(int argc, char **argv)
 {
 	int i;
 	int ofs;
-	unsigned MAX_APPLET_NAME_LEN = 1;
+//	unsigned MAX_APPLET_NAME_LEN = 1;
 
 	qsort(applets, NUM_APPLETS, sizeof(applets[0]), cmp_name);
 
@@ -89,10 +100,16 @@ int main(int argc, char **argv)
 	printf("const char applet_names[] ALIGN1 = \"\"\n");
 	for (i = 0; i < NUM_APPLETS; i++) {
 		printf("\"%s\" \"\\0\"\n", applets[i].name);
-		if (MAX_APPLET_NAME_LEN < strlen(applets[i].name))
-			MAX_APPLET_NAME_LEN = strlen(applets[i].name);
+//		if (MAX_APPLET_NAME_LEN < strlen(applets[i].name))
+//			MAX_APPLET_NAME_LEN = strlen(applets[i].name);
 	}
 	printf(";\n\n");
+
+	for (i = 0; i < NUM_APPLETS; i++) {
+		if (str_isalnum_(applets[i].name))
+			printf("#define APPLET_NO_%s %d\n", applets[i].name, i);
+	}
+	printf("\n");
 
 	printf("#ifndef SKIP_applet_main\n");
 	printf("int (*const applet_main[])(int argc, char **argv) = {\n");
@@ -130,8 +147,8 @@ int main(int argc, char **argv)
 	printf("};\n");
 #endif
 	//printf("#endif /* SKIP_definitions */\n");
-	printf("\n");
-	printf("#define MAX_APPLET_NAME_LEN %u\n", MAX_APPLET_NAME_LEN);
+//	printf("\n");
+//	printf("#define MAX_APPLET_NAME_LEN %u\n", MAX_APPLET_NAME_LEN);
 
 	if (argv[2]) {
 		char line_old[80];

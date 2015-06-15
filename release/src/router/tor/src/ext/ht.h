@@ -1,6 +1,6 @@
 /* Copyright (c) 2002, Christopher Clark.
  * Copyright (c) 2005-2006, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See license at end. */
 
 /* Based on ideas by Christopher Clark and interfaces from Niels Provos. */
@@ -38,8 +38,9 @@
   }
 #endif
 
+/* || 0 is for -Wparentheses-equality (-Wall?) appeasement under clang */
 #define HT_EMPTY(head)                          \
-  ((head)->hth_n_entries == 0)
+  (((head)->hth_n_entries == 0) || 0)
 
 /* How many elements in 'head'? */
 #define HT_SIZE(head)                           \
@@ -58,6 +59,7 @@
 #define HT_NEXT_RMV(name, head, elm) name##_HT_NEXT_RMV((head), (elm))
 #define HT_CLEAR(name, head)         name##_HT_CLEAR(head)
 #define HT_INIT(name, head)          name##_HT_INIT(head)
+#define HT_REP_IS_BAD_(name, head)    name##_HT_REP_IS_BAD_(head)
 /* Helper: */
 static INLINE unsigned
 ht_improve_hash(unsigned h)
@@ -86,6 +88,7 @@ ht_string_hash(const char *s)
 }
 #endif
 
+#if 0
 /** Basic string hash function, from Python's str.__hash__() */
 static INLINE unsigned
 ht_string_hash(const char *s)
@@ -100,6 +103,7 @@ ht_string_hash(const char *s)
   h ^= (unsigned)(cp-(const unsigned char*)s);
   return h;
 }
+#endif
 
 #ifndef HT_NO_CACHE_HASH_VALUES
 #define HT_SET_HASH_(elm, field, hashfn)        \
@@ -117,15 +121,23 @@ ht_string_hash(const char *s)
         ((void)0)
 #endif
 
+#define HT_BUCKET_NUM_(head, field, elm, hashfn)                        \
+  (HT_ELT_HASH_(elm,field,hashfn) % head->hth_table_length)
+
 /* Helper: alias for the bucket containing 'elm'. */
 #define HT_BUCKET_(head, field, elm, hashfn)                            \
-    ((head)->hth_table[HT_ELT_HASH_(elm,field,hashfn)                   \
-        % head->hth_table_length])
+  ((head)->hth_table[HT_BUCKET_NUM_(head, field, elm, hashfn)])
 
 #define HT_FOREACH(x, name, head)                 \
   for ((x) = HT_START(name, head);                \
        (x) != NULL;                               \
        (x) = HT_NEXT(name, head, x))
+
+#ifndef HT_NDEBUG
+#define HT_ASSERT_(x) tor_assert(x)
+#else
+#define HT_ASSERT_(x) (void)0
+#endif
 
 #define HT_PROTOTYPE(name, type, field, hashfn, eqfn)                   \
   int name##_HT_GROW(struct name *ht, unsigned min_capacity);           \
@@ -157,7 +169,7 @@ ht_string_hash(const char *s)
   }                                                                     \
   /* Return a pointer to the element in the table 'head' matching 'elm', \
    * or NULL if no such element exists */                               \
-  static INLINE struct type *                                           \
+  ATTR_UNUSED static INLINE struct type *                               \
   name##_HT_FIND(const struct name *head, struct type *elm)             \
   {                                                                     \
     struct type **p;                                                    \
@@ -168,7 +180,7 @@ ht_string_hash(const char *s)
   }                                                                     \
   /* Insert the element 'elm' into the table 'head'.  Do not call this  \
    * function if the table might already contain a matching element. */ \
-  static INLINE void                                                    \
+  ATTR_UNUSED static INLINE void                                        \
   name##_HT_INSERT(struct name *head, struct type *elm)                 \
   {                                                                     \
     struct type **p;                                                    \
@@ -183,7 +195,7 @@ ht_string_hash(const char *s)
   /* Insert the element 'elm' into the table 'head'. If there already   \
    * a matching element in the table, replace that element and return   \
    * it. */                                                             \
-  static INLINE struct type *                                           \
+  ATTR_UNUSED static INLINE struct type *                               \
   name##_HT_REPLACE(struct name *head, struct type *elm)                \
   {                                                                     \
     struct type **p, *r;                                                \
@@ -204,7 +216,7 @@ ht_string_hash(const char *s)
   }                                                                     \
   /* Remove any element matching 'elm' from the table 'head'.  If such  \
    * an element is found, return it; otherwise return NULL. */          \
-  static INLINE struct type *                                           \
+  ATTR_UNUSED static INLINE struct type *                               \
   name##_HT_REMOVE(struct name *head, struct type *elm)                 \
   {                                                                     \
     struct type **p, *r;                                                \
@@ -222,11 +234,11 @@ ht_string_hash(const char *s)
    * using 'data' as its second argument.  If the function returns      \
    * nonzero, remove the most recently examined element before invoking \
    * the function again. */                                             \
-  static INLINE void                                                    \
+  ATTR_UNUSED static INLINE void                                        \
   name##_HT_FOREACH_FN(struct name *head,                               \
                        int (*fn)(struct type *, void *),                \
                        void *data)                                      \
-  {                                                                     \
+{                                                                       \
     unsigned idx;                                                       \
     struct type **p, **nextp, *next;                                    \
     if (!head->hth_table)                                               \
@@ -248,13 +260,16 @@ ht_string_hash(const char *s)
   /* Return a pointer to the first element in the table 'head', under   \
    * an arbitrary order.  This order is stable under remove operations, \
    * but not under others. If the table is empty, return NULL. */       \
-  static INLINE struct type **                                          \
+  ATTR_UNUSED static INLINE struct type **                              \
   name##_HT_START(struct name *head)                                    \
   {                                                                     \
     unsigned b = 0;                                                     \
     while (b < head->hth_table_length) {                                \
-      if (head->hth_table[b])                                           \
+      if (head->hth_table[b]) {                                         \
+        HT_ASSERT_(b ==                                                 \
+                HT_BUCKET_NUM_(head,field,head->hth_table[b],hashfn));  \
         return &head->hth_table[b];                                     \
+      }                                                                 \
       ++b;                                                              \
     }                                                                   \
     return NULL;                                                        \
@@ -264,23 +279,27 @@ ht_string_hash(const char *s)
    * NULL.  If 'elm' is to be removed from the table, you must call     \
    * this function for the next value before you remove it.             \
    */                                                                   \
-  static INLINE struct type **                                          \
+  ATTR_UNUSED static INLINE struct type **                              \
   name##_HT_NEXT(struct name *head, struct type **elm)                  \
   {                                                                     \
     if ((*elm)->field.hte_next) {                                       \
+      HT_ASSERT_(HT_BUCKET_NUM_(head,field,*elm,hashfn) ==              \
+             HT_BUCKET_NUM_(head,field,(*elm)->field.hte_next,hashfn)); \
       return &(*elm)->field.hte_next;                                   \
     } else {                                                            \
-      unsigned b = (HT_ELT_HASH_(*elm, field, hashfn)                   \
-      % head->hth_table_length)+1;                                      \
+      unsigned b = HT_BUCKET_NUM_(head,field,*elm,hashfn)+1;            \
       while (b < head->hth_table_length) {                              \
-        if (head->hth_table[b])                                         \
+        if (head->hth_table[b]) {                                       \
+          HT_ASSERT_(b ==                                               \
+                 HT_BUCKET_NUM_(head,field,head->hth_table[b],hashfn)); \
           return &head->hth_table[b];                                   \
+        }                                                               \
         ++b;                                                            \
       }                                                                 \
       return NULL;                                                      \
     }                                                                   \
   }                                                                     \
-  static INLINE struct type **                                          \
+  ATTR_UNUSED static INLINE struct type **                              \
   name##_HT_NEXT_RMV(struct name *head, struct type **elm)              \
   {                                                                     \
     unsigned h = HT_ELT_HASH_(*elm, field, hashfn);                     \
@@ -299,16 +318,18 @@ ht_string_hash(const char *s)
     }                                                                   \
   }
 
-#define HT_GENERATE(name, type, field, hashfn, eqfn, load, mallocfn,    \
-                    reallocfn, freefn)                                  \
+#define HT_GENERATE2(name, type, field, hashfn, eqfn, load, reallocarrayfn, \
+                     freefn)                                            \
+  /* Primes that aren't too far from powers of two. We stop at */       \
+  /* P=402653189 because P*sizeof(void*) is less than SSIZE_MAX */      \
+  /* even on a 32-bit platform. */                                      \
   static unsigned name##_PRIMES[] = {                                   \
     53, 97, 193, 389,                                                   \
     769, 1543, 3079, 6151,                                              \
     12289, 24593, 49157, 98317,                                         \
     196613, 393241, 786433, 1572869,                                    \
     3145739, 6291469, 12582917, 25165843,                               \
-    50331653, 100663319, 201326611, 402653189,                          \
-    805306457, 1610612741                                               \
+    50331653, 100663319, 201326611, 402653189                           \
   };                                                                    \
   static unsigned name##_N_PRIMES =                                     \
     (unsigned)(sizeof(name##_PRIMES)/sizeof(name##_PRIMES[0]));         \
@@ -331,7 +352,7 @@ ht_string_hash(const char *s)
       new_load_limit = (unsigned)(load*new_len);                        \
     } while (new_load_limit <= size &&                                  \
              prime_idx < (int)name##_N_PRIMES);                         \
-    if ((new_table = mallocfn(new_len*sizeof(struct type*)))) {         \
+    if ((new_table = reallocarrayfn(NULL, new_len, sizeof(struct type*)))) { \
       unsigned b;                                                       \
       memset(new_table, 0, new_len*sizeof(struct type*));               \
       for (b = 0; b < head->hth_table_length; ++b) {                    \
@@ -351,7 +372,7 @@ ht_string_hash(const char *s)
       head->hth_table = new_table;                                      \
     } else {                                                            \
       unsigned b, b2;                                                   \
-      new_table = reallocfn(head->hth_table, new_len*sizeof(struct type*)); \
+      new_table = reallocarrayfn(head->hth_table, new_len, sizeof(struct type*)); \
       if (!new_table) return -1;                                        \
       memset(new_table + head->hth_table_length, 0,                     \
              (new_len - head->hth_table_length)*sizeof(struct type*));  \
@@ -412,7 +433,7 @@ ht_string_hash(const char *s)
       for (elm = head->hth_table[i]; elm; elm = elm->field.hte_next) {  \
         if (HT_ELT_HASH_(elm, field, hashfn) != hashfn(elm))            \
           return 1000 + i;                                              \
-        if ((HT_ELT_HASH_(elm, field, hashfn) % head->hth_table_length) != i) \
+        if (HT_BUCKET_NUM_(head,field,elm,hashfn) != i)                 \
           return 10000 + i;                                             \
         ++n;                                                            \
       }                                                                 \
@@ -421,6 +442,21 @@ ht_string_hash(const char *s)
       return 6;                                                         \
     return 0;                                                           \
   }
+
+#define HT_GENERATE(name, type, field, hashfn, eqfn, load, mallocfn,    \
+                    reallocfn, freefn)                                  \
+  static void *                                                         \
+  name##_reallocarray(void *arg, size_t a, size_t b)                    \
+  {                                                                     \
+    if ((b) && (a) > SIZE_MAX / (b))                                    \
+      return NULL;                                                      \
+    if (arg)                                                            \
+      return reallocfn((arg),(a)*(b));                                  \
+    else                                                                \
+      return mallocfn((a)*(b));                                         \
+  }                                                                     \
+  HT_GENERATE2(name, type, field, hashfn, eqfn, load,                   \
+               name##_reallocarray, freefn)
 
 /** Implements an over-optimized "find and insert if absent" block;
  * not meant for direct usage by typical code, or usage outside the critical

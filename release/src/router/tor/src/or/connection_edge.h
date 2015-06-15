@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -12,11 +12,14 @@
 #ifndef TOR_CONNECTION_EDGE_H
 #define TOR_CONNECTION_EDGE_H
 
+#include "testsupport.h"
+
 #define connection_mark_unattached_ap(conn, endreason) \
   connection_mark_unattached_ap_((conn), (endreason), __LINE__, SHORT_FILE__)
 
-void connection_mark_unattached_ap_(entry_connection_t *conn, int endreason,
-                                    int line, const char *file);
+MOCK_DECL(void,connection_mark_unattached_ap_,
+          (entry_connection_t *conn, int endreason,
+           int line, const char *file));
 int connection_edge_reached_eof(edge_connection_t *conn);
 int connection_edge_process_inbuf(edge_connection_t *conn,
                                   int package_partial);
@@ -42,12 +45,17 @@ entry_connection_t  *connection_ap_make_link(connection_t *partner,
 void connection_ap_handshake_socks_reply(entry_connection_t *conn, char *reply,
                                          size_t replylen,
                                          int endreason);
-void connection_ap_handshake_socks_resolved(entry_connection_t *conn,
-                                            int answer_type,
-                                            size_t answer_len,
-                                            const uint8_t *answer,
-                                            int ttl,
-                                            time_t expires);
+MOCK_DECL(void,connection_ap_handshake_socks_resolved,
+          (entry_connection_t *conn,
+           int answer_type,
+           size_t answer_len,
+           const uint8_t *answer,
+           int ttl,
+           time_t expires));
+void connection_ap_handshake_socks_resolved_addr(entry_connection_t *conn,
+                                                 const tor_addr_t *answer,
+                                                 int ttl,
+                                                 time_t expires);
 
 int connection_exit_begin_conn(cell_t *cell, circuit_t *circ);
 int connection_exit_begin_resolve(cell_t *cell, or_circuit_t *circ);
@@ -130,11 +138,35 @@ typedef struct begin_cell_t {
   unsigned is_begindir : 1;
 } begin_cell_t;
 
-int begin_cell_parse(const cell_t *cell, begin_cell_t *bcell,
+STATIC int begin_cell_parse(const cell_t *cell, begin_cell_t *bcell,
                      uint8_t *end_reason_out);
-int connected_cell_format_payload(uint8_t *payload_out,
+STATIC int connected_cell_format_payload(uint8_t *payload_out,
                                   const tor_addr_t *addr,
                                   uint32_t ttl);
+
+typedef struct {
+  /** Original address, after we lowercased it but before we started
+   * mapping it.
+   */
+  char orig_address[MAX_SOCKS_ADDR_LEN];
+  /** True iff the address has been automatically remapped to a local
+   * address in VirtualAddrNetwork.  (Only set true when we do a resolve
+   * and get a virtual address; not when we connect to the address.) */
+  int automap;
+  /** If this connection has a .exit address, who put it there? */
+  addressmap_entry_source_t exit_source;
+  /** If we've rewritten the address, when does this map expire? */
+  time_t map_expires;
+  /** If we should close the connection, this is the end_reason to pass
+   * to connection_mark_unattached_ap */
+  int end_reason;
+  /** True iff we should close the connection, either because of error or
+   * because of successful early RESOLVED reply. */
+  int should_close;
+} rewrite_result_t;
+
+STATIC void connection_ap_handshake_rewrite(entry_connection_t *conn,
+                                            rewrite_result_t *out);
 #endif
 
 #endif

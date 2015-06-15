@@ -156,7 +156,7 @@ No part of this file may be used without permission.
 							e.value = 'http://';
 						}
 						if (e.value.search(/http(s?):\/\/./) != 0)  {
-							ferror.set(e, 'Expecting a URL -- http://... or https://...', quiet)
+							ferror.set(e, 'Expecting a URL -- http://... or https://...', quiet);
 							r = 0;
 						}
 						else {
@@ -171,7 +171,7 @@ No part of this file may be used without permission.
 							e.value = RegExp.$1;
 						}
 						if (e.value.search(/^[A-Za-z0-9]+/) == -1) {
-							ferror.set(e, 'Invalid hash or URL', quiet)
+							ferror.set(e, 'Invalid hash or URL', quiet);
 							r = 0;
 						}
 						else {
@@ -211,7 +211,7 @@ No part of this file may be used without permission.
 
 			if (!verifyFields(null, 0)) return;
 
-			fom = E('_fom')
+			fom = E('_fom');
 			fom.ddnsx_save.value = (nvram.ddnsx_save == 1) ? 1 : 0;
 
 			fom.ddnsx_ip.value = (E('_f_ddnsx_ip').value == 'custom') ? E('_f_custom_ip').value : E('_f_ddnsx_ip').value;

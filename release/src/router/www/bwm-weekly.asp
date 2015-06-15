@@ -11,7 +11,7 @@ No part of this file may be used without permission.
 <content>
 	<style>
 		table tr td { width: 25%; }
-		.total { font-weight: bold; }
+		.total { font-weight: 500; }
 	</style>
 	<script type="text/javascript" src="js/bwm-hist.js"></script>
 	<script type="text/javascript">

@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -16,9 +16,10 @@ int directories_have_accepted_server_descriptor(void);
 void directory_post_to_dirservers(uint8_t dir_purpose, uint8_t router_purpose,
                                   dirinfo_type_t type, const char *payload,
                                   size_t payload_len, size_t extrainfo_len);
-void directory_get_from_dirserver(uint8_t dir_purpose, uint8_t router_purpose,
-                                  const char *resource,
-                                  int pds_flags);
+MOCK_DECL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
+                                               uint8_t router_purpose,
+                                               const char *resource,
+                                               int pds_flags));
 void directory_get_from_all_authorities(uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         const char *resource);
@@ -30,7 +31,7 @@ typedef enum {
   DIRIND_ONEHOP=0,
   /** Connect over a multi-hop anonymizing Tor circuit */
   DIRIND_ANONYMOUS=1,
-  /** Conncet to the DirPort directly */
+  /** Connect to the DirPort directly */
   DIRIND_DIRECT_CONN,
   /** Connect over a multi-hop anonymizing Tor circuit to our dirport */
   DIRIND_ANON_DIRPORT,
@@ -63,7 +64,7 @@ int connection_dir_process_inbuf(dir_connection_t *conn);
 int connection_dir_finished_flushing(dir_connection_t *conn);
 int connection_dir_finished_connecting(dir_connection_t *conn);
 void connection_dir_about_to_close(dir_connection_t *dir_conn);
-void directory_initiate_command(const char *address, const tor_addr_t *addr,
+void directory_initiate_command(const tor_addr_t *addr,
                                 uint16_t or_port, uint16_t dir_port,
                                 const char *digest,
                                 uint8_t dir_purpose, uint8_t router_purpose,
@@ -117,6 +118,16 @@ download_status_mark_impossible(download_status_t *dl)
 }
 
 int download_status_get_n_failures(const download_status_t *dls);
+
+#ifdef TOR_UNIT_TESTS
+/* Used only by directory.c and test_dir.c */
+
+STATIC int parse_http_url(const char *headers, char **url);
+STATIC int purpose_needs_anonymity(uint8_t dir_purpose,
+                                   uint8_t router_purpose);
+STATIC dirinfo_type_t dir_fetch_type(int dir_purpose, int router_purpose,
+                                     const char *resource);
+#endif
 
 #endif
 

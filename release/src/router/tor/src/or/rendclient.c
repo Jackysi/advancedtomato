@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -8,6 +8,7 @@
  **/
 
 #include "or.h"
+#include "circpathbias.h"
 #include "circuitbuild.h"
 #include "circuitlist.h"
 #include "circuituse.h"
@@ -25,6 +26,7 @@
 #include "router.h"
 #include "routerlist.h"
 #include "routerset.h"
+#include "control.h"
 
 static extend_info_t *rend_client_get_random_intro_impl(
                           const rend_cache_entry_t *rend_query,
@@ -126,16 +128,6 @@ rend_client_reextend_intro_circuit(origin_circuit_t *circ)
   }
   extend_info_free(extend_info);
   return result;
-}
-
-/** Return true iff we should send timestamps in our INTRODUCE1 cells */
-static int
-rend_client_should_send_timestamp(void)
-{
-  if (get_options()->Support022HiddenServices >= 0)
-    return get_options()->Support022HiddenServices;
-
-  return networkstatus_get_param(NULL, "Support022HiddenServices", 1, 0, 1);
 }
 
 /** Called when we're trying to connect an ap conn; sends an INTRODUCE1 cell
@@ -249,14 +241,8 @@ rend_client_send_introduction(origin_circuit_t *introcirc,
              REND_DESC_COOKIE_LEN);
       v3_shift += 2+REND_DESC_COOKIE_LEN;
     }
-    if (rend_client_should_send_timestamp()) {
-      uint32_t now = (uint32_t)time(NULL);
-      now += 300;
-      now -= now % 600;
-      set_uint32(tmp+v3_shift+1, htonl(now));
-    } else {
-      set_uint32(tmp+v3_shift+1, 0);
-    }
+    /* Once this held a timestamp. */
+    set_uint32(tmp+v3_shift+1, 0);
     v3_shift += 4;
   } /* if version 2 only write version number */
   else if (entry->parsed->protocols & (1<<2)) {
@@ -269,7 +255,7 @@ rend_client_send_introduction(origin_circuit_t *introcirc,
     extend_info_t *extend_info = rendcirc->build_state->chosen_exit;
     int klen;
     /* nul pads */
-    set_uint32(tmp+v3_shift+1, tor_addr_to_ipv4h(&extend_info->addr));
+    set_uint32(tmp+v3_shift+1, tor_addr_to_ipv4n(&extend_info->addr));
     set_uint16(tmp+v3_shift+5, htons(extend_info->port));
     memcpy(tmp+v3_shift+7, extend_info->identity_digest, DIGEST_LEN);
     klen = crypto_pk_asn1_encode(extend_info->onion_key,
@@ -368,15 +354,13 @@ rend_client_rendcirc_has_opened(origin_circuit_t *circ)
 }
 
 /**
- * Called to close other intro circuits we launched in parallel
- * due to timeout.
+ * Called to close other intro circuits we launched in parallel.
  */
 static void
 rend_client_close_other_intros(const char *onion_address)
 {
-  circuit_t *c;
   /* abort parallel intro circs, if any */
-  for (c = circuit_get_global_list_(); c; c = c->next) {
+  SMARTLIST_FOREACH_BEGIN(circuit_get_global_list(), circuit_t *, c) {
     if ((c->purpose == CIRCUIT_PURPOSE_C_INTRODUCING ||
         c->purpose == CIRCUIT_PURPOSE_C_INTRODUCE_ACK_WAIT) &&
         !c->marked_for_close && CIRCUIT_IS_ORIGIN(c)) {
@@ -387,10 +371,11 @@ rend_client_close_other_intros(const char *onion_address)
         log_info(LD_REND|LD_CIRC, "Closing introduction circuit %d that we "
                  "built in parallel (Purpose %d).", oc->global_identifier,
                  c->purpose);
-        circuit_mark_for_close(c, END_CIRC_REASON_TIMEOUT);
+        circuit_mark_for_close(c, END_CIRC_REASON_IP_NOW_REDUNDANT);
       }
     }
   }
+  SMARTLIST_FOREACH_END(c);
 }
 
 /** Called when get an ACK or a NAK for a REND_INTRODUCE1 cell.
@@ -466,6 +451,13 @@ rend_client_introduction_acked(origin_circuit_t *circ,
       /* XXXX If that call failed, should we close the rend circuit,
        * too? */
       return result;
+    } else {
+      /* Close circuit because no more intro points are usable thus not
+       * useful anymore. Change it's purpose before so we don't report an
+       * intro point failure again triggering an extra descriptor fetch. */
+      circuit_change_purpose(TO_CIRCUIT(circ),
+          CIRCUIT_PURPOSE_C_INTRODUCE_ACKED);
+      circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_FINISHED);
     }
   }
   return 0;
@@ -562,7 +554,12 @@ directory_clean_last_hid_serv_requests(time_t now)
 
 /** Remove all requests related to the hidden service named
  * <b>onion_address</b> from the history of times of requests to
- * hidden service directories. */
+ * hidden service directories.
+ *
+ * This is called from rend_client_note_connection_attempt_ended(), which
+ * must be idempotent, so any future changes to this function must leave
+ * it idempotent too.
+ */
 static void
 purge_hid_serv_from_last_hid_serv_requests(const char *onion_address)
 {
@@ -617,11 +614,19 @@ static int
 directory_get_from_hs_dir(const char *desc_id, const rend_data_t *rend_query)
 {
   smartlist_t *responsible_dirs = smartlist_new();
+  smartlist_t *usable_responsible_dirs = smartlist_new();
+  const or_options_t *options = get_options();
   routerstatus_t *hs_dir;
   char desc_id_base32[REND_DESC_ID_V2_LEN_BASE32 + 1];
   time_t now = time(NULL);
   char descriptor_cookie_base64[3*REND_DESC_COOKIE_LEN_BASE64];
-  int tor2web_mode = get_options()->Tor2webMode;
+#ifdef ENABLE_TOR2WEB_MODE
+  const int tor2web_mode = options->Tor2webMode;
+  const int how_to_fetch = tor2web_mode ? DIRIND_ONEHOP : DIRIND_ANONYMOUS;
+#else
+  const int how_to_fetch = DIRIND_ANONYMOUS;
+#endif
+  int excluded_some;
   tor_assert(desc_id);
   tor_assert(rend_query);
   /* Determine responsible dirs. Even if we can't get all we want,
@@ -642,16 +647,33 @@ directory_get_from_hs_dir(const char *desc_id, const rend_data_t *rend_query)
                             dir, desc_id_base32, rend_query, 0, 0);
       const node_t *node = node_get_by_id(dir->identity_digest);
       if (last + REND_HID_SERV_DIR_REQUERY_PERIOD >= now ||
-          !node || !node_has_descriptor(node))
-      SMARTLIST_DEL_CURRENT(responsible_dirs, dir);
+          !node || !node_has_descriptor(node)) {
+        SMARTLIST_DEL_CURRENT(responsible_dirs, dir);
+        continue;
+      }
+      if (! routerset_contains_node(options->ExcludeNodes, node)) {
+        smartlist_add(usable_responsible_dirs, dir);
+      }
   });
 
-  hs_dir = smartlist_choose(responsible_dirs);
+  excluded_some =
+    smartlist_len(usable_responsible_dirs) < smartlist_len(responsible_dirs);
+
+  hs_dir = smartlist_choose(usable_responsible_dirs);
+  if (! hs_dir && ! options->StrictNodes)
+    hs_dir = smartlist_choose(responsible_dirs);
+
   smartlist_free(responsible_dirs);
+  smartlist_free(usable_responsible_dirs);
   if (!hs_dir) {
     log_info(LD_REND, "Could not pick one of the responsible hidden "
                       "service directories, because we requested them all "
                       "recently without success.");
+    if (options->StrictNodes && excluded_some) {
+      log_warn(LD_REND, "Could not pick a hidden service directory for the "
+               "requested hidden service: they are all either down or "
+               "excluded, and StrictNodes is set.");
+    }
     return 0;
   }
 
@@ -680,7 +702,7 @@ directory_get_from_hs_dir(const char *desc_id, const rend_data_t *rend_query)
   directory_initiate_command_routerstatus_rend(hs_dir,
                                           DIR_PURPOSE_FETCH_RENDDESC_V2,
                                           ROUTER_PURPOSE_GENERAL,
-                                   tor2web_mode?DIRIND_ONEHOP:DIRIND_ANONYMOUS,
+                                          how_to_fetch,
                                           desc_id_base32,
                                           NULL, 0, 0,
                                           rend_query);
@@ -693,6 +715,9 @@ directory_get_from_hs_dir(const char *desc_id, const rend_data_t *rend_query)
            (rend_query->auth_type == REND_NO_AUTH ? "[none]" :
             escaped_safe_str_client(descriptor_cookie_base64)),
            routerstatus_describe(hs_dir));
+  control_event_hs_descriptor_requested(rend_query,
+                                        hs_dir->identity_digest,
+                                        desc_id_base32);
   return 1;
 }
 
@@ -772,8 +797,7 @@ rend_client_cancel_descriptor_fetches(void)
 
   SMARTLIST_FOREACH_BEGIN(connection_array, connection_t *, conn) {
     if (conn->type == CONN_TYPE_DIR &&
-        (conn->purpose == DIR_PURPOSE_FETCH_RENDDESC ||
-         conn->purpose == DIR_PURPOSE_FETCH_RENDDESC_V2)) {
+        conn->purpose == DIR_PURPOSE_FETCH_RENDDESC_V2) {
       /* It's a rendezvous descriptor fetch in progress -- cancel it
        * by marking the connection for close.
        *
@@ -1069,8 +1093,11 @@ rend_client_desc_trynow(const char *query)
 
 /** Clear temporary state used only during an attempt to connect to
  * the hidden service named <b>onion_address</b>.  Called when a
- * connection attempt has ended; may be called occasionally at other
- * times, and should be reasonably harmless. */
+ * connection attempt has ended; it is possible for this to be called
+ * multiple times while handling an ended connection attempt, and
+ * any future changes to this function must ensure it remains
+ * idempotent.
+ */
 void
 rend_client_note_connection_attempt_ended(const char *onion_address)
 {

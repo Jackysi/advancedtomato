@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -26,8 +26,6 @@ void rend_process_relay_cell(circuit_t *circ, const crypt_path_t *layer_hint,
                              const uint8_t *payload);
 
 void rend_service_descriptor_free(rend_service_descriptor_t *desc);
-rend_service_descriptor_t *rend_parse_service_descriptor(const char *str,
-                                                         size_t len);
 int rend_get_service_id(crypto_pk_t *pk, char *out);
 void rend_encoded_v2_service_descriptor_free(
                                rend_encoded_v2_service_descriptor_t *desc);
@@ -35,20 +33,24 @@ void rend_intro_point_free(rend_intro_point_t *intro);
 
 void rend_cache_init(void);
 void rend_cache_clean(time_t now);
-void rend_cache_clean_v2_descs_as_dir(time_t now);
+void rend_cache_clean_v2_descs_as_dir(time_t now, size_t min_to_remove);
 void rend_cache_purge(void);
 void rend_cache_free_all(void);
 int rend_valid_service_id(const char *query);
-int rend_cache_lookup_desc(const char *query, int version, const char **desc,
-                           size_t *desc_len);
 int rend_cache_lookup_entry(const char *query, int version,
                             rend_cache_entry_t **entry_out);
 int rend_cache_lookup_v2_desc_as_dir(const char *query, const char **desc);
-int rend_cache_store(const char *desc, size_t desc_len, int published,
-                     const char *service_id);
-int rend_cache_store_v2_desc_as_client(const char *desc,
+/** Return value from rend_cache_store_v2_desc_as_{dir,client}. */
+typedef enum {
+  RCS_NOTDIR = -2, /**< We're not a directory */
+  RCS_BADDESC = -1, /**< This descriptor is no good. */
+  RCS_OKAY = 0 /**< All worked as expected */
+} rend_cache_store_status_t;
+
+rend_cache_store_status_t rend_cache_store_v2_desc_as_dir(const char *desc);
+rend_cache_store_status_t rend_cache_store_v2_desc_as_client(const char *desc,
+                                       const char *desc_id_base32,
                                        const rend_data_t *rend_query);
-int rend_cache_store_v2_desc_as_dir(const char *desc);
 int rend_encode_v2_descriptors(smartlist_t *descs_out,
                                rend_service_descriptor_t *desc, time_t now,
                                uint8_t period, rend_auth_type_t auth_type,
@@ -61,6 +63,7 @@ int rend_id_is_in_interval(const char *a, const char *b, const char *c);
 void rend_get_descriptor_id_bytes(char *descriptor_id_out,
                                   const char *service_id,
                                   const char *secret_id_part);
+size_t rend_cache_get_total_allocation(void);
 
 #endif
 

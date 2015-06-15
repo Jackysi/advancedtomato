@@ -1,10 +1,10 @@
-/* Copyright (c) 2012-2013, The Tor Project, Inc. */
+/* Copyright (c) 2012-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
 
-#include "crypto.h"
 #define ONION_NTOR_PRIVATE
+#include "crypto.h"
 #include "onion_ntor.h"
 #include "torlog.h"
 #include "util.h"
@@ -226,7 +226,8 @@ onion_skin_ntor_client_handshake(
                              const ntor_handshake_state_t *handshake_state,
                              const uint8_t *handshake_reply,
                              uint8_t *key_out,
-                             size_t key_out_len)
+                             size_t key_out_len,
+                             const char **msg_out)
 {
   const tweakset_t *T = &proto1_tweaks;
   /* Sensitive stack-allocated material. Kept in an anonymous struct to make
@@ -256,7 +257,7 @@ onion_skin_ntor_client_handshake(
   si += CURVE25519_OUTPUT_LEN;
   curve25519_handshake(si, &handshake_state->seckey_x,
                        &handshake_state->pubkey_B);
-  bad |= safe_mem_is_zero(si, CURVE25519_OUTPUT_LEN);
+  bad |= (safe_mem_is_zero(si, CURVE25519_OUTPUT_LEN) << 1);
   si += CURVE25519_OUTPUT_LEN;
   APPEND(si, handshake_state->router_id, DIGEST_LEN);
   APPEND(si, handshake_state->pubkey_B.public_key, CURVE25519_PUBKEY_LEN);
@@ -281,7 +282,7 @@ onion_skin_ntor_client_handshake(
   /* Compute auth */
   h_tweak(s.auth, s.auth_input, sizeof(s.auth_input), T->t_mac);
 
-  bad |= tor_memneq(s.auth, auth_candidate, DIGEST256_LEN);
+  bad |= (tor_memneq(s.auth, auth_candidate, DIGEST256_LEN) << 2);
 
   crypto_expand_key_material_rfc5869_sha256(
                            s.secret_input, sizeof(s.secret_input),
@@ -290,6 +291,23 @@ onion_skin_ntor_client_handshake(
                            key_out, key_out_len);
 
   memwipe(&s, 0, sizeof(s));
+
+  if (bad) {
+    if (bad & 4) {
+      if (msg_out)
+        *msg_out = NULL; /* Don't report this one; we probably just had the
+                          * wrong onion key.*/
+      log_fn(LOG_INFO, LD_PROTOCOL,
+             "Invalid result from curve25519 handshake: %d", bad);
+    }
+    if (bad & 3) {
+      if (msg_out)
+        *msg_out = "Zero output from curve25519 handshake";
+      log_fn(LOG_WARN, LD_PROTOCOL,
+             "Invalid result from curve25519 handshake: %d", bad);
+    }
+  }
+
   return bad ? -1 : 0;
 }
 

@@ -1,13 +1,15 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
  * \file routerparse.c
  * \brief Code to parse and validate router descriptors and directories.
  **/
+
+#define ROUTERPARSE_PRIVATE
 
 #include "or.h"
 #include "config.h"
@@ -23,6 +25,7 @@
 #include "networkstatus.h"
 #include "rephist.h"
 #include "routerparse.h"
+#include "entrynodes.h"
 #undef log
 #include <math.h>
 
@@ -131,6 +134,7 @@ typedef enum {
   K_CONSENSUS_METHOD,
   K_LEGACY_DIR_KEY,
   K_DIRECTORY_FOOTER,
+  K_PACKAGE,
 
   A_PURPOSE,
   A_LAST_LISTED,
@@ -339,7 +343,7 @@ static token_rule_t extrainfo_token_table[] = {
   END_OF_TABLE
 };
 
-/** List of tokens recognized in the body part of v2 and v3 networkstatus
+/** List of tokens recognized in the body part of v3 networkstatus
  * documents. */
 static token_rule_t rtrstatus_token_table[] = {
   T01("p",                   K_P,               CONCAT_ARGS, NO_OBJ ),
@@ -353,31 +357,6 @@ static token_rule_t rtrstatus_token_table[] = {
   END_OF_TABLE
 };
 
-/** List of tokens recognized in the header part of v2 networkstatus documents.
- */
-static token_rule_t netstatus_token_table[] = {
-  T1( "published",           K_PUBLISHED,       CONCAT_ARGS, NO_OBJ ),
-  T0N("opt",                 K_OPT,             CONCAT_ARGS, OBJ_OK ),
-  T1( "contact",             K_CONTACT,         CONCAT_ARGS, NO_OBJ ),
-  T1( "dir-signing-key",     K_DIR_SIGNING_KEY,  NO_ARGS,    NEED_KEY_1024 ),
-  T1( "fingerprint",         K_FINGERPRINT,     CONCAT_ARGS, NO_OBJ ),
-  T1_START("network-status-version", K_NETWORK_STATUS_VERSION,
-                                                    GE(1),   NO_OBJ ),
-  T1( "dir-source",          K_DIR_SOURCE,          GE(3),   NO_OBJ ),
-  T01("dir-options",         K_DIR_OPTIONS,         ARGS,    NO_OBJ ),
-  T01("client-versions",     K_CLIENT_VERSIONS, CONCAT_ARGS, NO_OBJ ),
-  T01("server-versions",     K_SERVER_VERSIONS, CONCAT_ARGS, NO_OBJ ),
-
-  END_OF_TABLE
-};
-
-/** List of tokens recognized in the footer of v1/v2 directory/networkstatus
- * footers. */
-static token_rule_t dir_footer_token_table[] = {
-  T1("directory-signature", K_DIRECTORY_SIGNATURE, EQ(1), NEED_OBJ ),
-  END_OF_TABLE
-};
-
 /** List of tokens common to V3 authority certificates and V3 consensuses. */
 #define CERTIFICATE_MEMBERS                                                  \
   T1("dir-key-certificate-version", K_DIR_KEY_CERTIFICATE_VERSION,           \
@@ -386,7 +365,7 @@ static token_rule_t dir_footer_token_table[] = {
   T1("dir-key-published",K_DIR_KEY_PUBLISHED,        CONCAT_ARGS, NO_OBJ),   \
   T1("dir-key-expires",  K_DIR_KEY_EXPIRES,          CONCAT_ARGS, NO_OBJ),   \
   T1("dir-signing-key",  K_DIR_SIGNING_KEY,          NO_ARGS,     NEED_KEY ),\
-  T01("dir-key-crosscert", K_DIR_KEY_CROSSCERT,       NO_ARGS,    NEED_OBJ ),\
+  T1("dir-key-crosscert", K_DIR_KEY_CROSSCERT,       NO_ARGS,     NEED_OBJ ),\
   T1("dir-key-certification", K_DIR_KEY_CERTIFICATION,                       \
                                                      NO_ARGS,     NEED_OBJ), \
   T01("dir-address",     K_DIR_ADDRESS,              GE(1),       NO_OBJ),
@@ -445,6 +424,7 @@ static token_rule_t networkstatus_token_table[] = {
   T1("known-flags",            K_KNOWN_FLAGS,      ARGS,        NO_OBJ ),
   T01("params",                K_PARAMS,           ARGS,        NO_OBJ ),
   T( "fingerprint",            K_FINGERPRINT,      CONCAT_ARGS, NO_OBJ ),
+  T0N("package",               K_PACKAGE,          CONCAT_ARGS, NO_OBJ ),
 
   CERTIFICATE_MEMBERS
 
@@ -486,8 +466,7 @@ static token_rule_t networkstatus_consensus_token_table[] = {
   END_OF_TABLE
 };
 
-/** List of tokens recognized in the footer of v1/v2 directory/networkstatus
- * footers. */
+/** List of tokens recognized in the footer of v1 directory footers. */
 static token_rule_t networkstatus_vote_footer_token_table[] = {
   T01("directory-footer",    K_DIRECTORY_FOOTER,    NO_ARGS,   NO_OBJ ),
   T01("bandwidth-weights",   K_BW_WEIGHTS,          ARGS,      NO_OBJ ),
@@ -598,7 +577,7 @@ dump_desc(const char *desc, const char *type)
     char *content = tor_malloc_zero(filelen);
     tor_snprintf(content, filelen, "Unable to parse descriptor of type "
                  "%s:\n%s", type, desc);
-    write_str_to_file(debugfile, content, 0);
+    write_str_to_file(debugfile, content, 1);
     log_info(LD_DIR, "Unable to parse descriptor of type %s. See file "
              "unparseable-desc in data directory for details.", type);
     tor_free(content);
@@ -626,28 +605,6 @@ router_get_router_hash(const char *s, size_t s_len, char *digest)
 {
   return router_get_hash_impl(s, s_len, digest,
                               "router ","\nrouter-signature", '\n',
-                              DIGEST_SHA1);
-}
-
-/** Set <b>digest</b> to the SHA-1 digest of the hash of the running-routers
- * string in <b>s</b>. Return 0 on success, -1 on failure.
- */
-int
-router_get_runningrouters_hash(const char *s, char *digest)
-{
-  return router_get_hash_impl(s, strlen(s), digest,
-                              "network-status","\ndirectory-signature", '\n',
-                              DIGEST_SHA1);
-}
-
-/** Set <b>digest</b> to the SHA-1 digest of the hash of the network-status
- * string in <b>s</b>.  Return 0 on success, -1 on failure. */
-int
-router_get_networkstatus_v2_hash(const char *s, char *digest)
-{
-  return router_get_hash_impl(s, strlen(s), digest,
-                              "network-status-version","\ndirectory-signature",
-                              '\n',
                               DIGEST_SHA1);
 }
 
@@ -728,7 +685,7 @@ router_get_dirobj_signature(const char *digest,
 
 /** Helper: used to generate signatures for routers, directories and
  * network-status objects.  Given a digest in <b>digest</b> and a secret
- * <b>private_key</b>, generate an PKCS1-padded signature, BASE64-encode it,
+ * <b>private_key</b>, generate a PKCS1-padded signature, BASE64-encode it,
  * surround it with -----BEGIN/END----- pairs, and write it to the
  * <b>buf_len</b>-byte buffer at <b>buf</b>.  Return 0 on success, -1 on
  * failure.
@@ -751,6 +708,7 @@ router_append_dirobj_signature(char *buf, size_t buf_len, const char *digest,
     return -1;
   }
   memcpy(buf+s_len, sig, sig_len+1);
+  tor_free(sig);
   return 0;
 }
 
@@ -958,7 +916,9 @@ find_start_of_next_router_or_extrainfo(const char **s_ptr,
  * descriptor in the signed_descriptor_body field of each routerinfo_t.  If it
  * isn't SAVED_NOWHERE, remember the offset of each descriptor.
  *
- * Returns 0 on success and -1 on failure.
+ * Returns 0 on success and -1 on failure.  Adds a digest to
+ * <b>invalid_digests_out</b> for every entry that was unparseable or
+ * invalid. (This may cause duplicate entries.)
  */
 int
 router_parse_list_from_string(const char **s, const char *eos,
@@ -966,11 +926,12 @@ router_parse_list_from_string(const char **s, const char *eos,
                               saved_location_t saved_location,
                               int want_extrainfo,
                               int allow_annotations,
-                              const char *prepend_annotations)
+                              const char *prepend_annotations,
+                              smartlist_t *invalid_digests_out)
 {
   routerinfo_t *router;
   extrainfo_t *extrainfo;
-  signed_descriptor_t *signed_desc;
+  signed_descriptor_t *signed_desc = NULL;
   void *elt;
   const char *end, *start;
   int have_extrainfo;
@@ -986,6 +947,9 @@ router_parse_list_from_string(const char **s, const char *eos,
   tor_assert(eos >= *s);
 
   while (1) {
+    char raw_digest[DIGEST_LEN];
+    int have_raw_digest = 0;
+    int dl_again = 0;
     if (find_start_of_next_router_or_extrainfo(s, eos, &have_extrainfo) < 0)
       break;
 
@@ -1002,18 +966,20 @@ router_parse_list_from_string(const char **s, const char *eos,
 
     if (have_extrainfo && want_extrainfo) {
       routerlist_t *rl = router_get_routerlist();
+      have_raw_digest = router_get_extrainfo_hash(*s, end-*s, raw_digest) == 0;
       extrainfo = extrainfo_parse_entry_from_string(*s, end,
                                        saved_location != SAVED_IN_CACHE,
-                                       rl->identity_map);
+                                       rl->identity_map, &dl_again);
       if (extrainfo) {
         signed_desc = &extrainfo->cache_info;
         elt = extrainfo;
       }
     } else if (!have_extrainfo && !want_extrainfo) {
+      have_raw_digest = router_get_router_hash(*s, end-*s, raw_digest) == 0;
       router = router_parse_entry_from_string(*s, end,
                                               saved_location != SAVED_IN_CACHE,
                                               allow_annotations,
-                                              prepend_annotations);
+                                              prepend_annotations, &dl_again);
       if (router) {
         log_debug(LD_DIR, "Read router '%s', purpose '%s'",
                   router_describe(router),
@@ -1022,11 +988,15 @@ router_parse_list_from_string(const char **s, const char *eos,
         elt = router;
       }
     }
+    if (! elt && ! dl_again && have_raw_digest && invalid_digests_out) {
+      smartlist_add(invalid_digests_out, tor_memdup(raw_digest, DIGEST_LEN));
+    }
     if (!elt) {
       *s = end;
       continue;
     }
     if (saved_location != SAVED_NOWHERE) {
+      tor_assert(signed_desc);
       signed_desc->saved_location = saved_location;
       signed_desc->saved_offset = *s - start;
     }
@@ -1114,11 +1084,17 @@ find_single_ipv6_orport(const smartlist_t *list,
  * around when caching the router.
  *
  * Only one of allow_annotations and prepend_annotations may be set.
+ *
+ * If <b>can_dl_again_out</b> is provided, set *<b>can_dl_again_out</b> to 1
+ * if it's okay to try to download a descriptor with this same digest again,
+ * and 0 if it isn't.  (It might not be okay to download it again if part of
+ * the part covered by the digest is invalid.)
  */
 routerinfo_t *
 router_parse_entry_from_string(const char *s, const char *end,
                                int cache_copy, int allow_annotations,
-                               const char *prepend_annotations)
+                               const char *prepend_annotations,
+                               int *can_dl_again_out)
 {
   routerinfo_t *router = NULL;
   char digest[128];
@@ -1129,6 +1105,9 @@ router_parse_entry_from_string(const char *s, const char *end,
   size_t prepend_len = prepend_annotations ? strlen(prepend_annotations) : 0;
   int ok = 1;
   memarea_t *area = NULL;
+  /* Do not set this to '1' until we have parsed everything that we intend to
+   * parse that's covered by the hash. */
+  int can_dl_again = 0;
 
   tor_assert(!allow_annotations || !prepend_annotations);
 
@@ -1232,8 +1211,7 @@ router_parse_entry_from_string(const char *s, const char *end,
     log_warn(LD_DIR,"Router nickname is invalid");
     goto err;
   }
-  router->address = tor_strdup(tok->args[1]);
-  if (!tor_inet_aton(router->address, &in)) {
+  if (!tor_inet_aton(tok->args[1], &in)) {
     log_warn(LD_DIR,"Router address is not an IP address.");
     goto err;
   }
@@ -1436,19 +1414,21 @@ router_parse_entry_from_string(const char *s, const char *end,
     verified_digests = digestmap_new();
   digestmap_set(verified_digests, signed_digest, (void*)(uintptr_t)1);
 #endif
-  if (check_signature_token(digest, DIGEST_LEN, tok, router->identity_pkey, 0,
-                            "router descriptor") < 0)
-    goto err;
 
   if (!router->or_port) {
     log_warn(LD_DIR,"or_port unreadable or 0. Failing.");
     goto err;
   }
 
+  /* We've checked everything that's covered by the hash. */
+  can_dl_again = 1;
+  if (check_signature_token(digest, DIGEST_LEN, tok, router->identity_pkey, 0,
+                            "router descriptor") < 0)
+    goto err;
+
   if (!router->platform) {
     router->platform = tor_strdup("<unknown>");
   }
-
   goto done;
 
  err:
@@ -1465,6 +1445,8 @@ router_parse_entry_from_string(const char *s, const char *end,
     DUMP_AREA(area, "routerinfo");
     memarea_drop_all(area);
   }
+  if (can_dl_again_out)
+    *can_dl_again_out = can_dl_again;
   return router;
 }
 
@@ -1473,10 +1455,16 @@ router_parse_entry_from_string(const char *s, const char *end,
  * <b>cache_copy</b> is true, make a copy of the extra-info document in the
  * cache_info fields of the result.  If <b>routermap</b> is provided, use it
  * as a map from router identity to routerinfo_t when looking up signing keys.
+ *
+ * If <b>can_dl_again_out</b> is provided, set *<b>can_dl_again_out</b> to 1
+ * if it's okay to try to download an extrainfo with this same digest again,
+ * and 0 if it isn't.  (It might not be okay to download it again if part of
+ * the part covered by the digest is invalid.)
  */
 extrainfo_t *
 extrainfo_parse_entry_from_string(const char *s, const char *end,
-                           int cache_copy, struct digest_ri_map_t *routermap)
+                            int cache_copy, struct digest_ri_map_t *routermap,
+                            int *can_dl_again_out)
 {
   extrainfo_t *extrainfo = NULL;
   char digest[128];
@@ -1486,6 +1474,9 @@ extrainfo_parse_entry_from_string(const char *s, const char *end,
   routerinfo_t *router = NULL;
   memarea_t *area = NULL;
   const char *s_dup = s;
+  /* Do not set this to '1' until we have parsed everything that we intend to
+   * parse that's covered by the hash. */
+  int can_dl_again = 0;
 
   if (!end) {
     end = s + strlen(s);
@@ -1545,6 +1536,9 @@ extrainfo_parse_entry_from_string(const char *s, const char *end,
     goto err;
   }
 
+  /* We've checked everything that's covered by the hash. */
+  can_dl_again = 1;
+
   if (routermap &&
       (router = digestmap_get((digestmap_t*)routermap,
                               extrainfo->cache_info.identity_digest))) {
@@ -1587,6 +1581,8 @@ extrainfo_parse_entry_from_string(const char *s, const char *end,
     DUMP_AREA(area, "extrainfo");
     memarea_drop_all(area);
   }
+  if (can_dl_again_out)
+    *can_dl_again_out = can_dl_again;
   return extrainfo;
 }
 
@@ -1728,7 +1724,6 @@ authority_cert_parse_from_string(const char *s, const char **end_of_string)
       log_debug(LD_DIR, "We already checked the signature on this "
                 "certificate; no need to do so again.");
       found = 1;
-      cert->is_cross_certified = old_cert->is_cross_certified;
     }
   }
   if (!found) {
@@ -1737,18 +1732,14 @@ authority_cert_parse_from_string(const char *s, const char **end_of_string)
       goto err;
     }
 
-    if ((tok = find_opt_by_keyword(tokens, K_DIR_KEY_CROSSCERT))) {
-      /* XXXX Once all authorities generate cross-certified certificates,
-       * make this field mandatory. */
-      if (check_signature_token(cert->cache_info.identity_digest,
-                                DIGEST_LEN,
-                                tok,
-                                cert->signing_key,
-                                CST_NO_CHECK_OBJTYPE,
-                                "key cross-certification")) {
-        goto err;
-      }
-      cert->is_cross_certified = 1;
+    tok = find_by_keyword(tokens, K_DIR_KEY_CROSSCERT);
+    if (check_signature_token(cert->cache_info.identity_digest,
+                              DIGEST_LEN,
+                              tok,
+                              cert->signing_key,
+                              CST_NO_CHECK_OBJTYPE,
+                              "key cross-certification")) {
+      goto err;
     }
   }
 
@@ -1804,6 +1795,63 @@ find_start_of_next_routerstatus(const char *s)
     return sig+1;
   else
     return eos;
+}
+
+/** Parse the GuardFraction string from a consensus or vote.
+ *
+ *  If <b>vote</b> or <b>vote_rs</b> are set the document getting
+ *  parsed is a vote routerstatus. Otherwise it's a consensus. This is
+ *  the same semantic as in routerstatus_parse_entry_from_string(). */
+STATIC int
+routerstatus_parse_guardfraction(const char *guardfraction_str,
+                                 networkstatus_t *vote,
+                                 vote_routerstatus_t *vote_rs,
+                                 routerstatus_t *rs)
+{
+  int ok;
+  const char *end_of_header = NULL;
+  int is_consensus = !vote_rs;
+  uint32_t guardfraction;
+
+  tor_assert(bool_eq(vote, vote_rs));
+
+  /* If this info comes from a consensus, but we should't apply
+     guardfraction, just exit. */
+  if (is_consensus && !should_apply_guardfraction(NULL)) {
+    return 0;
+  }
+
+  end_of_header = strchr(guardfraction_str, '=');
+  if (!end_of_header) {
+    return -1;
+  }
+
+  guardfraction = (uint32_t)tor_parse_ulong(end_of_header+1,
+                                            10, 0, 100, &ok, NULL);
+  if (!ok) {
+    log_warn(LD_DIR, "Invalid GuardFraction %s", escaped(guardfraction_str));
+    return -1;
+  }
+
+  log_debug(LD_GENERAL, "[*] Parsed %s guardfraction '%s' for '%s'.",
+            is_consensus ? "consensus" : "vote",
+            guardfraction_str, rs->nickname);
+
+  if (!is_consensus) { /* We are parsing a vote */
+    vote_rs->status.guardfraction_percentage = guardfraction;
+    vote_rs->status.has_guardfraction = 1;
+  } else {
+    /* We are parsing a consensus. Only apply guardfraction to guards. */
+    if (rs->is_possible_guard) {
+      rs->guardfraction_percentage = guardfraction;
+      rs->has_guardfraction = 1;
+    } else {
+      log_warn(LD_BUG, "Got GuardFraction for non-guard %s. "
+               "This is not supposed to happen. Not applying. ", rs->nickname);
+    }
+  }
+
+  return 0;
 }
 
 /** Given a string at *<b>s</b>, containing a routerstatus object, and an
@@ -1948,14 +1996,10 @@ routerstatus_parse_entry_from_string(memarea_t *area,
         rs->is_named = 1;
       else if (!strcmp(tok->args[i], "Valid"))
         rs->is_valid = 1;
-      else if (!strcmp(tok->args[i], "V2Dir"))
-        rs->is_v2_dir = 1;
       else if (!strcmp(tok->args[i], "Guard"))
         rs->is_possible_guard = 1;
       else if (!strcmp(tok->args[i], "BadExit"))
         rs->is_bad_exit = 1;
-      else if (!strcmp(tok->args[i], "BadDirectory"))
-        rs->is_bad_directory = 1;
       else if (!strcmp(tok->args[i], "Authority"))
         rs->is_authority = 1;
       else if (!strcmp(tok->args[i], "Unnamed") &&
@@ -1972,12 +2016,9 @@ routerstatus_parse_entry_from_string(memarea_t *area,
     rs->version_known = 1;
     if (strcmpstart(tok->args[0], "Tor ")) {
       rs->version_supports_microdesc_cache = 1;
-      rs->version_supports_optimistic_data = 1;
     } else {
       rs->version_supports_microdesc_cache =
         tor_version_supports_microdescriptors(tok->args[0]);
-      rs->version_supports_optimistic_data =
-        tor_version_as_new_as(tok->args[0], "0.2.3.1-alpha");
       rs->version_supports_extend2_cells =
         tor_version_as_new_as(tok->args[0], "0.2.4.8-alpha");
     }
@@ -2015,6 +2056,11 @@ routerstatus_parse_entry_from_string(memarea_t *area,
         vote->has_measured_bws = 1;
       } else if (!strcmpstart(tok->args[i], "Unmeasured=1")) {
         rs->bw_is_unmeasured = 1;
+      } else if (!strcmpstart(tok->args[i], "GuardFraction=")) {
+        if (routerstatus_parse_guardfraction(tok->args[i],
+                                             vote, vote_rs, rs) < 0) {
+          goto err;
+        }
       }
     }
   }
@@ -2084,202 +2130,12 @@ routerstatus_parse_entry_from_string(memarea_t *area,
   return rs;
 }
 
-/** Helper to sort a smartlist of pointers to routerstatus_t */
-int
-compare_routerstatus_entries(const void **_a, const void **_b)
-{
-  const routerstatus_t *a = *_a, *b = *_b;
-  return fast_memcmp(a->identity_digest, b->identity_digest, DIGEST_LEN);
-}
-
 int
 compare_vote_routerstatus_entries(const void **_a, const void **_b)
 {
   const vote_routerstatus_t *a = *_a, *b = *_b;
   return fast_memcmp(a->status.identity_digest, b->status.identity_digest,
                      DIGEST_LEN);
-}
-
-/** Helper: used in call to _smartlist_uniq to clear out duplicate entries. */
-static void
-free_duplicate_routerstatus_entry_(void *e)
-{
-  log_warn(LD_DIR,
-           "Network-status has two entries for the same router. "
-           "Dropping one.");
-  routerstatus_free(e);
-}
-
-/** Given a v2 network-status object in <b>s</b>, try to
- * parse it and return the result.  Return NULL on failure.  Check the
- * signature of the network status, but do not (yet) check the signing key for
- * authority.
- */
-networkstatus_v2_t *
-networkstatus_v2_parse_from_string(const char *s)
-{
-  const char *eos, *s_dup = s;
-  smartlist_t *tokens = smartlist_new();
-  smartlist_t *footer_tokens = smartlist_new();
-  networkstatus_v2_t *ns = NULL;
-  char ns_digest[DIGEST_LEN];
-  char tmp_digest[DIGEST_LEN];
-  struct in_addr in;
-  directory_token_t *tok;
-  int i;
-  memarea_t *area = NULL;
-
-  if (router_get_networkstatus_v2_hash(s, ns_digest)) {
-    log_warn(LD_DIR, "Unable to compute digest of network-status");
-    goto err;
-  }
-
-  area = memarea_new();
-  eos = find_start_of_next_routerstatus(s);
-  if (tokenize_string(area, s, eos, tokens, netstatus_token_table,0)) {
-    log_warn(LD_DIR, "Error tokenizing network-status header.");
-    goto err;
-  }
-  ns = tor_malloc_zero(sizeof(networkstatus_v2_t));
-  memcpy(ns->networkstatus_digest, ns_digest, DIGEST_LEN);
-
-  tok = find_by_keyword(tokens, K_NETWORK_STATUS_VERSION);
-  tor_assert(tok->n_args >= 1);
-  if (strcmp(tok->args[0], "2")) {
-    log_warn(LD_BUG, "Got a non-v2 networkstatus. Version was "
-             "%s", escaped(tok->args[0]));
-    goto err;
-  }
-
-  tok = find_by_keyword(tokens, K_DIR_SOURCE);
-  tor_assert(tok->n_args >= 3);
-  ns->source_address = tor_strdup(tok->args[0]);
-  if (tor_inet_aton(tok->args[1], &in) == 0) {
-    log_warn(LD_DIR, "Error parsing network-status source address %s",
-             escaped(tok->args[1]));
-    goto err;
-  }
-  ns->source_addr = ntohl(in.s_addr);
-  ns->source_dirport =
-    (uint16_t) tor_parse_long(tok->args[2],10,0,65535,NULL,NULL);
-  if (ns->source_dirport == 0) {
-    log_warn(LD_DIR, "Directory source without dirport; skipping.");
-    goto err;
-  }
-
-  tok = find_by_keyword(tokens, K_FINGERPRINT);
-  tor_assert(tok->n_args);
-  if (base16_decode(ns->identity_digest, DIGEST_LEN, tok->args[0],
-                    strlen(tok->args[0]))) {
-    log_warn(LD_DIR, "Couldn't decode networkstatus fingerprint %s",
-             escaped(tok->args[0]));
-    goto err;
-  }
-
-  if ((tok = find_opt_by_keyword(tokens, K_CONTACT))) {
-    tor_assert(tok->n_args);
-    ns->contact = tor_strdup(tok->args[0]);
-  }
-
-  tok = find_by_keyword(tokens, K_DIR_SIGNING_KEY);
-  tor_assert(tok->key);
-  ns->signing_key = tok->key;
-  tok->key = NULL;
-
-  if (crypto_pk_get_digest(ns->signing_key, tmp_digest)<0) {
-    log_warn(LD_DIR, "Couldn't compute signing key digest");
-    goto err;
-  }
-  if (tor_memneq(tmp_digest, ns->identity_digest, DIGEST_LEN)) {
-    log_warn(LD_DIR,
-             "network-status fingerprint did not match dir-signing-key");
-    goto err;
-  }
-
-  if ((tok = find_opt_by_keyword(tokens, K_DIR_OPTIONS))) {
-    for (i=0; i < tok->n_args; ++i) {
-      if (!strcmp(tok->args[i], "Names"))
-        ns->binds_names = 1;
-      if (!strcmp(tok->args[i], "Versions"))
-        ns->recommends_versions = 1;
-      if (!strcmp(tok->args[i], "BadExits"))
-        ns->lists_bad_exits = 1;
-      if (!strcmp(tok->args[i], "BadDirectories"))
-        ns->lists_bad_directories = 1;
-    }
-  }
-
-  if (ns->recommends_versions) {
-    if (!(tok = find_opt_by_keyword(tokens, K_CLIENT_VERSIONS))) {
-      log_warn(LD_DIR, "Missing client-versions on versioning directory");
-      goto err;
-    }
-    ns->client_versions = tor_strdup(tok->args[0]);
-
-    if (!(tok = find_opt_by_keyword(tokens, K_SERVER_VERSIONS)) ||
-        tok->n_args<1) {
-      log_warn(LD_DIR, "Missing server-versions on versioning directory");
-      goto err;
-    }
-    ns->server_versions = tor_strdup(tok->args[0]);
-  }
-
-  tok = find_by_keyword(tokens, K_PUBLISHED);
-  tor_assert(tok->n_args == 1);
-  if (parse_iso_time(tok->args[0], &ns->published_on) < 0) {
-     goto err;
-  }
-
-  ns->entries = smartlist_new();
-  s = eos;
-  SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
-  smartlist_clear(tokens);
-  memarea_clear(area);
-  while (!strcmpstart(s, "r ")) {
-    routerstatus_t *rs;
-    if ((rs = routerstatus_parse_entry_from_string(area, &s, tokens,
-                                                   NULL, NULL, 0, 0)))
-      smartlist_add(ns->entries, rs);
-  }
-  smartlist_sort(ns->entries, compare_routerstatus_entries);
-  smartlist_uniq(ns->entries, compare_routerstatus_entries,
-                 free_duplicate_routerstatus_entry_);
-
-  if (tokenize_string(area,s, NULL, footer_tokens, dir_footer_token_table,0)) {
-    log_warn(LD_DIR, "Error tokenizing network-status footer.");
-    goto err;
-  }
-  if (smartlist_len(footer_tokens) < 1) {
-    log_warn(LD_DIR, "Too few items in network-status footer.");
-    goto err;
-  }
-  tok = smartlist_get(footer_tokens, smartlist_len(footer_tokens)-1);
-  if (tok->tp != K_DIRECTORY_SIGNATURE) {
-    log_warn(LD_DIR,
-             "Expected network-status footer to end with a signature.");
-    goto err;
-  }
-
-  note_crypto_pk_op(VERIFY_DIR);
-  if (check_signature_token(ns_digest, DIGEST_LEN, tok, ns->signing_key, 0,
-                            "network-status") < 0)
-    goto err;
-
-  goto done;
- err:
-  dump_desc(s_dup, "v2 networkstatus");
-  networkstatus_v2_free(ns);
-  ns = NULL;
- done:
-  SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
-  smartlist_free(tokens);
-  SMARTLIST_FOREACH(footer_tokens, directory_token_t *, t, token_clear(t));
-  smartlist_free(footer_tokens);
-  if (area) {
-    DUMP_AREA(area, "v2 networkstatus");
-    memarea_drop_all(area);
-  }
-  return ns;
 }
 
 /** Verify the bandwidth weights of a network status document */
@@ -2292,6 +2148,7 @@ networkstatus_verify_bw_weights(networkstatus_t *ns, int consensus_method)
   double Gtotal=0, Mtotal=0, Etotal=0;
   const char *casename = NULL;
   int valid = 1;
+  (void) consensus_method;
 
   weight_scale = networkstatus_get_weight_scale_param(ns);
   Wgg = networkstatus_get_bw_weight(ns, "Wgg", -1);
@@ -2371,12 +2228,8 @@ networkstatus_verify_bw_weights(networkstatus_t *ns, int consensus_method)
   // Then, gather G, M, E, D, T to determine case
   SMARTLIST_FOREACH_BEGIN(ns->routerstatus_list, routerstatus_t *, rs) {
     int is_exit = 0;
-    if (consensus_method >= MIN_METHOD_TO_CUT_BADEXIT_WEIGHT) {
-      /* Bug #2203: Don't count bad exits as exits for balancing */
-      is_exit = rs->is_exit && !rs->is_bad_exit;
-    } else {
-      is_exit = rs->is_exit;
-    }
+    /* Bug #2203: Don't count bad exits as exits for balancing */
+    is_exit = rs->is_exit && !rs->is_bad_exit;
     if (rs->has_bandwidth) {
       T += rs->bandwidth_kb;
       if (is_exit && rs->is_possible_guard) {
@@ -2812,11 +2665,15 @@ networkstatus_parse_vote_from_string(const char *s, const char **eos_out,
     (int) tor_parse_long(tok->args[1], 10, 0, INT_MAX, &ok, NULL);
   if (!ok)
     goto err;
-  if (ns->valid_after + MIN_VOTE_INTERVAL > ns->fresh_until) {
+  if (ns->valid_after +
+      (get_options()->TestingTorNetwork ?
+       MIN_VOTE_INTERVAL_TESTING : MIN_VOTE_INTERVAL) > ns->fresh_until) {
     log_warn(LD_DIR, "Vote/consensus freshness interval is too short");
     goto err;
   }
-  if (ns->valid_after + MIN_VOTE_INTERVAL*2 > ns->valid_until) {
+  if (ns->valid_after +
+      (get_options()->TestingTorNetwork ?
+       MIN_VOTE_INTERVAL_TESTING : MIN_VOTE_INTERVAL)*2 > ns->valid_until) {
     log_warn(LD_DIR, "Vote/consensus liveness interval is too short");
     goto err;
   }
@@ -2834,6 +2691,16 @@ networkstatus_parse_vote_from_string(const char *s, const char **eos_out,
   }
   if ((tok = find_opt_by_keyword(tokens, K_SERVER_VERSIONS))) {
     ns->server_versions = tor_strdup(tok->args[0]);
+  }
+
+  {
+    smartlist_t *package_lst = find_all_by_keyword(tokens, K_PACKAGE);
+    ns->package_lines = smartlist_new();
+    if (package_lst) {
+      SMARTLIST_FOREACH(package_lst, directory_token_t *, t,
+                    smartlist_add(ns->package_lines, tor_strdup(t->args[0])));
+    }
+    smartlist_free(package_lst);
   }
 
   tok = find_by_keyword(tokens, K_KNOWN_FLAGS);
@@ -2931,6 +2798,14 @@ networkstatus_parse_vote_from_string(const char *s, const char **eos_out,
                  voter->identity_digest, DIGEST_LEN)) {
         log_warn(LD_DIR,"Mismatch between identities in certificate and vote");
         goto err;
+      }
+      if (ns->type != NS_TYPE_CONSENSUS) {
+        if (authority_cert_is_blacklisted(ns->cert)) {
+          log_warn(LD_DIR, "Rejecting vote signature made with blacklisted "
+                   "signing key %s",
+                   hex_str(ns->cert->signing_key_digest, DIGEST_LEN));
+          goto err;
+        }
       }
       voter->address = tor_strdup(tok->args[2]);
       if (!tor_inet_aton(tok->args[3], &in)) {
@@ -3483,8 +3358,8 @@ networkstatus_parse_detached_signatures(const char *s, const char *eos)
  * AF_UNSPEC for '*'.  Use policy_expand_unspec() to turn this into a pair
  * of AF_INET and AF_INET6 items.
  */
-addr_policy_t *
-router_parse_addr_policy_item_from_string(const char *s, int assume_action)
+MOCK_IMPL(addr_policy_t *,
+router_parse_addr_policy_item_from_string,(const char *s, int assume_action))
 {
   directory_token_t *tok = NULL;
   const char *cp, *eos;
@@ -4250,12 +4125,15 @@ find_start_of_next_microdesc(const char *s, const char *eos)
  * If <b>saved_location</b> isn't SAVED_IN_CACHE, make a local copy of each
  * descriptor in the body field of each microdesc_t.
  *
- * Return all newly
- * parsed microdescriptors in a newly allocated smartlist_t. */
+ * Return all newly parsed microdescriptors in a newly allocated
+ * smartlist_t. If <b>invalid_disgests_out</b> is provided, add a SHA256
+ * microdesc digest to it for every microdesc that we found to be badly
+ * formed. (This may cause duplicates) */
 smartlist_t *
 microdescs_parse_from_string(const char *s, const char *eos,
                              int allow_annotations,
-                             saved_location_t where)
+                             saved_location_t where,
+                             smartlist_t *invalid_digests_out)
 {
   smartlist_t *tokens;
   smartlist_t *result;
@@ -4277,15 +4155,11 @@ microdescs_parse_from_string(const char *s, const char *eos,
   tokens = smartlist_new();
 
   while (s < eos) {
+    int okay = 0;
+
     start_of_next_microdesc = find_start_of_next_microdesc(s, eos);
     if (!start_of_next_microdesc)
       start_of_next_microdesc = eos;
-
-    if (tokenize_string(area, s, start_of_next_microdesc, tokens,
-                        microdesc_token_table, flags)) {
-      log_warn(LD_DIR, "Unparseable microdescriptor");
-      goto next;
-    }
 
     md = tor_malloc_zero(sizeof(microdesc_t));
     {
@@ -4300,6 +4174,13 @@ microdescs_parse_from_string(const char *s, const char *eos,
       else
         md->body = (char*)cp;
       md->off = cp - start;
+    }
+    crypto_digest256(md->digest, md->body, md->bodylen, DIGEST_SHA256);
+
+    if (tokenize_string(area, s, start_of_next_microdesc, tokens,
+                        microdesc_token_table, flags)) {
+      log_warn(LD_DIR, "Unparseable microdescriptor");
+      goto next;
     }
 
     if ((tok = find_opt_by_keyword(tokens, A_LAST_LISTED))) {
@@ -4357,20 +4238,25 @@ microdescs_parse_from_string(const char *s, const char *eos,
       md->ipv6_exit_policy = parse_short_policy(tok->args[0]);
     }
 
-    crypto_digest256(md->digest, md->body, md->bodylen, DIGEST_SHA256);
-
     smartlist_add(result, md);
+    okay = 1;
 
     md = NULL;
   next:
+    if (! okay && invalid_digests_out) {
+      smartlist_add(invalid_digests_out,
+                    tor_memdup(md->digest, DIGEST256_LEN));
+    }
     microdesc_free(md);
     md = NULL;
 
+    SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
     memarea_clear(area);
     smartlist_clear(tokens);
     s = start_of_next_microdesc;
   }
 
+  SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
   memarea_drop_all(area);
   smartlist_free(tokens);
 
@@ -4441,40 +4327,50 @@ tor_version_parse(const char *s, tor_version_t *out)
   char *eos=NULL;
   const char *cp=NULL;
   /* Format is:
-   *   "Tor " ? NUM dot NUM dot NUM [ ( pre | rc | dot ) NUM [ - tag ] ]
+   *   "Tor " ? NUM dot NUM [ dot NUM [ ( pre | rc | dot ) NUM ] ] [ - tag ]
    */
   tor_assert(s);
   tor_assert(out);
 
   memset(out, 0, sizeof(tor_version_t));
-
+  out->status = VER_RELEASE;
   if (!strcasecmpstart(s, "Tor "))
     s += 4;
 
-  /* Get major. */
-  out->major = (int)strtol(s,&eos,10);
-  if (!eos || eos==s || *eos != '.') return -1;
-  cp = eos+1;
+  cp = s;
 
-  /* Get minor */
-  out->minor = (int) strtol(cp,&eos,10);
-  if (!eos || eos==cp || *eos != '.') return -1;
-  cp = eos+1;
+#define NUMBER(m)                               \
+  do {                                          \
+    out->m = (int)strtol(cp, &eos, 10);         \
+    if (!eos || eos == cp)                      \
+      return -1;                                \
+    cp = eos;                                   \
+  } while (0)
 
-  /* Get micro */
-  out->micro = (int) strtol(cp,&eos,10);
-  if (!eos || eos==cp) return -1;
-  if (!*eos) {
-    out->status = VER_RELEASE;
-    out->patchlevel = 0;
+#define DOT()                                   \
+  do {                                          \
+    if (*cp != '.')                             \
+      return -1;                                \
+    ++cp;                                       \
+  } while (0)
+
+  NUMBER(major);
+  DOT();
+  NUMBER(minor);
+  if (*cp == 0)
     return 0;
-  }
-  cp = eos;
+  else if (*cp == '-')
+    goto status_tag;
+  DOT();
+  NUMBER(micro);
 
   /* Get status */
-  if (*cp == '.') {
-    out->status = VER_RELEASE;
+  if (*cp == 0) {
+    return 0;
+  } else if (*cp == '.') {
     ++cp;
+  } else if (*cp == '-') {
+    goto status_tag;
   } else if (0==strncmp(cp, "pre", 3)) {
     out->status = VER_PRE;
     cp += 3;
@@ -4485,11 +4381,9 @@ tor_version_parse(const char *s, tor_version_t *out)
     return -1;
   }
 
-  /* Get patchlevel */
-  out->patchlevel = (int) strtol(cp,&eos,10);
-  if (!eos || eos==cp) return -1;
-  cp = eos;
+  NUMBER(patchlevel);
 
+ status_tag:
   /* Get status tag. */
   if (*cp == '-' || *cp == '.')
     ++cp;
@@ -4525,6 +4419,8 @@ tor_version_parse(const char *s, tor_version_t *out)
   }
 
   return 0;
+#undef NUMBER
+#undef DOT
 }
 
 /** Compare two tor versions; Return <0 if a < b; 0 if a ==b, >0 if a >
@@ -4612,6 +4508,9 @@ sort_version_list(smartlist_t *versions, int remove_duplicates)
  * to *<b>encoded_size_out</b>, and a pointer to the possibly next
  * descriptor to *<b>next_out</b>; return 0 for success (including validation)
  * and -1 for failure.
+ *
+ * If <b>as_hsdir</b> is 1, we're parsing this as an HSDir, and we should
+ * be strict about time formats.
  */
 int
 rend_parse_v2_service_descriptor(rend_service_descriptor_t **parsed_out,
@@ -4619,7 +4518,8 @@ rend_parse_v2_service_descriptor(rend_service_descriptor_t **parsed_out,
                                  char **intro_points_encrypted_out,
                                  size_t *intro_points_encrypted_size_out,
                                  size_t *encoded_size_out,
-                                 const char **next_out, const char *desc)
+                                 const char **next_out, const char *desc,
+                                 int as_hsdir)
 {
   rend_service_descriptor_t *result =
                             tor_malloc_zero(sizeof(rend_service_descriptor_t));
@@ -4633,6 +4533,8 @@ rend_parse_v2_service_descriptor(rend_service_descriptor_t **parsed_out,
   char public_key_hash[DIGEST_LEN];
   char test_desc_id[DIGEST_LEN];
   memarea_t *area = NULL;
+  const int strict_time_fmt = as_hsdir;
+
   tor_assert(desc);
   /* Check if desc starts correctly. */
   if (strncmp(desc, "rendezvous-service-descriptor ",
@@ -4727,7 +4629,7 @@ rend_parse_v2_service_descriptor(rend_service_descriptor_t **parsed_out,
    * descriptor. */
   tok = find_by_keyword(tokens, R_PUBLICATION_TIME);
   tor_assert(tok->n_args == 1);
-  if (parse_iso_time(tok->args[0], &result->timestamp) < 0) {
+  if (parse_iso_time_(tok->args[0], &result->timestamp, strict_time_fmt) < 0) {
     log_warn(LD_REND, "Invalid publication time: '%s'", tok->args[0]);
     goto err;
   }
@@ -4918,7 +4820,7 @@ rend_parse_introduction_points(rend_service_descriptor_t *parsed,
                                size_t intro_points_encoded_size)
 {
   const char *current_ipo, *end_of_intro_points;
-  smartlist_t *tokens;
+  smartlist_t *tokens = NULL;
   directory_token_t *tok;
   rend_intro_point_t *intro;
   extend_info_t *info;
@@ -4927,8 +4829,10 @@ rend_parse_introduction_points(rend_service_descriptor_t *parsed,
   tor_assert(parsed);
   /** Function may only be invoked once. */
   tor_assert(!parsed->intro_nodes);
-  tor_assert(intro_points_encoded);
-  tor_assert(intro_points_encoded_size > 0);
+  if (!intro_points_encoded || intro_points_encoded_size == 0) {
+    log_warn(LD_REND, "Empty or zero size introduction point list");
+    goto err;
+  }
   /* Consider one intro point after the other. */
   current_ipo = intro_points_encoded;
   end_of_intro_points = intro_points_encoded + intro_points_encoded_size;
@@ -5032,8 +4936,10 @@ rend_parse_introduction_points(rend_service_descriptor_t *parsed,
 
  done:
   /* Free tokens and clear token list. */
-  SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
-  smartlist_free(tokens);
+  if (tokens) {
+    SMARTLIST_FOREACH(tokens, directory_token_t *, t, token_clear(t));
+    smartlist_free(tokens);
+  }
   if (area)
     memarea_drop_all(area);
 

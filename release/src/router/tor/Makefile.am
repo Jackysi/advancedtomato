@@ -1,6 +1,6 @@
 # Copyright (c) 2001-2004, Roger Dingledine
 # Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
-# Copyright (c) 2007-2011, The Tor Project, Inc.
+# Copyright (c) 2007-2015, The Tor Project, Inc.
 # See LICENSE for licensing information
 
 # "foreign" means we don't follow GNU package layout standards
@@ -19,10 +19,10 @@ noinst_PROGRAMS=
 DISTCLEANFILES=
 bin_SCRIPTS=
 AM_CPPFLAGS=
+AM_CFLAGS = @TOR_SYSTEMD_CFLAGS@
 include src/include.am
 include doc/include.am
 include contrib/include.am
-
 
 EXTRA_DIST+= \
 	ChangeLog					\
@@ -31,6 +31,12 @@ EXTRA_DIST+= \
 	Makefile.nmake					\
 	README						\
 	ReleaseNotes
+
+if COVERAGE_ENABLED
+TEST_CFLAGS=-fno-inline -fprofile-arcs -ftest-coverage
+else
+TEST_CFLAGS=
+endif
 
 #install-data-local:
 #	$(INSTALL) -m 755 -d $(LOCALSTATEDIR)/lib/tor
@@ -60,10 +66,38 @@ doxygen:
 test: all
 	./src/test/test
 
+# Note that test-network requires a copy of Chutney in $CHUTNEY_PATH.
+# Chutney can be cloned from https://git.torproject.org/chutney.git .
+test-network: all
+	./src/test/test-network.sh
+
+test-stem: $(TESTING_TOR_BINARY)
+	@if test -d "$$STEM_SOURCE_DIR"; then \
+		$(PYTHON) "$$STEM_SOURCE_DIR"/run_tests.py --tor $(TESTING_TOR_BINARY) --all --log notice --target RUN_ALL; \
+	else \
+		echo '$$STEM_SOURCE_DIR was not set.'; echo; \
+		echo "To run these tests, git clone https://git.torproject.org/stem.git/ ; export STEM_SOURCE_DIR=\`pwd\`/stem"; \
+	fi
+
+
+reset-gcov:
+	rm -f src/*/*.gcda src/*/*/*.gcda
+
+HTML_COVER_DIR=./coverage_html
+coverage-html: all
+	test -e "`which lcov`" || (echo "lcov must be installed. See <http://ltp.sourceforge.net/coverage/lcov.php>." && false)
+	test -d "$(HTML_COVER_DIR)" || mkdir -p "$(HTML_COVER_DIR)"
+	lcov --rc lcov_branch_coverage=1 --directory ./src --zerocounters
+	$(MAKE) reset-gcov
+	$(MAKE) check
+	lcov --capture --rc lcov_branch_coverage=1 --no-external --directory . --output-file "$(HTML_COVER_DIR)/lcov.tmp"
+	lcov --remove "$(HTML_COVER_DIR)/lcov.tmp" --rc lcov_branch_coverage=1 'test/*' 'ext/tinytest*' '/usr/*' --output-file "$(HTML_COVER_DIR)/lcov.info"
+	genhtml --branch-coverage -o "$(HTML_COVER_DIR)" "$(HTML_COVER_DIR)/lcov.info"
+
 # Avoid strlcpy.c, strlcat.c, aes.c, OpenBSD_malloc_Linux.c, sha256.c,
 # eventdns.[hc], tinytest*.[ch]
 check-spaces:
-	./contrib/checkSpace.pl -C                    \
+	./scripts/maint/checkSpace.pl -C              \
 		src/common/*.[ch]		      \
 		src/or/*.[ch]			      \
 		src/test/*.[ch]			      \
@@ -71,10 +105,10 @@ check-spaces:
 		src/tools/tor-fw-helper/*.[ch]
 
 check-docs:
-	./contrib/checkOptionDocs.pl
+	./scripts/maint/checkOptionDocs.pl
 
 check-logs:
-	./contrib/checkLogs.pl                        \
+	./scripts/maint/checkLogs.pl                  \
 		src/*/*.[ch] | sort -n
 
 version:
@@ -84,3 +118,5 @@ version:
 	   (cd "$(top_srcdir)" && git rev-parse --short=16 HEAD); \
 	fi
 
+mostlyclean-local:
+	rm -f src/*/*.gc{da,no} src/*/*/*.gc{da,no}

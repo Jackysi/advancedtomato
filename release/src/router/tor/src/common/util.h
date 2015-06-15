@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -15,6 +15,7 @@
 #include "torint.h"
 #include "compat.h"
 #include "di_ops.h"
+#include "testsupport.h"
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
@@ -47,13 +48,13 @@
 /** Like assert(3), but send assertion failures to the log as well as to
  * stderr. */
 #define tor_assert(expr) STMT_BEGIN                                     \
-    if (PREDICT_UNLIKELY(!(expr))) {                                    \
-      log_err(LD_BUG, "%s:%d: %s: Assertion %s failed; aborting.",      \
-          SHORT_FILE__, __LINE__, __func__, #expr);                     \
-      fprintf(stderr,"%s:%d %s: Assertion %s failed; aborting.\n",      \
-              SHORT_FILE__, __LINE__, __func__, #expr);                 \
-      abort();                                                          \
-    } STMT_END
+  if (PREDICT_UNLIKELY(!(expr))) {                                      \
+    tor_assertion_failed_(SHORT_FILE__, __LINE__, __func__, #expr);     \
+    abort();                                                            \
+  } STMT_END
+
+void tor_assertion_failed_(const char *fname, unsigned int line,
+                           const char *func, const char *expr);
 
 /* If we're building with dmalloc, we want all of our memory allocation
  * functions to take an extra file/line pair of arguments.  If not, not.
@@ -78,6 +79,7 @@ void *tor_malloc_(size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *tor_malloc_zero_(size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *tor_calloc_(size_t nmemb, size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *tor_realloc_(void *ptr, size_t size DMALLOC_PARAMS);
+void *tor_reallocarray_(void *ptr, size_t size1, size_t size2 DMALLOC_PARAMS);
 char *tor_strdup_(const char *s DMALLOC_PARAMS) ATTR_MALLOC ATTR_NONNULL((1));
 char *tor_strndup_(const char *s, size_t n DMALLOC_PARAMS)
   ATTR_MALLOC ATTR_NONNULL((1));
@@ -115,6 +117,8 @@ extern int dmalloc_free(const char *file, const int line, void *pnt,
 #define tor_malloc_zero(size)  tor_malloc_zero_(size DMALLOC_ARGS)
 #define tor_calloc(nmemb,size) tor_calloc_(nmemb, size DMALLOC_ARGS)
 #define tor_realloc(ptr, size) tor_realloc_(ptr, size DMALLOC_ARGS)
+#define tor_reallocarray(ptr, sz1, sz2) \
+  tor_reallocarray_((ptr), (sz1), (sz2) DMALLOC_ARGS)
 #define tor_strdup(s)          tor_strdup_(s DMALLOC_ARGS)
 #define tor_strndup(s, n)      tor_strndup_(s, n DMALLOC_ARGS)
 #define tor_memdup(s, n)       tor_memdup_(s, n DMALLOC_ARGS)
@@ -168,6 +172,10 @@ uint64_t round_to_power_of_2(uint64_t u64);
 unsigned round_to_next_multiple_of(unsigned number, unsigned divisor);
 uint32_t round_uint32_to_next_multiple_of(uint32_t number, uint32_t divisor);
 uint64_t round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor);
+int64_t round_int64_to_next_multiple_of(int64_t number, int64_t divisor);
+int64_t sample_laplace_distribution(double mu, double b, double p);
+int64_t add_laplace_noise(int64_t signal, double random, double delta_f,
+                          double epsilon);
 int n_bits_set_u8(uint8_t v);
 
 /* Compute the CEIL of <b>a</b> divided by <b>b</b>, for nonnegative <b>a</b>
@@ -222,23 +230,26 @@ const char *find_whitespace_eos(const char *s, const char *eos);
 const char *find_str_at_start_of_line(const char *haystack,
                                       const char *needle);
 int string_is_C_identifier(const char *string);
+int string_is_key_value(int severity, const char *string);
+int string_is_valid_hostname(const char *string);
+int string_is_valid_ipv4_address(const char *string);
+int string_is_valid_ipv6_address(const char *string);
 
 int tor_mem_is_zero(const char *mem, size_t len);
 int tor_digest_is_zero(const char *digest);
 int tor_digest256_is_zero(const char *digest);
 char *esc_for_log(const char *string) ATTR_MALLOC;
+char *esc_for_log_len(const char *chars, size_t n) ATTR_MALLOC;
 const char *escaped(const char *string);
+
+char *tor_escape_str_for_pt_args(const char *string,
+                                 const char *chars_to_escape);
+
 struct smartlist_t;
-int tor_vsscanf(const char *buf, const char *pattern, va_list ap)
-#ifdef __GNUC__
-  __attribute__((format(scanf, 2, 0)))
-#endif
-  ;
+int tor_vsscanf(const char *buf, const char *pattern, va_list ap) \
+  CHECK_SCANF(2, 0);
 int tor_sscanf(const char *buf, const char *pattern, ...)
-#ifdef __GNUC__
-  __attribute__((format(scanf, 2, 3)))
-#endif
-  ;
+  CHECK_SCANF(2, 3);
 
 void smartlist_add_asprintf(struct smartlist_t *sl, const char *pattern, ...)
   CHECK_PRINTF(2, 3);
@@ -264,6 +275,7 @@ void format_local_iso_time(char *buf, time_t t);
 void format_iso_time(char *buf, time_t t);
 void format_iso_time_nospace(char *buf, time_t t);
 void format_iso_time_nospace_usec(char *buf, const struct timeval *tv);
+int parse_iso_time_(const char *cp, time_t *t, int strict);
 int parse_iso_time(const char *buf, time_t *t);
 int parse_http_time(const char *buf, struct tm *tm);
 int format_time_interval(char *out, size_t out_len, long interval);
@@ -331,7 +343,7 @@ enum stream_status get_string_from_pipe(FILE *stream, char *buf, size_t count);
 
 /** Return values from file_status(); see that function's documentation
  * for details. */
-typedef enum { FN_ERROR, FN_NOENT, FN_FILE, FN_DIR } file_status_t;
+typedef enum { FN_ERROR, FN_NOENT, FN_FILE, FN_DIR, FN_EMPTY } file_status_t;
 file_status_t file_status(const char *filename);
 
 /** Possible behaviors for check_private_dir() on encountering a nonexistent
@@ -341,9 +353,11 @@ typedef unsigned int cpd_check_t;
 #define CPD_CREATE 1
 #define CPD_CHECK 2
 #define CPD_GROUP_OK 4
-#define CPD_CHECK_MODE_ONLY 8
+#define CPD_GROUP_READ 8
+#define CPD_CHECK_MODE_ONLY 16
 int check_private_dir(const char *dirname, cpd_check_t check,
                       const char *effective_user);
+
 #define OPEN_FLAGS_REPLACE (O_WRONLY|O_CREAT|O_TRUNC)
 #define OPEN_FLAGS_APPEND (O_WRONLY|O_CREAT|O_APPEND)
 #define OPEN_FLAGS_DONT_REPLACE (O_CREAT|O_EXCL|O_APPEND|O_WRONLY)
@@ -356,8 +370,9 @@ FILE *fdopen_file(open_file_t *file_data);
 int finish_writing_to_file(open_file_t *file_data);
 int abort_writing_to_file(open_file_t *file_data);
 int write_str_to_file(const char *fname, const char *str, int bin);
-int write_bytes_to_file(const char *fname, const char *str, size_t len,
-                        int bin);
+MOCK_DECL(int,
+write_bytes_to_file,(const char *fname, const char *str, size_t len,
+                     int bin));
 /** An ad-hoc type to hold a string of characters and a count; used by
  * write_chunks_to_file. */
 typedef struct sized_chunk_t {
@@ -365,7 +380,7 @@ typedef struct sized_chunk_t {
   size_t len;
 } sized_chunk_t;
 int write_chunks_to_file(const char *fname, const struct smartlist_t *chunks,
-                         int bin);
+                         int bin, int no_tempfile);
 int append_bytes_to_file(const char *fname, const char *str, size_t len,
                          int bin);
 int write_bytes_to_new_file(const char *fname, const char *str, size_t len,
@@ -445,6 +460,7 @@ void set_environment_variable_in_smartlist(struct smartlist_t *env_vars,
 #define PROCESS_STATUS_ERROR -1
 
 #ifdef UTIL_PRIVATE
+struct waitpid_callback_t;
 /** Structure to represent the state of a process with which Tor is
  * communicating. The contents of this structure are private to util.c */
 struct process_handle_t {
@@ -460,6 +476,12 @@ struct process_handle_t {
   FILE *stdout_handle;
   FILE *stderr_handle;
   pid_t pid;
+  /** If the process has not given us a SIGCHLD yet, this has the
+   * waitpid_callback_t that gets invoked once it has. Otherwise this
+   * contains NULL. */
+  struct waitpid_callback_t *waitpid_cb;
+  /** The exit status reported by waitpid. */
+  int waitpid_exit_status;
 #endif // _WIN32
 };
 #endif
@@ -468,7 +490,7 @@ struct process_handle_t {
 #define PROCESS_EXIT_RUNNING 1
 #define PROCESS_EXIT_EXITED 0
 #define PROCESS_EXIT_ERROR -1
-int tor_get_exit_code(const process_handle_t *process_handle,
+int tor_get_exit_code(process_handle_t *process_handle,
                       int block, int *exit_code);
 int tor_split_lines(struct smartlist_t *sl, char *buf, int len);
 #ifdef _WIN32
@@ -493,18 +515,21 @@ FILE *tor_process_get_stdout_pipe(process_handle_t *process_handle);
 #endif
 
 #ifdef _WIN32
-struct smartlist_t *
-tor_get_lines_from_handle(HANDLE *handle,
-                          enum stream_status *stream_status);
+MOCK_DECL(struct smartlist_t *,
+tor_get_lines_from_handle,(HANDLE *handle,
+                           enum stream_status *stream_status));
 #else
-struct smartlist_t *
-tor_get_lines_from_handle(FILE *handle,
-                          enum stream_status *stream_status);
+MOCK_DECL(struct smartlist_t *,
+tor_get_lines_from_handle,(FILE *handle,
+                           enum stream_status *stream_status));
 #endif
 
-int tor_terminate_process(process_handle_t *process_handle);
-void tor_process_handle_destroy(process_handle_t *process_handle,
-                                int also_terminate_process);
+int
+tor_terminate_process(process_handle_t *process_handle);
+
+MOCK_DECL(void,
+tor_process_handle_destroy,(process_handle_t *process_handle,
+                            int also_terminate_process));
 
 /* ===== Insecure rng */
 typedef struct tor_weak_rng_t {
@@ -520,12 +545,14 @@ int32_t tor_weak_random_range(tor_weak_rng_t *rng, int32_t top);
  * <b>n</b> */
 #define tor_weak_random_one_in_n(rng, n) (0==tor_weak_random_range((rng),(n)))
 
+int format_hex_number_sigsafe(unsigned long x, char *buf, int max_len);
+int format_dec_number_sigsafe(unsigned long x, char *buf, int max_len);
+
 #ifdef UTIL_PRIVATE
 /* Prototypes for private functions only used by util.c (and unit tests) */
 
-int format_hex_number_for_helper_exit_status(unsigned int x, char *buf,
-                                             int max_len);
-int format_helper_exit_status(unsigned char child_state,
+#ifndef _WIN32
+STATIC int format_helper_exit_status(unsigned char child_state,
                               int saved_errno, char *hex_errno);
 
 /* Space for hex values of child state, a slash, saved_errno (with
@@ -534,7 +561,11 @@ int format_helper_exit_status(unsigned char child_state,
                         1 + sizeof(int) * 2 + 1)
 #endif
 
+#endif
+
 const char *libor_get_digests(void);
+
+#define ARRAY_LENGTH(x) ((sizeof(x)) / sizeof(x[0]))
 
 #endif
 

@@ -1,7 +1,7 @@
 /* Copyright (c) 2001, Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -56,6 +56,7 @@
 #include "../common/util.h"
 #include "container.h"
 #include "compat.h"
+#include "sandbox.h"
 
 #if OPENSSL_VERSION_NUMBER < OPENSSL_V_SERIES(0,9,8)
 #error "We require OpenSSL >= 0.9.8"
@@ -74,12 +75,10 @@
 /** Macro: is k a valid RSA private key? */
 #define PRIVATE_KEY_OK(k) ((k) && (k)->key && (k)->key->p)
 
-#ifdef TOR_IS_MULTITHREADED
 /** A number of preallocated mutexes for use by OpenSSL. */
 static tor_mutex_t **openssl_mutexes_ = NULL;
 /** How many mutexes have we allocated for use by OpenSSL? */
 static int n_openssl_mutexes_ = 0;
-#endif
 
 /** A public key, or a public/private key-pair. */
 struct crypto_pk_t
@@ -114,7 +113,6 @@ crypto_get_rsa_padding_overhead(int padding)
   switch (padding)
     {
     case RSA_PKCS1_OAEP_PADDING: return PKCS1_OAEP_PADDING_OVERHEAD;
-    case RSA_PKCS1_PADDING: return PKCS1_PADDING_OVERHEAD;
     default: tor_assert(0); return -1;
     }
 }
@@ -126,11 +124,13 @@ crypto_get_rsa_padding(int padding)
 {
   switch (padding)
     {
-    case PK_PKCS1_PADDING: return RSA_PKCS1_PADDING;
     case PK_PKCS1_OAEP_PADDING: return RSA_PKCS1_OAEP_PADDING;
     default: tor_assert(0); return -1;
     }
 }
+
+/** Boolean: has OpenSSL's crypto been initialized? */
+static int crypto_early_initialized_ = 0;
 
 /** Boolean: has OpenSSL's crypto been initialized? */
 static int crypto_global_initialized_ = 0;
@@ -197,6 +197,27 @@ try_load_engine(const char *path, const char *engine)
 }
 #endif
 
+/* Returns a trimmed and human-readable version of an openssl version string
+* <b>raw_version</b>. They are usually in the form of 'OpenSSL 1.0.0b 10
+* May 2012' and this will parse them into a form similar to '1.0.0b' */
+static char *
+parse_openssl_version_str(const char *raw_version)
+{
+  const char *end_of_version = NULL;
+  /* The output should be something like "OpenSSL 1.0.0b 10 May 2012. Let's
+     trim that down. */
+  if (!strcmpstart(raw_version, "OpenSSL ")) {
+    raw_version += strlen("OpenSSL ");
+    end_of_version = strchr(raw_version, ' ');
+  }
+
+  if (end_of_version)
+    return tor_strndup(raw_version,
+                      end_of_version-raw_version);
+  else
+    return tor_strdup(raw_version);
+}
+
 static char *crypto_openssl_version_str = NULL;
 /* Return a human-readable version of the run-time openssl version number. */
 const char *
@@ -204,32 +225,67 @@ crypto_openssl_get_version_str(void)
 {
   if (crypto_openssl_version_str == NULL) {
     const char *raw_version = SSLeay_version(SSLEAY_VERSION);
-    const char *end_of_version = NULL;
-    /* The output should be something like "OpenSSL 1.0.0b 10 May 2012. Let's
-       trim that down. */
-    if (!strcmpstart(raw_version, "OpenSSL ")) {
-      raw_version += strlen("OpenSSL ");
-      end_of_version = strchr(raw_version, ' ');
-    }
-
-    if (end_of_version)
-      crypto_openssl_version_str = tor_strndup(raw_version,
-                                               end_of_version-raw_version);
-    else
-      crypto_openssl_version_str = tor_strdup(raw_version);
+    crypto_openssl_version_str = parse_openssl_version_str(raw_version);
   }
   return crypto_openssl_version_str;
+}
+
+static char *crypto_openssl_header_version_str = NULL;
+/* Return a human-readable version of the compile-time openssl version
+* number. */
+const char *
+crypto_openssl_get_header_version_str(void)
+{
+  if (crypto_openssl_header_version_str == NULL) {
+    crypto_openssl_header_version_str =
+                        parse_openssl_version_str(OPENSSL_VERSION_TEXT);
+  }
+  return crypto_openssl_header_version_str;
+}
+
+/** Make sure that openssl is using its default PRNG. Return 1 if we had to
+ * adjust it; 0 otherwise. */
+static int
+crypto_force_rand_ssleay(void)
+{
+  if (RAND_get_rand_method() != RAND_SSLeay()) {
+    log_notice(LD_CRYPTO, "It appears that one of our engines has provided "
+               "a replacement the OpenSSL RNG. Resetting it to the default "
+               "implementation.");
+    RAND_set_rand_method(RAND_SSLeay());
+    return 1;
+  }
+  return 0;
+}
+
+/** Set up the siphash key if we haven't already done so. */
+int
+crypto_init_siphash_key(void)
+{
+  static int have_seeded_siphash = 0;
+  struct sipkey key;
+  if (have_seeded_siphash)
+    return 0;
+
+  if (crypto_rand((char*) &key, sizeof(key)) < 0)
+    return -1;
+  siphash_set_global_key(&key);
+  have_seeded_siphash = 1;
+  return 0;
 }
 
 /** Initialize the crypto library.  Return 0 on success, -1 on failure.
  */
 int
-crypto_global_init(int useAccel, const char *accelName, const char *accelDir)
+crypto_early_init(void)
 {
-  if (!crypto_global_initialized_) {
+  if (!crypto_early_initialized_) {
+
+    crypto_early_initialized_ = 1;
+
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
-    crypto_global_initialized_ = 1;
+
     setup_openssl_threading();
 
     if (SSLeay() == OPENSSL_VERSION_NUMBER &&
@@ -250,6 +306,26 @@ crypto_global_init(int useAccel, const char *accelName, const char *accelDir)
                  "or later.",
                  crypto_openssl_get_version_str());
     }
+
+    crypto_force_rand_ssleay();
+
+    if (crypto_seed_rng(1) < 0)
+      return -1;
+    if (crypto_init_siphash_key() < 0)
+      return -1;
+  }
+  return 0;
+}
+
+/** Initialize the crypto library.  Return 0 on success, -1 on failure.
+ */
+int
+crypto_global_init(int useAccel, const char *accelName, const char *accelDir)
+{
+  if (!crypto_global_initialized_) {
+    crypto_early_init();
+
+    crypto_global_initialized_ = 1;
 
     if (useAccel > 0) {
 #ifdef DISABLE_ENGINES
@@ -286,28 +362,41 @@ crypto_global_init(int useAccel, const char *accelName, const char *accelDir)
                  " setting default ciphers.");
         ENGINE_set_default(e, ENGINE_METHOD_ALL);
       }
+      /* Log, if available, the intersection of the set of algorithms
+         used by Tor and the set of algorithms available in the engine */
       log_engine("RSA", ENGINE_get_default_RSA());
       log_engine("DH", ENGINE_get_default_DH());
+      log_engine("ECDH", ENGINE_get_default_ECDH());
+      log_engine("ECDSA", ENGINE_get_default_ECDSA());
+      log_engine("RAND", ENGINE_get_default_RAND());
       log_engine("RAND (which we will not use)", ENGINE_get_default_RAND());
       log_engine("SHA1", ENGINE_get_digest_engine(NID_sha1));
-      log_engine("3DES", ENGINE_get_cipher_engine(NID_des_ede3_ecb));
-      log_engine("AES", ENGINE_get_cipher_engine(NID_aes_128_ecb));
+      log_engine("3DES-CBC", ENGINE_get_cipher_engine(NID_des_ede3_cbc));
+      log_engine("AES-128-ECB", ENGINE_get_cipher_engine(NID_aes_128_ecb));
+      log_engine("AES-128-CBC", ENGINE_get_cipher_engine(NID_aes_128_cbc));
+#ifdef NID_aes_128_ctr
+      log_engine("AES-128-CTR", ENGINE_get_cipher_engine(NID_aes_128_ctr));
+#endif
+#ifdef NID_aes_128_gcm
+      log_engine("AES-128-GCM", ENGINE_get_cipher_engine(NID_aes_128_gcm));
+#endif
+      log_engine("AES-256-CBC", ENGINE_get_cipher_engine(NID_aes_256_cbc));
+#ifdef NID_aes_256_gcm
+      log_engine("AES-256-GCM", ENGINE_get_cipher_engine(NID_aes_256_gcm));
+#endif
+
 #endif
     } else {
       log_info(LD_CRYPTO, "NOT using OpenSSL engine support.");
     }
 
-    if (RAND_get_rand_method() != RAND_SSLeay()) {
-      log_notice(LD_CRYPTO, "It appears that one of our engines has provided "
-                 "a replacement the OpenSSL RNG. Resetting it to the default "
-                 "implementation.");
-      RAND_set_rand_method(RAND_SSLeay());
+    if (crypto_force_rand_ssleay()) {
+      if (crypto_seed_rng(1) < 0)
+        return -1;
     }
 
     evaluate_evp_for_aes(-1);
     evaluate_ctr_for_aes();
-
-    return crypto_seed_rng(1);
   }
   return 0;
 }
@@ -486,7 +575,7 @@ crypto_pk_generate_key_with_bits(crypto_pk_t *env, int bits)
     r = NULL;
   done:
     if (e)
-      BN_free(e);
+      BN_clear_free(e);
     if (r)
       RSA_free(r);
   }
@@ -923,7 +1012,7 @@ crypto_pk_public_checksig(crypto_pk_t *env, char *to,
                          env->key, RSA_PKCS1_PADDING);
 
   if (r<0) {
-    crypto_log_errors(LOG_WARN, "checking RSA signature");
+    crypto_log_errors(LOG_INFO, "checking RSA signature");
     return -1;
   }
   return r;
@@ -1161,22 +1250,21 @@ int
 crypto_pk_asn1_encode(crypto_pk_t *pk, char *dest, size_t dest_len)
 {
   int len;
-  unsigned char *buf, *cp;
-  len = i2d_RSAPublicKey(pk->key, NULL);
-  if (len < 0 || (size_t)len > dest_len || dest_len > SIZE_T_CEILING)
+  unsigned char *buf = NULL;
+
+  len = i2d_RSAPublicKey(pk->key, &buf);
+  if (len < 0 || buf == NULL)
     return -1;
-  cp = buf = tor_malloc(len+1);
-  len = i2d_RSAPublicKey(pk->key, &cp);
-  if (len < 0) {
-    crypto_log_errors(LOG_WARN,"encoding public key");
-    tor_free(buf);
+
+  if ((size_t)len > dest_len || dest_len > SIZE_T_CEILING) {
+    OPENSSL_free(buf);
     return -1;
   }
   /* We don't encode directly into 'dest', because that would be illegal
    * type-punning.  (C99 is smarter than me, C99 is smarter than me...)
    */
   memcpy(dest,buf,len);
-  tor_free(buf);
+  OPENSSL_free(buf);
   return len;
 }
 
@@ -1205,26 +1293,19 @@ crypto_pk_asn1_decode(const char *str, size_t len)
  * Return 0 on success, -1 on failure.
  */
 int
-crypto_pk_get_digest(crypto_pk_t *pk, char *digest_out)
+crypto_pk_get_digest(const crypto_pk_t *pk, char *digest_out)
 {
-  unsigned char *buf, *bufp;
+  unsigned char *buf = NULL;
   int len;
 
-  len = i2d_RSAPublicKey(pk->key, NULL);
-  if (len < 0)
+  len = i2d_RSAPublicKey(pk->key, &buf);
+  if (len < 0 || buf == NULL)
     return -1;
-  buf = bufp = tor_malloc(len+1);
-  len = i2d_RSAPublicKey(pk->key, &bufp);
-  if (len < 0) {
-    crypto_log_errors(LOG_WARN,"encoding public key");
-    tor_free(buf);
-    return -1;
-  }
   if (crypto_digest(digest_out, (char*)buf, len) < 0) {
-    tor_free(buf);
+    OPENSSL_free(buf);
     return -1;
   }
-  tor_free(buf);
+  OPENSSL_free(buf);
   return 0;
 }
 
@@ -1233,31 +1314,24 @@ crypto_pk_get_digest(crypto_pk_t *pk, char *digest_out)
 int
 crypto_pk_get_all_digests(crypto_pk_t *pk, digests_t *digests_out)
 {
-  unsigned char *buf, *bufp;
+  unsigned char *buf = NULL;
   int len;
 
-  len = i2d_RSAPublicKey(pk->key, NULL);
-  if (len < 0)
+  len = i2d_RSAPublicKey(pk->key, &buf);
+  if (len < 0 || buf == NULL)
     return -1;
-  buf = bufp = tor_malloc(len+1);
-  len = i2d_RSAPublicKey(pk->key, &bufp);
-  if (len < 0) {
-    crypto_log_errors(LOG_WARN,"encoding public key");
-    tor_free(buf);
-    return -1;
-  }
   if (crypto_digest_all(digests_out, (char*)buf, len) < 0) {
-    tor_free(buf);
+    OPENSSL_free(buf);
     return -1;
   }
-  tor_free(buf);
+  OPENSSL_free(buf);
   return 0;
 }
 
 /** Copy <b>in</b> to the <b>outlen</b>-byte buffer <b>out</b>, adding spaces
  * every four spaces. */
-/* static */ void
-add_spaces_to_fp(char *out, size_t outlen, const char *in)
+void
+crypto_add_spaces_to_fp(char *out, size_t outlen, const char *in)
 {
   int n = 0;
   char *end = out+outlen;
@@ -1294,10 +1368,32 @@ crypto_pk_get_fingerprint(crypto_pk_t *pk, char *fp_out, int add_space)
   }
   base16_encode(hexdigest,sizeof(hexdigest),digest,DIGEST_LEN);
   if (add_space) {
-    add_spaces_to_fp(fp_out, FINGERPRINT_LEN+1, hexdigest);
+    crypto_add_spaces_to_fp(fp_out, FINGERPRINT_LEN+1, hexdigest);
   } else {
     strncpy(fp_out, hexdigest, HEX_DIGEST_LEN+1);
   }
+  return 0;
+}
+
+/** Given a private or public key <b>pk</b>, put a hashed fingerprint of
+ * the public key into <b>fp_out</b> (must have at least FINGERPRINT_LEN+1
+ * bytes of space).  Return 0 on success, -1 on failure.
+ *
+ * Hashed fingerprints are computed as the SHA1 digest of the SHA1 digest
+ * of the ASN.1 encoding of the public key, converted to hexadecimal, in
+ * upper case.
+ */
+int
+crypto_pk_get_hashed_fingerprint(crypto_pk_t *pk, char *fp_out)
+{
+  char digest[DIGEST_LEN], hashed_digest[DIGEST_LEN];
+  if (crypto_pk_get_digest(pk, digest)) {
+    return -1;
+  }
+  if (crypto_digest(hashed_digest, digest, DIGEST_LEN)) {
+    return -1;
+  }
+  base16_encode(fp_out, FINGERPRINT_LEN + 1, hashed_digest, DIGEST_LEN);
   return 0;
 }
 
@@ -1496,7 +1592,7 @@ struct crypto_digest_t {
     SHA256_CTX sha2; /**< state for SHA256 */
   } d; /**< State for the digest we're using.  Only one member of the
         * union is usable, depending on the value of <b>algorithm</b>. */
-  ENUM_BF(digest_algorithm_t) algorithm : 8; /**< Which algorithm is in use? */
+  digest_algorithm_bitfield_t algorithm : 8; /**< Which algorithm is in use? */
 };
 
 /** Allocate and return a new digest object to compute SHA1 digests.
@@ -1588,7 +1684,7 @@ crypto_digest_get_digest(crypto_digest_t *digest,
       log_warn(LD_BUG, "Called with unknown algorithm %d", digest->algorithm);
       /* If fragile_assert is not enabled, then we should at least not
        * leak anything. */
-      memset(r, 0xff, sizeof(r));
+      memwipe(r, 0xff, sizeof(r));
       tor_fragile_assert();
       break;
   }
@@ -1644,21 +1740,6 @@ crypto_digest_smartlist(char *digest_out, size_t len_out,
   crypto_digest_free(d);
 }
 
-/** Compute the HMAC-SHA-1 of the <b>msg_len</b> bytes in <b>msg</b>, using
- * the <b>key</b> of length <b>key_len</b>.  Store the DIGEST_LEN-byte result
- * in <b>hmac_out</b>.
- */
-void
-crypto_hmac_sha1(char *hmac_out,
-                 const char *key, size_t key_len,
-                 const char *msg, size_t msg_len)
-{
-  tor_assert(key_len < INT_MAX);
-  tor_assert(msg_len < INT_MAX);
-  HMAC(EVP_sha1(), key, (int)key_len, (unsigned char*)msg, (int)msg_len,
-       (unsigned char*)hmac_out, NULL);
-}
-
 /** Compute the HMAC-SHA-256 of the <b>msg_len</b> bytes in <b>msg</b>, using
  * the <b>key</b> of length <b>key_len</b>.  Store the DIGEST256_LEN-byte
  * result in <b>hmac_out</b>.
@@ -1699,8 +1780,12 @@ crypto_generate_dynamic_dh_modulus(void)
   dynamic_dh_modulus = BN_new();
   tor_assert(dynamic_dh_modulus);
 
-  dh_parameters = DH_generate_parameters(DH_BYTES*8, DH_GENERATOR, NULL, NULL);
+  dh_parameters = DH_new();
   tor_assert(dh_parameters);
+
+  r = DH_generate_parameters_ex(dh_parameters,
+                                DH_BYTES*8, DH_GENERATOR, NULL);
+  tor_assert(r == 0);
 
   r = DH_check(dh_parameters, &dh_codes);
   tor_assert(r && !dh_codes);
@@ -1727,7 +1812,7 @@ crypto_store_dynamic_dh_modulus(const char *fname)
 {
   int len, new_len;
   DH *dh = NULL;
-  unsigned char *dh_string_repr = NULL, *cp = NULL;
+  unsigned char *dh_string_repr = NULL;
   char *base64_encoded_dh = NULL;
   char *file_string = NULL;
   int retval = -1;
@@ -1751,20 +1836,13 @@ crypto_store_dynamic_dh_modulus(const char *fname)
   if (!BN_set_word(dh->g, DH_GENERATOR))
     goto done;
 
-  len = i2d_DHparams(dh, NULL);
-  if (len < 0) {
-    log_warn(LD_CRYPTO, "Error occured while DER encoding DH modulus (1).");
-    goto done;
-  }
-
-  cp = dh_string_repr = tor_malloc_zero(len+1);
-  len = i2d_DHparams(dh, &cp);
-  if ((len < 0) || ((cp - dh_string_repr) != len)) {
+  len = i2d_DHparams(dh, &dh_string_repr);
+  if ((len < 0) || (dh_string_repr == NULL)) {
     log_warn(LD_CRYPTO, "Error occured while DER encoding DH modulus (2).");
     goto done;
   }
 
-  base64_encoded_dh = tor_malloc_zero(len * 2); /* should be enough */
+  base64_encoded_dh = tor_calloc(len, 2); /* should be enough */
   new_len = base64_encode(base64_encoded_dh, len * 2,
                           (char *)dh_string_repr, len);
   if (new_len < 0) {
@@ -1786,7 +1864,8 @@ crypto_store_dynamic_dh_modulus(const char *fname)
  done:
   if (dh)
     DH_free(dh);
-  tor_free(dh_string_repr);
+  if (dh_string_repr)
+    OPENSSL_free(dh_string_repr);
   tor_free(base64_encoded_dh);
   tor_free(file_string);
 
@@ -1922,7 +2001,7 @@ crypto_set_tls_dh_prime(const char *dynamic_dh_modulus_fname)
 
   /* If the space is occupied, free the previous TLS DH prime */
   if (dh_param_p_tls) {
-    BN_free(dh_param_p_tls);
+    BN_clear_free(dh_param_p_tls);
     dh_param_p_tls = NULL;
   }
 
@@ -2084,8 +2163,8 @@ crypto_dh_generate_public(crypto_dh_t *dh)
     log_warn(LD_CRYPTO, "Weird! Our own DH key was invalid.  I guess once-in-"
              "the-universe chances really do happen.  Trying again.");
     /* Free and clear the keys, so OpenSSL will actually try again. */
-    BN_free(dh->dh->pub_key);
-    BN_free(dh->dh->priv_key);
+    BN_clear_free(dh->dh->pub_key);
+    BN_clear_free(dh->dh->priv_key);
     dh->dh->pub_key = dh->dh->priv_key = NULL;
     goto again;
   }
@@ -2147,10 +2226,10 @@ tor_check_dh_key(int severity, BIGNUM *bn)
     log_fn(severity, LD_CRYPTO, "DH key must be at most p-2.");
     goto err;
   }
-  BN_free(x);
+  BN_clear_free(x);
   return 0;
  err:
-  BN_free(x);
+  BN_clear_free(x);
   s = BN_bn2hex(bn);
   log_fn(severity, LD_CRYPTO, "Rejecting insecure DH key [%s]", s);
   OPENSSL_free(s);
@@ -2209,7 +2288,7 @@ crypto_dh_compute_secret(int severity, crypto_dh_t *dh,
  done:
   crypto_log_errors(LOG_WARN, "completing DH handshake");
   if (pubkey_bn)
-    BN_free(pubkey_bn);
+    BN_clear_free(pubkey_bn);
   if (secret_tmp) {
     memwipe(secret_tmp, 0, secret_tmp_len);
     tor_free(secret_tmp);
@@ -2379,10 +2458,8 @@ crypto_strongest_rand(uint8_t *out, size_t out_len)
   if (!provider_set) {
     if (!CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
                              CRYPT_VERIFYCONTEXT)) {
-      if ((unsigned long)GetLastError() != (unsigned long)NTE_BAD_KEYSET) {
-        log_warn(LD_CRYPTO, "Can't get CryptoAPI provider [1]");
-        return -1;
-      }
+      log_warn(LD_CRYPTO, "Can't get CryptoAPI provider [1]");
+      return -1;
     }
     provider_set = 1;
   }
@@ -2394,7 +2471,8 @@ crypto_strongest_rand(uint8_t *out, size_t out_len)
   return 0;
 #else
   for (i = 0; filenames[i]; ++i) {
-    fd = open(filenames[i], O_RDONLY, 0);
+    log_debug(LD_FS, "Opening %s for entropy", filenames[i]);
+    fd = open(sandbox_intern_string(filenames[i]), O_RDONLY, 0);
     if (fd<0) continue;
     log_info(LD_CRYPTO, "Reading entropy from \"%s\"", filenames[i]);
     n = read_all(fd, (char*)out, out_len, 0);
@@ -2449,8 +2527,8 @@ crypto_seed_rng(int startup)
 /** Write <b>n</b> bytes of strong random data to <b>to</b>. Return 0 on
  * success, -1 on failure.
  */
-int
-crypto_rand(char *to, size_t n)
+MOCK_IMPL(int,
+crypto_rand, (char *to, size_t n))
 {
   int r;
   tor_assert(n < INT_MAX);
@@ -2678,6 +2756,8 @@ base64_decode(char *dest, size_t destlen, const char *src, size_t srclen)
   if (destlen > SIZE_T_CEILING)
     return -1;
 
+  memset(dest, 0, destlen);
+
   EVP_DecodeInit(&ctx);
   EVP_DecodeUpdate(&ctx, (unsigned char*)dest, &len,
                    (unsigned char*)src, srclen);
@@ -2698,6 +2778,8 @@ base64_decode(char *dest, size_t destlen, const char *src, size_t srclen)
     return -1;
   if (destlen > SIZE_T_CEILING)
     return -1;
+
+  memset(dest, 0, destlen);
 
   /* Iterate over all the bytes in src.  Each one will add 0 or 6 bits to the
    * value we're decoding.  Accumulate bits in <b>n</b>, and whenever we have
@@ -2878,6 +2960,8 @@ base32_decode(char *dest, size_t destlen, const char *src, size_t srclen)
   tor_assert((nbits/8) <= destlen); /* We need enough space. */
   tor_assert(destlen < SIZE_T_CEILING);
 
+  memset(dest, 0, destlen);
+
   /* Convert base32 encoded chars to the 5-bit values that they represent. */
   tmp = tor_malloc_zero(srclen);
   for (j = 0; j < srclen; ++j) {
@@ -2925,50 +3009,6 @@ base32_decode(char *dest, size_t destlen, const char *src, size_t srclen)
   return 0;
 }
 
-/** Implement RFC2440-style iterated-salted S2K conversion: convert the
- * <b>secret_len</b>-byte <b>secret</b> into a <b>key_out_len</b> byte
- * <b>key_out</b>.  As in RFC2440, the first 8 bytes of s2k_specifier
- * are a salt; the 9th byte describes how much iteration to do.
- * Does not support <b>key_out_len</b> &gt; DIGEST_LEN.
- */
-void
-secret_to_key(char *key_out, size_t key_out_len, const char *secret,
-              size_t secret_len, const char *s2k_specifier)
-{
-  crypto_digest_t *d;
-  uint8_t c;
-  size_t count, tmplen;
-  char *tmp;
-  tor_assert(key_out_len < SIZE_T_CEILING);
-
-#define EXPBIAS 6
-  c = s2k_specifier[8];
-  count = ((uint32_t)16 + (c & 15)) << ((c >> 4) + EXPBIAS);
-#undef EXPBIAS
-
-  tor_assert(key_out_len <= DIGEST_LEN);
-
-  d = crypto_digest_new();
-  tmplen = 8+secret_len;
-  tmp = tor_malloc(tmplen);
-  memcpy(tmp,s2k_specifier,8);
-  memcpy(tmp+8,secret,secret_len);
-  secret_len += 8;
-  while (count) {
-    if (count >= secret_len) {
-      crypto_digest_add_bytes(d, tmp, secret_len);
-      count -= secret_len;
-    } else {
-      crypto_digest_add_bytes(d, tmp, count);
-      count = 0;
-    }
-  }
-  crypto_digest_get_digest(d, key_out, key_out_len);
-  memwipe(tmp, 0, tmplen);
-  tor_free(tmp);
-  crypto_digest_free(d);
-}
-
 /**
  * Destroy the <b>sz</b> bytes of data stored at <b>mem</b>, setting them to
  * the value <b>byte</b>.
@@ -3012,8 +3052,6 @@ memwipe(void *mem, uint8_t byte, size_t sz)
   memset(mem, byte, sz);
 }
 
-#ifdef TOR_IS_MULTITHREADED
-
 #ifndef OPENSSL_THREADS
 #error OpenSSL has been built without thread support. Tor requires an \
  OpenSSL library with thread support enabled.
@@ -3026,7 +3064,7 @@ openssl_locking_cb_(int mode, int n, const char *file, int line)
   (void)file;
   (void)line;
   if (!openssl_mutexes_)
-    /* This is not a really good  fix for the
+    /* This is not a really good fix for the
      * "release-freed-lock-from-separate-thread-on-shutdown" problem, but
      * it can't hurt. */
     return;
@@ -3081,6 +3119,14 @@ openssl_dynlock_destroy_cb_(struct CRYPTO_dynlock_value *v,
   tor_free(v);
 }
 
+#if OPENSSL_VERSION_NUMBER >= OPENSSL_V_SERIES(1,0,0)
+static void
+tor_set_openssl_thread_id(CRYPTO_THREADID *threadid)
+{
+  CRYPTO_THREADID_set_numeric(threadid, tor_get_thread_id());
+}
+#endif
+
 /** @{ */
 /** Helper: Construct mutexes, and set callbacks to help OpenSSL handle being
  * multithreaded. */
@@ -3090,23 +3136,20 @@ setup_openssl_threading(void)
   int i;
   int n = CRYPTO_num_locks();
   n_openssl_mutexes_ = n;
-  openssl_mutexes_ = tor_malloc(n*sizeof(tor_mutex_t *));
+  openssl_mutexes_ = tor_calloc(n, sizeof(tor_mutex_t *));
   for (i=0; i < n; ++i)
     openssl_mutexes_[i] = tor_mutex_new();
   CRYPTO_set_locking_callback(openssl_locking_cb_);
+#if OPENSSL_VERSION_NUMBER < OPENSSL_V_SERIES(1,0,0)
   CRYPTO_set_id_callback(tor_get_thread_id);
+#else
+  CRYPTO_THREADID_set_callback(tor_set_openssl_thread_id);
+#endif
   CRYPTO_set_dynlock_create_callback(openssl_dynlock_create_cb_);
   CRYPTO_set_dynlock_lock_callback(openssl_dynlock_lock_cb_);
   CRYPTO_set_dynlock_destroy_callback(openssl_dynlock_destroy_cb_);
   return 0;
 }
-#else
-static int
-setup_openssl_threading(void)
-{
-  return 0;
-}
-#endif
 
 /** Uninitialize the crypto library. Return 0 on success, -1 on failure.
  */
@@ -3118,11 +3161,11 @@ crypto_global_cleanup(void)
   ERR_free_strings();
 
   if (dh_param_p)
-    BN_free(dh_param_p);
+    BN_clear_free(dh_param_p);
   if (dh_param_p_tls)
-    BN_free(dh_param_p_tls);
+    BN_clear_free(dh_param_p_tls);
   if (dh_param_g)
-    BN_free(dh_param_g);
+    BN_clear_free(dh_param_g);
 
 #ifndef DISABLE_ENGINES
   ENGINE_cleanup();
@@ -3130,7 +3173,7 @@ crypto_global_cleanup(void)
 
   CONF_modules_unload(1);
   CRYPTO_cleanup_all_ex_data();
-#ifdef TOR_IS_MULTITHREADED
+
   if (n_openssl_mutexes_) {
     int n = n_openssl_mutexes_;
     tor_mutex_t **ms = openssl_mutexes_;
@@ -3142,8 +3185,9 @@ crypto_global_cleanup(void)
     }
     tor_free(ms);
   }
-#endif
+
   tor_free(crypto_openssl_version_str);
+  tor_free(crypto_openssl_header_version_str);
   return 0;
 }
 

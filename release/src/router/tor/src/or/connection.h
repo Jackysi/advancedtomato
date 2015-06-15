@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -17,9 +17,10 @@
 
 const char *conn_type_to_string(int type);
 const char *conn_state_to_string(int type, int state);
+int conn_listener_type_supports_af_unix(int type);
 
 dir_connection_t *dir_connection_new(int socket_family);
-or_connection_t *or_connection_new(int socket_family);
+or_connection_t *or_connection_new(int type, int socket_family);
 edge_connection_t *edge_connection_new(int type, int socket_family);
 entry_connection_t *entry_connection_new(int type, int socket_family);
 control_connection_t *control_connection_new(int socket_family);
@@ -89,6 +90,21 @@ int connection_connect(connection_t *conn, const char *address,
                        const tor_addr_t *addr,
                        uint16_t port, int *socket_error);
 
+#ifdef HAVE_SYS_UN_H
+
+int connection_connect_unix(connection_t *conn, const char *socket_path,
+                            int *socket_error);
+
+#endif /* defined(HAVE_SYS_UN_H) */
+
+/** Maximum size of information that we can fit into SOCKS5 username
+    or password fields. */
+#define MAX_SOCKS5_AUTH_FIELD_SIZE 255
+
+/** Total maximum size of information that we can fit into SOCKS5
+    username and password fields. */
+#define MAX_SOCKS5_AUTH_SIZE_TOTAL 2*MAX_SOCKS5_AUTH_FIELD_SIZE
+
 int connection_proxy_connect(connection_t *conn, int type);
 int connection_read_proxy_handshake(connection_t *conn);
 void log_failed_proxy_connection(connection_t *conn);
@@ -122,8 +138,8 @@ int connection_outbuf_too_full(connection_t *conn);
 int connection_handle_write(connection_t *conn, int force);
 int connection_flush(connection_t *conn);
 
-void connection_write_to_buf_impl_(const char *string, size_t len,
-                                   connection_t *conn, int zlib);
+MOCK_DECL(void, connection_write_to_buf_impl_,
+          (const char *string, size_t len, connection_t *conn, int zlib));
 /* DOCDOC connection_write_to_buf */
 static void connection_write_to_buf(const char *string, size_t len,
                                     connection_t *conn);
@@ -170,7 +186,6 @@ connection_get_outbuf_len(connection_t *conn)
 connection_t *connection_get_by_global_id(uint64_t id);
 
 connection_t *connection_get_by_type(int type);
-connection_t *connection_get_by_type_purpose(int type, int purpose);
 connection_t *connection_get_by_type_addr_port_purpose(int type,
                                                    const tor_addr_t *addr,
                                                    uint16_t port, int purpose);
@@ -180,7 +195,10 @@ connection_t *connection_get_by_type_state_rendquery(int type, int state,
 dir_connection_t *connection_dir_get_by_purpose_and_resource(
                                            int state, const char *resource);
 
-#define connection_speaks_cells(conn) ((conn)->type == CONN_TYPE_OR)
+int any_other_active_or_conns(const or_connection_t *this_conn);
+
+/* || 0 is for -Wparentheses-equality (-Wall?) appeasement under clang */
+#define connection_speaks_cells(conn) (((conn)->type == CONN_TYPE_OR) || 0)
 int connection_is_listener(connection_t *conn);
 int connection_state_is_open(connection_t *conn);
 int connection_state_is_connecting(connection_t *conn);
@@ -204,6 +222,19 @@ void connection_get_rate_limit_totals(uint64_t *read_out,
 void connection_enable_rate_limiting(connection_t *conn);
 #else
 #define connection_type_uses_bufferevent(c) (0)
+#endif
+
+#ifdef CONNECTION_PRIVATE
+STATIC void connection_free_(connection_t *conn);
+
+/* Used only by connection.c and test*.c */
+uint32_t bucket_millis_empty(int tokens_before, uint32_t last_empty_time,
+                             int tokens_after, int milliseconds_elapsed,
+                             const struct timeval *tvnow);
+void connection_buckets_note_empty_ts(uint32_t *timestamp_var,
+                                      int tokens_before,
+                                      size_t tokens_removed,
+                                      const struct timeval *tvnow);
 #endif
 
 #endif

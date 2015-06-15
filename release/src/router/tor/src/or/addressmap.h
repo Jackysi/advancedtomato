@@ -1,11 +1,13 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #ifndef TOR_ADDRESSMAP_H
 #define TOR_ADDRESSMAP_H
+
+#include "testsupport.h"
 
 void addressmap_init(void);
 void addressmap_clear_excluded_trackexithosts(const or_options_t *options);
@@ -14,8 +16,11 @@ void addressmap_clean(time_t now);
 void addressmap_clear_configured(void);
 void addressmap_clear_transient(void);
 void addressmap_free_all(void);
-#define AMR_FLAG_USE_IPV4_DNS (1u<<0)
-#define AMR_FLAG_USE_IPV6_DNS (1u<<1)
+#define AMR_FLAG_USE_IPV4_DNS   (1u<<0)
+#define AMR_FLAG_USE_IPV6_DNS   (1u<<1)
+#define AMR_FLAG_USE_MAPADDRESS (1u<<2)
+#define AMR_FLAG_USE_AUTOMAP    (1u<<3)
+#define AMR_FLAG_USE_TRACKEXIT  (1u<<4)
 int addressmap_rewrite(char *address, size_t maxlen, unsigned flags,
                        time_t *expires_out,
                        addressmap_entry_source_t *exit_source_out);
@@ -52,8 +57,8 @@ typedef struct virtual_addr_conf_t {
   maskbits_t bits;
 } virtual_addr_conf_t;
 
-void get_random_virtual_addr(const virtual_addr_conf_t *conf,
-                             tor_addr_t *addr_out);
+STATIC void get_random_virtual_addr(const virtual_addr_conf_t *conf,
+                                    tor_addr_t *addr_out);
 #endif
 
 #endif

@@ -24,11 +24,11 @@ No part of this file may be used without permission.
 		}
 		.thead {
 			font-size: 90%;
-			font-weight: bold;
+			font-weight: 500;
 		}
 		.total {
 			border-top: 1px dashed #bbb;
-			font-weight: bold;
+			font-weight: 500;
 			margin-top: 5px;
 		}
 

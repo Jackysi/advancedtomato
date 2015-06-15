@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -12,7 +12,10 @@
  * circumvention).
  **/
 
+#define ENTRYNODES_PRIVATE
+
 #include "or.h"
+#include "circpathbias.h"
 #include "circuitbuild.h"
 #include "circuitstats.h"
 #include "config.h"
@@ -54,6 +57,10 @@ typedef struct {
 
   /** When should we next try to fetch a descriptor for this bridge? */
   download_status_t fetch_status;
+
+  /** A smartlist of k=v values to be passed to the SOCKS proxy, if
+      transports are used for this bridge. */
+  smartlist_t *socks_args;
 } bridge_info_t;
 
 /** A list of our chosen entry guards. */
@@ -65,7 +72,9 @@ static int entry_guards_dirty = 0;
 static void bridge_free(bridge_info_t *bridge);
 static const node_t *choose_random_entry_impl(cpath_build_state_t *state,
                                               int for_directory,
-                                              dirinfo_type_t dirtype);
+                                              dirinfo_type_t dirtype,
+                                              int *n_options_out);
+static int num_bridges_usable(void);
 
 /** Return the list of entry guards, creating it if necessary. */
 const smartlist_t *
@@ -147,21 +156,41 @@ entry_guard_set_status(entry_guard_t *e, const node_t *node,
 
 /** Return true iff enough time has passed since we last tried to connect
  * to the unreachable guard <b>e</b> that we're willing to try again. */
-static int
-entry_is_time_to_retry(entry_guard_t *e, time_t now)
+STATIC int
+entry_is_time_to_retry(const entry_guard_t *e, time_t now)
 {
-  long diff;
+  struct guard_retry_period_s {
+    time_t period_duration;
+    time_t interval_during_period;
+  };
+
+  struct guard_retry_period_s periods[] = {
+     {    6*60*60,    60*60 }, /* For first 6 hrs., retry hourly; */
+     { 3*24*60*60,  4*60*60 }, /* Then retry every 4 hrs. until the
+                                  3-day mark; */
+     { 7*24*60*60, 18*60*60 }, /* After 3 days, retry every 18 hours until
+                                  1 week mark. */
+     {   TIME_MAX, 36*60*60 }  /* After 1 week, retry every 36 hours. */
+  };
+
+  time_t ith_deadline_for_retry;
+  time_t unreachable_for;
+  unsigned i;
+
   if (e->last_attempted < e->unreachable_since)
     return 1;
-  diff = now - e->unreachable_since;
-  if (diff < 6*60*60)
-    return now > (e->last_attempted + 60*60);
-  else if (diff < 3*24*60*60)
-    return now > (e->last_attempted + 4*60*60);
-  else if (diff < 7*24*60*60)
-    return now > (e->last_attempted + 18*60*60);
-  else
-    return now > (e->last_attempted + 36*60*60);
+
+  unreachable_for = now - e->unreachable_since;
+
+  for (i = 0; i < ARRAY_LENGTH(periods); i++) {
+    if (unreachable_for <= periods[i].period_duration) {
+      ith_deadline_for_retry = e->last_attempted +
+                               periods[i].interval_during_period;
+
+      return (now > ith_deadline_for_retry);
+    }
+  }
+  return 0;
 }
 
 /** Return the node corresponding to <b>e</b>, if <b>e</b> is
@@ -181,12 +210,17 @@ entry_is_time_to_retry(entry_guard_t *e, time_t now)
  * If need_descriptor is true, only return the node if we currently have
  * a descriptor (routerinfo or microdesc) for it.
  */
-static INLINE const node_t *
-entry_is_live(entry_guard_t *e, int need_uptime, int need_capacity,
-              int assume_reachable, int need_descriptor, const char **msg)
+STATIC const node_t *
+entry_is_live(const entry_guard_t *e, entry_is_live_flags_t flags,
+              const char **msg)
 {
   const node_t *node;
   const or_options_t *options = get_options();
+  int need_uptime = (flags & ENTRY_NEED_UPTIME) != 0;
+  int need_capacity = (flags & ENTRY_NEED_CAPACITY) != 0;
+  const int assume_reachable = (flags & ENTRY_ASSUME_REACHABLE) != 0;
+  const int need_descriptor = (flags & ENTRY_NEED_DESCRIPTOR) != 0;
+
   tor_assert(msg);
 
   if (e->path_bias_disabled) {
@@ -248,12 +282,18 @@ num_live_entry_guards(int for_directory)
 {
   int n = 0;
   const char *msg;
+  /* Set the entry node attributes we are interested in. */
+  entry_is_live_flags_t entry_flags = ENTRY_NEED_CAPACITY;
+  if (!for_directory) {
+    entry_flags |= ENTRY_NEED_DESCRIPTOR;
+  }
+
   if (! entry_guards)
     return 0;
   SMARTLIST_FOREACH_BEGIN(entry_guards, entry_guard_t *, entry) {
       if (for_directory && !entry->is_dir_cache)
         continue;
-      if (entry_is_live(entry, 0, 1, 0, !for_directory, &msg))
+      if (entry_is_live(entry, entry_flags, &msg))
         ++n;
   } SMARTLIST_FOREACH_END(entry);
   return n;
@@ -282,7 +322,7 @@ log_entry_guards(int severity)
   SMARTLIST_FOREACH_BEGIN(entry_guards, entry_guard_t *, e)
     {
       const char *msg = NULL;
-      if (entry_is_live(e, 0, 1, 0, 0, &msg))
+      if (entry_is_live(e, ENTRY_NEED_CAPACITY, &msg))
         smartlist_add_asprintf(elements, "%s [%s] (up %s)",
                      e->nickname,
                      hex_str(e->identity, DIGEST_LEN),
@@ -343,7 +383,7 @@ control_event_guard_deferred(void)
  * If <b>chosen</b> is defined, use that one, and if it's not
  * already in our entry_guards list, put it at the *beginning*.
  * Else, put the one we pick at the end of the list. */
-static const node_t *
+STATIC const node_t *
 add_an_entry_guard(const node_t *chosen, int reset_status, int prepend,
                    int for_discovery, int for_directory)
 {
@@ -359,7 +399,7 @@ add_an_entry_guard(const node_t *chosen, int reset_status, int prepend,
         entry->can_retry = 1;
       }
       entry->is_dir_cache = node->rs &&
-        node->rs->version_supports_microdesc_cache;
+                            node->rs->version_supports_microdesc_cache;
       if (get_options()->UseBridges && node_is_a_configured_bridge(node))
         entry->is_dir_cache = 1;
       return NULL;
@@ -371,7 +411,7 @@ add_an_entry_guard(const node_t *chosen, int reset_status, int prepend,
   } else {
     const routerstatus_t *rs;
     rs = router_pick_directory_server(MICRODESC_DIRINFO|V3_DIRINFO,
-                              PDS_PREFER_TUNNELED_DIR_CONNS_|PDS_FOR_GUARD);
+                                      PDS_FOR_GUARD);
     if (!rs)
       return NULL;
     node = node_get_by_id(rs->identity_digest);
@@ -392,8 +432,8 @@ add_an_entry_guard(const node_t *chosen, int reset_status, int prepend,
            node_describe(node));
   strlcpy(entry->nickname, node_get_nickname(node), sizeof(entry->nickname));
   memcpy(entry->identity, node->identity, DIGEST_LEN);
-  entry->is_dir_cache = node_is_dir(node) &&
-    node->rs && node->rs->version_supports_microdesc_cache;
+  entry->is_dir_cache = node_is_dir(node) && node->rs &&
+                        node->rs->version_supports_microdesc_cache;
   if (get_options()->UseBridges && node_is_a_configured_bridge(node))
     entry->is_dir_cache = 1;
 
@@ -430,12 +470,23 @@ add_an_entry_guard(const node_t *chosen, int reset_status, int prepend,
 /** Choose how many entry guards or directory guards we'll use. If
  * <b>for_directory</b> is true, we return how many directory guards to
  * use; else we return how many entry guards to use. */
-static int
+STATIC int
 decide_num_guards(const or_options_t *options, int for_directory)
 {
-  if (for_directory && options->NumDirectoryGuards != 0)
-    return options->NumDirectoryGuards;
-  return options->NumEntryGuards;
+  if (for_directory) {
+    int answer;
+    if (options->NumDirectoryGuards != 0)
+      return options->NumDirectoryGuards;
+    answer = networkstatus_get_param(NULL, "NumDirectoryGuards", 0, 0, 10);
+    if (answer) /* non-zero means use the consensus value */
+      return answer;
+  }
+
+  if (options->NumEntryGuards)
+    return options->NumEntryGuards;
+
+  /* Use the value from the consensus, or 3 if no guidance. */
+  return networkstatus_get_param(NULL, "NumEntryGuards", 3, 1, 10);
 }
 
 /** If the use of entry guards is configured, choose more entry guards
@@ -594,6 +645,25 @@ remove_dead_entry_guards(time_t now)
   return changed ? 1 : 0;
 }
 
+/** Remove all currently listed entry guards. So new ones will be chosen. */
+void
+remove_all_entry_guards(void)
+{
+  char dbuf[HEX_DIGEST_LEN+1];
+
+  while (smartlist_len(entry_guards)) {
+    entry_guard_t *entry = smartlist_get(entry_guards, 0);
+    base16_encode(dbuf, sizeof(dbuf), entry->identity, DIGEST_LEN);
+    log_info(LD_CIRC, "Entry guard '%s' (%s) has been dropped.",
+             entry->nickname, dbuf);
+    control_event_guard(entry->nickname, entry->identity, "DROPPED");
+    entry_guard_free(entry);
+    smartlist_del(entry_guards, 0);
+  }
+  log_entry_guards(LOG_INFO);
+  entry_guards_changed();
+}
+
 /** A new directory or router-status has arrived; update the down/listed
  * status of the entry guards.
  *
@@ -639,7 +709,7 @@ entry_guards_compute_status(const or_options_t *options, time_t now)
     SMARTLIST_FOREACH_BEGIN(entry_guards, entry_guard_t *, entry) {
       const char *reason = digestmap_get(reasons, entry->identity);
       const char *live_msg = "";
-      const node_t *r = entry_is_live(entry, 0, 1, 0, 0, &live_msg);
+      const node_t *r = entry_is_live(entry, ENTRY_NEED_CAPACITY, &live_msg);
       log_info(LD_CIRC, "Summary: Entry %s [%s] is %s, %s%s%s, and %s%s.",
                entry->nickname,
                hex_str(entry->identity, DIGEST_LEN),
@@ -757,7 +827,9 @@ entry_guard_register_connect_status(const char *digest, int succeeded,
           break;
         if (e->made_contact) {
           const char *msg;
-          const node_t *r = entry_is_live(e, 0, 1, 1, 0, &msg);
+          const node_t *r = entry_is_live(e,
+                     ENTRY_NEED_CAPACITY | ENTRY_ASSUME_REACHABLE,
+                     &msg);
           if (r && e->unreachable_since) {
             refuse_conn = 1;
             e->can_retry = 1;
@@ -810,11 +882,12 @@ update_node_guard_status(void)
 
 /** Adjust the entry guards list so that it only contains entries from
  * EntryNodes, adding new entries from EntryNodes to the list as needed. */
-static void
+STATIC void
 entry_guards_set_from_config(const or_options_t *options)
 {
   smartlist_t *entry_nodes, *worse_entry_nodes, *entry_fps;
   smartlist_t *old_entry_guards_on_list, *old_entry_guards_not_on_list;
+  const int numentryguards = decide_num_guards(options, 0);
   tor_assert(entry_guards);
 
   should_add_entry_nodes = 0;
@@ -883,7 +956,7 @@ entry_guards_set_from_config(const or_options_t *options)
   /* Next, the rest of EntryNodes */
   SMARTLIST_FOREACH_BEGIN(entry_nodes, const node_t *, node) {
     add_an_entry_guard(node, 0, 0, 1, 0);
-    if (smartlist_len(entry_guards) > options->NumEntryGuards * 10)
+    if (smartlist_len(entry_guards) > numentryguards * 10)
       break;
   } SMARTLIST_FOREACH_END(node);
   log_notice(LD_GENERAL, "%d entries in guards", smartlist_len(entry_guards));
@@ -930,7 +1003,8 @@ node_understands_microdescriptors(const node_t *node)
 }
 
 /** Return true iff <b>node</b> is able to answer directory questions
- * of type <b>dirinfo</b>. */
+ * of type <b>dirinfo</b>. Always returns true if <b>dirinfo</b> is
+ * NO_DIRINFO (zero). */
 static int
 node_can_handle_dirinfo(const node_t *node, dirinfo_type_t dirinfo)
 {
@@ -952,13 +1026,13 @@ node_can_handle_dirinfo(const node_t *node, dirinfo_type_t dirinfo)
  * <b>state</b> is non-NULL, this is for a specific circuit --
  * make sure not to pick this circuit's exit or any node in the
  * exit's family. If <b>state</b> is NULL, we're looking for a random
- * guard (likely a bridge).  If <b>dirinfo</b> is not NO_DIRINFO, then
- * only select from nodes that know how to answer directory questions
+ * guard (likely a bridge).  If <b>dirinfo</b> is not NO_DIRINFO (zero),
+ * then only select from nodes that know how to answer directory questions
  * of that type. */
 const node_t *
 choose_random_entry(cpath_build_state_t *state)
 {
-  return choose_random_entry_impl(state, 0, 0);
+  return choose_random_entry_impl(state, 0, NO_DIRINFO, NULL);
 }
 
 /** Pick a live (up and listed) directory guard from entry_guards for
@@ -966,30 +1040,135 @@ choose_random_entry(cpath_build_state_t *state)
 const node_t *
 choose_random_dirguard(dirinfo_type_t type)
 {
-  return choose_random_entry_impl(NULL, 1, type);
+  return choose_random_entry_impl(NULL, 1, type, NULL);
 }
 
-/** Helper for choose_random{entry,dirguard}. */
+/** Filter <b>all_entry_guards</b> for usable entry guards and put them
+ * in <b>live_entry_guards</b>. We filter based on whether the node is
+ * currently alive, and on whether it satisfies the restrictions
+ * imposed by the other arguments of this function.
+ *
+ * We don't place more guards than NumEntryGuards in <b>live_entry_guards</b>.
+ *
+ * If <b>chosen_exit</b> is set, it contains the exit node of this
+ * circuit. Make sure to not use it or its family as an entry guard.
+ *
+ * If <b>need_uptime</b> is set, we are looking for a stable entry guard.
+ * if <b>need_capacity</b> is set, we are looking for a fast entry guard.
+ *
+ * The rest of the arguments are the same as in choose_random_entry_impl().
+ *
+ * Return 1 if we should choose a guard right away. Return 0 if we
+ * should try to add more nodes to our list before deciding on a
+ * guard.
+ */
+STATIC int
+populate_live_entry_guards(smartlist_t *live_entry_guards,
+                           const smartlist_t *all_entry_guards,
+                           const node_t *chosen_exit,
+                           dirinfo_type_t dirinfo_type,
+                           int for_directory,
+                           int need_uptime, int need_capacity)
+{
+  const or_options_t *options = get_options();
+  const node_t *node = NULL;
+  const int num_needed = decide_num_guards(options, for_directory);
+  smartlist_t *exit_family = smartlist_new();
+  int retval = 0;
+  entry_is_live_flags_t entry_flags = 0;
+
+  { /* Set the flags we want our entry node to have */
+    if (need_uptime) {
+      entry_flags |= ENTRY_NEED_UPTIME;
+    }
+    if (need_capacity) {
+      entry_flags |= ENTRY_NEED_CAPACITY;
+    }
+    if (!for_directory) {
+      entry_flags |= ENTRY_NEED_DESCRIPTOR;
+    }
+  }
+
+  tor_assert(all_entry_guards);
+
+  if (chosen_exit) {
+    nodelist_add_node_and_family(exit_family, chosen_exit);
+  }
+
+  SMARTLIST_FOREACH_BEGIN(all_entry_guards, const entry_guard_t *, entry) {
+      const char *msg;
+      node = entry_is_live(entry, entry_flags, &msg);
+      if (!node)
+        continue; /* down, no point */
+      if (for_directory) {
+        if (!entry->is_dir_cache)
+          continue; /* We need a directory and didn't get one. */
+      }
+      if (node == chosen_exit)
+        continue; /* don't pick the same node for entry and exit */
+      if (smartlist_contains(exit_family, node))
+        continue; /* avoid relays that are family members of our exit */
+      if (dirinfo_type != NO_DIRINFO &&
+          !node_can_handle_dirinfo(node, dirinfo_type))
+        continue; /* this node won't be able to answer our dir questions */
+      smartlist_add(live_entry_guards, (void*)node);
+      if (!entry->made_contact) {
+        /* Always start with the first not-yet-contacted entry
+         * guard. Otherwise we might add several new ones, pick
+         * the second new one, and now we've expanded our entry
+         * guard list without needing to. */
+        retval = 1;
+        goto done;
+      }
+      if (smartlist_len(live_entry_guards) >= num_needed) {
+        retval = 1;
+        goto done; /* We picked enough entry guards. Done! */
+      }
+  } SMARTLIST_FOREACH_END(entry);
+
+ done:
+  smartlist_free(exit_family);
+
+  return retval;
+}
+
+/** Pick a node to be used as the entry guard of a circuit.
+ *
+ * If <b>state</b> is set, it contains the information we know about
+ * the upcoming circuit.
+ *
+ * If <b>for_directory</b> is set, we are looking for a directory guard.
+ *
+ * <b>dirinfo_type</b> contains the kind of directory information we
+ * are looking for in our node, or NO_DIRINFO (zero) if we are not
+ * looking for any particular directory information (when set to
+ * NO_DIRINFO, the <b>dirinfo_type</b> filter is ignored).
+ *
+ * If <b>n_options_out</b> is set, we set it to the number of
+ * candidate guard nodes we had before picking a specific guard node.
+ *
+ * On success, return the node that should be used as the entry guard
+ * of the circuit.  Return NULL if no such node could be found.
+ *
+ * Helper for choose_random{entry,dirguard}.
+*/
 static const node_t *
 choose_random_entry_impl(cpath_build_state_t *state, int for_directory,
-                         dirinfo_type_t dirinfo_type)
+                         dirinfo_type_t dirinfo_type, int *n_options_out)
 {
   const or_options_t *options = get_options();
   smartlist_t *live_entry_guards = smartlist_new();
-  smartlist_t *exit_family = smartlist_new();
   const node_t *chosen_exit =
     state?build_state_get_exit_node(state) : NULL;
   const node_t *node = NULL;
   int need_uptime = state ? state->need_uptime : 0;
   int need_capacity = state ? state->need_capacity : 0;
-  int preferred_min, consider_exit_family = 0;
-  int need_descriptor = !for_directory;
+  int preferred_min = 0;
   const int num_needed = decide_num_guards(options, for_directory);
+  int retval = 0;
 
-  if (chosen_exit) {
-    nodelist_add_node_and_family(exit_family, chosen_exit);
-    consider_exit_family = 1;
-  }
+  if (n_options_out)
+    *n_options_out = 0;
 
   if (!entry_guards)
     entry_guards = smartlist_new();
@@ -1003,50 +1182,19 @@ choose_random_entry_impl(cpath_build_state_t *state, int for_directory,
 
  retry:
   smartlist_clear(live_entry_guards);
-  SMARTLIST_FOREACH_BEGIN(entry_guards, entry_guard_t *, entry) {
-      const char *msg;
-      node = entry_is_live(entry, need_uptime, need_capacity, 0,
-                           need_descriptor, &msg);
-      if (!node)
-        continue; /* down, no point */
-      if (for_directory) {
-        if (!entry->is_dir_cache)
-          continue; /* We need a directory and didn't get one. */
-      }
-      if (node == chosen_exit)
-        continue; /* don't pick the same node for entry and exit */
-      if (consider_exit_family && smartlist_contains(exit_family, node))
-        continue; /* avoid relays that are family members of our exit */
-      if (dirinfo_type != NO_DIRINFO &&
-          !node_can_handle_dirinfo(node, dirinfo_type))
-        continue; /* this node won't be able to answer our dir questions */
-#if 0 /* since EntryNodes is always strict now, this clause is moot */
-      if (options->EntryNodes &&
-          !routerset_contains_node(options->EntryNodes, node)) {
-        /* We've come to the end of our preferred entry nodes. */
-        if (smartlist_len(live_entry_guards))
-          goto choose_and_finish; /* only choose from the ones we like */
-        if (options->StrictNodes) {
-          /* in theory this case should never happen, since
-           * entry_guards_set_from_config() drops unwanted relays */
-          tor_fragile_assert();
-        } else {
-          log_info(LD_CIRC,
-                   "No relays from EntryNodes available. Using others.");
-        }
-      }
-#endif
-      smartlist_add(live_entry_guards, (void*)node);
-      if (!entry->made_contact) {
-        /* Always start with the first not-yet-contacted entry
-         * guard. Otherwise we might add several new ones, pick
-         * the second new one, and now we've expanded our entry
-         * guard list without needing to. */
-        goto choose_and_finish;
-      }
-      if (smartlist_len(live_entry_guards) >= num_needed)
-        goto choose_and_finish; /* we have enough */
-  } SMARTLIST_FOREACH_END(entry);
+
+  /* Populate the list of live entry guards so that we pick one of
+     them. */
+  retval = populate_live_entry_guards(live_entry_guards,
+                                      entry_guards,
+                                      chosen_exit,
+                                      dirinfo_type,
+                                      for_directory,
+                                      need_uptime, need_capacity);
+
+  if (retval == 1) { /* We should choose a guard right now. */
+    goto choose_and_finish;
+  }
 
   if (entry_list_is_constrained(options)) {
     /* If we prefer the entry nodes we've got, and we have at least
@@ -1086,18 +1234,7 @@ choose_random_entry_impl(cpath_build_state_t *state, int for_directory,
       need_capacity = 0;
       goto retry;
     }
-#if 0
-    /* Removing this retry logic: if we only allow one exit, and it is in the
-       same family as all our entries, then we are just plain not going to win
-       here. */
-    if (!node && entry_list_is_constrained(options) && consider_exit_family) {
-      /* still no? if we're using bridges or have strictentrynodes
-       * set, and our chosen exit is in the same family as all our
-       * bridges/entry guards, then be flexible about families. */
-      consider_exit_family = 0;
-      goto retry;
-    }
-#endif
+
     /* live_entry_guards may be empty below. Oh well, we tried. */
   }
 
@@ -1112,8 +1249,9 @@ choose_random_entry_impl(cpath_build_state_t *state, int for_directory,
      * *double*-weight our guard selection. */
     node = smartlist_choose(live_entry_guards);
   }
+  if (n_options_out)
+    *n_options_out = smartlist_len(live_entry_guards);
   smartlist_free(live_entry_guards);
-  smartlist_free(exit_family);
   return node;
 }
 
@@ -1181,7 +1319,7 @@ entry_guards_parse_state(or_state_t *state, int set, char **msg)
                "EntryGuardDownSince/UnlistedSince without EntryGuard");
         break;
       }
-      if (parse_iso_time(line->value, &when)<0) {
+      if (parse_iso_time_(line->value, &when, 0)<0) {
         *msg = tor_strdup("Unable to parse entry nodes: "
                           "Bad time in EntryGuardDownSince/UnlistedSince");
         break;
@@ -1385,6 +1523,13 @@ entry_guards_parse_state(or_state_t *state, int set, char **msg)
   return *msg ? -1 : 0;
 }
 
+/** How long will we let a change in our guard nodes stay un-saved
+ * when we are trying to avoid disk writes? */
+#define SLOW_GUARD_STATE_FLUSH_TIME 600
+/** How long will we let a change in our guard nodes stay un-saved
+ * when we are not trying to avoid disk writes? */
+#define FAST_GUARD_STATE_FLUSH_TIME 30
+
 /** Our list of entry guards has changed, or some element of one
  * of our entry guards has changed. Write the changes to disk within
  * the next few minutes.
@@ -1395,8 +1540,12 @@ entry_guards_changed(void)
   time_t when;
   entry_guards_dirty = 1;
 
+  if (get_options()->AvoidDiskWrites)
+    when = time(NULL) + SLOW_GUARD_STATE_FLUSH_TIME;
+  else
+    when = time(NULL) + FAST_GUARD_STATE_FLUSH_TIME;
+
   /* or_state_save() will call entry_guards_update_state(). */
-  when = get_options()->AvoidDiskWrites ? time(NULL) + 3600 : time(NULL)+600;
   or_state_mark_dirty(get_or_state(), when);
 }
 
@@ -1517,6 +1666,9 @@ getinfo_helper_entry_guards(control_connection_t *conn,
         } else if (e->bad_since) {
           when = e->bad_since;
           status = "unusable";
+        } else if (e->unreachable_since) {
+          when = e->unreachable_since;
+          status = "down";
         } else {
           status = "up";
         }
@@ -1543,6 +1695,63 @@ getinfo_helper_entry_guards(control_connection_t *conn,
     smartlist_free(sl);
   }
   return 0;
+}
+
+/** Return 0 if we should apply guardfraction information found in the
+ *  consensus. A specific consensus can be specified with the
+ *  <b>ns</b> argument, if NULL the most recent one will be picked.*/
+int
+should_apply_guardfraction(const networkstatus_t *ns)
+{
+  /* We need to check the corresponding torrc option and the consensus
+   * parameter if we need to. */
+  const or_options_t *options = get_options();
+
+  /* If UseGuardFraction is 'auto' then check the same-named consensus
+   * parameter. If the consensus parameter is not present, default to
+   * "off". */
+  if (options->UseGuardFraction == -1) {
+    return networkstatus_get_param(ns, "UseGuardFraction",
+                                   0, /* default to "off" */
+                                   0, 1);
+  }
+
+  return options->UseGuardFraction;
+}
+
+/* Given the original bandwidth of a guard and its guardfraction,
+ * calculate how much bandwidth the guard should have as a guard and
+ * as a non-guard.
+ *
+ * Quoting from proposal236:
+ *
+ *   Let Wpf denote the weight from the 'bandwidth-weights' line a
+ *   client would apply to N for position p if it had the guard
+ *   flag, Wpn the weight if it did not have the guard flag, and B the
+ *   measured bandwidth of N in the consensus.  Then instead of choosing
+ *   N for position p proportionally to Wpf*B or Wpn*B, clients should
+ *   choose N proportionally to F*Wpf*B + (1-F)*Wpn*B.
+ *
+ * This function fills the <b>guardfraction_bw</b> structure. It sets
+ * <b>guard_bw</b> to F*B and <b>non_guard_bw</b> to (1-F)*B.
+ */
+void
+guard_get_guardfraction_bandwidth(guardfraction_bandwidth_t *guardfraction_bw,
+                                  int orig_bandwidth,
+                                  uint32_t guardfraction_percentage)
+{
+  double guardfraction_fraction;
+
+  /* Turn the percentage into a fraction. */
+  tor_assert(guardfraction_percentage <= 100);
+  guardfraction_fraction = guardfraction_percentage / 100.0;
+
+  long guard_bw = tor_lround(guardfraction_fraction * orig_bandwidth);
+  tor_assert(guard_bw <= INT_MAX);
+
+  guardfraction_bw->guard_bw = (int) guard_bw;
+
+  guardfraction_bw->non_guard_bw = orig_bandwidth - (int) guard_bw;
 }
 
 /** A list of configured bridges. Whenever we actually get a descriptor
@@ -1595,6 +1804,11 @@ bridge_free(bridge_info_t *bridge)
     return;
 
   tor_free(bridge->transport_name);
+  if (bridge->socks_args) {
+    SMARTLIST_FOREACH(bridge->socks_args, char*, s, tor_free(s));
+    smartlist_free(bridge->socks_args);
+  }
+
   tor_free(bridge);
 }
 
@@ -1628,7 +1842,8 @@ get_configured_bridge_by_orports_digest(const char *digest,
 
 /** If we have a bridge configured whose digest matches <b>digest</b>, or a
  * bridge with no known digest whose address matches <b>addr</b>:<b>/port</b>,
- * return that bridge.  Else return NULL. */
+ * return that bridge.  Else return NULL. If <b>digest</b> is NULL, check for
+ * address/port matches only. */
 static bridge_info_t *
 get_configured_bridge_by_addr_port_digest(const tor_addr_t *addr,
                                           uint16_t port,
@@ -1638,7 +1853,7 @@ get_configured_bridge_by_addr_port_digest(const tor_addr_t *addr,
     return NULL;
   SMARTLIST_FOREACH_BEGIN(bridge_list, bridge_info_t *, bridge)
     {
-      if (tor_digest_is_zero(bridge->identity) &&
+      if ((tor_digest_is_zero(bridge->identity) || digest == NULL) &&
           !tor_addr_compare(&bridge->addr, addr, CMP_EXACT) &&
           bridge->port == port)
         return bridge;
@@ -1773,29 +1988,67 @@ bridge_resolve_conflicts(const tor_addr_t *addr, uint16_t port,
   } SMARTLIST_FOREACH_END(bridge);
 }
 
-/** Remember a new bridge at <b>addr</b>:<b>port</b>. If <b>digest</b>
- * is set, it tells us the identity key too.  If we already had the
- * bridge in our list, unmark it, and don't actually add anything new.
- * If <b>transport_name</b> is non-NULL - the bridge is associated with a
- * pluggable transport - we assign the transport to the bridge. */
+/** Return True if we have a bridge that uses a transport with name
+ *  <b>transport_name</b>. */
+MOCK_IMPL(int,
+transport_is_needed, (const char *transport_name))
+{
+  if (!bridge_list)
+    return 0;
+
+  SMARTLIST_FOREACH_BEGIN(bridge_list, const bridge_info_t *, bridge) {
+    if (bridge->transport_name &&
+        !strcmp(bridge->transport_name, transport_name))
+      return 1;
+  } SMARTLIST_FOREACH_END(bridge);
+
+  return 0;
+}
+
+/** Register the bridge information in <b>bridge_line</b> to the
+ *  bridge subsystem. Steals reference of <b>bridge_line</b>. */
 void
-bridge_add_from_config(const tor_addr_t *addr, uint16_t port,
-                       const char *digest, const char *transport_name)
+bridge_add_from_config(bridge_line_t *bridge_line)
 {
   bridge_info_t *b;
 
-  bridge_resolve_conflicts(addr, port, digest, transport_name);
+  { /* Log the bridge we are about to register: */
+    log_debug(LD_GENERAL, "Registering bridge at %s (transport: %s) (%s)",
+              fmt_addrport(&bridge_line->addr, bridge_line->port),
+              bridge_line->transport_name ?
+              bridge_line->transport_name : "no transport",
+              tor_digest_is_zero(bridge_line->digest) ?
+              "no key listed" : hex_str(bridge_line->digest, DIGEST_LEN));
+
+    if (bridge_line->socks_args) { /* print socks arguments */
+      int i = 0;
+
+      tor_assert(smartlist_len(bridge_line->socks_args) > 0);
+
+      log_debug(LD_GENERAL, "Bridge uses %d SOCKS arguments:",
+                smartlist_len(bridge_line->socks_args));
+      SMARTLIST_FOREACH(bridge_line->socks_args, const char *, arg,
+                        log_debug(LD_CONFIG, "%d: %s", ++i, arg));
+    }
+  }
+
+  bridge_resolve_conflicts(&bridge_line->addr,
+                           bridge_line->port,
+                           bridge_line->digest,
+                           bridge_line->transport_name);
 
   b = tor_malloc_zero(sizeof(bridge_info_t));
-  tor_addr_copy(&b->addr, addr);
-  b->port = port;
-  if (digest)
-    memcpy(b->identity, digest, DIGEST_LEN);
-  if (transport_name)
-    b->transport_name = tor_strdup(transport_name);
+  tor_addr_copy(&b->addr, &bridge_line->addr);
+  b->port = bridge_line->port;
+  memcpy(b->identity, bridge_line->digest, DIGEST_LEN);
+  if (bridge_line->transport_name)
+    b->transport_name = bridge_line->transport_name;
   b->fetch_status.schedule = DL_SCHED_BRIDGE;
+  b->socks_args = bridge_line->socks_args;
   if (!bridge_list)
     bridge_list = smartlist_new();
+
+  tor_free(bridge_line); /* Deallocate bridge_line now. */
 
   smartlist_add(bridge_list, b);
 }
@@ -1857,7 +2110,7 @@ find_transport_name_by_bridge_addrport(const tor_addr_t *addr, uint16_t port)
  * transport, but the transport could not be found.
  */
 int
-find_transport_by_bridge_addrport(const tor_addr_t *addr, uint16_t port,
+get_transport_by_bridge_addrport(const tor_addr_t *addr, uint16_t port,
                                   const transport_t **transport)
 {
   *transport = NULL;
@@ -1884,11 +2137,21 @@ find_transport_by_bridge_addrport(const tor_addr_t *addr, uint16_t port,
   return 0;
 }
 
+/** Return a smartlist containing all the SOCKS arguments that we
+ *  should pass to the SOCKS proxy. */
+const smartlist_t *
+get_socks_args_by_bridge_addrport(const tor_addr_t *addr, uint16_t port)
+{
+  bridge_info_t *bridge = get_configured_bridge_by_addr_port_digest(addr,
+                                                                    port,
+                                                                    NULL);
+  return bridge ? bridge->socks_args : NULL;
+}
+
 /** We need to ask <b>bridge</b> for its server descriptor. */
 static void
 launch_direct_bridge_descriptor_fetch(bridge_info_t *bridge)
 {
-  char *address;
   const or_options_t *options = get_options();
 
   if (connection_get_by_type_addr_port_purpose(
@@ -1903,15 +2166,12 @@ launch_direct_bridge_descriptor_fetch(bridge_info_t *bridge)
     return;
   }
 
-  address = tor_dup_addr(&bridge->addr);
-
-  directory_initiate_command(address, &bridge->addr,
+  directory_initiate_command(&bridge->addr,
                              bridge->port, 0/*no dirport*/,
                              bridge->identity,
                              DIR_PURPOSE_FETCH_SERVERDESC,
                              ROUTER_PURPOSE_BRIDGE,
                              DIRIND_ONEHOP, "authority.z", NULL, 0, 0);
-  tor_free(address);
 }
 
 /** Fetching the bridge descriptor from the bridge authority returned a
@@ -2029,13 +2289,11 @@ rewrite_node_address_for_bridge(const bridge_info_t *bridge, node_t *node)
     } else {
       if (tor_addr_family(&bridge->addr) == AF_INET) {
         ri->addr = tor_addr_to_ipv4h(&bridge->addr);
-        tor_free(ri->address);
-        ri->address = tor_dup_ip(ri->addr);
         ri->or_port = bridge->port;
         log_info(LD_DIR,
                  "Adjusted bridge routerinfo for '%s' to match configured "
                  "address %s:%d.",
-                 ri->nickname, ri->address, ri->or_port);
+                 ri->nickname, fmt_addr32(ri->addr), ri->or_port);
       } else if (tor_addr_family(&bridge->addr) == AF_INET6) {
         tor_addr_copy(&ri->ipv6_addr, &bridge->addr);
         ri->ipv6_orport = bridge->port;
@@ -2093,7 +2351,7 @@ learned_bridge_descriptor(routerinfo_t *ri, int from_cache)
   tor_assert(ri);
   tor_assert(ri->purpose == ROUTER_PURPOSE_BRIDGE);
   if (get_options()->UseBridges) {
-    int first = !any_bridge_descriptors_known();
+    int first = num_bridges_usable() <= 1;
     bridge_info_t *bridge = get_configured_bridge_by_routerinfo(ri);
     time_t now = time(NULL);
     router_set_status(ri->cache_info.identity_digest, 1);
@@ -2107,6 +2365,13 @@ learned_bridge_descriptor(routerinfo_t *ri, int from_cache)
       node = node_get_mutable_by_id(ri->cache_info.identity_digest);
       tor_assert(node);
       rewrite_node_address_for_bridge(bridge, node);
+      if (tor_digest_is_zero(bridge->identity)) {
+        memcpy(bridge->identity,ri->cache_info.identity_digest, DIGEST_LEN);
+        log_notice(LD_DIR, "Learned identity %s for bridge at %s:%d",
+                   hex_str(bridge->identity, DIGEST_LEN),
+                   fmt_and_decorate_addr(&bridge->addr),
+                   (int) bridge->port);
+      }
       add_an_entry_guard(node, 1, 1, 0, 0);
 
       log_notice(LD_DIR, "new bridge descriptor '%s' (%s): %s", ri->nickname,
@@ -2115,14 +2380,15 @@ learned_bridge_descriptor(routerinfo_t *ri, int from_cache)
        * our entry node list */
       entry_guard_register_connect_status(ri->cache_info.identity_digest,
                                           1, 0, now);
-      if (first)
+      if (first) {
         routerlist_retry_directory_downloads(now);
+      }
     }
   }
 }
 
-/** Return 1 if any of our entry guards have descriptors that
- * are marked with purpose 'bridge' and are running. Else return 0.
+/** Return the number of bridges that have descriptors that
+ * are marked with purpose 'bridge' and are running.
  *
  * We use this function to decide if we're ready to start building
  * circuits through our bridges, or if we need to wait until the
@@ -2134,25 +2400,16 @@ any_bridge_descriptors_known(void)
   return choose_random_entry(NULL) != NULL;
 }
 
-/** Return 1 if there are any directory conns fetching bridge descriptors
- * that aren't marked for close. We use this to guess if we should tell
- * the controller that we have a problem. */
-int
-any_pending_bridge_descriptor_fetches(void)
+/** Return the number of bridges that have descriptors that are marked with
+ * purpose 'bridge' and are running.
+ */
+static int
+num_bridges_usable(void)
 {
-  smartlist_t *conns = get_connection_array();
-  SMARTLIST_FOREACH_BEGIN(conns, connection_t *, conn) {
-    if (conn->type == CONN_TYPE_DIR &&
-        conn->purpose == DIR_PURPOSE_FETCH_SERVERDESC &&
-        TO_DIR_CONN(conn)->router_purpose == ROUTER_PURPOSE_BRIDGE &&
-        !conn->marked_for_close &&
-        conn->linked &&
-        conn->linked_conn && !conn->linked_conn->marked_for_close) {
-      log_debug(LD_DIR, "found one: %s", conn->address);
-      return 1;
-    }
-  } SMARTLIST_FOREACH_END(conn);
-  return 0;
+  int n_options = 0;
+  tor_assert(get_options()->UseBridges);
+  (void) choose_random_entry_impl(NULL, 0, 0, &n_options);
+  return n_options;
 }
 
 /** Return 1 if we have at least one descriptor for an entry guard
@@ -2171,7 +2428,9 @@ entries_retry_helper(const or_options_t *options, int act)
   SMARTLIST_FOREACH_BEGIN(entry_guards, entry_guard_t *, e) {
       node = node_get_by_id(e->identity);
       if (node && node_has_descriptor(node) &&
-          node_is_bridge(node) == need_bridges) {
+          node_is_bridge(node) == need_bridges &&
+          (!need_bridges || (!e->bad_since &&
+                             node_is_a_configured_bridge(node)))) {
         any_known = 1;
         if (node->is_running)
           any_running = 1; /* some entry is both known and running */
@@ -2250,6 +2509,6 @@ entry_guards_free_all(void)
   clear_bridge_list();
   smartlist_free(bridge_list);
   bridge_list = NULL;
-  circuit_build_times_free_timeouts(&circ_times);
+  circuit_build_times_free_timeouts(get_circuit_build_times_mutable());
 }
 

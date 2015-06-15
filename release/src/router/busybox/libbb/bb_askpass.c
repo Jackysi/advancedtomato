@@ -30,9 +30,12 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	struct sigaction sa, oldsa;
 	struct termios tio, oldtio;
 
+	tcflush(fd, TCIFLUSH);
+	/* Was buggy: was printing prompt *before* flushing input,
+	 * which was upsetting "expect" based scripts of some users.
+	 */
 	fputs(prompt, stdout);
 	fflush_all();
-	tcflush(fd, TCIFLUSH);
 
 	tcgetattr(fd, &oldtio);
 	tio = oldtio;
@@ -65,7 +68,9 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	i = 0;
 	while (1) {
 		int r = read(fd, &ret[i], 1);
-		if (r < 0) {
+		if ((i == 0 && r == 0) /* EOF (^D) with no password */
+		 || r < 0
+		) {
 			/* read is interrupted by timeout or ^C */
 			ret = NULL;
 			break;

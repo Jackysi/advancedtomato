@@ -1602,7 +1602,7 @@ TomatoGrid.prototype = {
 
 						s += '<div class="checkbox c-checkbox"><label><input type="checkbox"' + common + attrib;
 						if ((which == 'edit') && (values[vi])) s += ' checked';
-						s += '><span class="icon-check"></span> </label></div>';
+						s += '><span></span> </label></div>';
 						break;
 					case 'textarea':
 						if (which == 'edit'){
@@ -2804,12 +2804,12 @@ function createFormFields (data, settings) {
 
 				case 'checkbox':
 					output += '<div class="checkbox c-checkbox"><label><input class="custom" type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>\
-					<span class="icon-check"></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
+					<span></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
 					break;
 
 				case 'radio':
 					output += '<div class="radio c-radio"><label><input class="custom" type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>\
-					<span class="icon-check"></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
+					<span></span> ' + (f.suffix ? f.suffix : '') + '</label></div>';
 					break;
 
 				case 'password':

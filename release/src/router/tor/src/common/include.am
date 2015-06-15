@@ -1,12 +1,22 @@
 
-noinst_LIBRARIES+= src/common/libor.a src/common/libor-crypto.a src/common/libor-event.a
+noinst_LIBRARIES += \
+	src/common/libor.a \
+	src/common/libor-crypto.a \
+	src/common/libor-event.a
+
+if UNITTESTS_ENABLED
+noinst_LIBRARIES += \
+	src/common/libor-testing.a \
+	src/common/libor-crypto-testing.a \
+	src/common/libor-event-testing.a
+endif
 
 EXTRA_DIST+= \
   src/common/common_sha1.i	\
   src/common/Makefile.nmake
 
 #CFLAGS  = -Wall -Wpointer-arith -O2
-AM_CPPFLAGS += -I$(srcdir)/src/common -Isrc/common
+AM_CPPFLAGS += -I$(srcdir)/src/common -Isrc/common -I$(srcdir)/src/ext/trunnel -I$(srcdir)/src/trunnel
 
 if USE_OPENBSD_MALLOC
 libor_extra_source=src/ext/OpenBSD_malloc_Linux.c
@@ -14,9 +24,13 @@ else
 libor_extra_source=
 endif
 
+src_common_libcurve25519_donna_a_CFLAGS=
+
 if BUILD_CURVE25519_DONNA
 src_common_libcurve25519_donna_a_SOURCES=\
 	src/ext/curve25519_donna/curve25519-donna.c
+src_common_libcurve25519_donna_a_CFLAGS+=\
+	@F_OMIT_FRAME_POINTER@
 noinst_LIBRARIES+=src/common/libcurve25519_donna.a
 LIBDONNA=src/common/libcurve25519_donna.a
 else
@@ -30,53 +44,92 @@ LIBDONNA=
 endif
 endif
 
-src_common_libcurve25519_donna_a_CFLAGS =
+LIBDONNA += $(LIBED25519_REF10)
 
-if CURVE25519_ENABLED
-libcrypto_extra_source=src/common/crypto_curve25519.c
+if THREADS_PTHREADS
+threads_impl_source=src/common/compat_pthreads.c
+endif
+if THREADS_WIN32
+threads_impl_source=src/common/compat_winthreads.c
 endif
 
-src_common_libor_a_SOURCES = \
+LIBOR_A_SOURCES = \
   src/common/address.c					\
+  src/common/backtrace.c				\
   src/common/compat.c					\
+  src/common/compat_threads.c				\
   src/common/container.c				\
   src/common/di_ops.c					\
   src/common/log.c					\
   src/common/memarea.c					\
-  src/common/mempool.c					\
-  src/common/procmon.c					\
   src/common/util.c					\
   src/common/util_codedigest.c				\
-  $(libor_extra_source)
+  src/common/util_process.c				\
+  src/common/sandbox.c					\
+  src/common/workqueue.c				\
+  src/ext/csiphash.c					\
+  src/ext/trunnel/trunnel.c				\
+  $(libor_extra_source)					\
+  $(threads_impl_source)
 
-src_common_libor_crypto_a_SOURCES = \
+LIBOR_CRYPTO_A_SOURCES = \
   src/common/aes.c		\
   src/common/crypto.c		\
+  src/common/crypto_pwbox.c     \
+  src/common/crypto_s2k.c	\
   src/common/crypto_format.c	\
   src/common/torgzip.c		\
   src/common/tortls.c		\
-  $(libcrypto_extra_source)
+  src/trunnel/pwbox.c		\
+  src/common/crypto_curve25519.c \
+  src/common/crypto_ed25519.c
 
-src_common_libor_event_a_SOURCES = src/common/compat_libevent.c
+LIBOR_EVENT_A_SOURCES = \
+	src/common/compat_libevent.c \
+	src/common/procmon.c
+
+src_common_libor_a_SOURCES = $(LIBOR_A_SOURCES)
+src_common_libor_crypto_a_SOURCES = $(LIBOR_CRYPTO_A_SOURCES)
+src_common_libor_event_a_SOURCES = $(LIBOR_EVENT_A_SOURCES)
+
+src_common_libor_testing_a_SOURCES = $(LIBOR_A_SOURCES)
+src_common_libor_crypto_testing_a_SOURCES = $(LIBOR_CRYPTO_A_SOURCES)
+src_common_libor_event_testing_a_SOURCES = $(LIBOR_EVENT_A_SOURCES)
+
+src_common_libor_testing_a_CPPFLAGS = -DTOR_UNIT_TESTS $(AM_CPPFLAGS)
+src_common_libor_crypto_testing_a_CPPFLAGS = -DTOR_UNIT_TESTS $(AM_CPPFLAGS)
+src_common_libor_event_testing_a_CPPFLAGS = -DTOR_UNIT_TESTS $(AM_CPPFLAGS)
+src_common_libor_testing_a_CFLAGS = $(AM_CFLAGS) $(TEST_CFLAGS)
+src_common_libor_crypto_testing_a_CFLAGS = $(AM_CFLAGS) $(TEST_CFLAGS)
+src_common_libor_event_testing_a_CFLAGS = $(AM_CFLAGS) $(TEST_CFLAGS)
 
 COMMONHEADERS = \
   src/common/address.h				\
+  src/common/backtrace.h			\
   src/common/aes.h				\
   src/common/ciphers.inc			\
   src/common/compat.h				\
   src/common/compat_libevent.h			\
+  src/common/compat_threads.h			\
   src/common/container.h			\
   src/common/crypto.h				\
   src/common/crypto_curve25519.h		\
+  src/common/crypto_ed25519.h			\
+  src/common/crypto_pwbox.h			\
+  src/common/crypto_s2k.h			\
   src/common/di_ops.h				\
   src/common/memarea.h				\
-  src/common/mempool.h				\
+  src/common/linux_syscalls.inc			\
   src/common/procmon.h				\
+  src/common/sandbox.h				\
+  src/common/testsupport.h			\
   src/common/torgzip.h				\
   src/common/torint.h				\
   src/common/torlog.h				\
   src/common/tortls.h				\
-  src/common/util.h
+  src/common/util.h				\
+  src/common/util_process.h			\
+  src/common/workqueue.h
 
 noinst_HEADERS+= $(COMMONHEADERS)
 

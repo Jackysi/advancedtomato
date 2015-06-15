@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.7" />
+<meta name="generator" content="AsciiDoc 8.6.8" />
 <title>tor-resolve(1)</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -87,10 +87,14 @@ ul, ol, li > p {
 ul > li     { color: #aaa; }
 ul > li > * { color: black; }
 
-pre {
+.monospaced, code, pre {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
   padding: 0;
   margin: 0;
 }
+
 
 #author {
   color: #527bbd;
@@ -415,12 +419,6 @@ div.unbreakable { page-break-inside: avoid; }
  *
  * */
 
-tt {
-  font-family: "Courier New", Courier, monospace;
-  font-size: inherit;
-  color: navy;
-}
-
 div.tableblock {
   margin-top: 1.0em;
   margin-bottom: 1.5em;
@@ -453,12 +451,6 @@ div.tableblock > table[frame="vsides"] {
  * html5 specific
  *
  * */
-
-.monospaced {
-  font-family: "Courier New", Courier, monospace;
-  font-size: inherit;
-  color: navy;
-}
 
 table.tableblock {
   margin-top: 1.0em;
@@ -539,6 +531,8 @@ body.manpage div.sectionbody {
 @media print {
   body.manpage div#toc { display: none; }
 }
+
+
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
@@ -751,7 +745,7 @@ tor-resolve(1) Manual Page
 <div class="sect1">
 <h2 id="_synopsis">SYNOPSIS</h2>
 <div class="sectionbody">
-<div class="paragraph"><p><strong>tor-resolve</strong> [-4|-5] [-v] [-x] <em>hostname</em> [<em>sockshost</em>[:<em>socksport</em>]]</p></div>
+<div class="paragraph"><p><strong>tor-resolve</strong> [-4|-5] [-v] [-x] [-p <em>socksport</em>] <em>hostname</em> [<em>sockshost</em>[:<em>socksport</em>]]</p></div>
 </div>
 </div>
 <div class="sect1">
@@ -801,6 +795,14 @@ port 9050.  If this isn&#8217;t what you want, you should specify an explicit
     support reverse DNS.
 </p>
 </dd>
+<dt class="hdlist1">
+<strong>-p</strong> <em>socksport</em>
+</dt>
+<dd>
+<p>
+    Override the default SOCKS port without setting the hostname.
+</p>
+</dd>
 </dl></div>
 </div>
 </div>
@@ -821,7 +823,7 @@ port 9050.  If this isn&#8217;t what you want, you should specify an explicit
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2013-06-05 21:24:12 EDT
+Last updated 2015-03-10 10:26:37 EDT
 </div>
 </div>
 </body>

@@ -2,7 +2,7 @@ dnl Helper macros for Tor configure.ac
 dnl Copyright (c) 2001-2004, Roger Dingledine
 dnl Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
 dnl Copyright (c) 2007-2008, Roger Dingledine, Nick Mathewson
-dnl Copyright (c) 2007-2013, The Tor Project, Inc.
+dnl Copyright (c) 2007-2015, The Tor Project, Inc.
 dnl See LICENSE for licensing information
 
 AC_DEFUN([TOR_EXTEND_CODEPATH],
@@ -43,6 +43,8 @@ AC_DEFUN([TOR_DEFINE_CODEPATH],
 ])
 
 dnl 1:flags
+dnl 2:also try to link (yes: non-empty string)
+dnl   will set yes or no in $tor_can_link_$1 (as modified by AS_VAR_PUSHDEF)
 AC_DEFUN([TOR_CHECK_CFLAGS], [
   AS_VAR_PUSHDEF([VAR],[tor_cv_cflags_$1])
   AC_CACHE_CHECK([whether the compiler accepts $1], VAR, [
@@ -51,6 +53,13 @@ AC_DEFUN([TOR_CHECK_CFLAGS], [
     AC_TRY_COMPILE([], [return 0;],
                    [AS_VAR_SET(VAR,yes)],
                    [AS_VAR_SET(VAR,no)])
+    if test x$2 != x; then
+      AS_VAR_PUSHDEF([can_link],[tor_can_link_$1])
+      AC_TRY_LINK([], [return 0;],
+                  [AS_VAR_SET(can_link,yes)],
+                  [AS_VAR_SET(can_link,no)])
+      AS_VAR_POPDEF([can_link])
+    fi
     CFLAGS="$tor_saved_CFLAGS"
   ])
   if test x$VAR = xyes; then
@@ -106,7 +115,7 @@ if test -f /etc/fedora-release && test x"$tor_$1_$2_redhat" != x; then
   fi 
 else
   if test -f /etc/redhat-release && test x"$tor_$1_$2_redhat" != x; then
-    AC_WARN([On most Redhat-based systems, you can get$h $1 by installing the $tor_$1_$2_redhat" RPM package])
+    AC_WARN([On most Redhat-based systems, you can get$h $1 by installing the $tor_$1_$2_redhat RPM package])
     if test x"$tor_$1_$2_redhat" != x"$tor_$1_devpkg_redhat"; then 
       AC_WARN([   You will probably need to install $tor_$1_devpkg_redhat too.])
     fi 

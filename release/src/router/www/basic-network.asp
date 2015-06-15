@@ -1602,6 +1602,7 @@ No part of this file may be used without permission.
 						/* LINUX26-BEGIN */
 						/* USB-BEGIN */
 						['ppp3g','3G Modem'],
+						['lte','4G/LTE'],
 						/* USB-END */
 						/* LINUX26-END */
 						['disabled','Disabled']],

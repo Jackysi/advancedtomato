@@ -198,6 +198,7 @@ small { font-size: 80%; }
 .top-header > .links > ul > li > a:hover,
 .top-header > .links > ul > li a.active {
 	color: #000;
+	background: rgba(0, 0, 0, 0.02);
 	border-color: #3498DB;
 }
 
@@ -686,6 +687,10 @@ table {
 	display: table;
 	width: 100%;
 	margin: 0;
+}
+
+table th {
+	font-weight: 500;
 }
 
 /* Nice Lined Tables */
@@ -1192,13 +1197,13 @@ input, select, textarea {
 	-webkit-border-radius: 2px;
 }
 
+input:hover, select:hover, textarea:hover {
+	border-color: #d1e5f2;
+}
+
 input:focus, select:focus, textarea:focus {
 	color: #000;
 	background: #fff;
-	border-color: #3498DB;
-}
-
-input:hover, select:hover, textarea:hover {
 	border-color: #3498DB;
 }
 
@@ -1216,10 +1221,12 @@ textarea { resize:vertical !important; }
 	display: inline-block;
 	margin: 5px 2px 0;
 }
+
 .c-checkbox *,
 .c-radio * {
 	cursor: pointer;
 }
+
 .c-checkbox input,
 .c-radio input {
 	opacity: 0;
@@ -1227,6 +1234,7 @@ textarea { resize:vertical !important; }
 	position: absolute;
 	margin-left: 0 !important;
 }
+
 .c-checkbox span,
 .c-radio span {
 	position: relative;
@@ -1241,6 +1249,7 @@ textarea { resize:vertical !important; }
 	-webkit-transition: all 0.15s ease-out;
 	vertical-align: middle;
 }
+
 .c-checkbox:hover span,
 .c-checkbox input:hover + span,
 .c-radio:hover span,
@@ -1253,10 +1262,13 @@ textarea { resize:vertical !important; }
 .c-radio span {
 	border-radius: 50%;
 }
+
 /* the icon */
 .c-checkbox span:before,
 .c-radio span:before {
 	position: absolute;
+	font-family: "advancedtomato" !important;
+	content: "\e006";
 	top: 0;
 	left: 0;
 	right: 0;
@@ -1267,17 +1279,24 @@ textarea { resize:vertical !important; }
 	line-height: 18px;
 	vertical-align: middle;
 }
+
 /* Checked state */
 input[type=checkbox]:checked + span:before,
 input[type=radio]:checked + span:before {
 	color: #fff;
 	opacity: 1;
 }
+
 input[type=checkbox]:checked + span,
 input[type=radio]:checked + span {
 	border-color: #3498db;
 	background-color: #3498db;
 }
+
+input[type=radio]:checked + span {
+	background-color: transparent !important;
+}
+
 /* override for radio */
 input[type=radio]:checked + span {
 	background-color: #fff;

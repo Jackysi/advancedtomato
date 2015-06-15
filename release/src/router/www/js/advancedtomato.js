@@ -129,7 +129,7 @@ function AdvancedTomato () {
 		if (n < lastUpdate || n == null) {
 
 			$updateNotification = $('<div class="alert alert-info icon"><a href="#" class="close" data-update="' + nvram.at_update.replace('.','') + '"><i class="icon-cancel"></i></a>\
-				<h5>Update Available!</h5>AdvancedTomato update <b>v' + nvram.at_update + '</b> has been released. <a target="_blank" href="http://advancedtomato.com/changelog/">Click here to find out more</a>.</div>');
+				<h5>Update Available!</h5>AdvancedTomato update <b>v' + nvram.at_update + '</b> has been released. <a target="_blank" href="https://advancedtomato.com/">Click here to find out more</a>.</div>');
 
 			$($updateNotification).find('.close').on('click', function() {
 				if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }

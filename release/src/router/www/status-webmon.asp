@@ -15,7 +15,7 @@ No part of this file may be used without permission.
 		}
 		#webmon-controls .selected {
 			padding: 0 0px 0 4px;
-			font-weight: bold;
+			font-weight: 500;
 			text-decoration: underline;
 		}
 

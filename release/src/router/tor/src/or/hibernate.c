@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -239,8 +239,8 @@ accounting_parse_options(const or_options_t *options, int validate_only)
 /** If we want to manage the accounting system and potentially
  * hibernate, return 1, else return 0.
  */
-int
-accounting_is_enabled(const or_options_t *options)
+MOCK_IMPL(int,
+accounting_is_enabled,(const or_options_t *options))
 {
   if (options->AccountingMax)
     return 1;
@@ -253,6 +253,13 @@ int
 accounting_get_interval_length(void)
 {
   return (int)(interval_end_time - interval_start_time);
+}
+
+/** Return the time at which the current accounting interval will end. */
+MOCK_IMPL(time_t,
+accounting_get_end_time,(void))
+{
+  return interval_end_time;
 }
 
 /** Called from main.c to tell us that <b>seconds</b> seconds have
@@ -403,6 +410,17 @@ configure_accounting(time_t now)
   accounting_set_wakeup_time();
 }
 
+/** Return the relevant number of bytes sent/received this interval
+ * based on the set AccountingRule */
+static uint64_t
+get_accounting_bytes(void)
+{
+  if (get_options()->AccountingRule == ACCT_SUM)
+    return n_bytes_read_in_interval+n_bytes_written_in_interval;
+  else
+    return MAX(n_bytes_read_in_interval, n_bytes_written_in_interval);
+}
+
 /** Set expected_bandwidth_usage based on how much we sent/received
  * per minute last interval (if we were up for at least 30 minutes),
  * or based on our declared bandwidth otherwise. */
@@ -414,6 +432,11 @@ update_expected_bandwidth(void)
   uint64_t max_configured = (options->RelayBandwidthRate > 0 ?
                              options->RelayBandwidthRate :
                              options->BandwidthRate) * 60;
+  /* max_configured is the larger of bytes read and bytes written
+   * If we are accounting based on sum, worst case is both are
+   * at max, doubling the expected sum of bandwidth */
+  if (get_options()->AccountingRule == ACCT_SUM)
+    max_configured *= 2;
 
 #define MIN_TIME_FOR_MEASUREMENT (1800)
 
@@ -432,8 +455,7 @@ update_expected_bandwidth(void)
      * doesn't know to store soft-limit info.  Just take rate at which
      * we were reading/writing in the last interval as our expected rate.
      */
-    uint64_t used = MAX(n_bytes_written_in_interval,
-                        n_bytes_read_in_interval);
+    uint64_t used = get_accounting_bytes();
     expected = used / (n_seconds_active_in_interval / 60);
   } else {
     /* If we haven't gotten enough data last interval, set 'expected'
@@ -641,7 +663,15 @@ read_bandwidth_usage(void)
 
   {
     char *fname = get_datadir_fname("bw_accounting");
-    unlink(fname);
+    int res;
+
+    res = unlink(fname);
+    if (res != 0) {
+      log_warn(LD_FS,
+               "Failed to unlink %s: %s",
+               fname, strerror(errno));
+    }
+
     tor_free(fname);
   }
 
@@ -700,8 +730,7 @@ hibernate_hard_limit_reached(void)
   uint64_t hard_limit = get_options()->AccountingMax;
   if (!hard_limit)
     return 0;
-  return n_bytes_read_in_interval >= hard_limit
-    || n_bytes_written_in_interval >= hard_limit;
+  return get_accounting_bytes() >= hard_limit;
 }
 
 /** Return true iff we have sent/received almost all the bytes we are willing
@@ -732,8 +761,7 @@ hibernate_soft_limit_reached(void)
 
   if (!soft_limit)
     return 0;
-  return n_bytes_read_in_interval >= soft_limit
-    || n_bytes_written_in_interval >= soft_limit;
+  return get_accounting_bytes() >= soft_limit;
 }
 
 /** Called when we get a SIGINT, or when bandwidth soft limit is
@@ -757,8 +785,7 @@ hibernate_begin(hibernate_state_t new_state, time_t now)
       hibernate_state == HIBERNATE_STATE_LIVE) {
     soft_limit_hit_at = now;
     n_seconds_to_hit_soft_limit = n_seconds_active_in_interval;
-    n_bytes_at_soft_limit = MAX(n_bytes_read_in_interval,
-                                n_bytes_written_in_interval);
+    n_bytes_at_soft_limit = get_accounting_bytes();
   }
 
   /* close listeners. leave control listener(s). */
@@ -808,8 +835,8 @@ hibernate_begin_shutdown(void)
 }
 
 /** Return true iff we are currently hibernating. */
-int
-we_are_hibernating(void)
+MOCK_IMPL(int,
+we_are_hibernating,(void))
 {
   return hibernate_state != HIBERNATE_STATE_LIVE;
 }
@@ -988,13 +1015,22 @@ getinfo_helper_accounting(control_connection_t *conn,
                  U64_PRINTF_ARG(n_bytes_written_in_interval));
   } else if (!strcmp(question, "accounting/bytes-left")) {
     uint64_t limit = get_options()->AccountingMax;
-    uint64_t read_left = 0, write_left = 0;
-    if (n_bytes_read_in_interval < limit)
-      read_left = limit - n_bytes_read_in_interval;
-    if (n_bytes_written_in_interval < limit)
-      write_left = limit - n_bytes_written_in_interval;
-    tor_asprintf(answer, U64_FORMAT" "U64_FORMAT,
-                 U64_PRINTF_ARG(read_left), U64_PRINTF_ARG(write_left));
+    if (get_options()->AccountingRule == ACCT_SUM) {
+      uint64_t total_left = 0;
+      uint64_t total_bytes = get_accounting_bytes();
+      if (total_bytes < limit)
+        total_left = limit - total_bytes;
+      tor_asprintf(answer, U64_FORMAT" "U64_FORMAT,
+                   U64_PRINTF_ARG(total_left), U64_PRINTF_ARG(total_left));
+    } else {
+      uint64_t read_left = 0, write_left = 0;
+      if (n_bytes_read_in_interval < limit)
+        read_left = limit - n_bytes_read_in_interval;
+      if (n_bytes_written_in_interval < limit)
+        write_left = limit - n_bytes_written_in_interval;
+      tor_asprintf(answer, U64_FORMAT" "U64_FORMAT,
+                   U64_PRINTF_ARG(read_left), U64_PRINTF_ARG(write_left));
+    }
   } else if (!strcmp(question, "accounting/interval-start")) {
     *answer = tor_malloc(ISO_TIME_LEN+1);
     format_iso_time(*answer, interval_start_time);
@@ -1010,6 +1046,7 @@ getinfo_helper_accounting(control_connection_t *conn,
   return 0;
 }
 
+#ifdef TOR_UNIT_TESTS
 /**
  * Manually change the hibernation state.  Private; used only by the unit
  * tests.
@@ -1019,4 +1056,5 @@ hibernate_set_state_for_testing_(hibernate_state_t newstate)
 {
   hibernate_state = newstate;
 }
+#endif
 

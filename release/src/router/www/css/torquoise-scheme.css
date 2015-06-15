@@ -42,12 +42,12 @@ ul.nav-tabs li a.active {
 	border-color: #16a085;
 }
 
-/* Input */
-input:focus, select:focus, textarea:focus {
-	border-color: #16a085;
+/* Inputs */
+input:hover, select:hover, textarea:hover {
+	border-color: #dfefec;
 }
 
-input:hover, select:hover, textarea:hover {
+input:focus, select:focus, textarea:focus {
 	border-color: #16a085;
 }
 

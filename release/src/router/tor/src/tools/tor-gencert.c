@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2013, The Tor Project, Inc. */
+/* Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -27,8 +27,6 @@
 #include <assert.h>
 #endif
 
-#define CRYPTO_PRIVATE
-
 #include "compat.h"
 #include "../common/util.h"
 #include "../common/torlog.h"
@@ -36,7 +34,7 @@
 #include "address.h"
 
 #define IDENTITY_KEY_BITS 3072
-#define SIGNING_KEY_BITS 1024
+#define SIGNING_KEY_BITS 2048
 #define DEFAULT_LIFETIME 12
 
 /* These globals are set via command line options. */
@@ -136,17 +134,29 @@ parse_commandline(int argc, char **argv)
         fprintf(stderr, "No argument to -i\n");
         return 1;
       }
+      if (identity_key_file) {
+        fprintf(stderr, "Duplicate values for -i\n");
+        return -1;
+      }
       identity_key_file = tor_strdup(argv[++i]);
     } else if (!strcmp(argv[i], "-s")) {
       if (i+1>=argc) {
         fprintf(stderr, "No argument to -s\n");
         return 1;
       }
+      if (signing_key_file) {
+        fprintf(stderr, "Duplicate values for -s\n");
+        return -1;
+      }
       signing_key_file = tor_strdup(argv[++i]);
     } else if (!strcmp(argv[i], "-c")) {
       if (i+1>=argc) {
         fprintf(stderr, "No argument to -c\n");
         return 1;
+      }
+      if (certificate_file) {
+        fprintf(stderr, "Duplicate values for -c\n");
+        return -1;
       }
       certificate_file = tor_strdup(argv[++i]);
     } else if (!strcmp(argv[i], "-m")) {
@@ -304,6 +314,7 @@ load_identity_key(void)
     if (!identity_key) {
       log_err(LD_GENERAL, "Couldn't read identity key from %s",
               identity_key_file);
+      fclose(f);
       return 1;
     }
     fclose(f);
@@ -324,6 +335,7 @@ load_signing_key(void)
   }
   if (!(signing_key = PEM_read_PrivateKey(f, NULL, NULL, NULL))) {
     log_err(LD_GENERAL, "Couldn't read siging key from %s", signing_key_file);
+    fclose(f);
     return 1;
   }
   fclose(f);
@@ -513,7 +525,7 @@ int
 main(int argc, char **argv)
 {
   int r = 1;
-  init_logging();
+  init_logging(1);
 
   /* Don't bother using acceleration. */
   if (crypto_global_init(0, NULL, NULL)) {
@@ -549,6 +561,9 @@ main(int argc, char **argv)
   if (signing_key)
     EVP_PKEY_free(signing_key);
   tor_free(address);
+  tor_free(identity_key_file);
+  tor_free(signing_key_file);
+  tor_free(certificate_file);
 
   crypto_global_cleanup();
   return r;

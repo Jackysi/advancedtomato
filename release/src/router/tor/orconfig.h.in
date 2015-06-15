@@ -9,23 +9,14 @@
 /* tor's configuration directory */
 #undef CONFDIR
 
-/* Defined if we have a curve25519 implementation */
-#undef CURVE25519_ENABLED
-
-/* Enable dmalloc's malloc function check */
-#undef DMALLOC_FUNC_CHECK
+/* Defined if we're not going to look for a torrc in SYSCONF */
+#undef DISABLE_SYSTEM_TORRC
 
 /* Define to 1 iff memset(0) sets doubles to 0.0 */
 #undef DOUBLE_0_REP_IS_ZERO_BYTES
 
-/* Defined if we try to use freelists for buffer RAM chunks */
-#undef ENABLE_BUF_FREELISTS
-
 /* Defined if we default to host local appdata paths on Windows */
 #undef ENABLE_LOCAL_APPDATA
-
-/* Defined if we will try to use multithreading */
-#undef ENABLE_THREADS
 
 /* Define if enum is always signed */
 #undef ENUM_VALS_ARE_SIGNED
@@ -48,6 +39,12 @@
 /* Define to 1 if you have the <assert.h> header file. */
 #undef HAVE_ASSERT_H
 
+/* Define to 1 if you have the `backtrace' function. */
+#undef HAVE_BACKTRACE
+
+/* Define to 1 if you have the `backtrace_symbols_fd' function. */
+#undef HAVE_BACKTRACE_SYMBOLS_FD
+
 /* Define to 1 if you have the `clock_gettime' function. */
 #undef HAVE_CLOCK_GETTIME
 
@@ -57,6 +54,9 @@
 /* Define to 1 if you have the <crypto_scalarmult_curve25519.h> header file.
    */
 #undef HAVE_CRYPTO_SCALARMULT_CURVE25519_H
+
+/* Define to 1 if you have the <cygwin/signal.h> header file. */
+#undef HAVE_CYGWIN_SIGNAL_H
 
 /* Define to 1 if you have the declaration of `mlockall', and to 0 if you
    don't. */
@@ -74,9 +74,6 @@
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
 
-/* Define to 1 if you have the `evdns_set_outgoing_bind_address' function. */
-#undef HAVE_EVDNS_SET_OUTGOING_BIND_ADDRESS
-
 /* Define to 1 if you have the <event2/bufferevent_ssl.h> header file. */
 #undef HAVE_EVENT2_BUFFEREVENT_SSL_H
 
@@ -85,6 +82,9 @@
 
 /* Define to 1 if you have the <event2/event.h> header file. */
 #undef HAVE_EVENT2_EVENT_H
+
+/* Define to 1 if you have the `eventfd' function. */
+#undef HAVE_EVENTFD
 
 /* Define to 1 if you have the `event_base_loopexit' function. */
 #undef HAVE_EVENT_BASE_LOOPEXIT
@@ -100,6 +100,16 @@
 
 /* Define to 1 if you have the `event_set_log_callback' function. */
 #undef HAVE_EVENT_SET_LOG_CALLBACK
+
+/* Define to 1 if you have the `evutil_secure_rng_init' function. */
+#undef HAVE_EVUTIL_SECURE_RNG_INIT
+
+/* Define to 1 if you have the `evutil_secure_rng_set_urandom_device_file'
+   function. */
+#undef HAVE_EVUTIL_SECURE_RNG_SET_URANDOM_DEVICE_FILE
+
+/* Define to 1 if you have the <execinfo.h> header file. */
+#undef HAVE_EXECINFO_H
 
 /* Defined if we have extern char **environ already declared */
 #undef HAVE_EXTERN_ENVIRON_DECLARED
@@ -164,11 +174,21 @@
 /* Define to 1 if you have the `issetugid' function. */
 #undef HAVE_ISSETUGID
 
+/* Define to 1 if you have the <libscrypt.h> header file. */
+#undef HAVE_LIBSCRYPT_H
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
+/* Define to 1 if you have the <linux/if.h> header file. */
+#undef HAVE_LINUX_IF_H
+
 /* Define to 1 if you have the <linux/netfilter_ipv4.h> header file. */
 #undef HAVE_LINUX_NETFILTER_IPV4_H
+
+/* Define to 1 if you have the <linux/netfilter_ipv6/ip6_tables.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_IPV6_IP6_TABLES_H
 
 /* Define to 1 if you have the <linux/types.h> header file. */
 #undef HAVE_LINUX_TYPES_H
@@ -234,11 +254,20 @@
 /* Define to 1 if you have the <net/pfvar.h> header file. */
 #undef HAVE_NET_PFVAR_H
 
+/* Define to 1 if you have the `pipe' function. */
+#undef HAVE_PIPE
+
+/* Define to 1 if you have the `pipe2' function. */
+#undef HAVE_PIPE2
+
 /* Define to 1 if you have the `prctl' function. */
 #undef HAVE_PRCTL
 
 /* Define to 1 if you have the `pthread_create' function. */
 #undef HAVE_PTHREAD_CREATE
+
+/* Define to 1 if you have the `pthread_condattr_setclock' function. */
+#undef HAVE_PTHREAD_CONDATTR_SETCLOCK
 
 /* Define to 1 if you have the <pthread.h> header file. */
 #undef HAVE_PTHREAD_H
@@ -254,6 +283,12 @@
 
 /* Define to 1 if the system has the type `sa_family_t'. */
 #undef HAVE_SA_FAMILY_T
+
+/* Define to 1 if you have the <seccomp.h> header file. */
+#undef HAVE_SECCOMP_H
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
 
 /* Define to 1 if you have the <signal.h> header file. */
 #undef HAVE_SIGNAL_H
@@ -281,6 +316,9 @@
 
 /* Define to 1 if you have the `strlcpy' function. */
 #undef HAVE_STRLCPY
+
+/* Define to 1 if you have the `strnlen' function. */
+#undef HAVE_STRNLEN
 
 /* Define to 1 if you have the `strptime' function. */
 #undef HAVE_STRPTIME
@@ -312,14 +350,30 @@
 /* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
 #undef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 
+/* Define to 1 if `get_cipher_by_char' is a member of `struct ssl_method_st'.
+   */
+#undef HAVE_STRUCT_SSL_METHOD_ST_GET_CIPHER_BY_CHAR
+
 /* Define to 1 if `tv_sec' is a member of `struct timeval'. */
 #undef HAVE_STRUCT_TIMEVAL_TV_SEC
 
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
 
+/* Define to 1 if you have the `sysctl' function. */
+#undef HAVE_SYSCTL
+
 /* Define to 1 if you have the <syslog.h> header file. */
 #undef HAVE_SYSLOG_H
+
+/* Have systemd */
+#undef HAVE_SYSTEMD
+
+/* Have systemd v209 or more */
+#undef HAVE_SYSTEMD_209
+
+/* Define to 1 if you have the <sys/eventfd.h> header file. */
+#undef HAVE_SYS_EVENTFD_H
 
 /* Define to 1 if you have the <sys/fcntl.h> header file. */
 #undef HAVE_SYS_FCNTL_H
@@ -345,11 +399,17 @@
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
 
+/* Define to 1 if you have the <sys/select.h> header file. */
+#undef HAVE_SYS_SELECT_H
+
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #undef HAVE_SYS_SOCKET_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#undef HAVE_SYS_SYSCTL_H
 
 /* Define to 1 if you have the <sys/syslimits.h> header file. */
 #undef HAVE_SYS_SYSLIMITS_H
@@ -359,6 +419,9 @@
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/ucontext.h> header file. */
+#undef HAVE_SYS_UCONTEXT_H
 
 /* Define to 1 if you have the <sys/un.h> header file. */
 #undef HAVE_SYS_UN_H
@@ -372,6 +435,9 @@
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
 
+/* Define to 1 if you have the <ucontext.h> header file. */
+#undef HAVE_UCONTEXT_H
+
 /* Define to 1 if the system has the type `uint'. */
 #undef HAVE_UINT
 
@@ -380,6 +446,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `usleep' function. */
+#undef HAVE_USLEEP
 
 /* Define to 1 if you have the <utime.h> header file. */
 #undef HAVE_UTIME_H
@@ -415,9 +484,6 @@
 /* Define to 1 if we are building with nat-pmp. */
 #undef NAT_PMP
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
-
 /* Define to 1 iff memset(0) sets pointers to NULL */
 #undef NULL_REP_IS_ZERO_BYTES
 
@@ -444,6 +510,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* How to access the PC from a struct ucontext */
+#undef PC_FROM_UCONTEXT
 
 /* Define to 1 iff right-shifting a negative value performs sign-extension */
 #undef RSHIFT_DOES_SIGN_EXTEND

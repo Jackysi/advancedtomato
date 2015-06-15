@@ -88,7 +88,7 @@ No part of this file may be used without permission.
 
 			}
 			else if (data[6] != '') {
-				b.push('L7: ' + data[6])
+				b.push('L7: ' + data[6]);
 			}
 
 			if (data[9] != '') {

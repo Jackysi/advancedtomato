@@ -60,6 +60,7 @@ void start_vpnclient(int clientNum)
 	long int nvl;
 	int pid;
 	int userauth, useronly;
+	int i;
 
 	sprintf(&buffer[0], "vpnclient%d", clientNum);
 	if (getpid() != 1) {
@@ -386,10 +387,25 @@ void start_vpnclient(int clientNum)
 		fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		if ( routeMode == NAT )
 		{
+			// Add the nat for the main lan addresses
 			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
 			fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
-			        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+				ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+
+			// Add the nat for other bridges, too
+			for(i=1; i < 4; i++) {
+				int ret1, ret2;
+
+				sprintf(&buffer[0],"lan%d_ipaddr",i);
+				ret1 = sscanf(nvram_safe_get(&buffer[0]), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+				sprintf(&buffer[0],"lan%d_netmask",i);
+				ret2 = sscanf(nvram_safe_get(&buffer[0]), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
+				if (ret1 == 4 && ret2 == 4) {
+					fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
+			        		ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+				}
+			}
 		}
 		fclose(fp);
 		vpnlog(VPN_LOG_EXTRA,"Done creating firewall rules");
@@ -417,6 +433,15 @@ void start_vpnclient(int clientNum)
 		argv[4] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
+	}
+
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "1" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "start");
+	} else {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
 	}
 
 #ifdef LINUX26
@@ -500,6 +525,12 @@ void stop_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+	sprintf(&buffer[0], "vpn_client%d_route", clientNum);
+	if ( nvram_match(&buffer[0], "0" )) {
+		sprintf(&buffer[0], "client%d", clientNum);
+		xstart ("vpnrouting", &buffer[0], "stop");
+	}
+
 #ifdef LINUX26
 	sprintf(&buffer[0], "vpn_client%d", clientNum);
 	allow_fastnat(buffer, 1);
@@ -515,6 +546,7 @@ void start_vpnserver(int serverNum)
 	char buffer[BUF_SIZE];
 	char buffer2[BUF_SIZE];
 	char *argv[6], *chp, *route;
+	char *br_ipaddr, *br_netmask;
 	int argc = 0;
 	int c2c = 0;
 	enum { TAP, TUN } ifType = TUN;
@@ -643,8 +675,23 @@ void start_vpnserver(int serverNum)
 			sprintf(&buffer[0], "vpn_server%d_dhcp", serverNum);
 			if ( nvram_get_int(&buffer[0]) == 0 )
 			{
-				fprintf(fp, " %s ", nvram_safe_get("lan_ipaddr"));
-				fprintf(fp, "%s ", nvram_safe_get("lan_netmask"));
+				sprintf(&buffer2[0], "vpn_server%d_br", serverNum);
+				if (nvram_contains_word(&buffer2[0], "br1") ) {
+					br_ipaddr = nvram_get( "lan1_ipaddr" );
+					br_netmask = nvram_get( "lan1_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br2") ) {
+					br_ipaddr = nvram_get( "lan2_ipaddr" );
+					br_netmask = nvram_get( "lan2_netmask" );
+				} else if (nvram_contains_word(&buffer2[0], "br3") ) {
+					br_ipaddr = nvram_get( "lan3_ipaddr" );
+					br_netmask = nvram_get( "lan3_netmask" );
+				} else {
+					br_ipaddr = nvram_get( "lan_ipaddr" );
+					br_netmask = nvram_get( "lan_netmask" );
+				}
+
+				fprintf(fp, " %s ", br_ipaddr);
+				fprintf(fp, "%s ", br_netmask);
 				sprintf(&buffer[0], "vpn_server%d_r1", serverNum);
 				fprintf(fp, "%s ", nvram_safe_get(&buffer[0]));
 				sprintf(&buffer[0], "vpn_server%d_r2", serverNum);

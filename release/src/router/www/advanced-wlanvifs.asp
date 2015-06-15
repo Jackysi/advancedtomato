@@ -400,7 +400,7 @@ LAN Access admin module by Augusto Bott
 			//		wl_enc_modes_available.push([mode, enc[mode]]);
 			//	}
 
-			//wl_ifaces = [ ['eth1','0',0,-1,'bott','00:1C:10:9E:8C:8E',1,4],['wl0.1','0.1',0,1,'ghetto','02:1C:10:9E:8C:8F',1,0],
+			//wl_ifaces = [ ['eth1','0',0,-1,'bott','00:1C:10:9E:8C:8E',1,4],['wl0.1','0.1',0,1,'ghetto','02:1C:10:9E:8C:8F',1,0], 
 			//				['eth2','1',1,-1,'lixo','04:1C:10:9E:8C:8E',1,4]];
 			//wl_bands = [ [ '2'],[ '2'],[ '2'] ];
 			/* REMOVE-END */
@@ -444,7 +444,7 @@ LAN Access admin module by Augusto Bott
 				}
 			}
 
-			W('<style type=\'text/css\'>');
+			var writehtml = '<style type="text/css">';
 			for (var uidx in vifs_defined) {
 				if (typeof(vifs_defined[uidx][0]) == 'undefined') continue;
 
@@ -452,7 +452,7 @@ LAN Access admin module by Augusto Bott
 				if (isNaN(total)) continue;
 				if (total >= 4) total = 4;
 
-				W('#spin'+vifs_defined[uidx][2]+', ');
+				writehtml += '#spin'+vifs_defined[uidx][2]+', ';
 
 				for (var i = 0; i < total; ++i) {
 					var u = vifs_defined[uidx][2].toString();
@@ -465,11 +465,13 @@ LAN Access admin module by Augusto Bott
 				}
 			}
 
-			W('#spin {');
-			W('	visibility: hidden;');
-			W('	vertical-align: middle;');
-			W('}');
-			W('</style>');
+			writehtml += '#spin {';
+			writehtml += '	visibility: hidden;';
+			writehtml += '	vertical-align: middle;';
+			writehtml += '}';
+			writehtml += '</style>';
+
+			$('.container .ajaxwrap').append(writehtml);
 
 		}
 
@@ -838,8 +840,8 @@ LAN Access admin module by Augusto Bott
 					i = 3;
 					if (a.substr(0, 6) == '_f_wl_') i = 5;
 					b = E(a.substr(0, i) + u + a.substr(i, a.length));
-					if (b == null) { continue; }
 					c = wl_vis[vidx][a];
+					if (b == null) console.log(a.substr(0, i) + u + a.substr(i, a.length));
 					b.disabled = (c != 1);
 					PR(b).style.display = c ? '' : 'none';
 				}
@@ -1360,7 +1362,7 @@ LAN Access admin module by Augusto Bott
 				</script>
 				<!-- LINUX24-END -->
 
-				<h4>Notes <a href="javascript:toggleVisibility('notes');"><span id="sesdivnotesshowhide"><i class="icon-chevron-up"></i></span></a></h4>
+				<h4><a href="javascript:toggleVisibility('notes');">Notes <span id="sesdivnotesshowhide"><i class="icon-chevron-up"></i></span></a></h4>
 				<div class="section" id="sesdivnotes" style="display:none">
 
 					<ul>
@@ -1381,7 +1383,7 @@ LAN Access admin module by Augusto Bott
 						<li><b>Other relevant notes/hints:</b>
 						<ul>
 							<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
-							<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
+							<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=#advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
 							<li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
 							<li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a class="ajaxload" href="basic-network.asp">Basic/Network</a> page instead).</li>
 						</ul>
@@ -1398,49 +1400,49 @@ LAN Access admin module by Augusto Bott
 					var uidx = wl_ifidxx(t);
 					var u = t;
 
-					htmlOut += ('<div id="'+t+'-tab-disabled">');
-					htmlOut += ('<br>');
-					htmlOut += ('VIF ' + tabs[i][1] + ' is not defined. <br /><br />');
-					htmlOut += ('</div>');
+					htmlOut += '<div id="'+t+'-tab-disabled">';
+					htmlOut += '<br>';
+					htmlOut += 'VIF ' + tabs[i][1] + ' is not defined. <br /><br />';
+					htmlOut += '</div>';
 
-					htmlOut += ('<div id="'+t+'-tab">');
-					htmlOut += ('<br>');
+					htmlOut += '<div id="'+t+'-tab">';
+					htmlOut += '<br>';
 
 					// common to all VIFs
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_radio"       name="wl'+u+'_radio"       >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_mode"        name="wl'+u+'_mode"        >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_closed"      name="wl'+u+'_closed"      >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_key"         name="wl'+u+'_key"         >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_akm"         name="wl'+u+'_akm"         >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_auth_mode"   name="wl'+u+'_auth_mode"   >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_wep"         name="wl'+u+'_wep"         >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_auth"        name="wl'+u+'_auth"        >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_bss_enabled" name="wl'+u+'_bss_enabled" >');
-					htmlOut += ('<input type="hidden" id="_wl'+u+'_ifname"      name="wl'+u+'_ifname"      >');
+					htmlOut += '<input type="hidden" id="_wl'+u+'_radio"       name="wl'+u+'_radio"       >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_mode"        name="wl'+u+'_mode"        >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_closed"      name="wl'+u+'_closed"      >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_key"         name="wl'+u+'_key"         >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_akm"         name="wl'+u+'_akm"         >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_auth_mode"   name="wl'+u+'_auth_mode"   >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_wep"         name="wl'+u+'_wep"         >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_auth"        name="wl'+u+'_auth"        >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_bss_enabled" name="wl'+u+'_bss_enabled" >';
+					htmlOut += '<input type="hidden" id="_wl'+u+'_ifname"      name="wl'+u+'_ifname"      >';
 
 					// only if primary VIF
 					if (u.toString().indexOf('.') < 0) {
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nband"      name="wl'+u+'_nband"      >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_wds_enable" name="wl'+u+'_wds_enable" >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_wds"        name="wl'+u+'_wds"        >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_lazywds"    name="wl'+u+'_lazywds"    >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_gmode"      name="wl'+u+'_gmode"      >');
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nband"      name="wl'+u+'_nband"      >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_wds_enable" name="wl'+u+'_wds_enable" >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_wds"        name="wl'+u+'_wds"        >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_lazywds"    name="wl'+u+'_lazywds"    >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_gmode"      name="wl'+u+'_gmode"      >';
 
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nmode"      name="wl'+u+'_nmode"      >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nmcsidx"    name="wl'+u+'_nmcsidx"    >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nreqd"      name="wl'+u+'_nreqd"      >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nctrlsb"    name="wl'+u+'_nctrlsb"    >');
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_nbw"        name="wl'+u+'_nbw"        >');
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nmode"      name="wl'+u+'_nmode"      >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nmcsidx"    name="wl'+u+'_nmcsidx"    >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nreqd"      name="wl'+u+'_nreqd"      >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nctrlsb"    name="wl'+u+'_nctrlsb"    >';
+						htmlOut += '<input type="hidden" id="_wl'+u+'_nbw"        name="wl'+u+'_nbw"        >';
 
-						htmlOut += ('<input type="hidden" id="_wl'+u+'_vifs"       name="wl'+u+'_vifs"       >');
+						htmlOut += '<input type="hidden" id="_wl'+u+'_vifs"       name="wl'+u+'_vifs"       >';
 					}
 
 					var f = [];
 					f.push (
 						{ title: 'Enable Interface', name: 'f_wl'+u+'_radio', type: 'checkbox',
 							value: (eval('nvram["wl'+u+'_radio"]') == '1') && (eval('nvram["wl'+u+'_net_mode"]') != 'disabled') },
-						{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
-							' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href=advanced-mac.asp>' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
+						{ title: 'MAC Address', text: '<a href="#advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
+							' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href=#advanced-mac.asp>' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
 						{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
 							options: wl_modes_available,
 							value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
@@ -1469,7 +1471,8 @@ LAN Access admin module by Augusto Bott
 					// only if primary VIF
 					if (u.toString().indexOf('.') < 0) {
 						f.push (
-							{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
+							{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<div style="display: inline-block; vertical-align: middle;" id="__wl'+u+'_channel">', 
+								suffix: '</div> <button class="btn" type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')">Scan <i class="icon-search"></i></button> <span class="spinner" id="spin'+u+'"></span>',
 								value: eval('nvram["wl'+u+'_channel"]') },
 							{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
 								value: eval('nvram["wl'+u+'_nbw_cap"]') },
@@ -1482,7 +1485,6 @@ LAN Access admin module by Augusto Bott
 						nvram['wl'+u+'_crypto'] = 'aes';
 
 					f.push (
-						null,
 						{ title: 'Security', name: 'wl'+u+'_security_mode', type: 'select',
 							options: [['disabled','Disabled'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
 							value: eval('nvram["wl'+u+'_security_mode"]') },
@@ -1519,7 +1521,7 @@ LAN Access admin module by Augusto Bott
 								value: nvram['wl'+u+'_key' + j] });
 					}
 
-					f.push(null,
+					f.push(
 						{ title: 'WDS', name: 'f_wl'+u+'_lazywds', type: 'select',
 							options: [['0','Link With...'],['1','Automatic']], value: nvram['wl'+u+'_lazywds'] } );
 					/* REMOVE-BEGIN */

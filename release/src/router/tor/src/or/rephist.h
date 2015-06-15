@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -47,7 +47,6 @@ double rep_hist_get_stability(const char *id, time_t when);
 double rep_hist_get_weighted_fractional_uptime(const char *id, time_t when);
 long rep_hist_get_weighted_time_known(const char *id, time_t when);
 int rep_hist_have_measured_enough_stability(void);
-const char *rep_hist_get_router_stability_doc(time_t now);
 
 void rep_hist_note_used_port(time_t now, uint16_t port);
 smartlist_t *rep_hist_get_predicted_ports(time_t now);
@@ -97,10 +96,21 @@ time_t rep_hist_conn_stats_write(time_t now);
 void rep_hist_conn_stats_term(void);
 
 void rep_hist_note_circuit_handshake_requested(uint16_t type);
-void rep_hist_note_circuit_handshake_completed(uint16_t type);
+void rep_hist_note_circuit_handshake_assigned(uint16_t type);
 void rep_hist_log_circuit_handshake_stats(time_t now);
 
+void rep_hist_hs_stats_init(time_t now);
+void rep_hist_hs_stats_term(void);
+time_t rep_hist_hs_stats_write(time_t now);
+char *rep_hist_get_hs_stats_string(void);
+void rep_hist_seen_new_rp_cell(void);
+void rep_hist_stored_maybe_new_hs(const crypto_pk_t *pubkey);
+
 void rep_hist_free_all(void);
+
+void rep_hist_note_negotiated_link_proto(unsigned link_proto,
+                                         int started_here);
+void rep_hist_log_link_protocol_counts(void);
 
 #endif
 

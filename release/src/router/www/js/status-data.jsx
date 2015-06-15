@@ -22,6 +22,8 @@ do {
 		(sysinfo.loads[1] / 65536.0).toFixed(2) + '<small> / </small>' +
 		(sysinfo.loads[2] / 65536.0).toFixed(2));
 	stats.uptime = sysinfo.uptime_s;
+
+	stats.wlsense = sysinfo.wlsense;
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
 
@@ -74,9 +76,13 @@ do {
 				stats.wangateway = '0.0.0.0';
 			}
 	}
+	
+/* IPV6-BEGIN */
 	stats.ip6_wan = ((typeof(sysinfo.ip6_wan) != 'undefined') ? sysinfo.ip6_wan : '') + '';
-	stats.ip6_lan = ((typeof(sysinfo.ip6_lan) != 'undefined') ? sysinfo.ip6_lan : '') + ''
-	stats.ip6_lan_ll = ((typeof(sysinfo.ip6_lan_ll) != 'undefined') ? sysinfo.ip6_lan_ll : '') + ''
+	stats.ip6_lan = ((typeof(sysinfo.ip6_lan) != 'undefined') ? sysinfo.ip6_lan : '') + '';
+	stats.ip6_lan_ll = ((typeof(sysinfo.ip6_lan_ll) != 'undefined') ? sysinfo.ip6_lan_ll : '') + '';
+/* IPV6-END */
+
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
 	stats.channel = [];

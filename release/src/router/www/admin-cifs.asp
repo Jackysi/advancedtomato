@@ -102,7 +102,7 @@ No part of this file may be used without permission.
 						options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 						value: a[7] },
 					{ title: 'Total / Free Size', indent: 2, text: cifs1.size ? (scaleSize(cifs1.size) + ' / ' + scaleSize(cifs1.free)) +
-						' (<span class="txtcifs1"></span>) <div class="progress cifs1"><div class="bar"></div></div>' : '(not mounted)' },
+						' (<span class="txtcifs1"></span> used) <div class="progress cifs1"><div class="bar"></div></div>' : '(not mounted)' },
 				]) + '</div></div>';
 
 				cifs += '<div class="box" data-box="cifs-set-2"><div class="heading"><i class="icon-drive"></i> CIFS2 <small>(/cifs2)</small></div><div class="content">' +
@@ -118,7 +118,7 @@ No part of this file may be used without permission.
 						options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 						value: b[7] },
 					{ title: 'Total / Free Size', indent: 2, text: cifs2.size ? (scaleSize(cifs2.size) + ' / ' + scaleSize(cifs2.free)) +
-						' (<span class="txtcifs2"></span>) <div class="progress cifs2"><div class="bar"></div></div>' : '(not mounted)' }
+						' (<span class="txtcifs2"></span> used) <div class="progress cifs2"><div class="bar"></div></div>' : '(not mounted)' }
 				]) + '</div></div>';
 
 				$('#mounties').append(cifs);
@@ -134,7 +134,7 @@ No part of this file may be used without permission.
 	<script type='text/javascript'>verifyFields(null, 1);
 		if (cifs1.size) {
 
-			var calcCifs1 = (Math.round((cifs1.free / cifs1.size) * 100)) + '%';
+			var calcCifs1 = (Math.round(((cifs1.size - cifs1.free) / cifs1.size) * 100)) + '%';
 			$('.txtcifs1').html(calcCifs1);
 			$('.progress.cifs1 .bar').css('width', calcCifs1);
 
@@ -142,7 +142,7 @@ No part of this file may be used without permission.
 
 		if (cifs2.size) {
 
-			var calcCifs2 = (Math.round((cifs2.free / cifs2.size) * 100) + '%');
+			var calcCifs2 = (Math.round(((cifs2.size - cifs2.free) / cifs2.size) * 100)) + '%';
 			$('.txtcifs2').html(calcCifs2);
 			$('.progress.cifs2 .bar').css('width', calcCifs2);
 

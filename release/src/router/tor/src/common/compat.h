@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #ifndef TOR_COMPAT_H
@@ -8,6 +8,7 @@
 
 #include "orconfig.h"
 #include "torint.h"
+#include "testsupport.h"
 #ifdef _WIN32
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
@@ -35,9 +36,6 @@
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-#if defined(HAVE_PTHREAD_H) && !defined(_WIN32)
-#include <pthread.h>
-#endif
 #include <stdarg.h>
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
@@ -55,21 +53,6 @@
 #include <stdio.h>
 #include <errno.h>
 
-#if defined (WINCE)
-#include <fcntl.h>
-#include <io.h>
-#include <math.h>
-#include <projects.h>
-/* this is not exported as W .... */
-#define SHGetPathFromIDListW SHGetPathFromIDList
-/* wcecompat has vasprintf */
-#define HAVE_VASPRINTF
-/* no service here */
-#ifdef NT_SERVICE
-#undef NT_SERVICE
-#endif
-#endif // WINCE
-
 #ifndef NULL_REP_IS_ZERO_BYTES
 #error "It seems your platform does not represent NULL as zero. We can't cope."
 #endif
@@ -84,12 +67,18 @@
 
 /* ===== Compiler compatibility */
 
-/* GCC can check printf types on arbitrary functions. */
+/* GCC can check printf and scanf types on arbitrary functions. */
 #ifdef __GNUC__
 #define CHECK_PRINTF(formatIdx, firstArg) \
    __attribute__ ((format(printf, formatIdx, firstArg)))
 #else
 #define CHECK_PRINTF(formatIdx, firstArg)
+#endif
+#ifdef __GNUC__
+#define CHECK_SCANF(formatIdx, firstArg) \
+   __attribute__ ((format(scanf, formatIdx, firstArg)))
+#else
+#define CHECK_SCANF(formatIdx, firstArg)
 #endif
 
 /* inline is __inline on windows. */
@@ -162,6 +151,7 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
  *
  * #define ATTR_NONNULL(x) __attribute__((nonnull x)) */
 #define ATTR_NONNULL(x)
+#define ATTR_UNUSED __attribute__ ((unused))
 
 /** Macro: Evaluates to <b>exp</b> and hints the compiler that the value
  * of <b>exp</b> will probably be true.
@@ -185,6 +175,7 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
 #define ATTR_MALLOC
 #define ATTR_NORETURN
 #define ATTR_NONNULL(x)
+#define ATTR_UNUSED
 #define PREDICT_LIKELY(exp) (exp)
 #define PREDICT_UNLIKELY(exp) (exp)
 #endif
@@ -209,12 +200,33 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
 #define STMT_END } while (0)
 #endif
 
+/* Some tools (like coccinelle) don't like to see operators as macro
+ * arguments. */
+#define OP_LT <
+#define OP_GT >
+#define OP_GE >=
+#define OP_LE <=
+#define OP_EQ ==
+#define OP_NE !=
+
 /* ===== String compatibility */
 #ifdef _WIN32
 /* Windows names string functions differently from most other platforms. */
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
 #endif
+
+#if defined __APPLE__
+/* On OSX 10.9 and later, the overlap-checking code for strlcat would
+ * appear to have a severe bug that can sometimes cause aborts in Tor.
+ * Instead, use the non-checking variants.  This is sad.
+ *
+ * See https://trac.torproject.org/projects/tor/ticket/15205
+ */
+#undef strlcat
+#undef strlcpy
+#endif
+
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *dst, const char *src, size_t siz) ATTR_NONNULL((1,2));
 #endif
@@ -283,7 +295,7 @@ typedef struct tor_mmap_t {
 } tor_mmap_t;
 
 tor_mmap_t *tor_mmap_file(const char *filename) ATTR_NONNULL((1));
-void tor_munmap_file(tor_mmap_t *handle) ATTR_NONNULL((1));
+int tor_munmap_file(tor_mmap_t *handle) ATTR_NONNULL((1));
 
 int tor_snprintf(char *str, size_t size, const char *format, ...)
   CHECK_PRINTF(3,4) ATTR_NONNULL((1,3));
@@ -312,7 +324,7 @@ tor_memstr(const void *haystack, size_t hlen, const char *needle)
   extern const uint32_t TOR_##name##_TABLE[];                           \
   static INLINE int TOR_##name(char c) {                                \
     uint8_t u = c;                                                      \
-    return !!(TOR_##name##_TABLE[(u >> 5) & 7] & (1 << (u & 31)));      \
+    return !!(TOR_##name##_TABLE[(u >> 5) & 7] & (1u << (u & 31)));     \
   }
 DECLARE_CTYPE_FN(ISALPHA)
 DECLARE_CTYPE_FN(ISALNUM)
@@ -401,6 +413,7 @@ struct tm *tor_gmtime_r(const time_t *timep, struct tm *result);
 /* ===== File compatibility */
 int tor_open_cloexec(const char *path, int flags, unsigned mode);
 FILE *tor_fopen_cloexec(const char *path, const char *mode);
+int tor_rename(const char *path_old, const char *path_new);
 
 int replace_file(const char *from, const char *to);
 int touch_file(const char *fname);
@@ -413,6 +426,7 @@ void tor_lockfile_unlock(tor_lockfile_t *lockfile);
 off_t tor_fd_getpos(int fd);
 int tor_fd_setpos(int fd, off_t pos);
 int tor_fd_seekend(int fd);
+int tor_ftruncate(int fd);
 
 #ifdef _WIN32
 #define PATH_SEPARATOR "\\"
@@ -444,10 +458,22 @@ typedef int socklen_t;
 #define TOR_INVALID_SOCKET (-1)
 #endif
 
+int tor_close_socket_simple(tor_socket_t s);
 int tor_close_socket(tor_socket_t s);
+tor_socket_t tor_open_socket_with_extensions(
+                                           int domain, int type, int protocol,
+                                           int cloexec, int nonblock);
 tor_socket_t tor_open_socket(int domain, int type, int protocol);
+tor_socket_t tor_open_socket_nonblocking(int domain, int type, int protocol);
 tor_socket_t tor_accept_socket(tor_socket_t sockfd, struct sockaddr *addr,
                                   socklen_t *len);
+tor_socket_t tor_accept_socket_nonblocking(tor_socket_t sockfd,
+                                           struct sockaddr *addr,
+                                           socklen_t *len);
+tor_socket_t tor_accept_socket_with_extensions(tor_socket_t sockfd,
+                                               struct sockaddr *addr,
+                                               socklen_t *len,
+                                               int cloexec, int nonblock);
 int get_n_open_sockets(void);
 
 #define tor_socket_send(s, buf, len, flags) send(s, buf, len, flags)
@@ -515,10 +541,11 @@ struct sockaddr_in6 {
 };
 #endif
 
+MOCK_DECL(int,tor_gethostname,(char *name, size_t namelen));
 int tor_inet_aton(const char *cp, struct in_addr *addr) ATTR_NONNULL((1,2));
 const char *tor_inet_ntop(int af, const void *src, char *dst, size_t len);
 int tor_inet_pton(int af, const char *src, void *dst);
-int tor_lookup_hostname(const char *name, uint32_t *addr) ATTR_NONNULL((1,2));
+MOCK_DECL(int,tor_lookup_hostname,(const char *name, uint32_t *addr));
 int set_socket_nonblocking(tor_socket_t socket);
 int tor_socketpair(int family, int type, int protocol, tor_socket_t fd[2]);
 int network_init(void);
@@ -554,17 +581,18 @@ const char *tor_socket_strerror(int e);
 #else
 #define SOCK_ERRNO(e) e
 #if EAGAIN == EWOULDBLOCK
-#define ERRNO_IS_EAGAIN(e)           ((e) == EAGAIN)
+/* || 0 is for -Wparentheses-equality (-Wall?) appeasement under clang */
+#define ERRNO_IS_EAGAIN(e)           ((e) == EAGAIN || 0)
 #else
 #define ERRNO_IS_EAGAIN(e)           ((e) == EAGAIN || (e) == EWOULDBLOCK)
 #endif
-#define ERRNO_IS_EINPROGRESS(e)      ((e) == EINPROGRESS)
-#define ERRNO_IS_CONN_EINPROGRESS(e) ((e) == EINPROGRESS)
+#define ERRNO_IS_EINPROGRESS(e)      ((e) == EINPROGRESS || 0)
+#define ERRNO_IS_CONN_EINPROGRESS(e) ((e) == EINPROGRESS || 0)
 #define ERRNO_IS_ACCEPT_EAGAIN(e) \
   (ERRNO_IS_EAGAIN(e) || (e) == ECONNABORTED)
 #define ERRNO_IS_ACCEPT_RESOURCE_LIMIT(e) \
   ((e) == EMFILE || (e) == ENFILE || (e) == ENOBUFS || (e) == ENOMEM)
-#define ERRNO_IS_EADDRINUSE(e)       ((e) == EADDRINUSE)
+#define ERRNO_IS_EADDRINUSE(e)       (((e) == EADDRINUSE) || 0)
 #define tor_socket_errno(sock)       (errno)
 #define tor_socket_strerror(e)       strerror(e)
 #endif
@@ -611,81 +639,21 @@ int switch_id(const char *user);
 char *get_user_homedir(const char *username);
 #endif
 
+#ifndef _WIN32
+const struct passwd *tor_getpwnam(const char *username);
+const struct passwd *tor_getpwuid(uid_t uid);
+#endif
+
 int get_parent_directory(char *fname);
 char *make_path_absolute(char *fname);
 
 char **get_environment(void);
 
-int spawn_func(void (*func)(void *), void *data);
-void spawn_exit(void) ATTR_NORETURN;
-
-#if defined(ENABLE_THREADS) && defined(_WIN32)
-#define USE_WIN32_THREADS
-#define TOR_IS_MULTITHREADED 1
-#elif (defined(ENABLE_THREADS) && defined(HAVE_PTHREAD_H) && \
-       defined(HAVE_PTHREAD_CREATE))
-#define USE_PTHREADS
-#define TOR_IS_MULTITHREADED 1
-#else
-#undef TOR_IS_MULTITHREADED
-#endif
+int get_total_system_memory(size_t *mem_out);
 
 int compute_num_cpus(void);
 
-/* Because we use threads instead of processes on most platforms (Windows,
- * Linux, etc), we need locking for them.  On platforms with poor thread
- * support or broken gethostbyname_r, these functions are no-ops. */
-
-/** A generic lock structure for multithreaded builds. */
-typedef struct tor_mutex_t {
-#if defined(USE_WIN32_THREADS)
-  /** Windows-only: on windows, we implement locks with CRITICAL_SECTIONS. */
-  CRITICAL_SECTION mutex;
-#elif defined(USE_PTHREADS)
-  /** Pthreads-only: with pthreads, we implement locks with
-   * pthread_mutex_t. */
-  pthread_mutex_t mutex;
-#else
-  /** No-threads only: Dummy variable so that tor_mutex_t takes up space. */
-  int _unused;
-#endif
-} tor_mutex_t;
-
 int tor_mlockall(void);
-
-#ifdef TOR_IS_MULTITHREADED
-tor_mutex_t *tor_mutex_new(void);
-void tor_mutex_init(tor_mutex_t *m);
-void tor_mutex_acquire(tor_mutex_t *m);
-void tor_mutex_release(tor_mutex_t *m);
-void tor_mutex_free(tor_mutex_t *m);
-void tor_mutex_uninit(tor_mutex_t *m);
-unsigned long tor_get_thread_id(void);
-void tor_threads_init(void);
-#else
-#define tor_mutex_new() ((tor_mutex_t*)tor_malloc(sizeof(int)))
-#define tor_mutex_init(m) STMT_NIL
-#define tor_mutex_acquire(m) STMT_VOID(m)
-#define tor_mutex_release(m) STMT_NIL
-#define tor_mutex_free(m) STMT_BEGIN tor_free(m); STMT_END
-#define tor_mutex_uninit(m) STMT_NIL
-#define tor_get_thread_id() (1UL)
-#define tor_threads_init() STMT_NIL
-#endif
-
-void set_main_thread(void);
-int in_main_thread(void);
-
-#ifdef TOR_IS_MULTITHREADED
-#if 0
-typedef struct tor_cond_t tor_cond_t;
-tor_cond_t *tor_cond_new(void);
-void tor_cond_free(tor_cond_t *cond);
-int tor_cond_wait(tor_cond_t *cond, tor_mutex_t *mutex);
-void tor_cond_signal_one(tor_cond_t *cond);
-void tor_cond_signal_all(tor_cond_t *cond);
-#endif
-#endif
 
 /** Macros for MIN/MAX.  Never use these when the arguments could have
  * side-effects.
@@ -719,6 +687,21 @@ char *format_win32_error(DWORD err);
 #endif
 
 #endif
+
+#ifdef TOR_UNIT_TESTS
+void tor_sleep_msec(int msec);
+#endif
+
+#ifdef COMPAT_PRIVATE
+#if !defined(HAVE_SOCKETPAIR) || defined(_WIN32) || defined(TOR_UNIT_TESTS)
+#define NEED_ERSATZ_SOCKETPAIR
+STATIC int tor_ersatz_socketpair(int family, int type, int protocol,
+                                   tor_socket_t fd[2]);
+#endif
+#endif
+
+/* This needs some of the declarations above so we include it here. */
+#include "compat_threads.h"
 
 #endif
 

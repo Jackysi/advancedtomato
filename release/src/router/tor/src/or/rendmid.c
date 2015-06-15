@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -94,7 +94,7 @@ rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
 
   /* Close any other intro circuits with the same pk. */
   c = NULL;
-  while ((c = circuit_get_intro_point(pk_digest))) {
+  while ((c = circuit_get_intro_point((const uint8_t *)pk_digest))) {
     log_info(LD_REND, "Replacing old circuit for service %s",
              safe_str(serviceid));
     circuit_mark_for_close(TO_CIRCUIT(c), END_CIRC_REASON_FINISHED);
@@ -111,7 +111,7 @@ rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
 
   /* Now, set up this circuit. */
   circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_INTRO_POINT);
-  memcpy(circ->rend_token, pk_digest, DIGEST_LEN);
+  circuit_set_intro_point_digest(circ, (uint8_t *)pk_digest);
 
   log_info(LD_REND,
            "Established introduction point on circuit %u for service %s",
@@ -149,6 +149,20 @@ rend_mid_introduce(or_circuit_t *circ, const uint8_t *request,
     goto err;
   }
 
+  /* We have already done an introduction on this circuit but we just
+     received a request for another one. We block it since this might
+     be an attempt to DoS a hidden service (#15515). */
+  if (circ->already_received_introduce1) {
+    log_fn(LOG_PROTOCOL_WARN, LD_REND,
+           "Blocking multiple introductions on the same circuit. "
+           "Someone might be trying to attack a hidden service through "
+           "this relay.");
+    circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_TORPROTOCOL);
+    return -1;
+  }
+
+  circ->already_received_introduce1 = 1;
+
   /* We could change this to MAX_HEX_NICKNAME_LEN now that 0.0.9.x is
    * obsolete; however, there isn't much reason to do so, and we're going
    * to revise this protocol anyway.
@@ -165,7 +179,7 @@ rend_mid_introduce(or_circuit_t *circ, const uint8_t *request,
                 (char*)request, REND_SERVICE_ID_LEN);
 
   /* The first 20 bytes are all we look at: they have a hash of Bob's PK. */
-  intro_circ = circuit_get_intro_point((char*)request);
+  intro_circ = circuit_get_intro_point((const uint8_t*)request);
   if (!intro_circ) {
     log_info(LD_REND,
              "No intro circ found for INTRODUCE1 cell (%s) from circuit %u; "
@@ -188,7 +202,7 @@ rend_mid_introduce(or_circuit_t *circ, const uint8_t *request,
              "Unable to send INTRODUCE2 cell to Tor client.");
     goto err;
   }
-  /* And sent an ack down Alice's circuit.  Empty body means succeeded. */
+  /* And send an ack down Alice's circuit.  Empty body means succeeded. */
   if (relay_send_command_from_edge(0,TO_CIRCUIT(circ),
                                    RELAY_COMMAND_INTRODUCE_ACK,
                                    NULL,0,NULL)) {
@@ -199,7 +213,7 @@ rend_mid_introduce(or_circuit_t *circ, const uint8_t *request,
 
   return 0;
  err:
-  /* Send the client an NACK */
+  /* Send the client a NACK */
   nak_body[0] = 1;
   if (relay_send_command_from_edge(0,TO_CIRCUIT(circ),
                                    RELAY_COMMAND_INTRODUCE_ACK,
@@ -224,18 +238,26 @@ rend_mid_establish_rendezvous(or_circuit_t *circ, const uint8_t *request,
   log_info(LD_REND, "Received an ESTABLISH_RENDEZVOUS request on circuit %u",
            (unsigned)circ->p_circ_id);
 
-  if (circ->base_.purpose != CIRCUIT_PURPOSE_OR || circ->base_.n_chan) {
+  if (circ->base_.purpose != CIRCUIT_PURPOSE_OR) {
     log_warn(LD_PROTOCOL,
-             "Tried to establish rendezvous on non-OR or non-edge circuit.");
+             "Tried to establish rendezvous on non-OR circuit with purpose %s",
+             circuit_purpose_to_string(circ->base_.purpose));
+    goto err;
+  }
+
+  if (circ->base_.n_chan) {
+    log_warn(LD_PROTOCOL,
+             "Tried to establish rendezvous on non-edge circuit");
     goto err;
   }
 
   if (request_len != REND_COOKIE_LEN) {
-    log_warn(LD_PROTOCOL, "Invalid length on ESTABLISH_RENDEZVOUS.");
+    log_fn(LOG_PROTOCOL_WARN,
+           LD_PROTOCOL, "Invalid length on ESTABLISH_RENDEZVOUS.");
     goto err;
   }
 
-  if (circuit_get_rendezvous((char*)request)) {
+  if (circuit_get_rendezvous(request)) {
     log_warn(LD_PROTOCOL,
              "Duplicate rendezvous cookie in ESTABLISH_RENDEZVOUS.");
     goto err;
@@ -251,7 +273,7 @@ rend_mid_establish_rendezvous(or_circuit_t *circ, const uint8_t *request,
   }
 
   circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_REND_POINT_WAITING);
-  memcpy(circ->rend_token, request, REND_COOKIE_LEN);
+  circuit_set_rendezvous_cookie(circ, request);
 
   base16_encode(hexid,9,(char*)request,4);
 
@@ -273,6 +295,7 @@ int
 rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
                     size_t request_len)
 {
+  const or_options_t *options = get_options();
   or_circuit_t *rend_circ;
   char hexid[9];
   int reason = END_CIRC_REASON_INTERNAL;
@@ -299,13 +322,19 @@ rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
            "Got request for rendezvous from circuit %u to cookie %s.",
            (unsigned)circ->p_circ_id, hexid);
 
-  rend_circ = circuit_get_rendezvous((char*)request);
+  rend_circ = circuit_get_rendezvous(request);
   if (!rend_circ) {
     log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
          "Rejecting RENDEZVOUS1 cell with unrecognized rendezvous cookie %s.",
          hexid);
     reason = END_CIRC_REASON_TORPROTOCOL;
     goto err;
+  }
+
+  /* Statistics: Mark this circuit as an RP circuit so that we collect
+     stats from it. */
+  if (options->HiddenServiceStatistics) {
+    circ->circuit_carries_hs_traffic_stats = 1;
   }
 
   /* Send the RENDEZVOUS2 cell to Alice. */
@@ -327,7 +356,7 @@ rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
   circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_REND_ESTABLISHED);
   circuit_change_purpose(TO_CIRCUIT(rend_circ),
                          CIRCUIT_PURPOSE_REND_ESTABLISHED);
-  memset(circ->rend_token, 0, REND_COOKIE_LEN);
+  circuit_set_rendezvous_cookie(circ, NULL);
 
   rend_circ->rend_splice = circ;
   circ->rend_splice = rend_circ;

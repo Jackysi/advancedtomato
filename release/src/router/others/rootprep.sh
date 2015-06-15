@@ -12,7 +12,7 @@ mkdir -p -m 0755 cifs2
 mkdir -p -m 0755 opt
 
 # !!TB
-#mkdir -p -m 0755 mmc
+mkdir -p -m 0755 mmc
 mkdir -p -m 0755 usr/local
 ln -sf /tmp/share usr/share
 ln -sf /tmp/share usr/local/share

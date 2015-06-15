@@ -65,7 +65,9 @@ No part of this file may be used without permission.
 			case '0x05d8':  // Tenda W1800R
 			case '0x058e':  // E900, E800
 			case '0x0646':  // RT-AC56U and RT-AC68U/RT-AC68R
-			case '0x0665':  // R7000
+			case '0x0665':  // R7000, RT-AC68P
+			case '0xf646':  // EA6700
+			case '0xd646':  // EA6900
 				trunk_vlan_supported = 1;
 				break;
 			default:
@@ -78,6 +80,25 @@ No part of this file may be used without permission.
 		// http://wiki.openwrt.org/toh/linksys/start
 		// http://wiki.openwrt.org/toh/start
 		switch(nvram['boardtype']) {
+			case '0xd646':
+				if( nvram['boardrev'] == '0x1100'){ //EA6900
+					COL_P0N = '1';
+					COL_P1N = '2';
+					COL_P2N = '3';
+					COL_P3N = '4';
+					COL_P4N = '0';
+					break;
+				}
+				break;
+			case '0xf646':
+				if( nvram['boardrev'] == '0x1100'){ //EA6700
+					COL_P0N = '0';
+					COL_P1N = '1';
+					COL_P2N = '2';
+					COL_P3N = '3';
+					COL_P4N = '4';
+					break;
+				}
 			case '0x0646':  // RT-AC56 && RT-AC68
 			case '0x0665':  //R7000
 				if ((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC56U')) { //RT-AC56U
@@ -104,7 +125,7 @@ No part of this file may be used without permission.
 					COL_P4N = '4';
 					break;
 				}
-				if (((nvram['boardrev'] == '0x1100') && (nvram['model'] == 'RT-AC68U')) || (nvram['model'] == 'RT-AC68R'))  { //RT-AC68U or RT-AC68R
+				if (nvram['model'] == 'RT-AC68U') { //RT-AC68U/R(boardrev=0x1100), RT-AC68P(boardrev=0x1103) 
 					COL_P0N = '4';
 					COL_P1N = '3';
 					COL_P2N = '2';
@@ -250,6 +271,7 @@ No part of this file may be used without permission.
 				COL_P4N = '0';
 				break;
 		}
+
 		var COL_VID = 0;
 		var COL_MAP = 1;
 		var COL_P0  = 2;
@@ -266,6 +288,7 @@ No part of this file may be used without permission.
 		var COL_BRI = 13;
 
 		var vlt = nvram.vlan0tag | '0';
+
 		// set to either 5 or 8 when nvram settings are read (FastE or GigE routers)
 		var SWITCH_INTERNAL_PORT=0;
 		// option made available for experimental purposes on routers known to support port-based VLANs, but not confirmed to support 801.11q trunks
@@ -400,7 +423,7 @@ No part of this file may be used without permission.
 			// in some cases, if some/any of them are not found, a full nvram reset/clean could be triggered
 			// so, to (try to) play it safe, we check for the 1st needed/available/required
 			// VLAN for FastE (vlan0 is usually LAN) and GigE routers (vlan1 is usually LAN)
-			if((fom['vlan0ports'].value.length < 1) || (fom['vlan0hwname'].value.length < 1) ||
+			if((fom['vlan0ports'].value.length < 1) || (fom['vlan0hwname'].value.length < 1) || 
 				(fom['vlan1ports'].value.length < 1) || (fom['vlan1hwname'].value.length < 1))
 				fom['manual_boot_nv'].value = '1';
 			else
@@ -454,8 +477,8 @@ No part of this file may be used without permission.
 			var vlg = new TomatoGrid();
 			vlg.setup = function() {
 				this.init('vlan-grid', '', (MAX_VLAN_ID + 1), [
-					{ type: 'select', options: [[0, '0'],[1, '1'],[2, '2'],[3, '3'],[4, '4'],[5, '5'],[6, '6'],[7, '7'],[8, '8'],[9, '9'],[10, '10'],[11, '11'],[12, '12'],[13, '13'],[14, '14'],[15, '15']], prefix: '<div class="centered">', suffix: '</div>', class: 'input-mini' },
-					{ type: 'text', maxlen: 4, prefix: '<div class="centered">', suffix: '</div>',class: 'input-mini' },
+					{ type: 'select', options: [[0, '0'],[1, '1'],[2, '2'],[3, '3'],[4, '4'],[5, '5'],[6, '6'],[7, '7'],[8, '8'],[9, '9'],[10, '10'],[11, '11'],[12, '12'],[13, '13'],[14, '14'],[15, '15']], prefix: '<div class="centered">', suffix: '</div>' },
+					{ type: 'text', maxlen: 4, prefix: '<div class="centered">', suffix: '</div>' },
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
@@ -467,7 +490,7 @@ No part of this file may be used without permission.
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 					{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
-					{ type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)']], prefix: '<div class="centered">', suffix: '</div>', class: 'input-small' }]);
+					{ type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)']], prefix: '<div class="centered">', suffix: '</div>' }]);
 
 				this.headerSet(['VLAN', 'VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
 
@@ -1010,10 +1033,10 @@ No part of this file may be used without permission.
 						<li><b>VLAN</b> - Unique identifier of a VLAN.</li>
 						<li><b>VID</b> - <i>EXPERIMENTAL</i> - Allows overriding "traditional" VLAN/VID mapping with arbitrary VIDs for each VLAN (set to "0" to use "regular" VLAN/VID mappings instead). Warning: this hasn"t been verified/tested on anything but a Cisco/Linksys E3000 and may not be supported by your particular device/model (<small><b><i>see notes on "VID Offset" below</i></b></small>).</li>
 						<li><b>Ports 1-4 &amp; WAN</b> - Which ethernet ports on the router should be members of this VLAN.</li>
-						<li><b>Tagged</b> - Enable 802.1Q tagging of ethernet frames on a particular port/VLAN
+						<li><b>Tagged</b> - Enable 802.1Q tagging of ethernet frames on a particular port/VLAN <span id="trunk_vlan_supported_message"></span>
 							<script type="text/javascript">
 								if(!trunk_vlan_supported)
-									W(' <i><b>(unknown support for this model...contact the developper (Victek))</i></b>');
+									$('#trunk_vlan_supported_message').html(' <i><b>(unknown support for this model...contact the developper (Victek))</i></b>');
 							</script>
 						</li>
 						<li><b>Default</b> - VLAN ID assigned to untagged frames received by the router.</li>

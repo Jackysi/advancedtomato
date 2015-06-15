@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -11,6 +11,8 @@
 
 #ifndef TOR_DIRSERV_H
 #define TOR_DIRSERV_H
+
+#include "testsupport.h"
 
 /** What fraction (1 over this number) of the relay ID space do we
  * (as a directory authority) launch connections to at each reachability
@@ -32,10 +34,9 @@
 
 int connection_dirserv_flushed_some(dir_connection_t *conn);
 
-int dirserv_add_own_fingerprint(const char *nickname, crypto_pk_t *pk);
+int dirserv_add_own_fingerprint(crypto_pk_t *pk);
 int dirserv_load_fingerprint_file(void);
 void dirserv_free_fingerprint_list(void);
-const char *dirserv_get_nickname_by_digest(const char *digest);
 enum was_router_added_t dirserv_add_multiple_descriptors(
                                      const char *desc, uint8_t purpose,
                                      const char *source,
@@ -49,34 +50,23 @@ int list_server_status_v1(smartlist_t *routers, char **router_status_out,
 int dirserv_dump_directory_to_string(char **dir_out,
                                      crypto_pk_t *private_key);
 char *dirserv_get_flag_thresholds_line(void);
+void dirserv_compute_bridge_flag_thresholds(routerlist_t *rl);
 
 int directory_fetches_from_authorities(const or_options_t *options);
 int directory_fetches_dir_info_early(const or_options_t *options);
 int directory_fetches_dir_info_later(const or_options_t *options);
-int directory_caches_v2_dir_info(const or_options_t *options);
 int directory_caches_unknown_auth_certs(const or_options_t *options);
 int directory_caches_dir_info(const or_options_t *options);
 int directory_permits_begindir_requests(const or_options_t *options);
-int directory_permits_controller_requests(const or_options_t *options);
 int directory_too_idle_to_fetch_descriptors(const or_options_t *options,
                                             time_t now);
 
-void directory_set_dirty(void);
-cached_dir_t *dirserv_get_directory(void);
-cached_dir_t *dirserv_get_runningrouters(void);
 cached_dir_t *dirserv_get_consensus(const char *flavor_name);
-void dirserv_set_cached_networkstatus_v2(const char *directory,
-                                         const char *identity,
-                                         time_t published);
 void dirserv_set_cached_consensus_networkstatus(const char *consensus,
                                                 const char *flavor_name,
                                                 const digests_t *digests,
                                                 time_t published);
 void dirserv_clear_old_networkstatuses(time_t cutoff);
-void dirserv_clear_old_v1_info(time_t now);
-void dirserv_get_networkstatus_v2(smartlist_t *result, const char *key);
-void dirserv_get_networkstatus_v2_fingerprints(smartlist_t *result,
-                                               const char *key);
 int dirserv_get_routerdesc_fingerprints(smartlist_t *fps_out, const char *key,
                                         const char **msg,
                                         int for_unencrypted_conn,
@@ -114,29 +104,38 @@ void dirserv_free_all(void);
 void cached_dir_decref(cached_dir_t *d);
 cached_dir_t *new_cached_dir(char *s, time_t published);
 
+int validate_recommended_package_line(const char *line);
+
 #ifdef DIRSERV_PRIVATE
 
 /* Put the MAX_MEASUREMENT_AGE #define here so unit tests can see it */
 #define MAX_MEASUREMENT_AGE (3*24*60*60) /* 3 days */
 
-int measured_bw_line_parse(measured_bw_line_t *out, const char *line);
+STATIC int measured_bw_line_parse(measured_bw_line_t *out, const char *line);
 
-int measured_bw_line_apply(measured_bw_line_t *parsed_line,
+STATIC int measured_bw_line_apply(measured_bw_line_t *parsed_line,
                            smartlist_t *routerstatuses);
 
-void dirserv_cache_measured_bw(const measured_bw_line_t *parsed_line,
+STATIC void dirserv_cache_measured_bw(const measured_bw_line_t *parsed_line,
                                time_t as_of);
-void dirserv_clear_measured_bw_cache(void);
-void dirserv_expire_measured_bw_cache(time_t now);
-int dirserv_get_measured_bw_cache_size(void);
-int dirserv_query_measured_bw_cache_kb(const char *node_id, long *bw_out,
-                                       time_t *as_of_out);
-int dirserv_has_measured_bw(const char *node_id);
-cached_dir_t *generate_v2_networkstatus_opinion(void);
+STATIC void dirserv_clear_measured_bw_cache(void);
+STATIC void dirserv_expire_measured_bw_cache(time_t now);
+STATIC int dirserv_get_measured_bw_cache_size(void);
+STATIC int dirserv_query_measured_bw_cache_kb(const char *node_id,
+                                              long *bw_out,
+                                              time_t *as_of_out);
+STATIC int dirserv_has_measured_bw(const char *node_id);
+
+STATIC int
+dirserv_read_guardfraction_file_from_str(const char *guardfraction_file_str,
+                                      smartlist_t *vote_routerstatuses);
 #endif
 
 int dirserv_read_measured_bandwidths(const char *from_file,
                                      smartlist_t *routerstatuses);
+
+int dirserv_read_guardfraction_file(const char *fname,
+                                 smartlist_t *vote_routerstatuses);
 
 #endif
 

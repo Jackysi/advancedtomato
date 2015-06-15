@@ -18,10 +18,10 @@ done
 
 echo Info: Opkg package manager deployment...
 cd /opt/bin
-wget http://wl500g-repo.googlecode.com/svn/ipkg/opkg
+wget http://entware.wl500g.info/binaries/entware/installer/opkg
 chmod +x /opt/bin/opkg
 cd /opt/etc
-wget http://wl500g-repo.googlecode.com/files/opkg.conf
+wget http://entware.wl500g.info/binaries/entware/installer/opkg.conf
 
 echo Info: Basic packages installation...
 /opt/bin/opkg update
@@ -35,4 +35,4 @@ fi
 
 echo Info: Congratulations!
 echo Info: If there are no errors above then Entware successfully initialized.
-echo Info: Found a Bug? Please report at wl500g-repo.googlecode.com
+echo Info: Found a Bug? Please report at https://github.com/Entware/entware/issues
