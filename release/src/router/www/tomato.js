@@ -1325,7 +1325,7 @@ TomatoGrid.prototype = {
 
 		elem.remove(this.footer);
 		this.footer = e = this._insert(-1, cells, escCells);
-		e.className = 'bold';
+		e.className = 'bold controls';
 		for (i = 0; i < e.cells.length; ++i) {
 			e.cells[i].cellN = i;
 			e.cells[i].onclick = function() { TGO(this).footerClick(this) };

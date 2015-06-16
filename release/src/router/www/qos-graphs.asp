@@ -274,29 +274,28 @@ No part of this file may be used without permission.
 		}
 	</script>
 
-	<div class="fluid-grid x3">
+	<div class="box graphs">
+		<div class="heading">Connections Distribution</div>
+		<div class="content">
+			<div id="svg-0" class="embedGraph"></div>
 
-		<div class="box graphs">
-			<div class="heading">Connections Distribution</div>
-			<div class="content">
-				<div id="svg-0" class="embedGraph"></div>
+			<table id="firstTable">
+				<tr><td>&nbsp;</td><td class="total">Total</td><td id="ccnt-total" class="total count"></td><td class="total pct">100%</td></tr>
+			</table>
 
-				<table id="firstTable">
-					<tr><td>&nbsp;</td><td class="total">Total</td><td id="ccnt-total" class="total count"></td><td class="total pct">100%</td></tr>
-				</table>
-
-				<script type="text/javascript">
-					for (i = 0; i < 11; ++i) {
-						$('#firstTable').prepend('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
-							'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
-							'<td class="title" style="width:60px">' + abc[i] + '</td>' +
-							'<td id="ccnt' + i + '" class="count" style="width:90px"></td>' +
-							'<td id="cpct' + i + '" class="pct"></td></tr>');
-					}
-				</script>
-			</div>
+			<script type="text/javascript">
+				for (i = 0; i < 11; ++i) {
+					$('#firstTable').prepend('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
+						'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
+						'<td class="title" style="width:60px">' + abc[i] + '</td>' +
+						'<td id="ccnt' + i + '" class="count" style="width:90px"></td>' +
+						'<td id="cpct' + i + '" class="pct"></td></tr>');
+				}
+			</script>
 		</div>
+	</div>
 
+	<div class="fluid-grid x2">
 		<div class="box graphs">
 			<div class="heading">Bandwidth Distribution (Outbound)</div>
 			<div class="content">

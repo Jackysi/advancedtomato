@@ -39,9 +39,9 @@ No part of this file may be used without permission.
 		<input type="hidden" name="_nextpage" value="/#admin-tomatoanon.asp">
 		<input type="hidden" name="_service" value="tomatoanon-restart">
 
-		<div class="box"><div class="content">
-				<h3>TomatoAnon Project</h3>
-
+		<div class="box">
+			<div class="heading">TomatoAnon Project</div>
+			<div class="content">
 				<p>I would like to present you with a new project I've been working on, called TomatoAnon.
 					The TomatoAnon script will send information to an online database about your router's model and installed version of Tomato.
 					The information submitted is 100% anonymous and will ONLY be used for statistical purposes.

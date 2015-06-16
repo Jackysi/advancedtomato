@@ -236,6 +236,9 @@ No part of this file may be used without permission.
 					</form>
 				</div>
 
+			</div>
+
+			<div class="col-sm-12">
 				<h4>Restore</h4>
 				<div class="section" id="restore-section">
 					<form id="restore-form" method="post" action="bwm/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
