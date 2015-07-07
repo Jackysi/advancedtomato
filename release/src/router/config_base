@@ -46,6 +46,7 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_USBAP is not set
 # TCONFIG_REMOVE_USBAPP is not set
 # TCONFIG_CTF is not set
+# TCONFIG_NAND is not set
 # TCONFIG_UFSD is not set
 # TCONFIG_DNSSEC is not set
 # TCONFIG_TINC is not set

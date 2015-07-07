@@ -675,6 +675,10 @@ define RouterOptions
 		sed -i "/TCONFIG_CTF/d" $(1); \
 		echo "TCONFIG_CTF=y" >>$(1); \
 	fi; \
+	if [ "$(NAND)" = "y" ]; then \
+		sed -i "/TCONFIG_NAND/d" $(1); \
+		echo "TCONFIG_NAND=y" >>$(1); \
+	fi; \
 	if [ "$(TINC)" = "y" ]; then \
 		sed -i "/TCONFIG_TINC/d" $(1); \
 		echo "TCONFIG_TINC=y" >>$(1); \
