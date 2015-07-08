@@ -182,6 +182,16 @@ config USB_NET_CDCETHER
 	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
 	  name is used instead.
 
+config USB_NET_HW_CDCDRIVER
+	tristate "HW CDC Driver (Huawei driver for E3372 non-Hilink)"
+	depends on USB_USBNET
+	default y
+	help
+	  This driver creates an interface named "ethX", where X depends on
+	  what other networking devices you have in use.  However, if the
+	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
+	  name is used instead.
+
 config USB_NET_CDC_EEM
 	tristate "CDC EEM support"
 	depends on USB_USBNET && EXPERIMENTAL
