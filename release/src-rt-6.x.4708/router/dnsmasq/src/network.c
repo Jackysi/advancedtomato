@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2014 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,10 +15,6 @@
 */
 
 #include "dnsmasq.h"
-
-#ifndef IN6_IS_ADDR_ULA
-#define IN6_IS_ADDR_ULA(a) ((((__const uint32_t *) (a))[0] & htonl (0xfe00000)) == htonl (0xfc000000))
-#endif
 
 #ifdef HAVE_LINUX_NETWORK
 
@@ -240,7 +236,7 @@ struct iface_param {
 };
 
 static int iface_allowed(struct iface_param *param, int if_index, char *label,
-			 union mysockaddr *addr, struct in_addr netmask, int prefixlen, int dad) 
+			 union mysockaddr *addr, struct in_addr netmask, int prefixlen, int iface_flags) 
 {
   struct irec *iface;
   int mtu = 0, loopback;
@@ -392,6 +388,10 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
 		 {
 		    al->addr.addr.addr6 = addr->in6.sin6_addr;
 		    al->flags = ADDRLIST_IPV6;
+		    /* Privacy addresses and addresses still undergoing DAD and deprecated addresses
+		       don't appear in forward queries, but will in reverse ones. */
+		    if (!(iface_flags & IFACE_PERMANENT) || (iface_flags & (IFACE_DEPRECATED | IFACE_TENTATIVE)))
+		      al->flags |= ADDRLIST_REVONLY;
 		 } 
 #endif
 	      }
@@ -403,7 +403,7 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
   for (iface = daemon->interfaces; iface; iface = iface->next) 
     if (sockaddr_isequal(&iface->addr, addr))
       {
-	iface->dad = dad;
+	iface->dad = !!(iface_flags & IFACE_TENTATIVE);
 	iface->found = 1; /* for garbage collection */
 	return 1;
       }
@@ -478,7 +478,7 @@ static int iface_allowed(struct iface_param *param, int if_index, char *label,
       iface->dhcp_ok = dhcp_ok;
       iface->dns_auth = auth_dns;
       iface->mtu = mtu;
-      iface->dad = dad;
+      iface->dad = !!(iface_flags & IFACE_TENTATIVE);
       iface->found = 1;
       iface->done = iface->multicast_done = iface->warned = 0;
       iface->index = if_index;
@@ -523,7 +523,7 @@ static int iface_allowed_v6(struct in6_addr *local, int prefix,
   else
     addr.in6.sin6_scope_id = 0;
   
-  return iface_allowed((struct iface_param *)vparam, if_index, NULL, &addr, netmask, prefix, !!(flags & IFACE_TENTATIVE));
+  return iface_allowed((struct iface_param *)vparam, if_index, NULL, &addr, netmask, prefix, flags);
 }
 #endif
 
@@ -1396,6 +1396,7 @@ void add_update_server(int flags,
       serv->domain = domain_str;
       serv->next = next;
       serv->queries = serv->failed_queries = 0;
+      serv->edns_pktsz = daemon->edns_pktsz;
 #ifdef HAVE_LOOP
       serv->uid = rand32();
 #endif      
@@ -1459,7 +1460,7 @@ void check_servers(void)
 	    }
 	}
       
-      if (!(serv->flags & SERV_NO_REBIND))
+      if (!(serv->flags & SERV_NO_REBIND) && !(serv->flags & SERV_LITERAL_ADDRESS))
 	{
 	  if (serv->flags & (SERV_HAS_DOMAIN | SERV_FOR_NODOTS | SERV_USE_RESOLV))
 	    {
@@ -1475,7 +1476,7 @@ void check_servers(void)
 		my_syslog(LOG_INFO, _("using local addresses only for %s %s"), s1, s2);
 	      else if (serv->flags & SERV_USE_RESOLV)
 		my_syslog(LOG_INFO, _("using standard nameservers for %s %s"), s1, s2);
-	      else if (!(serv->flags & SERV_LITERAL_ADDRESS))
+	      else 
 		my_syslog(LOG_INFO, _("using nameserver %s#%d for %s %s"), daemon->namebuff, port, s1, s2);
 	    }
 #ifdef HAVE_LOOP
