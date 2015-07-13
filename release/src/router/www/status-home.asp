@@ -239,7 +239,7 @@
 			<div class="content" id="sesdiv_system">
 				<div class="section"></div>
 				<script type="text/javascript">
-					var a = nvstat.free / nvstat.size * 100.0;
+					var a = (nvstat.size - nvstat.free) / nvstat.size * 100.0;
 					createFieldTable('', [
 						{ title: 'Name', text: nvram.router_name },
 						{ title: 'Model', text: nvram.t_model_name },
@@ -250,9 +250,9 @@
 						{ title: 'Time', rid: 'time', text: stats.time },
 						{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 						{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
-						{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' },
-						{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>', hidden: (stats.swap == '') },
-						{ title: 'Total / Free NVRAM', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small> <div class="progress"><div class="bar" style="width: ' + (a).toFixed(2) + '%;"></div></div>' },
+						{ title: 'Memory Usage', rid: 'memory', text: stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' },
+						{ title: 'Swap Usage', rid: 'swap', text: stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>', hidden: (stats.swap == '') },
+						{ title: 'NVRAM Usage', text: scaleSize(nvstat.size - nvstat.free) + ' <small>/</small> ' + scaleSize(nvstat.size) + ' (' + (a).toFixed(2) + '%) <div class="progress"><div class="bar" style="width: ' + (a).toFixed(2) + '%;"></div></div>' },
 						], '#sesdiv_system', 'data-table dataonly');
 				</script>
 			</div>

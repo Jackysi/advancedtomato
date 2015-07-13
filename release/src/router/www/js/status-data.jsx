@@ -27,14 +27,14 @@ do {
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
 
-	stats.memory = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
+	stats.memory = scaleSize(a - b) + ' <small>/</small> ' + scaleSize(a) + ' (' + ((a - b) / a * 100.0).toFixed(2) + '%)';
 	stats.memoryperc = ((a-b) / a * 100.0).toFixed(2) + '%';
 
 	if (sysinfo.totalswap > 0) {
 		a = sysinfo.totalswap;
 		b = sysinfo.freeswap;
-		stats.swap = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
-		stats.swapperc = ((a-b) / a * 100.0).toFixed(2) + '%'; 
+		stats.swap = scaleSize(a - b) + ' <small>/</small> ' + scaleSize(a) + ' (' + ((a - b) / a * 100.0).toFixed(2) + '%)';
+		stats.swapperc = ((a - b) / a * 100.0).toFixed(2) + '%'; 
 	} else
 		stats.swap = '';
 	stats.time = '<% time(); %>';

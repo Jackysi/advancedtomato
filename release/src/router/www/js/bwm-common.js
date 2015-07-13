@@ -23,16 +23,16 @@ var svgReady = 0;
 var updating = 0;
 var scaleMode = 0;
 var scaleLast = -1;
-var drawMode = 0;
+var drawMode = 1;
 var drawLast = -1;
 var drawColor = 0;
 var avgMode = 0;
 var avgLast = -1;
 var colorX = 0;
 var colors = [
-	['Green &amp; Red', '#27ae60', '#e74c3c'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
-	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
-	['Red &amp; Black', '#d00', '#000'], ['Clean Style', '#454545', '#0089F9'], ['Flat', '#1abc9c', '#3498db'], ['Fire', '#e74c3c', '#e67e22'],
+	['Clean Style', '#454545', '#0089F9'], ['Flat', '#1abc9c', '#3498db'], ['Green &amp; Red', '#27ae60', '#e74c3c'], 
+	['Blue &amp; Orange', '#003EBA', '#FF9000'], ['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], 
+	['Gray', '#000', '#999'], ['Red &amp; Black', '#d00', '#000'], ['Fire', '#e74c3c', '#e67e22'],
 	['Tomato Style', '#FD0000', '#494949'], ['Ultra Green', '#6D9E38', '#A6FFA4']];
 
 function xpsb($speed)

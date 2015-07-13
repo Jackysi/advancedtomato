@@ -180,8 +180,8 @@ No part of this file may be used without permission.
 							p = parts[k];
 							if (p) {
 								desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
-								((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
-									((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' free' : '') +
+								((p[5] != 0) ? ' (' + doScaleSize((p[5] - p[6]), 0) + 
+									((p[1] == 1) ? ' / ' + doScaleSize(p[5], 0) + ' used' : '') +
 									')' : '') + ' is ' +
 								((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? 'active' : 'mounted') +
 								((p[2] != '') ? ' on ' + p[2] : '');

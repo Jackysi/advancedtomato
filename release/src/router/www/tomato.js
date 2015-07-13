@@ -2387,7 +2387,7 @@ function myName() {
 	name = name.replace(/\\/g, '/');	// IE local testing
 	if ((i = name.lastIndexOf('/')) != -1) name = name.substring(i + 1, name.length);
 	if (name == '') name = 'status-overview.asp';
-	return name;
+	return '/#' + name;
 }
 
 function navi_icons ($name) {
