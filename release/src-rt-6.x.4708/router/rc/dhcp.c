@@ -500,8 +500,12 @@ void start_dhcp6c(void)
 	unlink("/var/dhcp6c_duid");
 	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
 		fprintf(f,
-			"interface %s {\n"
-			" send ia-na 0;\n" //Required to get correct WAN IP
+			"interface %s {\n", wan6face);
+		if (nvram_match("ipv6_service", "native-pd")) {
+		fprintf(f,
+			" send ia-na 0;\n");
+		};
+		fprintf(f,
 			" send ia-pd 0;\n"
 			" send rapid-commit;\n"
 			" request domain-name-servers;\n"
@@ -513,7 +517,6 @@ void start_dhcp6c(void)
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
 			" 	};\n",
-			wan6face,
 			nvram_get_int("ipv6_prefix_length"),
 			nvram_safe_get("lan_ifname"),
 			prefix_len);
