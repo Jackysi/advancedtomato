@@ -515,6 +515,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "qos_rst",			"1"				, 0 },
 	{ "qos_udp",			"0"				, 0 },
 	{ "qos_icmp",			"1"				, 0 },
+	{ "qos_pfifo",			"3"				, 0 }, //Set FQ_Codel Default Qdisc Scheduler
 	{ "qos_reset",			"1"				, 0 },
 	{ "qos_obw",			"700"				, 0 },
 	{ "qos_ibw",			"16000"				, 0 },
