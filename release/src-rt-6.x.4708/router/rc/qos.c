@@ -473,7 +473,7 @@ void start_qos(void)
 			"start)\n"
 			"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 			"\t$TQA root handle 1: htb default %u r2q %u\n"
-			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u atm\n",
+			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u linklay atm\n",
 				get_wanface(),
 				qosImqDeviceString,
 				qos,
@@ -509,7 +509,7 @@ void start_qos(void)
 		} else {
 			fprintf(f,
 				"# egress %d: %u-%u%%\n"
-				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
+				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u linklay atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
 				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
@@ -752,7 +752,7 @@ void start_qos(void)
 					"\tip link set $IMQ_DEV up\n"
 					"\ttc qdisc del dev $IMQ_DEV 2>/dev/null\n"
 					"\t$TQA_IMQ handle 1: root htb default %u r2q %u\n"
-					"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit overhead %u atm\n",
+					"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit overhead %u linklay atm\n",
 					qosDefaultClassId, r2q,
 					incomingBandwidthInKilobitsPerSecond,
 					incomingBandwidthInKilobitsPerSecond, overhead);
@@ -777,7 +777,7 @@ void start_qos(void)
 		} else {
 			fprintf(
 				f,
-				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u overhead %u atm\n",
+				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u overhead %u linklay atm\n",
 				classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu, overhead);
 			}
 
