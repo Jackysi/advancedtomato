@@ -875,6 +875,7 @@ void stop_ipv6(void)
 	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
+	eval("ip", "-6", "route", "flush", "scope", "global");
 }
 
 #endif

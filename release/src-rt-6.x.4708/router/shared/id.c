@@ -103,7 +103,7 @@ WNR3500Lv2			BCM47186              0x052b       3500(L)   02        0x710|0x1000
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
 R7000				BCM4709               0x0665       32        0x1301    0x1000
 R6250				BCM4708               0x0646       679       0x1110 //same as R6300v2 well we use the same MODEL definition
-R6300v2				BCM4708               0x0646       679       0x1110
+R6300v2				BCM4708               0x0646       679       0x1110 // CH/Charter version has the same signature
 
 DIR-868L			BCM4708               0x0646       24        0x1110
 WS880				BCM4708               0x0646       1234      0x1101
@@ -363,6 +363,7 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1103")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H245T00_NETGEAR"))) return MODEL_R6250;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H240T00_NETGEAR"))) return MODEL_R6300v2;
+		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H240T70_NETGEAR"))) return MODEL_R6300v2;
 		if ((nvram_match("boardrev", "0x1301")) && (nvram_match("boardnum", "32"))) return MODEL_R7000;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "24"))) return MODEL_DIR868L;
 		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("boardnum", "1234"))) return MODEL_WS880;
