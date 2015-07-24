@@ -473,7 +473,7 @@ void start_qos(void)
 			"start)\n"
 			"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 			"\t$TQA root handle 1: htb default %u r2q %u\n"
-			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u atm\n",
+			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u linklayer atm\n",
 				get_wanface(),
 				qosImqDeviceString,
 				qos,
@@ -501,7 +501,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
@@ -509,9 +509,9 @@ void start_qos(void)
 		} else {
 			fprintf(f,
 				"# egress %d: %u-%u%%\n"
-				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
+				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u linklayer atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
@@ -625,7 +625,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_ack")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 14 protocol ip u32 "
+			"\t$TFA parent 1: prio 14 u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 //			"match u16 0x0000 0xff80 at 2 "		// total length (0-127)
@@ -637,7 +637,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_syn")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 15 protocol ip u32 "
+			"\t$TFA parent 1: prio 15 u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -648,7 +648,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_fin")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 17 protocol ip u32 "
+			"\t$TFA parent 1: prio 17 u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -659,7 +659,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_rst")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 19 protocol ip u32 "
+			"\t$TFA parent 1: prio 19 u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -668,7 +668,7 @@ void start_qos(void)
 	}
 
 	if (nvram_get_int("qos_icmp")) {
-		fputs("\n\t$TFA parent 1: prio 13 protocol ip u32 match ip protocol 1 0xff flowid 1:10\n", f);
+		fputs("\n\t$TFA parent 1: prio 13 u32 match ip protocol 1 0xff flowid 1:10\n", f);
 	}
 
 
@@ -752,7 +752,7 @@ void start_qos(void)
 					"\tip link set $IMQ_DEV up\n"
 					"\ttc qdisc del dev $IMQ_DEV 2>/dev/null\n"
 					"\t$TQA_IMQ handle 1: root htb default %u r2q %u\n"
-					"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit overhead %u atm\n",
+					"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit overhead %u linklayer atm\n",
 					qosDefaultClassId, r2q,
 					incomingBandwidthInKilobitsPerSecond,
 					incomingBandwidthInKilobitsPerSecond, overhead);
@@ -760,7 +760,7 @@ void start_qos(void)
 
 			fprintf(f,
 			"\n"
-			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV\n", (nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
+			"\t$TFA parent ffff: prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV\n", (nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
 		}
 		
 		fprintf(
@@ -777,7 +777,7 @@ void start_qos(void)
 		} else {
 			fprintf(
 				f,
-				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u overhead %u atm\n",
+				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u overhead %u linklayer atm\n",
 				classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu, overhead);
 			}
 
@@ -788,7 +788,7 @@ void start_qos(void)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
+			"\t$TFA_IMQ parent 1: prio %u handle %u fw flowid 1:%u \n",           
 			classid, priority, classid);
 	}
 
@@ -807,7 +807,7 @@ void start_qos(void)
 		"\tip link set $IMQ_DEV down\n"
 		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 		"\ttc qdisc del dev $IMQ_DEV root 2>/dev/null\n"
-		"\ttc filter del dev $WAN_DEV parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
+		"\ttc filter del dev $WAN_DEV parent ffff: prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
 		"\t;;\n"
 		"*)\n"
 		"\techo \"...\"\n"
