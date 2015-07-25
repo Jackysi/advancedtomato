@@ -40,6 +40,7 @@ obj-y += httpd
 obj-y += www
 obj-y += wwwAT
 obj-y += bridge
+obj-$(TCONFIG_DNSSEC) += nettle
 obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
@@ -1716,7 +1717,7 @@ nocat-install:
 #Tomato RAF
 pcre/stamp-h1:
 	$(SEP)
-	cd pcre && \
+	cd pcre && autoreconf && \
 	CC=$(CC) CXX=$(HOST)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --disable-dependency-tracking --enable-utf8 --enable-unicode-properties --disable-cpp
 	@touch pcre/stamp-h1
@@ -2465,6 +2466,7 @@ libsodium-clean:
 
 dnscrypt/stamp-h1: libsodium
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	autoreconf && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	CPPFLAGS="-I$(TOP)/libsodium/src/libsodium/include" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libsodium/src/libsodium/.libs" \
