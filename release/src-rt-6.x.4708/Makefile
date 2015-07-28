@@ -866,9 +866,10 @@ define KernelConfig
 	if [ "$(SATA)" = "y" ]; then \
 		sed -i "/CONFIG_CMDLINE/d" $(1); \
 		echo "CONFIG_CMDLINE=\"root=\/dev\/mtdblock2 console=ttyS0,115200 init=\/sbin\/preinit earlyprintk debug libata.force=3.0Gbps\"" >>$(1); \
+		echo "# CONFIG_CMDLINE_FORCE is not set" >>$(1); \
 		sed -i "/CONFIG_SCSI_MOD/d" $(1); \
 		echo "CONFIG_SCSI_MOD=y" >>$(1); \
-		sed -i "/CONFIG_SCSI/d" $(1); \
+		sed -i "/CONFIG_SCSI=m/d" $(1); \
 		echo "CONFIG_SCSI=y" >>$(1); \
 		sed -i "/CONFIG_SCSI_PROC_FS/d" $(1); \
 		echo "CONFIG_SCSI_PROC_FS=y" >>$(1); \
@@ -880,7 +881,7 @@ define KernelConfig
 		echo "CONFIG_SCSI_LOWLEVEL=y" >>$(1); \
 		sed -i "/CONFIG_BLK_DEV_SD/d" $(1); \
 		echo "CONFIG_BLK_DEV_SD=y" >>$(1); \
-		sed -i "/CONFIG_ATA/d" $(1); \
+		sed -i "/CONFIG_ATA is not set/d" $(1); \
 		echo "CONFIG_ATA=y" >>$(1); \
 		sed -i "/CONFIG_SATA_PMP/d" $(1); \
 		echo "CONFIG_SATA_PMP=y" >>$(1); \
