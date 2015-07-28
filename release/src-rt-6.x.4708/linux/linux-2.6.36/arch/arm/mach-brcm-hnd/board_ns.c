@@ -583,6 +583,13 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 #endif
 #endif	/* CONFIG_FAILSAFE_UPGRADE */
 
+		/* Reserve for board_data */
+		if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665")
+		        && nvram_match("boardrev", "0x1301") && nvram_match("model", "R1D")) {
+			bcm947xx_flash_parts[nparts].size -= ROUNDUP(0x10000, mtd->erasesize);
+		}
+
+
 #ifdef CONFIG_CRASHLOG
 		if ((bcm947xx_flash_parts[nparts].size - trx_size) >=
 		    ROUNDUP(0x4000, mtd->erasesize)) {
@@ -688,13 +695,30 @@ init_mtd_partitions(hndsflash_t *sfl_info, struct mtd_info *mtd, size_t size)
 	nparts++;
 #endif
 
+	/* Setup board_data partition */
+	if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665")
+	        && nvram_match("boardrev", "0x1301") && nvram_match("model", "R1D")) {
+		bcm947xx_flash_parts[nparts].name = "board_data";
+		bcm947xx_flash_parts[nparts].size = ROUNDUP(0x10000, mtd->erasesize);
+		bcm947xx_flash_parts[nparts].offset = 0xFE0000;
+		nparts++;
+	};
+
 	/* Setup nvram MTD partition */
 	bcm947xx_flash_parts[nparts].name = "nvram";
 	bcm947xx_flash_parts[nparts].size = ROUNDUP(nvram_space, mtd->erasesize);
-	if (maxsize)
-		bcm947xx_flash_parts[nparts].offset = (size - 0x10000) - bcm947xx_flash_parts[nparts].size;
-	else
-		bcm947xx_flash_parts[nparts].offset = size - bcm947xx_flash_parts[nparts].size;
+
+	/* R1D */
+	if (nvram_match("boardnum", "32") && nvram_match("boardtype", "0x0665")
+	        && nvram_match("boardrev", "0x1301") && nvram_match("model", "R1D")) {
+			bcm947xx_flash_parts[nparts].offset = 0xFF0000;
+	} else {
+		if (maxsize)
+			bcm947xx_flash_parts[nparts].offset = (size - 0x10000) - bcm947xx_flash_parts[nparts].size;
+		else
+			bcm947xx_flash_parts[nparts].offset = size - bcm947xx_flash_parts[nparts].size;
+	}
+
 	nparts++;
 
 	return bcm947xx_flash_parts;

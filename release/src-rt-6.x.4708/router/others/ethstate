@@ -10,8 +10,10 @@ if [ -f /tmp/ethernet.state3 ]; then
     rm /tmp/ethernet.state3
 fi
 
-WANMAC=`nvram get wan_hwaddr`
-VWAN=`ifconfig | grep vlan | grep "$WANMAC" | awk '{print $1}' | grep -v ":"`
+# WANMAC=`nvram get wan_hwaddr` # wan mac addr
+# VWAN=`ifconfig | grep vlan | grep "$WANMAC" | awk '{print $1}' | grep -v ":" | tail -1` # tail SORT/UNIQ
+VWAN=`nvram get wan_ifname` # wan vlan from nvram, this fix bug on disabled WAN state and same LAN/WAN MAC
+ 
 VPORT=`nvram get $VWAN'ports' | awk '{print $1}' | sed 's/[^0-9]*//g'`
 if [ -z "$VPORT" ]; then
     VPORT="0"
@@ -23,6 +25,13 @@ fi
 SWAN=`cat /tmp/ethernet.state.tmp | grep "Port $VPORT" | awk '{print $3}'`
 echo "Port 0: $SWAN" > /tmp/ethernet.state
 sed -n -e "/Port $VPORT:/!p" /tmp/ethernet.state.tmp > /tmp/ethernet.state1
+
+MODEL=`nvram get model`
+if [ "$MODEL" == "R1D" ]; then
+sed -i '/Port 1/d' /tmp/ethernet.state1
+sed -i '/Port 3/d' /tmp/ethernet.state1
+fi
+
 sed -i '/Port 5/d' /tmp/ethernet.state1
 sed -i '/Port 8/d' /tmp/ethernet.state1
 

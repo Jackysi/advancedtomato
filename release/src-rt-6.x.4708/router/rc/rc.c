@@ -23,8 +23,16 @@ static int rctest_main(int argc, char *argv[])
 		else if (strcmp(argv[1], "qos") == 0) {
 			start_qos();
 		}
+
+#ifdef TCONFIG_FANCTRL
+		else if (strcmp(argv[1], "phy_tempsense") == 0) {
+			stop_phy_tempsense();
+			start_phy_tempsense();
+		}
+#endif
+
 #ifdef TCONFIG_IPV6
-		if (strcmp(argv[1], "6rd") == 0) {
+		else if (strcmp(argv[1], "6rd") == 0) {
 			stop_6rd_tunnel();
 			start_6rd_tunnel();
 		}
@@ -112,6 +120,9 @@ static const applets_t applets[] = {
 	{ "blink",			blink_main			},
 #ifdef CONFIG_BCMWL6
 	{ "blink_5g",			blink_5g_main			},
+#endif
+#ifdef TCONFIG_FANCTRL
+	{ "phy_tempsense",		phy_tempsense_main		},
 #endif
 	{ "rcheck",				rcheck_main				},
 	{ "dhcpc-event",		dhcpc_event_main		},

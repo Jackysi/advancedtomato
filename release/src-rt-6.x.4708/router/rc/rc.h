@@ -410,6 +410,11 @@ extern int blink_main(int argc, char *argv[]);
 extern int blink_5g_main(int argc, char *argv[]);
 #endif
 
+#ifdef TCONFIG_FANCTRL
+// phy_tempsense.c
+extern int phy_tempsense_main(int argc, char *argv[]);
+#endif
+
 // led.c
 extern int led_main(int argc, char *argv[]);
 
