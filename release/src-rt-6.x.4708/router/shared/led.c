@@ -227,6 +227,8 @@ int do_led(int which, int mode)
 	static int dir868[]     = { 255, 255,     3,  255,  255,   -0,  255,   255, 255,  255};
 	static int ea6700[]     = {  255, 255,   -6,  -6,  255,  255,  255,   255, 255,   255};
 	static int ws880[]      = {   0, 255,   -12,  255,  255,    6,    1,   255,  14,  255};
+	static int r1d[]        = { 255, 255,   255,  255,  255,    1,   -8,   255, 255,  255};
+
 #endif
 //                                 WLAN  DIAG  WHITE AMBER  DMZ   AOSS BRIDG   USB2 USB3   5G
 
@@ -473,6 +475,14 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_WS880:
 		b = ws880[which];
+		break;
+	case MODEL_R1D:
+		if (which == LED_DIAG) {
+			// power led gpio: -2 - orange, -3 - blue
+			b = (mode) ? 3 : 2;
+			c = (mode) ? 2 : 3;
+		} else
+			b = r1d[which];
 		break;
 	case MODEL_EA6700:
 	case MODEL_EA6900: //need to be verified

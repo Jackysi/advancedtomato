@@ -552,6 +552,25 @@ void clear_resolv(void)
 	f_write(dmresolv, NULL, 0, 0, 0);	// blank
 }
 
+#ifdef TCONFIG_FANCTRL
+static pid_t pid_phy_tempsense = -1;
+
+void start_phy_tempsense()
+{
+	stop_phy_tempsense();
+
+	char *phy_tempsense_argv[] = {"phy_tempsense", NULL};
+	_eval(phy_tempsense_argv, NULL, 0, &pid_phy_tempsense);
+}
+
+void stop_phy_tempsense()
+{
+	pid_phy_tempsense = -1;
+	killall_tk("phy_tempsense");
+}
+#endif
+
+
 #ifdef TCONFIG_IPV6
 static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns, const char *suffix, int once)
 {
@@ -2361,6 +2380,11 @@ void start_services(void)
 	start_nfs();
 #endif
 
+#ifdef TCONFIG_FANCTRL
+	start_phy_tempsense();
+#endif
+
+
 	if (get_model() == MODEL_R7000) {
 		//enable WAN port led
 		system("/usr/sbin/et robowr 0x0 0x10 0x3000");
@@ -2373,6 +2397,10 @@ void start_services(void)
 void stop_services(void)
 {
 	clear_resolv();
+
+#ifdef TCONFIG_FANCTRL
+	stop_phy_tempsense();
+#endif
 
 #ifdef TCONFIG_BT
 	stop_bittorrent();
@@ -2986,6 +3014,14 @@ TOP:
 	if (strcmp(service, "tinc") == 0) {
 		if (action & A_STOP) stop_tinc();
 		if (action & A_START) start_tinc();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_FANCTRL
+	if (strcmp(service, "fanctrl") == 0) {
+		if (action & A_STOP) stop_phy_tempsense();
+		if (action & A_START) start_phy_tempsense();
 		goto CLEAR;
 	}
 #endif

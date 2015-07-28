@@ -165,6 +165,10 @@ struct nvram_tuple router_defaults[] = {
 	{ "ipv6_vlan",			"0"				, 0 },	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
 #endif
 
+#ifdef RTCONFIG_FANCTRL
+	{ "fanctrl_dutycycle",		"0"				, 0 },
+#endif
+
 	// Wireless parameters
 	{ "wl_ifname",			""				, 0 },	// Interface name
 	{ "wl_hwaddr",			""				, 0 },	// MAC address

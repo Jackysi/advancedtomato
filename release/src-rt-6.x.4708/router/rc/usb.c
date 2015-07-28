@@ -98,6 +98,9 @@ void start_usb(void)
 	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900) {
 		xstart("gpio", "enable", "9");
 	}
+	if (get_model() == MODEL_R1D) {
+		xstart("gpio", "enable", "0");
+	}
 
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
@@ -328,6 +331,9 @@ void stop_usb(void)
 		modprobe_r(SCSI_WAIT_MOD);
 #endif
 		modprobe_r(SCSI_MOD);
+	}
+	if (get_model() == MODEL_R1D) {
+		xstart("gpio", "disable", "0");
 	}
 
 #if defined(LINUX26) && defined(TCONFIG_MICROSD)

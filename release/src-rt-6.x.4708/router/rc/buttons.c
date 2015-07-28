@@ -211,6 +211,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 11;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_R1D:
+		reset_mask = 1 << 17;
+ 		ses_led = LED_AOSS;
+ 		break;
 	case MODEL_W1800R:
 		reset_mask = 1 << 14;
 		break;
