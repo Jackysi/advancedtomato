@@ -2804,6 +2804,13 @@ hw_cdc_probe (struct usb_interface *udev, const struct usb_device_id *prod)
     if (status){
         goto out3;
     }
+
+    if (netif_msg_probe (dev)){
+        devinfo (dev, "register '%s', %s",
+            dev->driver_name,
+            dev->driver_desc);
+    }
+
     // ok, it's ready to go.
     usb_set_intfdata (udev, dev);
 

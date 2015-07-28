@@ -182,7 +182,7 @@ config USB_NET_CDCETHER
 	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
 	  name is used instead.
 
-config USB_NET_HW_CDCDRIVER
+config USB_NET_HUAWEIETHER
 	tristate "HW CDC Driver (Huawei driver for E3372 non-Hilink)"
 	depends on USB_USBNET
 	default y
