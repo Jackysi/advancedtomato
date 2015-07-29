@@ -1,7 +1,7 @@
 /*
  * gmacdefs - Broadcom gmac (Unimac) specific definitions
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: gmac_core.h 376344 2012-12-24 21:10:09Z $
+ * $Id: gmac_core.h 376342 2012-12-24 21:02:49Z $
  */
 
 #ifndef	_gmac_core_h_
@@ -245,7 +245,7 @@ typedef volatile struct _gmacregs {
 #define	CC_TAI			0x00000200
 #define	CC_HD			0x00000400
 #define	CC_HD_SHIFT		10
-#define CC_SR(corerev)  ((corerev == 4) ? 0x00002000 : 0x00000800)
+#define CC_SR(corerev)  ((corerev >= 4) ? 0x00002000 : 0x00000800)
 #define	CC_ML			0x00008000
 #define	CC_AE			0x00400000
 #define	CC_CFE			0x00800000

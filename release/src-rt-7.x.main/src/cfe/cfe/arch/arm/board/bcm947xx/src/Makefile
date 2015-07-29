@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom BCM947XX (ARM) boards
 #
-# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -19,18 +19,18 @@
 #
 
 # Max sizes for vanilla external
-CFEZ_MAXSIZE = 131072
-CFE_MAXSIZE = 262144
+CFEZ_MAXSIZE = 262144
+CFE_MAXSIZE = 393216
 
 # Max sizes for GigE/GMAC external
 ifeq ($(strip $(CFG_BCM57XX)),1)
 CFEZ_MAXSIZE = 262144
-CFE_MAXSIZE = 262144
+CFE_MAXSIZE = 393216
 endif
 
 ifeq ($(strip $(CFG_GMAC)),1)
 CFEZ_MAXSIZE = 262144
-CFE_MAXSIZE = 262144
+CFE_MAXSIZE = 393216
 endif
 
 # Max sizes for internal
@@ -173,7 +173,7 @@ ALLOBJS += hnddma.o
 endif
 
 ifeq ($(strip $(CFG_PCI)),1)
-BSPOBJS += bcm947xx_pci_machdep.o hndpci.o nicpci.o 
+BSPOBJS += bcm947xx_pci_machdep.o hndpci.o nicpci.o pcie_core.o
 ifeq ($(strip $(CFG_BCM57XX)),1)
 CFLAGS += -DCFG_BCM57XX=1
 ALLOBJS += dev_bcm5700.o hndgige.o

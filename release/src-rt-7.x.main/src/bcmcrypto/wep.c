@@ -1,7 +1,7 @@
 /*
  *   wep.c - WEP functions
  *
- * Copyright (C) 2012, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: wep.c 358033 2012-09-20 23:57:22Z $
+ * $Id: wep.c 408798 2013-06-20 18:57:33Z $
  */
 
 #include <bcm_cfg.h>

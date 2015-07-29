@@ -64,7 +64,7 @@
 #define cfe_command_restart 0
 #endif
 
-#if CFG_VAPI		    /* haul in SB1250-specfic stuff only for VAPI */
+#if CFG_VAPI		/* haul in SB1250-specfic stuff only for VAPI */
 #include "sb1250_defs.h"
 #include "sb1250_regs.h"
 #include "sb1250_scd.h"
@@ -1201,10 +1201,50 @@ LEAF(RunProgram)
 		li	a3,CFE_EPTSEAL  # A3 = entrypoint signature
 		LR	t0,0(sp)	# entry point
 
+	/* Check the MERGE_FRAG function should execute or not,
+	 * according to the information from MERGE_FRAG
+	 * Note: {a0-a3,t0} must be preserved
+	 */
+		la	t1,MERGE_FRAG
+		LR	t2,0(t1)
+	        beqz	t2,do_run
+
+		j	t2		# Go to _merge_func
+		nop
+do_run:
 		j	t0		# go for it.
 END(RunProgram)
 
 
+.globl _frag_merge_func
+_frag_merge_func:
+        .word _merge_func
+
+.globl _frag_merge_func_len
+_frag_merge_func_len:
+        .word _merge_func_end - _merge_func
+
+/* This merge_func will relocate at address which is stored at MERGE_FRAG.
+ * It will reference the value which is stored at MERGE_FRAG.
+ * There are the merge_func pointer, des_addr, src_addr and length.
+ * t0 is the entry point, a0-a3 are the parameters for the image.
+ * t1 is the address of MERGE_FRAG
+ */
+LEAF(_merge_func)
+		LR	t2,4(t1)
+		LR	t3,8(t1)
+		LR	t4,12(t1)
+1:
+		LR	t5,0(t3)
+		SR	t5,0(t2)
+		add	t3,4
+		add	t2,4
+		sub	t4,4
+		bgez	t4,1b
+
+		j	t0                     # jump to the entry point
+_merge_func_end:
+END(_merge_func)
 
 
 /*  *********************************************************************

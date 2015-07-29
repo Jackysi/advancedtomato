@@ -4,7 +4,7 @@
  * and diddled with only enough to compile without warnings and link
  * with our driver.
  *
- * Copyright (C) 2012, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -12,7 +12,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: des.c 241182 2011-02-17 21:50:03Z $
+ * $Id: des.c 467210 2014-04-02 20:16:21Z $
  */
 
 /* Portable C code to create DES key schedules from user-provided keys
@@ -30,7 +30,7 @@
 
 #include <bcmcrypto/des.h>
 
-const unsigned long BCMROMDATA(Spbox)[8][64] = {
+const unsigned int BCMROMDATA(Spbox)[8][64] = {
 	{
 		0x01010400, 0x00000000, 0x00010000, 0x01010404,
 		0x01010004, 0x00010404, 0x00000004, 0x00010000,
@@ -258,14 +258,14 @@ BCMROMFN(deskey)(DES_KS k,		/* Key schedule array */
 			}
 		}
 		/* Now convert to packed odd/even interleaved form */
-		k[i][0] = (((long)ks[0] << 24) |
-		           ((long)ks[2] << 16) |
-		           ((long)ks[4] << 8) |
-		           ((long)ks[6]));
-		k[i][1] = (((long)ks[1] << 24) |
-		           ((long)ks[3] << 16) |
-		           ((long)ks[5] << 8) |
-		           ((long)ks[7]));
+		k[i][0] = (((unsigned int)ks[0] << 24) |
+		           ((unsigned int)ks[2] << 16) |
+		           ((unsigned int)ks[4] << 8) |
+		           ((unsigned int)ks[6]));
+		k[i][1] = (((unsigned int)ks[1] << 24) |
+		           ((unsigned int)ks[3] << 16) |
+		           ((unsigned int)ks[5] << 8) |
+		           ((unsigned int)ks[7]));
 		if (Asmversion) {
 			/* The assembler versions pre-shift each subkey 2 bits
 			 * so the Spbox indexes are already computed
@@ -394,8 +394,8 @@ static unsigned char p32i[] = {
  * Input is r, subkey array in keys, output is XORed into l.
  * Each round consumes eight 6-bit subkeys, one for
  * each of the 8 S-boxes, 2 longs for each round.
- * Each long contains four 6-bit subkeys, each taking up a byte.
- * The first long contains, from high to low end, the subkeys for
+ * Each int contains four 6-bit subkeys, each taking up a byte.
+ * The first int contains, from high to low end, the subkeys for
  * S-boxes 1, 3, 5 & 7; the second contains the subkeys for S-boxes
  * 2, 4, 6 & 8 (using the origin-1 S-box numbering in the standard,
  * not the origin-0 numbering used elsewhere in this code)
@@ -415,23 +415,26 @@ static unsigned char p32i[] = {
 }
 /* Encrypt or decrypt a block of data in ECB mode */
 void
-BCMROMFN(des)(unsigned long ks[16][2],		/* Key schedule */
+BCMROMFN(des)(unsigned int ks[16][2],		/* Key schedule */
 	      unsigned char block[8])		/* Data block */
 {
-	unsigned long left, right, work;
-#if defined(BCMROMBUILD)
+/* Optimize for size. */
+#define DES_SIZE_OPTIMIZE
+
+	unsigned int left, right, work;
+#if defined(DES_SIZE_OPTIMIZE)
 	int round;
 #endif
 
 	/* Read input block and place in left/right in big-endian order */
-	left = (((unsigned long)block[0] << 24) |
-	        ((unsigned long)block[1] << 16) |
-	        ((unsigned long)block[2] << 8) |
-	        (unsigned long)block[3]);
-	right = (((unsigned long)block[4] << 24) |
-	         ((unsigned long)block[5] << 16) |
-	         ((unsigned long)block[6] << 8) |
-	         (unsigned long)block[7]);
+	left = (((unsigned int)block[0] << 24) |
+	        ((unsigned int)block[1] << 16) |
+	        ((unsigned int)block[2] << 8) |
+	        (unsigned int)block[3]);
+	right = (((unsigned int)block[4] << 24) |
+	         ((unsigned int)block[5] << 16) |
+	         ((unsigned int)block[6] << 8) |
+	         (unsigned int)block[7]);
 
 	/* Hoey's clever initial permutation algorithm, from Outerbridge
 	 * (see Schneier p 478)
@@ -464,12 +467,12 @@ BCMROMFN(des)(unsigned long ks[16][2],		/* Key schedule */
 	/* Now do the 16 rounds.
 	 * Fully unrolling generates 4x larger ARM code for this function
 	 */
-#if defined(BCMROMBUILD)
+#if defined(DES_SIZE_OPTIMIZE)
 	for (round = 0; round < 16; round += 2) {
 		F(left, right, ks[round + 0]);
 		F(right, left, ks[round + 1]);
 	}
-#else /* !BCMROMBUILD */
+#else /* !DES_SIZE_OPTIMIZE */
 	F(left, right, ks[0]);
 	F(right, left, ks[1]);
 	F(left, right, ks[2]);
@@ -486,7 +489,7 @@ BCMROMFN(des)(unsigned long ks[16][2],		/* Key schedule */
 	F(right, left, ks[13]);
 	F(left, right, ks[14]);
 	F(right, left, ks[15]);
-#endif /* !BCMROMBUILD */
+#endif /* !DES_SIZE_OPTIMIZE */
 
 	/* Inverse permutation, also from Hoey via Outerbridge and Schneier */
 	right = (right << 31) | (right >> 1);
@@ -523,10 +526,10 @@ BCMROMFN(des)(unsigned long ks[16][2],		/* Key schedule */
 #include <unistd.h>
 #include <time.h>
 
-static unsigned long
+static unsigned int
 randlong(void)
 {
-	static unsigned long r = 0;
+	static unsigned int r = 0;
 	if (r == 0)
 		r = getpid() * time(0) * 153846157;
 	r = (r + 7180351) * 74449801;
@@ -534,11 +537,11 @@ randlong(void)
 }
 
 static void
-dumpit(int sample, unsigned long ks[16][2], unsigned char in[8], unsigned char out[8])
+dumpit(int sample, unsigned int ks[16][2], unsigned char in[8], unsigned char out[8])
 {
 	int i;
 
-	printf("unsigned long sample%d_ks[16][2] = {\n", sample);
+	printf("unsigned int sample%d_ks[16][2] = {\n", sample);
 	for (i = 0; i < 16; i++)
 		printf("\t{ 0x%08lx, 0x%08lx },\n", ks[i][0], ks[i][1]);
 	printf("};\n\n");
@@ -555,7 +558,7 @@ dumpit(int sample, unsigned long ks[16][2], unsigned char in[8], unsigned char o
 void
 gensample(int sample)
 {
-	unsigned long ks[16][2];
+	unsigned int ks[16][2];
 	unsigned char in[8], out[8];
 	int i, j;
 
@@ -572,13 +575,13 @@ gensample(int sample)
 }
 
 int
-checksample(unsigned long ks[16][2], unsigned char in[8], unsigned char expected_out[8])
+checksample(unsigned int ks[16][2], unsigned char in[8], unsigned char expected_out[8])
 {
 	des(ks, in);
 	return (memcmp(in, expected_out, 8) == 0);
 }
 
-unsigned long sample1_ks[16][2] = {
+unsigned int sample1_ks[16][2] = {
 	{ 0xe75fea2c, 0xb035c443 },
 	{ 0x7245bf92, 0xab5529d9 },
 	{ 0xfde3ded8, 0x03f1b84f },
@@ -605,7 +608,7 @@ unsigned char sample1_out[8] = {
 	0x0e, 0x38, 0x62, 0x0a, 0x72, 0x93, 0xc8, 0x25,
 };
 
-unsigned long sample2_ks[16][2] = {
+unsigned int sample2_ks[16][2] = {
 	{ 0xf130845c, 0x97a6d7f3 },
 	{ 0xfe0458c2, 0x7520b489 },
 	{ 0xcb712708, 0x0165e9ff },

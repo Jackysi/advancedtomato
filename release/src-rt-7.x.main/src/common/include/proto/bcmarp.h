@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  *
  * Fundamental constants relating to ARP Protocol
  *
- * $Id: bcmarp.h 332293 2012-05-09 20:49:03Z $
+ * $Id: bcmarp.h 384540 2013-02-12 04:28:58Z $
  */
 
 #ifndef _bcmarp_h_

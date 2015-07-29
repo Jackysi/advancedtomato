@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O3 -fno-delete-null-pointer-checks -Wall
+CFLAGS = -O3 -Wall
 
 all: trx_asus
 

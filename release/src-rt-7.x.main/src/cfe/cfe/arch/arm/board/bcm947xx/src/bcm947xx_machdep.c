@@ -30,55 +30,62 @@
 #include <chipcommonb.h>
 
 extern bool si_arm_setclock(si_t *sih, uint32 armclock, uint32 ddrclock, uint32 axiclock);
+#ifdef RTAC68U
 extern int cpu_turbo_mode;
+#endif
+
+#ifdef DSLAC68U
+#define PWR_LED_GPIO	(1 << 3)	// GPIO 3
+#define	WAN_LED_GPIO	(1 << 0)	// GPIO 0
+#define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
+#define	USB3_LED_GPIO	(1 << 14)	// GPIO 14
+#define WL5G_LED_GPIO	(1 << 6)	// GPIO 6
+#endif
 
 #ifdef RTAC87U
-#define	PWR_LED_GPIO	(1 << 1)	// GPIO 1
-#define	USB_LED_GPIO	(1 << 0)	// GPIO 0
-#define	TURBO_LED_GPIO	(1 << 4)	// GPIO 4
-#define	USB3_LED_GPIO	(1 << 14)	// GPIO 14
-#define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
-#else	/* not RTAC87U */
-
-#ifndef RTN18U
 #define	PWR_LED_GPIO	(1 << 3)	// GPIO 3
-#else	/* RT-N18U */
-#define	PWR_LED_GPIO	(1 << 0)	// GPIO 0
-#endif
-#ifndef RTN18U
-#define	WL5G_LED_GPIO	(1 << 6)	// GPIO 6
-#endif
-#ifdef RTAC68U
+#define TURBO_LED_GPIO	(1 << 4)	// GPIO 4
+#define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
 #define	USB_LED_GPIO	(1 << 0)	// GPIO 0
-#define	TURBO_LED_GPIO	(1 << 4)	// GPIO 4
 #define	USB3_LED_GPIO	(1 << 14)	// GPIO 14
-#else
-#ifndef RTN18U	/* RT-AC56U */
-#define	USB3_LED_GPIO	(1 << 0)	// GPIO 0
+#endif
+
+#ifdef RTAC3200
+#define PWR_LED_GPIO	(1 << 3)	// GPIO 3
+#define WAN_LED_GPIO	(1 << 5)	// GPIO 5
+#define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
+#define WPS_LED_GPIO	(1 << 14)	// GPIO 14
+#endif
+
+#ifdef RTAC68U
+#define PWR_LED_GPIO	(1 << 3)	// GPIO 3
+#define	TURBO_LED_GPIO	(1 << 4)	// GPIO 4
+#define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
+#define USB_LED_GPIO	(1 << 0)	// GPIO 0
+#define	USB3_LED_GPIO	(1 << 14)	// GPIO 14
+#define WL5G_LED_GPIO	(1 << 6)	// GPIO 6
+#endif
+
+#ifdef RTAC56U
+#define PWR_LED_GPIO	(1 << 3)	// GPIO 3
 #define	WAN_LED_GPIO	(1 << 1)	// GPIO 1
 #define	LAN_LED_GPIO	(1 << 2)	// GPIO 2
-#define	USB_LED_GPIO	(1 << 14)	// GPIO 14
-#else	/* RT-N18U */
-#define	WAN_LED_GPIO	(1 << 6)	// GPIO 6
-#define	LAN_LED_GPIO	(1 << 9)	// GPIO 9
-#endif
-#endif
-
-#ifndef RTN18U				// for RT-AC56U & RT-AC68U
 #define USB_PWR1_GPIO	(1 << 9)	// GPIO 9
-#ifndef RTAC68U
 #define USB_PWR2_GPIO	(1 << 10)	// GPIO 10
-#endif
+#define	USB_LED_GPIO	(1 << 14)	// GPIO 14
+#define USB3_LED_GPIO	(1 << 0)	// GPIO 0
+#define WL5G_LED_GPIO	(1 << 6)	// GPIO 6
 #endif
 
-#ifdef RTN18U				// RT-N18U
-#define	WL2G_LED_GPIO	(1 << 10)	// GPIO 10
+#ifdef RTN18U
+#define PWR_LED_GPIO	(1 << 0)	// GPIO 0
+#define WAN_LED_GPIO	(1 << 6)	// GPIO 6
+#define LAN_LED_GPIO	(1 << 9)	// GPIO 9
+#define USB_PWR1_GPIO   (1 << 13)	// GPIO 13
 #define	USB_LED_GPIO	(1 << 3)	// GPIO 3
 #define	USB3_LED_GPIO	(1 << 14)	// GPIO 14
-#define USB_PWR1_GPIO	(1 << 13)	// GPIO 13
+#define WL2G_LED_GPIO	(1 << 10)	// GPIO 10
 #endif
-
-#endif	/* end of RTAC87U */
 
 void
 board_pinmux_init(si_t *sih)
@@ -90,69 +97,96 @@ board_pinmux_init(si_t *sih)
 	chipcb = si_setcore(sih, NS_CCB_CORE_ID, 0);
 	if (chipcb != NULL) {
 		/* Default select the mux pins for GPIO */
-		W_REG(osh, &chipcb->cru_gpio_control0, 0x1fffff);
+		W_REG(si_osh(sih), &chipcb->cru_gpio_control0, 0x1fffff);
 	}
 	si_setcoreidx(sih, origidx);
+#ifdef DSLAC68U
+	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+#endif
 
+#ifdef RTAC87U
 	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
 	si_gpioouten(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
-#ifdef RTAC68U
-	si_gpioouten(sih, TURBO_LED_GPIO, TURBO_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#ifndef RTN18U
-#ifndef RTAC87U
-	si_gpioouten(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
 	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#if !defined(RTAC68U) && !defined(RTAC87U)
-	si_gpioouten(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioouten(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#ifndef RTN18U				// for RT-AC56U & RT-AC68U
-	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
-#if !defined(RTAC68U) && !defined(RTAC87U)
-	si_gpioouten(sih, USB_PWR2_GPIO, USB_PWR2_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#endif
-#ifdef RTN18U				// RT-N18U
-	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioouten(sih, WL2G_LED_GPIO, WL2G_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
 
 	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
 	si_gpioout(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
-#ifdef RTAC68U
-	si_gpioout(sih, TURBO_LED_GPIO, 0, GPIO_DRV_PRIORITY);
-#endif
-#ifndef RTN18U				// for RT-AC56U & RT-AC68U to enable USB power
-#ifndef RTAC87U
-	si_gpioout(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
 	si_gpioout(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
 #endif
-#if !defined(RTAC68U) && !defined(RTAC87U)
-	si_gpioout(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioout(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#ifndef RTN18U				// for RT-AC56U & RT-AC68U to enable USB power
-	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
-#if !defined(RTAC68U) && !defined(RTAC87U)
-	si_gpioout(sih, USB_PWR2_GPIO, USB_PWR2_GPIO, GPIO_DRV_PRIORITY);
-#endif
-#endif
-#ifdef RTN18U				// RT-N18U
-	/* enable USB power */
-	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
 
-	/* power on LEDs */
-	si_gpioout(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioout(sih, WL2G_LED_GPIO, WL2G_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioout(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
-	si_gpioout(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
+#ifdef RTAC3200
+	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WPS_LED_GPIO, WPS_LED_GPIO, GPIO_DRV_PRIORITY);
+
+	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WAN_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WPS_LED_GPIO, WPS_LED_GPIO, GPIO_DRV_PRIORITY);
+#endif
+
+#ifdef RTAC68U
+	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, TURBO_LED_GPIO, TURBO_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+
+	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, TURBO_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
 	si_gpioout(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
 	si_gpioout(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+#endif
+
+#ifdef RTAC56U
+	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR2_GPIO, USB_PWR2_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+
+	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR2_GPIO, USB_PWR2_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WL5G_LED_GPIO, WL5G_LED_GPIO, GPIO_DRV_PRIORITY);
+#endif
+
+#ifdef RTAC18U
+	si_gpioouten(sih, PWR_LED_GPIO, PWR_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioouten(sih, WL2G_LED_GPIO, WL2G_LED_GPIO, GPIO_DRV_PRIORITY);
+
+	si_gpioout(sih, PWR_LED_GPIO, 0, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WAN_LED_GPIO, WAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, LAN_LED_GPIO, LAN_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_PWR1_GPIO, USB_PWR1_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB_LED_GPIO, USB_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, USB3_LED_GPIO, USB3_LED_GPIO, GPIO_DRV_PRIORITY);
+	si_gpioout(sih, WL2G_LED_GPIO, WL2G_LED_GPIO, GPIO_DRV_PRIORITY);
 #endif
 }
 
@@ -162,23 +196,24 @@ board_clock_init(si_t *sih)
 	uint32 armclock = 0, ddrclock = 0, axiclock = 0;
 	char *nvstr;
 	char *end;
-
+#ifdef RTAC68U
 	if (cpu_turbo_mode)
 	{
 		printf("CPU Turbo Mode\n");
 		nvstr = strdup("1000,533");
 	}
 	else
+#endif
 		nvstr = nvram_safe_get("clkfreq");
 
 	/* ARM clock speed override */
 	if (nvstr) {
 		printf("clkfreq: %s\n", nvstr);
 		armclock = bcm_strtoul(nvstr, &end, 0) * 1000000;
-
+#ifdef RTAC68U
 		if (cpu_turbo_mode)
 			KFREE(nvstr);
-
+#endif
 		if (*end == ',') {
 			nvstr = ++end;
 			ddrclock = bcm_strtoul(nvstr, &end, 0) * 1000000;

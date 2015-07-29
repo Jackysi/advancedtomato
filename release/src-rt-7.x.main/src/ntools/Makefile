@@ -39,7 +39,7 @@ all: check_img
 	@echo " +--------------------+--------+-----------------------------+"
 	@echo " |         CFE        | NVRAM  |    Linux Firmware Image     |"
 	@echo " +--------------------+--------+-----------------------------+"
-	@echo " |<----------$(CFE_SIZE)---------->|<-------$(KERNEL_SIZE)------------>|"
+	@echo " |<--------$(CFE_SIZE)-------->|<-------$(KERNEL_SIZE)------>|"
 	
 	@echo -e "\n-Original CFE Image Size"
 	@wc -c $(CFE_DIR)/$(CFE_IMAGE)

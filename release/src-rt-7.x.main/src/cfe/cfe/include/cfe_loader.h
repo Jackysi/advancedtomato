@@ -74,6 +74,13 @@ typedef struct cfe_loader_s {
     int flags;				/* flags */
 } cfe_loader_t;
 
+typedef struct cfe_frag_info_s {
+	uint32_t *func_ptr;
+	uint32_t des_addr;
+	uint32_t src_addr;
+	uint32_t len;
+} cfe_frag_info_t;
+
 #define LDRLOAD(ldr,arg) (*((ldr)->loader))(arg)
 
 int cfe_load_program(char *name,cfe_loadargs_t *la);

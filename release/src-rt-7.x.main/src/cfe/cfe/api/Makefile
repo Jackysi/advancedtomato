@@ -1,6 +1,6 @@
 TOOLS_PREFIX = sb1-elf-
 CPPFLAGS = -I../include
-CFLAGS = -O2 -fno-delete-null-pointer-checks -fomit-frame-pointer \
+CFLAGS = -O2 -fomit-frame-pointer \
 	 -Wall -Wstrict-prototypes -Wmissing-prototypes -Werror
 
 CC = $(TOOLS_PREFIX)gcc

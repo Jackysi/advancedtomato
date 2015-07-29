@@ -18,6 +18,8 @@
 # $Id: Makefile 398971 2013-04-26 22:39:49Z $
 #
 
+include ../../../../.config
+
 ARCH ?= arm
 CPU ?= bcmcore
 BOARD := bcm947xx
@@ -71,10 +73,17 @@ CFG_SDRAM_PARAM_FROM_EMBEDDED_NVRAM := 1
 
 # Additional options
 COMPRESSED_CFE := 1
-RESCUE_MODE := 1        # disable for tmp
+RESCUE_MODE := 1
+DSLAC68U := 0
 RTAC68U := 0
+RTAC56U := 0
+RTAC3200 := 0
 PATYPE := 0
-MTDSIZE := 32
+MTDSIZE ?= $(LINUX_MTD)
+MTDSIZE ?= 32
+DUAL_TRX := 0
+TMO := 0
+EU := 0
 
 # HND source base
 SRCBASE := $(shell cd ../../../.. && pwd)
@@ -97,6 +106,7 @@ else
     CFG_DATA_START := 0x80001000
   endif
 endif
+CFG_MERGE_FRAG := 0x80000F00
 # To generating ATE traces
 ifeq ($(strip $(CFG_ATE)),1)
 CFLAGS += -DBCM_ATE
@@ -125,20 +135,47 @@ endif
 ifeq ($(strip $(RESCUE_MODE)),1)
 CFLAGS += -DRESCUE_MODE
 endif
+
+ifeq ($(strip $(RTAC3200)),1)
+MTDSIZE := 64
+CFLAGS += -DRTAC3200
+endif
+
+ifeq ($(strip $(DUAL_TRX)),1)
+CFLAGS += -DDUAL_TRX
+endif
+
 ifeq ($(strip $(RTAC68U)),1)
+ifeq ($(strip $(TMO)),1)
+MTDSIZE := 48
+CFLAGS += -DDUAL_TRX
+else
+MTDSIZE := 64
+endif
 CFLAGS += -DRTAC68U
 endif
+
+ifeq ($(strip $(DSLAC68U)),1)
+CFLAGS += -DDSLAC68U
+endif
+
 ifeq ($(strip $(RTAC87U)),1)
+MTDSIZE := 128
 CFLAGS += -DRTAC87U
 endif
+
 ifeq ($(strip $(RTN18U)),1)
 CFLAGS += -DRTN18U
 endif
+
 ifeq ($(strip $(COMPRESSED_CFE)),1)
 CFLAGS += -DCOMPRESSED_CFE
 endif
 ifeq ($(MTDSIZE),32)
 CFLAGS += -D"CONFIG_LINUX_MTD=32"
+endif
+ifeq ($(MTDSIZE),48)
+CFLAGS += -D"CONFIG_LINUX_MTD=48"
 endif
 ifeq ($(MTDSIZE),64)
 CFLAGS += -D"CONFIG_LINUX_MTD=64"
@@ -187,12 +224,17 @@ endif
 # ARM override
 ifeq ($(ARCH), arm)
 CPU := armv7
+ifeq ($(NVSIZE), 128)
+CFG_NVRAM_SPACE := 131072
+else
 CFG_NVRAM_SPACE := 65536
+endif
 CFG_GMAC := 1
 CFG_CFLASH := 0
 CFG_FLASH := 0   # if CFG_XIP is set then CFG_FLASH must be set to 0
 CFG_SFLASH := 1
 CFG_TEXT_START := 0x00f00000
+CFG_MERGE_FRAG := 0x00000F00
 
 TOOLPREFIX := arm-uclibc-linux-2.6.36-
 
@@ -201,6 +243,7 @@ else
 CFG_NVRAM_SPACE := 32768
 endif
 
+CFLAGS += -DMERGE_FRAG=$(CFG_MERGE_FRAG)
 CFLAGS += -DMAX_NVRAM_SPACE=$(CFG_NVRAM_SPACE)
 
 # handle "undefined reference to otp_read_word" problem

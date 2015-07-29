@@ -156,7 +156,7 @@ reset_release_wait(void)
 int
 BCMINITFN(nvram_wsgpio_init)(void *si)
 {
-#ifdef RTAC68U
+#if defined(RTAC68U) || defined(DSLAC68U)
 	int gpio = 5;
 #else
 	int gpio = 7;
@@ -174,7 +174,9 @@ BCMINITFN(nvram_wsgpio_init)(void *si)
 	return gpio;
 }
 
+#ifdef RTAC68U
 int cpu_turbo_mode = 0;
+
 static void
 detect_turbo_button(void)
 {
@@ -184,15 +186,12 @@ detect_turbo_button(void)
 	if ((gpio = nvram_wsgpio_init ((void *)sih)) < 0)
 		return;
 
-	/* active low */
+	/* active high */
 	gpiomask = (uint32)1 << gpio;
-#ifdef RTAC68U	// active high
 	if ((si_gpioin(sih) & gpiomask))
-#else
-	if (!(si_gpioin(sih) & gpiomask))
-#endif
 		cpu_turbo_mode = 1;
 }
+#endif
 
 /*
  *  board_console_init()
@@ -248,11 +247,12 @@ board_console_init(void)
 
 	if (cfe_finddev("uart0"))
 		cfe_set_console("uart0");
-
+#ifdef RTAC68U
 	printf("Detect CPU turbo button... ");
 	detect_turbo_button();
 	if (cpu_turbo_mode && atoi(nvram_safe_get("btn_led_mode")))
 		board_clock_init(sih);
+#endif
 }
 
 
@@ -418,6 +418,7 @@ flash_nflash_init(void)
 	int need_commit = 0;
 #endif
 
+printf("*** flash_nflash_init ***\n");
 	memset(&fprobe, 0, sizeof(fprobe));
 
 	nfl_info = hndnand_init(sih);
@@ -571,7 +572,6 @@ flash_init(void)
 			bootsz = 128 * 1024;
 	}
 	printf("Boot partition size = %d(0x%x)\n", bootsz, bootsz);
-
 #if CFG_NFLASH
 	if (nfl_info) {
 		fl_size_t flash_size = 0;
@@ -634,6 +634,12 @@ flash_init(void)
 		}
 #endif
 		flash_size = get_flash_size("nflash0") - nfl_boot_os_size(nfl_info);
+#ifdef DUAL_TRX
+                fprobe.flash_parts[j].fp_size = NFL_BOOT_OS_SIZE;
+                fprobe.flash_parts[j++].fp_name = "trx2";
+		flash_size -= NFL_BOOT_OS_SIZE;
+#endif
+
 		if (flash_size > 0) {
 			fprobe.flash_parts[j].fp_size = flash_size;
 			fprobe.flash_parts[j++].fp_name = "brcmnand";

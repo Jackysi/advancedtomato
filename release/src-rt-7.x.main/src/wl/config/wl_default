@@ -39,7 +39,6 @@ WLTINYDUMP=1
 WLAMPDU=1
 WLAMPDU_UCODE=0
 WLAMPDU_HW=1
-WLAMPDU_PRECEDENCE=1
 PKTQ_LOG=1
 WLAMSDU=1
 WLAMSDU_SWDEAGG=1
@@ -47,13 +46,17 @@ BCMROMOFFLOAD=0
 BTC2WIRE=1
 WLCOEX=1
 WL_NOPHYIPA=0
-WLOLPC=1
 WLHOSTVARS=1
+WLOLPC=1
+WLTXBF=1
+WL_PROT_OBSS=1
+
+# BCMEXTNVM = 1, is used for Windows internal & external driver debug & BU. 
+# It enables NVRAM file read for the external & internal Windows drivers,
+# which otherwise is prohibited. Hence by default set to 0. 
 BCMEXTNVM=0
+
 BCMECICOEX=1
 #ifndef LINUX_CRYPTO
 LINUX_CRYPTO=0
 #endif
-PPR_API=1
-WLTXBF=1
-WLOBSSPROT=1

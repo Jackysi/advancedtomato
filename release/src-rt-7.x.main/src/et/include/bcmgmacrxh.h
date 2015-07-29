@@ -3,7 +3,7 @@
  * Broadcom Home Networking Division
  * BCM47XX GbE cores.
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: bcmgmacrxh.h 376344 2012-12-24 21:10:09Z $
+ * $Id: bcmgmacrxh.h 376342 2012-12-24 21:02:49Z $
  */
 
 #ifndef _bcmgmacrxh_h_
@@ -31,10 +31,10 @@
 typedef volatile struct {
 	uint16	len;
 	uint16	flags;
-	uint16	pad[5];
+	uint16	pad[12];
 } bcmgmacrxh_t;
 
-#define	RXHDR_LEN	14	/* Header length */
+#define	RXHDR_LEN	28	/* Header length */
 
 #define	GRXF_DT_MASK	((uint16)0xf)		/* data type */
 #define	GRXF_DT_SHIFT	12

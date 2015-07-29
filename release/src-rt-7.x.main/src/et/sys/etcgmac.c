@@ -3,7 +3,7 @@
  *
  * This file implements the chip-specific routines for the GMAC core.
  *
- * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2015, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: etcgmac.c 436117 2013-11-13 06:54:29Z $
+ * $Id: etcgmac.c 523524 2014-12-31 02:48:08Z $
  */
 
 #include <et_cfg.h>
@@ -53,10 +53,14 @@
 #ifdef ETFA
 #include <etc_fa.h>
 #endif /* ETFA */
+#include <hndfwd.h> /* BCM_GMAC3 */
+
 
 struct bcmgmac;	/* forward declaration */
 #define ch_t	struct bcmgmac
 #include <etc.h>
+
+#define GMAC_NS_COREREV(rev) ((rev == 4) || (rev == 5) || (rev == 7))
 
 /* private chip state */
 struct bcmgmac {
@@ -94,6 +98,8 @@ static void chipreset(ch_t *ch);
 static void chipinit(ch_t *ch, uint options);
 static bool chiptx(ch_t *ch, void *p);
 static void *chiprx(ch_t *ch);
+static int  chiprxquota(ch_t *ch, int quota, void **rxpkts);
+static void chiprxlazy(ch_t *ch);
 static void chiprxfill(ch_t *ch);
 static int chipgetintrevents(ch_t *ch, bool in_isr);
 static bool chiperrors(ch_t *ch);
@@ -107,9 +113,12 @@ static void chipstatsupd(ch_t *ch);
 static void chipdumpmib(ch_t *ch, struct bcmstrbuf *b, bool clear);
 static void chipenablepme(ch_t *ch);
 static void chipdisablepme(ch_t *ch);
+static void chipconfigtimer(ch_t *ch, uint microsecs);
 static void chipphyreset(ch_t *ch, uint phyaddr);
 static uint16 chipphyrd(ch_t *ch, uint phyaddr, uint reg);
 static void chipphywr(ch_t *ch, uint phyaddr, uint reg, uint16 v);
+static uint chipmacrd(ch_t *ch, uint reg);
+static void chipmacwr(ch_t *ch, uint reg, uint val);
 static void chipdump(ch_t *ch, struct bcmstrbuf *b);
 static void chiplongname(ch_t *ch, char *buf, uint bufsize);
 static void chipduplexupd(ch_t *ch);
@@ -134,6 +143,8 @@ struct chops bcmgmac_et_chops = {
 	chipinit,
 	chiptx,
 	chiprx,
+	chiprxquota,
+	chiprxlazy,
 	chiprxfill,
 	chipgetintrevents,
 	chiperrors,
@@ -146,9 +157,12 @@ struct chops bcmgmac_et_chops = {
 	chipdumpmib,
 	chipenablepme,
 	chipdisablepme,
+	chipconfigtimer,
 	chipphyreset,
 	chipphyrd,
 	chipphywr,
+	chipmacrd,
+	chipmacwr,
 	chipdump,
 	chiplongname,
 	chipduplexupd,
@@ -229,16 +243,21 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	}
 	if (etc->corerev != GMAC_4706B0_CORE_REV)
 		etc->corerev = si_corerev(ch->sih);
+
 	ch->regs = regs;
 	etc->chip = ch->sih->chip;
 	etc->chiprev = ch->sih->chiprev;
 	etc->chippkg = ch->sih->chippkg;
 	etc->coreid = si_coreid(ch->sih);
 	etc->nicmode = !(ch->sih->bustype == SI_BUS);
+	etc->gmac_fwd = FALSE;  /* BCM_GMAC3 */
 	etc->boardflags = getintvar(ch->vars, "boardflags");
 
 	boardflags = etc->boardflags;
 	boardtype = ch->sih->boardtype;
+
+	/* Backplane clock ticks per microsecs: used by gptimer, intrecvlazy */
+	etc->bp_ticks_usec = si_clock(ch->sih) / 1000000;
 
 #ifdef PKTC
 	etc->pktc = (getintvar(ch->vars, "pktc_disable") == 0) &&
@@ -258,10 +277,22 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	}
 	bcm_ether_atoe(var, &etc->perm_etheraddr);
 
+#if defined(BCM_GMAC3)
+	/*
+	 * Select GMAC mode of operation:
+	 * If a valid MAC address is present, it operates as an Ethernet Network
+	 * interface, otherwise it operates as a forwarding GMAC interface.
+	 */
+	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
+		etc->gmac_fwd = TRUE;
+	}
+#else  /* ! BCM_GMAC3 */
 	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
 		ET_ERROR(("et%d: chipattach: invalid format: %s=%s\n", etc->unit, name, var));
 		goto fail;
 	}
+#endif /* ! BCM_GMAC3 */
+
 	bcopy((char *)&etc->perm_etheraddr, (char *)&etc->cur_etheraddr, ETHER_ADDR_LEN);
 
 	/*
@@ -352,7 +383,9 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 #ifndef _CFE_
 	/* override dma parameters, corerev 4 dma channel 1,2 and 3 default burstlen is 0. */
 	/* corerev 4,5: NS Ax; corerev 6: BCM43909 no HW prefetch; corerev 7: NS B0 */
-	if (etc->corerev == 4 || etc->corerev == 5) {
+	if (etc->corerev == 4 ||
+	    etc->corerev == 5 ||
+	    etc->corerev == 7) {
 #define DMA_CTL_TX 0
 #define DMA_CTL_RX 1
 
@@ -367,12 +400,20 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		};
 
 		dmactl[DMA_CTL_TX][DMA_CTL_MR] = (TXMR == 2 ? DMA_MR_2 : DMA_MR_1);
-		dmactl[DMA_CTL_TX][DMA_CTL_PT] = (TXPREFTHRESH == 8 ? DMA_PT_8 :
-		                                  TXPREFTHRESH == 4 ? DMA_PT_4 :
-		                                  TXPREFTHRESH == 2 ? DMA_PT_2 : DMA_PT_1);
-		dmactl[DMA_CTL_TX][DMA_CTL_PC] = (TXPREFCTL == 16 ? DMA_PC_16 :
-		                                  TXPREFCTL == 8 ? DMA_PC_8 :
-		                                  TXPREFCTL == 4 ? DMA_PC_4 : DMA_PC_0);
+
+		if (etc->corerev == 7) {
+			/* NS B0 can only be configured to DMA_PT_1 and DMA_PC_4 */
+			dmactl[DMA_CTL_TX][DMA_CTL_PT] = DMA_PT_1;
+			dmactl[DMA_CTL_TX][DMA_CTL_PC] = DMA_PC_4;
+		} else {
+			dmactl[DMA_CTL_TX][DMA_CTL_PT] = (TXPREFTHRESH == 8 ? DMA_PT_8 :
+				TXPREFTHRESH == 4 ? DMA_PT_4 :
+				TXPREFTHRESH == 2 ? DMA_PT_2 : DMA_PT_1);
+			dmactl[DMA_CTL_TX][DMA_CTL_PC] = (TXPREFCTL == 16 ? DMA_PC_16 :
+				TXPREFCTL == 8 ? DMA_PC_8 :
+				TXPREFCTL == 4 ? DMA_PC_4 : DMA_PC_0);
+		}
+
 		dmactl[DMA_CTL_TX][DMA_CTL_BL] = (TXBURSTLEN == 1024 ? DMA_BL_1024 :
 		                                  TXBURSTLEN == 512 ? DMA_BL_512 :
 		                                  TXBURSTLEN == 256 ? DMA_BL_256 :
@@ -455,7 +496,9 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	/*
 	 * Broadcom Robo ethernet switch.
 	 */
-	if ((boardflags & BFL_ENETROBO) && (etc->phyaddr == EPHY_NOREG)) {
+	if (DEV_NTKIF(etc) &&
+		(boardflags & BFL_ENETROBO) && (etc->phyaddr == EPHY_NOREG)) {
+
 		ET_TRACE(("et%d: chipattach: Calling robo attach\n", etc->unit));
 
 		/* Attach to the switch */
@@ -605,6 +648,20 @@ chiplongname(ch_t *ch, char *buf, uint bufsize)
 
 	strncpy(buf, s, bufsize);
 	buf[bufsize - 1] = '\0';
+}
+
+static uint
+chipmacrd(ch_t *ch, uint offset)
+{
+	ASSERT(offset < 4096); /* GMAC Register space is 4K size */
+	return R_REG(ch->osh, (uint *)((uint)(ch->regs) + offset));
+}
+
+static void
+chipmacwr(ch_t *ch, uint offset, uint val)
+{
+	ASSERT(offset < 4096); /* GMAC Register space is 4K size */
+	W_REG(ch->osh, (uint *)((uint)(ch->regs) + offset), val);
 }
 
 static void
@@ -1153,8 +1210,9 @@ chipinreset:
 		}
 	}
 
-	/* 3GMAC: for BCM4707, only do core reset at chipattach */
-	if (CHIPID(ch->sih->chip) != BCM4707_CHIP_ID) {
+	/* 3GMAC: for BCM4707 and BCM47094, only do core reset at chipattach */
+	if ((CHIPID(ch->sih->chip) != BCM4707_CHIP_ID) &&
+	    (CHIPID(ch->sih->chip) != BCM47094_CHIP_ID)) {
 		/* reset core */
 		si_core_reset(ch->sih, flagbits, 0);
 	}
@@ -1213,6 +1271,17 @@ chipinreset:
 	 * is mii/rmii.
 	 */
 	gmac_miiconfig(ch);
+
+#if !defined(_CFE_) && defined(BCM47XX_CA9)
+	if (OSL_ACP_WAR_ENAB() || OSL_ARCH_IS_COHERENT()) {
+		uint32 mask = (0xf << 16) | (0xf << 7) | (0x1f << 25) | (0x1f << 20);
+		uint32 val = (0xb << 16) | (0x7 << 7) | (0x1 << 25) | (0x1 << 20);
+		/* si_core_cflags to change ARCACHE[19:16] to 0xb, and AWCACHE[10:7] to 0x7,
+		 * ARUSER[29:25] to 0x1, and AWUSER [24:20] to 0x1
+		 */
+		si_core_cflags(ch->sih, mask, val);
+	}
+#endif /* !_CFE_ && BCM47XX_CA9 */
 
 	/* gmac doesn't have internal phy */
 	chipphyinit(ch, ch->etc->phyaddr);
@@ -1310,6 +1379,7 @@ chipinit(ch_t *ch, uint options)
 	gmacregs_t *regs;
 	uint idx;
 	uint i;
+
 	regs = ch->regs;
 	etc = ch->etc;
 	idx = 0;
@@ -1359,6 +1429,10 @@ chipinit(ch_t *ch, uint options)
 		chipphyforce(ch, etc->phyaddr);
 	} else if (etc->advertise && etc->needautoneg)
 		chipphyadvertise(ch, etc->phyaddr);
+
+	/* NS B0 only enables 4 entries x 4 channels */
+	if (etc->corerev == 7)
+		OR_REG(ch->osh, &regs->pwrctl, 0x1);
 
 	/* enable the overflow continue feature and disable parity */
 	dma_ctrlflags(ch->di[0], DMA_CTRL_ROC | DMA_CTRL_PEN | DMA_CTRL_RXSINGLE /* mask */,
@@ -1447,6 +1521,7 @@ chiptx(ch_t *ch, void *p0)
 #endif
 	error = dma_txfast(ch->di[q], p0, DMA_COMMIT);
 #endif /* defined(_CFE_) || defined(__NetBSD__) */
+
 	if (error) {
 		ET_ERROR(("et%d: chiptx: out of txds\n", ch->etc->unit));
 		ch->etc->txnobuf++;
@@ -1526,6 +1601,78 @@ chiprx(ch_t *ch)
 	return (NULL);
 }
 
+static int BCMFASTPATH /* dma receive quota number of pkts */
+chiprxquota(ch_t *ch, int quota, void **rxpkts)
+{
+	int rxcnt;
+	void * pkt;
+	uint8 * rxh;
+	hnddma_t * di_rx_q0;
+
+	ET_TRACE(("et%d: chiprxquota %d\n", ch->etc->unit, quota));
+	ET_LOG("et%d: chiprxquota", ch->etc->unit, 0);
+
+	rxcnt = 0;
+	di_rx_q0 = ch->di[RX_Q0];
+
+	/* Fetch quota number of pkts (or ring empty) */
+	while ((rxcnt < quota) && ((pkt = dma_rx(di_rx_q0)) != NULL)) {
+		rxh = PKTDATA(ch->osh, pkt); /* start of pkt data */
+
+#if !defined(_CFE_)
+		bcm_prefetch_32B(rxh + 32, 1); /* skip 30B of HWRXOFF */
+#endif /* _CFE_ */
+
+#if defined(BCM_GMAC3)
+		if (GMAC_RXH_FLAGS(rxh)) { /* rx error reported in rxheader */
+			et_discard(ch->etc->et, pkt); /* handoff to port layer */
+			continue; /* do not increment rxcnt */
+		}
+#endif /* BCM_GMAC3 */
+
+		rxpkts[rxcnt] = pkt;
+		rxcnt++;
+	}
+
+	/* This pass is not on the tput performance path! */
+	if (!ch->etc->allmulti) { /* SW Filter all configured mf EthDA(s) */
+		struct ether_addr *da;
+		int nrx;
+		int mfpass = 0; /* pkts that passed mf lkup */
+
+		for (nrx = 0; nrx < rxcnt; nrx++) {
+			pkt = rxpkts[nrx];
+			da = (struct ether_addr *)(PKTDATA(ch->osh, pkt) + HWRXOFF);
+			if (!ETHER_ISMULTI(da) || ETHER_ISBCAST(da) ||
+				(gmac_mf_lkup(ch, da) == SUCCESS)) {
+				rxpkts[mfpass++] = pkt; /* repack rxpkts array */
+			} else {
+				PKTFREE(ch->osh, pkt, FALSE);
+			}
+		}
+
+		rxcnt = mfpass;
+	}
+
+	/* post more rx buffers since we consumed a few */
+	dma_rxfill(di_rx_q0);
+
+	if (rxcnt < quota) { /* ring is "possibly" empty, enable et interrupts */
+		ch->intstatus &= ~I_RI;
+	}
+
+	return rxcnt; /* rxpkts[] has rxcnt number of pkts to be processed */
+}
+
+static void BCMFASTPATH
+chiprxlazy(ch_t *ch)
+{
+	uint reg_val = ((ch->etc->rxlazy_timeout & IRL_TO_MASK) |
+	                (ch->etc->rxlazy_framecnt << IRL_FC_SHIFT));
+	W_REG(ch->osh, &ch->regs->intrecvlazy, reg_val);
+}
+
+
 /* reclaim completed dma receive descriptors and packets */
 static void
 chiprxreclaim(ch_t *ch)
@@ -1579,6 +1726,15 @@ chipgetintrevents(ch_t *ch, bool in_isr)
 		return (0);
 
 	/* convert chip-specific intstatus bits into generic intr event bits */
+#if defined(BCM_GMAC3)
+	if (intstatus & I_TO) {
+		events |= INTR_TO;                          /* post to et_dpc */
+
+		W_REG(ch->osh, &ch->regs->intstatus, I_TO); /* explicitly ack I_TO */
+		ch->intstatus &= ~(I_TO);                   /* handled in et_linux */
+	}
+#endif /* BCM_GMAC3 */
+
 	if (intstatus & I_RI)
 		events |= INTR_RX;
 	if (intstatus & (I_XI0 | I_XI1 | I_XI2 | I_XI3))
@@ -1606,9 +1762,14 @@ static void BCMFASTPATH
 chipintrsoff(ch_t *ch)
 {
 	/* disable further interrupts from gmac */
-	W_REG(ch->osh, &ch->regs->intmask, 0);
-	(void) R_REG(ch->osh, &ch->regs->intmask);	/* sync readback */
+#if defined(BCM_GMAC3)
+	ch->intmask = I_TO;	/* Do not disable GPtimer Interrupt */
+#else  /* ! BCM_GMAC3 */
 	ch->intmask = 0;
+#endif /* ! BCM_GMAC3 */
+
+	W_REG(ch->osh, &ch->regs->intmask, ch->intmask);
+	(void) R_REG(ch->osh, &ch->regs->intmask);	/* sync readback */
 
 	/* clear the interrupt conditions */
 	W_REG(ch->osh, &ch->regs->intstatus, ch->intstatus);
@@ -1661,8 +1822,9 @@ chiperrors(ch_t *ch)
 	/* if overflows or decriptors underflow, don't report it
 	 * as an error and provoque a reset
 	 */
-	if (intstatus & ~(I_RDU | I_RFO) & I_ERRORS)
+	if (intstatus & ~(I_RDU | I_RFO) & I_ERRORS) {
 		return (TRUE);
+	}
 
 	return (FALSE);
 }
@@ -1837,6 +1999,11 @@ chipphyrd(ch_t *ch, uint phyaddr, uint reg)
 	gmacregs_t *regs;
 	uint32 *phycontrol_addr, *phyaccess_addr;
 
+	if (GMAC_NS_COREREV(ch->etc->corerev)) {
+		ET_ERROR(("et%d: chipphyrd: not supported\n", ch->etc->unit));
+		return 0;
+	}
+
 	ASSERT(phyaddr < MAXEPHY);
 	ASSERT(reg < MAXPHYREG);
 
@@ -1875,6 +2042,11 @@ chipphywr(ch_t *ch, uint phyaddr, uint reg, uint16 v)
 	uint32 tmp;
 	gmacregs_t *regs;
 	uint32 *phycontrol_addr, *phyaccess_addr;
+
+	if (GMAC_NS_COREREV(ch->etc->corerev)) {
+		ET_ERROR(("et%d: chipphywr: not supported\n", ch->etc->unit));
+		return;
+	}
 
 	ASSERT(phyaddr < MAXEPHY);
 	ASSERT(reg < MAXPHYREG);
@@ -1916,6 +2088,15 @@ chipphyor(ch_t *ch, uint phyaddr, uint reg, uint16 v)
 	tmp = chipphyrd(ch, phyaddr, reg);
 	tmp |= v;
 	chipphywr(ch, phyaddr, reg, tmp);
+}
+
+static void
+chipconfigtimer(ch_t *ch, uint microsecs)
+{
+	ASSERT(ch->etc->bp_ticks_usec != 0);
+
+	/* Enable general purpose timer in periodic mode */
+	W_REG(ch->osh, &ch->regs->gptimer, microsecs * ch->etc->bp_ticks_usec);
 }
 
 static void

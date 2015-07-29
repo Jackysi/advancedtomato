@@ -3,7 +3,7 @@
  * Broadcom Home Networking Division 10/100 Mbit/s Ethernet
  * Device Driver.
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: etc.c 436117 2013-11-13 06:54:29Z $
+ * $Id: etc.c 474541 2014-05-01 18:46:52Z $
  */
 
 #include <et_cfg.h>
@@ -35,6 +35,7 @@
 #include <et_export.h>
 #include <bcmutils.h>
 #include <hndsoc.h>
+#include <hndfwd.h>
 #ifdef ETFA
 #include <etc_fa.h>
 #endif
@@ -148,6 +149,7 @@ etc_attach(void *et, uint vendor, uint device, uint coreunit, void *osh, void *r
 	/* initialize default pktc values */
 	etc->pktcbnd = MAX(PKTCBND, RXBND);
 #endif
+	etc_quota(etc);
 
 	/* set chip opsvec */
 	etc->chops = etc_chipmatch(vendor, device);
@@ -206,7 +208,12 @@ etc_init(etc_info_t *etc, uint options)
 	ET_TRACE(("et%d: etc_init\n", etc->unit));
 
 	ASSERT(etc->pioactive == NULL);
+#if defined(BCM_GMAC3)
+	if (DEV_NTKIF(etc))
+		ASSERT(!ETHER_ISNULLADDR(&etc->cur_etheraddr));
+#else  /* ! BCM_GMAC3 */
 	ASSERT(!ETHER_ISNULLADDR(&etc->cur_etheraddr));
+#endif /* ! BCM_GMAC3 */
 	ASSERT(!ETHER_ISMULTI(&etc->cur_etheraddr));
 
 	/* init the chip */
@@ -302,11 +309,13 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 			}
 			break;
 #endif /* BCMDBG */
+
 		case IOV_PKTC:
 			if (set)
 				etc->pktc = *vecarg;
 			else
 				*vecarg = (uint)etc->pktc;
+			etc_quota(etc);
 			break;
 
 		case IOV_PKTCBND:
@@ -314,6 +323,7 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 				etc->pktcbnd = MAX(*vecarg, 32);
 			else
 				*vecarg = etc->pktcbnd;
+			etc_quota(etc);
 			break;
 #ifdef ET_INGRESS_QOS
 		case IOV_DMA_RX_THRESH:
@@ -355,6 +365,29 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 				*vecarg = etc->dma_rx_policy;
 			break;
 #endif /* ET_INGRESS_QOS */
+
+		case IOV_RXQUOTA:
+			if (set)
+				etc->quota = *vecarg;
+			else
+				*vecarg = etc->quota;
+			etc_quota(etc);
+			break;
+
+		case IOV_RXLAZYTO: /* rxlazy timeout */
+			if (set)
+				etc->rxlazy_timeout = *vecarg;
+			else
+				*vecarg = etc->rxlazy_timeout;
+			break;
+
+		case IOV_RXLAZYFC: /* rxlazy framecnt */
+			if (set)
+				etc->rxlazy_framecnt = *vecarg;
+			else
+				*vecarg = etc->rxlazy_framecnt;
+			break;
+
 		case IOV_COUNTERS:
 			{
 				struct bcmstrbuf b;
@@ -383,6 +416,26 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 			break;
 #endif /* BCMDBG_CTRACE */
 
+#ifdef BCMDBG
+		case IOV_MACRD:
+			{
+				uint val;
+				val = (*etc->chops->macrd)(etc->ch, vecarg[0]);
+				ET_TRACE(("etc_ioctl: ETCMACRD reg_off 0x%x => 0x%x\n",
+				          vecarg[0], val));
+				vecarg[0] = val;
+			}
+			break;
+
+		case IOV_MACWR:
+			{
+				ET_TRACE(("etc_ioctl: ETCMACWR reg_off 0x%x <= 0x%x\n",
+				          vecarg[0], vecarg[1]));
+				(*etc->chops->macwr)(etc->ch, vecarg[0], vecarg[1]);
+			}
+			break;
+#endif /* BCMDBG */
+
 		case IOV_DUMP:
 		if (et_msg_level & 0x10000)
 			bcmdumplog((char *)arg, len);
@@ -402,15 +455,19 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 				struct bcmstrbuf b;
 				bcm_binit(&b, (char*)arg, len);
 				fa_dump(etc->fa, &b, FALSE);
-				fa_regs_show(etc->fa, &b);
-			}
-			break;
-		case IOV_FA_REV:
-			{
-				*vecarg = fa_chiprev(etc->fa);
 			}
 			break;
 #endif /* ETFA */
+
+#ifdef BCM_GMAC3
+		case IOV_DUMP_FWDER:
+			{
+				struct bcmstrbuf b;
+				bcm_binit(&b, (char*)arg, len);
+				et_dump_fwder(etc->et, &b);
+			}
+			break;
+#endif /* BCM_GMAC3 */
 
 		case IOV_PORTSTATS:
 			{
@@ -428,6 +485,21 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg, int len)
 				pov = (*vecarg & 0x1ffff) >> 16;
 				num = *vecarg & 0xffff;
 				et_dump_arl_tbl(etc, pov, num, &b);
+			}
+			break;
+
+		case IOV_CAP:
+			{
+				struct bcmstrbuf b;
+				bcm_binit(&b, (char*)arg, len);
+#ifdef ETFA
+				/* Do we need to consider the HW cap and nvram ctf_fa_mode? */
+				bcm_bprintf(&b, "fa ");
+#endif
+#ifdef BCM_GMAC3
+				if (!getvar(NULL, "gmac3_off"))
+					bcm_bprintf(&b, "gmac3 ");
+#endif
 			}
 			break;
 
@@ -625,7 +697,6 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 		break;
 #endif /* ETROBO */
 
-
 	default:
 	err:
 		error = -1;
@@ -682,20 +753,6 @@ etc_watchdog(etc_info_t *etc)
 		}
 	}
 #endif /* ETROBO && !_CFE_ */
-
-	if (etc->coreid == GMAC_CORE_ID && etc->corerev >= 4) {
-		if ((*etc->chops->dmaerrors)(etc->ch)) {
-			if (etc->reset_countdown == 0)
-				etc->reset_countdown = ETC_TXERR_COUNTDOWN;
-				etc->reset_countdown--;
-			if (etc->reset_countdown == 0) {
-				et_reset(etc->et);
-				et_init(etc->et, ET_INIT_FULL | ET_INIT_INTRON);
-				ASSERT(0);
-			}
-		} else
-			etc->reset_countdown = 0;
-	}
 
 	/* no local phy registers */
 	if (etc->phyaddr == EPHY_NOREG) {
@@ -813,6 +870,29 @@ etc_qos(etc_info_t *etc, uint on)
 
 	etc->qos = (bool) on;
 	et_init(etc->et, ET_INIT_INTRON);
+}
+
+void
+etc_quota(etc_info_t *etc)
+{
+	int quota = ETCQUOTA_MAX;
+
+#ifdef PKTC
+	quota = (etc->pktc) ? etc->pktcbnd : RXBND;
+#endif
+
+	/* Cap to ETCQUOTA_MAX */
+	etc->quota = (quota > ETCQUOTA_MAX) ? ETCQUOTA_MAX : quota;
+}
+
+void
+etc_rxlazy(etc_info_t *etc, uint microsecs, uint framecnt)
+{
+	ASSERT(framecnt >= 1U);
+	ASSERT(etc->bp_ticks_usec != 0U);
+
+	etc->rxlazy_timeout = microsecs * etc->bp_ticks_usec;
+	etc->rxlazy_framecnt = framecnt;
 }
 
 /* WAR: BCM53115 switch is not retaining the tag while forwarding
@@ -962,7 +1042,8 @@ etc_dumpetc(etc_info_t *etc, struct bcmstrbuf *b)
 	bcm_bprintf(b, "chained %d unchained %d maxchainsz %d currchainsz %d\n",
 	               etc->chained, etc->unchained, etc->maxchainsz, etc->currchainsz);
 
-#if defined(BCMDBG) && defined(PKTC)
+#if defined(BCMDBG)
+#if defined(PKTC)
 	bcm_bprintf(b, "chain sz histo:");
 	for (i = 0; i < PKTCBND && etc->chained; i++) {
 		bcm_bprintf(b, "  %d(%d%%)", etc->chainsz[i],
@@ -970,7 +1051,17 @@ etc_dumpetc(etc_info_t *etc, struct bcmstrbuf *b)
 		if (((i % 8) == 7) && (i != PKTCBND - 1))
 			bcm_bprintf(b, "\n              :");
 	}
-#endif
+#endif /* PKTC */
+
+	bcm_bprintf(b, "\nrx processed :%d", etc->rxprocessed);
+
+	for (i = 0; i < ETCQUOTA_MAX; i++) {
+		if (etc->quota_stats[i]) {
+			bcm_bprintf(b, "  %d %d\n", i, etc->quota_stats[i]);
+		}
+	}
+	bzero(etc->quota_stats, ETCQUOTA_MAX * sizeof(int));
+#endif /* BCMDBG */
 
 	bcm_bprintf(b, "\n");
 }

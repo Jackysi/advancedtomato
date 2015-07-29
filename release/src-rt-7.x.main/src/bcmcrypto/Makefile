@@ -13,7 +13,6 @@ CFLAGS	+= -I. -I$(SRCBASE)/include -Wall
 CFLAGS	+= -g -DDEBUG -ffunction-sections
 #CFLAGS	+= -O2
 CFLAGS	+= -Wall -Werror
-CFLAGS  += -fno-delete-null-pointer-checks
 
 #CC	:= cl
 #CFLAGS	+= -I. -I../include -Ic:/tools/msdev/2600ddk/inc/crt

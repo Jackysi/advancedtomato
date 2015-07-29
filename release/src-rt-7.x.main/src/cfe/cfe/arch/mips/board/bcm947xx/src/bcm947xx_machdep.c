@@ -3,7 +3,7 @@
  * Architecure dependent initialization,
  * File: bcm947xx_machdep.c
  *
- * Copyright (C) 2012, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -91,10 +91,10 @@ board_power_init(si_t *sih)
 		uint32 reg, new;
 
 		/* Adjust regulator settings */
-		W_REG(osh, &cc->regcontrol_addr, 2);
+		W_REG(si_osh(sih), &cc->regcontrol_addr, 2);
 		/* Readback to ensure completion of the write */
-		(void)R_REG(osh, &cc->regcontrol_addr);
-		reg = R_REG(osh, &cc->regcontrol_data);
+		(void)R_REG(si_osh(sih), &cc->regcontrol_addr);
+		reg = R_REG(si_osh(sih), &cc->regcontrol_data);
 		/* Make the regulator frequency to 1.2MHz
 		 *   00 1.2MHz
 		 *   01 200kHz
@@ -135,21 +135,21 @@ board_power_init(si_t *sih)
 			reg &= ~0xf0c78000;
 			reg |= (pwrctl & 0xf0c78000);
 		}
-		W_REG(osh, &cc->regcontrol_data, reg);
+		W_REG(si_osh(sih), &cc->regcontrol_data, reg);
 
 		/* Turn off unused PLLs */
-		W_REG(osh, &cc->pllcontrol_addr, 6);
-		(void)R_REG(osh, &cc->pllcontrol_addr);
-		new = reg = R_REG(osh, &cc->pllcontrol_data);
+		W_REG(si_osh(sih), &cc->pllcontrol_addr, 6);
+		(void)R_REG(si_osh(sih), &cc->pllcontrol_addr);
+		new = reg = R_REG(si_osh(sih), &cc->pllcontrol_data);
 		if (sih->chippkg == BCM4716_PKG_ID)
 			new |= 0x68;	/* Channels 3, 5 & 6 off in 4716 */
 		if ((sih->chipst & 0x00000c00) == 0x00000400)
 			new |= 0x10;	/* Channel 4 if MII mode */
 		if (new != reg) {
 			/* apply new value */
-			W_REG(osh, &cc->pllcontrol_data, new);
-			(void)R_REG(osh, &cc->pllcontrol_data);
-			W_REG(osh, &cc->pmucontrol,
+			W_REG(si_osh(sih), &cc->pllcontrol_data, new);
+			(void)R_REG(si_osh(sih), &cc->pllcontrol_data);
+			W_REG(si_osh(sih), &cc->pmucontrol,
 			      PCTL_PLL_PLLCTL_UPD | PCTL_NOILP_ON_WAIT |
 			      PCTL_HT_REQ_EN | PCTL_ALP_REQ_EN | PCTL_LPO_SEL);
 		}
@@ -165,14 +165,14 @@ board_power_init(si_t *sih)
 		if (nvstr) {
 			uint32 pwrctl = bcm_strtoul(nvstr, NULL, 0);
 
-			W_REG(osh, &cc->regcontrol_addr, 1);
+			W_REG(si_osh(sih), &cc->regcontrol_addr, 1);
 			/* Readback to ensure completion of the write */
-			(void)R_REG(osh, &cc->regcontrol_addr);
-			reg = R_REG(osh, &cc->regcontrol_data);
+			(void)R_REG(si_osh(sih), &cc->regcontrol_addr);
+			reg = R_REG(si_osh(sih), &cc->regcontrol_data);
 			reg &= ~0x00018f00;
 			reg |= (pwrctl & 0x00018f00);
 
-			W_REG(osh, &cc->regcontrol_data, reg);
+			W_REG(si_osh(sih), &cc->regcontrol_data, reg);
 		}
 	}
 
@@ -206,10 +206,10 @@ board_power_init(si_t *sih)
 		if (sfldiv > 14)
 			sfldiv = 14;
 
-		clkdiv = R_REG(osh, &cc->clkdiv);
+		clkdiv = R_REG(si_osh(sih), &cc->clkdiv);
 		if (((clkdiv & CLKD_SFLASH) >> CLKD_SFLASH_SHIFT) != sfldiv) {
 			clkdiv = (clkdiv & ~CLKD_SFLASH) | (sfldiv << CLKD_SFLASH_SHIFT);
-			W_REG(osh, &cc->clkdiv, clkdiv);
+			W_REG(si_osh(sih), &cc->clkdiv, clkdiv);
 		}
 	}
 nosflch:

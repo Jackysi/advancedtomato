@@ -1,6 +1,6 @@
 /*
  * Flow Accelerator setup functions
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -94,6 +94,7 @@ extern void fa_detach(fa_t *fa);
 extern int fa_enable_device(fa_t *fa);
 extern void *fa_process_tx(fa_t *fa, void *p);
 extern void fa_process_rx(fa_t *fa, void *p);
+extern uint32 fa_get_nid_rx(osl_t *osh, void *p, int bhdroff);
 extern int32 fa_napt_add(fa_t *fa, ctf_ipc_t *ipc, bool v6);
 extern int32 fa_napt_del(fa_t *fa, ctf_ipc_t *ipc, bool v6);
 extern void fa_napt_live(fa_t *fa, ctf_ipc_t *ipc, bool v6);
@@ -101,14 +102,11 @@ extern void fa_conntrack(fa_t *fa, ctf_ipc_t *ipc, bool v6);
 extern void fa_et_up(fa_t *fa);
 extern void fa_et_down(fa_t *fa);
 extern void fa_set_name(fa_t *fa, char *name);
-#ifdef RGMII_BCM_FA
 extern void fa_set_aux_unit(si_t *sih, uint unit);
-#endif
 extern char *fa_get_macaddr(si_t *sih, char *vars, uint unit);
 extern int fa_read_proc(char *buffer, char **start, off_t offset, int length,
 	int *eof, void *data);
 extern void fa_dump(fa_t *fai, struct bcmstrbuf *b, bool all);
-extern uint fa_chiprev(fa_t *fai);
 extern void fa_regs_show(fa_t *fai, struct bcmstrbuf *b);
 extern uint fa_core2unit(si_t *sih, uint coreunit);
 

@@ -166,14 +166,14 @@ static int cfe_findbootblock(cfe_loadargs_t *la,
 
 /*  *********************************************************************
     *  cfe_rawload(la)
-    *  
+    *
     *  Read a raw (unformatted) boot file
-    *  
-    *  Input parameters: 
+    *
+    *  Input parameters:
     *      la - loader args
-    *  	   
+    *
     *  Return value:
-    *  	   0 if ok, else error code
+    *      0 if ok, else error code
     ********************************************************************* */
 static int cfe_rawload(cfe_loadargs_t *la)
 {
@@ -219,7 +219,7 @@ static int cfe_rawload(cfe_loadargs_t *la)
 	findbb = FALSE;
 	devinfo = la->la_device ? cfe_getdevinfo(la->la_device) : 0;
 
-	/*	
+	/*
 	 * If the device is either a disk or a flash device,
 	 * we will expect to find a boot block.
 	 * Serial and network devices do not have boot blocks.
