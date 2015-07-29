@@ -332,12 +332,20 @@ static void check_afterburner(void)
 
 void unload_wl(void)
 {
+#ifdef TCONFIG_DHDAP
+	modprobe_r("dhd");
+#else
 	modprobe_r("wl");
+#endif
 }
 
 void load_wl(void)
 {
+#ifdef TCONFIG_DHDAP
+	modprobe("dhd");
+#else
 	modprobe("wl");
+#endif
 }
 
 static int set_wlmac(int idx, int unit, int subunit, void *param)

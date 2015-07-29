@@ -173,7 +173,12 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_phytypes",		""				, 0 },	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				, 0 },	// List of radio IDs
 	{ "wl_ssid",			"Tomato24"			, 0 },	// Service set ID (network name)
+#ifdef TCONFIG_AC3200
+	{ "wl1_ssid",			"Tomato50-1"			, 0 },
+	{ "wl2_ssid",			"Tomato50-2"			, 0 },
+#else
 	{ "wl1_ssid",			"Tomato50"			, 0 },
+#endif
 	{ "wl_country_code",		""				, 0 },		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				, 0 },	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				, 0 },	// Enable (1) or disable (0) radio
@@ -266,7 +271,12 @@ struct nvram_tuple router_defaults[] = {
 // !!TB: n-mode
 	{ "wl_nmode",			"-1"				, 0 },	// N-mode
 	{ "wl_nband",			"2"				, 0 },	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
+#ifdef TCONFIG_AC3200
 	{ "wl1_nband",			"1"				, 0 },
+	{ "wl2_nband",			"1"				, 0 },
+#else
+	{ "wl1_nband",			"1"				, 0 },
+#endif
 	{ "wl_nmcsidx",			"-1"				, 0 },	// MCS Index for N - rate
 	{ "wl_nreqd",			"0"				, 0 },	// Require 802.11n support
 	{ "wl_nbw",			"40"				, 0 },	// BW: 20 / 40 MHz
@@ -1251,6 +1261,233 @@ struct nvram_tuple bcm4360ac_defaults[] = {
 
 	{ 0, 0, 0 }
 };
+#elif defined (TCONFIG_AC3200)
+struct nvram_tuple bcm4360ac_defaults[] = {
+	{ "devpath1", "pcie/1/4", 0 },
+	{ "1:devpath1", "sb/1/", 0 },
+	{ "1:boardrev", "0x1421", 0 },
+	{ "1:boardvendor", "0x14e4", 0 },
+	{ "1:devid", "0x43bb", 0 },
+	{ "1:sromrev", "11", 0 },
+	{ "1:boardflags", "0x20001000", 0 },
+	{ "1:boardflags2", "0x00100002", 0 },
+	{ "1:venvid", "0x14e4", 0 },
+	{ "1:boardflags3", "0x4000005", 0 },
+	{ "1:aa2g", "7", 0 },
+	{ "1:agbg0", "0x0", 0 },
+	{ "1:agbg1", "0x0", 0 },
+	{ "1:agbg2", "0x0", 0 },
+	{ "1:txchain", "7", 0 },
+	{ "1:rxchain", "7", 0 },
+	{ "1:antswitch", "0", 0 },
+	{ "1:femctrl", "3", 0 },
+	{ "1:tssiposslope2g", "1", 0 },
+	{ "1:epagain2g", "0", 0 },
+	{ "1:pdgain2g", "21", 0 },
+	{ "1:tworangetssi2g", "0", 0 },
+	{ "1:papdcap2g", "0", 0 },
+	{ "1:gainctrlsph", "0", 0 },
+	{ "1:tempthresh", "120", 0 },
+	{ "1:tempoffset", "255", 0 },
+	{ "1:rawtempsense", "0x1ff", 0 },
+	{ "1:tempsense_slope", "0xff", 0 },
+	{ "1:tempcorrx", "0x3f", 0 },
+	{ "1:tempsense_option", "0x3", 0 },
+	{ "1:xtalfreq", "40000", 0 },
+	{ "1:phycal_tempdelta", "15", 0 },
+	{ "1:temps_period", "5", 0 },
+	{ "1:temps_hysteresis", "5", 0 },
+	{ "1:pdoffset2g40ma0", "15", 0 },
+	{ "1:pdoffset2g40ma1", "15", 0 },
+	{ "1:pdoffset2g40ma2", "15", 0 },
+	{ "1:pdoffset2g40mvalid", "1", 0 },
+	{ "1:pdoffset40ma0", "0", 0 },
+	{ "1:pdoffset40ma1", "0", 0 },
+	{ "1:pdoffset40ma2", "0", 0 },
+	{ "1:pdoffset80ma0", "0", 0 },
+	{ "1:pdoffset80ma1", "0", 0 },
+	{ "1:pdoffset80ma2", "0", 0 },
+	{ "1:cckbw202gpo", "0", 0 },
+	{ "1:cckbw20ul2gpo", "0", 0 },
+{ "1:dot11agofdmhrbw202gpo", "0x2000", 0 },
+{ "1:ofdmlrbw202gpo", "0", 0 },
+{ "1:dot11agduphrpo", "0", 0 },
+{ "1:dot11agduplrpo", "0", 0 },
+{ "1:maxp2ga0", "102", 0 },
+{ "1:rxgains2gelnagaina0", "4", 0 },
+{ "1:rxgains2gtrisoa0", "7", 0 },
+{ "1:rxgains2gtrelnabypa0", "1", 0 },
+{ "1:maxp2ga1", "102", 0 },
+{ "1:rxgains2gelnagaina1", "4", 0 },
+{ "1:rxgains2gtrisoa1", "7", 0 },
+{ "1:rxgains2gtrelnabypa1", "1", 0 },
+{ "1:maxp2ga2", "102", 0 },
+{ "1:rxgains2gelnagaina2", "4", 0 },
+{ "1:rxgains2gtrisoa2", "7", 0 },
+{ "1:rxgains2gtrelnabypa2", "1", 0 },
+{ "1:ledbh10", "7", 0 },
+{ "devpath0", "pcie/1/3", 0 },
+{ "0:devpath0", "sb/1/", 0 },
+{ "0:boardrev", "0x1421", 0 },
+{ "0:boardvendor", "0x14e4", 0 },
+{ "0:devid", "0x43bc", 0 },
+{ "0:sromrev", "11", 0 },
+{ "0:boardflags", "0x30040000", 0 },
+{ "0:boardflags2", "0x00220102", 0 },
+{ "0:venid", "0x14e4", 0 },
+{ "0:boardflags3", "0x0", 0 },
+{ "0:aa5g", "7", 0 },
+{ "0:aga0", "0x0", 0 },
+{ "0:aga1", "0x0", 0 },
+{ "0:aga2", "0x0", 0 },
+{ "0:txchain", "7", 0 },
+{ "0:rxchain", "7", 0 },
+{ "0:antswitch", "0", 0 },
+{ "0:femctrl", "3", 0 },
+{ "0:tssiposslope5g", "1", 0 },
+{ "0:epagain5g", "0", 0 },
+{ "0:pdgain5g", "4", 0 },
+{ "0:tworangetssi5g", "0", 0 },
+{ "0:papdcap5g", "0", 0 },
+{ "0:gainctrlsph", "0", 0 },
+{ "0:tempthresh", "125", 0 },
+{ "0:tempoffset", "255", 0 },
+{ "0:rawtempsense", "0x1ff", 0 },
+{ "0:tempsense_slope", "0xff", 0 },
+{ "0:tempcorrx", "0x3f", 0 },
+{ "0:tempsense_option", "0x3", 0 },
+{ "0:xtalfreq", "40000", 0 },
+{ "0:phycal_tempdelta", "15", 0 },
+{ "0:temps_period", "5", 0 },
+{ "0:temps_hysteresis", "5", 0 },
+{ "0:pdoffset40ma0", "4369", 0 },
+{ "0:pdoffset40ma1", "4369", 0 },
+{ "0:pdoffset40ma2", "4369", 0 },
+{ "0:pdoffset80ma0", "0", 0 },
+{ "0:pdoffset80ma1", "0", 0 },
+{ "0:pdoffset80ma2", "0", 0 },
+{ "0:subband5gver", "0x4", 0 },
+{ "0:mcsbw1605glpo", "0", 0 },
+{ "0:mcsbw1605gmpo", "0", 0 },
+{ "0:mcsbw1605ghpo", "0", 0 },
+{ "0:mcslr5glpo", "0", 0 },
+{ "0:mcslr5gmpo", "0", 0 },
+{ "0:mcslr5ghpo", "0", 0 },
+{ "0:dot11agduphrpo", "0", 0 },
+{ "0:dot11agduplrpo", "0", 0 },
+{ "0:rxgains5gmelnagaina0", "2", 0 },
+{ "0:rxgains5gmtrisoa0", "5", 0 },
+{ "0:rxgains5gmtrelnabypa0", "1", 0 },
+{ "0:rxgains5ghelnagaina0", "2", 0 },
+{ "0:rxgains5ghtrisoa0", "5", 0 },
+{ "0:rxgains5ghtrelnabypa0", "1", 0 },
+{ "0:rxgains5gelnagaina0", "2", 0 },
+{ "0:rxgains5gtrisoa0", "5", 0 },
+{ "0:rxgains5gtrelnabypa0", "1", 0 },
+{ "0:maxp5ga0", "94,94,90,90", 0 },
+{ "0:rxgains5gmelnagaina1", "2", 0 },
+{ "0:rxgains5gmtrisoa1", "5", 0 },
+{ "0:rxgains5gmtrelnabypa1", "1", 0 },
+{ "0:rxgains5ghelnagaina1", "2", 0 },
+{ "0:rxgains5ghtrisoa1", "5", 0 },
+{ "0:rxgains5ghtrelnabypa1", "1", 0 },
+{ "0:rxgains5gelnagaina1", "2", 0 },
+{ "0:rxgains5gtrisoa1", "5", 0 },
+{ "0:rxgains5gtrelnabypa1", "1", 0 },
+{ "0:maxp5ga1", "94,94,90,90", 0 },
+{ "0:rxgains5gmelnagaina2", "2", 0 },
+{ "0:rxgains5gmtrisoa2", "5", 0 },
+{ "0:rxgains5gmtrelnabypa2", "1", 0 },
+{ "0:rxgains5ghelnagaina2", "2", 0 },
+{ "0:rxgains5ghtrisoa2", "5", 0 },
+{ "0:rxgains5ghtrelnabypa2", "1", 0 },
+{ "0:rxgains5gelnagaina2", "2", 0 },
+{ "0:rxgains5gtrisoa2", "5", 0 },
+{ "0:rxgains5gtrelnabypa2", "1", 0 },
+{ "0:maxp5ga2", "94,94,90,90", 0 },
+{ "0:ledbh10", "7", 0 },
+{ "devpath2", "pcie/2/1", 0 },
+{ "2:devpath2", "sb/1/", 0 },
+{ "2:boardrev", "0x1421", 0 },
+{ "2:boardvendor", "0x14e4", 0 },
+{ "2:devid", "0x43bc", 0 },
+{ "2:sromrev", "11", 0 },
+{ "2:boardflags", "0x30040000", 0 },
+{ "2:boardflags2", "0x00220102", 0 },
+{ "2:venid", "0x14e4", 0 },
+{ "2:boardflags3", "0x0", 0 },
+{ "2:aa5g", "7", 0 },
+{ "2:aga0", "0x0", 0 },
+{ "2:aga1", "0x0", 0 },
+{ "2:aga2", "0x0", 0 },
+{ "2:txchain", "7", 0 },
+{ "2:rxchain", "7", 0 },
+{ "2:antswitch", "0", 0 },
+{ "2:femctrl", "3", 0 },
+{ "2:tssiposslope5g", "1", 0 },
+{ "2:epagain5g", "0", 0 },
+{ "2:pdgain5g", "4", 0 },
+{ "2:tworangetssi5g", "0", 0 },
+{ "2:papdcap5g", "0", 0 },
+{ "2:gainctrlsph", "0", 0 },
+{ "2:tempthresh", "120", 0 },
+{ "2:tempoffset", "255", 0 },
+{ "2:rawtempsense", "0x1ff", 0 },
+{ "2:tempsense_slope", "0xff", 0 },
+{ "2:tempcorrx", "0x3f", 0 },
+{ "2:tempsense_option", "0x3", 0 },
+{ "2:xtalfreq", "40000", 0 },
+{ "2:phycal_tempdelta", "15", 0 },
+{ "2:temps_period", "5", 0 },
+{ "2:temps_hysteresis", "5", 0 },
+{ "2:pdoffset40ma0", "4369", 0 },
+{ "2:pdoffset40ma1", "4369", 0 },
+{ "2:pdoffset40ma2", "4369", 0 },
+{ "2:pdoffset80ma0", "0", 0 },
+{ "2:pdoffset80ma1", "0", 0 },
+{ "2:pdoffset80ma2", "0", 0 },
+{ "2:subband5gver", "0x4", 0 },
+{ "2:mcsbw1605glpo", "0", 0 },
+{ "2:mcsbw1605gmpo", "0", 0 },
+{ "2:mcsbw1605ghpo", "0", 0 },
+{ "2:mcslr5glpo", "0", 0 },
+{ "2:mcslr5gmpo", "0", 0 },
+{ "2:mcslr5ghpo", "0", 0 },
+{ "2:dot11agduphrpo", "0", 0 },
+{ "2:dot11agduplrpo", "0", 0 },
+{ "2:rxgains5gmelnagaina0", "2", 0 },
+{ "2:rxgains5gmtrisoa0", "5", 0 },
+{ "2:rxgains5gmtrelnabypa0", "1", 0 },
+{ "2:rxgains5ghelnagaina0", "2", 0 },
+{ "2:rxgains5ghtrisoa0", "5", 0 },
+{ "2:rxgains5ghtrelnabypa0", "1", 0 },
+{ "2:rxgains5gelnagaina0", "2", 0 },
+{ "2:rxgains5gtrisoa0", "5", 0 },
+{ "2:rxgains5gtrelnabypa0", "1", 0 },
+{ "2:maxp5ga0", "90,90,106,106", 0 },
+{ "2:rxgains5gmelnagaina1", "2", 0 },
+{ "2:rxgains5gmtrisoa1", "5", 0 },
+{ "2:rxgains5gmtrelnabypa1", "1", 0 },
+{ "2:rxgains5ghelnagaina1", "2", 0 },
+{ "2:rxgains5ghtrisoa1", "5", 0 },
+{ "2:rxgains5ghtrelnabypa1", "1", 0 },
+{ "2:rxgains5gelnagaina1", "2", 0 },
+{ "2:rxgains5gtrisoa1", "5", 0 },
+{ "2:rxgains5gtrelnabypa1", "1", 0 },
+{ "2:maxp5ga1", "90,90,106,106", 0 },
+{ "2:rxgains5gmelnagaina2", "2", 0 },
+{ "2:rxgains5gmtrisoa2", "5", 0 },
+{ "2:rxgains5gmtrelnabypa2", "1", 0 },
+{ "2:rxgains5ghelnagaina2", "2", 0 },
+{ "2:rxgains5ghtrisoa2", "5", 0 },
+{ "2:rxgains5ghtrelnabypa2", "1", 0 },
+{ "2:rxgains5gelnagaina2", "2", 0 },
+{ "2:rxgains5gtrisoa2", "5", 0 },
+{ "2:rxgains5gtrelnabypa2", "1", 0 },
+{ "2:maxp5ga2", "90,90,106,106", 0 },
+{ "2:ledbh10", "7", 0 },
+{ 0, 0, 0 }
+};
 #else
 struct nvram_tuple bcm4360ac_defaults[] = {
 	{ "0:ledbh10", "7", 0 },
@@ -1280,16 +1517,44 @@ struct nvram_tuple router_defaults_override_type1[] = {
 	{ "wl_wmf_igmpq_filter", "1", 0 },	/* Enable igmp query filter */
 #endif
 	{ "wl_acs_fcs_mode", "1", 0 },		/* Enable acsd fcs mode */
-	{ "wl_acs_dfs", "1", 0 },		/* Enable first DFS chan Selection */
+#ifdef TCONFIG_BCM7
+	{ "wl_acs_dfs", "2", 0 },		/* acsd fcs disable init DFS chan */
+#else
+	{ "wl_acs_dfs", "0", 0 },		/* Enable first DFS chan Selection */
+#endif
 	{ "wl_dcs_csa_unicast", "1", 0 },	/* Enable unicast CSA */
 	/* Exclude ACSD to select 140l, 144u, 140/80, 144/80 to compatible with Ducati 11N */
 	{ "wl_acs_excl_chans", "0xd98e,0xd88e,0xe28a,0xe38a", 0 },
 	{ "wl_pspretend_retry_limit", "5", 0 }, /* Enable PsPretend */
+#ifndef TCONFIG_BCM7
 	{ "wl_pspretend_threshold", "0", 0 },	/* Disable PsPretend Threshold */
+#endif
 	{ "wl_acs_chan_dwell_time", "70", 0 },	/* WAR for AP to stay on DFS chan */
 	{ "wl_frameburst", "on", 0 },		/* BRCM Frambursting mode (off|on) */
 	{ "wl_amsdu", "off", 0 },		/* Default IPTV AMSDU setting */
 	{ "wl_rx_amsdu_in_ampdu", "off", 0 },	/* Media RX AMSDU In AMPDU setting */
+#ifdef TCONFIG_AC3200
+	{"bsd_ifnames", "eth2 eth1 eth3", 0 },
+	{"wl0_bsd_steering_policy", "0 5 3 -52 0 110 0x22", 0 },
+	{"wl1_bsd_steering_policy", "80 5 3 -82 0 0 0x0", 0 },
+	{"wl2_bsd_steering_policy", "0 5 3 -82 0 0 0x8", 0 },
+	{"wl0_bsd_sta_select_policy", "2 -52 0 110 0 0 -1 0 0 0 0x122", 0 },
+	{"wl1_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x4", 0 },
+	{"wl2_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x8", 0 },
+	{"wl0_bsd_if_select_policy", "eth3 eth1", 0 },
+	{"wl1_bsd_if_select_policy", "eth2 eth3", 0 },
+	{"wl2_bsd_if_select_policy", "eth2 eth1", 0 },
+	{"wl0_bsd_if_qualify_policy", "0 0x0", 0 },
+	{"wl1_bsd_if_qualify_policy", "60 0x0", 0 },
+	{"wl2_bsd_if_qualify_policy", "0 0x4", 0 },
+	{"bsd_bounce_detect", "180 1 3600", 0 },
+#endif
+#ifdef RTCONFIG_BCM7
+	{ "wl_dfs_pref", "", 0 },		/* DFS Preferred channel value */
+	{ "wl_probresp_mf", "0", 0 },		/* MAC filter based probe response */
+	{ "wl_probresp_sw", "1", 0 },		/* SW probe response */
+	{ "wl_vht_features", "-1", 0 },		/* VHT features */
+#endif
 	{ 0, 0, 0 }
 };
 

@@ -882,6 +882,21 @@ static int init_nvram(void)
 	sprintf(s, "%d", model);
 	nvram_set("t_model", s);
 
+#ifdef TCONFIG_BCM8 //shibby - fix it !!
+extern struct nvram_tuple bcm4360ac_defaults[];
+
+static void set_bcm4360ac_vars(void)
+{
+	struct nvram_tuple *t;
+
+	/* Restore defaults */
+	for (t = bcm4360ac_defaults; t->name; t++) {
+		if (!nvram_get(t->name))
+			nvram_set(t->name, t->value);
+	}
+}
+#endif
+
 	mfr = "Broadcom";
 	name = NULL;
 	ver = NULL;

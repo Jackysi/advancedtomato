@@ -22,7 +22,11 @@ export CROSS_COMPILE := arm-brcm-linux-uclibcgnueabi-
 export CROSS_COMPILER := $(CROSS_COMPILE)
 export CONFIGURE := ./configure --host=arm-linux --build=$(BUILD)
 export HOSTCONFIG := linux-armv4
+ifeq ($(CONFIG_BCM7),y)
+export BCMEX := _arm_7
+else
 export BCMEX := _arm
+endif
 export EXTRA_FLAG := -lgcc_s
 export ARCH := arm
 export HOST := arm-linux

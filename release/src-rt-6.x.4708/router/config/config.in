@@ -235,8 +235,25 @@ config TCONFIG_BCMWL6A
 	depends on TCONFIG_BCMARM && TCONFIG_BCMWL6
 	default n
 
+config TCONFIG_BCM7
+	bool "Bcm sdk 7"
+	depends on TCONFIG_BCMARM
+	default n
+
 config TCONFIG_BCMSMP
 	bool "BCM SMP"
+	default n
+
+config TCONFIG_AC3200
+	bool "AC3200"
+	default n
+
+config TCONFIG_DHDAP
+	bool "Bcm7 dhdap"
+	default n
+
+config TCONFIG_GMAC3
+	bool "Bcm7 gmac3"
 	default n
 
 config TCONFIG_GROCTRL
