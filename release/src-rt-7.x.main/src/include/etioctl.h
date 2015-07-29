@@ -61,11 +61,18 @@
 #define IOV_DUMP_CTRACE		8
 #define IOV_DUMP		9
 #define IOV_FA_DUMP		10
-#define IOV_DMA_RX_THRESH	11
-#define IOV_DMA_RX_POLICY	12
-#define IOV_PORTSTATS		13
-#define IOV_SW_MCTBL		14
-#define IOV_FA_REV		15
+#define IOV_PORTSTATS		11
+#define IOV_SW_MCTBL		12
+#define IOV_DMA_RX_THRESH	13
+#define IOV_DMA_RX_POLICY	14
+#define IOV_RXQUOTA		15
+#define IOV_RXLAZYTO		16
+#define IOV_RXLAZYFC		17
+#define IOV_MACRD		18
+#define IOV_MACWR		19
+#define IOV_DUMP_FWDER		20
+#define IOV_CAP			21
+#define IOV_FA_REV		51
 
 #if defined(linux) || defined(__ECOS)
 #define SIOCSETCUP		(SIOCDEVPRIVATE + ETCUP)

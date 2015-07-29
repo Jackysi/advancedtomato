@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2015, Broadcom Corporation. All Rights Reserved.
+ * osl forward declarations
+ *
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,34 +15,14 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: epivers.h.in,v 13.33 2010-09-08 22:08:53 $
- *
-*/
+ * $Id$
+ */
 
-#ifndef _epivers_h_
-#define _epivers_h_
+#ifndef _osl_decl_h_
+#define _osl_decl_h_
 
-#define	EPI_MAJOR_VERSION	7
+/* osl handle type forward declaration */
+typedef struct osl_info osl_t;
+typedef struct osl_dmainfo osldma_t;
 
-#define	EPI_MINOR_VERSION	14
-
-#define	EPI_RC_NUMBER		43
-
-#define	EPI_INCREMENTAL_NUMBER	40
-
-#define	EPI_BUILD_NUMBER	0
-
-#define	EPI_VERSION		7, 14, 43, 40
-
-#define	EPI_VERSION_NUM		0x070e2b28
-
-#define EPI_VERSION_DEV		7.14.43
-
-/* Driver Version String, ASCII, 32 chars max */
-#ifdef WLTEST
-#define	EPI_VERSION_STR		"7.14.43.40 (r527781 WLTEST)"
-#else
-#define	EPI_VERSION_STR		"7.14.43.40 (r527781)"
 #endif
-
-#endif /* _epivers_h_ */
