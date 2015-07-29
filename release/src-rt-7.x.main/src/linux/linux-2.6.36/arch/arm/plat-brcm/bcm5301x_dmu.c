@@ -369,18 +369,45 @@ static struct clk_lookup soc_clk_lookups[] = {
 
 void dmu_gpiomux_init(void)
 {
-#ifdef CONFIG_PLAT_MUX_CONSOLE
+#if defined(CONFIG_PLAT_MUX_CONSOLE) || defined(CONFIG_PLAT_MUX_CONSOLE_CCB) || \
+	defined(CONFIG_SOUND) || defined(CONFIG_SPI_BCM5301X) || defined(CONFIG_I2C_BCM5301X)
 	void * __iomem reg_addr;
 	u32 reg;
 
 	/* CRU_RESET register */
 	reg_addr = (void *)(SOC_DMU_BASE_VA + 0x1c0);
+#endif /* CONFIG_PLAT_MUX_CONSOLE || CONFIG_PLAT_MUX_CONSOLE_CCB || CONFIG_SOUND || CONFIG_SPI_BCM5301X || CONFIG_I2C_BCM5301X */
 
+#ifdef CONFIG_PLAT_MUX_CONSOLE
 	/* set iproc_reset_n to 0 to use UART1, but it never comes back */
 	reg = readl(reg_addr);
 	reg &= ~((u32)0xf << 12);
 	writel(reg, reg_addr);
 #endif /* CONFIG_PLAT_MUX_CONSOLE */
+#ifdef CONFIG_PLAT_MUX_CONSOLE_CCB
+	/* UART port 2 (ChipCommonB UART0) is multiplexed with GPIO[16:17] */
+	reg = readl(reg_addr);
+	reg &= ~((u32)0x3 << 16);
+	writel(reg, reg_addr);
+#endif /* CONFIG_PLAT_MUX_CONSOLE_CCB */	
+#ifdef CONFIG_SOUND
+	/* I2S XTAL out */
+	reg = readl(reg_addr);
+	reg &= ~((u32)0x1 << 18);
+	writel(reg, reg_addr);
+#endif /* CONFIG_SOUND */
+#ifdef CONFIG_SPI_BCM5301X
+	/* SPI out */
+	reg = readl(reg_addr);
+	reg &= ~((u32)0xF << 0);
+	writel(reg, reg_addr);
+#endif /* CONFIG_SPI_BCM5301X */
+#ifdef CONFIG_I2C_BCM5301X
+	/* I2C out */
+	reg = readl(reg_addr);
+	reg &= ~((u32)0x3 << 4);
+	writel(reg, reg_addr);
+#endif /* CONFIG_I2C_BCM5301X */
 }
 
 /*

@@ -1,7 +1,7 @@
 #
 # Makefile for the Dualband Proxy STA
 #
-# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -20,7 +20,7 @@
 
 obj-${CONFIG_DPSTA} := dpsta.o
 
-DPSTASRC := ../../../../../../src-rt-6.x.4708/router/dpsta
+DPSTASRC := ../../../../../../../src/router/dpsta
 DPSTAOBJ := $(DPSTASRC)/dpsta_linux.o
 SYMOBJ := $(DPSTASRC)/dpsta_linux.o
 
@@ -34,7 +34,7 @@ endif
 
 ifeq (,${KERNELRELEASE})
   # Normal makefile
-  KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
+  KERNELDIR := $(BASEDIR)/src-rt-7.x.main/src/linux/linux-2.6.36
 
   .PHONY: all clean
   all clean :

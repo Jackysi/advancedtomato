@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.4 2010-10-07 09:29:27 $
 #
 
-SRCBASE_OFFSET := ../../../../../../../../src
+SRCBASE_OFFSET := ../../../../../../../src
 
 ifeq ($(CONFIG_WL_HIGH),)
 CONFIG_WL_HIGH := "wlconfig_lx_router_high"
@@ -36,7 +36,7 @@ ifneq ($(KERNELRELEASE),)
 include $(src)/../wl_generic.mk
 else
 # Normal makefile
-KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
+KERNELDIR := $(BASEDIR)/src-rt-7.x.main/src/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 clean:

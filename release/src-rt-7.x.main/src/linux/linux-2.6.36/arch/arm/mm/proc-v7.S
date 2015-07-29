@@ -194,25 +194,38 @@ __v7_ca9mp_setup:
 	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
 	orreq	r0, r0, #(1 << 6) | (1 << 0)	@ Enable SMP/nAMP mode and
 	mcreq	p15, 0, r0, c1, c0, 1		@ TLB ops broadcasting
-#endif
+#else
+	ldr	r8, =ddr_phys_offset_va
+	ldr	r1, =PAGE_OFFSET
+	sub	r8, r8, r1
+	ldr	r1, =CONFIG_DRAM_BASE
+	add	r8, r8, r1
+	ldr	r8, [r8, #0x0]			@ get real PHYS_OFFSET value
+	ldr	r12, =0xC0000000		@ the upper two bits of NS Ax/Bx ACP address
+	and	r12, r12, r8
+	cmp	r12, #0
+	beq	__v7_setup
+
+	/* For NS Ax/Bx ACP on UP mode */
+acp_up:
+	mrc	p15, 0, r0, c1, c0, 1
+	orr	r0, r0, #(1 << 6)		@ Enable SMP bit for ACP on UP
+	mcr	p15, 0, r0, c1, c0, 1		@ TLB ops broadcasting
+#endif /* CONFIG_SMP */
+
 __v7_setup:
 	@ temporary local stack in RAM, physical address, MMU is off
-#ifdef CONFIG_SPARSEMEM
-	ldr	r0, =(PAGE_OFFSET+SZ_128M)
-	ldr	r1, =__v7_setup_stack
-	cmp	r1, r0
-	bge	1f
-	ldr	r0, =PAGE_OFFSET
-	sub	r12, r1, r0
-	b	2f
-1:
-	sub	r1, r1, r0
-	ldr	r0, =PHYS_OFFSET2
-	add	r12, r1, r0
-2:
-#else
-	ldr	r12, =__virt_to_phys(__v7_setup_stack)
-#endif
+	/* The __v7_setup_stack is located at < 128MB address */
+	ldr	r12, =__v7_setup_stack
+	ldr	r8, =PAGE_OFFSET
+	sub	r12, r12, r8		@ get offset
+	ldr	r8, =ddr_phys_offset_va
+	ldr	r1, =PAGE_OFFSET
+	sub	r8, r8, r1
+	ldr	r1, =CONFIG_DRAM_BASE
+	add	r8, r8, r1
+	ldr	r8, [r8, #0x0]		@ get real PHYS_OFFSET value
+	add	r12, r12, r8
 
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
 	bl	v7_flush_dcache_all

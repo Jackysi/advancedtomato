@@ -1,7 +1,7 @@
 /*
  * Generic GPIO
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -116,10 +116,10 @@ int gpio_request(unsigned int gpio, const char *label)
 	DBG("%s: si_gpiocontrol 0x%x\n", __FUNCTION__, ret);
 
 	/* clear pulldown */
-	ret = si_gpiopull(gpio_sih, 1/*pulldown*/, (1<<gpio), 0);
+	ret = si_gpiopull(gpio_sih, GPIO_PULLDN, (1<<gpio), 0);
 	DBG("%s: si_gpiopull (down) 0x%x\n", __FUNCTION__, ret);
 	/* Set pullup */
-	ret = si_gpiopull(gpio_sih, 0/*pullup*/, (1<<gpio), (1<<gpio));
+	ret = si_gpiopull(gpio_sih, GPIO_PULLUP, (1<<gpio), (1<<gpio));
 	DBG("%s: si_gpiopull (up) 0x%x\n", __FUNCTION__, ret);
 
 	return 0;
@@ -131,7 +131,7 @@ void gpio_free(unsigned int gpio)
 	mask &= ~(1<<gpio);
 
 	/* clear pullup */
-	si_gpiopull(gpio_sih, 0/*pullup*/, (1<<gpio), GPIO_APP_PRIORITY);
+	si_gpiopull(gpio_sih, GPIO_PULLUP, (1<<gpio), 0);
 	si_gpiorelease(gpio_sih, (1<<gpio), GPIO_APP_PRIORITY);
 
 	DBG("%s: gpio %d mask 0x%x\n", __FUNCTION__, gpio, mask);

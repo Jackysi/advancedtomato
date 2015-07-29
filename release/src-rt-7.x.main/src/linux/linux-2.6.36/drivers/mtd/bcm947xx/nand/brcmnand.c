@@ -2,7 +2,7 @@
  * Nortstar NAND controller driver
  * for Linux NAND library and MTD interface
  *
- *  Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ *  Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  *  
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -94,6 +94,9 @@ struct brcmnand_mtd {
 	unsigned char		ecc_level;
 	unsigned char		sector_size_shift;
 	unsigned char		sec_per_page_shift;
+#ifdef CONFIG_PROC_FS
+	struct proc_dir_entry	*proc;
+#endif
 };
 
 /* Single device present */
@@ -755,13 +758,8 @@ brcmnand_dummy_func(struct mtd_info * mtd)
 struct mtd_partition brcmnand_parts[] = {
 	{
 		.name = "brcmnand",
-		.size = (64 * 0x100000UL),
+		.size = 0,
 		.offset = 0
-	},
-	{
-		.name = "jffs2",
-		.size = (64 * 0x100000UL),
-		.offset = (64 * 0x100000UL),
 	},
 	{
 		.name = 0,
@@ -782,12 +780,11 @@ init_brcmnand_mtd_partitions(struct mtd_info *mtd, uint64_t size)
 	if (knldev == SOC_KNLDEV_NANDFLASH)
 		offset = nfl_boot_os_size(brcmnand->nfl);
 
-#ifdef CONFIG_DUAL_TRX
-		offset = offset*2; //Dual Trx
-#endif
+#ifndef CONFIG_YAFFS_FS
 	/* Since JFFS2 still uses uint32 for size, hence we have to force the size < 4GB */
 	if (size >= ((uint64_t)4 << 30))
 		size = ((uint64_t)4 << 30) - mtd->erasesize;
+#endif /* CONFIG_YAFFS_FS */
 
 	ASSERT(size > offset);
 
@@ -796,6 +793,49 @@ init_brcmnand_mtd_partitions(struct mtd_info *mtd, uint64_t size)
 
 	return brcmnand_parts;
 }
+
+#ifdef CONFIG_PROC_FS
+/* Read "brcmnand" partition first block available OOB */
+int
+brcmnand_read_availoob(char *buffer, char **start, off_t offset, int length, int *eof, void *data)
+{
+	int len;
+	struct mtd_oob_ops ops;
+	struct mtd_info *mtd = &brcmnand.mtd;
+
+	if (offset > 0) {
+		*eof = 1;
+		return 0;
+	}
+
+	/* Give the processed buffer back to userland */
+	if (!length) {
+		printk(KERN_ERR "%s: Not enough return buf space\n", __FUNCTION__);
+		return 0;
+	}
+
+	if (length > mtd->ecclayout->oobavail)
+		length = mtd->ecclayout->oobavail;
+
+	if (!mtd->read_oob)
+		return 0;
+
+	ops.ooblen = length;
+	ops.ooboffs = 0;
+	ops.datbuf = NULL;
+	ops.oobbuf = buffer;
+	ops.mode = MTD_OOB_AUTO;
+
+	if (ops.ooboffs && ops.ooblen > (mtd->oobsize - ops.ooboffs))
+		return 0;
+
+	ASSERT(!strcmp(brcmnand_parts[0].name, "brcmnand"));
+
+	mtd->read_oob(mtd, brcmnand_parts[0].offset, &ops);
+
+	return ops.oobretlen;
+}
+#endif /* CONFIG_PROC_FS */
 #endif /* CONFIG_MTD_PARTITIONS */
 
 static int __init
@@ -893,6 +933,15 @@ brcmnand_mtd_init(void)
 	}
 
 	brcmnand.parts = parts;
+
+#ifdef CONFIG_PROC_FS
+	if ((brcmnand.proc = create_proc_entry("brcmnand", 0, NULL)))
+		brcmnand.proc->read_proc = brcmnand_read_availoob;
+	else {
+		DEBUG(MTD_DEBUG_LEVEL0, "%s: failed to create brcmnand proc file\n", __func__);
+		goto fail;
+	}
+#endif /* CONFIG_PROC_FS */
 #endif /* CONFIG_MTD_PARTITIONS */
 
 	return 0;
@@ -906,6 +955,10 @@ brcmnand_mtd_exit(void)
 {
 #ifdef CONFIG_MTD_PARTITIONS
 	del_mtd_partitions(&brcmnand.mtd);
+#ifdef CONFIG_PROC_FS
+	if (brcmnand.proc)
+		remove_proc_entry("brcmnand", NULL);
+#endif
 #else
 	del_mtd_device(&brcmnand.mtd);
 #endif

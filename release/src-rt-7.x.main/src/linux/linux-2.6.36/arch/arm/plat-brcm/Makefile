@@ -1,4 +1,4 @@
-SHARED := ../../../../../../src-rt-6.x.4708/shared
+SHARED := ../../../../../../../src-rt-7.x.main/src/shared
 
 AFLAGS_plat-head.o        := -DTEXT_OFFSET=$(TEXT_OFFSET)
 
@@ -28,3 +28,6 @@ obj-$(CONFIG_PLAT_BCM5301X) += $(addprefix $(SHARED)/, nandcore.o)
 obj-$(CONFIG_PLAT_BCM5301X) += $(addprefix $(SHARED)/, hndnand.o)
 obj-$(CONFIG_PLAT_BCM5301X) += $(addprefix $(SHARED)/, linux_gpio.o)
 obj-$(CONFIG_CACHE_L310) += cache-l310.o
+ifeq ($(CONFIG_GENERIC_GPIO),y)
+obj-$(CONFIG_GENERIC_GPIO) += gen_gpio.o
+endif

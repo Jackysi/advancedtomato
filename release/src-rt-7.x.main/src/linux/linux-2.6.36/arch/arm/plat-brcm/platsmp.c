@@ -126,6 +126,13 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 		udelay(10);
 	}
 
+	if (arch_is_coherent()) {
+		outer_cache.inv_range = NULL;
+		outer_cache.clean_range = NULL;
+		outer_cache.flush_range = NULL;
+		outer_cache.sync = NULL;
+	}
+
 	/*
 	 * now the secondary core is starting up let it run its
 	 * calibrations, then wait for it to finish

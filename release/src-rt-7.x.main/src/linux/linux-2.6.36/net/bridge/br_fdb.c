@@ -87,12 +87,7 @@ br_brc_add(unsigned char *ea, struct net_device *rxdev)
 #endif
 
 	/* Add the bridge cache entry */
-	if ((brcp = ctf_brc_lkup(kcih, ea)) == NULL)
-		ctf_brc_add(kcih, &brc_entry);
-	else {
-		ctf_brc_release(kcih, brcp);
-		ctf_brc_update(kcih, &brc_entry);
-	}
+	ctf_brc_add(kcih, &brc_entry);
 
 	return;
 }

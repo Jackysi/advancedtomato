@@ -37,6 +37,50 @@
 
 #include <linux/libata.h>
 
+#include <linux/spinlock.h>
+extern spinlock_t l2x0_reg_lock;
+#undef  readl
+#undef  readw
+#undef  readb
+#define readl(c) \
+	({ \
+		u32 __v; \
+		unsigned long flags = 0; \
+		if (ACP_WAR_ENAB()) \
+			spin_lock_irqsave(&l2x0_reg_lock, flags); \
+		__v = readl_relaxed(c); \
+		if (ACP_WAR_ENAB()) \
+			spin_unlock_irqrestore(&l2x0_reg_lock, flags); \
+		__iormb(); \
+		__v; \
+	})
+
+#define readw(c) \
+	({ \
+		u16 __v; \
+		unsigned long flags = 0; \
+		if (ACP_WAR_ENAB()) \
+			spin_lock_irqsave(&l2x0_reg_lock, flags); \
+		__v = readw_relaxed(c); \
+		if (ACP_WAR_ENAB()) \
+			spin_unlock_irqrestore(&l2x0_reg_lock, flags); \
+		__iormb(); \
+		__v; \
+	})
+
+#define readb(c) \
+	({ \
+		u8 __v; \
+		unsigned long flags = 0; \
+		if (ACP_WAR_ENAB()) \
+			spin_lock_irqsave(&l2x0_reg_lock, flags); \
+		__v = readb_relaxed(c); \
+		if (ACP_WAR_ENAB()) \
+			spin_unlock_irqrestore(&l2x0_reg_lock, flags); \
+		__iormb(); \
+		__v; \
+	})
+
 /* Enclosure Management Control */
 #define EM_CTRL_MSG_TYPE              0x000f0000
 

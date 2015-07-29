@@ -69,6 +69,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 #ifdef CONFIG_BCM47XX
 	/* MLC nand flash; sub-page write is not supported */
 	{"NAND 8GiB 1,8V 8-bit",	0xde, 8192, 8192, 0x100000, NAND_NO_SUBPAGE_WRITE},
+	{"NAND 8GiB 1,8V 8-bit",	0x64, 8192, 8192, 0x200000, NAND_NO_SUBPAGE_WRITE},
 #endif /* CONFIG_BCM47XX */
 
 	/*

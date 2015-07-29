@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.13 2010-12-13 20:23:49 $
 #
 
-SRCBASE_OFFSET := ../../../../../../src-rt-6.x.4708
+SRCBASE_OFFSET := ../../../../../../src
 
 TARGET := wl
 WLCONF_H := wlconf.h

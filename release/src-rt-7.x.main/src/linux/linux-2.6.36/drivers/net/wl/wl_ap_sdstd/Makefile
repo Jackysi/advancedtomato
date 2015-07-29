@@ -12,7 +12,7 @@
 # $Id: Makefile,v 1.2 2008-08-11 23:05:54 $
 #
 
-SRCBASE_OFFSET := ../../../../../../../../src
+SRCBASE_OFFSET := ../../../../../../../src
 
 ifeq ($(CONFIG_WL_AP_SDSTD),)
 CONFIG_WL_AP_SDSTD := "wlconfig_lx_router_ap_sdstd"
@@ -30,7 +30,7 @@ ifneq ($(KERNELRELEASE),)
 include $(src)/../wl_generic.mk
 else
 # Normal makefile
-KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
+KERNELDIR := $(BASEDIR)/src-rt-7.x.main/src/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 clean:

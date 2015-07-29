@@ -38,6 +38,10 @@
 #define	extra_checks	0
 #endif
 
+#ifndef CONFIG_PLAT_GPIOLIB_NAME
+#define CONFIG_PLAT_GPIOLIB_NAME "gpio"
+#endif
+
 /* gpio_lock prevents conflicts during gpio_desc[] table updates.
  * While any GPIO is requested, its gpio_chip is not removable;
  * each GPIO's "requested" flag serves as a lock and refcount.
@@ -672,7 +676,7 @@ static struct class_attribute gpio_class_attrs[] = {
 };
 
 static struct class gpio_class = {
-	.name =		"gpio",
+	.name =		CONFIG_PLAT_GPIOLIB_NAME,
 	.owner =	THIS_MODULE,
 
 	.class_attrs =	gpio_class_attrs,
@@ -1757,7 +1761,7 @@ static const struct file_operations gpiolib_operations = {
 static int __init gpiolib_debugfs_init(void)
 {
 	/* /sys/kernel/debug/gpio */
-	(void) debugfs_create_file("gpio", S_IFREG | S_IRUGO,
+	(void) debugfs_create_file(CONFIG_PLAT_GPIOLIB_NAME, S_IFREG | S_IRUGO,
 				NULL, NULL, &gpiolib_operations);
 	return 0;
 }

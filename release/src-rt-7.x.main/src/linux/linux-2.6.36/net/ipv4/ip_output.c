@@ -942,7 +942,7 @@ alloc_new_skb:
 			    !(rt->dst.dev->features&NETIF_F_SG))
 				alloclen = mtu;
 			else
-				alloclen = fraglen;
+				alloclen = datalen + fragheaderlen;
 
 			/* The last fragment gets additional space at tail.
 			 * Note, with MSG_MORE we overallocate on fragments,

@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom Home Networking Division (HND) shared driver code
 #
-# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,12 +18,12 @@
 # $Id: Makefile,v 1.5 2008-05-02 22:49:54 $
 #
 
-SHARED   := ../../../../../../src-rt-6.x.4708/shared
-ROUTER   := ../../../../../../src-rt-6.x.4708/router
-SRC      := ../../../../../../src-rt-6.x.4708
+SHARED   := ../../../../../../src/shared
+ROUTER   := ../../../../../../src/router
+SRC      := ../../../../../../src
 WLSHARED := wlconfig_lx_shared
-WLCFGDIR := $(src)/../../../../../../src-rt-6.x.4708/wl/config
-WLSYSDIR := $(src)/../../../../../../src-rt-6.x.4708/wl/sys
+WLCFGDIR := $(src)/../../../../../../src/wl/config
+WLSYSDIR := $(src)/../../../../../../src/wl/sys
 
 ifeq ($(CONFIG_BUZZZ_FUNC),y)
 subdir-ccflags-y += -O0 -fno-inline -finstrument-functions
@@ -59,6 +59,11 @@ hnd-objs += $(SHARED)/bcmrobo.o
 endif
 endif
 
+ifeq ($(CONFIG_BCM_GMAC3),y)
+HND_OBJS += $(src)/$(SHARED)/hndfwd.o
+hnd-objs += $(SHARED)/hndfwd.o
+endif
+
 ifdef CONFIG_USB_RNDIS
 EXTRA_CFLAGS += -DCONFIG_USBRNDIS_RETAIL
 endif                                  
@@ -81,6 +86,11 @@ endif
 
 ifeq ($(wildcard $(src)/$(SHARED)/hnddma.c),)
 $(src)/$(SHARED)/hnddma.o: $(src)/$(SHARED)/linux/hnddma.o
+	cp $< $@
+endif
+
+ifeq ($(wildcard $(src)/$(SHARED)/hndfwd.c),)
+$(src)/$(SHARED)/hndfwd.o: $(src)/$(SHARED)/linux/hndfwd.o
 	cp $< $@
 endif
 
@@ -121,6 +131,11 @@ endif
 
 ifeq ($(wildcard $(src)/$(SHARED)/nicpci.c),)
 $(src)/$(SHARED)/nicpci.o: $(src)/$(SHARED)/linux/nicpci.o
+	cp $< $@
+endif
+
+ifeq ($(wildcard $(src)/$(SHARED)/pcie_core.c),)
+$(src)/$(SHARED)/pcie_core.o: $(src)/$(SHARED)/linux/pcie_core.o
 	cp $< $@
 endif
 

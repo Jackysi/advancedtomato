@@ -312,7 +312,11 @@ static void __init build_mem_type_table(void)
 	}
 #ifdef CONFIG_SMP
 	cachepolicy = CPOLICY_WRITEALLOC;
-#endif
+#else
+	/* for NS-B0 ACP on UP mode */
+	if (ACP_WAR_ENAB() || arch_is_coherent())
+		cachepolicy = CPOLICY_WRITEALLOC;
+#endif	/* CONFIG_SMP */
 
 	/*
 	 * Strip out features not present on earlier architectures.
@@ -428,6 +432,8 @@ static void __init build_mem_type_table(void)
 	 * ARMv6 and above have extended page tables.
 	 */
 	if (cpu_arch >= CPU_ARCH_ARMv6 && (cr & CR_XP)) {
+		int mem_shared = 0;
+
 		/*
 		 * Mark cache clean areas and XIP ROM read only
 		 * from SVC mode and no access from userspace.
@@ -437,21 +443,29 @@ static void __init build_mem_type_table(void)
 		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 
 #ifdef CONFIG_SMP
+		mem_shared = 1;
+#else
+		/* for NS-B0 ACP on UP mode */
+		if (ACP_WAR_ENAB() || arch_is_coherent())
+			mem_shared = 1;
+#endif	/* CONFIG_SMP */
+
 		/*
-		 * Mark memory with the "shared" attribute for SMP systems
+		 * Mark memory with the "shared" attribute for SMP or UP systems
 		 */
-		user_pgprot |= L_PTE_SHARED;
-		kern_pgprot |= L_PTE_SHARED;
-		vecs_pgprot |= L_PTE_SHARED;
-		mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_S;
-		mem_types[MT_DEVICE_WC].prot_pte |= L_PTE_SHARED;
-		mem_types[MT_DEVICE_CACHED].prot_sect |= PMD_SECT_S;
-		mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
-		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
-		mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
-		mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
-		mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
-#endif
+		if (mem_shared) {
+			user_pgprot |= L_PTE_SHARED;
+			kern_pgprot |= L_PTE_SHARED;
+			vecs_pgprot |= L_PTE_SHARED;
+			mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_S;
+			mem_types[MT_DEVICE_WC].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_DEVICE_CACHED].prot_sect |= PMD_SECT_S;
+			mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
+		}
 	}
 
 	/*

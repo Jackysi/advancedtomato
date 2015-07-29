@@ -337,6 +337,12 @@ config SPI_NUC900
 	help
 	  SPI driver for Nuvoton NUC900 series ARM SoCs
 
+config SPI_BCM5301X
+	tristate "Broadcom 5301X SPI master controller"
+	depends on SPI_MASTER && PLAT_BCM5301X
+	help
+	  Broadcom 5301X SoC SPI master controller support
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #

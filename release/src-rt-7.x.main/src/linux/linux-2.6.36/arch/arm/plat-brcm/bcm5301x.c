@@ -13,6 +13,9 @@
 #include <linux/delay.h>
 #include <linux/serial_8250.h>
 #include <linux/proc_fs.h>
+#include <linux/spi/spi.h>
+#include <linux/irq.h>
+#include <linux/spinlock.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
 #include <asm/clkdev.h>
@@ -23,9 +26,25 @@
 #include <plat/mpcore.h>
 #include <plat/plat-bcm5301x.h>
 
+#include <typedefs.h>
+#include <sbchipc.h>
+
 #ifdef	CONFIG_SMP
 #include <asm/spinlock.h>
 #endif
+
+#define SOC_CHIPCOMON_A_REG_VA(offset)		(SOC_CHIPCOMON_A_BASE_VA + (offset))
+#define SOC_CHIPCOMON_A_INTSTATUS_VA		SOC_CHIPCOMON_A_REG_VA(CC_INTSTATUS)
+#define SOC_CHIPCOMON_A_INTMASK_VA		SOC_CHIPCOMON_A_REG_VA(CC_INTMASK)
+#define SOC_CHIPCOMON_A_GPIOINPUT_VA		SOC_CHIPCOMON_A_REG_VA(CC_GPIOIN)
+#define SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA	SOC_CHIPCOMON_A_REG_VA(CC_GPIOPOL)
+#define SOC_CHIPCOMON_A_GPIOINTMASK_VA		SOC_CHIPCOMON_A_REG_VA(CC_GPIOINTM)
+#define SOC_CHIPCOMON_A_GPIOEVENT_VA		SOC_CHIPCOMON_A_REG_VA(CC_GPIOEVENT)
+#define SOC_CHIPCOMON_A_GPIOEVENTINTMASK_VA	SOC_CHIPCOMON_A_REG_VA(CC_GPIOEVENTMASK)
+#define SOC_CHIPCOMON_A_GPIOEVENTINTPOLARITY_VA	SOC_CHIPCOMON_A_REG_VA(CC_GPIOEVENTPOL)
+
+#define SOC_CHIPCOMON_A_INTMASK_UART		(1 << 6)
+#define SOC_CHIPCOMON_A_INTMASK_GPIO		(1 << 0)
 
 static struct clk * _soc_refclk = NULL;
 
@@ -37,7 +56,7 @@ static struct plat_serial8250_port uart_ports[] = {
 	.iotype     = UPIO_MEM,	
 	.mapbase    = (resource_size_t)(PLAT_UART1_PA),
 	.membase    = (void __iomem *) PLAT_UART1_VA,
-	.irq        = IRQ_CCA,
+	.irq        = IRQ_CCA_UART,
 	},
 	{
 	.type       = PORT_16550,
@@ -46,16 +65,35 @@ static struct plat_serial8250_port uart_ports[] = {
 	.iotype     = UPIO_MEM,	
 	.mapbase    = (resource_size_t)(PLAT_UART2_PA),
 	.membase    = (void __iomem *) PLAT_UART2_VA,
-	.irq        = IRQ_CCA,
+	.irq        = IRQ_CCA_UART,
 	},
+#ifdef CONFIG_PLAT_MUX_CONSOLE_CCB
+	{
+	.type       = PORT_16550,
+	.flags      = UPF_FIXED_TYPE,
+	.regshift   = 2,	/* Chipcommon B regs are 32-bit aligned */
+	.iotype     = UPIO_MEM,
+	.mapbase    = (resource_size_t)(PLAT_UART0_PA),
+	.membase    = (void __iomem *) PLAT_UART0_VA,
+	.irq        = IRQ_CCB_UART0,
+	},
+#endif /* CONFIG_PLAT_MUX_CONSOLE_CCB */
 	{ .flags = 0, },	/* List terminatoir */
 };
 
-static struct platform_device platform_serial_devices = {
+static struct platform_device platform_serial_device = {
 	.name = "serial8250",
 	.id = PLAT8250_DEV_PLATFORM,	/* <linux/serial_8250.h> */
 	.dev = {
 		.platform_data = uart_ports,
+	},
+};
+
+static struct platform_device platform_spi_master_device = {
+	.name = "bcm5301x-spi-master",
+	.id = 1, /* Bus number */
+	.dev = {
+		.platform_data = NULL, /* Passed to driver */
 	},
 };
 
@@ -102,7 +140,7 @@ static int soc_abort_handler(unsigned long addr, unsigned int fsr,
         return 0;
 }
 
-static void soc_aborts_enable(void)
+static void __init soc_aborts_enable(void)
 {
 	u32 x;
 
@@ -122,6 +160,202 @@ static void soc_aborts_enable(void)
 
 }
 
+#ifdef CONFIG_PLAT_CCA_GPIO_IRQ
+
+#include <asm/gpio.h>
+
+struct soc_cca_gpio_irq_data {
+	unsigned int type;
+};
+
+static void soc_cca_gpio_handle(void)
+{
+	uint32 mask = readl(SOC_CHIPCOMON_A_GPIOINTMASK_VA);
+	uint32 polarity = readl(SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA);
+	uint32 input = readl(SOC_CHIPCOMON_A_GPIOINPUT_VA);
+	uint32 event = readl(SOC_CHIPCOMON_A_GPIOEVENT_VA);
+	uint32 eventmask = readl(SOC_CHIPCOMON_A_GPIOEVENTINTMASK_VA);
+	int gpio;
+
+	for (gpio = 0; gpio < IRQ_CCA_GPIO_N; ++gpio) {
+		uint32 gpio_bit = (1 << gpio);
+		uint32 level_triggered = ((input ^ polarity) & mask & gpio_bit);
+		uint32 edge_triggered = (event & eventmask & gpio_bit);
+
+		if (level_triggered || edge_triggered) {
+			generic_handle_irq(IRQ_CCA_GPIO(gpio));
+		}
+	}
+}
+
+static void soc_cca_irq_handler(unsigned int irq, struct irq_desc *desc)
+{
+	uint32 status = readl(SOC_CHIPCOMON_A_INTSTATUS_VA);
+
+	desc->chip->mask(irq);
+	desc->chip->ack(irq);
+
+	if (status & SOC_CHIPCOMON_A_INTMASK_UART) {
+		generic_handle_irq(IRQ_CCA_UART);
+	}
+
+	if (status & SOC_CHIPCOMON_A_INTMASK_GPIO) {
+		soc_cca_gpio_handle();
+	}
+
+	desc->chip->unmask(irq);
+}
+
+static void soc_cca_gpio_irq_update_type(unsigned int irq)
+{
+	int gpio = irq_to_gpio(irq);
+	struct soc_cca_gpio_irq_data *pdata;
+	uint32 gpio_bit;
+	unsigned int type;
+
+	if (gpio < 0) {
+		return;
+	}
+
+	pdata = get_irq_data(irq);
+	type = pdata->type;
+	gpio_bit = (1 << gpio);
+
+	if (type & IRQ_TYPE_LEVEL_LOW) {
+		writel(readl(SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA) | gpio_bit,
+			SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA);
+	} else if (type & IRQ_TYPE_LEVEL_HIGH) {
+		writel(readl(SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA) & ~gpio_bit,
+			SOC_CHIPCOMON_A_GPIOINTPOLARITY_VA);
+	} else if (type & IRQ_TYPE_EDGE_FALLING) {
+		writel(readl(SOC_CHIPCOMON_A_GPIOEVENTINTPOLARITY_VA) | gpio_bit,
+			SOC_CHIPCOMON_A_GPIOEVENTINTPOLARITY_VA);
+	} else if (type & IRQ_TYPE_EDGE_RISING) {
+		writel(readl(SOC_CHIPCOMON_A_GPIOEVENTINTPOLARITY_VA) & ~gpio_bit,
+			SOC_CHIPCOMON_A_GPIOEVENTINTPOLARITY_VA);
+	}
+}
+
+static void soc_cca_gpio_irq_ack(unsigned int irq)
+{
+	int gpio = irq_to_gpio(irq);
+
+	if (gpio < 0) {
+		return;
+	}
+
+	writel((1 << gpio), SOC_CHIPCOMON_A_GPIOEVENT_VA);
+}
+
+static void soc_cca_gpio_irq_maskunmask(unsigned int irq, bool mask)
+{
+	int gpio = irq_to_gpio(irq);
+	struct soc_cca_gpio_irq_data *data;
+	uint32 mask_addr;
+	uint32 gpio_bit;
+	uint32 val;
+
+	if (gpio < 0) {
+		return;
+	}
+
+	data = get_irq_data(irq);
+	gpio_bit = (1 << gpio);
+
+	if (data->type & IRQ_TYPE_EDGE_BOTH) {
+		mask_addr = SOC_CHIPCOMON_A_GPIOEVENTINTMASK_VA;
+	} else {
+		mask_addr = SOC_CHIPCOMON_A_GPIOINTMASK_VA;
+	}
+
+	val = readl(mask_addr);
+	if (mask) {
+		val &= ~gpio_bit;
+	} else {
+		val |= gpio_bit;
+	}
+	writel(val, mask_addr);
+}
+
+static void soc_cca_gpio_irq_mask(unsigned int irq)
+{
+	soc_cca_gpio_irq_maskunmask(irq, true);
+}
+
+static void soc_cca_gpio_irq_unmask(unsigned int irq)
+{
+	soc_cca_gpio_irq_maskunmask(irq, false);
+}
+
+static void soc_cca_gpio_irq_enable(unsigned int irq)
+{
+	soc_cca_gpio_irq_update_type(irq);
+	soc_cca_gpio_irq_ack(irq);
+	soc_cca_gpio_irq_unmask(irq);
+}
+
+static void soc_cca_gpio_irq_disable(unsigned int irq)
+{
+	soc_cca_gpio_irq_mask(irq);
+}
+
+static int soc_cca_gpio_irq_set_type(unsigned int irq, unsigned int type)
+{
+	struct soc_cca_gpio_irq_data *pdata;
+
+	if (irq_to_gpio(irq) < 0) {
+		return -EINVAL;
+	}
+
+	if ((type & IRQ_TYPE_SENSE_MASK) == 0) {
+		return -EINVAL;
+	}
+
+	pdata = get_irq_data(irq);
+	pdata->type = type & IRQ_TYPE_SENSE_MASK;
+
+	return 0;
+}
+
+static struct irq_chip cca_gpio_irq_chip = {
+	.name		= "CCA_GPIO",
+	.ack		= soc_cca_gpio_irq_ack,
+	.mask		= soc_cca_gpio_irq_mask,
+	.unmask		= soc_cca_gpio_irq_unmask,
+	.enable		= soc_cca_gpio_irq_enable,
+	.disable	= soc_cca_gpio_irq_disable,
+	.set_type	= soc_cca_gpio_irq_set_type,
+};
+
+static void __init soc_cca_irq_enable(void)
+{
+	static struct soc_cca_gpio_irq_data irq_data[IRQ_CCA_GPIO_N];
+	int irq;
+
+	for (irq = IRQ_CCA_FIRST; irq <= IRQ_CCA_LAST; ++irq) {
+		if (irq == IRQ_CCA_UART) {
+			set_irq_chip(irq, NULL);
+		} else {
+			set_irq_chip(irq, &cca_gpio_irq_chip);
+			set_irq_data(irq, &irq_data[irq_to_gpio(irq)]);
+		}
+		set_irq_handler(irq, handle_level_irq);
+		set_irq_flags(irq, IRQF_VALID);
+	}
+
+	set_irq_chained_handler(IRQ_CCA, soc_cca_irq_handler);
+
+	printk(KERN_INFO"%d IRQ chained: UART, GPIOs\n", IRQ_CCA);
+}
+
+#else
+
+static void __init soc_cca_irq_enable(void)
+{
+}
+
+#endif /* CONFIG_PLAT_CCA_GPIO_IRQ */
+
 /*
  * This SoC relies on MPCORE GIC interrupt controller
  */
@@ -129,7 +363,7 @@ void __init soc_init_irq( void )
 {
 	mpcore_init_gic();
 	soc_aborts_enable();
-
+	soc_cca_irq_enable();
 }
 
 /*
@@ -210,13 +444,22 @@ void __init soc_add_devices( void )
 		}
 
 	/* Install SoC devices in the system: uarts */
-	platform_device_register( & platform_serial_devices );
+	platform_device_register( & platform_serial_device );
+
+	/* Install SoC devices in the system: SPI master */
+	platform_device_register( & platform_spi_master_device );
 
 	/* Enable UART interrupt in ChipcommonA */
 	i = readl( SOC_CHIPCOMON_A_BASE_VA + 0x24 );
-	i |= 1 << 6;
+	i |= SOC_CHIPCOMON_A_INTMASK_UART;
 	writel( i, SOC_CHIPCOMON_A_BASE_VA + 0x24 );
 
+#ifdef CONFIG_PLAT_CCA_GPIO_IRQ
+	/* Enable GPIO interrupts in ChipcommonA */
+	i = readl( SOC_CHIPCOMON_A_INTMASK_VA );
+	i |= SOC_CHIPCOMON_A_INTMASK_GPIO;
+	writel( i, SOC_CHIPCOMON_A_INTMASK_VA );
+#endif /* CONFIG_PLAT_CCA_GPIO_IRQ */
 }
 
 void plat_wake_secondary_cpu( unsigned cpu, void (* _sec_entry_va)(void) )
@@ -270,7 +513,10 @@ static int  __init bcm5301_pl310_init( void )
 	auxctl_val |= 1 << 29;	/* Instruction prefetch enable */
 	auxctl_val |= 1 << 28;	/* Data prefetch enable */
 	auxctl_val |= 1 << 30;	/* Early BRESP enable */
-	
+
+	if (ACP_WAR_ENAB() || arch_is_coherent())
+		auxctl_val |= 1 << 11; /* Store buffer device limitation enable */
+
 	l2cache_base = ioremap( L2CC_BASE_PA, SZ_4K );
 
 	/* Configure using default aux control value */

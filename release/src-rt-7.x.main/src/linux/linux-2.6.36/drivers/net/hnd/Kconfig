@@ -10,6 +10,8 @@ menu "Broadcom HND network devices"
 	depends on PCI
 config HND
 	bool "Broadcom HND network device support"
+config RTAC3200
+	bool "RT-AC3200 support"
 config ET
 	tristate "10/100 Ethernet support"
 	depends on HND
@@ -29,11 +31,11 @@ config BCM_CTF
 	tristate "BCMCTF support"
 	depends on HND
 config BCM_FA
-        bool "BCM HW Flow Accelerator support"
-        depends on BCM_CTF
-config RGMII_BCM_FA
-        bool "BCM HW Flow Accelerator RGMII support"
-        depends on BCM_CTF
+	bool "BCM HW Flow Accelerator support"
+	depends on BCM_CTF
+config BCM_GMAC3
+	bool "BCM 3 GMAC Forwarding support"
+	depends on BCM_CTF
 config WL_EMULATOR
 	bool "WL emulation using Gigabit ethernet"
 	depends on HND
@@ -46,6 +48,9 @@ config WL
 	select WL_USE_AP
 config BCM57XX
 	tristate "BCM57xx Gigabit Ethernet support"
+	depends on HND && !WL_EMULATOR
+config DHDAP
+	tristate "BCM DHD support"
 	depends on HND && !WL_EMULATOR
 config WL
 	tristate "BCM43xx 802.11 Wireless support"

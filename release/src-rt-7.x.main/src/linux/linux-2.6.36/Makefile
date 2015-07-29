@@ -558,6 +558,10 @@ KBUILD_CFLAGS += -DCTF_IPV6
 endif
 endif
 
+ifneq ($(CONFIG_BCM_GMAC3),)
+KBUILD_CFLAGS += -DBCM_GMAC3
+endif
+
 ifneq ($(CONFIG_BCM_FA),)
 KBUILD_CFLAGS += -DBCMFA
 endif

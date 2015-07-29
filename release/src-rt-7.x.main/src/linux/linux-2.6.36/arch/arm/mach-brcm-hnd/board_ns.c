@@ -76,6 +76,12 @@ ctf_attach_t ctf_attach_fn = NULL;
 EXPORT_SYMBOL(ctf_attach_fn);
 #endif /* HNDCTF */
 
+/* To store real PHYS_OFFSET value */
+unsigned int ddr_phys_offset_va = -1;
+EXPORT_SYMBOL(ddr_phys_offset_va);
+
+unsigned int ns_acp_win_size = SZ_256M;
+EXPORT_SYMBOL(ns_acp_win_size);
 
 struct dummy_super_block {
 	u32	s_magic ;

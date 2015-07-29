@@ -64,4 +64,35 @@ config PLAT_MUX_CONSOLE
 	depends on PLAT_BCM5301X
 	default n
 	help
-	Using Top-level Muxing to support UART1(CCA) console.  Otherwise default is GPIO pins.
+	Using Top-level Muxing to support UART1 on ChipCommonA (CCA) console.  Otherwise default is GPIO pins.
+
+config PLAT_MUX_CONSOLE_CCB
+	bool "Support UART0(CCB) console"
+	depends on PLAT_BCM5301X
+	default n
+	help
+	Using Top-level Muxing to support UART0 on ChipCommonB (CCB) console.  Otherwise default is GPIO pins.
+
+config PLAT_CCA_GPIO_IRQ
+	bool "Support CCA GPIO interrupts"
+	depends on PLAT_BCM5301X
+	depends on GENERIC_GPIO
+	default n
+	help
+	This should be enabled to support CCA GPIO interrupts.
+
+config PLAT_GPIOLIB
+	bool "Support GPIO exporting to user-space"
+	depends on PLAT_BCM5301X
+	select GENERIC_GPIO
+	select GPIOLIB
+	select GPIO_SYSFS
+	default n
+	help
+	This should be enabled to support exporting of GPIO to userspace.
+
+config PLAT_GPIOLIB_NAME
+	string
+	depends on PLAT_GPIOLIB
+	default "gpiolib"
+

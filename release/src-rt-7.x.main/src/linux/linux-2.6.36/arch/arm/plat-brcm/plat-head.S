@@ -81,29 +81,29 @@ ENTRY(__mach_head_fixup)
 	orr	r0, #0x00ff0000
 	mov	r8, pc
 	and	r8, r8, r0
-	ldr	r9, =PHYS_OFFSET
+	ldr	r9, =ddr_phys_offset_va
+	ldr	r10, =PAGE_OFFSET
+	sub	r9, r9, r10
+	ldr	r10, =CONFIG_DRAM_BASE
+	add	r9, r9, r10
+	ldr	r9, [r9, #0x0]
 	and	r9, r9, r0
 	cmp	r8, r9
 	beq	5f
 	ldr	r12, =TEXT_OFFSET
 	add	r9, r9, r12
 	mov	r12, r9			@ start again in RAM
-#ifdef CONFIG_SPARSEMEM
-	ldr	r0, =(PAGE_OFFSET+SZ_128M)
-	ldr	r1, =__bss_start
-	cmp	r1, r0
-	bge	1f
-	ldr	r0, =PAGE_OFFSET
-	sub	r10, r1, r0
-	b	2f
-1:
-	sub	r1, r1, r0
-	ldr	r0, =PHYS_OFFSET2
-	add	r10, r1, r0
-2:
-#else
-	ldr	r10, =__virt_to_phys(__bss_start)
-#endif
+	/* The __bss_start is located at < 128MB address */
+	ldr	r10, =__bss_start
+	ldr	r3, =PAGE_OFFSET
+	sub	r10, r10, r3		@ get offset
+	ldr	r3, =ddr_phys_offset_va
+	ldr	r2, =PAGE_OFFSET
+	sub	r3, r3, r2
+	ldr	r2, =CONFIG_DRAM_BASE
+	add	r3, r3, r2
+	ldr	r3, [r3, #0x0]		@ get real PHYS_OFFSET value
+	add	r10, r10, r3
 
 	mov	r0, #'X'
 	bl	printch
@@ -209,22 +209,18 @@ ENTRY(platform_secondary_startup)
 	 * Wait on <pen_release> variable by physical address
 	 * to contain our hardware CPU id
 	 */
-#ifdef CONFIG_SPARSEMEM
-	ldr	r2, =(PAGE_OFFSET+SZ_128M)
-	ldr	r1, =pen_release
-	cmp	r1, r2
-	bge	1f
+	/* The pen_release is located at < 128MB address */
+	ldr	r6, =pen_release
+	ldr	r3, =PAGE_OFFSET
+	sub	r6, r6, r3		@ get offset
+	ldr	r3, =ddr_phys_offset_va
 	ldr	r2, =PAGE_OFFSET
-	sub	r6, r1, r2
-	b	2f
-1:
-	sub	r1, r1, r2
-	ldr	r2, =PHYS_OFFSET2
-	add	r6, r1, r2
-2:
-#else
-	ldr	r6, =__virt_to_phys(pen_release)
-#endif
+	sub	r3, r3, r2
+	ldr	r2, =CONFIG_DRAM_BASE
+	add	r3, r3, r2
+	ldr	r3, [r3, #0x0]		@ get real PHYS_OFFSET value
+	add	r6, r6, r3
+
 pen:	ldr	r7, [r6]
 	cmp	r7, r0
 	bne	pen

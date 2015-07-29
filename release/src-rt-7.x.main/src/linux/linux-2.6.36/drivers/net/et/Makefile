@@ -18,7 +18,7 @@
 # $Id: Makefile,v 1.5 2010-12-07 04:47:36 $
 #
 
-ETSRCDIR := ../../../../../../src-rt-6.x.4708/et
+ETSRCDIR := ../../../../../../src/et
 
 et-objs := $(ETSRCDIR)/sys/et_linux.o $(ETSRCDIR)/sys/etc.o
 
@@ -63,7 +63,7 @@ ifneq ($(KERNELRELEASE),)
 # kbuild part of makefile
 else
 # Normal makefile
-KERNELDIR := $(BASEDIR)/components/opensource/linux/linux-2.6.36
+KERNELDIR := $(BASEDIR)/src-rt-7.x.main/src/linux/linux-2.6.36
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd`
 

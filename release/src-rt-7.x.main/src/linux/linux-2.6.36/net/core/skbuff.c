@@ -564,6 +564,10 @@ static void BCMFASTPATH_HOST __copy_skb_header(struct sk_buff *new, const struct
 #ifdef CTF_PPPOE
 	memset(new->ctf_pppoe_cb, 0, sizeof(new->ctf_pppoe_cb));
 #endif
+#if defined(HNDCTF) && defined(CTFMAP)
+	if (PKTISCTF(NULL, old))
+		new->ctfmap		= NULL;
+#endif
 	new->tstamp		= old->tstamp;
 	new->dev		= old->dev;
 	new->transport_header	= old->transport_header;
@@ -572,12 +576,7 @@ static void BCMFASTPATH_HOST __copy_skb_header(struct sk_buff *new, const struct
 	skb_dst_copy(new, old);
 	new->rxhash		= old->rxhash;
 #ifdef CONFIG_XFRM
-#if defined(HNDCTF) && defined(CTFMAP)
-	if (PKTISCTF(NULL, old))
-		new->sp		= NULL;
-	else
-#endif
-		new->sp		= secpath_get(old->sp);
+	new->sp		= secpath_get(old->sp);
 #endif
 	memcpy(new->cb, old->cb, sizeof(old->cb));
 	new->csum		= old->csum;
@@ -875,8 +874,10 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 
 	BUG_ON(nhead < 0);
 
-	if (skb_shared(skb))
+	if (skb_shared(skb) && !PKTISCTFFWDING(skb)) {
+		printk("pskb_expand_head users %d skb %p\n", atomic_read(&skb->users), skb);
 		BUG();
+	}
 
 	size = SKB_DATA_ALIGN(size);
 

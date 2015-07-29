@@ -19,6 +19,8 @@
 #define SCU_CPU_STATUS		0x08
 #define SCU_INVALIDATE		0x0c
 #define SCU_FPGA_REVISION	0x10
+#define SCU_FILTER_START	0x40
+#define SCU_FILTER_END		0x44
 
 /*
  * Get the number of CPU cores from the SCU configuration
@@ -37,6 +39,19 @@ void __init scu_enable(void __iomem *scu_base)
 	u32 scu_ctrl;
 
 	scu_ctrl = __raw_readl(scu_base + SCU_CTRL);
+
+	if (ACP_WAR_ENAB() || arch_is_coherent()) {
+		u32 scu_val;
+
+		scu_val = PHYS_OFFSET;
+		__raw_writel(scu_val, scu_base + SCU_FILTER_START);
+		scu_val = PHYS_OFFSET + SZ_1G;
+		__raw_writel(scu_val, scu_base + SCU_FILTER_END);
+		/* address filter enable */
+		scu_ctrl |= (1 << 1);
+		__raw_writel(scu_ctrl, scu_base + SCU_CTRL);
+	}
+
 	/* already enabled? */
 	if (scu_ctrl & 1)
 		return;

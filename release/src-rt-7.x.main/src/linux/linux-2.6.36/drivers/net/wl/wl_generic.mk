@@ -19,7 +19,7 @@ ifeq ($(REBUILD_WL_MODULE),1)
          $(error var_vlist($(VLIST)) var_config_wl_use($(shell env|grep CONFIG_WL_USE)))
          $(error CONFIG_WL_CONF is undefined)
     endif
-    
+
     WLCONFFILE := $(strip $(subst ",,$(CONFIG_WL_CONF))) 
     WLCFGDIR   := $(src)/$(SRCBASE_OFFSET)/wl/config
     
@@ -38,17 +38,18 @@ ifeq ($(ARCH), arm)
 endif
     include $(WLCFGDIR)/wl.mk
 
+    WLAN_ComponentsInUse := bcmwifi ppr olpc keymgmt iocv dump hal phymods
     ifeq ($(WLCLMAPI),1)
-        WLAN_ComponentsInUse := bcmwifi clm ppr
-        include $(src)/$(SRCBASE_OFFSET)/makefiles/WLAN_Common.mk
+        WLAN_ComponentsInUse += clm
     endif
+    include $(src)/$(SRCBASE_OFFSET)/makefiles/WLAN_Common.mk
     
     ifeq ($(WLFILES_SRC),)
          $(error WLFILES_SRC is undefined in $(WLCFGDIR)/$(WLCONFFILE))
     endif
     
     ifeq ($(WLCLMAPI),1)
-    CLM_TYPE := generic
+    CLM_TYPE ?= router
     $(call WLAN_GenClmCompilerRule,$(src)/$(SRCBASE_OFFSET)/wl/clm/src,$(src)/$(SRCBASE_OFFSET))
     endif
     
@@ -64,8 +65,10 @@ endif
     ifeq ($(CONFIG_CACHE_L310),y)
     EXTRA_CFLAGS    += -DWL_PL310_WAR
     endif
-    EXTRA_CFLAGS += -DDMA $(WLFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE_OFFSET)/wl/linux \
-		    -I$(src)/$(SRCBASE_OFFSET)/wl/sys $(WLAN_ComponentIncPath) -Werror
+    EXTRA_CFLAGS += -DDMA $(WLFLAGS) -Werror
+    EXTRA_CFLAGS += -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE_OFFSET)/wl/linux \
+		    -I$(src)/$(SRCBASE_OFFSET)/wl/sys
+    EXTRA_CFLAGS += $(WLAN_ComponentIncPathA) $(WLAN_IncPathA)
 
     ifneq ("$(CONFIG_CC_OPTIMIZE_FOR_SIZE)","y")
          EXTRA_CFLAGS += -finline-limit=2048
@@ -92,11 +95,7 @@ else # SRCBASE/wl/sys doesn't exist
 
     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
     prebuilt := wl_$(wl_suffix).o
-ifneq ($(CONFIG_SMP),y)
-    $(TARGET)-objs := $(SRCBASE_OFFSET)/wl/up/$(prebuilt)
-else
     $(TARGET)-objs := $(SRCBASE_OFFSET)/wl/linux/$(prebuilt)
-endif
     obj-$(CONFIG_WL) := $(TARGET).o
 
     ifeq ("$(CONFIG_WL_USBAP)","y")

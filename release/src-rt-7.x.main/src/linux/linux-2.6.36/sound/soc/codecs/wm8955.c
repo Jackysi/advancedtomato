@@ -289,7 +289,7 @@ static int wm8955_configure_clocking(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, WM8955_PLL_CONTROL_2,
 				    WM8955_K_17_9_MASK,
 				    (pll.k >> 9) & WM8955_K_17_9_MASK);
-		snd_soc_update_bits(codec, WM8955_PLL_CONTROL_2,
+		snd_soc_update_bits(codec, WM8955_PLL_CONTROL_3,
 				    WM8955_K_8_0_MASK,
 				    pll.k & WM8955_K_8_0_MASK);
 		if (pll.k)
@@ -631,7 +631,7 @@ static int wm8955_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_read(codec, WM8955_POWER_MANAGEMENT_1);
 	if (ret < 0)
 		return ret;
-	if (ret & WM8955_DIGENB) {
+	if (!(ret & WM8955_DIGENB)) {
 		snd_soc_update_bits(codec, WM8955_POWER_MANAGEMENT_1,
 				    WM8955_DIGENB, 0);
 		snd_soc_update_bits(codec, WM8955_CLOCKING_PLL,
@@ -980,7 +980,7 @@ static int wm8955_register(struct wm8955_priv *wm8955,
 	codec->set_bias_level = wm8955_set_bias_level;
 	codec->dai = &wm8955_dai;
 	codec->num_dai = 1;
-	codec->reg_cache_size = WM8955_MAX_REGISTER;
+	codec->reg_cache_size = WM8955_MAX_REGISTER + 1;
 	codec->reg_cache = &wm8955->reg_cache;
 
 	memcpy(codec->reg_cache, wm8955_reg, sizeof(wm8955_reg));
