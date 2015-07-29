@@ -500,6 +500,18 @@ define RouterOptions
 		sed -i "/TCONFIG_BCMWL6/d" $(1); \
 		echo "TCONFIG_BCMWL6=y" >>$(1); \
 		echo "TCONFIG_BCMWL6A=y" >>$(1); \
+		if [ "$(BCM7)" = "y" ]; then \
+			sed -i "/TCONFIG_BCM7/d" $(1); \
+			echo "TCONFIG_BCM7=y" >>$(1); \
+		fi; \
+	fi; \
+	if [ "$(DHDAP)" = "y" ]; then \
+		sed -i "/TCONFIG_DHDAP/d" $(1); \
+		echo "TCONFIG_DHDAP=y" >>$(1); \
+	fi; \
+	if [ "$(GMAC3)" = "y" ]; then \
+		sed -i "/TCONFIG_GMAC3/d" $(1); \
+		echo "TCONFIG_GMAC3=y" >>$(1); \
 	fi; \
 	if [ "$(BCMSMP)" = "y" ]; then \
 		sed -i "/TCONFIG_BCMSMP/d" $(1); \
@@ -710,6 +722,37 @@ define KernelConfig
 		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
 		echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
 	fi; \
+	if [ "$(AC3200)" = "y" ]; then \
+		sed -i "/CONFIG_AC3200/d" $(1); \
+		echo "CONFIG_AC3200=y" >>$(1); \
+	fi; \
+	if [ "$(NOWL)" = "y" ]; then \
+		sed -i "/CONFIG_WL=m/d" $(1); \
+		echo "# CONFIG_WL is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_APSTA/d" $(1); \
+		echo "# CONFIG_WL_USE_APSTA is not set" >>$(1); \
+		sed -i "/CONFIG_WL_ALL_PASSIVE_RUNTIME/d" $(1); \
+		sed -i "/CONFIG_WAPI/d" $(1); \
+		echo "# CONFIG_WAPI is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_AP/d" $(1); \
+		echo "# CONFIG_WL_USE_AP is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_AP_SDSTD/d" $(1); \
+		echo "# CONFIG_WL_USE_AP_SDSTD is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_STA/d" $(1); \
+		echo "# CONFIG_WL_USE_STA is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_AP_ONCHIP_G/d" $(1); \
+		echo "# CONFIG_WL_USE_AP_ONCHIP_G is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_STA_ONCHIP_G/d" $(1); \
+		echo "# CONFIG_WL_USE_STA_ONCHIP_G is not set" >>$(1); \
+		sed -i "/CONFIG_WL_USE_APSTA_ONCHIP_G/d" $(1); \
+		echo "# CONFIG_WL_USE_APSTA_ONCHIP_G is not set" >>$(1); \
+		sed -i "/CONFIG_WL_ALL_PASSIVE_ON/d" $(1); \
+		echo "# CONFIG_WL_ALL_PASSIVE_ON is not set" >>$(1); \
+		sed -i "/CONFIG_DPSTA/d" $(1); \
+		echo "# CONFIG_DPSTA is not set" >>$(1); \
+		sed -i "/CONFIG_PLC/d" $(1); \
+		echo "# CONFIG_PLC is not set" >>$(1); \
+	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
 		echo "CONFIG_IPV6=y" >>$(1); \
@@ -912,6 +955,14 @@ ea6700e:
 
 ea6700z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="LINKSYS" FAILSAFE_UPGRADE=n
+
+ifeq ($(CONFIG_BCM7),y)
+r8000e:
+	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+
+r8000z:
+	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+endif
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
