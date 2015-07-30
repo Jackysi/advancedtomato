@@ -63,6 +63,7 @@ else
 obj-y += iptables
 obj-y += iproute2
 endif
+obj-$(TCONFIG_DHDAP) += dhd pciefd
 obj-y += rom
 obj-y += others
 obj-y += busybox
@@ -320,14 +321,14 @@ LINUX_VERSION=2_6_36
 LINUX_KERNEL=2.6.36
 export PLATFORM LIBDIR USRLIBDIR LINUX_VERSION
 
-ifeq ($(RTCONFIG_BCM7),y)
+ifeq ($(TCONFIG_BCM7),y)
 export BCMSRC=src-rt-7.x.main/src
 
-ifeq ($(RTCONFIG_DHDAP),y)
+ifeq ($(TCONFIG_DHDAP),y)
 export CONFIG_DHDAP=y
 export CFLAGS += -D__CONFIG_DHDAP__
 export DHDAP_USE_SEPARATE_CHECKOUTS := 1
-export SRCBASE_DHD := $(SRCBASE)/
+export SRCBASE_DHD := $(SRCBASE)/../..
 export SRCBASE_FW  := $(SRCBASE)/../../43602/src
 PCIEFD_TARGETS_LIST	:= 43602a1-roml
 ifeq ($(WLTEST),1)
@@ -342,7 +343,7 @@ obj-pciefd		:= $(patsubst %,%-obj,$(PCIEFD_TARGETS_LIST))
 install-pciefd		:= $(patsubst %,%-install,$(PCIEFD_TARGETS_LIST))
 endif #dhdap
 
-ifeq ($(RTCONFIG_GMAC3),y)
+ifeq ($(TCONFIG_GMAC3),y)
 export CFLAGS += -D__CONFIG_GMAC3__
 endif
 
@@ -910,20 +911,20 @@ ifeq ($(TCONFIG_DHDAP),y)
 dhd:
 	@true
 ifneq ($(wildcard $(SRCBASE_DHD)/dhd/exe),)
-	$(MAKE) TARGET_PREFIX=$(CROSS_COMPILE) -C $(SRCBASE_DHD)/dhd/exe
+	-$(MAKE) TARGET_PREFIX=$(CROSS_COMPILE) -C $(SRCBASE_DHD)/dhd/exe
 endif
 
-dhd-clean :
+dhd-clean:
 ifneq ($(wildcard $(SRCBASE_DHD)/dhd/exe),)
-	$(MAKE) TARGET_PREFIX=$(CROSS_COMPILE) -C $(SRCBASE_DHD)/dhd/exe clean
+	-$(MAKE) TARGET_PREFIX=$(CROSS_COMPILE) -C $(SRCBASE_DHD)/dhd/exe clean
 	rm -f $(INSTALLDIR)/dhd/usr/sbin/dhd
-	cd $(SRCBASE_DHD) && rm -f `find ./ -name "*.cmd" && find ./ -name "*.o"`
+	cd $(SRCBASE_DHD)/dhd/exe && rm -f `find ./ -name "*.cmd" && find ./ -name "*.o"`
 endif
 
-dhd-install :
+dhd-install:
 ifneq ($(wildcard $(SRCBASE_DHD)/dhd/exe),)
 	install -d $(INSTALLDIR)/dhd/usr/sbin
-	install $(SRCBASE_DHD)/dhd/exe/dhd $(INSTALLDIR)/dhd/usr/sbin
+	install $(SRCBASE_DHD)/dhd/exe/dhd $(INSTALLDIR)/dhd/usr/sbin/dhd
 	$(STRIP) $(INSTALLDIR)/dhd/usr/sbin/dhd
 endif
 endif
