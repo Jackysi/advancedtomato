@@ -349,6 +349,8 @@ process_login_req(struct vsf_session* p_sess)
         common_do_login(p_sess, &p_sess->user_str, do_chroot, 0);
       }
       break;
+    case kVSFLoginNull:
+      /* Fall through */
     default:
       bug("weird state in process_login_request");
       break;
