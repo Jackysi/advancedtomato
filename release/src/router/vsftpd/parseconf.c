@@ -100,12 +100,14 @@ parseconf_bool_array[] =
   { "ssl_request_cert", &tunable_ssl_request_cert },
   { "delete_failed_uploads", &tunable_delete_failed_uploads },
   { "implicit_ssl", &tunable_implicit_ssl },
-  { "sandbox", &tunable_sandbox },
+  { "ptrace_sandbox", &tunable_ptrace_sandbox },
   { "require_ssl_reuse", &tunable_require_ssl_reuse },
   { "isolate", &tunable_isolate },
   { "isolate_network", &tunable_isolate_network },
   { "ftp_enable", &tunable_ftp_enable },
   { "http_enable", &tunable_http_enable },
+  { "seccomp_sandbox", &tunable_seccomp_sandbox },
+  { "allow_writeable_chroot", &tunable_allow_writeable_chroot },
   { 0, 0 }
 };
 
@@ -344,7 +346,8 @@ vsf_parseconf_load_setting(const char* p_setting, int errs_fatal)
         }
         else
         {
-          *(p_uint_setting->p_variable) = str_atoi(&s_value_str);
+          /* TODO: we could reject negatives instead of converting them? */
+          *(p_uint_setting->p_variable) = (unsigned int) str_atoi(&s_value_str);
         }
         return;
       }
