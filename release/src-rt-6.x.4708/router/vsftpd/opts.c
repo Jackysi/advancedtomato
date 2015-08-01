@@ -10,7 +10,6 @@
 #include "ftpcodes.h"
 #include "ftpcmdio.h"
 #include "session.h"
-#include "tunables.h"
 
 void
 handle_opts(struct vsf_session* p_sess)
