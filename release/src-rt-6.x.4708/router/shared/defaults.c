@@ -1549,7 +1549,7 @@ struct nvram_tuple router_defaults_override_type1[] = {
 	{"wl2_bsd_if_qualify_policy", "0 0x4", 0 },
 	{"bsd_bounce_detect", "180 1 3600", 0 },
 #endif
-#ifdef RTCONFIG_BCM7
+#ifdef TCONFIG_BCM7
 	{ "wl_dfs_pref", "", 0 },		/* DFS Preferred channel value */
 	{ "wl_probresp_mf", "0", 0 },		/* MAC filter based probe response */
 	{ "wl_probresp_sw", "1", 0 },		/* SW probe response */
