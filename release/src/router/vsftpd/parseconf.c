@@ -92,7 +92,6 @@ parseconf_bool_array[] =
   { "mdtm_write", &tunable_mdtm_write },
   { "lock_upload_files", &tunable_lock_upload_files },
   { "pasv_addr_resolve", &tunable_pasv_addr_resolve },
-  { "utf8", &tunable_utf8 },
   { "debug_ssl", &tunable_debug_ssl },
   { "require_cert", &tunable_require_cert },
   { "validate_cert", &tunable_validate_cert },

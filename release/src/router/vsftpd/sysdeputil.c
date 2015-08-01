@@ -88,6 +88,7 @@
   #include <linux/version.h>
   #if defined(LINUX_VERSION_CODE) && defined(KERNEL_VERSION)
     #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,0))
+      #define VSF_SYSDEP_HAVE_CAPABILITIES
       #define VSF_SYSDEP_HAVE_LINUX_SENDFILE
       #ifdef PR_SET_KEEPCAPS
         #define VSF_SYSDEP_HAVE_SETKEEPCAPS
@@ -242,7 +243,7 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_remote_host)
 {
   const char* p_crypted;
-  const struct passwd* p_pwd = (struct passwd*) vsf_sysutil_getpwnam(str_getbuf(p_user_str));
+  const struct passwd* p_pwd = getpwnam(str_getbuf(p_user_str));
   (void) p_remote_host;
   if (p_pwd == NULL)
   {
