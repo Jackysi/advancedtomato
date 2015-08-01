@@ -1259,3 +1259,18 @@ At this point: v2.3.3 released!
 At this point: v2.3.4 released!
 ===============================
 
+- Try and force glibc to cache zoneinfo files in an attempt to work around
+glibc parsing vulnerability. Thanks to Kingcope.
+- Only report CHMOD in SITE HELP if it's enabled. Thanks to Martin Schwenke
+<martin@meltin.net>.
+- Some simple fixes and cleanups from Thorsten Brehm <tbrehm@dspace.de>.
+- Only advertise "AUTH SSL" if one of SSLv2, SSLv3 is enabled. Thanks to
+steve willing <eiji-gravion@hotmail.com>.
+- Handle connect() failures properly. Thanks to Takayuki Nagata
+<tnagata@redhat.com>.
+- Add stronger checks for the configuration error of running with a writeable
+root directory inside a chroot(). This may bite people who carelessly turned
+on chroot_local_user but such is life.
+
+At this point: v2.3.5 released!
+===============================

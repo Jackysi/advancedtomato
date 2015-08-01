@@ -1485,7 +1485,15 @@ handle_site(struct vsf_session* p_sess)
   }
   else if (str_equal_text(&p_sess->ftp_arg_str, "HELP"))
   {
-    vsf_cmdio_write(p_sess, FTP_SITEHELP, "CHMOD UMASK HELP");
+    if (tunable_write_enable &&
+        tunable_chmod_enable)
+    {
+      vsf_cmdio_write(p_sess, FTP_SITEHELP, "CHMOD UMASK HELP");
+    }
+    else
+    {
+      vsf_cmdio_write(p_sess, FTP_SITEHELP, "UMASK HELP");
+    }
   }
   else
   {

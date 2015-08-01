@@ -324,6 +324,8 @@ vsf_log_do_log_vsftpd_format(struct vsf_session* p_sess, struct mystr* p_str,
     case kVSFLogEntryDebug:
       str_append_text(p_str, "DEBUG");
       break;
+    case kVSFLogEntryNull:
+      /* Fall through */
     default:
       bug("bad entry_type in vsf_log_do_log");
       break;
