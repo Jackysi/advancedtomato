@@ -129,5 +129,16 @@ vsf_secutil_change_credentials(const struct mystr* p_user_str,
   {
     vsf_sysutil_set_no_procs();
   }
+// check removed (for now) as tomato lacks of other users then root
+//  /* Misconfiguration check: don't ever chroot() to a directory writable by
+//   * the current user.
+//   */
+//  if (options & VSF_SECUTIL_OPTION_CHROOT)
+//  {
+//    if (vsf_sysutil_write_access("/"))
+//    {
+//      die("vsftpd: refusing to run with writable root inside chroot()");
+//    }
+//  }
 }
 
