@@ -12,5 +12,6 @@
 	#undef VSF_BUILD_SSL
 #endif
 
+
 #endif /* VSF_BUILDDEFS_H */
 

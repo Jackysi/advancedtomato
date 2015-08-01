@@ -875,6 +875,7 @@ void stop_ipv6(void)
 	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
+	eval("ip", "-6", "route", "flush", "scope", "global");
 }
 
 #endif
@@ -1650,11 +1651,6 @@ static void start_ftpd(void)
 			fclose(f);
 		}
 	}
-
-#ifdef TCONFIG_SAMBASRV
-	if (nvram_match("smbd_cset", "utf8"))
-		fprintf(fp, "utf8=yes\n");
-#endif
 
 	if (nvram_invmatch("ftp_anonymous", "0"))
 	{
