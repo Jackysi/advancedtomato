@@ -867,7 +867,9 @@ void start_wan6_done(const char *wan_ifname)
 		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048");
 		break;
 	case IPV6_NATIVE_DHCP:
-		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048"); //not needed? - workaround for misconfigured ISPs?		
+		if (nvram_get_int("ipv6_isp_opt") == 1) {
+			eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048"); //not needed? - workaround for misconfigured ISPs?
+		}
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;
