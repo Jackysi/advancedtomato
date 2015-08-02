@@ -48,7 +48,7 @@ WNDR3400v2          BCM5358U              0x0550       01        0x1400    0x071
 EA6500v1            BCM4706               0xC617       ${serno}  0x1103    0x00000110  modelNumber=EA6500, serial_number=12N10C69224778
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
-WHR-HP-G            BCM5354               0x048e       00        0x11      0x3750      melco_id=32064
+WHR-HP-G54          BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
 WZR-G300N           BCM4704_BCM5325F_EWC  0x0472       ?         0x10      0x10        melco_id=31120
 WZR-G54             BCM4704_BCM5325F      0x042f       42        0x10      0x10        melco_id=29115  melco_id=30061 (source: piggy)
 WBR-G54                                   bcm94710ap   42                              melco_id=ca020906
@@ -74,7 +74,7 @@ WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x075
 WL-330GE			HW_BCM5354G           0x048e       45        0x10      0x0650      hardware_version=WL330GE-02-06-00-05 //MIPSR1, 4MB flash w/o USB
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
-Tenda N60                      BCM47186              0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
+Tenda N60                      BCM5357               0x052B       60        0x1400    0x00000710 //8MB/64MB/2.4/5G/USB
 Tenda N80                      BCM4706               0x05D8       80        0x1104    0x00000110 //16MB/128MB/2.4/5G/USB
 Tenda N6                       BCM5357               0x0550       6         0x1444    0x710 //8MB/64MB/2.4/5G/USB
 TENDA W1800R                   HW_BCM4706            0x05d8       18/21(EU)/60(CN)   0x1200  0x00000110
@@ -193,8 +193,8 @@ int check_hw_type(void)
 		return HW_BCM4706;
 	case 0x052b:
 		if (nvram_match("boardrev", "0x1204")) return HW_BCM5357; //rt-n15u
+		if (nvram_match("boardrev", "0x1400")) return HW_BCM5357; //Tenda N60
 		if (nvram_match("boardrev", "02")) return HW_BCM47186; //WNR3500Lv2
-		if (nvram_match("boardrev", "0x1400")) return HW_BCM47186; //Tenda N60
 	case 0xf53a:
 	case 0xf53b:
 	case 0x0550: //RT-N10U and RT-N53 and CW-5358U
@@ -211,6 +211,7 @@ int check_hw_type(void)
 	case 0xc550:
 		return HW_BCM5358U;
 	case 0x058e:
+		if (nvram_match("boardrev", "0x1153")) return HW_BCM5357; //RT-N10P
 		if (nvram_match("boardrev", "0x1155")) return HW_BCM53572; //E900
 
 #endif
@@ -506,7 +507,7 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 	case 60:
 		switch (hw) {
-		case HW_BCM47186:
+		case HW_BCM5357:
 			return MODEL_TDN60;
 		case HW_BCM4706:
 			if (nvram_match("boardrev", "0x1200")) return MODEL_W1800R;

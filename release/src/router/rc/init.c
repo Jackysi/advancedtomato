@@ -2553,12 +2553,11 @@ static int init_nvram(void)
 		break;
 	case MODEL_E2500:
 		mfr = "Linksys";
-		name = nvram_safe_get("boot_hw_model");
-		ver = nvram_safe_get("boot_hw_ver");
+		name = "E2500 v1/v2/v3";
+		/* NOTE: E2500v1 & v2 have 8 MB flash, no external USB
+		   E2500v3 has 16 MB flash, external USB
+		   all three have the same boot_hw_ver */
 		features = SUP_SES | SUP_80211N;
-#if defined(LINUX26) && defined(TCONFIG_USBAP)
-		if (nvram_get_int("usb_storage") == 1) nvram_set("usb_storage", "-1");
-#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 #ifdef TCONFIG_USBAP
 			nvram_set("wl1_hwaddr", nvram_safe_get("0:macaddr"));
