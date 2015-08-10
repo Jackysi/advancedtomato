@@ -17,7 +17,7 @@
 <script type='text/javascript'>
 //	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_id,tomatoanon_notify"); %>
 
-var anon_link = '&nbsp;&nbsp;<a href="http://tomato.groov.pl/tomatoanon.php?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i>[Checkout my router]</i></a>';
+var anon_link = '&nbsp;&nbsp;<a href="http://anon.groov.pl/index.php?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i>[Checkout my router]</i></a>';
 
 function verifyFields(focused, quiet)
 {
@@ -70,7 +70,7 @@ The information submitted is 100% anonymous and will ONLY be used for statistica
 <b>This script does NOT send any private or personal information whatsoever (like MAC`s, IP`s etc)!</b><br>
 Script is fully open, and written in bash. Anyone is free to look at the content that is submitted to the database.<br>
 <br>
-The submitted results can be viewed on the <a href=http://tomato.groov.pl/tomatoanon.php target=_blank><b>http://tomato.groov.pl/tomatoanon.php</b></a> page.<br>
+The submitted results can be viewed on the <a href=http://anon.groov.pl target=_blank><b>http://anon.groov.pl</b></a> page.<br>
 This information may help you when choosing the best and most popular router available in your country.<br>
 You can check which version of Tomato is most commonly used and which one is the most stable.<br>
 <br>
