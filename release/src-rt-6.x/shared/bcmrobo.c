@@ -1331,6 +1331,11 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 			robo_cpu_port_upd(robo, pdesc97, pdescsz);
 	}
 
+	vid0 = getintvar(robo->vars, "vlan0tag");
+#ifdef VID_MAP_DBG
+	(KERN_EMERG "bcmrobo: vlan0tag/vid0=%d\n", vid0 );
+#endif
+
 	/* setup each vlan. max. 16 vlans. */
 	/* force vlan id to be equal to vlan number */
 	for (vid = 0; vid < VLAN_NUMVLANS; vid ++) {
@@ -1489,10 +1494,10 @@ vlan_setup:
 		if (robo->devid == DEVID5325) {
 			if (robo->corerev < 3) {
 				val32 |= ((1 << 20) |		/* valid write */
-				          ((vid >> 4) << 12));	/* vlan id bit[11:4] */
+				          ((vid0 >> 4) << 12));	/* vlan id bit[11:4] */
 			} else {
 				val32 |= ((1 << 24) |		/* valid write */
-				          (vid << 12));	/* vlan id bit[11:4] */
+				          (vid_map << 12));	/* vlan id bit[11:4] */
 			}
 			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
 
