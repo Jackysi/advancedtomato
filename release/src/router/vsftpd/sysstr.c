@@ -80,6 +80,8 @@ str_open(const struct mystr* p_str, const enum EVSFSysStrOpenMode mode)
     case kVSFSysStrOpenReadOnly:
       open_mode = kVSFSysUtilOpenReadOnly;
       break;
+    case kVSFSysStrOpenUnknown:
+      /* Fall through */
     default:
       bug("unknown mode value in str_open");
       break;

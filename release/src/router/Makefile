@@ -40,6 +40,7 @@ obj-y += httpd
 obj-y += www
 obj-y += wwwAT
 obj-y += bridge
+obj-$(TCONFIG_DNSSEC) += nettle
 obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
@@ -765,7 +766,7 @@ openssl/stamp-h1:
 	shared $(OPENSSL_CIPHERS) no-ssl2 no-ssl3 \
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-gms no-gmp no-rfc3779 \
-	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake \
+	no-err no-hw no-jpake \
 	no-zlib no-engines no-sse2 no-libunbound no-ssl-trace \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
@@ -826,7 +827,7 @@ dnsmasq: $(if $(TCONFIG_DNSSEC),nettle,)
 	COPTS="$(if $(TCONFIG_DNSSEC),-I$(TOP)/nettle/include -I$(TOP)/gmp -DHAVE_DNSSEC -DHAVE_DNSSEC_STATIC,) \
 		$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) \
 		$(if $(CONFIG_LINUX26),-DUSE_IPSET,-DNO_IPSET) \
-		-DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		-DNO_INOTIFY -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="$(if $(TCONFIG_DNSSEC),-L$(TOP)/nettle/lib -L$(TOP)/gmp/.libs,) -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	$(if $(TCONFIG_DNSSEC),PKG_CONFIG_PATH="$(TOP)/nettle/lib/pkgconfig",)
 
@@ -1736,7 +1737,7 @@ nocat-install:
 #Tomato RAF
 pcre/stamp-h1:
 	$(SEP)
-	cd pcre && \
+	cd pcre && autoreconf && \
 	CC=$(CC) CXX=$(HOST)-g++ AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --disable-dependency-tracking --enable-utf8 --enable-unicode-properties --disable-cpp
 	@touch pcre/stamp-h1
@@ -2085,7 +2086,7 @@ lzo-install: lzo
 		ln -sf liblzo2.so.2.0.0 liblzo2.so
 
 openvpn/.conf: openssl lzo
-	cd openvpn && ./autogen.sh && \
+	cd openvpn && autoreconf && \
 	CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
@@ -2485,6 +2486,7 @@ libsodium-clean:
 
 dnscrypt/stamp-h1: libsodium
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	autoreconf && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	CPPFLAGS="-I$(TOP)/libsodium/src/libsodium/include" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -L$(TOP)/libsodium/src/libsodium/.libs" \

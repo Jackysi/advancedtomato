@@ -675,6 +675,10 @@ define RouterOptions
 		sed -i "/TCONFIG_CTF/d" $(1); \
 		echo "TCONFIG_CTF=y" >>$(1); \
 	fi; \
+	if [ "$(NAND)" = "y" ]; then \
+		sed -i "/TCONFIG_NAND/d" $(1); \
+		echo "TCONFIG_NAND=y" >>$(1); \
+	fi; \
 	if [ "$(TINC)" = "y" ]; then \
 		sed -i "/TCONFIG_TINC/d" $(1); \
 		echo "TCONFIG_TINC=y" >>$(1); \
@@ -1064,7 +1068,7 @@ endif
 ## Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y SNMP=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y IPSEC=y RAID=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y SNMP=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y IPSEC=y RAID=y DNSSEC=y TINC=y NANO=y
 
 ## All-In-One (AIO) MIPS1 - only for router with more than 8MB flash!! ZTE H618B
 z:
@@ -1303,8 +1307,8 @@ ac66z:
 w1800re:
 	@$(MAKE) e MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
 
-w1800rz:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
+w1800ro:
+	@$(MAKE) o MIPS32=r2 NVRAM_64K=y ASUS_TRX="W1800R"
 
 r6300e:
 	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y ASUS_TRX="R6300V1"

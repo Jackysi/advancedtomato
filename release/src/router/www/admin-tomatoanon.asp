@@ -8,7 +8,7 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript">
 		//	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_id"); %>
-		$('.anonlink').append('<a title="Check out my router" class="pull-right" href="http://tomato.groov.pl/tomatoanon.php?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i class="icon-forward"></i></a>');
+		$('.anonlink').append('<a title="Check out my router" class="pull-right" href="http://anon.groov.pl/?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i class="icon-forward"></i></a>');
 		function verifyFields(focused, quiet)
 		{
 			var o = (E('_tomatoanon_answer').value == '1');
@@ -49,7 +49,7 @@ No part of this file may be used without permission.
 					The TomatoAnon script is fully open, and written in bash. Everyone is free to look at the information collected and transmitted to the database..
 				</p>
 
-				<p>The collected data can be viewed on the <a href="http://tomato.groov.pl/tomatoanon.php" target="_blank"><b>TomatoAnon statistics</b></a> page.<br>
+				<p>The collected data can be viewed on the <a href="http://anon.groov.pl/" target="_blank"><b>TomatoAnon statistics</b></a> page.<br>
 					This information can assist in helping you select the best and most popular router available in your country or region.
 					You can find the most commonly used version of Tomato and which version is the most stable on each router model.
 					The TomatoAnon script can be disabled in cases where you prefer not to contribute data or are uncomfortable with the data being collected..

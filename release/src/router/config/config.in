@@ -218,6 +218,10 @@ config TCONFIG_CTF
 	bool "CTF (Cut-Through Forwarding)"
 	default n
 
+config TCONFIG_NAND
+	bool "NAND flash support"
+	default n
+
 config TCONFIG_UFSD
 	bool "Paragon NTFS driver for Asus routers"
 	default n

@@ -875,6 +875,7 @@ void stop_ipv6(void)
 	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
+	eval("ip", "-6", "route", "flush", "scope", "global");
 }
 
 #endif
@@ -1651,11 +1652,6 @@ static void start_ftpd(void)
 		}
 	}
 
-#ifdef TCONFIG_SAMBASRV
-	if (nvram_match("smbd_cset", "utf8"))
-		fprintf(fp, "utf8=yes\n");
-#endif
-
 	if (nvram_invmatch("ftp_anonymous", "0"))
 	{
 		fprintf(fp,
@@ -1702,6 +1698,7 @@ static void start_ftpd(void)
 		"user_config_dir=%s\n"
 		"passwd_file=%s\n"
 		"listen%s=yes\n"
+		"listen%s=no\n"
 		"listen_port=%s\n"
 		"background=yes\n"
 		"isolate=no\n"
@@ -1717,8 +1714,10 @@ static void start_ftpd(void)
 		vsftpd_users, vsftpd_passwd,
 #ifdef TCONFIG_IPV6
 		ipv6_enabled() ? "_ipv6" : "",
+		ipv6_enabled() ? "" : "_ipv6",
 #else
 		"",
+		"_ipv6",
 #endif
 		nvram_get("ftp_port") ? : "21",
 		nvram_get_int("ftp_max"),

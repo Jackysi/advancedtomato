@@ -6,7 +6,7 @@
 # This script send anonymous or incompleted information about model of router and installed tomato version.
 # Those information will be used ONLY for stats.
 # Any of private information will be NOT sended!
-# Results you can explore on http://tomato.groov.pl/tomatoanon.php page.
+# Results you can explore on http://anon.groov.pl page.
 # If you don`t agree to run this script you can disable it in GUI.
 #
 # Sended information:
@@ -99,7 +99,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
             fi
 
             #Change all spaces to %20.
-            echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+            echo "http://anon.groov.pl/index.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
             sed -i "s/ /%20/g" /tmp/AnonLink
             ANONSEND=`cat /tmp/AnonLink`
             rm /tmp/AnonLink
