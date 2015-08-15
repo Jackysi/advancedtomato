@@ -26,6 +26,6 @@ cd advancedtomato2/release/src-rt-6.x/ && make help		# For Tomato RT-AC builds</
 
 - 8.) To compile specific firmware (E.g. RT-AC66U) run this:
 <pre>cd advancedtomato/release/src-rt-6.x/make ac66z V1=AT-RT-AC6x V2=2.4-124</pre>
-After the compile process is done, you will find your router image inside "$HOME/advancedtomato2/releasesrc-rt-6.x/image"
+After the compile process is done, you will find your router image inside "$HOME/advancedtomato2/release/src-rt-6.x/image"
 
 Thats it!
