@@ -35,7 +35,7 @@ connect() {
         while [ $CONNECTED == "0" ]; do
             for i in $DEVS; do
                 if [ "$COUNT" -lt "5" ]; then
-                    MODE="AT^NDISDUP=1,0,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom
+                    MODE="AT^NDISDUP=1,0" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
                     MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
 
                     CHECK=`cat /tmp/4g.mode | grep "NDISSTAT:" | cut -d ":" -f2 | cut -d "," -f1`
@@ -43,8 +43,7 @@ connect() {
                         logger 4G MODEM - connected ...
                         CONNECTED=1
                         COUNT=6
-                        DEV=$i
-                        nvram set modem_dev4g="$DEV"
+                        nvram set modem_dev4g="$i"
                         break;
                     else
                         logger 4G MODEM - device $i connection failed.
@@ -53,6 +52,20 @@ connect() {
                     fi
                 fi
             done
+
+            # checked all devices but still not connected?
+            if [ $CONNECTED == "0" ]; then
+                INTERVAL=`nvram get modem_watchdog`
+                if [ "$INTERVAL" -gt 0 ]; then
+                    logger 4G MODEM - connection failed - watchdog enabled
+                    watchdogAdd
+                else
+                    logger 4G MODEM - connection failed - process terminated!
+                    watchdogDel
+                fi
+                rm $LOCK;
+                exit 0;
+            fi
         done
     fi
 
@@ -61,7 +74,14 @@ connect() {
 
     while [ $GO = "0" ]; do
         if [ "$COUNT" == "5" ]; then
-            logger 4G MODEM WAN IFACE failed - connection process terminated!
+            INTERVAL=`nvram get modem_watchdog`
+            if [ "$INTERVAL" -gt 0 ]; then
+                logger 4G MODEM WAN IFACE failed - watchdog enabled
+                watchdogAdd
+            else
+                logger 4G MODEM WAN IFACE failed - connection process terminated!
+                watchdogDel
+            fi
             rm $LOCK
             exit 0;
         else
@@ -73,6 +93,7 @@ connect() {
             if [ "$CHECKIFA" == "1" ]; then
                 GO=1
                 logger 4G MODEM - WAN IFACE configured ...
+                watchdogAdd
             else
                 logger 4G MODEM WAN IFACE - count: $COUNT
                 COUNT=`expr $COUNT + 1`
@@ -91,6 +112,37 @@ disconnect() {
 
     if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
         MODE="AT^NDISDUP=1,0" gcom -d $DEV -s /etc/gcom/setmode.gcom
+        watchdogDel
+    fi
+}
+
+watchdogRun() {
+    IFA=`nvram get wan_4g`
+    CARRIER=`cat /sys/class/net/$IFA/carrier`
+
+    if [ "$CARRIER" == "0" ]; then
+        logger 4G MODEM Watchdog - Connection down - Reconnecting ...
+        watchdogDel #remove Cron job. It will be added once again after succesful connection.
+        connect
+    fi
+}
+
+watchdogAdd() {
+    INTERVAL=`nvram get modem_watchdog`
+    if [ "$INTERVAL" -gt 0 ]; then
+        ISSET=`cru l | grep watchdog4g | wc -l`
+
+        if [ "$ISSET" == "0" ]; then
+            cru a watchdog4g "*/$INTERVAL * * * * /usr/sbin/switch4g watchdog"
+        fi
+    fi
+}
+
+watchdogDel() {
+    ISSET=`cru l | grep watchdog4g | wc -l`
+
+    if [ "$ISSET" == "1" ]; then
+        cru d watchdog4g
     fi
 }
 
@@ -107,9 +159,32 @@ setPIN() {
     PIN=`nvram get modem_pin`
     IS_PIN=`nvram get modem_pin | wc -w`
 
-    #set pin
-    if [ "$IS_PIN" == "1" -a "$TYPE" == "non-hilink" ]; then #only for non-hilink
-        PINCODE="$PIN" gcom -d $DEVNR -s /etc/gcom/setpin.gcom
+    if [ "$IS_PIN" == "1" ]; then #only for non-hilink
+
+        #we try use last diag iface first. If it failed then we try use any other ttyUSB device
+        TTY=`ls /dev/ttyUSB* | grep -v $DEV`
+        DEVS="$DEV $TTY"
+        COUNT=1
+
+        if [ "$COUNT" -lt "5" ]; then
+            for i in $DEVS; do
+                PINCODE="$PIN" gcom -d $i -s /etc/gcom/setpin.gcom > /tmp/4g.pin
+                IS_READY=`cat /tmp/4g.pin | grep successfully | wc -l`
+                if [ "$IS_READY" == "1" ]; then
+                    logger 4G MODEM - SIM ready
+                    nvram set modem_dev4g="$i"
+                    break;
+                else
+                    logger 4G MODEM - SIM not ready - count: $COUNT
+                    COUNT=`expr $COUNT + 1`
+                    sleep 5
+                fi
+            done
+        else
+            logger 4G MODEM - SIM locked - connection process terminated!
+            watchdogDel
+            exit 0;
+        fi
     fi
 }
 
@@ -305,6 +380,8 @@ if [ "$1" == "connect" ]; then
     connect
 elif [ "$1" == "disconnect" ]; then
     disconnect
+elif [ "$1" == "watchdog" ]; then
+    watchdogRun
 else
     checkLock
 

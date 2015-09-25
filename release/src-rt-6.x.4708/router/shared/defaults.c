@@ -118,6 +118,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "modem_dev",			"ttyUSB0"			, 0 },
 	{ "modem_init",			"*99#"				, 0 },
 	{ "modem_apn",			"internet"			, 0 },
+	{ "modem_watchdog",		"2"				, 0 },
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				, 0 },	// PPPoE enslaved interface
