@@ -74,7 +74,8 @@ obj-y += etc
 obj-y += pppd
 obj-y += rp-pppoe
 obj-y += utils
-obj-y += ntpclient
+#obj-y += ntpclient #Asus version
+obj-y += ntpc
 obj-y += rstats
 obj-y += cstats
 obj-y += udpxy
@@ -1440,6 +1441,8 @@ iproute2-3.x-clean:
 
 
 ntpclient: nvram$(BCMEX) shared
+
+ntpc: nvram$(BCMEX) shared
 
 dropbear: dropbear/config.h
 	@$(SEP)
