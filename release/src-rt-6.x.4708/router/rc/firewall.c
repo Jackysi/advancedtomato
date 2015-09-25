@@ -665,6 +665,7 @@ static void mangle_table(void)
 	char lan3mask[32];
 	int i;
 
+	    if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
 		strlcpy(lan1addr, nvram_safe_get("lan1_ipaddr"), sizeof(lan1addr));
@@ -699,6 +700,7 @@ static void mangle_table(void)
 				}
 			}
 		}
+	    }
 //
 	}
 
