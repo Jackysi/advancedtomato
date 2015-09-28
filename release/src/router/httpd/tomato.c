@@ -610,6 +610,7 @@ static const nvset_t nvset_list[] = {
 	{ "modem_dev",			V_LENGTH(0,8)			},
 	{ "modem_init",			V_LENGTH(0,25)			},
 	{ "modem_apn",			V_LENGTH(0,25)			},
+	{ "modem_watchdog",		V_RANGE(0,30)			},
 #endif
 
 	// LAN networks
