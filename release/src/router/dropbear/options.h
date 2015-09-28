@@ -95,8 +95,12 @@ much traffic. */
 #define DROPBEAR_AES256
 /* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
 /*#define DROPBEAR_BLOWFISH*/
-#define DROPBEAR_TWOFISH256
-#define DROPBEAR_TWOFISH128
+/*#define DROPBEAR_TWOFISH256*/
+/*#define DROPBEAR_TWOFISH128*/
+
+/* Enable CBC mode for ciphers. This has security issues though
+ * is the most compatible with older SSH implementations */
+#define DROPBEAR_ENABLE_CBC_MODE
 
 /* Enable "Counter Mode" for ciphers. This is more secure than normal
  * CBC mode against certain attacks. This adds around 1kB to binary 
@@ -123,8 +127,8 @@ much traffic. */
  * which are not the standard form. */
 #define DROPBEAR_SHA1_HMAC
 #define DROPBEAR_SHA1_96_HMAC
-/*#define DROPBEAR_SHA2_256_HMAC*/
-/*#define DROPBEAR_SHA2_512_HMAC*/
+#define DROPBEAR_SHA2_256_HMAC
+#define DROPBEAR_SHA2_512_HMAC
 #define DROPBEAR_MD5_HMAC
 
 /* You can also disable integrity. Don't bother disabling this if you're
@@ -170,6 +174,11 @@ much traffic. */
 #define DROPBEAR_ZLIB_WINDOW_BITS 15 
 #endif
 
+/* Server won't allow zlib compression until after authentication. Prevents
+   flaws in the zlib library being unauthenticated exploitable flaws.
+   Some old ssh clients may not support the alternative zlib@openssh.com method */
+#define DROPBEAR_SERVER_DELAY_ZLIB 1
+
 /* Whether to do reverse DNS lookups. */
 /*#define DO_HOST_LOOKUP */
 
@@ -207,6 +216,10 @@ much traffic. */
 #define ENABLE_CLI_PUBKEY_AUTH
 #define ENABLE_CLI_INTERACT_AUTH
 
+/* A default argument for dbclient -i <privatekey>. 
+   leading "~" is expanded */
+#define DROPBEAR_DEFAULT_CLI_AUTHKEY "~/.ssh/id_dropbear"
+
 /* This variable can be used to set a password for client
  * authentication on the commandline. Beware of platforms
  * that don't protect environment variables of processes etc. Also
@@ -222,12 +235,11 @@ much traffic. */
  * return the password on standard output */
 /*#define ENABLE_CLI_ASKPASS_HELPER*/
 
-/* Send a real auth request first rather than requesting a list of available methods.
- * It saves a network round trip at login but prevents immediate login to
- * accounts with no password, and might be rejected by some strict servers (none
- * encountered yet) - hence it isn't enabled by default. */
-/* #define CLI_IMMEDIATE_AUTH */
-
+/* Save a network roundtrip by sendng a real auth request immediately after
+ * sending a query for the available methods.  It is at the expense of < 100
+ * bytes of extra network traffic. This is not yet enabled by default since it
+ * could cause problems with non-compliant servers */
+/* #define DROPBEAR_CLI_IMMEDIATE_AUTH */
 
 /* Source for randomness. This must be able to provide hundreds of bytes per SSH
  * connection without blocking. In addition /dev/random is used for seeding
@@ -308,6 +320,11 @@ much traffic. */
 /* Ensure that data is transmitted every KEEPALIVE seconds. This can
 be overridden at runtime with -K. 0 disables keepalives */
 #define DEFAULT_KEEPALIVE 0
+
+/* If this many KEEPALIVES are sent with no packets received from the
+other side, exit. Not run-time configurable - if you have a need
+for runtime configuration please mail the Dropbear list */
+#define DEFAULT_KEEPALIVE_LIMIT 3
 
 /* Ensure that data is received within IDLE_TIMEOUT seconds. This can
 be overridden at runtime with -I. 0 disables idle timeouts */

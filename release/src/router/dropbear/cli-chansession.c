@@ -41,7 +41,7 @@ static void cli_chansessreq(struct Channel *channel);
 static void send_chansess_pty_req(struct Channel *channel);
 static void send_chansess_shell_req(struct Channel *channel);
 static void cli_escape_handler(struct Channel *channel, unsigned char* buf, int *len);
-
+static int cli_init_netcat(struct Channel *channel);
 
 static void cli_tty_setup();
 
@@ -90,17 +90,6 @@ static void cli_closechansess(struct Channel *UNUSED(channel)) {
 	if (ses.chancount > 1) {
 		dropbear_log(LOG_INFO, "Waiting for other channels to close...");
 	}
-}
-
-void cli_start_send_channel_request(struct Channel *channel, 
-		unsigned char *type) {
-
-	CHECKCLEARTOWRITE();
-	buf_putbyte(ses.writepayload, SSH_MSG_CHANNEL_REQUEST);
-	buf_putint(ses.writepayload, channel->remotechan);
-
-	buf_putstring(ses.writepayload, type, strlen(type));
-
 }
 
 /* Taken from OpenSSH's sshtty.c:
@@ -287,7 +276,7 @@ static void send_chansess_pty_req(struct Channel *channel) {
 
 	TRACE(("enter send_chansess_pty_req"))
 
-	cli_start_send_channel_request(channel, "pty-req");
+	start_send_channel_request(channel, "pty-req");
 
 	/* Don't want replies */
 	buf_putbyte(ses.writepayload, 0);
@@ -330,7 +319,7 @@ static void send_chansess_shell_req(struct Channel *channel) {
 		reqtype = "shell";
 	}
 
-	cli_start_send_channel_request(channel, reqtype);
+	start_send_channel_request(channel, reqtype);
 
 	/* XXX TODO */
 	buf_putbyte(ses.writepayload, 0); /* Don't want replies */
@@ -357,6 +346,11 @@ static int cli_init_stdpipe_sess(struct Channel *channel) {
 	return 0;
 }
 
+static int cli_init_netcat(struct Channel *channel) {
+	channel->prio = DROPBEAR_CHANNEL_PRIO_UNKNOWABLE;
+	return cli_init_stdpipe_sess(channel);
+}
+
 static int cli_initchansess(struct Channel *channel) {
 
 	cli_init_stdpipe_sess(channel);
@@ -369,8 +363,9 @@ static int cli_initchansess(struct Channel *channel) {
 
 	if (cli_opts.wantpty) {
 		send_chansess_pty_req(channel);
+		channel->prio = DROPBEAR_CHANNEL_PRIO_INTERACTIVE;
 	} else {
-		set_sock_priority(ses.sock_out, DROPBEAR_PRIO_BULK);
+		channel->prio = DROPBEAR_CHANNEL_PRIO_BULK;
 	}
 
 	send_chansess_shell_req(channel);
@@ -389,7 +384,7 @@ static int cli_initchansess(struct Channel *channel) {
 static const struct ChanType cli_chan_netcat = {
 	0, /* sepfds */
 	"direct-tcpip",
-	cli_init_stdpipe_sess, /* inithandler */
+	cli_init_netcat, /* inithandler */
 	NULL,
 	NULL,
 	cli_closechansess

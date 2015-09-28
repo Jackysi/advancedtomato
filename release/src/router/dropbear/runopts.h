@@ -37,14 +37,18 @@ typedef struct runopts {
 	int listen_fwd_all;
 #endif
 	unsigned int recv_window;
-	time_t keepalive_secs;
-	time_t idle_timeout_secs;
+	time_t keepalive_secs; /* Time between sending keepalives. 0 is off */
+	time_t idle_timeout_secs; /* Exit if no traffic is sent/received in this time */
 
 #ifndef DISABLE_ZLIB
 	/* TODO: add a commandline flag. Currently this is on by default if compression
 	 * is compiled in, but disabled for a client's non-final multihop stages. (The
 	 * intermediate stages are compressed streams, so are uncompressible. */
-	int enable_compress;
+	enum {
+		DROPBEAR_COMPRESS_DELAYED, /* Server only */
+		DROPBEAR_COMPRESS_ON,
+		DROPBEAR_COMPRESS_OFF,
+	} compress_mode;
 #endif
 
 #ifdef ENABLE_USER_ALGO_LIST
@@ -163,5 +167,7 @@ void cli_getopts(int argc, char ** argv);
 #ifdef ENABLE_USER_ALGO_LIST
 void parse_ciphers_macs();
 #endif
+
+void print_version(void);
 
 #endif /* _RUNOPTS_H_ */
