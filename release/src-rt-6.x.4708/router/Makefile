@@ -104,6 +104,7 @@ obj-$(TCONFIG_NOCAT) += nocat
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
 obj-$(TCONFIG_USB) += comgt
+obj-$(TCONFIG_USB) += uqmi
 
 obj-$(TCONFIG_UPS) += apcupsd
 
@@ -2772,6 +2773,31 @@ ipset-install: ipset
 ipset-clean:
 	-@$(MAKE) -C ipset clean
 	-@rm -rf ipset/Makefile ipset/stamp-h1
+
+libjson-c/stamp-h1:
+	cd $(TOP)/libjson-c && CC=$(CC) STRIP=$(CROSS_COMPILE)strip \
+	autoconf && \
+	$(CONFIGURE) --prefix=/usr
+	touch libjson-c/stamp-h1
+
+libjson-c: libjson-c/stamp-h1
+	$(MAKE) -C libjson-c $(PARALLEL_BUILD)
+
+libjson-c-clean:
+	-$(MAKE) -C libjson-c clean
+	@rm -rf libjson-c/stamp-h1
+
+uqmi: libjson-c
+	$(MAKE) -C uqmi/libubox
+	$(MAKE) -C uqmi SHARED=0 CC='$(CC) -static'
+
+uqmi-install: uqmi
+	install -D uqmi/uqmi $(INSTALLDIR)/uqmi/usr/sbin/uqmi
+	$(STRIP) $(INSTALLDIR)/uqmi/usr/sbin/uqmi
+
+uqmi-clean: libjson-c-clean
+	$(MAKE) -C uqmi/libubox clean
+	$(MAKE) -C uqmi clean
 
 comgt:
 	@$(MAKE) -C comgt CC=$(CC) CFLAGS="$(EXTRACFLAGS)" LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" comgt
