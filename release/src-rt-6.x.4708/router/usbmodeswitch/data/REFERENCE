@@ -1,17 +1,17 @@
 Configuration File Reference for USB_ModeSwitch
 -----------------------------------------------
 
-Last modified: 2014-05-29
+Last modified: 2015-06-27
 
 
 
 General Rules:
 
 Numbers can be decimal or hexadecimal, Bulk message strings must be
-hexadecimal without prepended "0x". Digits 9-16 (command tag) in
-mass storage messages (starting with "55534243") are random; I set
-them to "12345678". Mind that you should make them unique if more
-than one MessageContent is used.
+hexadecimal without prepended "0x". Digits 9-16 (message tag) in
+mass storage messages (which start with "55534243") are random; I set
+them to "12345678". Not that you must make them unique if more than
+one MessageContent is used.
 
 -> ALL MISTYPED PARAMETERS AND OTHER ENTRIES ARE SILENTLY IGNORED <-
 
@@ -126,13 +126,26 @@ message. May take a long time (20+ seconds).
 * MobileActionMode <0/1>   -A
 * QisdaMode <0/1>          -B
 * QuantaMode <0/1>         -E
-* PantechMode <0/1>        -F
 * BlackberryMode <0/1>     -Z
 * CiscoMode <0/1>          -L
 
 
 Flags to support devices that need special control messages.
 The names are referring to the respective manufacturers.
+
+
+* PantechMode              -F <num value>
+
+Extended flag for Pantech devices offering multiple target modes. Not
+all models were confirmed to support all modes. Possible values are:
+
+    1 - Automatic choice, checks for MBIM driver availability (recomm.)
+    2 - forced RNDIS mode
+    3 - forced CDC Ether mode (internal switch, no usb_modeswitch action)
+    4 - forced MBIM mode
+
+Important: the -F parameter value for usb_modeswitch is directly used as
+wValue in the control message!
 
 
 * ResetUSB <0/1>           -R
@@ -198,6 +211,6 @@ Waiting time before taking any action. Helps with some sensitive setups.
 
 * NoMBIMCheck <0|1>        (no command line parameter)
 
-Disable the check for new MBIM standard devices, which is always done
-by default.
-
+Disable the check for devices providing the MBIM standard; this check
+is otherwise done by default. See /etc/usb_modeswitch.conf from the
+program package for a global setting regarding this.
