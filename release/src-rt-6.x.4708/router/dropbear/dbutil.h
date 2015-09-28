@@ -62,9 +62,9 @@ extern int debug_trace;
 #endif
 
 enum dropbear_prio {
-	DROPBEAR_PRIO_DEFAULT,
-	DROPBEAR_PRIO_LOWDELAY,
-	DROPBEAR_PRIO_BULK,
+	DROPBEAR_PRIO_DEFAULT = 10,
+	DROPBEAR_PRIO_LOWDELAY = 11,
+	DROPBEAR_PRIO_BULK = 12,
 };
 
 char * stripcontrol(const char * text);
@@ -91,7 +91,7 @@ void m_close(int fd);
 void * m_malloc(size_t size);
 void * m_strdup(const char * str);
 void * m_realloc(void* ptr, size_t size);
-#define m_free(X) free(X); (X) = NULL;
+#define m_free(X) do {free(X); (X) = NULL;} while (0); 
 void m_burn(void* data, unsigned int len);
 void setnonblocking(int fd);
 void disallow_core();
@@ -105,5 +105,11 @@ int m_str_to_uint(const char* str, unsigned int *val);
 
 /* Returns 0 if a and b have the same contents */
 int constant_time_memcmp(const void* a, const void *b, size_t n);
+
+/* Returns a time in seconds that doesn't go backwards - does not correspond to
+a real-world clock */
+time_t monotonic_now();
+
+char * expand_tilde(const char *inpath);
 
 #endif /* _DBUTIL_H_ */
