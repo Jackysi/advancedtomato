@@ -361,6 +361,10 @@ AC_CHECK_FUNCS(endutxent getutxent getutxid getutxline pututxline )
 AC_CHECK_FUNCS(setutxent utmpxname)
 AC_CHECK_FUNCS(logout updwtmp logwtmp)
 
+# OS X monotonic time
+AC_CHECK_HEADERS([mach/mach_time.h])
+AC_CHECK_FUNCS(mach_absolute_time)
+
 AC_ARG_ENABLE(bundled-libtom,
 [  --enable-bundled-libtom       Force using bundled libtomcrypt/libtommath even if a system version exists.
   --disable-bundled-libtom      Force using system libtomcrypt/libtommath, fail if it does not exist.
@@ -371,16 +375,16 @@ AC_ARG_ENABLE(bundled-libtom,
 			AC_MSG_NOTICE(Forcing bundled libtom*)
 		else
 			BUNDLED_LIBTOM=0
-			AC_CHECK_LIB(tommath, mp_exptmod, , 
-				[AC_MSG_ERROR([Missing system libtomcrypt and --disable-bundled-libtom was specified])] )
-			AC_CHECK_LIB(tomcrypt, register_cipher, , 
+			AC_CHECK_LIB(tommath, mp_exptmod, LIBTOM_LIBS="$LIBTOM_LIBS -ltommath", 
+				[AC_MSG_ERROR([Missing system libtommath and --disable-bundled-libtom was specified])] )
+			AC_CHECK_LIB(tomcrypt, register_cipher, LIBTOM_LIBS="$LIBTOM_LIBS -ltomcrypt", 
 				[AC_MSG_ERROR([Missing system libtomcrypt and --disable-bundled-libtom was specified])] )
 		fi
 	],
 	[
 		BUNDLED_LIBTOM=0
-		AC_CHECK_LIB(tommath, mp_exptmod, , BUNDLED_LIBTOM=1)
-		AC_CHECK_LIB(tomcrypt, register_cipher, , BUNDLED_LIBTOM=1)
+		AC_CHECK_LIB(tommath, mp_exptmod, LIBTOM_LIBS="$LIBTOM_LIBS -ltommath", BUNDLED_LIBTOM=1)
+		AC_CHECK_LIB(tomcrypt, register_cipher, LIBTOM_LIBS="$LIBTOM_LIBS -ltomcrypt", BUNDLED_LIBTOM=1)
 	]
 )
 
@@ -388,6 +392,7 @@ if test $BUNDLED_LIBTOM = 1 ; then
 	AC_DEFINE(BUNDLED_LIBTOM,,Use bundled libtom) 
 fi
 
+AC_SUBST(LIBTOM_LIBS)
 AC_SUBST(BUNDLED_LIBTOM)
 
 dnl Added from OpenSSH 3.6.1p2's configure.ac
@@ -655,6 +660,7 @@ fi
 AC_EXEEXT
 
 # XXX there must be a nicer way to do this
+if test $BUNDLED_LIBTOM = 1 ; then
 AS_MKDIR_P(libtomcrypt/src/ciphers/aes)
 AS_MKDIR_P(libtomcrypt/src/ciphers/safer)
 AS_MKDIR_P(libtomcrypt/src/ciphers/twofish)
@@ -705,8 +711,10 @@ AS_MKDIR_P(libtomcrypt/src/pk/katja)
 AS_MKDIR_P(libtomcrypt/src/pk/pkcs1)
 AS_MKDIR_P(libtomcrypt/src/pk/rsa)
 AS_MKDIR_P(libtomcrypt/src/prngs)
+LIBTOM_FILES="libtomcrypt/Makefile libtommath/Makefile"
+fi
 AC_CONFIG_HEADER(config.h)
-AC_CONFIG_FILES(Makefile libtomcrypt/Makefile libtommath/Makefile)
+AC_CONFIG_FILES(Makefile $LIBTOM_FILES)
 AC_OUTPUT
 
 AC_MSG_NOTICE()

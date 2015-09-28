@@ -44,6 +44,7 @@ static void cli_session_init();
 static void cli_finished();
 static void recv_msg_service_accept(void);
 static void cli_session_cleanup(void);
+static void recv_msg_global_request_cli(void);
 
 struct clientsession cli_ses; /* GLOBAL */
 
@@ -68,9 +69,16 @@ static const packettype cli_packettypes[] = {
 	{SSH_MSG_CHANNEL_OPEN_FAILURE, recv_msg_channel_open_failure},
 	{SSH_MSG_USERAUTH_BANNER, recv_msg_userauth_banner}, /* client */
 	{SSH_MSG_USERAUTH_SPECIFIC_60, recv_msg_userauth_specific_60}, /* client */
+	{SSH_MSG_GLOBAL_REQUEST, recv_msg_global_request_cli},
+	{SSH_MSG_CHANNEL_SUCCESS, ignore_recv_response},
+	{SSH_MSG_CHANNEL_FAILURE, ignore_recv_response},
 #ifdef  ENABLE_CLI_REMOTETCPFWD
 	{SSH_MSG_REQUEST_SUCCESS, cli_recv_msg_request_success}, /* client */
 	{SSH_MSG_REQUEST_FAILURE, cli_recv_msg_request_failure}, /* client */
+#else
+	/* For keepalive */
+	{SSH_MSG_REQUEST_SUCCESS, ignore_recv_response},
+	{SSH_MSG_REQUEST_FAILURE, ignore_recv_response},
 #endif
 	{0, 0} /* End */
 };
@@ -228,6 +236,10 @@ static void cli_sessionloop() {
 			cli_ses.state = USERAUTH_REQ_SENT;
 			TRACE(("leave cli_sessionloop: sent userauth methods req"))
 			return;
+
+		case USERAUTH_REQ_SENT:
+			TRACE(("leave cli_sessionloop: waiting, req_sent"))
+			return;
 			
 		case USERAUTH_FAIL_RCVD:
 			if (cli_auth_try() == DROPBEAR_FAILURE) {
@@ -361,4 +373,10 @@ void cleantext(unsigned char* dirtytext) {
 	}
 	/* Null terminate */
 	dirtytext[j] = '\0';
+}
+
+static void recv_msg_global_request_cli(void) {
+	TRACE(("recv_msg_global_request_cli"))
+	/* Send a proper rejection */
+	send_msg_request_failure();
 }

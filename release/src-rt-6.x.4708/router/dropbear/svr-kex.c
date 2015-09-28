@@ -80,12 +80,32 @@ void recv_msg_kexdh_init() {
 	}
 
 	send_msg_newkeys();
-	ses.requirenext[0] = SSH_MSG_NEWKEYS;
-	ses.requirenext[1] = 0;
+	ses.requirenext = SSH_MSG_NEWKEYS;
 	TRACE(("leave recv_msg_kexdh_init"))
 }
 
+
 #ifdef DROPBEAR_DELAY_HOSTKEY
+
+static void fsync_parent_dir(const char* fn) {
+#ifdef HAVE_LIBGEN_H
+	char *fn_dir = m_strdup(fn);
+	char *dir = dirname(fn_dir);
+	int dirfd = open(dir, O_RDONLY);
+
+	if (dirfd != -1) {
+		if (fsync(dirfd) != 0) {
+			TRACE(("fsync of directory %s failed: %s", dir, strerror(errno)))
+		}
+		m_close(dirfd);
+	} else {
+		TRACE(("error opening directory %s for fsync: %s", dir, strerror(errno)))
+	}
+
+	free(fn_dir);
+#endif
+}
+
 static void svr_ensure_hostkey() {
 
 	const char* fn = NULL;
@@ -142,6 +162,10 @@ static void svr_ensure_hostkey() {
 			goto out;
 		}
 	}
+
+	/* ensure directory update is flushed to disk, otherwise we can end up
+	with zero-byte hostkey files if the power goes off */
+	fsync_parent_dir(fn);
 
 	ret = readhostkey(fn, svr_opts.hostkey, &type);
 
