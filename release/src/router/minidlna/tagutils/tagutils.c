@@ -133,7 +133,7 @@ static taghandler taghandlers[] = {
 	{ "wav", _get_wavtags, _get_wavfileinfo                                  },
 	{ "pcm", 0,            _get_pcmfileinfo                                  },
 	{ "dsf", _get_dsftags, _get_dsffileinfo                                  },
-	{ "dff", 0,            _get_dfffileinfo                                  },
+	{ "dff", 0, _get_dfffileinfo                                  },
 	{ NULL,  0 }
 };
 

@@ -4,7 +4,7 @@
  *******************************************************************/
 
 #ifndef DROPBEAR_VERSION
-#define DROPBEAR_VERSION "2013.62"
+#define DROPBEAR_VERSION "2015.67"
 #endif
 
 #define LOCAL_IDENT "SSH-2.0-dropbear_" DROPBEAR_VERSION
@@ -153,8 +153,7 @@
 #define MAX_CHANNELS 100 /* simple mem restriction, includes each tcp/x11
 							connection, so can't be _too_ small */
 
-#define MAX_STRING_LEN 1400 /* ~= MAX_PROPOSED_ALGO * MAX_NAME_LEN, also
-							   is the max length for a password etc */
+#define MAX_STRING_LEN 2400 /* Sun SSH needs this long for algos */
 
 /* For a 4096 bit DSS key, empirically determined */
 #define MAX_PUBKEY_SIZE 1700
@@ -175,6 +174,7 @@
 #define DROPBEAR_MAX_CLI_INTERACT_PROMPTS 80 /* The number of prompts we'll 
 												accept for keyb-interactive
 												auth */
+
 
 #if defined(DROPBEAR_AES256) || defined(DROPBEAR_AES128)
 #define DROPBEAR_AES
@@ -249,5 +249,14 @@
 #ifndef HAVE_FORK
 #define USE_VFORK
 #endif  /* don't HAVE_FORK */
+
+#if MAX_UNAUTH_CLIENTS > MAX_CHANNELS
+#define DROPBEAR_LISTEN_BACKLOG MAX_UNAUTH_CLIENTS
+#else
+#define DROPBEAR_LISTEN_BACKLOG MAX_CHANNELS
+#endif
+
+/* Use this string since some implementations might special-case it */
+#define DROPBEAR_KEEPALIVE_STRING "keepalive@openssh.com"
 
 /* no include guard for this file */

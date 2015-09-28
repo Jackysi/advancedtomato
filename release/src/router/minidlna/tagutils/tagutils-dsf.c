@@ -56,10 +56,11 @@ _get_dsftags(char *file, struct song_metadata *psong)
 	FILE *fp;
 	struct id3header *pid3;
 	uint32_t len;
-	unsigned char hdr[28];
+	unsigned char hdr[28] = {0};
 	uint64_t total_size = 0;
 	uint64_t pointer_to_metadata_chunk = 0;
 	uint64_t metadata_chunk_size = 0;
+	unsigned char *id3tagbuf = NULL;
 
 	//DEBUG DPRINTF(E_DEBUG,L_SCANNER,"Getting DSF file info\n");
 
@@ -86,25 +87,52 @@ _get_dsftags(char *file, struct song_metadata *psong)
 
 	total_size = GET_DSF_INT64(hdr + 12);
 	pointer_to_metadata_chunk = GET_DSF_INT64(hdr + 20);
-	metadata_chunk_size = total_size - pointer_to_metadata_chunk;
 	
 	//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "%llu\n", total_size);
 	//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "%llu\n", pointer_to_metadata_chunk);
 	//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "%llu\n", metadata_chunk_size);
 
+	//check invalid metadata
+	if(total_size == 0)
+	{
+		fclose(fp);
+		DPRINTF(E_INFO, L_SCANNER, "Invalid TotalDataSize in %s\n", file);
+		return 0;
+	}
+
 	if(pointer_to_metadata_chunk == 0)
 	{
 		fclose(fp);
-		DPRINTF(E_INFO, L_SCANNER, "Metadata doesn’t exist %s\n", file);
+		DPRINTF(E_INFO, L_SCANNER, "Metadata doesn't exist %s\n", file);
+		return 0;
+	}
+
+	if(total_size > pointer_to_metadata_chunk)
+	{
+		metadata_chunk_size = total_size - pointer_to_metadata_chunk;
+	}
+	else
+	{
+		fclose(fp);
+		DPRINTF(E_INFO, L_SCANNER, "Invalid PointerToMetadata in %s\n", file);
 		return 0;
 	}
 
 	fseeko(fp, pointer_to_metadata_chunk,SEEK_SET);
 
-	unsigned char id3tagbuf[metadata_chunk_size];	
+	id3tagbuf = (unsigned char *)malloc(sizeof(unsigned char)*metadata_chunk_size);
+	if(id3tagbuf == NULL)
+	{
+		fclose(fp);
+		DPRINTF(E_WARN, L_SCANNER, "Out of memory.Big MetadataSize in %s\n",file);
+		return -1;
+	}
+	memset(id3tagbuf, 0,sizeof(unsigned char)*metadata_chunk_size);
+	
 	if(!(len = fread(id3tagbuf,metadata_chunk_size,1,fp)))
 	{
 		fclose(fp);
+		free(id3tagbuf);
 		DPRINTF(E_WARN, L_SCANNER, "Could not read Metadata Chunk from %s\n", file);
 		return -1;
 	}
@@ -113,8 +141,8 @@ _get_dsftags(char *file, struct song_metadata *psong)
 	
 	if(!pid3tag)
 	{
+		free(id3tagbuf);
 		err = errno;
-		fclose(fp);
 		errno = err;
 		DPRINTF(E_WARN, L_SCANNER, "Cannot get ID3 tag for %s\n", file);
 		return -1;
@@ -328,8 +356,10 @@ _get_dsftags(char *file, struct song_metadata *psong)
 		index++;
 	}
 
+	id3_tag_delete(pid3tag);
+	free(id3tagbuf);
 	fclose(fp);
-	//DEBUG DPRINTF(E_INFO, L_SCANNER, "Got id3 tag successfully for file=%s\n", file);
+	//DPRINTF(E_DEBUG, L_SCANNER, "Got id3tag successfully for file=%s\n", file);
 	return 0;
 }
 
@@ -366,7 +396,7 @@ _get_dsffileinfo(char *file, struct song_metadata *psong)
 
 	if(strncmp((char*)hdr+28, "fmt ", 4))
 	{
-		DPRINTF(E_WARN, L_SCANNER, "Invalid fmt	Chunk header in %s\n", file);
+		DPRINTF(E_WARN, L_SCANNER, "Invalid fmt Chunk header in %s\n", file);
 		fclose(fp);
 		return -1;
 	}

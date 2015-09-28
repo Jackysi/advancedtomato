@@ -1,3 +1,134 @@
+2015.67 - Wednesday 28 January 2015
+
+- Call fsync() after generating private keys to ensure they aren't lost if a
+  reboot occurs. Thanks to Peter Korsgaard
+
+- Disable non-delayed zlib compression by default on the server. Can be
+  enabled if required for old clients with DROPBEAR_SERVER_DELAY_ZLIB
+
+- Default client key path ~/.ssh/id_dropbear
+
+- Prefer stronger algorithms by default, from Fedor Brunner. 
+  AES256 over 3DES
+  Diffie-hellman group14 over group1
+
+- Add option to disable CBC ciphers.
+
+- Disable twofish in default options.h
+
+- Enable sha2 HMAC algorithms by default, the code was already required
+  for ECC key exchange. sha1 is the first preference still for performance. 
+
+- Fix installing dropbear.8 in a separate build directory, from Like Ma
+
+- Allow configure to succeed if libtomcrypt/libtommath are missing, from Elan Ruusamäe
+
+- Don't crash if ssh-agent provides an unknown type of key. From Catalin Patulea
+
+- Minor bug fixes, a few issues found by Coverity scan
+
+2014.66 - Thursday 23 October 2014
+
+- Use the same keepalive handling behaviour as OpenSSH. This will work better 
+  with some SSH implementations that have different behaviour with unknown 
+  message types.
+
+- Don't reply with SSH_MSG_UNIMPLEMENTED when we receive a reply to our own 
+  keepalive message
+
+- Set $SSH_CLIENT to keep bash happy, patch from Ryan Cleere
+
+- Fix wtmp which broke since 2013.62, patch from Whoopie
+
+2014.65 - Friday 8 August 2014
+
+- Fix 2014.64 regression, server session hang on exit with scp (and probably
+  others), thanks to NiLuJe for tracking it down
+
+- Fix 2014.64 regression, clock_gettime() error handling which broke on older
+  Linux kernels, reported by NiLuJe
+
+- Fix 2014.64 regression, writev() could occassionally fail with EAGAIN which
+  wasn't caught
+
+- Avoid error message when trying to set QoS on proxycommand or multihop pipes
+
+- Use /usr/bin/xauth, thanks to Mike Frysinger
+
+- Don't exit the client if the local user entry can't be found, thanks to iquaba
+
+2014.64 - Sunday 27 July 2014
+
+- Fix compiling with ECDSA and DSS disabled
+
+- Don't exit abruptly if too many outgoing packets are queued for writev(). Patch
+  thanks to Ronny Meeus
+
+- The -K keepalive option now behaves more like OpenSSH's "ServerAliveInterval". 
+  If no response is received after 3 keepalives then the session is terminated. This
+  will close connections faster than waiting for a TCP timeout.
+
+- Rework TCP priority setting. New settings are
+	if (connecting || ptys || x11) tos = LOWDELAY
+	else if (tcp_forwards) tos = 0
+	else tos = BULK
+  Thanks to Catalin Patulea for the suggestion.
+
+- Improve handling of many concurrent new TCP forwarded connections, should now
+  be able to handle as many as MAX_CHANNELS. Thanks to Eduardo Silva for reporting
+  and investigating it.
+
+- Make sure that exit messages from the client are printed, regression in 2013.57
+
+- Use monotonic clock where available, timeouts won't be affected by system time
+  changes
+
+- Add -V for version
+
+2014.63 - Wednesday 19 February 2014
+
+- Fix ~. to terminate a client interactive session after waking a laptop
+  from sleep.
+
+- Changed port separator syntax again, now using host^port. This is because
+  IPv6 link-local addresses use %. Reported by Gui Iribarren
+
+- Avoid constantly relinking dropbearmulti target, fix "make install"
+  for multi target, thanks to Mike Frysinger
+
+- Avoid getting stuck in a loop writing huge key files, reported by Bruno
+  Thomsen
+
+- Don't link dropbearkey or dropbearconvert to libz or libutil, 
+  thanks to Nicolas Boos
+
+- Fix linking -lcrypt on systems without /usr/lib, thanks to Nicolas Boos
+
+- Avoid crash on exit due to cleaned up keys before last packets are sent,
+  debugged by Ronald Wahl
+
+- Fix a race condition in rekeying where Dropbear would exit if it received a
+  still-in-flight packet after initiating rekeying. Reported by Oliver Metz.
+  This is a longstanding bug but is triggered more easily since 2013.57
+
+- Fix README for ecdsa keys, from Catalin Patulea
+
+- Ensure that generated RSA keys are always exactly the length
+  requested. Previously Dropbear always generated N+16 or N+15 bit keys.
+  Thanks to Unit 193
+
+- Fix DROPBEAR_CLI_IMMEDIATE_AUTH mode which saves a network round trip if the
+  first public key succeeds. Still not enabled by default, needs more
+  compatibility testing with other implementations.
+
+- Fix for port 0 forwarding in the client and port forwarding with Apache MINA SSHD. Thanks to 
+
+- Fix for bad system linux/pkt-sched.h header file with older Linux
+kernels, from Steve Dover
+
+- Fix signal handlers so that errno is saved, thanks to Erik Ahlén for a patch
+  and Mark Wickham for independently spotting the same problem.
+
 2013.62 - Tuesday 3 December 2013
 
 - Disable "interactive" QoS connection options when a connection doesn't
