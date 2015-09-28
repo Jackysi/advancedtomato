@@ -67,7 +67,7 @@ case "$ACTION" in
 
     modprobe ipt_set
     modprobe ip_set
-    modprobe ip_set_hash_ip
+    modprobe ip_set_iphash
     ipset --create vpnrouting$ID iphash
 
     echo "#!/bin/sh" > $FIREWALL
