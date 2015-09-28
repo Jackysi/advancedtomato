@@ -3356,10 +3356,12 @@ static int hw_cdc_ioctl (struct usb_interface *intf, unsigned int code,
                         if (0x02 == pbuf[16]){
                             if (hwnet){
                                 netif_carrier_on(hwnet->net);
+                                devinfo(dev, "CDC: network connection: connected\n");
                             }
                             }else{
                                 if (hwnet){
                                     netif_carrier_off(hwnet->net);
+                                    devinfo(dev, "CDC: network connection: disconnected\n");
                             }
                         }
                     }
