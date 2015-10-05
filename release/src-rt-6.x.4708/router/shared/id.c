@@ -53,6 +53,7 @@ WBR-G54                                   bcm94710ap   42                       
 WHR2-A54G54         BCM4704_BCM5325F      0x042f       42        0x10      0x0210      melco_id=290441dd
 WBR2-G54            BCM4712               0x0101       00        0x10      0x0188      buffalo_id=29bb0332
 WZR-G108            BCM4704_BCM5325F      0x042f       42        0x10      0x10        melco_id=30153  melco_id=31095 (source: BaoWeiQuan)
+WZR-1750DHP	    BCM4708		  0xF646	00	 0x1100	   0x0110	0:devid=0x4332
 
 WHR-G125			BCM5354G              0x048E       00        0x11      0x750       melco_id=32093
 
@@ -227,7 +228,7 @@ int check_hw_type(void)
 #ifdef CONFIG_BCMWL6
 	case 0x0646:
 	case 0x0665: //R7000,R1D
-	case 0xf646: //EA6700
+	case 0xf646: //EA6700,WZR-1750
 	case 0xd646: //EA6900
 		return HW_BCM4708;
 #endif
@@ -370,7 +371,8 @@ int get_model(void)
 		if ((nvram_match("boardrev", "0x1301")) && (nvram_match("boardnum", "32"))) return MODEL_R7000;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "24"))) return MODEL_DIR868L;
 		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("boardnum", "1234"))) return MODEL_WS880;
-		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6700;
+		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardnum", "01"))) return MODEL_EA6700;
+		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardnum", "00"))) return MODEL_WZR1750;
 		if ((nvram_match("boardtype","0xD646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6900;
 	}
 #endif

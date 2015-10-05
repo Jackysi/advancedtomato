@@ -167,6 +167,11 @@ endif
 ifeq ($(ASUS_TRX),HUAWEI)
 	ctools/trx_asus -i image/linux-lzma.trx -r WS880,3.0.0.4,image/tomato-WS880-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
+# for Buffalo
+ifeq ($(ASUS_TRX),BUFFALO)
+	ctools/trx_asus -i image/linux-lzma.trx -r WZR1750,3.0.0.4,image/tomato-WZR1750-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
+
 #for linksys EA series -- EA6700 EA6500v2 EA6900
 ifeq ($(ASUS_TRX),LINKSYS)
 	ctools/trx_asus -i image/linux-lzma.trx -r EA6900,3.0.0.4,image/tomato-EA6900-$(V1)$(V2)-$(current_BUILD_DESC).trx
@@ -972,6 +977,12 @@ ws880e:
 ws880z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="HUAWEI"
 
+wzr1750e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="BUFFALO"
+
+wzr1750z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="BUFFALO"
+
 ea6700e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="LINKSYS" FAILSAFE_UPGRADE=n
 
@@ -1049,10 +1060,16 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r6250init     R6250 init build"
 	@echo "r6300v2init   R6300v2 init build"
 	@echo "Xiaomi ARM Builds"
-	@echo "r1dz          R1D custom build"
+	@echo "r1do          R1D custom build"
 	@echo "HUAWEI ARM Builds"
 	@echo "ws880e        WS880 build VPN"
 	@echo "ws880z        WS880 build AIO"
+	@echo "BUFFALO ARM Builds"
+	@echo "wzr1750e      WZR-1750DHP build VPN"
+	@echo "wzr1750z      WZR-1750DHP build AIO"
+	@echo "LINKSYS ARM Builds"
+	@echo "ea6700e       EA6700/EA6500v2/EA6900 build VPN"
+	@echo "ea6700z       EA6700/EA6500v2/EA6900 build AIO"
 endif
 	@echo ""
 	@echo "..etc..      other build configs"
