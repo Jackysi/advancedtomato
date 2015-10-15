@@ -318,12 +318,13 @@ ifneq ($(CONFIG_LINUX26),y)
 	find $(TARGETDIR)/lib/modules -name *.*o -exec $(STRIP) --strip-debug -x -R .mdebug.abi32 {} \;
 endif
 
-	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
-
 # nice and clean
+ifneq ($(TCONFIG_USBAP),y)
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv usb/* . && rm -rf usb
+endif
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et/* . && rm -rf et
-	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv usb/* . && rm -rf usb
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv cifs/* . && rm -rf cifs
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
@@ -387,6 +388,7 @@ endif
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv emf/* . && rm -rf emf || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv igs/* . && rm -rf igs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv ctf/* . && rm -rf ctf || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv usb/* . && rm -rf usb || true
 	cd $(TARGETDIR)/lib/modules && rm -f */source || true
 
 # misc
@@ -475,8 +477,12 @@ endif
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/cdc-acm.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/mii.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/cdc_*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usbnet.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/huawei_ether.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/cdc_*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/usbnet.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/huawei_ether.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/class/cdc-wdm.*o $(PLATFORMDIR)/extras/ || true
@@ -494,6 +500,9 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ov51*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pwc*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/emi*.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/cdc_subset.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/rndis_host.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ipheth.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/cdc_subset.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/rndis_host.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/ipheth.*o $(PLATFORMDIR)/extras/ || true

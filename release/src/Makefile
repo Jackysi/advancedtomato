@@ -317,11 +317,6 @@ ifeq ($(WNDR),y)
 	# and tee only reads from stdout (not stderr)
 	@echo "*********************** Convert TRX to CHK (add Netgear Checksum) ************************" >>fpkg.log
 	# Make multiple versions / files, as file is HW specific (HW information is captured in the .chk file itself!)
-	# Make WNDR4000, Checksum starts at 0x6FFFF8 => Max size (to not touch the last 64kB block) = 7274496
-	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR4000-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
-	-k image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
-	-b U12H181T00_NETGEAR -r 2 2>&1 | tee -a fpkg.log
-	@$(MAKE) netgear-check MAXFSIZE=7274496 NG_FNAME=image/tomato-WNDR4000-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk
 
 	# Make WNDR3700v3, Checksum starts at 0x6FFFF8 => Max size (to not touch the last 64kB block) = 7274496
 	@$(SRCBASE)/wnrtool/mkchkimg -o image/tomato-WNDR3700v3-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).chk \
@@ -965,6 +960,24 @@ define KernelConfig
 	if [ "$(USBAP)" = "y" ]; then \
 		echo "CONFIG_WL_USBAP=y" >>$(1); \
 		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_high"' >>$(1); \
+		sed -i "/CONFIG_USB_USBNET/d" $(1); \
+		echo "# CONFIG_USB_USBNET is not set" >>$(1); \
+		sed -i "/CONFIG_USB_NET_CDCETHER/d" $(1); \
+		echo "# CONFIG_USB_NET_CDCETHER is not set" >>$(1); \
+		sed -i "/CONFIG_USB_NET_CDC_NCM/d" $(1); \
+		echo "# CONFIG_USB_NET_CDC_NCM is not set" >>$(1); \
+		sed -i "/CONFIG_USB_NET_HUAWEIETHER/d" $(1); \
+		echo "# CONFIG_USB_NET_HUAWEIETHER is not set" >>$(1); \
+		sed -i "/CONFIG_USB_NET_QMI_WWAN/d" $(1); \
+		echo "# CONFIG_USB_NET_QMI_WWAN is not set" >>$(1); \
+		sed -i "/CONFIG_USB_IPHETH/d" $(1); \
+		echo "# CONFIG_USB_IPHETH is not set" >>$(1); \
+		sed -i "/CONFIG_USB_NET_RNDIS_HOST/d" $(1); \
+		echo "# CONFIG_USB_NET_RNDIS_HOST is not set" >>$(1); \
+		sed -i "/CONFIG_USB_WDM/d" $(1); \
+		echo "# CONFIG_USB_WDM is not set" >>$(1); \
+		sed -i "/CONFIG_USB_ACM/d" $(1); \
+		echo "# CONFIG_USB_ACM is not set" >>$(1); \
 	else \
 		echo "# CONFIG_WL_USBAP is not set" >>$(1); \
 		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_apsta"' >>$(1); \
