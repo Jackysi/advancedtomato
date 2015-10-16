@@ -194,14 +194,16 @@ unescape_tag(const char *tag, int force_alloc)
 {
 	char *esc_tag = NULL;
 
-	if( strstr(tag, "&amp;") || strstr(tag, "&lt;") || strstr(tag, "&gt;")
-			|| strstr(tag, "&quot;") )
+	if (strchr(tag, '&') &&
+	    (strstr(tag, "&amp;") || strstr(tag, "&lt;") || strstr(tag, "&gt;") ||
+	     strstr(tag, "&quot;") || strstr(tag, "&apos;")))
 	{
 		esc_tag = strdup(tag);
 		esc_tag = modifyString(esc_tag, "&amp;", "&", 1);
 		esc_tag = modifyString(esc_tag, "&lt;", "<", 1);
 		esc_tag = modifyString(esc_tag, "&gt;", ">", 1);
 		esc_tag = modifyString(esc_tag, "&quot;", "\"", 1);
+		esc_tag = modifyString(esc_tag, "&apos;", "'", 1);
 	}
 	else if( force_alloc )
 		esc_tag = strdup(tag);
@@ -329,6 +331,8 @@ mime_to_ext(const char * mime)
 				return "3gp";
 			else if( strcmp(mime, "application/ogg") == 0 )
 				return "ogg";
+			else if( strcmp(mime+6, "x-dsd") == 0 )
+				return "dsd";
 			break;
 		case 'v':
 			if( strcmp(mime+6, "avi") == 0 )
@@ -396,7 +400,8 @@ is_audio(const char * file)
 		ends_with(file, ".m4a") || ends_with(file, ".aac")  ||
 		ends_with(file, ".mp4") || ends_with(file, ".m4p")  ||
 		ends_with(file, ".wav") || ends_with(file, ".ogg")  ||
-		ends_with(file, ".pcm") || ends_with(file, ".3gp"));
+		ends_with(file, ".pcm") || ends_with(file, ".3gp")  ||
+		ends_with(file, ".dsf") || ends_with(file, ".dff"));
 }
 
 int

@@ -1,3 +1,13 @@
+20150627:
+    ATTENTION: recommended use with usb-modeswitch program package version
+    >= 2.2.2 due to extended parameter PantechMode (affects 2 devices, see
+    also REFERENCE);
+    Added devices: Dymo LabelManager 420P, MediaTek/Medion S4222 and probably
+    others, Pantech/Verizon UML295, Vodafone (Huawei) R205, Vodafone (Huawei)
+    R215, Huawei E3372, Huawei E3372s-153, Huawei E5377, Huawei/Vodafone R226,
+    Spreadtrum SC7702, D-Link DWM-221 B1, ZTE MF90 Mobile Hotspot; some new
+    target IDs added to existing device configs; modified the catch-all Huawei
+    udev rule to exclude Android smartphones
 20150115:
     Added devices: Aiko 81D, Alcatel-Lucent ABS-T920, Alcatel X602D,
     Amoi H-01, Amoi H-02, D-Link DWM-157 B1, D-Link DWM-221, D-Link
@@ -122,7 +132,7 @@
     Added devices: Huawei EC156, Huawei K3770, Huawei K3771, Option iCon 461,
     Longcheer SU9800, ZTE AX226 (WiMax)
 20110619:
-	Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
+    Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
     (Variant), Cricket A605, ZTE K3806-Z, ZTE MF190 (two Variants), ZTE MF192,
     ZTE MF691, Visiontek 82GH 3G, C-motech CHU-629S (Variant), JOA Telecom
     LM-700r, HP LaserJet Professional P1102, Mobile Action Cable (migrated from

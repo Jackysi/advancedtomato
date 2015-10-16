@@ -552,6 +552,25 @@ void clear_resolv(void)
 	f_write(dmresolv, NULL, 0, 0, 0);	// blank
 }
 
+#ifdef TCONFIG_FANCTRL
+static pid_t pid_phy_tempsense = -1;
+
+void start_phy_tempsense()
+{
+	stop_phy_tempsense();
+
+	char *phy_tempsense_argv[] = {"phy_tempsense", NULL};
+	_eval(phy_tempsense_argv, NULL, 0, &pid_phy_tempsense);
+}
+
+void stop_phy_tempsense()
+{
+	pid_phy_tempsense = -1;
+	killall_tk("phy_tempsense");
+}
+#endif
+
+
 #ifdef TCONFIG_IPV6
 static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns, const char *suffix, int once)
 {
@@ -1488,19 +1507,17 @@ void start_ntpc(void)
 
 	stop_ntpc();
 
+	if (nvram_match("dnscrypt_proxy", "1"))
+		eval("ntp2ip");
+
 	if (nvram_get_int("ntp_updates") >= 0) {
-		strcpy(servers, nvram_safe_get("ntp_server"));
-
-		if (nvram_match("dnscrypt_proxy", "1"))
-			eval("ntp2ip");
-
-		xstart("ntpclient", "-h", servers, "-i", "3", "-l", "-s");
+		xstart("ntpsync", "--init");
 	}
 }
 
 void stop_ntpc(void)
 {
-	killall("ntpclient", SIGTERM);
+	killall("ntpsync", SIGTERM);
 }
 
 // -----------------------------------------------------------------------------
@@ -1656,11 +1673,6 @@ static void start_ftpd(void)
 		}
 	}
 
-#ifdef TCONFIG_SAMBASRV
-	if (nvram_match("smbd_cset", "utf8"))
-		fprintf(fp, "utf8=yes\n");
-#endif
-
 	if (nvram_invmatch("ftp_anonymous", "0"))
 	{
 		fprintf(fp,
@@ -1707,6 +1719,7 @@ static void start_ftpd(void)
 		"user_config_dir=%s\n"
 		"passwd_file=%s\n"
 		"listen%s=yes\n"
+		"listen%s=no\n"
 		"listen_port=%s\n"
 		"background=yes\n"
 		"isolate=no\n"
@@ -1722,8 +1735,10 @@ static void start_ftpd(void)
 		vsftpd_users, vsftpd_passwd,
 #ifdef TCONFIG_IPV6
 		ipv6_enabled() ? "_ipv6" : "",
+		ipv6_enabled() ? "" : "_ipv6",
 #else
 		"",
+		"_ipv6",
 #endif
 		nvram_get("ftp_port") ? : "21",
 		nvram_get_int("ftp_max"),
@@ -2361,6 +2376,11 @@ void start_services(void)
 	start_nfs();
 #endif
 
+#ifdef TCONFIG_FANCTRL
+	start_phy_tempsense();
+#endif
+
+
 	if (get_model() == MODEL_R7000) {
 		//enable WAN port led
 		system("/usr/sbin/et robowr 0x0 0x10 0x3000");
@@ -2373,6 +2393,10 @@ void start_services(void)
 void stop_services(void)
 {
 	clear_resolv();
+
+#ifdef TCONFIG_FANCTRL
+	stop_phy_tempsense();
+#endif
 
 #ifdef TCONFIG_BT
 	stop_bittorrent();
@@ -2986,6 +3010,14 @@ TOP:
 	if (strcmp(service, "tinc") == 0) {
 		if (action & A_STOP) stop_tinc();
 		if (action & A_START) start_tinc();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_FANCTRL
+	if (strcmp(service, "fanctrl") == 0) {
+		if (action & A_STOP) stop_phy_tempsense();
+		if (action & A_START) start_phy_tempsense();
 		goto CLEAR;
 	}
 #endif

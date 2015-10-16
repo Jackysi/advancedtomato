@@ -42,6 +42,9 @@ endif
 OBJS += blink_5g.o
 #endif
 
+ifeq ($(TCONFIG_FANCTRL),y)
+OBJS += phy_tempsense.o
+endif
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif
@@ -133,6 +136,9 @@ endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons
 	@cd $(INSTALLDIR)/sbin && ln -sf rc blink
 	@cd $(INSTALLDIR)/sbin && ln -sf rc blink_5g
+ifeq ($(TCONFIG_FANCTRL),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc phy_tempsense
+endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc rcheck
 	@cd $(INSTALLDIR)/sbin && ln -sf rc radio
 	@cd $(INSTALLDIR)/sbin && ln -sf rc led

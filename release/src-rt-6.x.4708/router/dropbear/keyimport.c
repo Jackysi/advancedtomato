@@ -602,13 +602,18 @@ static sign_key *openssh_read(const char *filename, char * UNUSED(passphrase))
 	 */
 	blobbuf = buf_new(3000);
 
+#ifdef DROPBEAR_DSS
 	if (key->type == OSSH_DSA) {
 		buf_putstring(blobbuf, "ssh-dss", 7);
 		retkey->type = DROPBEAR_SIGNKEY_DSS;
-	} else if (key->type == OSSH_RSA) {
+	} 
+#endif
+#ifdef DROPBEAR_RSA
+	if (key->type == OSSH_RSA) {
 		buf_putstring(blobbuf, "ssh-rsa", 7);
 		retkey->type = DROPBEAR_SIGNKEY_RSA;
 	}
+#endif
 
 	for (i = 0; i < num_integers; i++) {
 		ret = ber_read_id_len(p, key->keyblob+key->keyblob_len-p,
@@ -622,7 +627,7 @@ static sign_key *openssh_read(const char *filename, char * UNUSED(passphrase))
 
 		if (i == 0) {
 			/* First integer is a version indicator */
-			int expected;
+			int expected = -1;
 			switch (key->type) {
 				case OSSH_RSA:
 				case OSSH_DSA:
@@ -805,7 +810,7 @@ static sign_key *openssh_read(const char *filename, char * UNUSED(passphrase))
 	}
 	m_burn(key->keyblob, key->keyblob_size);
 	m_free(key->keyblob);
-	m_burn(key, sizeof(key));
+	m_burn(key, sizeof(*key));
 	m_free(key);
 	if (errmsg) {
 		fprintf(stderr, "Error: %s\n", errmsg);
@@ -821,7 +826,7 @@ static int openssh_write(const char *filename, sign_key *key,
 	unsigned char *outblob = NULL;
 	int outlen = -9999;
 	struct mpint_pos numbers[9];
-	int nnumbers = -1, pos, len, seqlen, i;
+	int nnumbers = -1, pos = 0, len = 0, seqlen, i;
 	char *header = NULL, *footer = NULL;
 	char zero[1];
 	int ret = 0;
@@ -831,7 +836,14 @@ static int openssh_write(const char *filename, sign_key *key,
 	mp_int dmp1, dmq1, iqmp, tmpval; /* for rsa */
 #endif
 
-	if (key->type == DROPBEAR_SIGNKEY_RSA || key->type == DROPBEAR_SIGNKEY_DSS)
+	if (
+#ifdef DROPBEAR_RSA
+			key->type == DROPBEAR_SIGNKEY_RSA ||
+#endif
+#ifdef DROPBEAR_DSS
+			key->type == DROPBEAR_SIGNKEY_DSS ||
+#endif
+			0)
 	{
 		/*
 		 * Fetch the key blobs.

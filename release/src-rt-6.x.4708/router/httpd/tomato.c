@@ -611,6 +611,7 @@ static const nvset_t nvset_list[] = {
 	{ "modem_dev",			V_LENGTH(0,8)			},
 	{ "modem_init",			V_LENGTH(0,25)			},
 	{ "modem_apn",			V_LENGTH(0,25)			},
+	{ "modem_watchdog",		V_RANGE(0,30)			},
 #endif
 
 	// LAN networks
@@ -719,6 +720,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_borderrelay",	V_IP				},
 	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 32)			},
 	{ "ipv6_vlan",			V_RANGE(0, 7)			},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
+	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
 #endif
 
 // basic-wfilter

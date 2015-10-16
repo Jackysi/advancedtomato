@@ -95,8 +95,14 @@ void start_usb(void)
 	else if (get_model() == MODEL_WS880) {
 		xstart("gpio", "enable", "7");
 	}
-	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900) {
+	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900 || get_model() == MODEL_WZR1750) {
 		xstart("gpio", "enable", "9");
+
+		if (get_model() == MODEL_WZR1750)
+			xstart("gpio", "disable", "10"); //usb3.0
+	}
+	if (get_model() == MODEL_R1D) {
+		xstart("gpio", "enable", "0");
 	}
 
 	_dprintf("%s\n", __FUNCTION__);
@@ -329,6 +335,9 @@ void stop_usb(void)
 #endif
 		modprobe_r(SCSI_MOD);
 	}
+	if (get_model() == MODEL_R1D) {
+		xstart("gpio", "disable", "0");
+	}
 
 #if defined(LINUX26) && defined(TCONFIG_MICROSD)
 	if (disabled || !nvram_get_int("usb_storage") || nvram_get_int("usb_mmc") != 1) {
@@ -398,8 +407,11 @@ void stop_usb(void)
 	else if (get_model() == MODEL_WS880) {
 		xstart("gpio", "disable", "7");
 	}
-	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900) {
+	else if (get_model() == MODEL_EA6700 || get_model() == MODEL_EA6900 || get_model() == MODEL_WZR1750) {
 		xstart("gpio", "disable", "9");
+
+		if (get_model() == MODEL_WZR1750)
+			xstart("gpio", "enable", "10"); //usb3.0
 	}
 
 	}

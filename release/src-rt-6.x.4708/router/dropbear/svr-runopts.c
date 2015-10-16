@@ -92,6 +92,7 @@ static void printhelp(const char * progname) {
 					"-W <receive_window_buffer> (default %d, larger may be faster, max 1MB)\n"
 					"-K <keepalive>  (0 is never, default %d, in seconds)\n"
 					"-I <idle_timeout>  (0 is never, default %d, in seconds)\n"
+					"-V    Version\n"
 #ifdef DEBUG_TRACE
 					"-v		verbose (compiled with DEBUG_TRACE)\n"
 #endif
@@ -139,9 +140,15 @@ void svr_getopts(int argc, char ** argv) {
 #ifdef ENABLE_SVR_REMOTETCPFWD
 	svr_opts.noremotetcp = 0;
 #endif
+
 #ifndef DISABLE_ZLIB
-	opts.enable_compress = 1;
+#if DROPBEAR_SERVER_DELAY_ZLIB
+	opts.compress_mode = DROPBEAR_COMPRESS_DELAYED;
+#else
+	opts.compress_mode = DROPBEAR_COMPRESS_ON;
 #endif
+#endif 
+
 	/* not yet
 	opts.ipv4 = 1;
 	opts.ipv6 = 1;
@@ -256,7 +263,7 @@ void svr_getopts(int argc, char ** argv) {
 #endif
 				case 'h':
 					printhelp(argv[0]);
-					exit(EXIT_FAILURE);
+					exit(EXIT_SUCCESS);
 					break;
 				case 'u':
 					/* backwards compatibility with old urandom option */
@@ -266,6 +273,10 @@ void svr_getopts(int argc, char ** argv) {
 					debug_trace = 1;
 					break;
 #endif
+				case 'V':
+					print_version();
+					exit(EXIT_SUCCESS);
+					break;
 				default:
 					fprintf(stderr, "Unknown argument %s\n", argv[i]);
 					printhelp(argv[0]);
@@ -405,7 +416,9 @@ static void loadhostkey(const char *keyfile, int fatal_duplicate) {
 	sign_key * read_key = new_sign_key();
 	enum signkey_type type = DROPBEAR_SIGNKEY_ANY;
 	if (readhostkey(keyfile, read_key, &type) == DROPBEAR_FAILURE) {
-		dropbear_log(LOG_WARNING, "Failed loading %s", keyfile);
+		if (!svr_opts.delay_hostkey) {
+			dropbear_log(LOG_WARNING, "Failed loading %s", keyfile);
+		}
 	}
 
 #ifdef DROPBEAR_RSA

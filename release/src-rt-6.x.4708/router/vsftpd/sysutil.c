@@ -725,7 +725,7 @@ vsf_sysutil_activate_linger(int fd)
   struct linger the_linger;
   vsf_sysutil_memclr(&the_linger, sizeof(the_linger));
   the_linger.l_onoff = 1;
-  the_linger.l_linger = 32767;
+  the_linger.l_linger = 60 * 10;
   retval = setsockopt(fd, SOL_SOCKET, SO_LINGER, &the_linger,
                       sizeof(the_linger));
   if (retval != 0)
@@ -909,13 +909,13 @@ vsf_sysutil_octal_to_uint(const char* p_str)
 int
 vsf_sysutil_toupper(int the_char)
 {
-  return toupper(the_char);
+  return toupper((unsigned char) the_char);
 }
 
 int
 vsf_sysutil_isspace(int the_char)
 {
-  return isspace(the_char);
+  return isspace((unsigned char) the_char);
 }
 
 int
@@ -943,13 +943,13 @@ vsf_sysutil_isprint(int the_char)
 int
 vsf_sysutil_isalnum(int the_char)
 {
-  return isalnum(the_char);
+  return isalnum((unsigned char) the_char);
 }
 
 int
 vsf_sysutil_isdigit(int the_char)
 {
-  return isdigit(the_char);
+  return isdigit((unsigned char) the_char);
 }
 
 char*
@@ -1020,13 +1020,13 @@ vsf_sysutil_next_dirent(struct vsf_sysutil_dir* p_dir)
 unsigned int
 vsf_sysutil_strlen(const char* p_text)
 {
-  unsigned int ret = strlen(p_text);
+  size_t ret = strlen(p_text);
   /* A defense in depth measure. */
   if (ret > INT_MAX / 8)
   {
     die("string suspiciously long");
   }
-  return ret;
+  return (unsigned int) ret;
 }
 
 char*
@@ -1340,6 +1340,7 @@ vsf_sysutil_statbuf_get_perms(const struct vsf_sysutil_statbuf* p_statbuf)
     case S_IFSOCK: perms[0] = 's'; break;
     case S_IFCHR: perms[0] = 'c'; break;
     case S_IFBLK: perms[0] = 'b'; break;
+    default: break;
   }
   if (p_stat->st_mode & S_IRUSR) perms[1] = 'r';
   if (p_stat->st_mode & S_IWUSR) perms[2] = 'w';
@@ -1603,6 +1604,8 @@ vsf_sysutil_get_error(void)
     case ENOENT:
       retval = kVSFSysUtilErrNOENT;
       break;
+    default:
+      break;
   }
   return retval;
 }
@@ -1704,10 +1707,14 @@ vsf_sysutil_accept_timeout(int fd, struct vsf_sysutil_sockaddr* p_sockaddr,
       retval = select(fd + 1, &accept_fdset, NULL, NULL, &timeout);
       saved_errno = errno;
       vsf_sysutil_check_pending_actions(kVSFSysUtilUnknown, 0, 0);
-    } while (retval < 0 && saved_errno == EINTR);
-    if (retval == 0)
+    }
+    while (retval < 0 && saved_errno == EINTR);
+    if (retval <= 0)
     {
-      errno = EAGAIN;
+      if (retval == 0)
+      {
+        errno = EAGAIN;
+      }
       return -1;
     }
   }
@@ -1785,10 +1792,13 @@ vsf_sysutil_connect_timeout(int fd, const struct vsf_sysutil_sockaddr* p_addr,
       vsf_sysutil_check_pending_actions(kVSFSysUtilUnknown, 0, 0);
     }
     while (retval < 0 && saved_errno == EINTR);
-    if (retval == 0)
+    if (retval <= 0)
     {
+      if (retval == 0)
+      {
+        errno = EAGAIN;
+      }
       retval = -1;
-      errno = EAGAIN;
     }
     else
     {
@@ -1797,6 +1807,11 @@ vsf_sysutil_connect_timeout(int fd, const struct vsf_sysutil_sockaddr* p_addr,
       if (sockoptret != 0)
       {
         die("getsockopt");
+      }
+      if (retval != 0)
+      {
+        errno = retval;
+        retval = -1;
       }
     }
   }
@@ -2042,7 +2057,8 @@ vsf_sysutil_sockaddr_set_ipv6addr(struct vsf_sysutil_sockaddr* p_sockptr,
 const void*
 vsf_sysutil_sockaddr_ipv6_v4(const struct vsf_sysutil_sockaddr* p_addr)
 {
-  static char pattern[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
+  static unsigned char pattern[12] =
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
   const unsigned char* p_addr_start;
   if (p_addr->u.u_sockaddr.sa_family != AF_INET6)
   {
@@ -2059,7 +2075,7 @@ vsf_sysutil_sockaddr_ipv6_v4(const struct vsf_sysutil_sockaddr* p_addr)
 const void*
 vsf_sysutil_sockaddr_ipv4_v6(const struct vsf_sysutil_sockaddr* p_addr)
 {
-  static char ret[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
+  static unsigned char ret[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
   if (p_addr->u.u_sockaddr.sa_family != AF_INET)
   {
     return 0;
@@ -2315,6 +2331,7 @@ struct passwd *getpwnam(const char *name)
 
     return NULL;
 }
+
 
 struct vsf_sysutil_user*
 vsf_sysutil_getpwnam(const char* p_user)
@@ -2615,6 +2632,19 @@ vsf_sysutil_tzset(void)
       s_timezone *= -1;
     }
   }
+  /* Call in to the time subsystem again now that TZ is set, trying to force
+   * caching of the actual zoneinfo for the timezone.
+   */
+  p_tm = localtime(&the_time);
+  if (p_tm == NULL)
+  {
+    die("localtime #2");
+  }
+  p_tm = gmtime(&the_time);
+  if (p_tm == NULL)
+  {
+    die("gmtime");
+  }
 }
 
 const char*
@@ -2792,7 +2822,7 @@ vsf_sysutil_getuid(void)
 }
 
 void
-vsf_sysutil_set_address_space_limit(long bytes)
+vsf_sysutil_set_address_space_limit(unsigned long bytes)
 {
   /* Unfortunately, OpenBSD is missing RLIMIT_AS. */
 #ifdef RLIMIT_AS

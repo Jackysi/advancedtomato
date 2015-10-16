@@ -18,13 +18,14 @@ A2) If you run vsftpd in "standalone" mode with the setting listen=YES, then
 you can investigate the setting (e.g.):
 max_clients=10
 
-Q) Help! I'm getting the error message "refusing to run with writable anonymous
-root".
+Q) Help! I'm getting the error message "refusing to run with writable root".
 A) vsftpd is protecting against dangerous configurations. The cause of this
 message is usually dodgy ownership of the ftp home directory. The home
 directory should NOT be owned by the ftp user itself. Neither should it
 be writable by the ftp user. A way to fix this is:
 chown root ~ftp; chmod -w ~ftp
+Another cause might be an attempt to use chroot_local_user without setting up
+the directory ownership properly.
 
 Q) Help! I'm getting the error message "str_getpwnam".
 A) The most likely cause of this is that the user that is configured as the

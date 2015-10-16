@@ -30,14 +30,15 @@ OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
     banner.o filestr.o parseconf.o secutil.o \
     ascii.o oneprocess.o twoprocess.o privops.o standalone.o hash.o \
     tcpwrap.o ipaddrparse.o access.o features.o readwrite.o opts.o \
-    ssl.o sslslave.o ptracesandbox.o ftppolicy.o sysutil.o sysdeputil.o
+    ssl.o sslslave.o ptracesandbox.o ftppolicy.o sysutil.o sysdeputil.o \
+    seccompsandbox.o
 
 
 .c.o:
 	$(CC) -c $*.c $(CFLAGS) $(IFLAGS)
 
 vsftpd: $(OBJS) 
-	$(CC) -o vsftpd $(OBJS) $(LINK) $(LIBS) $(LDFLAGS)
+	$(CC) -o vsftpd $(OBJS) $(LINK) $(LDFLAGS) $(LIBS)
 
 install:
 	if [ -x /usr/local/sbin ]; then \

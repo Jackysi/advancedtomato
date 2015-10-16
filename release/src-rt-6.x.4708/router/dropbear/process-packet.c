@@ -44,6 +44,7 @@ void process_packet() {
 
 	unsigned char type;
 	unsigned int i;
+	time_t now;
 
 	TRACE2(("enter process_packet"))
 
@@ -52,7 +53,8 @@ void process_packet() {
 
 	ses.lastpacket = type;
 
-    ses.last_packet_time = time(NULL);
+	now = monotonic_now();
+	ses.last_packet_time_keepalive_recv = now;
 
 	/* These packets we can receive at any time */
 	switch(type) {
@@ -65,24 +67,49 @@ void process_packet() {
 		case SSH_MSG_UNIMPLEMENTED:
 			/* debugging XXX */
 			TRACE(("SSH_MSG_UNIMPLEMENTED"))
-			dropbear_exit("Received SSH_MSG_UNIMPLEMENTED");
+			goto out;
 			
 		case SSH_MSG_DISCONNECT:
 			/* TODO cleanup? */
 			dropbear_close("Disconnect received");
 	}
 
+	/* Ignore these packet types so that keepalives don't interfere with
+	idle detection. This is slightly incorrect since a tcp forwarded
+	global request with failure won't trigger the idle timeout,
+	but that's probably acceptable */
+	if (!(type == SSH_MSG_GLOBAL_REQUEST || type == SSH_MSG_REQUEST_FAILURE)) {
+		ses.last_packet_time_idle = now;
+	}
+
 	/* This applies for KEX, where the spec says the next packet MUST be
 	 * NEWKEYS */
-	if (ses.requirenext[0] != 0) {
-		if (ses.requirenext[0] != type
-				&& (ses.requirenext[1] == 0 || ses.requirenext[1] != type)) {
-			dropbear_exit("Unexpected packet type %d, expected [%d,%d]", type,
-					ses.requirenext[0], ses.requirenext[1]);
-		} else {
+	if (ses.requirenext != 0) {
+		if (ses.requirenext == type)
+		{
 			/* Got what we expected */
-			ses.requirenext[0] = 0;
-			ses.requirenext[1] = 0;
+			TRACE(("got expected packet %d during kexinit", type))
+		}
+		else
+		{
+			/* RFC4253 7.1 - various messages are allowed at this point.
+			The only ones we know about have already been handled though,
+			so just return "unimplemented" */
+			if (type >= 1 && type <= 49
+				&& type != SSH_MSG_SERVICE_REQUEST
+				&& type != SSH_MSG_SERVICE_ACCEPT
+				&& type != SSH_MSG_KEXINIT)
+			{
+				TRACE(("unknown allowed packet during kexinit"))
+				recv_unimplemented();
+				goto out;
+			}
+			else
+			{
+				TRACE(("disallowed packet during kexinit"))
+				dropbear_exit("Unexpected packet type %d, expected %d", type,
+						ses.requirenext);
+			}
 		}
 	}
 
@@ -92,6 +119,12 @@ void process_packet() {
 		TRACE(("Ignoring packet, type = %d", type))
 		ses.ignorenext = 0;
 		goto out;
+	}
+
+	/* Only clear the flag after we have checked ignorenext */
+	if (ses.requirenext != 0 && ses.requirenext == type)
+	{
+		ses.requirenext = 0;
 	}
 
 

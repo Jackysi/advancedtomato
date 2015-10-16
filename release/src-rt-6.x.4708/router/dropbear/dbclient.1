@@ -15,18 +15,17 @@ dbclient \- lightweight SSH client
 .B dbclient
 [
 .I args ]
-.I [user1]@host1[%port1],[user2]@host2[%port2],...
+.I [user1]@host1[^port1],[user2]@host2[^port2],...
 
 .SH DESCRIPTION
 .B dbclient
-is a SSH client designed to be small enough to be used in small memory
-environments, while still being functional and secure enough for general use.
+is a small SSH client 
 .SH OPTIONS
 .TP
 .B \-p \fIport
 Connect to 
 .I port
-on the remote host. Alternatively a port can be specified as hostname%port.
+on the remote host. Alternatively a port can be specified as hostname^port.
 Default is 22.
 .TP
 .B \-i \fIidfile
@@ -34,7 +33,7 @@ Identity file.
 Read the identity key from file
 .I idfile
 (multiple allowed). This file is created with dropbearkey(1) or converted
-from OpenSSH with dropbearconvert(1).
+from OpenSSH with dropbearconvert(1). The default path ~/.ssh/id_dropbear is used
 .TP
 .B \-L [\fIlistenaddress\fR]:\fIlistenport\fR:\fIhost\fR:\fIport\fR
 Local port forwarding.
@@ -98,7 +97,7 @@ Ensure that traffic is transmitted at a certain interval in seconds. This is
 useful for working around firewalls or routers that drop connections after
 a certain period of inactivity. The trade-off is that a session may be
 closed if there is a temporary lapse of network connectivity. A setting
-if 0 disables keepalives.
+if 0 disables keepalives. If no response is received for 3 consecutive keepalives the connection will be closed.
 .TP
 .B \-I \fIidle_timeout
 Disconnect the session if no traffic is transmitted or received for \fIidle_timeout\fR seconds.
@@ -121,13 +120,16 @@ Specify a comma separated list of authentication MACs to enable. Use \fI-m help\
 .TP
 .B \-s 
 The specified command will be requested as a subsystem, used for sftp. Dropbear doesn't implement sftp itself but the OpenSSH sftp client can be used eg \fIsftp -S dbclient user@host\fR
+.TP
+.B \-V
+Print the version
 
 .SH MULTI-HOP
 Dropbear will also allow multiple "hops" to be specified, separated by commas. In
 this case a connection will be made to the first host, then a TCP forwarded 
 connection will be made through that to the second host, and so on. Hosts other than
 the final destination will not see anything other than the encrypted SSH stream. 
-A port for a host can be specified with a hash (eg matt@martello%44 ).
+A port for a host can be specified with a hash (eg matt@martello^44 ).
 This syntax can also be used with scp or rsync (specifying dbclient as the 
 ssh/rsh command). A file can be "bounced" through multiple SSH hops, eg
 

@@ -48,6 +48,7 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_CTF is not set
 # TCONFIG_DNSSEC is not set
 # TCONFIG_TINC is not set
+# TCONFIG_FANCTRL is not set
 # TCONFIG_NAND is not set
 # TCONFIG_UFSDA is not set
 # TCONFIG_UFSDN is not set
