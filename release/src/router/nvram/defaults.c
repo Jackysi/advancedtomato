@@ -153,6 +153,7 @@ const defaults_t defaults[] = {
 	{ "modem_dev",			"ttyUSB0"			},
 	{ "modem_init",			"*99#"				},
 	{ "modem_apn",			"internet"			},
+	{ "modem_watchdog",		"2"				},
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface

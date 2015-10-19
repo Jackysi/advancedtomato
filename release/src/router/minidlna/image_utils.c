@@ -210,15 +210,17 @@ image_free(image_s *pimage)
 pix
 get_pix(image_s *pimage, int32_t x, int32_t y)
 {
-	if((x >= 0) && (y >= 0) && (x < pimage->width) && (y < pimage->height))
-	{
-		return(pimage->buf[(y * pimage->width) + x]);
-	}
-	else
-	{
-		pix vpix = BLACK;
-		return(vpix);
-	}
+	if (x < 0)
+		x = 0;
+	else if (x >= pimage->width)
+		x = pimage->width - 1;
+
+	if (y < 0)
+		y = 0;
+	else if (y >= pimage->height)
+		y = pimage->height - 1;
+
+	return(pimage->buf[(y * pimage->width) + x]);
 }
 
 void
@@ -454,6 +456,7 @@ image_new_from_jpeg(const char *path, int is_file, const uint8_t *buf, int size,
 	cinfo.scale_denom = scale;
 	cinfo.do_fancy_upsampling = FALSE;
 	cinfo.do_block_smoothing = FALSE;
+	cinfo.dct_method = JDCT_IFAST;
 	jpeg_start_decompress(&cinfo);
 	w = cinfo.output_width;
 	h = cinfo.output_height;
@@ -523,6 +526,7 @@ image_new_from_jpeg(const char *path, int is_file, const uint8_t *buf, int size,
 	}
 	else if(cinfo.output_components == 1)
 	{
+		int rx, ry;
 		ofs = 0;
 		for(i = 0; i < cinfo.rec_outbuf_height; i++)
 		{
@@ -540,12 +544,19 @@ image_new_from_jpeg(const char *path, int is_file, const uint8_t *buf, int size,
 		}
 		for(y = 0; y < h; y += cinfo.rec_outbuf_height)
 		{
+			ry = (rotate & (ROTATE_90|ROTATE_180)) ? (y - h + 1) * -1 : y;
 			jpeg_read_scanlines(&cinfo, line, cinfo.rec_outbuf_height);
 			for(i = 0; i < cinfo.rec_outbuf_height; i++)
 			{
 				for(x = 0; x < w; x++)
 				{
-					vimage->buf[ofs++] = COL(line[i][x], line[i][x], line[i][x]);
+					rx = (rotate & (ROTATE_180|ROTATE_270)) ?
+						(x - w + 1) * -1 : x;
+					ofs = (rotate & (ROTATE_90|ROTATE_270)) ?
+						ry + (rx * h) : rx + (ry * w);
+					if( ofs < maxbuf )
+						vimage->buf[ofs] =
+							COL(line[i][x], line[i][x], line[i][x]);
 				}
 			}
 		}

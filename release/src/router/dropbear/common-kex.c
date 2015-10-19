@@ -238,14 +238,24 @@ void recv_msg_newkeys() {
 void kexfirstinitialise() {
 	ses.kexstate.donefirstkex = 0;
 
-#ifndef DISABLE_ZLIB
-	if (opts.enable_compress) {
-		ses.compress_algos = ssh_compress;
-	} else
-#endif
+#ifdef DISABLE_ZLIB
+	ses.compress_algos = ssh_nocompress;
+#else
+	switch (opts.compress_mode)
 	{
-		ses.compress_algos = ssh_nocompress;
+		case DROPBEAR_COMPRESS_DELAYED:
+			ses.compress_algos = ssh_delaycompress;
+			break;
+
+		case DROPBEAR_COMPRESS_ON:
+			ses.compress_algos = ssh_compress;
+			break;
+
+		case DROPBEAR_COMPRESS_OFF:
+			ses.compress_algos = ssh_nocompress;
+			break;
 	}
+#endif
 	kexinitialise();
 }
 
@@ -270,7 +280,7 @@ static void kexinitialise() {
 
 	ses.kexstate.our_first_follows_matches = 0;
 
-	ses.kexstate.lastkextime = time(NULL);
+	ses.kexstate.lastkextime = monotonic_now();
 
 }
 
@@ -303,7 +313,7 @@ static void hashkeys(unsigned char *out, unsigned int outlen,
 		hash_desc->done(&hs2, tmpout);
 		memcpy(&out[offset], tmpout, MIN(outlen - offset, hash_desc->hashsize));
 	}
-
+	m_burn(&hs2, sizeof(hash_state));
 }
 
 /* Generate the actual encryption/integrity keys, using the results of the
@@ -403,6 +413,7 @@ static void gen_new_keys() {
 	m_burn(C2S_key, sizeof(C2S_key));
 	m_burn(S2C_IV, sizeof(S2C_IV));
 	m_burn(S2C_key, sizeof(S2C_key));
+	m_burn(&hs, sizeof(hash_state));
 
 	TRACE(("leave gen_new_keys"))
 }
@@ -483,9 +494,6 @@ static void gen_new_zstream_trans() {
  * and we calculate the first portion of the key-exchange-hash for used
  * later in the key exchange. No response is sent, as the client should
  * initiate the diffie-hellman key exchange */
-
-/* Originally from kex.c, generalized for cli/svr mode --mihnea  */
-/* Belongs in common_kex.c where it should be moved after review */
 void recv_msg_kexinit() {
 	
 	unsigned int kexhashbuf_len = 0;
@@ -528,7 +536,7 @@ void recv_msg_kexinit() {
 		/* I_S, the payload of the server's SSH_MSG_KEXINIT */
 	    buf_setpos(ses.payload, 0);
 	    buf_putstring(ses.kexhashbuf, ses.payload->data, ses.payload->len);
-
+		ses.requirenext = SSH_MSG_KEXDH_REPLY;
 	} else {
 		/* SERVER */
 
@@ -548,7 +556,7 @@ void recv_msg_kexinit() {
 	    buf_putstring(ses.kexhashbuf,
 			ses.transkexinit->data, ses.transkexinit->len);
 
-		ses.requirenext[0] = SSH_MSG_KEXDH_INIT;
+		ses.requirenext = SSH_MSG_KEXDH_INIT;
 	}
 
 	buf_free(ses.transkexinit);
@@ -792,8 +800,16 @@ static void finish_kexhashbuf(void) {
 	hash_desc->done(&hs, buf_getwriteptr(ses.hash, hash_desc->hashsize));
 	buf_setlen(ses.hash, hash_desc->hashsize);
 
+#if defined(DEBUG_KEXHASH) && defined(DEBUG_TRACE)
+	if (!debug_trace) {
+		printhex("kexhashbuf", ses.kexhashbuf->data, ses.kexhashbuf->len);
+		printhex("kexhash", ses.hash->data, ses.hash->len);
+	}
+#endif
+
 	buf_burn(ses.kexhashbuf);
 	buf_free(ses.kexhashbuf);
+	m_burn(&hs, sizeof(hash_state));
 	ses.kexhashbuf = NULL;
 	
 	/* first time around, we set the session_id to H */
@@ -801,7 +817,6 @@ static void finish_kexhashbuf(void) {
 		/* create the session_id, this never needs freeing */
 		ses.session_id = buf_newcopy(ses.hash);
 	}
-
 }
 
 /* read the other side's algo list. buf_match_algo is a callback to match

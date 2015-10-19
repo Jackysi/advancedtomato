@@ -210,13 +210,14 @@ static void agent_get_key_list(m_list * ret_list)
 		ret = buf_get_pub_key(key_buf, pubkey, &key_type);
 		buf_free(key_buf);
 		if (ret != DROPBEAR_SUCCESS) {
-			/* This is slack, properly would cleanup vars etc */
-			dropbear_exit("Bad pubkey received from agent");
-		}
-		pubkey->type = key_type;
-		pubkey->source = SIGNKEY_SOURCE_AGENT;
+			TRACE(("Skipping bad/unknown type pubkey from agent"));
+			sign_key_free(pubkey);
+		} else {
+			pubkey->type = key_type;
+			pubkey->source = SIGNKEY_SOURCE_AGENT;
 
-		list_append(ret_list, pubkey);
+			list_append(ret_list, pubkey);
+		}
 
 		/* We'll ignore the comment for now. might want it later.*/
 		buf_eatstring(inbuf);
@@ -234,7 +235,7 @@ void cli_setup_agent(struct Channel *channel) {
 		return;
 	}
 	
-	cli_start_send_channel_request(channel, "auth-agent-req@openssh.com");
+	start_send_channel_request(channel, "auth-agent-req@openssh.com");
 	/* Don't want replies */
 	buf_putbyte(ses.writepayload, 0);
 	encrypt_packet();

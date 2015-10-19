@@ -3735,10 +3735,10 @@ static void hw_cdc_status(struct hw_cdc_net *dev, struct urb *urb)
         }
         if (event->wValue){
             netif_carrier_on(dev->net);
-            devdbg(dev, "CDC: network connection: connected\n");
+            devinfo(dev, "CDC: network connection: connected\n");
         }else{
             netif_carrier_off(dev->net);
-            devdbg(dev, "CDC: network connection: disconnected\n");
+            devinfo(dev, "CDC: network connection: disconnected\n");
         }
 
         break;

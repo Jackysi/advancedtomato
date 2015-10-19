@@ -38,7 +38,7 @@ static void parse_hostname(const char* orighostarg);
 static void parse_multihop_hostname(const char* orighostarg, const char* argv0);
 static void fill_own_user();
 #ifdef ENABLE_CLI_PUBKEY_AUTH
-static void loadidentityfile(const char* filename);
+static void loadidentityfile(const char* filename, int warnfail);
 #endif
 #ifdef ENABLE_CLI_ANYTCPFWD
 static void addforward(const char* str, m_list *fwdlist);
@@ -65,7 +65,7 @@ static void printhelp() {
 					"-y -y Don't perform any remote host key checking (caution)\n"
 					"-s    Request a subsystem (use by external sftp)\n"
 #ifdef ENABLE_CLI_PUBKEY_AUTH
-					"-i <identityfile>   (multiple allowed)\n"
+					"-i <identityfile>   (multiple allowed, default %s)\n"
 #endif
 #ifdef ENABLE_CLI_AGENTFWD
 					"-A    Enable agent auth forwarding\n"
@@ -90,10 +90,14 @@ static void printhelp() {
 					"-c <cipher list> Specify preferred ciphers ('-c help' to list options)\n"
 					"-m <MAC list> Specify preferred MACs for packet verification (or '-m help')\n"
 #endif
+					"-V    Version\n"
 #ifdef DEBUG_TRACE
 					"-v    verbose (compiled with DEBUG_TRACE)\n"
 #endif
 					,DROPBEAR_VERSION, cli_opts.progname,
+#ifdef ENABLE_CLI_PUBKEY_AUTH
+					DROPBEAR_DEFAULT_CLI_AUTHKEY,
+#endif
 					DEFAULT_RECV_WINDOW, DEFAULT_KEEPALIVE, DEFAULT_IDLE_TIMEOUT);
 					
 }
@@ -152,7 +156,7 @@ void cli_getopts(int argc, char ** argv) {
 	cli_opts.proxycmd = NULL;
 #endif
 #ifndef DISABLE_ZLIB
-	opts.enable_compress = 1;
+	opts.compress_mode = DROPBEAR_COMPRESS_ON;
 #endif
 #ifdef ENABLE_USER_ALGO_LIST
 	opts.cipher_list = NULL;
@@ -163,6 +167,8 @@ void cli_getopts(int argc, char ** argv) {
 	opts.ipv6 = 1;
 	*/
 	opts.recv_window = DEFAULT_RECV_WINDOW;
+	opts.keepalive_secs = DEFAULT_KEEPALIVE;
+	opts.idle_timeout_secs = DEFAULT_IDLE_TIMEOUT;
 
 	fill_own_user();
 
@@ -171,7 +177,7 @@ void cli_getopts(int argc, char ** argv) {
 #ifdef ENABLE_CLI_PUBKEY_AUTH
 		if (nextiskey) {
 			/* Load a hostkey since the previous argument was "-i" */
-			loadidentityfile(argv[i]);
+			loadidentityfile(argv[i], 1);
 			nextiskey = 0;
 			continue;
 		}
@@ -228,7 +234,7 @@ void cli_getopts(int argc, char ** argv) {
 				case 'i': /* an identityfile */
 					/* Keep scp happy when it changes "-i file" to "-ifile" */
 					if (strlen(argv[i]) > 2) {
-						loadidentityfile(&argv[i][2]);
+						loadidentityfile(&argv[i][2], 1);
 					} else  {
 						nextiskey = 1;
 					}
@@ -322,6 +328,10 @@ void cli_getopts(int argc, char ** argv) {
 #ifndef ENABLE_CLI_LOCALTCPFWD
 				case 'L':
 #endif
+				case 'V':
+					print_version();
+					exit(EXIT_SUCCESS);
+					break;
 				case 'o':
 				case 'b':
 					next = &dummy;
@@ -437,6 +447,14 @@ void cli_getopts(int argc, char ** argv) {
 	}
 #endif
 
+#ifdef DROPBEAR_DEFAULT_CLI_AUTHKEY
+	{
+		char *expand_path = expand_tilde(DROPBEAR_DEFAULT_CLI_AUTHKEY);
+		loadidentityfile(expand_path, 0);
+		m_free(expand_path);
+	}
+#endif
+
 	/* The hostname gets set up last, since
 	 * in multi-hop mode it will require knowledge
 	 * of other flags such as -i */
@@ -448,14 +466,18 @@ void cli_getopts(int argc, char ** argv) {
 }
 
 #ifdef ENABLE_CLI_PUBKEY_AUTH
-static void loadidentityfile(const char* filename) {
+static void loadidentityfile(const char* filename, int warnfail) {
 	sign_key *key;
 	enum signkey_type keytype;
+
+	TRACE(("loadidentityfile %s", filename))
 
 	key = new_sign_key();
 	keytype = DROPBEAR_SIGNKEY_ANY;
 	if ( readhostkey(filename, key, &keytype) != DROPBEAR_SUCCESS ) {
-		fprintf(stderr, "Failed loading keyfile '%s'\n", filename);
+		if (warnfail) {
+			fprintf(stderr, "Failed loading keyfile '%s'\n", filename);
+		}
 		sign_key_free(key);
 	} else {
 		key->type = keytype;
@@ -587,7 +609,7 @@ static void parse_multihop_hostname(const char* orighostarg, const char* argv0) 
 				passthrough_args, remainder);
 #ifndef DISABLE_ZLIB
 		/* The stream will be incompressible since it's encrypted. */
-		opts.enable_compress = 0;
+		opts.compress_mode = DROPBEAR_COMPRESS_OFF;
 #endif
 		m_free(passthrough_args);
 	}
@@ -617,7 +639,7 @@ static void parse_hostname(const char* orighostarg) {
 		cli_opts.username = m_strdup(cli_opts.own_user);
 	}
 
-	port = strchr(cli_opts.remotehost, '%');
+	port = strchr(cli_opts.remotehost, '^');
 	if (!port)  {
 		/* legacy separator */
 		port = strchr(cli_opts.remotehost, '/');
@@ -676,11 +698,13 @@ static void fill_own_user() {
 	uid = getuid();
 
 	pw = getpwuid(uid);
-	if (pw == NULL || pw->pw_name == NULL) {
-		dropbear_exit("Unknown own user");
+	if (pw && pw->pw_name != NULL) {
+		cli_opts.own_user = m_strdup(pw->pw_name);
+	} else {
+		dropbear_log(LOG_INFO, "Warning: failed to identify current user. Trying anyway.");
+		cli_opts.own_user = m_strdup("unknown");
 	}
 
-	cli_opts.own_user = m_strdup(pw->pw_name);
 }
 
 #ifdef ENABLE_CLI_ANYTCPFWD
