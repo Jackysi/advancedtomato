@@ -131,7 +131,7 @@ function AdvancedTomato () {
 		if (n < lastUpdate || n == null) {
 
 			$updateNotification = $('<div class="alert alert-info icon"><a href="#" class="close" data-update="' + nvram.at_update.replace('.','') + '"><i class="icon-cancel"></i></a>\
-				<h5>Update Available!</h5>AdvancedTomato update <b>v' + nvram.at_update + '</b> has been released. <a target="_blank" href="https://advancedtomato.com/">Click here to find out more</a>.</div>');
+				<h5>Update Available!</h5>AdvancedTomato version <b>' + nvram.at_update + '</b> has been released and it is available for download.	&nbsp; <a target="_blank" href="https://advancedtomato.com/">Click here to find out more</a>.</div>');
 
 			$($updateNotification).find('.close').on('click', function() {
 				if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }
@@ -175,26 +175,31 @@ function AdvancedTomato () {
 // Get status of router and fill system-ui with it
 function systemUI () {
 
-	systemAJAX = new XmlHttp();
-	systemAJAX.onCompleted = function (data, xml) {
+	$.ajax({
 
-		stats = {};
-		try { eval(data); } catch (ex) { stats = {}; }
+		url: 'js/status-data.jsx',
+		method: 'POST',
+		data: { '_http_id': escapeCGI(nvram.http_id) },
+		success: function( data ) {
 
-		stats.wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ((stats.wanstatus == 'Connected') ? '<span style="color: green;">' + stats.wanstatus + '</span>' : stats.wanstatus) + '</a>';
-		$('.system-ui .datasystem').html('<div class="router-name">' + stats.routermodel + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
-			'<div class="inner-container row">' +
-			'<div class="col-sm-2">CPU:</div><div class="col-sm-10">' + stats.cpuload + '</div>'+
-			'<div class="col-sm-2">RAM:</div><div class="col-sm-10">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
-			((nvram.swap != null) ? '<div class="col-sm-2">SWAP:</div><div class="col-sm-10">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>':'') +
-			'<div class="col-sm-2">WAN:</div><div class="col-sm-10">' + stats.wanstatus + ' (' + stats.wanuptime + ')</div></div>').removeClass('align center');
-	}
+			stats = {};
+			try { eval(data); } catch (ex) { stats = {}; }
 
-	systemAJAX.get('js/status-data.jsx');
+			stats.wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ((stats.wanstatus == 'Connected') ? '<span style="color: green;">' + stats.wanstatus + '</span>' : stats.wanstatus) + '</a>';
+			$('.system-ui .datasystem').html('<div class="router-name">' + stats.routermodel + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
+				'<div class="inner-container row">' +
+				'<div class="col-sm-2">CPU:</div><div class="col-sm-10">' + stats.cpuload + '</div>'+
+				'<div class="col-sm-2">RAM:</div><div class="col-sm-10">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
+				((nvram.swap != null) ? '<div class="col-sm-2">SWAP:</div><div class="col-sm-10">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>':'') +
+				'<div class="col-sm-2">WAN:</div><div class="col-sm-10">' + stats.wanstatus + ' (' + stats.wanuptime + ')</div></div>').removeClass('align center');
+		}
+
+	}).fail( function() { clearInterval(window.refTimer); });
+
 }
 
 // Ajax Function to load pages
-function loadPage(page, variables) {
+function loadPage(page) {
 
 	// Since we use ajax, functions and timers stay in memory. Here we undefine & stop them to prevent issues with other pages.
 	if (typeof(ref) != 'undefined') {
@@ -214,108 +219,109 @@ function loadPage(page, variables) {
 	// Remove animation class from container, for reseting it
 	$('.container .ajaxwrap').removeClass('ajax-animation');
 
-	// Tomato XMLHTTP/AJAX
-	TomatoAJAX = new XmlHttp();
-	TomatoAJAX.onCompleted = function (resp, xml) {
 
-		var dom = $(resp);
-		var title = dom.filter('title').text();
-		var html = dom.filter('content').html();
+	// Switch to JQUERY AJAX function call (doesn't capture all errors making it easier to debug)
+	$.ajax({
 
-		// Handle pages without title or content as normal (NO AJAX)
-		if (title == null || html == null) {
-			window.parent.location.href = page;
-			return false;
-		}
+		async: true,
+		url: page,
+		cache: false,
+		success: function( resp ) {
 
-		$('title').text(window.routerName + title);
-		$('h2.currentpage').text(title);
-		$('.container .ajaxwrap').html(html).addClass('ajax-animation');
+			var dom = $(resp);
+			var title = dom.filter('title').text();
+			var html = dom.filter('content').html();
 
-		// Push History
-		if (history.pushState) { // Fix issue with IE9 or bellow
-			window.history.pushState({"html":null,"pageTitle": window.routerName + title }, '#'+page, '#'+page);
-		}
-
-		// Go back to top
-		$('.container').scrollTop(0);
-
-		// Handle Navigation
-		$('.navigation li ul li').removeClass('active'); // Reset all
-
-		var naviLinks = $(".navigation a[href='#" + page + "']");
-		$(naviLinks).parent('li').addClass('active');
-
-		// Loaded, clear state
-		window.ajaxLoadingState = false;
-
-		// Function that allows easy implementation of content hide/show on boxes
-		$('[data-box]').each(function() {
-
-			var id 		= $(this).attr('data-box');
-			var parent	= $(this);
-			var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
-			var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
-
-			// Hide if hidden
-			if (status) { 
-
-				$(this).find('.content').show();
-
-			} else { // Set display property no matter the preference (fixes defaults)
-
-				$(this).find('.content').hide();
-
+			// Handle pages without title or content as normal (NO AJAX)
+			if (title == null || html == null) {
+				window.parent.location.href = page;
+				return false;
 			}
 
-			// Now click handler
-			$(html).on('click', function() {
+			$('title').text(window.routerName + title);
+			$('h2.currentpage').text(title);
+			$('.container .ajaxwrap').html(html).addClass('ajax-animation');
 
-				if (status) {
+			// Push History
+			if (history.pushState) { // Fix issue with IE9 or bellow
+				window.history.pushState({"html":null,"pageTitle": window.routerName + title }, '#'+page, '#'+page);
+			}
 
-					$(parent).find('.content').stop(true, true).slideUp(700, 'easeOutBounce');
-					$(html).find('i').removeClass('icon-chevron-down').addClass('icon-chevron-up');
-					cookie.set(id + '_visibility', 0); status = false;
+			// Go back to top
+			$('.container').scrollTop(0);
 
-				} else {
+			// Handle Navigation
+			$('.navigation li ul li').removeClass('active'); // Reset all
 
-					$(parent).find('.content').stop(true, true).slideDown(350, 'easeInQuad');
-					$(html).find('i').removeClass('icon-chevron-uo').addClass('icon-chevron-down');
-					cookie.set(id + '_visibility', 1); status = true;
+			var naviLinks = $(".navigation a[href='#" + page + "']");
+			$(naviLinks).parent('li').addClass('active');
+
+			// Loaded, clear state
+			window.ajaxLoadingState = false;
+
+			// Function that allows easy implementation of content hide/show on boxes
+			$('[data-box]').each(function() {
+
+				var id 		= $(this).attr('data-box');
+				var parent	= $(this);
+				var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
+				var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
+
+				// Hide if hidden
+				if (status) { 
+
+					$(this).find('.content').show();
+
+				} else { // Set display property no matter the preference (fixes defaults)
+
+					$(this).find('.content').hide();
 
 				}
 
-				return false;
+				// Now click handler
+				$(html).on('click', function() {
+
+					if (status) {
+
+						$(parent).find('.content').stop(true, true).slideUp(700, 'easeOutBounce');
+						$(html).find('i').removeClass('icon-chevron-down').addClass('icon-chevron-up');
+						cookie.set(id + '_visibility', 0); status = false;
+
+					} else {
+
+						$(parent).find('.content').stop(true, true).slideDown(350, 'easeInQuad');
+						$(html).find('i').removeClass('icon-chevron-uo').addClass('icon-chevron-down');
+						cookie.set(id + '_visibility', 1); status = true;
+
+					}
+
+					return false;
+
+				});
+
+				$(parent).find('.heading').prepend(html);
 
 			});
 
-			$(parent).find('.heading').prepend(html);
+			// Init Tooltips
+			$('[data-toggle="tooltip"]').tooltip({ placement: 'top auto' });
 
-		});
+			// Custom file inputs
+			$("input[type='file']").each(function() { $(this).customFileInput(); });
 
-		// Init Tooltips
-		$('[data-toggle="tooltip"]').tooltip({ placement: 'top auto' });
+			// Stop & Remove Preloader
+			$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
+			setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
+		}
 
-		// Custom file inputs
-		$("input[type='file']").each(function() { $(this).customFileInput(); });
+	}).fail( function( jqXHR, textStatus, errorThrown ) {
 
-		// Stop & Remove Preloader
-		$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
-		setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
-		
-	}
+		console.log(jqXHR);
 
-	// ERROR Handler
-	TomatoAJAX.onError = function (x) {
-
-		console.log(x);
-
-		$('h2.currentpage').text('ERROR');
-		$('.container .ajaxwrap').hide().html('<div class="box"><div class="heading">ERROR occured!</div><div class="content" style="font-size: 13px;">\
-			There has been error while loading a page, please review debug data bellow if this is isolated issue.<br />\
-			If this is not an isolated issue, please create issue with details bellow and how to reproduce the error at\
-			<a target="_blank" href="https://github.com/Jackysi/advancedtomato2/issues">https://github.com/Jackysi/advancedtomato2/issues</a>. <br /><br />\
-			<b>Detailed information:</b><br /><pre class="debug">' + x.stack + x.message + '</pre><br /><a href="/">Refreshing</a> browser window might help.</div></div>').fadeIn(200);
+		$('h2.currentpage').text( jqXHR.status + ' ERROR');
+		$('.container .ajaxwrap').html('<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
+			<p>Unable to connect to the interface! <br>These issues usually occur when file is missing or router is unavailable to accept new connections.</p>\
+			<a href="/">Refreshing</a> browser window might help.</div></div>').addClass('ajax-animation');
 
 		// Loaded, clear state
 		window.ajaxLoadingState = false;
@@ -324,10 +330,7 @@ function loadPage(page, variables) {
 		$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
 		setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
 
-	}
-
-	// Execute Prototype
-	TomatoAJAX.get(page, variables);
+	});
 
 }
 

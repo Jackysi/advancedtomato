@@ -315,8 +315,8 @@ No part of this file may be used without permission.
 						{ title: 'Allowed Remote IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
 							suffix: '<small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 						{ title: 'Limit Connection Attempts', multi: [
-							{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
-							{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }
+							{ suffix: ' SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
+							{ suffix: ' Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }
 						] },
 						{ title: '', indent: 2, multi: [
 							{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: 'every ', value: shlimit[1] },

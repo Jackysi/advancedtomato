@@ -221,32 +221,37 @@ No part of this file may be used without permission.
 						{ title: 'Excluded Interfaces', name: 'rstats_exclude', type: 'text', value: nvram.rstats_exclude, maxlen: 64, size: 50, suffix: '<small>(comma separated list)</small>' }
 						], { align: 'left' });
 				</script>
-			</form><hr><br />
+			</form><hr>
 
-			<div class="col-sm-12">
-				<h4>Backup</h4>
-				<div class="section" id="backup-section">
-					<form>
-						<div class="input-append">
-							<script type="text/javascript">
-								$('#backup-section .input-append').prepend('<input size="40" type="text" maxlength="64" id="backup-name" name="backup_name" onchange="backupNameChanged()" value="tomato_rstats_' + nvram.et0macaddr.replace(/:/g, '').toLowerCase() + '">');
-							</script>
-							<button name="f_backup_button" id="backup-button" onclick="backupButton(); return false;" value="Backup" class="btn">Backup <i class="icon-download"></i></button>
-						</div>
-					</form>
+			<div class="row">
+			
+				<div class="col-sm-12">
+
+					<h4>Backup</h4>
+					<div class="section" id="backup-section">
+						<form>
+							<div class="input-append">
+								<script type="text/javascript">
+									$('#backup-section .input-append').prepend('<input size="40" type="text" maxlength="64" id="backup-name" name="backup_name" onchange="backupNameChanged()" value="tomato_rstats_' + nvram.et0macaddr.replace(/:/g, '').toLowerCase() + '">');
+								</script>
+								<button name="f_backup_button" id="backup-button" onclick="backupButton(); return false;" value="Backup" class="btn">Backup <i class="icon-download"></i></button>
+							</div>
+						</form>
+					</div>
+
 				</div>
 
-			</div>
-
-			<div class="col-sm-12">
-				<h4>Restore</h4>
-				<div class="section" id="restore-section">
-					<form id="restore-form" method="post" action="bwm/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
-						<input class="uploadfile" type="file" size="40" id="restore-name" name="restore_name" accept="application/x-gzip">
-						<button name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
-						<br>
-					</form>
+				<div class="col-sm-12">
+					<h4>Restore</h4>
+					<div class="section" id="restore-section">
+						<form id="restore-form" method="post" action="bwm/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
+							<input class="uploadfile" type="file" size="40" id="restore-name" name="restore_name" accept="application/x-gzip">
+							<button name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
+							<br>
+						</form>
+					</div>
 				</div>
+				
 			</div>
 		</div>
 	</div>

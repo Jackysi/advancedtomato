@@ -17,6 +17,17 @@ input,select{vertical-align:middle;}
 .clearfix:after{content:"";display:table;clear:both;}
 p { display: block; margin: 0 0 10px; }
 
+/* Fix firefox inner focus for input,select,textarea and button elements */
+button::-moz-focus-inner,
+textarea::-moz-focus-inner,
+select::-moz-focus-inner, 
+input::-moz-focus-inner { 
+	border: 0; 
+	padding: 0; 
+	margin-top:-2px; 
+	margin-bottom: -2px; 
+}
+
 /* Bootstrap addons */
 .row {
 	margin-left: -15px;

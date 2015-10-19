@@ -2410,21 +2410,21 @@ function navi()
 	var htmlmenu = '', activeURL = window.location.hash;
 	var menu = {
 		'Status': {
-			'Overview':            'status-home.asp',
-			'Device List':         'status-devices.asp',
-			'Web Usage':           'status-webmon.asp',
-			'Logs':                'status-log.asp'
+			'Overview':				'status-home.asp',
+			'Device List':			'status-devices.asp',
+			'Web Usage':			'status-webmon.asp',
+			'Logs':					'status-log.asp'
 		},
 		'Basic Settings': {
-			'Network':             'basic-network.asp',
+			'Network':				'basic-network.asp',
 			/* IPV6-BEGIN */
-			'IPv6':                'basic-ipv6.asp',
+			'IPv6':					'basic-ipv6.asp',
 			/* IPV6-END */
-			'Identification':      'basic-ident.asp',
-			'Time':                'basic-time.asp',
-			'DDNS':                'basic-ddns.asp',
-			'DHCP/ARP/BW':         'basic-static.asp',
-			'Wireless Filter':     'basic-wfilter.asp'
+			'Identification':		'basic-ident.asp',
+			'Time':					'basic-time.asp',
+			'DDNS': 				'basic-ddns.asp',
+			'DHCP/ARP/BW': 			'basic-static.asp',
+			'Wireless Filter':		'basic-wfilter.asp'
 		},
 		'Advanced Settings': {
 			'Access Restriction':   'advanced-restrict.asp',
@@ -2470,7 +2470,7 @@ function navi()
 			,'File Sharing':        'nas-samba.asp'
 			/* SAMBA-END */
 			/* FTP-BEGIN */
-			,'FTP Server':          	'web-ftp.asp'
+			,'FTP Server':          'web-ftp.asp'
 			/* FTP-END */
 			/* MEDIA-SRV-BEGIN */
 			,'Media Server':        'nas-media.asp'
@@ -2494,15 +2494,15 @@ function navi()
 		'VPN': {
 			/* OPENVPN-BEGIN */
 			'OpenVPN Server':       'vpn-server.asp',
-			'OpenVPN Client':       'vpn-client.asp'
+			'OpenVPN Client':       'vpn-client.asp',
 			/* OPENVPN-END */
 			/* PPTPD-BEGIN */
-			,'PPTP Server':         'vpn-pptp-server.asp',
+			'PPTP Server':			'vpn-pptp-server.asp',
 			'PPTP Online':          'vpn-pptp-online.asp',
-			'PPTP Client':          'vpn-pptp.asp'
+			'PPTP Client':          'vpn-pptp.asp',
 			/* PPTPD-END */
 			/* TINC-BEGIN */
-			,'Tinc Daemon':			'vpn-tinc.asp'
+			'Tinc Daemon':			'vpn-tinc.asp'
 			/* TINC-END */
 		},
 		/* VPN-END */

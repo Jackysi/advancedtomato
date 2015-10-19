@@ -356,7 +356,7 @@ No part of this file may be used without permission.
 							{ suffix: '&nbsp; LAN &nbsp;',	name: 'f_ipv6_accept_ra_lan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 2) }
 						] },
 						{ title: 'Other ISP Config.', name: 'f_ipv6_isp_opt', type: 'checkbox', value: (nvram.ipv6_isp_opt != '0') },
-						null,
+
 						{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
 						{ title: '6RD Tunnel Border Relay (IPv4 Address)', name: 'ipv6_6rd_borderrelay', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_6rd_borderrelay },
 						{ title: '6RD IPv4 Mask Length', name: 'ipv6_6rd_ipv4masklen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_6rd_ipv4masklen, suffix: ' <small>(usually 0)</small>' },
@@ -367,7 +367,7 @@ No part of this file may be used without permission.
 						] },
 						{ title: 'Tunnel MTU', name: 'ipv6_tun_mtu', type: 'text', maxlen: 4, size: 8, value: nvram.ipv6_tun_mtu, suffix: ' <small>(0 for default)</small>' },
 						{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl },
-						null,
+						
 						{ title: 'Request /64 subnet for',  name: 'f_lan1_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 1), suffix: '&nbsp; LAN1(br1) &nbsp;&nbsp;&nbsp;' },
 						{ title: '',			name: 'f_lan2_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 2), suffix: '&nbsp; LAN2(br2) &nbsp;&nbsp;&nbsp;' },
 						{ title: '',			name: 'f_lan3_ipv6', type: 'checkbox', value: (nvram.ipv6_vlan & 4), suffix: '&nbsp; LAN3(br3) &nbsp;&nbsp;&nbsp;' }

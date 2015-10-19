@@ -479,11 +479,11 @@
 		function toggleVisibility(whichone) {
 			if (E('sesdiv_' + whichone).style.display == '') {
 				E('sesdiv_' + whichone).style.display = 'none';
-				E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+				E('sesdiv_' + whichone + '_showhide').innerHTML = '<i class="icon-chevron-up"></i>';
 				cookie.set('vpn_tinc_' + whichone + '_vis', 0);
 			} else {
 				E('sesdiv_' + whichone).style.display='';
-				E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+				E('sesdiv_' + whichone + '_showhide').innerHTML = '<i class="icon-chevron-down"></i>';
 				cookie.set('vpn_tinc_' + whichone + '_vis', 1);
 			}
 		}

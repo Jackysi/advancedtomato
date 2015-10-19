@@ -87,7 +87,7 @@ No part of this file may be used without permission.
 			<div class="heading">PPTP Client Configuration <span class="pptp-client-status"></span></div>
 			<div class="content"></div>
 			<script type="text/javascript">
-				$('#pptp-client').forms([
+				$('#pptp-client .content').forms([
 					{ title: 'Start with WAN', name: 'f_pptp_client_enable', type: 'checkbox', value: nvram.pptp_client_enable != 0 },
 					{ title: 'Server Address', name: 'pptp_client_srvip', type: 'text', size: 17, value: nvram.pptp_client_srvip },
 					{ title: 'Username: ', name: 'pptp_client_username', type: 'text', maxlen: 50, size: 54, value: nvram.pptp_client_username },

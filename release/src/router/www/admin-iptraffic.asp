@@ -236,42 +236,50 @@ No part of this file may be used without permission.
 				</script>
 			</form>
 
+			<div class="row">
 
-			<div class="col-sm-12">
-				<h4>Backup</h4>
-				<div class="section" id="backup-section">
-					<div class="input-append">
-						<button name="f_backup_button" id="backup-button" onclick="backupButton(); return false;" class="btn">Backup <i class="icon-download"></i></button>
+				<div class="col-sm-12">
+					<h4>Backup</h4>
+					<div class="section" id="backup-section">
+						<form>
+							<div class="input-append">
+								<button name="f_backup_button" id="backup-button" onclick="backupButton(); return false;" class="btn">Backup <i class="icon-download"></i></button>
+							</div>
+						</form>
 					</div>
-				</div><br>
-
-				<h4>Restore</h4>
-				<div class="section" id="restore-section">
-					<form id="restore-form" method="post" action="ipt/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
-						<input class="uploadfile" type="file" size="40" id="restore-name" name="restore_name" accept="application/x-gzip">
-						<button name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
-						<br>
-					</form>
 				</div>
 
+				<div class="col-sm-12">
+					<h4>Restore</h4>
+					<div class="section" id="restore-section">
+						<form id="restore-form" method="post" action="ipt/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
+							<input class="uploadfile" type="file" size="40" id="restore-name" name="restore_name" accept="application/x-gzip">
+							<button name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
+							<br>
+						</form>
+					</div>
+				</div>
 
-				<h4>Notes</h4>
-				<ul>
-					<li>IP Traffic is about monitoring <i>IPv4</i> network traffic flowing <i>through</i> the router.</li>
-					<li>Check your <a class="ajaxload" href="basic-network.asp">LAN Settings</a> before enabling this feature: any/all LAN interfaces must have a netmask with at least 16 bits set (255.255.0.0).</li>
-					<li>Monitoring of larger subnets is not supported.</li>
-				</ul>
+				<div class="col-sm-12">
+					<h4>Notes</h4>
+					<ul>
+						<li>IP Traffic is about monitoring <i>IPv4</i> network traffic flowing <i>through</i> the router.</li>
+						<li>Check your <a class="ajaxload" href="basic-network.asp">LAN Settings</a> before enabling this feature: any/all LAN interfaces must have a netmask with at least 16 bits set (255.255.0.0).</li>
+						<li>Monitoring of larger subnets is not supported.</li>
+					</ul>
 
-				<p>Other relevant notes/hints:</p>
-				<ul>
-					<li>Before enabling this feature, please check your <a class="ajaxload" href="basic-network.asp">LAN Settings</a> and make sure the netmask on any/all of your LAN bridges has been configured properly (i.e. netmask with at least 16 bits set or "255.255.0.0").</li>
-					<li>Although technically supported, it's not actually recommended having IP Traffic monitoring enabled with subnets larger than/the equivalent of a class C network (i.e. netmask with at least 24 bits set or "255.255.255.0").</li>
-					<li>IP Traffic monitoring keeps track of data/packets that would be either <i>coming from/leaving</i> or <i>going to/arriving</i> IPs on LAN interfaces/subnets.</li>
-					<li>As a rule of thumb, this means keeping track of network/data packets being forwarded from/to LAN interfaces as a result of some kind of routing (or NAT) and would exclude any/all data/packets being exchanged between devices reachable/within the same LAN interface (i.e. on the same IP subnet/LAN bridge, even if packets are actually being forwarded from/to wired/wireless/different interfaces through the router).</li>
-					<!-- VLAN-BEGIN -->
-					<li>Network traffic/communications flowing from/to/between different LAN bridges/subnets will be tracked/accounted separately/accordingly ("twice", as in: number of bytes/packets <i>coming from</i> the first LAN bridge and (the same) number of bytes/packets <i>going to</i> the second LAN bridge).</li>
-					<!-- VLAN-END -->
-				</ul>
+					<p>Other relevant notes/hints:</p>
+					<ul>
+						<li>Before enabling this feature, please check your <a class="ajaxload" href="basic-network.asp">LAN Settings</a> and make sure the netmask on any/all of your LAN bridges has been configured properly (i.e. netmask with at least 16 bits set or "255.255.0.0").</li>
+						<li>Although technically supported, it's not actually recommended having IP Traffic monitoring enabled with subnets larger than/the equivalent of a class C network (i.e. netmask with at least 24 bits set or "255.255.255.0").</li>
+						<li>IP Traffic monitoring keeps track of data/packets that would be either <i>coming from/leaving</i> or <i>going to/arriving</i> IPs on LAN interfaces/subnets.</li>
+						<li>As a rule of thumb, this means keeping track of network/data packets being forwarded from/to LAN interfaces as a result of some kind of routing (or NAT) and would exclude any/all data/packets being exchanged between devices reachable/within the same LAN interface (i.e. on the same IP subnet/LAN bridge, even if packets are actually being forwarded from/to wired/wireless/different interfaces through the router).</li>
+						<!-- VLAN-BEGIN -->
+						<li>Network traffic/communications flowing from/to/between different LAN bridges/subnets will be tracked/accounted separately/accordingly ("twice", as in: number of bytes/packets <i>coming from</i> the first LAN bridge and (the same) number of bytes/packets <i>going to</i> the second LAN bridge).</li>
+						<!-- VLAN-END -->
+					</ul>
+				</div>
+
 			</div>
 		</div>
 	</div>
