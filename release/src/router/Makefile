@@ -2581,7 +2581,7 @@ ipset-clean:
 
 libjson-c/stamp-h1:
 	cd $(TOP)/libjson-c && CC=$(CC) STRIP=$(CROSS_COMPILE)strip \
-	autoreconf -if && \
+	./autogen.sh && \
 	$(CONFIGURE) --prefix=/usr
 	touch libjson-c/stamp-h1
 
