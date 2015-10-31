@@ -30,7 +30,7 @@ html { font-size: 62.5%; }
 body {
 	font-size: 10pt;
 	font-family: "Roboto", sans-serif;
-	color: #888888;
+	color: #76838f;
 	line-height: 1.42857;
 	background-color: #f1f4f5;
 	min-width: 960px;
@@ -52,8 +52,7 @@ a:hover, a:active {
 h1, h2, h3, h4, h5 {
 	font-weight: 500;
 	line-height: 1.1;
-	color: inherit;
-	color:#585858;
+	color: #37474f;
 }
 
 h1, .h1 { font-size: 24px; margin: 0 0 10px; }
@@ -67,7 +66,7 @@ hr { margin: -5px 0 15px; border: 0; border-bottom: 1px dashed #EEE; }
 small { font-size: 80%; }
 .align { display: block; }
 .align.center, .centered { text-align: center; }
-.bold, b { font-weight: 500; color: #656565; }
+.bold, b { font-weight: 500; }
 
 /* General Text styles */
 .text-center { display: block; text-align: center; }
