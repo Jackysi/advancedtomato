@@ -17,14 +17,14 @@ KBUILD_CFLAGS_MODULE += -mmodel=large
 
 ifdef CONFIG_CHIP_VDEC2
 cflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -Wa,-bitinst
-aflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -O2 -fno-delete-null-pointer-checks -Wa,-bitinst -Wa,-no-parallel
+aflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -O2 -Wa,-bitinst -Wa,-no-parallel
 else
 cflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -m32r2
-aflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -m32r2 -O2 -fno-delete-null-pointer-checks
+aflags-$(CONFIG_ISA_M32R2)	+= -DNO_FPU -m32r2 -O2
 endif
 
 cflags-$(CONFIG_ISA_M32R)	+= -DNO_FPU
-aflags-$(CONFIG_ISA_M32R)	+= -DNO_FPU -O2 -fno-delete-null-pointer-checks -Wa,-no-bitinst
+aflags-$(CONFIG_ISA_M32R)	+= -DNO_FPU -O2 -Wa,-no-bitinst
 
 KBUILD_CFLAGS += $(cflags-y)
 KBUILD_AFLAGS += $(aflags-y)

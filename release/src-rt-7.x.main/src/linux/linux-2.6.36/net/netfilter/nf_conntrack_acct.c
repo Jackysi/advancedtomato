@@ -44,11 +44,9 @@ seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir)
 	if (!acct)
 		return 0;
 
-	seq_printf(s, "packets=%llu bytes=%llu ",
+	return seq_printf(s, "packets=%llu bytes=%llu ",
 			  (unsigned long long)acct[dir].packets,
 			  (unsigned long long)acct[dir].bytes);
-
-	return 0;
 };
 EXPORT_SYMBOL_GPL(seq_print_acct);
 

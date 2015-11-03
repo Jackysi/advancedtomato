@@ -139,7 +139,6 @@ static inline unsigned int skb_frag_size(const skb_frag_t *frag)
 	return frag->size;
 }
 
-
 #define HAVE_HW_TIME_STAMP
 
 /**
@@ -363,6 +362,9 @@ struct sk_buff {
 #endif /* BCMDBG_CTRACE */
 #if defined(HNDCTF) || defined(CTFPOOL)
 	__u32			pktc_flags;
+#endif
+#ifdef HNDCTF
+	void			*ctf_ipc_txif;
 #endif
 #ifdef BCMFA
 #define BCM_FA_INVALID_IDX_VAL	0xFFF00000
@@ -1601,6 +1603,22 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
 }
 
 extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
+
+#if defined(CONFIG_BCM_RECVFILE)
+/**
+ * skb_frag_page - retrieve the page refered to by a paged fragment
+ * @frag: the paged fragment
+ *
+ * Returns the &struct page associated with @frag.
+ */
+static inline struct page *skb_frag_page(const skb_frag_t *frag)
+{
+	return frag->page;
+}
+extern int skb_copy_datagram_to_kernel_iovec(const struct sk_buff *from,
+					       int offset, struct iovec *to,
+					       int size);
+#endif /* CONFIG_BCM_RECVFILE */
 
 /**
  *	netdev_alloc_page - allocate a page for ps-rx on a specific device

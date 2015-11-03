@@ -367,8 +367,7 @@ KBUILD_CFLAGS += $(WLAN_StdIncPathA)
 KBUILD_AFLAGS += -I$(SRCBASE)/include
 KBUILD_AFLAGS += -I$(SRCBASE)/common/include
 KBUILD_CFLAGS += -DBCMDRIVER -Dlinux
-
-# Bcm dbg flag
+# bcm dbg
 #KBUILD_CFLAGS += -DBCMDBG
 
 
@@ -566,8 +565,17 @@ ifneq ($(CONFIG_BCM_FA),)
 KBUILD_CFLAGS += -DBCMFA
 endif
 
+ifneq ($(CONFIG_RGMII_BCM_FA),)
+KBUILD_CFLAGS += -DRGMII_BCM_FA
+endif
+
 ifneq ($(CONFIG_BCM47XX),)
 KBUILD_CFLAGS += -DBCM47XX
+KBUILD_AFLAGS += -DBCM47XX
+endif
+
+ifneq ($(CONFIG_MTD_BCMCONF_PARTS),)
+KBUILD_CFLAGS += -DBCMCONFMTD
 endif
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
@@ -584,6 +592,10 @@ KBUILD_CFLAGS += -D"CONFIG_LINUX_MTD=64"
 endif
 ifeq ($(CONFIG_LINUX_MTD),128)
 KBUILD_CFLAGS += -D"CONFIG_LINUX_MTD=128"
+endif
+
+ifneq ($(NVSIZE),)
+KBUILD_CFLAGS += -D"CONFIG_NVSIZE_$(NVSIZE)"
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
@@ -616,14 +628,14 @@ ifdef CONFIG_DEBUG_INFO_REDUCED
 KBUILD_CFLAGS 	+= $(call cc-option, -femit-struct-debug-baseonly)
 endif
 
-ifdef CONFIG_FUNCTION_TRACER
-KBUILD_CFLAGS	+= -pg
+ifeq ($(CONFIG_ELF_CORE),y)
+KBUILD_CFLAGS   += -DDEBUG
+KBUILD_CFLAGS   += -g
+KBUILD_AFLAGS   += -gdwarf-2
 endif
 
-ifeq ($(CONFIG_ELF_CORE),y)
-KBUILD_CFLAGS	+= -DDEBUG
-KBUILD_CFLAGS	+= -g
-KBUILD_AFLAGS	+= -gdwarf-2
+ifdef CONFIG_FUNCTION_TRACER
+KBUILD_CFLAGS	+= -pg
 endif
 
 # We trigger additional mismatches with less inlining

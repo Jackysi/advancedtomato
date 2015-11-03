@@ -22,8 +22,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Eric Dumazet <eric.dumazet@gmail.com>");
 MODULE_DESCRIPTION("Xtables: CPU match");
-MODULE_ALIAS("ipt_cpu");
-MODULE_ALIAS("ip6t_cpu");
 
 static int cpu_mt_check(const struct xt_mtchk_param *par)
 {

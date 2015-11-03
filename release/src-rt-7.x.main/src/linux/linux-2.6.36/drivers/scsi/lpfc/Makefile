@@ -22,7 +22,6 @@
 ifneq ($(GCOV),)
   EXTRA_CFLAGS += -fprofile-arcs -ftest-coverage
   EXTRA_CFLAGS += -O0
-  EXTRA_CFLAGS += -fno-delete-null-pointer-checks
 endif
 
 obj-$(CONFIG_SCSI_LPFC) := lpfc.o

@@ -77,7 +77,7 @@ KBUILD_AFLAGS	+= -mno-fdpic
 # make sure the .S files get compiled with debug info
 # and disable optimisations that are unhelpful whilst debugging
 ifdef CONFIG_DEBUG_INFO
-#KBUILD_CFLAGS	+= -O1 -fno-delete-null-pointer-checks
+#KBUILD_CFLAGS	+= -O1
 KBUILD_AFLAGS	+= -Wa,--gdwarf2
 endif
 

@@ -1,6 +1,6 @@
 
 CC =		m68k-cbm-amigados-gcc
-CFLAGS =	-Wall -O2 -fno-delete-null-pointer-checks
+CFLAGS =	-Wall -O2
 
 
 All:		dmesg

@@ -89,9 +89,6 @@ struct inodes_stat_t {
  */
 #define FMODE_NOCMTIME		((__force fmode_t)0x800)
 
-/* File is opened with O_PATH; almost nothing can be done with it */
-#define FMODE_PATH		((__force fmode_t)0x4000)
-
 /* Expect random access pattern */
 #define FMODE_RANDOM		((__force fmode_t)0x1000)
 
@@ -356,6 +353,9 @@ struct inodes_stat_t {
 #define SYNC_FILE_RANGE_WRITE		2
 #define SYNC_FILE_RANGE_WAIT_AFTER	4
 
+#if defined(CONFIG_BCM_RECVFILE)
+#define MAX_PAGES_PER_RECVFILE		32
+#endif /* CONFIG_BCM_RECVFILE */
 #ifdef __KERNEL__
 
 #include <linux/linkage.h>

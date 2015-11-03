@@ -9,7 +9,7 @@
 # LD = gcc-cris -mlinux -march=v32 -nostdlib
 
 asflags-y += $(LINUXINCLUDE)
-ccflags-y += -O2 -fno-delete-null-pointer-checks $(LINUXINCLUDE)
+ccflags-y += -O2 $(LINUXINCLUDE)
 arch-$(CONFIG_ETRAX_ARCH_V10) = v10
 arch-$(CONFIG_ETRAX_ARCH_V32) = v32
 

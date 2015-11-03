@@ -22,8 +22,6 @@
 #ifndef __SCSI_TARGET_IF_H
 #define __SCSI_TARGET_IF_H
 
-#include <linux/types.h>
-
 /* user -> kernel */
 #define	TGT_UEVENT_CMD_RSP		0x0001
 #define	TGT_UEVENT_IT_NEXUS_RSP		0x0002
@@ -50,10 +48,10 @@ struct tgt_event {
 		struct {
 			int host_no;
 			int result;
-			__aligned_u64 itn_id;
-			__aligned_u64 tag;
-			__aligned_u64 uaddr;
-			__aligned_u64 sense_uaddr;
+			aligned_u64 itn_id;
+			aligned_u64 tag;
+			aligned_u64 uaddr;
+			aligned_u64 sense_uaddr;
 			uint32_t len;
 			uint32_t sense_len;
 			uint8_t rw;
@@ -61,13 +59,13 @@ struct tgt_event {
 		struct {
 			int host_no;
 			int result;
-			__aligned_u64 itn_id;
-			__aligned_u64 mid;
+			aligned_u64 itn_id;
+			aligned_u64 mid;
 		} tsk_mgmt_rsp;
 		struct {
 			__s32 host_no;
 			__s32 result;
-			__aligned_u64 itn_id;
+			aligned_u64 itn_id;
 			__u32 function;
 		} it_nexus_rsp;
 
@@ -75,30 +73,30 @@ struct tgt_event {
 		struct {
 			int host_no;
 			uint32_t data_len;
-			__aligned_u64 itn_id;
+			aligned_u64 itn_id;
 			uint8_t scb[16];
 			uint8_t lun[8];
 			int attribute;
-			__aligned_u64 tag;
+			aligned_u64 tag;
 		} cmd_req;
 		struct {
 			int host_no;
 			int result;
-			__aligned_u64 itn_id;
-			__aligned_u64 tag;
+			aligned_u64 itn_id;
+			aligned_u64 tag;
 		} cmd_done;
 		struct {
 			int host_no;
 			int function;
-			__aligned_u64 itn_id;
-			__aligned_u64 tag;
+			aligned_u64 itn_id;
+			aligned_u64 tag;
 			uint8_t lun[8];
-			__aligned_u64 mid;
+			aligned_u64 mid;
 		} tsk_mgmt_req;
 		struct {
 			__s32 host_no;
 			__u32 function;
-			__aligned_u64 itn_id;
+			aligned_u64 itn_id;
 			__u32 max_cmds;
 			__u8 initiator_id[16];
 		} it_nexus_req;
