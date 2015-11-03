@@ -535,6 +535,18 @@ define RouterOptions
 		if [ "$(BCM7)" = "y" ]; then \
 			sed -i "/TCONFIG_BCM7/d" $(1); \
 			echo "TCONFIG_BCM7=y" >>$(1); \
+			sed -i "/TCONFIG_TOAD/d" $(1); \
+			echo "TCONFIG_TOAD=y" >>$(1); \
+			sed -i "/TCONFIG_BCMBSD/d" $(1); \
+			echo "TCONFIG_BCMBSD=y" >>$(1); \
+			sed -i "/TCONFIG_BCMDCS/d" $(1); \
+			echo "TCONFIG_BCMDCS=y" >>$(1); \
+			sed -i "/TCONFIG_TRAFFIC_MGMT_RSSI_POLICY/d" $(1); \
+			echo "TCONFIG_TRAFFIC_MGMT_RSSI_POLICY=y" >>$(1); \
+			sed -i "/TCONFIG_GMAC3/d" $(1); \
+			echo "TCONFIG_GMAC3=y" >>$(1); \
+			sed -i "/TCONFIG_5301X/d" $(1); \
+			echo "TCONFIG_5301X=y" >>$(1); \
 		fi; \
 	fi; \
 	if [ "$(DHDAP)" = "y" ]; then \
@@ -765,6 +777,10 @@ define KernelConfig
 	if [ "$(AC3200)" = "y" ]; then \
 		sed -i "/CONFIG_AC3200/d" $(1); \
 		echo "CONFIG_AC3200=y" >>$(1); \
+	fi; \
+	if [ "$(BCM_RECVFILE)" = "y" ]; then \
+		sed -i "/CONFIG_BCM_RECVFILE/d" $(1); \
+		echo "CONFIG_BCM_RECVFILE=y" >>$(1); \
 	fi; \
 	if [ "$(NOWL)" = "y" ]; then \
 		sed -i "/CONFIG_WL=m/d" $(1); \
@@ -1055,10 +1071,10 @@ r8000z:
 	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
 
 ac3200e:
-	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y BCM_RECVFILE=y
 
 ac32000z:
-	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y BCM_RECVFILE=y
 endif
 
 setprofile:
