@@ -1,8 +1,12 @@
-/*
- * RPC layer. It links to bus layer with transport layer(bus dependent)
+/** @file bcm_rpc.c
+ *
+ * The BMAC and LMAC driver models consist of a host component and a firmware component. These
+ * components communicate with each other using an RPC (Remote Procedure Call) layer.
+ *
+ * It links to bus layer with transport layer(bus dependent)
  * Broadcom 802.11abg Networking Device Driver
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +14,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm_rpc.c 419467 2013-08-21 09:19:48Z $
+ * $Id: bcm_rpc.c 453919 2014-02-06 23:10:30Z $
  */
 
 #include <epivers.h>
@@ -650,9 +654,8 @@ bcm_rpc_tp_get(struct rpc_info *rpci)
 osl_t*
 bcm_rpc_osh_get(struct rpc_info *rpci)
 {
-	return rpci->osh;
+	    return rpci->osh;
 }
-
 
 #ifdef BCM_RPC_TOC
 static void

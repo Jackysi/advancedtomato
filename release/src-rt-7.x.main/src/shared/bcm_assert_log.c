@@ -1,7 +1,7 @@
 /*
  * Global ASSERT Logging
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm_assert_log.c 419467 2013-08-21 09:19:48Z $
+ * $Id: bcm_assert_log.c 310902 2012-01-26 19:45:33Z $
  */
 
 #include <epivers.h>

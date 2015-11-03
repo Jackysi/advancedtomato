@@ -1,7 +1,7 @@
 /*
  * Utilites for XDR encode and decode of data
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm_xdr.c 419467 2013-08-21 09:19:48Z $
+ * $Id: bcm_xdr.c 319672 2012-03-08 22:02:53Z $
  */
 
 #include <osl.h>
@@ -319,7 +319,6 @@ bcm_xdr_unpack_string(bcm_xdr_buf_t *b, uint *plen, char **pstr)
 {
 	return bcm_xdr_unpack_opaque_varlen(b, plen, (void**)pstr);
 }
-
 
 int
 bcm_xdr_opaque_resrv(bcm_xdr_buf_t *b, uint len, void **pdata)

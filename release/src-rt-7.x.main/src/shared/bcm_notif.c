@@ -1,7 +1,7 @@
 /*
  * Implementation of event notification component.
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -44,6 +44,8 @@ static void dealloc_module(bcm_notif_module_t *notif_module);
  * Returns:
  *    Global notifier module object. NULL on error.
  */
+static const char BCMATTACHDATA(rstr_notif_s)[] = "notif_s";
+static const char BCMATTACHDATA(rstr_notif_c)[] = "notif_c";
 bcm_notif_module_t* BCMATTACHFN(bcm_notif_attach)(osl_t *osh,
                                                   bcm_mpm_mgr_h mpm,
                                                   int max_notif_servers,
@@ -68,7 +70,7 @@ bcm_notif_module_t* BCMATTACHFN(bcm_notif_attach)(osl_t *osh,
 	ret = bcm_mpm_create_prealloc_pool(mpm,
 	                                   sizeof(struct bcm_notif_list_struct),
 	                                   max_notif_servers, NULL, 0,
-	                                   "notif_s", &notif_module->server_mem_pool);
+	                                   rstr_notif_s, &notif_module->server_mem_pool);
 	if (ret != BCME_OK) {
 		goto fail;
 	}
@@ -77,7 +79,7 @@ bcm_notif_module_t* BCMATTACHFN(bcm_notif_attach)(osl_t *osh,
 	ret = bcm_mpm_create_prealloc_pool(mpm,
 	                                   sizeof(struct bcm_notif_client_request),
 	                                   max_notif_clients, NULL, 0,
-	                                   "notif_c", &notif_module->client_mem_pool);
+	                                   rstr_notif_c, &notif_module->client_mem_pool);
 	if (ret != BCME_OK) {
 		goto fail;
 	}
@@ -149,7 +151,7 @@ static void BCMATTACHFN(dealloc_module)(bcm_notif_module_t *notif_module)
  *    BCME_OK     Object initialized successfully. May be used.
  *    BCME_NOMEM  Initialization failed due to no memory. Object must not be used
  */
-int BCMATTACHFN(bcm_notif_create_list)(bcm_notif_module_t *notif_module, bcm_notif_h *hdlp)
+int bcm_notif_create_list(bcm_notif_module_t *notif_module, bcm_notif_h *hdlp)
 {
 	int result = BCME_OK;
 
@@ -286,28 +288,25 @@ int bcm_notif_remove_interest(bcm_notif_h hdl,
 	return (result);
 }
 
-/*
- * bcm_notif_signal()
- *
- * Notify all clients on an event list that the event has occured. Invoke their
- * callbacks and provide both the server data and the client passthru data.
- *
- * Parameters
- *    hdl         Opaque list handle.
- *    server_data Server data for the notification
- * Returns:
- *    BCME_OK     Client interest added successfully
- *    BCME_ERROR  General error
+/* Notify all clients on an event list that the event has occured.
+ * Invoke callback 'cb' if necessary upon every client callback's
+ * invocation to allow the caller to process each client's data.
  */
-int bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data)
+static int
+_bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data,
+	bcm_notif_server_callback cb, bcm_notif_server_context arg)
 {
 	int result = BCME_OK;
-	struct bcm_notif_client_request * nodep = hdl->tail;
+	struct bcm_notif_client_request * nodep;
+
+	if (!hdl)
+		return result;
 
 	/* Ensure that list operations are not performed within client callbacks. */
 	if (!(hdl->allow_list_operations))
 		return (BCME_BUSY);
 
+	nodep = hdl->tail;
 
 	if (nodep) {
 		struct bcm_notif_client_request * firstp;
@@ -320,6 +319,8 @@ int bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data)
 		do {
 			/* Signal the current client */
 			nodep->callback(nodep->passthru, data);
+			if (cb != NULL)
+				cb(arg, data);
 			/* Advance to next client registration */
 			nodep = nodep->next;
 		} while (nodep != firstp);
@@ -328,7 +329,49 @@ int bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data)
 		hdl->allow_list_operations = TRUE;
 	}
 
-	return (result);
+	return BCME_OK;
+}
+
+/*
+ * bcm_notif_signal()
+ *
+ * Notify all clients on an event list that the event has occured. Invoke their
+ * callbacks and provide both the server data and the client passthru data.
+ *
+ * Parameters
+ *    hdl         Opaque list handle.
+ *    server_data Server data for the notification
+ * Returns:
+ *    BCME_OK     Client interest added successfully
+ *    BCME_BUSY   Recursion detected
+ */
+int bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data)
+{
+	return _bcm_notif_signal(hdl, data, NULL, NULL);
+}
+
+/*
+ * bcm_notif_signal_ex()
+ *
+ * Notify all clients on an event list that the event has occured. Invoke their
+ * callbacks and provide both the server data and the client passthru data.
+ * Invoke server callback upon every client callback's invocation to allow
+ * server to process each client's data.
+ *
+ * Parameters
+ *    hdl         Opaque list handle.
+ *    server_data Server data for the notification
+ *    cb          Server callback
+ *    arg         Context to server callback
+ * Returns:
+ *    BCME_OK     Client interest added successfully
+ *    BCME_BUSY   Recursion detected
+ */
+int
+bcm_notif_signal_ex(bcm_notif_h hdl, bcm_notif_server_data data,
+	bcm_notif_server_callback cb, bcm_notif_server_context arg)
+{
+	return _bcm_notif_signal(hdl, data, cb, arg);
 }
 
 /*
@@ -342,7 +385,7 @@ int bcm_notif_signal(bcm_notif_h hdl, bcm_notif_server_data data)
  *    BCME_OK     Event list successfully deleted.
  *    BCME_ERROR  General error
  */
-int BCMATTACHFN(bcm_notif_delete_list)(bcm_notif_h *hdl)
+int bcm_notif_delete_list(bcm_notif_h *hdl)
 {
 	/* First free all the nodes. */
 	struct bcm_notif_client_request * nodep = (*hdl)->tail;

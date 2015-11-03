@@ -1,7 +1,7 @@
 /*
  * bcmwpa.h - interface definitions of shared WPA-related functions
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,14 +9,15 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcmwpa.h 419467 2013-08-21 09:19:48Z $
+ * $Id: bcmwpa.h 456127 2014-02-17 23:17:49Z $
  */
 
 #ifndef _BCMWPA_H_
 #define _BCMWPA_H_
 
 #include <proto/wpa.h>
-#if defined(BCMSUP_PSK) || defined(BCMSUPPL) || defined(MFP) || defined(WLRXOE)
+#if defined(BCMSUP_PSK) || defined(BCMSUPPL) || defined(MFP) || defined(BCMAUTH_PSK) || \
+	defined(WLFBT) || defined(BCM_OL_DEV) || defined(WL_OKC)
 #include <proto/eapol.h>
 #endif
 #include <proto/802.11.h>
@@ -50,23 +51,6 @@
 #define WLC_SW_KEYS(wlc, bsscfg) ((((wlc)->wsec_swkeys) || \
 	((bsscfg)->wsec & WSEC_SWFLAG)))
 
-
-
-#define IS_WPA_AUTH(auth)	((auth) == WPA_AUTH_NONE || \
-				 (auth) == WPA_AUTH_UNSPECIFIED || \
-				 (auth) == WPA_AUTH_PSK)
-#define INCLUDES_WPA_AUTH(auth)	\
-			((auth) & (WPA_AUTH_NONE | WPA_AUTH_UNSPECIFIED | WPA_AUTH_PSK))
-
-#define IS_WPA2_AUTH(auth)	((auth) == WPA2_AUTH_UNSPECIFIED || \
-				 (auth) == WPA2_AUTH_PSK || \
-				 (auth) == BRCM_AUTH_PSK || \
-				 (auth) == BRCM_AUTH_DPT)
-#define INCLUDES_WPA2_AUTH(auth) \
-			((auth) & (WPA2_AUTH_UNSPECIFIED | \
-				   WPA2_AUTH_PSK | \
-				   BRCM_AUTH_PSK | \
-				   BRCM_AUTH_DPT))
 
 
 
@@ -143,11 +127,7 @@ extern bool BCMROMFN(wpa_cipher)(wpa_suite_t *suite, ushort *cipher, bool wep_ok
 
 /* Look for a WPA IE; return it's address if found, NULL otherwise */
 extern wpa_ie_fixed_t *BCMROMFN(bcm_find_wpaie)(uint8 *parse, uint len);
-#if defined(NDIS) && (NDISVER >= 0x0630) && 0
-extern wme_ie_t *bcm_find_wmeie(uint8 *parse, uint len, uint8 subtype, uint8 subtype_len);
-#else
 extern bcm_tlv_t *bcm_find_wmeie(uint8 *parse, uint len, uint8 subtype, uint8 subtype_len);
-#endif
 /* Look for a WPS IE; return it's address if found, NULL otherwise */
 extern wps_ie_fixed_t *bcm_find_wpsie(uint8 *parse, uint len);
 extern wps_at_fixed_t *bcm_wps_find_at(wps_at_fixed_t *at, int len, uint16 id);
@@ -157,6 +137,8 @@ extern wifi_p2p_ie_t *bcm_find_p2pie(uint8 *parse, uint len);
 #endif
 /* Look for a hotspot2.0 IE; return it's address if found, NULL otherwise */
 bcm_tlv_t *bcm_find_hs20ie(uint8 *parse, uint len);
+/* Look for a OSEN IE; return it's address if found, NULL otherwise */
+bcm_tlv_t *bcm_find_osenie(uint8 *parse, uint len);
 
 /* Check whether the given IE has the specific OUI and the specific type. */
 extern bool bcm_has_ie(uint8 *ie, uint8 **tlvs, uint *tlvs_len,
@@ -179,11 +161,14 @@ extern bool bcm_has_ie(uint8 *ie, uint8 **tlvs, uint *tlvs_len,
 /* Check whether the given IE looks like WFA hotspot2.0 IE. */
 #define bcm_is_hs20_ie(ie, tlvs, len)	bcm_has_ie(ie, tlvs, len, \
 	(const uint8 *)WFA_OUI, WFA_OUI_LEN, WFA_OUI_TYPE_HS20)
+/* Check whether the given IE looks like WFA OSEN IE. */
+#define bcm_is_osen_ie(ie, tlvs, len)	bcm_has_ie(ie, tlvs, len, \
+	(const uint8 *)WFA_OUI, WFA_OUI_LEN, WFA_OUI_TYPE_OSEN)
 
 /* Convert WPA2 IE cipher suite to locally used value */
 extern bool BCMROMFN(wpa2_cipher)(wpa_suite_t *suite, ushort *cipher, bool wep_ok);
 
-#if defined(BCMSUP_PSK) || defined(BCMSUPPL) || defined(WLRXOE)
+#if defined(BCMSUP_PSK) || defined(BCMSUPPL) || defined(BCM_OL_DEV)
 /* Look for an encapsulated GTK; return it's address if found, NULL otherwise */
 extern eapol_wpa2_encap_data_t *BCMROMFN(wpa_find_gtk_encap)(uint8 *parse, uint len);
 
@@ -194,7 +179,8 @@ extern bool BCMROMFN(wpa_is_gtk_encap)(uint8 *ie, uint8 **tlvs, uint *tlvs_len);
 extern eapol_wpa2_encap_data_t *BCMROMFN(wpa_find_kde)(uint8 *parse, uint len, uint8 type);
 #endif /* defined(BCMSUP_PSK) || defined(BCMSUPPL) */
 
-#if defined(BCMSUP_PSK) || defined(WLRXOE)
+#if defined(BCMSUP_PSK) || defined(WLFBT) || defined(BCMAUTH_PSK)|| defined(BCM_OL_DEV) \
+	|| defined(WL_OKC)
 /* Calculate a pair-wise transient key */
 extern void BCMROMFN(wpa_calc_ptk)(struct ether_addr *auth_ea, struct ether_addr *sta_ea,
                                    uint8 *anonce, uint8* snonce, uint8 *pmk, uint pmk_len,
@@ -236,7 +222,7 @@ extern bool BCMROMFN(wpa_decr_key_data)(eapol_wpa_key_header_t *body, uint16 key
 /* Decrypt a group transient key from a WPA key message */
 extern bool BCMROMFN(wpa_decr_gtk)(eapol_wpa_key_header_t *body, uint16 key_info,
 	uint8 *ekey, uint8 *gtk, uint8 *data, uint8 *encrkey, rc4_ks_t *rc4key);
-#endif	/* BCMSUP_PSK */
+#endif	/* BCMSUP_PSK || WLFBT || BCMAUTH_PSK || BCM_OL_DEV */
 
 extern bool BCMROMFN(bcmwpa_akm2WPAauth)(uint8 *akm, uint32 *auth, bool sta_iswpa);
 
@@ -256,4 +242,9 @@ extern void kdf_calc_ptk(struct ether_addr *auth_ea, struct ether_addr *sta_ea,
 extern void wpa_calc_tpk(struct ether_addr *init_ea, struct ether_addr *resp_ea,
 struct ether_addr *bssid, uint8 *anonce, uint8* snonce, uint8 *tpk, uint tpk_len);
 #endif
+
+extern bool bcmwpa_is_wpa_auth(uint32 wpa_auth);
+extern bool bcmwpa_includes_wpa_auth(uint32 wpa_auth);
+extern bool bcmwpa_is_wpa2_auth(uint32 wpa_auth);
+extern bool bcmwpa_includes_wpa2_auth(uint32 wpa_auth);
 #endif	/* _BCMWPA_H_ */

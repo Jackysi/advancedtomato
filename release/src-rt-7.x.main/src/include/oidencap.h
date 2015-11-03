@@ -3,7 +3,7 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,7 +11,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: oidencap.h 419467 2013-08-21 09:19:48Z $
+ * $Id: oidencap.h 342966 2012-07-05 02:40:08Z $
  */
 
 #ifndef _oidencap_h_

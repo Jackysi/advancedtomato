@@ -2,7 +2,7 @@
  * RWL definitions  of
  * Broadcom 802.11bang Networking Device Driver
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: rwl_wifi.h 419467 2013-08-21 09:19:48Z $
+ * $Id: rwl_wifi.h 393462 2013-03-27 19:48:39Z $
  *
  */
 
@@ -73,10 +73,13 @@ typedef struct rem_packet {
 	uchar message [RWL_ACTION_FRAME_DATA_SIZE];
 } rem_packet_t;
 
-struct send_packet {
+#include <packed_section_start.h>
+struct BWL_PRE_PACKED_STRUCT send_packet {
 	char command [RWL_WIFI_ACTION_CMD_LEN];
 	dot11_action_wifi_vendor_specific_t response;
-} PACKED;
+} BWL_POST_PACKED_STRUCT;
+#include <packed_section_end.h>
+
 typedef struct send_packet send_packet_t;
 
 #define REMOTE_SIZE     sizeof(rem_ioctl_t)

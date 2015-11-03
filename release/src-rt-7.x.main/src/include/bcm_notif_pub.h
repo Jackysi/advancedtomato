@@ -10,7 +10,7 @@
  * The library guarantees that client callbacks occur in the same order that the
  * clients registered interest.
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -64,6 +64,16 @@ typedef void * bcm_notif_server_data;
  * Type definition for a client callback routine.
  */
 typedef void (*bcm_notif_client_callback)(bcm_notif_client_data, bcm_notif_server_data);
+
+/*
+ * Server context passed through to the server callback during an event.
+ */
+typedef void * bcm_notif_server_context;
+
+/*
+ * Type definition for a server callback routine.
+ */
+typedef void (*bcm_notif_server_callback)(bcm_notif_server_context, bcm_notif_client_data);
 
 
 /*
@@ -168,10 +178,32 @@ int bcm_notif_remove_interest(bcm_notif_h hdl,
  *    hdl         Opaque list handle.
  *    server_data Server data for the notification
  * Returns:
- *    BCME_OK        Client interest added successfully
- *    BCME_NOTFOUND  Could not locate this specific client registration for removal.
+ *    BCME_OK     Client interest added successfully
+ *    BCME_BUSY   Recursion detected
  */
 int bcm_notif_signal(bcm_notif_h listp, bcm_notif_server_data data);
+
+/*
+ * bcm_notif_signal_ex()
+ *
+ * Notify all clients on an event list that the event has occured. Invoke their callbacks
+ * and provide both the server data and the client passthru data. Invoke server callback
+ * upon every client callback's invocation to allow server to process each client's data.
+ *
+ * It is guaranteed that clients will be signaled in the same order in which they
+ * expressed interest.
+ *
+ * Parameters
+ *    hdl         Opaque list handle.
+ *    server_data Server data for the notification
+ *    cb          Server callback
+ *    arg         Context to server callback
+ * Returns:
+ *    BCME_OK     Client interest signaled successfully
+ *    BCME_BUSY   Recursion detected
+ */
+int bcm_notif_signal_ex(bcm_notif_h listp, bcm_notif_server_data data,
+	bcm_notif_server_callback cb, bcm_notif_server_context arg);
 
 /*
  * bcm_notif_delete_list()

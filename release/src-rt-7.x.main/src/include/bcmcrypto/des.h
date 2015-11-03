@@ -16,13 +16,13 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: des.h 241182 2011-02-17 21:50:03Z $
+ * $Id: des.h 467210 2014-04-02 20:16:21Z $
  */
 
 #ifndef _DES_H_
 #define _DES_H_
 
-typedef unsigned long DES_KS[16][2];	/* Single-key DES key schedule */
+typedef unsigned int DES_KS[16][2];	/* Single-key DES key schedule */
 
 void BCMROMFN(deskey)(DES_KS, unsigned char *, int);
 

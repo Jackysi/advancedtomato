@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmnvram.h 419467 2013-08-21 09:19:48Z $
+ * $Id: bcmnvram.h 428235 2013-10-08 02:44:09Z $
  */
 
 #ifndef _bcmnvram_h_
@@ -204,17 +204,22 @@ extern int nvram_space;
 #define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20
+#if defined(CONFIG_NVSIZE_128) || defined(RTCONFIG_NV128)
+#define NVSIZE			0x20000
+#else	
+#define NVSIZE			0x10000
+#endif
 /* This definition is for precommit staging, and will be removed */
-#define NVRAM_SPACE		0x10000
+#define NVRAM_SPACE		NVSIZE
 /* For CFE builds this gets passed in thru the makefile */
 #ifndef MAX_NVRAM_SPACE
-#define MAX_NVRAM_SPACE		0x10000
+#define MAX_NVRAM_SPACE		NVSIZE
 #endif
-#define DEF_NVRAM_SPACE		0x10000
+#define DEF_NVRAM_SPACE		NVSIZE
 #define ROM_ENVRAM_SPACE	0x1000
 #define NVRAM_LZMA_MAGIC	0x4c5a4d41	/* 'LZMA' */
 
-#define NVRAM_MAX_VALUE_LEN 2048
+#define NVRAM_MAX_VALUE_LEN 255
 #define NVRAM_MAX_PARAM_LEN 64
 
 #define NVRAM_CRC_START_POSITION	9 /* magic, len, crc8 to be skipped */
@@ -227,10 +232,10 @@ extern int nvram_space;
 #define BCM_JUMBO_NVRAM_DELIMIT '\n'
 #define BCM_JUMBO_START "Broadcom Jumbo Nvram file"
 
-#if !defined(BCMHIGHSDIO) && defined(BCMTRXV2)
+#if !defined(BCMDONGLEHOST) && !defined(BCMHIGHSDIO) && defined(BCMTRXV2)
 extern char *_vars;
 extern uint _varsz;
-#endif  
+#endif  /* !defined(BCMDONGLEHOST) && !defined(BCMHIGHSDIO) && defined(BCMTRXV2) */
 
 #if (defined(FAILSAFE_UPGRADE) || defined(CONFIG_FAILSAFE_UPGRADE) || \
 	defined(__CONFIG_FAILSAFE_UPGRADE_SUPPORT__))

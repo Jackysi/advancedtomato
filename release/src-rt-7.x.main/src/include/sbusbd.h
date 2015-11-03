@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane USB device core support
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: sbusbd.h 419467 2013-08-21 09:19:48Z $
+ * $Id: sbusbd.h 324140 2012-03-28 03:04:03Z $
  */
 
 #ifndef	_usbdev_sb_h_
@@ -104,7 +104,9 @@ typedef volatile struct {
 	uint32 hsicphystat1;		/* HSICPhyStat1 0x2e8, rev 9 */
 	uint32 PAD[9];
 	uint32 utmi_ctl;		/* utmi PHY contorol 0x310 */
-	uint32 PAD[3];
+	uint32 phytp_ctl;		/* phy TestPort debug reg 0x314 */
+	uint32 gpio_sel;		/* internal signal debug GPIO sel 0x318 */
+	uint32 gpio_oereg;		/* GPIO enable mask for gpio_sel 0x31c */
 	uint32 mdio_ctl;		/* mdio_ctl, 0x320 */
 	uint32 mdio_data;		/* mdio_data, 0x324 */
 	uint32 phymiscctl;		/* PhyMiscCtl, 0x328, rev 4 */

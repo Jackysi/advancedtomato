@@ -1,7 +1,7 @@
 /*
  * HND Run Time Environment debug info area
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -36,10 +36,28 @@
  * (currently 32 bit ARM) since this is gleaned from  dump.
  */
 
+#ifdef FWID
+extern uint32 gFWID;
+#endif
+
 /* Define pointers for use on other systems */
 #define _HD_EVLOG_P	uint32
 #define _HD_CONS_P	uint32
 #define _HD_TRAP_P	uint32
+
+/* This struct is placed at a well-defined location, and contains a pointer to hndrte_debug. */
+typedef struct hndrte_debug_ptr {
+	uint32	magic;
+
+	/* RAM address of 'hndrte_debug'. For legacy versions of this struct, it is a 0-indexed
+	 * offset instead.
+	 */
+	uint32	hndrte_debug_addr;
+
+	/* Base address of RAM. This field does not exist for legacy versions of this struct.  */
+	uint32	ram_base_addr;
+
+} hndrte_debug_ptr_t;
 
 typedef struct hndrte_debug {
 	uint32	magic;
@@ -99,8 +117,25 @@ typedef struct prstatus {
 } prstatus_t;
 
 #ifdef __GNUC__
-extern hndrte_debug_t hndrte_debug_info __attribute__ ((weak));
+extern hndrte_debug_t hndrte_debug_info;
 #endif /* __GNUC__ */
+
+/* for mkcore and other utilities use */
+#define DUMP_INFO_PTR_PTR_0   0x74
+#define DUMP_INFO_PTR_PTR_1   0x78
+#define DUMP_INFO_PTR_PTR_2   0xf0
+#define DUMP_INFO_PTR_PTR_3   0xf8
+#define DUMP_INFO_PTR_PTR_4   0x874
+#define DUMP_INFO_PTR_PTR_5   0x878
+#define DUMP_INFO_PTR_PTR_END 0xffffffff
+#define DUMP_INFO_PTR_PTR_LIST	DUMP_INFO_PTR_PTR_0, \
+								DUMP_INFO_PTR_PTR_1, \
+								DUMP_INFO_PTR_PTR_2, \
+								DUMP_INFO_PTR_PTR_3, \
+								DUMP_INFO_PTR_PTR_4, \
+								DUMP_INFO_PTR_PTR_5, \
+								DUMP_INFO_PTR_PTR_END
+
 
 #endif /* !LANGUAGE_ASSEMBLY */
 

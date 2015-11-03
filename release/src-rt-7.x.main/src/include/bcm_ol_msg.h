@@ -2,7 +2,7 @@
  * Broadcom 802.11 Message infra (pcie<-> CR4) used for RX offloads
  *
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -19,7 +19,7 @@
 #include <epivers.h>
 #include <typedefs.h>
 #include <wlc_utils.h>
-#ifdef WLRXOE
+#ifdef BCM_OL_DEV
 #include <proto/ethernet.h>
 #include <bcmcrypto/tkhash.h>
 #include <proto/802.11.h>
@@ -56,7 +56,36 @@
 #define NEXT_STAT(x)			((x + 1) & ((MAX_STAT_ENTRIES) - 1))
 #define IEMASK_SZ			CEIL((OLMSG_BCN_MAX_IE+1), 8)
 #define DEFAULT_KEYS			4
-#define NUMRXIVS			4
+#define NUMRXIVS			5
+
+#define MARKER_BEGIN	0xA5A5A5A5
+#define MARKER_END		~MARKER_BEGIN
+
+#define MAX_OL_EVENTS			16
+#define	MAX_OL_SCAN_CONFIG		9
+#define	MAX_OL_SCAN_BSS			5
+
+#define RSSI_THRESHOLD_2G_DEF		-80
+#define RSSI_THRESHOLD_5G_DEF		-75
+
+/* Events among various offload modules */
+enum {
+	BCM_OL_E_WOWL_START,
+	BCM_OL_E_WOWL_COMPLETE,
+	BCM_OL_E_TIME_SINCE_BCN,
+	BCM_OL_E_BCN_LOSS,
+	BCM_OL_E_DEAUTH,
+	BCM_OL_E_DISASSOC,
+	BCM_OL_E_RETROGRADE_TSF,
+	BCM_OL_E_RADIO_HW_DISABLED,
+	BCM_OL_E_PME_ASSERTED,
+	BCM_OL_E_UNASSOC,
+	BCM_OL_E_SCAN_BEGIN,
+	BCM_OL_E_SCAN_END,
+	BCM_OL_E_PREFSSID_FOUND,
+	BCM_OL_E_CSA,
+	BCM_OL_E_MAX
+};
 
 enum {
 	BCM_OL_UNUSED,	/* 0 */
@@ -115,15 +144,15 @@ enum {
 	BCM_OL_L2KEEPALIVE_ENABLE,
 	BCM_OL_GTK_UPD,
 	BCM_OL_GTK_ENABLE,
-#ifdef WL_LTR
 	BCM_OL_LTR,
-#endif /* WL_LTR */
 	BCM_OL_TCP_KEEP_CONN,
 	BCM_OL_TCP_KEEP_TIMERS,
 	BCM_OL_EL_START,
 	BCM_OL_EL_SEND_REPORT,
 	BCM_OL_EL_REPORT,
-	BCM_OL_MSG_MAX
+	BCM_OL_PANIC,
+	BCM_OL_CONS,
+	BCM_OL_MSG_MAX /* Keep this last */
 };
 
 /* L2 Keepalive feature flags */
@@ -137,10 +166,7 @@ enum {
 
 typedef BWL_PRE_PACKED_STRUCT struct ol_tkip_info {
 	uint16		phase1[TKHASH_P1_KEY_SIZE/sizeof(uint16)];	/* tkhash phase1 result */
-	uint8		phase2[TKHASH_P2_KEY_SIZE];			/* tkhash phase2 result */
 	uint8		PAD[2];
-	uint32		micl;
-	uint32		micr;
 } BWL_POST_PACKED_STRUCT ol_tkip_info_t;
 
 typedef BWL_PRE_PACKED_STRUCT struct iv {
@@ -210,6 +236,7 @@ typedef BWL_PRE_PACKED_STRUCT struct olmsg_dump_stats_info_t {
 	uint32 	rxoe_capchangedcnt;
 	uint32 	rxoe_bcnintchangedcnt;
 	uint32	rxoe_bcnlosscnt;
+	uint32	rxoe_tx_stopcnt;
 	uint16	rxoe_iechanged[OLMSG_BCN_MAX_IE];
 	uint16	rxoe_arp_statidx;
 	uint16	PAD;
@@ -297,8 +324,8 @@ typedef BWL_PRE_PACKED_STRUCT struct olmsg_bcn_enable_t {
 	/* Beacon capability */
 	uint16 capability;
 
-	/* Beacon received channel */
-	uint32	rxchannel;
+	/* Control channel */
+	uint32	ctrl_channel;
 
 	/* association aid */
 	uint16	aid;
@@ -332,6 +359,14 @@ typedef BWL_PRE_PACKED_STRUCT struct olmsg_rssi_init_t {
 	uint16	raw_tempsense;		/* temperature from ROM */
 	uint16	radio_chanspec;		/* Radio channel spec */
 } BWL_POST_PACKED_STRUCT olmsg_rssi_init;
+
+typedef BWL_PRE_PACKED_STRUCT struct ol_sec_igtk_info_t {
+	uint16 id;	/* IGTK key id */
+	uint16 ipn_hi;	/* key IPN */
+	uint32 ipn_lo;	/* key IPN */
+	uint16 key_len;
+	uint8  key[BIP_KEY_SIZE];
+} BWL_POST_PACKED_STRUCT ol_sec_igtk_info;
 
 typedef BWL_PRE_PACKED_STRUCT struct ol_sec_info_t {
 	uint8		idx;		/* key index in wsec_keys array */
@@ -367,6 +402,7 @@ typedef BWL_PRE_PACKED_STRUCT struct ol_tx_info_t {
 	uint32			wsec;
 	ol_sec_info 		key;
 	ol_sec_info 		defaultkeys[DEFAULT_KEYS];
+	ol_sec_igtk_info	igtk;
 	uint8			qos;
 	uint8			hwmic;
 	uint16			rate;
@@ -562,6 +598,7 @@ typedef BWL_PRE_PACKED_STRUCT struct olmsg_gtk_enable_t {
 	uint		tkmickeys; /* 12 TKIP MIC key table shm address */
 	int 		tx_tkmic_offset;
 	int 		rx_tkmic_offset;
+	uint32		igtk_enabled;
 } BWL_POST_PACKED_STRUCT olmsg_gtk_enable;
 
 /*
@@ -633,6 +670,8 @@ typedef BWL_PRE_PACKED_STRUCT struct scan_wake_pkt_info {
 
 typedef BWL_PRE_PACKED_STRUCT struct wowl_host_info {
 	uint32		wake_reason;	/* WL_WOWL_Xxx value */
+	uint8		eventlog[MAX_OL_EVENTS];
+	uint32		eventidx;
 	union {
 		wowl_wake_info_t	pattern_pkt_info;
 		scan_wake_pkt_info_t	scan_pkt_info;
@@ -644,6 +683,7 @@ typedef BWL_PRE_PACKED_STRUCT struct wowl_host_info {
 
 #define MDNS_DBASE_SZ	4096
 typedef BWL_PRE_PACKED_STRUCT struct {
+	uint32		    marker_begin;
 	uint32		    msgbufaddr_low;
 	uint32		    msgbufaddr_high;
 	uint32		    msgbuf_sz;
@@ -660,6 +700,7 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	uint32		    eventlog_addr;
 	olmsg_dump_stats    stats;
 	wowl_host_info_t    wowl_host_info;
+	uint32		    marker_end;
 } BWL_POST_PACKED_STRUCT volatile olmsg_shared_info_t;
 
 typedef BWL_PRE_PACKED_STRUCT struct olmsg_curpwr_t {
@@ -672,11 +713,21 @@ typedef BWL_PRE_PACKED_STRUCT struct olmsg_sarlimit_t {
 	sar_limit_t sarlimit;
 } BWL_POST_PACKED_STRUCT olmsg_sarlimit;
 
+#define CMDLINESZ	80
+
+typedef BWL_PRE_PACKED_STRUCT struct olmsg_ol_conscmd_t {
+	olmsg_header hdr;
+	uint8 cmdline[CMDLINESZ];
+} BWL_POST_PACKED_STRUCT olmsg_ol_conscmd;
+
 /* Message buffer start addreses is written at the end of
  * ARM memroy, 32 bytes additional.
  */
 #define sharedsz		(sizeof(olmsg_shared_info_t) + 32)
 #define OLMSG_SHARED_INFO_SZ	ROUNDUP(sharedsz, sizeof(uint32))
+
+/* Modify below if the size changes */
+#define OLMSG_SHARED_INFO_SZ_NUM  (11936)
 #include <packed_section_end.h>
 
 typedef struct olmsg_info_t {
@@ -687,7 +738,7 @@ typedef struct olmsg_info_t {
 	uint32	next_seq;
 } olmsg_info;
 
-#ifdef WLRXOE
+#ifdef BCM_OL_DEV
 /* This needs to be moved to private place */
 extern olmsg_shared_info_t *ppcie_shared;
 #define RXOEINC(a)	(ppcie_shared->stats.a++)
@@ -734,7 +785,7 @@ extern olmsg_shared_info_t *ppcie_shared;
 #define RXOEUPDTXINFO(tinfo) (bcopy((uint8 *)(tinfo), \
 	(uint8 *)(&ppcie_shared->wowl_host_info.wake_tx_info.txinfo), \
 	sizeof(ol_tx_info)));
-#endif	/* WLRXOE */
+#endif	/* BCM_OL_DEV */
 extern int
 bcm_olmsg_create(uchar *buf, uint32 len);
 

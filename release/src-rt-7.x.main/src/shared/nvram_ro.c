@@ -1,7 +1,7 @@
 /*
  * Read-only support for NVRAM on flash and otp.
  *
- * Copyright (C) 2013, Broadcom Corporation
+ * Copyright (C) 2014, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: nvram_ro.c 290190 2011-10-17 18:13:26Z $
+ * $Id: nvram_ro.c 377962 2013-01-09 19:38:48Z $
  */
 
 #include <typedefs.h>
@@ -32,18 +32,24 @@
 #define NVR_MSG(x)
 #endif	/* BCMDBG_ERR */
 
+#define NUM_VSIZES 16
 typedef struct _vars {
 	struct _vars *next;
-	int bufsz;	/* allocated size */
-	int size;	/* actual vars size */
+	int bufsz;		/* allocated size */
+	int size;		/* actual vars size */
 	char *vars;
+	uint16 vsizes[NUM_VSIZES];
 } vars_t;
+
+#ifdef DONGLEBUILD
+extern char *_vars_otp;
+#endif
 
 #define	VARS_T_OH	sizeof(vars_t)
 
 static vars_t *vars = NULL;
 
-#if !defined(DONGLEBUILD) && !defined(BCM_BOOTLOADER)
+#if !defined(DONGLEBUILD) && !defined(BCMDONGLEHOST) && !defined(BCM_BOOTLOADER)
 #define NVRAM_FILE	1
 #endif
 
@@ -53,12 +59,110 @@ static int initvars_file(si_t *sih, osl_t *osh, char **nvramp, int *nvraml);
 #endif
 
 static char *findvar(char *vars_arg, char *lim, const char *name);
+
 extern void nvram_get_global_vars(char **varlst, uint *varsz);
+static char *nvram_get_internal(const char *name);
+static int nvram_getall_internal(char *buf, int count);
+
+static void
+#if defined(WLTEST) || !defined(WLC_HIGH)
+sortvars(si_t *sih, vars_t *new)
+#else
+	BCMATTACHFN(sortvars)(si_t *sih, vars_t *new)
+#endif
+{
+	osl_t *osh = si_osh(sih);
+	char *s = new->vars;
+	int i;
+	char *temp;
+	char *c, *cend;
+	uint8 *lp;
+
+	/*
+	 * Sort the variables by length.  Everything len NUM_VISZES or
+	 * greater is dumped into the end of the area
+	 * in no particular order.  The search algorithm can then
+	 * restrict the search to just those variables that are the
+	 * proper length.
+	 */
+
+	/* get a temp array to hold the sorted vars */
+	temp = MALLOC(osh, NVRAM_ARRAY_MAXSIZE + 1);
+	if (!temp) {
+		NVR_MSG(("Out of memory for malloc for NVRAM sort"));
+		return;
+	}
+
+	c = temp;
+	lp = (uint8 *) c++;
+
+	/* Mark the var len and exp len as we move to the temp array */
+	while ((s < (new->vars + new->size)) && *s) {
+		uint8 len = 0;
+		char *start = c;
+		while ((*s) && (*s != '=')) {  /* Scan the variable */
+			*c++ = *s++;
+			len++;
+		}
+
+		/* ROMS have variables w/o values which we skip */
+		if (*s != '=') {
+			c = start;
+
+		} else {
+			*lp = len; 		/* Set the len of this var */
+			lp = (uint8 *) c++;
+			s++;
+			len = 0;
+			while (*s) { 		/* Scan the expr */
+				*c++ = *s++;
+				len++;
+			}
+			*lp = len; 		/* Set the len of the expr */
+			lp = (uint8 *) c++;
+			s++;
+		}
+	}
+
+	cend = (char *) lp;
+
+	s = new->vars;
+	for (i = 1; i <= NUM_VSIZES; i++) {
+		new->vsizes[i - 1] = (uint16) (s - new->vars);
+		/* Scan for all variables of size i */
+		for (c = temp; c < cend;) {
+			int len = *c++;
+			if ((len == i) || ((i == NUM_VSIZES) && (len >= NUM_VSIZES))) {
+				/* Move the variable back */
+				while (len--) {
+					*s++ = *c++;
+				}
+
+				/* Get the length of the expression */
+				len = *c++;
+				*s++ = '=';
+
+				/* Move the expression back */
+				while (len--) {
+					*s++ = *c++;
+				}
+				*s++ = 0;	/* Reinstate string terminator */
+
+			} else {
+				/* Wrong size - skip to next in temp copy */
+				c += len;
+				c += *c + 1;
+			}
+		}
+	}
+
+	MFREE(osh, temp, NVRAM_ARRAY_MAXSIZE + 1);
+}
 
 #if defined(FLASH)
 /** copy flash to ram */
 static void
-BCMINITFN(get_flash_nvram)(si_t *sih, struct nvram_header *nvh)
+BCMATTACHFN(get_flash_nvram)(si_t *sih, struct nvram_header *nvh)
 {
 	osl_t *osh;
 	uint nvs, bufsz;
@@ -79,6 +183,7 @@ BCMINITFN(get_flash_nvram)(si_t *sih, struct nvram_header *nvh)
 	new->size = nvs;
 	new->next = vars;
 	vars = new;
+	sortvars(sih, new);
 
 #ifdef BCMJTAG
 	if (BUSTYPE(sih->bustype) == JTAG_BUS) {
@@ -213,6 +318,7 @@ BCMATTACHFN(nvram_init)(void *si)
 			new->size = sz;
 			new->next = vars;
 			vars = new;
+			sortvars(sih, new);
 		}
 	}
 
@@ -350,6 +456,8 @@ BCMATTACHFN(nvram_append)(void *si, char *varlst, uint varsz)
 	new->bufsz = bufsz;
 	new->size = varsz;
 	new->next = vars;
+	sortvars(si_osh((si_t *) si), new);
+
 	vars = new;
 
 	return BCME_OK;
@@ -363,7 +471,7 @@ nvram_get_global_vars(char **varlst, uint *varsz)
 }
 
 void
-BCMUNINITFN(nvram_exit)(void *si)
+BCMATTACHFN(nvram_exit)(void *si)
 {
 	vars_t *this, *next;
 	si_t *sih;
@@ -371,9 +479,14 @@ BCMUNINITFN(nvram_exit)(void *si)
 	sih = (si_t *)si;
 	this = vars;
 
-#ifndef DONGLEBUILD
+#ifdef DONGLEBUILD
+	if (this && this->vars && (_vars_otp == this->vars)) {
+		MFREE(si_osh(sih), this->vars, this->bufsz);
+		_vars_otp = NULL;
+	}
+#else
 	if (this)
-		MFREE(si_osh(sih), this->vars, this->size);
+		MFREE(si_osh(sih), this->vars, this->bufsz);
 #endif /* DONGLEBUILD */
 
 	while (this) {
@@ -385,7 +498,11 @@ BCMUNINITFN(nvram_exit)(void *si)
 }
 
 static char *
+#if defined(BCMROMBUILD) || defined(WLTEST) || !defined(WLC_HIGH) || defined(ATE_BUILD)
 findvar(char *vars_arg, char *lim, const char *name)
+#else
+BCMATTACHFN(findvar)(char *vars_arg, char *lim, const char *name)
+#endif 
 {
 	char *s;
 	int len;
@@ -415,26 +532,55 @@ char *defvars = "il0macaddr=00:11:22:33:44:55\0"
 char *defvars = "";
 #endif	/* BCMSPACE */
 
-char *
-nvram_get(const char *name)
+static char *
+#if defined(BCMROMBUILD) || defined(WLTEST) || !defined(WLC_HIGH) || defined(ATE_BUILD)
+nvram_get_internal(const char *name)
+#else
+BCMATTACHFN(nvram_get_internal)(const char *name)
+#endif 
 {
-	char *v = NULL;
 	vars_t *cur;
+	char *v = NULL;
+	const int len = strlen(name);
 
-	for (cur = vars; cur; cur = cur->next)
-		if ((v = findvar(cur->vars, cur->vars + cur->size, name)))
-			break;
+	for (cur = vars; cur; cur = cur->next) {
+		/*
+		 * The variables are sorted by length (everything
+		 * NUM_VSIZES or longer is put in the last pool).  So
+		 * we can resterict the sort to just those variables
+		 * that match the length.  This is a surprisingly big
+		 * speedup as there are many lookups during init.
+		 */
+		if (len >= NUM_VSIZES) {
+			/* Scan all strings with len > NUM_VSIZES */
+			v = findvar(cur->vars + cur->vsizes[NUM_VSIZES - 1],
+			            cur->vars + cur->size, name);
+		} else {
+			/* Scan just the strings that match the len */
+			v = findvar(cur->vars + cur->vsizes[len - 1],
+			            cur->vars + cur->vsizes[len], name);
+		}
+
+		if (v) {
+			return v;
+		}
+	}
 
 #ifdef BCMSPACE
-	if (v == NULL) {
-		v = findvar(defvars, defvars + DEFVARSLEN, name);
-		if (v)
-			NVR_MSG(("%s: variable %s defaulted to %s\n",
-			         __FUNCTION__, name, v));
-	}
+	v = findvar(defvars, defvars + DEFVARSLEN, name);
+	if (v)
+		NVR_MSG(("%s: variable %s defaulted to %s\n",
+		         __FUNCTION__, name, v));
 #endif	/* BCMSPACE */
 
 	return v;
+}
+
+char *
+nvram_get(const char *name)
+{
+	NVRAM_RECLAIM_CHECK(name);
+	return nvram_get_internal(name);
 }
 
 int
@@ -461,8 +607,12 @@ BCMATTACHFN(nvram_commit)(void)
 	return 0;
 }
 
-int
-nvram_getall(char *buf, int count)
+static int
+#if defined(BCMROMBUILD) || defined(WLTEST) || !defined(WLC_HIGH)
+nvram_getall_internal(char *buf, int count)
+#else
+BCMATTACHFN(nvram_getall_internal)(char *buf, int count)
+#endif 
 {
 	int len, resid = count;
 	vars_t *this;
@@ -494,6 +644,13 @@ nvram_getall(char *buf, int count)
 		return BCME_BUFTOOSHORT;
 	*buf = '\0';
 	return 0;
+}
+
+int
+nvram_getall(char *buf, int count)
+{
+	NVRAM_RECLAIM_CHECK("nvram_getall");
+	return nvram_getall_internal(buf, count);
 }
 
 #ifdef BCMQT

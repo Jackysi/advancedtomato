@@ -1,7 +1,7 @@
 /*
  * TRX image file header format.
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: trxhdr.h 314841 2012-02-14 18:28:33Z $
+ * $Id: trxhdr.h 349211 2012-08-07 09:45:24Z $
  */
 
 #ifndef _TRX_HDR_H
@@ -39,12 +39,6 @@
 #define TRX_VERSION	TRX_V1		/* Version 1 */
 #define TRX_MAX_OFFSET TRX_V1_MAX_OFFSETS
 #endif
-
-#define TRX_MAGIC_F7D3301	0x20100322	/* Belkin Share Max */
-#define TRX_MAGIC_F7D3302	0x20090928	/* Belkin Share */
-#define TRX_MAGIC_F7D4302	0x20091006	/* Belkin Play */
-#define TRX_MAGIC_F5D8235V3	0x00017116	/* Belkin F5D8235V3 */
-#define TRX_MAGIC_QA		0x12345678	/* QA firmware */
 
 /* BMAC Host driver/application like bcmdl need to support both Ver 1 as well as
  * Ver 2 of trx header. To make it generic, trx_header is structure is modified

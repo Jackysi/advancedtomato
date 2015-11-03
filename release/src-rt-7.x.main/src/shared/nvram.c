@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation (common)
  *
- * Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2014, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -115,7 +115,7 @@ BCMINITFN(nvram_rehash)(struct nvram_header *header)
 {
 	char buf[] = "0xXXXXXXXX", *name, *value, *end, *eq;
 	char *nvram_space_str = _nvram_get("nvram_space");
-	unsigned long nvram_space = DEF_NVRAM_SPACE;
+	unsigned long nvram_space = MAX_NVRAM_SPACE;
 
 	if (nvram_space_str)
 		nvram_space =  bcm_strtoul(nvram_space_str, NULL, 0);
