@@ -28,7 +28,7 @@ OBJS += nas_eap.o wps_eap.o ses_eap.o
 
 
 #ifdef BCM_DCS
-ifeq ($(RTCONFIG_BCMDCS),y)
+ifeq ($(TCONFIG_BCMDCS),y)
 OBJS += dcs_eap.o
 CFLAGS += -DBCM_DCS
 endif
@@ -42,7 +42,7 @@ endif
 #endif
 
 #ifdef BCM_BSD
-ifeq ($(RTCONFIG_BCMBSD),y)
+ifeq ($(TCONFIG_BCMBSD),y)
 OBJS += bsd_eap.o
 CFLAGS += -DBCM_BSD
 endif

@@ -63,7 +63,7 @@ else
 obj-y += iptables
 obj-y += iproute2
 endif
-obj-$(TCONFIG_DHDAP) += dhd pciefd
+obj-$(TCONFIG_DHDAP) += dhd $(if $(TCONFIG_BCM7),pciefd)
 obj-y += rom
 obj-y += others
 obj-y += busybox
@@ -392,8 +392,18 @@ endif
 # Basic rules
 #
 
-all: clean-build libc $(obj-y) kernel
+all: clean-build libc $(obj-y) version kernel
 
+ifeq ($(TCONFIG_BCMARM),y)
+version:  $(SRCBASE)/include/epivers.h
+
+$(SRCBASE)/include/epivers.h:
+	$(MAKE) -C $(SRCBASE)/include
+ifeq ($(TCONFIG_DHDAP),y)
+	$(MAKE) -C $(SRCBASE_DHD)/include
+	$(MAKE) -C $(SRCBASE_FW)/include
+endif
+endif
 
 kernel: $(LINUXDIR)/.config
 	@$(SEP)

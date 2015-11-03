@@ -4,10 +4,13 @@ include $(SRCBASE)/router/.config
 # Broadcom platform
 
 ifeq ($(TCONFIG_BCMARM),y)
+ifeq ($(TCONFIG_BCM7),y)
+SRCFILE = broadcom_arm_7
+else
 SRCFILE = broadcom_arm
+endif
 DSTDIR = $(INSTALLDIR)/lib/modules/2.6.36.4brcmarm/kernel/fs
 endif
-
 
 export DSTDIR
 

@@ -26,7 +26,7 @@ endif
 LDFLAGS	+= -L$(TOP)/nvram${BCMEX} -lnvram -L$(TOP)/shared -lshared
 LDFLAGS += -lgcc_s
 
-ifeq ($(RTCONFIG_QTN),y)
+ifeq ($(TCONFIG_QTN),y)
 LDFLAGS += -L$(TOP)/libqcsapi_client -lqcsapi_client
 endif
 

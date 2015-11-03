@@ -97,7 +97,7 @@ RT-N18U				BCM4708               0x0646       00        0x1100    0x00000110
 RT-AC56U			BCM4708               0x0646	   00	     0x1100    0x00000110
 RT-AC68U			BCM4708               0x0646       <MAC>     0x1100    0x00001000
 RT-AC68P			BCM4709               0x0665       <MAC>     0x1103    0x00001000
-
+RT-AC3200			BCM4709               0x072f       <MAC>     0x1101
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
 WNR3500Lv2			BCM47186              0x052b       3500(L)   02        0x710|0x1000
@@ -230,6 +230,7 @@ int check_hw_type(void)
 	case 0x0665: //R7000,R1D
 	case 0xf646: //EA6700,WZR-1750
 	case 0xd646: //EA6900
+	case 0x072f: //AC3200
 		return HW_BCM4708;
 #endif
 	}
@@ -365,6 +366,9 @@ int get_model(void)
 //REMOVE: Same as RT-AC68U, no nvram "model=RT-AC68R" according to CFE for RT-AC68R
 //		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("model", "RT-AC68R"))) return MODEL_RTAC68U;
 		if ((nvram_match("boardrev", "0x1103")) && (nvram_match("model", "RT-AC68U"))) return MODEL_RTAC68U;
+#ifdef CONFIG_BCM7
+		if ((nvram_match("boardrev", "0x1101")) && (nvram_match("model", "RT-AC3200"))) return MODEL_RTAC3200;
+#endif
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H245T00_NETGEAR"))) return MODEL_R6250;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H240T00_NETGEAR"))) return MODEL_R6300v2;
 		if ((nvram_match("boardrev", "0x1110")) && (nvram_match("boardnum", "679")) && (nvram_match("board_id", "U12H240T70_NETGEAR"))) return MODEL_R6300v2;

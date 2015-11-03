@@ -342,7 +342,26 @@ void unload_wl(void)
 void load_wl(void)
 {
 #ifdef TCONFIG_DHDAP
-	modprobe("dhd");
+	int i = 0, maxwl_eth = 0, maxunit = -1;
+	int unit = -1;
+	char ifname[16] = {0};
+	char instance_base[128];
+
+	/* Search for existing wl devices and the max unit number used */
+	for (i = 1; i <= DEV_NUMIFS; i++) {
+		snprintf(ifname, sizeof(ifname), "eth%d", i);
+		if (!wl_probe(ifname)) {
+			if (!wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit))) {
+				maxwl_eth = i;
+				maxunit = (unit > maxunit) ? unit : maxunit;
+			}
+		}
+	}
+	snprintf(instance_base, sizeof(instance_base), "instance_base=%d", maxunit + 1);
+#ifdef TCONFIG_BCM7
+	snprintf(instance_base, sizeof(instance_base), "%s", instance_base);
+#endif
+	eval("insmod", "dhd", instance_base);
 #else
 	modprobe("wl");
 #endif

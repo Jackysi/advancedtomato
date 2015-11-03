@@ -11,6 +11,7 @@
 */
 
 #include "rc.h"
+#include "shared.h"
 
 #include <termios.h>
 #include <dirent.h>
@@ -44,6 +45,104 @@ restore_defaults_module(char *prefix)
 		nvram_set(t->name, t->value);
 	}
 }
+#ifdef TCONFIG_BCM7
+extern struct nvram_tuple bcm4360ac_defaults[];
+
+static void set_bcm4360ac_vars(void)
+{
+	struct nvram_tuple *t;
+
+	/* Restore defaults */
+	dbg("Restoring bcm4360ac vars...\n");
+	for (t = bcm4360ac_defaults; t->name; t++) {
+		if (!nvram_get(t->name))
+			nvram_set(t->name, t->value);
+	}
+}
+
+void
+bsd_defaults(void)
+{
+	char extendno_org[14];
+	int ext_num;
+	char ext_commit_str[8];
+	struct nvram_tuple *t;
+
+	dbg("Restoring bsd settings...\n");
+
+	if (!strlen(nvram_safe_get("extendno_org")) ||
+	    nvram_match("extendno_org", nvram_safe_get("extendno")))
+		return;
+
+	strcpy(extendno_org, nvram_safe_get("extendno_org"));
+	if (!strlen(extendno_org) ||
+	    sscanf(extendno_org, "%d-g%s", &ext_num, ext_commit_str) != 2)
+		return;
+
+
+	for (t = router_defaults; t->name; t++)
+		if (strstr(t->name, "bsd"))
+			nvram_set(t->name, t->value);
+}
+
+/* assign none-exist value */
+void
+wl_defaults(void)
+{
+	struct nvram_tuple *t;
+	char prefix[]="wlXXXXXX_", tmp[100], tmp2[100];
+	char pprefix[]="wlXXXXXX_", *pssid;
+	char word[256], *next;
+	int unit, subunit;
+	char wlx_vifnames[64], wl_vifnames[64], lan_ifnames[128];
+	int subunit_x = 0;
+	unsigned int max_mssid;
+
+	memset(wlx_vifnames, 0, sizeof(wlx_vifnames));
+	memset(wl_vifnames, 0, sizeof(wl_vifnames));
+	memset(lan_ifnames, 0, sizeof(lan_ifnames));
+
+	dbg("Restoring wireless vars ...\n");
+
+	if (!nvram_get("wl_country_code"))
+		nvram_set("wl_country_code", "");
+
+	unit = 0;
+	foreach (word, nvram_safe_get("wl_ifnames"), next) {
+		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+
+	dbg("Restoring wireless vars - in progress ...\n");
+
+		for (t = router_defaults; t->name; t++) {
+#ifdef CONFIG_BCMWL5
+			if (!strncmp(t->name, "wl", 2) && strncmp(t->name, "wl_", 3) && strncmp(t->name, "wlc", 3) && !strcmp(&t->name[4], "nband"))
+				nvram_set(t->name, t->value);
+#endif
+			if (strncmp(t->name, "wl_", 3)!=0) continue;
+#ifdef CONFIG_BCMWL5
+			if (!strcmp(&t->name[3], "nband") && nvram_match(strcat_r(prefix, &t->name[3], tmp), "-1"))
+				nvram_set(strcat_r(prefix, &t->name[3], tmp), t->value);
+#endif
+			if (!nvram_get(strcat_r(prefix, &t->name[3], tmp))) {
+				/* Add special default value handle here */
+#ifdef TCONFIG_EMF
+				/* Wireless IGMP Snooping */
+				if (strncmp(&t->name[3], "igs", sizeof("igs")) == 0) {
+					char *value = nvram_get(strcat_r(prefix, "wmf_bss_enable", tmp2));
+					nvram_set(tmp, (value && *value) ? value : t->value);
+				} else
+#endif
+					nvram_set(tmp, t->value);
+			}
+		}
+
+		unit++;
+	}
+	dbg("Restoring wireless vars - done ...\n");
+}
+
+#endif
+
 
 static void
 restore_defaults(void)
@@ -71,19 +170,6 @@ restore_defaults(void)
 	nvram_set("os_name", "linux");
 	nvram_set("os_version", tomato_version);
 	nvram_set("os_date", tomato_buildtime);
-
-#ifdef TCONFIG_BCMARM
-	if (!nvram_match("extendno_org", nvram_safe_get("extendno")))
-	{
-		dbg("Reset TxBF settings...\n");
-		nvram_set("extendno_org", nvram_safe_get("extendno"));
-		nvram_set("wl0_txbf", "1");
-		nvram_set("wl1_txbf", "1");
-		nvram_set("wl0_itxbf", "0");
-		nvram_set("wl1_itxbf", "1");
-		nvram_commit();
-	}
-#endif
 }
 
 
@@ -585,6 +671,7 @@ static int init_vlan_ports(void)
 	case MODEL_R7000:
 	case MODEL_RTN18U:
 	case MODEL_RTAC68U:
+	case MODEL_RTAC3200:
 	case MODEL_WS880:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
@@ -872,20 +959,6 @@ REBOOT:	// do a simple reboot
 	}
 }
 
-#ifdef TCONFIG_BCM7
-extern struct nvram_tuple bcm4360ac_defaults[];
-
-static void set_bcm4360ac_vars(void)
-{
-	struct nvram_tuple *t;
-
-	/* Restore defaults */
-	for (t = bcm4360ac_defaults; t->name; t++) {
-		if (!nvram_get(t->name))
-			nvram_set(t->name, t->value);
-	}
-}
-#endif
 
 static int init_nvram(void)
 {
@@ -1534,6 +1607,73 @@ static int init_nvram(void)
 			nvram_set("1:ccode", "SG");
 			nvram_set("wl_country", "SG");
 			nvram_set("wl_country_code", "SG");
+		}
+		break;
+	case MODEL_RTAC3200:
+		mfr = "Asus";
+		name = "RT-AC3200";
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1 wl2");
+			nvram_set("lan_ifnames", "vlan1 eth2 eth1 eth3");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wl_ifnames", "eth2 eth1 eth3");
+			nvram_set("wl_ifname", "eth2");
+			nvram_set("wl0_ifname", "eth2");
+			nvram_set("wl1_ifname", "eth1");
+			nvram_set("wl2_ifname", "eth3");
+			nvram_set("wl0_vifnames", "wl0.1 wl0.2 wl0.3");
+			nvram_set("wl1_vifnames", "wl1.1 wl1.2 wl1.3");
+			nvram_set("wl2_vifnames", "wl2.1 wl2.2 wl2.3");
+
+			// fix WL mac`s
+			nvram_set("wl0_hwaddr", nvram_safe_get("1:macaddr"));
+			nvram_set("wl1_hwaddr", nvram_safe_get("0:macaddr"));
+			nvram_set("wl2_hwaddr", nvram_safe_get("2:macaddr"));
+
+			// usb3.0 settings
+			nvram_set("usb_usb3", "1");
+			nvram_set("xhci_ports", "1-1");
+			nvram_set("ehci_ports", "2-1 2-2");
+			nvram_set("ohci_ports", "3-1 3-2");
+
+			// force wl settings
+			// wl0 (1:) - 2,4GHz
+			nvram_set("wl0_bw_cap","3");
+			nvram_set("wl0_chanspec","6u");
+			nvram_set("wl0_channel","6");
+			nvram_set("wl0_nbw","40");
+			nvram_set("wl0_nctrlsb", "upper");
+			nvram_set("1:ccode", "SG");
+			nvram_set("1:regrev", "0");
+			// wl1 (0:) - 5GHz low
+			nvram_set("wl1_bw_cap", "7");
+			nvram_set("wl1_chanspec", "48l");
+			nvram_set("wl1_channel", "48");
+			nvram_set("wl1_nbw","80");
+			nvram_set("wl1_nctrlsb", "lower");
+			nvram_set("0:ccode", "SG");
+			nvram_set("0:regrev", "0");
+			// wl2 (2:) - 5GHz high
+			nvram_set("wl2_bw_cap", "7");
+			nvram_set("wl2_chanspec", "100u");
+			nvram_set("wl2_channel", "100");
+			nvram_set("wl2_nbw","80");
+			nvram_set("wl2_nctrlsb", "upper");
+			nvram_set("2:ccode", "SG");
+			nvram_set("2:regrev", "0");
+
+			wl_defaults();
+			bsd_defaults();
+			set_bcm4360ac_vars();
 		}
 		break;
 	case MODEL_R6250:
@@ -4170,6 +4310,7 @@ static void sysinit(void)
 
 //	eval("nvram", "defaults", "--initcheck");
 	restore_defaults(); // restore default if necessary
+
 	init_nvram();
 
 	// set the packet size

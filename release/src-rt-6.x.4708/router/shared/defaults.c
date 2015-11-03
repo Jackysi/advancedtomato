@@ -174,12 +174,13 @@ struct nvram_tuple router_defaults[] = {
 	// Wireless parameters
 	{ "wl_ifname",			""				, 0 },	// Interface name
 	{ "wl_hwaddr",			""				, 0 },	// MAC address
-	{ "wl_phytype",			"b"				, 0 },	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
+	{ "wl_phytype",			"v"				, 0 },	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
 	{ "wl_corerev",			""				, 0 },	// Current core revision
 	{ "wl_phytypes",		""				, 0 },	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				, 0 },	// List of radio IDs
 	{ "wl_ssid",			"Tomato24"			, 0 },	// Service set ID (network name)
 #ifdef TCONFIG_AC3200
+	{ "wl0_ssid",			"Tomato24"			, 0 },	// Service set ID (network name)
 	{ "wl1_ssid",			"Tomato50-1"			, 0 },
 	{ "wl2_ssid",			"Tomato50-2"			, 0 },
 #else
@@ -188,6 +189,9 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_country_code",		""				, 0 },		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				, 0 },	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				, 0 },	// Enable (1) or disable (0) radio
+#ifdef TCONFIG_AC3200
+	{ "wl2_radio",			"1"				, 0 },	// Enable (1) or disable (0) radio
+#endif
 	{ "wl_closed",			"0"				, 0 },	// Closed (hidden) network
 	{ "wl_ap_isolate",		"0"				, 0 },	// AP isolate mode
 	{ "wl_mode",			"ap"				, 0 },	// AP mode (ap|sta|wds)
@@ -202,7 +206,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_key3",			""				, 0 },	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key4",			""				, 0 },	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_channel",			"6"				, 0 },	// Channel number
-	{ "wl1_channel",		"0"				, 0 },
 	{ "wl_rate",			"0"				, 0 },	// Rate (bps, 0 for auto)
 	{ "wl_mrate",			"0"				, 0 },	// Mcast Rate (bps, 0 for auto)
 	{ "wl_rateset",			"default"			, 0 },	// "default" or "all" or "12"
@@ -217,7 +220,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_afterburner",		"off"				, 0 },	// AfterBurner
 	{ "wl_frameburst",		"off"				, 0 },	// BRCM Frambursting mode (off|on)
 	{ "wl_wme",			"auto"				, 0 },	// WME mode (auto|off|on)
-	{ "wl1_wme",			"auto"				, 0 },	// WME mode (auto|off|on)
 	{ "wl_antdiv",			"-1"				, 0 },	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				, 0 },	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				, 0 },	// !!TB - BT Coexistence Mode
@@ -341,6 +343,54 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_itxbf",			"1"},
 	{ "wl0_itxbf",			"0"},
 #endif
+#endif
+
+#ifdef TCONFIG_BCM7
+	{ "wl_acs_dfs", "2", 0 },		/* acsd fcs disable init DFS chan */
+#else
+	{ "wl_acs_dfs", "0", 0 },		/* Enable first DFS chan Selection */
+#endif
+	{ "wl_dcs_csa_unicast", "1", 0 },	/* Enable unicast CSA */
+	/* Exclude ACSD to select 140l, 144u, 140/80, 144/80 to compatible with Ducati 11N */
+	{ "wl_acs_excl_chans", "0xd98e,0xd88e,0xe28a,0xe38a", 0 },
+	{ "wl_pspretend_retry_limit", "5", 0 }, /* Enable PsPretend */
+#ifndef TCONFIG_BCM7
+	{ "wl_pspretend_threshold", "0", 0 },	/* Disable PsPretend Threshold */
+#endif
+	{ "wl_acs_chan_dwell_time", "70", 0 },	/* WAR for AP to stay on DFS chan */
+	{ "wl_frameburst", "on", 0 },		/* BRCM Frambursting mode (off|on) */
+	{ "wl_amsdu", "off", 0 },		/* Default IPTV AMSDU setting */
+	{ "wl_rx_amsdu_in_ampdu", "off", 0 },	/* Media RX AMSDU In AMPDU setting */
+#ifdef BCM_BSD
+	{ "bsd_role", "0", 0 },			/* Band Steer Daemon */
+						/* 0:Disable, 1:Primary, 2:Helper, 3:Standalone */
+	{ "bsd_hport", "9877", 0 },		/* BSD helper port */
+	{ "bsd_pport", "9878", 0 },		/* BSD Primary port */
+	{ "bsd_helper", "192.168.1.2", 0 },	/* BSD primary ipaddr */
+	{ "bsd_primary", "192.168.1.1", 0 },	/* BSD Helper ipaddr */
+	{ "smart_connect_x", "0", 0 },		/* 0:Disable, 1:Tri-band, 2:5GHz */
+#ifdef TCONFIG_AC3200
+	{"bsd_ifnames", "eth2 eth1 eth3", 0 },
+	{"wl0_bsd_steering_policy", "0 5 3 -52 0 110 0x22", 0 },
+	{"wl1_bsd_steering_policy", "80 5 3 -82 0 0 0x0", 0 },
+	{"wl2_bsd_steering_policy", "0 5 3 -82 0 0 0x8", 0 },
+	{"wl0_bsd_sta_select_policy", "2 -52 0 110 0 0 -1 0 0 0 0x122", 0 },
+	{"wl1_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x4", 0 },
+	{"wl2_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x8", 0 },
+	{"wl0_bsd_if_select_policy", "eth3 eth1", 0 },
+	{"wl1_bsd_if_select_policy", "eth2 eth3", 0 },
+	{"wl2_bsd_if_select_policy", "eth2 eth1", 0 },
+	{"wl0_bsd_if_qualify_policy", "0 0x0", 0 },
+	{"wl1_bsd_if_qualify_policy", "60 0x0", 0 },
+	{"wl2_bsd_if_qualify_policy", "0 0x4", 0 },
+	{"bsd_bounce_detect", "180 1 3600", 0 },
+#endif
+#endif
+#ifdef TCONFIG_BCM7
+	{ "wl_dfs_pref", "", 0 },		/* DFS Preferred channel value */
+	{ "wl_probresp_mf", "0", 0 },		/* MAC filter based probe response */
+	{ "wl_probresp_sw", "1", 0 },		/* SW probe response */
+	{ "wl_vht_features", "-1", 0 },		/* VHT features */
 #endif
 
 	{ "pptp_server_ip",		""				, 0 },	// as same as WAN gateway
@@ -1502,68 +1552,6 @@ struct nvram_tuple bcm4360ac_defaults[] = {
 };
 #endif
 
-/* nvram override default setting for Media Router */
-struct nvram_tuple router_defaults_override_type1[] = {
-	{ "router_disable", "1", 0 },		/* lan_proto=static lan_stp=0 wan_proto=disabled */
-	{ "lan_stp", "0", 0 },			/* LAN spanning tree protocol */
-	{ "wl_wmf_bss_enable", "1", 0 },	/* WMF Enable for IPTV Media or WiFi+PLC */
-	{ "wl_reg_mode", "h", 0 },		/* Regulatory: 802.11H(h) */
-	{ "wl_wet_tunnel", "1", 0  },		/* Enable wet tunnel */
-	{ "wl_taf_enable", "1", 0  },		/* Enable TAF */
-
-	/* EBOS feature Media router default */
-	{ "wl_ebos_enable", "0", 0 },		/* EBOS feature on */
-	{ "wl_ebos_flags", "104", 0 },		/* 104(0x68) pseudo-round robin */
-	{ "wl_ebos_prr_threshold", "0x0f000000", 0 },	/* pseudo-round robin threshold */
-
-#ifdef __CONFIG_EMF__
-	{ "emf_enable", "1", 0 },		/* Enable EMF by default */
-	{ "wl_wmf_ucigmp_query", "1", 0 },	/* Enable Converting IGMP Query to ucast */
-	{ "wl_wmf_ucast_upnp", "1", 0 },	/* Enable upnp to ucast conversion */
-	{ "wl_wmf_igmpq_filter", "1", 0 },	/* Enable igmp query filter */
-#endif
-	{ "wl_acs_fcs_mode", "1", 0 },		/* Enable acsd fcs mode */
-#ifdef TCONFIG_BCM7
-	{ "wl_acs_dfs", "2", 0 },		/* acsd fcs disable init DFS chan */
-#else
-	{ "wl_acs_dfs", "0", 0 },		/* Enable first DFS chan Selection */
-#endif
-	{ "wl_dcs_csa_unicast", "1", 0 },	/* Enable unicast CSA */
-	/* Exclude ACSD to select 140l, 144u, 140/80, 144/80 to compatible with Ducati 11N */
-	{ "wl_acs_excl_chans", "0xd98e,0xd88e,0xe28a,0xe38a", 0 },
-	{ "wl_pspretend_retry_limit", "5", 0 }, /* Enable PsPretend */
-#ifndef TCONFIG_BCM7
-	{ "wl_pspretend_threshold", "0", 0 },	/* Disable PsPretend Threshold */
-#endif
-	{ "wl_acs_chan_dwell_time", "70", 0 },	/* WAR for AP to stay on DFS chan */
-	{ "wl_frameburst", "on", 0 },		/* BRCM Frambursting mode (off|on) */
-	{ "wl_amsdu", "off", 0 },		/* Default IPTV AMSDU setting */
-	{ "wl_rx_amsdu_in_ampdu", "off", 0 },	/* Media RX AMSDU In AMPDU setting */
-#ifdef TCONFIG_AC3200
-	{"bsd_ifnames", "eth2 eth1 eth3", 0 },
-	{"wl0_bsd_steering_policy", "0 5 3 -52 0 110 0x22", 0 },
-	{"wl1_bsd_steering_policy", "80 5 3 -82 0 0 0x0", 0 },
-	{"wl2_bsd_steering_policy", "0 5 3 -82 0 0 0x8", 0 },
-	{"wl0_bsd_sta_select_policy", "2 -52 0 110 0 0 -1 0 0 0 0x122", 0 },
-	{"wl1_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x4", 0 },
-	{"wl2_bsd_sta_select_policy", "2 -82 0 0 0 0 1 0 0 0 0x8", 0 },
-	{"wl0_bsd_if_select_policy", "eth3 eth1", 0 },
-	{"wl1_bsd_if_select_policy", "eth2 eth3", 0 },
-	{"wl2_bsd_if_select_policy", "eth2 eth1", 0 },
-	{"wl0_bsd_if_qualify_policy", "0 0x0", 0 },
-	{"wl1_bsd_if_qualify_policy", "60 0x0", 0 },
-	{"wl2_bsd_if_qualify_policy", "0 0x4", 0 },
-	{"bsd_bounce_detect", "180 1 3600", 0 },
-#endif
-#ifdef TCONFIG_BCM7
-	{ "wl_dfs_pref", "", 0 },		/* DFS Preferred channel value */
-	{ "wl_probresp_mf", "0", 0 },		/* MAC filter based probe response */
-	{ "wl_probresp_sw", "1", 0 },		/* SW probe response */
-	{ "wl_vht_features", "-1", 0 },		/* VHT features */
-#endif
-	{ 0, 0, 0 }
-};
-
 /* Translates from, for example, wl0_ (or wl0.1_) to wl_. */
 /* Only single digits are currently supported */
 
@@ -1610,6 +1598,7 @@ nvram_default_get(const char *name)
 		}
 	}
 
+#ifndef RTCONFIG_BCM7
 #ifdef __CONFIG_HSPOT__
 	if (strcmp(fixed_name, "wl_bss_hs2_enabled") == 0) {
 		if (name[3] == '.' || name[4] == '.') { /* Virtual interface */
@@ -1617,14 +1606,7 @@ nvram_default_get(const char *name)
 		}
 	}
 #endif  /* __CONFIG_HSPOT__ */
-
-	if (!strcmp(nvram_safe_get("devicemode"), "1")) {
-		for (idx = 0; router_defaults_override_type1[idx].name != NULL; idx++) {
-			if (strcmp(router_defaults_override_type1[idx].name, fixed_name) == 0) {
-				return router_defaults_override_type1[idx].value;
-			}
-		}
-	}
+#endif
 
 	for (idx = 0; router_defaults[idx].name != NULL; idx++) {
 		if (strcmp(router_defaults[idx].name, fixed_name) == 0) {
@@ -1651,19 +1633,6 @@ nvram_validate_all(char *prefix, bool restore)
 			nvram_set(tmp, v ? v : t->value);
 		}
 	}
-
-	/* override router type1 nvram setting */
-	if (!strcmp(nvram_safe_get("devicemode"), "1")) {
-		for (t = router_defaults_override_type1; t->name; t++) {
-			if (!strncmp(t->name, "wl_", 3)) {
-				strcat_r(prefix, &t->name[3], tmp);
-				if (!restore && nvram_get(tmp))
-					continue;
-				v = nvram_get(t->name);
-				nvram_set(tmp, v ? v : t->value);
-			}
-		}
-	}
 }
 
 /* restore specific per-interface variable */
@@ -1677,16 +1646,6 @@ nvram_restore_var(char *prefix, char *name)
 		if (!strncmp(t->name, "wl_", 3) && !strcmp(&t->name[3], name)) {
 			nvram_set(strcat_r(prefix, name, tmp), t->value);
 			break;
-		}
-	}
-
-	/* override router type1 setting */
-	if (!strcmp(nvram_safe_get("devicemode"), "1")) {
-		for (t = router_defaults_override_type1; t->name; t++) {
-			if (!strncmp(t->name, "wl_", 3) && !strcmp(&t->name[3], name)) {
-				nvram_set(strcat_r(prefix, name, tmp), t->value);
-				break;
-			}
 		}
 	}
 }

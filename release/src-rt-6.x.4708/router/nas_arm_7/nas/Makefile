@@ -35,7 +35,7 @@ LDFLAGS += -L$(TOP)/libbcmcrypto -L$(INSTALLDIR)/libbcmcrypto/usr/lib -lbcmcrypt
 LDFLAGS += -lgcc_s
 
 include ../../.config
-ifeq ($(RTCONFIG_QTN),y)
+ifeq ($(TCONFIG_QTN),y)
 LDFLAGS += -L$(TOP)/libqcsapi_client -lqcsapi_client
 endif
 

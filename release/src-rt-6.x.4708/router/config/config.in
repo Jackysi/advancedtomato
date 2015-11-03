@@ -264,6 +264,26 @@ config TCONFIG_BCMFA
 	bool "BCM FA"
 	default n
 
+config TCONFIG_BCMBSD
+	bool "Brcm Band Steer Selection"
+	default n
+
+config TCONFIG_5301X
+	bool "Bcm 5301x"
+	default y
+
+config TCONFIG_BCMDCS
+	bool "Broadcom Dynamic Channel Selection"
+	default n
+
+config TCONFIG_TRAFFIC_MGMT_RSSI_POLICY
+	bool "Traffic Management RSSI policy"
+	default n
+
+config TCONFIG_TOAD
+	bool "Traffic Ordering Agent Daemon"
+	default n
+
 config TCONFIG_DNSSEC
 	bool "DNSSEC"
 	default n
