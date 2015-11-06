@@ -228,6 +228,11 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 5;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_WZR1750:
+//		reset_mask = 1 << 6;
+		ses_mask = 1 << 12;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_WNR3500L:
 	case MODEL_WNR3500LV2:
 		reset_mask = 1 << 4;
