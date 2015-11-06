@@ -927,7 +927,7 @@ e:
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y  B=E BUILD_DESC="$(VPN)" CTF=y GRO=y USB="USB" PPTPD=y OPENVPN=y DNSSEC=y SNMP=y
 
 o:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Custom" CTF=y GRO=y USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y DNSCRYPT=y PPTPD=y DNSSEC=y SNMP=y TINC=y TOR=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Custom" CTF=y GRO=y USB="USB" NOCAT=y TR_EXTRAS=y DNSCRYPT=y PPTPD=y DNSSEC=y SNMP=y
 
 z:
 	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" CTF=y GRO=y USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y DNSCRYPT=y UPS=y PPTPD=y DNSSEC=y TINC=y SNMP=y RAID=y NFS=y NANO=y TOR=y NGINX=y
@@ -937,6 +937,12 @@ ac68e:
 
 ac68z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y
+
+n18e:
+	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS"
+
+n18z:
+	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS"
 
 dir868l:
 	@$(MAKE) bin ARM=y NVRAM_SIZE=32 NAND=y BCMSMP=y ASUS_TRX="DLINK" CTF=y GRO=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y B=E BUILD_DESC="special" USB="USB" DNSSEC=y DNSCRYPT=y UPS=y NO_SSH=y NANO=y
@@ -1028,6 +1034,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "ASUS ARM Builds - RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P"
 	@echo "ac68e         RT-N18U/AC56U/AC68U(R/P) build VPN"
 	@echo "ac68z         RT-N18U/AC56U/AC68U(R/P) build AIO"
+	@echo "n18e          RT-N18U without SMP build VPN"
+	@echo "n18z          RT-N18U without SMP build AIO"
 	@echo "DLINK ARM Builds"
 	@echo "dir868l       DLINK DIR868L"
 	@echo "NETGEAR ARM Builds"
@@ -1037,7 +1045,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r6250init     R6250 init build"
 	@echo "r6300v2init   R6300v2 init build"
 	@echo "Xiaomi ARM Builds"
-	@echo "r1dz          R1D custom build"
+	@echo "r1do          R1D custom build"
 	@echo "HUAWEI ARM Builds"
 	@echo "ws880e        WS880 build VPN"
 	@echo "ws880z        WS880 build AIO"
