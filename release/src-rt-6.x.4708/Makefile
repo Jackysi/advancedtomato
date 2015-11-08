@@ -775,12 +775,32 @@ define KernelConfig
 		echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
 	fi; \
 	if [ "$(AC3200)" = "y" ]; then \
-		sed -i "/CONFIG_AC3200/d" $(1); \
-		echo "CONFIG_AC3200=y" >>$(1); \
+		sed -i "/CONFIG_RTAC3200/d" $(1); \
+		echo "CONFIG_RTAC3200=y" >>$(1); \
 	fi; \
 	if [ "$(BCM_RECVFILE)" = "y" ]; then \
 		sed -i "/CONFIG_BCM_RECVFILE/d" $(1); \
 		echo "CONFIG_BCM_RECVFILE=y" >>$(1); \
+	fi; \
+	if [ "$(DEBUGFS)" = "y" ]; then \
+		sed -i "/CONFIG_DEBUG_FS/d" $(1); \
+		echo "CONFIG_DEBUG_FS=y" >>$(1); \
+		sed -i "/CONFIG_USB_MON/d" $(1); \
+		echo "CONFIG_USB_MON=m" >>$(1); \
+		if [ "$(ARM)" = "y" ]; then \
+			sed -i "/CONFIG_GCOV_KERNEL/d" $(1); \
+			echo "# CONFIG_GCOV_KERNEL is not set" >>$(1); \
+			sed -i "/CONFIG_L2TP_DEBUGFS/d" $(1); \
+			echo "# CONFIG_L2TP_DEBUGFS is not set" >>$(1); \
+			sed -i "/CONFIG_JBD_DEBUG/d" $(1); \
+			echo "# CONFIG_JBD_DEBUG is not set" >>$(1); \
+			sed -i "/CONFIG_JBD2_DEBUG/d" $(1); \
+			echo "# CONFIG_JBD2_DEBUG is not set" >>$(1); \
+			sed -i "/CONFIG_LKDTM/d" $(1); \
+			echo "# CONFIG_LKDTM is not set" >>$(1); \
+			sed -i "/CONFIG_DYNAMIC_DEBUG/d" $(1); \
+			echo "# CONFIG_DYNAMIC_DEBUG is not set" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(NOWL)" = "y" ]; then \
 		sed -i "/CONFIG_WL=m/d" $(1); \
@@ -837,29 +857,10 @@ define KernelConfig
 			echo "CONFIG_IPV6_SIT_6RD=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_MULTIPLE_TABLES/d" $(1); \
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
-			sed -i "/CONFIG_IP6_NF_RAW/d" $(1); \
-			echo "CONFIG_IP6_NF_RAW=m" >>$(1); \
-			sed -i "/CONFIG_IPV6_OPTIMISTIC_DAD/d" $(1); \
-			echo "CONFIG_IPV6_OPTIMISTIC_DAD=y" >>$(1); \
-			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
-			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
-			echo "# CONFIG_IPV6_MROUTE_MULTIPLE_TABLES is not set" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
-			sed -i "/CONFIG_INET6_XFRM_TUNNEL/d" $(1); \
-			echo "CONFIG_INET6_XFRM_TUNNEL=m" >>$(1); \
-			sed -i "/CONFIG_INET6_AH/d" $(1); \
-			echo "CONFIG_INET6_AH=m" >>$(1); \
-			sed -i "/CONFIG_INET6_ESP/d" $(1); \
-			echo "CONFIG_INET6_ESP=m" >>$(1); \
-			sed -i "/CONFIG_INET6_IPCOMP/d" $(1); \
-			echo "CONFIG_INET6_IPCOMP=m" >>$(1); \
-			sed -i "/CONFIG_INET6_XFRM_MODE_TRANSPORT/d" $(1); \
-			echo "CONFIG_INET6_XFRM_MODE_TRANSPORT=m" >>$(1); \
-			sed -i "/CONFIG_INET6_XFRM_MODE_TUNNEL/d" $(1); \
-			echo "CONFIG_INET6_XFRM_MODE_TUNNEL=m" >>$(1); \
-			sed -i "/CONFIG_INET6_XFRM_MODE_BEET/d" $(1); \
-			echo "CONFIG_INET6_XFRM_MODE_BEET=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_MROUTE\b/d" $(1); \
+			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
@@ -887,6 +888,44 @@ define KernelConfig
 			echo "CONFIG_IP6_NF_TARGET_TCPMSS=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
+		fi; \
+	fi; \
+	if [ "$(IPSEC)" = "y" ]; then \
+		sed -i "/CONFIG_XFRM_USER/d" $(1); \
+		echo "CONFIG_XFRM_USER=m" >>$(1); \
+		echo "# CONFIG_XFRM_SUB_POLICY is not set" >>$(1); \
+		echo "# CONFIG_XFRM_MIGRATE is not set" >>$(1); \
+		echo "# CONFIG_XFRM_STATISTICS is not set" >>$(1); \
+		sed -i "/CONFIG_NET_KEY/d" $(1); \
+		echo "CONFIG_NET_KEY=m" >>$(1); \
+		echo "# CONFIG_NET_KEY_MIGRATE is not set" >>$(1); \
+		sed -i "/CONFIG_INET_AH/d" $(1); \
+		echo "CONFIG_INET_AH=m" >>$(1); \
+		sed -i "/CONFIG_INET_ESP/d" $(1); \
+		echo "CONFIG_INET_ESP=m" >>$(1); \
+		sed -i "/CONFIG_INET_IPCOMP/d" $(1); \
+		echo "CONFIG_INET_IPCOMP=m" >>$(1); \
+		sed -i "/CONFIG_INET_XFRM_MODE_TRANSPORT/d" $(1); \
+		echo "CONFIG_INET_XFRM_MODE_TRANSPORT=m" >>$(1); \
+		sed -i "/CONFIG_INET_XFRM_MODE_TUNNEL/d" $(1); \
+		echo "CONFIG_INET_XFRM_MODE_TUNNEL=m" >>$(1); \
+		sed -i "/CONFIG_INET_XFRM_MODE_BEET/d" $(1); \
+		echo "CONFIG_INET_XFRM_MODE_BEET=m" >>$(1); \
+		sed -i "/CONFIG_NETFILTER_XT_MATCH_POLICY/d" $(1); \
+		echo "CONFIG_NETFILTER_XT_MATCH_POLICY=m" >>$(1); \
+		if [ "$(IPV6SUPP)" = "y" ]; then \
+			sed -i "/CONFIG_INET6_AH/d" $(1); \
+			echo "CONFIG_INET6_AH=m" >>$(1); \
+			sed -i "/CONFIG_INET6_ESP/d" $(1); \
+			echo "CONFIG_INET6_ESP=m" >>$(1); \
+			sed -i "/CONFIG_INET6_IPCOMP/d" $(1); \
+			echo "CONFIG_INET6_IPCOMP=m" >>$(1); \
+			sed -i "/CONFIG_INET6_XFRM_MODE_TRANSPORT/d" $(1); \
+			echo "CONFIG_INET6_XFRM_MODE_TRANSPORT=m" >>$(1); \
+			sed -i "/CONFIG_INET6_XFRM_MODE_TUNNEL/d" $(1); \
+			echo "CONFIG_INET6_XFRM_MODE_TUNNEL=m" >>$(1); \
+			sed -i "/CONFIG_INET6_XFRM_MODE_BEET/d" $(1); \
+			echo "CONFIG_INET6_XFRM_MODE_BEET=m" >>$(1); \
 		fi; \
 	fi; \
 	sed -i "/CONFIG_BCM57XX/d" $(1); \
@@ -1071,10 +1110,10 @@ r8000z:
 	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
 
 ac3200e:
-	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y BCM_RECVFILE=y
+	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64
 
-ac32000z:
-	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y BCM_RECVFILE=y
+ac3200z:
+	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64
 endif
 
 setprofile:
@@ -1154,6 +1193,11 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "LINKSYS ARM Builds"
 	@echo "ea6700e       EA6700/EA6500v2/EA6900 build VPN"
 	@echo "ea6700z       EA6700/EA6500v2/EA6900 build AIO"
+ifeq ($(CONFIG_BCM7),y)
+	@echo "ASUS ARM7 Builds"
+	@echo "ac3200e        RT-AC3200 build VPN"
+	@echo "ac3200z        RT-AC3200 build AIO"
+endif
 endif
 	@echo ""
 	@echo "..etc..      other build configs"
