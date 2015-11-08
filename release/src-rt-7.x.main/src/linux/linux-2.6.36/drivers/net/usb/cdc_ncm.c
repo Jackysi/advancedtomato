@@ -1189,13 +1189,11 @@ static void cdc_ncm_disconnect(struct usb_interface *intf)
 	usbnet_disconnect(intf);
 }
 
-#if 0
 static int cdc_ncm_manage_power(struct usbnet *dev, int status)
 {
 	dev->intf->needs_remote_wakeup = status;
 	return 0;
 }
-#endif
 
 static const struct driver_info cdc_ncm_info = {
 	.description = "CDC NCM",
@@ -1266,11 +1264,14 @@ static const struct usb_device_id cdc_devs[] = {
 	  .driver_info = (unsigned long) &wwan_info,
 	},
 
-	/* tag Huawei devices as wwan */
-	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1,
-					USB_CLASS_COMM,
-					USB_CDC_SUBCLASS_NCM,
-					USB_CDC_PROTO_NONE),
+	/* Huawei NCM devices disguised as vendor specific */
+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x16),
+	  .driver_info = (unsigned long)&wwan_info,
+	},
+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x46),
+	  .driver_info = (unsigned long)&wwan_info,
+	},
+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x76),
 	  .driver_info = (unsigned long)&wwan_info,
 	},
 
