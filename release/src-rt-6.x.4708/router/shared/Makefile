@@ -25,6 +25,10 @@ ifeq ($(TCONFIG_DHDAP),y)
 export CFLAGS += -D__CONFIG_DHDAP__
 endif
 
+ifeq ($(TCONFIG_BCMBSD),y)
+export CFLAGS += -DBCM_BSD
+endif
+
 OBJS = shutils.o wl.o wl_linux.o linux_timer.o defaults.o id.o
 OBJS += misc.o led.o version.o base64.o files.o strings.o process.o
 OBJS += nvparse.o

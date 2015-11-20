@@ -1656,17 +1656,19 @@ static int init_nvram(void)
 			nvram_set("1:regrev", "0");
 			// wl1 (0:) - 5GHz low
 			nvram_set("wl1_bw_cap", "7");
-			nvram_set("wl1_chanspec", "48l");
-			nvram_set("wl1_channel", "48");
+			nvram_set("wl1_chanspec", "36/80");
+			nvram_set("wl1_channel", "36");
 			nvram_set("wl1_nbw","80");
+			nvram_set("wl1_nbw_cap","3");
 			nvram_set("wl1_nctrlsb", "lower");
 			nvram_set("0:ccode", "SG");
 			nvram_set("0:regrev", "0");
 			// wl2 (2:) - 5GHz high
 			nvram_set("wl2_bw_cap", "7");
-			nvram_set("wl2_chanspec", "100u");
-			nvram_set("wl2_channel", "100");
+			nvram_set("wl2_chanspec", "104/80");
+			nvram_set("wl2_channel", "104");
 			nvram_set("wl2_nbw","80");
+			nvram_set("wl2_nbw_cap","3");
 			nvram_set("wl2_nctrlsb", "upper");
 			nvram_set("2:ccode", "SG");
 			nvram_set("2:regrev", "0");
