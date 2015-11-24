@@ -26,13 +26,18 @@
  * The resize functions come from the resize_image project, at http://www.golac.fr/Image-Resizer
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <setjmp.h>
 #include <jpeglib.h>
+#ifdef HAVE_MACHINE_ENDIAN_H
+#include <machine/endian.h>
+#else
 #include <endian.h>
+#endif
 
 #include "upnpreplyparse.h"
 #include "image_utils.h"
@@ -79,7 +84,6 @@ my_dst_mgr_init(j_compress_ptr cinfo)
 	dst->jdst.free_in_buffer = dst->sz;
 
 	return;
-
 }
 
 static boolean
@@ -95,7 +99,6 @@ my_dst_mgr_empty(j_compress_ptr cinfo)
 	dst->jdst.free_in_buffer = dst->sz - dst->used;
 
 	return TRUE;
-
 }
 
 static void
@@ -107,7 +110,6 @@ my_dst_mgr_term(j_compress_ptr cinfo)
 	dst->off = dst->buf + dst->used;
 
 	return;
-
 }
 
 static void
@@ -119,7 +121,6 @@ jpeg_memory_dest(j_compress_ptr cinfo, struct my_dst_mgr *dst)
 	cinfo->dest = (void *)dst;
 
 	return;
-
 }
 
 /* Source manager to read data from a buffer */
@@ -177,10 +178,8 @@ jpeg_memory_src(j_decompress_ptr cinfo, const unsigned char * buffer, size_t buf
 {
 	struct my_src_mgr *src;
 
-	if (! cinfo->src)
-	{
+	if (!cinfo->src)
 		cinfo->src = (*cinfo->mem->alloc_small)((void *)cinfo, JPOOL_PERMANENT, sizeof(struct my_src_mgr));;
-	}
 	src = (void *)cinfo->src;
 	src->pub.init_source = init_source;
 	src->pub.fill_input_buffer = fill_input_buffer;
@@ -211,15 +210,17 @@ image_free(image_s *pimage)
 pix
 get_pix(image_s *pimage, int32_t x, int32_t y)
 {
-	if((x >= 0) && (y >= 0) && (x < pimage->width) && (y < pimage->height))
-	{
-		return(pimage->buf[(y * pimage->width) + x]);
-	}
-	else
-	{
-		pix vpix = BLACK;
-		return(vpix);
-	}
+	if (x < 0)
+		x = 0;
+	else if (x >= pimage->width)
+		x = pimage->width - 1;
+
+	if (y < 0)
+		y = 0;
+	else if (y >= pimage->height)
+		y = pimage->height - 1;
+
+	return(pimage->buf[(y * pimage->width) + x]);
 }
 
 void
@@ -367,7 +368,7 @@ image_get_jpeg_date_xmp(const char * path, char ** date)
 			if( nread < 1 )
 				break;
 
-			ParseNameValue(data, offset, &xml);
+			ParseNameValue(data, offset, &xml, 0);
 			exif = GetValueFromNameValueList(&xml, "DateTimeOriginal");
 			if( !exif )
 			{
@@ -393,8 +394,7 @@ image_get_jpeg_date_xmp(const char * path, char ** date)
 		}
 	}
 	fclose(img);
-	if( data )
-		free(data);
+	free(data);
 	return ret;
 }
 
@@ -420,7 +420,7 @@ image_new(int32_t width, int32_t height)
 }
 
 image_s *
-image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, int scale, int rotate)
+image_new_from_jpeg(const char *path, int is_file, const uint8_t *buf, int size, int scale, int rotate)
 {
 	image_s *vimage;
 	FILE  *file = NULL;
@@ -443,7 +443,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 	}
 	else
 	{
-		jpeg_memory_src(&cinfo, (const unsigned char *)buf, size);
+		jpeg_memory_src(&cinfo, buf, size);
 	}
 	if( setjmp(setjmp_buffer) )
 	{
@@ -456,6 +456,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 	cinfo.scale_denom = scale;
 	cinfo.do_fancy_upsampling = FALSE;
 	cinfo.do_block_smoothing = FALSE;
+	cinfo.dct_method = JDCT_IFAST;
 	jpeg_start_decompress(&cinfo);
 	w = cinfo.output_width;
 	h = cinfo.output_height;
@@ -475,8 +476,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 			fclose(file);
 		if( vimage )
 		{
-			if( vimage->buf )
-				free(vimage->buf);
+			free(vimage->buf);
 			free(vimage);
 		}
 		return NULL;
@@ -485,6 +485,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 	if(cinfo.rec_outbuf_height > 16)
 	{
 		DPRINTF(E_WARN, L_METADATA, "ERROR image_from_jpeg : (image_from_jpeg.c) JPEG uses line buffers > 16. Cannot load.\n");
+		jpeg_destroy_decompress(&cinfo);
 		image_free(vimage);
 		if( is_file )
 			fclose(file);
@@ -498,6 +499,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 		if((ptr = malloc(w * 3 * cinfo.rec_outbuf_height + 16)) == NULL)
 		{
 			DPRINTF(E_WARN, L_METADATA, "malloc failed\n");
+			jpeg_destroy_decompress(&cinfo);
 			image_free(vimage);
 			if( is_file )
 				fclose(file);
@@ -524,6 +526,7 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 	}
 	else if(cinfo.output_components == 1)
 	{
+		int rx, ry;
 		ofs = 0;
 		for(i = 0; i < cinfo.rec_outbuf_height; i++)
 		{
@@ -541,12 +544,19 @@ image_new_from_jpeg(const char * path, int is_file, const char * buf, int size, 
 		}
 		for(y = 0; y < h; y += cinfo.rec_outbuf_height)
 		{
+			ry = (rotate & (ROTATE_90|ROTATE_180)) ? (y - h + 1) * -1 : y;
 			jpeg_read_scanlines(&cinfo, line, cinfo.rec_outbuf_height);
 			for(i = 0; i < cinfo.rec_outbuf_height; i++)
 			{
 				for(x = 0; x < w; x++)
 				{
-					vimage->buf[ofs++] = COL(line[i][x], line[i][x], line[i][x]);
+					rx = (rotate & (ROTATE_180|ROTATE_270)) ?
+						(x - w + 1) * -1 : x;
+					ofs = (rotate & (ROTATE_90|ROTATE_270)) ?
+						ry + (rx * h) : rx + (ry * w);
+					if( ofs < maxbuf )
+						vimage->buf[ofs] =
+							COL(line[i][x], line[i][x], line[i][x]);
 				}
 			}
 		}
@@ -812,6 +822,8 @@ image_save_to_jpeg_buf(image_s * pimage, int * size)
 	if((data = malloc(row_stride)) == NULL)
 	{
 		DPRINTF(E_WARN, L_METADATA, "malloc failed\n");
+		free(dst.buf);
+		jpeg_destroy_compress(&cinfo);
 		return NULL;
 	}
 	i = 0;
@@ -835,8 +847,8 @@ image_save_to_jpeg_buf(image_s * pimage, int * size)
 	return dst.buf;
 }
 
-int
-image_save_to_jpeg_file(image_s * pimage, const char * path)
+char *
+image_save_to_jpeg_file(image_s * pimage, char * path)
 {
 	int nwritten, size = 0;
 	unsigned char * buf;
@@ -844,16 +856,16 @@ image_save_to_jpeg_file(image_s * pimage, const char * path)
 
 	buf = image_save_to_jpeg_buf(pimage, &size);
 	if( !buf )
-		return -1;
+		return NULL;
  	dst_file = fopen(path, "w");
 	if( !dst_file )
 	{
 		free(buf);
-		return -1;
+		return NULL;
 	}
 	nwritten = fwrite(buf, 1, size, dst_file);
 	fclose(dst_file);
 	free(buf);
 
-	return (nwritten==size ? 0 : 1);
+	return (nwritten == size) ? path : NULL;
 }

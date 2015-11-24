@@ -15,41 +15,41 @@
  * You should have received a copy of the GNU General Public License
  * along with MiniDLNA. If not, see <http://www.gnu.org/licenses/>.
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include <linux/limits.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <errno.h>
 
 #include "minidlnatypes.h"
 #include "upnpglobalvars.h"
+#include "utils.h"
 #include "log.h"
 
-inline int
-strcatf(struct string_s *str, const char *fmt, ...)
+int
+xasprintf(char **strp, char *fmt, ...)
 {
+	va_list args;
 	int ret;
-	va_list ap;
 
-	va_start(ap, fmt);
-	ret = vsnprintf(str->data + str->off, str->size - str->off, fmt, ap);
-	str->off += ret;
-	va_end(ap);
-
+	va_start(args, fmt);
+	ret = vasprintf(strp, fmt, args);
+	va_end(args);
+	if( ret < 0 )
+	{
+		DPRINTF(E_WARN, L_GENERAL, "xasprintf: allocation failed\n");
+		*strp = NULL;
+	}
 	return ret;
-}
-
-inline void
-strncpyt(char *dst, const char *src, size_t len)
-{
-	strncpy(dst, src, len);
-	dst[len-1] = '\0';
 }
 
 int
@@ -145,22 +145,29 @@ strcasestrc(const char *s, const char *p, const char t)
 } 
 
 char *
-modifyString(char * string, const char * before, const char * after, short like)
+modifyString(char *string, const char *before, const char *after, int noalloc)
 {
 	int oldlen, newlen, chgcnt = 0;
-	char *s, *p, *t;
+	char *s, *p;
+
+	/* If there is no match, just return */
+	s = strstr(string, before);
+	if (!s)
+		return string;
 
 	oldlen = strlen(before);
 	newlen = strlen(after);
-	if( newlen+like > oldlen )
+	if (newlen > oldlen)
 	{
-		s = string;
-		while( (p = strstr(s, before)) )
+		if (noalloc)
+			return string;
+
+		while ((p = strstr(s, before)))
 		{
 			chgcnt++;
-			s = p+oldlen;
+			s = p + oldlen;
 		}
-		s = realloc(string, strlen(string)+((newlen-oldlen)*chgcnt)+1+like);
+		s = realloc(string, strlen(string)+((newlen-oldlen)*chgcnt)+1);
 		/* If we failed to realloc, return the original alloc'd string */
 		if( s )
 			string = s;
@@ -169,35 +176,39 @@ modifyString(char * string, const char * before, const char * after, short like)
 	}
 
 	s = string;
-	while( s )
+	while (s)
 	{
-		p = strcasestr(s, before);
-		if( !p )
+		p = strstr(s, before);
+		if (!p)
 			return string;
 		memmove(p + newlen, p + oldlen, strlen(p + oldlen) + 1);
 		memcpy(p, after, newlen);
-		if( like )
-		{
-			t = p+newlen;
-			while( isspace(*t) )
-				t++;
-			if( *t == '"' )
-			{
-				if( like == 2 )
-				{
-					memmove(t+2, t+1, strlen(t+1)+1);
-					*++t = '%';
-				}
-				while( *++t != '"' )
-					continue;
-				memmove(t+1, t, strlen(t)+1);
-				*t = '%';
-			}
-		}
 		s = p + newlen;
 	}
 
 	return string;
+}
+
+char *
+unescape_tag(const char *tag, int force_alloc)
+{
+	char *esc_tag = NULL;
+
+	if (strchr(tag, '&') &&
+	    (strstr(tag, "&amp;") || strstr(tag, "&lt;") || strstr(tag, "&gt;") ||
+	     strstr(tag, "&quot;") || strstr(tag, "&apos;")))
+	{
+		esc_tag = strdup(tag);
+		esc_tag = modifyString(esc_tag, "&amp;", "&", 1);
+		esc_tag = modifyString(esc_tag, "&lt;", "<", 1);
+		esc_tag = modifyString(esc_tag, "&gt;", ">", 1);
+		esc_tag = modifyString(esc_tag, "&quot;", "\"", 1);
+		esc_tag = modifyString(esc_tag, "&apos;", "'", 1);
+	}
+	else if( force_alloc )
+		esc_tag = strdup(tag);
+
+	return esc_tag;
 }
 
 char *
@@ -219,14 +230,16 @@ escape_tag(const char *tag, int force_alloc)
 	return esc_tag;
 }
 
-void
-strip_ext(char * name)
+char *
+strip_ext(char *name)
 {
-	char * period;
+	char *period;
 
 	period = strrchr(name, '.');
-	if( period )
+	if (period)
 		*period = '\0';
+
+	return period;
 }
 
 /* Code basically stolen from busybox */
@@ -239,6 +252,11 @@ make_dir(char * path, mode_t mode)
 
 	do {
 		c = '\0';
+
+		/* Before we do anything, skip leading /'s, so we don't bother
+		 * trying to create /. */
+		while (*s == '/')
+			++s;
 
 		/* Bypass leading non-'/'s and then subsequent '/'s. */
 		while (*s) {
@@ -256,7 +274,8 @@ make_dir(char * path, mode_t mode)
 		if (mkdir(path, mode) < 0) {
 			/* If we failed for any other reason than the directory
 			 * already exists, output a diagnostic and return -1.*/
-			if (errno != EEXIST || (stat(path, &st) < 0 || !S_ISDIR(st.st_mode))) {
+			if ((errno != EEXIST && errno != EISDIR)
+			    || (stat(path, &st) < 0 || !S_ISDIR(st.st_mode))) {
 				DPRINTF(E_WARN, L_GENERAL, "make_dir: cannot create directory '%s'\n", path);
 				if (c)
 					*s = c;
@@ -274,17 +293,85 @@ make_dir(char * path, mode_t mode)
 
 /* Simple, efficient hash function from Daniel J. Bernstein */
 unsigned int
-DJBHash(const char *str, int len)
+DJBHash(uint8_t *data, int len)
 {
 	unsigned int hash = 5381;
 	unsigned int i = 0;
 
-	for(i = 0; i < len; str++, i++)
+	for(i = 0; i < len; data++, i++)
 	{
-		hash = ((hash << 5) + hash) + (*str);
+		hash = ((hash << 5) + hash) + (*data);
 	}
 
 	return hash;
+}
+
+const char *
+mime_to_ext(const char * mime)
+{
+	switch( *mime )
+	{
+		/* Audio extensions */
+		case 'a':
+			if( strcmp(mime+6, "mpeg") == 0 )
+				return "mp3";
+			else if( strcmp(mime+6, "mp4") == 0 )
+				return "m4a";
+			else if( strcmp(mime+6, "x-ms-wma") == 0 )
+				return "wma";
+			else if( strcmp(mime+6, "x-flac") == 0 )
+				return "flac";
+			else if( strcmp(mime+6, "flac") == 0 )
+				return "flac";
+			else if( strcmp(mime+6, "x-wav") == 0 )
+				return "wav";
+			else if( strncmp(mime+6, "L16", 3) == 0 )
+				return "pcm";
+			else if( strcmp(mime+6, "3gpp") == 0 )
+				return "3gp";
+			else if( strcmp(mime, "application/ogg") == 0 )
+				return "ogg";
+			else if( strcmp(mime+6, "x-dsd") == 0 )
+				return "dsd";
+			break;
+		case 'v':
+			if( strcmp(mime+6, "avi") == 0 )
+				return "avi";
+			else if( strcmp(mime+6, "divx") == 0 )
+				return "avi";
+			else if( strcmp(mime+6, "x-msvideo") == 0 )
+				return "avi";
+			else if( strcmp(mime+6, "mpeg") == 0 )
+				return "mpg";
+			else if( strcmp(mime+6, "mp4") == 0 )
+				return "mp4";
+			else if( strcmp(mime+6, "x-ms-wmv") == 0 )
+				return "wmv";
+			else if( strcmp(mime+6, "x-matroska") == 0 )
+				return "mkv";
+			else if( strcmp(mime+6, "x-mkv") == 0 )
+				return "mkv";
+			else if( strcmp(mime+6, "x-flv") == 0 )
+				return "flv";
+			else if( strcmp(mime+6, "vnd.dlna.mpeg-tts") == 0 )
+				return "mpg";
+			else if( strcmp(mime+6, "quicktime") == 0 )
+				return "mov";
+			else if( strcmp(mime+6, "3gpp") == 0 )
+				return "3gp";
+			else if( strncmp(mime+6, "x-tivo-mpeg", 11) == 0 )
+				return "TiVo";
+			break;
+		case 'i':
+			if( strcmp(mime+6, "jpeg") == 0 )
+				return "jpg";
+			else if( strcmp(mime+6, "png") == 0 )
+				return "png";
+			break;
+		default:
+			break;
+	}
+	return "dat";
 }
 
 int
@@ -313,7 +400,8 @@ is_audio(const char * file)
 		ends_with(file, ".m4a") || ends_with(file, ".aac")  ||
 		ends_with(file, ".mp4") || ends_with(file, ".m4p")  ||
 		ends_with(file, ".wav") || ends_with(file, ".ogg")  ||
-		ends_with(file, ".pcm") || ends_with(file, ".3gp"));
+		ends_with(file, ".pcm") || ends_with(file, ".3gp")  ||
+		ends_with(file, ".dsf") || ends_with(file, ".dff"));
 }
 
 int
@@ -326,6 +414,12 @@ int
 is_playlist(const char * file)
 {
 	return (ends_with(file, ".m3u") || ends_with(file, ".pls"));
+}
+
+int
+is_caption(const char * file)
+{
+	return (ends_with(file, ".srt") || ends_with(file, ".smi"));
 }
 
 int
@@ -352,7 +446,7 @@ is_album_art(const char * name)
 }
 
 int
-resolve_unknown_type(const char * path, enum media_types dir_type)
+resolve_unknown_type(const char * path, media_types dir_type)
 {
 	struct stat entry;
 	unsigned char type = TYPE_UNKNOWN;
@@ -391,16 +485,16 @@ resolve_unknown_type(const char * path, enum media_types dir_type)
 					    is_playlist(path) )
 						type = TYPE_FILE;
 					break;
-				case AUDIO_ONLY:
+				case TYPE_AUDIO:
 					if( is_audio(path) ||
 					    is_playlist(path) )
 						type = TYPE_FILE;
 					break;
-				case VIDEO_ONLY:
+				case TYPE_VIDEO:
 					if( is_video(path) )
 						type = TYPE_FILE;
 					break;
-				case IMAGES_ONLY:
+				case TYPE_IMAGES:
 					if( is_image(path) )
 						type = TYPE_FILE;
 					break;

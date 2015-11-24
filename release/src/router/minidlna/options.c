@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "options.h"
+#include "utils.h"
 #include "upnpglobalvars.h"
 
 struct option * ary_options = NULL;
@@ -42,11 +43,9 @@ static const struct {
 	const char * name;
 } optionids[] = {
 	{ UPNPIFNAME, "network_interface" },
-	{ UPNPLISTENING_IP, "listening_ip" },
 	{ UPNPPORT, "port" },
 	{ UPNPPRESENTATIONURL, "presentation_url" },
 	{ UPNPNOTIFY_INTERVAL, "notify_interval" },
-	{ UPNPSYSTEM_UPTIME, "system_uptime" },
 	{ UPNPUUID, "uuid"},
 	{ UPNPSERIAL, "serial"},
 	{ UPNPMODEL_NAME, "model_name"},
@@ -61,7 +60,11 @@ static const struct {
 	{ UPNPMINISSDPDSOCKET, "minissdpdsocket"},
 	{ ENABLE_TIVO, "enable_tivo" },
 	{ ENABLE_DLNA_STRICT, "strict_dlna" },
-	{ ROOT_CONTAINER, "root_container" }
+	{ ROOT_CONTAINER, "root_container" },
+	{ USER_ACCOUNT, "user" },
+	{ FORCE_SORT_CRITERIA, "force_sort_criteria" },
+	{ MAX_CONNECTIONS, "max_connections" },
+	{ MERGE_MEDIA_DIRS, "merge_media_dirs" }
 };
 
 int
@@ -77,7 +80,7 @@ readoptionsfile(const char * fname)
 	int i;
 	enum upnpconfigoptions id;
 
-	if(!fname || (strlen(fname) == 0))
+	if(!fname || *fname == '\0')
 		return -1;
 
 	memset(buffer, 0, sizeof(buffer));
@@ -88,12 +91,6 @@ readoptionsfile(const char * fname)
 
 	if(!(hfile = fopen(fname, "r")))
 		return -1;
-
-	if(ary_options != NULL)
-	{
-		free(ary_options);
-		num_options = 0;
-	}
 
 	while(fgets(buffer, sizeof(buffer), hfile))
 	{
@@ -109,7 +106,7 @@ readoptionsfile(const char * fname)
 				t--;
 			}
 		}
-       
+
 		/* skip leading whitespaces */
 		name = buffer;
 		while(isspace(*name))
@@ -151,16 +148,28 @@ readoptionsfile(const char * fname)
 
 		if(id == UPNP_INVALID)
 		{
-			fprintf(stderr, "parsing error file %s line %d : %s=%s\n",
-			        fname, linenum, name, value);
+			if (strcmp(name, "include") == 0)
+				readoptionsfile(value);
+			else
+				fprintf(stderr, "parsing error file %s line %d : %s=%s\n",
+				        fname, linenum, name, value);
 		}
 		else
 		{
-			num_options += 1;
-			ary_options = (struct option *) realloc(ary_options, num_options * sizeof(struct option));
+			num_options++;
+			t = realloc(ary_options, num_options * sizeof(struct option));
+			if(!t)
+			{
+				fprintf(stderr, "memory allocation error: %s=%s\n",
+					name, value);
+				num_options--;
+				continue;
+			}
+			else
+				ary_options = (struct option *)t;
 
 			ary_options[num_options-1].id = id;
-			strncpy(ary_options[num_options-1].value, value, MAX_OPTION_VALUE_LEN);
+			strncpyt(ary_options[num_options-1].value, value, MAX_OPTION_VALUE_LEN);
 		}
 
 	}
@@ -173,6 +182,27 @@ readoptionsfile(const char * fname)
 void
 freeoptions(void)
 {
+	struct media_dir_s *media_path, *last_path;
+	struct album_art_name_s *art_names, *last_name;
+	
+	media_path = media_dirs;
+	while (media_path)
+	{
+		free(media_path->path);
+		last_path = media_path;
+		media_path = media_path->next;
+		free(last_path);
+	}
+
+	art_names = album_art_names;
+	while (art_names)
+	{
+		free(art_names->name);
+		last_name = art_names;
+		art_names = art_names->next;
+		free(last_name);
+	}
+
 	if(ary_options)
 	{
 		free(ary_options);

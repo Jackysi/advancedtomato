@@ -25,22 +25,25 @@
 #define __METADATA_H__
 
 typedef struct metadata_s {
-	char *title;
-	char *artist;
-	char *creator;
-	char *album;
-	char *genre;
-	char *comment;
-	char *channels;
-	char *bitrate;
-	char *frequency;
-	char *bps;
-	char *resolution;
-	char *rotation;
-	char *duration;
-	char *date;
-	char *mime;
-	char *dlna_pn;
+	char *       title;
+	char *       artist;
+	char *       creator;
+	char *       album;
+	char *       genre;
+	char *       comment;
+	unsigned int disc;
+	unsigned int track;
+	unsigned int channels;
+	unsigned int bitrate;
+	unsigned int frequency;
+	unsigned int rotation;
+	char *       resolution;
+	char *       duration;
+	char *       date;
+	char *       mime;
+	char *       dlna_pn;
+	int          thumb_size;
+	uint8_t *    thumb_data;
 } metadata_t;
 
 typedef enum {
@@ -80,24 +83,21 @@ typedef enum {
 } ts_timestamp_t;
 
 int
-ends_with(const char * haystack, const char * needle);
-
-char *
-modifyString(char * string, const char * before, const char * after, short like);
+ends_with(const char *haystack, const char *needle);
 
 void
-check_for_captions(const char * path, sqlite_int64 detailID);
+check_for_captions(const char *path, int64_t detailID);
 
-sqlite_int64
-GetFolderMetadata(const char * name, const char * path, const char * artist, const char * genre, sqlite3_int64 album_art);
+int64_t
+GetFolderMetadata(const char *name, const char *path, const char *artist, const char *genre, int64_t album_art);
 
-sqlite_int64
-GetAudioMetadata(const char * path, char * name);
+int64_t
+GetAudioMetadata(const char *path, char *name);
 
-sqlite_int64
-GetImageMetadata(const char * path, char * name);
+int64_t
+GetImageMetadata(const char *path, char *name);
 
-sqlite_int64
-GetVideoMetadata(const char * path, char * name);
+int64_t
+GetVideoMetadata(const char *path, char *name);
 
 #endif

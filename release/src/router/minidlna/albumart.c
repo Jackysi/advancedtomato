@@ -15,13 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with MiniDLNA. If not, see <http://www.gnu.org/licenses/>.
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <limits.h>
 #include <libgen.h>
 #include <setjmp.h>
 #include <errno.h>
@@ -38,11 +42,9 @@
 static int
 art_cache_exists(const char *orig_path, char **cache_file)
 {
-	if( asprintf(cache_file, "%s/art_cache%s", db_path, orig_path) < 0 )
-	{
-		*cache_file = NULL;
+	if( xasprintf(cache_file, "%s/art_cache%s", db_path, orig_path) < 0 )
 		return 0;
-	}
+
 	strcpy(strchr(*cache_file, '\0')-4, ".jpg");
 
 	return (!access(*cache_file, F_OK));
@@ -75,18 +77,17 @@ save_resized_album_art(image_s *imsrc, const char *path)
 		dstw = (imsrc->width<<8) / ((imsrc->height<<8)/160);
 		dsth = 160;
 	}
-        imdst = image_resize(imsrc, dstw, dsth);
+	imdst = image_resize(imsrc, dstw, dsth);
 	if( !imdst )
-		goto error;
-
-	if( image_save_to_jpeg_file(imdst, cache_file) == 0 )
 	{
-		image_free(imdst);
-		return cache_file;
+		free(cache_file);
+		return NULL;
 	}
-error:
-	free(cache_file);
-	return NULL;
+
+	cache_file = image_save_to_jpeg_file(imdst, cache_file);
+	image_free(imdst);
+	
+	return cache_file;
 }
 
 /* And our main album art functions */
@@ -103,7 +104,8 @@ update_if_album_art(const char *path)
 	DIR *dh;
 	struct dirent *dp;
 	enum file_types type = TYPE_UNKNOWN;
-	sqlite_int64 art_id = 0;
+	int64_t art_id = 0;
+	int ret;
 
 	strncpyt(fpath, path, sizeof(fpath));
 	match = basename(fpath);
@@ -126,30 +128,30 @@ update_if_album_art(const char *path)
 		return;
 	while ((dp = readdir(dh)) != NULL)
 	{
-		switch( dp->d_type )
+		if (is_reg(dp) == 1)
 		{
-			case DT_REG:
-				type = TYPE_FILE;
-				break;
-			case DT_LNK:
-			case DT_UNKNOWN:
-				snprintf(file, sizeof(file), "%s/%s", dir, dp->d_name);
-				type = resolve_unknown_type(file, ALL_MEDIA);
-				break;
-			default:
-				type = TYPE_UNKNOWN;
-				break;
+			type = TYPE_FILE;
+		}
+		else if (is_dir(dp) == 1)
+		{
+			type = TYPE_DIR;
+		}
+		else
+		{
+			snprintf(file, sizeof(file), "%s/%s", dir, dp->d_name);
+			type = resolve_unknown_type(file, ALL_MEDIA);
 		}
 		if( type != TYPE_FILE )
 			continue;
-		if( (*(dp->d_name) != '.') &&
+		if( (dp->d_name[0] != '.') &&
 		    (is_video(dp->d_name) || is_audio(dp->d_name)) &&
 		    (album_art || strncmp(dp->d_name, match, ncmp) == 0) )
 		{
 			DPRINTF(E_DEBUG, L_METADATA, "New file %s looks like cover art for %s\n", path, dp->d_name);
 			snprintf(file, sizeof(file), "%s/%s", dir, dp->d_name);
 			art_id = find_album_art(file, NULL, 0);
-			if( sql_exec(db, "UPDATE DETAILS set ALBUM_ART = %lld where PATH = '%q'", art_id, file) != SQLITE_OK )
+			ret = sql_exec(db, "UPDATE DETAILS set ALBUM_ART = %lld where PATH = '%q'", (long long)art_id, file);
+			if( ret != SQLITE_OK )
 				DPRINTF(E_WARN, L_METADATA, "Error setting %s as cover art for %s\n", match, dp->d_name);
 		}
 	}
@@ -157,7 +159,7 @@ update_if_album_art(const char *path)
 }
 
 char *
-check_embedded_art(const char *path, const char *image_data, int image_size)
+check_embedded_art(const char *path, uint8_t *image_data, int image_size)
 {
 	int width = 0, height = 0;
 	char *art_path = NULL;
@@ -181,7 +183,7 @@ check_embedded_art(const char *path, const char *image_data, int image_size)
 		if( !last_success )
 			return NULL;
 		art_cache_exists(path, &art_path);
-		if( link(last_path, art_path) == 0 || (errno == EEXIST) )
+		if( link(last_path, art_path) == 0 )
 		{
 			return(art_path);
 		}
@@ -234,7 +236,8 @@ check_embedded_art(const char *path, const char *image_data, int image_size)
 		fclose(dstfile);
 		if( nwritten != image_size )
 		{
-			DPRINTF(E_WARN, L_METADATA, "Embedded art error: wrote %d/%d bytes\n", nwritten, image_size);
+			DPRINTF(E_WARN, L_METADATA, "Embedded art error: wrote %lu/%d bytes\n",
+				(unsigned long)nwritten, image_size);
 			remove(art_path);
 			free(art_path);
 			art_path = NULL;
@@ -264,9 +267,10 @@ check_for_album_file(const char *path)
 	struct album_art_name_s *album_art_name;
 	image_s *imsrc = NULL;
 	int width=0, height=0;
-	char *art_file;
+	char *art_file, *p;
 	const char *dir;
 	struct stat st;
+	int ret;
 
 	if( stat(path, &st) != 0 )
 		return NULL;
@@ -281,20 +285,28 @@ check_for_album_file(const char *path)
 
 	/* First look for file-specific cover art */
 	snprintf(file, sizeof(file), "%s.cover.jpg", path);
-	if( access(file, R_OK) == 0 )
+	ret = access(file, R_OK);
+	if( ret != 0 )
 	{
-		if( art_cache_exists(file, &art_file) )
-			goto existing_file;
-		free(art_file);
-		imsrc = image_new_from_jpeg(file, 1, NULL, 0, 1, ROTATE_NONE);
-		if( imsrc )
-			goto found_file;
+		strncpyt(file, path, sizeof(file));
+		p = strrchr(file, '.');
+		if( p )
+		{
+			strcpy(p, ".jpg");
+			ret = access(file, R_OK);
+		}
+		if( ret != 0 )
+		{
+			p = strrchr(file, '/');
+			if( p )
+			{
+				memmove(p+2, p+1, file+MAXPATHLEN-p-2);
+				p[1] = '.';
+				ret = access(file, R_OK);
+			}
+		}
 	}
-	snprintf(file, sizeof(file), "%s", path);
-	art_file = strrchr(file, '.');
-	if( art_file )
-		strcpy(art_file, ".jpg");
-	if( access(file, R_OK) == 0 )
+	if( ret == 0 )
 	{
 		if( art_cache_exists(file, &art_file) )
 			goto existing_file;
@@ -333,30 +345,21 @@ found_file:
 	return NULL;
 }
 
-sqlite_int64
-find_album_art(const char *path, const char *image_data, int image_size)
+int64_t
+find_album_art(const char *path, uint8_t *image_data, int image_size)
 {
 	char *album_art = NULL;
-	char *sql;
-	char **result;
-	int cols, rows;
-	sqlite_int64 ret = 0;
+	int64_t ret = 0;
 
 	if( (image_size && (album_art = check_embedded_art(path, image_data, image_size))) ||
 	    (album_art = check_for_album_file(path)) )
 	{
-		sql = sqlite3_mprintf("SELECT ID from ALBUM_ART where PATH = '%q'", album_art ? album_art : path);
-		if( (sql_get_table(db, sql, &result, &rows, &cols) == SQLITE_OK) && rows )
-		{
-			ret = strtoll(result[1], NULL, 10);
-		}
-		else
+		ret = sql_get_int_field(db, "SELECT ID from ALBUM_ART where PATH = '%q'", album_art);
+		if( !ret )
 		{
 			if( sql_exec(db, "INSERT into ALBUM_ART (PATH) VALUES ('%q')", album_art) == SQLITE_OK )
 				ret = sqlite3_last_insert_rowid(db);
 		}
-		sqlite3_free_table(result);
-		sqlite3_free(sql);
 	}
 	free(album_art);
 

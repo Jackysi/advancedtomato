@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdint.h>
+#include <libgen.h>
 
 #define ROLE_NOUSE 0
 #define ROLE_START 1
@@ -50,7 +52,7 @@ struct song_metadata {
 	char *type;
 	int time_modified;
 
-	char *image;                            // coverart
+	uint8_t *image;                         // coverart
 	int image_size;
 
 	char *title;                            // TIT2

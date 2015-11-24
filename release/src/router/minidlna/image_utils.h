@@ -46,7 +46,7 @@ int
 image_get_jpeg_resolution(const char * path, int * width, int * height);
 
 image_s *
-image_new_from_jpeg(const char * path, int is_file, const char * ptr, int size, int scale, int resize);
+image_new_from_jpeg(const char *path, int is_file, const uint8_t *ptr, int size, int scale, int resize);
 
 image_s *
 image_resize(image_s * src_image, int32_t width, int32_t height);
@@ -54,5 +54,5 @@ image_resize(image_s * src_image, int32_t width, int32_t height);
 unsigned char *
 image_save_to_jpeg_buf(image_s * pimage, int * size);
 
-int
-image_save_to_jpeg_file(image_s * pimage, const char * path);
+char *
+image_save_to_jpeg_file(image_s * pimage, char * path);
