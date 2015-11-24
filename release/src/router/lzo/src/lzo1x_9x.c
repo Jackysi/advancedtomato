@@ -2,22 +2,7 @@
 
    This file is part of the LZO real-time data compression library.
 
-   Copyright (C) 2011 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2010 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2009 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2008 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2007 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2006 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2005 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2004 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2003 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2002 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2001 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2000 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1999 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1998 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1997 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1996 Markus Franz Xaver Johannes Oberhumer
+   Copyright (C) 1996-2015 Markus Franz Xaver Johannes Oberhumer
    All Rights Reserved.
 
    The LZO library is free software; you can redistribute it and/or
@@ -91,9 +76,9 @@
 #  define HEAD3(b,p) \
     ((((((lzo_xint)b[p]<<3)^b[p+1])<<3)^b[p+2]) & (SWD_HSIZE-1))
 #endif
-#if 0 && defined(LZO_UNALIGNED_OK_4) && defined(LZO_ABI_LITTLE_ENDIAN)
+#if 0 && (LZO_OPT_UNALIGNED32) && (LZO_ABI_LITTLE_ENDIAN)
 #  define HEAD3(b,p) \
-    (((* (lzo_uint32p) &b[p]) ^ ((* (lzo_uint32p) &b[p])>>10)) & (SWD_HSIZE-1))
+    (((* (lzo_uint32_tp) &b[p]) ^ ((* (lzo_uint32_tp) &b[p])>>10)) & (SWD_HSIZE-1))
 #endif
 
 #include "lzo_mchw.ch"
@@ -111,7 +96,7 @@ lzo1x_999_compress_internal ( const lzo_bytep in , lzo_uint  in_len,
                                     lzo_uint max_lazy,
                                     lzo_uint nice_length,
                                     lzo_uint max_chain,
-                                    lzo_uint32 flags );
+                                    lzo_uint32_t flags );
 
 
 /***********************************************************************
@@ -124,7 +109,7 @@ code_match ( LZO_COMPRESS_T *c, lzo_bytep op, lzo_uint m_len, lzo_uint m_off )
     lzo_uint x_len = m_len;
     lzo_uint x_off = m_off;
 
-    c->match_bytes += (unsigned long) m_len;
+    c->match_bytes += m_len;
 
 #if 0
 /*
@@ -280,7 +265,7 @@ code_match ( LZO_COMPRESS_T *c, lzo_bytep op, lzo_uint m_len, lzo_uint m_off )
 static lzo_bytep
 STORE_RUN ( LZO_COMPRESS_T *c, lzo_bytep op, const lzo_bytep ii, lzo_uint t )
 {
-    c->lit_bytes += (unsigned long) t;
+    c->lit_bytes += t;
 
     if (op == c->out && t <= 238)
     {
@@ -289,9 +274,9 @@ STORE_RUN ( LZO_COMPRESS_T *c, lzo_bytep op, const lzo_bytep ii, lzo_uint t )
     else if (t <= 3)
     {
 #if defined(LZO1Z)
-        op[-1] |= LZO_BYTE(t);
+        op[-1] = LZO_BYTE(op[-1] | t);
 #else
-        op[-2] |= LZO_BYTE(t);
+        op[-2] = LZO_BYTE(op[-2] | t);
 #endif
         c->lit1_r++;
     }
@@ -543,7 +528,7 @@ lzo1x_999_compress_internal ( const lzo_bytep in , lzo_uint  in_len,
                                     lzo_uint max_lazy,
                                     lzo_uint nice_length,
                                     lzo_uint max_chain,
-                                    lzo_uint32 flags )
+                                    lzo_uint32_t flags )
 {
     lzo_bytep op;
     const lzo_bytep ii;
@@ -821,7 +806,7 @@ lzo1x_999_compress_level    ( const lzo_bytep in , lzo_uint  in_len,
         lzo_uint max_lazy;
         lzo_uint nice_length;
         lzo_uint max_chain;
-        lzo_uint32 flags;
+        lzo_uint32_t flags;
     } c[9] = {
         /* faster compression */
         {   0,     0,     0,     8,    4,   0 },
@@ -879,7 +864,4 @@ lzo1x_999_compress  ( const lzo_bytep in , lzo_uint  in_len,
 }
 
 
-/*
-vi:ts=4:et
-*/
-
+/* vim:set ts=4 sw=4 et: */
