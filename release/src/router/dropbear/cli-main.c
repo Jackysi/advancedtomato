@@ -28,6 +28,8 @@
 #include "dbutil.h"
 #include "runopts.h"
 #include "session.h"
+#include "dbrandom.h"
+#include "crypto_desc.h"
 
 static void cli_dropbear_exit(int exitcode, const char* format, va_list param) ATTRIB_NORETURN;
 static void cli_dropbear_log(int priority, const char* format, va_list param);
@@ -50,6 +52,9 @@ int main(int argc, char ** argv) {
 	_dropbear_log = cli_dropbear_log;
 
 	disallow_core();
+
+	seedrandom();
+	crypto_init();
 
 	cli_getopts(argc, argv);
 
@@ -98,11 +103,11 @@ static void cli_dropbear_exit(int exitcode, const char* format, va_list param) {
 	}
 
 	/* Do the cleanup first, since then the terminal will be reset */
-	cli_session_cleanup();
-	common_session_cleanup();
+	session_cleanup();
+	/* Avoid printing onwards from terminal cruft */
+	fprintf(stderr, "\n");
 
 	_dropbear_log(LOG_INFO, fmtbuf, param);
-
 	exit(exitcode);
 }
 
@@ -114,7 +119,7 @@ static void cli_dropbear_log(int UNUSED(priority),
 	vsnprintf(printbuf, sizeof(printbuf), format, param);
 
 	fprintf(stderr, "%s: %s\n", cli_opts.progname, printbuf);
-
+	fflush(stderr);
 }
 
 static void exec_proxy_cmd(void *user_data_cmd) {
@@ -139,4 +144,4 @@ static void cli_proxy_cmd(int *sock_in, int *sock_out) {
 		*sock_in = *sock_out = -1;
 	}
 }
-#endif // ENABLE_CLI_PROXYCMD
+#endif /* ENABLE_CLI_PROXYCMD */

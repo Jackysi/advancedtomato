@@ -34,7 +34,7 @@
 #include "channel.h"
 #include "packet.h"
 #include "buffer.h"
-#include "random.h"
+#include "dbrandom.h"
 #include "listener.h"
 #include "runopts.h"
 #include "atomicio.h"
@@ -73,8 +73,8 @@ static int connect_agent() {
 	return fd;
 }
 
-// handle a request for a connection to the locally running ssh-agent
-// or forward.
+/* handle a request for a connection to the locally running ssh-agent
+   or forward. */
 static int new_agent_chan(struct Channel * channel) {
 
 	int fd = -1;
@@ -94,7 +94,6 @@ static int new_agent_chan(struct Channel * channel) {
 	channel->readfd = fd;
 	channel->writefd = fd;
 
-	// success
 	return 0;
 }
 
@@ -156,8 +155,6 @@ static buffer * agent_request(unsigned char type, buffer *data) {
 		goto out;
 	}
 	
-	TRACE(("agent_request readlen is %d", readlen))
-
 	buf_resize(inbuf, readlen);
 	buf_setpos(inbuf, 0);
 	ret = atomicio(read, fd, buf_getwriteptr(inbuf, readlen), readlen);
@@ -167,7 +164,6 @@ static buffer * agent_request(unsigned char type, buffer *data) {
 	}
 	buf_incrwritepos(inbuf, readlen);
 	buf_setpos(inbuf, 0);
-	TRACE(("agent_request success, length %d", readlen))
 
 out:
 	if (payload)
@@ -205,7 +201,7 @@ static void agent_get_key_list(m_list * ret_list)
 	num = buf_getint(inbuf);
 	for (i = 0; i < num; i++) {
 		sign_key * pubkey = NULL;
-		int key_type = DROPBEAR_SIGNKEY_ANY;
+		enum signkey_type key_type = DROPBEAR_SIGNKEY_ANY;
 		buffer * key_buf;
 
 		/* each public key is encoded as a string */
@@ -214,13 +210,14 @@ static void agent_get_key_list(m_list * ret_list)
 		ret = buf_get_pub_key(key_buf, pubkey, &key_type);
 		buf_free(key_buf);
 		if (ret != DROPBEAR_SUCCESS) {
-			/* This is slack, properly would cleanup vars etc */
-			dropbear_exit("Bad pubkey received from agent");
-		}
-		pubkey->type = key_type;
-		pubkey->source = SIGNKEY_SOURCE_AGENT;
+			TRACE(("Skipping bad/unknown type pubkey from agent"));
+			sign_key_free(pubkey);
+		} else {
+			pubkey->type = key_type;
+			pubkey->source = SIGNKEY_SOURCE_AGENT;
 
-		list_append(ret_list, pubkey);
+			list_append(ret_list, pubkey);
+		}
 
 		/* We'll ignore the comment for now. might want it later.*/
 		buf_eatstring(inbuf);
@@ -238,7 +235,7 @@ void cli_setup_agent(struct Channel *channel) {
 		return;
 	}
 	
-	cli_start_send_channel_request(channel, "auth-agent-req@openssh.com");
+	start_send_channel_request(channel, "auth-agent-req@openssh.com");
 	/* Don't want replies */
 	buf_putbyte(ses.writepayload, 0);
 	encrypt_packet();
@@ -257,7 +254,7 @@ void cli_load_agent_keys(m_list *ret_list) {
 }
 
 void agent_buf_sign(buffer *sigblob, sign_key *key, 
-		const unsigned char *data, unsigned int len) {
+		buffer *data_buf) {
 	buffer *request_data = NULL;
 	buffer *response = NULL;
 	unsigned int siglen;
@@ -269,10 +266,10 @@ void agent_buf_sign(buffer *sigblob, sign_key *key,
 	string			data
 	uint32			flags
 	*/
-	request_data = buf_new(MAX_PUBKEY_SIZE + len + 12);
+	request_data = buf_new(MAX_PUBKEY_SIZE + data_buf->len + 12);
 	buf_put_pub_key(request_data, key, key->type);
 	
-	buf_putstring(request_data, data, len);
+	buf_putbufstring(request_data, data_buf);
 	buf_putint(request_data, 0);
 	
 	response = agent_request(SSH2_AGENTC_SIGN_REQUEST, request_data);

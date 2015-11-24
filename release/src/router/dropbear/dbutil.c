@@ -48,6 +48,19 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
+#include "config.h"
+
+#ifdef __linux__
+#define _GNU_SOURCE
+/* To call clock_gettime() directly */
+#include <sys/syscall.h>
+#endif /* __linux */
+
+#ifdef HAVE_MACH_MACH_TIME_H
+#include <mach/mach_time.h>
+#include <mach/mach.h>
+#endif
+
 #include "includes.h"
 #include "dbutil.h"
 #include "buffer.h"
@@ -138,43 +151,90 @@ void dropbear_log(int priority, const char* format, ...) {
 
 #ifdef DEBUG_TRACE
 void dropbear_trace(const char* format, ...) {
-
 	va_list param;
+	struct timeval tv;
 
 	if (!debug_trace) {
 		return;
 	}
 
+	gettimeofday(&tv, NULL);
+
 	va_start(param, format);
-	fprintf(stderr, "TRACE (%d): ", getpid());
+	fprintf(stderr, "TRACE  (%d) %d.%d: ", getpid(), (int)tv.tv_sec, (int)tv.tv_usec);
+	vfprintf(stderr, format, param);
+	fprintf(stderr, "\n");
+	va_end(param);
+}
+
+void dropbear_trace2(const char* format, ...) {
+	static int trace_env = -1;
+	va_list param;
+	struct timeval tv;
+
+	if (trace_env == -1) {
+		trace_env = getenv("DROPBEAR_TRACE2") ? 1 : 0;
+	}
+
+	if (!(debug_trace && trace_env)) {
+		return;
+	}
+
+	gettimeofday(&tv, NULL);
+
+	va_start(param, format);
+	fprintf(stderr, "TRACE2 (%d) %d.%d: ", getpid(), (int)tv.tv_sec, (int)tv.tv_usec);
 	vfprintf(stderr, format, param);
 	fprintf(stderr, "\n");
 	va_end(param);
 }
 #endif /* DEBUG_TRACE */
 
-static void set_sock_priority(int sock) {
-
+void set_sock_nodelay(int sock) {
 	int val;
 
 	/* disable nagle */
 	val = 1;
 	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void*)&val, sizeof(val));
+}
+
+void set_sock_priority(int sock, enum dropbear_prio prio) {
+
+	int iptos_val = 0, so_prio_val = 0, rc;
+
+	/* Don't log ENOTSOCK errors so that this can harmlessly be called
+	 * on a client '-J' proxy pipe */
 
 	/* set the TOS bit for either ipv4 or ipv6 */
 #ifdef IPTOS_LOWDELAY
-	val = IPTOS_LOWDELAY;
+	if (prio == DROPBEAR_PRIO_LOWDELAY) {
+		iptos_val = IPTOS_LOWDELAY;
+	} else if (prio == DROPBEAR_PRIO_BULK) {
+		iptos_val = IPTOS_THROUGHPUT;
+	}
 #if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
-	setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&val, sizeof(val));
+	rc = setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&iptos_val, sizeof(iptos_val));
+	if (rc < 0 && errno != ENOTSOCK) {
+		TRACE(("Couldn't set IPV6_TCLASS (%s)", strerror(errno)));
+	}
 #endif
-	setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&val, sizeof(val));
+	rc = setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&iptos_val, sizeof(iptos_val));
+	if (rc < 0 && errno != ENOTSOCK) {
+		TRACE(("Couldn't set IP_TOS (%s)", strerror(errno)));
+	}
 #endif
 
 #ifdef SO_PRIORITY
-	/* linux specific, sets QoS class.
-	 * 6 looks to be optimal for interactive traffic (see tc-prio(8) ). */
-	val = 6;
-	setsockopt(sock, SOL_SOCKET, SO_PRIORITY, (void*) &val, sizeof(val));
+	if (prio == DROPBEAR_PRIO_LOWDELAY) {
+		so_prio_val = TC_PRIO_INTERACTIVE;
+	} else if (prio == DROPBEAR_PRIO_BULK) {
+		so_prio_val = TC_PRIO_BULK;
+	}
+	/* linux specific, sets QoS class. see tc-prio(8) */
+	rc = setsockopt(sock, SOL_SOCKET, SO_PRIORITY, (void*) &so_prio_val, sizeof(so_prio_val));
+	if (rc < 0 && errno != ENOTSOCK)
+		dropbear_log(LOG_WARNING, "Couldn't set SO_PRIORITY (%s)",
+				strerror(errno));
 #endif
 
 }
@@ -266,7 +326,7 @@ int dropbear_listen(const char* address, const char* port,
 		}
 #endif
 
-		set_sock_priority(sock);
+		set_sock_nodelay(sock);
 
 		if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
 			err = errno;
@@ -275,7 +335,7 @@ int dropbear_listen(const char* address, const char* port,
 			continue;
 		}
 
-		if (listen(sock, 20) < 0) {
+		if (listen(sock, DROPBEAR_LISTEN_BACKLOG) < 0) {
 			err = errno;
 			close(sock);
 			TRACE(("listen() failed"))
@@ -405,7 +465,7 @@ int connect_remote(const char* remotehost, const char* remoteport,
 		TRACE(("Error connecting: %s", strerror(err)))
 	} else {
 		/* Success */
-		set_sock_priority(sock);
+		set_sock_nodelay(sock);
 	}
 
 	freeaddrinfo(res0);
@@ -443,7 +503,7 @@ int spawn_command(void(*exec_fn)(void *user_data), void *exec_data,
 		return DROPBEAR_FAILURE;
 	}
 
-#ifdef __uClinux__
+#ifdef USE_VFORK
 	pid = vfork();
 #else
 	pid = fork();
@@ -651,6 +711,14 @@ void printhex(const char * label, const unsigned char * buf, int len) {
 	}
 	fprintf(stderr, "\n");
 }
+
+void printmpint(const char *label, mp_int *mp) {
+	buffer *buf = buf_new(1000);
+	buf_putmpint(buf, mp);
+	printhex(label, buf->data, buf->len);
+	buf_free(buf);
+
+}
 #endif
 
 /* Strip all control characters from text (a null-terminated string), except
@@ -725,8 +793,6 @@ int buf_getline(buffer * line, FILE * authfile) {
 
 	int c = EOF;
 
-	TRACE(("enter buf_getline"))
-
 	buf_setpos(line, 0);
 	buf_setlen(line, 0);
 
@@ -750,10 +816,8 @@ out:
 
 	/* if we didn't read anything before EOF or error, exit */
 	if (c == EOF && line->pos == 0) {
-		TRACE(("leave buf_getline: failure"))
 		return DROPBEAR_FAILURE;
 	} else {
-		TRACE(("leave buf_getline: success"))
 		buf_setpos(line, 0);
 		return DROPBEAR_SUCCESS;
 	}
@@ -763,6 +827,10 @@ out:
 
 /* make sure that the socket closes */
 void m_close(int fd) {
+
+	if (fd == -1) {
+		return;
+	}
 
 	int val;
 	do {
@@ -853,14 +921,100 @@ void disallow_core() {
 
 /* Returns DROPBEAR_SUCCESS or DROPBEAR_FAILURE, with the result in *val */
 int m_str_to_uint(const char* str, unsigned int *val) {
+	unsigned long l;
 	errno = 0;
-	*val = strtoul(str, NULL, 10);
+	l = strtoul(str, NULL, 10);
 	/* The c99 spec doesn't actually seem to define EINVAL, but most platforms
 	 * I've looked at mention it in their manpage */
-	if ((*val == 0 && errno == EINVAL)
-		|| (*val == ULONG_MAX && errno == ERANGE)) {
+	if ((l == 0 && errno == EINVAL)
+		|| (l == ULONG_MAX && errno == ERANGE)
+		|| (l > UINT_MAX)) {
 		return DROPBEAR_FAILURE;
 	} else {
+		*val = l;
 		return DROPBEAR_SUCCESS;
 	}
 }
+
+/* Returns malloced path. Only expands ~ in first character */
+char * expand_tilde(const char *inpath) {
+	struct passwd *pw = NULL;
+	if (inpath[0] == '~') {
+		pw = getpwuid(getuid());
+		if (pw && pw->pw_dir) {
+			int len = strlen(inpath) + strlen(pw->pw_dir) + 1;
+			char *buf = m_malloc(len);
+			snprintf(buf, len, "%s/%s", pw->pw_dir, &inpath[1]);
+			return buf;
+		}
+	}
+
+	/* Fallback */
+	return m_strdup(inpath);
+}
+
+int constant_time_memcmp(const void* a, const void *b, size_t n)
+{
+	const char *xa = a, *xb = b;
+	uint8_t c = 0;
+	size_t i;
+	for (i = 0; i < n; i++)
+	{
+		c |= (xa[i] ^ xb[i]);
+	}
+	return c;
+}
+
+#if defined(__linux__) && defined(SYS_clock_gettime)
+/* CLOCK_MONOTONIC_COARSE was added in Linux 2.6.32 but took a while to
+reach userspace include headers */
+#ifndef CLOCK_MONOTONIC_COARSE
+#define CLOCK_MONOTONIC_COARSE 6
+#endif
+static clockid_t get_linux_clock_source() {
+	struct timespec ts;
+	if (syscall(SYS_clock_gettime, CLOCK_MONOTONIC_COARSE, &ts) == 0) {
+		return CLOCK_MONOTONIC_COARSE;
+	}
+
+	if (syscall(SYS_clock_gettime, CLOCK_MONOTONIC, &ts) == 0) {
+		return CLOCK_MONOTONIC;
+	}
+	return -1;
+}
+#endif 
+
+time_t monotonic_now() {
+#if defined(__linux__) && defined(SYS_clock_gettime)
+	static clockid_t clock_source = -2;
+
+	if (clock_source == -2) {
+		/* First run, find out which one works. 
+		-1 will fall back to time() */
+		clock_source = get_linux_clock_source();
+	}
+
+	if (clock_source >= 0) {
+		struct timespec ts;
+		if (syscall(SYS_clock_gettime, clock_source, &ts) != 0) {
+			/* Intermittent clock failures should not happen */
+			dropbear_exit("Clock broke");
+		}
+		return ts.tv_sec;
+	}
+#endif /* linux clock_gettime */
+
+#if defined(HAVE_MACH_ABSOLUTE_TIME)
+	/* OS X, see https://developer.apple.com/library/mac/qa/qa1398/_index.html */
+	static mach_timebase_info_data_t timebase_info;
+	if (timebase_info.denom == 0) {
+		mach_timebase_info(&timebase_info);
+	}
+	return mach_absolute_time() * timebase_info.numer / timebase_info.denom
+		/ 1e9;
+#endif /* osx mach_absolute_time */
+
+	/* Fallback for everything else - this will sometimes go backwards */
+	return time(NULL);
+}
+

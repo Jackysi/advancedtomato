@@ -269,6 +269,11 @@ void buf_putstring(buffer* buf, const unsigned char* str, unsigned int len) {
 
 }
 
+/* puts an entire buffer as a SSH string. ignore pos of buf_str. */
+void buf_putbufstring(buffer *buf, const buffer* buf_str) {
+	buf_putstring(buf, buf_str->data, buf_str->len);
+}
+
 /* put the set of len bytes into the buffer, incrementing the pos, increasing
  * len if required */
 void buf_putbytes(buffer *buf, const unsigned char *bytes, unsigned int len) {
@@ -282,7 +287,7 @@ void buf_putbytes(buffer *buf, const unsigned char *bytes, unsigned int len) {
 void buf_putmpint(buffer* buf, mp_int * mp) {
 
 	unsigned int len, pad = 0;
-	TRACE(("enter buf_putmpint"))
+	TRACE2(("enter buf_putmpint"))
 
 	dropbear_assert(mp != NULL);
 
@@ -318,7 +323,7 @@ void buf_putmpint(buffer* buf, mp_int * mp) {
 		buf_incrwritepos(buf, len-pad);
 	}
 
-	TRACE(("leave buf_putmpint"))
+	TRACE2(("leave buf_putmpint"))
 }
 
 /* Retrieve an mp_int from the buffer.

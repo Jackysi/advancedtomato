@@ -30,21 +30,18 @@
 #include "auth.h"
 #include "list.h"
 
+#ifdef ENABLE_CLI_AGENTFWD
+
 /* An agent reply can be reasonably large, as it can
  * contain a list of all public keys held by the agent.
  * 10000 is arbitrary */
 #define MAX_AGENT_REPLY  10000
 
-int svr_agentreq(struct ChanSess * chansess);
-void svr_agentcleanup(struct ChanSess * chansess);
-void svr_agentset(struct ChanSess *chansess);
-
 /* client functions */
 void cli_load_agent_keys(m_list * ret_list);
 void agent_buf_sign(buffer *sigblob, sign_key *key, 
-    const unsigned char *data, unsigned int len);
+	buffer *data_buf);
 void cli_setup_agent(struct Channel *channel);
-
 
 #ifdef __hpux
 #define seteuid(a)       setresuid(-1, (a), -1)
@@ -52,5 +49,15 @@ void cli_setup_agent(struct Channel *channel);
 #endif
 
 extern const struct ChanType cli_chan_agent;
+
+#endif /* ENABLE_CLI_AGENTFWD */
+
+#ifdef ENABLE_SVR_AGENTFWD
+
+int svr_agentreq(struct ChanSess * chansess);
+void svr_agentcleanup(struct ChanSess * chansess);
+void svr_agentset(struct ChanSess *chansess);
+
+#endif /* ENABLE_SVR_AGENTFWD */
 
 #endif /* _AGENTFWD_H_ */

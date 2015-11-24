@@ -1,6 +1,6 @@
-.TH dropbearkey 8
+.TH dropbearkey 1
 .SH NAME
-dropbearkey \- create private keys for the use with dropbear(8)
+dropbearkey \- create private keys for the use with dropbear(8) or dbclient(1)
 .SH SYNOPSIS
 .B dropbearkey
 \-t
@@ -12,12 +12,12 @@ dropbearkey \- create private keys for the use with dropbear(8)
 .SH DESCRIPTION
 .B dropbearkey
 generates a
-.I RSA
+.I RSA 
+.I DSS,
 or
-.I DSS
+.I ECDSA
 format SSH private key, and saves it to a file for the use with the
-.BR dropbear (8)
-SSH 2 server.
+Dropbear client or server.
 Note that 
 some SSH implementations
 use the term "DSA" rather than "DSS", they mean the same thing.
@@ -27,17 +27,22 @@ use the term "DSA" rather than "DSS", they mean the same thing.
 Type of key to generate.
 Must be one of
 .I rsa
+.I ecdsa
 or
 .IR dss .
 .TP
 .B \-f \fIfile
 Write the secret key to the file
-.IR file .
+.IR file . For client authentication ~/.ssh/id_dropbear is loaded by default
 .TP
 .B \-s \fIbits
 Set the key size to
 .I bits
-bits, should be multiple of 8 (optional).
+bits, should be multiple of 8 (optional). 
+.SH NOTES
+The program dropbearconvert(1) can be used to convert between Dropbear and OpenSSH key formats.
+.P
+Dropbear does not support encrypted keys. 
 .SH EXAMPLE
  # dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key
 .SH AUTHOR
@@ -45,6 +50,6 @@ Matt Johnston (matt@ucc.asn.au).
 .br
 Gerrit Pape (pape@smarden.org) wrote this manual page.
 .SH SEE ALSO
-dropbear(8), dbclient(1)
+dropbear(8), dbclient(1), dropbearconvert(1)
 .P
-http://matt.ucc.asn.au/dropbear/dropbear.html
+https://matt.ucc.asn.au/dropbear/dropbear.html
