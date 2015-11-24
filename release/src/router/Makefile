@@ -696,7 +696,7 @@ bridge-install:
 dnsmasq:
 	@$(SEP)
 	@$(MAKE) -C dnsmasq \
-	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6 -DNO_IPSET) -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6 -DNO_IPSET) -DNO_INOTIFY -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC"
 
 dnsmasq-install:
