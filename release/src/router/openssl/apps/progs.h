@@ -93,12 +93,6 @@ FUNCTION functions[] = {
 #ifndef OPENSSL_NO_AES
 	{FUNC_TYPE_CIPHER,"aes-256-ecb",enc_main},
 #endif
-
-#ifndef OPENSSL_NO_SPEED
-	{FUNC_TYPE_GENERAL,"speed",speed_main},
-#endif
-	{FUNC_TYPE_GENERAL,"version",version_main},
-
 #if 0
 
 	{FUNC_TYPE_GENERAL,"verify",verify_main},
@@ -135,6 +129,10 @@ FUNCTION functions[] = {
 #ifndef OPENSSL_NO_RSA
 	{FUNC_TYPE_GENERAL,"genrsa",genrsa_main},
 #endif
+#ifndef OPENSSL_NO_SPEED
+	{FUNC_TYPE_GENERAL,"speed",speed_main},
+#endif
+	{FUNC_TYPE_GENERAL,"version",version_main},
 #ifndef OPENSSL_NO_DSA
 	{FUNC_TYPE_GENERAL,"gendsa",gendsa_main},
 #endif
