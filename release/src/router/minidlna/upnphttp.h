@@ -86,7 +86,7 @@ struct upnphttp {
 	int req_contentlen;
 	int req_contentoff;     /* header length */
 	enum httpCommands req_command;
-	enum client_types req_client;
+	struct client_cache_s * req_client;
 	const char * req_soapAction;
 	int req_soapActionLen;
 	const char * req_Callback;	/* For SUBSCRIBE */
@@ -128,19 +128,9 @@ struct upnphttp {
 #define FLAG_XFERBACKGROUND     0x00004000
 #define FLAG_CAPTION            0x00008000
 
-#define FLAG_DLNA               0x00100000
-#define FLAG_MIME_AVI_DIVX      0x00200000
-#define FLAG_MIME_AVI_AVI       0x00400000
-#define FLAG_MIME_FLAC_FLAC     0x00800000
-#define FLAG_MIME_WAV_WAV       0x01000000
-#define FLAG_NO_RESIZE          0x02000000
-#define FLAG_MS_PFS             0x04000000 // Microsoft PlaysForSure client
-#define FLAG_SAMSUNG            0x08000000
-#define FLAG_SAMSUNG_TV         0x10000000
-#define FLAG_AUDIO_ONLY         0x20000000
-
-#define FLAG_FREE_OBJECT_ID     0x00000001
-#define FLAG_ROOT_CONTAINER     0x00000002
+#ifndef MSG_MORE
+#define MSG_MORE 0
+#endif
 
 /* New_upnphttp() */
 struct upnphttp *
@@ -189,22 +179,5 @@ Send501(struct upnphttp *);
 void
 SendResp_upnphttp(struct upnphttp *);
 
-int
-SearchClientCache(struct in_addr addr, int quiet);
-
-void
-SendResp_icon(struct upnphttp *, char * url);
-void
-SendResp_albumArt(struct upnphttp *, char * url);
-void
-SendResp_caption(struct upnphttp *, char * url);
-void
-SendResp_resizedimg(struct upnphttp *, char * url);
-void
-SendResp_thumbnail(struct upnphttp *, char * url);
-/* SendResp_dlnafile()
- * send the actual file data for a UPnP-A/V or DLNA request. */
-void
-SendResp_dlnafile(struct upnphttp *, char * url);
 #endif
 

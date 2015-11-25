@@ -30,15 +30,15 @@
 #include "buffer.h"
 #include "dss.h"
 #include "ssh.h"
-#include "random.h"
+#include "dbrandom.h"
 #include "kex.h"
 #include "channel.h"
-#include "atomicio.h"
 #include "runopts.h"
 
 static void checktimeouts();
 static long select_timeout();
 static int ident_readln(int fd, char* buf, int count);
+static void read_session_identification();
 
 struct sshsession ses; /* GLOBAL */
 
@@ -49,10 +49,9 @@ int sessinitdone = 0; /* GLOBAL */
 /* this is set when we get SIGINT or SIGTERM, the handler is in main.c */
 int exitflag = 0; /* GLOBAL */
 
-
-
 /* called only at the start of a session, set up initial state */
 void common_session_init(int sock_in, int sock_out) {
+	time_t now;
 
 	TRACE(("enter session_init"))
 
@@ -60,9 +59,15 @@ void common_session_init(int sock_in, int sock_out) {
 	ses.sock_out = sock_out;
 	ses.maxfd = MAX(sock_in, sock_out);
 
-	ses.connect_time = 0;
-	ses.last_trx_packet_time = 0;
-	ses.last_packet_time = 0;
+	ses.socket_prio = DROPBEAR_PRIO_DEFAULT;
+	/* Sets it to lowdelay */
+	update_channel_prio();
+
+	now = monotonic_now();
+	ses.last_packet_time_keepalive_recv = now;
+	ses.last_packet_time_idle = now;
+	ses.last_packet_time_any_sent = 0;
+	ses.last_packet_time_keepalive_sent = 0;
 	
 	if (pipe(ses.signal_pipe) < 0) {
 		dropbear_exit("Signal pipe failed");
@@ -103,7 +108,7 @@ void common_session_init(int sock_in, int sock_out) {
 	ses.keys->recv.algo_mac = &dropbear_nohash;
 	ses.keys->trans.algo_mac = &dropbear_nohash;
 
-	ses.keys->algo_kex = -1;
+	ses.keys->algo_kex = NULL;
 	ses.keys->algo_hostkey = -1;
 	ses.keys->recv.algo_comp = DROPBEAR_COMP_NONE;
 	ses.keys->trans.algo_comp = DROPBEAR_COMP_NONE;
@@ -141,7 +146,10 @@ void session_loop(void(*loophandler)()) {
 		FD_ZERO(&writefd);
 		FD_ZERO(&readfd);
 		dropbear_assert(ses.payload == NULL);
-		if (ses.sock_in != -1) {
+
+		/* during initial setup we flush out the KEXINIT packet before
+		 * attempting to read the remote version string, which might block */
+		if (ses.sock_in != -1 && (ses.remoteident || isempty(&ses.writequeue))) {
 			FD_SET(ses.sock_in, &readfd);
 		}
 		if (ses.sock_out != -1 && !isempty(&ses.writequeue)) {
@@ -152,10 +160,9 @@ void session_loop(void(*loophandler)()) {
 		   SIGCHLD in svr-chansession is the only one currently. */
 		FD_SET(ses.signal_pipe[0], &readfd);
 
-		/* set up for channels which require reading/writing */
-		if (ses.dataallowed) {
-			setchannelfds(&readfd, &writefd);
-		}
+		/* set up for channels which can be read/written */
+		setchannelfds(&readfd, &writefd);
+
 		val = select(ses.maxfd+1, &readfd, &writefd, NULL, &timeout);
 
 		if (exitflag) {
@@ -186,16 +193,15 @@ void session_loop(void(*loophandler)()) {
 		/* check for auth timeout, rekeying required etc */
 		checktimeouts();
 
-		/* process session socket's incoming/outgoing data */
-		if (ses.sock_out != -1) {
-			if (FD_ISSET(ses.sock_out, &writefd) && !isempty(&ses.writequeue)) {
-				write_packet();
-			}
-		}
-
+		/* process session socket's incoming data */
 		if (ses.sock_in != -1) {
 			if (FD_ISSET(ses.sock_in, &readfd)) {
-				read_packet();
+				if (!ses.remoteident) {
+					/* blocking read of the version string */
+					read_session_identification();
+				} else {
+					read_packet();
+				}
 			}
 			
 			/* Process the decrypted packet. After this, the read buffer
@@ -211,9 +217,15 @@ void session_loop(void(*loophandler)()) {
 
 		/* process pipes etc for the channels, ses.dataallowed == 0
 		 * during rekeying ) */
-		if (ses.dataallowed) {
-			channelio(&readfd, &writefd);
+		channelio(&readfd, &writefd);
+
+		/* process session socket's outgoing data */
+		if (ses.sock_out != -1) {
+			if (!isempty(&ses.writequeue)) {
+				write_packet();
+			}
 		}
+
 
 		if (loophandler) {
 			loophandler();
@@ -225,7 +237,7 @@ void session_loop(void(*loophandler)()) {
 }
 
 /* clean up a session on exit */
-void common_session_cleanup() {
+void session_cleanup() {
 	
 	TRACE(("enter session_cleanup"))
 	
@@ -234,31 +246,45 @@ void common_session_cleanup() {
 		TRACE(("leave session_cleanup: !sessinitdone"))
 		return;
 	}
-	
-	m_free(ses.session_id);
-	m_burn(ses.keys, sizeof(struct key_context));
-	m_free(ses.keys);
+
+	if (ses.extra_session_cleanup) {
+		ses.extra_session_cleanup();
+	}
 
 	chancleanup();
+	
+	/* Cleaning up keys must happen after other cleanup
+	functions which might queue packets */
+	if (ses.session_id) {
+		buf_burn(ses.session_id);
+		buf_free(ses.session_id);
+		ses.session_id = NULL;
+	}
+	if (ses.hash) {
+		buf_burn(ses.hash);
+		buf_free(ses.hash);
+		ses.hash = NULL;
+	}
+	m_burn(ses.keys, sizeof(struct key_context));
+	m_free(ses.keys);
 
 	TRACE(("leave session_cleanup"))
 }
 
+void send_session_identification() {
+	buffer *writebuf = buf_new(strlen(LOCAL_IDENT "\r\n") + 1);
+	buf_putbytes(writebuf, LOCAL_IDENT "\r\n", strlen(LOCAL_IDENT "\r\n"));
+	buf_putbyte(writebuf, 0x0); /* packet type */
+	buf_setpos(writebuf, 0);
+	enqueue(&ses.writequeue, writebuf);
+}
 
-void session_identification() {
-
+static void read_session_identification() {
 	/* max length of 255 chars */
 	char linebuf[256];
 	int len = 0;
 	char done = 0;
 	int i;
-
-	/* write our version string, this blocks */
-	if (atomicio(write, ses.sock_out, LOCAL_IDENT "\r\n",
-				strlen(LOCAL_IDENT "\r\n")) == DROPBEAR_FAILURE) {
-		ses.remoteclosed();
-	}
-
 	/* If they send more than 50 lines, something is wrong */
 	for (i = 0; i < 50; i++) {
 		len = ident_readln(ses.sock_in, linebuf, sizeof(linebuf));
@@ -368,11 +394,37 @@ static int ident_readln(int fd, char* buf, int count) {
 	return pos+1;
 }
 
-void send_msg_ignore() {
+void ignore_recv_response() {
+	// Do nothing
+	TRACE(("Ignored msg_request_response"))
+}
+
+static void send_msg_keepalive() {
 	CHECKCLEARTOWRITE();
-	buf_putbyte(ses.writepayload, SSH_MSG_IGNORE);
-	buf_putstring(ses.writepayload, "", 0);
+	time_t old_time_idle = ses.last_packet_time_idle;
+
+	struct Channel *chan = get_any_ready_channel();
+
+	if (chan) {
+		/* Channel requests are preferable, more implementations
+		handle them than SSH_MSG_GLOBAL_REQUEST */
+		TRACE(("keepalive channel request %d", chan->index))
+		start_send_channel_request(chan, DROPBEAR_KEEPALIVE_STRING);
+	} else {
+		TRACE(("keepalive global request"))
+		/* Some peers will reply with SSH_MSG_REQUEST_FAILURE, 
+		some will reply with SSH_MSG_UNIMPLEMENTED, some will exit. */
+		buf_putbyte(ses.writepayload, SSH_MSG_GLOBAL_REQUEST); 
+		buf_putstring(ses.writepayload, DROPBEAR_KEEPALIVE_STRING,
+			strlen(DROPBEAR_KEEPALIVE_STRING));
+	}
+	buf_putbyte(ses.writepayload, 1); /* want_reply */
 	encrypt_packet();
+
+	ses.last_packet_time_keepalive_sent = monotonic_now();
+
+	/* keepalives shouldn't update idle timeout, reset it back */
+	ses.last_packet_time_idle = old_time_idle;
 }
 
 /* Check all timeouts which are required. Currently these are the time for
@@ -380,13 +432,8 @@ void send_msg_ignore() {
 static void checktimeouts() {
 
 	time_t now;
-
-	now = time(NULL);
+	now = monotonic_now();
 	
-	if (ses.connect_time != 0 && now - ses.connect_time >= AUTH_TIMEOUT) {
-			dropbear_close("Timeout before auth");
-	}
-
 	/* we can't rekey if we haven't done remote ident exchange yet */
 	if (ses.remoteident == NULL) {
 		return;
@@ -399,13 +446,30 @@ static void checktimeouts() {
 		send_msg_kexinit();
 	}
 	
-	if (opts.keepalive_secs > 0 
-			&& now - ses.last_trx_packet_time >= opts.keepalive_secs) {
-		send_msg_ignore();
+	if (opts.keepalive_secs > 0 && ses.authstate.authdone) {
+		/* Avoid sending keepalives prior to auth - those are
+		not valid pre-auth packet types */
+
+		/* Send keepalives if we've been idle */
+		if (now - ses.last_packet_time_any_sent >= opts.keepalive_secs) {
+			send_msg_keepalive();
+		}
+
+		/* Also send an explicit keepalive message to trigger a response
+		if the remote end hasn't sent us anything */
+		if (now - ses.last_packet_time_keepalive_recv >= opts.keepalive_secs
+			&& now - ses.last_packet_time_keepalive_sent >= opts.keepalive_secs) {
+			send_msg_keepalive();
+		}
+
+		if (now - ses.last_packet_time_keepalive_recv 
+			>= opts.keepalive_secs * DEFAULT_KEEPALIVE_LIMIT) {
+			dropbear_exit("Keepalive timeout");
+		}
 	}
 
-	if (opts.idle_timeout_secs > 0 && ses.last_packet_time > 0
-			&& now - ses.last_packet_time >= opts.idle_timeout_secs) {
+	if (opts.idle_timeout_secs > 0 
+			&& now - ses.last_packet_time_idle >= opts.idle_timeout_secs) {
 		dropbear_close("Idle timeout");
 	}
 }
@@ -416,12 +480,13 @@ static long select_timeout() {
 	long ret = LONG_MAX;
 	if (KEX_REKEY_TIMEOUT > 0)
 		ret = MIN(KEX_REKEY_TIMEOUT, ret);
-	if (AUTH_TIMEOUT > 0)
+	/* AUTH_TIMEOUT is only relevant before authdone */
+	if (ses.authstate.authdone != 1 && AUTH_TIMEOUT > 0)
 		ret = MIN(AUTH_TIMEOUT, ret);
 	if (opts.keepalive_secs > 0)
 		ret = MIN(opts.keepalive_secs, ret);
-    if (opts.idle_timeout_secs > 0)
-        ret = MIN(opts.idle_timeout_secs, ret);
+	if (opts.idle_timeout_secs > 0)
+		ret = MIN(opts.idle_timeout_secs, ret);
 	return ret;
 }
 
@@ -453,6 +518,64 @@ void fill_passwd(const char* username) {
 	ses.authstate.pw_name = m_strdup(pw->pw_name);
 	ses.authstate.pw_dir = m_strdup(pw->pw_dir);
 	ses.authstate.pw_shell = m_strdup(pw->pw_shell);
-	ses.authstate.pw_passwd = m_strdup(pw->pw_passwd);
+	{
+		char *passwd_crypt = pw->pw_passwd;
+#ifdef HAVE_SHADOW_H
+		/* get the shadow password if possible */
+		struct spwd *spasswd = getspnam(ses.authstate.pw_name);
+		if (spasswd && spasswd->sp_pwdp) {
+			passwd_crypt = spasswd->sp_pwdp;
+		}
+#endif
+		if (!passwd_crypt) {
+			/* android supposedly returns NULL */
+			passwd_crypt = "!!";
+		}
+		ses.authstate.pw_passwd = m_strdup(passwd_crypt);
+	}
+}
+
+/* Called when channels are modified */
+void update_channel_prio() {
+	enum dropbear_prio new_prio;
+	int any = 0;
+	unsigned int i;
+
+	TRACE(("update_channel_prio"))
+
+	new_prio = DROPBEAR_PRIO_BULK;
+	for (i = 0; i < ses.chansize; i++) {
+		struct Channel *channel = ses.channels[i];
+		if (!channel || channel->prio == DROPBEAR_CHANNEL_PRIO_EARLY) {
+			if (channel && channel->prio == DROPBEAR_CHANNEL_PRIO_EARLY) {
+				TRACE(("update_channel_prio: early %d", channel->index))
+			}
+			continue;
+		}
+		any = 1;
+		if (channel->prio == DROPBEAR_CHANNEL_PRIO_INTERACTIVE)
+		{
+			TRACE(("update_channel_prio: lowdelay %d", channel->index))
+			new_prio = DROPBEAR_PRIO_LOWDELAY;
+			break;
+		} else if (channel->prio == DROPBEAR_CHANNEL_PRIO_UNKNOWABLE
+			&& new_prio == DROPBEAR_PRIO_BULK)
+		{
+			TRACE(("update_channel_prio: unknowable %d", channel->index))
+			new_prio = DROPBEAR_PRIO_DEFAULT;
+		}
+	}
+
+	if (any == 0) {
+		/* lowdelay during setup */
+		TRACE(("update_channel_prio: not any"))
+		new_prio = DROPBEAR_PRIO_LOWDELAY;
+	}
+
+	if (new_prio != ses.socket_prio) {
+		TRACE(("Dropbear priority transitioning %4.4s -> %4.4s", (char*)&ses.socket_prio, (char*)&new_prio))
+		set_sock_priority(ses.sock_out, new_prio);
+		ses.socket_prio = new_prio;
+	}
 }
 

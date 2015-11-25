@@ -2,22 +2,7 @@
 
    This file is part of the LZO real-time data compression library.
 
-   Copyright (C) 2011 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2010 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2009 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2008 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2007 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2006 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2005 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2004 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2003 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2002 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2001 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 2000 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1999 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1998 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1997 Markus Franz Xaver Johannes Oberhumer
-   Copyright (C) 1996 Markus Franz Xaver Johannes Oberhumer
+   Copyright (C) 1996-2015 Markus Franz Xaver Johannes Oberhumer
    All Rights Reserved.
 
    The LZO library is free software; you can redistribute it and/or
@@ -45,21 +30,21 @@
 #include "src/lzo_conf.h"
 #include "src/lzo_ptr.h"
 #endif
-#include "lzo/lzoconf.h"
+#include <lzo/lzoconf.h>
 
 /* utility layer */
 #define WANT_LZO_MALLOC 1
 #include "examples/portab.h"
 
 
-int opt_verbose = 0;
+static int opt_verbose = 0;
 
 
 /*************************************************************************
 //
 **************************************************************************/
 
-unsigned long align_test(lzo_bytep block, lzo_uint len, lzo_uint step)
+static unsigned long align_test(lzo_bytep block, lzo_uint len, lzo_uint step)
 {
     lzo_bytep b1 = block;
     lzo_bytep b2 = block;
@@ -71,12 +56,12 @@ unsigned long align_test(lzo_bytep block, lzo_uint len, lzo_uint step)
     unsigned long i = 0;
 
     assert(step > 0);
-    assert(step <= 65536L);
+    assert(step <= 65536ul);
     assert((step & (step - 1)) == 0);
 
     for (offset = step; offset < len; offset += step)
     {
-        k1 = LZO_PTR_ALIGN_UP(b1+1,step);
+        k1 = LZO_PTR_ALIGN_UP(b1 + 1, step);
         k2 = b2 + offset;
         if (k1 != k2)
         {
@@ -124,7 +109,7 @@ unsigned long align_test(lzo_bytep block, lzo_uint len, lzo_uint step)
 
         for (k = b1 + 1; k <= k1; k++)
         {
-            x = LZO_PTR_ALIGN_UP(k,step);
+            x = LZO_PTR_ALIGN_UP(k, step);
             if (x != k1)
             {
                 printf("error 3: base: %p %p %p  i %lu step %ld offset %ld: "
@@ -150,7 +135,7 @@ unsigned long align_test(lzo_bytep block, lzo_uint len, lzo_uint step)
 //
 **************************************************************************/
 
-#define BLOCK_LEN   (128*1024ul)
+#define BLOCK_SIZE  (128*1024ul)
 
 int main(int argc, char *argv[])
 {
@@ -165,7 +150,7 @@ int main(int argc, char *argv[])
         printf("lzo_init() failed !!!\n");
         return 3;
     }
-    buf = (lzo_bytep) lzo_malloc(2*BLOCK_LEN + 256);
+    buf = (lzo_bytep) lzo_malloc(2*BLOCK_SIZE + 256);
     if (buf == NULL)
     {
         printf("out of memory\n");
@@ -180,22 +165,22 @@ int main(int argc, char *argv[])
     printf("Align init: %p ( 0x%lx )\n", buf, (unsigned long) (size_t) buf);
 #endif
 
-    for (step = 1; step <= 65536L; step *= 2)
+    for (step = 1; step <= 65536ul; step *= 2)
     {
         lzo_bytep block = buf;
         unsigned long n;
         unsigned gap;
 
-        gap = __lzo_align_gap(block,step);
-        block = LZO_PTR_ALIGN_UP(block,step);
+        gap = __lzo_align_gap(block, step);
+        block = LZO_PTR_ALIGN_UP(block, step);
         if (opt_verbose >= 1)
             printf("STEP %5lu: GAP: %5lu  %p %p %5lu\n",
                    (unsigned long) step, (unsigned long) gap, buf, block,
                    (unsigned long) (block - buf));
-        n = align_test(block,BLOCK_LEN,step);
+        n = align_test(block, BLOCK_SIZE, step);
         if (n == 0)
             return 1;
-        if ((n + 1) * step != BLOCK_LEN)
+        if ((n + 1) * step != BLOCK_SIZE)
         {
             printf("error 4: %ld %lu\n", (long)step, n);
             return 1;
@@ -208,7 +193,4 @@ int main(int argc, char *argv[])
 }
 
 
-/*
-vi:ts=4:et
-*/
-
+/* vim:set ts=4 sw=4 et: */

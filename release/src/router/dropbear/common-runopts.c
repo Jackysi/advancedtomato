@@ -28,12 +28,15 @@
 #include "buffer.h"
 #include "dbutil.h"
 #include "auth.h"
+#include "algo.h"
+#include "dbrandom.h"
 
 runopts opts; /* GLOBAL */
 
 /* returns success or failure, and the keytype in *type. If we want
  * to restrict the type, type can contain a type to return */
-int readhostkey(const char * filename, sign_key * hostkey, int *type) {
+int readhostkey(const char * filename, sign_key * hostkey, 
+	enum signkey_type *type) {
 
 	int ret = DROPBEAR_FAILURE;
 	buffer *buf;
@@ -44,6 +47,9 @@ int readhostkey(const char * filename, sign_key * hostkey, int *type) {
 		goto out;
 	}
 	buf_setpos(buf, 0);
+
+	addrandom(buf_getptr(buf, buf->len), buf->len);
+
 	if (buf_get_priv_key(buf, hostkey, type) == DROPBEAR_FAILURE) {
 		goto out;
 	}
@@ -55,3 +61,53 @@ out:
 	buf_free(buf);
 	return ret;
 }
+
+#ifdef ENABLE_USER_ALGO_LIST
+void
+parse_ciphers_macs()
+{
+	if (opts.cipher_list)
+	{
+		if (strcmp(opts.cipher_list, "help") == 0)
+		{
+			char *ciphers = algolist_string(sshciphers);
+			dropbear_log(LOG_INFO, "Available ciphers:\n%s\n", ciphers);
+			m_free(ciphers);
+			dropbear_exit(".");
+		}
+
+		if (strcmp(opts.cipher_list, "none") == 0)
+		{
+			/* Encryption is required during authentication */
+			opts.cipher_list = "none,aes128-ctr";
+		}
+
+		if (check_user_algos(opts.cipher_list, sshciphers, "cipher") == 0)
+		{
+			dropbear_exit("No valid ciphers specified for '-c'");
+		}
+	}
+
+	if (opts.mac_list)
+	{
+		if (strcmp(opts.mac_list, "help") == 0)
+		{
+			char *macs = algolist_string(sshhashes);
+			dropbear_log(LOG_INFO, "Available MACs:\n%s\n", macs);
+			m_free(macs);
+			dropbear_exit(".");
+		}
+
+		if (check_user_algos(opts.mac_list, sshhashes, "MAC") == 0)
+		{
+			dropbear_exit("No valid MACs specified for '-m'");
+		}
+	}
+}
+#endif
+
+void print_version() {
+	fprintf(stderr, "Dropbear v%s\n", DROPBEAR_VERSION);
+}
+
+

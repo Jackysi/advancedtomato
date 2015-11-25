@@ -45,15 +45,15 @@ PROGS= $(PROGRAM).c
 
 A_OBJ=apps.o
 A_SRC=apps.c
-S_OBJ=	s_cb.o s_socket.o
-S_SRC=	s_cb.c s_socket.c
+# S_OBJ=	s_cb.o s_socket.o
+# S_SRC=	s_cb.c s_socket.c
 RAND_OBJ=app_rand.o
 RAND_SRC=app_rand.c
 
 #zzz
 
-E_OBJ= req.o rsa.o x509.o $(A_OBJ) $(RAND_OBJ) enc.o version.o speed.o
-E_SRC= req.c rsa.c x509.c $(A_SRC) $(RAND_SRC) enc.c version.c speed.c
+E_OBJ= req.o rsa.o x509.o $(A_OBJ) $(RAND_OBJ) enc.o
+E_SRC= req.c rsa.c x509.c $(A_SRC) $(RAND_SRC) enc.c
 
 #E_OBJ=	verify.o asn1pars.o req.o dgst.o dh.o dhparam.o enc.o passwd.o gendh.o errstr.o \
 #	ca.o pkcs7.o crl2p7.o crl.o \
@@ -99,6 +99,9 @@ req: sreq.o $(A_OBJ) $(DLIBCRYPTO)
 sreq.o: req.c 
 	$(CC) -c $(INCLUDES) $(CFLAG) -o sreq.o req.c
 
+openssl-vms.cnf: openssl.cnf
+	$(PERL) $(TOP)/VMS/VMSify-conf.pl < openssl.cnf > openssl-vms.cnf
+
 files:
 	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
@@ -132,12 +135,12 @@ links:
 lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
-depend:
-	@if [ -z "$(THIS)" ]; then \
-	    $(MAKE) -f $(TOP)/Makefile reflect THIS=$@; \
-	else \
-	    $(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(SRC); \
-	fi
+update: openssl-vms.cnf local_depend
+
+depend: local_depend
+	@if [ -z "$(THIS)" ]; then $(MAKE) -f $(TOP)/Makefile reflect THIS=$@; fi
+local_depend:
+	@[ -z "$(THIS)" ] || $(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(SRC); \
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
@@ -149,10 +152,10 @@ clean:
 	rm -f req
 
 $(DLIBSSL):
-	(cd ..; $(MAKE) DIRS=ssl all)
+	(cd ..; $(MAKE) build_libssl)
 
 $(DLIBCRYPTO):
-	(cd ..; $(MAKE) DIRS=crypto all)
+	(cd ..; $(MAKE) build_libcrypto)
 
 $(EXE): progs.h $(E_OBJ) $(PROGRAM).o $(DLIBCRYPTO) $(DLIBSSL)
 	$(RM) $(EXE)
@@ -162,8 +165,8 @@ $(EXE): progs.h $(E_OBJ) $(PROGRAM).o $(DLIBCRYPTO) $(DLIBSSL)
 	  FIPSLD_CC="$(CC)"; CC=$(FIPSDIR)/bin/fipsld; export CC FIPSLD_CC; \
 	fi; \
 #	LIBRARIES="$(LIBSSL) $(LIBKRB5) $(LIBCRYPTO)" ; \
-#	LIBRARIES="$(LIBCRYPTO)" ; \
-	LIBRARIES="$(LIBSSL) $(LIBCRYPTO)" ; \
+	LIBRARIES="$(LIBCRYPTO)" ; \
+#	LIBRARIES="$(LIBSSL) $(LIBCRYPTO)" ; \
 	$(MAKE) -f $(TOP)/Makefile.shared -e \
 		APPNAME=$(EXE) OBJECTS="$(PROGRAM).o $(E_OBJ)" \
 		LIBDEPS="$(PEX_LIBS) $$LIBRARIES $(EX_LIBS)" \

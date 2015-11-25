@@ -52,7 +52,7 @@ static int cli_localtcp(const char* listenaddr,
 static const struct ChanType cli_chan_tcplocal = {
 	1, /* sepfds */
 	"direct-tcpip",
-	NULL,
+	tcp_prio_inithandler,
 	NULL,
 	NULL,
 	NULL
@@ -161,9 +161,10 @@ void cli_recv_msg_request_success() {
 		if (!fwd->have_reply) {
 			fwd->have_reply = 1;
 			if (fwd->listenport == 0) {
-				/* The server should let us know which port was allocated if we requestd port 0 */
+				/* The server should let us know which port was allocated if we requested port 0 */
 				int allocport = buf_getint(ses.payload);
 				if (allocport > 0) {
+					fwd->listenport = allocport;
 					dropbear_log(LOG_INFO, "Allocated port %d for remote forward to %s:%d", 
 							allocport, fwd->connectaddr, fwd->connectport);
 				}
@@ -193,8 +194,8 @@ void setup_remotetcp() {
 		struct TCPFwdEntry *fwd = (struct TCPFwdEntry*)iter->item;
 		if (!fwd->listenaddr)
 		{
-			// we store the addresses so that we can compare them
-			// when the server sends them back
+			/* we store the addresses so that we can compare them
+			   when the server sends them back */
 			if (opts.listen_fwd_all) {
 				fwd->listenaddr = m_strdup("");
 			} else {
@@ -220,18 +221,33 @@ static int newtcpforwarded(struct Channel * channel) {
 	origaddr = buf_getstring(ses.payload, NULL);
 	origport = buf_getint(ses.payload);
 
-	/* Find which port corresponds */
+	/* Find which port corresponds. First try and match address as well as port,
+	in case they want to forward different ports separately ... */
 	for (iter = cli_opts.remotefwds->first; iter; iter = iter->next) {
 		fwd = (struct TCPFwdEntry*)iter->item;
 		if (origport == fwd->listenport
-				&& (strcmp(origaddr, fwd->listenaddr) == 0)) {
+				&& strcmp(origaddr, fwd->listenaddr) == 0) {
 			break;
 		}
 	}
 
+	if (!iter)
+	{
+		/* ... otherwise try to generically match the only forwarded port 
+		without address (also handles ::1 vs 127.0.0.1 vs localhost case).
+		rfc4254 is vague about the definition of "address that was connected" */
+		for (iter = cli_opts.remotefwds->first; iter; iter = iter->next) {
+			fwd = (struct TCPFwdEntry*)iter->item;
+			if (origport == fwd->listenport) {
+				break;
+			}
+		}
+	}
+
+
 	if (iter == NULL) {
 		/* We didn't request forwarding on that port */
-        cleantext(origaddr);
+        	cleantext(origaddr);
 		dropbear_log(LOG_INFO, "Server sent unrequested forward from \"%s:%d\"", 
                 origaddr, origport);
 		goto out;
@@ -251,6 +267,8 @@ static int newtcpforwarded(struct Channel * channel) {
 	 * progress succeeds */
 	channel->writefd = sock;
 	channel->initconn = 1;
+
+	channel->prio = DROPBEAR_CHANNEL_PRIO_UNKNOWABLE;
 	
 	err = SSH_OPEN_IN_PROGRESS;
 

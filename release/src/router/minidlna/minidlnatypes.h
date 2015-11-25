@@ -30,34 +30,41 @@
 #define __MINIDLNATYPES_H__
 
 #include "config.h"
-#include <netinet/in.h>
+#include "clients.h"
+#include <time.h>
+#include <fcntl.h>
 
+#define MAX_LAN_ADDR 4
 /* structure for storing lan addresses
  * with ascii representation and mask */
 struct lan_addr_s {
 	char str[16];	/* example: 192.168.0.1 */
-	struct in_addr addr, mask;	/* ip/mask */
+	struct in_addr addr;	/* ip */
+	struct in_addr mask;	/* netmask */
+	int snotify;	/* notify socket */
+	unsigned int ifindex;	/* interface index */
 };
 
 struct runtime_vars_s {
 	int port;	/* HTTP Port */
 	int notify_interval;	/* seconds between SSDP announces */
-	char *root_container;	/* root ObjectID (instead of "0") */
+	int max_connections;	/* max number of simultaneous conenctions */
+	const char *root_container;	/* root ObjectID (instead of "0") */
+	const char *ifaces[MAX_LAN_ADDR];	/* list of configured network interfaces */
 };
 
 struct string_s {
 	char *data; // ptr to start of memory area
-	int off;
-	int size;
+	size_t off;
+	size_t size;
 };
 
-enum media_types {
-	ALL_MEDIA,
-	AUDIO_ONLY,
-	VIDEO_ONLY,
-	IMAGES_ONLY,
-	NO_MEDIA
-};
+typedef uint8_t media_types;
+#define NO_MEDIA     0x00
+#define TYPE_AUDIO   0x01
+#define TYPE_VIDEO   0x02
+#define TYPE_IMAGES  0x04
+#define ALL_MEDIA    TYPE_AUDIO|TYPE_VIDEO|TYPE_IMAGES
 
 enum file_types {
 	TYPE_UNKNOWN,
@@ -65,45 +72,16 @@ enum file_types {
 	TYPE_FILE
 };
 
-enum client_types {
-	EXbox = 1,
-	EPS3,
-	ESamsungSeriesC,
-	EDenonReceiver,
-	EFreeBox,
-	EPopcornHour,
-	EMediaRoom,
-	ESonyBDP,
-	ESonyBravia,
-	ERokuSoundBridge,
-	EToshibaTV,
-	ELGDevice,
-	ENetgearEVA2000,
-	ESamsungSeriesA,
-	ESamsungSeriesB,
-	EMarantzDMP,
-	ELifeTab,
-	EStandardDLNA150 = 100
-};
-
 struct media_dir_s {
-	char * path;            /* Base path */
-	enum media_types type;  /* type of files to scan */
-	struct media_dir_s * next;
+ 	char *path;             /* base path */
+ 	media_types types;      /* types of files to scan */
+ 	struct media_dir_s *next;
 };
 
 struct album_art_name_s {
-	char * name;            /* Base path */
+	char *name;             /* base path */
 	uint8_t wildcard;
-	struct album_art_name_s * next;
-};
-
-struct client_cache_s {
-	struct in_addr addr;
-	unsigned char mac[6];
-	enum client_types type;
-	uint32_t flags;
-	time_t age;
+	struct album_art_name_s *next;
 };
 
 #endif

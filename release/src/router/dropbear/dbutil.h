@@ -35,14 +35,12 @@ void startsyslog();
 
 #ifdef __GNUC__
 #define ATTRIB_PRINTF(fmt,args) __attribute__((format(printf, fmt, args))) 
+#define ATTRIB_NORETURN __attribute__((noreturn))
+#define ATTRIB_SENTINEL __attribute__((sentinel))
 #else
 #define ATTRIB_PRINTF(fmt,args)
-#endif
-
-#ifdef __GNUC__
-#define ATTRIB_NORETURN __attribute__((noreturn))
-#else
 #define ATTRIB_NORETURN
+#define ATTRIB_SENTINEL
 #endif
 
 extern void (*_dropbear_exit)(int exitcode, const char* format, va_list param) ATTRIB_NORETURN;
@@ -57,15 +55,25 @@ void fail_assert(const char* expr, const char* file, int line) ATTRIB_NORETURN;
 
 #ifdef DEBUG_TRACE
 void dropbear_trace(const char* format, ...) ATTRIB_PRINTF(1,2);
+void dropbear_trace2(const char* format, ...) ATTRIB_PRINTF(1,2);
 void printhex(const char * label, const unsigned char * buf, int len);
+void printmpint(const char *label, mp_int *mp);
 extern int debug_trace;
 #endif
+
+enum dropbear_prio {
+	DROPBEAR_PRIO_DEFAULT = 10,
+	DROPBEAR_PRIO_LOWDELAY = 11,
+	DROPBEAR_PRIO_BULK = 12,
+};
 
 char * stripcontrol(const char * text);
 void get_socket_address(int fd, char **local_host, char **local_port,
 		char **remote_host, char **remote_port, int host_lookup);
 void getaddrstring(struct sockaddr_storage* addr, 
 		char **ret_host, char **ret_port, int host_lookup);
+void set_sock_nodelay(int sock);
+void set_sock_priority(int sock, enum dropbear_prio prio);
 int dropbear_listen(const char* address, const char* port,
 		int *socks, unsigned int sockcount, char **errstring, int *maxfd);
 int spawn_command(void(*exec_fn)(void *user_data), void *exec_data,
@@ -83,7 +91,7 @@ void m_close(int fd);
 void * m_malloc(size_t size);
 void * m_strdup(const char * str);
 void * m_realloc(void* ptr, size_t size);
-#define m_free(X) free(X); (X) = NULL;
+#define m_free(X) do {free(X); (X) = NULL;} while (0); 
 void m_burn(void* data, unsigned int len);
 void setnonblocking(int fd);
 void disallow_core();
@@ -94,5 +102,14 @@ int m_str_to_uint(const char* str, unsigned int *val);
 
 /* Dropbear assertion */
 #define dropbear_assert(X) do { if (!(X)) { fail_assert(#X, __FILE__, __LINE__); } } while (0)
+
+/* Returns 0 if a and b have the same contents */
+int constant_time_memcmp(const void* a, const void *b, size_t n);
+
+/* Returns a time in seconds that doesn't go backwards - does not correspond to
+a real-world clock */
+time_t monotonic_now();
+
+char * expand_tilde(const char *inpath);
 
 #endif /* _DBUTIL_H_ */

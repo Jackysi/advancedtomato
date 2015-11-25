@@ -5,21 +5,21 @@
  * This package is an SSL implementation written
  * by Eric Young (eay@cryptsoft.com).
  * The implementation was written so as to conform with Netscapes SSL.
- * 
+ *
  * This library is free for commercial and non-commercial use as long as
  * the following conditions are aheared to.  The following conditions
  * apply to all code found in this distribution, be it the RC4, RSA,
  * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
  * included with this distribution is covered by the same copyright terms
  * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- * 
+ *
  * Copyright remains Eric Young's, and as such any Copyright notices in
  * the code are not to be removed.
  * If this package is used in a product, Eric Young should be given attribution
  * as the author of the parts of the library used.
  * This can be in the form of a textual message at program startup or
  * in documentation (online or textual) provided with the package.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -34,10 +34,10 @@
  *     Eric Young (eay@cryptsoft.com)"
  *    The word 'cryptographic' can be left out if the rouines from the library
  *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from 
+ * 4. If you include any Windows specific code (or a derivative thereof) from
  *    the apps directory (application code) you must include an acknowledgement:
  *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -49,7 +49,7 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- * 
+ *
  * The licence and distribution terms for any publically available version or
  * derivative of this code cannot be changed.  i.e. this code cannot simply be
  * copied and put under another distribution licence
@@ -61,7 +61,7 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef OPENSSL_NO_STDIO
-#define APPS_WIN16
+# define APPS_WIN16
 #endif
 #include "apps.h"
 #include <openssl/bio.h>
@@ -150,6 +150,9 @@ static const char *x509_usage[]={
 " -engine e       - use engine e, possibly a hardware device.\n",
 #endif
 " -certopt arg    - various certificate text options\n",
+" -checkhost host - check certificate matches \"host\"\n",
+" -checkemail email - check certificate matches \"email\"\n",
+" -checkip ipaddr - check certificate matches \"ipaddr\"\n",
 NULL
 };
 
@@ -163,6 +166,9 @@ static int x509_certify (X509_STORE *ctx,char *CAfile,const EVP_MD *digest,
 			 CONF *conf, char *section, ASN1_INTEGER *sno);
 static int purpose_print(BIO *bio, X509 *cert, X509_PURPOSE *pt);
 static int reqfile=0;
+#ifdef OPENSSL_SSL_DEBUG_BROKEN_PROTOCOL
+static int force_version = 2;
+#endif
 static time_t setstartsecs=0;
 
 int MAIN(int, char **);
@@ -175,15 +181,16 @@ int MAIN(int argc, char **argv)
 	X509 *x=NULL,*xca=NULL;
 	ASN1_OBJECT *objtmp;
 	STACK_OF(OPENSSL_STRING) *sigopts = NULL;
-	EVP_PKEY *Upkey=NULL,*CApkey=NULL;
+	EVP_PKEY *Upkey = NULL, *CApkey = NULL, *fkey = NULL;
 	ASN1_INTEGER *sno = NULL;
-	int i,num,badops=0;
+	int i, num, badops = 0, badsig = 0;
 	BIO *out=NULL;
 	BIO *STDout=NULL;
 	STACK_OF(ASN1_OBJECT) *trust = NULL, *reject = NULL;
 	int informat,outformat,keyformat,CAformat,CAkeyformat;
 	char *infile=NULL,*outfile=NULL,*keyfile=NULL,*CAfile=NULL;
 	char *CAkeyfile=NULL,*CAserial=NULL;
+	char *fkeyfile = NULL;
 	char *alias=NULL;
 	int text=0,serial=0,subject=0,issuer=0,startdate=0,enddate=0;
 	int next_serial=0;
@@ -208,6 +215,9 @@ int MAIN(int argc, char **argv)
 	int need_rand = 0;
 	int checkend=0,checkoffset=0;
 	unsigned long nmflag = 0, certflag = 0;
+	char *checkhost = NULL;
+	char *checkemail = NULL;
+	char *checkip = NULL;
 #ifndef OPENSSL_NO_ENGINE
 	char *engine=NULL;
 #endif
@@ -283,6 +293,14 @@ int MAIN(int argc, char **argv)
 			if (!sigopts || !sk_OPENSSL_STRING_push(sigopts, *(++argv)))
 				goto bad;
 			}
+#ifdef OPENSSL_SSL_DEBUG_BROKEN_PROTOCOL
+		else if (strcmp(*argv, "-force_version") == 0)
+			{
+				if (--argc < 1)
+					goto bad;
+				force_version = atoi(*(++argv)) - 1;
+			}
+#endif
 		else if (strcmp(*argv,"-days") == 0)
 			{
 			if (--argc < 1) goto bad;
@@ -347,6 +365,12 @@ int MAIN(int argc, char **argv)
 			if (--argc < 1) goto bad;
 			if (!(sno = s2i_ASN1_INTEGER(NULL, *(++argv))))
 				goto bad;
+			}
+		else if (strcmp(*argv, "-force_pubkey") == 0)
+			{
+			if (--argc < 1)
+				goto bad;
+			fkeyfile = *(++argv);
 			}
 		else if (strcmp(*argv,"-addtrust") == 0)
 			{
@@ -456,6 +480,24 @@ int MAIN(int argc, char **argv)
 			checkoffset=atoi(*(++argv));
 			checkend=1;
 			}
+		else if (strcmp(*argv, "-checkhost") == 0)
+			{
+			if (--argc < 1)
+				goto bad;
+			checkhost = *(++argv);
+			}
+		else if (strcmp(*argv, "-checkemail") == 0)
+			{
+			if (--argc < 1)
+				goto bad;
+			checkemail = *(++argv);
+			}
+		else if (strcmp(*argv, "-checkip") == 0)
+			{
+			if (--argc < 1)
+				goto bad;
+			checkip = *(++argv);
+			}
 		else if (strcmp(*argv,"-noout") == 0)
 			noout= ++num;
 		else if (strcmp(*argv,"-trustout") == 0)
@@ -479,6 +521,8 @@ int MAIN(int argc, char **argv)
 #endif
 		else if (strcmp(*argv,"-ocspid") == 0)
 			ocspid= ++num;
+		else if (strcmp(*argv, "-badsig") == 0)
+			badsig = 1;
 		else if ((md_alg=EVP_get_digestbyname(*argv + 1)))
 			{
 			/* ok */
@@ -522,6 +566,15 @@ bad:
 		ERR_print_errors(bio_err);
 		goto end;
 		}
+
+	if (fkeyfile)
+		{
+		fkey = load_pubkey(bio_err, fkeyfile, keyformat, 0,
+					NULL, e, "Forced key");
+		if (fkey == NULL)
+			goto end;
+		}
+
 
 	if ((CAkeyfile == NULL) && (CA_flag) && (CAformat == FORMAT_PEM))
 		{ CAkeyfile=CAfile; }
@@ -660,9 +713,14 @@ bad:
 		X509_gmtime_adj(X509_get_notBefore(x),0);
 	        X509_time_adj_ex(X509_get_notAfter(x),days, 0, NULL);
 
-		pkey = X509_REQ_get_pubkey(req);
-		X509_set_pubkey(x,pkey);
-		EVP_PKEY_free(pkey);
+		if (fkey)
+			X509_set_pubkey(x, fkey);
+		else
+			{
+			pkey = X509_REQ_get_pubkey(req);
+			X509_set_pubkey(x, pkey);
+			EVP_PKEY_free(pkey);
+			}
 		}
 	else
 		x=load_cert(bio_err,infile,informat,NULL,e,"Certificate");
@@ -1050,11 +1108,16 @@ bad:
 		goto end;
 		}
 
+	print_cert_checks(STDout, x, checkhost, checkemail, checkip);
+
 	if (noout)
 		{
 		ret=0;
 		goto end;
 		}
+
+	if (badsig)
+		x->signature->data[x->signature->length - 1] ^= 0x1;
 
 	if 	(outformat == FORMAT_ASN1)
 		i=i2d_X509_bio(out,x);
@@ -1099,6 +1162,7 @@ end:
 	X509_free(xca);
 	EVP_PKEY_free(Upkey);
 	EVP_PKEY_free(CApkey);
+	EVP_PKEY_free(fkey);
 	if (sigopts)
 		sk_OPENSSL_STRING_free(sigopts);
 	X509_REQ_free(rq);
@@ -1208,7 +1272,11 @@ static int x509_certify(X509_STORE *ctx, char *CAfile, const EVP_MD *digest,
 	if (conf)
 		{
 		X509V3_CTX ctx2;
+#ifdef OPENSSL_SSL_DEBUG_BROKEN_PROTOCOL
+		X509_set_version(x, force_version);
+#else
 		X509_set_version(x,2); /* version 3 certificate */
+#endif
                 X509V3_set_ctx(&ctx2, xca, x, NULL, NULL, 0);
                 X509V3_set_nconf(&ctx2, conf);
                 if (!X509V3_EXT_add_nconf(conf, &ctx2, section, x)) goto end;
@@ -1302,7 +1370,11 @@ static int sign(X509 *x, EVP_PKEY *pkey, int days, int clrext, const EVP_MD *dig
 	if (conf)
 		{
 		X509V3_CTX ctx;
+#ifdef OPENSSL_SSL_DEBUG_BROKEN_PROTOCOL
+		X509_set_version(x, force_version);
+#else
 		X509_set_version(x,2); /* version 3 certificate */
+#endif
                 X509V3_set_ctx(&ctx, x, x, NULL, NULL, 0);
                 X509V3_set_nconf(&ctx, conf);
                 if (!X509V3_EXT_add_nconf(conf, &ctx, section, x)) goto err;

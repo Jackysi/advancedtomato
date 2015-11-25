@@ -30,7 +30,7 @@
 #include "buffer.h"
 #include "dss.h"
 #include "ssh.h"
-#include "random.h"
+#include "dbrandom.h"
 #include "kex.h"
 #include "channel.h"
 #include "chansession.h"
@@ -39,6 +39,7 @@
 #include "service.h"
 #include "auth.h"
 #include "runopts.h"
+#include "crypto_desc.h"
 
 static void svr_remoteclosed();
 
@@ -52,13 +53,15 @@ static const packettype svr_packettypes[] = {
 	{SSH_MSG_KEXINIT, recv_msg_kexinit},
 	{SSH_MSG_KEXDH_INIT, recv_msg_kexdh_init}, /* server */
 	{SSH_MSG_NEWKEYS, recv_msg_newkeys},
-#ifdef ENABLE_SVR_REMOTETCPFWD
 	{SSH_MSG_GLOBAL_REQUEST, recv_msg_global_request_remotetcp},
-#endif
 	{SSH_MSG_CHANNEL_REQUEST, recv_msg_channel_request},
 	{SSH_MSG_CHANNEL_OPEN, recv_msg_channel_open},
 	{SSH_MSG_CHANNEL_EOF, recv_msg_channel_eof},
 	{SSH_MSG_CHANNEL_CLOSE, recv_msg_channel_close},
+	{SSH_MSG_CHANNEL_SUCCESS, ignore_recv_response},
+	{SSH_MSG_CHANNEL_FAILURE, ignore_recv_response},
+	{SSH_MSG_REQUEST_FAILURE, ignore_recv_response}, /* for keepalive */
+	{SSH_MSG_REQUEST_SUCCESS, ignore_recv_response}, /* client */
 #ifdef USING_LISTENERS
 	{SSH_MSG_CHANNEL_OPEN_CONFIRMATION, recv_msg_channel_open_confirmation},
 	{SSH_MSG_CHANNEL_OPEN_FAILURE, recv_msg_channel_open_failure},
@@ -74,24 +77,37 @@ static const struct ChanType *svr_chantypes[] = {
 	NULL /* Null termination is mandatory. */
 };
 
+static void
+svr_session_cleanup(void)
+{
+	/* free potential public key options */
+	svr_pubkey_options_cleanup();
+}
+
+static void
+svr_sessionloop() {
+	if (svr_ses.connect_time != 0 
+		&& monotonic_now() - svr_ses.connect_time >= AUTH_TIMEOUT) {
+		dropbear_close("Timeout before auth");
+	}
+}
+
 void svr_session(int sock, int childpipe) {
 	char *host, *port;
 	size_t len;
-    reseedrandom();
 
-	crypto_init();
 	common_session_init(sock, sock);
+
+	svr_ses.connect_time = monotonic_now();;
 
 	/* Initialise server specific parts of the session */
 	svr_ses.childpipe = childpipe;
-#ifdef __uClinux__
+#ifdef USE_VFORK
 	svr_ses.server_pid = getpid();
 #endif
 	svr_authinitialise();
 	chaninitialise(svr_chantypes);
 	svr_chansessinitialise();
-
-	ses.connect_time = time(NULL);
 
 	/* for logging the remote address */
 	get_socket_address(ses.sock_in, NULL, NULL, &host, &port, 0);
@@ -106,10 +122,10 @@ void svr_session(int sock, int childpipe) {
 
 	/* set up messages etc */
 	ses.remoteclosed = svr_remoteclosed;
+	ses.extra_session_cleanup = svr_session_cleanup;
 
 	/* packet handlers */
 	ses.packettypes = svr_packettypes;
-	ses.buf_match_algo = svr_buf_match_algo;
 
 	ses.isserver = 1;
 
@@ -117,14 +133,14 @@ void svr_session(int sock, int childpipe) {
 	sessinitdone = 1;
 
 	/* exchange identification, version etc */
-	session_identification();
+	send_session_identification();
 
 	/* start off with key exchange */
 	send_msg_kexinit();
 
 	/* Run the main for loop. NULL is for the dispatcher - only the client
 	 * code makes use of it */
-	session_loop(NULL);
+	session_loop(svr_sessionloop);
 
 	/* Not reached */
 
@@ -138,7 +154,7 @@ void svr_dropbear_exit(int exitcode, const char* format, va_list param) {
 	if (!sessinitdone) {
 		/* before session init */
 		snprintf(fmtbuf, sizeof(fmtbuf), 
-				"Premature exit: %s", format);
+				"Early exit: %s", format);
 	} else if (ses.authstate.authdone) {
 		/* user has authenticated */
 		snprintf(fmtbuf, sizeof(fmtbuf),
@@ -157,19 +173,14 @@ void svr_dropbear_exit(int exitcode, const char* format, va_list param) {
 
 	_dropbear_log(LOG_INFO, fmtbuf, param);
 
-#ifdef __uClinux__
-	/* only the main server process should cleanup - we don't want
+#ifdef USE_VFORK
+	/* For uclinux only the main server process should cleanup - we don't want
 	 * forked children doing that */
 	if (svr_ses.server_pid == getpid())
-#else
-	if (1)
 #endif
 	{
-		/* free potential public key options */
-		svr_pubkey_options_cleanup();
-
 		/* must be after we've done with username etc */
-		common_session_cleanup();
+		session_cleanup();
 	}
 
 	exit(exitcode);

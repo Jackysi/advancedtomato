@@ -39,6 +39,8 @@ struct TCPListener {
 	 * localhost, or a normal interface name. */
 	unsigned char *listenaddr;
 	unsigned int listenport;
+	/* The address that the remote host asked to listen on */
+	unsigned char *request_listenaddr;
 
 	const struct ChanType *chantype;
 	enum {direct, forwarded} tcp_type;
@@ -68,5 +70,9 @@ void cli_recv_msg_request_failure();
 
 /* Common */
 int listen_tcpfwd(struct TCPListener* tcpinfo);
+int tcp_prio_inithandler(struct Channel* chan);
+
+/* A random identifier */
+#define CHANNEL_ID_TCPFORWARDED 0x43612c67
 
 #endif

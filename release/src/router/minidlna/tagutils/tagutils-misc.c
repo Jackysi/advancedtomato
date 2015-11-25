@@ -31,12 +31,12 @@ typedef enum {
 	ICONV_FATAL
 } iconv_result;
 
+#ifdef HAVE_ICONV
 static iconv_result
 do_iconv(const char* to_ces, const char* from_ces,
 	 char *inbuf,  size_t inbytesleft,
 	 char *outbuf_orig, size_t outbytesleft_orig)
 {
-#ifdef HAVE_ICONV_H
 	size_t rc;
 	iconv_result ret = ICONV_OK;
 
@@ -65,10 +65,16 @@ do_iconv(const char* to_ces, const char* from_ces,
 	iconv_close(cd);
 
 	return ret;
-#else // HAVE_ICONV_H
-	return ICONV_FATAL;
-#endif // HAVE_ICONV_H
 }
+#else // HAVE_ICONV
+static iconv_result
+do_iconv(const char* to_ces, const char* from_ces,
+	 char *inbuf,  size_t inbytesleft,
+	 char *outbuf_orig, size_t outbytesleft_orig)
+{
+	return ICONV_FATAL;
+}
+#endif // HAVE_ICONV
 
 #define N_LANG_ALT 8
 struct {
@@ -184,7 +190,12 @@ vc_scan(struct song_metadata *psong, const char *comment, const size_t length)
 	{
 		if( strncasecmp(comment, "LYRICS=", 7) != 0 )
 		{
-			DPRINTF(E_WARN, L_SCANNER, "Vorbis %.*s too long [%s]\n", (index(comment, '=')-comment), comment, psong->path);
+			const char *eq = strchr(comment, '=');
+			int len = 8;
+			if (eq)
+				len = eq - comment;
+			DPRINTF(E_WARN, L_SCANNER, "Vorbis %.*s too long [%s]\n",
+				len, comment, psong->path);
 		}
 		return;
 	}
@@ -193,7 +204,7 @@ vc_scan(struct song_metadata *psong, const char *comment, const size_t length)
 
 	// ALBUM, ARTIST, PUBLISHER, COPYRIGHT, DISCNUMBER, ISRC, EAN/UPN, LABEL, LABELNO,
 	// LICENSE, OPUS, SOURCEMEDIA, TITLE, TRACKNUMBER, VERSION, ENCODED-BY, ENCODING,
-	// -- foollowing tags are muliples
+	// -- following tags are muliples
 	// COMPOSER, ARRANGER, LYRICIST, AUTHOR, CONDUCTOR, PERFORMER, ENSEMBLE, PART
 	// PARTNUMBER, GENRE, DATE, LOCATION, COMMENT
 	if(!strncasecmp(strbuf, "ALBUM=", 6))
@@ -209,6 +220,15 @@ vc_scan(struct song_metadata *psong, const char *comment, const size_t length)
 	else if(!strncasecmp(strbuf, "ARTISTSORT=", 11))
 	{
 		psong->contributor_sort[ROLE_ARTIST] = strdup(strbuf + 11);
+	}
+	else if(!strncasecmp(strbuf, "ALBUMARTIST=", 12))
+	{
+		if( *(strbuf+12) )
+			psong->contributor[ROLE_BAND] = strdup(strbuf + 12);
+	}
+	else if(!strncasecmp(strbuf, "ALBUMARTISTSORT=", 16))
+	{
+		psong->contributor_sort[ROLE_BAND] = strdup(strbuf + 16);
 	}
 	else if(!strncasecmp(strbuf, "TITLE=", 6))
 	{

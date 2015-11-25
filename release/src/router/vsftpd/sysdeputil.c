@@ -88,6 +88,7 @@
   #include <linux/version.h>
   #if defined(LINUX_VERSION_CODE) && defined(KERNEL_VERSION)
     #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,0))
+      #define VSF_SYSDEP_HAVE_CAPABILITIES
       #define VSF_SYSDEP_HAVE_LINUX_SENDFILE
       #ifdef PR_SET_KEEPCAPS
         #define VSF_SYSDEP_HAVE_SETKEEPCAPS
@@ -242,7 +243,7 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_remote_host)
 {
   const char* p_crypted;
-  const struct passwd* p_pwd = (struct passwd*) vsf_sysutil_getpwnam(str_getbuf(p_user_str));
+  const struct passwd* p_pwd = getpwnam(str_getbuf(p_user_str));
   (void) p_remote_host;
   if (p_pwd == NULL)
   {
@@ -321,7 +322,7 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_pass_str,
                       const struct mystr* p_remote_host)
 {
-  int retval;
+  int retval = -1;
   pam_item_t item;
   const char* pam_user_name = 0;
   struct pam_conv the_conv =
@@ -334,8 +335,11 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
     bug("vsf_sysdep_check_auth");
   }
   str_copy(&s_pword_str, p_pass_str);
-  retval = pam_start(tunable_pam_service_name,
-                     str_getbuf(p_user_str), &the_conv, &s_pamh);
+  if (tunable_pam_service_name)
+  {
+    retval = pam_start(tunable_pam_service_name,
+                       str_getbuf(p_user_str), &the_conv, &s_pamh);
+  }
   if (retval != PAM_SUCCESS)
   {
     s_pamh = 0;

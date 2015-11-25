@@ -30,6 +30,7 @@
 #include "buffer.h"
 #include "packet.h"
 #include "listener.h"
+#include "listener.h"
 #include "runopts.h"
 
 #ifdef DROPBEAR_TCP_ACCEPT
@@ -40,7 +41,15 @@ static void cleanup_tcp(struct Listener *listener) {
 
 	m_free(tcpinfo->sendaddr);
 	m_free(tcpinfo->listenaddr);
+	m_free(tcpinfo->request_listenaddr);
 	m_free(tcpinfo);
+}
+
+int tcp_prio_inithandler(struct Channel* channel)
+{
+	TRACE(("tcp_prio_inithandler channel %d", channel->index))
+	channel->prio = DROPBEAR_CHANNEL_PRIO_UNKNOWABLE;
+	return 0;
 }
 
 static void tcp_acceptor(struct Listener *listener, int sock) {
@@ -78,7 +87,7 @@ static void tcp_acceptor(struct Listener *listener, int sock) {
 			dropbear_assert(tcpinfo->tcp_type == forwarded);
 			/* "forwarded-tcpip" */
 			/* address that was connected, port that was connected */
-			addr = tcpinfo->listenaddr;
+			addr = tcpinfo->request_listenaddr;
 			port = tcpinfo->listenport;
 		}
 

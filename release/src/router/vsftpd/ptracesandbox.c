@@ -652,7 +652,7 @@ get_action(struct pt_sandbox* p_sandbox)
   }
   ret = 0;
 out:
-  memset(&p_sandbox->regs, '\0', sizeof(&p_sandbox->regs));
+  memset(&p_sandbox->regs, '\0', sizeof(p_sandbox->regs));
   return ret;
 }
 

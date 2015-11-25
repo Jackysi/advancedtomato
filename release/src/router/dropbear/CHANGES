@@ -1,3 +1,290 @@
+2015.67 - Wednesday 28 January 2015
+
+- Call fsync() after generating private keys to ensure they aren't lost if a
+  reboot occurs. Thanks to Peter Korsgaard
+
+- Disable non-delayed zlib compression by default on the server. Can be
+  enabled if required for old clients with DROPBEAR_SERVER_DELAY_ZLIB
+
+- Default client key path ~/.ssh/id_dropbear
+
+- Prefer stronger algorithms by default, from Fedor Brunner. 
+  AES256 over 3DES
+  Diffie-hellman group14 over group1
+
+- Add option to disable CBC ciphers.
+
+- Disable twofish in default options.h
+
+- Enable sha2 HMAC algorithms by default, the code was already required
+  for ECC key exchange. sha1 is the first preference still for performance. 
+
+- Fix installing dropbear.8 in a separate build directory, from Like Ma
+
+- Allow configure to succeed if libtomcrypt/libtommath are missing, from Elan Ruusamäe
+
+- Don't crash if ssh-agent provides an unknown type of key. From Catalin Patulea
+
+- Minor bug fixes, a few issues found by Coverity scan
+
+2014.66 - Thursday 23 October 2014
+
+- Use the same keepalive handling behaviour as OpenSSH. This will work better 
+  with some SSH implementations that have different behaviour with unknown 
+  message types.
+
+- Don't reply with SSH_MSG_UNIMPLEMENTED when we receive a reply to our own 
+  keepalive message
+
+- Set $SSH_CLIENT to keep bash happy, patch from Ryan Cleere
+
+- Fix wtmp which broke since 2013.62, patch from Whoopie
+
+2014.65 - Friday 8 August 2014
+
+- Fix 2014.64 regression, server session hang on exit with scp (and probably
+  others), thanks to NiLuJe for tracking it down
+
+- Fix 2014.64 regression, clock_gettime() error handling which broke on older
+  Linux kernels, reported by NiLuJe
+
+- Fix 2014.64 regression, writev() could occassionally fail with EAGAIN which
+  wasn't caught
+
+- Avoid error message when trying to set QoS on proxycommand or multihop pipes
+
+- Use /usr/bin/xauth, thanks to Mike Frysinger
+
+- Don't exit the client if the local user entry can't be found, thanks to iquaba
+
+2014.64 - Sunday 27 July 2014
+
+- Fix compiling with ECDSA and DSS disabled
+
+- Don't exit abruptly if too many outgoing packets are queued for writev(). Patch
+  thanks to Ronny Meeus
+
+- The -K keepalive option now behaves more like OpenSSH's "ServerAliveInterval". 
+  If no response is received after 3 keepalives then the session is terminated. This
+  will close connections faster than waiting for a TCP timeout.
+
+- Rework TCP priority setting. New settings are
+	if (connecting || ptys || x11) tos = LOWDELAY
+	else if (tcp_forwards) tos = 0
+	else tos = BULK
+  Thanks to Catalin Patulea for the suggestion.
+
+- Improve handling of many concurrent new TCP forwarded connections, should now
+  be able to handle as many as MAX_CHANNELS. Thanks to Eduardo Silva for reporting
+  and investigating it.
+
+- Make sure that exit messages from the client are printed, regression in 2013.57
+
+- Use monotonic clock where available, timeouts won't be affected by system time
+  changes
+
+- Add -V for version
+
+2014.63 - Wednesday 19 February 2014
+
+- Fix ~. to terminate a client interactive session after waking a laptop
+  from sleep.
+
+- Changed port separator syntax again, now using host^port. This is because
+  IPv6 link-local addresses use %. Reported by Gui Iribarren
+
+- Avoid constantly relinking dropbearmulti target, fix "make install"
+  for multi target, thanks to Mike Frysinger
+
+- Avoid getting stuck in a loop writing huge key files, reported by Bruno
+  Thomsen
+
+- Don't link dropbearkey or dropbearconvert to libz or libutil, 
+  thanks to Nicolas Boos
+
+- Fix linking -lcrypt on systems without /usr/lib, thanks to Nicolas Boos
+
+- Avoid crash on exit due to cleaned up keys before last packets are sent,
+  debugged by Ronald Wahl
+
+- Fix a race condition in rekeying where Dropbear would exit if it received a
+  still-in-flight packet after initiating rekeying. Reported by Oliver Metz.
+  This is a longstanding bug but is triggered more easily since 2013.57
+
+- Fix README for ecdsa keys, from Catalin Patulea
+
+- Ensure that generated RSA keys are always exactly the length
+  requested. Previously Dropbear always generated N+16 or N+15 bit keys.
+  Thanks to Unit 193
+
+- Fix DROPBEAR_CLI_IMMEDIATE_AUTH mode which saves a network round trip if the
+  first public key succeeds. Still not enabled by default, needs more
+  compatibility testing with other implementations.
+
+- Fix for port 0 forwarding in the client and port forwarding with Apache MINA SSHD. Thanks to 
+
+- Fix for bad system linux/pkt-sched.h header file with older Linux
+kernels, from Steve Dover
+
+- Fix signal handlers so that errno is saved, thanks to Erik Ahlén for a patch
+  and Mark Wickham for independently spotting the same problem.
+
+2013.62 - Tuesday 3 December 2013
+
+- Disable "interactive" QoS connection options when a connection doesn't
+  have a PTY (eg scp, rsync). Thanks to Catalin Patulea for the patch.
+
+- Log when a hostkey is generated with -R, fix some bugs in handling server
+  hostkey commandline options
+
+- Fix crash in Dropbearconvert and 521 bit key, reported by NiLuJe
+
+- Update config.guess and config.sub again
+
+2013.61test - Thursday 14 November 2013
+
+- ECC (elliptic curve) support. Supports ECDSA hostkeys (requires new keys to
+  be generated) and ECDH for setting up encryption keys (no intervention
+  required). This is significantly faster.
+
+- curve25519-sha256@libssh.org support for setting up encryption keys. This is
+  another elliptic curve mode with less potential of NSA interference in
+  algorithm parameters. curve25519-donna code thanks to Adam Langley
+
+- -R option to automatically generate hostkeys. This is recommended for
+  embedded platforms since it allows the system random number device
+  /dev/urandom a longer startup time to generate a secure seed before the
+  hostkey is required.
+
+- Compile fixes for old vendor compilers like Tru64 from Daniel Richard G.
+
+- Make authorized_keys handling more robust, don't exit encountering
+  malformed lines. Thanks to Lorin Hochstein and Mark Stillwell 
+
+2013.60 - Wednesday 16 October 2013
+
+- Fix "make install" so that it doesn't always install to /bin and /sbin
+
+- Fix "make install MULTI=1", installing manpages failed
+
+- Fix "make install" when scp is included since it has no manpage
+
+- Make --disable-bundled-libtom work
+
+2013.59 - Friday 4 October 2013
+
+- Fix crash from -J command 
+  Thanks to Lluís Batlle i Rossell and Arnaud Mouiche for patches
+
+- Avoid reading too much from /proc/net/rt_cache since that causes
+  system slowness. 
+
+- Improve EOF handling for half-closed connections
+  Thanks to Catalin Patulea
+
+- Send a banner message to report PAM error messages intended for the user
+  Patch from Martin Donnelly
+
+- Limit the size of decompressed payloads, avoids memory exhaustion denial
+  of service 
+  Thanks to Logan Lamb for reporting and investigating it. CVE-2013-4421
+
+- Avoid disclosing existence of valid users through inconsistent delays
+  Thanks to Logan Lamb for reporting. CVE-2013-4434
+
+- Update config.guess and config.sub for newer architectures
+
+- Avoid segfault in server for locked accounts
+
+- "make install" now installs manpages
+  dropbearkey.8 has been renamed to dropbearkey.1
+  manpage added for dropbearconvert
+
+- Get rid of one second delay when running non-interactive commands
+
+
+2013.58 - Thursday 18 April 2013
+
+- Fix building with Zlib disabled, thanks to Hans Harder and cuma@freetz
+
+- Use % as a separator for ports, fixes scp in multihop mode, from Hans Harder
+
+- Reject logins for other users when running as non-root, from Hans Harder
+
+- Disable client immediate authentication request by default, it prevents
+  passwordless logins from working
+
+2013.57 - Monday 15 April 2013
+
+- Decreased connection setup time particularly with high latency connections,
+  the number of round trips has been reduced for both client and server. 
+  CPU time hasn't been changed.
+
+- Client will send an initial key exchange guess to save a round trip.
+  Dropbear implements an extension kexguess2@matt.ucc.asn.au to allow the first
+  packet guess to succeed in wider circumstances than the standard behaviour.
+  When communicating with other implementations the standard behaviour is used.
+
+- Client side: when public key or password authentication with
+  $DROPBEAR_PASSWORD is used an initial authentication request will
+  be sent immediately rather than querying the list of available methods.
+  This behaviour is enabled by CLI_IMMEDIATE_AUTH option (on by default),
+  please let the Dropbear author know if it causes any interoperability
+  problems.
+
+- Implement client escape characters ~. (terminate session) and 
+  ~^Z (background session)
+
+- Server will more reliably clean up utmp when connection is closed, reported by
+  Mattias Walström
+
+- Don't crash if /dev/urandom isn't writable (RHEL5), thanks to Scott Case
+
+- Add "-y -y" client option to skip host key checking, thanks to Hans Harder
+
+- scp didn't work properly on systems using vfork(), thanks to Frank Van Uffelen
+
+- Added IUTF8 terminal mode support (Linux and Mac OS). Not standardised yet
+though probably will be soon
+
+- Some verbose DROPBEAR_TRACE output is now hidden unless $DROPBEAR_TRACE2
+  enviroment variable is set
+
+- Fix using asymmetric MAC algorithms (broke in )
+
+- Renamed configure.in to configure.ac to quieten autoconf, from Mike Frysinger
+
+2013.56 - Thursday 21 March 2013
+
+- Allow specifying cipher (-c) and MAC (-m) lists for dbclient
+
+- Allow using 'none' cipher or MAC (off by default, use options.h). Encryption
+  is used during authentication then disabled, similar to OpenSSH HPN mode
+
+- Allow a user in immediately if the account has a blank password and blank
+  passwords are enabled
+
+- Include a few extra sources of entropy from /proc on Linux, hash private keys
+  as well. Dropbear will also write gathered entropy back into /dev/urandom
+
+- Added hmac-sha2-256 and hmac-sha2-512 support (off by default, use options.h)
+
+- Don't sent bad address "localhost" for -R forward connections, 
+  reported by Denis Bider
+
+- Add "-B" runtime option to allow blank passwords
+
+- Allow using IPv6 bracket notation for addresses in server "-p" option, from Ben Jencks
+
+- A few improvements for Android from Reimar Döffinger
+
+- Fix memory leak for TCP forwarded connections to hosts that timed out,
+  reported by Norbert Benczúr. Appears to be a very long-standing bug.
+
+- Fix "make clean" for out of tree builds
+
+- Fix compilation when ENABLE_{SVR,CLI}_AGENTFWD are unset
+
 2012.55 - Wednesday 22 February 2012
 
 - Security: Fix use-after-free bug that could be triggered if command="..."
@@ -204,7 +491,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
 
 - Security: dbclient previously would prompt to confirm a 
   mismatching hostkey but wouldn't warn loudly. It will now
-  exit upon a mismatch.
+  exit upon a mismatch. CVE-2007-1099
 
 - Compile fixes, make sure that all variable definitions are at the start
   of a scope.
@@ -266,7 +553,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
   (thanks to Tomas Vanek for helping track it down)
 
 - Implement per-IP pre-authentication connection limits 
-  (after some poking from Pablo Fernandez)
+  (after some poking from Pablo Fernandez) CVE-2006-1206
 
 - Exit gracefully if trying to connect to as SSH v1 server 
   (reported by Rushi Lala)
@@ -287,7 +574,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
 - SECURITY: fix for buffer allocation error in server code, could potentially
   allow authenticated users to gain elevated privileges. All multi-user systems
   running the server should upgrade (or apply the patch available on the
-  Dropbear webpage).
+  Dropbear webpage). CVE-2005-4178
 
 - Fix channel handling code so that redirecting to /dev/null doesn't use
   100% CPU.
@@ -494,7 +781,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
 - SECURITY: Don't try to free() uninitialised variables in DSS verification
   code. Thanks to Arne Bernin for pointing out this bug. This is possibly
   exploitable, all users with DSS and pubkey-auth compiled in are advised to
-  upgrade.
+  upgrade. CVE-2004-2486
 
 - Clean up agent forwarding socket files correctly, patch from Gerrit Pape.
 
@@ -618,7 +905,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
   Lobenstock and Mihnea Stoenescu
 
 - Use daemon() function if available (or our own copy) rather than separate
-  code (thanks to Fr�d�ric Lavernhe for the report and debugging, and Bernard
+  code (thanks to Frédéric Lavernhe for the report and debugging, and Bernard
   Blackham for his suggestion on what to look at)
 
 - Fixed up support for first_kex_packet_follows, required to talk to ssh.com
@@ -737,7 +1024,7 @@ https://secure.ucc.asn.au/hg/dropbear/graph/default
 - Various signedness fixes
 - Can listen on multiple ports
 - added option to disable openpty with configure script,
-  (from K.-P. Kirchd�rfer <kapeka at epost.de>)
+  (from K.-P. Kirchdörfer <kapeka at epost.de>)
 - Various cleanups to bignum code
   (thanks to Tom St Denis <tomstdenis at iahu.ca>)
 - Fix compile error when disabling RSA

@@ -30,7 +30,7 @@
 #include "algo.h"
 #include "buffer.h"
 #include "kex.h"
-#include "random.h"
+#include "dbrandom.h"
 #include "service.h"
 #include "auth.h"
 #include "channel.h"
@@ -41,8 +41,12 @@ static void make_mac(unsigned int seqno, const struct key_context_directional * 
 		unsigned char *output_mac);
 static int checkmac();
 
-#define ZLIB_COMPRESS_INCR 100
-#define ZLIB_DECOMPRESS_INCR 100
+/* For exact details see http://www.zlib.net/zlib_tech.html
+ * 5 bytes per 16kB block, plus 6 bytes for the stream.
+ * We might allocate 5 unnecessary bytes here if it's an
+ * exact multiple. */
+#define ZLIB_COMPRESS_EXPANSION (((RECV_MAX_PAYLOAD_LEN/16384)+1)*5 + 6)
+#define ZLIB_DECOMPRESS_INCR 1024
 #ifndef DISABLE_ZLIB
 static buffer* buf_decompress(buffer* buf, unsigned int len);
 static void buf_compress(buffer * dest, buffer * src, unsigned int len);
@@ -53,12 +57,76 @@ void write_packet() {
 
 	int len, written;
 	buffer * writebuf = NULL;
-	time_t now;
 	unsigned packet_type;
+#ifdef HAVE_WRITEV
+	struct iovec *iov = NULL;
+	int i;
+	struct Link *l;
+	int iov_max_count;
+#endif
 	
-	TRACE(("enter write_packet"))
+	TRACE2(("enter write_packet"))
 	dropbear_assert(!isempty(&ses.writequeue));
 
+#if defined(HAVE_WRITEV) && (defined(IOV_MAX) || defined(UIO_MAXIOV))
+
+#ifndef IOV_MAX
+#define IOV_MAX UIO_MAXIOV
+#endif
+
+	/* Make sure the size of the iov is below the maximum allowed by the OS. */
+	iov_max_count = ses.writequeue.count;
+	if (iov_max_count > IOV_MAX)
+	{
+		iov_max_count = IOV_MAX;
+	}
+
+	iov = m_malloc(sizeof(*iov) * iov_max_count);
+	for (l = ses.writequeue.head, i = 0; l; l = l->link, i++)
+	{
+		writebuf = (buffer*)l->item;
+		packet_type = writebuf->data[writebuf->len-1];
+		len = writebuf->len - 1 - writebuf->pos;
+		dropbear_assert(len > 0);
+		TRACE2(("write_packet writev #%d  type %d len %d/%d", i, packet_type,
+				len, writebuf->len-1))
+		iov[i].iov_base = buf_getptr(writebuf, len);
+		iov[i].iov_len = len;
+	}
+	/* This may return EAGAIN. The main loop sometimes
+	calls write_packet() without bothering to test with select() since
+	it's likely to be necessary */
+	written = writev(ses.sock_out, iov, iov_max_count);
+	if (written < 0) {
+		if (errno == EINTR || errno == EAGAIN) {
+			m_free(iov);
+			TRACE2(("leave write_packet: EINTR"))
+			return;
+		} else {
+			dropbear_exit("Error writing: %s", strerror(errno));
+		}
+	}
+
+	if (written == 0) {
+		ses.remoteclosed();
+	}
+
+	while (written > 0) {
+		writebuf = (buffer*)examine(&ses.writequeue);
+		len = writebuf->len - 1 - writebuf->pos;
+		if (len > written) {
+			/* partial buffer write */
+			buf_incrpos(writebuf, written);
+			written = 0;
+		} else {
+			written -= len;
+			dequeue(&ses.writequeue);
+			buf_free(writebuf);
+		}
+	}
+
+	m_free(iov);
+#else /* No writev () */
 	/* Get the next buffer in the queue of encrypted packets to write*/
 	writebuf = (buffer*)examine(&ses.writequeue);
 
@@ -71,20 +139,13 @@ void write_packet() {
 	written = write(ses.sock_out, buf_getptr(writebuf, len), len);
 
 	if (written < 0) {
-		if (errno == EINTR) {
-			TRACE(("leave writepacket: EINTR"))
+		if (errno == EINTR || errno == EAGAIN) {
+			TRACE2(("leave writepacket: EINTR"))
 			return;
 		} else {
-			dropbear_exit("Error writing");
+			dropbear_exit("Error writing: %s", strerror(errno));
 		}
 	} 
-	
-	now = time(NULL);
-	ses.last_trx_packet_time = now;
-
-	if (packet_type != SSH_MSG_IGNORE) {
-		ses.last_packet_time = now;
-	}
 
 	if (written == 0) {
 		ses.remoteclosed();
@@ -99,8 +160,9 @@ void write_packet() {
 		/* More packet left to write, leave it in the queue for later */
 		buf_incrpos(writebuf, written);
 	}
+#endif /* writev */
 
-	TRACE(("leave write_packet"))
+	TRACE2(("leave write_packet"))
 }
 
 /* Non-blocking function reading available portion of a packet into the
@@ -112,7 +174,7 @@ void read_packet() {
 	unsigned int maxlen;
 	unsigned char blocksize;
 
-	TRACE(("enter read_packet"))
+	TRACE2(("enter read_packet"))
 	blocksize = ses.keys->recv.algo_crypt->blocksize;
 	
 	if (ses.readbuf == NULL || ses.readbuf->len < blocksize) {
@@ -125,7 +187,7 @@ void read_packet() {
 
 		if (ret == DROPBEAR_FAILURE) {
 			/* didn't read enough to determine the length */
-			TRACE(("leave read_packet: packetinit done"))
+			TRACE2(("leave read_packet: packetinit done"))
 			return;
 		}
 	}
@@ -133,22 +195,29 @@ void read_packet() {
 	/* Attempt to read the remainder of the packet, note that there
 	 * mightn't be any available (EAGAIN) */
 	maxlen = ses.readbuf->len - ses.readbuf->pos;
-	len = read(ses.sock_in, buf_getptr(ses.readbuf, maxlen), maxlen);
+	if (maxlen == 0) {
+		/* Occurs when the packet is only a single block long and has all
+		 * been read in read_packet_init().  Usually means that MAC is disabled
+		 */
+		len = 0;
+	} else {
+		len = read(ses.sock_in, buf_getptr(ses.readbuf, maxlen), maxlen);
 
-	if (len == 0) {
-		ses.remoteclosed();
-	}
-
-	if (len < 0) {
-		if (errno == EINTR || errno == EAGAIN) {
-			TRACE(("leave read_packet: EINTR or EAGAIN"))
-			return;
-		} else {
-			dropbear_exit("Error reading: %s", strerror(errno));
+		if (len == 0) {
+			ses.remoteclosed();
 		}
-	}
 
-	buf_incrpos(ses.readbuf, len);
+		if (len < 0) {
+			if (errno == EINTR || errno == EAGAIN) {
+				TRACE2(("leave read_packet: EINTR or EAGAIN"))
+				return;
+			} else {
+				dropbear_exit("Error reading: %s", strerror(errno));
+			}
+		}
+
+		buf_incrpos(ses.readbuf, len);
+	}
 
 	if ((unsigned int)len == maxlen) {
 		/* The whole packet has been read */
@@ -156,7 +225,7 @@ void read_packet() {
 		/* The main select() loop process_packet() to
 		 * handle the packet contents... */
 	}
-	TRACE(("leave read_packet"))
+	TRACE2(("leave read_packet"))
 }
 
 /* Function used to read the initial portion of a packet, and determine the
@@ -189,8 +258,8 @@ static int read_packet_init() {
 		ses.remoteclosed();
 	}
 	if (slen < 0) {
-		if (errno == EINTR) {
-			TRACE(("leave read_packet_init: EINTR"))
+		if (errno == EINTR || errno == EAGAIN) {
+			TRACE2(("leave read_packet_init: EINTR"))
 			return DROPBEAR_FAILURE;
 		}
 		dropbear_exit("Error reading: %s", strerror(errno));
@@ -214,14 +283,14 @@ static int read_packet_init() {
 	}
 	len = buf_getint(ses.readbuf) + 4 + macsize;
 
-	TRACE(("packet size is %d, block %d mac %d", len, blocksize, macsize))
+	TRACE2(("packet size is %u, block %u mac %u", len, blocksize, macsize))
 
 
 	/* check packet length */
 	if ((len > RECV_MAX_PACKET_LEN) ||
 		(len < MIN_PACKET_LEN + macsize) ||
 		((len - macsize) % blocksize != 0)) {
-		dropbear_exit("Integrity error (bad packet size %d)", len);
+		dropbear_exit("Integrity error (bad packet size %u)", len);
 	}
 
 	if (len > ses.readbuf->size) {
@@ -240,7 +309,7 @@ void decrypt_packet() {
 	unsigned int padlen;
 	unsigned int len;
 
-	TRACE(("enter decrypt_packet"))
+	TRACE2(("enter decrypt_packet"))
 	blocksize = ses.keys->recv.algo_crypt->blocksize;
 	macsize = ses.keys->recv.algo_mac->hashsize;
 
@@ -272,8 +341,8 @@ void decrypt_packet() {
 	/* payload length */
 	/* - 4 - 1 is for LEN and PADLEN values */
 	len = ses.readbuf->len - padlen - 4 - 1 - macsize;
-	if ((len > RECV_MAX_PAYLOAD_LEN) || (len < 1)) {
-		dropbear_exit("Bad packet size %d", len);
+	if ((len > RECV_MAX_PAYLOAD_LEN+ZLIB_COMPRESS_EXPANSION) || (len < 1)) {
+		dropbear_exit("Bad packet size %u", len);
 	}
 
 	buf_setpos(ses.readbuf, PACKET_PAYLOAD_OFF);
@@ -297,7 +366,7 @@ void decrypt_packet() {
 
 	ses.recvseq++;
 
-	TRACE(("leave decrypt_packet"))
+	TRACE2(("leave decrypt_packet"))
 }
 
 /* Checks the mac at the end of a decrypted readbuf.
@@ -307,7 +376,7 @@ static int checkmac() {
 	unsigned char mac_bytes[MAX_MAC_LEN];
 	unsigned int mac_size, contents_len;
 	
-	mac_size = ses.keys->trans.algo_mac->hashsize;
+	mac_size = ses.keys->recv.algo_mac->hashsize;
 	contents_len = ses.readbuf->len - mac_size;
 
 	buf_setpos(ses.readbuf, 0);
@@ -315,7 +384,7 @@ static int checkmac() {
 
 	/* compare the hash */
 	buf_setpos(ses.readbuf, contents_len);
-	if (memcmp(mac_bytes, buf_getptr(ses.readbuf, mac_size), mac_size) != 0) {
+	if (constant_time_memcmp(mac_bytes, buf_getptr(ses.readbuf, mac_size), mac_size) != 0) {
 		return DROPBEAR_FAILURE;
 	} else {
 		return DROPBEAR_SUCCESS;
@@ -359,7 +428,14 @@ static buffer* buf_decompress(buffer* buf, unsigned int len) {
 		}
 
 		if (zstream->avail_out == 0) {
-			buf_resize(ret, ret->size + ZLIB_DECOMPRESS_INCR);
+			int new_size = 0;
+			if (ret->size >= RECV_MAX_PAYLOAD_LEN) {
+				/* Already been increased as large as it can go,
+				 * yet didn't finish up the decompression */
+				dropbear_exit("bad packet, oversized decompressed");
+			}
+			new_size = MIN(RECV_MAX_PAYLOAD_LEN, ret->size + ZLIB_DECOMPRESS_INCR);
+			buf_resize(ret, new_size);
 		}
 	}
 }
@@ -396,7 +472,6 @@ static void enqueue_reply_packet() {
 		ses.reply_queue_head = new_item;
 	}
 	ses.reply_queue_tail = new_item;
-	TRACE(("leave enqueue_reply_packet"))
 }
 
 void maybe_flush_reply_queue() {
@@ -432,25 +507,21 @@ void encrypt_packet() {
 	unsigned char packet_type;
 	unsigned int len, encrypt_buf_size;
 	unsigned char mac_bytes[MAX_MAC_LEN];
+
+	time_t now;
 	
-	TRACE(("enter encrypt_packet()"))
+	TRACE2(("enter encrypt_packet()"))
 
 	buf_setpos(ses.writepayload, 0);
 	packet_type = buf_getbyte(ses.writepayload);
 	buf_setpos(ses.writepayload, 0);
 
-	TRACE(("encrypt_packet type is %d", packet_type))
+	TRACE2(("encrypt_packet type is %d", packet_type))
 	
-	if ((!ses.dataallowed && !packet_is_okay_kex(packet_type))
-			|| ses.kexstate.sentnewkeys) {
+	if ((!ses.dataallowed && !packet_is_okay_kex(packet_type))) {
 		/* During key exchange only particular packets are allowed.
 			Since this packet_type isn't OK we just enqueue it to send 
 			after the KEX, see maybe_flush_reply_queue */
-
-		/* We also enqueue packets here when we have sent a MSG_NEWKEYS
-		 * packet but are yet to received one. For simplicity we just switch
-		 * over all the keys at once. This is the 'ses.kexstate.sentnewkeys'
-		 * case. */
 		enqueue_reply_packet();
 		return;
 	}
@@ -467,7 +538,7 @@ void encrypt_packet() {
 				+ mac_size
 #ifndef DISABLE_ZLIB
 	/* some extra in case 'compression' makes it larger */
-				+ ZLIB_COMPRESS_INCR
+				+ ZLIB_COMPRESS_EXPANSION
 #endif
 	/* and an extra cleartext (stripped before transmission) byte for the
 	 * packet type */
@@ -480,14 +551,7 @@ void encrypt_packet() {
 #ifndef DISABLE_ZLIB
 	/* compression */
 	if (is_compress_trans()) {
-		int compress_delta;
 		buf_compress(writebuf, ses.writepayload, ses.writepayload->len);
-		compress_delta = (writebuf->len - PACKET_PAYLOAD_OFF) - ses.writepayload->len;
-
-		/* Handle the case where 'compress' increased the size. */
-		if (compress_delta > ZLIB_COMPRESS_INCR) {
-			buf_resize(writebuf, writebuf->size + compress_delta);
-		}
 	} else
 #endif
 	{
@@ -552,7 +616,19 @@ void encrypt_packet() {
 	ses.kexstate.datatrans += writebuf->len;
 	ses.transseq++;
 
-	TRACE(("leave encrypt_packet()"))
+	now = monotonic_now();
+	ses.last_packet_time_any_sent = now;
+	/* idle timeout shouldn't be affected by responses to keepalives.
+	send_msg_keepalive() itself also does tricks with 
+	ses.last_packet_idle_time - read that if modifying this code */
+	if (packet_type != SSH_MSG_REQUEST_FAILURE
+		&& packet_type != SSH_MSG_UNIMPLEMENTED
+		&& packet_type != SSH_MSG_IGNORE) {
+		ses.last_packet_time_idle = now;
+
+	}
+
+	TRACE2(("leave encrypt_packet()"))
 }
 
 
@@ -564,8 +640,6 @@ static void make_mac(unsigned int seqno, const struct key_context_directional * 
 	unsigned char seqbuf[4];
 	unsigned long bufsize;
 	hmac_state hmac;
-
-	TRACE(("enter writemac"))
 
 	if (key_state->algo_mac->hashsize > 0) {
 		/* calculate the mac */
@@ -595,7 +669,7 @@ static void make_mac(unsigned int seqno, const struct key_context_directional * 
 			dropbear_exit("HMAC error");
 		}
 	}
-	TRACE(("leave writemac"))
+	TRACE2(("leave writemac"))
 }
 
 #ifndef DISABLE_ZLIB
@@ -606,7 +680,7 @@ static void buf_compress(buffer * dest, buffer * src, unsigned int len) {
 	unsigned int endpos = src->pos + len;
 	int result;
 
-	TRACE(("enter buf_compress"))
+	TRACE2(("enter buf_compress"))
 
 	while (1) {
 
@@ -637,9 +711,9 @@ static void buf_compress(buffer * dest, buffer * src, unsigned int len) {
 		/* the buffer has been filled, we must extend. This only happens in
 		 * unusual circumstances where the data grows in size after deflate(),
 		 * but it is possible */
-		buf_resize(dest, dest->size + ZLIB_COMPRESS_INCR);
+		buf_resize(dest, dest->size + ZLIB_COMPRESS_EXPANSION);
 
 	}
-	TRACE(("leave buf_compress"))
+	TRACE2(("leave buf_compress"))
 }
 #endif

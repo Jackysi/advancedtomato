@@ -32,7 +32,7 @@
 #include "sshpty.h"
 #include "termcodes.h"
 #include "ssh.h"
-#include "random.h"
+#include "dbrandom.h"
 #include "x11fwd.h"
 #include "agentfwd.h"
 #include "runopts.h"
@@ -53,6 +53,7 @@ static void sesssigchild_handler(int val);
 static void closechansess(struct Channel *channel);
 static int newchansess(struct Channel *channel);
 static void chansessionrequest(struct Channel *channel);
+static int sesscheckclose(struct Channel *channel);
 
 static void send_exitsignalstatus(struct Channel *channel);
 static void send_msg_chansess_exitstatus(struct Channel * channel,
@@ -61,6 +62,14 @@ static void send_msg_chansess_exitsignal(struct Channel * channel,
 		struct ChanSess * chansess);
 static void get_termmodes(struct ChanSess *chansess);
 
+const struct ChanType svrchansess = {
+	0, /* sepfds */
+	"session", /* name */
+	newchansess, /* inithandler */
+	sesscheckclose, /* checkclosehandler */
+	chansessionrequest, /* reqhandler */
+	closechansess, /* closehandler */
+};
 
 /* required to clear environment */
 extern char** environ;
@@ -86,6 +95,11 @@ static void sesssigchild_handler(int UNUSED(dummy)) {
 	unsigned int i;
 	struct sigaction sa_chld;
 	struct exitinfo *exit = NULL;
+
+	const int saved_errno = errno;
+
+	/* Make channel handling code look for closed channels */
+	ses.channel_signal_pending = 1;
 
 	TRACE(("enter sigchld handler"))
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
@@ -140,6 +154,8 @@ static void sesssigchild_handler(int UNUSED(dummy)) {
 	sigemptyset(&sa_chld.sa_mask);
 	sigaction(SIGCHLD, &sa_chld, NULL);
 	TRACE(("leave sigchld handler"))
+
+	errno = saved_errno;
 }
 
 /* send the exit status or the signal causing termination for a session */
@@ -225,6 +241,7 @@ static int newchansess(struct Channel *channel) {
 	chansess = (struct ChanSess*)m_malloc(sizeof(struct ChanSess));
 	chansess->cmd = NULL;
 	chansess->connection_string = NULL;
+	chansess->client_string = NULL;
 	chansess->pid = 0;
 
 	/* pty details */
@@ -243,11 +260,13 @@ static int newchansess(struct Channel *channel) {
 	chansess->x11authcookie = NULL;
 #endif
 
-#ifdef ENABLE_AGENTFWD
+#ifdef ENABLE_SVR_AGENTFWD
 	chansess->agentlistener = NULL;
 	chansess->agentfile = NULL;
 	chansess->agentdir = NULL;
 #endif
+
+	channel->prio = DROPBEAR_CHANNEL_PRIO_INTERACTIVE;
 
 	return 0;
 
@@ -300,7 +319,7 @@ static void closechansess(struct Channel *channel) {
 	x11cleanup(chansess);
 #endif
 
-#ifdef ENABLE_AGENTFWD
+#ifdef ENABLE_SVR_AGENTFWD
 	svr_agentcleanup(chansess);
 #endif
 
@@ -358,7 +377,7 @@ static void chansessionrequest(struct Channel *channel) {
 	} else if (strcmp(type, "x11-req") == 0) {
 		ret = x11req(chansess);
 #endif
-#ifdef ENABLE_AGENTFWD
+#ifdef ENABLE_SVR_AGENTFWD
 	} else if (strcmp(type, "auth-agent-req@openssh.com") == 0) {
 		ret = svr_agentreq(chansess);
 #endif
@@ -584,19 +603,26 @@ static int sessionpty(struct ChanSess * chansess) {
 	return DROPBEAR_SUCCESS;
 }
 
-static char* make_connection_string() {
+static void make_connection_string(struct ChanSess *chansess) {
 	char *local_ip, *local_port, *remote_ip, *remote_port;
 	size_t len;
-	char *ret;
 	get_socket_address(ses.sock_in, &local_ip, &local_port, &remote_ip, &remote_port, 0);
-	len = strlen(local_ip) + strlen(local_port) + strlen(remote_ip) + strlen(remote_port) + 4;
-	ret = m_malloc(len);
-	snprintf(ret, len, "%s %s %s %s", remote_ip, remote_port, local_ip, local_port);
+
+	/* "remoteip remoteport localip localport" */
+	len = strlen(local_ip) + strlen(remote_ip) + 20;
+	chansess->connection_string = m_malloc(len);
+	snprintf(chansess->connection_string, len, "%s %s %s %s", remote_ip, remote_port, local_ip, local_port);
+
+	/* deprecated but bash only loads .bashrc if SSH_CLIENT is set */ 
+	/* "remoteip remoteport localport" */
+	len = strlen(remote_ip) + 20;
+	chansess->client_string = m_malloc(len);
+	snprintf(chansess->client_string, len, "%s %s %s", remote_ip, remote_port, local_port);
+
 	m_free(local_ip);
 	m_free(local_port);
 	m_free(remote_ip);
 	m_free(remote_port);
-	return ret;
 }
 
 /* Handle a command request from the client. This is used for both shell
@@ -658,20 +684,25 @@ static int sessioncommand(struct Channel *channel, struct ChanSess *chansess,
 
 	/* uClinux will vfork(), so there'll be a race as 
 	connection_string is freed below. */
-#ifndef __uClinux__
-	chansess->connection_string = make_connection_string();
+#ifndef USE_VFORK
+	make_connection_string(chansess);
 #endif
 
 	if (chansess->term == NULL) {
 		/* no pty */
 		ret = noptycommand(channel, chansess);
+		if (ret == DROPBEAR_SUCCESS) {
+			channel->prio = DROPBEAR_CHANNEL_PRIO_BULK;
+			update_channel_prio();
+		}
 	} else {
 		/* want pty */
 		ret = ptycommand(channel, chansess);
 	}
 
-#ifndef __uClinux__	
+#ifndef USE_VFORK
 	m_free(chansess->connection_string);
+	m_free(chansess->client_string);
 #endif
 
 	if (ret == DROPBEAR_FAILURE) {
@@ -698,8 +729,6 @@ static int noptycommand(struct Channel *channel, struct ChanSess *chansess) {
 	ses.maxfd = MAX(ses.maxfd, channel->writefd);
 	ses.maxfd = MAX(ses.maxfd, channel->readfd);
 	ses.maxfd = MAX(ses.maxfd, channel->errfd);
-
-	sleep(1);
 
 	addchildpid(chansess, chansess->pid);
 
@@ -745,7 +774,7 @@ static int ptycommand(struct Channel *channel, struct ChanSess *chansess) {
 		return DROPBEAR_FAILURE;
 	}
 	
-#ifdef __uClinux__
+#ifdef USE_VFORK
 	pid = vfork();
 #else
 	pid = fork();
@@ -863,15 +892,15 @@ static void execchild(void *user_data) {
 	struct ChanSess *chansess = user_data;
 	char *usershell = NULL;
 
-    /* with uClinux we'll have vfork()ed, so don't want to overwrite the
-     * hostkey. can't think of a workaround to clear it */
-#ifndef __uClinux__
+	/* with uClinux we'll have vfork()ed, so don't want to overwrite the
+	 * hostkey. can't think of a workaround to clear it */
+#ifndef USE_VFORK
 	/* wipe the hostkey */
 	sign_key_free(svr_opts.hostkey);
 	svr_opts.hostkey = NULL;
 
 	/* overwrite the prng state */
-	reseedrandom();
+	seedrandom();
 #endif
 
 	/* clear environment */
@@ -929,6 +958,10 @@ static void execchild(void *user_data) {
 	if (chansess->connection_string) {
 		addnewvar("SSH_CONNECTION", chansess->connection_string);
 	}
+
+	if (chansess->client_string) {
+		addnewvar("SSH_CLIENT", chansess->client_string);
+	}
 	
 #ifdef ENABLE_SVR_PUBKEY_OPTIONS
 	if (chansess->original_command) {
@@ -945,7 +978,7 @@ static void execchild(void *user_data) {
 	/* set up X11 forwarding if enabled */
 	x11setauth(chansess);
 #endif
-#ifdef ENABLE_AGENTFWD
+#ifdef ENABLE_SVR_AGENTFWD
 	/* set up agent env variable */
 	svr_agentset(chansess);
 #endif
@@ -956,16 +989,6 @@ static void execchild(void *user_data) {
 	/* only reached on error */
 	dropbear_exit("Child failed");
 }
-
-const struct ChanType svrchansess = {
-	0, /* sepfds */
-	"session", /* name */
-	newchansess, /* inithandler */
-	sesscheckclose, /* checkclosehandler */
-	chansessionrequest, /* reqhandler */
-	closechansess, /* closehandler */
-};
-
 
 /* Set up the general chansession environment, in particular child-exit
  * handling */

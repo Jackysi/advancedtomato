@@ -45,6 +45,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -60,12 +62,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "config.h"
 #include "upnpevents.h"
 #include "minidlnapath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescgen.h"
 #include "uuid.h"
+#include "utils.h"
 #include "log.h"
 
 /* stuctures definitions */
@@ -129,7 +131,7 @@ newSubscriber(const char * eventurl, const char * callback, int callbacklen)
 	memcpy(tmp->callback, callback, callbacklen);
 	tmp->callback[callbacklen] = '\0';
 	/* make a dummy uuid */
-	strncpy(tmp->uuid, uuidvalue, sizeof(tmp->uuid));
+	strncpyt(tmp->uuid, uuidvalue, sizeof(tmp->uuid));
 	if( get_uuid_string(tmp->uuid+5) != 0 )
 	{
 		tmp->uuid[sizeof(tmp->uuid)-1] = '\0';
@@ -345,10 +347,7 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 	                       obj->sub->uuid, obj->sub->seq,
 	                       l, xml);
 	obj->buffersize = obj->tosend;
-	if(xml) {
-		free(xml);
-		xml = NULL;
-	}
+	free(xml);
 	DPRINTF(E_DEBUG, L_HTTP, "Sending UPnP Event response:\n%s\n", obj->buffer);
 	obj->state = ESending;
 }
@@ -476,9 +475,7 @@ void upnpevents_processfds(fd_set *readset, fd_set *writeset)
 				free(obj->sub);
 			}
 #endif
-			if(obj->buffer) {
-				free(obj->buffer);
-			}
+			free(obj->buffer);
 			LIST_REMOVE(obj, entries);
 			free(obj);
 		}
