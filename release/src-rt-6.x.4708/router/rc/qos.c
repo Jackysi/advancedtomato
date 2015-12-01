@@ -304,10 +304,11 @@ void ipt_qos(void)
 	if (*wan6face) {
 		ip6t_write(
 			"-A FORWARD -o %s -j QOSO\n"
+			"-A OUTPUT -o %s -p icmpv6 -j RETURN\n"
 			"-A OUTPUT -o %s -j QOSO\n"
 			"-A FORWARD -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n"
 			"-A OUTPUT -o %s -m connmark ! --mark 0 -j CONNMARK --save-mark\n",
-			wan6face, wan6face, wan6face, wan6face);
+			wan6face, wan6face, wan6face, wan6face, wan6face);
 	}
 #endif
 
