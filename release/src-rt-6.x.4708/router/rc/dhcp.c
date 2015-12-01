@@ -501,7 +501,7 @@ void start_dhcp6c(void)
 	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
 		fprintf(f,
 			"interface %s {\n", wan6face);
-		if (nvram_match("ipv6_service", "native-pd")) {
+		if (nvram_get_int("ipv6_pdonly") == 0) {
 		fprintf(f,
 			" send ia-na 0;\n");
 		};
