@@ -36,10 +36,10 @@ if [ "$ANON_ANSWER" == "1" ]; then
         if [ "$KERNEL" == "2.6" ]; then
             IS_USB=`nvram get os_version | grep USB | wc -l`
             if [ "$IS_USB" == "0" ]; then #if K26
-                VER=`nvram get os_version | awk '{ print $2" "$3 }' | cut -d "-" -f2`
+                VER=`nvram get os_version | awk '{ print $2" "$3 }' | cut -d "-" -f2,3`
                 BUILDTYPE=`nvram get os_version | awk '{ print $4 }'`
             else #if K26USB
-                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }' | cut -d "-" -f2`
+                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }' | cut -d "-" -f2,3`
                 BUILDTYPE=`nvram get os_version | awk '{ print $5 }'`
             fi
         else #K2.4
