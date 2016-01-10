@@ -653,6 +653,8 @@ static void mangle_table(void)
 
 		}
 
+// Clamp TCP MSS to PMTU of WAN interface (IPv4 & IPv6)
+		ip46t_write("-I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 
 //shibby-arm
 	char lanaddr[32];
@@ -1160,20 +1162,6 @@ static void filter_input(void)
 	// default policy: DROP
 }
 
-// clamp TCP MSS to PMTU of WAN interface (IPv4 only?)
-static void clampmss(void)
-{
-	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-#ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
-	case IPV6_ANYCAST_6TO4:
-	case IPV6_6IN4:
-		ip6t_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-		break;
-	}
-#endif
-}
-
 static void filter_forward(void)
 {
 	char dst[64];
@@ -1251,9 +1239,6 @@ static void filter_forward(void)
 
 	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
-
-	// clamp tcp mss to pmtu
-	clampmss();
 
 	if (wanup) {
 		ipt_restrictions();
@@ -1621,7 +1606,6 @@ static void filter_table(void)
 	}
 	else {
 		ip46t_write(":FORWARD ACCEPT [0:0]\n");
-		clampmss();
 	}
 	ip46t_write("COMMIT\n");
 }
