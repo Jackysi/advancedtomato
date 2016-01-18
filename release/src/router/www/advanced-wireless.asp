@@ -176,10 +176,6 @@ if (wl_sunit(uidx)<0) {
 			value: nvram['wl'+u+'_obss_coex'], hidden: !nphy },
 		{ title: 'RTS Threshold', name: 'wl'+u+'_rts', type: 'text', maxlen: 4, size: 6,
 			suffix: ' <small>(range: 0 - 2347; default: 2347)</small>', value: nvram['wl'+u+'_rts'] },
-		{ title: 'Receive Antenna', name: 'wl'+u+'_antdiv', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],
-			value: nvram['wl'+u+'_antdiv'] },
-		{ title: 'Transmit Antenna', name: 'wl'+u+'_txant', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],
-			value: nvram['wl'+u+'_txant'] },
 		{ title: 'Transmit Power', name: 'wl'+u+'_txpwr', type: 'text', maxlen: 3, size: 5,
 			suffix: hp ?
 				' <small>mW (before amplification)</small>&nbsp;&nbsp;<small>(range: 1 - 251; default: 10)</small>' :
