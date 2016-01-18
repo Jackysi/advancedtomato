@@ -578,6 +578,7 @@ static void calc(void) {
 			strncpy(test.ipaddr, ipaddr, INET_ADDRSTRLEN);
 			ptr = TREE_FIND(&tree, _Node, linkage, &test);
 
+                        if ((tx < 1) && (rx < 1) && (!ptr)) continue;
 			if ( (ptr) || (nvram_get_int("cstats_all")) || (find_word(include, ipaddr)) ) {
 
 				if (!ptr) {
