@@ -1,5 +1,5 @@
 <?xml version="1.0" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.2//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!--
 Tomato GUI
 Copyright (C) 2006-2010 Jonathan Zarate
@@ -7,42 +7,44 @@ http://www.polarcloud.com/tomato/
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
 -->
-<svg width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"
+<svg width="100%" height="100%" version="1.2" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"
 	onmousemove="mMove(evt)">
 	<style type='text/css'>
-		* {
-			cursor: pointer;
-		}
 		line {
-			stroke: #e5e5e5;
-			stroke-width: 0.35;
-		}
-		line.a {
 			stroke: #f0f0f0;
+			stroke-width: 1px;
+		 	shape-rendering: crispEdges;
 		}
+		
 		text {
-			font: 11px 'Open Sans', Verdana;
+			font: 12px 'Roboto', Verdana;
 			fill: #696969;
 		}
-		#xpst {
-			transition: all 150ms ease-out;
-		}
+		
 		.tickH {
 			text-anchor: middle;
 			fill: #222;
 		}
+		
 		#pointText {
 			text-anchor: end;
 		}
+		
 		.back {
 			fill: none;
 			opacity: 1;
 		}
-
-		polyline {
-			transition: all 400ms ease-out;
+		
+		.dataLine {
+			stroke-width: 1px;
+			transition: all 250ms ease-in-out;
+			shape-rendering: optimizeSpeed;
 		}
-
+		
+		#xpst { transition: all 150ms ease-in-out; }
+		#xpst.hide { opacity: 0; visibility: hidden; transform: translate(-50px); }
+		#xpst.show { opacity: 1; visibility: visible; transform: translate(0); }
+		#maxText { cursor: pointer; }
 	</style>
 	<script type='text/ecmascript'><![CDATA[
 		/*
@@ -124,36 +126,50 @@ No part of this file may be used without permission.
 			var d, j;
 			if (data.length == 0) return;
 			x = 0;
+
 			if (mode == 0) {
-				poly.setAttribute('fill-opacity', '0.55');
+
+				poly.setAttribute('fill-opacity', '0.4');
 				pt = '0,' + vHeight;
-			}
-			else {
+
+			} else {
+
 				poly.setAttribute('fill-opacity', '0');
 				pt = '';
+
 			}
+
 			poly.setAttribute('stroke', color);
 			poly.setAttribute('fill', color);
+
 			for (i = data.length - maxL; i < data.length; ++i) {
+
 				if (i < 0) {
+
 					d = 0;
-				}
-				else if (i >= samp) {
+
+				} else if (i >= samp) {
+
 					d = 0;
 					for (j = samp - 1; j >= 0; --j) {
 						d += data[i - j];
 					}
 					d /= (dataDiv * samp);
-				}
-				else {
+
+				} else {
+
 					d = data[i] / dataDiv;
+
 				}
+
 				y = (vHeight - Math.floor((d * vHeight) / maxV))
 				pt += ' ' + Math.floor(x) + ',' + y;
 				x += advX;
 			}
+
 			pt += ' ' + (vWidth + 5) + ',' + y + ' ' + (vWidth + 10) + ',' + vHeight;
-			poly.setAttribute('points', pt);
+			poly.setAttribute( 'd', 'M' + pt + 'z' ); // M is required for path
+
 		}
 		function updateSVG(rxData, txData, maxValue, mode, rxColor, txColor, intv, maxLen, dataD, avgSamp, clock, newWidth)
 		{
@@ -174,6 +190,7 @@ No part of this file may be used without permission.
 			//	tockD = new Date();
 			tock = tockD.getTime();
 			if (intv < 60) {
+
 				// realtime
 				x = z = (vWidth / 5);
 				for (i = 0; i < 4; ++i) {
@@ -220,8 +237,8 @@ No part of this file may be used without permission.
 				}
 			}
 			if (maxV <= 0) {
-				polyRx.setAttribute('points', '');
-				polyTx.setAttribute('points', '');
+				polyRx.setAttribute('d', '');
+				polyTx.setAttribute('d', '');
 				return;
 			}
 
@@ -288,8 +305,7 @@ No part of this file may be used without permission.
 		}
 		function toggleXpst()
 		{
-			E('xpst').setAttribute('visibility', (xpstVis ^= 1) ? 'visible' : 'hidden');
-			E('xpst').setAttribute('opacity', (xpstVis == 1) ? '1' : '0');
+			E('xpst').setAttribute('class', (xpstVis ^= 1) ? 'show' : 'hide');
 			ignoreNext = 1;
 		}
 	]]></script>
@@ -339,13 +355,13 @@ No part of this file may be used without permission.
 	<text x="0" y="98%" class="tickH" id="h12" />
 
 	<g id="xpst">
-		<text x="40" y="26%" id="xpst0" />
-		<text x="40" y="51%" id="xpst1" />
-		<text x="40" y="76%" id="xpst2" />
+		<text x="40" y="24%" id="xpst0" />
+		<text x="40" y="49%" id="xpst1" />
+		<text x="40" y="74%" id="xpst2" />
 	</g>
 
-	<polyline id="polyTx" style="stroke-width:1" points="" />
-	<polyline id="polyRx" style="stroke-width:1" points="" />
+	<path class="dataLine" id="polyTx" stroke="#fff" fill="#fff" d="" />
+	<path class="dataLine" id="polyRx" stroke="#fff" fill="#fff" d="" />
 
 	<g id="pointGroup" visibility="hidden">
 		<rect x="490" y="0" width="268" height="15" id="pointTextBack" class="back" />

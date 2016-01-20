@@ -92,7 +92,7 @@ No part of this file may be used without permission.
 
 			E('_' + service + '_button').disabled = true;
 			form.submitHidden('service.cgi', {
-				_redirect: '#vpn-client.asp',
+				_redirect: '/#vpn-client.asp',
 				_sleep: '3',
 				_service: service + (isup ? '-stop' : '-start')
 			});

@@ -1,68 +1,79 @@
-// Bind Navi etc.
+// Bind Navigation etc.
 function AdvancedTomato () {
 
-	/** Misc functions, calls, binds
-	 ************************************************************************************************/
+	/* First handle page loading, hash change events and other most important tasks
+	************************************************************************************************/
+	// Initial Page load, determine what to load
+	if ( window.location.hash.match(/#/) ) { loadPage( window.location.hash ); } else { loadPage( '#status-home.asp' ); }
 
-	// Call navi function in tomato.js to generate navigation
+	// Bind "Hash Change" - Happens when hash in the "URL" changes (http://site.com/#hash-bind)
+	$(window).bind( 'hashchange', function() {
+
+		// Prevent Mismatch on features page
+		( (location.hash.replace( '#', '' ) != '' ) ? loadPage( location.hash.replace( '#', '' ), true ) : '' );
+		return false;
+
+	});
+
+
+	/* Misc functions, calls, binds
+	************************************************************************************************/
+	// Call navigation function in tomato.js to generate navigation
 	navi();
 
-	// Create preloader
+	// Create pre-loader
 	$('#wrapper').prepend('<div id="nprogress"></div>');
 
 	// Find current active link
 	$('.navigation > ul > li').each(function(key) {
 
 		if ($(this).hasClass('active')) {
+
 			$(this).find('ul').slideDown('350', 'easeInQuad');
+
 		} else {
+
 			$(this).find('ul').slideUp(350, 'easeOutBounce');
+
 		}
 
 	});
 
-	// First run, check hash for current page
-	if (window.location.hash.match(/#/)) { loadPage(window.location.hash); } else { loadPage('#status-home.asp'); }
 
-	// Bind for "back" state of browser
-	$(window).hashchange(function(e) {
-
-		// Prevent Missmatch on features page
-		((location.hash.replace('#', '') != '') ? loadPage(location.hash.replace('#', '')) : '');
-		return false;
-
-	});
-
-
-	/** Click handlers
-	 ************************************************************************************************/
-
+	/* Click handlers
+	************************************************************************************************/
 	// Navigation slides
-	$('.navigation:not(.collapsed) > ul > li > a').on('click', function() {
+	$('.navigation > ul > li > a').on('click', function() { 
 
-		if ($('.navigation').hasClass('collapsed')) { return; }
-		if ($(this).parent('li').hasClass('active')) { return false; }
+		if ($('.navigation').hasClass('collapsed')) { return; }				// Doesn't work in collapsed state
+		if ($(this).parent('li').hasClass('active')) { return false; }      // If already active, ignore click
 
 		$('.navigation > ul > li').removeClass('active').find('ul').slideUp('150');
 		$(this).parent('li').addClass('active');
-		$(this).closest('li').find('ul').slideDown('150');
+		$(this).closest('li').find('ul').slideDown('150'); 
 
-		return false;
+		return false; 
 	});
 
 	// Close click handler for updates
 	$('.ajaxwrap').on('click', '.alert .close', function() {
+
 		if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }
 		$(this).parent('.alert').slideUp();
+
 		return false;
 	});
 
 	// Handle ajax loading
 	$('.navigation li ul a, .header .links a[href!="#system"]').on('click', function(e) {
+
 		if ($(this).attr('target') != '_blank') {
+
 			loadPage($(this).attr('href'));
 			return false;
+
 		}
+
 	});
 
 	// Toggle Navigation
@@ -70,17 +81,20 @@ function AdvancedTomato () {
 
 		if (!$('.navigation').hasClass('collapsed')) {
 
-			$('#wrapper').find('.container').css('margin-left', '60px');
-			$('#wrapper').find('.navigation').addClass('collapsed');
-			$('#wrapper').find('.logo').addClass('collapsed');
-			$('#wrapper').find('.nav-collapse-hide').hide();
+			// Collapse the navigation
+			$('#wrapper').find('.container').css('margin-left', '60px');			// Move the content to the left
+			$('#wrapper').find('.navigation').addClass('collapsed');				// Hide the normal navigation >> animated
+			$('#wrapper').find('.logo').addClass('collapsed');						// Show the log string
+			$('#wrapper').find('.nav-collapse-hide').hide();						// Hide the advanced tomato string
 
 		} else {
 
+			// Show the normal navigation
 			$('#wrapper').find('.container').css('margin-left', '240px');
 			$('#wrapper').find('.navigation').removeClass('collapsed');
 			$('#wrapper').find('.logo').removeClass('collapsed');
-			$('#wrapper').find('.nav-collapse-hide').show();
+			setTimeout(function() { $('#wrapper').find('.nav-collapse-hide').show(); }, 300);
+
 
 		}
 
@@ -88,8 +102,10 @@ function AdvancedTomato () {
 
 	// Handle Ajax Class Loading
 	$('.ajaxwrap').on('click', '.ajaxload', function(e) {
+
 		loadPage($(this).attr('href'));
 		return false;
+
 	});
 
 	// System Info box
@@ -108,8 +124,8 @@ function AdvancedTomato () {
 
 			// On open
 			$('.system-ui .datasystem').html('<div class="inner-container row"><div style="margin: 45px auto 35px; width: 26px; height:26px;" class="spinner"></div></div>').addClass('align center');
-			systemUI();
 			window.refTimer = setInterval(systemUI, 1600);
+			systemUI();
 
 			$(document).click(function() {$('#system-ui').removeClass('active'); $('.system-ui').fadeOut(250); clearInterval(window.refTimer); $(document).unbind('click'); });
 		}
@@ -118,8 +134,8 @@ function AdvancedTomato () {
 	});
 
 
-	/** Handle NVRAM global functions and notifications
-	 ************************************************************************************************/
+	/* Handle NVRAM global functions and notifications
+	************************************************************************************************/
 	if (typeof nvram == 'undefined') { return false; }
 
 	// Check for update
@@ -196,31 +212,75 @@ function systemUI () {
 
 	}).fail( function() { clearInterval(window.refTimer); });
 
-}
+};
+
+// Data boxes which allow showing / hiding box content, the behaviour happens here
+function data_boxes() {
+
+	$('[data-box]').each(function() {
+
+		var id 		= $(this).attr('data-box');
+		var parent	= $(this);
+		var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
+		var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
+
+		// Hide if hidden
+		if (status) { 
+
+			$(this).find('.content').show();
+
+		} else { // Set display property no matter the preference (fixes defaults)
+
+			$(this).find('.content').hide();
+
+		}
+
+		// Now click handler
+		$(html).on('click', function() {
+
+			if (status) {
+
+				$(parent).find('.content').stop(true, true).slideUp(700, 'easeOutBounce');
+				$(html).find('i').removeClass('icon-chevron-down').addClass('icon-chevron-up');
+				cookie.set(id + '_visibility', 0); status = false;
+
+			} else {
+
+				$(parent).find('.content').stop(true, true).slideDown(350, 'easeInQuad');
+				$(html).find('i').removeClass('icon-chevron-up').addClass('icon-chevron-down');
+				cookie.set(id + '_visibility', 1); status = true;
+
+			}
+
+			return false;
+
+		});
+
+		$(parent).find('.heading').prepend(html);
+
+	});
+
+};
 
 // Ajax Function to load pages
-function loadPage(page) {
+function loadPage( page, is_history ) {
 
 	// Since we use ajax, functions and timers stay in memory. Here we undefine & stop them to prevent issues with other pages.
-	if (typeof(ref) != 'undefined') {
-		ref.destroy();
-		ref=undefined; delete ref;
-		if ( typeof(wdog) != 'undefined' ) clearTimeout(wdog); // Stupid function that kills our refreshers!
-	}
+	if ( typeof( ref ) != 'undefined') { ref.destroy(); ref=undefined; delete ref; }
+	if ( typeof( wdog ) != 'undefined' ) { clearTimeout( wdog ); } // Stupid function that kills our refreshers!
 
 	// Some things that need to be done here =)
 	page = page.replace('#', '');
 	if (page == 'status-home.asp' || page == '/' || page == null) { page = 'status-home.asp'; }
 	if (window.ajaxLoadingState) { return false; } else { window.ajaxLoadingState = true; }
 
-	// Start page preloader
+	// Start page pre-loader
 	$('#nprogress').append('<div class="bar"></div>');
 
-	// Remove animation class from container, for reseting it
+	// Remove animation class from container, so we reset its anim count to 0
 	$('.container .ajaxwrap').removeClass('ajax-animation');
 
-
-	// Switch to JQUERY AJAX function call (doesn't capture all errors making it easier to debug)
+	// Switch to JQUERY AJAX function call (doesn't capture errors allowing much easier debugging)
 	$.ajax({
 
 		async: true,
@@ -238,14 +298,13 @@ function loadPage(page) {
 				return false;
 			}
 
+			// Set page title, current page title and animate page switch
 			$('title').text(window.routerName + title);
 			$('h2.currentpage').text(title);
 			$('.container .ajaxwrap').html(html).addClass('ajax-animation');
 
-			// Push History
-			if (history.pushState) { // Fix issue with IE9 or bellow
-				window.history.pushState({"html":null,"pageTitle": window.routerName + title }, '#'+page, '#'+page);
-			}
+			// Push History (First check if using IE9 or not)
+			if ( history.pushState && is_history !== true ) { history.pushState({ "html": html, "pageTitle": window.routerName + title }, window.routerName + title, '#' + page ); }
 
 			// Go back to top
 			$('.container').scrollTop(0);
@@ -259,59 +318,15 @@ function loadPage(page) {
 			// Loaded, clear state
 			window.ajaxLoadingState = false;
 
-			// Function that allows easy implementation of content hide/show on boxes
-			$('[data-box]').each(function() {
+			// Bind some functions, scripts etc... (Important: after every page change (ajax load))
+			$('[data-toggle="tooltip"]').tooltip({ placement: 'top auto', container: 'body' });			
+			$("input[type='file']").each(function() { $(this).customFileInput(); }); // Custom file inputs
+			data_boxes();
 
-				var id 		= $(this).attr('data-box');
-				var parent	= $(this);
-				var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
-				var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
-
-				// Hide if hidden
-				if (status) { 
-
-					$(this).find('.content').show();
-
-				} else { // Set display property no matter the preference (fixes defaults)
-
-					$(this).find('.content').hide();
-
-				}
-
-				// Now click handler
-				$(html).on('click', function() {
-
-					if (status) {
-
-						$(parent).find('.content').stop(true, true).slideUp(700, 'easeOutBounce');
-						$(html).find('i').removeClass('icon-chevron-down').addClass('icon-chevron-up');
-						cookie.set(id + '_visibility', 0); status = false;
-
-					} else {
-
-						$(parent).find('.content').stop(true, true).slideDown(350, 'easeInQuad');
-						$(html).find('i').removeClass('icon-chevron-uo').addClass('icon-chevron-down');
-						cookie.set(id + '_visibility', 1); status = true;
-
-					}
-
-					return false;
-
-				});
-
-				$(parent).find('.heading').prepend(html);
-
-			});
-
-			// Init Tooltips
-			$('[data-toggle="tooltip"]').tooltip({ placement: 'top auto' });
-
-			// Custom file inputs
-			$("input[type='file']").each(function() { $(this).customFileInput(); });
-
-			// Stop & Remove Preloader
+			// Stop & Remove Pre-loader
 			$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
 			setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
+			
 		}
 
 	}).fail( function( jqXHR, textStatus, errorThrown ) {
@@ -334,10 +349,6 @@ function loadPage(page) {
 
 }
 
-// $.browser jquery addon
-(function(a){(jQuery.browser=jQuery.browser||{}).mobile=/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))})(navigator.userAgent||navigator.vendor||window.opera);
-// Hash Change Plugin (Workaround browser issues)
-(function($,e,b){var c="hashchange",h=document,f,g=$.event.special,i=h.documentMode,d="on"+c in e&&(i===b||i>7);function a(j){j=j||location.href;return"#"+j.replace(/^[^#]*#?(.*)$/,"$1")}$.fn[c]=function(j){return j?this.bind(c,j):this.trigger(c)};$.fn[c].delay=50;g[c]=$.extend(g[c],{setup:function(){if(d){return false}$(f.start)},teardown:function(){if(d){return false}$(f.stop)}});f=(function(){var j={},p,m=a(),k=function(q){return q},l=k,o=k;j.start=function(){p||n()};j.stop=function(){p&&clearTimeout(p);p=b};function n(){var r=a(),q=o(m);if(r!==m){l(m=r,q);$(e).trigger(c)}else{if(q!==m){location.href=location.href.replace(/#.*/,"")+q}}p=setTimeout(n,$.fn[c].delay)}$.browser.msie&&!d&&(function(){var q,r;j.start=function(){if(!q){r=$.fn[c].src;r=r&&r+a();q=$('<iframe tabindex="-1" title="empty"/>').hide().one("load",function(){r||l(a());n()}).attr("src",r||"javascript:0").insertAfter("body")[0].contentWindow;h.onpropertychange=function(){try{if(event.propertyName==="title"){q.document.title=h.title}}catch(s){}}}};j.stop=k;o=function(){return a(q.location.href)};l=function(v,s){var u=q.document,t=$.fn[c].domain;if(v!==s){u.title=h.title;u.open();t&&u.write('<script>document.domain="'+t+'"<\/script>');u.close();q.location.hash=v}}})();return j})()})(jQuery,this);
 // Custom FileInputs (coded by http://prahec.com)
 (function(e){e.fn.customFileInput=function(){var t=e(this).addClass("customfile-input").mouseover(function(){n.addClass("customfile-hover")}).mouseout(function(){n.removeClass("customfile-hover")}).focus(function(){n.addClass("customfile-focus");t.data("val",t.val())}).blur(function(){n.removeClass("customfile-focus");e(this).trigger("checkChange")}).bind("disable",function(){t.attr("disabled",true);n.addClass("customfile-disabled")}).bind("enable",function(){t.removeAttr("disabled");n.removeClass("customfile-disabled")}).bind("checkChange",function(){if(t.val()&&t.val()!=t.data("val")){t.trigger("change")}}).bind("change",function(){var t=e(this).val().split(/\\/).pop();var n="customfile-ext-"+t.split(".").pop().toLowerCase();i.html('<i class="icon-file"></i> '+t).removeClass(i.data("fileExt")||"").addClass(n).data("fileExt",n);r.text("Change")}).click(function(){t.data("val",t.val());setTimeout(function(){t.trigger("checkChange")},100)});var n=e('<div class="customfile"></div>');var i=e('<span class="customfile-text" aria-hidden="true">No file selected...</span>').appendTo(n);var r=e('<a class="btn btn-primary browse" href="#">Browse</a>').appendTo(n);if(t.is("[disabled]")){t.trigger("disable")}n.mousemove(function(r){t.css({left:r.pageX-n.offset().left-t.outerWidth()+20,top:r.pageY-n.offset().top-15})}).insertAfter(t);t.appendTo(n);return e(this)}})(jQuery)
 // Bootstrap Tooltips

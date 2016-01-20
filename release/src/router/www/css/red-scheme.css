@@ -4,7 +4,7 @@
 
 .top-header > .links > ul > li > a:hover,
 .top-header > .links > ul > li a.active {
-	border-color: #c0392b;
+	/* border-color: #c0392b; */
 }
 
 /* Hover & Active States */

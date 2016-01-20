@@ -1,4 +1,5 @@
-/* Fonts */
+/* Declare fonts
+*******************************************************************************************************/
 @font-face {
 	font-family: 'Roboto';
 	src: local('Roboto Medium'), local('Roboto-Medium'), url('fonts/Roboto-Medium-webfont.woff') format('woff');
@@ -15,18 +16,19 @@
 
 @font-face {
 	font-family: "advancedtomato";
-	src:url("fonts/advancedtomato.eot");
+	src: url("fonts/advancedtomato.svg#advancedtomato") format("svg");
 	src:url("fonts/advancedtomato.eot?#iefix") format("embedded-opentype"),
 		url("fonts/advancedtomato.woff") format("woff"),
 		url("fonts/advancedtomato.ttf") format("truetype"),
-		url("fonts/advancedtomato.svg#advancedtomato") format("svg");
+		url("fonts/advancedtomato.eot");
 	font-weight: normal;
 	font-style: normal;
 
 }
 
-/* CSS */
-html { font-size: 62.5%; }
+/* General CSS
+*******************************************************************************************************/
+html { font-size: 62.5%; -webkit-font-smoothing: antialiased; }
 body {
 	font-size: 10pt;
 	font-family: "Roboto", sans-serif;
@@ -94,7 +96,8 @@ small { font-size: 80%; }
 .span10 { width: 100% !important; }
 
 
-/* Header Design */
+/* Header Design
+*******************************************************************************************************/
 .top-header {
 	display: block;
 	height: 60px;
@@ -178,8 +181,7 @@ small { font-size: 80%; }
 .top-header > .links > ul > li > a {
 	display: inline-block;
 	color: #696969;
-	border-bottom: 2px solid transparent;
-	padding: 0 15px;
+	padding: 0 22px;
 	height: 60px;
 	line-height: 60px;
 	transition: all 150ms ease;
@@ -189,8 +191,7 @@ small { font-size: 80%; }
 .top-header > .links > ul > li > a:hover,
 .top-header > .links > ul > li a.active {
 	color: #000;
-	background: rgba(0, 0, 0, 0.02);
-	border-color: #3498DB;
+	background: rgba(0, 0, 0, 0.05);
 }
 
 .top-header .links > ul {
@@ -210,7 +211,8 @@ small { font-size: 80%; }
 }
 
 
-/* System UI dropdown */
+/* System Info Box
+*******************************************************************************************************/
 .system-ui {
 	display: block;
 	position: absolute;
@@ -276,7 +278,9 @@ small { font-size: 80%; }
 	width: 245px;
 }
 
-/* Navigation */
+
+/* Navigation
+*******************************************************************************************************/
 .navigation {
 	display: block;
 	position: fixed;
@@ -318,19 +322,17 @@ small { font-size: 80%; }
 	font-weight: 500;
 	padding: 10px 25px;
 	vertical-align: middle;
-	-webkit-transition: background 80ms ease, color 80ms ease;
-	        transition: background 80ms ease, color 80ms ease;
 }
 
 .navigation li a i {
-	font-size: 15px;
+	font-size: 16px;
 	margin-right: 7px;
 }
 
 .navigation li ul {
 	display: none;
 	margin: 0;
-	background: #2b323a;
+	background: #262c33;
 }
 
 /* Dropdown, or w/e */
@@ -369,21 +371,15 @@ small { font-size: 80%; }
 
 /* Hover & Active States */
 .navigation li ul li.active a:after { background-color: #3498DB; }
-.navigation .active > a { color: #fff; }
-.navigation li ul li.active > a { background: rgba(0,0,0,0.15); }
+.navigation .active > a { color: #e1e4e6; background-color: #262c33;  }
 .navigation > ul > li > a:hover {
-	color: #fff;
-	background: rgba(255,255,255,0.05);
-}
-
-.navigation .active > a > i,
-.navigation > ul > li > a:hover > i {
-	color: #3498DB;
+	color: #e1e4e6;
+	background: #2f363e;
 }
 
 .navigation li ul li a:hover {
-	color: #fff;
-	background: rgba(255,255,255,0.05);
+	color: #e1e4e6;
+	background: #2a3037;
 }
 
 /* Footer */
@@ -400,12 +396,16 @@ small { font-size: 80%; }
 	right: 0px;
 	min-height: 30px;
 	line-height: 1;
+	font-size: 13px;
 	padding: 10px;
+	color: #969ba0;
 	text-align: center;
-	border-top: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+	-webkit-box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+	background: #262c33;
 }
 
-.navigation .nav-footer i:before { font-size: 18px; top: -1px; left: -1px }
+.navigation .nav-footer i:before { font-size: 18px; top: -2px; left: -2px }
 
 /* Collapse Logo/Navigation and extend content */
 .top-header .logo.collapsed {
@@ -427,13 +427,14 @@ small { font-size: 80%; }
 }
 
 .navigation.collapsed li a i {
-	font-size:20px;
+	font-size: 20px;
 }
 
 .navigation.collapsed > ul > li > a {
 	text-align:center;
 	padding:14px 18px;
 	color: #919292;
+	background-color: transparent; 
 }
 
 .navigation.collapsed li:hover ul {
@@ -442,7 +443,6 @@ small { font-size: 80%; }
 }
 
 .navigation.collapsed li:hover > a {
-	color: #fff !important;
 	background: rgba(255,255,255,0.05);
 }
 
@@ -456,7 +456,7 @@ small { font-size: 80%; }
 	line-height: 40px;
 	width: 200px;
 	color: #FFF;
-	background: none repeat scroll 0 0 #2b323a;
+	background: none repeat scroll 0 0 #262c33;
 	z-index: 4;
 	padding: 0 20px;
 	border-top-right-radius: 3px;
@@ -485,12 +485,14 @@ small { font-size: 80%; }
 	width: 15px;
 }
 
-.navigation.collapsed .active > a > i,
-.navigation.collapsed > ul > li > a:hover > i {
-	color: #969ba0;
+.navigation.collapsed .active > a > i { color: #969ba0; }
+.navigation.collapsed > ul > li:hover > a > i {
+	color: #e1e4e6;
 }
 
-/* Content Design */
+
+/* Content Design
+*******************************************************************************************************/
 #wrapper > .container {
 	display: block;
 	position: absolute;
@@ -645,7 +647,9 @@ small { font-size: 80%; }
 	margin: 8px 0;
 }
 
-/* Dropdowns (here because of header) */
+
+/* Dropdowns (not in use currently) 
+*******************************************************************************************************/
 ul.dropdowns { list-style: none; }
 ul.dropdowns > li { position: relative; display: inline-block; }
 ul.dropdowns > li ul { display: none; position: absolute; left: -10px; z-index: 40; width: 200px; background: #fff; border-radius: 2px; overflow-y: hidden; overflow-x: auto; }
@@ -655,7 +659,9 @@ ul.dropdowns > li ul li a { display: block; padding: 5px 10px; }
 .dropdowns li:hover > ul { display: block; }
 .dropdowns li ul a:hover { background: #f0f0f0; }
 
-/* Style Tables */
+
+/* Table design
+*******************************************************************************************************/
 table {
 	position: relative;
 	display: table;
@@ -711,7 +717,7 @@ table.line-table tr th {
 
 table.line-table tr td {
 	display: table-cell;
-	width: inhert;
+	width: inherit;
 	padding: 10px 6px;
 	vertical-align: middle;
 }
@@ -808,7 +814,18 @@ table .header {
 	cursor: pointer;
 }
 
-/* Buttons design */
+/* Multi-row editor default values. Should/can be overriden in every .asp page were a multirow editor field is used */
+.erow div[class^="x"] { margin-top:3px; float:left; display: inline-block; }
+.erow:first-child div[class^="x"] { margin-top:0px }
+
+.erow div[class^="x"]:first-child { clear: left; }
+
+.erow div.xa { width: 30%; padding: 0px 0px 0xp 2px; }
+.erow div.xb { width: 30%; padding-left: 5px; }
+
+
+/* Buttons (using same prefix as bootstrap)
+*******************************************************************************************************/
 .btn {
 	display: inline-block;
 	text-align: center;
@@ -848,6 +865,7 @@ table .header {
 	pointer-events: none;
 	cursor: not-allowed;
 	box-shadow: none;
+	-webkit-box-shadow: none;
 	opacity: 0.65;
 	filter: alpha(opacity=65);
 }
@@ -902,6 +920,7 @@ table .header {
 	color: #535353 !important;
 	background: #FAFAFA;
 	box-shadow: none;
+	-webkit-box-shadow: none;
 	line-height: 1.2;
 	border: 1px solid #f0f0f0;
 	border-width: 1px 0 0 1px;
@@ -938,7 +957,9 @@ button.btn { height: 34px; font-family: "Roboto"; font-weight: 400 !important; v
 	border-bottom-right-radius: 3px;
 }
 
-/* Alert Boxes */
+
+/* Alerts
+*******************************************************************************************************/
 .alert {
 	position: relative;
 	color: #96904D;
@@ -1014,7 +1035,9 @@ a.close:hover { opacity: 1; filter: alpha(opacity=100); }
 
 #footer-msg { vertical-align: middle; padding: 10px 40px 10px 15px; min-height: 35px; }
 
-/* Progress Bars */
+
+/* Progress Bars
+*******************************************************************************************************/
 .progress {
 	vertical-align: middle;
 	display: block;
@@ -1090,7 +1113,9 @@ ul.nav-tabs li a i {
 	margin-right: 2px;
 }
 
-/* Forms etc */
+
+/* form, label, input, textarea, etc...
+*******************************************************************************************************/
 label {
 	display: inline-block;
 	color: #656565;
@@ -1148,7 +1173,6 @@ fieldset .text-block {
 	padding-top: 7px;
 }
 
-form { margin-bottom: 20px; }
 input, select, textarea {
 	color: #76838f;
 	padding: 6px 10px;
@@ -1183,7 +1207,10 @@ input:disabled, select:disabled, textarea:disabled {
 	border: 1px solid #f0f0f0;
 }
 
-textarea { resize:vertical !important; }
+/* Some quick fixes */
+fieldset .help-block .btn { margin-top: 4px; }
+form { margin-bottom: 20px; }
+textarea { resize: vertical !important; }
 select, select option { cursor: pointer; }
 
 .c-checkbox,
@@ -1302,6 +1329,7 @@ input[type=radio]:disabled + span:before {
 	color: #dddddd;
 }
 
+
 /* Input appends */
 .input-append { 
 	line-height: 0px;
@@ -1397,7 +1425,9 @@ input[type=radio]:disabled + span:before {
 	background: #60b7f4;
 }
 
-/* New Ethernet States */
+
+/* New Ethernet States 
+*******************************************************************************************************/
 #ethPorts {
 	position: relative;
 	display: table;
@@ -1418,7 +1448,7 @@ input[type=radio]:disabled + span:before {
 	position: absolute;
 	display: block;
 	width: 64px;
-	bottom: 10px;
+	bottom: 8px;
 	text-align: center;
 }
 
@@ -1450,10 +1480,10 @@ input[type=radio]:disabled + span:before {
 }
 
 
-/* Retina Ready Icons */
+/* Font Icons (for High Density displays (High DPI))
+*******************************************************************************************************/
 [class*="icon-"] {
 	display: inline-block;
-	font-family: "advancedtomato" !important;
 	font-style: normal !important;
 	font-weight: normal !important;
 	font-variant: normal !important;
@@ -1628,19 +1658,22 @@ input[type=radio]:disabled + span:before {
 	margin: 0 10px;
 }
 
+
+/* Animations, Keyframes and Preloaders
+*******************************************************************************************************/
 /* Animate Page Loads & Changes */
 @-webkit-keyframes ajax-animation {
-	0%   { opacity: 0.5; filter: alpha(opacity=50); -webkit-transform: scale(0.99); }
-	100% { opacity: 1; filter: alpha(opacity=100); -webkit-transform: scale(1); }
+	from { opacity: 0; filter: alpha(opacity=0); }
+	to 	 { opacity: 1; filter: alpha(opacity=100); }
 }
 @keyframes ajax-animation {
-	0%   { opacity: 0.5; filter: alpha(opacity=50); -webkit-transform: scale(0.99); transform: scale(0.99); }
-	100% { opacity: 1; filter: alpha(opacity=100); -webkit-transform: scale(1); transform: scale(1); }
+	from { opacity: 0; filter: alpha(opacity=0); }
+	to 	 { opacity: 1; filter: alpha(opacity=100); }
 }
 
 .ajax-animation {
-	-webkit-animation: ajax-animation 350ms 1;
-	animation:         ajax-animation 350ms 1;
+	-webkit-animation: ajax-animation 450ms ease-out 1;
+	animation:         ajax-animation 450ms ease-out 1;
 	-webkit-backface-visibility: hidden;
 	        backface-visibility: hidden;  /* Performance Improvement */
 	-webkit-transform: translate3d(0, 0, 0);
@@ -1677,7 +1710,7 @@ input[type=radio]:disabled + span:before {
 	animation: tomato-spinner 1s linear infinite;
 }
 
-/* Preloader */
+/* More Preloader(s) */
 #nprogress { pointer-events: none; -webkit-pointer-events: none; }
 #nprogress .bar { 
 	background: #3498DB;
@@ -1691,33 +1724,22 @@ input[type=radio]:disabled + span:before {
 	animation: nprogress-animation 5s linear 1;
 }
 
-@-webkit-keyframes nprogress-animation {
-	0%   { width: 20%; }
-	100% { width: 100%; }
-}
-@keyframes nprogress-animation {
-	0%   { width: 20%; }
-	100% { width: 100%; }
-}
+@-webkit-keyframes nprogress-animation { from { width: 15%; } to { width: 100%; } }
+@keyframes nprogress-animation { from { width: 15%; } to { width: 100%; } }
 
-/* Responsive stuff */
+@-webkit-keyframes tomato-spinner { from { -webkit-transform: rotate(0deg); } to { -webkit-transform: rotate(360deg); } }
+@keyframes tomato-spinner { from { -webkit-transform: rotate(0deg); transform: rotate(0deg); } to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
 
-@-webkit-keyframes tomato-spinner { 0%   { -webkit-transform: rotate(0deg); }  100% { -webkit-transform: rotate(360deg); } }
-@keyframes tomato-spinner { 0%   { -webkit-transform: rotate(0deg); transform: rotate(0deg); }  100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
+
+/* Responsive code (Adapt to screen size)
+*******************************************************************************************************/
 @media (max-width: 960px) {
-	#wrapper > .container {
-		padding: 5px 10px;
-	}
-	.links ul li a {
-		font-size: 0;
-	}
-	.links ul li a i {
-		font-size: 16px;
-	}
-	.system-ui:before, .system-ui:after {
-		display: none;
-	}
+	#wrapper > .container {	padding: 5px 10px; }
+	.links ul li a { font-size: 0; }
+	.links ul li a i { font-size: 16px; }
+	.system-ui:before, .system-ui:after { display: none; }
 }
+
 @media (min-width: 1200px) {
 	.fluid-grid {
 		-moz-column-count: 2;
@@ -1751,6 +1773,7 @@ input[type=radio]:disabled + span:before {
 		-o-column-count: 3 auto;
 	}
 }
+
 @media (max-height: 990px) {
 	.navigation.collapsed li:hover ul {
 		max-height: 240px;

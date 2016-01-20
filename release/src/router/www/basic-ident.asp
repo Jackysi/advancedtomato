@@ -30,7 +30,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="_service" value="*">
 
 		<div class="box">
-			<div class="heading">Router Indentification</div>
+			<div class="heading">Router Identification</div>
 			<div class="content">
 				<div id="identification" class="section"></div>
 				<script type="text/javascript">

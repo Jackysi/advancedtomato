@@ -17,9 +17,13 @@ No part of this file may be used without permission.
 		if (shlimit.length != 3) shlimit = [0,3,60];
 		var xmenus = [["Status", "status"], ["Bandwidth", "bwm"], ["IP Traffic", "ipt"], ["Tools", "tools"], ["Basic", "basic"],
 			["Advanced", "advanced"], ["Port Forwarding", "forward"], ["QoS", "qos"],
-			["USB and NAS", "nas"],
-			["VPN Tunneling", "vpn"],
-			["Administration", "admin"]];
+			/* USB-BEGIN */
+			['USB and NAS', 'nas'],
+			/* USB-END */
+			/* VPN-BEGIN */
+			['VPN Tunneling', 'vpn'],
+			/* VPN-END */
+			['Administration', 'admin']];
 		function toggle(service, isup)
 		{
 			if (changed > 0) {
@@ -123,6 +127,7 @@ No part of this file may be used without permission.
 			changed |= ok;
 			return ok;
 		}
+
 		function save()
 		{
 			var a, b, fom;

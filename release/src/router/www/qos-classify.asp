@@ -7,12 +7,37 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>Classification Rules</title>
 <content>
+
 	<style>
-		.co5 { width: 240px; display: block; }
-		.x1b, .x2a, .x2b, .x2c, .x3a, .x3b, .x4a, .x4b, .x5a, .x5b, .x5c {
-			display: inline-block;
-			padding: 0 2px;
-		}
+	table.line-table tr td.co1 { width:62%; }
+	table.line-table tr td.co2 { width:13%; }
+	table.line-table tr td.co3 { width:21%; }
+	table.line-table tr td.co4 { width:4%; }
+	
+	/* Style the first column editorRow */
+		.erow div.xa { width: 30%; padding: 0px; }
+	
+	/* Style second column editorRow */
+		.erow div.xb { width: 65%; padding-left:10px;}
+	
+	/* Style third editorRow column */
+		.erow div.xc { padding-left:10px; }	
+
+	/* Override default styling for editorRow 2 */
+		.erow.y2 div.xb { width: 22%; }						/* Column2 */
+		.erow.y2 div.xc { width: 43%; padding-left: 2px; }		/* Column3 */
+	
+	/* Override default styling for editorRow 5: Column1 (KB Transferred), Column2 (KB From), Column3 (the dash), Column4 (KB To) */		
+		
+		/* Text only fields (Column 1 & Column 3) */
+		.erow.y5 div.xa,
+		.erow.y5 div.xc { padding-top: 7px; }
+		
+		.erow.y5 div.xa { padding-left: 7px; }													/* Column1 (KB Transferred) */
+		.erow.y5 div.xb { width: 25%; padding-right: 0px; }										/* Column2 (KB From) 		*/
+		.erow.y5 div.xc { width: 3%; padding-left: 0px; padding-right:0px; text-align:center }	/* Column3 (the dash) 		*/
+		.erow.y5 div.xd { width: 25%; padding-left: 0px; }										/* Column4 (KB To)			*/
+
 	</style>
 	<script type="text/javascript" src="js/protocols.js"></script>
 	<script type="text/javascript">
@@ -189,6 +214,37 @@ No part of this file may be used without permission.
 			return 1;
 		}
 
+		qosg.sortCompare = function(a, b) {
+			/* Get the gridobject for the row that is being compared. */
+			var obj = TGO(a);
+			/* Get the columnindex for the column that will be sorted */
+			var col = obj.sortColumn;
+			
+			var r;
+			/*  Compute the compareValue for this column (in ascending mode) */
+			var obj = TGO(a);
+			var col = obj.sortColumn;
+			var da = a.cells[col].innerHTML;
+			var db = b.cells[col].innerHTML;
+			var r;
+		
+			switch (col) {
+				case 3:		/* number */
+					r = cmpInt(da, db);
+					break;
+				case 0: 	/* Match rule */
+				case 1: 	/* Class */
+				case 2:		/* Description */
+				default:
+					r = cmpText(da, db);
+					break;
+			}
+			
+			/* Negate the return value if sorting is not Ascending */
+			return obj.sortAscending ? r : -r;
+
+		}
+		
 		qosg.verifyFields = function(row, quiet) {
 			var f = fields.getAll(row);
 			var a, b, e;
@@ -251,28 +307,31 @@ No part of this file may be used without permission.
 			// what a mess...
 			this.init('qg', 'move', 80, [
 				{ multi: [
-					{ type: 'select', options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP'],[3,'Src MAC']] },
-					{ type: 'text', prefix: '<div class="x1b">', suffix: '</div>' },
+					{ type: 'select', options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP'],[3,'Src MAC']], prefix: '<div class="erow y1"><div class="xa">', suffix: '</div>' },
+					{ type: 'text', prefix: '<div class="xb">', suffix: '</div></div>' },
 
-					{ type: 'select', prefix: '<div class="x2a">', suffix: '</div>', options: a },
-					{ type: 'select', prefix: '<div class="x2b">', suffix: '</div>',
+					{ type: 'select', prefix: '<div class="erow y2"><div class="xa">', suffix: '</div>', options: a },
+					{ type: 'select', prefix: '<div class="xb">', suffix: '</div>',
 						options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
-					{ type: 'text', prefix: '<div class="x2c">', suffix: '</div>' },
+					{ type: 'text', prefix: '<div class="xc">', suffix: '</div></div>' }, 
 
-					{ type: 'select', prefix: '<div class="x3a">', suffix: '</div>', options: ipp2p },
-					{ type: 'select', prefix: '<div class="x3b">', suffix: '</div>', options: layer7 },
+					{ type: 'select', prefix: '<div class="erow y3"><div class="xa">', suffix: '</div>', options: ipp2p },
+					{ type: 'select', prefix: '<div class="xb">', suffix: '</div></div>', options: layer7 },
 
-					{ type: 'select', prefix: '<div class="x4a">', suffix: '</div>', options: dscp },
-					{ type: 'text', prefix: '<div class="x4b">', suffix: '</div>' },
+					{ type: 'select', prefix: '<div class="erow y4"><div class="xa">', suffix: '</div>', options: dscp },
+					{ type: 'text', prefix: '<div class="xb">', suffix: '</div></div>' },
 
-					{ type: 'text', prefix: '<div class="x5a">', suffix: '</div>' },
-					{ type: 'text', prefix: '<div class="x5b"> - </div><div class="x5c">', suffix: '</div><div class="x5d">KB Transferred</div>' }
+					{ type: 'text', prefix: '<div class="erow y5"><div class="xa">KB Transferred</div><div class="xb">', suffix: '</div>' },
+					{ type: 'text', prefix: '<div class="xc">-</div><div class="xd">', suffix: '</div></div>' }
 				] },
-				{ type: 'select', options: class1, vtop: 1, class:'input-medium' },
-				{ type: 'text', maxlen: 32, vtop: 1, class:'input-medium' }
+				{ type: 'select', options: class1, vtop: 1 },
+				{ type: 'text', maxlen: 32, vtop: 1 },
+				{ type: 'custom', custom:'<span></span>', vtop: 1 }
 			]);
 
 			this.headerSet(['Match Rule', 'Class', 'Description', '#']);
+			/* Added for sorting, little hacky, when canSort is setup in the init function an error occurs. */
+			this.canSort = 1;
 
 			// addr_type < addr < proto < port_type < port < ipp2p < L7 < bcount < dscp < class < desc
 
@@ -299,7 +358,7 @@ No part of this file may be used without permission.
 				qosg.insertData(-1, b);
 			}
 			ruleCounter = -1;
-
+			
 			this.showNewEditor();
 			this.resetNewEditor();
 		}

@@ -1202,6 +1202,15 @@ function cmpIP(a, b)
 	return aton(a) - aton(b);
 }
 
+/**
+ * 
+ * @param a		Text1
+ * @param b		Text2
+ * @returns		-1 if a < b
+ * 				 0 if a = b
+ * 				 1 if a > b
+ *  
+ */
 function cmpText(a, b)
 {
 	if (a == '') a = '\xff';
@@ -1550,9 +1559,9 @@ TomatoGrid.prototype = {
 
 		var row = this.tb.insertRow(rowIndex);
 		row.className = 'editor';
-
+		
 		var common = ' onkeypress="return TGO(this).onKey(\'' + which + '\', event)" onchange="TGO(this).onChange(\'' + which + '\', this)"';
-
+		
 		var vi = 0;
 		for (var i = 0; i < this.editorFields.length; ++i) {
 			var s = '';
@@ -1562,8 +1571,8 @@ TomatoGrid.prototype = {
 			for (var j = 0; j < ef.length; ++j) {
 				var f = ef[j];
 
-				if (f.prefix) s += f.prefix;
-				var attrib = ' class="fi' + (vi + 1) + ' ' + (f.class ? f.class : '') + '" ' + (f.attrib || '');
+				if (f.prefix) s += f.prefix;	
+				var attrib = ' class="fi' + (vi + 1) + ' ' + (f['class'] ? f['class'] : '') + '" ' + (f.attrib || '');
 				var id = (this.tb ? ('_' + this.tb + '_' + (vi + 1)) : null);
 				if (id) attrib += ' id="' + id + '"';
 				switch (f.type) {
@@ -1585,7 +1594,7 @@ TomatoGrid.prototype = {
 						if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
 						break;
-					case 'select':
+					case 'select':						
 						s += '<select' + common + attrib + '>';
 						for (var k = 0; k < f.options.length; ++k) {
 							a = f.options[k];
@@ -1618,7 +1627,8 @@ TomatoGrid.prototype = {
 			}
 			var c = row.insertCell(i);
 			c.innerHTML = s;
-			if (this.editorFields[i].vtop) c.vAlign = 'top';
+			// Added verticalAlignment, this fixes the incorrect vertical positioning of inputs in the editorRow
+			if (this.editorFields[i].vtop) { c.vAlign = 'top'; c.style.verticalAlign = "top"; } 
 		}
 
 		return row;
@@ -1770,14 +1780,33 @@ TomatoGrid.prototype = {
 		if (this.header) n -= this.header.rowIndex + 1;
 		return n;
 	},
-
+	
+	/**
+	 * @brief	Sortcompare function for rows of a datagrid
+	 * @details	Because rows can't be compared, the function gets the 
+	 * 			columnindex of the column that has to be sorted.
+	 * 			Than the columndata is compared. According to the sorting
+	 * 			(Ascending, Descending) the resultvalue is negated. 
+	 * 			
+	 * 			This function is often overiden for a specific grid. 
+	 */
 	sortCompare: function(a, b) {
+		// Get the gridobject for the row that is being compared.
 		var obj = TGO(a);
+		// Get the columnindex for the column that will be sorted
 		var col = obj.sortColumn;
+		// Compute the compareValue for this column (in ascending mode)
 		var r = cmpText(a.cells[col].innerHTML, b.cells[col].innerHTML);
+		
+		// Negate the return value if sorting is not Ascending
 		return obj.sortAscending ? r : -r;
 	},
-
+	
+	/**
+	 * @brief	Sort the table. 
+	 * @details	Sort function sets the table header accordingly and calls 
+	 * 			member function 'resort' on the gird.
+	 */
 	sort: function(column) {
 		if (this.editor) return;
 
@@ -1795,21 +1824,36 @@ TomatoGrid.prototype = {
 
 		this.resort();
 	},
-
+	
+	/**
+	 * 	@brief: 	Do the actual sorting on the table.
+	 */
 	resort: function() {
+		// Return if there is no column set for sorting, if the grid is empty, or if the grid is being edited
 		if ((this.sortColumn < 0) || (this.getDataCount() == 0) || (this.editor)) return;
-
+		
+		// Initialize variables
 		var p = this.header.parentNode;
 		var a = [];
 		var i, j, max, e, p;
 		var top;
 
+		// ?Stop the row moving state 
 		this.moving = null;
-
+		
+		// Set top to the index of the first data row
 		top = this.header ? this.header.rowIndex + 1 : 0;
+		// Set max to the index of the last data row   
 		max = this.footer ? this.footer.rowIndex : this.tb.rows.length;
+
+		// create a copy of the datarows of the gird in the array a
 		for (i = top; i < max; ++i) a.push(p.rows[i]);
+		
+		// Sort the newly created copy with a compare function.
+		// The compare function is the compare function defined for the grid being sorted. 
 		a.sort(THIS(this, this.sortCompare));
+		
+		// Empty the grid and fill it with the sorted rows
 		this.removeAllData();
 		j = top;
 		for (i = 0; i < a.length; ++i) {

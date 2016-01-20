@@ -330,7 +330,7 @@ No part of this file may be used without permission.
 
 				<ul>
 					<li>Default Class - IP / MAC's non included in the list will take the Default Rate/Ceiling setting</li>
-					<li>The bandwitdh will be shared by all unlisted hosts in br0</li>
+					<li>The bandwidth will be shared by all unlisted hosts in br0</li>
 				</ul>
 			</div>
 		</div>
@@ -352,7 +352,7 @@ No part of this file may be used without permission.
 				</script>
 
 				<ul>
-					<li>The bandwitdh will be shared by all hosts in br1.</li>
+					<li>The bandwidth will be shared by all hosts in br1.</li>
 				</ul>
 			</div>
 		</div>
@@ -374,7 +374,7 @@ No part of this file may be used without permission.
 				</script>
 
 				<ul>
-					<li>The bandwitdh will be shared by all hosts in br2.</li>
+					<li>The bandwidth will be shared by all hosts in br2.</li>
 				</ul>
 			</div>
 		</div>
@@ -396,7 +396,7 @@ No part of this file may be used without permission.
 				</script>
 
 				<ul>
-					<li>The bandwitdh will be shared by all hosts in br3.</li>
+					<li>The bandwidth will be shared by all hosts in br3.</li>
 				</ul>
 			</div>
 		</div>

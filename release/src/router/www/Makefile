@@ -6,46 +6,58 @@ all:
 clean:
 
 install:
+# Create initial folders
 	rm -rf $(INSTALLDIR)/www
-	mkdir -p $(INSTALLDIR)/www
+	mkdir -p $(INSTALLDIR)/www			
+	mkdir -p $(INSTALLDIR)/www/js
+	mkdir -p $(INSTALLDIR)/www/css
 
+# Copy files we don't want to modify to new install directory
 	cp *.ico *.html *.php robots.txt $(INSTALLDIR)/www
 
-# squish some of the files by trimming whitespace...
-
-	for F in $(wildcard *.js *.jsx); do \
+# Copy JS files to the installdir and squish files by trimming whitespace
+	for F in $(wildcard js/*.js js/*.jsx *.js *.jsx); do \
 		sed '/^\/\*\s*$$/,/\*\//! { s/^\s\+//; s/\s\+$$//; /^\/\/ --\+\s*/d; /^$$/d }' < $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
-	for F in $(wildcard *.css); do \
+# Copy CSS files to the installdir and squish files by trimming whitespace
+	for F in $(wildcard css/*.css *.css); do \
 		sed '/^\/\*\s*$$/,/\*\//! { s/\s\+/ /g; s/^\s\+//; s/\s\+$$//; /^$$/d }' < $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
+# Copy asp files to the installdir	
 # remove "debug.js" references, convert color.css, remove comments
 # in between REMOVE-BEGIN and REMOVE-END, and compress whitespace
+# (and copy them to the INSTALLDIR)
+#
+# The expressions to delete comments from asp files are placed further down the Makefile, to affect not only these
+# asp files
+# 			-e "s,<!-- / / / -->,," \
+#			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" 
+#
 
 	for F in $(wildcard *.asp *.svg); do \
 		sed	-e "/REMOVE-BEGIN/,/REMOVE-END/d" \
 			-e "s,<script[^>]\+debug\.js[^>]\+></script>,," \
 			-e "s,<link[^>]\+href='color\.css'>,<% css(); %>," \
 			-e "s,color\.css,<% nv('web_css'); %>\.css," \
-			-e "s,<!-- / / / -->,," \
 			-e "s,\x0d,," \
 			-e "s,^\s\+,," \
 			-e "/^$$/d" \
-			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
+			$$F > $(INSTALLDIR)/www/$$F; \
 	done
 
+#-------------------------------- COMPILER DIRECTIVES -----------------------------------------------
 # Only include Linux 2.6 options if building for Linux 2.6.
 ifneq ($(CONFIG_LINUX26),y)
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
+	for F in $(wildcard *.asp *.js js/*.js); do \
 		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
 	done
 # But remove some K24 options if building for Linux 2.6.
 else
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
+	for F in $(wildcard *.asp *.js js/*.js); do \
 		sed -i $$F -e "/LINUX24-BEGIN/,/LINUX24-END/d"; \
 	done
 endif
@@ -132,7 +144,7 @@ endif
 # Only include IPv6 options if IPv6 is configured in.
 ifneq ($(TCONFIG_IPV6),y)
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js *.jsx); do \
+	for F in $(wildcard js/*.js js/*.jsx *.asp *.js *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/IPV6-BEGIN/,/IPV6-END/d" \
 		|| true; \
@@ -166,8 +178,6 @@ ifneq ($(TCONFIG_TOR),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/TOR-BEGIN/,/TOR-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/TOR-BEGIN/,/TOR-END/d"
 endif
-
-
 
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
@@ -208,11 +218,11 @@ endif
 		mv $$F.tmp $$F; \
 	done
 
-
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
+# Bugfix: vpn.js in AdvancedTomato is in the /js folder
 ifeq ($(TCONFIG_OPENVPN),y)
-	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/js/vpn.js -e "/AES-BEGIN/,/AES-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
@@ -277,11 +287,19 @@ ifeq ($(TCONFIG_DNSCRYPT),y)
 else
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
- endif
+endif
 
-# clean up
+#-------------------------------- END COMPILER DIRECTIVES -----------------------------------------------
+# Copy over the directories required for AdvancedTomato GUI (img and fonts), functions affect these files too
+	mkdir -p $(INSTALLDIR)/www/img
+	cp -r img/* $(INSTALLDIR)/www/img/.
+
+	mkdir -p $(INSTALLDIR)/www/css/fonts
+	cp -r css/fonts/* $(INSTALLDIR)/www/css/fonts/.
+	
+# clean up compiler directives
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js *.jsx *.html); do \
+	for F in $(wildcard *.asp *.js *.jsx js/*.js js/*.jsx *.html); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/LINUX24-BEGIN/d"	-e "/LINUX24-END/d" \
@@ -313,9 +331,45 @@ else
 		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
 		-e "/TINC-BEGIN/d"	-e "/TINC-END/d"\
-		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
+		-e "/MICROSD-BEGIN/d" -e "/MICROSD-END/d"\
 		|| true; \
 	done
+
+# After cleaning up the compiler directive, all html comments in asp can be removed
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.html); do \
+		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
+		-e :a -re 's/<!--.*?-->//g;/<!--/N;//ba' \
+		|| true; \
+	done
+	
+# Remove all javascript multiline comments in asp files
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.html); do \
+		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
+		-e :a -re 's%(.*)/\*.*\*/%\1%; ta; /\/\*/ !b; N; ba' \
+		|| true; \
+	done
+
+# Prepare yuicompressor (will be removed from installdir after execution)
+# Yuicompressor dowloaded from: https://github.com/yui/yuicompressor/releases
+		cp tools/yuicompressor-2.4.8.jar $(INSTALLDIR)/www
+
+# Compress installed javascript with yui-compressor
+# TODO: jsx files have nvram actions, these are removed with yui-compressor, so these files are excluded!
+		cd $(INSTALLDIR)/www && \
+		for F in $(wildcard js/*.js *.js ); do \
+			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type js -v -o $$F $$F || true; \
+		done 
+
+# Compress css with yui-compressor
+		cd $(INSTALLDIR)/www && \
+		for F in $(wildcard css/*.css *.css ); do \
+			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type css -v -o $$F $$F || true; \
+		done 
+
+# Remove yuicompressor
+		rm 	$(INSTALLDIR)/www/yuicompressor-2.4.8.jar
 
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
@@ -323,17 +377,11 @@ else
 	@rm -f $(INSTALLDIR)/www/*-old.*
 	@rm -f $(INSTALLDIR)/www/color.css
 
-	chmod 0644 $(INSTALLDIR)/www/*
+# secure the files in the installdir and change file ACLs (and preserve the existing folder ACLs)
+#	chmod 0644 $(INSTALLDIR)/www/*
+	find $(INSTALLDIR)/www/ -type f -print0 | xargs -0 chmod 644	
 
 # remove C-style comments from java files. All "control" comments have been processed by now.
-	for F in $(wildcard *.js *.jsx); do \
+	for F in $(wildcard js/*.jsx *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
 	done
-
-	# Copy over the directories needed for the new AdvancedTomato stuff (img, css and js)
-	mkdir -p $(INSTALLDIR)/www/img
-	cp -r img/* $(INSTALLDIR)/www/img/.
-	mkdir -p $(INSTALLDIR)/www/css
-	cp -r css/* $(INSTALLDIR)/www/css/.
-	mkdir -p $(INSTALLDIR)/www/js
-	cp -r js/* $(INSTALLDIR)/www/js/.

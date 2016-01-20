@@ -6,15 +6,21 @@
 		<meta http-equiv="content-type" content="text/html;charset=utf-8">
 		<meta name="robots" content="noindex,nofollow">
 		<title>[<% ident(); %>]: Basic</title>
+
+		<!-- Stylesheets -->
 		<link href="css/reset.css" rel="stylesheet">
 		<link href="css/style.css" rel="stylesheet">
-		<link rel="shortcut icon" href="/favicon.ico" />
 		<% css(); %>
 
+		<!-- Load Favicon (icon) -->
+		<link rel="shortcut icon" href="/favicon.ico" />
+
+		<!-- One time load JAVASCRIPT -->
 		<script type="text/javascript" src="js/jquery.min.js"></script>
 		<script type="text/javascript" src="tomato.js"></script>
 		<script type="text/javascript" src="js/advancedtomato.js"></script>
 
+		<!-- Variables which we keep through whole GUI, also determine Tomato version here -->
 		<script type="text/javascript">
 
 			var routerName = '[<% ident(); %>] ';
@@ -23,24 +29,37 @@
 
 			// Fix for system data display
 			var refTimer, wl_ifaces = {}, ajaxLoadingState = false, gui_version = "<% version(0); %>";
-
 			$(document).ready(function() {
 
-				gui_version = gui_version.match(/^1.28\.0000 (MIPSR2\-|\-)?(.*)/)[2] || '';
+				// Attempt match
+				match_regex = gui_version.match(/^1\.28\.0000.*?([0-9]{1,3}\.[0-9]{1}\-[0-9]{3}).* ([a-z0-9\-]+)$/i);
+				
+				// Check matches
+				if ( match_regex == null || match_regex[1] == null ) { 
+
+					gui_version = 'More Info' 
+
+				} else { 
+
+					gui_version = 'v' + match_regex[1] + ' ' + match_regex[2]; 
+
+				}
+
+				// Write version & initiate GUI functions & binds
 				$('#gui-version').html('<i class="icon-info-alt"></i> <span class="nav-collapse-hide">' + gui_version + '</span>');
 				AdvancedTomato();
 
 			});
+			
 		</script>
 	</head>
 	<body>
 		<div id="wrapper">
 
 			<div class="top-header">
-			
+
 				<a href="/">
 					<div class="logo">
-
 						<svg version="1.1" id="logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 							width="26px" height="26px" viewBox="0 0 32 32" enable-background="new 0 0 32 32" xml:space="preserve">
 							<path fill-rule="evenodd" clip-rule="evenodd" fill="#fff" d="M19.4,10.5C19.4,10.5,19.4,10.5,19.4,10.5c0-0.1,0-0.1,0-0.2
@@ -55,10 +74,10 @@
 						</svg>
 						<h1 class="nav-collapse-hide">Advanced<span>Tomato</span></h1>
 
-						<h2 class="currentpage nav-collapse-hide"></h2>
+						<h2 class="currentpage nav-collapse-hide">...</h2>
 					</div>
 				</a>
-				
+
 				<div class="left-container">
 					<a data-toggle="tooltip" title="Toggle Collapsed Navigation" href="#" class="toggle-nav"><i class="icon-align-left"></i></a>
 				</div>

@@ -70,54 +70,55 @@ No part of this file may be used without permission.
 	</script>
 
 	<div class="box">
-	<div class="heading">Router Configuration</div>
-	<div class="content">
+		<div class="heading">Router Configuration</div>
+		<div class="content">
 
-		<h4>Backup Configuration</h4>
-		<div class="section" id="backup">
-			<div class="input-append">
-				<button name="f_backup_button" onclick="backupButton()" value="Backup" class="btn">Backup <i class="icon-download"></i></button>
-			</div><br /><hr>
-		</div>
+			<h4>Backup Configuration</h4>
+			<div class="section" id="backup">
+				<div class="input-append">
+					<button name="f_backup_button" onclick="backupButton()" value="Backup" class="btn">Backup <i class="icon-download"></i></button>
+				</div><br /><hr>
+			</div>
 
-		<h4>Restore Configuration</h4>
-		<div class="section">
-			<form id="restore-form" method="post" action="cfg/restore.cgi" encType="multipart/form-data">
-				<input class="uploadfile" type="file" size="40" id="restore-name" name="filename">
-				<button type="button" name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton()" class="btn">Restore <i class="icon-upload"></i></button>
-			</form><hr>
-		</div>
+			<h4>Restore Configuration</h4>
+			<div class="section">
+				<form id="restore-form" method="post" action="cfg/restore.cgi" encType="multipart/form-data">
+					<input class="uploadfile" type="file" size="40" id="restore-name" name="filename">
+					<button type="button" name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton()" class="btn">Restore <i class="icon-upload"></i></button>
+				</form><hr>
+			</div>
 
-		<h4>Restore Default Configuration</h4>
-		<div class="section">
-			<form id="aco-reset-form" method="post" action="cfg/defaults.cgi">
-				<div class="input-append"><select name="mode" id="restore-mode">
-						<option value=0>Select...</option>
-						<option value=1>Restore default router settings (normal)</option>
-						<option value=2>Erase all data in NVRAM memory (thorough)</option>
-					</select>
-					<button type="button" value="OK" onclick="resetButton()" id="reset-button" class="btn">OK</button>
-				</div>
-			</form><hr>
-		</div>
+			<h4>Restore Default Configuration</h4>
+			<div class="section">
+				<form id="aco-reset-form" method="post" action="cfg/defaults.cgi">
+					<div class="input-append"><select name="mode" id="restore-mode">
+							<option value=0>Select...</option>
+							<option value=1>Restore default router settings (normal)</option>
+							<option value=2>Erase all data in NVRAM memory (thorough)</option>
+						</select>
+						<button type="button" value="OK" onclick="resetButton()" id="reset-button" class="btn">OK</button>
+					</div>
+				</form><hr>
+			</div>
 
-		<div class="section" id="nvram">
-			<script type="text/javascript">
-				var a = nvstat.free / nvstat.size * 100.0;
-				createFieldTable('', [
-					{ title: 'Total / Free NVRAM:', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
-					], '#nvram', 'line-table');
+			<div class="section" id="nvram">
+				<script type="text/javascript">
+					var a = nvstat.free / nvstat.size * 100.0;
+					createFieldTable('', [
+						{ title: 'Total / Free NVRAM:', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
+						], '#nvram', 'line-table');
 
-				if (a <= 5) {
-					$('#nvram').append('<div class="alert alert-warning">' +
-						'The NVRAM free space is very low. It is strongly recommended to ' +
-						'erase all data in NVRAM memory, and reconfigure the router manually ' +
-						'in order to clean up all unused and obsolete entries.' +
-						'</div>');
-				}
+					if (a <= 5) {
+						$('#nvram').append('<div class="alert alert-warning">' +
+							'The NVRAM free space is very low. It is strongly recommended to ' +
+							'erase all data in NVRAM memory, and reconfigure the router manually ' +
+							'in order to clean up all unused and obsolete entries.' +
+							'</div>');
+					}
 
-				$('#backup .input-append').prepend('<input type="text" size="40" maxlength="64" id="backup-name" onchange="backupNameChanged()" value="tomato_v' + ("<% version(); %>".replace(/\./g, "")) + '_m' + nvram.et0macaddr.replace(/:/g, "").substring(6, 12) + '">');
-			</script>
+					$('#backup .input-append').prepend('<input type="text" size="40" maxlength="64" id="backup-name" onchange="backupNameChanged()" value="tomato_v' + ("<% version(); %>".replace(/\./g, "")) + '_m' + nvram.et0macaddr.replace(/:/g, "").substring(6, 12) + '">');
+				</script>
+			</div>
 		</div>
 	</div>
 </content>
