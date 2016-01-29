@@ -28,7 +28,8 @@
  * online backup system.
  */
 
-#if defined(HAVE_EMMINTRIN_H) || defined(_MSC_VER)
+#if defined(HAVE_EMMINTRIN_H) || \
+    (defined(_MSC_VER) && (defined(_M_X64) || defined(_M_AMD64) || defined(_M_IX86)))
 #if __GNUC__
 # pragma GCC target("sse2")
 #endif
@@ -379,7 +380,7 @@ escrypt_kdf_sse(escrypt_local_t * local,
 	/* 2: for i = 0 to p - 1 do */
 	for (i = 0; i < p; i++) {
 		/* 3: B_i <-- MF(B_i, N) */
-		smix(&B[(size_t)128 * i * r], r, N, V, XY);
+		smix(&B[(size_t)128 * i * r], r, (uint32_t) N, V, XY);
 	}
 
 	/* 5: DK <-- PBKDF2(P, B, 1, dkLen) */
