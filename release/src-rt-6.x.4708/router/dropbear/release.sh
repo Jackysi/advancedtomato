@@ -33,8 +33,13 @@ hg archive "$RELDIR"  || exit 2
 
 rm -r "$RELDIR/autom4te.cache" || exit 2
 
-(cd $RELDIR/.. && tar cjf $ARCHIVE `basename "$RELDIR"`) || exit 2
+rm "$RELDIR/.hgtags"
+
+(cd "$RELDIR/.." && tar cjf $ARCHIVE `basename "$RELDIR"`) || exit 2
 
 ls -l $ARCHIVE
-openssl sha1 $ARCHIVE
-echo "Done to $ARCHIVE"
+openssl sha -sha256 $ARCHIVE
+echo Done to
+echo "$ARCHIVE"
+echo Sign it with
+echo gpg2 --detach-sign -a -u F29C6773 "$ARCHIVE"
