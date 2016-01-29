@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.c,v 1.13 2012/03/05 20:36:19 nanard Exp $ */
+/* $Id: ipfwrdr.c,v 1.15 2016/01/13 15:51:06 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -9,6 +9,7 @@
  */
 
 #include "../config.h"
+#include "../macros.h"
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -327,6 +328,13 @@ int add_filter_rule2(
 	int proto,
 	const char * desc)
 {
+	UNUSED(ifname);
+	UNUSED(rhost);
+	UNUSED(iaddr);
+	UNUSED(eport);
+	UNUSED(iport);
+	UNUSED(proto);
+	UNUSED(desc);
 	return 0; /* nothing to do, always success */
 }
 
@@ -335,6 +343,9 @@ int delete_filter_rule(
 	unsigned short eport,
 	int proto)
 {
+	UNUSED(ifname);
+	UNUSED(eport);
+	UNUSED(proto);
 	return 0; /* nothing to do, always success */
 }
 
@@ -419,7 +430,7 @@ get_portmappings_in_range(unsigned short startport,
                           int proto,
                           unsigned int * number)
 {
-	unsigned short * array = NULL;
+	unsigned short *array = NULL, *array2 = NULL;
 	unsigned int capacity = 128;
 	int i, count_rules, total_rules = 0;
 	struct ip_fw * rules = NULL;
@@ -448,12 +459,14 @@ get_portmappings_in_range(unsigned short startport,
 		    && eport <= endport) {
 			if(*number >= capacity) {
 				capacity += 128;
-				array = realloc(array, sizeof(unsigned short)*capacity);
-				if(!array) {
+				array2 = realloc(array, sizeof(unsigned short)*capacity);
+				if(!array2) {
 					syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%lu) error", sizeof(unsigned short)*capacity);
 					*number = 0;
+					free(array);
 					goto error;
 				}
+				array = array2;
 			}
 			array[*number] = eport;
 			(*number)++;
