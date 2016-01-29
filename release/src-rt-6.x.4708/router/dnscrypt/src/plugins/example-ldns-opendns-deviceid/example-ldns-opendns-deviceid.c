@@ -26,15 +26,15 @@ const char *
 dcplugin_long_description(DCPlugin * const dcplugin)
 {
     return
-        "This plugin tags outgoing packets with a 64-bit shared secret key\n"
-        "for the OpenDNS Umbrella Mobility service.\n"
+        "This plugin tags outgoing packets with a 64-bit shared secret key,\n"
+        "that the OpenDNS Umbrella service uses to identify users.\n"
         "\n"
-        "If you happen to have an OpenDNS Umbrella Mobility account,\n"
-        "your secret key ('device id') can be retrieved with:\n"
+        "If you happen to have an OpenDNS Umbrella account,\n"
+        "your secret key ('device') can be retrieved with:\n"
         "\n"
         "$ dig txt debug.opendns.com\n"
         "\n"
-        "# env OPENDNS_DEVICE_ID='<device id>' dnscrypt-proxy --plugin \\\n"
+        "# env OPENDNS_DEVICE_ID='<device id>' dnscrypt-proxy --plugin \n"
         "  libdcplugin_example_ldns_opendns_deviceid.la";
 }
 

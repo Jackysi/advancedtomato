@@ -5,6 +5,8 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <event2/util.h>
@@ -112,4 +114,61 @@ do_daemonize(void)
     return 0;
 }
 
+#endif
+
+#ifndef _WIN32
+char *
+path_from_app_folder(const char *file_name)
+{
+    assert(file_name != NULL);
+
+    return strdup(file_name);
+}
+#else
+char *
+path_from_app_folder(const char *file_name)
+{
+    WCHAR       utf16_buf[16383 + 1];
+    char        utf8_buf[65535 + 1];
+    char       *utf8_buf_copy;
+    char       *chr_revpathsep;
+    const char *chr_column;
+    const char *chr_pathsep;
+    size_t      utf8_buf_copy_len;
+    DWORD       utf16_buf_len = (DWORD) sizeof utf16_buf;
+    int         utf8_buf_len = (int) sizeof utf8_buf;
+
+    assert(file_name != NULL);
+    if (((chr_pathsep = strchr(file_name, '/')) != NULL ||
+         (chr_pathsep = strchr(file_name, '\\')) != NULL) &&
+        (chr_pathsep == file_name ||
+            ((chr_column = strchr(file_name, ':')) != NULL &&
+                chr_column - file_name < chr_pathsep - file_name))) {
+        return strdup(file_name);
+    }
+    if ((utf16_buf_len =
+         GetModuleFileNameW(NULL, utf16_buf, utf16_buf_len - 1)) <= (DWORD) 0) {
+        return NULL;
+    }
+    utf16_buf[utf16_buf_len] = (WCHAR) 0;
+    utf8_buf_len = WideCharToMultiByte(CP_UTF8, 0, utf16_buf, -1, utf8_buf,
+                                       utf8_buf_len, NULL, NULL);
+    if (utf8_buf_len <= 0) {
+        return NULL;
+    }
+    assert(utf8_buf[utf8_buf_len - 1] == 0);
+    if ((chr_revpathsep = strrchr(utf8_buf, '/')) == NULL &&
+        (chr_revpathsep = strrchr(utf8_buf, '\\')) == NULL) {
+        return strdup(file_name);
+    }
+    *(chr_revpathsep + 1U) = 0;
+    utf8_buf_copy_len = strlen(utf8_buf) + strlen(file_name) + (size_t) 1U;
+    if ((utf8_buf_copy = malloc(utf8_buf_copy_len)) == NULL) {
+        return NULL;
+    }
+    evutil_snprintf(utf8_buf_copy, utf8_buf_copy_len, "%s%s",
+                    utf8_buf, file_name);
+
+    return utf8_buf_copy;
+}
 #endif

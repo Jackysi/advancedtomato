@@ -12,7 +12,7 @@
 #define CERT_QUERY_RETRY_DELAY_AFTER_SUCCESS_JITTER 100
 
 #ifndef CERT_QUERY_TEST_RETRY_STEPS
-# define CERT_QUERY_TEST_RETRY_STEPS         10
+# define CERT_QUERY_TEST_RETRY_STEPS         2
 #endif
 
 typedef struct CertUpdater_ {

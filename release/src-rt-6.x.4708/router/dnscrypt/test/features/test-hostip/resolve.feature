@@ -2,22 +2,22 @@ Feature: See if hostip can resolve names
 
   Resolve names with the hostip utility.
   
-  Scenario: resolve resolver1.opendns.com
+  Scenario: resolve test-ff.dnscrypt.org
   
-    When I run `hostip resolver1.opendns.com`
+    When I run `hostip test-ff.dnscrypt.org`
     Then the output should contain exactly:
     """
-    208.67.222.222
+    255.255.255.255
 
     """
     And the exit status should be 0
 
-  Scenario: resolve IPv6 address for www.opendns.com
+  Scenario: resolve IPv6 address for test-ipv6.dnscrypt.org
   
-    When I run `hostip -6 www.opendns.com`
+    When I run `hostip -6 test-ipv6.dnscrypt.org`
     Then the output should contain exactly:
     """
-    2620:0:cc1:115::219
+    fe80::123:4567:89ab:cdef
 
     """
     And the exit status should be 0

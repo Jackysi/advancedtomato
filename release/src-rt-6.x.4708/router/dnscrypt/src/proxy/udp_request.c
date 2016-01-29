@@ -104,8 +104,10 @@ resolver_to_proxy_cb(evutil_socket_t proxy_resolver_handle, short ev_flags,
                      &resolver_sockaddr_len);
     if (nread < (ssize_t) 0) {
         const int err = evutil_socket_geterror(proxy_resolver_handle);
-        logger(proxy_context, LOG_WARNING,
-               "recvfrom(resolver): [%s]", evutil_socket_error_to_string(err));
+        if (!EVUTIL_ERR_RW_RETRIABLE(err)) {
+            logger(proxy_context, LOG_WARNING,
+                   "recvfrom(resolver): [%s]", evutil_socket_error_to_string(err));
+        }
         DNSCRYPT_PROXY_REQUEST_UDP_NETWORK_ERROR(NULL);
         return;
     }
@@ -330,8 +332,10 @@ client_to_proxy_cb(evutil_socket_t client_proxy_handle, short ev_flags,
                      &udp_request->client_sockaddr_len);
     if (nread < (ssize_t) 0) {
         const int err = evutil_socket_geterror(client_proxy_handle);
-        logger(proxy_context, LOG_WARNING,
-               "recvfrom(client): [%s]", evutil_socket_error_to_string(err));
+        if (!EVUTIL_ERR_RW_RETRIABLE(err)) {
+            logger(proxy_context, LOG_WARNING,
+                   "recvfrom(client): [%s]", evutil_socket_error_to_string(err));
+        }
         DNSCRYPT_PROXY_REQUEST_UDP_NETWORK_ERROR(udp_request);
         udp_request_kill(udp_request);
         return;
@@ -477,25 +481,27 @@ udp_listener_kill_oldest_request(ProxyContext * const proxy_context)
 int
 udp_listener_bind(ProxyContext * const proxy_context)
 {
-    assert(proxy_context->udp_listener_handle == -1);
-    if ((proxy_context->udp_listener_handle = socket
-         (proxy_context->local_sockaddr.ss_family,
-             SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-        logger(NULL, LOG_ERR, "Unable to create a socket (UDP)");
-        return -1;
+    if (proxy_context->udp_listener_handle == -1) {
+        if ((proxy_context->udp_listener_handle = socket
+             (proxy_context->local_sockaddr.ss_family,
+                 SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            logger_noformat(proxy_context, LOG_ERR,
+                            "Unable to create a socket (UDP)");
+            return -1;
+        }
+        if (bind(proxy_context->udp_listener_handle,
+                 (struct sockaddr *) &proxy_context->local_sockaddr,
+                 proxy_context->local_sockaddr_len) != 0) {
+            logger(NULL, LOG_ERR, "Unable to bind (UDP) [%s]",
+                   evutil_socket_error_to_string(evutil_socket_geterror(
+                       proxy_context->udp_listener_handle)));
+            evutil_closesocket(proxy_context->udp_listener_handle);
+            proxy_context->udp_listener_handle = -1;
+            return -1;
+        }
     }
     evutil_make_socket_closeonexec(proxy_context->udp_listener_handle);
     evutil_make_socket_nonblocking(proxy_context->udp_listener_handle);
-    if (bind(proxy_context->udp_listener_handle,
-             (struct sockaddr *) &proxy_context->local_sockaddr,
-             proxy_context->local_sockaddr_len) != 0) {
-        logger(NULL, LOG_ERR, "Unable to bind (UDP) [%s]",
-               evutil_socket_error_to_string
-               (evutil_socket_geterror(proxy_context->udp_listener_handle)));
-        evutil_closesocket(proxy_context->udp_listener_handle);
-        proxy_context->udp_listener_handle = -1;
-        return -1;
-    }
     udp_tune(proxy_context->udp_listener_handle);
 
     if ((proxy_context->udp_proxy_resolver_handle = socket

@@ -10,8 +10,6 @@
     <true/>
     <key>ProgramArguments</key>
     <array>
-      <string>--user=nobody</string>
-
       <!-- You might want to change this on iOS or if you installed the proxy in a specific location -->
       <string>/usr/local/sbin/dnscrypt-proxy</string>
 
@@ -20,6 +18,8 @@
 
       <!-- Change this to the provider name you want to use -->
       <string>--resolver-name=***CHANGETHIS***</string>
+
+      <string>--user=nobody</string>
     </array>
     <key>StandardErrorPath</key>
     <string>/dev/null</string>

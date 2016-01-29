@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "DNSCRYPT\-PROXY" "8" "August 2014" "" ""
+.TH "DNSCRYPT\-PROXY" "8" "July 2015" "" ""
 .
 .SH "NAME"
 \fBdnscrypt\-proxy\fR \- A DNSCrypt forwarder
@@ -36,6 +36,9 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 \fB\-d\fR, \fB\-\-daemonize\fR: detach from the current terminal and run the server in background\.
 .
 .IP "\(bu" 4
+\fB\-E\fR, \fB\-\-ephemeral\-keys\fR: By default, queries are always sent with the same public key, allowing providers to link this public key to the different IP addresses you are using\. This option requires extra CPU cycles, but mitigates this by computing an ephemeral key pair for every query\.
+.
+.IP "\(bu" 4
 \fB\-e\fR, \fB\-\-edns\-payload\-size=<bytes>\fR: transparently add an OPT pseudo\-RR to outgoing queries in order to enable the EDNS0 extension mechanism\. The payload size is the size of the largest response we accept from the resolver before retrying over TCP\. This feature is enabled by default, with a payload size of 1252 bytes\. Any value below 512 disables it\.
 .
 .IP "\(bu" 4
@@ -45,13 +48,16 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 \fB\-k\fR, \fB\-\-provider\-key=<key>\fR: specify the provider public key (see below)\.
 .
 .IP "\(bu" 4
+\fB\-K\fR, \fB\-\-client\-key=<file>\fR: use a static client secret key stored in \fB<file>\fR\.
+.
+.IP "\(bu" 4
 \fB\-L\fR, \fB\-\-resolvers\-list=<file>\fR: path to the CSV file containing the list of available resolvers, and the parameters to use them\.
 .
 .IP "\(bu" 4
 \fB\-l\fR, \fB\-\-logfile=<file>\fR: log events to this file instead of the standard output\.
 .
 .IP "\(bu" 4
-\fB\-m\fR, \fB\-\-loglevel=<level>\fR: don\'t log events with priority above this level after the service has been started up\. Default is the value for \fBLOG_INFO\fR\.
+\fB\-m\fR, \fB\-\-loglevel=<level>\fR: don\'t log events with priority above this level after the service has been started up\. Default is \fB6\fR, the value for \fBLOG_INFO\fR\. Valid values are \fB0\fR (system is unusable), \fB1\fR (action must be taken immediately), \fB2\fR (critical conditions), \fB3\fR (error conditions), \fB4\fR (warning conditions), \fB5\fR (normal but significant condition), \fB6\fR (informational) and \fB7\fR (debug\-level messages)\.
 .
 .IP "\(bu" 4
 \fB\-n\fR, \fB\-\-max\-active\-requests=<count>\fR: set the maximum number of simultaneous active requests\. The default value is 250\.

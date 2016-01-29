@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.4.1],[http://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.6.0],[http://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -99,18 +99,40 @@ AC_ARG_ENABLE(plugins-root,
 ])
 AM_CONDITIONAL(ENABLE_PLUGINS_ROOT, test x$plugins_root = xenabled)
 
+AC_ARG_WITH([systemd],
+  AS_HELP_STRING([--with-systemd], [build with support for systemd])
+)
+
+have_systemd=no
+AS_IF([test "x$with_systemd" = "xyes"], [
+  PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [have_systemd=yes], [
+    PKG_CHECK_MODULES([SYSTEMD_DAEMON], [libsystemd-daemon], [have_systemd=yes], [have_systemd=no])
+  ])
+  AS_CASE([$with_systemd:$have_systemd],
+    [yes:no],
+      [AC_MSG_ERROR([systemd expected but libsystemd not found])],
+    [*:yes],
+       AC_DEFINE([HAVE_LIBSYSTEMD], [1], [Define if libsystemd is available])
+  )
+])
+AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$have_systemd" = "xyes"])
+
 AC_SUBST([MAINT])
 
 dnl Checks
 
 AC_PROG_CC_C99
 AC_USE_SYSTEM_EXTENSIONS
-CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
 
-AX_CHECK_COMPILE_FLAG([-fPIC], [
-  AX_CHECK_LINK_FLAG([-fPIC],
-    [CFLAGS="$CFLAGS -fPIC"]
-  )
+AX_CHECK_COMPILE_FLAG([-D_FORTIFY_SOURCE=2],
+  [CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"])
+
+AS_CASE([$host_os], [cygwin*|mingw*|msys|pw32*|cegcc*], [ ], [
+  AX_CHECK_COMPILE_FLAG([-fPIC], [
+    AX_CHECK_LINK_FLAG([-fPIC],
+      [CFLAGS="$CFLAGS -fPIC"]
+    )
+  ])
 ])
 
 AS_IF([test "$enable_pie" != "no"],[
@@ -123,9 +145,10 @@ AS_IF([test "$enable_pie" != "no"],[
   ])
 ])
 
-AX_CHECK_COMPILE_FLAG([-fwrapv], [CFLAGS="$CFLAGS -fwrapv"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing], [CFLAGS="$CFLAGS -fno-strict-aliasing"])
-AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"])
+AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"], [
+  AX_CHECK_COMPILE_FLAG([-fwrapv], [CFLAGS="$CFLAGS -fwrapv"])
+])
 
 AS_CASE([$host_os],
   [cygwin* | mingw* | pw32* | cegcc*], [
@@ -379,7 +402,7 @@ AC_SEARCH_LIBS(backtrace, [execinfo],
 AC_SEARCH_LIBS(gethostbyname, [resolv nsl])
 AC_SEARCH_LIBS(recvfrom, [socket])
 AC_SEARCH_LIBS(kvm_open, [kvm])
-AC_SEARCH_LIBS(sodium_init, [sodium], [ ], AC_ERROR([libsodium not found]))
+AC_SEARCH_LIBS(sodium_hex2bin, [sodium], [ ], AC_ERROR([libsodium >= 0.7.0 not found]))
 
 use_ldns=no
 AC_CHECK_HEADER([ldns/ldns.h], [
@@ -411,7 +434,6 @@ AC_CHECK_HEADER([CoreServices/CoreServices.h],
   [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
 
 AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
-AC_CHECK_FUNCS([sodium_mlock])
 
 dnl Libtool.
 

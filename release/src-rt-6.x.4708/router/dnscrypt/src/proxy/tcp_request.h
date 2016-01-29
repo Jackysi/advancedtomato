@@ -9,6 +9,9 @@
 #ifndef TCP_REQUEST_BACKLOG
 # define TCP_REQUEST_BACKLOG 128
 #endif
+#ifndef TCP_FASTOPEN_QUEUES
+# define TCP_FASTOPEN_QUEUES TCP_REQUEST_BACKLOG
+#endif
 
 int tcp_listener_bind(ProxyContext * const proxy_context);
 int tcp_listener_start(ProxyContext * const proxy_context);
