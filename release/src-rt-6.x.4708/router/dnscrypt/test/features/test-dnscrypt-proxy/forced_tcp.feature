@@ -7,7 +7,7 @@ TCP.
   Scenario: query an existing name over UDP, and even though this name
 would fit in a 512-bytes UDP packet, expect a forced fallback to TCP.
   
-    Given a working opendnscache on 208.67.220.220
-    And a running dnscrypt proxy with options "--edns-payload-size=4096 --tcp-only"
-    When a client asks dnscrypt-proxy for "resolver1.opendns.com"
-    Then dnscrypt-proxy returns "208.67.222.222"
+    Given a working server proxy on 212.47.228.136
+    And a running dnscrypt proxy with options "--edns-payload-size=4096 --tcp-only -R dnscrypt.org-fr"
+    When a client asks dnscrypt-proxy for "test-ff.dnscrypt.org"
+    Then dnscrypt-proxy returns "255.255.255.255"

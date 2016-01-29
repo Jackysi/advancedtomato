@@ -10,6 +10,13 @@
 #ifndef UDP_DELAY_BETWEEN_RETRIES
 # define UDP_DELAY_BETWEEN_RETRIES 1
 #endif
+#ifndef EVUTIL_ERR_RW_RETRIABLE
+# ifndef _WIN32
+#  define EVUTIL_ERR_RW_RETRIABLE(e) ((e) == EINTR || (e) == EAGAIN)
+# else
+#  define EVUTIL_ERR_RW_RETRIABLE(e) ((e) == WSAEWOULDBLOCK || (e) == WSAEINTR)
+# endif
+#endif
 
 int udp_listener_bind(ProxyContext * const proxy_context);
 int udp_listener_start(ProxyContext * const proxy_context);

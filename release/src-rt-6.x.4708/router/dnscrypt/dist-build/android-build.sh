@@ -11,10 +11,10 @@ if [ ! -f ./configure ]; then
 	exit 1
 fi
 
-if [ "x$TARGET_ARCH" = 'x' ] || [ "x$HOST_COMPILER" = 'x' ]; then
+if [ "x$TARGET_ARCH" = 'x' ] || [ "x$ARCH" = 'x' ] || [ "x$HOST_COMPILER" = 'x' ]; then
     echo "You shouldn't use android-build.sh directly, use android-[arch].sh instead"
-   exit 1
-fi   
+    exit 1
+fi
 
 export MAKE_TOOLCHAIN="${ANDROID_NDK_HOME}/build/tools/make-standalone-toolchain.sh"
 
@@ -29,15 +29,14 @@ export LDFLAGS="$LDFLAGS -L${SODIUM_ANDROID_PREFIX}/lib"
 
 rm -rf "${TOOLCHAIN_DIR}" "${PREFIX}"
 
-$MAKE_TOOLCHAIN --platform="${NDK_PLATFORM:-android-14}" \
-                --arch="$TARGET_ARCH" \
+bash $MAKE_TOOLCHAIN --platform="${NDK_PLATFORM:-android-18}" \
+                --arch="$ARCH" \
                 --install-dir="$TOOLCHAIN_DIR" && \
 ./configure --host="${HOST_COMPILER}" \
             --with-sysroot="${TOOLCHAIN_DIR}/sysroot" \
             --prefix="${PREFIX}" \
             --disable-soname-versions \
-            --disable-shared \
-            --disable-pie && \
+            --disable-shared && \
 make clean && \
 make -j3 install && \
 echo "dnscrypt-proxy has been installed into $PREFIX"

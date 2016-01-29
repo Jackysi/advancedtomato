@@ -1,0 +1,13 @@
+[Unit]
+Description=DNSCrypt client proxy
+Requires=dnscrypt-proxy.socket
+
+[Install]
+Also=dnscrypt-proxy.socket
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+NonBlocking=true
+ExecStart=/usr/local/sbin/dnscrypt-proxy \
+	  -R dnscrypt.eu-nl

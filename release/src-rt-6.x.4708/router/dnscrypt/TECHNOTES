@@ -8,15 +8,13 @@ Cryptographic library
 - The wheel hasn't been reinvented.
 
 - The crypto constructions come from [NaCl](http://nacl.cr.yp.to/) and
-the proxy leverages [libsodium](https://github.com/jedisct1/libsodium).
+  the proxy leverages [libsodium](https://github.com/jedisct1/libsodium).
 
 - Why NaCl? Unbloated, blazing fast, and less error-prone that other libraries.
   See http://cr.yp.to/highspeed/coolnacl-20111201.pdf
 
-- crypto_box_curve25519xsalsa20poly1305_*() for authenticating/encrypting
-  queries and replies, crypto_sign_ed25519_*() for signing certificates, and
-  crypto_stream_salsa20() as a PRNG.
-
+- crypto_box() for authenticating/encrypting queries and replies,
+  crypto_sign() for signing certificates, randombytes_*() for random numbers.
   See the [libsodium documentation](http://www.libsodium.org/doc/) for details.
 
 Event-notification library
@@ -61,13 +59,14 @@ Certificates have the following header:
 
 Followed by signed content (the signature adds 512 bits to the payload):
 - server 256-bit public key
-- 8 byte magic header to use for queries using this specific key
+- 8 byte magic header to use for queries using this specific key, possibly
+derived from the public key
 - 4 byte serial number
 - 4 + 4 byte validity period (two timestamps)
 
 This is the current structure of the second version of the protocol.
-Don't assume anything about its length, it is very likely to change
-after a version bump.
+The structure length can be increased in a future minor revision, while
+remaining backward compatible.
 
 The proxy drops invalid certificates for the current date, and picks the one
 with the highest serial number.
@@ -81,10 +80,17 @@ pre-signed certificates.
 Queries
 -------
 
-Queries and replies are based on djb's dnscurve protocol:
+Queries and replies are inspired from djb's dnscurve protocol:
 http://www.dnscurve.org/
 
-The proxy always generates a new, in-memory only key pair at startup.
+Legacy mode:
+- The proxy generates a new, in-memory key pair at startup, and reuses
+it for all queries.
+
+Ephemeral key pair mode:
+- The proxy always generates a new, in-memory session key at startup.
+- This session key and the client nonce are used to derive an ephemeral key
+pair for each query.
 
 Random padding is added to queries and replies, using a 64 byte block size.
 
@@ -94,14 +100,14 @@ Encrypted queries are prefixed with the following header structure:
 - A 256 bit client public key
 - A 96 bit client nonce (64 bit monotically increasing timestamp +
   32 random bits)
-- A 128 bit Poly1305-AES MAC
+- A 128 bit Poly1305 MAC
 
 Replies are prefixed with the following header structure:
 
 - 8 byte static magic header r6fnvWJ8
 - A 192 bit nonce: the 96 bit client-supplied nonce + a 96 bit server
 nonce extension.
-- A 128 bit Poly1305-AES MAC.
+- A 128 bit Poly1305 MAC.
 
 The proxy immediately discards replies to queries made more than 10
 second ago and replies that don't match the client-supplied nonce.
