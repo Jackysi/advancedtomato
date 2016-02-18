@@ -14,12 +14,12 @@ fi
 connect() {
     APN=`nvram get modem_apn`
     DEV=`nvram get modem_dev4g`
-    TYP=`nvram get modem_type`
+    TYPE=`nvram get modem_type`
     IFA=`nvram get wan_4g`
 
     logger 4G MODEM - connecting ...
 
-    if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+    if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         CONNECTED=0
         COUNT=0
 
@@ -67,7 +67,7 @@ connect() {
                 exit 0;
             fi
         done
-    elif [ "$TYP" == "qmi_wwan" ]; then
+    elif [ "$TYPE" == "qmi_wwan" ]; then
         CLID=""
 
         # wait till registered
@@ -166,16 +166,16 @@ connect() {
 
 disconnect() {
     DEV=`nvram get modem_dev4g`
-    TYP=`nvram get modem_type`
+    TYPE=`nvram get modem_type`
     CLID=`nvram get modem_clid`
 
     logger 4G MODEM - disconnecting ...
     watchdogDel
     dhcpc-release
 
-    if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+    if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         MODE="AT^NDISDUP=1,0" gcom -d $DEV -s /etc/gcom/setmode.gcom
-    elif [ "$TYP" == "qmi_wwan" ]; then
+    elif [ "$TYPE" == "qmi_wwan" ]; then
         # disable previous autoconnect state using the global handle
         # do not reuse previous wds client id to prevent hangs caused by stale data
         uqmi -s -d "$DEV" --stop-network 0xffffffff --autoconnect
@@ -253,7 +253,7 @@ setPIN() {
 
     if [ "$IS_PIN" == "1" ]; then #only for non-hilink
 
-        if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+        if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
             #we try use last diag iface first. If it failed then we try use any other ttyUSB device
             TTY=`ls /dev/ttyUSB* | grep -v $DEV`
             DEVS="$DEV $TTY"
