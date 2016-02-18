@@ -1,5 +1,11 @@
 #! /bin/sh
 
+if [ ! -x $(which pkg-config) ]; then
+  echo 'pkg-config not found.' >&2
+  echo 'Make sure that pkg-config is installed on your system.' >&2
+  exit 1
+fi
+
 if [ -x "`which autoreconf 2>/dev/null`" ] ; then
   exec autoreconf -ivf
 fi

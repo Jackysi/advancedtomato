@@ -1,8 +1,8 @@
 EXTRA_DIST = \
 	android-arm.sh \
-	android-armv7.sh \
+	android-armv7-a.sh \
 	android-build.sh \
-	android-mips.sh \
+	android-mips32.sh \
 	android-x86.sh \
 	ios.sh \
 	mipsel-linux-static.sh \

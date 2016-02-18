@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <locale.h>
 #include <signal.h>
 #include <stdio.h>
@@ -16,6 +17,11 @@
 #include <event2/util.h>
 
 #include <sodium.h>
+
+#ifdef HAVE_LIBSYSTEMD
+# include <sys/socket.h>
+# include <systemd/sd-daemon.h>
+#endif
 
 #include "app.h"
 #include "dnscrypt_client.h"
@@ -93,11 +99,14 @@ proxy_context_init(ProxyContext * const proxy_context, int argc, char *argv[])
     proxy_context->tcp_accept_timer = NULL;
     proxy_context->tcp_conn_listener = NULL;
     proxy_context->udp_current_max_size = DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND;
-    proxy_context->udp_max_size = proxy_context->udp_current_max_size;
+    proxy_context->udp_max_size = (size_t) DNS_DEFAULT_EDNS_PAYLOAD_SIZE;
     proxy_context->udp_listener_event = NULL;
     proxy_context->udp_proxy_resolver_event = NULL;
     proxy_context->udp_proxy_resolver_handle = -1;
     proxy_context->udp_listener_handle = -1;
+    proxy_context->tcp_listener_handle = -1;
+    sodium_mlock(&proxy_context->dnscrypt_client,
+                 sizeof proxy_context->dnscrypt_client);
     if (options_parse(&app_context, proxy_context, argc, argv) != 0) {
         return -1;
     }
@@ -227,9 +236,8 @@ dnscrypt_proxy_start_listeners(ProxyContext * const proxy_context)
                                 resolver_addr_s, sizeof resolver_addr_s);
     logger(proxy_context, LOG_NOTICE, "Proxying from %s to %s",
            local_addr_s, resolver_addr_s);
-
     proxy_context->listeners_started = 1;
-
+    systemd_notify(proxy_context, "READY=1");
     return 0;
 }
 
@@ -245,6 +253,55 @@ dnscrypt_proxy_loop_break(void)
     return 0;
 }
 
+#ifdef HAVE_LIBSYSTEMD
+static int
+init_descriptors_from_systemd(ProxyContext * const proxy_context)
+{
+    int num_sd_fds;
+    int sock;
+
+    num_sd_fds = sd_listen_fds(0);
+    if (num_sd_fds == 0) {
+        return 0;
+    }
+    if (num_sd_fds != 2) {
+        logger(proxy_context, LOG_ERR, "Wrong number of systemd sockets: %d - "
+               "should be 2", num_sd_fds);
+        return -1;
+    }
+    assert(num_sd_fds <= INT_MAX - SD_LISTEN_FDS_START);
+    for (sock = SD_LISTEN_FDS_START; sock < SD_LISTEN_FDS_START + num_sd_fds;
+         ++sock) {
+       if (sd_is_socket(sock, AF_INET, SOCK_DGRAM, 0) > 0 ||
+           sd_is_socket(sock, AF_INET6, SOCK_DGRAM, 0) > 0) {
+           proxy_context->udp_listener_handle = sock;
+       }
+       if (sd_is_socket(sock, AF_INET, SOCK_STREAM, 1) > 0 ||
+           sd_is_socket(sock, AF_INET6, SOCK_STREAM, 1) > 0) {
+           proxy_context->tcp_listener_handle = sock;
+       }
+    }
+    if (proxy_context->udp_listener_handle < 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "No systemd UDP socket passed in");
+        return -1;
+    }
+    if (proxy_context->tcp_listener_handle < 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "No systemd TCP socket passed in");
+        return -1;
+    }
+    if (getsockname(proxy_context->udp_listener_handle,
+                    (struct sockaddr *) &proxy_context->local_sockaddr,
+                    &proxy_context->local_sockaddr_len) != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Unable to get the local systemd UDP socket address");
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 int
 dnscrypt_proxy_main(int argc, char *argv[])
 {
@@ -252,6 +309,9 @@ dnscrypt_proxy_main(int argc, char *argv[])
 
     setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
     stack_trace_on_crash();
+    if (sodium_init() != 0) {
+        exit(1);
+    }
 #ifdef PLUGINS
     if ((app_context.dcps_context = plugin_support_context_new()) == NULL) {
         logger_noformat(NULL, LOG_ERR, "Unable to setup plugin support");
@@ -263,18 +323,7 @@ dnscrypt_proxy_main(int argc, char *argv[])
         exit(1);
     }
     logger_noformat(&proxy_context, LOG_NOTICE, "Starting " PACKAGE_STRING);
-#ifdef USE_ONLY_PORTABLE_IMPLEMENTATIONS
-    randombytes_stir();
-#else
-    logger_noformat(&proxy_context, LOG_INFO,
-                    "Initializing libsodium for optimal performance");
-    if (sodium_init() != 0) {
-        exit(1);
-    }
-#endif
-#ifdef HAVE_SODIUM_MLOCK
     sodium_mlock(&proxy_context, sizeof proxy_context);
-#endif
     randombytes_set_implementation(&randombytes_salsa20_implementation);
 #ifdef PLUGINS
     if (plugin_support_context_load(app_context.dcps_context) != 0) {
@@ -283,13 +332,28 @@ dnscrypt_proxy_main(int argc, char *argv[])
     }
 #endif
     app_context.proxy_context = &proxy_context;
-    logger_noformat(&proxy_context, LOG_INFO, "Generating a new key pair");
-    dnscrypt_client_init_with_new_key_pair(&proxy_context.dnscrypt_client);
+    proxy_context.dnscrypt_client.ephemeral_keys =
+        proxy_context.ephemeral_keys;
+    if (proxy_context.dnscrypt_client.ephemeral_keys != 0) {
+        logger_noformat(&proxy_context, LOG_INFO, "Ephemeral keys enabled - generating a new seed");
+        dnscrypt_client_init_with_new_session_key(&proxy_context.dnscrypt_client);
+    } else if (proxy_context.client_key_file != NULL) {
+        logger_noformat(&proxy_context, LOG_INFO, "Using a user-supplied client secret key");
+        dnscrypt_client_init_with_client_key(&proxy_context.dnscrypt_client);
+    } else {
+        logger_noformat(&proxy_context, LOG_INFO, "Generating a new session key pair");
+        dnscrypt_client_init_with_new_key_pair(&proxy_context.dnscrypt_client);
+    }
     logger_noformat(&proxy_context, LOG_INFO, "Done");
 
     if (cert_updater_init(&proxy_context) != 0) {
         exit(1);
     }
+#ifdef HAVE_LIBSYSTEMD
+    if (init_descriptors_from_systemd(&proxy_context) != 0) {
+        exit(1);
+    }
+#endif
     if (proxy_context.test_only == 0 &&
         (udp_listener_bind(&proxy_context) != 0 ||
          tcp_listener_bind(&proxy_context) != 0)) {
@@ -303,10 +367,16 @@ dnscrypt_proxy_main(int argc, char *argv[])
     if (cert_updater_start(&proxy_context) != 0) {
         exit(1);
     }
+
+#ifdef HAVE_LIBSYSTEMD
+    sd_notifyf(0, "MAINPID=%lu", (unsigned long) getpid());
+#endif
     if (skip_dispatch == 0) {
         event_base_dispatch(proxy_context.event_loop);
     }
     logger_noformat(&proxy_context, LOG_NOTICE, "Stopping proxy");
+    systemd_notify(0, "STOPPING=1");
+
     cert_updater_free(&proxy_context);
     udp_listener_stop(&proxy_context);
     tcp_listener_stop(&proxy_context);
@@ -315,9 +385,7 @@ dnscrypt_proxy_main(int argc, char *argv[])
     plugin_support_context_free(app_context.dcps_context);
 #endif
     proxy_context_free(&proxy_context);
-#ifdef HAVE_SODIUM_MLOCK
     sodium_munlock(&proxy_context, sizeof proxy_context);
-#endif
     app_context.proxy_context = NULL;
     randombytes_close();
 

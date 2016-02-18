@@ -88,6 +88,9 @@
 /* Define to 1 if you have the `psapi' library (-lpsapi). */
 #undef HAVE_LIBPSAPI
 
+/* Define if libsystemd is available */
+#undef HAVE_LIBSYSTEMD
+
 /* Define to 1 if you have the `ws2_32' library (-lws2_32). */
 #undef HAVE_LIBWS2_32
 
@@ -132,9 +135,6 @@
 
 /* define if you have sin_len */
 #undef HAVE_SIN_LEN
-
-/* Define to 1 if you have the `sodium_mlock' function. */
-#undef HAVE_SODIUM_MLOCK
 
 /* define if you have ss_len */
 #undef HAVE_SS_LEN
@@ -209,12 +209,14 @@
    module search path. */
 #undef LT_MODULE_PATH_VAR
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
 /* Define to the shared library suffix, say, ".dylib". */
 #undef LT_SHARED_EXT
+
+/* Define to the shared archive member specification, say "(shr.o)". */
+#undef LT_SHARED_LIB_MEMBER
 
 /* Never ever ignore assertions */
 #ifdef NDEBUG
@@ -312,7 +314,7 @@
 /* Define so that glibc/gnulib argp.h does not typedef error_t. */
 #undef __error_t_defined
 
-/* Define to a type to use for `error_t' if it is not otherwise available. */
+/* Define to a type to use for 'error_t' if it is not otherwise available. */
 #undef error_t
 
 /* in_port_t type */
