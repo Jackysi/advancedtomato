@@ -26,6 +26,7 @@ CFLAGS ?= -Os
 CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-common
 CPPFLAGS += -D_GNU_SOURCE
+CFLAGS += $(EXTRACFLAGS)
 CFLAGS += -Wall
 CFLAGS += -Wextra -Wstrict-prototypes -Wdeclaration-after-statement
 #CFLAGS += -Wno-missing-field-initializers
@@ -147,7 +148,7 @@ LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libmnl)
 LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libnetfilter_conntrack)
 endif # ($(TEST),1)
 
-LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libssl)
+#LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libssl)
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 
