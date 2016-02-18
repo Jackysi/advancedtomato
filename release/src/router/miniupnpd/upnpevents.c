@@ -1,7 +1,7 @@
-/* $Id: upnpevents.c,v 1.30 2014/03/14 22:26:07 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.32 2015/12/15 11:11:12 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2008-2014 Thomas Bernard
+ * (c) 2008-2015 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -112,7 +112,7 @@ newSubscriber(const char * eventurl, const char * callback, int callbacklen)
 	/* TODO: improve that */
 	strncpy(tmp->uuid, uuidvalue_igd, sizeof(tmp->uuid));
 	tmp->uuid[sizeof(tmp->uuid)-1] = '\0';
-	snprintf(tmp->uuid+37, 5, "%04lx", random() & 0xffff);
+	snprintf(tmp->uuid+sizeof(tmp->uuid)-5, 5, "%04lx", random() & 0xffff);
 	return tmp;
 }
 
@@ -143,8 +143,8 @@ upnpevents_addSubscriber(const char * eventurl,
 }
 
 /* renew a subscription (update the timeout) */
-int
-renewSubscription(const char * sid, int sidlen, int timeout)
+const char *
+upnpevents_renewSubscription(const char * sid, int sidlen, int timeout)
 {
 	struct subscriber * sub;
 	for(sub = subscriberlist.lh_first; sub != NULL; sub = sub->entries.le_next) {
@@ -155,10 +155,10 @@ renewSubscription(const char * sid, int sidlen, int timeout)
 				continue;
 #endif
 			sub->timeout = (timeout ? time(NULL) + timeout : 0);
-			return 0;
+			return sub->uuid;
 		}
 	}
-	return -1;
+	return NULL;
 }
 
 int

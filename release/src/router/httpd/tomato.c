@@ -719,7 +719,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_borderrelay",	V_IP				},
 	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 32)			},
 	{ "ipv6_vlan",			V_RANGE(0, 7)			},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
-	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
+	{ "ipv6_pdonly",		V_01				},	// Request DHCPv6 Prefix Delegation Only
 #endif
 
 // basic-wfilter
