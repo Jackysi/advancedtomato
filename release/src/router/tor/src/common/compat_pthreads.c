@@ -185,7 +185,7 @@ tor_cond_init(tor_cond_t *cond)
     return -1;
   }
 
-#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
+#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   /* Use monotonic time so when we timedwait() on it, any clock adjustment
    * won't affect the timeout value. */
   if (pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC)) {
@@ -234,7 +234,7 @@ tor_cond_wait(tor_cond_t *cond, tor_mutex_t *mutex, const struct timeval *tv)
     struct timeval tvnow, tvsum;
     struct timespec ts;
     while (1) {
-#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
+#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
       if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
         return -1;
       }
