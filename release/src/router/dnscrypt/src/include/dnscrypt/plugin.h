@@ -179,7 +179,7 @@ dcplugin_sync_post_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet);
  * @param D a DCPluginDNSPacket object
  * @return the address length, as a size_t value
  */
-#define dcplugin_get_client_address_len(D) ((D)->client_sockaddr_len)
+#define dcplugin_get_client_address_len(D) ((D)->client_sockaddr_len_s)
 
 /**
  * Get the raw (wire format) content of the DNS packet.

@@ -1,4 +1,33 @@
 
+* Version 1.6.0:
+ - New feature: public-key based client authentication (-K), for
+private and commercial DNS services to securely authenticate the
+sender of a query no matter what the source IP address is, without
+altering the DNS query.
+ - On Windows, paths are now relative to the application folder. Which
+means that the -L option is usually not required any more if the CSV file is
+in the same folder as the dnscrypt-proxy executable. Full paths to
+plugins are not required any more either; plugin names can be given
+directly.
+
+* Version 1.5.0:
+ - New option: -E, to use an ephemeral key pair for each query.
+ - Logging to files is supported on Windows.
+ - TCP FASTOPEN is now enabled on Linux.
+
+* Version 1.4.3:
+ - libevent update, including a fix for CVE-2014-6272
+ - Two new public dnscrypt resolvers were added: opennic-us-wa-ns1 and
+dnscrypt.org-fr.
+ - d0wn servers in France IP have changed.
+ - Compilation fixes.
+
+* Version 1.4.2:
+ - New compilation switch: --with-systemd, to enable socket activation
+support when using systemd.
+ - The list of public DNSCrypt-enabled resolvers was updated.
+ - Libevent2 updates.
+
 * Version 1.4.1:
  - Alternative ports to dnscrypt.eu servers have been added
  - Android build scripts are now part of the package

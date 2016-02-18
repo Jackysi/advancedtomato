@@ -3,7 +3,23 @@
 [DNSCrypt](http://dnscrypt.org)
 ===============================
 
-A tool for securing communications between a client and a DNS resolver.
+A protocol for securing communications between a client and a DNS resolver.
+
+Disclaimer
+----------
+
+`dnscrypt-proxy` verifies that responses you get from a DNS provider have been
+actually sent by that provider, and haven't been tampered with.
+
+This is not a VPN. It doesn't mask your IP address, and if you are
+using it with a public DNS service, be aware that it will (and has to)
+decrypt your queries.
+
+If you are using it for privacy, it might do the opposite of what you are
+trying to achieve. It you are using it to prevent VPN "leaks", this
+isn't the right tool either: the proper way to prevent VPN "leaks" is
+to avoid sending data to yet another third party: use a VPN service that
+operates its own DNS resolvers.
 
 Description
 -----------
@@ -19,31 +35,32 @@ resolver.
 
 While not providing end-to-end security, it protects the local
 network, which is often the weakest point of the chain, against
-man-in-the-middle attacks. It also provides some confidentiality to
-DNS queries.
+man-in-the-middle attacks.
 
 Download and integrity check
 ----------------------------
 
-DNSCrypt can be downloaded here: [dnscrypt download](http://dnscrypt.org)
+dnscrypt-proxy can be downloaded here:
+[dnscrypt-proxy download](http://download.dnscrypt.org/dnscrypt-proxy/)
 
-Note: dnscrypt.org is now blocked by the Great Firewall of China.
-But the site can be accessed at dnscrypt.bit instead. Or if your
-current DNS resolver doesn't support Namecoin yet, the source code can
-also be downloaded on Github, in the "releases" section.
+Note: dnscrypt.org is now blocked by the Great Firewall of China. But
+the site can be accessed at dnscrypt.bit instead (requires a resolver
+with Namecoin support). Or if your current DNS resolver doesn't
+support Namecoin yet, the source code can also be downloaded on
+Github, in the "releases" section.
 
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.4.1.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.5.0.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -D TXT dnscrypt-proxy-1.4.1.tar.bz2.download.dnscrypt.org
+    $ drill -D TXT dnscrypt-proxy-1.5.0.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.4.1.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.5.0.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -54,12 +71,15 @@ Installation
 
 The daemon is known to work on recent versions of OSX, OpenBSD,
 Bitrig, NetBSD, Dragonfly BSD, FreeBSD, Linux, iOS (requires a
-jailbroken device), Android (requires a rooted device), Solaris
-(SmartOS) and Windows (requires MingW).
+jailbroken device), Android (requires a rooted device), and
+Windows (requires MingW).
 
 Install [libsodium](https://github.com/jedisct1/libsodium).
 On Linux, don't forget to run `ldconfig` if you installed it from
 source.
+
+A "minimal" build of libsodium (`--enable-minimal`) works equally well
+as a full build with this proxy.
 
 On Fedora, RHEL and CentOS, you may need to add `/usr/local/lib` to
 the paths the dynamic linker is going to look at. Before issuing
@@ -114,22 +134,27 @@ Mac OSX application to control the DNSCrypt Proxy.
 A set of tools for `dnscrypt-proxy`. Features a start and stop button as well as options to enable
 or disable from startup. Developed for Porteus Linux.
 
-Docker images
--------------
-
-@mengbo maintains a [dnscrypt-proxy Docker image](https://github.com/mengbo/docker-dnscrypt)
-as well as a [dnscrypt-wrapper Docker image](https://github.com/mengbo/docker-dnscrypt-wrapper).
-
 DNSCrypt-enabled resolvers
 --------------------------
 
 To get started, you can use any of the
 [public DNS resolvers supporting DNSCrypt](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv).
 
+This file is constantly updated, and its [minisign](https://jedisct1.github.io/minisign/)
+[signature](https://raw.githubusercontent.com/jedisct1/dnscrypt-proxy/master/dnscrypt-resolvers.csv.minisig)
+can be verified with the following command:
+
+    minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m dnscrypt-resolvers.csv
+
 If you want to add DNSCrypt support to your own public or private
 resolver, check out
 [DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper), a
 server-side dnscrypt proxy that works with any name resolver.
+
+A [DNSCrypt server](https://github.com/jedisct1/dnscrypt-server-docker) Docker
+image is also available to deploy a non-logging, DNSSEC and
+DNSCrypt-capable resolver without having to manually compile or
+configure anything.
 
 Usage
 -----
@@ -182,6 +207,20 @@ The
 and `--provider-key=<provider public key>` switches can be specified in
 order to use a DNSCrypt-enabled recursive DNS service not listed in
 the configuration file.
+
+Running dnscrypt-proxy using systemd
+------------------------------------
+
+On a system using systemd, and when compiled with `--with-systemd`,
+the proxy can take advantage of systemd's socket activation instead of
+creating the sockets itself. The proxy will also notify systemd on successful
+startup.
+
+Two sockets need to be configured: a UDP socket (`ListenStream`) and a
+TCP socket (`ListenDatagram`) sharing the same port.
+
+The source distribution includes the `dnscrypt-proxy.socket` and
+`dnscrypt-proxy.service` files that can be used as a starting point.
 
 Installation as a service (Windows only)
 ----------------------------------------
@@ -240,8 +279,7 @@ transparently redirect them to their own resolver. This especially
 happens on public Wifi hotspots, such as coffee shops.
 
 As a workaround, the port number can be changed using
-the `--resolver-port=<port>` option. For example, OpenDNS servers
-reply to queries sent to ports 53, 443 and 5353.
+the `--resolver-port=<port>` option.
 
 By default, `dnscrypt-proxy` sends outgoing queries to UDP port 443.
 
@@ -258,6 +296,37 @@ to the resolver.
 `--tcp-only` is slower than UDP because multiple queries over a single
 TCP connections aren't supported yet, and this workaround should
 never be used except when bypassing a filter is actually required.
+
+Public-key client authentication
+--------------------------------
+
+By default, dnscrypt-proxy generates non-deterministic client keys
+every time it starts, or for every query (when the ephemeral keys
+feature is turned on).
+
+However, commercial DNS services may want to use DNSCrypt to
+authenticate the sender of a query using public-key cryptography, i.e.
+know what customer sent a query without altering the DNS query itself,
+and without using shared secrets.
+
+Resolvers that should be accessible from any IP address, but that are
+supposed to be used only by specific users, can also take advantage of
+DNSCrypt to only respond to queries sent using a given list of public keys.
+
+In order to do so, dnscrypt-proxy 1.6.0 introduced the `--client-key`
+(or `-K`) switch. This loads a secret client key from a file instead
+of generating random keys:
+
+    # dnscrypt-proxy --client-key=/private/client-secret.key
+
+This file has to remain private, and its content doesn't have to be
+known by the DNS service provider.
+
+Versions 1 and 2 of the DNSCrypt protocol use Curve25519 keys, and the
+format of this file for Curve25519 keys is a hexadecimal string, with
+optional :, [space] and - delimiters, decoding to 34 bytes:
+
+    01 01 || 32-byte Curve25519 secret key
 
 EDNS payload size
 -----------------
@@ -326,7 +395,7 @@ resolvers. This can improve your web browsing experience.
 addresses.
 
 This plugin returns a REFUSED response if the query name is in a
-llist of blacklisted names, or if at least one of the returned
+list of blacklisted names, or if at least one of the returned
 IP addresses happens to be in a list of blacklisted IPs.
 
 Recognized switches are:
