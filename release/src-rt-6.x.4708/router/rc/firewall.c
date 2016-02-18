@@ -951,6 +951,9 @@ static void filter_input(void)
 	int n;
 	char *p, *c;
 
+	// 3 for filter
+	ipt_qoslimit(3);
+
 	if ((nvram_get_int("nf_loopback") != 0) && (wanup)) {	// 0 = all
 		for (n = 0; n < wanfaces.count; ++n) {
 			if (*(wanfaces.iface[n].name)) {
