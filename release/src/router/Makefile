@@ -2488,11 +2488,11 @@ libsodium: libsodium/stamp-h1
 
 libsodium-install: libsodium
 	install -d $(INSTALLDIR)/libsodium/usr/lib
-	install -D libsodium/src/libsodium/.libs/libsodium.so.13.0.2 $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.13.0.2
-	$(STRIP) -s $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.13.0.2
+	install -D libsodium/src/libsodium/.libs/libsodium.so.18.0.1 $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.18.0.1
+	$(STRIP) -s $(INSTALLDIR)/libsodium/usr/lib/libsodium.so.18.0.1
 	cd $(INSTALLDIR)/libsodium/usr/lib/ && \
-		ln -sf libsodium.so.13.0.2 libsodium.so.13 && \
-		ln -sf libsodium.so.13.0.2 libsodium.so
+		ln -sf libsodium.so.18.0.1 libsodium.so.18 && \
+		ln -sf libsodium.so.18.0.1 libsodium.so
 
 libsodium-clean:
 	-$(MAKE) -C libsodium clean

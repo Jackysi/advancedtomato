@@ -1,6 +1,6 @@
 
-#ifndef __SODIUM_CORE_H__
-#define __SODIUM_CORE_H__
+#ifndef sodium_core_H
+#define sodium_core_H
 
 #include "export.h"
 
@@ -9,7 +9,8 @@ extern "C" {
 #endif
 
 SODIUM_EXPORT
-int sodium_init(void);
+int sodium_init(void)
+            __attribute__ ((warn_unused_result));
 
 #ifdef __cplusplus
 }
