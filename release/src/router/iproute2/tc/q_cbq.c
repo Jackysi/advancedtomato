@@ -32,7 +32,6 @@ static void explain_class(void)
 	fprintf(stderr, "               [ prio NUMBER ] [ cell BYTES ] [ ewma LOG ]\n");
 	fprintf(stderr, "               [ estimator INTERVAL TIME_CONSTANT ]\n");
 	fprintf(stderr, "               [ split CLASSID ] [ defmap MASK/CHANGE ]\n");
-	fprintf(stderr, "               [ overhead BYTES ] [ atm ]\n");
 }
 
 static void explain(void)
@@ -53,11 +52,8 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 	struct tc_ratespec r;
 	struct tc_cbq_lssopt lss;
 	__u32 rtab[256];
-	unsigned avpkt=0, allot=0;
-	__u8 mpu=0;
-	__s8 overhead=0;
-	int atm=0;
-	int cell_log=-1; 
+	unsigned mpu=0, avpkt=0, allot=0;
+	int cell_log=-1;
 	int ewma_log=-1;
 	struct rtattr *tail;
 
@@ -106,7 +102,7 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 			}
 		} else if (strcmp(*argv, "mpu") == 0) {
 			NEXT_ARG();
-			if (get_u8(&mpu, *argv, 10)) {
+			if (get_size(&mpu, *argv)) {
 				explain1("mpu");
 				return -1;
 			}
@@ -117,14 +113,6 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 				explain1("allot");
 				return -1;
 			}
-		} else if (strcmp(*argv, "overhead") == 0) {
-			NEXT_ARG();
-			if (get_s8(&overhead, *argv, 10)) {
-				explain1("overhead");
-				return -1;
-			}
-		} else if (strcmp(*argv, "atm") == 0) {
-		  	atm = 1;
 		} else if (strcmp(*argv, "help") == 0) {
 			explain();
 			return -1;
@@ -149,12 +137,17 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 	if (allot < (avpkt*3)/2)
 		allot = (avpkt*3)/2;
 
-	tc_calc_ratespec(&r, rtab, r.rate, cell_log, allot, mpu, atm, overhead);
+	if ((cell_log = tc_calc_rtable(r.rate, rtab, cell_log, allot, mpu)) < 0) {
+		fprintf(stderr, "CBQ: failed to calculate rate table.\n");
+		return -1;
+	}
+	r.cell_log = cell_log;
+	r.mpu = mpu;
 
 	if (ewma_log < 0)
 		ewma_log = TC_CBQ_DEF_EWMA;
 	lss.ewma_log = ewma_log;
-	lss.maxidle = tc_cbq_calc_maxidle(r.rate, r.rate, avpkt, lss.ewma_log, 0);
+	lss.maxidle = tc_calc_xmittime(r.rate, avpkt);
 	lss.change = TCF_CBQ_LSS_MAXIDLE|TCF_CBQ_LSS_EWMA|TCF_CBQ_LSS_AVPKT;
 	lss.avpkt = avpkt;
 
@@ -182,10 +175,8 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 	struct tc_cbq_fopt fopt;
 	struct tc_cbq_ovl ovl;
 	__u32 rtab[256];
-	__u8 mpu=0;
-	__s8 overhead = 0;
-	int atm = 0;
-	int cell_log=-1; 
+	unsigned mpu=0;
+	int cell_log=-1;
 	int ewma_log=-1;
 	unsigned bndw = 0;
 	unsigned minburst=0, maxburst=0;
@@ -298,18 +289,10 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 			lss.change |= TCF_CBQ_LSS_AVPKT;
 		} else if (strcmp(*argv, "mpu") == 0) {
 			NEXT_ARG();
-			if (get_u8(&mpu, *argv, 10)) {
+			if (get_size(&mpu, *argv)) {
 				explain1("mpu");
 				return -1;
 			}
-		} else if (strcmp(*argv, "overhead") == 0) {
-			NEXT_ARG();
-			if (get_s8(&overhead, *argv, 10)) {
-				explain1("overhead");
-				return -1;
-			}
-		} else if (strcmp(*argv, "atm") == 0) {
-		  	atm = 1;		
 		} else if (strcmp(*argv, "weight") == 0) {
 			NEXT_ARG();
 			if (get_size(&wrr.weight, *argv)) {
@@ -353,8 +336,12 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 		unsigned pktsize = wrr.allot;
 		if (wrr.allot < (lss.avpkt*3)/2)
 			wrr.allot = (lss.avpkt*3)/2;
-		
-		tc_calc_ratespec(&r, rtab, r.rate, cell_log, pktsize, mpu, atm, overhead);
+		if ((cell_log = tc_calc_rtable(r.rate, rtab, cell_log, pktsize, mpu)) < 0) {
+			fprintf(stderr, "CBQ: failed to calculate rate table.\n");
+			return -1;
+		}
+		r.cell_log = cell_log;
+		r.mpu = mpu;
 	}
 	if (ewma_log < 0)
 		ewma_log = TC_CBQ_DEF_EWMA;
@@ -431,6 +418,7 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	struct tc_cbq_wrropt *wrr = NULL;
 	struct tc_cbq_fopt *fopt = NULL;
 	struct tc_cbq_ovl *ovl = NULL;
+	SPRINT_BUF(b1);
 
 	if (opt == NULL)
 		return 0;
@@ -464,7 +452,7 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (tb[TCA_CBQ_OVL_STRATEGY]) {
 		if (RTA_PAYLOAD(tb[TCA_CBQ_OVL_STRATEGY]) < sizeof(*ovl))
 			fprintf(stderr, "CBQ: too short overlimit strategy %u/%u\n",
-				(unsigned) RTA_PAYLOAD(tb[TCA_CBQ_OVL_STRATEGY]), 
+				(unsigned) RTA_PAYLOAD(tb[TCA_CBQ_OVL_STRATEGY]),
 				(unsigned) sizeof(*ovl));
 		else
 			ovl = RTA_DATA(tb[TCA_CBQ_OVL_STRATEGY]);
@@ -476,12 +464,8 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 		fprintf(f, "rate %s ", buf);
 		if (show_details) {
 			fprintf(f, "cell %ub ", 1<<r->cell_log);
-			if (r->mpu & 0xff)
-				fprintf(f, "mpu %ub ", (__u8)r->mpu);
-			if ((r->mpu >> 8))
-				fprintf(f, "overhead %db ", (__s8)(r->mpu >> 8));
-			if (r->feature & 0x0001)
-				fprintf(f, "atm ");
+			if (r->mpu)
+				fprintf(f, "mpu %ub ", r->mpu);
 		}
 	}
 	if (lss && lss->flags) {
@@ -517,17 +501,17 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (lss && show_details) {
 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
 		if (lss->maxidle) {
-			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
+			fprintf(f, "maxidle %s ", sprint_ticks(lss->maxidle>>lss->ewma_log, b1));
 			if (show_raw)
 				fprintf(f, "[%08x] ", lss->maxidle);
 		}
 		if (lss->minidle!=0x7fffffff) {
-			fprintf(f, "minidle %luus ", tc_core_tick2usec(lss->minidle>>lss->ewma_log));
+			fprintf(f, "minidle %s ", sprint_ticks(lss->minidle>>lss->ewma_log, b1));
 			if (show_raw)
 				fprintf(f, "[%08x] ", lss->minidle);
 		}
 		if (lss->offtime) {
-			fprintf(f, "offtime %luus ", tc_core_tick2usec(lss->offtime));
+			fprintf(f, "offtime %s ", sprint_ticks(lss->offtime, b1));
 			if (show_raw)
 				fprintf(f, "[%08x] ", lss->offtime);
 		}

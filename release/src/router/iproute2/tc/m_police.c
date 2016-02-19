@@ -7,8 +7,8 @@
  *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- * FIXES:       19990619 - J Hadi Salim (hadi@cyberus.ca) 
- *		simple addattr packaging fix.            
+ * FIXES:       19990619 - J Hadi Salim (hadi@cyberus.ca)
+ *		simple addattr packaging fix.
  *		2002: J Hadi Salim - Add tc action extensions syntax
  *
  */
@@ -32,24 +32,22 @@ struct action_util police_action_util = {
 	.print_aopt = print_police,
 };
 
-static void explain(void)
+static void usage(void)
 {
 	fprintf(stderr, "Usage: ... police rate BPS burst BYTES[/BYTES] [ mtu BYTES[/BYTES] ]\n");
-	fprintf(stderr, "                [ peakrate BPS ] [ avrate BPS ] [ overhead OVERHEAD ] [ atm ]\n");
+	fprintf(stderr, "                [ peakrate BPS ] [ avrate BPS ]\n");
 	fprintf(stderr, "                [ ACTIONTERM ]\n");
-	fprintf(stderr, "Old Syntax ACTIONTERM := action <EXCEEDACT>[/NOTEXCEEDACT] \n"); 
-	fprintf(stderr, "New Syntax ACTIONTERM := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT] \n"); 
+	fprintf(stderr, "Old Syntax ACTIONTERM := action <EXCEEDACT>[/NOTEXCEEDACT] \n");
+	fprintf(stderr, "New Syntax ACTIONTERM := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT] \n");
 	fprintf(stderr, "Where: *EXCEEDACT := pipe | ok | reclassify | drop | continue \n");
 	fprintf(stderr, "Where:  pipe is only valid for new syntax \n");
+	exit(-1);
 }
 
 static void explain1(char *arg)
 {
 	fprintf(stderr, "Illegal \"%s\"\n", arg);
 }
-
-#define usage() return(-1)
-
 
 char *police_action_n2a(int action, char *buf, int len)
 {
@@ -134,11 +132,8 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
 	__u32 ptab[256];
 	__u32 avrate = 0;
 	int presult = 0;
-	unsigned buffer=0, mtu=0;
-	__u8 mpu=0;
-	__s8 overhead=0;
-	int atm=0;
-	int Rcell_log=-1, Pcell_log = -1; 
+	unsigned buffer=0, mtu=0, mpu=0;
+	int Rcell_log=-1, Pcell_log = -1;
 	struct rtattr *tail;
 
 	memset(&p, 0, sizeof(p));
@@ -187,7 +182,7 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
 				fprintf(stderr, "Double \"mpu\" spec\n");
 				return -1;
 			}
-			if (get_u8(&mpu, *argv, 10)) {
+			if (get_size(&mpu, *argv)) {
 				explain1("mpu");
 				return -1;
 			}
@@ -201,18 +196,6 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
 				explain1("rate");
 				return -1;
 			}
-		} else if (strcmp(*argv, "overhead") == 0) {
-			NEXT_ARG();
-			if (p.rate.rate) {
-				fprintf(stderr, "Double \"overhead\" spec\n");
-				return -1;
-			}
-			if (get_s8(&overhead, *argv, 10)) {
-				explain1("overhead");
-				return -1;
-			}
-		} else if (strcmp(*argv, "atm") == 0) {
-		  	atm = 1;
 		} else if (strcmp(*argv, "avrate") == 0) {
 			NEXT_ARG();
 			if (avrate) {
@@ -251,8 +234,7 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
 				return -1;
 			}
 		} else if (strcmp(*argv, "help") == 0) {
-			explain();
-			return -1;
+			usage();
 		} else {
 			break;
 		}
@@ -279,12 +261,22 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
 	}
 
 	if (p.rate.rate) {
-		tc_calc_ratespec(&p.rate, rtab, p.rate.rate, Rcell_log, mtu, mpu, atm, overhead);
+		if ((Rcell_log = tc_calc_rtable(p.rate.rate, rtab, Rcell_log, mtu, mpu)) < 0) {
+			fprintf(stderr, "TBF: failed to calculate rate table.\n");
+			return -1;
+		}
 		p.burst = tc_calc_xmittime(p.rate.rate, buffer);
+		p.rate.cell_log = Rcell_log;
+		p.rate.mpu = mpu;
 	}
 	p.mtu = mtu;
 	if (p.peakrate.rate) {
-		tc_calc_ratespec(&p.peakrate, ptab, p.peakrate.rate, Pcell_log, mtu, mpu, atm, overhead);
+		if ((Pcell_log = tc_calc_rtable(p.peakrate.rate, ptab, Pcell_log, mtu, mpu)) < 0) {
+			fprintf(stderr, "POLICE: failed to calculate peak rate table.\n");
+			return -1;
+		}
+		p.peakrate.cell_log = Pcell_log;
+		p.peakrate.mpu = mpu;
 	}
 
 	tail = NLMSG_TAIL(n);
@@ -312,7 +304,7 @@ int parse_police(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n)
 	return act_parse_police(NULL,argc_p,argv_p,tca_id,n);
 }
 
-int 
+int
 print_police(struct action_util *a, FILE *f, struct rtattr *arg)
 {
 	SPRINT_BUF(b1);
@@ -339,7 +331,7 @@ print_police(struct action_util *a, FILE *f, struct rtattr *arg)
 
 	fprintf(f, " police 0x%x ", p->index);
 	fprintf(f, "rate %s ", sprint_rate(p->rate.rate, b1));
-	buffer = ((double)p->rate.rate*tc_core_tick2usec(p->burst))/1000000;
+	buffer = tc_calc_xmitsize(p->rate.rate, p->burst);
 	fprintf(f, "burst %s ", sprint_size(buffer, b1));
 	fprintf(f, "mtu %s ", sprint_size(p->mtu, b1));
 	if (show_raw)
@@ -358,7 +350,7 @@ print_police(struct action_util *a, FILE *f, struct rtattr *arg)
 	return 0;
 }
 
-int 
+int
 tc_print_police(FILE *f, struct rtattr *arg) {
 	return print_police(&police_action_util,f,arg);
 }

@@ -1,13 +1,13 @@
 /*
- * m_gact.c		generic actions module 
+ * m_gact.c		generic actions module
  *
  *		This program is free software; you can distribute it and/or
  *		modify it under the terms of the GNU General Public License
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- * Authors:  J Hadi Salim (hadi@cyberus.ca) 
- * 
+ * Authors:  J Hadi Salim (hadi@cyberus.ca)
+ *
  */
 
 #include <stdio.h>
@@ -27,7 +27,7 @@
 /* define to turn on probablity stuff */
 
 #ifdef CONFIG_GACT_PROB
-static const char *prob_n2a(int p) 
+static const char *prob_n2a(int p)
 {
 	if (p == PGACT_NONE)
 		return "none";
@@ -45,22 +45,28 @@ explain(void)
 #ifdef CONFIG_GACT_PROB
 	fprintf(stderr, "Usage: ... gact <ACTION> [RAND] [INDEX]\n");
 	fprintf(stderr,
-		"Where: ACTION := reclassify | drop | continue | pass "
-		        "RAND := random <RANDTYPE> <ACTION> <VAL>"
-		        "RANDTYPE := netrand | determ"
-			"VAL : = value not exceeding 10000"
-			"INDEX := index value used"
+		"Where: \tACTION := reclassify | drop | continue | pass \n"
+		        "\tRAND := random <RANDTYPE> <ACTION> <VAL>\n"
+		        "\tRANDTYPE := netrand | determ\n"
+			"\tVAL : = value not exceeding 10000\n"
+			"\tINDEX := index value used\n"
 			"\n");
 #else
 	fprintf(stderr, "Usage: ... gact <ACTION> [INDEX]\n");
 	fprintf(stderr,
-		"Where: ACTION := reclassify | drop | continue | pass "
-		"INDEX := index value used"
-			"\n");
+		"Where: \tACTION := reclassify | drop | continue | pass \n"
+		"\tINDEX := index value used\n"
+		"\n");
 #endif
 }
 
-#define usage() return(-1)
+
+static void
+usage(void)
+{
+	explain();
+	exit(-1);
+}
 
 int
 get_act(char ***argv_p)
@@ -157,6 +163,8 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, struc
 			}
 			argc--;
 			argv++;
+		} else if (matches(*argv, "help") == 0) {
+				usage();
 		}
 	}
 #endif
@@ -171,6 +179,8 @@ parse_gact(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, struc
 			argc--;
 			argv++;
 			ok++;
+		} else if (matches(*argv, "help") == 0) {
+				usage();
 		}
 	}
 

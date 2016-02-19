@@ -2,17 +2,17 @@
 
 /*
  * Copyright (C)2004 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -55,7 +55,7 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip xfrm state { add | update } ID [ ALGO-LIST ] [ mode MODE ]\n");
+	fprintf(stderr, "Usage: ip xfrm state { add | update } ID [ XFRM_OPT ] [ mode MODE ]\n");
 	fprintf(stderr, "        [ reqid REQID ] [ seq SEQ ] [ replay-window SIZE ] [ flag FLAG-LIST ]\n");
 	fprintf(stderr, "        [ encap ENCAP ] [ sel SELECTOR ] [ LIMIT-LIST ]\n");
 	fprintf(stderr, "Usage: ip xfrm state allocspi ID [ mode MODE ] [ reqid REQID ] [ seq SEQ ]\n");
@@ -64,23 +64,26 @@ static void usage(void)
 	fprintf(stderr, "Usage: ip xfrm state { deleteall | list } [ ID ] [ mode MODE ] [ reqid REQID ]\n");
 	fprintf(stderr, "        [ flag FLAG_LIST ]\n");
 	fprintf(stderr, "Usage: ip xfrm state flush [ proto XFRM_PROTO ]\n");
+	fprintf(stderr, "Usage: ip xfrm state count \n");
 
 	fprintf(stderr, "ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM_PROTO ] [ spi SPI ]\n");
 	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | comp ]\n");
 	fprintf(stderr, "XFRM_PROTO := [ ");
 	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_ESP));
 	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_AH));
-	fprintf(stderr, "%s ", strxf_xfrmproto(IPPROTO_COMP));
+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_COMP));
+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_ROUTING));
+	fprintf(stderr, "%s ", strxf_xfrmproto(IPPROTO_DSTOPTS));
 	fprintf(stderr, "]\n");
 
 	//fprintf(stderr, "SPI - security parameter index(default=0)\n");
 
- 	fprintf(stderr, "MODE := [ transport | tunnel ](default=transport)\n");
+ 	fprintf(stderr, "MODE := [ transport | tunnel | ro | beet ](default=transport)\n");
  	//fprintf(stderr, "REQID - number(default=0)\n");
 
 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
-	fprintf(stderr, "FLAG := [ noecn | decap-dscp ]\n");
- 
+	fprintf(stderr, "FLAG := [ noecn | decap-dscp | wildrecv ]\n");
+
         fprintf(stderr, "ENCAP := ENCAP-TYPE SPORT DPORT OADDR\n");
         fprintf(stderr, "ENCAP-TYPE := espinudp | espinudp-nonike\n");
 
@@ -200,6 +203,8 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
 				*flags |= XFRM_STATE_NOECN;
 			else if (strcmp(*argv, "decap-dscp") == 0)
 				*flags |= XFRM_STATE_DECAP_DSCP;
+			else if (strcmp(*argv, "wildrecv") == 0)
+				*flags |= XFRM_STATE_WILDRECV;
 			else {
 				PREV_ARG(); /* back track */
 				break;
@@ -231,6 +236,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
 	char *ealgop = NULL;
 	char *aalgop = NULL;
 	char *calgop = NULL;
+	char *coap = NULL;
 
 	memset(&req, 0, sizeof(req));
 
@@ -285,6 +291,27 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
 			memcpy(&encap.encap_oa, &oa.data, sizeof(encap.encap_oa));
 			addattr_l(&req.n, sizeof(req.buf), XFRMA_ENCAP,
 				  (void *)&encap, sizeof(encap));
+		} else if (strcmp(*argv, "coa") == 0) {
+			inet_prefix coa;
+			xfrm_address_t xcoa;
+
+			if (coap)
+				duparg("coa", *argv);
+			coap = *argv;
+
+			NEXT_ARG();
+
+			get_prefix(&coa, *argv, preferred_family);
+			if (coa.family == AF_UNSPEC)
+				invarg("\"coa\" address family is AF_UNSPEC", *argv);
+			if (coa.bytelen > sizeof(xcoa))
+				invarg("\"coa\" address length is too large", *argv);
+
+			memset(&xcoa, 0, sizeof(xcoa));
+			memcpy(&xcoa, &coa.data, coa.bytelen);
+
+			addattr_l(&req.n, sizeof(req.buf), XFRMA_COADDR,
+				  (void *)&xcoa, sizeof(xcoa));
 		} else {
 			/* try to assume ALGO */
 			int type = xfrm_algotype_getbyname(*argv);
@@ -364,18 +391,56 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
 		exit(1);
 	}
 
+	switch (req.xsinfo.mode) {
+	case XFRM_MODE_TRANSPORT:
+	case XFRM_MODE_TUNNEL:
+		if (!xfrm_xfrmproto_is_ipsec(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"mode\" is invalid with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
+			exit(1);
+		}
+		break;
+	case XFRM_MODE_ROUTEOPTIMIZATION:
+	case XFRM_MODE_IN_TRIGGER:
+		if (!xfrm_xfrmproto_is_ro(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"mode\" is invalid with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
+			exit(1);
+		}
+		if (req.xsinfo.id.spi != 0) {
+			fprintf(stderr, "\"spi\" must be 0 with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
+			exit(1);
+		}
+		break;
+	default:
+		break;
+	}
+
 	if (ealgop || aalgop || calgop) {
-		if (req.xsinfo.id.proto != IPPROTO_ESP &&
-		    req.xsinfo.id.proto != IPPROTO_AH &&
-		    req.xsinfo.id.proto != IPPROTO_COMP) {
-			fprintf(stderr, "\"ALGO\" is invalid with proto=%s\n", strxf_xfrmproto(req.xsinfo.id.proto));
+		if (!xfrm_xfrmproto_is_ipsec(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"ALGO\" is invalid with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
 			exit(1);
 		}
 	} else {
-		if (req.xsinfo.id.proto == IPPROTO_ESP ||
-		    req.xsinfo.id.proto == IPPROTO_AH ||
-		    req.xsinfo.id.proto == IPPROTO_COMP) {
-			fprintf(stderr, "\"ALGO\" is required with proto=%s\n", strxf_xfrmproto(req.xsinfo.id.proto));
+		if (xfrm_xfrmproto_is_ipsec(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"ALGO\" is required with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
+			exit (1);
+		}
+	}
+
+	if (coap) {
+		if (!xfrm_xfrmproto_is_ro(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"coa\" is invalid with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
+			exit(1);
+		}
+	} else {
+		if (xfrm_xfrmproto_is_ro(req.xsinfo.id.proto)) {
+			fprintf(stderr, "\"coa\" is required with proto=%s\n",
+				strxf_xfrmproto(req.xsinfo.id.proto));
 			exit (1);
 		}
 	}
@@ -575,15 +640,15 @@ int xfrm_state_print(const struct sockaddr_nl *who, struct nlmsghdr *n,
 	if (n->nlmsg_type == XFRM_MSG_DELSA) {
 		/* Dont blame me for this .. Herbert made me do it */
 		xsid = NLMSG_DATA(n);
-		len -= NLMSG_LENGTH(sizeof(*xsid));
+		len -= NLMSG_SPACE(sizeof(*xsid));
 	} else if (n->nlmsg_type == XFRM_MSG_EXPIRE) {
 		xexp = NLMSG_DATA(n);
 		xsinfo = &xexp->state;
-		len -= NLMSG_LENGTH(sizeof(*xexp));
+		len -= NLMSG_SPACE(sizeof(*xexp));
 	} else {
 		xexp = NULL;
 		xsinfo = NLMSG_DATA(n);
-		len -= NLMSG_LENGTH(sizeof(*xsinfo));
+		len -= NLMSG_SPACE(sizeof(*xsinfo));
 	}
 
 	if (len < 0) {
@@ -605,7 +670,7 @@ int xfrm_state_print(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		rta = XFRMSID_RTA(xsid);
 	else if (n->nlmsg_type == XFRM_MSG_EXPIRE)
 		rta = XFRMEXP_RTA(xexp);
-	else 
+	else
 		rta = XFRMS_RTA(xsinfo);
 
 	parse_rtattr(tb, XFRMA_MAX, rta, len);
@@ -621,7 +686,7 @@ int xfrm_state_print(const struct sockaddr_nl *who, struct nlmsghdr *n,
 			fprintf(stderr, "Buggy XFRM_MSG_DELPOLICY: too short XFRMA_POLICY len\n");
 			return -1;
 		}
-		xsinfo = (struct xfrm_usersa_info *)RTA_DATA(tb[XFRMA_SA]);
+		xsinfo = RTA_DATA(tb[XFRMA_SA]);
 	}
 
 	xfrm_state_info_print(xsinfo, tb, fp, NULL, NULL);
@@ -645,6 +710,7 @@ static int xfrm_state_get_or_delete(int argc, char **argv, int delete)
 	struct {
 		struct nlmsghdr 	n;
 		struct xfrm_usersa_id	xsid;
+		char   			buf[RTA_BUF_SIZE];
 	} req;
 	struct xfrm_id id;
 	char *idp = NULL;
@@ -657,12 +723,7 @@ static int xfrm_state_get_or_delete(int argc, char **argv, int delete)
 	req.xsid.family = preferred_family;
 
 	while (argc > 0) {
-		/*
-		 * XXX: Source address is not used and ignore it to follow
-		 * XXX: a manner of setkey e.g. in the case of deleting/getting
-		 * XXX: message of IPsec SA.
-		 */
-		xfrm_address_t ignore_saddr;
+		xfrm_address_t saddr;
 
 		if (idp)
 			invarg("unknown", *argv);
@@ -670,12 +731,16 @@ static int xfrm_state_get_or_delete(int argc, char **argv, int delete)
 
 		/* ID */
 		memset(&id, 0, sizeof(id));
-		xfrm_id_parse(&ignore_saddr, &id, &req.xsid.family, 0,
+		memset(&saddr, 0, sizeof(saddr));
+		xfrm_id_parse(&saddr, &id, &req.xsid.family, 0,
 			      &argc, &argv);
 
 		memcpy(&req.xsid.daddr, &id.daddr, sizeof(req.xsid.daddr));
 		req.xsid.spi = id.spi;
 		req.xsid.proto = id.proto;
+
+		addattr_l(&req.n, sizeof(req.buf), XFRMA_SRCADDR,
+			  (void *)&saddr, sizeof(saddr));
 
 		argc--; argv++;
 	}
@@ -755,6 +820,9 @@ static int xfrm_state_keep(const struct sockaddr_nl *who,
 	memcpy(&xsid->daddr, &xsinfo->id.daddr, sizeof(xsid->daddr));
 	xsid->spi = xsinfo->id.spi;
 	xsid->proto = xsinfo->id.proto;
+
+	addattr_l(new_n, xb->size, XFRMA_SRCADDR, &xsinfo->saddr,
+		  sizeof(xsid->daddr));
 
 	xb->offset += new_n->nlmsg_len;
 	xb->nlmsg_count ++;
@@ -866,6 +934,83 @@ static int xfrm_state_list_or_deleteall(int argc, char **argv, int deleteall)
 	exit(0);
 }
 
+int print_sadinfo(struct nlmsghdr *n, void *arg)
+{
+	FILE *fp = (FILE*)arg;
+	__u32 *f = NLMSG_DATA(n);
+	struct rtattr *tb[XFRMA_SAD_MAX+1];
+	struct rtattr *rta;
+	__u32 *cnt;
+
+	int len = n->nlmsg_len;
+
+	len -= NLMSG_LENGTH(sizeof(__u32));
+	if (len < 0) {
+		fprintf(stderr, "SADinfo: Wrong len %d\n", len);
+		return -1;
+	}
+
+	rta = XFRMSAPD_RTA(f);
+	parse_rtattr(tb, XFRMA_SAD_MAX, rta, len);
+
+	if (tb[XFRMA_SAD_CNT]) {
+		fprintf(fp,"\t SAD");
+		cnt = (__u32 *)RTA_DATA(tb[XFRMA_SAD_CNT]);
+		fprintf(fp," count %d", *cnt);
+	} else {
+		fprintf(fp,"BAD SAD info returned\n");
+		return -1;
+	}
+
+	if (show_stats) {
+		if (tb[XFRMA_SAD_HINFO]) {
+			struct xfrmu_sadhinfo *si;
+
+			if (RTA_PAYLOAD(tb[XFRMA_SAD_HINFO]) < sizeof(*si)) {
+				fprintf(fp,"BAD SAD length returned\n");
+				return -1;
+			}
+				
+			si = RTA_DATA(tb[XFRMA_SAD_HINFO]);
+			fprintf(fp," (buckets ");
+			fprintf(fp,"count %d", si->sadhcnt);
+			fprintf(fp," Max %d", si->sadhmcnt);
+			fprintf(fp,")");
+		}
+	}
+	fprintf(fp,"\n");
+
+        return 0;
+}
+
+static int xfrm_sad_getinfo(int argc, char **argv)
+{
+	struct rtnl_handle rth;
+	struct {
+		struct nlmsghdr			n;
+		__u32				flags;
+		char				ans[64];
+	} req;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.flags));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = XFRM_MSG_GETSADINFO;
+	req.flags = 0XFFFFFFFF;
+
+	if (rtnl_open_byproto(&rth, 0, NETLINK_XFRM) < 0)
+		exit(1);
+
+	if (rtnl_talk(&rth, &req.n, 0, 0, &req.n, NULL, NULL) < 0)
+		exit(2);
+
+	print_sadinfo(&req.n, (void*)stdout);
+
+	rtnl_close(&rth);
+
+	return 0;
+}
+
 static int xfrm_state_flush(int argc, char **argv)
 {
 	struct rtnl_handle rth;
@@ -880,7 +1025,7 @@ static int xfrm_state_flush(int argc, char **argv)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.xsf));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_type = XFRM_MSG_FLUSHSA;
-	req.xsf.proto = IPSEC_PROTO_ANY;
+	req.xsf.proto = 0;
 
 	while (argc > 0) {
 		if (strcmp(*argv, "proto") == 0) {
@@ -943,6 +1088,9 @@ int do_xfrm_state(int argc, char **argv)
 		return xfrm_state_get_or_delete(argc-1, argv+1, 0);
 	if (matches(*argv, "flush") == 0)
 		return xfrm_state_flush(argc-1, argv+1);
+	if (matches(*argv, "count") == 0) {
+		return xfrm_sad_getinfo(argc, argv);
+	}
 	if (matches(*argv, "help") == 0)
 		usage();
 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip xfrm state help\".\n", *argv);
