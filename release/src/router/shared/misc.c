@@ -274,14 +274,10 @@ int check_wanup(char *prefix)
 		if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" off
 			led(LED_WHITE,LED_OFF);
 		}
-<<<<<<< HEAD
 		if (nvram_match("boardtype", "0x052b") &&  nvram_match("boardrev", "0x1204")) { //rt-n15u wan led off
 			led(LED_WHITE,LED_OFF);
 		}
-		 return 0;
-=======
 		return 0;
->>>>>>> tomato-shibby
 	}
 
 	if ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE) || (proto == WP_PPP3G)) {

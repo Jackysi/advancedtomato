@@ -592,17 +592,7 @@ void start_l2tp(char *prefix)
 		"redial = yes\n"
 		"max redials = 32767\n"
 		"redial timeout = %d\n"
-<<<<<<< HEAD
 		"tunnel rws = 8\n"
-		"ppp debug = %s\n"
-		"%s\n",
-		nvram_safe_get("l2tp_server_ip"),
-		ppp_optfile,
-		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
-		nvram_get_int("debug_ppp") ? "yes" : "no",
-		nvram_safe_get("xl2tpd_custom"));
-	fappend(fp, "/etc/xl2tpd.custom");
-=======
 		"ppp debug = %s\n",
 		"%s\n",
 		nvram_safe_get(strcat_r(prefix, "_l2tp_server_ip", tmp)),  //"l2tp_server_ip"
@@ -614,7 +604,6 @@ void start_l2tp(char *prefix)
 	memset(xl2tp_file, 0, 256);
 	sprintf(xl2tp_file, "/etc/%s_xl2tpd.custom", prefix);
 	fappend(fp, xl2tp_file);
->>>>>>> tomato-shibby
 	fclose(fp);
 
 	enable_ip_forward();
