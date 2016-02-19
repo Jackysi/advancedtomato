@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2014
+ * Copyright (c) 2015
  * Frank Denis <j at pureftpd dot org>
  *
  * Permission to use, copy, modify, and distribute this software for any

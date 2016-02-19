@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_ifname,wan_iface,emf_enable,dr_lan_rx,dr_lan1_rx,dr_lan2_rx,dr_lan3_rx,dr_wan_rx,wan_proto"); %>
+// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,emf_enable,dr_lan_rx,dr_lan1_rx,dr_lan2_rx,dr_lan3_rx,dr_wan_rx,dr_wan2_rx,dr_wan3_rx,dr_wan4_rx,wan_proto,wan2_proto,wan3_proto,wan4_proto,mwan_num"); %>
 // <% activeroutes(); %>
 
 var ara = new TomatoGrid();
@@ -63,6 +63,14 @@ ara.setup = function() {
 			else if (a[0] == nvram.lan3_ifname) a[0] += ' (LAN3)';
 			else if (a[0] == nvram.wan_iface) a[0] += ' (WAN)';
 			else if (a[0] == nvram.wan_ifname) a[0] += ' (MAN)';
+			else if (a[0] == nvram.wan2_iface) a[0] += ' (WAN2)';
+			else if (a[0] == nvram.wan2_ifname) a[0] += ' (MAN2)';
+/* MULTIWAN-BEGIN */
+			else if (a[0] == nvram.wan3_iface) a[0] += ' (WAN3)';
+			else if (a[0] == nvram.wan3_ifname) a[0] += ' (MAN3)';
+			else if (a[0] == nvram.wan4_iface) a[0] += ' (WAN4)';
+			else if (a[0] == nvram.wan4_ifname) a[0] += ' (MAN4)';
+/* MULTIWAN-END */
 		this.insertData(-1, [a[1],a[2],a[3],a[4],a[0]]);
 	}
 }
@@ -137,9 +145,16 @@ function verifyFields(focused, quiet)
 	E('_f_dr_lan3').disabled = (nvram.lan3_ifname.length < 1);
 	if (E('_f_dr_lan3').disabled)
 		E('_f_dr_lan3').checked = false;
-	E('_f_dr_wan').disabled = (nvram.wan_proto.length == 'disabled');
-	if (E('_f_dr_wan').disabled)
-		E('_f_dr_wan').checked = false;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+		u = (uidx>1) ? uidx : '';
+		E('_f_dr_wan'+u).disabled = (nvram['wan'+u+'_proto'] == 'disabled');
+		if (E('_f_dr_wan'+u).disabled)
+			E('_f_dr_wan'+u).checked = false;
+	}
+	for (uidx = 4; uidx > nvram.mwan_num; --uidx){
+		u = (uidx>1) ? uidx : '';
+		E('_f_dr_wan'+u).disabled = 1;
+	}
 	return 1;
 }
 
@@ -160,6 +175,11 @@ function save()
 	fom.dr_lan2_tx.value = fom.dr_lan2_rx.value = (E('_f_dr_lan2').checked) ? '1 2' : '0';
 	fom.dr_lan3_tx.value = fom.dr_lan3_rx.value = (E('_f_dr_lan3').checked) ? '1 2' : '0';
 	fom.dr_wan_tx.value = fom.dr_wan_rx.value = (E('_f_dr_wan').checked) ? '1 2' : '0';
+	fom.dr_wan2_tx.value = fom.dr_wan2_rx.value = (E('_f_dr_wan2').checked) ? '1 2' : '0';
+/* MULTIWAN-BEGIN */
+	fom.dr_wan3_tx.value = fom.dr_wan3_rx.value = (E('_f_dr_wan3').checked) ? '1 2' : '0';
+	fom.dr_wan4_tx.value = fom.dr_wan4_rx.value = (E('_f_dr_wan4').checked) ? '1 2' : '0';
+/* MULTIWAN-END */
 
 /* ZEBRA-END */
 
@@ -221,6 +241,14 @@ function init()
 <input type='hidden' name='dr_lan3_rx'>
 <input type='hidden' name='dr_wan_tx'>
 <input type='hidden' name='dr_wan_rx'>
+<input type='hidden' name='dr_wan2_tx'>
+<input type='hidden' name='dr_wan2_rx'>
+/* MULTIWAN-BEGIN */
+<input type='hidden' name='dr_wan3_tx'>
+<input type='hidden' name='dr_wan3_rx'>
+<input type='hidden' name='dr_wan4_tx'>
+<input type='hidden' name='dr_wan4_rx'>
+/* MULTIWAN-END */
 
 <div class='section-title'>Current Routing Table</div>
 <div class='section'>
@@ -244,6 +272,12 @@ createFieldTable('', [
 	{ title: 'LAN2', indent: 2, name: 'f_dr_lan2', type: 'checkbox', value: ((nvram.dr_lan2_rx != '0') && (nvram.dr_lan2_rx != '')) },
 	{ title: 'LAN3', indent: 2, name: 'f_dr_lan3', type: 'checkbox', value: ((nvram.dr_lan3_rx != '0') && (nvram.dr_lan3_rx != '')) },
 	{ title: 'WAN', indent: 2, name: 'f_dr_wan', type: 'checkbox', value: ((nvram.dr_wan_rx != '0') && (nvram.dr_wan_rx != '')) },
+	{ title: 'WAN2', indent: 2, name: 'f_dr_wan2', type: 'checkbox', value: ((nvram.dr_wan2_rx != '0') && (nvram.dr_wan2_rx != '')) },
+/* MULTIWAN-BEGIN */
+	{ title: 'WAN3', indent: 2, name: 'f_dr_wan3', type: 'checkbox', value: ((nvram.dr_wan3_rx != '0') && (nvram.dr_wan3_rx != '')) },
+	{ title: 'WAN4', indent: 2, name: 'f_dr_wan4', type: 'checkbox', value: ((nvram.dr_wan4_rx != '0') && (nvram.dr_wan4_rx != '')) },
+/* MULTIWAN-END */
+
 /* ZEBRA-END */
 /* EMF-BEGIN */
 	{ title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },

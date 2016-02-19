@@ -23,7 +23,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript'>
 
-//	<% nvram("et0macaddr,mac_wan,wl_macaddr,wl_hwaddr"); %>
+//	<% nvram("et0macaddr,wan_mac,wan2_mac,wan3_mac,wan4_mac,mwan_num,wl_macaddr,wl_hwaddr"); %>
 
 function et0plus(plus)
 {
@@ -41,8 +41,12 @@ function et0plus(plus)
 
 function defmac(which)
 {
-	if (which == 'wan')
-		return et0plus(1);
+	if (which == 'wan')  return et0plus(16);
+	if (which == 'wan2') return et0plus(17);
+/* MULTIWAN-BEGIN */
+	if (which == 'wan3') return et0plus(18);
+	if (which == 'wan4') return et0plus(19);
+/* MULTIWAN-END */
 	else {	// wlX
 /* REMOVE-BEGIN */
 // trying to mimic the behaviour of static int set_wlmac(int idx, int unit, int subunit, void *param) in router/rc/network.c when we have wlX or wlX.X
@@ -84,10 +88,13 @@ function bclone(which)
 
 function findPrevMAC(mac, maxidx)
 {
-	if (E('_f_wan_hwaddr').value == mac) return 1;
+	for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+		var u = (uidx>1) ? uidx : '';
+		if (E('_f_wan'+u+'_hwaddr').value == mac) return 1;
+	}
 
 	for (var uidx = 0; uidx < maxidx; ++uidx) {
-			if (E('_f_wl'+wl_fface(uidx)+'_hwaddr').value == mac) return 1;
+		if (E('_f_wl'+wl_fface(uidx)+'_hwaddr').value == mac) return 1;
 	}
 
 	return 0;
@@ -97,7 +104,11 @@ function verifyFields(focused, quiet)
 {
 	var uidx, u, a;
 
-	if (!v_mac('_f_wan_hwaddr', quiet)) return 0;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+		u = (uidx>1) ? uidx : '';
+		a = E('_f_wan'+u+'_hwaddr');
+		if (!v_mac(a, quiet)) return 0;
+	}
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_fface(uidx);
@@ -120,7 +131,11 @@ function save()
 	if (!confirm("Warning: Changing the MAC address may require that you reboot all devices, computers or modem connected to this router. Continue anyway?")) return;
 
 	var fom = E('_fom');
-	fom.mac_wan.value = (fom._f_wan_hwaddr.value == defmac('wan')) ? '' : fom._f_wan_hwaddr.value;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+		u = (uidx>1) ? uidx : '';
+		v = E('_f_wan'+u+'_hwaddr').value;
+		fom['wan'+u+'_mac'].value= (v == defmac('wan'+u)) ? '' : v;
+	}
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_fface(uidx);
@@ -151,7 +166,12 @@ function save()
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='*'>
 
-<input type='hidden' name='mac_wan'>
+<input type='hidden' name='wan_mac'>
+<input type='hidden' name='wan2_mac'>
+/* MULTIWAN-BEGIN */
+<input type='hidden' name='wan3_mac'>
+<input type='hidden' name='wan4_mac'>
+/*MULTIWAN-END */
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -164,11 +184,15 @@ for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 <div class='section'>
 <script type='text/javascript'>
 
-f = [
-	{ title: 'WAN Port', indent: 1, name: 'f_wan_hwaddr', type: 'text', maxlen: 17, size: 20,
-		suffix: ' <input type="button" value="Default" onclick="bdefault(\'wan\')"> <input type="button" value="Random" onclick="brand(\'wan\')"> <input type="button" value="Clone PC" onclick="bclone(\'wan\')">',
-		value: nvram.mac_wan || defmac('wan') }
-];
+var f = [];
+for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+	var u = (uidx>1) ? uidx : '';
+	f.push(
+		{ title: 'WAN'+u+' Port', indent: 1, name: 'f_wan'+u+'_hwaddr', type: 'text', maxlen: 17, size: 20,
+			suffix: ' <input type="button" value="Default" onclick="bdefault(\'wan'+u+'\')"> <input type="button" value="Random" onclick="brand(\'wan'+u+'\')"> <input type="button" value="Clone PC" onclick="bclone(\'wan'+u+'\')">',
+			value: nvram['wan'+u+'_mac'] || defmac('wan'+u) }
+	);
+}
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 	var u = wl_fface(uidx);

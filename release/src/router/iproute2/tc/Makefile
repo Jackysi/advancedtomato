@@ -1,25 +1,25 @@
 TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
-       m_police.o m_estimator.o m_action.o m_ematch.o \
-       emp_ematch.yacc.o emp_ematch.lex.o
+       tc_monitor.o m_police.o m_estimator.o m_action.o \
+       m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
 
 include ../Config
 
 TCMODULES :=
 TCMODULES += q_fifo.o
 TCMODULES += q_sfq.o
-TCMODULES += q_esfq.o
-#	TCMODULES += q_red.o
+TCMODULES += q_red.o
 TCMODULES += q_prio.o
 TCMODULES += q_tbf.o
 TCMODULES += q_cbq.o
-#	TCMODULES += f_rsvp.o
+TCMODULES += q_netem.o
+TCMODULES += f_rsvp.o
 TCMODULES += f_u32.o
 TCMODULES += f_route.o
 TCMODULES += f_fw.o
 TCMODULES += f_basic.o
-#	TCMODULES += q_dsmark.o
-#	TCMODULES += q_gred.o
-#	TCMODULES += f_tcindex.o
+TCMODULES += q_dsmark.o
+TCMODULES += q_gred.o
+TCMODULES += f_tcindex.o
 TCMODULES += q_ingress.o
 TCMODULES += q_hfsc.o
 TCMODULES += q_htb.o
@@ -46,7 +46,6 @@ TCLIB += tc_estimator.o
 CFLAGS += -DCONFIG_GACT -DCONFIG_GACT_PROB
 
 TCSO :=
-TCSO += q_netem.so
 ifeq ($(TC_CONFIG_ATM),y)
   TCSO += q_atm.so
 endif

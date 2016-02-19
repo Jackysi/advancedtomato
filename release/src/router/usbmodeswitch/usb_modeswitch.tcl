@@ -9,8 +9,8 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-2.2.5 package
-# (C) Josua Dietze 2009-2015
+# Part of usb-modeswitch-2.3.0 package
+# (C) Josua Dietze 2009-2016
 
 set arg0 [lindex $argv 0]
 if [regexp {\.tcl$} $arg0] {
@@ -28,6 +28,8 @@ set flags(logging) 1
 set flags(noswitching) 0
 set flags(stordelay) 0
 set flags(logwrite) 0
+# also settable in device config files
+set flags(nombim) 0
 
 # Execution starts at file bottom
 
@@ -109,10 +111,7 @@ if {[string length [lindex $argList 0]] == 0} {
 		SafeExit
 	} else {
 		if {![regexp {(.*?):} [lindex $argList 1] d dev_top]} {
-			if [regexp {([0-9]+-[0-9]+\.?[0-9]*.*)} [lindex $argList 1] d dev_top] {
-				# new udev rules file, got to check class of first interface
-				set ifChk 1
-			} else {
+			if {![regexp {([0-9]+-[0-9]+\.?[0-9]*.*)} [lindex $argList 1] d dev_top]} {
 				Log "Could not determine device dir from udev values! Exit"
 				SafeExit
 			}
@@ -131,21 +130,15 @@ if {![file isdirectory $devdir]} {
 Log "Use top device dir $devdir"
 
 set iface 0
-if $ifChk {
-	Log "Check class of first interface ..."
-	set config(class) [IfClass 0]
-	if {$iface < 0} {
-		Log " No access to interface 0. Exit"
-		SafeExit
-	}
-	Log " Interface class is $config(class)."
-	if {$config(class) == "08" || $config(class) == "03"} {
-	} else {
-		Log "No install mode found. Aborting"
-		exit
-	}
+Log "Check class of first interface ..."
+set config(class) [IfClass 0 $devdir]
+if {$config(class) < 0} {
+	Log " No access to interface 0. Exit"
+	SafeExit
 }
-set ifdir [file tail [IfDir $iface]]
+Log " Interface 0 class is $config(class)."
+
+set ifdir [file tail [IfDir $iface $devdir]]
 regexp {:([0-9]+\.[0-9]+)$} $ifdir d iface
 
 set flags(logwrite) 1
@@ -250,7 +243,7 @@ foreach mconfig $configList {
 	Log "Check config: $mconfig"
 	if [MatchDevice $mconfig] {
 		Log "! matched. Read config data"
-		set flags(config) $mconfig
+#		set flags(config) $mconfig
 		if [string length $usb(busnum)] {
 			set busParam "-b [string trimleft $usb(busnum) 0]"
 			set devParam "-g [string trimleft $usb(devnum) 0]"
@@ -355,7 +348,7 @@ if [regexp {ok:busdev} $report] {
 # Checking for bound drivers if there is an interface with class 0xff
 
 if {$config(DriverModule) != "" && [regexp {ok:} $report]} {
-	if [HasFF] {
+	if [HasFF $devdir] {
 		AddToList link_list $usb(idVendor):$usb(idProduct)
 	} else {
 		set config(DriverModule) ""
@@ -724,7 +717,7 @@ if $flags(logwrite) {
 proc {SafeExit} {} {
 
 global flags
-set $flags(logwrite) 1
+set flags(logwrite) 1
 Log ""
 exit
 
@@ -987,8 +980,12 @@ close $lc
 proc {CheckSuccess} {devdir} {
 
 global config usb flags
-set ifdir [file tail [IfDir 0]]
 
+# For Cisco AM10, target device not on same port
+if {$usb(idVendor) == "1307" && $usb(idProduct) == "1169"} {
+	set devdir [string range $devdir 0 end-1]2
+}
+set ifdir [file tail [IfDir 0 $devdir]]
 if {[string length $config(TargetClass)] || [string length $config(Configuration)]} {
 	set config(TargetVendor) $usb(idVendor)
 	set config(TargetProduct) $usb(idProduct)
@@ -1004,7 +1001,7 @@ for {set i 1} {$i <= $config(CheckSuccess)} {incr i} {
 	} else {
 		Log " Read attributes ..."
 	}
-	set ifdir [IfDir 0]
+	set ifdir [IfDir 0 $devdir]
 	if {$ifdir == ""} {continue}
 	set ifdir [file tail $ifdir]
 	if {![ReadUSBAttrs $devdir $ifdir]} {
@@ -1050,9 +1047,8 @@ if {$i > 20} {return 0} else {return 1}
 # end of proc {CheckSuccess}
 
 
-proc {IfDir} {iface} {
+proc {IfDir} {iface devdir} {
 
-global devdir
 set allfiles [glob -nocomplain $devdir/*]
 set files [glob -nocomplain $devdir/*.$iface]
 if {[llength $files] == 0} {
@@ -1067,9 +1063,9 @@ return $ifdir
 }
 # end of proc {IfDir}
 
-proc {IfClass} {iface} {
+proc {IfClass} {iface devdir} {
 
-set ifdir [IfDir $iface]
+set ifdir [IfDir $iface $devdir]
 
 if {![file exists $ifdir/bInterfaceClass]} {
 	return -1
@@ -1188,10 +1184,10 @@ if $flags(logging) {
 
 }
 
-proc {HasFF} {} {
+proc {HasFF} {devdir} {
 
 set i 0
-while {[set dir [IfDir $i]] != ""} {
+while {[set dir [IfDir $i $devdir]] != ""} {
 	set c [exec cat $dir/bInterfaceClass]
 	if {$c == "ff"} {return 1}
 	incr i

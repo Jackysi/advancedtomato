@@ -18,6 +18,9 @@ help(void)
 "  --set-mark value                   Set nfmark value\n"
 "  --and-mark value                   Binary AND the nfmark with value\n"
 "  --or-mark  value                   Binary OR  the nfmark with value\n"
+"  --set-mark-return value            Set nfmark value and RETURN\n"
+"  --and-mark-return value            Binary AND the nfmark with value and RETURN\n"
+"  --or-mark-return  value            Binary OR  the nfmark with value and RETURN\n"
 "\n",
 IPTABLES_VERSION);
 }
@@ -26,6 +29,9 @@ static struct option opts[] = {
 	{ "set-mark", 1, 0, '1' },
 	{ "and-mark", 1, 0, '2' },
 	{ "or-mark", 1, 0, '3' },
+	{ "set-mark-return", 1, 0, '4' },
+	{ "and-mark-return", 1, 0, '5' },
+	{ "or-mark-return", 1, 0, '6' },
 	{ 0 }
 };
 
@@ -66,6 +72,26 @@ parse_v0(int c, char **argv, int invert, unsigned int *flags,
 	case '3':
 		exit_error(PARAMETER_PROBLEM,
 			   "MARK target: kernel too old for --or-mark");
+	case '4':
+#ifdef KERNEL_64_USERSPACE_32
+		if (string_to_number_ll(optarg, 0, 0, 
+				     &markinfo->mark))
+#else
+		if (string_to_number_l(optarg, 0, 0, 
+				     &markinfo->mark))
+#endif
+			exit_error(PARAMETER_PROBLEM, "Bad MARK value `%s'", optarg);
+		if (*flags)
+			exit_error(PARAMETER_PROBLEM,
+			           "MARK target: Can't specify --set-mark-return twice");
+		*flags = 1;
+		break;
+	case '5':
+		exit_error(PARAMETER_PROBLEM,
+			   "MARK target: kernel too old for --and-mark-return");
+	case '6':
+		exit_error(PARAMETER_PROBLEM,
+			   "MARK target: kernel too old for --or-mark-return");
 	default:
 		return 0;
 	}
@@ -78,7 +104,7 @@ final_check(unsigned int flags)
 {
 	if (!flags)
 		exit_error(PARAMETER_PROBLEM,
-		           "MARK target: Parameter --set/and/or-mark"
+		           "MARK target: Parameter --set/and/or/set-return/and-return/or-return-mark"
 			   " is required");
 }
 
@@ -101,6 +127,15 @@ parse_v1(int c, char **argv, int invert, unsigned int *flags,
 		break;
 	case '3':
 	        markinfo->mode = IPT_MARK_OR;
+		break;
+	case '4':
+	        markinfo->mode = IPT_MARK_SET_RETURN;
+		break;
+	case '5':
+	        markinfo->mode = IPT_MARK_AND_RETURN;
+		break;
+	case '6':
+	        markinfo->mode = IPT_MARK_OR_RETURN;
 		break;
 	default:
 		return 0;
@@ -177,6 +212,15 @@ print_v1(const struct ipt_ip *ip,
 	case IPT_MARK_OR: 
 		printf("MARK or ");
 		break;
+	case IPT_MARK_SET_RETURN:
+		printf("MARK set RETURN");
+		break;
+	case IPT_MARK_AND_RETURN:
+		printf("MARK and RETURN");
+		break;
+	case IPT_MARK_OR_RETURN: 
+		printf("MARK or RETURN");
+		break;
 	}
 	print_mark(markinfo->mark);
 }
@@ -197,6 +241,15 @@ save_v1(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		break;
 	case IPT_MARK_OR: 
 		printf("--or-mark ");
+		break;
+	case IPT_MARK_SET_RETURN:
+		printf("--set-mark-return ");
+		break;
+	case IPT_MARK_AND_RETURN:
+		printf("--and-mark-return ");
+		break;
+	case IPT_MARK_OR_RETURN: 
+		printf("--or-mark-return ");
 		break;
 	}
 	print_mark(markinfo->mark);

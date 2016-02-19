@@ -42,7 +42,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp,limit_br0_prio,limit_br1_enable,limit_br1_dlc,limit_br1_dlr,limit_br1_ulc,limit_br1_ulr,limit_br1_prio,limit_br2_enable,limit_br2_dlc,limit_br2_dlr,limit_br2_ulc,limit_br2_ulr,limit_br2_prio,limit_br3_enable,limit_br3_dlc,limit_br3_dlr,limit_br3_ulc,limit_br3_ulr,limit_br3_prio"); %>
+// <% nvram("new_qoslimit_enable,wan_qos_ibw,wan_qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp,limit_br0_prio,limit_br1_enable,limit_br1_dlc,limit_br1_dlr,limit_br1_ulc,limit_br1_ulr,limit_br1_prio,limit_br2_enable,limit_br2_dlc,limit_br2_dlr,limit_br2_ulc,limit_br2_ulr,limit_br2_prio,limit_br3_enable,limit_br3_dlc,limit_br3_dlr,limit_br3_ulc,limit_br3_ulr,limit_br3_prio"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -206,8 +206,8 @@ function verifyFields(focused, quiet)
 	var b2 = !E('_f_limit_br2_enable').checked;
 	var b3 = !E('_f_limit_br3_enable').checked;
 
-	E('_qos_ibw').disabled = a;
-	E('_qos_obw').disabled = a;
+	E('_wan_qos_ibw').disabled = a;
+	E('_wan_qos_obw').disabled = a;
 	E('_f_qosl_enable').disabled = a;
 	E('_f_limit_br1_enable').disabled = a;
 	E('_f_limit_br2_enable').disabled = a;
@@ -221,7 +221,7 @@ function verifyFields(focused, quiet)
 	E('_qosl_udp').disabled = b || a;
 	E('_limit_br0_prio').disabled = b || a;
 
-	elem.display(PR('_qos_ibw'), PR('_qos_obw'), !a);
+	elem.display(PR('_wan_qos_ibw'), PR('_wan_qos_obw'), !a);
 	elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), PR('_limit_br0_prio'), !a && !b);
 
 	E('_limit_br1_dlr').disabled = b1 || a;
@@ -309,8 +309,8 @@ function init()
 		<script type='text/javascript'>
 			createFieldTable('', [
 			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Max Available Download <br><small>(same as used in QoS)</small>', indent: 2, name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{ title: 'Max Available Upload <br><small>(same as used in QoS)</small>', indent: 2, name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: 'Max Available Download <br><small>(same as used in QoS)</small>', indent: 2, name: 'wan_qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.wan_qos_ibw },
+			{ title: 'Max Available Upload <br><small>(same as used in QoS)</small>', indent: 2, name: 'wan_qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.wan_qos_obw }
 			]);
 		</script>
 		<br>

@@ -594,10 +594,10 @@ void asp_qrate(int argc, char **argv)
 	asp_ctcount(1, a);
 
 	memset(rates, 0, sizeof(rates));
-	retrieveRatesFromTc(get_wanface(), rates);
+	retrieveRatesFromTc(get_wanface("wan"), rates);
 
 	comma = ' ';
-	web_puts("\nqrates_out = [0,");
+	web_puts("\nqrates1_out = [0,");
 	for (n = 0; n < 10; ++n) {
 		web_printf("%c%lu", comma, rates[n]);
 		comma = ',';
@@ -608,12 +608,83 @@ void asp_qrate(int argc, char **argv)
 	retrieveRatesFromTc("imq0", rates);
 
 	comma = ' ';
-	web_puts("\nqrates_in = [0,");
+	web_puts("\nqrates1_in = [0,");
 	for (n = 0; n < 10; ++n) {
 		web_printf("%c%lu", comma, rates[n]);
 		comma = ',';
 	}
 	web_puts("];");
+
+	// wan2
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc(get_wanface("wan2"), rates);
+
+	comma = ' ';
+	web_puts("\nqrates2_out = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+	
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc("imq1", rates);
+
+	comma = ' ';
+	web_puts("\nqrates2_in = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+
+#ifdef TCONFIG_MULTIWAN
+	// wan3
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc(get_wanface("wan3"), rates);
+
+	comma = ' ';
+	web_puts("\nqrates3_out = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+	
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc("imq2", rates);
+
+	comma = ' ';
+	web_puts("\nqrates3_in = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+
+	// wan4
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc(get_wanface("wan4"), rates);
+
+	comma = ' ';
+	web_puts("\nqrates4_out = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+	
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc("imq3", rates);
+
+	comma = ' ';
+	web_puts("\nqrates4_in = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+#endif
 }
 
 static void layer7_list(const char *path, int *first)

@@ -4,7 +4,9 @@
 # Copyright (C) 2015 shibby
 #
 
-MODE=`nvram get wan_proto`
+PREFIX=$1
+
+MODE=`nvram get "$PREFIX"_proto`
 LOCK="/tmp/switch4g.lock"
 
 if [ ! "$MODE" == "lte" ]; then
@@ -12,14 +14,15 @@ if [ ! "$MODE" == "lte" ]; then
 fi
 
 connect() {
-    APN=`nvram get modem_apn`
+    APN=`nvram get "$PREFIX"_modem_apn`
     DEV=`nvram get modem_dev4g`
-    TYP=`nvram get modem_type`
+    TYPE=`nvram get modem_type`
     IFA=`nvram get wan_4g`
+    SPEED=`nvram get "$PREFIX"_modem_speed`
 
     logger 4G MODEM - connecting ...
 
-    if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+    if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         CONNECTED=0
         COUNT=0
 
@@ -35,10 +38,44 @@ connect() {
         while [ $CONNECTED == "0" ]; do
             for i in $DEVS; do
                 if [ "$COUNT" -lt "5" ]; then
+                    #disconnect first
                     MODE="AT^NDISDUP=1,0" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
+
+                    #change network type if required
+                    MODE="AT^SYSCFGEX?" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
+                    RESULT=`cat /tmp/4g.mode | grep SYSCFGEX | grep '"' | cut -d '"' -f2`
+
+                    case "$RESULT" in
+                        "00") RES1="Auto" ;;
+                        "03") RES1="4G only" ;;
+                        "02") RES1="3G only" ;;
+                        "0302") RES1="4G/3G only" ;;
+                        "030201") RES1="4G/3G/2G" ;;
+                        *) RES1="unknown" ;;
+                    esac
+
+                    case "$SPEED" in
+                        "00") SPD1="Auto" ;;
+                        "03") SPD1="4G only" ;;
+                        "02") SPD1="3G only" ;;
+                        "0302") SPD1="4G/3G only" ;;
+                        "030201") SPD1="4G/3G/2G" ;;
+                        *) SPD1="unknown" ;;
+                    esac
+
+
+                    if [ "$RESULT" == "$SPEED" ]; then
+                        logger 4G MODEM - Network type is $RES1
+                    else
+                        logger 4G MODEM - Network type changed: was $RES1, now $SPD1
+                        MODE="AT^SYSCFGEX=\"$SPEED\",3fffffff,2,4,7fffffffffffffff,," gcom -d $i -s /etc/gcom/setverbose.gcom
+                        sleep 5
+                    fi
+
+                    #connecting
                     MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
 
-                    CHECK=`cat /tmp/4g.mode | grep "NDISSTAT:" | cut -d ":" -f2 | cut -d "," -f1`
+                    CHECK=`cat /tmp/4g.mode | grep "NDISSTAT:" | grep IPV4 | cut -d ":" -f2 | cut -d "," -f1`
                     if [ "$CHECK" == "1" ]; then
                         logger 4G MODEM - connected ...
                         CONNECTED=1
@@ -55,19 +92,19 @@ connect() {
 
             # checked all devices but still not connected?
             if [ $CONNECTED == "0" ]; then
-                INTERVAL=`nvram get modem_watchdog`
+                INTERVAL=`nvram get mwan_cktime`
                 if [ "$INTERVAL" -gt 0 ]; then
                     logger 4G MODEM - connection failed - watchdog enabled
-                    watchdogAdd
+                    watchdog $PREFIX add
                 else
                     logger 4G MODEM - connection failed - process terminated!
-                    watchdogDel
+                    watchdog $PREFIX del
                 fi
                 rm $LOCK;
                 exit 0;
             fi
         done
-    elif [ "$TYP" == "qmi_wwan" ]; then
+    elif [ "$TYPE" == "qmi_wwan" ]; then
         CLID=""
 
         # wait till registered
@@ -115,13 +152,13 @@ connect() {
                 fi
             else
                 # checked 5 times but still not connected?
-                INTERVAL=`nvram get modem_watchdog`
+                INTERVAL=`nvram get mwan_cktime`
                 if [ "$INTERVAL" -gt 0 ]; then
                     logger 4G MODEM - connection failed - watchdog enabled
-                    watchdogAdd
+                    watchdog $PREFIX add
                 else
                     logger 4G MODEM - connection failed - process terminated!
-                    watchdogDel
+                    watchdog $PREFIX del
                 fi
                 rm $LOCK;
                 exit 0;
@@ -134,26 +171,26 @@ connect() {
 
     while [ $GO = "0" ]; do
         if [ "$COUNT" == "5" ]; then
-            INTERVAL=`nvram get modem_watchdog`
+            INTERVAL=`nvram get mwan_cktime`
             if [ "$INTERVAL" -gt 0 ]; then
                 logger 4G MODEM WAN IFACE failed - watchdog enabled
-                watchdogAdd
+                watchdog $PREFIX add
             else
                 logger 4G MODEM WAN IFACE failed - connection process terminated!
-                watchdogDel
+                watchdog $PREFIX del
             fi
             rm $LOCK
             exit 0;
         else
-            dhcpc-release
+            dhcpc-release $PREFIX
             sleep 1
-            dhcpc-renew
+            dhcpc-renew $PREFIX
 
             CHECKIFA=`ifconfig | grep $IFA | wc -l`
             if [ "$CHECKIFA" == "1" ]; then
                 GO=1
                 logger 4G MODEM - WAN IFACE configured ...
-                watchdogAdd
+                watchdog $PREFIX add
                 signal
             else
                 logger 4G MODEM WAN IFACE - count: $COUNT
@@ -166,16 +203,16 @@ connect() {
 
 disconnect() {
     DEV=`nvram get modem_dev4g`
-    TYP=`nvram get modem_type`
+    TYPE=`nvram get modem_type`
     CLID=`nvram get modem_clid`
 
     logger 4G MODEM - disconnecting ...
-    watchdogDel
-    dhcpc-release
+    watchdog $PREFIX del
+    dhcpc-release $PREFIX
 
-    if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+    if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         MODE="AT^NDISDUP=1,0" gcom -d $DEV -s /etc/gcom/setmode.gcom
-    elif [ "$TYP" == "qmi_wwan" ]; then
+    elif [ "$TYPE" == "qmi_wwan" ]; then
         # disable previous autoconnect state using the global handle
         # do not reuse previous wds client id to prevent hangs caused by stale data
         uqmi -s -d "$DEV" --stop-network 0xffffffff --autoconnect
@@ -191,53 +228,6 @@ disconnect() {
 
 }
 
-doWANCalls() {
-    if [ `nvram get wan_get_dns | wc -w` -gt "0" ]; then #DHCP
-        DNS=`nvram get wan_get_dns | awk {'print $1'}`
-    elif [ `nvram get wan_dns | wc -w` -gt "0" ]; then #STATIC
-        DNS=`nvram get wan_dns | awk {'print $1'}`
-    else
-        DNS="8.8.8.8" #Google public DNS
-    fi
-
-    HOSTLIST="www.google.com www.microsoft.com www.facebook.com"
-    for HOST in $HOSTLIST; do
-        nslookup $HOST $DNS> /dev/null 2>&1
-    done
-}
-
-watchdogRun() {
-    IFA=`nvram get wan_4g`
-
-    RXBYTES1=`cat /sys/class/net/$IFA/statistics/rx_bytes`
-    doWANCalls
-    RXBYTES2=`cat /sys/class/net/$IFA/statistics/rx_bytes`
-    if [ "$RXBYTES2" == "$RXBYTES1" ]; then
-        logger 4G MODEM Watchdog - Connection down - Reconnecting ...
-        disconnect
-        connect
-    fi
-}
-
-watchdogAdd() {
-    INTERVAL=`nvram get modem_watchdog`
-    if [ "$INTERVAL" -gt 0 ]; then
-        ISSET=`cru l | grep watchdog4g | wc -l`
-
-        if [ "$ISSET" == "0" ]; then
-            cru a watchdog4g "*/$INTERVAL * * * * /usr/sbin/switch4g watchdog"
-        fi
-    fi
-}
-
-watchdogDel() {
-    ISSET=`cru l | grep watchdog4g | wc -l`
-
-    if [ "$ISSET" == "1" ]; then
-        cru d watchdog4g
-    fi
-}
-
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
         logger 4G MODEM - previous proces of switch4g still working
@@ -248,12 +238,12 @@ checkLock() {
 }
 
 setPIN() {
-    PIN=`nvram get modem_pin`
-    IS_PIN=`nvram get modem_pin | wc -w`
+    PIN=`nvram get "$PREFIX"_modem_pin`
+    IS_PIN=`nvram get "$PREFIX"_modem_pin | wc -w`
 
     if [ "$IS_PIN" == "1" ]; then #only for non-hilink
 
-        if [ "$TYP" == "non-hilink" -o "$TYP" == "hw-ether" ]; then
+        if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
             #we try use last diag iface first. If it failed then we try use any other ttyUSB device
             TTY=`ls /dev/ttyUSB* | grep -v $DEV`
             DEVS="$DEV $TTY"
@@ -290,6 +280,10 @@ setPIN() {
 
 switchMode() {
     MODULES="qmi_wwan cdc_ether huawei_ether cdc_ncm"
+
+    for MODULE in $MODULES; do
+        modprobe -r $MODULE
+    done
 
     COUNT=0
     FOUND=0
@@ -421,7 +415,7 @@ searchDiag() {
                 IS_PRODUCT=`echo $PRODUCT | wc -w`
                 if [ "$IS_PRODUCT" -gt 0 ]; then
                     logger 4G MODEM - loading module usbserial
-                    rmmod usbserial
+                    modprobe -r usbserial
                     insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
                     echo "$VENDOR:$PRODUCT" > /tmp/4g.detect
                 fi
@@ -439,7 +433,7 @@ searchDiag() {
                     if [ "$FOUND" == "0" ]; then
                         VENDOR=`echo $SWITCH | cut -d ":" -f1`
                         PRODUCT=`echo $SWITCH | cut -d ":" -f2`
-                        rmmod usbserial
+                        modprobe -r usbserial
                         insmod usbserial vendor=0x$VENDOR product=0x$PRODUCT
 
                         DEV=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
@@ -459,7 +453,7 @@ searchDiag() {
         TTY=`ls /dev/ttyUSB*`
 
         for i in $TTY; do
-            CHECKTTY=`gcom -d $i -e info | grep OK | wc -l`
+            CHECKTTY=`gcom -d $i -s /etc/gcom/getcardinfo.gcom | grep OK | wc -l`
             if [ "$CHECKTTY" == "1" ]; then #found working interface
                 logger 4G MODEM DIAG found - $i
                 nvram set modem_dev4g=$i
@@ -502,13 +496,11 @@ signal() {
 
 ###################################################
 
-if [ "$1" == "connect" ]; then
+if [ "$2" == "connect" ]; then
     connect
-elif [ "$1" == "disconnect" ]; then
+elif [ "$2" == "disconnect" ]; then
     disconnect
-elif [ "$1" == "watchdog" ]; then
-    watchdogRun
-elif [ "$1" == "signal" ]; then
+elif [ "$2" == "signal" ]; then
     signal
 else
     checkLock

@@ -13,6 +13,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef HAVE_LIBSYSTEMD
+# include <sys/socket.h>
+# include <systemd/sd-daemon.h>
+#endif
+
 #include <event2/util.h>
 
 #include "dnscrypt_proxy.h"
@@ -36,12 +41,12 @@ logger(struct ProxyContext_ * const context,
     static char         previous_line[MAX_LOG_LINE];
     static time_t       last_log_ts = (time_t) 0;
     static unsigned int burst_counter = 0U;
-    char        line[MAX_LOG_LINE];
-    va_list     va;
-    const char *urgency;
-    time_t      now = time(NULL);
-    size_t      len;
-    int         log_fd;
+    char                line[MAX_LOG_LINE];
+    FILE               *log_fp;
+    const char         *urgency;
+    va_list             va;
+    time_t              now = time(NULL);
+    size_t              len;
 
     if (context != NULL) {
         if (crit > context->max_log_level) {
@@ -83,7 +88,7 @@ logger(struct ProxyContext_ * const context,
     }
     line[len++] = 0;
 #ifndef _WIN32
-    if (context != NULL && context->log_fd == -1 && context->daemonize) {
+    if (context != NULL && context->log_fp == NULL && context->daemonize) {
         syslog(crit, "%s", line);
         return 0;
     }
@@ -100,20 +105,13 @@ logger(struct ProxyContext_ * const context,
     last_log_ts = now;
     assert(sizeof previous_line >= sizeof line);
     memcpy(previous_line, line, len);
-    if (context == NULL || context->log_fd == -1) {
-        log_fd = STDERR_FILENO;
+    if (context == NULL || context->log_fp == NULL) {
+        log_fp = stdout;
     } else {
-        log_fd = context->log_fd;
+        log_fp = context->log_fp;
     }
-#ifndef _WIN32
-    safe_write(log_fd, urgency, strlen(urgency), LOG_WRITE_TIMEOUT);
-    safe_write(log_fd, line, strlen(line), LOG_WRITE_TIMEOUT);
-    safe_write(log_fd, "\n", (size_t) 1U, LOG_WRITE_TIMEOUT);
-#else
-    (void) log_fd;
-    printf("%s%s\n", urgency, line);
-    fflush(stdout);
-#endif
+    fprintf(log_fp, "%s%s\n", urgency, line);
+    fflush(log_fp);
 
     return 0;
 }
@@ -134,19 +132,27 @@ logger_error(struct ProxyContext_ * const context,
     return logger(context, LOG_ERR, "%s: %s", msg, err_msg);
 }
 
+void systemd_notify(struct ProxyContext_ * const context,
+                    const char * const msg) {
+#ifdef HAVE_LIBSYSTEMD
+    const int err = sd_notify(0, msg);
+
+    if (err < 0) {
+        logger(context, LOG_DEBUG, "sd_notify failed: %s", strerror(-err));
+    }
+#endif
+}
+
 int
 logger_close(struct ProxyContext_ * const context)
 {
-#ifdef _WIN32
-    (void) context;
-#else
+#ifndef _WIN32
     if (context->daemonize) {
         closelog();
     }
-    if (context->log_fd != -1) {
-        fsync(context->log_fd);
-        return close(context->log_fd);
-    }
 #endif
+    if (context->log_fp != NULL) {
+        return fclose(context->log_fp);
+    }
     return 0;
 }

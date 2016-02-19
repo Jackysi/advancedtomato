@@ -48,7 +48,7 @@ const char *
 dcplugin_long_description(DCPlugin * const dcplugin)
 {
     return
-        "The IP address must be a hex-encoded IPv4 address.\n"
+        "The IP address must be an IPv4 address.\n"
         "\n"
         "Usage:\n"
         "\n"

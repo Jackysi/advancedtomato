@@ -1,16 +1,16 @@
 /*
  * Copyright (C)2006 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -24,8 +24,6 @@
  * Author:
  *	Masahide NAKAMURA @USAGI
  */
-
-#ifndef NO_IPV6
 
 #include <stdio.h>
 #include <string.h>
@@ -54,7 +52,6 @@ static void usage(void) __attribute__((noreturn));
 static void usage(void)
 {
 	fprintf(stderr, "Usage: ip -f inet6 tunnel { add | change | del | show } [ NAME ]\n");
-	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | any } ]\n");
 	fprintf(stderr, "          [ remote ADDR local ADDR ] [ dev PHYS_DEV ]\n");
 	fprintf(stderr, "          [ encaplimit ELIM ]\n");
 	fprintf(stderr ,"          [ hoplimit HLIM ] [ tc TC ] [ fl FL ]\n");
@@ -119,24 +116,7 @@ static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
 	memset(medium, 0, sizeof(medium));
 
 	while (argc > 0) {
-		if (strcmp(*argv, "mode") == 0) {
-			NEXT_ARG();
-			if (strcmp(*argv, "ipv6/ipv6") == 0 ||
-			    strcmp(*argv, "ip6ip6") == 0)
-				p->proto = IPPROTO_IPV6;
-			else if (strcmp(*argv, "ip/ipv6") == 0 ||
-				 strcmp(*argv, "ipv4/ipv6") == 0 ||
-				 strcmp(*argv, "ipip6") == 0 ||
-				 strcmp(*argv, "ip4ip6") == 0)
-				p->proto = IPPROTO_IPIP;
-			else if (strcmp(*argv, "any/ipv6") == 0 ||
-				 strcmp(*argv, "any") == 0)
-				p->proto = 0;
-			else {
-                                fprintf(stderr,"Cannot guess tunnel mode.\n");
-                                exit(-1);
-                        }
-                } else if (strcmp(*argv, "remote") == 0) {
+		if (strcmp(*argv, "remote") == 0) {
 			inet_prefix raddr;
 			NEXT_ARG();
 			get_prefix(&raddr, *argv, preferred_family);
@@ -405,5 +385,3 @@ int do_ip6tunnel(int argc, char **argv)
 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip -f inet6 tunnel help\".\n", *argv);
 	exit(-1);
 }
-
-#endif // NO_IPV6

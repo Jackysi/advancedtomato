@@ -10,11 +10,11 @@ AC_PREREQ(2.59)
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AC_INIT([libevent],[2.0.21-stable-dev])
+AC_INIT([libevent],[2.0.22-stable])
 AC_CONFIG_SRCDIR([evdns.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS(config.h)
-AC_DEFINE(NUMERIC_VERSION, 0x02001501, [Numeric representation of the version])
+AC_DEFINE(NUMERIC_VERSION, 0x02001600, [Numeric representation of the version])
 
 dnl Initialize prefix.
 if test "$prefix" = "NONE"; then
@@ -559,6 +559,7 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(short)
 AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(off_t)
 
 AC_CHECK_TYPES([struct in6_addr, struct sockaddr_in6, sa_family_t, struct addrinfo, struct sockaddr_storage], , ,
 [#define _GNU_SOURCE

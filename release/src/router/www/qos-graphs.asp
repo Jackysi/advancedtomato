@@ -48,6 +48,14 @@
 
 //<% qrate(); %>
 
+qrates_out = [0,0,0,0,0,0,0,0,0,0,0];
+qrates_in = [0,0,0,0,0,0,0,0,0,0,0];
+for(var i=0; i < 10; i++){
+	qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
+	qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+}
+
+
 var svgReady = 0;
 
 var Unclassified = ['Unclassified'];
@@ -157,7 +165,11 @@ ref.refresh = function(text)
 	qrates_out = [];
 	qrates_in = [];
 	
-	try 
+	for(var i=0; i < 10; i++){
+		qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
+		qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+	}
+	try
 	{
 		eval(text);
 	}
@@ -307,7 +319,7 @@ if (nvram.web_svg != '0') {
 <div class="section">
 <table border=0 width="100%"><tr><td>
 	<table style="width:250px">
-	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>Rate</td></tr>
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>&nbsp;</td></tr>
 <script type='text/javascript'>
 for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
@@ -334,7 +346,7 @@ if (nvram.web_svg != '0') {
 <div class="section">
 <table border=0 width="100%"><tr><td>
 	<table style="width:250px">
-	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>Rate</td></tr>
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>&nbsp;</td></tr>
 <script type='text/javascript'>
 for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +

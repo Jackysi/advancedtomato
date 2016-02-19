@@ -129,6 +129,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 - 3G Modem support (big thanks for @LDevil)<br>
 - 4G/LTE Modem support<br>
 <!-- USB-END -->
+- MutliWAN feature (written by @Arctic, modified by @Shibby)<br>
 <!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>
@@ -143,7 +144,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 - TOR Project integration and GUI<br>
 <!-- TOR-END -->
 <!-- OPENVPN-BEGIN -->
-- OpenVPN: Routing Policy
+- OpenVPN: Routing Policy<br>
 <!-- OPENVPN-END -->
 - TomatoAnon project integration and GUI<br>
 - TomatoThemeBase project integration and GUI<br>

@@ -308,7 +308,10 @@ has_digit (const unsigned char* src)
 }
 
 /*
- * printf append to a buffer with overflow check
+ * printf append to a buffer with overflow check,
+ * due to usage of vsnprintf, it will leave space for
+ * a final null character and thus use only
+ * capacity - 1
  */
 bool buf_printf (struct buffer *buf, const char *format, ...)
 #ifdef __GNUC__
@@ -870,7 +873,7 @@ gc_reset (struct gc_arena *a)
 }
 
 static inline void
-check_malloc_return (void *p)
+check_malloc_return (const void *p)
 {
   if (!p)
     out_of_memory ();

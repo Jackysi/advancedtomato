@@ -15,8 +15,6 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <fcntl.h>
-#include <net/if.h>
-#include <net/if_arp.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,7 +30,7 @@ static void usage(void);
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: tc filter [ add | del | change | get ] dev STRING\n");
+	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
 	fprintf(stderr, "       [ pref PRIO ] [ protocol PROTO ]\n");
 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
 	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
@@ -176,8 +174,8 @@ static int filter_ifindex;
 static __u32 filter_prio;
 static __u32 filter_protocol;
 
-static int print_filter(const struct sockaddr_nl *who,
-			struct nlmsghdr *n, 
+int print_filter(const struct sockaddr_nl *who,
+			struct nlmsghdr *n,
 			void *arg)
 {
 	FILE *fp = (FILE*)arg;
@@ -363,8 +361,10 @@ int do_filter(int argc, char **argv)
 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
 	    || matches(*argv, "lst") == 0)
 		return tc_filter_list(argc-1, argv+1);
-	if (matches(*argv, "help") == 0)
+	if (matches(*argv, "help") == 0) {
 		usage();
+		return 0;
+        }
 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc filter help\".\n", *argv);
 	return -1;
 }

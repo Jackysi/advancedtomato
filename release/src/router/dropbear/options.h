@@ -2,8 +2,8 @@
  * Copyright (c) 2002,2003 Matt Johnston
  * All rights reserved. See LICENSE for the license. */
 
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_
+#ifndef DROPBEAR_OPTIONS_H_
+#define DROPBEAR_OPTIONS_H_
 
 /* Define compile-time options below - the "#ifndef DROPBEAR_XXX .... #endif"
  * parts are to allow for commandline -DDROPBEAR_XXX options etc. */
@@ -95,17 +95,22 @@ much traffic. */
 #define DROPBEAR_AES256
 /* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
 /*#define DROPBEAR_BLOWFISH*/
-/*#define DROPBEAR_TWOFISH256*/
-/*#define DROPBEAR_TWOFISH128*/
+#define DROPBEAR_TWOFISH256
+#define DROPBEAR_TWOFISH128
 
 /* Enable CBC mode for ciphers. This has security issues though
  * is the most compatible with older SSH implementations */
 #define DROPBEAR_ENABLE_CBC_MODE
 
 /* Enable "Counter Mode" for ciphers. This is more secure than normal
- * CBC mode against certain attacks. This adds around 1kB to binary 
- * size and is recommended for most cases */
+ * CBC mode against certain attacks. It is recommended for security
+ * and forwards compatibility */
 #define DROPBEAR_ENABLE_CTR_MODE
+
+/* Twofish counter mode is disabled by default because it 
+has not been tested for interoperability with other SSH implementations.
+If you test it please contact the Dropbear author */
+/* #define DROPBEAR_TWOFISH_CTR */
 
 /* You can compile with no encryption if you want. In some circumstances
  * this could be safe security-wise, though make sure you know what
@@ -201,7 +206,10 @@ much traffic. */
  * PAM challenge/response.
  * You can't enable both PASSWORD and PAM. */
 
+/* This requires crypt() */
+#ifdef HAVE_CRYPT
 #define ENABLE_SVR_PASSWORD_AUTH
+#endif
 /* PAM requires ./configure --enable-pam */
 /*#define ENABLE_SVR_PAM_AUTH */
 #define ENABLE_SVR_PUBKEY_AUTH
@@ -212,13 +220,16 @@ much traffic. */
 #define ENABLE_SVR_PUBKEY_OPTIONS
 #endif
 
+/* This requires getpass. */
+#ifdef HAVE_GETPASS
 #define ENABLE_CLI_PASSWORD_AUTH
-#define ENABLE_CLI_PUBKEY_AUTH
 #define ENABLE_CLI_INTERACT_AUTH
+#endif
+#define ENABLE_CLI_PUBKEY_AUTH
 
 /* A default argument for dbclient -i <privatekey>. 
-   leading "~" is expanded */
-#define DROPBEAR_DEFAULT_CLI_AUTHKEY "~/.ssh/id_dropbear"
+Homedir is prepended unless path begins with / */
+#define DROPBEAR_DEFAULT_CLI_AUTHKEY ".ssh/id_dropbear"
 
 /* This variable can be used to set a password for client
  * authentication on the commandline. Beware of platforms
@@ -277,19 +288,19 @@ much traffic. */
 /* The command to invoke for xauth when using X11 forwarding.
  * "-q" for quiet */
 #ifndef XAUTH_COMMAND
-#define XAUTH_COMMAND "/opt/X11R6/X11/xauth -q"
+#define XAUTH_COMMAND "/usr/bin/xauth -q"
 #endif
 
 /* if you want to enable running an sftp server (such as the one included with
  * OpenSSH), set the path below. If the path isn't defined, sftp will not
  * be enabled */
 #ifndef SFTPSERVER_PATH
-#define SFTPSERVER_PATH "/opt/libexec/sftp-server"
+#define SFTPSERVER_PATH "/usr/libexec/sftp-server"
 #endif
 
 /* This is used by the scp binary when used as a client binary. If you're
  * not using the Dropbear client, you'll need to change it */
-#define _PATH_SSH_PROGRAM "/usr/bin/dbclient"
+#define DROPBEAR_PATH_SSH_PROGRAM "/usr/bin/dbclient"
 
 /* Whether to log commands executed by a client. This only logs the 
  * (single) command sent to the server, not what a user did in a 
@@ -331,10 +342,10 @@ be overridden at runtime with -I. 0 disables idle timeouts */
 #define DEFAULT_IDLE_TIMEOUT 0
 
 /* The default path. This will often get replaced by the shell */
-#define DEFAULT_PATH "/bin:/usr/bin:/sbin:/usr/sbin:/opt/bin:/opt/sbin"
+#define DEFAULT_PATH "/usr/bin:/bin"
 
 /* Some other defines (that mostly should be left alone) are defined
  * in sysoptions.h */
 #include "sysoptions.h"
 
-#endif /* _OPTIONS_H_ */
+#endif /* DROPBEAR_OPTIONS_H_ */

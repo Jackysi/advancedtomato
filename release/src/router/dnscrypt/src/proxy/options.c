@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include <event2/util.h>
+#include <sodium.h>
 
 #include "dnscrypt_proxy.h"
 #include "getpwnam.h"
@@ -37,12 +38,12 @@ static struct option getopt_long_options[] = {
     { "daemonize", 0, NULL, 'd' },
 #endif
     { "edns-payload-size", 1, NULL, 'e' },
+    { "ephemeral-keys", 0, NULL, 'E' },
+    { "client-key", 1, NULL, 'K' },
     { "help", 0, NULL, 'h' },
     { "resolvers-list", 1, NULL, 'L' },
     { "resolver-name", 1, NULL, 'R' },
-#ifndef _WIN32
     { "logfile", 1, NULL, 'l' },
-#endif
     { "loglevel", 1, NULL, 'm' },
     { "max-active-requests", 1, NULL, 'n' },
 #ifndef _WIN32
@@ -64,9 +65,9 @@ static struct option getopt_long_options[] = {
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char *getopt_options = "a:de:hk:L:l:m:n:p:r:R:t:u:N:TVX";
+static const char *getopt_options = "a:de:Ehk:K:L:l:m:n:p:r:R:t:u:N:TVX";
 #else
-static const char *getopt_options = "a:e:hk:L:m:n:r:R:t:u:N:TVX";
+static const char *getopt_options = "a:e:Ehk:K:L:l:m:n:r:R:t:u:N:TVX";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
@@ -108,8 +109,9 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->connections_count = 0U;
     proxy_context->connections_count_max = DEFAULT_CONNECTIONS_COUNT_MAX;
     proxy_context->edns_payload_size = (size_t) DNS_DEFAULT_EDNS_PAYLOAD_SIZE;
+    proxy_context->client_key_file = NULL;
     proxy_context->local_ip = "127.0.0.1:53";
-    proxy_context->log_fd = -1;
+    proxy_context->log_fp = NULL;
     proxy_context->log_file = NULL;
     proxy_context->pid_file = NULL;
     proxy_context->resolvers_list = DEFAULT_RESOLVERS_LIST;
@@ -126,6 +128,7 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->test_cert_margin = (time_t) -1;
     proxy_context->test_only = 0;
     proxy_context->tcp_only = 0;
+    proxy_context->ephemeral_keys = 0;
 }
 
 static int
@@ -199,6 +202,9 @@ options_parse_resolver(ProxyContext * const proxy_context,
                        char * const * const headers, const size_t headers_count,
                        char * const * const cols, const size_t cols_count)
 {
+    const char *dnssec;
+    const char *namecoin;
+    const char *nologs;
     const char *provider_name;
     const char *provider_publickey_s;
     const char *resolver_ip;
@@ -235,6 +241,38 @@ options_parse_resolver(ProxyContext * const proxy_context,
                resolver_name);
         return -1;
     }
+    dnssec = options_get_col(headers, headers_count,
+                             cols, cols_count, "DNSSEC validation");
+    if (dnssec != NULL && strcasecmp(dnssec, "yes") != 0) {
+        logger(proxy_context, LOG_INFO,
+               "- [%s] does not support DNS Security Extensions",
+               resolver_name);
+    } else {
+        logger(proxy_context, LOG_INFO,
+               "+ DNS Security Extensions are supported");
+    }
+    namecoin = options_get_col(headers, headers_count,
+                               cols, cols_count, "Namecoin");
+    if (namecoin != NULL && strcasecmp(namecoin, "yes") != 0) {
+        logger(proxy_context, LOG_INFO,
+               "- [%s] does not support Namecoin domains",
+               resolver_name);
+    } else {
+        logger(proxy_context, LOG_INFO,
+               "+ Namecoin domains can be resolved");
+    }
+    nologs = options_get_col(headers, headers_count,
+                             cols, cols_count, "No logs");
+    if (nologs != NULL && strcasecmp(nologs, "no") == 0) {
+        logger(proxy_context, LOG_WARNING,
+               "- [%s] logs your activity - "
+               "a different provider might be better a choice if privacy is a concern",
+               resolver_name);
+    } else {
+        logger(proxy_context, LOG_INFO,
+               "+ Provider supposedly doesn't keep logs");
+    }
+
     proxy_context->provider_name = strdup(provider_name);
     proxy_context->provider_publickey_s = strdup(provider_publickey_s);
     proxy_context->resolver_ip = strdup(resolver_ip);
@@ -281,20 +319,65 @@ static int
 options_use_resolver_name(ProxyContext * const proxy_context)
 {
     char *file_buf;
+    char *resolvers_list_rebased;
 
-    file_buf = options_read_file(proxy_context->resolvers_list);
+    if ((resolvers_list_rebased =
+         path_from_app_folder(proxy_context->resolvers_list)) == NULL) {
+        logger_noformat(proxy_context, LOG_EMERG, "Out of memory");
+        exit(1);
+    }
+    file_buf = options_read_file(resolvers_list_rebased);
     if (file_buf == NULL) {
         logger(proxy_context, LOG_ERR, "Unable to read [%s]",
-               proxy_context->resolvers_list);
+               resolvers_list_rebased);
         exit(1);
     }
     assert(proxy_context->resolver_name != NULL);
     if (options_parse_resolvers_list(proxy_context, file_buf) < 0) {
         logger(proxy_context, LOG_ERR,
                "No resolver named [%s] found in the [%s] list",
-               proxy_context->resolver_name, proxy_context->resolvers_list);
+               proxy_context->resolver_name, resolvers_list_rebased);
     }
     free(file_buf);
+    free(resolvers_list_rebased);
+
+    return 0;
+}
+
+static int
+options_use_client_key_file(ProxyContext * const proxy_context)
+{
+    unsigned char *key;
+    char          *key_s;
+    const size_t   header_len = (sizeof OPTIONS_CLIENT_KEY_HEADER) - 1U;
+    size_t         key_s_len;
+
+    if ((key_s = options_read_file(proxy_context->client_key_file)) == NULL) {
+        logger_error(proxy_context, "Unable to read the client key file");
+        return -1;
+    }
+    if ((key = sodium_malloc(header_len + crypto_box_SECRETKEYBYTES)) == NULL) {
+        logger_noformat(proxy_context, LOG_EMERG, "Out of memory");
+        free(key_s);
+        return -1;
+    }
+    if (sodium_hex2bin(key, header_len + crypto_box_SECRETKEYBYTES,
+                       key_s, strlen(key_s), ": -", &key_s_len, NULL) != 0 ||
+        key_s_len < (header_len + crypto_box_SECRETKEYBYTES) ||
+        memcmp(key, OPTIONS_CLIENT_KEY_HEADER, header_len) != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "The client key file doesn't seem to contain a supported key format");
+        sodium_free(key);
+        free(key_s);
+        return -1;
+    }
+    sodium_memzero(key_s, strlen(key_s));
+    free(key_s);
+    assert(sizeof proxy_context->dnscrypt_client.secretkey <=
+           key_s_len - header_len);
+    memcpy(proxy_context->dnscrypt_client.secretkey, key + header_len,
+           sizeof proxy_context->dnscrypt_client.secretkey);
+    sodium_free(key);
 
     return 0;
 }
@@ -302,6 +385,18 @@ options_use_resolver_name(ProxyContext * const proxy_context)
 static int
 options_apply(ProxyContext * const proxy_context)
 {
+    if (proxy_context->client_key_file != NULL) {
+        if (proxy_context->ephemeral_keys != 0) {
+            logger_noformat(proxy_context, LOG_ERR,
+                            "--client-key and --ephemeral-keys are mutually exclusive");
+            exit(1);
+        }
+        if (options_use_client_key_file(proxy_context) != 0) {
+            logger(proxy_context, LOG_ERR,
+                   "Client key file [%s] could not be used", proxy_context->client_key_file);
+            exit(1);
+        }
+    }
     if (proxy_context->resolver_name != NULL) {
         if (proxy_context->resolvers_list == NULL) {
             logger_noformat(proxy_context, LOG_ERR,
@@ -375,16 +470,15 @@ options_apply(ProxyContext * const proxy_context)
         pid_file_create(proxy_context->pid_file,
                         proxy_context->user_id != (uid_t) 0) != 0) {
         logger_error(proxy_context, "Unable to create pid file");
+        exit(1);
     }
 #endif
     if (proxy_context->log_file != NULL &&
-        (proxy_context->log_fd = open(proxy_context->log_file,
-                                      O_WRONLY | O_APPEND | O_CREAT,
-                                      (mode_t) 0600)) == -1) {
+        (proxy_context->log_fp = fopen(proxy_context->log_file, "a")) == NULL) {
         logger_error(proxy_context, "Unable to open log file");
         exit(1);
     }
-    if (proxy_context->log_fd == -1 && proxy_context->daemonize) {
+    if (proxy_context->log_fp == NULL && proxy_context->daemonize) {
         logger_open_syslog(proxy_context);
     }
     return 0;
@@ -423,9 +517,10 @@ options_parse(AppContext * const app_context,
             }
             if (edns_payload_size <= DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND) {
                 proxy_context->edns_payload_size = (size_t) 0U;
+                proxy_context->udp_max_size = DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND;
             } else {
                 proxy_context->edns_payload_size = (size_t) edns_payload_size;
-                assert(proxy_context->udp_max_size ==
+                assert(proxy_context->udp_max_size >=
                        DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND);
                 if (proxy_context->edns_payload_size > DNS_MAX_PACKET_SIZE_UDP_NO_EDNS_SEND) {
                     proxy_context->udp_max_size =
@@ -434,11 +529,17 @@ options_parse(AppContext * const app_context,
             }
             break;
         }
+        case 'E':
+            proxy_context->ephemeral_keys = 1;
+            break;
         case 'h':
             options_usage();
             exit(0);
         case 'k':
             proxy_context->provider_publickey_s = optarg;
+            break;
+        case 'K':
+            proxy_context->client_key_file = optarg;
             break;
         case 'l':
             proxy_context->log_file = optarg;

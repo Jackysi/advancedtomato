@@ -278,3 +278,13 @@ char *shrink_space(char *dest, const char *src, int n)
 	*tmp = '\0';
 	return dest;
 }
+
+int del_str_line(char *str)
+{
+	while('\n' != *str && *str)
+	{
+		++str;
+	}
+	*str = '\0';
+	return 0;
+}

@@ -30,9 +30,9 @@ When /^a client asks dnscrypt\-proxy for "([^"]*)"$/ do |name|
 end
 
 Then /^dnscrypt\-proxy returns "([^"]*)"$/ do |ip_for_name|
-  @answer_section.collect { |a| a.address.to_s }.should include(ip_for_name)
+  expect(@answer_section.collect { |a| a.address.to_s }).to include(ip_for_name)
 end
 
 Then /^dnscrypt\-proxy returns a NXDOMAIN answer$/ do
-  @answer_section.should be_empty
+  expect(@answer_section).to be_empty
 end

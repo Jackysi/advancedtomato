@@ -1,3 +1,25 @@
+20160112:
+    ATTENTION: requires usb-modeswitch version >= 2.3.0 due to new para-
+    meter OptionMode (further reducing config file space demand);
+    Added devices: D-Link DWM-151 A1 [07d1:f000], Dymo LabelManager Wireless
+    PnP [0922:1007], Sierra MC8305 [1199:9011], Sierra MC8355 [1199:9013],
+    Sierra MC8355 Variant [1199:9017], Sierra MC7770 [1199:901b], Sierra
+    EM7700 [1199:901c], Sierra EM7355 [1199:901f], Sierra EM7305 [1199:9041],
+    Sierra AC340U [1199:9051], Sierra AC770S [1199:9053], Sierra EM7305
+    [1199:9063], ZTE MF710 (Vietnam) [19d2:1595], XS Stick W100 (Omega)
+    [1c9e:9bfe], Onda POM1051 [1ee8:0007], Onda MT655 [1ee8:0048], BM WM78
+    [20a6:f00a]; Corrected: Quanta MU-Q101 [0408:1000], Huawei U7510 / U7517
+    [12d1:101e], Novatel U620L [1410:9020], D-Link DWM-221 B1 [2001:a401];
+    Removed: [1410:9022] which was just one of the modes of [1410:9020];
+    some new target IDs added to existing device configs; all Option configs
+    updated with new parameter
+20151101:
+    Added devices: Huawei ME909u-521 [12d1:1573], Huawei E327s-150 (Variant)
+    [12d1:1597], Huawei E3531s-2, E3131 (Variant) [12d1:15ce], Huawei E3131
+    (Variant) [12d1:15d0], Huawei E3531 (Variant) [12d1:15d2], Novatel U620L
+    [1410:9020], Novatel U620L [1410:9022], ZTE MF820s, MF832s [19d2:0198],
+    ZTE MF195E [19d2:1580]; some new target IDs added to existing device
+    configs; small correction of Makefile to fix Debian bug #803603
 20150627:
     ATTENTION: recommended use with usb-modeswitch program package version
     >= 2.2.2 due to extended parameter PantechMode (affects 2 devices, see

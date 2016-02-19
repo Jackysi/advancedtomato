@@ -11,6 +11,9 @@ enum {
 	XT_MARK_SET=0,
 	XT_MARK_AND,
 	XT_MARK_OR,
+	XT_MARK_SET_RETURN,
+	XT_MARK_AND_RETURN,
+	XT_MARK_OR_RETURN,
 };
 
 struct xt_mark_target_info_v1 {
