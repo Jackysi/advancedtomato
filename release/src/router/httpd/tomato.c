@@ -1688,6 +1688,8 @@ static const nvset_t nvset_list[] = {
 	{ "tor_datadir",		V_TEXT(0,24)		},
 	{ "tor_iface",			V_LENGTH(0, 50)		},
 	{ "tor_users",			V_LENGTH(0, 4096)	},
+	{ "tor_ports",			V_LENGTH(0, 50)		},
+	{ "tor_ports_custom",		V_LENGTH(0, 4096)	},
 	{ "tor_custom",			V_TEXT(0, 2048)		},
 #endif
 
