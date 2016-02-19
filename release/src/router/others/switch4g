@@ -480,6 +480,10 @@ searchDiag() {
 }
 
 signal() {
+    DEVNR=`nvram get modem_dev4g`
+    TYPE=`nvram get modem_type`
+
+
     if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         #check signal strength
         CSQ=`gcom -d $DEVNR -s /etc/gcom/getstrength.gcom | grep "CSQ:" | cut -d " " -f2 | cut -d "," -f1`
