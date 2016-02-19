@@ -23,7 +23,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("wan_ifname,lan_ifname,rstats_enable"); %>
+//	<% nvram("wan_ifname,wan2_ifname,wan3_ifname,wan4_ifname,lan_ifname,rstats_enable"); %>
 try {
 //	<% bandwidth("daily"); %>
 }
@@ -210,7 +210,10 @@ function init()
 {
 	var s;
 
-	if (nvram.rstats_enable != '1') return;
+	if (nvram.rstats_enable != '1') {
+		E('refresh-button').disabled = 1;
+		return;
+	}
 
 	if ((s = cookie.get('weekly')) != null) {
 		if (s.match(/^([0-2]),([0-6]),([0-1])$/)) {

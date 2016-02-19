@@ -17,6 +17,9 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += new_qoslimit.o arpbind.o
 OBJS += tomatoanon.o
 
+# dualwan / multiwan
+OBJS += mwan.o pbr.o
+
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif
@@ -104,6 +107,9 @@ install: all
 	@cd $(INSTALLDIR)/sbin && ln -sf rc reboot
 	@cd $(INSTALLDIR)/sbin && ln -sf rc halt
 	@cd $(INSTALLDIR)/sbin && ln -sf rc redial
+
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mwanroute
+
 	@cd $(INSTALLDIR)/sbin && ln -sf rc gpio
 	@cd $(INSTALLDIR)/sbin && ln -sf rc sched
 

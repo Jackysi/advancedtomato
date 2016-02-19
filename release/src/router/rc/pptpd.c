@@ -127,7 +127,7 @@ void start_pptpd(void)
 		"proxyarp\n"
 //		"ipcp-accept-local\n"
 //		"ipcp-accept-remote\n"
-		"minunit 4\n"			// AB !! - we leave ppp0-ppp3 for WAN and/or other ppp connections (PPTP client, ADSL, etc... perhaps)?
+		"minunit 10\n"			// AB !! - we leave ppp0-ppp3 for WAN and/or other ppp connections (PPTP client, ADSL, etc... perhaps)?
 		"nobsdcomp\n"
 		"lcp-echo-failure 10\n"
 		"lcp-echo-interval 5\n"
@@ -300,7 +300,7 @@ void start_pptpd(void)
 	ret =
 	    eval("pptpd", "-c", "/tmp/pptpd/pptpd.conf", "-o",
 		 "/tmp/pptpd/options.pptpd",
-		 "-C", "6");
+		 "-C", "50");
 
 	_dprintf("start_pptpd: ret= %d\n", ret);
 	//dd_syslog(LOG_INFO, "pptpd : pptp daemon successfully started\n");
@@ -341,6 +341,7 @@ void stop_pptpd(void)
 void write_pptpd_dnsmasq_config(FILE* f) {
 	int i;
 	if (nvram_match("pptpd_enable", "1")) {
+	/*
 		fprintf(f, "interface=");
 		for (i = 4; i <= 9 ; i++) {
 			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
@@ -349,5 +350,10 @@ void write_pptpd_dnsmasq_config(FILE* f) {
 		for (i = 4; i <= 9 ; i++) {
 			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
 		}
+	*/
+		fprintf(f,
+			"no-dhcp-interface=vlan+\n"
+			"no-dhcp-interface=eth+\n"
+			"no-dhcp-interface=ppp+\n");
 	}
 }

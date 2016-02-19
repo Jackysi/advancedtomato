@@ -1032,19 +1032,59 @@ void do_static_routes(int add)
 	}
 	free(buf);
 
-	char *modem_ipaddr;
+	char *wan_modem_ipaddr;
 	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
-	    && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") 
+	    && (wan_modem_ipaddr = nvram_safe_get("wan_modem_ipaddr")) && *wan_modem_ipaddr && !nvram_match("wan_modem_ipaddr","0.0.0.0") 
 	    && (!foreach_wif(1, NULL, is_sta)) ) {
 		char ip[16];
-		char *end = rindex(modem_ipaddr,'.')+1;
+		char *end = rindex(wan_modem_ipaddr,'.')+1;
 		unsigned char c = atoi(end);
 		char *iface = nvram_safe_get("wan_ifname");
 
-		sprintf(ip, "%.*s%hhu", end-modem_ipaddr, modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
-		eval("ip", "addr", add ?"add":"del", ip, "peer", modem_ipaddr, "dev", iface);
+		sprintf(ip, "%.*s%hhu", end-wan_modem_ipaddr, wan_modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", wan_modem_ipaddr, "dev", iface);
 	}
 
+	char *wan2_modem_ipaddr;
+	if ( (nvram_match("wan2_proto", "pppoe") || nvram_match("wan2_proto", "dhcp") || nvram_match("wan2_proto", "static") )
+	    && (wan2_modem_ipaddr = nvram_safe_get("wan2_modem_ipaddr")) && *wan2_modem_ipaddr && !nvram_match("wan2_modem_ipaddr","0.0.0.0") 
+	    && (!foreach_wif(1, NULL, is_sta)) ) {
+		char ip[16];
+		char *end = rindex(wan2_modem_ipaddr,'.')+1;
+		unsigned char c = atoi(end);
+		char *iface = nvram_safe_get("wan2_ifname");
+
+		sprintf(ip, "%.*s%hhu", end-wan2_modem_ipaddr, wan2_modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", wan2_modem_ipaddr, "dev", iface);
+	}
+
+#ifdef TCONFIG_MULTIWAN
+	char *wan3_modem_ipaddr;
+	if ( (nvram_match("wan3_proto", "pppoe") || nvram_match("wan3_proto", "dhcp") || nvram_match("wan3_proto", "static") )
+	    && (wan3_modem_ipaddr = nvram_safe_get("wan3_modem_ipaddr")) && *wan3_modem_ipaddr && !nvram_match("wan3_modem_ipaddr","0.0.0.0") 
+	    && (!foreach_wif(1, NULL, is_sta)) ) {
+		char ip[16];
+		char *end = rindex(wan3_modem_ipaddr,'.')+1;
+		unsigned char c = atoi(end);
+		char *iface = nvram_safe_get("wan3_ifname");
+
+		sprintf(ip, "%.*s%hhu", end-wan3_modem_ipaddr, wan3_modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", wan3_modem_ipaddr, "dev", iface);
+	}
+
+	char *wan4_modem_ipaddr;
+	if ( (nvram_match("wan4_proto", "pppoe") || nvram_match("wan4_proto", "dhcp") || nvram_match("wan4_proto", "static") )
+	    && (wan4_modem_ipaddr = nvram_safe_get("wan4_modem_ipaddr")) && *wan4_modem_ipaddr && !nvram_match("wan4_modem_ipaddr","0.0.0.0") 
+	    && (!foreach_wif(1, NULL, is_sta)) ) {
+		char ip[16];
+		char *end = rindex(wan4_modem_ipaddr,'.')+1;
+		unsigned char c = atoi(end);
+		char *iface = nvram_safe_get("wan4_ifname");
+
+		sprintf(ip, "%.*s%hhu", end-wan4_modem_ipaddr, wan4_modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", wan4_modem_ipaddr, "dev", iface);
+	}
+#endif
 }
 
 void hotplug_net(void)

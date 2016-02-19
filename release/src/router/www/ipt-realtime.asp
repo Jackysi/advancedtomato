@@ -45,7 +45,7 @@ ul.tabs a,
 <script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_enable,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask,cstats_labels"); %>
+//	<% nvram("wan_ifname,wan_proto,wan_iface,wan2_ifname,wan2_proto,wan2_iface,wan3_ifname,wan3_proto,wan3_iface,wan4_ifname,wan4_proto,wan4_iface,lan_ifname,wl_ifname,web_svg,cstats_enable,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask,cstats_labels"); %>
 
 //	<% devlist(); %>
 
@@ -59,6 +59,7 @@ var debugTime = 0;
 var avgMode = 0;
 var wdog = null;
 var wdogWarn = null;
+var cstats_busy = 0;
 
 var ipt_addr_shown = [];
 var ipt_addr_hidden = [];
@@ -101,15 +102,13 @@ ref.refresh = function(text) {
 
 				h.tx.splice(0, 1);
 				h.tx.push((c.tx < p.tx) ? (c.tx + (0xFFFFFFFF - p.tx)) : (c.tx - p.tx));
-				h.count++;
-				if (h.count > updateMaxL) h.count = updateMaxL;
 			}
 			else if (!speed_history[i]) {
 				speed_history[i] = {};
 				h = speed_history[i];
 				h.rx = [];
 				h.tx = [];
-				for (j = updateMaxL; j > 0; --j) {
+				for (j = 300; j > 0; --j) {
 					h.rx.push(0);
 					h.tx.push(0);
 				}

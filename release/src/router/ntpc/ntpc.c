@@ -233,8 +233,14 @@ static int ntpsync_main(int argc, char **argv)
 
 	_dprintf("[ntpsync %ld] start\n", get_uptime());
 
-	if ((get_wan_proto() != WP_DISABLED) && (mode != INIT) &&
-		(!check_wanup()) && (nvram_match("ntp_tdod", "0"))) {
+	if ((mode != INIT) && (nvram_match("ntp_tdod", "0")) && (
+		((!check_wanup("wan")) && (get_wan_proto() != WP_DISABLED))
+		|| (check_wanup("wan2") && (get_wanx_proto("wan2") != WP_DISABLED))
+#ifdef TCONFIG_MULTIWAN
+		|| (check_wanup("wan3") && (get_wanx_proto("wan3") != WP_DISABLED))
+		|| (check_wanup("wan4") && (get_wanx_proto("wan4") != WP_DISABLED))
+#endif
+		)) {
 		_dprintf("WAN is down, not updating.");
 		return 1;
 	}

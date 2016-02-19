@@ -29,18 +29,25 @@
 // used in keepalive mode (ppp_demand=0)
 
 
-int start_redial(void)
+int start_redial(char *prefix)
 {
-	stop_redial();
+	stop_redial(prefix);
+	char cmd[64];
+	sprintf(cmd, "redial %s", prefix);
 
-	xstart("redial");
+	xstart(cmd);
 	return 0;
 }
 
-int stop_redial(void)
+int stop_redial(char *prefix)
 {
-	while (killall("redial", SIGKILL) == 0) {
+	char tmp[100];
+	int pid;
+	pid = nvram_get_int(strcat_r(prefix, "_ppp_redialpid", tmp));
+	if(pid > 1){
+		while (kill(pid, SIGKILL) == 0) {
 		sleep(1);
+		}
 	}
 	return 0;
 }
@@ -50,13 +57,23 @@ int redial_main(int argc, char **argv)
 	int tm;
 	int count;
 	int proto;
+	char c_pid[10];
+	char tmp[100];
+	memset(c_pid, 0, 10);
+	sprintf(c_pid, "%d", getpid());
+	char prefix[] = "wanXXXXXXXXXX_";
+	if(argc > 1){
+		strcpy(prefix, argv[1]); } 
+	else{
+		strcpy(prefix, "wan"); }
 
-	proto = get_wan_proto();
+	proto = get_wanx_proto(prefix);
 	if (proto == WP_PPPOE || proto == WP_PPP3G || proto == WP_PPTP || proto == WP_L2TP) {
-		if (nvram_get_int("ppp_demand") != 0) return 0;
+		if (nvram_get_int(strcat_r(prefix, "_ppp_demand", tmp)) != 0) return 0;
 	}
 
-	tm = nvram_get_int("ppp_redialperiod") ? : 30;
+	nvram_set(strcat_r(prefix, "_ppp_redialpid", tmp), c_pid);
+	tm = nvram_get_int(strcat_r(prefix, "_ppp_redialperiod", tmp)) ? : 30;
 	if (tm < 5) tm = 5;
 	
 	syslog(LOG_INFO, "Started. Time: %d", tm);
@@ -67,17 +84,20 @@ int redial_main(int argc, char **argv)
 	while (1) {
 		while (1) {
 			sleep(tm);
-			if (!check_wanup()) break;
+			if (!check_wanup(prefix)) break;
 			count = 0;
 		}
 
 #if 0
 		long ut;
-		if ((count < 3) && (get_wan_proto() == WP_PPPOE) || (get_wan_proto() == WP_PPP3G)) {
-			if (f_read("/var/lib/misc/pppoe-disc", &ut, sizeof(ut)) == sizeof(ut)) {
+		char pppdisc_file[256];
+		if ((count < 3) && (get_wanx_proto(prefix) == WP_PPPOE) || (get_wanx_proto(prefix) == WP_PPP3G)) {
+			memset(pppdisc_file, 0, 256);
+			sprintf(pppdisc_file, "/var/lib/misc/%s_pppoe-disc", prefix);
+			if (f_read(pppdisc_file, &ut, sizeof(ut)) == sizeof(ut)) {
 				ut = (get_uptime() - ut);
 				if (ut <= 15) {
-					syslog(LOG_INFO, "PPPoE reconnect in progress (%ld)", ut);
+					syslog(LOG_INFO, "%s PPPoE reconnect in progress (%ld)", prefix, ut);
 					++count;
 					continue;
 				}
@@ -85,15 +105,21 @@ int redial_main(int argc, char **argv)
 		}
 #endif
 
-		if ((!wait_action_idle(10)) || (check_wanup())) continue;
+		if ((!wait_action_idle(10)) || (check_wanup(prefix))) continue;
 
-		if (!nvram_match("action_service", "wan-restart")) {
-			syslog(LOG_INFO, "WAN down. Reconnecting...");
-			xstart("service", "wan", "restart");
+		if (!nvram_match("action_service", "wan1-restart")
+			|| !nvram_match("action_service", "wan2-restart")
+#ifdef TCONFIG_MULTIWAN
+			|| !nvram_match("action_service", "wan3-restart")
+			|| !nvram_match("action_service", "wan4-restart")
+#endif
+			) {
+			syslog(LOG_INFO, "%s down. Reconnecting...", prefix);
+			xstart("service", (char *)prefix, "restart"); //Mabye bugs. arctic
 			break;
 		}
 		else {
-			syslog(LOG_INFO, "WAN down. Reconnect is already in progress...");
+			syslog(LOG_INFO, "%s down. Reconnect is already in progress...", prefix);
 		}
 	}
 	

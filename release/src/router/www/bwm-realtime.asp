@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Bandwidth: Real-Time</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -38,7 +38,7 @@
 <script type='text/javascript' src='bwm-common.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors"); %>
+//	<% nvram("wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,lan_ifname,wl_ifname,wan_proto,wan2_proto,wan3_proto,wan4_proto,web_svg,rstats_colors"); %>
 
 var cprefix = 'bw_r';
 var updateInt = 2;

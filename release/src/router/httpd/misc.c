@@ -359,13 +359,14 @@ void asp_calc6rdlocalprefix(int argc, char **argv)
 	struct in_addr wanip_addr;
 	char local_prefix[INET6_ADDRSTRLEN];
 	char s[128];
+	char prefix[] = "wan";
 
 	if (argc != 3) return;
 
 	inet_pton(AF_INET6, argv[0], &prefix_addr);
 	prefix_len = atoi(argv[1]);
 	relay_prefix_len = atoi(argv[2]);
-	inet_pton(AF_INET, get_wanip(), &wanip_addr);
+	inet_pton(AF_INET, get_wanip(prefix), &wanip_addr);
 
 	if (calc_6rd_local_prefix(&prefix_addr, prefix_len, relay_prefix_len,
 	    &wanip_addr, &local_prefix_addr, &local_prefix_len) &&
@@ -685,20 +686,42 @@ void asp_mmcid(int argc, char **argv) {
 
 void asp_wanup(int argc, char **argv)
 {
-	web_puts(check_wanup() ? "1" : "0");
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if(argc > 0){
+		strcpy(prefix, argv[0]); } 
+	else{
+		strcpy(prefix, "wan"); }
+
+	web_puts(check_wanup(prefix) ? "1" : "0");
 }
 
 void asp_wanstatus(int argc, char **argv)
 {
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if(argc > 0){
+		strcpy(prefix, argv[0]); } 
+	else{
+		strcpy(prefix, "wan"); }
+
+	char renew_file[256];
+	memset(renew_file, 0, 256);
+	sprintf(renew_file, "/var/lib/misc/%s_dhcpc.renewing", prefix);
+
+	char wanconn_file[256];
+	memset(wanconn_file, 0, 256);
+	sprintf(wanconn_file, "/var/lib/misc/%s.connecting", prefix);
+
 	const char *p;
 
-	if ((using_dhcpc()) && (f_exists("/var/lib/misc/dhcpc.renewing"))) {
+	if ((using_dhcpc(prefix)) && (f_exists(renew_file))) {
 		p = "Renewing...";
 	}
-	else if (check_wanup()) {
+	else if (check_wanup(prefix)) {
 		p = "Connected";
 	}
-	else if (f_exists("/var/lib/misc/wan.connecting")) {
+	else if (f_exists(wanconn_file)) {
 		p = "Connecting...";
 	}
 	else {
@@ -712,12 +735,22 @@ void asp_link_uptime(int argc, char **argv)
 	struct sysinfo si;
 	char buf[64];
 	long uptime;
-
+	char prefix[] = "wanXXXXXXXXXX_";
+	char wantime_file[256];
+	
+	if(argc > 0){
+		strcpy(prefix, argv[0]); }
+	else{
+		strcpy(prefix, "wan"); }
+	
 	buf[0] = '-';
 	buf[1] = 0;
-	if (check_wanup()) {
+	if (check_wanup(prefix)) {
 		sysinfo(&si);
-		if (f_read("/var/lib/misc/wantime", &uptime, sizeof(uptime)) == sizeof(uptime)) {
+		memset(wantime_file, 0, 256);
+		sprintf(wantime_file, "/var/lib/misc/%s_time", prefix);
+		//syslog(LOG_INFO, "link_uptime, wantime_file=%s", wantime_file);
+		if (f_read(wantime_file, &uptime, sizeof(uptime)) == sizeof(uptime)) {
 			reltime(buf, si.uptime - uptime);
 		}
 	}
@@ -833,13 +866,19 @@ void asp_dns(int argc, char **argv)
 	char s[128];
 	int i;
 	const dns_list_t *dns;
+	char prefix[] = "wanXX";
 
-	dns = get_dns();	// static buffer
-	strcpy(s, "\ndns = [");
+	if(argc > 0){
+		strcpy(prefix, argv[0]); } 
+	else{
+		strcpy(prefix, "wan"); }
+
+	dns = get_dns(prefix);	// static buffer
+	strcpy(s, "[");
 	for (i = 0 ; i < dns->count; ++i) {
 		sprintf(s + strlen(s), "%s'%s:%u'", i ? "," : "", inet_ntoa(dns->dns[i].addr), dns->dns[i].port);
 	}
-	strcat(s, "];\n");
+	strcat(s, "]");
 	web_puts(s);
 }
 

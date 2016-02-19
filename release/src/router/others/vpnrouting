@@ -11,10 +11,10 @@ ACTION=$2
 find_iface(){
     if [ "$SERVICE" == "client1" ]; then
         IFACE="tun11"
-        ID="111"
+        ID="311"
     elif [ "$SERVICE" == "client2" ]; then
         IFACE="tun12"
-        ID="112"
+        ID="312"
     else
         echo "vpnrouting: Interface not found"
         exit 0

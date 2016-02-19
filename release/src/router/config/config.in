@@ -18,6 +18,11 @@ config TCONFIG_PPTPD
 	depends on TCONFIG_PPTP
 	default n
 
+config TCONFIG_MULTIWAN
+	bool "MultiWAN support"
+	default n
+	depends on TCONFIG_NVRAM_64K
+
 config TCONFIG_HTTPS
 	bool "HTTPS"
 	default y

@@ -23,14 +23,37 @@
 <!-- / / / -->
 
 <style type='text/css'>
+#grid .co1 {
+	text-align: center;
+	width: 30px;
+}
+#grid .co2 {
+	width: 180px;
+	word-break: break-all;
+}
+#grid .co3 {
+	width: 55px;
+}
+#grid .co4 {
+	width: 180px;
+	word-break: break-all;
+}
+#grid .co5 {
+	width: 55px;
+}
+#grid .co6 {
+	width: 60px;
+}
 #grid .co7 {
-	width: 20px;
+	width: 30px;
 }
 #grid .co8 {
 	text-align: right;
+	width: 75px;
 }
 #grid .co9 {
 	text-align: right;
+	width: 75px;
 }
 </style>
 

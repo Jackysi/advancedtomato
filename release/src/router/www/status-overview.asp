@@ -49,8 +49,16 @@ bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mi
 <script type='text/javascript' src='status-data.jsx?_http_id=<% nv(http_id); %>'></script>
 
 <script type='text/javascript'>
-show_dhcpc = ((nvram.wan_proto == 'dhcp') || (nvram.wan_proto == 'lte') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
-show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'ppp3g'));
+show_dhcpc = [];
+show_codi = [];
+for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+	var u ;
+	u = (uidx>1) ? uidx : '';
+	proto = nvram['wan'+u+'_proto'];
+	if (proto != 'disabled') show_langateway = 0;
+	show_dhcpc[uidx-1] = ((proto == 'dhcp') || (proto == 'lte') || (((proto == 'l2tp') || (proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
+	show_codi[uidx-1] = ((proto == 'pppoe') || (proto == 'l2tp') || (proto == 'pptp') || (proto == 'ppp3g'));
+}
 
 show_radio = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -63,9 +71,9 @@ REMOVE-END */
 
 nphy = features('11n');
 
-function dhcpc(what)
+function dhcpc(what, wan_prefix)
 {
-	form.submitHidden('dhcpc.cgi', { exec: what, _redirect: 'status-overview.asp' });
+	form.submitHidden('dhcpc.cgi', { exec: what, prefix: wan_prefix, _redirect: 'status-overview.asp' });
 }
 
 function serv(service, sleep)
@@ -73,14 +81,14 @@ function serv(service, sleep)
 	form.submitHidden('service.cgi', { _service: service, _redirect: 'status-overview.asp', _sleep: sleep });
 }
 
-function wan_connect()
+function wan_connect(uidx)
 {
-	serv('wan-restart', 5);
+	serv('wan'+uidx+'-restart', 5);
 }
 
-function wan_disconnect()
+function wan_disconnect(uidx)
 {
-	serv('wan-stop', 2);
+	serv('wan'+uidx+'-stop', 2);
 }
 
 function wlenable(uidx, n)
@@ -115,7 +123,19 @@ function ethstates()
 
 	var state, state1, state2;
 	var code = '<div class="section-title">Ethernet Ports State</div>';
-	code += '<table class="fields"><tr><td class="title indent2"><center><b>WAN</b></center></td><td class="title indent2"><!-- empty space --></td><td class="title indent2"><center><b>LAN 1</b></center></td><td class="title indent2"><center><b>LAN 2</b></center></td><td class="title indent2"><center><b>LAN 3</b></center></td><td class="title indent2"><center><b>LAN 4</b></center></td><tr>';
+	code += '<table class="fields"><tr>';
+	var v = 0;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+		u = (uidx>1) ? uidx : '';
+		if ((nvram['wan'+u+'_sta'] == '') && (nvram['wan'+u+'_proto'] != 'lte') && (nvram['wan'+u+'_proto'] != 'ppp3g')) {
+			code += '<td class="title indent2"><center><b>WAN'+u+'</b></center></td>';
+			++v;
+		}
+	}
+	for (uidx = v ; uidx <= 4; ++uidx){
+	    code += '<td class="title indent2"><center><b>LAN'+uidx+'</b></center></td>';
+	}
+	code += '<tr>';
 
 	if (port == "DOWN") {
 		state = '<img id="eth_off" src="eth_off.png"><br>';
@@ -134,8 +154,6 @@ function ethstates()
 	} else {
 		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
-
-	code += '<td class="title indent2"><!-- empty space --></td>';
 
 	port = etherstates.port1;
 	if (port == "DOWN") {
@@ -234,11 +252,6 @@ function show()
 	c('cpu', stats.cpuload);
 	c('uptime', stats.uptime);
 	c('time', stats.time);
-	c('wanip', stats.wanip);
-	c('wanprebuf',stats.wanprebuf); //Victek
-	c('wannetmask', stats.wannetmask);
-	c('wangateway', stats.wangateway);
-	c('dns', stats.dns);
 	c('memory', stats.memory);
 	c('swap', stats.swap);
 	elem.display('swap', stats.swap != '');
@@ -252,12 +265,19 @@ function show()
 	elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
 /* IPV6-END */
 
-	c('wanstatus', stats.wanstatus);
-	c('wanuptime', stats.wanuptime);
-	if (show_dhcpc) c('wanlease', stats.wanlease);
-	if (show_codi) {
-		E('b_connect').disabled = stats.wanup;
-		E('b_disconnect').disabled = !stats.wanup;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+		var u = (uidx > 1) ? uidx : '';
+		c('wan'+u+'ip', stats.wanip[uidx-1]);
+		c('wan'+u+'netmask', stats.wannetmask[uidx-1]);
+		c('wan'+u+'gateway', stats.wangateway[uidx-1]);
+		c('wan'+u+'dns', stats.dns[uidx-1]);
+		c('wan'+u+'status', stats.wanstatus[uidx-1]);
+		c('wan'+u+'uptime', stats.wanuptime[uidx-1]);
+		if (show_dhcpc[uidx-1]) c('wan'+u+'lease', stats.wanlease[uidx-1]);
+		if (show_codi[uidx-1]) {
+			E('b'+u+'_connect').disabled = stats.wanup[uidx-1];
+			E('b'+u+'_disconnect').disabled = !stats.wanup[uidx-1];
+		}
 	}
 
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -290,11 +310,14 @@ function earlyInit()
 	if ((stats.anon_enable == '-1') || (stats.anon_answer == '0'))
 		E('att1').style.display = '';
 
-	elem.display('b_dhcpc', show_dhcpc);
-	elem.display('b_connect', 'b_disconnect', show_codi);
-	if (nvram.wan_proto == 'disabled')
-		elem.display('wan-title', 'sesdiv_wan', 0);
-	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+	var uidx;
+	for (uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+		var u = (uidx > 1) ? uidx : '';
+		elem.display('b'+u+'_dhcpc', show_dhcpc[uidx-1]);
+		elem.display('b'+u+'_connect', 'b'+u+'_disconnect', show_codi[uidx-1]);
+		elem.display('wan'+u+'-title', 'sesdiv_wan'+u, (nvram['wan'+u+'_proto'] != 'disabled'));
+	}
+	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		if (wl_sunit(uidx)<0)
 			elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
 	}
@@ -310,7 +333,10 @@ function init()
 {
 	var c;
 	if (((c = cookie.get('status_overview_system_vis')) != null) && (c != '1')) toggleVisibility("system");
-	if (((c = cookie.get('status_overview_wan_vis')) != null) && (c != '1')) toggleVisibility("wan");
+	for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+		var u = (uidx>1) ? uidx : '';
+		if (((c = cookie.get('status_overview_wan'+u+'_vis')) != null) && (c != '1')) toggleVisibility("wan"+u);
+		}
 	if (((c = cookie.get('status_overview_lan_vis')) != null) && (c != '1')) toggleVisibility("lan");
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_unit(uidx);
@@ -380,35 +406,36 @@ createFieldTable('', [
 <div class='section' id='ports'>
 </div>
 
-<div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(hide)</span></a></i></small></div>
-<div class='section' id='sesdiv_wan'>
 <script type='text/javascript'>
-createFieldTable('', [
-	{ title: 'MAC Address', text: nvram.wan_hwaddr },
-	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'3G Modem', 'lte':'4G/LTE' }[nvram.wan_proto] || '-' },
-	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
-	{ title: 'Previous WAN IP', rid: 'wanprebuf', text: stats.wanprebuf, hidden: ((nvram.wan_proto != 'pppoe') && (nvram.wan_proto != 'pptp') && (nvram.wan_proto != 'l2tp') && (nvram.wan_proto != 'ppp3g')) }, //Victek
-	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
-	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
+for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx) {
+	var u = (uidx>1) ? uidx : '';
+	W('<div class=\'section-title\' id=\'wan'+u+'-title\'>WAN'+u+' <small><i><a href=\'javascript:toggleVisibility("wan' + u + '");\'><span id=\'sesdiv_wan' +u + '_showhide\'>(hide)</span></a></i></small></div>');
+	W('<div class=\'section\' id=\'sesdiv_wan'+u+'\'>');
+	createFieldTable('', [
+		{ title: 'MAC Address', text: nvram['wan'+u+'_hwaddr'] },
+		{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'3G Modem', 'lte':'4G/LTE' }[nvram['wan'+u+'_proto']] || '-' },
+		{ title: 'IP Address', rid: 'wan'+u+'ip', text: stats.wanip[uidx-1] },
+		{ title: 'Subnet Mask', rid: 'wan'+u+'netmask', text: stats.wannetmask[uidx-1] },
+		{ title: 'Gateway', rid: 'wan'+u+'gateway', text: stats.wangateway[uidx-1] },
 /* IPV6-BEGIN */
 	{ title: 'IPv6 Address', rid: 'ip6_wan', text: stats.ip6_wan, hidden: (stats.ip6_wan == '') },
 /* IPV6-END */
-	{ title: 'DNS', rid: 'dns', text: stats.dns },
-	{ title: 'MTU', text: nvram.wan_run_mtu },
-	null,
-	{ title: 'Status', rid: 'wanstatus', text: stats.wanstatus },
-	{ title: 'Connection Uptime', rid: 'wanuptime', text: stats.wanuptime },
-	{ title: 'Remaining Lease Time', rid: 'wanlease', text: stats.wanlease, ignore: !show_dhcpc }
-]);
+		{ title: 'DNS', rid: 'wan'+u+'dns', text: stats.dns[uidx-1] },
+		{ title: 'MTU', text: nvram['wan'+u+'_run_mtu'] },
+		null,
+		{ title: 'Status', rid: 'wan'+u+'status', text: stats.wanstatus[uidx-1] },
+		{ title: 'Connection Uptime', rid: 'wan'+u+'uptime', text: stats.wanuptime[uidx-1] },
+		{ title: 'Remaining Lease Time', rid: 'wan'+u+'lease', text: stats.wanlease[uidx-1], ignore: !show_dhcpc[uidx-1] }
+	]);
+	W('<span id=\'b'+u+'_dhcpc\' style=\'display:none\'>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'dhcpc("renew","wan'+u+'")\' value=\'Renew\'> &nbsp;');
+	W('<input type=\'button\' class=\'controls\' onclick=\'dhcpc("release","wan'+u+'")\' value=\'Release\'> &nbsp;');
+	W('</span>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wan_connect('+uidx+')\' value=\'Connect\' id=\'b'+u+'_connect\' style=\'display:none\'>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wan_disconnect('+uidx+')\' value=\'Disconnect\' id=\'b'+u+'_disconnect\' style=\'display:none\'>');
+	W('</div>');
+}
 </script>
-<span id='b_dhcpc' style='display:none'>
-	<input type='button' class='controls' onclick='dhcpc("renew")' value='Renew'>
-	<input type='button' class='controls' onclick='dhcpc("release")' value='Release'> &nbsp;
-</span>
-<input type='button' class='controls' onclick='wan_connect()' value='Connect' id='b_connect' style='display:none'>
-<input type='button' class='controls' onclick='wan_disconnect()' value='Disconnect' id='b_disconnect' style='display:none'>
-</div>
-
 
 <div class='section-title'>LAN <small><i><a href='javascript:toggleVisibility("lan");'><span id='sesdiv_lan_showhide'>(hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_lan'>
