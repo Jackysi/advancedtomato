@@ -58,6 +58,22 @@ target_v1(struct sk_buff *skb,
 	case XT_MARK_OR:
 		mark = skb->mark | markinfo->mark;
 		break;
+
+        case XT_MARK_SET_RETURN:
+                mark = markinfo->mark;
+                skb->mark = mark;
+                return XT_RETURN;
+
+        case XT_MARK_AND_RETURN:
+                mark = skb->mark & markinfo->mark;
+                skb->mark = mark;
+                return XT_RETURN;
+
+        case XT_MARK_OR_RETURN:
+                mark = skb->mark | markinfo->mark;
+                skb->mark = mark;
+                return XT_RETURN;
+                break;
 	}
 
 	skb->mark = mark;
@@ -92,7 +108,10 @@ checkentry_v1(const char *tablename,
 
 	if (markinfo->mode != XT_MARK_SET
 	    && markinfo->mode != XT_MARK_AND
-	    && markinfo->mode != XT_MARK_OR) {
+        && markinfo->mode != XT_MARK_OR
+        && markinfo->mode != XT_MARK_SET_RETURN
+        && markinfo->mode != XT_MARK_AND_RETURN
+        && markinfo->mode != XT_MARK_OR_RETURN) {
 		printk(KERN_WARNING "MARK: unknown mode %u\n",
 		       markinfo->mode);
 		return 0;
