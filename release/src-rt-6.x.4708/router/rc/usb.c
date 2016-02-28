@@ -937,6 +937,50 @@ static inline void usbled_proc(char *device, int add)
 {
 	char *p;
 	char param[32];
+	
+	DIR *usb1=NULL;
+	DIR *usb2=NULL;
+	DIR *usb3=NULL;
+	DIR *usb4=NULL;
+	
+	/*Start USB LED Patch provided by AndreDVJ at:  http://www.linksysinfo.org/index.php?threads/tomato-for-arm-routers.69719/page-21#post-269691  - Some fortification added by NULLing out vars after use*/
+	if ((get_model() == MODEL_R7000) || (get_model() == MODEL_R8000)) {
+		usb1 = opendir ("/sys/bus/usb/devices/2-1:1.0");	// port 1 gpio 17
+		usb2 = opendir ("/sys/bus/usb/devices/2-2:1.0");	// port 2 gpio 18
+		usb3 = opendir ("/sys/bus/usb/devices/1-1:1.0");	// port 1 gpio 17
+		usb4 = opendir ("/sys/bus/usb/devices/1-2:1.0");	// port 2 gpio 18
+		
+		if(add) {
+			if (usb1 != NULL) {
+				xstart("gpio", "disable", "17");
+				(void) closedir (usb1);
+				usb1 = NULL;
+			}
+			if (usb2 != NULL) {
+				xstart("gpio", "disable", "18");
+				(void) closedir (usb2);
+				usb2 = NULL;
+			}
+			if (usb3 != NULL) {
+				xstart("gpio", "disable", "17");
+				(void) closedir (usb3);
+				usb3 = NULL;
+			}
+			if (usb4 != NULL) {
+				xstart("gpio", "disable", "18");
+				(void) closedir (usb4);
+				usb4 = NULL;
+			}
+		} else {
+			if (usb1 == NULL && usb3 == NULL) {
+				xstart("gpio", "enable", "17");
+			}
+			if (usb2 == NULL && usb4 == NULL) {
+				xstart("gpio", "enable", "18");
+			}
+		}
+	}
+	/*End USB LED Patch provided by AndreDVJ at:  http://www.linksysinfo.org/index.php?threads/tomato-for-arm-routers.69719/page-21#post-269691  - Some fortification added by NULLing out vars after use*/
 
 	if (get_model() == MODEL_WS880) {
 		do_led(LED_USB3, (add) ? LED_ON : LED_OFF);
@@ -1143,4 +1187,3 @@ void hotplug_usb(void)
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
 }
-

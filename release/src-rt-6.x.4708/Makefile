@@ -544,7 +544,11 @@ define RouterOptions
 			sed -i "/TCONFIG_TRAFFIC_MGMT_RSSI_POLICY/d" $(1); \
 			echo "TCONFIG_TRAFFIC_MGMT_RSSI_POLICY=y" >>$(1); \
 			sed -i "/TCONFIG_GMAC3/d" $(1); \
-			echo "TCONFIG_GMAC3=y" >>$(1); \
+			if [ "$(GMAC3)" = "y" ]; then \
+				echo "TCONFIG_GMAC3=y" >>$(1); \
+			else \
+				echo "# TCONFIG_GMAC3 is not set" >>$(1); \
+			fi; \
 			sed -i "/TCONFIG_5301X/d" $(1); \
 			echo "TCONFIG_5301X=y" >>$(1); \
 		fi; \
@@ -556,10 +560,6 @@ define RouterOptions
 	if [ "$(AC3200)" = "y" ]; then \
 		sed -i "/TCONFIG_AC3200/d" $(1); \
 		echo "TCONFIG_AC3200=y" >>$(1); \
-	fi; \
-	if [ "$(GMAC3)" = "y" ]; then \
-		sed -i "/TCONFIG_GMAC3/d" $(1); \
-		echo "TCONFIG_GMAC3=y" >>$(1); \
 	fi; \
 	if [ "$(BCMSMP)" = "y" ]; then \
 		sed -i "/TCONFIG_BCMSMP/d" $(1); \
@@ -777,6 +777,13 @@ define KernelConfig
 	if [ "$(AC3200)" = "y" ]; then \
 		sed -i "/CONFIG_RTAC3200/d" $(1); \
 		echo "CONFIG_RTAC3200=y" >>$(1); \
+	fi; \
+	if [ "$(GMAC3)" = "y" ]; then \
+		sed -i "/CONFIG_BCM_GMAC3/d" $(1); \
+		echo "CONFIG_BCM_GMAC3=y" >>$(1); \
+	else \
+		sed -i "/CONFIG_BCM_GMAC3/d" $(1); \
+		echo "# CONFIG_BCM_GMAC3 is not set" >>$(1); \
 	fi; \
 	if [ "$(BCM_RECVFILE)" = "y" ]; then \
 		sed -i "/CONFIG_BCM_RECVFILE/d" $(1); \
@@ -1103,11 +1110,14 @@ r1do:
 	@$(MAKE) o ARM=y NVRAM_64K=y BCMSMP=y XIAOMI_TRX="R1D" SATA=y NO_JFFS=y FANCTRL=y
 
 ifeq ($(CONFIG_BCM7),y)
+r8000init:
+	@$(MAKE) bin ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64 B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R8000" BOARDID_FILE="compatible_r8000.txt" FW_CFG_FILE="ambitCfg-r8000.h"
+
 r8000e:
-	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64
 
 r8000z:
-	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS" AC3200=y DHDAP=y GMAC3=y NOWL=y
+	@$(MAKE) z ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64
 
 ac3200e:
 	@$(MAKE) e ARM=y BCM7=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y AC3200=y DHDAP=y GMAC3=y NOWL=y DEBUGFS=y BCM_RECVFILE=y LINUX_MTD=64

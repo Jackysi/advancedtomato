@@ -123,6 +123,14 @@ switch(nvram['boardtype']) {
 	COL_P4N = '4';
 		break;
 	}
+		if (nvram['boardrev'] == '0x1101' && nvram['boardnum'] == '32'){ //R8000
+	COL_P0N = '0';
+	COL_P1N = '1';
+	COL_P2N = '2';
+	COL_P3N = '3';
+	COL_P4N = '4';
+		break;
+	}
 		if (nvram['boardrev'] == '0x1301') { //Netgear R7000
 	COL_P0N = '4';
 	COL_P1N = '3';
@@ -384,7 +392,11 @@ function save() {
     v += (d[i][COL_VID_DEF].toString() != '0') ? d[i][0] : '';
 
     fom['vlan'+d[i][COL_VID]+'ports'].value = p;
-    fom['vlan'+d[i][COL_VID]+'hwname'].value = 'et0';
+    if (nvram['model'] == 'R8000') {
+        fom['vlan'+d[i][COL_VID]+'hwname'].value = 'et2';
+    } else {
+        fom['vlan'+d[i][COL_VID]+'hwname'].value = 'et0';
+    }
     fom['vlan'+d[i][COL_VID]+'vid'].value = ((d[i][COL_MAP].toString() != '') && (d[i][COL_MAP].toString() != '0')) ? d[i][COL_MAP] : '';
 
     fom['wan_ifnameX'].value += (d[i][COL_BRI] == '2') ? 'vlan'+d[i][0] : '';
