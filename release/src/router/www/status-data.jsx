@@ -36,13 +36,12 @@ do {
 		reloadPage();
 	}
 	stats.flashsize = sysinfo.flashsize+'MB';
-	stats.cpumhz = sysinfo.cpuclk+'MHz)';
+	stats.cpumhz = sysinfo.cpuclk+'MHz';
 	stats.cputemp = sysinfo.cputemp+'°';
 	stats.systemtype = sysinfo.systemtype;
 	stats.cpuload = ((sysinfo.loads[0] / 65536.0).toFixed(2) + '<small> / </small> ' +
 		(sysinfo.loads[1] / 65536.0).toFixed(2) + '<small> / </small>' +
 		(sysinfo.loads[2] / 65536.0).toFixed(2));
-	stats.freqcpu = nvram.clkfreq;
 	stats.uptime = sysinfo.uptime_s;
 
 	a = sysinfo.totalram;
