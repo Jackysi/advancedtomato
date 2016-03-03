@@ -206,9 +206,11 @@ int start_vlan(void)
 	// FIXIT - shibby
 	// When GMAC3 is build-in then LAN interface can be detect as fwd0 (et0), fwd1(et1) and then eth0 (et2).
 	// Our LAN interface will be et2 but tomato require in many places et0. So we just copy et2macaddr to et0macaddr.
-	et2mac = nvram_safe_get( "et2macaddr" );
-	if (!nvram_match("et0macaddr", (char *)et2mac)) {
-		nvram_set("et0macaddr", et2mac);
+	if (get_model() == MODEL_R8000) {
+		et2mac = nvram_safe_get( "et2macaddr" );
+		if (!nvram_match("et0macaddr", (char *)et2mac)) {
+			nvram_set("et0macaddr", et2mac);
+		}
 	}
 
 	/* set vlan i/f name to style "vlan<ID>" */

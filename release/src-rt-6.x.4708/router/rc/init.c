@@ -1702,11 +1702,6 @@ static int init_nvram(void)
 			nvram_set("2:ccode", "SG");
 			nvram_set("2:regrev", "0");
 
-			//fix devpath
-			nvram_set("devpath1", "pcie/1/4");
-			nvram_set("devpath0", "pcie/1/3");
-			nvram_set("devpath2", "pcie/2/1");
-
 			wl_defaults();
 			bsd_defaults();
 			set_bcm4360ac_vars();

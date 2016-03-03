@@ -1319,6 +1319,7 @@ struct nvram_tuple bcm4360ac_defaults[] = {
 };
 #elif defined (TCONFIG_AC3200)
 struct nvram_tuple bcm4360ac_defaults[] = {
+	{ "devpath1", "pcie/1/4", 0 },
 	{ "1:devpath1", "sb/1/", 0 },
 	{ "1:boardrev", "0x1421", 0 },
 	{ "1:boardvendor", "0x14e4", 0 },
@@ -1381,6 +1382,7 @@ struct nvram_tuple bcm4360ac_defaults[] = {
 { "1:rxgains2gtrisoa2", "7", 0 },
 { "1:rxgains2gtrelnabypa2", "1", 0 },
 { "1:ledbh10", "7", 0 },
+{ "devpath0", "pcie/1/3", 0 },
 { "0:devpath0", "sb/1/", 0 },
 { "0:boardrev", "0x1421", 0 },
 { "0:boardvendor", "0x14e4", 0 },
@@ -1460,6 +1462,7 @@ struct nvram_tuple bcm4360ac_defaults[] = {
 { "0:rxgains5gtrelnabypa2", "1", 0 },
 { "0:maxp5ga2", "94,94,90,90", 0 },
 { "0:ledbh10", "7", 0 },
+{ "devpath2", "pcie/2/1", 0 },
 { "2:devpath2", "sb/1/", 0 },
 { "2:boardrev", "0x1421", 0 },
 { "2:boardvendor", "0x14e4", 0 },
