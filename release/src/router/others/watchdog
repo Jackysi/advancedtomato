@@ -26,7 +26,7 @@ watchdogRun() {
         echo "0" > /tmp/"$PREFIX"_state
 
         if [ "$PROTO" == "lte" ]; then
-            switch4g $PREFIX connect
+            switch4g $PREFIX
         else
             if [ "$PREFIX" == "wan" ]; then
                 service wan1 restart
