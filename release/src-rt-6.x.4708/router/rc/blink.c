@@ -44,6 +44,7 @@ static unsigned long get_wl_count(char *interface)
 
 		if(strcmp(ifname, interface)) continue;
 		if(sscanf(p+1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &counter1, &counter2)!=2) continue;
+		break;
 	}
 	fclose(f);
 
@@ -84,40 +85,41 @@ int blink_main(int argc, char *argv[])
 		
 	// Loop Through, checking for new data (and blink accordingly ... max speed at max or higher data rate)
 	while(1){
-
-		// Get Radio Status ... only blink if Radio is Enabled (otherwise, just turn the LED off)
-		wl_ioctl(argv[1], WLC_GET_RADIO, &radioStatus, sizeof(radioStatus));
-		
-		// radioStatus != 0 for Disabled, using a bit mask defined in wlioctl.h (i.e. 0 = enabled)
-		if (radioStatus == 0) {
-			// Get Data Count, check if sufficient data received for blink
-			count = get_wl_count(argv[1]);
-
-			if (count >= (oldcount + threshold)) {
-				// Sufficient Data Received, so blink - simulate rate, as /proc/net/dev is only updated once per second!
-				if (threshold != 0) {
-					currblinkspeed = (count-oldcount) / threshold;
-					if (currblinkspeed > maxspeed)
-						currblinkspeed = maxspeed;
-				} else 
+		// Get Data Count, check if sufficient data received for blink
+		count = get_wl_count(argv[1]);
+		if (count >= (oldcount + threshold)) {
+			// Sufficient Data Received, so blink - simulate rate, as /proc/net/dev is only updated once per second!
+			if (threshold != 0) {
+				currblinkspeed = (count-oldcount) / threshold;
+				if (currblinkspeed > maxspeed)
 					currblinkspeed = maxspeed;
-				oldcount = count;
-				// Simulate Blink for one second (until we get new data in /proc/net/dev)
-				for (iter=0; iter < currblinkspeed; iter++) {
-					led(ledindex, LED_OFF);
-					usleep((useconds_t)(0.5 * (1.0/currblinkspeed) * 1E6));
-					led(ledindex, LED_ON);
-					usleep((useconds_t)(0.5 * (1.0/currblinkspeed) * 1E6));
-				}
+			} else 
+				currblinkspeed = maxspeed;
+			oldcount = count;
+
+			// Simulate Blink for one second (until we get new data in /proc/net/dev)
+			for (iter=0; iter < currblinkspeed; iter++) {
+				led(ledindex, LED_OFF);
+				usleep((useconds_t)(0.5 * (1.0/currblinkspeed) * 1E6));
+				led(ledindex, LED_ON);
+				usleep((useconds_t)(0.5 * (1.0/currblinkspeed) * 1E6));
+			}
+
+			usleep(50000);
+		} else {
+			// Get Radio Status ... only blink if Radio is Enabled (otherwise, just turn the LED off)
+			wl_ioctl(argv[1], WLC_GET_RADIO, &radioStatus, sizeof(radioStatus));
+			
+			// radioStatus != 0 for Disabled, using a bit mask defined in wlioctl.h (i.e. 0 = enabled)
+			if (radioStatus != 0) {
+				// Radio is disabled (in one of multiple ways), so disable LED ... and wait 5 seconds to check again
+				led(ledindex, LED_OFF);
+				sleep(5);
 			} else {
 				// Not enough Data, so don't blink ... and wait 200 ms for an update (as /proc/net/dev is only updated once per second!)
 				led(ledindex, LED_ON);
 				usleep(200000);
 			}
-		} else {
-			// Radio is disabled (in one of multiple ways), so disable LED ... and wait 5 seconds to check again
-			led(ledindex, LED_OFF);
-			sleep(5);
 		}
 	}
 }

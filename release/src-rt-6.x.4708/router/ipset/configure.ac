@@ -9,8 +9,6 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_ENABLE_STATIC
 LT_INIT([dlopen])
-LT_CONFIG_LTDL_DIR([libltdl])
-LTDL_INIT([nonrecursive])
 
 dnl Shortcut: Linux supported alone
 case "$host" in

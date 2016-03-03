@@ -35,7 +35,7 @@ static unsigned long get_5g_count()
 		if(strcmp(ifname, interface)) continue;
 
 		if(sscanf(p+1, "%lu%*u%*u%*u%*u%*u%*u%*u%*u%lu", &counter1, &counter2)!=2) continue;
-
+		break;
 	}
 	fclose(f);
 
@@ -46,11 +46,9 @@ int get_lanports_status(void)
 {
 	int r = 0;
 	FILE *f;
-	char s[32], a[16];
+	char s[128], a[16];
 
-	system("/usr/sbin/robocfg showports > /tmp/ethernet.state.log");
-
-	if ((f = fopen("/tmp/ethernet.state.log", "r")) != NULL) {
+	if ((f = popen("/usr/sbin/robocfg showports", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
 			if ((sscanf(s, "Port 1: %s", a) == 1) ||
 			    (sscanf(s, "Port 2: %s", a) == 1) ||
@@ -73,6 +71,7 @@ int blink_5g_main(int argc, char *argv[])
 	static unsigned int data_5g = 0;
 	unsigned long count_5g;
 	int i;
+	int model;
 	static int j;
 	static int status = -1;
 	static int status_old;
@@ -85,8 +84,9 @@ int blink_5g_main(int argc, char *argv[])
 	if(tmp_interface)
 		strncpy(interface,tmp_interface, INTERFACE_MAXLEN);
 	// check data per 10 count
+	model = get_model();
 	while(1){
-		if (get_model() == MODEL_WS880) {
+		if (model == MODEL_WS880) {
 			sleep(5);
 			if (get_lanports_status()) {
 				led(LED_BRIDGE, LED_ON);
@@ -132,9 +132,8 @@ int blink_5g_main(int argc, char *argv[])
 			}
 			led(LED_5G, LED_ON);
 		}
-		else
-			usleep(50000);
 
+		usleep(50000);
 	}
 }
 
