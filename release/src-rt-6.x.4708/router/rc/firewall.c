@@ -816,6 +816,7 @@ static void nat_table(void)
 
 		if (nvram_get_int("upnp_enable") & 3) {
 			ipt_write(":upnp - [0:0]\n");
+			ipt_write(":pupnp - [0:0]\n");
 
 			for (i = 0; i < wanfaces.count; ++i) {
 				if (*(wanfaces.iface[i].name)) {
