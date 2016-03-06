@@ -150,6 +150,18 @@ void ipt_qos(void)
 #endif
 		class_flag = gum;
 
+		saddr[0] = '\0';
+		end[0] = '\0';
+		// mac or ip address
+		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
+			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
+				v4v6_ok, (v4v6_ok==IPT_V4), "QoS", desc);
+			if (!v4v6_ok) continue;
+		}
+		else if (*addr_type == '3') {						// match mac
+			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
+		}
+
 		//
 		if (ipt_ipp2p(ipp2p, app)) v4v6_ok &= ~IPT_V6;
 		else ipt_layer7(layer7, app);
@@ -160,8 +172,8 @@ void ipt_qos(void)
 			// so port-based rules that come after them in the list can't be sticky
 			// or else these rules might never match.
 			gum = 0;
+			strcpy(end, app);
 		}
-		strcpy(end, app);
 
 		// dscp
 		if (ipt_dscp(dscp, s)) {
@@ -170,20 +182,6 @@ void ipt_qos(void)
 #endif
 			strcat(end, s);
 		}
-
-		// mac or ip address
-		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
-				v4v6_ok, (v4v6_ok==IPT_V4), "QoS", desc);
-			if (!v4v6_ok) continue;
-		}
-		else if (*addr_type == '3') {						// match mac
-			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
-		}
-		else {
-			saddr[0] = 0;
-		}
-
 
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
