@@ -9,11 +9,13 @@ IFACE=`nvram get "$PREFIX"_ifname`
 PROTO=`nvram get "$PREFIX"_proto`
 ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
 LOCK="/tmp/watchdog.$PREFIX"
+MTH=`nvram get mwan_ckmtd`
+DST=`nvram get mwan_ckdst`
+HOSTLIST=`echo $DST |  sed 's/,/ /'`
+RESULT=0
 
-watchdogRun() {
-    DST=`nvram get mwan_ckdst`
-    HOSTLIST=`echo $DST |  sed 's/,/ /'`
 
+cktracert() {
     RXBYTES1=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
     for HOST in $HOSTLIST; do
         # we need only send/receive few packages to be sure is connection works.
@@ -21,7 +23,36 @@ watchdogRun() {
         traceroute -i $IFACE -w 1 -m 3 $HOST > /dev/null 2>&1
     done
     RXBYTES2=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
-    if [ "$RXBYTES2" == "$RXBYTES1" ]; then
+    if [ "$RXBYTES2" -gt "$RXBYTES1" ]; then
+        RESULT=1
+    fi
+}
+
+ckping() {
+    OK=0
+
+    for HOST in $HOSTLIST; do
+        ping -I $IFACE -c 4 $HOST>>/dev/null
+
+        if [ $? -eq  0 ]; then
+            OK=`expr $OK + 1`
+        fi
+    done
+
+    if [ "$OK" -gt "0" ]; then
+        RESULT=1
+    fi
+}
+
+watchdogRun() {
+
+    if [ "$MTH" == "1" ]; then
+        cktracert
+    else
+        ckping
+    fi
+
+    if [ "$RESULT" == "0" ]; then
         logger WAN Watchdog - Connection $PREFIX down - Reconnecting ...
         echo "0" > /tmp/"$PREFIX"_state
 

@@ -580,6 +580,7 @@ static const nvset_t nvset_list[] = {
 	{ "mwan_num",			V_RANGE(1, 2)		},
 #endif
 	{ "mwan_init",			V_01			},
+	{ "mwan_ckmtd",			V_LENGTH(1, 2)		}, // check method: 1 - ping, 2 - traceroute
 	{ "mwan_cktime",		V_RANGE(0, 3600)	},
 	{ "mwan_ckdst",			V_LENGTH(0, 64)		},
 	{ "pbr_rules",			V_LENGTH(0, 2048)	},

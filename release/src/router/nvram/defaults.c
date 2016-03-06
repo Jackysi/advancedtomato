@@ -78,6 +78,7 @@ const defaults_t defaults[] = {
 	{ "mwan_num",			"1"				},
 	{ "mwan_init",			"0"				},
 	{ "mwan_cktime",		"0"				},
+	{ "mwan_ckmtd",			"1"				},
 	{ "mwan_ckdst",			"google.com,microsoft.com"	},
 	{ "mwan_debug",			"0"				},
 	{ "pbr_rules",			""				},
