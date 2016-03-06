@@ -328,7 +328,7 @@ int ipt_ipp2p(const char *v, char *opt)
 		return 0;
 	}
 
-	strcpy(opt, "-m ipp2p ");
+	strcpy(opt, " -m ipp2p ");
 	if ((n & 0xFFF) == 0xFFF) {
 		strcat(opt, "--ipp2p");
 	}
@@ -445,7 +445,7 @@ int ipt_layer7(const char *v, char *opt)
 		}
 	}
 
-	sprintf(opt, "-m layer7 --l7dir %s --l7proto %s", path, v);
+	sprintf(opt, " -m layer7 --l7dir %s --l7proto %s", path, v);
 
 	if (nvram_match("nf_l7in", "1")) {
 		if (!layer7_in) layer7_in = calloc(51, sizeof(char *));
