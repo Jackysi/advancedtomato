@@ -272,7 +272,6 @@ void ipt_qos(void)
 		"-A FORWARD -o %s -j QOSO\n"
 		"-A OUTPUT -o %s -j QOSO\n",
 			qface, qface);
-#ifdef TCONFIG_MULTIWAN
 	if(check_wanup("wan2")){
 		qface = wan2faces.iface[0].name;
 		ipt_write(
@@ -280,6 +279,7 @@ void ipt_qos(void)
 			"-A OUTPUT -o %s -j QOSO\n",
 				qface, qface);
 	}
+#ifdef TCONFIG_MULTIWAN
 	if(check_wanup("wan3")){
 		qface = wan3faces.iface[0].name;
 		ipt_write(
@@ -326,11 +326,12 @@ void ipt_qos(void)
 		{
 			qface = wanfaces.iface[0].name;
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
-#ifdef TCONFIG_MULTIWAN
+
 			if(check_wanup("wan2")){
 				qface = wan2faces.iface[0].name;
 				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
 			}
+#ifdef TCONFIG_MULTIWAN
 			if(check_wanup("wan3")){
 				qface = wan3faces.iface[0].name;
 				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
@@ -351,12 +352,13 @@ void ipt_qos(void)
 				qface = wanfaces.iface[0].name;
 				qosImqDeviceNumberString = 0;
 				ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass only tcp
-#ifdef TCONFIG_MULTIWAN
+
 				if(check_wanup("wan2")){
 					qface = wan2faces.iface[0].name;
 					qosImqDeviceNumberString = 1;
 					ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass only tcp
 				}
+#ifdef TCONFIG_MULTIWAN
 				if(check_wanup("wan3")){
 					qface = wan3faces.iface[0].name;
 					qosImqDeviceNumberString = 2;
@@ -373,12 +375,13 @@ void ipt_qos(void)
 				qface = wanfaces.iface[0].name;
 				qosImqDeviceNumberString = 0;
 				ipt_write("-A PREROUTING -i %s -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass everything thru ingress
-#ifdef TCONFIG_MULTIWAN
+
 				if(check_wanup("wan2")){
 					qface = wan2faces.iface[0].name;
 					qosImqDeviceNumberString = 1;
 					ipt_write("-A PREROUTING -i %s -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass everything thru ingress
 				}
+#ifdef TCONFIG_MULTIWAN
 				if(check_wanup("wan3")){
 					qface = wan3faces.iface[0].name;
 					qosImqDeviceNumberString = 2;
@@ -460,7 +463,7 @@ void start_qos(char *prefix)
 		strcpy(qosImqDeviceString, "imq2");
 		wan_unit = 3;
 	}
-	else if(!strcmp(prefix,"wa4")){
+	else if(!strcmp(prefix,"wan4")){
 		strcpy(qosfn, "/etc/wan4_qos");
 		strcpy(qosImqDeviceString, "imq3");
 		wan_unit = 4;
@@ -912,12 +915,14 @@ void stop_qos(char *prefix)
 	else if(!strcmp(prefix,"wan2")){
 		strcpy(qosfn, "/etc/wan2_qos");
 	}
+#ifdef TCONFIG_MULTIWAN
 	else if(!strcmp(prefix,"wan3")){
 		strcpy(qosfn, "/etc/wan3_qos");
 	}
 	else if(!strcmp(prefix,"wan4")){
 		strcpy(qosfn, "/etc/wan4_qos");
 	}
+#endif
 
 	eval((char *)qosfn, "stop");
 /*
