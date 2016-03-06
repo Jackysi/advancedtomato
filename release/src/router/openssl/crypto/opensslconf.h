@@ -8,41 +8,17 @@ extern "C" {
 #ifndef OPENSSL_DOING_MAKEDEPEND
 
 
-#ifndef OPENSSL_NO_AES192
-# define OPENSSL_NO_AES192
-#endif
 #ifndef OPENSSL_NO_CAMELLIA
 # define OPENSSL_NO_CAMELLIA
 #endif
 #ifndef OPENSSL_NO_CAPIENG
 # define OPENSSL_NO_CAPIENG
 #endif
-#ifndef OPENSSL_NO_CAST
-# define OPENSSL_NO_CAST
-#endif
-#ifndef OPENSSL_NO_CMS
-# define OPENSSL_NO_CMS
-#endif
-#ifndef OPENSSL_NO_DH
-# define OPENSSL_NO_DH
-#endif
 #ifndef OPENSSL_NO_DTLS1
 # define OPENSSL_NO_DTLS1
 #endif
-#ifndef OPENSSL_NO_EC
-# define OPENSSL_NO_EC
-#endif
 #ifndef OPENSSL_NO_EC_NISTP_64_GCC_128
 # define OPENSSL_NO_EC_NISTP_64_GCC_128
-#endif
-#ifndef OPENSSL_NO_ECDH
-# define OPENSSL_NO_ECDH
-#endif
-#ifndef OPENSSL_NO_ECDSA
-# define OPENSSL_NO_ECDSA
-#endif
-#ifndef OPENSSL_NO_ENGINE
-# define OPENSSL_NO_ENGINE
 #endif
 #ifndef OPENSSL_NO_ENGINES
 # define OPENSSL_NO_ENGINES
@@ -52,12 +28,6 @@ extern "C" {
 #endif
 #ifndef OPENSSL_NO_GMS
 # define OPENSSL_NO_GMS
-#endif
-#ifndef OPENSSL_NO_GOST
-# define OPENSSL_NO_GOST
-#endif
-#ifndef OPENSSL_NO_IDEA
-# define OPENSSL_NO_IDEA
 #endif
 #ifndef OPENSSL_NO_JPAKE
 # define OPENSSL_NO_JPAKE
@@ -76,12 +46,6 @@ extern "C" {
 #endif
 #ifndef OPENSSL_NO_PSK
 # define OPENSSL_NO_PSK
-#endif
-#ifndef OPENSSL_NO_RC2
-# define OPENSSL_NO_RC2
-#endif
-#ifndef OPENSSL_NO_RC5
-# define OPENSSL_NO_RC5
 #endif
 #ifndef OPENSSL_NO_RFC3779
 # define OPENSSL_NO_RFC3779
@@ -107,6 +71,12 @@ extern "C" {
 #ifndef OPENSSL_NO_SSL_TRACE
 # define OPENSSL_NO_SSL_TRACE
 #endif
+#ifndef OPENSSL_NO_SSL2
+# define OPENSSL_NO_SSL2
+#endif
+#ifndef OPENSSL_NO_SSL3
+# define OPENSSL_NO_SSL3
+#endif
 #ifndef OPENSSL_NO_STORE
 # define OPENSSL_NO_STORE
 #endif
@@ -116,12 +86,15 @@ extern "C" {
 #ifndef OPENSSL_NO_UNIT_TEST
 # define OPENSSL_NO_UNIT_TEST
 #endif
-#ifndef OPENSSL_NO_UNIT_TEST
-# define OPENSSL_NO_UNIT_TEST
+#ifndef OPENSSL_NO_WEAK_SSL_CIPHERS
+# define OPENSSL_NO_WEAK_SSL_CIPHERS
 #endif
 
 #endif /* OPENSSL_DOING_MAKEDEPEND */
 
+#ifndef OPENSSL_THREADS
+# define OPENSSL_THREADS
+#endif
 #ifndef OPENSSL_NO_ERR
 # define OPENSSL_NO_ERR
 #endif
@@ -137,41 +110,17 @@ extern "C" {
    who haven't had the time to do the appropriate changes in their
    applications.  */
 #ifdef OPENSSL_ALGORITHM_DEFINES
-# if defined(OPENSSL_NO_AES192) && !defined(NO_AES192)
-#  define NO_AES192
-# endif
 # if defined(OPENSSL_NO_CAMELLIA) && !defined(NO_CAMELLIA)
 #  define NO_CAMELLIA
 # endif
 # if defined(OPENSSL_NO_CAPIENG) && !defined(NO_CAPIENG)
 #  define NO_CAPIENG
 # endif
-# if defined(OPENSSL_NO_CAST) && !defined(NO_CAST)
-#  define NO_CAST
-# endif
-# if defined(OPENSSL_NO_CMS) && !defined(NO_CMS)
-#  define NO_CMS
-# endif
-# if defined(OPENSSL_NO_DH) && !defined(NO_DH)
-#  define NO_DH
-# endif
 # if defined(OPENSSL_NO_DTLS1) && !defined(NO_DTLS1)
 #  define NO_DTLS1
 # endif
-# if defined(OPENSSL_NO_EC) && !defined(NO_EC)
-#  define NO_EC
-# endif
 # if defined(OPENSSL_NO_EC_NISTP_64_GCC_128) && !defined(NO_EC_NISTP_64_GCC_128)
 #  define NO_EC_NISTP_64_GCC_128
-# endif
-# if defined(OPENSSL_NO_ECDH) && !defined(NO_ECDH)
-#  define NO_ECDH
-# endif
-# if defined(OPENSSL_NO_ECDSA) && !defined(NO_ECDSA)
-#  define NO_ECDSA
-# endif
-# if defined(OPENSSL_NO_ENGINE) && !defined(NO_ENGINE)
-#  define NO_ENGINE
 # endif
 # if defined(OPENSSL_NO_ENGINES) && !defined(NO_ENGINES)
 #  define NO_ENGINES
@@ -181,12 +130,6 @@ extern "C" {
 # endif
 # if defined(OPENSSL_NO_GMS) && !defined(NO_GMS)
 #  define NO_GMS
-# endif
-# if defined(OPENSSL_NO_GOST) && !defined(NO_GOST)
-#  define NO_GOST
-# endif
-# if defined(OPENSSL_NO_IDEA) && !defined(NO_IDEA)
-#  define NO_IDEA
 # endif
 # if defined(OPENSSL_NO_JPAKE) && !defined(NO_JPAKE)
 #  define NO_JPAKE
@@ -205,12 +148,6 @@ extern "C" {
 # endif
 # if defined(OPENSSL_NO_PSK) && !defined(NO_PSK)
 #  define NO_PSK
-# endif
-# if defined(OPENSSL_NO_RC2) && !defined(NO_RC2)
-#  define NO_RC2
-# endif
-# if defined(OPENSSL_NO_RC5) && !defined(NO_RC5)
-#  define NO_RC5
 # endif
 # if defined(OPENSSL_NO_RFC3779) && !defined(NO_RFC3779)
 #  define NO_RFC3779
@@ -236,6 +173,12 @@ extern "C" {
 # if defined(OPENSSL_NO_SSL_TRACE) && !defined(NO_SSL_TRACE)
 #  define NO_SSL_TRACE
 # endif
+# if defined(OPENSSL_NO_SSL2) && !defined(NO_SSL2)
+#  define NO_SSL2
+# endif
+# if defined(OPENSSL_NO_SSL3) && !defined(NO_SSL3)
+#  define NO_SSL3
+# endif
 # if defined(OPENSSL_NO_STORE) && !defined(NO_STORE)
 #  define NO_STORE
 # endif
@@ -245,8 +188,8 @@ extern "C" {
 # if defined(OPENSSL_NO_UNIT_TEST) && !defined(NO_UNIT_TEST)
 #  define NO_UNIT_TEST
 # endif
-# if defined(OPENSSL_NO_UNIT_TEST) && !defined(NO_UNIT_TEST)
-#  define NO_UNIT_TEST
+# if defined(OPENSSL_NO_WEAK_SSL_CIPHERS) && !defined(NO_WEAK_SSL_CIPHERS)
+#  define NO_WEAK_SSL_CIPHERS
 # endif
 #endif
 
