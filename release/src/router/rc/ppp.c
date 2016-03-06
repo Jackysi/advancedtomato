@@ -35,15 +35,26 @@
 
 #include <sys/ioctl.h>
 
+/* // OBSOLETE 
 void ppp_prefix(char *wan_device, char *prefix)
-{	
-	if(!strcmp(wan_device, nvram_safe_get("wan_ifnameX"))) strcpy(prefix, "wan");
-	if(!strcmp(wan_device, nvram_safe_get("wan2_ifnameX"))) strcpy(prefix, "wan2");
+{
+	if (!wan_device || wan_device == "") {	// in case DEVICE is empty (PPTP/L2TP)
+		strcpy(prefix, safe_getenv("LINKNAME"));
+		mwanlog(LOG_DEBUG,"### ppp_prefix: empty DEVICE, set prefix to %s", prefix);
+	}
+	else if (!strcmp(wan_device, "/dev/ttyUSB0") || !strcmp(wan_device, "/dev/ttyACM0")) {	// DEVICE="/dev/ttyUSB0" (3G) etc
+		strcpy(prefix, safe_getenv("LINKNAME"));
+		mwanlog(LOG_DEBUG,"### ppp_prefix: DEVICE is 3G Modem, set prefix to %s", prefix);
+	}
+	else if(!strcmp(wan_device, nvram_safe_get("wan2_ifnameX"))) strcpy(prefix, "wan2");
 #ifdef TCONFIG_MULTIWAN
-	if(!strcmp(wan_device, nvram_safe_get("wan3_ifnameX"))) strcpy(prefix, "wan3");
-	if(!strcmp(wan_device, nvram_safe_get("wan4_ifnameX"))) strcpy(prefix, "wan4");
+	else if(!strcmp(wan_device, nvram_safe_get("wan3_ifnameX"))) strcpy(prefix, "wan3");
+	else if(!strcmp(wan_device, nvram_safe_get("wan4_ifnameX"))) strcpy(prefix, "wan4");
 #endif
+	else strcpy(prefix, "wan");	// all others: DEVICE="/dev/ttyUSB0" (3G) etc
+	mwanlog(LOG_DEBUG,"### ppp_prefix: DEVICE = %s, prefix = %s", wan_device, prefix);
 }
+*/
 
 int ipup_main(int argc, char **argv)
 {
@@ -63,7 +74,8 @@ int ipup_main(int argc, char **argv)
 	if (!wait_action_idle(10)) return -1;
 
 	wan_ifname = safe_getenv("IFNAME");
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	if ((!wan_ifname) || (!*wan_ifname)) return -1;
 	nvram_set(strcat_r(prefix, "_iface", tmp), wan_ifname);	// ppp#
 	nvram_set(strcat_r(prefix, "_pppd_pid", tmp), safe_getenv("PPPD_PID"));	
@@ -132,7 +144,8 @@ int ipdown_main(int argc, char **argv)
 	
 	TRACE_PT("begin\n");
 
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	if (!wait_action_idle(10)) return -1;
 
 	//stop_ddns();	// avoid to trigger DOD
@@ -144,6 +157,10 @@ int ipdown_main(int argc, char **argv)
 
 	proto = get_wanx_proto(prefix);
 	mwan_table_del(prefix);
+
+	/* clear active interface name from nvram on disconnect */
+	nvram_set(strcat_r(prefix, "_iface", tmp),"");	// ppp#
+	nvram_set(strcat_r(prefix, "_pppd_pid", tmp),"");
 
 	if (proto == WP_L2TP || proto == WP_PPTP) {
 		/* clear dns from the resolv.conf */
@@ -217,7 +234,8 @@ int pppevent_main(int argc, char **argv)
 	
 	TRACE_PT("begin\n");
 
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	int i;
 	for (i = 1; i < argc; ++i) {
 		TRACE_PT("arg%d=%s\n", i, argv[i]);
