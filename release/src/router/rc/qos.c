@@ -48,7 +48,7 @@ void ipt_qos(void)
 	int v4v6_ok;
 	int i;
 	char sport[192];
-	char saddr[192];
+	char saddr[256];
 	char end[256];
 	char s[32];
 	char app[128];
@@ -187,14 +187,14 @@ void ipt_qos(void)
 		if (*bcount) {
 			min = strtoul(bcount, &p, 10);
 			if (*p != 0) {
-				strcat(end, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
+				strcat(saddr, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
 				++p;
 				if (*p == 0) {
-					sprintf(end + strlen(end), "%lu:", min * 1024);
+					sprintf(saddr + strlen(saddr), "%lu:", min * 1024);
 				}
 				else {
 					max = strtoul(p, NULL, 10);
-					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (max * 1024) - 1);
+					sprintf(saddr + strlen(saddr), "%lu:%lu", min * 1024, (max * 1024) - 1);
 					if (gum) {
 						if (!sizegroup) {
 							// Create table of connbytes sizes, pass appropriate connections there
