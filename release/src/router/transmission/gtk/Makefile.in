@@ -89,11 +89,11 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp $(dist_man_MANS) $(noinst_HEADERS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx-pthread.m4 \
-	$(top_srcdir)/m4/check-ssl.m4 $(top_srcdir)/m4/glib-gettext.m4 \
+	$(top_srcdir)/m4/glib-gettext.m4 $(top_srcdir)/m4/intltool.m4 \
 	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
 	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
 	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/m4/pkg.m4 \
-	$(top_srcdir)/m4/zlib.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -113,9 +113,10 @@ am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
 	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-window.$(OBJEXT) \
 	util.$(OBJEXT)
 transmission_gtk_OBJECTS = $(am_transmission_gtk_OBJECTS)
+am__DEPENDENCIES_1 =
 transmission_gtk_DEPENDENCIES =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
-	$(am__append_3)
+	$(am__DEPENDENCIES_1) $(am__append_3)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -275,17 +276,24 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CRYPTO_CFLAGS = @CRYPTO_CFLAGS@
+CRYPTO_LIBS = @CRYPTO_LIBS@
+CRYPTO_PKG = @CRYPTO_PKG@
 CURL_MINIMUM = @CURL_MINIMUM@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
+CYASSL_CFLAGS = @CYASSL_CFLAGS@
+CYASSL_LIBS = @CYASSL_LIBS@
+CYASSL_MINIMUM = @CYASSL_MINIMUM@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DHT_CFLAGS = @DHT_CFLAGS@
 DHT_LIBS = @DHT_LIBS@
+DHT_LIBS_QT = @DHT_LIBS_QT@
 DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
@@ -324,11 +332,15 @@ LDFLAGS = @LDFLAGS@
 LIBAPPINDICATOR_CFLAGS = @LIBAPPINDICATOR_CFLAGS@
 LIBAPPINDICATOR_LIBS = @LIBAPPINDICATOR_LIBS@
 LIBAPPINDICATOR_MINIMUM = @LIBAPPINDICATOR_MINIMUM@
+LIBB64_CFLAGS = @LIBB64_CFLAGS@
+LIBB64_LIBS = @LIBB64_LIBS@
+LIBB64_LIBS_QT = @LIBB64_LIBS_QT@
 LIBCURL_CFLAGS = @LIBCURL_CFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBEVENT_CFLAGS = @LIBEVENT_CFLAGS@
 LIBEVENT_LIBS = @LIBEVENT_LIBS@
 LIBEVENT_MINIMUM = @LIBEVENT_MINIMUM@
+LIBM = @LIBM@
 LIBNATPMP_CFLAGS = @LIBNATPMP_CFLAGS@
 LIBNATPMP_LIBS = @LIBNATPMP_LIBS@
 LIBNATPMP_LIBS_QT = @LIBNATPMP_LIBS_QT@
@@ -370,6 +382,7 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PEERID_PREFIX = @PEERID_PREFIX@
 PKG_CONFIG = @PKG_CONFIG@
 POFILES = @POFILES@
+POLARSSL_MINIMUM = @POLARSSL_MINIMUM@
 POSUB = @POSUB@
 PO_IN_DATADIR_FALSE = @PO_IN_DATADIR_FALSE@
 PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
@@ -387,10 +400,12 @@ USERAGENT_PREFIX = @USERAGENT_PREFIX@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WINDRES = @WINDRES@
+WOLFSSL_CFLAGS = @WOLFSSL_CFLAGS@
+WOLFSSL_LIBS = @WOLFSSL_LIBS@
 XGETTEXT = @XGETTEXT@
 ZLIB_CFLAGS = @ZLIB_CFLAGS@
-ZLIB_LDFLAGS = @ZLIB_LDFLAGS@
 ZLIB_LIBS = @ZLIB_LIBS@
+ZLIB_MINIMUM = @ZLIB_MINIMUM@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -470,12 +485,8 @@ AM_CFLAGS = \
     @LIBEVENT_CFLAGS@ \
     @GTK_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
-    @OPENSSL_CFLAGS@ \
     @ZLIB_CFLAGS@ \
     @PTHREAD_CFLAGS@
-
-AM_LDFLAGS = \
-    @ZLIB_LDFLAGS@
 
 noinst_HEADERS = \
     actions.h \
@@ -487,12 +498,6 @@ noinst_HEADERS = \
     filter.h \
     hig.h \
     icons.h \
-    icon-lock.h \
-    icon-logo-24.h \
-    icon-logo-48.h \
-    icon-ratio.h \
-    icon-turtle.h \
-    icon-utilities.h \
     makemeta-ui.h \
     msgwin.h \
     notify.h \
@@ -535,17 +540,17 @@ transmission_gtk_SOURCES = \
 dist_man_MANS = transmission-gtk.1
 transmission_gtk_LDADD =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
-	@LIBUPNP_LIBS@ @LIBNATPMP_LIBS@ @DHT_LIBS@ @LIBUTP_LIBS@ \
-	@GTK_LIBS@ @LIBAPPINDICATOR_LIBS@ @LIBEVENT_LIBS@ \
-	@LIBCURL_LIBS@ @OPENSSL_LIBS@ @ZLIB_LIBS@ @PTHREAD_LIBS@ \
-	$(am__append_3)
+	@LIBUPNP_LIBS@ @LIBNATPMP_LIBS@ @DHT_LIBS@ @LIBB64_LIBS@ \
+	@LIBUTP_LIBS@ @GTK_LIBS@ @LIBAPPINDICATOR_LIBS@ \
+	@LIBEVENT_LIBS@ @LIBCURL_LIBS@ @CRYPTO_LIBS@ @ZLIB_LIBS@ \
+	@PTHREAD_LIBS@ ${LIBM} $(am__append_3)
 DESKTOP_IN_FILES = transmission-gtk.desktop.in
 DESKTOP_FILES = $(DESKTOP_IN_FILES:.desktop.in=.desktop)
 Productivitydir = $(datadir)/applications
 Productivity_DATA = $(DESKTOP_FILES)
 icon_DATA = transmission.png
 icondir = $(datadir)/pixmaps
-UI_FILES = transmission-ui.xml 
+UI_FILES = transmission-ui.xml
 EXTRA_DIST = \
 	$(DESKTOP_IN_FILES) \
 	$(UI_FILES) \
@@ -1080,13 +1085,13 @@ uninstall-man: uninstall-man1
 
 @INTLTOOL_DESKTOP_RULE@
 
-transmission-resources.c: transmission.gresource.xml $(UI_FILES) 
+transmission-resources.c: transmission.gresource.xml $(UI_FILES)
 	$(AM_V_GEN)glib-compile-resources --target=$@ --sourcedir=$(srcdir) \
-	  --generate-source --c-name transmission $< 
+	  --generate-source --c-name transmission $<
 
-transmission-resources.h: transmission.gresource.xml $(UI_FILES) 
+transmission-resources.h: transmission.gresource.xml $(UI_FILES)
 	$(AM_V_GEN)glib-compile-resources --target=$@ --sourcedir=$(srcdir) \
-	  --generate-header --c-name transmission $< 
+	  --generate-header --c-name transmission $<
 
 @WIN32_TRUE@transmission.res: transmission.rc
 @WIN32_TRUE@	$(WINDRES) -J rc -i transmission.rc -O coff -o transmission.res

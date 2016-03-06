@@ -77,20 +77,21 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@HAVE_REVISION_FILE_TRUE@am__append_1 = REVISION
 subdir = .
 DIST_COMMON = INSTALL NEWS README AUTHORS ChangeLog \
 	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/transmission-gtk.spec.in \
 	$(top_srcdir)/qt/config.pri.in COPYING compile config.guess \
-	config.sub install-sh missing ltmain.sh
+	config.sub depcomp install-sh missing ltmain.sh
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx-pthread.m4 \
-	$(top_srcdir)/m4/check-ssl.m4 $(top_srcdir)/m4/glib-gettext.m4 \
+	$(top_srcdir)/m4/glib-gettext.m4 $(top_srcdir)/m4/intltool.m4 \
 	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
 	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
 	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/m4/pkg.m4 \
-	$(top_srcdir)/m4/zlib.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -213,17 +214,24 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CRYPTO_CFLAGS = @CRYPTO_CFLAGS@
+CRYPTO_LIBS = @CRYPTO_LIBS@
+CRYPTO_PKG = @CRYPTO_PKG@
 CURL_MINIMUM = @CURL_MINIMUM@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
+CYASSL_CFLAGS = @CYASSL_CFLAGS@
+CYASSL_LIBS = @CYASSL_LIBS@
+CYASSL_MINIMUM = @CYASSL_MINIMUM@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DHT_CFLAGS = @DHT_CFLAGS@
 DHT_LIBS = @DHT_LIBS@
+DHT_LIBS_QT = @DHT_LIBS_QT@
 DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
@@ -262,11 +270,15 @@ LDFLAGS = @LDFLAGS@
 LIBAPPINDICATOR_CFLAGS = @LIBAPPINDICATOR_CFLAGS@
 LIBAPPINDICATOR_LIBS = @LIBAPPINDICATOR_LIBS@
 LIBAPPINDICATOR_MINIMUM = @LIBAPPINDICATOR_MINIMUM@
+LIBB64_CFLAGS = @LIBB64_CFLAGS@
+LIBB64_LIBS = @LIBB64_LIBS@
+LIBB64_LIBS_QT = @LIBB64_LIBS_QT@
 LIBCURL_CFLAGS = @LIBCURL_CFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBEVENT_CFLAGS = @LIBEVENT_CFLAGS@
 LIBEVENT_LIBS = @LIBEVENT_LIBS@
 LIBEVENT_MINIMUM = @LIBEVENT_MINIMUM@
+LIBM = @LIBM@
 LIBNATPMP_CFLAGS = @LIBNATPMP_CFLAGS@
 LIBNATPMP_LIBS = @LIBNATPMP_LIBS@
 LIBNATPMP_LIBS_QT = @LIBNATPMP_LIBS_QT@
@@ -308,6 +320,7 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PEERID_PREFIX = @PEERID_PREFIX@
 PKG_CONFIG = @PKG_CONFIG@
 POFILES = @POFILES@
+POLARSSL_MINIMUM = @POLARSSL_MINIMUM@
 POSUB = @POSUB@
 PO_IN_DATADIR_FALSE = @PO_IN_DATADIR_FALSE@
 PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
@@ -325,10 +338,12 @@ USERAGENT_PREFIX = @USERAGENT_PREFIX@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WINDRES = @WINDRES@
+WOLFSSL_CFLAGS = @WOLFSSL_CFLAGS@
+WOLFSSL_LIBS = @WOLFSSL_LIBS@
 XGETTEXT = @XGETTEXT@
 ZLIB_CFLAGS = @ZLIB_CFLAGS@
-ZLIB_LDFLAGS = @ZLIB_LDFLAGS@
 ZLIB_LIBS = @ZLIB_LIBS@
+ZLIB_MINIMUM = @ZLIB_MINIMUM@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -402,16 +417,20 @@ SUBDIRS = \
   $(MAC_DIR) \
   web
 
-EXTRA_DIST = \
-  qt \
-  NEWS \
-  AUTHORS \
-  COPYING \
-  README \
-  autogen.sh \
-  update-version-h.sh \
-  Transmission.xcodeproj/project.pbxproj
-
+EXTRA_DIST = qt NEWS AUTHORS COPYING README autogen.sh \
+	update-version-h.sh Transmission.xcodeproj/project.pbxproj \
+	CMakeLists.txt cmake cli/CMakeLists.txt daemon/CMakeLists.txt \
+	gtk/CMakeLists.txt libtransmission/CMakeLists.txt \
+	libtransmission/version.h.in po/CMakeLists.txt \
+	qt/CMakeLists.txt third-party/b64-01-newline.patch \
+	third-party/b64-02-unsigned-char.patch third-party/b64.cmake \
+	third-party/dht.cmake third-party/event2.cmake \
+	third-party/event2-01-win32.patch \
+	third-party/event2-02-win32.patch third-party/natpmp.cmake \
+	third-party/utp-01-ticket-5002.patch \
+	third-party/utp-02-win32.patch third-party/utp-03-msvc14.patch \
+	third-party/utp.cmake third-party/utp_config.h \
+	utils/CMakeLists.txt $(am__append_1)
 DISTCLEANFILES = \
   intltool-extract \
   intltool-merge \
@@ -891,7 +910,7 @@ uninstall-am:
 
 
 dist-hook:
-	rm -rf `find $(distdir)/qt -name .svn`
+	find "$(distdir)/qt" "$(distdir)/cmake" -name .svn -exec rm -rf '{}' '+' -prune
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
