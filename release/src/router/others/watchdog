@@ -5,6 +5,7 @@
 #
 
 PREFIX=$1
+MWAN=`nvram get mwan_num`
 IFACE=`nvram get "$PREFIX"_ifname`
 PROTO=`nvram get "$PREFIX"_proto`
 ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
@@ -60,7 +61,11 @@ watchdogRun() {
             switch4g $PREFIX
         else
             if [ "$PREFIX" == "wan" ]; then
-                service wan1 restart
+                if [ "$MWAN" == "1" ]; then
+                    service wan restart
+                else
+                    service wan1 restart
+                fi
             else
                 service $PREFIX restart
             fi
