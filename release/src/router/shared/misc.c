@@ -254,68 +254,6 @@ void notice_set(const char *path, const char *format, ...)
 
 //	#define _x_dprintf(args...)	syslog(LOG_DEBUG, args);
 #define _x_dprintf(args...)	do { } while (0);
-int wan_led(int *mode) // mode: 0 - OFF, 1 - ON
-{
-	int model;
-
-	if (mode) {
-		syslog(LOG_DEBUG, "### wan_led: led(INTERNET,ON)");
-	} else {
-		syslog(LOG_DEBUG, "### wan_led: led(INTERNET,OFF)");
-	}
-
-	model = get_model();
-
-//	syslog(LOG_DEBUG, "wan_led: led(LED_WHITE,%d)", mode);
-
-	if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" on
-		led(LED_WHITE,mode);
-	}
-	if (nvram_match("boardtype", "0x052b") &&  nvram_match("boardrev", "0x1204")) { //rt-n15u wan led on
-		led(LED_WHITE,mode);
-	}
-	if (nvram_match("model", "RT-N18U")) {
-		led(LED_WHITE,mode);
-	}
-	if (model == MODEL_DIR868L) {
-		led(LED_WHITE,mode);
-	}
-	if (model == MODEL_WS880) {
-		led(LED_WHITE,mode);
-	}
-	if (model == MODEL_R6250) {
-		led(LED_WHITE,mode);
-	}
-	if (model == MODEL_R6300v2) {
-		led(LED_WHITE,mode);
-	}
-
-	return mode;
-}
-int get_wanupx(char *prefix)
-{
-	char tmp[100];
-	const char *names[] = {	// FIXME: hardcoded to 4 WANs
-		"wan",
-		"wan2",
-#ifdef TCONFIG_MULTIWAN
-		"wan3",
-		"wan4",
-#endif
-		NULL
-	};
-	int i;
-	int count = 0; // default is 0 (NOT UP)
-
-	for (i = 0; names[i] != NULL; ++i) {
-		if (strcmp(prefix, names[i]) == 0) continue; // only check others
-		if (!nvram_match(strcat_r(names[i], "_ipaddr", tmp), "0.0.0.0")) { // have IP, assume ON (FIXME: buggy logic)
-			syslog(LOG_DEBUG, "### get_wanupx, prefix = %s, i = %d, %s_ipaddr found, set INTERNET ON", prefix, i, names[i]);
-			count = 1;
-		}
-	}
-	return count;
-}
 
 int check_wanup(char *prefix)
 {
@@ -346,18 +284,18 @@ int check_wanup(char *prefix)
 		memset(ppplink_file , 0, 256);
 		sprintf(ppplink_file, "/tmp/ppp/%s_link", prefix);
 		if (f_read_string(ppplink_file, buf1, sizeof(buf1)) > 0) {
-			// contains the base name of a file in /var/run/ containing pid of a daemon
-			snprintf(buf2, sizeof(buf2), "/var/run/%s.pid", buf1);
-			if (f_read_string(buf2, buf1, sizeof(buf1)) > 0) {
-				name = psname(atoi(buf1), buf2, sizeof(buf2));
-				memset(pppd_name, 0, 256);
-				sprintf(pppd_name, "pppd%s", prefix);
-				//syslog(LOG_INFO, "check_wanup . pppd name=%s, psname=%s", pppd_name, name);
-				if (strcmp(name, pppd_name) == 0) up = 1;
-			}
-			else {
-				_dprintf("%s: error reading %s\n", __FUNCTION__, buf2);
-			}
+				// contains the base name of a file in /var/run/ containing pid of a daemon
+				snprintf(buf2, sizeof(buf2), "/var/run/%s.pid", buf1);
+				if (f_read_string(buf2, buf1, sizeof(buf1)) > 0) {
+					name = psname(atoi(buf1), buf2, sizeof(buf2));
+					memset(pppd_name, 0, 256);
+					sprintf(pppd_name, "pppd%s", prefix);
+					//syslog(LOG_INFO, "check_wanup . pppd name=%s, psname=%s", pppd_name, name);
+					if (strcmp(name, pppd_name) == 0) up = 1;
+				}
+				else {
+					_dprintf("%s: error reading %s\n", __FUNCTION__, buf2);
+				}
 			if (!up) {
 				unlink(ppplink_file);
 				_x_dprintf("required daemon not found, assuming link is dead\n");
@@ -372,7 +310,6 @@ int check_wanup(char *prefix)
 	}
 	else {
 		_x_dprintf("%s: default !up\n", __FUNCTION__);
-		return up;	// don't turn off LED on multiwan checks
 	}
 
 	if ((up) && ((f = socket(AF_INET, SOCK_DGRAM, 0)) >= 0)) {
