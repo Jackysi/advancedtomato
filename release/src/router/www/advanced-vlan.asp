@@ -230,10 +230,10 @@ No part of this file may be used without permission.
 			case '0xf550':  // E2500
 			case '0x058e':  // E900, E800
 				if((nvram['boardrev'] == '0x1153') && (nvram['boardnum'] == '1') && (nvram['sdram_config'] == '0x3')){ //NR235W/Q3
-					COL_P0N = '0';
-					COL_P1N = '1';
-					COL_P2N = '2';
-					COL_P3N = '3';
+					COL_P0N = '3';
+					COL_P1N = '2';
+					COL_P2N = '1';
+					COL_P3N = '0';
 					COL_P4N = '4';
 					break;
 				}
