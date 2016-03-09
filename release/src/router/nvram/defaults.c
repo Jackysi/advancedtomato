@@ -50,7 +50,7 @@ const defaults_t defaults[] = {
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
 	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
-	{ "lan_ipaddr",			"192.168.1.1"	},	// LAN IP address
+	{ "lan_ipaddr",			"192.168.8.1"	},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "lan_domain",			""				},	// LAN domain name
@@ -385,12 +385,12 @@ const defaults_t defaults[] = {
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
-	{ "tm_tz",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
+	{ "tm_sel",				"UTC-8"	},
+	{ "tm_tz",				"UTC-8"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
-	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" },
+	{ "ntp_server",			"0.asia.pool.ntp.org 1.asia.pool.ntp.org 2.asia.pool.ntp.org" },
 	{ "ntp_kiss",			""								},
 	{ "ntp_kiss_ignore",	""								},
 
