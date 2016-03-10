@@ -14,9 +14,6 @@
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_MARK.h>
-#ifdef  HNDCTF
-#include <net/netfilter/nf_conntrack.h>
-#endif
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
@@ -52,14 +49,6 @@ target_v1(struct sk_buff **pskb,
 	switch (markinfo->mode) {
 	case XT_MARK_SET:
 		mark = markinfo->mark;
-#ifdef  HNDCTF
-	{
-		enum ip_conntrack_info ctinfo;
-		struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
-		if(ct) ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
-	}
-#endif  /* HNDCTF */
-
 		break;
 
 	case XT_MARK_AND:
@@ -70,21 +59,21 @@ target_v1(struct sk_buff **pskb,
 		mark = (*pskb)->mark | markinfo->mark;
 		break;
 
-        case XT_MARK_SET_RETURN:
-                mark = markinfo->mark;
-                skb->mark = mark;
-                return XT_RETURN;
+	case XT_MARK_SET_RETURN:
+		mark = markinfo->mark;
+		(*pskb)->mark = mark;
+		return XT_RETURN;
 
-        case XT_MARK_AND_RETURN:
-                mark = skb->mark & markinfo->mark;
-                skb->mark = mark;
-                return XT_RETURN;
+	case XT_MARK_AND_RETURN:
+		mark = (*pskb)->mark & markinfo->mark;
+		(*pskb)->mark = mark;
+		return XT_RETURN;
 
-        case XT_MARK_OR_RETURN:
-                mark = skb->mark | markinfo->mark;
-                skb->mark = mark;
-                return XT_RETURN;
-                break;
+	case XT_MARK_OR_RETURN:
+		mark = (*pskb)->mark | markinfo->mark;
+		(*pskb)->mark = mark;
+		return XT_RETURN;
+		break;
 	}
 
 	(*pskb)->mark = mark;
@@ -119,10 +108,10 @@ checkentry_v1(const char *tablename,
 
 	if (markinfo->mode != XT_MARK_SET
 	    && markinfo->mode != XT_MARK_AND
-        && markinfo->mode != XT_MARK_OR
-        && markinfo->mode != XT_MARK_SET_RETURN
-        && markinfo->mode != XT_MARK_AND_RETURN
-        && markinfo->mode != XT_MARK_OR_RETURN) {
+	    && markinfo->mode != XT_MARK_OR
+	    && markinfo->mode != XT_MARK_SET_RETURN
+	    && markinfo->mode != XT_MARK_AND_RETURN
+	    && markinfo->mode != XT_MARK_OR_RETURN) {
 		printk(KERN_WARNING "MARK: unknown mode %u\n",
 		       markinfo->mode);
 		return 0;
