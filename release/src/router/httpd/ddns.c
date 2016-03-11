@@ -20,11 +20,12 @@ void asp_ddnsx(int argc, char **argv)
 	char name[64];
 	time_t tt;
 	struct stat st;
+	char prefix[] = "wan";
 
 	web_printf(
 		"\nddnsx_ip = '%s';\n"
 		"ddnsx_msg = [",
-		get_wanip());
+		get_wanip(prefix));
 
 	for (i = 0; i < 2; ++i) {
 		web_puts(i ? "','" : "'");
@@ -61,5 +62,8 @@ void asp_ddnsx(int argc, char **argv)
 
 void asp_ddnsx_ip(int argc, char **argv)
 {
-	web_puts(get_wanip());
+	char prefix[] = "wan";
+	int unit = 1;
+	
+	web_puts(get_wanip(prefix));
 }

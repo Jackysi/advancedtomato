@@ -1,7 +1,7 @@
 Configuration File Reference for USB_ModeSwitch
 -----------------------------------------------
 
-Last modified: 2015-06-27
+Last modified: 2016-01-12
 
 
 
@@ -113,6 +113,11 @@ but different target layouts may be reached with variants of that
 message; use MessageContent for these
 
 
+* OptionMode <0/1>         -U
+
+The standard for all devices by Option. Sends a specific bulk message
+
+
 * SonyMode <0/1>           -O
 
 Some Sony-Ericsson devices can be switched by a special control
@@ -179,9 +184,8 @@ might have the same effect as a manual replug)
 
 * InquireDevice <0|1>      -I (enables inquiry)
 
-Prints out SCSI device attributes in addition to USB device attributes.
-These may be used later to tell apart ambiguous device IDs. Only needed
-for creating new configurations
+Formerly printed out SCSI device attributes. Obsolete and ignored since
+version 2.3.0.
 
 
 * CheckSuccess             -s <number>
@@ -214,3 +218,8 @@ Waiting time before taking any action. Helps with some sensitive setups.
 Disable the check for devices providing the MBIM standard; this check
 is otherwise done by default. See /etc/usb_modeswitch.conf from the
 program package for a global setting regarding this.
+The usb_modeswitch wrapper will test if a device has a configuration
+according to the MBIM standard. If so, it will search for the matching
+kernel driver. It it's available, the device will be configured for
+MBIM usage which is preferable to other modes and configurations
+

@@ -43,6 +43,12 @@
 #include <stdlib.h>
 #include <string.h>
 int
+evutil_secure_rng_set_urandom_device_file(char *fname)
+{
+	(void) fname;
+	return -1;
+}
+int
 evutil_secure_rng_init(void)
 {
 	/* call arc4random() now to force it to self-initialize */
@@ -60,7 +66,7 @@ ev_arc4random_buf(void *buf, size_t n)
 {
 #if defined(_EVENT_HAVE_ARC4RANDOM_BUF) && !defined(__APPLE__)
 	arc4random_buf(buf, n);
-	return;
+    return;
 #else
 	unsigned char *b = buf;
 
@@ -71,9 +77,13 @@ ev_arc4random_buf(void *buf, size_t n)
 	 * and fall back otherwise.  (OSX does this using some linker
 	 * trickery.)
 	 */
-	if (arc4random_buf != NULL) {
-		arc4random_buf(buf, n);
-		return;
+	{
+		void (*tptr)(void *,size_t) =
+		    (void (*)(void*,size_t))arc4random_buf;
+		if (tptr != NULL) {
+			arc4random_buf(buf, n);
+			return;
+		}
 	}
 #endif
 	/* Make sure that we start out with b at a 4-byte alignment; plenty
@@ -126,6 +136,17 @@ evutil_secure_rng_global_setup_locks_(const int enable_locks)
 #endif
 
 int
+evutil_secure_rng_set_urandom_device_file(char *fname)
+{
+#ifdef TRY_SEED_URANDOM
+	_ARC4_LOCK();
+	arc4random_urandom_filename = fname;
+	_ARC4_UNLOCK();
+#endif
+	return 0;
+}
+
+int
 evutil_secure_rng_init(void)
 {
 	int val;
@@ -155,12 +176,7 @@ evutil_secure_rng_get_bytes(void *buf, size_t n)
 void
 evutil_secure_rng_add_bytes(const char *buf, size_t n)
 {
-#ifdef HAVE_ARC4RANDOM_ADDRANDOM
 	arc4random_addrandom((unsigned char*)buf,
 	    n>(size_t)INT_MAX ? INT_MAX : (int)n);
-#else
-    (void) buf;
-    (void) n;
-#endif
 }
 

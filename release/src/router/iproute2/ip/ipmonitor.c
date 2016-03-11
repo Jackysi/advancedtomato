@@ -62,6 +62,10 @@ int accept_msg(const struct sockaddr_nl *who,
 		print_prefix(who, n, arg);
 		return 0;
 	}
+	if (n->nlmsg_type == RTM_NEWRULE || n->nlmsg_type == RTM_DELRULE) {
+		print_rule(who, n, arg);
+		return 0;
+	}
 	if (n->nlmsg_type == 15) {
 		char *tstr;
 		time_t secs = ((__u32*)NLMSG_DATA(n))[0];
@@ -128,22 +132,22 @@ int do_ipmonitor(int argc, char **argv)
 	}
 
 	if (llink)
-		groups |= RTMGRP_LINK;
+		groups |= nl_mgrp(RTNLGRP_LINK);
 	if (laddr) {
 		if (!preferred_family || preferred_family == AF_INET)
-			groups |= RTMGRP_IPV4_IFADDR;
+			groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
 		if (!preferred_family || preferred_family == AF_INET6)
-			groups |= RTMGRP_IPV6_IFADDR;
+			groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
 	}
 	if (lroute) {
 		if (!preferred_family || preferred_family == AF_INET)
-			groups |= RTMGRP_IPV4_ROUTE;
+			groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
 		if (!preferred_family || preferred_family == AF_INET6)
-			groups |= RTMGRP_IPV6_ROUTE;
+			groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
 	}
 	if (lprefix) {
 		if (!preferred_family || preferred_family == AF_INET6)
-			groups |= RTMGRP_IPV6_PREFIX;
+			groups |= nl_mgrp(RTNLGRP_IPV6_PREFIX);
 	}
 
 	if (file) {

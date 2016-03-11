@@ -60,7 +60,9 @@ static void usage(void)
 	if (do_link) {
 		iplink_usage();
 	}
-	fprintf(stderr, "Usage: ip addr {add|del} IFADDR dev STRING\n");
+	fprintf(stderr, "Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]\n");
+	fprintf(stderr, "                                                      [ CONFFLAG-LIST]\n");
+	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
 	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
 	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
 	fprintf(stderr, "IFADDR := PREFIX | ADDR peer PREFIX\n");
@@ -69,7 +71,12 @@ static void usage(void)
 	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
-	fprintf(stderr, "           tentative | deprecated ]\n");
+	fprintf(stderr, "           tentative | deprecated | CONFFLAG-LIST ]\n");
+	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
+	fprintf(stderr, "CONFFLAG  := [ home | nodad ]\n");
+	fprintf(stderr, "LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]\n");
+	fprintf(stderr, "LFT := forever | SECONDS\n");
+
 	exit(-1);
 }
 
@@ -97,6 +104,8 @@ void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
 	_PF(PORTSEL);
 	_PF(NOTRAILERS);
 	_PF(UP);
+	_PF(LOWER_UP);
+	_PF(DORMANT);
 #undef _PF
         if (flags)
 		fprintf(fp, "%x", flags);
@@ -116,7 +125,7 @@ void print_queuelen(char *name)
 
 	memset(&ifr, 0, sizeof(ifr));
 	strcpy(ifr.ifr_name, name);
-	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) { 
+	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
 		perror("SIOCGIFXQLEN");
 		close(s);
 		return;
@@ -127,7 +136,7 @@ void print_queuelen(char *name)
 		printf("qlen %d", ifr.ifr_qlen);
 }
 
-int print_linkinfo(const struct sockaddr_nl *who, 
+int print_linkinfo(const struct sockaddr_nl *who,
 		   struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
@@ -191,7 +200,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
 #endif
 	if (filter.showqueue)
 		print_queuelen((char*)RTA_DATA(tb[IFLA_IFNAME]));
-	
+
 	if (!filter.family || filter.family == AF_PACKET) {
 		SPRINT_BUF(b1);
 		fprintf(fp, "%s", _SL_);
@@ -276,7 +285,17 @@ static int flush_update(void)
 	return 0;
 }
 
-int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n, 
+static int set_lifetime(unsigned int *lifetime, char *argv)
+{
+	if (strcmp(argv, "forever") == 0)
+		*lifetime = INFINITY_LIFE_TIME;
+	else if (get_u32(lifetime, argv, 0))
+		return -1;
+
+	return 0;
+}
+
+int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		   void *arg)
 {
 	FILE *fp = (FILE*)arg;
@@ -413,6 +432,14 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		ifa->ifa_flags &= ~IFA_F_DEPRECATED;
 		fprintf(fp, "deprecated ");
 	}
+	if (ifa->ifa_flags&IFA_F_HOMEADDRESS) {
+		ifa->ifa_flags &= ~IFA_F_HOMEADDRESS;
+		fprintf(fp, "home ");
+	}
+	if (ifa->ifa_flags&IFA_F_NODAD) {
+		ifa->ifa_flags &= ~IFA_F_NODAD;
+		fprintf(fp, "nodad ");
+	}
 	if (!(ifa->ifa_flags&IFA_F_PERMANENT)) {
 		fprintf(fp, "dynamic ");
 	} else
@@ -425,14 +452,15 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		struct ifa_cacheinfo *ci = RTA_DATA(rta_tb[IFA_CACHEINFO]);
 		char buf[128];
 		fprintf(fp, "%s", _SL_);
-		if (ci->ifa_valid == 0xFFFFFFFFU)
+		if (ci->ifa_valid == INFINITY_LIFE_TIME)
 			sprintf(buf, "valid_lft forever");
 		else
-			sprintf(buf, "valid_lft %dsec", ci->ifa_valid);
-		if (ci->ifa_prefered == 0xFFFFFFFFU)
+			sprintf(buf, "valid_lft %usec", ci->ifa_valid);
+		if (ci->ifa_prefered == INFINITY_LIFE_TIME)
 			sprintf(buf+strlen(buf), " preferred_lft forever");
 		else
-			sprintf(buf+strlen(buf), " preferred_lft %dsec", ci->ifa_prefered);
+			sprintf(buf+strlen(buf), " preferred_lft %usec",
+				ci->ifa_prefered);
 		fprintf(fp, "       %s", buf);
 	}
 	fprintf(fp, "\n");
@@ -459,7 +487,7 @@ int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *fp)
 		if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifa)))
 			return -1;
 
-		if (ifa->ifa_index != ifindex || 
+		if (ifa->ifa_index != ifindex ||
 		    (filter.family && filter.family != ifa->ifa_family))
 			continue;
 
@@ -469,7 +497,7 @@ int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *fp)
 }
 
 
-static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, 
+static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		       void *arg)
 {
 	struct nlmsg_list **linfo = (struct nlmsg_list**)arg;
@@ -552,6 +580,12 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 		} else if (strcmp(*argv, "deprecated") == 0) {
 			filter.flags |= IFA_F_DEPRECATED;
 			filter.flagmask |= IFA_F_DEPRECATED;
+		} else if (strcmp(*argv, "home") == 0) {
+			filter.flags |= IFA_F_HOMEADDRESS;
+			filter.flagmask |= IFA_F_HOMEADDRESS;
+		} else if (strcmp(*argv, "nodad") == 0) {
+			filter.flags |= IFA_F_NODAD;
+			filter.flagmask |= IFA_F_NODAD;
 		} else if (strcmp(*argv, "label") == 0) {
 			NEXT_ARG();
 			filter.label = *argv;
@@ -652,7 +686,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 				struct nlmsghdr *n = &a->h;
 				struct ifaddrmsg *ifa = NLMSG_DATA(n);
 
-				if (ifa->ifa_index != ifi->ifi_index || 
+				if (ifa->ifa_index != ifi->ifi_index ||
 				    (filter.family && filter.family != ifa->ifa_family))
 					continue;
 				if ((filter.scope^ifa->ifa_scope)&filter.scopemask)
@@ -731,7 +765,7 @@ int default_scope(inet_prefix *lcl)
 	return 0;
 }
 
-int ipaddr_modify(int cmd, int argc, char **argv)
+int ipaddr_modify(int cmd, int flags, int argc, char **argv)
 {
 	struct {
 		struct nlmsghdr 	n;
@@ -741,6 +775,8 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 	char  *d = NULL;
 	char  *l = NULL;
 	char  *lcl_arg = NULL;
+	char  *valid_lftp = NULL;
+	char  *preferred_lftp = NULL;
 	inet_prefix lcl;
 	inet_prefix peer;
 	int local_len = 0;
@@ -748,11 +784,14 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 	int brd_len = 0;
 	int any_len = 0;
 	int scoped = 0;
+	__u32 preferred_lft = INFINITY_LIFE_TIME;
+	__u32 valid_lft = INFINITY_LIFE_TIME;
+	struct ifa_cacheinfo cinfo;
 
 	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_flags = NLM_F_REQUEST | flags;
 	req.n.nlmsg_type = cmd;
 	req.ifa.ifa_family = preferred_family;
 
@@ -810,6 +849,24 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 			NEXT_ARG();
 			l = *argv;
 			addattr_l(&req.n, sizeof(req), IFA_LABEL, l, strlen(l)+1);
+		} else if (matches(*argv, "valid_lft") == 0) {
+			if (valid_lftp)
+				duparg("valid_lft", *argv);
+			NEXT_ARG();
+			valid_lftp = *argv;
+			if (set_lifetime(&valid_lft, *argv))
+				invarg("valid_lft value", *argv);
+		} else if (matches(*argv, "preferred_lft") == 0) {
+			if (preferred_lftp)
+				duparg("preferred_lft", *argv);
+			NEXT_ARG();
+			preferred_lftp = *argv;
+			if (set_lifetime(&preferred_lft, *argv))
+				invarg("preferred_lft value", *argv);
+		} else if (strcmp(*argv, "home") == 0) {
+			req.ifa.ifa_flags |= IFA_F_HOMEADDRESS;
+		} else if (strcmp(*argv, "nodad") == 0) {
+			req.ifa.ifa_flags |= IFA_F_NODAD;
 		} else {
 			if (strcmp(*argv, "local") == 0) {
 				NEXT_ARG();
@@ -880,6 +937,23 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 		return -1;
 	}
 
+	if (valid_lftp || preferred_lftp) {
+		if (!valid_lft) {
+			fprintf(stderr, "valid_lft is zero\n");
+			return -1;
+		}
+		if (valid_lft < preferred_lft) {
+			fprintf(stderr, "preferred_lft is greater than valid_lft\n");
+			return -1;
+		}
+
+		memset(&cinfo, 0, sizeof(cinfo));
+		cinfo.ifa_prefered = preferred_lft;
+		cinfo.ifa_valid = valid_lft;
+		addattr_l(&req.n, sizeof(req), IFA_CACHEINFO, &cinfo,
+			  sizeof(cinfo));
+	}
+
 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
 		exit(2);
 
@@ -891,9 +965,14 @@ int do_ipaddr(int argc, char **argv)
 	if (argc < 1)
 		return ipaddr_list_or_flush(0, NULL, 0);
 	if (matches(*argv, "add") == 0)
-		return ipaddr_modify(RTM_NEWADDR, argc-1, argv+1);
+		return ipaddr_modify(RTM_NEWADDR, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
+	if (matches(*argv, "change") == 0 ||
+		strcmp(*argv, "chg") == 0)
+		return ipaddr_modify(RTM_NEWADDR, NLM_F_REPLACE, argc-1, argv+1);
+	if (matches(*argv, "replace") == 0)
+		return ipaddr_modify(RTM_NEWADDR, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
 	if (matches(*argv, "delete") == 0)
-		return ipaddr_modify(RTM_DELADDR, argc-1, argv+1);
+		return ipaddr_modify(RTM_DELADDR, 0, argc-1, argv+1);
 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
 	    || matches(*argv, "lst") == 0)
 		return ipaddr_list_or_flush(argc-1, argv+1, 0);

@@ -341,7 +341,7 @@ No part of this file may be used without permission.
 
 				if (b.length == 9) {
 					// fixup < 0.08    !!! temp
-					b.splice(7, 0, '', '', '');
+					b.splice(7, 0, '', '');
 				}
 				else if (b.length == 10) {
 					// fixup < 1.28.xx55

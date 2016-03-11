@@ -335,7 +335,7 @@ function loadPage( page, is_history ) {
 
 		$('h2.currentpage').text( jqXHR.status + ' ERROR');
 		$('.container .ajaxwrap').html('<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
-			<p>Unable to connect to the interface! <br>These issues usually occur when file is missing or router is unavailable to accept new connections.</p>\
+			<p>Connection to the router failed! <br>These issues usually occur when a file is missing or the router is unavailable to accept new connections.</p>\
 			<a href="/">Refreshing</a> browser window might help.</div></div>').addClass('ajax-animation');
 
 		// Loaded, clear state

@@ -29,7 +29,7 @@ static void usage(void);
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: tc class [ add | del | change | get ] dev STRING\n");
+	fprintf(stderr, "Usage: tc class [ add | del | change | replace | show ] dev STRING\n");
 	fprintf(stderr, "       [ classid CLASSID ] [ root | parent CLASSID ]\n");
 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
 	fprintf(stderr, "\n");
@@ -147,7 +147,7 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
 int filter_ifindex;
 __u32 filter_qdisc;
 
-static int print_class(const struct sockaddr_nl *who, 
+int print_class(const struct sockaddr_nl *who,
 		       struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
@@ -213,7 +213,7 @@ static int print_class(const struct sockaddr_nl *who,
 	fprintf(fp, "\n");
 	if (show_stats) {
 		struct rtattr *xstats = NULL;
-		
+
 		if (tb[TCA_STATS] || tb[TCA_STATS2]) {
 			print_tcstats_attr(fp, tb, " ", &xstats);
 			fprintf(fp, "\n");
@@ -315,8 +315,10 @@ int do_class(int argc, char **argv)
 	if (matches(*argv, "list") == 0 || matches(*argv, "show") == 0
 	    || matches(*argv, "lst") == 0)
 		return tc_class_list(argc-1, argv+1);
-	if (matches(*argv, "help") == 0)
+	if (matches(*argv, "help") == 0) {
 		usage();
+		return 0;
+	}
 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc class help\".\n", *argv);
 	return -1;
 }

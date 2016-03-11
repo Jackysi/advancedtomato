@@ -2,17 +2,17 @@
 
 /*
  * Copyright (C)2005 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -108,6 +108,91 @@ static int xfrm_acquire_print(const struct sockaddr_nl *who,
 	return 0;
 }
 
+static int xfrm_report_print(const struct sockaddr_nl *who,
+			     struct nlmsghdr *n, void *arg)
+{
+	FILE *fp = (FILE*)arg;
+	struct xfrm_user_report *xrep = NLMSG_DATA(n);
+	int len = n->nlmsg_len;
+	struct rtattr * tb[XFRMA_MAX+1];
+	__u16 family;
+
+	if (n->nlmsg_type != XFRM_MSG_REPORT) {
+		fprintf(stderr, "Not a report: %08x %08x %08x\n",
+			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+		return 0;
+	}
+
+	len -= NLMSG_LENGTH(sizeof(*xrep));
+	if (len < 0) {
+		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
+		return -1;
+	}
+
+	family = xrep->sel.family;
+	if (family == AF_UNSPEC)
+		family = preferred_family;
+
+	fprintf(fp, "report ");
+
+	fprintf(fp, "proto %s ", strxf_xfrmproto(xrep->proto));
+	fprintf(fp, "%s", _SL_);
+
+	xfrm_selector_print(&xrep->sel, family, fp, "  sel ");
+
+	parse_rtattr(tb, XFRMA_MAX, XFRMREP_RTA(xrep), len);
+
+	xfrm_xfrma_print(tb, family, fp, "  ");
+
+	if (oneline)
+		fprintf(fp, "\n");
+
+	return 0;
+}
+
+void xfrm_ae_flags_print(__u32 flags, void *arg)
+{
+	FILE *fp = (FILE*)arg;
+	fprintf(fp, " (0x%x) ", flags);
+	if (!flags)
+		return;
+	if (flags & XFRM_AE_CR)
+		fprintf(fp, " replay update ");
+	if (flags & XFRM_AE_CE)
+		fprintf(fp, " timer expired ");
+	if (flags & XFRM_AE_CU)
+		fprintf(fp, " policy updated ");
+
+}
+
+static int xfrm_ae_print(const struct sockaddr_nl *who,
+			     struct nlmsghdr *n, void *arg)
+{
+	FILE *fp = (FILE*)arg;
+	struct xfrm_aevent_id *id = NLMSG_DATA(n);
+	char abuf[256];
+
+	fprintf(fp, "Async event ");
+	xfrm_ae_flags_print(id->flags, arg);
+	fprintf(fp,"\n\t");
+	memset(abuf, '\0', sizeof(abuf));
+	fprintf(fp, "src %s ", rt_addr_n2a(id->sa_id.family,
+		sizeof(id->saddr), &id->saddr,
+		abuf, sizeof(abuf)));
+	memset(abuf, '\0', sizeof(abuf));
+	fprintf(fp, "dst %s ", rt_addr_n2a(id->sa_id.family,
+		sizeof(id->sa_id.daddr), &id->sa_id.daddr,
+		abuf, sizeof(abuf)));
+	fprintf(fp, " reqid 0x%x", id->reqid);
+	fprintf(fp, " protocol %s ", strxf_proto(id->sa_id.proto));
+	fprintf(fp, " SPI 0x%x", ntohl(id->sa_id.spi));
+
+	fprintf(fp, "\n");
+	fflush(fp);
+
+	return 0;
+}
+
 static int xfrm_accept_msg(const struct sockaddr_nl *who,
 			   struct nlmsghdr *n, void *arg)
 {
@@ -144,6 +229,14 @@ static int xfrm_accept_msg(const struct sockaddr_nl *who,
 		fprintf(fp, "Flushed policy\n");
 		return 0;
 	}
+	if (n->nlmsg_type == XFRM_MSG_REPORT) {
+		xfrm_report_print(who, n, arg);
+		return 0;
+	}
+	if (n->nlmsg_type == XFRM_MSG_NEWAE) {
+		xfrm_ae_print(who, n, arg);
+		return 0;
+	}
 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
 	    n->nlmsg_type != NLMSG_DONE) {
 		fprintf(fp, "Unknown message: %08d 0x%08x 0x%08x\n",
@@ -152,15 +245,20 @@ static int xfrm_accept_msg(const struct sockaddr_nl *who,
 	return 0;
 }
 
+extern struct rtnl_handle rth;
+
 int do_xfrm_monitor(int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	char *file = NULL;
 	unsigned groups = ~((unsigned)0); /* XXX */
 	int lacquire=0;
 	int lexpire=0;
+	int laevent=0;
 	int lpolicy=0;
 	int lsa=0;
+	int lreport=0;
+
+	rtnl_close(&rth);
 
 	while (argc > 0) {
 		if (matches(*argv, "file") == 0) {
@@ -175,8 +273,14 @@ int do_xfrm_monitor(int argc, char **argv)
 		} else if (matches(*argv, "SA") == 0) {
 			lsa=1;
 			groups = 0;
+		} else if (matches(*argv, "aevent") == 0) {
+			laevent=1;
+			groups = 0;
 		} else if (matches(*argv, "policy") == 0) {
 			lpolicy=1;
+			groups = 0;
+		} else if (matches(*argv, "report") == 0) {
+			lreport=1;
 			groups = 0;
 		} else if (matches(*argv, "help") == 0) {
 			usage();
@@ -188,13 +292,17 @@ int do_xfrm_monitor(int argc, char **argv)
 	}
 
 	if (lacquire)
-		groups |= XFRMGRP_ACQUIRE;
+		groups |= nl_mgrp(XFRMNLGRP_ACQUIRE);
 	if (lexpire)
-		groups |= XFRMGRP_EXPIRE;
+		groups |= nl_mgrp(XFRMNLGRP_EXPIRE);
 	if (lsa)
-		groups |= XFRMGRP_SA;
+		groups |= nl_mgrp(XFRMNLGRP_SA);
 	if (lpolicy)
-		groups |= XFRMGRP_POLICY;
+		groups |= nl_mgrp(XFRMNLGRP_POLICY);
+	if (laevent)
+		groups |= nl_mgrp(XFRMNLGRP_AEVENTS);
+	if (lreport)
+		groups |= nl_mgrp(XFRMNLGRP_REPORT);
 
 	if (file) {
 		FILE *fp;

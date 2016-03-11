@@ -153,7 +153,7 @@ static u_int16_t checksum(void *addr, int count)
 	return ~sum;
 }
 
-static int listen_interface(char *interface, int wan_proto)
+static int listen_interface(char *interface, int wan_proto, char *prefix)
 {
 	int ifindex = 0;
 	fd_set rfds;
@@ -166,6 +166,7 @@ static int listen_interface(char *interface, int wan_proto)
 	int bytes;
 	u_int16_t check;
 	struct in_addr ipaddr, netmask;
+	char tmp[100];
 
 
 	if (read_interface(interface, &ifindex, mac) < 0) {
@@ -183,7 +184,7 @@ static int listen_interface(char *interface, int wan_proto)
 			ret = L_UPGRADE;
 			break;
 		}
-		if (check_wanup()) {
+		if (check_wanup(prefix)) {
 			ret = L_ESTABLISHED;
 			break;
 		}
@@ -278,7 +279,7 @@ static int listen_interface(char *interface, int wan_proto)
 
 		switch (wan_proto) {
 		case WP_PPTP:
-			inet_aton(nvram_safe_get("pptp_server_ip"), &ipaddr);
+			inet_aton(nvram_safe_get(strcat_r(prefix, "_pptp_server_ip", tmp)), &ipaddr);
 			break;
 		case WP_L2TP:
 #ifdef TCONFIG_L2TP
@@ -286,12 +287,12 @@ static int listen_interface(char *interface, int wan_proto)
 #endif
 			break;
 		default:
-			inet_aton(nvram_safe_get("wan_ipaddr"), &ipaddr);
+			inet_aton(nvram_safe_get(strcat_r(prefix, "_ipaddr", tmp)), &ipaddr);
 			break;
 		}
-		inet_aton(nvram_safe_get("wan_netmask"), &netmask);
-		LOG("gateway=%08x", ipaddr.s_addr);
-		LOG("netmask=%08x", netmask.s_addr);
+		inet_aton(nvram_safe_get(strcat_r(prefix, "_netmask", tmp)), &netmask);
+		LOG(strcat_r(prefix, "_gateway=%08x", tmp), ipaddr.s_addr);
+		LOG(strcat_r(prefix, "netmask=%08x", tmp), netmask.s_addr);
 
 		if ((ipaddr.s_addr & netmask.s_addr) != (*(u_int32_t *)&(packet.daddr) & netmask.s_addr)) {
 			if (wan_proto == WP_L2TP) {
@@ -313,23 +314,26 @@ EXIT:
 int listen_main(int argc, char *argv[])
 {
 	char *interface;
+	char prefix[] = "wanXXXXXXXXXX_";
 
 	if (argc < 2) {
-		usage_exit(argv[0], "<interface>");
+		usage_exit(argv[0], "<interface> <wanN>");
 	}
 
 	interface = argv[1];
+	strcpy(prefix,argv[2]);
+
 	printf("Starting listen on %s\n", interface);
 
 	if (fork() != 0) return 0;
 
 	while (1) {
-		switch (listen_interface(interface, get_wan_proto())) {
+		switch (listen_interface(interface, get_wanx_proto(prefix), prefix)) {
 		case L_SUCCESS:
-			LOG("\n*** LAN to WAN packet received\n\n");
-			force_to_dial();
+			LOG("\n*** LAN to %s packet received\n\n", prefix);
+			force_to_dial(prefix);
 
-			if (check_wanup()) return 0;
+			if (check_wanup(prefix)) return 0;
 
 			// Connect fail, we want to re-connect session
 			sleep(3);

@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-
 void asp_dhcpc_time(int argc, char **argv)
 {
 	long exp;
@@ -19,10 +18,20 @@ void asp_dhcpc_time(int argc, char **argv)
 	long n;
 	int r;
 	char buf[32];
+	char prefix[] = "wanXX";
 
-	if (using_dhcpc()) {
+	if(argc > 0){
+		strcpy(prefix, argv[0]); } 
+	else{
+		strcpy(prefix, "wan"); }
+
+	char expires_file[256];
+	memset(expires_file, 0, 256);
+	sprintf(expires_file, "/var/lib/misc/dhcpc-%s.expires", prefix);
+	
+	if (using_dhcpc(prefix)) {
 		exp = 0;
-		r = f_read_string("/var/lib/misc/dhcpc.expires", buf, sizeof(buf));
+		r = f_read_string(expires_file, buf, sizeof(buf));
 		if (r > 0) {
 			n = atol(buf);
 			if (n > 0) {
@@ -41,10 +50,13 @@ void wo_dhcpc(char *url)
 	int pid;
 
 	if ((p = webcgi_get("exec")) != NULL) {
-		if (strcmp(p, "release") == 0)
+		if (strcmp(p, "release") == 0){
 			argv[0] = "dhcpc-release";
-		else if (strcmp(p, "renew") == 0)
+		}
+		else if (strcmp(p, "renew") == 0){
 			argv[0] = "dhcpc-renew";
+		}
+		argv[1] = webcgi_get("prefix");
 		_eval(argv, NULL, 0, &pid);
 	}
 	common_redirect();

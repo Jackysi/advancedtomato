@@ -1,5 +1,5 @@
 /*
- * m_ipt.c	iptables based targets 
+ * m_ipt.c	iptables based targets
  * 		utilities mostly ripped from iptables <duh, its the linux way>
  *
  *		This program is free software; you can distribute it and/or
@@ -7,11 +7,8 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- * Authors:  J Hadi Salim (hadi@cyberus.ca) 
- * 
- * TODO: bad bad hardcoding IPT_LIB_DIR and PROC_SYS_MODPROBE
- *
-*/
+ * Authors:  J Hadi Salim (hadi@cyberus.ca)
+ */
 
 #include <syslog.h>
 #include <sys/socket.h>
@@ -36,24 +33,9 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 
-const char *pname = "tc-ipt";
-const char *tname = "mangle";
-const char *pversion = "0.1";
-
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#ifndef IPT_LIB_DIR
-#define IPT_LIB_DIR "/usr/local/lib/iptables"
-#endif
-
-#ifndef PROC_SYS_MODPROBE
-#define PROC_SYS_MODPROBE "/proc/sys/kernel/modprobe"
-#endif
+static const char *pname = "tc-ipt";
+static const char *tname = "mangle";
+static const char *pversion = "0.1";
 
 static const char *ipthooks[] = {
 	"NF_IP_PRE_ROUTING",
@@ -73,6 +55,7 @@ static struct option *opts = original_opts;
 static unsigned int global_option_offset = 0;
 #define OPTION_OFFSET 256
 
+char *lib_dir;
 
 void
 register_target(struct iptables_target *me)
@@ -126,7 +109,7 @@ addr_to_dotted(const struct in_addr *addrp)
 	return buf;
 }
 
-int string_to_number_ll(const char *s, unsigned long long min, 
+int string_to_number_ll(const char *s, unsigned long long min,
 			unsigned long long max,
 		 unsigned long long *ret)
 {
@@ -170,10 +153,10 @@ int string_to_number(const char *s, unsigned int min, unsigned int max,
 	return result;
 }
 
-static void free_opts(struct option *local_opts)
+static void free_opts(struct option *opts)
 {
-	if (local_opts != original_opts) {
-		free(local_opts);
+	if (opts != original_opts) {
+		free(opts);
 		opts = original_opts;
 		global_option_offset = 0;
 	}
@@ -227,14 +210,13 @@ find_t(char *name)
 }
 
 static struct iptables_target *
-get_target_name(char *name)
+get_target_name(const char *name)
 {
 	void *handle;
 	char *error;
 	char *new_name, *lname;
 	struct iptables_target *m;
-
-	char path[sizeof (IPT_LIB_DIR) + sizeof ("/libipt_.so") + strlen(name)];
+	char path[strlen(lib_dir) + sizeof ("/libipt_.so") + strlen(name)];
 
 	new_name = malloc(strlen(name) + 1);
 	lname = malloc(strlen(name) + 1);
@@ -265,16 +247,14 @@ get_target_name(char *name)
 		}
 	}
 
-	sprintf(path, IPT_LIB_DIR "/libipt_%s.so", new_name);
+	sprintf(path,  "%s/libipt_%s.so",lib_dir, new_name);
 	handle = dlopen(path, RTLD_LAZY);
 	if (!handle) {
-		sprintf(path, IPT_LIB_DIR "/libipt_%s.so", lname);
+		sprintf(path, lib_dir, "/libipt_%s.so", lname);
 		handle = dlopen(path, RTLD_LAZY);
 		if (!handle) {
 			fputs(dlerror(), stderr);
 			printf("\n");
-			free(lname);
-			free(new_name);
 			return NULL;
 		}
 	}
@@ -290,16 +270,12 @@ get_target_name(char *name)
 					fputs(error, stderr);
 					fprintf(stderr, "\n");
 					dlclose(handle);
-					free(lname);
-					free(new_name);
 					return NULL;
 				}
 			}
 		}
 	}
 
-	free(lname);
-	free(new_name);
 	return m;
 }
 
@@ -347,7 +323,7 @@ static void set_revision(char *name, u_int8_t revision)
 	name[IPT_FUNCTION_MAXNAMELEN - 1] = revision;
 }
 
-/* 
+/*
  * we may need to check for version mismatch
 */
 int
@@ -378,7 +354,7 @@ build_st(struct iptables_target *target, struct ipt_entry_target *t)
 	return -1;
 }
 
-static int parse_ipt(struct action_util *a,int *argc_p, 
+static int parse_ipt(struct action_util *a,int *argc_p,
 		     char ***argv_p, int tca_id, struct nlmsghdr *n)
 {
 	struct iptables_target *m = NULL;
@@ -394,6 +370,10 @@ static int parse_ipt(struct action_util *a,int *argc_p,
 	int iok = 0, ok = 0;
 	__u32 hook = 0, index = 0;
 	res = 0;
+
+	lib_dir = getenv("IPTABLES_LIB_DIR");
+	if (!lib_dir)
+		lib_dir = IPT_LIB_DIR;
 
 	{
 		int i;
@@ -509,16 +489,9 @@ static int parse_ipt(struct action_util *a,int *argc_p,
 	argv += optind;
 	*argc_p = rargc - iargc;
 	*argv_p = argv;
-	
-	optind = 0;
-	free_opts(opts);
-	/* Clear flags if target will be used again */
-	m->tflags=0;
-	m->used=0;
-	/* Free allocated memory */
-	if (m->t)
-		free(m->t);
 
+	optind = 1;
+	free_opts(opts);
 
 	return 0;
 
@@ -532,6 +505,10 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
 
 	if (arg == NULL)
 		return -1;
+
+	lib_dir = getenv("IPTABLES_LIB_DIR");
+	if (!lib_dir)
+		lib_dir = IPT_LIB_DIR;
 
 	parse_rtattr_nested(tb, TCA_IPT_MAX, arg);
 
@@ -591,7 +568,7 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
 				struct tcf_t *tm = RTA_DATA(tb[TCA_IPT_TM]);
 				print_tm(f,tm);
 			}
-		} 
+		}
 		fprintf(f, " \n");
 
 	}

@@ -6,8 +6,8 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- * Authors:  J Hadi Salim (hadi@cyberus.ca) 
- * 
+ * Authors:  J Hadi Salim (hadi@cyberus.ca)
+ *
  * TODO:
  * - parse to be passed a filedescriptor for logging purposes
  *
@@ -37,13 +37,35 @@ int tab_flush = 0;
 
 void act_usage(void)
 {
-	fprintf (stderr, "action usage improper\n");
+	/*XXX: In the near future add a action->print_help to improve
+	 * usability
+	 * This would mean new tc will not be backward compatible
+	 * with any action .so from the old days. But if someone really
+	 * does that, they would know how to fix this ..
+	 *
+	*/
+	fprintf (stderr, "usage: tc actions <ACTSPECOP>*\n");
+	fprintf(stderr,
+		"Where: \tACTSPECOP := ACR | GD | FL\n"
+			"\tACR := add | change | replace <ACTSPEC>* \n"
+			"\tGD := get | delete | <ACTISPEC>*\n"
+			"\tFL := ls | list | flush | <ACTNAMESPEC>\n"
+			"\tACTNAMESPEC :=  action <ACTNAME>\n"
+			"\tACTISPEC := <ACTNAMESPEC> <INDEXSPEC>\n"
+			"\tACTSPEC := action <ACTDETAIL> [INDEXSPEC]\n"
+			"\tINDEXSPEC := index <32 bit indexvalue>\n"
+			"\tACTDETAIL := <ACTNAME> <ACTPARAMS>\n"
+			"\t\tExample ACTNAME is gact, mirred etc\n"
+			"\t\tEach action has its own parameters (ACTPARAMS)\n"
+			"\n");
+
+	exit(-1);
 }
 
 static int print_noaopt(struct action_util *au, FILE *f, struct rtattr *opt)
 {
 	if (opt && RTA_PAYLOAD(opt))
-		fprintf(f, "[Unknown action, optlen=%u] ", 
+		fprintf(f, "[Unknown action, optlen=%u] ",
 			(unsigned) RTA_PAYLOAD(opt));
 	return 0;
 }
@@ -117,7 +139,7 @@ noexist:
 }
 
 int
-new_cmd(char **argv) 
+new_cmd(char **argv)
 {
 	if ((matches(*argv, "change") == 0) ||
 		(matches(*argv, "replace") == 0)||
@@ -181,7 +203,7 @@ done0:
 					goto done;
 			}
 
-			if (NULL == a) { 
+			if (NULL == a) {
 				goto bad_val;
 			}
 
@@ -213,7 +235,7 @@ done:
 	*argv_p = argv;
 	return 0;
 bad_val:
-	/* no need to undo things, returning from here should 
+	/* no need to undo things, returning from here should
 	 * cause enough pain */
 	fprintf(stderr, "parse_action: bad value (%d:%s)!\n",argc,*argv);
 	return -1;
@@ -293,7 +315,7 @@ tc_print_action(FILE * f, const struct rtattr *arg)
 	return 0;
 }
 
-static int do_print_action(const struct sockaddr_nl *who,
+int print_action(const struct sockaddr_nl *who,
 			   struct nlmsghdr *n,
 			   void *arg)
 {
@@ -313,13 +335,13 @@ static int do_print_action(const struct sockaddr_nl *who,
 
 	if (NULL == tb[TCA_ACT_TAB]) {
 		if (n->nlmsg_type != RTM_GETACTION)
-			fprintf(stderr, "do_print_action: NULL kind\n");
+			fprintf(stderr, "print_action: NULL kind\n");
 		return -1;
-	}     
+	}
 
 	if (n->nlmsg_type == RTM_DELACTION) {
 		if (n->nlmsg_flags & NLM_F_ROOT) {
-			fprintf(fp, "Flushed table "); 
+			fprintf(fp, "Flushed table ");
 			tab_flush = 1;
 		} else {
 			fprintf(fp, "deleted action ");
@@ -381,7 +403,7 @@ int tc_action_gd(int cmd, unsigned flags, int *argc_p, char ***argv_p)
 
 		strncpy(k, *argv, sizeof (k) - 1);
 		a = get_action_kind(k);
-		if (NULL == a) { 
+		if (NULL == a) {
 			fprintf(stderr, "Error: non existent action: %s\n",k);
 			ret = -1;
 			goto bad_val;
@@ -434,7 +456,7 @@ int tc_action_gd(int cmd, unsigned flags, int *argc_p, char ***argv_p)
 		return 1;
 	}
 
-	if (ans && do_print_action(NULL, &req.n, (void*)stdout) < 0) {
+	if (ans && print_action(NULL, &req.n, (void*)stdout) < 0) {
 		fprintf(stderr, "Dump terminated\n");
 		return 1;
 	}
@@ -514,7 +536,7 @@ int tc_act_list_or_flush(int argc, char **argv, int event)
 	}
 #endif
 	a = get_action_kind(k);
-	if (NULL == a) { 
+	if (NULL == a) {
 		fprintf(stderr,"bad action %s\n",k);
 		goto bad_val;
 	}
@@ -531,15 +553,15 @@ int tc_act_list_or_flush(int argc, char **argv, int event)
 
 	msg_size = NLMSG_ALIGN(req.n.nlmsg_len) - NLMSG_ALIGN(sizeof(struct nlmsghdr));
 
-	if (event == RTM_GETACTION) { 
+	if (event == RTM_GETACTION) {
 		if (rtnl_dump_request(&rth, event, (void *)&req.t, msg_size) < 0) {
 			perror("Cannot send dump request");
 			return 1;
 		}
-		ret = rtnl_dump_filter(&rth, do_print_action, stdout, NULL, NULL);
+		ret = rtnl_dump_filter(&rth, print_action, stdout, NULL, NULL);
 	}
 
-	if (event == RTM_DELACTION) { 
+	if (event == RTM_DELACTION) {
 		req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len);
 		req.n.nlmsg_type = RTM_DELACTION;
 		req.n.nlmsg_flags |= NLM_F_ROOT;
@@ -598,7 +620,7 @@ int do_action(int argc, char **argv)
 		}
 
 		if (ret < 0) {
-			fprintf(stderr, "Command \"%s\" is unknown, try \"tc action help\".\n", *argv);
+			fprintf(stderr, "Command \"%s\" is unknown, try \"tc actions help\".\n", *argv);
 			return -1;
 		}
 	}

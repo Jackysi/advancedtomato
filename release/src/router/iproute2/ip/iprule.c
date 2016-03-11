@@ -24,9 +24,11 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <linux/fib_rules.h>
 
 #include "rt_names.h"
 #include "utils.h"
+#include "ip_common.h"
 
 extern struct rtnl_handle rth;
 
@@ -35,27 +37,28 @@ static void usage(void) __attribute__((noreturn));
 static void usage(void)
 {
 	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
-	fprintf(stderr, "SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK ]\n");
+	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
 	fprintf(stderr, "            [ dev STRING ] [ pref NUMBER ]\n");
 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
+	fprintf(stderr, "          [ goto NUMBER ]\n");
 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
 	exit(-1);
 }
 
-static int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
-		      void *arg)
+int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct rtmsg *r = NLMSG_DATA(n);
 	int len = n->nlmsg_len;
 	int host_len = -1;
+	__u32 table;
 	struct rtattr * tb[RTA_MAX+1];
 	char abuf[256];
 	SPRINT_BUF(b1);
 
-	if (n->nlmsg_type != RTM_NEWRULE)
+	if (n->nlmsg_type != RTM_NEWRULE && n->nlmsg_type != RTM_DELRULE)
 		return 0;
 
 	len -= NLMSG_LENGTH(sizeof(*r));
@@ -73,10 +76,16 @@ static int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
 	else if (r->rtm_family == AF_IPX)
 		host_len = 80;
 
+	if (n->nlmsg_type == RTM_DELRULE)
+		fprintf(fp, "Deleted ");
+
 	if (tb[RTA_PRIORITY])
 		fprintf(fp, "%u:\t", *(unsigned*)RTA_DATA(tb[RTA_PRIORITY]));
 	else
 		fprintf(fp, "0:\t");
+
+	if (r->rtm_flags & FIB_RULE_INVERT)
+		fprintf(fp, "not ");
 
 	if (tb[RTA_SRC]) {
 		if (r->rtm_src_len != host_len) {
@@ -121,16 +130,28 @@ static int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
 		SPRINT_BUF(b1);
 		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
 	}
-	if (tb[RTA_PROTOINFO]) {
-		fprintf(fp, "fwmark %#x ", *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]));
+	if (tb[RTA_PROTOINFO] || tb[RTA_FWMASK]) {
+		__u32 mark = 0, mask = 0;
+
+		if (tb[RTA_PROTOINFO])
+			mark = *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]);
+
+		if (tb[RTA_FWMASK] &&
+		    (mask = *(__u32*)RTA_DATA(tb[RTA_FWMASK])) != 0xFFFFFFFF)
+			fprintf(fp, "fwmark 0x%x/0x%x ", mark, mask);
+		else
+			fprintf(fp, "fwmark 0x%x ", mark);
 	}
 
 	if (tb[RTA_IIF]) {
 		fprintf(fp, "iif %s ", (char*)RTA_DATA(tb[RTA_IIF]));
+		if (r->rtm_flags & FIB_RULE_DEV_DETACHED)
+			fprintf(fp, "[detached] ");
 	}
 
-	if (r->rtm_table)
-		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(r->rtm_table, b1, sizeof(b1)));
+	table = rtm_get_table(r, tb);
+	if (table)
+		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
 
 	if (tb[RTA_FLOW]) {
 		__u32 to = *(__u32*)RTA_DATA(tb[RTA_FLOW]);
@@ -146,14 +167,24 @@ static int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
 
 	if (r->rtm_type == RTN_NAT) {
 		if (tb[RTA_GATEWAY]) {
-			fprintf(fp, "map-to %s ", 
+			fprintf(fp, "map-to %s ",
 				format_host(r->rtm_family,
 					    RTA_PAYLOAD(tb[RTA_GATEWAY]),
 					    RTA_DATA(tb[RTA_GATEWAY]),
 					    abuf, sizeof(abuf)));
 		} else
 			fprintf(fp, "masquerade");
-	} else if (r->rtm_type != RTN_UNICAST)
+	} else if (r->rtm_type == FR_ACT_GOTO) {
+		fprintf(fp, "goto ");
+		if (tb[FRA_GOTO])
+			fprintf(fp, "%u", *(__u32 *) RTA_DATA(tb[FRA_GOTO]));
+		else
+			fprintf(fp, "none");
+		if (r->rtm_flags & FIB_RULE_UNRESOLVED)
+			fprintf(fp, " [unresolved]");
+	} else if (r->rtm_type == FR_ACT_NOP)
+		fprintf(fp, "nop");
+	else if (r->rtm_type != RTN_UNICAST)
 		fprintf(fp, "%s", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
 
 	fprintf(fp, "\n");
@@ -206,6 +237,7 @@ static int iprule_modify(int cmd, int argc, char **argv)
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_table = 0;
 	req.r.rtm_type = RTN_UNSPEC;
+	req.r.rtm_flags = 0;
 
 	if (cmd == RTM_NEWRULE) {
 		req.n.nlmsg_flags |= NLM_F_CREATE|NLM_F_EXCL;
@@ -213,7 +245,9 @@ static int iprule_modify(int cmd, int argc, char **argv)
 	}
 
 	while (argc > 0) {
-		if (strcmp(*argv, "from") == 0) {
+		if (strcmp(*argv, "not") == 0) {
+			req.r.rtm_flags |= FIB_RULE_INVERT;
+		} else if (strcmp(*argv, "from") == 0) {
 			inet_prefix dst;
 			NEXT_ARG();
 			get_prefix(&dst, *argv, req.r.rtm_family);
@@ -240,11 +274,19 @@ static int iprule_modify(int cmd, int argc, char **argv)
 				invarg("TOS value is invalid\n", *argv);
 			req.r.rtm_tos = tos;
 		} else if (strcmp(*argv, "fwmark") == 0) {
-			__u32 fwmark;
+			char *slash;
+			__u32 fwmark, fwmask;
 			NEXT_ARG();
+			if ((slash = strchr(*argv, '/')) != NULL)
+				*slash = '\0';
 			if (get_u32(&fwmark, *argv, 0))
 				invarg("fwmark value is invalid\n", *argv);
 			addattr32(&req.n, sizeof(req), RTA_PROTOINFO, fwmark);
+			if (slash) {
+				if (get_u32(&fwmask, slash+1, 0))
+					invarg("fwmask value is invalid\n", slash+1);
+				addattr32(&req.n, sizeof(req), RTA_FWMASK, fwmask);
+			}
 		} else if (matches(*argv, "realms") == 0) {
 			__u32 realm;
 			NEXT_ARG();
@@ -257,7 +299,12 @@ static int iprule_modify(int cmd, int argc, char **argv)
 			NEXT_ARG();
 			if (rtnl_rttable_a2n(&tid, *argv))
 				invarg("invalid table ID\n", *argv);
-			req.r.rtm_table = tid;
+			if (tid < 256)
+				req.r.rtm_table = tid;
+			else {
+				req.r.rtm_table = RT_TABLE_UNSPEC;
+				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
+			}
 			table_ok = 1;
 		} else if (strcmp(*argv, "dev") == 0 ||
 			   strcmp(*argv, "iif") == 0) {
@@ -277,9 +324,19 @@ static int iprule_modify(int cmd, int argc, char **argv)
 			}
 			if (matches(*argv, "help") == 0)
 				usage();
-			if (rtnl_rtntype_a2n(&type, *argv))
+			else if (matches(*argv, "goto") == 0) {
+				__u32 target;
+				type = FR_ACT_GOTO;
+				NEXT_ARG();
+				if (get_u32(&target, *argv, 0))
+					invarg("invalid target\n", *argv);
+				addattr32(&req.n, sizeof(req), FRA_GOTO, target);
+			} else if (matches(*argv, "nop") == 0)
+				type = FR_ACT_NOP;
+			else if (rtnl_rtntype_a2n(&type, *argv))
 				invarg("Failed to parse rule type", *argv);
 			req.r.rtm_type = type;
+			table_ok = 1;
 		}
 		argc--;
 		argv++;

@@ -38,6 +38,12 @@ ports.
   * `-d`, `--daemonize`: detach from the current terminal and run the server
     in background.
 
+  * `-E`, `--ephemeral-keys`: By default, queries are always sent with the
+    same public key, allowing providers to link this public key to the
+    different IP addresses you are using. This option requires extra
+    CPU cycles, but mitigates this by computing an ephemeral key pair for
+    every query.
+
   * `-e`, `--edns-payload-size=<bytes>`: transparently add an OPT
     pseudo-RR to outgoing queries in order to enable the EDNS0
     extension mechanism. The payload size is the size of the largest
@@ -49,6 +55,9 @@ ports.
 
   * `-k`, `--provider-key=<key>`: specify the provider public key (see below).
 
+  * `-K`, `--client-key=<file>`: use a static client secret key stored in
+    `<file>`.
+
   * `-L`, `--resolvers-list=<file>`: path to the CSV file containing
     the list of available resolvers, and the parameters to use them.
 
@@ -56,8 +65,12 @@ ports.
     standard output.
 
   * `-m`, `--loglevel=<level>`: don't log events with priority above
-    this level after the service has been started up. Default is the value
-    for `LOG_INFO`.
+    this level after the service has been started up. Default is `6`,
+    the value for `LOG_INFO`. Valid values are `0` (system is unusable),
+    `1` (action must be taken immediately), `2` (critical conditions),
+    `3` (error conditions), `4` (warning conditions),
+    `5` (normal but significant condition), `6` (informational) and
+    `7` (debug-level messages).
 
   * `-n`, `--max-active-requests=<count>`: set the maximum number of
     simultaneous active requests. The default value is 250.

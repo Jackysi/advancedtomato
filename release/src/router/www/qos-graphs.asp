@@ -5,7 +5,8 @@ http://www.polarcloud.com/tomato/
 
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
---><title>View Graphs</title>
+-->
+<title>View Graphs</title>
 <content>
 	<style type="text/css">
 		.color {
@@ -38,8 +39,15 @@ No part of this file may be used without permission.
 
 	</style>
 	<script type="text/javascript">
-		// <% nvram("at_update,tomatoanon_answer,qos_classnames,web_svg,qos_enable,qos_obw,qos_ibw"); %>
+		//<% nvram("at_update,tomatoanon_answer,qos_classnames,web_svg,qos_enable,qos_obw,qos_ibw"); %>
 		//<% qrate(); %>
+
+		qrates_out = [0,0,0,0,0,0,0,0,0,0,0];
+		qrates_in = [0,0,0,0,0,0,0,0,0,0,0];
+		for(var i=0; i < 10; i++){
+			qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
+			qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+		}
 
 		var svgReady = 0;
 
@@ -149,27 +157,29 @@ No part of this file may be used without permission.
 
 		var ref = new TomatoRefresh('update.cgi', 'exec=qrate', 2, 'qos_graphs');
 
-		ref.refresh = function(text)
-		{
-			nfmarks = [];
-			qrates_out = [];
-			qrates_in = [];
+		ref.refresh = function( text ) {
 
-			try
-			{
-				eval(text);
+			nfmarks    = [];
+			qrates_out = [];
+			qrates_in  = [];
+
+			for ( var i = 0; i < 10; i++ ) {
+				qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ] + qrates3_out[ i ] + qrates4_out[ i ];
+				qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ] + qrates3_in[ i ] + qrates4_in[ i ];
 			}
-			catch (ex)
-			{
-				nfmarks = [];
+
+			try {
+				eval( text );
+			}
+			catch ( ex ) {
+				nfmarks    = [];
 				qrates_out = [];
-				qrates_in = [];
+				qrates_in  = [];
 			}
 
 			showData();
-			if (svgReady == 1)
-			{
-				updateConnectionDistribution(nfmarks, abc);
+			if ( svgReady == 1 ) {
+				updateConnectionDistribution( nfmarks, abc );
 				updateBandwidthOutgoing(qrates_out, abc);
 				updateBandwidthIncoming(qrates_in, abc);
 			}
@@ -302,7 +312,7 @@ No part of this file may be used without permission.
 				<div id="svg-1" class="embedGraph"></div>
 
 				<table id="secondTable">
-					<tr><td class="color" style="height:1em; margin-right: 5px;"></td><td class="title">&nbsp;</td><td class="thead count">kbit/s</td><td class="thead count">KB/s</td><td class="thead pct">Rate</td></tr>
+					<tr><td class="color" style="height:1em; margin-right: 5px;"></td><td class="title">&nbsp;</td><td class="thead count">kbit/s</td><td class="thead count">KB/s</td><td class="thead pct">&nbsp;</td></tr>
 					<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bocnt-total" class="total count"></td><td id="bocntx-total" class="total count"></td><td id="rateout" class="total pct"></td></tr>
 				</table>
 
@@ -325,7 +335,7 @@ No part of this file may be used without permission.
 				<div id="svg-2" class="embedGraph"></div>
 
 				<table id="thirdTable">
-					<tr><td class="color" style="height:1em; margin-right: 5px;"></td><td class="title">&nbsp;</td><td class="thead count">kbit/s</td><td class="thead count">KB/s</td><td class="thead pct">Rate</td></tr>
+					<tr><td class="color" style="height:1em; margin-right: 5px;"></td><td class="title">&nbsp;</td><td class="thead count">kbit/s</td><td class="thead count">KB/s</td><td class="thead pct">&nbsp;</td></tr>
 					<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bicnt-total" class="total count"></td><td id="bicntx-total" class="total count"></td><td id="ratein" class="total pct"></td></tr>
 				</table>
 

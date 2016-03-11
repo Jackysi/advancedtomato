@@ -9,17 +9,49 @@ http://code.google.com/p/tomato-sdhc-vlan/
 
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
---><title>View Details</title>
+-->
+<title>View Details</title>
 <content>
 	<style type="text/css">
-		#grid .co7 {
-			width: 20px;
+		#grid .co1 {
+			text-align: center;
+			width: 30px;
 		}
+
+		#grid .co2 {
+			width: 180px;
+			word-break: break-all;
+		}
+
+		#grid .co3 {
+			width: 55px;
+		}
+
+		#grid .co4 {
+			width: 180px;
+			word-break: break-all;
+		}
+
+		#grid .co5 {
+			width: 55px;
+		}
+
+		#grid .co6 {
+			width: 60px;
+		}
+
+		#grid .co7 {
+			width: 30px;
+		}
+
 		#grid .co8 {
 			text-align: right;
+			width: 75px;
 		}
+
 		#grid .co9 {
 			text-align: right;
+			width: 75px;
 		}
 	</style>
 	<script type="text/javascript" src="js/protocols.js"></script>

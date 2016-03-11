@@ -56,8 +56,13 @@ dnscrypt_client_curve(DNSCryptClient * const client,
                       uint8_t client_nonce[crypto_box_HALF_NONCEBYTES],
                       uint8_t *buf, size_t len, const size_t max_len)
 {
+    uint8_t  eph_publickey[crypto_box_PUBLICKEYBYTES];
+    uint8_t  eph_secretkey[crypto_box_SECRETKEYBYTES];
+    uint8_t  eph_nonce[crypto_stream_NONCEBYTES];
     uint8_t  nonce[crypto_box_NONCEBYTES];
+    uint8_t *publickey;
     uint8_t *boxed;
+    int      res;
 
 #if crypto_box_MACBYTES > 8U + crypto_box_NONCEBYTES
 # error Cannot curve in-place
@@ -76,13 +81,32 @@ dnscrypt_client_curve(DNSCryptClient * const client,
     memcpy(client_nonce, nonce, crypto_box_HALF_NONCEBYTES);
     memset(nonce + crypto_box_HALF_NONCEBYTES, 0, crypto_box_HALF_NONCEBYTES);
 
-    if (crypto_box_afternm
-        (boxed - crypto_box_BOXZEROBYTES, boxed - crypto_box_BOXZEROBYTES,
-         len + crypto_box_ZEROBYTES, nonce, client->nmkey) != 0) {
+    if (client->ephemeral_keys == 0) {
+        publickey = client->publickey;
+        res = crypto_box_afternm(boxed - crypto_box_BOXZEROBYTES,
+                                 boxed - crypto_box_BOXZEROBYTES,
+                                 len + crypto_box_ZEROBYTES, nonce,
+                                 client->nmkey);
+    } else {
+        COMPILER_ASSERT(crypto_box_HALF_NONCEBYTES < sizeof eph_nonce);
+        memcpy(eph_nonce, client_nonce, crypto_box_HALF_NONCEBYTES);
+        memcpy(eph_nonce + crypto_box_HALF_NONCEBYTES, client->nonce_pad,
+               crypto_box_HALF_NONCEBYTES);
+        crypto_stream(eph_secretkey, sizeof eph_secretkey,
+                      eph_nonce, client->secretkey);
+        crypto_scalarmult_base(eph_publickey, eph_secretkey);
+        publickey = eph_publickey;
+        res = crypto_box(boxed - crypto_box_BOXZEROBYTES,
+                         boxed - crypto_box_BOXZEROBYTES,
+                         len + crypto_box_ZEROBYTES, nonce,
+                         client->publickey, eph_secretkey);
+        sodium_memzero(eph_secretkey, sizeof eph_secretkey);
+    }
+    if (res != 0) {
         return (ssize_t) -1;
     }
     memcpy(buf, client->magic_query, sizeof client->magic_query);
-    memcpy(buf + sizeof client->magic_query, client->publickey,
+    memcpy(buf + sizeof client->magic_query, publickey,
            crypto_box_PUBLICKEYBYTES);
     memcpy(buf + sizeof client->magic_query + crypto_box_PUBLICKEYBYTES,
            nonce, crypto_box_HALF_NONCEBYTES);
@@ -103,8 +127,12 @@ dnscrypt_client_uncurve(const DNSCryptClient * const client,
                         const uint8_t client_nonce[crypto_box_HALF_NONCEBYTES],
                         uint8_t * const buf, size_t * const lenp)
 {
+    uint8_t eph_publickey[crypto_box_PUBLICKEYBYTES];
+    uint8_t eph_secretkey[crypto_box_SECRETKEYBYTES];
+    uint8_t eph_nonce[crypto_stream_NONCEBYTES];
     uint8_t nonce[crypto_box_NONCEBYTES];
     size_t  len = *lenp;
+    int     res;
 
     if (len <= dnscrypt_response_header_size() ||
         memcmp(buf, DNSCRYPT_MAGIC_RESPONSE,
@@ -118,14 +146,30 @@ dnscrypt_client_uncurve(const DNSCryptClient * const client,
            crypto_box_NONCEBYTES);
     memset(buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES, 0,
            crypto_box_BOXZEROBYTES);
-    if (crypto_box_open_afternm
-        (buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
-         buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
-         len - DNSCRYPT_SERVER_BOX_OFFSET + crypto_box_BOXZEROBYTES,
-         nonce, client->nmkey)) {
-        return -1;
+    if (client->ephemeral_keys == 0) {
+        res = crypto_box_open_afternm
+            (buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
+             buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
+             len - DNSCRYPT_SERVER_BOX_OFFSET + crypto_box_BOXZEROBYTES,
+             nonce, client->nmkey);
+    } else {
+        memcpy(eph_nonce, client_nonce, crypto_box_HALF_NONCEBYTES);
+        memcpy(eph_nonce + crypto_box_HALF_NONCEBYTES, client->nonce_pad,
+               crypto_box_HALF_NONCEBYTES);
+        crypto_stream(eph_secretkey, sizeof eph_secretkey,
+                      eph_nonce, client->secretkey);
+        crypto_scalarmult_base(eph_publickey, eph_secretkey);
+        res = crypto_box_open
+            (buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
+             buf + DNSCRYPT_SERVER_BOX_OFFSET - crypto_box_BOXZEROBYTES,
+             len - DNSCRYPT_SERVER_BOX_OFFSET + crypto_box_BOXZEROBYTES,
+             nonce, client->publickey, eph_secretkey);
+        sodium_memzero(eph_secretkey, sizeof eph_secretkey);
     }
     sodium_memzero(nonce, sizeof nonce);
+    if (res != 0) {
+        return -1;
+    }
     assert(len >= DNSCRYPT_SERVER_BOX_OFFSET + crypto_box_BOXZEROBYTES);
     while (len > 0U && buf[--len] == 0U) { }
     if (buf[len] != 0x80) {
@@ -148,39 +192,27 @@ dnscrypt_client_init_magic_query(DNSCryptClient * const client,
 }
 
 int
-dnscrypt_client_init_nmkey(DNSCryptClient * const client,
-                           const uint8_t server_publickey[crypto_box_PUBLICKEYBYTES])
+dnscrypt_client_init_resolver_publickey(DNSCryptClient * const client,
+                                        const uint8_t resolver_publickey[crypto_box_PUBLICKEYBYTES])
 {
 #if crypto_box_BEFORENMBYTES != crypto_box_PUBLICKEYBYTES
 # error crypto_box_BEFORENMBYTES != crypto_box_PUBLICKEYBYTES
 #endif
-#ifdef HAVE_SODIUM_MLOCK
-    sodium_mlock(client->nmkey, crypto_box_BEFORENMBYTES);
-#endif
-    memcpy(client->nmkey, server_publickey, crypto_box_PUBLICKEYBYTES);
-    crypto_box_beforenm(client->nmkey, client->nmkey, client->secretkey);
-
+    if (client->ephemeral_keys == 0) {
+        crypto_box_beforenm(client->nmkey, resolver_publickey,
+                            client->secretkey);
+    } else {
+        memcpy(client->publickey, resolver_publickey, sizeof client->publickey);
+    }
     return 0;
 }
 
 int
-dnscrypt_client_init_with_key_pair(DNSCryptClient * const client,
-                                   const uint8_t client_publickey[crypto_box_PUBLICKEYBYTES],
-                                   const uint8_t client_secretkey[crypto_box_SECRETKEYBYTES])
+dnscrypt_client_init_with_new_session_key(DNSCryptClient * const client)
 {
-    memcpy(client->publickey, client_publickey, crypto_box_PUBLICKEYBYTES);
-    memcpy(client->secretkey, client_secretkey, crypto_box_SECRETKEYBYTES);
-
-    return 0;
-}
-
-int
-dnscrypt_client_create_key_pair(DNSCryptClient * const client,
-                                uint8_t client_publickey[crypto_box_PUBLICKEYBYTES],
-                                uint8_t client_secretkey[crypto_box_SECRETKEYBYTES])
-{
-    (void) client;
-    crypto_box_keypair(client_publickey, client_secretkey);
+    assert(client->ephemeral_keys != 0);
+    randombytes_buf(client->nonce_pad, sizeof client->nonce_pad);
+    randombytes_buf(client->secretkey, sizeof client->secretkey);
     randombytes_stir();
 
     return 0;
@@ -189,20 +221,18 @@ dnscrypt_client_create_key_pair(DNSCryptClient * const client,
 int
 dnscrypt_client_init_with_new_key_pair(DNSCryptClient * const client)
 {
-    uint8_t client_publickey[crypto_box_PUBLICKEYBYTES];
-    uint8_t client_secretkey[crypto_box_SECRETKEYBYTES];
+    assert(client->ephemeral_keys == 0);
+    crypto_box_keypair(client->publickey, client->secretkey);
+    randombytes_stir();
 
-#ifdef HAVE_SODIUM_MLOCK
-    sodium_mlock(client_secretkey, crypto_box_SECRETKEYBYTES);
-#endif
-    dnscrypt_client_create_key_pair(client,
-                                    client_publickey, client_secretkey);
-    dnscrypt_client_init_with_key_pair(client,
-                                       client_publickey, client_secretkey);
-    sodium_memzero(client_secretkey, crypto_box_SECRETKEYBYTES);
-#ifdef HAVE_SODIUM_MLOCK
-    sodium_munlock(client_secretkey, crypto_box_SECRETKEYBYTES);
-#endif
+    return 0;
+}
 
+int
+dnscrypt_client_init_with_client_key(DNSCryptClient * const client)
+{
+    if (crypto_scalarmult_base(client->publickey, client->secretkey) != 0) {
+        return -1;
+    }
     return 0;
 }

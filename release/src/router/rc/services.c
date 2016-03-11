@@ -92,6 +92,9 @@ void start_dnsmasq()
 	int service;
 #endif
 
+	char wan_prefix[] = "wanXX";
+	int wan_unit,mwan_num;
+
 	TRACE_PT("begin\n");
 
 	if (getpid() != 1) {
@@ -109,12 +112,21 @@ void start_dnsmasq()
 
 	fprintf(f,
 		"pid-file=/var/run/dnsmasq.pid\n");
+	
+	fprintf(f,
+		"cache-size=4096\n");
+	
 	if (((nv = nvram_get("wan_domain")) != NULL) || ((nv = nvram_get("wan_get_domain")) != NULL)) {
 		if (*nv) fprintf(f, "domain=%s\n", nv);
 	}
 
+	mwan_num = nvram_get_int("mwan_num");
+	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
+		get_wan_prefix(wan_unit, wan_prefix);
+		if(check_wanup(wan_prefix) && get_dns(wan_prefix)->count) break;
+	}
 	// dns
-	const dns_list_t *dns = get_dns();	// this always points to a static buffer
+	const dns_list_t *dns = get_dns(wan_prefix);	// this always points to a static buffer
 
 	if (((nv = nvram_get("dns_minport")) != NULL) && (*nv)) n = atoi(nv);
 		else n = 4096;
@@ -292,12 +304,28 @@ void start_dnsmasq()
 		else if (((nv = nvram_get("lan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #endif
-		p = (char *)get_wanip();
+		p = (char *)get_wanip("wan");
 		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
 			p = "127.0.0.1";
-		fprintf(hf, "%s wan-ip\n", p);
-		if (nv && (*nv))
-			fprintf(hf, "%s %s-wan\n", p, nv);
+		fprintf(hf, "%s wan1-ip\n", p);
+
+		p = (char *)get_wanip("wan2");
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan2-ip\n", p);
+
+#ifdef TCONFIG_MULTIWAN
+		p = (char *)get_wanip("wan3");
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan3-ip\n", p);
+
+		p = (char *)get_wanip("wan4");
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan4-ip\n", p);
+#endif
+
 	}
 
 	mkdir_if_none(dmdhcp);
@@ -577,6 +605,17 @@ void dns_to_resolv(void)
 	const dns_list_t *dns;
 	int i;
 	mode_t m;
+	char wan_prefix[] = "wanXX";
+	int wan_unit,mwan_num;
+
+	mwan_num = nvram_get_int("mwan_num");
+	if(mwan_num < 1 || mwan_num > MWAN_MAX){
+		mwan_num = 1;
+	}
+	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
+		get_wan_prefix(wan_unit, wan_prefix);
+		if(check_wanup(wan_prefix) && get_dns(wan_prefix)->count) break;
+	}
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
@@ -586,7 +625,7 @@ void dns_to_resolv(void)
 			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns"), "\n", 0) == 0 || nvram_get_int("dns_addget"))
 				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"), "\n", 0);
 #endif
-			dns = get_dns();	// static buffer
+			dns = get_dns(wan_prefix);	// static buffer
 			if (dns->count == 0) {
 				// Put a pseudo DNS IP to trigger Connect On Demand
 				if (nvram_match("ppp_demand", "1")) {
@@ -669,10 +708,21 @@ void start_ipv6_tunnel(void)
 	struct in6_addr addr;
 	const char *wanip, *mtu, *tun_dev;
 	int service;
+	char wan_prefix[] = "wanXX";	
+	int wan_unit,mwan_num;
+	
+	mwan_num = nvram_get_int("mwan_num");
+	if(mwan_num < 1 || mwan_num > MWAN_MAX){
+		mwan_num = 1;
+	}
+	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
+		get_wan_prefix(wan_unit, wan_prefix);
+		if(check_wanup(wan_prefix)) break;
+	}
 
 	service = get_ipv6_service();
 	tun_dev = get_wan6face();
-	wanip = get_wanip();
+	wanip = get_wanip(wan_prefix);
 	mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
 	modprobe("sit");
 
@@ -733,9 +783,20 @@ void start_6rd_tunnel(void)
 	char tmp_ipv6[INET6_ADDRSTRLEN + 4], tmp_ipv4[INET_ADDRSTRLEN + 4];
 	char tmp[256];
 	FILE *f;
+	char wan_prefix[] = "wanXX";
+	int wan_unit,mwan_num;
+	
+	mwan_num = nvram_get_int("mwan_num");
+	if(mwan_num < 1 || mwan_num > MWAN_MAX){
+		mwan_num = 1;
+	}
+	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
+		get_wan_prefix(wan_unit, wan_prefix);
+		if(check_wanup(wan_prefix)) break;
+	}
 
 	service = get_ipv6_service();
-	wanip = get_wanip();
+	wanip = get_wanip(wan_prefix);
 	tun_dev = get_wan6face();
 	sprintf(mtu, "%d", (nvram_get_int("wan_mtu") > 0) ? (nvram_get_int("wan_mtu") - 20) : 1280);
 
@@ -905,7 +966,22 @@ void start_upnp(void)
 				upnp_port = nvram_get_int("upnp_port");
 				if ((upnp_port < 0) || (upnp_port >= 0xFFFF)) upnp_port = 0;
 
-				
+				if (check_wanup("wan2"))
+				{
+					fprintf(f,"ext_ifname=%s\n",get_wanface("wan2"));
+				}
+
+#ifdef TCONFIG_MULTIWAN
+				if (check_wanup("wan3"))
+				{
+					fprintf(f,"ext_ifname=%s\n",get_wanface("wan3"));
+				}
+				if (check_wanup("wan4"))
+				{
+					fprintf(f,"ext_ifname=%s\n",get_wanface("wan4"));
+				}
+#endif
+
 				fprintf(f,
 					"ext_ifname=%s\n"
 					"port=%d\n"
@@ -923,7 +999,7 @@ void start_upnp(void)
 					"manufacturer_url=http://linksysinfo.org/index.php?forums/tomato-firmware.33/\n"
 					"\n"
 					,
-					get_wanface(),
+					get_wanface("wan"),
 					upnp_port,
 					(enable & 1) ? "yes" : "no",						// upnp enable
 					(enable & 2) ? "yes" : "no",						// natpmp enable
@@ -1359,7 +1435,7 @@ void start_igmp_proxy(void)
 				"phyint %s upstream\n"
 				"\taltnet %s\n",
 //				"phyint %s downstream ratelimit 0\n",
-				get_wanface(),
+				get_wanface("wan"),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0");
 //				nvram_safe_get("lan_ifname"));
 
@@ -2390,11 +2466,31 @@ TOP:
 		else action = 0;
 	user = (modifier != NULL && *modifier == 'c');
 
-	if (strcmp(service, "dhcpc") == 0) {
-		if (action & A_STOP) stop_dhcpc();
-		if (action & A_START) start_dhcpc();
+	if (strcmp(service, "dhcpc-wan") == 0) {
+		if (action & A_STOP) stop_dhcpc("wan");
+		if (action & A_START) start_dhcpc("wan");
 		goto CLEAR;
 	}
+
+	if (strcmp(service, "dhcpc-wan2") == 0) {
+		if (action & A_STOP) stop_dhcpc("wan2");
+		if (action & A_START) start_dhcpc("wan2");
+		goto CLEAR;
+	}
+
+#ifdef TCONFIG_MULTIWAN
+	if (strcmp(service, "dhcpc-wan3") == 0) {
+		if (action & A_STOP) stop_dhcpc("wan3");
+		if (action & A_START) start_dhcpc("wan3");
+		goto CLEAR;
+	}
+	
+	if (strcmp(service, "dhcpc-wan4") == 0) {
+		if (action & A_STOP) stop_dhcpc("wan4");
+		if (action & A_START) start_dhcpc("wan4");
+		goto CLEAR;
+	}
+#endif
 
 	if ((strcmp(service, "dhcpd") == 0) || (strcmp(service, "dns") == 0) || (strcmp(service, "dnsmasq") == 0)) {
 		if (action & A_STOP) stop_dnsmasq();
@@ -2446,11 +2542,27 @@ TOP:
 
 	if (strcmp(service, "qos") == 0) {
 		if (action & A_STOP) {
-			stop_qos();
+			stop_qos("wan");
+			stop_qos("wan2");
+#ifdef TCONFIG_MULTIWAN
+			stop_qos("wan3");
+			stop_qos("wan4");
+#endif
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-			start_qos();
+			start_qos("wan");
+			if(check_wanup("wan2")){
+				start_qos("wan2");
+			}
+#ifdef TCONFIG_MULTIWAN
+			if(check_wanup("wan3")){
+				start_qos("wan3");
+			}
+			if(check_wanup("wan4")){
+				start_qos("wan4");
+			}
+#endif
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -2611,6 +2723,15 @@ TOP:
 			stop_syslog();
 			remove_storage_main(1);	// !!TB - USB Support
 			stop_usb();		// !!TB - USB Support
+#ifdef TCONFIG_BT
+			stop_bittorrent();
+#endif
+#ifdef TCONFIG_ARUI
+			stop_aria2();
+#endif
+#ifdef TCONFIG_ANON
+			stop_tomatoanon();
+#endif
 		}
 		goto CLEAR;
 	}
@@ -2688,18 +2809,80 @@ TOP:
 		}
 
 		if (action & A_START) {
-			rename("/tmp/ppp/log", "/tmp/ppp/log.~");
+			rename("/tmp/ppp/wan_log", "/tmp/ppp/wan_log.~");
 			start_wan(BOOT);
 			sleep(2);
-			force_to_dial();
+			force_to_dial("wan");
+			force_to_dial("wan2");
+#ifdef TCONFIG_MULTIWAN
+			force_to_dial("wan3");
+			force_to_dial("wan4");
+#endif
 		}
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "wan1") == 0) {
+		if (action & A_STOP) {
+			stop_wan_if("wan");
+		}
+
+		if (action & A_START) {
+			start_wan_if(BOOT, "wan");
+			sleep(2);
+			force_to_dial("wan");
+		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "wan2") == 0) {
+		if (action & A_STOP) {
+			stop_wan_if("wan2");
+		}
+
+		if (action & A_START) {
+			start_wan_if(BOOT, "wan2");
+			sleep(2);
+			force_to_dial("wan2");
+		}
+		goto CLEAR;
+	}
+
+#ifdef TCONFIG_MULTIWAN
+	if (strcmp(service, "wan3") == 0) {
+		if (action & A_STOP) {
+			stop_wan_if("wan3");
+		}
+
+		if (action & A_START) {
+			start_wan_if(BOOT, "wan3");
+			sleep(2);
+			force_to_dial("wan3");
+		}
+		goto CLEAR;
+	}
+	
+	if (strcmp(service, "wan4") == 0) {
+		if (action & A_STOP) {
+			stop_wan_if("wan4");
+		}
+
+		if (action & A_START) {
+			start_wan_if(BOOT, "wan4");
+			sleep(2);
+			force_to_dial("wan4");
+		}
+		goto CLEAR;
+	}
+#endif
+	
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
 #ifdef TCONFIG_USB
 			stop_nas_services();
+#endif
+#ifdef TCONFIG_PPPRELAY
+			stop_pppoerelay();
 #endif
 			stop_httpd();
 			stop_dnsmasq();
@@ -2962,6 +3145,7 @@ TOP:
  	if (strcmp(service, "pptpclient") == 0) {
  		if (action & A_STOP) stop_pptp_client();
  		if (action & A_START) start_pptp_client();
+		/* ???
 		if (action & (A_START | A_STOP))
 		{
 			stop_dnsmasq();
@@ -2970,6 +3154,7 @@ TOP:
 			if ((action & A_START) == 0)
 				clear_pptp_route();
 		}
+		??? */
  		goto CLEAR;
  	}
 #endif

@@ -1,0 +1,4 @@
+Config
+*.o
+*.a
+*.so

@@ -27,6 +27,9 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <net/if.h>
+#include <arpa/inet.h>
+#include <sys/sysinfo.h>
+#include <time.h>
 
 #include <bcmnvram.h>
 #include <utils.h>
@@ -54,8 +57,15 @@
 #define REDIAL		1
 #define CONNECTING	2
 
-#define PPPOE0		0
-#define PPPOE1		1
+#define PPPOEWAN	0
+#define PPPOEWAN2	1
+#ifdef TCONFIG_MULTIWAN
+#define PPPOEWAN3	2
+#define PPPOEWAN4	3
+#define MWAN_MAX	4
+#else
+#define MWAN_MAX	2
+#endif
 
 #define GOT_IP			0x01
 #define RELEASE_IP		0x02
@@ -129,27 +139,40 @@ extern int ip6down_main(int argc, char **argv);
 extern void restore_defaults(void);
 
 // redial.c
-extern int start_redial(void);
-extern int stop_redial(void);
+extern int start_redial(char *prefix);
+extern int stop_redial(char *prefix);
 extern int redial_main(int argc, char **argv);
 
 // wan.c
-extern void start_pptp(int mode);
-extern void stop_pptp(void);
-extern void start_pppoe(int);
-extern void stop_pppoe(void);
-extern void start_l2tp(void);
-extern void stop_l2tp(void);
+extern void start_pptp(int mode,char *prefix);
+extern void stop_pptp(char *prefix);
+extern void start_pppoe(int ,char *prefix);
+extern void stop_pppoe(char *prefix);
+extern void start_l2tp(char *prefix);
+extern void stop_l2tp(char *prefix);
+extern void start_wan_if(int mode, char *prefix);
 extern void start_wan(int mode);
-extern void start_wan_done(char *ifname);
-extern char *wan_gateway(void);
+extern void start_wan_done(char *ifname,char *prefix);
+extern void start_wanall_done(void);
+extern char *wan_gateway(char *prefix);
 #ifdef TCONFIG_IPV6
 extern void start_wan6_done(const char *wan_ifname);
 #endif
-extern void stop_wan(void);
-extern void force_to_dial(void);
-extern void do_wan_routes(char *ifname, int metric, int add);
-extern void preset_wan(char *ifname, char *gw, char *netmask);
+extern void stop_wan_if(char *prefix);
+extern void stop_wan();
+extern void force_to_dial(char *prefix);
+extern void do_wan_routes(char *ifname, int metric, int add, char *prefix);
+extern void preset_wan(char *ifname, char *gw, char *netmask, char *prefix);
+// mwan.c
+extern void get_wan_prefix(int iWan_unit, char *sPrefix);
+extern void get_wan_info(char *sPrefix);
+extern int get_wan_unit(char *sPrefix);
+extern void mwan_table_add(char *sPrefix);
+extern void mwan_table_del(char *sPrefix);
+extern void mwan_load_balance(void);
+extern int mwan_route_main(int argc, char **argv);
+// pbr.c
+extern void ipt_routerpolicy(void);
 
 // network.c
 extern void set_host_domain_name(void);
@@ -177,8 +200,8 @@ extern void accept_ra(const char *ifname);
 extern int dhcpc_event_main(int argc, char **argv);
 extern int dhcpc_release_main(int argc, char **argv);
 extern int dhcpc_renew_main(int argc, char **argv);
-extern void start_dhcpc(void);
-extern void stop_dhcpc(void);
+extern void start_dhcpc(char *prefix);
+extern void stop_dhcpc(char *prefix);
 #ifdef TCONFIG_IPV6
 extern int dhcp6c_state_main(int argc, char **argv);
 extern void start_dhcp6c(void);
@@ -261,6 +284,11 @@ extern void notify_nas(const char *ifname);
 
 // firewall.c
 extern wanface_list_t wanfaces;
+extern wanface_list_t wan2faces;
+#ifdef TCONFIG_MULTIWAN
+extern wanface_list_t wan3faces;
+extern wanface_list_t wan4faces;
+#endif
 extern char lanface[];
 #ifdef TCONFIG_IPV6
 extern char wan6face[];
@@ -318,8 +346,8 @@ extern void sched_restrictions(void);
 
 // qos.c
 extern void ipt_qos(void);
-extern void start_qos(void);
-extern void stop_qos(void);
+extern void start_qos(char *prefix);
+extern void stop_qos(char *prefix);
 
 // cifs.c
 #ifdef TCONFIG_CIFS
@@ -372,6 +400,7 @@ extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
+extern int kill_pidfile_s(char *pidfile, int sig);
 extern int mkdir_if_none(const char *path);
 extern long fappend(FILE *out, const char *fname);
 extern long fappend_file(const char *path, const char *fname);
@@ -413,10 +442,13 @@ extern void stop_sched(void);
 
 #ifdef TCONFIG_PPTPD
 // pptp_client.c
+#define PPTP_CLIENT_TABLE_ID 5
 extern void start_pptp_client(void);
 extern void stop_pptp_client(void);
 extern int write_pptpvpn_resolv(FILE*);
 extern void clear_pptp_route(void);
+extern int pptpc_ipup_main(int argc, char **argv);
+extern int pptpc_ipdown_main(int argc, char **argv);
 #else
 #define write_pptpvpn_resolv(f) (0)
 #endif

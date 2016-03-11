@@ -113,6 +113,7 @@ long uptime;
 volatile int gothup = 0;
 volatile int gotuser = 0;
 volatile int gotterm = 0;
+volatile int restarted = 1;
 
 const char history_fn[] = "/var/lib/misc/rstats-history";
 const char speed_fn[] = "/var/lib/misc/rstats-speed";
@@ -643,6 +644,12 @@ static void calc(void)
 		}
 		else {
 			sp->sync = -1;
+			// reset previous counters on first calc() to prevent wrong rollover
+			if (restarted > 0) {
+				for (i = 0; i < MAX_COUNTER; ++i) {
+					sp->last[i] = counter[i];
+				}
+			}
 
 			tick = uptime - sp->utime;
 			n = tick / INTERVAL;
@@ -658,11 +665,11 @@ static void calc(void)
 				c = counter[i];
 				sc = sp->last[i];
 				if (c < sc) {
-					diff = (0xFFFFFFFF - sc) + c;
-					if (diff > MAX_ROLLOVER) diff = 0;
+					diff = (0xFFFFFFFF - sc + 1) + c;
+					//if (diff > MAX_ROLLOVER) diff = 0;
 				}
 				else {
-					 diff = c - sc;
+					diff = c - sc;
 				}
 				sp->last[i] = c;
 				counter[i] = diff;
@@ -723,6 +730,9 @@ static void calc(void)
 		save(0);
 		save_utime = uptime + get_stime();
 		_dprintf("%s: uptime = %dm, save_utime = %dm\n", __FUNCTION__, uptime / 60, save_utime / 60);
+	}
+	if (restarted > 0) {
+		restarted = 0;
 	}
 }
 

@@ -23,7 +23,7 @@ struct filter_util
 {
 	struct filter_util *next;
 	char	id[16];
-	int	(*parse_fopt)(struct filter_util *qu, char *fhandle, int argc, 
+	int	(*parse_fopt)(struct filter_util *qu, char *fhandle, int argc,
 			      char **argv, struct nlmsghdr *n);
 	int	(*print_fopt)(struct filter_util *qu, FILE *f, struct rtattr *opt, __u32 fhandle);
 };
@@ -32,11 +32,13 @@ struct action_util
 {
 	struct  action_util *next;
 	char    id[16];
-	int     (*parse_aopt)(struct action_util *a, int *argc, char ***argv, 
+	int     (*parse_aopt)(struct action_util *a, int *argc, char ***argv,
 			      int code, struct nlmsghdr *n);
 	int     (*print_aopt)(struct action_util *au, FILE *f, struct rtattr *opt);
 	int     (*print_xstats)(struct action_util *au, FILE *f, struct rtattr *xstats);
 };
+
+extern const char *get_tc_lib(void);
 
 extern struct qdisc_util *get_qdisc_kind(const char *str);
 extern struct filter_util *get_filter_kind(const char *str);
@@ -46,17 +48,18 @@ extern int get_rate(unsigned *rate, const char *str);
 extern int get_percent(unsigned *percent, const char *str);
 extern int get_size(unsigned *size, const char *str);
 extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
-extern int get_usecs(unsigned *usecs, const char *str);
+extern int get_time(unsigned *time, const char *str);
 extern void print_rate(char *buf, int len, __u32 rate);
 extern void print_size(char *buf, int len, __u32 size);
 extern void print_percent(char *buf, int len, __u32 percent);
 extern void print_qdisc_handle(char *buf, int len, __u32 h);
-extern void print_usecs(char *buf, int len, __u32 usecs);
+extern void print_time(char *buf, int len, __u32 time);
 extern char * sprint_rate(__u32 rate, char *buf);
 extern char * sprint_size(__u32 size, char *buf);
 extern char * sprint_qdisc_handle(__u32 h, char *buf);
 extern char * sprint_tc_classid(__u32 h, char *buf);
-extern char * sprint_usecs(__u32 usecs, char *buf);
+extern char * sprint_time(__u32 time, char *buf);
+extern char * sprint_ticks(__u32 ticks, char *buf);
 extern char * sprint_percent(__u32 percent, char *buf);
 
 extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
@@ -72,9 +75,9 @@ extern int parse_police(int *, char ***, int, struct nlmsghdr *);
 extern char *action_n2a(int action, char *buf, int len);
 extern int  action_a2n(char *arg, int *result);
 extern int  act_parse_police(struct action_util *a,int *, char ***, int, struct nlmsghdr *);
-extern int  print_police(struct action_util *a, FILE *f, 
+extern int  print_police(struct action_util *a, FILE *f,
 			 struct rtattr *tb);
-extern int  police_print_xstats(struct action_util *a,FILE *f, 
+extern int  police_print_xstats(struct action_util *a,FILE *f,
 				struct rtattr *tb);
 extern int  tc_print_action(FILE *f, const struct rtattr *tb);
 extern int  tc_print_ipt(FILE *f, const struct rtattr *tb);
