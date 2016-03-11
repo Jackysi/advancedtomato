@@ -381,7 +381,7 @@ const defaults_t defaults[] = {
 
 // basic-ident
 	{ "router_name",		"TomatoUSB"		},
-	{ "wan_hostname",		"unknown"		},
+	{ "wan_hostname",		"Tomato"		},
 	{ "wan_domain",			""				},
 
 // basic-time
