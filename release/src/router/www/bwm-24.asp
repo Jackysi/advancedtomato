@@ -9,10 +9,11 @@ No part of this file may be used without permission.
 --><title>Bandwidth: Last 24 Hours</title>
 <content>
 	<script type="text/javascript" src="js/wireless.jsx?_http_id=<% nv(http_id); %>"></script>
+	<script type="text/javascript" src="js/bwm-hist.js"></script>
 	<script type="text/javascript" src="js/bwm-common.js"></script>
 	<script type="text/javascript">
 
-		//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_enable,rstats_colors"); %>
+		//<% nvram("wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,lan_ifname,wl_ifname,wan_proto,wan2_proto,wan3_proto,wan4_proto,web_svg,rstats_enable,rstats_colors"); %>
 
 		var cprefix = 'bw_24';
 		var updateInt = 120;
@@ -22,6 +23,7 @@ No part of this file may be used without permission.
 		var hours = 24;
 		var lastHours = 0;
 		var debugTime = 0;
+		var rstats_busy = 0;
 
 		function showHours()
 		{

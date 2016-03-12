@@ -2,17 +2,17 @@
 
 /*
  * Copyright (C)2004 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -32,7 +32,6 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <netdb.h>
-#include <net/if.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/xfrm.h>
@@ -59,7 +58,7 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: ip xfrm XFRM_OBJECT { COMMAND | help }\n"
 		"where  XFRM_OBJECT := { state | policy | monitor }\n");
 	exit(-1);
@@ -94,6 +93,19 @@ int xfrm_addr_match(xfrm_address_t *x1, xfrm_address_t *x2, int bits)
 	return 0;
 }
 
+int xfrm_xfrmproto_is_ipsec(__u8 proto)
+{
+	return (proto ==  IPPROTO_ESP ||
+		proto ==  IPPROTO_AH  ||
+		proto ==  IPPROTO_COMP);
+}
+
+int xfrm_xfrmproto_is_ro(__u8 proto)
+{
+	return (proto ==  IPPROTO_ROUTING ||
+		proto ==  IPPROTO_DSTOPTS);
+}
+
 struct typeent {
 	const char *t_name;
 	int t_type;
@@ -101,6 +113,7 @@ struct typeent {
 
 static const struct typeent xfrmproto_types[]= {
 	{ "esp", IPPROTO_ESP }, { "ah", IPPROTO_AH }, { "comp", IPPROTO_COMP },
+	{ "route2", IPPROTO_ROUTING }, { "hao", IPPROTO_DSTOPTS },
 	{ NULL, -1 }
 };
 
@@ -276,11 +289,20 @@ void xfrm_id_info_print(xfrm_address_t *saddr, struct xfrm_id *id,
 
 	fprintf(fp, "mode ");
 	switch (mode) {
-	case 0:
+	case XFRM_MODE_TRANSPORT:
 		fprintf(fp, "transport");
 		break;
-	case 1:
+	case XFRM_MODE_TUNNEL:
 		fprintf(fp, "tunnel");
+		break;
+	case XFRM_MODE_ROUTEOPTIMIZATION:
+		fprintf(fp, "ro");
+		break;
+	case XFRM_MODE_IN_TRIGGER:
+		fprintf(fp, "in_trigger");
+		break;
+	case XFRM_MODE_BEET:
+		fprintf(fp, "beet");
 		break;
 	default:
 		fprintf(fp, "%u", mode);
@@ -326,7 +348,7 @@ static const char *strxf_time(__u64 time)
 		time_t t;
 		struct tm *tp;
 
-		/* XXX: treat time in the same manner of kernel's 
+		/* XXX: treat time in the same manner of kernel's
 		 * net/xfrm/xfrm_{user,state}.c
 		 */
 		t = (long)time;
@@ -460,15 +482,18 @@ void xfrm_selector_print(struct xfrm_selector *sel, __u16 family,
 		if (sel->dport_mask)
 			fprintf(fp, "code %u ", ntohs(sel->dport));
 		break;
+	case IPPROTO_MH:
+		if (sel->sport_mask)
+			fprintf(fp, "type %u ", ntohs(sel->sport));
+		if (sel->dport_mask) {
+			if (show_stats > 0)
+				fprintf(fp, "(dport) 0x%.4x ", sel->dport);
+		}
+		break;
 	}
 
-	if (sel->ifindex > 0) {
-		char buf[IFNAMSIZ];
-
-		memset(buf, '\0', sizeof(buf));
-		if_indextoname(sel->ifindex, buf);
-		fprintf(fp, "dev %s ", buf);
-	}
+	if (sel->ifindex > 0)
+		fprintf(fp, "dev %s ", ll_index_to_name(sel->ifindex));
 
 	if (show_stats > 0)
 		fprintf(fp, "uid %u", sel->user);
@@ -640,6 +665,48 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
 		xfrm_tmpl_print((struct xfrm_user_tmpl *) RTA_DATA(rta),
 				RTA_PAYLOAD(rta), family, fp, prefix);
 	}
+
+	if (tb[XFRMA_COADDR]) {
+		char abuf[256];
+		xfrm_address_t *coa;
+
+		if (prefix)
+			fprintf(fp, prefix);
+		fprintf(fp, "coa ");
+
+		coa = (xfrm_address_t *)RTA_DATA(tb[XFRMA_COADDR]);
+
+		if (RTA_PAYLOAD(tb[XFRMA_COADDR]) < sizeof(*coa)) {
+			fprintf(fp, "(ERROR truncated)");
+			fprintf(fp, "%s", _SL_);
+			return;
+		}
+
+		memset(abuf, '\0', sizeof(abuf));
+		fprintf(fp, "%s",
+			rt_addr_n2a(family, sizeof(*coa), coa,
+				    abuf, sizeof(abuf)));
+		fprintf(fp, "%s", _SL_);
+	}
+
+	if (tb[XFRMA_LASTUSED]) {
+		__u64 lastused;
+
+		if (prefix)
+			fprintf(fp, prefix);
+		fprintf(fp, "lastused ");
+
+		if (RTA_PAYLOAD(tb[XFRMA_LASTUSED]) < sizeof(lastused)) {
+			fprintf(fp, "(ERROR truncated)");
+			fprintf(fp, "%s", _SL_);
+			return;
+		}
+
+		lastused = *(__u64 *)RTA_DATA(tb[XFRMA_LASTUSED]);
+
+		fprintf(fp, "%s", strxf_time(lastused));
+		fprintf(fp, "%s", _SL_);
+	}
 }
 
 static int xfrm_selector_iszero(struct xfrm_selector *s)
@@ -656,12 +723,13 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
 			    const char *title)
 {
 	char buf[STRBUF_SIZE];
+	int force_spi = xfrm_xfrmproto_is_ipsec(xsinfo->id.proto);
 
 	memset(buf, '\0', sizeof(buf));
 
 	xfrm_id_info_print(&xsinfo->saddr, &xsinfo->id, xsinfo->mode,
-			   xsinfo->reqid, xsinfo->family, 1, fp, prefix,
-			   title);
+			   xsinfo->reqid, xsinfo->family, force_spi, fp,
+			   prefix, title);
 
 	if (prefix)
 		STRBUF_CAT(buf, prefix);
@@ -677,6 +745,7 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
 		fprintf(fp, "flag ");
 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_NOECN, "noecn");
 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_DECAP_DSCP, "decap-dscp");
+		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_WILDRECV, "wildrecv");
 		if (flags)
 			fprintf(fp, "%x", flags);
 		if (show_stats > 0)
@@ -706,6 +775,7 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
 			    const char *title)
 {
 	char buf[STRBUF_SIZE];
+	__u8 ptype = XFRM_POLICY_TYPE_MAIN;
 
 	memset(buf, '\0', sizeof(buf));
 
@@ -749,6 +819,32 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
 	if (show_stats)
 		fprintf(fp, "index %u ", xpinfo->index);
 	fprintf(fp, "priority %u ", xpinfo->priority);
+
+	fprintf(fp, "ptype ");
+
+	if (tb[XFRMA_POLICY_TYPE]) {
+		struct xfrm_userpolicy_type *upt;
+
+		if (RTA_PAYLOAD(tb[XFRMA_POLICY_TYPE]) < sizeof(*upt))
+			fprintf(fp, "(ERROR truncated)");
+
+		upt = (struct xfrm_userpolicy_type *)RTA_DATA(tb[XFRMA_POLICY_TYPE]);
+		ptype = upt->type;
+	}
+
+	switch (ptype) {
+	case XFRM_POLICY_TYPE_MAIN:
+		fprintf(fp, "main");
+		break;
+	case XFRM_POLICY_TYPE_SUB:
+		fprintf(fp, "sub");
+		break;
+	default:
+		fprintf(fp, "%u", ptype);
+		break;
+	}
+	fprintf(fp, " ");
+
 	if (show_stats > 0) {
 		fprintf(fp, "share %s ", strxf_share(xpinfo->share));
 		fprintf(fp, "flag 0x%s", strxf_mask8(xpinfo->flags));
@@ -854,9 +950,15 @@ int xfrm_mode_parse(__u8 *mode, int *argcp, char ***argvp)
 	char **argv = *argvp;
 
 	if (matches(*argv, "transport") == 0)
-		*mode = 0;
+		*mode = XFRM_MODE_TRANSPORT;
 	else if (matches(*argv, "tunnel") == 0)
-		*mode = 1;
+		*mode = XFRM_MODE_TUNNEL;
+	else if (matches(*argv, "ro") == 0)
+		*mode = XFRM_MODE_ROUTEOPTIMIZATION;
+	else if (matches(*argv, "in_trigger") == 0)
+		*mode = XFRM_MODE_IN_TRIGGER;
+	else if (matches(*argv, "beet") == 0)
+		*mode = XFRM_MODE_BEET;
 	else
 		invarg("\"MODE\" is invalid", *argv);
 
@@ -1011,6 +1113,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 		switch (sel->proto) {
 		case IPPROTO_ICMP:
 		case IPPROTO_ICMPV6:
+		case IPPROTO_MH:
 			break;
 		default:
 			fprintf(stderr, "\"type\" and \"code\" are invalid with proto=%s\n", strxf_proto(sel->proto));
@@ -1070,7 +1173,7 @@ int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp)
 			if (strcmp(*argv, "none") == 0)
 				ifindex = 0;
 			else {
-				ifindex = if_nametoindex(*argv);
+				ifindex = ll_name_to_index(*argv);
 				if (ifindex <= 0)
 					invarg("\"DEV\" is invalid", *argv);
 			}

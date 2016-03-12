@@ -12,7 +12,9 @@ typedef struct DNSCryptClient_ {
     uint8_t  publickey[crypto_box_PUBLICKEYBYTES];
     uint8_t  secretkey[crypto_box_SECRETKEYBYTES];
     uint8_t  nmkey[crypto_box_BEFORENMBYTES];
+    uint8_t  nonce_pad[crypto_box_HALF_NONCEBYTES];
     uint64_t nonce_ts_last;
+    _Bool    ephemeral_keys;
 } DNSCryptClient;
 
 ssize_t dnscrypt_client_curve(DNSCryptClient * const client,
@@ -31,14 +33,15 @@ int dnscrypt_client_create_key_pair(DNSCryptClient * const client,
                                     uint8_t client_publickey[crypto_box_PUBLICKEYBYTES],
                                     uint8_t client_secretkey[crypto_box_SECRETKEYBYTES]);
 
+int dnscrypt_client_init_with_new_session_key(DNSCryptClient * const client);
+
 int dnscrypt_client_init_with_new_key_pair(DNSCryptClient * const client);
+
+int dnscrypt_client_init_with_client_key(DNSCryptClient * const client);
 
 int dnscrypt_client_init_magic_query(DNSCryptClient * const client,
                                      const uint8_t magic_query[DNSCRYPT_MAGIC_QUERY_LEN]);
 
-int dnscrypt_client_init_nmkey(DNSCryptClient * const client,
-                               const uint8_t server_publickey[crypto_box_PUBLICKEYBYTES]);
-
-int dnscrypt_client_wipe_secretkey(DNSCryptClient * const client);
-
+int dnscrypt_client_init_resolver_publickey(DNSCryptClient * const client,
+                                            const uint8_t resolver_publickey[crypto_box_PUBLICKEYBYTES]);
 #endif

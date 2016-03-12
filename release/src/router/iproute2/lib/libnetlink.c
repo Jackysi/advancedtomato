@@ -27,7 +27,10 @@
 
 void rtnl_close(struct rtnl_handle *rth)
 {
-	close(rth->fd);
+	if (rth->fd >= 0) {
+		close(rth->fd);
+		rth->fd = -1;
+	}
 }
 
 int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
@@ -37,7 +40,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 	int sndbuf = 32768;
 	int rcvbuf = 32768;
 
-	memset(rth, 0, sizeof(rth));
+	memset(rth, 0, sizeof(*rth));
 
 	rth->fd = socket(AF_NETLINK, SOCK_RAW, protocol);
 	if (rth->fd < 0) {

@@ -201,13 +201,13 @@ function systemUI () {
 			stats = {};
 			try { eval(data); } catch (ex) { stats = {}; }
 
-			stats.wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ((stats.wanstatus == 'Connected') ? '<span style="color: green;">' + stats.wanstatus + '</span>' : stats.wanstatus) + '</a>';
-			$('.system-ui .datasystem').html('<div class="router-name">' + stats.routermodel + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
-				'<div class="inner-container row">' +
-				'<div class="col-sm-2">CPU:</div><div class="col-sm-10">' + stats.cpuload + '</div>'+
-				'<div class="col-sm-2">RAM:</div><div class="col-sm-10">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
-				((nvram.swap != null) ? '<div class="col-sm-2">SWAP:</div><div class="col-sm-10">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>':'') +
-				'<div class="col-sm-2">WAN:</div><div class="col-sm-10">' + stats.wanstatus + ' (' + stats.wanuptime + ')</div></div>').removeClass('align center');
+			stats.wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ( ( stats.wanstatus[0] == 'Connected' ) ? '<span style="color: green;">' + stats.wanstatus[0] + '</span>' : stats.wanstatus[0] ) + '</a>';
+			$( '.system-ui .datasystem' ).html( '<div class="router-name">' + nvram.t_model_name + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
+	            '<div class="inner-container row">' +
+	            '<div class="col-sm-2">CPU:</div><div class="col-sm-10">' + stats.cpuload + '</div>' +
+	            '<div class="col-sm-2">RAM:</div><div class="col-sm-10">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
+	            ((nvram.swap != null) ? '<div class="col-sm-2">SWAP:</div><div class="col-sm-10">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>' : '') +
+	            '<div class="col-sm-2">WAN:</div><div class="col-sm-10">' + stats.wanstatus + ' (' + stats.wanuptime + ')</div></div>' ).removeClass( 'align center' );
 		}
 
 	}).fail( function() { clearInterval(window.refTimer); });
@@ -335,7 +335,7 @@ function loadPage( page, is_history ) {
 
 		$('h2.currentpage').text( jqXHR.status + ' ERROR');
 		$('.container .ajaxwrap').html('<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
-			<p>Unable to connect to the interface! <br>These issues usually occur when file is missing or router is unavailable to accept new connections.</p>\
+			<p>Connection to the router failed! <br>These issues usually occur when a file is missing or the router is unavailable to accept new connections.</p>\
 			<a href="/">Refreshing</a> browser window might help.</div></div>').addClass('ajax-animation');
 
 		// Loaded, clear state

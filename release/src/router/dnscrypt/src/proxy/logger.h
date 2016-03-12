@@ -9,15 +9,12 @@
 #ifndef MAX_LOG_LINE
 # define MAX_LOG_LINE 1024U
 #endif
-#ifndef LOG_WRITE_TIMEOUT
-# define LOG_WRITE_TIMEOUT -1
-#endif
 
 #ifndef LOGGER_DELAY_BETWEEN_IDENTICAL_LOG_ENTRIES
-# define LOGGER_DELAY_BETWEEN_IDENTICAL_LOG_ENTRIES     1
+# define LOGGER_DELAY_BETWEEN_IDENTICAL_LOG_ENTRIES     60
 #endif
 #ifndef LOGGER_ALLOWED_BURST_FOR_IDENTICAL_LOG_ENTRIES
-# define LOGGER_ALLOWED_BURST_FOR_IDENTICAL_LOG_ENTRIES 10U
+# define LOGGER_ALLOWED_BURST_FOR_IDENTICAL_LOG_ENTRIES 5U
 #endif
 
 #ifdef DEBUG
@@ -50,6 +47,9 @@ int logger_noformat(struct ProxyContext_ * const context,
 
 int logger_error(struct ProxyContext_ * const context,
                  const char * const msg);
+
+void systemd_notify(struct ProxyContext_ * const context,
+                    const char * const msg);
 
 int logger_close(struct ProxyContext_ * const context);
 

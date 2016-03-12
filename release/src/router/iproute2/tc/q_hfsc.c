@@ -226,7 +226,7 @@ hfsc_print_sc(FILE *f, char *name, struct tc_service_curve *sc)
 
 	fprintf(f, "%s ", name);
 	fprintf(f, "m1 %s ", sprint_rate(sc->m1, b1));
-	fprintf(f, "d %s ", sprint_usecs(sc->d, b1));
+	fprintf(f, "d %s ", sprint_time(tc_core_ktime2time(sc->d), b1));
 	fprintf(f, "m2 %s ", sprint_rate(sc->m2, b1));
 }
 
@@ -260,7 +260,7 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 			usc = RTA_DATA(tb[TCA_HFSC_USC]);
 	}
 
-	
+
 	if (rsc != NULL && fsc != NULL &&
 	    memcmp(rsc, fsc, sizeof(*rsc)) == 0)
 		hfsc_print_sc(f, "sc", rsc);
@@ -275,7 +275,7 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 
 	return 0;
 }
- 
+
 struct qdisc_util hfsc_qdisc_util = {
 	.id		= "hfsc",
 	.parse_qopt	= hfsc_parse_opt,
@@ -303,7 +303,7 @@ hfsc_get_sc1(int *argcp, char ***argvp, struct tc_service_curve *sc)
 
 	if (matches(*argv, "d") == 0) {
 		NEXT_ARG();
-		if (get_usecs(&d, *argv) < 0) {
+		if (get_time(&d, *argv) < 0) {
 			explain1("d");
 			return -1;
 		}
@@ -320,7 +320,7 @@ hfsc_get_sc1(int *argcp, char ***argvp, struct tc_service_curve *sc)
 		return -1;
 
 	sc->m1 = m1;
-	sc->d  = d;
+	sc->d  = tc_core_time2ktime(d);
 	sc->m2 = m2;
 
 	*argvp = argv;
@@ -346,7 +346,7 @@ hfsc_get_sc2(int *argcp, char ***argvp, struct tc_service_curve *sc)
 
 	if (matches(*argv, "dmax") == 0) {
 		NEXT_ARG();
-		if (get_usecs(&dmax, *argv) < 0) {
+		if (get_time(&dmax, *argv) < 0) {
 			explain1("dmax");
 			return -1;
 		}
@@ -367,13 +367,13 @@ hfsc_get_sc2(int *argcp, char ***argvp, struct tc_service_curve *sc)
 		return -1;
 	}
 
-	if (dmax != 0 && ceil(umax * 1000000.0 / dmax) > rate) {
+	if (dmax != 0 && ceil(1.0 * umax * TIME_UNITS_PER_SEC / dmax) > rate) {
 		/*
 		 * concave curve, slope of first segment is umax/dmax,
 		 * intersection is at dmax
 		 */
-		sc->m1 = ceil(umax * 1000000.0 / dmax); /* in bps */
-		sc->d  = dmax;
+		sc->m1 = ceil(1.0 * umax * TIME_UNITS_PER_SEC / dmax); /* in bps */
+		sc->d  = tc_core_time2ktime(dmax);
 		sc->m2 = rate;
 	} else {
 		/*
@@ -381,7 +381,7 @@ hfsc_get_sc2(int *argcp, char ***argvp, struct tc_service_curve *sc)
 		 * is at dmax - umax / rate
 		 */
 		sc->m1 = 0;
-		sc->d  = ceil(dmax - umax * 1000000.0 / rate); /* in usec */
+		sc->d  = tc_core_time2ktime(ceil(dmax - umax * TIME_UNITS_PER_SEC / rate));
 		sc->m2 = rate;
 	}
 

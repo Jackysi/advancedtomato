@@ -20,6 +20,9 @@ ifeq ($(CONFIG_LINUX26),y)
 endif
 endif
 
+#MultiWAN watchdog script
+	install -m 0700 watchdog $(INSTALLDIR)/usr/sbin
+
 ifeq ($(TCONFIG_DNSCRYPT),y)
 	install -m 0700 ntp2ip $(INSTALLDIR)/usr/sbin
 endif

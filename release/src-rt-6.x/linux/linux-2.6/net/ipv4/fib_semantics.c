@@ -55,6 +55,7 @@ static struct hlist_head *fib_info_hash;
 static struct hlist_head *fib_info_laddrhash;
 static unsigned int fib_hash_size;
 static unsigned int fib_info_cnt;
+rwlock_t fib_nhflags_lock = RW_LOCK_UNLOCKED;
 
 #define DEVINDEX_HASHBITS 8
 #define DEVINDEX_HASHSIZE (1U << DEVINDEX_HASHBITS)
@@ -536,8 +537,11 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
 				return -EINVAL;
 			if ((dev = __dev_get_by_index(nh->nh_oif)) == NULL)
 				return -ENODEV;
-			if (!(dev->flags&IFF_UP))
-				return -ENETDOWN;
+			if (!(dev->flags&IFF_UP)) {
+				if (fi->fib_protocol != RTPROT_STATIC)
+					return -ENETDOWN;
+				nh->nh_flags |= RTNH_F_DEAD;
+			}
 			nh->nh_dev = dev;
 			dev_hold(dev);
 			nh->nh_scope = RT_SCOPE_LINK;
@@ -557,24 +561,48 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
 			/* It is not necessary, but requires a bit of thinking */
 			if (fl.fl4_scope < RT_SCOPE_LINK)
 				fl.fl4_scope = RT_SCOPE_LINK;
-			if ((err = fib_lookup(&fl, &res)) != 0)
-				return err;
+			err = fib_lookup(&fl, &res);
 		}
-		err = -EINVAL;
-		if (res.type != RTN_UNICAST && res.type != RTN_LOCAL)
-			goto out;
-		nh->nh_scope = res.scope;
-		nh->nh_oif = FIB_RES_OIF(res);
-		if ((nh->nh_dev = FIB_RES_DEV(res)) == NULL)
-			goto out;
-		dev_hold(nh->nh_dev);
-		err = -ENETDOWN;
-		if (!(nh->nh_dev->flags & IFF_UP))
-			goto out;
-		err = 0;
+		if (err) {
+			struct in_device *in_dev;
+
+			if (err != -ENETUNREACH ||
+			    fi->fib_protocol != RTPROT_STATIC)
+				return err;
+
+			in_dev = inetdev_by_index(nh->nh_oif);
+			if (in_dev == NULL ||
+			    in_dev->dev->flags & IFF_UP) {
+				if (in_dev)
+					in_dev_put(in_dev);
+				return err;
+			}
+			nh->nh_flags |= RTNH_F_DEAD;
+			nh->nh_scope = RT_SCOPE_LINK;
+			nh->nh_dev = in_dev->dev;
+			dev_hold(nh->nh_dev);
+			in_dev_put(in_dev);
+		} else {
+			err = -EINVAL;
+			if (res.type != RTN_UNICAST && res.type != RTN_LOCAL)
+				goto out;
+			nh->nh_scope = res.scope;
+			nh->nh_oif = FIB_RES_OIF(res);
+			if ((nh->nh_dev = FIB_RES_DEV(res)) == NULL)
+				goto out;
+			dev_hold(nh->nh_dev);
+			if (!(nh->nh_dev->flags & IFF_UP)) {
+				if (fi->fib_protocol != RTPROT_STATIC) {
+					err = -ENETDOWN;
+					goto out;
+				}
+				nh->nh_flags |= RTNH_F_DEAD;
+			}
+			err = 0;
 out:
-		fib_res_put(&res);
-		return err;
+			fib_res_put(&res);
+			return err;
+		}
 	} else {
 		struct in_device *in_dev;
 
@@ -585,8 +613,11 @@ out:
 		if (in_dev == NULL)
 			return -ENODEV;
 		if (!(in_dev->dev->flags&IFF_UP)) {
-			in_dev_put(in_dev);
-			return -ENETDOWN;
+			if (fi->fib_protocol != RTPROT_STATIC) {
+				in_dev_put(in_dev);
+				return -ENETDOWN;
+			}
+			nh->nh_flags |= RTNH_F_DEAD;
 		}
 		nh->nh_dev = in_dev->dev;
 		dev_hold(nh->nh_dev);
@@ -1081,18 +1112,27 @@ int fib_sync_down(__be32 local, struct net_device *dev, int force)
 			prev_fi = fi;
 			dead = 0;
 			change_nexthops(fi) {
-				if (nh->nh_flags&RTNH_F_DEAD)
-					dead++;
-				else if (nh->nh_dev == dev &&
-					 nh->nh_scope != scope) {
-					nh->nh_flags |= RTNH_F_DEAD;
+				if (nh->nh_flags&RTNH_F_DEAD) {
+					if (fi->fib_protocol!=RTPROT_STATIC ||
+					    nh->nh_dev == NULL ||
+					    __in_dev_get_rtnl(nh->nh_dev) == NULL ||
+					    nh->nh_dev->flags&IFF_UP)
+						dead++;
+				} else if (nh->nh_dev == dev &&
+					   nh->nh_scope != scope) {
+					write_lock_bh(&fib_nhflags_lock);
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
-					spin_lock_bh(&fib_multipath_lock);
+					spin_lock(&fib_multipath_lock);
+					nh->nh_flags |= RTNH_F_DEAD;
 					fi->fib_power -= nh->nh_power;
 					nh->nh_power = 0;
-					spin_unlock_bh(&fib_multipath_lock);
+					spin_unlock(&fib_multipath_lock);
 #endif
-					dead++;
+					write_unlock_bh(&fib_nhflags_lock);
+					if (fi->fib_protocol!=RTPROT_STATIC ||
+					    force ||
+					    __in_dev_get_rtnl(dev) == NULL)
+						dead++;
 				}
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
 				if (force > 1 && nh->nh_dev == dev) {
@@ -1111,11 +1151,8 @@ int fib_sync_down(__be32 local, struct net_device *dev, int force)
 	return ret;
 }
 
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
-
 /*
-   Dead device goes up. We wake up dead nexthops.
-   It takes sense only on multipath routes.
+   Dead device goes up or new address is added. We wake up dead nexthops.
  */
 
 int fib_sync_up(struct net_device *dev)
@@ -1125,8 +1162,10 @@ int fib_sync_up(struct net_device *dev)
 	struct hlist_head *head;
 	struct hlist_node *node;
 	struct fib_nh *nh;
-	int ret;
+	struct fib_result res;
+	int ret, rep;
 
+repeat:
 	if (!(dev->flags&IFF_UP))
 		return 0;
 
@@ -1134,6 +1173,7 @@ int fib_sync_up(struct net_device *dev)
 	hash = fib_devindex_hashfn(dev->ifindex);
 	head = &fib_info_devhash[hash];
 	ret = 0;
+	rep = 0;
 
 	hlist_for_each_entry(nh, node, head, nh_hash) {
 		struct fib_info *fi = nh->nh_parent;
@@ -1146,19 +1186,39 @@ int fib_sync_up(struct net_device *dev)
 		prev_fi = fi;
 		alive = 0;
 		change_nexthops(fi) {
-			if (!(nh->nh_flags&RTNH_F_DEAD)) {
-				alive++;
+			if (!(nh->nh_flags&RTNH_F_DEAD))
 				continue;
-			}
 			if (nh->nh_dev == NULL || !(nh->nh_dev->flags&IFF_UP))
 				continue;
 			if (nh->nh_dev != dev || !__in_dev_get_rtnl(dev))
 				continue;
+			if (nh->nh_gw && fi->fib_protocol == RTPROT_STATIC) {
+				struct flowi fl = {
+					.nl_u = { .ip4_u =
+						  { .daddr = nh->nh_gw,
+						    .scope = nh->nh_scope } },
+					.oif =  nh->nh_oif,
+				};
+				if (fib_lookup(&fl, &res) != 0)
+					continue;
+				if (res.type != RTN_UNICAST &&
+				    res.type != RTN_LOCAL) {
+					fib_res_put(&res);
+					continue;
+				}
+				nh->nh_scope = res.scope;
+				fib_res_put(&res);
+				rep = 1;
+			}
 			alive++;
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
 			spin_lock_bh(&fib_multipath_lock);
 			nh->nh_power = 0;
+#endif
 			nh->nh_flags &= ~RTNH_F_DEAD;
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
 			spin_unlock_bh(&fib_multipath_lock);
+#endif
 		} endfor_nexthops(fi)
 
 		if (alive > 0) {
@@ -1166,9 +1226,13 @@ int fib_sync_up(struct net_device *dev)
 			ret++;
 		}
 	}
+	if (rep)
+		goto repeat;
 
 	return ret;
 }
+
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
 
 /*
    The algorithm is suboptimal, but it provides really

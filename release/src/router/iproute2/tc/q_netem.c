@@ -27,7 +27,7 @@
 
 static void explain(void)
 {
-	fprintf(stderr, 
+	fprintf(stderr,
 "Usage: ... netem [ limit PACKETS ] \n" \
 "                 [ delay TIME [ JITTER [CORRELATION]]]\n" \
 "                 [ distribution {uniform|normal|pareto|paretonormal} ]\n" \
@@ -60,13 +60,13 @@ static int get_distribution(const char *type, __s16 *data)
 	char *line = NULL;
 	char name[128];
 
-	snprintf(name, sizeof(name), "/usr/lib/tc/%s.dist", type);
+	snprintf(name, sizeof(name), "%s/%s.dist", get_tc_lib(), type);
 	if ((f = fopen(name, "r")) == NULL) {
-		fprintf(stderr, "No distribution data for %s (%s: %s)\n", 
+		fprintf(stderr, "No distribution data for %s (%s: %s)\n",
 			type, name, strerror(errno));
 		return -1;
 	}
-	
+
 	n = 0;
 	while (getline(&line, &len, f) != -1) {
 		char *p, *endp;
@@ -75,7 +75,7 @@ static int get_distribution(const char *type, __s16 *data)
 
 		for (p = line; ; p = endp) {
 			x = strtol(p, &endp, 0);
-			if (endp == p) 
+			if (endp == p)
 				break;
 
 			if (n >= MAXDIST) {
@@ -93,7 +93,7 @@ static int get_distribution(const char *type, __s16 *data)
 	return n;
 }
 
-static int isnumber(const char *arg) 
+static int isnumber(const char *arg)
 {
 	char *p;
 	(void) strtod(arg, &p);
@@ -102,26 +102,25 @@ static int isnumber(const char *arg)
 
 #define NEXT_IS_NUMBER() (NEXT_ARG_OK() && isnumber(argv[1]))
 
-/* Adjust for the fact that psched_ticks aren't always usecs 
+/* Adjust for the fact that psched_ticks aren't always usecs
    (based on kernel PSCHED_CLOCK configuration */
 static int get_ticks(__u32 *ticks, const char *str)
 {
 	unsigned t;
 
-	if(get_usecs(&t, str))
+	if(get_time(&t, str))
 		return -1;
-	
-	*ticks = tc_core_usec2tick(t);
+
+	if (tc_core_time2big(t)) {
+		fprintf(stderr, "Illegal %u time (too large)\n", t);
+		return -1;
+	}
+
+	*ticks = tc_core_time2tick(t);
 	return 0;
 }
 
-static char *sprint_ticks(__u32 ticks, char *buf)
-{
-	return sprint_usecs(tc_core_tick2usec(ticks), buf);
-}
-
-
-static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv, 
+static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			   struct nlmsghdr *n)
 {
 	size_t dist_size = 0;
@@ -131,12 +130,14 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	struct tc_netem_reorder reorder;
 	struct tc_netem_corrupt corrupt;
 	__s16 *dist_data = NULL;
+	int present[__TCA_NETEM_MAX];
 
 	memset(&opt, 0, sizeof(opt));
 	opt.limit = 1000;
 	memset(&cor, 0, sizeof(cor));
 	memset(&reorder, 0, sizeof(reorder));
 	memset(&corrupt, 0, sizeof(corrupt));
+	memset(present, 0, sizeof(present));
 
 	while (argc > 0) {
 		if (matches(*argv, "limit") == 0) {
@@ -162,8 +163,8 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 
 				if (NEXT_IS_NUMBER()) {
 					NEXT_ARG();
-					if (get_percent(&cor.delay_corr, 
-							*argv)) {
+					++present[TCA_NETEM_CORR];
+					if (get_percent(&cor.delay_corr,							*argv)) {
 						explain1("latency");
 						return -1;
 					}
@@ -178,6 +179,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			}
 			if (NEXT_IS_NUMBER()) {
 				NEXT_ARG();
+				++present[TCA_NETEM_CORR];
 				if (get_percent(&cor.loss_corr, *argv)) {
 					explain1("loss");
 					return -1;
@@ -185,12 +187,14 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			}
 		} else if (matches(*argv, "reorder") == 0) {
 			NEXT_ARG();
+			present[TCA_NETEM_REORDER] = 1;
 			if (get_percent(&reorder.probability, *argv)) {
 				explain1("reorder");
 				return -1;
 			}
 			if (NEXT_IS_NUMBER()) {
 				NEXT_ARG();
+				++present[TCA_NETEM_CORR];
 				if (get_percent(&reorder.correlation, *argv)) {
 					explain1("reorder");
 					return -1;
@@ -198,12 +202,14 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			}
 		} else if (matches(*argv, "corrupt") == 0) {
 			NEXT_ARG();
+			present[TCA_NETEM_CORRUPT] = 1;
 			if (get_percent(&corrupt.probability, *argv)) {
 				explain1("corrupt");
 				return -1;
 			}
 			if (NEXT_IS_NUMBER()) {
 				NEXT_ARG();
+				++present[TCA_NETEM_CORR];
 				if (get_percent(&corrupt.correlation, *argv)) {
 					explain1("corrupt");
 					return -1;
@@ -268,18 +274,17 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	if (addattr_l(n, TCA_BUF_MAX, TCA_OPTIONS, &opt, sizeof(opt)) < 0)
 		return -1;
 
-	if (cor.delay_corr || cor.loss_corr || cor.dup_corr) {
-		if (addattr_l(n, TCA_BUF_MAX, TCA_NETEM_CORR, &cor, sizeof(cor)) < 0)
+	if (present[TCA_NETEM_CORR] &&
+	    addattr_l(n, TCA_BUF_MAX, TCA_NETEM_CORR, &cor, sizeof(cor)) < 0)
 			return -1;
-	}
 
-	if (addattr_l(n, TCA_BUF_MAX, TCA_NETEM_REORDER, &reorder, sizeof(reorder)) < 0)
+	if (present[TCA_NETEM_REORDER] && 
+	    addattr_l(n, TCA_BUF_MAX, TCA_NETEM_REORDER, &reorder, sizeof(reorder)) < 0)
 		return -1;
 
-	if (corrupt.probability) {
-		if (addattr_l(n, TCA_BUF_MAX, TCA_NETEM_CORRUPT, &corrupt, sizeof(corrupt)) < 0)
-			return -1;
-	}
+	if (present[TCA_NETEM_CORRUPT] &&
+	    addattr_l(n, TCA_BUF_MAX, TCA_NETEM_CORRUPT, &corrupt, sizeof(corrupt)) < 0)
+		return -1;
 
 	if (dist_data) {
 		if (addattr_l(n, 32768, TCA_NETEM_DELAY_DIST,
@@ -312,7 +317,7 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 		struct rtattr *tb[TCA_NETEM_MAX+1];
 		parse_rtattr(tb, TCA_NETEM_MAX, RTA_DATA(opt) + sizeof(qopt),
 			     len);
-		
+
 		if (tb[TCA_NETEM_CORR]) {
 			if (RTA_PAYLOAD(tb[TCA_NETEM_CORR]) < sizeof(*cor))
 				return -1;
@@ -354,20 +359,20 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 		if (cor && cor->dup_corr)
 			fprintf(f, " %s", sprint_percent(cor->dup_corr, b1));
 	}
-			
+
 	if (reorder && reorder->probability) {
-		fprintf(f, " reorder %s", 
+		fprintf(f, " reorder %s",
 			sprint_percent(reorder->probability, b1));
 		if (reorder->correlation)
-			fprintf(f, " %s", 
+			fprintf(f, " %s",
 				sprint_percent(reorder->correlation, b1));
 	}
 
 	if (corrupt && corrupt->probability) {
-		fprintf(f, " corrupt %s", 
+		fprintf(f, " corrupt %s",
 			sprint_percent(corrupt->probability, b1));
 		if (corrupt->correlation)
-			fprintf(f, " %s", 
+			fprintf(f, " %s",
 				sprint_percent(corrupt->correlation, b1));
 	}
 

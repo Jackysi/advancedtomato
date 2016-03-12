@@ -12,7 +12,10 @@ struct ipt_mark_target_info {
 enum {
 	IPT_MARK_SET=0,
 	IPT_MARK_AND,
-	IPT_MARK_OR
+    IPT_MARK_OR,
+    IPT_MARK_SET_RETURN,
+    IPT_MARK_AND_RETURN,
+    IPT_MARK_OR_RETURN
 };
 
 struct ipt_mark_target_info_v1 {

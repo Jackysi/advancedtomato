@@ -344,8 +344,8 @@ cert_query_cb(int result, char type, int count, int ttl,
                                          proxy_context->resolver_publickey);
         exit(0);
     }
-    dnscrypt_client_init_nmkey(&proxy_context->dnscrypt_client,
-                               proxy_context->resolver_publickey);
+    dnscrypt_client_init_resolver_publickey(&proxy_context->dnscrypt_client,
+                                            proxy_context->resolver_publickey);
     dnscrypt_proxy_start_listeners(proxy_context);
     proxy_context->cert_updater.query_retry_step = 0U;
     cert_reschedule_query_after_success(proxy_context);

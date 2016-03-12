@@ -1,18 +1,18 @@
 /*
- * m_pedit.c		generic packet editor actions module 
+ * m_pedit.c		generic packet editor actions module
  *
  *		This program is free software; you can distribute it and/or
  *		modify it under the terms of the GNU General Public License
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- * Authors:  J Hadi Salim (hadi@cyberus.ca) 
- * 
- * TODO: 
+ * Authors:  J Hadi Salim (hadi@cyberus.ca)
+ *
+ * TODO:
  * 	1) Big endian broken in some spots
  * 	2) A lot of this stuff was added on the fly; get a big double-double
  * 	and clean it up at some point.
- * 	
+ *
  */
 
 #include <stdio.h>
@@ -33,28 +33,33 @@ static struct m_pedit_util *pedit_list;
 int pedit_debug = 1;
 
 static void
-p_explain(void)
+explain(void)
 {
-	fprintf(stderr, "Usage: ... pedit <MUNGE>\n");
+	fprintf(stderr, "Usage: ... pedit munge <MUNGE>\n");
 	fprintf(stderr,
-		"Where: MUNGE := <RAW>|<LAYERED>\n" 
-		"<RAW>:= <OFFSETC>[ATC]<CMD>\n "
-		"OFFSETC:= offset <offval> <u8|u16|u32>\n "
-		"ATC:= at <atval> offmask <maskval> shift <shiftval>\n "
-		"NOTE: offval is byte offset, must be multiple of 4\n "
-		"NOTE: maskval is a 32 bit hex number\n "
-		"NOTE: shiftval is a is a shift value\n "
-		"CMD:= clear | invert | set <setval>| retain\n "
-		"<LAYERED>:= ip <ipdata> | ip6 <ip6data> \n "
-		" | udp <udpdata> | tcp <tcpdata> | icmp <icmpdata> \n"
-		"For Example usage look at the examples directory");
+		"Where: MUNGE := <RAW>|<LAYERED>\n"
+		"\t<RAW>:= <OFFSETC>[ATC]<CMD>\n "
+		"\t\tOFFSETC:= offset <offval> <u8|u16|u32>\n "
+		"\t\tATC:= at <atval> offmask <maskval> shift <shiftval>\n "
+		"\t\tNOTE: offval is byte offset, must be multiple of 4\n "
+		"\t\tNOTE: maskval is a 32 bit hex number\n "
+		"\t\tNOTE: shiftval is a is a shift value\n "
+		"\t\tCMD:= clear | invert | set <setval>| retain\n "
+		"\t<LAYERED>:= ip <ipdata> | ip6 <ip6data> \n "
+		" \t\t| udp <udpdata> | tcp <tcpdata> | icmp <icmpdata> \n"
+		"For Example usage look at the examples directory\n");
 
 }
 
-#define usage() return(-1)
+static void
+usage(void)
+{
+	explain();
+	exit(-1);
+}
 
-static int 
-pedit_parse_nopopt (int *argc_p, char ***argv_p,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey) 
+static int
+pedit_parse_nopopt (int *argc_p, char ***argv_p,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 {
 	int argc = *argc_p;
 	char **argv = *argv_p;
@@ -68,7 +73,7 @@ pedit_parse_nopopt (int *argc_p, char ***argv_p,struct tc_pedit_sel *sel,struct 
 
 }
 
-struct m_pedit_util 
+struct m_pedit_util
 *get_pedit_kind(char *str)
 {
 	static void *pBODY;
@@ -222,7 +227,7 @@ pack_key8(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 	retain <<= stride;
 	tkey->mask = retain|m[ind];
 	tkey->off &= ~3;
-	
+
 	if (pedit_debug)
 		printf("pack_key8: Final word off %d  val %08x mask %08x \n",tkey->off , tkey->val,tkey->mask);
 	return pack_key(sel,tkey);
@@ -288,7 +293,7 @@ parse_cmd(int *argc_p, char ***argv_p, __u32 len, int type,__u32 retain,struct t
 	} else if (matches(*argv, "preserve") == 0) {
 		retain = mask = o;
 	} else {
-		if (matches(*argv, "clear") != 0) 
+		if (matches(*argv, "clear") != 0)
 			return -1;
 	}
 
@@ -385,7 +390,7 @@ done:
 		tkey->at = atv;
 
 		NEXT_ARG();
-		
+
 		if (get_u32(&offmask, *argv, 16))
 			return -1;
 		tkey->offmask = offmask;
@@ -423,11 +428,6 @@ parse_munge(int *argc_p, char ***argv_p,struct tc_pedit_sel *sel)
 		NEXT_ARG();
 		res = parse_offset(&argc, &argv,sel,&tkey);
 		goto done;
-#if jamal
-	} else if (strcmp(*argv, "help") == 0) {
-		p_explain();
-		return -1;
-#endif
 	} else {
 		char k[16];
 		struct m_pedit_util *p = NULL;
@@ -479,16 +479,18 @@ parse_pedit(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, stru
 			NEXT_ARG();
 			ok++;
 			continue;
+		} else if (matches(*argv, "help") == 0) {
+			usage();
 		} else if (matches(*argv, "munge") == 0) {
 			if (!ok) {
 				fprintf(stderr, "Illegal pedit construct (%s) \n", *argv);
-				p_explain();
+				explain();
 				return -1;
 			}
 			NEXT_ARG();
 			if (parse_munge(&argc, &argv,&sel.sel)) {
 				fprintf(stderr, "Illegal pedit construct (%s) \n", *argv);
-				p_explain();
+				explain();
 				return -1;
 			}
 			ok++;
@@ -499,7 +501,7 @@ parse_pedit(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, stru
 	}
 
 	if (!ok) {
-		p_explain();
+		explain();
 		return -1;
 	}
 
@@ -593,7 +595,7 @@ print_pedit(struct action_util *au,FILE * f, struct rtattr *arg)
 	return 0;
 }
 
-int 
+int
 pedit_print_xstats(struct action_util *au, FILE *f, struct rtattr *xstats)
 {
 	return 0;

@@ -675,6 +675,19 @@ void killall_tk(const char *name)
 	}
 }
 
+int kill_pidfile_s(char *pidfile, int sig)
+{
+	char tmp[100];
+	int pid;
+	
+	if (f_read_string(pidfile, tmp, sizeof(tmp)) > 0) {
+		if ((pid = atoi(tmp)) > 1) {
+			return kill(pid, sig);
+		}
+	}	
+	return -1;
+}
+
 /*
  * Return non-zero if we created the directory,
  * and zero if it already existed.

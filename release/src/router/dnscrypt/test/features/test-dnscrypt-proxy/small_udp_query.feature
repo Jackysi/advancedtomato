@@ -4,14 +4,14 @@ Feature: Small UDP query
   
   Scenario: query an existing name.
   
-    Given a working opendnscache on 208.67.220.220
-    And a running dnscrypt proxy with options "--edns-payload-size=0"
-    When a client asks dnscrypt-proxy for "resolver1.opendns.com"
-    Then dnscrypt-proxy returns "208.67.222.222"
+    Given a working server proxy on 212.47.228.136
+    And a running dnscrypt proxy with options "--edns-payload-size=0 -R dnscrypt.org-fr"
+    When a client asks dnscrypt-proxy for "test-ff.dnscrypt.org"
+    Then dnscrypt-proxy returns "255.255.255.255"
 
   Scenario: query a nonexistent name.
   
-    Given a working opendnscache on 208.67.220.220
-    And a running dnscrypt proxy with options "--edns-payload-size=0"
-    When a client asks dnscrypt-proxy for "nonexistent.opendns.com"
+    Given a working server proxy on 212.47.228.136
+    And a running dnscrypt proxy with options "--edns-payload-size=0 -R dnscrypt.org-fr"
+    When a client asks dnscrypt-proxy for "test-nonexistent.dnscrypt.org"
     Then dnscrypt-proxy returns a NXDOMAIN answer

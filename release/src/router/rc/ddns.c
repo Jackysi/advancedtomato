@@ -37,6 +37,9 @@ static void update(int num, int *dirty, int force)
 	int errors;
 	FILE *f;
 
+	//char prefix[] = "wanXXXXXXXXXX_";
+	char prefix[] = "wan";
+
 	DLOG("%s", __FUNCTION__);
 
 	sprintf(s, "ddns%d", num);
@@ -85,7 +88,7 @@ static void update(int num, int *dirty, int force)
 
 	strlcpy(ip, nvram_safe_get("ddnsx_ip"), sizeof(ip));
 
-	if (!check_wanup()) {
+	if (!check_wanup(prefix)) {
 		if ((get_wan_proto() != WP_DISABLED) || (ip[0] == 0)) {
 			DLOG("%s: !check_wanup", __FUNCTION__);
 			goto CLEANUP;
@@ -101,7 +104,7 @@ static void update(int num, int *dirty, int force)
 		}
 	}
 	else if (inet_addr(ip) == -1) {
-		strcpy(ip, get_wanip());
+		strcpy(ip, get_wanip(prefix));
 	}
 
 	sprintf(cache_fn, "%s.cache", ddnsx_path);

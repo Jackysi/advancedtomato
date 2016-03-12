@@ -560,29 +560,124 @@ static const nvset_t nvset_list[] = {
 	{ "wan_netmask",		V_IP				},
 	{ "wan_gateway",		V_IP				},
 	{ "hb_server_ip",		V_LENGTH(0, 32)		},
-	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
-	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
-	{ "pptp_dhcp",			V_01				},
-	{ "ppp_username",		V_LENGTH(0, 60)		},
-	{ "ppp_passwd",			V_LENGTH(0, 60)		},
-	{ "ppp_service",		V_LENGTH(0, 50)		},
-	{ "ppp_demand",			V_01				},
-	{ "ppp_custom",			V_LENGTH(0, 256)		},
-	{ "ppp_idletime",		V_RANGE(0, 1440)	},
-	{ "ppp_redialperiod",		V_RANGE(1, 86400)	},
-	{ "ppp_mlppp",			V_01				},
-	{ "mtu_enable",			V_01				},
+	{ "wan_l2tp_server_ip",		V_LENGTH(0, 128)		},
+	{ "wan_pptp_server_ip",		V_LENGTH(0, 128)		},
+	{ "wan_pptp_dhcp",		V_01				},
+	{ "wan_ppp_username",		V_LENGTH(0, 60)		},
+	{ "wan_ppp_passwd",		V_LENGTH(0, 60)		},
+	{ "wan_ppp_service",		V_LENGTH(0, 50)		},
+	{ "wan_ppp_demand",		V_01				},
+	{ "wan_ppp_custom",		V_LENGTH(0, 256)		},
+	{ "wan_ppp_idletime",		V_RANGE(0, 1440)	},
+	{ "wan_ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "wan_ppp_mlppp",		V_01				},
+	{ "wan_mtu_enable",		V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
-	{ "modem_ipaddr",		V_IP				},
-	{ "pppoe_lei",			V_RANGE(1, 60)			},
-	{ "pppoe_lef",			V_RANGE(1, 10)			},
+	{ "wan_modem_ipaddr",		V_IP				},
+	{ "wan_pppoe_lei",		V_RANGE(1, 60)			},
+	{ "wan_pppoe_lef",		V_RANGE(1, 10)			},
+	{ "wan_sta",			V_LENGTH(0, 10)		},
+	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+
+#ifdef TCONFIG_MULTIWAN
+	{ "mwan_num",			V_RANGE(1, 4)		},
+#else
+	{ "mwan_num",			V_RANGE(1, 2)		},
+#endif
+	{ "mwan_init",			V_01			},
+	{ "mwan_cktime",		V_RANGE(0, 3600)	},
+	{ "mwan_ckdst",			V_LENGTH(0, 64)		},
+	{ "pbr_rules",			V_LENGTH(0, 2048)	},
+
+	{ "wan_weight",			V_RANGE(0, 256)			},
+	{ "wan_dns_auto",		V_01				},
+
+	{ "wan2_proto",			V_LENGTH(1, 16)		},	// disabled, dhcp, static, pppoe, pptp, l2tp
+	{ "wan2_weight",		V_RANGE(0, 256)			},
+	{ "wan2_ipaddr",		V_IP				},
+	{ "wan2_netmask",		V_IP				},
+	{ "wan2_gateway",		V_IP				},
+	{ "wan2_l2tp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan2_pptp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan2_pptp_dhcp",		V_01				},
+	{ "wan2_ppp_username",		V_LENGTH(0, 60)		},
+	{ "wan2_ppp_passwd",		V_LENGTH(0, 60)		},
+	{ "wan2_ppp_service",		V_LENGTH(0, 50)		},
+	{ "wan2_ppp_demand",		V_01				},
+	{ "wan2_ppp_custom",		V_LENGTH(0, 256)		},
+	{ "wan2_ppp_idletime",		V_RANGE(0, 1440)	},
+	{ "wan2_ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "wan2_ppp_mlppp",		V_01				},
+	{ "wan2_mtu_enable",		V_01				},
+	{ "wan2_mtu",			V_RANGE(576, 1500)	},
+	{ "wan2_islan",			V_01				},
+	{ "wan2_modem_ipaddr",		V_IP				},
+	{ "wan2_pppoe_lei",		V_RANGE(1, 60)			},
+	{ "wan2_pppoe_lef",		V_RANGE(1, 10)			},
+	{ "wan2_sta",			V_LENGTH(0, 10)		},
+	{ "wan2_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+	{ "wan2_dns_auto",		V_01				},
+
+#ifdef TCONFIG_MULTIWAN
+	{ "wan3_proto",			V_LENGTH(1, 16)		},	// disabled, dhcp, static, pppoe, pptp, l2tp
+	{ "wan3_weight",		V_RANGE(0, 256)			},
+	{ "wan3_ipaddr",		V_IP				},
+	{ "wan3_netmask",		V_IP				},
+	{ "wan3_gateway",		V_IP				},
+	{ "wan3_l2tp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan3_pptp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan3_pptp_dhcp",		V_01				},
+	{ "wan3_ppp_username",		V_LENGTH(0, 60)		},
+	{ "wan3_ppp_passwd",		V_LENGTH(0, 60)		},
+	{ "wan3_ppp_service",		V_LENGTH(0, 50)		},
+	{ "wan3_ppp_demand",		V_01				},
+	{ "wan3_ppp_custom",		V_LENGTH(0, 256)		},
+	{ "wan3_ppp_idletime",		V_RANGE(0, 1440)	},
+	{ "wan3_ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "wan3_ppp_mlppp",		V_01				},
+	{ "wan3_mtu_enable",		V_01				},
+	{ "wan3_mtu",			V_RANGE(576, 1500)	},
+	{ "wan3_islan",			V_01				},
+	{ "wan3_modem_ipaddr",		V_IP				},
+	{ "wan3_pppoe_lei",		V_RANGE(1, 60)			},
+	{ "wan3_pppoe_lef",		V_RANGE(1, 10)			},
+	{ "wan3_sta",			V_LENGTH(0, 10)		},
+	{ "wan3_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+	{ "wan3_dns_auto",		V_01				},
+
+	{ "wan4_proto",			V_LENGTH(1, 16)		},	// disabled, dhcp, static, pppoe, pptp, l2tp
+	{ "wan4_weight",		V_RANGE(0, 256)			},
+	{ "wan4_ipaddr",		V_IP				},
+	{ "wan4_netmask",		V_IP				},
+	{ "wan4_gateway",		V_IP				},
+	{ "wan4_l2tp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan4_pptp_server_ip",	V_LENGTH(0, 128)		},
+	{ "wan4_pptp_dhcp",		V_01				},
+	{ "wan4_ppp_username",		V_LENGTH(0, 60)		},
+	{ "wan4_ppp_passwd",		V_LENGTH(0, 60)		},
+	{ "wan4_ppp_service",		V_LENGTH(0, 50)		},
+	{ "wan4_ppp_demand",		V_01				},
+	{ "wan4_ppp_custom",		V_LENGTH(0, 256)		},
+	{ "wan4_ppp_idletime",		V_RANGE(0, 1440)	},
+	{ "wan4_ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "wan4_ppp_mlppp",		V_01				},
+	{ "wan4_mtu_enable",		V_01				},
+	{ "wan4_mtu",			V_RANGE(576, 1500)	},
+	{ "wan4_islan",			V_01				},
+	{ "wan4_modem_ipaddr",		V_IP				},
+	{ "wan4_pppoe_lei",		V_RANGE(1, 60)			},
+	{ "wan4_pppoe_lef",		V_RANGE(1, 10)			},
+	{ "wan4_sta",			V_LENGTH(0, 10)		},
+	{ "wan4_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+	{ "wan4_dns_auto",		V_01				},
+#endif
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
 	{ "lan_netmask",		V_IP				},
 	{ "lan_gateway",		V_IP				},
-	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
+	{ "lan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 
 #ifdef TCONFIG_DNSSEC
 	{ "dnssec_enable",		V_01			},
@@ -612,11 +707,31 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_USB
 	// 3G MODEM
-	{ "modem_pin",			V_LENGTH(0,6)			},
-	{ "modem_dev",			V_LENGTH(0,8)			},
-	{ "modem_init",			V_LENGTH(0,25)			},
-	{ "modem_apn",			V_LENGTH(0,25)			},
-	{ "modem_watchdog",		V_RANGE(0,30)			},
+	{ "wan_modem_pin",		V_LENGTH(0,6)			},
+	{ "wan_modem_dev",		V_LENGTH(0,8)			},
+	{ "wan_modem_init",		V_LENGTH(0,25)			},
+	{ "wan_modem_apn",		V_LENGTH(0,25)			},
+	{ "wan_modem_speed",		V_LENGTH(0,6)			},
+
+	{ "wan2_modem_pin",		V_LENGTH(0,6)			},
+	{ "wan2_modem_dev",		V_LENGTH(0,8)			},
+	{ "wan2_modem_init",		V_LENGTH(0,25)			},
+	{ "wan2_modem_apn",		V_LENGTH(0,25)			},
+	{ "wan2_modem_speed",		V_LENGTH(0,6)			},
+
+#ifdef TCONFIG_MULTIWAN
+	{ "wan3_modem_pin",		V_LENGTH(0,6)			},
+	{ "wan3_modem_dev",		V_LENGTH(0,8)			},
+	{ "wan3_modem_init",		V_LENGTH(0,25)			},
+	{ "wan3_modem_apn",		V_LENGTH(0,25)			},
+	{ "wan3_modem_speed",		V_LENGTH(0,6)			},
+
+	{ "wan4_modem_pin",		V_LENGTH(0,6)			},
+	{ "wan4_modem_dev",		V_LENGTH(0,8)			},
+	{ "wan4_modem_init",		V_LENGTH(0,25)			},
+	{ "wan4_modem_apn",		V_LENGTH(0,25)			},
+	{ "wan4_modem_speed",		V_LENGTH(0,6)			},
+#endif
 #endif
 
 	// LAN networks
@@ -725,7 +840,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_6rd_borderrelay",	V_IP				},
 	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 32)			},
 	{ "ipv6_vlan",			V_RANGE(0, 7)			},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
-	{ "ipv6_isp_opt",		V_01				},	// wan.c add eval option for dhcpd
+	{ "ipv6_pdonly",		V_01				},	// Request DHCPv6 Prefix Delegation Only
 #endif
 
 // basic-wfilter
@@ -832,6 +947,9 @@ static const nvset_t nvset_list[] = {
 	{ "vlan14hwname",		V_TEXT(0,8)			},
 	{ "vlan15hwname",		V_TEXT(0,8)			},
 	{ "wan_ifnameX",		V_TEXT(0,8)			},
+	{ "wan2_ifnameX",		V_TEXT(0,8)			},
+	{ "wan3_ifnameX",		V_TEXT(0,8)			},
+	{ "wan4_ifnameX",		V_TEXT(0,8)			},
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
 	{ "trunk_vlan_so",		V_01				},
@@ -854,7 +972,12 @@ static const nvset_t nvset_list[] = {
 	{ "vlan15vid",		V_TEXT(0,5)			},
 
 // advanced-mac
-	{ "mac_wan",			V_LENGTH(0, 17)		},
+	{ "wan_mac",			V_LENGTH(0, 17)		},
+	{ "wan2_mac",			V_LENGTH(0, 17)		},
+#ifdef TCONFIG_MULTIWAN
+	{ "wan3_mac",			V_LENGTH(0, 17)		},
+	{ "wan4_mac",			V_LENGTH(0, 17)		},
+#endif
 	{ "wl_macaddr",			V_LENGTH(0, 17)		},
 	{ "wl_hwaddr",			V_LENGTH(0, 17)		},
 
@@ -1203,8 +1326,17 @@ static const nvset_t nvset_list[] = {
 	{ "qos_udp",			V_01				},
 	{ "qos_reset",			V_01				},
 	{ "qos_pfifo",			V_01				}, // !!TB
-	{ "qos_obw",			V_RANGE(10, 999999)	},
-	{ "qos_ibw",			V_RANGE(10, 999999)	},
+	{ "wan_qos_obw",		V_RANGE(10, 999999)		},
+	{ "wan_qos_ibw",		V_RANGE(10, 999999)		},
+	{ "wan2_qos_obw",		V_RANGE(10, 999999)		},
+	{ "wan2_qos_ibw",		V_RANGE(10, 999999)		},
+#ifdef TCONFIG_MULTIWAN
+	{ "wan3_qos_obw",		V_RANGE(10, 999999)		},
+	{ "wan3_qos_ibw",		V_RANGE(10, 999999)		},
+	{ "wan4_qos_obw",		V_RANGE(10, 999999)		},
+	{ "wan4_qos_ibw",		V_RANGE(10, 999999)		},
+#endif
+
 	{ "qos_orules",			V_LENGTH(0, 4096)	},
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
@@ -1567,6 +1699,8 @@ static const nvset_t nvset_list[] = {
 	{ "tor_datadir",		V_TEXT(0,24)		},
 	{ "tor_iface",			V_LENGTH(0, 50)		},
 	{ "tor_users",			V_LENGTH(0, 4096)	},
+	{ "tor_ports",			V_LENGTH(0, 50)		},
+	{ "tor_ports_custom",		V_LENGTH(0, 4096)	},
 	{ "tor_custom",			V_TEXT(0, 2048)		},
 #endif
 

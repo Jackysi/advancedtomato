@@ -1,7 +1,4 @@
 
-EXTRA_DIST = \
-	WARNING
-
 SUBDIRS = \
 	example \
 	example-logging

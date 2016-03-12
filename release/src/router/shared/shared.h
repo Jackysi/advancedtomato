@@ -93,6 +93,7 @@ typedef struct {
 
 extern void chld_reap(int sig);
 extern int get_wan_proto(void);
+extern int get_wanx_proto(char *prefix);
 #ifdef TCONFIG_IPV6
 extern int get_ipv6_service(void);
 #define ipv6_enabled()	(get_ipv6_service() != IPV6_DISABLED)
@@ -104,17 +105,17 @@ extern int calc_6rd_local_prefix(const struct in6_addr *prefix,
 #else
 #define ipv6_enabled()	(0)
 #endif
-extern int using_dhcpc(void);
+extern int using_dhcpc(char *prefix);
 extern void notice_set(const char *path, const char *format, ...);
-extern int check_wanup(void);
-extern const dns_list_t *get_dns(void);
+extern int check_wanup(char *prefix);
+extern const dns_list_t *get_dns(char *prefix);
 extern void set_action(int a);
 extern int check_action(void);
 extern int wait_action_idle(int n);
 extern int wl_client(int unit, int subunit);
-extern const wanface_list_t *get_wanfaces(void);
-extern const char *get_wanface(void);
-extern const char *get_wanip(void);
+extern const wanface_list_t *get_wanfaces(char *prefix);
+extern const char *get_wanface(char *prefix);
+extern const char *get_wanip(char *prefix);
 #ifdef TCONFIG_IPV6
 extern const char *get_wan6face(void);
 #endif
@@ -373,13 +374,16 @@ extern int base64_decoded_len(int len);										// maximum possible, not actual
 extern const char *find_word(const char *buffer, const char *word);
 extern int remove_word(char *buffer, const char *word);
 
+// arctic
+extern int del_str_line(char *str);
+
 //bwq518
-extern char* trimstr(char *str);
-#define MAX_PORTS 64 
-#define PORT_SIZE 16 
+#define MAX_PORTS 64
+#define PORT_SIZE 16
 extern int is_port(char *str);
 extern char *filter_space(char *str);
 extern char* format_port(char *str);
+extern char* trimstr(char *str);
 extern char* splitpath( char *str, char *pathname, char *filename);
 extern int splitport(char *in_ports, char out_port[MAX_PORTS][PORT_SIZE]);
 extern int is_number(char *a);

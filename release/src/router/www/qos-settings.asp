@@ -12,7 +12,7 @@ No part of this file may be used without permission.
 		/* REMOVE-BEGIN
 		!!TB - added qos_pfifo
 		REMOVE-END */
-		//	<% nvram("at_update,tomatoanon_answer,qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma,atm_overhead"); %>
+		//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,wan_qos_obw,wan_qos_ibw,wan2_qos_obw,wan2_qos_ibw,wan3_qos_obw,wan3_qos_ibw,wan4_qos_obw,wan4_qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma,atm_overhead,mwan_num"); %>
 
 		var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
@@ -229,7 +229,12 @@ No part of this file may be used without permission.
 			<script type="text/javascript">
 				cc = nvram.qos_orates.split(/[,-]/);
 				f = [];
-				f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_obw });
+
+				for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+					var u = (uidx >1) ? uidx : '';
+					f.push({ title: 'WAN '+uidx+'<br>Max Bandwidth Limit', name: 'wan'+u+'_qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s </small>', value: nvram['wan'+u+'_qos_obw'] });
+				}
+
 				j = 0;
 				for (i = 0; i < 10; ++i) {
 					x = cc[j++] || 1;
@@ -240,6 +245,7 @@ No part of this file may be used without permission.
 						{ type: 'custom', custom: ' &nbsp; <span id="_okbps_' + i + '"></span>' } ]
 					});
 				}
+
 				$('.out-limit').forms(f);
 			</script>
 		</div>
@@ -250,7 +256,11 @@ No part of this file may be used without permission.
 			<script type="text/javascript">
 				allRates = nvram.qos_irates.split(',');
 				f = [];
-				f.push({ title: 'Max Bandwidth Limit', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
+				
+				for (var uidx = 1; uidx <= nvram.mwan_num; ++uidx){
+					var u = (uidx >1) ? uidx : '';
+					f.push({ title: 'WAN '+uidx+'<br>Max Bandwidth Limit', name: 'wan'+u+'_qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s </small>', value: nvram['wan'+u+'_qos_ibw'] });
+				}
 
 				for (i = 0; i < 10; ++i)
 				{

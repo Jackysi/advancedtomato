@@ -330,8 +330,8 @@ int matches(const char *cmd, const char *pattern)
 
 int inet_addr_match(const inet_prefix *a, const inet_prefix *b, int bits)
 {
-	__u32 *a1 = a->data;
-	__u32 *a2 = b->data;
+	const __u32 *a1 = a->data;
+	const __u32 *a2 = b->data;
 	int words = bits >> 0x05;
 
 	bits &= 0x1f;
@@ -418,14 +418,13 @@ const char *rt_addr_n2a(int af, int len, const void *addr, char *buf, int buflen
 struct namerec
 {
 	struct namerec *next;
-	const char *name;
 	inet_prefix addr;
+	char	    *name;
 };
 
-#define NHASH 257
-static struct namerec *nht[NHASH];
+static struct namerec *nht[256];
 
-static const char *resolve_address(const void *addr, int len, int af)
+char *resolve_address(const char *addr, int len, int af)
 {
 	struct namerec *n;
 	struct hostent *h_ent;
@@ -440,7 +439,7 @@ static const char *resolve_address(const void *addr, int len, int af)
 		len = 4;
 	}
 
-	hash = *(__u32 *)(addr + len - 4) % NHASH;
+	hash = addr[len-1] ^ addr[len-2] ^ addr[len-3] ^ addr[len-4];
 
 	for (n = nht[hash]; n; n = n->next) {
 		if (n->addr.family == af &&
@@ -474,8 +473,7 @@ const char *format_host(int af, int len, const void *addr,
 {
 #ifdef RESOLVE_HOSTNAMES
 	if (resolve_hosts) {
-		const char *n;
-
+		char *n;
 		if (len <= 0) {
 			switch (af) {
 			case AF_INET:
@@ -584,15 +582,15 @@ size_t getcmdline(char **linep, size_t *lenp, FILE *in)
 {
 	size_t cc;
 	char *cp;
-		
+
 	if ((cc = getline(linep, lenp, in)) < 0)
 		return cc;	/* eof or error */
 	++cmdlineno;
 
 	cp = strchr(*linep, '#');
-	if (cp) 
+	if (cp)
 		*cp = '\0';
-	
+
 	while ((cp = strstr(*linep, "\\\n")) != NULL) {
 		char *line1 = NULL;
 		size_t len1 = 0;
@@ -607,7 +605,7 @@ size_t getcmdline(char **linep, size_t *lenp, FILE *in)
 		*cp = 0;
 
 		cp = strchr(line1, '#');
-		if (cp) 
+		if (cp)
 			*cp = '\0';
 
 		*linep = realloc(*linep, strlen(*linep) + strlen(line1) + 1);

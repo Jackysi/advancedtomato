@@ -12,210 +12,209 @@
 		bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
 	</script>
 	<script type="text/javascript">
-		show_dhcpc = ((nvram.wan_proto == 'dhcp') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
-		show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'ppp3g'));
+		show_dhcpc = [];
+		show_codi = [];
+		for ( var uidx = 1; uidx <= nvram.mwan_num; ++uidx ) {
+			var u;
+			u     = (uidx > 1) ? uidx : '';
+			proto = nvram[ 'wan' + u + '_proto' ];
+			if ( proto != 'disabled' ) show_langateway = 0;
+			show_dhcpc[ uidx - 1 ] = ((proto == 'dhcp') || (proto == 'lte') || (((proto == 'l2tp') || (proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
+			show_codi[ uidx - 1 ]  = ((proto == 'pppoe') || (proto == 'l2tp') || (proto == 'pptp') || (proto == 'ppp3g'));
+		}
 
 		show_radio = [];
-		for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
 			/* REMOVE-BEGIN
-			//	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
-			REMOVE-END */
-			if (wl_sunit(uidx)<0)
-				show_radio.push((nvram['wl'+wl_fface(uidx)+'_radio'] == '1'));
+			 //	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+			 REMOVE-END */
+			if ( wl_sunit( uidx ) < 0 )
+				show_radio.push( (nvram[ 'wl' + wl_fface( uidx ) + '_radio' ] == '1') );
 		}
 
-		nphy = features('11n');
+		nphy = features( '11n' );
 
-		function dhcpc(what)
-		{
-			form.submitHidden('dhcpc.cgi', { exec: what, _redirect: '/#status-home.asp' });
+		function dhcpc( what, wan_prefix ) {
+			form.submitHidden( 'dhcpc.cgi', { exec: what, prefix: wan_prefix, _redirect: '/#status-home.asp' } );
 		}
 
-		function serv(service, sleep)
-		{
-			form.submitHidden('service.cgi', { _service: service, _redirect: '/#status-home.asp', _sleep: sleep });
+		function serv( service, sleep ) {
+			form.submitHidden( 'service.cgi', { _service: service, _redirect: '/#status-home.asp', _sleep: sleep } );
 		}
 
-		function wan_connect()
-		{
-			serv('wan-restart', 5);
+		function wan_connect( uidx ) {
+			serv( 'wan' + uidx + '-restart', 5 );
 		}
 
-		function wan_disconnect()
-		{
-			serv('wan-stop', 2);
+		function wan_disconnect( uidx ) {
+			serv( 'wan' + uidx + '-stop', 2 );
 		}
 
-		function wlenable(uidx, n)
-		{
-			form.submitHidden('wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 6 : 3, _wl_unit: wl_unit(uidx) });
+		function wlenable( uidx, n ) {
+			form.submitHidden( 'wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 6 : 3, _wl_unit: wl_unit( uidx ) } );
 		}
 
-		var ref = new TomatoRefresh('js/status-data.jsx', '', 0, 'status_overview_refresh');
+		var ref = new TomatoRefresh( 'js/status-data.jsx', '', 0, 'status_overview_refresh' );
 
-		ref.refresh = function(text)
-		{
+		ref.refresh = function( text ) {
 			stats = {};
 			try {
-				eval(text);
+				eval( text );
 			}
-			catch (ex) {
+			catch ( ex ) {
 				stats = {};
 			}
 			show();
 		}
 
 
-		function c(id, htm)
-		{
-			E(id).cells[1].innerHTML = htm;
+		function c( id, htm ) {
+			E( id ).cells[ 1 ].innerHTML = htm;
 		}
 
-		function ethstates()
-		{
-			var status, speed, code = '';
+		function ethstates() {
 
-			if (etherstates.port0 == "disable" || typeof (etherstates.port0) == 'undefined' || typeof (etherstates.port1) == 'undefined' || typeof (etherstates.port2) == 'undefined' || typeof (etherstates.port3) == 'undefined' || typeof (etherstates.port4) == 'undefined') {
-				$('#ethernetPorts').remove();
+			var ports = [], names = {}, v = 0;
+
+			// Fail safe (check if minimum 5 ports exist (bit lame since not all routers have 5 ports???)
+			if ( etherstates.port0 == "disable" || typeof (etherstates.port0) == 'undefined' || typeof (etherstates.port1) == 'undefined' || typeof (etherstates.port2) == 'undefined' || typeof (etherstates.port3) == 'undefined' || typeof (etherstates.port4) == 'undefined' ) {
+
+				$( '#ethernetPorts' ).remove();
 				return false;
+
 			}
 
-			// Above code checks if ETH ports are Disabled/Enabled
-			code += '<div id="ethPorts">';
+			// Name ports (MultiWAN thing)
+			for ( uidx = 1; uidx <= nvram.mwan_num; ++uidx ) {
+				u = (uidx > 1) ? uidx : '';
+				if ( (nvram[ 'wan' + u + '_sta' ] == '') && (nvram[ 'wan' + u + '_proto' ] != 'lte') && (nvram[ 'wan' + u + '_proto' ] != 'ppp3g') ) {
+					names[ 'port' + v ] = 'WAN' + u;
+					++v;
+				}
+			}
 
-			// WAN
-			if (etherstates.port0 == "DOWN") { status = 'off'; speed = etherstates.port0.replace("DOWN","Unplugged");
-			} else { status = 'on'; speed = etherstates.port0.replace('HD', 'M Half'); speed = speed.replace("FD","M Full"); }
-			if (stats.lan_desc != '1') { speed = ' '; }
+			for ( uidx = v; uidx <= 4; ++uidx ) { names[ 'port' + uidx ] = 'LAN' + uidx; }
 
-			code += '<div class="eth ' + status + ' wan"><div class="title">WAN</div><div class="speed">' + speed + '</div></div>';
+			// F*** standard approach writing down port by port, lets just loop through array....
+			$.each( etherstates, function( $k, $v ) {
 
-			// LAN 1
-			if (etherstates.port1 == "DOWN") { status = 'off'; speed = etherstates.port1.replace("DOWN","Unplugged");
-			} else { status = 'on'; speed = etherstates.port1.replace('HD', 'M Half'); speed = speed.replace("FD","M Full"); }
-			if (stats.lan_desc != '1') { speed = ' '; }
+				var speed, status;
 
-			code += '<div class="eth ' + status + '"><div class="title">LAN 1</div><div class="speed">' + speed + '</div></div>';
+				// Replace status/speed based on port status
+				if ( $v == 'DOWN' ) {
 
-			// LAN 2
-			if (etherstates.port2 == "DOWN") { status = 'off'; speed = etherstates.port2.replace("DOWN","Unplugged");
-			} else { status = 'on'; speed = etherstates.port2.replace('HD', 'M Half'); speed = speed.replace("FD","M Full"); }
-			if (stats.lan_desc != '1') { speed = ' '; }
+					status = 'off';
+					speed  = etherstates[ $k ].replace( "DOWN", "Unplugged" );
 
-			code += '<div class="eth ' + status + '"><div class="title">LAN 2</div><div class="speed">' + speed + '</div></div>';
+				} else {
 
-			// LAN 3
-			if (etherstates.port3 == "DOWN") { status = 'off'; speed = etherstates.port3.replace("DOWN","Unplugged");
-			} else { status = 'on'; speed = etherstates.port3.replace('HD', 'M Half'); speed = speed.replace("FD","M Full"); }
-			if (stats.lan_desc != '1') { speed = ' '; }
+					status = 'on';
+					speed  = etherstates[ $k ].replace( 'HD', 'M Half' );
+					speed  = speed.replace( "FD", "M Full" );
 
-			code += '<div class="eth ' + status + '"><div class="title">LAN 3</div><div class="speed">' + speed + '</div></div>';
+				}
 
-			// LAN 4
-			if (etherstates.port4 == "DOWN") { status = 'off'; speed = etherstates.port4.replace("DOWN","Unplugged");
-			} else { status = 'on'; speed = etherstates.port4.replace('HD', 'M Half'); speed = speed.replace("FD","M Full"); }
-			if (stats.lan_desc != '1') { speed = ' '; }
+				ports.push( '<div class="eth ' + status + ' ' + ( ( $k == 'port0' ) ? 'wan' : '' ) + '"><div class="title">' + names[$k] + '</div><div class="speed">' + speed + '</div></div>' );
 
-			code += '<div class="eth ' + status + '"><div class="title">LAN 4</div><div class="speed">' + speed + '</div></div>';
+			});
 
-			code += '</div>';
-			$("#ethernetPorts .content").html(code);
+			$( "#ethernetPorts .content" ).html( '<div id="ethPorts">' + ports.join( '' ) + '</div>' );
+
 		}
 
 		function show() {
 
-			c('cpu', stats.cpuload);
-			c('uptime', stats.uptime);
-			c('time', stats.time);
-			c('wanip', stats.wanip);
-			c('wanprebuf',stats.wanprebuf); //Victek
-			c('wannetmask', stats.wannetmask);
-			c('wangateway', stats.wangateway);
-			c('dns', stats.dns);
-			c('memory', stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>');
-			c('swap', stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>');
-			elem.display('swap', stats.swap != '');
+			c( 'cpu', stats.cpuload );
+			c( 'uptime', stats.uptime );
+			c( 'time', stats.time );
+			c( 'wanip', stats.wanip );
+			c( 'wanprebuf', stats.wanprebuf ); //Victek
+			c( 'wannetmask', stats.wannetmask );
+			c( 'wangateway', stats.wangateway );
+			c( 'dns', stats.dns );
+			c( 'memory', stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' );
+			c( 'swap', stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>' );
+			elem.display( 'swap', stats.swap != '' );
 
 			/* IPV6-BEGIN */
-			c('ip6_wan', stats.ip6_wan);
-			elem.display('ip6_wan', stats.ip6_wan != '');
-			c('ip6_lan', stats.ip6_lan);
-			elem.display('ip6_lan', stats.ip6_lan != '');
-			c('ip6_lan_ll', stats.ip6_lan_ll);
-			elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
+			c( 'ip6_wan', stats.ip6_wan );
+			elem.display( 'ip6_wan', stats.ip6_wan != '' );
+			c( 'ip6_lan', stats.ip6_lan );
+			elem.display( 'ip6_lan', stats.ip6_lan != '' );
+			c( 'ip6_lan_ll', stats.ip6_lan_ll );
+			elem.display( 'ip6_lan_ll', stats.ip6_lan_ll != '' );
 			/* IPV6-END */
 
-			c('wanstatus', ((stats.wanstatus == 'Connected') ? '<span class="text-green">Connected</span> <i class="icon-globe"></i>' : '<span class="text-red">' + stats.wanstatus + '</span> <i class="icon-cancel"></i>'));
-			c('wanuptime', stats.wanuptime);
-			if (show_dhcpc) c('wanlease', stats.wanlease);
-			if (show_codi) {
+			c( 'wanstatus', ((stats.wanstatus == 'Connected') ? '<span class="text-green">Connected</span> <i class="icon-globe"></i>' : '<span class="text-red">' + stats.wanstatus + '</span> <i class="icon-cancel"></i>') );
+			c( 'wanuptime', stats.wanuptime );
+			if ( show_dhcpc ) c( 'wanlease', stats.wanlease );
+			if ( show_codi ) {
 
-				if (stats.wanup) {
+				if ( stats.wanup ) {
 
-					$('#b_connect').hide();
-					$('#b_disconnect').show();
+					$( '#b_connect' ).hide();
+					$( '#b_disconnect' ).show();
 
 				} else {
 
-					$('#b_connect').show();
-					$('#b_disconnect').hide();	
+					$( '#b_connect' ).show();
+					$( '#b_disconnect' ).hide();
 
 				}
 			}
 
-			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-				if (wl_sunit(uidx)<0) {
-					c('radio'+uidx, wlstats[uidx].radio ? 'Enabled <i class="icon-check"></i>' : 'Disabled <i class="icon-cancel"></i>');
-					c('rate'+uidx, wlstats[uidx].rate);
+			for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
+				if ( wl_sunit( uidx ) < 0 ) {
+					c( 'radio' + uidx, wlstats[ uidx ].radio ? 'Enabled <i class="icon-check"></i>' : 'Disabled <i class="icon-cancel"></i>' );
+					c( 'rate' + uidx, wlstats[ uidx ].rate );
 
-					if (show_radio[uidx]) {
+					if ( show_radio[ uidx ] ) {
 
-						if (wlstats[uidx].radio) {
+						if ( wlstats[ uidx ].radio ) {
 
-							$('#b_wl'+uidx+'_enable').hide();
-							$('#b_wl'+uidx+'_disable').show();
+							$( '#b_wl' + uidx + '_enable' ).hide();
+							$( '#b_wl' + uidx + '_disable' ).show();
 
 						} else {
 
-							$('#b_wl'+uidx+'_enable').show();
-							$('#b_wl'+uidx+'_disable').hide();
+							$( '#b_wl' + uidx + '_enable' ).show();
+							$( '#b_wl' + uidx + '_disable' ).hide();
 
 						}
 
 					} else {
 
 						// Interface disabled, hide enable/disable
-						$('#b_wl'+uidx+'_enable').hide();
-						$('#b_wl'+uidx+'_disable').hide();
+						$( '#b_wl' + uidx + '_enable' ).hide();
+						$( '#b_wl' + uidx + '_disable' ).hide();
 
 					}
 
-					c('channel'+uidx, stats.channel[uidx]);
-					if (nphy) {
-						c('nbw'+uidx, wlstats[uidx].nbw);
+					c( 'channel' + uidx, stats.channel[ uidx ] );
+					if ( nphy ) {
+						c( 'nbw' + uidx, wlstats[ uidx ].nbw );
 					}
-					c('interference'+uidx, stats.interference[uidx]);
-					elem.display('interference'+uidx, stats.interference[uidx] != '');
+					c( 'interference' + uidx, stats.interference[ uidx ] );
+					elem.display( 'interference' + uidx, stats.interference[ uidx ] != '' );
 
-					if (wlstats[uidx].client) {
-						c('rssi'+uidx, wlstats[uidx].rssi || '');
-						c('noise'+uidx, wlstats[uidx].noise || '');
-						c('qual'+uidx, stats.qual[uidx] || '');
+					if ( wlstats[ uidx ].client ) {
+						c( 'rssi' + uidx, wlstats[ uidx ].rssi || '' );
+						c( 'noise' + uidx, wlstats[ uidx ].noise || '' );
+						c( 'qual' + uidx, stats.qual[ uidx ] || '' );
 					}
 				}
-				c('ifstatus'+uidx, wlstats[uidx].ifstatus || '');
+				c( 'ifstatus' + uidx, wlstats[ uidx ].ifstatus || '' );
 			}
 		}
 
-		function earlyInit()
-		{
-			elem.display('b_dhcpc', show_dhcpc);
-			elem.display('b_connect', 'b_disconnect', show_codi);
-			if (nvram.wan_proto == 'disabled')
-				elem.display('wan-title', 'sesdiv_wan', 0);
-			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-				if (wl_sunit(uidx)<0)
-					$('#b_wl'+wl_fface(uidx)+'_enable').closest('.btn-control-group').show();
+		function earlyInit() {
+			elem.display( 'b_dhcpc', show_dhcpc );
+			elem.display( 'b_connect', 'b_disconnect', show_codi );
+			if ( nvram.wan_proto == 'disabled' )
+				elem.display( 'wan-title', 'sesdiv_wan', 0 );
+			for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
+				if ( wl_sunit( uidx ) < 0 )
+					$( '#b_wl' + wl_fface( uidx ) + '_enable' ).closest( '.btn-control-group' ).show();
 			}
 
 			ethstates();
@@ -224,8 +223,8 @@
 
 		function init() {
 
-			$('.refresher').after(genStdRefresh(1,1,'ref.toggle()'));
-			ref.initPage(3000, 3);
+			$( '.refresher' ).after( genStdRefresh( 1, 1, 'ref.toggle()' ) );
+			ref.initPage( 3000, 3 );
 			show();
 
 		}
@@ -302,15 +301,40 @@
 			<div class="content" id="sesdiv_lan-ports"></div>
 		</div>
 
+
 		<div class="box" id="LAN-settings" data-box="home_lanbox">
 			<div class="heading">LAN </div>
 			<div class="content" id="sesdiv_lan">
 				<script type="text/javascript">
 
-					/* VLAN-BEGIN */
+					function h_countbitsfromleft(num) {
+						if (num == 255 ){
+							return(8);
+						}
+						var i = 0;
+						var bitpat=0xff00;
+						while (i < 8){
+							if (num == (bitpat & 0xff)){
+								return(i);
+							}
+							bitpat=bitpat >> 1;
+							i++;
+						}
+						return(Number.NaN);
+					}
+
+					function numberOfBitsOnNetMask(netmask) {
+						var total = 0;
+						var t = netmask.split('.');
+						for (var i = 0; i<= 3 ; i++) {
+							total += h_countbitsfromleft(t[i]);
+						}
+						return total;
+					}
+
 					var s='';
 					var t='';
-					for (var i = 0 ; i <= MAX_BRIDGE_ID; i++) {
+					for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 						var j = (i == 0) ? '' : i.toString();
 						if (nvram['lan' + j + '_ifname'].length > 0) {
 							if (nvram['lan' + j + '_proto'] == 'dhcp') {
@@ -319,44 +343,21 @@
 									nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
 									nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
 								}
-								s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-								s += '<a class="ajaxload" href="#status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
+								s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? '<br>' : '';
+								s += '<b>br' + i + '</b> (LAN' + j + ') - ' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'];
 							} else {
-								s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-								s += 'Disabled on LAN' + j + ' (br' + i + ')';
+								s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? '<br>' : '';
+								s += '<b>br' + i + '</b> (LAN' + j + ') - Disabled';
 							}
-							t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
-							t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
+							t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? '<br>' : '';
+							t += '<b>br' + i + '</b> (LAN' + j + ') - ' + nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']);
+
 						}
 					}
 
-					createFieldTable('', [
-						{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
-						/* IPV6-BEGIN */
-						{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, ignore: stats.ip6_lan == '' },
-						{ title: 'IPv6 Link-local Address', rid: 'ip6_lan_ll', text: stats.ip6_lan_ll, ignore: stats.ip6_lan_ll == '' },
-						/* IPV6-END */
-						{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
-						{ title: 'DHCP', text: s }
-						], '#sesdiv_lan', 'data-table dataonly');
-					/* VLAN-END */
-
-					/* NOVLAN-BEGIN */
-					if (nvram.lan_proto == 'dhcp') {
-						if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
-							var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
-							nvram.dhcpd_startip = x + nvram.dhcp_start;
-							nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
-						}
-						s = '<a class="ajaxload" href="#status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
-					}
-					else {
-						s = 'Disabled';
-					}
 					createFieldTable('', [
 						{ title: 'Router MAC Address', text: nvram.et0macaddr },
-						{ title: 'Router IP Address', text: nvram.lan_ipaddr },
-						{ title: 'Subnet Mask', text: nvram.lan_netmask },
+						{ title: 'Router IP Addresses', text: t },
 						{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
 						/* IPV6-BEGIN */
 						{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
@@ -364,8 +365,7 @@
 						/* IPV6-END */
 						{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 						{ title: 'DHCP', text: s }
-						], '#sesdiv_lan', 'data-table dataonly');
-					/* NOVLAN-END */
+						], '#sesdiv_lan', 'data-table dataonly' );
 
 				</script>
 			</div>

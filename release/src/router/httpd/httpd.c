@@ -869,7 +869,7 @@ static void setup_listeners(int do_ipv6)
 	}
 #endif
 
-	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1") && check_wanup()) {
+	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1")) {
 		IF_TCONFIG_HTTPS(if (nvram_match("remote_mgt_https", "1")) do_ssl = 1);
 #ifdef TCONFIG_IPV6
 		if (do_ipv6) {
@@ -889,14 +889,52 @@ static void setup_listeners(int do_ipv6)
 			int i;
 			char *ip;
 			wanface_list_t wanfaces;
+			wanface_list_t wan2faces;
+#ifdef TCONFIG_MULTIWAN
+			wanface_list_t wan3faces;
+			wanface_list_t wan4faces;
+#endif
 
-			memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
-			for (i = 0; i < wanfaces.count; ++i) {
-				ip = wanfaces.iface[i].ip;
-				if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
-					continue;
-				add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
+			if (check_wanup("wan")) {
+				memcpy(&wanfaces, get_wanfaces("wan"), sizeof(wanfaces));
+				for (i = 0; i < wanfaces.count; ++i) {
+					ip = wanfaces.iface[i].ip;
+					if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
+						continue;
+					add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				}
 			}
+
+			if (check_wanup("wan2")) {
+				memcpy(&wan2faces, get_wanfaces("wan2"), sizeof(wan2faces));
+				for (i = 0; i < wan2faces.count; ++i) {
+					ip = wan2faces.iface[i].ip;
+					if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
+						continue;
+					add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				}
+			}
+#ifdef TCONFIG_MULTIWAN
+			if (check_wanup("wan3")) {
+				memcpy(&wan3faces, get_wanfaces("wan3"), sizeof(wan3faces));
+				for (i = 0; i < wan3faces.count; ++i) {
+					ip = wan3faces.iface[i].ip;
+					if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
+						continue;
+					add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				}
+			}
+
+			if (check_wanup("wan4")) {
+				memcpy(&wan4faces, get_wanfaces("wan4"), sizeof(wan4faces));
+				for (i = 0; i < wan4faces.count; ++i) {
+					ip = wan4faces.iface[i].ip;
+					if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
+						continue;
+					add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				}
+			}
+#endif
 		}
 	}
 }

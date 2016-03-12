@@ -2,17 +2,17 @@
 
 /*
  * Copyright (C)2004 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -35,6 +35,9 @@
 #ifndef IPPPROTO_DCCP
 # define IPPROTO_DCCP	33
 #endif
+#ifndef IPPROTO_MH
+# define IPPROTO_MH	135
+#endif
 
 #define XFRMS_RTA(x)  ((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_usersa_info))))
 #define XFRMS_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct xfrm_usersa_info))
@@ -52,6 +55,9 @@
 #define XFRMEXP_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_user_expire))))
 #define XFRMPEXP_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_user_polexpire))))
 
+#define XFRMREP_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_user_report))))
+
+#define XFRMSAPD_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(__u32))))
 #define XFRM_FLAG_PRINT(fp, flags, f, s) \
 	do { \
 		if (flags & f) { \
@@ -92,6 +98,10 @@ struct xfrm_filter {
 	__u32 index_mask;
 	__u8 action_mask;
 	__u32 priority_mask;
+
+	__u8 ptype;
+	__u8 ptype_mask;
+
 };
 #define XFRM_FILTER_MASK_FULL (~0)
 
@@ -106,6 +116,8 @@ int do_xfrm_policy(int argc, char **argv);
 int do_xfrm_monitor(int argc, char **argv);
 
 int xfrm_addr_match(xfrm_address_t *x1, xfrm_address_t *x2, int bits);
+int xfrm_xfrmproto_is_ipsec(__u8 proto);
+int xfrm_xfrmproto_is_ro(__u8 proto);
 int xfrm_xfrmproto_getbyname(char *name);
 int xfrm_algotype_getbyname(char *name);
 const char *strxf_xfrmproto(__u8 proto);

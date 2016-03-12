@@ -17,11 +17,12 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <net/if.h>
 #include <string.h>
 
 #include "libnetlink.h"
 #include "ll_map.h"
+
+extern unsigned int if_nametoindex (const char *);
 
 struct idxmap
 {
@@ -36,7 +37,7 @@ struct idxmap
 
 static struct idxmap *idxmap[16];
 
-int ll_remember_index(const struct sockaddr_nl *who, 
+int ll_remember_index(const struct sockaddr_nl *who,
 		      struct nlmsghdr *n, void *arg)
 {
 	int h;

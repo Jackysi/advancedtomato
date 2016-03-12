@@ -15,7 +15,7 @@ No part of this file may be used without permission.
 	</style>
 	<script type="text/javascript" src="js/bwm-hist.js"></script>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,wan_ifname,lan_ifname,rstats_enable"); %>
+		//<% nvram("wan_ifname,wan2_ifname,wan3_ifname,wan4_ifname,lan_ifname,rstats_enable"); %>
 
 		try {
 			//	<% bandwidth("daily"); %>

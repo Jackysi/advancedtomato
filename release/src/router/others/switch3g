@@ -4,16 +4,18 @@
 # Copyright (C) 2011 shibby
 #
 
+PREFIX=$1
+
 LOCK="/tmp/switch3g.lock"
 if [ -f $LOCK ]; then #lock exist
     logger 3G MODEM - previous proces of switch3g still working
     exit 0
 else
 
-DEVNR=`nvram get modem_dev`
-PIN=`nvram get modem_pin`
-IS_PIN=`nvram get modem_pin | wc -w`
-MODE=`nvram get wan_proto`
+DEVNR=`nvram get "$PREFIX"_modem_dev`
+PIN=`nvram get "$PREFIX"_modem_pin`
+IS_PIN=`nvram get "$PREFIX"_modem_pin | wc -w`
+MODE=`nvram get "$PREFIX"_proto`
 
 if [ "$MODE" == "lte" ]; then
     exit 0
@@ -124,7 +126,7 @@ else
     else
         logger 3G MODEM not found by cdc-acm, option or sierra module. Trying usbserial ...
 
-        #rmmod cdc_acm //we can`t do that. I don`t know why...
+        #modprobe -r cdc_acm //we can`t do that. I don`t know why...
         modprobe -r sierra
         modprobe -r option
         modprobe -r cdc-acm

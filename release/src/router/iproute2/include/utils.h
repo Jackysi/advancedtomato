@@ -3,6 +3,7 @@
 
 #include <asm/types.h>
 #include <resolv.h>
+#include <stdlib.h>
 
 #include "libnetlink.h"
 #include "ll_map.h"
@@ -55,7 +56,7 @@ typedef struct
 #define AF_DECnet 12
 #endif
 
-struct dn_naddr 
+struct dn_naddr
 {
         unsigned short          a_len;
         unsigned char a_addr[DN_MAXADDL];
@@ -89,9 +90,9 @@ extern int get_s8(__s8 *val, const char *arg, int base);
 extern char* hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
 extern __u8* hexstring_a2n(const char *str, __u8 *buf, int blen);
 
-extern const char *format_host(int af, int len, const void *addr, 
+extern const char *format_host(int af, int len, const void *addr,
 			       char *buf, int buflen);
-extern const char *rt_addr_n2a(int af, int len, const void *addr, 
+extern const char *rt_addr_n2a(int af, int len, const void *addr,
 			       char *buf, int buflen);
 
 void missarg(const char *) __attribute__((noreturn));
@@ -126,6 +127,16 @@ static __inline__ int get_user_hz(void)
 		__iproute2_user_hz_internal = __get_user_hz();
 	return __iproute2_user_hz_internal;
 }
+
+static inline __u32 nl_mgrp(__u32 group)
+{
+	if (group > 31 ) {
+		fprintf(stderr, "Use setsockopt for this group %d\n", group);
+		exit(-1);
+	}
+	return group ? (1 << (group - 1)) : 0;
+}
+
 
 int print_timestamp(FILE *fp);
 

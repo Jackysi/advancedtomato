@@ -42,11 +42,11 @@ static void *BODY = NULL;	/* cached handle dlopen(NULL) */
 static struct qdisc_util * qdisc_list;
 static struct filter_util * filter_list;
 
-static int print_noqopt(struct qdisc_util *qu, FILE *f, 
+static int print_noqopt(struct qdisc_util *qu, FILE *f,
 			struct rtattr *opt)
 {
 	if (opt && RTA_PAYLOAD(opt))
-		fprintf(f, "[Unknown qdisc, optlen=%u] ", 
+		fprintf(f, "[Unknown qdisc, optlen=%u] ",
 			(unsigned) RTA_PAYLOAD(opt));
 	return 0;
 }
@@ -63,7 +63,7 @@ static int parse_noqopt(struct qdisc_util *qu, int argc, char **argv, struct nlm
 static int print_nofopt(struct filter_util *qu, FILE *f, struct rtattr *opt, __u32 fhandle)
 {
 	if (opt && RTA_PAYLOAD(opt))
-		fprintf(f, "fh %08x [Unknown filter, optlen=%u] ", 
+		fprintf(f, "fh %08x [Unknown filter, optlen=%u] ",
 			fhandle, (unsigned) RTA_PAYLOAD(opt));
 	else if (fhandle)
 		fprintf(f, "fh %08x ", fhandle);
@@ -99,7 +99,7 @@ struct qdisc_util *get_qdisc_kind(const char *str)
 		if (strcmp(q->id, str) == 0)
 			return q;
 
-	snprintf(buf, sizeof(buf), "/usr/lib/tc/q_%s.so", str);
+	snprintf(buf, sizeof(buf), "%s/q_%s.so", get_tc_lib(), str);
 	dlh = dlopen(buf, RTLD_LAZY);
 	if (!dlh) {
 		/* look in current binary, only open once */
@@ -145,7 +145,7 @@ struct filter_util *get_filter_kind(const char *str)
 		if (strcmp(q->id, str) == 0)
 			return q;
 
-	snprintf(buf, sizeof(buf), "/usr/lib/tc/f_%s.so", str);
+	snprintf(buf, sizeof(buf), "%s/f_%s.so", get_tc_lib(), str);
 	dlh = dlopen(buf, RTLD_LAZY);
 	if (dlh == NULL) {
 		dlh = BODY;
@@ -181,7 +181,7 @@ static void usage(void)
 {
 	fprintf(stderr, "Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }\n"
 			"       tc [-force] -batch file\n"
-	                "where  OBJECT := { qdisc | class | filter | action }\n"
+	                "where  OBJECT := { qdisc | class | filter | action | monitor }\n"
 	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -b[atch] [file] }\n");
 }
 
@@ -199,12 +199,15 @@ static int do_cmd(int argc, char **argv)
 	if (matches(*argv, "actions") == 0)
 		return do_action(argc-1, argv+1);
 
+	if (matches(*argv, "monitor") == 0)
+		return do_tcmonitor(argc-1, argv+1);
+
 	if (matches(*argv, "help") == 0) {
 		usage();
 		return 0;
 	}
-	
-	fprintf(stderr, "Object \"%s\" is unknown, try \"tc help\".\n", 
+
+	fprintf(stderr, "Object \"%s\" is unknown, try \"tc help\".\n",
 		*argv);
 	return -1;
 }

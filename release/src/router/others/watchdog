@@ -1,0 +1,98 @@
+#!/bin/sh
+
+#
+# Copyright (C) 2015 shibby
+#
+
+PREFIX=$1
+IFACE=`nvram get "$PREFIX"_ifname`
+PROTO=`nvram get "$PREFIX"_proto`
+ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
+LOCK="/tmp/watchdog.$PREFIX"
+
+watchdogRun() {
+    DST=`nvram get mwan_ckdst`
+    HOSTLIST=`echo $DST |  sed 's/,/ /'`
+
+    RXBYTES1=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
+    for HOST in $HOSTLIST; do
+        # we need only send/receive few packages to be sure is connection works.
+        # Probe = 1, Max hops = 3
+        traceroute -i $IFACE -w 1 -m 3 $HOST > /dev/null 2>&1
+    done
+    RXBYTES2=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
+    if [ "$RXBYTES2" == "$RXBYTES1" ]; then
+        logger WAN Watchdog - Connection $PREFIX down - Reconnecting ...
+        echo "0" > /tmp/"$PREFIX"_state
+
+        if [ "$PROTO" == "lte" ]; then
+            switch4g $PREFIX connect
+        else
+            if [ "$PREFIX" == "wan" ]; then
+                service wan1 restart
+            else
+                service $PREFIX restart
+            fi
+        fi
+
+    else
+        echo "1" > /tmp/"$PREFIX"_state
+    fi
+}
+
+watchdogAdd() {
+    CKTIME=`nvram get mwan_cktime`
+    MINS=`expr "$CKTIME" / 60`
+
+    if [ "$MINS" -gt 0 ]; then
+        ISSET=`cru l | grep watchdog_"$PREFIX" | wc -l`
+
+        if [ "$ISSET" == "0" ]; then
+            cru a watchdog_$PREFIX "*/$MINS * * * * /usr/sbin/watchdog $PREFIX"
+        fi
+    fi
+    echo "0" > /tmp/"$PREFIX"_state
+}
+
+watchdogDel() {
+    ISSET=`cru l | grep watchdog_"$PREFIX" | wc -l`
+
+    if [ "$ISSET" == "1" ]; then
+        cru d watchdog_"$PREFIX"
+    fi
+}
+
+checkLock() {
+    if [ -f $LOCK ]; then #lock exist
+        logger WAN Watchdog - another proces in action for $PREFIX
+        exit 0
+    fi
+
+    touch $LOCK
+}
+
+checkLock2() {
+    if [ -f /etc/switch3g.lock -o -f /etc/switch4g.lock ]; then
+        logger WAN Watchdog - switch3g or switch4g script in action for $PREFIX - skip
+        rm $LOCK
+        exit 0
+    fi
+}
+
+###################################################
+
+checkLock
+
+checkLock2
+
+if [ -n "$1" ]; then
+    if [ "$2" == "add" ]; then
+        watchdogAdd
+    elif [ "$2" == "del" ]; then
+        watchdogDel
+    else
+        watchdogRun
+    fi
+fi
+
+rm $LOCK

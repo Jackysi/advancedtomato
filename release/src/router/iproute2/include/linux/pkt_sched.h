@@ -77,9 +77,8 @@ struct tc_ratespec
 {
 	unsigned char	cell_log;
 	unsigned char	__reserved;
-	unsigned short	feature;	/* Always 0 in pre-atm patch kernels */
-	char		cell_align;	/* Always 0 in pre-atm patch kernels */
-	unsigned char	__unused;
+	unsigned short	feature;
+	short		addend;
 	unsigned short	mpu;
 	__u32		rate;
 };
@@ -147,37 +146,7 @@ struct tc_sfq_qopt
  *
  *	The only reason for this is efficiency, it is possible
  *	to change these parameters in compile time.
- *
- *	If you need to play with these values use esfq instead.
  */
-
-/* ESFQ section */
-
-enum
-{
-	/* traditional */
-	TCA_SFQ_HASH_CLASSIC,
-	TCA_SFQ_HASH_DST,
-	TCA_SFQ_HASH_SRC,
-	TCA_SFQ_HASH_FWMARK,
-	/* conntrack */
-	TCA_SFQ_HASH_CTORIGDST,
-	TCA_SFQ_HASH_CTORIGSRC,
-	TCA_SFQ_HASH_CTREPLDST,
-	TCA_SFQ_HASH_CTREPLSRC,
-	TCA_SFQ_HASH_CTNATCHG,
-};
-
-struct tc_esfq_qopt
-{
-	unsigned	quantum;	/* Bytes per round allocated to flow */
-	int		perturb_period;	/* Period of hash perturbation */
-	__u32		limit;		/* Maximal packets in queue */
-	unsigned	divisor;	/* Hash divisor  */
-	unsigned	flows;		/* Maximal number of flows  */
-	unsigned        hash_kind;      /* Hash function to use for flow identification */
-};
-
 
 /* RED section */
 
@@ -258,7 +227,7 @@ struct tc_gred_sopt
 };
 
 /* HTB section */
-#define TC_HTB_NUMPRIO		10
+#define TC_HTB_NUMPRIO		8
 #define TC_HTB_MAXDEPTH		8
 #define TC_HTB_PROTOVER		3 /* the same as HTB and TC's major */
 

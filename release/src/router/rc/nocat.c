@@ -148,8 +148,10 @@ void start_nocat(void)
 
     stop_nocat();
 
-    if( !nvram_match( "NC_enable", "1" ) )
-	return;
+    if( !nvram_match( "NC_enable", "1" ) || !nvram_match("mwan_num", "1"))
+	{
+		return;
+	}
 /* not needed .. but this is what it's testing depending on kernel.. should be modified in /nocat/src/nocat.conf
 #ifdef LINUX26
 	syslog(LOG_INFO,"Device using K2.6\n");

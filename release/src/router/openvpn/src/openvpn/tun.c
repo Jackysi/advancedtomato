@@ -66,6 +66,8 @@ static void netsh_command (const struct argv *a, int n);
 
 static const char *netsh_get_id (const char *dev_node, struct gc_arena *gc);
 
+static DWORD get_adapter_index_flexible (const char *name);
+
 #endif
 
 #ifdef TARGET_SOLARIS
@@ -633,7 +635,7 @@ void delete_route_connected_v6_net(struct tuntap * tt,
  * is still point to point and no layer 2 resolution is done...
  */
 
-char *
+const char *
 create_arbitrary_remote( struct tuntap *tt, struct gc_arena * gc )
 {
   in_addr_t remote;
@@ -642,7 +644,7 @@ create_arbitrary_remote( struct tuntap *tt, struct gc_arena * gc )
 
   if ( remote == tt->local ) remote ++;
 
-  return print_in_addr_t (remote, 0, &gc);
+  return print_in_addr_t (remote, 0, gc);
 }
 #endif
 
@@ -1228,18 +1230,22 @@ do_ifconfig (struct tuntap *tt,
     if ( do_ipv6 )
       {
 	char * saved_actual;
+	char iface[64];
+	DWORD idx;
 
 	if (!strcmp (actual, "NULL"))
 	  msg (M_FATAL, "Error: When using --tun-ipv6, if you have more than one TAP-Windows adapter, you must also specify --dev-node");
 
-	/* example: netsh interface ipv6 set address MyTap 2001:608:8003::d store=active */
+	idx = get_adapter_index_flexible(actual);
+	openvpn_snprintf(iface, sizeof(iface), "interface=%lu", idx);
+
+	/* example: netsh interface ipv6 set address interface=42 2001:608:8003::d store=active */
 	argv_printf (&argv,
-		    "%s%sc interface ipv6 set address %s %s store=active",
+		     "%s%sc interface ipv6 set address %s %s store=active",
 		     get_win_sys_path(),
 		     NETSH_PATH_SUFFIX,
-		     actual,
-		     ifconfig_ipv6_local );
-
+		     win32_version_info() == WIN_XP ? actual : iface,
+		     ifconfig_ipv6_local);
 	netsh_command (&argv, 4);
 
 	/* explicit route needed */
@@ -1249,6 +1255,8 @@ do_ifconfig (struct tuntap *tt,
 	 */
 	saved_actual = tt->actual_name;
 	tt->actual_name = (char*) actual;
+	/* we use adapter_index in add_route_ipv6 */
+	tt->adapter_index = idx;
 	add_route_connected_v6_net(tt, es);
 	tt->actual_name = saved_actual;
       }
@@ -1713,6 +1721,32 @@ close_tun (struct tuntap *tt)
 
 	    argv_msg (M_INFO, &argv);
 	    openvpn_execve_check (&argv, NULL, 0, "Linux ip addr del failed");
+
+            if (tt->ipv6 && tt->did_ifconfig_ipv6_setup)
+              {
+                const char * ifconfig_ipv6_local = print_in6_addr (tt->local_ipv6, 0, &gc);
+
+#ifdef ENABLE_IPROUTE
+                argv_printf (&argv, "%s -6 addr del %s/%d dev %s",
+                                    iproute_path,
+                                    ifconfig_ipv6_local,
+                                    tt->netbits_ipv6,
+                                    tt->actual_name
+                                    );
+                argv_msg (M_INFO, &argv);
+                openvpn_execve_check (&argv, NULL, 0, "Linux ip -6 addr del failed");
+#else
+                argv_printf (&argv,
+                            "%s %s del %s/%d",
+                            IFCONFIG_PATH,
+                            tt->actual_name,
+                            ifconfig_ipv6_local,
+                            tt->netbits_ipv6
+                            );
+                argv_msg (M_INFO, &argv);
+                openvpn_execve_check (&argv, NULL, 0, "Linux ifconfig inet6 del failed");
+#endif
+              }
 
 	    argv_reset (&argv);
 	    gc_free (&gc);
@@ -2363,7 +2397,6 @@ close_tun (struct tuntap *tt)
     }
   else if (tt)				/* close and destroy */
     {
-      struct gc_arena gc = gc_new ();
       struct argv argv;
 
       /* setup command, close tun dev (clears tt->actual_name!), run command
