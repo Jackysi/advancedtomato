@@ -40,7 +40,7 @@ No part of this file may be used without permission.
 		/* MULTIWAN-END */
 
 		/* DUALWAN-BEGIN */
-		if (  maxwan_num != 4 ) maxwan_num = 2;
+		if ( typeof( maxwan_num ) == 'undefined' ) maxwan_num = 2;
 		/* DUALWAN-END */
 
 		var sta_list = new Array();
