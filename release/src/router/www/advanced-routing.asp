@@ -8,8 +8,8 @@ No part of this file may be used without permission.
 --><title>Routing</title>
 <content>
 	<script type="text/javascript">
-		//<% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,emf_enable,dr_lan_rx,dr_lan1_rx,dr_lan2_rx,dr_lan3_rx,dr_wan_rx,dr_wan2_rx,dr_wan3_rx,dr_wan4_rx,wan_proto,wan2_proto,wan3_proto,wan4_proto,mwan_num"); %>
-		//<% activeroutes(); %>
+		// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,emf_enable,dr_lan_rx,dr_lan1_rx,dr_lan2_rx,dr_lan3_rx,dr_wan_rx,dr_wan2_rx,dr_wan3_rx,dr_wan4_rx,wan_proto,wan2_proto,wan3_proto,wan4_proto,mwan_num"); %>
+		// <% activeroutes(); %>
 
 		var ara = new TomatoGrid();
 
@@ -108,13 +108,13 @@ No part of this file may be used without permission.
 			if ( E( '_f_dr_lan3' ).disabled )
 				E( '_f_dr_lan3' ).checked = false;
 			for ( uidx = 1; uidx <= nvram.mwan_num; ++uidx ) {
-				u                             = (uidx > 1) ? uidx : '';
+				u = (uidx > 1) ? uidx : '';
 				E( '_f_dr_wan' + u ).disabled = (nvram[ 'wan' + u + '_proto' ] == 'disabled');
 				if ( E( '_f_dr_wan' + u ).disabled )
 					E( '_f_dr_wan' + u ).checked = false;
 			}
 			for ( uidx = 4; uidx > nvram.mwan_num; --uidx ) {
-				u                             = (uidx > 1) ? uidx : '';
+				u = (uidx > 1) ? uidx : '';
 				E( '_f_dr_wan' + u ).disabled = 1;
 			}
 			return 1;
@@ -174,32 +174,33 @@ No part of this file may be used without permission.
 		<input type="hidden" name="_nextpage" value="/#advanced-routing.asp">
 		<input type="hidden" name="_service" value="routing-restart">
 
-		<input type='hidden' name='routes_static'>
-		<input type='hidden' name='dhcp_routes'>
-		<input type='hidden' name='emf_enable'>
-		<input type='hidden' name='dr_lan_tx'>
-		<input type='hidden' name='dr_lan_rx'>
-		<input type='hidden' name='dr_lan1_tx'>
-		<input type='hidden' name='dr_lan1_rx'>
-		<input type='hidden' name='dr_lan2_tx'>
-		<input type='hidden' name='dr_lan2_rx'>
-		<input type='hidden' name='dr_lan3_tx'>
-		<input type='hidden' name='dr_lan3_rx'>
-		<input type='hidden' name='dr_wan_tx'>
-		<input type='hidden' name='dr_wan_rx'>
-		<input type='hidden' name='dr_wan2_tx'>
-		<input type='hidden' name='dr_wan2_rx'>
-		/* MULTIWAN-BEGIN */
-		<input type='hidden' name='dr_wan3_tx'>
-		<input type='hidden' name='dr_wan3_rx'>
-		<input type='hidden' name='dr_wan4_tx'>
-		<input type='hidden' name='dr_wan4_rx'>
-		/* MULTIWAN-END */
+		<input type="hidden" name="routes_static">
+		<input type="hidden" name="dhcp_routes">
+		<input type="hidden" name="emf_enable">
+		<input type="hidden" name="dr_lan_tx">
+		<input type="hidden" name="dr_lan_rx">
+		<input type="hidden" name="dr_lan1_tx">
+		<input type="hidden" name="dr_lan1_rx">
+		<input type="hidden" name="dr_lan2_tx">
+		<input type="hidden" name="dr_lan2_rx">
+		<input type="hidden" name="dr_lan3_tx">
+		<input type="hidden" name="dr_lan3_rx">
+		<input type="hidden" name="dr_wan_tx">
+		<input type="hidden" name="dr_wan_rx">
+		<input type="hidden" name="dr_wan2_tx">
+		<input type="hidden" name="dr_wan2_rx">
+/* MULTIWAN-BEGIN */
+		<input type="hidden" name="dr_wan3_tx">
+		<input type="hidden" name="dr_wan3_rx">
+		<input type="hidden" name="dr_wan4_tx">
+		<input type="hidden" name="dr_wan4_rx">
+/* MULTIWAN-END */
 
 		<div class="box" data-box="routing-table">
 			<div class="heading">Current Routing Table</div>
 			<div class="section content">
-				<table class="line-table" id="ara-grid"></table><br />
+				<table class="line-table" id="ara-grid"></table>
+				<br />
 			</div>
 		</div>
 
@@ -214,26 +215,26 @@ No part of this file may be used without permission.
 			<div class="heading">Miscellaneous</div>
 			<div class="content misc"></div>
 			<script type="text/javascript">
-				$('.content.misc').forms([
-		             { title: 'Mode', name: 'wk_mode', type: 'select', options: [['gateway','Gateway'],['router','Router']], value: nvram.wk_mode },
-		             /* ZEBRA-BEGIN */
-		             { title: 'RIPv1 &amp; v2' },
-		             { title: 'LAN', indent: 2, name: 'f_dr_lan', type: 'checkbox', value: ((nvram.dr_lan_rx != '0') && (nvram.dr_lan_rx != '')) },
-		             { title: 'LAN1', indent: 2, name: 'f_dr_lan1', type: 'checkbox', value: ((nvram.dr_lan1_rx != '0') && (nvram.dr_lan1_rx != '')) },
-		             { title: 'LAN2', indent: 2, name: 'f_dr_lan2', type: 'checkbox', value: ((nvram.dr_lan2_rx != '0') && (nvram.dr_lan2_rx != '')) },
-		             { title: 'LAN3', indent: 2, name: 'f_dr_lan3', type: 'checkbox', value: ((nvram.dr_lan3_rx != '0') && (nvram.dr_lan3_rx != '')) },
-		             { title: 'WAN', indent: 2, name: 'f_dr_wan', type: 'checkbox', value: ((nvram.dr_wan_rx != '0') && (nvram.dr_wan_rx != '')) },
-		             { title: 'WAN2', indent: 2, name: 'f_dr_wan2', type: 'checkbox', value: ((nvram.dr_wan2_rx != '0') && (nvram.dr_wan2_rx != '')) },
-		             /* MULTIWAN-BEGIN */
-		             { title: 'WAN3', indent: 2, name: 'f_dr_wan3', type: 'checkbox', value: ((nvram.dr_wan3_rx != '0') && (nvram.dr_wan3_rx != '')) },
-		             { title: 'WAN4', indent: 2, name: 'f_dr_wan4', type: 'checkbox', value: ((nvram.dr_wan4_rx != '0') && (nvram.dr_wan4_rx != '')) },
-		             /* MULTIWAN-END */
+				$( '.content.misc' ).forms([
+                   { title: 'Mode', name: 'wk_mode', type: 'select', options: [['gateway','Gateway'],['router','Router']], value: nvram.wk_mode },
+                   /* ZEBRA-BEGIN */
+                   { title: 'RIPv1 &amp; v2' },
+                   { title: 'LAN', indent: 2, name: 'f_dr_lan', type: 'checkbox', value: ((nvram.dr_lan_rx != '0') && (nvram.dr_lan_rx != '')) },
+                   { title: 'LAN1', indent: 2, name: 'f_dr_lan1', type: 'checkbox', value: ((nvram.dr_lan1_rx != '0') && (nvram.dr_lan1_rx != '')) },
+                   { title: 'LAN2', indent: 2, name: 'f_dr_lan2', type: 'checkbox', value: ((nvram.dr_lan2_rx != '0') && (nvram.dr_lan2_rx != '')) },
+                   { title: 'LAN3', indent: 2, name: 'f_dr_lan3', type: 'checkbox', value: ((nvram.dr_lan3_rx != '0') && (nvram.dr_lan3_rx != '')) },
+                   { title: 'WAN', indent: 2, name: 'f_dr_wan', type: 'checkbox', value: ((nvram.dr_wan_rx != '0') && (nvram.dr_wan_rx != '')) },
+                   { title: 'WAN2', indent: 2, name: 'f_dr_wan2', type: 'checkbox', value: ((nvram.dr_wan2_rx != '0') && (nvram.dr_wan2_rx != '')) },
+                   /* MULTIWAN-BEGIN */
+                   { title: 'WAN3', indent: 2, name: 'f_dr_wan3', type: 'checkbox', value: ((nvram.dr_wan3_rx != '0') && (nvram.dr_wan3_rx != '')) },
+                   { title: 'WAN4', indent: 2, name: 'f_dr_wan4', type: 'checkbox', value: ((nvram.dr_wan4_rx != '0') && (nvram.dr_wan4_rx != '')) },
+                   /* MULTIWAN-END */
 
-		             /* ZEBRA-END */
-		             /* EMF-BEGIN */
-		             { title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },
-		             /* EMF-END */
-		             { title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' },
+                   /* ZEBRA-END */
+                   /* EMF-BEGIN */
+                   { title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },
+                   /* EMF-END */
+                   { title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' }
 	            ]);
 			</script>
 		</div>
@@ -244,5 +245,5 @@ No part of this file may be used without permission.
 
 	</form>
 
-	<script type="text/javascript">earlyInit(); verifyFields(null, 1);</script>
+	<script type="text/javascript">earlyInit(); verifyFields( null, 1 );</script>
 </content>

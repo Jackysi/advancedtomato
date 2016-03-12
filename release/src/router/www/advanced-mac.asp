@@ -163,7 +163,9 @@ No part of this file may be used without permission.
 						var u = (uidx>1) ? uidx : '';
 						f.push(
 								{ title: 'WAN'+u+' Port', indent: 1, name: 'f_wan'+u+'_hwaddr', type: 'text', maxlen: 17, size: 20,
-									suffix: ' <input type="button" value="Default" onclick="bdefault(\'wan'+u+'\')"> <input type="button" value="Random" onclick="brand(\'wan'+u+'\')"> <input type="button" value="Clone PC" onclick="bclone(\'wan'+u+'\')">',
+									suffix: ' <button class="btn btn-primary" type="button" onclick="bdefault(\'wan'+u+'\')">Default</button> ' +
+									        '<button class="btn btn-default" type="button" onclick="brand(\'wan'+u+'\')">Random</button> ' +
+									        '<button class="btn btn-default" type="button" onclick="bclone(\'wan'+u+'\')">Clone PC</button>',
 									value: nvram['wan'+u+'_mac'] || defmac('wan'+u) }
 						);
 					}

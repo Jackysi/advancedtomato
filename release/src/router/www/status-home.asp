@@ -24,15 +24,15 @@
 		}
 
 		show_radio = [];
-		for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
 			/* REMOVE-BEGIN
-			//	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
-			REMOVE-END */
-			if (wl_sunit(uidx)<0)
-				show_radio.push((nvram['wl'+wl_fface(uidx)+'_radio'] == '1'));
+			 //	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+			 REMOVE-END */
+			if ( wl_sunit( uidx ) < 0 )
+				show_radio.push( (nvram[ 'wl' + wl_fface( uidx ) + '_radio' ] == '1') );
 		}
 
-		nphy = features('11n');
+		nphy = features( '11n' );
 
 		function dhcpc( what, wan_prefix ) {
 			form.submitHidden( 'dhcpc.cgi', { exec: what, prefix: wan_prefix, _redirect: '/#status-home.asp' } );
@@ -54,29 +54,27 @@
 			form.submitHidden( 'wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 6 : 3, _wl_unit: wl_unit( uidx ) } );
 		}
 
-		var ref = new TomatoRefresh('js/status-data.jsx', '', 0, 'status_overview_refresh');
+		var ref = new TomatoRefresh( 'js/status-data.jsx', '', 0, 'status_overview_refresh' );
 
-		ref.refresh = function(text)
-		{
+		ref.refresh = function( text ) {
 			stats = {};
 			try {
-				eval(text);
+				eval( text );
 			}
-			catch (ex) {
+			catch ( ex ) {
 				stats = {};
 			}
 			show();
 		}
 
 
-		function c(id, htm)
-		{
-			E(id).cells[1].innerHTML = htm;
+		function c( id, htm ) {
+			E( id ).cells[ 1 ].innerHTML = htm;
 		}
 
 		function ethstates() {
 
-			var ports = [];
+			var ports = [], names = {}, v = 0;
 
 			// Fail safe (check if minimum 5 ports exist (bit lame since not all routers have 5 ports???)
 			if ( etherstates.port0 == "disable" || typeof (etherstates.port0) == 'undefined' || typeof (etherstates.port1) == 'undefined' || typeof (etherstates.port2) == 'undefined' || typeof (etherstates.port3) == 'undefined' || typeof (etherstates.port4) == 'undefined' ) {
@@ -86,10 +84,21 @@
 
 			}
 
+			// Name ports (MultiWAN thing)
+			for ( uidx = 1; uidx <= nvram.mwan_num; ++uidx ) {
+				u = (uidx > 1) ? uidx : '';
+				if ( (nvram[ 'wan' + u + '_sta' ] == '') && (nvram[ 'wan' + u + '_proto' ] != 'lte') && (nvram[ 'wan' + u + '_proto' ] != 'ppp3g') ) {
+					names[ 'port' + v ] = 'WAN' + u;
+					++v;
+				}
+			}
+
+			for ( uidx = v; uidx <= 4; ++uidx ) { names[ 'port' + uidx ] = 'LAN' + uidx; }
+
 			// F*** standard approach writing down port by port, lets just loop through array....
 			$.each( etherstates, function( $k, $v ) {
 
-				var speed, status, portname;
+				var speed, status;
 
 				// Replace status/speed based on port status
 				if ( $v == 'DOWN' ) {
@@ -105,11 +114,7 @@
 
 				}
 
-				// Obviously with Shibby 133+ this needs to be changed
-				if ( $k == 'port0' ) portname = 'WAN';
-				else portname = 'LAN ' + $k.replace( 'port', '' );
-
-				ports.push( '<div class="eth ' + status + ' ' + ( ( portname == 'WAN' ) ? 'wan' : '' ) + '"><div class="title">' + portname + '</div><div class="speed">' + speed + '</div></div>' );
+				ports.push( '<div class="eth ' + status + ' ' + ( ( $k == 'port0' ) ? 'wan' : '' ) + '"><div class="title">' + names[$k] + '</div><div class="speed">' + speed + '</div></div>' );
 
 			});
 
@@ -119,98 +124,97 @@
 
 		function show() {
 
-			c('cpu', stats.cpuload);
-			c('uptime', stats.uptime);
-			c('time', stats.time);
-			c('wanip', stats.wanip);
-			c('wanprebuf',stats.wanprebuf); //Victek
-			c('wannetmask', stats.wannetmask);
-			c('wangateway', stats.wangateway);
-			c('dns', stats.dns);
-			c('memory', stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>');
-			c('swap', stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>');
-			elem.display('swap', stats.swap != '');
+			c( 'cpu', stats.cpuload );
+			c( 'uptime', stats.uptime );
+			c( 'time', stats.time );
+			c( 'wanip', stats.wanip );
+			c( 'wanprebuf', stats.wanprebuf ); //Victek
+			c( 'wannetmask', stats.wannetmask );
+			c( 'wangateway', stats.wangateway );
+			c( 'dns', stats.dns );
+			c( 'memory', stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' );
+			c( 'swap', stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>' );
+			elem.display( 'swap', stats.swap != '' );
 
 			/* IPV6-BEGIN */
-			c('ip6_wan', stats.ip6_wan);
-			elem.display('ip6_wan', stats.ip6_wan != '');
-			c('ip6_lan', stats.ip6_lan);
-			elem.display('ip6_lan', stats.ip6_lan != '');
-			c('ip6_lan_ll', stats.ip6_lan_ll);
-			elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
+			c( 'ip6_wan', stats.ip6_wan );
+			elem.display( 'ip6_wan', stats.ip6_wan != '' );
+			c( 'ip6_lan', stats.ip6_lan );
+			elem.display( 'ip6_lan', stats.ip6_lan != '' );
+			c( 'ip6_lan_ll', stats.ip6_lan_ll );
+			elem.display( 'ip6_lan_ll', stats.ip6_lan_ll != '' );
 			/* IPV6-END */
 
-			c('wanstatus', ((stats.wanstatus == 'Connected') ? '<span class="text-green">Connected</span> <i class="icon-globe"></i>' : '<span class="text-red">' + stats.wanstatus + '</span> <i class="icon-cancel"></i>'));
-			c('wanuptime', stats.wanuptime);
-			if (show_dhcpc) c('wanlease', stats.wanlease);
-			if (show_codi) {
+			c( 'wanstatus', ((stats.wanstatus == 'Connected') ? '<span class="text-green">Connected</span> <i class="icon-globe"></i>' : '<span class="text-red">' + stats.wanstatus + '</span> <i class="icon-cancel"></i>') );
+			c( 'wanuptime', stats.wanuptime );
+			if ( show_dhcpc ) c( 'wanlease', stats.wanlease );
+			if ( show_codi ) {
 
-				if (stats.wanup) {
+				if ( stats.wanup ) {
 
-					$('#b_connect').hide();
-					$('#b_disconnect').show();
+					$( '#b_connect' ).hide();
+					$( '#b_disconnect' ).show();
 
 				} else {
 
-					$('#b_connect').show();
-					$('#b_disconnect').hide();
+					$( '#b_connect' ).show();
+					$( '#b_disconnect' ).hide();
 
 				}
 			}
 
-			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-				if (wl_sunit(uidx)<0) {
-					c('radio'+uidx, wlstats[uidx].radio ? 'Enabled <i class="icon-check"></i>' : 'Disabled <i class="icon-cancel"></i>');
-					c('rate'+uidx, wlstats[uidx].rate);
+			for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
+				if ( wl_sunit( uidx ) < 0 ) {
+					c( 'radio' + uidx, wlstats[ uidx ].radio ? 'Enabled <i class="icon-check"></i>' : 'Disabled <i class="icon-cancel"></i>' );
+					c( 'rate' + uidx, wlstats[ uidx ].rate );
 
-					if (show_radio[uidx]) {
+					if ( show_radio[ uidx ] ) {
 
-						if (wlstats[uidx].radio) {
+						if ( wlstats[ uidx ].radio ) {
 
-							$('#b_wl'+uidx+'_enable').hide();
-							$('#b_wl'+uidx+'_disable').show();
+							$( '#b_wl' + uidx + '_enable' ).hide();
+							$( '#b_wl' + uidx + '_disable' ).show();
 
 						} else {
 
-							$('#b_wl'+uidx+'_enable').show();
-							$('#b_wl'+uidx+'_disable').hide();
+							$( '#b_wl' + uidx + '_enable' ).show();
+							$( '#b_wl' + uidx + '_disable' ).hide();
 
 						}
 
 					} else {
 
 						// Interface disabled, hide enable/disable
-						$('#b_wl'+uidx+'_enable').hide();
-						$('#b_wl'+uidx+'_disable').hide();
+						$( '#b_wl' + uidx + '_enable' ).hide();
+						$( '#b_wl' + uidx + '_disable' ).hide();
 
 					}
 
-					c('channel'+uidx, stats.channel[uidx]);
-					if (nphy) {
-						c('nbw'+uidx, wlstats[uidx].nbw);
+					c( 'channel' + uidx, stats.channel[ uidx ] );
+					if ( nphy ) {
+						c( 'nbw' + uidx, wlstats[ uidx ].nbw );
 					}
-					c('interference'+uidx, stats.interference[uidx]);
-					elem.display('interference'+uidx, stats.interference[uidx] != '');
+					c( 'interference' + uidx, stats.interference[ uidx ] );
+					elem.display( 'interference' + uidx, stats.interference[ uidx ] != '' );
 
-					if (wlstats[uidx].client) {
-						c('rssi'+uidx, wlstats[uidx].rssi || '');
-						c('noise'+uidx, wlstats[uidx].noise || '');
-						c('qual'+uidx, stats.qual[uidx] || '');
+					if ( wlstats[ uidx ].client ) {
+						c( 'rssi' + uidx, wlstats[ uidx ].rssi || '' );
+						c( 'noise' + uidx, wlstats[ uidx ].noise || '' );
+						c( 'qual' + uidx, stats.qual[ uidx ] || '' );
 					}
 				}
-				c('ifstatus'+uidx, wlstats[uidx].ifstatus || '');
+				c( 'ifstatus' + uidx, wlstats[ uidx ].ifstatus || '' );
 			}
 		}
 
-		function earlyInit()
-		{
-			elem.display('b_dhcpc', show_dhcpc);
-			elem.display('b_connect', 'b_disconnect', show_codi);
-			if (nvram.wan_proto == 'disabled')
-				elem.display('wan-title', 'sesdiv_wan', 0);
-			for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-				if (wl_sunit(uidx)<0)
-					$('#b_wl'+wl_fface(uidx)+'_enable').closest('.btn-control-group').show();
+		function earlyInit() {
+			elem.display( 'b_dhcpc', show_dhcpc );
+			elem.display( 'b_connect', 'b_disconnect', show_codi );
+			if ( nvram.wan_proto == 'disabled' )
+				elem.display( 'wan-title', 'sesdiv_wan', 0 );
+			for ( var uidx = 0; uidx < wl_ifaces.length; ++uidx ) {
+				if ( wl_sunit( uidx ) < 0 )
+					$( '#b_wl' + wl_fface( uidx ) + '_enable' ).closest( '.btn-control-group' ).show();
 			}
 
 			ethstates();
@@ -219,8 +223,8 @@
 
 		function init() {
 
-			$('.refresher').after(genStdRefresh(1,1,'ref.toggle()'));
-			ref.initPage(3000, 3);
+			$( '.refresher' ).after( genStdRefresh( 1, 1, 'ref.toggle()' ) );
+			ref.initPage( 3000, 3 );
 			show();
 
 		}

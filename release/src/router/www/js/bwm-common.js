@@ -152,7 +152,7 @@ function showTab( name ) {
 	E( 'tx-total' ).innerHTML = scaleSize( h.tx_total );
 
 	if ( svgReady ) {
-		max = scaleMode ? MAX( h.rx_max, h.tx_max ) : xx_max;
+		max = (scaleMode ? MAX( h.rx_max, h.tx_max ) : xx_max);
 		if ( max > 12500 ) max = Math.round( (max + 12499) / 12500 ) * 12500;
 		else max += 100;
 		updateSVG( h.rx, h.tx, max, drawMode,
@@ -236,160 +236,150 @@ function loadData() {
 				 REMOVE-END */
 				t = 'WL <small>(' + i + ')</small>';
 			}
-
-			if ( i == 'imq1' ) {
-				t = 'Lim. OUT <small>(' + i + ')</small>';
-			}
-
-			if ( i == 'imq2' ) {
-				t = 'Lim. IN <small>(' + i + ')</small>';
-			}
-
 			else if ( (nvram.wan_proto == 'pptp') || (nvram.wan2_proto == 'pptp')
 			          /* MULTIWAN-BEGIN */
-			          || (nvram.wan3_proto == 'pptp') || (nvram.wan4_proto == 'pptp') ) {
-				/* MULTIWAN-END */
+			          || (nvram.wan3_proto == 'pptp') || (nvram.wan4_proto == 'pptp')
+			/* MULTIWAN-END */
+			) {
 				if ( nvram.wan_ifname == i ) t = 'MAN1 <small>(' + i + ')</small>';
 				else if ( nvram.wan2_ifname == i ) t = 'MAN2 <small>(' + i + ')</small>';
 				/* MULTIWAN-BEGIN */
 				else if ( nvram.wan3_ifname == i ) t = 'MAN3 <small>(' + i + ')</small>';
 				else if ( nvram.wan4_ifname == i ) t = 'MAN4 <small>(' + i + ')</small>';
 				/* MULTIWAN-END */
-				else if ( (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'ppp3g')
-				          || (nvram.wan2_proto == 'pppoe') || (nvram.wan2_proto == 'ppp3g')
-				          /* MULTIWAN-BEGIN */
-				          || (nvram.wan3_proto == 'pppoe') || (nvram.wan3_proto == 'ppp3g')
-				          || (nvram.wan4_proto == 'pppoe') || (nvram.wan4_proto == 'ppp3g') ) {
-					/* MULTIWAN-END */
-					if ( nvram.wan_iface == i ) t = 'WAN1 <small>(' + i + ')</small>';
-					else if ( nvram.wan2_iface == i ) t = 'WAN2 <small>(' + i + ')</small>';
-					/* MULTIWAN-BEGIN */
-
-					else if ( nvram.wan3_iface == i ) t = 'WAN3 <small>(' + i + ')</small>';
-
-					else if ( nvram.wan4_iface == i ) t = 'WAN4 <small>(' + i + ')</small>';
-					/* MULTIWAN-END */
-
-				}
-
-				else if ( (nvram.wan_proto != 'disabled') || (nvram.wan2_proto != 'disabled')
-				                                             /* MULTIWAN-BEGIN */ + || (nvram.wan3_proto != 'disabled') || (nvram.wan4_proto != 'disabled') ) {
-					/* MULTIWAN-END */
-					if ( nvram.wan_ifname == i ) t = 'WAN1 <small>(' + i + ')</small>';
-					else if ( nvram.wan2_ifname == i ) t = 'WAN2 <small>(' + i + ')</small>';
-					/* MULTIWAN-BEGIN */
-
-					else if ( nvram.wan3_ifname == i ) t = 'WAN3 <small>(' + i + ')</small>';
-					else if ( nvram.wan4_ifname == i ) t = 'WAN4 <small>(' + i + ')</small>';
-
-					/* MULTIWAN-END */
-				}
-				tabs.push( [ 'speed-tab-' + i, t ] );
 			}
-
-			tabs = tabs.sort(
-				function( a, b ) {
-					if ( a[ 1 ] < b[ 1 ] ) return -1;
-					if ( a[ 1 ] > b[ 1 ] ) return 1;
-					return 0;
-				} );
+			else if ( (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'ppp3g')
+			          || (nvram.wan2_proto == 'pppoe') || (nvram.wan2_proto == 'ppp3g')
+			          /* MULTIWAN-BEGIN */
+			          || (nvram.wan3_proto == 'pppoe') || (nvram.wan3_proto == 'ppp3g')
+			          || (nvram.wan4_proto == 'pppoe') || (nvram.wan4_proto == 'ppp3g')
+			/* MULTIWAN-END */
+			) {
+				if ( nvram.wan_iface == i ) t = 'WAN1 <small>(' + i + ')</small>';
+				else if ( nvram.wan2_iface == i ) t = 'WAN2 <small>(' + i + ')</small>';
+				/* MULTIWAN-BEGIN */
+				else if ( nvram.wan3_iface == i ) t = 'WAN3 <small>(' + i + ')</small>';
+				else if ( nvram.wan4_iface == i ) t = 'WAN4 <small>(' + i + ')</small>';
+				/* MULTIWAN-END */
+			}
+			else if ( (nvram.wan_proto != 'disabled') || (nvram.wan2_proto != 'disabled')
+			          /* MULTIWAN-BEGIN */
+			          || (nvram.wan3_proto != 'disabled') || (nvram.wan4_proto != 'disabled')
+			/* MULTIWAN-END */
+			) {
+				if ( nvram.wan_ifname == i ) t = 'WAN1 <small>(' + i + ')</small>';
+				else if ( nvram.wan2_ifname == i ) t = 'WAN2 <small>(' + i + ')</small>';
+				/* MULTIWAN-BEGIN */
+				else if ( nvram.wan3_ifname == i ) t = 'WAN3 <small>(' + i + ')</small>';
+				else if ( nvram.wan4_ifname == i ) t = 'WAN4 <small>(' + i + ')</small>';
+				/* MULTIWAN-END */
+			}
+			tabs.push( [ 'speed-tab-' + i, t ] );
 		}
 
-		if ( tabs.length == old.length ) {
-			for ( i = tabs.length - 1; i >= 0; --i )
-				if ( tabs[ i ][ 0 ] != old[ i ][ 0 ] ) break;
-			changed = i > 0;
-		}
-		else changed = 1;
-
-		if ( changed ) {
-			E( 'tab-area' ).innerHTML = _tabCreate.apply( this, tabs );
-		}
-		if ( ((name = cookie.get( cprefix + 'tab' )) != null) && ((speed_history[ name ] != undefined)) ) {
-			showTab( 'speed-tab-' + name );
-			return;
-		}
-		if ( tabs.length ) showTab( tabs[ 0 ][ 0 ] );
+		tabs = tabs.sort(
+			function( a, b ) {
+				if ( a[ 1 ] < b[ 1 ] ) return -1;
+				if ( a[ 1 ] > b[ 1 ] ) return 1;
+				return 0;
+			} );
 	}
 
-	function initData() {
-		if ( htmReady ) {
-			loadData();
-			if ( svgReady ) {
-				E( 'graph' ).style.visibility        = 'visible';
-				E( 'bwm-controls' ).style.visibility = 'visible';
+	if ( tabs.length == old.length ) {
+		for ( i = tabs.length - 1; i >= 0; --i )
+			if ( tabs[ i ][ 0 ] != old[ i ][ 0 ] ) break;
+		changed = i > 0;
+	}
+	else changed = 1;
+
+	if ( changed ) {
+		E( 'tab-area' ).innerHTML = _tabCreate.apply( this, tabs );
+	}
+	if ( ((name = cookie.get( cprefix + 'tab' )) != null) && ((speed_history[ name ] != undefined)) ) {
+		showTab( 'speed-tab-' + name );
+		return;
+	}
+	if ( tabs.length ) showTab( tabs[ 0 ][ 0 ] );
+}
+
+function initData() {
+	if ( htmReady ) {
+		loadData();
+		if ( svgReady ) {
+			E( 'graph' ).style.visibility        = 'visible';
+			E( 'bwm-controls' ).style.visibility = 'visible';
+		}
+	}
+}
+
+function initCommon( defAvg, defDrawMode, defDrawColor ) {
+	drawMode = fixInt( cookie.get( cprefix + 'draw' ), 0, 1, defDrawMode );
+	showDraw();
+
+	if ( nvram[ 'rstats_colors' ] != null )
+		var c = nvram.rstats_colors.split( ',' );
+	else if ( nvram[ 'cstats_colors' ] != null )
+		var c = nvram.cstats_colors.split( ',' );
+	while ( c.length >= 3 ) {
+		c[ 0 ] = escapeHTML( c[ 0 ] );
+		colors.push( c.splice( 0, 3 ) );
+	}
+
+	c = (cookie.get( cprefix + 'color' ) || '').split( ',' );
+	if ( c.length == 2 ) {
+		drawColor = fixInt( c[ 0 ], 0, colors.length - 1, defDrawColor );
+		colorX    = fixInt( c[ 1 ], 0, 1, 0 );
+	}
+	else {
+		drawColor = defDrawColor;
+	}
+	showColor();
+
+	scaleMode = fixInt( cookie.get( cprefix + 'scale' ), 0, 1, 0 );
+	showScale();
+
+	avgMode = fixInt( cookie.get( cprefix + 'avg' ), 1, 10, defAvg );
+	showAvg();
+
+	// if just switched
+	if ( (nvram.wan_proto == 'disabled') || (nvram.wan_proto == 'wet') ) {
+		nvram.wan_ifname = '';
+	}
+
+	htmReady = 1;
+	initData();
+	E( 'refresh-spinner' ).style.visibility = 'hidden';
+}
+
+function populateCache() {
+	var s;
+
+	if ( nvram[ 'dhcpd_static' ] != null ) {
+		s = nvram.dhcpd_static.split( '>' );
+		for ( var i = 0; i < s.length; ++i ) {
+			var t = s[ i ].split( '<' );
+			if ( (t.length == 3) || (t.length == 4) ) {
+				if ( t[ 2 ] != '' )
+					hostnamecache[ t[ 1 ] ] = t[ 2 ].split( ' ' ).splice( 0, 1 );
 			}
 		}
 	}
 
-	function initCommon( defAvg, defDrawMode, defDrawColor ) {
-		drawMode = fixInt( cookie.get( cprefix + 'draw' ), 0, 1, defDrawMode );
-		showDraw();
-
-		if ( nvram[ 'rstats_colors' ] != null )
-			var c = nvram.rstats_colors.split( ',' );
-		else if ( nvram[ 'cstats_colors' ] != null )
-			var c = nvram.cstats_colors.split( ',' );
-		while ( c.length >= 3 ) {
-			c[ 0 ] = escapeHTML( c[ 0 ] );
-			colors.push( c.splice( 0, 3 ) );
-		}
-
-		c = (cookie.get( cprefix + 'color' ) || '').split( ',' );
-		if ( c.length == 2 ) {
-			drawColor = fixInt( c[ 0 ], 0, colors.length - 1, defDrawColor );
-			colorX    = fixInt( c[ 1 ], 0, 1, 0 );
-		}
-		else {
-			drawColor = defDrawColor;
-		}
-		showColor();
-
-		scaleMode = fixInt( cookie.get( cprefix + 'scale' ), 0, 1, 0 );
-		showScale();
-
-		avgMode = fixInt( cookie.get( cprefix + 'avg' ), 1, 10, defAvg );
-		showAvg();
-
-		// if just switched
-		if ( (nvram.wan_proto == 'disabled') || (nvram.wan_proto == 'wet') ) {
-			nvram.wan_ifname = '';
-		}
-
-		htmReady = 1;
-		initData();
-		E( 'refresh-spinner' ).style.visibility = 'hidden';
-	}
-
-	function populateCache() {
-		var s;
-
-		if ( nvram[ 'dhcpd_static' ] != null ) {
-			s = nvram.dhcpd_static.split( '>' );
-			for ( var i = 0; i < s.length; ++i ) {
-				var t = s[ i ].split( '<' );
-				if ( (t.length == 3) || (t.length == 4) ) {
-					if ( t[ 2 ] != '' )
-						hostnamecache[ t[ 1 ] ] = t[ 2 ].split( ' ' ).splice( 0, 1 );
-				}
+	if ( typeof(dhcpd_lease) != 'undefined' ) {
+		for ( var j = 0; j < dhcpd_lease.length; ++j ) {
+			if ( dhcpd_lease[ j ][ 0 ] != '' ) {
+				hostnamecache[ dhcpd_lease[ j ][ 1 ] ] = dhcpd_lease[ j ][ 0 ].split( ' ' ).splice( 0, 1 );
 			}
 		}
-
-		if ( typeof(dhcpd_lease) != 'undefined' ) {
-			for ( var j = 0; j < dhcpd_lease.length; ++j ) {
-				if ( dhcpd_lease[ j ][ 0 ] != '' ) {
-					hostnamecache[ dhcpd_lease[ j ][ 1 ] ] = dhcpd_lease[ j ][ 0 ].split( ' ' ).splice( 0, 1 );
-				}
-			}
-		}
-
-		for ( var i = 0; i <= MAX_BRIDGE_ID; i++ ) {
-			var j = (i == 0) ? '' : i.toString();
-			if ( nvram[ 'lan' + j + '_ipaddr' ] != null )
-				if ( nvram[ 'lan' + j + '_netmask' ] != null )
-					if ( nvram[ 'lan' + j + '_ipaddr' ] != '' )
-						if ( nvram[ 'lan' + j + '_netmask' ] != '' ) {
-							hostnamecache[ getNetworkAddress( nvram[ 'lan' + j + '_ipaddr' ], nvram[ 'lan' + j + '_netmask' ] ) ] = 'LAN' + j;
-						}
-		}
 	}
+
+	for ( var i = 0; i <= MAX_BRIDGE_ID; i++ ) {
+		var j = (i == 0) ? '' : i.toString();
+		if ( nvram[ 'lan' + j + '_ipaddr' ] != null )
+			if ( nvram[ 'lan' + j + '_netmask' ] != null )
+				if ( nvram[ 'lan' + j + '_ipaddr' ] != '' )
+					if ( nvram[ 'lan' + j + '_netmask' ] != '' ) {
+						hostnamecache[ getNetworkAddress( nvram[ 'lan' + j + '_ipaddr' ], nvram[ 'lan' + j + '_netmask' ] ) ] = 'LAN' + j;
+					}
+	}
+}

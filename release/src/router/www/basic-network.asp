@@ -40,7 +40,7 @@ No part of this file may be used without permission.
 		/* MULTIWAN-END */
 
 		/* DUALWAN-BEGIN */
-		maxwan_num = 2;
+		if (  maxwan_num != 4 ) maxwan_num = 2;
 		/* DUALWAN-END */
 
 		var sta_list = new Array();
@@ -1806,18 +1806,57 @@ No part of this file may be used without permission.
 			}
 
 			/* REMOVE-BEGIN
-			//	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
-			//		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
-			REMOVE-END */
+			 //	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
+			 //		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
+			 REMOVE-END */
+			for ( uidx = 1; uidx <= maxwan_num; ++uidx ) {
+				u                                     = (uidx > 1) ? uidx : '';
+				fom[ 'wan' + u + '_mtu' ].value       = fom[ 'f_wan' + u + '_mtu' ].value;
+				fom[ 'wan' + u + '_mtu' ].disabled    = fom[ 'f_wan' + u + '_mtu' ].disabled;
+				fom[ 'wan' + u + '_islan' ].value     = fom[ 'f_wan' + u + '_islan' ].checked ? 1 : 0;
+				fom[ 'wan' + u + '_pptp_dhcp' ].value = fom[ 'f_wan' + u + '_pptp_dhcp' ].checked ? 1 : 0;
+				fom[ 'wan' + u + '_ppp_mlppp' ].value = fom[ 'f_wan' + u + '_ppp_mlppp' ].checked ? 1 : 0;
+				if ( fom[ 'wan' + u + '_dns_auto' ].value == '1' ) {
+					fom[ 'wan' + u + '_dns' ].value = '';
+				} else {
+					fom[ 'wan' + u + '_dns' ].value = joinAddr( [ fom[ 'f_wan' + u + '_dns_1' ].value, fom[ 'f_wan' + u + '_dns_2' ].value ] );
+				}
+			}
 
-			fom.ppp_mlppp.value = fom.f_ppp_mlppp.checked ? 1 : 0;
-
-			if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
+			fom.wan_dns.value = joinAddr( [ fom.f_dns_1.value, fom.f_dns_2.value ] );
+			for ( var uidx = 1; uidx <= curr_mwan_num; ++uidx ) {
+				var u = (uidx > 1) ? uidx : '';
+				if ( fom[ 'wan' + u + '_proto' ].value != 'disabled' ) {
+					fom.wan_dns.value = joinAddr( [ fom.f_wan_dns_1.value, fom.f_wan_dns_2.value ] );
+					break;
+				}
+			}
+			if ( E( '_mwan_cktime' ).value ) {
+				fom.mwan_ckdst.value = fom.f_mwan_ckdst_1.value + ',' + fom.f_mwan_ckdst_2.value;
+			} else {
+				fom.mwan_ckdst.value = '';
+			}
+			/* REMOVE-BEGIN */
+			for ( var uidx = 1; uidx <= curr_mwan_num; ++uidx ) {
+				var u = (uidx > 1) ? uidx : '';
+				if ( nvram[ 'wan' + u + '_sta' ] != fom[ 'wan' + u + '_sta' ].value ) {
+					fom.mwan_init.value = 1;
+					fom._reboot.value   = 1;
+					form.submit( fom );
+				}
+			}
+			if ( nvram.mwan_num != fom.mwan_num.value ) {
+				fom.mwan_init.value = 1;
+				fom._reboot.value   = 1;
+				form.submit( fom );
+			}
+			/* REMOVE-END */
+			if ( nvram.lan_ipaddr != fom.lan_ipaddr.value ) {
 				fom._moveip.value = 1;
-				form.submit(fom);
+				form.submit( fom );
 			}
 			else {
-				form.submit(fom, 1);
+				form.submit( fom, 1 );
 			}
 		}
 
