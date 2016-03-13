@@ -8,13 +8,13 @@ PREFIX=$1
 MWAN=`nvram get mwan_num`
 IFACE=`nvram get "$PREFIX"_ifname`
 PROTO=`nvram get "$PREFIX"_proto`
+WEIGHT=`nvram get "$PREFIX"_weight`
 ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
 LOCK="/tmp/watchdog.$PREFIX"
-MTH=`nvram get mwan_ckmtd`
+MTD=`nvram get mwan_ckmtd`
 DST=`nvram get mwan_ckdst`
 HOSTLIST=`echo $DST |  sed 's/,/ /'`
 RESULT=0
-
 
 cktracert() {
     RXBYTES1=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
@@ -33,9 +33,9 @@ ckping() {
     OK=0
 
     for HOST in $HOSTLIST; do
-        TEST=`ping -I $IFACE -c 4 $HOST | | grep "received" | cut -d "," -f2 | cut -d " " -f2`
+        TEST=`ping -I $IFACE -c 4 $HOST | grep "received" | cut -d "," -f2 | cut -d " " -f2`
 
-        if [ "$TEST" -gt 0 ]; then  # "0" means 100% loss - not receive any package
+        if [ "$TEST" -gt "0" ]; then  # "0" means 100% loss - not receive any package
             OK=`expr $OK + 1`
         fi
     done
@@ -45,12 +45,50 @@ ckping() {
     fi
 }
 
+ckfailover() {
+    TEST=`ip route | grep $IFACE | wc -l`
+
+    if [ "$TEST" -gt "0" ]; then
+        RESULT=1
+    fi
+}
+
 watchdogRun() {
 
-    if [ "$MTH" == "1" ]; then
-        cktracert
+    if [ "$PREFIX" == "wan" ]; then
+        METRIC="101"
     else
+        PREFNR=`echo "$PREFIX" | cut -c 4-`
+        METRIC=`expr $PREFNR + 100`
+    fi
+
+    ADD=0
+    ISGW=`ip route | grep $IFACE | grep -v "link" | wc -l`
+    if [ "$ISGW" == "0" -a "$WEIGHT" > "0" ]; then
+        #failback required default gateway to check is indeed connection back to live
+        #so we have to add temporary gateway
+        GW=`ip route | grep $IFACE | grep -v "kernel" | awk {' printf $1'}`
+        if [ -n "$GW" -a ! "$GW" == "0.0.0.0" ]; then
+            route add default gw $GW metric $METRIC
+            ADD=1
+        fi
+    fi
+
+    if [ "$MTD" == "1" ]; then
         ckping
+    else
+        cktracert
+    fi
+
+    #remove temporary added gateway
+    if [ "$ADD" == "1" ]; then
+        route del default gw $GW
+    fi
+
+    if [ "$RESULT" == "0" -a "$WEIGHT" == "0" ]; then
+        #failover does not have default gateway in route table
+        #so we can`t check connection to outsite. Check only is interface exist
+        ckfailover
     fi
 
     if [ "$RESULT" == "0" ]; then
@@ -87,7 +125,7 @@ watchdogAdd() {
             cru a watchdog_$PREFIX "*/$MINS * * * * /usr/sbin/watchdog $PREFIX"
         fi
     fi
-    echo "0" > /tmp/"$PREFIX"_state
+    echo "1" > /tmp/"$PREFIX"_state
 }
 
 watchdogDel() {

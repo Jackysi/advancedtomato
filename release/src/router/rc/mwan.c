@@ -104,12 +104,12 @@ int checkConnect(char *sPrefix)
 		}
 
 		sprintf(tmp, "/tmp/%s_state", sPrefix);
-		if ((f = fopen(tmp, "r")) != NULL) {
-			result = fgetc(f);
-		}
+		f = fopen(tmp, "r");
+		fscanf (f, "%d", &result);
+
 		fclose(f);
 
-		if (result) {
+		if (result == 1) {
 			mwanlog(LOG_DEBUG, "OUT checkConnect, %s is connected", sPrefix);
 			return 1;
 		} else {
