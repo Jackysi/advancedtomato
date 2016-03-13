@@ -232,6 +232,11 @@ disconnect() {
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
         logger 4G MODEM - previous proces of switch4g still working
+
+        TEST=`ps | grep switch4g | grep -v "grep" | wc -l`
+        if [ "$TEST" == "0" ]; # lock file exist but process doesn`t.
+            rm $LOCK
+        fi
         exit 0
     fi
 
