@@ -33,9 +33,9 @@ ckping() {
     OK=0
 
     for HOST in $HOSTLIST; do
-        ping -I $IFACE -c 4 $HOST>>/dev/null
+        TEST=`ping -I $IFACE -c 4 $HOST | | grep "received" | cut -d "," -f2 | cut -d " " -f2`
 
-        if [ $? -eq  0 ]; then
+        if [ "$TEST" -gt 0 ]; then  # "0" means 100% loss - not receive any package
             OK=`expr $OK + 1`
         fi
     done
