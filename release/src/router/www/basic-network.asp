@@ -1036,7 +1036,7 @@ function verifyFields(focused, quiet)
            case 'pppoe':
             vis['_wan'+u+'_l2tp_server_ip'] = 0;
             vis['_wan'+u+'_pptp_server_ip'] = 0;
-            vis['_f_wan'+u+'_pptp_dhcp'] = 0;
+//            vis['_f_wan'+u+'_pptp_dhcp'] = 0;
             vis['_wan'+u+'_gateway'] = 0;
             vis['_wan'+u+'_ipaddr'] = 0;
             vis['_wan'+u+'_netmask'] = 0;
