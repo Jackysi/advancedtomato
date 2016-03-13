@@ -35,6 +35,8 @@
 
 #include <sys/ioctl.h>
 
+#define mwanlog(level,x...) if(nvram_get_int("mwan_debug")>=level) syslog(level, x)
+
 /* // OBSOLETE 
 void ppp_prefix(char *wan_device, char *prefix)
 {
