@@ -122,6 +122,9 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Linksys WRT610N v2':
 	case 'Tenda N6':
 	case 'Tenda W1800R':
+	case 'Asus WL-500gP':
+	case 'Asus WL-500gP v2':
+	case 'Asus WL-500W':
 		COL_P0N = '1';
 		COL_P1N = '2';
 		COL_P2N = '3';
@@ -674,7 +677,7 @@ REMOVE-END */
       ferror.clear(f[COL_BRI]);
     }
 
-/* MULTIWAN-BEGN */
+/* MULTIWAN-BEGIN */
     if ((this.countWan3() > 0) && (f[COL_BRI].selectedIndex == 7)) {
       ferror.set(f[COL_BRI],'Only one VID can be used as WAN3 at any time', quiet);
       valid = 0;
@@ -682,8 +685,8 @@ REMOVE-END */
       ferror.clear(f[COL_BRI]);
     }
 
-    if ((this.countWan3() > 0) && (f[COL_BRI].selectedIndex == 8)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN3 at any time', quiet);
+    if ((this.countWan4() > 0) && (f[COL_BRI].selectedIndex == 8)) {
+      ferror.set(f[COL_BRI],'Only one VID can be used as WAN4 at any time', quiet);
       valid = 0;
     } else {
       ferror.clear(f[COL_BRI]);
