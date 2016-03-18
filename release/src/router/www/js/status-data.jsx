@@ -48,6 +48,8 @@ do {
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
 	stats.memory = scaleSize(a - b) + ' <small>/</small> ' + scaleSize(a) + ' (' + ((a - b) / a * 100.0).toFixed(2) + '%)';
+	stats.memoryperc = ((a-b) / a * 100.0).toFixed(2) + '%';
+
 	if (sysinfo.totalswap > 0) {
 		a = sysinfo.totalswap;
 		b = sysinfo.freeswap;

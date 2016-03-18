@@ -8,8 +8,8 @@ No part of this file may be used without permission.
 --><title>Dynamic DNS</title>
 <content>
 	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,ddnsx0,ddnsx1,ddnsx_ip,wan_dns,wan_get_dns,dns_addget,ddnsx_refresh,ddnsx_save"); %>
-		//	<% ddnsx(); %>
+		//<% nvram("ddnsx0,ddnsx1,ddnsx_ip,wan_dns,wan_get_dns,dns_addget,ddnsx_refresh,ddnsx_save"); %>
+		//<% ddnsx(); %>
 
 		/* REMOVE-BEGIN
 
@@ -357,19 +357,19 @@ No part of this file may be used without permission.
 					a = (s != '') && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
 
 					$('#ddnsconf').forms([
-						{ title: 'IP address', name: 'f_ddnsx_ip', type: 'select',
-							options: [
-								['', 'Use WAN IP Address ' + ddnsx_ip + ' (recommended)'],
-								['@', 'Use External IP Address Checker (every 10 minutes)'],
-								['0.0.0.0', 'Offline (0.0.0.0)'],
-								['1.1.1.1', 'Offline (1.1.1.1)'],
-								['10.1.1.1', 'Offline (10.1.1.1)'],
-								['custom', 'Custom IP Address...']
-							],
-							value: a ? 'custom' : nvram.ddnsx_ip },
-						{ title: 'Custom IP address', indent: 2, name: 'f_custom_ip', type: 'text', maxlen: 15, size: 20,
-							value: a ? nvram.ddnsx_ip : '', hidden: !a },
-						{ title: 'Auto refresh every', name: 'ddnsx_refresh', type: 'text', maxlen: 8, size: 8, suffix: ' days <small>(0 = disable)</small>', value: fixInt(nvram.ddnsx_refresh, 0, 90, 28) }
+		                 { title: 'IP address', name: 'f_ddnsx_ip', type: 'select',
+		                     options: [
+			                     ['', 'Use WAN IP Address ' + ddnsx_ip + ' (recommended)'],
+			                     ['@', 'Use External IP Address Checker (every 10 minutes)'],
+			                     ['0.0.0.0', 'Offline (0.0.0.0)'],
+			                     ['1.1.1.1', 'Offline (1.1.1.1)'],
+			                     ['10.1.1.1', 'Offline (10.1.1.1)'],
+			                     ['custom', 'Custom IP Address...']
+		                     ],
+		                     value: a ? 'custom' : nvram.ddnsx_ip },
+		                 { title: 'Custom IP address', indent: 2, name: 'f_custom_ip', type: 'text', maxlen: 15, size: 20,
+		                     value: a ? nvram.ddnsx_ip : '', hidden: !a },
+		                 { title: 'Auto refresh every', name: 'ddnsx_refresh', type: 'text', maxlen: 8, size: 8, suffix: '<small> days (0 = disable)</small>', value: fixInt(nvram.ddnsx_refresh, 0, 90, 28) }
 					]);
 
 					a = nvram.wan_dns.split(/\s+/);
@@ -409,26 +409,26 @@ No part of this file may be used without permission.
 
 						$('#ddnsconf').append('<br /><h5>Dynamic DNS ' + (i + 1) + '</h5><br />');
 						$('#ddnsconf').forms([
-							{ title: 'Service', name: 'f_service' + i, type: 'select', options: services, value: v[0] },
-							{ title: 'URL', indent: 2, text: '<span style="padding-top: 6px; display:inline-block;"><a href="" id="url' + i + '" target="tomato-ext-ddns"></a></span>', hidden: 1 },
-							{ title: '&nbsp;', text: '<small>* This service determines the IP address using its own method.</small>', hidden: 1, rid: 'row_z' + i },
-							{ title: 'Hostname', name: 'f_hosttop' + i, type: 'text', maxlen: 96, size: 35, value: v[2], hidden: 1 },
-							{ title: 'Username', name: 'f_user' + i, type: 'text', maxlen: 64, size: 35, value: u[0], hidden: 1 },
-							{ title: 'Password', name: 'f_pass' + i, type: 'password', maxlen: 64, size: 35, peekaboo: 1, value: u[1], hidden: 1 },
-							{ title: 'Hostname', name: 'f_host' + i, type: 'text', maxlen: 255, size: 60, value: v[2], hidden: 1 },
-							{ title: 'URL', name: 'f_cust' + i, type: 'text', maxlen: 255, size: 60, value: v[6], hidden: 1 },
-							{ title: ' ', text: '(Use @IP for the current IP address)', rid: ('custmsg' + i), hidden: 1 },
-							{ title: 'Wildcard', indent: 2, name: 'f_wild' + i, type: 'checkbox', value: v[3] != '0', hidden: 1 },
-							{ title: 'MX', name: 'f_mx' + i, type: 'text', maxlen: 32, size: 35, value: v[4], hidden: 1 },
-							{ title: 'Backup MX', indent: 2, name: 'f_bmx' + i, type: 'checkbox', value: v[5] != '0', hidden: 1 },
-							{ title: 'Use as DNS', name: 'f_opendns' + i, type: 'checkbox', value: (opendnsInUse == opendns.length),
-								suffix: '<br><small>(Current DNS: ' + dns  + ')</small>', hidden: 1 },
-							{ title: 'Token / URL', name: 'f_afraid' + i, type: 'text', maxlen: 255, size: 60, value: v[6], hidden: 1 },
-							{ title: 'Save state when IP changes (nvram commit)', name: 'f_ddnsx_save' + i, type: 'checkbox', value: nvram.ddnsx_save == '1', hidden: 1 },
-							{ title: 'Force next update', name: 'f_force' + i, type: 'checkbox', value: 0, hidden: 1 },
-							null,
-							{ title: 'Last IP Address', custom: msgLoc(ddnsx_last[i]), rid: 'last-update' + i, hidden: 1 },
-							{ title: 'Last Result', custom: msgLoc(ddnsx_msg[i]), rid: 'last-response' + i, hidden: h }
+		                     { title: 'Service', name: 'f_service' + i, type: 'select', options: services, value: v[0] },
+		                     { title: 'URL', indent: 2, text: '<a href="" id="url' + i + '" target="tomato-ext-ddns"></a>', hidden: 1 },
+		                     { title: '&nbsp;', text: '<small>* This service determines the IP address using its own method.</small>', hidden: 1, rid: 'row_z' + i },
+		                     { title: 'Hostname', name: 'f_hosttop' + i, type: 'text', maxlen: 96, size: 35, value: v[2], hidden: 1 },
+		                     { title: 'Username', name: 'f_user' + i, type: 'text', maxlen: 64, size: 35, value: u[0], hidden: 1 },
+		                     { title: 'Password', name: 'f_pass' + i, type: 'password', maxlen: 64, size: 35, peekaboo: 1, value: u[1], hidden: 1 },
+		                     { title: 'Hostname', name: 'f_host' + i, type: 'text', maxlen: 255, size: 80, value: v[2], hidden: 1 },
+		                     { title: 'URL', name: 'f_cust' + i, type: 'text', maxlen: 255, size: 80, value: v[6], hidden: 1 },
+		                     { title: ' ', text: '(Use @IP for the current IP address)', rid: ('custmsg' + i), hidden: 1 },
+		                     { title: 'Wildcard', indent: 2, name: 'f_wild' + i, type: 'checkbox', value: v[3] != '0', hidden: 1 },
+		                     { title: 'MX', name: 'f_mx' + i, type: 'text', maxlen: 32, size: 35, value: v[4], hidden: 1 },
+		                     { title: 'Backup MX', indent: 2, name: 'f_bmx' + i, type: 'checkbox', value: v[5] != '0', hidden: 1 },
+		                     { title: 'Use as DNS', name: 'f_opendns' + i, type: 'checkbox', value: (opendnsInUse == opendns.length),
+			                     suffix: '<br><small>(Current DNS: ' + dns  + ')</small>', hidden: 1 },
+		                     { title: 'Token / URL', name: 'f_afraid' + i, type: 'text', maxlen: 255, size: 80, value: v[6], hidden: 1 },
+		                     { title: 'Save state when IP changes (nvram commit)', name: 'f_ddnsx_save' + i, type: 'checkbox', value: nvram.ddnsx_save == '1', hidden: 1 },
+		                     { title: 'Force next update', name: 'f_force' + i, type: 'checkbox', value: 0, hidden: 1 },
+		                     null,
+		                     { title: 'Last IP Address', custom: msgLoc(ddnsx_last[i]), rid: 'last-update' + i, hidden: 1 },
+		                     { title: 'Last Result', custom: msgLoc(ddnsx_msg[i]), rid: 'last-response' + i, hidden: h }
 						]);
 
 					}

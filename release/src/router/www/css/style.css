@@ -35,7 +35,6 @@ body {
 	color: #76838f;
 	line-height: 1.42857;
 	background-color: #f1f4f5;
-	min-width: 960px;
 }
 
 /* Replace some general styles (b, h1-h6, etc...) */
@@ -207,7 +206,8 @@ small { font-size: 80%; }
 .top-header .links li a i {
 	padding-left: 2px;
 	font-size: 16px;
-	margin-top: -4px;
+	margin-top: -2px;
+	vertical-align: middle;
 }
 
 
@@ -949,12 +949,12 @@ button.btn { height: 34px; font-family: "Roboto"; font-weight: 400 !important; v
 	border-radius: 0;
 }
 
-.btn-group > .btn:first-child {
+.btn-group > .btn:first-of-type {
 	border-top-left-radius: 3px;
 	border-bottom-left-radius: 3px;
 }
 
-.btn-group > .btn:last-child {
+.btn-group > .btn:last-of-type {
 	border-top-right-radius: 3px;
 	border-bottom-right-radius: 3px;
 }
