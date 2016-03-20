@@ -36,7 +36,7 @@ do {
 		reloadPage();
 	}
 	stats.flashsize = sysinfo.flashsize+'MB';
-	stats.cpumhz = sysinfo.cpuclk+'MHz)';
+	stats.cpumhz = sysinfo.cpuclk+'MHz';
 	stats.cputemp = sysinfo.cputemp+'°';
 	stats.systemtype = sysinfo.systemtype;
 	stats.cpuload = ((sysinfo.loads[0] / 65536.0).toFixed(2) + '<small> / </small> ' +
