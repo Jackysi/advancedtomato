@@ -107,7 +107,7 @@ No part of this file may be used without permission.
 			E( '_f_dr_lan3' ).disabled = (nvram.lan3_ifname.length < 1);
 			if ( E( '_f_dr_lan3' ).disabled )
 				E( '_f_dr_lan3' ).checked = false;
-			for ( uidx = nvram.mwan_num; uidx <= nvram.mwan_num; ++uidx ) {
+			for ( uidx = 1; uidx <= nvram.mwan_num; ++uidx ) {
 				u = (uidx > 1) ? uidx : '';
 				E( '_f_dr_wan' + u ).disabled = (nvram[ 'wan' + u + '_proto' ] == 'disabled');
 				if ( E( '_f_dr_wan' + u ).disabled )

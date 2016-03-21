@@ -45,8 +45,15 @@ No part of this file may be used without permission.
 		qrates_out = [0,0,0,0,0,0,0,0,0,0,0];
 		qrates_in = [0,0,0,0,0,0,0,0,0,0,0];
 		for(var i=0; i < 10; i++){
-			qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
-			qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+
+			// Temporary RT-AC/N Fix
+			if ( typeof( qrates3_out ) == 'undefined' ) qrates3_out = qrates_out;
+			if ( typeof( qrates4_out ) == 'undefined' ) qrates4_out = qrates_out;
+			if ( typeof( qrates3_in ) == 'undefined' ) qrates3_in = qrates_in;
+			if ( typeof( qrates4_in ) == 'undefined' ) qrates4_in = qrates_in;
+
+			qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ] + qrates3_out[ i ] + qrates4_out[ i ];
+			qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ]+qrates3_in[i]+qrates4_in[i];
 		}
 
 		var svgReady = 0;
