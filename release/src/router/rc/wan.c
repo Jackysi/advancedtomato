@@ -125,22 +125,28 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 			ppp3g_chatfile);
 
 		if (strlen(nvram_get(strcat_r(prefix, "_ppp_username", tmp))) >0 ) //if (strlen(nvram_get("ppp_username")) >0 )
-			fprintf(fp, "user '%s'\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
+			fprintf(fp, "user %s\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
+		if (strlen(nvram_get(strcat_r(prefix, "_ppp_passwd", tmp))) >0 )
+			fprintf(fp, "password %s\n", nvram_get(strcat_r(prefix, "_ppp_passwd", tmp)));
+			fprintf(fp, "linkname %s\n", prefix);	// link name for WAN ID
 	} else {
 #endif
 #endif
 		fprintf(fp,
 			"unit %d\n"
-			"user '%s'\n"
+			"user %s\n"
+			"password %s\n"	// Don't rely on pap/chap secrets (useless)
+			"linkname %s\n"	// link name for WAN ID
 			"lcp-echo-adaptive\n",	// Suppress LCP echo-requests if traffic was received
 			num,
-			nvram_safe_get(strcat_r(prefix, "_ppp_username", tmp))); //"ppp_usrename" -> strcat_r(prefix, "_ppp_username", tmp
+			nvram_safe_get(strcat_r(prefix, "_ppp_username", tmp)), //"ppp_usrename" -> strcat_r(prefix, "_ppp_username", tmp
+			nvram_safe_get(strcat_r(prefix, "_ppp_passwd", tmp)), //"ppp_passwd" -> strcat_r(prefix, "_ppp_passwd", tmp
+			prefix);	// link name for WAN ID
 #ifdef LINUX26
 #ifdef TCONFIG_USB
 	}
 #endif
 #endif
-
 	fprintf(fp,
 		"defaultroute\n"	// Add a default route to the system routing tables, using the peer as the gateway
 		"usepeerdns\n"		// Ask the peer for up to 2 DNS server addresses
@@ -155,8 +161,8 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 		"lcp-echo-failure %d\n"	// Tolerance to unanswered echo-requests
 		"%s",			// Debug
 		nvram_get_int(strcat_r(prefix, "_pppoe_lei", tmp)) ? : 10, //"pppoe_lei" -> strcat_r(prefix, "_pppoe_lei", tmp)
-		nvram_get_int(strcat_r(prefix, "_pppoe_lef", tmp)) ? : 5,  //"pppoe_lef" -> 
-		nvram_get_int("debug_ppp") ? "debug\n" : ""); //"debug_ppp" -> 
+		nvram_get_int(strcat_r(prefix, "_pppoe_lef", tmp)) ? : 5,  //"pppoe_lef" -> strcat_r(prefix, "_pppoe_lef", tmp)
+		nvram_get_int("debug_ppp") ? "debug\n" : ""); //"debug_ppp"
 
 #ifdef LINUX26
 #ifdef TCONFIG_USB
@@ -175,7 +181,6 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 #endif
 #endif
 
-
 	if (wan_proto != WP_L2TP) {
 		fprintf(fp,
 			"persist\n"
@@ -189,6 +194,8 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 			"plugin pptp.so\n"
 			"pptp_server %s\n"
 			"nomppe-stateful\n"
+			"require-mschap-v2\n"
+			"noauth\n"	// No authenticate peer (i dunno why it doesn't apply from shared params)
 			"mtu %d\n",
 			nvram_safe_get(strcat_r(prefix, "_pptp_server_ip", tmp)), //"pptp_server_ip"
 			nvram_get_int(strcat_r(prefix, "_mtu_enable", tmp)) ? nvram_get_int(strcat_r(prefix, "_wan_mtu", tmp)) : 1400); 
@@ -196,12 +203,12 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 		break;
 	case WP_PPPOE:
 		fprintf(fp,
-			"password '%s'\n"
+//			"password '%s'\n"
 			"plugin rp-pppoe.so\n"
 			"nomppe nomppc\n"
 			"nic-%s\n"
 			"mru %d mtu %d\n",
-			nvram_safe_get(strcat_r(prefix, "_ppp_passwd", tmp)), //"ppp_passwd"
+//			nvram_safe_get(strcat_r(prefix, "_ppp_passwd", tmp)), //"ppp_passwd"
 			nvram_safe_get(strcat_r(prefix, "_ifname", tmp)), //"wan_ifname"
 			nvram_get_int(strcat_r(prefix, "_mtu", tmp)),
 			nvram_get_int(strcat_r(prefix, "_mtu", tmp)));  //"wan_mtu
@@ -300,7 +307,7 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 	fprintf(fp, "%s\n", nvram_safe_get(strcat_r(prefix, "_ppp_custom", tmp))); //"ppp_custom"
 
 	fclose(fp);
-	make_secrets(prefix);
+//	make_secrets(prefix);
 
 	TRACE_PT("end\n");
 	return 0;
@@ -311,7 +318,7 @@ static void stop_ppp(char *prefix)
 	TRACE_PT("begin\n");
 	char ppp_linkfile[256];
 	char pppd_name[256];
-	char tmp[100];
+	//char tmp[100];
 	
 	memset(ppp_linkfile, 0, 256);
 	sprintf(ppp_linkfile, "/tmp/ppp/%s_link", prefix);
@@ -549,6 +556,82 @@ void stop_singe_pppoe(int num, char *prefix)
 
 // -----------------------------------------------------------------------------
 
+static int config_l2tp(void) { // shared xl2tpd.conf for all WAN
+
+	FILE *fp;
+	int i;
+	int demand;
+	char xl2tp_file[256];
+	char tmp[100];
+	const char *names[] = {	// FIXME: hardcoded to 4 WANs
+		"wan",
+		"wan2",
+#ifdef TCONFIG_MULTIWAN
+		"wan3",
+		"wan4",
+#endif
+		NULL
+	};
+	mwanlog(LOG_DEBUG, "IN config_l2tp");
+
+	/* Generate XL2TPD configuration file */
+	memset(xl2tp_file, 0, 256);
+	sprintf(xl2tp_file, "/etc/xl2tpd.conf");
+ 	if ((fp = fopen(xl2tp_file, "w")) == NULL) {
+		mwanlog(LOG_DEBUG, "config_l2tp: error open /etc/xl2tpd.conf for writing.");
+ 		return -1;
+	}
+	// GLOBAL
+	mwanlog(LOG_DEBUG, "config_l2tp: GLOBAL");
+	fprintf(fp,
+		"[global]\n"
+		"access control = no\n"
+		"port = 1701\n"
+		"debug avp = no\n"	// TEMP DEBUG
+		"debug network = no\n"	// TEMP DEBUG
+		"debug packet = no\n"	// TEMP DEBUG
+		"debug state = no\n"	// TEMP DEBUG
+		"debug tunnel = no\n"	// TEMP DEBUG
+		"\n"
+	);
+	// LACS
+	for (i = 0; names[i] != NULL; ++i) {
+		if (!strcmp(nvram_safe_get(strcat_r(names[i], "_proto", tmp)), "l2tp")) {
+		mwanlog(LOG_DEBUG, "config_l2tp: create LAC for %s", names[i]);
+		demand = nvram_get_int(strcat_r(names[i], "_ppp_demand", tmp)); //"ppp_demand"
+		char ppp_optfile[256];
+		memset(ppp_optfile, 0, 256);
+		sprintf(ppp_optfile, "/tmp/ppp/%s_options", names[i]);
+		fprintf(fp,
+			"[lac %s]\n"
+			"lns = %s\n"
+			"tx bps = 100000000\n"
+			"pppoptfile = %s\n"
+			"redial = yes\n"
+			"max redials = 32767\n"
+			"redial timeout = %d\n"
+			"tunnel rws = 8\n"
+			"ppp debug = %s\n"
+			"%s\n",
+			names[i],	// LAC name
+			nvram_safe_get(strcat_r(names[i], "_l2tp_server_ip", tmp)),  //"l2tp_server_ip"
+			ppp_optfile,
+			demand ? 30 : (nvram_get_int(strcat_r(names[i], "_ppp_redialperiod", tmp)) ? : 30),  //"ppp_redialperiod"
+			(nvram_get_int("debug_ppp") ? "yes" : "no"), //"debug_ppp"
+			nvram_safe_get(strcat_r(names[i], "_xl2tpd_custom", tmp))); //"xl2tpd_custom"
+
+		memset(xl2tp_file, 0, 256);
+		sprintf(xl2tp_file, "/etc/%s_xl2tpd.custom", names[i]);
+		fappend(fp, xl2tp_file);
+		}
+	}
+
+	fclose(fp);
+
+	mwanlog(LOG_DEBUG, "OUT config_l2tp");
+	return 0;
+}
+
 inline void stop_l2tp(char *prefix)
 {
 	stop_ppp(prefix);
@@ -557,64 +640,30 @@ inline void stop_l2tp(char *prefix)
 void start_l2tp(char *prefix)
 {
 	char tmp[100];
+	int demand;
 
 	TRACE_PT("begin\n");
 
-	FILE *fp;
-	int demand;
-	
-	char ppp_optfile[256];
-	memset(ppp_optfile, 0, 256);
-	sprintf(ppp_optfile, "/tmp/ppp/%s_options", prefix);
-	
-	char xl2tp_file[256];
-
 	stop_l2tp(prefix);
 
-	if (config_pppd(WP_L2TP, 0, prefix) != 0)
+	if (config_l2tp() != 0)	// generate L2TP daemon config
+		return;
+
+	if (config_pppd(WP_L2TP, 0, prefix) != 0)	// ppp options
 		return;
 
 	demand = nvram_get_int(strcat_r(prefix, "_ppp_demand", tmp)); //"ppp_demand"
 
-	/* Generate XL2TPD configuration file */
-	memset(xl2tp_file, 0, 256);
-	sprintf(xl2tp_file, "/etc/%s_xl2tpd.conf", prefix);
-	if ((fp = fopen(xl2tp_file, "w")) == NULL)
-		return;
-	fprintf(fp,
-		"[global]\n"
-		"access control = no\n"
-		"port = 1701\n"
-		"[lac l2tp]\n"
-		"lns = %s\n"
-		"tx bps = 100000000\n"
-		"pppoptfile = %s\n"
-		"redial = yes\n"
-		"max redials = 32767\n"
-		"redial timeout = %d\n"
-		"tunnel rws = 8\n"
-		"ppp debug = %s\n",
-		"%s\n",
-		nvram_safe_get(strcat_r(prefix, "_l2tp_server_ip", tmp)),  //"l2tp_server_ip"
-		ppp_optfile,
-		demand ? 30 : (nvram_get_int(strcat_r(prefix, "_ppp_redialperiod", tmp)) ? : 30),  //"ppp_redialperiod"
-		nvram_get_int(strcat_r(prefix, "_debug_ppp", tmp)) ? "yes" : "no",  //"debug_ppp"
-	nvram_safe_get(strcat_r(prefix, "_xl2tpd_custom", tmp))); //"xl2tpd_custom"
-	
-	memset(xl2tp_file, 0, 256);
-	sprintf(xl2tp_file, "/etc/%s_xl2tpd.custom", prefix);
-	fappend(fp, xl2tp_file);
-	fclose(fp);
-
 	enable_ip_forward();
 
-	eval("xl2tpd");
+	mwanlog(LOG_DEBUG, "start_l2tp, cmd: xl2tpd -c /etc/xl2tpd.conf");
+	eval("xl2tpd", "-c", "/etc/xl2tpd.conf");
 
 	if (demand) {
 		eval("listen", nvram_safe_get("lan_ifname"), prefix);
 	}
 	else {
-		force_to_dial(prefix);
+		force_to_dial(prefix);	// connect request
 		start_redial(prefix);
 	}
 
@@ -638,6 +687,8 @@ char *wan_gateway(char *prefix)
 void force_to_dial(char *prefix)
 {
 	char l2tp_file[256];
+//	char tmp[64];
+	char connects[64];
 
 	TRACE_PT("begin\n");
 
@@ -645,8 +696,11 @@ void force_to_dial(char *prefix)
 	switch (get_wanx_proto(prefix)) {
 	case WP_L2TP:
 		memset(l2tp_file, 0, 256);
-		sprintf(l2tp_file, "/var/run/%s_l2tp-control", prefix);
-		f_write_string(l2tp_file, "c l2tp", 0, 0);
+		sprintf(l2tp_file, "/var/run/l2tp-control");
+//		sprintf(connects, "c %s", nvram_safe_get(strcat_r(prefix, "_l2tp_server_name", tmp)));	// connect control command
+		sprintf(connects, "c %s", prefix);
+		mwanlog(LOG_DEBUG, "force_to_dial, L2TP connect string = %s", connects);
+		f_write_string(l2tp_file, connects, 0, 0);
 		break;
 	case WP_PPTP:
 		eval("ping", "-c", "2", "10.112.112.112");
@@ -692,18 +746,22 @@ static void _do_wan_routes(char *ifname, char *nvname, int metric, int add)
 		gateway = strsep(&tmp, " ");
 
 		if (gateway && *gateway) {
-			if (add)
+			if (add) {
+				mwanlog(LOG_DEBUG, "MultiWAN: route_add(ifname=%s, metric=%d, ipaddr=%s, gateway=%s, netmask=%s)", ifname, metric, ipaddr, gateway, netmask);
 				route_add(ifname, metric, ipaddr, gateway, netmask);
-			else
+			} else {
+				mwanlog(LOG_DEBUG, "MultiWAN: route_del(ifname=%s, metric=%d, ipaddr=%s, gateway=%s, netmask=%s)", ifname, metric, ipaddr, gateway, netmask);
 				route_del(ifname, metric, ipaddr, gateway, netmask);
+			}
 		}
 	}
 	free(routes);
 }
 
-void do_wan_routes(char *ifname, int metric, int add, char *prefix )
+void do_wan_routes(char *ifname, int metric, int add, char *prefix)
 {
 	if (nvram_get_int("dhcp_routes")) {
+		mwanlog(LOG_DEBUG, "MultiWAN: do_wan_routes(interface=%s, metric=%d, add=%d, prefix=%s)", ifname,  metric, add, prefix);
 		char tmp[100];
 		// Static Routes:		IP ROUTER IP2 ROUTER2 ...
 		// Classless Static Routes:	IP/MASK ROUTER IP2/MASK2 ROUTER2 ...
@@ -747,10 +805,10 @@ void start_wan_if(int mode, char *prefix)
 	char tmp[100];
 
 	TRACE_PT("begin\n");
-	
+
 	wan_unit = get_wan_unit(prefix);
-	
-	mwanlog(LOG_DEBUG, "start %s.", prefix);
+
+	mwanlog(LOG_DEBUG, "MultiWAN: IN start_wan_if (%s).", prefix);
 
 	memset(wanconn_file, 0, 256);
 	sprintf(wanconn_file, "/var/lib/misc/%s.connecting", prefix);
@@ -773,7 +831,6 @@ void start_wan_if(int mode, char *prefix)
 	}
 	*/
 	
-	//
 	// shibby fix wireless client
 	if (nvram_invmatch(strcat_r(prefix, "_sta", tmp), "")) { //wireless client as wan
 		w = nvram_safe_get(strcat_r(prefix, "_sta", tmp));
@@ -796,7 +853,7 @@ void start_wan_if(int mode, char *prefix)
 		syslog(LOG_WARNING, "%s ifname is NONE, please check you vlan settings!", prefix);
 	}
 	
-	//	
+	// defined in shared.h, misc.c
 	wan_proto = get_wanx_proto(prefix);
 
 	// set the default gateway for WAN interface
@@ -854,19 +911,22 @@ void start_wan_if(int mode, char *prefix)
 	}
 
 	//
-	
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
 	switch (wan_proto) {
 	case WP_PPPOE:
 	case WP_PPP3G:
+		if (wan_proto = WP_PPPOE && using_dhcpc(prefix)) { // PPPoE with DHCP MAN
+			stop_dhcpc(prefix);
+			mwanlog(LOG_DEBUG, "MultiWAN: start_wan_if: start_dhcpc(%s) for PPPoE ...", prefix);
+			start_dhcpc(prefix);
+		}
 		if(!strcmp(prefix,"wan")) start_pppoe(PPPOEWAN, prefix);
 		if(!strcmp(prefix,"wan2")) start_pppoe(PPPOEWAN2, prefix);
 #ifdef TCONFIG_MULTIWAN
 		if(!strcmp(prefix,"wan3")) start_pppoe(PPPOEWAN3, prefix);
 		if(!strcmp(prefix,"wan4")) start_pppoe(PPPOEWAN4, prefix);
 #endif
-
 		break;
 	case WP_DHCP:
 	case WP_LTE:
@@ -890,9 +950,11 @@ void start_wan_if(int mode, char *prefix)
 
 			switch (wan_proto) {
 			case WP_PPTP:
-				start_pptp(mode,prefix);
+				mwanlog(LOG_DEBUG, "MultiWAN: start_wan_if: start_pptp (%d, %s) ...", mode, prefix);
+				start_pptp(mode, prefix);
 				break;
 			case WP_L2TP:
+				mwanlog(LOG_DEBUG, "MultiWAN: start_wan_if: start_l2tp (%s) ...", prefix);
 				start_l2tp(prefix);
 				break;
 			}
@@ -901,13 +963,13 @@ void start_wan_if(int mode, char *prefix)
 	default:	// static
 		nvram_set(strcat_r(prefix, "_iface", tmp), wan_ifname);  //"wan_iface"
 		ifconfig(wan_ifname, IFUP, nvram_safe_get(strcat_r(prefix, "_ipaddr", tmp)), nvram_safe_get(strcat_r(prefix, "_netmask", tmp))); //"wan_ipaddr","wan_netmask"
-		
+		mwanlog(LOG_DEBUG, "### IN start_wan_if (default: static, %s, %s)", wan_ifname, prefix);
 		int r = 10;
 		while ((!check_wanup(prefix)) && (r-- > 0)) {
 			sleep(1);
 		}
-		
 		start_wan_done(wan_ifname,prefix);
+		mwanlog(LOG_DEBUG, "### OUT start_wan_if (default: static, %s, %s)", wan_ifname, prefix);
 		break;
 	}
 
@@ -924,6 +986,8 @@ void start_wan_if(int mode, char *prefix)
 
 	if(nvram_get_int("mwan_cktime") > 0)
 		xstart("watchdog", prefix, "add");
+
+	mwanlog(LOG_DEBUG, "MultiWAN: OUT start_wan_if (%s).", prefix);
 
 	TRACE_PT("end\n");
 }
@@ -943,6 +1007,7 @@ void start_wan(int mode)
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit)
 	{
 		get_wan_prefix(wan_unit, prefix);
+		mwanlog(LOG_DEBUG, "MultiWAN: start_wan (unit: %d), mode = %d, prefix = %s", wan_unit, mode, prefix);
 		start_wan_if(mode, prefix);
 	}
 
@@ -1214,8 +1279,8 @@ void stop_wan_if(char *prefix)
 	stop_qos(prefix);
 	/* Kill any WAN client daemons or callbacks */
 	stop_redial(prefix);
-	stop_pppoe(prefix);
-	// stop_ppp(prefix);
+	//stop_pppoe(prefix);
+	stop_ppp(prefix);	// one for all
 	stop_dhcpc(prefix);
 	nvram_set(strcat_r(prefix, "_get_dns", tmp), ""); //"wan_get_dns"
 
@@ -1238,6 +1303,10 @@ void stop_wan_if(char *prefix)
 	unlink(wanconn_file);
 
 	mwan_load_balance();
+
+	/* clear old IP params from nvram on stop */
+	nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	nvram_set(strcat_r(prefix, "_gateway_get", tmp), "0.0.0.0");
 
 	xstart("watchdog", prefix, "del");
 

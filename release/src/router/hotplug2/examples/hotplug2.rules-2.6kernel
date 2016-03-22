@@ -1,5 +1,5 @@
 DEVPATH is set, ACTION == add {
-	makedev /dev/%DEVICENAME% 0644
+	makedev /dev/%DEVICENAME% 0666
 }
 
 MODALIAS is set, ACTION == add {

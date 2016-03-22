@@ -44,7 +44,7 @@ void ipt_qos(void)
 	int v4v6_ok;
 	int i;
 	char sport[192];
-	char saddr[192];
+	char saddr[256];
 	char end[256];
 	char s[32];
 	char app[128];
@@ -148,6 +148,18 @@ void ipt_qos(void)
 #endif
 		class_flag = gum;
 
+		saddr[0] = '\0';
+		end[0] = '\0';
+		// mac or ip address
+		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
+			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
+				v4v6_ok, (v4v6_ok==IPT_V4), "QoS", desc);
+			if (!v4v6_ok) continue;
+		}
+		else if (*addr_type == '3') {						// match mac
+			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
+		}
+
 		//
 		if (ipt_ipp2p(ipp2p, app)) v4v6_ok &= ~IPT_V6;
 		else ipt_layer7(layer7, app);
@@ -158,8 +170,8 @@ void ipt_qos(void)
 			// so port-based rules that come after them in the list can't be sticky
 			// or else these rules might never match.
 			gum = 0;
+			strcpy(end, app);
 		}
-		strcpy(end, app);
 
 		// dscp
 		if (ipt_dscp(dscp, s)) {
@@ -169,32 +181,18 @@ void ipt_qos(void)
 			strcat(end, s);
 		}
 
-		// mac or ip address
-		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
-				v4v6_ok, (v4v6_ok==IPT_V4), "QoS", desc);
-			if (!v4v6_ok) continue;
-		}
-		else if (*addr_type == '3') {						// match mac
-			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
-		}
-		else {
-			saddr[0] = 0;
-		}
-
-
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
 			min = strtoul(bcount, &p, 10);
 			if (*p != 0) {
-				strcat(end, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
+				strcat(saddr, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
 				++p;
 				if (*p == 0) {
-					sprintf(end + strlen(end), "%lu:", min * 1024);
+					sprintf(saddr + strlen(saddr), "%lu:", min * 1024);
 				}
 				else {
 					max = strtoul(p, NULL, 10);
-					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (max * 1024) - 1);
+					sprintf(saddr + strlen(saddr), "%lu:%lu", min * 1024, (max * 1024) - 1);
 					if (gum) {
 						if (!sizegroup) {
 							// Create table of connbytes sizes, pass appropriate connections there
@@ -272,7 +270,6 @@ void ipt_qos(void)
 		"-A FORWARD -o %s -j QOSO\n"
 		"-A OUTPUT -o %s -j QOSO\n",
 			qface, qface);
-#ifdef TCONFIG_MULTIWAN
 	if(check_wanup("wan2")){
 		qface = wan2faces.iface[0].name;
 		ipt_write(
@@ -280,6 +277,7 @@ void ipt_qos(void)
 			"-A OUTPUT -o %s -j QOSO\n",
 				qface, qface);
 	}
+#ifdef TCONFIG_MULTIWAN
 	if(check_wanup("wan3")){
 		qface = wan3faces.iface[0].name;
 		ipt_write(
@@ -300,8 +298,9 @@ void ipt_qos(void)
 	if (*wan6face) {
 		ip6t_write(
 			"-A FORWARD -o %s -j QOSO\n"
+			"-A OUTPUT -o %s -p icmpv6 -j RETURN\n"
 			"-A OUTPUT -o %s -j QOSO\n",
-			wan6face, wan6face);
+			wan6face, wan6face, wan6face);
 	}
 #endif
 
@@ -326,11 +325,12 @@ void ipt_qos(void)
 		{
 			qface = wanfaces.iface[0].name;
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
-#ifdef TCONFIG_MULTIWAN
+
 			if(check_wanup("wan2")){
 				qface = wan2faces.iface[0].name;
 				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
 			}
+#ifdef TCONFIG_MULTIWAN
 			if(check_wanup("wan3")){
 				qface = wan3faces.iface[0].name;
 				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
@@ -351,12 +351,13 @@ void ipt_qos(void)
 				qface = wanfaces.iface[0].name;
 				qosImqDeviceNumberString = 0;
 				ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass only tcp
-#ifdef TCONFIG_MULTIWAN
+
 				if(check_wanup("wan2")){
 					qface = wan2faces.iface[0].name;
 					qosImqDeviceNumberString = 1;
 					ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass only tcp
 				}
+#ifdef TCONFIG_MULTIWAN
 				if(check_wanup("wan3")){
 					qface = wan3faces.iface[0].name;
 					qosImqDeviceNumberString = 2;
@@ -373,12 +374,13 @@ void ipt_qos(void)
 				qface = wanfaces.iface[0].name;
 				qosImqDeviceNumberString = 0;
 				ipt_write("-A PREROUTING -i %s -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass everything thru ingress
-#ifdef TCONFIG_MULTIWAN
+
 				if(check_wanup("wan2")){
 					qface = wan2faces.iface[0].name;
 					qosImqDeviceNumberString = 1;
 					ipt_write("-A PREROUTING -i %s -j IMQ --todev %d\n", qface, qosImqDeviceNumberString);	// pass everything thru ingress
 				}
+#ifdef TCONFIG_MULTIWAN
 				if(check_wanup("wan3")){
 					qface = wan3faces.iface[0].name;
 					qosImqDeviceNumberString = 2;
@@ -460,7 +462,7 @@ void start_qos(char *prefix)
 		strcpy(qosImqDeviceString, "imq2");
 		wan_unit = 3;
 	}
-	else if(!strcmp(prefix,"wa4")){
+	else if(!strcmp(prefix,"wan4")){
 		strcpy(qosfn, "/etc/wan4_qos");
 		strcpy(qosImqDeviceString, "imq3");
 		wan_unit = 4;
@@ -581,7 +583,7 @@ void start_qos(char *prefix)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
@@ -591,7 +593,7 @@ void start_qos(char *prefix)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
@@ -860,7 +862,7 @@ void start_qos(char *prefix)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
+			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",
 			classid, priority + (wan_unit * 256), classid);
 	}
 
@@ -912,12 +914,14 @@ void stop_qos(char *prefix)
 	else if(!strcmp(prefix,"wan2")){
 		strcpy(qosfn, "/etc/wan2_qos");
 	}
+#ifdef TCONFIG_MULTIWAN
 	else if(!strcmp(prefix,"wan3")){
 		strcpy(qosfn, "/etc/wan3_qos");
 	}
 	else if(!strcmp(prefix,"wan4")){
 		strcpy(qosfn, "/etc/wan4_qos");
 	}
+#endif
 
 	eval((char *)qosfn, "stop");
 /*

@@ -51,7 +51,21 @@ void get_wan_info(char *sPrefix)
 
 	strncpy(wan_info.wan_iface, nvram_safe_get(strcat_r(sPrefix, "_iface",tmp)), sizeof(wan_info.wan_iface));
 	strncpy(wan_info.wan_ifname, nvram_safe_get(strcat_r(sPrefix, "_ifname",tmp)), sizeof(wan_info.wan_ifname));
-	strncpy(wan_info.wan_ipaddr, nvram_safe_get(strcat_r(sPrefix, "_ipaddr",tmp)), sizeof(wan_info.wan_ipaddr));
+	switch (get_wanx_proto(sPrefix)) {
+		case WP_L2TP:
+		case WP_PPTP:
+			strncpy(wan_info.wan_ipaddr, nvram_safe_get(strcat_r(sPrefix, "_ppp_get_ip",tmp)), sizeof(wan_info.wan_ipaddr));
+			break;
+		case WP_PPPOE:
+			if (using_dhcpc(sPrefix))
+				strncpy(wan_info.wan_ipaddr, nvram_safe_get(strcat_r(sPrefix, "_ppp_get_ip",tmp)), sizeof(wan_info.wan_ipaddr));
+			else
+				strncpy(wan_info.wan_ipaddr, nvram_safe_get(strcat_r(sPrefix, "_ipaddr",tmp)), sizeof(wan_info.wan_ipaddr));
+			break;
+		default:
+			strncpy(wan_info.wan_ipaddr, nvram_safe_get(strcat_r(sPrefix, "_ipaddr",tmp)), sizeof(wan_info.wan_ipaddr));
+			break;
+	}
 	strncpy(wan_info.wan_netmask, nvram_safe_get(strcat_r(sPrefix, "_netmask",tmp)), sizeof(wan_info.wan_netmask));
 	strncpy(wan_info.wan_gateway, wan_gateway(sPrefix), sizeof(wan_info.wan_gateway));
 	wan_info.dns = get_dns(sPrefix);	// static buffer
@@ -90,12 +104,12 @@ int checkConnect(char *sPrefix)
 		}
 
 		sprintf(tmp, "/tmp/%s_state", sPrefix);
-		if ((f = fopen(tmp, "r")) != NULL) {
-			result = fgetc(f);
-		}
+		f = fopen(tmp, "r");
+		fscanf (f, "%d", &result);
+
 		fclose(f);
 
-		if (result) {
+		if (result == 1) {
 			mwanlog(LOG_DEBUG, "OUT checkConnect, %s is connected", sPrefix);
 			return 1;
 		} else {
