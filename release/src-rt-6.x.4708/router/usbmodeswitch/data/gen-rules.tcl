@@ -4,12 +4,17 @@
 #
 # <date> should be in the form YYYYMMDD
 #
+# Config files are expected to be in subfolder "usb_modeswitch.d"
+#
 # A config file is expected to have one comment line containing
 # a model name or other concise device specifications
 
 
 # Default version string
-set version "20150627"
+set version "20160112"
+
+# Devices excluded from Huawei catch-all rule
+set x_huaweiList {12d1:1573}
 
 if {[lindex $argv 0] == "--set-version" && [regexp {\d\d\d\d\d\d\d\d} [lindex $argv 1]]} {
 	set version [lindex $argv 1]
@@ -55,7 +60,7 @@ ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurati
 ACTION!="add", GOTO="modeswitch_rules_end"
 
 
-# Generic entry for all Huawei devices, excluding Android phones
+# Generic entry for most Huawei devices, excluding Android phones
 ATTRS{idVendor}=="12d1", ATTRS{manufacturer}!="Android", ATTR{bInterfaceNumber}=="00", ATTR{bInterfaceClass}=="08", RUN+="usb_modeswitch '%b/%k'"}
 
 
@@ -64,7 +69,7 @@ set dvid ""
 
 foreach idfile $filelist {
 	if {![regexp -nocase {./([0-9A-F]{4}:[0-9A-F]{4})} $idfile d id]} {continue}
-	if [regexp -nocase {^12d1:} $id] {continue}
+	if {[regexp -nocase {^12d1:} $id] && [lsearch $x_huaweiList $id] == -1} {continue}
 	if [info exists entry($id)] {
 		append entry($id) ", "
 	}
