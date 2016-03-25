@@ -1,6 +1,6 @@
-# Part of usb-modeswitch-data, version 20150115
+# Part of usb-modeswitch-data, version 20160112
 #
-# Works with usb_modeswitch versions >= 2.2.0 (introduction of HuaweiNewMode)
+# Works with usb_modeswitch versions >= 2.2.2 (extension of PantechMode)
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -20,8 +20,8 @@ ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurati
 ACTION!="add", GOTO="modeswitch_rules_end"
 
 
-# Generic entry for all Huawei devices
-ATTRS{idVendor}=="12d1", ATTR{bInterfaceNumber}=="00", ATTR{bInterfaceClass}=="08", RUN+="usb_modeswitch '%b/%k'"
+# Generic entry for most Huawei devices, excluding Android phones
+ATTRS{idVendor}=="12d1", ATTRS{manufacturer}!="Android", ATTR{bInterfaceNumber}=="00", ATTR{bInterfaceClass}=="08", RUN+="usb_modeswitch '%b/%k'"
 
 # HP LaserJet Professional P1102
 ATTR{idVendor}=="03f0", ATTR{idProduct}=="002a", RUN+="usb_modeswitch '%b/%k'"
@@ -35,7 +35,7 @@ ATTR{idVendor}=="0408", ATTR{idProduct}=="ea17", RUN+="usb_modeswitch '%b/%k'"
 # Quanta 1K3 LTE
 ATTR{idVendor}=="0408", ATTR{idProduct}=="ea25", RUN+="usb_modeswitch '%b/%k'"
 
-# Quanta MobileGenie 4G lte, Quanta 1K6
+# Quanta MobileGenie 4G LTE, Quanta 1K6
 ATTR{idVendor}=="0408", ATTR{idProduct}=="ea43", RUN+="usb_modeswitch '%b/%k'"
 
 # Yota Router (Quanta 1QDLZZZ0ST2)
@@ -116,13 +116,13 @@ ATTR{idVendor}=="057c", ATTR{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 # Axesstel Modems (w/ initial idProduct 0x0010)
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="0010", RUN+="usb_modeswitch '%b/%k'"
 
-# Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201, Celot K-300, Celot CT-680, StrongRising device, TechFaith Venus VT-18
+# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201, Celot K-300, Celot CT-680, StrongRising device, TechFaith Venus VT-18
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Various USB modems
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
-# D-Link DWM-162-U5, Micromax MMX 300c
+# D-Link DWM-162-U5, DWM-162 C1, Micromax MMX 300c
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
 
 # AnyDATA APE-540H
@@ -149,8 +149,17 @@ ATTR{idVendor}=="07d1", ATTR{idProduct}=="a800", RUN+="usb_modeswitch '%b/%k'"
 # D-Link DWM-156 HSUPA 3.75G USB Modem
 ATTR{idVendor}=="07d1", ATTR{idProduct}=="a804", RUN+="usb_modeswitch '%b/%k'"
 
+# D-Link DWM-151 A1
+ATTR{idVendor}=="07d1", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
 # Dymo LabelManager
 ATTR{idVendor}=="0922", ATTR{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
+
+# Dymo LabelManager 420P
+ATTR{idVendor}=="0922", ATTR{idProduct}=="1003", RUN+="usb_modeswitch '%b/%k'"
+
+# Dymo LabelManager Wireless PnP
+ATTR{idVendor}=="0922", ATTR{idProduct}=="1007", RUN+="usb_modeswitch '%b/%k'"
 
 # Toshiba G450
 ATTR{idVendor}=="0930", ATTR{idProduct}=="0d46", RUN+="usb_modeswitch '%b/%k'"
@@ -368,7 +377,7 @@ ATTR{idVendor}=="0d46", ATTR{idProduct}=="45a5", RUN+="usb_modeswitch '%b/%k'"
 # Mobile Action ("Smart Cable")
 ATTR{idVendor}=="0df7", ATTR{idProduct}=="0800", RUN+="usb_modeswitch '%b/%k'"
 
-# MediaTek MT6276M and others
+# MediaTek/Medion S4222 and probably others, MediaTek MT6276M and others
 ATTR{idVendor}=="0e8d", ATTR{idProduct}=="0002", RUN+="usb_modeswitch '%b/%k'"
 
 # MediaTek Wimax USB Card
@@ -452,14 +461,50 @@ ATTR{idVendor}=="1076", ATTR{idProduct}=="7f40", RUN+="usb_modeswitch '%b/%k'"
 # Hisense E910 EVDO Phone
 ATTR{idVendor}=="109b", ATTR{idProduct}=="f009", RUN+="usb_modeswitch '%b/%k'"
 
+# Pantech/Verizon UML295, Use 1 for automatic choice, 2 for RNDIS, 4 for QMI
+ATTR{idVendor}=="10a9", ATTR{idProduct}=="606f", RUN+="usb_modeswitch '%b/%k'"
+
 # Pantech LTE Modem
 ATTR{idVendor}=="10a9", ATTR{idProduct}=="6080", RUN+="usb_modeswitch '%b/%k'"
 
 # Sierra devices (specific driver)
 ATTR{idVendor}=="1199", ATTR{idProduct}=="0fff", RUN+="usb_modeswitch '%b/%k'"
 
+# Sierra MC8305
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9011", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra MC8355
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9013", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra MC8355 Variant
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9017", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra MC7770
+ATTR{idVendor}=="1199", ATTR{idProduct}=="901b", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra EM7700
+ATTR{idVendor}=="1199", ATTR{idProduct}=="901c", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra EM7355
+ATTR{idVendor}=="1199", ATTR{idProduct}=="901f", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra EM7305
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9041", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra AC340U
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9051", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra AC770S
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9053", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra EM7305
+ATTR{idVendor}=="1199", ATTR{idProduct}=="9063", RUN+="usb_modeswitch '%b/%k'"
+
 # Digicom 8E4455 (and all Pirelli devices - EXPERIMENTAL)
 ATTR{idVendor}=="1266", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei ME909u-521
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="1573", RUN+="usb_modeswitch '%b/%k'"
 
 # Cisco AM10 "Valet Connector"
 ATTR{idVendor}=="1307", ATTR{idProduct}=="1169", RUN+="usb_modeswitch '%b/%k'"
@@ -490,6 +535,9 @@ ATTR{idVendor}=="1410", ATTR{idProduct}=="5059", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Generic MiFi 2372 / Vodafone MiFi 2372
 ATTR{idVendor}=="1410", ATTR{idProduct}=="7001", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel U620L
+ATTR{idVendor}=="1410", ATTR{idProduct}=="9020", RUN+="usb_modeswitch '%b/%k'"
 
 # Sequans SQN1210/SQN1220 (generic chipsets)
 ATTR{idVendor}=="148e", ATTR{idProduct}=="a000", RUN+="usb_modeswitch '%b/%k'"
@@ -526,6 +574,9 @@ ATTR{idVendor}=="16d8", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Axesstel MU130
 ATTR{idVendor}=="1726", ATTR{idProduct}=="f00e", RUN+="usb_modeswitch '%b/%k'"
+
+# Spreadtrum SC7702
+ATTR{idVendor}=="1782", ATTR{idProduct}=="0003", RUN+="usb_modeswitch '%b/%k'"
 
 # JOA Telecom LM-700r
 ATTR{idVendor}=="198a", ATTR{idProduct}=="0003", RUN+="usb_modeswitch '%b/%k'"
@@ -578,6 +629,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="0166", RUN+="usb_modeswitch '%b/%k'"
 # ZTE A371B
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0169", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF820s, MF832s
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="0198", RUN+="usb_modeswitch '%b/%k'"
+
 # Onda MT8205 LTE
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0266", RUN+="usb_modeswitch '%b/%k'"
 
@@ -589,6 +643,9 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="0318", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF821D
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0325", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF90 Mobile Hotspot
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="0388", RUN+="usb_modeswitch '%b/%k'"
 
 # Telewell TW-LTE 4G
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="0413", RUN+="usb_modeswitch '%b/%k'"
@@ -686,10 +743,16 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1536", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF190J
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1542", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF195E
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1580", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF710M Variants
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1588", RUN+="usb_modeswitch '%b/%k'"
 
-# ZTE devices
+# ZTE MF710 (Vietnam)
+ATTR{idVendor}=="19d2", ATTR{idProduct}=="1595", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE devices, some Onda devices
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE MF60
@@ -767,6 +830,9 @@ ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9800", RUN+="usb_modeswitch '%b/%k'"
 # Telewell TW-3G HSPA+, FS01BU 3G, SmartBro WM66E
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="98ff", RUN+="usb_modeswitch '%b/%k'"
 
+# XS Stick W100 (Omega)
+ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9bfe", RUN+="usb_modeswitch '%b/%k'"
+
 # Prolink PCM100
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9d00", RUN+="usb_modeswitch '%b/%k'"
 
@@ -812,6 +878,9 @@ ATTR{idVendor}=="1edf", ATTR{idProduct}=="6003", RUN+="usb_modeswitch '%b/%k'"
 # Onda MV815U
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0003", RUN+="usb_modeswitch '%b/%k'"
 
+# Onda POM1051
+ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0007", RUN+="usb_modeswitch '%b/%k'"
+
 # Onda MW833UP
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0009", RUN+="usb_modeswitch '%b/%k'"
 
@@ -827,6 +896,9 @@ ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0040", RUN+="usb_modeswitch '%b/%k'"
 # Onda MDC655
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0045", RUN+="usb_modeswitch '%b/%k'"
 
+# Onda MT655
+ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0048", RUN+="usb_modeswitch '%b/%k'"
+
 # Onda MDC655
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="004a", RUN+="usb_modeswitch '%b/%k'"
 
@@ -839,7 +911,7 @@ ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0054", RUN+="usb_modeswitch '%b/%k'"
 # Onda MSA 14.4 (TIM Brasil)
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0060", RUN+="usb_modeswitch '%b/%k'"
 
-# Onda TM201 14.4 (TIM Italy)
+# Onda TM201, CM201
 ATTR{idVendor}=="1ee8", ATTR{idProduct}=="0063", RUN+="usb_modeswitch '%b/%k'"
 
 # Onda WM301
@@ -866,7 +938,10 @@ ATTR{idVendor}=="2001", ATTR{idProduct}=="00a6", RUN+="usb_modeswitch '%b/%k'"
 # D-Link DWM-221
 ATTR{idVendor}=="2001", ATTR{idProduct}=="98ff", RUN+="usb_modeswitch '%b/%k'"
 
-# D-Link DWM-156 A8
+# D-Link DWM-221 B1
+ATTR{idVendor}=="2001", ATTR{idProduct}=="a401", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-156 A8, DWP-157 B1
 ATTR{idVendor}=="2001", ATTR{idProduct}=="a403", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-167 A1
@@ -893,7 +968,7 @@ ATTR{idVendor}=="201e", ATTR{idProduct}=="1023", RUN+="usb_modeswitch '%b/%k'"
 # Haier CE 100
 ATTR{idVendor}=="201e", ATTR{idProduct}=="2009", RUN+="usb_modeswitch '%b/%k'"
 
-# Mediatek MT6229, Micromax MMX 377G
+# Mediatek MT6229, Micromax MMX 377G, Olicard 300
 ATTR{idVendor}=="2020", ATTR{idProduct}=="0002", RUN+="usb_modeswitch '%b/%k'"
 
 # SpeedUp SU-8000
@@ -907,6 +982,9 @@ ATTR{idVendor}=="2077", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Telenet 3G dongle (T&W WU160) and others
 ATTR{idVendor}=="2077", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# BM WM78
+ATTR{idVendor}=="20a6", ATTR{idProduct}=="f00a", RUN+="usb_modeswitch '%b/%k'"
 
 # Intex 3.5G
 ATTR{idVendor}=="20a6", ATTR{idProduct}=="f00e", RUN+="usb_modeswitch '%b/%k'"

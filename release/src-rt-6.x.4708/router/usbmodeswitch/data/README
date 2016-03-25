@@ -1,10 +1,15 @@
 README for USB_ModeSwitch Data
 
+Almost all new and corrected device configurations since around 2012
+were collected and compiled by Lars Melin. Thank you!
+
+Without a well-maintained base of configuration info, usb_modeswitch
+would just be a useless blob of code. So:
+
+PLEASE REPORT NEW DEVICES !
 
 For up-to-date and detailed information (plus a friendly forum) visit
 http://www.draisberghof.de/usb_modeswitch
-
-PLEASE REPORT NEW DEVICES !
 
 
 
@@ -100,6 +105,7 @@ DriverIDPath=<path to attribute>
 				on-the-fly, this is the file node to use.
 				Example: "/sys/bus/usb-serial/drivers/option1/new_id"
 
+See also complete parameter explanation in REFERENCE.
 
 
 Notes about specific devices:
@@ -143,4 +149,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2015-01-15, Josua Dietze
+Last revised: 2016-01-12, Josua Dietze
