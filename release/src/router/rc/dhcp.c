@@ -468,9 +468,11 @@ void start_dhcpc(char *prefix)
 	memset(dhcpcpid_file, 0, 256);
 	sprintf(dhcpcpid_file, "/var/run/udhcpc-%s.pid", prefix);
 	snprintf(cmd, sizeof(cmd),
-		"udhcpc -i %s -b -s dhcpc-event %s %s %s %s %s %s -p %s",
+		"udhcpc -i %s -b -s dhcpc-event %s %s %s %s %s %s %s -p %s",
 		ifname,
 		nvram_invmatch("wan_hostname", "") ? "-H" : "", nvram_safe_get("wan_hostname"),
+		// This params required to get static / classless routes from DHCP server
+		nvram_get_int("dhcp_routes") ? "-O 33 -O 121 -O 249" : "",
 		nvram_get_int("dhcpc_minpkt") ? "-m" : "",
 		nvram_contains_word("log_events", "dhcpc") ? "-S" : "",
 		nvram_safe_get("dhcpc_custom"),
@@ -483,6 +485,7 @@ void start_dhcpc(char *prefix)
 		dhcpcpid_file
 		);
 
+	mwanlog(LOG_DEBUG, "MultiWAN: start_dhcpc(%s), cmd = \"/bin/sh -c %s\"", prefix, cmd);
 	xstart("/bin/sh", "-c", cmd);
 
 	TRACE_PT("end\n");

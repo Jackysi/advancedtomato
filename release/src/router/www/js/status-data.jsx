@@ -36,7 +36,7 @@ do {
 		reloadPage();
 	}
 	stats.flashsize = sysinfo.flashsize+'MB';
-	stats.cpumhz = sysinfo.cpuclk+'MHz)';
+	stats.cpumhz = sysinfo.cpuclk+'MHz';
 	stats.cputemp = sysinfo.cputemp+'°';
 	stats.systemtype = sysinfo.systemtype;
 	stats.cpuload = ((sysinfo.loads[0] / 65536.0).toFixed(2) + '<small> / </small> ' +
@@ -89,6 +89,7 @@ do {
 		switch (nvram['wan'+u+'_proto']) {
 		case 'pptp':
 		case 'l2tp':
+		case 'pppoe':
 			if (stats.wanup[uidx-1]) {
 				stats.wanip[uidx-1] = nvram['wan'+u+'_ppp_get_ip'];
 				if (nvram['wan'+u+'_pptp_dhcp'] == '1') {

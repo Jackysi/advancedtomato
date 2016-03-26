@@ -35,19 +35,33 @@
 
 #include <sys/ioctl.h>
 
+#define mwanlog(level,x...) if(nvram_get_int("mwan_debug")>=level) syslog(level, x)
+
+/* // OBSOLETE 
 void ppp_prefix(char *wan_device, char *prefix)
-{	
-	if(!strcmp(wan_device, nvram_safe_get("wan_ifnameX"))) strcpy(prefix, "wan");
-	if(!strcmp(wan_device, nvram_safe_get("wan2_ifnameX"))) strcpy(prefix, "wan2");
+{
+	if (!wan_device || wan_device == "") {	// in case DEVICE is empty (PPTP/L2TP)
+		strcpy(prefix, safe_getenv("LINKNAME"));
+		mwanlog(LOG_DEBUG,"### ppp_prefix: empty DEVICE, set prefix to %s", prefix);
+	}
+	else if (!strcmp(wan_device, "/dev/ttyUSB0") || !strcmp(wan_device, "/dev/ttyACM0")) {	// DEVICE="/dev/ttyUSB0" (3G) etc
+		strcpy(prefix, safe_getenv("LINKNAME"));
+		mwanlog(LOG_DEBUG,"### ppp_prefix: DEVICE is 3G Modem, set prefix to %s", prefix);
+	}
+	else if(!strcmp(wan_device, nvram_safe_get("wan2_ifnameX"))) strcpy(prefix, "wan2");
 #ifdef TCONFIG_MULTIWAN
-	if(!strcmp(wan_device, nvram_safe_get("wan3_ifnameX"))) strcpy(prefix, "wan3");
-	if(!strcmp(wan_device, nvram_safe_get("wan4_ifnameX"))) strcpy(prefix, "wan4");
+	else if(!strcmp(wan_device, nvram_safe_get("wan3_ifnameX"))) strcpy(prefix, "wan3");
+	else if(!strcmp(wan_device, nvram_safe_get("wan4_ifnameX"))) strcpy(prefix, "wan4");
 #endif
+	else strcpy(prefix, "wan");	// all others: DEVICE="/dev/ttyUSB0" (3G) etc
+	mwanlog(LOG_DEBUG,"### ppp_prefix: DEVICE = %s, prefix = %s", wan_device, prefix);
 }
+*/
 
 int ipup_main(int argc, char **argv)
 {
 	char *wan_ifname;
+	int wan_proto;
 	char *value;
 	char buf[256];
 	const char *p;
@@ -63,7 +77,8 @@ int ipup_main(int argc, char **argv)
 	if (!wait_action_idle(10)) return -1;
 
 	wan_ifname = safe_getenv("IFNAME");
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	if ((!wan_ifname) || (!*wan_ifname)) return -1;
 	nvram_set(strcat_r(prefix, "_iface", tmp), wan_ifname);	// ppp#
 	nvram_set(strcat_r(prefix, "_pppd_pid", tmp), safe_getenv("PPPD_PID"));	
@@ -83,12 +98,18 @@ int ipup_main(int argc, char **argv)
 	if ((value = getenv("IPLOCAL"))) {
 		_dprintf("IPLOCAL=%s\n", value);
 
-		switch (get_wanx_proto(prefix)) {
+		wan_proto = get_wanx_proto(prefix);
+
+		switch (wan_proto) {	// store last ip address for Web UI
 		case WP_PPPOE:
 		case WP_PPP3G:
-			nvram_set(strcat_r(prefix, "_ipaddr_buf", tmp), nvram_safe_get(strcat_r(prefix, "_ipaddr", tmp)));		// store last ip address
-			nvram_set(strcat_r(prefix, "_ipaddr", tmp), value);
-			nvram_set(strcat_r(prefix, "_netmask", tmp), "255.255.255.255");
+			if (wan_proto = WP_PPPOE && using_dhcpc(prefix)) { // PPPoE with DHCP MAN
+				nvram_set(strcat_r(prefix, "_ipaddr_buf", tmp), nvram_safe_get(strcat_r(prefix, "_ppp_get_ip", tmp)));
+			} else {	// PPPoE / 3G
+				nvram_set(strcat_r(prefix, "_ipaddr_buf", tmp), nvram_safe_get(strcat_r(prefix, "_ipaddr", tmp)));
+				nvram_set(strcat_r(prefix, "_ipaddr", tmp), value);
+				nvram_set(strcat_r(prefix, "_netmask", tmp), "255.255.255.255");
+			}
 			break;
 		case WP_PPTP:
 		case WP_L2TP:
@@ -132,7 +153,8 @@ int ipdown_main(int argc, char **argv)
 	
 	TRACE_PT("begin\n");
 
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	if (!wait_action_idle(10)) return -1;
 
 	//stop_ddns();	// avoid to trigger DOD
@@ -169,6 +191,11 @@ int ipdown_main(int argc, char **argv)
 	}
 
 	mwan_load_balance();
+
+	/* clear active interface from nvram on disconnect. iface mandatory for mwan load balance */
+	mwanlog(LOG_DEBUG,"### ipdown_main, remove %s_iface, %s_pppd_pid", prefix, prefix);
+	//nvram_set(strcat_r(prefix, "_iface", tmp),"");	// ppp#
+	nvram_set(strcat_r(prefix, "_pppd_pid", tmp),"");
 
 	return 1;
 }
@@ -217,7 +244,8 @@ int pppevent_main(int argc, char **argv)
 	
 	TRACE_PT("begin\n");
 
-	ppp_prefix(safe_getenv("DEVICE"), prefix);
+	//ppp_prefix(safe_getenv("DEVICE"), prefix);
+	strcpy(prefix, safe_getenv("LINKNAME"));
 	int i;
 	for (i = 1; i < argc; ++i) {
 		TRACE_PT("arg%d=%s\n", i, argv[i]);

@@ -325,7 +325,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="ipv6_rtr_addr">
 		<input type="hidden" name="ipv6_accept_ra">
 		<input type="hidden" name="ipv6_vlan">
-		<input type="hidden" name="ipv6_isp_opt">
+		<input type="hidden" name="ipv6_pdonly">
 
 		<div class="box" id="section-ipv6">
 			<div class="heading">Basic IPv6 Configuration</div>

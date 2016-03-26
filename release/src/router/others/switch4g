@@ -8,6 +8,7 @@ PREFIX=$1
 
 MODE=`nvram get "$PREFIX"_proto`
 LOCK="/tmp/switch4g.lock"
+READY="/tmp/4g.ready"
 
 if [ ! "$MODE" == "lte" ]; then
     exit 0
@@ -231,6 +232,11 @@ disconnect() {
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
         logger 4G MODEM - previous proces of switch4g still working
+
+        TEST=`ps | grep switch4g | grep -v "grep" | wc -l`
+        if [ "$TEST" == "0" ]; then  #lock file exist but process doesn`t.
+            rm $LOCK
+        fi
         exit 0
     fi
 
@@ -386,6 +392,7 @@ searchWAN() {
             nvram set wan_4g="$WAN"
             nvram set modem_type=$TYPE
             FOUND=1
+            echo "$WAN" > /tmp/4g.ready
         else
             if [ "$COUNT" == "5" ]; then
                 logger 4G MODEM WAN not found - connection process terminated!
@@ -509,14 +516,16 @@ elif [ "$2" == "signal" ]; then
 else
     checkLock
 
-    switchMode
+    if [ ! -f $READY ]; then #modem not detected
+        switchMode
 
-    searchWAN
+        searchWAN
 
-    if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" -o "$TYPE" == "qmi_wwan" ]; then #only for non-hilink
-        searchDiag
+        if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" -o "$TYPE" == "qmi_wwan" ]; then #only for non-hilink
+            searchDiag
 
-        setPIN
+            setPIN
+        fi
     fi
 
     #force connection after detect 4G modem

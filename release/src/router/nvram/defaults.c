@@ -77,7 +77,7 @@ const defaults_t defaults[] = {
 
 	{ "mwan_num",			"1"				},
 	{ "mwan_init",			"0"				},
-	{ "mwan_cktime",		"60"				},
+	{ "mwan_cktime",		"0"				},
 	{ "mwan_ckdst",			"google.com,microsoft.com"	},
 	{ "mwan_debug",			"0"				},
 	{ "pbr_rules",			""				},
@@ -97,6 +97,7 @@ const defaults_t defaults[] = {
 	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
 	{ "wan_dns",			""			},	// x.x.x.x x.x.x.x ...
 	{ "wan_weight",			"1"			},
+	{ "wan_ckmtd",			"1"			},
 
 	{ "wan2_proto",			"dhcp"			},  // [static|dhcp|pppoe|disabled]
 	{ "wan2_ipaddr",		"0.0.0.0"		},  // WAN IP address
@@ -107,6 +108,7 @@ const defaults_t defaults[] = {
 	{ "wan2_hwname",		""			},  // WAN driver name (e.g. et1)
 	{ "wan2_hwaddr",		""			},  // WAN interface MAC address
 	{ "wan2_ifnameX",		NULL			},  // real wan if; see wan.c:start_wan
+	{ "wan2_ckmtd",			"1"			},
 
 #ifdef TCONFIG_MULTIWAN
 	{ "wan3_proto",			"dhcp"			},  // [static|dhcp|pppoe|disabled]
@@ -118,6 +120,7 @@ const defaults_t defaults[] = {
 	{ "wan3_hwname",		""			},  // WAN driver name (e.g. et1)
 	{ "wan3_hwaddr",		""			},  // WAN interface MAC address
 	{ "wan3_ifnameX",		NULL			},  // real wan if; see wan.c:start_wan
+	{ "wan3_ckmtd",			"1"			},
 
 	{ "wan4_proto",			"dhcp"			},  // [static|dhcp|pppoe|disabled]
 	{ "wan4_ipaddr",		"0.0.0.0"		},  // WAN IP address
@@ -128,6 +131,7 @@ const defaults_t defaults[] = {
 	{ "wan4_hwname",		""			},  // WAN driver name (e.g. et1)
 	{ "wan4_hwaddr",		""			},  // WAN interface MAC address
 	{ "wan4_ifnameX",		NULL			},  // real wan if; see wan.c:start_wan
+	{ "wan4_ckmtd",			"1"			},
 #endif
 
 #ifdef TCONFIG_DNSSEC
