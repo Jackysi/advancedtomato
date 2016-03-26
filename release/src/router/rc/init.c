@@ -379,7 +379,7 @@ static int init_vlan_ports(void)
 	int model = get_model();
 
 	switch (model) {
-	case MODEL_235W:	
+	case MODEL_NR235W:	
 		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
 		dirty |= check_nv("vlan2ports", "4 5");
 		dirty |= check_nv("wandevs", "vlan2");
@@ -587,7 +587,7 @@ static void check_bootnv(void)
 	dirty = check_nv("wl0_leddc", "0x640000") | check_nv("wl1_leddc", "0x640000");
 
 	switch (model) {
-	case MODEL_235W:
+	case MODEL_NR235W:
 		dirty |= check_nv("vlan1hwname", "et0");
 		dirty |= check_nv("vlan2hwname", "et0");
 		break;
@@ -902,9 +902,9 @@ static int init_nvram(void)
 	ver = NULL;
 	features = 0;
 	switch (model) {
-	case MODEL_235W:
-		mfr = "NetCore";
-		name = "235W";
+	case MODEL_NR235W:
+		mfr = "Netcore";
+		name = "NR235W";
 		features = SUP_SES | SUP_80211N ;
 		nvram_set("btn_reset", "21");
 

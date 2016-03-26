@@ -55,7 +55,7 @@ int buttons_main(int argc, char *argv[])
 
 	// moveme
 	switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
-	case MODEL_235W:
+	case MODEL_NR235W:
 		reset_mask =  1 << 20;
 		break;
 	case MODEL_WRT54G:
