@@ -145,9 +145,13 @@ ifneq ($(ASUS_TRX),0)
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
 # for asus RT-N18U, RT-AC56U, RT-AC68U, RT-AC68R, RT-AC68P
 ifeq ($(ASUS_TRX),ASUS)
+ifeq ($(BCMSMP),y)
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC56U,3.0.0.4,image/tomato-RT-AC56U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-AC68U,3.0.0.4,image/tomato-RT-AC68U-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC).trx
+else
+	ctools/trx_asus -i image/linux-lzma.trx -r RT-N18U,3.0.0.4,image/tomato-RT-N18U-$(V1)$(V2)-$(current_BUILD_DESC)-NOSMP.trx
+endif
 endif
 # for dlink
 ifeq ($(ASUS_TRX),DLINK)
@@ -292,7 +296,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, UFSD, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT, NGINX, CTF
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD USBAP NO_USBAPP NANO
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD USBAP NO_USBAPP
 
 define RouterOptions
 	@( \
@@ -426,16 +430,6 @@ define RouterOptions
 	if [ "$(PPTPD)" = "y" ]; then \
 		sed -i "/TCONFIG_PPTPD/d" $(1); \
 		echo "TCONFIG_PPTPD=y" >>$(1); \
-	fi; \
-	if [ "$(BTCLIENT)" = "y" ]; then \
-		sed -i "/TCONFIG_BT/d" $(1); \
-		echo "TCONFIG_BT=y" >>$(1); \
-		sed -i "/TCONFIG_BBT/d" $(1); \
-		echo "TCONFIG_BBT=y" >>$(1); \
-	fi; \
-	if [ "$(BTGUI)" = "y" ]; then \
-		sed -i "/TCONFIG_BT/d" $(1); \
-		echo "TCONFIG_BT=y" >>$(1); \
 	fi; \
 	if [ "$(TR_EXTRAS)" = "y" ]; then \
 		sed -i "/TCONFIG_TR_EXTRAS/d" $(1); \
@@ -929,13 +923,13 @@ endif
 
 ## targets
 e:
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y  B=E BUILD_DESC="$(VPN)" CTF=y GRO=y USB="USB" PPTPD=y OPENVPN=y DNSSEC=y SNMP=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y B=E BUILD_DESC="$(VPN)" CTF=y GRO=y USB="USB" PPTPD=y OPENVPN=y DNSSEC=y SNMP=y
 
 o:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Custom" CTF=y GRO=y USB="USB" NOCAT=y TR_EXTRAS=y DNSCRYPT=y PPTPD=y DNSSEC=y SNMP=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Custom" CTF=y GRO=y USB="USB" NOCAT=y TR_EXTRAS=y PPTPD=y DNSSEC=y SNMP=y
 
 z:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" CTF=y GRO=y USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y DNSCRYPT=y UPS=y PPTPD=y DNSSEC=y TINC=y SNMP=y RAID=y NFS=y NANO=y TOR=y NGINX=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" CTF=y GRO=y USB="USB" NOCAT=y TR_EXTRAS=y PPTPD=y DNSSEC=y SNMP=y RAID=y NFS=y NGINX=y
 
 ac68e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="ASUS" TUXERA=y
@@ -950,7 +944,7 @@ n18z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y ARMCPUSMP="up" ASUS_TRX="ASUS" UFSD="ASUS"
 
 dir868l:
-	@$(MAKE) bin ARM=y NVRAM_SIZE=32 NAND=y BCMSMP=y ASUS_TRX="DLINK" CTF=y GRO=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y B=E BUILD_DESC="special" USB="USB" NO_SSH=y
+	@$(MAKE) bin ARM=y NVRAM_SIZE=32 NAND=y BCMSMP=y ASUS_TRX="DLINK" CTF=y GRO=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y IPV6SUPP=y MEDIASRV=y B=E BUILD_DESC="special" USB="USB" DNSSEC=y NO_SSH=y
 
 r7000e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS"
