@@ -745,6 +745,8 @@ static void mangle_table(void)
 		}
 	}
 
+	ipt_routerpolicy();
+
 	ip46t_write("COMMIT\n");
 }
 
