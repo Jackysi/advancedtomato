@@ -123,9 +123,9 @@ watchdogAdd() {
 
         if [ "$ISSET" == "0" ]; then
             cru a watchdog_$PREFIX "*/$MINS * * * * /usr/sbin/watchdog $PREFIX"
+            echo "1" > /tmp/"$PREFIX"_state
         fi
     fi
-    echo "1" > /tmp/"$PREFIX"_state
 }
 
 watchdogDel() {
