@@ -7,9 +7,13 @@
 
 #define mwanlog(level,x...) if(nvram_get_int("mwan_debug")>=level) syslog(level, x)
 
+#ifdef TCONFIG_MULTIWAN
 static char mwan_curr[] = {'0', '0', '0', '0', '\0'};
 static char mwan_last[] = {'0', '0', '0', '0', '\0'};
-
+#else
+static char mwan_curr[] = {'0', '0', '\0'};
+static char mwan_last[] = {'0', '0', '\0'};
+#endif
 typedef struct
 {
 	char wan_iface[10];
@@ -141,7 +145,11 @@ void mwan_table_del(char *sPrefix)
 	system(cmd);
 	
 	// ip rule del table WAN1 pref 111 (dns)
+#ifdef TCONFIG_MULTIWAN
 	for (i = 0 ; i < 3; ++i) {
+#else
+	for (i = 0 ; i < 1; ++i) {
+#endif
 		memset(cmd, 0, 256);
 		sprintf(cmd, "ip rule del table %d pref 11%d", table, wan_unit);
 		mwanlog(LOG_DEBUG, "%s, cmd=%s", sPrefix, cmd);
@@ -176,8 +184,7 @@ void mwan_table_add(char *sPrefix)
 
 	wan_unit = table = get_wan_unit(sPrefix);
 	mwan_num = nvram_get_int("mwan_num");
-	if((mwan_num == 1 || mwan_num > MWAN_MAX)
-	) return;
+	if((mwan_num == 1 || mwan_num > MWAN_MAX)) return;
 
 	get_wan_info(sPrefix);
 	proto = get_wanx_proto(sPrefix);
@@ -267,7 +274,11 @@ void mwan_status_update(void)
 		}
 	}
 
+#ifdef TCONFIG_MULTIWAN
 	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2') && (mwan_curr[2] < '2') && (mwan_curr[3] < '2')) {
+#else
+	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2')) {
+#endif
 		// all connections down, searcing failover interfaces
 		if (nvram_match("wan_weight", "0") && (mwan_curr[0] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN1");
