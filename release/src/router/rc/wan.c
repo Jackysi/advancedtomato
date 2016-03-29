@@ -1003,7 +1003,7 @@ void start_wan(int mode)
 		mwan_num = 1;
 	}
 
-	syslog(LOG_INFO, "MultiWAN: MWAN is %d.", mwan_num);
+	syslog(LOG_INFO, "MultiWAN: MWAN is %d (max %d).", mwan_num, MWAN_MAX);
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit)
 	{
 		get_wan_prefix(wan_unit, prefix);
@@ -1305,7 +1305,10 @@ void stop_wan_if(char *prefix)
 	mwan_load_balance();
 
 	/* clear old IP params from nvram on stop */
-	nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	/* but only if WAN is not as STATIC - shibby */
+	if (wan_proto != WP_STATIC) {
+		nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	}
 	nvram_set(strcat_r(prefix, "_gateway_get", tmp), "0.0.0.0");
 
 	xstart("watchdog", prefix, "del");
