@@ -411,7 +411,6 @@ const aspapi_t aspapi[] = {
 	{ "mmcid",			asp_mmcid	},	//MMC Support
 #endif
 	{ "etherstates",		asp_etherstates	},	//Ethernet States
-	{ "anonupdate",			asp_anonupdate	},	//Tomato update notification system
 #ifdef TCONFIG_IPV6
 	{ "calc6rdlocalprefix",		asp_calc6rdlocalprefix	},
 #endif
@@ -1090,12 +1089,6 @@ static const nvset_t nvset_list[] = {
 	{ "mmc_exec_mount",		V_LENGTH(0, 64)			},
 	{ "mmc_exec_umount",		V_LENGTH(0, 64)			},
 #endif
-
-// admin-tomatoanon
-	{ "tomatoanon_answer",		V_RANGE(0, 1)			},
-	{ "tomatoanon_enable",		V_RANGE(-1, 1)			},
-	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
-	{ "tomatoanon_notify",		V_01				},
 
 // nas-usb - !!TB
 #ifdef TCONFIG_USB

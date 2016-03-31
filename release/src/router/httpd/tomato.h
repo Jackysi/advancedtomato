@@ -80,7 +80,6 @@ extern void asp_notice(int argc, char **argv);
 extern void asp_mmcid(int argc, char **argv);
 #endif
 extern void asp_etherstates(int argc, char **argv);
-extern void asp_anonupdate(int argc, char **argv);
 extern void wo_wakeup(char *url);
 extern void asp_dns(int argc, char **argv);
 extern void wo_resolve(char *url);
