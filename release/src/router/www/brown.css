@@ -1,0 +1,47 @@
+/* simplified Gabriel Cloutier "bbrown" scheme */
+a {
+	color: #343722;
+}
+a:hover {
+	background: #B2B797;
+	color: #343722;
+}
+
+input[type='button']:hover {
+	background: #343722;
+	color: #fff;
+}
+
+#header {
+	background: #343722;
+}
+
+#navi {
+	background: #C2C8A4;
+}
+#navi a {
+	color: #343722;
+}
+#navi a:hover {
+	background: #B2B797;
+	color: #343722;
+}
+
+ul.tabs a.active,
+#tabs a.active {
+	background: #343722;
+	color: #FFF;
+}
+ul.tabs a:hover,
+#tabs a:hover {
+	background: #B2B797;
+	color: #343722;
+}
+
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+	background: #B2B797;
+}
+.tomato-grid a {
+	color: #343722;
+}

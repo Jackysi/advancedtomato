@@ -325,8 +325,7 @@ createFieldTable('', f);
 </script>
 </div>
 
-
-
+<span id='s_vegas' style='display:none'>
 <div class='section-title'>TCP Vegas <small>(Network Congestion Control)</small></div>
 <div class='section'>
 <script type='text/javascript'>
@@ -338,6 +337,7 @@ createFieldTable('', [
 ]);
 </script>
 </div>
+</span>
 
 <!-- / / / -->
 
