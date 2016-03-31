@@ -20,7 +20,9 @@ export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
 #
 #
 #
-SEP=echo "\033[41;1m   $@   \033[0m"
+SEP=`$(eval progress=$(shell echo $$(($(progress)+1))))` \
+echo "\033[41;1m   $@ ${progress}$\/${totalSteps} \033[0m\033]2;$@ ${progress}$\/${totalSteps}\007"
+
 
 #
 # standard packages
@@ -251,8 +253,13 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 # Basic rules
 #
 
-all: clean-build libc $(obj-y) kernel
+all: countSteps clean-build libc $(obj-y) kernel
 
+countSteps:
+	@totalSteps=0
+	@progress=0
+	$(foreach n, $(obj-y) $(obj-n) $(obj-), $(eval totalSteps=$(shell echo $$(($(totalSteps)+1)))))
+	@echo ${totalSteps}
 
 kernel: $(LINUXDIR)/.config
 	@$(SEP)
