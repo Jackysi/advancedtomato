@@ -708,150 +708,137 @@ endif
 	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
 	@$(MAKE) all
 
-## mini-USB - K24 only
-n:
-ifneq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="mini-USB" USB="USB"
-endif
+# Make the "normal" build
+a:
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB" SNMP=y
 
-## VPN
-e:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" DNSCRYPT=y PPTPD=y
-else
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" DNSCRYPT=y PPTPD=y
-endif
+## Make the "normal but without SSH" build
+b:
+	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB" SNMP=y
 
-## BTgui-VPN
+## Make the "normal but without CIFS" build
 c:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y OPENVPN=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BTgui-VPN" USB="USB" BTGUI=y DNSCRYPT=y PPTPD=y
-else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="BTgui" USB="USB" BTGUI=y DNSCRYPT=y PPTPD=y
-endif
+	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB" SNMP=y
 
-## Nocat-VPN
+## Make the "normal but without SAMBA" (Lite) build
 d:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB"SNMP="$(SNMP)"
 endif
 
-## TOR-VPN
-g:
+## Make the "normal (with NTFS support) + VPN" build
+e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y PPTPD=y NO_CIFS=y NO_JFFS=y
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="VPN" USB="USB" SNMP=y TCPDUMP="$(TCPDUMP)"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y PPTPD=y NO_CIFS=y NO_JFFS=y
+#	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y B=E BUILD_DESC="VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="VPN" USB="USB" SNMP=y TCPDUMP="$(TCPDUMP)"
 endif
 
-## BT
-u:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y
-else
-	@$(MAKE) bin NTFS=y USBEXTRAS=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y
-endif
-
-## BT-VPN
-t:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BT-VPN" USB="USB" BTCLIENT=y NO_JFFS=y PPTPD=y
-else
-	@$(MAKE) bin OPENVPN=y NTFS=y USBEXTRAS=y B=M BUILD_DESC="BT-VPN" USB="USB" BTCLIENT=y NO_JFFS=y PPTPD=y
-endif
-
-## Big-VPN
-b:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Big-VPN" USB="USB" BTGUI=y NFS=y NOCAT=y OPENVPN=y DNSCRYPT=y PPTPD=y NO_JFFS=y NO_CIFS=y
-else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Big-VPN" USB="USB" BTGUI=y NOCAT=y NFS=y OPENVPN=y DNSCRYPT=y PPTPD=y NO_JJFS=y NO_CIFS=y
-endif
-
-## Mega-VPN
-o:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y SNMP=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y IPSEC=y RAID=y DNSSEC=y TINC=y NANO=y
-
-## All-In-One (AIO) MIPS1 - only for router with more than 8MB flash!! ZTE H618B
-z:
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y IPSEC=y RAID=y NGINX=y DNSSEC=y TINC=y NANO=y
-endif
-
-#################################
-
-ifeq ($(CONFIG_LINUX26),y)
-
-## Mini - targeted for Netgear routers
+## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
-## MiniIPv6 - for 4MB routers
+## Make the "Tiny: no JFFS, no USB, no CIFS, no Zebra" build - targeted for cheapskate routers
+fs:
+	@$(MAKE) bin NO_CIFS=y NO_SSH=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB=""
+
+## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
 i:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" NO_HTTPS=y
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
 
-## MiniVPN - for 4MB routers
-j:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y B=V BUILD_DESC="MiniVPN" USB="" PPTPD=y OPENVPN=y
-endif
-
-## VPN with no USB support (IPv6 in K26 build)
-v:
+## Make the "No USB with IPv6, no Zebra, with VPN" build - for 4MB routers
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="IPv6-$(VPN)" USB="" PPTPD=y IPV6SUPP=y
-else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" PPTPD=y
+j:
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y USERPPTP=y NO_LIBOPT=y B=J BUILD_DESC="MiniIPv6-VPN" USB="" SNMP="$(SNMP)"
 endif
 
-## Max build for router with 8MB flash without USB Support (like WRT54GS v1)
+## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y EBTABLES=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y IPSEC=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y USERPPTP=y  PPTPD=y TCPDUMP="$(TCPDUMP)"
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y USERPPTP=y PPTPD=y TCPDUMP="$(TCPDUMP)"
 endif
 
-## SD-VPN - Only k24
-w:
-ifneq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="SD-VPN" USB="" SDHC=y DNSCRYPT=y PPTPD=y
+## Roadkill
+## Make the "normal (with NTFS support) + VPN + NOCAT" build
+nc:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="VPN-NC" USB="USB" SNMP=y NOCAT=y TCPDUMP="$(TCPDUMP)"
+else
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y B=NC BUILD_DESC="VPN-NC" USB="USB" NOCAT=y TCPDUMP="$(TCPDUMP)"
+endif
+
+## Toastman
+## Make the "Mini: no USB, + NOCAT" build - for 4MB routers
+ncm:
+	@$(MAKE) bin JFFSv1=y NOCAT=y B=NCM BUILD_DESC="Mini-NOCAT" USB=""
+
+## Toastman
+## Make the "normal" build + NOCAT
+ncs:
+	@$(MAKE) bin NOCAT=y B=NCS BUILD_DESC="Std-NOCAT" USB="USB" SNMP=y TCPDUMP="$(TCPDUMP)"
+
+
+## Make the "No USB" build
+s:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" TCPDUMP="$(TCPDUMP)"
+else
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" TCPDUMP="$(TCPDUMP)"
 endif
 
 
-## Make Mips32r2 builds ##
+## Make the "No USB with Extras" build (K26 only, for 8MB flash)
+ifeq ($(CONFIG_LINUX26),y)
+t:
+	@$(MAKE) bin B=T USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y BUILD_DESC="Std" SNMP=y
+## Make the "No USB with OpenVPN and Extras" build (K26 only, for 8MB flash)
+u:
+	@$(MAKE) bin B=U USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y OPENVPN=y USERPPTP=y BUILD_DESC="VPN-Ext"  SNMP=y
+endif
 
-#AIO MIPS2 for RT-N16 and E4200
-r2z:
-	@$(MAKE) z MIPS32=r2
+## Make the "VPN with no USB support" build
+v:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NO_JFFS=y BCM57=y B=V BUILD_DESC="VPN" USB="" TCPDUMP="$(TCPDUMP)" TCPDUMP="$(TCPDUMP)"
+else
+	@$(MAKE) bin OPENVPN=y PPTPD=y BBEXTRAS=y B=V BUILD_DESC="VPN" USB=""  SNMP=y TCPDUMP="$(TCPDUMP)" TCPDUMP="$(TCPDUMP)"
+endif
 
-r2e:
-	@$(MAKE) e MIPS32=r2
+## Make the "Small VPN with no USB support" build
+vs:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NO_JFFS=y NO_CIFS=y B=VS BUILD_DESC="SmallVPN" USB=""
+else
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
+endif
 
-r2c:
-	@$(MAKE) c MIPS32=r2
+## Make Mips32r2 builds
 
-r2u:
-	@$(MAKE) u MIPS32=r2
-
-r2t:
-	@$(MAKE) t MIPS32=r2
-
-r2d:
-	@$(MAKE) d MIPS32=r2
-
-r2g:
-	@$(MAKE) g MIPS32=r2
+r2a:
+	@$(MAKE) a MIPS32=r2
 
 r2b:
 	@$(MAKE) b MIPS32=r2
 
-r2o:
-	@$(MAKE) o MIPS32=r2
+r2c:
+	@$(MAKE) c MIPS32=r2
+
+r2d:
+	@$(MAKE) d MIPS32=r2
+
+r2e:
+	@$(MAKE) e MIPS32=r2
 
 r2f:
 	@$(MAKE) f MIPS32=r2 BELKIN=y
+
+r2fs:
+	@$(MAKE) fs MIPS32=r2
 
 r2i:
 	@$(MAKE) i MIPS32=r2
@@ -859,45 +846,67 @@ r2i:
 r2j:
 	@$(MAKE) j MIPS32=r2
 
-r2v:
-	@$(MAKE) v MIPS32=r2
-
 r2m:
 	@$(MAKE) m MIPS32=r2
 
-#AIO for E4200
-n60z:
-	@$(MAKE) r2z NVRAM_SIZE=60 LINKSYS_E=1
+r2n:
+	@$(MAKE) n MIPS32=r2
 
-n60e:
-	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
+r2nc:
+	@$(MAKE) nc MIPS32=r2
 
-n60c:
-	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=1
+r2s:
+	@$(MAKE) s MIPS32=r2
 
-n60u:
-	@$(MAKE) r2u NVRAM_SIZE=60 LINKSYS_E=1
+r2t:
+	@$(MAKE) t MIPS32=r2
 
-n60t:
-	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=1
+r2u:
+	@$(MAKE) t MIPS32=r2
+
+r2v:
+	@$(MAKE) v MIPS32=r2
+
+r2vs:
+	@$(MAKE) vs MIPS32=r2
+
+n60a:
+	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=y
 
 n60b:
-	@$(MAKE) r2b NVRAM_SIZE=60 LINKSYS_E=1
+	@$(MAKE) r2b NVRAM_SIZE=60 LINKSYS_E=y
 
-n60d:
-	@$(MAKE) r2d NVRAM_SIZE=60 LINKSYS_E=1
+n60c:
+	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=y
 
-n60g:
-	@$(MAKE) r2g NVRAM_SIZE=60 LINKSYS_E=1
-
-n60o:
-	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=1
-
-n60v:
-	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=1
+n60e:
+	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=y
 
 n60m:
-	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=y
+
+n60n:
+	@$(MAKE) r2n NVRAM_SIZE=60 LINKSYS_E=y
+
+n60nc:
+	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=y
+
+n60o:
+	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=y
+
+n60r:
+	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=y
+
+n60s:
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+
+n60t:
+	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=y
+
+n60v:
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y USERPPTP=y BUILD_DESC="VPN"
+
+
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -951,47 +960,51 @@ setprofile:
 	@$(MAKE) -C router oldconfig
 
 help:
-	@echo "n            Mini-USB - for oruter with 4MB flash and USB port - K24 only"
-	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
-	@echo "c            BTgui-VPN - (Ext plus BT gui)"
-	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"
-	@echo "g            Tor-VPN - (BTgui plus VPN plus TOR Project)"
-	@echo "t            BT-VPN - (BT plus VPN)"
-	@echo "b            Big-VPN - (Big plus VPN)"
-	@echo "o            Mega-VPN - (Mega plus VPN plus NOCAT minus NFS)"
+	@echo "a            A build (standard)"
+	@echo "b            B build (standard minus SSH)"
+	@echo "c            C build (standard minus CIFS)"
+	@echo "d            D build (standard minus Samba server)"
+	@echo "m            M build (standard plus extra utilities and NTFS support)"
+	@echo "nc           NC build (standard plus VPN, extra utilities, NTFS support and NOCAT)"
+	@echo "ncm	    NCS build (no USB support, NOCAT)"
+	@echo "ncs	    NCS build (std + NOCAT)"
+	@echo "m            Ext - (standard plus extra utilities and NTFS support)"
+
 ifeq ($(CONFIG_LINUX26),y)
-	@echo "z            MIPS Release 15F AIO (for routers +8MB flash)"
-	@echo "i            MiniIPv6 - (IPv6 with no USB support minus CIFS and RIPv1/2)"
-	@echo "j            MiniVPN - (VPN with no USB support minus CIFS and RIPv1/2)"
+	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
+	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
+else
+	@echo "e            E build (standard plus VPN and NTFS support)"
 endif
-	@echo "f            Mini - (no USB support minus CIFS and RIPv1/2)"
-	@echo "v            VPN (no usb) - (VPN with no USB support)" / in K26 + IPv6 support
-	@echo "m            Max (no usb) - (Max with no USB support)" / in K26 + IPv6 support
-	@echo "w            SD-VPN (no usb) - (VPN with SD-MOD and no USB support)"
+	@echo "s            S build (no USB support)"
+	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "fs           FS build (no USB support minus CIFS, JFFS, Zebra and RIPv1/2)"
+	@echo "v            V build (VPN with no USB support)"
+	@echo "vs           VS build (Small VPN with no USB support)"
+
 ifeq ($(CONFIG_LINUX26),y)
-	@echo "r2e          MIPS Release 2 VPN"
-	@echo "r2c          MIPS Release 2 BTgui-VPN"
-	@echo "r2d          MIPS Release 2 Nocat-VPN"
-	@echo "r2g          MIPS Release 2 Tor-VPN"
-	@echo "r2t          MIPS Release 2 BT-VPN"
-	@echo "r2b          MIPS Release 2 Big-VPN"
-	@echo "r2o          MIPS Release 2 Mega-VPN (for routers +8MB flash)"
-	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
-	@echo "r2v          MIPS Release 2 VPN (no usb)"
-	@echo "r2m          MIPS Release 2 Max (no usb)"
-	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
-	@echo "r2j          MIPS Release 2 MiniVPN (for 4MB flash)"
-	@echo "r2f          MIPS Release 2 Mini (for netgear)"
-	@echo "n60e         Linksys E-series build VPN"
-	@echo "n60c         Linksys E-series build BTGui-VPN"
-	@echo "n60d         Linksys E-series build BTGui-VPN plus Nocat"
-	@echo "n60g         Linksys E-series build BTGui-VPN plus TOR Project"
-	@echo "n60t         Linksys E-series build BT-VPN"
-	@echo "n60b         Linksys E-series build Big-VPN"
-	@echo "n60o         Linksys E-series build Mega-VPN"
-	@echo "n60z         Linksys E-series build AIO"
-	@echo "n60v         Linksys E-series build IPv6-VPN for E2000"
-	@echo "n60m         Linksys E-series build Max for E2000"
+	@echo "r2a          MIPS Release 2 A build (standard)"
+	@echo "r2b          MIPS Release 2 B build (standard minus SSH)"
+	@echo "r2c          MIPS Release 2 C build (standard minus CIFS)"
+	@echo "r2d          MIPS Release 2 D build (standard minus Samba server)"
+	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
+	@echo "r2f          MIPS Release 2 F build (no USB minus CIFS, RIPv1/2)"
+	@echo "r2fs         MIPS Release 2 FS build (no USB minus JFFS, CIFS, RIPv1/2, Zebra) + F5D8235v3, F7D301/2, F7D4302"
+	@echo "r2i          MIPS Release 2 I build (IPv6 no USB minus CIFS and RIPv1/2)"
+	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
+	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
+	@echo "r2ncm        MIPS Release 2 NCM build (no USB, plus NOCAT)"
+	@echo "r2ncs        MIPS Release 2 NCS build (standard plus NOCAT)"
+	@echo "r2s          MIPS Release 2 S build (no USB)"
+	@echo "r2t          MIPS Release 2 T build (no USB, with extras)"
+	@echo "r2u          MIPS Release 2 U build (no USB, plus VPN with extras)"
+	@echo "r2v          MIPS Release 2 V build (VPN with no USB)"
+	@echo "r2vs         MIPS Release 2 VS build (Small VPN with no USB)"
+	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
+	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
+	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
+	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB)"
+	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
