@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
+	{ "lan_proto",			"static"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
 	{ "lan_ipaddr",			"192.168.1.1"	},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -122,7 +122,7 @@ const defaults_t defaults[] = {
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 */
 	// DHCP server parameters
-	{ "dhcp_start",			"2"				},	//
+	{ "dhcp_start",			"100"				},	//
 	{ "dhcp_num",			"50"				},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
