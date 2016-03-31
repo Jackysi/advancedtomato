@@ -243,7 +243,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT, CTF, NGINX NANO
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MULTIWAN
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID
 
 define RouterOptions
 	@( \
@@ -352,9 +352,11 @@ define RouterOptions
 		sed -i "/TCONFIG_NGINX/d" $(1); \
 		echo "TCONFIG_NGINX=y" >>$(1); \
 	fi; \
-	if [ "$(MULTIWAN)" = "y" ]; then \
-		sed -i "/TCONFIG_MULTIWAN/d" $(1); \
+	sed -i "/TCONFIG_MULTIWAN/d" $(1); \
+	if [ "$(NVRAM_SIZE)" = "60" ] || [ "$(NVRAM_SIZE)" = "64" ] || [ "$(NVRAM_64K)" = "y" ]; then \
 		echo "TCONFIG_MULTIWAN=y" >>$(1); \
+	else \
+		echo "# TCONFIG_MULTIWAN is not set" >>$(1); \
 	fi; \
 	if [ "$(OPENVPN)" = "y" ]; then \
 		sed -i "/TCONFIG_LZO/d" $(1); \
