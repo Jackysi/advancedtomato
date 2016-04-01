@@ -107,10 +107,9 @@ int checkConnect(char *sPrefix)
 			return 1;
 		}
 
-		sprintf(tmp, "/tmp/%s_state", sPrefix);
+		sprintf(tmp, "/tmp/state_%s", sPrefix);
 		f = fopen(tmp, "r");
 		fscanf (f, "%d", &result);
-
 		fclose(f);
 
 		if (result == 1) {
@@ -256,12 +255,22 @@ void mwan_status_update(void)
 	int mwan_num;
 	int wan_unit;
 	char prefix[] = "wanXX";
+	char tmp[100];
+	FILE *f;
 
 	mwan_num = nvram_get_int("mwan_num");
 	if(mwan_num == 1 || mwan_num > MWAN_MAX) return;
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
 		get_wan_prefix(wan_unit, prefix);
 		get_wan_info(prefix);
+
+		sprintf(tmp, "/tmp/state_%s", prefix);
+		if ( !(f = fopen(tmp, "r"))) {
+			// if file does not exist then we create him will value "1"
+			f = fopen(tmp, "w+");
+			fprintf(f, "1\n");
+			fclose(f);
+		}
 
 		if(checkConnect(prefix)){
 			if(wan_info.wan_weight > 0){
@@ -358,6 +367,8 @@ int mwan_route_main(int argc, char **argv)
 
 	FILE *fp;
 
+	mwanlog(LOG_DEBUG, "MultiWAN: mwanroute launched");
+
 	mkdir("/etc/iproute2", 0744);
 	if((fp = fopen("/etc/iproute2/rt_tables", "w")) != NULL) {
 		fprintf(fp,
@@ -370,12 +381,12 @@ int mwan_route_main(int argc, char **argv)
 			);
 		fclose(fp);
 	}
-	
+
 	mwan_num = nvram_get_int("mwan_num");
 	if(mwan_num == 1 || mwan_num > MWAN_MAX){
 		return 0;
 	}
-	
+
 	while(1){
 		check_time = nvram_get_int("mwan_cktime");
 		//if(!check_time) return -1;
