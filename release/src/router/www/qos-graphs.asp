@@ -44,17 +44,22 @@
 </style>
 
 <script type='text/javascript'>
-// <% nvram("qos_classnames,web_svg,qos_enable,qos_obw,qos_ibw"); %>
+// <% nvram("qos_classnames,web_svg,qos_enable,wan_qos_obw,wan_qos_ibw,wan2_qos_obw,wan2_qos_ibw,wan3_qos_obw,wan3_qos_ibw,wan4_qos_obw,wan4_qos_ibw"); %>
 
 //<% qrate(); %>
 
 qrates_out = [0,0,0,0,0,0,0,0,0,0,0];
 qrates_in = [0,0,0,0,0,0,0,0,0,0,0];
 for(var i=0; i < 10; i++){
+/* MULTIWAN-BEGIN */
 	qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
 	qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+/* MULTIWAN-END */
+/* DUALWAN-BEGIN */
+	qrates_out[i] = qrates1_out[i]+qrates2_out[i];
+	qrates_in[i] = qrates1_in[i]+qrates2_in[i];
+/* DUALWAN-END */
 }
-
 
 var svgReady = 0;
 
@@ -166,8 +171,14 @@ ref.refresh = function(text)
 	qrates_in = [];
 	
 	for(var i=0; i < 10; i++){
+/* MULTIWAN-BEGIN */
 		qrates_out[i] = qrates1_out[i]+qrates2_out[i]+qrates3_out[i]+qrates4_out[i];
 		qrates_in[i] = qrates1_in[i]+qrates2_in[i]+qrates3_in[i]+qrates4_in[i];
+/* MULTIWAN-END */
+/* DUALWAN-BEGIN */
+		qrates_out[i] = qrates1_out[i]+qrates2_out[i];
+		qrates_in[i] = qrates1_in[i]+qrates2_in[i];
+/* DUALWAN-END */
 	}
 	try
 	{
