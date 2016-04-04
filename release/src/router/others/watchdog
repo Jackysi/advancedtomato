@@ -26,7 +26,7 @@ watchdogRun() {
 
 for PREFIX in $MWANTABLE; do
 
-    IFACE=`nvram get "$PREFIX"_ifname`
+    IFACE=`nvram get "$PREFIX"_iface`
     PROTO=`nvram get "$PREFIX"_proto`
     WEIGHT=`nvram get "$PREFIX"_weight`
     ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
