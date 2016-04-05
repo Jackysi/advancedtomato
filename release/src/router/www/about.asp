@@ -165,7 +165,6 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <!-- OPENVPN-BEGIN -->
 - OpenVPN: Routing Policy
 <!-- OPENVPN-END -->
-- TomatoAnon project integration and GUI<br>
 - TomatoThemeBase project integration and GUI<br>
 - Ethernet Ports State<br>
 - Extended MOTD (written by @Monter, modified by @Shibby)<br>

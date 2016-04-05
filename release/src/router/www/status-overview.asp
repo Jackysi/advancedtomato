@@ -37,7 +37,6 @@
 
 //	<% nvstat(); %>
 //	<% etherstates(); %>
-//	<% anonupdate(); %>
 
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
@@ -217,18 +216,6 @@ function ethstates()
 	code += '<tr><td class="title indent1" colspan="7" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
 	E("ports").innerHTML = code;
 }
-
-function anon_update()
-{
-	update = anonupdate.update;
-	if (update == "no") { return 0; }
-
-	var code = '<div class="section-title"><center>!! Attention !!</center></div>';
-	code += '<div class="fields"><center>Tomato by Shibby ' + update + ' is now available. <a target="_blank" href="http://tomato.groov.pl/">Click here to read more</a>.</center></div>';
-	code += '<br></div>';
-	E("nversion").innerHTML = code;
-}
-
 function show()
 {
 	c('cpu', stats.cpuload);
@@ -287,8 +274,6 @@ function show()
 
 function earlyInit()
 {
-	if ((stats.anon_enable == '-1') || (stats.anon_answer == '0'))
-		E('att1').style.display = '';
 
 	elem.display('b_dhcpc', show_dhcpc);
 	elem.display('b_connect', 'b_disconnect', show_codi);
@@ -300,8 +285,6 @@ function earlyInit()
 	}
 
 	ethstates();
-
-	anon_update()
 
 	show();
 }
@@ -347,13 +330,6 @@ function toggleVisibility(whichone) {
 
 <!-- / / / -->
 <div class='section' id='nversion'>
-</div>
-
-<div style='display:none' id='att1'>
-<div class='section-title'><center>!! Attention !!</center></div>
-<div class='fields'><center>You did not configure <b>TomatoAnon project</b> setting.
-<br>Please go to <a href='admin-tomatoanon.asp'>TomatoAnon configuration page</a> and make a choice.</center></div>
-<br>
 </div>
 
 <div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(hide)</span></a></i></small></div>

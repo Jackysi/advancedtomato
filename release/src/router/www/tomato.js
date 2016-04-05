@@ -2427,7 +2427,6 @@ function navi()
 		['IP Traffic',			'ipt', 0, [
 			['Real-Time',			'realtime.asp'],
 			['Last 24 Hours',		'24.asp'],
-			['View Graphs',			'graphs.asp'],
 			['Transfer Rates',		'details.asp'],
 			['Daily',			'daily.asp'],
 			['Monthly',			'monthly.asp']
@@ -2538,7 +2537,6 @@ REMOVE-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',		'access.asp'],
-			['TomatoAnon',			'tomatoanon.asp'],
 			['Bandwidth Monitoring',	'bwm.asp'],
 			['IP Traffic Monitoring',	'iptraffic.asp'],
 			['Buttons/LED',			'buttons.asp'],

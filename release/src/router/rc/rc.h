@@ -548,9 +548,6 @@ extern void start_mysql();
 extern void stop_mysql();
 #endif
 
-// tomatoanon.c
-extern void start_tomatoanon(); 
-extern void stop_tomatoanon(); 
 
 #endif
 

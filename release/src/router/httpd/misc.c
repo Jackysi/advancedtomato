@@ -451,33 +451,6 @@ void asp_etherstates(int argc, char **argv)
 	}
 }
 
-void asp_anonupdate(int argc, char **argv)
-{
-	FILE *f;
-	char s[32], *a, b[16];
-	unsigned n;
-
-	if ( nvram_match("tomatoanon_answer", "1") && nvram_match("tomatoanon_enable", "1") && nvram_match("tomatoanon_notify", "1") ) {
-
-		web_puts("\nanonupdate = {");
-
-		n = 0;
-		if ((f = fopen("/tmp/anon.version", "r")) != NULL) {
-			while (fgets(s, sizeof(s), f)) {
-				if (sscanf(s, "have_update=%s", b) == 1) a="update";
-				else continue;
-
-				web_printf("%s\t%s: '%s'", n ? ",\n" : "", a, b);
-				n++;
-			}
-			fclose(f);
-		}
-		web_puts("\n};\n");
-	} else {
-		web_puts("\nanonupdate = {\tupdate: 'no'\n};\n");
-	}
-}
-
 void asp_sysinfo(int argc, char **argv)
 {
 	struct sysinfo si;

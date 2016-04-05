@@ -24,9 +24,6 @@ ifeq ($(TCONFIG_DNSCRYPT),y)
 	install -m 0700 ntp2ip $(INSTALLDIR)/usr/sbin
 endif
 
-#TomatoAnon project
-	install -m 0700 tomatoanon $(INSTALLDIR)/usr/sbin
-
 #TTB project
 	install -m 0700 ttb $(INSTALLDIR)/usr/sbin
 
