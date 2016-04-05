@@ -101,7 +101,6 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	break;
 	case 'vlan-testid1':
 	case 'Asus RT-N10U':
-	case 'Asus RT-N16':
 	case 'Asus RT-N66U':
 	case 'Belkin N F5D8235-4 v3':
 	case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
@@ -146,6 +145,7 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 		COL_P4N = '4';
 	break;
 	case 'vlan-testid3':
+	case 'Asus RT-N16':
 	case 'Asus RT-AC66U':
 //	case 'ChinaNet RG200E-CA':
 	case 'Netgear WNR2000 v2':

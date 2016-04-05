@@ -4,56 +4,34 @@
 # Copyright (C) 2015 shibby
 #
 
-PREFIX=$1
 MWAN=`nvram get mwan_num`
-IFACE=`nvram get "$PREFIX"_ifname`
-PROTO=`nvram get "$PREFIX"_proto`
-WEIGHT=`nvram get "$PREFIX"_weight`
-ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
-LOCK="/tmp/watchdog.$PREFIX"
-MTD=`nvram get "$PREFIX"_ckmtd`
+DLVL=`nvram get mwan_debug`
 DST=`nvram get mwan_ckdst`
 HOSTLIST=`echo $DST |  sed 's/,/ /'`
-RESULT=0
-
-cktracert() {
-    RXBYTES1=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
-    for HOST in $HOSTLIST; do
-        # we need only send/receive few packages to be sure is connection works.
-        # Probe = 1, Max hops = 3
-        traceroute -i $IFACE -w 1 -m 3 $HOST > /dev/null 2>&1
-    done
-    RXBYTES2=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
-    if [ "$RXBYTES2" -gt "$RXBYTES1" ]; then
-        RESULT=1
+LOCK="/tmp/watchdog.lock"
+MWANTABLE="wan"
+for i in $MWAN; do
+    if [ "$i" -gt "1" ]; then
+        MWANTABLE="$MWANTABLE wan$i"
     fi
-}
+done
 
-ckping() {
-    OK=0
-
-    for HOST in $HOSTLIST; do
-        TEST=`ping -I $IFACE -c 4 $HOST | grep "received" | cut -d "," -f2 | cut -d " " -f2`
-
-        if [ "$TEST" -gt "0" ]; then  # "0" means 100% loss - not receive any package
-            OK=`expr $OK + 1`
-        fi
-    done
-
-    if [ "$OK" -gt "0" ]; then
-        RESULT=1
-    fi
-}
-
-ckfailover() {
-    TEST=`ip route | grep $IFACE | wc -l`
-
-    if [ "$TEST" -gt "0" ]; then
-        RESULT=1
-    fi
-}
+if [ "$DLVL" -gt "0" ]; then
+    DEBUG="logger -p DEBUG -t watchdog"
+else
+    DEBUG="# DEBUG DISABLED"
+fi
 
 watchdogRun() {
+
+for PREFIX in $MWANTABLE; do
+
+    IFACE=`nvram get "$PREFIX"_iface`
+    PROTO=`nvram get "$PREFIX"_proto`
+    WEIGHT=`nvram get "$PREFIX"_weight`
+    ADDR=`ifconfig "$IFACE" | grep inet | cut -d ":" -f2 | cut -d " " -f1`
+    MTD=`nvram get "$PREFIX"_ckmtd`
+    RESULT=0
 
     if [ "$PREFIX" == "wan" ]; then
         METRIC="101"
@@ -62,38 +40,50 @@ watchdogRun() {
         METRIC=`expr $PREFNR + 100`
     fi
 
+    $DEBUG $PREFIX $METRIC
+
     ADD=0
     ISGW=`ip route | grep $IFACE | grep -v "link" | wc -l`
-    if [ "$ISGW" == "0" -a "$WEIGHT" > "0" ]; then
+    $DEBUG ISGW=$ISGW, WEIGHT=$WEIGHT
+    if [ "$ISGW" == "0" -a "$WEIGHT" -gt "0" ]; then
         #failback required default gateway to check is indeed connection back to live
         #so we have to add temporary gateway
         GW=`ip route | grep $IFACE | grep -v "kernel" | awk {' printf $1'}`
+        $DEBUG add gw $GW for $IFACE
         if [ -n "$GW" -a ! "$GW" == "0.0.0.0" ]; then
             route add default gw $GW metric $METRIC
             ADD=1
+            $DEBUG add=1
         fi
     fi
 
-    if [ "$MTD" == "1" ]; then
-        ckping
-    else
-        cktracert
+    if [ "$WEIGHT" -gt "0" ]; then
+        if [ "$MTD" == "1" ]; then
+            ckping
+            $DEBUG run ping-test
+        else
+            cktracert
+            $DEBUG run tracert-test
+        fi
     fi
 
     #remove temporary added gateway
     if [ "$ADD" == "1" ]; then
         route del default gw $GW
+        $DEBUG del gw $GW
     fi
 
     if [ "$RESULT" == "0" -a "$WEIGHT" == "0" ]; then
         #failover does not have default gateway in route table
         #so we can`t check connection to outsite. Check only is interface exist
         ckfailover
+        $DEBUG run failover-test
     fi
 
-    if [ "$RESULT" == "0" ]; then
-        logger WAN Watchdog - Connection $PREFIX down - Reconnecting ...
-        echo "0" > /tmp/"$PREFIX"_state
+    if [ "$RESULT" == "0" ]; then #wan is down
+        $DEBUG result=0, restart $PREFIX
+        logger -p watchdog - Connection $PREFIX down - Reconnecting ...
+        echo "0" > /tmp/state_$PREFIX
 
         if [ "$PROTO" == "lte" ]; then
             switch4g $PREFIX
@@ -110,7 +100,51 @@ watchdogRun() {
         fi
 
     else
-        echo "1" > /tmp/"$PREFIX"_state
+        echo "1" > /tmp/state_$PREFIX
+        $DEBUG result=1, $PREFIX
+    fi
+done
+}
+
+cktracert() {
+    RXBYTES1=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
+    for HOST in $HOSTLIST; do
+        # we need only send/receive few packages to be sure is connection works.
+        # Probe = 1, Max hops = 3
+        traceroute -i $IFACE -w 1 -m 3 $HOST > /dev/null 2>&1
+    done
+    RXBYTES2=`cat /sys/class/net/$IFACE/statistics/rx_bytes`
+    if [ "$RXBYTES2" -gt "$RXBYTES1" ]; then
+        RESULT=1
+    fi
+    $DEBUG tracert RX2=$RXBYTES2 RX1=$RXBYTES1
+}
+
+ckping() {
+    OK=0
+
+    for HOST in $HOSTLIST; do
+        $DEBUG $IFACE - $HOST
+        TEST=`ping -I $IFACE -c 4 $HOST | grep "received" | cut -d "," -f2 | cut -d " " -f2`
+        $DEBUG $IFACE = $TEST
+        if [ "$TEST" -gt "0" ]; then  # "0" means 100% loss - not receive any package
+            OK=`expr $OK + 1`
+        $DEBUG ping ok=$OK
+        fi
+    done
+
+    if [ "$OK" -gt "0" ]; then
+        RESULT=1
+        $DEBUG ping OK=1
+    fi
+}
+
+ckfailover() {
+    TEST=`ip route | grep $IFACE | wc -l`
+
+    if [ "$TEST" -gt "0" ]; then
+        RESULT=1
+        $DEBUG failover=1
     fi
 }
 
@@ -119,26 +153,26 @@ watchdogAdd() {
     MINS=`expr "$CKTIME" / 60`
 
     if [ "$MINS" -gt 0 ]; then
-        ISSET=`cru l | grep watchdog_"$PREFIX" | wc -l`
+        ISSET=`cru l | grep watchdogJob | wc -l`
 
         if [ "$ISSET" == "0" ]; then
-            cru a watchdog_$PREFIX "*/$MINS * * * * /usr/sbin/watchdog $PREFIX"
+            cru a watchdogJob "*/$MINS * * * * /usr/sbin/watchdog"
         fi
+
     fi
-    echo "1" > /tmp/"$PREFIX"_state
 }
 
 watchdogDel() {
-    ISSET=`cru l | grep watchdog_"$PREFIX" | wc -l`
+    ISSET=`cru l | grep watchdogJob | wc -l`
 
     if [ "$ISSET" == "1" ]; then
-        cru d watchdog_"$PREFIX"
+        cru d watchdogJob
     fi
 }
 
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
-        logger WAN Watchdog - another proces in action for $PREFIX
+        $DEBUG another proces in action
         exit 0
     fi
 
@@ -147,7 +181,7 @@ checkLock() {
 
 checkLock2() {
     if [ -f /etc/switch3g.lock -o -f /etc/switch4g.lock ]; then
-        logger WAN Watchdog - switch3g or switch4g script in action for $PREFIX - skip
+        $DEBUG switch3g or switch4g script in action - skip
         rm $LOCK
         exit 0
     fi
@@ -155,18 +189,17 @@ checkLock2() {
 
 ###################################################
 
-checkLock
 
-checkLock2
+if [ "$1" == "add" ]; then
+    watchdogAdd
+elif [ "$1" == "del" ]; then
+    watchdogDel
+else
+    checkLock
 
-if [ -n "$1" ]; then
-    if [ "$2" == "add" ]; then
-        watchdogAdd
-    elif [ "$2" == "del" ]; then
-        watchdogDel
-    else
-        watchdogRun
-    fi
+    checkLock2
+
+    watchdogRun
 fi
 
 rm $LOCK

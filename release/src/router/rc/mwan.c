@@ -7,9 +7,13 @@
 
 #define mwanlog(level,x...) if(nvram_get_int("mwan_debug")>=level) syslog(level, x)
 
+#ifdef TCONFIG_MULTIWAN
 static char mwan_curr[] = {'0', '0', '0', '0', '\0'};
 static char mwan_last[] = {'0', '0', '0', '0', '\0'};
-
+#else
+static char mwan_curr[] = {'0', '0', '\0'};
+static char mwan_last[] = {'0', '0', '\0'};
+#endif
 typedef struct
 {
 	char wan_iface[10];
@@ -103,10 +107,9 @@ int checkConnect(char *sPrefix)
 			return 1;
 		}
 
-		sprintf(tmp, "/tmp/%s_state", sPrefix);
+		sprintf(tmp, "/tmp/state_%s", sPrefix);
 		f = fopen(tmp, "r");
 		fscanf (f, "%d", &result);
-
 		fclose(f);
 
 		if (result == 1) {
@@ -141,7 +144,11 @@ void mwan_table_del(char *sPrefix)
 	system(cmd);
 	
 	// ip rule del table WAN1 pref 111 (dns)
+#ifdef TCONFIG_MULTIWAN
 	for (i = 0 ; i < 3; ++i) {
+#else
+	for (i = 0 ; i < 1; ++i) {
+#endif
 		memset(cmd, 0, 256);
 		sprintf(cmd, "ip rule del table %d pref 11%d", table, wan_unit);
 		mwanlog(LOG_DEBUG, "%s, cmd=%s", sPrefix, cmd);
@@ -176,8 +183,7 @@ void mwan_table_add(char *sPrefix)
 
 	wan_unit = table = get_wan_unit(sPrefix);
 	mwan_num = nvram_get_int("mwan_num");
-	if((mwan_num == 1 || mwan_num > MWAN_MAX)
-	) return;
+	if((mwan_num == 1 || mwan_num > MWAN_MAX)) return;
 
 	get_wan_info(sPrefix);
 	proto = get_wanx_proto(sPrefix);
@@ -249,12 +255,22 @@ void mwan_status_update(void)
 	int mwan_num;
 	int wan_unit;
 	char prefix[] = "wanXX";
+	char tmp[100];
+	FILE *f;
 
 	mwan_num = nvram_get_int("mwan_num");
 	if(mwan_num == 1 || mwan_num > MWAN_MAX) return;
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
 		get_wan_prefix(wan_unit, prefix);
 		get_wan_info(prefix);
+
+		sprintf(tmp, "/tmp/state_%s", prefix);
+		if ( !(f = fopen(tmp, "r"))) {
+			// if file does not exist then we create him will value "1"
+			f = fopen(tmp, "w+");
+			fprintf(f, "1\n");
+			fclose(f);
+		}
 
 		if(checkConnect(prefix)){
 			if(wan_info.wan_weight > 0){
@@ -267,7 +283,11 @@ void mwan_status_update(void)
 		}
 	}
 
+#ifdef TCONFIG_MULTIWAN
 	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2') && (mwan_curr[2] < '2') && (mwan_curr[3] < '2')) {
+#else
+	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2')) {
+#endif
 		// all connections down, searcing failover interfaces
 		if (nvram_match("wan_weight", "0") && (mwan_curr[0] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN1");
@@ -347,6 +367,8 @@ int mwan_route_main(int argc, char **argv)
 
 	FILE *fp;
 
+	mwanlog(LOG_DEBUG, "MultiWAN: mwanroute launched");
+
 	mkdir("/etc/iproute2", 0744);
 	if((fp = fopen("/etc/iproute2/rt_tables", "w")) != NULL) {
 		fprintf(fp,
@@ -359,12 +381,12 @@ int mwan_route_main(int argc, char **argv)
 			);
 		fclose(fp);
 	}
-	
+
 	mwan_num = nvram_get_int("mwan_num");
 	if(mwan_num == 1 || mwan_num > MWAN_MAX){
 		return 0;
 	}
-	
+
 	while(1){
 		check_time = nvram_get_int("mwan_cktime");
 		//if(!check_time) return -1;

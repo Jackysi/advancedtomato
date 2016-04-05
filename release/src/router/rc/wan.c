@@ -984,9 +984,6 @@ void start_wan_if(int mode, char *prefix)
 
 	close(sd);
 
-	if(nvram_get_int("mwan_cktime") > 0)
-		xstart("watchdog", prefix, "add");
-
 	mwanlog(LOG_DEBUG, "MultiWAN: OUT start_wan_if (%s).", prefix);
 
 	TRACE_PT("end\n");
@@ -1003,7 +1000,7 @@ void start_wan(int mode)
 		mwan_num = 1;
 	}
 
-	syslog(LOG_INFO, "MultiWAN: MWAN is %d.", mwan_num);
+	syslog(LOG_INFO, "MultiWAN: MWAN is %d (max %d).", mwan_num, MWAN_MAX);
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit)
 	{
 		get_wan_prefix(wan_unit, prefix);
@@ -1020,6 +1017,9 @@ void start_wan(int mode)
 
 	killall_tk("mwanroute");
 	xstart("mwanroute");
+
+	if(nvram_get_int("mwan_cktime") > 0)
+		xstart("watchdog", "add");
 
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
@@ -1305,10 +1305,12 @@ void stop_wan_if(char *prefix)
 	mwan_load_balance();
 
 	/* clear old IP params from nvram on stop */
-	nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	/* but only if WAN is not as STATIC - shibby */
+	if (wan_proto != WP_STATIC) {
+		nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	}
 	nvram_set(strcat_r(prefix, "_gateway_get", tmp), "0.0.0.0");
 
-	xstart("watchdog", prefix, "del");
 
 	TRACE_PT("end\n");
 }
@@ -1350,6 +1352,9 @@ void stop_wan(void)
 	stop_wan_if("wan3");
 	stop_wan_if("wan4");
 #endif
+
+	mwanlog(LOG_DEBUG, "MultiWAN: watchdog disabled");
+	xstart("watchdog", "del");
 
 	SET_LED(RELEASE_IP);
 }
