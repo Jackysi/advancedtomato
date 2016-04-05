@@ -814,33 +814,28 @@ void start_wan_if(int mode, char *prefix)
 	sprintf(wanconn_file, "/var/lib/misc/%s.connecting", prefix);
 	f_write(wanconn_file, NULL, 0, 0, 0);
 
-	/*
-	if(!strcmp(prefix,"wan")){
-		if (!foreach_wif(1, &p, is_sta)) {
-			p = nvram_safe_get("wan_ifnameX"); //"wan_ifnameX"
-			if (sscanf(p, "vlan%d", &vid) == 1) {
-				vlan0tag = nvram_get_int("vlan0tag");
-				snprintf(buf, sizeof(buf), "vlan%dvid", vid);
-				vid_map = nvram_get_int(buf);
-				if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
-				snprintf(buf, sizeof(buf), "vlan%d", vid_map);
-				p = buf;
-			}
-			//set_mac(p, "mac_wan", 1);
+	if (!foreach_wif(1, &p, is_sta)) {
+		p = nvram_safe_get(strcat_r(prefix, "_ifnameX", tmp)); //"wan_ifnameX"
+		if (sscanf(p, "vlan%d", &vid) == 1) {
+			vlan0tag = nvram_get_int("vlan0tag");
+			snprintf(buf, sizeof(buf), "vlan%dvid", vid);
+			vid_map = nvram_get_int(buf);
+			if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
+			snprintf(buf, sizeof(buf), "vlan%d", vid_map);
+			p = buf;
 		}
 	}
-	*/
-	
+
 	// shibby fix wireless client
 	if (nvram_invmatch(strcat_r(prefix, "_sta", tmp), "")) { //wireless client as wan
 		w = nvram_safe_get(strcat_r(prefix, "_sta", tmp));
 		p = nvram_safe_get(strcat_r(w, "_ifname", tmp));
-	} else {
-		p = nvram_safe_get(strcat_r(prefix, "_ifnameX", tmp));
 	}
-	nvram_set(strcat_r(prefix, "_ifname", tmp), p);  //"wan_ifname"
-	nvram_set(strcat_r(prefix, "_ifnames", tmp), p); //"wan_ifnames
+
 	set_mac(p, strcat_r(prefix, "_mac", tmp), wan_unit + 15); //set_mac(p, "mac_wan", 1);
+
+	nvram_set(strcat_r(prefix, "_ifname", tmp), p);  //"wan_ifname"
+	nvram_set(strcat_r(prefix, "_ifnames", tmp), p); //"wan_ifnames"
 
 	wan_ifname = nvram_safe_get(strcat_r(prefix, "_ifname", tmp)); //"wan_ifname"
 	if (wan_ifname[0] == 0) {
