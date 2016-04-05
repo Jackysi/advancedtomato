@@ -15,8 +15,12 @@
 	Tomato Native VLAN support added
 	Jan	2014 by Aaron Finney
 	https://github.com/slash31/TomatoE
-	
-	** Last Updated - FEB 12 2016 - Tvlz **
+
+	VLAN Port Order by 't_model_name'
+	June 2014 Tvlz
+	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
+
+	** Last Updated - MAR 30 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -92,7 +96,7 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Linksys E2500 v1.0':
 	case 'Linksys E2500 v1/v2/v3':
 	case 'Linksys E3200 v1.0':
-	case 'Linksys E4200 v1.0':
+	case 'Linksys E4200 v1':
 		COL_P0N = '0';
 		COL_P1N = '1';
 		COL_P2N = '2';
@@ -136,7 +140,7 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Asus RT-N12 B1':
 	case 'Asus RT-N15U':
 	case 'Asus RT-N53':
-	case 'Asus RT-N53A1':
+	case 'Asus RT-N53 A1':
 	case 'Belkin Play Max / N600 HD (F7D4301/F7D8301) v1':
 		COL_P0N = '3';
 		COL_P1N = '2';
@@ -1031,7 +1035,7 @@ if(port_vlan_supported) vlg.setup();
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
-<li>If you notice that the order of the Lan Ports are incorrectly mapped, <a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow these Instructions to get it corrected.</b></a></li>
+<li>If you notice that the order of the Lan Ports are incorrectly mapped, <a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow this Link for Instructions to get it corrected</b></a></li>
 <br>
 <li><b>VLAN</b> - Unique identifier of a VLAN.</li>
 <li><b>VID</b> - Allows overriding 'traditional' VLAN/VID mapping with arbitrary VIDs for each VLAN (set to '0' to use 'regular' VLAN/VID mappings instead).</li>
