@@ -2460,7 +2460,12 @@ function navi()
 /* TOR-BEGIN */
 			['TOR Project',			'tor.asp'],
 /* TOR-END */
+/* MIPSR2-BEGIN */
 			['VLAN',			'vlan.asp'],
+/* MIPSR2-END */
+/* MIPSR1-BEGIN */
+			['VLAN',			'vlan-r1.asp'],
+/* MIPSR1-END */
 			['LAN Access',			'access.asp'],
 			['Virtual Wireless',		'wlanvifs.asp'],
 			['Wireless',			'wireless.asp'] ] ],
