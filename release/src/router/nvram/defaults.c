@@ -50,7 +50,7 @@ const defaults_t defaults[] = {
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
 	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
-	{ "lan_ipaddr",			"192.168.8.1"	},	// LAN IP address
+	{ "lan_ipaddr",			"192.168.11.1"	},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "lan_domain",			""				},	// LAN domain name
