@@ -379,6 +379,11 @@ static int init_vlan_ports(void)
 	int model = get_model();
 
 	switch (model) {
+	case MODEL_NR235W:	
+		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
+		dirty |= check_nv("wandevs", "vlan2");
+		break;
 	case MODEL_WRT54G:
 		switch (check_hw_type()) {
 		case HW_BCM5352E:	// G v4, GS v3, v4
@@ -582,6 +587,10 @@ static void check_bootnv(void)
 	dirty = check_nv("wl0_leddc", "0x640000") | check_nv("wl1_leddc", "0x640000");
 
 	switch (model) {
+	case MODEL_NR235W:
+		dirty |= check_nv("vlan1hwname", "et0");
+		dirty |= check_nv("vlan2hwname", "et0");
+		break;
 	case MODEL_WTR54GS:
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
@@ -893,6 +902,21 @@ static int init_nvram(void)
 	ver = NULL;
 	features = 0;
 	switch (model) {
+	case MODEL_NR235W:
+		mfr = "Netcore";
+		name = "NR235W";
+		features = SUP_SES | SUP_80211N ;
+		nvram_set("btn_reset", "21");
+
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("lan_invert", "1");
+		}
+		break;
 	case MODEL_WRT54G:
 		mfr = "Linksys";
 		name = "WRT54G/GS/GL";

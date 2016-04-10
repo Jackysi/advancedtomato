@@ -576,7 +576,13 @@ int get_model(void)
 				return MODEL_WNDR3400v2;
 			}
 			break;
+		case HW_BCM5357:
+        		if (nvram_match("boardrev", "0x1153") && nvram_match("sdram_config","0x3")) return MODEL_NR235W;
+      
+            		if (nvram_match("boardrev", "0x1444") && nvram_match("sdram_config","0x104")) return MODEL_H218N;
+			break;
 		}
+		break;
 		/* fall through */
 	case 0543:
 		switch (hw) {
