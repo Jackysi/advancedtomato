@@ -173,6 +173,30 @@ watchdogDel() {
     fi
 }
 
+mwanJob() {
+    ISSET=`cru l | grep mwanJob | wc -l`
+
+    if [ "$MWAN" -gt "0" ]; then
+        if [ "$ISSET" == "0" ]; then
+            cru a mwanJob "*/1 * * * * /usr/sbin/watchdog alive"
+        fi
+    else
+        if [ "$ISSET" == "1" ]; then
+            cru d mwanJob
+        fi
+    fi
+}
+
+mwanAlive() {
+    if [ "$MWAN" -gt 0 ]; then
+        ALIVE=`ps | grep "mwanroute" | grep -v "grep" | wc -l`
+        if [ "$ALIVE" == "0" ]; then
+            $DEBUG mwanroute not found, launch process
+            mwanroute
+        fi
+    fi
+}
+
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
         $DEBUG another proces in action
@@ -195,8 +219,11 @@ checkLock2() {
 
 if [ "$1" == "add" ]; then
     watchdogAdd
+    mwanJob
 elif [ "$1" == "del" ]; then
     watchdogDel
+elif [ "$1" == "alive" ]; then
+    mwanAlive
 else
     checkLock
 
