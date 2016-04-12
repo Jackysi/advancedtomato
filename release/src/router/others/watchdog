@@ -183,7 +183,7 @@ checkLock() {
 }
 
 checkLock2() {
-    if [ -f /etc/switch3g.lock -o -f /etc/switch4g.lock ]; then
+    if [ -f /tmp/switch3g.lock -o -f /tmp/switch4g.lock ]; then
         $DEBUG switch3g or switch4g script in action - skip
         rm $LOCK
         exit 0
