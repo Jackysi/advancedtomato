@@ -9,11 +9,14 @@ DLVL=`nvram get mwan_debug`
 DST=`nvram get mwan_ckdst`
 HOSTLIST=`echo $DST |  sed 's/,/ /'`
 LOCK="/tmp/watchdog.lock"
+
 MWANTABLE="wan"
-for i in $MWAN; do
+i=1
+while [ $i -le $MWAN ]; do
     if [ "$i" -gt "1" ]; then
         MWANTABLE="$MWANTABLE wan$i"
     fi
+    i=`expr $i + 1`
 done
 
 if [ "$DLVL" -gt "0" ]; then
