@@ -125,17 +125,17 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 			ppp3g_chatfile);
 
 		if (strlen(nvram_get(strcat_r(prefix, "_ppp_username", tmp))) >0 ) //if (strlen(nvram_get("ppp_username")) >0 )
-			fprintf(fp, "user %s\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
+			fprintf(fp, "user \"%s\"\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
 		if (strlen(nvram_get(strcat_r(prefix, "_ppp_passwd", tmp))) >0 )
-			fprintf(fp, "password %s\n", nvram_get(strcat_r(prefix, "_ppp_passwd", tmp)));
+			fprintf(fp, "password \"%s\"\n", nvram_get(strcat_r(prefix, "_ppp_passwd", tmp)));
 			fprintf(fp, "linkname %s\n", prefix);	// link name for WAN ID
 	} else {
 #endif
 #endif
 		fprintf(fp,
 			"unit %d\n"
-			"user %s\n"
-			"password %s\n"	// Don't rely on pap/chap secrets (useless)
+			"user \"%s\"\n"
+			"password \"%s\"\n"	// Don't rely on pap/chap secrets (useless)
 			"linkname %s\n"	// link name for WAN ID
 			"lcp-echo-adaptive\n",	// Suppress LCP echo-requests if traffic was received
 			num,

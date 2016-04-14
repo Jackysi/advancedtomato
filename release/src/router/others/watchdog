@@ -9,11 +9,14 @@ DLVL=`nvram get mwan_debug`
 DST=`nvram get mwan_ckdst`
 HOSTLIST=`echo $DST |  sed 's/,/ /'`
 LOCK="/tmp/watchdog.lock"
+
 MWANTABLE="wan"
-for i in $MWAN; do
+i=1
+while [ $i -le $MWAN ]; do
     if [ "$i" -gt "1" ]; then
         MWANTABLE="$MWANTABLE wan$i"
     fi
+    i=`expr $i + 1`
 done
 
 if [ "$DLVL" -gt "0" ]; then
@@ -170,6 +173,30 @@ watchdogDel() {
     fi
 }
 
+mwanJob() {
+    ISSET=`cru l | grep mwanJob | wc -l`
+
+    if [ "$MWAN" -gt "0" ]; then
+        if [ "$ISSET" == "0" ]; then
+            cru a mwanJob "*/1 * * * * /usr/sbin/watchdog alive"
+        fi
+    else
+        if [ "$ISSET" == "1" ]; then
+            cru d mwanJob
+        fi
+    fi
+}
+
+mwanAlive() {
+    if [ "$MWAN" -gt 0 ]; then
+        ALIVE=`ps | grep "mwanroute" | grep -v "grep" | wc -l`
+        if [ "$ALIVE" == "0" ]; then
+            $DEBUG mwanroute not found, launch process
+            mwanroute
+        fi
+    fi
+}
+
 checkLock() {
     if [ -f $LOCK ]; then #lock exist
         $DEBUG another proces in action
@@ -180,7 +207,7 @@ checkLock() {
 }
 
 checkLock2() {
-    if [ -f /etc/switch3g.lock -o -f /etc/switch4g.lock ]; then
+    if [ -f /tmp/switch3g.lock -o -f /tmp/switch4g.lock ]; then
         $DEBUG switch3g or switch4g script in action - skip
         rm $LOCK
         exit 0
@@ -192,8 +219,11 @@ checkLock2() {
 
 if [ "$1" == "add" ]; then
     watchdogAdd
+    mwanJob
 elif [ "$1" == "del" ]; then
     watchdogDel
+elif [ "$1" == "alive" ]; then
+    mwanAlive
 else
     checkLock
 

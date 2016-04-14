@@ -388,11 +388,8 @@ int mwan_route_main(int argc, char **argv)
 	}
 
 	while(1){
-		check_time = nvram_get_int("mwan_cktime");
-		//if(!check_time) return -1;
-		if(check_time < 10) check_time = 10;
-		if(check_time > 3600) check_time = 3600;
 
+		check_time = 30;
 		mwan_status_update();
 		
 		if(strcmp(mwan_last,mwan_curr)){
