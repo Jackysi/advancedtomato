@@ -244,7 +244,7 @@ static int bound(char *ifname, int renew)
 	expires(atoi(safe_getenv("lease")));
 
 #ifdef TCONFIG_IPV6
-	env2nv("6rd", "wan_6rd");
+	env2nv("ip6rd", "wan_6rd");
 #endif
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
@@ -404,7 +404,7 @@ void start_dhcpc(void)
 		nvram_contains_word("log_events", "dhcpc") ? "-S" : "",
 		nvram_safe_get("dhcpc_custom"),
 #ifdef TCONFIG_IPV6
-		(get_ipv6_service() == IPV6_6RD_DHCP) ? "-O 6rd" : ""
+		(get_ipv6_service() == IPV6_6RD_DHCP) ? "-O ip6rd" : ""
 #else
 		""
 #endif
