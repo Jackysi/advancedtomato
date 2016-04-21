@@ -35,6 +35,20 @@ do {
 		(sysinfo.loads[2] / 65536.0).toFixed(2));
 	stats.uptime = sysinfo.uptime_s;
 
+	var total_jiffies = 0;
+	var jiffylist = sysinfo.jiffies.split(' ');
+	for (i=0; i < jiffylist.length; ++i) {
+		total_jiffies += parseInt(jiffylist[i]);
+	}
+	var diff_idle = jiffylist[3] - lastjiffiesidle;
+	var diff_total = total_jiffies - lastjiffiestotal;
+	lastjiffiesusage = (1000*(diff_total-diff_idle)/diff_total)/10;
+
+	lastjiffiestotal = total_jiffies;
+	lastjiffiesidle = jiffylist[3];
+
+	stats.cpupercent = lastjiffiesusage.toFixed(2) + '%';
+
 	a = sysinfo.totalram;
 	b = sysinfo.totalfreeram;
 	stats.memory = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
