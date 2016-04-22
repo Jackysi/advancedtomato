@@ -425,12 +425,10 @@
 				if (!confirm("Unsaved changes will be lost. Continue anyway?")) return;
 			}
 
-			E('_' + service + '_button1').disabled = true;
-			E('_' + service + '_button2').disabled = true;
-			E('_' + service + '_button3').disabled = true;
-			E('_' + service + '_button4').disabled = true;
+			E('_' + service + '_button').disabled = true;
+			
 			form.submitHidden('/service.cgi', {
-				_redirect: 'vpn-tinc.asp',
+				_redirect: '/#vpn-tinc.asp',
 				_sleep: ((service == 'tinc') && (!isup)) ? '3' : '3',
 				_service: service + (isup ? '-stop' : '-start')
 			});
