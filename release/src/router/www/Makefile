@@ -65,10 +65,10 @@ else
 endif
 
 ifeq ($(TCONFIG_MIPSR2),y)
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/MIPSR2-BEGIN/,/MIPSR2-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/MIPSR1-BEGIN/,/MIPSR1-END/d"
 	rm -f $(INSTALLDIR)/www/advanced-vlan-r1.asp
 else
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/MIPSR1-BEGIN/,/MIPSR1-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/MIPSR2-BEGIN/,/MIPSR2-END/d"
 	rm -f $(INSTALLDIR)/www/advanced-vlan.asp
 endif
 
