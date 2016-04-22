@@ -125,17 +125,17 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 			ppp3g_chatfile);
 
 		if (strlen(nvram_get(strcat_r(prefix, "_ppp_username", tmp))) >0 ) //if (strlen(nvram_get("ppp_username")) >0 )
-			fprintf(fp, "user %s\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
+			fprintf(fp, "user \"%s\"\n", nvram_get(strcat_r(prefix, "_ppp_username", tmp)));// "ppp_username" -> strcat_r(prefix, "_ppp_username", tmp)
 		if (strlen(nvram_get(strcat_r(prefix, "_ppp_passwd", tmp))) >0 )
-			fprintf(fp, "password %s\n", nvram_get(strcat_r(prefix, "_ppp_passwd", tmp)));
+			fprintf(fp, "password \"%s\"\n", nvram_get(strcat_r(prefix, "_ppp_passwd", tmp)));
 			fprintf(fp, "linkname %s\n", prefix);	// link name for WAN ID
 	} else {
 #endif
 #endif
 		fprintf(fp,
 			"unit %d\n"
-			"user %s\n"
-			"password %s\n"	// Don't rely on pap/chap secrets (useless)
+			"user \"%s\"\n"
+			"password \"%s\"\n"	// Don't rely on pap/chap secrets (useless)
 			"linkname %s\n"	// link name for WAN ID
 			"lcp-echo-adaptive\n",	// Suppress LCP echo-requests if traffic was received
 			num,
@@ -814,33 +814,28 @@ void start_wan_if(int mode, char *prefix)
 	sprintf(wanconn_file, "/var/lib/misc/%s.connecting", prefix);
 	f_write(wanconn_file, NULL, 0, 0, 0);
 
-	/*
-	if(!strcmp(prefix,"wan")){
-		if (!foreach_wif(1, &p, is_sta)) {
-			p = nvram_safe_get("wan_ifnameX"); //"wan_ifnameX"
-			if (sscanf(p, "vlan%d", &vid) == 1) {
-				vlan0tag = nvram_get_int("vlan0tag");
-				snprintf(buf, sizeof(buf), "vlan%dvid", vid);
-				vid_map = nvram_get_int(buf);
-				if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
-				snprintf(buf, sizeof(buf), "vlan%d", vid_map);
-				p = buf;
-			}
-			//set_mac(p, "mac_wan", 1);
+	if (!foreach_wif(1, &p, is_sta)) {
+		p = nvram_safe_get(strcat_r(prefix, "_ifnameX", tmp)); //"wan_ifnameX"
+		if (sscanf(p, "vlan%d", &vid) == 1) {
+			vlan0tag = nvram_get_int("vlan0tag");
+			snprintf(buf, sizeof(buf), "vlan%dvid", vid);
+			vid_map = nvram_get_int(buf);
+			if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
+			snprintf(buf, sizeof(buf), "vlan%d", vid_map);
+			p = buf;
 		}
 	}
-	*/
-	
+
 	// shibby fix wireless client
 	if (nvram_invmatch(strcat_r(prefix, "_sta", tmp), "")) { //wireless client as wan
 		w = nvram_safe_get(strcat_r(prefix, "_sta", tmp));
 		p = nvram_safe_get(strcat_r(w, "_ifname", tmp));
-	} else {
-		p = nvram_safe_get(strcat_r(prefix, "_ifnameX", tmp));
 	}
-	nvram_set(strcat_r(prefix, "_ifname", tmp), p);  //"wan_ifname"
-	nvram_set(strcat_r(prefix, "_ifnames", tmp), p); //"wan_ifnames
+
 	set_mac(p, strcat_r(prefix, "_mac", tmp), wan_unit + 15); //set_mac(p, "mac_wan", 1);
+
+	nvram_set(strcat_r(prefix, "_ifname", tmp), p);  //"wan_ifname"
+	nvram_set(strcat_r(prefix, "_ifnames", tmp), p); //"wan_ifnames"
 
 	wan_ifname = nvram_safe_get(strcat_r(prefix, "_ifname", tmp)); //"wan_ifname"
 	if (wan_ifname[0] == 0) {
@@ -984,9 +979,6 @@ void start_wan_if(int mode, char *prefix)
 
 	close(sd);
 
-	if(nvram_get_int("mwan_cktime") > 0)
-		xstart("watchdog", prefix, "add");
-
 	mwanlog(LOG_DEBUG, "MultiWAN: OUT start_wan_if (%s).", prefix);
 
 	TRACE_PT("end\n");
@@ -1003,7 +995,7 @@ void start_wan(int mode)
 		mwan_num = 1;
 	}
 
-	syslog(LOG_INFO, "MultiWAN: MWAN is %d.", mwan_num);
+	syslog(LOG_INFO, "MultiWAN: MWAN is %d (max %d).", mwan_num, MWAN_MAX);
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit)
 	{
 		get_wan_prefix(wan_unit, prefix);
@@ -1020,6 +1012,9 @@ void start_wan(int mode)
 
 	killall_tk("mwanroute");
 	xstart("mwanroute");
+
+	if(nvram_get_int("mwan_cktime") > 0)
+		xstart("watchdog", "add");
 
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
@@ -1305,10 +1300,12 @@ void stop_wan_if(char *prefix)
 	mwan_load_balance();
 
 	/* clear old IP params from nvram on stop */
-	nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	/* but only if WAN is not as STATIC - shibby */
+	if (wan_proto != WP_STATIC) {
+		nvram_set(strcat_r(prefix, "_netmask", tmp), "0.0.0.0");
+	}
 	nvram_set(strcat_r(prefix, "_gateway_get", tmp), "0.0.0.0");
 
-	xstart("watchdog", prefix, "del");
 
 	TRACE_PT("end\n");
 }
@@ -1350,6 +1347,9 @@ void stop_wan(void)
 	stop_wan_if("wan3");
 	stop_wan_if("wan4");
 #endif
+
+	mwanlog(LOG_DEBUG, "MultiWAN: watchdog disabled");
+	xstart("watchdog", "del");
 
 	SET_LED(RELEASE_IP);
 }

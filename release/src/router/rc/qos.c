@@ -70,8 +70,8 @@ void ipt_qos(void)
 
 	ip46t_write(
 		":QOSO - [0:0]\n"
-		"-A QOSO -j CONNMARK --restore-mark --mask 0xfff\n"
-		//"-A QOSO -m connmark ! --mark 0x0/0xff -j RETURN\n"
+		"-A QOSO -j CONNMARK --restore-mark --mask 0xff\n"
+		"-A QOSO -m connmark ! --mark 0/0x0f00 -j RETURN\n"
 		);
 
 	g = buf = strdup(nvram_safe_get("qos_orules"));
@@ -200,7 +200,7 @@ void ipt_qos(void)
 							ip46t_write(
 								":QOSSIZE - [0:0]\n"
 								"-I QOSO 3 -m connmark ! --mark 0/0xff000 -j QOSSIZE\n"
-								//"-I QOSO 4 -m connmark ! --mark 0/0xff000 -j RETURN\n"
+								"-I QOSO 4 -m connmark ! --mark 0/0xff000 -j RETURN\n"
 								);
 						}
 						if (max != prev_max && sizegroup<255) {
@@ -208,7 +208,7 @@ void ipt_qos(void)
 							prev_max = max;
 							ip46t_flagged_write(v4v6_ok,
 								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
-								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-mark 0x00000/0xFF\n",
+								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-return 0x00000/0xFF\n",
 									(sizegroup << 12), (max * 1024));
 						}
 						else {
@@ -224,9 +224,9 @@ void ipt_qos(void)
 		}
 
 		chain = "QOSO";
-		//class_num |= class_flag;
-		//class_num |= rule_num << 20;
-		sprintf(end + strlen(end), " -j CONNMARK --set-mark 0x%x/0xFF\n", class_num);
+		class_num |= class_flag;
+		class_num |= rule_num << 20;
+		sprintf(end + strlen(end), " -j CONNMARK --set-return 0x%x/0xFF\n", class_num);
 
 		// protocol & ports
 		proto_num = atoi(proto);
@@ -262,8 +262,8 @@ void ipt_qos(void)
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
 	class_num = i + 1;
-	//class_num |= 0xFF00000; // use rule_num=255 for default
-	ip46t_write("-A QOSO -m connmark --mark 0x0/0xff -j CONNMARK --set-mark 0x%x/0xff\n", class_num);
+	class_num |= 0xFF00000; // use rule_num=255 for default
+	ip46t_write("-A QOSO -j CONNMARK --set-return 0x%x\n", class_num);
 
 	qface = wanfaces.iface[0].name;
 	ipt_write(
@@ -324,26 +324,26 @@ void ipt_qos(void)
 		if ((sscanf(p, "%u-%u", &rate, &ceil) == 2) && (rate >= 1))
 		{
 			qface = wanfaces.iface[0].name;
-			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
+			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 
 			if(check_wanup("wan2")){
 				qface = wan2faces.iface[0].name;
-				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
+				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			}
 #ifdef TCONFIG_MULTIWAN
 			if(check_wanup("wan3")){
 				qface = wan3faces.iface[0].name;
-				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
+				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			}
 			if(check_wanup("wan4")){
 				qface = wan4faces.iface[0].name;
-				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
+				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			}
 #endif
 #ifdef TCONFIG_PPTPD
 			if(nvram_get_int("pptp_client_enable") && !nvram_match("pptp_client_iface", "")){
 				qface = nvram_safe_get("pptp_client_iface");
-				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", qface);
+				ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			}
 #endif
 
@@ -398,7 +398,7 @@ void ipt_qos(void)
 			if (*wan6face)
 			{
 				qosImqDeviceNumberString = 0;
-				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xfff\n", wan6face);
+				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
 
 				if (nvram_get_int("qos_udp")) {
 						ip6t_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %d\n", wan6face, qosImqDeviceNumberString);	// pass only tcp
@@ -587,7 +587,7 @@ void start_qos(char *prefix)
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
-					x, (i + 1) + (wan_unit * 256), x);
+					x, i + 1, x);
 		} else {
 			fprintf(f,
 				"# egress %d: %u-%u%%\n"
@@ -597,7 +597,7 @@ void start_qos(char *prefix)
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
-					x, (i + 1) + (wan_unit * 256), x);
+					x, i + 1, x);
 		}
 	}
 	free(buf);
@@ -863,7 +863,7 @@ void start_qos(char *prefix)
 		fprintf(
 			f,
 			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",
-			classid, priority + (wan_unit * 256), classid);
+			classid, priority, classid);
 	}
 
 	free(buf);

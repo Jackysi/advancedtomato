@@ -40,10 +40,18 @@ mask2cidr() {
 LAN1=`/bin/nvram get lan1_ipaddr | /usr/bin/wc -w`
 LAN2=`/bin/nvram get lan2_ipaddr | /usr/bin/wc -w`
 LAN3=`/bin/nvram get lan3_ipaddr | /usr/bin/wc -w`
+WAN1=`/bin/nvram get wan_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+WAN2=`/bin/nvram get wan2_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+MULTI=`/bin/nvram show | /bin/grep 'wan3_' | /usr/bin/wc -l`
+if [ "$MULTI" -gt "0" ]; then
+    MULTIWAN=1
+    WAN3=`/bin/nvram get wan3_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+    WAN4=`/bin/nvram get wan4_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+else
+    MULTIWAN=0
+fi
 DUAL=`/bin/nvram get landevs | /bin/grep wl1 | /usr/bin/wc -l`
-
-WAN_MASK=`/bin/nvram get wan_netmask`
-WAN_NUMBITS=$(mask2cidr $WAN_MASK)
+TRI=`/bin/nvram get landevs | /bin/grep wl2 | /usr/bin/wc -l`
 
 LAN_MASK=`/bin/nvram get lan_netmask`
 LAN_NUMBITS=$(mask2cidr $LAN_MASK)
@@ -86,7 +94,28 @@ else
        }' /proc/meminfo
   fi
 fi
-/bin/echo " WAN : `/bin/nvram get wan_ipaddr`/$WAN_NUMBITS @ `/bin/nvram get wan_hwaddr`"
+if /usr/bin/[ "$WAN1" == "1" ]; then 
+    WAN1_MASK=`/bin/nvram get wan_netmask`
+    WAN1_NUMBITS=$(mask2cidr $WAN1_MASK)
+    /bin/echo " WAN1: `/bin/nvram get wan_ipaddr`/$WAN1_NUMBITS @ `/bin/nvram get wan_hwaddr`"
+fi
+if /usr/bin/[ "$WAN2" == "1" ]; then 
+    WAN2_MASK=`/bin/nvram get wan2_netmask`
+    WAN2_NUMBITS=$(mask2cidr $WAN2_MASK)
+    /bin/echo " WAN2: `/bin/nvram get wan2_ipaddr`/$WAN2_NUMBITS @ `/bin/nvram get wan2_hwaddr`"
+fi
+if /usr/bin/[ "$MULTIWAN" == "1" ]; then
+    if /usr/bin/[ "$WAN3" == "1" ]; then 
+        WAN3_MASK=`/bin/nvram get wan3_netmask`
+        WAN3_NUMBITS=$(mask2cidr $WAN3_MASK)
+        /bin/echo " WAN3: `/bin/nvram get wan3_ipaddr`/$WAN3_NUMBITS @ `/bin/nvram get wan3_hwaddr`"
+    fi
+    if /usr/bin/[ "$WAN4" == "1" ]; then 
+        WAN4_MASK=`/bin/nvram get wan4_netmask`
+        WAN4_NUMBITS=$(mask2cidr $WAN4_MASK)
+        /bin/echo " WAN4: `/bin/nvram get wan4_ipaddr`/$WAN4_NUMBITS @ `/bin/nvram get wan4_hwaddr`"
+    fi
+fi
 /bin/echo " LAN : `/bin/nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `/bin/nvram get dhcpd_startip` - `/bin/nvram get dhcpd_endip`"
 if /usr/bin/[ "$LAN1" == "1" ]; then 
     LAN1_MASK=`/bin/nvram get lan1_netmask`
@@ -103,13 +132,24 @@ if /usr/bin/[ "$LAN3" == "1" ]; then
     LAN3_NUMBITS=$(mask2cidr $LAN3_MASK)
     /bin/echo " LAN3: `/bin/nvram get lan3_ipaddr`/$LAN3_NUMBITS @ DHCP: `/bin/nvram get dhcpd3_startip` - `/bin/nvram get dhcpd3_endip`";
 fi
-GETCH24=`/bin/nvram get wl0_channel`
-if /usr/bin/[ "$GETCH24" == 0 ]; then CH24="auto"; else CH24=$GETCH24; fi
-/bin/echo " WL0 : `/bin/nvram get wl0_ssid` @ channel: `/bin/nvram get wl0_country`$CH24 @ `/bin/nvram get wl0_hwaddr`"
+GETCH=`/bin/nvram get wl0_channel`
+if /usr/bin/[ "$GETCH" == 0 ]; then CH="auto"; else CH=$GETCH; fi
+NBAND=`/bin/nvram get wl0_nband`
+if /usr/bin/[ "$NBAND" == 2 ]; then BAND="2,4GHz"; else BAND="5GHz"; fi
+/bin/echo " WL0 : $BAND @ `/bin/nvram get wl0_ssid` @ channel: `/bin/nvram get wl0_country`$CH @ `/bin/nvram get wl0_hwaddr`"
 if /usr/bin/[ "$DUAL" == "1" ]; then
-  GETCH50=`/bin/nvram get wl1_channel`
-  if /usr/bin/[ "$GETCH50" == 0 ]; then CH50="auto"; else CH50=$GETCH50; fi
-  /bin/echo " WL1 : `/bin/nvram get wl1_ssid` @ channel: `/bin/nvram get wl1_country`$CH50 @ `/bin/nvram get wl1_hwaddr`"
+    GETCH=`/bin/nvram get wl1_channel`
+    if /usr/bin/[ "$GETCH" == 0 ]; then CH="auto"; else CH=$GETCH; fi
+    NBAND=`/bin/nvram get wl1_nband`
+    if /usr/bin/[ "$NBAND" == 2 ]; then BAND="2,4GHz"; else BAND="5GHz"; fi
+    /bin/echo " WL1 : $BAND @ `/bin/nvram get wl1_ssid` @ channel: `/bin/nvram get wl1_country`$CH @ `/bin/nvram get wl1_hwaddr`"
+fi
+if /usr/bin/[ "$TRI" == "1" ]; then
+    GETCH=`/bin/nvram get wl2_channel`
+    if /usr/bin/[ "$GETCH" == 0 ]; then CH="auto"; else CH=$GETCH; fi
+    NBAND=`/bin/nvram get wl2_nband`
+    if /usr/bin/[ "$NBAND" == 2 ]; then BAND="2,4GHz"; else BAND="5GHz"; fi
+    /bin/echo " WL2 : $BAND @ `/bin/nvram get wl2_ssid` @ channel: `/bin/nvram get wl2_country`$CH @ `/bin/nvram get wl2_hwaddr`"
 fi
 STHMD_ISENABLED=`/usr/sbin/cru l | /bin/grep "perm_on" | /usr/bin/wc -l`
 STHMD_SUNENABLED=`/usr/sbin/cru l | /bin/grep "sun_on" | /usr/bin/wc -l`

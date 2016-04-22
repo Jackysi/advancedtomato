@@ -39,21 +39,20 @@ No part of this file may be used without permission.
 
 	</style>
 	<script type="text/javascript">
-		//<% nvram("at_update,tomatoanon_answer,qos_classnames,web_svg,qos_enable,qos_obw,qos_ibw"); %>
+		//<% nvram("qos_classnames,web_svg,qos_enable,wan_qos_obw,wan_qos_ibw,wan2_qos_obw,wan2_qos_ibw,wan3_qos_obw,wan3_qos_ibw,wan4_qos_obw,wan4_qos_ibw"); %>
 		//<% qrate(); %>
 
 		qrates_out = [0,0,0,0,0,0,0,0,0,0,0];
 		qrates_in = [0,0,0,0,0,0,0,0,0,0,0];
-		for(var i=0; i < 10; i++){
-
-			// Temporary RT-AC/N Fix
-			if ( typeof( qrates3_out ) == 'undefined' ) qrates3_out = qrates_out;
-			if ( typeof( qrates4_out ) == 'undefined' ) qrates4_out = qrates_out;
-			if ( typeof( qrates3_in ) == 'undefined' ) qrates3_in = qrates_in;
-			if ( typeof( qrates4_in ) == 'undefined' ) qrates4_in = qrates_in;
-
+		for ( var i = 0; i < 10; i++ ) {
+			/* MULTIWAN-BEGIN */
 			qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ] + qrates3_out[ i ] + qrates4_out[ i ];
-			qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ]+qrates3_in[i]+qrates4_in[i];
+			qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ] + qrates3_in[ i ] + qrates4_in[ i ];
+			/* MULTIWAN-END */
+			/* DUALWAN-BEGIN */
+			qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ];
+			qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ];
+			/* DUALWAN-END */
 		}
 
 		var svgReady = 0;
@@ -63,7 +62,7 @@ No part of this file may be used without permission.
 		var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
 		var abc = Unclassified.concat(classNames,Unused);
 
-		//      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+		//var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
 		var colors = [
 			'c6e2ff',
@@ -171,8 +170,14 @@ No part of this file may be used without permission.
 			qrates_in  = [];
 
 			for ( var i = 0; i < 10; i++ ) {
+				/* MULTIWAN-BEGIN */
 				qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ] + qrates3_out[ i ] + qrates4_out[ i ];
 				qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ] + qrates3_in[ i ] + qrates4_in[ i ];
+				/* MULTIWAN-END */
+				/* DUALWAN-BEGIN */
+				qrates_out[ i ] = qrates1_out[ i ] + qrates2_out[ i ];
+				qrates_in[ i ]  = qrates1_in[ i ] + qrates2_in[ i ];
+				/* DUALWAN-END */
 			}
 
 			try {

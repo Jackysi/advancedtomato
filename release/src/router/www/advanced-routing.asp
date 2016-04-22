@@ -36,7 +36,7 @@ No part of this file may be used without permission.
 				/* MULTIWAN-END */
 				this.insertData( -1, [ a[ 1 ], a[ 2 ], a[ 3 ], a[ 4 ], a[ 0 ] ] );
 			}
-		}
+		};
 
 		var ars = new TomatoGrid();
 
@@ -49,7 +49,13 @@ No part of this file may be used without permission.
 		ars.setup = function() {
 			this.init( 'ars-grid', '', 20, [
 				{ type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 },
-				{ type: 'text', maxlen: 3 }, { type: 'select', options: [ [ 'LAN', 'LAN' ], [ 'LAN1', 'LAN1' ], [ 'LAN2', 'LAN2' ], [ 'LAN3', 'LAN3' ], [ 'WAN', 'WAN' ], [ 'MAN', 'MAN' ] ] }, { type: 'text', maxlen: 32 } ] );
+				{ type: 'text', maxlen: 3 }, {
+					type: 'select', options: [ [ 'LAN', 'LAN' ], [ 'LAN1', 'LAN1' ], [ 'LAN2', 'LAN2' ], [ 'LAN3', 'LAN3' ], [ 'WAN', 'WAN' ], [ 'MAN', 'MAN' ], [ 'WAN2', 'WAN2' ], [ 'MAN2', 'MAN2' ]
+						/* MULTIWAN-BEGIN */
+						, [ 'WAN3', 'WAN3' ], [ 'MAN3', 'MAN3' ], [ 'WAN4', 'WAN4' ], [ 'MAN4', 'MAN4' ]
+						/* MULTIWAN-END */
+					]
+				}, { type: 'text', maxlen: 32 } ] );
 
 			this.headerSet( [ 'Destination', 'Gateway', 'Subnet Mask', 'Metric', 'Interface', 'Description' ] );
 			var routes = nvram.routes_static.split( '>' );

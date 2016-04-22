@@ -238,9 +238,9 @@ checkLock() {
             rm $LOCK
         fi
         exit 0
+    else
+        touch $LOCK
     fi
-
-    touch $LOCK
 }
 
 setPIN() {
