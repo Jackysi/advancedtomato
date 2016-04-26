@@ -1852,7 +1852,6 @@ static int init_nvram(void)
 			nvram_set("pci/1/1/boardtype", "0x661");
 			nvram_set("pci/1/1/cckbw202gpo", "0");
 			nvram_set("pci/1/1/cckbw20ul2gpo", "0");
-			nvram_set("pci/1/1/ccode", "EU");
 			nvram_set("pci/1/1/devid", "0x43a1");
 			nvram_set("pci/1/1/dot11agduphrpo", "0");
 			nvram_set("pci/1/1/dot11agduplrpo", "0");
@@ -1860,7 +1859,6 @@ static int init_nvram(void)
 			nvram_set("pci/1/1/epagain2g", "0");
 			nvram_set("pci/1/1/femctrl", "3");
 			nvram_set("pci/1/1/gainctrlsph", "0");
-//			nvram_set("pci/1/1/macaddr", "E4:F4:C6:01:47:7C");
 			nvram_set("pci/1/1/maxp2ga0", "106");
 			nvram_set("pci/1/1/maxp2ga1", "106");
 			nvram_set("pci/1/1/maxp2ga2", "106");
@@ -1889,7 +1887,7 @@ static int init_nvram(void)
 			nvram_set("pci/1/1/pdoffset80ma1", "0");
 			nvram_set("pci/1/1/pdoffset80ma2", "0");
 			nvram_set("pci/1/1/regrev", "66");
-			nvram_set("pci/1/1/rpcal2g", "0x5f7");
+			nvram_set("pci/1/1/rpcal2g", "0xfaf7");
 			nvram_set("pci/1/1/rxgainerr2ga0", "63");
 			nvram_set("pci/1/1/rxgainerr2ga1", "31");
 			nvram_set("pci/1/1/rxgainerr2ga2", "31");
@@ -1927,7 +1925,6 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/boardtype", "0x621");
 			nvram_set("pci/2/1/cckbw202gpo", "0");
 			nvram_set("pci/2/1/cckbw20ul2gpo", "0");
-			nvram_set("pci/2/1/ccode", "SG");
 			nvram_set("pci/2/1/devid", "0x43a2");
 			nvram_set("pci/2/1/dot11agduphrpo", "0");
 			nvram_set("pci/2/1/dot11agduplrpo", "0");
@@ -1936,7 +1933,6 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/epagain5g", "0");
 			nvram_set("pci/2/1/femctrl", "3");
 			nvram_set("pci/2/1/gainctrlsph", "0");
-//			nvram_set("pci/2/1/macaddr", "E4:F4:C6:01:47:7B");
 			nvram_set("pci/2/1/maxp2ga0", "76");
 			nvram_set("pci/2/1/maxp2ga1", "76");
 			nvram_set("pci/2/1/maxp2ga2", "76");
@@ -1995,10 +1991,10 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/rawtempsense", "0x1ff");
 			nvram_set("pci/2/1/regrev", "66");
 			nvram_set("pci/2/1/rpcal2g", "0");
-			nvram_set("pci/2/1/rpcal5gb0", "0x610c");
-			nvram_set("pci/2/1/rpcal5gb1", "0x6a09");
-			nvram_set("pci/2/1/rpcal5gb2", "0x5eff");
-			nvram_set("pci/2/1/rpcal5gb3", "0x700c");
+			nvram_set("pci/2/1/rpcal5gb0", "0x7d09");
+			nvram_set("pci/2/1/rpcal5gb1", "0x8a08");
+			nvram_set("pci/2/1/rpcal5gb2", "0x7dfe");
+			nvram_set("pci/2/1/rpcal5gb3", "0x9612");
 			nvram_set("pci/2/1/rxchain", "7");
 			nvram_set("pci/2/1/rxgainerr2ga0", "63");
 			nvram_set("pci/2/1/rxgainerr2ga1", "31");
@@ -2076,7 +2072,6 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/tworangetssi5g", "0");
 			nvram_set("pci/2/1/txchain", "7");
 			nvram_set("pci/2/1/xtalfreq", "65535");
-
 		}
 		break;
 	case MODEL_DIR868L:
