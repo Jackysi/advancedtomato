@@ -2378,7 +2378,7 @@ void start_services(void)
 #endif
 
 
-	if (get_model() == MODEL_R7000) {
+	if ((get_model() == MODEL_R7000)) {
 		//enable WAN port led
 		system("/usr/sbin/et robowr 0x0 0x10 0x3000");
 		system("/usr/sbin/et robowr 0x0 0x12 0x78");
