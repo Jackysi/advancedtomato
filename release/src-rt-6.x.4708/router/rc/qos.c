@@ -626,7 +626,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_ack")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 14 u32 "
+			"\t$TFA parent 1: prio 14 protocol ip u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 //			"match u16 0x0000 0xff80 at 2 "		// total length (0-127)
@@ -638,7 +638,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_syn")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 15 u32 "
+			"\t$TFA parent 1: prio 15 protocol ip u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -649,7 +649,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_fin")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 17 u32 "
+			"\t$TFA parent 1: prio 17 protocol ip u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -660,7 +660,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_rst")) {
 		fprintf(f,
 			"\n"
-			"\t$TFA parent 1: prio 19 u32 "
+			"\t$TFA parent 1: prio 19 protocol ip u32 "
 			"match ip protocol 6 0xff "			// TCP
 			"match u8 0x05 0x0f at 0 "			// IP header length
 			"match u16 0x0000 0xffc0 at 2 "		// total length (0-63)
@@ -669,7 +669,7 @@ void start_qos(void)
 	}
 
 	if (nvram_get_int("qos_icmp")) {
-		fputs("\n\t$TFA parent 1: prio 13 u32 match ip protocol 1 0xff flowid 1:10\n", f);
+		fputs("\n\t$TFA parent 1: prio 13 protocol ip u32 match ip protocol 1 0xff flowid 1:10\n", f);
 	}
 
 
