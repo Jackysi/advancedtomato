@@ -73,7 +73,7 @@ No part of this file may be used without permission.
 
 		ref.showState = function()
 		{
-			$('#refresh-but').html('<i class="icon-' + (this.running ? 'stop' : 'reboot') + '"></i>');
+			$('#refresh-but').html('<i class="icon-' + (this.running ? 'stop' : 'refresh') + '"></i>');
 		}
 
 		ref.toggleX = function()
@@ -131,7 +131,7 @@ No part of this file may be used without permission.
 	<div id="rstats" class="box">
 		<div class="heading">
 			24h Bandwidth History &nbsp; <div class="spinner" id="refresh-spinner" style="visibility:hidden;" onclick="debugTime=1"></div>
-			<a href="#" data-toggle="tooltip" onclick="ref.toggleX(); return false;" title="Auto refresh graphs" class="pull-right" id="refresh-but"><i class="icon-reboot"></i></a>
+			<a href="#" data-toggle="tooltip" onclick="ref.toggleX(); return false;" title="Auto refresh graphs" class="pull-right" id="refresh-but"><i class="icon-refresh"></i></a>
 		</div>
 		<div class="content">
 			<div id="tab-area" class="btn-toolbar"></div>

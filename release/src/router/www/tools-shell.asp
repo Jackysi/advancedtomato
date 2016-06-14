@@ -103,7 +103,7 @@ No part of this file may be used without permission.
 		<li><a class="ajaxload" href="tools-trace.asp"><i class="icon-gauge"></i> Trace</a></li>
 		<li><a class="active"><i class="icon-cmd"></i> System Commands</a></li>
 		<li><a class="ajaxload" href="tools-survey.asp"><i class="icon-signal"></i> Wireless Survey</a></li>
-		<li><a class="ajaxload" href="tools-wol.asp"><i class="icon-forward"></i> WOL</a></li>
+		<li><a class="ajaxload" href="tools-wol.asp"><i class="icon-wake"></i> WOL</a></li>
 	</ul>
 
 	<div class="box">

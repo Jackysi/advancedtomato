@@ -18,7 +18,7 @@ No part of this file may be used without permission.
 		RouteGrid.prototype = new TomatoGrid;
 
 		tabs = [['client1', 'Client 1 <i class="icon-tools"></i>'],['client2', 'Client 2 <i class="icon-tools"></i>']];
-		sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['policy','Routing Policy'],['status','Status']];
+		sections = [['basic', '<i class="icon-system"></i> Basic'],['advanced', '<i class="icon-shield"></i> Advanced'],['keys','<i class="icon-lock"></i> Keys'],['policy','<i class="icon-globe"></i> Routing Policy'],['status','<i class="icon-info"></i> Status']];
 		routingTables = [];
 		statusUpdaters = [];
 		for (i = 0; i < tabs.length; ++i)

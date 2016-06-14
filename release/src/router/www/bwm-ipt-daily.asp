@@ -432,7 +432,7 @@ No part of this file may be used without permission.
 
 
 	<div id="cstats" class="box">
-		<div class="heading">Daily IP Traffic <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-reboot"></i></a></div>
+		<div class="heading">Daily IP Traffic <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-refresh"></i></a></div>
 		<div class="content">
 			<table id="daily-grid" class="line-table td-large"></table><br />
 

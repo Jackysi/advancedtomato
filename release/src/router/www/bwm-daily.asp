@@ -128,7 +128,7 @@ No part of this file may be used without permission.
 	</ul>
 
 	<div id="rstats" class="box">
-		<div class="heading">Daily Bandwidth <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-reboot"></i></a></div>
+		<div class="heading">Daily Bandwidth <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-refresh"></i></a></div>
 		<div class="content">
 			<div id="bwm-daily-grid" class="span7" style="float: left;"></div>
 			<div class="span2" style="float: left; margin-left: 20px;">

@@ -20,7 +20,7 @@ No part of this file may be used without permission.
 		UsersGrid.prototype = new TomatoGrid;
 
 		tabs = [['server1', 'VPN Server 1 <i class="icon-tools"></i>'],['server2', 'VPN Server 2 <i class="icon-tools"></i>']];
-		sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
+		sections = [['basic', '<i class="icon-system"></i> Basic'],['advanced', '<i class="icon-shield"></i> Advanced'],['keys','<i class="icon-lock"></i> Keys'],['status','<i class="icon-info"></i> Status']];
 		ccdTables = [];
 		usersTables = [];
 		statusUpdaters = [];

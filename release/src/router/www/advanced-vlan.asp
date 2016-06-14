@@ -52,12 +52,13 @@ No part of this file may be used without permission.
 			port_vlan_supported = 1;
 		}
 
+
 		// TESTED ONLY ON WRT54G v2 (boardtype 0x0101),WRT54GL v1.1 (boardtype 0x0467) and WNR3500L (boardtype 0x04cf)
 		// info on some of these boardtypes/routers obtained from
 		// http://wiki.openwrt.org/toh/asus/start
 		// http://wiki.openwrt.org/toh/linksys/start
 		// http://wiki.openwrt.org/toh/start
-		switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
+		switch ( nvram[ 't_model_name' ] ) { //Added by Tvlz, June 2014
 			case 'vlan-testid0':
 			case 'Belkin Share N300 (F7D3302/F7D7302) v1':
 			case 'Belkin Play N600 (F7D4302/F7D8302) v1':
@@ -72,7 +73,7 @@ No part of this file may be used without permission.
 			case 'Linksys E2500 v1.0':
 			case 'Linksys E2500 v1/v2/v3':
 			case 'Linksys E3200 v1.0':
-			case 'Linksys E4200 v1.0':
+			case 'Linksys E4200 v1':
 				COL_P0N = '0';
 				COL_P1N = '1';
 				COL_P2N = '2';
@@ -81,7 +82,6 @@ No part of this file may be used without permission.
 				break;
 			case 'vlan-testid1':
 			case 'Asus RT-N10U':
-			case 'Asus RT-N16':
 			case 'Asus RT-N66U':
 			case 'Belkin N F5D8235-4 v3':
 			case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
@@ -117,7 +117,7 @@ No part of this file may be used without permission.
 			case 'Asus RT-N12 B1':
 			case 'Asus RT-N15U':
 			case 'Asus RT-N53':
-			case 'Asus RT-N53A1':
+			case 'Asus RT-N53 A1':
 			case 'Belkin Play Max / N600 HD (F7D4301/F7D8301) v1':
 				COL_P0N = '3';
 				COL_P1N = '2';
@@ -126,6 +126,7 @@ No part of this file may be used without permission.
 				COL_P4N = '4';
 				break;
 			case 'vlan-testid3':
+			case 'Asus RT-N16':
 			case 'Asus RT-AC66U':
 //	case 'ChinaNet RG200E-CA':
 			case 'Netgear WNR2000 v2':
@@ -146,26 +147,26 @@ No part of this file may be used without permission.
 				COL_P4N = '0';
 				unknown_router = '1';
 				break;
-			/* K2.6 Routers from Tomatoanon needing port order info from router case
-			 case 'CW-5356U': // brand ??
-			 case 'ZTE H218N':
-			 case 'ZTE ZXV10 H618B':
-			 case 'Linksys WRT160N':
-			 case 'Linksys WRT300N v1':
-			 case 'Netgear WNDR3700v3':
-			 case 'Netgear WNDR4000':
-			 case 'D-Link DIR-627':
-			 case 'Netgear WNDR3400':
-			 case 'Netcore NR235W':
-			 case 'Netcore NI360/Q3':
-			 case 'Tenda N80':
-			 case 'PHICOMM FIR302b':
-			 case 'Vivick Q-W601':
-			 case 'Netcore NR235W/NI360':
-			 case 'Netcore NW715P':
-			 case 'Netgear R6300 V1':
-			 case 'Netgear WNDR3400v2':
-			 */
+				/* K2.6 Routers from Tomatoanon needing port order info from router case
+				 case 'CW-5356U': // brand ??
+				 case 'ZTE H218N':
+				 case 'ZTE ZXV10 H618B':
+				 case 'Linksys WRT160N':
+				 case 'Linksys WRT300N v1':
+				 case 'Netgear WNDR3700v3':
+				 case 'Netgear WNDR4000':
+				 case 'D-Link DIR-627':
+				 case 'Netgear WNDR3400':
+				 case 'Netcore NR235W':
+				 case 'Netcore NI360/Q3':
+				 case 'Tenda N80':
+				 case 'PHICOMM FIR302b':
+				 case 'Vivick Q-W601':
+				 case 'Netcore NR235W/NI360':
+				 case 'Netcore NW715P':
+				 case 'Netgear R6300 V1':
+				 case 'Netgear WNDR3400v2':
+				 */
 		}
 
 		var COL_VID = 0;

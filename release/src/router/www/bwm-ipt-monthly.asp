@@ -433,7 +433,7 @@ No part of this file may be used without permission.
 	</ul>
 
 	<div id="cstats" class="box">
-		<div class="heading">Monthly IP Traffic <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-reboot"></i></a></div>
+		<div class="heading">Monthly IP Traffic <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-refresh"></i></a></div>
 		<div class="content">
 			<table id="monthly-grid" class="line-table"></table><br />
 

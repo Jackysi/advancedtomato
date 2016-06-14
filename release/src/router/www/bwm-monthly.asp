@@ -96,7 +96,7 @@ No part of this file may be used without permission.
 	</ul>
 
 	<div id="rstats" class="box">
-		<div class="heading">Monthly Bandwidth <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-reboot"></i></a></div>
+		<div class="heading">Monthly Bandwidth <a class="pull-right" href="#" data-toggle="tooltip" title="Reload Information" onclick="reloadPage(); return false;"><i class="icon-refresh"></i></a></div>
 		<div class="content">
 			<div id="bwm-monthly-grid"></div>
 		</div>

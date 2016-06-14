@@ -208,7 +208,7 @@ No part of this file may be used without permission.
 			<div class="content">
 				<table id="upnp-grid" class="line-table"></table><br />
 				<div style="width: 100%; text-align: right"><button type="button" value="Delete All" onclick="deleteAll();" id="upnp-delete-all" class="btn btn-danger">Delete All <i class="icon-cancel"></i></button>
-					<button type="button" value="Refresh" onclick="javascript:reloadPage();" class="btn"><i class="icon-reboot"></i> Refresh</button></div>
+					<button type="button" value="Refresh" onclick="javascript:reloadPage();" class="btn"><i class="icon-refresh"></i> Refresh</button></div>
 			</div>
 		</div>
 

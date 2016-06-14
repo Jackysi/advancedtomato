@@ -1,13 +1,13 @@
 // Bind Navigation etc.
-function AdvancedTomato () {
+function AdvancedTomato() {
 
 	/* First handle page loading, hash change events and other most important tasks
-	************************************************************************************************/
+	 ************************************************************************************************/
 	// Initial Page load, determine what to load
-	if ( window.location.hash.match(/#/) ) { loadPage( window.location.hash ); } else { loadPage( '#status-home.asp' ); }
+	if ( window.location.hash.match( /#/ ) ) { loadPage( window.location.hash ); } else { loadPage( '#status-home.asp' ); }
 
 	// Bind "Hash Change" - Happens when hash in the "URL" changes (http://site.com/#hash-bind)
-	$(window).bind( 'hashchange', function() {
+	$( window ).bind( 'hashchange', function() {
 
 		// Prevent Mismatch on features page
 		( (location.hash.replace( '#', '' ) != '' ) ? loadPage( location.hash.replace( '#', '' ), true ) : '' );
@@ -22,18 +22,18 @@ function AdvancedTomato () {
 	navi();
 
 	// Create pre-loader
-	$('#wrapper').prepend('<div id="nprogress"></div>');
+	$( '#wrapper' ).prepend( '<div id="nprogress"></div>' );
 
 	// Find current active link
-	$('.navigation > ul > li').each(function(key) {
+	$( '.navigation > ul > li' ).each( function( key ) {
 
-		if ($(this).hasClass('active')) {
+		if ( $( this ).hasClass( 'active' ) ) {
 
-			$(this).find('ul').slideDown('350', 'easeInQuad');
+			$( this ).find( 'ul' ).slideDown( '350', 'easeInQuad' );
 
 		} else {
 
-			$(this).find('ul').slideUp(350, 'easeOutBounce');
+			$( this ).find( 'ul' ).slideUp( 350, 'easeOutBounce' );
 
 		}
 
@@ -43,33 +43,35 @@ function AdvancedTomato () {
 	/* Click handlers
 	************************************************************************************************/
 	// Navigation slides
-	$('.navigation > ul > li > a').on('click', function() { 
+	$( '.navigation > ul > li > a' ).on( 'click', function() {
 
-		if ($('.navigation').hasClass('collapsed')) { return; }				// Doesn't work in collapsed state
-		if ($(this).parent('li').hasClass('active')) { return false; }      // If already active, ignore click
+		if ( $( '.navigation' ).hasClass( 'collapsed' ) ) { return; }				// Doesn't work in collapsed state
+		if ( $( this ).parent( 'li' ).hasClass( 'active' ) ) { return false; }      // If already active, ignore click
 
-		$('.navigation > ul > li').removeClass('active').find('ul').slideUp('150');
-		$(this).parent('li').addClass('active');
-		$(this).closest('li').find('ul').slideDown('150'); 
+		$( '.navigation > ul > li' ).removeClass( 'active' ).find( 'ul' ).slideUp( '150' );
+		$( this ).parent( 'li' ).addClass( 'active' );
+		$( this ).closest( 'li' ).find( 'ul' ).slideDown( '150' );
 
-		return false; 
+		return false;
+
 	});
 
 	// Close click handler for updates
 	$('.ajaxwrap').on('click', '.alert .close', function() {
 
-		if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }
-		$(this).parent('.alert').slideUp();
+		if ( $( this ).attr( 'data-update' ) ) { cookie.set( 'latest-update', $( this ).attr( 'data-update' ) ); }
+		$( this ).parent( '.alert' ).slideUp();
 
 		return false;
+
 	});
 
 	// Handle ajax loading
 	$('.navigation li ul a, .header .links a[href!="#system"]').on('click', function(e) {
 
-		if ($(this).attr('target') != '_blank') {
+		if ( $( this ).attr( 'target' ) != '_blank' ) {
 
-			loadPage($(this).attr('href'));
+			loadPage( $( this ).attr( 'href' ) );
 			return false;
 
 		}
@@ -77,110 +79,105 @@ function AdvancedTomato () {
 	});
 
 	// Toggle Navigation
-	$('.toggle-nav').on('click', function() {
+	$( '.toggle-nav' ).on( 'click', function() {
 
-		if (!$('.navigation').hasClass('collapsed')) {
+		if ( !$( '.navigation' ).hasClass( 'collapsed' ) ) {
 
 			// Collapse the navigation
-			$('#wrapper').find('.container').css('margin-left', '60px');			// Move the content to the left
-			$('#wrapper').find('.navigation').addClass('collapsed');				// Hide the normal navigation >> animated
-			$('#wrapper').find('.logo').addClass('collapsed');						// Show the log string
-			$('#wrapper').find('.nav-collapse-hide').hide();						// Hide the advanced tomato string
+			$( '#wrapper' ).find( '.container, .top-header, .navigation' ).addClass( 'collapsed' );	// Hide the normal navigation >> animated
+			$( '#wrapper' ).find( '.nav-collapse-hide' ).hide(); // Hide elements with class nav-collapse-hide
 
 		} else {
 
 			// Show the normal navigation
-			$('#wrapper').find('.container').css('margin-left', '240px');
-			$('#wrapper').find('.navigation').removeClass('collapsed');
-			$('#wrapper').find('.logo').removeClass('collapsed');
-			setTimeout(function() { $('#wrapper').find('.nav-collapse-hide').show(); }, 300);
-
+			$( '#wrapper' ).find( '.container, .top-header, .navigation' ).removeClass( 'collapsed' );
+			setTimeout( function() { $( '#wrapper' ).find( '.nav-collapse-hide' ).show(); }, 300 );
 
 		}
 
 	});
 
 	// Handle Ajax Class Loading
-	$('.ajaxwrap').on('click', '.ajaxload', function(e) {
+	$( '.ajaxwrap' ).on( 'click', '.ajaxload', function( e ) {
 
-		loadPage($(this).attr('href'));
+		loadPage( $( this ).attr( 'href' ) );
 		return false;
 
 	});
 
 	// System Info box
-	$('#system-ui').on('click', function() {
+	$( '#system-ui' ).on( 'click', function() {
 
-		if ($(this).hasClass('active')) {
+		if ( $( this ).hasClass( 'active' ) ) {
 
-			$('#system-ui').removeClass('active');
-			$('.system-ui').fadeOut(250);
-			clearInterval(window.refTimer);
+			$( '#system-ui' ).removeClass( 'active' );
+			$( '.system-ui' ).fadeOut( 250 );
+			clearInterval( window.refTimer );
 
 		} else {
 
-			$(this).addClass('active');
-			$('.system-ui').fadeIn(250);
+			$( this ).addClass( 'active' );
+			$( '.system-ui' ).fadeIn( 250 );
 
 			// On open
-			$('.system-ui .datasystem').html('<div class="inner-container row"><div style="margin: 45px auto 35px; width: 26px; height:26px;" class="spinner"></div></div>').addClass('align center');
-			window.refTimer = setInterval(systemUI, 1600);
+			$( '.system-ui .datasystem' ).html( '<div class="inner-container row"><div style="margin: 45px auto 35px; width: 26px; height:26px;" class="spinner"></div></div>' ).addClass( 'align center' );
+			window.refTimer = setInterval( systemUI, 1600 );
 			systemUI();
 
-			$(document).click(function() {$('#system-ui').removeClass('active'); $('.system-ui').fadeOut(250); clearInterval(window.refTimer); $(document).unbind('click'); });
+			$( document ).click( function() { $( '#system-ui' ).removeClass( 'active' ); $( '.system-ui' ).fadeOut( 250 ); clearInterval( window.refTimer ); $( document ).unbind( 'click' ); });
+
 		}
 
 		return false;
+
 	});
 
 
 	/* Handle NVRAM global functions and notifications
-	************************************************************************************************/
-	if (typeof nvram == 'undefined') { return false; }
+	 ************************************************************************************************/
+	if ( typeof nvram == 'undefined' ) { return false; }
 
 	// Check for update
-	if (typeof nvram.at_update !== "undefined" && nvram.at_update != '') {
+	if ( typeof nvram.at_update !== "undefined" && nvram.at_update != '' ) {
 
-		var n = cookie.get('latest-update');
-		var lastUpdate = nvram['at_update'].replace('.', '');
+		var n          = cookie.get( 'latest-update' );
+		var lastUpdate = nvram[ 'at_update' ].replace( '.', '' );
 
-		if (n < lastUpdate || n == null) {
+		if ( n < lastUpdate || n == null ) {
 
-			$updateNotification = $('<div class="alert alert-info icon"><a href="#" class="close" data-update="' + nvram.at_update.replace('.','') + '"><i class="icon-cancel"></i></a>\
-				<h5>Update Available!</h5>AdvancedTomato version <b>' + nvram.at_update + '</b> has been released and it is available for download.	&nbsp; <a target="_blank" href="https://advancedtomato.com/">Click here to find out more</a>.</div>');
+			$updateNotification = $( '<div class="alert alert-info icon"><a href="#" class="close" data-update="' + nvram.at_update.replace( '.', '' ) + '"><i class="icon-cancel"></i></a>\
+				<h5>Update Available!</h5>AdvancedTomato version <b>' + nvram.at_update + '</b> has been released and it is available for download.	&nbsp; <a target="_blank" href="https://advancedtomato.com/">Click here to find out more</a>.</div>' );
 
-			$($updateNotification).find('.close').on('click', function() {
-				if ($(this).attr('data-update')) { cookie.set('latest-update', $(this).attr('data-update')); }
-				$(this).parent('.alert').slideUp();
+			$( $updateNotification ).find( '.close' ).on( 'click', function() {
+				if ( $( this ).attr( 'data-update' ) ) { cookie.set( 'latest-update', $( this ).attr( 'data-update' ) ); }
+				$( this ).parent( '.alert' ).slideUp();
 				return false;
-			});
+			} );
 
-			$(".container").prepend($updateNotification);
+			$( ".container" ).prepend( $updateNotification );
 
 		}
 	}
 
 	// Check if tomatoanon is configured
-	if (typeof nvram.tomatoanon_answer !== "undefined") {
+	if ( typeof nvram.tomatoanon_answer !== "undefined" ) {
 
-		if (nvram.tomatoanon_answer != '1') {
+		if ( nvram.tomatoanon_answer != '1' ) {
 
-			$('.container').prepend('<div class="alert alert-warning icon"><h5>Attention</h5> You did not configure <b>TomatoAnon project</b> setting.\
-				Please go to <a onclick="loadPage(\'admin-tomatoanon.asp\')" href="#">TomatoAnon configuration page</a> and make a choice.</div>');
+			$( '.container' ).prepend( '<div class="alert alert-warning icon"><h5>Attention</h5> You did not configure <b>TomatoAnon project</b> setting.\
+				Please go to <a onclick="loadPage(\'admin-tomatoanon.asp\')" href="#">TomatoAnon configuration page</a> and make a choice.</div>' );
 
 		}
 
 	}
 
 	// Check for Navigation State NVRAM value
-	if (typeof nvram.at_navi !== 'undefined') {
+	if ( typeof nvram.at_navi !== 'undefined' ) {
 
-		if (nvram.at_navi == 'collapsed') {
+		if ( nvram.at_navi == 'collapsed' || $(window).width() <= 768 ) {
 
-			$('#wrapper').find('.container').css('margin-left', '60px');
-			$('#wrapper').find('.navigation').addClass('collapsed');
-			$('#wrapper').find('.logo').addClass('collapsed');
-			$('#wrapper').find('.nav-collapse-hide').hide();
+			$( '#wrapper' ).find( '.container, .top-header, .navigation' ).addClass( 'collapsed' );
+			$( '#wrapper' ).find( '.nav-collapse-hide' ).hide();
 
 		}
 
@@ -193,62 +190,64 @@ function systemUI () {
 
 	$.ajax({
 
-		url: 'js/status-data.jsx',
-		method: 'POST',
-		data: { '_http_id': escapeCGI(nvram.http_id) },
-		success: function( data ) {
+        url    : 'js/status-data.jsx',
+        method : 'POST',
+        data   : { '_http_id': escapeCGI( nvram.http_id ) },
+        success: function( data ) {
 
-			stats = {};
-			try { eval(data); } catch (ex) { stats = {}; }
+	        stats = {};
+	        try { eval( data ); } catch ( ex ) { stats = {}; }
 
-			var wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ( ( stats.wanstatus[0] == 'Connected' ) ? '<span style="color: green;">' + stats.wanstatus[0] + '</span>' : stats.wanstatus[0] ) + '</a>';
-			$( '.system-ui .datasystem' ).html( '<div class="router-name">' + nvram.t_model_name + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
-	            '<div class="inner-container row">' +
-	            '<div class="col-sm-2">CPU:</div><div class="col-sm-10">' + stats.cpuload + '</div>' +
-	            '<div class="col-sm-2">RAM:</div><div class="col-sm-10">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
-	            ((nvram.swap != null) ? '<div class="col-sm-2">SWAP:</div><div class="col-sm-10">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>' : '') +
-	            '<div class="col-sm-2">WAN:</div><div class="col-sm-10">' + wanstatus + ' (' + stats.wanuptime[0] + ')</div></div>' ).removeClass( 'align center' );
-		}
+	        var wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ( ( stats.wanstatus[ 0 ] == 'Connected' ) ? '<span style="color: green;">' + stats.wanstatus[ 0 ] + '</span>' : stats.wanstatus[ 0 ] ) + '</a>';
+	        $( '.system-ui .datasystem' ).html(
+		        '<div class="router-name">' + nvram.t_model_name + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
+		        '<div class="inner-container row">' +
+		        '<div class="desc">CPU:</div><div class="value">' + stats.cpuload + '</div>' +
+		        '<div class="desc">RAM:</div><div class="value">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
+		        ((nvram.swap != null) ? '<div class="desc">SWAP:</div><div class="value">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>' : '') +
+		        '<div class="desc ">WAN:</div><div class="value">' + wanstatus + ' (' + stats.wanuptime[ 0 ] + ')</div></div>' ).removeClass( 'align center'
+	        );
+        }
 
-	}).fail( function() { clearInterval(window.refTimer); });
+	}).fail( function() { clearInterval( window.refTimer ); });
 
-};
+}
 
 // Data boxes which allow showing / hiding box content, the behaviour happens here
 function data_boxes() {
 
-	$('[data-box]').each(function() {
+	$( '[data-box]' ).each( function() {
 
-		var id 		= $(this).attr('data-box');
-		var parent	= $(this);
-		var status	= (((hs_cook = cookie.get(id + '_visibility')) != null && (hs_cook != '1')) && $(this).is(':visible')) ? false : true;
-		var html	= $('<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>');
+		var id     = $( this ).attr( 'data-box' );
+		var parent = $( this );
+		var status = (((hs_cook = cookie.get( id + '_visibility' )) != null && (hs_cook != '1')) && $( this ).is( ':visible' )) ? false : true;
+		var html   = $( '<a class="pull-right" href="#" data-toggle="tooltip" title="Hide/Show"><i class="icon-chevron-' + ((status) ? 'down' : 'up') + '"></i></a>' );
 
 		// Hide if hidden
-		if (status) { 
+		if ( status ) {
 
-			$(this).find('.content').show();
+			$( this ).find( '.content' ).show();
 
 		} else { // Set display property no matter the preference (fixes defaults)
 
-			$(this).find('.content').hide();
+			$( this ).find( '.content' ).hide();
 
 		}
 
 		// Now click handler
-		$(html).on('click', function() {
+		$( html ).on( 'click', function() {
 
-			if (status) {
+			if ( status ) {
 
-				$(parent).find('.content').stop(true, true).slideUp(700, 'easeOutBounce');
-				$(html).find('i').removeClass('icon-chevron-down').addClass('icon-chevron-up');
-				cookie.set(id + '_visibility', 0); status = false;
+				$( parent ).find( '.content' ).stop( true, true ).slideUp( 700, 'easeOutBounce' );
+				$( html ).find( 'i' ).removeClass( 'icon-chevron-down' ).addClass( 'icon-chevron-up' );
+				cookie.set( id + '_visibility', 0 ); status = false;
 
 			} else {
 
-				$(parent).find('.content').stop(true, true).slideDown(350, 'easeInQuad');
-				$(html).find('i').removeClass('icon-chevron-up').addClass('icon-chevron-down');
-				cookie.set(id + '_visibility', 1); status = true;
+				$( parent ).find( '.content' ).stop( true, true ).slideDown( 350, 'easeInQuad' );
+				$( html ).find( 'i' ).removeClass( 'icon-chevron-up' ).addClass( 'icon-chevron-down' );
+				cookie.set( id + '_visibility', 1 ); status = true;
 
 			}
 
@@ -256,7 +255,7 @@ function data_boxes() {
 
 		});
 
-		$(parent).find('.heading').prepend(html);
+		$( parent ).find( '.heading' ).prepend( html );
 
 	});
 
@@ -265,85 +264,96 @@ function data_boxes() {
 // Ajax Function to load pages
 function loadPage( page, is_history ) {
 
-	// Since we use ajax, functions and timers stay in memory. Here we undefine & stop them to prevent issues with other pages.
-	if ( typeof( ref ) != 'undefined') { ref.destroy(); ref=undefined; delete ref; }
-	if ( typeof( wdog ) != 'undefined' ) { clearTimeout( wdog ); } // Stupid function that kills our refreshers!
-
 	// Some things that need to be done here =)
-	page = page.replace('#', '');
-	if (page == 'status-home.asp' || page == '/' || page == null) { page = 'status-home.asp'; }
-	if (window.ajaxLoadingState) { return false; } else { window.ajaxLoadingState = true; }
+	page = page.replace( '#', '' );
+	if ( page == 'status-home.asp' || page == '/' || page == null ) { page = 'status-home.asp'; }
+	if ( window.ajaxLoadingState ) { return false; } else { window.ajaxLoadingState = true; }
+
+	// Since we use ajax, functions and timers stay in memory/cache. Here we undefine & stop them to prevent issues with other pages.
+	if ( typeof( ref ) != 'undefined') { ref.destroy(); ref=undefined; delete ref; }
+	if ( typeof( wdog ) != 'undefined' ) { clearTimeout( wdog ); } // Delayed function that kills our refreshers!
 
 	// Start page pre-loader
-	$('#nprogress').append('<div class="bar"></div>');
+	$( '#nprogress' ).append( '<div class="bar"></div>' );
 
 	// Remove animation class from container, so we reset its anim count to 0
-	$('.container .ajaxwrap').removeClass('ajax-animation');
+	$( '.container .ajaxwrap' ).removeClass( 'ajax-animation' );
+
 
 	// Switch to JQUERY AJAX function call (doesn't capture errors allowing much easier debugging)
 	$.ajax({
 
-		async: true,
-		url: page,
-		cache: false,
-		success: function( resp ) {
+        url    : page,
+        async  : true,
+        cache  : false,
+        success: function( resp ) {
 
-			var dom = $(resp);
-			var title = dom.filter('title').text();
-			var html = dom.filter('content').html();
+	        var dom   = $( resp );
+	        var title = dom.filter( 'title' ).text();
+	        var html  = dom.filter( 'content' ).html();
 
-			// Handle pages without title or content as normal (NO AJAX)
-			if (title == null || html == null) {
-				window.parent.location.href = page;
-				return false;
-			}
+	        // Handle pages without title or content as normal (NO AJAX)
+	        if ( title == null || html == null ) {
+		        window.parent.location.href = page;
+		        return false;
+	        }
 
-			// Set page title, current page title and animate page switch
-			$('title').text(window.routerName + title);
-			$('h2.currentpage').text(title);
-			$('.container .ajaxwrap').html(html).addClass('ajax-animation');
+	        // Set page title, current page title and animate page switch
+	        $( 'title' ).text( window.routerName + title );
+	        $( 'h2.currentpage' ).text( title );
+	        $( '.container .ajaxwrap' ).html( html ).addClass( 'ajax-animation' );
 
-			// Push History (First check if using IE9 or not)
-			if ( history.pushState && is_history !== true ) { history.pushState({ "html": html, "pageTitle": window.routerName + title }, window.routerName + title, '#' + page ); }
+	        // Push History (First check if using IE9 or not)
+	        if ( history.pushState && is_history !== true ) {
 
-			// Go back to top
-			$('.container').scrollTop(0);
+		        history.pushState(
+			        {
+				        "html"     : html,
+				        "pageTitle": window.routerName + title
+			        },
+			        window.routerName + title, '#' + page
+		        );
 
-			// Handle Navigation
-			$('.navigation li ul li').removeClass('active'); // Reset all
+	        }
 
-			var naviLinks = $(".navigation a[href='#" + page + "']");
-			$(naviLinks).parent('li').addClass('active');
+	        // Go back to top
+	        $( '.container' ).scrollTop( 0 );
 
-			// Loaded, clear state
-			window.ajaxLoadingState = false;
+	        // Handle Navigation
+	        $( '.navigation li ul li' ).removeClass( 'active' ); // Reset all
 
-			// Bind some functions, scripts etc... (Important: after every page change (ajax load))
-			$('[data-toggle="tooltip"]').tooltip({ placement: 'top auto', container: 'body' });			
-			$("input[type='file']").each(function() { $(this).customFileInput(); }); // Custom file inputs
-			data_boxes();
+	        var naviLinks = $( ".navigation a[href='#" + page + "']" );
+	        $( naviLinks ).parent( 'li' ).addClass( 'active' );
 
-			// Stop & Remove Pre-loader
-			$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
-			setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
-			
-		}
+	        // Bind some functions, scripts etc... (Important: after every page change (ajax load))
+	        $( '[data-toggle="tooltip"]' ).tooltip( { placement: 'top auto', container: 'body' } );
+	        $( "input[type='file']" ).each( function() { $( this ).customFileInput(); } ); // Custom file inputs
+	        data_boxes();
+
+	        // Stop & Remove Pre-loader
+	        $( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
+	        setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
+
+	        // Reset loading state to false.
+	        window.ajaxLoadingState = false;
+
+        }
 
 	}).fail( function( jqXHR, textStatus, errorThrown ) {
 
-		console.log(jqXHR);
+		console.log( jqXHR );
 
-		$('h2.currentpage').text( jqXHR.status + ' ERROR');
-		$('.container .ajaxwrap').html('<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
-			<p>Connection to the router failed! <br>These issues usually occur when a file is missing or the router is unavailable to accept new connections.</p>\
-			<a href="/">Refreshing</a> browser window might help.</div></div>').addClass('ajax-animation');
+		$( 'h2.currentpage' ).text( jqXHR.status + ' ERROR' );
+		$( '.container .ajaxwrap' ).html( '<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
+			<p>Interface was unable to communicate with the router! <br>These issues usually occur when a file is missing, web handler is busy or the router is unavailable.</p>\
+			<a href="/">Refreshing</a> browser window might help.</div></div>' ).addClass( 'ajax-animation' );
 
 		// Loaded, clear state
 		window.ajaxLoadingState = false;
 
 		// Remove Preloader
-		$('#nprogress').find('.bar').css({ 'animation': 'none' }).width('100%');
-		setTimeout(function() { $('#nprogress .bar').remove(); }, 150);
+		$( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
+		setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
 
 	});
 

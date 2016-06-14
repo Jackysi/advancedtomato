@@ -89,7 +89,7 @@ No part of this file may be used without permission.
 				//	<% statfs("/cifs1", "cifs1"); %>
 				//	<% statfs("/cifs2", "cifs2"); %>
 
-				var cifs = '<div class="box" data-box="cifs-set-1"><div class="heading"><i class="icon-drive"></i> CIFS1 <small>(/cifs1)</small></div><div class="content">' +
+				var cifs = '<div class="box" data-box="cifs-set-1"><div class="heading">CIFS1 <small>(/cifs1)</small></div><div class="content">' +
 				createFormFields([
 					{ title: 'Enable', indent: 2, name: 'f_cifs1_enable', type: 'checkbox', value: a[0]*1 },
 					{ title: 'UNC', indent: 2, name: 'f_cifs1_unc', type: 'text', maxlen: 128, size: 48, value: a[1] },
@@ -105,7 +105,7 @@ No part of this file may be used without permission.
 						' (<span class="txtcifs1"></span>) <div class="progress cifs1"><div class="bar"></div></div>' : '(not mounted)' },
 				]) + '</div></div>';
 
-				cifs += '<div class="box" data-box="cifs-set-2"><div class="heading"><i class="icon-drive"></i> CIFS2 <small>(/cifs2)</small></div><div class="content">' +
+				cifs += '<div class="box" data-box="cifs-set-2"><div class="heading">CIFS2 <small>(/cifs2)</small></div><div class="content">' +
 				createFormFields([
 					{ title: 'Enable', indent: 2, name: 'f_cifs2_enable', type: 'checkbox', value: b[0]*1 },
 					{ title: 'UNC', indent: 2, name: 'f_cifs2_unc', type: 'text', maxlen: 128, size: 48, value: b[1] },

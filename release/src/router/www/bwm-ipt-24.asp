@@ -263,7 +263,7 @@ No part of this file may be used without permission.
 	<div id="cstats" class="box">
 		<div class="heading">
 			24h IP Traffic History &nbsp; <div class="spinner" id="refresh-spinner" style="visibility:hidden;" onclick="debugTime=1"></div>
-			<a href="#" data-toggle="tooltip" onclick="ref.toggleX(); return false;" title="Auto refresh graphs" class="pull-right" id="refresh-but"><i class="icon-reboot"></i></a>
+			<a href="#" data-toggle="tooltip" onclick="ref.toggleX(); return false;" title="Auto refresh graphs" class="pull-right" id="refresh-but"><i class="icon-refresh"></i></a>
 		</div>
 		<div class="content">
 			<div id="tab-area" class="btn-toolbar"></div>

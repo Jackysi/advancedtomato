@@ -292,10 +292,12 @@
 					{ title: 'Remaining Lease Time', rid: 'wan' + u + 'lease', text: stats.wanlease[ uidx - 1 ], ignore: !show_dhcpc[ uidx - 1 ] }
 				], '#sesdiv_wan' + u, 'data-table dataonly' );
 
-				$( '#sesdiv_wan' + u ).append( '<br><button type="button" class="btn btn-primary pull-left" onclick="wan_connect(' + uidx + ')" value="Connect" id="b' + u + '_connect" style="display:none;margin-right: 5px;">Connect <i class="icon-reboot"></i></button>' +
-				                                '<button type="button" class="btn btn-danger pull-left" onclick="wan_disconnect(' + uidx + ')" value="Disconnect" id="b' + u + '_disconnect" style="display:none;margin-right: 5px;">Disconnect <i class="icon-cancel"></i></button>' +
-				                                '<div id="b' + u + '_dhcpc" class="btn-group pull-left" style="display:none;"><button type="button" class="btn" onclick="dhcpc(\'renew\', \'wan'+u+'\')" value="Renew">Renew</button>' +
-				                                '<button type="button" class="btn" onclick="dhcpc(\'release\', \'wan'+u+'\')" value="Release">Release</button><div class="clearfix"></div></div>' );
+				$( '#sesdiv_wan' + u ).append(
+						'<br><button type="button" class="btn btn-primary pull-left" onclick="wan_connect(' + uidx + ')" value="Connect" id="b' + u + '_connect" style="display:none;margin-right: 5px;">Connect <i class="icon-reboot"></i></button>' +
+						'<button type="button" class="btn btn-danger pull-left" onclick="wan_disconnect(' + uidx + ')" value="Disconnect" id="b' + u + '_disconnect" style="display:none;margin-right: 5px;">Disconnect <i class="icon-cancel"></i></button>' +
+						'<div id="b' + u + '_dhcpc" class="btn-group pull-left" style="display:none;"><button type="button" class="btn" onclick="dhcpc(\'renew\', \'wan' + u + '\')" value="Renew">Renew</button>' +
+						'<button type="button" class="btn" onclick="dhcpc(\'release\', \'wan' + u + '\')" value="Release">Release</button><div class="clearfix"></div></div>'
+				);
 
 			}
 

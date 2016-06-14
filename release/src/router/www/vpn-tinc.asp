@@ -40,7 +40,7 @@
 		var cmd = null;
 		var cmdresult = '';
 
-		tabs = [['config', 'Config'],['hosts', 'Hosts'],['scripts', 'Scripts'],['keys', 'Generate Keys'],['status', 'Status']];
+		tabs = [['config', '<i class="icon-system"></i> Config'],['hosts', '<i class="icon-globe"></i> Hosts'],['scripts', '<i class="icon-hammer"></i> Scripts'],['keys', '<i class="icon-lock"></i> Generate Keys'],['status', '<i class="icon-info"></i> Status']];
 		changed = 0;
 		tincup = parseInt ('<% psup("tincd"); %>');
 
@@ -590,7 +590,7 @@
 					{ title: 'RSA Public Key', name: 'rsa_public_key', type: 'textarea', value: "" }
 				]);
 
-				html +='<button class="btn btn-primary" type="button" value="gen" onclick="generateKeys()" id="execb"><i class="icon-reboot"></i> Generate Keys</button>';
+				html +='<button class="btn btn-primary" type="button" value="gen" onclick="generateKeys()" id="execb"><i class="icon-lock"></i> Generate Keys</button>';
 				html +='<div style="visibility:hidden;text-align:right" id="generateWait">Please wait... <div class="spinner"></div></div>';
 				html +='</div>';
 

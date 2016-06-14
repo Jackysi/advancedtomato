@@ -20,7 +20,7 @@ No part of this file may be used without permission.
 	<script type="text/javascript">
 		//	<% nvram("at_update,tomatoanon_answer,script_init,script_shut,script_fire,script_wanup"); %>
 
-		tabs = [['as-init', 'Init'],['as-shut', 'Shutdown'],['as-fire','Firewall'],['as-wanup', 'WAN Up']];
+		tabs = [['as-init', '<i class="icon-system"></i> Init'],['as-shut', '<i class="icon-power"></i> Shutdown'],['as-fire','<i class="icon-shield"></i> Firewall'],['as-wanup', '<i class="icon-globe"></i> WAN Up']];
 
 		function tabSelect(name)
 		{

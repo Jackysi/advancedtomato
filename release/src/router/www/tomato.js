@@ -2152,7 +2152,7 @@ TomatoRefresh.prototype = {
 
 		b = (mode != 'stop') && (this.refreshTime > 0);
 		if ((e = E('refresh-button')) != null) {
-			e.innerHTML = b ? 'Stop' : 'Refresh';
+			e.innerHTML = b ? 'Stop <i class="icon-cancel"></i>' : 'Refresh <i class="icon-refresh"></i>';
 			e.disabled = ((mode == 'start') && (!b));
 		}
 		if ((e = E('refresh-time')) != null) e.disabled = b;
@@ -2224,7 +2224,7 @@ function genStdRefresh(spin, min, exec)
 	var html = '<div class="tomato-refresh form-inline input-append">';
 	if (spin) html += '<div class="spinner spinner-small"></div>';
 	html += genStdTimeList('refresh-time', 'Auto Refresh', min);
-	html += '<button value="Refresh" onclick="' + (exec ? exec : 'refreshClick()') + '; return false;" id="refresh-button" class="btn">Refresh <i class="icon-reboot"></i></button></div>';
+	html += '<button value="Refresh" onclick="' + (exec ? exec : 'refreshClick()') + '; return false;" id="refresh-button" class="btn">Refresh <i class="icon-refresh"></i></button></div>';
 	return html;
 }
 
@@ -2437,12 +2437,12 @@ function myName() {
 function navi_icons ($name) {
 	switch ($name) {
 		case 'Status': 				return 'home'; break;
-		case 'Basic Settings': 		return 'tools'; break;
+		case 'Basic Settings': 		return 'hammer'; break;
 		case 'Advanced Settings': 	return 'shield'; break;
 		case 'Port Forwarding': 	return 'forward'; break;
 		case 'Quality of Service': 	return 'gauge'; break;
 		case 'USB & NAS': 			return 'drive'; break;
-		case 'Web Services': 		return 'download'; break;
+		case 'Web Services': 		return 'cloud'; break;
 		case 'VPN': 				return 'globe'; break;
 		case 'Administration': 		return 'wrench'; break;
 		default: 					return 'plus'; break;
