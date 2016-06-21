@@ -985,6 +985,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_client1_key",      ""              , 0 },
 	{ "vpn_client1_br",       "br0"           , 0 },
 	{ "vpn_client1_nopull",   "0"             , 0 },
+	{ "vpn_client1_nobind",   "1"             , 0 },
 	{ "vpn_client1_route",    "0"             , 0 },
 	{ "vpn_client1_routing_val", ""           , 0 },
 	{ "vpn_client2_poll",     "0"             , 0 },
@@ -1015,6 +1016,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "vpn_client2_key",      ""              , 0 },
 	{ "vpn_client2_br",       "br0"           , 0 },
 	{ "vpn_client2_nopull",   "0"             , 0 },
+	{ "vpn_client2_nobind",   "1"             , 0 },
 	{ "vpn_client2_route",    "0"             , 0 },
 	{ "vpn_client2_routing_val", ""           , 0 },
 #endif	// vpn
