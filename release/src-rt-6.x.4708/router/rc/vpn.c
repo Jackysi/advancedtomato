@@ -217,7 +217,9 @@ void start_vpnclient(int clientNum)
 	sprintf(&buffer[0], "vpn_client%d_reneg", clientNum);
 	if ( (nvl = atol(nvram_safe_get(&buffer[0]))) >= 0 )
 		fprintf(fp, "reneg-sec %ld\n", nvl);
-	fprintf(fp, "nobind\n");
+	sprintf(&buffer[0], "vpn_client%d_nobind", clientNum);
+	if ( nvram_get_int(&buffer[0]) > 0 )
+		fprintf(fp, "nobind\n");
 	fprintf(fp, "persist-key\n");
 	fprintf(fp, "persist-tun\n");
 	sprintf(&buffer[0], "vpn_client%d_comp", clientNum);
