@@ -146,8 +146,24 @@ ckfailover() {
     TEST=`ip route | grep $IFACE | wc -l`
 
     if [ "$TEST" -gt "0" ]; then
-        RESULT=1
-        $DEBUG failover=1
+        if [ "$PROTO" == "lte" ]; then
+            TYPE=`nvram get modem_type`
+            DEV=`nvram get modem_dev4g`
+            if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
+                MODE="AT+CGPADDR=1" gcom -d $DEV -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
+                CHECK=`cat /tmp/4g.mode | grep "+CGPADDR:" | cut -d '"' -f2 | wc -l`
+                if [ "$CHECK" -gt "0" ]; then
+                    RESULT=1
+                    $DEBUG failover=1, lte $TYPE, dev $DEV
+                fi
+            else
+                RESULT=1
+                $DEBUG failover=1, tle $TYPE
+            fi
+        else
+            RESULT=1
+            $DEBUG failover=1
+        fi
     fi
 }
 
@@ -208,7 +224,18 @@ checkLock() {
 
 checkLock2() {
     if [ -f /tmp/switch3g.lock -o -f /tmp/switch4g.lock ]; then
-        $DEBUG switch3g or switch4g script in action - skip
+
+        TEST1=`ps | grep switch3g | grep -v "grep" | wc -l`
+        TEST2=`ps | grep switch4g | grep -v "grep" | wc -l`
+
+        if [ -f /tmp/switch3g.lock -a "$TEST1" == "0" ]; then  #lock file exist but process doesn`t.
+            rm /tmp/switch3g.lock
+        fi
+        if [ -f /tmp/switch4g.lock -a "$TEST2" == "0" ]; then  #lock file exist but process doesn`t.
+            rm /tmp/switch4g.lock
+        fi
+
+        $DEBUG switch3g or switch4g script in action - skip this time
         rm $LOCK
         exit 0
     fi

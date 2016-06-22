@@ -74,10 +74,9 @@ connect() {
                     fi
 
                     #connecting
-                    MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom
-                    MODE="AT+CGPADDR=1" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
+                    MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
 
-                    CHECK=`cat /tmp/4g.mode | grep "+CGPADDR:" | cut -d '"' -f2 | wc -l`
+                    CHECK=`cat /tmp/4g.mode | grep "NDISSTAT:" | grep IPV4 | cut -d ":" -f2 | cut -d "," -f1`
                     if [ "$CHECK" == "1" ]; then
                         logger 4G MODEM - connected ...
                         CONNECTED=1
@@ -193,7 +192,6 @@ connect() {
                 GO=1
                 logger 4G MODEM - WAN IFACE configured ...
                 watchdog $PREFIX add
-                echo "1" > /tmp/state_$PREFIX
                 signal
             else
                 logger 4G MODEM WAN IFACE - count: $COUNT
@@ -491,7 +489,6 @@ searchDiag() {
 signal() {
     DEVNR=`nvram get modem_dev4g`
     TYPE=`nvram get modem_type`
-
 
 
     if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
