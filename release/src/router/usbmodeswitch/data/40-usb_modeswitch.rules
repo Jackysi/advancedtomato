@@ -1,6 +1,6 @@
-# Part of usb-modeswitch-data, version 20160112
+# Part of usb-modeswitch-data, version 20160612
 #
-# Works with usb_modeswitch versions >= 2.2.2 (extension of PantechMode)
+# Works with usb_modeswitch versions >= 2.4.0 (extension of StandardEject)
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -8,16 +8,7 @@ ACTION!="add|change", GOTO="modeswitch_rules_end"
 # transfer; checked against a list of known modems, or else no action
 KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK+="%c"
 
-SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
-
-# Adds the device ID to the "option" driver after a warm boot
-# in cases when the device is yet unknown to the driver; checked
-# against a list of known modems, or else no action
-ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurations}=="*", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
-
-
-# Don't continue on "change" event, prevent trigger by changed configuration
-ACTION!="add", GOTO="modeswitch_rules_end"
+SUBSYSTEM!="usb", ACTION!="add",, GOTO="modeswitch_rules_end"
 
 
 # Generic entry for most Huawei devices, excluding Android phones
@@ -71,7 +62,7 @@ ATTR{idVendor}=="0421", ATTR{idProduct}=="0632", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-21M-02
 ATTR{idVendor}=="0421", ATTR{idProduct}=="0637", RUN+="usb_modeswitch '%b/%k'"
 
-# Vodafone MD950 (Wisue Technology), Philips (?)
+# Philips (?), Vodafone MD950 (Wisue Technology)
 ATTR{idVendor}=="0471", ATTR{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
 # Philips TalkTalk (NXP Semiconductors "Dragonfly")
@@ -116,7 +107,7 @@ ATTR{idVendor}=="057c", ATTR{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 # Axesstel Modems (w/ initial idProduct 0x0010)
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="0010", RUN+="usb_modeswitch '%b/%k'"
 
-# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201, Celot K-300, Celot CT-680, StrongRising device, TechFaith Venus VT-18
+# TechFaith Venus VT-18, AnyDATA devices, Bless UC165, Samsung SGH-Z810, StrongRising device, Vertex Wireless 100 Series, Celot K-300, Older Option devices, Prolink P2000 CDMA, Celot CT-680
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Various USB modems
@@ -130,6 +121,9 @@ ATTR{idVendor}=="05c6", ATTR{idProduct}=="6503", RUN+="usb_modeswitch '%b/%k'"
 
 # Alcatel-sbell ASB TL131 TD-LTE
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="9024", RUN+="usb_modeswitch '%b/%k'"
+
+# U901 (LTE modem)
+ATTR{idVendor}=="05c6", ATTR{idProduct}=="98ff", RUN+="usb_modeswitch '%b/%k'"
 
 # Siptune LM-75 ("LinuxModem")
 ATTR{idVendor}=="05c6", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
@@ -506,6 +500,9 @@ ATTR{idVendor}=="1266", ATTR{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 # Huawei ME909u-521
 ATTR{idVendor}=="12d1", ATTR{idProduct}=="1573", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei ME906, ME909
+ATTR{idVendor}=="12d1", ATTR{idProduct}=="15c1", RUN+="usb_modeswitch '%b/%k'"
+
 # Cisco AM10 "Valet Connector"
 ATTR{idVendor}=="1307", ATTR{idProduct}=="1169", RUN+="usb_modeswitch '%b/%k'"
 
@@ -749,7 +746,7 @@ ATTR{idVendor}=="19d2", ATTR{idProduct}=="1580", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF710M Variants
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1588", RUN+="usb_modeswitch '%b/%k'"
 
-# ZTE MF710 (Vietnam)
+# ZTE MF710 (Vietnam) a.o.
 ATTR{idVendor}=="19d2", ATTR{idProduct}=="1595", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE devices, some Onda devices
@@ -797,6 +794,9 @@ ATTR{idVendor}=="1bbb", ATTR{idProduct}=="011f", RUN+="usb_modeswitch '%b/%k'"
 # Alcatel X602D
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="022c", RUN+="usb_modeswitch '%b/%k'"
 
+# Yota W8
+ATTR{idVendor}=="1bbb", ATTR{idProduct}=="025e", RUN+="usb_modeswitch '%b/%k'"
+
 # Alcatel X200/X200L/X060S/L100V, Archos G9 3G Key
 ATTR{idVendor}=="1bbb", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
@@ -842,7 +842,7 @@ ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9e00", RUN+="usb_modeswitch '%b/%k'"
 # Explay Slim
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="9e08", RUN+="usb_modeswitch '%b/%k'"
 
-# MobiData MBD-200HU and others, Longcheer/Longsoon (aka Omega Technology) devices
+# Longcheer/Longsoon (aka Omega Technology) devices, MobiData MBD-200HU and others
 ATTR{idVendor}=="1c9e", ATTR{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # TechFaith BSNL Capitel
@@ -946,6 +946,18 @@ ATTR{idVendor}=="2001", ATTR{idProduct}=="a403", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-167 A1
 ATTR{idVendor}=="2001", ATTR{idProduct}=="a405", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-221
+ATTR{idVendor}=="2001", ATTR{idProduct}=="a406", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-157 C1
+ATTR{idVendor}=="2001", ATTR{idProduct}=="a407", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-156 A8 (Myanmar)
+ATTR{idVendor}=="2001", ATTR{idProduct}=="a40a", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWR-910
+ATTR{idVendor}=="2001", ATTR{idProduct}=="a40d", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-156 A7
 ATTR{idVendor}=="2001", ATTR{idProduct}=="a706", RUN+="usb_modeswitch '%b/%k'"
