@@ -1016,6 +1016,9 @@ void start_wan(int mode)
 	if(nvram_get_int("mwan_cktime") > 0)
 		xstart("watchdog", "add");
 
+	if(nvram_match("adblock_enable", "1"))
+		xstart("/usr/sbin/adblock");
+
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
 }

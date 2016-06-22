@@ -57,7 +57,7 @@ obj-y += udpxy
 ifneq ($(TCONFIG_TOR)$(TCONFIG_MEDIA_SERVER)$(TCONFIG_BBT),)
 obj-y += zlib
 endif
-ifneq ($(TCONFIG_HTTPS$(TCONFIG_BBT)$(TCONFIG_NGINX),)
+ifneq ($(TCONFIG_HTTPS)$(TCONFIG_BBT)$(TCONFIG_NGINX),)
 obj-y += openssl
 endif
 ifneq ($(TCONFIG_TOR)$(TCONFIG_NFS)$(TCONFIG_BBT),)

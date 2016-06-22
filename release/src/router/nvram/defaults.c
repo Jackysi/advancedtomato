@@ -546,6 +546,12 @@ const defaults_t defaults[] = {
 	{ "nf_h323",			"1"				},
 	{ "nf_ftp",			"1"				},
 
+// advanced-adblock
+	{ "adblock_enable",		"0"				},
+	{ "adblock_blacklist",		"1<http://winhelp2002.mvps.org/hosts.txt<>1<http://adaway.org/hosts.txt<>1<http://hosts-file.net/ad_servers.txt<>1<http://www.malwaredomainlist.com/hostslist/hosts.txt<>1<http://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&mimetype=plaintext<>0<http://someonewhocares.org/hosts/zero/hosts<>0<https://raw.githubusercontent.com/WindowsLies/BlockWindows/master/hosts<Windows 10>0<http://sysctl.org/cameleon/hosts<>0<http://adblock.gjtech.net/?format=hostfile<>0<http://hostsfile.mine.nu/Hosts<very large list>0<https://raw.github.com/notracking/hosts-blocklists/master/hostnames.txt<very large list>"	},
+	{ "adblock_blacklist_custom",	""				},
+	{ "adblock_whitelist",		""				},
+
 // advanced-mac
 	{ "wan_mac",			""				},
 	{ "wl_macaddr",			""				},
