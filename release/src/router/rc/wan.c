@@ -832,7 +832,11 @@ void start_wan_if(int mode, char *prefix)
 		p = nvram_safe_get(strcat_r(w, "_ifname", tmp));
 	}
 
-	set_mac(p, strcat_r(prefix, "_mac", tmp), wan_unit + 15); //set_mac(p, "mac_wan", 1);
+	if(!strcmp(prefix,"wan")) {
+		set_mac(p, "wan_mac", 1);
+	} else {
+		set_mac(p, strcat_r(prefix, "_mac", tmp), wan_unit + 15);
+	}
 
 	nvram_set(strcat_r(prefix, "_ifname", tmp), p);  //"wan_ifname"
 	nvram_set(strcat_r(prefix, "_ifnames", tmp), p); //"wan_ifnames"
