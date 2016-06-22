@@ -576,6 +576,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_minpkt",		"1"				},
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
+	{ "dnsmasq_debug",		"0"				},
 	{ "dnsmasq_custom",		""				},
 	{ "dnsmasq_static_only",	"0"				},
 	{ "dnsmasq_q",			"0"				}, 	//Bit0=quiet-dhcp, 1=dhcp6, 2=ra

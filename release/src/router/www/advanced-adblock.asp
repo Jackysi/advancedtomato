@@ -39,7 +39,7 @@ textarea {
 <script type='text/javascript' src='debug.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("adblock_enable,adblock_blacklist,adblock_blacklist_custom,adblock_whitelist"); %>
+//	<% nvram("adblock_enable,adblock_blacklist,adblock_blacklist_custom,adblock_whitelist,dnsmasq_debug"); %>
 
 var adblockg = new TomatoGrid();
 
@@ -109,6 +109,7 @@ function save()
 
 	var fom = E('_fom');
 	fom.adblock_enable.value = E('_f_adblock_enable').checked ? 1 : 0;
+	fom.dnsmasq_debug.value = E('_f_dnsmasq_debug').checked ? 1 : 0;
 	fom.adblock_blacklist.value = blacklist;
 	form.submit(fom, 1);
 }
@@ -135,13 +136,15 @@ function init()
 <input type='hidden' name='_nextpage' value='advanced-adblock.asp'>
 <input type='hidden' name='_service' value='adblock-restart'>
 <input type='hidden' name='adblock_enable'>
+<input type='hidden' name='dnsmasq_debug'>
 <input type='hidden' name='adblock_blacklist'>
 
 <div class='section-title'>Adblock Settings</div>
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
-		{ title: 'Enable', name: 'f_adblock_enable', type: 'checkbox', value: nvram.adblock_enable != '0' }
+		{ title: 'Enable', name: 'f_adblock_enable', type: 'checkbox', value: nvram.adblock_enable != '0' },
+		{ title: 'Debug Mode', indent: 2, name: 'f_dnsmasq_debug', type: 'checkbox', value: nvram.dnsmasq_debug == '1' }
 	]);
 	</script>
 </div>
@@ -174,6 +177,7 @@ function init()
 <div class='section'>
     <ul>
 	<li><b>Adblock</b> - Autoupdate will be launch on 1:00AM every day
+	<li><b>Debug Mode</b> - All queries to dnsmasq will be logged to syslog
 	<li><b>Blacklist URL</b> - Correct file format: 0.0.0.0 domain.com or 127.0.0.1 domain.com, one domain per line
 	<li><b>Blacklist Custom</b> - Optional, space separated: domain1.com domain2.com domain3.com
 	<li><b>Whitelist</b> - Optional, space separated: domain1.com domain2.com domain3.com

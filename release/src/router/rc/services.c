@@ -398,6 +398,10 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-authoritative\n");
 	}
 
+	if (nvram_match("dnsmasq_debug", "1")) {
+		fprintf(f, "log-queries\n");
+	}
+
 	if ((nvram_get_int("adblock_enable")) && (f_exists("/etc/dnsmasq.adblock"))) {
 		fprintf(f, "conf-file=/etc/dnsmasq.adblock\n");
 	}
