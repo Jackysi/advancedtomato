@@ -204,7 +204,7 @@ mwanJob() {
 }
 
 mwanAlive() {
-    if [ "$MWAN" -gt 0 ]; then
+    if [ "$MWAN" -gt 1 ]; then
         ALIVE=`ps | grep "mwanroute" | grep -v "grep" | wc -l`
         if [ "$ALIVE" == "0" ]; then
             $DEBUG mwanroute not found, launch process
