@@ -11,7 +11,7 @@
 
 
 # Default version string
-set version "20160112"
+set version "20160612"
 
 # Devices excluded from Huawei catch-all rule
 set x_huaweiList {12d1:1573}

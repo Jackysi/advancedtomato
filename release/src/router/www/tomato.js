@@ -2453,6 +2453,7 @@ function navi()
 			['Conntrack/Netfilter',		'ctnf.asp'],
 			['DHCP/DNS',			'dhcpdns.asp'],
 			['Firewall',			'firewall.asp'],
+			['Adblock',			'adblock.asp'],
 			['MAC Address',			'mac.asp'],
 			['Miscellaneous',		'misc.asp'],
 			['Routing',			'routing.asp'],

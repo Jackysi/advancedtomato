@@ -273,7 +273,7 @@ void start_pptpd(void)
 		"iptables -I INPUT -i $1 -j ACCEPT\n"
 		"iptables -I FORWARD -i $1 -j ACCEPT\n"
 		"iptables -I FORWARD -o $1 -j ACCEPT\n" // AB!!
-		"iptables -t nat -I PREROUTING -i $1 -p udp -m udp --sport 9 -j DNAT --to-destination %s "	// rule for wake on lan over pptp tunnel
+		"iptables -t nat -I PREROUTING -i $1 -p udp -m udp --sport 9 -j DNAT --to-destination %s\n"	// rule for wake on lan over pptp tunnel
 		"%s\n", bcast,
 		nvram_get("pptpd_ipup_script") ? nvram_get("pptpd_ipup_script") : "");
 	fclose(fp);
@@ -284,7 +284,7 @@ void start_pptpd(void)
 		"iptables -D INPUT -i $1 -j ACCEPT\n" 
 		"iptables -D FORWARD -i $1 -j ACCEPT\n" 
 		"iptables -D FORWARD -o $1 -j ACCEPT\n" // AB!!
-		"iptables -t nat -D PREROUTING -i $1 -p udp -m udp --sport 9 -j DNAT --to-destination %s "	// rule for wake on lan over pptp tunnel
+		"iptables -t nat -D PREROUTING -i $1 -p udp -m udp --sport 9 -j DNAT --to-destination %s\n"	// rule for wake on lan over pptp tunnel
 		"%s\n", bcast,
 		nvram_get("pptpd_ipdown_script") ? nvram_get("pptpd_ipdown_script") : "");
 	fclose(fp);
