@@ -22,6 +22,7 @@ LOGS="logger -p INFO -t adblock"
 download() {
     # example: Yes<http://url1>No<http://URL2>Yes<http://URL3>
     COUNT=1
+    GOT=0
     for i in $(echo $BLACKLIST | tr " " "_" | tr ">" "\n")
     do
         ENBL=`echo $i | cut -d "<" -f1`
@@ -34,6 +35,11 @@ download() {
             else
                 ENTRIES=`cat $PREFIX/_host$COUNT | wc -l`
                 $LOGS ... [$COUNT] found $ENTRIES entries
+
+                if [ "$ENTRIES" -gt "0" ]; then
+                    #we have got at least 1 blacklist
+                    GOT=1
+                fi
             fi
             COUNT=`expr $COUNT + 1`
         else
@@ -85,6 +91,15 @@ download() {
 
     # clean-up
     rm -rf $PREFIX/*
+
+    if [ "$GOT" -gt "0" ]; then
+        cru d adblockDL
+    else
+        #for some reason we cannot download at least 1 blacklist
+        #so we will try for 5 mins once again
+        cru a adblockDL "*/5 * * * * /usr/sbin/adblock"
+        $LOGS No internet, try again for 5 minutes
+    fi
 }
 
 cronAdd() {
