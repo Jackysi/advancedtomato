@@ -1,0 +1,30 @@
+Name: a
+Type: hash:ip
+Header: family inet hashsize 1024 maxelem 65536
+Size in memory: 16536
+References: 1
+Members:
+
+Name: b
+Type: hash:ip
+Header: family inet hashsize 1024 maxelem 65536
+Size in memory: 16536
+References: 1
+Members:
+
+Name: c
+Type: hash:ip
+Header: family inet hashsize 1024 maxelem 65536
+Size in memory: 16536
+References: 1
+Members:
+
+Name: test
+Type: list:set
+Header: size 8 comment
+Size in memory: 264
+References: 0
+Members:
+a comment "a set comment"
+b comment "b set comment"
+c comment "c set comment"
