@@ -2743,6 +2743,7 @@ libmnl-clean:
 
 ipset/stamp-h1: libmnl
 	cd $(TOP)/ipset && CC=$(CC) STRIP=$(STRIP) \
+	autoreconf && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	libmnl_CFLAGS="-I$(TOP)/libmnl/staged/usr/include" \
