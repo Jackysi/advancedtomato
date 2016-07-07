@@ -1643,8 +1643,8 @@ No part of this file may be used without permission.
 					else E('_wl'+u+'_mode').value = wmode;
 
 					if (wmode == 'wet') {
-						for (uidx = 1; uidx <= maxwan_num; ++uidx) {
-							var v = (uidx>1) ? uidx : '';
+						for (wan_uidx = 1; wan_uidx <= maxwan_num; ++wan_uidx) {
+							var v = (wan_uidx>1) ? wan_uidx : '';
 							E('_wan'+v+'_proto').value = 'disabled';
 						}
 						/* REMOVE-BEGIN */

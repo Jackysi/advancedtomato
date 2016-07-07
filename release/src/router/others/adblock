@@ -1,0 +1,135 @@
+#!/bin/sh
+
+# Author: Shibby
+# Inspired by qrs from OpenLinksys
+# Source: https://openlinksys.info/forum/viewthread.php?thread_id=18549&rowstart=20#post_149346
+
+PREFIX="/tmp/adblock"
+mkdir -p $PREFIX
+
+ENABLE=`nvram get adblock_enable`
+WORK1="$PREFIX/hosts.work1"
+WORK2="$PREFIX/hosts.work2"
+FINAL="/etc/dnsmasq.adblock"
+WGET="/usr/bin/wget"
+
+BLACKLIST=`nvram get adblock_blacklist`
+WHITELIST=`nvram get adblock_whitelist`
+CUSTOM=`nvram get adblock_blacklist_custom`
+
+LOGS="logger -p INFO -t adblock"
+
+download() {
+    # example: Yes<http://url1>No<http://URL2>Yes<http://URL3>
+    COUNT=1
+    GOT=0
+    for i in $(echo $BLACKLIST | tr " " "_" | tr ">" "\n")
+    do
+        ENBL=`echo $i | cut -d "<" -f1`
+        URL=`echo $i | cut -d "<" -f2`
+        if [ "$ENBL" = "1" ]; then
+            $LOGS [$COUNT] downloading blacklist - $URL
+            $WGET "$URL" -O $PREFIX/_host$COUNT >/dev/null 2>&1
+            if [ ! -f "$PREFIX/_host$COUNT" ]; then
+                $LOGS ... [$COUNT] download error! Please check URL
+            else
+                ENTRIES=`cat $PREFIX/_host$COUNT | wc -l`
+                $LOGS ... [$COUNT] found $ENTRIES entries
+
+                if [ "$ENTRIES" -gt "0" ]; then
+                    #we have got at least 1 blacklist
+                    GOT=1
+                fi
+            fi
+            COUNT=`expr $COUNT + 1`
+        else
+            $LOGS skip disabled blacklist - $URL
+        fi
+    done
+
+    # dodanie custom blacklist
+    CHECK=`echo $CUSTOM | wc -w`
+    if [ ! "$CHECK" == "0" ]; then
+        $LOGS add custom hosts to blacklist
+        echo "# custom blacklist" > $PREFIX/_host.custom
+        for i in $CUSTOM; do
+            echo "127.0.0.1 $i" >> $PREFIX/_host.custom
+        done
+    fi
+
+    # scal pliki
+    cat $PREFIX/_host* > $WORK1 && rm $PREFIX/_host*
+
+    # pozostawiam uklad IP URL
+    mv $WORK1 $WORK2 && cat $WORK2 | awk '{ print $1 " " $2 }' > $WORK1 && rm $WORK2
+
+    # zmieniam jedno na drugie
+    mv $WORK1 $WORK2 && sed 's/127.0.0.1/0.0.0.0/g' $WORK2 > $WORK1 && rm $WORK2
+    mv $WORK1 $WORK2 && cat $WORK2 | grep -e '^0.0.0.0' > $WORK1 && rm $WORK2
+
+    # usuwam smieci i duplikaty
+    mv $WORK1 $WORK2 && cat $WORK2 | sort -u > $WORK1 && rm $WORK2
+
+    # usuwam wybrane strony z whitelisty
+    CHECK=`echo $WHITELIST | wc -w`
+    if [ ! "$CHECK" == "0" ]; then
+        $LOGS remove whitelisted hosts from blacklist
+        for i in $WHITELIST; do
+            sed -i $WORK1 -e "/$i/d"
+        done
+    fi
+
+    # zmiana formatu dla dnsmasq
+    # example: address=/030.com/0.0.0.0
+    cat $WORK1 | awk {'printf "address=/"$2"/0.0.0.0\n"'} > $FINAL
+
+    # get ready
+    if [ -f "$FINAL" ]; then
+        COUNT=`cat $FINAL | wc -l`
+        $LOGS activated - $COUNT entries
+    fi
+
+    # clean-up
+    rm -rf $PREFIX/*
+
+    if [ "$GOT" -gt "0" ]; then
+        cru d adblockDL
+    else
+        #for some reason we cannot download at least 1 blacklist
+        #so we will try for 5 mins once again
+        cru a adblockDL "*/5 * * * * /usr/sbin/adblock"
+        $LOGS No internet, try again for 5 minutes
+    fi
+}
+
+cronAdd() {
+    ISSET=`cru l | grep adblockJob | wc -l`
+    if [ "$ISSET" == "0" ]; then
+        $LOGS add cron job
+        cru a adblockJob "00 1 * * * /usr/sbin/adblock"
+    fi
+}
+
+cronDel() {
+    ISSET=`cru l | grep adblockJob | wc -l`
+
+    if [ "$ISSET" == "1" ]; then
+        $LOGS remove cron job
+        cru d adblockJob
+    fi
+}
+
+if [ "$1" == "stop" ]; then
+    $LOGS stopped
+    cronDel
+    rm $FINAL
+else
+    if [ "$ENABLE" == "1" ]; then
+        $LOGS prepare to download ...
+        download
+        cronAdd
+    fi
+fi
+
+# restart dnsmasq
+service dnsmasq restart

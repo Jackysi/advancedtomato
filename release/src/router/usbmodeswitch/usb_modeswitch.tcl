@@ -9,7 +9,7 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-2.3.0 package
+# Part of usb-modeswitch-2.4.0 package
 # (C) Josua Dietze 2009-2016
 
 set arg0 [lindex $argv 0]
@@ -276,7 +276,6 @@ foreach mconfig $configList {
 					set cfgno [string trim $cfgno]
 					if {$cfgno > 0} {
 						set config(Configuration) $cfgno
-						set config(DriverModule) ""
 						set flags(config) "Configuration=$cfgno"
 					} else {
 						Log " No MBIM configuration found, switch to legacy modem mode"
@@ -290,6 +289,10 @@ foreach mconfig $configList {
 			Log "Waiting for Pantech auto-modeswitch"
 			set report "ok:busdev"
 			break
+		}
+		if {$config(Configuration) == 0} {
+			Log "Config file contains dummy method, do nothing. Exit"
+			SafeExit
 		}
 		UnbindDriver $devdir $ifdir
 		# Now we are actually switching
@@ -345,68 +348,19 @@ if [regexp {ok:busdev} $report] {
 	ReadUSBAttrs $devdir $ifdir
 }
 
-# Checking for bound drivers if there is an interface with class 0xff
+# driver binding removed !!
 
-if {$config(DriverModule) != "" && [regexp {ok:} $report]} {
-	if [HasFF $devdir] {
-		AddToList link_list $usb(idVendor):$usb(idProduct)
-	} else {
-		set config(DriverModule) ""
-		Log " No vendor-specific class found, skip driver check"
+if {[string length "$usb(idVendor)$usb(idProduct)"] < 8} {
+	if {![regexp {ok:(\w{4}):(\w{4})} $report d usb(idVendor) usb(idProduct)]} {
+		Log "No target vendor/product ID found or given, can't continue. Abort"
+		SafeExit
 	}
 }
-
-# If module is set (it is by default), driver shall be loaded.
-# If not, then NoDriverLoading is active
-
-if {$config(DriverModule) != ""} {
-	if {[string length "$usb(idVendor)$usb(idProduct)"] < 8} {
-		if {![regexp {ok:(\w{4}):(\w{4})} $report d usb(idVendor) usb(idProduct)]} {
-			Log "No target vendor/product ID found or given, can't continue. Abort"
-			SafeExit
-		}
-	}
-	# wait for any drivers to bind automatically
-	after 1500
-	Log "Now check for bound driver ..."
-	if {![file exists $devdir/$ifdir/driver]} {
-		Log " no driver has bound to interface 0 yet"
-
-		# If device is known, the sh wrapper will take care, else:
-		if {[InBindList $usb(idVendor):$usb(idProduct)] == 0} {
-			Log "Device is not in \"bind_list\" yet, bind it now"
-
-			# Load driver
-			CheckDriverBind $usb(idVendor) $usb(idProduct)
-
-			# Old/slow systems may take a while to create the devices
-			set counter 0
-			while {![file exists $devdir/$ifdir/driver]} {
-				if {$counter == 14} {break}
-				after 500
-				incr counter
-			}
-			if {$counter == 14} {
-				Log " driver binding failed"
-			} else {
-				Log " driver was bound to the device"
-				AddToList bind_list $usb(idVendor):$usb(idProduct)
-			}
-		}
-	} else {
-		Log " driver has bound, device is known"
-		if {[llength [glob -nocomplain $devdir/$ifdir/ttyUSB*]] > 0} {
-			AddToList link_list $usb(idVendor):$usb(idProduct)
-		}
-	}
-} else {
-	# Just in case "NoDriverLoading" was added after the first bind
-	RemoveFromBindList $usb(idVendor):$usb(idProduct)
-}
-
-if [regexp {ok:$} $report] {
-	# "NoDriverLoading" was set
-	Log "No driver check or bind for this device"
+# wait for drivers to bind
+after 500
+if {[llength [glob -nocomplain $devdir/$ifdir/ttyUSB*]] > 0} {
+	Log "Serial USB driver bound to interface 0\n will try to guess and symlink modem port on next connect"
+	AddToList link_list $usb(idVendor):$usb(idProduct)
 }
 
 # In newer kernels there is a switch to avoid the use of a device
@@ -599,8 +553,6 @@ return "Use global config file: $configFile"
 proc ParseDeviceConfig {cfg} {
 
 global config
-set config(DriverModule) ""
-set config(DriverIDPath) ""
 set config(WaitBefore) ""
 set config(TargetVendor) ""
 set config(TargetProduct) ""
@@ -609,7 +561,6 @@ set config(Configuration) ""
 set config(NoMBIMCheck) 0
 set config(PantechMode) 0
 set config(CheckSuccess) 20
-set loadDriver 1
 
 foreach pname [lsort [array names config]] {
 	if [regexp -line "^\[^# \]*?$pname.*?= *(0x(\\w+)|\"(\[0-9a-fA-F,\]+)\"|(\[0-9\]+)) *\$" $cfg d config($pname)] {
@@ -617,26 +568,6 @@ foreach pname [lsort [array names config]] {
 	}
 }
 
-if [regexp -line {^[^#]*?NoDriverLoading.*?=.*?(1|yes|true).*?$} $cfg] {
-	set loadDriver 0
-	Log "config: NoDriverLoading is set to active"
-}
-
-# For general driver loading; TODO: add respective device names.
-# Presently only useful for HSO devices (which are recounted now)
-if $loadDriver {
-	if {$config(DriverModule) == ""} {
-		set config(DriverModule) "option"
-		set config(DriverIDPath) "/sys/bus/usb-serial/drivers/option1"
-	} else {
-		if {$config(DriverIDPath) == ""} {
-			set config(DriverIDPath) "/sys/bus/usb/drivers/$config(DriverModule)"
-		}
-	}
-	Log "Driver module is \"$config(DriverModule)\", ID path is $config(DriverIDPath)\n"
-} else {
-	Log "Driver will not be handled by usb_modeswitch"
-}
 set config(WaitBefore) [string trimleft $config(WaitBefore) 0]
 
 }
@@ -837,92 +768,6 @@ return $symlinkName
 # end of proc {SymLinkName}
 
 
-# Load and bind driver (default "option")
-#
-proc {CheckDriverBind} {vid pid} {
-global config
-
-foreach fn {/sbin/modprobe /usr/sbin/modprobe} {
-	if [file exists $fn] {
-		set loader $fn
-	}
-}
-Log "Module loader is $loader"
-
-set idfile $config(DriverIDPath)/new_id
-if {![file exists $idfile]} {
-	if {$loader == ""} {
-		Log "Can't do anymore without module loader; get \"modtools\"!"
-		return
-	}
-	Log "\nTry to load module \"$config(DriverModule)\""
-	if [catch {set result [exec $loader -v $config(DriverModule)]} err] {
-		Log " Running \"$loader $config(DriverModule)\" gave an error:\n  $err"
-	} else {
-		Log " Module was loaded successfully:\n$result"
-	}
-} else {
-	Log "Module is active already"
-}
-set i 0
-while {$i < 50} {
-	if [file exists $idfile] {
-		break
-	}
-	after 20
-	incr i
-}
-if {$i < 50} {
-	Log "Try to add ID to driver \"$config(DriverModule)\""
-	SysLog "usb_modeswitch: add device ID $vid:$pid to driver \"$config(DriverModule)\""
-	SysLog "usb_modeswitch: please report the device ID to the Linux USB developers!"
-	if [catch {exec echo "$vid $pid ff" >$idfile} err] {
-		Log " Error adding ID to driver:\n  $err"
-	} else {
-		Log " ID added to driver; check for new devices in /dev"
-	}
-} else {
-	Log " \"$idfile\" not found, check if kernel version is at least 2.6.27"
-	Log "Fall back to \"usbserial\""
-	set config(DriverModule) usbserial
-	Log "\nTry to unload driver \"usbserial\""
-	if [catch {exec $loader -r usbserial} err] {
-		Log " Running \"$loader -r usbserial\" gave an error:\n  $err"
-		Log "No more fallbacks"
-		return
-	}
-	after 50
-	Log "\nTry to load driver \"usbserial\" with device IDs"
-	if [catch {set result [exec $loader -v usbserial vendor=0x$vid product=0x$pid]} err] {
-		Log " Running \"$loader usbserial\" gave an error:\n  $err"
-	} else {
-		Log " Driver was loaded successfully:\n$result"
-	}
-}
-
-}
-# end of proc {CheckDriverBind}
-
-
-# Check if USB ID is listed as needing driver binding
-proc {InBindList} {id} {
-
-set listfile /var/lib/usb_modeswitch/bind_list
-if {![file exists $listfile]} {return 0}
-set rc [open $listfile r]
-set buffer [read $rc]
-close $rc
-if [string match *$id* $buffer] {
-Log "Found $id in bind_list"
-	return 1
-} else {
-Log "No $id in bind_list"
-	return 0
-}
-
-}
-# end of proc {InBindList}
-
 # Add USB ID to list of devices needing later treatment
 proc {AddToList} {name id} {
 
@@ -944,37 +789,6 @@ close $lc
 
 }
 # end of proc {AddToList}
-
-
-# Remove USB ID from bind list (NoDriverLoading is set)
-proc {RemoveFromBindList} {id} {
-
-set listfile /var/lib/usb_modeswitch/bind_list
-if [file exists $listfile] {
-	set rc [open $listfile r]
-	set buffer [read $rc]
-	close $rc
-	set idList [split [string trim $buffer] \n]
-} else {
-	return
-}
-set idx [lsearch $idList $id]
-if {$idx > -1} {
-	set idList [lreplace $idList $idx $idx]
-} else {
-	return
-}
-if {[llength $idList] == 0} {
-	file delete $listfile
-	return
-}
-set buffer [join $idList "\n"]
-if [catch {set lc [open $listfile w]}] {return}
-puts $lc $buffer
-close $lc
-
-}
-# end of proc {RemoveFromBindList}
 
 
 proc {CheckSuccess} {devdir} {

@@ -1036,7 +1036,15 @@ void do_static_routes(int add)
 					((strcmp(ifname,"LAN1")==0) ? "lan1_ifname" :
 					((strcmp(ifname,"LAN2")==0) ? "lan2_ifname" :
 					((strcmp(ifname,"LAN3")==0) ? "lan3_ifname" :
-					((*ifname == 'W') ? "wan_iface" : "wan_ifname"))))));
+					((strcmp(ifname,"WAN2")==0) ? "wan2_iface" :
+					((strcmp(ifname,"WAN3")==0) ? "wan3_iface" :
+					((strcmp(ifname,"WAN4")==0) ? "wan4_iface" :
+					((strcmp(ifname,"MAN2")==0) ? "wan2_ifname" :
+					((strcmp(ifname,"MAN3")==0) ? "wan3_ifname" :
+					((strcmp(ifname,"MAN4")==0) ? "wan4_ifname" :
+					((strcmp(ifname,"WAN")==0) ? "wan_iface" : "wan_ifname"))))))))))));
+		syslog(LOG_WARNING, "Static route, ifname=%s, metric=%s, dest=%s, gateway=%s, mask=%s", ifname, metric, dest, gateway, mask);
+
 		if (add) {
 			for (r = 3; r >= 0; --r) {
 				if (route_add(ifname, atoi(metric), dest, gateway, mask) == 0) break;

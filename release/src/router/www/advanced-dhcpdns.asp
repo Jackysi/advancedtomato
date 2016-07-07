@@ -9,7 +9,7 @@ No part of this file may be used without permission.
 <content>
 	<script type="text/javascript">
 
-		//	<% nvram("dnsmasq_q,ipv6_radvd,ipv6_dhcpd,dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only"); %>
+		//<% nvram("dnsmasq_q,ipv6_radvd,ipv6_dhcpd,dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only,dnsmasq_debug"); %>
 
 		if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -45,6 +45,7 @@ No part of this file may be used without permission.
 			fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 			fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 			fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
+			fom.dnsmasq_debug.value = E('_f_dnsmasq_debug').checked ? '1' : '0';
 			fom.ipv6_radvd.value = E('_f_ipv6_radvd').checked ? '1' : '0';
 			fom.ipv6_dhcpd.value = E('_f_ipv6_dhcpd').checked ? '1' : '0';
 
@@ -111,6 +112,7 @@ No part of this file may be used without permission.
 		<input type="hidden" name="dns_intcpt">
 		<input type="hidden" name="dhcpc_minpkt">
 		<input type="hidden" name="dhcpd_static_only">
+		<input type='hidden' name="dnsmasq_debug">
 		<input type="hidden" name="ipv6_radvd">
 		<input type='hidden' name="ipv6_dhcpd">
 		<input type="hidden" name="dnsmasq_q">
@@ -121,6 +123,7 @@ No part of this file may be used without permission.
 			<script type="text/javascript">
 				$('.section.dnsdhcp').forms([
 					{ title: 'Use internal DNS', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
+					{ title: 'Debug Mode', indent: 2, name: 'f_dnsmasq_debug', type: 'checkbox', value: nvram.dnsmasq_debug == '1' },
 					{ title: 'Use received DNS with user-entered DNS', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
 					{ title: 'Prevent DNS-rebind attacks', name: 'f_dns_norebind', type: 'checkbox', value: nvram.dns_norebind == '1' },
 					{ title: 'Intercept DNS port<br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },

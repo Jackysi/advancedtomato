@@ -61,7 +61,7 @@ No part of this file may be used without permission.
 			var routes = nvram.routes_static.split( '>' );
 			for ( var i = 0; i < routes.length; ++i ) {
 				var r;
-				if ( r = routes[ i ].match( /^(.+)<(.+)<(.+)<(\d+)<(LAN|LAN1|LAN2|LAN3|WAN|MAN)<(.*)$/ ) ) {
+				if (r = routes[i].match(/^(.+)<(.+)<(.+)<(\d+)<(LAN|LAN1|LAN2|LAN3|WAN|MAN|WAN2|MAN2|WAN3|MAN3|WAN4|MAN4)<(.*)$/)) {
 					this.insertData( -1, [ r[ 1 ], r[ 2 ], r[ 3 ], r[ 4 ], r[ 5 ], r[ 6 ] ] );
 				}
 			}
