@@ -96,12 +96,14 @@
 			form.submit( fom, 1 );
 		}
 
-		$( document ).ready( function() {
+		// Initiate on full window load
+		$( window ).on( 'load', function() {
 
 			adblockg.recolor();
 			verifyFields( null, 1 );
 
-		} );
+		});
+
 	</script>
 
 	<form id="_fom" method="post" action="tomato.cgi">
@@ -118,12 +120,10 @@
 
 				<div class="adblock-setting"></div><hr><br>
 				<script type="text/javascript">
-					$( '.adblock-setting' ).forms(
-							[
+					$( '.adblock-setting' ).forms([
 								{ title: 'Enable', name: 'f_adblock_enable', type: 'checkbox', value: nvram.adblock_enable != '0' },
 								{ title: 'Debug Mode', indent: 2, name: 'f_dnsmasq_debug', type: 'checkbox', value: nvram.dnsmasq_debug == '1' }
-							]
-					);
+						]);
 				</script>
 
 				<h4>Blacklists</h4>
