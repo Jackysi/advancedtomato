@@ -647,6 +647,10 @@ static void mangle_table(void)
 		}
 	}
 
+
+// Clamp TCP MSS to PMTU of WAN interface (IPv4 & IPv6)
+		ip46t_write("-I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+ 
 	ip46t_write("COMMIT\n");
 }
 
@@ -1119,23 +1123,6 @@ static void filter_input(void)
 	// default policy: DROP
 }
 
-// clamp TCP MSS to PMTU of WAN interface (IPv4 only?)
-static void clampmss(void)
-{
-#if 1
-	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-#else
-	int rmtu = nvram_get_int("wan_run_mtu");
-	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS ", rmtu - 39);
-	if (rmtu < 576) {
-		ipt_write("--clamp-mss-to-pmtu\n");
-	}
-	else {
-		ipt_write("--set-mss %d\n", rmtu - 40);
-	}
-#endif
-}
-
 static void filter_forward(void)
 {
 	char dst[64];
@@ -1213,9 +1200,6 @@ static void filter_forward(void)
 
 	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
-
-	// clamp tcp mss to pmtu
-	clampmss();
 
 	if (wanup) {
 		ipt_restrictions();
@@ -1583,7 +1567,6 @@ static void filter_table(void)
 	}
 	else {
 		ip46t_write(":FORWARD ACCEPT [0:0]\n");
-		clampmss();
 	}
 	ip46t_write("COMMIT\n");
 }
