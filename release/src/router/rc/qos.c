@@ -279,8 +279,9 @@ void ipt_qos(void)
 	if (*wan6face) {
 		ip6t_write(
 			"-A FORWARD -o %s -j QOSO\n"
+			"-A OUTPUT -o %s -p icmpv6 -j RETURN\n"
 			"-A OUTPUT -o %s -j QOSO\n",
-			wan6face, wan6face);
+			wan6face, wan6face, wan6face);
 	}
 #endif
 
@@ -476,7 +477,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
@@ -486,7 +487,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
@@ -755,7 +756,7 @@ void start_qos(void)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
+			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",
 			classid, priority, classid);
 	}
 
