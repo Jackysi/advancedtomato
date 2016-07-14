@@ -477,7 +477,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
@@ -487,7 +487,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
