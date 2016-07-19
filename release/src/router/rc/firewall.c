@@ -1600,18 +1600,11 @@ static void filter_forward(void)
 	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
 
-<<<<<<< HEAD
-	// clamp tcp mss to pmtu
-	clampmss();
-
 	if (wanup || wan2up
 #ifdef TCONFIG_MULTIWAN
 	|| wan3up || wan4up
 #endif
 	) {
-=======
-	if (wanup) {
->>>>>>> 7335cc0... IPv6: Fix TCP MSS Clamping, move to mangle table
 		ipt_restrictions();
 
 		ipt_layer7_inbound();
