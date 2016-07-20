@@ -907,16 +907,6 @@ void stop_6rd_tunnel(void)
 	modprobe_r("sit");
 }
 
-void start_adblock()
-{
-	xstart("/usr/sbin/adblock");
-}
-
-void stop_adblock()
-{
-	xstart("/usr/sbin/adblock", "stop");
-}
-
 void start_ipv6(void)
 {
 	int service;
@@ -953,6 +943,16 @@ void stop_ipv6(void)
 }
 
 #endif
+
+void start_adblock()
+{
+	xstart("/usr/sbin/adblock");
+}
+
+void stop_adblock()
+{
+	xstart("/usr/sbin/adblock", "stop");
+}
 
 // -----------------------------------------------------------------------------
 
