@@ -28,6 +28,7 @@
 #include <net/if.h>
 #include <netinet/ip_icmp.h>
 #include "libbb.h"
+#include "common_bufsiz.h"
 
 #ifdef __BIONIC__
 /* should be in netinet/ip_icmp.h */
@@ -186,8 +187,8 @@ struct globals {
 	char *hostname;
 	char packet[DEFDATALEN + MAXIPLEN + MAXICMPLEN];
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
-#define INIT_G() do { } while (0)
+#define G (*(struct globals*)bb_common_bufsiz1)
+#define INIT_G() do { setup_common_bufsiz(); } while (0)
 
 static void noresp(int ign UNUSED_PARAM)
 {
@@ -247,7 +248,7 @@ static void ping6(len_and_sockaddr *lsa)
 	pkt->icmp6_type = ICMP6_ECHO_REQUEST;
 
 	sockopt = offsetof(struct icmp6_hdr, icmp6_cksum);
-	setsockopt(pingsock, SOL_RAW, IPV6_CHECKSUM, &sockopt, sizeof(sockopt));
+	setsockopt_int(pingsock, SOL_RAW, IPV6_CHECKSUM, sockopt);
 
 	xsendto(pingsock, G.packet, DEFDATALEN + sizeof(struct icmp6_hdr), &lsa->u.sa, lsa->len);
 
@@ -378,7 +379,7 @@ struct globals {
 	} pingaddr;
 	unsigned char rcvd_tbl[MAX_DUP_CHK / 8];
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
+#define G (*(struct globals*)bb_common_bufsiz1)
 #define if_index     (G.if_index    )
 #define source_lsa   (G.source_lsa  )
 #define str_I        (G.str_I       )
@@ -396,10 +397,9 @@ struct globals {
 #define dotted       (G.dotted      )
 #define pingaddr     (G.pingaddr    )
 #define rcvd_tbl     (G.rcvd_tbl    )
-void BUG_ping_globals_too_big(void);
 #define INIT_G() do { \
-	if (sizeof(G) > COMMON_BUFSIZE) \
-		BUG_ping_globals_too_big(); \
+	setup_common_bufsiz(); \
+	BUILD_BUG_ON(sizeof(G) > COMMON_BUFSIZE); \
 	datalen = DEFDATALEN; \
 	timeout = MAXWAIT; \
 	tmin = UINT_MAX; \
@@ -700,12 +700,12 @@ static void ping4(len_and_sockaddr *lsa)
 	/* set recv buf (needed if we can get lots of responses: flood ping,
 	 * broadcast ping etc) */
 	sockopt = (datalen * 2) + 7 * 1024; /* giving it a bit of extra room */
-	setsockopt(pingsock, SOL_SOCKET, SO_RCVBUF, &sockopt, sizeof(sockopt));
+	setsockopt_SOL_SOCKET_int(pingsock, SO_RCVBUF, sockopt);
 
 	if (opt_ttl != 0) {
-		setsockopt(pingsock, IPPROTO_IP, IP_TTL, &opt_ttl, sizeof(opt_ttl));
+		setsockopt_int(pingsock, IPPROTO_IP, IP_TTL, opt_ttl);
 		/* above doesnt affect packets sent to bcast IP, so... */
-		setsockopt(pingsock, IPPROTO_IP, IP_MULTICAST_TTL, &opt_ttl, sizeof(opt_ttl));
+		setsockopt_int(pingsock, IPPROTO_IP, IP_MULTICAST_TTL, opt_ttl);
 	}
 
 	signal(SIGINT, print_stats_and_exit);
@@ -732,7 +732,6 @@ static void ping4(len_and_sockaddr *lsa)
 	}
 }
 #if ENABLE_PING6
-extern int BUG_bad_offsetof_icmp6_cksum(void);
 static void ping6(len_and_sockaddr *lsa)
 {
 	int sockopt;
@@ -756,7 +755,7 @@ static void ping6(len_and_sockaddr *lsa)
 		}
 		if (setsockopt(pingsock, IPPROTO_ICMPV6, ICMP6_FILTER, &filt,
 					sizeof(filt)) < 0)
-			bb_error_msg_and_die("setsockopt(ICMP6_FILTER)");
+			bb_error_msg_and_die("setsockopt(%s)", "ICMP6_FILTER");
 	}
 #endif /*ICMP6_FILTER*/
 
@@ -766,15 +765,14 @@ static void ping6(len_and_sockaddr *lsa)
 	/* set recv buf (needed if we can get lots of responses: flood ping,
 	 * broadcast ping etc) */
 	sockopt = (datalen * 2) + 7 * 1024; /* giving it a bit of extra room */
-	setsockopt(pingsock, SOL_SOCKET, SO_RCVBUF, &sockopt, sizeof(sockopt));
+	setsockopt_SOL_SOCKET_int(pingsock, SO_RCVBUF, sockopt);
 
 	sockopt = offsetof(struct icmp6_hdr, icmp6_cksum);
-	if (offsetof(struct icmp6_hdr, icmp6_cksum) != 2)
-		BUG_bad_offsetof_icmp6_cksum();
-	setsockopt(pingsock, SOL_RAW, IPV6_CHECKSUM, &sockopt, sizeof(sockopt));
+	BUILD_BUG_ON(offsetof(struct icmp6_hdr, icmp6_cksum) != 2);
+	setsockopt_int(pingsock, SOL_RAW, IPV6_CHECKSUM, sockopt);
 
 	/* request ttl info to be returned in ancillary data */
-	setsockopt(pingsock, SOL_IPV6, IPV6_HOPLIMIT, &const_int_1, sizeof(const_int_1));
+	setsockopt_1(pingsock, SOL_IPV6, IPV6_HOPLIMIT);
 
 	if (if_index)
 		pingaddr.sin6.sin6_scope_id = if_index;

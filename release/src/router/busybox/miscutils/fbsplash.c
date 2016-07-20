@@ -34,6 +34,7 @@
 //usage:     "\n			commands: 'NN' (% for progress bar) or 'exit'"
 
 #include "libbb.h"
+#include "common_bufsiz.h"
 #include <linux/fb.h>
 
 /* If you want logging messages on /tmp/fbsplash.log... */
@@ -150,7 +151,7 @@ static void fb_open(const char *strfb_device)
 
 	// map the device in memory
 	G.addr = mmap(NULL,
-			G.scr_var.yres * G.scr_fix.line_length,
+			(G.scr_var.yres_virtual ?: G.scr_var.yres) * G.scr_fix.line_length,
 			PROT_WRITE, MAP_SHARED, fbfd, 0);
 	if (G.addr == MAP_FAILED)
 		bb_perror_msg_and_die("mmap");
@@ -373,10 +374,12 @@ static void fb_drawimage(void)
 	 *   in pure binary by 1 or 2 bytes. (we support only 1 byte)
 	 */
 #define concat_buf bb_common_bufsiz1
+	setup_common_bufsiz();
+
 	read_ptr = concat_buf;
 	while (1) {
 		int w, h, max_color_val;
-		int rem = concat_buf + sizeof(concat_buf) - read_ptr;
+		int rem = concat_buf + COMMON_BUFSIZE - read_ptr;
 		if (rem < 2
 		 || fgets(read_ptr, rem, theme_file) == NULL
 		) {
@@ -516,7 +519,7 @@ int fbsplash_main(int argc UNUSED_PARAM, char **argv)
 	// handle a case when we have many buffered lines
 	// already in the pipe
 	while ((num_buf = xmalloc_fgetline(fp)) != NULL) {
-		if (strncmp(num_buf, "exit", 4) == 0) {
+		if (is_prefixed_with(num_buf, "exit")) {
 			DEBUG_MESSAGE("exit");
 			break;
 		}

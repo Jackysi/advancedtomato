@@ -1,6 +1,6 @@
 VERSION = 1
-PATCHLEVEL = 23
-SUBLEVEL = 2
+PATCHLEVEL = 25
+SUBLEVEL = 0
 EXTRAVERSION =
 NAME = Unnamed
 
@@ -554,7 +554,7 @@ export	INSTALL_PATH ?= /boot
 #
 # INSTALL_MOD_PATH specifies a prefix to MODLIB for module directory
 # relocations required by build roots.  This is not defined in the
-# makefile but the arguement can be passed to make if needed.
+# makefile but the argument can be passed to make if needed.
 #
 
 MODLIB	= $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)
@@ -612,7 +612,8 @@ quiet_cmd_busybox__ ?= LINK    $@
       "$(LDFLAGS) $(EXTRA_LDFLAGS)" \
       "$(core-y)" \
       "$(libs-y)" \
-      "$(LDLIBS)"
+      "$(LDLIBS)" \
+      && $(srctree)/scripts/generate_BUFSIZ.sh --post include/common_bufsiz.h
 
 # Generate System.map
 quiet_cmd_sysmap = SYSMAP
@@ -846,12 +847,15 @@ export CPPFLAGS_busybox.lds += -P -C -U$(ARCH)
 # 	Split autoconf.h into include/linux/config/*
 quiet_cmd_gen_bbconfigopts = GEN     include/bbconfigopts.h
       cmd_gen_bbconfigopts = $(srctree)/scripts/mkconfigs include/bbconfigopts.h include/bbconfigopts_bz2.h
+quiet_cmd_gen_common_bufsiz = GEN     include/common_bufsiz.h
+      cmd_gen_common_bufsiz = $(srctree)/scripts/generate_BUFSIZ.sh include/common_bufsiz.h
 quiet_cmd_split_autoconf   = SPLIT   include/autoconf.h -> include/config/*
       cmd_split_autoconf   = scripts/basic/split-include include/autoconf.h include/config
 #bbox# piggybacked generation of few .h files
 include/config/MARKER: scripts/basic/split-include include/autoconf.h
 	$(call cmd,split_autoconf)
 	$(call cmd,gen_bbconfigopts)
+	$(call cmd,gen_common_bufsiz)
 	@touch $@
 
 # Generate some files
@@ -967,6 +971,7 @@ CLEAN_FILES +=	busybox busybox_unstripped* busybox.links \
 MRPROPER_DIRS  += include/config include2
 MRPROPER_FILES += .config .config.old include/asm .version .old_version \
 		  include/NUM_APPLETS.h \
+		  include/common_bufsiz.h \
 		  include/autoconf.h \
 		  include/bbconfigopts.h \
 		  include/bbconfigopts_bz2.h \
@@ -1167,24 +1172,7 @@ endif
 ALLSOURCE_ARCHS := $(ARCH)
 
 define all-sources
-	( find $(__srctree) $(RCS_FIND_IGNORE) \
-	       \( -name include -o -name arch \) -prune -o \
-	       -name '*.[chS]' -print; \
-	  for ARCH in $(ALLSOURCE_ARCHS) ; do \
-	       find $(__srctree)arch/$${ARCH} $(RCS_FIND_IGNORE) \
-	            -name '*.[chS]' -print; \
-	  done ; \
-	  find $(__srctree)security/selinux/include $(RCS_FIND_IGNORE) \
-	       -name '*.[chS]' -print; \
-	  find $(__srctree)include $(RCS_FIND_IGNORE) \
-	       \( -name config -o -name 'asm-*' \) -prune \
-	       -o -name '*.[chS]' -print; \
-	  for ARCH in $(ALLINCLUDE_ARCHS) ; do \
-	       find $(__srctree)include/asm-$${ARCH} $(RCS_FIND_IGNORE) \
-	            -name '*.[chS]' -print; \
-	  done ; \
-	  find $(__srctree)include/asm-generic $(RCS_FIND_IGNORE) \
-	       -name '*.[chS]' -print )
+	( find -regex '.*\.[ch]$$' )
 endef
 
 quiet_cmd_cscope-file = FILELST cscope.files

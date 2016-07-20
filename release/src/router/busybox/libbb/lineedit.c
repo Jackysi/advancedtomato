@@ -47,7 +47,8 @@
  * It stems from simplistic "cmdedit_y = cmdedit_prmt_len / cmdedit_termw"
  * calculation of how many lines the prompt takes.
  */
-#include "libbb.h"
+#include "busybox.h"
+#include "NUM_APPLETS.h"
 #include "unicode.h"
 #ifndef _POSIX_VDISABLE
 # define _POSIX_VDISABLE '\0'
@@ -672,23 +673,20 @@ static char *username_path_completion(char *ud)
  */
 static NOINLINE unsigned complete_username(const char *ud)
 {
-	/* Using _r function to avoid pulling in static buffers */
-	char line_buff[256];
-	struct passwd pwd;
-	struct passwd *result;
+	struct passwd *pw;
 	unsigned userlen;
 
 	ud++; /* skip ~ */
 	userlen = strlen(ud);
 
 	setpwent();
-	while (!getpwent_r(&pwd, line_buff, sizeof(line_buff), &result)) {
+	while ((pw = getpwent()) != NULL) {
 		/* Null usernames should result in all users as possible completions. */
-		if (/*!userlen || */ strncmp(ud, pwd.pw_name, userlen) == 0) {
-			add_match(xasprintf("~%s/", pwd.pw_name));
+		if (/* !ud[0] || */ is_prefixed_with(pw->pw_name, ud)) {
+			add_match(xasprintf("~%s/", pw->pw_name));
 		}
 	}
-	endpwent();
+	endpwent(); /* don't keep password file open */
 
 	return 1 + userlen;
 }
@@ -777,6 +775,19 @@ static NOINLINE unsigned complete_cmd_dir_file(const char *command, int type)
 	}
 	pf_len = strlen(pfind);
 
+#if ENABLE_FEATURE_SH_STANDALONE && NUM_APPLETS != 1
+	if (type == FIND_EXE_ONLY) {
+		const char *p = applet_names;
+
+		while (*p) {
+			if (strncmp(pfind, p, pf_len) == 0)
+				add_match(xstrdup(p));
+			while (*p++ != '\0')
+				continue;
+		}
+	}
+#endif
+
 	for (i = 0; i < npaths; i++) {
 		DIR *dir;
 		struct dirent *next;
@@ -795,7 +806,7 @@ static NOINLINE unsigned complete_cmd_dir_file(const char *command, int type)
 			if (!pfind[0] && DOT_OR_DOTDOT(name_found))
 				continue;
 			/* match? */
-			if (strncmp(name_found, pfind, pf_len) != 0)
+			if (!is_prefixed_with(name_found, pfind))
 				continue; /* no */
 
 			found = concat_path_file(paths[i], name_found);
@@ -1882,15 +1893,16 @@ static void parse_and_put_prompt(const char *prmt_ptr)
 						cwd_buf = xrealloc_getcwd_or_warn(NULL);
 						if (!cwd_buf)
 							cwd_buf = (char *)bb_msg_unknown;
-						else {
+						else if (home_pwd_buf[0]) {
+							char *after_home_user;
+
 							/* /home/user[/something] -> ~[/something] */
-							l = strlen(home_pwd_buf);
-							if (l != 0
-							 && strncmp(home_pwd_buf, cwd_buf, l) == 0
-							 && (cwd_buf[l] == '/' || cwd_buf[l] == '\0')
+							after_home_user = is_prefixed_with(cwd_buf, home_pwd_buf);
+							if (after_home_user
+							 && (*after_home_user == '/' || *after_home_user == '\0')
 							) {
 								cwd_buf[0] = '~';
-								overlapping_strcpy(cwd_buf + 1, cwd_buf + l);
+								overlapping_strcpy(cwd_buf + 1, after_home_user);
 							}
 						}
 					}
