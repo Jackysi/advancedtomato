@@ -21,7 +21,6 @@
 
 extern int init_module(void *module, unsigned long len, const char *options);
 extern int delete_module(const char *module, unsigned flags);
-extern int query_module(const char *name, int which, void *buf, size_t bufsize, size_t *ret);
 /* linux/include/linux/module.h has limit of 64 chars on module names */
 #undef MODULE_NAME_LEN
 #define MODULE_NAME_LEN 64
@@ -46,6 +45,7 @@ typedef struct module_info {
 	char *pathname;
 	char *aliases;
 	char *deps;
+	smallint open_read_failed;
 } module_info;
 
 /*
@@ -116,21 +116,21 @@ static char* copy_stringbuf(void)
 
 static char* find_keyword(char *ptr, size_t len, const char *word)
 {
-	int wlen;
-
 	if (!ptr) /* happens if xmalloc_open_zipped_read_close cannot read it */
 		return NULL;
 
-	wlen = strlen(word);
-	len -= wlen - 1;
+	len -= strlen(word) - 1;
 	while ((ssize_t)len > 0) {
 		char *old = ptr;
+		char *after_word;
+
 		/* search for the first char in word */
-		ptr = memchr(ptr, *word, len);
+		ptr = memchr(ptr, word[0], len);
 		if (ptr == NULL) /* no occurance left, done */
 			break;
-		if (strncmp(ptr, word, wlen) == 0)
-			return ptr + wlen; /* found, return ptr past it */
+		after_word = is_prefixed_with(ptr, word);
+		if (after_word)
+			return after_word; /* found, return ptr past it */
 		++ptr;
 		len -= (ptr - old);
 	}
@@ -161,6 +161,15 @@ static char *filename2modname(const char *filename, char *modname)
 	modname[i] = '\0';
 
 	return modname;
+}
+
+static int pathname_matches_modname(const char *pathname, const char *modname)
+{
+	int r;
+	char name[MODULE_NAME_LEN];
+	filename2modname(bb_get_last_path_component_nostrip(pathname), name);
+	r = (strcmp(name, modname) == 0);
+	return r;
 }
 
 /* Take "word word", return malloced "word",NUL,"word",NUL,NUL */
@@ -214,7 +223,8 @@ static int load_module(const char *fname, const char *options)
 #endif
 }
 
-static void parse_module(module_info *info, const char *pathname)
+/* Returns !0 if open/read was unsuccessful */
+static int parse_module(module_info *info, const char *pathname)
 {
 	char *module_image;
 	char *ptr;
@@ -223,6 +233,7 @@ static void parse_module(module_info *info, const char *pathname)
 	dbg1_error_msg("parse_module('%s')", pathname);
 
 	/* Read (possibly compressed) module */
+	errno = 0;
 	len = 64 * 1024 * 1024; /* 64 Mb at most */
 	module_image = xmalloc_open_zipped_read_close(pathname, &len);
 	/* module_image == NULL is ok here, find_keyword handles it */
@@ -290,21 +301,11 @@ static void parse_module(module_info *info, const char *pathname)
 		dbg2_error_msg("dep:'%s'", ptr);
 		append(ptr);
 	}
+	free(module_image);
 	info->deps = copy_stringbuf();
 
-	free(module_image);
-}
-
-static int pathname_matches_modname(const char *pathname, const char *modname)
-{
-	int r;
-	char name[MODULE_NAME_LEN];
-	const char *fname = bb_get_last_path_component_nostrip(pathname);
-	const char *suffix = strrstr(fname, ".ko");
-	safe_strncpy(name, fname, suffix - fname + 1);
-	replace(name, '-', '_');
-	r = (strcmp(name, modname) == 0);
-	return r;
+	info->open_read_failed = (module_image == NULL);
+	return info->open_read_failed;
 }
 
 static FAST_FUNC int fileAction(const char *pathname,
@@ -335,7 +336,8 @@ static FAST_FUNC int fileAction(const char *pathname,
 
 	dbg1_error_msg("'%s' module name matches", pathname);
 	module_found_idx = cur;
-	parse_module(&modinfo[cur], pathname);
+	if (parse_module(&modinfo[cur], pathname) != 0)
+		return TRUE; /* failed to open/read it, no point in trying loading */
 
 	if (!(option_mask32 & OPT_r)) {
 		if (load_module(pathname, module_load_options) == 0) {
@@ -539,17 +541,50 @@ static module_info** find_alias(const char *alias)
 // TODO: open only once, invent config_rewind()
 static int already_loaded(const char *name)
 {
-	int ret = 0;
-	char *s;
-	parser_t *parser = config_open2("/proc/modules", xfopen_for_read);
-	while (config_read(parser, &s, 1, 1, "# \t", PARSE_NORMAL & ~PARSE_GREEDY)) {
-		if (strcmp(s, name) == 0) {
-			ret = 1;
-			break;
+	int ret;
+	char *line;
+	FILE *fp;
+
+	ret = 5 * 2;
+ again:
+	fp = fopen_for_read("/proc/modules");
+	if (!fp)
+		return 0;
+	while ((line = xmalloc_fgetline(fp)) != NULL) {
+		char *live;
+		char *after_name;
+
+		// Examples from kernel 3.14.6:
+		//pcspkr 12718 0 - Live 0xffffffffa017e000
+		//snd_timer 28690 2 snd_seq,snd_pcm, Live 0xffffffffa025e000
+		//i915 801405 2 - Live 0xffffffffa0096000
+		after_name = is_prefixed_with(line, name);
+		if (!after_name || *after_name != ' ') {
+			free(line);
+			continue;
 		}
+		live = strstr(line, " Live");
+		free(line);
+		if (!live) {
+			/* State can be Unloading, Loading, or Live.
+			 * modprobe must not return prematurely if we see "Loading":
+			 * it can cause further programs to assume load completed,
+			 * but it did not (yet)!
+			 * Wait up to 5*20 ms for it to resolve.
+			 */
+			ret -= 2;
+			if (ret == 0)
+				break;  /* huh? report as "not loaded" */
+			fclose(fp);
+			usleep(20*1000);
+			goto again;
+		}
+		ret = 1;
+		break;
 	}
-	config_close(parser);
-	return ret;
+	fclose(fp);
+
+	return ret & 1;
 }
 #else
 #define already_loaded(name) 0
@@ -579,13 +614,14 @@ static int rmmod(const char *filename)
 #define process_module(a,b) process_module(a)
 #define cmdline_options ""
 #endif
-static void process_module(char *name, const char *cmdline_options)
+static int process_module(char *name, const char *cmdline_options)
 {
 	char *s, *deps, *options;
 	module_info **infovec;
 	module_info *info;
 	int infoidx;
 	int is_remove = (option_mask32 & OPT_r) != 0;
+	int exitcode = EXIT_SUCCESS;
 
 	dbg1_error_msg("process_module('%s','%s')", name, cmdline_options);
 
@@ -599,7 +635,7 @@ static void process_module(char *name, const char *cmdline_options)
 		 * (compat note: this allows and strips .ko suffix)
 		 */
 		rmmod(name);
-		return;
+		return EXIT_SUCCESS;
 	}
 
 	/*
@@ -610,7 +646,7 @@ static void process_module(char *name, const char *cmdline_options)
 	 */
 	if (!is_remove && already_loaded(name)) {
 		dbg1_error_msg("nothing to do for '%s'", name);
-		return;
+		return EXIT_SUCCESS;
 	}
 
 	options = NULL;
@@ -712,6 +748,11 @@ static void process_module(char *name, const char *cmdline_options)
 			dbg1_error_msg("'%s': blacklisted", info->pathname);
 			continue;
 		}
+		if (info->open_read_failed) {
+			/* We already tried it, didn't work. Don't try load again */
+			exitcode = EXIT_FAILURE;
+			continue;
+		}
 		errno = 0;
 		if (load_module(info->pathname, options) != 0) {
 			if (EEXIST != errno) {
@@ -723,13 +764,14 @@ static void process_module(char *name, const char *cmdline_options)
 					info->pathname,
 					moderror(errno));
 			}
+			exitcode = EXIT_FAILURE;
 		}
 	}
  ret:
 	free(infovec);
 	free(options);
-//TODO: return load attempt result from process_module.
-//If dep didn't load ok, continuing makes little sense.
+
+	return exitcode;
 }
 #undef cmdline_options
 
@@ -836,6 +878,7 @@ The following options are useful for people managing distributions:
 int modprobe_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int modprobe_main(int argc UNUSED_PARAM, char **argv)
 {
+	int exitcode;
 	struct utsname uts;
 	char applet0 = applet_name[0];
 	IF_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(char *options;)
@@ -941,21 +984,23 @@ int modprobe_main(int argc UNUSED_PARAM, char **argv)
 			bb_error_msg_and_die("can't insert '%s': %s",
 					*argv, moderror(errno));
 		}
-		return 0;
+		return EXIT_SUCCESS;
 	}
 
 	/* Try to load modprobe.dep.bb */
-	if ('r' != applet0) /* not rmmod */
+	if ('r' != applet0) { /* not rmmod */
 		load_dep_bb();
+	}
 
 	/* Load/remove modules.
 	 * Only rmmod/modprobe -r loops here, insmod/modprobe has only argv[0] */
+	exitcode = EXIT_SUCCESS;
 	do {
-		process_module(*argv, options);
+		exitcode |= process_module(*argv, options);
 	} while (*++argv);
 
 	if (ENABLE_FEATURE_CLEAN_UP) {
 		IF_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(free(options);)
 	}
-	return EXIT_SUCCESS;
+	return exitcode;
 }
