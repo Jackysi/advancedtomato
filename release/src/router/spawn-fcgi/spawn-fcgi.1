@@ -1,4 +1,4 @@
-.TH spawn-fcgi 1 "26 March 2009"
+.TH spawn-fcgi 1 "21 November 2012"
 .
 .SH NAME
 .
@@ -69,6 +69,12 @@ have a look at
 .BR multiwatch(1)
 if you want to supervise multiple forks on the same socket.
 .TP 8
+.B  \-b <backlog>
+backlog to allow on the socket (default 1024). This is usually limited by the kernel too,
+check sysctl net.core.somaxconn (default 128) for linux.
+.IP
+backlog is the queue of connections that the kernel accepts before the userspace application sees them.
+.TP 8
 .B  \-P <path>
 Name of the PID file for spawned processes (ignored in no-fork mode)
 .TP 8
@@ -76,7 +82,8 @@ Name of the PID file for spawned processes (ignored in no-fork mode)
 No forking should take place (for daemontools)
 .TP 8
 .B  \-M <mode>
-Change file mode of the Unix domain socket; only used if \-s is given too.
+Change file mode of the Unix domain socket (octal integer); only used if \-s is given too.
+Defaults to read+write for user and group (0660) as far as the umask allows it.
 .TP 8
 .B  \-?, \-h
 General usage instructions
