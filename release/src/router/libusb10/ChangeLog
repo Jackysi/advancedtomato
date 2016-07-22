@@ -1,3 +1,2527 @@
+commit ab9cd5a7be637f7b793987971a706b1d11c27ded
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 08:10:11 2012 +0200
+
+    libusb-1.0.9
+
+commit 696400ad83531bcf944c71164a46f9ccb6a33df3
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 08:08:34 2012 +0200
+
+    AUTHORS: Update list of contributors
+
+commit 19f94537ea55586dd85f8d627fcfaa6173069ea1
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 06:41:34 2012 +0200
+
+    AUTHORS: Add Martin Pieuchot as copyright holder
+
+commit 1a1c633d7912a2565f6af0c9294e10a759d40e05
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 06:41:12 2012 +0200
+
+    AUTHORS: Add Hans de Goede as copyright holder
+
+commit 9477f793341d59cc861acb283e6cb03b5730ac91
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 06:40:45 2012 +0200
+
+    AUTHORS: Add Peter Stuge as copyright holder
+
+commit 4b0dfe9770356af3c51103a9b3d63c5f8cc63d8b
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Apr 2 15:47:53 2012 +0100
+
+    AUTHORS: Update Pete Batard's copyright years and email address
+    
+    libusbx.git commit f98eaca0985364be00fcfde3fd3884075092a4e9
+    
+    [stuge: Remove unrelated changes]
+
+commit 9f0ea78357b7b1654cb3e7de6ff57f5f378b68f1
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 08:35:04 2012 +0200
+
+    AUTHORS: Update Nathan Hjelm's copyright years
+
+commit 8d38506ebc9fb57a40113e5a7739572a42b826d8
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 06:36:08 2012 +0200
+
+    README: Add the BSDs, punctuation, mailinglist link, and remove Daniel
+
+commit 05cbe2de45806db309343cdf298d8569c55863e5
+Author: James Hanko <james.hanko@tridentmicro.com>
+Date:   Wed Oct 19 17:32:34 2011 -0700
+
+    Linux: Search for /dev/usbdev<bus>.<device> USB device special files
+    
+    If neither the (now deprecated) usbfs filesystem nor udev is available
+    then libusb searches for device nodes also in /dev where they may be
+    created if the kernel was built with the option CONFIG_USB_DEVICE_CLASS.
+    This helps on embedded systems such as Android, and all mdev users.
+    
+    Fixes #119.
+
+commit a806d169e6b5f675289cb9307fcd6b908edd9219
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 04:32:47 2012 +0200
+
+    Add a timestamp in log messages
+    
+    Fixes #34.
+
+commit 03f4d40c748506c85f88427dd53afd5c663a2929
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 02:24:44 2012 +0200
+
+    Include library version in the very first libusb_init() debug message
+
+commit 84d5eafd1f24a1c6f77f0c2a2ad40e1fbfdea381
+Author: Martin Pieuchot <mpi@openbsd.org>
+Date:   Thu Apr 19 13:33:36 2012 +0200
+
+    OpenBSD: Provide libusb_get_device_speed() data
+    
+    Because the different speed values used by the libusb and OpenBSD's
+    usb_device_info structure are compatible, keep the code simple and
+    just copy the value returned by the USB_GET_DEVICEINFO ioctl() call.
+    
+    Fixes #45.
+
+commit c145ec09732fac2eef53accc07314040d22b64a5
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Apr 20 00:11:01 2012 +0200
+
+    doc/Makefile.am: Remove username from SF web rsync upload command
+    
+    Commit c407a2d97b6f8715d3452257a0adac40a20178e6 did it for tarballs.
+    
+    libusbx.git commit ca159f15737e9097a4d031c9950f281c42af040a
+
+commit 6506013c6d4face34cfec79dd0584e9f528cbc6a
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:30:24 2012 +0100
+
+    Windows: Remove #define compile time options in the backend source code
+    
+    * The DYNAMIC_FDS, AUTO_CLAIM and FORCE_INSTANT_TIMEOUTS options
+      were introduced for development/testing and don't appear to be
+      used by the Windows backend users => remove them.
+    
+    libusbx.git commit 4cccbed825fe1dc138121640a6497d7d05aac159
+
+commit e291e369b975692dfa1a0f029244af597fa61220
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:05:37 2012 +0100
+
+    Windows: Warn on one libusb_get_device_list() memory allocation failure
+    
+    libusbx.git commit 24d595aa71e7fd0f14d40e933a33f852f7269c8b
+
+commit 2f40a03ea0552cd8b5ce3d7667b20dc04da061da
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:05:37 2012 +0100
+
+    Windows: Add textual error name to debug message on auto-release errors
+    
+    libusbx.git commit 24d595aa71e7fd0f14d40e933a33f852f7269c8b
+
+commit 3c7f85a49b42ac36c6d41294858518c554ac4694
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:05:37 2012 +0100
+
+    Windows: Silence warning about unused function guid_to_string()
+    
+    Commit 6b1982b1bd321b55698ce537e64648e8aec85f6f removed the #ifdef
+    around guid_to_string() but this ended up causing a warning when
+    the function wasn't being called. Add it back with correct _MSC_VER.
+    
+    libusbx.git commit 24d595aa71e7fd0f14d40e933a33f852f7269c8b
+    
+    [stuge: Rewrite commit message for libusb.git]
+
+commit eb55963a6b33799ea76c34f538f21e86f235ea62
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:05:37 2012 +0100
+
+    Windows: Base DUMMY_HANDLE on LONG_PTR instead of LONG
+    
+    libusbx.git commit 24d595aa71e7fd0f14d40e933a33f852f7269c8b
+
+commit d930865987de523061eca259a7fed11aea626831
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Apr 10 13:05:37 2012 +0100
+
+    Windows: Prefer calloc() over malloc() and cast all allocations
+    
+    This silences VS2010 intellisense warnings on memory allocation.
+    
+    libusbx.git commit 24d595aa71e7fd0f14d40e933a33f852f7269c8b
+
+commit df35117ce58b74fa530baaaccc30adaf432398ea
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Apr 19 22:55:44 2012 +0200
+
+    Add libusb_get_version() API function
+    
+    Let's see how this will be used. Fixes #53.
+    
+    libusbx.git commit 37dfd16c8c2f36c81c86de303072def0dc405e32
+    
+    [stuge: Remove unrelated changes]
+    [stuge: Add struct libusb_version member rc for release candidate suffix]
+    [stuge: Add struct libusb_version member describe for git describe output]
+
+commit 29d5f63c5765f36ea65b55c4cd5f36e1f10a4dae
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Apr 19 22:25:07 2012 +0200
+
+    Windows: Rename VS2005 solution and add VS2010 project files
+    
+    libusbx.git commit fcad0941e52eb2fd6d57d3327f420db14dfabf0b
+    
+    [stuge: Remove xusb references]
+    [stuge: Add newlines at end of new files]
+    [stuge: Rename libusb_20??.sln to libusb_vs20??.sln]
+
+commit b217ec1f904c4382010a3a834a7c58d595b594cf
+Author: Pete Batard <pete@akeo.ie>
+Date:   Sat Mar 31 22:32:56 2012 +0100
+
+    libusb/Makefile.am: Fix missing DLL .def file from make dist
+    
+    libusbx.git commit 10dc1ea9a799b13b7423968130da812aa97289bf
+    
+    [stuge: Use EXTRA_DIST in libusb/Makefile.am instead]
+
+commit 54cb51d8417e0128eb9088bf628db138c9daa2a0
+Author: Pete Batard <pete@akeo.ie>
+Date:   Sat Mar 31 22:14:47 2012 +0100
+
+    Makefile.am: Fix msvc dir not being included in make dist
+    
+    libusbx.git commit a8a80b60a14e3a8269e42dedf34fda66da8e0e50
+
+commit 38d5ba472c6cb728ec818a0c8d964b632c8a7992
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 30 13:40:32 2012 +0100
+
+    Linux: Don't spam the console with 'device unconfigured' errors
+    
+    libusbx.git commit 3c968be61befc47d33562843e5479ff67303b0c4
+
+commit 93f14087b2e79d71ba1e53c0b9c7da655dd1258e
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Thu Apr 19 05:52:58 2012 -0600
+
+    Darwin: Silence warning: cast from pointer to integer of different size
+    
+    As per http://marc.info/?m=133483651109899
+    
+    Reported-by: Xiaofan Chen <xiaofanc@gmail.com>
+
+commit 0efc2086646200d8dee86cbbb1e98136383a05c3
+Author: Pete Batard <pete@akeo.ie>
+Date:   Thu Mar 29 23:21:25 2012 +0100
+
+    .gitattributes: Add export-ignore for .gitattributs and .gitignore
+    
+    This keeps the git files out of archives created by gitweb.
+    
+    libusbx.git commit 2250152b251243f75c951533ae7b1139a785cfe6
+    
+    [stuge: Removed unrelated whitespace changes]
+
+commit a7ef55c02f0116b94cb75831e5d90ad258c662f8
+Author: Pete Batard <pete@akeo.ie>
+Date:   Wed Mar 28 01:02:02 2012 +0100
+
+    Windows: fix Clang warnings about unused assignations
+    
+    libusbx.git commit c0e7b289fdb35687b90263b14426319d2b96b132
+
+commit ac8eed67e1595ee5a069623e48362d8a85dcb252
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Mar 26 23:34:25 2012 +0100
+
+    configure.ac: LT_LANG([Windows Resource]) makes windres check redundant
+    
+    libusbx.git commit 4f9fd6a29a712b0e3312983e9ff153e6d7ed0822
+
+commit 89ce6f7d05dc8ff4a441a01b192d2e20857f6c48
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Mar 27 00:03:07 2012 +0100
+
+    Windows: Bring .vcproj x86_64 output directories in line with x86_32
+    
+    libusbx.git commit abdb4437ea1897226076fa706651e350dba1cfd5
+
+commit 77743c6f5b3cfa2d06dcb32204bc65d8bd4fec80
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:11 2012 +0100
+
+    Linux: Fix a comment in handle_iso_completion()
+    
+    Fix the comment at the end of handle_iso_completion, we don't stop on
+    urbs / isoc packets with less data then requested, which is a good
+    thing since it is a normal condition for isoc transfers.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 5b87c2c7475a8d68270e19336afec0c5a08579ca
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:10 2012 +0100
+
+    Linux: Remove bogus status handling from handle_iso_completion()
+    
+    Remove a useless check+set of status because:
+    1. The check is always true; and
+    2. The new value is never used
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit e23d8f67eab947e5d41216e0139f0a50d1342ef8
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:09 2012 +0100
+
+    Linux: Translate isoc packet status codes to LIBUSB_TRANSFER_ codes
+    
+    During testing of my usbredir code I hit a scenario where my libusb
+    app was seeing EXDEV as status in the transfer's iso_packet_desc.
+    
+    This happened because we didn't translate linux negative errno errors
+    in each isoc packet's status to LIBUSB_TRANSFER_ status codes! This
+    patch adds these translations.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 7199bc2c9c351b553b6175a588237ee793719281
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:08 2012 +0100
+
+    Linux: Fix URB return code handling
+    
+    During testing of my usbredir code I hit a case where EOVERFLOW was not
+    handled in handle_control_completion(). Instead of just fixing this one
+    case I've audited (and fixed where necessary) all handle_foo_completion()
+    functions to know about all errors documented in
+    linux/Documentation/usb/error-codes.txt.
+    
+    Note that for handle_iso_completion() this patch actually removes the
+    handling of some codes, since these can never occur on an iso urb (they
+    can only occur on the iso packets included in the urb, see the next patch
+    in this series). Also, in case an unknown status is encountered on an iso
+    urb this patch sets the urb's status to ERROR rather then leaving it at
+    completed.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 98bc7b8d125c2756deadfc889dcefd4e6f2fcd02
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:07 2012 +0100
+
+    Don't print an error when libusb_cancel_transfer() fails with NOT_FOUND
+    
+    As stated in the documentation for libusb_cancel_transfer(),
+    LIBUSB_ERROR_NOT_FOUND is an expected return value for
+    libusb_cancel_transfer() under certain circumstances, so
+    printing an error every time this happens is undesirable.
+    
+    Even more so because under Linux IOCTL_USBFS_DISCARDURB sets errno
+    to EINVAL when the kernel can't not find the urb in the kernel's
+    urbs-in-flight list, which means that the urb has already completed
+    at the host controller level but it has not necessarily been reaped
+    yet. IOW under Linux libusb_cancel_transfer() may yield a result of
+    LIBUSB_ERROR_NOT_FOUND *before* the transfer's callback has been
+    called! In conclusion there is no way for applications to avoid
+    calling libusb_cancel_transfer() on already completed transfers,
+    and these errors can and do happen frequently for some USB traffic.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 4db8275da59996eb1c22d2e9e9c527fa58b288ad
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Mar 9 11:31:06 2012 +0100
+
+    Linux: Fix cancel_transfer return value when cancelling a multi-urb transfer
+    
+    If we fail to cancel the last urb of a multi-urb transfer because it
+    has already completed (errno == EINVAL on DISCARD_URB), then the entire
+    transfer has already completed, so returning NOT_FOUND is consistent
+    with what the documentation for libusb_cancel_transfer() says.
+    
+    But if we've successfully cancelled the last urb, and then another urb
+    fails with errno == EINVAL, this means that we've still cancelled the
+    transfer, as it has only *partially* completed.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit b22253ba9cbd399299b534a8c5e3bbac3f240963
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Apr 19 04:05:29 2012 +0200
+
+    libusb-1.0.pc: Mention OpenBSD and NetBSD in description
+
+commit 6aa0fc60d94e3123de230d3fbc9196814c0e466e
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Apr 16 05:59:44 2012 +0200
+
+    io.c: Add debug message with the callback address on completed transfer
+
+commit de41604560a57b2279ac1d0a10b8192a9224d284
+Author: Xiaofan Chen <xiaofanc@gmail.com>
+Date:   Sun Apr 15 11:50:27 2012 +0800
+
+    Experimental support for NetBSD using the OpenBSD backend
+    
+    Signed-off-by: Xiaofan Chen <xiaofanc@gmail.com>
+
+commit 404054cb508881c9bd6bc575b66c4f509046b4af
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Apr 19 00:41:45 2012 +0200
+
+    configure.ac: Separate per-OS backend selection from per-backend settings
+
+commit 2eba7e4197cf9afa77451186e1a116ee3ae91adc
+Author: Xiaofan Chen <xiaofanc@gmail.com>
+Date:   Sun Apr 15 07:17:18 2012 +0800
+
+    Linux: Silence unused variable warnings when without CLOCK_MONOTONIC
+    
+    Signed-off-by: Xiaofan Chen <xiaofanc@gmail.com>
+
+commit bc790a9c414871cc1d33f1c7686048434a700e45
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Apr 7 05:20:36 2012 +0200
+
+    examples: Use snprintf() instead of sprintf() in dpfp and dpfp_threaded
+    
+    The OpenBSD C compiler generates a warning for every use of sprintf()
+    and for a good reason. Reported in http://marc.info/?m=133376187514495
+    
+    Reported-by: Xiaofan Chen <xiaofanc@gmail.com>
+
+commit bffa232dca51bcc41df71c5735fa56370b7509ad
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Apr 7 03:55:36 2012 +0200
+
+    OpenBSD: Fix warning: 'hpriv' may be used uninitialized
+    
+    As reported in http://marc.info/?m=133376187514495
+    
+    The variable would be used uninitialized when the internal list of
+    open devices is empty as obsd_handle_events() checks which device
+    the event fd belongs to, which can not actually happen, but if it
+    ever does happen then we will now return LIBUSB_ERROR_NO_DEVICE.
+    
+    Reported-by: Xiaofan Chen <xiaofanc@gmail.com>
+
+commit 6b1982b1bd321b55698ce537e64648e8aec85f6f
+Author: Moses McKnight <moses@texband.net>
+Date:   Fri Mar 30 21:53:20 2012 -0500
+
+    Windows: Fix build on VC++2003 which doesn't support variadic macros
+    
+    Change _MSC_VER tests to check for >= 1400 instead of > 1200 because
+    Visual C++ did not support variadic macros until VC++2005, as per
+    http://msdn.microsoft.com/en-us/library/ms177415%28v=VS.80%29.aspx
+    
+    Since usbi_dbg() is a function and not a macro with the old MS C
+    compilers the functions guid_to_string() and windows_error_str()
+    need to be compiled unconditionally, and the compiler should remove
+    the dead code when debug logging is disabled on newer compilers.
+
+commit 58ac0355e547080c82d02685a32480b891383d3d
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Mar 31 03:44:40 2012 +0200
+
+    Windows: Don't use a log function body macro for old MS compilers
+    
+    The duplication is a lot more straightforward than the previous LOG_BODY
+    macro, which also didn't handle the special debug case correctly. The
+    duplicated code is fortunately not very long.
+
+commit 76af4c99bd6122c1dd7b58858b669c919d8c8806
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Mar 22 01:52:59 2012 +0100
+
+    libusbi.h: Add IS_EPIN() IS_EPOUT() IS_XFERIN() and IS_XFEROUT() macros
+    
+    The macros make backend code a little simpler to read, since the
+    transfer and endpoint direction is checked in several places across
+    the supported platforms.
+
+commit e3d0a4cb9e2f9872c9fdbb22d7ded169e111fc8f
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Feb 22 14:21:54 2012 +0100
+
+    Add LIBUSB_TRANSFER_ADD_ZERO_PACKET flag to indicate need for ZLP
+    
+    Some protocols which use USB require an extra zero length data packet
+    to signal end-of-transfer on bulk endpoints, if the last data packet
+    is exactly wMaxPacketSize bytes long.
+    
+    This flag allows applications to inform libusb about this requirement,
+    so that libusb can handle the issue transparently.
+    
+    At the moment the new flag is only supported on Linux, and submitting
+    a transfer with the flag set returns an error at submit time on other
+    systems. Hopefully implementations will soon follow for other systems.
+    
+    References #6.
+
+commit 7e0c747cc5ed0a31f38dff5eb5f03d4043b05ada
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 19 06:58:16 2012 +0100
+
+    libusb.h: Add comma after last value in enums to ease future expansion
+
+commit c20ec7a927c05e0b960269751c26ab2b6e0b39ab
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 19 05:39:33 2012 +0100
+
+    Linux: Rework bulk continuation check to generic kernel version check
+    
+    The old check_flag_bulk_continuation() tested for one specific running
+    kernel version. The new kernel_version_ge() instead allows to test the
+    running kernel version against major, minor and sublevel parameters.
+
+commit cf8f5a7be821099b143fcea8e4ba553daa22818b
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 19 05:32:10 2012 +0100
+
+    OpenBSD: Correctly catch attempts to do isochronous OUT transfers
+    
+    LIBUSB_ENDPOINT_OUT is the value of the direction bit, which is 0 for
+    OUT transfers, so the previous condition could never evaluate to true.
+
+commit ae8e86cffb81858af5eeddbf2ea1aec6d55f573d
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 19 00:42:20 2012 +0100
+
+    Darwin: Do not reject devices with product id 0x0000
+    
+    Fixes #128.
+
+commit 4630fc22cff8ad3e1afa9b223378c0aabe282b5c
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Feb 13 16:59:51 2012 +0100
+
+    Do not call timerfd functions when timerfd is not being used
+    
+    When libusb was built with timerfd support but used on a system
+    without timerfd support the library would hang indefinitely on
+    completion of the first transfer, since timerfd functions were
+    being called unconditionally and the error returned when timerfd
+    was not being used caused a confused internal state.
+    
+    Many thanks to Ivo Smits for looking into the issue, proposing
+    an initial solution, and helping with testing! Fixes #73.
+
+commit c40f3df1efbb9232b525e5f675746762ca2304b8
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Sun Feb 12 13:49:35 2012 -0500
+
+    Windows: Fix MSVC6 IDE warning on line continuation in libusb-1.0.rc
+    
+    * libusb\libusb-1.0.rc(21): Could not find the file LIBUSB_RC.
+    * only shows up first time after opening workspace.
+    * shows up on either build or clean.
+    * not actually due to rc.exe, but prior to it.
+    * probably an IDE bug.
+    * does not show up when running an exported makefile.
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+
+commit 5526841023101bafa280755c3bd19fc44b9c32a0
+Author: Pete Batard <pete@akeo.ie>
+Date:   Sat Jan 7 23:30:23 2012 +0000
+
+    Windows: Add Renesas SuperSpeed support for libusb_get_device_speed()
+    
+    * tests conducted using a Renesas PCIE USB 3.0 controller and driver and
+      a mass storage USB 3.0 confirm that USB_NODE_CONNECTION_INFORMATION_EX
+      uses (undocumented) value 3 for SuperSpeed
+
+commit 3df437680f8f5406795ec5f32d96612d327b2ca4
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Feb 10 18:06:43 2012 +0100
+
+    autogen.sh: Try to use libtoolize before trying glibtoolize
+    
+    This helps on Mac OS X where an old glibtoolize is included in the
+    system and newer, manually installed, versions provide libtoolize.
+    
+    See also http://marc.info/?m=132490560131894
+
+commit 4afbc78fe09bfc3dd7a609e5f82e9272c9e6226d
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Feb 8 15:54:21 2012 +0100
+
+    Rename the lsusb example program to listdevs
+    
+    This is intended to reduce confusion with the much more significant
+    lsusb utility which is part of the usbutils package.
+
+commit 57ab55159298b7057e0dd9b3854f7fd1550588ed
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:44:21 2011 -0500
+
+    core.c: Fix clang warning about useless store to a variable
+
+commit 32bbbd133e24c24d02646c0f7d1963404d4955f2
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:43:46 2011 -0500
+
+    Darwin: Clarify comments on event thread creation and termination
+
+commit 6cf3285a4e0dfaec0fe53b8eb6a9281e3c5bcb6c
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:43:46 2011 -0500
+
+    Darwin: Fix incorrect mutex protection of libusb_darwin_acfl global
+
+commit 662ced422cf1ffce68753296a81dccf87f3a1c57
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:43:46 2011 -0500
+
+    Darwin: Use retained runloop variable instead of CFRunLoopGetCurrent()
+
+commit 952a9bb6116afc69c4bae4714c2eb0713bf62a6d
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:37:22 2011 -0500
+
+    Darwin: Fix libusb_init() and libusb_exit() refcount race condition
+    
+    Use OSAtomicIncrement32Barrier() and OSAtomicDecrement32Barrier()
+    in darwin_init() and darwin_exit() to be thread safe.
+
+commit 721cc1c19fc8e88c4482ab3d1e8a34fa100c403c
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Dec 9 13:33:28 2011 -0500
+
+    threads_posix.c: Fix prototype warning by including threads_posix.h
+
+commit f6ef0fca4b36657c1a0885c18cc4c4afcb4f7339
+Author: Dave Camarillo <dave.camarillo@gmail.com>
+Date:   Fri Sep 23 11:56:58 2011 +0100
+
+    Windows: Fix crash during enumeration with >= 64 connected devices
+    
+    * indexes were outgrowing the unref_list array before realloc,
+      resulting in out of bound access and crash.
+
+commit e280760331e8b39ad3530235653644654166b322
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 26 16:31:13 2010 +0100
+
+    Windows MSVC6: Remove SetupAPI, AdvAPI32 and OLE32 dependencies
+    
+    * this ensures that libusb dependent applications only need
+      to link with libusb on Windows
+    * (copied from Pete's msvc08 mods to msvc6 by Michael)
+
+commit fa66c93253855c9146011a6854d65df6d390039f
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Dec 13 21:18:10 2011 -0500
+
+    Windows: Output an error message on calls to libusb_get_pollfds()
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+
+commit 637145ed29ee7c7b13ac45d10cf1f798fc06cbd9
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Thu Jun 3 22:14:20 2010 -0500
+
+    io.c: Fix comment since pthreads isn't the only threading libusb uses
+
+commit bb37939ab44a54a054f73e2f381808b12fb9cb33
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Mon Aug 2 19:59:12 2010 -0500
+
+    libusb.h: Cast in libusb_get_string_descriptor() to avoid MSVC6 warning
+    
+    On MSVC6 bitwise OR promotes to int, causing the warning.
+
+commit ca09754471acba9a22fe8fc09170e5660d1d5c5d
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Fri Dec 23 16:50:21 2011 -0600
+
+    Windows: guid_to_string() is only discarded when macro-usbi_dbg used
+    
+    * usbi_dbg encloses all references to guid_to_string
+    * MinGW/cygwin warn about an unused function, so the #if
+      squelches this warning
+    * MSVC6 uses a variadic function form of usbi_dbg instead
+      of a macro, so the compiler still "sees" guid_to_string
+      and it therefore needs to always be defined for MSVC6,
+      even if it's only a stub.
+    * So we define it if usbi_dbg is used OR if MSVC6 is used.
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+
+commit 8e15adcb0089882d10269ab77d35e193770ab90e
+Author: Pete Batard <pete@akeo.ie>
+Date:   Tue Nov 15 01:11:12 2011 +0000
+
+    Windows: Fix undefined datatype 'LONG_PTR' in MSVC6
+    
+    * issue reported by Elmi
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+
+commit 17ad642cae618cc09c5516612fa3880d4b6b8635
+Author: Pete Batard <pete@akeo.ie>
+Date:   Sun Nov 13 23:10:15 2011 +0000
+
+    Windows: Fix for MSVC6 preprocessor not accepting blank parameters
+    
+    * unlike later iterations of Visual Studio, MSVC6 does not accept
+      blank parameters on macro calls [eg. CALL(a, ,b)]
+    * blank params were used with the DLL_DECLARE and DLL_LOAD macros
+    * issue reported by Elmi
+
+commit c591a7cbf7dbc6fbb4368e65cf58a8cd02582aeb
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Tue Oct 26 11:39:38 2010 +0100
+
+    Windows: Switch MSVC6 .dsp project files from MBCS to Unicode
+    
+    * MBCS (which is different from UTF-8) only makes sense if
+      supporting Windows 95/98, which we don't
+    * (try to match Pete's vcproj changes in MSVC6)
+
+commit 536e424fd7d057fc3f20f9939f9de4572e51c815
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Tue Dec 13 21:39:40 2011 -0500
+
+    Windows: Add missing MSVC6 lsusb.dsp project file
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+
+commit c56828857eb7ba6fb4f7701693dbb3fe4e75d5f6
+Author: Martin Pieuchot <mpi@openbsd.org>
+Date:   Mon Jan 30 09:59:30 2012 +0100
+
+    OpenBSD backend
+
+commit d2285744c7fa4007bb411be354268209d350b0f2
+Author: Xiaofan Chen <xiaofanc@gmail.com>
+Date:   Fri Jan 13 18:07:34 2012 +0100
+
+    configure.ac: Darwin: Move -lobjc from LIBS to PC_LIBS_PRIVATE
+    
+    Since commit 40327cd134718475f6cec8935b856d4fdff2099c it is neccessary
+    to explicitly include -lobjc not only when linking libusb itself, but
+    also for programs linking statically against libusb. References #63.
+    
+    See also http://marc.info/?m=132505900202378
+
+commit 93b0e09d53ed1d177631af9182378492481a790a
+Author: Xiaofan Chen <xiaofanc@gmail.com>
+Date:   Fri Jan 13 13:04:00 2012 +0100
+
+    examples: Link only with ../libusb/libusb-1.0.la and not with -lusb-1.0
+    
+    Previous _LDFLAGS included both the freshly built libusb in ../libusb
+    and -lusb-1.0, where libtool would usually resolve the latter to an
+    already-installed libusb library in the system. The extra reference
+    to a second libusb library resulted in failure to build examples on
+    Mac OS X in some cases, and is plain wrong.
+    
+    See also the thread at http://marc.info/?m=132637593623667
+
+commit cdc5df8f1b206a7c19bc221e8a9a97d5d98deb85
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Jan 12 10:34:55 2012 +0100
+
+    libusb/Makefile.am: Avoid recursive variables in .rc silent-rule
+    
+    Not every make supports recursive variable expansion so some automake
+    versions complain about non-POSIX variable names ever since commit
+    70bec4a9f8ec28d36c731011fa24d37c74ad3523 which added support for
+    silent-rules in our rule to compile the Windows .rc file.
+    
+    This commit removes the recursive variables and instead uses the
+    simple and generic GEN message and associated variable.
+
+commit a8e2e7cab278fbfcba91909eaf762cf66da9eda5
+Author: Ludovic Rousseau <ludovic.rousseau+github@gmail.com>
+Date:   Sat Sep 24 18:27:54 2011 +0200
+
+    Core: Fix #122 warning: no previous prototype for ‘usbi_log_v’
+    
+    Declare the usbi_log_v() function before using it.
+
+commit e88ecb1e65604c222f82da586bb9e9066d66fbba
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Oct 14 14:40:29 2011 -0400
+
+    Darwin: Set a name for the background thread on Mac OS X 10.6 and later
+    
+    The call to pthread_setname_np() makes it easy to identify the
+    background thread in the Xcode debugger and in crash reports.
+
+commit 60bad550dcb31a315a667a6614c52f712c82f45f
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 22 21:42:35 2011 +0200
+
+    libusb/Makefile.am: Add libusb-1.0.rc dependency on version.h
+
+commit 70bec4a9f8ec28d36c731011fa24d37c74ad3523
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 22 21:38:29 2011 +0200
+
+    libusb/Makefile.am: Make the libusb-1.0.rc rule support silent-rules
+
+commit fa9b682a638e54a4556ef6bd343ef56d6300a520
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 22 21:17:37 2011 +0200
+
+    configure.ac: Enable libtool support for Windows Resource language
+
+commit 58c73ddca310f757fc7ca75197bf3d7ca58ce29a
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Mon Sep 19 12:52:44 2011 -0400
+
+    descriptor.c: Use size_t for minor 64 bit compliance improvement
+    
+    Fixes #121.
+
+commit 27ec326a9f1bff4481702b35f39897c65a5db586
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Mon Sep 19 12:42:33 2011 -0400
+
+    Darwin: Fix warnings about mismatched signed/unsigned compare
+    
+    References #121.
+
+commit 59cc79f2c8e5da41fe2c761bf1e1d9cd18ddac81
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Mon Sep 19 12:38:20 2011 -0400
+
+    Fix unused variable warnings when without timerfd and/or when on Darwin
+    
+    References #121.
+
+commit 1cc5b4a9fb984e83681ae5c797fa6b22bc20f809
+Author: Ludovic Rousseau <ludovic.rousseau+github@gmail.com>
+Date:   Fri Sep 16 18:07:56 2011 +0200
+
+    Correctly handle LIBUSB_TRANSFER_OVERFLOW in libusb_control_transfer()
+    
+    sync.c: In function `libusb_control_transfer':
+    sync.c:122: warning: enumeration value `LIBUSB_TRANSFER_OVERFLOW' not
+    handled in switch
+    
+    Fixes #120.
+
+commit c55f581f43885f8576d8e2ebf4d46cd7ff3c1030
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 16:01:37 2011 +0100
+
+    Windows: do not set altsetting 0 as part of libusb_release_interface()
+    
+    * pointed out by Travis Robinson and Xiaofan Chen
+    * similar to a change advised by Alan Stern for the Linux kernel:
+      http://marc.info/?m=122790204410765
+
+commit efd3fae8f95ef7797ecd4b5731b198f100007d6a
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 15:45:35 2011 +0100
+
+    Windows: fix communication with hubs
+    
+    * issue reported by René Haunstrup in http://marc.info/?m=130503019227814
+
+commit a8d1eb7963e5811e16e8fb7e157cf3a00d888347
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 15:41:39 2011 +0100
+
+    Windows: add USB 3.0 controller support
+    
+    * Windows 8, NEC/Renesas, TI, Fresco Logic, Etron, VIA, ASMedia
+      (some of which untested!)
+    * includes workaround for NEC/Renesas USB 3.0 root hubs
+
+commit 48a19497bdd14325738ac9197d8cf4ebe1daa2d4
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 15:28:03 2011 +0100
+
+    Windows: add static keywords and drop duplicated or unneeded code
+
+commit af407286ba2fd346755297e56e365d84b98090d5
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 13:59:46 2011 +0100
+
+    Windows: fix 'windows_error_str' defined but not used when not logging
+
+commit abc3143ba1989a48f62246c2afb0eb4c3c5f7917
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 22 10:19:17 2011 +0200
+
+    libusbi.h: Silence unused context variable warnings when not logging
+
+commit 69b71c896a153a307360cf21be67b3b6e1e09a2d
+Author: Pete Batard <pete@akeo.ie>
+Date:   Mon Sep 19 13:06:22 2011 +0100
+
+    Windows: copy DLL file regardless of ddk_build.cmd dll argument case
+
+commit fdbac8971212bda3a42feeeaeb92fd8e49c7e904
+Author: Pete Batard <pete@akeo.ie>
+Date:   Sun Sep 18 20:06:45 2011 +0100
+
+    Windows: Add uint32_t typedef for old MSC so that DDK can build lsusb
+
+commit c471d55e909d84012f065715703dad454d1fa421
+Author: Vitali Lovich <vlovich@gmail.com>
+Date:   Fri Sep 16 08:53:25 2011 -0600
+
+    Darwin: fix port leak in darwin_clock_gettime()
+
+commit 477f3917f8c123e36993f9c0ba8156ca0f16ccfa
+Author: Vitali Lovich <vlovich@gmail.com>
+Date:   Fri Sep 16 08:50:40 2011 -0600
+
+    Darwin: remove unnecessary run loop invalidation during libusb_exit()
+
+commit f52094f37ccaff8137f5ce39867d2dba9b0f6bf9
+Author: Vitali Lovich <vlovich@gmail.com>
+Date:   Fri Sep 16 08:49:54 2011 -0600
+
+    Darwin: fix port leak during libusb_exit()
+
+commit 8a2f7b5c0520e6099f2c624cd0994c60867c1628
+Author: Vitali Lovich <vlovich@gmail.com>
+Date:   Fri Sep 16 08:48:28 2011 -0600
+
+    Darwin: fix potential leak on libusb_claim_interface() error
+
+commit b1ee2ef8d0b67dcc51c15742cb2decb386cffd9b
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Fri Sep 16 08:41:01 2011 -0600
+
+    Darwin: Fix #117 transfer size 64/32 bit issue for transfer callbacks
+    
+    The transfer size is now always truncated to 32 bits.
+
+commit c407a2d97b6f8715d3452257a0adac40a20178e6
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 15 17:04:43 2011 +0200
+
+    Remove username from SF FRS rsync upload command
+
+commit cbc2d7b2de58cf5fb02d9e5a39be0870527f8632
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 15 16:48:35 2011 +0200
+
+    Support release candidate versions in configure.ac and libusb-1.0.rc
+
+commit 384a528ed7adde935681313dacc5cd79e4be9ea1
+Author: Peter Stuge <peter@stuge.se>
+Date:   Thu Sep 15 16:32:47 2011 +0200
+
+    Tidy .gitignore a little
+    
+    There's no xusb, we need a glob pattern for matching .exe files, and
+    fpusb tarballs aren't very common in the libusb source dir.
+
+commit 9ad3643391a7fc6ce97aa77ffaf97d244fd9e613
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Wed Sep 14 10:53:48 2011 +0200
+
+    Docs: Clarify that libusb_handle_events_timeout() tv param can't be NULL
+    
+    The example code and API doc for libusb_handle_events_timeout() could be
+    interpreted as it being OK to pass a NULL pointer for the tv argument (I
+    interpreted it like that when I first started coding for libusb).
+    
+    This patch changes the docs to make it clear that one must always supply
+    a tv struct to libusb_handle_events_timeout.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit e1c06fb070c1328a3b78c7da8b9e779d466edd97
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Sep 14 08:23:43 2011 +0200
+
+    Makefile.am: Do not remove ChangeLog on make distclean, fixes #116
+    
+    [pbatard: Remove it on make maintainer-clean instead]
+
+commit 0c5bf03eb829e51dcf19562fc4f745937235ea51
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Sep 14 07:02:06 2011 +0200
+
+    Darwin: Reduce race likelihood between cancellation and device disconnect
+    
+    References #88. The race condition still remains, but this change
+    makes it less likely to trigger.
+
+commit 3e6e257f55156c4600f3116a0befba8cee62872a
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Sep 14 04:00:33 2011 +0200
+
+    Document that libusb_get_device_list() can return any libusb_error code
+    
+    Fixes #87.
+
+commit 737ba04ea40f19564b445fbb489907529e75edc9
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Thu Jun 16 10:49:13 2011 +0100
+
+    Linux: Fix #81 URB double free race condition on device disconnect
+    
+    A submitted transfer that has just been failed by the kernel could be
+    picked up by an event handler to be cleaned up, where freeing of URB
+    memory would race with the submit function doing it's own cleanup and
+    freeing as a result of the submit failing.
+    
+    libusb_submit_transfer() always holds itransfer->lock, so the race can
+    be avoided by taking that lock also in the cleanup path and checking
+    that the URB memory has not already been freed before freeing it there.
+    
+    As http://libusb.org/ticket/81#comment:14 notes there is still another
+    possible, but unlikely, race condition between libusb_submit_transfer()
+    and an event handling thread. That will require more work to solve.
+    
+    [stuge: Add check in cleanup path that URBs have not already been freed]
+
+commit 1b0f758a334d78d3832d17d694ac0c931da36050
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Sep 14 03:00:14 2011 +0200
+
+    Add libusb_error_name() API function
+    
+    Until we have i18ned error messages we can at least offer easy
+    translation from numeric error code to the error code's name.
+    
+    [hansg: switch() on enum to get a compiler warning if a case is missing]
+    [hansg: Better return value when called with an unknown error code]
+    [hansg: Fix DEFAULT_VISIBILITY in definition to compile on all platforms]
+
+commit e16805130a04b2642891e86b8f479e6343ca17da
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Sep 14 02:30:18 2011 +0200
+
+    Add libusb_has_capability() API function
+    
+    Since it is currently not planned to change the filename of the libusb
+    library between libusb-1.0 versions at least on Windows systems it's
+    important to have a capability API.
+    
+    Currently there exists only one capability; LIBUSB_CAP_HAS_CAPABILITY,
+    which tests support for the libusb_has_capability() API.
+
+commit 2dc2fa2a56408e515d25359323b4ea2f1bbec14a
+Author: Sebastian Pipping <sebastian@pipping.org>
+Date:   Tue Sep 13 20:38:26 2011 +0200
+
+    Fix typos in introductory documentation
+
+commit 0a828082aeedc6d19b6de4e3b10cc9762352fa7f
+Author: Pekka Nikander <pekka.nikander@senseg.com>
+Date:   Tue Sep 13 18:57:43 2011 +0200
+
+    Linux: Add libusb_open() debug and error messages with the device path
+    
+    Fixes #109.
+
+commit 6583372125d73543fe0db9fdc59850b9c6aa50d9
+Author: Pekka Nikander <pekka.nikander@senseg.com>
+Date:   Tue Sep 13 18:52:36 2011 +0200
+
+    Add debug message with libusb_open() error code
+    
+    References #109.
+
+commit f797ecb3b4e653594f8ebc0c9d9e2ca579062779
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Mon Sep 12 18:11:20 2011 +0200
+
+    Document libusb_handle_events_completed() and _timeout_completed()
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+    [stuge: Note that the old racy functions should be avoided by new code]
+
+commit 6696512aade99bb15d6792af90ae329af270eba6
+Author: Graeme Gill <graeme2@argyllcms.com>
+Date:   Sat Sep 10 15:47:05 2011 +0200
+
+    Fix #56 race condition causing delayed completion of sync transfers
+    
+    The sync API had a race where it would check a condition to know if it
+    needed to call a libusb_handle_events() function. However, the check
+    was done outside of the lock that is held while the condition is set,
+    so another thread could completely serve whatever was needed to make
+    the condition true between it being checked and the event handler being
+    called. This situation would be detected after a libusb-internal timeout
+    of 60 seconds, after which the transfer would be completed without
+    error, but with significant delay.
+    
+    Original patch at http://marc.info/?l=libusb-devel&m=127252114815709
+    
+    Changes by Hans de Goede:
+    - Renamed the "race-proof" functions from libusb_handle_events*_check()
+      to libusb_handle_events*_completed()
+    - Drop r = 0 setting in libusb_handle_events_timeout_completed()
+      (to make both completed checking cases identical flow wise)
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+    [stuge: Simplify libusb_handle_events_timeout() change with a goto]
+    [pbatard: Fix _handle_events_timeout() and _completed() definitions]
+
+commit cfee5446cdb2974c1e90c7c379a365c495975aef
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Fri Aug 26 23:06:40 2011 -0600
+
+    Darwin: Use a condition to signal async thread ready in libusb_init()
+
+commit d1bd234f7e1b1ff4168b8f605e2038e87a0e361f
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Thu Jul 21 22:34:12 2011 -0600
+
+    Fix #64 use of reserved identifiers throughout libusb
+
+commit a97762a8a121de1ad3deb9e861088b69bb6a155b
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Thu Jul 21 22:31:09 2011 -0600
+
+    Darwin: fix libusb_get_device_list() and libusb_claim_interface() leaks
+
+commit 8723df191fcedc6161732fd06d12df392c6dea3f
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Thu Jul 21 22:28:47 2011 -0600
+
+    Darwin: use kIOMasterPortDefault instead of creating a master port
+
+commit 0eb7e43759003610d1afe6148aa6ff4f5859ccb0
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Jul 27 03:15:03 2011 +0200
+
+    Allow devices with zero configurations to be discovered
+    
+    At least in Linux, wireless USB devices have zero configurations until
+    they have been authorized. This device state can be set for any USB
+    device using:
+    
+    echo 0 > /sys/bus/usb/devices/?-?/authorized
+    
+    An unauthorized device would previously make usbi_sanitize_device()
+    return LIBUSB_ERROR_IO, although there really was no I/O error.
+    
+    Reported-by: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+
+commit 5010c3e80423d13acee6eeb4af974e8a9bcdd006
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Jul 27 06:17:48 2011 +0200
+
+    Linux: Continue enumeration even if one device returns an error
+
+commit 2bf8848fb5c85ace0f445c0820a0c173cf76bf43
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Fri Jun 17 10:19:00 2011 +0200
+
+    Linux: Handle single- and two-digit kernel versions like 3.0 and 4
+    
+    The code has been tested with various version strings.
+    
+    [stuge: Remove bogus string length check and optimize for newer kernels]
+
+commit 0288bf24f91eca9f433ebad91a7eb6c0e3e29133
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Thu Mar 3 18:35:35 2011 +0000
+
+    Windows: Provide libusb_get_device_speed() data
+    
+    * use (currently superspeed unaware) USB_NODE_CONNECTION_INFORMATION_EX
+    
+    Fixes #45.
+    
+    [stuge: Explicitly convert OS device speeds to libusb device speeds]
+    [pbatard: Add breaks overlooked when adding explicit conversion]
+
+commit 382b7deaadd7e2f1d08c9e921e460bb3abf130b2
+Author: Trygve Laugstøl <trygvis@inamo.no>
+Date:   Tue Jul 19 23:20:40 2011 +0200
+
+    Darwin: Provide libusb_get_device_speed() data
+    
+    References #45.
+
+commit 44d6319f57e7e2c77347da228ed032e62716b438
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Thu Feb 17 15:06:40 2011 +0100
+
+    Linux: Provide libusb_get_device_speed() data from sysfs
+    
+    References #45.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit c8c40bcbd22abca922ff31c4ed6a75fd7af78b59
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Thu Feb 17 13:17:55 2011 +0100
+
+    Add new API function libusb_get_device_speed()
+    
+    Reworked version of my earlier patch, largely modelled after (if not
+    copy and pasted from) Trygve Laugstøl's <trygvis@inamo.no> similar
+    commit 5a6541e0d80fb1f21e2b960bc2337a612f9d74fb in
+    git://git.libusb.org/libusb-trygvis.git
+    http://git.libusb.org/libusb-trygvis.git
+    http://git.libusb.org/?p=libusb-trygvis.git;a=commitdiff;h=5a6541e0d
+    
+    This patch does not add any OS specific code. The supporting code in
+    each backend follows in separate patches. References #45.
+    
+    Signed-off-By: Hans de Goede <hdegoede@redhat.com>
+
+commit 0db8cba7f2c372f0127c7df9724e5a35e93f2069
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Sun Mar 20 00:25:44 2011 -0600
+
+    Darwin: Improve device enumeration performance
+    
+    The device location is saved, and later used whenever iterating over
+    devices. Fixes #111 and #112.
+    
+    [stuge: Formatting fixes and split out libusb_get_device_speed() change]
+    [stuge: Combine with patch that uses the saved device location]
+
+commit 511ec4301deb516691e39e3df5b90fe28cb2bb0f
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Thu Feb 17 12:49:36 2011 +0100
+
+    Linux: Use __read_sysfs_attr() to get busnum and devaddr
+    
+    Remove code duplication.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit e05bbc59ca7b896e2b825bde59bf883ac8c09f5c
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Thu Feb 17 12:45:10 2011 +0100
+
+    Linux: Add __read_sysfs_attr() helper function
+    
+    On Linux we often need to read (postive) integers from sysfs. This patch
+    adds a helper function for this. This is a preparation patch for adding
+    a libusb_get_device_speed() function to libusb.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 20e26dda0f86dafa3436b152e090b5f3410c8ce4
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Tue Feb 8 16:37:18 2011 +0100
+
+    Linux: Stop kernel from re-attaching in-kernel driver after reset
+    
+    When an interface is bound to the usbfs driver (iow claimed), the
+    kernel will unbind it, and then after the reset do a device_attach
+    on the interface, which will bind the default in kernel driver to
+    the interface.
+    
+    So if an app has detached the in kernel driver, and claimed the
+    interface and then does a libusb_reset_device. Things end up with
+    the interface no longer being bound to the usbfs driver (so no longer
+    claimed) and instead it is bound to the in kernel driver (iow the in
+    kernel driver is re-attached).
+    
+    We can stop this from happening by releasing all claimed interfaces
+    before the reset, as the kernel will not do the device attach after
+    reset, if no driver was bound to the interface before the reset.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit 4e294dc9848aab86b31d2fff228cf97e7eadf913
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Thu Feb 17 12:35:46 2011 +0100
+
+    Core: Use USB_MAXINTERFACES rather then sizeof(claimed_interfaces)
+    
+    claimed_interfaces is a long and thus its size differs on 32
+    versus 64 bits, this patch uses USB_MAXINTERFACES instead of
+    sizeof(claimed_interfaces) on interface number range checks
+    for consistent behavior independent of the arch.
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+
+commit a68f956dd4c29d6ed799f04f07a3346317843999
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Wed Feb 9 12:40:35 2011 +0100
+
+    Linux: Fix warnings seen when compiling with gcc-4.6
+    
+    Compiling with gcc-4.6 results in the following warnings:
+    os/linux_usbfs.c: In function 'op_get_configuration':
+    os/linux_usbfs.c:1144:6: warning: variable 'r' set but not used ...
+    os/linux_usbfs.c: In function 'op_handle_events':
+    os/linux_usbfs.c:2091:40: warning: 'status' may be used uninitialized ...
+    os/linux_usbfs.c:2044:6: note: 'status' was declared here
+    dpfp.c: In function 'save_to_file':
+    dpfp.c:228:9: warning: variable 'ignore' set but not used ...
+    dpfp_threaded.c: In function 'save_to_file':
+    dpfp_threaded.c:257:9: warning: variable 'ignore' set but not used ...
+    
+    This patch fixes these. (The second comes from handle_control_completion()
+    which gcc seems to inline into op_handle_events().)
+    
+    Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+    [stuge: Add fixes for dpfp examples and update source references]
+
+commit 209b5ccd827039b933b730e3f29abd0d72d3c6c6
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Tue Jun 14 08:51:57 2011 +0200
+
+    Darwin: Fix #108 crash when a device is unplugged
+
+commit d3543e9140536a9751811b44f8496489be1e6bb7
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Jun 13 22:58:23 2011 +0200
+
+    libusb.h: Add missing LIBUSB_CLASS_ codes currently defined by usb.org
+    
+    LIBUSB_CLASS_PHYSICAL
+    LIBUSB_CLASS_SMART_CARD
+    LIBUSB_CLASS_CONTENT_SECURITY
+    LIBUSB_CLASS_VIDEO
+    LIBUSB_CLASS_PERSONAL_HEALTHCARE
+    LIBUSB_CLASS_DIAGNOSTIC_DEVICE
+    
+    Per http://www.usb.org/developers/defined_class
+
+commit 08bc7ffb6a3b65afc6795cd048a890ee8da7d954
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Jun 13 22:53:40 2011 +0200
+
+    libusb.h: Add LIBUSB_CLASS_IMAGE in addition to LIBUSB_CLASS_PTP
+    
+    The old LIBUSB_CLASS_PTP name is kept for compatibility. Fixes #106.
+
+commit 3d7938d85a33cd98553c0c898a8dd0490826b077
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Jun 13 22:52:48 2011 +0200
+
+    libusb.h: Fix LIBUSB_CLASS_PRINTER description typo
+    
+    References #106.
+
+commit 5d0526af1a922afab02cdbdf4bb7078702759571
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Feb 11 11:28:04 2011 -0500
+
+    Darwin: Fix #100 warning cast to pointer from integer of different size
+
+commit bb8854ff5680136e29b57505300f131c2646f258
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Mon Jun 13 22:26:43 2011 +0200
+
+    configure.ac: Fix #97 clang warning about -fgnu89-inline
+    
+    Remove the test that sets the flag since GNU89 inline semantics are not
+    required by libusb.
+    
+    [stuge: Also remove reference to the test result]
+
+commit cb3c2e488f298b78027c9d5fc0bec0e5ba27d761
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed Jun 15 01:38:58 2011 +0200
+
+    Windows: Make cancel_io() in poll_windows.c static
+    
+    References #97.
+
+commit 6635dbb4acb5ee556a020e431b15c954edfcbd29
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Jun 13 22:21:02 2011 +0200
+
+    Windows: Make upperize() in windows_usb.h static
+    
+    References #97.
+
+commit 9479ce9dae3d0dbe2ce693bd02ccceb018a75fe9
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Mar 16 17:33:57 2011 -0700
+
+    descriptor.c: Fix buffer read overflow caught by valgrind
+    
+    In parse_interface() an unexpected descriptor would be parsed without
+    validating the descriptor's length.  It is possible for size to be 0 at
+    this point, which means that the parsing would read past the end of the
+    source buffer.  Fix #83 by checking the length of the remaining buffer
+    before parsing.
+
+commit c775c2f43037cd235b65410583179195e25f9c4a
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Mar 16 19:51:40 2011 -0700
+
+    Clean up in-flight transfers and device handle when closing a device
+    
+    Any in-flight transfers should properly invalidate their references
+    to device handles that are being closed.  Additionally, they should be
+    removed from the transfer-in-flight list.  This is done with the events
+    lock held to protect against another thread processing the same transfer.
+    The events lock is initialized as a recursive mutex, because the device
+    close code might itself be called while an event is being handled.
+    Fixes #82.
+    
+    [stuge: Trivial rework to reduce indenting]
+
+commit 74282582cc879f091ad1d847411337bc3fa78a2b
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Mar 16 19:43:30 2011 -0700
+
+    Add recursive mutexes to threading abstraction
+    
+    This is necessary for the device close path which needs to attain the
+    events lock, but which might itself be called while handling an event.
+    The events lock is necessary to properly clean up transfers which might
+    still be pointing to the device. References #82.
+    
+    [stuge: Move usbi_mutex_init_recursive() into threads_posix.c]
+    [stuge: Must also #define _XOPEN_SOURCE 500 to be able to build]
+    [pbatard: Un-inline usbi_mutex_init_recursive() to make Cygwin happy]
+
+commit 8f1bc0659136faf312dabe8fe67380a798299d33
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Mar 16 19:48:35 2011 -0700
+
+    Add USBI_TRANSFER_CANCELLING and _DEVICE_DISAPPEARED status flags
+    
+    The flags are used to indicate if a cancellation has started, and if
+    a cancellation has failed because the device is no longer available.
+    References #82.
+
+commit 87ba8a9ead4fd9e81ae3c5a894f698779de1f2c2
+Author: Vitali Lovich <vlovich@aliph.com>
+Date:   Wed Mar 16 19:50:04 2011 -0700
+
+    Linux: Detect and report that device has gone away while discarding URBs
+    
+    Return LIBUSB_ERROR_NO_DEVICE if the device is no longer available
+    (ENODEV) to discard the urbs. References #82.
+
+commit 2c85c363cddd72b9ab425f05e2ee03e0b1df24f1
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Jun 6 02:46:46 2011 +0200
+
+    libusbi.h: Add comma after last value in enum usbi_transfer_flags
+
+commit 5d7be3e1337f2444097504931ac0f2f0997b2b05
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Jun 5 23:28:07 2011 +0200
+
+    threads_posix.h: Whitespace fix
+
+commit 18db4813e844fc6929680afcc9b793abcb06876a
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Jun 5 23:21:08 2011 +0200
+
+    libusb/Makefile.am: Correct threading files in libusb_1_0_la_SOURCES
+
+commit 5f30c81f66e8dd61f8eae16de548697708f9bd18
+Author: Alan Ott <alan@signal11.us>
+Date:   Thu Jul 21 16:37:48 2011 +0200
+
+    Linux: Fix #70 race condition in sysfs_get_device_list()
+    
+    Change the way libusb chooses between using sysfs and usbfs for information
+    about the attached devies.  Using the old method, a race condition could
+    occur if a device was unplugged just before (or during) the call to
+    libusb_get_device_list(), corrupting the internal sysfs_can_relate_devices
+    and sysfs_has_descriptors variables and preventing libusb_get_device_list()
+    from working in future calls.
+    
+    The old method was based on the assumption that if certain sysfs files
+    (eg: busnum) could not be opened, that indicated an inadequacy of sysfs
+    (ie: the running kernel's sysfs version did not contain those files),
+    when in reality those files couldn't be opened because the device had
+    been unplugged.
+    
+    The new method checks the adequacy of sysfs during libusb_init()
+    (op_init()) and if a sysfs file cannot be opened, it is now assumed that
+    it is because the device has been unplugged, not because sysfs is
+    inadequate.
+    
+    Signed-off-by: Alan Ott <alan@signal11.us>
+    [stuge: Include closedir() bugfix posted in ticket by Arne Laansoo]
+    [stuge: Remove dead code in sysfs_scan_device() found by Hans de Goede]
+
+commit 40327cd134718475f6cec8935b856d4fdff2099c
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Thu Feb 10 17:11:29 2011 -0500
+
+    Darwin: Fix #63 error when apps use Objective-C garbage collection
+
+commit 3ba2fae24886fec89410e5f2295f65363edcc2df
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Feb 5 11:50:34 2010 -0500
+
+    Darwin: Fix #28 clang analyzer warning about unbalanced retain/release
+
+commit b67120f047f7eafa15c88c66fa61cef40805ec1f
+Author: Sean McBride <sean@rogue-research.com>
+Date:   Fri Feb 5 11:50:34 2010 -0500
+
+    io.c: Fix clang analyzer warning about unused variable
+    
+    References #28.
+
+commit 51af85d03a098d7d99ea544e8e9535b5476bab33
+Author: Peter Stuge <peter@stuge.se>
+Date:   Tue May 10 10:44:18 2011 +0200
+
+    .gitignore: Add m4 subdirectory created by libtool
+
+commit c569e5b3b314538f45d0b3b6f14ce3dbdfee1be9
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Mon Nov 15 14:45:50 2010 +0100
+
+    Linux: Do not include useless pthread.h
+    
+    The code does not use threads so no need to #include <pthread.h>
+    Fixes #74.
+
+commit 82af9f9d440ef49015652c699157cf62020f097a
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:41:05 2011 +0000
+
+    Windows: minor code improvements
+    
+    * mostly warnings from VS2010's Intellisense
+
+commit 7e636dbe06001b9ac68e452a2fdc05e33fbb4e3a
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:40:39 2011 +0000
+
+    Windows: prevent set_configuration request from being sent using WinUSB
+    
+    * multiple WinUSB set configuration requests can stall a device and
+      WinUSB does not support setting of alt configuration in the first place
+    * issue reported and investigated by Xiaofan Chen
+
+commit 578c50c99646e5ebbcfbea653524a519b843ebcd
+Author: Graeme Gill <graeme@argyllcms.com>
+Date:   Tue Mar 8 17:39:16 2011 +0000
+
+    Windows: fixed default WinUSB timeout and ineffective policy settings
+    
+    * default WinUSB timeout was 5 seconds, which may be to small.
+      PIPE_TRANSFER_TIMEOUT policy is now set to infinite for all EPs.
+    * other WinUSB policy settings were called before the endpoints
+      had been set. This is now fixed.
+
+commit 25fa63ea1cfe02e784cb62d3b869fd15e62b5b6e
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:37:40 2011 +0000
+
+    Windows: Don't leak pipe fds
+    
+    use _open() and _close() rather than _open_osfhandle() and CloseHandle()
+    
+    * use of CloseHandle() prevented the pipe fds from being
+      relinquished on libusb_exit()
+    * leaked fds could lead to the OS running out of new fds
+      and LIBUSB_ERROR_NO_MEM being returned as a result
+    * using _open() avoids _open_osfhandle() redef for cygwin
+    * issue reported by Stephano Antonelli
+
+commit 3ccd9bddec316ee4b867959fd7f616eb4d410997
+Author: Peter Stuge <peter@stuge.se>
+Date:   Tue May 10 10:05:29 2011 +0200
+
+    Windows: enumeration overhaul
+    
+    * uses multiple passes in a single call
+    * uses a hash table, in anticipation for hotplug
+    * adds a (dummy) HUB interface for harmonization
+    * adds calloc on device struct creation in core
+      (to detect and avoid unnecessary double initialization)
+
+commit bb108cbe39802785d10fe025b74ca5ee19734151
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue May 10 00:56:18 2011 +0100
+
+    Windows: MS project files part 4 - MSVC6 project files
+    
+    Fixes #57 and #1.
+
+commit 78896ae99b9c2d5672fc93c5bad0f5e8e75c53ea
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue May 10 00:53:09 2011 +0100
+
+    Windows: MS project files part 3 - VS2005 project files
+    
+    References #57.
+
+commit 9e5f4277e379a82f5d32e81db1bd0ffaa6637596
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue May 10 00:38:49 2011 +0100
+
+    Windows: MS project files part 2 - WDK project files
+    
+    References #57.
+
+commit c1e75431418cdfc10ec963d823fce479cdae6840
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue May 10 00:38:12 2011 +0100
+
+    Windows: MS project files part 1 - support files & preliminaries
+    
+    * adds the MSVC support files used by MSVC6, VS2005 and WDK
+    * also adds missing defines required by MS compilers in libusb.h
+    * also anticipatory sets .gitattributes for CRLF handling
+    * also adds manually maintained .def file for import lib generation
+    
+    References #57.
+
+commit 85a14f43e0ce27cd47f84fdaeacbaa81cebdb886
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon May 9 08:12:24 2011 +0200
+
+    Move library version number from configure.ac to libusb/version.h
+    
+    This is neccessary to support native MS builds. The Windows resource
+    file libusb/libusb-1.0.rc must include the release version, which was
+    previously only available after configure had run and had substituted
+    the numbers into a generated libusb/libusb-1.0.rc file.
+    
+    The version atoms are now stored as CPP style #defines in libusb/version.h
+    so that the .rc no longer needs to be generated but can simply include the
+    header file and access the version information directly.
+    
+    The m4 macro LU_DEFINE_VERSION_ATOM() was added to configure.ac to get
+    version atoms from libusb/version.h for use in AC_INIT(). The macro
+    handles C and C++ style comments in version.h, but can easily be made
+    to fail by obscuring the file. Please don't do that.
+    
+    Tested with MinGW using autoconf, and manual compile of libusb-1.0.rc
+    using RC.EXE Version 5.2.3690.0 from Visual C++ 2005 Express Edition.
+
+commit 3481f52b014110f6c291e5a15e79ba774dcdfacf
+Author: Peter Stuge <peter@stuge.se>
+Date:   Tue May 10 08:36:32 2011 +0200
+
+    Windows: Debug builds create the same .dll file name as non-debug
+    
+    Thanks to Pete for pointing this out!
+
+commit 9da8cf5c9ed9bd381a77d8170fc0556edbcce4dc
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:18:48 2011 +0000
+
+    Windows: explicit use of ANSI or WideChar calls
+    
+    * This is in anticipation of adding MSVC project files
+      that use Unicode rather than MBCS
+
+commit ae675c1f49dc00b695fce7296903f60998cc28ed
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:16:23 2011 +0000
+
+    Windows: Remove SetupAPI, AdvAPI32 and OLE32 link-time dependencies
+    
+    * this ensures that libusb dependent applications only need
+      to explicitly link against libusb on Windows
+    
+    The run-time dependency on Cfgmgr32.dll, OLE32.dll and SetupAPI.dll remains.
+
+commit 356e312511e4892977636da52ec497ad2c716032
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Mar 8 17:12:33 2011 +0000
+
+    Add .gitattributes to avoid Windows line ending issues with autocrlf
+
+commit 61c120f025f3dee04eeb88159d7c0403a8bf91fe
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 27 09:37:54 2011 +0100
+
+    Windows: Touch up FileDescription and ProductName resource strings
+
+commit 99b4ddcd893834a4be8b5884037b650e57ba0ba2
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 27 07:20:40 2011 +0100
+
+    Windows: Remove emulated direct device access via HID API
+    
+    Either use a library such as HIDAPI to communicate with HID class
+    devices, or replace the kernel driver for the device with one that
+    offers support for the complete libusb API.
+
+commit 4be84ab49c838d534d3a1b8a64ffa89774984ee7
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Feb 27 06:59:15 2011 +0100
+
+    Revert libusb_strerror() until we have i18n and l10n
+
+commit 0e177f22fcc69d9aab6fb410e85f3413f478c94c
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed Jan 19 14:00:12 2011 +0000
+
+    dpfp_threaded: return instead of pthread_exit() to avoid Cygwin warning
+
+commit e65878f21b0a0bb96debcb292dc03ce3c4ebb701
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed Jan 19 13:52:08 2011 +0000
+
+    Windows: Rename various variables named "index" to avoid shadow warnings
+
+commit 019bf73bb2677dc7720bc8280527316adcbaa506
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:50:53 2010 +0100
+
+    Windows: Fix logic in enumeration of driver name and port number
+
+commit 24494ed5db27737fc607fc35dda722521c9fe4d4
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:50:13 2010 +0100
+
+    Windows: Allow claiming any interface in composite device using WinUSB
+    
+    Issue reported by Benjamin Dobell, see #48. The call to
+    WinUsb_QueryInterfaceSettings() is removed since it doesn't work
+    on any other interface but the first (a WinUSB limitation).
+    
+    This allows the use of WinUSB.sys in lieu of the usbccgp.sys
+    "USB Generic Parent" default driver for composite devices.
+
+commit 9c8e6545f2fbb171f81a9451eaf2d09e1fbc13b3
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:47:15 2010 +0100
+
+    Windows: Allow arbitrary bConfigurationValue in config descriptors
+    
+    Unlike bInterfaceNumber, bConfigurationValue does not have to be
+    either sequential or contiguous. The bConfigurationValue is now
+    included in debug output. Fixes #48 reported by Benjamin Dobell.
+
+commit dcd002974e511879320233fd5b0600e06bdc5620
+Author: Thomas Röfer <Thomas.Roefer@dfki.de>
+Date:   Fri Nov 19 22:03:11 2010 +0100
+
+    Darwin: Schedule isochronous transfers further in the future
+    
+    This is required to make OpenKinect transfer data at 30 fps. This
+    change was originally made by Theo Watson, and Thomas improved on it.
+    The commit came via OpenKinect into libusb thanks to Kyle Machulis and
+    Hector Martin. Fixes #66.
+
+commit e83fad33dbaf9f37811da6d4cd9d3be554817944
+Author: Thomas Röfer <Thomas.Roefer@dfki.de>
+Date:   Fri Nov 19 22:03:11 2010 +0100
+
+    Darwin: Fix #65 memory leak in submit_iso_transfer()
+    
+    This was also independently fixed by Hoi-Ho Chan, but Thomas caught
+    an additional problem with his fix.
+    
+    This commit came via OpenKinect into libusb thanks to Kyle Machulis
+    and Hector Martin.
+
+commit 1a2d21fe42ad5a157651c787e2f500fc162c325b
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Feb 26 04:21:05 2011 +0100
+
+    configure.ac: Refactor Windows backend settings into one occurence
+    
+    The Windows backend is used both with MinGW and Cygwin, and since most
+    settings are identical they can be set in one place.
+
+commit 717f47621d18de16b87e237f3740299f43e4ca1c
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Nov 15 19:58:51 2010 +0100
+
+    configure.ac: Rename AM_LDFLAGS to LTLDFLAGS and actually use them
+    
+    The new variable name tries to clarify that libtool is being used.
+    Linker flags must thus always be specified with -Wl.
+    
+    Factor out the libtool flag -no-undefined from host specific cases.
+    The flag is required to build a Windows DLL, but is correct also for
+    the other supported systems.
+    
+    Also, start actually using LTLDFLAGS in libusb/Makefile.am, so that
+    libtool will see the options set by configure.
+
+commit 3cbe5736469c1c52049752c137ae11387e9b079d
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Nov 21 23:38:46 2010 +0100
+
+    configure.ac: Clean up PC_LIBS_PRIVATE and AM_LDFLAGS
+    
+    Move linker options for when linking the library itself from
+    PC_LIBS_PRIVATE into AM_LDFLAGS. PC_LIBS_PRIVATE should only
+    contain flags needed to link applications statically against libusb.
+    Fixes #72.
+
+commit ef39d1510580b9fcbacf13443fa7a4e553a9a88e
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Feb 25 02:33:29 2011 +0100
+
+    configure.ac: Call AC_CONFIG_FILES() for each output file
+    
+    This avoids a problem with Windows line endings.
+
+commit 6e52ea067711e6e7e1b2882757fb61b11b6f8feb
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Nov 21 23:37:27 2010 +0100
+
+    configure.ac: Whitespace changes and trivial reordering
+
+commit 44b85dabc3f4efe0918a598f981675aa3765cc26
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Nov 21 23:10:35 2010 +0100
+
+    configure.ac: Quote AC_COMPILE_IFELSE() input
+
+commit 19d5882c398e49a453ff78494db23b7f4d13c37c
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Nov 21 23:09:02 2010 +0100
+
+    configure.ac: Define booleans to 1 when set, instead of an empty string
+    
+    This makes the generated config.h look a lot nicer.
+
+commit c24649d796c8b5c97af79a41856422def2e593bc
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Oct 30 22:28:59 2010 +0200
+
+    configure.ac: Clean up redundancy and fix LIBS on Linux
+    
+    LIBS, AM_LDFLAGS, OS_ conditionals and THREADS_POSIX had a bit of
+    redundancy throughout the file, and on Linux LIBS ended up missing
+    the -pthread flag.
+
+commit 0bd4a4dd89ff64b99ab55bfc0c5782502c10c676
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Feb 26 04:08:38 2011 +0100
+
+    configure.ac: Touch up Darwin and Cygwin OS messages
+
+commit 16cf11a1213272afd616598fa3aba0941e66ec3c
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Oct 30 22:13:05 2010 +0200
+
+    configure.ac: Do not use -pthread on Darwin
+    
+    It's not needed because Darwin has POSIX Threads in libc. Fixes #96.
+
+commit a120747d561929682cd0276ea4c13fb22fad8554
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Oct 30 22:07:37 2010 +0200
+
+    configure.ac: Check for poll.h, and for nfds_t on Darwin
+    
+    On Linux, assume nfds_t is always available.
+    
+    On Darwin, fall back to unsigned int when poll() exists but there
+    is no nfds_t, such as on Mac OS X before 10.4.
+    
+    On Windows (both MinGW and Cygwin), always use unsigned int instead
+    of nfds_t, and don't check for poll.h because we use our own poll()
+    implementation.
+
+commit 21d03d12f92c0d9bd7990861ca0ebf5009f82799
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Tue Oct 5 20:08:08 2010 -0600
+
+    Darwin: Add support for control requests on endpoints other than 0
+    
+    Signed-off-by: Nathan Hjelm <hjelmn@me.com>
+
+commit 9bfacd760b40f1137a7835198c6028cbdaddeb18
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Tue Oct 5 23:11:50 2010 -0600
+
+    Darwin: Add more error checking for libusb_open()
+    
+    Now also check the CreateDeviceAsyncEventSource() return code for errors.
+    
+    Signed-off-by: Nathan Hjelm <hjelmn@me.com>
+
+commit 478cd4a30728595fd742aa192d8149ee4216d4bc
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Nov 3 21:46:53 2010 +0100
+
+    Core: libusb_get_next_timeout() must consider all flying transfers
+    
+    If transfer->flags indicated that a transfer had a timeout, but no
+    timeout was actually set, then libusb_get_next_timeout() would look
+    no further for a timeout, ignoring any transfers later in the list
+    which had a timeout set.
+    
+    Since libusb has an internal 60 second timeout this bug could not
+    cause complete lockup, but it could cause a 60 second timeout even
+    when a transfer was submitted with a shorter timeout.
+
+commit 7802e4a3e38bcefccf96ae510ec2c6b7a959b8b5
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Mon Nov 15 14:55:51 2010 +0100
+
+    Linux: Correctly catch read() errors for sysfs config descriptors
+    
+    read(2) returns ssize_t (signed) and not size_t (unsigned) or int.
+    
+    Silence "warning: comparison of unsigned expression < 0 is always false"
+    and fix #75.
+
+commit 4c7f3c8c3012bddba058afd2abdda792944fcda1
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Jan 23 04:01:25 2011 +0100
+
+    Linux: Refactor cancellation into one function for all transfer types
+
+commit 011f1f297bc134188fab9960da1b1b9f0bd541aa
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Oct 17 08:19:56 2010 +0200
+
+    Linux: Refactor discarding of URBs into a function and return all errors
+    
+    The Linux backend did not always return errors according to the
+    libusb_cancel_transfer() documentation.
+
+commit 26246df19cb4d88954a5aa9ed5f6b859e451df85
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Jan 23 04:01:01 2011 +0100
+
+    Linux: Set private number of URBs also for control transfers
+
+commit 295c9d12e25bc2dbdd8b42bd67a1f7120f0631a1
+Author: Alan Stern <stern@rowland.harvard.edu>
+Date:   Sun Oct 17 06:57:06 2010 +0200
+
+    Linux: cancel URBs in reverse order
+    
+    In a multi-URB transfer, URBs should be cancelled in reverse order of
+    submission. This prevents races that might otherwise occur (after URB N
+    is cancelled, data may be transferred for URB N+1 before it too can be
+    cancelled). Fixes #8.
+
+commit 07df377a5df25e9c1811b554dc00eb8c40e5b995
+Author: Alan Stern <stern@rowland.harvard.edu>
+Date:   Sun Oct 17 04:17:32 2010 +0200
+
+    Linux: report correct value for urb->actual_length
+    
+    Transferred bytes are returned correctly by the kernel for every URB,
+    even when an error occurs.  Hence they should always be included in
+    the transfer statistics.  The same is true for isochronous packet
+    length and status.
+    
+    [stuge: set itransfer->transferred so data is stored at correct offset]
+
+commit b26db49208c7a6ef0a99645142af21ce80c57c22
+Author: Alan Stern <stern@rowland.harvard.edu>
+Date:   Fri Oct 22 11:13:34 2010 +0200
+
+    Linux: improve reporting of URB error status codes
+    
+    Fix the way overflow errors are handled (they can occur in any
+    transaction, not just the last one in a transfer) and add tests
+    for other commonly-occuring error statuses.
+
+commit efc29733ad31f81883a7ac51a6cc6cda9ad4feb9
+Author: Alan Stern <stern@rowland.harvard.edu>
+Date:   Tue Oct 5 11:08:40 2010 -0400
+
+    Linux: improve detection of BULK_CONTINUATION kernel support
+    
+    Clarify the comments describing the BULK_CONTINATION flag, and improve
+    the subroutine that checks whether the flag is supported by making it
+    "future-proof", i.e., by working properly with kernel version numbers
+    higher than 2.6.
+
+commit bd267cf92269e0c4cd8eef795b91eefb2c63452e
+Author: Peter Stuge <peter@stuge.se>
+Date:   Mon Nov 22 05:14:00 2010 +0100
+
+    README: Update webpage URL and add Peter's email address
+
+commit 845b715675703c5f1bc907f6302ece416c9f112c
+Author: Peter Stuge <peter@stuge.se>
+Date:   Wed Aug 4 07:30:22 2010 +0200
+
+    libusb is not just for Linux!
+
+commit 67d9ef7b6877e17f2deec81cd41dc0948f6bed4b
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Tue Oct 5 19:48:39 2010 -0600
+
+    Remove USBI_OS_HANDLES_TIMEOUT and fix int/isoc timeouts on Darwin
+    
+    Backends set USBI_TRANSFER_OS_HANDLES_TIMEOUT for transfers instead.
+    Darwin only handles timeouts for bulk and control transfers, so the
+    backend now sets that flag accordingly, making libusb core handle
+    timeouts for interrupt and isochronous transfers. Fixes #31.
+    
+    Signed-off-by: Nathan Hjelm <hjelmn@me.com>
+    
+    [stuge: rework libusb_get_next_timeout() and enum usbi_transfer_flags]
+    [stuge: fix typo; set USBI_TRANSFER_TIMED_OUT flag correctly]
+
+commit 370922dfbe0964c0b8a0c1974bb1d7b85ac10607
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sun Nov 14 03:14:00 2010 +0100
+
+    Silence "warning: suggest braces around empty body in an 'if' statement"
+
+commit 0f85015bdf87f3bca0d86ed87c9b976176640922
+Author: Konrad Rzepecki <hannibal@astral.lodz.pl>
+Date:   Sat Nov 13 14:09:22 2010 +0100
+
+    Disallow libusb_get_string_descriptor_ascii() with index 0
+    
+    String descriptor 0 is the list of supported language IDs in the device,
+    which can't have an ASCII representation. Calling the function with
+    index 0 is thus not really useful. Fixes #43.
+
+commit 3b41c31d3fa2c1f93649cc5fc0f59acbf3efd5a1
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Fri Mar 19 15:35:14 2010 +0100
+
+    Use const for the usbi_parse_descriptor() format string
+    
+    Constant strings should be "const char *" instead of "char *". Silence
+    "discards qualifiers from pointer target type" warnings. Fixes #61.
+
+commit 7f2e9f0776386997d2b4c4c47598ab88e3caeb7a
+Author: Hector Martin <hector@marcansoft.com>
+Date:   Wed Aug 25 03:21:57 2010 +0200
+
+    Linux: Fix usbfs/sysfs config descriptor handling on big-endian
+    
+    usbfs endian-swaps, sysfs doesn't, not the other way around. Fixes #51;
+    descriptor endian parsing is backwards using sysfs on big-endian hosts.
+    usbfs is untested.
+    
+    Signed-off-by: Hector Martin <hector@marcansoft.com>
+    
+    [stuge: checked against Documentation/usb/proc_usb_info.txt]
+
+commit 2aa8984e59cf0f492e7fbebb8924f54f6160cc5e
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Tue Aug 17 20:53:04 2010 +0200
+
+    examples: #include <libusb.h> without directory name
+    
+    The libusb-1.0 directory name belongs in the compile command, e.g.
+    via pkg-config --cflags. Fixes #58.
+
+commit 7da756e09fd97efad2b35b5cee0e2b2550aac2cb
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Thu Jun 24 10:14:24 2010 +0200
+
+    Add missing argument to libusb_wait_for_event() documentation, fix #55
+    
+    In the libusb_wait_for_event() sample code in the section "Letting other
+    threads do the work for you" the call to libusb_wait_for_event() was not
+    updated by commit 1df713d622ab4f0b03aad72d903ac7beb8fb3b90, which added
+    the libusb_context *ctx parameter to the function, so the sample code
+    was broken until now.
+
+commit 678c242705b29f9cb6cc421b5625a6485ae58047
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Oct 16 14:22:30 2010 +0200
+
+    examples: Silence warnings about return value of fwrite()
+
+commit 9cd9059bf9baac69a9d6c909f4c1e000592fa260
+Author: Peter Stuge <peter@stuge.se>
+Date:   Sat Oct 16 11:47:14 2010 +0200
+
+    Linux: Don't free() URBs prematurely on hardware error; fix #54
+    
+    When an URB in a multi-URB transfer had an error, handle_bulk_completion()
+    would free all URBs and segfault once the next one completed, instead of
+    cancelling the remaining URBs and cleaning up as usual.
+    
+    This is basically the patch from the ticket, plus some restructuring
+    for increased readability of the function.
+    
+    Many thanks to Brian Shirley and National Instruments for finding and
+    fixing this!
+
+commit 116d34f608b02f4e14668450b158acf5db726f95
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:43:41 2010 +0100
+
+    Windows: add support for filter drivers
+    
+    * precedence is driver > upper filter > lower filter, and defined
+      in struct driver_lookup lookup from set_device_paths()
+
+commit eb833fcd837e3aac2e497438b14c8612254c28ce
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:36:49 2010 +0100
+
+    Windows: fix errcode shadow warning, and string and DLL_DECLARE fixes
+    
+    * use FormatMessageA, and overall improvement of windows_error_str()
+    * use safe_strlen() always
+    * better typing/init default
+    * more explicit debug message for devices with no driver
+
+commit 1feadb5f78e1d2cdfd2aaf0011e041c2848bae37
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Oct 5 12:29:32 2010 +0100
+
+    Windows: use IOCTLs for HID input, output and feature reports
+    
+    * fixes feature reports not providing actual read size
+      (reported by Axel Rohde http://marc.info/?m=127033070021994)
+    * removes the USE_HIDD_FOR_REPORTS macro
+    * IOCTL usage inspired from HIDAPI by Alan Ott
+
+commit d7c25451f4075d2a12eb5cbc91ff3de8c0292da0
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Mon Oct 4 20:03:58 2010 +0100
+
+    Fix libtool version setting
+    
+    This was being set too early to take effect.
+
+commit a6fb54e2eef4e393bd06829bc3bdc746ea9d41a6
+Author: Mike Frysinger <vapier@gentoo.org>
+Date:   Mon Oct 4 20:01:07 2010 +0100
+
+    Populate the pkg-config Libs.private field
+
+commit a9b4065f048e750b7317f6434406fd528b69bf33
+Author: Mike Frysinger <vapier@gentoo.org>
+Date:   Fri Aug 20 00:09:46 2010 -0400
+
+    Linux: fix build failure when CLOCK_MONOTONIC does not exist
+    
+    This is not available on all platforms.
+
+commit d192c5bd32736fde0080d756de6221287af34891
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Mon Oct 4 18:45:18 2010 +0100
+
+    Update libtool version info
+    
+    With input from various people on the mailing list, update the libtool
+    versioning info and start to update this on every release.
+    
+    The next libusb release will not need a change here. All following ones
+    will.
+
+commit e65f69a7ef3de357c867ddaac9598efe407078b6
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Thu Aug 5 16:40:09 2010 +0100
+
+    Updated documentation for unsupported Darwin/Windows calls
+
+commit c8bab4e19413d70c515a2eaf747a75b7f66fdc0b
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Sun Sep 19 14:24:25 2010 +0100
+
+    Windows: Make libusb_pollfd() return error
+    
+    Windows does not have numerical file descriptors but does have the
+    concept of event sources. Exposing these event sources will require
+    some careful thought and design, to be completed later.
+
+commit bd623f70d99fad8b975f8d4ee62ea4b1abf1272f
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Sun Sep 19 14:21:01 2010 +0100
+
+    MinGW: Use --add-stdcall-alias linker option
+    
+    Naming of symbols inside the library is inconsistent on Windows:
+    http://wyw.dcweb.cn/stdcall.htm
+    
+    Use this linker option to add aliases which add compatibility with
+    the "MSVC DLL" platform when a DEF file is used. It also better matches
+    the appearance of the Windows API itself.
+
+commit 29f9f9e3af3340df6a955881a93caf9d2a6d08d6
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Fri Aug 13 11:59:49 2010 +0100
+
+    Introduced calling convention (for Windows)
+    
+    Under Windows, a variety of compilers and configurations are available,
+    meaning that the manner of parameter passing (e.g. registers vs stack)
+    can vary.
+    
+    Match the Windows API calling convention and document this appropriately.
+    This calling convention will be used regardless of the configuration of
+    the user's development platform.
+    
+    The only user-level complication is that all functions used as libusb
+    callbacks must use the same calling convention as libusb. The
+    LIBUSB_CALL macro is provided to make this easy.
+    
+    Signed-off-by: Michael Plante <michael.plante@gmail.com>
+    Signed-off-by: Pete Batard <pbatard@gmail.com>
+    [dsd: slight change of strategy, add documentation]
+
+commit be523f1fe7c136c3fca06ae9c96aff44a22482ba
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Fri Aug 6 21:56:04 2010 -0600
+
+    Windows: fix string copy in sanitize_path
+    
+    The NULL byte was not being copied.
+
+commit 7fd36af9f749ce8bf96f89cefd519a9f46825573
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Fri Jul 30 00:30:31 2010 +0100
+
+    Windows: DuplicateHandle failure is not a warning
+    
+    This is because WinUSB handles are not duplicable, and generate a
+    lot of these warnings.
+
+commit 33cd2f68b4d500e852e354e5acae3d9a96a8ec26
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Fri Jul 30 00:23:05 2010 +0100
+
+    removed trailing whitespaces
+
+commit e47849afe9381c864683220eac9ce7bcf43f7883
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed Aug 4 18:18:32 2010 -0600
+
+    Windows: Mark interfaces as unused when releasing
+    
+    Without this important cleanup, the autoclaim code could attempt to
+    reuse an unclaimed interface as if it were already claimed.
+
+commit b30ca141a0bdce26e7cfdd91d346e49051532ee7
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed Aug 4 18:15:59 2010 -0600
+
+    Windows: fix device path string duplication
+
+commit e8d7a89503d5655c4b04da718c6971e25ff48162
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Mon Aug 2 21:27:38 2010 -0600
+
+    Darwin: Cache device configuration value
+    
+    Cache device configuration value to bring the Darwin backend more in
+    line with the libusb spec. To handle buggy devices GetConfiguration is
+    not called unless the device has more than one configuration.
+
+commit fe5d1d2050f715ffa8cbd35a378ac969a1a01584
+Author: Xiaofan Chen <xiaofanc@gmail.com>
+Date:   Fri Jul 30 15:56:43 2010 +0100
+
+    Fix inconsistencies between prototypes and definitions
+    
+    This removes some warnings on cygwin regarding a name clash against
+    the standard library "index" function.
+
+commit 3b538c43e11b805a37d93b6283d270d5d5f0d1f5
+Author: Hoi-Ho Chan <hoiho.chan@gmail.com>
+Date:   Tue Jul 27 21:04:17 2010 -0600
+
+    Darwin: handle kIOReturnUnderrun
+    
+    This return code indicates that the device returned a data packet
+    less than the max packet size. In libusb backend terms, this is
+    a successful transfer.
+
+commit 9a4249f8a104b98a15a7e3ba7ecae9a385ed9027
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Sat Jul 10 17:51:13 2010 -0600
+
+    Add Windows support
+    
+    Via Cygwin/MinGW, libusb now has windows support.
+    Thanks to contributors: Michael Plante, Orin Eman, Peter Stuge,
+    Stephan Meyer, Xiaofan Chen.
+
+commit d38dd5e3d2a872f7064eea084ddea8c33811dd7d
+Author: Hoi-Ho Chan <hoiho.chan@gmail.com>
+Date:   Sat Jul 24 13:48:00 2010 -0600
+
+    Darwin: write iso transfer details into correct packets
+
+commit fbff5b4b665ff2ebc948162617cf7f4f5d2fabeb
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Sat Jul 24 13:42:57 2010 -0600
+
+    Darwin: fix interface object leak
+
+commit dffc09835d6860ae9b6a62c39af5be346188cb05
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Sat Jul 24 13:41:03 2010 -0600
+
+    Darwin: clean up some debug messages
+
+commit 946d1abbca397b8e88a1b0b4df176dcc5e3b7348
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Sat Jul 24 13:39:16 2010 -0600
+
+    Darwin: Don't open devices during scan unless we have to unsuspend
+
+commit 3b6d9ac82e2599cad7817d21e909a42275ddc4c4
+Author: Peter Stuge <peter@stuge.se>
+Date:   Fri Jun 25 08:08:13 2010 +0200
+
+    Linux: Handle early complete of multi-URB transfer
+
+commit a516fcb99376686d2d0028e5ac69950c57a55b9e
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Wed Jul 21 17:49:21 2010 -0600
+
+    Only compile dpfp examples when sigaction is available
+    
+    It's not available on MinGW.
+
+commit a1d831ef82e1700f4ebb9df6ca5cef74be757c08
+Author: Aurelien Jarno <aurelien@aurel32.net>
+Date:   Tue May 25 09:32:19 2010 +0200
+
+    configure.ac: fix bashisms
+
+commit 7211aba6e290f9805e911959b2a43a4b3ec56d4f
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Fri Jun 25 12:01:58 2010 -0500
+
+    Only include sys/time.h on appropriate platforms
+    
+    This header doesn't exist on windows.
+    For libusb, determine at configure-time if the header is available.
+    For libusb.h, use gcc predefined macros to only include the header
+    on platforms that need it.
+
+commit b33c3cb9651459de1f3d549677cbac67a017a295
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue Jun 22 18:45:38 2010 -0500
+
+    Linux: Fix log message commit
+    
+    Forgot to test this.
+
+commit 139648d5723190734a51c1c66ddf41c3e87adf10
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Mon Jun 21 10:19:29 2010 +0200
+
+    Only initialize the default context when it is requested
+
+commit 22d61cd0891d8304dfc1a70579cf154fd8e6644a
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue Jun 22 18:20:23 2010 -0500
+
+    Linux: fix log message that was being unconditionally sent to stderr (#44)
+    
+    This message was put in place to aid libusb-compat-0.1 users, who
+    may run into the change that libusb-0.1 allowed you to usb_open() a
+    device that you don't have write access to, but libusb-1.0 does not.
+    
+    As explained on the ticket this change is dangerous so it should go through
+    the usual logging mechanism. I also added a similar regular log message
+    to libusb-compat-0.1.
+
+commit 82065a2c5e9d5ad0b2bb28792d12462f2fa150f0
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Thu Jun 10 18:41:27 2010 +0200
+
+    Fix 2 documentation typos
+
+commit 351c062aacdde0b0fa7972ee9b7c6b355dcee110
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Wed Apr 21 16:49:33 2010 +0200
+
+    add AM_MAINTAINER_MODE
+
+commit a7c056c14867e1cc3ef83682f2706cdbdca7c4ce
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Thu Jun 10 17:00:25 2010 -0500
+
+    Factorize event handler interruption code
+    
+    This will be additionally used by the windows backend which modifies
+    the fd set frequently.
+
+commit fc0af8e3f76925ad09e0fbc6d233d500753ee375
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Sat Jun 5 12:14:19 2010 -0500
+
+    Abstract low-level event handler operations
+    
+    The Windows backend uses something other than UNIX file descriptors
+    for event handling. Abstract out the operations to allow for this.
+
+commit 64383fb5b55a74b706967836e81cef61e57df86a
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Tue Jun 1 11:38:14 2010 +0100
+
+    fixes the possibility of using a broken timercmp on Windows
+    
+    Microsoft's implementation of timercmp does not work for >= or <=.
+
+commit f6d60a9a8fcf06629812da886e3a5de592624b61
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Mon Feb 1 19:26:13 2010 +0000
+
+    Switched to standard int pointer type for windows 64-bit compat
+    
+    On 64-bit Windows a pointer is 64 bit, but long is still 32 bit for
+    backwards compatibility.
+    uintptr_t nicely hides this difference and also works on Linux.
+    
+    [dsd: add appropriate include]
+
+commit a2fa855ce3795e31905b255267874af0603168bc
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Tue Mar 9 16:39:46 2010 -0600
+
+    added doxygen, dpfp, msvc, and xusb stuff to gitignore
+
+commit 845d96a9c30b6f053208ed6b5b5d4ad1655e2026
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Mon May 31 19:56:34 2010 -0500
+
+    Add reference counting to default context
+    
+    Michael Plante pointed out that if 2 users call libusb_init(NULL) within
+    a process, we end up creating 2 default contexts, one of which is lost.
+    
+    Add reference counting so that the default context is reused and
+    destroyed only after the last user.
+
+commit 0e77f017fd3d1bdec4aced0429a380d3e434081b
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Thu May 27 19:24:49 2010 -0400
+
+    Fix libusb_init() error handling
+    
+    9996ccaed7 introduced a problem in that mutexes could be destroyed
+    in the error handling codepath before they had been created.
+    Pointed out by Michael Plante.
+
+commit b03de9d07bf9a6b0c4e6cba9ec06b5271a22e621
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Mon May 24 11:57:10 2010 -0300
+
+    Modify log functions to compile with MSVC6
+    
+    MSVC6 does not support variadics.
+
+commit aa77b02da65afb0332b9e6853dae9e4dcda00bfa
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Sun Feb 14 19:46:05 2010 -0600
+
+    Add type parameter to the list_for_each_entry() and _safe() macros
+    
+    typeof() is a GCC extension, not supported by target compilers such
+    as MSVC.
+
+commit b92b16f437079208c8dfb1dc2380893846a07ee9
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Wed May 19 17:37:29 2010 -0300
+
+    Fix a usbi_pollfd leak in error path
+    
+    I accidently missed this when applying Pete Batard's earlier patch.
+    Pointed out by Michael Plante.
+
+commit 8aceb5c99056aaed6e6f2db1b303817e37e9fe8c
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Sun Feb 14 19:47:30 2010 -0600
+
+    Rename all interface parameters to usb_interface or interface_number
+    
+    Remove the use of the ambiguous "interface" where possible without
+    breaking the API.
+    'interface' is a preprocessor #define already associated with COM on Windows,
+    that can cause a conflict as soon as windows.h is included.
+    
+    There are a few more places where interface is still used, which should
+    be changed for libusb-2.0
+
+commit d7031ee8e1c449af23b2674fe18d9fc652c9bd80
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Mon May 17 19:30:27 2010 -0300
+
+    Stricter types and casts
+
+commit 9996ccaed740f8fcec4287a478ccaaa573f9865a
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Mon May 17 19:16:54 2010 -0300
+
+    Fixes to error handling and exit codepaths
+    
+    Various locks and things were being leaked/left open when handling
+    errors and during deinitialization.
+    
+    [dsd: small tweaks]
+
+commit 371ca4e440894bd1c845971418aa24c9d3919e63
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Thu May 13 19:38:05 2010 -0300
+
+    Darwin: Define IO_OBJECT_NULL if not already defined
+    
+    Needed on Mac OSX 10.3
+
+commit 7ba92cff94bbba19284749c614c26141d3023f37
+Author: Hans Ulrich Niedermann <hun@n-dimensional.de>
+Date:   Fri Jan 29 12:08:52 2010 +0100
+
+    libusb_cpu_to_le16: macro->static inline function
+    
+    The libusb_cpu_to_le16 macro was a ({ ... }) expression, which
+    generates the following compiler warning every time it is used,
+    (and that is several times for every #include <libusb.h>):
+    
+    libusb.h:880: warning: ISO C forbids braced-groups within expressions
+    
+    With this patch, #include <libusb.h> stops generating compiler
+    warnings on gcc 4.4.
+    
+    As libusb.h heavily relies on the use of static inline functions
+    those can be relied on to work properly, and there should not be
+    any significant difference in the code the compiler generates.
+
+commit 3473ac6c6fab32202d02d87679ebdb24e7d2df98
+Author: Francesco <francesco.montorsi@gmail.com>
+Date:   Tue Mar 9 16:35:35 2010 -0600
+
+    Add libusb_strerror() to get short error message in English from enum
+    
+    [dsd: small tweaks]
+
+commit 5b69f3b7b0610d5f518954792ddc93332a41d292
+Author: Michael Plante <michael.plante@gmail.com>
+Date:   Thu Feb 25 19:39:22 2010 -0600
+
+    Fix libusb_device::lock memory leak
+
+commit a636df4ca1b87ed3094a87828c022092a80ba613
+Author: Pete Batard <pbatard@gmail.com>
+Date:   Wed May 12 21:46:31 2010 -0300
+
+    Whitespace cleanup
+
+commit 23b5db8b3e353176dfa0635bfb6f0e2658f6e3de
+Author: Peter Stuge <peter@stuge.se>
+Date:   Tue May 11 00:51:43 2010 +0100
+
+    Add internal abstraction for POSIX Threads
+    
+    This prepares for a Windows backend without dependency on pthreads-w32.
+    
+    pthread_* is renamed to usbi_* and PTHREAD_* to USBI_*.
+    
+    A usbi_mutex_static_t and usbi_mutex_static_lock() and _unlock() are
+    introduced for statically initialized mutexes, since they may be
+    implemented using other types when pthreads mutexes aren't used.
+    
+    Move -pthread from libusb/Makefile.am to host-specific THREAD_CFLAGS in
+    configure.ac. This will enable optional use of -lpthread for cygwin.
+    
+    [dsd: minor tweaks, and roll in a change based on patches from Pete
+    Batard to only build dpfp_threaded example when we're using pthreads]
+
 commit a04cbb0095a78aeed3f65aaf06c46069d0ac184a
 Author: Daniel Drake <dan@reactivated.net>
 Date:   Tue May 4 19:01:59 2010 -0300
