@@ -154,7 +154,6 @@ struct myoption {
 #define LOPT_HOST_INOTIFY  342
 #define LOPT_DNSSEC_STAMP  343
 #define LOPT_TFTP_NO_FAIL  344
-#define LOPT_HOSTCACHE     345
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -314,7 +313,6 @@ static const struct myoption opts[] =
     { "quiet-dhcp6", 0, 0, LOPT_QUIET_DHCP6 },
     { "quiet-ra", 0, 0, LOPT_QUIET_RA },
     { "dns-loop-detect", 0, 0, LOPT_LOOP_DETECT },
-    { "hosts-cache", 1, 0, LOPT_HOSTCACHE },
     { NULL, 0, 0, 0 }
   };
 
@@ -481,7 +479,6 @@ static struct {
   { LOPT_LOCAL_SERVICE, OPT_LOCAL_SERVICE, NULL, gettext_noop("Accept queries only from directly-connected networks"), NULL },
   { LOPT_LOOP_DETECT, OPT_LOOP_DETECT, NULL, gettext_noop("Detect and remove DNS forwarding loops"), NULL },
   { LOPT_IGNORE_ADDR, ARG_DUP, "<ipaddr>", gettext_noop("Ignore DNS responses containing ipaddr."), NULL }, 
-  { LOPT_HOSTCACHE, ARG_ONE, "<path>", gettext_noop("Dump cached A records to <path> on SIGUSR1"), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -2270,7 +2267,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    newlist = opt_malloc(sizeof(struct server));
 	    memset(newlist, 0, sizeof(struct server));
 #ifdef HAVE_LOOP
-           newlist->uid = rand32();
+	    newlist->uid = rand32();
 #endif
 	  }
 	
@@ -3933,12 +3930,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	break;
       }
 #endif
-    case LOPT_HOSTCACHE: /* --hosts-cache */
-      {
-	if (daemon->hosts_cache == NULL)
-	  daemon->hosts_cache = opt_string_alloc(arg);
-	break;
-      }
+		
     default:
       ret_err(_("unsupported option (check that dnsmasq was compiled with DHCP/TFTP/DNSSEC/DBus support)"));
       
@@ -4379,7 +4371,7 @@ void read_opts(int argc, char **argv, char *compile_opts)
 {
   char *buff = opt_malloc(MAXDNAME);
   int option, conffile_opt = '7', testmode = 0;
-  char *arg, *conffile = NULL;
+  char *arg, *conffile = CONFFILE;
       
   opterr = 0;
 
@@ -4496,11 +4488,8 @@ void read_opts(int argc, char **argv, char *compile_opts)
   if (conffile)
     {
       one_file(conffile, conffile_opt);
-      free(conffile);
-    }
-  else
-    {
-      one_file(CONFFILE, conffile_opt);
+      if (conffile_opt == 0)
+	free(conffile);
     }
 
   /* port might not be known when the address is parsed - fill in here */

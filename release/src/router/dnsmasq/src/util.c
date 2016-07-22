@@ -83,14 +83,14 @@ unsigned short rand16(void)
 
 u32 rand32(void)
 {
- if (!outleft)
+ if (!outleft) 
     {
       if (!++in[0]) if (!++in[1]) if (!++in[2]) ++in[3];
       surf();
       outleft = 8;
     }
-
-  return out[--outleft];
+  
+  return out[--outleft]; 
 }
 
 u64 rand64(void)
@@ -568,12 +568,6 @@ char *print_mac(char *buff, unsigned char *mac, int len)
       p += sprintf(p, "%.2x%s", mac[i], (i == len - 1) ? "" : ":");
   
   return buff;
-}
-
-void bump_maxfd(int fd, int *max)
-{
-  if (fd > *max)
-    *max = fd;
 }
 
 /* rc is return from sendto and friends.
