@@ -1638,7 +1638,7 @@ ebtables-clean:
 
 #Roadkill
 spawn-fcgi/stamp-h1:
-	cd spawn-fcgi && CC=$(CC) \
+	cd spawn-fcgi && autoreconf && CC=$(CC) \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	ac_cv_func_malloc_0_nonnull=yes \
