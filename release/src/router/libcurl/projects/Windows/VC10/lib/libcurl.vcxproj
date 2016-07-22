@@ -2414,6 +2414,7 @@
     <ClCompile Include="..\..\..\..\lib\strerror.c" />
     <ClCompile Include="..\..\..\..\lib\strtok.c" />
     <ClCompile Include="..\..\..\..\lib\strtoofft.c" />
+    <ClCompile Include="..\..\..\..\lib\system_win32.c" />
     <ClCompile Include="..\..\..\..\lib\telnet.c" />
     <ClCompile Include="..\..\..\..\lib\tftp.c" />
     <ClCompile Include="..\..\..\..\lib\timeval.c" />
@@ -2539,6 +2540,7 @@
     <ClInclude Include="..\..\..\..\lib\strerror.h" />
     <ClInclude Include="..\..\..\..\lib\strtok.h" />
     <ClInclude Include="..\..\..\..\lib\strtoofft.h" />
+    <ClInclude Include="..\..\..\..\lib\system_win32.h" />
     <ClInclude Include="..\..\..\..\lib\telnet.h" />
     <ClInclude Include="..\..\..\..\lib\tftp.h" />
     <ClInclude Include="..\..\..\..\lib\timeval.h" />

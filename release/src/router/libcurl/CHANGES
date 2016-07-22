@@ -6,6 +6,180 @@
 
                                   Changelog
 
+Version 7.49.1 (30 May 2016)
+
+Daniel Stenberg (30 May 2016)
+- RELEASE-NOTES: 7.49.1
+
+- [Steve Holme brought this change]
+
+  loadlibrary: Only load system DLLs from the system directory
+  
+  Inspiration provided by: Daniel Stenberg and Ray Satiro
+  
+  Bug: https://curl.haxx.se/docs/adv_20160530.html
+  
+  Ref: Windows DLL hijacking with curl, CVE-2016-4802
+
+- ssh: fix version number check typo
+
+Jay Satiro (29 May 2016)
+- curl_share_setopt.3: Add min ver needed for ssl session lock
+  
+  Bug: https://github.com/curl/curl/issues/826
+  Reported-by: Michael Wallner
+
+Daniel Stenberg (29 May 2016)
+- ssh: fix build for libssh2 before 1.2.6
+  
+  The statvfs functionality was added to libssh2 in that version, so we
+  switch off that functionality when built with older libraries.
+  
+  Fixes #831
+
+- mbedtls: fix includes so snprintf() works
+  
+  Regression from the previous *printf() rearrangements, this file missed to
+  include the correct header to make sure snprintf() works universally.
+  
+  Reported-by: Moti Avrahami
+  Bug: https://curl.haxx.se/mail/lib-2016-05/0196.html
+
+Steve Holme (23 May 2016)
+- checksrc.pl: Added variants of strcat() & strncat() to banned function list
+  
+  Added support for checking the tchar, unicode and mbcs variants of
+  strcat() and strncat() in the banned function list.
+
+Daniel Stenberg (23 May 2016)
+- smtp: minor ident (white space) fixes
+
+- THANKS: updated after script fixes
+  
+  Now giving credit properly to github user names, fixed some UTF-8 issues
+  and added names discovered when contrithanks was improved.
+
+- THANKS-filter: more name cleanups
+
+- contrithanks.sh: exclude existing names case insensitively
+
+- contrithanks.sh: use same grep pattern and -a flag as contributors.sh
+
+- contributors.sh: better grep pattern, use grep -a
+
+- THANKS-filter: fix more names
+
+- contrithanks.sh: do the same github fix as contributors.sh
+  
+  from 1577bfa35ba
+
+Jay Satiro (23 May 2016)
+- contributors: Show GitHub username if real name unknown
+  
+  Prior to this change if a GitHub contributor's real name was unknown
+  they would be omitted from the list.
+  
+  Bug: https://github.com/curl/curl/issues/824
+
+Daniel Stenberg (21 May 2016)
+- RELEASE-NOTES: synced with 3caaeffbe8ded4
+
+Jay Satiro (20 May 2016)
+- openssl: cleanup must free compression methods
+  
+  - Free compression methods if OpenSSL 1.0.2 to avoid a memory leak.
+  
+  Bug: https://github.com/curl/curl/issues/817
+  Reported-by: jveazey@users.noreply.github.com
+
+Daniel Stenberg (20 May 2016)
+- [Gisle Vanem brought this change]
+
+  curl_multibyte: fix compiler error
+  
+  While compiling lib/curl_multibyte.c with '-DUSE_WIN32_IDN' etc. I was
+  getting:
+  
+  f:\mingw32\src\inet\curl\lib\memdebug.h(38): error C2054: expected '('
+  to follow 'CURL_EXTERN'
+  
+  f:\mingw32\src\inet\curl\lib\memdebug.h(38): error C2085:
+  'curl_domalloc': not in formal parameter list
+
+- THANKS-filter: make Jan-E get proper credit
+
+- [Jan-E brought this change]
+
+  winbuild/Makefile.vc: Fix check on SSL, MBEDTLS, WINSSL exclusivity
+  
+  Closes #818
+
+- [Alexander Traud brought this change]
+
+  libcurl.m4: Avoid obsolete warning
+  
+  Closes #821
+
+Jay Satiro (20 May 2016)
+- [Michael Kaufmann brought this change]
+
+  CURLOPT_CONNECT_TO.3: user must not free the list prematurely
+  
+  The connect-to list isn't copied so as long as the handle may be used
+  for a transfer the list must be valid.
+  
+  Bug: https://github.com/curl/curl/pull/819
+  Reported-by: Michael Kaufmann
+
+Daniel Stenberg (19 May 2016)
+- RELEASE-NOTES: synced with 48114a8634242c
+
+- openssl: ERR_remove_thread_state() is deprecated in latest 1.1.0
+  
+  See OpenSSL commit 21e001747d4a
+
+- http2: use HTTP/2 in the HTTP/1.1-alike header
+  
+  ... when generating them, not "2.0" as the protocol is called just
+  HTTP/2 and nothing else.
+
+Jay Satiro (19 May 2016)
+- dist: include curl_multi_socket_all.3
+  
+  Closes https://github.com/curl/curl/pull/816
+
+Steve Holme (18 May 2016)
+- bump: Start work on 7.49.1
+
+Daniel Stenberg (18 May 2016)
+- curlbuild.h.dist: check __LP64__ as well to fix MIPS build
+  
+  The preprocessor check that sets up the 32bit defines for non-configure
+  builds didn't work properly for MIPS systems as __mips__ is defined for
+  both 32bit and 64bit. Now __LP64__ is also checked and indicates 64bit.
+  
+  Reported-by: Tomas Jakobsson
+  Fixes #813
+
+- [Marcel Raad brought this change]
+
+  schannel: fix compile break with MSVC XP toolset
+  
+  For the Windows XP toolset of Visual C++ 2013/2015, the old Windows SDK
+  7.1 is used. In this case, _USING_V110_SDK71_ is defined.
+  
+  Closes #812
+
+- dist: include CHECKSRC.md
+  
+  Reported-by: Paul Howarth
+  Bug: https://curl.haxx.se/mail/lib-2016-05/0116.html
+
+- test/Makefile.am: include manpage-scan.pl and nroff-scan.pl in dist
+  
+  Reported-by: Ray Satiro
+  Bug: https://curl.haxx.se/mail/lib-2016-05/0113.html
+
 Version 7.49.0 (17 May 2016)
 
 Daniel Stenberg (17 May 2016)
@@ -5439,126 +5613,3 @@ Steve Holme (9 Aug 2015)
   
   Rather than duplicate future variables, during clean-up of both success
   and error conditions, use a common function that can be called by both.
-
-- RELEASE-NOTES: Synced with 39dcf352d2
-
-- buildconf.bat: Added error messages on failure
-
-- buildconf.bat: Generate and clean files in the same order
-
-- buildconf.bat: Maintain compatibility with DOS based systems
-  
-  Commit f08e30d7bc broke compatibility with DOS and non Windows NT based
-  versions of Windows due to the use of the setlocal command.
-
-Jay Satiro (9 Aug 2015)
-- CURLOPT_RESOLVE.3: Note removal support was added in 7.42
-  
-  Bug: http://curl.haxx.se/mail/lib-2015-08/0019.html
-  Reported-by: Inca R
-
-Steve Holme (8 Aug 2015)
-- checksrc.bat: Fixed error when missing *.c and *.h files
-  
-  File Not Found
-
-- checksrc.bat: Fixed incorrect 'lib\vtls' path check in commit 333c36b276
-
-- checksrc.bat: Fixed error when [directory] isn't a curl source directory
-  
-  The system cannot find the file specified.
-
-- checksrc.bat: Added check for unknown arguments
-
-- scripts: Added missing comments
-
-- scripts: Always perform setlocal and endlocal calls in pairs
-  
-  Ensure that there isn't a mismatch between setlocal and endlocal calls,
-  which could have happened due to setlocal being called after certain
-  error conditions were checked for.
-
-- scripts: Allow -help to be specified in any argument
-  
-  Allow the -help command line argument to be specified in any argument
-  and not just as the first.
-
-Daniel Stenberg (6 Aug 2015)
-- [juef brought this change]
-
-  curl_multi_remove_handle.3: fix formatting
-  
-  closes #366
-
-Steve Holme (6 Aug 2015)
-- README: Added notes about 'Running DLL based configurations'
-  
-  ...as well as a TODO for a future enhancement to the project files.
-  
-  Thanks-to: Jay Satiro
-
-- RELEASE-NOTES: Synced with cf8975387f
-
-- buildconf.bat: Synchronise no repository error with generate.bat
-
-- generate.bat: Added a check for the presence of a git repository
-
-- [Jay Satiro brought this change]
-
-  build: Added wolfSSL configurations to VC10+ project files
-  
-  URL: https://github.com/bagder/curl/pull/174
-
-- [Jay Satiro brought this change]
-
-  build: Added wolfSSL build script for Visual Studio projects
-  
-  Added the wolfSSL build script, based on build-openssl.bat, as well as
-  the property sheet and header file required for the upcoming additions
-  to the Visual Studio project files.
-
-Daniel Stenberg (6 Aug 2015)
-- CHANGES: refer to the online changelog
-  
-  Suggested-by: mc0e
-
-- [Isaac Boukris brought this change]
-
-  NTLM: handle auth for only a single request
-  
-  Currently when the server responds with 401 on NTLM authenticated
-  connection (re-used) we consider it to have failed.  However this is
-  legitimate and may happen when for example IIS is set configured to
-  'authPersistSingleRequest' or when the request goes thru a proxy (with
-  'via' header).
-  
-  Implemented by imploying an additional state once a connection is
-  re-used to indicate that if we receive 401 we need to restart
-  authentication.
-  
-  Closes #363
-
-Steve Holme (5 Aug 2015)
-- RELEASE-NOTES: Synced with 473807b95f
-
-- generate.bat: Use buildconf.bat for prerequisite file clean-up
-
-- buildconf.bat: Added support for file clean-up via -clean
-
-- buildconf.bat: Added progress output
-
-- buildconf.bat: Avoid using goto for file not in repository
-
-Daniel Stenberg (5 Aug 2015)
-- curl_slist_append.3: add error checking to the example
-
-Steve Holme (5 Aug 2015)
-- buildconf.bat: Added display of usage text with -help
-
-- buildconf.bat: Added exit codes for error handling
-
-- buildconf.bat: Added our standard copyright header
-
-- buildconf.bat: Use lower-case for commands and reserved keywords
-
-- generate.bat: Only clean prerequisite files when in ALL mode

@@ -97,8 +97,8 @@
 #define HAVE_ERR_REMOVE_THREAD_STATE 1
 #if (OPENSSL_VERSION_NUMBER >= 0x10100004L) && \
   !defined(LIBRESSL_VERSION_NUMBER)
-/* OpenSSL 1.1.0-pre4 removed the argument! */
-#define HAVE_ERR_REMOVE_THREAD_STATE_NOARG 1
+/* OpenSSL 1.1.0 deprecates the function */
+#define HAVE_ERR_REMOVE_THREAD_STATE_DEPRECATED 1
 #endif
 #endif
 
@@ -737,8 +737,8 @@ void Curl_ossl_cleanup(void)
   ERR_free_strings();
 
   /* Free thread local error state, destroying hash upon zero refcount */
-#ifdef HAVE_ERR_REMOVE_THREAD_STATE_NOARG
-  ERR_remove_thread_state();
+#ifdef HAVE_ERR_REMOVE_THREAD_STATE_DEPRECATED
+
 #elif defined(HAVE_ERR_REMOVE_THREAD_STATE)
   ERR_remove_thread_state(NULL);
 #else
@@ -747,6 +747,11 @@ void Curl_ossl_cleanup(void)
 
   /* Free all memory allocated by all configuration modules */
   CONF_modules_free();
+
+#if OPENSSL_VERSION_NUMBER >= 0x10002003L && \
+    OPENSSL_VERSION_NUMBER <= 0x10002FFFL
+  SSL_COMP_free_compression_methods();
+#endif
 }
 
 /*

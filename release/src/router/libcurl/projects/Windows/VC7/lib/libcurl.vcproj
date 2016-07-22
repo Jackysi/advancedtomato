@@ -1383,6 +1383,9 @@
 				RelativePath="..\..\..\..\lib\strtoofft.c">
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\system_win32.c">
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\telnet.c">
 			</File>
 			<File
@@ -1682,6 +1685,9 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\strtoofft.h">
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\system_win32.h">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\telnet.h">
