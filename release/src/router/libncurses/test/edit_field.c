@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2003-2008,2011 Free Software Foundation, Inc.              *
+ * Copyright (c) 2003-2013,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,11 +26,11 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: edit_field.c,v 1.17 2011/01/15 18:15:11 tom Exp $
+ * $Id: edit_field.c,v 1.24 2014/09/05 08:39:52 tom Exp $
  *
  * A wrapper for form_driver() which keeps track of the user's editing changes
- * for each field, and makes the result available as a null-terminated string
- * in field_buffer(field,1).
+ * for each field, and makes the resulting length available as a
+ * null-terminated string in field_buffer(field,1).
  *
  * Thomas Dickey - 2003/4/26.
  */
@@ -297,8 +297,54 @@ offset_in_field(FORM * form)
 static void
 inactive_field(FIELD * f)
 {
-    FieldAttrs *ptr = (FieldAttrs *) field_userptr(f);
-    set_field_back(f, ptr->background);
+    set_field_back(f, field_attrs(f)->background);
+}
+
+FieldAttrs *
+field_attrs(FIELD * f)
+{
+    return (FieldAttrs *) field_userptr(f);
+}
+
+static int
+buffer_length(FIELD * f)
+{
+    return field_attrs(f)->row_lengths[0];
+}
+
+static void
+set_buffer_length(FIELD * f, int length)
+{
+    field_attrs(f)->row_lengths[0] = length;
+}
+
+/*
+ * The userptr is used in edit_field.c's inactive_field(), as well as for
+ * keeping track of the actual lengths of lines in a multiline field.
+ */
+void
+init_edit_field(FIELD * f, char *value)
+{
+    char empty[1];
+    FieldAttrs *ptr = field_attrs(f);
+    if (ptr == 0) {
+	int rows, cols, frow, fcol, nrow, nbuf;
+
+	ptr = typeCalloc(FieldAttrs, (size_t) 1);
+	ptr->background = field_back(f);
+	if (field_info(f, &rows, &cols, &frow, &fcol, &nrow, &nbuf) == E_OK) {
+	    ptr->row_count = nrow;
+	    ptr->row_lengths = typeCalloc(int, (size_t) nrow + 1);
+	}
+    }
+    if (value == 0) {
+	value = empty;
+	*value = '\0';
+    }
+    set_field_userptr(f, (void *) ptr);
+    set_field_buffer(f, 0, value);	/* will be formatted */
+    set_field_buffer(f, 1, value);	/* will be unformatted */
+    set_buffer_length(f, (int) strlen(value));
 }
 
 int
@@ -308,9 +354,7 @@ edit_field(FORM * form, int *result)
     int status;
     FIELD *before;
     unsigned n;
-    char lengths[80];
     int length;
-    char *buffer;
     int before_row;
     int before_col;
     int before_off = offset_in_field(form);
@@ -337,9 +381,7 @@ edit_field(FORM * form, int *result)
     if (status == E_OK) {
 	bool modified = TRUE;
 
-	length = 0;
-	if ((buffer = field_buffer(before, 1)) != 0)
-	    length = atoi(buffer);
+	length = buffer_length(before);
 	if (length < before_off)
 	    length = before_off;
 	switch (*result) {
@@ -347,7 +389,7 @@ edit_field(FORM * form, int *result)
 	    length = before_off;
 	    break;
 	case REQ_CLR_EOL:
-	    if (before_row + 1 == before->rows)
+	    if ((int) (before_row + 1) == (int) (before->rows))
 		length = before_off;
 	    break;
 	case REQ_CLR_FIELD:
@@ -445,8 +487,7 @@ edit_field(FORM * form, int *result)
 	    < MIN_FORM_COMMAND)
 	    ++length;
 
-	sprintf(lengths, "%d", length);
-	set_field_buffer(before, 1, lengths);
+	set_buffer_length(before, length);
     }
 
     if (current_field(form) != before)
