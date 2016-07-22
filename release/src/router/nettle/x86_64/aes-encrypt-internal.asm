@@ -1,21 +1,36 @@
-C nettle, low-level cryptographics library
-C 
-C Copyright (C) 2001, 2002, 2005, 2008 Rafael R. Sevilla, Niels Möller
-C  
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C 
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C 
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C x86_64/aes-encrypt-internal.asm
+
+
+ifelse(<
+   Copyright (C) 2001, 2002, 2005, Rafael R. Sevilla, Niels Möller
+   Copyright (C) 2008, 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>)
 
 include_src(<x86_64/aes.m4>)
 
@@ -31,16 +46,17 @@ define(<TA>,<%r10d>)
 define(<TB>,<%r11d>)
 define(<TC>,<%r12d>)
 
-define(<CTX>,	<%rdi>)
-define(<TABLE>,	<%rsi>)
-define(<PARAM_LENGTH>,<%edx>)		C Length is only 32 bits
-define(<PARAM_DST>,	<%rcx>)
-define(<SRC>,	<%r8>)
+C Input argument
+define(<ROUNDS>, <%rdi>)
+define(<KEYS>,	<%rsi>)
+define(<PARAM_TABLE>,	<%rdx>)
+define(<PARAM_LENGTH>,<%rcx>)
+define(<DST>,	<%r8>)
+define(<SRC>,	<%r9>)
 
-define(<DST>, <%r9>) 
-define(<KEY>,<%r14>)
-define(<COUNT>,	<%r15d>)
-define(<BLOCK_COUNT>, <%r13d>)
+define(<TABLE>, <%r13>) 
+define(<LENGTH>,<%r14>)
+define(<KEY>,	<%r15>)
 
 C Must correspond to an old-style register, for movzb from %ah--%dh to
 C work.
@@ -48,14 +64,14 @@ define(<TMP>,<%rbp>)
 
 	.file "aes-encrypt-internal.asm"
 	
-	C _aes_encrypt(struct aes_context *ctx, 
+	C _aes_encrypt(unsigned rounds, const uint32_t *keys,
 	C	       const struct aes_table *T,
-	C	       unsigned length, uint8_t *dst,
+	C	       size_t length, uint8_t *dst,
 	C	       uint8_t *src)
 	.text
 	ALIGN(16)
 PROLOGUE(_nettle_aes_encrypt)
-	W64_ENTRY(5, 0)
+	W64_ENTRY(6, 0)
 	test	PARAM_LENGTH, PARAM_LENGTH
 	jz	.Lend
 
@@ -67,20 +83,21 @@ PROLOGUE(_nettle_aes_encrypt)
 	push	%r14
 	push	%r15	
 
-	mov	PARAM_DST, DST
-	movl	PARAM_LENGTH, BLOCK_COUNT
-	shrl	$4, BLOCK_COUNT
+	subl	$1, XREG(ROUNDS)
+	push	ROUNDS		C Rounds at (%rsp) 
+	
+	mov	PARAM_TABLE, TABLE
+	mov	PARAM_LENGTH, LENGTH
+	shr	$4, LENGTH
 .Lblock_loop:
-	mov	CTX,KEY
+	mov	KEYS, KEY
 	
 	AES_LOAD(SA, SB, SC, SD, SRC, KEY)
 	add	$16, SRC	C Increment src pointer
 
-	C  get number of rounds to do from ctx struct	
-	movl	AES_NROUNDS (CTX), COUNT
-	subl	$1, COUNT
+	movl	(%rsp), XREG(ROUNDS)
 
-	add	$16,KEY		C  point to next key
+	add	$16, KEY	C  point to next key
 	ALIGN(16)
 .Lround_loop:
 	AES_ROUND(TABLE, SA,SB,SC,SD, TA, TMP)
@@ -97,8 +114,8 @@ PROLOGUE(_nettle_aes_encrypt)
 	xorl	8(KEY),SC
 	xorl	12(KEY),SD
 
-	add	$16,KEY	C  point to next key
-	decl	COUNT
+	add	$16, KEY	C  point to next key
+	decl	XREG(ROUNDS)
 	jnz	.Lround_loop
 
 	C last round
@@ -108,28 +125,29 @@ PROLOGUE(_nettle_aes_encrypt)
 	AES_FINAL_ROUND(SD,SA,SB,SC, TABLE, SD, TMP)
 
 	C S-box substitution
-	mov	$3, COUNT
+	mov	$3, XREG(ROUNDS)
 .Lsubst:
 	AES_SUBST_BYTE(TA,TB,TC,SD, TABLE, TMP)
 
-	decl	COUNT
+	decl	XREG(ROUNDS)
 	jnz	.Lsubst
 
 	C Add last subkey, and store encrypted data
 	AES_STORE(TA,TB,TC,SD, KEY, DST)
 	
 	add	$16, DST
-	decl	BLOCK_COUNT
+	dec	LENGTH
 
 	jnz	.Lblock_loop
 
-	pop	%r15	
+	lea	8(%rsp), %rsp	C Drop ROUNDS
+	pop	%r15
 	pop	%r14
 	pop	%r13
 	pop	%r12
 	pop	%rbp
 	pop	%rbx
 .Lend:
-	W64_EXIT(5, 0)
+	W64_EXIT(6, 0)
 	ret
 EPILOGUE(_nettle_aes_encrypt)

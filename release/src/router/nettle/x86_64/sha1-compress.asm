@@ -1,21 +1,34 @@
-C nettle, low-level cryptographics library
-C 
-C Copyright (C) 2004, 2008 Niels Möller
-C  
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C 
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C 
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C x86_64/sha1-compress.asm
+
+ifelse(<
+   Copyright (C) 2004, 2008, 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>)
 
 C Register usage. KVALUE and INPUT share a register.
 define(<SA>,<%eax>)dnl
@@ -24,8 +37,8 @@ define(<SC>,<%ecx>)dnl
 define(<SD>,<%edx>)dnl
 define(<SE>,<%r9d>)dnl
 define(<DATA>,<%rsp>)dnl
-define(<TMP>,<%r10d>)dnl
-define(<TMP2>,<%r11d>)dnl			C  Used by F3
+define(<T1>,<%r10d>)dnl
+define(<T2>,<%r11d>)dnl
 define(<KVALUE>, <%esi>)dnl			
 
 C Arguments
@@ -46,49 +59,22 @@ define(<SWAP>, <
 	movl	$2, OFFSET($1) (DATA)
 >)dnl
 
-C expand(i) is the expansion function
-C
-C   W[i] = (W[i - 16] ^ W[i - 14] ^ W[i - 8] ^ W[i - 3]) <<< 1
-C
-C where W[i] is stored in DATA[i mod 16].
-C
-C Result is stored back in W[i], and also left in TMP, the only
-C register that is used.
-define(<EXPAND>, <
-	movl	OFFSET(eval($1 % 16)) (DATA), TMP
-	xorl	OFFSET(eval(($1 +  2) % 16)) (DATA), TMP
-	xorl	OFFSET(eval(($1 +  8) % 16)) (DATA), TMP
-	xorl	OFFSET(eval(($1 + 13) % 16)) (DATA), TMP
-	roll	<$>1, TMP
-	movl	TMP, OFFSET(eval($1 % 16)) (DATA)>)dnl
-define(<NOEXPAND>, <OFFSET($1) (DATA)>)dnl
-
 C The f functions,
 C
 C  f1(x,y,z) = z ^ (x & (y ^ z))
 C  f2(x,y,z) = x ^ y ^ z
 C  f3(x,y,z) = (x & y) | (z & (x | y))
+C	     = (x & (y ^ z)) + (y & z)
 C  f4 = f2
+
+C This form for f3 was suggested by George Spelvin. The terms can be
+C added into the result one at a time, saving one temporary.
+
+C expand(i) is the expansion function
 C
-C The macro Fk(x,y,z) computes = fk(x,y,z). 
-C Result is left in TMP.
-define(<F1>, <
-	movl	$3, TMP
-	xorl	$2, TMP
-	andl	$1, TMP
-	xorl	$3, TMP>)dnl
-define(<F2>, <
-	movl	$1, TMP
-	xorl	$2, TMP
-	xorl	$3, TMP>)dnl
-C Uses TMP2
-define(<F3>, <
-	movl	$1, TMP2
-	andl	$2, TMP2
-	movl	$1, TMP
-	orl	$2, TMP
-	andl	$3, TMP
-	orl	TMP2, TMP>)dnl
+C   W[i] = (W[i - 16] ^ W[i - 14] ^ W[i - 8] ^ W[i - 3]) <<< 1
+C
+C where W[i] is stored in DATA[i mod 16].
 
 C The form of one sha1 round is
 C
@@ -103,20 +89,85 @@ C instead get
 C
 C   e += a <<< 5 + f( b, c, d ) + k + w;
 C   b <<<= 30
-C
-C ROUND(a,b,c,d,e,f,w)
-define(<ROUND>, <
-	addl	KVALUE, $5
-	addl	ifelse($7,,TMP,$7), $5
-	$6($2,$3,$4)
-	addl	TMP, $5
 
-C Using the TMP register could be avoided, by rotating $1 in place,
-C adding, and then rotating back.
-	movl	$1, TMP
-	roll	<$>5, TMP
-	addl	TMP, $5
-	roll	<$>30, $2>)dnl
+dnl ROUND_F1(a, b, c, d, e, i)
+define(<ROUND_F1>, <
+	movl	OFFSET(eval($6 % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  2) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  8) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 + 13) % 16)) (DATA), T1
+	roll	<$>1, T1
+	movl	T1, OFFSET(eval($6 % 16)) (DATA)
+	movl	$4, T2
+	xorl	$3, T2
+	andl	$2, T2
+	xorl	$4, T2
+	roll	<$>30, $2
+	addl	T1, $5
+	addl	KVALUE, $5
+	movl	$1, T1
+	roll	<$>5, T1
+	addl	T1, $5
+	addl	T2, $5
+>)
+
+dnl ROUND_F1_NOEXP(a, b, c, d, e, i)
+define(<ROUND_F1_NOEXP>, <
+	movl	$4, T2
+	xorl	$3, T2
+	movl	$1, T1
+	andl	$2, T2
+	addl	OFFSET($6) (DATA), $5
+	xorl	$4, T2
+	addl	T2, $5
+	roll	<$>30, $2
+	roll	<$>5, T1
+	addl	T1, $5
+	addl	KVALUE, $5
+>)
+
+dnl ROUND_F2(a, b, c, d, e, i)
+define(<ROUND_F2>, <
+	movl	OFFSET(eval($6 % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  2) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  8) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 + 13) % 16)) (DATA), T1
+	roll	<$>1, T1
+	movl	T1, OFFSET(eval($6 % 16)) (DATA)
+	movl	$4, T2
+	xorl	$3, T2
+	xorl	$2, T2
+	roll	<$>30, $2
+	addl	T1, $5
+	addl	KVALUE, $5
+	movl	$1, T1
+	roll	<$>5, T1
+	addl	T1, $5
+	addl	T2, $5
+>)
+
+dnl ROUND_F3(a, b, c, d, e, i)
+define(<ROUND_F3>, <
+	movl	OFFSET(eval($6 % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  2) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 +  8) % 16)) (DATA), T1
+	xorl	OFFSET(eval(($6 + 13) % 16)) (DATA), T1
+	roll	<$>1, T1
+	movl	T1, OFFSET(eval($6 % 16)) (DATA)
+	movl	$4, T2
+	andl	$3, T2
+	addl	T1, $5
+ 	addl	KVALUE, $5
+	movl	$4, T1
+	xorl	$3, T1
+	andl	$2, T1
+	addl	T2, $5
+	roll	<$>30, $2
+	movl	$1, T2
+	roll	<$>5, T2
+	addl	T1, $5
+	addl	T2, $5
+>)
 
 	.file "sha1-compress.asm"
 
@@ -128,7 +179,7 @@ PROLOGUE(_nettle_sha1_compress)
 	C save all registers that need to be saved
 	W64_ENTRY(2, 0)
 	
-	sub	$68, %rsp	C  %rsp = W
+	sub	$64, %rsp	C  %rsp = W
 
 	C Load and byteswap data
 	SWAP( 0, SA) SWAP( 1, SB) SWAP( 2, SC) SWAP( 3, SD)
@@ -144,104 +195,104 @@ PROLOGUE(_nettle_sha1_compress)
 	movl	16(STATE), SE
 
 	movl	K1VALUE, KVALUE
-	ROUND(SA, SB, SC, SD, SE, <F1>, NOEXPAND( 0))
-	ROUND(SE, SA, SB, SC, SD, <F1>, NOEXPAND( 1))
-	ROUND(SD, SE, SA, SB, SC, <F1>, NOEXPAND( 2))
-	ROUND(SC, SD, SE, SA, SB, <F1>, NOEXPAND( 3))
-	ROUND(SB, SC, SD, SE, SA, <F1>, NOEXPAND( 4))
+	ROUND_F1_NOEXP(SA, SB, SC, SD, SE,  0)
+	ROUND_F1_NOEXP(SE, SA, SB, SC, SD,  1)
+	ROUND_F1_NOEXP(SD, SE, SA, SB, SC,  2)
+	ROUND_F1_NOEXP(SC, SD, SE, SA, SB,  3)
+	ROUND_F1_NOEXP(SB, SC, SD, SE, SA,  4)
 
-	ROUND(SA, SB, SC, SD, SE, <F1>, NOEXPAND( 5))
-	ROUND(SE, SA, SB, SC, SD, <F1>, NOEXPAND( 6))
-	ROUND(SD, SE, SA, SB, SC, <F1>, NOEXPAND( 7))
-	ROUND(SC, SD, SE, SA, SB, <F1>, NOEXPAND( 8))
-	ROUND(SB, SC, SD, SE, SA, <F1>, NOEXPAND( 9))
+	ROUND_F1_NOEXP(SA, SB, SC, SD, SE,  5)
+	ROUND_F1_NOEXP(SE, SA, SB, SC, SD,  6)
+	ROUND_F1_NOEXP(SD, SE, SA, SB, SC,  7)
+	ROUND_F1_NOEXP(SC, SD, SE, SA, SB,  8)
+	ROUND_F1_NOEXP(SB, SC, SD, SE, SA,  9)
 
-	ROUND(SA, SB, SC, SD, SE, <F1>, NOEXPAND(10))
-	ROUND(SE, SA, SB, SC, SD, <F1>, NOEXPAND(11))
-	ROUND(SD, SE, SA, SB, SC, <F1>, NOEXPAND(12))
-	ROUND(SC, SD, SE, SA, SB, <F1>, NOEXPAND(13))
-	ROUND(SB, SC, SD, SE, SA, <F1>, NOEXPAND(14))
+	ROUND_F1_NOEXP(SA, SB, SC, SD, SE, 10)
+	ROUND_F1_NOEXP(SE, SA, SB, SC, SD, 11)
+	ROUND_F1_NOEXP(SD, SE, SA, SB, SC, 12)
+	ROUND_F1_NOEXP(SC, SD, SE, SA, SB, 13)
+	ROUND_F1_NOEXP(SB, SC, SD, SE, SA, 14)
 
-	ROUND(SA, SB, SC, SD, SE, <F1>, NOEXPAND(15))
-	EXPAND(16) ROUND(SE, SA, SB, SC, SD, <F1>)
-	EXPAND(17) ROUND(SD, SE, SA, SB, SC, <F1>)
-	EXPAND(18) ROUND(SC, SD, SE, SA, SB, <F1>)
-	EXPAND(19) ROUND(SB, SC, SD, SE, SA, <F1>)
+	ROUND_F1_NOEXP(SA, SB, SC, SD, SE, 15)
+	ROUND_F1(SE, SA, SB, SC, SD, 16)
+	ROUND_F1(SD, SE, SA, SB, SC, 17)
+	ROUND_F1(SC, SD, SE, SA, SB, 18)
+	ROUND_F1(SB, SC, SD, SE, SA, 19)
 
 	movl	K2VALUE, KVALUE
-	EXPAND(20) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(21) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(22) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(23) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(24) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(25) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(26) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(27) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(28) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(29) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(30) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(31) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(32) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(33) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(34) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(35) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(36) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(37) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(38) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(39) ROUND(SB, SC, SD, SE, SA, <F2>)
+	ROUND_F2(SA, SB, SC, SD, SE, 20)
+	ROUND_F2(SE, SA, SB, SC, SD, 21)
+	ROUND_F2(SD, SE, SA, SB, SC, 22)
+	ROUND_F2(SC, SD, SE, SA, SB, 23)
+	ROUND_F2(SB, SC, SD, SE, SA, 24)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 25)
+	ROUND_F2(SE, SA, SB, SC, SD, 26)
+	ROUND_F2(SD, SE, SA, SB, SC, 27)
+	ROUND_F2(SC, SD, SE, SA, SB, 28)
+	ROUND_F2(SB, SC, SD, SE, SA, 29)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 30)
+	ROUND_F2(SE, SA, SB, SC, SD, 31)
+	ROUND_F2(SD, SE, SA, SB, SC, 32)
+	ROUND_F2(SC, SD, SE, SA, SB, 33)
+	ROUND_F2(SB, SC, SD, SE, SA, 34)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 35)
+	ROUND_F2(SE, SA, SB, SC, SD, 36)
+	ROUND_F2(SD, SE, SA, SB, SC, 37)
+	ROUND_F2(SC, SD, SE, SA, SB, 38)
+	ROUND_F2(SB, SC, SD, SE, SA, 39)
 
 	movl	K3VALUE, KVALUE
-	EXPAND(40) ROUND(SA, SB, SC, SD, SE, <F3>)
-	EXPAND(41) ROUND(SE, SA, SB, SC, SD, <F3>)
-	EXPAND(42) ROUND(SD, SE, SA, SB, SC, <F3>)
-	EXPAND(43) ROUND(SC, SD, SE, SA, SB, <F3>)
-	EXPAND(44) ROUND(SB, SC, SD, SE, SA, <F3>)
-
-	EXPAND(45) ROUND(SA, SB, SC, SD, SE, <F3>)
-	EXPAND(46) ROUND(SE, SA, SB, SC, SD, <F3>)
-	EXPAND(47) ROUND(SD, SE, SA, SB, SC, <F3>)
-	EXPAND(48) ROUND(SC, SD, SE, SA, SB, <F3>)
-	EXPAND(49) ROUND(SB, SC, SD, SE, SA, <F3>)
-
-	EXPAND(50) ROUND(SA, SB, SC, SD, SE, <F3>)
-	EXPAND(51) ROUND(SE, SA, SB, SC, SD, <F3>)
-	EXPAND(52) ROUND(SD, SE, SA, SB, SC, <F3>)
-	EXPAND(53) ROUND(SC, SD, SE, SA, SB, <F3>)
-	EXPAND(54) ROUND(SB, SC, SD, SE, SA, <F3>)
-
-	EXPAND(55) ROUND(SA, SB, SC, SD, SE, <F3>)
-	EXPAND(56) ROUND(SE, SA, SB, SC, SD, <F3>)
-	EXPAND(57) ROUND(SD, SE, SA, SB, SC, <F3>)
-	EXPAND(58) ROUND(SC, SD, SE, SA, SB, <F3>)
-	EXPAND(59) ROUND(SB, SC, SD, SE, SA, <F3>)
+	ROUND_F3(SA, SB, SC, SD, SE, 40)
+	ROUND_F3(SE, SA, SB, SC, SD, 41)
+	ROUND_F3(SD, SE, SA, SB, SC, 42)
+	ROUND_F3(SC, SD, SE, SA, SB, 43)
+	ROUND_F3(SB, SC, SD, SE, SA, 44)
+				     
+	ROUND_F3(SA, SB, SC, SD, SE, 45)
+	ROUND_F3(SE, SA, SB, SC, SD, 46)
+	ROUND_F3(SD, SE, SA, SB, SC, 47)
+	ROUND_F3(SC, SD, SE, SA, SB, 48)
+	ROUND_F3(SB, SC, SD, SE, SA, 49)
+				     
+	ROUND_F3(SA, SB, SC, SD, SE, 50)
+	ROUND_F3(SE, SA, SB, SC, SD, 51)
+	ROUND_F3(SD, SE, SA, SB, SC, 52)
+	ROUND_F3(SC, SD, SE, SA, SB, 53)
+	ROUND_F3(SB, SC, SD, SE, SA, 54)
+				     
+	ROUND_F3(SA, SB, SC, SD, SE, 55)
+	ROUND_F3(SE, SA, SB, SC, SD, 56)
+	ROUND_F3(SD, SE, SA, SB, SC, 57)
+	ROUND_F3(SC, SD, SE, SA, SB, 58)
+	ROUND_F3(SB, SC, SD, SE, SA, 59)
 
 	movl	K4VALUE, KVALUE
-	EXPAND(60) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(61) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(62) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(63) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(64) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(65) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(66) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(67) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(68) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(69) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(70) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(71) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(72) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(73) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(74) ROUND(SB, SC, SD, SE, SA, <F2>)
-
-	EXPAND(75) ROUND(SA, SB, SC, SD, SE, <F2>)
-	EXPAND(76) ROUND(SE, SA, SB, SC, SD, <F2>)
-	EXPAND(77) ROUND(SD, SE, SA, SB, SC, <F2>)
-	EXPAND(78) ROUND(SC, SD, SE, SA, SB, <F2>)
-	EXPAND(79) ROUND(SB, SC, SD, SE, SA, <F2>)
+	ROUND_F2(SA, SB, SC, SD, SE, 60)
+	ROUND_F2(SE, SA, SB, SC, SD, 61)
+	ROUND_F2(SD, SE, SA, SB, SC, 62)
+	ROUND_F2(SC, SD, SE, SA, SB, 63)
+	ROUND_F2(SB, SC, SD, SE, SA, 64)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 65)
+	ROUND_F2(SE, SA, SB, SC, SD, 66)
+	ROUND_F2(SD, SE, SA, SB, SC, 67)
+	ROUND_F2(SC, SD, SE, SA, SB, 68)
+	ROUND_F2(SB, SC, SD, SE, SA, 69)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 70)
+	ROUND_F2(SE, SA, SB, SC, SD, 71)
+	ROUND_F2(SD, SE, SA, SB, SC, 72)
+	ROUND_F2(SC, SD, SE, SA, SB, 73)
+	ROUND_F2(SB, SC, SD, SE, SA, 74)
+				     
+	ROUND_F2(SA, SB, SC, SD, SE, 75)
+	ROUND_F2(SE, SA, SB, SC, SD, 76)
+	ROUND_F2(SD, SE, SA, SB, SC, 77)
+	ROUND_F2(SC, SD, SE, SA, SB, 78)
+	ROUND_F2(SB, SC, SD, SE, SA, 79)
 
 	C Update the state vector
 	addl	SA,   (STATE) 
@@ -250,7 +301,7 @@ PROLOGUE(_nettle_sha1_compress)
 	addl	SD, 12(STATE) 
 	addl	SE, 16(STATE)
 
-	add	$68, %rsp
+	add	$64, %rsp
 	W64_EXIT(2, 0)
 	ret
 EPILOGUE(_nettle_sha1_compress)

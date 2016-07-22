@@ -1,21 +1,34 @@
-C nettle, low-level cryptographics library
-C 
-C Copyright (C) 2010, Niels Möller
-C  
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C 
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C 
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C x86/camellia-crypt-internal.asm
+
+ifelse(<
+   Copyright (C) 2010, Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>)
 
 C Register usage:
 
@@ -40,11 +53,12 @@ define(<FRAME_H1>,	<12(%esp)>)
 define(<FRAME_CNT>,	<16(%esp)>)
 	
 C Arguments on stack.
-define(<FRAME_CTX>,	<40(%esp)>)
-define(<FRAME_TABLE>,	<44(%esp)>)
-define(<FRAME_LENGTH>,	<48(%esp)>)
-define(<FRAME_DST>,	<52(%esp)>)
-define(<FRAME_SRC>,	<56(%esp)>)
+define(<FRAME_NKEYS>,	<40(%esp)>)
+define(<FRAME_KEYS>,	<44(%esp)>)
+define(<FRAME_TABLE>,	<48(%esp)>)
+define(<FRAME_LENGTH>,	<52(%esp)>)
+define(<FRAME_DST>,	<56(%esp)>)
+define(<FRAME_SRC>,	<60(%esp)>)
 
 define(<SP1110>, <(T,$1,4)>)
 define(<SP0222>, <1024(T,$1,4)>)
@@ -134,11 +148,11 @@ define(<FLINV>, <
 	xorl	TMP, $1
 >)
 
-.file "camellia-encrypt-internal.asm"
+.file "camellia-crypt-internal.asm"
 	
-	C _camellia_crypt(struct camellia_context *ctx, 
+	C _camellia_crypt(unsigned nkeys, const uint64_t *keys,
 	C	          const struct camellia_table *T,
-	C	          unsigned length, uint8_t *dst,
+	C	          size_t length, uint8_t *dst,
 	C	          uint8_t *src)
 	.text
 	ALIGN(16)
@@ -167,14 +181,13 @@ PROLOGUE(_nettle_camellia_crypt)
 	movl	12(TMP), L1
 	bswap	L1
 	addl	$16, FRAME_SRC
-	movl	FRAME_CTX, KEY
-	movl	(KEY), TMP
+	movl	FRAME_KEYS, KEY
+	movl	FRAME_NKEYS, TMP
 	subl	$8, TMP
 	movl	TMP, FRAME_CNT
-	C 	Whitening using first subkey 
-	addl	$ALIGNOF_UINT64_T + 8, KEY
-	xorl	-8(KEY), L0
-	xorl	-4(KEY), H0
+	xorl	(KEY), L0
+	xorl	4(KEY), H0
+	addl	$8, KEY
 
 	movl	FRAME_TABLE, T
 

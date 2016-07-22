@@ -1,28 +1,35 @@
 /* eratosthenes.c
- *
- * An implementation of the sieve of Eratosthenes, to generate a list of primes.
- *
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2007 Niels Möller
- *
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- *
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   An implementation of the sieve of Eratosthenes, to generate a list of primes.
+
+   Copyright (C) 2007 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -86,7 +93,7 @@ static unsigned long *
 vector_alloc(unsigned long size)
 {
   unsigned long end = (size + BITS_PER_LONG - 1) / BITS_PER_LONG;
-  unsigned long *vector = malloc (end * sizeof(long));
+  unsigned long *vector = malloc (end * sizeof(*vector));
 
   if (!vector)
     {
@@ -103,7 +110,7 @@ vector_init(unsigned long *vector, unsigned long size)
   unsigned long i;
 
   for (i = 0; i < end; i++)
-    vector[i] = ~0;
+    vector[i] = ~0UL;
 }
 
 static void

@@ -1,25 +1,33 @@
 /* umac-set-key.c
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2013 Niels Möller
- *
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- *
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -32,7 +40,7 @@
 #include "macros.h"
 
 static void
-umac_kdf (struct aes_ctx *aes, unsigned index, unsigned length, uint8_t *dst)
+umac_kdf (struct aes128_ctx *aes, unsigned index, unsigned length, uint8_t *dst)
 {
   uint8_t block[AES_BLOCK_SIZE];
   uint64_t count;
@@ -41,12 +49,12 @@ umac_kdf (struct aes_ctx *aes, unsigned index, unsigned length, uint8_t *dst)
        length -= AES_BLOCK_SIZE, dst += AES_BLOCK_SIZE, count++)
     {
       WRITE_UINT64 (block + 8, count);
-      aes_encrypt (aes, AES_BLOCK_SIZE, dst, block);
+      aes128_encrypt (aes, AES_BLOCK_SIZE, dst, block);
     }
   if (length > 0)
     {
       WRITE_UINT64 (block + 8, count);
-      aes_encrypt (aes, AES_BLOCK_SIZE, block, block);
+      aes128_encrypt (aes, AES_BLOCK_SIZE, block, block);
       memcpy (dst, block, length);
     }
 }
@@ -71,14 +79,14 @@ umac_kdf (struct aes_ctx *aes, unsigned index, unsigned length, uint8_t *dst)
 void
 _umac_set_key (uint32_t *l1_key, uint32_t *l2_key,
 	       uint64_t *l3_key1, uint32_t *l3_key2,
-	       struct aes_ctx *aes, const uint8_t *key, unsigned n)
+	       struct aes128_ctx *aes, const uint8_t *key, unsigned n)
 {
   unsigned size;
   uint8_t buffer[UMAC_KEY_SIZE];
 
-  aes_set_encrypt_key (aes, UMAC_KEY_SIZE, key);
+  aes128_set_encrypt_key (aes, key);
 
-  size = UMAC_DATA_SIZE / 4 + 4*(n-1);
+  size = UMAC_BLOCK_SIZE / 4 + 4*(n-1);
   umac_kdf (aes, 1, size * sizeof(uint32_t), (uint8_t *) l1_key);
   BE_SWAP32_N (size, l1_key);
 
@@ -94,5 +102,5 @@ _umac_set_key (uint32_t *l1_key, uint32_t *l2_key,
   umac_kdf (aes, 4, n * sizeof(uint32_t), (uint8_t *) l3_key2);
 
   umac_kdf (aes, 0, UMAC_KEY_SIZE, buffer);
-  aes_set_encrypt_key (aes, UMAC_KEY_SIZE, buffer);
+  aes128_set_encrypt_key (aes, buffer);
 }

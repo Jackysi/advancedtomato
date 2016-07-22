@@ -15,7 +15,7 @@ BENCH_LIBS = @BENCH_LIBS@ -lm
 
 HOGWEED_TARGETS = rsa-keygen$(EXEEXT) rsa-sign$(EXEEXT) \
 	      rsa-verify$(EXEEXT) rsa-encrypt$(EXEEXT) rsa-decrypt$(EXEEXT) \
-	      next-prime$(EXEEXT) random-prime$(EXEEXT) \
+	      random-prime$(EXEEXT) \
 	      hogweed-benchmark$(EXEEXT) ecc-benchmark$(EXEEXT)
 
 ENC_TARGETS = base16enc$(EXEEXT) base16dec$(EXEEXT) \
@@ -24,7 +24,7 @@ TARGETS = nettle-benchmark$(EXEEXT) eratosthenes$(EXEEXT) \
 	  $(ENC_TARGETS) @IF_HOGWEED@ $(HOGWEED_TARGETS)
 
 SOURCES = nettle-benchmark.c hogweed-benchmark.c ecc-benchmark.c \
-	eratosthenes.c next-prime.c random-prime.c \
+	eratosthenes.c random-prime.c \
 	nettle-openssl.c \
 	io.c read_rsa_key.c \
 	rsa-encrypt.c rsa-decrypt.c rsa-keygen.c rsa-sign.c rsa-verify.c \
@@ -53,10 +53,6 @@ all: $(TARGETS)
 	( cd .. && $(MAKE) nettle-internal.$(OBJEXT))
 
 # For Solaris and BSD make, we have to use an explicit rule for each executable
-next-prime$(EXEEXT): next-prime.$(OBJEXT) $(GETOPT_OBJS)
-	$(LINK) next-prime.$(OBJEXT) $(GETOPT_OBJS) \
-	-lhogweed -lnettle $(LIBS) -o next-prime$(EXEEXT)
-
 random-prime$(EXEEXT): random-prime.$(OBJEXT) io.$(OBJEXT) $(GETOPT_OBJS)
 	$(LINK) random-prime.$(OBJEXT) io.$(OBJEXT) $(GETOPT_OBJS) \
 	-lhogweed -lnettle $(LIBS) -o random-prime$(EXEEXT)
@@ -117,8 +113,8 @@ hogweed-benchmark$(EXEEXT): $(HOGWEED_BENCH_OBJS)
 	-lhogweed -lnettle $(BENCH_LIBS) $(LIBS) $(OPENSSL_LIBFLAGS) \
 	-o hogweed-benchmark$(EXEEXT)
 
-$(TARGETS) : io.$(OBJEXT) ../libnettle.a
-$(HOGWEED_TARGETS): ../libhogweed.a
+$(TARGETS) : io.$(OBJEXT) ../libnettle.stamp
+$(HOGWEED_TARGETS): ../libhogweed.stamp
 
 check: $(TS_ALL)
 	LD_LIBRARY_PATH=../.lib PATH="../.lib:$$PATH" srcdir="$(srcdir)" \

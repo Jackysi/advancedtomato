@@ -1,24 +1,33 @@
-/* input.c */
+/* input.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2002, 2003 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2002, 2003, 2008 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -63,7 +72,7 @@ sexp_get_char(struct sexp_input *input)
   if (input->coding)
     for (;;)
       {
-	unsigned done;
+	size_t done;
 
 	sexp_get_raw_char(input);
 	if (input->ctype == SEXP_EOF_CHAR)
@@ -141,41 +150,40 @@ sexp_get_quoted_char(struct sexp_input *input)
 {
   sexp_next_char(input);
 
-  for (;;)
-    switch (input->c)
-      {
-      default:
-	return 1;
-      case '\"':
-	return 0;
-      case '\\':
-	sexp_next_char(input);
+  switch (input->c)
+    {
+    default:
+      return 1;
+    case '\"':
+      return 0;
+    case '\\':
+      sexp_next_char(input);
 	
-	switch (input->c)
-	  {
-	  case 'b': input->c = '\b'; return 1;
-	  case 't': input->c = '\t'; return 1;
-	  case 'n': input->c = '\n'; return 1;
-	  case 'f': input->c = '\f'; return 1;
-	  case 'r': input->c = '\r'; return 1;
-	  case '\\': input->c = '\\'; return 1;
-	  case 'o':
-	  case 'x':
-	    /* FIXME: Not implemnted */
-	    abort();
-	  case '\n':
-	    if (sexp_next_char(input) == '\r')
-	      sexp_next_char(input);
+      switch (input->c)
+	{
+	case 'b': input->c = '\b'; return 1;
+	case 't': input->c = '\t'; return 1;
+	case 'n': input->c = '\n'; return 1;
+	case 'f': input->c = '\f'; return 1;
+	case 'r': input->c = '\r'; return 1;
+	case '\\': input->c = '\\'; return 1;
+	case 'o':
+	case 'x':
+	  /* FIXME: Not implemnted */
+	  abort();
+	case '\n':
+	  if (sexp_next_char(input) == '\r')
+	    sexp_next_char(input);
 
-	    break;
-	  case '\r':
-	    if (sexp_next_char(input) == '\n')
-	      sexp_next_char(input);
+	  break;
+	case '\r':
+	  if (sexp_next_char(input) == '\n')
+	    sexp_next_char(input);
 
-	    break;
-	  }
-	return 1;
-      }
+	  break;
+	}
+      return 1;
+    }
 }
 
 static void

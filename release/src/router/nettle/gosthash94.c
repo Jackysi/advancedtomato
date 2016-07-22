@@ -525,7 +525,7 @@ gost_compute_sum_and_hash (struct gosthash94_ctx *ctx, const uint8_t *block)
  */
 void
 gosthash94_update (struct gosthash94_ctx *ctx,
-		   unsigned length, const uint8_t *msg)
+		   size_t length, const uint8_t *msg)
 {
     unsigned index = (unsigned) ctx->length & 31;
     ctx->length += length;
@@ -533,7 +533,7 @@ gosthash94_update (struct gosthash94_ctx *ctx,
     /* fill partial block */
     if (index)
       {
-          unsigned left = GOSTHASH94_DATA_SIZE - index;
+          unsigned left = GOSTHASH94_BLOCK_SIZE - index;
           memcpy (ctx->message + index, msg, (length < left ? length : left));
           if (length < left)
               return;
@@ -543,11 +543,11 @@ gosthash94_update (struct gosthash94_ctx *ctx,
           msg += left;
           length -= left;
       }
-    while (length >= GOSTHASH94_DATA_SIZE)
+    while (length >= GOSTHASH94_BLOCK_SIZE)
       {
           gost_compute_sum_and_hash (ctx, msg);
-          msg += GOSTHASH94_DATA_SIZE;
-          length -= GOSTHASH94_DATA_SIZE;
+          msg += GOSTHASH94_BLOCK_SIZE;
+          length -= GOSTHASH94_BLOCK_SIZE;
       }
     if (length)
       {
@@ -564,7 +564,7 @@ gosthash94_update (struct gosthash94_ctx *ctx,
  */
 void
 gosthash94_digest (struct gosthash94_ctx *ctx,
-		   unsigned length, uint8_t *result)
+		   size_t length, uint8_t *result)
 {
     unsigned index = ctx->length & 31;
     uint32_t msg32[8];

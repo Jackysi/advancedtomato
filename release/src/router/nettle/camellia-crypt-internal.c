@@ -1,24 +1,36 @@
 /* camellia-crypt-internal.c
- *
- * Copyright (C) 2006,2007
- * NTT (Nippon Telegraph and Telephone Corporation).
- *
- * Copyright (C) 2010 Niels Möller
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- */
+
+   Copyright (C) 2006,2007 NTT
+   (Nippon Telegraph and Telephone Corporation).
+
+   Copyright (C) 2010 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /*
  * Algorithm Specification 
@@ -123,9 +135,10 @@
 #endif
 
 void
-_camellia_crypt(const struct camellia_ctx *ctx,
+_camellia_crypt(unsigned nkeys,
+		const uint64_t *keys,
 		const struct camellia_table *T,
-		unsigned length, uint8_t *dst,
+		size_t length, uint8_t *dst,
 		const uint8_t *src)
 {
   FOR_BLOCKS(length, dst, src, CAMELLIA_BLOCK_SIZE)
@@ -137,32 +150,32 @@ _camellia_crypt(const struct camellia_ctx *ctx,
       i1 = READ_UINT64(src +  8);
       
       /* pre whitening but absorb kw2*/
-      i0 ^= ctx->keys[0];
+      i0 ^= keys[0];
 
       /* main iteration */
 
-      CAMELLIA_ROUNDSM(T, i0,ctx->keys[1], i1);
-      CAMELLIA_ROUNDSM(T, i1,ctx->keys[2], i0);
-      CAMELLIA_ROUNDSM(T, i0,ctx->keys[3], i1);
-      CAMELLIA_ROUNDSM(T, i1,ctx->keys[4], i0);
-      CAMELLIA_ROUNDSM(T, i0,ctx->keys[5], i1);
-      CAMELLIA_ROUNDSM(T, i1,ctx->keys[6], i0);
+      CAMELLIA_ROUNDSM(T, i0, keys[1], i1);
+      CAMELLIA_ROUNDSM(T, i1, keys[2], i0);
+      CAMELLIA_ROUNDSM(T, i0, keys[3], i1);
+      CAMELLIA_ROUNDSM(T, i1, keys[4], i0);
+      CAMELLIA_ROUNDSM(T, i0, keys[5], i1);
+      CAMELLIA_ROUNDSM(T, i1, keys[6], i0);
       
-      for (i = 0; i < ctx->nkeys - 8; i+= 8)
+      for (i = 0; i < nkeys - 8; i+= 8)
 	{
-	  CAMELLIA_FL(i0, ctx->keys[i+7]);
-	  CAMELLIA_FLINV(i1, ctx->keys[i+8]);
+	  CAMELLIA_FL(i0, keys[i+7]);
+	  CAMELLIA_FLINV(i1, keys[i+8]);
 	  
-	  CAMELLIA_ROUNDSM(T, i0,ctx->keys[i+9], i1);
-	  CAMELLIA_ROUNDSM(T, i1,ctx->keys[i+10], i0);
-	  CAMELLIA_ROUNDSM(T, i0,ctx->keys[i+11], i1);
-	  CAMELLIA_ROUNDSM(T, i1,ctx->keys[i+12], i0);
-	  CAMELLIA_ROUNDSM(T, i0,ctx->keys[i+13], i1);
-	  CAMELLIA_ROUNDSM(T, i1,ctx->keys[i+14], i0);
+	  CAMELLIA_ROUNDSM(T, i0, keys[i+9], i1);
+	  CAMELLIA_ROUNDSM(T, i1, keys[i+10], i0);
+	  CAMELLIA_ROUNDSM(T, i0, keys[i+11], i1);
+	  CAMELLIA_ROUNDSM(T, i1, keys[i+12], i0);
+	  CAMELLIA_ROUNDSM(T, i0, keys[i+13], i1);
+	  CAMELLIA_ROUNDSM(T, i1, keys[i+14], i0);
 	}
 
       /* post whitening but kw4 */
-      i1 ^= ctx->keys[i+7];
+      i1 ^= keys[i+7];
 
       WRITE_UINT64(dst     , i1);
       WRITE_UINT64(dst +  8, i0);

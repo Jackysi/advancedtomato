@@ -1,27 +1,35 @@
 /* sexp-format.c
- *
- * Writing s-expressions.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2002 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Writing s-expressions.
+
+   Copyright (C) 2002 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -40,14 +48,14 @@
 
 static unsigned
 format_prefix(struct nettle_buffer *buffer,
-	      unsigned length)
+	      size_t length)
 {
-  unsigned digit = 1;
+  size_t digit = 1;
   unsigned prefix_length = 1;
   
   for (;;)
     {
-      unsigned next = digit * 10;
+      size_t next = digit * 10;
       if (next > length)
 	break;
 
@@ -68,9 +76,9 @@ format_prefix(struct nettle_buffer *buffer,
   return prefix_length + 1;
 }
 
-static unsigned
+static size_t
 format_string(struct nettle_buffer *buffer,
-	      unsigned length, const uint8_t *s)
+	      size_t length, const uint8_t *s)
 {
   unsigned prefix_length = format_prefix(buffer, length);
   if (!prefix_length)
@@ -82,11 +90,11 @@ format_string(struct nettle_buffer *buffer,
   return prefix_length + length;
 }
 
-unsigned
+size_t
 sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 {
   unsigned nesting = 0;
-  unsigned done = 0;
+  size_t done = 0;
 
   for (;;)
     switch (*format++)
@@ -94,8 +102,8 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
       default:
 	{
 	  const char *start = format - 1;
-	  unsigned length = 1 + strcspn(format, "()% \t");
-	  unsigned output_length = format_string(buffer, length, start);
+	  size_t length = 1 + strcspn(format, "()% \t");
+	  size_t output_length = format_string(buffer, length, start);
 	  if (!output_length)
 	    return 0;
 	  
@@ -154,8 +162,8 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 	    case 's':
 	      {
 		const char *s;
-		unsigned length;
-		unsigned output_length;
+		size_t length;
+		size_t output_length;
 		
 		if (nul_flag)
 		  {
@@ -164,7 +172,7 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 		  }
 		else
 		  {
-		    length = va_arg(args, unsigned);
+		    length = va_arg(args, size_t);
 		    s = va_arg(args, const char *);
 		  }
 		
@@ -178,8 +186,8 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 	    case 't':
 	      {
 		const char *s;
-		unsigned length;
-		unsigned output_length;
+		size_t length;
+		size_t output_length;
 		
 		if (nul_flag)
 		  {
@@ -191,7 +199,7 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 		  }
 		else
 		  {
-		    length = va_arg(args, unsigned);
+		    length = va_arg(args, size_t);
 		    s = va_arg(args, const char *);
 		    if (!s)
 		      break;
@@ -218,7 +226,7 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 	    case 'l':
 	      {
 		const char *s;
-		unsigned length;
+		size_t length;
 		
 		if (nul_flag)
 		  {
@@ -227,7 +235,7 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 		  }
 		else
 		  {
-		    length = va_arg(args, unsigned);
+		    length = va_arg(args, size_t);
 		    s = va_arg(args, const char *);
 		  }
 
@@ -290,8 +298,8 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
 	      }
 	    case 'b':
 	      {
-		const MP_INT *n = va_arg(args, const MP_INT *);
-		unsigned length;
+		mpz_srcptr n = va_arg(args, mpz_srcptr);
+		size_t length;
 		unsigned prefix_length;
 	      
 		length = nettle_mpz_sizeinbase_256_s(n);
@@ -319,11 +327,11 @@ sexp_vformat(struct nettle_buffer *buffer, const char *format, va_list args)
       }
 }
 
-unsigned
+size_t
 sexp_format(struct nettle_buffer *buffer, const char *format, ...)
 {
   va_list args;
-  unsigned done;
+  size_t done;
   
   va_start(args, format);
   done = sexp_vformat(buffer, format, args);

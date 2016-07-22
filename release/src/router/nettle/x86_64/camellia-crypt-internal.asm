@@ -1,21 +1,34 @@
-C nettle, low-level cryptographics library
-C 
-C Copyright (C) 2010, Niels Möller
-C  
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C 
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C 
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C x86_64/camellia-crypt-internal.asm
+
+ifelse(<
+   Copyright (C) 2010, Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>)
 
 C Performance, cycles per block
 C
@@ -26,16 +39,17 @@ C Camellia-256  543  461
 
 C Register usage:
 
-define(<CTX>, <%rdi>)
-define(<TABLE>, <%rsi>)
-define(<LENGTH>, <%rdx>)
-define(<DST>, <%rcx>)
-define(<SRC>, <%r8>)
+define(<NKEYS>, <%rdi>)
+define(<KEYS>, <%rsi>)
+define(<TABLE>, <%rdx>)
+define(<LENGTH>, <%rcx>)
+define(<DST>, <%r8>)
+define(<SRC>, <%r9>)
 
 C Camellia state
 define(<I0>, <%rax>)
 define(<I1>, <%rbx>) C callee-save
-define(<KEY>, <%r9>)
+define(<KEY>, <%r13>) C callee-save
 define(<TMP>, <%rbp>) C callee-save
 define(<CNT>, <%r10>)
 define(<IL>,  <%r11>)
@@ -114,24 +128,25 @@ C	xorl	XREG(TMP), XREG($1)
 	xor	TMP, $1	
 >)
 
-	.file "camellia-encrypt-internal.asm"
+	.file "camellia-crypt-internal.asm"
 	
-	C _camellia_crypt(struct camellia_context *ctx, 
+	C _camellia_crypt(unsigned nkeys, const uint64_t *keys, 
 	C	          const struct camellia_table *T,
-	C	          unsigned length, uint8_t *dst,
+	C	          size_t length, uint8_t *dst,
 	C	          uint8_t *src)
 	.text
 	ALIGN(16)
 PROLOGUE(_nettle_camellia_crypt)
 
-	W64_ENTRY(5, 0)
+	W64_ENTRY(6, 0)
 	test	LENGTH, LENGTH
 	jz	.Lend
 
 	push	%rbx
 	push	%rbp
 	push	%r12
-	
+	push	%r13
+	sub	$8, NKEYS
 .Lblock_loop:
 	C Load data, note that we'll happily do unaligned loads
 	mov	(SRC), I0
@@ -139,13 +154,12 @@ PROLOGUE(_nettle_camellia_crypt)
 	mov	8(SRC), I1
 	bswap	I1
 	add	$16, SRC
-	mov	CTX, KEY
-	movl	(KEY), XREG(CNT)
-	sub	$8, CNT
+	mov	XREG(NKEYS), XREG(CNT)
+	mov	KEYS, KEY
 
 	C 	Whitening using first subkey 
-	xor	8(KEY), I0
-	add	$16, KEY
+	xor	(KEY), I0
+	add	$8, KEY
 
 	ROUND(I0, I1, 0)
 	ROUND(I1, I0, 8)
@@ -178,10 +192,11 @@ PROLOGUE(_nettle_camellia_crypt)
 
 	ja	.Lblock_loop
 
+	pop	%r13
 	pop	%r12
 	pop	%rbp
 	pop	%rbx
 .Lend:
-	W64_EXIT(5, 0)
+	W64_EXIT(6, 0)
 	ret
 EPILOGUE(_nettle_camellia_crypt)
