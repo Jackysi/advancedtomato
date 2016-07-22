@@ -495,10 +495,43 @@ signal() {
 
 
     if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
-        #check signal strength
-        CSQ=`gcom -d $DEVNR -s /etc/gcom/getstrength.gcom | grep "CSQ:" | cut -d " " -f2 | cut -d "," -f1`
-        DBM=$((-113+CSQ*2))
-        logger "4G MODEM Signal Strength: $DBM dBm"
+        HCSQ=`MODE="AT^HCSQ?" gcom -d $DEVNR -s /etc/gcom/setverbose.gcom | grep "HCSQ:" | tr -d '\r'`
+        SPEED=`echo $HCSQ | cut -d "," -f1 | cut -d '"' -f2`
+        case "$SPEED" in
+            "LTE")
+                    VALUE=`echo $HCSQ | cut -d "," -f2`
+                    RSSI=`awk "BEGIN {print -120+$VALUE}"` #dBm
+                    VALUE=`echo $HCSQ | cut -d "," -f3`
+                    RSRP=`awk "BEGIN {print -140+$VALUE}"` #dBm
+                    VALUE=`echo $HCSQ | cut -d "," -f4`
+                    SINR=`awk "BEGIN {print -20+$VALUE*0.2}"` #dB
+                    VALUE=`echo $HCSQ | cut -d "," -f5`
+                    RSRQ=`awk "BEGIN {print -19.5+$VALUE*0.5}"` #dB
+                    logger "4G MODEM Current Mode: $SPEED"
+                    logger "4G MODEM Signal Strength: RSSI $RSSI dBm, RSRP $RSRP dBm, SINR $SINR dB, RSRQ $RSRQ dB"
+            ;;
+            "WCDMA")
+                    VALUE=`echo $HCSQ | cut -d "," -f2`
+                    RSSI=`awk "BEGIN {print -120+$VALUE}"` #dBm
+                    VALUE=`echo $HCSQ | cut -d "," -f3`
+                    RSRP=`awk "BEGIN {print -140+$VALUE}"` #dBm
+                    VALUE=`echo $HCSQ | cut -d "," -f4`
+                    SINR=`awk "BEGIN {print -20+$VALUE*0.2}"` #dB
+                    VALUE=`echo $HCSQ | cut -d "," -f2`
+                    logger "4G MODEM Current Mode: $SPEED"
+                    logger "4G MODEM Signal Strength: RSSI $RSSI dBm, RSRP $RSRP dBm, SINR $SINR dB"
+            ;;
+            "GSM")
+                    VALUE=`echo $HCSQ | cut -d "," -f2`
+                    RSSI=`awk "BEGIN {print -120+$VALUE}"` #dBm
+                    logger "4G MODEM Current Mode: $SPEED"
+                    logger "4G MODEM Signal Strength: RSSI $RSSI dBm"
+            ;;
+            *)
+                    logger "4G MODEM Current Mode: unknown"
+                    logger "4G MODEM Signal Strength: no data"
+            ;;
+        esac
     elif [ "$TYPE" == "qmi_wwan" ]; then
         RSSI=`uqmi -s -d "$DEVNR" --get-signal-info | cut -d "," -f2 | cut -d ":" -f2`
         RSRQ=`uqmi -s -d "$DEVNR" --get-signal-info | cut -d "," -f3 | cut -d ":" -f2`
