@@ -44,12 +44,13 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
+#include <sys/select.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -67,6 +68,7 @@
 #define IP_HEADER_RAOPT_LEN	24
 
 #define MAX_MC_VIFS    32     // !!! check this const in the specific includes
+#define MAX_UPS_VIFS    8
 
 // Useful macros..          
 #define VCMC( Vc )  (sizeof( Vc ) / sizeof( (Vc)[ 0 ] ))
@@ -116,6 +118,8 @@ void my_log( int Serverity, int Errno, const char *FmtSt, ... );
 #define IF_STATE_DISABLED      0   // Interface should be ignored.
 #define IF_STATE_UPSTREAM      1   // Interface is the upstream interface
 #define IF_STATE_DOWNSTREAM    2   // Interface is a downstream interface
+#define IF_STATE_LOST		   3   // aimwang: Temp from downstream to hidden
+#define IF_STATE_HIDDEN		   4   // aimwang: Interface is hidden
 
 // Multicast default values...
 #define DEFAULT_ROBUSTNESS     2
@@ -166,17 +170,25 @@ struct Config {
     unsigned int        lastMemberQueryCount;
     // Set if upstream leave messages should be sent instantly..
     unsigned short      fastUpstreamLeave;
+    //~ aimwang added
+    // Set if nneed to detect new interface.
+    unsigned short	rescanVif;
+    // Set if not detect new interface for down stream.
+    unsigned short	defaultInterfaceState;	// 0: disable, 2: downstream
+    //~ aimwang added done
 };
 
 // Defines the Index of the upstream VIF...
-extern int upStreamVif;
+extern int upStreamVif[MAX_UPS_VIFS];
 
 /* ifvc.c
  */
+void rebuildIfVc( void );
 void buildIfVc( void );
 struct IfDesc *getIfByName( const char *IfName );
 struct IfDesc *getIfByIx( unsigned Ix );
 struct IfDesc *getIfByAddress( uint32_t Ix );
+struct IfDesc *getIfByVifIndex( unsigned vifindex );
 int isAdressValidForIf(struct IfDesc* intrface, uint32_t ipaddr);
 
 /* mroute-api.c
@@ -194,6 +206,7 @@ extern int MRouterFD;
 int enableMRouter( void );
 void disableMRouter( void );
 void addVIF( struct IfDesc *Dp );
+void delVIF( struct IfDesc *Dp );
 int addMRoute( struct MRouteDesc * Dp );
 int delMRoute( struct MRouteDesc * Dp );
 int getVifIx( struct IfDesc *IfDp );
@@ -201,13 +214,14 @@ int getVifIx( struct IfDesc *IfDp );
 /* config.c
  */
 int loadConfig(char *configFile);
-void configureVifs();
-struct Config *getCommonConfig();
+void configureVifs(void);
+struct Config *getCommonConfig(void);
 
 /* igmp.c
 */
 extern uint32_t allhosts_group;
 extern uint32_t allrouters_group;
+extern uint32_t alligmp3_group;
 void initIgmp(void);
 void acceptIgmp(int);
 void sendIgmp (uint32_t, uint32_t, int, int, uint32_t,int);
@@ -243,28 +257,30 @@ int leaveMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcastaddr );
 
 /* rttable.c
  */
-void initRouteTable();
-void clearAllRoutes();
+void initRouteTable(void);
+void clearAllRoutes(void);
 int insertRoute(uint32_t group, int ifx);
-int activateRoute(uint32_t group, uint32_t originAddr);
-void ageActiveRoutes();
+int activateRoute(uint32_t group, uint32_t originAddr, int upstrVif);
+void ageActiveRoutes(void);
 void setRouteLastMemberMode(uint32_t group);
 int lastMemberGroupAge(uint32_t group);
+int interfaceInRoute(int32_t group, int Ix);
+int getMcGroupSock(void);
 
 /* request.c
  */
-void acceptGroupReport(uint32_t src, uint32_t group, uint8_t type);
+void acceptGroupReport(uint32_t src, uint32_t group);
 void acceptLeaveMessage(uint32_t src, uint32_t group);
-void sendGeneralMembershipQuery();
+void sendGeneralMembershipQuery(void);
 
 /* callout.c 
 */
 typedef void (*timer_f)(void *);
 
-void callout_init();
-void free_all_callouts();
+void callout_init(void);
+void free_all_callouts(void);
 void age_callout_queue(int);
-int timer_nextTimer();
+int timer_nextTimer(void);
 int timer_setTimer(int, timer_f, void *);
 int timer_clearTimer(int);
 int timer_leftTimer(int);
@@ -274,8 +290,8 @@ int timer_leftTimer(int);
 #define MAX_TOKEN_LENGTH    30
 
 int openConfigFile(char *filename);
-void closeConfigFile();
-char* nextConfigToken();
-char* getCurrentConfigToken();
+void closeConfigFile(void);
+char* nextConfigToken(void);
+char* getCurrentConfigToken(void);
 
 
