@@ -1,5 +1,5 @@
 .\"***************************************************************************
-.\" Copyright (c) 2001-2010,2011 Free Software Foundation, Inc.              *
+.\" Copyright (c) 2001-2012,2015 Free Software Foundation, Inc.              *
 .\"                                                                          *
 .\" Permission is hereby granted, free of charge, to any person obtaining a  *
 .\" copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" $Id: curs_add_wch.3x,v 1.14 2011/01/15 15:27:43 tom Exp $
+.\" $Id: curs_add_wch.3x,v 1.16 2015/07/20 23:44:56 tom Exp $
 .TH curs_add_wch 3X ""
 .de bP
 .IP \(bu 4
@@ -55,6 +55,7 @@
 .B "int wecho_wchar( WINDOW *\fIwin\fP, const cchar_t *\fIwch\fB );"
 .br
 .SH DESCRIPTION
+.SS add_wch
 .PP
 The
 \fBadd_wch\fP,
@@ -83,6 +84,7 @@ and the rendition specified by \fIwch\fP is ignored.
 If the character part of \fIwch\fP is
 a tab, newline, backspace or other control character,
 the window is updated and the cursor moves as if \fBaddch\fR were called.
+.SS echo_wchar
 .PP
 The \fBecho_wchar\fP
 function is functionally equivalent to a call to
@@ -176,7 +178,7 @@ WACS_D_HLINE	0x2550	-	double horizontal line
 WACS_D_VLINE	0x2551	|	double vertical line
 WACS_D_PLUS	0x256c	+	double large plus or crossover
 .TE
-.SH RETURN VALUES
+.SH RETURN VALUE
 .PP
 All routines return the integer \fBERR\fR upon failure and \fBOK\fR on success.
 .PP
@@ -214,6 +216,7 @@ terms of intermediate symbols.
 This implementation extends those symbols, providing new definitions
 which are not in the SVr4 implementations.
 .SH SEE ALSO
+.na
 .PP
 \fBcurses\fR(3X),
 \fBcurs_addch\fR(3X),

@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 1998-2010,2011 Free Software Foundation, Inc.                #
+# Copyright (c) 1998-2014,2015 Free Software Foundation, Inc.                #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -25,7 +25,7 @@
 # use or other dealings in this Software without prior written               #
 # authorization.                                                             #
 ##############################################################################
-# $Id: dist.mk,v 1.810 2011/04/04 22:42:20 tom Exp $
+# $Id: dist.mk,v 1.1064 2015/08/06 23:13:39 tom Exp $
 # Makefile for creating ncurses distributions.
 #
 # This only needs to be used directly as a makefile by developers, but
@@ -35,30 +35,31 @@
 SHELL = /bin/sh
 
 # These define the major/minor/patch versions of ncurses.
-NCURSES_MAJOR = 5
-NCURSES_MINOR = 9
-NCURSES_PATCH = 20110404
+NCURSES_MAJOR = 6
+NCURSES_MINOR = 0
+NCURSES_PATCH = 20150808
 
 # We don't append the patch to the version, since this only applies to releases
 VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
 
-# The most recent html files were generated with lynx 2.8.6, using ncurses
-# configured with
+# The most recent html files were generated with lynx 2.8.6 (or later), using
+# ncurses configured with
 #	--without-manpage-renames
 # on Debian/testing.  The -scrollbar and -width options are used to make lynx
 # use 79 columns as it did in 2.8.5 and before.
 DUMP	= lynx -dump -scrollbar=0 -width=79
 DUMP2	= $(DUMP) -nolist
 
-GNATHTML= `type -p gnathtml || type -p gnathtml.pl`
+# gcc's file is "gnathtml.pl"
+GNATHTML= gnathtml
 
-# man2html 3.0.1 is a Perl script which assumes that pages are fixed size.
+# man2html is a Perl script which assumes that pages are fixed size.
 # Not all man programs agree with this assumption; some use half-spacing, which
 # has the effect of lengthening the text portion of the page -- so man2html
 # would remove some text.  The man program on Redhat 6.1 appears to work with
 # man2html if we set the top/bottom margins to 6 (the default is 7).  Newer
 # versions of 'man' leave no margin (and make it harder to sync with pages).
-MAN2HTML= man2html -botm=0 -topm=0 -cgiurl '$$title.$$section$$subsection.html'
+MAN2HTML= man2html -botm=0 -topm=0 -cgiurl '$$title.$$section$$subsection.html' -index
 
 ALL	= ANNOUNCE doc/html/announce.html doc/ncurses-intro.doc doc/hackguide.doc manhtml adahtml
 
@@ -98,7 +99,13 @@ doc/hackguide.doc: doc/html/hackguide.html
 MANPROG	= tbl | nroff -mandoc -rLL=65n -rLT=71n -Tascii
 
 manhtml:
-	@rm -f doc/html/man/*.html
+	@for f in doc/html/man/*.html; do \
+	   test -f $$f || continue; \
+	   case $$f in \
+	   */index.html) ;; \
+	   *) rm -f $$f ;; \
+	   esac; \
+	done
 	@mkdir -p doc/html/man
 	@rm -f subst.tmp ;
 	@for f in man/*.[0-9]*; do \
@@ -126,8 +133,7 @@ manhtml:
 	   g=$${m}.html ;\
 	   if [ -f doc/html/$$g ]; then chmod +w doc/html/$$g; fi;\
 	   echo "Converting $$m to HTML" ;\
-	   echo '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">' > doc/html/man/$$g ;\
-	   echo '<!-- ' >> doc/html/man/$$g ;\
+	   echo '<!-- ' > doc/html/man/$$g ;\
 	   egrep '^.\\"[^#]' $$f | \
 	   	sed	-e 's/\$$/@/g' \
 			-e 's/^.../  */' \
@@ -135,9 +141,15 @@ manhtml:
 			-e 's/>/\&gt;/g' \
 	   >> doc/html/man/$$g ;\
 	   echo '-->' >> doc/html/man/$$g ;\
-	   ./edit_man.sh normal editing /usr/man man $$f | $(MANPROG) | tr '\255' '-' | $(MAN2HTML) -title "$$T" | \
-	   sed -f subst.sed |\
-	   sed -e 's/"curses.3x.html"/"ncurses.3x.html"/g' \
+	   ./edit_man.sh normal editing /usr/man man $$f | \
+		   $(MANPROG) | \
+		   tr '\255' '-' | \
+		   $(MAN2HTML) \
+		   	-title "$$T" \
+			-aliases man/manhtml.aliases \
+			-externs man/manhtml.externs | \
+		   sed -f subst.sed |\
+		   sed -e 's/"curses.3x.html"/"ncurses.3x.html"/g' \
 	   >> doc/html/man/$$g ;\
 	done
 	@rm -f subst.sed
@@ -149,7 +161,7 @@ manhtml:
 # .ali files contain cross referencing information required by gnathtml.
 adahtml:
 	if [ ! -z "$(GNATHTML)" ]; then \
-	  (cd ./Ada95/gen ; make html) ;\
+	  (cd ./Ada95/gen ; make html GNATHTML=$(GNATHTML) ) ;\
 	fi
 
 # This only works on a clean source tree, of course.
