@@ -43,6 +43,12 @@
 #include <stdlib.h>
 #include <string.h>
 int
+evutil_secure_rng_set_urandom_device_file(char *fname)
+{
+	(void) fname;
+	return -1;
+}
+int
 evutil_secure_rng_init(void)
 {
 	/* call arc4random() now to force it to self-initialize */
@@ -70,8 +76,12 @@ ev_arc4random_buf(void *buf, size_t n)
 	 * and fall back otherwise.  (OSX does this using some linker
 	 * trickery.)
 	 */
-	if (arc4random_buf != NULL) {
-		return arc4random_buf(buf, n);
+	{
+		void (*tptr)(void *,size_t) =
+		    (void (*)(void*,size_t))arc4random_buf;
+		if (tptr != NULL) {
+			return arc4random_buf(buf, n);
+		}
 	}
 #endif
 	/* Make sure that we start out with b at a 4-byte alignment; plenty
@@ -122,6 +132,17 @@ evutil_secure_rng_global_setup_locks_(const int enable_locks)
 	return 0;
 }
 #endif
+
+int
+evutil_secure_rng_set_urandom_device_file(char *fname)
+{
+#ifdef TRY_SEED_URANDOM
+	_ARC4_LOCK();
+	arc4random_urandom_filename = fname;
+	_ARC4_UNLOCK();
+#endif
+	return 0;
+}
 
 int
 evutil_secure_rng_init(void)
