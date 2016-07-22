@@ -1,9 +1,8 @@
-/* $Id: proto.h 4460 2009-12-09 16:51:43Z astyanax $ */
 /**************************************************************************
  *   proto.h                                                              *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
- *   2008, 2009 Free Software Foundation, Inc.                            *
+ *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 3, or (at your option)  *
@@ -28,9 +27,18 @@
 
 /* All external variables.  See global.c for their descriptions. */
 #ifndef NANO_TINY
-extern sigjmp_buf jump_buf;
-extern bool jump_buf_main;
-extern bool use_undo;
+extern volatile sig_atomic_t sigwinch_counter;
+#endif
+
+extern bool meta_key;
+extern bool func_key;
+extern bool focusing;
+
+extern message_type lastmessage;
+
+#ifndef NANO_TINY
+extern int controlleft;
+extern int controlright;
 #endif
 
 #ifndef DISABLE_WRAPJUSTIFY
@@ -39,7 +47,8 @@ extern ssize_t wrap_at;
 #endif
 
 extern char *last_search;
-extern char *last_replace;
+
+extern char *present_path;
 
 extern unsigned flags[4];
 extern WINDOW *topwin;
@@ -60,13 +69,16 @@ extern openfilestruct *openfile;
 extern char *matchbrackets;
 #endif
 
-#if !defined(NANO_TINY) && defined(ENABLE_NANORC)
+#ifndef NANO_TINY
 extern char *whitespace;
 extern int whitespace_len[2];
-extern undo_type last_action;
 #endif
 
+extern const char *exit_tag;
+extern const char *close_tag;
+extern const char *uncut_tag;
 #ifndef DISABLE_JUSTIFY
+extern const char *unjust_tag;
 extern char *punct;
 extern char *brackets;
 extern char *quotestr;
@@ -77,7 +89,8 @@ extern char *quoteerr;
 #else
 extern size_t quotelen;
 #endif
-#endif
+#endif /* !DISABLE_JUSTIFY */
+
 extern bool nodelay_mode;
 extern char *answer;
 
@@ -85,6 +98,8 @@ extern ssize_t tabsize;
 
 #ifndef NANO_TINY
 extern char *backup_dir;
+extern const char *locking_prefix;
+extern const char *locking_suffix;
 #endif
 #ifndef DISABLE_OPERATINGDIR
 extern char *operating_dir;
@@ -95,24 +110,27 @@ extern char *full_operating_dir;
 extern char *alt_speller;
 #endif
 
-extern sc *sclist;
-extern subnfunc *allfuncs;
-#ifdef ENABLE_COLOR
+#ifndef DISABLE_COLOR
 extern syntaxtype *syntaxes;
 extern char *syntaxstr;
 #endif
 
-extern bool edit_refresh_needed;
-extern const shortcut *currshortcut;
-extern int currmenu;
+extern bool refresh_needed;
 
-#ifndef NANO_TINY
+extern int currmenu;
+extern sc *sclist;
+extern subnfunc *allfuncs;
+extern subnfunc *exitfunc;
+extern subnfunc *uncutfunc;
+
+#ifndef DISABLE_HISTORIES
 extern filestruct *search_history;
 extern filestruct *searchage;
 extern filestruct *searchbot;
 extern filestruct *replace_history;
 extern filestruct *replaceage;
 extern filestruct *replacebot;
+extern poshiststruct *position_history;
 #endif
 
 #ifdef HAVE_REGEX_H
@@ -120,21 +138,26 @@ extern regex_t search_regexp;
 extern regmatch_t regmatches[10];
 #endif
 
-extern int reverse_attr;
+extern int hilite_attribute;
+#ifndef DISABLE_COLOR
+extern char* specified_color_combo[NUMBER_OF_ELEMENTS];
+#endif
+extern color_pair interface_color_pair[NUMBER_OF_ELEMENTS];
 
 extern char *homedir;
 
+typedef void (*functionptrtype)(void);
+
 /* All functions in browser.c. */
 #ifndef DISABLE_BROWSER
-char *do_browser(char *path, DIR *dir);
+char *do_browser(char *path);
 char *do_browse_from(const char *inpath);
-void browser_init(const char *path, DIR *dir);
-void parse_browser_input(int *kbinput, bool *meta_key, bool *func_key);
+void read_the_list(const char *path, DIR *dir);
+functionptrtype parse_browser_input(int *kbinput);
 void browser_refresh(void);
-bool browser_select_filename(const char *needle);
+void browser_select_dirname(const char *needle);
 int filesearch_init(void);
-bool findnextfile(bool no_sameline, size_t begin, const char *needle);
-void findnextfile_wrap_reset(void);
+void findnextfile(const char *needle);
 void filesearch_abort(void);
 void do_filesearch(void);
 void do_fileresearch(void);
@@ -143,11 +166,12 @@ void do_last_file(void);
 char *striponedir(const char *path);
 #endif
 
-/* All functions in chars.c. */
+/* Most functions in chars.c. */
 #ifdef ENABLE_UTF8
 void utf8_init(void);
 bool using_utf8(void);
 #endif
+char *addstrings(char* str1, size_t len1, char* str2, size_t len2);
 #ifndef HAVE_ISBLANK
 bool nisblank(int c);
 #endif
@@ -167,7 +191,7 @@ bool is_punct_mbchar(const char *c);
 bool is_word_mbchar(const char *c, bool allow_punct);
 char control_rep(char c);
 #ifdef ENABLE_UTF8
-wchar_t control_wrep(wchar_t c);
+wchar_t control_wrep(wchar_t wc);
 #endif
 char *control_mbrep(const char *c, char *crep, int *crep_len);
 char *mbrep(const char *c, char *crep, int *crep_len);
@@ -214,26 +238,30 @@ char *revstrpbrk(const char *s, const char *accept, const char
 char *mbrevstrpbrk(const char *s, const char *accept, const char
 	*rev_start);
 #endif
-#if defined(ENABLE_NANORC) && (!defined(NANO_TINY) || !defined(DISABLE_JUSTIFY))
+#if !defined(DISABLE_NANORC) && (!defined(NANO_TINY) || !defined(DISABLE_JUSTIFY))
 bool has_blank_chars(const char *s);
 bool has_blank_mbchars(const char *s);
 #endif
 #ifdef ENABLE_UTF8
 bool is_valid_unicode(wchar_t wc);
 #endif
-#ifdef ENABLE_NANORC
+#ifndef DISABLE_NANORC
 bool is_valid_mbstring(const char *s);
 #endif
 
-/* All functions in color.c. */
-#ifdef ENABLE_COLOR
+/* Most functions in color.c. */
+#ifndef DISABLE_COLOR
 void set_colorpairs(void);
 void color_init(void);
 void color_update(void);
+void reset_multis(filestruct *fileptr, bool force);
+void alloc_multidata_if_needed(filestruct *fileptr);
+void precalc_multicolorinfo(void);
 #endif
 
 /* All functions in cut.c. */
 void cutbuffer_reset(void);
+bool keeping_cutbuffer(void);
 void cut_line(void);
 #ifndef NANO_TINY
 void cut_marked(void);
@@ -242,7 +270,7 @@ void cut_to_eof(void);
 #endif
 void do_cut_text(
 #ifndef NANO_TINY
-	bool copy_text, bool cut_till_end, bool undoing
+	bool copy_text, bool cut_till_eof
 #else
 	void
 #endif
@@ -250,29 +278,26 @@ void do_cut_text(
 void do_cut_text_void(void);
 #ifndef NANO_TINY
 void do_copy_text(void);
-void do_cut_till_end(void);
+void do_cut_till_eof(void);
 #endif
 void do_uncut_text(void);
 
-/* All functions in files.c. */
+/* Most functions in files.c. */
 void make_new_buffer(void);
-void initialize_buffer(void);
 void initialize_buffer_text(void);
-void open_buffer(const char *filename, bool undoable);
+bool open_buffer(const char *filename, bool undoable);
 #ifndef DISABLE_SPELLER
 void replace_buffer(const char *filename);
 #endif
 void display_buffer(void);
-#ifdef ENABLE_MULTIBUFFER
-void switch_to_prevnext_buffer(bool next);
+#ifndef DISABLE_MULTIBUFFER
 void switch_to_prev_buffer_void(void);
 void switch_to_next_buffer_void(void);
 bool close_buffer(void);
 #endif
-filestruct *read_line(char *buf, filestruct *prevnode, bool
-	*first_line_ins, size_t buf_len);
+filestruct *read_line(char *buf, size_t buf_len, filestruct *prevnode);
 void read_file(FILE *f, int fd, const char *filename, bool undoable, bool checkwritable);
-int open_file(const char *filename, bool newfie, FILE **f);
+int open_file(const char *filename, bool newfie, bool quiet, FILE **f);
 char *get_next_filename(const char *name, const char *suffix);
 void do_insertfile(
 #ifndef NANO_TINY
@@ -291,6 +316,8 @@ bool check_operating_dir(const char *currpath, bool allow_tabcomp);
 #endif
 #ifndef NANO_TINY
 void init_backup_dir(void);
+int delete_lockfile(const char *lockfilename);
+int write_lockfile(const char *lockfilename, const char *origfilename, bool modified);
 #endif
 int copy_file(FILE *inn, FILE *out);
 bool write_file(const char *name, FILE *f_open, bool tmp, append_type
@@ -299,8 +326,11 @@ bool write_file(const char *name, FILE *f_open, bool tmp, append_type
 bool write_marked_file(const char *name, FILE *f_open, bool tmp,
 	append_type append);
 #endif
-bool do_writeout(bool exiting);
+int do_writeout(bool exiting);
 void do_writeout_void(void);
+#ifndef NANO_TINY
+void do_savefile(void);
+#endif
 char *real_dir_from_tilde(const char *buf);
 #if !defined(DISABLE_TABCOMP) || !defined(DISABLE_BROWSER)
 int diralphasort(const void *va, const void *vb);
@@ -312,50 +342,51 @@ char **username_tab_completion(const char *buf, size_t *num_matches,
 	size_t buf_len);
 char **cwd_tab_completion(const char *buf, bool allow_files, size_t
 	*num_matches, size_t buf_len);
-char *input_tab(char *buf, bool allow_files, size_t *place, bool
-	*lastwastab, void (*refresh_func)(void), bool *list);
+char *input_tab(char *buf, bool allow_files, size_t *place,
+	bool *lastwastab, void (*refresh_func)(void), bool *listed);
 #endif
-const char *tail(const char *foo);
-#if !defined(NANO_TINY) && defined(ENABLE_NANORC)
+const char *tail(const char *path);
+#ifndef DISABLE_HISTORIES
 char *histfilename(void);
 void load_history(void);
 bool writehist(FILE *hist, filestruct *histhead);
 void save_history(void);
+int check_dotnano(void);
+void load_poshistory(void);
+void save_poshistory(void);
+void update_poshistory(char *filename, ssize_t lineno, ssize_t xpos);
+int check_poshistory(const char *file, ssize_t *line, ssize_t *column);
 #endif
 
-/* All functions in global.c. */
+/* Some functions in global.c. */
 size_t length_of_list(int menu);
-#ifndef NANO_TINY
-void toggle_init_one(int val
-#ifndef DISABLE_HELP
-	, const char *desc, bool blank_after
+const sc *first_sc_for(int menu, void (*func)(void));
+int sc_seq_or(void (*func)(void), int defaultval);
+functionptrtype func_from_key(int *kbinput);
+key_type strtokeytype(const char *str);
+void assign_keyinfo(sc *s);
+void print_sclist(void);
+void shortcut_init(void);
+#ifndef DISABLE_COLOR
+void set_lint_or_format_shortcuts(void);
+void set_spell_shortcuts(void);
 #endif
-	, long flag);
-void toggle_init(void);
-#endif
-void sc_init_one(shortcut **shortcutage, int ctrlval, const char *desc
-#ifndef DISABLE_HELP
-	, const char *help, bool blank_after
-#endif
-	, int metaval, int funcval, int miscval, bool view, void
-	(*func)(void));
-void shortcut_init(bool unjustify);
-void free_shortcutage(shortcut **shortcutage);
+const subnfunc *sctofunc(const sc *s);
+const char *flagtostr(int flag);
+sc *strtosc(const char *input);
+int strtomenu(const char *input);
 #ifdef DEBUG
 void thanks_for_all_the_fish(void);
 #endif
 
 /* All functions in help.c. */
-#ifndef DISABLE_BROWSER
-void do_browser_help(void);
-#endif
-void do_help_void(void);
 #ifndef DISABLE_HELP
-void do_help(void (*refresh_func)(void));
+void do_help(void);
 void help_init(void);
-void parse_help_input(int *kbinput, bool *meta_key, bool *func_key);
+functionptrtype parse_help_input(int *kbinput);
 size_t help_line_len(const char *ptr);
 #endif
+void do_help_void(void);
 
 /* All functions in move.c. */
 void do_first_line(void);
@@ -369,10 +400,10 @@ void do_para_end(bool allow_update);
 void do_para_end_void(void);
 #endif
 #ifndef NANO_TINY
+void do_prev_word(bool allow_punct, bool allow_update);
+void do_prev_word_void(void);
 bool do_next_word(bool allow_punct, bool allow_update);
 void do_next_word_void(void);
-bool do_prev_word(bool allow_punct, bool allow_update);
-void do_prev_word_void(void);
 #endif
 void do_home(void);
 void do_end(void);
@@ -404,9 +435,8 @@ void do_right(void);
 /* All functions in nano.c. */
 filestruct *make_new_node(filestruct *prevnode);
 filestruct *copy_node(const filestruct *src);
-void splice_node(filestruct *begin, filestruct *newnode, filestruct
-	*end);
-void unlink_node(const filestruct *fileptr);
+void splice_node(filestruct *afterthis, filestruct *newnode);
+void unlink_node(filestruct *fileptr);
 void delete_node(filestruct *fileptr);
 filestruct *copy_filestruct(const filestruct *src);
 void free_filestruct(filestruct *src);
@@ -416,16 +446,15 @@ partition *partition_filestruct(filestruct *top, size_t top_x,
 void unpartition_filestruct(partition **p);
 void move_to_filestruct(filestruct **file_top, filestruct **file_bot,
 	filestruct *top, size_t top_x, filestruct *bot, size_t bot_x);
-void copy_from_filestruct(filestruct *file_top, filestruct *file_bot);
+void copy_from_filestruct(filestruct *somebuffer);
 openfilestruct *make_new_opennode(void);
-void splice_opennode(openfilestruct *begin, openfilestruct *newnode,
-	openfilestruct *end);
 void unlink_opennode(openfilestruct *fileptr);
 void delete_opennode(openfilestruct *fileptr);
-#ifdef DEBUG
-void free_openfilestruct(openfilestruct *src);
-#endif
 void print_view_warning(void);
+void show_restricted_warning(void);
+#ifdef DISABLE_HELP
+void say_there_is_no_help(void);
+#endif
 void finish(void);
 void die(const char *msg, ...);
 void die_save_file(const char *die_filename
@@ -446,21 +475,22 @@ void print_opt_full(const char *shortflag
 	, const char *desc);
 void usage(void);
 void version(void);
-int no_more_space(void);
+int more_space(void);
 int no_help(void);
-void nano_disabled_msg(void);
+void no_current_file_name_warning(void);
 void do_exit(void);
+void close_and_go(void);
 void signal_init(void);
 RETSIGTYPE handle_hupterm(int signal);
 RETSIGTYPE do_suspend(int signal);
 RETSIGTYPE do_continue(int signal);
 #ifndef NANO_TINY
 RETSIGTYPE handle_sigwinch(int signal);
-void allow_pending_sigwinch(bool allow);
-#endif
-#ifndef NANO_TINY
+void regenerate_screen(void);
+void allow_sigwinch(bool allow);
 void do_toggle(int flag);
 #endif
+void do_toggle_void(void);
 void disable_extended_io(void);
 #ifdef USE_SLANG
 void disable_signals(void);
@@ -471,22 +501,21 @@ void enable_signals(void);
 void disable_flow_control(void);
 void enable_flow_control(void);
 void terminal_init(void);
-int do_input(bool *meta_key, bool *func_key, bool *have_shortcut, bool
-	*ran_func, bool *finished, bool allow_funcs);
+void unbound_key(int code);
+int do_input(bool allow_funcs);
 #ifndef DISABLE_MOUSE
 int do_mouse(void);
 #endif
 void do_output(char *output, size_t output_len, bool allow_cntrls);
 
 /* All functions in prompt.c. */
-int do_statusbar_input(bool *meta_key, bool *func_key, bool *have_shortcut,
-	bool *ran_func, bool *finished, bool allow_funcs, void
-	(*refresh_func)(void));
+int do_statusbar_input(bool *ran_func, bool *finished,
+	void (*refresh_func)(void));
 #ifndef DISABLE_MOUSE
 int do_statusbar_mouse(void);
 #endif
-void do_statusbar_output(char *output, size_t output_len, bool
-	*got_enter, bool allow_cntrls);
+void do_statusbar_output(int *the_input, size_t input_len,
+	bool filtering, bool *got_enter);
 void do_statusbar_home(void);
 void do_statusbar_end(void);
 void do_statusbar_left(void);
@@ -495,70 +524,58 @@ void do_statusbar_backspace(void);
 void do_statusbar_delete(void);
 void do_statusbar_cut_text(void);
 #ifndef NANO_TINY
-bool do_statusbar_next_word(bool allow_punct);
-bool do_statusbar_prev_word(bool allow_punct);
+void do_statusbar_prev_word(void);
+void do_statusbar_next_word(void);
 #endif
 void do_statusbar_verbatim_input(bool *got_enter);
-#ifndef NANO_TINY
-bool find_statusbar_bracket_match(bool reverse, const char
-	*bracket_set);
-void do_statusbar_find_bracket(void);
-#endif
 size_t statusbar_xplustabs(void);
 size_t get_statusbar_page_start(size_t start_col, size_t column);
+void reinit_statusbar_x(void);
 void reset_statusbar_cursor(void);
-void update_statusbar_line(const char *curranswer, size_t index);
-bool need_statusbar_horizontal_update(size_t pww_save);
-void total_statusbar_refresh(void (*refresh_func)(void));
-const sc *get_prompt_string(int *value, bool allow_tabs,
+void update_the_statusbar(void);
+void update_bar_if_needed(void);
+functionptrtype get_prompt_string(int *value, bool allow_tabs,
 #ifndef DISABLE_TABCOMP
-	bool allow_files,
+	bool allow_files, bool *listed,
 #endif
 	const char *curranswer,
-	bool *meta_key, bool *func_key,
-#ifndef NANO_TINY
+#ifndef DISABLE_HISTORIES
 	filestruct **history_list,
 #endif
-	void (*refresh_func)(void), int menu
-#ifndef DISABLE_TABCOMP
-	, bool *list
-#endif
-	);
+	void (*refresh_func)(void));
 int do_prompt(bool allow_tabs,
 #ifndef DISABLE_TABCOMP
 	bool allow_files,
 #endif
 	int menu, const char *curranswer,
-	bool *meta_key, bool *func_key,
-#ifndef NANO_TINY
+#ifndef DISABLE_HISTORIES
 	filestruct **history_list,
 #endif
 	void (*refresh_func)(void), const char *msg, ...);
-void do_prompt_abort(void);
 int do_yesno_prompt(bool all, const char *msg);
 
-/* All functions in rcfile.c. */
-#ifdef ENABLE_NANORC
-void rcfile_error(const char *msg, ...);
+/* Most functions in rcfile.c. */
+#if !defined(DISABLE_NANORC) || !defined(DISABLE_HISTORIES)
 char *parse_next_word(char *ptr);
+#endif
+#ifndef DISABLE_NANORC
+void rcfile_error(const char *msg, ...);
 char *parse_argument(char *ptr);
-#ifdef ENABLE_COLOR
+#ifndef DISABLE_COLOR
 char *parse_next_regex(char *ptr);
-bool nregcomp(const char *regex, int eflags);
 void parse_syntax(char *ptr);
-void parse_include(char *ptr);
+void parse_includes(char *ptr);
 short color_to_short(const char *colorname, bool *bright);
-void parse_colors(char *ptr, bool icase);
-void reset_multis(filestruct *fileptr, bool force);
-void alloc_multidata_if_needed(filestruct *fileptr);
+bool parse_color_names(char *combostr, short *fg, short *bg, bool *bright);
+void grab_and_store(const char *kind, char *ptr, regexlisttype **storage);
 #endif
 void parse_rcfile(FILE *rcstream
-#ifdef ENABLE_COLOR
+#ifndef DISABLE_COLOR
 	, bool syntax_only
 #endif
 	);
 void do_rcfile(void);
-#endif
+#endif /* !DISABLE_NANORC */
 
 /* All functions in search.c. */
 #ifdef HAVE_REGEX_H
@@ -567,43 +584,46 @@ void regexp_cleanup(void);
 #endif
 void not_found_msg(const char *str);
 void search_replace_abort(void);
-void search_init_globals(void);
 int search_init(bool replacing, bool use_answer);
-bool findnextstr(
+int findnextstr(
 #ifndef DISABLE_SPELLER
-	bool whole_word,
+	bool whole_word_only,
 #endif
-	bool no_sameline, const filestruct *begin, size_t begin_x, const
-	char *needle, size_t *needle_len);
-void findnextstr_wrap_reset(void);
+	const filestruct *begin, size_t begin_x,
+	const char *needle, size_t *match_len);
 void do_search(void);
 #ifndef NANO_TINY
+void do_findprevious(void);
+void do_findnext(void);
+#endif
+#if !defined(NANO_TINY) || !defined(DISABLE_BROWSER)
 void do_research(void);
 #endif
+void go_looking(void);
 #ifdef HAVE_REGEX_H
 int replace_regexp(char *string, bool create);
 #endif
 char *replace_line(const char *needle);
 ssize_t do_replace_loop(
 #ifndef DISABLE_SPELLER
-	bool whole_word,
+	bool whole_word_only,
 #endif
-	bool *canceled, const filestruct *real_current, size_t
-	*real_current_x, const char *needle);
+	const filestruct *real_current, size_t *real_current_x,
+	const char *needle);
 void do_replace(void);
+void goto_line_posx(ssize_t line, size_t pos_x);
 void do_gotolinecolumn(ssize_t line, ssize_t column, bool use_answer,
-	bool interactive, bool save_pos, bool allow_update);
+	bool interactive);
 void do_gotolinecolumn_void(void);
-#ifndef DISABLE_SPELLER
-void do_gotopos(ssize_t pos_line, size_t pos_x, ssize_t pos_y, size_t
-	pos_pww);
-#endif
 #ifndef NANO_TINY
 bool find_bracket_match(bool reverse, const char *bracket_set);
 void do_find_bracket(void);
-#ifdef ENABLE_NANORC
-bool history_has_changed(void);
+#ifndef DISABLE_TABCOMP
+char *get_history_completion(filestruct **h, char *s, size_t len);
 #endif
+#endif
+#ifndef DISABLE_HISTORIES
+bool history_has_changed(void);
 void history_init(void);
 void history_reset(const filestruct *h);
 filestruct *find_history(const filestruct *h_start, const filestruct
@@ -611,9 +631,8 @@ filestruct *find_history(const filestruct *h_start, const filestruct
 void update_history(filestruct **h, const char *s);
 char *get_history_older(filestruct **h);
 char *get_history_newer(filestruct **h);
-#ifndef DISABLE_TABCOMP
-char *get_history_completion(filestruct **h, const char *s, size_t len);
-#endif
+void get_history_older_void(void);
+void get_history_newer_void(void);
 #endif
 
 /* All functions in text.c. */
@@ -622,6 +641,10 @@ void do_mark(void);
 #endif
 void do_delete(void);
 void do_backspace(void);
+#ifndef NANO_TINY
+void do_cut_prev_word(void);
+void do_cut_next_word(void);
+#endif
 void do_tab(void);
 #ifndef NANO_TINY
 void do_indent(ssize_t cols);
@@ -630,14 +653,17 @@ void do_unindent(void);
 void do_undo(void);
 void do_redo(void);
 #endif
-void do_enter(bool undoing);
+#ifndef DISABLE_COMMENT
+void do_comment(void);
+#endif
+void do_enter(void);
 #ifndef NANO_TINY
 RETSIGTYPE cancel_command(int signal);
 bool execute_command(const char *command);
 #endif
 #ifndef DISABLE_WRAPPING
 void wrap_reset(void);
-bool do_wrap(filestruct *line, bool undoing);
+bool do_wrap(filestruct *line);
 #endif
 #if !defined(DISABLE_HELP) || !defined(DISABLE_WRAPJUSTIFY)
 ssize_t break_line(const char *line, ssize_t goal
@@ -670,13 +696,16 @@ const char *do_int_speller(const char *tempfile_name);
 const char *do_alt_speller(char *tempfile_name);
 void do_spell(void);
 #endif
+#ifndef DISABLE_COLOR
+void do_linter(void);
+void do_formatter(void);
+#endif
 #ifndef NANO_TINY
 void do_wordlinechar_count(void);
 #endif
 void do_verbatim_input(void);
 
 /* All functions in utils.c. */
-int digits(size_t n);
 void get_homedir(void);
 bool parse_num(const char *str, ssize_t *val);
 bool parse_line_column(const char *str, ssize_t *line, ssize_t *column);
@@ -684,7 +713,7 @@ void align(char **str);
 void null_at(char **data, size_t index);
 void unsunder(char *str, size_t true_len);
 void sunder(char *str);
-#if !defined(NANO_TINY) && defined(ENABLE_NANORC)
+#if !defined(NANO_TINY) && !defined(DISABLE_NANORC)
 #ifndef HAVE_GETLINE
 ssize_t ngetline(char **lineptr, size_t *n, FILE *stream);
 #endif
@@ -693,11 +722,10 @@ ssize_t ngetdelim(char **lineptr, size_t *n, int delim, FILE *stream);
 #endif
 #endif
 #ifdef HAVE_REGEX_H
-bool regexp_bol_or_eol(const regex_t *preg, const char *string);
 const char *fixbounds(const char *r);
 #endif
 #ifndef DISABLE_SPELLER
-bool is_whole_word(size_t pos, const char *buf, const char *word);
+bool is_separate_word(size_t position, size_t length, const char *buf);
 #endif
 const char *strstrwrapper(const char *haystack, const char *needle,
 	const char *start);
@@ -717,8 +745,13 @@ void new_magicline(void);
 void remove_magicline(void);
 void mark_order(const filestruct **top, size_t *top_x, const filestruct
 	**bot, size_t *bot_x, bool *right_side_up);
-void add_undo(undo_type current_action);
+void discard_until(const undo *thisitem, openfilestruct *thefile);
+void add_undo(undo_type action);
 void update_undo(undo_type action);
+#ifndef DISABLE_COMMENT
+void update_comment_undo(ssize_t lineno);
+bool comment_line(undo_type action, filestruct *f, const char *comment_seq);
+#endif
 #endif
 size_t get_totsize(const filestruct *begin, const filestruct *end);
 filestruct *fsfromline(ssize_t lineno);
@@ -727,17 +760,16 @@ void dump_filestruct(const filestruct *inptr);
 void dump_filestruct_reverse(void);
 #endif
 
-/* All functions in winio.c. */
+/* Most functions in winio.c. */
 void get_key_buffer(WINDOW *win);
 size_t get_key_buffer_len(void);
 void unget_input(int *input, size_t input_len);
-void unget_kbinput(int kbinput, bool meta_key, bool func_key);
+void unget_kbinput(int kbinput, bool metakey, bool funckey);
 int *get_input(WINDOW *win, size_t input_len);
-int get_kbinput(WINDOW *win, bool *meta_key, bool *func_key);
-int parse_kbinput(WINDOW *win, bool *meta_key, bool *func_key);
-int get_escape_seq_kbinput(const int *seq, size_t seq_len);
-int get_escape_seq_abcd(int kbinput);
-int parse_escape_seq_kbinput(WINDOW *win, int kbinput);
+int get_kbinput(WINDOW *win);
+int parse_kbinput(WINDOW *win);
+int arrow_from_abcd(int kbinput);
+int parse_escape_sequence(WINDOW *win, int kbinput);
 int get_byte_kbinput(int kbinput);
 #ifdef ENABLE_UTF8
 long add_unicode_digit(int kbinput, long factor, long *uni);
@@ -750,9 +782,7 @@ int *parse_verbatim_kbinput(WINDOW *win, size_t *kbinput_len);
 #ifndef DISABLE_MOUSE
 int get_mouseinput(int *mouse_x, int *mouse_y, bool allow_shortcuts);
 #endif
-const sc *get_shortcut(int menu, int *kbinput, bool
-	*meta_key, bool *func_key);
-const sc *first_sc_for(int menu, short func);
+const sc *get_shortcut(int *kbinput);
 void blank_line(WINDOW *win, int y, int x, int n);
 void blank_titlebar(void);
 void blank_topbar(void);
@@ -763,18 +793,18 @@ void check_statusblank(void);
 char *display_string(const char *buf, size_t start_col, size_t len, bool
 	dollars);
 void titlebar(const char *path);
-void set_modified(void);
-void statusbar(const char *msg, ...);
+extern void set_modified(void);
+void statusbar(const char *msg);
+void statusline(message_type importance, const char *msg, ...);
 void bottombars(int menu);
-void onekey(const char *keystroke, const char *desc, size_t len);
+void onekey(const char *keystroke, const char *desc, int length);
 void reset_cursor(void);
 void edit_draw(filestruct *fileptr, const char *converted, int
 	line, size_t start);
 int update_line(filestruct *fileptr, size_t index);
-bool need_horizontal_update(size_t pww_save);
-bool need_vertical_update(size_t pww_save);
+bool need_screen_update(size_t pww_save);
 void edit_scroll(scroll_dir direction, ssize_t nlines);
-void edit_redraw(filestruct *old_current, size_t pww_save);
+void edit_redraw(filestruct *old_current);
 void edit_refresh(void);
 void edit_update(update_type location);
 void total_redraw(void);
@@ -782,54 +812,32 @@ void total_refresh(void);
 void display_main_list(void);
 void do_cursorpos(bool constant);
 void do_cursorpos_void(void);
-void do_replace_highlight(bool highlight, const char *word);
-const char *flagtostr(int flag);
-const subnfunc *sctofunc(sc *s);
-const subnfunc *getfuncfromkey(WINDOW *win);
-void print_sclist(void);
-sc *strtosc(int menu, char *input);
-function_type strtokeytype(const char *str);
-int strtomenu(char *input);
-void assign_keyinfo(sc *s);
+void spotlight(bool active, const char *word);
 void xon_complaint(void);
 void xoff_complaint(void);
-int sc_seq_or (short func, int defaultval);
 void do_suspend_void(void);
-
-extern const char *cancel_msg;
-#ifndef NANO_TINY
-extern const char *case_sens_msg;
-extern const char *backwards_msg;
-extern const char *prev_history_msg;
-extern const char *next_history_msg;
-#endif
-extern const char *replace_msg;
-extern const char *no_replace_msg;
-extern const char *go_to_line_msg;
-extern const char *whereis_next_msg;
-extern const char *first_file_msg;
-extern const char *last_file_msg;
-extern const char *goto_dir_msg;
-extern const char *ext_cmd_msg;
-extern const char *to_files_msg;
-extern const char *dos_format_msg;
-extern const char *mac_format_msg;
-extern const char *append_msg;
-extern const char *prepend_msg;
-extern const char *backup_file_msg;
-extern const char *gototext_msg;
-extern const char *new_buffer_msg;
-
-void iso_me_harder_funcmap(short func);
 void enable_nodelay(void);
 void disable_nodelay(void);
-
-#ifdef HAVE_REGEX_H
-extern const char *regexp_msg;
-#endif
-
-#ifdef NANO_EXTRA
+#ifndef DISABLE_EXTRA
 void do_credits(void);
 #endif
+
+/* May as well throw these here, since they are just placeholders. */
+void do_cancel(void);
+void case_sens_void(void);
+void regexp_void(void);
+void gototext_void(void);
+void to_files_void(void);
+void dos_format_void(void);
+void mac_format_void(void);
+void append_void(void);
+void prepend_void(void);
+void backup_file_void(void);
+void discard_buffer(void);
+void new_buffer_void(void);
+void backwards_void(void);
+void goto_dir_void(void);
+void flip_replace_void(void);
+void flip_execute_void(void);
 
 #endif /* !PROTO_H */

@@ -1,3 +1,28 @@
+2014-05-28  Benno Schulenberg  <bensberg@justemail.net>
+	* de.po, eo.po, nl.po: Updates for German, Dutch, and Esperanto.
+
+2014-05-27  Benno Schulenberg  <bensberg@justemail.net>
+	* de.po, nl.po, ru.po: Updates for Russian, Dutch, and German.
+
+2014-05-25  Benno Schulenberg  <bensberg@justemail.net>
+	* it.po, uk.po: Updates from the TP for Ukrainian and Italian.
+
+2014-05-22  Benno Schulenberg  <bensberg@justemail.net>
+	* de.po, uk.po: Updates from the TP for German and Ukrainian.
+
+2014-05-16  Benno Schulenberg  <bensberg@justemail.net>
+	* eo.po, fi.po, fr.po, nl.po, vi.po: Updates from the TP for
+	Vietnamese, Finnish, Dutch, French, and Esperanto.
+
+2014-05-13  Benno Schulenberg  <bensberg@justemail.net>
+	* nano.pot, *.po: Regenerated the POT file and refreshed the PO's.
+
+2014-03-22  Benno Schulenberg  <bensberg@justemail.net>
+	* nano.pot: Regenerated the POT file.
+	* cs.po, es.po, it.po, nb.po, sr.po, zh_TW: Updates from the TP
+	for Czech, Spanish, Italian, Norwegian, Serbian, and Chinese.
+	* LINGUAS: Removed rw (Kinyarwanda) -- it was just fragments.
+
 2007-12-09  Jordi Mallach  <jordi@gnu.org>
 
 	* LINGUAS: Add zh_CN.
@@ -971,6 +996,3 @@
 
 	* ca.po: Updated.
 	* es.po: Updated.
-
-
-$Id: ChangeLog 4195 2007-12-09 17:12:03Z jordi $

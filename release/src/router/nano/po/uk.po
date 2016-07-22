@@ -1,1036 +1,1167 @@
-# l10n file 4 nano, ukrainian language
+# Ukrainian translation for nano.
 # Copyright (C) 2001 Free Software Foundation, Inc.
-# Sergey A. Ribalchenko <fisher@obu.ck.ua>, 2001.
+# This file is distributed under the same license as the nano package.
 #
+# Sergey A. Ribalchenko <fisher@obu.ck.ua>, 2001.
+# Yuri Chornoivan <yurchor@ukr.net>, 2014, 2015, 2016.
 msgid ""
 msgstr ""
-"Project-Id-Version: nano 1.1.99pre3\n"
+"Project-Id-Version: nano 2.6.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2010-11-22 06:34-0500\n"
-"PO-Revision-Date: 2003-02-17 10:51+0300\n"
-"Last-Translator: Sergey A. Ribalchenko <fisher@obu.ck.ua>\n"
+"POT-Creation-Date: 2016-06-27 11:05+0200\n"
+"PO-Revision-Date: 2016-06-18 18:00+0300\n"
+"Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <translation-team-uk@lists.sourceforge.net>\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=koi8-u\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
-"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Lokalize 1.5\n"
 
-#: src/browser.c:220
-#, fuzzy
-msgid "Go To Directory"
-msgstr "До Директор╕╖"
-
-#: src/browser.c:233 src/browser.c:830 src/files.c:860 src/files.c:2048
-#: src/nano.c:1060 src/search.c:220 src/search.c:314 src/search.c:975
-#: src/search.c:1040
-msgid "Cancelled"
-msgstr "Скасовано"
-
-#: src/browser.c:266 src/browser.c:314
+#: src/browser.c:144 src/browser.c:326 src/files.c:995 src/files.c:1002
+#: src/files.c:1790 src/files.c:1915 src/files.c:1959 src/files.c:1979
+#: src/files.c:2095 src/files.c:3013 src/files.c:3236 src/rcfile.c:540
+#: src/rcfile.c:1280
 #, c-format
-msgid "Can't go outside of %s in restricted mode"
-msgstr "Не можу п╕ти поза %s в обмеженому режим╕"
-
-#: src/browser.c:277 src/browser.c:324 src/browser.c:347 src/files.c:722
-#: src/files.c:731 src/files.c:1540 src/files.c:1659 src/files.c:1711
-#: src/files.c:1732 src/files.c:1855 src/files.c:2691 src/rcfile.c:568
-#: src/rcfile.c:1204
-#, fuzzy, c-format
 msgid "Error reading %s: %s"
-msgstr "Поганий рядок цитування %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ я┤п╦я┌п╟п╫п╫я▐ %s: %s"
 
-#: src/browser.c:303
+#. TRANSLATORS: This is a prompt.
+#: src/browser.c:247
+msgid "Go To Directory"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╨п╟я┌п╟п╩п╬пЁя┐"
+
+#: src/browser.c:251 src/browser.c:715 src/files.c:1125 src/files.c:2288
+#: src/nano.c:1111 src/search.c:194 src/search.c:296 src/search.c:852
+#: src/search.c:919 src/text.c:3180 src/text.c:3387
+msgid "Cancelled"
+msgstr "п║п╨п╟я│п╬п╡п╟п╫п╬"
+
+#. TRANSLATORS: This refers to the confining effect of the
+#. * option --operatingdir, not of --restricted.
+#: src/browser.c:271 src/browser.c:318
+#, fuzzy, c-format
+msgid "Can't go outside of %s"
+msgstr "п²п╣ п╪п╬п╤я┐ п╥п╟п©п╦я│п╟я┌п╦ п©п╬п╥п╟ %s"
+
+#: src/browser.c:309
 msgid "Can't move up a directory"
-msgstr "Не можу перем╕стити директор╕ю"
+msgstr "п²п╣ п╪п╬п╤я┐ п©п╣я─п╣п╧я┌п╦ п╫п╟ п╨п╟я┌п╟п╩п╬пЁ п╡п╦я┴п╣"
 
-#. TRANSLATORS: Try to keep this at most 7
-#. * characters.
-#: src/browser.c:665 src/browser.c:674
+#. TRANSLATORS: Try to keep this at most 7 characters.
+#: src/browser.c:582 src/browser.c:590
 msgid "(dir)"
-msgstr ""
+msgstr "(п╨п╟я┌)"
 
-#. TRANSLATORS: Try to keep this at most 12
-#. * characters.
-#: src/browser.c:671
+#. TRANSLATORS: Try to keep this at most 12 characters.
+#: src/browser.c:587
 msgid "(parent dir)"
-msgstr ""
+msgstr "(п╠п╟я┌я▄п╨. п╨п╟я┌.)"
 
-#: src/browser.c:801 src/search.c:185
+#. TRANSLATORS: Try to keep this at most 7 characters.
+#. * If necessary, you can leave out the parentheses.
+#: src/browser.c:617
+msgid "(huge)"
+msgstr "(п╡п╣п╩.)"
+
+#. TRANSLATORS: This is the main search prompt.
+#: src/browser.c:704 src/search.c:165
 msgid "Search"
-msgstr "Пошук"
-
-#. TRANSLATORS: This string is just a modifier for the search
-#. * prompt; no grammar is implied.
-#: src/browser.c:805 src/search.c:189
-msgid " [Case Sensitive]"
-msgstr " [РегЗалеж]"
-
-#. TRANSLATORS: This string is just a modifier for the search
-#. * prompt; no grammar is implied.
-#: src/browser.c:811 src/search.c:195
-msgid " [Regexp]"
-msgstr " [ФормВир]"
-
-#. TRANSLATORS: This string is just a modifier for the search
-#. * prompt; no grammar is implied.
-#: src/browser.c:817 src/search.c:201
-msgid " [Backwards]"
-msgstr " [Назад]"
+msgstr "п÷п╬я┬я┐п╨"
 
 # message
-#: src/browser.c:909 src/browser.c:917 src/search.c:395
+#: src/browser.c:746 src/search.c:369
 msgid "Search Wrapped"
-msgstr "Д╕сталися к╕нця файла, почали спочатку"
+msgstr "п■я√я│я┌п╟п╩п╦я│я▐ п╨я√п╫я├я▐ я└п╟п╧п╩п╟, п©п╬я┤п╟п╩п╦ я│п©п╬я┤п╟я┌п╨я┐"
 
-#: src/browser.c:1006 src/browser.c:1039 src/search.c:514 src/search.c:517
-#: src/search.c:574 src/search.c:577
+#: src/browser.c:756 src/search.c:510
 msgid "This is the only occurrence"
-msgstr "Це ╓дине сп╕впад╕ння"
+msgstr "п╕п╣ я■п╢п╦п╫п╦п╧ п╥п╠я√пЁ"
 
-#: src/browser.c:1042 src/search.c:583
+#: src/browser.c:800 src/search.c:474
 msgid "No current search pattern"
-msgstr ""
+msgstr "п²п╣п╪п╟я■ п©п╬я┌п╬я┤п╫п╬пЁп╬ п╥я─п╟п╥п╨п╟ п╢п╩я▐ п©п╬я┬я┐п╨я┐"
 
-#: src/files.c:125
+#: src/color.c:186
+#, c-format
+msgid "Unknown syntax name: %s"
+msgstr "п²п╣п╡я√п╢п╬п╪п╟ п╫п╟п╥п╡п╟ я│п╦п╫я┌п╟п╨я│п╦я│я┐: %s"
+
+#: src/color.c:247
+#, c-format
+msgid "magic_load() failed: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ magic_load(): %s"
+
+#: src/color.c:251
+#, c-format
+msgid "magic_file(%s) failed: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ magic_file(%s): %s"
+
+#: src/files.c:47
+#, c-format
+msgid "Directory '%s' does not exist"
+msgstr "п п╟я┌п╟п╩п╬пЁя┐ б╚%sб╩ п╫п╣ я√я│п╫я┐я■"
+
+#: src/files.c:49
+#, c-format
+msgid "Path '%s': %s"
+msgstr "п╗п╩я▐я┘ б╚%sб╩: %s"
+
+#: src/files.c:51
+#, c-format
+msgid "Path '%s' is not a directory"
+msgstr "п╗п╩я▐я┘ б╚%sб╩ п╫п╣ я■ п╟п╢я─п╣я│п╬я▌ п╨п╟я┌п╟п╩п╬пЁя┐"
+
+#: src/files.c:53
+#, c-format
+msgid "Path '%s' is not accessible"
+msgstr "п╗п╩я▐я┘ б╚%sб╩ п╫п╣п╢п╬я│я┌я┐п©п╫п╦п╧"
+
+#. TRANSLATORS: Keep the next ten messages at most 76 characters.
+#: src/files.c:148
+msgid ""
+"Warning: Modifying a file which is not locked, check directory permission?"
+msgstr ""
+"п÷п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╡п╫п╬я│п╦п╪п╬ п╥п╪я√п╫п╦ п╢п╬ я└п╟п╧п╩п╟, я▐п╨п╦п╧ п╫п╣ п╥п╟п╠п╩п╬п╨п╬п╡п╟п╫п╬, Б─■ п©п╣я─п╣п╡я√я─п╦я┌п╦ "
+"п©я─п╟п╡п╟ п╢п╬я│я┌я┐п©я┐ п╢п╬ п╨п╟я┌п╟п╩п╬пЁя┐?"
+
+#: src/files.c:187
+msgid "Couldn't determine my identity for lock file (getpwuid() failed)"
+msgstr "п²п╣ п╡п╢п╟п╩п╬я│я▐ п╡п╦п╥п╫п╟я┤п╦я┌п╦ п©я─п╬я└я√п╩я▄ п╢п╩я▐ я└п╟п╧п╩п╟ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ (п©п╬п╪п╦п╩п╨п╟ getpwuid())"
+
+#: src/files.c:196
+#, c-format
+msgid "Couldn't determine hostname for lock file: %s"
+msgstr "п²п╣ п╡п╢п╟п╩п╬я│я▐ п╡п╦п╥п╫п╟я┤п╦я┌п╦ п╫п╟п╥п╡я┐ п╡я┐п╥п╩п╟ п╢п╩я▐ я└п╟п╧п╩п╟ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐: %s"
+
+#: src/files.c:216 src/files.c:225 src/files.c:262 src/files.c:272
+#, c-format
+msgid "Error writing lock file %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╥п╟п©п╦я│п╟я┌п╦ я└п╟п╧п╩ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ %s: %s"
+
+#: src/files.c:291
+#, c-format
+msgid "Error deleting lock file %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╡п╦п╩я┐я┤п╦я┌п╦ я└п╟п╧п╩ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ %s: %s"
+
+#: src/files.c:325
+#, c-format
+msgid "Error opening lock file %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╡я√п╢п╨я─п╦я┌п╦ я└п╟п╧п╩ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ %s: %s"
+
+#: src/files.c:337
+#, c-format
+msgid "Error reading lock file %s: Not enough data read"
+msgstr ""
+"п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п©я─п╬я┤п╦я┌п╟я┌п╦ п╢п╟п╫я√ п╥ я└п╟п╧п╩п╟ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ %s: п©я─п╬я┤п╦я┌п╟п╫п╬ "
+"п╫п╣п╢п╬я│я┌п╟я┌п╫я▄п╬ п╢п╟п╫п╦я┘"
+
+#. TRANSLATORS: The second %s is the name of the user, the third that of the editor.
+#: src/files.c:354
+#, c-format
+msgid "File %s is being edited (by %s with %s, PID %d); continue?"
+msgstr ""
+"п═п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐ я└п╟п╧п╩п╟ %s п╡п╤п╣ п╡п╦п╨п╬п╫я┐я■я┌я▄я│я▐ (%s п╥п╟ п╢п╬п©п╬п╪п╬пЁп╬я▌ %s, PID %d); "
+"п©я─п╬п╢п╬п╡п╤п╦я┌п╦?"
+
+#: src/files.c:430
 #, c-format
 msgid "Can't insert file from outside of %s"
-msgstr "Не можу вставити файл поза %s"
+msgstr "п²п╣ п╪п╬п╤я┐ п╡я│я┌п╟п╡п╦я┌п╦ я└п╟п╧п╩ п©п╬п╥п╟ %s"
 
-#: src/files.c:234
-#, fuzzy
-msgid "No more open file buffers"
-msgstr "Б╕льш нема в╕дкритих файл╕в"
-
-#: src/files.c:250
-#, c-format
-msgid "Switched to %s"
-msgstr "Перемкнуто до %s"
-
-#: src/files.c:251 src/global.c:469 src/winio.c:2168
-msgid "New Buffer"
-msgstr "Новий Буфер"
-
-#: src/files.c:633
-#, fuzzy, c-format
-msgid "Read %lu line (Converted from DOS and Mac format)"
-msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату Mac)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату Mac)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату Mac)"
-
-#: src/files.c:638
-#, fuzzy, c-format
-msgid ""
-"Read %lu line (Converted from DOS and Mac format - Warning: No write "
-"permission)"
-msgid_plural ""
-"Read %lu lines (Converted from DOS and Mac format - Warning: No write "
-"permission)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату Mac)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату Mac)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату Mac)"
-
-#: src/files.c:644
-#, fuzzy, c-format
-msgid "Read %lu line (Converted from Mac format)"
-msgid_plural "Read %lu lines (Converted from Mac format)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату Mac)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату Mac)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату Mac)"
-
-#: src/files.c:648
-#, fuzzy, c-format
-msgid ""
-"Read %lu line (Converted from Mac format - Warning: No write permission)"
-msgid_plural ""
-"Read %lu lines (Converted from Mac format - Warning: No write permission)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату Mac)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату Mac)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату Mac)"
-
-#: src/files.c:654
-#, fuzzy, c-format
-msgid "Read %lu line (Converted from DOS format)"
-msgid_plural "Read %lu lines (Converted from DOS format)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату DOS)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату DOS)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату DOS)"
-
-#: src/files.c:658
-#, fuzzy, c-format
-msgid ""
-"Read %lu line (Converted from DOS format - Warning: No write permission)"
-msgid_plural ""
-"Read %lu lines (Converted from DOS format - Warning: No write permission)"
-msgstr[0] "Прочитано %d рядок (перетворено з формату DOS)"
-msgstr[1] "Прочитано %d рядка (перетворених з формату DOS)"
-msgstr[2] "Прочитано %d рядк╕в (перетворених з формату DOS)"
-
-#: src/files.c:664
-#, fuzzy, c-format
-msgid "Read %lu line"
-msgid_plural "Read %lu lines"
-msgstr[0] "Прочитано %d рядок"
-msgstr[1] "Прочитано %d рядка"
-msgstr[2] "Прочитано %d рядк╕в"
-
-#: src/files.c:667
-#, c-format
-msgid "Read %lu line ( Warning: No write permission)"
-msgid_plural "Read %lu lines (Warning: No write permission)"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-
-#: src/files.c:700 src/files.c:736
-msgid "Reading File"
-msgstr "Чита╓мо файл.."
-
-#: src/files.c:706
-msgid "New File"
-msgstr "Новий файл"
-
-#: src/files.c:709
-#, c-format
-msgid "\"%s\" not found"
-msgstr "\"%s\" не знайдено"
-
-#: src/files.c:717 src/rcfile.c:559 src/rcfile.c:1154 src/rcfile.c:1195
+#: src/files.c:445 src/files.c:990 src/rcfile.c:533 src/rcfile.c:1230
+#: src/rcfile.c:1271
 #, c-format
 msgid "\"%s\" is a directory"
-msgstr "Файл \"%s\" ╓ директор╕╓ю"
+msgstr "б╚%sб╩ я■ п╨п╟я┌п╟п╩п╬пЁп╬п╪"
 
-#: src/files.c:718 src/rcfile.c:560 src/rcfile.c:1155 src/rcfile.c:1196
-#, fuzzy, c-format
+#: src/files.c:447
+#, c-format
+msgid "\"%s\" is not a normal file"
+msgstr "б╚%sб╩ п╫п╣ я■ п╥п╡п╦я┤п╟п╧п╫п╦п╪ я└п╟п╧п╩п╬п╪"
+
+#: src/files.c:571
+msgid "No more open file buffers"
+msgstr "п▒я√п╩я▄я┬п╣ п╫п╣п╪п╟я■ п╡я√п╢п╨я─п╦я┌п╦я┘ я└п╟п╧п╩п╬п╡п╦я┘ п╠я┐я└п╣я─я√п╡"
+
+#: src/files.c:586
+#, c-format
+msgid "Switched to %s"
+msgstr "п÷п╣я─п╣п╪п╨п╫я┐я┌п╬ п╢п╬ %s"
+
+#: src/files.c:588 src/global.c:1005 src/winio.c:1950
+msgid "New Buffer"
+msgstr "п²п╬п╡п╦п╧ п▒я┐я└п╣я─"
+
+#. TRANSLATORS: Keep the next four messages at most 76 characters.
+#: src/files.c:912
+#, c-format
+msgid "Read %lu line (Converted from DOS and Mac format)"
+msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
+msgstr[0] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS я┌п╟ Mac)"
+msgstr[1] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╦ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS я┌п╟ Mac)"
+msgstr[2] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS я┌п╟ Mac)"
+
+#: src/files.c:918
+#, c-format
+msgid "Read %lu line (Converted from Mac format)"
+msgid_plural "Read %lu lines (Converted from Mac format)"
+msgstr[0] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac)"
+msgstr[1] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╦ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac)"
+msgstr[2] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac)"
+
+#: src/files.c:924
+#, c-format
+msgid "Read %lu line (Converted from DOS format)"
+msgid_plural "Read %lu lines (Converted from DOS format)"
+msgstr[0] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS)"
+msgstr[1] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╦ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS)"
+msgstr[2] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS)"
+
+#: src/files.c:929
+#, c-format
+msgid "Read %lu line"
+msgid_plural "Read %lu lines"
+msgstr[0] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨"
+msgstr[1] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╦"
+msgstr[2] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡"
+
+#: src/files.c:973 src/files.c:1005
+msgid "Reading File"
+msgstr "п╖п╦я┌п╟я■п╪п╬ я└п╟п╧п╩"
+
+#: src/files.c:979
+msgid "New File"
+msgstr "п²п╬п╡п╦п╧ я└п╟п╧п╩"
+
+#: src/files.c:982
+#, c-format
+msgid "File \"%s\" not found"
+msgstr "п╓п╟п╧п╩п╟ б╚%sб╩ п╫п╣ п╥п╫п╟п╧п╢п╣п╫п╬"
+
+#: src/files.c:991 src/rcfile.c:534 src/rcfile.c:1231 src/rcfile.c:1272
+#, c-format
 msgid "\"%s\" is a device file"
-msgstr "Файл \"%s\" ╓ файлом пристрою"
+msgstr "б╚%sб╩ я■ я└п╟п╧п╩п╬п╪ п©я─п╦я│я┌я─п╬я▌"
 
-#: src/files.c:817
-#, fuzzy, c-format
+#: src/files.c:1082
+#, c-format
 msgid "Command to execute in new buffer [from %s] "
-msgstr "Файл до вставки (в новий буфер) [в╕д %s] "
+msgstr "п п╬п╪п╟п╫п╢п╟, я▐п╨я┐ я│п╩я√п╢ п╡п╦п╨п╬п╫п╟я┌п╦ я┐ п╫п╬п╡п╬п╪я┐ п╠я┐я└п╣я─я√ [п╥ %s] "
 
-#: src/files.c:819
-#, fuzzy, c-format
+#: src/files.c:1084
+#, c-format
 msgid "Command to execute [from %s] "
-msgstr "Команда до виконання "
+msgstr "п п╬п╪п╟п╫п╢п╟, я▐п╨я┐ я│п╩я√п╢ п╡п╦п╨п╬п╫п╟я┌п╦ [п╥ %s] "
 
-#: src/files.c:825
+#: src/files.c:1091
 #, c-format
 msgid "File to insert into new buffer [from %s] "
-msgstr "Файл до вставки (в новий буфер) [в╕д %s] "
+msgstr "п╓п╟п╧п╩ п╢п╬ п╡я│я┌п╟п╡п╨п╦ (п╡ п╫п╬п╡п╦п╧ п╠я┐я└п╣я─) [п╡я√п╢ %s] "
 
-#: src/files.c:827
+#: src/files.c:1093
 #, c-format
 msgid "File to insert [from %s] "
-msgstr "Файл до вставки [в╕д %s] "
+msgstr "п╓п╟п╧п╩ п╢п╬ п╡я│я┌п╟п╡п╨п╦ [п╡я√п╢ %s] "
 
-#: src/files.c:1077
-#, fuzzy
+#: src/files.c:1336
 msgid "Key invalid in non-multibuffer mode"
-msgstr "Нев╕рна кнопка в не-мультибуферному режим╕"
+msgstr "п п╩п╟п╡я√я┬п╟ п╫п╣п╢я√п╧я│п╫п╟ я┐ п╫п╣ п╪я┐п╩я▄я┌п╦п╠я┐я└п╣я─п╫п╬п╪я┐ я─п╣п╤п╦п╪я√"
 
-#: src/files.c:1486
+#: src/files.c:1628
+msgid "Failed to write backup file; continue saving? (Say N if unsure.) "
+msgstr ""
+"п²п╣ п╡п╢п╟п╩п╬я│я▐ п╥п╟п©п╦я│п╟я┌п╦ п╢п╟п╫я√ п╢п╬ я└п╟п╧п╩п╟ я─п╣п╥п╣я─п╡п╫п╬я≈ п╨п╬п©я√я≈, п©я─п╬п╢п╬п╡п╤п╦я┌п╦ я│п©я─п╬п╠я┐ "
+"п╥п╠п╣я─п╣пЁя┌п╦ п╢п╟п╫я√? (п²п╟я┌п╦я│п╫я√я┌я▄ N, я▐п╨я┴п╬ п╫п╣ п©п╣п╡п╫я√.) "
+
+#: src/files.c:1746
 #, c-format
 msgid "Can't write outside of %s"
-msgstr "Не можу записати поза %s"
+msgstr "п²п╣ п╪п╬п╤я┐ п╥п╟п©п╦я│п╟я┌п╦ п©п╬п╥п╟ %s"
 
-#: src/files.c:1501
-msgid "Cannot prepend or append to a symlink with --nofollow set"
-msgstr ""
-
-#: src/files.c:1581 src/files.c:1603 src/files.c:1621 src/files.c:1632
-#: src/files.c:1640 src/files.c:1667
+#: src/files.c:1829 src/files.c:1854 src/files.c:1872 src/files.c:1885
+#: src/files.c:1896 src/files.c:1924
 #, c-format
 msgid "Error writing backup file %s: %s"
-msgstr ""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╥п╟п©п╦я│п╟я┌п╦ п╢п╬ я└п╟п╧п╩п╟ я─п╣п╥п╣я─п╡п╫п╬я≈ п╨п╬п©я√я≈ %s: %s"
 
-#: src/files.c:1582 src/nano.c:701
-#, fuzzy
+#: src/files.c:1830 src/nano.c:675
 msgid "Too many backup files?"
-msgstr ""
-"\n"
-"%s не записано (надто багато резервних файл╕в?)\n"
+msgstr "п≈п╟п╠п╟пЁп╟я┌п╬ я└п╟п╧п╩я√п╡ я─п╣п╥п╣я─п╡п╫п╦я┘ п╨п╬п©я√п╧?"
 
-#: src/files.c:1687 src/files.c:1744 src/files.c:1763 src/files.c:1775
-#: src/files.c:1799 src/files.c:1817 src/files.c:1827 src/files.c:1863
-#: src/files.c:1868 src/files.c:2764 src/files.c:2773
-#, fuzzy, c-format
-msgid "Error writing %s: %s"
-msgstr "Поганий рядок цитування %s: %s"
-
-#: src/files.c:1721 src/text.c:2929 src/text.c:2941
+#: src/files.c:1968 src/text.c:3110 src/text.c:3122 src/text.c:3487
+#: src/text.c:3496
 #, c-format
 msgid "Error writing temp file: %s"
-msgstr ""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╥п╟п©п╦я│п╟я┌п╦ п╢п╬ я┌п╦п╪я┤п╟я│п╬п╡п╬пЁп╬ я└п╟п╧п╩п╟: %s"
 
-#: src/files.c:1900
-#, fuzzy, c-format
+#: src/files.c:1990 src/files.c:2009 src/files.c:2019 src/files.c:2043
+#: src/files.c:2060 src/files.c:2070 src/files.c:2102 src/files.c:2109
+#, c-format
+msgid "Error writing %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╥п╟п©п╦я│п╟я┌п╦ %s: %s"
+
+#: src/files.c:2150
+#, c-format
 msgid "Wrote %lu line"
 msgid_plural "Wrote %lu lines"
-msgstr[0] "Записано %d рядок"
-msgstr[1] "Записано %d рядка"
-msgstr[2] "Записано %d рядк╕в"
+msgstr[0] "п≈п╟п©п╦я│п╟п╫п╬ %lu я─я▐п╢п╬п╨"
+msgstr[1] "п≈п╟п©п╦я│п╟п╫п╬ %lu я─я▐п╢п╨п╦"
+msgstr[2] "п≈п╟п©п╦я│п╟п╫п╬ %lu я─я▐п╢п╨я√п╡"
 
-#: src/files.c:2004
+#: src/files.c:2245
 msgid " [DOS Format]"
-msgstr " [формат DOS]"
+msgstr " [я└п╬я─п╪п╟я┌ DOS]"
 
-#: src/files.c:2005
+#: src/files.c:2246
 msgid " [Mac Format]"
-msgstr " [формат Mac]"
+msgstr " [я└п╬я─п╪п╟я┌ Mac]"
 
-#: src/files.c:2007
+#: src/files.c:2248
 msgid " [Backup]"
-msgstr " [Резерв]"
+msgstr " [п═п╣п╥п╣я─п╡]"
 
-#: src/files.c:2015
+#: src/files.c:2255
 msgid "Prepend Selection to File"
-msgstr "Додати Вид╕лене до файлу (в початок файла)"
+msgstr "п■п╬п©п╦я│п╟я┌п╦ п©п╬п╥п╫п╟я┤п╣п╫п╣ п╢п╬ я└п╟п╧п╩п╟ п╫п╟ п©п╬я┤п╟я┌п╨я┐"
 
-#: src/files.c:2016
+#: src/files.c:2256
 msgid "Append Selection to File"
-msgstr "Додати Вид╕лене до файлу"
+msgstr "п■п╬п©п╦я│п╟я┌п╦ п©п╬п╥п╫п╟я┤п╣п╫п╣ п╢п╬ я└п╟п╧п╩п╟ п╫п╟п©я─п╦п╨я√п╫я├я√"
 
-#: src/files.c:2017
+#: src/files.c:2257
 msgid "Write Selection to File"
-msgstr "Записати Вид╕лене до файлу"
+msgstr "п≈п╟п©п╦я│п╟я┌п╦ п©п╬п╥п╫п╟я┤п╣п╫п╣ п╢п╬ я└п╟п╧п╩п╟"
 
-#: src/files.c:2020
+#: src/files.c:2260
 msgid "File Name to Prepend to"
-msgstr "╤м'я файлу для додавання"
+msgstr "п²п╟п╥п╡п╟ я└п╟п╧п╩п╟ п╢п╩я▐ п╢п╬п©п╦я│я┐п╡п╟п╫п╫я▐"
 
-#: src/files.c:2021
+#: src/files.c:2261
 msgid "File Name to Append to"
-msgstr "╤м'я файлу для додавання"
+msgstr "п²п╟п╥п╡п╟ я└п╟п╧п╩п╟ п╢п╩я▐ п╢п╬п©п╦я│я┐п╡п╟п╫п╫я▐"
 
-#: src/files.c:2022
+#: src/files.c:2262
 msgid "File Name to Write"
-msgstr "╤м'я файлу до запису"
+msgstr "п²п╟п╥п╡п╟ я└п╟п╧п╩п╟ п╢п╩я▐ п╥п╟п©п╦я│я┐п╡п╟п╫п╫я▐"
 
-#: src/files.c:2153
-#, fuzzy
-msgid "File exists, OVERWRITE ? "
-msgstr "Файл ╕сну╓, ПЕРЕПИСАТИ ?"
+#: src/files.c:2297
+msgid "Save modified buffer anyway? "
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ п╥п╪я√п╫п╣п╫п╦п╧ п╠я┐я└п╣я─ п©п╬п©я─п╦ п╡я│п╣? "
 
-#: src/files.c:2162
-msgid "Save file under DIFFERENT NAME ? "
+#: src/files.c:2408
+msgid "Save file under DIFFERENT NAME? "
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ я└п╟п╧п╩ п╥ п├п²п╗п·п╝ п²п░п≈п▓п·п╝? "
+
+#: src/files.c:2416
+#, c-format
+msgid "File \"%s\" exists; OVERWRITE? "
+msgstr "п╓п╟п╧п╩ б╚%sб╩ п╡п╤п╣ я√я│п╫я┐я■, п÷п∙п═п∙п≈п░п÷п≤п║п░п╒п≤? "
+
+#: src/files.c:2437
+msgid "File was modified since you opened it; continue saving? "
 msgstr ""
+"п≈ я┤п╟я│я┐, п╨п╬п╩п╦ п╠я┐п╩п╬ п╡я√п╢п╨я─п╦я┌п╬ я└п╟п╧п╩, п╢п╬ п╫я▄п╬пЁп╬ п╠я┐п╩п╬ п╡п╫п╣я│п╣п╫п╬ п╥п╪я√п╫п╦. п÷я─п╬п╢п╬п╡п╤п╦я┌п╦ "
+"я│п©я─п╬п╠п╦ п╥п╠п╣я─п╣пЁя┌п╦ п╢п╟п╫я√? "
 
-#: src/files.c:2173
-msgid "File was modified since you opened it, continue saving ? "
-msgstr ""
-
-#: src/files.c:2611
+#: src/files.c:2868
 msgid "(more)"
-msgstr "(дал╕)"
+msgstr "(п╢п╟п╩я√)"
 
-#: src/files.c:2694 src/rcfile.c:1220
-#, fuzzy, c-format
+#: src/files.c:2953
+#, c-format
 msgid ""
 "\n"
-"Press Enter to continue starting nano.\n"
+"Press Enter to continue\n"
 msgstr ""
 "\n"
-"Нажм╕ть Enter щоб продовжити завантаження nano\n"
+"п²п╟я┌п╦я│п╫я√я┌я▄ Enter, я┴п╬п╠ п©я─п╬п╢п╬п╡п╤п╦я┌п╦\n"
 
-#. TRANSLATORS: Try to keep the next five strings at most 10 characters.
-#: src/global.c:415 src/prompt.c:1288
-msgid "Cancel"
-msgstr "Скасувати"
+#: src/files.c:2969
+#, c-format
+msgid ""
+"Unable to create directory %s: %s\n"
+"It is required for saving/loading search history or cursor positions.\n"
+msgstr ""
+"п²п╣ п╡п╢п╟п╩п╬я│я▐ я│я┌п╡п╬я─п╦я┌п╦ п╨п╟я┌п╟п╩п╬пЁ %s: %s\n"
+"п╕п╣п╧ п╨п╟я┌п╟п╩п╬пЁ п©п╬я┌я─я√п╠п╣п╫ п╢п╩я▐ п╥п╠п╣я─я√пЁп╟п╫п╫я▐ я┌п╟ п╥п╟п╡п╟п╫я┌п╟п╤п╣п╫п╫я▐ п╤я┐я─п╫п╟п╩я┐ п©п╬я┬я┐п╨я┐ п╟п╠п╬ п╢п╟п╫п╦я┘ "
+"я┴п╬п╢п╬ п©п╬п╥п╦я├я√я≈ п╨я┐я─я│п╬я─п╟.\n"
 
-#: src/global.c:416
-msgid "Replace"
-msgstr "Зам╕на"
+#: src/files.c:2976
+#, c-format
+msgid ""
+"Path %s is not a directory and needs to be.\n"
+"Nano will be unable to load or save search history or cursor positions.\n"
+msgstr ""
+"п░п╢я─п╣я│п╟ %s п╫п╣ я■ п╟п╢я─п╣я│п╬я▌ п╨п╟я┌п╟п╩п╬пЁя┐, я┘п╬я┤п╟ п╪п╟я■ п╫п╣я▌ п╠я┐я┌п╦.\n"
+"Nano п╫п╣ п╥п╪п╬п╤п╣ п╥п╟п╡п╟п╫я┌п╟п╤я┐п╡п╟я┌п╦ п╟п╠п╬ п╥п╠п╣я─я√пЁп╟я┌п╦ п╢п╟п╫я√ я┴п╬п╢п╬ п╤я┐я─п╫п╟п╩я┐ п©п╬я┬я┐п╨я┐ я┌п╟ "
+"п©п╬п╥п╦я├я√п╧ п╨я┐я─я│п╬я─п╟.\n"
 
-#: src/global.c:417
-msgid "No Replace"
-msgstr "Не Зам╕щати"
+#: src/files.c:2996
+#, c-format
+msgid ""
+"Detected a legacy nano history file (%s) which I tried to move\n"
+"to the preferred location (%s) but encountered an error: %s"
+msgstr ""
+"п▓п╦я▐п╡п╩п╣п╫п╬ п╥п╟я│я┌п╟я─я√п╩п╦п╧ я└п╟п╧п╩ п╤я┐я─п╫п╟п╩я┐ (%s). п▓п╦п╨п╬п╫п╟п╫п╬ я│п©я─п╬п╠я┐ п©п╣я─п╣п╫п╣я│я┌п╦\n"
+"п╧п╬пЁп╬ п╢п╬ п╠п╟п╤п╟п╫п╬пЁп╬ п╪я√я│я├я▐ (%s), п╡я┌я√п╪, я│я┌п╟п╩п╟я│я▐ п©п╬п╪п╦п╩п╨п╟: %s"
 
-#: src/global.c:420
-msgid "Case Sens"
-msgstr "РегЗалеж"
+#: src/files.c:3000
+#, c-format
+msgid ""
+"Detected a legacy nano history file (%s) which I moved\n"
+"to the preferred location (%s)\n"
+"(see the nano FAQ about this change)"
+msgstr ""
+"п▓п╦я▐п╡п╩п╣п╫п╬ п╥п╟я│я┌п╟я─я√п╩п╦п╧ я└п╟п╧п╩ п╤я┐я─п╫п╟п╩я┐ nano (%s), я▐п╨п╦п╧ п©п╣я─п╣п╫п╣я│п╣п╫п╬ п╢п╬\n"
+"п╡я√п╢п©п╬п╡я√п╢п╫п╬пЁп╬ п╪я√я│я├я▐ (%s)\n"
+"(п╢п╦п╡. б╚п÷п╬я┬п╦я─п╣п╫я√ п©п╦я┌п╟п╫п╫я▐б╩ я┴п╬п╢п╬ nano, я┴п╬п╠ п╢я√п╥п╫п╟я┌п╦я│я▐ п╠я√п╩я▄я┬п╣ п©я─п╬ я├я▌ п╥п╪я√п╫я┐)"
 
-#: src/global.c:421
-#, fuzzy
-msgid "Backwards"
-msgstr " [Назад]"
+#: src/files.c:3083 src/files.c:3091 src/files.c:3115 src/files.c:3127
+#, c-format
+msgid "Error writing %s: %s\n"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я│п©я─п╬п╠п╦ п╥п╟п©п╦я│п╟я┌п╦ %s: %s\n"
 
-#: src/global.c:425
-msgid "Regexp"
-msgstr "ФормВир"
-
-#. TRANSLATORS: Try to keep the next five strings at most 10 characters.
-#: src/global.c:451
-#, fuzzy
-msgid "PrevHstory"
-msgstr "╤стор╕я"
-
-#: src/global.c:452
-#, fuzzy
-msgid "NextHstory"
-msgstr "╤стор╕я"
-
-#: src/global.c:453
-#, fuzzy
-msgid "Go To Text"
-msgstr "До Рядка"
-
-#. TRANSLATORS: Try to keep the next three strings at most 12 characters.
-#: src/global.c:455
-#, fuzzy
-msgid "WhereIs Next"
-msgstr "Пошук"
-
-#: src/global.c:457
-#, fuzzy
-msgid "First File"
-msgstr "Перший Рядок"
-
-#: src/global.c:458
-#, fuzzy
-msgid "Last File"
-msgstr "Останн╕й Рядок"
-
-#. TRANSLATORS: Try to keep the next nine strings at most 16 characters.
-#: src/global.c:460
-msgid "To Files"
-msgstr "До Файл╕в"
-
-#: src/global.c:462
-msgid "DOS Format"
-msgstr "формат DOS"
-
-#: src/global.c:463
-msgid "Mac Format"
-msgstr "формат Mac"
-
-#: src/global.c:464
-msgid "Append"
-msgstr "Додати"
-
-#: src/global.c:465
-msgid "Prepend"
-msgstr "Додати(0)"
-
-#: src/global.c:466
-msgid "Backup File"
-msgstr "Зробити резервну коп╕ю"
-
-#: src/global.c:467
-msgid "Execute Command"
-msgstr "Виконати команду"
-
-#: src/global.c:471
-msgid "Go To Dir"
-msgstr "До Директор╕╖"
-
-#. TRANSLATORS: Try to keep the following strings at most 10 characters.
-#: src/global.c:480
-msgid "Get Help"
-msgstr "Допомога"
-
-#: src/global.c:481
-msgid "Exit"
-msgstr "Вих╕д"
-
-#: src/global.c:482
-msgid "Where Is"
-msgstr "Пошук"
-
+#. TRANSLATORS: Try to keep the next fifteen strings at most 10 characters.
 #: src/global.c:483
-msgid "Prev Page"
-msgstr "Поп.Стор."
+msgid "Exit"
+msgstr "п▓п╦я┘я√п╢"
 
 #: src/global.c:484
-msgid "Next Page"
-msgstr "Наст.Стор."
+msgid "Close"
+msgstr "п≈п╟п╨я─п╦я┌п╦"
 
 #: src/global.c:485
-msgid "First Line"
-msgstr "Перший Рядок"
-
-#: src/global.c:486
-msgid "Last Line"
-msgstr "Останн╕й Рядок"
+msgid "Uncut Text"
+msgstr "п║п╨п╟я│п▓п╦я─я√п╥"
 
 #: src/global.c:487
-msgid "Suspend"
-msgstr "Призупинка -"
-
-#: src/global.c:489
-msgid "Beg of Par"
-msgstr ""
-
-#: src/global.c:490
-msgid "End of Par"
-msgstr ""
-
-#: src/global.c:491
-#, fuzzy
-msgid "FullJstify"
-msgstr "Вир╕внювання"
+msgid "Unjustify"
+msgstr "п║п╨п╟я│п▓п╦я─я√п╡п╫"
 
 #: src/global.c:493
-msgid "Refresh"
-msgstr "Перемалювати"
+msgid "Read File"
+msgstr "п╖п╦я┌. я└п╟п╧п╩"
+
+#: src/global.c:494
+msgid "Where Is"
+msgstr "п÷п╬я┬я┐п╨"
 
 #: src/global.c:495
-#, fuzzy
-msgid "Insert File"
-msgstr "Наступний файл"
+msgid "Replace"
+msgstr "п≈п╟п╪я√п╫п╟"
+
+#: src/global.c:496
+msgid "Go To Line"
+msgstr "п■п╬ п═я▐п╢п╨п╟"
 
 #: src/global.c:497
-msgid "Go To Line"
-msgstr "До Рядка"
+msgid "Prev Line"
+msgstr "п÷п╬п©п═я▐п╢п╬п╨"
+
+#: src/global.c:498
+msgid "Next Line"
+msgstr "п²п╟я│я┌п═я▐п╢п╬п╨"
+
+#: src/global.c:499
+msgid "Prev Page"
+msgstr "п÷п╬п©.п║я┌п╬я─."
 
 #: src/global.c:500
-msgid "Justify the current paragraph"
-msgstr "Вир╕вняти поточний абзац"
+msgid "Next Page"
+msgstr "п²п╟я│я┌.п║я┌п╬я─."
+
+#: src/global.c:502
+msgid "Justify"
+msgstr "п▓п╦я─я√п╡п╫я▐я┌п╦"
+
+#: src/global.c:503
+msgid "FullJstify"
+msgstr "п▓п╦я─я√п╡п╫я▐я┌п╦"
+
+#: src/global.c:505
+msgid "Refresh"
+msgstr "п÷п╣я─п╣п╪п╟п╩я▌п╡п╟я┌п╦"
+
+#. TRANSLATORS: Try to keep this string at most 12 characters.
+#: src/global.c:508
+msgid "WhereIs Next"
+msgstr "п≈п╫п╟п╧я┌п╦ п╢п╟п╩я√"
 
 #. TRANSLATORS: The next long series of strings are shortcut descriptions;
 #. * they are best kept shorter than 56 characters, but may be longer.
-#: src/global.c:505
-msgid "Cancel the current function"
-msgstr "Скасувати поточну функц╕ю"
-
-#: src/global.c:506
-msgid "Display this help text"
-msgstr ""
-
-#: src/global.c:509
-#, fuzzy
-msgid "Close the current file buffer / Exit from nano"
-msgstr "Закрити завантажений зараз файл/Вийти ╕з nano"
-
-#: src/global.c:511
-msgid "Exit from nano"
-msgstr "Вих╕д з nano"
-
 #: src/global.c:515
-msgid "Write the current file to disk"
-msgstr "Записати поточний файл на диск"
+msgid "Justify the current paragraph"
+msgstr "п▓п╦я─я√п╡п╫я▐я┌п╦ п©п╬я┌п╬я┤п╫п╦п╧ п╟п╠п╥п╟я├"
 
 #: src/global.c:517
-msgid "Insert another file into the current one"
-msgstr "Вставити ╕нший файл до поточного"
+msgid "Cancel the current function"
+msgstr "п║п╨п╟я│я┐п╡п╟я┌п╦ п©п╬я┌п╬я┤п╫я┐ я└я┐п╫п╨я├я√я▌"
 
-#: src/global.c:519
-#, fuzzy
-msgid "Search for a string or a regular expression"
-msgstr "Формальн╕ вирази (regexp)"
-
-#: src/global.c:520
-#, fuzzy
-msgid "Go to previous screen"
-msgstr "Перейти до попереднього екрану"
+#: src/global.c:518
+msgid "Display this help text"
+msgstr "п÷п╬п╨п╟п╥п╟я┌п╦ я├я▌ п╢п╬п╡я√п╢п╨я┐"
 
 #: src/global.c:521
-#, fuzzy
-msgid "Go to next screen"
-msgstr "Перейти до наступного екрану"
+msgid "Close the current file buffer / Exit from nano"
+msgstr "п≈п╟п╨я─п╦я┌п╦ п╠я┐я└п╣я─ п©п╬я┌п╬я┤п╫п╬пЁп╬ я└п╟п╧п╩п╟  / п▓п╦п╧я┌п╦ п╥ nano"
 
 #: src/global.c:523
-msgid "Cut the current line and store it in the cutbuffer"
-msgstr "Вир╕зати поточний рядок та пом╕стити його до \"кишен╕\""
-
-#: src/global.c:525
-msgid "Uncut from the cutbuffer into the current line"
-msgstr "Скасувати вир╕зання та вставити зм╕ст \"кишен╕\" до поточного рядка"
+msgid "Exit from nano"
+msgstr "п▓п╦я┘я√п╢ п╥ nano"
 
 #: src/global.c:527
-#, fuzzy
-msgid "Display the position of the cursor"
-msgstr "Показати позиц╕ю курсора"
+msgid "Write the current file to disk"
+msgstr "п≈п╟п©п╦я│п╟я┌п╦ п©п╬я┌п╬я┤п╫п╦п╧ я└п╟п╧п╩ п╫п╟ п╢п╦я│п╨"
 
 #: src/global.c:529
-msgid "Invoke the spell checker, if available"
-msgstr "Викликати програму пошуку друкарських помилок (якщо ╓)"
+msgid "Insert another file into the current one"
+msgstr "п▓я│я┌п╟п╡п╦я┌п╦ я√п╫я┬п╦п╧ я└п╟п╧п╩ п╢п╬ п©п╬я┌п╬я┤п╫п╬пЁп╬"
 
 #: src/global.c:531
-#, fuzzy
-msgid "Replace a string or a regular expression"
-msgstr "Формальн╕ вирази (regexp)"
+msgid "Search for a string or a regular expression"
+msgstr "п╗я┐п╨п╟я┌п╦ я─я▐п╢п╬п╨ п╟п╠п╬ я└п╬я─п╪п╟п╩я▄п╫п╦п╧ п╡п╦я─п╟п╥"
 
-#: src/global.c:532
-#, fuzzy
-msgid "Go to line and column number"
-msgstr "Перейти до вказаного рядка"
+#: src/global.c:533
+msgid "Search for a string"
+msgstr "п╗я┐п╨п╟я┌п╦ я─я▐п╢п╬п╨"
 
 #: src/global.c:534
-#, fuzzy
-msgid "Mark text at the cursor position"
-msgstr "Пом╕тити текст п╕д поточною позиц╕╓ю курсора"
+msgid "Refresh the file list"
+msgstr "п·я│п╡я√п╤п╦я┌п╦ я│п©п╦я│п╬п╨ я└п╟п╧п╩я√п╡"
 
 #: src/global.c:535
-msgid "Repeat last search"
-msgstr ""
+msgid "Go to lefthand column"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ я│я┌п╬п╡п©я┤п╦п╨п╟ п╩я√п╡п╬я─я┐я┤"
 
-#: src/global.c:537
-#, fuzzy
-msgid "Copy the current line and store it in the cutbuffer"
-msgstr "Вир╕зати поточний рядок та пом╕стити його до \"кишен╕\""
+#: src/global.c:536
+msgid "Go to righthand column"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ я│я┌п╬п╡п©я┤п╦п╨п╟ п©я─п╟п╡п╬я─я┐я┤"
 
 #: src/global.c:538
-#, fuzzy
-msgid "Indent the current line"
-msgstr "Додати до поточного файлу"
+msgid "Go one screenful up"
+msgstr "п²п╟ п╬п╢п╦п╫ п╣п╨я─п╟п╫ п╡пЁп╬я─я┐"
 
 #: src/global.c:539
-#, fuzzy
-msgid "Unindent the current line"
-msgstr "Додати до поточного файлу"
-
-#: src/global.c:540
-msgid "Undo the last operation"
-msgstr ""
+msgid "Go one screenful down"
+msgstr "п²п╟ п╬п╢п╦п╫ п╣п╨я─п╟п╫ п╡п╫п╦п╥"
 
 #: src/global.c:541
-msgid "Redo the last undone operation"
-msgstr ""
+msgid "Cut the current line and store it in the cutbuffer"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п©п╬я┌п╬я┤п╫п╦п╧ я─я▐п╢п╬п╨ я┌п╟ п©п╬п╪я√я│я┌п╦я┌п╦ п╧п╬пЁп╬ п╢п╬ \"п╨п╦я┬п╣п╫я√\""
 
 #: src/global.c:543
-#, fuzzy
-msgid "Go forward one character"
-msgstr "Вперед на одну л╕теру"
+msgid "Uncut from the cutbuffer into the current line"
+msgstr "п║п╨п╟я│я┐п╡п╟я┌п╦ п╡п╦я─я√п╥п╟п╫п╫я▐ я┌п╟ п╡я│я┌п╟п╡п╦я┌п╦ п╥п╪я√я│я┌ \"п╨п╦я┬п╣п╫я√\" п╢п╬ п©п╬я┌п╬я┤п╫п╬пЁп╬ я─я▐п╢п╨п╟"
 
 #: src/global.c:544
-#, fuzzy
-msgid "Go back one character"
-msgstr "Назад на одну л╕теру"
+msgid "Display the position of the cursor"
+msgstr "п÷п╬п╨п╟п╥п╟я┌п╦ я─п╬п╥я┌п╟я┬я┐п╡п╟п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
 
 #: src/global.c:546
-#, fuzzy
-msgid "Go forward one word"
-msgstr "Вперед на одне слово"
+msgid "Invoke the spell checker, if available"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я┌п╦ п©я─п╬пЁя─п╟п╪я┐ п©п╬я┬я┐п╨я┐ п╢я─я┐п╨п╟я─я│я▄п╨п╦я┘ п©п╬п╪п╦п╩п╬п╨ (я▐п╨я┴п╬ я■)"
 
-#: src/global.c:547
-#, fuzzy
-msgid "Go back one word"
-msgstr "Назад на одне слово"
+#: src/global.c:548
+msgid "Replace a string or a regular expression"
+msgstr "п≈п╟п╪я√п╫п╦я┌п╦ я─я▐п╢п╬п╨ п╟п╠п╬ я└п╬я─п╪п╟п╩я▄п╫п╦п╧ п╡п╦я─п╟п╥"
 
 #: src/global.c:549
-#, fuzzy
-msgid "Go to previous line"
-msgstr "Перейти до попереднього екрану"
-
-#: src/global.c:550
-#, fuzzy
-msgid "Go to next line"
-msgstr "Перем╕ститися на рядок нижче"
+msgid "Go to line and column number"
+msgstr "п≥я┌п╦ п╢п╬ я─я▐п╢п╨п╟ я┌п╟ п╫п╬п╪п╣я─я┐ я│я┌п╬п╡п©я┤п╦п╨п╟"
 
 #: src/global.c:551
-#, fuzzy
-msgid "Go to beginning of current line"
-msgstr "Перем╕ститися до початку поточного рядка"
+msgid "Mark text starting from the cursor position"
+msgstr "п÷п╬п╥п╫п╟я┤п╦я┌п╦ я┌п╣п╨я│я┌, п©п╬я┤п╦п╫п╟я▌я┤п╦ п╥ п©п╬я┌п╬я┤п╫п╬я≈ п©п╬п╥п╦я├я√я≈ п╨я┐я─я│п╬я─п╟"
 
 #: src/global.c:552
-#, fuzzy
-msgid "Go to end of current line"
-msgstr "Перем╕ститися на к╕нець поточного рядка"
+msgid "Repeat the last search"
+msgstr "п÷п╬п╡я┌п╬я─п╦я┌п╦ п╬я│я┌п╟п╫п╫я√п╧ п©п╬я┬я┐п╨"
+
+#: src/global.c:554
+msgid "Copy the current line and store it in the cutbuffer"
+msgstr "п║п╨п╬п©я√я▌п╡п╟я┌п╦ п©п╬я┌п╬я┤п╫п╦п╧ я─я▐п╢п╬п╨ я┌п╟ п╥п╠п╣я─п╣пЁя┌п╦ п╧п╬пЁп╬ п╢п╬ \"п╨п╦я┬п╣п╫я√\""
 
 #: src/global.c:555
-msgid "Go to beginning of paragraph; then of previous paragraph"
-msgstr ""
+msgid "Indent the current line"
+msgstr "п■п╬п╢п╟я┌п╦ п╡я√п╢я│я┌я┐п© я┐ п©п╬я┌п╬я┤п╫п╬п╪я┐ я─я▐п╢п╨я┐"
 
-#: src/global.c:557
-msgid "Go just beyond end of paragraph; then of next paragraph"
-msgstr ""
+#: src/global.c:556
+msgid "Unindent the current line"
+msgstr "п▓п╦п╩я┐я┤п╦я┌п╦ п╡я√п╢я│я┌я┐п© п╢п╩я▐ п©п╬я┌п╬я┤п╫п╬пЁп╬ я─я▐п╢п╨п╟"
+
+#: src/global.c:558
+msgid "Comment/uncomment the current line or marked lines"
+msgstr "п■п╬п╢п╟я┌п╦/п≈п╫я▐я┌п╦ п╨п╬п╪п╣п╫я┌я┐п╡п╟п╫п╫я▐ п©п╬я┌п╬я┤п╫п╬пЁп╬ я─я▐п╢п╨п╟ п╟п╠п╬ п©п╬п╥п╫п╟я┤п╣п╫п╦я┘ я─я▐п╢п╨я√п╡"
 
 #: src/global.c:560
-msgid "Go to the first line of the file"
-msgstr "Перем╕ститися до першого рядка файлу"
+msgid "Undo the last operation"
+msgstr "п║п╨п╟я│я┐п╡п╟я┌п╦ п╬я│я┌п╟п╫п╫я▌ п╢я√я▌"
 
-#: src/global.c:562
-msgid "Go to the last line of the file"
-msgstr "Перем╕ститися до останнього рядка файлу"
+#: src/global.c:561
+msgid "Redo the last undone operation"
+msgstr "п▓я√п╢п╫п╬п╡п╦я┌п╦ п╬я│я┌п╟п╫п╫я▌ я│п╨п╟я│п╬п╡п╟п╫я┐ п╢я√я▌"
+
+#: src/global.c:563
+msgid "Go back one character"
+msgstr "п²п╟п╥п╟п╢ п╫п╟ п╬п╢п╦п╫ я│п╦п╪п╡п╬п╩"
 
 #: src/global.c:564
-#, fuzzy
-msgid "Go to the matching bracket"
-msgstr "Нема в╕дпов╕дно╖ дужки"
+msgid "Go forward one character"
+msgstr "п▓п©п╣я─п╣п╢ п╫п╟ п╬п╢п╦п╫ я│п╦п╪п╡п╬п╩"
 
 #: src/global.c:566
-msgid "Scroll up one line without scrolling the cursor"
-msgstr ""
+msgid "Go back one word"
+msgstr "п²п╟п╥п╟п╢ п╫п╟ п╬п╢п╫п╣ я│п╩п╬п╡п╬"
 
-#: src/global.c:568
-msgid "Scroll down one line without scrolling the cursor"
-msgstr ""
+#: src/global.c:567
+msgid "Go forward one word"
+msgstr "п▓п©п╣я─п╣п╢ п╫п╟ п╬п╢п╫п╣ я│п╩п╬п╡п╬"
+
+#: src/global.c:569
+msgid "Go to previous line"
+msgstr "п÷п╬п╡п╣я─п╫я┐я┌п╦я│я▐ п╢п╬ п©п╬п©п╣я─п╣п╢п╫я▄п╬пЁп╬ я─я▐п╢п╨п╟"
+
+#: src/global.c:570
+msgid "Go to next line"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╫п╟я│я┌я┐п©п╫п╬пЁп╬ я─я▐п╢п╨п╟"
+
+#: src/global.c:571
+msgid "Go to beginning of current line"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п©п╬я┤п╟я┌п╨я┐ я─я▐п╢п╨п╟"
 
 #: src/global.c:572
-#, fuzzy
-msgid "Switch to the previous file buffer"
-msgstr "Перейти до попереднього екрану"
+msgid "Go to end of current line"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╨я√п╫я├я▐ я─я▐п╢п╨п╟"
 
-#: src/global.c:574
-msgid "Switch to the next file buffer"
-msgstr ""
+#: src/global.c:575
+msgid "Go to beginning of paragraph; then of previous paragraph"
+msgstr "п²п╟ п©п╬я┤п╟я┌п╬п╨ п©п╬я┌п╬я┤п╫п╬пЁп╬ п╟п╠п╥п╟я├я┐; п©п╬я┌я√п╪ п╫п╟я│я┌я┐п©п╫п╬пЁп╬ п╟п╠п╥п╟я├я┐"
 
 #: src/global.c:577
-msgid "Insert the next keystroke verbatim"
-msgstr ""
+msgid "Go just beyond end of paragraph; then of next paragraph"
+msgstr "пё п╨я√п╫п╣я├я▄ п©п╬я┌п╬я┤п╫п╬пЁп╬ п╟п╠п╥п╟я├я┐; п©п╬я┌я√п╪ п╫п╟я│я┌я┐п©п╫п╬пЁп╬ п╟п╠п╥п╟я├я┐"
 
 #: src/global.c:579
-#, fuzzy
+msgid "Go to the first line of the file"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п©п╣я─я┬п╬пЁп╬ я─я▐п╢п╨п╟ я└п╟п╧п╩п╟"
+
+#: src/global.c:580
+msgid "Go to the last line of the file"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╬я│я┌п╟п╫п╫я▄п╬пЁп╬ я─я▐п╢п╨п╟ я└п╟п╧п╩п╟"
+
+#: src/global.c:582
+msgid "Go to the matching bracket"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╡я√п╢п©п╬п╡я√п╢п╫п╬я≈ п╢я┐п╤п╨п╦"
+
+#: src/global.c:584
+msgid "Scroll up one line without scrolling the cursor"
+msgstr "п⌠п╬я─я┌п╟я┌п╦ п╫п╟ п╬п╢п╦п╫ я─я▐п╢п╬п╨ п╡пЁп╬я─я┐ п╠п╣п╥ п©п╣я─п╣п╪я√я┴п╣п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
+
+#: src/global.c:586
+msgid "Scroll down one line without scrolling the cursor"
+msgstr "п⌠п╬я─я┌п╟я┌п╦ п╫п╟ п╬п╢п╦п╫ я─я▐п╢п╬п╨ п╡п╫п╦п╥ п╠п╣п╥ п©п╣я─п╣п╪я√я┴п╣п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
+
+#: src/global.c:589
+msgid "Switch to the previous file buffer"
+msgstr "п÷п╣я─п╣п╪п╨п╫я┐я┌п╦я│я▐ п╫п╟ п©п╬п©п╣я─п╣п╢п╫я√п╧ я└п╟п╧п╩п╬п╡п╦п╧ п╠я┐я└п╣я─"
+
+#: src/global.c:590
+msgid "Switch to the next file buffer"
+msgstr "п÷п╣я─п╣п╪п╨п╫я┐я┌п╦я│я▐ п╫п╟ п╫п╟я│я┌я┐п©п╫п╦п╧ я└п╟п╧п╩п╬п╡п╦п╧ п╠я┐я└п╣я─"
+
+#: src/global.c:592
+msgid "Insert the next keystroke verbatim"
+msgstr "п▓я│я┌п╟п╡п╦я┌п╦ п╫п╟я│я┌я┐п©п╫я┐ п╨п╬п╪п╠я√п╫п╟я├я√я▌ п╨п╩п╟п╡я√я┬ я▐п╨ я■"
+
+#: src/global.c:593
 msgid "Insert a tab at the cursor position"
-msgstr "Вставити символ CR (повернення гол╕вки) в поз. курсора"
+msgstr "п▓я│я┌п╟п╡п╦я┌п╦ п╥п╫п╟п╨ я┌п╟п╠я┐п╩я▐я├я√я≈ п╡ п╪я√я│я├п╣ я─п╬п╥я┌п╟я┬я┐п╡п╟п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
 
-#: src/global.c:581
-#, fuzzy
+#: src/global.c:594
 msgid "Insert a newline at the cursor position"
-msgstr "Вставити символ CR (повернення гол╕вки) в поз. курсора"
-
-#: src/global.c:583
-msgid "Delete the character under the cursor"
-msgstr "Видалити л╕теру п╕д курсором"
-
-#: src/global.c:585
-msgid "Delete the character to the left of the cursor"
-msgstr "Видалити л╕теру зл╕ва в╕д курсора"
-
-#: src/global.c:588
-#, fuzzy
-msgid "Cut from the cursor position to the end of the file"
-msgstr "Скасувати вир╕зання та вставити зм╕ст \"кишен╕\" до поточного рядка"
-
-#: src/global.c:591
-#, fuzzy
-msgid "Justify the entire file"
-msgstr "Вир╕вняти поточний абзац"
+msgstr "п▓я│я┌п╟п╡п╦я┌п╦ п╫п╬п╡п╦п╧ я─я▐п╢п╬п╨ я┐ п╪я√я│я├я√ я─п╬п╥я┌п╟я┬я┐п╡п╟п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
 
 #: src/global.c:595
-msgid "Count the number of words, lines, and characters"
-msgstr ""
+msgid "Delete the character under the cursor"
+msgstr "п▓п╦п╢п╟п╩п╦я┌п╦ п╩я√я┌п╣я─я┐ п©я√п╢ п╨я┐я─я│п╬я─п╬п╪"
 
-#: src/global.c:598
-msgid "Refresh (redraw) the current screen"
-msgstr "Перемалювати поточний екран"
+#: src/global.c:597
+msgid "Delete the character to the left of the cursor"
+msgstr "п▓п╦п╢п╟п╩п╦я┌п╦ п╩я√я┌п╣я─я┐ п╥п╩я√п╡п╟ п╡я√п╢ п╨я┐я─я│п╬я─п╟"
 
 #: src/global.c:600
-msgid "Suspend the editor (if suspend is enabled)"
-msgstr ""
+msgid "Cut backward from cursor to word start"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╫п╟п╥п╟п╢ п╡я√п╢ п╨я┐я─я│п╬я─п╟ п╢п╬ п©п╬я┤п╟я┌п╨я┐ я│п╩п╬п╡п╟"
 
-#: src/global.c:603
-#, fuzzy
-msgid "Toggle the case sensitivity of the search"
-msgstr "Регистрозалежний пошук"
+#: src/global.c:602
+msgid "Cut forward from cursor to next word start"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╡п©п╣я─п╣п╢ п╡я√п╢ п╨я┐я─я│п╬я─п╟ п╢п╬ п©п╬я┤п╟я┌п╨я┐ я│п╩п╬п╡п╟"
 
-#: src/global.c:605
-#, fuzzy
-msgid "Reverse the direction of the search"
-msgstr "Показати позиц╕ю курсора"
+#: src/global.c:604
+msgid "Cut from the cursor position to the end of the file"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╡я√п╢ п©п╬п╥п╦я├я√я≈ п╨я┐я─я│п╬я─п╟ п╢п╬ п╨я√п╫я├я▐ я└п╟п╧п╩п╟"
 
-#: src/global.c:609
-#, fuzzy
-msgid "Toggle the use of regular expressions"
-msgstr "Формальн╕ вирази (regexp)"
+#: src/global.c:607
+msgid "Justify the entire file"
+msgstr "п▓п╦я─я√п╡п╫я▐я┌п╦ я├я√п╩п╦п╧ я└п╟п╧п╩"
 
-#: src/global.c:613
-#, fuzzy
-msgid "Recall the previous search/replace string"
-msgstr "Редагувати попередн╕й рядок пошуку/зам╕ни"
+#: src/global.c:611
+msgid "Count the number of words, lines, and characters"
+msgstr "п÷я√п╢я─п╟я┘я┐п╡п╟я┌п╦ п╨я√п╩я▄п╨я√я│я┌я▄ я│п╩я√п╡, я─я▐п╢п╨я√п╡ я┌п╟ я│п╦п╪п╡п╬п╩я√п╡"
 
-#: src/global.c:615
-#, fuzzy
-msgid "Recall the next search/replace string"
-msgstr "Редагувати попередн╕й рядок пошуку/зам╕ни"
+#: src/global.c:614
+msgid "Refresh (redraw) the current screen"
+msgstr "п÷п╣я─п╣п╪п╟п╩я▌п╡п╟я┌п╦ п©п╬я┌п╬я┤п╫п╦п╧ п╣п╨я─п╟п╫"
+
+#: src/global.c:616
+msgid "Suspend the editor (if suspension is enabled)"
+msgstr "п÷я─п╦п╥я┐п©п╦п╫п╦я┌п╦ я─п╣п╢п╟п╨я┌п╬я─ (я▐п╨я┴п╬ я┐п╡я√п╪п╨п╫п╣п╫п╬ п©я─п╦п╥я┐п©п╦п╫п╣п╫п╫я▐)"
 
 #: src/global.c:618
-msgid "Go to file browser"
-msgstr "До переглядача файл╕в"
+msgid "Save file without prompting"
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ я└п╟п╧п╩ п╠п╣п╥ п╥п╟п©п╦я┌п╟п╫я▄"
 
-#: src/global.c:621
-#, fuzzy
-msgid "Toggle the use of DOS format"
-msgstr "Запис файлу у формат╕ DOS"
+#: src/global.c:619
+msgid "Search next occurrence backward"
+msgstr "п╗я┐п╨п╟я┌п╦ п╡я√п╢п©п╬п╡я√п╢п╫п╦п╨ я┐ п╫п╟п©я─я▐п╪п╨я┐ п╢п╬ п©п╬я┤п╟я┌п╨я┐"
+
+#: src/global.c:620
+msgid "Search next occurrence forward"
+msgstr "п╗я┐п╨п╟я┌п╦ п╡я√п╢п©п╬п╡я√п╢п╫п╦п╨ я┐ п╫п╟п©я─я▐п╪п╨я┐ п╢п╬ п╨я√п╫я├я▐"
 
 #: src/global.c:622
-#, fuzzy
-msgid "Toggle the use of Mac format"
-msgstr "Запис файлу у формат╕ Mac"
+msgid "Toggle the case sensitivity of the search"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ я┤я┐я┌п╩п╦п╡я√я│я┌я▄ п©п╬я┬я┐п╨я┐ п╢п╬ я─п╣пЁя√я│я┌я─я┐"
 
 #: src/global.c:624
-msgid "Toggle appending"
-msgstr ""
-
-#: src/global.c:625
-msgid "Toggle prepending"
-msgstr ""
+msgid "Reverse the direction of the search"
+msgstr "п≈п╪я√п╫п╦я┌п╦ п╫п╟п©я─я▐п╪п╬п╨ п©п╬я┬я┐п╨я┐ п╫п╟ п©я─п╬я┌п╦п╩п╣п╤п╫п╦п╧"
 
 #: src/global.c:628
-msgid "Toggle backing up of the original file"
-msgstr ""
+msgid "Toggle the use of regular expressions"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ я└п╬я─п╪п╟п╩я▄п╫п╦я┘ п╡п╦я─п╟п╥я√п╡"
 
-#: src/global.c:629
-msgid "Execute external command"
-msgstr "Виконати зовн╕шню команду"
+#: src/global.c:632
+msgid "Recall the previous search/replace string"
+msgstr "п≈пЁп╟п╢п╟я┌п╦ п©п╬п©п╣я─п╣п╢п╫я√п╧ я─я▐п╢п╬п╨ п©п╬я┬я┐п╨я┐/п╥п╟п╪я√п╫п╦"
 
-#: src/global.c:633
-#, fuzzy
-msgid "Toggle the use of a new buffer"
-msgstr "Перемикнути режим вставки в новий буфер"
+#: src/global.c:634
+msgid "Recall the next search/replace string"
+msgstr "п≈пЁп╟п╢п╟я┌п╦ п╫п╟я│я┌я┐п©п╫п╦п╧ я─я▐п╢п╬п╨ п©п╬я┬я┐п╨я┐/п╥п╟п╪я√п╫п╦"
 
-#: src/global.c:636
-#, fuzzy
-msgid "Exit from the file browser"
-msgstr "До переглядача файл╕в"
-
-#: src/global.c:638
-#, fuzzy
-msgid "Go to the first file in the list"
-msgstr "Перем╕ститися до першого рядка файлу"
+#: src/global.c:637
+msgid "Go to file browser"
+msgstr "п■п╬ п©п╣я─п╣пЁп╩я▐п╢п╟я┤п╟ я└п╟п╧п╩я√п╡"
 
 #: src/global.c:640
-#, fuzzy
-msgid "Go to the last file in the list"
-msgstr "Перем╕ститися до останнього рядка файлу"
+msgid "Toggle the use of DOS format"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ я└п╬я─п╪п╟я┌я┐ DOS"
 
 #: src/global.c:641
-#, fuzzy
-msgid "Go to the next file in the list"
-msgstr "Перем╕ститися до останнього рядка файлу"
+msgid "Toggle the use of Mac format"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ я└п╬я─п╪п╟я┌я┐ Mac"
 
 #: src/global.c:642
-#, fuzzy
-msgid "Go to the previous file in the list"
-msgstr "Перем╕ститися до першого рядка файлу"
+msgid "Toggle appending"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╢п╬п╢п╟п╡п╟п╫п╫я▐ п╢п╬ п╨я√п╫я├я▐"
 
 #: src/global.c:643
+msgid "Toggle prepending"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╢п╬п╢п╟п╡п╟п╫п╫я▐ п╢п╬ п©п╬я┤п╟я┌п╨я┐"
+
+#: src/global.c:644
+msgid "Toggle backing up of the original file"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ я─п╣п╥п╣я─п╡п╫п╣ п╨п╬п©я√я▌п╡п╟п╫п╫я▐ п©п╬я┤п╟я┌п╨п╬п╡п╬пЁп╬ я└п╟п╧п╩п╟"
+
+#: src/global.c:645
+msgid "Execute external command"
+msgstr "п▓п╦п╨п╬п╫п╟я┌п╦ п╥п╬п╡п╫я√я┬п╫я▌ п╨п╬п╪п╟п╫п╢я┐"
+
+#: src/global.c:647
+msgid "Close buffer without saving it"
+msgstr "п≈п╟п╨я─п╦я┌п╦ п╠я┐я└п╣я─ п╠п╣п╥ п╧п╬пЁп╬ п╥п╠п╣я─п╣п╤п╣п╫п╫я▐"
+
+#: src/global.c:649
+msgid "Toggle the use of a new buffer"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦/п╡п╦п╪п╨п╫я┐я┌п╦ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╫п╬п╡п╬пЁп╬ п╠я┐я└п╣я─я┐"
+
+#: src/global.c:652
+msgid "Exit from the file browser"
+msgstr "п▓п╦п╧я┌п╦ п╥ п©п╣я─п╣пЁп╩я▐п╢п╟я┤п╟ я└п╟п╧п╩я√п╡"
+
+#: src/global.c:653
+msgid "Go to the first file in the list"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п©п╣я─я┬п╬пЁп╬ я└п╟п╧п╩п╟ я┐ я│п©п╦я│п╨я┐"
+
+#: src/global.c:654
+msgid "Go to the last file in the list"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╬я│я┌п╟п╫п╫я▄п╬пЁп╬ я└п╟п╧п╩п╟ я┐ я│п©п╦я│п╨я┐"
+
+#: src/global.c:655
+msgid "Go to the previous file in the list"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п©п╬п©п╣я─п╣п╢п╫я▄п╬пЁп╬ я└п╟п╧п╩п╟ я┐ я│п©п╦я│п╨я┐"
+
+#: src/global.c:656
+msgid "Go to the next file in the list"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╫п╟я│я┌я┐п©п╫п╬пЁп╬ я└п╟п╧п╩п╟ я┐ я│п©п╦я│п╨я┐"
+
+#: src/global.c:657
 msgid "Go to directory"
-msgstr "До Директор╕╖"
+msgstr "п■п╬ п╨п╟я┌п╟п╩п╬пЁя┐"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:670
-msgid "Close"
-msgstr "Закрити"
+#: src/global.c:660
+msgid "Invoke the linter, if available"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я┌п╦ linter, я▐п╨я┴п╬ п╢п╬я│я┌я┐п©п╫п╦п╧"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
+#: src/global.c:661
+msgid "Go to previous linter msg"
+msgstr "п■п╬ п©п╬п©п╣я─п╣п╢п╫я▄п╬пЁп╬ п©п╬п╡. linter"
+
+#: src/global.c:662
+msgid "Go to next linter msg"
+msgstr "п÷п╣я─п╣п╧я┌п╦ п╢п╬ п╫п╟я│я┌я┐п©п╫п╬пЁп╬ п©п╬п╡я√п╢п╬п╪п╩п╣п╫п╫я▐ linter"
+
+#: src/global.c:664
+msgid "Invoke formatter, if available"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я┌п╦ formatter, я▐п╨я┴п╬ п╢п╬я│я┌я┐п©п╫п╦п╧"
+
+#. TRANSLATORS: Try to keep the following strings at most 10 characters.
 #: src/global.c:679
-msgid "WriteOut"
-msgstr "Записати"
+msgid "Get Help"
+msgstr "п■п╬п╡я√п╢п╨п╟"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:684
-msgid "Justify"
-msgstr "Вир╕внювання"
+#: src/global.c:682 src/prompt.c:855
+msgid "Cancel"
+msgstr "п║п╨п╟я│я┐п╡п╟я┌п╦"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:696
-msgid "Read File"
-msgstr "Чит. Файл"
+#: src/global.c:695
+msgid "Write Out"
+msgstr "п▓п╦п©п╦я│п╟я┌п╦"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:713
+#: src/global.c:731
+msgid "Go To Dir"
+msgstr "п■п╬ п╨п╟я┌п╟п╩п╬пЁя┐"
+
+#: src/global.c:746
 msgid "Cut Text"
-msgstr "Вир╕зати"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦"
 
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:718
-msgid "UnJustify"
-msgstr "СкасВир╕вн"
-
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:723
-#, fuzzy
-msgid "UnCut Text"
-msgstr "СкасВир╕з"
-
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:728 src/global.c:755
-msgid "Cur Pos"
-msgstr "Позиц╕я"
-
-#. TRANSLATORS: Try to keep this at most 10 characters.
-#: src/global.c:737
+#: src/global.c:761
 msgid "To Spell"
-msgstr "Правопис"
+msgstr "п÷я─п╟п╡п╬п©п╦я│"
 
-#: src/global.c:771
-msgid "Mark Text"
-msgstr "Пом╕тити"
+#: src/global.c:765
+msgid "To Linter"
+msgstr "п■п╬ linter"
 
-#: src/global.c:777
-#, fuzzy
-msgid "Copy Text"
-msgstr "Вир╕зати"
+#: src/global.c:768
+msgid "Formatter"
+msgstr "Formatter"
+
+#: src/global.c:775
+msgid "Case Sens"
+msgstr "п═п╣пЁп≈п╟п╩п╣п╤"
 
 #: src/global.c:780
-#, fuzzy
-msgid "Indent Text"
-msgstr "Вир╕зати"
+msgid "Regexp"
+msgstr "п╓п╬я─п╪п▓п╦я─"
 
-#: src/global.c:783
-#, fuzzy
-msgid "Unindent Text"
-msgstr "СкасВир╕з"
+#: src/global.c:785
+msgid "Backwards"
+msgstr "п²п╟п╥п╟п╢"
 
-#: src/global.c:787
-msgid "Undo"
-msgstr ""
+#: src/global.c:792
+msgid "No Replace"
+msgstr "п²п╣ п≈п╟п╪я√я┴п╟я┌п╦"
 
-#: src/global.c:790
-msgid "Redo"
-msgstr ""
+#: src/global.c:800
+msgid "Cur Pos"
+msgstr "п÷п╬п╥п╦я├я√я▐"
 
-#: src/global.c:796 src/global.c:800
-msgid "Forward"
-msgstr "Вперед"
-
-#: src/global.c:806 src/global.c:810
-msgid "Back"
-msgstr "Назад"
+#: src/global.c:815
+msgid "First Line"
+msgstr "п÷п╣я─я┬п╦п╧ п═я▐п╢п╬п╨"
 
 #: src/global.c:817
-msgid "Next Word"
-msgstr "НастСлово"
-
-#: src/global.c:820
-msgid "Prev Word"
-msgstr "ПопСлово"
+msgid "Last Line"
+msgstr "п·я│я┌п╟п╫п╫я√п╧ п═я▐п╢п╬п╨"
 
 #: src/global.c:824
-#, fuzzy
-msgid "Prev Line"
-msgstr "Поп.Стор."
+msgid "To Bracket"
+msgstr "п■п╬ п╢я┐п╤п╨п╦"
 
 #: src/global.c:827
-#, fuzzy
-msgid "Next Line"
-msgstr "Наступний файл"
+msgid "Mark Text"
+msgstr "п÷п╬п╪я√я┌п╦я┌п╦"
 
 #: src/global.c:830
-msgid "Home"
-msgstr "Початок"
+msgid "Copy Text"
+msgstr "п║п╨п╬п©я√я▌п╡п╟я┌п╦ я┌п╣п╨я│я┌"
 
 #: src/global.c:833
+msgid "Indent Text"
+msgstr "п▓я√п╢я│я┌я┐п©"
+
+#: src/global.c:835
+msgid "Unindent Text"
+msgstr "п║п╨п╟я│п▓я√п╢я│я┌"
+
+#: src/global.c:838
+msgid "Undo"
+msgstr "п║п╨п╟я│я┐п╡п╟я┌п╦"
+
+#: src/global.c:840
+msgid "Redo"
+msgstr "п÷п╬п╡я┌п╬я─п╦я┌п╦"
+
+#: src/global.c:844 src/global.c:850
+msgid "Back"
+msgstr "п²п╟п╥п╟п╢"
+
+#: src/global.c:846 src/global.c:852
+msgid "Forward"
+msgstr "п▓п©п╣я─п╣п╢"
+
+#: src/global.c:857
+msgid "Prev Word"
+msgstr "п÷п╬п©п║п╩п╬п╡п╬"
+
+#: src/global.c:859
+msgid "Next Word"
+msgstr "п²п╟я│я┌п║п╩п╬п╡п╬"
+
+#: src/global.c:863
+msgid "Home"
+msgstr "п÷п╬я┤п╟я┌п╬п╨"
+
+#: src/global.c:865
 msgid "End"
-msgstr "К╕нець"
+msgstr "п я√п╫п╣я├я▄"
 
-#: src/global.c:845
-msgid "Find Other Bracket"
-msgstr "Знайти Другу Дужку"
-
-#: src/global.c:848
-msgid "Scroll Up"
-msgstr ""
-
-#: src/global.c:851
-msgid "Scroll Down"
-msgstr ""
-
-#: src/global.c:856
-msgid "Previous File"
-msgstr "Попередн╕й Файл"
-
-#: src/global.c:858
-msgid "Next File"
-msgstr "Наступний файл"
-
-#. TRANSLATORS: This is displayed when the next keystroke will be
-#. * inserted verbatim.
-#: src/global.c:862 src/text.c:3045
-msgid "Verbatim Input"
-msgstr ""
-
-#: src/global.c:867
-msgid "Tab"
-msgstr "Табуляц╕я"
-
-#: src/global.c:870
-msgid "Enter"
-msgstr "Ввод"
-
-#: src/global.c:873
-msgid "Delete"
-msgstr "Видалити"
+#: src/global.c:874
+msgid "Beg of Par"
+msgstr "п÷п╬я┤.п╟п╠п╥п╟я├я┐"
 
 #: src/global.c:876
+msgid "End of Par"
+msgstr "п я√п╫.п╟п╠п╥п╟я├я┐"
+
+#: src/global.c:881
+msgid "Scroll Up"
+msgstr "п⌠п╬я─я┌п╟я┌п╦ п╡пЁп╬я─я┐"
+
+#: src/global.c:883
+msgid "Scroll Down"
+msgstr "п⌠п╬я─я┌п╟я┌п╦ п╡п╫п╦п╥"
+
+#: src/global.c:888
+msgid "Prev File"
+msgstr "п÷п╬п©. я└п╟п╧п╩"
+
+#: src/global.c:890
+msgid "Next File"
+msgstr "п²п╟я│я┌я┐п©п╫п╦п╧ я└п╟п╧п╩"
+
+#: src/global.c:899
+msgid "Verbatim"
+msgstr "п▒я┐п╨п╡п╟п╩я▄п╫п╬"
+
+#: src/global.c:902
+msgid "Tab"
+msgstr "Tab"
+
+#: src/global.c:904
+msgid "Enter"
+msgstr "Enter"
+
+#: src/global.c:907
+msgid "Delete"
+msgstr "Delete"
+
+#: src/global.c:909
 msgid "Backspace"
-msgstr "Заб╕й"
+msgstr "Backspace"
 
-#: src/global.c:893
+#. TRANSLATORS: The next two strings refer to cutting words.
+#: src/global.c:920
+msgid "Cut Left"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╩я√п╡п╬я─я┐я┤"
+
+#: src/global.c:922
+msgid "Cut Right"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п©я─п╟п╡п╬я─я┐я┤"
+
+#: src/global.c:924
 msgid "CutTillEnd"
-msgstr ""
+msgstr "п▓п╦я─п■п╬п я√п╫я├я▐"
 
-#: src/global.c:906
+#: src/global.c:934
 msgid "Word Count"
-msgstr ""
+msgstr "п я√п╩я▄п╨я√я│я┌я▄ я│п╩я√п╡"
 
-#: src/global.c:1367
+#: src/global.c:941
+msgid "Suspend"
+msgstr "п÷я─п╦п╥я┐п©п╦п╫п╨п╟ -"
+
+#: src/global.c:945
+msgid "Comment Lines"
+msgstr "п≈п╟п╨п╬п╪п╣п╫я┌я┐п╡п╟я┌п╦ я─я▐п╢п╨п╦"
+
+#: src/global.c:949
+msgid "Save"
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦"
+
+#: src/global.c:952
+msgid "Previous"
+msgstr "п²п╟п╥п╟п╢"
+
+#: src/global.c:954
+msgid "Next"
+msgstr "п■п╟п╩я√"
+
+#: src/global.c:960
+msgid "PrevHstory"
+msgstr "п÷п╬п©п√я┐я─п╫п╟п╩"
+
+#: src/global.c:963
+msgid "NextHstory"
+msgstr "п²п╟я│я┌п√я┐я─п╫п╟п╩"
+
+#: src/global.c:972
+msgid "Go To Text"
+msgstr "п■п╬ я┌п╣п╨я│я┌я┐"
+
+#: src/global.c:976
+msgid "DOS Format"
+msgstr "я└п╬я─п╪п╟я┌ DOS"
+
+#: src/global.c:978
+msgid "Mac Format"
+msgstr "я└п╬я─п╪п╟я┌ Mac"
+
+#: src/global.c:986
+msgid "Append"
+msgstr "п■п╬п╢п╟я┌п╦"
+
+#: src/global.c:988
+msgid "Prepend"
+msgstr "п■п╬п╢п╟я┌п╦(0)"
+
+#: src/global.c:991
+msgid "Backup File"
+msgstr "п≈я─п╬п╠п╦я┌п╦ я─п╣п╥п╣я─п╡п╫я┐ п╨п╬п©я√я▌"
+
+#: src/global.c:998
+msgid "Execute Command"
+msgstr "п▓п╦п╨п╬п╫п╟я┌п╦ п╨п╬п╪п╟п╫п╢я┐"
+
+#: src/global.c:1013
+msgid "To Files"
+msgstr "п■п╬ п╓п╟п╧п╩я√п╡"
+
+#: src/global.c:1021
+msgid "First File"
+msgstr "п÷п╣я─я┬п╦п╧ я└п╟п╧п╩"
+
+#: src/global.c:1023
+msgid "Last File"
+msgstr "п·я│я┌. я└п╟п╧п╩"
+
+#: src/global.c:1027
+msgid "Discard buffer"
+msgstr "п▓я√п╢п╨п╦п╫я┐я┌п╦ п╠я┐я└п╣я─"
+
+#: src/global.c:1038
+msgid "Left Column"
+msgstr "п⌡я√п╡п╦п╧ я│я┌п╬п╡п©я┤п╦п╨"
+
+#: src/global.c:1040
+msgid "Right Column"
+msgstr "п÷я─п╟п╡п╦п╧ я│я┌п╬п╡п©я┤п╦п╨"
+
+#. TRANSLATORS: Try to keep the next two strings at most 20 characters.
+#: src/global.c:1047
+msgid "Prev Lint Msg"
+msgstr "п÷п╬п©. п©п╬п╡. lint"
+
+#: src/global.c:1049
+msgid "Next Lint Msg"
+msgstr "п²п╟я│я┌. п©п╬п╡. lint"
+
+#. TRANSLATORS: The next seventeen strings are toggle descriptions;
+#. * they are best kept shorter than 40 characters, but may be longer.
+#: src/global.c:1316
 msgid "Help mode"
-msgstr "Режим допомоги"
+msgstr "п═п╣п╤п╦п╪ п╢п╬п╡я√п╢п╨п╦"
 
-#: src/global.c:1369
-#, fuzzy
+#: src/global.c:1318
 msgid "Constant cursor position display"
-msgstr "Пост╕йна позиц╕я курсора"
+msgstr "п÷п╬я│я┌я√п╧п╫п╬ п©п╬п╨п╟п╥я┐п╡п╟я┌п╦ п╪я√я│я├п╣ я─п╬п╥я┌п╟я┬я┐п╡п╟п╫п╫я▐ п╨я┐я─я│п╬я─п╟"
 
-#: src/global.c:1371
+#: src/global.c:1320
 msgid "Use of one more line for editing"
-msgstr ""
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╢п╬п╢п╟я┌п╨п╬п╡п╬пЁп╬ я─я▐п╢п╨п╟ п╢п╩я▐ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐"
 
-#: src/global.c:1373
+#: src/global.c:1322
 msgid "Smooth scrolling"
-msgstr "Плавна прокрутка"
+msgstr "п÷п╩п╟п╡п╫п╟ п©я─п╬п╨я─я┐я┌п╨п╟"
 
-#: src/global.c:1375
+#: src/global.c:1324
+msgid "Soft wrapping of overlong lines"
+msgstr "п°Б─≥я▐п╨п╣ п©п╣я─п╣п╫п╣я│п╣п╫п╫я▐ п╫п╟п╢я┌п╬ п╢п╬п╡пЁп╦я┘ я─я▐п╢п╨я√п╡"
+
+#: src/global.c:1326
 msgid "Whitespace display"
-msgstr ""
+msgstr "п÷п╬п╨п╟п╥ п©я─п╬п╠я√п╩я√п╡"
 
-#: src/global.c:1377
+#: src/global.c:1328
 msgid "Color syntax highlighting"
-msgstr "П╕дсв╕чування синтаксису кольором"
+msgstr "п÷я√п╢я│п╡я√я┤я┐п╡п╟п╫п╫я▐ я│п╦п╫я┌п╟п╨я│п╦я│я┐ п╨п╬п╩я▄п╬я─п╬п╪"
 
-#: src/global.c:1379
+#: src/global.c:1330
 msgid "Smart home key"
-msgstr ""
+msgstr "п═п╬п╥я┐п╪п╫п╟ п╨п╩п╟п╡я√я┬п╟ Home"
 
-#: src/global.c:1381
+#: src/global.c:1332
 msgid "Auto indent"
-msgstr "Авто-вир╕внювання"
+msgstr "п░п╡я┌п╬п╡я√п╢я│я┌я┐п©"
 
-#: src/global.c:1383
+#: src/global.c:1334
 msgid "Cut to end"
-msgstr "Вир╕зати до к╕нця"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╢п╬ п╨я√п╫я├я▐"
 
-#: src/global.c:1385
-msgid "Long line wrapping"
-msgstr ""
+#: src/global.c:1336
+msgid "Hard wrapping of overlong lines"
+msgstr "п√п╬я─я│я┌п╨п╣ п©п╣я─п╣п╫п╣я│п╣п╫п╫я▐ п╫п╟п╢п╥п╡п╦я┤п╟п╧п╫п╬ п╢п╬п╡пЁп╦я┘ я─я▐п╢п╨я√п╡"
 
-#: src/global.c:1387
+#: src/global.c:1338
 msgid "Conversion of typed tabs to spaces"
-msgstr ""
+msgstr "п÷п╣я─п╣я┌п╡п╬я─п╣п╫п╫я▐ п╥п╫п╟п╨я√п╡ я┌п╟п╠я┐п╩я▐я├я√я≈ п╫п╟ п©я─п╬п╠я√п╩п╦"
 
-#: src/global.c:1389
-#, fuzzy
+#: src/global.c:1340
 msgid "Backup files"
-msgstr "Зробити резервну коп╕ю"
+msgstr "п═п╣п╥п╣я─п╡п╫я√ п╨п╬п©я√я≈"
 
-#: src/global.c:1391
-msgid "Multiple file buffers"
-msgstr "Дек╕лька файлових буфер╕в"
+#: src/global.c:1342
+msgid "Reading file into separate buffer"
+msgstr "п╖п╦я┌п╟я■п╪п╬ я└п╟п╧п╩ п╢п╬ п╬п╨я─п╣п╪п╬пЁп╬ п╠я┐я└п╣я─п╟"
 
-#: src/global.c:1393
+#: src/global.c:1344
 msgid "Mouse support"
-msgstr "П╕дтримка миш╕"
+msgstr "п÷я√п╢я┌я─п╦п╪п╨п╟ п╪п╦я┬я√"
 
-#: src/global.c:1395
+#: src/global.c:1346
 msgid "No conversion from DOS/Mac format"
-msgstr "Нема перетворювання ╕з DOS/Mac формату"
+msgstr "п²п╣п╪п╟ п©п╣я─п╣я┌п╡п╬я─я▌п╡п╟п╫п╫я▐ я√п╥ DOS/Mac я└п╬я─п╪п╟я┌я┐"
 
-#: src/global.c:1397
-#, fuzzy
+#: src/global.c:1348
 msgid "Suspension"
-msgstr "Призупинка -"
+msgstr "п÷я─п╦п╥я┐п©п╦п╫п╣п╫п╫я▐"
 
-#: src/global.c:1399
-msgid "Soft line wrapping"
-msgstr ""
-
-#: src/help.c:236
-#, fuzzy
+#: src/help.c:211
 msgid ""
 "Search Command Help Text\n"
 "\n"
@@ -1042,20 +1173,17 @@ msgid ""
 "prompt.  Hitting Enter without entering any text will perform the previous "
 "search.  "
 msgstr ""
-"Текст допомоги команди пошуку\n"
+"п■п╬п╡я√п╢п╨п╟ п©я─п╬ п╨п╬п╪п╟п╫п╢п╦ п©п╬я┬я┐п╨я┐\n"
 "\n"
-" Введ╕ть слова або л╕тери як╕ Ви шука╓те, та натисн╕ть Enter. Якщо для "
-"введено╖ Вами умови знайдеться в╕дпов╕дний зб╕г, екран перем╕ститься в "
-"положення поблизу цього зб╕гу.\n"
+" п▓п╡п╣п╢я√я┌я▄ я│п╩п╬п╡п╟ я┤п╦ я│п╦п╪п╡п╬п╩п╦ п╢п╩я▐ п©п╬я┬я┐п╨я┐ я┌п╟ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter. п╞п╨я┴п╬ п╡п╡п╣п╢п╣п╫п╦п╧ п╡п╟п╪п╦ "
+"я┌п╣п╨я│я┌ п╠я┐п╢п╣ п╥п╫п╟п╧п╢п╣п╫п╬, п╡п╦ п©п╣я─п╣п╧п╢п╣я┌п╣ п╢п╬ п╪я√я│я├п╣ п╫п╟п╧п╠п╩п╦п╤я┤п╬пЁп╬ п╥п╠я√пЁя┐ п╥ я┬я┐п╨п╟п╫п╦п╪ "
+"я─я▐п╢п╨п╬п╪. \n"
 "\n"
-" Попередня умова зб╕гу з'явиться у квадратних дужках п╕сля запрошення "
-"\"Пошук:\". Натиснення Enter без редагування будь-якого тексту призведе до "
-"пошуку попередньо╖ умови зб╕гу.\n"
-"\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ у режим╕ Пошуку:\n"
-"\n"
+" п÷п╬п©п╣я─п╣п╢п╫я√п╧ п©п╬я┌я─я√п╠п╫п╦п╧ п╡п╟п╪ я─я▐п╢п╬п╨ п╠я┐п╢п╣ п©п╬п╨п╟п╥п╟п╫п╬ п╡ п╢я┐п╤п╨п╟я┘ п©я√я│п╩я▐ п©я─п╬п©п╬п╥п╦я├я√я≈ "
+"п©п╬я┬я┐п╨я┐. п╞п╨я┴п╬ п╡п╦ п╫п╟я┌п╦я│п╫п╣я┌п╣ Enter п╫п╣ п╡п╡я√п╡я┬п╦ п╤п╬п╢п╫п╬пЁп╬ я┌п╣п╨я│я┌я┐, п╠я┐п╢п╣ п╥п╢я√п╧я│п╫п╣п╫п╬ "
+"п©п╬я┬я┐п╨ п©п╬п©п╣я─п╣п╢п╫я▄п╬пЁп╬ я┬я┐п╨п╟п╫п╬пЁп╬ я─я▐п╢п╨п╟.  "
 
-#: src/help.c:245
+#: src/help.c:220
 msgid ""
 "If you have selected text with the mark and then search to replace, only "
 "matches in the selected text will be replaced.\n"
@@ -1063,8 +1191,13 @@ msgid ""
 " The following function keys are available in Search mode:\n"
 "\n"
 msgstr ""
+"п╞п╨я┴п╬ п╡п╦ п©п╬п╥п╫п╟я┤п╦п╩п╦ я┌п╣п╨я│я┌ я┌п╟ п╡п╦п╨п╬п╫п╟п╩п╦ п©п╬я┬я┐п╨ п╥ п╥п╟п╪я√п╫п╬я▌, я┌п╬ п╡я√п╢п╠я┐п╢п╣я┌я▄я│я▐ п╥п╟п╪я√п╫п╟ "
+"я┌я√п╩я▄п╨п╦ я┌п╦я┘ п╥п╠я√пЁя√п╡, я┴п╬ я■ я┐ п©п╬п╥п╫п╟я┤п╣п╫п╬п╪я┐ я┌п╣п╨я│я┌я√. \n"
+"\n"
+" пё я─п╣п╤п╦п╪я√ п©п╬я┬я┐п╨я┐ п╢п╬я│я┌я┐п©п╫я√ я┌п╟п╨я√ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫я√ п╨п╩п╟п╡я√я┬я√:\n"
+"\n"
 
-#: src/help.c:251
+#: src/help.c:226
 msgid ""
 "Go To Line Help Text\n"
 "\n"
@@ -1075,17 +1208,16 @@ msgid ""
 " The following function keys are available in Go To Line mode:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму До_рядка\n"
+"п╒п╣п╨я│я┌ п╢п╬п╡я√п╢п╨п╦ я─п╣п╤п╦п╪я┐ п■п╬_я─я▐п╢п╨п╟\n"
 "\n"
-" Введ╕ть номер рядка до якого Ви бажа╓те д╕статись та натисн╕ть Enter. Якщо "
-"к╕льк╕сть рядк╕в у файл╕ менша за число яке Ви ввели, Ви попадете на "
-"останн╕й рядок файлу.\n"
+" п▓п╡п╣п╢я√я┌я▄ п╫п╬п╪п╣я─ я─я▐п╢п╨п╟, п╢п╬ я▐п╨п╬пЁп╬ п╡п╦ я┘п╬я┤п╣я┌п╣ п©п╣я─п╣п╧я┌п╦ я√ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter. п╞п╨я┴п╬ "
+"п╨я√п╩я▄п╨я√я│я┌я▄ я─я▐п╢п╨я√п╡ я┐ я└п╟п╧п╩я√ п╪п╣п╫я┬п╟ п╥п╟ я┤п╦я│п╩п╬, я▐п╨п╣ п╡п╦ п╡п╡п╣п╩п╦, п╡п╦ п©п╣я─п╣п╧п╢п╣я┌п╣ п╢п╬ "
+"п╬я│я┌п╟п╫п╫я▄п╬пЁп╬ я─я▐п╢п╨п╟ я└п╟п╧п╩п╟.\n"
 "\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ у режим╕ До_рядка:\n"
+" пё я─п╣п╤п╦п╪я√ п■п╬_я─я▐п╢п╨п╟ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
 "\n"
 
-#: src/help.c:260
-#, fuzzy
+#: src/help.c:235
 msgid ""
 "Insert File Help Text\n"
 "\n"
@@ -1097,25 +1229,16 @@ msgid ""
 "Meta-F toggle, or a nanorc file, inserting a file will cause it to be loaded "
 "into a separate buffer (use Meta-< and > to switch between file buffers).  "
 msgstr ""
-"Текст допомоги режиму Вставити Файл\n"
+"п■п╬п╡я√п╢п╨п╟ п©п╬ п╨п╬п╪п╟п╫п╢п╟я┘ п©п╬я┬я┐п╨я┐\n"
 "\n"
-" Введ╕ть ╕м'я файлу до вставки в поточний файловий буфер в поточну позиц╕ю "
-"курсору.\n"
+" п▓п╡п╣п╢я√я┌я▄ я│п╩п╬п╡п╟ п╟п╠п╬ я│п╦п╪п╡п╬п╩п╦, я▐п╨я√ п▓п╦ п╥п╠п╦я─п╟я■я┌п╣я│я▐ я┬я┐п╨п╟я┌п╦, п©п╬я┌я√п╪ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter. "
+"п╞п╨я┴п╬ п╢п╩я▐ п╡п╡п╣п╢п╣п╫п╬пЁп╬ п▓п╟п╪п╦ п╥п╫п╟п╧п╢п╣я┌я▄я│я▐ п╥п╠я√пЁ, п╣п╨я─п╟п╫ п©п╣я─п╣п╪я√я│я┌п╦я┌я▄я│я▐ п╢п╬ п╫п╟п╧п╠п╩п╦п╤я┤п╬пЁп╬ "
+"п╥п╠я√пЁя┐.\n"
 "\n"
-" Якщо Ваш nano з╕браний ╕з п╕дтримкою дек╕лькох файлових буфер╕в, та ця "
-"можлив╕сть вв╕мкнена через опц╕╖ командного рядку -F або --multibuffer, або "
-"через комб╕нац╕ю Meta-F, або за допомогою файлу nanorc, файл вставиться в "
-"окремий файловий буфер (користуйтесь Meta-< та > щоб перемикатись м╕ж "
-"буферами).\n"
-"\n"
-" Якщо Вам потр╕бен окремий пустий буфер, просто жм╕ть Enter в рядку "
-"запрошення без вписування ╕мен╕ файлу, або впиш╕ть ╕м'я не╕снуючого файлу та "
-"натисн╕ть Enter.\n"
-"\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ в режим╕ Вставити Файл:\n"
-"\n"
+" п÷п╬п©п╣я─п╣п╢п╫я√п╧ я─я▐п╢п╬п╨ п©п╬я┬я┐п╨я┐ п╠я┐п╢п╣ п©п╬п╨п╟п╥п╟п╫п╬ я┐ п╢я┐п╤п╨п╟я┘ п©я√я│п╩я▐ п╥п╟п©я─п╬я┬п╣п╫п╫я▐ 'п÷п╬я┬я┐п╨:'. "
+"п²п╟я┌п╦я│п╫п╣п╫п╫я▐ Enter п╠п╣п╥ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐ я┌п╣п╨я│я┌я┐ п©я─п╬п╢п╬п╡п╤п╦я┌я▄ п©п╬п©п╣я─п╣п╢п╫я√п╧ п©п╬я┬я┐п╨.  "
 
-#: src/help.c:269
+#: src/help.c:244
 msgid ""
 "If you need another blank buffer, do not enter any filename, or type in a "
 "nonexistent filename at the prompt and press Enter.\n"
@@ -1123,9 +1246,14 @@ msgid ""
 " The following function keys are available in Insert File mode:\n"
 "\n"
 msgstr ""
+"п╞п╨я┴п╬ п╡п╟п╪ п©п╬я┌я─я√п╠п╣п╫ я┴п╣ п╬п╢п╦п╫ п©п╬я─п╬п╤п╫я√п╧ п╠я┐я└п╣я─, п╫п╣ п╡п╡п╬п╢я▄я┌п╣ п╤п╬п╢п╫п╬я≈ п╫п╟п╥п╡п╦ я└п╟п╧п╩п╟ п╟п╠п╬ "
+"п╡п╨п╟п╤я√я┌я▄ я└п╟п╧п╩, я▐п╨п╬пЁп╬ п╫п╣ я√я│п╫я┐я■, п©п╬я┌я√п╪ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter.\n"
+"\n"
+" пё я─п╣п╤п╦п╪я√ б╚п▓я│я┌п╟п╡п╨п╟ я└п╟п╧п╩п╟б╩ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ "
+"п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
+"\n"
 
-#: src/help.c:275
-#, fuzzy
+#: src/help.c:250
 msgid ""
 "Write File Help Text\n"
 "\n"
@@ -1140,20 +1268,21 @@ msgid ""
 " The following function keys are available in Write File mode:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму Зберегти Файл\n"
+"п■п╬п╡я√п╢п╨п╟ п╢п╬ я─п╣п╤п╦п╪я┐ б╚п≈п╟п©п╦я│ я└п╟п╧п╩п╟б╩\n"
 "\n"
-" Введ╕ть ╕м'я п╕д яким Ви бажа╓те зберегти поточний файл та натисн╕ть "
-"Enter.\n"
+" п²п╟п╠п╣я─я√я┌я▄ п╫п╟п╥п╡я┐, я▐п╨я┐ я│п╩я√п╢ п╡п╦п╨п╬я─п╦я│я┌п╟я┌п╦ п╢п╩я▐ п©п╬я┌п╬я┤п╫п╬пЁп╬ я└п╟п╧п╩п╟ я√ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter, "
+"я┴п╬п╠ п╥п╠п╣я─п╣пЁя┌п╦ п╧п╬пЁп╬.\n"
 "\n"
-" Якщо Ви користу╓тесь кодом в╕дм╕тки ╕з Ctrl-^ та пом╕тили деякий текст, "
-"з'явиться запит ╕з п╕дказкою, чи записати обраний блок в окремий файл. Щоб "
-"зменшити шанси перезапису поточного файлу лише частиною цього файлу, ╕м'я "
-"поточного файлу не буде ╕м'ям по замовченню в цьому режим╕.\n"
+" п╞п╨я┴п╬ я┐ я└п╟п╧п╩я√ я■ п©п╬п╥п╫п╟я┤п╣п╫п╦п╧ я┌п╣п╨я│я┌, п╡п╟п╪ п╥п╟п©я─п╬п©п╬п╫я┐я▌я┌я▄ п╥п╠п╣я─п╣пЁя┌п╦ п╩п╦я┬п╣ п©п╬п╥п╫п╟я┤п╣п╫п╦п╧ "
+"я┌п╣п╨я│я┌ п╢п╬ п╬п╨я─п╣п╪п╬пЁп╬ я└п╟п╧п╩п╟. п╘п╬п╠ п╥п╪п╣п╫я┬п╦я┌п╦ п╧п╪п╬п╡я√я─п╫я√я│я┌я▄ п©п╣я─п╣п╥п╟п©п╦я│я┐ п©п╬я┌п╬я┤п╫п╬пЁп╬ я└п╟п╧п╩п╟ "
+"п╩п╦я┬п╣ п╧п╬пЁп╬ я┤п╟я│я┌п╦п╫п╬я▌, я┐ я├я▄п╬п╪я┐ я─п╣п╤п╦п╪я√ п©п╬я┌п╬я┤п╫п╟ п╫п╟п╥п╡п╟ я└п╟п╧п╩п╟ п╫п╣ я■ п╧п╬пЁп╬ я┌п╦п©п╬п╡п╬я▌ "
+"п╫п╟п╥п╡п╬я▌.\n"
 "\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ в режим╕ Зберегти Файл\n"
+" пё я─п╣п╤п╦п╪я√ б╚п≈п╟п©п╦я│ я└п╟п╧п╩п╟б╩ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ "
+"п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
 "\n"
 
-#: src/help.c:289
+#: src/help.c:264
 msgid ""
 "File Browser Help Text\n"
 "\n"
@@ -1166,20 +1295,20 @@ msgid ""
 " The following function keys are available in the file browser:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму Переглядач Файл╕в\n"
+"п╒п╣п╨я│я┌ п╢п╬п╡я√п╢п╨п╦ я─п╣п╤п╦п╪я┐ б╚п÷п╣я─п╣пЁп╩я▐п╢ я└п╟п╧п╩я√п╡б╩\n"
 "\n"
-" Переглядач файл╕в використову╓ться для в╕зуального перегляду зм╕сту "
-"директор╕╖ та обирання потр╕бного файлу для запису або читання. Ви ма╓те "
-"користуватись клав╕шами керування курсором та PageUp/PageDown для "
-"пересування кр╕зь файли, та обирати потр╕бний файл або входити до обрано╖ "
-"директор╕╖ клав╕шею S або Enter. Щоб перем╕ститись на директор╕ю вище, "
-"обер╕ть директор╕ю \"..\" в початку списку файл╕в.\n"
+" п÷п╣я─п╣пЁп╩я▐п╢п╟я┤ я└п╟п╧п╩я√п╡ п╡п╦п╨п╬я─п╦я│я┌п╬п╡я┐я■я┌я▄я│я▐ п╢п╩я▐ п╡я√п╥я┐п╟п╩я▄п╫п╬пЁп╬ п©п╣я─п╣пЁп╩я▐п╢я┐ п╡п╪я√я│я┌я┐ "
+"п╨п╟я┌п╟п╩п╬пЁя┐ я┌п╟ п╡п╦п╠п╬я─я┐ п©п╬я┌я─я√п╠п╫п╬пЁп╬ я└п╟п╧п╩п╟ п╢п╩я▐ п╥п╟п©п╦я│я┐ п╟п╠п╬ я┤п╦я┌п╟п╫п╫я▐. п▓п╦ п╪п╟я■я┌п╣ "
+"п╨п╬я─п╦я│я┌я┐п╡п╟я┌п╦я│я▄ п╨п╩п╟п╡я√я┬п╟п╪п╦ п╨п╣я─я┐п╡п╟п╫п╫я▐ п╨я┐я─я│п╬я─п╬п╪ я┌п╟ PageUp/PageDown п╢п╩я▐ "
+"п©п╣я─п╣я│я┐п╡п╟п╫п╫я▐ п╨я─я√п╥я▄ я└п╟п╧п╩п╦, я┌п╟ п╬п╠п╦я─п╟я┌п╦ п©п╬я┌я─я√п╠п╫п╦п╧ я└п╟п╧п╩ п╟п╠п╬ п╡я┘п╬п╢п╦я┌п╦ п╢п╬ п╡п╦п╠я─п╟п╫п╬пЁп╬ "
+"п╨п╟я┌п╟п╩п╬пЁя┐ п╨п╩п╟п╡я√я┬п╣я▌ S п╟п╠п╬ Enter. п╘п╬п╠ п©п╣я─п╣п╧я┌п╦ п╫п╟ п╨п╟я┌п╟п╩п╬пЁ п╡п╦я┴п╣, п╡п╦п╠п╣я─я√я┌я▄ п╨п╟я┌п╟п╩п╬пЁ "
+"б╚..б╩ п╫п╟ п©п╬я┤п╟я┌п╨я┐ я│п©п╦я│п╨я┐ я└п╟п╧п╩я√п╡.\n"
 "\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ в режим╕ Переглядач Файл╕в:\n"
+" пё я─п╣п╤п╦п╪я√ п©п╣я─п╣пЁп╩я▐п╢я┐ я└п╟п╧п╩я√п╡ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ "
+"п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
 "\n"
 
-#: src/help.c:302
-#, fuzzy
+#: src/help.c:277
 msgid ""
 "Browser Search Command Help Text\n"
 "\n"
@@ -1192,27 +1321,25 @@ msgid ""
 "search.\n"
 "\n"
 msgstr ""
-"Текст допомоги команди пошуку\n"
+"п■п╬п╡я√п╢п╨п╟ п╢п╬ я─п╣п╤п╦п╪я┐ п©п╬я┬я┐п╨я┐\n"
 "\n"
-" Введ╕ть слова або л╕тери як╕ Ви шука╓те, та натисн╕ть Enter. Якщо для "
-"введено╖ Вами умови знайдеться в╕дпов╕дний зб╕г, екран перем╕ститься в "
-"положення поблизу цього зб╕гу.\n"
+" п▓п╡п╣п╢я√я┌я▄ я│п╩п╬п╡п╟ п╟п╠п╬ я│п╦п╪п╡п╬п╩п╦, я▐п╨я√ п╡п╦ п╥п╠п╦я─п╟я■я┌п╣я│я▐ я┬я┐п╨п╟я┌п╦, п©п╬я┌я√п╪ п╫п╟я┌п╦я│п╫я√я┌я▄ Enter. "
+"п╞п╨я┴п╬ п╢п╩я▐ п╡п╡п╣п╢п╣п╫п╬пЁп╬ п╡п╟п╪п╦ п╥п╫п╟п╧п╢п╣я┌я▄я│я▐ п╥п╠я√пЁ, п╣п╨я─п╟п╫ п©п╣я─п╣п╪я√я│я┌п╦я┌я▄я│я▐ я┐ п╪я√я│я├п╣ п©п╬п╠п╩п╦п╥я┐ "
+"п╡я√п╢ п╥п╫п╟п╧п╢п╣п╫п╬пЁп╬ п╥п╠я√пЁя┐.\n"
 "\n"
-" Попередня умова зб╕гу з'явиться у квадратних дужках п╕сля запрошення "
-"\"Пошук:\". Натиснення Enter без редагування будь-якого тексту призведе до "
-"пошуку попередньо╖ умови зб╕гу.\n"
-"\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ у режим╕ Пошуку:\n"
+" п÷п╬п©п╣я─п╣п╢п╫я√п╧ я─я▐п╢п╬п╨ п©п╬я┬я┐п╨я┐ п╠я┐п╢п╣ п©п╬п╨п╟п╥п╟п╫п╬ я┐ п╢я┐п╤п╨п╟я┘ п©я√я│п╩я▐ п╥п╟п©я─п╬я┬п╣п╫п╫я▐ б╚п÷п╬я┬я┐п╨:б╩. "
+"п²п╟я┌п╦я│п╫п╣п╫п╫я▐ Enter п╠п╣п╥ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐ я┌п╣п╨я│я┌я┐ п©я─п╬п╢п╬п╡п╤п╦я┌я▄ п©п╬п©п╣я─п╣п╢п╫я√п╧ п©п╬я┬я┐п╨.\n"
 "\n"
 
-#: src/help.c:311
+#: src/help.c:286
 msgid ""
 " The following function keys are available in Browser Search mode:\n"
 "\n"
 msgstr ""
+" п▓ я─п╣п╤п╦п╪я√ п©п╬я┬я┐п╨я┐ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
+"\n"
 
-#: src/help.c:315
-#, fuzzy
+#: src/help.c:290
 msgid ""
 "Browser Go To Directory Help Text\n"
 "\n"
@@ -1224,19 +1351,18 @@ msgid ""
 " The following function keys are available in Browser Go To Directory mode:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму переглядача файл╕в До_директор╕╖\n"
+"п■п╬п╡я√п╢п╨п╟ я┴п╬п╢п╬ я─п╣п╤п╦п╪я┐ б╚п■п╬ п╨п╟я┌п╟п╩п╬пЁя┐б╩\n"
 "\n"
-" Введ╕ть ╕м'я директор╕╖, яку Ви бажа╓те переглянути.\n"
+" п▓п╡п╣п╢я√я┌я▄ п╫п╟п╥п╡я┐ п╨п╟я┌п╟п╩п╬пЁя┐, п╢п╬ я▐п╨п╬пЁп╬ я│п╩я√п╢ п©п╣я─п╣п╧я┌п╦.\n"
 "\n"
-" Якщо tab-доповнення не заборонено, Ви можете користуватись клав╕шею TAB для "
-"(спроби) автоматичного доповнення назви директор╕╖.\n"
+" п╞п╨я┴п╬ п╢п╬п©п╬п╡п╫п╣п╫п╫я▐ п╥п╟ Tab п╫п╣ п╠я┐п╩п╬ п╡п╦п╪п╨п╫п╣п╫п╬, п╡п╦ п╪п╬п╤п╣я┌п╣ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ п╨п╩п╟п╡я√я┬п╣я▌ "
+"Tab [я│п©я─п╬п╠п╦] п╟п╡я┌п╬п╪п╟я┌п╦я┤п╫п╬пЁп╬ п╢п╬п©п╬п╡п╫п╣п╫п╫я▐ п╫п╟п╥п╡п╦ п╨п╟я┌п╟п╩п╬пЁя┐.\n"
 "\n"
-" Наступн╕ функц╕ональн╕ клав╕ш╕ наявн╕ в режим╕ переглядача файл╕в "
-"До_Директор╕╖:\n"
+" пё я─п╣п╤п╦п╪я√ п©п╣я─п╣я┘п╬п╢я┐ п╢п╬ п╨п╟я┌п╟п╩п╬пЁя┐ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ "
+"п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
 "\n"
 
-#: src/help.c:328
-#, fuzzy
+#: src/help.c:303
 msgid ""
 "Spell Check Help Text\n"
 "\n"
@@ -1249,18 +1375,18 @@ msgid ""
 " The following function keys are available in Spell Check mode:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму Правопис\n"
+"п╒п╣п╨я│я┌ п╢п╬п╡я√п╢п╨п╦ п©п╣я─п╣п╡я√я─п╨п╦ п©я─п╟п╡п╬п©п╦я│я┐\n"
 "\n"
-" Програма перев╕рки правопису перев╕ря╓ орфограф╕ю всього тексту в поточному "
-"файл╕. Коли зустр╕ча╓ться незнайоме слово, воно вид╕ля╓ться та з'явля╓ться "
-"можлив╕сть в╕дредагувати пропоновану зам╕ну. Пот╕м з'явиться запит на зам╕ну "
-"кожного входження цього незнайомого слова в поточному файл╕.\n"
+" п÷я─п╬пЁя─п╟п╪п╟ п©п╣я─п╣п╡я√я─п╨п╦ п©я─п╟п╡п╬п©п╦я│я┐ п©п╣я─п╣п╡я√я─я▐я■ п╬я─я└п╬пЁя─п╟я└я√я▌ я┐я│я▄п╬пЁп╬ я┌п╣п╨я│я┌я┐ п©п╬я┌п╬я┤п╫п╬пЁп╬ "
+"я└п╟п╧п╩п╟. п╞п╨я┴п╬ п╥п╫п╟п╧п╢п╣п╫п╬ п╫п╣п╡я√п╢п╬п╪п╣ я│п╩п╬п╡п╬, п╡п╬п╫п╬ п©я√п╢я│п╡я√я┤я┐я■я┌я▄я│я▐ я┌п╟ п╥Б─≥я▐п╡п╩я▐я■я┌я▄я│я▐ "
+"я─п╣п╢п╟пЁп╬п╡п╟п╫п╟ п╥п╟п╪я√п╫п╟ я├я▄п╬п╪я┐ я│п╩п╬п╡я┐. п÷п╬я┌я√п╪ п╠я┐п╢п╣ п╥Б─≥я▐п╡п╩я▐я┌п╦я│я▐ п╥п╟п©я─п╬я┬п╣п╫п╫я▐ п╢п╩я▐ п╥п╟п╪я√п╫п╦ "
+"п╨п╬п╤п╫п╬пЁп╬ п╡я┘п╬п╢п╤п╣п╫п╫я▐ п╢п╟п╫п╬пЁп╬ п©п╬п╪п╦п╩п╨п╬п╡п╬ п╫п╟п©п╦я│п╟п╫п╬пЁп╬ я│п╩п╬п╡п╟ я┐ п©п╬я┌п╬я┤п╫п╬п╪я┐ я└п╟п╧п╩я√.\n"
 "\n"
-" Наступн╕ ╕нш╕ функц╕╖ наявн╕ в режим╕ Правопис:\n"
+" пё я─п╣п╤п╦п╪я√ п©п╣я─п╣п╡я√я─п╨п╦ п©я─п╟п╡п╬п©п╦я│я┐ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ я┌п╟п╨п╦п╪п╦ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╦п╪п╦ "
+"п╨п╩п╟п╡я√я┬п╟п╪п╦:\n"
 "\n"
 
-#: src/help.c:343
-#, fuzzy
+#: src/help.c:318
 msgid ""
 "Execute Command Help Text\n"
 "\n"
@@ -1271,16 +1397,17 @@ msgid ""
 " The following function keys are available in Execute Command mode:\n"
 "\n"
 msgstr ""
-"Текст допомоги режиму Зовн╕шня Команда\n"
+"п╒п╣п╨я│я┌ п╢п╬п╡я√п╢п╨п╦ я─п╣п╤п╦п╪я┐ п≈п╬п╡п╫я√я┬п╫я▐ п п╬п╪п╟п╫п╢п╟\n"
 "\n"
-" Це меню дозволя╓ вам вставити вив╕д команди, що виконуватиметься в "
-"оболонц╕, в поточний буфер (або у новий буфер в багато-буферному режим╕).\n"
+" п╕п╣ п╪п╣п╫я▌ п╢п╬п╥п╡п╬п╩я▐я■ п╡п╟п╪ п╡я│я┌п╟п╡п╦я┌п╦ п╡п╦п╡я√п╢ п╨п╬п╪п╟п╫п╢п╦, п╡п╦п╨п╬п╫п╟п╫п╬я≈ я┐ п╨п╬п╪п╟п╫п╢п╫п╬п╪я┐ "
+"я√п╫я┌п╣я─п©я─п╣я┌п╟я┌п╬я─я√, я┐ п©п╬я┌п╬я┤п╫п╦п╧ я└п╟п╧п╩п╬п╡п╦п╧ п╠я┐я└п╣я─ (п╟п╠п╬ я┐ п╫п╬п╡п╦п╧ п╠я┐я└п╣я─ я┐ "
+"п╪я┐п╩я▄я┌п╦п╠я┐я└п╣я─п╫п╬п╪я┐ я─п╣п╤п╦п╪я√). п╞п╨я┴п╬ п╡п╟п╪ п©п╬я┌я─я√п╠п╣п╫ я√п╫я┬п╦п╧ п©п╬я─п╬п╤п╫я√п╧ п╠я┐я└п╣я─, п╫п╣ п╡п╡п╬п╢я▄я┌п╣ "
+"п╫я√я▐п╨п╬я≈ п╨п╬п╪п╟п╫п╢п╦ п╡п╥п╟пЁп╟п╩я√.\n"
 "\n"
-" Наступн╕ клав╕ш╕ наявн╕ у цьому режим╕:\n"
+" п²п╟я│я┌я┐п©п╫я√ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫я√ п╨п╩п╟п╡я√я┬я√ п╢п╬я│я┌я┐п©п╫я√ я┐ я─п╣п╤п╦п╪я√ п≈п╬п╡п╫я√я┬п╫я▐ п п╬п╪п╟п╫п╢п╟:\n"
 "\n"
 
-#: src/help.c:356
-#, fuzzy
+#: src/help.c:331
 msgid ""
 "Main nano help text\n"
 "\n"
@@ -1291,36 +1418,33 @@ msgid ""
 "showing the file being edited.  The status line is the third line from the "
 "bottom and shows important messages.  "
 msgstr ""
-" текст допомоги nano\n"
+"п╒п╣п╨я│я┌ п╢п╬п╡я√п╢п╨п╦ nano\n"
 "\n"
-" Редактор  nano  розроблено  для  емуляц╕╖  функц╕ональност╕  та  простоти "
-"використання редактору  UW Pico.  Редактор под╕ля╓ться на 4 головн╕ секц╕╖: "
-"верхн╕й рядок м╕стить верс╕ю програми, ╕м'я поточного файлу, що редагу╓ться, "
-"та ╕нформац╕ю про те, чи внесено будь-як╕ зм╕ни до файлу. Наступна секц╕я - "
-"це головне в╕кно редагування, в якому (якщо уважно придивитись) можна "
-"побачити зм╕ст поточного файлу. Рядок статуту ╓ 3-м знизу рядком та м╕стить "
-"важлив╕ пов╕домлення. Останн╕ два рядки м╕стять найб╕льш загальн╕ комб╕нац╕╖ "
-"клав╕ш редактору.\n"
-"\n"
-"  Нотатки до комб╕нац╕й: комб╕нац╕╖ з клав╕шею Control показан╕ ╕з символом "
-"'^' та  вводяться  з  натиснутою  клав╕шею  Control (Ctrl).   Esc-комб╕нац╕╖ "
-"показан╕ символом 'M' та вводяться з використанням клав╕ш╕ Esc, Alt або Meta "
-"в залежност╕ в╕д  Вашо╖ клав╕атури. Наступн╕ комб╕нац╕╖ доступн╕ в головному "
-"в╕кн╕ редагування. Додатков╕ комб╕нац╕╖ показан╕ у дужках:\n"
-"\n"
+" п═п╣п╢п╟п╨я┌п╬я─ nano я─п╬п╥я─п╬п╠п╩п╣п╫п╬ п╢п╩я▐ п╣п╪я┐п╩я▐я├я√я≈ я└я┐п╫п╨я├я√п╬п╫п╟п╩я▄п╫п╬я│я┌я√ я┌п╟ п©я─п╬я│я┌п╬я┌п╦ "
+"п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╬я─п╦пЁя√п╫п╟п╩я▄п╫п╬пЁп╬ я─п╣п╢п╟п╨я┌п╬я─п╟ UW Pico.  п═п╣п╢п╟п╨я┌п╬я─ я─п╬п╥п╠п╦я┌п╬ п╫п╟ 4 п╬я│п╫п╬п╡п╫я√ "
+"я┤п╟я│я┌п╦п╫п╦: п╡п╣я─я┘п╫я√п╧ я─я▐п╢п╬п╨ п╪я√я│я┌п╦я┌я▄ п╡п╣я─я│я√я▌ п©я─п╬пЁя─п╟п╪п╦, п╫п╟п╥п╡я┐ п©п╬я┌п╬я┤п╫п╬пЁп╬ я└п╟п╧п╩п╟, я▐п╨п╦п╧  "
+"я─п╣п╢п╟пЁя┐я■я┌я▄я│я▐, я┌п╟ я┤п╦ п╠я┐п╩п╬ п╡п╫п╣я│п╣п╫п╬ п╥п╪я√п╫п╦ я┐ п©п╬я┌п╬я┤п╫п╦п╧ я└п╟п╧п╩. п■я─я┐пЁп╟ я┤п╟я│я┌п╦п╫п╟ Б─■ я├п╣ "
+"пЁп╬п╩п╬п╡п╫п╣ п╡я√п╨п╫п╬ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐, я┐ я▐п╨п╬п╪я┐  п©п╬п╨п╟п╥п╟п╫п╬ я─п╣п╢п╟пЁп╬п╡п╟п╫п╦п╧ я└п╟п╧п╩. п═я▐п╢п╬п╨ я│я┌п╟п╫я┐ Б─■ "
+"3 я─я▐п╢п╬п╨ п╥п╫п╦п╥я┐ Б─■ п╪я√я│я┌п╦я┌я▄ я─я√п╥п╫я√ п╡п╟п╤п╩п╦п╡я√ п©п╬п╡я√п╢п╬п╪п╩п╣п╫п╫я▐.  "
 
-#: src/help.c:366
+#: src/help.c:341
 msgid ""
 "The bottom two lines show the most commonly used shortcuts in the editor.\n"
 "\n"
-" The notation for shortcuts is as follows: Control-key sequences are notated "
-"with a caret (^) symbol and can be entered either by using the Control "
-"(Ctrl) key or pressing the Escape (Esc) key twice.  Escape-key sequences are "
-"notated with the Meta (M-) symbol and can be entered using either the Esc, "
-"Alt, or Meta key depending on your keyboard setup.  "
+" Shortcuts are written as follows: Control-key sequences are notated with a "
+"'^' and can be entered either by using the Ctrl key or pressing the Esc key "
+"twice.  Meta-key sequences are notated with 'M-' and can be entered using "
+"either the Alt, Cmd, or Esc key, depending on your keyboard setup.  "
 msgstr ""
+"п■п╡п╟ я─я▐п╢п╨п╦ п╥п╫п╦п╥я┐ п©п╬п╨п╟п╥я┐я▌я┌я▄ п╫п╟п╧я┤п╟я│я┌я√я┬п╣ п╡п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟п╫я√ п╨п╬п╪п╠я√п╫п╟я├я√я≈ п╨п╩п╟п╡я√я┬.\n"
+"\n"
+" п║п╦я│я┌п╣п╪п╟ п©п╬п╥п╫п╟я┤п╣п╫я▄ п╨п╬п╪п╠я√п╫п╟я├я√п╧ п╨п╩п╟п╡я√я┬ я┌п╟п╨п╟: п╨п╬п╪п╠я√п╫п╟я├я√я≈ п╥ Control п©п╬п╥п╫п╟я┤п╣п╫п╬ "
+"я│п╦п╪п╡п╬п╩п╬п╪ (^), я≈я┘ п╪п╬п╤п╫п╟ п╡п╡п╣я│я┌п╦ п╥п╟ п╢п╬п©п╬п╪п╬пЁп╬я▌ п╫п╟я┌п╦я│п╨п╟п╫п╫я▐ п╨п╩п╟п╡я√я┬я√ Control (Ctrl) "
+"п╟п╠п╬ п©п╬п╢п╡я√п╧п╫п╬пЁп╬ п╫п╟я┌п╦я│п╨п╟п╫п╫я▐ п╨п╩п╟п╡я√я┬я√ Escape (Esc); п п╬п╪п╠я√п╫п╟я├я√я≈ п╥ п╨п╩п╟п╡я√я┬п╣я▌ Meta "
+"п©п╬п╥п╫п╟я┤п╣п╫п╬ я│п╦п╪п╡п╬п╩п╬п╪ б╚Mб╩, я≈я┘ п╪п╬п╤п╫п╟ п╡п╡п╣я│я┌п╦ п╥п╟ п╢п╬п©п╬п╪п╬пЁп╬я▌ п╨п╩п╟п╡я√я┬ Alt, Cmd п╟п╠п╬ "
+"Esc, п╥п╟п╩п╣п╤п╫п╬ п╡я√п╢ п╪п╬п╢п╣п╩я√ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╬я≈ п╨п╩п╟п╡я√п╟я┌я┐я─п╦.  "
 
-#: src/help.c:375
+#: src/help.c:348
 msgid ""
 "Also, pressing Esc twice and then typing a three-digit decimal number from "
 "000 to 255 will enter the character with the corresponding value.  The "
@@ -1328,484 +1452,530 @@ msgid ""
 "keys are shown in parentheses:\n"
 "\n"
 msgstr ""
+"п╒п╟п╨п╬п╤, п╥п╟ п╢п╬п©п╬п╪п╬пЁп╬я▌ п©п╬п╢п╡я√п╧п╫п╬пЁп╬ п╫п╟я┌п╦я│п╨п╟п╫п╫я▐ Esc я┌п╟ п╡п╡п╣п╢п╣п╫п╫я▐ я┌я─п╦п╥п╫п╟я┤п╫п╬пЁп╬ я┤п╦я│п╩п╟ "
+"п╡я√п╢ 000 п╢п╬ 255 п╪п╬п╤п╫п╟ п╡п╡п╣я│я┌п╦ я│п╦п╪п╡п╬п╩ п╥ п╡я√п╢п©п╬п╡я√п╢п╫п╦п╪ п╫п╬п╪п╣я─п╬п╪ я┐ п╨п╬п╢я√. пё п╬я│п╫п╬п╡п╫п╬п╪я┐ "
+"п╡я√п╨п╫я√ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐ п╪п╬п╤п╫п╟ я│п╨п╬я─п╦я│я┌п╟я┌п╦я│я▐ п╡п╨п╟п╥п╟п╫п╦п╪п╦ п╫п╦п╤я┤п╣ п╨п╬п╪п╠я√п╫п╟я├я√я▐п╪п╦ п╨п╩п╟п╡я√я┬. "
+"п░п╩я▄я┌п╣я─п╫п╟я┌п╦п╡п╫я√ п╨п╬п╪п╠я√п╫п╟я├я√я≈ п╫п╟п╡п╣п╢п╣п╫п╬ я┐ п╢я┐п╤п╨п╟я┘:\n"
+"\n"
 
-#: src/help.c:407 src/help.c:483
+#: src/help.c:380 src/help.c:457
 msgid "enable/disable"
-msgstr "дозволити/заборонити"
+msgstr "п╢п╬п╥п╡п╬п╩п╦я┌п╦/п╥п╟п╠п╬я─п╬п╫п╦я┌п╦"
 
-#: src/nano.c:587
-#, fuzzy
-msgid "Key invalid in view mode"
-msgstr "Нев╕рна кнопка в режим╕ VIEW"
+#: src/nano.c:543
+msgid "Key is invalid in view mode"
+msgstr "п²п╣п╨п╬я─п╣п╨я┌п╫п╟ п╨п╩п╟п╡я√я┬п╟ я┐ я─п╣п╤п╦п╪я√ п©п╣я─п╣пЁп╩я▐п╢я┐"
 
-#: src/nano.c:695
+#: src/nano.c:549
+msgid "This function is disabled in restricted mode"
+msgstr "п╕я▌ я└я┐п╫п╨я├я√я▌ п╡п╦п╪п╨п╫п╣п╫п╬ я┐ п╬п╠п╪п╣п╤п╣п╫п╬п╪я┐ я─п╣п╤п╦п╪я√"
+
+#: src/nano.c:557
+msgid "Help is not available"
+msgstr "п■п╬п╡я√п╢п╨п╟ п╫п╣п╢п╬я│я┌я┐п©п╫п╟"
+
+#: src/nano.c:669
 #, c-format
 msgid ""
 "\n"
 "Buffer written to %s\n"
 msgstr ""
 "\n"
-"Буфер записано до %s\n"
+"п▒я┐я└п╣я─ п╥п╟п©п╦я│п╟п╫п╬ п╢п╬ %s\n"
 
-#: src/nano.c:697
-#, fuzzy, c-format
+#: src/nano.c:671
+#, c-format
 msgid ""
 "\n"
 "Buffer not written to %s: %s\n"
 msgstr ""
 "\n"
-"Буфер записано до %s\n"
+"п▒я┐я└п╣я─ п╫п╣ п╥п╟п©п╦я│п╟п╫п╬ п╢п╬ %s: %s\n"
 
-#: src/nano.c:700
-#, fuzzy, c-format
+#: src/nano.c:674
+#, c-format
 msgid ""
 "\n"
 "Buffer not written: %s\n"
 msgstr ""
 "\n"
-"Буфер записано до %s\n"
+"п▒я┐я└п╣я─ п╫п╣ п╥п╟п©п╦я│п╟п╫п╬: %s\n"
 
-#: src/nano.c:723
+#: src/nano.c:697
 msgid "Window size is too small for nano...\n"
-msgstr "Розм╕р в╕кна замалий для Nano...\n"
+msgstr "п═п╬п╥п╪я√я─ п╡я√п╨п╫п╟ п╥п╟п╪п╟п╩п╦п╧ п╢п╩я▐ nano...\n"
 
-#: src/nano.c:816
+#: src/nano.c:790
 #, c-format
 msgid ""
 "Usage: nano [OPTIONS] [[+LINE,COLUMN] FILE]...\n"
 "\n"
 msgstr ""
+"п▓п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐: nano [п÷п░п═п░п°п∙п╒п═п≤] [[+п═п╞п■п·п ,п║п╒п·п▓п÷п╖п≤п ] п╓п░п≥п⌡]...\n"
+"\n"
 
-#: src/nano.c:819
-#, fuzzy, c-format
+#: src/nano.c:793
+#, c-format
 msgid "Option\t\tGNU long option\t\tMeaning\n"
-msgstr "Опц╕╖\t\tДовг╕ опц╕╖\t\tЗначення\n"
+msgstr "п÷п╟я─п╟п╪п╣я┌я─\t\tп■п╬п╡пЁп╟ я└п╬я─п╪п╟\t\tп÷я─п╦п╥п╫п╟я┤п╣п╫п╫я▐\n"
 
-#: src/nano.c:821
+#: src/nano.c:795
 #, c-format
 msgid "Option\t\tMeaning\n"
-msgstr "Опц╕я\t\tЗначення\n"
+msgstr "п÷п╟я─п╟п╪п╣я┌я─\t\tп÷я─п╦п╥п╫п╟я┤п╣п╫п╫я▐\n"
 
-#: src/nano.c:824
-msgid "Show this message"
-msgstr "Показати це пов╕домлення"
+#: src/nano.c:798
+msgid "+LINE,COLUMN"
+msgstr "+п═п╞п■п·п ,п║п╒п·п▓п÷п╖п≤п "
+
+#. TRANSLATORS: The next forty or so strings are option descriptions
+#. * for the --help output.  Try to keep them at most 40 characters.
+#: src/nano.c:801
+msgid "Start at line LINE, column COLUMN"
+msgstr "п÷п╬я┤п╟я┌п╦ п╥я√ п╡п╨п╟п╥п╟п╫п╬пЁп╬ я─я▐п╢п╨п╟ я┌п╟ п©п╬п╥п╦я├я√я≈"
+
+#: src/nano.c:803
+msgid "Enable smart home key"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦ я─п╬п╥я┐п╪п╫я┐ п╨п╫п╬п©п╨я┐ Home"
+
+#: src/nano.c:805
+msgid "Save backups of existing files"
+msgstr "п≈п╠п╣я─я√пЁп╟я┌п╦ я─п╣п╥п╣я─п╡п╫я√ п╨п╬п©я√я≈ п╫п╟я▐п╡п╫п╦я┘ я└п╟п╧п╩я√п╡"
+
+#: src/nano.c:806
+msgid "-C <dir>"
+msgstr "-C <п╨п╟я┌>"
+
+#: src/nano.c:806
+msgid "--backupdir=<dir>"
+msgstr "--backupdir=<dir>"
+
+#: src/nano.c:807
+msgid "Directory for saving unique backup files"
+msgstr "п п╟я┌п╟п╩п╬пЁ п╢п╩я▐ п╥п╠п╣я─я√пЁп╟п╫п╫я▐ я┐п╫я√п╨п╟п╩я▄п╫п╦я┘ я─п╣п╥п╣я─п╡п╫п╦я┘ п╨п╬п©я√п╧"
+
+#: src/nano.c:810
+msgid "Use bold instead of reverse video text"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ п╤п╦я─п╫п╦п╧ я┬я─п╦я└я┌ п╥п╟п╪я√я│я┌я▄ п╥п╡п╦я┤п╟п╧п╫п╬пЁп╬"
+
+#: src/nano.c:812
+msgid "Convert typed tabs to spaces"
+msgstr "п÷п╣я─п╣я┌п╡п╬я─я▌п╡п╟я┌п╦ я┌п╟п╠я┐п╩я▐я├я√я≈ я┐ п©я─п╬п╠я√п╩п╦"
+
+#: src/nano.c:817
+msgid "Read a file into a new buffer by default"
+msgstr "п╒п╦п©п╬п╡п╬ я┤п╦я┌п╟я┌п╦ я└п╟п╧п╩ п╢п╬ п╫п╬п╡п╬пЁп╬ п╠я┐я└п╣я─п╟"
+
+#: src/nano.c:820
+msgid "Use (vim-style) lock files"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ я└п╟п╧п╩п╦ п╠п╩п╬п╨я┐п╡п╟п╫п╫я▐ (я▐п╨ я┐ vim)"
 
 #: src/nano.c:825
-msgid "+LINE,COLUMN"
-msgstr ""
-
-#: src/nano.c:826
-#, fuzzy
-msgid "Start at line LINE, column COLUMN"
-msgstr "Почати з рядка номер РЯДОК"
-
-#: src/nano.c:828
-#, fuzzy
-msgid "Enable smart home key"
-msgstr "Дозволити мишу"
+msgid "Log & read search/replace string history"
+msgstr "п▓п╣я│я┌п╦ п╤я┐я─п╫п╟п╩ я┌п╟ я┤п╦я┌п╟я┌п╦ я√я│я┌п╬я─я√я▌ я┐п╪п╬п╡ п©п╬я┬я┐п╨я┐/п╥п╟п╪я√п╫п╦"
 
 #: src/nano.c:829
-#, fuzzy
-msgid "Save backups of existing files"
-msgstr "Робити резервн╕ коп╕╖ ╕снуючих файл╕в при запису"
+msgid "Don't look at nanorc files"
+msgstr "п²п╣ п╡п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ я└п╟п╧п╩п╦ nanorc"
 
-#: src/nano.c:830
-#, fuzzy
-msgid "-C <dir>"
-msgstr "-o [дир]"
-
-#: src/nano.c:830
-msgid "--backupdir=<dir>"
-msgstr ""
-
-#: src/nano.c:831
-msgid "Directory for saving unique backup files"
-msgstr ""
+#: src/nano.c:832
+msgid "Fix numeric keypad key confusion problem"
+msgstr "п▓п╦п©я─п╟п╡п╩я▐я┌п╦ п©я─п╬п╠п╩п╣п╪я┐ п╪п╟п╩п╬я≈ п╨п╩п╟п╡я√п╟я┌я┐я─п╦"
 
 #: src/nano.c:834
-msgid "Use bold instead of reverse video text"
-msgstr ""
+msgid "Don't add newlines to the ends of files"
+msgstr "п²п╣ п╢п╬п╢п╟п╡п╟я┌п╦ п©п╬я─п╬п╤п╫я√ я─я▐п╢п╨п╦ я┐ п╨я√п╫я├я√ я└п╟п╧п╩п╟"
 
 #: src/nano.c:837
-msgid "Convert typed tabs to spaces"
-msgstr ""
+msgid "Don't convert files from DOS/Mac format"
+msgstr "п²п╣ п©п╣я─п╣я┌п╡п╬я─я▌п╡п╟я┌п╦ я└п╟п╧п╩п╦ п╥ я└п╬я─п╪п╟я┌я┐ DOS/Mac"
 
-#: src/nano.c:840
-msgid "Enable multiple file buffers"
-msgstr "Дозволити дек╕лька файлових буфер╕в"
+#: src/nano.c:839
+msgid "Use one more line for editing"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ п╢п╬п╢п╟я┌п╨п╬п╡п╦п╧ я─я▐п╢п╬п╨ п╢п╩я▐ я─п╣п╢п╟пЁя┐п╡п╟п╫п╫я▐"
 
-#: src/nano.c:845
-msgid "Log & read search/replace string history"
-msgstr "Вести журнал та читати ╕стор╕ю умов пошуку/зам╕ни"
+#: src/nano.c:843
+msgid "Log & read location of cursor position"
+msgstr "п≈п╟п©п╦я│я┐п╡п╟я┌п╦ п╢п╬ п╤я┐я─п╫п╟п╩я┐ я√ я┤п╦я┌п╟я┌п╦ п©п╬п╥п╦я├я√я▌ п╨я┐я─я│п╬я─п╟"
 
-#: src/nano.c:848
-msgid "Don't look at nanorc files"
-msgstr "Не дивитися в nanorc файли"
+#: src/nano.c:846
+msgid "-Q <str>"
+msgstr "-Q <я─я▐п╢>"
+
+#: src/nano.c:846
+msgid "--quotestr=<str>"
+msgstr "--quotestr=<я─я▐п╢>"
+
+#: src/nano.c:846
+msgid "Quoting string"
+msgstr "п═я▐п╢п╬п╨ я├п╦я┌я┐п╡п╟п╫п╫я▐"
+
+#: src/nano.c:849
+msgid "Restricted mode"
+msgstr "п·п╠п╪п╣п╤п╣п╫п╦п╧ я─п╣п╤п╦п╪"
 
 #: src/nano.c:851
-msgid "Fix numeric keypad key confusion problem"
-msgstr ""
+msgid "Scroll by line instead of half-screen"
+msgstr "п⌠п╬я─я┌п╟я┌п╦ п╫п╟ я─я▐п╢п╬п╨, п╟ п╫п╣ п╫п╟ п©я√п╡ п╣п╨я─п╟п╫п╟"
 
 #: src/nano.c:853
-msgid "Don't add newlines to the ends of files"
-msgstr ""
+msgid "-T <#cols>"
+msgstr "-T <#я┤п╦я│п╩п╬>"
+
+#: src/nano.c:853
+msgid "--tabsize=<#cols>"
+msgstr "--tabsize=<#я┤п╦я│п╩п╬>"
+
+#: src/nano.c:854
+msgid "Set width of a tab to #cols columns"
+msgstr "п▓я│я┌п╟п╫п╬п╡п╦я┌п╦ я┬п╦я─п╦п╫я┐ я┌п╟п╠я┐п╩я▐я├я√я≈ я┐ #я┤п╦я│п╩п╬ п©п╬п╥п╦я├я√п╧"
 
 #: src/nano.c:856
-msgid "Don't convert files from DOS/Mac format"
-msgstr "Нема перетворювання ╕з DOS/Mac формату"
+msgid "Do quick statusbar blanking"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ я┬п╡п╦п╢п╨п╣ п╬я┤п╦я┴я┐п╡п╟п╫п╫я▐ я─я▐п╢п╨п╟ я│я┌п╟п╫я┐"
 
 #: src/nano.c:858
-msgid "Use one more line for editing"
-msgstr ""
-
-#: src/nano.c:860
-#, fuzzy
-msgid "-Q <str>"
-msgstr "-Q [рядок]"
-
-#: src/nano.c:860
-#, fuzzy
-msgid "--quotestr=<str>"
-msgstr "--quotestr=[рядок]"
+msgid "Print version information and exit"
+msgstr "п÷п╬п╨п╟п╥п╟я┌п╦ п╡п╣я─я│я√я▌ я┌п╟ п╡п╦п╧я┌п╦"
 
 #: src/nano.c:861
-#, fuzzy
-msgid "Quoting string"
-msgstr "Рядок посилання, по замовченню \"> \""
+msgid "Detect word boundaries more accurately"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ п╠я√п╩я▄я┬ я┌п╬я┤п╫п╣ п╡п╦п╥п╫п╟я┤п╣п╫п╫я▐ п╪п╣п╤ я│п╩я√п╡"
 
-#: src/nano.c:863
-msgid "Restricted mode"
-msgstr ""
+#: src/nano.c:865
+msgid "-Y <str>"
+msgstr "-Y <я─я▐п╢>"
+
+#: src/nano.c:865
+msgid "--syntax=<str>"
+msgstr "--syntax=<я─я▐п╢>"
 
 #: src/nano.c:866
-msgid "Scroll by line instead of half-screen"
-msgstr ""
+msgid "Syntax definition to use for coloring"
+msgstr "п·п©п╦я│ я│п╦п╫я┌п╟п╨я│п╦я│я┐, я▐п╨п╦п╧ я│п╩я√п╢ п╡п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ п╢п╩я▐ я─п╬п╥я└п╟я─п╠я┐п╡п╟п╫п╫я▐"
 
 #: src/nano.c:868
-#, fuzzy
-msgid "-T <#cols>"
-msgstr "-r [#стовп]"
+msgid "Constantly show cursor position"
+msgstr "п÷п╬я│я┌я√п╧п╫п╬ п©п╬п╨п╟п╥я┐п╡п╟я┌п╦ п©п╬п╥п╦я├я√я▌ п╨я┐я─я│п╬я─п╟"
 
-#: src/nano.c:868
-#, fuzzy
-msgid "--tabsize=<#cols>"
-msgstr "--tabsize=[чис]"
-
-#: src/nano.c:869
-#, fuzzy
-msgid "Set width of a tab to #cols columns"
-msgstr "Встановити розм╕р табуляц╕╖ =чис"
+#: src/nano.c:870
+msgid "Fix Backspace/Delete confusion problem"
+msgstr "п▓п╦п©я─п╟п╡п╦я┌п╦ п©я─п╬п╠п╩п╣п╪я┐ Backspace/Delete"
 
 #: src/nano.c:871
-msgid "Do quick statusbar blanking"
-msgstr ""
+msgid "Show this help text and exit"
+msgstr "п÷п╬п╨п╟п╥п╟я┌п╦ я┌п╣п╨я│я┌ я├я√я■я≈ п╢п╬п╡я√п╢п╨п╦ я√ п╥п╟п╡п╣я─я┬п╦я┌п╦ я─п╬п╠п╬я┌я┐"
+
+#: src/nano.c:873
+msgid "Automatically indent new lines"
+msgstr "п░п╡я┌п╬п╪п╟я┌п╦я┤п╫п╬ п╡п╦я─я√п╡п╫я▌п╡п╟я┌п╦ п╫п╬п╡я√ я─я▐п╢п╨п╦"
 
 #: src/nano.c:874
-msgid "Print version information and exit"
-msgstr "Показати верс╕ю та вийти"
+msgid "Cut from cursor to end of line"
+msgstr "п▓п╦я─я√п╥п╟я┌п╦ п╡я√п╢ п╨я┐я─я│п╬я─п╟ п╢п╬ п╨я√п╫я├я▐ я─я▐п╢п╨п╟"
 
 #: src/nano.c:877
-msgid "Detect word boundaries more accurately"
-msgstr ""
+msgid "Enable the use of the mouse"
+msgstr "п■п╬п╥п╡п╬п╩п╦я┌п╦ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╪п╦я┬я√"
 
-#: src/nano.c:880
-#, fuzzy
-msgid "-Y <str>"
-msgstr "-Y [рядок]"
-
-#: src/nano.c:880
-#, fuzzy
-msgid "--syntax=<str>"
-msgstr "--syntax [рядок]"
+#: src/nano.c:879
+msgid "Do not read the file (only write it)"
+msgstr "п²п╣ я┤п╦я┌п╟я┌п╦ я└п╟п╧п╩ (п╩п╦я┬п╣ п╥п╟п©п╦я│я┐п╡п╟я┌п╦ п╢п╬ п╫я▄п╬пЁп╬)"
 
 #: src/nano.c:881
-#, fuzzy
-msgid "Syntax definition to use for coloring"
-msgstr "Визначення синтаксису до використання"
+msgid "-o <dir>"
+msgstr "-o <п╨п╟я┌>"
 
-#: src/nano.c:883
-msgid "Constantly show cursor position"
-msgstr "Пост╕йно показувати позиц╕ю курсора"
+#: src/nano.c:881
+msgid "--operatingdir=<dir>"
+msgstr "--operatingdir=<п╨п╟я┌>"
 
-#: src/nano.c:885
-msgid "Fix Backspace/Delete confusion problem"
-msgstr ""
+#: src/nano.c:882
+msgid "Set operating directory"
+msgstr "п▓я│я┌п╟п╫п╬п╡п╦я┌п╦ я─п╬п╠п╬я┤п╦п╧ п╨п╟я┌п╟п╩п╬пЁ"
+
+#: src/nano.c:884
+msgid "Preserve XON (^Q) and XOFF (^S) keys"
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ п╨п╩п╟п╡я√я┬я√ XON (^Q) я┌п╟ XOFF (^S)"
 
 #: src/nano.c:888
-msgid "Automatically indent new lines"
-msgstr "Автоматично вир╕внювати нов╕ рядки"
+msgid "Silently ignore startup issues like rc file errors"
+msgstr "п°п╬п╡я┤п╨п╦ я√пЁп╫п╬я─я┐п╡п╟я┌п╦ п©п╬п╪п╦п╩п╨п╦ п╥п╟п©я┐я│п╨я┐, п╫п╟п©я─п╦п╨п╩п╟п╢ rc-я└п╟п╧п╩п╟"
 
-#: src/nano.c:889
-#, fuzzy
-msgid "Cut from cursor to end of line"
-msgstr "Дозволити ^K вир╕зати в╕д курсора до к╕нця рядка"
+#: src/nano.c:891
+msgid "-r <#cols>"
+msgstr "-r <#п©п╬п╥>"
+
+#: src/nano.c:891
+msgid "--fill=<#cols>"
+msgstr "--fill=<#п©п╬п╥>"
 
 #: src/nano.c:892
-msgid "Don't follow symbolic links, overwrite"
-msgstr "Не йти за с╕мл╕нками, але переписувати"
+msgid "Set hard-wrapping point at column #cols"
+msgstr "п▓я│я┌п╟п╫п╬п╡п╦я┌п╦ п╥п╫п╟я┤п╣п╫п╫я▐ п©п╬п╥п╦я├я√я≈ п╤п╬я─я│я┌п╨п╬пЁп╬ п©п╣я─п╣п╫п╣я│п╣п╫п╫я▐ #п©п╬п╥"
 
-#: src/nano.c:894
-#, fuzzy
-msgid "Enable the use of the mouse"
-msgstr "Дозволити мишу"
+#: src/nano.c:896
+msgid "-s <prog>"
+msgstr "-s <п©я─п╬пЁя─п╟п╪п╟>"
 
-#: src/nano.c:897
-#, fuzzy
-msgid "-o <dir>"
-msgstr "-o [дир]"
+#: src/nano.c:896
+msgid "--speller=<prog>"
+msgstr "--speller=<п©я─п╬пЁя─п╟п╪п╟>"
 
 #: src/nano.c:897
-#, fuzzy
-msgid "--operatingdir=<dir>"
-msgstr "--operatingdir=[дир]"
+msgid "Enable alternate speller"
+msgstr "п░п╩я▄я┌п╣я─п╫п╟я┌п╦п╡п╫п╟ п©я─п╬пЁя─п╟п╪п╟ п©п╣я─п╣п╡я√я─п╨п╦ п©я─п╟п╡п╬п©п╦я│я┐"
 
-#: src/nano.c:898
-msgid "Set operating directory"
-msgstr "Встановити робочий каталог"
+#: src/nano.c:899
+msgid "Auto save on exit, don't prompt"
+msgstr "п░п╡я┌п╬п╪п╟я┌п╦я┤п╫п╣ п╥п╠п╣я─п╣п╤п╣п╫п╫я▐ п©я─п╦ п╡п╦я┘п╬п╢я√, п╠п╣п╥ п╥п╟п©п╦я┌п╟п╫я▄"
 
 #: src/nano.c:901
-msgid "Preserve XON (^Q) and XOFF (^S) keys"
-msgstr "Зберегти клав╕ши XON (^Q) та XOFF (^S)"
+msgid "Save a file by default in Unix format"
+msgstr "п╒п╦п©п╬п╡п╬ п╥п╠п╣я─я√пЁп╟я┌п╦ я└п╟п╧п╩ я┐ я└п╬я─п╪п╟я┌я√ Unix"
 
 #: src/nano.c:903
-msgid "Silently ignore startup issues like rc file errors"
-msgstr ""
-
-#: src/nano.c:905
-#, fuzzy
-msgid "-r <#cols>"
-msgstr "-r [#стовп]"
-
-#: src/nano.c:905
-#, fuzzy
-msgid "--fill=<#cols>"
-msgstr "--fill=[#стовп]"
-
-#: src/nano.c:906
-msgid "Set wrapping point at column #cols"
-msgstr ""
-
-#: src/nano.c:909
-#, fuzzy
-msgid "-s <prog>"
-msgstr "-s [прог]"
-
-#: src/nano.c:909
-#, fuzzy
-msgid "--speller=<prog>"
-msgstr "--speller=[прог]"
-
-#: src/nano.c:910
-msgid "Enable alternate speller"
-msgstr "Альтернативна програма перев╕рки правопису"
-
-#: src/nano.c:913
-msgid "Auto save on exit, don't prompt"
-msgstr "АвтоЗапис при виход╕, без запитань"
-
-#: src/nano.c:915
-msgid "Allow generic undo [EXPERIMENTAL]"
-msgstr ""
-
-#: src/nano.c:918
-#, fuzzy
 msgid "View mode (read-only)"
-msgstr "Режим переглядання (т╕льки читання)"
+msgstr "п═п╣п╤п╦п╪ п©п╣я─п╣пЁп╩я▐п╢я┐ (п╩п╦я┬п╣ я┤п╦я┌п╟п╫п╫я▐)"
 
-#: src/nano.c:920
-msgid "Don't wrap long lines"
-msgstr "Не загортати довг╕ рядки"
+#: src/nano.c:905
+msgid "Don't hard-wrap long lines"
+msgstr "п²п╣ п©п╣я─п╣п╫п╬я│п╦я┌п╦ п╫п╟п╢я┌п╬ п╢п╬п╡пЁя√ я─я▐п╢п╨п╦ п╤п╬я─я│я┌п╨п╬"
 
-#: src/nano.c:922
-#, fuzzy
+#: src/nano.c:907
 msgid "Don't show the two help lines"
-msgstr "Не показувати в╕кно допомоги"
+msgstr "п²п╣ п©п╬п╨п╟п╥я┐п╡п╟я┌п╦ п╢п╡п╟ я─я▐п╢п╨п╟ п╢п╬п╡я√п╢п╨п╦ п╡п╫п╦п╥я┐"
+
+#: src/nano.c:909
+msgid "Enable suspension"
+msgstr "п■п╬п╥п╡п╬п╩п╦я┌п╦ п©я─п╦п╥я┐п©п╦п╫п╣п╫п╫я▐"
+
+#: src/nano.c:911
+msgid "Enable soft line wrapping"
+msgstr "пёп╡я√п╪п╨п╫я┐я┌п╦ п╪Б─≥я▐п╨п╣ п©п╣я─п╣п╫п╣я│п╣п╫п╫я▐ я─я▐п╢п╨я√п╡"
 
 #: src/nano.c:923
-#, fuzzy
-msgid "Enable suspension"
-msgstr "Дозволити призупинку"
+#, c-format
+msgid " nano, version %s\n"
+msgstr " nano п╡п╣я─я│я√я≈ %s\n"
 
-#: src/nano.c:924
-msgid "Enable soft line wrapping"
-msgstr ""
+#: src/nano.c:926
+#, c-format
+msgid " (C) 2014..%s the contributors to nano\n"
+msgstr " б╘ пёя┤п╟я│п╫п╦п╨п╦ я─п╬п╥я─п╬п╠п╨п╦ nano, 2014-%s\n"
 
 #: src/nano.c:928
-msgid "(ignored, for Pico compatibility)"
-msgstr "(╕гноровано, для сум╕сност╕ ╕з Pico)"
+#, fuzzy, c-format
+msgid " Email: nano@nano-editor.org\tWeb: https://nano-editor.org/"
+msgstr " п∙п╩. п©п╬я┬я┌п╟: nano@nano-editor.org\tп├п╫я┌п╣я─п╫п╣я┌: http://www.nano-editor.org"
 
-#: src/nano.c:938
-#, c-format
-msgid " GNU nano version %s (compiled %s, %s)\n"
-msgstr " GNU nano верс╕╖ %s (з╕бране %s, %s)\n"
-
-#: src/nano.c:943
-#, c-format
-msgid " Email: nano@nano-editor.org\tWeb: http://www.nano-editor.org/"
-msgstr " Е-пошта: nano@nano-editor.org\tТенета: http://www.nano-editor.org"
-
-#: src/nano.c:944
+#: src/nano.c:929
 #, c-format
 msgid ""
 "\n"
 " Compiled options:"
 msgstr ""
 "\n"
-" З╕брано з опц╕ями:"
+" п≈я√п╠я─п╟п╫п╬ п╥ я┌п╟п╨п╦п╪ п©п╟я─п╟п╪п╣я┌я─п╟п╪п╦:"
 
-#: src/nano.c:1022
-msgid "Sorry, support for this function has been disabled"
-msgstr "Вибачте, п╕дтримка ц╕╓╖ функц╕╖ було заборонено"
+#: src/nano.c:1064
+msgid "No file name"
+msgstr "п²п╣п╪п╟я■ п╫п╟п╥п╡п╦ я└п╟п╧п╩п╟"
 
-#: src/nano.c:1044
-msgid "Save modified buffer (ANSWERING \"No\" WILL DESTROY CHANGES) ? "
-msgstr "Зберегти зм╕нений буфер (В╕дпов╕дь \"Н╕\" СКАСУ╢ ВС╤ ЗМ╤НИ) ? "
+#: src/nano.c:1098
+msgid "Save modified buffer?  (Answering \"No\" will DISCARD changes.) "
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ п╥п╪я√п╫п╦ я┐ п╠я┐я└п╣я─я√? (п▓я√п╢п©п╬п╡я√п╢я▄ б╚п²я√б╩ п©я─п╦п╥п╡п╣п╢п╣ п╢п╬ п▓п╒п═п░п╒п≤ п╥п╪я√п╫.) "
 
-#: src/nano.c:1088
+#: src/nano.c:1159
 msgid "Couldn't reopen stdin from keyboard, sorry\n"
-msgstr ""
+msgstr "п²п╣ п╡п╢п╟п╩п╬я│я▐ п©п╬п╡я┌п╬я─п╫п╬ п╡я√п╢п╨я─п╦я┌п╦ я│я┌п╟п╫п╢п╟я─я┌п╫п╦п╧ п╡п╡я√п╢ п╥ п╨п╩п╟п╡я√п╟я┌я┐я─п╦\n"
 
-#: src/nano.c:1114
+#: src/nano.c:1183
 #, c-format
 msgid "Reading from stdin, ^C to abort\n"
-msgstr ""
+msgstr "п╖п╦я┌п╟п╫п╫я▐ п╥я√ я│я┌п╟п╫п╢п╟я─я┌п╫п╬пЁп╬ п╡п╡п╬п╢я┐. ^C п╢п╩я▐ п©п╣я─п╣я─п╦п╡п╟п╫п╫я▐\n"
 
-#: src/nano.c:1182
+#: src/nano.c:1247
 msgid "Received SIGHUP or SIGTERM\n"
-msgstr "Прийнято SIGHUP або SIGTERM\n"
+msgstr "п÷я─п╦п╧п╫я▐я┌п╬ SIGHUP п╟п╠п╬ SIGTERM\n"
 
-#: src/nano.c:1204
-#, fuzzy, c-format
+#: src/nano.c:1263
+#, c-format
 msgid "Use \"fg\" to return to nano.\n"
-msgstr "Користуйтеся командою \"fg\" для того, щоб повернутися до nano"
+msgstr "п▓п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╧я┌п╣ б╚fgб╩ п╢п╩я▐ п©п╬п╡п╣я─п╫п╣п╫п╫я▐ я┐ nano\n"
 
-#: src/nano.c:1386
+#: src/nano.c:1285
+msgid "Suspension is not enabled"
+msgstr "п÷я─п╦п╥я┐п©п╦п╫п╣п╫п╫я▐ п╫п╣ я┐п╡я√п╪п╨п╫п╣п╫п╬"
+
+#: src/nano.c:1440
 msgid "enabled"
-msgstr "дозволено"
+msgstr "п╢п╬п╥п╡п╬п╩п╣п╫п╬"
 
-#: src/nano.c:1387
+#: src/nano.c:1440
 msgid "disabled"
-msgstr "заборонено"
+msgstr "п╥п╟п╠п╬я─п╬п╫п╣п╫п╬"
 
-#: src/nano.c:1548 src/winio.c:1256
-msgid "Unknown Command"
-msgstr ""
+#: src/nano.c:1554
+msgid "Unbound key"
+msgstr "п²п╣п©п╬п╡Б─≥я▐п╥п╟п╫п╟ п╨п╬п╪п╠я√п╫п╟я├я√я▐"
 
-#: src/nano.c:1674
-#, fuzzy
+#: src/nano.c:1558
+#, c-format
+msgid "Unbound key: M-%c"
+msgstr "п²п╣п©п╬п╡Б─≥я▐п╥п╟п╫п╟ п╨п╬п╪п╠я√п╫п╟я├я√я▐: M-%c"
+
+#: src/nano.c:1560
+#, c-format
+msgid "Unbound key: ^%c"
+msgstr "п²п╣п©п╬п╡Б─≥я▐п╥п╟п╫п╟ п╨п╬п╪п╠я√п╫п╟я├я√я▐: ^%c"
+
+#: src/nano.c:1562
+#, c-format
+msgid "Unbound key: %c"
+msgstr "п²п╣п©п╬п╡Б─≥я▐п╥п╟п╫п╟ п╨п╬п╪п╠я√п╫п╟я├я√я▐: %c"
+
+#: src/nano.c:1722
 msgid "XON ignored, mumble mumble"
-msgstr "XON игноровано, мур-мур-мур"
+msgstr "XON п©я─п╬я√пЁп╫п╬я─п╬п╡п╟п╫п╬, п╪я─-п╠я─-п╠я─"
 
-#: src/nano.c:1679
-#, fuzzy
+#: src/nano.c:1727
 msgid "XOFF ignored, mumble mumble"
-msgstr "XOFF игноровано, прим-п╕м-п╕м"
+msgstr "XOFF п©я─п╬я√пЁп╫п╬я─п╬п╡п╟п╫п╬, п╪я─-п╠я─-п╠я─"
 
-#: src/nano.c:2209 src/rcfile.c:1100
-#, fuzzy, c-format
+#: src/nano.c:2140 src/rcfile.c:1187
+#, c-format
 msgid "Requested tab size \"%s\" is invalid"
-msgstr "запрошений розм╕р табуляц╕╖ %d ╓ некоректним"
+msgstr "п≈п╟п©п╦я┌п╟п╫п╦п╧ я─п╬п╥п╪я√я─ я┌п╟п╠я┐п╩я▐я├я√я≈ б╚%sб╩ п╫п╣ п©я√п╢я┘п╬п╢п╦я┌я▄"
 
-#: src/nano.c:2268 src/rcfile.c:1025
-#, fuzzy, c-format
+#: src/nano.c:2201 src/rcfile.c:1128
+#, c-format
 msgid "Requested fill size \"%s\" is invalid"
-msgstr "запитаний розм╕р заповнення %d ╓ некоректним"
+msgstr "п≈п╟п©п╦я┌п╟п╫п╦п╧ п╫п╣п╨п╬я─п╣п╨я┌п╫п╦п╧ я─п╬п╥п╪я√я─ п╥п╟п©п╬п╡п╫п╣п╫п╫я▐ \"%s\""
+
+#: src/nano.c:2250
+#, c-format
+msgid "Type '%s -h' for a list of available options.\n"
+msgstr "п▓п╡п╣п╢я√я┌я▄ п╨п╬п╪п╟п╫п╢я┐ б╚%s -hб╩, я┴п╬п╠ п╬я┌я─п╦п╪п╟я┌п╦ я│п©п╦я│п╬п╨ п╢п╬я│я┌я┐п©п╫п╦я┘ п©п╟я─п╟п╪п╣я┌я─я√п╡.\n"
 
 #. TRANSLATORS: For the next three strings, if possible, specify
 #. * the single-byte shortcuts for both your language and English.
 #. * For example, in French: "OoYy" for "Oui".
-#: src/prompt.c:1259
+#: src/prompt.c:818
 msgid "Yy"
-msgstr "YyТт"
+msgstr "Yyп╒я┌"
 
-#: src/prompt.c:1260
+#: src/prompt.c:819
 msgid "Nn"
-msgstr "NnНн"
+msgstr "Nnп²п╫"
 
-#: src/prompt.c:1261
+#: src/prompt.c:820
 msgid "Aa"
-msgstr "AaВв"
+msgstr "Aaп▓п╡"
 
-#: src/prompt.c:1275
+#: src/prompt.c:842
 msgid "Yes"
-msgstr "Так"
+msgstr "п╒п╟п╨"
 
-#: src/prompt.c:1280
+#: src/prompt.c:847
 msgid "All"
-msgstr "Все"
+msgstr "п▓я│п╣"
 
-#: src/prompt.c:1285
+#: src/prompt.c:852
 msgid "No"
-msgstr "Н╕"
+msgstr "п²я√"
 
-#: src/rcfile.c:130
-#, fuzzy, c-format
+#: src/rcfile.c:144
+#, c-format
 msgid "Error in %s on line %lu: "
-msgstr "Помилка в %s у рядку %d: "
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п╡ %s п╫п╟ я─я▐п╢п╨я┐ %lu: "
 
-#: src/rcfile.c:185
-#, fuzzy, c-format
+#: src/rcfile.c:203
+#, c-format
 msgid "Argument '%s' has an unterminated \""
-msgstr "аргумент %s ма╓ зак╕нчуватися на \""
+msgstr "п░я─пЁя┐п╪п╣п╫я┌ %s п╪п╟я■ п╫п╣п╥п╟п╨я─п╦я┌я┐ \""
 
-#: src/rcfile.c:212 src/rcfile.c:264 src/rcfile.c:711 src/rcfile.c:768
-#: src/rcfile.c:821
-#, fuzzy
+#: src/rcfile.c:231 src/rcfile.c:674 src/rcfile.c:725 src/rcfile.c:824
 msgid "Regex strings must begin and end with a \" character"
 msgstr ""
-"рядки формальних вираз╕в повинн╕ починатись та зак╕нчуватись символом '\"'\n"
+"п═я▐п╢п╨п╦ я─п╣пЁя┐п╩я▐я─п╫п╦я┘ п╡п╦я─п╟п╥я√п╡ п©п╬п╡п╦п╫п╫я√ п©п╬я┤п╦п╫п╟я┌п╦я│я▐ я┌п╟ п╥п╟п╨я√п╫я┤я┐п╡п╟я┌п╦я│я▐ п╩п╟п©п╨п╟п╪п╦ (\")"
 
-#: src/rcfile.c:238 src/search.c:62
+#: src/rcfile.c:257 src/search.c:61
 #, c-format
 msgid "Bad regex \"%s\": %s"
-msgstr "Не в╕рний регулярний вираз \"%s\": %s"
+msgstr "п²п╣ п╡я√я─п╫п╦п╧ я─п╣пЁя┐п╩я▐я─п╫п╦п╧ п╡п╦я─п╟п╥ \"%s\": %s"
 
-#: src/rcfile.c:258
+#: src/rcfile.c:279
 msgid "Missing syntax name"
-msgstr "В╕дсутня назва синтаксису"
+msgstr "п▓я√п╢я│я┐я┌п╫я▐ п╫п╟п╥п╡п╟ я│п╦п╫я┌п╟п╨я│п╦я│я┐"
 
-#: src/rcfile.c:316
+#: src/rcfile.c:288
+msgid "A syntax name must be quoted"
+msgstr "п²п╟п╥п╡я┐ я│п╦п╫я┌п╟п╨я│п╦я│я┐ я│п╩я√п╢ п╡п╨п╟п╥я┐п╡п╟я┌п╦ я┐ п╩п╟п©п╨п╟я┘"
+
+#: src/rcfile.c:297
 msgid "The \"none\" syntax is reserved"
-msgstr ""
+msgstr "п║п╦п╫я┌п╟п╨я│п╦я│ б╚noneб╩ п╥п╟я─п╣п╥п╣я─п╡п╬п╡п╟п╫п╬"
 
-#: src/rcfile.c:323
-msgid "The \"default\" syntax must take no extensions"
-msgstr ""
+#: src/rcfile.c:327
+msgid "The \"default\" syntax does not accept extensions"
+msgstr "п║п╦п╫я┌п╟п╨я│п╦я│ б╚defaultб╩ п╫п╣ п╪п╬п╤п╣ п╪п╟я┌п╦ я─п╬п╥я┬п╦я─п╣п╫я▄"
 
-#: src/rcfile.c:386 src/rcfile.c:483
-#, fuzzy
+#: src/rcfile.c:369
 msgid "Missing key name"
-msgstr "В╕дсутня назва синтаксису"
+msgstr "п▓я√п╢я│я┐я┌п╫я▐ п╫п╟п╥п╡п╟ п╨п╩п╟п╡я√я┬я√"
 
-#: src/rcfile.c:398 src/rcfile.c:499
-msgid "keybindings must begin with \"^\", \"M\", or \"F\""
-msgstr ""
+#: src/rcfile.c:378 src/rcfile.c:389
+msgid "Key name is too short"
+msgstr "п²п╟п╥п╡п╟ п╨п╩п╟п╡я√я┬я√ я■ п╫п╟п╢я┌п╬ п╨п╬я─п╬я┌п╨п╬я▌"
 
-#: src/rcfile.c:407
-msgid "Must specify function to bind key to"
-msgstr ""
+#: src/rcfile.c:399
+msgid "Key name must begin with \"^\", \"M\", or \"F\""
+msgstr "п²п╟п╥п╡п╟ п╨п╩п╟п╡я√я┬я√ п╪п╟я■ п©п╬я┤п╦п╫п╟я┌п╦я│я▐ п╥ б╚^б╩, б╚Mб╩ п╟п╠п╬ б╚Fб╩"
 
-#: src/rcfile.c:418 src/rcfile.c:510
-msgid "Must specify menu to bind key to (or \"all\")"
-msgstr ""
-
-#: src/rcfile.c:426
-#, fuzzy, c-format
-msgid "Could not map name \"%s\" to a function"
-msgstr "Не можу в╕дкрити %s для запису: %s"
-
-#: src/rcfile.c:432 src/rcfile.c:517
-#, fuzzy, c-format
-msgid "Could not map name \"%s\" to a menu"
-msgstr "Не можу виконати \"%s\""
-
-#: src/rcfile.c:454
+#: src/rcfile.c:402
 #, c-format
-msgid "Sorry, keystr \"%s\" is an illegal binding"
-msgstr ""
+msgid "Key name %s is invalid"
+msgstr "п²п╟п╥п╡п╟ п╨п╩я▌я┤п╟ %s я■ п╫п╣п╨п╬я─п╣п╨я┌п╫п╬я▌"
 
-#: src/rcfile.c:625
-#, fuzzy, c-format
+#: src/rcfile.c:411
+msgid "Must specify a function to bind the key to"
+msgstr "п■п╩я▐ п©я─п╦п╡Б─≥я▐п╥я┐п╡п╟п╫п╫я▐ п╨п╩п╟п╡я√я┬я√ я│п╩я√п╢ п╡п╨п╟п╥п╟я┌п╦ я└я┐п╫п╨я├я√я▌"
+
+#. TRANSLATORS: Do not translate the word "all".
+#: src/rcfile.c:421
+msgid "Must specify a menu (or \"all\") in which to bind/unbind the key"
+msgstr ""
+"п║п╩я√п╢ п╡п╨п╟п╥п╟я┌п╦ п╪п╣п╫я▌ (п╟п╠п╬ б╚allб╩), п╢п╬ я▐п╨п╬пЁп╬ я│п╩я√п╢ п©я─п╦п╡Б─≥я▐п╥п╟я┌п╦ п╨п╩п╟п╡я√я┬я┐ п╟п╠п╬ "
+"п╡я√п╢п╡Б─≥я▐п╥п╟я┌п╦ я≈я≈"
+
+#: src/rcfile.c:428
+#, c-format
+msgid "Cannot map name \"%s\" to a function"
+msgstr "п²п╣ п╪п╬п╤п╫п╟ п©п╬п╡Б─≥я▐п╥п╟я┌п╦ п╫п╟п╥п╡я┐ б╚%sб╩ п╥ я└я┐п╫п╨я├я√я■я▌"
+
+#: src/rcfile.c:435
+#, c-format
+msgid "Cannot map name \"%s\" to a menu"
+msgstr "п²п╣п╪п╬п╤п╩п╦п╡п╬ п©п╬п╡Б─≥я▐п╥п╟я┌п╦ п╫п╟п╥п╡я┐ б╚%sб╩ п╥ п╪п╣п╫я▌"
+
+#: src/rcfile.c:467
+#, c-format
+msgid "Function '%s' does not exist in menu '%s'"
+msgstr "пё п╪п╣п╫я▌ б╚%2$sб╩ п╫п╣п╪п╟я■ п©я┐п╫п╨я┌я┐ б╚%1$sб╩"
+
+#: src/rcfile.c:479
+#, c-format
+msgid "Sorry, keystroke \"%s\" may not be rebound"
+msgstr "п▓п╦п╠п╟я┤я┌п╣, п©я─п╦п╥п╫п╟я┤п╣п╫п╫я▐ б╚%sб╩ п╥п╪я√п╫я▌п╡п╟я┌п╦ п╫п╣ п╪п╬п╤п╫п╟"
+
+#: src/rcfile.c:576
+#, c-format
+msgid "Error expanding %s: %s"
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п©я√п╢ я┤п╟я│ я─п╬п╥пЁп╬я─я┌п╟п╫п╫я▐ %s: %s"
+
+#: src/rcfile.c:616
+#, c-format
 msgid ""
 "Color \"%s\" not understood.\n"
 "Valid colors are \"green\", \"red\", \"blue\",\n"
@@ -1813,907 +1983,617 @@ msgid ""
 "\"black\", with the optional prefix \"bright\"\n"
 "for foreground colors."
 msgstr ""
-"кол╕р %s не зрозум╕лий.\n"
-"Наявн╕ кольори - \"green\", \"red\", \"blue\", \n"
-"\"white\", \"yellow\", \"cyan\", \"magenta\" та \n"
-"\"black\", з опц╕ональним преф╕ксом \"bright\".\n"
+"п п╬п╩я√я─ б╚%sб╩ п╫п╣ п╥п╬п╡я│я√п╪ п╥я─п╬п╥я┐п╪я√п╩п╦п╧.\n"
+"п■п╬п╥п╡п╬п╩п╣п╫я√ п╨п╬п╩я▄п╬я─п╦ - б╚greenб╩, б╚redб╩, б╚blueб╩,\n"
+"б╚whiteб╩, б╚yellowб╩, б╚cyanб╩, б╚magentaб╩ я┌п╟\n"
+"б╚blackб╩, п╥ п╫п╣п╬п╠п╬п╡Б─≥я▐п╥п╨п╬п╡п╦п╪  п©я─п╣я└я√п╨я│п╬п╪ б╚brightб╩\n"
+"п╢п╩я▐ п╨п╬п╩я▄п╬я─я┐ я┌п╩п╟."
 
-#: src/rcfile.c:647
-#, fuzzy
-msgid "Cannot add a color command without a syntax command"
-msgstr "Не можу додати команду кольору без рядка синтаксису"
+#: src/rcfile.c:637 src/rcfile.c:795 src/rcfile.c:858
+#, c-format
+msgid "A '%s' command requires a preceding 'syntax' command"
+msgstr ""
+"п▓п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╨п╬п╪п╟п╫п╢п╦ б╚%sб╩ п©п╬я┌я─п╣п╠я┐я■ п©п╬п©п╣я─п╣п╢п╫я▄п╬пЁп╬ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ п╨п╬п╪п╟п╫п╢п╦ б╚syntaxб╩"
 
-#: src/rcfile.c:652
+#: src/rcfile.c:643
 msgid "Missing color name"
-msgstr "В╕дсутня назва кольору"
+msgstr "п▓я√п╢я│я┐я┌п╫я▐ п╫п╟п╥п╡п╟ п╨п╬п╩я▄п╬я─я┐"
 
-#: src/rcfile.c:672
+#: src/rcfile.c:653 src/rcfile.c:807
+#, c-format
+msgid "Missing regex string after '%s' command"
+msgstr "п²п╣ п╡п╦я│я┌п╟я┤п╟я■ я─я▐п╢п╨п╟ я└п╬я─п╪п╟п╩я▄п╫п╬пЁп╬ п╡п╦я─п╟п╥я┐ п©я√я│п╩я▐ п╨п╬п╪п╟п╫п╢п╦ б╚%sб╩"
+
+#: src/rcfile.c:719
+msgid "\"start=\" requires a corresponding \"end=\""
+msgstr "\"start=\" п©п╬я┌я─п╣п╠я┐я■ п╡я√п╢п©п╬п╡я√п╢п╫п╬пЁп╬ \"end=\""
+
+#: src/rcfile.c:768
 #, c-format
 msgid "Background color \"%s\" cannot be bright"
-msgstr ""
+msgstr "п п╬п╩я√я─ я┌п╩п╟ \"%s\" п╫п╣ п╪п╬п╤п╣ п╠я┐я┌п╦ я│п╡я√я┌п╩п╦п╪"
 
-#: src/rcfile.c:690 src/rcfile.c:809
-msgid "Missing regex string"
-msgstr ""
-
-#: src/rcfile.c:762
-msgid "\"start=\" requires a corresponding \"end=\""
-msgstr "\"start=\" потребу╓ в╕дпов╕дного \"end=\""
-
-#: src/rcfile.c:804
-#, fuzzy
-msgid "Cannot add a header regex without a syntax command"
-msgstr "Не можу додати команду кольору без рядка синтаксису"
-
-#: src/rcfile.c:874
+#: src/rcfile.c:802
 #, c-format
-msgid "Fatal error: no keys mapped for function \"%s\""
-msgstr ""
+msgid "The \"default\" syntax does not accept '%s' regexes"
+msgstr "п║п╦п╫я┌п╟п╨я│п╦я│ б╚defaultб╩ п╫п╣ п╪п╬п╤п╣ п╡п╦п╨п╬я─п╦я│я┌п╬п╡я┐п╡п╟я┌п╦ я└п╬я─п╪п╟п╩я▄п╫я√ п╡п╦я─п╟п╥п╦ б╚%sб╩"
 
-#: src/rcfile.c:876
+#: src/rcfile.c:863
+#, c-format
+msgid "Missing command after '%s'"
+msgstr "п²п╣ п╡п╦я│я┌п╟я┤п╟я■ п╨п╬п╪п╟п╫п╢п╦ п©я√я│п╩я▐ б╚%sб╩"
+
+#: src/rcfile.c:879
+#, c-format
+msgid "Argument of '%s' lacks closing \""
+msgstr "п░я─пЁя┐п╪п╣п╫я┌ б╚%sб╩, п╫п╣ п╡п╦я│я┌п╟я┤п╟я■ п╥п╟п╡п╣я─я┬п╟п╩я▄п╫п╬я≈ \""
+
+#: src/rcfile.c:910
+#, c-format
+msgid "Fatal error: no keys mapped for function \"%s\".  Exiting.\n"
+msgstr "п я─п╦я┌п╦я┤п╫п╟ п©п╬п╪п╦п╩п╨п╟: п╥ я└я┐п╫п╨я├я√я■я▌ б╚%sб╩ п╫п╣ п©п╬п╡Б─≥я▐п╥п╟п╫п╬ п╨п╩п╟п╡я√я┬. п▓п╦я┘п╬п╢п╦п╪п╬.\n"
+
+#: src/rcfile.c:912
+#, c-format
 msgid ""
-"Exiting.  Please use nano with the -I option if needed to adjust your nanorc "
-"settings\n"
+"If needed, use nano with the -I option to adjust your nanorc settings.\n"
 msgstr ""
+"п╞п╨я┴п╬ п©п╬я┌я─я√п╠п╫п╬, я│п╨п╬я─п╦я│я┌п╟п╧я┌п╣я│я▐ nano п╥ п©п╟я─п╟п╪п╣я┌я─п╬п╪ -I, я┴п╬п╠ я│п╨п╬я─п╦пЁя┐п╡п╟я┌п╦ п©п╟я─п╟п╪п╣я┌я─п╦ "
+"я┐ nanorc.\n"
 
-#: src/rcfile.c:926 src/rcfile.c:935 src/rcfile.c:945
+#: src/rcfile.c:971
 #, c-format
-msgid "Command \"%s\" not allowed in included file"
-msgstr ""
+msgid "Could not find syntax \"%s\" to extend"
+msgstr "п²п╣ п╡п╢п╟п╩п╬я│я▐ п╥п╫п╟п╧я┌п╦ я│п╦п╫я┌п╟п╨я│п╦я┤п╫я┐ п╨п╬п╫я│я┌я─я┐п╨я├я√я▌ б╚%sб╩ п╢п╩я▐ я─п╬п╥я┬п╦я─п╣п╫п╫я▐"
 
-#: src/rcfile.c:951 src/rcfile.c:1128
+#: src/rcfile.c:993 src/rcfile.c:1202
 #, c-format
 msgid "Syntax \"%s\" has no color commands"
-msgstr ""
+msgstr "п║п╦п╫я┌п╟п╨я│п╦я│ \"%s\" п╫п╣ п╪п╟я■ п╨п╬п╩я√я─п╫п╦я┘ п╨п╬п╪п╟п╫п╢"
 
-#: src/rcfile.c:966
-#, fuzzy, c-format
-msgid "Command \"%s\" not understood"
-msgstr "команда %s не зрозум╕ла"
-
-#: src/rcfile.c:972
-#, fuzzy
-msgid "Missing flag"
-msgstr "В╕дсутня назва кольору"
-
-#: src/rcfile.c:994
-#, fuzzy, c-format
-msgid "Option \"%s\" requires an argument"
-msgstr "опц╕я %s потребу╓ аргумента"
-
-#: src/rcfile.c:1012
-msgid "Option is not a valid multibyte string"
-msgstr ""
-
-#: src/rcfile.c:1038 src/rcfile.c:1066 src/rcfile.c:1075
-msgid "Non-blank characters required"
-msgstr ""
-
-#: src/rcfile.c:1048
-msgid "Two single-column characters required"
-msgstr ""
-
-#: src/rcfile.c:1114
-#, fuzzy, c-format
-msgid "Cannot unset flag \"%s\""
-msgstr "скиньте флаг %d!\n"
-
-#: src/rcfile.c:1123
+#: src/rcfile.c:1024
 #, c-format
-msgid "Unknown flag \"%s\""
-msgstr ""
+msgid "Command \"%s\" not allowed in included file"
+msgstr "п п╬п╪п╟п╫п╢п╟ \"%s\" п╫п╣ п╢п╬п╥п╡п╬п╩п╣п╫п╟ я┐ п╡п╨п╩я▌я┤п╣п╫п╬п╪я┐ я└п╟п╧п╩я√"
 
-#: src/rcfile.c:1182
+#: src/rcfile.c:1039
+#, c-format
+msgid "Command \"%s\" not understood"
+msgstr "п²п╣ п╥я─п╬п╥я┐п╪я√п╩п╟ п╨п╬п╪п╟п╫п╢п╟ \"%s\""
+
+#: src/rcfile.c:1051
+msgid "Missing option"
+msgstr "п÷я─п╬п©я┐я┴п╣п╫п╬ п©п╟я─п╟п╪п╣я┌я─"
+
+#: src/rcfile.c:1065
+#, c-format
+msgid "Unknown option \"%s\""
+msgstr "п²п╣п╡я√п╢п╬п╪п╦п╧ п©п╟я─п╟п╪п╣я┌я─ б╚%sб╩"
+
+#: src/rcfile.c:1077
+#, c-format
+msgid "Cannot unset option \"%s\""
+msgstr "п²п╣п╪п╬п╤п╩п╦п╡п╬ я│п╨п╟я│я┐п╡п╟я┌п╦ п╡п╦п╥п╫п╟я┤п╣п╫п╫я▐ п©п╟я─п╟п╪п╣я┌я─п╟ б╚%sб╩"
+
+#: src/rcfile.c:1089
+#, c-format
+msgid "Option \"%s\" requires an argument"
+msgstr "п·п©я├я√я▐ \"%s\" п╡п╦п╪п╟пЁп╟я■ п╟я─пЁя┐п╪п╣п╫я┌"
+
+#: src/rcfile.c:1105
+msgid "Option is not a valid multibyte string"
+msgstr "п·п©я├я√я▐ п╫п╣ я■ п©я─п╦п©я┐я│я┌п╦п╪п╦п╪ п╠п╟пЁп╟я┌п╬п╠п╟п╧я┌п╬п╡п╦п╪ я─я▐п╢п╨п╬п╪"
+
+#: src/rcfile.c:1139 src/rcfile.c:1160 src/rcfile.c:1167
+msgid "Non-blank characters required"
+msgstr "п▓п╦п╪п╟пЁп╟я■я┌я▄я│я▐ п╫п╣п©п╬я─п╬п╤п╫я√п╧ я│п╦п╪п╡п╬п╩"
+
+#: src/rcfile.c:1146
+msgid "Two single-column characters required"
+msgstr "п▓п╦п╪п╟пЁп╟я■я┌я▄я│я▐ п╢п╡п╟ п╬п╢п╦п╫п╟я─п╫п╦я┘ я│п╦п╪п╡п╬п╩п╦"
+
+#: src/rcfile.c:1258
 msgid "I can't find my home directory!  Wah!"
-msgstr "Я не можу знайти свою дом╕вку! Жах!"
+msgstr "п╞ п╫п╣ п╪п╬п╤я┐ п╥п╫п╟п╧я┌п╦ я│п╡п╬я▌ п╢п╬п╪я√п╡п╨я┐! п√п╟я┘!"
 
-#: src/search.c:96
-#, fuzzy, c-format
+#: src/rcfile.c:1295
+#, c-format
+msgid ""
+"\n"
+"Press Enter to continue starting nano.\n"
+msgstr ""
+"\n"
+"п²п╟я┌п╦я│п╫я√я┌я▄ Enter, я┴п╬п╠ п©я─п╬п╢п╬п╡п╤п╦я┌п╦ п╥п╟п╡п╟п╫я┌п╟п╤п╣п╫п╫я▐ nano.\n"
+
+#: src/search.c:95
+#, c-format
 msgid "\"%.*s%s\" not found"
-msgstr "\"%s\" не знайдено"
+msgstr "\"%.*s%s\" п╫п╣ п╥п╫п╟п╧п╢п╣п╫п╬"
 
-#: src/search.c:205
-#, fuzzy
+#. TRANSLATORS: The next three strings are modifiers of the search prompt.
+#: src/search.c:168
+msgid " [Case Sensitive]"
+msgstr " [п═п╣пЁп≈п╟п╩п╣п╤]"
+
+#: src/search.c:172
+msgid " [Regexp]"
+msgstr " [п╓п╬я─п╪п▓п╦я─]"
+
+#: src/search.c:176
+msgid " [Backwards]"
+msgstr " [п²п╟п╥п╟п╢]"
+
+#. TRANSLATORS: The next two strings are modifiers of the search prompt.
+#: src/search.c:181
 msgid " (to replace) in selection"
-msgstr " (до зам╕ни)"
+msgstr " (я┴п╬ п╥п╪я√п╫я▌п╡п╟я┌п╦) я┐ п©п╬п╥п╫п╟я┤п╣п╫п╬п╪я┐"
 
-#: src/search.c:207
+#: src/search.c:183
 msgid " (to replace)"
-msgstr " (до зам╕ни)"
+msgstr " (п╢п╬ п╥п╟п╪я√п╫п╦)"
 
-#: src/search.c:784
+#. TRANSLATORS: This is shown when searching takes
+#. * more than half a second.
+#: src/search.c:306
+msgid "Searching..."
+msgstr "п╗я┐п╨п╟я■п╪п╬Б─╕"
+
+#. TRANSLATORS: This is a prompt.
+#: src/search.c:694
 msgid "Replace this instance?"
-msgstr "Зам╕нити цей прим╕рник?"
+msgstr "п≈п╟п╪я√п╫п╦я┌п╦ я├п╣п╧ п©я─п╦п╪я√я─п╫п╦п╨?"
 
-#: src/search.c:962
+#. TRANSLATORS: This is a prompt.
+#: src/search.c:841
 msgid "Replace with"
-msgstr "Зам╕нити на"
+msgstr "п≈п╟п╪я√п╫п╦я┌п╦ п╫п╟"
 
-#: src/search.c:1004
-#, fuzzy, c-format
+#: src/search.c:876
+#, c-format
 msgid "Replaced %lu occurrence"
 msgid_plural "Replaced %lu occurrences"
-msgstr[0] "Зам╕нено %d входження"
-msgstr[1] "Зам╕нен╕ %d входження"
-msgstr[2] "Зам╕нено %d входжень"
+msgstr[0] "п≈п╟п╪я√п╫п╣п╫п╬ %lu п╥п╠я√пЁ"
+msgstr[1] "п≈п╟п╪я√п╫п╣п╫п╬ %lu п╥п╠я√пЁп╦"
+msgstr[2] "п≈п╟п╪я√п╫п╣п╫п╬ %lu п╥п╠я√пЁя√п╡"
 
-#: src/search.c:1034
-#, fuzzy
+#. TRANSLATORS: This is a prompt.
+#: src/search.c:915
 msgid "Enter line number, column number"
-msgstr "Введ╕ть номер рядка"
+msgstr "п▓п╡п╣п╢я√я┌я▄ п╫п╬п╪п╣я─ я─я▐п╢п╨п╟, п╫п╬п╪п╣я─ я─я▐п╢я┐"
 
-#: src/search.c:1061
+#: src/search.c:937
 msgid "Invalid line or column number"
-msgstr ""
+msgstr "п²п╣п©я─п╟п╡п╦п╩я▄п╫п╦п╧ п╫п╬п╪п╣я─ я─я▐п╢п╨п╟ п╟п╠п╬ я│я┌п╬п╡п©я┤п╦п╨п╟"
 
-#: src/search.c:1214
+#: src/search.c:1090
 msgid "Not a bracket"
-msgstr "Не дужка"
+msgstr "п²п╣ п╢я┐п╤п╨п╟"
 
-#: src/search.c:1281
+#: src/search.c:1156
 msgid "No matching bracket"
-msgstr "Нема в╕дпов╕дно╖ дужки"
+msgstr "п²п╣п╪п╟ п╡я√п╢п©п╬п╡я√п╢п╫п╬я≈ п╢я┐п╤п╨п╦"
 
-#: src/text.c:54
+#: src/text.c:53
 msgid "Mark Set"
-msgstr "М╕тку встановлено"
+msgstr "п°я√я┌п╨я┐ п╡я│я┌п╟п╫п╬п╡п╩п╣п╫п╬"
 
-#: src/text.c:58
-#, fuzzy
+#: src/text.c:57
 msgid "Mark Unset"
-msgstr "М╕тку знято"
+msgstr "п°я√я┌п╨я┐ п╥п╫я▐я┌п╬"
 
-#: src/text.c:443
-msgid "Nothing in undo buffer!"
-msgstr ""
-
-#: src/text.c:455 src/text.c:593
+#: src/text.c:69
 #, c-format
-msgid "Internal error: can't match line %d.  Please save your work"
-msgstr ""
+msgid "Error invoking \"%s\""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п╡п╦п╨п╬п╫п╟п╫п╫я▐ \"%s\""
 
-#: src/text.c:466 src/text.c:603
+#: src/text.c:461
+msgid "Commenting is not supported for this file type"
+msgstr "п■п╬п╢п╟п╡п╟п╫п╫я▐ п╨п╬п╪п╣п╫я┌п╟я─я√п╡ я┐ я└п╟п╧п╩п╟я┘ я├я▄п╬пЁп╬ я┌п╦п©я┐ п╫п╣ п©п╣я─п╣п╢п╠п╟я┤п╣п╫п╬"
+
+#: src/text.c:477
+msgid "Cannot comment past end of file"
+msgstr "п²п╣ п╪п╬п╤п╫п╟ п╥п╟п╨п╬п╪п╣п╫я┌я┐п╡п╟я┌п╦ п╢п╟п╫я√ п╥п╟ п╨я√п╫я├п╣п╪ я└п╟п╧п╩п╟"
+
+#: src/text.c:670
+msgid "Nothing in undo buffer!"
+msgstr "п▒я┐я└п╣я─ я│п╨п╟я│я┐п╡п╟п╫п╫я▐ п╢я√п╧ п©п╬я─п╬п╤п╫я√п╧!"
+
+#. TRANSLATORS: Eight of the next nine strings describe actions
+#. * that are undone or redone.  It are all nouns, not verbs.
+#: src/text.c:688 src/text.c:717 src/text.c:850 src/text.c:891
 msgid "text add"
-msgstr ""
+msgstr "п╢п╬п╢п╟п╡п╟п╫п╫я▐ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:475 src/text.c:613
-#, fuzzy
+#: src/text.c:698 src/text.c:861
 msgid "text delete"
-msgstr "Наступний файл"
+msgstr "п╡п╦п╩я┐я┤п╣п╫п╫я▐ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:489 src/text.c:628
-msgid "line wrap"
-msgstr ""
-
-#: src/text.c:503 src/text.c:636
+#: src/text.c:721 src/text.c:900
 msgid "line join"
-msgstr ""
+msgstr "п╬п╠Б─≥я■п╢п╫п╟п╫п╫я▐ я─я▐п╢п╨я√п╡"
 
-#: src/text.c:514 src/text.c:651
+#: src/text.c:740 src/text.c:916
 msgid "text cut"
-msgstr ""
+msgstr "п╬п╠я─я√п╥п╨п╟ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:518 src/text.c:655
+#: src/text.c:745 src/text.c:920
 msgid "text uncut"
-msgstr ""
+msgstr "я│п╨п╟я│я┐п╡п╟п╫п╫я▐ п╬п╠я─я√п╥п╨п╦ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:522 src/text.c:622
+#: src/text.c:751 src/text.c:896
+msgid "Internal error: line is missing.  Please save your work."
+msgstr ""
+"п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╦я│я┌п╟я┤п╟я■ я─я▐п╢п╨п╟. п≈п╠п╣я─п╣п╤я√я┌я▄ я─п╣п╥я┐п╩я▄я┌п╟я┌п╦ п╡п╟я┬п╬я≈ я─п╬п╠п╬я┌п╦."
+
+#: src/text.c:755 src/text.c:870
 msgid "line break"
-msgstr ""
+msgstr "я─п╬п╥я─п╦п╡ я─я▐п╢п╨п╟"
 
-#: src/text.c:532 src/text.c:665
-#, fuzzy
+#: src/text.c:765 src/text.c:940
+msgid "comment"
+msgstr "п╥п╟п╨п╬п╪п╣п╫я┌я┐п╡п╟я┌п╦"
+
+#: src/text.c:769 src/text.c:944
+msgid "uncomment"
+msgstr "я─п╬п╥п╨п╬п╪п╣п╫я┌я┐п╡п╟я┌п╦"
+
+#: src/text.c:773 src/text.c:931
 msgid "text insert"
-msgstr "Наступний файл"
+msgstr "п╡я│я┌п╟п╡п╨п╟ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:550 src/text.c:659
-#, fuzzy
+#: src/text.c:793 src/text.c:924
 msgid "text replace"
-msgstr " (до зам╕ни)"
+msgstr "п╥п╟п╪я√п╫п╟ я┌п╣п╨я│я┌я┐"
 
-#: src/text.c:557 src/text.c:671
-msgid "Internal error: unknown type.  Please save your work"
-msgstr ""
+#: src/text.c:800 src/text.c:948 src/text.c:1260 src/text.c:1430
+msgid "Internal error: unknown type.  Please save your work."
+msgstr "п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣п╡я√п╢п╬п╪п╦п╧ я┌п╦п©. п≈п╠п╣я─п╣п╤я√я┌я▄ я│п╡п╬я▌ я─п╬п╠п╬я┌я┐"
 
-#: src/text.c:563
+#: src/text.c:806
 #, c-format
 msgid "Undid action (%s)"
-msgstr ""
+msgstr "п║п╨п╟я│п╬п╡п╟п╫п╟ п╢я√я▐ (%s)"
 
-#: src/text.c:578
+#: src/text.c:825
 msgid "Nothing to re-do!"
-msgstr ""
+msgstr "п²п╣п╪п╟я■ я┤п╬пЁп╬ п©п╬п╡я┌п╬я─я▌п╡п╟я┌п╦!"
 
-#: src/text.c:582
-msgid "Internal error: Redo setup failed.  Please save your work"
+#: src/text.c:834
+msgid "Internal error: cannot set up redo.  Please save your work."
 msgstr ""
+"п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╢п╟п╩п╬я│я▐ п╫п╟п╩п╟я┬я┌я┐п╡п╟я┌п╦ п©п╬п╡я┌п╬я─п╣п╫п╫я▐ п╢я√я≈. п≈п╠п╣я─п╣п╤я√я┌я▄ "
+"я─п╣п╥я┐п╩я▄я┌п╟я┌п╦ п╡п╟я┬п╬я≈ я─п╬п╠п╬я┌п╦."
 
-#: src/text.c:676
+#: src/text.c:954
 #, c-format
 msgid "Redid action (%s)"
-msgstr ""
+msgstr "п÷п╬п╡я┌п╬я─п╣п╫п╟ п╢я√я▐ (%s)"
 
-#: src/text.c:766
-msgid "Could not pipe"
-msgstr "Не можу працювати ╕з каналом (pipe)"
+#: src/text.c:1044 src/text.c:2758 src/text.c:3189
+msgid "Could not create pipe"
+msgstr "п²п╣ п╪п╬п╤я┐ я│я┌п╡п╬я─п╦я┌п╦ п╨п╟п╫п╟п╩ (pipe)"
 
-#: src/text.c:793 src/text.c:2636 src/text.c:2788
+#: src/text.c:1070 src/text.c:2845 src/text.c:2998 src/text.c:3237
+#: src/text.c:3529
 msgid "Could not fork"
-msgstr "Не можу зробити fork()"
+msgstr "п²п╣ п╪п╬п╤я┐ п╥я─п╬п╠п╦я┌п╦ fork()"
 
-#: src/text.c:941
-msgid "Internal error: can't setup uncut.  Please save your work."
-msgstr ""
-
-#: src/text.c:950
-msgid "Internal error: unknown type.  Please save your work."
-msgstr ""
-
-#: src/text.c:1870
+#: src/text.c:2110
 #, c-format
 msgid "Bad quote string %s: %s"
-msgstr "Поганий рядок цитування %s: %s"
+msgstr "п÷п╬пЁп╟п╫п╦п╧ я─я▐п╢п╬п╨ я├п╦я┌я┐п╡п╟п╫п╫я▐ %s: %s"
 
-#: src/text.c:2267
+#: src/text.c:2492
 msgid "Can now UnJustify!"
-msgstr "Можу зараз же СкасВир╕внювання!"
+msgstr "п°п╬п╤я┐ п╥п╟я─п╟п╥ п╤п╣ п║п╨п╟я│п▓п╦я─я√п╡п╫я▌п╡п╟п╫п╫я▐!"
 
-#: src/text.c:2462
+#: src/text.c:2690
 msgid "Edit a replacement"
-msgstr "Редагувати зам╕ну"
+msgstr "п═п╣п╢п╟пЁя┐п╡п╟я┌п╦ п╥п╟п╪я√п╫я┐"
 
-#: src/text.c:2548
-msgid "Could not create pipe"
-msgstr "Не можу створити канал (pipe)"
+#. TRANSLATORS: Shown after fixing misspellings in one word.
+#: src/text.c:2706
+msgid "Next word..."
+msgstr "п²п╟я│я┌я┐п©п╫п╣ я│п╩п╬п╡п╬Б─╕"
 
-#: src/text.c:2550
+#: src/text.c:2760
 msgid "Creating misspelled word list, please wait..."
-msgstr "Створюю перел╕к орфограф╕чних помилок, зажд╕ть б-ласка..."
+msgstr "п║я┌п╡п╬я─я▌я■п╪п╬ п©п╣я─п╣п╩я√п╨ п╬я─я└п╬пЁя─п╟я└я√я┤п╫п╦я┘ п©п╬п╪п╦п╩п╬п╨, п╥п╟я┤п╣п╨п╟п╧я┌п╣..."
 
-#: src/text.c:2642
+#: src/text.c:2851 src/text.c:3244
 msgid "Could not get size of pipe buffer"
-msgstr "Не можу отримати розм╕р буферу каналу"
+msgstr "п²п╣ п╪п╬п╤я┐ п╬я┌я─п╦п╪п╟я┌п╦ я─п╬п╥п╪я√я─ п╠я┐я└п╣я─я┐ п╨п╟п╫п╟п╩я┐"
 
-#: src/text.c:2693
+#: src/text.c:2900
 msgid "Error invoking \"spell\""
-msgstr "Помилка виконання \"spell\""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п╡п╦п╨п╬п╫п╟п╫п╫я▐ \"spell\""
 
-#: src/text.c:2696
+#: src/text.c:2903
 msgid "Error invoking \"sort -f\""
-msgstr "Помилка виконання \"sort -f\""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п╡п╦п╨п╬п╫п╟п╫п╫я▐ \"sort -f\""
 
-#: src/text.c:2699
+#: src/text.c:2906
 msgid "Error invoking \"uniq\""
-msgstr "Помилка виконання \"uniq\""
+msgstr "п÷п╬п╪п╦п╩п╨п╟ п╡п╦п╨п╬п╫п╟п╫п╫я▐ \"uniq\""
 
-#: src/text.c:2756 src/text.c:2965
-msgid "Finished checking spelling"
-msgstr "Перев╕рку орфограф╕╖ завершено"
+#: src/text.c:3128
+msgid "Invoking spell checker, please wait"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я■п╪п╬ п©я─п╬пЁя─п╟п╪я┐ п╢п╩я▐ п©п╬я┬я┐п╨я┐ п╢я─я┐п╨п╟я─я│я▄п╨п╦я┘ п©п╬п╪п╦п╩п╬п╨, п╥п╟я┤п╣п╨п╟п╧я┌п╣"
 
-#: src/text.c:2815
-#, fuzzy, c-format
-msgid "Error invoking \"%s\""
-msgstr "Помилка виконання \"spell\""
-
-#: src/text.c:2960
+#: src/text.c:3142
 #, c-format
 msgid "Spell checking failed: %s"
-msgstr "Перев╕рка орфограф╕╖ не вдалася: %s"
+msgstr "п÷п╣я─п╣п╡я√я─п╨п╟ п╬я─я└п╬пЁя─п╟я└я√я≈ п╫п╣ п╡п╢п╟п╩п╟я│я▐: %s"
 
-#: src/text.c:2962
-#, fuzzy, c-format
+#: src/text.c:3144
+#, c-format
 msgid "Spell checking failed: %s: %s"
-msgstr "Перев╕рка орфограф╕╖ не вдалася: %s"
+msgstr "п²п╣ п╡п╢п╟п╩п╬я│я▄ п©п╣я─п╣п╡я√я─п╦я┌п╦ п╬я─я└п╬пЁя─п╟я└я√я▌: %s: %s"
 
-#: src/text.c:3030
+#: src/text.c:3147
+msgid "Finished checking spelling"
+msgstr "п÷п╣я─п╣п╡я√я─п╨я┐ п╬я─я└п╬пЁя─п╟я└я√я≈ п╥п╟п╡п╣я─я┬п╣п╫п╬"
+
+#: src/text.c:3172
+msgid "No linter defined for this type of file!"
+msgstr "п■п╩я▐ я├я▄п╬пЁп╬ я┌п╦п©я┐ я└п╟п╧п╩я√п╡ п╫п╣ п╡п╦п╥п╫п╟я┤п╣п╫п╬ п╬п╠я─п╬п╠п╫п╦п╨п╟!"
+
+#: src/text.c:3177
+msgid "Save modified buffer before linting?"
+msgstr "п≈п╠п╣я─п╣пЁя┌п╦ п╥п╪я√п╫п╣п╫п╦п╧ п╠я┐я└п╣я─ п©п╣я─п╣п╢ п╬п╠я─п╬п╠п╨п╬я▌?"
+
+#: src/text.c:3194
+msgid "Invoking linter, please wait"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я■п╪п╬ linter, п╥п╟я┤п╣п╨п╟п╧я┌п╣"
+
+#: src/text.c:3349
+#, c-format
+msgid "Got 0 parsable lines from command: %s"
+msgstr "п▓я√п╢ п╨п╬п╪п╟п╫п╢п╦ п╬я┌я─п╦п╪п╟п╫п╬ 0 п©я─п╦п╢п╟я┌п╫п╦я┘ я─я▐п╢п╨я√п╡: %s"
+
+#: src/text.c:3379
+#, c-format
+msgid "This message is for unopened file %s, open it in a new buffer?"
+msgstr ""
+"п╕п╣ п©п╬п╡я√п╢п╬п╪п╩п╣п╫п╫я▐ п©п╬п╡Б─≥я▐п╥п╟п╫п╬ я√п╥ п╫п╣п╡я√п╢п╨я─п╦я┌п╦п╪ я└п╟п╧п╩п╬п╪ %s. п▓я√п╢п╨я─п╦я┌п╦ п╧п╬пЁп╬ я┐ п╫п╬п╡п╬п╪я┐ "
+"п╠я┐я└п╣я─я√?"
+
+#: src/text.c:3398
+msgid "No more errors in unopened files, cancelling"
+msgstr "пё п╫п╣п╡я√п╢п╨я─п╦я┌п╦я┘ я└п╟п╧п╩п╟я┘ п╫п╣п╪п╟я■ п╠я√п╩я▄я┬п╣ п©п╬п╪п╦п╩п╬п╨, я│п╨п╟я│п╬п╡я┐я■п╪п╬ п╢я√я▌"
+
+#: src/text.c:3438
+msgid "At last message"
+msgstr "п²п╟ п╬я│я┌п╟п╫п╫я▄п╬п╪я┐ п©п╬п╡я√п╢п╬п╪п╩п╣п╫п╫я√"
+
+#: src/text.c:3443
+msgid "At first message"
+msgstr "п²п╟ п©п╣я─я┬п╬п╪я┐ п©п╬п╡я√п╢п╬п╪п╩п╣п╫п╫я√"
+
+#: src/text.c:3480
+msgid "Finished"
+msgstr "п≈п╟п╡п╣я─я┬п╣п╫п╬"
+
+#: src/text.c:3502
+msgid "Invoking formatter, please wait"
+msgstr "п▓п╦п╨п╩п╦п╨п╟я■п╪п╬ formatter, п╥п╟я┤п╣п╨п╟п╧я┌п╣"
+
+#: src/text.c:3557
+msgid "Finished formatting"
+msgstr "п╓п╬я─п╪п╟я┌я┐п╡п╟п╫п╫я▐ п╥п╟п╡п╣я─я┬п╣п╫п╬"
+
+#: src/text.c:3639
 #, c-format
 msgid "%sWords: %lu  Lines: %ld  Chars: %lu"
-msgstr ""
+msgstr "%sп║п╩я√п╡: %lu п═я▐п╢п╨я√п╡: %ld  п║п╦п╪п╡п╬п╩я√п╡: %lu"
 
-#: src/text.c:3031
-#, fuzzy
+#: src/text.c:3640
 msgid "In Selection:  "
-msgstr "Додати Вид╕лене до файлу"
+msgstr "пё п©п╬п╥п╫п╟я┤п╣п╫п╬п╪я┐:  "
 
-#: src/utils.c:405 src/utils.c:417
+#. TRANSLATORS: This is displayed when the next keystroke will be
+#. * inserted verbatim.
+#: src/text.c:3654
+msgid "Verbatim Input"
+msgstr "п▒я┐п╨п╡п╟п╩я▄п╫п╦п╧ п╡п╡я√п╢"
+
+#: src/utils.c:392 src/utils.c:404
 msgid "nano is out of memory!"
-msgstr "невистача╓ в╕льно╖ пам'ят╕ для nano!"
+msgstr "п╫п╣ п╡п╦я│я┌п╟я┤п╟я■ п╡я√п╩я▄п╫п╬я≈ п©п╟п╪'я▐я┌я√ п╢п╩я▐ nano!"
+
+#: src/utils.c:626
+#, c-format
+msgid "Internal error: can't match line %d.  Please save your work."
+msgstr ""
+"п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╢п╟п╩п╬я│я▐ п╡я│я┌п╟п╫п╬п╡п╦я┌п╦ п╡я√п╢п©п╬п╡я√п╢п╫я√я│я┌я▄ я─я▐п╢п╨п╟ %d. п≈п╠п╣я─п╣п╤я√я┌я▄ "
+"я─п╣п╥я┐п╩я▄я┌п╟я┌п╦ п╡п╟я┬п╬я≈ я─п╬п╠п╬я┌п╦."
+
+#. TRANSLATORS: This refers to a sequence of escape codes
+#. * (from the keyboard) that nano does not know about.
+#: src/winio.c:1115
+msgid "Unknown sequence"
+msgstr "п²п╣п╡я√п╢п╬п╪п╟ п©п╬я│п╩я√п╢п╬п╡п╫я√я│я┌я▄"
 
 #. TRANSLATORS: This is displayed during the input of a
 #. * six-digit hexadecimal Unicode character code.
-#: src/winio.c:1557
+#: src/winio.c:1412
 msgid "Unicode Input"
-msgstr ""
+msgstr "п▓п╡я√п╢ я▌п╫я√п╨п╬п╢"
 
-#: src/winio.c:2149 src/winio.c:2153
-#, fuzzy
-msgid "Modified"
-msgstr " Зм╕нено "
-
-#: src/winio.c:2150
-#, fuzzy
-msgid "View"
-msgstr " Перегляд "
-
-#: src/winio.c:2164
-#, fuzzy
+#: src/winio.c:1945
 msgid "DIR:"
-msgstr " Дир: "
+msgstr "п п╟я┌.:"
 
-#: src/winio.c:2171
-#, fuzzy
+#: src/winio.c:1953
 msgid "File:"
-msgstr "Файл: "
+msgstr "п╓п╟п╧п╩:"
 
-#: src/winio.c:3360
-#, fuzzy, c-format
+#: src/winio.c:1957 src/winio.c:1961
+msgid "Modified"
+msgstr "п≈п╪я√п╫п╣п╫п╬"
+
+#: src/winio.c:1959
+msgid "View"
+msgstr "п▓п╦пЁп╩я▐п╢"
+
+#: src/winio.c:3085
+#, c-format
 msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%lu (%d%%)"
-msgstr "рядок %ld/%ld (%d%%), стовпчик %lu/%lu (%d%%, л╕тера %lu/%ld (%d%%)"
+msgstr "я─я▐п╢п╬п╨ %ld/%ld (%d%%), я│я┌п╬п╡п©я┤п╦п╨ %lu/%lu (%d%%), я│п╦п╪п╡п╬п╩ %lu/%lu (%d%%)"
 
-#: src/winio.c:3492
+#: src/winio.c:3215
 msgid "The nano text editor"
-msgstr "Текстовий редактор nano"
+msgstr "п╒п╣п╨я│я┌п╬п╡п╦п╧ я─п╣п╢п╟п╨я┌п╬я─ nano"
 
-#: src/winio.c:3493
-#, fuzzy
+#: src/winio.c:3216
 msgid "version"
-msgstr "верс╕я "
+msgstr "п╡п╣я─я│я√я▐"
 
-#: src/winio.c:3494
+#: src/winio.c:3217
 msgid "Brought to you by:"
-msgstr "Створено для Вас:"
+msgstr "п║я┌п╡п╬я─п╣п╫п╬ п╢п╩я▐ п▓п╟я│:"
 
-#: src/winio.c:3495
+#: src/winio.c:3218
 msgid "Special thanks to:"
-msgstr "Особлива подяка:"
+msgstr "п·я│п╬п╠п╩п╦п╡п╟ п©п╬п╢я▐п╨п╟:"
 
-#: src/winio.c:3496
+#: src/winio.c:3219
 msgid "The Free Software Foundation"
-msgstr "The Free Software Foundation (Фонд В╕льного Програмного забезпечення)"
+msgstr "The Free Software Foundation (п╓п╬п╫п╢ п▓я√п╩я▄п╫п╬пЁп╬ п÷я─п╬пЁя─п╟п╪п╫п╬пЁп╬ п╥п╟п╠п╣п╥п©п╣я┤п╣п╫п╫я▐)"
 
-#: src/winio.c:3497
+#: src/winio.c:3220
+msgid "the many translators and the TP"
+msgstr "п╠п╟пЁп╟я┌я▄п╬п╪ п©п╣я─п╣п╨п╩п╟п╢п╟я┤п╟п╪ я┌п╟ TP"
+
+#: src/winio.c:3221
 msgid "For ncurses:"
-msgstr "Для ncurses:"
+msgstr "п≈п╟ ncurses:"
 
-#: src/winio.c:3498
+#: src/winio.c:3222
 msgid "and anyone else we forgot..."
-msgstr "та ╕ншим кого ми забули..."
+msgstr "я┌п╟ я√п╫я┬п╦п╪, п╨п╬пЁп╬ п╪п╦ п╥п╟п╠я┐п╩п╦..."
 
-#: src/winio.c:3499
-#, fuzzy
+#: src/winio.c:3223
 msgid "Thank you for using nano!"
-msgstr "Дяку╓мо Вам за те, що обрали nano!\n"
+msgstr "п■я▐п╨я┐я■п╪п╬ п╥п╟ п╡п╦п╨п╬я─п╦я│я┌п╟п╫п╫я▐ nano!"
 
-#~ msgid "add_to_cutbuffer() called with inptr->data = %s\n"
-#~ msgstr "add_to_cutbuffer() викликано з inptr->data = %s\n"
-
-#~ msgid "Blew away cutbuffer =)\n"
-#~ msgstr "\"кишеню\" (cutbuffer) здуло в╕тром =)\n"
-
-#~ msgid "File to insert into new buffer [from ./] "
-#~ msgstr "Файл до вставки (в новий буфер) [в╕д ./] "
-
-#~ msgid "File to insert [from ./] "
-#~ msgstr "Файл до вставки [в╕д ./] "
-
-#~ msgid "filename is %s\n"
-#~ msgstr "╕м'я файлу: %s\n"
-
-#~ msgid "%s: free'd a node, YAY!\n"
-#~ msgstr "%s: Йой.. вузол зв╕льнено!\n"
-
-#~ msgid "%s: free'd last node.\n"
-#~ msgstr "%s: зв╕льнено останнього вузла.\n"
-
-#~ msgid "Could not read %s for backup: %s"
-#~ msgstr "Не можу прочитати %s для резервування: %s"
-
-#~ msgid "Couldn't write backup: %s"
-#~ msgstr "Не можу записати резерв: %s"
-
-#~ msgid "Backing up %s to %s\n"
-#~ msgstr "Роблю резервну коп╕ю файлу %s, резервний файл: %s\n"
-
-#~ msgid "Could not set permissions %o on backup %s: %s"
-#~ msgstr "Не можу встановити права %o на резервний файл %s: %s"
-
-#~ msgid "Could not set owner %d/group %d on backup %s: %s"
-#~ msgstr "Не можу встановити власника %d/групу %d на резервний файл %s: %s"
-
-#~ msgid "Could not set access/modification time on backup %s: %s"
-#~ msgstr ""
-#~ "Не можу встановити час останьо╖ зм╕ни/звертання на резервний файл %s: %s"
-
-#~ msgid "Could not open file for writing: %s"
-#~ msgstr "Не можу в╕дкрити файл для запису: %s"
-
-#~ msgid "Wrote >%s\n"
-#~ msgstr "Записано >%s\n"
-
-#~ msgid "Could not close %s: %s"
-#~ msgstr "Не можу зачинити %s: %s"
-
-#~ msgid "Could not reopen %s: %s"
-#~ msgstr "Не вда╓ться перев╕дкрити %s: %s"
-
-#~ msgid "Could not open %s for prepend: %s"
-#~ msgstr "Не можу в╕дкрити %s для запису: %s"
-
-#~ msgid "Could not set permissions %o on %s: %s"
-#~ msgstr "Не можу встановити права %o на %s: %s"
-
-#~ msgid "Can't open \"%s\": %s"
-#~ msgstr "Не можу в╕дкрити \"%s\": %s"
-
-#~ msgid "Goto Cancelled"
-#~ msgstr "Скасовано"
-
-#~ msgid "Unable to open ~/.nano_history file, %s"
-#~ msgstr "Не можу в╕дкрити файл ~/.nano_history, %s"
-
-#~ msgid "Unable to write ~/.nano_history file, %s"
-#~ msgstr "Не вда╓ться записати файл ~/.nano_history, %s"
-
-#~ msgid "Writing file in DOS format"
-#~ msgstr "Запис файлу у формат╕ DOS"
-
-#~ msgid "Writing file in Mac format"
-#~ msgstr "Запис файлу у формат╕ Mac"
-
-#~ msgid "Backing up file"
-#~ msgstr "Робити резервну коп╕ю файла"
-
-#~ msgid "Auto wrap"
-#~ msgstr "Авто загортання"
-
-#~ msgid "Invoke the help menu"
-#~ msgstr "Викликати меню допомоги"
-
-#~ msgid "Unjustify after a justify"
-#~ msgstr "Скасувати останн╓ вир╕внювання"
-
-#~ msgid "Replace text within the editor"
-#~ msgstr "Зам╕нити текст у межах редактора"
-
-#~ msgid "Search for text within the editor"
-#~ msgstr "Шукати текст в межах редактору"
-
-#~ msgid "Move up one line"
-#~ msgstr "П╕днятися вгору на один рядок"
-
-#~ msgid "Insert a tab character"
-#~ msgstr "Вставити символ табуляц╕╖"
-
-#~ msgid "Make the current search or replace case (in)sensitive"
-#~ msgstr "Зробити поточний пошук або зам╕ну (не)залежним в╕д рег╕стру л╕тер"
-
-#~ msgid "Prepend to the current file"
-#~ msgstr "Додати до поточного файлу (в початок файла)"
-
-#~ msgid "Search backwards"
-#~ msgstr "Шукати назад"
-
-#~ msgid "Write file out in DOS format"
-#~ msgstr "Запис файлу у формат╕ DOS"
-
-#~ msgid "Write file out in Mac format"
-#~ msgstr "Запис файлу у формат╕ Mac"
-
-#~ msgid "Back up original file when saving"
-#~ msgstr "Зробити резервну коп╕ю файлу при збер╕ганн╕"
-
-#~ msgid "Find other bracket"
-#~ msgstr "Знайти другу дужку"
-
-#~ msgid "Open previously loaded file"
-#~ msgstr "В╕дкрити попередн╕й файл"
-
-#~ msgid "Open next loaded file"
-#~ msgstr "В╕дкрити наступний файл"
-
-#~ msgid "Up"
-#~ msgstr "Вгору"
-
-#~ msgid "Down"
-#~ msgstr "Вниз"
-
-#~ msgid "Direction"
-#~ msgstr "Напрямок"
-
-#~ msgid "Space"
-#~ msgstr "Проб╕л"
+#~ msgid "Can't go outside of %s in confined mode"
+#~ msgstr "п²п╣ п╪п╬п╤п╫п╟ п©п╣я─п╣я┘п╬п╢п╦я┌п╦ п╥п╟ п╪п╣п╤я√ %s п╡ п╬п╠п╪п╣п╤п╣п╫п╬п╪я┐ я─п╣п╤п╦п╪я√"
 
 #~ msgid ""
-#~ "Usage: nano [+LINE] [GNU long option] [option] [file]\n"
-#~ "\n"
-#~ msgstr ""
-#~ "Використання: nano [+РЯДОК] [довг╕ опц╕╖ GNU] [опц╕╖] [файл]\n"
-#~ "\n"
+#~ "Read %lu line (Converted from DOS and Mac format - Warning: No write "
+#~ "permission)"
+#~ msgid_plural ""
+#~ "Read %lu lines (Converted from DOS and Mac format - Warning: No write "
+#~ "permission)"
+#~ msgstr[0] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac я┌п╟ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: "
+#~ "п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[1] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╟ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac я┌п╟ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: "
+#~ "п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[2] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac я┌п╟ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: "
+#~ "п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
 
 #~ msgid ""
-#~ "Usage: nano [+LINE] [option] [file]\n"
-#~ "\n"
-#~ msgstr ""
-#~ "Використання: nano [+РЯДОК] [опц╕я] [файл]\n"
-#~ "\n"
-
-#~ msgid "+LINE"
-#~ msgstr "+РЯДОК"
-
-#~ msgid "Use alternate keypad routines"
-#~ msgstr "Вживати альтернативн╕ п╕дпрограми для keypad"
-
-#~ msgid "Do regular expression searches"
-#~ msgstr "Пошук по формальному виразу (regexp)"
-
-#~ msgid "-T [num]"
-#~ msgstr "-T [чис]"
-
-#~ msgid "Set fill cols to (wrap lines at) #cols"
-#~ msgstr "Встановити загортання рядк╕в в позиц╕╖ #стовп"
-
-#~ msgid "current->data now = \"%s\"\n"
-#~ msgstr "current->data зараз = \"%s\"\n"
-
-#~ msgid "After, data = \"%s\"\n"
-#~ msgstr "П╕сля, дан╕ = \"%s\"\n"
-
-#~ msgid "Could not create a temporary filename: %s"
-#~ msgstr "Не можу створити тимчасову назву для файлу: %s"
-
-#~ msgid "Spell checking failed: unable to write temp file!"
-#~ msgstr ""
-#~ "Перев╕рка орфограф╕╖ не вдалася: неможливо записати тимчасовий файл!"
-
-#~ msgid "Cannot resize top win"
-#~ msgstr "Не можу зм╕нити розм╕р верхнього в╕кна"
-
-#~ msgid "Cannot move top win"
-#~ msgstr "Не можу перем╕стити верхнього в╕кно"
-
-#~ msgid "Cannot resize edit win"
-#~ msgstr "Не можу зм╕нити розм╕р в╕кна редагування"
-
-#~ msgid "Cannot move edit win"
-#~ msgstr "Не можу перем╕стити в╕кно редагування"
-
-#~ msgid "Cannot resize bottom win"
-#~ msgstr "Не можу зм╕нити розм╕р нижнього в╕кна"
-
-#~ msgid "Cannot move bottom win"
-#~ msgstr "Не можу перем╕стити нижн╓ в╕кно"
-
-#~ msgid "NumLock glitch detected.  Keypad will malfunction with NumLock off"
-#~ msgstr "пом╕чено глюк NumLock'а. Додаткова клав╕атура може не працювати"
-
-#~ msgid "Tab size is too small for nano...\n"
-#~ msgstr "Розм╕р табуляц╕╖ замалий для nano...\n"
-
-#~ msgid "Main: set up windows\n"
-#~ msgstr "Main: встановити в╕кна\n"
-
-#~ msgid "Main: bottom win\n"
-#~ msgstr "Main: нижн╓ в╕кно\n"
-
-#~ msgid "Main: open file\n"
-#~ msgstr "Main: в╕дкрити файл\n"
-
-#~ msgid "AHA!  %c (%d)\n"
-#~ msgstr "Ага! %c (%d)\n"
-
-#~ msgid "I got Alt-O-%c! (%d)\n"
-#~ msgstr "Я п╕ймав Alt-O-%c! (%d)\n"
-
-#~ msgid "I got Alt-[-1-%c! (%d)\n"
-#~ msgstr "Я п╕ймав Alt-[-1-%c! (%d)\n"
-
-#~ msgid "I got Alt-[-2-%c! (%d)\n"
-#~ msgstr "Я п╕ймав Alt-[-2-%c! (%d)\n"
-
-#~ msgid "I got Alt-[-%c! (%d)\n"
-#~ msgstr "Я п╕ймав Alt-[-%c! (%d)\n"
-
-#~ msgid "I got Alt-%c! (%d)\n"
-#~ msgstr "Я п╕ймав Alt-%c! (%d)\n"
-
-#~ msgid "I got %c (%d)!\n"
-#~ msgstr "Я п╕ймав %c (%d)!\n"
-
-#~ msgid "Adding new syntax after 1st\n"
-#~ msgstr "Дода╓мо новий синтакс п╕сля першого\n"
-
-#~ msgid "Starting a new syntax type\n"
-#~ msgstr "Почина╓мо новий тип синтаксу\n"
-
-#~ msgid "Starting a new colorstring for fg %d bg %d\n"
-#~ msgstr "Почина╓мо новий рядок кольору для кольору %d на фон╕ %d\n"
-
-#~ msgid "Adding new entry for fg %d bg %d\n"
-#~ msgstr "Дода╓мо новий запис для кольору %d на фон╕ %d\n"
-
-#~ msgid "%s: Read a comment\n"
-#~ msgstr "%s: чита╓мо коментар\n"
-
-#~ msgid "%s: Parsing option %s\n"
-#~ msgstr "%s: Роз╕брання опц╕╖ %s\n"
-
-#~ msgid "set flag %d!\n"
-#~ msgstr "встановить флаг %d!\n"
-
-#~ msgid "Errors found in .nanorc file"
-#~ msgstr "Знайдено помилки у файл╕ .nanorc"
-
-#~ msgid "Unable to open ~/.nanorc file, %s"
-#~ msgstr "Не можу в╕дкрити файл ~/.nanorc, %s"
-
-#~ msgid "\"%s...\" not found"
-#~ msgstr "\"%s...\" не знайдено"
-
-#~ msgid "Invalid regex \"%s\""
-#~ msgstr "Нев╕рний регулярний вираз \"%s\""
-
-#~ msgid "Search Cancelled"
-#~ msgstr "Пошук скасовано"
-
-#~ msgid "Replace Cancelled"
-#~ msgstr "Зам╕ну скасовано"
-
-#~ msgid "Replace failed: unknown subexpression!"
-#~ msgstr "Зам╕на невдала: незнайомий п╕двираз!"
-
-#~ msgid "Aborted"
-#~ msgstr "Прервано"
-
-#~ msgid "Come on, be reasonable"
-#~ msgstr "Гей, будьте автотентичн╕"
-
-#~ msgid "actual_x for xplus=%d returns %d\n"
-#~ msgstr "actual_x для xplus=%d поверта╓ %d\n"
-
-#~ msgid "Aha! '%c' (%d)\n"
-#~ msgstr "Ага! '%c' (%d)\n"
-
-#~ msgid "input '%c' (%d)\n"
-#~ msgstr "вх╕д '%c' (%d)\n"
-
-#~ msgid "  File: ..."
-#~ msgstr "  Файл: ..."
-
-#~ msgid "   DIR: ..."
-#~ msgstr "   Дир: ..."
-
-#~ msgid "Refusing 0 length regex match"
-#~ msgstr "В╕дкида╓мо сп╕впад╕ння формального виразу довжиною 0"
-
-#~ msgid "Moved to (%d, %d) in edit buffer\n"
-#~ msgstr "Перем╕щено до (%d,%d) в буфер╕ редагування\n"
-
-#~ msgid "I got \"%s\"\n"
-#~ msgstr "Я п╕ймав \"%s\"\n"
-
-#~ msgid "Dumping file buffer to stderr...\n"
-#~ msgstr "Скидання буферу файлу до stderr...\n"
-
-#~ msgid "Dumping cutbuffer to stderr...\n"
-#~ msgstr "Скидання зм╕сту \"кишен╕\" до stderr...\n"
-
-#~ msgid "Dumping a buffer to stderr...\n"
-#~ msgstr "Скидання буферу до stderr...\n"
+#~ "Read %lu line (Converted from Mac format - Warning: No write permission)"
+#~ msgid_plural ""
+#~ "Read %lu lines (Converted from Mac format - Warning: No write permission)"
+#~ msgstr[0] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[1] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╟ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[2] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ Mac; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
 
 #~ msgid ""
-#~ "\n"
-#~ "The -p flag now invokes the Pico \"preserve\" flag.\n"
-#~ "The Pico compatibility flag has been removed as nano\n"
-#~ "now fully Pico compatible.  Please see the nano FAQ\n"
-#~ "for more info on this change...\n"
-#~ "\n"
-#~ "Press return to continue\n"
+#~ "Read %lu line (Converted from DOS format - Warning: No write permission)"
+#~ msgid_plural ""
+#~ "Read %lu lines (Converted from DOS format - Warning: No write permission)"
+#~ msgstr[0] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[1] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨п╟ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[2] ""
+#~ "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╣я─п╣я┌п╡п╬я─п╣п╫п╬ п╥ я└п╬я─п╪п╟я┌я┐ DOS; п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ "
+#~ "п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+
+#~ msgid "Read %lu line (Warning: No write permission)"
+#~ msgid_plural "Read %lu lines (Warning: No write permission)"
+#~ msgstr[0] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╬п╨ (п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[1] "п÷я─п╬я┤п╦я┌п╟п╫я√ %lu я─я▐п╢п╨п╦ (п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+#~ msgstr[2] "п÷я─п╬я┤п╦я┌п╟п╫п╬ %lu я─я▐п╢п╨я√п╡ (п©п╬п©п╣я─п╣п╢п╤п╣п╫п╫я▐: п╫п╣п╪п╟я■ п╢п╬я│я┌я┐п©я┐ п╫п╟ п╥п╟п©п╦я│)"
+
+#~ msgid "Save modified buffer (ANSWERING \"No\" WILL DESTROY CHANGES) ? "
+#~ msgstr "п≈п╠п╣я─п╣пЁя┌п╦ п╥п╪я√п╫п╣п╫п╦п╧ п╠я┐я└п╣я─ (п▓я√п╢п©п╬п╡я√п╢я▄ б╚п²я√б╩ п║п п░п║пёп└ п▓п║п├ п≈п°п├п²п≤)? "
+
+#~ msgid "Unknown Command"
+#~ msgstr "п²п╣п╡я√п╢п╬п╪п╟ п╨п╬п╪п╟п╫п╢п╟"
+
+#~ msgid "Cannot add a color command without a syntax command"
+#~ msgstr "п²п╣ п╡п╢п╟я■я┌я▄я│я▐ п╢п╬п╢п╟я┌п╦ п╨п╬п╪п╟п╫п╢я┐ п╨п╬п╩я▄п╬я─я┐ п╠п╣п╥ п╨п╬п╪п╟п╫п╢п╦ я│п╦п╫я┌п╟п╨я│п╦я│я┐"
+
+#~ msgid "Missing regex string"
+#~ msgstr "п²п╣ п╡п╨п╟п╥п╟п╫п╬ я─п╣пЁя┐п╩я▐я─п╫п╦п╧ п╡п╦я─п╟п╥"
+
+#~ msgid "Cannot add a header regex without a syntax command"
+#~ msgstr "п²п╣ п╡п╢п╟я■я┌я▄я│я▐ п╢п╬п╢п╟я┌п╦ я─п╣пЁ. п╡п╦я─п╟п╥ п╥п╟пЁп╬п╩п╬п╡п╨я┐ п╠п╣п╥ п╨п╬п╪п╟п╫п╢п╦ я│п╦п╫я┌п╟п╨я│п╦я│я┐"
+
+#~ msgid "Cannot add a magic string regex without a syntax command"
 #~ msgstr ""
-#~ "\n"
-#~ "Опц╕я -p зараз визнача╓ опц╕ю \"preserve\" редактора Pico.\n"
-#~ "Опц╕ю сум╕сност╕ ╕з Pico було видалено, оск╕льки nano тепер повн╕стю\n"
-#~ "сум╕сний ╕з Pico. Будь ласка дивиться FAQ для б╕льш повно╖ дов╕дки\n"
-#~ "щодо ц╕╓╖ зм╕ни.\n"
-#~ "\n"
-#~ "Натисн╕ть будь-ласка Enter\n"
+#~ "п²п╣ п╡п╢п╟п╩п╬я│я▐ п╢п╬п╢п╟я┌п╦ я└п╬я─п╪п╟п╩я▄п╫п╦п╧ п╡п╦я─п╟п╥ п╨п╬п╫я┌я─п╬п╩я▄п╫п╬пЁп╬ я─я▐п╢п╨п╟ п╠п╣п╥ п╨п╬п╪п╟п╫п╢п╦ "
+#~ "я│п╦п╫я┌п╟п╨я│п╦я│я┐"
 
-#~ msgid "Generic error"
-#~ msgstr "Загальна помилка"
+#~ msgid "Missing magic string name"
+#~ msgstr "п²п╣ п╡п╦я│я┌п╟я┤п╟я■ п╫п╟п╥п╡п╦ п╨п╬п╫я┌я─п╬п╩я▄п╫п╬пЁп╬ я─я▐п╢п╨п╟"
 
-#~ msgid "delete_opennode(): free'd a node, YAY!\n"
-#~ msgstr "delete_opennode(): Oй.. вузол зв╕льнено!\n"
+#~ msgid "Cannot add a linter without a syntax command"
+#~ msgstr "п²п╣ п╪п╬п╤п╫п╟ п╢п╬п╢п╟п╡п╟я┌п╦ linter п╠п╣п╥ п╨п╬п╪п╟п╫п╢п╦ я│п╦п╫я┌п╟п╨я│п╦я│я┐"
 
-#~ msgid "delete_opennode(): free'd last node.\n"
-#~ msgstr "delete_opennode(): зв╕льнено останнього вузла.\n"
+#~ msgid "Cannot add formatter without a syntax command"
+#~ msgstr "п²п╣ п╪п╬п╤п╫п╟ п╢п╬п╢п╟п╡п╟я┌п╦ formatter п╠п╣п╥ п╨п╬п╪п╟п╫п╢п╦ я│п╦п╫я┌п╟п╨я│п╦я│я┐"
 
-#~ msgid "Can't visit parent in restricted mode"
-#~ msgstr "Не можу в╕дв╕дати батька (cd ./..) в обмеженому режим╕"
+#~ msgid "Missing formatter command"
+#~ msgstr "п²п╣ п╡п╦я│я┌п╟я┤п╟я■ п©я─п╬пЁя─п╟п╪п╦ formatter"
 
-#~ msgid "-p"
-#~ msgstr "-p"
-
-#~ msgid "--preserve"
-#~ msgstr "--preserve"
-
-#~ msgid ""
-#~ "\n"
-#~ "The -p flag now invokes the Pico \"preserve\" flag.  The Pico\n"
+#~ msgid "Cannot prepend or append to a symlink with --nofollow set"
 #~ msgstr ""
-#~ "\n"
-#~ "Опц╕я -p зараз визнача╓ опц╕ю \"preserve\" редактора Pico. Опц╕ю\n"
+#~ "п²п╣ п╪п╬п╤п╫п╟ п╢п╬п©п╦я│я┐п╡п╟я┌п╦ п╫п╟ п©п╬я┤п╟я┌п╨я┐ п╟п╠п╬ п╫п╟п©я─п╦п╨я√п╫я├я√ я│п╦п╪п╡п╬п╩я√я┤п╫п╬пЁп╬ п©п╬я│п╦п╩п╟п╫п╫я▐, "
+#~ "я▐п╨я┴п╬ п╡я│я┌п╟п╫п╬п╡п╩п╣п╫п╬ --nofollow"
 
-#~ msgid "compatibility flag has been removed as nano is now fully Pico\n"
-#~ msgstr "сум╕сност╕ ╕з Pico було видалено, оск╕льки nano тепер повн╕стю\n"
+#~ msgid "Don't follow symbolic links, overwrite"
+#~ msgstr "п²п╣ п©п╣я─п╣я┘п╬п╢п╦я┌п╦ п╥п╟ я│п╦п╪п╡п╬п╩я√я┤п╫п╦п╪ п©п╬я│п╦п╩п╟п╫п╫я▐п╪п╦, п©п╣я─п╣п╥п╟п©п╦я│я┐п╡п╟я┌п╦"
 
-#~ msgid ""
-#~ "compatible.  Please see the nano FAQ for more info on this change...\n"
-#~ "\n"
+#~ msgid "Sorry, support for this function has been disabled"
+#~ msgstr "п▓п╦п╠п╟я┤я┌п╣, п©я√п╢я┌я─п╦п╪п╨я┐ я├я√я■я≈ я└я┐п╫п╨я├я√я≈ п╡п╦п╪п╨п╫п╣п╫п╬"
+
+#~ msgid "Internal error: cannot set up uncut.  Please save your work."
 #~ msgstr ""
-#~ "сум╕сний ╕з Pico. Будь ласка дивиться FAQ для б╕льш повно╖ дов╕дки\n"
-#~ "щодо ц╕╓╖ зм╕ни.\n"
+#~ "п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╢п╟п╩п╬я│я▐ п╫п╟п╩п╟я┬я┌я┐п╡п╟я┌п╦ я│п╨п╟я│я┐п╡п╟п╫п╫я▐ п╡я√п╢я│я┌я┐п©я√п╡. п≈п╠п╣я─п╣п╤я√я┌я▄ "
+#~ "я─п╣п╥я┐п╩я▄я┌п╟я┌п╦ п╡п╟я┬п╬я≈ я─п╬п╠п╬я┌п╦."
 
-#~ msgid "Press return to continue\n"
-#~ msgstr "Натисн╕ть Enter для подовження\n"
+#~ msgid "Error: no formatter defined"
+#~ msgstr "п÷п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╦п╥п╫п╟я┤п╣п╫п╬ formatter"
 
-#~ msgid "string val=%s\n"
-#~ msgstr "рядок val=%s\n"
+#~ msgid "Multiple file buffers"
+#~ msgstr "п■п╣п╨я√п╩я▄п╨п╟ я└п╟п╧п╩п╬п╡п╦я┘ п╠я┐я└п╣я─я√п╡"
 
-#~ msgid "For end part, beginning = \"%s\"\n"
-#~ msgstr "Для к╕нцево╖ частини, початок = \"%s\"\n"
+#~ msgid "Enable multiple file buffers"
+#~ msgstr "п■п╬п╥п╡п╬п╩п╦я┌п╦ п╢п╣п╨я√п╩я▄п╨п╟ я└п╟п╧п╩п╬п╡п╦я┘ п╠я┐я└п╣я─я√п╡"
 
-#~ msgid "current->data = \"%s\"\n"
-#~ msgstr "(winio.c) current->data = \"%s\"\n"
-
-#~ msgid "do_cursorpos: linepct = %f, bytepct = %f\n"
-#~ msgstr "do_cursorpos: linepct = %f, bytepct = %f\n"
-
-#~ msgid "read_line: not on first line and prev is NULL"
-#~ msgstr "read_line: не на першому рядку, та ще й попередн╕й ╓ NULL"
-
-#~ msgid "Pico mode"
-#~ msgstr "Режим Pico"
-
-#~ msgid "Emulate Pico as closely as possible"
-#~ msgstr "Емулювати Pico наск╕льки можливо"
-
-#~ msgid "'\")}]>"
-#~ msgstr "'\")}]>"
-
-#~ msgid ".?!"
-#~ msgstr ".?!"
-
-#~ msgid "Replaced 1 occurrence"
-#~ msgstr "Зам╕нено 1 входження"
-
-#~ msgid "Replace with [%s]"
-#~ msgstr "Зам╕нити на [%s]"
-
-#~ msgid "nano: realloc: out of memory!"
-#~ msgstr "nano: realloc: нема╓ в╕льно╖ пам'ят╕!"
-
-#~ msgid "Backwards search"
-#~ msgstr "Пошук Назад"
-
-#~ msgid "Goto"
-#~ msgstr "До Рядка"
-
-#~ msgid "check_wrap called with inptr->data=\"%s\"\n"
-#~ msgstr "check_wrap визвано з inptr->data=\"%s\"\n"
-
-#~ msgid "nano: calloc: out of memory!"
-#~ msgstr "nano: calloc: нема╓ в╕льно╖ пам'ят╕!"
-
-#~ msgid " -D \t\t--dos\t\t\tWrite file in DOS format\n"
-#~ msgstr " -D \t\t--dos\t\t\tЗапис файлу у формат╕ DOS\n"
-
-#~ msgid " -F \t\t--multibuffer\t\tEnable multiple file buffers\n"
-#~ msgstr " -F \t\t--multibuffer\t\tДозволити дек╕лька файлових буфер╕в\n"
-
-#~ msgid " -K \t\t--keypad\t\tUse alternate keypad routines\n"
-#~ msgstr " -K \t\t--keypad\t\tВживати альтернативн╕ п╕дпрограми keypad\n"
-
-#~ msgid " -M \t\t--mac\t\t\tWrite file in Mac format\n"
-#~ msgstr " -M \t\t--mac\t\t\tЗапис файлу у формат╕ Mac\n"
-
-#~ msgid " -N \t\t--noconvert\t\tDon't convert files from DOS/Mac format\n"
-#~ msgstr " -N \t\t--noconvert\t\tНе обертати файли ╕з формат╕в DOS/Mac\n"
-
-#~ msgid " -Q [str]\t--quotestr [str]\tQuoting string, default \"> \"\n"
+#~ msgid "Internal error: can't match line %ld.  Please save your work."
 #~ msgstr ""
-#~ " -Q [str]\t--quotestr [str]\tРядок посилання, по замовченню \"> \"\n"
+#~ "п▓п╫я┐я┌я─я√я┬п╫я▐ п©п╬п╪п╦п╩п╨п╟: п╫п╣ п╡п╢п╟п╩п╬я│я▐ п╡я│я┌п╟п╫п╬п╡п╦я┌п╦ п╡я√п╢п©п╬п╡я√п╢п╫я√я│я┌я▄ я─я▐п╢п╨п╟ %ld. "
+#~ "п≈п╠п╣я─п╣п╤я√я┌я▄ я─п╣п╥я┐п╩я▄я┌п╟я┌п╦ п╡п╟я┬п╬я≈ я─п╬п╠п╬я┌п╦."
 
-#~ msgid " -S\t\t--smooth\t\tSmooth scrolling\n"
-#~ msgstr " -S\t\t--smooth\t\tПлавна прокрутка\n"
+#~ msgid "line wrap"
+#~ msgstr "п©п╣я─п╣п╫п╣я│п╣п╫п╫я▐ я─я▐п╢п╨п╟"
 
-#~ msgid " -T [num]\t--tabsize=[num]\t\tSet width of a tab to num\n"
-#~ msgstr " -T [ном]\t--tabsize=[ном]\t\tВстановити розм╕р табуляц╕╖ до ном\n"
-
-#~ msgid " -V \t\t--version\t\tPrint version information and exit\n"
-#~ msgstr " -V \t\t--version\t\tНадрукувати верс╕ю та вийти\n"
-
-#~ msgid " -c \t\t--const\t\t\tConstantly show cursor position\n"
-#~ msgstr " -c \t\t--const\t\t\tПост╕йно показувати позиц╕ю курсора\n"
-
-#~ msgid " -h \t\t--help\t\t\tShow this message\n"
-#~ msgstr " -h \t\t--help\t\t\tПоказати це пов╕домлення\n"
-
-#~ msgid " -i \t\t--autoindent\t\tAutomatically indent new lines\n"
-#~ msgstr " -i \t\t--autoindent\t\tАвтоматично вир╕внювати нов╕ рядки\n"
-
-#~ msgid " -k \t\t--cut\t\t\tLet ^K cut from cursor to end of line\n"
-#~ msgstr ""
-#~ " -k \t\t--cut\t\t\tДозволити вир╕зати в╕д курсора до к╕нця\n"
-#~ "\t\t\t\t\tрядка за допомогою ^K\n"
-
-#~ msgid " -l \t\t--nofollow\t\tDon't follow symbolic links, overwrite\n"
-#~ msgstr " -l \t\t--nofollow\t\tНе йти за с╕мл╕нками, але переписувати\n"
-
-#~ msgid " -m \t\t--mouse\t\t\tEnable mouse\n"
-#~ msgstr " -m \t\t--mouse\t\t\tДозволити мишу\n"
-
-#~ msgid " -o [dir] \t--operatingdir=[dir]\tSet operating directory\n"
-#~ msgstr " -o [dir] \t--operatingdir=[dir]\tВстановити робочий каталог\n"
-
-#~ msgid " -p \t\t--pico\t\t\tEmulate Pico as closely as possible\n"
-#~ msgstr " -p\t \t--pico\t\t\tЕмулювати Pico наск╕льки це можливо\n"
-
-#~ msgid ""
-#~ " -r [#cols] \t--fill=[#cols]\t\tSet fill cols to (wrap lines at) #cols\n"
-#~ msgstr ""
-#~ " -r [#стовп]\t--fill=[#стовп]\t\tЗагортати рядки в позиц╕╖ стовпця "
-#~ "#стовп\n"
-
-#~ msgid " -s [prog] \t--speller=[prog]\tEnable alternate speller\n"
-#~ msgstr ""
-#~ " -s [прог] \t--speller=[прог]\tАльтерн. програма перев╕рки правопису\n"
-
-#~ msgid " -t \t\t--tempfile\t\tAuto save on exit, don't prompt\n"
-#~ msgstr " -t \t\t--tempfile\t\tАвтоЗапис при виход╕, без запитань\n"
-
-#~ msgid " -v \t\t--view\t\t\tView (read only) mode\n"
-#~ msgstr " -v \t\t--view\t\t\tРежим переглядання (т╕льки читання)\n"
-
-#~ msgid " -w \t\t--nowrap\t\tDon't wrap long lines\n"
-#~ msgstr " -w \t\t--nowrap\t\tНе загортати довг╕ рядки\n"
-
-#~ msgid " -x \t\t--nohelp\t\tDon't show help window\n"
-#~ msgstr " -x \t\t--nohelp\t\tНе показувати в╕кно допомоги\n"
-
-#~ msgid " -z \t\t--suspend\t\tEnable suspend\n"
-#~ msgstr " -z \t\t--suspend\t\tДозволити призупинку\n"
-
-#~ msgid " +LINE\t\t\t\t\tStart at line number LINE\n"
-#~ msgstr " +РЯДОК\t\t\t\t\tПочати з рядка номер РЯДОК\n"
-
-#~ msgid " -D \t\tWrite file in DOS format\n"
-#~ msgstr " -D \t\tЗапис файлу у формат╕ DOS\n"
-
-#~ msgid " -M \t\tWrite file in Mac format\n"
-#~ msgstr " -M \t\tЗапис файлу у формат╕ Mac\n"
-
-#~ msgid " -R\t\tUse regular expressions for search\n"
-#~ msgstr " -R\t\tКористуватися Формальними Виразами для пошуку\n"
-
-#~ msgid " -S\t\tSmooth scrolling\n"
-#~ msgstr " -S\t\tПлавна прокрутка\n"
-
-#~ msgid "Pavel Curtis, Zeyd Ben-Halim and Eric S. Raymond for ncurses"
-#~ msgstr "Павло Курт╕с, Зейд син-Хал╕ма та Ер╕к С. Реймонд за ncurses"
-
-#~ msgid "File already loaded"
-#~ msgstr "Файл вже завантажено"
-
-#~ msgid " -R\t\t--regexp\t\tUse regular expressions for search\n"
-#~ msgstr " -R\t\t--regexp\t\tШукати користуючись Формальними Виразами\n"
-
-#~ msgid "Write"
-#~ msgstr "Записати"
-
-#~ msgid "Case Sensitive Regexp Search%s%s"
-#~ msgstr "Регистрозалежний пошук Формального Виразу%s%s"
-
-#~ msgid "Regexp Search%s%s"
-#~ msgstr "Пошук Формального Виразу%s%s"
-
-#~ msgid "Only %d lines available, skipping to last line"
-#~ msgstr "Т╕льки %d рядк╕в у наявност╕, скипа╓мо до останнього рядка"
+#~ msgid "Allow generic undo [EXPERIMENTAL]"
+#~ msgstr "п■п╬п╥п╡п╬п╩п╦я┌п╦ я└я┐п╫п╨я├я√я▌ я│п╨п╟я│я┐п╡п╟п╫п╫я▐ п╢я√п╧ [п∙п п║п÷п∙п═п≤п°п∙п²п╒п░п⌡п╛п²п░]"

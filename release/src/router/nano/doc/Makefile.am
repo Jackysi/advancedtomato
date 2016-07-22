@@ -1,7 +1,11 @@
-if USE_COLOR
-SUBDIRS = man syntax texinfo
-else
-SUBDIRS = man texinfo
+SUBDIRS = man
+
+if HAVE_MAKEINFO
+SUBDIRS += texinfo
 endif
 
-EXTRA_DIST = faq.html
+if USE_COLOR
+SUBDIRS += syntax
+endif
+
+dist_html_DATA = faq.html

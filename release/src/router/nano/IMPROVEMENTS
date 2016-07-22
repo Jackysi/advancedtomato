@@ -1,5 +1,40 @@
-GNU nano upgrading information
-==============================
+Improvements in nano
+====================
+
+Since 2.6.0:
+  - The ability to use negative numbers at the Go To Line prompt.
+
+Noteworthy changes since 2.2
+----------------------------
+  - The ability to comment/uncomment lines with a single keystroke (M-3).
+  - The ability to refresh the file list in the browser (^L).
+  - The ability to abort re-searches (^C after an M-W).
+  - Better feedback at startup when opening large or multiple files.
+  - The option 'justifytrim' for snipping whitespace from justified lines.
+  - The ability to discard a buffer (^O ^Q) when --tempfile is used.
+  - Replacing things in a marked region now takes place in situ, in context,
+    instead of changing the view to only the marked text.
+  - On some terminals Ctrl+Left / Ctrl+Right now work for PrevWord/NextWord.
+  - When in the middle of a word, PrevWord now jumps to the start of this
+    word (like Pico does) instead of to the start of the preceding word.
+  - Invalid byte sequences are properly displayed and not mistakenly found.
+  - Resizing the window does not exit from help viewer nor file browser.
+  - Improved arrangement of the shortcuts in the two help lines.
+  - Several small bug fixes in the syntax highlighting.
+  - System syntaxes can be improved upon with the 'extendsyntax' command.
+  - The ability to delete whole words with 'cutwordleft' and 'cutwordright'.
+  - The ability to save a file without prompting for its name ('savefile').
+  - The ability to search backward without having to toggle the direction.
+  - Whitespace display (M-P) does not require configuration to be useful.
+  - Undo/redo is enabled by default (M-U/M-E) and works nearly everywhere
+    -- just not yet for justifying and indenting/unindenting.
+  - The ability to color the title bar, the status bar and the help lines.
+  - The ability to run a linter or formatter (^T) on the current buffer.
+  - The ability to only write to named pipes with --noread.
+  - Determination of the applicable syntax through libmagic -- when the
+    file extension nor the first line give an answer.
+  - The option 'positionlog' for saving/restoring the cursor position.
+  - The ability to read and write vim-style lock files.
 
 Visible changes since 2.0
 -------------------------
@@ -108,4 +143,4 @@ Visible changes since 1.0
   - Creation of backup files (-B).
   - Search/replace history (-H).
 
-See the GNU nano manual for detailed information on each feature.
+See the nano manual for detailed information on each feature.
