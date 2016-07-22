@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -24,7 +24,7 @@
 
 #include "curl_setup.h"
 
-#ifdef USE_SSLEAY
+#ifdef USE_OPENSSL
 /*
  * This header should only be needed to get included by vtls.c and openssl.c
  */
@@ -41,7 +41,7 @@ void Curl_ossl_close(struct connectdata *conn, int sockindex);
 
 /* tell OpenSSL to close down all open information regarding connections (and
    thus session ID caching etc) */
-int Curl_ossl_close_all(struct SessionHandle *data);
+void Curl_ossl_close_all(struct SessionHandle *data);
 
 /* Sets an OpenSSL engine */
 CURLcode Curl_ossl_set_engine(struct SessionHandle *data, const char *engine);
@@ -61,21 +61,38 @@ void Curl_ossl_cleanup(void);
 
 size_t Curl_ossl_version(char *buffer, size_t size);
 int Curl_ossl_check_cxn(struct connectdata *cxn);
-int Curl_ossl_seed(struct SessionHandle *data);
-
 int Curl_ossl_shutdown(struct connectdata *conn, int sockindex);
 bool Curl_ossl_data_pending(const struct connectdata *conn,
                             int connindex);
-void Curl_ossl_random(struct SessionHandle *data, unsigned char *entropy,
-                      size_t length);
+
+/* return 0 if a find random is filled in */
+int Curl_ossl_random(struct SessionHandle *data, unsigned char *entropy,
+                     size_t length);
 void Curl_ossl_md5sum(unsigned char *tmp, /* input */
                       size_t tmplen,
                       unsigned char *md5sum /* output */,
                       size_t unused);
+void Curl_ossl_sha256sum(const unsigned char *tmp, /* input */
+                      size_t tmplen,
+                      unsigned char *sha256sum /* output */,
+                      size_t unused);
 
-/* this backend provides these functions: */
-#define have_curlssl_random 1
-#define have_curlssl_md5sum 1
+bool Curl_ossl_cert_status_request(void);
+
+/* Set the API backend definition to OpenSSL */
+#define CURL_SSL_BACKEND CURLSSLBACKEND_OPENSSL
+
+/* this backend supports the CAPATH option */
+#define have_curlssl_ca_path 1
+
+/* this backend supports CURLOPT_CERTINFO */
+#define have_curlssl_certinfo 1
+
+/* this backend supports CURLOPT_SSL_CTX_* */
+#define have_curlssl_ssl_ctx 1
+
+/* this backend supports CURLOPT_PINNEDPUBLICKEY */
+#define have_curlssl_pinnedpubkey 1
 
 /* API setup for OpenSSL */
 #define curlssl_init Curl_ossl_init
@@ -94,8 +111,13 @@ void Curl_ossl_md5sum(unsigned char *tmp, /* input */
 #define curlssl_data_pending(x,y) Curl_ossl_data_pending(x,y)
 #define curlssl_random(x,y,z) Curl_ossl_random(x,y,z)
 #define curlssl_md5sum(a,b,c,d) Curl_ossl_md5sum(a,b,c,d)
+#if (OPENSSL_VERSION_NUMBER >= 0x0090800fL) && !defined(OPENSSL_NO_SHA256)
+#define curlssl_sha256sum(a,b,c,d) Curl_ossl_sha256sum(a,b,c,d)
+#endif
+#define curlssl_cert_status_request() Curl_ossl_cert_status_request()
 
-#define DEFAULT_CIPHER_SELECTION "ALL!EXPORT!EXPORT40!EXPORT56!aNULL!LOW!RC4"
+#define DEFAULT_CIPHER_SELECTION \
+  "ALL:!EXPORT:!EXPORT40:!EXPORT56:!aNULL:!LOW:!RC4:@STRENGTH"
 
-#endif /* USE_SSLEAY */
+#endif /* USE_OPENSSL */
 #endif /* HEADER_CURL_SSLUSE_H */

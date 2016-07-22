@@ -2125,7 +2125,7 @@ libcurl/stamp-h1: zlib openssl
 		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
 		--disable-nls --disable-ares --disable-dict --disable-debug --disable-gopher \
 		--disable-ldap --disable-manual --disable-telnet --disable-verbose \
-		--with-random="/dev/urandom" --with-ssl="$(TOP)/openssl" \
+		--with-random="/dev/urandom" --with-ssl="$(TOP)/openssl/ssl" \
 		--without-gnutls --without-krb4 --without-libidn \
 		--with-linux-headers=$(LINUXDIR)/include \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
@@ -2146,11 +2146,11 @@ libcurl-install: libcurl
 	install -D libcurl/src/.libs/curl $(INSTALLDIR)/libcurl/usr/sbin/curl
 	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/sbin/curl
 	install -d $(INSTALLDIR)/libcurl/usr/lib
-	install -D libcurl/lib/.libs/libcurl.so.4.3.0 $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.3.0
-	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.3.0
+	install -D libcurl/lib/.libs/libcurl.so.4.4.0 $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.4.0
+	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.4.0
 	cd $(INSTALLDIR)/libcurl/usr/lib/ && \
-		ln -sf libcurl.so.4.3.0 libcurl.so.4 && \
-		ln -sf libcurl.so.4.3.0 libcurl.so
+		ln -sf libcurl.so.4.4.0 libcurl.so.4 && \
+		ln -sf libcurl.so.4.4.0 libcurl.so
 
 libevent/stamp-h1:
 	cd libevent && CC=$(CC) \

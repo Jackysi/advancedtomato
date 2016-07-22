@@ -60,6 +60,13 @@ setenv ZLIB_INCLUDE     '/zlib/include'         # ZLIB include IFS directory.
 setenv ZLIB_LIB         'ZLIB'                  # ZLIB library.
 setenv ZLIB_BNDDIR      'ZLIB_A'                # ZLIB binding directory.
 
+#       Define LIBSSH2 availability and locations.
+
+setenv WITH_LIBSSH2     0                       # Define to 1 to enable.
+setenv LIBSSH2_INCLUDE  '/libssh2/include'      # LIBSSH2 include IFS directory.
+setenv LIBSSH2_LIB      'LIBSSH2'               # LIBSSH2 library.
+setenv LIBSSH2_BNDDIR   'LIBSSH2_A'             # LIBSSH2 binding directory.
+
 
 ################################################################################
 
@@ -119,6 +126,41 @@ action_needed()
 }
 
 
+#       canonicalize_path path
+#
+#       Return canonicalized path as:
+#       - Absolute
+#       - No . or .. component.
+
+canonicalize_path()
+
+{
+        if expr "${1}" : '^/' > /dev/null
+        then    P="${1}"
+        else    P="`pwd`/${1}"
+        fi
+
+        R=
+        IFSSAVE="${IFS}"
+        IFS="/"
+
+        for C in ${P}
+        do      IFS="${IFSSAVE}"
+                case "${C}" in
+                .)      ;;
+                ..)     R=`expr "${R}" : '^\(.*/\)..*'`
+                        ;;
+                ?*)     R="${R}${C}/"
+                        ;;
+                *)      ;;
+                esac
+        done
+
+        IFS="${IFSSAVE}"
+        echo "/`expr "${R}" : '^\(.*\)/'`"
+}
+
+
 #       make_module module_name source_name [additional_definitions]
 #
 #       Compile source name into ASCII module if needed.
@@ -131,6 +173,7 @@ make_module()
         MODULES="${MODULES} ${1}"
         MODIFSNAME="${LIBIFSNAME}/${1}.MODULE"
         action_needed "${MODIFSNAME}" "${2}" || return 0;
+        SRCDIR=`dirname \`canonicalize_path "${2}"\``
 
         #       #pragma convert has to be in the source file itself, i.e.
         #               putting it in an include file makes it only active
@@ -147,11 +190,15 @@ make_module()
         CMD="${CMD} SYSIFCOPT(*IFS64IO) OPTION(*INCDIRFIRST)"
         CMD="${CMD} LOCALETYPE(*LOCALE)"
         CMD="${CMD} INCDIR('/qibm/proddata/qadrt/include'"
-        CMD="${CMD} '${TOPDIR}/include/curl' '${TOPDIR}/include'"
+        CMD="${CMD} '${TOPDIR}/include/curl' '${TOPDIR}/include' '${SRCDIR}'"
         CMD="${CMD} '${TOPDIR}/packages/OS400'"
 
         if [ "${WITH_ZLIB}" != "0" ]
         then    CMD="${CMD} '${ZLIB_INCLUDE}'"
+        fi
+
+        if [ "${WITH_LIBSSH2}" != "0" ]
+        then    CMD="${CMD} '${LIBSSH2_INCLUDE}'"
         fi
 
         CMD="${CMD} ${INCLUDES})"
@@ -164,6 +211,10 @@ make_module()
 
         if [ "${WITH_ZLIB}" != "0" ]
         then    DEFINES="${DEFINES} HAVE_LIBZ HAVE_ZLIB_H"
+        fi
+
+        if [ "${WITH_LIBSSH2}" != "0" ]
+        then    DEFINES="${DEFINES} USE_LIBSSH2 HAVE_LIBSSH2_H"
         fi
 
         if [ "${DEFINES}" ]
