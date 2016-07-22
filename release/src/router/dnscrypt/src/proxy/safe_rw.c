@@ -4,11 +4,16 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #ifndef _WIN32
 # include <poll.h>
 #endif
 #include <stdlib.h>
 #include <unistd.h>
+
+#ifndef SSIZE_MAX
+# define SSIZE_MAX (SIZE_MAX / 2 - 1)
+#endif
 
 #include "safe_rw.h"
 
@@ -24,6 +29,7 @@ safe_write(const int fd, const void * const buf_, size_t count,
     pfd.fd = fd;
     pfd.events = POLLOUT;
 
+    assert(count <= SSIZE_MAX);
     while (count > (size_t) 0) {
         while ((written = write(fd, buf, count)) <= (ssize_t) 0) {
             if (errno == EAGAIN) {
@@ -48,6 +54,7 @@ safe_read(const int fd, void * const buf_, size_t count)
     unsigned char *buf = (unsigned char *) buf_;
     ssize_t        readnb;
 
+    assert(count <= SSIZE_MAX);
     do {
         while ((readnb = read(fd, buf, count)) < (ssize_t) 0 &&
                errno == EINTR);
@@ -70,6 +77,7 @@ safe_read_partial(const int fd, void * const buf_, const size_t max_count)
     unsigned char * const buf = (unsigned char *) buf_;
     ssize_t               readnb;
 
+    assert(max_count <= SSIZE_MAX);
     while ((readnb = read(fd, buf, max_count)) < (ssize_t) 0 &&
            errno == EINTR);
 
