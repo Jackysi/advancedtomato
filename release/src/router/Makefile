@@ -1561,7 +1561,7 @@ minidlna-clean:
 	-@$(MAKE) -C minidlna clean
 	@rm -f minidlna/stamp-h1
 
-minidlna-install: minidlan
+minidlna-install: minidlna
 	@$(SEP)
 	install -D minidlna/minidlna $(INSTALLDIR)/minidlna/usr/sbin/minidlna
 	$(STRIP) $(INSTALLDIR)/minidlna/usr/sbin/minidlna
