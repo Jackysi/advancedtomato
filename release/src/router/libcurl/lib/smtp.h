@@ -11,7 +11,7 @@
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -23,6 +23,7 @@
  ***************************************************************************/
 
 #include "pingpong.h"
+#include "curl_sasl.h"
 
 /****************************************************************************
  * SMTP unique setup
@@ -36,17 +37,7 @@ typedef enum {
   SMTP_STARTTLS,
   SMTP_UPGRADETLS,  /* asynchronously upgrade the connection to SSL/TLS
                        (multi mode only) */
-  SMTP_AUTH_PLAIN,
-  SMTP_AUTH_LOGIN,
-  SMTP_AUTH_LOGIN_PASSWD,
-  SMTP_AUTH_CRAMMD5,
-  SMTP_AUTH_DIGESTMD5,
-  SMTP_AUTH_DIGESTMD5_RESP,
-  SMTP_AUTH_NTLM,
-  SMTP_AUTH_NTLM_TYPE2MSG,
-  SMTP_AUTH_XOAUTH2,
-  SMTP_AUTH_CANCEL,
-  SMTP_AUTH_FINAL,
+  SMTP_AUTH,
   SMTP_COMMAND,     /* VRFY, EXPN, NOOP, RSET and HELP */
   SMTP_MAIL,        /* MAIL FROM */
   SMTP_RCPT,        /* RCPT TO */
@@ -76,9 +67,7 @@ struct smtp_conn {
   smtpstate state;         /* Always use smtp.c:state() to change state! */
   bool ssldone;            /* Is connect() over SSL done? */
   char *domain;            /* Client address/name to send in the EHLO */
-  unsigned int authmechs;  /* Accepted authentication mechanisms */
-  unsigned int prefmech;   /* Preferred authentication mechanism */
-  unsigned int authused;   /* Auth mechanism used for the connection */
+  struct SASL sasl;        /* SASL-related storage */
   bool tls_supported;      /* StartTLS capability supported by server */
   bool size_supported;     /* If server supports SIZE extension according to
                               RFC 1870 */
@@ -97,6 +86,6 @@ extern const struct Curl_handler Curl_handler_smtps;
 #define SMTP_EOB_REPL "\x0d\x0a\x2e\x2e"
 #define SMTP_EOB_REPL_LEN 4
 
-CURLcode Curl_smtp_escape_eob(struct connectdata *conn, ssize_t nread);
+CURLcode Curl_smtp_escape_eob(struct connectdata *conn, const ssize_t nread);
 
 #endif /* HEADER_CURL_SMTP_H */
