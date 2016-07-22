@@ -1,8 +1,73 @@
-Copyright 1996, 1999-2014 Free Software Foundation, Inc.
+Copyright 1996, 1999-2015 Free Software Foundation, Inc.
 
 Verbatim copying and distribution of this entire article is permitted in any
 medium, provided this notice is preserved.
 
+
+Changes between GMP version 6.0.* and 6.1.0
+
+  BUGS FIXED
+  * The public function mpn_com is now correctly declared in gmp.h.
+
+  * Healed possible failures of mpn_sec_sqr for non-cryptographic sizes for
+    some obsolete CPUs.
+
+  * The option --disable-assembly now disables all inlined asm.
+
+  * Fixed bug affecting mini-gmp's bitwise functions mpz_setbit, mpz_clrbit,
+    and mpz_combit.
+
+  * Various problems related to precision for mpf have been fixed.
+
+  * Fixed ABI incompatible stack alignment in calls from assembly code.
+
+  * Fixed PIC bug in popcount affecting Intel processors using the 32-bit ABI.
+
+  SPEEDUPS
+  * Speedup for Intel Broadwell and Skylake though assembly code making use of
+    new ADX instructions.
+
+  * Square root is now faster when the remainder is not needed. Also the speed
+    to compute the k-th root improved, for small sizes.
+
+  * Improved arm64 support.
+
+  FEATURES
+  * New C++ functions gcd and lcm for mpz_class.
+
+  * New public mpn functions mpn_divexact_1, mpn_zero_p, and mpn_cnd_swap.
+
+  * New public mpq_cmp_z function, to efficiently compare rationals with
+    integers.
+
+  * Support for Darwin in all x86 code, thereby enabling fat builds on Darwin.
+
+  * Support for more 32-bit arm processors.
+
+  * Support for compilation with clang/llvm on more platforms.  Caution: GMP
+    triggers mis-compilation bugs in clang for many platforms, such as arm, x86
+    (32-bit and 64-bit), powerpc, mips.
+
+  * Support for AVX-less modern x86 CPUs. (Such support might be missing either
+    because the CPU vendor chose to disable AVX, or because the running kernel
+    lacks AVX context switch support.)
+
+  * Stack usage trimmed; we believe 512 KiB is now sufficient for any GMP
+    call, irrespective of operand size.
+
+  * Support for NetBSD under Xen; we switch off AVX unconditionally under
+    NetBSD since a bug in NetBSD makes AVX fail under Xen.
+
+  MISC
+  * We now use manufacturers' code names for x86 CPUs, e.g., "haswell" instead
+    of names derived from the commercial brands.
+
+  * Small improvements and better coverage for the test suite.
+
+  * The various FreeBSD problems listed for 6.0.0 affect this release too.
+
+  * Tuned values for FFT multiplications are provided for larger number on
+    many platforms.
 
 Changes between GMP version 5.1.* and 6.0.0
 

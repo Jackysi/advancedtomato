@@ -55,7 +55,7 @@ PROLOGUE(mpn_invert_limb)
 	bx	lr
 EPILOGUE()
 
-	.section .rodata
+	RODATA
 	ALIGN(2)
 approx_tab:
 	.short    0xffc0,0xfec0,0xfdc0,0xfcc0,0xfbc0,0xfac0,0xfa00,0xf900
