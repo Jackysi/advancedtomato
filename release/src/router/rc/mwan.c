@@ -283,6 +283,9 @@ void mwan_status_update(void)
 		}
 	}
 
+	// write failover status to file
+	f = fopen("/tmp/wan.failover", "w+");
+
 #ifdef TCONFIG_MULTIWAN
 	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2') && (mwan_curr[2] < '2') && (mwan_curr[3] < '2')) {
 #else
@@ -292,23 +295,30 @@ void mwan_status_update(void)
 		if (nvram_match("wan_weight", "0") && (mwan_curr[0] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN1");
 			mwan_curr[0] = '2';
+			fprintf(f, "WAN:1\n");
 		}
 		if (nvram_match("wan2_weight", "0") && (mwan_curr[1] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN2");
 			mwan_curr[1] = '2';
+			fprintf(f, "WAN2:1\n");
 		}
 #ifdef TCONFIG_MULTIWAN
 		if (nvram_match("wan3_weight", "0") && (mwan_curr[2] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN3");
 			mwan_curr[2] = '2';
+			fprintf(f, "WAN3:1\n");
 		}
 		if (nvram_match("wan4_weight", "0") && (mwan_curr[3] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN4");
 			mwan_curr[3] = '2';
+			fprintf(f, "WAN4:1\n");
 		}
 #endif
+	} else {
+		fprintf(f, "NONE:0\n");
 	}
 
+	fclose(f);
 	mwanlog(LOG_DEBUG, "OUT fun mwan_status_update, mwan_curr=%s", mwan_curr);
 }
 
