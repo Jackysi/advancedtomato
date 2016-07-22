@@ -72,8 +72,13 @@ ifeq ($(NVRAM_64K),y)
 EXTRA_64KDESC = ' -64K'
 EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_64K'
 else
+ifeq ($(NVRAM_128K),y)
+EXTRA_64KDESC = '-128K'
+EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_128K'
+else
 EXTRA_64KDESC = ''
 EXTRA_64KCFLAG = ''
+endif
 endif
 
 ifeq ($(ARM),y)
@@ -157,11 +162,15 @@ endif
 ifeq ($(ASUS_TRX),DLINK)
 	ctools/trx_asus -i image/linux-lzma.trx -r DIR868L,3.0.0.4,image/tomato-DIR868L-$(V1)$(V2)-$(current_BUILD_DESC).trx
 endif
-# for R7000, R6300v2, R6250
+# for R7000, R6400, R6300v2, R6250
 ifeq ($(ASUS_TRX),NETGEAR)
+ifeq ($(NVRAM_128K),y)
+	ctools/trx_asus -i image/linux-lzma.trx -r R6400,3.0.0.4,image/tomato-R6400-$(V1)$(V2)-$(current_BUILD_DESC).trx
+else
 	ctools/trx_asus -i image/linux-lzma.trx -r R7000,3.0.0.4,image/tomato-R7000-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r R6300v2,3.0.0.4,image/tomato-R6300v2-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	ctools/trx_asus -i image/linux-lzma.trx -r R6250,3.0.0.4,image/tomato-R6250-$(V1)$(V2)-$(current_BUILD_DESC).trx
+endif
 endif
 # for WS880
 ifeq ($(ASUS_TRX),HUAWEI)
@@ -470,6 +479,10 @@ define RouterOptions
         if [ "$(NVRAM_64K)" = "y" ]; then \
                 sed -i "/TCONFIG_NVRAM_64K/d" $(1); \
                 echo "TCONFIG_NVRAM_64K=y" >>$(1); \
+        fi; \
+        if [ "$(NVRAM_128K)" = "y" ]; then \
+                sed -i "/TCONFIG_NVRAM_128K/d" $(1); \
+                echo "TCONFIG_NVRAM_128K=y" >>$(1); \
         fi; \
 	if [ "$(TOR)" = "y" ]; then \
 		sed -i "/TCONFIG_TOR/d" $(1); \
@@ -864,6 +877,12 @@ define KernelConfig
         else \
                 echo "# CONFIG_NVRAM_64K is not set" >>$(1); \
 	fi; \
+        sed -i "/CONFIG_NVRAM_128K/d" $(1); \
+        if [ "$(NVRAM_128K)" = "y" ]; then \
+                echo "CONFIG_NVRAM_128K=y" >>$(1); \
+        else \
+                echo "# CONFIG_NVRAM_128K is not set" >>$(1); \
+	fi; \
 	if [ "$(SATA)" = "y" ]; then \
 		sed -i "/CONFIG_CMDLINE/d" $(1); \
 		echo "CONFIG_CMDLINE=\"root=\/dev\/mtdblock2 console=ttyS0,115200 init=\/sbin\/preinit earlyprintk debug libata.force=3.0Gbps\"" >>$(1); \
@@ -965,6 +984,12 @@ r7000e:
 r7000z:
 	@$(MAKE) z ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS"
 
+r6400e:
+	@$(MAKE) e ARM=y NVRAM_128K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS"
+
+r6400z:
+	@$(MAKE) z ARM=y NVRAM_128K=y NAND=y BCMSMP=y ASUS_TRX="NETGEAR" UFSD="ASUS"
+
 r7000init:
 	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R7000" BOARDID_FILE="compatible_r7000.txt" FW_CFG_FILE="ambitCfg-r7000.h"
 
@@ -973,6 +998,9 @@ r6250init:
 
 r6300v2init:
 	@$(MAKE) bin ARM=y NVRAM_64K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R6300v2" BOARDID_FILE="compatible_r6300v2.txt" FW_CFG_FILE="ambitCfg-r6300v2.h"
+
+r6400init:
+	@$(MAKE) bin ARM=y NVRAM_128K=y NAND=y BCMSMP=y B=E IPV6SUPP=y OPENVPN=y BUILD_DESC="initial" NETGEAR_CHK="R6400" BOARDID_FILE="compatible_r6400.txt" FW_CFG_FILE="ambitCfg-r6400.h"
 
 ws880e:
 	@$(MAKE) e ARM=y NVRAM_64K=y NAND=y BCMSMP=y ASUS_TRX="HUAWEI"
@@ -1059,9 +1087,12 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "NETGEAR ARM Builds"
 	@echo "r7000e        R7000/R6300v2/R6250 build VPN"
 	@echo "r7000z        R7000/R6300v2/R6250 build AIO"
+	@echo "r6400e        R6400 build VPN - 128K NVRAM"
+	@echo "r6400z        R6400 build AIO - 128K NVRAM"
 	@echo "r7000init     R7000 init build"
 	@echo "r6250init     R6250 init build"
 	@echo "r6300v2init   R6300v2 init build"
+	@echo "r6400init     R6400 init build"
 	@echo "Xiaomi ARM Builds"
 	@echo "r1do          R1D custom build"
 	@echo "HUAWEI ARM Builds"

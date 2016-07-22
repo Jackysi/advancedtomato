@@ -583,6 +583,7 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "4 5");
 		break;
 	case MODEL_R7000:
+	case MODEL_R6400:
 	case MODEL_RTN18U:
 	case MODEL_RTAC68U:
 	case MODEL_WS880:
@@ -775,6 +776,7 @@ static void check_bootnv(void)
 #endif
 #ifdef CONFIG_BCMWL6
 	case MODEL_R7000:
+	case MODEL_R6400:
 	case MODEL_R6250:
 	case MODEL_R6300v2:
 		nvram_unset("et1macaddr");
@@ -1523,10 +1525,13 @@ static int init_nvram(void)
 		break;
 	case MODEL_R6250:
 	case MODEL_R6300v2:
+	case MODEL_R6400:
 	case MODEL_R7000:
 		mfr = "Netgear";
 		if(nvram_match("board_id", "U12H245T00_NETGEAR")) //R6250
 			name = "R6250";
+		else if(nvram_match("board_id", "U12H332T00_NETGEAR")) //R6400
+			name = "R6400";
 		else
 			name = model == MODEL_R7000 ? "R7000" : "R6300v2"; //R7000 or R6300v2
 

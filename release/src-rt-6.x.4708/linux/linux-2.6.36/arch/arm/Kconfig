@@ -1168,6 +1168,10 @@ config CRASHLOG
 	depends on BCM947XX
 	default n
 
+config NVRAM_128K
+        bool "Support nvram 128K"
+        default n
+
 config DUAL_TRX
         bool "Support dual trx"
         default n

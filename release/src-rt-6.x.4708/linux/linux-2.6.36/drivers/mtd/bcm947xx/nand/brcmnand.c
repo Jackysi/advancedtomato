@@ -780,7 +780,11 @@ init_brcmnand_mtd_partitions(struct mtd_info *mtd, uint64_t size)
 
 	knldev = soc_knl_dev((void *)brcmnand->sih);
 	if (knldev == SOC_KNLDEV_NANDFLASH)
+#ifdef CONFIG_NVRAM_128K
+		offset = 0x3400000;
+#else
 		offset = nfl_boot_os_size(brcmnand->nfl);
+#endif
 
 #ifdef CONFIG_DUAL_TRX
 		offset = offset*2; //Dual Trx
@@ -792,7 +796,12 @@ init_brcmnand_mtd_partitions(struct mtd_info *mtd, uint64_t size)
 	ASSERT(size > offset);
 
 	brcmnand_parts[0].offset = offset;
+#ifdef CONFIG_NVRAM_128K
+	brcmnand_parts[0].size = size - offset -
+				(0x500000+0x80000+0x100000+0x100000+0x2c0000+0x2c0000+0x80000+0x80000+0x80000+0x80000+0x80000+0x80000+0x80000+0x80000+0x100000+0x100000); //kathy modified
+#else
 	brcmnand_parts[0].size = size - offset;
+#endif
 
 	return brcmnand_parts;
 }

@@ -102,7 +102,8 @@ switch(nvram['t_model_name']) {
 	case 'Asus RT-AC3200':
 	case 'Huawei WS880':
 	case 'Linksys EA6900':
-	case 'Netgear R7000':
+	case 'Netgear R6400':
+	case 'Netgear R7000': // newer versions
 		COL_P0N = '1';
 		COL_P1N = '2';
 		COL_P2N = '3';

@@ -41,6 +41,7 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_NANO is not set
 # TCONFIG_DNSCRYPT is not set
 # TCONFIG_NVRAM_64K is not set
+# TCONFIG_NVRAM_128K is not set
 # TCONFIG_TOR is not set
 # TCONFIG_MICROSD is not set
 # TCONFIG_USBAP is not set

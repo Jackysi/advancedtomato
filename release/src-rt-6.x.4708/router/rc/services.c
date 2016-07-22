@@ -2378,8 +2378,15 @@ void start_services(void)
 #endif
 
 
+	if ((get_model() == MODEL_R6400)) {
+		//activate WAN port led
+		//leave only white color
+		//system("gpio disable 6"); // orange
+		system("gpio disable 7"); // white
+	}
+
 	if ((get_model() == MODEL_R7000)) {
-		//enable WAN port led
+		//activate WAN port led
 		system("/usr/sbin/et robowr 0x0 0x10 0x3000");
 		system("/usr/sbin/et robowr 0x0 0x12 0x78");
 		system("/usr/sbin/et robowr 0x0 0x14 0x01");

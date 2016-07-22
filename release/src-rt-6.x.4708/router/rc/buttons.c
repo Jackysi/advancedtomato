@@ -221,6 +221,11 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_D1800H:
 		reset_mask = 1 << 5;
 		break;
+	case MODEL_R6400:
+		reset_mask = 1 << 5;
+		ses_mask = 1 << 4;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_R6250:
 	case MODEL_R6300v2:
 	case MODEL_R7000:
