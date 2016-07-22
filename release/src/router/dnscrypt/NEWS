@@ -1,14 +1,22 @@
 
+* Version 1.6.1:
+ - Security: malformed packets could cause the OpenDNS deviceid,
+OpenDNS set-client-ip, blocking and AAAA blocking plugins to use
+uninitialized pointers, leading to a denial of service or possibly
+code execution. The vulnerable code is present since dnscrypt-proxy
+1.1.0. OpenDNS users and people using dnscrypt-proxy in order to block
+domain names and IP addresses should upgrade as soon as possible.
+
 * Version 1.6.0:
  - New feature: public-key based client authentication (-K), for
 private and commercial DNS services to securely authenticate the
 sender of a query no matter what the source IP address is, without
 altering the DNS query.
  - On Windows, paths are now relative to the application folder. Which
-means that the -L option is usually not required any more if the CSV file is
-in the same folder as the dnscrypt-proxy executable. Full paths to
-plugins are not required any more either; plugin names can be given
-directly.
+means that the -L option is usually not required any more if the CSV
+file is in the same folder as the dnscrypt-proxy executable. Full
+paths to plugins are not required any more either; plugin names can be
+given directly.
 
 * Version 1.5.0:
  - New option: -E, to use an ephemeral key pair for each query.
