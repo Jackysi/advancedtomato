@@ -141,7 +141,7 @@ static char *strip_domain(const char *name, const char *domain)
 	if (c == NULL && domain == NULL) {
 		len = strlen(name) + 1;
 	} else {
-		if (domain && strcmp(c + 1, domain) != 0)
+		if (domain && strcasecmp(c + 1, domain) != 0)
 			goto out;
 		len = c - name;
 	}
@@ -324,9 +324,9 @@ int nss_gss_princ_to_grouplist(char *secname, char *princ,
 		ret = -ENOENT;
 		goto out;
 	}
-	//	if (getgrouplist(pw->pw_name, pw->pw_gid, groups, ngroups) < 0)
-	//		ret = -ERANGE;
-	//	free(pw);
+	if (getgrouplist(pw->pw_name, pw->pw_gid, groups, ngroups) < 0)
+		ret = -ERANGE;
+	free(pw);
 out:
 	return ret;
 }

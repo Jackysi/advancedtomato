@@ -1,8 +1,8 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.66])
-AC_INIT([libnfsidmap],[0.24],[linux-nfs@vger.kernel.org])
+AC_PREREQ([2.68])
+AC_INIT([libnfsidmap],[0.25],[linux-nfs@vger.kernel.org])
 AC_CONFIG_SRCDIR([nfsidmap.h])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -36,7 +36,20 @@ if test "x$enable_gums" = "xyes" ; then
 fi
 AM_CONDITIONAL(ENABLE_GUMS, test "x$enable_gums" = "xyes")
 
+#Where do the Plugins live
+AC_ARG_WITH(pluginpath,
+    [AS_HELP_STRING([--with-pluginpath=/foo],[Causes the library to look in /foo instead of /usr/lib/libnfsidmap for plugins
+    ])],
+    path_plugins=$withval,
+    path_plugins=""
+    )
+if test -n "$path_plugins" ; then
+	AC_DEFINE_UNQUOTED(PATH_PLUGINS, "$path_plugins",
+		[Define this to change the plugins path])
+fi
+AM_CONDITIONAL(PATH_PLUGINS, test -n "$path_plugins")
 
+AC_CONFIG_HEADERS([./config.h])
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h errno.h])
