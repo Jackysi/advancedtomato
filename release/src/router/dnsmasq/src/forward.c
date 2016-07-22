@@ -440,7 +440,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	  
 	  if (type == (start->flags & SERV_TYPE) &&
 	      (type != SERV_HAS_DOMAIN || hostname_isequal(domain, start->domain)) &&
-             !(start->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
+	      !(start->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
 	    {
 	      int fd;
 
@@ -557,13 +557,13 @@ static size_t process_reply(struct dns_header *header, time_t now, struct server
       struct ipsets *ipset_pos;
       unsigned int namelen = strlen(daemon->namebuff);
       unsigned int matchlen = 0;
-      for (ipset_pos = daemon->ipsets; ipset_pos; ipset_pos = ipset_pos->next)
+      for (ipset_pos = daemon->ipsets; ipset_pos; ipset_pos = ipset_pos->next) 
 	{
 	  unsigned int domainlen = strlen(ipset_pos->domain);
 	  char *matchstart = daemon->namebuff + namelen - domainlen;
 	  if (namelen >= domainlen && hostname_isequal(matchstart, ipset_pos->domain) &&
 	      (domainlen == 0 || namelen == domainlen || *(matchstart - 1) == '.' ) &&
-	      domainlen >= matchlen)
+	      domainlen >= matchlen) 
 	    {
 	      matchlen = domainlen;
 	      sets = ipset_pos->sets;
@@ -850,8 +850,19 @@ void reply_query(int fd, int family, time_t now)
 		/* We only cache sigs when we've validated a reply.
 		   Avoid caching a reply with sigs if there's a vaildated break in the 
 		   DS chain, so we don't return replies from cache missing sigs. */
-		status = STAT_INSECURE_DS;
-	      else if (status == STAT_NO_NS || status == STAT_NO_SIG)
+              	status = STAT_INSECURE_DS;
+	      else if (status == STAT_NO_SIG)
+                {
+                  if (option_bool(OPT_DNSSEC_NO_SIGN))
+                    {
+		      status = send_check_sign(forward, now, header, n, daemon->namebuff, daemon->keyname);
+		      if (status == STAT_INSECURE)
+			status = STAT_INSECURE_DS;
+		    }
+		  else
+		    status = STAT_INSECURE_DS;
+		}
+              else if (status == STAT_NO_NS)
 		status = STAT_BOGUS;
 	    }
 	  else if (forward->flags & FREC_CHECK_NOSIGN)
@@ -997,8 +1008,19 @@ void reply_query(int fd, int family, time_t now)
 			   Avoid caching a reply with sigs if there's a vaildated break in the 
 			   DS chain, so we don't return replies from cache missing sigs. */
 			status = STAT_INSECURE_DS;
-		      else if (status == STAT_NO_NS || status == STAT_NO_SIG)
-			status = STAT_BOGUS; 
+		       else if (status == STAT_NO_SIG)
+			 {
+			   if (option_bool(OPT_DNSSEC_NO_SIGN))
+			     {
+			       status = send_check_sign(forward, now, header, n, daemon->namebuff, daemon->keyname); 
+			       if (status == STAT_INSECURE)
+				 status = STAT_INSECURE_DS;
+			     }
+			   else
+			     status = STAT_INSECURE_DS;
+			 }
+		       else if (status == STAT_NO_NS)
+			 status = STAT_BOGUS;
 		    }
 		  else if (forward->flags & FREC_CHECK_NOSIGN)
 		    {
@@ -1356,7 +1378,7 @@ void receive_query(struct listener *listen, time_t now)
 #ifdef HAVE_LOOP
       /* Check for forwarding loop */
       if (detect_loop(daemon->namebuff, type))
-       return;
+	return;
 #endif
     }
   
@@ -1397,7 +1419,7 @@ void receive_query(struct listener *listen, time_t now)
 /* UDP: we've got an unsigned answer, return STAT_INSECURE if we can prove there's no DS
    and therefore the answer shouldn't be signed, or STAT_BOGUS if it should be, or 
    STAT_NEED_DS_NEG and keyname if we need to do the query. */
-static int send_check_sign(struct frec *forward, time_t now, struct dns_header *header, size_t plen,
+static int send_check_sign(struct frec *forward, time_t now, struct dns_header *header, size_t plen, 
 			   char *name, char *keyname)
 {
   int status = dnssec_chase_cname(now, header, plen, name, keyname);
@@ -1405,31 +1427,31 @@ static int send_check_sign(struct frec *forward, time_t now, struct dns_header *
   if (status != STAT_INSECURE)
     return status;
 
-/* Store the domain we're trying to check. */
+  /* Store the domain we're trying to check. */
   forward->name_start = strlen(name);
   forward->name_len = forward->name_start + 1;
   if (!(forward->orig_domain = blockdata_alloc(name, forward->name_len)))
     return STAT_BOGUS;
-
+  
   return do_check_sign(forward, 0, now, name, keyname);
 }
-
-/* We either have a a reply (header non-NULL, or we need to start by looking in the cache */
+ 
+/* We either have a a reply (header non-NULL, or we need to start by looking in the cache */ 
 static int do_check_sign(struct frec *forward, int status, time_t now, char *name, char *keyname)
 {
   /* get domain we're checking back from blockdata store, it's stored on the original query. */
-  while (forward->dependent)
+  while (forward->dependent && !forward->orig_domain)
     forward = forward->dependent;
 
   blockdata_retrieve(forward->orig_domain, forward->name_len, name);
-
+  
   while (1)
     {
-      char *p;
+      char *p; 
 
       if (status == 0)
 	{
-	struct crec *crecp;
+	  struct crec *crecp;
 
 	  /* Haven't received answer, see if in cache */
 	  if (!(crecp = cache_find_by_name(NULL, &name[forward->name_start], now, F_DS)))
@@ -1440,7 +1462,7 @@ static int do_check_sign(struct frec *forward, int status, time_t now, char *nam
 	      return STAT_NEED_DS_NEG;
 	    }
 
-	  /* F_DNSSECOK misused in DS cache records to non-existance of NS record */
+	  /* F_DNSSECOK misused in DS cache records to non-existance of NS record */ 
 	  if (!(crecp->flags & F_NEG))
 	    status = STAT_SECURE;
 	  else if (crecp->flags & F_DNSSECOK)
@@ -1448,41 +1470,41 @@ static int do_check_sign(struct frec *forward, int status, time_t now, char *nam
 	  else
 	    status = STAT_NO_NS;
 	}
-
-      /* Have entered non-signed part of DNS tree. */
+      
+      /* Have entered non-signed part of DNS tree. */ 
       if (status == STAT_NO_DS)
-	return STAT_INSECURE;
+	return forward->dependent ? STAT_INSECURE_DS : STAT_INSECURE;
 
       if (status == STAT_BOGUS)
 	return STAT_BOGUS;
 
       if (status == STAT_NO_SIG && *keyname != 0)
 	{
-	  /* There is a validated CNAME chain that doesn't end in a DS record. Start.
+	  /* There is a validated CNAME chain that doesn't end in a DS record. Start 
 	     the search again in that domain. */
 	  blockdata_free(forward->orig_domain);
 	  forward->name_start = strlen(keyname);
 	  forward->name_len = forward->name_start + 1;
 	  if (!(forward->orig_domain = blockdata_alloc(keyname, forward->name_len)))
 	    return STAT_BOGUS;
-
+	  
 	  strcpy(name, keyname);
 	  status = 0; /* force to cache when we iterate. */
 	  continue;
 	}
-
-	/* There's a proven DS record, or we're within a zone, where there doesn't need
-	 to be a DS record. Add a name and try again..
+      
+      /* There's a proven DS record, or we're within a zone, where there doesn't need
+	 to be a DS record. Add a name and try again. 
 	 If we've already tried the whole name, then fail */
 
       if (forward->name_start == 0)
 	return STAT_BOGUS;
-
+      
       for (p = &name[forward->name_start-2]; (*p != '.') && (p != name); p--);
-
+      
       if (p != name)
 	p++;
-
+      
       forward->name_start = p - name;
       status = 0; /* force to cache when we iterate. */
     }
@@ -1497,7 +1519,6 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
   size_t m;
   unsigned char *packet, *payload;
   u16 *length;
-  unsigned char *p = (unsigned char *)(header+1);
   int status, name_len;
   struct blockdata *block;
 
@@ -1518,7 +1539,7 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
   /* Stash the name away, since the buffer will be trashed when we recurse */
   name_len = strlen(name) + 1;
   name_start = name + name_len - 1;
-
+  
   if (!(block = blockdata_alloc(name, name_len)))
     {
       free(packet);
@@ -1528,7 +1549,6 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
   while (1)
     {
       unsigned char c1, c2;
-
       struct crec *crecp;
 
       if (--(*keycount) == 0)
@@ -1537,9 +1557,9 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
 	  blockdata_free(block);
 	  return STAT_BOGUS;    
 	}
-
-      while (crecp = cache_find_by_name(NULL, name_start, now, F_DS))
-	{
+      
+      while ((crecp = cache_find_by_name(NULL, name_start, now, F_DS)))
+	{      
 	  if ((crecp->flags & F_NEG) && (crecp->flags & F_DNSSECOK))
 	    {
 	      /* Found a secure denial of DS - delegation is indeed insecure */
@@ -1547,24 +1567,24 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
 	      blockdata_free(block);
 	      return STAT_INSECURE;
 	    }
-
+      
 	  /* Here, either there's a secure DS, or no NS and no DS, and therefore no delegation.
 	     Add another label and continue. */
-
+ 
 	  if (name_start == name)
 	    {
 	      free(packet);
 	      blockdata_free(block);
 	      return STAT_BOGUS; /* run out of labels */
 	    }
-
+	  
 	  name_start -= 2;
-	  while (*name_start != '.' && name_start != name)
+	  while (*name_start != '.' && name_start != name) 
 	    name_start--;
 	  if (name_start != name)
 	    name_start++;
 	}
-
+      
       /* Can't find it in the cache, have to send a query */
 
       m = dnssec_generate_query(header, ((char *) header) + 65536, name_start, class, T_DS, &server->addr, server->edns_pktsz);
@@ -1577,10 +1597,10 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
 	  read_write(server->tcpfd, payload, (c1 << 8) | c2, 1))
 	{
 	  m = (c1 << 8) | c2;
-
+	  
 	  /* Note this trashes all three name workspaces */
 	  status = tcp_key_recurse(now, STAT_NEED_DS_NEG, header, m, class, name, keyname, server, keycount);
-
+	  
 	  if (status == STAT_NO_DS)
 	    {
 	      /* Found a secure denial of DS - delegation is indeed insecure */
@@ -1588,49 +1608,49 @@ static int  tcp_check_for_unsigned_zone(time_t now, struct dns_header *header, s
 	      blockdata_free(block);
 	      return STAT_INSECURE;
 	    }
-
+	  
 	  if (status == STAT_NO_SIG && *keyname != 0)
 	    {
-	      /* There is a validated CNAME chain that doesn't end in a DS record. Start.
+	      /* There is a validated CNAME chain that doesn't end in a DS record. Start 
 		 the search again in that domain. */
 	      blockdata_free(block);
 	      name_len = strlen(keyname) + 1;
 	      name_start = name + name_len - 1;
-
+	      
 	      if (!(block = blockdata_alloc(keyname, name_len)))
 		return STAT_BOGUS;
-
+	      
 	      strcpy(name, keyname);
 	      continue;
 	    }
-
+	  
 	  if (status == STAT_BOGUS)
 	    {
 	      free(packet);
 	      blockdata_free(block);
 	      return STAT_BOGUS;
 	    }
-
+	  
 	  /* Here, either there's a secure DS, or no NS and no DS, and therefore no delegation.
 	     Add another label and continue. */
-
+	  
 	  /* Get name we're checking back. */
 	  blockdata_retrieve(block, name_len, name);
-
+	  
 	  if (name_start == name)
 	    {
 	      free(packet);
 	      blockdata_free(block);
 	      return STAT_BOGUS; /* run out of labels */
 	    }
-
+	  
 	  name_start -= 2;
-	  while (*name_start != '.' && name_start != name)
+	  while (*name_start != '.' && name_start != name) 
 	    name_start--;
 	  if (name_start != name)
 	    name_start++;
 	}
-       else
+      else
 	{
 	  /* IO failure */
 	  free(packet);
@@ -1659,7 +1679,18 @@ static int tcp_key_recurse(time_t now, int status, struct dns_header *header, si
 	{
 	  if (new_status == STAT_NO_DS)
 	    new_status = STAT_INSECURE_DS;
-	  else if (new_status == STAT_NO_NS || new_status == STAT_NO_SIG)
+	  if (new_status == STAT_NO_SIG)
+	   {
+	     if (option_bool(OPT_DNSSEC_NO_SIGN))
+	       {
+		 new_status = tcp_check_for_unsigned_zone(now, header, n, class, name, keyname, server, keycount);
+		 if (new_status == STAT_INSECURE)
+		   new_status = STAT_INSECURE_DS;
+	       }
+	     else
+	       new_status = STAT_INSECURE_DS;
+	   }
+	  else if (new_status == STAT_NO_NS)
 	    new_status = STAT_BOGUS;
 	}
     }
@@ -1724,8 +1755,19 @@ static int tcp_key_recurse(time_t now, int status, struct dns_header *header, si
 		    {
 		      if (new_status == STAT_NO_DS)
 			new_status = STAT_INSECURE_DS;
-		      else if (new_status == STAT_NO_NS || new_status == STAT_NO_SIG)
-			new_status = STAT_BOGUS; /* Validated no DS */
+		      else if (new_status == STAT_NO_SIG)
+			{
+			  if (option_bool(OPT_DNSSEC_NO_SIGN))
+			    {
+			      new_status = tcp_check_for_unsigned_zone(now, header, n, class, name, keyname, server, keycount); 
+			      if (new_status == STAT_INSECURE)
+				new_status = STAT_INSECURE_DS;
+			    }
+			  else
+			    new_status = STAT_INSECURE_DS;
+			}
+		      else if (new_status == STAT_NO_NS)
+			new_status = STAT_BOGUS;
 		    }
 		}
 	      else if (status == STAT_CHASE_CNAME)
@@ -1889,7 +1931,7 @@ unsigned char *tcp_request(int confd, time_t now,
 			     dst_addr_4, netmask, now, &ad_question, &do_bit);
 	  
 	  /* Do this by steam now we're not in the select() loop */
-	  check_log_writer(NULL); 
+	  check_log_writer(1); 
 	  
 	  if (m == 0)
 	    {
@@ -1949,8 +1991,8 @@ unsigned char *tcp_request(int confd, time_t now,
 		      
 		      /* server for wrong domain */
 		      if (type != (last_server->flags & SERV_TYPE) ||
-                         (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)) ||
-                         (last_server->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
+			  (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)) ||
+			  (last_server->flags & (SERV_LITERAL_ADDRESS | SERV_LOOP)))
 			continue;
 		      
 		      if (last_server->tcpfd == -1)
@@ -2110,7 +2152,7 @@ unsigned char *tcp_request(int confd, time_t now,
 	    }
 	}
 	  
-      check_log_writer(NULL);
+      check_log_writer(1);
       
       *length = htons(m);
            
