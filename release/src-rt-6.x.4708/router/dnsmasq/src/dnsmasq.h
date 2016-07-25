@@ -82,7 +82,7 @@ typedef unsigned long long u64;
 #if defined(HAVE_SOLARIS_NETWORK)
 #  include <sys/sockio.h>
 #endif
-#include <sys/select.h>
+#include <sys/poll.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/un.h>
@@ -117,6 +117,7 @@ typedef unsigned long long u64;
 #include <sys/uio.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <utime.h>
 #ifndef HAVE_LINUX_NETWORK
 #  include <net/if_dl.h>
 #endif
@@ -992,9 +993,9 @@ extern struct daemon {
 #endif
 #ifdef HAVE_DNSSEC
   struct ds_config *ds;
+  int back_to_the_future;
   char *timestamp_file;
 #endif
-  char *hosts_cache;
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */
@@ -1192,7 +1193,6 @@ int memcmp_masked(unsigned char *a, unsigned char *b, int len,
 		  unsigned int mask);
 int expand_buf(struct iovec *iov, size_t size);
 char *print_mac(char *buff, unsigned char *mac, int len);
-void bump_maxfd(int fd, int *max);
 int read_write(int fd, unsigned char *packet, int size, int rw);
 
 int wildcard_match(const char* wildcard, const char* match);
@@ -1203,8 +1203,8 @@ void die(char *message, char *arg1, int exit_code);
 int log_start(struct passwd *ent_pw, int errfd);
 int log_reopen(char *log_file);
 void my_syslog(int priority, const char *format, ...);
-void set_log_writer(fd_set *set, int *maxfdp);
-void check_log_writer(fd_set *set);
+void set_log_writer(void);
+void check_log_writer(int force);
 void flush_log(void);
 
 /* option.c */
@@ -1341,12 +1341,6 @@ unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr,
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
 #endif
-#ifdef HAVE_TOMATO
-void tomato_helper(time_t now);
-#endif
-#ifdef HAVE_LEASEFILE_EXPIRE //originally TOMATO option
-void flush_lease_file(time_t now);
-#endif
 void queue_event(int event);
 void send_alarm(time_t event, time_t now);
 void send_event(int fd, int event, int data, char *msg);
@@ -1364,7 +1358,6 @@ void init_bpf(void);
 void send_via_bpf(struct dhcp_packet *mess, size_t len,
 		  struct in_addr iface_addr, struct ifreq *ifr);
 void route_init(void);
-void route_sock(time_t now);
 void route_sock(void);
 #endif
 
@@ -1374,8 +1367,8 @@ int iface_enumerate(int family, void *parm, int (callback)());
 /* dbus.c */
 #ifdef HAVE_DBUS
 char *dbus_init(void);
-void check_dbus_listeners(fd_set *rset, fd_set *wset, fd_set *eset);
-void set_dbus_listeners(int *maxfdp, fd_set *rset, fd_set *wset, fd_set *eset);
+void check_dbus_listeners(void);
+void set_dbus_listeners(void);
 #  ifdef HAVE_DHCP
 void emit_dbus_signal(int action, struct dhcp_lease *lease, char *hostname);
 #  endif
@@ -1402,7 +1395,7 @@ int helper_buf_empty(void);
 /* tftp.c */
 #ifdef HAVE_TFTP
 void tftp_request(struct listener *listen, time_t now);
-void check_tftp_listeners(fd_set *rset, time_t now);
+void check_tftp_listeners(time_t now);
 int do_tftp_script_run(void);
 #endif
 
@@ -1519,3 +1512,10 @@ void inotify_dnsmasq_init();
 int inotify_check(time_t now);
 void set_dynamic_inotify(int flag, int total_size, struct crec **rhash, int revhashsz);
 #endif
+
+/* poll.c */
+void poll_reset(void);
+int poll_check(int fd, short event);
+void poll_listen(int fd, short event);
+int do_poll(int timeout);
+
