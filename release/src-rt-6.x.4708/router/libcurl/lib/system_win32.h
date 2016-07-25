@@ -1,5 +1,5 @@
-#ifndef HEADER_CURL_TOOL_VERSION_H
-#define HEADER_CURL_TOOL_VERSION_H
+#ifndef HEADER_CURL_SYSTEM_WIN32_H
+#define HEADER_CURL_SYSTEM_WIN32_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2016, Steve Holme, <steve_holme@hotmail.com>.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,14 +21,19 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include <curl/curlver.h>
 
-#define CURL_NAME "curl"
-#define CURL_COPYRIGHT LIBCURL_COPYRIGHT
-#define CURL_VERSION "7.49.1"
-#define CURL_VERSION_MAJOR LIBCURL_VERSION_MAJOR
-#define CURL_VERSION_MINOR LIBCURL_VERSION_MINOR
-#define CURL_VERSION_PATCH LIBCURL_VERSION_PATCH
-#define CURL_ID CURL_NAME " " CURL_VERSION " (" OS ") "
+#include "curl_setup.h"
 
-#endif /* HEADER_CURL_TOOL_VERSION_H */
+#if defined(WIN32)
+
+#if defined(USE_WINDOWS_SSPI) || (!defined(CURL_DISABLE_TELNET) && \
+                                  defined(USE_WINSOCK))
+
+/* This is used to dynamically load DLLs */
+HMODULE Curl_load_library(LPCTSTR filename);
+
+#endif /* USE_WINDOWS_SSPI || (!CURL_DISABLE_TELNET && USE_WINSOCK) */
+
+#endif /* WIN32 */
+
+#endif /* HEADER_CURL_SYSTEM_WIN32_H */
