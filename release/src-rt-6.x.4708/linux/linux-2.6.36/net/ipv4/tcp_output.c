@@ -162,6 +162,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
 	    (!tp->packets_out && (s32)(now - tp->lsndtime) > icsk->icsk_rto))
 		tcp_cwnd_restart(sk, __sk_dst_get(sk));
 
+	if (tcp_packets_in_flight(tp) == 0)
+		tcp_ca_event(sk, CA_EVENT_TX_START);
+
 	tp->lsndtime = now;
 
 	/* If it is a reply for ato after last received
@@ -832,9 +835,6 @@ static int BCMFASTPATH_HOST tcp_transmit_skb(struct sock *sk, struct sk_buff *sk
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
-
-	if (tcp_packets_in_flight(tp) == 0)
-		tcp_ca_event(sk, CA_EVENT_TX_START);
 
 	skb_push(skb, tcp_header_size);
 	skb_reset_transport_header(skb);
