@@ -38,6 +38,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,21 @@ com_right(struct et_list *list, long code)
     for (p = list; p; p = p->next) {
 	if (code >= p->table->base && code < p->table->base + p->table->n_msgs)
 	    return p->table->msgs[code - p->table->base];
+    }
+    return NULL;
+}
+
+const char *
+com_right_r(struct et_list *list, long code, char *str, size_t len)
+{
+    struct et_list *p;
+    for (p = list; p; p = p->next) {
+	if ((code >= p->table->base) &&
+	    (code < p->table->base + p->table->n_msgs)) {
+            strncpy(str, p->table->msgs[code - p->table->base], len);
+            str[len-1] = '\0';
+            return str;
+        }
     }
     return NULL;
 }

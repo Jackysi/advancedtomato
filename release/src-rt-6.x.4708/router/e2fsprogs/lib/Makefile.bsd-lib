@@ -22,10 +22,11 @@ BSDLIB_PIC_FLAG = -fpic
 image:		$(BSD_LIB)
 
 $(BSD_LIB): $(OBJS)
-	(cd pic; ld -Bshareable -o $(BSD_LIB) $(OBJS))
+	(cd pic; ld -Bshareable -o $(BSD_LIB) $(LDFLAGS) $(OBJS))
 	$(MV) pic/$(BSD_LIB) .
 	$(RM) -f ../$(BSD_LIB)
-	$(LN) $(BSD_LIB) ../$(BSD_LIB)
+	(cd ..; $(LN) $(LINK_BUILD_FLAGS) \
+		`echo $(my_dir) | sed -e 's;lib/;;'`/$(BSD_LIB) $(BSD_LIB))
 
 install-shlibs install:: $(BSD_LIB)
 	@echo "	INSTALL_PROGRAM $(BSDLIB_INSTALL_DIR)/$(BSD_LIB)"

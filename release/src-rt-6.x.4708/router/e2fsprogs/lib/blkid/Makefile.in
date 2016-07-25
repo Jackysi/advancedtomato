@@ -26,8 +26,7 @@ SRCS= $(srcdir)/cache.c $(srcdir)/dev.c $(srcdir)/devname.c $(srcdir)/devno.c \
  $(srcdir)/read.c $(srcdir)/resolve.c $(srcdir)/save.c $(srcdir)/tag.c \
  $(srcdir)/version.c
 
-HFILES=		blkid.h
-HFILES_IN=	blkid_types.h
+HFILES_IN=	blkid.h blkid_types.h
 
 LIBRARY= libblkid
 LIBDIR= blkid
@@ -37,7 +36,7 @@ ELF_SO_VERSION = 1
 ELF_IMAGE = libblkid
 ELF_MYDIR = blkid
 ELF_INSTALL_DIR = $(root_libdir)
-ELF_OTHER_LIBS = -L../.. -luuid
+ELF_OTHER_LIBS = -luuid
 
 BSDLIB_VERSION = 2.0
 BSDLIB_IMAGE = libblkid
@@ -48,7 +47,6 @@ BSDLIB_INSTALL_DIR = $(root_libdir)
 @MAKEFILE_ELF@
 @MAKEFILE_BSDLIB@
 @MAKEFILE_PROFILE@
-@MAKEFILE_CHECKER@
 
 LIBS_BLKID=	$(STATIC_LIBBLKID) $(STATIC_LIBUUID)
 DEPLIBS_BLKID=	$(DEPSTATIC_LIBBLKID) $(DEPSTATIC_LIBUUID)
@@ -56,17 +54,22 @@ DEPLIBS_BLKID=	$(DEPSTATIC_LIBBLKID) $(DEPSTATIC_LIBUUID)
 .c.o:
 	$(E) "	CC $<"
 	$(Q) $(CC) $(ALL_CFLAGS) -c $< -o $@
+	$(Q) $(CHECK_CMD) $(ALL_CFLAGS) $<
+	$(Q) $(CPPCHECK_CMD) $(CPPFLAGS) $<
 @PROFILE_CMT@	$(Q) $(CC) $(ALL_CFLAGS) -g -pg -o profiled/$*.o -c $<
-@CHECKER_CMT@	$(Q) $(CC) $(ALL_CFLAGS) -checker -g -o checker/$*.o -c $<
 @ELF_CMT@	$(Q) $(CC) $(ALL_CFLAGS) -fPIC -o elfshared/$*.o -c $<
 @BSDLIB_CMT@	$(Q) $(CC) $(ALL_CFLAGS) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
 
 all:: $(SMANPAGES) blkid.pc
 
-$(top_builddir)/lib/blkid/blkid_types.h: $(srcdir)/blkid_types.h.in $(top_builddir)/config.status
+blkid_types.h: $(srcdir)/blkid_types.h.in $(top_builddir)/config.status
 	$(E) "	CONFIG.STATUS $@"
 	$(Q) cd $(top_builddir); \
 		CONFIG_FILES=$(my_dir)/blkid_types.h ./config.status
+
+blkid.h: $(srcdir)/blkid.h.in
+	$(E) "	CP $@"
+	$(Q) cp $(srcdir)/blkid.h.in blkid.h
 
 libblkid.3: $(DEP_SUBSTITUTE) $(srcdir)/libblkid.3.in
 	$(E) "	SUBST $@"
@@ -114,7 +117,7 @@ tst_tag: $(srcdir)/tag.c $(DEPLIBS_BLKID)
 
 tst_types: tst_types.o blkid_types.h 
 	$(E) "	LD $@"
-	$(Q) $(CC) -o tst_types tst_types.o 
+	$(Q) $(CC) -o tst_types $(ALL_LDFLAGS) tst_types.o
 
 ../../misc/blkid.o: $(top_srcdir)/misc/blkid.c blkid.h
 	$(E) "	CC $@"
@@ -144,17 +147,13 @@ blkid.pc: $(srcdir)/blkid.pc.in $(top_builddir)/config.status
 installdirs::
 	$(E) "	MKINSTALLDIRS $(libdir) $(includedir)/blkid"
 	$(Q) $(MKINSTALLDIRS) $(DESTDIR)$(libdir) \
-		$(DESTDIR)$(includedir)/blkid $(DESTDIR)$(libdir)/pkgconfig
+		$(DESTDIR)$(includedir)/blkid $(DESTDIR)$(pkgconfigdir)
 
 install:: all installdirs 
 	$(E) "	INSTALL_DATA $(libdir)/libblkid.a"
 	$(Q) $(INSTALL_DATA) libblkid.a $(DESTDIR)$(libdir)/libblkid.a
 	-$(Q) $(RANLIB) $(DESTDIR)$(libdir)/libblkid.a
 	$(Q) $(CHMOD) $(LIBMODE) $(DESTDIR)$(libdir)/libblkid.a
-	$(Q) set -e; for i in $(HFILES); do \
-	  echo "	INSTALL_DATA $(includedir)/blkid/$$i"; \
-	  $(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(includedir)/blkid/$$i; \
-	done
 	$(Q) set -e; for i in $(HFILES_IN); do \
 		echo "	INSTALL_DATA $(includedir)/blkid/$$i"; \
 		$(INSTALL_DATA) $$i $(DESTDIR)$(includedir)/blkid/$$i; \
@@ -163,12 +162,12 @@ install:: all installdirs
 		echo "	INSTALL_DATA $(man3dir)/$$i"; \
 		$(INSTALL_DATA) $$i $(DESTDIR)$(man3dir)/$$i; \
 	done
-	$(E) "	INSTALL_DATA $(libdir)/pkgconfig/blkid.pc"
-	$(Q) $(INSTALL_DATA) blkid.pc $(DESTDIR)$(libdir)/pkgconfig/blkid.pc
+	$(E) "	INSTALL_DATA $(pkgconfigdir)/blkid.pc"
+	$(Q) $(INSTALL_DATA) blkid.pc $(DESTDIR)$(pkgconfigdir)/blkid.pc
 
 uninstall::
 	$(RM) -f $(DESTDIR)$(libdir)/libblkid.a \
-		$(DESTDIR)$(libdir)/pkgconfig/blkid.pc
+		$(DESTDIR)$(pkgconfigdir)/blkid.pc
 	$(RM) -rf $(DESTDIR)$(includedir)/blkid
 	for i in $(SMANPAGES); do \
 		$(RM) -f $(DESTDIR)$(man3dir)/$$i; \
@@ -179,45 +178,45 @@ clean::
 		tst_devno tst_getsize tst_probe tst_read tst_resolve tst_save \
 		tst_tag tst_types tests/*.out tests/*.ok \
 		tests/*.img results test_probe core profiled/* \
-		checker/* blkid_types.h ../libblkid.a ../libblkid_p.a \
-		$(SMANPAGES) blkid
-	-rmdir tests
+		blkid.h blkid_types.h ../libblkid.a ../libblkid_p.a \
+		$(SMANPAGES) blkid blkid.pc
+	@echo rmdir tests/tmp tests
+	@(rmdir tests/tmp tests 2> /dev/null ; exit 0)
 
 mostlyclean:: clean
 distclean:: clean
 	$(RM) -f .depend Makefile blkid.pc \
 		$(srcdir)/TAGS $(srcdir)/Makefile.in.old
 
-$(OBJS): subdirs
+$(OBJS): subdirs $(HFILES_IN)
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-cache.o: $(srcdir)/cache.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-dev.o: $(srcdir)/dev.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-devname.o: $(srcdir)/devname.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-devno.o: $(srcdir)/devno.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-getsize.o: $(srcdir)/getsize.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-llseek.o: $(srcdir)/llseek.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-probe.o: $(srcdir)/probe.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h \
- $(top_srcdir)/lib/uuid/uuid.h $(srcdir)/probe.h
-read.o: $(srcdir)/read.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h \
- $(top_srcdir)/lib/uuid/uuid.h
-resolve.o: $(srcdir)/resolve.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-save.o: $(srcdir)/save.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-tag.o: $(srcdir)/tag.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
-version.o: $(srcdir)/version.c $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(top_srcdir)/version.h
+cache.o: $(srcdir)/cache.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+dev.o: $(srcdir)/dev.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+devname.o: $(srcdir)/devname.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+devno.o: $(srcdir)/devno.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+getsize.o: $(srcdir)/getsize.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+llseek.o: $(srcdir)/llseek.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+probe.o: $(srcdir)/probe.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h \
+ $(srcdir)/probe.h
+read.o: $(srcdir)/read.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+resolve.o: $(srcdir)/resolve.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+save.o: $(srcdir)/save.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+tag.o: $(srcdir)/tag.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(srcdir)/blkidP.h $(srcdir)/list.h
+version.o: $(srcdir)/version.c $(top_builddir)/lib/config.h \
+ $(top_builddir)/lib/dirpaths.h $(top_srcdir)/version.h

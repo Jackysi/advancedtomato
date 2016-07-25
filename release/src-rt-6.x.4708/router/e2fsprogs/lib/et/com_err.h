@@ -16,6 +16,7 @@
 #define COM_ERR_ATTR(x)
 #endif
 
+#include <stddef.h>
 #include <stdarg.h>
 
 typedef long errcode_t;
@@ -42,6 +43,8 @@ extern void (*set_com_err_hook (void (*) (const char *, long,
 extern void (*reset_com_err_hook (void)) (const char *, long,
 					  const char *, va_list);
 extern int init_error_table(const char * const *msgs, long base, int count);
+extern char *(*set_com_err_gettext (char *(*) (const char *)))
+	(const char *);
 
 extern errcode_t add_error_table(const struct error_table * et);
 extern errcode_t remove_error_table(const struct error_table * et);
@@ -49,6 +52,7 @@ extern void add_to_error_table(struct et_list *new_table);
 
 /* Provided for Heimdall compatibility */
 extern const char *com_right(struct et_list *list, long code);
+extern const char *com_right_r(struct et_list *list, long code, char *str, size_t len);
 extern void initialize_error_table_r(struct et_list **list,
 				     const char **messages,
 				     int num_errors,

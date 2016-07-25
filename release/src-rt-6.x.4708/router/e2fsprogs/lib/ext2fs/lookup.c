@@ -4,11 +4,12 @@
  * Copyright (C) 1993, 1994, 1994, 1995 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -36,9 +37,9 @@ static int lookup_proc(struct ext2_dir_entry *dirent,
 {
 	struct lookup_struct *ls = (struct lookup_struct *) priv_data;
 
-	if (ls->len != (dirent->name_len & 0xFF))
+	if (ls->len != ext2fs_dirent_name_len(dirent))
 		return 0;
-	if (strncmp(ls->name, dirent->name, (dirent->name_len & 0xFF)))
+	if (strncmp(ls->name, dirent->name, ext2fs_dirent_name_len(dirent)))
 		return 0;
 	*ls->inode = dirent->inode;
 	ls->found++;

@@ -47,7 +47,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_usb3,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_ext4,usb_fs_fat,usb_fs_ntfs,usb_ntfs_driver,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_usb3,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext4,usb_fs_fat,usb_fs_ntfs,usb_ntfs_driver,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
 //	<% usbdevices(); %>
 
 list = [];
@@ -272,7 +272,6 @@ function verifyFields(focused, quiet)
 /* MICROSD-END */
 /* LINUX26-END */
 
-	E('_f_ext3').disabled = b || a;
 	E('_f_ext4').disabled = b || a;
 	E('_f_fat').disabled = b || a;
 /* LINUX26-BEGIN */
@@ -322,7 +321,6 @@ function save()
 /* MICROSD-END */
 /* LINUX26-END */
 
-	fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
 	fom.usb_fs_ext4.value = E('_f_ext4').checked ? 1 : 0;
 	fom.usb_fs_fat.value = E('_f_fat').checked ? 1 : 0;
 /* NTFS-BEGIN */
@@ -372,7 +370,6 @@ function submit_complete()
 <input type='hidden' name='usb_storage'>
 <input type='hidden' name='usb_printer'>
 <input type='hidden' name='usb_printer_bidirect'>
-<input type='hidden' name='usb_fs_ext3'>
 <input type='hidden' name='usb_fs_ext4'>
 <input type='hidden' name='usb_fs_fat'>
 /* NTFS-BEGIN */
@@ -405,8 +402,7 @@ createFieldTable('', [
 	null,
 	{ title: 'USB Storage Support', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
 		{ title: 'File Systems Support', indent: 2, multi: [
-			{ suffix: '&nbsp; Ext2 / Ext3 &nbsp;&nbsp;&nbsp;', name: 'f_ext3', type: 'checkbox', value: nvram.usb_fs_ext3 == 1 },
-			{ suffix: '&nbsp; Ext4 &nbsp;&nbsp;&nbsp;', name: 'f_ext4', type: 'checkbox', value: nvram.usb_fs_ext4 == 1 },
+			{ suffix: '&nbsp; Ext2 / Ext3 / Ext4 &nbsp;&nbsp;&nbsp;', name: 'f_ext4', type: 'checkbox', value: nvram.usb_fs_ext4 == 1 },
 /* NTFS-BEGIN */
 			{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 /* NTFS-END */

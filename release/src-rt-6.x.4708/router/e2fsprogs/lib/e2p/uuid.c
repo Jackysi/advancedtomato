@@ -1,7 +1,13 @@
 /*
  * uuid.c -- utility routines for manipulating UUID's.
+ *
+ * %Begin-Header%
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
+ * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <ext2fs/ext2_types.h>

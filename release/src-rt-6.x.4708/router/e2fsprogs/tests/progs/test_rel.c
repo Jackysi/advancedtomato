@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -713,7 +714,7 @@ void main(int argc, char **argv)
 	int		retval;
 	int		sci_idx;
 	const char	*usage = "Usage: test_rel [-R request] [-f cmd_file]";
-	char		c;
+	int		c;
 	char		*request = 0;
 	int		exit_status = 0;
 	char		*cmd_file = 0;

@@ -158,7 +158,7 @@ void start_usb(void)
 			modprobe(SD_MOD);
 			modprobe(USBSTORAGE_MOD);
 
-			if (nvram_get_int("usb_fs_ext4")) {
+			if (nvram_get_int("usb_fs_ext3") || nvram_get_int("usb_fs_ext4")) {
 #ifdef LINUX26
 				modprobe("mbcache");	// used by ext4
 #endif
@@ -167,15 +167,15 @@ void start_usb(void)
 				modprobe("ext4");
 			}
 
-			if (nvram_get_int("usb_fs_ext3")) {
+			/* if (nvram_get_int("usb_fs_ext3")) {
 #ifdef LINUX26
 				modprobe("mbcache");	// used by ext2/ext3
 #endif
-				/* insert ext3 first so that lazy mount tries ext3 before ext2 */
+				// insert ext3 first so that lazy mount tries ext3 before ext2
 				modprobe("jbd");
 				modprobe("ext3");
 				modprobe("ext2");
-			}
+			} */
 
 			if (nvram_get_int("usb_fs_fat")) {
 				modprobe("fat");

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Abort on error.
+set -e
+
+update-initramfs -u
+
+#DEBHELPER#
+
+exit 0

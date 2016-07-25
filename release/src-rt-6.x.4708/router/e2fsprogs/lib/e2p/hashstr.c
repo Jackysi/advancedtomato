@@ -3,11 +3,13 @@
  *
  * Copyright (C) 1999  Theodore Ts'o <tytso@mit.edu>
  *
- * This file can be redistributed under the terms of the GNU Library General
- * Public License
- *
+ * %Begin-Header%
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
+ * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -34,6 +34,10 @@ e2fsck \- check a Linux ext2/ext3/ext4 file system
 .B \-E
 .I extended_options
 ]
+[
+.B \-z
+.I undo_file
+]
 .I device
 .SH DESCRIPTION
 .B e2fsck
@@ -68,6 +72,19 @@ are not valid if the filesystem is mounted.   If
 asks whether or not you should check a filesystem which is mounted, 
 the only correct answer is ``no''.  Only experts who really know what
 they are doing should consider answering this question in any other way.
+.PP
+If
+.B e2fsck
+is run in interactive mode (meaning that none of
+.BR \-y ,
+.BR \-n ,
+or
+.BR \-p
+are specified), the program will ask the user to fix each problem found in the
+filesystem.  A response of 'y' will fix the error; 'n' will leave the error
+unfixed; and 'a' will fix the problem and all subsequent problems; pressing
+Enter will proceed with the default response, which is printed before the
+question mark.  Pressing Control-C terminates e2fsck immediately.
 .SH OPTIONS
 .TP
 .B \-a 
@@ -186,9 +203,42 @@ Set the version of the extended attribute blocks which
 will require while checking the filesystem.  The version number may 
 be 1 or 2.  The default extended attribute version format is 2.
 .TP
+.BI journal_only
+Only replay the journal if required, but do not perform any further checks
+or repairs.
+.TP
 .BI fragcheck
 During pass 1, print a detailed report of any discontiguous blocks for
 files in the filesystem.
+.TP
+.BI discard
+Attempt to discard free blocks and unused inode blocks after the full
+filesystem check (discarding blocks is useful on solid state devices and sparse
+/ thin-provisioned storage). Note that discard is done in pass 5 AFTER the
+filesystem has been fully checked and only if it does not contain recognizable
+errors. However there might be cases where
+.B e2fsck
+does not fully recognize a problem and hence in this case this
+option may prevent you from further manual data recovery.
+.TP
+.BI nodiscard
+Do not attempt to discard free blocks and unused inode blocks. This option is
+exactly the opposite of discard option. This is set as default.
+.TP
+.BI readahead_kb
+Use this many KiB of memory to pre-fetch metadata in the hopes of reducing
+e2fsck runtime.  By default, this is set to the size of two block groups' inode
+tables (typically 4MiB on a regular ext4 filesystem); if this amount is more
+than 1/50th of total physical memory, readahead is disabled.  Set this to zero
+to disable readahead entirely.
+.TP
+.BI bmap2extent
+Convert block-mapped files to extent-mapped files.
+.TP
+.BI fixes_only
+Only fix damaged metadata; do not optimize htree directories or compress
+extent trees.  This option is incompatible with the -D and -E bmap2extent
+options.
 .RE
 .TP
 .B \-f
@@ -242,16 +292,7 @@ in the file are added to the bad blocks list.)
 Open the filesystem read-only, and assume an answer of `no' to all
 questions.  Allows
 .B e2fsck
-to be used non-interactively.  (Note: if the 
-.BR \-c ,
-.BR \-l ,
-or
-.B \-L
-options are specified in addition to the 
-.B \-n
-option, then the filesystem will be opened read-write, to permit the
-bad-blocks list to be updated.  However, no other changes will be made
-to the filesystem.)  This option
+to be used non-interactively.  This option
 may not be specified at the same time as the 
 .B \-p
 or
@@ -302,6 +343,16 @@ may not be specified at the same time as the
 or
 .B \-p
 options.
+.TP
+.BI \-z " undo_file"
+Before overwriting a file system block, write the old contents of the block to
+an undo file.  This undo file can be used with e2undo(8) to restore the old
+contents of the file system should something go wrong.  If the empty string is
+passed as the undo_file argument, the undo file will be written to a file named
+e2fsck-\fIdevice\fR.e2undo in the directory specified via the
+\fIE2FSPROGS_UNDO_DIR\fR environment variable.
+
+WARNING: The undo file cannot be used to recover from a power or system crash.
 .SH EXIT CODE
 The exit code returned by
 .B e2fsck

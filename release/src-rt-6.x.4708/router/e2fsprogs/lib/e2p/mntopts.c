@@ -3,14 +3,17 @@
  *
  * Copyright (C) 2002  Theodore Ts'o <tytso@mit.edu>
  *
- * This file can be redistributed under the terms of the GNU Library General
- * Public License
- *
+ * %Begin-Header%
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
+ * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <errno.h>
 
@@ -30,6 +33,10 @@ static struct mntopt mntopt_list[] = {
 	{ EXT3_DEFM_JMODE_DATA, "journal_data" },
 	{ EXT3_DEFM_JMODE_ORDERED, "journal_data_ordered" },
 	{ EXT3_DEFM_JMODE_WBACK, "journal_data_writeback" },
+	{ EXT4_DEFM_NOBARRIER,	"nobarrier" },
+	{ EXT4_DEFM_BLOCK_VALIDITY, "block_validity" },
+	{ EXT4_DEFM_DISCARD,	"discard"},
+	{ EXT4_DEFM_NODELALLOC,	"nodelalloc"},
 	{ 0, 0 },
 };
 
@@ -60,13 +67,13 @@ int e2p_string2mntopt(char *string, unsigned int *mask)
 			return 0;
 		}
 	}
-	if (strncasecmp(string, "MNTOPT_", 8))
+	if (strncasecmp(string, "MNTOPT_", 7))
 		return 1;
 
 	if (string[8] == 0)
 		return 1;
 	num = strtol(string+8, &eptr, 10);
-	if (num > 32 || num < 0)
+	if (num > 31 || num < 0)
 		return 1;
 	if (*eptr)
 		return 1;
@@ -117,6 +124,7 @@ int e2p_edit_mntopts(const char *str, __u32 *mntopts, __u32 ok)
 		case '-':
 		case '^':
 			neg++;
+			/* fallthrough */
 		case '+':
 			cp++;
 			break;

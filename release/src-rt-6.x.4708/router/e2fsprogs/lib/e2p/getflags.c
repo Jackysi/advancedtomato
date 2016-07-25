@@ -5,8 +5,10 @@
  *                           Laboratoire MASI, Institut Blaise Pascal
  *                           Universite Pierre et Marie Curie (Paris VI)
  *
- * This file can be redistributed under the terms of the GNU Library General
- * Public License
+ * %Begin-Header%
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
+ * %End-Header%
  */
 
 /*
@@ -14,6 +16,7 @@
  * 93/10/30	- Creation
  */
 
+#include "config.h"
 #if HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -55,12 +58,13 @@ int getflags (int fd, unsigned long * flags)
 	if (!fstat(fd, &buf) &&
 	    !S_ISREG(buf.st_mode) && !S_ISDIR(buf.st_mode))
 		goto notsupp;
-	r = ioctl (fd, EXT2_IOC_GETFLAGS, &f);
+	r = ioctl(fd, EXT2_IOC_GETFLAGS, &f);
 	*flags = f;
+
 	return r;
+notsupp:
 #endif /* HAVE_EXT2_IOCTLS */
 #endif
-notsupp:
 	errno = EOPNOTSUPP;
 	return -1;
 }

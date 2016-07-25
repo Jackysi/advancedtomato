@@ -15,6 +15,8 @@ struct e2fsck_problem {
 	char		prompt;
 	int		flags;
 	problem_t	second_code;
+	int		count;
+	int		max_count;
 };
 
 struct latch_descr {
@@ -41,3 +43,4 @@ struct latch_descr {
 #define PR_PREEN_NOHDR	0x040000 /* Don't print the preen header */
 #define PR_CONFIG	0x080000 /* This problem has been customized
 				    from the config file */
+#define PR_FORCE_NO	0x100000 /* Force the answer to be no */

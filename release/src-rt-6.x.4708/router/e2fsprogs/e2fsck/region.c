@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -158,10 +159,10 @@ void region_print(region_t region, FILE *f)
 	struct region_el	*r;
 	int	i = 0;
 
-	fprintf(f, "Printing region (min=%d. max=%d)\n\t", region->min,
+	fprintf(f, "Printing region (min=%llu. max=%llu)\n\t", region->min,
 		region->max);
 	for (r = region->allocated; r; r = r->next) {
-		fprintf(f, "(%d, %d)  ", r->start, r->end);
+		fprintf(f, "(%llu, %llu)  ", r->start, r->end);
 		if (++i >= 8)
 			fprintf(f, "\n\t");
 	}
@@ -170,9 +171,9 @@ void region_print(region_t region, FILE *f)
 
 int main(int argc, char **argv)
 {
-	region_t	r;
+	region_t	r = NULL;
 	int		pc = 0, ret;
-	region_addr_t	start, end, len;
+	region_addr_t	start, end;
 
 
 	while (1) {
@@ -182,7 +183,7 @@ int main(int argc, char **argv)
 		case BCODE_CREATE:
 			start = bcode_program[pc++];
 			end = bcode_program[pc++];
-			printf("Creating region with args(%d, %d)\n",
+			printf("Creating region with args(%llu, %llu)\n",
 			       start, end);
 			r = region_create(start, end);
 			if (!r) {
@@ -194,7 +195,7 @@ int main(int argc, char **argv)
 			start = bcode_program[pc++];
 			end = bcode_program[pc++];
 			ret = region_allocate(r, start, end);
-			printf("Region_allocate(%d, %d) returns %d\n",
+			printf("Region_allocate(%llu, %llu) returns %d\n",
 			       start, end, ret);
 			break;
 		case BCODE_PRINT:
@@ -202,6 +203,8 @@ int main(int argc, char **argv)
 			break;
 		}
 	}
+	if (r)
+		region_free(r);
 }
 
 #endif /* TEST_PROGRAM */

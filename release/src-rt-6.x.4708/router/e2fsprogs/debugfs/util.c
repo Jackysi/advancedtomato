@@ -8,6 +8,7 @@
 
 #define _XOPEN_SOURCE 600 /* needed for strptime */
 
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@ extern char *optarg;
 extern int optreset;		/* defined by BSD, but not others */
 #endif
 
+#include "ss/ss.h"
 #include "debugfs.h"
 
 /*
@@ -78,14 +80,14 @@ static const char *find_pager(char *buf)
 FILE *open_pager(void)
 {
 	FILE *outfile = 0;
-	const char *pager = getenv("DEBUGFS_PAGER");
+	const char *pager = ss_safe_getenv("DEBUGFS_PAGER");
 	char buf[80];
 
 	signal(SIGPIPE, SIG_IGN);
 	if (!isatty(1))
 		return stdout;
 	if (!pager)
-		pager = getenv("PAGER");
+		pager = ss_safe_getenv("PAGER");
 	if (!pager)
 		pager = find_pager(buf);
 	if (!pager ||
@@ -184,11 +186,19 @@ int check_fs_bitmaps(char *name)
 	return 0;
 }
 
+char *inode_time_to_string(__u32 xtime, __u32 xtime_extra)
+{
+	__s64 t = (__s32) xtime;
+
+	t += (__s64) (xtime_extra & EXT4_EPOCH_MASK) << 32;
+	return time_to_string(t);
+}
+
 /*
- * This function takes a __u32 time value and converts it to a string,
+ * This function takes a __s64 time value and converts it to a string,
  * using ctime
  */
-char *time_to_string(__u32 cl)
+char *time_to_string(__s64 cl)
 {
 	static int	do_gmt = -1;
 	time_t		t = (time_t) cl;
@@ -196,10 +206,10 @@ char *time_to_string(__u32 cl)
 
 	if (do_gmt == -1) {
 		/* The diet libc doesn't respect the TZ environemnt variable */
-		tz = getenv("TZ");
+		tz = ss_safe_getenv("TZ");
 		if (!tz)
 			tz = "";
-		do_gmt = !strcmp(tz, "GMT");
+		do_gmt = !strcmp(tz, "GMT") || !strcmp(tz, "GMT0");
 	}
 
 	return asctime((do_gmt) ? gmtime(&t) : localtime(&t));
@@ -209,36 +219,63 @@ char *time_to_string(__u32 cl)
  * Parse a string as a time.  Return ((time_t)-1) if the string
  * doesn't appear to be a sane time.
  */
-extern time_t string_to_time(const char *arg)
+extern __s64 string_to_time(const char *arg)
 {
 	struct	tm	ts;
-	time_t		ret;
+	__s64		ret;
 	char *tmp;
 
 	if (strcmp(arg, "now") == 0) {
 		return time(0);
 	}
+	if (arg[0] == '@') {
+		/* interpret it as an integer */
+		arg++;
+	fallback:
+		ret = strtoll(arg, &tmp, 0);
+		if (*tmp)
+			return -1;
+		return ret;
+	}
 	memset(&ts, 0, sizeof(ts));
 #ifdef HAVE_STRPTIME
-	strptime(arg, "%Y%m%d%H%M%S", &ts);
+	tmp = strptime(arg, "%Y%m%d%H%M%S", &ts);
+	if (tmp == NULL)
+		tmp = strptime(arg, "%Y%m%d%H%M", &ts);
+	if (tmp == NULL)
+		tmp = strptime(arg, "%Y%m%d", &ts);
+	if (tmp == NULL)
+		goto fallback;
 #else
 	sscanf(arg, "%4d%2d%2d%2d%2d%2d", &ts.tm_year, &ts.tm_mon,
 	       &ts.tm_mday, &ts.tm_hour, &ts.tm_min, &ts.tm_sec);
 	ts.tm_year -= 1900;
 	ts.tm_mon -= 1;
 	if (ts.tm_year < 0 || ts.tm_mon < 0 || ts.tm_mon > 11 ||
-	    ts.tm_mday < 0 || ts.tm_mday > 31 || ts.tm_hour > 23 ||
+	    ts.tm_mday <= 0 || ts.tm_mday > 31 || ts.tm_hour > 23 ||
 	    ts.tm_min > 59 || ts.tm_sec > 61)
-		ts.tm_mday = 0;
+		goto fallback;
 #endif
 	ts.tm_isdst = -1;
-	ret = mktime(&ts);
-	if (ts.tm_mday == 0 || ret == ((time_t) -1)) {
-		/* Try it as an integer... */
-		ret = strtoul(arg, &tmp, 0);
-		if (*tmp)
-			return ((time_t) -1);
-	}
+	/* strptime() may only update the specified fields, which does not
+	 * necessarily include ts.tm_yday (%j).  Calculate this if unset:
+	 *
+	 * Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+	 * 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+	 *
+	 * Start with 31 days per month.  Even months have only 30 days, but
+	 * reverse in August, subtract one day for those months. February has
+	 * only 28 days, not 30, subtract two days. Add day of month, minus
+	 * one, since day is not finished yet.  Leap years handled afterward. */
+	if (ts.tm_yday == 0)
+		ts.tm_yday = (ts.tm_mon * 31) -
+			((ts.tm_mon - (ts.tm_mon > 7)) / 2) -
+			2 * (ts.tm_mon > 1) + ts.tm_mday - 1;
+	ret = ts.tm_sec + ts.tm_min*60 + ts.tm_hour*3600 + ts.tm_yday*86400 +
+		((__s64) ts.tm_year-70)*31536000 +
+		(((__s64) ts.tm_year-69)/4)*86400 -
+		(((__s64) ts.tm_year-1)/100)*86400 +
+		(((__s64) ts.tm_year+299)/400)*86400;
 	return ret;
 }
 
@@ -267,18 +304,45 @@ unsigned long parse_ulong(const char *str, const char *cmd,
 }
 
 /*
- * This function will convert a string to a block number.  It returns
- * 0 on success, 1 on failure.
+ * This function will convert a string to an unsigned long long, printing
+ * an error message if it fails, and returning success or failure in err.
  */
-int strtoblk(const char *cmd, const char *str, blk_t *ret)
+unsigned long long parse_ulonglong(const char *str, const char *cmd,
+				   const char *descr, int *err)
 {
-	blk_t	blk;
+	char			*tmp;
+	unsigned long long	ret;
+
+	ret = strtoull(str, &tmp, 0);
+	if (*tmp == 0) {
+		if (err)
+			*err = 0;
+		return ret;
+	}
+	com_err(cmd, 0, "Bad %s - %s", descr, str);
+	if (err)
+		*err = 1;
+	else
+		exit(1);
+	return 0;
+}
+
+/*
+ * This function will convert a string to a block number.  It returns
+ * 0 on success, 1 on failure.  On failure, it outputs either an optionally
+ * specified error message or a default.
+ */
+int strtoblk(const char *cmd, const char *str, const char *errmsg,
+	     blk64_t *ret)
+{
+	blk64_t	blk;
 	int	err;
 
-	blk = parse_ulong(str, cmd, "block number", &err);
+	if (errmsg == NULL)
+		blk = parse_ulonglong(str, cmd, "block number", &err);
+	else
+		blk = parse_ulonglong(str, cmd, errmsg, &err);
 	*ret = blk;
-	if (err)
-		com_err(cmd, 0, "Invalid block number: %s", str);
 	return err;
 }
 
@@ -328,7 +392,7 @@ int common_inode_args_process(int argc, char *argv[],
  * This is a helper function used by do_freeb, do_setb, and do_testb
  */
 int common_block_args_process(int argc, char *argv[],
-			      blk_t *block, blk_t *count)
+			      blk64_t *block, blk64_t *count)
 {
 	int	err;
 
@@ -336,15 +400,15 @@ int common_block_args_process(int argc, char *argv[],
 				"<block> [count]", CHECK_FS_BITMAPS))
 		return 1;
 
-	if (strtoblk(argv[0], argv[1], block))
+	if (strtoblk(argv[0], argv[1], NULL, block))
 		return 1;
 	if (*block == 0) {
 		com_err(argv[0], 0, "Invalid block number 0");
-		err = 1;
+		return 1;
 	}
 
 	if (argc > 2) {
-		*count = parse_ulong(argv[2], argv[0], "count", &err);
+		err = strtoblk(argv[0], argv[2], "count", count);
 		if (err)
 			return 1;
 	}
@@ -377,6 +441,22 @@ int debugfs_read_inode(ext2_ino_t ino, struct ext2_inode * inode,
 	return 0;
 }
 
+int debugfs_write_inode_full(ext2_ino_t ino,
+			     struct ext2_inode *inode,
+			     const char *cmd,
+			     int bufsize)
+{
+	int retval;
+
+	retval = ext2fs_write_inode_full(current_fs, ino,
+					 inode, bufsize);
+	if (retval) {
+		com_err(cmd, retval, "while writing inode %u", ino);
+		return 1;
+	}
+	return 0;
+}
+
 int debugfs_write_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			const char *cmd)
 {
@@ -401,4 +481,80 @@ int debugfs_write_new_inode(ext2_ino_t ino, struct ext2_inode * inode,
 		return 1;
 	}
 	return 0;
+}
+
+/*
+ * Given a mode, return the ext2 file type
+ */
+int ext2_file_type(unsigned int mode)
+{
+	if (LINUX_S_ISREG(mode))
+		return EXT2_FT_REG_FILE;
+
+	if (LINUX_S_ISDIR(mode))
+		return EXT2_FT_DIR;
+
+	if (LINUX_S_ISCHR(mode))
+		return EXT2_FT_CHRDEV;
+
+	if (LINUX_S_ISBLK(mode))
+		return EXT2_FT_BLKDEV;
+
+	if (LINUX_S_ISLNK(mode))
+		return EXT2_FT_SYMLINK;
+
+	if (LINUX_S_ISFIFO(mode))
+		return EXT2_FT_FIFO;
+
+	if (LINUX_S_ISSOCK(mode))
+		return EXT2_FT_SOCK;
+
+	return 0;
+}
+
+errcode_t read_list(char *str, blk64_t **list, size_t *len)
+{
+	blk64_t *lst = *list;
+	size_t ln = *len;
+	char *tok, *p = str;
+	errcode_t retval;
+
+	while ((tok = strtok(p, ","))) {
+		blk64_t *l;
+		blk64_t x, y;
+		char *e;
+
+		errno = 0;
+		y = x = strtoull(tok, &e, 0);
+		if (errno)
+			return errno;
+		if (*e == '-') {
+			y = strtoull(e + 1, NULL, 0);
+			if (errno)
+				return errno;
+		} else if (*e != 0) {
+			retval = EINVAL;
+			goto err;
+		}
+		if (y < x) {
+			retval = EINVAL;
+			goto err;
+		}
+		l = realloc(lst, sizeof(blk64_t) * (ln + y - x + 1));
+		if (l == NULL) {
+			retval = ENOMEM;
+			goto err;
+		}
+		lst = l;
+		for (; x <= y; x++)
+			lst[ln++] = x;
+		p = NULL;
+	}
+
+	*list = lst;
+	*len = ln;
+	return 0;
+err:
+	free(lst);
+	return retval;
 }

@@ -6,6 +6,7 @@
  * under the terms of the GNU Public License.
  */
 
+#include "config.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -43,7 +44,7 @@ static errcode_t e2fsck_handle_read_error(io_channel channel,
 	if (count > 1) {
 		p = (char *) data;
 		for (i=0; i < count; i++, p += channel->block_size, block++) {
-			error = io_channel_read_blk(channel, block,
+			error = io_channel_read_blk64(channel, block,
 						    1, p);
 			if (error)
 				return error;
@@ -57,9 +58,14 @@ static errcode_t e2fsck_handle_read_error(io_channel channel,
 		printf(_("Error reading block %lu (%s).  "), block,
 		       error_message(error));
 	preenhalt(ctx);
+
+	/* Don't rewrite a block past the end of the FS. */
+	if (block >= ext2fs_blocks_count(fs->super))
+		return 0;
+
 	if (ask(ctx, _("Ignore error"), 1)) {
 		if (ask(ctx, _("Force rewrite"), 1))
-			io_channel_write_blk(channel, block, 1, data);
+			io_channel_write_blk64(channel, block, count, data);
 		return 0;
 	}
 
@@ -91,7 +97,7 @@ static errcode_t e2fsck_handle_write_error(io_channel channel,
 	if (count > 1) {
 		p = (const char *) data;
 		for (i=0; i < count; i++, p += channel->block_size, block++) {
-			error = io_channel_write_blk(channel, block,
+			error = io_channel_write_blk64(channel, block,
 						     1, p);
 			if (error)
 				return error;

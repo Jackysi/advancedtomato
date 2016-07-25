@@ -4,11 +4,12 @@
  * Copyright (C) 1993, 1994 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -40,6 +41,11 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	struct ext2_dir_entry *next;
 	unsigned int rec_len, min_rec_len, curr_rec_len;
 	int ret = 0;
+	int csum_size = 0;
+	struct ext2_dir_entry_tail *t;
+
+	if (ls->done)
+		return DIRENT_ABORT;
 
 	rec_len = EXT2_DIR_REC_LEN(ls->namelen);
 
@@ -47,18 +53,54 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	if (ls->err)
 		return DIRENT_ABORT;
 
+	if (ext2fs_has_feature_metadata_csum(ls->fs->super))
+		csum_size = sizeof(struct ext2_dir_entry_tail);
 	/*
 	 * See if the following directory entry (if any) is unused;
 	 * if so, absorb it into this one.
 	 */
 	next = (struct ext2_dir_entry *) (buf + offset + curr_rec_len);
-	if ((offset + curr_rec_len < blocksize - 8) &&
+	if ((offset + (int) curr_rec_len < blocksize - (8 + csum_size)) &&
 	    (next->inode == 0) &&
-	    (offset + curr_rec_len + next->rec_len <= blocksize)) {
+	    (offset + (int) curr_rec_len + (int) next->rec_len <= blocksize)) {
 		curr_rec_len += next->rec_len;
 		ls->err = ext2fs_set_rec_len(ls->fs, curr_rec_len, dirent);
 		if (ls->err)
 			return DIRENT_ABORT;
+		ret = DIRENT_CHANGED;
+	}
+
+	/*
+	 * Since ext2fs_link blows away htree data, we need to be
+	 * careful -- if metadata_csum is enabled and we're passed in
+	 * a dirent that contains htree data, we need to create the
+	 * fake entry at the end of the block that hides the checksum.
+	 */
+
+	/* De-convert a dx_node block */
+	if (csum_size &&
+	    curr_rec_len == ls->fs->blocksize &&
+	    !dirent->inode) {
+		curr_rec_len -= csum_size;
+		ls->err = ext2fs_set_rec_len(ls->fs, curr_rec_len, dirent);
+		if (ls->err)
+			return DIRENT_ABORT;
+		t = EXT2_DIRENT_TAIL(buf, ls->fs->blocksize);
+		ext2fs_initialize_dirent_tail(ls->fs, t);
+		ret = DIRENT_CHANGED;
+	}
+
+	/* De-convert a dx_root block */
+	if (csum_size &&
+	    curr_rec_len == ls->fs->blocksize - EXT2_DIR_REC_LEN(1) &&
+	    offset == EXT2_DIR_REC_LEN(1) &&
+	    dirent->name[0] == '.' && dirent->name[1] == '.') {
+		curr_rec_len -= csum_size;
+		ls->err = ext2fs_set_rec_len(ls->fs, curr_rec_len, dirent);
+		if (ls->err)
+			return DIRENT_ABORT;
+		t = EXT2_DIRENT_TAIL(buf, ls->fs->blocksize);
+		ext2fs_initialize_dirent_tail(ls->fs, t);
 		ret = DIRENT_CHANGED;
 	}
 
@@ -68,7 +110,7 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	 * truncate it and return.
 	 */
 	if (dirent->inode) {
-		min_rec_len = EXT2_DIR_REC_LEN(dirent->name_len & 0xFF);
+		min_rec_len = EXT2_DIR_REC_LEN(ext2fs_dirent_name_len(dirent));
 		if (curr_rec_len < (min_rec_len + rec_len))
 			return ret;
 		rec_len = curr_rec_len - min_rec_len;
@@ -78,7 +120,8 @@ static int link_proc(struct ext2_dir_entry *dirent,
 		next = (struct ext2_dir_entry *) (buf + offset +
 						  dirent->rec_len);
 		next->inode = 0;
-		next->name_len = 0;
+		ext2fs_dirent_set_name_len(next, 0);
+		ext2fs_dirent_set_file_type(next, 0);
 		ls->err = ext2fs_set_rec_len(ls->fs, rec_len, next);
 		if (ls->err)
 			return DIRENT_ABORT;
@@ -92,10 +135,10 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	if (curr_rec_len < rec_len)
 		return ret;
 	dirent->inode = ls->inode;
-	dirent->name_len = ls->namelen;
+	ext2fs_dirent_set_name_len(dirent, ls->namelen);
 	strncpy(dirent->name, ls->name, ls->namelen);
-	if (ls->sb->s_feature_incompat & EXT2_FEATURE_INCOMPAT_FILETYPE)
-		dirent->name_len |= (ls->flags & 0x7) << 8;
+	if (ext2fs_has_feature_filetype(ls->sb))
+		ext2fs_dirent_set_file_type(dirent, ls->flags & 0x7);
 
 	ls->done++;
 	return DIRENT_ABORT|DIRENT_CHANGED;
@@ -143,6 +186,11 @@ errcode_t ext2fs_link(ext2_filsys fs, ext2_ino_t dir, const char *name,
 	if ((retval = ext2fs_read_inode(fs, dir, &inode)) != 0)
 		return retval;
 
+	/*
+	 * If this function changes to preserve the htree, remove the
+	 * two hunks in link_proc that shove checksum tails into the
+	 * former dx_root/dx_node blocks.
+	 */
 	if (inode.i_flags & EXT2_INDEX_FL) {
 		inode.i_flags &= ~EXT2_INDEX_FL;
 		if ((retval = ext2fs_write_inode(fs, dir, &inode)) != 0)

@@ -13,6 +13,7 @@
  * 	- A bitmap of which inodes are imagic inodes.	(inode_imagic_map)
  */
 
+#include "config.h"
 #include "e2fsck.h"
 #include "problem.h"
 #include <ext2fs/ext2_ext_attr.h>
@@ -63,6 +64,7 @@ static int disconnect_inode(e2fsck_t ctx, ext2_ino_t i,
 			e2fsck_read_bitmaps(ctx);
 			ext2fs_inode_alloc_stats2(fs, i, -1,
 						  LINUX_S_ISDIR(inode->i_mode));
+			quota_data_inodes(ctx->qctx, inode, i, -1);
 			return 0;
 		}
 	}
@@ -97,13 +99,22 @@ void e2fsck_pass4(e2fsck_t ctx)
 	struct problem_context	pctx;
 	__u16	link_count, link_counted;
 	char	*buf = 0;
-	int	group, maxgroup;
+	dgrp_t	group, maxgroup;
 
 	init_resource_track(&rtrack, ctx->fs->io);
 
 #ifdef MTRACE
 	mtrace_print("Pass 4");
 #endif
+	/*
+	 * Since pass4 is mostly CPU bound, start readahead of bitmaps
+	 * ahead of pass 5 if we haven't already loaded them.
+	 */
+	if (ctx->readahead_kb &&
+	    (fs->block_map == NULL || fs->inode_map == NULL))
+		e2fsck_readahead(fs, E2FSCK_READA_BBITMAP |
+				     E2FSCK_READA_IBITMAP,
+				 0, fs->group_desc_count);
 
 	clear_problem_context(&pctx);
 
@@ -121,6 +132,8 @@ void e2fsck_pass4(e2fsck_t ctx)
 
 	/* Protect loop from wrap-around if s_inodes_count maxed */
 	for (i=1; i <= fs->super->s_inodes_count && i > 0; i++) {
+		int isdir;
+
 		if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 			goto errout;
 		if ((i % fs->super->s_inodes_per_group) == 0) {
@@ -129,14 +142,15 @@ void e2fsck_pass4(e2fsck_t ctx)
 				if ((ctx->progress)(ctx, 4, group, maxgroup))
 					goto errout;
 		}
-		if (i == EXT2_BAD_INO ||
+		if (i == quota_type2inum(PRJQUOTA, ctx->fs->super) ||
+		    i == EXT2_BAD_INO ||
 		    (i > EXT2_ROOT_INO && i < EXT2_FIRST_INODE(fs->super)))
 			continue;
-		if (!(ext2fs_test_inode_bitmap(ctx->inode_used_map, i)) ||
+		if (!(ext2fs_test_inode_bitmap2(ctx->inode_used_map, i)) ||
 		    (ctx->inode_imagic_map &&
-		     ext2fs_test_inode_bitmap(ctx->inode_imagic_map, i)) ||
+		     ext2fs_test_inode_bitmap2(ctx->inode_imagic_map, i)) ||
 		    (ctx->inode_bb_map &&
-		     ext2fs_test_inode_bitmap(ctx->inode_bb_map, i)))
+		     ext2fs_test_inode_bitmap2(ctx->inode_bb_map, i)))
 			continue;
 		ext2fs_icount_fetch(ctx->inode_link_info, i, &link_count);
 		ext2fs_icount_fetch(ctx->inode_count, i, &link_counted);
@@ -153,14 +167,15 @@ void e2fsck_pass4(e2fsck_t ctx)
 			ext2fs_icount_fetch(ctx->inode_count, i,
 					    &link_counted);
 		}
-		if (ext2fs_test_inode_bitmap(ctx->inode_dir_map, i) &&
-		    (link_counted > EXT2_LINK_MAX))
+		isdir = ext2fs_test_inode_bitmap2(ctx->inode_dir_map, i);
+		if (isdir && (link_counted > EXT2_LINK_MAX))
 			link_counted = 1;
 		if (link_counted != link_count) {
 			e2fsck_read_inode(ctx, i, inode, "pass4");
 			pctx.ino = i;
 			pctx.inode = inode;
-			if (link_count != inode->i_links_count) {
+			if ((link_count != inode->i_links_count) && !isdir &&
+			    (inode->i_links_count <= EXT2_LINK_MAX)) {
 				pctx.num = link_count;
 				fix_problem(ctx,
 					    PR_4_INCONSISTENT_COUNT, &pctx);
@@ -168,10 +183,10 @@ void e2fsck_pass4(e2fsck_t ctx)
 			pctx.num = link_counted;
 			/* i_link_count was previously exceeded, but no longer
 			 * is, fix this but don't consider it an error */
-			if ((LINUX_S_ISDIR(inode->i_mode) && link_counted > 1 &&
+			if ((isdir && link_counted > 1 &&
 			     (inode->i_flags & EXT2_INDEX_FL) &&
 			     link_count == 1 && !(ctx->options & E2F_OPT_NO)) ||
-			     (fix_problem(ctx, PR_4_BAD_REF_COUNT, &pctx))) {
+			    fix_problem(ctx, PR_4_BAD_REF_COUNT, &pctx)) {
 				inode->i_links_count = link_counted;
 				e2fsck_write_inode(ctx, i, inode, "pass4");
 			}

@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -16,7 +17,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "blkid.h"
+#include <blkid/blkid.h>
 #include "../../version.h"
 
 static const char *lib_version = E2FSPROGS_VERSION;
