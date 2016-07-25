@@ -1,27 +1,35 @@
 /* sha512-compress.c
- *
- * The compression function of the sha512 hash function.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001, 2010 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The compression function of the sha512 hash function.
+
+   Copyright (C) 2001, 2010 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -50,6 +58,13 @@
 
 /* A block, treated as a sequence of 64-bit words. */
 #define SHA512_DATA_LENGTH 16
+
+/* For fat builds */
+#if HAVE_NATIVE_sha512_compress
+void
+_nettle_sha512_compress_c (uint64_t *state, const uint8_t *input, const uint64_t *k);
+#define _nettle_sha512_compress _nettle_sha512_compress_c
+#endif
 
 /* The SHA512 functions. The Choice function is the same as the SHA1
    function f1, and the majority function is the same as the SHA1 f3

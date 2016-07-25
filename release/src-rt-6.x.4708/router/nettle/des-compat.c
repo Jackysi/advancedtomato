@@ -1,27 +1,35 @@
-/* des-compat.h
- *
- * The des block cipher, libdes/openssl-style interface.
- */
+/* des-compat.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The des block cipher, old libdes/openssl-style interface.
+
+   Copyright (C) 2001 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -113,13 +121,13 @@ des_ncbc_encrypt(const_des_cblock *src, des_cblock *dst, long length,
   switch (enc)
     {
     case DES_ENCRYPT:
-      nettle_cbc_encrypt(ctx, (nettle_crypt_func *) des_encrypt,
+      nettle_cbc_encrypt(ctx, (nettle_cipher_func *) des_encrypt,
 			 DES_BLOCK_SIZE, *iv,
 			 length, *dst, *src);
       break;
     case DES_DECRYPT:
       nettle_cbc_decrypt(ctx,
-			 (nettle_crypt_func *) des_decrypt,
+			 (nettle_cipher_func *) des_decrypt,
 			 DES_BLOCK_SIZE, *iv,
 			 length, *dst, *src);
       break;
@@ -166,12 +174,12 @@ des_ede3_cbc_encrypt(const_des_cblock *src, des_cblock *dst, long length,
   switch (enc)
     {
     case DES_ENCRYPT:
-      nettle_cbc_encrypt(&keys, (nettle_crypt_func *) des_compat_des3_encrypt,
+      nettle_cbc_encrypt(&keys, (nettle_cipher_func *) des_compat_des3_encrypt,
 			 DES_BLOCK_SIZE, *iv,
 			 length, *dst, *src);
       break;
     case DES_DECRYPT:
-      nettle_cbc_decrypt(&keys, (nettle_crypt_func *) des_compat_des3_decrypt,
+      nettle_cbc_decrypt(&keys, (nettle_cipher_func *) des_compat_des3_decrypt,
 			 DES_BLOCK_SIZE, *iv,
 			 length, *dst, *src);
       break;

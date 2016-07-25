@@ -1,29 +1,36 @@
 /* sha256.c
- *
- * The sha256 hash function.
- *
- * See http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- *
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The sha256 hash function.
+   See http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
+
+   Copyright (C) 2001 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Modelled after the sha1.c code by Peter Gutmann. */
 
@@ -48,10 +55,10 @@ K[64] =
   0x3956c25bUL, 0x59f111f1UL, 0x923f82a4UL, 0xab1c5ed5UL, 
   0xd807aa98UL, 0x12835b01UL, 0x243185beUL, 0x550c7dc3UL, 
   0x72be5d74UL, 0x80deb1feUL, 0x9bdc06a7UL, 0xc19bf174UL, 
-  0xe49b69c1UL, 0xefbe4786UL, 0xfc19dc6UL, 0x240ca1ccUL, 
+  0xe49b69c1UL, 0xefbe4786UL, 0x0fc19dc6UL, 0x240ca1ccUL, 
   0x2de92c6fUL, 0x4a7484aaUL, 0x5cb0a9dcUL, 0x76f988daUL, 
   0x983e5152UL, 0xa831c66dUL, 0xb00327c8UL, 0xbf597fc7UL, 
-  0xc6e00bf3UL, 0xd5a79147UL, 0x6ca6351UL, 0x14292967UL, 
+  0xc6e00bf3UL, 0xd5a79147UL, 0x06ca6351UL, 0x14292967UL, 
   0x27b70a85UL, 0x2e1b2138UL, 0x4d2c6dfcUL, 0x53380d13UL, 
   0x650a7354UL, 0x766a0abbUL, 0x81c2c92eUL, 0x92722c85UL, 
   0xa2bfe8a1UL, 0xa81a664bUL, 0xc24b8b70UL, 0xc76c51a3UL, 
@@ -79,7 +86,7 @@ sha256_init(struct sha256_ctx *ctx)
   memcpy(ctx->state, H0, sizeof(H0));
 
   /* Initialize bit count */
-  ctx->count_low = ctx->count_high = 0;
+  ctx->count = 0;
   
   /* Initialize buffer */
   ctx->index = 0;
@@ -87,31 +94,29 @@ sha256_init(struct sha256_ctx *ctx)
 
 void
 sha256_update(struct sha256_ctx *ctx,
-	      unsigned length, const uint8_t *data)
+	      size_t length, const uint8_t *data)
 {
-  MD_UPDATE (ctx, length, data, COMPRESS, MD_INCR(ctx));
+  MD_UPDATE (ctx, length, data, COMPRESS, ctx->count++);
 }
 
 static void
 sha256_write_digest(struct sha256_ctx *ctx,
-		    unsigned length,
+		    size_t length,
 		    uint8_t *digest)
 {
-  uint32_t high, low;
+  uint64_t bit_count;
 
   assert(length <= SHA256_DIGEST_SIZE);
 
   MD_PAD(ctx, 8, COMPRESS);
 
   /* There are 512 = 2^9 bits in one block */  
-  high = (ctx->count_high << 9) | (ctx->count_low >> 23);
-  low = (ctx->count_low << 9) | (ctx->index << 3);
+  bit_count = (ctx->count << 9) | (ctx->index << 3);
 
   /* This is slightly inefficient, as the numbers are converted to
      big-endian format, and will be converted back by the compression
      function. It's probably not worth the effort to fix this. */
-  WRITE_UINT32(ctx->block + (SHA256_DATA_SIZE - 8), high);
-  WRITE_UINT32(ctx->block + (SHA256_DATA_SIZE - 4), low);
+  WRITE_UINT64(ctx->block + (SHA256_BLOCK_SIZE - 8), bit_count);
   COMPRESS(ctx, ctx->block);
 
   _nettle_write_be32(length, digest, ctx->state);
@@ -119,19 +124,19 @@ sha256_write_digest(struct sha256_ctx *ctx,
 
 void
 sha256_digest(struct sha256_ctx *ctx,
-	      unsigned length,
+	      size_t length,
 	      uint8_t *digest)
 {
   sha256_write_digest(ctx, length, digest);
   sha256_init(ctx);
 }
 
-/* sha224 variant. FIXME: Move to seperate file? */
+/* sha224 variant. */
 
 void
 sha224_init(struct sha256_ctx *ctx)
 {
-  /* Initial values. I's unclear how they are chosen. */
+  /* Initial values. Low 32 bits of the initial values for sha384. */
   static const uint32_t H0[_SHA256_DIGEST_LENGTH] =
   {
     0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
@@ -141,7 +146,7 @@ sha224_init(struct sha256_ctx *ctx)
   memcpy(ctx->state, H0, sizeof(H0));
 
   /* Initialize bit count */
-  ctx->count_low = ctx->count_high = 0;
+  ctx->count = 0;
   
   /* Initialize buffer */
   ctx->index = 0;
@@ -149,7 +154,7 @@ sha224_init(struct sha256_ctx *ctx)
 
 void
 sha224_digest(struct sha256_ctx *ctx,
-	      unsigned length,
+	      size_t length,
 	      uint8_t *digest)
 {
   sha256_write_digest(ctx, length, digest);

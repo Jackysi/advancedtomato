@@ -358,7 +358,7 @@ test_main(void)
 			printf("Key error %2d:%d\n",i+2,j);
 			err=1;
 			}
-		if ((j=des_key_sched(&key_data[i+2],ks3)) != 0)
+		if (i+2 < NUM_TESTS && (j=des_key_sched(&key_data[i+2],ks3)) != 0)
 			{
 			printf("Key error %2d:%d\n",i+3,j);
 			err=1;

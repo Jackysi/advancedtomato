@@ -1,27 +1,35 @@
 /* sexp-transport-format.c
- *
- * Writing s-expressions in transport format.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2002 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Writing s-expressions in transport format.
+
+   Copyright (C) 2002 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -32,13 +40,13 @@
 #include "base64.h"
 #include "buffer.h"
 
-unsigned
+size_t
 sexp_transport_vformat(struct nettle_buffer *buffer,
 		       const char *format, va_list args)
 {
-  unsigned start = 0;
-  unsigned length;
-  unsigned base64_length;
+  size_t start = 0;
+  size_t length;
+  size_t base64_length;
 
   if (buffer)
     {
@@ -70,11 +78,11 @@ sexp_transport_vformat(struct nettle_buffer *buffer,
   return base64_length + 2;
 }
 
-unsigned
+size_t
 sexp_transport_format(struct nettle_buffer *buffer,
 		      const char *format, ...)
 {
-  unsigned done;
+  size_t done;
   va_list args;
 
   va_start(args, format);

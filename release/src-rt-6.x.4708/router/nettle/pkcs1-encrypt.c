@@ -1,27 +1,35 @@
 /* pkcs1-encrypt.c
- *
- * The RSA publickey algorithm. PKCS#1 encryption.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001, 2012 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The RSA publickey algorithm. PKCS#1 encryption.
+
+   Copyright (C) 2001, 2012 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -34,18 +42,18 @@
 #include "pkcs1.h"
 
 #include "bignum.h"
-#include "nettle-internal.h"
+#include "gmp-glue.h"
 
 int
-pkcs1_encrypt (unsigned key_size,
+pkcs1_encrypt (size_t key_size,
 	       /* For padding */
 	       void *random_ctx, nettle_random_func *random,
-	       unsigned length, const uint8_t *message,
+	       size_t length, const uint8_t *message,
 	       mpz_t m)
 {
-  TMP_DECL(em, uint8_t, NETTLE_MAX_BIGNUM_SIZE);
-  unsigned padding;
-  unsigned i;
+  TMP_GMP_DECL(em, uint8_t);
+  size_t padding;
+  size_t i;
 
   /* The message is encoded as a string of the same length as the
    * modulo n, of the form
@@ -63,7 +71,7 @@ pkcs1_encrypt (unsigned key_size,
   padding = key_size - length - 3;
   assert(padding >= 8);
   
-  TMP_ALLOC(em, key_size - 1);
+  TMP_GMP_ALLOC(em, key_size - 1);
   em[0] = 2;
 
   random(random_ctx, padding, em + 1);
@@ -77,5 +85,7 @@ pkcs1_encrypt (unsigned key_size,
   memcpy(em + padding + 2, message, length);
 
   nettle_mpz_set_str_256_u(m, key_size - 1, em);
+
+  TMP_GMP_FREE(em);
   return 1;
 }

@@ -1,0 +1,988 @@
+--- router/nettle/nettle.html
++++ router/nettle/nettle.html
+@@ -5840,359 +7367,655 @@ variable <code>des_check_key</code>, and the functions <code>des_cbc_cksum</code
+ <code>des_ede2_cbc_encrypt</code>, <code>des_ede3_cbc_encrypt</code>,
+ <code>des_is_weak_key</code>, <code>des_key_sched</code>, <code>des_ncbc_encrypt</code>
+ <code>des_set_key</code>, and <code>des_set_odd_parity</code>.
+-
+-<div class="node">
++</p>
++<hr>
+ <a name="Nettle-soup"></a>
+-<p><hr>
+-Next:&nbsp;<a rel="next" accesskey="n" href="#Installation">Installation</a>,
+-Previous:&nbsp;<a rel="previous" accesskey="p" href="#Reference">Reference</a>,
+-Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+-
++<div class="header">
++<p>
++Next: <a href="#Installation" accesskey="n" rel="next">Installation</a>, Previous: <a href="#Reference" accesskey="p" rel="prev">Reference</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+ </div>
+-
+-<!-- node-name,  next,  previous,  up -->
++<a name="Traditional-Nettle-Soup"></a>
+ <h2 class="chapter">7 Traditional Nettle Soup</h2>
+-
+ <p>For the serious nettle hacker, here is a recipe for nettle soup. 4 servings.
++</p>
++<ul class="no-bullet">
++<li><!-- /@w --> 1 liter fresh nettles (urtica dioica)
++</li><li><!-- /@w --> 2 tablespoons butter
++</li><li><!-- /@w --> 3 tablespoons flour
++</li><li><!-- /@w --> 1 liter stock (meat or vegetable)
++</li><li><!-- /@w --> 1/2 teaspoon salt
++</li><li><!-- /@w --> a tad white pepper
++</li><li><!-- /@w --> some cream or milk
++</li></ul>
+ 
+-     <ul>
+-<li>1 liter fresh nettles (urtica dioica)
+-<li>2 tablespoons butter
+-<li>3 tablespoons flour
+-<li>1 liter stock (meat or vegetable)
+-<li>1/2 teaspoon salt
+-<li>a tad white pepper
+-<li>some cream or milk
+-</ul>
+-
+-   <p>Gather 1 liter fresh nettles. Use gloves! Small, tender shoots are
++<p>Gather 1 liter fresh nettles. Use gloves! Small, tender shoots are
+ preferable but the tops of larger nettles can also be used.
+-
+-   <p>Rinse the nettles very well. Boil them for 10 minutes in lightly salted
++</p>
++<p>Rinse the nettles very well. Boil them for 10 minutes in lightly salted
+ water. Strain the nettles and save the water. Hack the nettles. Melt the
+ butter and mix in the flour. Dilute with stock and the nettle-water you
+ saved earlier. Add the hacked nettles. If you wish you can add some milk
+-or cream at this stage. Bring to a boil and let boil for a few minutes. 
++or cream at this stage. Bring to a boil and let boil for a few minutes.
+ Season with salt and pepper.
++</p>
++<p>Serve with boiled egg-halves.
++</p>
+ 
+-   <p>Serve with boiled egg-halves.
+-
+-<!-- And the original Swedish version. -->
+-<div class="node">
++<hr>
+ <a name="Installation"></a>
+-<p><hr>
+-Next:&nbsp;<a rel="next" accesskey="n" href="#Index">Index</a>,
+-Previous:&nbsp;<a rel="previous" accesskey="p" href="#Nettle-soup">Nettle soup</a>,
+-Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+-
++<div class="header">
++<p>
++Next: <a href="#Index" accesskey="n" rel="next">Index</a>, Previous: <a href="#Nettle-soup" accesskey="p" rel="prev">Nettle soup</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+ </div>
+-
+-<!-- node-name,  next,  previous,  up -->
++<a name="Installation-1"></a>
+ <h2 class="chapter">8 Installation</h2>
+ 
+-<p>Nettle uses <samp><span class="command">autoconf</span></samp>. To build it, unpack the source and run
+-
+-<pre class="example">     ./configure
+-     make
+-     make check
+-     make install
+-</pre>
+-   <p class="noindent">to install in under the default prefix, <samp><span class="file">/usr/local</span></samp>.
+-
+-   <p>To get a list of configure options, use <code>./configure --help</code>.
+-
+-   <p>By default, both static and shared libraries are built and installed. To
+-omit building the shared libraries, use the <samp><span class="option"> --disable-shared</span></samp>
+-option to <samp><span class="command">./configure</span></samp>.
+-
+-   <p>Using GNU make is recommended. For other make programs, in particular
+-BSD make, you may have to use the <samp><span class="option">--disable-dependency-tracking</span></samp>
+-option to <samp><span class="command">./configure</span></samp>.
++<p>Nettle uses <code>autoconf</code>. To build it, unpack the source and run
++</p>
++<div class="example">
++<pre class="example">./configure
++make
++make check
++make install
++</pre></div>
++
++<p>to install it under the default prefix, <samp>/usr/local</samp>. Using GNU
++make is strongly recommended. By default, both static and shared
++libraries are built and installed.
++</p>
++<p>To get a list of configure options, use <code>./configure --help</code>. Some
++of the more interesting are:
++</p>
++<dl compact="compact">
++<dt><samp>--enable-fat</samp></dt>
++<dd><p>Include multiple versions of certain functions in the library, and
++select the ones to use at run-time, depending on available processor
++features. Supported for ARM and x86_64.
++</p>
++</dd>
++<dt><samp>--enable-mini-gmp</samp></dt>
++<dd><p>Use the smaller and slower &ldquo;mini-gmp&rdquo; implementation of the bignum
++functions needed for public-key cryptography, instead of the real GNU
++GMP library. This option is intended primarily for smaller embedded
++systems. Note that builds using mini-gmp are <strong>not</strong> binary compatible
++with regular builds of Nettle, and more likely to leak side-channel
++information.
++</p>
++</dd>
++<dt><samp>--disable-shared</samp></dt>
++<dd><p>Omit building the shared libraries.
++</p>
++</dd>
++<dt><samp>--disable-dependency-tracking</samp></dt>
++<dd><p>Disable the automatic dependency tracking. You will likely need this
++option to be able to build with BSD make.
++</p>
++</dd>
++</dl>
+ 
+-<div class="node">
++<hr>
+ <a name="Index"></a>
+-<p><hr>
+-Previous:&nbsp;<a rel="previous" accesskey="p" href="#Installation">Installation</a>,
+-Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+-
++<div class="header">
++<p>
++Previous: <a href="#Installation" accesskey="p" rel="prev">Installation</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+ </div>
+-
+-<!-- node-name,  next,  previous,  up -->
++<a name="Function-and-Concept-Index"></a>
+ <h2 class="unnumbered">Function and Concept Index</h2>
+ 
+-<ul class="index-cp" compact>
+-<li><a href="#index-aes_005fdecrypt-113"><code>aes_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-aes_005fencrypt-112"><code>aes_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-aes_005finvert_005fkey-111"><code>aes_invert_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-aes_005fset_005fdecrypt_005fkey-110"><code>aes_set_decrypt_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-aes_005fset_005fencrypt_005fkey-109"><code>aes_set_encrypt_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arcfour_005fcrypt-119"><code>arcfour_crypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arcfour_005fset_005fkey-118"><code>arcfour_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arctwo_005fdecrypt-129"><code>arctwo_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arctwo_005fencrypt-128"><code>arctwo_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arctwo_005fset_005fkey-126"><code>arctwo_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arctwo_005fset_005fkey_005fekb-125"><code>arctwo_set_key_ekb</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-arctwo_005fset_005fkey_005fgutmann-127"><code>arctwo_set_key_gutmann</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-base16_005fdecode_005ffinal-418"><code>base16_decode_final</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base16_005fdecode_005finit-414"><code>base16_decode_init</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-BASE16_005fDECODE_005fLENGTH-416"><code>BASE16_DECODE_LENGTH</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base16_005fdecode_005fsingle-415"><code>base16_decode_single</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base16_005fdecode_005fupdate-417"><code>base16_decode_update</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-BASE16_005fENCODE_005fLENGTH-411"><code>BASE16_ENCODE_LENGTH</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base16_005fencode_005fsingle-410"><code>base16_encode_single</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base16_005fencode_005fupdate-412"><code>base16_encode_update</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fdecode_005ffinal-409"><code>base64_decode_final</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fdecode_005finit-405"><code>base64_decode_init</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-BASE64_005fDECODE_005fLENGTH-407"><code>BASE64_DECODE_LENGTH</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fdecode_005fsingle-406"><code>base64_decode_single</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fdecode_005fupdate-408"><code>base64_decode_update</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fencode_005ffinal-403"><code>base64_encode_final</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fencode_005finit-398"><code>base64_encode_init</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-BASE64_005fENCODE_005fLENGTH-400"><code>BASE64_ENCODE_LENGTH</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fencode_005fsingle-399"><code>base64_encode_single</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-base64_005fencode_005fupdate-401"><code>base64_encode_update</code></a>: <a href="#ASCII-encoding">ASCII encoding</a></li>
+-<li><a href="#index-Block-Cipher-102">Block Cipher</a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-blowfish_005fdecrypt-137"><code>blowfish_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-blowfish_005fencrypt-136"><code>blowfish_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-blowfish_005fset_005fkey-135"><code>blowfish_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-camellia_005fcrypt-146"><code>camellia_crypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-camellia_005finvert_005fkey-145"><code>camellia_invert_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-camellia_005fset_005fdecrypt_005fkey-144"><code>camellia_set_decrypt_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-camellia_005fset_005fencrypt_005fkey-143"><code>camellia_set_encrypt_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-cast128_005fdecrypt-154"><code>cast128_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-cast128_005fencrypt-153"><code>cast128_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-cast128_005fset_005fkey-152"><code>cast128_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-CBC-Mode-216">CBC Mode</a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-CBC_005fCTX-219"><code>CBC_CTX</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-CBC_005fDECRYPT-222"><code>CBC_DECRYPT</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-cbc_005fdecrypt-218"><code>cbc_decrypt</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-CBC_005fENCRYPT-221"><code>CBC_ENCRYPT</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-cbc_005fencrypt-217"><code>cbc_encrypt</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-CBC_005fSET_005fIV-220"><code>CBC_SET_IV</code></a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-Cipher-101">Cipher</a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-Cipher-Block-Chaining-215">Cipher Block Chaining</a>: <a href="#CBC">CBC</a></li>
+-<li><a href="#index-Collision_002dresistant-3">Collision-resistant</a>: <a href="#Hash-functions">Hash functions</a></li>
+-<li><a href="#index-Conditional-entropy-382">Conditional entropy</a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-Counter-Mode-223">Counter Mode</a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-CTR-Mode-224">CTR Mode</a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-CTR_005fCRYPT-228"><code>CTR_CRYPT</code></a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-ctr_005fcrypt-225"><code>ctr_crypt</code></a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-CTR_005fCTX-226"><code>CTR_CTX</code></a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-CTR_005fSET_005fCOUNTER-227"><code>CTR_SET_COUNTER</code></a>: <a href="#CTR">CTR</a></li>
+-<li><a href="#index-des3_005fdecrypt-168"><code>des3_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des3_005fencrypt-167"><code>des3_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des3_005fset_005fkey-166"><code>des3_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des_005fcheck_005fparity-161"><code>des_check_parity</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des_005fdecrypt-160"><code>des_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des_005fencrypt-159"><code>des_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des_005ffix_005fparity-162"><code>des_fix_parity</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-des_005fset_005fkey-158"><code>des_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-dsa_005fgenerate_005fkeypair-366"><code>dsa_generate_keypair</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fprivate_005fkey_005fclear-354"><code>dsa_private_key_clear</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fprivate_005fkey_005finit-352"><code>dsa_private_key_init</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fpublic_005fkey_005fclear-353"><code>dsa_public_key_clear</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fpublic_005fkey_005finit-351"><code>dsa_public_key_init</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha1_005fsign-358"><code>dsa_sha1_sign</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha1_005fsign_005fdigest-359"><code>dsa_sha1_sign_digest</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha1_005fverify-362"><code>dsa_sha1_verify</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha1_005fverify_005fdigest-363"><code>dsa_sha1_verify_digest</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha256_005fsign-360"><code>dsa_sha256_sign</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha256_005fsign_005fdigest-361"><code>dsa_sha256_sign_digest</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha256_005fverify-364"><code>dsa_sha256_verify</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsha256_005fverify_005fdigest-365"><code>dsa_sha256_verify_digest</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsignature_005fclear-357"><code>dsa_signature_clear</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-dsa_005fsignature_005finit-356"><code>dsa_signature_init</code></a>: <a href="#DSA">DSA</a></li>
+-<li><a href="#index-ecc_005fpoint_005fclear-369"><code>ecc_point_clear</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fpoint_005fget-371"><code>ecc_point_get</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fpoint_005finit-368"><code>ecc_point_init</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fpoint_005fset-370"><code>ecc_point_set</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fscalar_005fclear-374"><code>ecc_scalar_clear</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fscalar_005fget-376"><code>ecc_scalar_get</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fscalar_005finit-373"><code>ecc_scalar_init</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecc_005fscalar_005fset-375"><code>ecc_scalar_set</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecdsa_005fgenerate_005fkeypair-379"><code>ecdsa_generate_keypair</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecdsa_005fsign-377"><code>ecdsa_sign</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-ecdsa_005fverify-378"><code>ecdsa_verify</code></a>: <a href="#Elliptic-curves">Elliptic curves</a></li>
+-<li><a href="#index-Entropy-381">Entropy</a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-Galois-Counter-Mode-229">Galois Counter Mode</a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM-230">GCM</a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fdecrypt-253"><code>gcm_aes_decrypt</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fdigest-254"><code>gcm_aes_digest</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fencrypt-252"><code>gcm_aes_encrypt</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fset_005fiv-250"><code>gcm_aes_set_iv</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fset_005fkey-249"><code>gcm_aes_set_key</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005faes_005fupdate-251"><code>gcm_aes_update</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fCTX-241"><code>GCM_CTX</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fDECRYPT-246"><code>GCM_DECRYPT</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fdecrypt-239"><code>gcm_decrypt</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fDIGEST-247"><code>GCM_DIGEST</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fdigest-240"><code>gcm_digest</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fENCRYPT-245"><code>GCM_ENCRYPT</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fencrypt-238"><code>gcm_encrypt</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fSET_005fIV-243"><code>GCM_SET_IV</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fset_005fiv-236"><code>gcm_set_iv</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fSET_005fKEY-242"><code>GCM_SET_KEY</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fset_005fkey-235"><code>gcm_set_key</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-GCM_005fUPDATE-244"><code>GCM_UPDATE</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gcm_005fupdate-237"><code>gcm_update</code></a>: <a href="#GCM">GCM</a></li>
+-<li><a href="#index-gosthash94_005fdigest-87"><code>gosthash94_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-gosthash94_005finit-85"><code>gosthash94_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-gosthash94_005fupdate-86"><code>gosthash94_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-Hash-function-1">Hash function</a>: <a href="#Hash-functions">Hash functions</a></li>
+-<li><a href="#index-HMAC-258">HMAC</a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-HMAC_005fCTX-262"><code>HMAC_CTX</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-HMAC_005fDIGEST-264"><code>HMAC_DIGEST</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fdigest-261"><code>hmac_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fmd5_005fdigest-268"><code>hmac_md5_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fmd5_005fset_005fkey-266"><code>hmac_md5_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fmd5_005fupdate-267"><code>hmac_md5_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fripemd160_005fdigest-272"><code>hmac_ripemd160_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fripemd160_005fset_005fkey-270"><code>hmac_ripemd160_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fripemd160_005fupdate-271"><code>hmac_ripemd160_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-HMAC_005fSET_005fKEY-263"><code>HMAC_SET_KEY</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fset_005fkey-259"><code>hmac_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha1_005fdigest-276"><code>hmac_sha1_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha1_005fset_005fkey-274"><code>hmac_sha1_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha1_005fupdate-275"><code>hmac_sha1_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha256_005fdigest-280"><code>hmac_sha256_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha256_005fset_005fkey-278"><code>hmac_sha256_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha256_005fupdate-279"><code>hmac_sha256_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha512_005fdigest-284"><code>hmac_sha512_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha512_005fset_005fkey-282"><code>hmac_sha512_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fsha512_005fupdate-283"><code>hmac_sha512_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-hmac_005fupdate-260"><code>hmac_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-KDF-315">KDF</a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-Key-Derivation-Function-312">Key Derivation Function</a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-Keyed-Hash-Function-255">Keyed Hash Function</a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-MAC-257">MAC</a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-md2_005fdigest-63"><code>md2_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md2_005finit-61"><code>md2_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md2_005fupdate-62"><code>md2_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md4_005fdigest-69"><code>md4_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md4_005finit-67"><code>md4_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md4_005fupdate-68"><code>md4_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md5_005fdigest-57"><code>md5_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md5_005finit-55"><code>md5_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-md5_005fupdate-56"><code>md5_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-memxor-419"><code>memxor</code></a>: <a href="#Miscellaneous-functions">Miscellaneous functions</a></li>
+-<li><a href="#index-Message-Authentication-Code-256">Message Authentication Code</a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-One_002dway-2">One-way</a>: <a href="#Hash-functions">Hash functions</a></li>
+-<li><a href="#index-One_002dway-function-322">One-way function</a>: <a href="#Public_002dkey-algorithms">Public-key algorithms</a></li>
+-<li><a href="#index-Password-Based-Key-Derivation-Function-313">Password Based Key Derivation Function</a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-PBKDF-316">PBKDF</a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-PBKDF2-318"><code>PBKDF2</code></a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-pbkdf2-317"><code>pbkdf2</code></a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-pbkdf2_005fhmac_005fsha1-319"><code>pbkdf2_hmac_sha1</code></a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-pbkdf2_005fhmac_005fsha256-320"><code>pbkdf2_hmac_sha256</code></a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-PKCS-_00235-314">PKCS #5</a>: <a href="#Key-derivation-functions">Key derivation functions</a></li>
+-<li><a href="#index-Public-Key-Cryptography-321">Public Key Cryptography</a>: <a href="#Public_002dkey-algorithms">Public-key algorithms</a></li>
+-<li><a href="#index-Randomness-380">Randomness</a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-ripemd160_005fdigest-75"><code>ripemd160_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-ripemd160_005finit-73"><code>ripemd160_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-ripemd160_005fupdate-74"><code>ripemd160_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-rsa_005fcompute_005froot-347"><code>rsa_compute_root</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fgenerate_005fkeypair-348"><code>rsa_generate_keypair</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fmd5_005fsign-331"><code>rsa_md5_sign</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fmd5_005fsign_005fdigest-335"><code>rsa_md5_sign_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fmd5_005fverify-339"><code>rsa_md5_verify</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fmd5_005fverify_005fdigest-343"><code>rsa_md5_verify_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fprivate_005fkey_005fclear-328"><code>rsa_private_key_clear</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fprivate_005fkey_005finit-326"><code>rsa_private_key_init</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fprivate_005fkey_005fprepare-330"><code>rsa_private_key_prepare</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fpublic_005fkey_005fclear-327"><code>rsa_public_key_clear</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fpublic_005fkey_005finit-325"><code>rsa_public_key_init</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fpublic_005fkey_005fprepare-329"><code>rsa_public_key_prepare</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha1_005fsign-332"><code>rsa_sha1_sign</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha1_005fsign_005fdigest-336"><code>rsa_sha1_sign_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha1_005fverify-340"><code>rsa_sha1_verify</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha1_005fverify_005fdigest-344"><code>rsa_sha1_verify_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha256_005fsign-333"><code>rsa_sha256_sign</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha256_005fsign_005fdigest-337"><code>rsa_sha256_sign_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha256_005fverify-341"><code>rsa_sha256_verify</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha256_005fverify_005fdigest-345"><code>rsa_sha256_verify_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha512_005fsign-334"><code>rsa_sha512_sign</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha512_005fsign_005fdigest-338"><code>rsa_sha512_sign_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha512_005fverify-342"><code>rsa_sha512_verify</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-rsa_005fsha512_005fverify_005fdigest-346"><code>rsa_sha512_verify_digest</code></a>: <a href="#RSA">RSA</a></li>
+-<li><a href="#index-salsa20_005fcrypt-177"><code>salsa20_crypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-salsa20_005fset_005fiv-176"><code>salsa20_set_iv</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-salsa20_005fset_005fkey-175"><code>salsa20_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-salsa20r12_005fcrypt-178"><code>salsa20r12_crypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-serpent_005fdecrypt-186"><code>serpent_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-serpent_005fencrypt-185"><code>serpent_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-serpent_005fset_005fkey-184"><code>serpent_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-sha1_005fdigest-81"><code>sha1_digest</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-sha1_005finit-79"><code>sha1_init</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-sha1_005fupdate-80"><code>sha1_update</code></a>: <a href="#Legacy-hash-functions">Legacy hash functions</a></li>
+-<li><a href="#index-sha224_005fdigest-15"><code>sha224_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha224_005finit-13"><code>sha224_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha224_005fupdate-14"><code>sha224_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha256_005fdigest-9"><code>sha256_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha256_005finit-7"><code>sha256_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha256_005fupdate-8"><code>sha256_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha384_005fdigest-27"><code>sha384_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha384_005finit-25"><code>sha384_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha384_005fupdate-26"><code>sha384_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f224_005fdigest-33"><code>sha3_224_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f224_005finit-31"><code>sha3_224_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f224_005fupdate-32"><code>sha3_224_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f256_005fdigest-39"><code>sha3_256_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f256_005finit-37"><code>sha3_256_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f256_005fupdate-38"><code>sha3_256_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f384_005fdigest-45"><code>sha3_384_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f384_005finit-43"><code>sha3_384_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f384_005fupdate-44"><code>sha3_384_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f512_005fdigest-51"><code>sha3_512_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f512_005finit-49"><code>sha3_512_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha3_005f512_005fupdate-50"><code>sha3_512_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha512_005fdigest-21"><code>sha512_digest</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha512_005finit-19"><code>sha512_init</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-sha512_005fupdate-20"><code>sha512_update</code></a>: <a href="#Recommended-hash-functions">Recommended hash functions</a></li>
+-<li><a href="#index-Stream-Cipher-103">Stream Cipher</a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-twofish_005fdecrypt-194"><code>twofish_decrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-twofish_005fencrypt-193"><code>twofish_encrypt</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-twofish_005fset_005fkey-192"><code>twofish_set_key</code></a>: <a href="#Cipher-functions">Cipher functions</a></li>
+-<li><a href="#index-UMAC-285">UMAC</a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac128_005fdigest-311"><code>umac128_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac128_005fset_005fkey-299"><code>umac128_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac128_005fset_005fnonce-303"><code>umac128_set_nonce</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac128_005fupdate-307"><code>umac128_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac32_005fdigest-308"><code>umac32_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac32_005fset_005fkey-296"><code>umac32_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac32_005fset_005fnonce-300"><code>umac32_set_nonce</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac32_005fupdate-304"><code>umac32_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac64_005fdigest-309"><code>umac64_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac64_005fset_005fkey-297"><code>umac64_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac64_005fset_005fnonce-301"><code>umac64_set_nonce</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac64_005fupdate-305"><code>umac64_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac96_005fdigest-310"><code>umac96_digest</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac96_005fset_005fkey-298"><code>umac96_set_key</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac96_005fset_005fnonce-302"><code>umac96_set_nonce</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-umac96_005fupdate-306"><code>umac96_update</code></a>: <a href="#Keyed-hash-functions">Keyed hash functions</a></li>
+-<li><a href="#index-yarrow256_005ffast_005freseed-392"><code>yarrow256_fast_reseed</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005finit-386"><code>yarrow256_init</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005fis_005fseeded-390"><code>yarrow256_is_seeded</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005fneeded_005fsources-391"><code>yarrow256_needed_sources</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005frandom-389"><code>yarrow256_random</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005fseed-387"><code>yarrow256_seed</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005fslow_005freseed-393"><code>yarrow256_slow_reseed</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow256_005fupdate-388"><code>yarrow256_update</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow_005fkey_005fevent_005festimate-396"><code>yarrow_key_event_estimate</code></a>: <a href="#Randomness">Randomness</a></li>
+-<li><a href="#index-yarrow_005fkey_005fevent_005finit-395"><code>yarrow_key_event_init</code></a>: <a href="#Randomness">Randomness</a></li>
+-   </ul><div class="footnote">
++<table><tr><th valign="top">Jump to: &nbsp; </th><td><a class="summary-letter" href="#Index_cp_letter-A"><b>A</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-B"><b>B</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-C"><b>C</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-D"><b>D</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-E"><b>E</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-G"><b>G</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-H"><b>H</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-K"><b>K</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-M"><b>M</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-N"><b>N</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-O"><b>O</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-P"><b>P</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-R"><b>R</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-S"><b>S</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-T"><b>T</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-U"><b>U</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-Y"><b>Y</b></a>
++ &nbsp; 
++</td></tr></table>
++<table class="index-cp" border="0">
++<tr><td></td><th align="left">Index Entry</th><td>&nbsp;</td><th align="left"> Section</th></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-A">A</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-AEAD">AEAD</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Authenticated-encryption">Authenticated encryption</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes128_005fdecrypt"><code>aes128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes128_005fencrypt"><code>aes128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes128_005finvert_005fkey"><code>aes128_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes128_005fset_005fdecrypt_005fkey"><code>aes128_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes128_005fset_005fencrypt_005fkey"><code>aes128_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes192_005fdecrypt"><code>aes192_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes192_005fencrypt"><code>aes192_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes192_005finvert_005fkey"><code>aes192_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes192_005fset_005fdecrypt_005fkey"><code>aes192_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes192_005fset_005fencrypt_005fkey"><code>aes192_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes256_005fdecrypt"><code>aes256_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes256_005fencrypt"><code>aes256_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes256_005finvert_005fkey"><code>aes256_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes256_005fset_005fdecrypt_005fkey"><code>aes256_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes256_005fset_005fencrypt_005fkey"><code>aes256_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes_005fdecrypt"><code>aes_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes_005fencrypt"><code>aes_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes_005finvert_005fkey"><code>aes_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes_005fset_005fdecrypt_005fkey"><code>aes_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-aes_005fset_005fencrypt_005fkey"><code>aes_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arcfour_005fcrypt"><code>arcfour_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arcfour_005fset_005fkey"><code>arcfour_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arctwo_005fdecrypt"><code>arctwo_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arctwo_005fencrypt"><code>arctwo_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arctwo_005fset_005fkey"><code>arctwo_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arctwo_005fset_005fkey_005fekb"><code>arctwo_set_key_ekb</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-arctwo_005fset_005fkey_005fgutmann"><code>arctwo_set_key_gutmann</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Authenticated-encryption">Authenticated encryption</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Authenticated-encryption">Authenticated encryption</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-B">B</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fdecode_005ffinal"><code>base16_decode_final</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fdecode_005finit"><code>base16_decode_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-BASE16_005fDECODE_005fLENGTH"><code>BASE16_DECODE_LENGTH</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fdecode_005fsingle"><code>base16_decode_single</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fdecode_005fupdate"><code>base16_decode_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-BASE16_005fENCODE_005fLENGTH"><code>BASE16_ENCODE_LENGTH</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fencode_005fsingle"><code>base16_encode_single</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base16_005fencode_005fupdate"><code>base16_encode_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64url_005fdecode_005finit"><code>base64url_decode_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64url_005fencode_005finit"><code>base64url_encode_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fdecode_005ffinal"><code>base64_decode_final</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fdecode_005finit"><code>base64_decode_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-BASE64_005fDECODE_005fLENGTH"><code>BASE64_DECODE_LENGTH</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fdecode_005fsingle"><code>base64_decode_single</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fdecode_005fupdate"><code>base64_decode_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fencode_005ffinal"><code>base64_encode_final</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fencode_005finit"><code>base64_encode_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-BASE64_005fENCODE_005fLENGTH"><code>BASE64_ENCODE_LENGTH</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fencode_005fsingle"><code>base64_encode_single</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-base64_005fencode_005fupdate"><code>base64_encode_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ASCII-encoding">ASCII encoding</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Block-Cipher">Block Cipher</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-blowfish_005fdecrypt"><code>blowfish_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-blowfish_005fencrypt"><code>blowfish_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-blowfish_005fset_005fkey"><code>blowfish_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-C">C</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia128_005fcrypt"><code>camellia128_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia128_005finvert_005fkey"><code>camellia128_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia128_005fset_005fdecrypt_005fkey"><code>camellia128_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia128_005fset_005fencrypt_005fkey"><code>camellia128_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia192_005fcrypt"><code>camellia192_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia192_005finvert_005fkey"><code>camellia192_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia192_005fset_005fdecrypt_005fkey"><code>camellia192_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia192_005fset_005fencrypt_005fkey"><code>camellia192_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia256_005fcrypt"><code>camellia256_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia256_005finvert_005fkey"><code>camellia256_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia256_005fset_005fdecrypt_005fkey"><code>camellia256_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia256_005fset_005fencrypt_005fkey"><code>camellia256_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia_005fcrypt"><code>camellia_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia_005finvert_005fkey"><code>camellia_invert_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia_005fset_005fdecrypt_005fkey"><code>camellia_set_decrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-camellia_005fset_005fencrypt_005fkey"><code>camellia_set_encrypt_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-cast128_005fdecrypt"><code>cast128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-cast128_005fencrypt"><code>cast128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-cast128_005fset_005fkey"><code>cast128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CBC-Mode">CBC Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CBC_005fCTX"><code>CBC_CTX</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-cbc_005fdecrypt"><code>cbc_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CBC_005fDECRYPT"><code>CBC_DECRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-cbc_005fencrypt"><code>cbc_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CBC_005fENCRYPT"><code>CBC_ENCRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CBC_005fSET_005fIV"><code>CBC_SET_IV</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CCM-Mode">CCM Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fdecrypt"><code>ccm_aes128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fdecrypt_005fmessage"><code>ccm_aes128_decrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fdigest"><code>ccm_aes128_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fencrypt"><code>ccm_aes128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fencrypt_005fmessage"><code>ccm_aes128_encrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fset_005fkey"><code>ccm_aes128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fset_005fnonce"><code>ccm_aes128_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes128_005fupdate"><code>ccm_aes128_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fdecrypt"><code>ccm_aes192_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fdecrypt_005fmessage"><code>ccm_aes192_decrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fdecrypt_005fmessage-1"><code>ccm_aes192_decrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fdigest"><code>ccm_aes192_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fencrypt"><code>ccm_aes192_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fencrypt_005fmessage"><code>ccm_aes192_encrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fset_005fkey"><code>ccm_aes192_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fset_005fnonce"><code>ccm_aes192_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes192_005fupdate"><code>ccm_aes192_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fdecrypt"><code>ccm_aes256_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fdigest"><code>ccm_aes256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fencrypt"><code>ccm_aes256_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fencrypt_005fmessage"><code>ccm_aes256_encrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fset_005fkey"><code>ccm_aes256_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fset_005fnonce"><code>ccm_aes256_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005faes256_005fupdate"><code>ccm_aes256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fdecrypt"><code>ccm_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fdecrypt_005fmessage"><code>ccm_decrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fdigest"><code>ccm_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fencrypt"><code>ccm_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fencrypt_005fmessage"><code>ccm_encrypt_message</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CCM_005fMAX_005fMSG_005fSIZE"><code>CCM_MAX_MSG_SIZE</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fset_005fnonce"><code>ccm_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ccm_005fupdate"><code>ccm_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fcrypt"><code>chacha_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fdecrypt"><code>chacha_poly1305_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fdigest"><code>chacha_poly1305_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fencrypt"><code>chacha_poly1305_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fset_005fkey"><code>chacha_poly1305_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fset_005fnonce"><code>chacha_poly1305_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fpoly1305_005fupdate"><code>chacha_poly1305_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#ChaCha_002dPoly1305">ChaCha-Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fset_005fkey"><code>chacha_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-chacha_005fset_005fnonce"><code>chacha_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Cipher">Cipher</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Cipher-Block-Chaining">Cipher Block Chaining</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CBC">CBC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Collision_002dresistant">Collision-resistant</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Hash-functions">Hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Conditional-entropy">Conditional entropy</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Counter-Mode">Counter Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Counter-with-CBC_002dMAC-Mode">Counter with CBC-MAC Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CCM">CCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CTR-Mode">CTR Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ctr_005fcrypt"><code>ctr_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CTR_005fCRYPT"><code>CTR_CRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CTR_005fCTX"><code>CTR_CTX</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-CTR_005fSET_005fCOUNTER"><code>CTR_SET_COUNTER</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#CTR">CTR</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-curve25519_005fmul"><code>curve25519_mul</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-curve25519_005fmul_005fg"><code>curve25519_mul_g</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-D">D</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des3_005fdecrypt"><code>des3_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des3_005fencrypt"><code>des3_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des3_005fset_005fkey"><code>des3_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des_005fcheck_005fparity"><code>des_check_parity</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des_005fdecrypt"><code>des_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des_005fencrypt"><code>des_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des_005ffix_005fparity"><code>des_fix_parity</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-des_005fset_005fkey"><code>des_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fcompat_005fgenerate_005fkeypair"><code>dsa_compat_generate_keypair</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fgenerate_005fkeypair"><code>dsa_generate_keypair</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fgenerate_005fparams"><code>dsa_generate_params</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fparams_005fclear"><code>dsa_params_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fparams_005finit"><code>dsa_params_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fprivate_005fkey_005fclear"><code>dsa_private_key_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fprivate_005fkey_005finit"><code>dsa_private_key_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fpublic_005fkey_005fclear"><code>dsa_public_key_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fpublic_005fkey_005finit"><code>dsa_public_key_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha1_005fsign"><code>dsa_sha1_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha1_005fsign_005fdigest"><code>dsa_sha1_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha1_005fverify"><code>dsa_sha1_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha1_005fverify_005fdigest"><code>dsa_sha1_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha256_005fsign"><code>dsa_sha256_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha256_005fsign_005fdigest"><code>dsa_sha256_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha256_005fverify"><code>dsa_sha256_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsha256_005fverify_005fdigest"><code>dsa_sha256_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsign"><code>dsa_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsignature_005fclear"><code>dsa_signature_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fsignature_005finit"><code>dsa_signature_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-dsa_005fverify"><code>dsa_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#DSA">DSA</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-E">E</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fdecrypt"><code>eax_aes128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fdigest"><code>eax_aes128_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fencrypt"><code>eax_aes128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fset_005fkey"><code>eax_aes128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fset_005fnonce"><code>eax_aes128_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005faes128_005fupdate"><code>eax_aes128_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fCTX"><code>EAX_CTX</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fdecrypt"><code>eax_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fDECRYPT"><code>EAX_DECRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fdigest"><code>eax_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fDIGEST"><code>EAX_DIGEST</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fencrypt"><code>eax_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fENCRYPT"><code>EAX_ENCRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fset_005fkey"><code>eax_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fSET_005fKEY"><code>EAX_SET_KEY</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fset_005fnonce"><code>eax_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fSET_005fNONCE"><code>EAX_SET_NONCE</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eax_005fupdate"><code>eax_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-EAX_005fUPDATE"><code>EAX_UPDATE</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#EAX">EAX</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fpoint_005fclear"><code>ecc_point_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fpoint_005fget"><code>ecc_point_get</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fpoint_005finit"><code>ecc_point_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fpoint_005fset"><code>ecc_point_set</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fscalar_005fclear"><code>ecc_scalar_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fscalar_005fget"><code>ecc_scalar_get</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fscalar_005finit"><code>ecc_scalar_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecc_005fscalar_005fset"><code>ecc_scalar_set</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecdsa_005fgenerate_005fkeypair"><code>ecdsa_generate_keypair</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecdsa_005fsign"><code>ecdsa_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ecdsa_005fverify"><code>ecdsa_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ed25519_005fsha512_005fpublic_005fkey"><code>ed25519_sha512_public_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ed25519_005fsha512_005fsign"><code>ed25519_sha512_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ed25519_005fsha512_005fverify"><code>ed25519_sha512_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-eddsa">eddsa</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Elliptic-curves">Elliptic curves</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Entropy">Entropy</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-G">G</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Galois-Counter-Mode">Galois Counter Mode</a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM">GCM</a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fdecrypt"><code>gcm_aes128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fdigest"><code>gcm_aes128_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fencrypt"><code>gcm_aes128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fset_005fiv"><code>gcm_aes128_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fset_005fkey"><code>gcm_aes128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes128_005fupdate"><code>gcm_aes128_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fdecrypt"><code>gcm_aes192_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fdigest"><code>gcm_aes192_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fencrypt"><code>gcm_aes192_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fset_005fiv"><code>gcm_aes192_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fset_005fkey"><code>gcm_aes192_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes192_005fupdate"><code>gcm_aes192_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fdecrypt"><code>gcm_aes256_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fdigest"><code>gcm_aes256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fencrypt"><code>gcm_aes256_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fset_005fiv"><code>gcm_aes256_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fset_005fkey"><code>gcm_aes256_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes256_005fupdate"><code>gcm_aes256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fdecrypt"><code>gcm_aes_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fdigest"><code>gcm_aes_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fencrypt"><code>gcm_aes_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fset_005fiv"><code>gcm_aes_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fset_005fkey"><code>gcm_aes_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005faes_005fupdate"><code>gcm_aes_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fdecrypt"><code>gcm_camellia128_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fdigest"><code>gcm_camellia128_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fencrypt"><code>gcm_camellia128_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fset_005fiv"><code>gcm_camellia128_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fset_005fkey"><code>gcm_camellia128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia128_005fupdate"><code>gcm_camellia128_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia192_005fdigest"><code>gcm_camellia192_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fdecrypt"><code>gcm_camellia256_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fdigest"><code>gcm_camellia256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fencrypt"><code>gcm_camellia256_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fset_005fiv"><code>gcm_camellia256_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fset_005fkey"><code>gcm_camellia256_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia256_005fupdate"><code>gcm_camellia256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fcamellia_005fdigest"><code>gcm_camellia_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fCTX"><code>GCM_CTX</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fdecrypt"><code>gcm_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fDECRYPT"><code>GCM_DECRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fdigest"><code>gcm_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fDIGEST"><code>GCM_DIGEST</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fencrypt"><code>gcm_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fENCRYPT"><code>GCM_ENCRYPT</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fset_005fiv"><code>gcm_set_iv</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fSET_005fIV"><code>GCM_SET_IV</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fset_005fkey"><code>gcm_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fSET_005fKEY"><code>GCM_SET_KEY</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gcm_005fupdate"><code>gcm_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-GCM_005fUPDATE"><code>GCM_UPDATE</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#GCM">GCM</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gosthash94_005fdigest"><code>gosthash94_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gosthash94_005finit"><code>gosthash94_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-gosthash94_005fupdate"><code>gosthash94_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-H">H</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Hash-function">Hash function</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Hash-functions">Hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-HMAC">HMAC</a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-HMAC_005fCTX"><code>HMAC_CTX</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fdigest"><code>hmac_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-HMAC_005fDIGEST"><code>HMAC_DIGEST</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fmd5_005fdigest"><code>hmac_md5_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fmd5_005fset_005fkey"><code>hmac_md5_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fmd5_005fupdate"><code>hmac_md5_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fripemd160_005fdigest"><code>hmac_ripemd160_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fripemd160_005fset_005fkey"><code>hmac_ripemd160_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fripemd160_005fupdate"><code>hmac_ripemd160_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fset_005fkey"><code>hmac_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-HMAC_005fSET_005fKEY"><code>HMAC_SET_KEY</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha1_005fdigest"><code>hmac_sha1_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha1_005fset_005fkey"><code>hmac_sha1_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha1_005fupdate"><code>hmac_sha1_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha256_005fdigest"><code>hmac_sha256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha256_005fset_005fkey"><code>hmac_sha256_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha256_005fupdate"><code>hmac_sha256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha512_005fdigest"><code>hmac_sha512_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha512_005fset_005fkey"><code>hmac_sha512_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fsha512_005fupdate"><code>hmac_sha512_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-hmac_005fupdate"><code>hmac_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#HMAC">HMAC</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-K">K</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-KDF">KDF</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Key-Derivation-Function">Key Derivation Function</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Keyed-Hash-Function">Keyed Hash Function</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Keyed-hash-functions">Keyed hash functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-M">M</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-MAC">MAC</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Keyed-hash-functions">Keyed hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md2_005fdigest"><code>md2_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md2_005finit"><code>md2_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md2_005fupdate"><code>md2_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md4_005fdigest"><code>md4_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md4_005finit"><code>md4_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md4_005fupdate"><code>md4_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md5_005fdigest"><code>md5_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md5_005finit"><code>md5_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-md5_005fupdate"><code>md5_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-memxor"><code>memxor</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Miscellaneous-functions">Miscellaneous functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-memxor3"><code>memxor3</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Miscellaneous-functions">Miscellaneous functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Message-Authentication-Code">Message Authentication Code</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Keyed-hash-functions">Keyed hash functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-N">N</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005faead">nettle_aead</a>:</td><td>&nbsp;</td><td valign="top"><a href="#nettle_005faead-abstraction">nettle_aead abstraction</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005faeads">nettle_aeads</a>:</td><td>&nbsp;</td><td valign="top"><a href="#nettle_005faead-abstraction">nettle_aead abstraction</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005fcipher">nettle_cipher</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005fciphers">nettle_ciphers</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005fhash">nettle_hash</a>:</td><td>&nbsp;</td><td valign="top"><a href="#nettle_005fhash-abstraction">nettle_hash abstraction</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-nettle_005fhashes">nettle_hashes</a>:</td><td>&nbsp;</td><td valign="top"><a href="#nettle_005fhash-abstraction">nettle_hash abstraction</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-O">O</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-One_002dway">One-way</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Hash-functions">Hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-One_002dway-function">One-way function</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Public_002dkey-algorithms">Public-key algorithms</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-P">P</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Password-Based-Key-Derivation-Function">Password Based Key Derivation Function</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-PBKDF">PBKDF</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-pbkdf2"><code>pbkdf2</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-PBKDF2"><code>PBKDF2</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-pbkdf2_005fhmac_005fsha1"><code>pbkdf2_hmac_sha1</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-pbkdf2_005fhmac_005fsha256"><code>pbkdf2_hmac_sha256</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-PKCS-_00235">PKCS #5</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Key-derivation-functions">Key derivation functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-poly1305_005faes_005fdigest"><code>poly1305_aes_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Poly1305">Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-poly1305_005faes_005fset_005fkey"><code>poly1305_aes_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Poly1305">Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-poly1305_005faes_005fset_005fnonce"><code>poly1305_aes_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Poly1305">Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-poly1305_005faes_005fupdate"><code>poly1305_aes_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Poly1305">Poly1305</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Public-Key-Cryptography">Public Key Cryptography</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Public_002dkey-algorithms">Public-key algorithms</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-R">R</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Randomness">Randomness</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ripemd160_005fdigest"><code>ripemd160_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ripemd160_005finit"><code>ripemd160_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-ripemd160_005fupdate"><code>ripemd160_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fcompute_005froot"><code>rsa_compute_root</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fcompute_005froot_005ftr_0028const"><code>rsa_compute_root_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fdecrypt"><code>rsa_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fdecrypt_005ftr"><code>rsa_decrypt_tr</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fencrypt"><code>rsa_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fgenerate_005fkeypair"><code>rsa_generate_keypair</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fsign"><code>rsa_md5_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fsign_005fdigest"><code>rsa_md5_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fsign_005fdigest_005ftr_0028const"><code>rsa_md5_sign_digest_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fsign_005ftr_0028const"><code>rsa_md5_sign_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fverify"><code>rsa_md5_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fmd5_005fverify_005fdigest"><code>rsa_md5_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpkcs1_005fsign_0028const"><code>rsa_pkcs1_sign(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpkcs1_005fsign_005ftr_0028const"><code>rsa_pkcs1_sign_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpkcs1_005fverify_0028const"><code>rsa_pkcs1_verify(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fprivate_005fkey_005fclear"><code>rsa_private_key_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fprivate_005fkey_005finit"><code>rsa_private_key_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fprivate_005fkey_005fprepare"><code>rsa_private_key_prepare</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpublic_005fkey_005fclear"><code>rsa_public_key_clear</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpublic_005fkey_005finit"><code>rsa_public_key_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fpublic_005fkey_005fprepare"><code>rsa_public_key_prepare</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fsign"><code>rsa_sha1_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fsign_005fdigest"><code>rsa_sha1_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fsign_005fdigest_005ftr_0028const"><code>rsa_sha1_sign_digest_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fsign_005ftr_0028const"><code>rsa_sha1_sign_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fverify"><code>rsa_sha1_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha1_005fverify_005fdigest"><code>rsa_sha1_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fsign"><code>rsa_sha256_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fsign_005fdigest"><code>rsa_sha256_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fsign_005fdigest_005ftr_0028const"><code>rsa_sha256_sign_digest_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fsign_005ftr_0028const"><code>rsa_sha256_sign_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fverify"><code>rsa_sha256_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha256_005fverify_005fdigest"><code>rsa_sha256_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fsign"><code>rsa_sha512_sign</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fsign_005fdigest"><code>rsa_sha512_sign_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fsign_005fdigest_005ftr_0028const"><code>rsa_sha512_sign_digest_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fsign_005ftr_0028const"><code>rsa_sha512_sign_tr(const</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fverify"><code>rsa_sha512_verify</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-rsa_005fsha512_005fverify_005fdigest"><code>rsa_sha512_verify_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#RSA">RSA</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-S">S</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20r12_005fcrypt"><code>salsa20r12_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20_005f128_005fset_005fkey"><code>salsa20_128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20_005f256_005fset_005fkey"><code>salsa20_256_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20_005fcrypt"><code>salsa20_crypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20_005fset_005fkey"><code>salsa20_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-salsa20_005fset_005fnonce"><code>salsa20_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-serpent_005fdecrypt"><code>serpent_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-serpent_005fencrypt"><code>serpent_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-serpent_005fset_005fkey"><code>serpent_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha1_005fdigest"><code>sha1_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha1_005finit"><code>sha1_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha1_005fupdate"><code>sha1_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Legacy-hash-functions">Legacy hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha224_005fdigest"><code>sha224_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha224_005finit"><code>sha224_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha224_005fupdate"><code>sha224_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha256_005fdigest"><code>sha256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha256_005finit"><code>sha256_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha256_005fupdate"><code>sha256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-SHA3">SHA3</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha384_005fdigest"><code>sha384_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha384_005finit"><code>sha384_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha384_005fupdate"><code>sha384_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f224_005fdigest"><code>sha3_224_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f224_005finit"><code>sha3_224_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f224_005fupdate"><code>sha3_224_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f256_005fdigest"><code>sha3_256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f256_005finit"><code>sha3_256_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f256_005fupdate"><code>sha3_256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f384_005fdigest"><code>sha3_384_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f384_005finit"><code>sha3_384_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f384_005fupdate"><code>sha3_384_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f512_005fdigest"><code>sha3_512_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f512_005finit"><code>sha3_512_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha3_005f512_005fupdate"><code>sha3_512_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f224_005fdigest"><code>sha512_224_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f224_005finit"><code>sha512_224_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f224_005fupdate"><code>sha512_224_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f256_005fdigest"><code>sha512_256_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f256_005finit"><code>sha512_256_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005f256_005fupdate"><code>sha512_256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005fdigest"><code>sha512_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005finit"><code>sha512_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-sha512_005fupdate"><code>sha512_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Recommended-hash-functions">Recommended hash functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-Stream-Cipher">Stream Cipher</a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-T">T</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-twofish_005fdecrypt"><code>twofish_decrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-twofish_005fencrypt"><code>twofish_encrypt</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-twofish_005fset_005fkey"><code>twofish_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Cipher-functions">Cipher functions</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-U">U</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-UMAC">UMAC</a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac128_005fdigest"><code>umac128_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac128_005fset_005fkey"><code>umac128_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac128_005fset_005fnonce"><code>umac128_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac128_005fupdate"><code>umac128_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac32_005fdigest"><code>umac32_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac32_005fset_005fkey"><code>umac32_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac32_005fset_005fnonce"><code>umac32_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac32_005fupdate"><code>umac32_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac64_005fdigest"><code>umac64_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac64_005fset_005fkey"><code>umac64_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac64_005fset_005fnonce"><code>umac64_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac64_005fupdate"><code>umac64_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac96_005fdigest"><code>umac96_digest</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac96_005fset_005fkey"><code>umac96_set_key</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac96_005fset_005fnonce"><code>umac96_set_nonce</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-umac96_005fupdate"><code>umac96_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#UMAC">UMAC</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++<tr><th><a name="Index_cp_letter-Y">Y</a></th><td></td><td></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005ffast_005freseed"><code>yarrow256_fast_reseed</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005finit"><code>yarrow256_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005fis_005fseeded"><code>yarrow256_is_seeded</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005fneeded_005fsources"><code>yarrow256_needed_sources</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005frandom"><code>yarrow256_random</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005fseed"><code>yarrow256_seed</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005fslow_005freseed"><code>yarrow256_slow_reseed</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow256_005fupdate"><code>yarrow256_update</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow_005fkey_005fevent_005festimate"><code>yarrow_key_event_estimate</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td></td><td valign="top"><a href="#index-yarrow_005fkey_005fevent_005finit"><code>yarrow_key_event_init</code></a>:</td><td>&nbsp;</td><td valign="top"><a href="#Randomness">Randomness</a></td></tr>
++<tr><td colspan="4"> <hr></td></tr>
++</table>
++<table><tr><th valign="top">Jump to: &nbsp; </th><td><a class="summary-letter" href="#Index_cp_letter-A"><b>A</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-B"><b>B</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-C"><b>C</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-D"><b>D</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-E"><b>E</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-G"><b>G</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-H"><b>H</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-K"><b>K</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-M"><b>M</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-N"><b>N</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-O"><b>O</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-P"><b>P</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-R"><b>R</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-S"><b>S</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-T"><b>T</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-U"><b>U</b></a>
++ &nbsp; 
++<a class="summary-letter" href="#Index_cp_letter-Y"><b>Y</b></a>
++ &nbsp; 
++</td></tr></table>
++
+ <hr>
+-<a name="texinfo-footnotes-in-document"></a><h4>Footnotes</h4><p class="footnote"><small>[<a name="fn-1" href="#fnd-1">1</a>]</small> Actually, the computation is not done like this, it is
++<a name="SEC_Foot"></a>
++<div class="header">
++<p>
++ &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
++</div>
++<h4 class="footnotes-heading">Footnotes</h4>
++
++<h3><a name="FOOT1" href="#DOCF1">(1)</a></h3>
++<p>Actually, the computation is not done like this, it is
+ done more efficiently using <code>p</code>, <code>q</code> and the Chinese remainder
+ theorem (<acronym>CRT</acronym>). But the result is the same.</p>
++<hr>
+ 
+-   <hr></div>
+-
+-</body></html>
+ 
+-<!--
+-
+-Local Variables:
+-coding: utf-8
+-End:
+ 
+--->
++</body>
++</html>

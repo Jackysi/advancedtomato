@@ -4,6 +4,31 @@
 #define MAX_SIZE 256
 #define ALIGN_SIZE 16
 
+#if HAVE_VALGRIND_MEMCHECK_H
+# include <valgrind/memcheck.h>
+# define ROUND_DOWN(x) ((x) & (-ALIGN_SIZE))
+# define ROUND_UP(x) ROUND_DOWN((x)+(ALIGN_SIZE-1))
+enum mark_type { MARK_SRC, MARK_DST };
+
+static void
+test_mark (enum mark_type type,
+	   const uint8_t *block, size_t block_size,
+	   const uint8_t *p, size_t size)
+{
+  VALGRIND_MAKE_MEM_NOACCESS(block, p - block);
+  if (type == MARK_DST)
+    VALGRIND_MAKE_MEM_UNDEFINED(p, size);
+  VALGRIND_MAKE_MEM_NOACCESS(p + size,
+			     (block + block_size) - (p + size));
+}
+
+#define test_unmark(block, size) \
+  VALGRIND_MAKE_MEM_DEFINED((block), (size))
+#else
+# define test_mark(type, block, block_size, start, size)
+# define test_unmark(block, size)
+#endif
+
 static uint8_t *
 set_align(uint8_t *buf, unsigned align)
 {
@@ -39,9 +64,14 @@ test_memxor (const uint8_t *a, const uint8_t *b, const uint8_t *c,
   dst[size] = 17;
 
   memcpy (src, b, size);
-  memxor (dst, src, size);
+  test_mark (MARK_SRC, src_buf, sizeof (src_buf), src, size);
+  test_mark (MARK_SRC, dst_buf, sizeof (dst_buf), dst, size);
 
+  memxor (dst, src, size);
   ASSERT (MEMEQ (size, dst, c));
+  
+  test_unmark(src_buf, sizeof (src_buf));
+  test_unmark(dst_buf, sizeof (src_buf));
   ASSERT (dst[-1] == 17);
   ASSERT (dst[size] == 17);
 }
@@ -68,9 +98,17 @@ test_memxor3 (const uint8_t *ain, const uint8_t *bin, const uint8_t *c,
 
   memcpy (a, ain, size);
   memcpy (b, bin, size);
-  memxor3 (dst, a, b, size);
+  test_mark (MARK_SRC, a_buf, sizeof(a_buf), a, size);
+  test_mark (MARK_SRC, b_buf, sizeof(b_buf), b, size);
+  test_mark (MARK_DST, dst_buf, sizeof(dst_buf), dst, size);
 
+  memxor3 (dst, a, b, size);
   ASSERT (MEMEQ (size, dst, c));
+
+  test_unmark (a_buf, sizeof(a_buf));
+  test_unmark (b_buf, sizeof(b_buf));
+  test_unmark (dst_buf, sizeof(dst_buf));
+
   ASSERT (dst[-1] == 17);
   ASSERT (dst[size] == 17);
 }

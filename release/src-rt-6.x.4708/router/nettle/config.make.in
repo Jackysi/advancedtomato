@@ -5,7 +5,6 @@ CXX = @CXX@
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 CCPIC = @CCPIC@
-CCPIC_MAYBE = @CCPIC_MAYBE@
 CPPFLAGS = @CPPFLAGS@
 DEFS = @DEFS@
 LDFLAGS = @LDFLAGS@
@@ -28,8 +27,6 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
-
-SHLIBCFLAGS = @SHLIBCFLAGS@
 
 LIBNETTLE_MAJOR = @LIBNETTLE_MAJOR@
 LIBNETTLE_MINOR = @LIBNETTLE_MINOR@
@@ -69,10 +66,10 @@ includedir =	@includedir@
 infodir =	@infodir@
 
 # PRE_CPPFLAGS and PRE_LDFLAGS lets each Makefile.in prepend its own
-# flags before CPPFLAGS and LDFLAGS.
+# flags before CPPFLAGS and LDFLAGS. While EXTRA_CFLAGS are added at the end.
 
-COMPILE = $(CC) $(PRE_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CFLAGS) $(CCPIC) $(DEP_FLAGS)
-COMPILE_CXX = $(CXX) $(PRE_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CXXFLAGS) $(CCPIC) $(DEP_FLAGS)
+COMPILE = $(CC) $(PRE_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CFLAGS) $(EXTRA_CFLAGS) $(DEP_FLAGS)
+COMPILE_CXX = $(CXX) $(PRE_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CXXFLAGS) $(DEP_FLAGS)
 LINK = $(CC) $(CFLAGS) $(PRE_LDFLAGS) $(LDFLAGS)
 LINK_CXX = $(CXX) $(CXXFLAGS) $(PRE_LDFLAGS) $(LDFLAGS)
 
@@ -86,7 +83,7 @@ default: all
 # compile was broken when .SUFFIXES was moved here from Makefile.in.
 
 .SUFFIXES:
-.SUFFIXES: .asm .s .c .$(OBJEXT) .p$(OBJEXT) .html .dvi .info .exe .pdf .ps .texinfo
+.SUFFIXES: .asm .c .$(OBJEXT) .p$(OBJEXT) .html .dvi .info .exe .pdf .ps .texinfo
 
 # Disable builtin rule
 %$(EXEEXT) : %.c

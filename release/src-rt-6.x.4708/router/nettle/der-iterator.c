@@ -1,27 +1,35 @@
 /* der-iterator.c
- *
- * Parses DER encoded objects.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2005 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Parsing of ASN.1 DER encoded objects.
+
+   Copyright (C) 2005 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -30,9 +38,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#if HAVE_LIBGMP
 #include "bignum.h"
-#endif
 
 #include "asn1.h"
 
@@ -87,7 +93,7 @@ enum {
  * first element. */
 static void
 asn1_der_iterator_init(struct asn1_der_iterator *iterator,
-		       unsigned length, const uint8_t *input)
+		       size_t length, const uint8_t *input)
 {
   iterator->buffer_length = length;
   iterator->buffer = input;
@@ -133,7 +139,7 @@ asn1_der_iterator_next(struct asn1_der_iterator *i)
       if (LEFT(i) < k)
 	return ASN1_ITERATOR_ERROR;
 
-      if (k > sizeof(unsigned))
+      if (k > sizeof(i->length))
 	return ASN1_ITERATOR_ERROR;
 
       i->pos += k;
@@ -164,7 +170,7 @@ asn1_der_iterator_next(struct asn1_der_iterator *i)
 
 enum asn1_iterator_result
 asn1_der_iterator_first(struct asn1_der_iterator *i,
-			unsigned length, const uint8_t *input)
+			size_t length, const uint8_t *input)
 {
   asn1_der_iterator_init(i, length, input);
   return asn1_der_iterator_next(i);
@@ -216,7 +222,7 @@ asn1_der_get_uint32(struct asn1_der_iterator *i,
   /* Big endian, two's complement, minimum number of octets (except 0,
      which is encoded as a single octet */
   uint32_t value = 0;
-  unsigned length = i->length;
+  size_t length = i->length;
   unsigned k;
 
   if (!length || length > 5)
@@ -246,7 +252,9 @@ asn1_der_get_uint32(struct asn1_der_iterator *i,
   return 1;
 }
 
-#if HAVE_LIBGMP
+/* NOTE: This is the only function in this file which needs bignums.
+   One could split this file in two, one in libnettle and one in
+   libhogweed. */
 int
 asn1_der_get_bignum(struct asn1_der_iterator *i,
 		    mpz_t x, unsigned max_bits)
@@ -269,4 +277,3 @@ asn1_der_get_bignum(struct asn1_der_iterator *i,
 
   return 1;
 }
-#endif /* HAVE_LIBGMP */

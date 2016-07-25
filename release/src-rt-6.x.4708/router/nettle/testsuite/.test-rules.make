@@ -22,6 +22,9 @@ base64-test$(EXEEXT): base64-test.$(OBJEXT)
 camellia-test$(EXEEXT): camellia-test.$(OBJEXT)
 	$(LINK) camellia-test.$(OBJEXT) $(TEST_OBJS) -o camellia-test$(EXEEXT)
 
+chacha-test$(EXEEXT): chacha-test.$(OBJEXT)
+	$(LINK) chacha-test.$(OBJEXT) $(TEST_OBJS) -o chacha-test$(EXEEXT)
+
 des-test$(EXEEXT): des-test.$(OBJEXT)
 	$(LINK) des-test.$(OBJEXT) $(TEST_OBJS) -o des-test$(EXEEXT)
 
@@ -70,6 +73,12 @@ sha384-test$(EXEEXT): sha384-test.$(OBJEXT)
 sha512-test$(EXEEXT): sha512-test.$(OBJEXT)
 	$(LINK) sha512-test.$(OBJEXT) $(TEST_OBJS) -o sha512-test$(EXEEXT)
 
+sha512-224-test$(EXEEXT): sha512-224-test.$(OBJEXT)
+	$(LINK) sha512-224-test.$(OBJEXT) $(TEST_OBJS) -o sha512-224-test$(EXEEXT)
+
+sha512-256-test$(EXEEXT): sha512-256-test.$(OBJEXT)
+	$(LINK) sha512-256-test.$(OBJEXT) $(TEST_OBJS) -o sha512-256-test$(EXEEXT)
+
 sha3-permute-test$(EXEEXT): sha3-permute-test.$(OBJEXT)
 	$(LINK) sha3-permute-test.$(OBJEXT) $(TEST_OBJS) -o sha3-permute-test$(EXEEXT)
 
@@ -91,6 +100,9 @@ serpent-test$(EXEEXT): serpent-test.$(OBJEXT)
 twofish-test$(EXEEXT): twofish-test.$(OBJEXT)
 	$(LINK) twofish-test.$(OBJEXT) $(TEST_OBJS) -o twofish-test$(EXEEXT)
 
+version-test$(EXEEXT): version-test.$(OBJEXT)
+	$(LINK) version-test.$(OBJEXT) $(TEST_OBJS) -o version-test$(EXEEXT)
+
 knuth-lfib-test$(EXEEXT): knuth-lfib-test.$(OBJEXT)
 	$(LINK) knuth-lfib-test.$(OBJEXT) $(TEST_OBJS) -o knuth-lfib-test$(EXEEXT)
 
@@ -103,6 +115,18 @@ ctr-test$(EXEEXT): ctr-test.$(OBJEXT)
 gcm-test$(EXEEXT): gcm-test.$(OBJEXT)
 	$(LINK) gcm-test.$(OBJEXT) $(TEST_OBJS) -o gcm-test$(EXEEXT)
 
+eax-test$(EXEEXT): eax-test.$(OBJEXT)
+	$(LINK) eax-test.$(OBJEXT) $(TEST_OBJS) -o eax-test$(EXEEXT)
+
+ccm-test$(EXEEXT): ccm-test.$(OBJEXT)
+	$(LINK) ccm-test.$(OBJEXT) $(TEST_OBJS) -o ccm-test$(EXEEXT)
+
+poly1305-test$(EXEEXT): poly1305-test.$(OBJEXT)
+	$(LINK) poly1305-test.$(OBJEXT) $(TEST_OBJS) -o poly1305-test$(EXEEXT)
+
+chacha-poly1305-test$(EXEEXT): chacha-poly1305-test.$(OBJEXT)
+	$(LINK) chacha-poly1305-test.$(OBJEXT) $(TEST_OBJS) -o chacha-poly1305-test$(EXEEXT)
+
 hmac-test$(EXEEXT): hmac-test.$(OBJEXT)
 	$(LINK) hmac-test.$(OBJEXT) $(TEST_OBJS) -o hmac-test$(EXEEXT)
 
@@ -114,6 +138,9 @@ meta-hash-test$(EXEEXT): meta-hash-test.$(OBJEXT)
 
 meta-cipher-test$(EXEEXT): meta-cipher-test.$(OBJEXT)
 	$(LINK) meta-cipher-test.$(OBJEXT) $(TEST_OBJS) -o meta-cipher-test$(EXEEXT)
+
+meta-aead-test$(EXEEXT): meta-aead-test.$(OBJEXT)
+	$(LINK) meta-aead-test.$(OBJEXT) $(TEST_OBJS) -o meta-aead-test$(EXEEXT)
 
 meta-armor-test$(EXEEXT): meta-armor-test.$(OBJEXT)
 	$(LINK) meta-armor-test.$(OBJEXT) $(TEST_OBJS) -o meta-armor-test$(EXEEXT)
@@ -148,6 +175,9 @@ random-prime-test$(EXEEXT): random-prime-test.$(OBJEXT)
 pkcs1-test$(EXEEXT): pkcs1-test.$(OBJEXT)
 	$(LINK) pkcs1-test.$(OBJEXT) $(TEST_OBJS) -o pkcs1-test$(EXEEXT)
 
+rsa-sign-tr-test$(EXEEXT): rsa-sign-tr-test.$(OBJEXT)
+	$(LINK) rsa-sign-tr-test.$(OBJEXT) $(TEST_OBJS) -o rsa-sign-tr-test$(EXEEXT)
+
 rsa-test$(EXEEXT): rsa-test.$(OBJEXT)
 	$(LINK) rsa-test.$(OBJEXT) $(TEST_OBJS) -o rsa-test$(EXEEXT)
 
@@ -163,6 +193,9 @@ dsa-test$(EXEEXT): dsa-test.$(OBJEXT)
 dsa-keygen-test$(EXEEXT): dsa-keygen-test.$(OBJEXT)
 	$(LINK) dsa-keygen-test.$(OBJEXT) $(TEST_OBJS) -o dsa-keygen-test$(EXEEXT)
 
+curve25519-dh-test$(EXEEXT): curve25519-dh-test.$(OBJEXT)
+	$(LINK) curve25519-dh-test.$(OBJEXT) $(TEST_OBJS) -o curve25519-dh-test$(EXEEXT)
+
 ecc-mod-test$(EXEEXT): ecc-mod-test.$(OBJEXT)
 	$(LINK) ecc-mod-test.$(OBJEXT) $(TEST_OBJS) -o ecc-mod-test$(EXEEXT)
 
@@ -171,6 +204,15 @@ ecc-modinv-test$(EXEEXT): ecc-modinv-test.$(OBJEXT)
 
 ecc-redc-test$(EXEEXT): ecc-redc-test.$(OBJEXT)
 	$(LINK) ecc-redc-test.$(OBJEXT) $(TEST_OBJS) -o ecc-redc-test$(EXEEXT)
+
+ecc-sqrt-test$(EXEEXT): ecc-sqrt-test.$(OBJEXT)
+	$(LINK) ecc-sqrt-test.$(OBJEXT) $(TEST_OBJS) -o ecc-sqrt-test$(EXEEXT)
+
+ecc-dup-test$(EXEEXT): ecc-dup-test.$(OBJEXT)
+	$(LINK) ecc-dup-test.$(OBJEXT) $(TEST_OBJS) -o ecc-dup-test$(EXEEXT)
+
+ecc-add-test$(EXEEXT): ecc-add-test.$(OBJEXT)
+	$(LINK) ecc-add-test.$(OBJEXT) $(TEST_OBJS) -o ecc-add-test$(EXEEXT)
 
 ecc-mul-g-test$(EXEEXT): ecc-mul-g-test.$(OBJEXT)
 	$(LINK) ecc-mul-g-test.$(OBJEXT) $(TEST_OBJS) -o ecc-mul-g-test$(EXEEXT)
@@ -186,6 +228,21 @@ ecdsa-verify-test$(EXEEXT): ecdsa-verify-test.$(OBJEXT)
 
 ecdsa-keygen-test$(EXEEXT): ecdsa-keygen-test.$(OBJEXT)
 	$(LINK) ecdsa-keygen-test.$(OBJEXT) $(TEST_OBJS) -o ecdsa-keygen-test$(EXEEXT)
+
+ecdh-test$(EXEEXT): ecdh-test.$(OBJEXT)
+	$(LINK) ecdh-test.$(OBJEXT) $(TEST_OBJS) -o ecdh-test$(EXEEXT)
+
+eddsa-compress-test$(EXEEXT): eddsa-compress-test.$(OBJEXT)
+	$(LINK) eddsa-compress-test.$(OBJEXT) $(TEST_OBJS) -o eddsa-compress-test$(EXEEXT)
+
+eddsa-sign-test$(EXEEXT): eddsa-sign-test.$(OBJEXT)
+	$(LINK) eddsa-sign-test.$(OBJEXT) $(TEST_OBJS) -o eddsa-sign-test$(EXEEXT)
+
+eddsa-verify-test$(EXEEXT): eddsa-verify-test.$(OBJEXT)
+	$(LINK) eddsa-verify-test.$(OBJEXT) $(TEST_OBJS) -o eddsa-verify-test$(EXEEXT)
+
+ed25519-test$(EXEEXT): ed25519-test.$(OBJEXT)
+	$(LINK) ed25519-test.$(OBJEXT) $(TEST_OBJS) -o ed25519-test$(EXEEXT)
 
 sha1-huge-test$(EXEEXT): sha1-huge-test.$(OBJEXT)
 	$(LINK) sha1-huge-test.$(OBJEXT) $(TEST_OBJS) -o sha1-huge-test$(EXEEXT)

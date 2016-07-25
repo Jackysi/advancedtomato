@@ -1,27 +1,35 @@
 /* aes-internal.h
- *
- * The aes/rijndael block cipher.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The aes/rijndael block cipher.
+
+   Copyright (C) 2001, 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #ifndef NETTLE_AES_INTERNAL_H_INCLUDED
 #define NETTLE_AES_INTERNAL_H_INCLUDED
@@ -29,6 +37,8 @@
 #include "aes.h"
 
 /* Name mangling */
+#define _aes_set_key _nettle_aes_set_key
+#define _aes_invert _nettle_aes_invert
 #define _aes_encrypt _nettle_aes_encrypt
 #define _aes_decrypt _nettle_aes_decrypt
 #define _aes_encrypt_table _nettle_aes_encrypt_table
@@ -51,15 +61,22 @@ struct aes_table
 };
 
 void
-_aes_encrypt(const struct aes_ctx *ctx,
+_aes_set_key(unsigned nr, unsigned nk,
+	     uint32_t *subkeys, const uint8_t *key);
+
+void
+_aes_invert(unsigned rounds, uint32_t *dst, const uint32_t *src);
+
+void
+_aes_encrypt(unsigned rounds, const uint32_t *keys,
 	     const struct aes_table *T,
-	     unsigned length, uint8_t *dst,
+	     size_t length, uint8_t *dst,
 	     const uint8_t *src);
 
 void
-_aes_decrypt(const struct aes_ctx *ctx,
+_aes_decrypt(unsigned rounds, const uint32_t *keys,
 	     const struct aes_table *T,
-	     unsigned length, uint8_t *dst,
+	     size_t length, uint8_t *dst,
 	     const uint8_t *src);
 
 /* Macros */

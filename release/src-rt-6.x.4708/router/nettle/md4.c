@@ -1,27 +1,35 @@
-/* md4.h
- *
- * The MD4 hash function, described in RFC 1320.
- */
+/* md4.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2003 Niels Möller, Marcus Comstedt
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The MD4 hash function, described in RFC 1320.
+
+   Copyright (C) 2003 Niels Möller, Marcus Comstedt
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Based on the public domain md5 code, and modified by Marcus
    Comstedt */
@@ -61,23 +69,24 @@ md4_init(struct md4_ctx *ctx)
     };
   memcpy(ctx->state, iv, sizeof(ctx->state));
   
-  ctx->count_low = ctx->count_high = 0;
+  ctx->count = 0;
   ctx->index = 0;
 }
 
 void
 md4_update(struct md4_ctx *ctx,
-	   unsigned length,
+	   size_t length,
 	   const uint8_t *data)
 {
-  MD_UPDATE(ctx, length, data, md4_compress, MD_INCR(ctx));
+  MD_UPDATE(ctx, length, data, md4_compress, ctx->count++);
 }
 
 void
 md4_digest(struct md4_ctx *ctx,
-	   unsigned length,
+	   size_t length,
 	   uint8_t *digest)
 {
+  uint64_t bit_count;
   uint32_t data[MD4_DATA_LENGTH];
   unsigned i;
 
@@ -89,9 +98,9 @@ md4_digest(struct md4_ctx *ctx,
 
   /* There are 512 = 2^9 bits in one block 
    * Little-endian order => Least significant word first */
-
-  data[MD4_DATA_LENGTH-1] = (ctx->count_high << 9) | (ctx->count_low >> 23);
-  data[MD4_DATA_LENGTH-2] = (ctx->count_low << 9) | (ctx->index << 3);
+  bit_count = (ctx->count << 9) | (ctx->index << 3);
+  data[MD4_DATA_LENGTH-2] = bit_count;
+  data[MD4_DATA_LENGTH-1] = bit_count >> 32;
   md4_transform(ctx->state, data);
 
   _nettle_write_le32(length, digest, ctx->state);

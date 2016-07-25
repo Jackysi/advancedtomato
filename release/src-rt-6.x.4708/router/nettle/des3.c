@@ -1,27 +1,35 @@
-/* des3.h
- *
- * Triple DES cipher. Three key encrypt-decrypt-encrypt.
- */
+/* des3.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Triple DES cipher. Three key encrypt-decrypt-encrypt.
+
+   Copyright (C) 2001, 2010 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -49,7 +57,7 @@ des3_set_key(struct des3_ctx *ctx, const uint8_t *key)
 
 void
 des3_encrypt(const struct des3_ctx *ctx,
-	     unsigned length, uint8_t *dst,
+	     size_t length, uint8_t *dst,
 	     const uint8_t *src)
 {
   des_encrypt(&ctx->des[0],
@@ -62,7 +70,7 @@ des3_encrypt(const struct des3_ctx *ctx,
 
 void
 des3_decrypt(const struct des3_ctx *ctx,
-	     unsigned length, uint8_t *dst,
+	     size_t length, uint8_t *dst,
 	     const uint8_t *src)
 {
   des_decrypt(&ctx->des[2],

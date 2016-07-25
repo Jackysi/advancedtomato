@@ -1,35 +1,39 @@
 /* twofish.c
- *
- * The twofish block cipher.
- */
 
-/* twofish - An implementation of the twofish cipher.
- * Copyright (C) 1999 Ruud de Rooij <ruud@debian.org>
- *
- * Modifications for lsh, integrated testing
- * Copyright (C) 1999 J.H.M. Dassen (Ray) <jdassen@wi.LeidenUniv.nl>
- *
- * Integrated with the nettle library,
- * Copyright (C) 2001 Niels Möller
- */
+   The twofish block cipher.
 
-/* nettle, low-level cryptographics library
- *
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2001, 2014 Niels Möller
+   Copyright (C) 1999 Ruud de Rooij <ruud@debian.org>
+
+   Modifications for lsh, integrated testing
+   Copyright (C) 1999 J.H.M. Dassen (Ray) <jdassen@wi.LeidenUniv.nl>
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -275,7 +279,7 @@ h(int k, uint8_t x, uint32_t l0, uint32_t l1, uint32_t l2, uint32_t l3)
 
 void
 twofish_set_key(struct twofish_ctx *context,
-		unsigned keysize, const uint8_t *key)
+		size_t keysize, const uint8_t *key)
 {
   uint8_t key_copy[32];
   uint32_t m[8], s[4], t;
@@ -326,6 +330,22 @@ twofish_set_key(struct twofish_ctx *context,
 				    s[3] >> (i*8));
 }
 
+void
+twofish128_set_key(struct twofish_ctx *context, const uint8_t *key)
+{
+  twofish_set_key (context, TWOFISH128_KEY_SIZE, key);
+}
+void
+twofish192_set_key(struct twofish_ctx *context, const uint8_t *key)
+{
+  twofish_set_key (context, TWOFISH192_KEY_SIZE, key);
+}
+void
+twofish256_set_key(struct twofish_ctx *context, const uint8_t *key)
+{
+  twofish_set_key (context, TWOFISH256_KEY_SIZE, key);
+}
+
 /* Encrypt blocks of 16 bytes of data with the twofish algorithm.
  *
  * Before this function can be used, twofish_set_key() must be used in order to
@@ -338,7 +358,7 @@ twofish_set_key(struct twofish_ctx *context,
 
 void
 twofish_encrypt(const struct twofish_ctx *context,
-		unsigned length,
+		size_t length,
 		uint8_t *ciphertext,
 		const uint8_t *plaintext)
 {
@@ -408,7 +428,7 @@ twofish_encrypt(const struct twofish_ctx *context,
 
 void
 twofish_decrypt(const struct twofish_ctx *context,
-		unsigned length,
+		size_t length,
 		uint8_t *plaintext,
 		const uint8_t *ciphertext)
 

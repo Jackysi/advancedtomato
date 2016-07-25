@@ -1,27 +1,40 @@
-C nettle, low-level cryptographics library
-C
-C Copyright (C) 2013, Niels Möller
-C
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C arm/ecc-224-modp.asm
+
+ifelse(<
+   Copyright (C) 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>) 
 
 	.file "ecc-224-modp.asm"
 	.arm
 
 define(<RP>, <r1>)
-define(<H>, <r0>) C Overlaps unused ecc argument
+define(<H>, <r0>) C Overlaps unused modulo argument
 
 define(<T0>, <r2>)
 define(<T1>, <r3>)
@@ -35,7 +48,7 @@ define(<L0>, <r11>)
 define(<L1>, <r12>)
 define(<L2>, <lr>)
 
-	C ecc_224_modp (const struct ecc_curve *ecc, mp_limb_t *rp)
+	C ecc_224_modp (const struct ecc_modulo *m, mp_limb_t *rp)
 	.text
 	.align 2
 

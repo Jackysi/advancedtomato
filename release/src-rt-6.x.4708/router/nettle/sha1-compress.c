@@ -1,27 +1,35 @@
 /* sha1-compress.c
- *
- * The compression function of the sha1 hash function.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001, 2004 Peter Gutmann, Andrew Kuchling, Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The compression function of the sha1 hash function.
+
+   Copyright (C) 2001, 2004 Peter Gutmann, Andrew Kuchling, Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Here's the first paragraph of Peter Gutmann's posting,
  * <30ajo5$oe8@ccu2.auckland.ac.nz>: 
@@ -120,6 +128,13 @@
 
 #define subRound(a, b, c, d, e, f, k, data) \
     ( e += ROTL32( 5, a ) + f( b, c, d ) + k + data, b = ROTL32( 30, b ) )
+
+/* For fat builds */
+#if HAVE_NATIVE_sha1_compress
+void
+_nettle_sha1_compress_c(uint32_t *state, const uint8_t *input);
+#define _nettle_sha1_compress _nettle_sha1_compress_c
+#endif
 
 /* Perform the SHA transformation.  Note that this code, like MD5, seems to
    break some optimizing compilers due to the complexity of the expressions

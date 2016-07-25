@@ -3,105 +3,146 @@
 static int
 ref_modinv (mp_limb_t *rp, const mp_limb_t *ap, const mp_limb_t *mp, mp_size_t mn)
 {
-  mp_limb_t tp[4*(mn+1)];
-  mp_limb_t *up = tp;
-  mp_limb_t *vp = tp + mn+1;
-  mp_limb_t *gp = tp + 2*(mn+1);
-  mp_limb_t *sp = tp + 3*(mn+1);
-  mp_size_t gn, sn;
+  mpz_t g, s, a, m;
+  int res;
 
-  mpn_copyi (up, ap, mn);
-  mpn_copyi (vp, mp, mn);
-  gn = mpn_gcdext (gp, sp, &sn, up, mn, vp, mn);
-  if (gn != 1 || gp[0] != 1)
-    return 0;
+  mpz_init (g);
+  mpz_init (s);
+  mpz_roinit_n (a, ap, mn);
+  mpz_roinit_n (m, mp, mn);
   
-  if (sn < 0)
-    mpn_sub (sp, mp, mn, sp, -sn);
-  else if (sn < mn)
-    /* Zero-pad. */
-    mpn_zero (sp + sn, mn - sn);
+  mpz_gcdext (g, s, NULL, a, m);
+  if (mpz_cmp_ui (g, 1) == 0)
+    {
+      if (mpz_sgn (s) < 0)
+	{
+	  mpz_add (s, s, m);
+	  ASSERT (mpz_sgn (s) > 0);
+	}
+      mpz_limbs_copy (rp, s, mn);
+      res = 1;
+    }
+  else
+    res = 0;
 
-  mpn_copyi (rp, sp, mn);
-  return 1;
+  mpz_clear (g);
+  mpz_clear (s);
+  return res;
+}
+
+static int
+zero_p (const struct ecc_modulo *m, const mp_limb_t *xp)
+{
+  return mpn_zero_p (xp, m->size)
+    || mpn_cmp (xp, m->m, m->size) == 0;
 }
 
 #define MAX_ECC_SIZE (1 + 521 / GMP_NUMB_BITS)
 #define COUNT 500
 
+static void
+test_modulo (gmp_randstate_t rands, const char *name,
+	     const struct ecc_modulo *m)
+{
+  mp_limb_t *a;
+  mp_limb_t *ai;
+  mp_limb_t *ref;
+  mp_limb_t *scratch;
+  unsigned j;
+  mpz_t r;
+
+  mpz_init (r);
+
+  a = xalloc_limbs (m->size);
+  ai = xalloc_limbs (2*m->size);
+  ref = xalloc_limbs (m->size);;
+  scratch = xalloc_limbs (m->invert_itch);
+
+  /* Check behaviour for zero input */
+  mpn_zero (a, m->size);
+  memset (ai, 17, m->size * sizeof(*ai));
+  m->invert (m, ai, a, scratch);
+  if (!zero_p (m, ai))
+    {
+      fprintf (stderr, "%s->invert failed for zero input (bit size %u):\n",
+	       name, m->bit_size);
+      fprintf (stderr, "p = ");
+      mpn_out_str (stderr, 16, m->m, m->size);
+      fprintf (stderr, "\nt = ");
+      mpn_out_str (stderr, 16, ai, m->size);
+      fprintf (stderr, " (bad)\n");
+      abort ();
+    }
+	  
+  /* Check behaviour for a = m */
+  memset (ai, 17, m->size * sizeof(*ai));
+  m->invert (m, ai, m->m, scratch);
+  if (!zero_p (m, ai))
+    {
+      fprintf (stderr, "%s->invert failed for a = p input (bit size %u):\n",
+	       name, m->bit_size);
+      
+      fprintf (stderr, "p = ");
+      mpn_out_str (stderr, 16, m->m, m->size);
+      fprintf (stderr, "\nt = ");
+      mpn_out_str (stderr, 16, ai, m->size);
+      fprintf (stderr, " (bad)\n");
+      abort ();
+    }
+	
+  for (j = 0; j < COUNT; j++)
+    {
+      if (j & 1)
+	mpz_rrandomb (r, rands, m->size * GMP_NUMB_BITS);
+      else
+	mpz_urandomb (r, rands, m->size * GMP_NUMB_BITS);
+
+      mpz_limbs_copy (a, r, m->size);
+
+      if (!ref_modinv (ref, a, m->m, m->size))
+	{
+	  if (verbose)
+	    fprintf (stderr, "Test %u (bit size %u) not invertible mod %s.\n",
+		     j, m->bit_size, name);
+	  continue;
+	}
+      m->invert (m, ai, a, scratch);
+      if (mpn_cmp (ref, ai, m->size))
+	{
+	  fprintf (stderr, "%s->invert failed (test %u, bit size %u):\n",
+		   name, j, m->bit_size);
+	  fprintf (stderr, "a = ");
+	  mpz_out_str (stderr, 16, r);
+	  fprintf (stderr, "\np = ");
+	  mpn_out_str (stderr, 16, m->m, m->size);
+	  fprintf (stderr, "\nt = ");
+	  mpn_out_str (stderr, 16, ai, m->size);
+	  fprintf (stderr, " (bad)\nr = ");
+	  mpn_out_str (stderr, 16, ref, m->size);
+
+	  abort ();
+	}
+	  
+    }
+  mpz_clear (r);
+  free (a);
+  free (ai);
+  free (ref);
+  free (scratch);
+}
+
 void
 test_main (void)
 {
-  gmp_randstate_t state;
-  mp_limb_t a[MAX_ECC_SIZE];
-  mp_limb_t ai[MAX_ECC_SIZE];
-  mp_limb_t ref[MAX_ECC_SIZE];
-  mp_limb_t scratch[ECC_MODINV_ITCH (MAX_ECC_SIZE)];
+  gmp_randstate_t rands;
   unsigned i;
-  mpz_t r;
 
-  gmp_randinit_default (state);
-  mpz_init (r);
-  
+  gmp_randinit_default (rands);
+
   for (i = 0; ecc_curves[i]; i++)
     {
-      const struct ecc_curve *ecc = ecc_curves[i];
-      unsigned j;
-      for (j = 0; j < COUNT; j++)
-	{
-	  if (j & 1)
-	    mpz_rrandomb (r, state, ecc->size * GMP_NUMB_BITS);
-	  else
-	    mpz_urandomb (r, state, ecc->size * GMP_NUMB_BITS);
-
-	  mpz_limbs_copy (a, r, ecc->size);
-
-	  if (!ref_modinv (ref, a, ecc->p, ecc->size))
-	    {
-	      if (verbose)
-		fprintf (stderr, "Test %u (bit size %u) not invertible.\n",
-			 j, ecc->bit_size);
-	      continue;
-	    }
-	  ecc_modp_inv (ecc, ai, a, scratch);
-	  if (mpn_cmp (ref, ai, ecc->size))
-	    {
-	      fprintf (stderr, "ecc_modp_inv failed (test %u, bit size %u):\n",
-		       j, ecc->bit_size);
-	      gmp_fprintf (stderr, "a = %Zx\n"
-			   "p = %Nx\n"
-			   "t = %Nx (bad)\n"
-			   "r = %Nx\n",
-			   r, ecc->p, ecc->size,
-			   ai, ecc->size,
-			   ref, ecc->size);
-	      abort ();
-	    }
-
-	  mpz_limbs_copy (a, r, ecc->size);
-
-	  if (!ref_modinv (ref, a, ecc->q, ecc->size))
-	    {
-	      fprintf (stderr, "Test %u (bit size %u) not invertible.\n",
-		       j, ecc->bit_size);
-	      continue;
-	    }
-	  ecc_modq_inv (ecc, ai, a, scratch);
-	  if (mpn_cmp (ref, ai, ecc->size))
-	    {
-	      fprintf (stderr, "ecc_modq_inv failed (test %u, bit size %u):\n",
-		       j, ecc->bit_size);
-	      gmp_fprintf (stderr, "a = %Zx\n"
-			   "p = %Nx\n"
-			   "t = %Nx (bad)\n"
-			   "r = %Nx\n",
-			   r, ecc->p, ecc->size,
-			   ai, ecc->size,
-			   ref, ecc->size);
-	      abort ();
-	    }
-	}
+      test_modulo (rands, "p", &ecc_curves[i]->p);
+      test_modulo (rands, "q", &ecc_curves[i]->q);
     }
-  gmp_randclear (state);
-  mpz_clear (r);
+  gmp_randclear (rands);
 }
