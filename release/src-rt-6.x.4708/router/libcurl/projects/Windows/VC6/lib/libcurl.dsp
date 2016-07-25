@@ -1094,6 +1094,10 @@ SOURCE=..\..\..\..\lib\strtoofft.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\..\lib\system_win32.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\..\lib\telnet.c
 # End Source File
 # Begin Source File
@@ -1587,6 +1591,10 @@ SOURCE=..\..\..\..\lib\strtok.h
 # Begin Source File
 
 SOURCE=..\..\..\..\lib\strtoofft.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\lib\system_win32.h
 # End Source File
 # Begin Source File
 
