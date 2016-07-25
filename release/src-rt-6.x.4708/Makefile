@@ -1031,6 +1031,9 @@ define KernelConfig
 	echo "CONFIG_EXT4_FS=m" >>$(1); \
 	echo "CONFIG_EXT4_USE_FOR_EXT23=y" >>$(1); \
 	echo "CONFIG_EXT4_FS_XATTR=y" >>$(1); \
+	echo "# CONFIG_EXT4_FS_POSIX_ACL is not set" >>$(1); \
+	echo "# CONFIG_EXT4_FS_SECURITY is not set" >>$(1); \
+	echo "# CONFIG_EXT4_DEBUG is not set" >>$(1); \
 	if [ "$(FAILSAFE_UPGRADE)" = "y" ]; then \
 		echo "CONFIG_FAILSAFE_UPGRADE=y" >>$(1); \
 	else \
