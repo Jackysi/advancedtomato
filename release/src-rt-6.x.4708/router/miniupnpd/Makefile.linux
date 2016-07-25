@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.91 2015/10/26 16:53:25 nanard Exp $
+# $Id: Makefile.linux,v 1.94 2016/04/18 09:06:42 nanard Exp $
 # MiniUPnP project
 # (c) 2006-2015 Thomas Bernard
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -60,11 +60,14 @@ PCFILE_FOUND := $(shell $(PKG_CONFIG) --exists libiptc; echo $$?)
 ifeq (${PCFILE_FOUND},0)
 
 IPTABLESVERSION := $(shell $(PKG_CONFIG) --modversion libiptc)
-IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
-IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
-IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
+IPTVER1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
+IPTVER2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
+IPTVER3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
 # test if iptables version >= 1.4.3
-TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+TEST := $(shell [ $(IPTVER1) -gt 1 ] || \
+	[ \( $(IPTVER1) -eq 1 \) -a \
+	  \( \( $(IPTVER2) -gt 4 \) -o \
+	     \( \( $(IPTVER2) -eq 4 \) -a \( $(IPTVER3) -ge 3 \) \) \) ] && echo 1 )
 ifeq ($(TEST), 1)
 CPPFLAGS += -DIPTABLES_143
 endif
@@ -92,11 +95,14 @@ LDFLAGS := $(LDFLAFGS) -L$(IPTABLESPATH)/libiptc/
 # get iptables version and set IPTABLES_143 macro if needed
 ifeq ($(TARGET_OPENWRT),)
 IPTABLESVERSION := $(shell grep "\#define VERSION" $(IPTABLESPATH)/config.h | tr -d \" |cut -d" " -f3 )
-IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
-IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
-IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
+IPTVER1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
+IPTVER2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
+IPTVER3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
 # test if iptables version >= 1.4.3
-TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+TEST := $(shell [ $(IPTVER1) -gt 1 ] || \
+	[ \( $(IPTVER1) -eq 1 \) -a \
+	  \( \( $(IPTVER2) -gt 4 \) -o \
+	     \( \( $(IPTVER2) -eq 4 \) -a \( $(IPTVER3) -ge 3 \) \) \) ] && echo 1 )
 ifeq ($(TEST), 1)
 CPPFLAGS := $(CPPFLAGS) -DIPTABLES_143
 # the following sucks, but works
@@ -148,6 +154,13 @@ LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libnetfilter_conntrack)
 endif # ($(TEST),1)
 
 LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l libssl)
+
+TEST := $(shell $(PKG_CONFIG) --exists uuid && echo 1)
+ifeq ($(TEST),1)
+LDLIBS += $(shell $(PKG_CONFIG) --static --libs-only-l uuid)
+else
+$(info please install uuid-dev package / libuuid)
+endif # ($(TEST),1)
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 
