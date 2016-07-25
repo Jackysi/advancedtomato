@@ -1299,7 +1299,7 @@ void mark_servers(int flag)
   for (serv = daemon->servers; serv; serv = serv->next)
     {
       if (serv->flags & flag)
-       serv->flags |= SERV_MARK;
+	serv->flags |= SERV_MARK;
 #ifdef HAVE_LOOP
       /* Give looped servers another chance */
       serv->flags &= ~SERV_LOOP;
@@ -1480,8 +1480,8 @@ void check_servers(void)
 		my_syslog(LOG_INFO, _("using nameserver %s#%d for %s %s"), daemon->namebuff, port, s1, s2);
 	    }
 #ifdef HAVE_LOOP
-         else if (serv->flags & SERV_LOOP)
-           my_syslog(LOG_INFO, _("NOT using nameserver %s#%d - query loop detected"), daemon->namebuff, port);
+	  else if (serv->flags & SERV_LOOP)
+	    my_syslog(LOG_INFO, _("NOT using nameserver %s#%d - query loop detected"), daemon->namebuff, port); 
 #endif
 	  else if (serv->interface[0] != 0)
 	    my_syslog(LOG_INFO, _("using nameserver %s#%d(via %s)"), daemon->namebuff, port, serv->interface); 
