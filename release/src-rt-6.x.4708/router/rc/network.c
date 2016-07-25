@@ -713,6 +713,7 @@ void start_wl(void)
 					if (nvram_get_int(wl_nvname("radio", unit, 0))) {
 						if (unit == 0) {
 							led(LED_WLAN, LED_ON);
+							killall("blink", SIGKILL);
 							if (nvram_get_int("blink_wl"))
 								eval("blink", ifname, "wlan", "20", "8192");
 						}
