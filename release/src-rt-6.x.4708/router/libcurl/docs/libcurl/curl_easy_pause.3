@@ -5,11 +5,11 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
-.\" * are also available at http://curl.haxx.se/docs/copyright.html.
+.\" * are also available at https://curl.haxx.se/docs/copyright.html.
 .\" *
 .\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
 .\" * copies of the Software, and permit persons to whom the Software is
@@ -40,9 +40,8 @@ the writing is later unpaused.
 
 While it may feel tempting, take care and notice that you cannot call this
 function from another thread. To unpause, you may for example call it from the
-progress callback (see \fIcurl_easy_setopt(3)\fP's
-\fICURLOPT_PROGRESSFUNCTION\fP), which gets called at least once per second,
-even if the connection is paused.
+progress callback (\fICURLOPT_PROGRESSFUNCTION(3)\fP), which gets called at
+least once per second, even if the connection is paused.
 
 When this function is called to unpause reading, the chance is high that you
 will get your write callback called before this function returns.
@@ -55,15 +54,15 @@ connection. The following bits can be used:
 .IP CURLPAUSE_RECV
 Pause receiving data. There will be no data received on this connection until
 this function is called again without this bit set. Thus, the write callback
-(\fICURLOPT_WRITEFUNCTION\fP) won't be called.
+(\fICURLOPT_WRITEFUNCTION(3)\fP) won't be called.
 .IP CURLPAUSE_SEND
 Pause sending data. There will be no data sent on this connection until this
 function is called again without this bit set. Thus, the read callback
-(\fICURLOPT_READFUNCTION\fP) won't be called.
+(\fICURLOPT_READFUNCTION(3)\fP) won't be called.
 .IP CURLPAUSE_ALL
 Convenience define that pauses both directions.
 .IP CURLPAUSE_CONT
-Convenience define that unpauses both directions
+Convenience define that unpauses both directions.
 .SH RETURN VALUE
 CURLE_OK (zero) means that the option was set properly, and a non-zero return
 code means something wrong occurred after the new state was set.  See the
@@ -80,7 +79,7 @@ Before libcurl 7.32.0, when a specific handle was unpaused with this function,
 there was no particular forced rechecking or similar of the socket's state,
 which made the continuation of the transfer get delayed until next
 multi-socket call invoke or even longer. Alternatively, the user could
-forcibly call for example curl_multi_socket_all(3) - with a rather hefty
+forcibly call for example \fIcurl_multi_socket_all(3)\fP - with a rather hefty
 performance penalty.
 
 Starting in libcurl 7.32.0, unpausing a transfer will schedule a timeout

@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -51,8 +51,10 @@ void Curl_failf(struct SessionHandle *, const char *fmt, ...);
 #define CLIENTWRITE_HEADER (1<<1)
 #define CLIENTWRITE_BOTH   (CLIENTWRITE_BODY|CLIENTWRITE_HEADER)
 
+CURLcode Curl_client_chop_write(struct connectdata *conn, int type, char *ptr,
+                                size_t len) WARN_UNUSED_RESULT;
 CURLcode Curl_client_write(struct connectdata *conn, int type, char *ptr,
-                           size_t len);
+                           size_t len) WARN_UNUSED_RESULT;
 
 /* internal read-function, does plain socket only */
 CURLcode Curl_read_plain(curl_socket_t sockfd,
