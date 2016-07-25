@@ -34,4 +34,6 @@
 # Reasonable pidfile location - tweak this if you prefer a different one
   /run/dnscrypt-proxy.pid rw,
 
+# Systemd notificaion
+  /run/systemd/notify rw,
 }

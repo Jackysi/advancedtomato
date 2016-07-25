@@ -27,7 +27,7 @@
 int
 logger_open_syslog(struct ProxyContext_ * const context)
 {
-    assert(context->daemonize != 0);
+    assert(context->syslog != 0);
 #ifndef _WIN32
     openlog(PACKAGE_TARNAME, LOG_NDELAY | LOG_PID, LOG_DAEMON);
 #endif
@@ -88,7 +88,7 @@ logger(struct ProxyContext_ * const context,
     }
     line[len++] = 0;
 #ifndef _WIN32
-    if (context != NULL && context->log_fp == NULL && context->daemonize) {
+    if (context != NULL && context->log_fp == NULL && context->syslog != 0) {
         syslog(crit, "%s", line);
         return 0;
     }
@@ -147,7 +147,7 @@ int
 logger_close(struct ProxyContext_ * const context)
 {
 #ifndef _WIN32
-    if (context->daemonize) {
+    if (context->syslog != 0) {
         closelog();
     }
 #endif
