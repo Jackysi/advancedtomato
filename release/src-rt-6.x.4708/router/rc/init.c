@@ -1626,7 +1626,7 @@ static int init_nvram(void)
 			nvram_set("pci/1/1/pdoffset80ma1", "0");
 			nvram_set("pci/1/1/pdoffset80ma2", "0");
 			nvram_set("pci/1/1/regrev", "66");
-			nvram_set("pci/1/1/rpcal2g", "0xfaf7");
+			nvram_set("pci/1/1/rpcal2g", "0xefb");
 			nvram_set("pci/1/1/rxgainerr2ga0", "63");
 			nvram_set("pci/1/1/rxgainerr2ga1", "31");
 			nvram_set("pci/1/1/rxgainerr2ga2", "31");
@@ -1730,10 +1730,10 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/rawtempsense", "0x1ff");
 			nvram_set("pci/2/1/regrev", "66");
 			nvram_set("pci/2/1/rpcal2g", "0");
-			nvram_set("pci/2/1/rpcal5gb0", "0x7d09");
-			nvram_set("pci/2/1/rpcal5gb1", "0x8a08");
-			nvram_set("pci/2/1/rpcal5gb2", "0x7dfe");
-			nvram_set("pci/2/1/rpcal5gb3", "0x9612");
+			nvram_set("pci/2/1/rpcal5gb0", "0x7c0c");
+			nvram_set("pci/2/1/rpcal5gb1", "0x880a");
+			nvram_set("pci/2/1/rpcal5gb2", "0x7b04");
+			nvram_set("pci/2/1/rpcal5gb3", "0x8c12");
 			nvram_set("pci/2/1/rxchain", "7");
 			nvram_set("pci/2/1/rxgainerr2ga0", "63");
 			nvram_set("pci/2/1/rxgainerr2ga1", "31");
