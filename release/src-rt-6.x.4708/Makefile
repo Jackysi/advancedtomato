@@ -896,6 +896,14 @@ define KernelConfig
 		echo "# CONFIG_ATA_VERBOSE_ERROR is not set" >>$(1); \
 	fi; \
 	sed -i "/CONFIG_FAILSAFE_UPGRADE/d" $(1); \
+	sed -i "/CONFIG_EXT2_/d" $(1); \
+	sed -i "/CONFIG_EXT3_/d" $(1); \
+	sed -i "/CONFIG_EXT4_/d" $(1); \
+	echo "# CONFIG_EXT2_FS is not set" >>$(1); \
+	echo "# CONFIG_EXT3_FS is not set" >>$(1); \
+	echo "CONFIG_EXT4_FS=m" >>$(1); \
+	echo "CONFIG_EXT4_USE_FOR_EXT23=y" >>$(1); \
+	echo "CONFIG_EXT4_FS_XATTR=y" >>$(1); \
 	if [ "$(FAILSAFE_UPGRADE)" = "y" ]; then \
 		echo "CONFIG_FAILSAFE_UPGRADE=y" >>$(1); \
 	else \

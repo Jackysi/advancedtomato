@@ -129,6 +129,7 @@ typedef struct TDB_DATA {
 #define tdb_lockall_nonblock ext2fs_tdb_lockall_nonblock
 #define tdb_lockall_read_nonblock ext2fs_tdb_lockall_read_nonblock
 #define tdb_lockall_unmark ext2fs_tdb_lockall_unmark
+#define tdb_flush ext2fs_tdb_flush
 
 /* this is the context structure that is returned from a db open */
 typedef struct tdb_context TDB_CONTEXT;
@@ -191,6 +192,7 @@ size_t tdb_map_size(struct tdb_context *tdb);
 int tdb_get_flags(struct tdb_context *tdb);
 void tdb_enable_seqnum(struct tdb_context *tdb);
 void tdb_increment_seqnum_nonblock(struct tdb_context *tdb);
+int tdb_flush(struct tdb_context *tdb);
 
 /* Low level locking functions: use with care */
 int tdb_chainlock(struct tdb_context *tdb, TDB_DATA key);
@@ -205,8 +207,6 @@ int tdb_chainlock_unmark(struct tdb_context *tdb, TDB_DATA key);
 void tdb_dump_all(struct tdb_context *tdb);
 int tdb_printfreelist(struct tdb_context *tdb);
 int tdb_validate_freelist(struct tdb_context *tdb, int *pnum_entries);
-
-extern TDB_DATA tdb_null;
 
 #ifdef  __cplusplus
 }

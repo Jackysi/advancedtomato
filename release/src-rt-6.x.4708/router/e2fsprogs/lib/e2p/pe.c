@@ -5,8 +5,10 @@
  *                                 Laboratoire MASI, Institut Blaise Pascal
  *                                 Universite Pierre et Marie Curie (Paris VI)
  *
- * This file can be redistributed under the terms of the GNU Library General
- * Public License
+ * %Begin-Header%
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
+ * %End-Header%
  */
 
 /*
@@ -14,6 +16,7 @@
  * 94/01/09	- Creation
  */
 
+#include "config.h"
 #include <stdio.h>
 
 #include "e2p.h"

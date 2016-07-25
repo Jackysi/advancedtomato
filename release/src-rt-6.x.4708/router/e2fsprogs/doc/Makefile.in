@@ -11,12 +11,13 @@ INSTALL = @INSTALL@
 
 @MCONFIG@
 
-DVI=texi2dvi
+DVI=texi2dvi --clean
 DVIPS=dvips -o "$@"
 INFO=@MAKEINFO@
-HTML=texi2html
+HTML=makeinfo --html --no-split
+PS2PDF=ps2pdf
 
-all:: libext2fs.info libext2fs.dvi
+all:: libext2fs.info libext2fs.dvi libext2fs.html
 
 install-doc-libs: libext2fs.info libext2fs.dvi
 	$(Q) $(RM) -rf $(DESTDIR)$(infodir)/libext2fs.info*
@@ -40,6 +41,18 @@ libext2fs.dvi: $(srcdir)/libext2fs.texinfo
 	$(E) "	TEXI2DVI $@"
 	-$(Q) $(DVI) $(srcdir)/libext2fs.texinfo
 
+libext2fs.ps: libext2fs.dvi
+	$(E) "	DVIPS $@"
+	-$(Q) $(DVIPS) libext2fs.dvi
+
+libext2fs.pdf: libext2fs.ps
+	$(E) "	PS2PDF $@"
+	-$(Q) $(PS2PDF) libext2fs.ps
+
+libext2fs.html: $(srcdir)/libext2fs.texinfo
+	$(E) "	TEXI2HTML $@"
+	-$(Q) $(HTML) $(srcdir)/libext2fs.texinfo
+
 .PHONY: distclean
 distclean:: clean
 	$(RM) -f Makefile
@@ -48,11 +61,11 @@ distclean:: clean
 clean:: clean-all
 
 .PHONY: clean-all
-clean-all:: clean-tex clean-backup clean-final clean-tarfiles
+clean-all:: clean-tex clean-backup clean-final clean-tarfiles clean-html
 
 .PHONY: clean-final
 clean-final::
-	$(RM) -f *.ps *.info *.info-? *.html
+	$(RM) -f *.ps *.info *.info-? *.html *.pdf
 
 .PHONY: clean-tex
 clean-tex::
@@ -65,3 +78,7 @@ clean-backup::
 .PHONY: clean-tarfiles
 clean-tarfiles::
 	$(RM) -f *.tar *.tar.gz *.tgz
+
+clean-html::
+	$(RM) -f *.html
+

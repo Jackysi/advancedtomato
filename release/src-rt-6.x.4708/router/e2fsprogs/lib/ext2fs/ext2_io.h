@@ -4,8 +4,8 @@
  * Copyright (C) 1993, 1994, 1995, 1996 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
@@ -29,6 +29,10 @@ typedef struct struct_io_channel *io_channel;
 typedef struct struct_io_stats *io_stats;
 
 #define CHANNEL_FLAGS_WRITETHROUGH	0x01
+#define CHANNEL_FLAGS_DISCARD_ZEROES	0x02
+#define CHANNEL_FLAGS_BLOCK_DEVICE	0x04
+
+#define io_channel_discard_zeroes_data(i) (i->flags & CHANNEL_FLAGS_DISCARD_ZEROES)
 
 struct struct_io_channel {
 	errcode_t	magic;
@@ -54,6 +58,7 @@ struct struct_io_channel {
 	long		reserved[14];
 	void		*private_data;
 	void		*app_data;
+	int		align;
 };
 
 struct struct_io_stats {
@@ -83,11 +88,19 @@ struct struct_io_manager {
 					int count, void *data);
 	errcode_t (*write_blk64)(io_channel channel, unsigned long long block,
 					int count, const void *data);
-	long	reserved[16];
+	errcode_t (*discard)(io_channel channel, unsigned long long block,
+			     unsigned long long count);
+	errcode_t (*cache_readahead)(io_channel channel,
+				     unsigned long long block,
+				     unsigned long long count);
+	errcode_t (*zeroout)(io_channel channel, unsigned long long block,
+			     unsigned long long count);
+	long	reserved[14];
 };
 
 #define IO_FLAG_RW		0x0001
 #define IO_FLAG_EXCLUSIVE	0x0002
+#define IO_FLAG_DIRECT_IO	0x0004
 
 /*
  * Convenience functions....
@@ -111,6 +124,17 @@ extern errcode_t io_channel_read_blk64(io_channel channel,
 extern errcode_t io_channel_write_blk64(io_channel channel,
 					unsigned long long block,
 					int count, const void *data);
+extern errcode_t io_channel_discard(io_channel channel,
+				    unsigned long long block,
+				    unsigned long long count);
+extern errcode_t io_channel_zeroout(io_channel channel,
+				    unsigned long long block,
+				    unsigned long long count);
+extern errcode_t io_channel_alloc_buf(io_channel channel,
+				      int count, void *ptr);
+extern errcode_t io_channel_cache_readahead(io_channel io,
+					    unsigned long long block,
+					    unsigned long long count);
 
 /* unix_io.c */
 extern io_manager unix_io_manager;
@@ -126,6 +150,10 @@ extern void (*test_io_cb_read_blk)
 	(unsigned long block, int count, errcode_t err);
 extern void (*test_io_cb_write_blk)
 	(unsigned long block, int count, errcode_t err);
+extern void (*test_io_cb_read_blk64)
+	(unsigned long long block, int count, errcode_t err);
+extern void (*test_io_cb_write_blk64)
+	(unsigned long long block, int count, errcode_t err);
 extern void (*test_io_cb_set_blksize)
 	(int blksize, errcode_t err);
 

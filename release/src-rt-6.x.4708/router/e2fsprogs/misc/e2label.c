@@ -11,6 +11,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -32,7 +33,7 @@ extern int optind;
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
-#include "nls-enable.h"
+#include "support/nls-enable.h"
 
 #define EXT2_SUPER_MAGIC 0xEF53
 

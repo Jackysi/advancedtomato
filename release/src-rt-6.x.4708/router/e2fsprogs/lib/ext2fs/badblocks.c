@@ -4,11 +4,12 @@
  * Copyright (C) 1994, 1995, 1996 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -177,7 +178,7 @@ int ext2fs_u32_list_find(ext2_u32_list bb, __u32 blk)
 		return high;
 
 	while (low < high) {
-		mid = (low+high)/2;
+		mid = ((unsigned)low + (unsigned)high)/2;
 		if (mid == low || mid == high)
 			break;
 		if (blk == bb->list[mid])

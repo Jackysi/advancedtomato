@@ -4,11 +4,12 @@
  * Copyright (C) 1994 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -49,7 +50,7 @@ static int mark_bad_block(ext2_filsys fs, blk_t *block_nr,
 		return 0;
 
 	if ((*block_nr < fs->super->s_first_data_block) ||
-	    (*block_nr >= fs->super->s_blocks_count))
+	    (*block_nr >= ext2fs_blocks_count(fs->super)))
 		return 0;	/* Ignore illegal blocks */
 
 	rb->err = ext2fs_badblocks_list_add(rb->bb_list, *block_nr);
@@ -75,8 +76,7 @@ errcode_t ext2fs_read_bb_inode(ext2_filsys fs, ext2_badblocks_list *bb_list)
 		if (retval)
 			return retval;
 		numblocks = inode.i_blocks;
-		if (!((fs->super->s_feature_ro_compat &
-		       EXT4_FEATURE_RO_COMPAT_HUGE_FILE) &&
+		if (!(ext2fs_has_feature_huge_file(fs->super) &&
 		      (inode.i_flags & EXT4_HUGE_FILE_FL)))
 			numblocks = numblocks / (fs->blocksize / 512);
 		numblocks += 20;

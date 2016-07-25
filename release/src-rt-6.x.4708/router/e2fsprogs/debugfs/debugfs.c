@@ -8,12 +8,14 @@
  * Modifications by Robert Sanders <gt8134b@prism.gatech.edu>
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <time.h>
+#include <libgen.h>
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #else
@@ -24,11 +26,7 @@ extern char *optarg;
 #include <errno.h>
 #endif
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
-#include "et/com_err.h"
-#include "ss/ss.h"
 #include "debugfs.h"
 #include "uuid/uuid.h"
 #include "e2p/e2p.h"
@@ -37,20 +35,105 @@ extern char *optarg;
 
 #include "../version.h"
 #include "jfs_user.h"
+#include "support/plausible.h"
 
-extern ss_request_table debug_cmds;
+#ifndef BUFSIZ
+#define BUFSIZ 8192
+#endif
+
+#ifdef CONFIG_JBD_DEBUG		/* Enabled by configure --enable-jbd-debug */
+int journal_enable_debug = -1;
+#endif
+
 ss_request_table *extra_cmds;
 const char *debug_prog_name;
+int sci_idx;
 
-ext2_filsys	current_fs = NULL;
+ext2_filsys	current_fs;
+quota_ctx_t	current_qctx;
 ext2_ino_t	root, cwd;
 
-static void open_filesystem(char *device, int open_flags, blk_t superblock,
-			    blk_t blocksize, int catastrophic,
-			    char *data_filename)
+static int debugfs_setup_tdb(const char *device_name, char *undo_file,
+			     io_manager *io_ptr)
+{
+	errcode_t retval = ENOMEM;
+	char *tdb_dir = NULL, *tdb_file = NULL;
+	char *dev_name, *tmp_name;
+
+	/* (re)open a specific undo file */
+	if (undo_file && undo_file[0] != 0) {
+		retval = set_undo_io_backing_manager(*io_ptr);
+		if (retval)
+			goto err;
+		*io_ptr = undo_io_manager;
+		retval = set_undo_io_backup_file(undo_file);
+		if (retval)
+			goto err;
+		printf("Overwriting existing filesystem; this can be undone "
+			"using the command:\n"
+			"    e2undo %s %s\n\n",
+			undo_file, device_name);
+		return retval;
+	}
+
+	/*
+	 * Configuration via a conf file would be
+	 * nice
+	 */
+	tdb_dir = ss_safe_getenv("E2FSPROGS_UNDO_DIR");
+	if (!tdb_dir)
+		tdb_dir = "/var/lib/e2fsprogs";
+
+	if (!strcmp(tdb_dir, "none") || (tdb_dir[0] == 0) ||
+	    access(tdb_dir, W_OK))
+		return 0;
+
+	tmp_name = strdup(device_name);
+	if (!tmp_name)
+		goto errout;
+	dev_name = basename(tmp_name);
+	tdb_file = malloc(strlen(tdb_dir) + 9 + strlen(dev_name) + 7 + 1);
+	if (!tdb_file) {
+		free(tmp_name);
+		goto errout;
+	}
+	sprintf(tdb_file, "%s/debugfs-%s.e2undo", tdb_dir, dev_name);
+	free(tmp_name);
+
+	if ((unlink(tdb_file) < 0) && (errno != ENOENT)) {
+		retval = errno;
+		com_err("debugfs", retval,
+			"while trying to delete %s", tdb_file);
+		goto errout;
+	}
+
+	retval = set_undo_io_backing_manager(*io_ptr);
+	if (retval)
+		goto errout;
+	*io_ptr = undo_io_manager;
+	retval = set_undo_io_backup_file(tdb_file);
+	if (retval)
+		goto errout;
+	printf("Overwriting existing filesystem; this can be undone "
+		"using the command:\n"
+		"    e2undo %s %s\n\n", tdb_file, device_name);
+
+	free(tdb_file);
+	return 0;
+errout:
+	free(tdb_file);
+err:
+	com_err("debugfs", retval, "while trying to setup undo file\n");
+	return retval;
+}
+
+static void open_filesystem(char *device, int open_flags, blk64_t superblock,
+			    blk64_t blocksize, int catastrophic,
+			    char *data_filename, char *undo_file)
 {
 	int	retval;
 	io_channel data_io = 0;
+	io_manager io_ptr = unix_io_manager;
 
 	if (superblock != 0 && blocksize == 0) {
 		com_err(device, 0, "if you specify the superblock, you must also specify the block size");
@@ -78,14 +161,25 @@ static void open_filesystem(char *device, int open_flags, blk_t superblock,
 			"opening read-only because of catastrophic mode");
 		open_flags &= ~EXT2_FLAG_RW;
 	}
+	if (catastrophic)
+		open_flags |= EXT2_FLAG_SKIP_MMP;
+
+	if (undo_file) {
+		retval = debugfs_setup_tdb(device, undo_file, &io_ptr);
+		if (retval)
+			exit(1);
+	}
 
 	retval = ext2fs_open(device, open_flags, superblock, blocksize,
-			     unix_io_manager, &current_fs);
+			     io_ptr, &current_fs);
 	if (retval) {
 		com_err(device, retval, "while opening filesystem");
+		if (retval == EXT2_ET_BAD_MAGIC)
+			check_plausibility(device, CHECK_FS_EXIST, NULL);
 		current_fs = NULL;
 		return;
 	}
+	current_fs->default_bitmap_type = EXT2FS_BMAP64_RBTREE;
 
 	if (catastrophic)
 		com_err(device, 0, "catastrophic mode - not reading inode or group bitmaps");
@@ -115,29 +209,33 @@ static void open_filesystem(char *device, int open_flags, blk_t superblock,
 	return;
 
 errout:
-	retval = ext2fs_close(current_fs);
+	retval = ext2fs_close_free(&current_fs);
 	if (retval)
 		com_err(device, retval, "while trying to close filesystem");
-	current_fs = NULL;
 }
 
 void do_open_filesys(int argc, char **argv)
 {
 	int	c, err;
 	int	catastrophic = 0;
-	blk_t	superblock = 0;
-	blk_t	blocksize = 0;
-	int	open_flags = EXT2_FLAG_SOFTSUPP_FEATURES;
+	blk64_t	superblock = 0;
+	blk64_t	blocksize = 0;
+	int	open_flags = EXT2_FLAG_SOFTSUPP_FEATURES | EXT2_FLAG_64BITS; 
 	char	*data_filename = 0;
+	char	*undo_file = NULL;
 
 	reset_getopt();
-	while ((c = getopt (argc, argv, "iwfecb:s:d:")) != EOF) {
+	while ((c = getopt(argc, argv, "iwfecb:s:d:Dz:")) != EOF) {
 		switch (c) {
 		case 'i':
 			open_flags |= EXT2_FLAG_IMAGE_FILE;
 			break;
 		case 'w':
+#ifdef READ_ONLY
+			goto print_usage;
+#else
 			open_flags |= EXT2_FLAG_RW;
+#endif /* READ_ONLY */
 			break;
 		case 'f':
 			open_flags |= EXT2_FLAG_FORCE;
@@ -151,6 +249,9 @@ void do_open_filesys(int argc, char **argv)
 		case 'd':
 			data_filename = optarg;
 			break;
+		case 'D':
+			open_flags |= EXT2_FLAG_DIRECT_IO;
+			break;
 		case 'b':
 			blocksize = parse_ulong(optarg, argv[0],
 						"block size", &err);
@@ -158,10 +259,13 @@ void do_open_filesys(int argc, char **argv)
 				return;
 			break;
 		case 's':
-			superblock = parse_ulong(optarg, argv[0],
-						 "superblock number", &err);
+			err = strtoblk(argv[0], optarg,
+				       "superblock block number", &superblock);
 			if (err)
 				return;
+			break;
+		case 'z':
+			undo_file = optarg;
 			break;
 		default:
 			goto print_usage;
@@ -174,12 +278,16 @@ void do_open_filesys(int argc, char **argv)
 		return;
 	open_filesystem(argv[optind], open_flags,
 			superblock, blocksize, catastrophic,
-			data_filename);
+			data_filename, undo_file);
 	return;
 
 print_usage:
 	fprintf(stderr, "%s: Usage: open [-s superblock] [-b blocksize] "
-		"[-c] [-w] <device>\n", argv[0]);
+		"[-d image_filename] [-c] [-i] [-f] [-e] [-D] "
+#ifndef READ_ONLY
+		"[-w] "
+#endif
+		"<device>\n", argv[0]);
 }
 
 void do_lcd(int argc, char **argv)
@@ -211,10 +319,11 @@ static void close_filesystem(NOARGS)
 		if (retval)
 			com_err("ext2fs_write_block_bitmap", retval, 0);
 	}
-	retval = ext2fs_close(current_fs);
+	if (current_qctx)
+		quota_release_context(&current_qctx);
+	retval = ext2fs_close_free(&current_fs);
 	if (retval)
 		com_err("ext2fs_close", retval, 0);
-	current_fs = NULL;
 	return;
 }
 
@@ -245,21 +354,23 @@ void do_close_filesys(int argc, char **argv)
 	close_filesystem();
 }
 
+#ifndef READ_ONLY
 void do_init_filesys(int argc, char **argv)
 {
 	struct ext2_super_block param;
 	errcode_t	retval;
 	int		err;
+	blk64_t		blocks;
 
 	if (common_args_process(argc, argv, 3, 3, "initialize",
-				"<device> <blocksize>", CHECK_FS_NOTOPEN))
+				"<device> <blocks>", CHECK_FS_NOTOPEN))
 		return;
 
 	memset(&param, 0, sizeof(struct ext2_super_block));
-	param.s_blocks_count = parse_ulong(argv[2], argv[0],
-					   "blocks count", &err);
+	err = strtoblk(argv[0], argv[2], "blocks count", &blocks);
 	if (err)
 		return;
+	ext2fs_blocks_count_set(&param, blocks);
 	retval = ext2fs_initialize(argv[1], 0, &param,
 				   unix_io_manager, &current_fs);
 	if (retval) {
@@ -289,11 +400,12 @@ static void print_features(struct ext2_super_block * s, FILE *f)
 		fputs("(none)", f);
 	fputs("\n", f);
 }
+#endif /* READ_ONLY */
 
-static void print_bg_opts(struct ext2_group_desc *gdp, int mask,
+static void print_bg_opts(ext2_filsys fs, dgrp_t group, int mask,
 			  const char *str, int *first, FILE *f)
 {
-	if (gdp->bg_flags & mask) {
+	if (ext2fs_bg_flags_test(fs, group, mask)) {
 		if (*first) {
 			fputs("           [", f);
 			*first = 0;
@@ -305,9 +417,9 @@ static void print_bg_opts(struct ext2_group_desc *gdp, int mask,
 
 void do_show_super_stats(int argc, char *argv[])
 {
+	const char *units ="block";
 	dgrp_t	i;
 	FILE 	*out;
-	struct ext2_group_desc *gdp;
 	int	c, header_only = 0;
 	int	numdirs = 0, first, gdt_csum;
 
@@ -328,9 +440,12 @@ void do_show_super_stats(int argc, char *argv[])
 		return;
 	out = open_pager();
 
+	if (ext2fs_has_feature_bigalloc(current_fs->super))
+		units = "cluster";
+
 	list_super2(current_fs->super, out);
 	for (i=0; i < current_fs->group_desc_count; i++)
-		numdirs += current_fs->group_desc[i].bg_used_dirs_count;
+		numdirs += ext2fs_bg_used_dirs_count(current_fs, i);
 	fprintf(out, "Directories:              %d\n", numdirs);
 
 	if (header_only) {
@@ -338,37 +453,39 @@ void do_show_super_stats(int argc, char *argv[])
 		return;
 	}
 
-	gdt_csum = EXT2_HAS_RO_COMPAT_FEATURE(current_fs->super,
-					      EXT4_FEATURE_RO_COMPAT_GDT_CSUM);
-	gdp = &current_fs->group_desc[0];
-	for (i = 0; i < current_fs->group_desc_count; i++, gdp++) {
-		fprintf(out, " Group %2d: block bitmap at %u, "
-		        "inode bitmap at %u, "
-		        "inode table at %u\n"
-		        "           %d free %s, "
-		        "%d free %s, "
-		        "%d used %s%s",
-		        i, gdp->bg_block_bitmap,
-		        gdp->bg_inode_bitmap, gdp->bg_inode_table,
-		        gdp->bg_free_blocks_count,
-		        gdp->bg_free_blocks_count != 1 ? "blocks" : "block",
-		        gdp->bg_free_inodes_count,
-		        gdp->bg_free_inodes_count != 1 ? "inodes" : "inode",
-		        gdp->bg_used_dirs_count,
-		        gdp->bg_used_dirs_count != 1 ? "directories"
-				: "directory", gdt_csum ? ", " : "\n");
+	gdt_csum = ext2fs_has_group_desc_csum(current_fs);
+	for (i = 0; i < current_fs->group_desc_count; i++) {
+		fprintf(out, " Group %2d: block bitmap at %llu, "
+		        "inode bitmap at %llu, "
+		        "inode table at %llu\n"
+		        "           %u free %s%s, "
+		        "%u free %s, "
+		        "%u used %s%s",
+		        i, ext2fs_block_bitmap_loc(current_fs, i),
+		        ext2fs_inode_bitmap_loc(current_fs, i),
+			ext2fs_inode_table_loc(current_fs, i),
+		        ext2fs_bg_free_blocks_count(current_fs, i), units,
+		        ext2fs_bg_free_blocks_count(current_fs, i) != 1 ?
+			"s" : "",
+		        ext2fs_bg_free_inodes_count(current_fs, i),
+		        ext2fs_bg_free_inodes_count(current_fs, i) != 1 ?
+			"inodes" : "inode",
+		        ext2fs_bg_used_dirs_count(current_fs, i),
+		        ext2fs_bg_used_dirs_count(current_fs, i) != 1 ? "directories"
+ 				: "directory", gdt_csum ? ", " : "\n");
 		if (gdt_csum)
-			fprintf(out, "%d unused %s\n",
-				gdp->bg_itable_unused,
-				gdp->bg_itable_unused != 1 ? "inodes":"inode");
+			fprintf(out, "%u unused %s\n",
+				ext2fs_bg_itable_unused(current_fs, i),
+				ext2fs_bg_itable_unused(current_fs, i) != 1 ?
+				"inodes" : "inode");
 		first = 1;
-		print_bg_opts(gdp, EXT2_BG_INODE_UNINIT, "Inode not init",
+		print_bg_opts(current_fs, i, EXT2_BG_INODE_UNINIT, "Inode not init",
 			      &first, out);
-		print_bg_opts(gdp, EXT2_BG_BLOCK_UNINIT, "Block not init",
+		print_bg_opts(current_fs, i, EXT2_BG_BLOCK_UNINIT, "Block not init",
 			      &first, out);
 		if (gdt_csum) {
 			fprintf(out, "%sChecksum 0x%04x",
-				first ? "           [":", ", gdp->bg_checksum);
+				first ? "           [":", ", ext2fs_bg_checksum(current_fs, i));
 			first = 0;
 		}
 		if (!first)
@@ -380,6 +497,7 @@ print_usage:
 	fprintf(stderr, "%s: Usage: show_super [-h]\n", argv[0]);
 }
 
+#ifndef READ_ONLY
 void do_dirty_filesys(int argc EXT2FS_ATTR((unused)),
 		      char **argv EXT2FS_ATTR((unused)))
 {
@@ -394,11 +512,12 @@ void do_dirty_filesys(int argc EXT2FS_ATTR((unused)),
 		current_fs->super->s_state &= ~EXT2_VALID_FS;
 	ext2fs_mark_super_dirty(current_fs);
 }
+#endif /* READ_ONLY */
 
 struct list_blocks_struct {
 	FILE		*f;
 	e2_blkcnt_t	total;
-	blk_t		first_block, last_block;
+	blk64_t		first_block, last_block;
 	e2_blkcnt_t	first_bcnt, last_bcnt;
 	e2_blkcnt_t	first;
 };
@@ -412,18 +531,18 @@ static void finish_range(struct list_blocks_struct *lb)
 	else
 		fprintf(lb->f, ", ");
 	if (lb->first_block == lb->last_block)
-		fprintf(lb->f, "(%lld):%u",
+		fprintf(lb->f, "(%lld):%llu",
 			(long long)lb->first_bcnt, lb->first_block);
 	else
-		fprintf(lb->f, "(%lld-%lld):%u-%u",
+		fprintf(lb->f, "(%lld-%lld):%llu-%llu",
 			(long long)lb->first_bcnt, (long long)lb->last_bcnt,
 			lb->first_block, lb->last_block);
 	lb->first_block = 0;
 }
 
 static int list_blocks_proc(ext2_filsys fs EXT2FS_ATTR((unused)),
-			    blk_t *blocknr, e2_blkcnt_t blockcnt,
-			    blk_t ref_block EXT2FS_ATTR((unused)),
+			    blk64_t *blocknr, e2_blkcnt_t blockcnt,
+			    blk64_t ref_block EXT2FS_ATTR((unused)),
 			    int ref_offset EXT2FS_ATTR((unused)),
 			    void *private)
 {
@@ -458,33 +577,12 @@ static int list_blocks_proc(ext2_filsys fs EXT2FS_ATTR((unused)),
 	else
 		fprintf(lb->f, ", ");
 	if (blockcnt == -1)
-		fprintf(lb->f, "(IND):%u", *blocknr);
+		fprintf(lb->f, "(IND):%llu", (unsigned long long) *blocknr);
 	else if (blockcnt == -2)
-		fprintf(lb->f, "(DIND):%u", *blocknr);
+		fprintf(lb->f, "(DIND):%llu", (unsigned long long) *blocknr);
 	else if (blockcnt == -3)
-		fprintf(lb->f, "(TIND):%u", *blocknr);
+		fprintf(lb->f, "(TIND):%llu", (unsigned long long) *blocknr);
 	return 0;
-}
-
-static void dump_xattr_string(FILE *out, const char *str, int len)
-{
-	int printable = 0;
-	int i;
-
-	/* check: is string "printable enough?" */
-	for (i = 0; i < len; i++)
-		if (isprint(str[i]))
-			printable++;
-
-	if (printable <= len*7/8)
-		printable = 0;
-
-	for (i = 0; i < len; i++)
-		if (printable)
-			fprintf(out, isprint(str[i]) ? "%c" : "\\%03o",
-				(unsigned char)str[i]);
-		else
-			fprintf(out, "%02x ", (unsigned char)str[i]);
 }
 
 static void internal_dump_inode_extra(FILE *out,
@@ -492,45 +590,12 @@ static void internal_dump_inode_extra(FILE *out,
 				      ext2_ino_t inode_num EXT2FS_ATTR((unused)),
 				      struct ext2_inode_large *inode)
 {
-	struct ext2_ext_attr_entry *entry;
-	__u32 *magic;
-	char *start, *end;
-	unsigned int storage_size;
-
 	fprintf(out, "Size of extra inode fields: %u\n", inode->i_extra_isize);
 	if (inode->i_extra_isize > EXT2_INODE_SIZE(current_fs->super) -
 			EXT2_GOOD_OLD_INODE_SIZE) {
 		fprintf(stderr, "invalid inode->i_extra_isize (%u)\n",
 				inode->i_extra_isize);
 		return;
-	}
-	storage_size = EXT2_INODE_SIZE(current_fs->super) -
-			EXT2_GOOD_OLD_INODE_SIZE -
-			inode->i_extra_isize;
-	magic = (__u32 *)((char *)inode + EXT2_GOOD_OLD_INODE_SIZE +
-			inode->i_extra_isize);
-	if (*magic == EXT2_EXT_ATTR_MAGIC) {
-		fprintf(out, "Extended attributes stored in inode body: \n");
-		end = (char *) inode + EXT2_INODE_SIZE(current_fs->super);
-		start = (char *) magic + sizeof(__u32);
-		entry = (struct ext2_ext_attr_entry *) start;
-		while (!EXT2_EXT_IS_LAST_ENTRY(entry)) {
-			struct ext2_ext_attr_entry *next =
-				EXT2_EXT_ATTR_NEXT(entry);
-			if (entry->e_value_size > storage_size ||
-					(char *) next >= end) {
-				fprintf(out, "invalid EA entry in inode\n");
-				return;
-			}
-			fprintf(out, "  ");
-			dump_xattr_string(out, EXT2_EXT_ATTR_NAME(entry),
-					  entry->e_name_len);
-			fprintf(out, " = \"");
-			dump_xattr_string(out, start + entry->e_value_offs,
-						entry->e_value_size);
-			fprintf(out, "\" (%u)\n", entry->e_value_size);
-			entry = next;
-		}
 	}
 }
 
@@ -543,8 +608,8 @@ static void dump_blocks(FILE *f, const char *prefix, ext2_ino_t inode)
 	lb.first_block = 0;
 	lb.f = f;
 	lb.first = 1;
-	ext2fs_block_iterate2(current_fs, inode, BLOCK_FLAG_READ_ONLY, NULL,
-			     list_blocks_proc, (void *)&lb);
+	ext2fs_block_iterate3(current_fs, inode, BLOCK_FLAG_READ_ONLY, NULL,
+			      list_blocks_proc, (void *)&lb);
 	finish_range(&lb);
 	if (lb.total)
 		fprintf(f, "\n%sTOTAL: %lld\n", prefix, (long long)lb.total);
@@ -630,11 +695,8 @@ static void dump_extents(FILE *f, const char *prefix, ext2_ino_t ino,
 				continue;
 			}
 
-			fprintf(f, "%s(NODE #%d, %lld-%lld, blk %lld)",
-				printed ? ", " : "",
-				info.curr_entry,
-				extent.e_lblk,
-				extent.e_lblk + (extent.e_len - 1),
+			fprintf(f, "%s(ETB%d):%lld",
+				printed ? ", " : "", info.curr_level,
 				extent.e_pblk);
 			printed = 1;
 			continue;
@@ -663,26 +725,76 @@ static void dump_extents(FILE *f, const char *prefix, ext2_ino_t ino,
 			continue;
 		else if (extent.e_len == 1)
 			fprintf(f,
-				"%s(%lld%s): %lld",
+				"%s(%lld%s):%lld",
 				printed ? ", " : "",
 				extent.e_lblk,
 				extent.e_flags & EXT2_EXTENT_FLAGS_UNINIT ?
-				" [uninit]" : "",
+				"[u]" : "",
 				extent.e_pblk);
 		else
 			fprintf(f,
-				"%s(%lld-%lld%s): %lld-%lld",
+				"%s(%lld-%lld%s):%lld-%lld",
 				printed ? ", " : "",
 				extent.e_lblk,
 				extent.e_lblk + (extent.e_len - 1),
 				extent.e_flags & EXT2_EXTENT_FLAGS_UNINIT ?
-					" [uninit]" : "",
+					"[u]" : "",
 				extent.e_pblk,
 				extent.e_pblk + (extent.e_len - 1));
 		printed = 1;
 	}
 	if (printed)
 		fprintf(f, "\n");
+	ext2fs_extent_free(handle);
+}
+
+static void dump_inline_data(FILE *out, const char *prefix, ext2_ino_t inode_num)
+{
+	errcode_t retval;
+	size_t size;
+
+	retval = ext2fs_inline_data_size(current_fs, inode_num, &size);
+	if (!retval)
+		fprintf(out, "%sSize of inline data: %zu\n", prefix, size);
+}
+
+static void dump_fast_link(FILE *out, ext2_ino_t inode_num,
+			   struct ext2_inode *inode, const char *prefix)
+{
+	errcode_t retval = 0;
+	char *buf;
+	size_t size;
+
+	if (inode->i_flags & EXT4_INLINE_DATA_FL) {
+		retval = ext2fs_inline_data_size(current_fs, inode_num, &size);
+		if (retval)
+			goto out;
+
+		retval = ext2fs_get_memzero(size + 1, &buf);
+		if (retval)
+			goto out;
+
+		retval = ext2fs_inline_data_get(current_fs, inode_num,
+						inode, buf, &size);
+		if (retval)
+			goto out;
+		fprintf(out, "%sFast link dest: \"%.*s\"\n", prefix,
+			(int)size, buf);
+
+		retval = ext2fs_free_mem(&buf);
+		if (retval)
+			goto out;
+	} else {
+		size_t sz = EXT2_I_SIZE(inode);
+
+		if (sz > sizeof(inode->i_block))
+			sz = sizeof(inode->i_block);
+		fprintf(out, "%sFast link dest: \"%.*s\"\n", prefix, (int) sz,
+			(char *)inode->i_block);
+	}
+out:
+	if (retval)
+		com_err(__func__, retval, "while dumping link destination");
 }
 
 void internal_dump_inode(FILE *out, const char *prefix,
@@ -718,14 +830,14 @@ void internal_dump_inode(FILE *out, const char *prefix,
 		fprintf(out, "%sGeneration: %u    Version: 0x%08x\n", prefix,
 			inode->i_generation, inode->osd1.linux1.l_i_version);
 	}
-	fprintf(out, "%sUser: %5d   Group: %5d   Size: ",
+	fprintf(out, "%sUser: %5d   Group: %5d",
 		prefix, inode_uid(*inode), inode_gid(*inode));
-	if (LINUX_S_ISREG(inode->i_mode)) {
-		unsigned long long i_size = (inode->i_size |
-				    ((unsigned long long)inode->i_size_high << 32));
-
-		fprintf(out, "%llu\n", i_size);
-	} else
+	if (is_large_inode && large_inode->i_extra_isize >= 32)
+		fprintf(out, "   Project: %5d", large_inode->i_projid);
+	fputs("   Size: ", out);
+	if (LINUX_S_ISREG(inode->i_mode))
+		fprintf(out, "%llu\n", EXT2_I_SIZE(inode));
+	else
 		fprintf(out, "%d\n", inode->i_size);
 	if (os == EXT2_OS_HURD)
 		fprintf(out,
@@ -761,33 +873,56 @@ void internal_dump_inode(FILE *out, const char *prefix,
 	if (is_large_inode && large_inode->i_extra_isize >= 24) {
 		fprintf(out, "%s ctime: 0x%08x:%08x -- %s", prefix,
 			inode->i_ctime, large_inode->i_ctime_extra,
-			time_to_string(inode->i_ctime));
+			inode_time_to_string(inode->i_ctime,
+					     large_inode->i_ctime_extra));
 		fprintf(out, "%s atime: 0x%08x:%08x -- %s", prefix,
 			inode->i_atime, large_inode->i_atime_extra,
-			time_to_string(inode->i_atime));
+			inode_time_to_string(inode->i_atime,
+					     large_inode->i_atime_extra));
 		fprintf(out, "%s mtime: 0x%08x:%08x -- %s", prefix,
 			inode->i_mtime, large_inode->i_mtime_extra,
-			time_to_string(inode->i_mtime));
+			inode_time_to_string(inode->i_mtime,
+					     large_inode->i_mtime_extra));
 		fprintf(out, "%scrtime: 0x%08x:%08x -- %s", prefix,
 			large_inode->i_crtime, large_inode->i_crtime_extra,
-			time_to_string(large_inode->i_crtime));
+			inode_time_to_string(large_inode->i_crtime,
+					     large_inode->i_crtime_extra));
+		if (inode->i_dtime)
+			fprintf(out, "%scrtime: 0x%08x:(%08x) -- %s", prefix,
+				large_inode->i_dtime, large_inode->i_ctime_extra,
+				inode_time_to_string(inode->i_dtime,
+						     large_inode->i_ctime_extra));
 	} else {
 		fprintf(out, "%sctime: 0x%08x -- %s", prefix, inode->i_ctime,
-			time_to_string(inode->i_ctime));
+			time_to_string((__s32) inode->i_ctime));
 		fprintf(out, "%satime: 0x%08x -- %s", prefix, inode->i_atime,
-			time_to_string(inode->i_atime));
+			time_to_string((__s32) inode->i_atime));
 		fprintf(out, "%smtime: 0x%08x -- %s", prefix, inode->i_mtime,
-			time_to_string(inode->i_mtime));
+			time_to_string((__s32) inode->i_mtime));
+		if (inode->i_dtime)
+			fprintf(out, "%sdtime: 0x%08x -- %s", prefix,
+				inode->i_dtime,
+				time_to_string((__s32) inode->i_dtime));
 	}
-	if (inode->i_dtime)
-	  fprintf(out, "%sdtime: 0x%08x -- %s", prefix, inode->i_dtime,
-		  time_to_string(inode->i_dtime));
 	if (EXT2_INODE_SIZE(current_fs->super) > EXT2_GOOD_OLD_INODE_SIZE)
 		internal_dump_inode_extra(out, prefix, inode_num,
 					  (struct ext2_inode_large *) inode);
-	if (LINUX_S_ISLNK(inode->i_mode) && ext2fs_inode_data_blocks(current_fs,inode) == 0)
-		fprintf(out, "%sFast_link_dest: %.*s\n", prefix,
-			(int) inode->i_size, (char *)inode->i_block);
+	dump_inode_attributes(out, inode_num);
+	if (current_fs->super->s_creator_os == EXT2_OS_LINUX &&
+	    ext2fs_has_feature_metadata_csum(current_fs->super)) {
+		__u32 crc = inode->i_checksum_lo;
+		if (is_large_inode &&
+		    large_inode->i_extra_isize >=
+				(offsetof(struct ext2_inode_large,
+					  i_checksum_hi) -
+				 EXT2_GOOD_OLD_INODE_SIZE))
+			crc |= ((__u32)large_inode->i_checksum_hi) << 16;
+		fprintf(out, "Inode checksum: 0x%08x\n", crc);
+	}
+
+	if (LINUX_S_ISLNK(inode->i_mode) &&
+	    ext2fs_inode_data_blocks(current_fs, inode) == 0)
+		dump_fast_link(out, inode_num, inode, prefix);
 	else if (LINUX_S_ISBLK(inode->i_mode) || LINUX_S_ISCHR(inode->i_mode)) {
 		int major, minor;
 		const char *devnote;
@@ -807,7 +942,9 @@ void internal_dump_inode(FILE *out, const char *prefix,
 	} else if (do_dump_blocks) {
 		if (inode->i_flags & EXT4_EXTENTS_FL)
 			dump_extents(out, prefix, inode_num,
-				     DUMP_LEAF_EXTENTS, 0, 0);
+				     DUMP_LEAF_EXTENTS|DUMP_NODE_EXTENTS, 0, 0);
+		else if (inode->i_flags & EXT4_INLINE_DATA_FL)
+			dump_inline_data(out, prefix, inode_num);
 		else
 			dump_blocks(out, prefix, inode_num);
 	}
@@ -853,7 +990,7 @@ void do_stat(int argc, char *argv[])
 	return;
 }
 
-void do_dump_extents(int argc, char *argv[])
+void do_dump_extents(int argc, char **argv)
 {
 	struct ext2_inode inode;
 	ext2_ino_t	ino;
@@ -874,8 +1011,7 @@ void do_dump_extents(int argc, char *argv[])
 		}
 	}
 
-	if (argc != optind+1) {
-	print_usage:
+	if (argc != optind + 1) {
 		com_err(0, 0, "Usage: dump_extents [-n] [-l] file");
 		return;
 	}
@@ -900,19 +1036,45 @@ void do_dump_extents(int argc, char *argv[])
 		return;
 	}
 
-	logical_width = int_log10(((inode.i_size |
-				    (__u64) inode.i_size_high << 32) +
-				   current_fs->blocksize - 1) /
+	logical_width = int_log10((EXT2_I_SIZE(&inode)+current_fs->blocksize-1)/
 				  current_fs->blocksize) + 1;
 	if (logical_width < 5)
 		logical_width = 5;
-	physical_width = int_log10(current_fs->super->s_blocks_count) + 1;
+	physical_width = int_log10(ext2fs_blocks_count(current_fs->super)) + 1;
 	if (physical_width < 5)
 		physical_width = 5;
 
 	out = open_pager();
 	dump_extents(out, "", ino, flags, logical_width, physical_width);
 	close_pager(out);
+	return;
+}
+
+static int print_blocks_proc(ext2_filsys fs EXT2FS_ATTR((unused)),
+			     blk64_t *blocknr,
+			     e2_blkcnt_t blockcnt EXT2FS_ATTR((unused)),
+			     blk64_t ref_block EXT2FS_ATTR((unused)),
+			     int ref_offset EXT2FS_ATTR((unused)),
+			     void *private EXT2FS_ATTR((unused)))
+{
+	printf("%llu ", *blocknr);
+	return 0;
+}
+
+void do_blocks(int argc, char *argv[])
+{
+	ext2_ino_t	inode;
+
+	if (check_fs_open(argv[0]))
+		return;
+
+	if (common_inode_args_process(argc, argv, &inode, 0)) {
+		return;
+	}
+
+	ext2fs_block_iterate3(current_fs, inode, BLOCK_FLAG_READ_ONLY, NULL,
+			      print_blocks_proc, NULL);
+	fputc('\n', stdout);
 	return;
 }
 
@@ -932,6 +1094,7 @@ void do_chroot(int argc, char *argv[])
 	root = inode;
 }
 
+#ifndef READ_ONLY
 void do_clri(int argc, char *argv[])
 {
 	ext2_ino_t inode;
@@ -949,31 +1112,64 @@ void do_clri(int argc, char *argv[])
 
 void do_freei(int argc, char *argv[])
 {
-	ext2_ino_t inode;
+	unsigned int	len = 1;
+	int		err = 0;
+	ext2_ino_t	inode;
 
-	if (common_inode_args_process(argc, argv, &inode,
-				      CHECK_FS_RW | CHECK_FS_BITMAPS))
+	if (common_args_process(argc, argv, 2, 3, argv[0], "<file> [num]",
+				CHECK_FS_RW | CHECK_FS_BITMAPS))
+		return;
+	if (check_fs_read_write(argv[0]))
 		return;
 
-	if (!ext2fs_test_inode_bitmap(current_fs->inode_map,inode))
+	inode = string_to_inode(argv[1]);
+	if (!inode)
+		return;
+
+	if (argc == 3) {
+		len = parse_ulong(argv[2], argv[0], "length", &err);
+		if (err)
+			return;
+	}
+
+	if (len == 1 &&
+	    !ext2fs_test_inode_bitmap2(current_fs->inode_map,inode))
 		com_err(argv[0], 0, "Warning: inode already clear");
-	ext2fs_unmark_inode_bitmap(current_fs->inode_map,inode);
+	while (len-- > 0)
+		ext2fs_unmark_inode_bitmap2(current_fs->inode_map, inode++);
 	ext2fs_mark_ib_dirty(current_fs);
 }
 
 void do_seti(int argc, char *argv[])
 {
-	ext2_ino_t inode;
+	unsigned int	len = 1;
+	int		err = 0;
+	ext2_ino_t	inode;
 
-	if (common_inode_args_process(argc, argv, &inode,
-				      CHECK_FS_RW | CHECK_FS_BITMAPS))
+	if (common_args_process(argc, argv, 2, 3, argv[0], "<file> [num]",
+				CHECK_FS_RW | CHECK_FS_BITMAPS))
+		return;
+	if (check_fs_read_write(argv[0]))
 		return;
 
-	if (ext2fs_test_inode_bitmap(current_fs->inode_map,inode))
+	inode = string_to_inode(argv[1]);
+	if (!inode)
+		return;
+
+	if (argc == 3) {
+		len = parse_ulong(argv[2], argv[0], "length", &err);
+		if (err)
+			return;
+	}
+
+	if ((len == 1) &&
+	    ext2fs_test_inode_bitmap2(current_fs->inode_map,inode))
 		com_err(argv[0], 0, "Warning: inode already set");
-	ext2fs_mark_inode_bitmap(current_fs->inode_map,inode);
+	while (len-- > 0)
+		ext2fs_mark_inode_bitmap2(current_fs->inode_map, inode++);
 	ext2fs_mark_ib_dirty(current_fs);
 }
+#endif /* READ_ONLY */
 
 void do_testi(int argc, char *argv[])
 {
@@ -982,26 +1178,27 @@ void do_testi(int argc, char *argv[])
 	if (common_inode_args_process(argc, argv, &inode, CHECK_FS_BITMAPS))
 		return;
 
-	if (ext2fs_test_inode_bitmap(current_fs->inode_map,inode))
+	if (ext2fs_test_inode_bitmap2(current_fs->inode_map,inode))
 		printf("Inode %u is marked in use\n", inode);
 	else
 		printf("Inode %u is not in use\n", inode);
 }
 
+#ifndef READ_ONLY
 void do_freeb(int argc, char *argv[])
 {
-	blk_t block;
-	blk_t count = 1;
+	blk64_t block;
+	blk64_t count = 1;
 
 	if (common_block_args_process(argc, argv, &block, &count))
 		return;
 	if (check_fs_read_write(argv[0]))
 		return;
 	while (count-- > 0) {
-		if (!ext2fs_test_block_bitmap(current_fs->block_map,block))
-			com_err(argv[0], 0, "Warning: block %u already clear",
+		if (!ext2fs_test_block_bitmap2(current_fs->block_map,block))
+			com_err(argv[0], 0, "Warning: block %llu already clear",
 				block);
-		ext2fs_unmark_block_bitmap(current_fs->block_map,block);
+		ext2fs_unmark_block_bitmap2(current_fs->block_map,block);
 		block++;
 	}
 	ext2fs_mark_bb_dirty(current_fs);
@@ -1009,39 +1206,41 @@ void do_freeb(int argc, char *argv[])
 
 void do_setb(int argc, char *argv[])
 {
-	blk_t block;
-	blk_t count = 1;
+	blk64_t block;
+	blk64_t count = 1;
 
 	if (common_block_args_process(argc, argv, &block, &count))
 		return;
 	if (check_fs_read_write(argv[0]))
 		return;
 	while (count-- > 0) {
-		if (ext2fs_test_block_bitmap(current_fs->block_map,block))
-			com_err(argv[0], 0, "Warning: block %u already set",
+		if (ext2fs_test_block_bitmap2(current_fs->block_map,block))
+			com_err(argv[0], 0, "Warning: block %llu already set",
 				block);
-		ext2fs_mark_block_bitmap(current_fs->block_map,block);
+		ext2fs_mark_block_bitmap2(current_fs->block_map,block);
 		block++;
 	}
 	ext2fs_mark_bb_dirty(current_fs);
 }
+#endif /* READ_ONLY */
 
 void do_testb(int argc, char *argv[])
 {
-	blk_t block;
-	blk_t count = 1;
+	blk64_t block;
+	blk64_t count = 1;
 
 	if (common_block_args_process(argc, argv, &block, &count))
 		return;
 	while (count-- > 0) {
-		if (ext2fs_test_block_bitmap(current_fs->block_map,block))
-			printf("Block %u marked in use\n", block);
+		if (ext2fs_test_block_bitmap2(current_fs->block_map,block))
+			printf("Block %llu marked in use\n", block);
 		else
-			printf("Block %u not in use\n", block);
+			printf("Block %llu not in use\n", block);
 		block++;
 	}
 }
 
+#ifndef READ_ONLY
 static void modify_u8(char *com, const char *prompt,
 		      const char *format, __u8 *val)
 {
@@ -1185,6 +1384,7 @@ void do_modify_inode(int argc, char *argv[])
 	if (debugfs_write_inode(inode_num, &inode, argv[1]))
 		return;
 }
+#endif /* READ_ONLY */
 
 void do_change_working_dir(int argc, char *argv[])
 {
@@ -1237,35 +1437,7 @@ void do_print_working_directory(int argc, char *argv[])
 	return;
 }
 
-/*
- * Given a mode, return the ext2 file type
- */
-static int ext2_file_type(unsigned int mode)
-{
-	if (LINUX_S_ISREG(mode))
-		return EXT2_FT_REG_FILE;
-
-	if (LINUX_S_ISDIR(mode))
-		return EXT2_FT_DIR;
-
-	if (LINUX_S_ISCHR(mode))
-		return EXT2_FT_CHRDEV;
-
-	if (LINUX_S_ISBLK(mode))
-		return EXT2_FT_BLKDEV;
-
-	if (LINUX_S_ISLNK(mode))
-		return EXT2_FT_SYMLINK;
-
-	if (LINUX_S_ISFIFO(mode))
-		return EXT2_FT_FIFO;
-
-	if (LINUX_S_ISSOCK(mode))
-		return EXT2_FT_SOCK;
-
-	return 0;
-}
-
+#ifndef READ_ONLY
 static void make_link(char *sourcename, char *destname)
 {
 	ext2_ino_t	ino;
@@ -1329,14 +1501,16 @@ void do_link(int argc, char *argv[])
 	make_link(argv[1], argv[2]);
 }
 
-static int mark_blocks_proc(ext2_filsys fs, blk_t *blocknr,
-			    int blockcnt EXT2FS_ATTR((unused)),
+static int mark_blocks_proc(ext2_filsys fs, blk64_t *blocknr,
+			    e2_blkcnt_t blockcnt EXT2FS_ATTR((unused)),
+			    blk64_t ref_block EXT2FS_ATTR((unused)),
+			    int ref_offset EXT2FS_ATTR((unused)),
 			    void *private EXT2FS_ATTR((unused)))
 {
-	blk_t	block;
+	blk64_t	block;
 
 	block = *blocknr;
-	ext2fs_block_alloc_stats(fs, block, +1);
+	ext2fs_block_alloc_stats2(fs, block, +1);
 	return 0;
 }
 
@@ -1357,7 +1531,7 @@ void do_undel(int argc, char *argv[])
 	if (debugfs_read_inode(ino, &inode, argv[1]))
 		return;
 
-	if (ext2fs_test_inode_bitmap(current_fs->inode_map, ino)) {
+	if (ext2fs_test_inode_bitmap2(current_fs->inode_map, ino)) {
 		com_err(argv[1], 0, "Inode is not marked as deleted");
 		return;
 	}
@@ -1372,8 +1546,8 @@ void do_undel(int argc, char *argv[])
 	if (debugfs_write_inode(ino, &inode, argv[0]))
 		return;
 
-	ext2fs_block_iterate(current_fs, ino, BLOCK_FLAG_READ_ONLY, NULL,
-			     mark_blocks_proc, NULL);
+	ext2fs_block_iterate3(current_fs, ino, BLOCK_FLAG_READ_ONLY, NULL,
+			      mark_blocks_proc, NULL);
 
 	ext2fs_inode_alloc_stats2(current_fs, ino, +1, 0);
 
@@ -1411,10 +1585,11 @@ void do_unlink(int argc, char *argv[])
 
 	unlink_file_by_name(argv[1]);
 }
+#endif /* READ_ONLY */
 
 void do_find_free_block(int argc, char *argv[])
 {
-	blk_t	free_blk, goal, first_free = 0;
+	blk64_t	free_blk, goal, first_free = 0;
  	int		count;
 	errcode_t	retval;
 	char		*tmp;
@@ -1448,8 +1623,8 @@ void do_find_free_block(int argc, char *argv[])
 	printf("Free blocks found: ");
 	free_blk = goal - 1;
 	while (count-- > 0) {
-		retval = ext2fs_new_block(current_fs, free_blk + 1, 0,
-					  &free_blk);
+		retval = ext2fs_new_block2(current_fs, free_blk + 1, 0,
+					   &free_blk);
 		if (first_free) {
 			if (first_free == free_blk)
 				break;
@@ -1459,7 +1634,7 @@ void do_find_free_block(int argc, char *argv[])
 			com_err("ext2fs_new_block", retval, 0);
 			return;
 		} else
-			printf("%u ", free_blk);
+			printf("%llu ", free_blk);
 	}
  	printf("\n");
 }
@@ -1503,133 +1678,26 @@ void do_find_free_inode(int argc, char *argv[])
 		printf("Free inode found: %u\n", free_inode);
 }
 
-static errcode_t copy_file(int fd, ext2_ino_t newfile)
-{
-	ext2_file_t	e2_file;
-	errcode_t	retval;
-	int		got;
-	unsigned int	written;
-	char		buf[8192];
-	char		*ptr;
-
-	retval = ext2fs_file_open(current_fs, newfile,
-				  EXT2_FILE_WRITE, &e2_file);
-	if (retval)
-		return retval;
-
-	while (1) {
-		got = read(fd, buf, sizeof(buf));
-		if (got == 0)
-			break;
-		if (got < 0) {
-			retval = errno;
-			goto fail;
-		}
-		ptr = buf;
-		while (got > 0) {
-			retval = ext2fs_file_write(e2_file, ptr,
-						   got, &written);
-			if (retval)
-				goto fail;
-
-			got -= written;
-			ptr += written;
-		}
-	}
-	retval = ext2fs_file_close(e2_file);
-	return retval;
-
-fail:
-	(void) ext2fs_file_close(e2_file);
-	return retval;
-}
-
-
+#ifndef READ_ONLY
 void do_write(int argc, char *argv[])
 {
-	int		fd;
-	struct stat	statbuf;
-	ext2_ino_t	newfile;
 	errcode_t	retval;
-	struct ext2_inode inode;
 
 	if (common_args_process(argc, argv, 3, 3, "write",
 				"<native file> <new file>", CHECK_FS_RW))
 		return;
 
-	fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		com_err(argv[1], errno, 0);
-		return;
-	}
-	if (fstat(fd, &statbuf) < 0) {
-		com_err(argv[1], errno, 0);
-		close(fd);
-		return;
-	}
-
-	retval = ext2fs_namei(current_fs, root, cwd, argv[2], &newfile);
-	if (retval == 0) {
-		com_err(argv[0], 0, "The file '%s' already exists\n", argv[2]);
-		close(fd);
-		return;
-	}
-
-	retval = ext2fs_new_inode(current_fs, cwd, 010755, 0, &newfile);
-	if (retval) {
+	retval = do_write_internal(current_fs, cwd, argv[1], argv[2], root);
+	if (retval)
 		com_err(argv[0], retval, 0);
-		close(fd);
-		return;
-	}
-	printf("Allocated inode: %u\n", newfile);
-	retval = ext2fs_link(current_fs, cwd, argv[2], newfile,
-			     EXT2_FT_REG_FILE);
-	if (retval == EXT2_ET_DIR_NO_SPACE) {
-		retval = ext2fs_expand_dir(current_fs, cwd);
-		if (retval) {
-			com_err(argv[0], retval, "while expanding directory");
-			close(fd);
-			return;
-		}
-		retval = ext2fs_link(current_fs, cwd, argv[2], newfile,
-				     EXT2_FT_REG_FILE);
-	}
-	if (retval) {
-		com_err(argv[2], retval, 0);
-		close(fd);
-		return;
-	}
-        if (ext2fs_test_inode_bitmap(current_fs->inode_map,newfile))
-		com_err(argv[0], 0, "Warning: inode already set");
-	ext2fs_inode_alloc_stats2(current_fs, newfile, +1, 0);
-	memset(&inode, 0, sizeof(inode));
-	inode.i_mode = (statbuf.st_mode & ~LINUX_S_IFMT) | LINUX_S_IFREG;
-	inode.i_atime = inode.i_ctime = inode.i_mtime =
-		current_fs->now ? current_fs->now : time(0);
-	inode.i_links_count = 1;
-	inode.i_size = statbuf.st_size;
-	if (current_fs->super->s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_EXTENTS)
-		inode.i_flags |= EXT4_EXTENTS_FL;
-	if (debugfs_write_new_inode(newfile, &inode, argv[0])) {
-		close(fd);
-		return;
-	}
-	if (LINUX_S_ISREG(inode.i_mode)) {
-		retval = copy_file(fd, newfile);
-		if (retval)
-			com_err("copy_file", retval, 0);
-	}
-	close(fd);
 }
 
 void do_mknod(int argc, char *argv[])
 {
-	unsigned long	mode, major, minor;
-	ext2_ino_t	newfile;
+	unsigned long	major, minor;
 	errcode_t 	retval;
-	struct ext2_inode inode;
-	int		filetype, nr;
+	int		nr;
+	struct stat	st;
 
 	if (check_fs_open(argv[0]))
 		return;
@@ -1638,127 +1706,65 @@ void do_mknod(int argc, char *argv[])
 		com_err(argv[0], 0, "Usage: mknod <name> [p| [c|b] <major> <minor>]");
 		return;
 	}
-	mode = minor = major = 0;
+
+	minor = major = 0;
 	switch (argv[2][0]) {
 		case 'p':
-			mode = LINUX_S_IFIFO;
-			filetype = EXT2_FT_FIFO;
+			st.st_mode = S_IFIFO;
 			nr = 3;
 			break;
 		case 'c':
-			mode = LINUX_S_IFCHR;
-			filetype = EXT2_FT_CHRDEV;
+			st.st_mode = S_IFCHR;
 			nr = 5;
 			break;
 		case 'b':
-			mode = LINUX_S_IFBLK;
-			filetype = EXT2_FT_BLKDEV;
+			st.st_mode = S_IFBLK;
 			nr = 5;
 			break;
 		default:
-			filetype = 0;
 			nr = 0;
 	}
+
 	if (nr == 5) {
 		major = strtoul(argv[3], argv+3, 0);
 		minor = strtoul(argv[4], argv+4, 0);
 		if (major > 65535 || minor > 65535 || argv[3][0] || argv[4][0])
 			nr = 0;
 	}
+
 	if (argc != nr)
 		goto usage;
-	if (check_fs_read_write(argv[0]))
-		return;
-	retval = ext2fs_new_inode(current_fs, cwd, 010755, 0, &newfile);
-	if (retval) {
+
+	st.st_rdev = makedev(major, minor);
+	retval = do_mknod_internal(current_fs, cwd, argv[1], &st);
+	if (retval)
 		com_err(argv[0], retval, 0);
-		return;
-	}
-	printf("Allocated inode: %u\n", newfile);
-	retval = ext2fs_link(current_fs, cwd, argv[1], newfile, filetype);
-	if (retval == EXT2_ET_DIR_NO_SPACE) {
-		retval = ext2fs_expand_dir(current_fs, cwd);
-		if (retval) {
-			com_err(argv[0], retval, "while expanding directory");
-			return;
-		}
-		retval = ext2fs_link(current_fs, cwd, argv[1], newfile,
-				     filetype);
-	}
-	if (retval) {
-		com_err(argv[1], retval, 0);
-		return;
-	}
-        if (ext2fs_test_inode_bitmap(current_fs->inode_map,newfile))
-		com_err(argv[0], 0, "Warning: inode already set");
-	ext2fs_mark_inode_bitmap(current_fs->inode_map, newfile);
-	ext2fs_mark_ib_dirty(current_fs);
-	memset(&inode, 0, sizeof(inode));
-	inode.i_mode = mode;
-	inode.i_atime = inode.i_ctime = inode.i_mtime =
-		current_fs->now ? current_fs->now : time(0);
-	if ((major < 256) && (minor < 256)) {
-		inode.i_block[0] = major*256+minor;
-		inode.i_block[1] = 0;
-	} else {
-		inode.i_block[0] = 0;
-		inode.i_block[1] = (minor & 0xff) | (major << 8) | ((minor & ~0xff) << 12);
-	}
-	inode.i_links_count = 1;
-	if (debugfs_write_new_inode(newfile, &inode, argv[0]))
-		return;
 }
 
 void do_mkdir(int argc, char *argv[])
 {
-	char	*cp;
-	ext2_ino_t	parent;
-	char	*name;
 	errcode_t retval;
 
 	if (common_args_process(argc, argv, 2, 2, "mkdir",
 				"<filename>", CHECK_FS_RW))
 		return;
 
-	cp = strrchr(argv[1], '/');
-	if (cp) {
-		*cp = 0;
-		parent = string_to_inode(argv[1]);
-		if (!parent) {
-			com_err(argv[1], ENOENT, 0);
-			return;
-		}
-		name = cp+1;
-	} else {
-		parent = cwd;
-		name = argv[1];
-	}
-
-try_again:
-	retval = ext2fs_mkdir(current_fs, parent, 0, name);
-	if (retval == EXT2_ET_DIR_NO_SPACE) {
-		retval = ext2fs_expand_dir(current_fs, parent);
-		if (retval) {
-			com_err(argv[0], retval, "while expanding directory");
-			return;
-		}
-		goto try_again;
-	}
-	if (retval) {
-		com_err("ext2fs_mkdir", retval, 0);
-		return;
-	}
+	retval = do_mkdir_internal(current_fs, cwd, argv[1], root);
+	if (retval)
+		com_err(argv[0], retval, 0);
 
 }
 
-static int release_blocks_proc(ext2_filsys fs, blk_t *blocknr,
-			       int blockcnt EXT2FS_ATTR((unused)),
+static int release_blocks_proc(ext2_filsys fs, blk64_t *blocknr,
+			       e2_blkcnt_t blockcnt EXT2FS_ATTR((unused)),
+			       blk64_t ref_block EXT2FS_ATTR((unused)),
+			       int ref_offset EXT2FS_ATTR((unused)),
 			       void *private EXT2FS_ATTR((unused)))
 {
-	blk_t	block;
+	blk64_t	block;
 
 	block = *blocknr;
-	ext2fs_block_alloc_stats(fs, block, -1);
+	ext2fs_block_alloc_stats2(fs, block, -1);
 	return 0;
 }
 
@@ -1771,11 +1777,10 @@ static void kill_file_by_inode(ext2_ino_t inode)
 	inode_buf.i_dtime = current_fs->now ? current_fs->now : time(0);
 	if (debugfs_write_inode(inode, &inode_buf, 0))
 		return;
-	if (!ext2fs_inode_has_valid_blocks(&inode_buf))
-		return;
-
-	ext2fs_block_iterate(current_fs, inode, BLOCK_FLAG_READ_ONLY, NULL,
-			     release_blocks_proc, NULL);
+	if (ext2fs_inode_has_valid_blocks2(current_fs, &inode_buf)) {
+		ext2fs_block_iterate3(current_fs, inode, BLOCK_FLAG_READ_ONLY,
+				      NULL, release_blocks_proc, NULL);
+	}
 	printf("\n");
 	ext2fs_inode_alloc_stats2(current_fs, inode, -1,
 				  LINUX_S_ISDIR(inode_buf.i_mode));
@@ -1842,9 +1847,9 @@ static int rmdir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 
 	if (dirent->inode == 0)
 		return 0;
-	if (((dirent->name_len&0xFF) == 1) && (dirent->name[0] == '.'))
+	if ((ext2fs_dirent_name_len(dirent) == 1) && (dirent->name[0] == '.'))
 		return 0;
-	if (((dirent->name_len&0xFF) == 2) && (dirent->name[0] == '.') &&
+	if ((ext2fs_dirent_name_len(dirent) == 2) && (dirent->name[0] == '.') &&
 	    (dirent->name[1] == '.')) {
 		rds->parent = dirent->inode;
 		return 0;
@@ -1908,19 +1913,19 @@ void do_rmdir(int argc, char *argv[])
 			return;
 	}
 }
+#endif /* READ_ONLY */
 
 void do_show_debugfs_params(int argc EXT2FS_ATTR((unused)),
 			    char *argv[] EXT2FS_ATTR((unused)))
 {
-	FILE *out = stdout;
-
 	if (current_fs)
-		fprintf(out, "Open mode: read-%s\n",
-			current_fs->flags & EXT2_FLAG_RW ? "write" : "only");
-	fprintf(out, "Filesystem in use: %s\n",
-		current_fs ? current_fs->device_name : "--none--");
+		printf("Open mode: read-%s\n",
+		       current_fs->flags & EXT2_FLAG_RW ? "write" : "only");
+	printf("Filesystem in use: %s\n",
+	       current_fs ? current_fs->device_name : "--none--");
 }
 
+#ifndef READ_ONLY
 void do_expand_dir(int argc, char *argv[])
 {
 	ext2_ino_t inode;
@@ -1954,30 +1959,69 @@ void do_features(int argc, char *argv[])
 	}
 	print_features(current_fs->super, stdout);
 }
+#endif /* READ_ONLY */
 
 void do_bmap(int argc, char *argv[])
 {
 	ext2_ino_t	ino;
-	blk_t		blk, pblk;
-	int		err;
+	blk64_t		blk, pblk = 0;
+	int		c, err, flags = 0, ret_flags = 0;
 	errcode_t	errcode;
 
-	if (common_args_process(argc, argv, 3, 3, argv[0],
-				"<file> logical_blk", 0))
+	if (check_fs_open(argv[0]))
 		return;
 
-	ino = string_to_inode(argv[1]);
-	if (!ino)
-		return;
-	blk = parse_ulong(argv[2], argv[0], "logical_block", &err);
+	reset_getopt();
+	while ((c = getopt (argc, argv, "a")) != EOF) {
+		switch (c) {
+		case 'a':
+			flags |= BMAP_ALLOC;
+			break;
+		default:
+			goto print_usage;
+		}
+	}
 
-	errcode = ext2fs_bmap(current_fs, ino, 0, 0, 0, blk, &pblk);
-	if (errcode) {
-		com_err("argv[0]", errcode,
-			"while mapping logical block %u\n", blk);
+	if (argc <= optind+1) {
+	print_usage:
+		com_err(0, 0,
+			"Usage: bmap [-a] <file> logical_blk [physical_blk]");
 		return;
 	}
-	printf("%u\n", pblk);
+
+	ino = string_to_inode(argv[optind++]);
+	if (!ino)
+		return;
+	err = strtoblk(argv[0], argv[optind++], "logical block", &blk);
+	if (err)
+		return;
+
+	if (argc > optind+1)
+		goto print_usage;
+
+	if (argc == optind+1) {
+		err = strtoblk(argv[0], argv[optind++],
+			       "physical block", &pblk);
+		if (err)
+			return;
+		if (flags & BMAP_ALLOC) {
+			com_err(0, 0, "Can't set and allocate a block");
+			return;
+		}
+		flags |= BMAP_SET;
+	}
+
+	errcode = ext2fs_bmap2(current_fs, ino, 0, 0, flags, blk,
+			       &ret_flags, &pblk);
+	if (errcode) {
+		com_err(argv[0], errcode,
+			"while mapping logical block %llu\n", blk);
+		return;
+	}
+	printf("%llu", pblk);
+	if (ret_flags & BMAP_RET_UNINIT)
+		fputs(" (uninit)", stdout);
+	fputc('\n', stdout);
 }
 
 void do_imap(int argc, char *argv[])
@@ -1996,12 +2040,12 @@ void do_imap(int argc, char *argv[])
 	offset = ((ino - 1) % EXT2_INODES_PER_GROUP(current_fs->super)) *
 		EXT2_INODE_SIZE(current_fs->super);
 	block = offset >> EXT2_BLOCK_SIZE_BITS(current_fs->super);
-	if (!current_fs->group_desc[(unsigned)group].bg_inode_table) {
+	if (!ext2fs_inode_table_loc(current_fs, (unsigned)group)) {
 		com_err(argv[0], 0, "Inode table for group %lu is missing\n",
 			group);
 		return;
 	}
-	block_nr = current_fs->group_desc[(unsigned)group].bg_inode_table +
+	block_nr = ext2fs_inode_table_loc(current_fs, (unsigned)group) +
 		block;
 	offset &= (EXT2_BLOCK_SIZE(current_fs->super) - 1);
 
@@ -2011,16 +2055,50 @@ void do_imap(int argc, char *argv[])
 
 }
 
+void do_idump(int argc, char *argv[])
+{
+	ext2_ino_t	ino;
+	unsigned char	*buf;
+	errcode_t	err;
+	int		isize;
+
+	if (common_args_process(argc, argv, 2, 2, argv[0],
+				"<file>", 0))
+		return;
+	ino = string_to_inode(argv[1]);
+	if (!ino)
+		return;
+
+	isize = EXT2_INODE_SIZE(current_fs->super);
+	err = ext2fs_get_mem(isize, &buf);
+	if (err) {
+		com_err(argv[0], err, "while allocating memory");
+		return;
+	}
+
+	err = ext2fs_read_inode_full(current_fs, ino,
+				     (struct ext2_inode *)buf, isize);
+	if (err) {
+		com_err(argv[0], err, "while reading inode %d", ino);
+		goto err;
+	}
+
+	do_byte_hexdump(stdout, buf, isize);
+err:
+	ext2fs_free_mem(&buf);
+}
+
+#ifndef READ_ONLY
 void do_set_current_time(int argc, char *argv[])
 {
-	time_t now;
+	__s64 now;
 
 	if (common_args_process(argc, argv, 2, 2, argv[0],
 				"<time>", 0))
 		return;
 
 	now = string_to_time(argv[1]);
-	if (now == ((time_t) -1)) {
+	if (now == -1) {
 		com_err(argv[0], 0, "Couldn't parse argument as a time: %s\n",
 			argv[1]);
 		return;
@@ -2030,6 +2108,7 @@ void do_set_current_time(int argc, char *argv[])
 		current_fs->now = now;
 	}
 }
+#endif /* READ_ONLY */
 
 static int find_supp_feature(__u32 *supp, int feature_type, char *name)
 {
@@ -2096,10 +2175,167 @@ void do_supported_features(int argc, char *argv[])
 	}
 }
 
-static int source_file(const char *cmd_file, int sci_idx)
+#ifndef READ_ONLY
+void do_punch(int argc, char *argv[])
+{
+	ext2_ino_t	ino;
+	blk64_t		start, end;
+	int		err;
+	errcode_t	errcode;
+
+	if (common_args_process(argc, argv, 3, 4, argv[0],
+				"<file> start_blk [end_blk]",
+				CHECK_FS_RW | CHECK_FS_BITMAPS))
+		return;
+
+	ino = string_to_inode(argv[1]);
+	if (!ino)
+		return;
+	err = strtoblk(argv[0], argv[2], "logical block", &start);
+	if (err)
+		return;
+	if (argc == 4) {
+		err = strtoblk(argv[0], argv[3], "logical block", &end);
+		if (err)
+			return;
+	} else
+		end = ~0;
+
+	errcode = ext2fs_punch(current_fs, ino, 0, 0, start, end);
+
+	if (errcode) {
+		com_err(argv[0], errcode,
+			"while truncating inode %u from %llu to %llu\n", ino,
+			(unsigned long long) start, (unsigned long long) end);
+		return;
+	}
+}
+
+void do_fallocate(int argc, char *argv[])
+{
+	ext2_ino_t	ino;
+	blk64_t		start, end;
+	int		err;
+	errcode_t	errcode;
+
+	if (common_args_process(argc, argv, 3, 4, argv[0],
+				"<file> start_blk [end_blk]",
+				CHECK_FS_RW | CHECK_FS_BITMAPS))
+		return;
+
+	ino = string_to_inode(argv[1]);
+	if (!ino)
+		return;
+	err = strtoblk(argv[0], argv[2], "logical block", &start);
+	if (err)
+		return;
+	if (argc == 4) {
+		err = strtoblk(argv[0], argv[3], "logical block", &end);
+		if (err)
+			return;
+	} else
+		end = ~0;
+
+	errcode = ext2fs_fallocate(current_fs, EXT2_FALLOCATE_INIT_BEYOND_EOF,
+				   ino, NULL, ~0ULL, start, end - start + 1);
+
+	if (errcode) {
+		com_err(argv[0], errcode,
+			"while fallocating inode %u from %llu to %llu\n", ino,
+			(unsigned long long) start, (unsigned long long) end);
+		return;
+	}
+}
+#endif /* READ_ONLY */
+
+void do_symlink(int argc, char *argv[])
+{
+	errcode_t	retval;
+
+	if (common_args_process(argc, argv, 3, 3, "symlink",
+				"<filename> <target>", CHECK_FS_RW))
+		return;
+
+	retval = do_symlink_internal(current_fs, cwd, argv[1], argv[2], root);
+	if (retval)
+		com_err(argv[0], retval, 0);
+
+}
+
+#if CONFIG_MMP
+void do_dump_mmp(int argc EXT2FS_ATTR((unused)), char *argv[])
+{
+	struct mmp_struct *mmp_s;
+	unsigned long long mmp_block;
+	time_t t;
+	errcode_t retval = 0;
+
+	if (check_fs_open(argv[0]))
+		return;
+
+	if (argc > 1) {
+		char *end = NULL;
+		mmp_block = strtoull(argv[1], &end, 0);
+		if (end == argv[0] || mmp_block == 0) {
+			fprintf(stderr, "%s: invalid MMP block '%s' given\n",
+				argv[0], argv[1]);
+			return;
+		}
+	} else {
+		mmp_block = current_fs->super->s_mmp_block;
+	}
+
+	if (mmp_block == 0) {
+		fprintf(stderr, "%s: MMP: not active on this filesystem.\n",
+			argv[0]);
+		return;
+	}
+
+	if (current_fs->mmp_buf == NULL) {
+		retval = ext2fs_get_mem(current_fs->blocksize,
+					&current_fs->mmp_buf);
+		if (retval) {
+			com_err(argv[0], retval, "allocating MMP buffer.\n");
+			return;
+		}
+	}
+
+	mmp_s = current_fs->mmp_buf;
+
+	retval = ext2fs_mmp_read(current_fs, mmp_block, current_fs->mmp_buf);
+	if (retval) {
+		com_err(argv[0], retval, "reading MMP block %llu.\n",
+			mmp_block);
+		return;
+	}
+
+	t = mmp_s->mmp_time;
+	fprintf(stdout, "block_number: %llu\n", current_fs->super->s_mmp_block);
+	fprintf(stdout, "update_interval: %d\n",
+		current_fs->super->s_mmp_update_interval);
+	fprintf(stdout, "check_interval: %d\n", mmp_s->mmp_check_interval);
+	fprintf(stdout, "sequence: %08x\n", mmp_s->mmp_seq);
+	fprintf(stdout, "time: %lld -- %s", mmp_s->mmp_time, ctime(&t));
+	fprintf(stdout, "node_name: %s\n", mmp_s->mmp_nodename);
+	fprintf(stdout, "device_name: %s\n", mmp_s->mmp_bdevname);
+	fprintf(stdout, "magic: 0x%x\n", mmp_s->mmp_magic);
+	fprintf(stdout, "checksum: 0x%08x\n", mmp_s->mmp_checksum);
+	fprintf(stdout, "MMP is unsupported, please recompile with "
+	                "--enable-mmp\n");
+}
+#else
+void do_dump_mmp(int argc EXT2FS_ATTR((unused)),
+		 char *argv[] EXT2FS_ATTR((unused)))
+{
+	fprintf(stdout, "MMP is unsupported, please recompile with "
+	                "--enable-mmp\n");
+}
+#endif
+
+static int source_file(const char *cmd_file, int ss_idx)
 {
 	FILE		*f;
-	char		buf[256];
+	char		buf[BUFSIZ];
 	char		*cp;
 	int		exit_status = 0;
 	int		retval;
@@ -2127,38 +2363,70 @@ static int source_file(const char *cmd_file, int sci_idx)
 		if (cp)
 			*cp = 0;
 		printf("debugfs: %s\n", buf);
-		retval = ss_execute_line(sci_idx, buf);
+		retval = ss_execute_line(ss_idx, buf);
 		if (retval) {
-			ss_perror(sci_idx, retval, buf);
+			ss_perror(ss_idx, retval, buf);
 			exit_status++;
 		}
 	}
+	if (f != stdin)
+		fclose(f);
 	return exit_status;
 }
 
 int main(int argc, char **argv)
 {
 	int		retval;
-	int		sci_idx;
-	const char	*usage = "Usage: %s [-b blocksize] [-s superblock] [-f cmd_file] [-R request] [-V] [[-w] [-c] device]";
+	const char	*usage = 
+		"Usage: %s [-b blocksize] [-s superblock] [-f cmd_file] "
+		"[-R request] [-V] ["
+#ifndef READ_ONLY
+		"[-w] [-z undo_file] "
+#endif
+		"[-c] device]";
 	int		c;
-	int		open_flags = EXT2_FLAG_SOFTSUPP_FEATURES;
+	int		open_flags = EXT2_FLAG_SOFTSUPP_FEATURES | EXT2_FLAG_64BITS;
 	char		*request = 0;
 	int		exit_status = 0;
 	char		*cmd_file = 0;
-	blk_t		superblock = 0;
-	blk_t		blocksize = 0;
+	blk64_t		superblock = 0;
+	blk64_t		blocksize = 0;
 	int		catastrophic = 0;
 	char		*data_filename = 0;
+#ifdef READ_ONLY
+	const char	*opt_string = "nicR:f:b:s:Vd:D";
+#else
+	const char	*opt_string = "niwcR:f:b:s:Vd:Dz:";
+	char		*undo_file = NULL;
+#endif
+#ifdef CONFIG_JBD_DEBUG
+	char		*jbd_debug;
+#endif
 
 	if (debug_prog_name == 0)
+#ifdef READ_ONLY
+		debug_prog_name = "rdebugfs";
+#else
 		debug_prog_name = "debugfs";
-
+#endif
 	add_error_table(&et_ext2_error_table);
 	fprintf (stderr, "%s %s (%s)\n", debug_prog_name,
 		 E2FSPROGS_VERSION, E2FSPROGS_DATE);
 
-	while ((c = getopt (argc, argv, "iwcR:f:b:s:Vd:")) != EOF) {
+#ifdef CONFIG_JBD_DEBUG
+	jbd_debug = ss_safe_getenv("DEBUGFS_JBD_DEBUG");
+	if (jbd_debug) {
+		int res = sscanf(jbd_debug, "%d", &journal_enable_debug);
+
+		if (res != 1) {
+			fprintf(stderr,
+				"DEBUGFS_JBD_DEBUG \"%s\" not an integer\n\n",
+				jbd_debug);
+			exit(1);
+		}
+	}
+#endif
+	while ((c = getopt (argc, argv, opt_string)) != EOF) {
 		switch (c) {
 		case 'R':
 			request = optarg;
@@ -2172,16 +2440,27 @@ int main(int argc, char **argv)
 		case 'i':
 			open_flags |= EXT2_FLAG_IMAGE_FILE;
 			break;
+		case 'n':
+			open_flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
+			break;
+#ifndef READ_ONLY
 		case 'w':
 			open_flags |= EXT2_FLAG_RW;
+			break;
+#endif
+		case 'D':
+			open_flags |= EXT2_FLAG_DIRECT_IO;
 			break;
 		case 'b':
 			blocksize = parse_ulong(optarg, argv[0],
 						"block size", 0);
 			break;
 		case 's':
-			superblock = parse_ulong(optarg, argv[0],
-						 "superblock number", 0);
+			retval = strtoblk(argv[0], optarg,
+					  "superblock block number",
+					  &superblock);
+			if (retval)
+				return 1;
 			break;
 		case 'c':
 			catastrophic = 1;
@@ -2191,6 +2470,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\tUsing %s\n",
 				error_message(EXT2_ET_BASE));
 			exit(0);
+		case 'z':
+			undo_file = optarg;
+			break;
 		default:
 			com_err(argv[0], 0, usage, debug_prog_name);
 			return 1;
@@ -2199,7 +2481,7 @@ int main(int argc, char **argv)
 	if (optind < argc)
 		open_filesystem(argv[optind], open_flags,
 				superblock, blocksize, catastrophic,
-				data_filename);
+				data_filename, undo_file);
 
 	sci_idx = ss_create_invocation(debug_prog_name, "0.0", (char *) NULL,
 				       &debug_cmds, &retval);

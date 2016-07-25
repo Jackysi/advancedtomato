@@ -4,7 +4,7 @@
 .pc
 patches
 build
-build.static
+build[^/]*
 rpm.log
 TODO
 powerquest
@@ -25,6 +25,7 @@ debian
 lib/e2p
 lib/evms
 lib/ext2fs
+lib/support
 ABOUT-NLS
 README
 INSTALL

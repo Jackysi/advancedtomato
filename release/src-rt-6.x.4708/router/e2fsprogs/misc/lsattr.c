@@ -19,6 +19,7 @@
 
 #define _LARGEFILE64_SOURCE
 
+#include "config.h"
 #include <sys/types.h>
 #include <dirent.h>
 #ifdef HAVE_ERRNO_H
@@ -42,8 +43,8 @@ extern char *optarg;
 #include "et/com_err.h"
 #include "e2p/e2p.h"
 
+#include "support/nls-enable.h"
 #include "../version.h"
-#include "nls-enable.h"
 
 #ifdef __GNUC__
 #define EXT2FS_ATTR(x) __attribute__(x)
@@ -59,6 +60,7 @@ static unsigned pf_options;
 static int recursive;
 static int verbose;
 static int generation_opt;
+static int project_opt;
 
 #ifdef _LFS64_LARGEFILE
 #define LSTAT		lstat64
@@ -70,7 +72,7 @@ static int generation_opt;
 
 static void usage(void)
 {
-	fprintf(stderr, _("Usage: %s [-RVadlv] [files...]\n"), program_name);
+	fprintf(stderr, _("Usage: %s [-RVadlpv] [files...]\n"), program_name);
 	exit(1);
 }
 
@@ -78,11 +80,21 @@ static int list_attributes (const char * name)
 {
 	unsigned long flags;
 	unsigned long generation;
+	unsigned long project;
 
 	if (fgetflags (name, &flags) == -1) {
 		com_err (program_name, errno, _("While reading flags on %s"),
 			 name);
 		return -1;
+	}
+	if (project_opt) {
+		if (fgetproject(name, &project) == -1) {
+			com_err (program_name, errno,
+				 _("While reading project on %s"),
+				 name);
+			return -1;
+		}
+		printf ("%5lu ", project);
 	}
 	if (generation_opt) {
 		if (fgetversion (name, &generation) == -1) {
@@ -91,7 +103,7 @@ static int list_attributes (const char * name)
 				 name);
 			return -1;
 		}
-		printf ("%5lu ", generation);
+		printf ("%-10lu ", generation);
 	}
 	if (pf_options & PFOPT_LONG) {
 		printf("%-28s ", name);
@@ -166,10 +178,11 @@ int main (int argc, char ** argv)
 	setlocale(LC_CTYPE, "");
 	bindtextdomain(NLS_CAT_NAME, LOCALEDIR);
 	textdomain(NLS_CAT_NAME);
+	set_com_err_gettext(gettext);
 #endif
 	if (argc && *argv)
 		program_name = *argv;
-	while ((c = getopt (argc, argv, "RVadlv")) != EOF)
+	while ((c = getopt (argc, argv, "RVadlvp")) != EOF)
 		switch (c)
 		{
 			case 'R':
@@ -189,6 +202,9 @@ int main (int argc, char ** argv)
 				break;
 			case 'v':
 				generation_opt = 1;
+				break;
+			case 'p':
+				project_opt = 1;
 				break;
 			default:
 				usage();

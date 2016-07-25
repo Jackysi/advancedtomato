@@ -4,11 +4,12 @@
  * Copyright (C) 1993, 1994, 1997 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -43,9 +44,9 @@ static int unlink_proc(struct ext2_dir_entry *dirent,
 	ls->prev = dirent;
 
 	if (ls->name) {
-		if ((dirent->name_len & 0xFF) != ls->namelen)
+		if (ext2fs_dirent_name_len(dirent) != ls->namelen)
 			return 0;
-		if (strncmp(ls->name, dirent->name, dirent->name_len & 0xFF))
+		if (strncmp(ls->name, dirent->name, ext2fs_dirent_name_len(dirent)))
 			return 0;
 	}
 	if (ls->inode) {

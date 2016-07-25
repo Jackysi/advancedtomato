@@ -11,7 +11,14 @@
  * express or implied warranty.
  */
 
+#include "config.h"
 #include <stdio.h>
+#ifdef HAVE_TERMIOS_H
+#include <termios.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include "com_err.h"
 #include "error_table.h"
 #include "internal.h"
@@ -25,6 +32,8 @@ static void
 default_com_err_proc (const char *whoami, errcode_t code, const
 		      char *fmt, va_list args)
 {
+    int do_cr = 1, fd = fileno(stderr);
+
     if (whoami) {
 	fputs(whoami, stderr);
 	fputs(": ", stderr);
@@ -36,8 +45,20 @@ default_com_err_proc (const char *whoami, errcode_t code, const
     if (fmt) {
         vfprintf (stderr, fmt, args);
     }
-    /* should output \r only if using a tty in raw mode */
-    fputs("\r\n", stderr);
+    if (!isatty(fd))
+	do_cr = 0;
+#ifdef HAVE_TERMIOS_H
+    else {
+	struct termios t;
+
+	if ((tcgetattr(fd, &t)) == 0 &&
+	    (t.c_oflag & OPOST) && (t.c_oflag & ONLCR))
+	do_cr = 0;
+    }
+#endif
+    if (do_cr)
+	fputc('\r', stderr);
+    fputc('\n', stderr);
     fflush(stderr);
 }
 
@@ -64,8 +85,7 @@ void com_err (const char *whoami,
     va_end(pvar);
 }
 
-errf set_com_err_hook (new_proc)
-    errf new_proc;
+errf set_com_err_hook(errf new_proc)
 {
     errf x = com_err_hook;
 
@@ -77,7 +97,7 @@ errf set_com_err_hook (new_proc)
     return x;
 }
 
-errf reset_com_err_hook () {
+errf reset_com_err_hook(void) {
     errf x = com_err_hook;
     com_err_hook = default_com_err_proc;
     return x;

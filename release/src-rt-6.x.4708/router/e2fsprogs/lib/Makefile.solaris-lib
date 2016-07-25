@@ -24,13 +24,15 @@ image:		$(ELF_LIB)
 
 $(ELF_LIB): $(OBJS)
 	$(E) "	GEN_ELF_SOLIB $(ELF_LIB)"
-	$(Q) (cd elfshared; $(CC) --shared -o $(ELF_LIB) $(LDFLAGS) \
+	$(Q) (cd elfshared; $(CC) --shared -o $(ELF_LIB) \
+		-L$(top_builddir)/../lib $(LDFLAGS) \
 		-Wl,-h,$(ELF_SONAME) $(OBJS) $(ELF_OTHER_LIBS))
 	$(Q) $(MV) elfshared/$(ELF_LIB) .
 	$(Q) $(RM) -f ../$(ELF_LIB) ../$(ELF_IMAGE).so ../$(ELF_SONAME)
-	$(Q) $(LN) $(ELF_LIB) ../$(ELF_LIB)
-	$(Q) $(LN) ../$(ELF_LIB) ../$(ELF_IMAGE).so
-	$(Q) $(LN) ../$(ELF_LIB) ../$(ELF_SONAME)
+	$(Q) (cd ..; $(LN) $(LINK_BUILD_FLAGS) \
+		`echo $(my_dir) | sed -e 's;lib/;;'`/$(ELF_LIB) $(ELF_LIB))
+	$(Q) (cd ..; $(LN) $(LINK_BUILD_FLAGS) $(ELF_LIB) $(ELF_IMAGE).so)
+	$(Q) (cd ..; $(LN) $(LINK_BUILD_FLAGS) $(ELF_LIB) $(ELF_SONAME))
 
 installdirs-elf-lib::
 	$(MKINSTALLDIRS) $(DESTDIR)$(ELF_INSTALL_DIR) \

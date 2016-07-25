@@ -36,8 +36,11 @@ Last Changed Date: 2007-06-22 13:36:10 -0400 (Fri, 22 Jun 2007)
 #define HAVE_UTIME_H
 #define HAVE_UTIME
 #endif
+#ifndef __FreeBSD__
 #define _XOPEN_SOURCE 600
+#endif
 
+#include "config.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,12 +110,10 @@ typedef int bool;
 
 #include "tdb.h"
 
+static TDB_DATA tdb_null;
+
 #ifndef u32
 #define u32 unsigned
-#endif
-
-#ifndef HAVE_GETPAGESIZE
-#define getpagesize() 0x2000
 #endif
 
 typedef u32 tdb_len_t;
@@ -247,6 +248,7 @@ struct tdb_context {
 	int page_size;
 	int max_dead_records;
 	bool have_transaction_lock;
+	tdb_len_t real_map_size; /* how much space has been mapped */
 };
 
 
@@ -971,9 +973,10 @@ int tdb_munmap(struct tdb_context *tdb)
 
 #ifdef HAVE_MMAP
 	if (tdb->map_ptr) {
-		int ret = munmap(tdb->map_ptr, tdb->map_size);
+		int ret = munmap(tdb->map_ptr, tdb->real_map_size);
 		if (ret != 0)
 			return ret;
+		tdb->real_map_size = 0;
 	}
 #endif
 	tdb->map_ptr = NULL;
@@ -996,10 +999,12 @@ void tdb_mmap(struct tdb_context *tdb)
 		 */
 
 		if (tdb->map_ptr == MAP_FAILED) {
+			tdb->real_map_size = 0;
 			tdb->map_ptr = NULL;
 			TDB_LOG((tdb, TDB_DEBUG_WARNING, "tdb_mmap failed for size %d (%s)\n",
 				 tdb->map_size, strerror(errno)));
 		}
+		tdb->real_map_size = tdb->map_size;
 	} else {
 		tdb->map_ptr = NULL;
 	}
@@ -1749,7 +1754,7 @@ static int transaction_sync(struct tdb_context *tdb, tdb_off_t offset, tdb_len_t
 		TDB_LOG((tdb, TDB_DEBUG_FATAL, "tdb_transaction: fsync failed\n"));
 		return -1;
 	}
-#ifdef MS_SYNC
+#if defined(HAVE_MSYNC) && defined(MS_SYNC)
 	if (tdb->map_ptr) {
 		tdb_off_t moffset = offset & ~(tdb->page_size-1);
 		if (msync(moffset + (char *)tdb->map_ptr,
@@ -3057,8 +3062,6 @@ int tdb_printfreelist(struct tdb_context *tdb)
 
 /* file: tdb.c */
 
-TDB_DATA tdb_null;
-
 /*
   non-blocking increment of the tdb sequence number if the tdb has been opened using
   the TDB_SEQNUM flag
@@ -3710,17 +3713,17 @@ void tdb_enable_seqnum(struct tdb_context *tdb)
 static struct tdb_context *tdbs = NULL;
 
 
-/* This is based on the hash algorithm from gdbm */
+/* This is from a hash algorithm suggested by Rogier Wolff */
 static unsigned int default_tdb_hash(TDB_DATA *key)
 {
 	u32 value;	/* Used to compute the hash value.  */
 	u32   i;	/* Used to cycle through random values. */
 
 	/* Set the initial value from the key size. */
-	for (value = 0x238F13AF * key->dsize, i=0; i < key->dsize; i++)
-		value = (value + (key->dptr[i] << (i*5 % 24)));
+	for (value = 0, i=0; i < key->dsize; i++)
+		value = value * 256 + key->dptr[i] + (value >> 24) * 241;
 
-	return (1103515243 * value + 12345);
+	return value;
 }
 
 
@@ -3838,7 +3841,7 @@ struct tdb_context *tdb_open_ex(const char *name, int hash_size, int tdb_flags,
 	tdb->hash_fn = hash_fn ? hash_fn : default_tdb_hash;
 
 	/* cache the page size */
-	tdb->page_size = getpagesize();
+	tdb->page_size = sysconf(_SC_PAGESIZE);
 	if (tdb->page_size <= 0) {
 		tdb->page_size = 0x2000;
 	}
@@ -4139,5 +4142,15 @@ int tdb_reopen_all(int parent_longlived)
 			return -1;
 	}
 
+	return 0;
+}
+
+/**
+ * Flush a database file from the page cache.
+ **/
+int tdb_flush(struct tdb_context *tdb)
+{
+	if (tdb->fd != -1)
+		return fsync(tdb->fd);
 	return 0;
 }

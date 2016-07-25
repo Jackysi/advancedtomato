@@ -9,28 +9,46 @@
  * %End-Header%
  */
 
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
+#ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#endif
 
+#include "config.h"
+#include <fcntl.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #ifdef HAVE_LINUX_MAJOR_H
 #include <linux/major.h>
 #endif
+#include <sys/types.h>
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#include <time.h>
 
 #include "et/com_err.h"
 #include "e2p/e2p.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
-#include "nls-enable.h"
+#include "support/nls-enable.h"
 #include "blkid/blkid.h"
 #include "util.h"
+
+char *journal_location_string = NULL;
 
 #ifndef HAVE_STRCASECMP
 int strcasecmp (char *s1, char *s2)
@@ -62,82 +80,39 @@ char *get_progname(char *argv_zero)
 		return cp+1;
 }
 
-void proceed_question(void)
+static jmp_buf alarm_env;
+
+static void alarm_signal(int signal EXT2FS_ATTR((unused)))
+{
+	longjmp(alarm_env, 1);
+}
+
+void proceed_question(int delay)
 {
 	char buf[256];
 	const char *short_yes = _("yY");
 
 	fflush(stdout);
 	fflush(stderr);
-	fputs(_("Proceed anyway? (y,n) "), stdout);
+	if (delay > 0) {
+		if (setjmp(alarm_env)) {
+			signal(SIGALRM, SIG_IGN);
+			printf("%s", _("<proceeding>\n"));
+			return;
+		}
+		signal(SIGALRM, alarm_signal);
+		printf(_("Proceed anyway (or wait %d seconds) ? (y,n) "),
+		       delay);
+		alarm(delay);
+	} else
+		fputs(_("Proceed anyway? (y,n) "), stdout);
 	buf[0] = 0;
 	if (!fgets(buf, sizeof(buf), stdin) ||
-	    strchr(short_yes, buf[0]) == 0)
-		exit(1);
-}
-
-void check_plausibility(const char *device)
-{
-	int val;
-#ifdef HAVE_OPEN64
-	struct stat64 s;
-
-	val = stat64(device, &s);
-#else
-	struct stat s;
-
-	val = stat(device, &s);
-#endif
-
-	if(val == -1) {
-		fprintf(stderr, _("Could not stat %s --- %s\n"),
-			device, error_message(errno));
-		if (errno == ENOENT)
-			fputs(_("\nThe device apparently does not exist; "
-				"did you specify it correctly?\n"), stderr);
+	    strchr(short_yes, buf[0]) == 0) {
+		putc('\n', stdout);
 		exit(1);
 	}
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-	/* On FreeBSD, all disk devices are character specials */
-	if (!S_ISBLK(s.st_mode) && !S_ISCHR(s.st_mode))
-#else
-	if (!S_ISBLK(s.st_mode))
-#endif
-	{
-		printf(_("%s is not a block special device.\n"), device);
-		proceed_question();
-		return;
-	}
-
-#ifdef HAVE_LINUX_MAJOR_H
-#ifndef MAJOR
-#define MAJOR(dev)	((dev)>>8)
-#define MINOR(dev)	((dev) & 0xff)
-#endif
-#ifndef SCSI_BLK_MAJOR
-#ifdef SCSI_DISK0_MAJOR
-#ifdef SCSI_DISK8_MAJOR
-#define SCSI_DISK_MAJOR(M) ((M) == SCSI_DISK0_MAJOR || \
-  ((M) >= SCSI_DISK1_MAJOR && (M) <= SCSI_DISK7_MAJOR) || \
-  ((M) >= SCSI_DISK8_MAJOR && (M) <= SCSI_DISK15_MAJOR))
-#else
-#define SCSI_DISK_MAJOR(M) ((M) == SCSI_DISK0_MAJOR || \
-  ((M) >= SCSI_DISK1_MAJOR && (M) <= SCSI_DISK7_MAJOR))
-#endif /* defined(SCSI_DISK8_MAJOR) */
-#define SCSI_BLK_MAJOR(M) (SCSI_DISK_MAJOR((M)) || (M) == SCSI_CDROM_MAJOR)
-#else
-#define SCSI_BLK_MAJOR(M)  ((M) == SCSI_DISK_MAJOR || (M) == SCSI_CDROM_MAJOR)
-#endif /* defined(SCSI_DISK0_MAJOR) */
-#endif /* defined(SCSI_BLK_MAJOR) */
-	if (((MAJOR(s.st_rdev) == HD_MAJOR &&
-	      MINOR(s.st_rdev)%64 == 0) ||
-	     (SCSI_BLK_MAJOR(MAJOR(s.st_rdev)) &&
-	      MINOR(s.st_rdev)%16 == 0))) {
-		printf(_("%s is entire device, not just one partition!\n"),
-		       device);
-		proceed_question();
-	}
-#endif
+	signal(SIGALRM, SIG_IGN);
 }
 
 void check_mount(const char *device, int force, const char *type)
@@ -154,7 +129,7 @@ void check_mount(const char *device, int force, const char *type)
 	}
 	if (mount_flags & EXT2_MF_MOUNTED) {
 		fprintf(stderr, _("%s is mounted; "), device);
-		if (force > 2) {
+		if (force >= 2) {
 			fputs(_("mke2fs forced anyway.  Hope /etc/mtab is "
 				"incorrect.\n"), stderr);
 			return;
@@ -166,7 +141,7 @@ void check_mount(const char *device, int force, const char *type)
 	if (mount_flags & EXT2_MF_BUSY) {
 		fprintf(stderr, _("%s is apparently in use by the system; "),
 			device);
-		if (force > 2) {
+		if (force >= 2) {
 			fputs(_("mke2fs forced anyway.\n"), stderr);
 			return;
 		}
@@ -207,6 +182,10 @@ void parse_journal_opts(const char *opts)
 		if (strcmp(token, "device") == 0) {
 			journal_device = blkid_get_devname(NULL, arg, NULL);
 			if (!journal_device) {
+				if (arg)
+					fprintf(stderr, _("\nCould not find "
+						"journal device matching %s\n"),
+						arg);
 				journal_usage++;
 				continue;
 			}
@@ -218,6 +197,12 @@ void parse_journal_opts(const char *opts)
 			journal_size = strtoul(arg, &p, 0);
 			if (*p)
 				journal_usage++;
+		} else if (!strcmp(token, "location")) {
+			if (!arg) {
+				journal_usage++;
+				continue;
+			}
+			journal_location_string = strdup(arg);
 		} else if (strcmp(token, "v1_superblock") == 0) {
 			journal_flags |= EXT2_MKJOURNAL_V1_SUPER;
 			continue;
@@ -231,7 +216,8 @@ void parse_journal_opts(const char *opts)
 			"\tis set off by an equals ('=') sign.\n\n"
 			"Valid journal options are:\n"
 			"\tsize=<journal size in megabytes>\n"
-			"\tdevice=<journal device>\n\n"
+			"\tdevice=<journal device>\n"
+			"\tlocation=<journal location>\n\n"
 			"The journal size must be between "
 			"1024 and 10240000 filesystem blocks.\n\n"), stderr);
 		free(buf);
@@ -253,7 +239,7 @@ unsigned int figure_journal_size(int size, ext2_filsys fs)
 {
 	int j_blocks;
 
-	j_blocks = ext2fs_default_journal_size(fs->super->s_blocks_count);
+	j_blocks = ext2fs_default_journal_size(ext2fs_blocks_count(fs->super));
 	if (j_blocks < 0) {
 		fputs(_("\nFilesystem too small for a journal\n"), stderr);
 		return 0;
@@ -269,7 +255,7 @@ unsigned int figure_journal_size(int size, ext2_filsys fs)
 				j_blocks);
 			exit(1);
 		}
-		if ((unsigned) j_blocks > fs->super->s_free_blocks_count / 2) {
+		if ((unsigned) j_blocks > ext2fs_free_blocks_count(fs->super) / 2) {
 			fputs(_("\nJournal size too big for filesystem.\n"),
 			      stderr);
 			exit(1);
@@ -278,12 +264,28 @@ unsigned int figure_journal_size(int size, ext2_filsys fs)
 	return j_blocks;
 }
 
-void print_check_message(ext2_filsys fs)
+void print_check_message(int mnt, unsigned int check)
 {
+	if (mnt < 0)
+		mnt = 0;
+	if (!mnt && !check)
+		return;
 	printf(_("This filesystem will be automatically "
 		 "checked every %d mounts or\n"
 		 "%g days, whichever comes first.  "
 		 "Use tune2fs -c or -i to override.\n"),
-	       fs->super->s_max_mnt_count,
-	       (double)fs->super->s_checkinterval / (3600 * 24));
+	       mnt, ((double) check) / (3600 * 24));
+}
+
+void dump_mmp_msg(struct mmp_struct *mmp, const char *msg)
+{
+
+	if (msg)
+		printf("MMP check failed: %s\n", msg);
+	if (mmp) {
+		time_t t = mmp->mmp_time;
+
+		printf("MMP error info: last update: %s node: %s device: %s\n",
+		       ctime(&t), mmp->mmp_nodename, mmp->mmp_bdevname);
+	}
 }

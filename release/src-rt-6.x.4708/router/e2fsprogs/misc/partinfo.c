@@ -7,6 +7,7 @@
  *
  */
 
+#include "config.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #ifdef HAVE_SYS_IOCTL_H
@@ -17,7 +18,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "nls-enable.h"
+#include "support/nls-enable.h"
 
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
 #define BLKGETSIZE _IO(0x12,96)	/* return device size */
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
 	setlocale(LC_CTYPE, "");
 	bindtextdomain(NLS_CAT_NAME, LOCALEDIR);
 	textdomain(NLS_CAT_NAME);
+	set_com_err_gettext(gettext);
 #endif
 	if (argc == 1) {
 		fprintf(stderr, _("Usage:  %s device...\n\nPrints out the "

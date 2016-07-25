@@ -4,11 +4,12 @@
  * Copyright (C) 1995, 1996, 2002 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
+ * This file may be redistributed under the terms of the GNU Library
+ * General Public License, version 2.
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -31,9 +32,9 @@ void ext2fs_swap_super(struct ext2_super_block * sb)
 	sb->s_free_inodes_count = ext2fs_swab32(sb->s_free_inodes_count);
 	sb->s_first_data_block = ext2fs_swab32(sb->s_first_data_block);
 	sb->s_log_block_size = ext2fs_swab32(sb->s_log_block_size);
-	sb->s_log_frag_size = ext2fs_swab32(sb->s_log_frag_size);
+	sb->s_log_cluster_size = ext2fs_swab32(sb->s_log_cluster_size);
 	sb->s_blocks_per_group = ext2fs_swab32(sb->s_blocks_per_group);
-	sb->s_frags_per_group = ext2fs_swab32(sb->s_frags_per_group);
+	sb->s_clusters_per_group = ext2fs_swab32(sb->s_clusters_per_group);
 	sb->s_inodes_per_group = ext2fs_swab32(sb->s_inodes_per_group);
 	sb->s_mtime = ext2fs_swab32(sb->s_mtime);
 	sb->s_wtime = ext2fs_swab32(sb->s_wtime);
@@ -70,16 +71,44 @@ void ext2fs_swap_super(struct ext2_super_block * sb)
 	sb->s_min_extra_isize = ext2fs_swab16(sb->s_min_extra_isize);
 	sb->s_want_extra_isize = ext2fs_swab16(sb->s_want_extra_isize);
 	sb->s_flags = ext2fs_swab32(sb->s_flags);
+	sb->s_mmp_update_interval = ext2fs_swab16(sb->s_mmp_update_interval);
+	sb->s_mmp_block = ext2fs_swab64(sb->s_mmp_block);
 	sb->s_kbytes_written = ext2fs_swab64(sb->s_kbytes_written);
+	sb->s_snapshot_inum = ext2fs_swab32(sb->s_snapshot_inum);
+	sb->s_snapshot_id = ext2fs_swab32(sb->s_snapshot_id);
+	sb->s_snapshot_r_blocks_count =
+		ext2fs_swab64(sb->s_snapshot_r_blocks_count);
+	sb->s_snapshot_list = ext2fs_swab32(sb->s_snapshot_list);
+	sb->s_usr_quota_inum = ext2fs_swab32(sb->s_usr_quota_inum);
+	sb->s_grp_quota_inum = ext2fs_swab32(sb->s_grp_quota_inum);
+	sb->s_overhead_blocks = ext2fs_swab32(sb->s_overhead_blocks);
+	sb->s_checksum = ext2fs_swab32(sb->s_checksum);
+
 	for (i=0; i < 4; i++)
 		sb->s_hash_seed[i] = ext2fs_swab32(sb->s_hash_seed[i]);
-	for (i=0; i < 17; i++)
-		sb->s_jnl_blocks[i] = ext2fs_swab32(sb->s_jnl_blocks[i]);
 
+	/* if journal backup is for a valid extent-based journal... */
+	if (ext2fs_extent_header_verify(sb->s_jnl_blocks,
+					sizeof(sb->s_jnl_blocks)) == 0) {
+		/* ... swap only the journal i_size and i_size_high,
+		 * and the extent data is not swapped on read */
+		i = 15;
+	} else {
+		/* direct/indirect journal: swap it all */
+		i = 0;
+	}
+	for (; i < 17; i++)
+		sb->s_jnl_blocks[i] = ext2fs_swab32(sb->s_jnl_blocks[i]);
+	sb->s_backup_bgs[0] = ext2fs_swab32(sb->s_backup_bgs[0]);
+	sb->s_backup_bgs[1] = ext2fs_swab32(sb->s_backup_bgs[1]);
+	sb->s_checksum_seed = ext2fs_swab32(sb->s_checksum_seed);
 }
 
-void ext2fs_swap_group_desc(struct ext2_group_desc *gdp)
+void ext2fs_swap_group_desc2(ext2_filsys fs, struct ext2_group_desc *gdp)
 {
+	struct ext4_group_desc *gdp4 = (struct ext4_group_desc *)gdp;
+
+	/* Do the 32-bit parts first */
 	gdp->bg_block_bitmap = ext2fs_swab32(gdp->bg_block_bitmap);
 	gdp->bg_inode_bitmap = ext2fs_swab32(gdp->bg_inode_bitmap);
 	gdp->bg_inode_table = ext2fs_swab32(gdp->bg_inode_table);
@@ -87,9 +116,40 @@ void ext2fs_swap_group_desc(struct ext2_group_desc *gdp)
 	gdp->bg_free_inodes_count = ext2fs_swab16(gdp->bg_free_inodes_count);
 	gdp->bg_used_dirs_count = ext2fs_swab16(gdp->bg_used_dirs_count);
 	gdp->bg_flags = ext2fs_swab16(gdp->bg_flags);
+	gdp->bg_exclude_bitmap_lo = ext2fs_swab32(gdp->bg_exclude_bitmap_lo);
+	gdp->bg_block_bitmap_csum_lo =
+		ext2fs_swab16(gdp->bg_block_bitmap_csum_lo);
+	gdp->bg_inode_bitmap_csum_lo =
+		ext2fs_swab16(gdp->bg_inode_bitmap_csum_lo);
 	gdp->bg_itable_unused = ext2fs_swab16(gdp->bg_itable_unused);
 	gdp->bg_checksum = ext2fs_swab16(gdp->bg_checksum);
+	/* If we're 32-bit, we're done */
+	if (fs == NULL || EXT2_DESC_SIZE(fs->super) < EXT2_MIN_DESC_SIZE_64BIT)
+		return;
+
+	/* Swap the 64-bit parts */
+	gdp4->bg_block_bitmap_hi = ext2fs_swab32(gdp4->bg_block_bitmap_hi);
+	gdp4->bg_inode_bitmap_hi = ext2fs_swab32(gdp4->bg_inode_bitmap_hi);
+	gdp4->bg_inode_table_hi = ext2fs_swab32(gdp4->bg_inode_table_hi);
+	gdp4->bg_free_blocks_count_hi =
+		ext2fs_swab16(gdp4->bg_free_blocks_count_hi);
+	gdp4->bg_free_inodes_count_hi =
+		ext2fs_swab16(gdp4->bg_free_inodes_count_hi);
+	gdp4->bg_used_dirs_count_hi =
+		ext2fs_swab16(gdp4->bg_used_dirs_count_hi);
+	gdp4->bg_itable_unused_hi = ext2fs_swab16(gdp4->bg_itable_unused_hi);
+	gdp4->bg_exclude_bitmap_hi = ext2fs_swab16(gdp4->bg_exclude_bitmap_hi);
+	gdp4->bg_block_bitmap_csum_hi =
+		ext2fs_swab16(gdp4->bg_block_bitmap_csum_hi);
+	gdp4->bg_inode_bitmap_csum_hi =
+		ext2fs_swab16(gdp4->bg_inode_bitmap_csum_hi);
 }
+
+void ext2fs_swap_group_desc(struct ext2_group_desc *gdp)
+{
+	ext2fs_swap_group_desc2(0, gdp);
+}
+
 
 void ext2fs_swap_ext_attr_header(struct ext2_ext_attr_header *to_header,
 				 struct ext2_ext_attr_header *from_header)
@@ -100,7 +160,8 @@ void ext2fs_swap_ext_attr_header(struct ext2_ext_attr_header *to_header,
 	to_header->h_blocks   = ext2fs_swab32(from_header->h_blocks);
 	to_header->h_refcount = ext2fs_swab32(from_header->h_refcount);
 	to_header->h_hash     = ext2fs_swab32(from_header->h_hash);
-	for (n = 0; n < 4; n++)
+	to_header->h_checksum = ext2fs_swab32(from_header->h_checksum);
+	for (n = 0; n < 3; n++)
 		to_header->h_reserved[n] =
 			ext2fs_swab32(from_header->h_reserved[n]);
 }
@@ -136,7 +197,9 @@ void ext2fs_swap_ext_attr(char *to, char *from, int bufsize, int has_header)
 		to_entry   = (struct ext2_ext_attr_entry *)to_header;
 	}
 
-	while ((char *)from_entry < from_end && *(__u32 *)from_entry) {
+	while ((char *)from_entry < from_end &&
+	       (char *)EXT2_EXT_ATTR_NEXT(from_entry) <= from_end &&
+	       *(__u32 *)from_entry) {
 		ext2fs_swap_ext_attr_entry(to_entry, from_entry);
 		from_entry = EXT2_EXT_ATTR_NEXT(from_entry);
 		to_entry   = EXT2_EXT_ATTR_NEXT(to_entry);
@@ -149,7 +212,9 @@ void ext2fs_swap_inode_full(ext2_filsys fs, struct ext2_inode_large *t,
 {
 	unsigned i, has_data_blocks, extra_isize, attr_magic;
 	int has_extents = 0;
+	int has_inline_data = 0;
 	int islnk = 0;
+	int inode_size;
 	__u32 *eaf, *eat;
 
 	if (hostorder && LINUX_S_ISLNK(f->i_mode))
@@ -175,12 +240,18 @@ void ext2fs_swap_inode_full(ext2_filsys fs, struct ext2_inode_large *t,
 					   (struct ext2_inode *) t);
 	if (hostorder && (f->i_flags & EXT4_EXTENTS_FL))
 		has_extents = 1;
+	if (hostorder && (f->i_flags & EXT4_INLINE_DATA_FL))
+		has_inline_data = 1;
 	t->i_flags = ext2fs_swab32(f->i_flags);
 	if (!hostorder && (t->i_flags & EXT4_EXTENTS_FL))
 		has_extents = 1;
+	if (!hostorder && (t->i_flags & EXT4_INLINE_DATA_FL))
+		has_inline_data = 1;
 	t->i_dir_acl = ext2fs_swab32(f->i_dir_acl);
-	/* extent data are swapped on access, not here */
-	if (!has_extents && (!islnk || has_data_blocks)) {
+	/*
+	 * Extent data and inline data are swapped on access, not here
+	 */
+	if (!has_extents && !has_inline_data && (!islnk || has_data_blocks)) {
 		for (i = 0; i < EXT2_N_BLOCKS; i++)
 			t->i_block[i] = ext2fs_swab32(f->i_block[i]);
 	} else if (t != f) {
@@ -202,8 +273,8 @@ void ext2fs_swap_inode_full(ext2_filsys fs, struct ext2_inode_large *t,
 		  ext2fs_swab16 (f->osd2.linux2.l_i_uid_high);
 		t->osd2.linux2.l_i_gid_high =
 		  ext2fs_swab16 (f->osd2.linux2.l_i_gid_high);
-		t->osd2.linux2.l_i_reserved2 =
-			ext2fs_swab32(f->osd2.linux2.l_i_reserved2);
+		t->osd2.linux2.l_i_checksum_lo =
+			ext2fs_swab16(f->osd2.linux2.l_i_checksum_lo);
 		break;
 	case EXT2_OS_HURD:
 		t->osd1.hurd1.h_i_translator =
@@ -237,6 +308,24 @@ void ext2fs_swap_inode_full(ext2_filsys fs, struct ext2_inode_large *t,
 		return;
 	}
 
+	inode_size = EXT2_GOOD_OLD_INODE_SIZE + extra_isize;
+	if (inode_includes(inode_size, i_checksum_hi))
+		t->i_checksum_hi = ext2fs_swab16(f->i_checksum_hi);
+	if (inode_includes(inode_size, i_ctime_extra))
+		t->i_ctime_extra = ext2fs_swab32(f->i_ctime_extra);
+	if (inode_includes(inode_size, i_mtime_extra))
+		t->i_mtime_extra = ext2fs_swab32(f->i_mtime_extra);
+	if (inode_includes(inode_size, i_atime_extra))
+		t->i_atime_extra = ext2fs_swab32(f->i_atime_extra);
+	if (inode_includes(inode_size, i_crtime))
+		t->i_crtime = ext2fs_swab32(f->i_crtime);
+	if (inode_includes(inode_size, i_crtime_extra))
+		t->i_crtime_extra = ext2fs_swab32(f->i_crtime_extra);
+	if (inode_includes(inode_size, i_version_hi))
+		t->i_version_hi = ext2fs_swab32(f->i_version_hi);
+	if (inode_includes(inode_size, i_projid))
+                t->i_projid = ext2fs_swab16(f->i_projid);
+
 	i = sizeof(struct ext2_inode) + extra_isize + sizeof(__u32);
 	if (bufsize < (int) i)
 		return; /* no space for EA magic */
@@ -268,6 +357,89 @@ void ext2fs_swap_inode(ext2_filsys fs, struct ext2_inode *t,
 	ext2fs_swap_inode_full(fs, (struct ext2_inode_large *) t,
 				(struct ext2_inode_large *) f, hostorder,
 				sizeof(struct ext2_inode));
+}
+
+void ext2fs_swap_mmp(struct mmp_struct *mmp)
+{
+	mmp->mmp_magic = ext2fs_swab32(mmp->mmp_magic);
+	mmp->mmp_seq = ext2fs_swab32(mmp->mmp_seq);
+	mmp->mmp_time = ext2fs_swab64(mmp->mmp_time);
+	mmp->mmp_check_interval = ext2fs_swab16(mmp->mmp_check_interval);
+	mmp->mmp_checksum = ext2fs_swab32(mmp->mmp_checksum);
+}
+
+errcode_t ext2fs_dirent_swab_in(ext2_filsys fs, char *buf, int flags)
+{
+	return ext2fs_dirent_swab_in2(fs, buf, fs->blocksize, flags);
+}
+
+errcode_t ext2fs_dirent_swab_in2(ext2_filsys fs, char *buf,
+				 size_t size, int flags)
+{
+	errcode_t	retval;
+	char		*p, *end;
+	struct ext2_dir_entry *dirent;
+	unsigned int	name_len, rec_len;
+
+	p = (char *) buf;
+	end = (char *) buf + size;
+	while (p < end-8) {
+		dirent = (struct ext2_dir_entry *) p;
+		dirent->inode = ext2fs_swab32(dirent->inode);
+		dirent->rec_len = ext2fs_swab16(dirent->rec_len);
+		dirent->name_len = ext2fs_swab16(dirent->name_len);
+		name_len = dirent->name_len;
+		if (flags & EXT2_DIRBLOCK_V2_STRUCT)
+			dirent->name_len = ext2fs_swab16(dirent->name_len);
+		retval = ext2fs_get_rec_len(fs, dirent, &rec_len);
+		if (retval)
+			return retval;
+		if ((rec_len < 8) || (rec_len % 4)) {
+			rec_len = 8;
+			retval = EXT2_ET_DIR_CORRUPTED;
+		} else if (((name_len & 0xFF) + 8) > rec_len)
+			retval = EXT2_ET_DIR_CORRUPTED;
+		p += rec_len;
+	}
+
+	return 0;
+}
+
+errcode_t ext2fs_dirent_swab_out(ext2_filsys fs, char *buf, int flags)
+{
+	return ext2fs_dirent_swab_out2(fs, buf, fs->blocksize, flags);
+}
+
+errcode_t ext2fs_dirent_swab_out2(ext2_filsys fs, char *buf,
+				  size_t size, int flags)
+{
+	errcode_t	retval;
+	char		*p, *end;
+	unsigned int	rec_len;
+	struct ext2_dir_entry *dirent;
+
+	p = buf;
+	end = buf + size;
+	while (p < end) {
+		dirent = (struct ext2_dir_entry *) p;
+		retval = ext2fs_get_rec_len(fs, dirent, &rec_len);
+		if (retval)
+			return retval;
+		if ((rec_len < 8) ||
+		    (rec_len % 4)) {
+			ext2fs_free_mem(&buf);
+			return EXT2_ET_DIR_CORRUPTED;
+		}
+		p += rec_len;
+		dirent->inode = ext2fs_swab32(dirent->inode);
+		dirent->rec_len = ext2fs_swab16(dirent->rec_len);
+		dirent->name_len = ext2fs_swab16(dirent->name_len);
+
+		if (flags & EXT2_DIRBLOCK_V2_STRUCT)
+			dirent->name_len = ext2fs_swab16(dirent->name_len);
+	}
+
+	return 0;
 }
 
 #endif
