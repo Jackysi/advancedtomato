@@ -171,6 +171,9 @@ extern void mwan_table_add(char *sPrefix);
 extern void mwan_table_del(char *sPrefix);
 extern void mwan_load_balance(void);
 extern int mwan_route_main(int argc, char **argv);
+extern int checkConnect(char *sPrefix);
+extern void mwan_state_files(void);
+
 // pbr.c
 extern void ipt_routerpolicy(void);
 
