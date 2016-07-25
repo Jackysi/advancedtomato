@@ -69,6 +69,15 @@ typedef void (*evconnlistener_errorcb)(struct evconnlistener *, void *);
 /** Flag: Indicates that the listener should be locked so it's safe to use
  * from multiple threadcs at once. */
 #define LEV_OPT_THREADSAFE		(1u<<4)
+/** Flag: Indicates that we ask to allow multiple servers (processes or
+ * threads) to bind to the same port if they each set the option.
+ *
+ * SO_REUSEPORT is what most people would expect SO_REUSEADDR to be, however
+ * SO_REUSEPORT does not imply SO_REUSEADDR.
+ *
+ * This is only available on Linux and kernel 3.9+
+ */
+#define LEV_OPT_REUSEABLE_PORT		(1u<<7)
 
 /**
    Allocate a new evconnlistener object to listen for incoming TCP connections

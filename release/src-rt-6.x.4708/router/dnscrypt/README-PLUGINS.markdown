@@ -159,7 +159,7 @@ API documentation
 -----------------
 
 For more info about the API, see the online [dnscrypt API
-documentation](http://dnscrypt.org/plugin-api/plugin_8h.html).
+documentation](https://dnscrypt.org/plugin-api/plugin_8h.html).
 
 The `dnscrypt-proxy` source code also ships with example plugins you
 may want to take a look at, in the `src/plugins` directory.

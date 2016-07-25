@@ -11,7 +11,6 @@ export PREFIX="$(pwd)/dnscrypt-proxy-ios"
 
 export SODIUM_IOS_PREFIX="/tmp/libsodium-ios"
 export CPPFLAGS="$CPPFLAGS -I${SODIUM_IOS_PREFIX}/include"
-export CPPFLAGS="$CPPFLAGS -DUSE_ONLY_PORTABLE_IMPLEMENTATIONS=1"
 export LDFLAGS="$LDFLAGS -L${SODIUM_IOS_PREFIX}/lib"
 
 ./configure --host=arm-apple-darwin10 \

@@ -1,11 +1,11 @@
 ACLOCAL_AMFLAGS = -I m4
 
 EXTRA_DIST = \
+	DNSCRYPT-V2-PROTOCOL.txt \
 	README-iOS.markdown \
 	README-PLUGINS.markdown \
 	README-WINDOWS.markdown \
 	README.markdown \
-	TECHNOTES \
 	THANKS \
 	apparmor.profile.dnscrypt-proxy \
 	autogen.sh \

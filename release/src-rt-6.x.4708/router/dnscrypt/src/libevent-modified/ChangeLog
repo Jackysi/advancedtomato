@@ -53,6 +53,8 @@ BUGFIXES (evutil_secure_random)
  o Add evutil_secure_rng_set_urandom_device_file (2bbb5d7)
  o Really remove RNG seeds from the stack (f5ced88)
 
+SECURITY FIXES (evbuffers)
+ o Avoid integer overflow bugs in evbuffer_add() and related functions.  See CVE-2014-6272 advisory for more information. (20d6d4458bee5d88bda1511c225c25b2d3198d6c)
 
 DOCUMENTATION FIXES
  o Fix a mistake in evbuffer_remove() arguments in example http server code (c322c20 Gyepi Sam)
