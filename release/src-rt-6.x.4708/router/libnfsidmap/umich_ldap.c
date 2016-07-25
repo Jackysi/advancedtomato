@@ -1084,7 +1084,7 @@ get_canonical_hostname(const char *inname)
 	if (error) {
 		IDMAP_LOG(1, ("%s: getnameinfo for host '%s' failed (%d)\n",
 			  __FUNCTION__, inname));
-		goto out_err;
+		goto out_free;
 	}
 	return_name = strdup (tmphost);
 
@@ -1098,7 +1098,6 @@ static int
 umichldap_init(void)
 {
 	char *tssl, *canonicalize, *memberof;
-	int missing_server = 0, missing_base = 0;
 	char missing_msg[128] = "";
 	char *server_in, *canon_name;
 
