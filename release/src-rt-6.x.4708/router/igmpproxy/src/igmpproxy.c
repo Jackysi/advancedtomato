@@ -50,9 +50,9 @@ PACKAGE_STRING "\n"
 
 // Local function Prototypes
 static void signalHandler(int);
-int     igmpProxyInit();
-void    igmpProxyCleanUp();
-void    igmpProxyRun();
+int     igmpProxyInit(void);
+void    igmpProxyCleanUp(void);
+void    igmpProxyRun(void);
 
 // Global vars...
 static int sighandled = 0;
@@ -62,7 +62,7 @@ static int sighandled = 0;
 #define	GOT_SIGUSR2	0x08
 
 // The upstream VIF index
-int         upStreamVif;   
+int         upStreamVif[MAX_UPS_VIFS];   
 
 /**
 *   Program main method. Is invoked when the program is started
@@ -74,13 +74,16 @@ int main( int ArgCn, char *ArgVc[] ) {
     int c;
 
     // Parse the commandline options and setup basic settings..
-    for (c; (c = getopt(ArgCn, ArgVc, "vdh")) != -1;) {
+    while ((c = getopt(ArgCn, ArgVc, "vdh")) != -1) {
         switch (c) {
         case 'd':
             Log2Stderr = true;
             break;
         case 'v':
-            LogLevel++;
+            if (LogLevel == LOG_INFO)
+                LogLevel = LOG_DEBUG;
+            else
+                LogLevel = LOG_INFO;
             break;
         case 'h':
             fputs(Usage, stderr);
@@ -131,7 +134,7 @@ int main( int ArgCn, char *ArgVc[] ) {
 	    // Detach daemon from terminal
 	    if ( close( 0 ) < 0 || close( 1 ) < 0 || close( 2 ) < 0
 		 || open( "/dev/null", 0 ) != 0 || dup2( 0, 1 ) < 0 || dup2( 0, 2 ) < 0
-		 || setpgrp() < 0
+		 || setpgid( 0, 0 ) < 0
 	       ) {
 		my_log( LOG_ERR, errno, "failed to detach daemon" );
 	    }
@@ -156,7 +159,7 @@ int main( int ArgCn, char *ArgVc[] ) {
 /**
 *   Handles the initial startup of the daemon.
 */
-int igmpProxyInit() {
+int igmpProxyInit(void) {
     struct sigaction sa;
     int Err;
 
@@ -184,19 +187,23 @@ int igmpProxyInit() {
     {
         unsigned Ix;
         struct IfDesc *Dp;
-        int     vifcount = 0;
-        upStreamVif = -1;
+        int     vifcount = 0, upsvifcount = 0;
+        
+        for ( Ix = 0; Ix < MAX_UPS_VIFS; Ix++)
+        {
+		upStreamVif[Ix] = -1;
+	}
 
         for ( Ix = 0; (Dp = getIfByIx(Ix)); Ix++ ) {
 
             if ( Dp->InAdr.s_addr && ! (Dp->Flags & IFF_LOOPBACK) ) {
                 if(Dp->state == IF_STATE_UPSTREAM) {
-                    if(upStreamVif == -1) {
-                        upStreamVif = Ix;
+		    if (upsvifcount < MAX_UPS_VIFS -1)
+		    {
+			upStreamVif[upsvifcount++] = Ix;
                     } else {
-                        my_log(LOG_WARNING, 0, "Vif #%d was already upstream. Cannot set VIF #%d as upstream as well (skipping this VIF).",
-                            upStreamVif, Ix);
-                        Dp->state = IF_STATE_DISABLED;
+                        my_log(LOG_ERR, 0, "Cannot set VIF #%d as upstream as well. Mac upstream Vif count is %d",
+                            Ix, MAX_UPS_VIFS);
                     }
                 }
 
@@ -207,10 +214,8 @@ int igmpProxyInit() {
             }
         }
 
-        // If there is only one VIF, or no defined upstream VIF, we send an error.
-        if(vifcount < 2 || upStreamVif < 0) {
-            my_log(LOG_ERR, 0, "There must be at least 2 Vif's where one is upstream (count %d, upstream Vif %d).",
-                vifcount, upStreamVif);
+	if(0 == upsvifcount) {
+            my_log(LOG_ERR, 0, "There must be at least 1 Vif as upstream.");
         }
     }  
     
@@ -228,7 +233,7 @@ int igmpProxyInit() {
 /**
 *   Clean up all on exit...
 */
-void igmpProxyCleanUp() {
+void igmpProxyCleanUp(void) {
 
     my_log( LOG_DEBUG, 0, "clean handler called" );
     
@@ -241,21 +246,21 @@ void igmpProxyCleanUp() {
 /**
 *   Main daemon loop.
 */
-void igmpProxyRun() {
+void igmpProxyRun(void) {
     // Get the config.
-    //struct Config *config = getCommonConfig();
+    struct Config *config = getCommonConfig();
     // Set some needed values.
     register int recvlen;
     int     MaxFD, Rt, secs;
     fd_set  ReadFDS;
     socklen_t dummy = 0;
-    struct  timeval  curtime, lasttime, difftime, tv; 
+    struct  timespec  curtime, lasttime, difftime, tv; 
     // The timeout is a pointer in order to set it to NULL if nessecary.
-    struct  timeval  *timeout = &tv;
+    struct  timespec  *timeout = &tv;
 
     // Initialize timer vars
-    difftime.tv_usec = 0;
-    gettimeofday(&curtime, NULL);
+    difftime.tv_nsec = 0;
+    clock_gettime(CLOCK_MONOTONIC, &curtime);
     lasttime = curtime;
 
     // First thing we send a membership query in downstream VIF's...
@@ -273,13 +278,17 @@ void igmpProxyRun() {
             }
         }
 
+        /* aimwang: call rebuildIfVc */
+        if (config->rescanVif)
+            rebuildIfVc();
+
         // Prepare timeout...
         secs = timer_nextTimer();
         if(secs == -1) {
             timeout = NULL;
         } else {
-            timeout->tv_usec = 0;
-            timeout->tv_sec = secs;
+            timeout->tv_nsec = 0;
+            timeout->tv_sec = (secs > 3) ? 3 : secs; // aimwang: set max timeout
         }
 
         // Prepare for select.
@@ -289,7 +298,7 @@ void igmpProxyRun() {
         FD_SET( MRouterFD, &ReadFDS );
 
         // wait for input
-        Rt = select( MaxFD +1, &ReadFDS, NULL, NULL, timeout );
+        Rt = pselect( MaxFD +1, &ReadFDS, NULL, NULL, timeout, NULL );
 
         // log and ignore failures
         if( Rt < 0 ) {
@@ -322,20 +331,20 @@ void igmpProxyRun() {
              */
             if (Rt == 0) {
                 curtime.tv_sec = lasttime.tv_sec + secs;
-                curtime.tv_usec = lasttime.tv_usec;
+                curtime.tv_nsec = lasttime.tv_nsec;
                 Rt = -1; /* don't do this next time through the loop */
             } else {
-                gettimeofday(&curtime, NULL);
+                clock_gettime(CLOCK_MONOTONIC, &curtime);
             }
             difftime.tv_sec = curtime.tv_sec - lasttime.tv_sec;
-            difftime.tv_usec += curtime.tv_usec - lasttime.tv_usec;
-            while (difftime.tv_usec > 1000000) {
+            difftime.tv_nsec += curtime.tv_nsec - lasttime.tv_nsec;
+            while (difftime.tv_nsec > 1000000000) {
                 difftime.tv_sec++;
-                difftime.tv_usec -= 1000000;
+                difftime.tv_nsec -= 1000000000;
             }
-            if (difftime.tv_usec < 0) {
+            if (difftime.tv_nsec < 0) {
                 difftime.tv_sec--;
-                difftime.tv_usec += 1000000;
+                difftime.tv_nsec += 1000000000;
             }
             lasttime = curtime;
             if (secs == 0 || difftime.tv_sec > 0)
