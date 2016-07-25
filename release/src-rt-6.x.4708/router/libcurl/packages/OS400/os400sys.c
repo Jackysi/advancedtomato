@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -40,10 +40,6 @@
 
 #ifdef HAVE_ZLIB_H
 #include <zlib.h>
-#endif
-
-#ifdef USE_QSOSSL
-#include <qsossl.h>
 #endif
 
 #ifdef USE_GSKIT
@@ -98,16 +94,12 @@ static void
 thdbufdestroy(void * private)
 
 {
-  localkey_t i;
-  buffer_t * p;
-
   if(private) {
-    p = (buffer_t *) private;
+    buffer_t * p = (buffer_t *) private;
+    localkey_t i;
 
     for(i = (localkey_t) 0; i < LK_LAST; i++) {
-      if(p->buf)
-        free(p->buf);
-
+      free(p->buf);
       p++;
       }
 
@@ -287,9 +279,7 @@ Curl_getnameinfo_a(const struct sockaddr * sa, curl_socklen_t salen,
 
   if(servname && servnamelen)
     if(!(eservname = malloc(servnamelen))) {
-      if(enodename)
-        free(enodename);
-
+      free(enodename);
       return EAI_MEMORY;
       }
 
@@ -310,12 +300,8 @@ Curl_getnameinfo_a(const struct sockaddr * sa, curl_socklen_t salen,
       }
     }
 
-  if(enodename)
-    free(enodename);
-
-  if(eservname)
-    free(eservname);
-
+  free(enodename);
+  free(eservname);
   return status;
 }
 
@@ -348,9 +334,7 @@ Curl_getaddrinfo_a(const char * nodename, const char * servname,
     i = strlen(servname);
 
     if(!(eservname = malloc(i + 1))) {
-      if(enodename)
-        free(enodename);
-
+      free(enodename);
       return EAI_MEMORY;
       }
 
@@ -359,111 +343,10 @@ Curl_getaddrinfo_a(const char * nodename, const char * servname,
     }
 
   status = getaddrinfo(enodename, eservname, hints, res);
-
-  if(enodename)
-    free(enodename);
-
-  if(eservname)
-    free(eservname);
-
+  free(enodename);
+  free(eservname);
   return status;
 }
-
-
-#ifdef USE_QSOSSL
-
-/* ASCII wrappers for the SSL procedures. */
-
-int
-Curl_SSL_Init_Application_a(SSLInitApp * init_app)
-
-{
-  int rc;
-  unsigned int i;
-  SSLInitApp ia;
-
-  if(!init_app || !init_app->applicationID || !init_app->applicationIDLen)
-    return SSL_Init_Application(init_app);
-
-  memcpy((char *) &ia, (char *) init_app, sizeof ia);
-  i = ia.applicationIDLen;
-
-  if(!(ia.applicationID = malloc(i + 1))) {
-    errno = ENOMEM;
-    return SSL_ERROR_IO;
-    }
-
-  QadrtConvertA2E(ia.applicationID, init_app->applicationID, i, i);
-  ia.applicationID[i] = '\0';
-  rc = SSL_Init_Application(&ia);
-  free(ia.applicationID);
-  init_app->localCertificateLen = ia.localCertificateLen;
-  init_app->sessionType = ia.sessionType;
-  return rc;
-}
-
-
-int
-Curl_SSL_Init_a(SSLInit * init)
-
-{
-  int rc;
-  unsigned int i;
-  SSLInit ia;
-
-  if(!init || (!init->keyringFileName && !init->keyringPassword))
-    return SSL_Init(init);
-
-  memcpy((char *) &ia, (char *) init, sizeof ia);
-
-  if(ia.keyringFileName) {
-    i = strlen(ia.keyringFileName);
-
-    if(!(ia.keyringFileName = malloc(i + 1))) {
-      errno = ENOMEM;
-      return SSL_ERROR_IO;
-      }
-
-    QadrtConvertA2E(ia.keyringFileName, init->keyringFileName, i, i);
-    ia.keyringFileName[i] = '\0';
-    }
-
-  if(ia.keyringPassword) {
-    i = strlen(ia.keyringPassword);
-
-    if(!(ia.keyringPassword = malloc(i + 1))) {
-      if(ia.keyringFileName)
-        free(ia.keyringFileName);
-
-      errno = ENOMEM;
-      return SSL_ERROR_IO;
-      }
-
-    QadrtConvertA2E(ia.keyringPassword, init->keyringPassword, i, i);
-    ia.keyringPassword[i] = '\0';
-    }
-
-  rc = SSL_Init(&ia);
-
-  if(ia.keyringFileName)
-    free(ia.keyringFileName);
-
-  if(ia.keyringPassword)
-    free(ia.keyringPassword);
-
-  return rc;
-}
-
-
-char *
-Curl_SSL_Strerror_a(int sslreturnvalue, SSLErrorMsg * serrmsgp)
-
-{
-  return set_thread_string(LK_SSL_ERROR,
-                           SSL_Strerror(sslreturnvalue, serrmsgp));
-}
-
-#endif /* USE_QSOSSL */
 
 
 #ifdef USE_GSKIT
@@ -988,9 +871,7 @@ Curl_gss_init_sec_context_a(OM_uint32 * minor_status,
                              target_name, mech_type, req_flags, time_req,
                              input_chan_bindings, inp, actual_mech_type,
                              output_token, ret_flags, time_rec);
-
-  if(in.value)
-    free(in.value);
+  free(in.value);
 
   if(rc != GSS_S_COMPLETE || !output_token ||
       !output_token->length || !output_token->value)
@@ -1087,9 +968,7 @@ Curl_ldap_simple_bind_s_a(void * ld, char * dn, char * passwd)
     i = strlen(passwd);
 
     if(!(epasswd = malloc(i + 1))) {
-      if(edn)
-        free(edn);
-
+      free(edn);
       return LDAP_NO_MEMORY;
       }
 
@@ -1098,13 +977,8 @@ Curl_ldap_simple_bind_s_a(void * ld, char * dn, char * passwd)
     }
 
   i = ldap_simple_bind_s(ld, edn, epasswd);
-
-  if(epasswd)
-    free(epasswd);
-
-  if(edn)
-    free(edn);
-
+  free(epasswd);
+  free(edn);
   return i;
 }
 
@@ -1181,12 +1055,8 @@ Curl_ldap_search_s_a(void * ld, char * base, int scope, char * filter,
     free(eattrs);
     }
 
-  if(efilter)
-    free(efilter);
-
-  if(ebase)
-    free(ebase);
-
+  free(efilter);
+  free(ebase);
   return status;
 }
 
@@ -1195,14 +1065,13 @@ struct berval * *
 Curl_ldap_get_values_len_a(void * ld, LDAPMessage * entry, const char * attr)
 
 {
-  int i;
   char * cp;
   struct berval * * result;
 
   cp = (char *) NULL;
 
   if(attr) {
-    i = strlen(attr);
+    int i = strlen(attr);
 
     if(!(cp = malloc(i + 1))) {
       ldap_set_lderrno(ld, LDAP_NO_MEMORY, NULL,
@@ -1215,9 +1084,7 @@ Curl_ldap_get_values_len_a(void * ld, LDAPMessage * entry, const char * attr)
     }
 
   result = ldap_get_values_len(ld, entry, cp);
-
-  if(cp)
-    free(cp);
+  free(cp);
 
   /* Result data are binary in nature, so they haven't been
      converted to EBCDIC. Therefore do not convert. */

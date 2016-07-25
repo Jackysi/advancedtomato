@@ -9,7 +9,7 @@
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -25,6 +25,11 @@
 
 #ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
+
+#ifdef USE_NSS
+#include <nspr.h>
+#include <plarenas.h>
 #endif
 
 #define ENABLE_CURLX_PRINTF
@@ -205,6 +210,14 @@ static void main_free(struct GlobalConfig *config)
   curl_global_cleanup();
   convert_cleanup();
   metalink_cleanup();
+#ifdef USE_NSS
+  if(PR_Initialized()) {
+    /* prevent valgrind from reporting still reachable mem from NSRP arenas */
+    PL_ArenaFinish();
+    /* prevent valgrind from reporting possibly lost memory (fd cache, ...) */
+    PR_Cleanup();
+  }
+#endif
   free_config_fields(config);
 
   /* Free the config structures */
@@ -253,7 +266,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef __VMS
-  vms_special_exit(res, vms_show);
+  vms_special_exit(result, vms_show);
 #else
   return (int)result;
 #endif
