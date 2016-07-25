@@ -6,32 +6,57 @@ test_invert(const struct tstring *key,
 	    const struct tstring *cleartext,
 	    const struct tstring *ciphertext)
 {
-  struct camellia_ctx encrypt;
-  struct camellia_ctx decrypt;
   uint8_t *data;
-  unsigned length;
+  size_t length;
 
   ASSERT (cleartext->length == ciphertext->length);
   length = cleartext->length;
 
   data = xalloc(length);
 
-  camellia_set_encrypt_key (&encrypt, key->length, key->data);
-  camellia_crypt (&encrypt, length, data, cleartext->data);
-  
-  if (!MEMEQ(length, data, ciphertext->data))
+  if (key->length == 16)
     {
-      tstring_print_hex(cleartext);
-      fprintf(stderr, "\nOutput: ");
-      print_hex(length, data);
-      fprintf(stderr, "\nExpected:");
-      tstring_print_hex(ciphertext);
-      fprintf(stderr, "\n");
-      FAIL();
-    }
+      struct camellia128_ctx encrypt;
+      struct camellia128_ctx decrypt;
 
-  camellia_invert_key (&decrypt, &encrypt);
-  camellia_crypt (&decrypt, length, data, data);
+      camellia128_set_encrypt_key (&encrypt, key->data);
+      camellia128_crypt (&encrypt, length, data, cleartext->data);
+  
+      if (!MEMEQ(length, data, ciphertext->data))
+	{
+	fail_encrypt:
+	  tstring_print_hex(cleartext);
+	  fprintf(stderr, "\nOutput: ");
+	  print_hex(length, data);
+	  fprintf(stderr, "\nExpected:");
+	  tstring_print_hex(ciphertext);
+	  fprintf(stderr, "\n");
+	  FAIL();
+	}
+
+      camellia128_invert_key (&decrypt, &encrypt);
+      camellia128_crypt (&decrypt, length, data, data);
+    }
+  else
+    {
+      struct camellia256_ctx encrypt;
+      struct camellia256_ctx decrypt;
+
+      if (key->length == 24)
+	camellia192_set_encrypt_key (&encrypt, key->data);
+      else if (key->length == 32)
+	camellia256_set_encrypt_key (&encrypt, key->data);
+      else
+	abort ();
+
+      camellia256_crypt (&encrypt, length, data, cleartext->data);
+  
+      if (!MEMEQ(length, data, ciphertext->data))
+	goto fail_encrypt;
+
+      camellia256_invert_key (&decrypt, &encrypt);
+      camellia256_crypt (&decrypt, length, data, data);
+    }
 
   if (!MEMEQ(length, data, cleartext->data))
     {

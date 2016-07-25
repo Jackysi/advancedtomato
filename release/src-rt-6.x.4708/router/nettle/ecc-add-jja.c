@@ -1,24 +1,33 @@
-/* ecc-dup-jj.c */
+/* ecc-add-jj.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2013 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Development of Nettle's ECC support was funded by the .SE Internet Fund. */
 
@@ -39,12 +48,6 @@
 
    + p = q   ==>  r = 0, invalid
 */
-
-mp_size_t
-ecc_add_jja_itch (const struct ecc_curve *ecc)
-{
-  return ECC_ADD_JJA_ITCH (ecc->size);
-}
 
 void
 ecc_add_jja (const struct ecc_curve *ecc,
@@ -69,17 +72,17 @@ ecc_add_jja (const struct ecc_curve *ecc,
       Y_3 = W*(V-X_3)-2*Y_1*J	mul, mul
   */
 #define zz  scratch
-#define h  (scratch + ecc->size)
-#define hh (scratch + 2*ecc->size)
-#define w  (scratch + 3*ecc->size)
-#define j  (scratch + 4*ecc->size)
+#define h  (scratch + ecc->p.size)
+#define hh (scratch + 2*ecc->p.size)
+#define w  (scratch + 3*ecc->p.size)
+#define j  (scratch + 4*ecc->p.size)
 #define v   scratch
 
 #define x1  p
-#define y1 (p + ecc->size)
-#define z1 (p + 2*ecc->size)
+#define y1 (p + ecc->p.size)
+#define z1 (p + 2*ecc->p.size)
 #define x2  q
-#define y2 (q + ecc->size)
+#define y2 (q + ecc->p.size)
 
   /* zz */
   ecc_modp_sqr (ecc, zz, z1);
@@ -91,10 +94,10 @@ ecc_add_jja (const struct ecc_curve *ecc,
   /* Do z^3 early, store at w. */
   ecc_modp_mul (ecc, w, zz, z1);
   /* z_3, use j area for scratch */
-  ecc_modp_add (ecc, r + 2*ecc->size, p + 2*ecc->size, h);
-  ecc_modp_sqr (ecc, j, r + 2*ecc->size);
+  ecc_modp_add (ecc, r + 2*ecc->p.size, p + 2*ecc->p.size, h);
+  ecc_modp_sqr (ecc, j, r + 2*ecc->p.size);
   ecc_modp_sub (ecc, j, j, zz);
-  ecc_modp_sub (ecc, r + 2*ecc->size, j, hh);
+  ecc_modp_sub (ecc, r + 2*ecc->p.size, j, hh);
   
   /* w */
   ecc_modp_mul (ecc, j, y2, w);
@@ -115,8 +118,8 @@ ecc_add_jja (const struct ecc_curve *ecc,
 
   /* y_3, use (h, hh) as sqratch */
   ecc_modp_mul (ecc, h, y1, j); /* frees j */
-  ecc_modp_sub (ecc, r + ecc->size, v, r);
-  ecc_modp_mul (ecc, j, r + ecc->size, w);
+  ecc_modp_sub (ecc, r + ecc->p.size, v, r);
+  ecc_modp_mul (ecc, j, r + ecc->p.size, w);
   ecc_modp_submul_1 (ecc, j, h, 2);
-  mpn_copyi (r + ecc->size, j, ecc->size);
+  mpn_copyi (r + ecc->p.size, j, ecc->p.size);
 }

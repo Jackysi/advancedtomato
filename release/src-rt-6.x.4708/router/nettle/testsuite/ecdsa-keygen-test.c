@@ -10,11 +10,11 @@ ecc_valid_p (struct ecc_point *pub)
   int res;
   mp_size_t size;
 
-  size = pub->ecc->size;
+  size = pub->ecc->p.size;
 
   /* First check range */
-  if (mpn_cmp (pub->p, pub->ecc->p, size) >= 0
-      || mpn_cmp (pub->p + size, pub->ecc->p, size) >= 0)
+  if (mpn_cmp (pub->p, pub->ecc->p.m, size) >= 0
+      || mpn_cmp (pub->p + size, pub->ecc->p.m, size) >= 0)
     return 0;
 
   mpz_init (lhs);
@@ -24,12 +24,31 @@ ecc_valid_p (struct ecc_point *pub)
   mpz_roinit_n (y, pub->p + size, size);
 
   mpz_mul (lhs, y, y);
-  mpz_mul (rhs, x, x);
-  mpz_sub_ui (rhs, rhs, 3);
-  mpz_mul (rhs, rhs, x);
-  mpz_add (rhs, rhs, mpz_roinit_n (t, pub->ecc->b, size));
+  
+  if (pub->ecc->p.bit_size == 255)
+    {
+      /* Check that
+	 121666 (1 + x^2 - y^2) = 121665 x^2 y^2 */
+      mpz_t x2;
+      mpz_init (x2);
+      mpz_mul (x2, x, x); /* x^2 */
+      mpz_mul (rhs, x2, lhs); /* x^2 y^2 */
+      mpz_sub (lhs, x2, lhs); /* x^2 - y^2 */
+      mpz_add_ui (lhs, lhs, 1); /* 1 + x^2 - y^2 */
+      mpz_mul_ui (lhs, lhs, 121666);
+      mpz_mul_ui (rhs, rhs, 121665);
 
-  res = mpz_congruent_p (lhs, rhs, mpz_roinit_n (t, pub->ecc->p, size));
+      mpz_clear (x2);
+    }
+  else
+    {
+      /* Check y^2 = x^3 - 3 x + b */
+      mpz_mul (rhs, x, x);
+      mpz_sub_ui (rhs, rhs, 3);
+      mpz_mul (rhs, rhs, x);
+      mpz_add (rhs, rhs, mpz_roinit_n (t, pub->ecc->b, size));
+    }
+  res = mpz_congruent_p (lhs, rhs, mpz_roinit_n (t, pub->ecc->p.m, size));
   
   mpz_clear (lhs);
   mpz_clear (rhs);
@@ -60,7 +79,7 @@ test_main (void)
       struct ecc_scalar key;
 
       if (verbose)
-	fprintf (stderr, "Curve %d\n", ecc->bit_size);
+	fprintf (stderr, "Curve %d\n", ecc->p.bit_size);
 
       ecc_point_init (&pub, ecc);
       ecc_scalar_init (&key, ecc);
@@ -71,11 +90,13 @@ test_main (void)
 
       if (verbose)
 	{
-	  gmp_fprintf (stderr,
-		       "Public key:\nx = %Nx\ny = %Nx\n",
-		       pub.p, ecc->size, pub.p + ecc->size, ecc->size);
-	  gmp_fprintf (stderr,
-		       "Private key: %Nx\n", key.p, ecc->size);
+	  fprintf (stderr, "Public key:\nx = ");
+	  write_mpn (stderr, 16, pub.p, ecc->p.size);
+	  fprintf (stderr, "\ny = ");
+	  write_mpn (stderr, 16, pub.p + ecc->p.size, ecc->p.size);
+	  fprintf (stderr, "\nPrivate key: ");
+	  write_mpn (stderr, 16, key.p, ecc->p.size);
+	  fprintf (stderr, "\n");
 	}
       if (!ecc_valid_p (&pub))
 	die ("ecdsa_generate_keypair produced an invalid point.\n");

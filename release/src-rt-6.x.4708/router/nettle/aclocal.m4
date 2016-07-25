@@ -58,8 +58,7 @@ AC_CACHE_VAL(lsh_cv_sys_ccpic,[
   CFLAGS="$OLD_CFLAGS"
 ])
 CCPIC="$lsh_cv_sys_ccpic"
-AC_MSG_RESULT($CCPIC)
-AC_SUBST([CCPIC])])
+AC_MSG_RESULT($CCPIC)])
 
 dnl LSH_PATH_ADD(path-id, directory)
 AC_DEFUN([LSH_PATH_ADD],
@@ -110,7 +109,7 @@ case "$host_os" in
       RPATHFLAG=-R
     fi
     ;;
-  linux*)		RPATHFLAG="-Wl,-rpath," ;;
+  linux*|freebsd*)	RPATHFLAG="-Wl,-rpath," ;;
   *)			RPATHFLAG="" ;;
 esac
 
@@ -513,16 +512,21 @@ elif test -n "$HOST_CC"; then
   GMP_PROG_CC_FOR_BUILD_WORKS($HOST_CC,
     [CC_FOR_BUILD=$HOST_CC],
     [AC_MSG_ERROR([Specified HOST_CC doesn't seem to work])])
-elif test $cross_compiling = no ; then
-  CC_FOR_BUILD="$CC"
 else
-  for i in cc gcc c89 c99; do
-    GMP_PROG_CC_FOR_BUILD_WORKS($i,
-      [CC_FOR_BUILD=$i
-       break])
-  done
-  if test -z "$CC_FOR_BUILD"; then
-    AC_MSG_ERROR([Cannot find a build system compiler])
+  if test $cross_compiling = no ; then
+    CC_FOR_BUILD="$CC"  
+  else
+    for i in gcc cc c89 c99; do
+      GMP_PROG_CC_FOR_BUILD_WORKS($i,
+        [CC_FOR_BUILD=$i
+         break])
+    done
+    if test -z "$CC_FOR_BUILD"; then
+      AC_MSG_ERROR([Cannot find a build system compiler])
+    fi
+  fi
+  if test "$CC_FOR_BUILD" = gcc ; then
+    CC_FOR_BUILD="$CC_FOR_BUILD -O"
   fi
 fi
 
@@ -637,6 +641,41 @@ foo:
     AC_MSG_RESULT($enable_arm_neon)
   fi
 fi
+])
+
+dnl NETTLE_CHECK_IFUNC
+dnl ------------------
+dnl Check if __attribute__ ((ifunc(...))) works
+AC_DEFUN([NETTLE_CHECK_IFUNC],
+[AC_REQUIRE([AC_PROG_CC])
+AC_CACHE_CHECK([for ifunc support],
+  nettle_cv_link_ifunc,
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+static int
+foo_imp(int x)
+{
+  return 1;
+}
+
+typedef void void_func (void);
+
+static void_func *
+foo_resolv(void)
+{
+  return (void_func *) foo_imp;
+}
+
+int foo (int x) __attribute__ ((ifunc("foo_resolv")));
+],[
+  return foo(0);
+
+])],
+[nettle_cv_link_ifunc=yes],
+[nettle_cv_link_ifunc=no]))
+AH_TEMPLATE([HAVE_LINK_IFUNC], [Define if compiler and linker supports __attribute__ ifunc])
+if test "x$nettle_cv_link_ifunc" = xyes ; then
+  AC_DEFINE(HAVE_LINK_IFUNC)
+fi 
 ])
 
 dnl @synopsis AX_CREATE_STDINT_H [( HEADER-TO-GENERATE [, HEADERS-TO-CHECK])]
@@ -1159,7 +1198,7 @@ typedef unsigned long uintmax_t;
 #define __intptr_t_defined
 /* we encourage using "long" to store pointer values, never use "int" ! */
 #if   _STDINT_LONG_MODEL+0 == 242 || _STDINT_LONG_MODEL+0 == 484
-typedef  unsinged int   uintptr_t;
+typedef  unsigned int   uintptr_t;
 typedef           int    intptr_t;
 #elif _STDINT_LONG_MODEL+0 == 244 || _STDINT_LONG_MODEL+0 == 444
 typedef  unsigned long  uintptr_t;
@@ -1206,4 +1245,63 @@ ac_cv_type_int_least32_t="$ac_cv_type_int_least32_t"
 ac_cv_type_int_fast32_t="$ac_cv_type_int_fast32_t"
 ac_cv_type_intmax_t="$ac_cv_type_intmax_t"
 ])
+])
+
+# ld-version-script.m4 serial 3
+dnl Copyright (C) 2008-2014 Free Software Foundation, Inc.
+dnl This file is free software; the Free Software Foundation
+dnl gives unlimited permission to copy and/or distribute it,
+dnl with or without modifications, as long as this notice is preserved.
+
+dnl From Simon Josefsson
+
+# FIXME: The test below returns a false positive for mingw
+# cross-compiles, 'local:' statements does not reduce number of
+# exported symbols in a DLL.  Use --disable-ld-version-script to work
+# around the problem.
+
+# gl_LD_VERSION_SCRIPT
+# --------------------
+# Check if LD supports linker scripts, and define automake conditional
+# HAVE_LD_VERSION_SCRIPT if so.
+AC_DEFUN([LD_VERSION_SCRIPT],
+[
+  AC_ARG_ENABLE([ld-version-script],
+    AS_HELP_STRING([--enable-ld-version-script],
+      [enable linker version script (default is enabled when possible)]),
+      [have_ld_version_script=$enableval], [])
+  if test -z "$have_ld_version_script"; then
+    AC_MSG_CHECKING([if LD -Wl,--version-script works])
+    save_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -Wl,--version-script=conftest.map"
+    cat > conftest.map <<EOF
+foo
+EOF
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
+                   [accepts_syntax_errors=yes], [accepts_syntax_errors=no])
+    if test "$accepts_syntax_errors" = no; then
+      cat > conftest.map <<EOF
+VERS_1 {
+        global: sym;
+};
+
+VERS_2 {
+        global: sym;
+} VERS_1;
+EOF
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
+                     [have_ld_version_script=yes], [have_ld_version_script=no])
+    else
+      have_ld_version_script=no
+    fi
+    rm -f conftest.map
+    LDFLAGS="$save_LDFLAGS"
+    AC_MSG_RESULT($have_ld_version_script)
+  fi
+  if test "$have_ld_version_script" = "yes";then
+	EXTRA_LINKER_FLAGS="-Wl,--version-script=libnettle.map"
+	AC_SUBST(EXTRA_LINKER_FLAGS)
+	EXTRA_HOGWEED_LINKER_FLAGS="-Wl,--version-script=libhogweed.map"
+	AC_SUBST(EXTRA_HOGWEED_LINKER_FLAGS)
+  fi
 ])

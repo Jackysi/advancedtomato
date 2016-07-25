@@ -8,7 +8,7 @@ fi
 
 : ${NM:=nm}
 
-# * nm on aix seems to generate bogus outbut including random binary
+# * nm on aix seems to generate bogus output including random binary
 #   data. Using -g is a workaround to get rid of that. But nm -g
 #   doesn't work on Solaris-2.4, so try nm -g first, and plain nm if
 #   -g isn't recognized.
@@ -17,7 +17,7 @@ fi
 #   code.
 
 ( $NM -g ../libnettle.a || $NM ../libnettle.a ) \
-    | grep ' [DRT] ' | egrep -v '( |^)\.?_?(_?nettle_|memxor)|get_pc_thunk' \
+    | grep ' [DRT] ' | egrep -v '( |^|\.)(\.?_?(_?nettle_)|get_pc_thunk)' \
     | sort -k3 > test1.out
 
 if [ -s test1.out ] ; then
@@ -27,8 +27,12 @@ if [ -s test1.out ] ; then
 fi
 
 if [ -s ../libhogweed.a ] ; then
+    PATTERN='\.?_?_?nettle_|get_pc_thunk'
+    if grep '^#define.*NETTLE_USE_MINI_GMP.*1$' ../version.h >/dev/null ; then
+	PATTERN="$PATTERN|_?(mp_|mpz_|mpn_)"
+    fi
     ( $NM -g ../libhogweed.a || $NM ../libhogweed.a ) \
-	| grep ' [DRT] ' | egrep -v '( |^)\.?_?_?nettle_|get_pc_thunk' \
+	| grep ' [DRT] ' | egrep -v "( |^|\.)($PATTERN)" \
 	| sort -k3 > test1.out
 
     if [ -s test1.out ] ; then

@@ -5,8 +5,6 @@
 srcdir = @srcdir@
 VPATH = @srcdir@
 
-LIBOBJS = @LIBOBJS@
-
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -14,13 +12,18 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = $(INSTALL_PROGRAM) -s
 MKDIR_P = @MKDIR_P@
 
-OPT_ASM_SOURCES = @OPT_ASM_SOURCES@
+OPT_NETTLE_OBJS = @OPT_NETTLE_OBJS@
+OPT_HOGWEED_OBJS = @OPT_HOGWEED_OBJS@
+
+OPT_NETTLE_SOURCES = @OPT_NETTLE_SOURCES@
 
 SUBDIRS = tools testsuite examples
 
 include config.make
 
 PRE_CPPFLAGS = -I.
+EXTRA_CFLAGS = $(CCPIC)
+
 # FIXME: Add configuration of LIBEXT?
 LIBTARGETS = @IF_STATIC@ libnettle.a @IF_HOGWEED@ libhogweed.a
 SHLIBTARGETS = @IF_SHARED@ $(LIBNETTLE_FORLINK) @IF_HOGWEED@ $(LIBHOGWEED_FORLINK)
@@ -36,7 +39,6 @@ TARGETS = aesdata$(EXEEXT_FOR_BUILD) desdata$(EXEEXT_FOR_BUILD) \
           gcmdata$(EXEEXT_FOR_BUILD) \
 	  $(getopt_TARGETS) $(internal_TARGETS) \
 	  $(LIBTARGETS) $(SHLIBTARGETS)
-IMPLICIT_TARGETS = @IF_DLL@ $(LIBNETTLE_FILE) $(LIBHOGWEED_FILE)
 
 DOCTARGETS = @IF_DOCUMENTATION@ nettle.info nettle.html nettle.pdf
 
@@ -65,32 +67,63 @@ all-here: $(TARGETS) $(DOCTARGETS)
 
 nettle_SOURCES = aes-decrypt-internal.c aes-decrypt.c \
 		 aes-encrypt-internal.c aes-encrypt.c aes-encrypt-table.c \
-		 aes-set-encrypt-key.c aes-set-decrypt-key.c aes-meta.c \
-		 arcfour.c arcfour-crypt.c arcfour-meta.c \
-		 arctwo.c arctwo-meta.c gosthash94-meta.c \
+		 aes-invert-internal.c aes-set-key-internal.c \
+		 aes-set-encrypt-key.c aes-set-decrypt-key.c \
+		 aes128-set-encrypt-key.c aes128-set-decrypt-key.c \
+		 aes128-meta.c \
+		 aes192-set-encrypt-key.c aes192-set-decrypt-key.c \
+		 aes192-meta.c \
+		 aes256-set-encrypt-key.c aes256-set-decrypt-key.c \
+		 aes256-meta.c \
+		 arcfour.c arcfour-crypt.c \
+		 arctwo.c arctwo-meta.c blowfish.c \
 		 base16-encode.c base16-decode.c base16-meta.c \
-                 base64-encode.c base64-decode.c base64-meta.c \
-		 camellia-crypt.c camellia-crypt-internal.c \
-		 camellia-set-encrypt-key.c camellia-set-decrypt-key.c \
-		 camellia-table.c camellia-meta.c \
-		 cast128.c cast128-meta.c \
-		 blowfish.c \
-		 cbc.c ctr.c gcm.c gcm-aes.c \
-		 des.c \
-		 des3.c des-compat.c \
+		 base64-encode.c base64-decode.c base64-meta.c \
+		 base64url-encode.c base64url-decode.c base64url-meta.c \
+		 buffer.c buffer-init.c \
+		 camellia-crypt-internal.c camellia-table.c \
+		 camellia-absorb.c camellia-invert-key.c \
+		 camellia128-set-encrypt-key.c camellia128-crypt.c \
+		 camellia128-set-decrypt-key.c \
+		 camellia128-meta.c \
+		 camellia192-meta.c \
+		 camellia256-set-encrypt-key.c camellia256-crypt.c \
+		 camellia256-set-decrypt-key.c \
+		 camellia256-meta.c \
+		 cast128.c cast128-meta.c cbc.c \
+		 ccm.c ccm-aes128.c ccm-aes192.c ccm-aes256.c \
+		 chacha-crypt.c chacha-core-internal.c \
+		 chacha-poly1305.c chacha-poly1305-meta.c \
+		 chacha-set-key.c chacha-set-nonce.c \
+		 ctr.c des.c des3.c des-compat.c \
+		 eax.c eax-aes128.c eax-aes128-meta.c \
+		 gcm.c gcm-aes.c \
+		 gcm-aes128.c gcm-aes128-meta.c \
+		 gcm-aes192.c gcm-aes192-meta.c \
+		 gcm-aes256.c gcm-aes256-meta.c \
+		 gcm-camellia128.c gcm-camellia128-meta.c \
+		 gcm-camellia256.c gcm-camellia256-meta.c \
+		 gosthash94.c gosthash94-meta.c \
 		 hmac.c hmac-md5.c hmac-ripemd160.c hmac-sha1.c \
 		 hmac-sha224.c hmac-sha256.c hmac-sha384.c hmac-sha512.c \
-		 pbkdf2.c pbkdf2-hmac-sha1.c pbkdf2-hmac-sha256.c \
 		 knuth-lfib.c \
 		 md2.c md2-meta.c md4.c md4-meta.c \
 		 md5.c md5-compress.c md5-compat.c md5-meta.c \
-		 gosthash94.c \
+		 memxor.c memxor3.c \
+		 nettle-meta-aeads.c nettle-meta-armors.c \
+		 nettle-meta-ciphers.c nettle-meta-hashes.c \
+		 pbkdf2.c pbkdf2-hmac-sha1.c pbkdf2-hmac-sha256.c \
+		 poly1305-aes.c poly1305-internal.c \
+		 realloc.c \
 		 ripemd160.c ripemd160-compress.c ripemd160-meta.c \
 		 salsa20-core-internal.c \
 		 salsa20-crypt.c salsa20r12-crypt.c salsa20-set-key.c \
+		 salsa20-set-nonce.c \
+		 salsa20-128-set-key.c salsa20-256-set-key.c \
 		 sha1.c sha1-compress.c sha1-meta.c \
 		 sha256.c sha256-compress.c sha224-meta.c sha256-meta.c \
 		 sha512.c sha512-compress.c sha384-meta.c sha512-meta.c \
+		 sha512-224-meta.c sha512-256-meta.c \
 		 sha3.c sha3-permute.c \
 		 sha3-224.c sha3-224-meta.c sha3-256.c sha3-256-meta.c \
 		 sha3-384.c sha3-384-meta.c sha3-512.c sha3-512-meta.c\
@@ -100,51 +133,61 @@ nettle_SOURCES = aes-decrypt-internal.c aes-decrypt.c \
 		 umac-nh.c umac-nh-n.c umac-l2.c umac-l3.c \
 		 umac-poly64.c umac-poly128.c umac-set-key.c \
 		 umac32.c umac64.c umac96.c umac128.c \
-		 yarrow256.c yarrow_key_event.c \
-		 buffer.c buffer-init.c realloc.c \
-		 nettle-meta-hashes.c nettle-meta-ciphers.c \
-		 nettle-meta-armors.c \
-		 write-be32.c write-le32.c write-le64.c
+		 version.c \
+		 write-be32.c write-le32.c write-le64.c \
+		 yarrow256.c yarrow_key_event.c
 
 hogweed_SOURCES = sexp.c sexp-format.c \
 		  sexp-transport.c sexp-transport-format.c \
-		  bignum.c bignum-next-prime.c \
-		  bignum-random.c bignum-random-prime.c \
+		  bignum.c bignum-random.c bignum-random-prime.c \
 		  sexp2bignum.c \
 		  pkcs1.c pkcs1-encrypt.c pkcs1-decrypt.c \
 		  pkcs1-rsa-digest.c pkcs1-rsa-md5.c pkcs1-rsa-sha1.c \
 		  pkcs1-rsa-sha256.c pkcs1-rsa-sha512.c \
-		  rsa.c rsa-sign.c rsa-verify.c \
+		  rsa.c rsa-sign.c rsa-sign-tr.c rsa-verify.c \
 		  rsa-pkcs1-sign.c rsa-pkcs1-sign-tr.c rsa-pkcs1-verify.c \
-		  rsa-md5-sign.c rsa-md5-verify.c \
-		  rsa-sha1-sign.c rsa-sha1-verify.c \
-		  rsa-sha256-sign.c rsa-sha256-verify.c \
-		  rsa-sha512-sign.c rsa-sha512-verify.c \
+		  rsa-md5-sign.c rsa-md5-sign-tr.c rsa-md5-verify.c \
+		  rsa-sha1-sign.c rsa-sha1-sign-tr.c rsa-sha1-verify.c \
+		  rsa-sha256-sign.c rsa-sha256-sign-tr.c rsa-sha256-verify.c \
+		  rsa-sha512-sign.c rsa-sha512-sign-tr.c rsa-sha512-verify.c \
 		  rsa-encrypt.c rsa-decrypt.c rsa-decrypt-tr.c \
-		  rsa-keygen.c rsa-compat.c rsa-blind.c \
+		  rsa-keygen.c rsa-blind.c \
 		  rsa2sexp.c sexp2rsa.c \
-		  dsa.c dsa-sign.c dsa-verify.c dsa-keygen.c \
+		  dsa.c dsa-compat.c dsa-compat-keygen.c dsa-gen-params.c \
+		  dsa-sign.c dsa-verify.c dsa-keygen.c dsa-hash.c \
 		  dsa-sha1-sign.c dsa-sha1-verify.c \
 		  dsa-sha256-sign.c dsa-sha256-verify.c  \
 		  dsa2sexp.c sexp2dsa.c \
 		  pgp-encode.c rsa2openpgp.c \
 		  der-iterator.c der2rsa.c der2dsa.c \
-		  sec-add-1.c sec-sub-1.c sec-modinv.c sec-tabselect.c \
+		  sec-add-1.c sec-sub-1.c sec-tabselect.c \
 		  gmp-glue.c cnd-copy.c \
-		  ecc-mod.c ecc-generic-modp.c ecc-generic-modq.c \
-		  ecc-modp.c ecc-modq.c ecc-generic-redc.c \
+		  ecc-mod.c ecc-mod-inv.c \
+		  ecc-mod-arith.c ecc-pp1-redc.c ecc-pm1-redc.c \
 		  ecc-192.c ecc-224.c ecc-256.c ecc-384.c ecc-521.c \
+		  ecc-25519.c \
 		  ecc-size.c ecc-j-to-a.c ecc-a-to-j.c \
 		  ecc-dup-jj.c ecc-add-jja.c ecc-add-jjj.c \
+		  ecc-eh-to-a.c \
+		  ecc-dup-eh.c ecc-add-eh.c ecc-add-ehh.c \
+		  ecc-mul-g-eh.c ecc-mul-a-eh.c \
 		  ecc-mul-g.c ecc-mul-a.c ecc-hash.c ecc-random.c \
 		  ecc-point.c ecc-scalar.c ecc-point-mul.c ecc-point-mul-g.c \
 		  ecc-ecdsa-sign.c ecdsa-sign.c \
-		  ecc-ecdsa-verify.c ecdsa-verify.c ecdsa-keygen.c
+		  ecc-ecdsa-verify.c ecdsa-verify.c ecdsa-keygen.c \
+		  curve25519-mul-g.c curve25519-mul.c curve25519-eh-to-x.c \
+		  eddsa-compress.c eddsa-decompress.c eddsa-expand.c \
+		  eddsa-hash.c eddsa-pubkey.c eddsa-sign.c eddsa-verify.c \
+		  ed25519-sha512-pubkey.c \
+		  ed25519-sha512-sign.c ed25519-sha512-verify.c
 
-HEADERS = aes.h arcfour.h arctwo.h asn1.h bignum.h blowfish.h \
-	  base16.h base64.h buffer.h camellia.h cast128.h \
-	  cbc.h ctr.h \
-	  des.h des-compat.h dsa.h ecc-curve.h ecc.h ecdsa.h \
+OPT_SOURCES = fat-x86_64.c fat-arm.c mini-gmp.c
+
+HEADERS = aes.h arcfour.h arctwo.h asn1.h blowfish.h \
+	  base16.h base64.h bignum.h buffer.h camellia.h cast128.h \
+	  cbc.h ccm.h chacha.h chacha-poly1305.h ctr.h \
+	  curve25519.h des.h des-compat.h dsa.h dsa-compat.h eax.h \
+	  ecc-curve.h ecc.h ecdsa.h eddsa.h \
 	  gcm.h gosthash94.h hmac.h \
 	  knuth-lfib.h \
 	  macros.h \
@@ -153,56 +196,64 @@ HEADERS = aes.h arcfour.h arctwo.h asn1.h bignum.h blowfish.h \
 	  memxor.h \
 	  nettle-meta.h nettle-types.h \
 	  pbkdf2.h \
-	  pgp.h pkcs1.h realloc.h ripemd160.h rsa.h rsa-compat.h \
+	  pgp.h pkcs1.h realloc.h ripemd160.h rsa.h \
 	  salsa20.h sexp.h \
 	  serpent.h sha.h sha1.h sha2.h sha3.h twofish.h \
-	  umac.h yarrow.h
+	  umac.h yarrow.h poly1305.h
 
-INSTALL_HEADERS = $(HEADERS) nettle-stdint.h
+INSTALL_HEADERS = $(HEADERS) nettle-stdint.h version.h @IF_MINI_GMP@ mini-gmp.h
 
 SOURCES = $(nettle_SOURCES) $(hogweed_SOURCES) \
 	  $(getopt_SOURCES) $(internal_SOURCES) \
+	  $(OPT_SOURCES) \
 	  aesdata.c desdata.c twofishdata.c shadata.c gcmdata.c eccdata.c
 
-DISTFILES = $(SOURCES) $(HEADERS) getopt.h .bootstrap run-tests \
+# NOTE: This list must include all source files, with no duplicates,
+# independently of which source files are included in the build.
+DISTFILES = $(SOURCES) $(HEADERS) getopt.h getopt_int.h \
+	.bootstrap run-tests \
 	aclocal.m4 configure.ac \
-	configure stamp-h.in \
+	configure stamp-h.in version.h.in \
+	libnettle.map.in libhogweed.map.in \
 	config.guess config.sub install-sh texinfo.tex \
 	config.h.in config.m4.in config.make.in	Makefile.in \
-	README AUTHORS COPYING.LIB INSTALL NEWS TODO ChangeLog \
+	README AUTHORS COPYING.LESSERv3 COPYINGv2 COPYINGv3 \
+	INSTALL NEWS TODO ChangeLog \
 	nettle.pc.in hogweed.pc.in \
-	memxor.c $(des_headers) descore.README \
+	$(des_headers) descore.README \
 	aes-internal.h camellia-internal.h serpent-internal.h \
 	cast128_sboxes.h desinfo.h desCode.h \
-	nettle-internal.h nettle-write.h prime-list.h \
-	gmp-glue.h ecc-internal.h \
-	mini-gmp.h mini-gmp.c asm.m4 \
+	memxor-internal.h nettle-internal.h nettle-write.h \
+	gmp-glue.h ecc-internal.h fat-setup.h \
+	mini-gmp.h asm.m4 \
 	nettle.texinfo nettle.info nettle.html nettle.pdf sha-example.c
 
 # Rules building static libraries
-nettle_OBJS = $(nettle_SOURCES:.c=.$(OBJEXT)) $(LIBOBJS)
-nettle_PURE_OBJS = $(nettle_OBJS:.$(OBJEXT)=.p$(OBJEXT))
+nettle_OBJS = $(nettle_SOURCES:.c=.$(OBJEXT)) \
+	      $(OPT_NETTLE_SOURCES:.c=.$(OBJEXT)) $(OPT_NETTLE_OBJS)
 
-hogweed_OBJS = $(hogweed_SOURCES:.c=.$(OBJEXT)) $(OPT_ASM_SOURCES:.asm=.$(OBJEXT))
-hogweed_PURE_OBJS = $(hogweed_OBJS:.$(OBJEXT)=.p$(OBJEXT))
+hogweed_OBJS = $(hogweed_SOURCES:.c=.$(OBJEXT)) \
+	       $(OPT_HOGWEED_OBJS) @IF_MINI_GMP@ mini-gmp.$(OBJEXT)
 
 libnettle.a: $(nettle_OBJS)
 	-rm -f $@
 	$(AR) $(ARFLAGS) $@ $(nettle_OBJS)
 	$(RANLIB) $@
+	echo nettle > libnettle.stamp
 
 libhogweed.a: $(hogweed_OBJS)
 	-rm -f $@
 	$(AR) $(ARFLAGS) $@ $(hogweed_OBJS)
 	$(RANLIB) $@
+	echo hogweed > libhogweed.stamp
 
 .c.$(OBJEXT):
-	$(COMPILE) $(CCPIC_MAYBE) -c $< \
+	$(COMPILE) -c $< \
 	&& $(DEP_PROCESS)
 
 # Rules building shared libraries.
-$(LIBNETTLE_FORLINK): $(nettle_PURE_OBJS)
-	$(LIBNETTLE_LINK) $(nettle_PURE_OBJS) -o $@ $(LIBNETTLE_LIBS)
+$(LIBNETTLE_FORLINK): $(nettle_OBJS)
+	$(LIBNETTLE_LINK) $(nettle_OBJS) @EXTRA_LINKER_FLAGS@ -o $@ $(LIBNETTLE_LIBS)
 	-mkdir .lib 2>/dev/null
 	(cd .lib \
           && rm -f $(LIBNETTLE_FORLINK) \
@@ -210,9 +261,10 @@ $(LIBNETTLE_FORLINK): $(nettle_PURE_OBJS)
 	  && [ -z "$(LIBNETTLE_SONAME)" ] \
 	  || { rm -f $(LIBNETTLE_SONAME) \
 	       && $(LN_S) $(LIBNETTLE_FORLINK) $(LIBNETTLE_SONAME) ; } )
+	echo nettle > libnettle.stamp
 
-$(LIBHOGWEED_FORLINK): $(hogweed_PURE_OBJS) $(LIBNETTLE_FORLINK)
-	$(LIBHOGWEED_LINK) $(hogweed_PURE_OBJS) -o $@ $(LIBHOGWEED_LIBS)
+$(LIBHOGWEED_FORLINK): $(hogweed_OBJS) $(LIBNETTLE_FORLINK)
+	$(LIBHOGWEED_LINK) $(hogweed_OBJS) @EXTRA_HOGWEED_LINKER_FLAGS@ -o $@ $(LIBHOGWEED_LIBS)
 	-mkdir .lib 2>/dev/null
 	(cd .lib \
           && rm -f $(LIBHOGWEED_FORLINK) \
@@ -220,10 +272,7 @@ $(LIBHOGWEED_FORLINK): $(hogweed_PURE_OBJS) $(LIBNETTLE_FORLINK)
 	  && [ -z "$(LIBHOGWEED_SONAME)" ] \
 	  || { rm -f $(LIBHOGWEED_SONAME) \
 	       && $(LN_S) $(LIBHOGWEED_FORLINK) $(LIBHOGWEED_SONAME) ; } )
-
-.c.p$(OBJEXT):
-	$(COMPILE) $(SHLIBCFLAGS) -c $< -o $@ \
-	&& $(DEP_PROCESS)
+	echo hogweed > libhogweed.stamp
 
 # For Solaris and BSD make, we have to use an explicit rule for each
 # executable. Avoid object file targets to make it easy to run the
@@ -259,9 +308,9 @@ des_headers = rotors.h keymap.h
 
 # Generate DES headers.
 $(des_headers): desdata.c
-	$(MAKE) desdata$(EXEEXT)
+	$(MAKE) desdata$(EXEEXT_FOR_BUILD)
 	f="$(srcdir)/`basename $@`"; \
-	  ./desdata$(EXEEXT) $(@F) > $${f}T; \
+	  ./desdata$(EXEEXT_FOR_BUILD) $(@F) > $${f}T; \
 	  test -s $${f}T && mv -f $${f}T $$f
 
 des.$(OBJEXT): des.c des.h $(des_headers)
@@ -308,6 +357,9 @@ ecc-384.h: eccdata.stamp
 ecc-521.h: eccdata.stamp
 	./eccdata$(EXEEXT_FOR_BUILD) 521 56 6 $(GMP_NUMB_BITS) > $@T && mv $@T $@
 
+ecc-25519.h: eccdata.stamp
+	./eccdata$(EXEEXT_FOR_BUILD) 255 14 6 $(GMP_NUMB_BITS) > $@T && mv $@T $@
+
 eccdata.stamp: eccdata.c
 	$(MAKE) eccdata$(EXEEXT_FOR_BUILD)
 	echo stamp > eccdata.stamp
@@ -317,22 +369,12 @@ ecc-224.$(OBJEXT): ecc-224.h
 ecc-256.$(OBJEXT): ecc-256.h
 ecc-384.$(OBJEXT): ecc-384.h
 ecc-521.$(OBJEXT): ecc-521.h
+ecc-25519.$(OBJEXT): ecc-25519.h
 
-ecc-192.p$(OBJEXT): ecc-192.h
-ecc-224.p$(OBJEXT): ecc-224.h
-ecc-256.p$(OBJEXT): ecc-256.h
-ecc-384.p$(OBJEXT): ecc-384.h
-ecc-521.p$(OBJEXT): ecc-521.h
-
-.asm.s:
-	$(M4) $(srcdir)/asm.m4 machine.m4 config.m4 $< >$@T \
-	&& test -s $@T && mv -f $@T $@
-
-.s.$(OBJEXT):
-	$(COMPILE) $(CCPIC_MAYBE) -c $<
-
-.s.p$(OBJEXT):
-	$(COMPILE) $(SHLIBCFLAGS) -c $< -o $@
+.asm.$(OBJEXT): $(srcdir)/asm.m4 machine.m4 config.m4
+	$(M4) $(srcdir)/asm.m4 machine.m4 config.m4 $< >$*.s
+	$(COMPILE) -c $*.s
+	@echo "$@ : $< $(srcdir)/asm.m4 machine.m4 config.m4" >$@.d 
 
 # Texinfo rules
 .texinfo.info:
@@ -388,6 +430,9 @@ nettle.pc: nettle.pc.in config.status
 	./config.status $@
 
 hogweed.pc: hogweed.pc.in config.status
+	./config.status $@
+
+version.h: version.h.in config.status
 	./config.status $@
 
 # Installation
@@ -517,7 +562,9 @@ distdir: $(DISTFILES)
 	  else cp "$(srcdir)/$$f" "$(distdir)" ; \
 	  fi ; \
 	done
-	set -e; for d in sparc32 sparc64 x86 x86_64 arm arm/neon arm/v6; do \
+	set -e; for d in sparc32 sparc64 x86 \
+		x86_64 x86_64/aesni x86_64/fat \
+		arm arm/neon arm/v6 arm/fat ; do \
 	  mkdir "$(distdir)/$$d" ; \
 	  find "$(srcdir)/$$d" -maxdepth 1 '(' -name '*.asm' -o -name '*.m4' ')' \
 	    -exec cp '{}' "$(distdir)/$$d" ';' ; \
@@ -574,15 +621,15 @@ distcheck: dist
 	$(rm_distcheck)
 
 clean-here:
-	-rm -f $(TARGETS) $(IMPLICIT_TARGETS) *.$(OBJEXT) *.p$(OBJEXT) *.s \
-		ecc-192.h ecc-224.h ecc-256.h ecc-384.h ecc-521.h \
+	-rm -f $(TARGETS) *.$(OBJEXT) *.s *.so *.dll *.a \
+		ecc-192.h ecc-224.h ecc-256.h ecc-384.h ecc-521.h ecc-25519.h \
 		eccdata$(EXEEXT_FOR_BUILD) eccdata.stamp
-	-rm -rf .lib
+	-rm -rf .lib libnettle.stamp libhogweed.stamp
 
 distclean-here: clean-here
 	-rm -f config.h stamp-h config.log config.status machine.m4 \
-	config.make config.m4 Makefile nettle-stdint.h \
-	nettle.pc hogweed.pc \
+	config.make config.m4 Makefile nettle-stdint.h version.h \
+	nettle.pc hogweed.pc libnettle.map libhogweed.map \
 	*.asm *.d
 
 maintainer-clean-here:
@@ -591,5 +638,5 @@ maintainer-clean-here:
 tags-here:	
 	etags -o $(srcdir)/TAGS $(srcdir)/*.c $(srcdir)/*.h
 
-DEP_FILES = $(SOURCES:.c=.$(OBJEXT).d) $(SOURCES:.c=.p$(OBJEXT).d) asm.d
+DEP_FILES = $(SOURCES:.c=.$(OBJEXT).d)
 @DEP_INCLUDE@ $(DEP_FILES)

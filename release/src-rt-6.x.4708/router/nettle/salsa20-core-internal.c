@@ -1,27 +1,35 @@
 /* salsa20-core-internal.c
- *
- * Internal interface to the Salsa20 core function.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2012 Simon Josefsson, Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Internal interface to the Salsa20 core function.
+
+   Copyright (C) 2012 Simon Josefsson, Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Based on:
    salsa20-ref.c version 20051118
@@ -39,6 +47,13 @@
 #include "salsa20.h"
 
 #include "macros.h"
+
+/* For fat builds */
+#if HAVE_NATIVE_salsa20_core
+void
+_nettle_salsa20_core_c(uint32_t *dst, const uint32_t *src, unsigned rounds);
+#define _nettle_salsa20_core _nettle_salsa20_core_c
+#endif
 
 #ifndef SALSA20_DEBUG
 # define SALSA20_DEBUG 0

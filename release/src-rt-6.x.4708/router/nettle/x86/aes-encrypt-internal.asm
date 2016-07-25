@@ -1,21 +1,35 @@
-C nettle, low-level cryptographics library
-C 
-C Copyright (C) 2001, 2002, 2005 Rafael R. Sevilla, Niels Möller
-C  
-C The nettle library is free software; you can redistribute it and/or modify
-C it under the terms of the GNU Lesser General Public License as published by
-C the Free Software Foundation; either version 2.1 of the License, or (at your
-C option) any later version.
-C 
-C The nettle library is distributed in the hope that it will be useful, but
-C WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-C or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-C License for more details.
-C 
-C You should have received a copy of the GNU Lesser General Public License
-C along with the nettle library; see the file COPYING.LIB.  If not, write to
-C the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-C MA 02111-1301, USA.
+C x86/aes-encrypt-internal.asm
+
+ifelse(<
+   Copyright (C) 2001, 2002, 2005, Rafael R. Sevilla, Niels Möller
+   Copyright (C) 2008, 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+>)
 
 include_src(<x86/aes.m4>)
 
@@ -32,11 +46,12 @@ define(<T>,<%ebp>)
 define(<TMP>,<%edi>)
 define(<KEY>,<%esi>)
 
-define(<FRAME_CTX>,	<40(%esp)>)
-define(<FRAME_TABLE>,	<44(%esp)>)
-define(<FRAME_LENGTH>,	<48(%esp)>)
-define(<FRAME_DST>,	<52(%esp)>)
-define(<FRAME_SRC>,	<56(%esp)>)
+define(<PARAM_ROUNDS>,	<40(%esp)>)
+define(<PARAM_KEYS>,	<44(%esp)>)
+define(<PARAM_TABLE>,	<48(%esp)>)
+define(<PARAM_LENGTH>,	<52(%esp)>)
+define(<PARAM_DST>,	<56(%esp)>)
+define(<PARAM_SRC>,	<60(%esp)>)
 
 define(<FRAME_KEY>,	<16(%esp)>)
 define(<FRAME_COUNT>,	<12(%esp)>)
@@ -55,9 +70,9 @@ C %edi is a temporary, often used as an accumulator.
 
 	.file "aes-encrypt-internal.asm"
 	
-	C _aes_encrypt(struct aes_context *ctx, 
+	C _aes_encrypt(unsigned rounds, const uint32_t *keys,
 	C	       const struct aes_table *T,
-	C	       unsigned length, uint8_t *dst,
+	C	       size_t length, uint8_t *dst,
 	C	       uint8_t *src)
 	.text
 	ALIGN(16)
@@ -70,24 +85,21 @@ PROLOGUE(_nettle_aes_encrypt)
 
 	subl	$20, %esp	C  loop counter and save area for the key pointer
 
-	movl	FRAME_LENGTH, %ebp
+	movl	PARAM_LENGTH, %ebp
 	testl	%ebp,%ebp
 	jz	.Lend
 
-	shrl	$4, FRAME_LENGTH
-
+	shrl	$4, PARAM_LENGTH
+	subl	$1, PARAM_ROUNDS
 .Lblock_loop:
-	movl	FRAME_CTX,KEY	C  address of context struct ctx
+	movl	PARAM_KEYS, KEY	C  address of subkeys
 	
-	movl	FRAME_SRC,TMP	C  address of plaintext
+	movl	PARAM_SRC, TMP	C  address of plaintext
 	AES_LOAD(SA, SB, SC, SD, TMP, KEY)
-	addl	$16, FRAME_SRC	C Increment src pointer
-	movl	FRAME_TABLE, T
+	addl	$16, PARAM_SRC	C Increment src pointer
+	movl	PARAM_TABLE, T
 
-	C  get number of rounds to do from ctx struct	
-	movl	AES_NROUNDS (KEY),TMP
-	subl	$1,TMP
-
+	movl	PARAM_ROUNDS, TMP
 	C Loop counter on stack
 	movl	TMP, FRAME_COUNT
 
@@ -146,12 +158,12 @@ PROLOGUE(_nettle_aes_encrypt)
 	jnz	.Lsubst
 
 	C Add last subkey, and store encrypted data
-	movl	FRAME_DST,TMP
+	movl	PARAM_DST,TMP
 	movl	FRAME_KEY, KEY
 	AES_STORE(SA,SB,SC,SD, KEY, TMP)
 	
-	addl	$16, FRAME_DST		C Increment destination pointer
-	decl	FRAME_LENGTH
+	addl	$16, PARAM_DST		C Increment destination pointer
+	decl	PARAM_LENGTH
 
 	jnz	.Lblock_loop
 

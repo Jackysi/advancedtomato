@@ -1,35 +1,31 @@
 /* getopt_long and getopt_long_only entry points for GNU getopt.
-   Copyright (C) 1987,88,89,90,91,92,93,94,96,97,98
-     Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
+   The GNU C Library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111-1301, USA.  */
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#include "getopt.h"
-
-#if !defined __STDC__ || !__STDC__
-/* This is a separate conditional since some stdc systems
-   reject `defined (const)'.  */
-#ifndef const
-#define const
+#ifdef _LIBC
+# include <getopt.h>
+#else
+# include "getopt.h"
 #endif
-#endif
+#include "getopt_int.h"
 
 #include <stdio.h>
 
@@ -63,14 +59,19 @@
 #endif
 
 int
-getopt_long (argc, argv, options, long_options, opt_index)
-     int argc;
-     char *const *argv;
-     const char *options;
-     const struct option *long_options;
-     int *opt_index;
+getopt_long (int argc, char *const *argv, const char *options,
+	     const struct option *long_options, int *opt_index)
 {
-  return _getopt_internal (argc, argv, options, long_options, opt_index, 0);
+  return _getopt_internal (argc, argv, options, long_options, opt_index, 0, 0);
+}
+
+int
+_getopt_long_r (int argc, char *const *argv, const char *options,
+		const struct option *long_options, int *opt_index,
+		struct _getopt_data *d)
+{
+  return _getopt_internal_r (argc, argv, options, long_options, opt_index,
+			     0, d, 0);
 }
 
 /* Like getopt_long, but '-' as well as '--' can indicate a long option.
@@ -79,16 +80,20 @@ getopt_long (argc, argv, options, long_options, opt_index)
    instead.  */
 
 int
-getopt_long_only (argc, argv, options, long_options, opt_index)
-     int argc;
-     char *const *argv;
-     const char *options;
-     const struct option *long_options;
-     int *opt_index;
+getopt_long_only (int argc, char *const *argv, const char *options,
+		  const struct option *long_options, int *opt_index)
 {
-  return _getopt_internal (argc, argv, options, long_options, opt_index, 1);
+  return _getopt_internal (argc, argv, options, long_options, opt_index, 1, 0);
 }
 
+int
+_getopt_long_only_r (int argc, char *const *argv, const char *options,
+		     const struct option *long_options, int *opt_index,
+		     struct _getopt_data *d)
+{
+  return _getopt_internal_r (argc, argv, options, long_options, opt_index,
+			     1, d, 0);
+}
 
 #endif	/* Not ELIDE_CODE.  */
 
@@ -97,9 +102,7 @@ getopt_long_only (argc, argv, options, long_options, opt_index)
 #include <stdio.h>
 
 int
-main (argc, argv)
-     int argc;
-     char **argv;
+main (int argc, char **argv)
 {
   int c;
   int digit_optind = 0;

@@ -1,37 +1,42 @@
-/* gcm.h
- *
- * Galois counter mode, specified by NIST,
- * http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
- *
- * See also the gcm paper at
- * http://www.cryptobarn.com/papers/gcm-spec.pdf.
- */
+/* gcm.c
 
-/* NOTE: Tentative interface, subject to change. No effort will be
-   made to avoid incompatible changes. */
+   Galois counter mode, specified by NIST,
+   http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2011 Niels Möller
- * Copyright (C) 2011 Katholieke Universiteit Leuven
- * 
- * Contributed by Nikos Mavrogiannopoulos
- *
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   See also the gcm paper at
+   http://www.cryptobarn.com/papers/gcm-spec.pdf.
+
+   Copyright (C) 2011, 2013 Niels Möller
+   Copyright (C) 2011 Katholieke Universiteit Leuven
+   
+   Contributed by Nikos Mavrogiannopoulos
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -50,7 +55,8 @@
 #define GHASH_POLYNOMIAL 0xE1UL
 
 static void
-gcm_gf_add (union gcm_block *r, const union gcm_block *x, const union gcm_block *y)
+gcm_gf_add (union nettle_block16 *r,
+	    const union nettle_block16 *x, const union nettle_block16 *y)
 {
   r->w[0] = x->w[0] ^ y->w[0];
   r->w[1] = x->w[1] ^ y->w[1];
@@ -63,7 +69,7 @@ gcm_gf_add (union gcm_block *r, const union gcm_block *x, const union gcm_block 
    shifted out is one, the defining polynomial is added to cancel it
    out. r == x is allowed. */
 static void
-gcm_gf_shift (union gcm_block *r, const union gcm_block *x)
+gcm_gf_shift (union nettle_block16 *r, const union nettle_block16 *x)
 {
   long mask;
 
@@ -111,10 +117,10 @@ gcm_gf_shift (union gcm_block *r, const union gcm_block *x)
    specification. y may be shorter than a full block, missing bytes
    are assumed zero. */
 static void
-gcm_gf_mul (union gcm_block *x, const union gcm_block *y)
+gcm_gf_mul (union nettle_block16 *x, const union nettle_block16 *y)
 {
-  union gcm_block V;
-  union gcm_block Z;
+  union nettle_block16 V;
+  union nettle_block16 Z;
   unsigned i;
 
   memcpy(V.b, x, sizeof(V));
@@ -150,7 +156,7 @@ shift_table[0x10] = {
 };
 
 static void
-gcm_gf_shift_4(union gcm_block *x)
+gcm_gf_shift_4(union nettle_block16 *x)
 {
   unsigned long *w = x->w;
   unsigned long reduce;
@@ -195,9 +201,9 @@ gcm_gf_shift_4(union gcm_block *x)
 }
 
 static void
-gcm_gf_mul (union gcm_block *x, const union gcm_block *table)
+gcm_gf_mul (union nettle_block16 *x, const union nettle_block16 *table)
 {
-  union gcm_block Z;
+  union nettle_block16 Z;
   unsigned i;
 
   memset(Z.b, 0, sizeof(Z));
@@ -214,6 +220,13 @@ gcm_gf_mul (union gcm_block *x, const union gcm_block *table)
   memcpy (x->b, Z.b, sizeof(Z));
 }
 # elif GCM_TABLE_BITS == 8
+#  if HAVE_NATIVE_gcm_hash8
+
+#define gcm_hash _nettle_gcm_hash8
+void
+_nettle_gcm_hash8 (const struct gcm_key *key, union nettle_block16 *x,
+		   size_t length, const uint8_t *data);
+#  else /* !HAVE_NATIVE_gcm_hash8 */
 static const uint16_t
 shift_table[0x100] = {
   W(00,00),W(01,c2),W(03,84),W(02,46),W(07,08),W(06,ca),W(04,8c),W(05,4e),
@@ -251,7 +264,7 @@ shift_table[0x100] = {
 };
 
 static void
-gcm_gf_shift_8(union gcm_block *x)
+gcm_gf_shift_8(union nettle_block16 *x)
 {
   unsigned long *w = x->w;
   unsigned long reduce;
@@ -289,9 +302,9 @@ gcm_gf_shift_8(union gcm_block *x)
 }
 
 static void
-gcm_gf_mul (union gcm_block *x, const union gcm_block *table)
+gcm_gf_mul (union nettle_block16 *x, const union nettle_block16 *table)
 {
-  union gcm_block Z;
+  union nettle_block16 Z;
   unsigned i;
 
   memcpy(Z.b, table[x->b[GCM_BLOCK_SIZE-1]].b, GCM_BLOCK_SIZE);
@@ -304,7 +317,7 @@ gcm_gf_mul (union gcm_block *x, const union gcm_block *table)
   gcm_gf_shift_8(&Z);
   gcm_gf_add(x, &Z, &table[x->b[0]]);
 }
-
+#  endif /* ! HAVE_NATIVE_gcm_hash8 */
 # else /* GCM_TABLE_BITS != 8 */
 #  error Unsupported table size. 
 # endif /* GCM_TABLE_BITS != 8 */
@@ -323,7 +336,7 @@ gcm_gf_mul (union gcm_block *x, const union gcm_block *table)
  */
 void
 gcm_set_key(struct gcm_key *key,
-	    void *cipher, nettle_crypt_func *f)
+	    const void *cipher, nettle_cipher_func *f)
 {
   /* Middle element if GCM_TABLE_BITS > 0, otherwise the first
      element */
@@ -347,9 +360,10 @@ gcm_set_key(struct gcm_key *key,
 #endif
 }
 
+#ifndef gcm_hash
 static void
-gcm_hash(const struct gcm_key *key, union gcm_block *x,
-	 unsigned length, const uint8_t *data)
+gcm_hash(const struct gcm_key *key, union nettle_block16 *x,
+	 size_t length, const uint8_t *data)
 {
   for (; length >= GCM_BLOCK_SIZE;
        length -= GCM_BLOCK_SIZE, data += GCM_BLOCK_SIZE)
@@ -363,9 +377,10 @@ gcm_hash(const struct gcm_key *key, union gcm_block *x,
       gcm_gf_mul (x, key->h);
     }
 }
+#endif /* !gcm_hash */
 
 static void
-gcm_hash_sizes(const struct gcm_key *key, union gcm_block *x,
+gcm_hash_sizes(const struct gcm_key *key, union nettle_block16 *x,
 	       uint64_t auth_size, uint64_t data_size)
 {
   uint8_t buffer[GCM_BLOCK_SIZE];
@@ -379,13 +394,10 @@ gcm_hash_sizes(const struct gcm_key *key, union gcm_block *x,
   gcm_hash(key, x, GCM_BLOCK_SIZE, buffer);
 }
 
-/*
- * @length: The size of the iv (fixed for now to GCM_NONCE_SIZE)
- * @iv: The iv
- */
+/* NOTE: The key is needed only if length != GCM_IV_SIZE */
 void
 gcm_set_iv(struct gcm_ctx *ctx, const struct gcm_key *key,
-	   unsigned length, const uint8_t *iv)
+	   size_t length, const uint8_t *iv)
 {
   if (length == GCM_IV_SIZE)
     {
@@ -412,7 +424,7 @@ gcm_set_iv(struct gcm_ctx *ctx, const struct gcm_key *key,
 
 void
 gcm_update(struct gcm_ctx *ctx, const struct gcm_key *key,
-	   unsigned length, const uint8_t *data)
+	   size_t length, const uint8_t *data)
 {
   assert(ctx->auth_size % GCM_BLOCK_SIZE == 0);
   assert(ctx->data_size == 0);
@@ -423,8 +435,8 @@ gcm_update(struct gcm_ctx *ctx, const struct gcm_key *key,
 }
 
 static void
-gcm_crypt(struct gcm_ctx *ctx, void *cipher, nettle_crypt_func *f,
-	  unsigned length, uint8_t *dst, const uint8_t *src)
+gcm_crypt(struct gcm_ctx *ctx, const void *cipher, nettle_cipher_func *f,
+	  size_t length, uint8_t *dst, const uint8_t *src)
 {
   uint8_t buffer[GCM_BLOCK_SIZE];
 
@@ -461,8 +473,8 @@ gcm_crypt(struct gcm_ctx *ctx, void *cipher, nettle_crypt_func *f,
 
 void
 gcm_encrypt (struct gcm_ctx *ctx, const struct gcm_key *key,
-	     void *cipher, nettle_crypt_func *f,
-	     unsigned length, uint8_t *dst, const uint8_t *src)
+	     const void *cipher, nettle_cipher_func *f,
+	     size_t length, uint8_t *dst, const uint8_t *src)
 {
   assert(ctx->data_size % GCM_BLOCK_SIZE == 0);
 
@@ -474,8 +486,8 @@ gcm_encrypt (struct gcm_ctx *ctx, const struct gcm_key *key,
 
 void
 gcm_decrypt(struct gcm_ctx *ctx, const struct gcm_key *key,
-	    void *cipher, nettle_crypt_func *f,
-	    unsigned length, uint8_t *dst, const uint8_t *src)
+	    const void *cipher, nettle_cipher_func *f,
+	    size_t length, uint8_t *dst, const uint8_t *src)
 {
   assert(ctx->data_size % GCM_BLOCK_SIZE == 0);
 
@@ -487,8 +499,8 @@ gcm_decrypt(struct gcm_ctx *ctx, const struct gcm_key *key,
 
 void
 gcm_digest(struct gcm_ctx *ctx, const struct gcm_key *key,
-	   void *cipher, nettle_crypt_func *f,
-	   unsigned length, uint8_t *digest)
+	   const void *cipher, nettle_cipher_func *f,
+	   size_t length, uint8_t *digest)
 {
   uint8_t buffer[GCM_BLOCK_SIZE];
 

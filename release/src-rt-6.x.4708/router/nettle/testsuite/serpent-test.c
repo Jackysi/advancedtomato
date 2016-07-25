@@ -6,7 +6,7 @@ tstring_hex_reverse (const char *hex)
 {
   struct tstring *s = tstring_hex (hex);
   uint8_t *p;
-  unsigned length, i;
+  size_t length, i;
 
   length = s->length;
   p = s->data;
@@ -21,6 +21,50 @@ tstring_hex_reverse (const char *hex)
 }
 
 #define RHEX(x) tstring_hex_reverse(x)
+
+/* For testing unusual key sizes. */
+static void
+test_serpent(const struct tstring *key,
+	     const struct tstring *cleartext,
+	     const struct tstring *ciphertext)
+{
+  struct serpent_ctx ctx;
+  uint8_t *data = xalloc(cleartext->length);
+  size_t length;
+  ASSERT (cleartext->length == ciphertext->length);
+  length = cleartext->length;
+
+  serpent_set_key(&ctx, key->length, key->data);
+  serpent_encrypt(&ctx, length, data, cleartext->data);
+
+  if (!MEMEQ(length, data, ciphertext->data))
+    {
+      fprintf(stderr, "Encrypt failed:\nInput:");
+      tstring_print_hex(cleartext);
+      fprintf(stderr, "\nOutput: ");
+      print_hex(length, data);
+      fprintf(stderr, "\nExpected:");
+      tstring_print_hex(ciphertext);
+      fprintf(stderr, "\n");
+      FAIL();
+    }
+  serpent_set_key(&ctx, key->length, key->data);
+  serpent_decrypt(&ctx, length, data, data);
+
+  if (!MEMEQ(length, data, cleartext->data))
+    {
+      fprintf(stderr, "Decrypt failed:\nInput:");
+      tstring_print_hex(ciphertext);
+      fprintf(stderr, "\nOutput: ");
+      print_hex(length, data);
+      fprintf(stderr, "\nExpected:");
+      tstring_print_hex(cleartext);
+      fprintf(stderr, "\n");
+      FAIL();
+    }
+
+  free(data);
+}
 
 void
 test_main(void)
@@ -148,36 +192,32 @@ test_main(void)
 	      SHEX("0000000001000000 0200000003000000"),
 	      SHEX("C1415AC653FD7C7F D917482EE8EBFE25"));
 
-  /* Currrently, key sizes smaller than SERPENT_MIN_KEY_SIZE bytes
-     (128 bits) are not supported. */
-  test_cipher(&nettle_serpent256,
-	      SHEX("0011223344"),
-	      SHEX("0000000001000000 0200000003000000"),
-	      SHEX("C1415AC653FD7C7F D917482EE8EBFE25"));
+  /* Tests with various key sizes. Currrently, key sizes smaller than
+     SERPENT_MIN_KEY_SIZE bytes (128 bits) are not publicly
+     supported. */
+  test_serpent(SHEX("0011223344"),
+	       SHEX("0000000001000000 0200000003000000"),
+	       SHEX("C1415AC653FD7C7F D917482EE8EBFE25"));
 
-  test_cipher(&nettle_serpent256,
-	      SHEX("00112233445566778899aabbccddeeff"
-		   "00010000000000000000000000000000"),
-	      SHEX("0000000001000000 0200000003000000"),
-	      SHEX("8EB9C958EAFFDF42 009755D7B6458838"));
+  test_serpent(SHEX("00112233445566778899aabbccddeeff"
+		    "00010000000000000000000000000000"),
+	       SHEX("0000000001000000 0200000003000000"),
+	       SHEX("8EB9C958EAFFDF42 009755D7B6458838"));
 
-  test_cipher(&nettle_serpent256,
-	      SHEX("00112233445566778899aabbccddeeff"
-		   "00"),
-	      SHEX("0000000001000000 0200000003000000"),
-	      SHEX("8EB9C958EAFFDF42 009755D7B6458838"));
+  test_serpent(SHEX("00112233445566778899aabbccddeeff"
+		    "00"),
+	       SHEX("0000000001000000 0200000003000000"),
+	       SHEX("8EB9C958EAFFDF42 009755D7B6458838"));
 
-  test_cipher(&nettle_serpent256,
-	      SHEX("00112233445566778899aabbccddeeff"
-		   "00112201000000000000000000000000"),
-	      SHEX("0000000001000000 0200000003000000"),
-	      SHEX("C8A078D8212AC96D 9060E30EC5CBB5C7"));
+  test_serpent(SHEX("00112233445566778899aabbccddeeff"
+		    "00112201000000000000000000000000"),
+	       SHEX("0000000001000000 0200000003000000"),
+	       SHEX("C8A078D8212AC96D 9060E30EC5CBB5C7"));
 
-  test_cipher(&nettle_serpent256,
-	      SHEX("00112233445566778899aabbccddeeff"
-		   "001122"),
-	      SHEX("0000000001000000 0200000003000000"),
-	      SHEX("C8A078D8212AC96D 9060E30EC5CBB5C7"));
+  test_serpent(SHEX("00112233445566778899aabbccddeeff"
+		    "001122"),
+	       SHEX("0000000001000000 0200000003000000"),
+	       SHEX("C8A078D8212AC96D 9060E30EC5CBB5C7"));
 
   /* Test with multiple blocks. */
   test_cipher(&nettle_serpent128,

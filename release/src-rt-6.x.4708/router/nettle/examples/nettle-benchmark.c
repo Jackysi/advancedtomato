@@ -1,28 +1,35 @@
 /* nettle-benchmark.c
- *
- * Tries the performance of the various algorithms.
- *
- */
- 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001, 2010 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   
+   Tests the performance of the various algorithms.
+
+   Copyright (C) 2001, 2010, 2014 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -47,6 +54,7 @@
 #include "cbc.h"
 #include "ctr.h"
 #include "des.h"
+#include "eax.h"
 #include "gcm.h"
 #include "memxor.h"
 #include "salsa20.h"
@@ -56,6 +64,7 @@
 #include "sha3.h"
 #include "twofish.h"
 #include "umac.h"
+#include "poly1305.h"
 
 #include "nettle-meta.h"
 #include "nettle-internal.h"
@@ -148,9 +157,9 @@ bench_nothing(void *arg UNUSED)
 
 struct bench_memxor_info
 {
-  uint8_t *dst;
-  const uint8_t *src;
-  const uint8_t *other;  
+  void *dst;
+  const void *src;
+  const void *other;
 };
 
 static void
@@ -184,7 +193,7 @@ bench_hash(void *arg)
 struct bench_cipher_info
 {
   void *ctx;
-  nettle_crypt_func *crypt;
+  nettle_cipher_func *crypt;
   uint8_t *data;
 };
 
@@ -198,7 +207,7 @@ bench_cipher(void *arg)
 struct bench_cbc_info
 {
   void *ctx;
-  nettle_crypt_func *crypt;
+  nettle_cipher_func *crypt;
  
   uint8_t *data;
   
@@ -233,6 +242,28 @@ bench_ctr(void *arg)
 	    BENCH_BLOCK, info->data, info->data);
 }
 
+struct bench_aead_info
+{
+  void *ctx;
+  nettle_crypt_func *crypt;
+  nettle_hash_update_func *update;
+  uint8_t *data;
+};
+
+static void
+bench_aead_crypt(void *arg)
+{
+  const struct bench_aead_info *info = arg;
+  info->crypt (info->ctx, BENCH_BLOCK, info->data, info->data);
+}
+
+static void
+bench_aead_update(void *arg)
+{
+  const struct bench_aead_info *info = arg;
+  info->update (info->ctx, BENCH_BLOCK, info->data);
+}
+
 /* Set data[i] = floor(sqrt(i)) */
 static void
 init_data(uint8_t *data)
@@ -253,6 +284,15 @@ init_key(unsigned length,
   unsigned i;
   for (i = 0; i<length; i++)
     key[i] = i;
+}
+
+static void
+init_nonce(unsigned length,
+	   uint8_t *nonce)
+{
+  unsigned i;
+  for (i = 0; i<length; i++)
+    nonce[i] = 3*i;
 }
 
 static void
@@ -305,16 +345,16 @@ static void
 time_memxor(void)
 {
   struct bench_memxor_info info;
-  uint8_t src[BENCH_BLOCK + sizeof(long)];
-  uint8_t other[BENCH_BLOCK + sizeof(long)];
-  uint8_t dst[BENCH_BLOCK];
+  unsigned long src[BENCH_BLOCK / sizeof(long) + 2];
+  unsigned long other[BENCH_BLOCK / sizeof(long) + 2];
+  unsigned long dst[BENCH_BLOCK / sizeof(long) + 1];
 
   info.src = src;
   info.dst = dst;
 
   display ("memxor", "aligned", sizeof(unsigned long),
 	   time_function(bench_memxor, &info));
-  info.src = src + 1;
+  info.src = (const char *) src + 1;
   display ("memxor", "unaligned", sizeof(unsigned long),
 	   time_function(bench_memxor, &info));
 
@@ -323,13 +363,13 @@ time_memxor(void)
   display ("memxor3", "aligned", sizeof(unsigned long),
 	   time_function(bench_memxor3, &info));
 
-  info.other = other + 1;
+  info.other = (const char *) other + 1;
   display ("memxor3", "unaligned01", sizeof(unsigned long),
 	   time_function(bench_memxor3, &info));
-  info.src = src + 1;
+  info.src = (const char *) src + 1;
   display ("memxor3", "unaligned11", sizeof(unsigned long),
 	   time_function(bench_memxor3, &info));
-  info.other = other + 2;
+  info.other = (const char *) other + 2;
   display ("memxor3", "unaligned12", sizeof(unsigned long),
 	   time_function(bench_memxor3, &info));  
 }
@@ -370,7 +410,7 @@ time_umac(void)
   info.update = (nettle_hash_update_func *) umac32_update;
   info.data = data;
 
-  display("umac32", "update", UMAC_DATA_SIZE,
+  display("umac32", "update", UMAC_BLOCK_SIZE,
 	  time_function(bench_hash, &info));
 
   umac64_set_key (&ctx64, key);
@@ -378,7 +418,7 @@ time_umac(void)
   info.update = (nettle_hash_update_func *) umac64_update;
   info.data = data;
 
-  display("umac64", "update", UMAC_DATA_SIZE,
+  display("umac64", "update", UMAC_BLOCK_SIZE,
 	  time_function(bench_hash, &info));
 
   umac96_set_key (&ctx96, key);
@@ -386,7 +426,7 @@ time_umac(void)
   info.update = (nettle_hash_update_func *) umac96_update;
   info.data = data;
 
-  display("umac96", "update", UMAC_DATA_SIZE,
+  display("umac96", "update", UMAC_BLOCK_SIZE,
 	  time_function(bench_hash, &info));
 
   umac128_set_key (&ctx128, key);
@@ -394,42 +434,25 @@ time_umac(void)
   info.update = (nettle_hash_update_func *) umac128_update;
   info.data = data;
 
-  display("umac128", "update", UMAC_DATA_SIZE,
+  display("umac128", "update", UMAC_BLOCK_SIZE,
 	  time_function(bench_hash, &info));
 }
 
 static void
-time_gcm(void)
+time_poly1305_aes(void)
 {
   static uint8_t data[BENCH_BLOCK];
-  struct bench_hash_info hinfo;
-  struct bench_cipher_info cinfo;
-  struct gcm_aes_ctx ctx;
+  struct bench_hash_info info;
+  struct poly1305_aes_ctx ctx;
+  uint8_t key[32];
 
-  uint8_t key[16];
-  uint8_t iv[GCM_IV_SIZE];
+  poly1305_aes_set_key (&ctx, key);
+  info.ctx = &ctx;
+  info.update = (nettle_hash_update_func *) poly1305_aes_update;
+  info.data = data;
 
-  gcm_aes_set_key(&ctx, sizeof(key), key);
-  gcm_aes_set_iv(&ctx, sizeof(iv), iv);
-
-  hinfo.ctx = &ctx;
-  hinfo.update = (nettle_hash_update_func *) gcm_aes_update;
-  hinfo.data = data;
-  
-  display("gcm-aes", "update", GCM_BLOCK_SIZE,
-	  time_function(bench_hash, &hinfo));
-  
-  cinfo.ctx = &ctx;
-  cinfo.crypt = (nettle_crypt_func *) gcm_aes_encrypt;
-  cinfo.data = data;
-
-  display("gcm-aes", "encrypt", GCM_BLOCK_SIZE,
-	  time_function(bench_cipher, &cinfo));
-
-  cinfo.crypt = (nettle_crypt_func *) gcm_aes_decrypt;
-
-  display("gcm-aes", "decrypt", GCM_BLOCK_SIZE,
-	  time_function(bench_cipher, &cinfo));
+  display("poly1305-aes", "update", 1024,
+	  time_function(bench_hash, &info));
 }
 
 static int
@@ -469,7 +492,7 @@ time_cipher(const struct nettle_cipher *cipher)
     info.data = data;
     
     init_key(cipher->key_size, key);
-    cipher->set_encrypt_key(ctx, cipher->key_size, key);
+    cipher->set_encrypt_key(ctx, key);
 
     display(cipher->name, "ECB encrypt", cipher->block_size,
 	    time_function(bench_cipher, &info));
@@ -482,7 +505,7 @@ time_cipher(const struct nettle_cipher *cipher)
     info.data = data;
     
     init_key(cipher->key_size, key);
-    cipher->set_decrypt_key(ctx, cipher->key_size, key);
+    cipher->set_decrypt_key(ctx, key);
 
     display(cipher->name, "ECB decrypt", cipher->block_size,
 	    time_function(bench_cipher, &info));
@@ -501,9 +524,9 @@ time_cipher(const struct nettle_cipher *cipher)
 	info.block_size = cipher->block_size;
 	info.iv = iv;
     
-        memset(iv, 0, sizeof(iv));
+        memset(iv, 0, cipher->block_size);
     
-        cipher->set_encrypt_key(ctx, cipher->key_size, key);
+        cipher->set_encrypt_key(ctx, key);
 
 	display(cipher->name, "CBC encrypt", cipher->block_size,
 		time_function(bench_cbc_encrypt, &info));
@@ -517,9 +540,9 @@ time_cipher(const struct nettle_cipher *cipher)
 	info.block_size = cipher->block_size;
 	info.iv = iv;
     
-        memset(iv, 0, sizeof(iv));
+        memset(iv, 0, cipher->block_size);
 
-        cipher->set_decrypt_key(ctx, cipher->key_size, key);
+        cipher->set_decrypt_key(ctx, key);
 
 	display(cipher->name, "CBC decrypt", cipher->block_size,
 		time_function(bench_cbc_decrypt, &info));
@@ -534,9 +557,9 @@ time_cipher(const struct nettle_cipher *cipher)
 	info.block_size = cipher->block_size;
 	info.iv = iv;
     
-        memset(iv, 0, sizeof(iv));
+        memset(iv, 0, cipher->block_size);
     
-        cipher->set_encrypt_key(ctx, cipher->key_size, key);
+        cipher->set_encrypt_key(ctx, key);
 
 	display(cipher->name, "CTR", cipher->block_size,
 		time_function(bench_ctr, &info));	
@@ -546,6 +569,71 @@ time_cipher(const struct nettle_cipher *cipher)
     }
   free(ctx);
   free(key);
+}
+
+static void
+time_aead(const struct nettle_aead *aead)
+{
+  void *ctx = xalloc(aead->context_size);
+  uint8_t *key = xalloc(aead->key_size);
+  uint8_t *nonce = xalloc(aead->nonce_size);
+  static uint8_t data[BENCH_BLOCK];
+
+  printf("\n");
+  
+  init_data(data);
+  if (aead->set_nonce)
+    init_nonce (aead->nonce_size, nonce);
+
+  {
+    /* Decent initializers are a GNU extension, so don't use it here. */
+    struct bench_aead_info info;
+    info.ctx = ctx;
+    info.crypt = aead->encrypt;
+    info.data = data;
+    
+    init_key(aead->key_size, key);
+    aead->set_encrypt_key(ctx, key);
+    if (aead->set_nonce)
+      aead->set_nonce (ctx, nonce);
+
+    display(aead->name, "encrypt", aead->block_size,
+	    time_function(bench_aead_crypt, &info));
+  }
+  
+  {
+    struct bench_aead_info info;
+    info.ctx = ctx;
+    info.crypt = aead->decrypt;
+    info.data = data;
+    
+    init_key(aead->key_size, key);
+    aead->set_decrypt_key(ctx, key);
+    if (aead->set_nonce)
+      aead->set_nonce (ctx, nonce);
+
+    display(aead->name, "decrypt", aead->block_size,
+	    time_function(bench_aead_crypt, &info));
+  }
+
+  if (aead->update)
+    {
+      struct bench_aead_info info;
+      info.ctx = ctx;
+      info.update = aead->update;
+      info.data = data;
+
+      aead->set_encrypt_key(ctx, key);
+
+      if (aead->set_nonce)
+	aead->set_nonce (ctx, nonce);
+    
+      display(aead->name, "update", aead->block_size,
+	      time_function(bench_aead_update, &info));
+    }
+  free(ctx);
+  free(key);
+  free(nonce);
 }
 
 /* Try to get accurate cycle times for assembler functions. */
@@ -589,7 +677,7 @@ static void
 bench_sha1_compress(void)
 {
   uint32_t state[_SHA1_DIGEST_LENGTH];
-  uint8_t data[SHA1_DATA_SIZE];
+  uint8_t data[SHA1_BLOCK_SIZE];
   double t;
 
   TIME_CYCLES (t, _nettle_sha1_compress(state, data));
@@ -642,6 +730,7 @@ main(int argc, char **argv)
       &nettle_sha1, OPENSSL(&nettle_openssl_sha1)
       &nettle_sha224, &nettle_sha256,
       &nettle_sha384, &nettle_sha512,
+      &nettle_sha512_224, &nettle_sha512_256,
       &nettle_sha3_224, &nettle_sha3_256,
       &nettle_sha3_384, &nettle_sha3_512,
       &nettle_ripemd160, &nettle_gosthash94,
@@ -654,7 +743,6 @@ main(int argc, char **argv)
       OPENSSL(&nettle_openssl_aes128)
       OPENSSL(&nettle_openssl_aes192)
       OPENSSL(&nettle_openssl_aes256)
-      &nettle_arcfour128, OPENSSL(&nettle_openssl_arcfour128)
       &nettle_blowfish128, OPENSSL(&nettle_openssl_blowfish128)
       &nettle_camellia128, &nettle_camellia192, &nettle_camellia256,
       &nettle_cast128, OPENSSL(&nettle_openssl_cast128)
@@ -662,7 +750,22 @@ main(int argc, char **argv)
       &nettle_des3,
       &nettle_serpent256,
       &nettle_twofish128, &nettle_twofish192, &nettle_twofish256,
-      &nettle_salsa20, &nettle_salsa20r12,
+      NULL
+    };
+
+  const struct nettle_aead *aeads[] =
+    {
+      /* Stream ciphers */
+      &nettle_arcfour128, OPENSSL(&nettle_openssl_arcfour128)
+      &nettle_salsa20, &nettle_salsa20r12, &nettle_chacha,
+      /* Proper AEAD algorithme. */
+      &nettle_gcm_aes128,
+      &nettle_gcm_aes192,
+      &nettle_gcm_aes256,
+      &nettle_gcm_camellia128,
+      &nettle_gcm_camellia256,
+      &nettle_eax_aes128,
+      &nettle_chacha_poly1305,
       NULL
     };
 
@@ -718,15 +821,16 @@ main(int argc, char **argv)
   if (!alg || strstr ("umac", alg))
     time_umac();
 
+  if (!alg || strstr ("poly1305-aes", alg))
+    time_poly1305_aes();
+
   for (i = 0; ciphers[i]; i++)
     if (!alg || strstr(ciphers[i]->name, alg))
       time_cipher(ciphers[i]);
 
-  if (!alg || strstr ("gcm", alg))
-    {
-      printf("\n");
-      time_gcm();
-    }
+  for (i = 0; aeads[i]; i++)
+    if (!alg || strstr(aeads[i]->name, alg))
+      time_aead(aeads[i]);
 
   return 0;
 }

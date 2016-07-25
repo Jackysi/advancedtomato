@@ -34,14 +34,14 @@ ref_redc (mp_limb_t *rp, const mp_limb_t *ap, const mp_limb_t *mp, mp_size_t mn)
 void
 test_main (void)
 {
-  gmp_randstate_t state;
+  gmp_randstate_t rands;
   mp_limb_t a[MAX_SIZE];
   mp_limb_t m[MAX_SIZE];
   mp_limb_t ref[MAX_SIZE];
   unsigned i;
   mpz_t r;
 
-  gmp_randinit_default (state);
+  gmp_randinit_default (rands);
   
   mpz_init (r);
   
@@ -49,52 +49,67 @@ test_main (void)
     {
       const struct ecc_curve *ecc = ecc_curves[i];
       unsigned j;
-      if (!ecc->redc)
-	continue;
 
       for (j = 0; j < COUNT; j++)
 	{
 	  if (j & 1)
-	    mpz_rrandomb (r, state, 2*ecc->size * GMP_NUMB_BITS);
+	    mpz_rrandomb (r, rands, 2*ecc->p.size * GMP_NUMB_BITS);
 	  else
-	    mpz_urandomb (r, state, 2*ecc->size * GMP_NUMB_BITS);
+	    mpz_urandomb (r, rands, 2*ecc->p.size * GMP_NUMB_BITS);
 
-	  mpz_limbs_copy (a, r, 2*ecc->size);
+	  mpz_limbs_copy (a, r, 2*ecc->p.size);
 
-	  ref_redc (ref, a, ecc->p, ecc->size);
+	  ref_redc (ref, a, ecc->p.m, ecc->p.size);
 
-	  mpn_copyi (m, a, 2*ecc->size);
-	  ecc->redc (ecc, m);
-	  if (mpn_cmp (m, ecc->p, ecc->size) >= 0)
-	    mpn_sub_n (m, m, ecc->p, ecc->size);
-
-	  if (mpn_cmp (m, ref, ecc->size))
+	  if (ecc->p.reduce != ecc->p.mod)
 	    {
-	      fprintf (stderr, "ecc->redc failed: bit_size = %u\n",
-		       ecc->bit_size);
-	      gmp_fprintf (stderr, "a   = %Nx\n", a, 2*ecc->size);
-	      gmp_fprintf (stderr, "m   = %Nx (bad)\n", m, ecc->size);
-	      gmp_fprintf (stderr, "ref = %Nx\n", ref, ecc->size);
-	      abort ();
+	      mpn_copyi (m, a, 2*ecc->p.size);
+	      ecc->p.reduce (&ecc->p, m);
+	      if (mpn_cmp (m, ecc->p.m, ecc->p.size) >= 0)
+		mpn_sub_n (m, m, ecc->p.m, ecc->p.size);
+
+	      if (mpn_cmp (m, ref, ecc->p.size))
+		{
+		  fprintf (stderr, "ecc->p.reduce failed: bit_size = %u\n",
+			   ecc->p.bit_size);
+		  fprintf (stderr, "a   = ");
+		  mpn_out_str (stderr, 16, a, 2*ecc->p.size);
+		  fprintf (stderr, "\nm   = ");
+		  mpn_out_str (stderr, 16, m, ecc->p.size);
+		  fprintf (stderr, " (bad)\nref   = ");
+		  mpn_out_str (stderr, 16, ref, ecc->p.size);
+		  fprintf (stderr, "\n");
+		  abort ();
+		}
 	    }
+	  if (ecc->p.redc_size != 0)
+	    {	  
+	      mpn_copyi (m, a, 2*ecc->p.size);
+	      if (ecc->p.m[0] == 1)
+		ecc_pm1_redc (&ecc->p, m);
+	      else
+		ecc_pp1_redc (&ecc->p, m);
 
-	  mpn_copyi (m, a, 2*ecc->size);
-	  ecc_generic_redc (ecc, m);
-	  if (mpn_cmp (m, ecc->p, ecc->size) >= 0)
-	    mpn_sub_n (m, m, ecc->p, ecc->size);
+	      if (mpn_cmp (m, ecc->p.m, ecc->p.size) >= 0)
+		mpn_sub_n (m, m, ecc->p.m, ecc->p.size);
 
-	  if (mpn_cmp (m, ref, ecc->size))
-	    {
-	      fprintf (stderr, "ecc_generic_redc failed: bit_size = %u\n",
-		       ecc->bit_size);
-	      gmp_fprintf (stderr, "a   = %Nx\n", a, 2*ecc->size);
-	      gmp_fprintf (stderr, "m   = %Nx (bad)\n", m, ecc->size);
-	      gmp_fprintf (stderr, "ref = %Nx\n", ref, ecc->size);
-	      abort ();
+	      if (mpn_cmp (m, ref, ecc->p.size))
+		{
+		  fprintf (stderr, "ecc_p%c1_redc failed: bit_size = %u\n",
+			   (ecc->p.m[0] == 1) ? 'm' : 'p', ecc->p.bit_size);
+		  fprintf (stderr, "a   = ");
+		  mpn_out_str (stderr, 16, a, 2*ecc->p.size);
+		  fprintf (stderr, "\nm   = ");
+		  mpn_out_str (stderr, 16, m, ecc->p.size);
+		  fprintf (stderr, " (bad)\nref = ");
+		  mpn_out_str (stderr, 16, ref, ecc->p.size);
+		  fprintf (stderr, "\n");
+		  abort ();
+		}
 	    }
 	}
     }
 
   mpz_clear (r);
-  gmp_randclear (state);
+  gmp_randclear (rands);
 }

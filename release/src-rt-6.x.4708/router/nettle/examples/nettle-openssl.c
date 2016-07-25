@@ -1,27 +1,35 @@
 /* nettle-openssl.c
- *
- * Glue that's used only by the benchmark, and subject to change.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2002 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Glue that's used only by the benchmark, and subject to change.
+
+   Copyright (C) 2002 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -50,23 +58,48 @@
 
 
 /* AES */
-static nettle_set_key_func openssl_aes_set_encrypt_key;
+static nettle_set_key_func openssl_aes128_set_encrypt_key;
+static nettle_set_key_func openssl_aes128_set_decrypt_key;
+static nettle_set_key_func openssl_aes192_set_encrypt_key;
+static nettle_set_key_func openssl_aes192_set_decrypt_key;
+static nettle_set_key_func openssl_aes256_set_encrypt_key;
+static nettle_set_key_func openssl_aes256_set_decrypt_key;
 static void
-openssl_aes_set_encrypt_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_aes128_set_encrypt_key(void *ctx, const uint8_t *key)
 {
-  AES_set_encrypt_key(key, length * 8, ctx);
+  AES_set_encrypt_key(key, 128, ctx);
+}
+static void
+openssl_aes128_set_decrypt_key(void *ctx, const uint8_t *key)
+{
+  AES_set_decrypt_key(key, 128, ctx);
 }
 
-static nettle_set_key_func openssl_aes_set_decrypt_key;
 static void
-openssl_aes_set_decrypt_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_aes192_set_encrypt_key(void *ctx, const uint8_t *key)
 {
-  AES_set_decrypt_key(key, length * 8, ctx);
+  AES_set_encrypt_key(key, 192, ctx);
+}
+static void
+openssl_aes192_set_decrypt_key(void *ctx, const uint8_t *key)
+{
+  AES_set_decrypt_key(key, 192, ctx);
 }
 
-static nettle_crypt_func openssl_aes_encrypt;
 static void
-openssl_aes_encrypt(void *ctx, unsigned length,
+openssl_aes256_set_encrypt_key(void *ctx, const uint8_t *key)
+{
+  AES_set_encrypt_key(key, 256, ctx);
+}
+static void
+openssl_aes256_set_decrypt_key(void *ctx, const uint8_t *key)
+{
+  AES_set_decrypt_key(key, 256, ctx);
+}
+
+static nettle_cipher_func openssl_aes_encrypt;
+static void
+openssl_aes_encrypt(const void *ctx, size_t length,
 		    uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % AES_BLOCK_SIZE));
@@ -79,9 +112,9 @@ openssl_aes_encrypt(void *ctx, unsigned length,
     }
 }
 
-static nettle_crypt_func openssl_aes_decrypt;
+static nettle_cipher_func openssl_aes_decrypt;
 static void
-openssl_aes_decrypt(void *ctx, unsigned length,
+openssl_aes_decrypt(const void *ctx, size_t length,
 		    uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % AES_BLOCK_SIZE));
@@ -98,7 +131,7 @@ const struct nettle_cipher
 nettle_openssl_aes128 = {
   "openssl aes128", sizeof(AES_KEY),
   16, 16,
-  openssl_aes_set_encrypt_key, openssl_aes_set_decrypt_key,
+  openssl_aes128_set_encrypt_key, openssl_aes128_set_decrypt_key,
   openssl_aes_encrypt, openssl_aes_decrypt
 };
 
@@ -109,7 +142,7 @@ nettle_openssl_aes192 = {
    * (as openssl cipher + nettle cbc is somewhat pointless to
    * benchmark). */
   16, 24,
-  openssl_aes_set_encrypt_key, openssl_aes_set_decrypt_key,
+  openssl_aes192_set_encrypt_key, openssl_aes192_set_decrypt_key,
   openssl_aes_encrypt, openssl_aes_decrypt
 };
 
@@ -120,45 +153,49 @@ nettle_openssl_aes256 = {
    * (as openssl cipher + nettle cbc is somewhat pointless to
    * benchmark). */
   16, 32,
-  openssl_aes_set_encrypt_key, openssl_aes_set_decrypt_key,
+  openssl_aes256_set_encrypt_key, openssl_aes256_set_decrypt_key,
   openssl_aes_encrypt, openssl_aes_decrypt
 };
 
 /* Arcfour */
-static nettle_set_key_func openssl_arcfour_set_key;
+static nettle_set_key_func openssl_arcfour128_set_key;
 static void
-openssl_arcfour_set_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_arcfour128_set_key(void *ctx, const uint8_t *key)
 {
-  RC4_set_key(ctx, length, key);
+  RC4_set_key(ctx, 16, key);
 }
 
 static nettle_crypt_func openssl_arcfour_crypt;
 static void
-openssl_arcfour_crypt(void *ctx, unsigned length,
+openssl_arcfour_crypt(void *ctx, size_t length,
 		      uint8_t *dst, const uint8_t *src)
 {
   RC4(ctx, length, src, dst);
 }
 
-const struct nettle_cipher
+const struct nettle_aead
 nettle_openssl_arcfour128 = {
   "openssl arcfour128", sizeof(RC4_KEY),
-  0, 16,
-  openssl_arcfour_set_key, openssl_arcfour_set_key,
-  openssl_arcfour_crypt, openssl_arcfour_crypt
+  1, 16, 0, 0,
+  openssl_arcfour128_set_key,
+  openssl_arcfour128_set_key,
+  NULL, NULL,
+  openssl_arcfour_crypt,
+  openssl_arcfour_crypt,
+  NULL,  
 };
 
 /* Blowfish */
-static nettle_set_key_func openssl_bf_set_key;
+static nettle_set_key_func openssl_bf128_set_key;
 static void
-openssl_bf_set_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_bf128_set_key(void *ctx, const uint8_t *key)
 {
-  BF_set_key(ctx, length, key);
+  BF_set_key(ctx, 16, key);
 }
 
-static nettle_crypt_func openssl_bf_encrypt;
+static nettle_cipher_func openssl_bf_encrypt;
 static void
-openssl_bf_encrypt(void *ctx, unsigned length,
+openssl_bf_encrypt(const void *ctx, size_t length,
 		   uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % BF_BLOCK));
@@ -171,9 +208,9 @@ openssl_bf_encrypt(void *ctx, unsigned length,
     }
 }
 
-static nettle_crypt_func openssl_bf_decrypt;
+static nettle_cipher_func openssl_bf_decrypt;
 static void
-openssl_bf_decrypt(void *ctx, unsigned length,
+openssl_bf_decrypt(const void *ctx, size_t length,
 		   uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % BF_BLOCK));
@@ -190,7 +227,7 @@ const struct nettle_cipher
 nettle_openssl_blowfish128 = {
   "openssl bf128", sizeof(BF_KEY),
   8, 16,
-  openssl_bf_set_key, openssl_bf_set_key,
+  openssl_bf128_set_key, openssl_bf128_set_key,
   openssl_bf_encrypt, openssl_bf_decrypt
 };
 
@@ -198,9 +235,8 @@ nettle_openssl_blowfish128 = {
 /* DES */
 static nettle_set_key_func openssl_des_set_key;
 static void
-openssl_des_set_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_des_set_key(void *ctx, const uint8_t *key)
 {
-  assert(length == 8);  
   /* Not sure what "unchecked" means. We want to ignore parity bits,
      but it would still make sense to check for weak keys. */
   /* Explicit cast used as I don't want to care about openssl's broken
@@ -210,30 +246,32 @@ openssl_des_set_key(void *ctx, unsigned length, const uint8_t *key)
 
 #define DES_BLOCK_SIZE 8
 
-static nettle_crypt_func openssl_des_encrypt;
+static nettle_cipher_func openssl_des_encrypt;
 static void
-openssl_des_encrypt(void *ctx, unsigned length,
+openssl_des_encrypt(const void *ctx, size_t length,
 		    uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % DES_BLOCK_SIZE));
   while (length)
     {
-      DES_ecb_encrypt((void *) src, (void *) dst, ctx, DES_ENCRYPT);
+      DES_ecb_encrypt((void *) src, (void *) dst,
+		      (void *) ctx, DES_ENCRYPT);
       length -= DES_BLOCK_SIZE;
       dst += DES_BLOCK_SIZE;
       src += DES_BLOCK_SIZE;
     }
 }
 
-static nettle_crypt_func openssl_des_decrypt;
+static nettle_cipher_func openssl_des_decrypt;
 static void
-openssl_des_decrypt(void *ctx, unsigned length,
+openssl_des_decrypt(const void *ctx, size_t length,
 		    uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % DES_BLOCK_SIZE));
   while (length)
     {
-      DES_ecb_encrypt((void *) src, (void *) dst, ctx, DES_DECRYPT);
+      DES_ecb_encrypt((void *) src, (void *) dst,
+		      (void *) ctx, DES_DECRYPT);
       length -= DES_BLOCK_SIZE;
       dst += DES_BLOCK_SIZE;
       src += DES_BLOCK_SIZE;
@@ -250,16 +288,16 @@ nettle_openssl_des = {
 
 
 /* Cast128 */
-static nettle_set_key_func openssl_cast_set_key;
+static nettle_set_key_func openssl_cast128_set_key;
 static void
-openssl_cast_set_key(void *ctx, unsigned length, const uint8_t *key)
+openssl_cast128_set_key(void *ctx, const uint8_t *key)
 {
-  CAST_set_key(ctx, length, key);
+  CAST_set_key(ctx, 16, key);
 }
 
-static nettle_crypt_func openssl_cast_encrypt;
+static nettle_cipher_func openssl_cast_encrypt;
 static void
-openssl_cast_encrypt(void *ctx, unsigned length,
+openssl_cast_encrypt(const void *ctx, size_t length,
 		     uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % CAST_BLOCK));
@@ -272,9 +310,9 @@ openssl_cast_encrypt(void *ctx, unsigned length,
     }
 }
 
-static nettle_crypt_func openssl_cast_decrypt;
+static nettle_cipher_func openssl_cast_decrypt;
 static void
-openssl_cast_decrypt(void *ctx, unsigned length,
+openssl_cast_decrypt(const void *ctx, size_t length,
 		     uint8_t *dst, const uint8_t *src)
 {
   assert (!(length % CAST_BLOCK));
@@ -291,7 +329,7 @@ const struct nettle_cipher
 nettle_openssl_cast128 = {
   "openssl cast128", sizeof(CAST_KEY),
   8, CAST_KEY_LENGTH,
-  openssl_cast_set_key, openssl_cast_set_key,
+  openssl_cast128_set_key, openssl_cast128_set_key,
   openssl_cast_encrypt, openssl_cast_decrypt
 };
 
@@ -308,8 +346,8 @@ openssl_md5_init(void *ctx)
 static nettle_hash_update_func openssl_md5_update;
 static void
 openssl_md5_update(void *ctx,
-		    unsigned length,
-		    const uint8_t *src)
+		   size_t length,
+		   const uint8_t *src)
 {
   MD5_Update(ctx, src, length);
 }
@@ -317,7 +355,7 @@ openssl_md5_update(void *ctx,
 static nettle_hash_digest_func openssl_md5_digest;
 static void
 openssl_md5_digest(void *ctx,
-		    unsigned length, uint8_t *dst)
+		   size_t length, uint8_t *dst)
 {
   assert(length == SHA_DIGEST_LENGTH);
   MD5_Final(dst, ctx);
@@ -344,7 +382,7 @@ openssl_sha1_init(void *ctx)
 static nettle_hash_update_func openssl_sha1_update;
 static void
 openssl_sha1_update(void *ctx,
-		    unsigned length,
+		    size_t length,
 		    const uint8_t *src)
 {
   SHA1_Update(ctx, src, length);
@@ -353,7 +391,7 @@ openssl_sha1_update(void *ctx,
 static nettle_hash_digest_func openssl_sha1_digest;
 static void
 openssl_sha1_digest(void *ctx,
-		    unsigned length, uint8_t *dst)
+		    size_t length, uint8_t *dst)
 {
   assert(length == SHA_DIGEST_LENGTH);
   SHA1_Final(dst, ctx);

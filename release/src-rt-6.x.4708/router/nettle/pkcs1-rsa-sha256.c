@@ -1,27 +1,35 @@
 /* pkcs1-rsa-sha256.c
- *
- * PKCS stuff for rsa-sha256.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001, 2003, 2006 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   PKCS stuff for rsa-sha256.
+
+   Copyright (C) 2001, 2003, 2006 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -36,7 +44,7 @@
 #include "bignum.h"
 #include "pkcs1.h"
 
-#include "nettle-internal.h"
+#include "gmp-glue.h"
 
 /* From RFC 3447, Public-Key Cryptography Standards (PKCS) #1: RSA
  * Cryptography Specifications Version 2.1.
@@ -60,11 +68,12 @@ sha256_prefix[] =
 };
 
 int
-pkcs1_rsa_sha256_encode(mpz_t m, unsigned key_size, struct sha256_ctx *hash)
+pkcs1_rsa_sha256_encode(mpz_t m, size_t key_size, struct sha256_ctx *hash)
 {
   uint8_t *p;
-  TMP_DECL(em, uint8_t, NETTLE_MAX_BIGNUM_SIZE);
-  TMP_ALLOC(em, key_size);
+  TMP_GMP_DECL(em, uint8_t);
+
+  TMP_GMP_ALLOC(em, key_size);
 
   p = _pkcs1_signature_prefix(key_size, em,
 			      sizeof(sha256_prefix),
@@ -74,18 +83,23 @@ pkcs1_rsa_sha256_encode(mpz_t m, unsigned key_size, struct sha256_ctx *hash)
     {
       sha256_digest(hash, SHA256_DIGEST_SIZE, p);
       nettle_mpz_set_str_256_u(m, key_size, em);
+      TMP_GMP_FREE(em);
       return 1;
     }
   else
-    return 0;	
+    {
+      TMP_GMP_FREE(em);
+      return 0;
+    }
 }
 
 int
-pkcs1_rsa_sha256_encode_digest(mpz_t m, unsigned key_size, const uint8_t *digest)
+pkcs1_rsa_sha256_encode_digest(mpz_t m, size_t key_size, const uint8_t *digest)
 {
   uint8_t *p;
-  TMP_DECL(em, uint8_t, NETTLE_MAX_BIGNUM_SIZE);
-  TMP_ALLOC(em, key_size);
+  TMP_GMP_DECL(em, uint8_t);
+
+  TMP_GMP_ALLOC(em, key_size);
 
   p = _pkcs1_signature_prefix(key_size, em,
 			      sizeof(sha256_prefix),
@@ -95,8 +109,12 @@ pkcs1_rsa_sha256_encode_digest(mpz_t m, unsigned key_size, const uint8_t *digest
     {
       memcpy(p, digest, SHA256_DIGEST_SIZE);
       nettle_mpz_set_str_256_u(m, key_size, em);
+      TMP_GMP_FREE(em);
       return 1;
     }
   else
-    return 0;
+    {
+      TMP_GMP_FREE(em);
+      return 0;
+    }
 }

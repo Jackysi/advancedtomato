@@ -11,8 +11,9 @@ Name: Hogweed
 Description: Nettle low-level cryptographic library (public-key algorithms)
 URL: http://www.lysator.liu.se/~nisse/nettle
 Version: @PACKAGE_VERSION@
-Requires.private: nettle
-Libs: -L${libdir} -lhogweed
-Libs.private: -lgmp
+Requires: @IF_NOT_SHARED@ nettle
+Requires.private: @IF_SHARED@ nettle
+Libs: -L${libdir} -lhogweed @IF_NOT_SHARED@ @LIBS@
+Libs.private: @IF_SHARED@ @LIBS@
 Cflags: -I${includedir}
 
