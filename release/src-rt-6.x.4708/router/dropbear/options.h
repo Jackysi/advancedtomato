@@ -152,6 +152,11 @@ If you test it please contact the Dropbear author */
  * on x86-64 */
 #define DROPBEAR_ECDSA
 
+/* Group14 (2048 bit) is recommended. Group1 is less secure (1024 bit) though
+   is the only option for interoperability with some older SSH programs */
+#define DROPBEAR_DH_GROUP1 1
+#define DROPBEAR_DH_GROUP14 1
+
 /* Generate hostkeys as-needed when the first connection using that key type occurs.
    This avoids the need to otherwise run "dropbearkey" and avoids some problems
    with badly seeded /dev/urandom when systems first boot.
