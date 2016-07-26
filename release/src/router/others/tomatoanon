@@ -56,7 +56,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
         if [ "$1" == "checkver" -a "$ANON_NOTIFY" == "1" ]; then
             # Tomato Update Notification Script
             # This works only for Shibby`s builds !!!
-            CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
+            CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g'`
 
             #Change all spaces to %20
             echo "http://anon.groov.pl/index.php?v=$CHECK_VER&mod=$MOD&anon=2" > /tmp/AnonLink
