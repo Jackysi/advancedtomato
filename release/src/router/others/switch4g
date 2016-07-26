@@ -510,12 +510,11 @@ signal() {
                     VALUE=`echo $HCSQ | cut -d "," -f2`
                     RSSI=`awk "BEGIN {print -120+$VALUE}"` #dBm
                     VALUE=`echo $HCSQ | cut -d "," -f3`
-                    RSRP=`awk "BEGIN {print -140+$VALUE}"` #dBm
+                    RSRP=`awk "BEGIN {print -120+$VALUE}"` #dBm
                     VALUE=`echo $HCSQ | cut -d "," -f4`
-                    SINR=`awk "BEGIN {print -20+$VALUE*0.2}"` #dB
-                    VALUE=`echo $HCSQ | cut -d "," -f2`
+                    ECIO=`awk "BEGIN {print -32+$VALUE*0.5}"` #dB
                     logger "4G MODEM Current Mode: $SPEED"
-                    logger "4G MODEM Signal Strength: RSSI $RSSI dBm, RSRP $RSRP dBm, SINR $SINR dB"
+                    logger "4G MODEM Signal Strength: RSSI $RSSI dBm, RSRP $RSRP dBm, ECIO $SINR dB"
             ;;
             "GSM")
                     VALUE=`echo $HCSQ | cut -d "," -f2`
