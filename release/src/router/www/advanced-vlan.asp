@@ -20,7 +20,7 @@
 	June 2014 Tvlz
 	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
 
-	** Last Updated - MAR 30 2016 - Tvlz **
+	** Last Updated - JUN 18 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -97,6 +97,11 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Linksys E2500 v1/v2/v3':
 	case 'Linksys E3200 v1.0':
 	case 'Linksys E4200 v1':
+//	case 'Netgear WNDR3700v3':
+//	case 'Netgear WNDR4000':
+	case 'Netgear WNDR4500 V1':
+//	case 'Netgear WNDR4500 V2':
+//	case 'Netgear R6300 V1':
 		COL_P0N = '0';
 		COL_P1N = '1';
 		COL_P2N = '2';
@@ -107,10 +112,8 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Asus RT-N10U':
 	case 'Asus RT-N66U':
 	case 'Belkin N F5D8235-4 v3':
-	case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
 //	case 'Buffalo WZR-D1100H':
 //	case 'Buffalo WZR-D1800H':
-//	case 'Catchtech CW-5358U':
 	case 'Cisco M10 v1.0':
 	case 'Cisco M10 v2.0':
 	case 'D-Link DIR-865L':
@@ -124,10 +127,8 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Linksys WRT320N':
 	case 'Linksys WRT610N v2':
 	case 'Tenda N6':
+//	case 'Tenda N80':
 	case 'Tenda W1800R':
-	case 'Asus WL-500gP':
-	case 'Asus WL-500gP v2':
-	case 'Asus WL-500W':
 		COL_P0N = '1';
 		COL_P1N = '2';
 		COL_P2N = '3';
@@ -141,7 +142,12 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 	case 'Asus RT-N15U':
 	case 'Asus RT-N53':
 	case 'Asus RT-N53 A1':
+	case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
 	case 'Belkin Play Max / N600 HD (F7D4301/F7D8301) v1':
+	case 'Netcore NR235W': //NOT in Shibby Firmware - https://github.com/Jackysi/advancedtomato/pull/142
+//	case 'Netgear WNDR3400':
+//	case 'Netgear WNDR3400v2':
+//	case 'Netgear WNDR3400v3':
 		COL_P0N = '3';
 		COL_P1N = '2';
 		COL_P2N = '1';
@@ -149,13 +155,14 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014
 		COL_P4N = '4';
 	break;
 	case 'vlan-testid3':
-	case 'Asus RT-N16':
+	case 'Asus RT-N16': //invert port order=checked
 	case 'Asus RT-AC66U':
+	case 'Catchtech CW-5358U':
 //	case 'ChinaNet RG200E-CA':
 	case 'Netgear WNR2000 v2':
 	case 'Netgear WNR3500L/U/v2':
 	case 'Netgear WNR3500L v2':
-//	case 'Tenda N60':
+	case 'Tenda N60':
 		COL_P0N = '4';
 		COL_P1N = '3';
 		COL_P2N = '2';
@@ -176,19 +183,11 @@ case 'ZTE H218N':
 case 'ZTE ZXV10 H618B':
 case 'Linksys WRT160N':
 case 'Linksys WRT300N v1':
-case 'Netgear WNDR3700v3':
-case 'Netgear WNDR4000':
 case 'D-Link DIR-627':
-case 'Netgear WNDR3400':
-case 'Netcore NR235W':
 case 'Netcore NI360/Q3':
-case 'Tenda N80':
 case 'PHICOMM FIR302b':
 case 'Vivick Q-W601':
-case 'Netcore NR235W/NI360':
 case 'Netcore NW715P':
-case 'Netgear R6300 V1':
-case 'Netgear WNDR3400v2':
 */
 }
 
@@ -986,10 +985,10 @@ function earlyInit() {
 
 <div style='display:none' id='unknown_router'>
 <div class='section-title'><center>!! Unknown Port Mapping Using Default!!</center></div>
-<div class='fields'><center><a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow these Instructions to get it corrected.</b></a>
+<div class='fields'><center><a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow this Link for Instructions to get it corrected.</b></a>
 <br><br> Include Router Brand/Model (<% nv('t_model_name'); %>),
-<br> Results from "robocfg show" - VLANs section only &amp;
-<br> Port Numbers on Router Case (Left -> Right viewed from Front).
+<br> Results from "nvram show | grep vlan1ports" &amp;
+<br> Port Numbers on BACK of Router Case (Left -> Right viewed from Front).
 <br> </center></div>
 <br>
 </div>
@@ -1035,7 +1034,7 @@ if(port_vlan_supported) vlg.setup();
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
-<li>If you notice that the order of the Lan Ports are incorrectly mapped, <a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow this Link for Instructions to get it corrected</b></a></li>
+<li>If you notice that the order of the Lan Ports are incorrectly mapped, <a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow these Instructions to get it corrected.</b></a></li>
 <br>
 <li><b>VLAN</b> - Unique identifier of a VLAN.</li>
 <li><b>VID</b> - Allows overriding 'traditional' VLAN/VID mapping with arbitrary VIDs for each VLAN (set to '0' to use 'regular' VLAN/VID mappings instead).</li>
@@ -1048,6 +1047,7 @@ if(port_vlan_supported) vlg.setup();
 <li><b>Wireless</b> - Assignments of wireless interfaces to different LAN briges. You should probably be using and/or check things on <a href=advanced-wlanvifs.asp>Advanced/Virtual Wireless</a> and <a href=basic-network.asp>Basic/Network</a>.</li>
 </ul>
 
+<small>
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
@@ -1062,6 +1062,7 @@ if(trunk_vlan_supported) {
 </ul>
 <br>
 </ul>
+</small>
 </div>
 </div>
 <script type='text/javascript'>
