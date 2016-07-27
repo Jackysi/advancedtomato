@@ -1,15 +1,2900 @@
-2013-05-28  Niels Möller  <nisse@lysator.liu.se>
+2016-01-28  Niels Möller  <nisse@lysator.liu.se>
 
-	* Released nettle-2.7.1.
+	* Released nettle-3.2.
+
+2016-01-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* tools/nettle-pbkdf2.c (main): Fix handling of unrecognized
+	options. Bug reported by Dongsheng Zhang. Display usage message
+	and exit non-zero. Also added "Usage: "-prefix to the message.
+	* tools/nettle-hash.c (usage): New function, extracted from main.
+	(main): Analogous fix for unrecognized options.
+
+2016-01-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Set UPDATED-FOR to 3.2.
+
+2016-01-21  Niels Möller  <nisse@lysator.liu.se>
+
+	* .gitlab-ci.yml: New file. Configuration for gitlab's continuous
+	integration system.
+
+2016-01-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/dlopen-test.c (main): Mark arguments as UNUSED.
+
+	* testsuite/Makefile.in (clean): Delete dlopen-test.
+
+	* configure.ac: Bump package version, to nettle-3.2.
+	(LIBNETTLE_MINOR, LIBHOGWEED_MINOR): Bump minor versions, to
+	libnettle.so.6.2 and and libhogweed.so.4.2.
+
+2016-01-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* base64-encode.c (encode_raw): Use const uint8_t * for the
+	alphabet argument.
+
+	* nettle.texinfo (RSA): Document the rsa_pkcs1_verify and
+	rsa_pkcs1_sign functions, and the new rsa_*_tr functions.
+
+2015-12-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/testutils.h: Fix include order, system headers before
+	nettle headers. Always include version.h, needed by
+	version-test.c. It was included indirectly via bignum.h, but only
+	if configured with publickey support.
+
+	* configure.ac (IF_DLOPEN_TEST): Fixed shell conditional.
+
+	* testsuite/ecc-mod-test.c (test_main): Handle random seeding if
+	NETTLE_TEST_SEED is set in the environment.
+
+2015-12-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/ecc-384-modp.asm: Fixed carry propagation bug. Problem
+	reported by Hanno Böck. Simplified the folding to always use
+	non-negative carry, the old code attempted to add in a carry which
+	could be either positive or negative, but didn't get that case
+	right.
+
+2015-12-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-256.c (ecc_256_modp): Fixed carry propagation bug. Problem
+	reported by Hanno Böck.
+	(ecc_256_modq): Fixed another carry propagation bug.
+
+2015-11-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Document rsa_encrypt, rsa_decrypt and
+	rsa_decrypt_tr. Text contributed by Andy Lawrence.
+
+2015-11-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* rsa.h (_rsa_blind, _rsa_unblind): Mark as deprecated.
+
+2015-09-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* rsa-md5-sign-tr.c (rsa_md5_sign_tr, rsa_md5_sign_digest_tr): New
+	file, new functions.
+	* rsa-sha1-sign-tr.c (rsa_sha1_sign_tr, rsa_sha1_sign_digest_tr):
+	Likewise.
+	* rsa-sha256-sign-tr.c (rsa_sha256_sign_tr)
+	(rsa_sha256_sign_digest_tr): Likewise.
+	* rsa-sha512-sign-tr.c (rsa_sha512_sign_tr)
+	(rsa_sha512_sign_digest_tr): Likewise.
+	* rsa.h: Added corresponding prototypes.
+	* Makefile.in (hogweed_SOURCES): Added new files.
+
+	* testsuite/testutils.c (SIGN): Extend macro to test new
+	functions, and the rsa_*_sign_digest functions. Updated callers.
+
+2015-09-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* rsa-decrypt-tr.c (rsa_decrypt_tr): Use rsa_compute_root_tr.
+	Mainly for simplicity and consistency, I'm not aware of any CRT
+	fault attacks on RSA decryption.
+
+	* testsuite/rsa-encrypt-test.c (test_main): Added test with
+	invalid private key.
+
+	* rsa-sign-tr.c (rsa_compute_root_tr): New file and function.
+	* rsa.h: Declare it.
+	* rsa-pkcs1-sign-tr.c (rsa_pkcs1_sign_tr): Use rsa_compute_root_tr.
+	(rsa_verify_res): Deleted, replaced by rsa_compute_root_tr.
+	* testsuite/rsa-sign-tr-test.c (test_rsa_sign_tr): Check that
+	signature argument is unchanged on failure.
+	* Makefile.in (hogweed_SOURCES): Added rsa-sign-tr.c.
+
+2015-09-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/rsa-sign-tr-test.c: Drop include of nettle-internal.h.
+	(test_main): Fix incorrect use of sizeof, and use LDATA macro.
+
+	From Nikos Mavrogiannopoulos.
+	* rsa-pkcs1-sign-tr.c (rsa_verify_res): New function.
+	(rsa_pkcs1_sign_tr): Check result of private key operation, to
+	protect against hardware or software errors leaking the private
+	key.
+	* testsuite/rsa-sign-tr-test.c: New testcase.
+
+2015-09-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Updated SHA3 documentation.
+
+2015-09-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/dlopen-test.c: New test program, exposing the problem
+	with ifunc and RTLD_NOW.
+
+	* testsuite/Makefile.in (TS_ALL): Conditionally add dlopen-test.
+	(SOURCES): Added dlopen-test.c.
+	(dlopen-test): New target, unlike other test programs, *not*
+	linked with -lnettle.
+
+	* configure.ac: Check for dlfcn.h and the dlopen function.
+	(IF_DLOPEN_TEST): New substituted variable, true if dlopen is
+	available and we are building a shared library.
+
+	* fat-setup.h: Disable use of ifunc, since it breaks dlopen with
+	RTLD_NOW.
+
+2015-08-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* NEWS: Started on entries for Nettle-3.2.
+
+	* sha3.h (NETTLE_SHA3_FIPS202): New preprocessor constant.
+
+2015-08-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/sha3.awk: Document origin of test vectors.
+
+	From Nikos Mavrogiannopoulos.
+	* sha3.c (_sha3_pad): Update for NIST version.
+	* testsuite/sha3-224-test.c: Updated test vectors.
+	* testsuite/sha3-256-test.c: Likewise.
+	* testsuite/sha3-384-test.c: Likewise.
+	* testsuite/sha3-512-test.c: Likewise.
+
+2015-06-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* arm/neon/chacha-core-internal.asm: New file. 55% speedup over C
+	version on Cortex-A9.
+
+2015-05-19  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: ABI detection (n32 or n64) on Irix, and
+	appropriate default for libdir. Patch from Klaus Ziegler.
+
+2015-05-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* version.c (nettle_version_major, nettle_version_minor): New
+	file. New functions, returning the value of the corresponding
+	preprocessor constant.
+	* Makefile.in (nettle_SOURCES): Added version.c.
+	* testsuite/version-test.c: New testcase.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added version-test.c.
+
+2015-04-29  Niels Möller  <nisse@lysator.liu.se>
+
+	* arm/v6/sha256-compress.asm: Fix syntax error in offset
+	addressing. Spotted by Jukka Ukkonen.
+	* arm/v6/aes-decrypt-internal.asm: Drop %-prefix on r12 register.
+	* arm/v6/aes-encrypt-internal.asm: Likewise.
+
+2015-04-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* Released nettle-3.1.1.
+
+	* configure.ac: Bump package version, to nettle-3.1.1.
+	(LIBNETTLE_MINOR, LIBHOGWEED_MINOR): Bump minor versions, to
+	libnettle.so.6.1 and and libhogweed.so.4.1.
+
+2015-04-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/gcm-hash8.asm: Use ".value" instead of ".short", since
+	the latter is not supported by the Sun/Oracle assembler.
+
+2015-04-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Fix shell quoting in test of GMP_NUMB_BITS asm
+	compatibility. Reported by Edward Sheldrake.
+
+2015-04-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* Released nettle-3.1.
+
+2015-03-31  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/ecc-224-modp.asm: Require that GMP_NUMB_BITS == 64.
+	* x86_64/ecc-521-modp.asm: Likewise. Note that the other
+	ecc-*-modp.asm files happen to work fine on x86_64, with either 32
+	or 64 bits.
+
+	* asm.m4 (GMP_NUMB_BITS): New macro, expanding to nothing.
+
+	* configure.ac: Move tests for compiler characteristics,
+	libraries, and GMP_NUMB_BITS, before assembler-related tests.
+	For files in $asm_hogweed_optional_list, check if they declare
+	a GMP_NUMB_BITS requirement, and skip files which are incompatible
+	with the configuration. Needed for --enable-mini-gmp om w64.
+
+	* Makefile.in (clean-here): Unconditionally delete *.a (including
+	stub libraries like *.dll.a).
+
+2015-03-30  Niels Möller  <nisse@lysator.liu.se>
+
+	* version.h.in (GMP_NUMB_BITS) [NETTLE_USE_MINI_GMP]: Move
+	definition here (uses configure substitution).
+	* bignum.h (GMP_NUMB_BITS): ...old location.
+
+	* nettle.texinfo: Updated version number.
+	(Installation): Document some more configure options.
+
+	* testsuite/symbols-test: Look for NETTLE_USE_MINI_GMP in
+	version.h, not bignum.h. Allow leading underscore on mini-gmp
+	symbols.
+
+2015-03-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (PRE_CPPFLAGS): Drop -I$(srcdir), no longer needed.
+	(HEADERS): Added bignum.h. Removed version.h.
+	(INSTALL_HEADERS): Added version.h.
+	(DISTFILES): Removed bignum.h.in.
+	(bignum.h): Deleted make target.
+	(distclean-here): Don't delete bignum.h.
+
+	* configure.ac: No longer generate bignum.h.
+
+	* bignum.h: Renamed. Removed substitution of NETTLE_USE_MINI_GMP,
+	and include version.h instead.
+	* bignum.h.in: ... old name.
+
+	* version.h.in (NETTLE_USE_MINI_GMP): Substitute here.
+
+2015-03-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac (MAJOR_VERSION, MINOR_VERSION): Tweak sed
+	expressions, to tolerate version suffixes.
+
+	* Makefile.in (distdir): Include assembly files from the new
+	x86_64/aesni, x86_64/fat, and arm/fat directories.
+
+	* ed25519-sha512-pubkey.c: Fix stack overwrite. The digest array
+	must have room for a complete sha512 digest.
+
+2015-03-19  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (OPT_HOGWEED_SOURCES): Deleted make variable.
+	(nettle_SOURCES, hogweed_SOURCES): Don't include optional sources
+	here.
+	(OPT_SOURCES): New variable.
+	(SOURCES): Include OPT_SOURCES.
+	(DISTFILES): Drop mini-gmp.c here, included via OPT_SOURCES.
+	(nettle_OBJS, hogweed_OBJS): Add the object files corresponding to
+	the optional source files included in the build.
+
+	* ecc-curve.h (nettle_curve25519): Removed public declaration.
+	* ecc-internal.h (_nettle_curve25519): New location, new name.
+	Updated all users.
+
+	* nettle.texinfo: Updated EdDSA documentation.
+
+	* Makefile.in (DISTFILES): Added version.h.in, libnettle.map.in,
+	and libhogweed.map.in (latter two patch by Nikos).
+	(version.h): New make target.
+	(distclean-here): Added version.h, libnettle.map, and
+	libhogweed.map.
+
+	From Nikos Mavrogiannopoulos.
+	* configure.ac (MAJOR_VERSION, MINOR_VERSION): New substituted
+	variables.
+	* version.h.in: New file, defining version numbers.
+
+2015-03-18  Niels Möller  <nisse@lysator.liu.se>
+
+	EdDSA interface change, use plain strings to represent keys.
+	* eddsa.h (_ED25519_LIMB_SIZE): Deleted constant.
+	(struct ed25519_private_key, ed25519_public_key): Deleted.
+	* eddsa-expand.c (_eddsa_expand_key): Don't compute the public
+	key.
+	(_eddsa_expand_key_itch): Deleted function.
+	* eddsa-pubkey.c (_eddsa_public_key, _eddsa_public_key_itch): New
+	file, new functions.
+	* ed25519-sha512-pubkey.c (ed25519_sha512_public_key): New file
+	and function.
+	* ed25519-sha512-verify.c (ed25519_sha512_set_public_key): Deleted
+	function.
+	(ed25519_sha512_verify): Use a string to represent the public key.
+	* ed25519-sha512-sign.c (ed25519_sha512_set_private_key): Deleted
+	function.
+	(ed25519_sha512_sign): Use strings for the input key pair.
+	* Makefile.in (hogweed_SOURCES): Added eddsa-pubkey.c and
+	ed25519-sha512-pubkey.c.
+	* testsuite/eddsa-sign-test.c (test_eddsa_sign): Adapt to
+	_eddsa_expand_key changes, and use _eddsa_public_key.
+	* testsuite/ed25519-test.c (test_one): Test
+	ed25519_sha512_public_key, and adapt to new ed25519 interface.
+
+2015-03-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* ccm.c (memeql_sec): New function, more side-channel silent than
+	memcmp.
+	(ccm_decrypt_message): Use it.
+
+2015-03-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* base64.h (struct base64_encode_ctx): Micro optimization of
+	struct layout, saving a few bytes.
+	(struct base64_decode_ctx): Likewise.
+	* base16.h (struct base16_decode_ctx): Likewise.
+
+	* nettle.texinfo (ASCII encoding): Document base64url functions.
+
+2015-03-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Update documentation of curve25519_mul. Say that
+	the output is undefined for points belonging to the twist rather
+	than the proper curve.
+
+	* curve25519-mul.c (curve25519_mul): Changed return type to void.
+	* curve25519.h (curve25519_mul): Updated prototype.
+	* examples/hogweed-benchmark.c (bench_curve25519_mul): Drop check
+	of curve25519_mul return value.
+	* testsuite/curve25519-dh-test.c (test_a): Likewise.
+
+2015-02-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Document curve25519 and eddsa.
+
+2015-02-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* base64url-meta.c (nettle_base64url): New file.
+	* nettle-meta.h (nettle_base64url): Declare it.
+	* nettle-meta-armors.c (nettle_armors): Added nettle_base64url.
+	* testsuite/meta-armor-test.c: Updated testcase.
+	* testsuite/base64-test.c (test_main): Additional tests, using
+	nettle_base64url.
+	* Makefile.in (nettle_SOURCES): Added base64url-meta.c.
+
+	Base-64 generalization to support RFC4648 URL safe alphabet,
+	contributed by Amos Jeffries.
+	* base64url-decode.c (base64url_decode_init): New file and
+	function.
+	* base64url-encode.c (base64url_encode_init): New file and
+	function.
+	* Makefile.in (nettle_SOURCES): Added base64url-encode.c and
+	base64url-decode.c.
+	* base64.h: Declare new functions.
+	* testsuite/base64-test.c (test_fuzz): Test base64url encoding and
+	decoding.
+
+	* base64.h (struct base64_encode_ctx): Added pointer to alphabet.
+	(struct base64_decode_ctx): Added pointer to decoding table.
+	* base64-decode.c (base64_decode_init): Initialize table pointer.
+	Moved definition of table to local scope.
+	(base64_decode_single): Use the context's decoding table.
+	* base64-encode.c (ENCODE): Added alphabet argument. Updated all
+	uses.
+	(encode_raw): New static function, like base64_encode_raw
+	but with an alphabet argument.
+	(base64_encode_raw): Call encode_raw.
+	(base64_encode_init): Initialize alphabet pointer.
+	(base64_encode_single, base64_encode_update, base64_encode_final):
+	Use the context's alphabet.
+
+2015-02-09  Niels Möller  <nisse@lysator.liu.se>
+
+	* base64-encode.c (base64_encode): Deleted old #if:ed out
+	function.
+
+	* testsuite/base64-test.c (test_fuzz_once, test_fuzz): Additional
+	tests, based on contribution by Amos Jeffries.
+
+2015-02-05  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac (LIBHOGWEED_MAJOR): Undo latest bump, 4 should be
+	enough (previous release, nettle-3.0, used 3).
+
+2015-01-30  Niels Möller  <nisse@lysator.liu.se>
+
+	Update chacha-poly1305 for draft-irtf-cfrg-chacha20-poly1305-08.
+	* chacha-poly1305.h (CHACHA_POLY1305_NONCE_SIZE): Increase to 12
+	bytes, i.e., CHACHA_NONCE96_SIZE.
+	* chacha-poly1305.c (chacha_poly1305_set_nonce): Use
+	chacha_set_nonce96.
+	(poly1305_pad): New function.
+	(chacha_poly1305_encrypt): Use poly1305_pad.
+	(chacha_poly1305_digest): Call poly1305_pad, and format length
+	fields as a single poly1305 block.
+
+	* chacha-set-nonce.c (chacha_set_nonce96): New function.
+	* chacha.h (CHACHA_NONCE96_SIZE): New constant.
+	* testsuite/chacha-test.c: Add test for chacha with 96-bit nonce.
+
+2015-01-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc.h: Deleted declarations of unused itch functions. Moved
+	declarations of internal functions to...
+	* ecc-internal.h: ...new location. Also added a leading under
+	score on the symbols.
+	(ecc_a_to_j, ecc_j_to_a, ecc_eh_to_a, ecc_dup_jj, ecc_add_jja)
+	(ecc_add_jjj, ecc_dup_eh, ecc_add_eh, ecc_add_ehh, ecc_mul_g)
+	(ecc_mul_a, ecc_mul_g_eh, ecc_mul_a_eh): Affected functions.
+
+2015-01-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-add-eh.c (ecc_add_eh_itch): Deleted.
+	* ecc-add-ehh.c (ecc_add_ehh_itch): Deleted.
+	* ecc-add-jja.c (ecc_add_jja_itch): Deleted.
+	* ecc-add-jjj.c (ecc_add_jjj_itch): Deleted.
+	* ecc-dup-eh.c (ecc_dup_eh_itch): Deleted.
+	* ecc-dup-jj.c (ecc_dup_jj_itch): Deleted.
+	* ecc-eh-to-a.c (ecc_eh_to_a_itch): Deleted.
+	* ecc-j-to-a.c (ecc_j_to_a_itch): Deleted.
+	* ecc-mul-a-eh.c (ecc_mul_a_eh_itch): Deleted.
+	* ecc-mul-a.c (ecc_mul_a_itch): Deleted.
+	* ecc-mul-g-eh.c (ecc_mul_g_eh_itch): Deleted.
+	* ecc-mul-g.c (ecc_mul_g_itch): Deleted.
+
+2015-01-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* arm/fat/sha1-compress-2.asm: New file.
+	* arm/fat/sha256-compress-2.asm: Likewise.
+	* fat-arm.c (fat_init): Setup for use of additional v6 assembly
+	functions.
+
+	* sha1-compress.c: Prepare for fat build with C and assembly
+	implementations.
+	* sha256-compress.c: Likewise.
+
+	* fat-setup.h (sha1_compress_func, sha256_compress_func): New typedefs.
+
+	* configure.ac (asm_nettle_optional_list): Added
+	sha1-compress-2.asm and sha256-compress-2.asm, and corresponding
+	HAVE_NATIVE_*.
+
+	From Martin Storsjö:
+	* arm: Add .arch directives for armv6. This allows building these
+	files as part of a fat build, even if the assembler by default
+	targets a lower architecture version.
+
+2015-01-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* fat-setup.h (DEFINE_FAT_FUNC): Check value of function pointer,
+	before calling fat_init. Should be correct even without memory
+	barrier.
+	* fat-x86_64.c (fat_init): Deleted static variable initialized.
+	The checks of the relevant pointer in DEFINE_FAT_FUNC is more
+	robust.
+	* fat-arm.c (fat_init): Likewise.
+
+2015-01-21  Niels Möller  <nisse@lysator.liu.se>
+
+	* fat-arm.c (fat_init): Setup for use of neon assembly functions.
+
+	* arm/fat/salsa20-core-internal-2.asm: New file.
+	* arm/fat/sha3-permute-2.asm: New file.
+	* arm/fat/sha512-compress-2.asm: New file.
+	* arm/fat/umac-nh-2.asm: New file.
+	* arm/fat/umac-nh-n-2.asm: New file.
+
+	* salsa20-core-internal.c: Prepare for fat build with C and
+	assembly implementations.
+	* sha512-compress.c: Likewise.
+	* sha3-permute.c: Likewise.
+	* umac-nh.c: Likewise.
+	* umac-nh-n.c: Likewise.
+
+	* configure.ac (asm_nettle_optional_list): Added more *-2.asm
+	files, and corresponding HAVE_NATIVE_* defines. Recognize PROLOGUE
+	macro in asm files, also when not at the start of the line.
+
+2015-01-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* fat-arm.c (get_arm_features): Check NETTLE_FAT_OVERRIDE
+	environment variable.
+
+	* fat-x86_64.c (get_x86_features): New function. Check
+	NETTLE_FAT_OVERRIDE environment variable.
+	(fat_init): Use it.
+
+	* fat-setup.h (secure_getenv) [!HAVE_SECURE_GETENV]: Dummy
+	definition, returning NULL.
+	(ENV_OVERRIDE): New constant.
+
+	* configure.ac: Check for secure_getenv function.
+
+2015-01-19  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Fat library setup for arm.
+	* fat-arm.c: New file.
+	* arm/fat/aes-encrypt-internal.asm: New files.
+	* arm/fat/aes-encrypt-internal-2.asm: New file.
+	* arm/fat/aes-decrypt-internal.asm: New file.
+	* arm/fat/aes-decrypt-internal-2.asm: New file.
+
+	* Makefile.in (DISTFILES): Added fat-setup.h.
+
+	* fat-setup.h: New file, declarations moved from...
+	* fat-x86_64.c: ... old location
+
+2015-01-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* fat-x86_64.c (DECLARE_FAT_FUNC, DEFINE_FAT_FUNC)
+	(DECLARE_FAT_FUNC_VAR): New macros, to define needed resolver and
+	wrapper functions.
+
+	* config.m4.in (SYMBOL_PREFIX): Define from from autoconf
+	ASM_SYMBOL_PREFIX.
+	(C_NAMS): move definition to...
+	* asm.m4 (C_NAME): Define here, also take fat_transform.
+	(fat_suffix): Replaced by...
+	(fat_transform): New macro, taking symbol name as argument.
+	Updated all uses of fat_suffix.
+	* fat-x86_64.c: Updated for internal "_nettle" prefix on
+	cpu-specific memxor functions.
+
+	* fat-x86_64.c: Set up for sse2 vs non-sse2 memxor. Patch by Nikos
+	Mavrogiannopoulos.
+	* configure.ac (asm_nettle_optional_list): Added memxor-2.asm.
+	* x86_64/fat/memxor-2.asm: New file.
+	* x86_64/fat/memxor.asm: New file.
+
+	* x86_64/memxor.asm: Use ifdef, not ifelse, for testing USE_SSE2.
+
+2015-01-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac (OPT_NETTLE_SOURCES): New substituted variable.
+	(asm_path): Fixed x86_64 fat setup. Include only x86_64 and
+	x86_64/fat in the asm_path. Put fat-x86_64.c in
+	OPT_NETTLE_SOURCES, with no symlinking.
+
+	* fat-x86_64.c: Renamed,...
+	* x86_64/fat/fat.c: ... from old name.
+
+2015-01-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/fat/fat.c: For constructor hack, check
+	HAVE_GCC_ATTRIBUTE, not __GNUC__. Also support sun compilers, as
+	suggested by Nikos Mavrogiannopoulos, and attch the constructor
+	attribute directly to fat_init.
+	(fat_constructor): Deleted wrapper function.
+
+	* x86_64/fat/fat.c: New file, initialization for x86_64 fat
+	library.
+
+	* x86_64/fat/cpuid.asm (_nettle_cpuid): New file and function.
+
+	* x86_64/fat/aes-encrypt-internal.asm: New file, including
+	x86_64/aes-encrypt-internal.asm, after setting fat_suffix to
+	_x86_64.
+	* x86_64/fat/aes-decrypt-internal.asm: New file, analogous setup.
+	* x86_64/fat/aes-encrypt-internal-2.asm: New file, including
+	x86_64/aesni/aes-encrypt-internal.asm, after setting fat_suffix to
+	_aesni.
+	* x86_64/fat/aes-decrypt-internal.asm-2: New file, analogous
+	setup.
+
+	* configure.ac: New command line option --enable-fat.
+	(asm_nettle_optional_list): Added cpuid.asm, fat.c,
+	aes-encrypt-internal-2.asm, and aes-decrypt-internal-2.asm.
+
+	* asm.m4 (fat_suffix): New suffix added to symbol names.
+
+	* x86_64/aesni/aes-encrypt-internal.asm: Use explicit .byte
+	sequences for aes instructions, don't rely on assembler support.
+	* x86_64/aesni/aes-decrypt-internal.asm: Likewise.
+
+	* aclocal.m4 (NETTLE_CHECK_IFUNC): New macro, checking for ifunc
+	and settting HAVE_LINK_IFUNC if working.
+	* configure.ac: Use it.
+
+2015-01-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* asm.m4 (DECLARE_FUNC): New macro, extracted from PROLOGUE.
+	(PROLOGUE): Use it.
+
+	* configure.ac (OPT_NETTLE_OBJS, OPT_HOGWEED_OBJS): Renamed
+	substituted variables, and list the object files rather than
+	source files.
+	(OPT_ASM_NETTLE_SOURCES, OPT_ASM_HOGWEED_SOURCES): ...Old names.
+	* Makefile.in (OPT_NETTLE_OBJS, OPT_HOGWEED_OBJS): Use new
+	variables.
+
+2015-01-11  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/aesni/aes-decrypt-internal.asm: New file.
+	* x86_64/aesni/aes-encrypt-internal.asm: New file.
+	* configure.ac: New configure flag --enable-x86-aesni.
+
+	* aclocal.m4 (LSH_RPATH_INIT): Handle freebsd, in the same way as
+	gnu/linux, with -Wl,-rpath,.
+
+	Merged memxor-reorg changes, starting at 2014-10-23.
+
+2015-01-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* arm/memxor.asm (memxor3): Moved to new file.
+	* arm/memxor3.asm: New file.
+
+2014-11-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/memxor3.asm (memxor3): New file, code moved from old
+	memxor.asm.
+	* x86_64/memxor.asm (memxor): Rewritten, no longer jumps into
+	memxor3.
+
+	* configure.ac (asm_replace_list): Added memxor.asm and
+	memxor3.asm.
+
+2014-10-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac (IF_ASM): New substituted variable.
+	* testsuite/Makefile.in (VALGRIND): Allow partial loads only when
+	build includes assembly files.
+
+	* memxor-internal.h (READ_PARTIAL): New macro.
+	* memxor.c (memxor_different_alignment): Avoid out-of-bounds
+	reads, corresponding to valgrind's --partial-loads-ok. Use
+	READ_PARTIAL.
+	* memxor3.c: Analogous changes for unaligned operations.
+
+	* configure.ac (asm_replace_list): Deleted memxor.asm, now
+	incompatible with the memxor/memxor3 split.
+
+	* memxor3.c: New file, split off from memxor.c.
+	* memxor-internal.h: New file, declarations shared by memxor.c and
+	memxor3.c.
+	* memxor.c: memxor3 functions moved out from this file.
+	* Makefile.in (nettle_SOURCES): Added memxor3.c.
+	(DISTFILES): Added memxor-internal.h.
+
+	* memxor.c (memxor_common_alignment, memxor_different_alignment)
+	(memxor): Change loop order, iterate from the end.
+	(memxor3_common_alignment): Unroll twice.
+	(word_t): On x86_64, unconditionally define as uint64_t, to get 64
+	bits also in M$ windows. Replaced all uses of SIZEOF_LONG.
+
+2014-12-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* cbc.h (CBC_ENCRYPT, CBC_DECRYPT): Make type-checking hack
+	stricter, warn if type of length argument is smaller than size_t.
+	* ctr.h (CTR_CRYPT): Likewise.
+	* eax.h (EAX_SET_KEY, EAX_SET_NONCE, EAX_UPDATE, EAX_ENCRYPT)
+	(EAX_DECRYPT, EAX_DIGEST): Likewise.
+	* gcm.h (GCM_SET_KEY, GCM_ENCRYPT, GCM_DECRYPT, GCM_DIGEST):
+	Likewise.
+
+2014-12-08  Niels Möller  <nisse@lysator.liu.se>
+
+	* aclocal.m4 (LD_VERSION_SCRIPT): Linker scripts no longer located
+	in the source tree.
+
+	* configure.ac (LIBNETTLE_MAJOR): Bump major number, now 6.
+	(LIBHOGWEED_MAJOR): Bump major number, now 5.
+
+	From Nikos Mavrogiannopoulos. Support for versioned symbols.
+	* aclocal.m4 (LD_VERSION_SCRIPT): New macro. Substitute
+	EXTRA_LINKER_FLAGS and EXTRA_HOGWEED_LINKER_FLAGS.
+	* configure.ac: Use LD_VERSION_SCRIPT. Generate libnettle.map
+	and libhogweed.map.
+	(HOGWEED_EXTRA_SYMBOLS): New substituted variable.
+	* libnettle.map.in: New file, libnettle.so linker script
+	* libhogweed.map.in: New file, libhogweed.so linker script.
+	* Makefile.in ($(LIBNETTLE_FORLINK)): Use EXTRA_LINKER_FLAGS.
+	($(LIBHOGWEED_FORLINK)): Use EXTRA_HOGWEED_LINKER_FLAGS.
+
+2014-11-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* gcm.h (GCM_SET_KEY): Rename macro argument KEY to avoid
+	collision with a struct tag. Spotted by Nikos Mavrogiannopoulos.
+
+	* testsuite/eddsa-verify-test.c (test_eddsa): Fixed test case bug,
+	showing up as use of uninitialized data with valgrind.
+
+2014-10-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/nettle-benchmark.c (time_memxor): Allocate buffers as
+	arrays of unsigned long, for more reliable alignment.
+
+2014-10-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Check for getline function.
+	* testsuite/ed25519-test.c (getline) [!HAVE_GETLINE]: Fallback
+	definition.
+
+	* Makefile.in (clean-here): Unconditionally delete .so and .dll
+	files.
+	(IMPLICIT_TARGETS): Deleted variable.
+
+2014-10-21  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ed25519-test.c: New test case. Optionally reads the
+	file pointed to by $ED25519_SIGN_INPUT.
+
+	* testsuite/testutils.c (tstring_hex): Rewrite, using Nettle's
+	base16 functions.
+	(decode_hex, decode_hex_length): Deleted functions.
+
+2014-10-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* eddsa.h (ED25519_KEY_SIZE): New constant.
+	(ED25519_SIGNATURE_SIZE): New constant.
+	(struct ed25519_private_key): New struct.
+	(struct ed25519_public_key): New struct.
+
+	* ed25519-sha512-sign.c (ed25519_sha512_set_private_key)
+	(ed25519_sha512_sign): New file and functions.
+	* ed25519-sha512-verify.c (ed25519_sha512_set_public_key)
+	(ed25519_sha512_verify): New file and functions.
+	* Makefile.in (hogweed_SOURCES): Added ed25519-sha512-sign.c and
+	ed25519-sha512-verify.c.
+
+
+2014-10-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* eddsa-verify.c (_eddsa_verify): Change argument order, putting A
+	before ctx.
+	* eddsa.h: Updated prototype.
+	* testsuite/eddsa-verify-test.c (test_eddsa): Updated
+	_eddsa_verify calls.
+
+2014-10-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* eddsa-verify.c (equal_h): New function.
+	(_eddsa_verify): Use it for a proper point compare, replacing an
+	ecc_add_ehh.
+
+	* testsuite/eddsa-verify-test.c: New testcase.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	eddsa-verify-test.c.
+
+	* eddsa-verify.c (_eddsa_verify, eddsa_verify_itch): New file, new
+	functions.
+	* eddsa.h: Declare new functions.
+	* Makefile.in (hogweed_SOURCES): Added eddsa-verify.c.
+
+2014-10-08  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/eddsa-sign-test.c (test_eddsa_sign): Use
+	_eddsa_expand_key, and check its public key output.
+
+	* eddsa-expand.c (_eddsa_expand_key): New file, new function.
+	* eddsa.h (_eddsa_expand_key): Declare it.
+	* Makefile.in (hogweed_SOURCES): Added eddsa-expand.c.
+
+	* eddsa-sign.c: Drop unneeded include of nettle-internal.h.
+
+2014-10-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/eddsa-sign-test.c: New testcase.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	eddsa-sign-test.c.
+
+	* eddsa-sign.c (_eddsa_sign, _eddsa_sign_itch): New file, new
+	functions.
+	* eddsa-hash.c (_eddsa_hash): New file and function.
+	* eddsa.h: Declare new functions.
+	* Makefile.in (hogweed_SOURCES): Added eddsa-hash.c and
+	eddsa-sign.c.
+
+2014-10-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ecc-redc-test.c [NETTLE_USE_MINI_GMP]: Enable test.
+	(test_main): Replace gmp_fprintf calls.
+	* testsuite/ecc-mul-a-test.c: Likewise.
+	* testsuite/ecc-mul-g-test.c: Likewise.
+
+	* testsuite/ecc-modinv-test.c [NETTLE_USE_MINI_GMP]: Enable test.
+	(ref_modinv): Use mpz_gcdext, instead of mpn_gcdext.
+	(test_modulo): Replace gmp_fprintf calls.
+
+	* testsuite/ecc-mod-test.c [NETTLE_USE_MINI_GMP]: Enable test.
+	(ref_mod): Use mpz_mod and mpz_limbs_copy, instead of mpn_tdiv_qr.
+	(test_modulo): Replace gmp_fprintf calls by plain fprintf and
+	mpn_out_str.
+
+	* testsuite/testutils.c (mpn_out_str): New function, needed to
+	replace uses of gmp_fprintf.
+
+	* testsuite/ecc-sqrt-test.c (mpz_ui_kronecker)
+	[NETTLE_USE_MINI_GMP]: New fallback definition when building with
+	mini-gmp.
+	* testsuite/testutils.c (gmp_randinit_default)
+	[NETTLE_USE_MINI_GMP]: Likewise.
+	(mpz_urandomb): Likewise.
+	* testsuite/testutils.h (gmp_randstate_t) [NETTLE_USE_MINI_GMP]:
+	Fallback typedef, using knuth_lfib_ctx.
+
+2014-10-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/eddsa-compress-test.c: New testcase.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	eddsa-compress-test.c.
+
+	* eddsa-decompress.c (_eddsa_decompress): New file, new function.
+	* eddsa-compress.c (_eddsa_compress): New file, new function.
+	* eddsa.h: New file.
+	* Makefile.in (HEADERS): Added eddsa.h.
+	(hogweed_SOURCES): Added eddsa-compress.c and eddsa-decompress.c.
+
+	* testsuite/ecc-sqrt-test.c: New test case.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	ecc-sqrt-test.c.
+
+	* ecc-25519.c (PHIGH_BITS): Always define this constant.
+	(ecc_25519_zero_p): New function.
+	(ecc_25519_sqrt): Take a ratio u/v as input. Added scratch
+	argument. Made static.
+	* ecc-internal.h (ecc_mod_sqrt_func): New typedef.
+	(struct ecc_modulo): Added sqrt_itch and sqrt function pointer.
+	Updated all instances.
+	(ecc_25519_sqrt): Deleted declaration, function now static.
+
+2014-09-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* curve25519.h [__cplusplus]: Fixed extern "C" block.
+
+2014-09-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-hash.c (ecc_hash): Changed argument type from struct
+	ecc_curve to struct ecc_modulo. Updated callers.
+	* testsuite/ecdsa-sign-test.c (test_main): Updated curve25519
+	signature s. Changed since the hash value is truncated a few bits
+	more, to match the size of q.
+	* testsuite/ecdsa-verify-test.c (test_main): Likewise.
+
+	* testsuite/ecc-modinv-test.c (zero_p): New function, checking for
+	zero modulo p.
+	(test_modulo): Use zero_p. Switch to dynamic allocation. Updated
+	for larger modinv result area, and use invert_itch.
+
+	* ecc-25519.c (ecc_mod_pow_2kp1): Renamed, and take a struct
+	ecc_modulo * as argument.
+	(ecc_modp_powm_2kp1): ... old name.
+	(ecc_mod_pow_252m3): New function, extracted from ecc_25519_sqrt.
+	(ecc_25519_inv): New modp invert function, about 5.5 times faster
+	then ecc_mod_inv.
+	(ecc_25519_sqrt): Use ecc_mod_pow_252m3.
+	(nettle_curve25519): Point to ecc_25519_inv. Updated p.invert_itch
+	and h_to_a_itch.
+
+	* ecc-internal.h (struct ecc_modulo): New field invert_itch.
+	Updated all implementations.
+	(ECC_EH_TO_A_ITCH): Updated, and take invert itch as an argument.
+	* ecc-eh-to-a.c (ecc_eh_to_a_itch): Take invert scratch into account.
+
+	* testsuite/testutils.c (test_ecc_mul_h): Use ecc->h_to_a_itch.
+
+	* ecc-mod-inv.c (ecc_mod_inv): Interface change, make ap input
+	const, and require 2n limbs at rp. Preparing for powm-based
+	alternative implementations. Drop #if:ed out code and dp
+	temporary. Updated all callers, more complicated cases described
+	below.
+	* ecc-internal.h (typedef ecc_mod_inv_func): Added const to input
+	argument.
+	(ECC_MOD_INV_ITCH): Renamed, was ECC_MODINV_ITCH, and reduced to
+	2*n.
+	* ecc-ecdsa-verify.c (ecc_ecdsa_verify): Overhauled allocation,
+	putting mod_inv scratch at the end.
+
+2014-09-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-random.c (ecc_mod_random): Renamed, and take a const struct
+	ecc_modulo * as argument. Updated callers.
+	(ecc_modq_random): ... old name.
+
+	* ecc-mod-arith.c: New file, replacing ecc-modp.c and ecc-modq.c.
+	All functions take a struct ecc_modulo as argument.
+	(ecc_mod_add, ecc_mod_sub, ecc_mod_mul_1, ecc_mod_addmul_1)
+	(ecc_mod_submul_1, ecc_mod_mul, ecc_mod_sqr): New functions,
+	replacing the corresponding ecc_modp_* functions. For convenience,
+	old names are defined as macros wrapping the new functions.
+	* ecc-modp.c: Deleted file.
+	* ecc-modq.c: Deleted file.
+	* Makefile.in (hogweed_SOURCES): Updated accordingly.
+
+	* testsuite/ecc-redc-test.c (test_main): Relaxed tests for which
+	tests to run.
+
+	* testsuite/ecc-modinv-test.c (test_modulo): New function, same
+	organization as in ecc-mod-test.c below.
+
+	* testsuite/ecc-mod-test.c (test_modulo): New function, testing
+	one modulo. Replacing...
+	(test_curve): ... old function.
+	(test_main): Invoke test_modulo for p and q of each curve.
+
+	* ecc-internal.h (ecc_mod_inv_func): New typedef.
+	(struct ecc_modulo): Added mp1h constant and invert function
+	pointer. Updated all callers.
+	* ecc-modp.c (ecc_modp_inv): Deleted wrapper function.
+	* ecc-modq.c (ecc_modq_inv): Deleted wrapper function.
+
+	* ecc-mod-inv.c (ecc_mod_inv): Renamed file and function. Also
+	take a struct ecc_modulo * as argument.
+	* sec-modinv.c (sec_modinv): ... the old names. Deleted.
+	* Makefile.in (hogweed_SOURCES): Updated accordingly.
+
+	* examples/ecc-benchmark.c (bench_modinv_powm, bench_curve):
+	Updated benchmarking of mpn_sec_powm.
+
+	* ecc-internal.h (struct ecc_curve): Deleted redc function
+	pointer. Use only reduce pointer, which is redc or modp as
+	applicable. Updated all users.
+	(struct ecc_modulo): Moved mod and reduce function pointers to
+	this struct.
+
+	* ecc-generic-modp.c (ecc_generic_modp): Deleted file and
+	function. We no longer need a wrapper around ecc_mod.
+	* ecc-generic-modq.c (ecc_generic_modq): Likewise deleted.
+	* Makefile.in (hogweed_SOURCES): Removed ecc-generic-modp.c and
+	ecc-generic-modq.c.
+
+	* ecc-internal.h (typedef ecc_mod_func): Take a const struct
+	ecc_modulo * argument, not const struct ecc_curve *. Updated all
+	implementations and all callers.
+
+	* ecc-mod.c (ecc_mod): Use struct ecc_modulo to specify the
+	modulo. Drop input size argument, always reduce from 2*size to
+	size.
+
+	* ecc-internal.h (struct ecc_modulo): New struct, collecting
+	constants needed for modulo arithmetic.
+	(struct ecc_curve): Use struct ecc_modulo for p and q arithmetic.
+	Updated all ecc-related files.
+
+2014-09-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* gmp-glue.c (mpn_get_base256_le): Fixed missing update of rn
+	counter, making the function clear some bytes beyond the end of
+	the output buffer. The bug triggered a make check failure on ARM.
+
+	* testsuite/testutils.c (ecc_curves): Include curve25519 in list.
+	(test_ecc_mul_a): Include reference points for curve25519 (with
+	Edwards coordinates). Allow n == 0 and n == 1, comparing to zero
+	and the generator, respectively.
+	* testsuite/ecc-add-test.c (point_zero_p): Deleted function.
+	(test_main): Replace calls to point_zero_p by calls to
+	test_ecc_mul_h with n == 0.
+	* testsuite/ecc-dup-test.c: Likewise.
+
+	* testsuite/ecc-modinv-test.c (mpn_zero_p): Moved function, to...
+	* testsuite/testutils.c (mpn_zero_p): New location. Also make
+	non-static.
+
+	* testsuite/ecdsa-keygen-test.c (ecc_valid_p): Add special case
+	for curve25519.
+
+	* testsuite/ecc-mul-a-test.c (test_main): Fix point negation to
+	support curve25519.
+	* testsuite/ecc-mul-g-test.c (test_main): Likewise.
+
+	* ecc-a-to-eh.c (ecc_a_to_eh_itch, ecc_a_to_eh): Deleted file and
+	functions.
+	* ecc.h: Deleted corresponding declarations.
+	* ecc-internal.h (ECC_A_TO_EH_ITCH): Deleted macro.
+	* Makefile.in (hogweed_SOURCES): Removed ecc-a-to-eh.c.
+
+	* testsuite/ecdh-test.c (test_main): Update curve25519 test to use
+	Edwards coordinates.
+	* testsuite/ecdsa-sign-test.c (test_main): Likewise.
+	* testsuite/ecdsa-verify-test.c (test_main): Likewise.
+
+	* ecc-point.c (ecc_point_set): Use Edwards rather than Montgomery
+	curve.
+
+	* ecc-mul-a-eh.c (ecc_mul_a_eh, table_init): Take an Edwards point
+	as input, not a Montgomery point. Hence, use ecc_a_to_j, not
+	ecc_a_to_eh.
+
+	* ecc-eh-to-a.c (ecc_eh_to_a): Just convert to affine coordinates,
+	don't transform from Edwards to Montgomery form. Also reduces
+	scratch need slightly.
+	* ecc-internal.h (ECC_EH_TO_A_ITCH): Reduced.
+
+	* ecdsa-keygen.c (ecdsa_generate_keypair): Use struct ecc_curve
+	function pointers.
+
+	* testsuite/curve25519-dup-test.c: Deleted file. In the way for
+	conversion to Edwards coordinate convention, and in the end
+	the tests will be done by ecc-dup-test.c.
+	* testsuite/curve25519-add-test.c: Similarly deleted.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Removed
+	curve25519-dup-test.c and curve25519-add-test.c.
+
+2014-09-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ecc-add-test.c: New generalized testcase, to replace
+	curve25519-add-test.c.
+	* testsuite/ecc-dup-test.c: New generalized testcase, to replace
+	curve25519-dup-test.c.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added ecc-add-test.c
+	and ecc-dup-test.c.
+
+2014-09-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ecc-mul-a-test.c (test_main): Use struct ecc_curve
+	function pointers.
+	* testsuite/ecc-mul-g-test.c (test_main): Likewise.
+
+2014-09-09  Niels Möller  <nisse@lysator.liu.se>
+
+	* curve25519-mul.c (curve25519_mul): Switch to use Montgomery
+	ladder. About 20% faster than current Edwards curve operations.
+	Difference is expected to shrink when Edwards operations are
+	optimized to take advantage of the twist, but it seems unlikely to
+	get significantly faster than the Montgomery ladder.
+
+	* gmp-glue.c (cnd_swap): Moved function here, made non-static.
+	Changed cnd type to mp_limb_t, for consistency with GMP
+	mpn_cnd_add_n.
+	* sec-modinv.c (cnd_swap): ... old location.
+	* gmp-glue.h (cnd_swap): Declare function.
+
+2014-09-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/hogweed-benchmark.c (bench_curve25519_mul_g)
+	(bench_curve25519_mul, bench_curve25519): New functions.
+	(main): Added benchmarking of curve25519 functions.
+
+2014-09-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in: Revert 2013-02-06 Makefile changes: use a single
+	rule for transforming .asm to .o, and drop include of asm.d.
+	Possible now since we generate a single object file from each asm
+	file. This change also helps Solaris' make recognize .asm files.
+	* config.make.in (.SUFFIXES): Drop .s from list.
+	* configure.ac: Delete code to generate asm.d.
+
+	* Makefile.in: Delete all uses of *.po files, use the same object
+	files for both shared and static libraries.
+	* configure.ac (dummy-dep-files): Don't create any .po.d files.
+
+	* aclocal.m4 (LSH_CCPIC): Don't substitute CCPIC here, let
+	configure.ac do that if needed.
+
+	* configure.ac (CCPIC_MAYBE, SHLIBCFLAGS): Deleted substituted
+	variables. Instead, use CCPIC directly when compiling all library
+	files.
+	(CCPIC): Set to empty, if --disable-pic is used.
+
+	* config.make.in (SHLIBCFLAGS, CCPIC_MAYBE): Deleted.
+	(COMPILE, COMPILE_CXX): Drop CCPIC. New variable EXTRA_CFLAGS,
+	which can be set by individual Makefiles.
+
+	* Makefile.in (EXTRA_CFLAGS): Set using CCPIC.
+	Also delete all uses of CCPIC_MAYBE and SHLIBCFLAGS.
+
+2014-09-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* curve25519-eh-to-x.c (curve25519_eh_to_x): New file, new
+	function. The curve25519 transform currently done by ecc_eh_to_a,
+	but which should eventually be eliminted from that function.
+	* Makefile.in (hogweed_SOURCES): Added curve25519-eh-to-x.c.
+	* ecc-internal.h (curve25519_eh_to_x): Declare it.
+
+	* curve25519-mul.c (curve25519_mul): Use it.
+	* curve25519-mul-g.c (curve25519_mul_g): Likewise. Also introduce
+	local variable ecc, and use ecc->mul_g_itch.
+
+2014-08-29  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/testutils.c (test_ecc_mul_j): Renamed, to ...
+	(test_ecc_mul_h): ... new name. Use ecc->h_to_a function pointer.
+	Updated callers.
+
+	* examples/ecc-benchmark.c (bench_add_jjj): Renamed, to ...
+	(bench_add_hhh): ... new name. Use ecc->add_hhh function pointer.
+	(bench_add_ehh): Deleted.
+	(bench_curve): Use bench_add_hhh for all curves. Use ecc->mul_itch
+	for scratch size.
+
+	Switch the curve25519 implementation to use the isomorphism to the
+	twisted Edwards curve which is used for Ed25519 signatures.
+	* eccdata.c (ecc_curve_init): Tweaked the transformation constant
+	for the isomorphism between curve25519 and the twisted Edwards
+	curve.
+	* ecc-add-ehh.c (ecc_add_ehh): Updated formulas for the twist curve.
+	* ecc-add-eh.c (ecc_add_eh): Likewise.
+	* ecc-dup-eh.c (ecc_dup_eh): Likewise.
+
+2014-08-28  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecdsa-verify.c (ecdsa_verify): Drop include of ecc-internal.h,
+	use ecc_size function instead.
+
+	* ecc-ecdsa-verify.c (ecc_ecdsa_verify): Use the struct ecc_curve
+	function pointers: mul, mul_g, add_hhh, h_to_a.
+
+	* ecc-internal.h (ECC_ECDSA_VERIFY_ITCH): Deleted macro. Needed
+	scratch depends on curve type, not just size.
+	(ecc_add_func): New typedef.
+	(struct ecc_curve): New function pointer add_hhh, and constant
+	add_hhh_itch. Updated all instances.
+
+	* ecdsa-verify.c (ecdsa_verify): Use the ecc_ecdsa_verify_itch
+	function, not the corresponding macro.
+	* ecc-ecdsa-verify.c (ecc_ecdsa_verify_itch): Take ecc->mul_itch
+	into account. Also reduce to 5*ecc->size + ecc->mul_itch.
+
+	* testsuite/ecdsa-sign-test.c (test_main): Added test for the
+	obscure case of ecdsa using curve25519.
+	* testsuite/ecdsa-verify-test.c (test_main): Likewise (depends on
+	above changes).
+
+	* ecc-ecdsa-sign.c (ecc_ecdsa_sign): Use mul_g and h_to_a function
+	pointers. Implies (obscure) support for curve25519.
+
+	* ecc-25519.c (ecc_25519_modq): Access q via the ecc struct.
+
+	* ecc-eh-to-a.c (ecc_eh_to_a): Analogous change as for ecc_j_to_a.
+	The modulo q case (op == 2) is hardcoded for curve25519.
+
+	* ecc-j-to-a.c (ecc_j_to_a): For curves using redc, always convert
+	back from redc form. When producing x coordinate only, optionally
+	reduce it modulo q. Completely changes the meaning of the "flags"
+	argument, and renames it to "op". Update all users of this
+	function or ecc->h_to_a.
+
+	* ecc-ecdsa-sign.c (ecc_ecdsa_sign): Use new ecc_j_to_a modulo q
+	feature.
+	* ecc-ecdsa-verify.c (ecc_ecdsa_verify): Likewise.
+
+	* testsuite/symbols-test: Regexp fixes, to better filter out
+	get_pc_thunk functions.
+
+	* ecc-generic-redc.c (ecc_generic_redc): Deleted file and
+	function. Split into...
+	* ecc-pp1-redc.c (ecc_pp1_redc): New file and function.
+	* ecc-pm1-redc.c (ecc_pm1_redc): New file and function.
+	* ecc-internal.h: Updated declarations.
+	* Makefile.in (hogweed_SOURCES): Replace ecc-generic-redc.c by
+	ecc-pp1-redc.c and ecc-pm1-redc.c.
+	* ecc-192.c: Use ecc_pp1_redc (benchmarking only).
+	* ecc-224.c: Use ecc_pm1_redc when applicable.
+	* ecc-256.c: Use ecc_pp1_redc when applicable.
+	* ecc-384.c: Use ecc_pp1_redc (benchmarking only).
+	* ecc-521.c: Use ecc_pp1_redc (benchmarking only).
+	* testsuite/ecc-redc-test.c (test_main): Replace use of
+	ecc_generic_redc by ecc_pp1_redc and ecc_pm1_redc.
+
+	* eccdata.c (output_curve): Don't output ecc_redc_g.
+	* ecc-internal.h (struct ecc_curve): Deleted unused field redc_g.
+	Updated all instances.
+
+2014-08-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-modq.c (ecc_modq_inv): Use q_bit_size.
+
+	* ecc-internal.h (struct ecc_curve): New field q_bit_size. Updated
+	all instances.
+
+	* configure.ac: Bumped package version number to 3.1.
+	(LIBHOGWEED_MAJOR): Bumped library version to 4.0.
+
+	Merged curve25519 changes (starting at 2014-07-04).
+	* Makefile.in (clean-here): Added ecc-25519.h.
+
+2014-08-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/ecc-benchmark.c (bench_mul_g, bench_mul_a): Use struct
+	ecc_curve function pointers.
+	(bench_mul_g_eh, bench_mul_a_eh): Deleted.
+	(bench_curve): Make modq benchmark unconditional. Use bench_mul_g
+	and bench_mul_a also for curve25519.
+
+	* testsuite/ecc-mod-test.c (test_curve): Make modq test
+	unconditional, partially reverting 2014-07-04 change.
+
+	* ecc-25519.c (ecc_25519_modq): New function.
+
+	* eccdata.c (output_curve): Precomputation for curve25519 mod q.
+
+	* mini-gmp.c (mpz_abs_sub_bit): Do full normalization, needed in
+	case the most significant bit is cleared.
+
+2014-08-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ecdh-test.c (set_point): Check return value of
+	ecc_point_set.
+	(test_main): Enable curve25519 test.
+
+	* ecc-point-mul-g.c (ecc_point_mul_g): Use ecc->mul_g and
+	ecc->h_to_a function pointers.
+	* ecc-point-mul.c (ecc_point_mul): Use the ecc->mul and
+	ecc->h_to_a function pointers.
+
+	* ecc-internal.h (ecc_mul_g_func, ecc_mul_func, ecc_h_to_a_func):
+	New typedefs.
+	(struct ecc_curve): New function pointers mul, mul_g, h_to_a, and
+	constans for their scratch requirements. Updated all instances.
+
+	* ecc-point.c (ecc_point_set): Handle curve25519 as a special
+	case, when checking if the point is on the curve.
+
+2014-08-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ecdh-test.c: Test ecc_point_mul and ecc_point_mul_g,
+	using test data generated by ecc-ref.gp. Tests for all curves
+	except curve25519, which doesn't yet work with the general
+	ecc_point interface.
+
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added ecdh-test.c.
+
+	* misc/ecc-ref.gp: Script to generate ECDH test data.
+
+2014-08-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-a-to-j.c (ecc_a_to_j): Deleted INITIAL argument.
+	* ecc.h (ecc_a_to_j): Updated prototype.
+	* ecc-mul-a.c (ecc_mul_a, table_init): Updated calls to ecc_a_to_j.
+
+	* ecc-mul-a.c (ecc_mul_a): Deleted INITIAL argument, all callers,
+	except the tests, pass 1. Updated all callers.
+	(table_init): Likewise deleted INITIAL.
+	* ecc.h (ecc_mul_a): Updated prototype.
+	* testsuite/ecc-mul-a-test.c (test_main): Deleted tests for
+	ecc_mul_a with INITIAL == 0.
+
+	* ecc-internal.h (struct ecc_curve): Reordered struct, moved
+	function pointers before pointers to bignum constants.
+
+	* sec-modinv.c (sec_modinv): Document that for a == 0 (mod m), we
+	should produce the "inverse" 0.
+
+	* testsuite/ecc-modinv-test.c (test_main): Check that ecc_modp_inv
+	produces 0 if a == 0 or a == p.
+
+2014-08-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/ecc-25519-modp.asm: New file. Assembly implementation,
+	initial version yields 30% speedup of ecc_25519_modp. Early
+	folding eliminates one pass of carry propagation, and yields
+	almost 20% additional speedup.
+
+	* ecc-25519.c [HAVE_NATIVE_ecc_25519_modp]: Use assembly version
+	if available.
+
+	* configure.ac (asm_hogweed_optional_list): Added ecc-25519-modp.asm.
+	Also add HAVE_NATIVE_ecc_25519_modp to config.h.in.
+
+2014-08-19  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/ecc-benchmark.c (bench_curve): Support benchmarking of
+	curve25519, for now handled as a special case.
+	(curves): Added nettle_curve25519.
+	(bench_dup_eh, bench_add_eh, bench_add_ehh, bench_mul_g_eh): New
+	functions.
+
+2014-08-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/curve25519-dh-test.c (test_a): Use curve25519_mul.
+	(test_main): Use little-endian inputs for test_a.
+	(curve25519_sqrt, curve_25519): Deleted static helper functions,
+	no longer needed.
+
+	* curve25519-mul.c (curve25519_mul): New file and function.
+	* curve25519.h (curve25519_mul): Declare it.
+	* Makefile.in (hogweed_SOURCES): Added curve25519-mul.c.
+
+	* curve25519-mul-g.c (curve25519_mul_g): Renamed file and
+	function, updated callers.
+	* curve25519-base.c (curve25519_base): ... old names.
+	* Makefile.in (hogweed_SOURCES): Updated for rename.
+
+	* eccdata.c (output_curve): Compute constants needed for
+	Shanks-Tonelli.
+	* ecc-25519.c (ecc_modp_powm_2kp1, ecc_25519_sqrt): New functions.
+	* ecc-internal.h (ecc_25519_sqrt): Declare it.
+
+2014-08-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/curve25519-dh-test.c (test_g): Use curve25519_base.
+	(test_main): Use little-endian inputs for test_g.
+
+	* curve25519-base.c (curve25519_base): New file, new function.
+	Analogous to NaCl's crypto_scalarmult_base.
+	* curve25519.h: New file.
+	* Makefile.in (hogweed_SOURCES): Added curve25519-base.c.
+	(HEADERS): Added curve25519.h.
+
+	* gmp-glue.c (mpn_set_base256_le, mpn_get_base256_le): New functions.
+	* gmp-glue.h: Declare them.
+
+2014-08-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/curve25519-dh-test.c (curve25519_sqrt): Fixed memory
+	leak, a mpz_clear call was missing.
+
+	* ecc-internal.h (ECC_MUL_A_EH_WBITS): Set to 4, to enable
+	window-based scalar multiplication.
+
+	* ecc-mul-a-eh.c (table_init) [ECC_MUL_A_EH_WBITS > 0]: Fixed
+	initialization of TABLE(1).
+
+2014-07-29  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-internal.h (ECC_MUL_A_EH_WBITS): New constant.
+	(ECC_A_TO_EH_ITCH, ECC_MUL_A_EH_ITCH): New macros.
+	* ecc-a-to-eh.c (ecc_a_to_eh, ecc_a_to_eh_itch): New file, new
+	functions.
+	* ecc-mul-a-eh.c: New file.
+	(ecc_mul_a_eh): New function. The case [ECC_MUL_A_EH_WBITS > 0]
+	not yet working).
+	(ecc_mul_a_eh_itch): New function.
+	* ecc.h: Declare new functions.
+	* Makefile.in (hogweed_SOURCES): Added ecc-a-to-eh.c and
+	ecc-mul-a-eh.c.
+
+	* testsuite/curve25519-dh-test.c (curve25519_sqrt): New function.
+	(curve_25519): Use ecc_mul_a_eh.
+	(test_a): New function.
+	(test_main): Test construction of shared secret, using scalar
+	multiplication with points other than the fix generator.
+
+2014-07-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-add-ehh.c (ecc_add_ehh): Reduce scratch need.
+	* ecc-internal.h (ECC_ADD_EHH_ITCH): Reduced to 7*size.
+
+2014-07-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/curve25519-dh-test.c: New test case, based on
+	draft-josefsson-tls-curve25519-05 test vectors.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added curve25519-dh-test.c.
+
+2014-07-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-mul-g-eh.c (ecc_mul_g_eh, ecc_mul_g_eh_itch): New file and
+	functions. Untested.
+	* ecc.h (ecc_mul_g_eh_itch): Declare new functions.
+	* ecc-internal.h (ECC_MUL_G_EH_ITCH): New macro.
+	* Makefile.in (hogweed_SOURCES): Added ecc-mul-g-eh.c.
+
+2014-07-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-add-eh.c (ecc_add_eh): Reduce scratch need.
+	* ecc-internal.h (ECC_ADD_EH_ITCH): Reduced to 6*size.
+
+	* testsuite/curve25519-dup-test.c (test_main): Free allocated
+	storage.
+
+2014-07-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-add-eh.c (ecc_add_eh, ecc_add_eh_itch): New file, new
+	functions.
+	* ecc.h: Declare new functions.
+	* ecc-internal.h (ECC_ADD_EH_ITCH): New macro.
+	* Makefile.in (hogweed_SOURCES): Added ecc-add-eh.c.
+	* testsuite/curve25519-add-test.c (test_main): Test ecc_add_eh.
+	Additional test for g2+g2. Free allocated storage.
+
+2014-07-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/curve25519-add-test.c: New test case.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	curve25519-add-test.c.
+
+	* ecc-add-ehh.c (ecc_add_ehh, ecc_add_ehh_itch): New file, new
+	functions.
+	* ecc.h (ecc_add_ehh, ecc_add_ehh_itch): Declare them.
+	* ecc-internal.h (ECC_ADD_EHH_ITCH): New macro.
+	* Makefile.in (hogweed_SOURCES): Added ecc-add-ehh.c.
+
+	* ecc-25519.c (nettle_curve25519): Use ecc_d instead of ecc_b.
+
+	* eccdata.c: For curve25519, output the Edwards curve constant,
+	ecc_d = (121665/121666) mod p.
+
+	* testsuite/curve25519-dup-test.c (test_main): Add test for 4g.
+	Delete some left-over debug output.
+
+2014-07-11  Niels Möller  <nisse@lysator.liu.se>
+
+	* misc/ecc-formulas.tex: Some ECC notes.
+
+	* testsuite/curve25519-dup-test.c: New testcase.
+	* testsuite/Makefile.in (TS_HOGWEED_SOURCES): Added
+	curve25519-dup-test.c.
+
+	* testsuite/testutils.c (test_ecc_point): Made non-static.
+	* testsuite/testutils.h (struct ecc_ref_point): Moved here, from
+	testutils.h.
+	(test_ecc_point): Declare it.
+
+	* ecc-dup-eh.c (ecc_dup_eh, ecc_dup_eh_itch): New file, new functions.
+	* ecc-eh-to-a.c (ecc_eh_to_a, ecc_eh_to_a_itch): New file, new
+	functions.
+	* ecc.h: Declare new functions.
+	* ecc-internal.h (ECC_EH_TO_A_ITCH, ECC_DUP_EH_ITCH): New macros.
+	* Makefile.in (hogweed_SOURCES): Added ecc-dup-eh.c and
+	ecc-eh-to-a.c.
+
+	* ecc-internal.h (struct ecc_curve): New constant edwards_root.
+	* ecc-192.c (nettle_secp_192r1): Updated accordingly, additional
+	NULL pointer.
+	* ecc-224.c (nettle_secp_224r1): Likewise.
+	* ecc-256.c (nettle_secp_256r1): Likewise.
+	* ecc-384.c (nettle_secp_384r1): Likewise.
+	* ecc-521.c (nettle_secp_521r1): Likewise.
+	* ecc-25519.c (nettle_curve25519): Initialize new constant.
+
+	* eccdata.c (ecc_curve_init): For curve 25519, use correct
+	constant for edwards coordinate transform, and output the constant
+	as ecc_edwards.
+
+2014-07-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* eccdata.c: Use separate is_zero flag to represent the neutral
+	element.
+	(output_point, output_point_redc): Unified to a single function,
+	with a use_redc flag argument. Also support conversion to Edwards
+	form.
+	(ecc_curve_init_str): New argument for Edwards curve conversion
+	constant.
+
+2014-07-04  Niels Möller  <nisse@lysator.liu.se>
+
+	Started curve25519 branch.
+	* ecc-25519.c: New file.
+	(ecc_25519_modp): New function.
+	(nettle_curve25519): New curve.
+
+	* ecc-curve.h (nettle_curve25519): Declare it.
+
+	* Makefile.in (hogweed_SOURCES): Added ecc-25519.c.
+	(ecc-25519.h): New generated file. Add as explicit dependency for
+	ecc-25519.o.
+
+	* testsuite/ecc-mod-test.c (test_curve): New function, extracted
+	from test_main. Tolerate NULL modq function pointer.
+	(test_main): Use test_curve, iterate over supported curves, and
+	also test curve_25519 for the new modp function.
+
+2014-08-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* ecc-modp.c (ecc_modp_sub_1): Deleted unused function.
+	* ecc-internal.h: Deleted corresponding declaration.
+
+	* examples/nettle-benchmark.c (time_cipher): Fixed memset calls,
+	amending the totally broken change from 2014-02-06.
+
+2014-07-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* eccdata.c (ecc_dup): Use mpz_submul_ui, now available in
+	mini-gmp.
+	(ecc_type): New enum, for Weierstrass and Montgomery curves
+	(ecc_curve): New field type.
+	(ecc_dup): Support montgomery curves.
+	(ecc_add): Likewise.
+	(ecc_curve_init_str): New argument, for the curve type.
+	(ecc_curve_init): Pass curve type to all ecc_curve_init_str calls.
+	Recognize curve25519, for bit_size 255.
+	(output_modulo): Deleted assert, which isn't true for curve25519.
+
+2014-06-30  Niels Möller  <nisse@lysator.liu.se>
+
+	* camellia-absorb.c: Include <limits.h>, needed for correct use of
+	HAVE_NATIVE_64_BIT. Reported and debugged by Magnus Holmgren.
+	Fixes debian build failure on s390x.
+
+2014-06-26  Niels Möller  <nisse@lysator.liu.se>
+
+	From Martin Storsjö:
+	* configure.ac (IF_NOT_SHARED): New substituted variable.
+	* hogweed.pc.in: Use @LIBS@, instead of hardcoding -lgmp. When
+	shared libraries are disabled, move needed libraries from
+	Requires.private: to Requires: and from Libs.private: to Libs:.
+
+ 	From Nikos Mavrogiannopoulos.
+	* examples/hogweed-benchmark.c (bench_alg): Tolerate alg->init
+	returning NULL.
+	(bench_openssl_ecdsa_init): Return NULL if
+	EC_KEY_new_by_curve_name fails, indicating the curve is not
+	supported.
+
+2014-06-25  Niels Möller  <nisse@lysator.liu.se>
+
+	Support for building with mini-gmp instead of the real GMP. Loosely
+	based on work by Nikos Mavrogiannopoulos.
+	* configure.ac: New command line option --enable-mini-gmp. Also
+	disable all libgmp-related checks when enabled.
+	(NETTLE_USE_MINI_GMP): New substituted variable.
+	(LIBHOGWEED_LIBS): Use $(LIBS) instead of -lgmp.
+	(IF_MINI_GMP): New Makefile conditional.
+	(GMP_NUMB_BITS): Alternative test for the mini-gmp case.
+	Substituted also in bignum.h.
+	(HAVE_MPZ_POWM_SEC): Drop this unused check.
+
+	* bignum.h: Renamed, to...
+	* bignum.h.in: New name.
+	(NETTLE_USE_MINI_GMP): Substituted by configure.
+	(GMP_NUMB_BITS): Substituted by configure, for the mini-gmp case.
+
+	* Makefile.in (OPT_HOGWEED_SOURCES): New variable, value
+	conditional on @IF_MINI_GMP@.
+	(hogweed_SOURCES): Add $(OPT_HOGWEED_SOURCES).
+	(PRE_CPPFLAGS): Add -I$(srcdir).
+	(HEADERS): Delete bignum.h.
+	(INSTALL_HEADERS): Add bignum.h. Also add mini-gmp.h, if mini-gmp
+	is enabled.
+	(DISTFILES): Added bignum.h.in.
+	(bignum.h): New target.
+	(distclean-here): Delete bignum.h.
+
+	* examples/ecc-benchmark.c (modinv_gcd) [NETTLE_USE_MINI_GMP]:
+	Disable this benchmark.
+	(mpn_random) [NETTLE_USE_MINI_GMP]: Provide a simple implementation.
+
+	* testsuite/ecc-mod-test.c [NETTLE_USE_MINI_GMP]: Skip test, it
+	depends on gmp_randstate_t.
+	* testsuite/ecc-modinv-test.c [NETTLE_USE_MINI_GMP]: Likewise.
+	* testsuite/ecc-mul-a-test.c [NETTLE_USE_MINI_GMP]: Likewise.
+	* testsuite/ecc-mul-g-test.c [NETTLE_USE_MINI_GMP]: Likewise.
+	* testsuite/ecc-redc-test.c [NETTLE_USE_MINI_GMP]: Likewise.
+
+	Various preparations for mini-gmp support.
+	* testsuite/bignum-test.c: Use WITH_HOGWEED instead of HAVE_LIBGMP
+	for preprocessor conditionals.
+	* testsuite/testutils.h: Likewise.
+	* testsuite/sexp-format-test.c: Likewise.
+
+	* testsuite/ecdsa-keygen-test.c (test_main): Use printf,
+	mpz_out_str and write_mpn instead of gmp_fprintf.
+	* testsuite/ecdsa-sign-test.c (test_ecdsa): Likewise.
+	* testsuite/ecdsa-verify-test.c (test_ecdsa): Likewise.
+
+	* dsa.h: Include bignum.h instead of gmp.h.
+	* ecc-internal.h: Likewise.
+	* ecc.h: Likewise.
+	* gmp-glue.h: Likewise.
+	* pkcs1.h: Likewise.
+	* rsa.h: Likewise.
+
+	* testsuite/testutils.c (die): Use plain vfprintf, not
+	gmp_vfprintf.
+	(write_mpn): New function.
+	(test_ecc_point): Use it, replacing gmp_fprintf.
+	* testsuite/testutils.h (write_mpn): Declare it.
+
+	* der-iterator.c: Deleted HAVE_LIBGMP conditionals.
+
+2014-06-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* Released nettle-3.0.
+
+2014-06-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* NEWS: List des-compat.h as a candidate for removal in the next
+	release.
+
+	* testsuite/des-compat-test.c (test_main): Fixed out of bounds
+	memory read, reported by Nikos Mavrogiannopoulos.
+
+	* nettle-write.h: Include <stddef.h>, fixing compilation on
+	freebsd.
+
+	* aclocal.m4 (ac_stdint): Fixed "unsinged" typo, spotted by Andy
+	Goth.
+
+2014-06-01  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/gcm-hash8.asm: Pass correct argument count to W64_EXIT.
+	* x86_64/camellia-crypt-internal.asm: Pass correct argument count
+	to W64_ENTRY and W64_EXIT.
+
+	* x86_64/machine.m4 [W64_ABI]: Fix for the case of 6 function
+	arguments. Also push %rdi unconditionally, and use aligned
+	accesses for save and restore %xmm registers (movdqa).
+
+2014-05-31  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Check for COFF type directives.
+	(ASM_COFF_STYLE): New substituted variable.
+	* config.m4.in: Set COFF_STYLE from configure.
+	* asm.m4 (PROLOGUE): Use COFF type directive, if enabled by
+	configure. Fixes problem with windows dll linking.
+
+	* asm.m4: Deleted unused offsets for struct aes_ctx.
+
+2014-05-28  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/nettle-pbkdf2-test: Delete carriage return characters
+	from output.
+
+	* configure.ac (LIBHOGWEED_LIBS): Be explicit and link
+	libhogweed.so with libnettle.so, not -lnettle.
+	(LIBHOGWEED_LINK): Drop -L. flag, no longer needed, and previously
+	not at the correct position in the link command line.
+
+2014-05-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/ecc-benchmark.c: If mpn_sec_powm is available,
+	benchmark it, for modinv.
+	(bench_modinv_powm): New function.
+	(bench_curve): Use it.
+
+2014-05-22  Niels Möller  <nisse@lysator.liu.se>
+
+	From Claudio Bley:
+	* Makefile.in ($(des_headers)): Use the EXEEXT_FOR_BUILD.
+
+2014-05-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* NEWS: Updated with library version numbers.
+
+	* configure.ac (dummy-dep-files): Use simpler and more portable
+	sed expression. Problem reported by Peter Eriksson.
+	(LIBHOGWEED_MAJOR): Bumped shared library version to 3.0.
+	(LIBHOGWEED_MINOR): Reset to zero. Also increased the package
+	version number to 3.0.
+
+	* getopt.c: Don't use gettext.
+
+2014-05-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/nettle-pbkdf2-test: Avoid the bash construction
+	${#foo}.
+
+	* getopt.c: Copied from glibc tree, tag glibc-2.19.
+	* getopt.h: Likewise.
+	* getopt1.c: Likewise.
+	* getopt_int.h: New file, also copied from glibc.
+	* Makefile.in (DISTFILES): Added getopt_int.h.
+
+2014-05-09  Niels Möller  <nisse@lysator.liu.se>
+
+	* mini-gmp.c: Updated, use version from gmp-6.0.0.
+	* mini-gmp.h: Likewise.
+
+	* testsuite/Makefile.in (all): Drop dependency on $(TARGETS), to
+	delay building of test programs until make check.
+
+2014-05-08  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (nettle_aead abstraction): Document nettle_aead.
+
+	* Makefile.in (nettle_SOURCES): Added nettle-meta-aeads.c.
+	* nettle-meta.h (nettle_aeads): Declare array.
+	* nettle-meta-aeads.c (nettle_aeads): New file, new array.
+	* testsuite/meta-aead-test.c: New test case.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added
+	meta-aead-test.c.
+
+	* aclocal.m4 (GMP_PROG_CC_FOR_BUILD): If CC_FOR_BUILD is gcc, add
+	-O option. This makes eccdata twice as fast.
+
+2014-05-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Document SHA3 and ChaCha-Poly1305 as
+	experimental.
+
+2014-05-05  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (POLY1305): Document poly1305-aes.
+	(Authenticated encryption): Move AEAD algorithms to their own
+	section.
+	(RSA, DSA, ECDSA): Change some subsections to subsubsections.
+	(ChaCha-Poly1305): Document ChaCha-Poly1305.
+
+2014-05-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (DSA): Document new DSA interface.
+	(Salsa20): Update salsa20 docs.
+	(ChaCha): Document ChaCha.
+
+2014-05-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Check for SIZEOF_SIZE_T.
+	* ccm.c (ccm_set_nonce): Skip code for 64-bit encoding when size_t
+	is only 32 bits.
+
+	* nettle.texinfo (CCM): Document new ccm macros and constants.
+	Describe ccm restrictions.
+
+	* ccm.h (CCM_DIGEST_SIZE): New constant.
+
+2014-04-30  Niels Möller  <nisse@lysator.liu.se>
+
+	* ccm.c (CCM_IV_MAX_SIZE, CCM_IV_MIN_SIZE): Deleted, replaced by
+	public constants CCM_MIN_NONCE_SIZE and CCM_MAX_NONCE_SIZE.
+	(ccm_build_iv): Updated for above rename.
+	(CCM_L_MAX_SIZE): Deleted, no longer used.
+
+	* ccm.h (CCM_MIN_NONCE_SIZE, CCM_MAX_NONCE_SIZE): New constants.
+	(CCM_MAX_MSG_SIZE): New macro.
+
+2014-04-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (Cipher modes): Subsection on AEAD constructions.
+	(GCM): Update GCM documentation, including functions for
+	gcm_aes128, gcm_camellia128, ...
+
+2014-04-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Update for introduction of nettle_cipher_func.
+	(GCM): Document GCM_DIGEST_SIZE.
+	(UMAC): Document new UMAC constants.
+	(Keyed hash functions): Make HMAC and UMAC their own info nodes.
+	(EAX): Document EAX.
+
+	* umac.h (UMAC_MIN_NONCE_SIZE, UMAC_MAX_NONCE_SIZE): New
+	constants.
+
+2014-04-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* All hash-related files: Renamed all _DATA_SIZE constants to
+	_BLOCK_SIZE, for consistency. Old names kept for backwards
+	compatibility.
+
+	* nettle.texinfo (CCM): Documentation for CCM mode, contributed by
+	Owen Kirby.
+
+	* testsuite/ccm-test.c (test_cipher_ccm): And tests.
+
+	* ccm.c (ccm_decrypt_message): Change length argument, should now
+	be clear text (dst) length.
+	* ccm-aes128.c (ccm_aes128_decrypt_message): Likewise.
+	* ccm-aes192.c (ccm_aes192_decrypt_message): Likewise.
+	* ccm-aes256.c (ccm_aes256_decrypt_message): Likewise.
+	* ccm.h: Updated prototypes.
+
+2014-04-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (Recommended hash functions): Document additional
+	sha512 variants.
+
+	* sha2.h (sha512_224_ctx, sha512_256_ctx): New aliases for the
+	sha512_ctx struct tag.
+
+2014-04-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/Makefile.in (SOURCES): Deleted next-prime.c (forgotten
+	in 2014-04-13 change).
+
+2014-04-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/ccm-test.c (test_cipher_ccm): Deleted check for NULL
+	authdata.
+
+	* sha3-224.c (sha3_224_init): Pass pointer to context struct, not
+	pointer to first element, to memset.
+	* sha3-256.c (sha3_256_init): Likewise.
+	* sha3-384.c (sha3_384_init): Likewise.
+	* sha3-512.c (sha3_512_init): Likewise.
+
+	* examples/eratosthenes.c (vector_alloc): Use sizeof(*vector)
+	instead of explicit type in malloc call.
+	(vector_init): Make constant explicitly unsigned long.
+
+	* tools/input.c (sexp_get_quoted_char): Deleted useless for loop.
+
+2014-04-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* rsa-compat.c: Deleted file.
+	* rsa-compat.h: Deleted file.
+	* Makefile.in (hogweed_SOURCES): Deleted rsa-compat.c.
+	(HEADERS): Deleted rsa-compat.h.
+
+	* examples/next-prime.c: Deleted file.
+	* bignum-next-prime.c (nettle_next_prime): Deleted file and
+	function.
+	* prime-list.h: Deleted file.
+	* bignum.h (nettle_next_prime): Deleted prototype.
+	* Makefile.in (hogweed_SOURCES): Deleted bignum-next-prime.c.
+	(DISTFILES): Deleted prime-list.h.
+	* examples/Makefile.in (HOGWEED_TARGETS): Deleted next-prime, and
+	corresponding make target.
+
+2014-04-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (Copyright): Updated licensing info.
+	* README: Likewise.
+
+	* Makefile.in (DISTFILES): Distribute new COPYING* files.
+
+	* COPYING.LESSERv3: New file.
+	* COPYINGv3: New file.
+	* COPYING.LIB: Deleted.
+	* COPYINGv2: New name for GPL version 2 file.
+	* COPYING: Old name, deleted.
+
+	* Update license headers for LGPL3+ and GPL2+ dual licensing.
+
+2014-04-11  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/testutils.c (test_aead): Use aead->digest_size.
+
+	* configure.ac: Skip GMP tests if public key support is disabled.
+
+	* eax.c (block16_xor): Fixed bug effecting 32-bit platforms.
+
+	* Makefile.in (DISTFILES): Deleted memxor.c, already included via
+	nettle_SOURCES.
+	* tools/Makefile.in (SOURCES): Add nettle-pbkdf2.c.
+
+2014-04-10  Niels Möller  <nisse@lysator.liu.se>
+
+	From Nikos Mavrogiannopoulos:
+	* examples/hogweed-benchmark.c (bench_openssl_ecdsa_init): Support
+	for secp192r1 and secp256r1.
+	(alg_list): Add them.
+
+2014-04-09  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/nettle-benchmark.c (main): Benchmark sha512_224 and
+	sha512_256.
+
+	* testsuite/sha512-224-test.c: New file.
+	* testsuite/sha512-256-test.c: New file.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added new files.
+
+	* nettle-meta.h (nettle_sha512_224, nettle_sha512_256): Declare.
+	* sha512-224-meta.c (nettle_sha512_224): New file, new nettle_hash.
+	* sha512-256-meta.c (nettle_sha512_256): New file, new nettle_hash.
+
+	* sha2.h (SHA512_224_DIGEST_SIZE, SHA512_224_DATA_SIZE)
+	(SHA512_256_DIGEST_SIZE, SHA512_256_DATA_SIZE): New constants.
+
+	* sha512.c (sha512_256_digest): Typo fix, call sha512_256_init.
+
+	* testsuite/testutils.c (test_hash): Removed redundant init call.
+	Tests that digest implies init.
+
+2014-03-28  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/dsa-keygen-test.c (test_main): Explicitly use
+	dsa_compat_generate_keypair.
+	(test_main): Test dsa_generate_params and dsa_generate_keypair
+	with a large q; p_bits = 1024, q_bits = 768.
+
+	* testsuite/testutils.h: Undo dsa-compat.h name mangling.
+
+	* dsa-keygen.c (dsa_generate_keypair): New interface, generating
+	only a keypair, and no new parameters.
+	* dsa-compat-keygen.c (dsa_compat_generate_keypair): New file.
+	Moved old key generation function here. Use dsa_generate_keypair.
+
+2014-03-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* dsa-compat.c (dsa_public_key_init, dsa_public_key_clear)
+	(dsa_private_key_init, dsa_private_key_clear): : Move deprecated
+	DSA functions to a separate file...
+	* dsa.c: ...from here.
+	* dsa-compat.h: New file, declaring deprecated DSA interface.
+	Include in corresponding C files.
+	* Makefile.in (hogweed_SOURCES): Add dsa-compat.c.
+	(HEADERS): Add dsa-compat.h.
+
+	* dsa-gen-params.c (dsa_generate_params): New file and function,
+	extracted from DSA key generation.
+	* dsa-keygen.c (dsa_generate_keypair): Use dsa_generate_params.
+
+2014-03-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* der2dsa.c (dsa_params_from_der_iterator): Converted to new DSA
+	interface. Allow q_size == 0, meaning any q < p is allowed.
+	Additional validity checks.
+	(dsa_public_key_from_der_iterator): Converted to new DSA
+	interface. Also check that the public value is in the correct
+	range.
+	(dsa_openssl_private_key_from_der_iterator): Converted
+	to new DSA interface. Additional validity checks.
+	(dsa_openssl_private_key_from_der): Converted to new DSA
+	interface.
+	* tools/pkcs1-conv.c (convert_dsa_private_key): Update to use
+	struct dsa_params, and adapt to the der decoding changes.
+	(convert_public_key): Likewise.
+
+	* examples/hogweed-benchmark.c: Update dsa benchmarking to use new
+	DSA interface.
+
+	* dsa.c (dsa_params_init, dsa_params_clear): New functions.
+	(dsa_public_key_init): Use dsa_params_init.
+	(dsa_public_key_clear): Use dsa_params_clear.
+
+	* sexp2dsa.c (dsa_keypair_from_sexp_alist): Converted to new DSA
+	interface. Allow q_size == 0, meaning any q < p is allowed.
+	Additional validity checks.
+	(dsa_sha1_keypair_from_sexp, dsa_sha256_keypair_from_sexp):
+	Converted to new DSA interface.
+
+	* dsa2sexp.c (dsa_keypair_to_sexp): Converted to new DSA
+	interface.
+	* tools/pkcs1-conv.c: Updated uses of dsa_keypair_to_sexp.
+
+	* dsa.h (struct dsa_params): New struct.
+
+	* dsa-sign.c (dsa_sign): Use struct dsa_params, with key as a
+	separate mpz_t.
+	* dsa-verify.c (dsa_verify): Likewise.
+	* dsa-sha1-verify.c (dsa_sha1_verify_digest, dsa_sha1_verify): Use
+	dsa_verify, cast the struct dsa_public_key * input to a struct
+	dsa_params *
+	* dsa-sha256-verify.c (dsa_sha256_verify_digest)
+	(dsa_sha256_verify): Likewise.
+	* dsa-sha1-sign.c (dsa_sha1_sign_digest, dsa_sha1_sign): Likewise
+	use dsa_sign, with a cast from struct dsa_public_key * to struct
+	dsa_params *.
+	* dsa-sha256-sign.c (dsa_sha256_sign_digest, dsa_sha256_sign):
+	Likewise.
+
+	* testsuite/testutils.c (test_dsa_verify): Use struct dsa_params.
+	(test_dsa_key): Likewise.
+	* testsuite/dsa-test.c (test_main): Adapt to test_dsa_key and
+	test_dsa_verify changes.
+	* testsuite/dsa-keygen-test.c (test_main): Adapt to
+	test_dsa_key change.
+
+	* testsuite/testutils.c (test_dsa_sign): #if out, currently
+	unused.
+
+2014-03-23  Niels Möller  <nisse@lysator.liu.se>
+
+	From Owen Kirby:
+	* ccm.c: New file.
+	* ccm.h: New file.
+	* ccm-aes128.c: New file.
+	* ccm-aes192.c: New file.
+	* ccm-aes256.c: New file.
+	* Makefile.in (nettle_SOURCES): Added ccm source files.
+	(HEADERS): Added ccm.h.
+	* testsuite/ccm-test.c: New file.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added ccm-test.c.
+
+2014-03-20  Niels Möller  <nisse@lysator.liu.se>
+
+	From Joachim Strömbergson:
+	* sha512.c (K): Indentation fix.
+	(sha512_224_init, sha512_224_digest, sha512_256_init)
+	(sha512_256_digest): New functions.
+	* sha2.h: Add prototypes.
+	(sha512_224_update, sha512_256_update): New aliases for
+	sha512_update.
+
+2014-03-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/nettle-benchmark.c (main): Add benchmarking of arcfour,
+	salsa20 and chacha, via time_aead.
+
+	* nettle-internal.c (nettle_arcfour128): Define, as a struct
+	nettle_aead (with NULL set_nonce, update, and digest methods).
+	* examples/nettle-openssl.c (nettle_openssl_arcfour128): Likewise.
+	* nettle-internal.h (nettle_arcfour128)
+	(nettle_openssl_arcfour128): Declare.
+
+	* nettle-types.h (nettle_cipher_func): New typedef, similar to
+	nettle_crypt_func, but with a const context, intended for block
+	ciphers.
+	* nettle-meta.h (struct nettle_cipher): Use the nettle_cipher_func
+	type.
+	* Many other files affected: aes*-meta.c, camellia*-meta.c,
+	cast128-meta.c, serpent-meta.c, twofish-meta.c, cbc.[ch],
+	ctr.[ch], ctr.[ch], des-compat.c, eax.[ch], gcm*.[ch],
+	nettle-internal.*, testsuite/aes-test.c,
+	examples/nettle-benchmark.c, examples/nettle-openssl.c.
+
+2014-03-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* chacha-set-key.c: Include string.h.
+
+	* arcfour-meta.c: Deleted file.
+	* nettle-meta.h (nettle_arcfour128): Deleted declaration.
+	* nettle-meta-ciphers.c (nettle_ciphers): Deleted
+	nettle_arcfour128 from list.
+	* Makefile.in (nettle_SOURCES): Deleted arcfour-meta.c.
+	* examples/nettle-openssl.c (nettle_openssl_arcfour128): Deleted.
+	* testsuite/meta-cipher-test.c: Adjust test for removal of
+	nettle_arcfour128.
+
+2014-03-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/nettle-benchmark.c (struct bench_aead_info): New
+	struct.
+	(bench_aead_crypt, bench_aead_update, init_nonce, time_aead): New
+	functions, for benchmarking aead algorithms.
+	(time_gcm, time_eax): Deleted functions.
+	(main): Use time_aead to benchmark gcm, eax and chacha-poly1305.
+
+	* salsa20.h (SALSA20_NONCE_SIZE): Renamed constant, old name
+	SALSA20_IV_SIZE kept as an alias.
+	(salsa20_set_nonce): Update prototype for the 2014-01-20 rename.
+
+	* Makefile.in (.asm.s): Add dependencies.
+	(.s.o, .s.po): Empty any dependency .d file.
+
+2014-03-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/chacha-test.c (test_main): Additional test cases, for
+	256-bit keys.
+
+	* Makefile.in (nettle_SOURCES): Deleted chacha128-set-key.c and
+	chacha256-set-key.c.
+
+	* chacha.h (CHACHA256_KEY_SIZE): Deleted.
+	(chacha_set_key): Updated prototype.
+	* chacha256-set-key.c (chacha256_set_key): Deleted file and
+	function, moved to...
+	* chacha-set-key.c (chacha_set_key): Do 256-bit keys only. Deleted
+	length argument. Updated all callers.
+
+	* chacha128-set-key.c (chacha128_set_key): Deleted file and
+	function. Support for 128-bit chacha keys may be reintroduced
+	later, if really needed.
+	* chacha.h: Deleted chacha128-related declarations.
+	* chacha-set-key.c (chacha_set_key): Drop support for 128-bit
+	keys.
+	* testsuite/chacha-test.c (test_main): #if:ed out all tests with
+	128-bit keys.
+
+2014-02-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* gcm.h: Declarations for gcm-camellia256.
+	* gcm-camellia256.c: New file.
+	* gcm-camellia256-meta.c: New file.
+	* nettle-meta.h (nettle_gcm_camellia256): Declare.
+	* Makefile.in (nettle_SOURCES): Added gcm-camellia256.c and
+	gcm-camellia256-meta.c.
+	* testsuite/gcm-test.c (test_main): Test cases for
+	nettle_gcm_camellia256.
+
+	* gcm.h: Include camellia.h. Declarations for gcm-camellia128.
+	* gcm-camellia128.c: New file.
+	* gcm-camellia128-meta.c: New file.
+	* nettle-meta.h (nettle_gcm_camellia128): Declare.
+	* Makefile.in (nettle_SOURCES): Added gcm-camellia128.c and
+	gcm-camellia128-meta.c.
+	* testsuite/gcm-test.c (test_main): Test cases for
+	nettle_gcm_camellia128. From Nikos Mavrogiannopoulos.
+
+2014-02-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Added eax-aes128.c
+	eax-aes128-meta.c.
+	* examples/nettle-benchmark.c: Include eax.h.
+	* nettle-meta.h (nettle_eax_aes128): Declare, moved from
+	nettle-internal.h.
+	* eax.h: Declare eax_aes128_ctx and related functions. Moved from
+	nettle-internal.h
+	(EAX_IV_SIZE): New constant.
+	* eax-aes128-meta.c (nettle_eax_aes128): Moved definition to new
+	file.
+	* eax-aes128.c (eax_aes128_set_key, eax_aes128_set_nonce)
+	(eax_aes128_update, eax_aes128_encrypt, eax_aes128_decrypt)
+	(eax_aes128_digest): Moved functions to a new file.
+	* nettle-internal.c: ... from old location.
+	* nettle-internal.h: Moved eax declarations elsewhere.
+
+	* tools/nettle-pbkdf2.c (main): Added missing deallocation.
+
+2014-02-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* chacha-poly1305.h: New file.
+	* chacha-poly1305.c: New file.
+	* chacha-poly1305-meta.c (nettle_chacha_poly1305): New file, new
+	aead algorithm.
+	* nettle-meta.h (nettle_chacha_poly1305): Declare.
+
+	* Makefile.in (nettle_SOURCES): Added chacha-poly1305.c and
+	chacha-poly1305-meta.c.
+	(HEADERS): Added chacha-poly1305.h.
+
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added
+	chacha-poly1305-test.c.
+	* testsuite/chacha-poly1305-test.c: New file.
+
+	* nettle-meta.h (struct nettle_aead): New generalized version
+	if this struct.
+	(nettle_gcm_aes128, nettle_gcm_aes192, nettle_gcm_aes256)
+	(nettle_eax_aes128): Declare, moved from nettle-internal.h.
+	* nettle-internal.h (struct nettle_aead): Deleted struct, moved to
+	nettle-meta.h. Deleted declarations of unused instances.
+	(_NETTLE_AEAD): Deleted macro.
+	* nettle-internal.c (nettle_eax_aes128): Updated for new
+	nettle_aead struct.
+	(nettle_gcm_aes128, nettle_gcm_aes192, nettle_gcm_aes256):
+	Deleted, moved to new files.
+	* gcm-aes128-meta.c (nettle_gcm_aes128): Moved to new file,
+	updated for new nettle_aead struct.
+	* gcm-aes192-meta.c (nettle_gcm_aes192): Likewise.
+	* gcm-aes256-meta.c (nettle_gcm_aes256): Likewise.
+	* testsuite/testutils.c (test_aead): Take alternative set_nonce
+	function as argument, and use it when nonce size differs from
+	aead->nonce_length.
+	* testsuite/testutils.h (test_aead): Updated prototype.
+	* testsuite/gcm-test.c (nettle_gcm_unified_aes128): Updated for
+	new nettle_aead struct.
+	(test_main): Pass additional argument to test_aead.
+	* testsuite/eax-test.c (test_main): Pass additional NULL argument
+	to test_aead.
+
+	* eax.h (EAX_DIGEST_SIZE): New constant.
+	* gcm.h (GCM_DIGEST_SIZE): Likewise.
+
+2014-02-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* chacha-set-nonce.c (chacha_set_nonce): Renamed file and
+	function, updated callers and Makefile.in.
+	* chacha-set-iv.c (chacha_set_iv): ... from old names.
+
+2014-02-08  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/chacha-test.c (test_chacha): For 20 rounds, use
+	chacha_crypt, and test varying the message length.
+	(test_main): Add second key stream block, for all testcases with
+	20 rounds.
+
+	* chacha-crypt.c (chacha_crypt): Fixed block counter update.
+
+2014-02-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (ASCII encoding): Document that
+	base16_encode_update and base64_encode_update now uses dst_length
+	as an output only.
+
+	* testsuite/base64-test.c (test_main): Updated
+	base64_decode_update test case.
+
+	* sexp-transport.c (sexp_transport_iterator_first): For
+	base64_decode_update, omit initialization of coded_length.
+	* examples/base64dec.c (main): Likewise.
+	* examples/base16dec.c (main): Likewise, for base16_decode_update.
+
+	* base64-decode.c (base64_decode_update): Use *dst_length for
+	output only. Don't require callers to pass a sane value.
+	* base16-decode.c (base16_decode_update): Likewise.
+
+2014-02-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* NEWS: List _set_key incompatibilities.
+
+	* nettle-meta.h (_NETTLE_CIPHER_SEP, _NETTLE_CIPHER_SEP_SET_KEY)
+	(_NETTLE_CIPHER_FIX, _NETTLE_CIPHER): Deleted unused macros.
+
+	* nettle-internal.c (nettle_blowfish128): Deleted only use of
+	_NETTLE_CIPHER.
+
+	* blowfish.c (blowfish128_set_key): New function.
+	* blowfish.h (BLOWFISH128_KEY_SIZE): New constant.
+
+	* cast128-meta.c (nettle_cast128): Deleted only use of
+	_NETTLE_CIPHER_FIX.
+
+	* examples/nettle-benchmark.c (time_cipher): Fixed memset calls.
+
+2014-01-30  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Arrange in alphabetic order.
+
+	* nettle.texinfo: Updated, document size_t for length arguments.
+	Document new AES and Camellia interfaces.
+
+	* ecc-size.c (ecc_bit_size): New function.
+	* ecc.h (ecc_bit_size): Declare it.
+
+2014-01-29  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle-types.h (typedef nettle_set_key_func): Deleted length
+	argument.
+
+	* arctwo.c (arctwo40_set_key, arctwo64_set_key)
+	(arctwo128_set_key, arctwo128_set_key_gutmann): New functions.
+	* arctwo.h: Declare them.
+	* arctwo-meta.c (ARCTWO): New macro.
+	(nettle_arctwo40, nettle_arctwo64, nettle_arctwo128)
+	(nettle_arctwo_gutmann128): Use new _set_key functions.
+
+	* arcfour.h (ARCFOUR128_KEY_SIZE): New constant.
+	* arcfour.c (arcfour128_set_key): New function.
+	* arcfour-meta.c (nettle_arcfour128): Use arcfour128_set_key and
+	ARCFOUR128_KEY_SIZE.
+
+	* cast128.c (cast5_set_key): Renamed, was cast128_set_key.
+	(cast128_set_key): New definition, with fixed key size.
+	* cast128.h (CAST128_MIN_KEY_SIZE, CAST128_MAX_KEY_SIZE): Renamed
+	constants, to...
+	(CAST5_MIN_KEY_SIZE, CAST5_MAX_KEY_SIZE): ... new names.
+
+	* eax.h (EAX_SET_KEY): Deleted length argument.
+
+	* aes128-meta.c: Deleted _set_key wrappers.
+	* aes192-meta.c: Likewise.
+	* aes256-meta.c: Likewise.
+	* camellia128-meta.c: Likewise.
+	* camellia192-meta.c: Likewise.
+	* camellia256-meta.c: Likewise.
+
+	* gcm-aes128.c (gcm_aes128_set_key): Deleted length argument.
+	* gcm-aes192.c (gcm_aes192_set_key): Likewise.
+	* gcm-aes256.c (gcm_aes256_set_key): Likewise.
+	* gcm.h: Updated prototypes.
+
+	* serpent-set-key.c (serpent128_set_key, serpent192_set_key)
+	(serpent256_set_key): New functions.
+	* serpent.h: Declare new functions.
+	(SERPENT128_KEY_SIZE, SERPENT192_KEY_SIZE)
+	(SERPENT256_KEY_SIZE): New constants.
+	* serpent-meta.c (SERPENT): New macro.
+	(nettle_serpent128, nettle_serpent192, nettle_serpent256): Use new
+	_set_key functions.
+
+	* twofish-set-key.c (twofish128_set_key, twofish192_set_key)
+	(twofish256_set_key): New functions.
+	* twofish.h: Declare new functions.
+	(TWOFISH128_KEY_SIZE, TWOFISH192_KEY_SIZE)
+	(TWOFISH256_KEY_SIZE): New constants.
+	* twofish-meta.c (TWOFISH): New macro.
+	(nettle_twofish128, nettle_twofish192, nettle_twofish256): Use new
+	_set_key functions.
+
+	* nettle-internal.h (struct nettle_aead): Use
+	nettle_hash_update_func for the set_iv function pointer.
+
+	* nettle-internal.c (des_set_key_hack, des3_set_key_hack): Deleted
+	wrapper functions.
+	(chacha_set_key_hack): Deleted length argument. Use
+	chacha256_set_key.
+	(salsa20_set_key_hack): Deleted length argument. Use
+	salsa20_256_set_key.
+	(nettle_unified_aes128, nettle_unified_aes192)
+	(nettle_unified_aes256): Deleted, moved to test program.
+	(eax_aes128_set_key): Deleted length argument. Use EAX_SET_KEY.
+
+	* examples/nettle-benchmark.c: Updated for _set_key changes.
+	* examples/nettle-openssl.c: Likewise.
+	* testsuite/testutils.c: Likewise.
+	* testsuite/gcm-test.c: Likewise.
+
+	* testsuite/aes-test.c (UNIFIED_AES): New macro. Moved glue for
+	testing the old aes interface (struct aes_ctx) here.
+
+	* testsuite/arcfour-test.c (test_arcfour): New function, for key
+	sizes != 128 bits.
+	(test_main): Use it.
+
+	* testsuite/blowfish-test.c (test_blowfish): New function.
+	(test_main): Use it. Also deleted old #if:ed out code.
+
+	* testsuite/cast128-test.c (test_cast5): New function.
+	(test_main): Use it, for 40-bit and 80-bit tests.
+
+	* testsuite/serpent-test.c (test_serpent): New function.
+	(test_main): Use it.
+
+2014-01-27  Niels Möller  <nisse@lysator.liu.se>
+
+	* eax.h (struct eax_key, struct eax_ctx): Use union
+	nettle_block16, for alignment.
+	* eax.c: Updated everything to use nettle_block16.
+	(block16_xor): New function.
+
+	* examples/nettle-benchmark.c (time_eax): New function.
+	(main): Use it.
+
+	* x86_64/chacha-core-internal.asm: Use pshufhw + pshuflw for the
+	16-bit rotate.
+
+	* configure.ac (asm_replace_list): Added chacha-core-internal.asm.
+	* x86_64/chacha-core-internal.asm: New file.
+
+	* examples/nettle-benchmark.c (main): Add benchmarking of chacha.
+	* nettle-internal.c (nettle_chacha): New const struct, for the
+	benchmark.
+
+	Chacha implementation, based on contribution by Joachim
+	Strömbergson.
+	* chacha.h: New file.
+	* chacha256-set-key.c (chacha256_set_key): New file and function.
+	* chacha128-set-key.c (chacha128_set_key): New file and function.
+	* chacha-set-key.c (chacha_set_key): New file and function.
+	* chacha-set-iv.c (chacha_set_iv): New file and function.
+	* chacha-core-internal.c (_chacha_core): New file and function.
+	* chacha-crypt.c (chacha_crypt): New file and function.
+	* Makefile.in (nettle_SOURCES): Added chacha files.
+	(HEADERS): Added chacha.h.
+	* testsuite/chacha-test.c: New file.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added chacha-test.c.
+
+2014-01-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle-internal.h (_NETTLE_AEAD_FIX): Renamed to...
+	(_NETTLE_AEAD): ... new name, and deleted old definition. Also use
+	_set_nonce instead of _set_iv.
+	* nettle-internal.c (nettle_gcm_aes128, nettle_gcm_aes192)
+	(nettle_gcm_aes256): Define in terms of new interface.
+	(nettle_eax_aes128): Updated for _NETTLE_AEAD changes.
+
+	* testsuite/gcm-test.c (test_gcm_hash): Likewise use struct
+	gcm_aes128_ctx.
+	(test_main): Added a testcase using the old interface based on
+	struct gcm_aes_ctx.
+
+	* examples/nettle-benchmark.c (time_gcm): Update to use new struct
+	gcm_aes128_ctx. Also use name "gcm-aes128" in output.
+
+	* gcm.h: New interface for gcm_aes128, gcm_aes192, gcm_aes256,
+	using the new AES interface.
+	(GCM_CTX): Reorder fields, putting the cipher context
+	last.
+
+	* Makefile.in (nettle_SOURCES): Added gcm-aes128.c, gcm-aes192.c,
+	and gcm-aes256.c.
+
+	* gcm-aes128.c: New file.
+	* gcm-aes192.c: New file
+	* gcm-aes256.c: New file.
+
+2014-01-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* gcm.h (GCM_SET_KEY): Deleted length argument.
+	* gcm-aes.c (gcm_aes_set_key): Use aes_set_encrypt_key and
+	gcm_set_key, can no longer use GCM_SET_KEY macro.
+
+2014-01-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/gcm-test.c (test_main): Use the correct
+	nettle_gcm_aes128/192/256 object.
+
+2014-01-21  Niels Möller  <nisse@lysator.liu.se>
+
+	Merged camellia-reorg changes (starting at 2013-10-07).
+
+2013-10-10  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Updated list of camellia files.
+
+	* testsuite/camellia-test.c (test_invert): Updated for new
+	camellia interface.
+
+	* camellia.h: Reorganized camellia interface, with distinct
+	context structs and functions for camellia128 and camellia256.
+
+	* camellia-meta.c: Deleted file.
+	* camellia256-meta.c: New file.
+	* camellia192-meta.c: New file.
+	* camellia128-meta.c: New file.
+
+	* camellia-set-decrypt-key.c: Deleted file, code moved to:
+	* camellia128-set-decrypt-key.c: New file.
+	(camellia128_invert_key, camellia128_set_decrypt_key): New
+	functions.
+	* camellia256-set-decrypt-key.c: New file.
+	(camellia256_invert_key, camellia256_set_decrypt_key)
+	(camellia192_set_decrypt_key): New functions.
+	* camellia-invert-key.c (_camellia_invert_key): New file and
+	function.
+
+	* camellia-set-encrypt-key.c: Deleted file, code moved to:
+	* camellia128-set-encrypt-key.c: New file.
+	(camellia128_set_encrypt_key): New function.
+	* camellia256-set-encrypt-key.c: New file.
+	(_camellia256_set_encrypt_key, camellia256_set_encrypt_key)
+	(camellia192_set_encrypt_key): New functions.
+	* camellia-absorb.c (_camellia_absorb): New file and function.
+	* camellia-internal.h: Moved key schedule macros here.
+
+	* camellia-crypt.c: Deleted file, code moved to:
+	* camellia128-crypt.c (camellia128_crypt): New file and function.
+	* camellia256-crypt.c (camellia256_crypt): New file and function.
+
+2013-10-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Delete check for ALIGNOF_UINT64_T, no longer
+	needed.
+	* config.m4.in: Likewise delete ALIGNOF_UINT64_T.
+
+	* camellia-crypt.c (camellia_crypt): Updated call to
+	_camellia_crypt.
+	* camellia-internal.h (_camellia_crypt): Updated prototype.
+	* camellia-crypt-internal.c (_camellia_crypt): Take separate
+	arguments for rounds and subkey array.
+	* x86_64/camellia-crypt-internal.asm: Likewise.	Also corrected
+	.file pseudo-ops.
+	* x86/camellia-crypt-internal.asm: Likewise.
+
+2014-01-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* poly1305-internal.c (poly1305_digest): Use union nettle_block16
+	for s argument.
+	* poly1305-aes.c (poly1305_aes_digest): Update for poly1305_digest
+	change.
+
+	Merged poly1305 changes (starting at 2013-11-08).
+	* x86_64/poly1305-internal.asm: Update to new interface.
+	poly1305_digest much simplified.
+
+	* poly1305.h (struct poly1305_ctx): Moved block and index
+	fields...
+	(struct poly1305_aes_ctx): ... to here.
+	* asm.m4: Delete also from the assembly definition of struct
+	poly1305_ctx.
+
+	* poly1305-internal.c (poly1305_digest): Don't do final padding
+	here, leave that to caller. Add digest to the provided nonce s,
+	and deleted length and dst arguments. Also reset h0-h4 to zero
+	when done.
+	(_poly1305_block): Renamed, from...
+	(poly1305_block): ...old name.
+
+	* poly1305-aes.c (poly1305_aes_update): New function.
+	(poly1305_aes_digest): Update for poly1305_digest changes, do
+	final padding here.
+
+	* poly1305.c (poly1305_update): Deleted file and function. Moved
+	to poly1305-aes.c.
+	* Makefile.in (nettle_SOURCES): Deleted poly1305.c.
+
+2014-01-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* poly1305-internal.c (poly1305_block): Additional argument with
+	the high bit.
+	(poly1305_block_internal): Deleted function, code moved into the
+	poly1305_block.
+	(poly1305_digest): Simplified padding code, call poly1305_block
+	with high bit 0.
+	* poly1305.h (poly1305_block): Update prototype.
+	* poly1305.c (poly1305_update): Call poly1305_block with high bit 1.
+	* x86_64/poly1305-internal.asm (poly1305_block): Handle new
+	argument.
+
+	* poly1305.h (struct poly1305_ctx): Moved nonce field from here...
+	(struct poly1305_aes_ctx): ... to here.
+	* poly1305-aes.c (poly1305_aes_set_nonce, poly1305_aes_digest):
+	Updated for above.
+	* poly1305.c (poly1305_set_nonce): Deleted function.
+	* asm.m4: Delete nonce also from the assembly definition of struct
+	poly1305_ctx.
+
+2014-01-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* poly1305-aes.c: Include poly1305.h. Rewrite functions without
+	using the POLY1305_* macros.
+
+	* Makefile.in (HEADERS): Deleted poly1305-aes.h.
+
+	* poly1305.h (POLY1305_CTX, POLY1305_SET_KEY, POLY1305_SET_NONCE)
+	(POLY1305_DIGEST): Deleted macros. Only implemented variant is
+	poly1305-aes.
+	(POLY1305_DIGEST_SIZE, POLY1305_BLOCK_SIZE, POLY1305_KEY_SIZE):
+	New constants.
+	(POLY1305_AES_KEY_SIZE, POLY1305_AES_DIGEST_SIZE): Moved here,
+	from poly1305-aes.h.
+	(struct poly1305_aes_ctx): Likewise.
+	(poly1305_aes_set_key, poly1305_aes_set_nonce)
+	(poly1305_aes_update, poly1305_aes_digest): Likewise.
+	* poly1305-aes.h: Deleted file, declarations moved to poly1305.h.
+	Update all users.
+
+	* poly1305-internal.c (s2, s3, s4): Fixed macros.
+
+	* poly1305-aes.h (struct poly1305_aes_ctx): Replace struct aes_ctx
+	by struct aes128_ctx.
+	* poly1305-aes.c (poly1305_aes_set_key, poly1305_aes_digest):
+	Update to use aes128_* functions.
+	* poly1305.h (POLY1305_SET_KEY): Drop key size argument when
+	calling set_key.
+
+2013-12-19  Niels Möller  <nisse@lysator.liu.se>
+
+	* poly1305-aes.h (poly1305_aes_update): Define as an alias for
+	poly1305_update, using preprocessor and a type cast.
+
+	* poly1305-aes.c (poly1305_aes_update): Deleted function.
+
+	* poly1305.h (poly1305_update): Declare.
+	(_POLY1305_BLOCK, POLY1305_UPDATE): Deleted macros.
+
+	* poly1305.c (poly1305_update): New function.
+
+2013-11-21  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/poly1305-internal.asm: New file. Almost a factor of two
+	speedup.
+
+	* configure.ac (asm_replace_list): Added poly1305-internal.asm.
+
+	* asm.m4: Define struct offsets for 64-bit poly1305_ctx.
+
+	* poly1305.h (POLY1305_DIGEST): Pass the encrypted nonce as an
+	additional argument to poly1305_digest.
+	(struct poly1305_ctx): Introduce unions, to support either 26-bit
+	or 64-bit implementation.
+
+	* poly1305-internal.c (poly1305_digest): Added s argument.
+
+	* poly1305.c (poly1305_set_s): Deleted function.
+
+2013-11-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* poly1305-internal.c: New file, for poly1305 functions depending
+	on the internal mod (2^130 - 5) representation.
+	(poly1305_block_internal): New helper function.
+	(poly1305_block, poly1305_digest): Use it.
+
+2013-11-08  Nikos Mavrogiannopoulos  <nmav@gnutls.org>
+
+	* poly1305.h: New file.
+	* poly1305.c: New file.
+	* poly1305-aes.h: New file.
+	* poly1305-aes.c: New file.
+	* Makefile.in (nettle_SOURCES): Added poly1305-aes.c and poly1305.c.
+	(HEADERS): Added poly1305-aes.h and poly1305.h.
+
+	* testsuite/poly1305-test.c: New file.
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added poly1305-test.c.
+
+	* examples/nettle-benchmark.c (time_poly1305_aes): New function.
+	(main): Benchmark poly1305.
+
+2014-01-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Added salsa20-set-nonce.c,
+	salsa20-128-set-key.c, and salsa20-256-set-key.c.
+
+	* salsa20.h: Declare new functions.
+	(SALSA20_128_KEY_SIZE, SALSA20_256_KEY_SIZE): New constants.
+	(salsa20_set_iv): Define as an alias for salsa20_set_nonce.
+
+	* salsa20-set-key.c (salsa20_set_key): Use salsa20_128_set_key and
+	salsa20_256_set_key.
+	(salsa20_set_iv): Renamed and moved...
+	* salsa20-set-nonce.c (salsa20_set_nonce): ... new file, new name.
+
+	* salsa20-256-set-key.c (salsa20_256_set_key): New file and
+	function.
+	* salsa20-128-set-key.c (salsa20_128_set_key): New file and
+	function.
+
+2014-01-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle-types.h (union nettle_block16): New type, replacing union
+	gcm_block.
+	* gcm.h (union gcm_block): Deleted. Replaced by nettle_block16.
+	* gcm.c: Replaced all use of gcm_block by nettle_block16.
+
+2014-01-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* config.guess: Updated to 2014-01-01 version, from
+	git://git.sv.gnu.org/config.git.
+	* config.sub: Likewise.
+
+	* testsuite/memxor-test.c [HAVE_VALGRIND_MEMCHECK_H] (test_mark):
+	New function.
+	(test_memxor, test_memxor3): Use test_mark to tell valgrind the
+	start and end of src and destination areas.
+
+	* configure.ac: Check for valgrind/memcheck.h.
+
+	* testsuite/Makefile.in (VALGRIND): Added --partial-loads-ok=yes,
+	needed for the way unaligned data is handled in, e.g., memxor.
+
+2014-01-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* shadata.c (main): Zero-pad output values to 8 hex digits.
+	* sha256.c (K): Updated table.
+
+2013-12-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac (ASM_RODATA): New substituted variable. Needed for
+	portability to darwin.
+	* config.m4.in: Define RODATA, using configure variable ASM_RODATA
+	* x86_64/gcm-hash8.asm: Use RODATA macro.
+
+	* bignum-random-prime.c (_nettle_generate_pocklington_prime): Use
+	stronger variants of Pocklington's theorem, to allow p0 of size
+	down to bits/3.
+
+2013-12-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle-internal.h (NETTLE_MAX_BIGNUM_BITS)
+	(NETTLE_MAX_BIGNUM_SIZE): Deleted arbitrary limits.
+
+2013-12-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	Introduced TMP_GMP_ALLOC macro for temporary allocations of
+	potentially large data, e.g, sized as an RSA key.
+	* gmp-glue.h (TMP_GMP_DECL, TMP_GMP_ALLOC, TMP_GMP_FREE): New
+	macros.
+	* gmp-glue.c (gmp_alloc, gmp_free): New functions.
+	* bignum-next-prime.c (nettle_next_prime): Use TMP_GMP_ALLOC.
+	* bignum-random.c (nettle_mpz_random_size): Likewise.
+	* pkcs1-decrypt.c (pkcs1_decrypt): Likewise.
+	* pkcs1-encrypt.c (pkcs1_encrypt): Likewise.
+	* pkcs1-rsa-digest.c (pkcs1_rsa_digest_encode): Likewise.
+	* pkcs1-rsa-sha512.c (pkcs1_rsa_sha512_encode)
+	(pkcs1_rsa_sha512_encode_digest): Likewise.
+	* pkcs1-rsa-sha256.c (pkcs1_rsa_sha256_encode)
+	(pkcs1_rsa_sha256_encode_digest): Likewise.
+	* pkcs1-rsa-sha1.c (pkcs1_rsa_sha1_encode)
+	(pkcs1_rsa_sha1_encode_digest): Likewise.
+	* pkcs1-rsa-md5.c (pkcs1_rsa_md5_encode)
+	(pkcs1_rsa_md5_encode_digest): Likewise.
+
+2013-12-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/gcm-hash8.asm: Use .short rather than .hword, for
+	compatibility with apple's assembler.
+
+2013-12-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/sha1-compress.asm: Reorganized, to get closer to the x86
+	version. No difference in running time.
+
+	* configure.ac (dummy-dep-files): Don't overwrite any existing
+	dependency files.
+
+	* x86_64/md5-compress.asm: New file, similar to the x86 version.
+	35% speedup on AMD, 15% speedup on Intel.
+
+2013-11-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/dsa-test.c (test_main): Additional tests from NIST
+	test vectors.
+
+	* testsuite/testutils.c (test_dsa_sign, test_dsa_verify): New
+	functions, supporting arbitrary digest size.
+
+	* testsuite/testutils.h (ASSERT): Improved failure message.
+
+	* dsa-verify.c (dsa_verify): Renamed, from _dsa_verify.
+	* dsa-sign.c (dsa_sign): Renamed, from _dsa_sign.
+
+2013-11-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/dsa-keygen-test.c (test_main): Test generating a
+	key with 224-bit q.
+
+	* dsa-verify.c (_dsa_verify): Use _dsa_hash.
+
+	* dsa-sign.c (_dsa_sign): Use _dsa_hash. Fix memory leak in
+	error case, spotted by Nikos.
+
+	* dsa-keygen.c (dsa_generate_keypair): Allow q_bits == 224.
+
+	* dsa-hash.c (_dsa_hash): New file and function. Allows digest
+	sizes not matching the bitsize of q.
+	* dsa.h (_dsa_hash): Declare it.
+	* Makefile.in (hogweed_SOURCES): Added dsa-hash.c.
+
+2013-11-23  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Check also for openssl/ecdsa.h.
+
+2013-10-05  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Added eax.c.
+	(HEADERS): Added eax.h.
+
+	* testsuite/Makefile.in (TS_NETTLE_SOURCES): Added eax-test.c.
+
+	* testsuite/eax-test.c: New file.
+
+	* nettle-internal.c (nettle_eax_aes128): New aead algorithm.
+	(eax_aes128_set_key, eax_aes128_set_nonce, eax_aes128_update)
+	(eax_aes128_encrypt, eax_aes128_decrypt, eax_aes128_digest): New
+	functions.
+
+	* eax.c: New file.
+	* eax.h: New file.
+
+	* aes.h: Fixed typo in name mangling for new aes functions.
+
+2013-09-28  Niels Möller  <nisse@lysator.liu.se>
+
+	* Merge aes-reorg branch. Changes below,
+	dated 2013-05-17 - 2013-08-13.
+
+2013-08-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* yarrow.h (struct yarrow256_ctx): Use aes256_ctx, not aes_ctx.
+	* yarrow256.c: Adapted to use new aes256 interface.
+
+2013-08-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* umac.h (_UMAC_STATE): Use struct aes128_ctx, not aes_ctx.
+	* umac-set-key.c (umac_kdf, _umac_set_key): Use aes128 interface.
+	* umac32.c (umac32_digest): Likewise.
+	* umac64.c (umac64_digest): Likewise.
+	* umac96.c (umac96_digest): Likewise.
+	* umac128.c (umac128_digest): Likewise.
+
+2013-06-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* aes-meta.c: Deleted file.
+
+	Analogous changes for new aes192 and aes256 interface.
+
+	* aes.h (struct aes128_ctx): New aes128 declarations.
+	* aes-decrypt.c (aes128_decrypt): New function.
+	* aes-encrypt.c (aes128_encrypt): New function.
+	* aes128-meta.c: New file.
+	* aes128-set-encrypt-key.c (aes128_set_encrypt_key): New file and
+	function.
+	* aes128-set-decrypt-key.c (aes128_set_decrypt_key)
+	(aes128_invert_key): New file and functions.
+	* Makefile.in (nettle_SOURCES): Added aes128-set-encrypt-key.c,
+	aes128-set-decrypt-key.c and aes128-meta.c.
+
+	* nettle-internal.c (nettle_unified_aes128): For testing the old
+	AES interface.
+	* testsuite/aes-test.c (test_cipher2): New function.
+	(test_main): Test both nettle_aes128 and nettle_unified_aes128.
+
+2013-05-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (nettle_SOURCES): Added aes-invert-internal.c and
+	aes-set-key-internal.c.
+
+	* aes.h (AES128_KEY_SIZE, _AES128_ROUNDS): New constants.
+	Similarly also for aes192 and aes256.
+
+	* aes-internal.h: Declare new functions.
+
+	* aes-set-key-internal.c (_aes_set_key): New file and funxtion
+	extracted from aes_set_encrypt_key.
+	* aes-set-encrypt-key.c (aes_set_encrypt_key): Use _aes_set_key.
+
+	* aes-invert-internal.c (_aes_invert): New file and function,
+	extracted from aes_invert_key.
+	* aes-set-decrypt-key.c (aes_invert_key): Use _aes_invert.
+
+	* arm/v6/aes-encrypt-internal.asm: Adapted to new interface.
+	Unfortunately, 4% slowdown on Cortex-A9, for unknown reason.
+	* arm/v6/aes-decrypt-internal.asm: Likewise.
+	* arm/aes-encrypt-internal.asm: Adapted to new interface.
+	* arm/aes-decrypt-internal.asm: Likewise.
 
 2013-05-21  Niels Möller  <nisse@lysator.liu.se>
 
-	From master (2013-05-20):
+	* sparc32/aes-encrypt-internal.asm: Adapted to new interface.
+	* sparc32/aes-decrypt-internal.asm: Likewise.
+	* sparc64/aes-encrypt-internal.asm: Likewise.
+	* sparc64/aes-decrypt-internal.asm: Likewise.
+
+	* x86/aes-encrypt-internal.asm: Adapted to new interface.
+	* x86/aes-decrypt-internal.asm: Likewise.
+
+2013-05-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/aes-encrypt-internal.asm: Adapted to new interface.
+	* x86_64/aes-decrypt-internal.asm: Likewise.
+
+2013-05-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* aes.h (struct aes_ctx): Renamed nrounds to rounds, and moved
+	first in the structure.
+	* aes-set-encrypt-key.c (aes_set_encrypt_key): Updated for renaming.
+	* aes-set-decrypt-key.c (aes_invert_key): Likewise.
+
+	* aes-encrypt-internal.c (_nettle_aes_encrypt): Take rounds and
+	subkeys as separate arguments, not a struct aes_ctx *. Updated
+	callers.
+	* aes-decrypt-internal.c (_nettle_aes_decrypt): Likewise.
+	* aes-internal.h: Updated prototypes.
+
+	* Start of aes-reorg changes.
+
+2013-09-28  Niels Möller  <nisse@lysator.liu.se>
+
+	* md4.h (struct md4_ctx): Use single uint64_t variable for block
+	count.
+	* md4.c: Use new block count variable.
+	* md5.c, md5.h (struct md5_ctx): Likewise.
+	* ripemd160.c, ripemd160.h (struct ripemd160_ctx): Likewise.
+	* sha1.c, sha1.h (struct sha1_ctx): Likewise.
+	* sha256.c, sha2.h (struct sha256_ctx): Likewise.
+
+	* testsuite/testutils.c (test_hash_large): Added simple progress
+	indicator.
+
+	* macros.h (MD_PAD): Use size argument, don't depend on
+	sizeof of the count field(s).
+
+2013-09-22  Niels Möller  <nisse@lysator.liu.se>
+
+	* x86_64/gcm-hash8.asm: New file.
+	* x86_64/gcm-gf-mul-8.asm: Deleted.
+
+	* configure.ac (asm_nettle_optional_list): Look for gcm-hash8.asm,
+	not gcm-gf-mul-8.asm.
+	* gcm.c [HAVE_NATIVE_gcm_hash8]: Make use of (optional) assembly
+	implementation.
+
+2013-09-21  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in (des.po): Add same dependencies as for des.o.
+	Reported by Vincent Torri.
+
+2013-09-20  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/gcm-test.c: Added tests with associated data of
+	varying size.
+
+	* testsuite/testutils.c (tstring_alloc): Add NUL-termination.
+
+2013-09-18  Niels Möller  <nisse@lysator.liu.se>
+
+	* Makefile.in: New stampfiles, libnettle.stamp and
+	libhogweed.stamp, updated when both static and shared libraries
+	are rebuilt. Used as link dependencies in subdirectories.
+	* examples/Makefile.in: Make executable targets depend on
+	../libnettle.stamp and libhogweed.stamp, not directly on the
+	static library files.
+	* testsuite/Makefile.in: Likewise.
+	* tools/Makefile.in: Likewise.
+
+2013-09-09  Niels Möller  <nisse@lysator.liu.se>
+
+	* gcm.c [HAVE_NATIVE_gcm_gf_mul_8]: Make use of (optional)
+	assembly implementation.
+
+	* configure.ac: Support optional assembly files for both nettle
+	and hogweed. Replaced OPT_ASM_SOURCES with OPT_ASM_NETTLE_SOURCES,
+	OPT_ASM_HOGWEED_SOURCES, and asm_optional_list with
+	asm_nettle_optional_list and asm_hogweed_optional_list.
+	(asm_nettle_optional_list): Added gcm-gf-mul-8.asm.
+
+2013-06-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/gcm-test.c: Deleted redundant include of aes.h.
+
+	* testsuite/testutils.c (test_aead): Allow digest size smaller
+	than the block size.
+
+	* tools/nettle-pbkdf2.c: New command line tool.
+	* tools/Makefile.in (TARGETS): Added nettle-pbkdf2.
+	(nettle-pbkdf2$(EXEEXT)): New target.
+	* testsuite/nettle-pbkdf2-test: New test case.
+	* testsuite/Makefile.in (TS_SH): Added nettle-pbkdf2-test.
+
+	* tools/nettle-hash.c (digest_file): Use stack allocation for the
+	small hex output buffer.
+
+	* examples/io.c (MIN): Deleted unused macro.
+
+2013-05-21  Niels Möller  <nisse@lysator.liu.se>
+
+	From nettle-2.7-fixes branch:
+	* Makefile.in (distdir): Distribute files in arm/v6 subdirectory.
+
+2013-05-20  Niels Möller  <nisse@lysator.liu.se>
+
 	* arm/v6/sha1-compress.asm: Moved into v6 directory, since it uses
 	the v6 instruction uadd8, sel and rev.
 	* arm/v6/sha256-compress.asm: Likewise.
 
-	From master (2013-05-15):
+	* nettle-types.h: Include <stddef.h>, for size_t.
+
+2013-05-17  Niels Möller  <nisse@lysator.liu.se>
+
+	* macros.h (ROTL32, ROTL64): Avoid undefined behaviour for zero
+	rotation count. Unfortunately makes CAST128 a bit slower with
+	gcc-4.6.3.
+
+	* ecc-j-to-a.c (ecc_j_to_a): Fixed ecc_modp_mul call, to avoid
+	invalid overlap of arguments to mpn_mul_n. Problem tracked down by
+	Magnus Holmgren.
+
+2013-05-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* arm/aes-encrypt-internal.asm: New file, for pre-v6 processors.
+	* arm/aes-decrypt-internal.asm: New file, likewise.
+
+	* arm/aes.m4 (AES_FINAL_ROUND_V5): Variant without using uxtb.
+	(AES_FINAL_ROUND_V6): New name, updated callers.
+	(AES_FINAL_ROUND): ... old name. Also eliminated one uxtb
+	instruction.
+	(AES_ENCRYPT_ROUND, AES_DECRYPT): Moved macros to the
+	files using them.
+
+	* arm/v6/aes-encrypt-internal.asm: Use ALIGN macro. Use 16-byte
+	alignment for loops.
+	* arm/v6/aes-decrypt-internal.asm: Likewise. Also added a nop
+	which mysteriously improves benchmark performance on Cortex-A9.
+
+2013-05-15  Niels Möller  <nisse@lysator.liu.se>
+
 	* configure.ac (asm_path): Handle armv6 and armv7 differently from
 	older ARMs. Add the arm/v6 directory to asm_path when appropriate.
 
@@ -17,20 +2902,74 @@
 	the uxtb instruction which is not available for older ARMs.
 	* arm/v6/aes-decrypt-internal.asm: Likewise.
 
-2013-05-21  Niels Möller  <nisse@lysator.liu.se>
+2013-05-03  Niels Möller  <nisse@lysator.liu.se>
 
-	* configure.ac: Changed version number to 2.7.1.
-	(LIBHOGWEED_MINOR): Bumped library version, to 4.7.
-	(LIBHOGWEED_MINOR): And to 2.5.
+	* cast128.c: Adapt to new struct cast128_ctx.
+	(cast128_set_key): Rewrite, eliminating lots of conditions and
+	some false warnings.
 
-2013-05-17  Niels Möller  <nisse@lysator.liu.se>
+	* cast128.h (struct cast128_ctx): Separate the small 5-bit
+	rotation subkeys and the larger 32-bit masking subkeys.
 
-	From master branch:
-	* ecc-j-to-a.c (ecc_j_to_a): Fixed ecc_modp_mul call, to avoid
-	invalid overlap of arguments to mpn_mul_n. Problem tracked down by
-	Magnus Holmgren.
+2013-05-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* testsuite/testutils.c (mpz_combit): Renamed. Define only if not
+	provided GMP. Updated all uses.
+	(mpz_togglebit): ... old name.
+
+	* sexp-format.c (sexp_vformat): Use type mpz_srcptr rather
+	than the old MP_INT *.
+
+2013-04-26  Niels Möller  <nisse@lysator.liu.se>
+
+	* Many files: Use size_t rather than unsigned for data sizes.
+	* x86_64/aes-encrypt-internal.asm: Accept 64-bit length.
+	* x86_64/aes-decrypt-internal.asm: Likewise.
+
+2013-04-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Changed version number, to 2.8.
+	(LIBNETTLE_MAJOR): Bumped major number, following
+	nettle_memxor ABI break.
+	(LIBNETTLE_MINOR): Reset to zero.
+
+	* examples/hogweed-benchmark.c: Add benchmarking of OpenSSL's RSA
+	functions.
+	(all functions): Deleted unneeded casts.
 
 2013-04-24  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (Miscellaneous functions): Updated memxor
+	prototype. Document memxor3.
+
+	* salsa20-crypt.c (salsa20_crypt): Deleted cast of memxor
+	argument, no longer needed.
+	* salsa20r12-crypt.c (salsa20r12_crypt): Likewise.
+	* sha3.c (sha3_absorb): Likewise.
+
+	* memxor.h: Updated prototypes. Drop include of nettle-types.h.
+
+	* memxor.c: Include nettle-types.h, for uintptr_t. Replace all
+	internal uses of uint8_t by plain char.
+	(memxor): Use void * rather than uint8_t * for
+	arguments.
+	(memxor3): Likewise.
+
+	* x86_64/memxor.asm: Added nettle_ prefix to symbols.
+	* arm/memxor.asm: Likewise.
+
+	* testsuite/symbols-test: Don't allow memxor functions without
+	nettle prefix,
+
+	* memxor.h (memxor3): Added name mangling to add "nettle_" prefix
+	to memxor and memxor3 symbols.
+
+	* Makefile.in (nettle_OBJS): Deleted $(LIBOBJS), and also deleted
+	LIBOBJS substitution.
+	(nettle_SOURCES): Added memxor.c, to include it in the library
+	unconditionally.
+
+	* configure.ac: Deleted AC_REPLACE_FUNCS for memxor.
 
 	* Released nettle-2.7.
 
@@ -1789,7 +4728,7 @@
 	(SBOX0I, SBOX1I, SBOX7I): Fixed bugs.
 
 	* nettle.texinfo (Copyright): Updated for license change to
-	LGPLv2+. Updated copyriight info on serpent.
+	LGPLv2+. Updated copyright info on serpent.
 
 	* NEWS: Updated information for nettle-2.2.
 
@@ -6890,8 +9829,8 @@
 	computing n = p * q.
 
 	* rsa-compat.c: Adapted to new private key struct.
-	* rsa_md5.c: Likesize.
-	* rsa_sha1.c: Likesize.
+	* rsa_md5.c: Likewise.
+	* rsa_sha1.c: Likewise.
 
 	* rsa.c (rsa_check_size): New function, for computing and checking
 	the size of the modulo in octets.

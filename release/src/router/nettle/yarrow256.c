@@ -1,27 +1,35 @@
 /* yarrow256.c
- *
- * The yarrow pseudo-randomness generator.
- */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2001 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The yarrow pseudo-randomness generator.
+
+   Copyright (C) 2001, 2008, 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -101,7 +109,7 @@ yarrow256_init(struct yarrow256_ctx *ctx,
 
 void
 yarrow256_seed(struct yarrow256_ctx *ctx,
-	       unsigned length,
+	       size_t length,
 	       const uint8_t *seed_file)
 {
   assert(length > 0);
@@ -118,7 +126,7 @@ yarrow_generate_block(struct yarrow256_ctx *ctx,
 {
   unsigned i;
 
-  aes_encrypt(&ctx->key, sizeof(ctx->counter), block, ctx->counter);
+  aes256_encrypt(&ctx->key, sizeof(ctx->counter), block, ctx->counter);
 
   /* Increment counter, treating it as a big-endian number. This is
    * machine independent, and follows appendix B of the NIST
@@ -190,12 +198,12 @@ yarrow256_fast_reseed(struct yarrow256_ctx *ctx)
   /* Iterate */
   yarrow_iterate(digest);
 
-  aes_set_encrypt_key(&ctx->key, sizeof(digest), digest);
+  aes256_set_encrypt_key(&ctx->key, digest);
   ctx->seeded = 1;
 
   /* Derive new counter value */
   memset(ctx->counter, 0, sizeof(ctx->counter));
-  aes_encrypt(&ctx->key, sizeof(ctx->counter), ctx->counter, ctx->counter);
+  aes256_encrypt(&ctx->key, sizeof(ctx->counter), ctx->counter, ctx->counter);
   
   /* Reset estimates. */
   for (i = 0; i<ctx->nsources; i++)
@@ -228,7 +236,7 @@ yarrow256_slow_reseed(struct yarrow256_ctx *ctx)
 int
 yarrow256_update(struct yarrow256_ctx *ctx,
 		 unsigned source_index, unsigned entropy,
-		 unsigned length, const uint8_t *data)
+		 size_t length, const uint8_t *data)
 {
   enum yarrow_pool_id current;
   struct yarrow_source *source;
@@ -305,17 +313,17 @@ yarrow256_update(struct yarrow256_ctx *ctx,
 static void
 yarrow_gate(struct yarrow256_ctx *ctx)
 {
-  uint8_t key[AES_MAX_KEY_SIZE];
+  uint8_t key[AES256_KEY_SIZE];
   unsigned i;
 
   for (i = 0; i < sizeof(key); i+= AES_BLOCK_SIZE)
     yarrow_generate_block(ctx, key + i);
 
-  aes_set_encrypt_key(&ctx->key, sizeof(key), key);
+  aes256_set_encrypt_key(&ctx->key, key);
 }
 
 void
-yarrow256_random(struct yarrow256_ctx *ctx, unsigned length, uint8_t *dst)
+yarrow256_random(struct yarrow256_ctx *ctx, size_t length, uint8_t *dst)
 {
   assert(ctx->seeded);
 

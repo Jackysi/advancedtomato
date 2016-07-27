@@ -20,12 +20,15 @@ void asp_ddnsx(int argc, char **argv)
 	char name[64];
 	time_t tt;
 	struct stat st;
-	char prefix[] = "wan";
 
-	web_printf(
-		"\nddnsx_ip = '%s';\n"
-		"ddnsx_msg = [",
-		get_wanip(prefix));
+	web_printf("\nddnsx_ip = '%s';", get_wanip("wan"));
+	web_printf("\nddnsx2_ip = '%s';", get_wanip("wan2"));
+#ifdef TCONFIG_MULTIWAN
+	web_printf("\nddnsx3_ip = '%s';", get_wanip("wan3"));
+	web_printf("\nddnsx4_ip = '%s';", get_wanip("wan4"));
+#endif
+
+	web_printf("\nddnsx_msg = [");
 
 	for (i = 0; i < 2; ++i) {
 		web_puts(i ? "','" : "'");

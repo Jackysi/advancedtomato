@@ -24,7 +24,7 @@ int main(int argc, char **argv)
       double fraction = root - floor(root);
       double value = floor(ldexp(fraction, 32));
 
-      printf("0x%lxUL, ", (unsigned long) value);
+      printf("0x%08lxUL, ", (unsigned long) value);
       if (!(i % 4))
 	printf("\n");
     }
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
       double fraction = root - (floor(root));
       double value = floor(ldexp(fraction, 32));
 
-      printf("0x%lxUL, ", (unsigned long) value);
+      printf("0x%08lxUL, ", (unsigned long) value);
       if (!(i % 4))
 	printf("\n");
     }

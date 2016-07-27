@@ -44,6 +44,7 @@
 //usage:     "\n	-f	Force de/configuration"
 
 #include "libbb.h"
+#include "common_bufsiz.h"
 /* After libbb.h, since it needs sys/types.h on some systems */
 #include <sys/utsname.h>
 #include <fnmatch.h>
@@ -129,8 +130,8 @@ struct globals {
 	const char *startup_PATH;
 	char *shell;
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
-#define INIT_G() do { } while (0)
+#define G (*(struct globals*)bb_common_bufsiz1)
+#define INIT_G() do { setup_common_bufsiz(); } while (0)
 
 
 static const char keywords_up_down[] ALIGN1 =
@@ -289,7 +290,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 					/* "hwaddress <class> <address>":
 					 * unlike ifconfig, ip doesnt want <class>
 					 * (usually "ether" keyword). Skip it. */
-					if (strncmp(command, "hwaddress", 9) == 0) {
+					if (is_prefixed_with(command, "hwaddress")) {
 						varvalue = skip_whitespace(skip_non_whitespace(varvalue));
 					}
 # endif
@@ -298,7 +299,7 @@ static char *parse(const char *command, struct interface_defn_t *ifd)
 # if ENABLE_FEATURE_IFUPDOWN_IP
 					/* Sigh...  Add a special case for 'ip' to convert from
 					 * dotted quad to bit count style netmasks.  */
-					if (strncmp(command, "bnmask", 6) == 0) {
+					if (is_prefixed_with(command, "bnmask")) {
 						unsigned res;
 						varvalue = get_var("netmask", 7, ifd);
 						if (varvalue) {
@@ -394,8 +395,8 @@ static int FAST_FUNC static_up6(struct interface_defn_t *ifd, execfn *exec)
 # if ENABLE_FEATURE_IFUPDOWN_IP
 	result = execute("ip addr add %address%/%netmask% dev %iface%[[ label %label%]]", ifd, exec);
 	result += execute("ip link set[[ mtu %mtu%]][[ addr %hwaddress%]] %iface% up", ifd, exec);
-	/* Was: "[[ ip ....%gateway% ]]". Removed extra spaces w/o checking */
-	result += execute("[[ip route add ::/0 via %gateway%]][[ prio %metric%]]", ifd, exec);
+	/* Reportedly, IPv6 needs "dev %iface%", but IPv4 does not: */
+	result += execute("[[ip route add ::/0 via %gateway% dev %iface%]][[ metric %metric%]]", ifd, exec);
 # else
 	result = execute("ifconfig %iface%[[ media %media%]][[ hw %hwaddress%]][[ mtu %mtu%]] up", ifd, exec);
 	result += execute("ifconfig %iface% add %address%/%netmask%", ifd, exec);
@@ -421,7 +422,8 @@ static int FAST_FUNC v4tunnel_up(struct interface_defn_t *ifd, execfn *exec)
 			"%endpoint%[[ local %local%]][[ ttl %ttl%]]", ifd, exec);
 	result += execute("ip link set %iface% up", ifd, exec);
 	result += execute("ip addr add %address%/%netmask% dev %iface%", ifd, exec);
-	result += execute("[[ip route add ::/0 via %gateway%]]", ifd, exec);
+	/* Reportedly, IPv6 needs "dev %iface%", but IPv4 does not: */
+	result += execute("[[ip route add ::/0 via %gateway% dev %iface%]]", ifd, exec);
 	return ((result == 4) ? 4 : 0);
 }
 
@@ -482,7 +484,7 @@ static int FAST_FUNC static_up(struct interface_defn_t *ifd, execfn *exec)
 	result = execute("ip addr add %address%/%bnmask%[[ broadcast %broadcast%]] "
 			"dev %iface%[[ peer %pointopoint%]][[ label %label%]]", ifd, exec);
 	result += execute("ip link set[[ mtu %mtu%]][[ addr %hwaddress%]] %iface% up", ifd, exec);
-	result += execute("[[ip route add default via %gateway% dev %iface%[[ prio %metric%]]]]", ifd, exec);
+	result += execute("[[ip route add default via %gateway% dev %iface%[[ metric %metric%]]]]", ifd, exec);
 	return ((result == 3) ? 3 : 0);
 # else
 	/* ifconfig said to set iface up before it processes hw %hwaddress%,
@@ -534,7 +536,7 @@ static const struct dhcp_client_t ext_dhcp_clients[] = {
 		"pump -i %iface% -k",
 	},
 	{ "udhcpc",
-		"udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -H %hostname%]][[ -c %client%]]"
+		"udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid -i %iface%[[ -x hostname:%hostname%]][[ -c %client%]]"
 				"[[ -s %script%]][[ %udhcpc_opts%]]",
 		"kill `cat /var/run/udhcpc.%iface%.pid` 2>/dev/null",
 	},
@@ -574,7 +576,7 @@ static int FAST_FUNC dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 		return 0;
 #  endif
 	return execute("udhcpc " UDHCPC_CMD_OPTIONS " -p /var/run/udhcpc.%iface%.pid "
-			"-i %iface%[[ -H %hostname%]][[ -c %client%]][[ -s %script%]][[ %udhcpc_opts%]]",
+			"-i %iface%[[ -x hostname:%hostname%]][[ -c %client%]][[ -s %script%]][[ %udhcpc_opts%]]",
 			ifd, exec);
 }
 # else
@@ -849,7 +851,6 @@ static struct interfaces_file_t *read_interfaces(const char *filename, struct in
 			char *iface_name;
 			char *address_family_name;
 			char *method_name;
-			llist_t *iface_list;
 
 			currif = xzalloc(sizeof(*currif));
 			iface_name = next_word(&rest_of_line);
@@ -874,7 +875,20 @@ static struct interfaces_file_t *read_interfaces(const char *filename, struct in
 			currif->method = get_method(currif->address_family, method_name);
 			if (!currif->method)
 				bb_error_msg_and_die("unknown method \"%s\"", method_name);
-
+#if 0
+// Allegedly, Debian allows a duplicate definition:
+// iface eth0 inet static
+//     address 192.168.0.15
+//     netmask 255.255.0.0
+//     gateway 192.168.0.1
+//
+// iface eth0 inet static
+//     address 10.0.0.1
+//     netmask 255.255.255.0
+//
+// This adds *two* addresses to eth0 (probably requires use of "ip", not "ifconfig"
+//
+			llist_t *iface_list;
 			for (iface_list = defn->ifaces; iface_list; iface_list = iface_list->link) {
 				struct interface_defn_t *tmp = (struct interface_defn_t *) iface_list->data;
 				if ((strcmp(tmp->iface, currif->iface) == 0)
@@ -883,6 +897,7 @@ static struct interfaces_file_t *read_interfaces(const char *filename, struct in
 					bb_error_msg_and_die("duplicate interface \"%s\"", tmp->iface);
 				}
 			}
+#endif
 			llist_add_to_end(&(defn->ifaces), (char*)currif);
 
 			debug_noise("iface %s %s %s\n", currif->iface, address_family_name, method_name);
@@ -1159,12 +1174,12 @@ static char *run_mapping(char *physical, struct mapping_defn_t *map)
 
 static llist_t *find_iface_state(llist_t *state_list, const char *iface)
 {
-	unsigned iface_len = strlen(iface);
 	llist_t *search = state_list;
 
 	while (search) {
-		if ((strncmp(search->data, iface, iface_len) == 0)
-		 && (search->data[iface_len] == '=')
+		char *after_iface = is_prefixed_with(search->data, iface);
+		if (after_iface
+		 && *after_iface == '='
 		) {
 			return search;
 		}
@@ -1239,6 +1254,7 @@ int ifupdown_main(int argc UNUSED_PARAM, char **argv)
 		char *pch;
 		bool okay = 0;
 		int cmds_ret;
+		bool curr_failure = 0;
 
 		iface = xstrdup(target_list->data);
 		target_list = target_list->link;
@@ -1304,11 +1320,11 @@ int ifupdown_main(int argc UNUSED_PARAM, char **argv)
 				/* Call the cmds function pointer, does either iface_up() or iface_down() */
 				cmds_ret = cmds(currif);
 				if (cmds_ret == -1) {
-					bb_error_msg("don't seem to have all the variables for %s/%s",
+					bb_error_msg("don't have all variables for %s/%s",
 							liface, currif->address_family->name);
-					any_failures = 1;
+					any_failures = curr_failure = 1;
 				} else if (cmds_ret == 0) {
-					any_failures = 1;
+					any_failures = curr_failure = 1;
 				}
 
 				currif->iface = oldiface;
@@ -1329,7 +1345,7 @@ int ifupdown_main(int argc UNUSED_PARAM, char **argv)
 			llist_t *state_list = read_iface_state();
 			llist_t *iface_state = find_iface_state(state_list, iface);
 
-			if (cmds == iface_up && !any_failures) {
+			if (cmds == iface_up && !curr_failure) {
 				char *newiface = xasprintf("%s=%s", iface, liface);
 				if (!iface_state) {
 					llist_add_to_end(&state_list, newiface);

@@ -120,7 +120,7 @@ void start_dnsmasq()
 	mwan_num = nvram_get_int("mwan_num");
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
 		get_wan_prefix(wan_unit, wan_prefix);
-		if(check_wanup(wan_prefix) && get_dns(wan_prefix)->count) break;
+		if(checkConnect(wan_prefix) && get_dns(wan_prefix)->count) break;
 	}
 	// dns
 	const dns_list_t *dns = get_dns(wan_prefix);	// this always points to a static buffer
@@ -618,7 +618,7 @@ void dns_to_resolv(void)
 	}
 	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
 		get_wan_prefix(wan_unit, wan_prefix);
-		if(check_wanup(wan_prefix) && get_dns(wan_prefix)->count) break;
+		if(checkConnect(wan_prefix) && get_dns(wan_prefix)->count) break;
 	}
 
 	m = umask(022);	// 077 from pppoecd
@@ -907,16 +907,6 @@ void stop_6rd_tunnel(void)
 	modprobe_r("sit");
 }
 
-void start_adblock()
-{
-	xstart("/usr/sbin/adblock");
-}
-
-void stop_adblock()
-{
-	xstart("/usr/sbin/adblock", "stop");
-}
-
 void start_ipv6(void)
 {
 	int service;
@@ -953,6 +943,16 @@ void stop_ipv6(void)
 }
 
 #endif
+
+void start_adblock()
+{
+	xstart("/usr/sbin/adblock");
+}
+
+void stop_adblock()
+{
+	xstart("/usr/sbin/adblock", "stop");
+}
 
 // -----------------------------------------------------------------------------
 

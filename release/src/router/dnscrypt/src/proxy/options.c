@@ -53,6 +53,9 @@ static struct option getopt_long_options[] = {
     { "provider-name", 1, NULL, 'N' },
     { "provider-key", 1, NULL, 'k' },
     { "resolver-address", 1, NULL, 'r' },
+#ifndef _WIN32
+    { "syslog", 0, NULL, 'S' },
+#endif
     { "user", 1, NULL, 'u' },
     { "test", 1, NULL, 't' },
     { "tcp-only", 0, NULL, 'T' },
@@ -65,9 +68,9 @@ static struct option getopt_long_options[] = {
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char *getopt_options = "a:de:Ehk:K:L:l:m:n:p:r:R:t:u:N:TVX";
+static const char *getopt_options = "a:de:Ehk:K:L:l:m:n:p:r:R:St:u:N:TVX:";
 #else
-static const char *getopt_options = "a:e:Ehk:K:L:l:m:n:r:R:t:u:N:TVX";
+static const char *getopt_options = "a:e:Ehk:K:L:l:m:n:r:R:t:u:N:TVX:";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
@@ -119,6 +122,7 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->provider_name = NULL;
     proxy_context->provider_publickey_s = NULL;
     proxy_context->resolver_ip = NULL;
+    proxy_context->syslog = 0;
 #ifndef _WIN32
     proxy_context->user_id = (uid_t) 0;
     proxy_context->user_group = (uid_t) 0;
@@ -212,6 +216,15 @@ options_parse_resolver(ProxyContext * const proxy_context,
 
     resolver_name = options_get_col(headers, headers_count,
                                     cols, cols_count, "Name");
+    if (resolver_name == NULL) {
+        logger(proxy_context, LOG_ERR,
+               "Invalid resolvers list file: missing 'Name' column");
+        exit(1);
+    }
+    if (*resolver_name == 0) {
+        logger(proxy_context, LOG_ERR, "Resolver with an empty name");
+        return -1;
+    }
     if (evutil_ascii_strcasecmp(resolver_name,
                                 proxy_context->resolver_name) != 0) {
         return 0;
@@ -243,7 +256,7 @@ options_parse_resolver(ProxyContext * const proxy_context,
     }
     dnssec = options_get_col(headers, headers_count,
                              cols, cols_count, "DNSSEC validation");
-    if (dnssec != NULL && strcasecmp(dnssec, "yes") != 0) {
+    if (dnssec != NULL && evutil_ascii_strcasecmp(dnssec, "yes") != 0) {
         logger(proxy_context, LOG_INFO,
                "- [%s] does not support DNS Security Extensions",
                resolver_name);
@@ -253,17 +266,13 @@ options_parse_resolver(ProxyContext * const proxy_context,
     }
     namecoin = options_get_col(headers, headers_count,
                                cols, cols_count, "Namecoin");
-    if (namecoin != NULL && strcasecmp(namecoin, "yes") != 0) {
-        logger(proxy_context, LOG_INFO,
-               "- [%s] does not support Namecoin domains",
-               resolver_name);
-    } else {
+    if (namecoin != NULL && evutil_ascii_strcasecmp(namecoin, "yes") == 0) {
         logger(proxy_context, LOG_INFO,
                "+ Namecoin domains can be resolved");
     }
     nologs = options_get_col(headers, headers_count,
                              cols, cols_count, "No logs");
-    if (nologs != NULL && strcasecmp(nologs, "no") == 0) {
+    if (nologs != NULL && evutil_ascii_strcasecmp(nologs, "no") == 0) {
         logger(proxy_context, LOG_WARNING,
                "- [%s] logs your activity - "
                "a different provider might be better a choice if privacy is a concern",
@@ -337,6 +346,7 @@ options_use_resolver_name(ProxyContext * const proxy_context)
         logger(proxy_context, LOG_ERR,
                "No resolver named [%s] found in the [%s] list",
                proxy_context->resolver_name, resolvers_list_rebased);
+        exit(1);
     }
     free(file_buf);
     free(resolvers_list_rebased);
@@ -433,12 +443,12 @@ options_apply(ProxyContext * const proxy_context)
                         "and a provider key can be supplied.");
 #ifdef _WIN32
         logger_noformat(proxy_context, LOG_ERR,
-                        "Consult http://dnscrypt.org "
+                        "Consult https://dnscrypt.org "
                         "and https://github.com/jedisct1/dnscrypt-proxy/blob/master/README-WINDOWS.markdown "
                         "for details.");
 #else
         logger_noformat(proxy_context, LOG_ERR,
-                        "Please consult http://dnscrypt.org "
+                        "Please consult https://dnscrypt.org "
                         "and the dnscrypt-proxy(8) man page for details.");
 #endif
         exit(1);
@@ -462,7 +472,10 @@ options_apply(ProxyContext * const proxy_context)
         logger_noformat(proxy_context, LOG_ERR, "Invalid provider key");
         exit(1);
     }
-    if (proxy_context->daemonize) {
+    if (proxy_context->daemonize != 0) {
+        if (proxy_context->log_file == NULL) {
+            proxy_context->syslog = 1;
+        }
         do_daemonize();
     }
 #ifndef _WIN32
@@ -473,12 +486,18 @@ options_apply(ProxyContext * const proxy_context)
         exit(1);
     }
 #endif
+    if (proxy_context->log_file != NULL && proxy_context->syslog != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "--logfile and --syslog are mutually exclusive");
+        exit(1);
+    }
     if (proxy_context->log_file != NULL &&
         (proxy_context->log_fp = fopen(proxy_context->log_file, "a")) == NULL) {
         logger_error(proxy_context, "Unable to open log file");
         exit(1);
     }
-    if (proxy_context->log_fp == NULL && proxy_context->daemonize) {
+    if (proxy_context->syslog != 0) {
+        assert(proxy_context->log_fp == NULL);
         logger_open_syslog(proxy_context);
     }
     return 0;
@@ -549,6 +568,9 @@ options_parse(AppContext * const app_context,
             break;
         case 'R':
             proxy_context->resolver_name = optarg;
+            break;
+        case 'S':
+            proxy_context->syslog = 1;
             break;
         case 'm': {
             char *endptr;

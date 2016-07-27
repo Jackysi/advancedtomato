@@ -1,50 +1,342 @@
-NEWS for the 2.7.1 release
-
-	This is a bugfix release.
+NEWS for the Nettle 3.2 release
 
 	Bug fixes:
 
-	* Fixed a bug in the new ECC code. The ecc_j_to_a function
-	  called GMP:s mpn_mul_n (via ecc_modp_mul) with overlapping
-	  input and output arguments, which is not supported.
+	* The SHA3 implementation is updated according to the FIPS 202
+	  standard. It is not interoperable with earlier versions of
+	  Nettle. Thanks to Nikos Mavrogiannopoulos. To easily
+	  differentiate at compile time, sha3.h defines the constant
+	  NETTLE_SHA3_FIPS202.
 
-	* The assembly files for SHA1, SHA256 and AES depend on ARMv6
+	* Fix corner-case carry propagation bugs affecting elliptic
+	  curve operations on the curves secp_256r1 and secp_384r1 on
+	  certain platforms, including x86_64. Reported by Hanno Böck.
+
+	New features:
+
+	* New functions for RSA private key operations, identified by
+	  the "_tr" suffix, with better resistance to side channel
+	  attacks and to hardware or software failures which could
+	  break the CRT optimization. See the Nettle manual for
+	  details. Initial patch by Nikos Mavrogiannopoulos.
+
+	* New functions nettle_version_major, nettle_version_minor, as
+	  a run-time variant of the compile-time constants
+	  NETTLE_VERSION_MAJOR and NETTLE_VERSION_MINOR.
+
+	Optimizations:
+
+	* New ARM Neon implementation of the chacha stream cipher.
+
+	Miscellaneous:
+
+	* ABI detection on mips, with improved default libdir
+	  location. Contributed by Klaus Ziegler.
+
+	* Fixes for ARM assembly syntax, to work better with the clang
+	  assembler. Thanks to Jukka Ukkonen.
+
+	* Disabled use of ifunc relocations for fat builds, to fix
+	  problems most easily triggered by using dlopen RTLD_NOW.
+
+	The shared library names are libnettle.so.6.2 and
+	libhogweed.so.4.2, with sonames still libnettle.so.6 and
+	libhogweed.so.4. It is intended to be fully binary compatible
+	with nettle-3.1.
+
+NEWS for the Nettle 3.1.1 release
+
+	This release fixes a couple of non-critical bugs.
+
+	Bug fixes:
+
+	* By accident, nettle-3.1 disabled the assembly code for the
+	  secp_224r1 and secp_521r1 elliptic curves on all x86_64
+	  configurations, making signature operations on those curves
+	  10%-30% slower. This code is now re-enabled.
+
+	* The x86_64 assembly implementation of gcm hashing has been
+          fixed to work with the Sun/Oracle assembler.
+
+	The shared library names are libnettle.so.6.1 and
+	libhogweed.so.4.1, with sonames still libnettle.so.6 and
+	libhogweed.so.4. It is intended to be fully binary compatible
+	with nettle-3.1.
+
+NEWS for the Nettle 3.1 release
+
+	This release adds a couple of new features.
+
+	The library is mostly source-level compatible with nettle-3.0.
+	It is however not binary compatible, due to the introduction
+	of versioned symbols, and extensions to the base64 context
+	structs. The shared library names are libnettle.so.6.0 and
+	libhogweed.so.4.0, with sonames libnettle.so.6 and
+	libhogweed.so.4.
+
+	Bug fixes:
+
+	* Fixed a missing include of <limits.h>, which made the
+	  camellia implementation fail on all 64-bit non-x86
+	  platforms.
+
+	* Eliminate out-of-bounds reads in the C implementation of
+	  memxor (related to valgrind's --partial-loads-ok flag).
+
+	Interface changes:
+
+	* Declarations of many internal functions are moved from ecc.h
+	  to ecc-internal.h. The functions are undocumented, and
+	  luckily they're apparently also unused by applications, so I
+	  don't expect any problems from this change.
+
+	New features:
+
+	* Support for curve25519 and for EdDSA25519 signatures.
+
+	* Support for "fat builds" on x86_64 and arm, where the
+	  implementation of certain functions is selected at run-time
+	  depending on available cpu features. Configure with
+	  --enable-fat to try this out. If it turns out to work well
+	  enough, it will likely be enabled by default in later
+	  releases.
+
+	* Support for building the hogweed library (public key
+	  support) using "mini-gmp", a small but slower implementation
+	  of a subset of the GMP interfaces. Note that builds using
+	  mini-gmp are *not* binary compatible with regular builds,
+	  and more likely to leak side-channel information.
+
+	  One intended use-case is for small embedded applications
+	  which need to verify digital signatures.
+
+	* The shared libraries are now built with versioned symbols.
+	  Should reduce problems in case a program links explicitly to
+	  nettle and/or hogweed, and to gnutls, and the program and
+	  gnutls expect different versions.
+
+	* Support for "URL-safe" base64 encoding and decoding, as
+          specified in RFC 4648. Contributed by Amos Jeffries.
+
+	Optimizations:
+
+	* New x86_64 implementation of AES, using the "aesni"
+	  instructions. Autodetected in fat builds. In non-fat builds,
+	  it has to be enabled explicitly with --enable-x86-aesni.
+
+	Build system:
+
+	* Use the same object files for both static and shared
+	  libraries. This eliminates the *.po object files which were
+	  confusing to some tools (as well as humans). Like before,
+	  PIC code is used by default; to build a non-pic static
+	  library, configure with --disable-pic --disable-shared.
+
+	Miscellaneous:
+
+	* Made type-checking hack in CBC_ENCRYPT and similar macros
+	  stricter, to generate warnings if they are used with
+	  functions which have a length argument smaller than size_t.
+
+NEWS for the Nettle 3.0 release
+
+	This is a major release, including several interface changes,
+	and new features, some of which are a bit experimental.
+	Feedback is highly appreciated.
+
+	It is *not* binary (ABI) compatible with earlier versions. It
+	is mostly source-level (API) compatible, with a couple of
+	incompatibilities noted below. The shared library names are
+	libnettle.so.5.0 and libhogweed.so.3.0, with sonames
+	libnettle.so.5 and libhogweed.so.3.
+	
+	There may be some problems in the new interfaces and new
+	features which really need incompatible fixes. It is likely
+	that there will be an update in the form of a 3.1 release in
+	the not too distant future, with small but incompatible
+	changes, and if that happens, bugfix-only releases 3.0.x are
+	unlikely. Users and applications which desire better API and
+	ABI stability are advised to stay with nettle-2.7.x (latest
+	version is now 2.7.1) until the dust settles.
+
+	Interface changes:
+
+	* For the many _set_key functions, it is now consider the
+	  normal case to have a fixed key size, with no key_size
+	  arguments. _set_key functions with a length parameter are
+	  provided only for algorithms with a truly variable keysize,
+	  and where it makes sense for backwards compatibility.
+
+	  INCOMPATIBLE CHANGE: cast128_set_key no longer accepts a key
+	  size argument. The old function is available under a new
+	  name, cast5_set_key.
+
+	  INCOMPATIBLE CHANGE: The function typedef
+	  nettle_set_key_func no longer accepts a key size argument.
+	  In particular, this affects users of struct nettle_cipher.
+
+	* The nettle_cipher abstraction (in nettle-meta.h) is
+	  restricted to block ciphers only. The encrypt and decrypt
+	  functions now take a const argument for the context.
+
+	  INCOMPATIBLE CHANGE: nettle_arcfour, i.e., the nettle_cipher
+	  abstraction for the arcfour stream cipher, is deleted.
+
+	  INCOMPATIBLE CHANGE: New type, nettle_cipher_func, for the
+	  encrypt and decrypt fields of struct nettle_cipher.
+
+	* New DSA interface, with a separate struct dsa_param to
+	  represent the underlying group, and generalized dsa_sign and
+	  dsa_verify functions which don't care about the hash
+	  function used. Limited backwards compatibility provided in
+	  dsa-compat.h.
+
+	  INCOMPATIBLE CHANGE: Declarations of the old interface,
+	  e.g., struct dsa_public_key, dsa_sha1_sign, etc, is moved to
+	  dsa-compat.h.
+
+	  INCOMPATIBLE CHANGE: The various key conversion functions,
+	  e.g., dsa_keypair_to_sexp, all use the new DSA interface, with
+	  no backwards compatible functions.
+
+	  INCOMPATIBLE CHANGE: dsa_generate_keypair also uses the new
+	  interface. dsa-compat.h declares a function
+	  dsa_compat_generate_keypair, implementing the old
+	  interface, and #defines dsa_generate_keypair to refer to
+	  this backwards compatible function.
+
+	* New AES and Camellia interfaces. There are now separate
+	  context structs for each key size, e.g., aes128_ctx and
+	  camellia256_ctx, and corresponding new functions. The old
+	  interface, with struct aes_ctx and struct camellia_ctx, is
+	  kept for backwards compatibility, but might be removed in
+	  later versions.
+
+	* The type of most length arguments is changed from unsigned
+	  to size_t. The memxor functions have their pointer arguments
+	  changed from uint8_t * to void *, for consistency with
+	  related libc functions.
+
+	* For hash functions, the constants *_DATA_SIZE have been
+	  renamed to *_BLOCK_SIZE. Old names kept for backwards
+	  compatibility.
+
+	Removed features:
+
+	* The nettle_next_prime function has been deleted.
+	  Applications should use GMP's mpz_nextprime instead.
+
+	* Deleted the RSAREF compatibility, including the header file
+	  rsa-compat.h and everything declared therein.
+
+	* Also under consideration for removal is des-compat.h and
+	  everything declared therein. This implements a subset of the
+	  old libdes/ssleay/openssl interface for DES and triple-DES,
+	  and it is poorly tested. If anyone uses this interface,
+	  please speak up! Otherwise, it will likely be removed in the
+	  next release.
+	
+	Bug fixes:
+
+	* Building with ./configure --disable-static now works.
+
+	* Use GMP's allocation functions for temporary storage related
+	  to bignums, to avoid potentially large stack allocations.
+
+	* Fixes for shared libraries on M$ Windows.
+
+	New features:
+
+	* Support for Poly1305-AES MAC.
+
+	* Support for the ChaCha stream cipher and EXPERIMENTAL
+	  support for the ChaCha-Poly1305 AEAD mode. Specifications
+	  are still in flux, and future releases may do incompatible
+	  changes to track standardization. Currently uses 256-bit key
+	  and 64-bit nonce.
+
+	* Support for EAX mode.
+
+	* Support for CCM mode. Contributed by Owen Kirby.
+
+	* Additional variants of SHA512 with output size of 224 and
+	  256 bits. Contributed by Joachim Strömbergson.
+
+	* New interface, struct nettle_aead, for mechanisms providing
+	  authenticated encryption with associated data (AEAD).
+
+	* DSA: Support a wider range for the size of q and a wider
+	  range for the digest size.
+
+	Optimizations:
+
+	* New x86_64 assembly for GCM and MD5. Modest speedups on the
+	  order of 10%-20%.
+
+	Miscellaneous:
+
+	* SHA3 is now documented as EXPERIMENTAL. Nettle currently
+	  implements SHA3 as specified at the time Keccak won the SHA3
+	  competition. However, the final standard specified by NIST
+	  is likely to be incompatible, in which case future releases
+	  may do incompatible changes to track standardization.
+
+	* The portability fix for the rotation macros, mentioned in
+	  NEWS for 2.7.1, actually didn't make it into that release.
+	  It is included now.
+
+	* cast128_set_key rewritten for clarity, also eliminating a
+	  couple of compiler warnings.
+
+	* New command line tool nettle-pbkdf2.
+
+NEWS for the 2.7.1 release
+
+        This is a bugfix release.
+
+        Bug fixes:
+
+        * Fixed a bug in the new ECC code. The ecc_j_to_a function
+          called GMP:s mpn_mul_n (via ecc_modp_mul) with overlapping
+          input and output arguments, which is not supported.
+
+        * The assembly files for SHA1, SHA256 and AES depend on ARMv6
           instructions, breaking nettle-2.7 for pre-v6 ARM processors.
           The configure script now enables those assembly files only
           when building for ARMv6 or later.
-	  
-	* Use a more portable C expression for rotations. The
-	  previous version used the following "standard" expression
-	  for 32-bit rotation:
+          
+        * Use a more portable C expression for rotations. The
+          previous version used the following "standard" expression
+          for 32-bit rotation:
 
-	    (x << n) | (x >> (32 - n))
+            (x << n) | (x >> (32 - n))
 
-	  But this gives undefined behavior (according to the C
-	  specification) for n = 0. The rotate expression is replaced
-	  by the more portable:
+          But this gives undefined behavior (according to the C
+          specification) for n = 0. The rotate expression is replaced
+          by the more portable:
 
-	    (x << n) | (x >> ((-n)&31))
+            (x << n) | (x >> ((-n)&31))
 
-	  This change affects only CAST128, which uses non-constant
-	  rotation counts. Unfortunately, the new expression is poorly
-	  optimized by released versions of gcc, making CAST128 a bit
-	  slower. This is being fixed by the gcc hackers, see
-	  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57157.
-	  
-	The following problems have been reported, but are *not* fixed
-	in this release:
+          This change affects only CAST128, which uses non-constant
+          rotation counts. Unfortunately, the new expression is poorly
+          optimized by released versions of gcc, making CAST128 a bit
+          slower. This is being fixed by the gcc hackers, see
+          http://gcc.gnu.org/bugzilla/show_bug.cgi?id=57157.
+          
+        The following problems have been reported, but are *not* fixed
+        in this release:
 
-	* ARM assembly files use instruction syntax which is not
+        * ARM assembly files use instruction syntax which is not
           supported by all assemblers. Workaround: Use a current
           version of GNU as, or configure with --disable-assembler.
 
-	* Configuring with --disable-static doesn't work on windows.
+        * Configuring with --disable-static doesn't work on windows.
+        
+        The libraries are intended to be binary compatible with
+        nettle-2.2 and later. The shared library names are
+        libnettle.so.4.7 and libhogweed.so.2.5, with sonames still
+        libnettle.so.4 and libhogweed.so.2.
 	
-	The libraries are intended to be binary compatible with
-	nettle-2.2 and later. The shared library names are
-	libnettle.so.4.7 and libhogweed.so.2.5, with sonames still
-	libnettle.so.4 and libhogweed.so.2.
-
 NEWS for the 2.7 release
 
 	This release includes an implementation of elliptic curve

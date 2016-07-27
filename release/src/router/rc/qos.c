@@ -457,6 +457,7 @@ void start_qos(char *prefix)
 		strcpy(qosImqDeviceString, "imq1");
 		wan_unit = 2;
 	}
+#ifdef TCONFIG_MULTIWAN
 	else if(!strcmp(prefix,"wan3")){
 		strcpy(qosfn, "/etc/wan3_qos");
 		strcpy(qosImqDeviceString, "imq2");
@@ -467,7 +468,7 @@ void start_qos(char *prefix)
 		strcpy(qosImqDeviceString, "imq3");
 		wan_unit = 4;
 	}
-	
+#endif
 	// move me?
 	x = nvram_get_int("ne_vegas");
 #ifdef LINUX26
@@ -862,7 +863,7 @@ void start_qos(char *prefix)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",
+			"\t$TFA_IMQ parent 1: prio %u handle %u fw flowid 1:%u \n",
 			classid, priority, classid);
 	}
 

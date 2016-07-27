@@ -1,3 +1,1192 @@
+* Wed Feb 3 12:13:42 2016 +0100
+
+    Regen man pages
+
+* Wed Feb 3 12:03:21 2016 +0100
+
+    https everywhere
+
+* Wed Feb 3 11:57:07 2016 +0100
+
+    Update libevent ChangeLog, especially for CVE-2014-6272
+
+* Wed Feb 3 11:50:42 2016 +0100
+
+    Version bump (not released yet)
+
+* Wed Feb 3 11:46:38 2016 +0100
+
+    (bad) NEWS
+
+* Wed Feb 3 00:51:01 2016 +0100
+
+    Set packet pointer to NULL before calling ldns_wire2pkt()
+    Not necessary, but if the return code is not properly checked, at least
+    all we will dereference later is a NULL pointer.
+
+* Wed Feb 3 00:47:16 2016 +0100
+
+    The max query size for filters should be at last the original size
+
+* Tue Feb 2 17:17:00 2016 +0100
+
+    Fix long-standing vulnerability in the opendns plugins
+
+* Tue Feb 2 17:16:30 2016 +0100
+
+    Check for wire2pkt return code instead of the parsed packet pointer
+
+* Tue Feb 2 16:42:44 2016 +0100
+
+    Don't count the last byte of a name twice
+
+* Tue Feb 2 15:26:19 2016 +0100
+
+    Stop parsing labels after 255 bytes
+
+* Sun Jan 31 14:11:58 2016 +0100
+
+    dnscrypt.me is down :(
+
+* Sat Jan 30 01:11:38 2016 +0100
+
+    "looks valid" -> "is valid" to remove confusion.
+    This message is displayed only when the signature is correct for the
+    given certificate.
+
+* Fri Jan 29 14:21:48 2016 +0100
+
+    Change Curve25519 references to X25519.
+    Provision for Chacha20Poly1305 support as replacement for Salsa20Poly1305.
+
+* Wed Jan 20 09:51:44 2016 +0100
+
+    Remove old servers reintroduced by mistake
+
+* Wed Jan 20 09:30:36 2016 +0100
+
+    Sign
+
+Merge: 795c02e c68cd82
+* Wed Jan 20 09:30:10 2016 +0100
+
+    Merge pull request #351 from fechterjm/patch-1
+    
+    Update dnscrypt-resolvers.csv
+
+* Tue Jan 19 23:39:24 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+    
+    Updated full name to be a bit more descriptive.
+
+* Tue Jan 19 02:27:39 2016 +0100
+
+    Use cvslint if present
+
+* Tue Jan 19 02:24:27 2016 +0100
+
+    (re)add missing resolvers + some fixes by @gavinjs
+
+* Tue Jan 19 01:09:31 2016 +0100
+
+    Sort
+
+* Mon Jan 18 22:38:06 2016 +0100
+
+    Absence of Namecoin support doesn't really matter much in practice.
+    Namecoin was a great idea, but adoption was really poor.
+
+* Mon Jan 18 22:34:38 2016 +0100
+
+    Sign
+
+Merge: c7742cd 153bc45
+* Mon Jan 18 22:28:49 2016 +0100
+
+    Merge pull request #349 from fechterjm/patch-1
+    
+    Update dnscrypt-resolvers.csv
+
+* Mon Jan 18 16:24:01 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+    
+    Added my server (DNSCrypt.is)
+
+* Fri Jan 15 09:39:34 2016 +0100
+
+    Temporarily remove offline resolvers
+
+* Wed Jan 6 14:18:44 2016 +0100
+
+    Change the message and priority when receiving invalid packets
+    People tend to freak out when they see "corrupted"
+
+* Tue Jan 5 22:49:11 2016 +0100
+
+    Add a few things to the systemd service
+
+* Sat Jan 2 09:04:32 2016 +0100
+
+    2016
+
+* Thu Dec 31 19:32:48 2015 +0100
+
+    Sign
+
+Merge: 3ca1006 91dfdf1
+* Thu Dec 31 19:27:22 2015 +0100
+
+    Merge pull request #341 from dnscryptme/master
+    
+    Added coordinates of dnscrypt.me
+
+* Thu Dec 31 18:29:39 2015 +0100
+
+    Added coordinates of dnscrypt.me
+
+Merge: 5873a85 3ca1006
+* Thu Dec 31 18:24:19 2015 +0100
+
+    Merge remote-tracking branch 'jedisct1/master'
+
+* Thu Dec 31 10:20:34 2015 +0100
+
+    Remove offline resolvers
+
+Merge: 86363a3 3cfe943
+* Tue Dec 29 18:55:53 2015 +0100
+
+    Merge pull request #340 from rgacogne/fix-signature-size
+    
+    Fix the certificate signature size and clarify cert records size
+
+* Tue Dec 29 18:53:15 2015 +0100
+
+    Fix the certificate signature size and clarify cert records size
+    
+    The size of an Ed25519 signature, as used by the current DNSCrypt
+    version, is 64 bytes, not 32 bits.
+    It was not clear to me after the first reading that the 116 bytes
+    size referred to the size of the signature plus the signed part,
+    therefore excluding the cert-magic, es-version and
+    protocol-minor-version. Of course it makes sense, but I think it
+    can't hurt to write it down.
+
+* Sun Dec 27 21:02:27 2015 +0100
+
+    Try --high-entropy-va on MinGW
+
+Merge: be6fe91 f6ad3d4
+* Sun Dec 27 11:50:37 2015 +0100
+
+    Merge pull request #7 from jedisct1/master
+    
+    Update
+
+* Tue Dec 22 14:09:37 2015 +0100
+
+    Mention dnsdist
+
+* Thu Dec 17 01:06:05 2015 +0100
+
+    Fix DNSCRYPT_RESOLVER_MAGIC in the specification
+    Spotted by @rgacogne during its implementation for dnsdist.
+
+* Wed Dec 16 00:57:44 2015 +0100
+
+    Only include the location in the location field, not the ISP
+
+* Sun Dec 13 17:35:53 2015 +0100
+
+    Remove resolvers that are temporarily off
+    At least dnsmachine.net will hopefully come back soon
+
+* Sat Dec 12 13:43:51 2015 +0100
+
+    Fix dnscrypt.me provider name
+
+* Sat Dec 12 13:18:18 2015 +0100
+
+    Sign
+
+Merge: 98749ea be6fe91
+* Sat Dec 12 13:17:56 2015 +0100
+
+    Merge pull request #329 from dnscryptme/master
+    
+    de-ns1.de renamed to dnscrypt.me
+
+* Sat Dec 12 13:11:46 2015 +0100
+
+    de-ns1.de renamed to dnscrypt.me
+
+Merge: 1404bd6 98749ea
+* Sat Dec 12 13:10:27 2015 +0100
+
+    Merge pull request #6 from jedisct1/master
+    
+    Update
+
+* Thu Dec 10 18:07:53 2015 +0100
+
+    Don't try to stop listening to events that weren't set
+
+* Thu Dec 10 10:28:24 2015 +0100
+
+    sign
+
+Merge: 7a3cf43 1404bd6
+* Thu Dec 10 10:28:02 2015 +0100
+
+    Merge pull request #328 from Makedu/master
+    
+    Added pubkey TXT record for de-ns1.de
+
+* Thu Dec 10 10:25:10 2015 +0100
+
+    Added pubkey TXT record for de-ns1.de
+
+Merge: dd0bff8 7a3cf43
+* Thu Dec 10 10:22:48 2015 +0100
+
+    Merge pull request #5 from jedisct1/master
+    
+    Update
+
+* Wed Dec 9 16:24:31 2015 +0100
+
+    Sign
+
+Merge: d7d13f3 fd95e0a
+* Wed Dec 9 16:24:21 2015 +0100
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      New PublicKey for: dnsmachine.net-de
+
+* Wed Dec 9 16:24:11 2015 +0100
+
+    sign
+
+Merge: b86c5b5 86f6059
+* Wed Dec 9 16:23:09 2015 +0100
+
+    Merge pull request #326 from bitbeans/master
+    
+    New PublicKey for: dnsmachine.net-de
+
+* Wed Dec 9 16:13:01 2015 +0100
+
+    New PublicKey for: dnsmachine.net-de
+    
+    - Sorry!!
+
+* Wed Dec 9 12:07:53 2015 +0100
+
+    Oh, Travis, Y U NO LIKE libldns?
+
+* Wed Dec 9 11:55:56 2015 +0100
+
+    Travis doesn't seem to have libldns-dev any more
+
+* Wed Dec 9 11:42:04 2015 +0100
+
+    Sign
+
+Merge: 08b4938 dd0bff8
+* Wed Dec 9 11:41:41 2015 +0100
+
+    Merge pull request #325 from Makedu/master
+    
+    Updated URL of de-ns1.de
+
+* Wed Dec 9 10:50:57 2015 +0100
+
+    Updated URL of de-ns1.de
+
+Merge: 8ceeb2c 08b4938
+* Wed Dec 9 10:48:47 2015 +0100
+
+    Merge pull request #4 from jedisct1/master
+    
+    Update
+
+* Sat Dec 5 18:24:52 2015 +0100
+
+    Revert "Use pledge(2) if available"
+    
+
+* Thu Dec 3 10:20:34 2015 +0100
+
+    sign
+
+Merge: 435364c 41173ba
+* Thu Dec 3 10:20:21 2015 +0100
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Server germandnscrypt-01.de removed
+
+* Thu Dec 3 10:20:16 2015 +0100
+
+    sign
+
+Merge: 3d27b10 8ceeb2c
+* Thu Dec 3 10:19:42 2015 +0100
+
+    Merge pull request #323 from Makedu/master
+    
+    Server germandnscrypt-01.de removed
+
+* Thu Dec 3 08:53:40 2015 +0100
+
+    Server germandnscrypt-01.de removed
+    
+    The server germandnscrypt-01.de is replaced by de-ns1.de
+    
+    de-ns1.de has less RAM (4GB instead of 6), but more cores (4x Xeon E5-2620v2 instead of 2x Xeon E5-2620v3) - Unbound is running with 3 threads now.
+    
+    Please note: even if germandnscrypt-01.de is removed from the list, it is still accessible for some days.
+
+Merge: fc5958f 3d27b10
+* Thu Dec 3 08:44:06 2015 +0100
+
+    Merge pull request #3 from jedisct1/master
+    
+    Update
+
+* Thu Dec 3 07:48:35 2015 +0100
+
+    sign
+
+Merge: 9e99855 fc5958f
+* Thu Dec 3 07:47:33 2015 +0100
+
+    Merge pull request #322 from Makedu/master
+    
+    Added new server de-ns1.de
+
+* Wed Dec 2 22:11:35 2015 +0100
+
+    Added new server de-ns1.de
+
+Merge: 27c2e1b 9e99855
+* Wed Dec 2 22:09:55 2015 +0100
+
+    Merge pull request #2 from jedisct1/master
+    
+    Update
+
+* Wed Dec 2 00:41:34 2015 +0100
+
+    4armed is back!
+
+* Sat Nov 28 11:42:38 2015 +0100
+
+    Remove temporarily unavailable servers
+
+* Sat Nov 28 11:40:59 2015 +0100
+
+    Update the configuration settings for d0wn's randomizer
+
+* Tue Nov 24 19:47:47 2015 +0100
+
+    Sign
+
+Merge: ae0bd91 27c2e1b
+* Tue Nov 24 19:47:01 2015 +0100
+
+    Merge pull request #318 from Makedu/master
+    
+    added URL for germandnscrypt-01.de
+
+* Tue Nov 24 18:53:07 2015 +0100
+
+    added URL for germandnscrypt-01.de
+
+Merge: 0011718 ae0bd91
+* Tue Nov 24 14:18:26 2015 +0100
+
+    Merge pull request #1 from jedisct1/master
+    
+    Update
+
+* Mon Nov 23 23:31:12 2015 +0100
+
+    Sign
+
+Merge: 961b22d 0011718
+* Mon Nov 23 22:50:49 2015 +0100
+
+    Merge pull request #317 from Makedu/master
+    
+    Update dnscrypt-resolvers.csv
+
+* Mon Nov 23 22:29:39 2015 +0100
+
+    Update dnscrypt-resolvers.csv
+    
+    added germandnscrypt-01.de
+
+* Sun Nov 22 10:35:29 2015 +0100
+
+    Use TCP_QUICKACK instead of TCP_NODELAY if available
+
+* Sun Nov 22 10:35:23 2015 +0100
+
+    safe_rw size checks
+
+* Thu Nov 19 12:01:10 2015 +0100
+
+    Add Cryptostorm servers
+
+* Wed Nov 18 23:39:06 2015 +0100
+
+    Add d0wn-gr-ns1
+
+* Tue Nov 17 01:25:41 2015 +0100
+
+    Check crypto_box_beforenm() return code
+
+* Sun Nov 15 17:36:39 2015 +0100
+
+    Temporarily remove offline resolvers
+
+* Mon Nov 9 02:33:22 2015 +0100
+
+    Test with libsodium-stable
+
+* Sat Oct 31 19:05:51 2015 +0100
+
+    Update the resolvers list
+
+Merge: 7eaa9e9 62a09ee
+* Sat Oct 31 18:56:53 2015 +0100
+
+    Merge pull request #302 from Fusl/patch-01
+    
+    Fixing servers that can be fixed (by changing port) and removing serv…
+
+* Mon Oct 19 12:48:23 2015 +0200
+
+    Fixing servers that can be fixed (by changing port) and removing servers that are temporarily down
+
+* Mon Oct 19 12:03:47 2015 +0200
+
+    Sign
+
+Merge: 57b21e3 3876234
+* Mon Oct 19 11:58:31 2015 +0200
+
+    Merge pull request #301 from Fusl/patch-01
+    
+    Patch 01
+
+* Mon Oct 19 11:51:34 2015 +0200
+
+    Add provider/sponsor name to fvz servers description; try #2
+
+* Mon Oct 19 11:43:18 2015 +0200
+
+    Add provider/sponsor name to fvz servers description
+
+* Mon Oct 19 11:40:47 2015 +0200
+
+    Sign
+
+Merge: 153f91f 2ecb6a1
+* Mon Oct 19 11:40:24 2015 +0200
+
+    Merge pull request #299 from Fusl/patch-01
+    
+    Updating fvz servers to represent an updated list from dnsrec.meo.ws
+
+* Mon Oct 19 11:36:22 2015 +0200
+
+    Updating fvz servers to represent an updated list from dnsrec.meo.ws
+
+* Sun Oct 18 17:39:36 2015 +0200
+
+    Correctly handle -X as an alternative to --plugin
+
+* Sun Oct 18 00:02:22 2015 +0200
+
+    libevent updates for http
+
+* Sun Oct 18 00:00:55 2015 +0200
+
+    libevent: fix potential fd leak in listener_read_cb()
+
+* Sat Oct 17 18:43:38 2015 +0200
+
+    Use pledge(2) if available
+
+* Thu Oct 15 11:06:13 2015 +0200
+
+    Add back Soltysiak + add Soltysiak over IPv6
+
+* Thu Oct 15 10:16:10 2015 +0200
+
+    Bring back the Fusl servers that have been kept alive
+
+* Thu Oct 15 01:20:52 2015 +0200
+
+    Mention the Linux kernel implementation of dnscrypt by Fusl
+
+* Thu Oct 15 01:18:17 2015 +0200
+
+    Grammar
+
+* Thu Oct 15 01:14:22 2015 +0200
+
+    Grammar
+
+* Mon Oct 5 20:41:03 2015 +0200
+
+    Sign
+
+Merge: e2730c5 9e2e455
+* Mon Oct 5 20:40:42 2015 +0200
+
+    Merge pull request #294 from Fusl/patch-01
+    
+    Removing fvz servers
+
+* Mon Oct 5 20:38:49 2015 +0200
+
+    Removing fvz servers
+
+* Mon Oct 5 17:52:16 2015 +0200
+
+    Sign
+
+* Sat Oct 3 17:47:34 2015 +0200
+
+    Update website and DNS for DNSCrypt Poland
+
+* Sun Oct 4 18:40:17 2015 +0200
+
+    Revert "Update website and DNS for DNSCrypt Poland"
+    
+
+Merge: 9ce9f6c 4760314
+* Sun Oct 4 18:29:19 2015 +0200
+
+    Merge pull request #293 from pysiak/master
+    
+    Update website and DNS for DNSCrypt Poland
+
+* Sat Oct 3 17:47:34 2015 +0200
+
+    Update website and DNS for DNSCrypt Poland
+
+* Thu Oct 1 08:33:23 2015 +0200
+
+    Sign
+
+Merge: 4adf7f8 aa32348
+* Thu Oct 1 08:32:32 2015 +0200
+
+    Merge pull request #292 from Fusl/patch-01
+    
+    Adding more fvz servers
+
+* Thu Oct 1 02:30:15 2015 +0200
+
+    Adding more fvz servers
+
+* Thu Sep 24 08:15:21 2015 +0200
+
+    Adamas and Nawala seem to be down
+
+* Thu Sep 24 08:13:41 2015 +0200
+
+    Sign
+
+Merge: b2d158b 538e982
+* Thu Sep 24 08:12:54 2015 +0200
+
+    Merge pull request #290 from Fusl/patch-01
+    
+    Adding new fvz server in Oslo, Norway
+
+* Thu Sep 24 00:34:06 2015 +0200
+
+    Adding new fvz server in Oslo, Norway
+
+* Wed Sep 23 22:33:12 2015 +0200
+
+    Sign
+
+Merge: 9b843f9 ede0129
+* Wed Sep 23 22:32:44 2015 +0200
+
+    Merge pull request #289 from Fusl/patch-01
+    
+    Fix location name for resolver that has been migrated to another location
+
+* Wed Sep 23 22:24:54 2015 +0200
+
+    Fix location name for resolver that has been migrated to another location
+
+* Wed Sep 23 22:05:00 2015 +0200
+
+    Make sure full names are unique, and remove extra spaces in the new IPv6 resolvers
+
+Merge: 2cef523 aa73b07
+* Wed Sep 23 21:53:44 2015 +0200
+
+    Many new resolvers accesible over IPv6. Thanks Fusl!
+
+* Wed Sep 23 21:52:57 2015 +0200
+
+    Many new servers accessible over IPv6. Thanks Fusl!
+
+Merge: 7652a08 6c3a283
+* Wed Sep 23 21:16:49 2015 +0200
+
+    Merge pull request #288 from jedisct1/revert-287-patch-01
+    
+    Revert "Adding IPv6 version of fvz resolvers"
+
+* Wed Sep 23 21:12:21 2015 +0200
+
+    Revert "Adding IPv6 version of fvz resolvers"
+
+Merge: 05d5d65 ccea147
+* Wed Sep 23 21:04:38 2015 +0200
+
+    Merge pull request #287 from Fusl/patch-01
+    
+    Adding IPv6 version of fvz resolvers
+
+* Wed Sep 23 13:21:52 2015 +0200
+
+    Adding IPv6 version of fvz resolvers
+
+* Tue Sep 22 18:16:58 2015 +0200
+
+    Sign
+
+Merge: 708d7da 9a56576
+* Tue Sep 22 18:16:37 2015 +0200
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Removing deprecated server, adding one replacement and one new server
+
+* Tue Sep 22 18:16:25 2015 +0200
+
+    Sign
+
+Merge: fb630cf 03928db
+* Tue Sep 22 18:16:02 2015 +0200
+
+    Merge pull request #285 from Fusl/patch-01
+    
+    Removing deprecated server, adding one replacement and one new server
+
+* Tue Sep 22 18:08:45 2015 +0200
+
+    Removing deprecated server, adding one replacement and one new server
+
+* Mon Sep 21 13:11:56 2015 +0200
+
+    Lower the severity of local recvfrom() errors
+
+* Sat Sep 19 20:09:58 2015 +0200
+
+    dnscrypt.eu-dk-port5353 seems to be having some troubles
+
+* Fri Sep 18 19:14:29 2015 +0200
+
+    Do not reference arc4random_addrandom() if it is not defined.
+    It can either be defined by the C library, or via arc4random.c.
+    Either way, it's useless for dnscrypt-proxy.
+
+* Thu Sep 10 23:04:09 2015 +0200
+
+    resolvers-check: reduce the required margin to 12 hours
+
+* Thu Sep 10 22:58:52 2015 +0200
+
+    Sign
+
+Merge: 85f4fd6 16b1a62
+* Thu Sep 10 22:55:37 2015 +0200
+
+    Merge pull request #279 from 4ARMED/add_4A_server
+    
+    Add 4ARMED's server
+
+* Thu Sep 10 20:38:38 2015 +0100
+
+    Add 4ARMED's server
+
+* Thu Sep 10 14:49:21 2015 +0200
+
+    Sign
+
+Merge: 7c44f52 63af1ff
+* Thu Sep 10 14:48:56 2015 +0200
+
+    Merge pull request #278 from bitbeans/master
+    
+    Added new resolver
+
+* Thu Sep 10 14:46:18 2015 +0200
+
+    Added new resolver
+
+* Wed Sep 9 23:05:37 2015 +0200
+
+    sign
+
+Merge: 20e7ff8 5060a4a
+* Wed Sep 9 23:02:02 2015 +0200
+
+    Merge pull request #277 from Fusl/patch-01
+    
+    Replacing deprecated fvz servers with new servers
+
+* Wed Sep 9 22:23:56 2015 +0200
+
+    Replacing deprecated fvz servers with new servers
+
+* Mon Sep 7 15:17:41 2015 +0200
+
+    dnscrypt.bit is no more
+
+* Sat Sep 5 23:36:14 2015 +0200
+
+    Sign
+
+Merge: ff57440 880951d
+* Sat Sep 5 23:32:50 2015 +0200
+
+    Merge pull request #276 from Fusl/patch-01
+    
+    Adding new fvz server in Luxembourg, and ...
+
+* Sat Sep 5 23:32:27 2015 +0200
+
+    No apt-get on OSX
+
+* Sat Sep 5 23:17:50 2015 +0200
+
+    Adding new fvz server in Luxembourg, and ...
+    
+    ... I have now ensured that the dnscrypt module is automatically loaded when servers (re)start and in addition to this I also implemented a crash reporter that notifies me with stack traces and restarts the module if it crashes.
+    This means that there shouldn't be any problems anymore with crashed modules or modules that haven't been loaded (yet) after a server reboot.
+
+* Sun Aug 30 21:27:53 2015 +0200
+
+    Sign
+
+Merge: 906a4b4 d13e2bc
+* Sun Aug 30 21:25:00 2015 +0200
+
+    Merge pull request #274 from Fusl/patch-01
+    
+    Adding fvz servers
+
+* Sat Aug 29 05:23:57 2015 +0200
+
+    Adding fvz servers
+
+* Thu Aug 27 04:49:23 2015 +0200
+
+    iptables NAT: the destination port doesn't have to be explicitly given. Really.
+
+* Thu Aug 27 04:47:48 2015 +0200
+
+    Add missing /system/xbin/dnscrypt for Android
+
+* Tue Aug 25 17:15:01 2015 +0200
+
+    - d0wn-al-ns1
+
+* Mon Aug 24 05:53:42 2015 +0200
+
+    Add error path for CSVs without a "Name" column, and with empty names.
+
+* Mon Aug 24 05:43:48 2015 +0200
+
+    strcasecmp()/strncasecmp() are not available in Visual Studio
+
+* Mon Aug 24 02:24:50 2015 +0200
+
+    Warn if the header is missing in the CSV file
+
+* Mon Aug 24 02:15:39 2015 +0200
+
+    exit() immediately if the resolver name was not found
+
+* Sun Aug 23 12:29:39 2015 +0200
+
+    Add /run/systemd/notify to the apparmor rules
+
+* Sat Aug 22 09:54:21 2015 +0200
+
+    Sign
+
+Merge: 71ab93a 30fe04c
+* Sat Aug 22 09:53:45 2015 +0200
+
+    Merge pull request #269 from Fusl/patch-4392
+    
+    Adding new fvz server in Finland
+
+* Sat Aug 22 04:44:16 2015 +0200
+
+    Adding new fvz server in Finland
+
+* Thu Aug 20 20:15:45 2015 +0200
+
+    Revert "iPredator is down" - It's back.
+    
+
+* Wed Aug 19 22:50:15 2015 +0200
+
+    Remove d0wn-md-ns1
+
+* Tue Aug 18 08:14:21 2015 +0200
+
+    Sign
+
+Merge: f20d71f 5ca1c14
+* Tue Aug 18 08:13:33 2015 +0200
+
+    Merge pull request #264 from Fusl/patch-03
+    
+    Add fvz server in france, add poland server with different port
+
+* Tue Aug 18 02:29:29 2015 +0200
+
+    Add fvz server in france, add poland server with different port
+
+* Mon Aug 17 22:41:24 2015 +0200
+
+    Remove network.target dependency from dnscrypt-proxy.socket
+    If this is not correct, I'd love some input from omebody who knows systemd
+    more than I do (i.e. virtually anyone).
+
+* Mon Aug 17 21:17:46 2015 +0200
+
+    Sign
+
+Merge: a89000b 96121bd
+* Mon Aug 17 21:13:53 2015 +0200
+
+    Merge pull request #263 from Fusl/patch-02
+    
+    Fix fvz-rec-de-dus-01, remove soon-to-be-shutdown server & add server…
+
+* Mon Aug 17 20:43:10 2015 +0200
+
+    Fix fvz-rec-de-dus-01, remove soon-to-be-shutdown server & add server that was down temporarily
+
+* Mon Aug 17 20:05:56 2015 +0200
+
+    A simple test for blocked IP fragments
+
+* Mon Aug 17 09:28:34 2015 +0200
+
+    iPredator is down
+
+* Mon Aug 17 09:27:49 2015 +0200
+
+    Remove down FVZ servers
+
+Merge: aa715c5 7559dda
+* Mon Aug 17 09:20:13 2015 +0200
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Fixing deployment info for server fvz-rec-il-ta-01
+      Again adding some more of my servers
+
+Merge: b900b52 2b94889
+* Mon Aug 17 09:20:03 2015 +0200
+
+    Merge pull request #261 from Fusl/patch-01
+    
+    Again adding some more of my servers
+
+* Mon Aug 17 05:23:34 2015 +0200
+
+    Fixing deployment info for server fvz-rec-il-ta-01
+
+* Mon Aug 17 05:19:05 2015 +0200
+
+    Again adding some more of my servers
+
+Merge: ba5d11c b900b52
+* Mon Aug 17 02:21:11 2015 +0200
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Check for SO_REUSEPORT availability
+      Enable SO_REUSEPORT, allowing round-robining to multiple dnscrypt-proxy daemons on a single port
+      Backport LEV_OPT_REUSEABLE_PORT from upstream libevent
+
+* Mon Aug 17 02:20:57 2015 +0200
+
+    Remove d0wn down servers
+
+* Sun Aug 16 05:45:11 2015 +0200
+
+    Check for SO_REUSEPORT availability
+
+Merge: f96d958 72dfa31
+* Sun Aug 16 05:36:02 2015 +0200
+
+    Merge pull request #259 from hmoore-r7/feature/reusable-port
+    
+    Enable SO_REUSEPORT
+
+* Sat Aug 15 22:31:05 2015 -0500
+
+    Enable SO_REUSEPORT, allowing round-robining to multiple dnscrypt-proxy daemons on a single port
+
+* Sat Aug 15 22:30:49 2015 -0500
+
+    Backport LEV_OPT_REUSEABLE_PORT from upstream libevent
+
+* Tue Aug 11 08:03:11 2015 +0200
+
+    Sadly compile Android builds using platform version 16 (Android 4.1)
+
+* Tue Aug 11 05:16:30 2015 +0200
+
+    Missing extra space
+
+* Tue Aug 11 05:15:18 2015 +0200
+
+    Clarify
+
+* Mon Aug 10 18:32:14 2015 +0200
+
+    Android iptables rules: explicitly add the port #
+
+* Mon Aug 10 18:31:59 2015 +0200
+
+    Typo
+
+* Wed Aug 5 22:13:28 2015 +0200
+
+    Improve the Android build script
+
+* Wed Aug 5 22:08:13 2015 +0200
+
+    Better Android install script
+
+* Wed Aug 5 20:44:29 2015 +0200
+
+    Improve Android package
+
+* Wed Aug 5 20:43:13 2015 +0200
+
+    Add missing tests to dist-files
+
+* Wed Aug 5 19:50:14 2015 +0200
+
+    Add extra Android build targets, change Android install paths
+
+* Wed Aug 5 19:27:16 2015 +0200
+
+    USE_ONLY_PORTABLE_IMPLEMENTATIONS is obsolete
+
+* Wed Aug 5 02:36:42 2015 +0200
+
+    Correct confusing indentation made by jed
+
+* Tue Aug 4 22:45:40 2015 +0200
+
+    Add high resolution version of the dnscrypt logo
+
+* Tue Aug 4 19:32:43 2015 +0200
+
+    Add a logo
+
+* Tue Aug 4 18:34:17 2015 +0200
+
+    Yet another d0wn server
+
+Merge: 5059534 79fc8a0
+* Tue Aug 4 18:32:45 2015 +0200
+
+    Merge pull request #249 from Fusl/patch-1
+    
+    fvz-rec-za-wc-01 is having issues with DNSCrypt
+
+* Tue Aug 4 18:27:47 2015 +0200
+
+    fvz-rec-za-wc-01 is having issues with DNSCrypt
+    
+    I'm still fixing this and will update the .csv once the server is running and stable again. Sorry for the inconveniences!
+
+* Mon Aug 3 15:28:03 2015 +0200
+
+    The location was missing in opennic-fvz-rec-de-fra-01
+
+* Sun Aug 2 22:22:32 2015 +0200
+
+    Add new d0wn resolvers
+
+* Sun Aug 2 14:26:32 2015 +0200
+
+    Bring back the FVZ resolvers with a new key
+
+* Sun Aug 2 12:52:58 2015 +0200
+
+    Add d0wn-de back
+
+* Sun Aug 2 11:23:22 2015 +0200
+
+    Have resolvers-check.sh load the local CSV file
+
+* Sun Aug 2 11:22:54 2015 +0200
+
+    Temporarily remove d0wn-al-ns1
+
+* Sun Aug 2 11:19:16 2015 +0200
+
+    Sign
+
+* Sun Aug 2 11:18:58 2015 +0200
+
+    Remove down d0wn servers
+
+* Sun Aug 2 11:15:45 2015 +0200
+
+    Sort
+
+Merge: e0d0aae 01c16f5
+* Sun Aug 2 11:11:45 2015 +0200
+
+    Merge pull request #246 from d0wnblog/master
+    
+    dns.d0wn.biz Server update
+
+* Sun Aug 2 11:04:43 2015 +0200
+
+    All FUSL resolvers do not serve certificates any more
+
+* Sat Aug 1 23:43:47 2015 +0200
+
+    Update dnscrypt-resolvers.csv
+    
+    Fixed Name's
+
+* Sat Aug 1 22:52:36 2015 +0200
+
+    Fix
+
+* Sat Aug 1 22:51:04 2015 +0200
+
+    Added DNSCrypt resolver from dns.d0wn.biz
+
+* Sat Aug 1 17:33:14 2015 +0200
+
+    Unlist unreliable FVZ servers
+
+* Wed Jul 29 20:33:22 2015 +0200
+
+    Protocol decription edits
+
+* Tue Jul 28 16:28:25 2015 +0200
+
+    grammar
+
+* Sun Jul 26 15:14:13 2015 +0200
+
+    Recommend TFO
+
+* Sun Jul 26 15:05:14 2015 +0200
+
+    v2
+
+* Sun Jul 26 15:04:35 2015 +0200
+
+    Add some known implementations
+
+* Sun Jul 26 14:55:58 2015 +0200
+
+    DNSCrypt v2 protocol specification
+
+* Sat Jul 25 14:15:08 2015 +0200
+
+    Double check
+
+* Sat Jul 25 14:12:42 2015 +0200
+
+    Let example-ldns-blocking parse /etc/hosts-like files, ignoring the first component
+
+* Thu Jul 23 10:10:07 2015 +0200
+
+    Remove unreliable FUZE resolvers
+
+* Sun Jul 19 11:53:31 2015 +0200
+
+    Add -S/--syslog
+    via @zedinosaur
+
+* Sun Jul 19 02:26:34 2015 +0200
+
+    Instructions for IPv6 on Windows
+
+* Sun Jul 19 01:48:55 2015 +0200
+
+    Windows people prefer \ to /
+
+* Sun Jul 19 01:48:07 2015 +0200
+
+    Remove .exe
+
+* Sun Jul 19 01:47:37 2015 +0200
+
+    Use HTTPS
+
+* Sun Jul 19 01:46:33 2015 +0200
+
+    More Windows documentation
+
+* Sun Jul 19 01:30:20 2015 +0200
+
+    Improve the Windows documentation
+
+* Sat Jul 18 20:14:52 2015 +0200
+
+    Format
+
+* Sat Jul 18 19:29:19 2015 +0200
+
+    Bump example version
+
+* Sat Jul 18 18:56:26 2015 +0200
+
+    On Windows, $bindir should be the same as $sbindir now.
+
+* Sat Jul 18 18:48:44 2015 +0200
+
+    Add a README for iOS
+
+* Sat Jul 18 18:48:20 2015 +0200
+
+    Same procedure to get an elevated Windows prompt on Windows 10
+
+* Sat Jul 18 18:24:40 2015 +0200
+
+    Update ChangeLog
+
 * Sat Jul 18 18:22:56 2015 +0200
 
     Install a sample .plist file on iOS

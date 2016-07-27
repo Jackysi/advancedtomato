@@ -86,8 +86,13 @@ tcp_tune(evutil_socket_t handle)
     if (handle == -1) {
         return;
     }
+#ifdef TCP_QUICKACK
+    setsockopt(handle, IPPROTO_TCP, TCP_QUICKACK,
+               (void *) (int []) { 1 }, sizeof (int));
+#else
     setsockopt(handle, IPPROTO_TCP, TCP_NODELAY,
                (void *) (int []) { 1 }, sizeof (int));
+#endif
 }
 
 static void
@@ -173,8 +178,8 @@ resolver_proxy_read_cb(struct bufferevent * const proxy_resolver_bev,
                                 dns_reply, &uncurved_len) != 0) {
         DNSCRYPT_PROXY_REQUEST_UNCURVE_ERROR(tcp_request);
         DNSCRYPT_PROXY_REQUEST_TCP_PROXY_RESOLVER_GOT_INVALID_REPLY(tcp_request);
-        logger_noformat(tcp_request->proxy_context, LOG_WARNING,
-                        "Received a suspicious reply from the resolver");
+        logger_noformat(tcp_request->proxy_context, LOG_INFO,
+                        "Received a corrupted reply from the resolver");
         tcp_request_kill(tcp_request);
         return;
     }
@@ -330,9 +335,11 @@ client_proxy_read_cb(struct bufferevent * const client_proxy_bev,
     assert(max_query_size < DNS_MAX_PACKET_SIZE_TCP);
 #ifdef PLUGINS
     size_t max_query_size_for_filter = dns_query_len;
-    if (max_query_size > DNSCRYPT_MAX_PADDING + dnscrypt_query_header_size()) {
+    const size_t header_size = dnscrypt_query_header_size();
+    if (max_query_size > DNSCRYPT_MAX_PADDING + header_size &&
+        max_query_size - (DNSCRYPT_MAX_PADDING + header_size) > dns_query_len) {
         max_query_size_for_filter = max_query_size -
-            (DNSCRYPT_MAX_PADDING + dnscrypt_query_header_size());
+            (DNSCRYPT_MAX_PADDING + header_size);
     }
     DCPluginDNSPacket dcp_packet = {
         .client_sockaddr = &tcp_request->client_sockaddr,
@@ -557,6 +564,7 @@ tcp_listener_bind(ProxyContext * const proxy_context)
                                     LEV_OPT_CLOSE_ON_FREE |
                                     LEV_OPT_CLOSE_ON_EXEC |
                                     LEV_OPT_REUSEABLE |
+                                    LEV_OPT_REUSEABLE_PORT |
                                     LEV_OPT_DEFERRED_ACCEPT,
                                     TCP_REQUEST_BACKLOG,
                                     (struct sockaddr *)
@@ -609,6 +617,9 @@ tcp_listener_start(ProxyContext * const proxy_context)
 void
 tcp_listener_stop(ProxyContext * const proxy_context)
 {
+    if (proxy_context->tcp_conn_listener == NULL) {
+        return;
+    }
     evconnlistener_free(proxy_context->tcp_conn_listener);
     proxy_context->tcp_conn_listener = NULL;
     while (tcp_listener_kill_oldest_request(proxy_context) != 0) { }

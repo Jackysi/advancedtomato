@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.6.0],[http://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.6.1],[https://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -153,6 +153,7 @@ AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overf
 AS_CASE([$host_os],
   [cygwin* | mingw* | pw32* | cegcc*], [
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
+    AX_CHECK_LINK_FLAG([-Wl,--high-entropy-va], [LDFLAGS="$LDFLAGS -Wl,--high-entropy-va"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
   ])
 

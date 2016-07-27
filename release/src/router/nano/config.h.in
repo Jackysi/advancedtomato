@@ -6,14 +6,29 @@
 /* Define this to disable the built-in file browser. */
 #undef DISABLE_BROWSER
 
+/* Define this to disable syntax highlighting. */
+#undef DISABLE_COLOR
+
+/* Define this to disable extra stuff. */
+#undef DISABLE_EXTRA
+
 /* Define this to disable the help text display. */
 #undef DISABLE_HELP
+
+/* Define this to disable search and position histories. */
+#undef DISABLE_HISTORIES
 
 /* Define this to disable the justify routines. */
 #undef DISABLE_JUSTIFY
 
 /* Define this to disable the mouse support. */
 #undef DISABLE_MOUSE
+
+/* Define this to disable multiple file buffers. */
+#undef DISABLE_MULTIBUFFER
+
+/* Define this to disable the use of .nanorc files. */
+#undef DISABLE_NANORC
 
 /* Define this to disable the setting of the operating directory (chroot of
    sorts). */
@@ -25,22 +40,15 @@
 /* Define this to disable the spell checker functions. */
 #undef DISABLE_SPELLER
 
-/* Define to disable the tab completion functions for files and search
+/* Define this to disable the tab completion functions for files and search
    strings. */
 #undef DISABLE_TABCOMP
 
 /* Define this to disable all text wrapping. */
 #undef DISABLE_WRAPPING
 
-/* Define this to have syntax highlighting, requires regex.h and ENABLE_NANORC
-   too! */
-#undef ENABLE_COLOR
-
-/* Define this to enable multiple file buffers. */
-#undef ENABLE_MULTIBUFFER
-
-/* Define this to use .nanorc files. */
-#undef ENABLE_NANORC
+/* Define this to disable the comment/uncomment functionality. */
+#undef ENABLE_COMMENT
 
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
@@ -51,7 +59,7 @@
    mblen(), mbstowcs(), mbtowc(), wctomb(), and wcwidth()). */
 #undef ENABLE_UTF8
 
-/* Define if the system supports GNU-style word boundaries in regexes. */
+/* Define this if the system supports GNU-style word boundaries in regexes. */
 #undef GNU_WORDBOUNDS
 
 /* Define to 1 if you have the <curses.h> header file. */
@@ -100,11 +108,23 @@
 /* Define to 1 if you have the `iswspace' function. */
 #undef HAVE_ISWSPACE
 
+/* Define this if your curses library has the key_defined() command. */
+#undef HAVE_KEY_DEFINED
+
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
 
+/* Define to 1 if you have the `magic' library (-lmagic). */
+#undef HAVE_LIBMAGIC
+
+/* Define to 1 if you have the `z' library (-lz). */
+#undef HAVE_LIBZ
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
+
+/* Define to 1 if you have the <magic.h> header file. */
+#undef HAVE_MAGIC_H
 
 /* Define to 1 if you have the `mblen' function. */
 #undef HAVE_MBLEN
@@ -126,6 +146,9 @@
 
 /* Define to 1 if you have the <regex.h> header file. */
 #undef HAVE_REGEX_H
+
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #undef HAVE_STDARG_H
@@ -187,8 +210,11 @@
 /* Define to 1 if you have the `wcwidth' function. */
 #undef HAVE_WCWIDTH
 
-/* Define this to enable extra stuff. */
-#undef NANO_EXTRA
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
+
+/* Flag(s) to use to get the full range of extended regular expressions */
+#undef NANO_REG_EXTENDED
 
 /* Define this to make the nano executable as small as possible. */
 #undef NANO_TINY
@@ -224,20 +250,24 @@
 /* Where data are placed to. */
 #undef PKGDATADIR
 
-/* Specify alternate rcfile name (default: .nanorc) */
+/* Specify an alternate rcfile name (default: .nanorc). */
 #undef RCFILE_NAME
 
 /* Define this if you know your curses library allows LINES and COLS to be
    redefined to deal with a resizing bug */
-#undef REDEFINIG_MACROS_OK
+#undef REDEFINING_MACROS_OK
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
+/* "Setting REVISION in config.h." */
+#undef REVISION
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Define to use the slang wrappers for curses instead of native curses. */
+/* Define this to use the slang wrappers for curses instead of native curses.
+   */
 #undef USE_SLANG
 
 /* Enable extensions on AIX 3, Interix.  */
@@ -264,6 +294,11 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

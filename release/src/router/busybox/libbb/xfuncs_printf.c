@@ -112,6 +112,11 @@ char* FAST_FUNC xstrndup(const char *s, int n)
 	return memcpy(t, s, n);
 }
 
+void* FAST_FUNC xmemdup(const void *s, int n)
+{
+	return memcpy(xmalloc(n), s, n);
+}
+
 // Die if we can't open a file and return a FILE* to it.
 // Notice we haven't got xfread(), This is for use with fscanf() and friends.
 FILE* FAST_FUNC xfopen(const char *path, const char *mode)
@@ -385,6 +390,12 @@ void FAST_FUNC xchdir(const char *path)
 		bb_perror_msg_and_die("can't change directory to '%s'", path);
 }
 
+void FAST_FUNC xfchdir(int fd)
+{
+	if (fchdir(fd))
+		bb_perror_msg_and_die("fchdir");
+}
+
 void FAST_FUNC xchroot(const char *path)
 {
 	if (chroot(path))
@@ -648,3 +659,19 @@ pid_t FAST_FUNC xfork(void)
 	return pid;
 }
 #endif
+
+void FAST_FUNC xvfork_parent_waits_and_exits(void)
+{
+	pid_t pid;
+
+	fflush_all();
+	pid = xvfork();
+	if (pid > 0) {
+		/* Parent */
+		int exit_status = wait_for_exitstatus(pid);
+		if (WIFSIGNALED(exit_status))
+			kill_myself_with_sig(WTERMSIG(exit_status));
+		_exit(WEXITSTATUS(exit_status));
+	}
+	/* Child continues */
+}

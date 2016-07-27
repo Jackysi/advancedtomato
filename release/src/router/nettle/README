@@ -1,4 +1,4 @@
-What is Nettle? A quote from the introduction in the Nettle Manual:
+What is GNU Nettle? A quote from the introduction in the Nettle Manual:
 
   Nettle is a cryptographic library that is designed to fit easily in more
   or less any context: In crypto toolkits for object-oriented languages
@@ -24,16 +24,20 @@ What is Nettle? A quote from the introduction in the Nettle Manual:
   language, and LSH, which both use an object-oriented abstraction on top
   of the library.
 
-Nettle is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the Free
-Software Foundation. See the file COPYING.LIB for details.
+GNU Nettle is free software; you can redistribute it and/or modify it
+under the terms contained in the files COPYING* (see the manual for
+information on how these licenses apply).
 
-Build nettle with the usual ./configure && make && make check && make
-install. Read the manual. Mail me if you have any questions or
-suggestions.
+If you have downloaded a Nettle release, build it with the usual
+./configure && make && make check && make install (see the INSTALL
+file for further instructions).
 
-You can also build Nettle from git, see
-http://www.lysator.liu.se/~nisse/nettle/ for current instructions.
+You can also get Nettle from git, see
+http://www.lysator.liu.se/~nisse/nettle/ for current instructions. In
+particular, you need to run the ./.bootstrap script after checkout and
+before running ./configure.
+
+Read the manual. Mail me if you have any questions or suggestions.
 
 You may want to subscribe to the nettle-bugs mailing list. See
 <URL: http://lists.lysator.liu.se/mailman/listinfo/nettle-bugs>.

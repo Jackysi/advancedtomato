@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if HAVE_LIBGMP
+#if WITH_HOGWEED
 #include "bignum.h"
 
 static void
@@ -43,13 +43,13 @@ test_size(long x, unsigned size)
   ASSERT(nettle_mpz_sizeinbase_256_s(t) == size);
   mpz_clear(t);
 }
-#endif /* HAVE_LIBGMP */
+#endif /* WITH_HOGWEED */
 
 
 void
 test_main(void)
 {
-#if HAVE_LIBGMP
+#if WITH_HOGWEED
   test_size(0, 1);
   test_size(1, 1);
   test_size(0x7f, 1);
@@ -87,7 +87,7 @@ test_main(void)
   test_bignum("-8000", SHEX(  "8000"));
   test_bignum("-8001", SHEX("ff7fff"));
   
-#else /* !HAVE_LIBGMP */
+#else /* !WITH_HOGWEED */
   SKIP();
-#endif /* !HAVE_LIBGMP */
+#endif /* !WITH_HOGWEED */
 }

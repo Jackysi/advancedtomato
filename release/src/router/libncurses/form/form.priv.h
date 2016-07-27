@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2008,2009 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -30,11 +30,11 @@
  *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
-/* $Id: form.priv.h,v 0.32 2009/11/07 21:26:43 tom Exp $ */
+/* $Id: form.priv.h,v 0.38 2014/11/01 13:56:14 tom Exp $ */
 
 #ifndef FORM_PRIV_H
 #define FORM_PRIV_H 1
-
+/* *INDENT-OFF*/
 #include "curses.priv.h"
 #include "mf_common.h"
 
@@ -119,11 +119,13 @@ extern NCURSES_EXPORT_VAR(FIELDTYPE *) _nc_Default_FieldType;
 
 /* Calculate the total size of all buffers for this field */
 #define Total_Buffer_Size(field) \
-   ( (Buffer_Length(field) + 1) * (1+(field)->nbuf) * sizeof(FIELD_CELL) )
+   ( (size_t)(Buffer_Length(field) + 1) * (size_t)(1+(field)->nbuf) * sizeof(FIELD_CELL) )
 
 /* Logic to determine whether or not a field is single lined */
 #define Single_Line_Field(field) \
    (((field)->rows + (field)->nrow) == 1)
+
+#define Field_Has_Option(f,o)      ((((unsigned)(f)->opts) & o) != 0)
 
 /* Logic to determine whether or not a field is selectable */
 #define Field_Is_Selectable(f)     (((unsigned)((f)->opts) & O_SELECTABLE)==O_SELECTABLE)
@@ -146,7 +148,7 @@ TypeArgument;
 			O_NL_OVERLOAD  |\
 			O_BS_OVERLOAD   )
 
-#define ALL_FIELD_OPTS (Field_Options)( \
+#define STD_FIELD_OPTS (Field_Options)( \
 			O_VISIBLE |\
 			O_ACTIVE  |\
 			O_PUBLIC  |\
@@ -156,7 +158,11 @@ TypeArgument;
 			O_AUTOSKIP|\
 			O_NULLOK  |\
 			O_PASSOK  |\
-			O_STATIC   )
+			O_STATIC)
+
+#define ALL_FIELD_OPTS (Field_Options)( \
+			STD_FIELD_OPTS |\
+			O_DYNAMIC_JUSTIFY)
 
 #define C_BLANK ' '
 #define is_blank(c) ((c)==C_BLANK)
@@ -214,11 +220,11 @@ extern NCURSES_EXPORT(wchar_t *) _nc_Widen_String(char *, int *);
 
 #ifdef TRACE
 
-#define returnField(code)	TRACE_RETURN(code,field)
-#define returnFieldPtr(code)	TRACE_RETURN(code,field_ptr)
-#define returnForm(code)	TRACE_RETURN(code,form)
-#define returnFieldType(code)	TRACE_RETURN(code,field_type)
-#define returnFormHook(code)	TRACE_RETURN(code,form_hook)
+#define returnField(code)	TRACE_RETURN1(code,field)
+#define returnFieldPtr(code)	TRACE_RETURN1(code,field_ptr)
+#define returnForm(code)	TRACE_RETURN1(code,form)
+#define returnFieldType(code)	TRACE_RETURN1(code,field_type)
+#define returnFormHook(code)	TRACE_RETURN1(code,form_hook)
 
 extern NCURSES_EXPORT(FIELD **)	    _nc_retrace_field_ptr (FIELD **);
 extern NCURSES_EXPORT(FIELD *)	    _nc_retrace_field (FIELD *);
@@ -293,5 +299,6 @@ extern NCURSES_EXPORT(Form_Hook)    _nc_retrace_form_hook (Form_Hook);
       result = ((*buffer || (l < width)) ? FALSE : TRUE); \
     }
 #endif
+/* *INDENT-ON*/
 
 #endif /* FORM_PRIV_H */

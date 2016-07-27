@@ -1,7 +1,4 @@
-localedir = $(datadir)/locale
-INCLUDES = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
-
-ACLOCAL_AMFLAGS = -I m4
+AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
 
 bin_PROGRAMS = 	nano
 nano_SOURCES =	browser.c \

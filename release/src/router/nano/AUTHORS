@@ -1,16 +1,15 @@
-$Id: AUTHORS 4210 2007-12-20 18:41:04Z dolorous $
-This file lists people who have made significant contribution to the
+This file lists people who have made significant contributions to the
 nano editor.  Please see the ChangeLog for specific changes by author.
 -------------------------------------------------------------------------
 
 Chris Allegretta <chrisa@asty.org>
-	* Original program author, former stable series maintainer.
+	* Original program author, former and current maintainer.
 
 David Lawrence Ramsey <pooka109@gmail.com>
 	* Former stable series maintainer.  Multiple buffer support,
 	  operating dir (-o) option, bug fixes for display routines,
-	  wrapping code, spelling fixes, const mode, parts of the UTF-8
-	  support, and various other fixes.
+	  wrapping code, spelling fixes, const mode, parts of the
+	  UTF-8 support, and various other fixes.
 
 Jordi Mallach <jordi@gnu.org>
 	* Debian package maintainer, fellow bug squasher.
@@ -23,8 +22,8 @@ Adam Rogoyski <rogoyski@cs.utexas.edu>
 
 Robert Siemborski <rjs3@andrew.cmu.edu>
 	* Miscellaneous cut, display, replace, and other bug fixes,
-	  original and new "magic line" code, read_line() function, new
-	  edit display routines.
+	  original and new "magic line" code, read_line() function,
+	  new edit display routines.
 
 Rocco Corsi <rocco.corsi@sympatico.ca>
 	* Internal spelling code, many optimizations and bug fixes for
@@ -41,3 +40,10 @@ Mike Frysinger <vapier@gentoo.org>
 	  --enable-utf8/--disable-utf8 configure options for ncurses,
 	  many new color regexes and improvements to existing color
 	  regexes for nanorc.sample, and miscellaneous bug fixes.
+
+Mark Majeres <mark@engine12.com>
+	* A functional undo/redo system, and coloring nano's interface.
+
+Benno Schulenberg <bensberg@justemail.net>
+	* A bunch of small bug fixes, the cutword routines, some extra
+	  key bindings.  Current maintainer.

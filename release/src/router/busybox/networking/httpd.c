@@ -125,6 +125,7 @@
 //usage:     "\n	-d STRING	URL decode STRING"
 
 #include "libbb.h"
+#include "common_bufsiz.h"
 #if ENABLE_PAM
 /* PAM may include <locale.h>. We may need to undefine bbox's stub define: */
 # undef setlocale
@@ -307,7 +308,8 @@ struct globals {
 	Htaccess *script_i;     /* config script interpreters */
 #endif
 	char *iobuf;            /* [IOBUF_SIZE] */
-#define hdr_buf bb_common_bufsiz1
+#define        hdr_buf bb_common_bufsiz1
+#define sizeof_hdr_buf COMMON_BUFSIZE
 	char *hdr_ptr;
 	int hdr_cnt;
 #if ENABLE_FEATURE_HTTPD_ERROR_PAGES
@@ -368,6 +370,7 @@ enum {
 # define content_gzip     0
 #endif
 #define INIT_G() do { \
+	setup_common_bufsiz(); \
 	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
 	IF_FEATURE_HTTPD_BASIC_AUTH(g_realm = "Web Server Authentication";) \
 	IF_FEATURE_HTTPD_RANGES(range_start = -1;) \
@@ -697,7 +700,7 @@ static void parse_conf(const char *path, int flag)
 				goto config_error;
 			}
 			*host_port++ = '\0';
-			if (strncmp(host_port, "http://", 7) == 0)
+			if (is_prefixed_with(host_port, "http://"))
 				host_port += 7;
 			if (*host_port == '\0') {
 				goto config_error;
@@ -967,19 +970,30 @@ static void send_headers(int responseNum)
 	}
 #endif
 	if (responseNum == HTTP_MOVED_TEMPORARILY) {
-		len += sprintf(iobuf + len, "Location: %s/%s%s\r\n",
+		/* Responding to "GET /dir" with
+		 * "HTTP/1.0 302 Found" "Location: /dir/"
+		 * - IOW, asking them to repeat with a slash.
+		 * Here, overflow IS possible, can't use sprintf:
+		 * mkdir test
+		 * python -c 'print("get /test?" + ("x" * 8192))' | busybox httpd -i -h .
+		 */
+		len += snprintf(iobuf + len, IOBUF_SIZE-3 - len,
+				"Location: %s/%s%s\r\n",
 				found_moved_temporarily,
 				(g_query ? "?" : ""),
 				(g_query ? g_query : ""));
+		if (len > IOBUF_SIZE-3)
+			len = IOBUF_SIZE-3;
 	}
 
 #if ENABLE_FEATURE_HTTPD_ERROR_PAGES
 	if (error_page && access(error_page, R_OK) == 0) {
-		strcat(iobuf, "\r\n");
-		len += 2;
-
-		if (DEBUG)
+		iobuf[len++] = '\r';
+		iobuf[len++] = '\n';
+		if (DEBUG) {
+			iobuf[len] = '\0';
 			fprintf(stderr, "headers: '%s'\n", iobuf);
+		}
 		full_write(STDOUT_FILENO, iobuf, len);
 		if (DEBUG)
 			fprintf(stderr, "writing error page: '%s'\n", error_page);
@@ -1021,8 +1035,10 @@ static void send_headers(int responseNum)
 				responseNum, responseString,
 				responseNum, responseString, infoString);
 	}
-	if (DEBUG)
+	if (DEBUG) {
+		iobuf[len] = '\0';
 		fprintf(stderr, "headers: '%s'\n", iobuf);
+	}
 	if (full_write(STDOUT_FILENO, iobuf, len) != len) {
 		if (verbose > 1)
 			bb_perror_msg("error");
@@ -1053,7 +1069,7 @@ static int get_line(void)
 	alarm(HEADER_READ_TIMEOUT);
 	while (1) {
 		if (hdr_cnt <= 0) {
-			hdr_cnt = safe_read(STDIN_FILENO, hdr_buf, sizeof(hdr_buf));
+			hdr_cnt = safe_read(STDIN_FILENO, hdr_buf, sizeof_hdr_buf);
 			if (hdr_cnt <= 0)
 				break;
 			hdr_ptr = hdr_buf;
@@ -1178,9 +1194,9 @@ static NOINLINE void cgi_io_loop_and_exit(int fromCgi_rd, int toCgi_wr, int post
 			/* We expect data, prev data portion is eaten by CGI
 			 * and there *is* data to read from the peer
 			 * (POSTDATA) */
-			//count = post_len > (int)sizeof(hdr_buf) ? (int)sizeof(hdr_buf) : post_len;
+			//count = post_len > (int)sizeof_hdr_buf ? (int)sizeof_hdr_buf : post_len;
 			//count = safe_read(STDIN_FILENO, hdr_buf, count);
-			count = safe_read(STDIN_FILENO, hdr_buf, sizeof(hdr_buf));
+			count = safe_read(STDIN_FILENO, hdr_buf, sizeof_hdr_buf);
 			if (count > 0) {
 				hdr_cnt = count;
 				hdr_ptr = hdr_buf;
@@ -1222,12 +1238,12 @@ static NOINLINE void cgi_io_loop_and_exit(int fromCgi_rd, int toCgi_wr, int post
 				out_cnt += count;
 				count = 0;
 				/* "Status" header format is: "Status: 302 Redirected\r\n" */
-				if (out_cnt >= 8 && memcmp(rbuf, "Status: ", 8) == 0) {
+				if (out_cnt >= 7 && memcmp(rbuf, "Status:", 7) == 0) {
 					/* send "HTTP/1.0 " */
 					if (full_write(STDOUT_FILENO, HTTP_200, 9) != 9)
 						break;
-					rbuf += 8; /* skip "Status: " */
-					count = out_cnt - 8;
+					rbuf += 7; /* skip "Status:" */
+					count = out_cnt - 7;
 					out_cnt = -1; /* buffering off */
 				} else if (out_cnt >= 4) {
 					/* Did CGI add "HTTP"? */
@@ -1894,7 +1910,7 @@ static Htaccess_Proxy *find_proxy_entry(const char *url)
 {
 	Htaccess_Proxy *p;
 	for (p = proxy; p; p = p->next) {
-		if (strncmp(url, p->url_from, strlen(p->url_from)) == 0)
+		if (is_prefixed_with(url, p->url_from))
 			return p;
 	}
 	return NULL;
@@ -2183,7 +2199,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 			if (STRNCASECMP(iobuf, "Range:") == 0) {
 				/* We know only bytes=NNN-[MMM] */
 				char *s = skip_whitespace(iobuf + sizeof("Range:")-1);
-				if (strncmp(s, "bytes=", 6) == 0) {
+				if (is_prefixed_with(s, "bytes=") == 0) {
 					s += sizeof("bytes=")-1;
 					range_start = BB_STRTOOFF(s, &s, 10);
 					if (s[0] != '-' || range_start < 0) {
@@ -2269,7 +2285,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 	tptr = urlcopy + 1;      /* skip first '/' */
 
 #if ENABLE_FEATURE_HTTPD_CGI
-	if (strncmp(tptr, "cgi-bin/", 8) == 0) {
+	if (is_prefixed_with(tptr, "cgi-bin/")) {
 		if (tptr[8] == '\0') {
 			/* protect listing "cgi-bin/" */
 			send_headers_and_exit(HTTP_FORBIDDEN);
@@ -2352,7 +2368,7 @@ static void mini_httpd(int server_socket)
 			continue;
 
 		/* set the KEEPALIVE option to cull dead connections */
-		setsockopt(n, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
+		setsockopt_keepalive(n);
 
 		if (fork() == 0) {
 			/* child */
@@ -2395,7 +2411,7 @@ static void mini_httpd_nommu(int server_socket, int argc, char **argv)
 			continue;
 
 		/* set the KEEPALIVE option to cull dead connections */
-		setsockopt(n, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
+		setsockopt_keepalive(n);
 
 		if (vfork() == 0) {
 			/* child */

@@ -174,10 +174,24 @@ void stop_bittorrent(void)
     }
 
     fprintf( fp, "#!/bin/sh\n" );
+    fprintf( fp, "COUNT=0\n");
+    fprintf( fp, "TIMEOUT=10\n");
+    fprintf( fp, "SLEEP=1\n");
+    fprintf( fp, "killall transmission-daemon\n");
+    fprintf( fp, "while [ `pidof transmission-daemon | awk '{print $1}'` ]; do\n");
+    fprintf( fp, "sleep $SLEEP\n");
+    fprintf( fp, "COUNT=$(($COUNT + $SLEEP))\n");
+    fprintf( fp, "if [ $COUNT == $TIMEOUT ]; then\n");
     fprintf( fp, "killall -KILL transmission-daemon\n");
-    fprintf( fp, "logger \"Transmission daemon successfully stoped\" \n");
-    fprintf( fp, "sleep 2\n");
+    fprintf( fp, "fi\n");
+    fprintf( fp, "done\n");
+    fprintf( fp, "if [ $COUNT != $TIMEOUT ]; then\n");
+    fprintf( fp, "logger \"Transmission daemon successfully stopped.\" \n");
+    fprintf( fp, "else\n");
+    fprintf( fp, "logger \"Transmission daemon forcefully stopped.\" \n");
+    fprintf( fp, "fi\n");
     fprintf( fp, "/usr/bin/btcheck addcru\n");
+    fprintf( fp, "exit 0\n");
 
     fclose( fp );
     chmod( "/tmp/stop_transmission.sh", 0755 );

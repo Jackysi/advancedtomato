@@ -1,26 +1,36 @@
 /* pkcs1-conv.c
- *
- * Converting pkcs#1 and similar keys to sexp format. */
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2005, 2009 Niels Möller, Magnus Holmgren
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Converting pkcs#1 and related keys to sexp format.
+
+   Copyright (C) 2005, 2009 Niels Möller, Magnus Holmgren
+   Copyright (C) 2014 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -128,9 +138,9 @@ pem_ws[33] = {
 
 /* Returns 1 on match, otherwise 0. */ 
 static int
-match_pem_start(unsigned length, const uint8_t *line,
-		unsigned *marker_start,
-		unsigned *marker_length)
+match_pem_start(size_t length, const uint8_t *line,
+		size_t *marker_start,
+		size_t *marker_length)
 {
   while (length > 0 && PEM_IS_SPACE(line[length - 1]))
     length--;
@@ -152,8 +162,8 @@ match_pem_start(unsigned length, const uint8_t *line,
 /* Returns 1 on match, -1 if the line is of the right form except for
    the marker, otherwise 0. */ 
 static int
-match_pem_end(unsigned length, const uint8_t *line,
-	      unsigned marker_length,
+match_pem_end(size_t length, const uint8_t *line,
+	      size_t marker_length,
 	      const uint8_t *marker)
 {
   while (length > 0 && PEM_IS_SPACE(line[length - 1]))
@@ -178,10 +188,10 @@ match_pem_end(unsigned length, const uint8_t *line,
 struct pem_info
 {
   /* The FOO part in "-----BEGIN FOO-----" */
-  unsigned marker_start;
-  unsigned marker_length;
-  unsigned data_start;
-  unsigned data_length;
+  size_t marker_start;
+  size_t marker_length;
+  size_t data_start;
+  size_t data_length;
 };
 
 static int
@@ -211,7 +221,7 @@ read_pem(struct nettle_buffer *buffer, FILE *f,
 
   for (;;)
     {
-      unsigned line_start = buffer->size;
+      size_t line_start = buffer->size;
 
       if (read_line(buffer, f) != 1)
 	return 0;
@@ -236,7 +246,7 @@ read_pem(struct nettle_buffer *buffer, FILE *f,
 
 static int
 decode_base64(struct nettle_buffer *buffer,
-	      unsigned start, unsigned *length)
+	      size_t start, size_t *length)
 {
   struct base64_decode_ctx ctx;
   
@@ -257,7 +267,7 @@ decode_base64(struct nettle_buffer *buffer,
 }
 
 static int
-convert_rsa_public_key(struct nettle_buffer *buffer, unsigned length, const uint8_t *data)
+convert_rsa_public_key(struct nettle_buffer *buffer, size_t length, const uint8_t *data)
 {
   struct rsa_public_key pub;
   int res;
@@ -281,7 +291,7 @@ convert_rsa_public_key(struct nettle_buffer *buffer, unsigned length, const uint
 }
 
 static int
-convert_rsa_private_key(struct nettle_buffer *buffer, unsigned length, const uint8_t *data)
+convert_rsa_private_key(struct nettle_buffer *buffer, size_t length, const uint8_t *data)
 {
   struct rsa_public_key pub;
   struct rsa_private_key priv;
@@ -309,36 +319,39 @@ convert_rsa_private_key(struct nettle_buffer *buffer, unsigned length, const uin
 }
 
 static int
-convert_dsa_private_key(struct nettle_buffer *buffer, unsigned length, const uint8_t *data)
+convert_dsa_private_key(struct nettle_buffer *buffer, size_t length, const uint8_t *data)
 {
-  struct dsa_public_key pub;
-  struct dsa_private_key priv;
+  struct dsa_params params;
+  mpz_t pub;
+  mpz_t priv;
   int res;
-  
-  dsa_public_key_init(&pub);
-  dsa_private_key_init(&priv);
 
-  if (dsa_openssl_private_key_from_der(&pub, &priv, 0,
+  dsa_params_init (&params);
+  mpz_init (pub);
+  mpz_init (priv);
+
+  if (dsa_openssl_private_key_from_der(&params, pub, priv, 0,
 				       length, data))
     {
       /* Reuses the buffer */
       nettle_buffer_reset(buffer);
-      res = dsa_keypair_to_sexp(buffer, NULL, &pub, &priv);
+      res = dsa_keypair_to_sexp(buffer, NULL, &params, pub, priv);
     }
   else
     {
       werror("Invalid OpenSSL private key.\n");
       res = 0;
     }
-  dsa_public_key_clear(&pub);
-  dsa_private_key_clear(&priv);
+  dsa_params_clear (&params);
+  mpz_clear (pub);
+  mpz_clear (priv);
 
   return res;
 }
 
 /* Returns 1 on success, 0 on error, and -1 for unsupported algorithms. */
 static int
-convert_public_key(struct nettle_buffer *buffer, unsigned length, const uint8_t *data)
+convert_public_key(struct nettle_buffer *buffer, size_t length, const uint8_t *data)
 {
   /* SubjectPublicKeyInfo ::= SEQUENCE {
          algorithm		AlgorithmIdentifier,
@@ -405,17 +418,21 @@ convert_public_key(struct nettle_buffer *buffer, unsigned length, const uint8_t 
 	      if (asn1_der_iterator_next(&j) == ASN1_ITERATOR_CONSTRUCTED
 		  && asn1_der_decode_constructed_last(&j) == ASN1_ITERATOR_PRIMITIVE)
 		{
-		  struct dsa_public_key pub;
+		  struct dsa_params params;
+		  mpz_t pub;
 
-		  dsa_public_key_init(&pub);
+		  dsa_params_init (&params);
+		  mpz_init (pub);
 
-		  if (dsa_params_from_der_iterator(&pub, 0, &i)
-		      && dsa_public_key_from_der_iterator(&pub, 0, &j))
+		  if (dsa_params_from_der_iterator(&params, 0, 0, &i)
+		      && dsa_public_key_from_der_iterator(&params, pub, &j))
 		    {
 		      nettle_buffer_reset(buffer);
-		      res = dsa_keypair_to_sexp(buffer, NULL, &pub, NULL) > 0;
+		      res = dsa_keypair_to_sexp(buffer, NULL,
+						&params, pub, NULL) > 0;
 		    }
-		  dsa_public_key_clear(&pub);
+		  dsa_params_clear(&params);
+		  mpz_clear(pub);
 		}
 	      if (!res)
 		werror("SubjectPublicKeyInfo: Invalid DSA key.\n");
@@ -459,7 +476,7 @@ convert_public_key(struct nettle_buffer *buffer, unsigned length, const uint8_t 
 static int
 convert_type(struct nettle_buffer *buffer,
 	     enum object_type type,
-	     unsigned length, const uint8_t *data)
+	     size_t length, const uint8_t *data)
 {
   int res;
   

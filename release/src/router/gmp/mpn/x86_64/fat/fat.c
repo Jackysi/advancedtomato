@@ -7,7 +7,7 @@
    THEY'RE ALMOST CERTAIN TO BE SUBJECT TO INCOMPATIBLE CHANGES OR DISAPPEAR
    COMPLETELY IN FUTURE GNU MP RELEASES.
 
-Copyright 2003, 2004, 2009, 2011-2014 Free Software Foundation, Inc.
+Copyright 2003, 2004, 2009, 2011-2015 Free Software Foundation, Inc.
 
 This file is part of the GNU MP Library.
 
@@ -63,15 +63,25 @@ long __gmpn_cpuid (char [12], int);
 
 static struct {
   const char  *name;
-  const char  vendor[13];
+  const char  *vendor;
   unsigned    fms;
 } fake_cpuid_table[] = {
   { "core2",      "GenuineIntel", MAKE_FMS (6, 0xf) },
-  { "coreinhm",   "GenuineIntel", MAKE_FMS (6, 0x1a) },
-  { "coreiwsm",   "GenuineIntel", MAKE_FMS (6, 0x25) },
-  { "coreisbr",   "GenuineIntel", MAKE_FMS (6, 0x2a) },
-  { "coreihwl",   "GenuineIntel", MAKE_FMS (6, 0x3c) },
+  { "nehalem",    "GenuineIntel", MAKE_FMS (6, 0x1a) },
+  { "nhm",        "GenuineIntel", MAKE_FMS (6, 0x1a) },
   { "atom",       "GenuineIntel", MAKE_FMS (6, 0x1c) },
+  { "westmere",   "GenuineIntel", MAKE_FMS (6, 0x25) },
+  { "wsm",        "GenuineIntel", MAKE_FMS (6, 0x25) },
+  { "sandybridge","GenuineIntel", MAKE_FMS (6, 0x2a) },
+  { "sbr",        "GenuineIntel", MAKE_FMS (6, 0x2a) },
+  { "silvermont", "GenuineIntel", MAKE_FMS (6, 0x37) },
+  { "slm",        "GenuineIntel", MAKE_FMS (6, 0x37) },
+  { "haswell",    "GenuineIntel", MAKE_FMS (6, 0x3c) },
+  { "hwl",        "GenuineIntel", MAKE_FMS (6, 0x3c) },
+  { "broadwell",  "GenuineIntel", MAKE_FMS (6, 0x3d) },
+  { "bwl",        "GenuineIntel", MAKE_FMS (6, 0x3d) },
+  { "skylake",    "GenuineIntel", MAKE_FMS (6, 0x5e) },
+  { "sky",        "GenuineIntel", MAKE_FMS (6, 0x5e) },
   { "pentium4",   "GenuineIntel", MAKE_FMS (15, 3) },
 
   { "k8",         "AuthenticAMD", MAKE_FMS (15, 0) },
@@ -272,8 +282,13 @@ __gmpn_cpuvec_init (void)
 	    case 0x2c:		/* WSM Gulftown */
 	    case 0x2e:		/* NHM Beckton */
 	    case 0x2f:		/* WSM Eagleton */
-	    case 0x37:		/* Atom Silvermont */
-	    case 0x4d:		/* Atom Silvermont/Avoton */
+	    case 0x37:		/* Silvermont */
+	    case 0x4a:		/* Silvermont */
+	    case 0x4c:		/* Airmont */
+	    case 0x4d:		/* Silvermont/Avoton */
+	    case 0x5a:		/* Silvermont */
+	    case 0x5c:		/* Goldmont */
+	    case 0x5f:		/* Goldmont */
 	      CPUVEC_SETUP_core2;
 	      CPUVEC_SETUP_coreinhm;
 	      break;
@@ -287,12 +302,9 @@ __gmpn_cpuvec_init (void)
 	      CPUVEC_SETUP_coreisbr;
 	      break;
 	    case 0x3c:		/* Haswell client */
-	    case 0x3d:		/* Broadwell */
 	    case 0x3f:		/* Haswell server */
 	    case 0x45:		/* Haswell ULT */
 	    case 0x46:		/* Crystal Well */
-	    case 0x4f:		/* Broadwell server */
-	    case 0x56:		/* Broadwell microserver */
 	      CPUVEC_SETUP_core2;
 	      CPUVEC_SETUP_coreinhm;
 	      CPUVEC_SETUP_coreisbr;
@@ -301,6 +313,28 @@ __gmpn_cpuvec_init (void)
 	      __gmpn_cpuid (dummy_string, 7);
 	      if ((dummy_string[0 + 8 / 8] & (1 << (8 % 8))) != 0)
 		CPUVEC_SETUP_coreihwl;
+	      break;
+	    case 0x3d:		/* Broadwell */
+	    case 0x47:		/* Broadwell */
+	    case 0x4f:		/* Broadwell server */
+	    case 0x56:		/* Broadwell microserver */
+	      CPUVEC_SETUP_core2;
+	      CPUVEC_SETUP_coreinhm;
+	      CPUVEC_SETUP_coreisbr;
+	      CPUVEC_SETUP_coreihwl;
+	      CPUVEC_SETUP_coreibwl;
+	      break;
+	    case 0x4e:		/* Skylake client */
+	    case 0x55:		/* Skylake server */
+	    case 0x5e:		/* Skylake */
+	    case 0x8e:		/* Cabylake */
+	    case 0x9e:		/* Cabylake */
+	      CPUVEC_SETUP_core2;
+	      CPUVEC_SETUP_coreinhm;
+	      CPUVEC_SETUP_coreisbr;
+	      CPUVEC_SETUP_coreihwl;
+	      CPUVEC_SETUP_coreibwl;
+	      CPUVEC_SETUP_skylake;
 	      break;
 	    }
 	  break;

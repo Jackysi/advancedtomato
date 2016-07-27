@@ -375,11 +375,16 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 s = nvram.ddnsx_ip;
-a = (s != '') && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
+a = (s != '') (s != 'wan2') && (s != 'wan3') && (s != 'wan4') && && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
 createFieldTable('', [
 	{ title: 'IP address', name: 'f_ddnsx_ip', type: 'select',
 		options: [
-			['', 'Use WAN IP Address ' + ddnsx_ip + ' (recommended)'],
+			['wan', 'Use WAN IP Address ' + ddnsx_ip + ' (recommended)'],
+			['wan2', 'Use WAN2 IP Address ' + ddnsx2_ip ],
+/* MULTIWAN-BEGIN */
+			['wan3', 'Use WAN3 IP Address ' + ddnsx3_ip ],
+			['wan4', 'Use WAN4 IP Address ' + ddnsx4_ip ],
+/* MULTIWAN-END */
 			['@', 'Use External IP Address Checker (every 10 minutes)'],
 			['0.0.0.0', 'Offline (0.0.0.0)'],
 			['1.1.1.1', 'Offline (1.1.1.1)'],

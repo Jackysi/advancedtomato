@@ -142,8 +142,8 @@ path_from_app_folder(const char *file_name)
     if (((chr_pathsep = strchr(file_name, '/')) != NULL ||
          (chr_pathsep = strchr(file_name, '\\')) != NULL) &&
         (chr_pathsep == file_name ||
-            ((chr_column = strchr(file_name, ':')) != NULL &&
-                chr_column - file_name < chr_pathsep - file_name))) {
+         ((chr_column = strchr(file_name, ':')) != NULL &&
+           chr_column - file_name < chr_pathsep - file_name))) {
         return strdup(file_name);
     }
     if ((utf16_buf_len =

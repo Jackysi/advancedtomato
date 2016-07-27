@@ -1,7 +1,7 @@
-# $Id: POTFILES.in 3118 2005-11-09 00:34:52Z dolorous $
 # List of source files containing translatable strings.
 
 src/browser.c
+src/color.c
 src/files.c
 src/global.c
 src/help.c

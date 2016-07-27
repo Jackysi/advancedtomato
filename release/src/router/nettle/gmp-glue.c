@@ -1,24 +1,34 @@
-/* gmp-glue.c */
+/* gmp-glue.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2013 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2013 Niels Möller
+   Copyright (C) 2013 Red Hat
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 #if HAVE_CONFIG_H
 # include "config.h"
@@ -132,6 +142,22 @@ mpn_zero (mp_ptr ptr, mp_size_t n)
 }
 #endif /* !GMP_HAVE_mpn_copyd */
 
+void
+cnd_swap (mp_limb_t cnd, mp_limb_t *ap, mp_limb_t *bp, mp_size_t n)
+{
+  mp_limb_t mask = - (mp_limb_t) (cnd != 0);
+  mp_size_t i;
+  for (i = 0; i < n; i++)
+    {
+      mp_limb_t a, b, t;
+      a = ap[i];
+      b = bp[i];
+      t = (a ^ b) & mask;
+      ap[i] = a ^ t;
+      bp[i] = b ^ t;
+    }
+}
+
 /* Additional convenience functions. */
 
 int
@@ -217,6 +243,69 @@ mpn_set_base256 (mp_limb_t *rp, mp_size_t rn,
     }
 }
 
+void
+mpn_set_base256_le (mp_limb_t *rp, mp_size_t rn,
+		    const uint8_t *xp, size_t xn)
+{
+  size_t xi;
+  mp_limb_t out;
+  unsigned bits;
+  for (xi = 0, out = bits = 0; xi < xn && rn > 0; )
+    {
+      mp_limb_t in = xp[xi++];
+      out |= (in << bits) & GMP_NUMB_MASK;
+      bits += 8;
+      if (bits >= GMP_NUMB_BITS)
+	{
+	  *rp++ = out;
+	  rn--;
+
+	  bits -= GMP_NUMB_BITS;
+	  out = in >> (8 - bits);
+	}
+    }
+  if (rn > 0)
+    {
+      *rp++ = out;
+      if (--rn > 0)
+	mpn_zero (rp, rn);
+    }
+}
+
+void
+mpn_get_base256_le (uint8_t *rp, size_t rn,
+		    const mp_limb_t *xp, mp_size_t xn)
+{
+  unsigned bits;
+  mp_limb_t in;
+  for (bits = in = 0; xn > 0 && rn > 0; )
+    {
+      if (bits >= 8)
+	{
+	  *rp++ = in;
+	  rn--;
+	  in >>= 8;
+	  bits -= 8;
+	}
+      else
+	{
+	  uint8_t old = in;
+	  in = *xp++;
+	  xn--;
+	  *rp++ = old | (in << bits);
+	  rn--;
+	  in >>= (8 - bits);
+	  bits += GMP_NUMB_BITS - 8;
+	}
+    }
+  while (rn > 0)
+    {
+      *rp++ = in;
+      rn--;
+      in >>= 8;
+    }
+}
+
 mp_limb_t *
 gmp_alloc_limbs (mp_size_t n)
 {
@@ -238,4 +327,26 @@ gmp_free_limbs (mp_limb_t *p, mp_size_t n)
   mp_get_memory_functions (NULL, NULL, &free_func);
 
   free_func (p, (size_t) n * sizeof(mp_limb_t));
+}
+
+void *
+gmp_alloc(size_t n)
+{
+  void *(*alloc_func)(size_t);
+  assert (n > 0);
+
+  mp_get_memory_functions(&alloc_func, NULL, NULL);
+
+  return alloc_func (n);
+}
+
+void
+gmp_free(void *p, size_t n)
+{
+  void (*free_func)(void *, size_t);
+  assert (n > 0);
+  assert (p != 0);
+  mp_get_memory_functions (NULL, NULL, &free_func);
+
+  free_func (p, (size_t) n);
 }

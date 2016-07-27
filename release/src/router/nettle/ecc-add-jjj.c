@@ -1,24 +1,33 @@
-/* ecc-add-jjj.c */
+/* ecc-add-jjj.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2013 Niels Möller
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2013 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Development of Nettle's ECC support was funded by the .SE Internet Fund. */
 
@@ -28,13 +37,6 @@
 
 #include "ecc.h"
 #include "ecc-internal.h"
-
-mp_size_t
-ecc_add_jjj_itch (const struct ecc_curve *ecc)
-{
-  /* Needs 8 * ecc->size */
-  return ECC_ADD_JJJ_ITCH (ecc->size);
-}
 
 void
 ecc_add_jjj (const struct ecc_curve *ecc,
@@ -62,24 +64,24 @@ ecc_add_jjj (const struct ecc_curve *ecc,
       Y3 = W*(V-X3)-2*S1*J	mul, mul
   */
   mp_limb_t *z1z1 = scratch;
-  mp_limb_t *z2z2 = scratch + ecc->size;
-  mp_limb_t *u1   = scratch + 2*ecc->size;
-  mp_limb_t *u2   = scratch + 3*ecc->size;
+  mp_limb_t *z2z2 = scratch + ecc->p.size;
+  mp_limb_t *u1   = scratch + 2*ecc->p.size;
+  mp_limb_t *u2   = scratch + 3*ecc->p.size;
   mp_limb_t *s1   = scratch; /* overlap z1z1 */
-  mp_limb_t *s2   = scratch + ecc->size; /* overlap z2z2 */
-  mp_limb_t *i    = scratch + 4*ecc->size;
-  mp_limb_t *j    = scratch + 5*ecc->size;
-  mp_limb_t *v    = scratch + 6*ecc->size;
+  mp_limb_t *s2   = scratch + ecc->p.size; /* overlap z2z2 */
+  mp_limb_t *i    = scratch + 4*ecc->p.size;
+  mp_limb_t *j    = scratch + 5*ecc->p.size;
+  mp_limb_t *v    = scratch + 6*ecc->p.size;
 
   /* z1^2, z2^2, u1 = x1 x2^2, u2 = x2 z1^2 - u1 */
-  ecc_modp_sqr (ecc, z1z1, p + 2*ecc->size);
-  ecc_modp_sqr (ecc, z2z2, q + 2*ecc->size);
+  ecc_modp_sqr (ecc, z1z1, p + 2*ecc->p.size);
+  ecc_modp_sqr (ecc, z2z2, q + 2*ecc->p.size);
   ecc_modp_mul (ecc, u1, p, z2z2);
   ecc_modp_mul (ecc, u2, q, z1z1);
   ecc_modp_sub (ecc, u2, u2, u1);  /* Store h in u2 */
 
   /* z3, use i, j, v as scratch, result at i. */
-  ecc_modp_add (ecc, i, p + 2*ecc->size, q + 2*ecc->size);
+  ecc_modp_add (ecc, i, p + 2*ecc->p.size, q + 2*ecc->p.size);
   ecc_modp_sqr (ecc, v, i);
   ecc_modp_sub (ecc, v, v, z1z1);
   ecc_modp_sub (ecc, v, v, z2z2);
@@ -87,15 +89,15 @@ ecc_add_jjj (const struct ecc_curve *ecc,
   /* Delayed write, to support in-place operation. */
 
   /* s1 = y1 z2^3, s2 = y2 z1^3, scratch at j and v */
-  ecc_modp_mul (ecc, j, z1z1, p + 2*ecc->size); /* z1^3 */
-  ecc_modp_mul (ecc, v, z2z2, q + 2*ecc->size); /* z2^3 */
-  ecc_modp_mul (ecc, s1, p + ecc->size, v);
-  ecc_modp_mul (ecc, v, j, q + ecc->size);
+  ecc_modp_mul (ecc, j, z1z1, p + 2*ecc->p.size); /* z1^3 */
+  ecc_modp_mul (ecc, v, z2z2, q + 2*ecc->p.size); /* z2^3 */
+  ecc_modp_mul (ecc, s1, p + ecc->p.size, v);
+  ecc_modp_mul (ecc, v, j, q + ecc->p.size);
   ecc_modp_sub (ecc, s2, v, s1);
   ecc_modp_mul_1 (ecc, s2, s2, 2);
 
   /* Store z3 */
-  mpn_copyi (r + 2*ecc->size, i, ecc->size);
+  mpn_copyi (r + 2*ecc->p.size, i, ecc->p.size);
 
   /* i, j, v */
   ecc_modp_sqr (ecc, i, u2);
@@ -114,5 +116,5 @@ ecc_add_jjj (const struct ecc_curve *ecc,
   ecc_modp_sub (ecc, u2, v, r);  /* Frees v */
   ecc_modp_mul (ecc, i, s2, u2);
   ecc_modp_submul_1 (ecc, i, u1, 2);
-  mpn_copyi (r + ecc->size, i, ecc->size);
+  mpn_copyi (r + ecc->p.size, i, ecc->p.size);
 }

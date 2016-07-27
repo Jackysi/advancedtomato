@@ -1,20 +1,20 @@
 /* Declarations for getopt.
-   Copyright (C) 1989-1994, 1996-1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
+   The GNU C Library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111-1301, USA.  */
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef _GETOPT_H
 
@@ -31,6 +31,17 @@
    doesn't flood the namespace with stuff the way some other headers do.)  */
 #if !defined __GNU_LIBRARY__
 # include <ctype.h>
+#endif
+
+#ifndef __THROW
+# ifndef __GNUC_PREREQ
+#  define __GNUC_PREREQ(maj, min) (0)
+# endif
+# if defined __cplusplus && __GNUC_PREREQ (2,8)
+#  define __THROW	throw ()
+# else
+#  define __THROW
+# endif
 #endif
 
 #ifdef	__cplusplus
@@ -92,11 +103,7 @@ extern int optopt;
 
 struct option
 {
-# if (defined __STDC__ && __STDC__) || defined __cplusplus
   const char *name;
-# else
-  char *name;
-# endif
   /* has_arg can't be an enum because some compilers complain about
      type mismatches in all the code that assumes it is an int.  */
   int has_arg;
@@ -136,38 +143,43 @@ struct option
    arguments to the option '\0'.  This behavior is specific to the GNU
    `getopt'.  */
 
-#if (defined __STDC__ && __STDC__) || defined __cplusplus
-# ifdef __GNU_LIBRARY__
+#ifdef __GNU_LIBRARY__
 /* Many other libraries have conflicting prototypes for getopt, with
    differences in the consts, in stdlib.h.  To avoid compilation
    errors, only prototype getopt for the GNU C library.  */
-extern int getopt (int argc, char *const *argv, const char *shortopts);
-# else /* not __GNU_LIBRARY__ */
-extern int getopt ();
-# endif /* __GNU_LIBRARY__ */
+extern int getopt (int ___argc, char *const *___argv, const char *__shortopts)
+       __THROW;
 
-# ifndef __need_getopt
-extern int getopt_long (int argc, char *const *argv, const char *shortopts,
-		        const struct option *longopts, int *longind);
-extern int getopt_long_only (int argc, char *const *argv,
-			     const char *shortopts,
-		             const struct option *longopts, int *longind);
-
-/* Internal only.  Users should not call this directly.  */
-extern int _getopt_internal (int argc, char *const *argv,
-			     const char *shortopts,
-		             const struct option *longopts, int *longind,
-			     int long_only);
+# if defined __need_getopt && defined __USE_POSIX2 \
+  && !defined __USE_POSIX_IMPLICITLY && !defined __USE_GNU
+/* The GNU getopt has more functionality than the standard version.  The
+   additional functionality can be disable at runtime.  This redirection
+   helps to also do this at runtime.  */
+#  ifdef __REDIRECT
+  extern int __REDIRECT_NTH (getopt, (int ___argc, char *const *___argv,
+				      const char *__shortopts),
+			     __posix_getopt);
+#  else
+extern int __posix_getopt (int ___argc, char *const *___argv,
+			   const char *__shortopts) __THROW;
+#   define getopt __posix_getopt
+#  endif
 # endif
-#else /* not __STDC__ */
+#else /* not __GNU_LIBRARY__ */
 extern int getopt ();
-# ifndef __need_getopt
-extern int getopt_long ();
-extern int getopt_long_only ();
+#endif /* __GNU_LIBRARY__ */
 
-extern int _getopt_internal ();
-# endif
-#endif /* __STDC__ */
+#ifndef __need_getopt
+extern int getopt_long (int ___argc, char *const *___argv,
+			const char *__shortopts,
+		        const struct option *__longopts, int *__longind)
+       __THROW;
+extern int getopt_long_only (int ___argc, char *const *___argv,
+			     const char *__shortopts,
+		             const struct option *__longopts, int *__longind)
+       __THROW;
+
+#endif
 
 #ifdef	__cplusplus
 }

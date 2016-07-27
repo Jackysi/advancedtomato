@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2016 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #define TIMEOUT 10 /* drop UDP queries after TIMEOUT seconds */
 #define FORWARD_TEST 50 /* try all servers every 50 queries */
 #define FORWARD_TIME 20 /* or 20 seconds */
+#define SERVERS_LOGGED 30 /* Only log this many servers when logging state */
 #define RANDOM_SOCKS 64 /* max simultaneous random ports */
 #define LEASE_RETRY 60 /* on error, retry writing leasefile after LEASE_RETRY seconds */
 #define CACHESIZ 150 /* default cache size */
@@ -69,10 +70,6 @@ HAVE_BROKEN_RTC
    it viable to keep the lease file on a flash filesystem.
    NOTE: when enabling or disabling this, be sure to delete any old
    leases file, otherwise dnsmasq may get very confused.
-
-HAVE_LEASEFILE_EXPIRE
-
-HAVE_TOMATO
 
 HAVE_TFTP
    define this to get dnsmasq's built-in TFTP server.
@@ -341,7 +338,7 @@ HAVE_SOCKADDR_SA_LEN
 #define HAVE_DHCP
 #endif
 
-#if defined(NO_SCRIPT) || !defined(HAVE_DHCP) || defined(NO_FORK)
+#if defined(NO_SCRIPT) || defined(NO_FORK)
 #undef HAVE_SCRIPT
 #undef HAVE_LUASCRIPT
 #endif
@@ -361,10 +358,6 @@ HAVE_SOCKADDR_SA_LEN
 
 #ifdef NO_LOOP
 #undef HAVE_LOOP
-#endif
-
-#ifdef HAVE_TOMATO
-#define HAVE_LEASEFILE_EXPIRE
 #endif
 
 #if defined (HAVE_LINUX_NETWORK) && !defined(NO_INOTIFY)
@@ -433,9 +426,6 @@ static char *compile_opts =
 "no-"
 #endif
 "ipset "
-#ifdef HAVE_TOMATO
-  "Tomato-helper "
-#endif
 #ifndef HAVE_AUTH
 "no-"
 #endif
@@ -452,6 +442,7 @@ static char *compile_opts =
 "no-"
 #endif
 "inotify";
+
 
 #endif
 

@@ -55,7 +55,7 @@ void
 testmain (int argc, char **argv)
 {
   unsigned i;
-  mpz_t a, b, t, res, ref;
+  mpz_t a, b, res, ref;
 
   mpz_init (a);
   mpz_init (b);

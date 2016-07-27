@@ -9,8 +9,8 @@ LOCAL_SRC_FILES :=  bpf.c cache.c dbus.c dhcp.c dnsmasq.c \
 		    rfc2131.c tftp.c util.c conntrack.c \
 		    dhcp6.c rfc3315.c dhcp-common.c outpacket.c \
 		    radv.c slaac.c auth.c ipset.c domain.c \
-                   dnssec.c dnssec-openssl.c blockdata.c tables.c \
-                   loop.c inotify.c
+	            dnssec.c dnssec-openssl.c blockdata.c tables.c \
+		    loop.c inotify.c poll.c rrfilter.c edns0.c arp.c
 
 LOCAL_MODULE := dnsmasq
 

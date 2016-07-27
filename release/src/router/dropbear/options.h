@@ -55,7 +55,7 @@ much traffic. */
 #define DROPBEAR_SMALL_CODE
 
 /* Enable X11 Forwarding - server only */
-#define ENABLE_X11FWD
+/* #define ENABLE_X11FWD */
 
 /* Enable TCP Fowarding */
 /* 'Local' is "-L" style (client listening port forwarded via server)
@@ -167,6 +167,11 @@ If you test it please contact the Dropbear author */
 /* Enable elliptic curve Diffie Hellman key exchange, see note about
  * ECDSA above */
 #define DROPBEAR_ECDH
+
+/* Group14 (2048 bit) is recommended. Group1 is less secure (1024 bit) though
+   is the only option for interoperability with some older SSH programs */
+#define DROPBEAR_DH_GROUP1 1
+#define DROPBEAR_DH_GROUP14 1
 
 /* Control the memory/performance/compression tradeoff for zlib.
  * Set windowBits=8 for least memory usage, see your system's
@@ -288,14 +293,14 @@ Homedir is prepended unless path begins with / */
 /* The command to invoke for xauth when using X11 forwarding.
  * "-q" for quiet */
 #ifndef XAUTH_COMMAND
-#define XAUTH_COMMAND "/usr/bin/xauth -q"
+#define XAUTH_COMMAND "/opt/X11R6/X11/xauth -q"
 #endif
 
 /* if you want to enable running an sftp server (such as the one included with
  * OpenSSH), set the path below. If the path isn't defined, sftp will not
  * be enabled */
 #ifndef SFTPSERVER_PATH
-#define SFTPSERVER_PATH "/usr/libexec/sftp-server"
+#define SFTPSERVER_PATH "/opt/libexec/sftp-server"
 #endif
 
 /* This is used by the scp binary when used as a client binary. If you're
@@ -342,7 +347,7 @@ be overridden at runtime with -I. 0 disables idle timeouts */
 #define DEFAULT_IDLE_TIMEOUT 0
 
 /* The default path. This will often get replaced by the shell */
-#define DEFAULT_PATH "/usr/bin:/bin"
+#define DEFAULT_PATH "/bin:/usr/bin:/sbin:/usr/sbin:/opt/bin:/opt/sbin"
 
 /* Some other defines (that mostly should be left alone) are defined
  * in sysoptions.h */

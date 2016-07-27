@@ -77,17 +77,23 @@ dcplugin_sync_pre_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
 {
     uint8_t  *new_packet;
     ldns_rdf *edns_data;
-    ldns_pkt *packet;
+    ldns_pkt *packet = NULL;
     size_t    new_packet_size;
 
-    ldns_wire2pkt(&packet, dcplugin_get_wire_data(dcp_packet),
-                  dcplugin_get_wire_data_len(dcp_packet));
+    if (ldns_wire2pkt(&packet, dcplugin_get_wire_data(dcp_packet),
+                      dcplugin_get_wire_data_len(dcp_packet))
+        != LDNS_STATUS_OK) {
+        return DCP_SYNC_FILTER_RESULT_ERROR;
+    }
 
     edns_data = ldns_rdf_new_frm_str(LDNS_RDF_TYPE_HEX,
                                      dcplugin_get_user_data(dcplugin));
     ldns_pkt_set_edns_data(packet, edns_data);
 
-    ldns_pkt2wire(&new_packet, packet, &new_packet_size);
+    if (ldns_pkt2wire(&new_packet, packet, &new_packet_size)
+        != LDNS_STATUS_OK) {
+        return DCP_SYNC_FILTER_RESULT_ERROR;
+    }
     if (dcplugin_get_wire_data_max_len(dcp_packet) >= new_packet_size) {
         dcplugin_set_wire_data(dcp_packet, new_packet, new_packet_size);
     }

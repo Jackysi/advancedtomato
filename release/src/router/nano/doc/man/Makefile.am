@@ -1,26 +1,17 @@
-if USE_NLS
-SUBDIRS = fr
-else
 SUBDIRS =
+BUILT_SOURCES =
+
+if USE_NLS
+SUBDIRS += fr
 endif
+
+dist_man_MANS = nano.1 rnano.1
+html_pages = nano.1.html rnano.1.html
 
 if USE_NANORC
-man_MANS = nano.1 nanorc.5 rnano.1
-if GROFF_HTML
-BUILT_SOURCES = nano.1.html nanorc.5.html rnano.1.html
+dist_man_MANS += nanorc.5
+html_pages += nanorc.5.html
 endif
-else
-man_MANS = nano.1 rnano.1
-if GROFF_HTML
-BUILT_SOURCES = nano.1.html rnano.1.html
-endif
-endif
-
-nano_man_mans = nano.1 nanorc.5 rnano.1
-if GROFF_HTML
-htmlman_DATA = nano.1.html nanorc.5.html rnano.1.html
-htmlmandir = $(datadir)/nano/man-html
-nano_built_sources = nano.1.html nanorc.5.html rnano.1.html
 
 nano.1.html: nano.1
 	groff -t -mandoc -Thtml < $? > $@
@@ -29,7 +20,9 @@ nanorc.5.html: nanorc.5
 rnano.1.html: rnano.1
 	groff -t -mandoc -Thtml < $? > $@
 
-EXTRA_DIST = $(nano_man_mans) $(nano_built_sources)
-else 
-EXTRA_DIST = $(nano_man_mans)
+if GROFF_HTML
+BUILT_SOURCES += $(html_pages)
+dist_html_DATA = $(html_pages)
 endif
+
+EXTRA_DIST = $(BUILT_SOURCES)

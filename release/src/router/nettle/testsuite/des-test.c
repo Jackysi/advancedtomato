@@ -9,7 +9,7 @@ test_des(const struct tstring *key, int expected_parity,
 {
   struct des_ctx ctx;
   uint8_t *data;
-  unsigned length;
+  size_t length;
 
   ASSERT (cleartext->length == ciphertext->length);
   length = cleartext->length;

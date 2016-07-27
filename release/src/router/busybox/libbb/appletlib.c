@@ -52,6 +52,7 @@
 
 #include "usage_compressed.h"
 
+static void run_applet_and_exit(const char *name, char **argv) NORETURN;
 
 #if ENABLE_SHOW_USAGE && !ENABLE_FEATURE_COMPRESS_USAGE
 static const char usage_messages[] ALIGN1 = UNPACKED_USAGE;
@@ -130,7 +131,7 @@ void FAST_FUNC bb_show_usage(void)
 			full_write2_str(applet_name);
 			full_write2_str(" ");
 			full_write2_str(p);
-			full_write2_str("\n\n");
+			full_write2_str("\n");
 		}
 		if (ENABLE_FEATURE_CLEAN_UP)
 			dealloc_usage_messages((char*)usage_string);
@@ -139,32 +140,127 @@ void FAST_FUNC bb_show_usage(void)
 	xfunc_die();
 }
 
-#if NUM_APPLETS > 8
-static int applet_name_compare(const void *name, const void *idx)
-{
-	int i = (int)(ptrdiff_t)idx - 1;
-	return strcmp(name, APPLET_NAME(i));
-}
-#endif
 int FAST_FUNC find_applet_by_name(const char *name)
 {
-#if NUM_APPLETS > 8
-	/* Do a binary search to find the applet entry given the name. */
+	unsigned i, max;
+	int j;
 	const char *p;
-	p = bsearch(name, (void*)(ptrdiff_t)1, ARRAY_SIZE(applet_main), 1, applet_name_compare);
-	/*
-	 * if (!p) return -1;
-	 * ^^^^^^^^^^^^^^^^^^ the code below will do this if p == NULL :)
-	 */
-	return (int)(ptrdiff_t)p - 1;
+
+/* The commented-out word-at-a-time code is ~40% faster, but +160 bytes.
+ * "Faster" here saves ~0.5 microsecond of real time - not worth it.
+ */
+#if 0 /*BB_UNALIGNED_MEMACCESS_OK && BB_LITTLE_ENDIAN*/
+	uint32_t n32;
+
+	/* Handle all names < 2 chars long early */
+	if (name[0] == '\0')
+		return -1; /* "" is not a valid applet name */
+	if (name[1] == '\0') {
+		if (!ENABLE_TEST)
+			return -1; /* 1-char name is not valid */
+		if (name[0] != ']')
+			return -1; /* 1-char name which isn't "[" is not valid */
+		/* applet "[" is always applet #0: */
+		return 0;
+	}
+#endif
+
+	p = applet_names;
+	i = 0;
+#if KNOWN_APPNAME_OFFSETS <= 0
+	max = NUM_APPLETS;
 #else
-	/* A version which does not pull in bsearch */
-	int i = 0;
-	const char *p = applet_names;
-	while (i < NUM_APPLETS) {
-		if (strcmp(name, p) == 0)
+	max = NUM_APPLETS * KNOWN_APPNAME_OFFSETS;
+	for (j = ARRAY_SIZE(applet_nameofs)-1; j >= 0; j--) {
+		const char *pp = applet_names + applet_nameofs[j];
+		if (strcmp(name, pp) >= 0) {
+			//bb_error_msg("name:'%s' >= pp:'%s'", name, pp);
+			p = pp;
+			i = max - NUM_APPLETS;
+			break;
+		}
+		max -= NUM_APPLETS;
+	}
+	max /= (unsigned)KNOWN_APPNAME_OFFSETS;
+	i /= (unsigned)KNOWN_APPNAME_OFFSETS;
+	//bb_error_msg("name:'%s' starting from:'%s' i:%u max:%u", name, p, i, max);
+#endif
+
+	/* Open-coded linear search without strcmp/strlen calls for speed */
+
+#if 0 /*BB_UNALIGNED_MEMACCESS_OK && BB_LITTLE_ENDIAN*/
+	/* skip "[\0" name, it's surely not it */
+	if (ENABLE_TEST && LONE_CHAR(p, '['))
+		i++, p += 2;
+	/* All remaining applet names in p[] are at least 2 chars long */
+	/* name[] is also at least 2 chars long */
+
+	n32 = (name[0] << 0) | (name[1] << 8) | (name[2] << 16);
+	while (i < max) {
+		uint32_t p32;
+		char ch;
+
+		/* Quickly check match of the first 3 bytes */
+		move_from_unaligned32(p32, p);
+		p += 3;
+		if ((p32 & 0x00ffffff) != n32) {
+			/* Most likely case: 3 first bytes do not match */
+			i++;
+			if ((p32 & 0x00ff0000) == '\0')
+				continue; // p[2] was NUL
+			p++;
+			if ((p32 & 0xff000000) == '\0')
+				continue; // p[3] was NUL
+			/* p[0..3] aren't matching and none is NUL, check the rest */
+			while (*p++ != '\0')
+				continue;
+			continue;
+		}
+
+		/* Unlikely branch: first 3 bytes ([0..2]) match */
+		if ((p32 & 0x00ff0000) == '\0') {
+			/* name is 2-byte long, it is full match */
+			//bb_error_msg("found:'%s' i:%u", name, i);
 			return i;
-		p += strlen(p) + 1;
+		}
+		/* Check remaining bytes [3..NUL] */
+		ch = (p32 >> 24);
+		j = 3;
+		while (ch == name[j]) {
+			if (ch == '\0') {
+				//bb_error_msg("found:'%s' i:%u", name, i);
+				return i;
+			}
+			ch = *++p;
+			j++;
+		}
+		/* Not a match. Skip it, including NUL */
+		while (ch != '\0')
+			ch = *++p;
+		p++;
+		i++;
+	}
+	return -1;
+#else
+	while (i < max) {
+		char ch;
+		j = 0;
+		/* Do we see "name\0" in applet_names[p] position? */
+		while ((ch = *p) == name[j]) {
+			if (ch == '\0') {
+				//bb_error_msg("found:'%s' i:%u", name, i);
+				return i; /* yes */
+			}
+			p++;
+			j++;
+		}
+		/* No.
+		 * p => 1st non-matching char in applet_names[],
+		 * skip to and including NUL.
+		 */
+		while (ch != '\0')
+			ch = *++p;
+		p++;
 		i++;
 	}
 	return -1;
@@ -193,7 +289,7 @@ void lbb_prepare(const char *applet
 	if (argv[1]
 	 && !argv[2]
 	 && strcmp(argv[1], "--help") == 0
-	 && strncmp(applet, "busybox", 7) != 0
+	 && !is_prefixed_with(applet, "busybox")
 	) {
 		/* Special case. POSIX says "test --help"
 		 * should be no different from e.g. "test --foo".  */
@@ -437,7 +533,7 @@ static void parse_config_file(void)
 						goto pe_label;
 					}
 					*e = ':'; /* get_uidgid needs USER:GROUP syntax */
-					if (get_uidgid(&sct->m_ugid, s, /*allow_numeric:*/ 1) == 0) {
+					if (get_uidgid(&sct->m_ugid, s) == 0) {
 						errmsg = "unknown user/group";
 						goto pe_label;
 					}
@@ -457,7 +553,6 @@ static void parse_config_file(void)
 			errmsg = "keyword outside section";
 			goto pe_label;
 		}
-
 	} /* while (1) */
 
  pe_label:
@@ -584,6 +679,7 @@ static void install_links(const char *busybox, int use_symbolic_links,
 	 * busybox.h::bb_install_loc_t, or else... */
 	int (*lf)(const char *, const char *);
 	char *fpc;
+        const char *appname = applet_names;
 	unsigned i;
 	int rc;
 
@@ -594,7 +690,7 @@ static void install_links(const char *busybox, int use_symbolic_links,
 	for (i = 0; i < ARRAY_SIZE(applet_main); i++) {
 		fpc = concat_path_file(
 				custom_install_dir ? custom_install_dir : install_dir[APPLET_INSTALL_LOC(i)],
-				APPLET_NAME(i));
+				appname);
 		// debug: bb_error_msg("%slinking %s to busybox",
 		//		use_symbolic_links ? "sym" : "", fpc);
 		rc = lf(busybox, fpc);
@@ -602,9 +698,11 @@ static void install_links(const char *busybox, int use_symbolic_links,
 			bb_simple_perror_msg(fpc);
 		}
 		free(fpc);
+		while (*appname++ != '\0')
+			continue;
 	}
 }
-# else
+# elif ENABLE_BUSYBOX
 static void install_links(const char *busybox UNUSED_PARAM,
 		int use_symbolic_links UNUSED_PARAM,
 		char *custom_install_dir UNUSED_PARAM)
@@ -612,6 +710,7 @@ static void install_links(const char *busybox UNUSED_PARAM,
 }
 # endif
 
+# if ENABLE_BUSYBOX
 /* If we were called as "busybox..." */
 static int busybox_main(char **argv)
 {
@@ -624,14 +723,14 @@ static int busybox_main(char **argv)
 		output_width = 80;
 		if (ENABLE_FEATURE_AUTOWIDTH) {
 			/* Obtain the terminal width */
-			get_terminal_width_height(0, &output_width, NULL);
+			output_width = get_terminal_width(2);
 		}
 
 		dup2(1, 2);
 		full_write2_str(bb_banner); /* reuse const string */
 		full_write2_str(" multi-call binary.\n"); /* reuse */
 		full_write2_str(
-			"BusyBox is copyrighted by many authors between 1998-2012.\n"
+			"BusyBox is copyrighted by many authors between 1998-2015.\n"
 			"Licensed under GPLv2. See source distribution for detailed\n"
 			"copyright notices.\n"
 			"\n"
@@ -642,10 +741,19 @@ static int busybox_main(char **argv)
 			)
 			"   or: function [arguments]...\n"
 			"\n"
+			IF_NOT_FEATURE_SH_STANDALONE(
 			"\tBusyBox is a multi-call binary that combines many common Unix\n"
 			"\tutilities into a single executable.  Most people will create a\n"
 			"\tlink to busybox for each function they wish to use and BusyBox\n"
 			"\twill act like whatever it was invoked as.\n"
+			)
+			IF_FEATURE_SH_STANDALONE(
+			"\tBusyBox is a multi-call binary that combines many common Unix\n"
+			"\tutilities into a single executable.  The shell in this build\n"
+			"\tis configured to run built-in utilities without $PATH search.\n"
+			"\tYou don't need to install a link to busybox for each utility.\n"
+			"\tTo run external program, use full path (/sbin/ip instead of ip).\n"
+			)
 			"\n"
 			"Currently defined functions:\n"
 		);
@@ -673,19 +781,20 @@ static int busybox_main(char **argv)
 		return 0;
 	}
 
-	if (strncmp(argv[1], "--list", 6) == 0) {
+	if (is_prefixed_with(argv[1], "--list")) {
 		unsigned i = 0;
 		const char *a = applet_names;
 		dup2(1, 2);
 		while (*a) {
-# if ENABLE_FEATURE_INSTALLER
+#  if ENABLE_FEATURE_INSTALLER
 			if (argv[1][6]) /* --list-full? */
 				full_write2_str(install_dir[APPLET_INSTALL_LOC(i)] + 1);
-# endif
+#  endif
 			full_write2_str(a);
 			full_write2_str("\n");
 			i++;
-			a += strlen(a) + 1;
+			while (*a++ != '\0')
+				continue;
 		}
 		return 0;
 	}
@@ -729,13 +838,8 @@ static int busybox_main(char **argv)
 	 * "#!/bin/busybox"-style wrappers */
 	applet_name = bb_get_last_path_component_nostrip(argv[0]);
 	run_applet_and_exit(applet_name, argv);
-
-	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
-	full_write2_str(applet_name);
-	full_write2_str(": applet not found\n");
-	/* POSIX: "If a command is not found, the exit status shall be 127" */
-	exit(127);
 }
+# endif
 
 void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
 {
@@ -746,25 +850,27 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
 
 	/* Reinit some shared global data */
 	xfunc_error_retval = EXIT_FAILURE;
-	applet_name = APPLET_NAME(applet_no);
+	applet_name = bb_get_last_path_component_nostrip(argv[0]);
 
-#if defined APPLET_NO_test
 	/* Special case. POSIX says "test --help"
 	 * should be no different from e.g. "test --foo".
 	 * Thus for "test", we skip --help check.
+	 * "true" and "false" are also special.
 	 */
-	if (applet_no != APPLET_NO_test)
+	if (1
+#if defined APPLET_NO_test
+	 && applet_no != APPLET_NO_test
 #endif
-	{
-		if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+#if defined APPLET_NO_true
+	 && applet_no != APPLET_NO_true
+#endif
 #if defined APPLET_NO_false
-			/* Someone insisted that "false --help" must exit 1. Sigh */
-			if (applet_no != APPLET_NO_false)
+	 && applet_no != APPLET_NO_false
 #endif
-			{
-				/* Make "foo --help" exit with 0: */
-				xfunc_error_retval = 0;
-			}
+	) {
+		if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+			/* Make "foo --help" exit with 0: */
+			xfunc_error_retval = 0;
 			bb_show_usage();
 		}
 	}
@@ -773,13 +879,24 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, char **argv)
 	exit(applet_main[applet_no](argc, argv));
 }
 
-void FAST_FUNC run_applet_and_exit(const char *name, char **argv)
+static NORETURN void run_applet_and_exit(const char *name, char **argv)
 {
-	int applet = find_applet_by_name(name);
+	int applet;
+
+# if ENABLE_BUSYBOX
+	if (is_prefixed_with(name, "busybox"))
+		exit(busybox_main(argv));
+# endif
+	/* find_applet_by_name() search is more expensive, so goes second */
+	applet = find_applet_by_name(name);
 	if (applet >= 0)
 		run_applet_no_and_exit(applet, argv);
-	if (strncmp(name, "busybox", 7) == 0)
-		exit(busybox_main(argv));
+
+	/*bb_error_msg_and_die("applet not found"); - links in printf */
+	full_write2_str(applet_name);
+	full_write2_str(": applet not found\n");
+	/* POSIX: "If a command is not found, the exit status shall be 127" */
+	exit(127);
 }
 
 #endif /* !defined(SINGLE_APPLET_MAIN) */
@@ -792,6 +909,19 @@ int lbb_main(char **argv)
 int main(int argc UNUSED_PARAM, char **argv)
 #endif
 {
+#if 0
+	/* TODO: find a use for a block of memory between end of .bss
+	 * and end of page. For example, I'm getting "_end:0x812e698 2408 bytes"
+	 * - more than 2k of wasted memory (in this particular build)
+	 * *per each running process*!
+	 * (If your linker does not generate "_end" name, weak attribute
+	 * makes &_end == NULL, end_len == 0 here.)
+	 */
+	extern char _end[] __attribute__((weak));
+	unsigned end_len = (-(int)_end) & 0xfff;
+	printf("_end:%p %u bytes\n", &_end, end_len);
+#endif
+
 	/* Tweak malloc for reduced memory consumption */
 #ifdef M_TRIM_THRESHOLD
 	/* M_TRIM_THRESHOLD is the maximum amount of freed top-most memory
@@ -817,7 +947,7 @@ int main(int argc UNUSED_PARAM, char **argv)
 
 #if defined(SINGLE_APPLET_MAIN)
 	/* Only one applet is selected in .config */
-	if (argv[1] && strncmp(argv[0], "busybox", 7) == 0) {
+	if (argv[1] && is_prefixed_with(argv[0], "busybox")) {
 		/* "busybox <applet> <params>" should still work as expected */
 		argv++;
 	}
@@ -827,6 +957,10 @@ int main(int argc UNUSED_PARAM, char **argv)
 #else
 	lbb_prepare("busybox" IF_FEATURE_INDIVIDUAL(, argv));
 
+#if !ENABLE_BUSYBOX
+	if (argv[1] && is_prefixed_with(bb_basename(argv[0]), "busybox"))
+		argv++;
+#endif
 	applet_name = argv[0];
 	if (applet_name[0] == '-')
 		applet_name++;
@@ -835,11 +969,5 @@ int main(int argc UNUSED_PARAM, char **argv)
 	parse_config_file(); /* ...maybe, if FEATURE_SUID_CONFIG */
 
 	run_applet_and_exit(applet_name, argv);
-
-	/*bb_error_msg_and_die("applet not found"); - sucks in printf */
-	full_write2_str(applet_name);
-	full_write2_str(": applet not found\n");
-	/* POSIX: "If a command is not found, the exit status shall be 127" */
-	exit(127);
 #endif
 }

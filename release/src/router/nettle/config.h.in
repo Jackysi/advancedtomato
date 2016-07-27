@@ -3,9 +3,6 @@
 /* Define if building universal (internal helper macro) */
 #undef AC_APPLE_UNIVERSAL_BUILD
 
-/* The normal alignment of `uint64_t', in bytes. */
-#undef ALIGNOF_UINT64_T
-
 /* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
    systems. This function is required for `alloca.c' support on those systems.
    */
@@ -24,17 +21,29 @@
 /* Define if clock_gettime is available */
 #undef HAVE_CLOCK_GETTIME
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
 /* Define if fcntl file locking is available */
 #undef HAVE_FCNTL_LOCKING
 
 /* Define if the compiler understands __attribute__ */
 #undef HAVE_GCC_ATTRIBUTE
 
+/* Define to 1 if you have the `getline' function. */
+#undef HAVE_GETLINE
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have dlopen (with -ldl). */
+#undef HAVE_LIBDL
+
 /* Define to 1 if you have the `gmp' library (-lgmp). */
 #undef HAVE_LIBGMP
+
+/* Define if compiler and linker supports __attribute__ ifunc */
+#undef HAVE_LINK_IFUNC
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
@@ -42,24 +51,27 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
-/* Define to 1 if you have the `memxor' function. */
-#undef HAVE_MEMXOR
-
-/* Define if mpz_powm_sec is available (appeared in GMP-5) */
-#undef HAVE_MPZ_POWM_SEC
-
 /* Define to 1 each of the following for which a native (ie. CPU specific)
     implementation of the corresponding routine exists.  */
 #undef HAVE_NATIVE_ecc_192_modp
 #undef HAVE_NATIVE_ecc_192_redc
 #undef HAVE_NATIVE_ecc_224_modp
 #undef HAVE_NATIVE_ecc_224_redc
+#undef HAVE_NATIVE_ecc_25519_modp
 #undef HAVE_NATIVE_ecc_256_modp
 #undef HAVE_NATIVE_ecc_256_redc
 #undef HAVE_NATIVE_ecc_384_modp
 #undef HAVE_NATIVE_ecc_384_redc
 #undef HAVE_NATIVE_ecc_521_modp
 #undef HAVE_NATIVE_ecc_521_redc
+#undef HAVE_NATIVE_gcm_hash8
+#undef HAVE_NATIVE_salsa20_core
+#undef HAVE_NATIVE_sha1_compress
+#undef HAVE_NATIVE_sha256_compress
+#undef HAVE_NATIVE_sha512_compress
+#undef HAVE_NATIVE_sha3_permute
+#undef HAVE_NATIVE_umac_nh
+#undef HAVE_NATIVE_umac_nh_n
 
 /* Define to 1 if you have the <openssl/aes.h> header file. */
 #undef HAVE_OPENSSL_AES_H
@@ -72,6 +84,12 @@
 
 /* Define to 1 if you have the <openssl/des.h> header file. */
 #undef HAVE_OPENSSL_DES_H
+
+/* Define to 1 if you have the <openssl/ecdsa.h> header file. */
+#undef HAVE_OPENSSL_ECDSA_H
+
+/* Define to 1 if you have the `secure_getenv' function. */
+#undef HAVE_SECURE_GETENV
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -96,6 +114,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <valgrind/memcheck.h> header file. */
+#undef HAVE_VALGRIND_MEMCHECK_H
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -126,6 +147,9 @@
 
 /* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
+
+/* The size of `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
 
 /* The size of `void*', as computed by sizeof. */
 #undef SIZEOF_VOIDP

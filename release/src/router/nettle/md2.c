@@ -1,27 +1,35 @@
-/* md2.h
- *
- * The MD2 hash function, described in RFC 1319.
- */
+/* md2.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2003 Niels Möller, Andreas Sigfridsson
- *  
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- * 
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   The MD2 hash function, described in RFC 1319.
+
+   Copyright (C) 2003 Niels Möller, Andreas Sigfridsson
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* This code originates from the Python Cryptography Toolkit, version 1.0.1.
    Further hacked by Andreas Sigfridsson and Niels Möller. Original license:
@@ -79,21 +87,21 @@ md2_transform(struct md2_ctx *ctx, const uint8_t *data)
   unsigned i;
   uint8_t t;
   
-  memcpy(ctx->X + 16, data, MD2_DATA_SIZE);
+  memcpy(ctx->X + 16, data, MD2_BLOCK_SIZE);
 
   for (i = 0, t = ctx->C[15];
-       i<MD2_DATA_SIZE; i++)
+       i<MD2_BLOCK_SIZE; i++)
     {
-      ctx->X[2 * MD2_DATA_SIZE + i]
-	= ctx->X[i] ^ ctx->X[MD2_DATA_SIZE + i];
+      ctx->X[2 * MD2_BLOCK_SIZE + i]
+	= ctx->X[i] ^ ctx->X[MD2_BLOCK_SIZE + i];
       t = (ctx->C[i] ^= S[data[i]^t]);
     }
   for (i = t = 0;
-       i< MD2_DATA_SIZE + 2;
+       i< MD2_BLOCK_SIZE + 2;
        t = (t + i) & 0xff, i++)
     {
       unsigned j;
-      for (j = 0; j < 3 * MD2_DATA_SIZE; j++)
+      for (j = 0; j < 3 * MD2_BLOCK_SIZE; j++)
 	t = (ctx->X[j] ^= S[t]);
     }
 }
@@ -106,7 +114,7 @@ md2_init(struct md2_ctx *ctx)
 
 void
 md2_update(struct md2_ctx *ctx,
-	   unsigned length,
+	   size_t length,
 	   const uint8_t *data)
 {
   MD_UPDATE(ctx, length, data, md2_transform, (void)0);
@@ -114,14 +122,14 @@ md2_update(struct md2_ctx *ctx,
 
 void
 md2_digest(struct md2_ctx *ctx,
-	   unsigned length,
+	   size_t length,
 	   uint8_t *digest)
 {
   unsigned left;
   
   assert(length <= MD2_DIGEST_SIZE);
 
-  left = MD2_DATA_SIZE - ctx->index;
+  left = MD2_BLOCK_SIZE - ctx->index;
   memset(ctx->block + ctx->index, left, left);
   md2_transform(ctx, ctx->block);
   

@@ -90,7 +90,7 @@ static const struct gmp_primes_ptab gmp_primes_ptab[] =
 #define PTAB_LINES (sizeof (gmp_primes_ptab) / sizeof (gmp_primes_ptab[0]))
 
 /* FIXME: We could optimize out one of the outer loop conditions if we
-   had a final ptab entry with a huge nd field.  */
+   had a final ptab entry with a huge np field.  */
 mp_limb_t
 mpn_trialdiv (mp_srcptr tp, mp_size_t tn, mp_size_t nprimes, int *where)
 {

@@ -1,24 +1,33 @@
-/* ecc-ecdsa-verify.c */
+/* ecc-ecdsa-verify.c
 
-/* nettle, low-level cryptographics library
- *
- * Copyright (C) 2013 Niels Möller
- *
- * The nettle library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
- *
- * The nettle library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the nettle library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02111-1301, USA.
- */
+   Copyright (C) 2013, 2014 Niels Möller
+
+   This file is part of GNU Nettle.
+
+   GNU Nettle is free software: you can redistribute it and/or
+   modify it under the terms of either:
+
+     * the GNU Lesser General Public License as published by the Free
+       Software Foundation; either version 3 of the License, or (at your
+       option) any later version.
+
+   or
+
+     * the GNU General Public License as published by the Free
+       Software Foundation; either version 2 of the License, or (at your
+       option) any later version.
+
+   or both in parallel, as here.
+
+   GNU Nettle is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received copies of the GNU General Public License and
+   the GNU Lesser General Public License along with this program.  If
+   not, see http://www.gnu.org/licenses/.
+*/
 
 /* Development of Nettle's ECC support was funded by the .SE Internet Fund. */
 
@@ -34,6 +43,7 @@
 
 /* Low-level ECDSA verify */
 
+/* FIXME: Use mpn_zero_p. */
 static int
 zero_p (const mp_limb_t *xp, mp_size_t n)
 {
@@ -46,23 +56,22 @@ zero_p (const mp_limb_t *xp, mp_size_t n)
 static int
 ecdsa_in_range (const struct ecc_curve *ecc, const mp_limb_t *xp)
 {
-  return !zero_p (xp, ecc->size)
-    && mpn_cmp (xp, ecc->q, ecc->size) < 0;
+  return !zero_p (xp, ecc->p.size)
+    && mpn_cmp (xp, ecc->q.m, ecc->p.size) < 0;
 }
 
 mp_size_t
 ecc_ecdsa_verify_itch (const struct ecc_curve *ecc)
 {
-  /* Largest storage need is for the ecc_mul_a call, 6 * ecc->size +
-     ECC_MUL_A_ITCH (size) */
-  return ECC_ECDSA_VERIFY_ITCH (ecc->size);
+  /* Largest storage need is for the ecc->mul call. */
+  return 5*ecc->p.size + ecc->mul_itch;
 }
 
 /* FIXME: Use faster primitives, not requiring side-channel silence. */
 int
 ecc_ecdsa_verify (const struct ecc_curve *ecc,
 		  const mp_limb_t *pp, /* Public key */
-		  unsigned length, const uint8_t *digest,
+		  size_t length, const uint8_t *digest,
 		  const mp_limb_t *rp, const mp_limb_t *sp,
 		  mp_limb_t *scratch)
 {
@@ -83,11 +92,12 @@ ecc_ecdsa_verify (const struct ecc_curve *ecc,
   */
 
 #define P2 scratch
-#define P1 (scratch + 3*ecc->size)
-#define sinv (scratch + 3*ecc->size)
-#define u2 (scratch + 4*ecc->size)
-#define hp (scratch + 4*ecc->size)
-#define u1 (scratch + 6*ecc->size)
+#define u1 (scratch + 3*ecc->p.size)
+#define u2 (scratch + 4*ecc->p.size)
+
+#define P1 (scratch + 4*ecc->p.size)
+#define sinv (scratch)
+#define hp (scratch + ecc->p.size)
 
   if (! (ecdsa_in_range (ecc, rp)
 	 && ecdsa_in_range (ecc, sp)))
@@ -96,27 +106,26 @@ ecc_ecdsa_verify (const struct ecc_curve *ecc,
   /* FIXME: Micro optimizations: Either simultaneous multiplication.
      Or convert to projective coordinates (can be done without
      division, I think), and write an ecc_add_ppp. */
-  
-  /* Compute sinv, use P2 as scratch */
-  mpn_copyi (sinv + ecc->size, sp, ecc->size);
-  ecc_modq_inv (ecc, sinv, sinv + ecc->size, P2);
+
+  /* Compute sinv */
+  ecc->q.invert (&ecc->q, sinv, sp, sinv + 2*ecc->p.size);
+
+  /* u1 = h / s, P1 = u1 * G */
+  ecc_hash (&ecc->q, hp, length, digest);
+  ecc_modq_mul (ecc, u1, hp, sinv);
 
   /* u2 = r / s, P2 = u2 * Y */
   ecc_modq_mul (ecc, u2, rp, sinv);
 
-   /* Total storage: 5*ecc->size + ECC_MUL_A_ITCH (ecc->size) */
-  ecc_mul_a (ecc, 1, P2, u2, pp, u2 + ecc->size);
-
-  /* u1 = h / s, P1 = u1 * G */
-  ecc_hash (ecc, hp, length, digest);
-  ecc_modq_mul (ecc, u1, hp, sinv);
+   /* Total storage: 5*ecc->p.size + ecc->mul_itch */
+  ecc->mul (ecc, P2, u2, pp, u2 + ecc->p.size);
 
   /* u = 0 can happen only if h = 0 or h = q, which is extremely
      unlikely. */
-  if (!zero_p (u1, ecc->size))
+  if (!zero_p (u1, ecc->p.size))
     {
-      /* Total storage: 6*ecc->size + ECC_MUL_G_ITCH (ecc->size) */
-      ecc_mul_g (ecc, P1, u1, u1 + ecc->size);
+      /* Total storage: 7*ecc->p.size + ecc->mul_g_itch (ecc->p.size) */
+      ecc->mul_g (ecc, P1, u1, P1 + 3*ecc->p.size);
 
       /* NOTE: ecc_add_jjj and/or ecc_j_to_a will produce garbage in
 	 case u1 G = +/- u2 V. However, anyone who gets his or her
@@ -132,15 +141,13 @@ ecc_ecdsa_verify (const struct ecc_curve *ecc,
 	 s_1 = z. Hitting that is about as unlikely as finding the
 	 private key by guessing.
        */
-      /* Total storage: 6*ecc->size + ECC_ADD_JJJ_ITCH (ecc->size) */
-      ecc_add_jjj (ecc, P1, P1, P2, u1);
+      /* Total storage: 6*ecc->p.size + ecc->add_hhh_itch */
+      ecc->add_hhh (ecc, P1, P1, P2, P1 + 3*ecc->p.size);
     }
-  ecc_j_to_a (ecc, 3, P2, P1, u1);
+  /* x coordinate only, modulo q */
+  ecc->h_to_a (ecc, 2, P2, P1, P1 + 3*ecc->p.size);
 
-  if (mpn_cmp (P2, ecc->q, ecc->size) >= 0)
-    mpn_sub_n (P2, P2, ecc->q, ecc->size);
-
-  return (mpn_cmp (rp, P2, ecc->size) == 0);
+  return (mpn_cmp (rp, P2, ecc->p.size) == 0);
 #undef P2
 #undef P1
 #undef sinv

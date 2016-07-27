@@ -1,5 +1,11 @@
 ## Here is a short example for HTML.
-##
-syntax "html" "\.html$"
-color blue start="<" end=">"
-color red "&[^;[[:space:]]]*;"
+
+syntax "html" "\.html?$"
+magic "HTML document text"
+comment "<!--|-->"
+
+color cyan start="<" end=">"
+color red "&[^;[:space:]]*;"
+color green ""(\\.|[^"])*""
+
+color yellow start="<!--" end="-->"

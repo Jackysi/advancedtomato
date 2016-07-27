@@ -3,10 +3,21 @@
 NEWS
 ====
 
-- 1.6.3 -
+- 1.6.4 - 2014-06-05
+  * Use octal mode for -M (patch by dfjoerg)
+  * Add -b backlog option (fixes #2422, patch by aschmitz)
+  * Restrict Unix socket file ownership by default to ug=rw
+  * Add example apparmor spawn-fcgi abstraction
+  * Use autoreconf instead of calling tools manually
+  * Add more flags to extra-warning flags
+  * Check return values of setuid, setgid, setgroups, initgroups, write
+  * Check whether compiler supports wanted CFLAGS (fixes #2235)
+  * Fix resource leaks in failure cases (found with coverity)
+
+- 1.6.3 - 2009-09-23
   * Fix unix socket mode change to work without specifying user/group for socket
   * Add some ./run script examples for use with daemontools or runit
-  * Fix Invalid Argument in chmod if mode=-1 (fixes 2033)
+  * Fix Invalid Argument in chmod if mode=-1 (fixes #2033)
   * Add deprecated and /bin/sh info for -f option; wrap syntax output (fixes #2044)
   * Add run script examples in automake dist build
 

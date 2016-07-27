@@ -1,6 +1,8 @@
 ## Here is an example for POV-Ray.
-##
+
 syntax "pov" "\.(pov|POV|povray|POVRAY)$"
+comment "//"
+
 color brightcyan "^[[:space:]]*#[[:space:]]*(declare)"
 color brightyellow "\<(sphere|cylinder|translate|matrix|rotate|scale)\>"
 color brightyellow "\<(orthographic|location|up|right|direction|clipped_by)\>"
@@ -10,6 +12,7 @@ color brightred "\<(light_source|background)\>"
 color brightred "\<(fog|object|camera)\>"
 color green "(\{|\}|\(|\)|\;|\]|\[|`|\\|\$|<|>|!|=|&|\|)"
 color brightmagenta "\<(union|group|subgroup)\>"
-## Comment highlighting
+
+# Comments.
 color brightblue "//.*"
 color brightblue start="/\*" end="\*/"
