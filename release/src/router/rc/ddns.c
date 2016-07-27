@@ -37,8 +37,17 @@ static void update(int num, int *dirty, int force)
 	int errors;
 	FILE *f;
 
-	//char prefix[] = "wanXXXXXXXXXX_";
-	char prefix[] = "wan";
+	char prefix[] = "wanXX";
+
+	if (nvram_match("ddnsx_ip", "wan") || nvram_match("ddnsx_ip", "wan2")
+#ifdef TCONFIG_MULTIWAN
+		 || nvram_match("ddnsx_ip", "wan3") || nvram_match("ddnsx_ip", "wan4")
+#endif
+	) {
+		strcpy(prefix, nvram_safe_get("ddnsx_ip"));
+	} else {
+		strcpy(prefix, "wan");
+	}
 
 	DLOG("%s", __FUNCTION__);
 
