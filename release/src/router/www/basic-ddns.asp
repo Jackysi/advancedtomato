@@ -375,7 +375,7 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 s = nvram.ddnsx_ip;
-a = (s != '') (s != 'wan2') && (s != 'wan3') && (s != 'wan4') && && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
+a = (s != '') && (s != 'wan2') && (s != 'wan3') && (s != 'wan4') && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
 createFieldTable('', [
 	{ title: 'IP address', name: 'f_ddnsx_ip', type: 'select',
 		options: [
