@@ -496,8 +496,9 @@ const defaults_t defaults[] = {
 	{ "t_fix1",				""				},
 
 // basic-ddns
-	{ "ddnsx0",				""				},
-	{ "ddnsx1",				""				},
+	{ "ddnsx0",			""				},
+	{ "ddnsx1",			""				},
+	{ "ddnsx_ip",			"wan"				},
 	{ "ddnsx0_cache",		""				},
 	{ "ddnsx1_cache",		""				},
 	{ "ddnsx_save",			"1"				},
