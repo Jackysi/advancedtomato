@@ -30,6 +30,7 @@ OBJS += $(TOP)/busybox/util-linux/volume_id/ext.o
 OBJS += $(TOP)/busybox/util-linux/volume_id/util2.o
 OBJS += $(TOP)/busybox/util-linux/volume_id/fat.o
 OBJS += $(TOP)/busybox/util-linux/volume_id/ntfs.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/exfat.o
 OBJS += $(TOP)/busybox/util-linux/volume_id/linux_swap.o
 endif
 
