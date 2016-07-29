@@ -423,6 +423,7 @@ extern void volume_id_free_buffer();
 extern int volume_id_probe_ext();
 extern int volume_id_probe_vfat();
 extern int volume_id_probe_ntfs();
+extern int volume_id_probe_exfat();
 extern int volume_id_probe_linux_swap();
 
 /* magic for ext2/3/4 detection */
@@ -488,6 +489,9 @@ char *find_label_or_uuid(char *dev_name, char *label, char *uuid)
 	/* detect ntfs */
 	} else if (!id.error && volume_id_probe_ntfs(&id) == 0)
 		fstype = "ntfs";
+	//!oneleft
+	else if (!id.error && volume_id_probe_exfat(&id) == 0)
+		fstype = "exfat";
 	else if (!id.error)
 		fstype = "unknown";
 
