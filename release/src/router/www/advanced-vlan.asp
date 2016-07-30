@@ -20,7 +20,7 @@
 	June 2014 Tvlz
 	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
 
-	** Last Updated - JUN 18 2016 - Tvlz **
+	** Last Updated - JULY 22 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -60,7 +60,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,manual_boot_nv,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
+<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
 
 var port_vlan_supported = 0;
 var trunk_vlan_supported = 1; //Enable on all routers
@@ -343,16 +343,6 @@ REMOVE-END */
 //        'lan2_ifnames=' + fom['lan2_ifnames'].value + '\n' +
 //        'lan3_ifnames=' + fom['lan3_ifnames'].value);
 REMOVE-END */
-
-// for some models, Tomato checks for a few vital/crucial nvram settings at init time
-// in some cases, if some/any of them are not found, a full nvram reset/clean could be triggered
-// so, to (try to) play it safe, we check for the 1st needed/available/required
-// VLAN for FastE (vlan0 is usually LAN) and GigE routers (vlan1 is usually LAN)
-  if((fom['vlan0ports'].value.length < 1) || (fom['vlan0hwname'].value.length < 1) || 
-     (fom['vlan1ports'].value.length < 1) || (fom['vlan1hwname'].value.length < 1))
-    fom['manual_boot_nv'].value = '1';
-  else
-    fom['manual_boot_nv'].value = nvram['manual_boot_nv'];
 
   var e = E('footer-msg');
 
@@ -961,7 +951,6 @@ function earlyInit() {
 <input type='hidden' name='wan3_ifnameX'>
 <input type='hidden' name='wan4_ifnameX'>
 /* MULTIWAN-END
-<input type='hidden' name='manual_boot_nv'>
 <input type='hidden' name='lan_ifnames'>
 <input type='hidden' name='lan1_ifnames'>
 <input type='hidden' name='lan2_ifnames'>
