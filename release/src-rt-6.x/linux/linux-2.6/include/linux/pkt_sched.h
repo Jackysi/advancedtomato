@@ -256,7 +256,7 @@ struct tc_gred_sopt
 };
 
 /* HTB section */
-#define TC_HTB_NUMPRIO		8
+#define TC_HTB_NUMPRIO		11	/* Toastman */
 #define TC_HTB_MAXDEPTH		8
 #define TC_HTB_PROTOVER		3 /* the same as HTB and TC's major */
 
