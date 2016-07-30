@@ -44,6 +44,7 @@
 #include <linux/version.h>
 #include <linux/param.h>
 #include <linux/log2.h>
+#include <linux/slab.h>
 
 #include "exfat_bitmap.h"
 #include "exfat_config.h"
