@@ -579,7 +579,7 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 	      {
 		context->saved_valid = valid;
 
-		if (context->flags & CONTEXT_RA) 
+		if (context->flags & CONTEXT_RA)
 		  {
 		    do_slaac = 1;
 		    if (context->flags & CONTEXT_DHCP)
@@ -598,8 +598,8 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 		    param->other = 1;
 		  }
 
-		/* Configured to advertise router address, not prefix. See RFC 3775 7.2 
-		 In this case we do all addresses associated with a context, 
+		/* Configured to advertise router address, not prefix. See RFC 3775 7.2
+		 In this case we do all addresses associated with a context,
 		 hence the real_prefix setting here. */
 		if (context->flags & CONTEXT_RA_ROUTER)
 		  {
