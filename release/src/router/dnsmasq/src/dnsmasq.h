@@ -995,6 +995,7 @@ extern struct daemon {
   int back_to_the_future;
   char *timestamp_file;
 #endif
+  char *hosts_cache;
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */
@@ -1333,6 +1334,12 @@ unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr,
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
 #endif
+#ifdef HAVE_TOMATO
+void tomato_helper(time_t now);
+#endif
+#ifdef HAVE_LEASEFILE_EXPIRE //originally TOMATO option
+void flush_lease_file(time_t now);
+#endif
 void queue_event(int event);
 void send_alarm(time_t event, time_t now);
 void send_event(int fd, int event, int data, char *msg);
@@ -1350,6 +1357,7 @@ void init_bpf(void);
 void send_via_bpf(struct dhcp_packet *mess, size_t len,
 		  struct in_addr iface_addr, struct ifreq *ifr);
 void route_init(void);
+void route_sock(time_t now);
 void route_sock(void);
 #endif
 

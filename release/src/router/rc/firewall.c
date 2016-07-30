@@ -1116,7 +1116,7 @@ static void nat_table(void)
 		switch (get_ipv6_service()) {
 		case IPV6_6IN4:
 			// avoid NATing proto-41 packets when using 6in4 tunnel
-			p = "-p ! 41";
+			p = "! -p 41";
 			break;
 		}
 #endif
@@ -1666,6 +1666,16 @@ static void filter_forward(void)
 	// ICMPv6 rules
 	for (i = 0; i < sizeof(allowed_icmpv6)/sizeof(int); ++i) {
 		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
+	}
+
+	//IPv6 IPSec - RFC 6092
+	if (nvram_match("ipv6_ipsec", "1")) {
+		if (*wan6face) {
+			ip6t_write(
+				"-A FORWARD -i %s -p esp -j ACCEPT\n"				//ESP
+				"-A FORWARD -i %s -p udp --dport 500 -j ACCEPT\n",	//IKE
+				wan6face, wan6face);
+		}
 	}
 
 	//IPv6
