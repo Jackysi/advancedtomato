@@ -143,8 +143,8 @@ void lease_init(time_t now)
 	lease->length = ei;
 #endif
 #else
-	/* strictly time_t is opaque, but this hack should work on all sane
-           systems, even when sizeof(time_t) == 8 */
+	/* strictly time_t is opaque, but this hack should work on all sane systems,
+	   even when sizeof(time_t) == 8 */
 	lease->expires = (time_t)ei;
 #endif
 	

@@ -154,13 +154,12 @@ struct myoption {
 #define LOPT_HOST_INOTIFY  342
 #define LOPT_DNSSEC_STAMP  343
 #define LOPT_TFTP_NO_FAIL  344
-#define LOPT_HOSTCACHE     345
-#define LOPT_MAXPORT       346
-#define LOPT_CPE_ID        347
-#define LOPT_SCRIPT_ARP    348
-#define LOPT_DHCPTTL       349
-#define LOPT_TFTP_MTU      350
-
+#define LOPT_MAXPORT       345
+#define LOPT_CPE_ID        346
+#define LOPT_SCRIPT_ARP    347
+#define LOPT_DHCPTTL       348
+#define LOPT_TFTP_MTU      349
+ 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
 #else
@@ -322,7 +321,6 @@ static const struct myoption opts[] =
     { "quiet-dhcp6", 0, 0, LOPT_QUIET_DHCP6 },
     { "quiet-ra", 0, 0, LOPT_QUIET_RA },
     { "dns-loop-detect", 0, 0, LOPT_LOOP_DETECT },
-    { "hosts-cache", 1, 0, LOPT_HOSTCACHE },
     { "script-arp", 0, 0, LOPT_SCRIPT_ARP },
     { "dhcp-ttl", 1, 0 , LOPT_DHCPTTL },
     { NULL, 0, 0, 0 }
@@ -495,8 +493,7 @@ static struct {
   { LOPT_LOCAL_SERVICE, OPT_LOCAL_SERVICE, NULL, gettext_noop("Accept queries only from directly-connected networks."), NULL },
   { LOPT_LOOP_DETECT, OPT_LOOP_DETECT, NULL, gettext_noop("Detect and remove DNS forwarding loops."), NULL },
   { LOPT_IGNORE_ADDR, ARG_DUP, "<ipaddr>", gettext_noop("Ignore DNS responses containing ipaddr."), NULL }, 
-  { LOPT_HOSTCACHE, ARG_ONE, "<path>", gettext_noop("Dump cached A records to <path> on SIGUSR1"), NULL },
-  { LOPT_DHCPTTL, ARG_ONE, "<ttl>", gettext_noop("Set TTL in DNS responses with DHCP-derived addresses."), NULL },
+  { LOPT_DHCPTTL, ARG_ONE, "<ttl>", gettext_noop("Set TTL in DNS responses with DHCP-derived addresses."), NULL }, 
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -2358,7 +2355,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    newlist = opt_malloc(sizeof(struct server));
 	    memset(newlist, 0, sizeof(struct server));
 #ifdef HAVE_LOOP
-           newlist->uid = rand32();
+	    newlist->uid = rand32();
 #endif
 	  }
 	
@@ -4048,12 +4045,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	break;
       }
 #endif
-    case LOPT_HOSTCACHE: /* --hosts-cache */
-      {
-	if (daemon->hosts_cache == NULL)
-	  daemon->hosts_cache = opt_string_alloc(arg);
-	break;
-      }
+		
     default:
       ret_err(_("unsupported option (check that dnsmasq was compiled with DHCP/TFTP/DNSSEC/DBus support)"));
       
