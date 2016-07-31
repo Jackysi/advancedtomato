@@ -995,7 +995,6 @@ extern struct daemon {
   int back_to_the_future;
   char *timestamp_file;
 #endif
-  char *hosts_cache;
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */
@@ -1357,7 +1356,6 @@ void init_bpf(void);
 void send_via_bpf(struct dhcp_packet *mess, size_t len,
 		  struct in_addr iface_addr, struct ifreq *ifr);
 void route_init(void);
-void route_sock(time_t now);
 void route_sock(void);
 #endif
 
