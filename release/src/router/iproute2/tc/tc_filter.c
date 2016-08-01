@@ -104,7 +104,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 			if (prio)
 				duparg("priority", *argv);
 			if (get_u32(&prio, *argv, 0))
-				invarg(*argv, "invalid prpriority value");
+				invarg(*argv, "invalid priority value");
 		} else if (matches(*argv, "protocol") == 0) {
 			__u16 id;
 			NEXT_ARG();
