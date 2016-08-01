@@ -507,6 +507,11 @@ void start_qos(void)
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
 					x, i + 1, x);
+#ifdef TCONFIG_IPV6
+			fprintf(f,
+				"\t$TFA parent 1: prio %d protocol ipv6 handle %d fw flowid 1:%d\n",
+					x + 100, i + 1, x);
+#endif
 		} else {
 			fprintf(f,
 				"# egress %d: %u-%u%%\n"
@@ -517,6 +522,11 @@ void start_qos(void)
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
 					x, i + 1, x);
+#ifdef TCONFIG_IPV6
+			fprintf(f,
+				"\t$TFA parent 1: prio %d protocol ipv6 handle %d fw flowid 1:%d\n",
+					x + 100, i + 1, x);
+#endif
 		}
 	}
 	free(buf);
@@ -791,6 +801,13 @@ void start_qos(void)
 			f,
 			"\t$TFA_IMQ parent 1: prio %u handle %u fw flowid 1:%u \n",           
 			classid, priority, classid);
+
+#ifdef TCONFIG_IPV6
+		fprintf(
+			f,
+			"\t$TFA_IMQ parent 1: prio %u protocol ipv6 handle %u fw flowid 1:%u \n",
+			classid + 100, priority, classid);
+#endif
 	}
 
 	free(buf);
