@@ -201,6 +201,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length (0-30) checkme
 	{ "ipv6_vlan",			"0"				},	// Enable IPv6 on 1=LAN1 2=LAN2 4=LAN3
 	{ "ipv6_pdonly",		"0"				},	// Request DHCPv6 Prefix Delegation Only
+	{ "ipv6_ipsec",			"1"				},	// Enable Incoming IPv6 IPSec
 #endif
 
 	// Wireless parameters

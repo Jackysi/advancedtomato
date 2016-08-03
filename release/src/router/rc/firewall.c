@@ -1273,6 +1273,16 @@ static void filter_forward(void)
 		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
 	}
 
+	//IPv6 IPSec - RFC 6092
+	if (nvram_match("ipv6_ipsec", "1")) {
+		if (*wan6face) {
+			ip6t_write(
+				"-A FORWARD -i %s -p esp -j ACCEPT\n"				//ESP
+				"-A FORWARD -i %s -p udp --dport 500 -j ACCEPT\n",	//IKE
+				wan6face, wan6face);
+		}
+	}
+
 	//IPv6
 	if (*wan6face) {
 		ip6t_write(
