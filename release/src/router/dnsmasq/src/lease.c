@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2016 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -143,8 +143,8 @@ void lease_init(time_t now)
 	lease->length = ei;
 #endif
 #else
-	/* strictly time_t is opaque, but this hack should work on all sane
-           systems, even when sizeof(time_t) == 8 */
+	/* strictly time_t is opaque, but this hack should work on all sane systems,
+	   even when sizeof(time_t) == 8 */
 	lease->expires = (time_t)ei;
 #endif
 	
@@ -1131,18 +1131,22 @@ int do_script_run(time_t now)
 }
 
 #ifdef HAVE_SCRIPT
+/* delim == -1 -> delim = 0, but embeded 0s, creating extra records, are OK. */
 void lease_add_extradata(struct dhcp_lease *lease, unsigned char *data, unsigned int len, int delim)
 {
   unsigned int i;
   
-  /* check for embeded NULLs */
-  for (i = 0; i < len; i++)
-    if (data[i] == 0)
-      {
-	len = i;
-	break;
-      }
-
+  if (delim == -1)
+    delim = 0;
+  else
+    /* check for embeded NULLs */
+    for (i = 0; i < len; i++)
+      if (data[i] == 0)
+	{
+	  len = i;
+	  break;
+	}
+  
   if ((lease->extradata_size - lease->extradata_len) < (len + 1))
     {
       size_t newsz = lease->extradata_len + len + 100;

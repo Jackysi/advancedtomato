@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2015 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2016 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -28,11 +28,12 @@
 
 struct ra_param {
   time_t now;
-  int ind, managed, other, found_context, first, adv_router;
+  int ind, managed, other, first, adv_router;
   char *if_name;
   struct dhcp_netid *tags;
   struct in6_addr link_local, link_global, ula;
   unsigned int glob_pref_time, link_pref_time, ula_pref_time, adv_interval, prio;
+  struct dhcp_context *found_context;
 };
 
 struct search_param {
@@ -251,7 +252,7 @@ static void send_ra_alias(time_t now, int iface, char *iface_name, struct in6_ad
   parm.ind = iface;
   parm.managed = 0;
   parm.other = 0;
-  parm.found_context = 0;
+  parm.found_context = NULL;
   parm.adv_router = 0;
   parm.if_name = iface_name;
   parm.first = 1;
@@ -308,8 +309,14 @@ static void send_ra_alias(time_t now, int iface, char *iface_name, struct in6_ad
 	  unsigned int old = difftime(now, context->address_lost_time);
 	  
 	  if (old > context->saved_valid)
-	    {
+	    { 
 	      /* We've advertised this enough, time to go */
+	     
+	      /* If this context held the timeout, and there's another context in use
+		 transfer the timeout there. */
+	      if (context->ra_time != 0 && parm.found_context && parm.found_context->ra_time == 0)
+		new_timeout(parm.found_context, iface_name, now);
+	      
 	      *up = context->next;
 	      free(context);
 	    }
@@ -572,7 +579,7 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 	      {
 		context->saved_valid = valid;
 
-		if (context->flags & CONTEXT_RA)
+		if (context->flags & CONTEXT_RA) 
 		  {
 		    do_slaac = 1;
 		    if (context->flags & CONTEXT_DHCP)
@@ -591,8 +598,8 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 		    param->other = 1;
 		  }
 
-		/* Configured to advertise router address, not prefix. See RFC 3775 7.2
-		 In this case we do all addresses associated with a context,
+		/* Configured to advertise router address, not prefix. See RFC 3775 7.2 
+		 In this case we do all addresses associated with a context, 
 		 hence the real_prefix setting here. */
 		if (context->flags & CONTEXT_RA_ROUTER)
 		  {
@@ -636,8 +643,10 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
                     off_link = (context->flags & CONTEXT_RA_OFF_LINK);
 		  }
 
-		param->first = 0;	
-		param->found_context = 1;
+		param->first = 0;
+		/* found_context is the _last_ one we found, so if there's 
+		   more than one, it's not the first. */
+		param->found_context = context;
 	      }
 
 	  /* configured time is ceiling */
