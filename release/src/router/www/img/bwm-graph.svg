@@ -17,7 +17,7 @@ No part of this file may be used without permission.
 		}
 		
 		text {
-			font: 12px 'Roboto', Verdana;
+			font: 12px 'Segoe UI', 'Roboto', sans-serif;
 			fill: #696969;
 		}
 		
